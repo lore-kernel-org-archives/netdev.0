@@ -1,7 +1,7 @@
 From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: [PATCH net-next 1/4] qed: Revisit chain implementation
-Date: Fri, 3 Jun 2016 14:35:32 +0300
-Message-ID: <1464953735-2585-2-git-send-email-Yuval.Mintz@qlogic.com>
+Subject: [PATCH net-next 2/4] qed: Add common HSI for new protocols
+Date: Fri, 3 Jun 2016 14:35:33 +0300
+Message-ID: <1464953735-2585-3-git-send-email-Yuval.Mintz@qlogic.com>
 References: <1464953735-2585-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,1355 +9,5165 @@ Cc: <Rajesh.Borundia@qlogic.com>, <shyam.sundar@qlogic.com>,
 	Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:45135 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752648AbcFCLfx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 07:35:53 -0400
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:12406 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932249AbcFCLgB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 07:36:01 -0400
 In-Reply-To: <1464953735-2585-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RoCE driver is going to need a 32-bit chain [current chain implementation
-for qed* currently supports only 16-bit producer/consumer chains].
-
-This patch adds said support, as well as doing other slight tweaks and
-modifications to qed's chain API.
+This adds the qed portion of the RoCE & iSCSI firmware HSI,
+as well as adding several new common HSI files which would be required
+by both qed and qed* protocols.
 
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qed/qed_dev.c         | 314 +++++++++---
- drivers/net/ethernet/qlogic/qed/qed_dev_api.h     |   8 +-
- drivers/net/ethernet/qlogic/qed/qed_sp_commands.c |   5 +-
- drivers/net/ethernet/qlogic/qed/qed_spq.c         |  40 +-
- drivers/net/ethernet/qlogic/qede/qede_main.c      |   6 +-
- include/linux/qed/qed_chain.h                     | 553 +++++++++++++---------
- include/linux/qed/qed_if.h                        |   3 +-
- 7 files changed, 623 insertions(+), 306 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_hsi.h | 3008 +++++++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_sp.h  |   26 +
+ include/linux/qed/common_hsi.h            |  190 +-
+ include/linux/qed/iscsi_common.h          | 1439 ++++++++++++++
+ include/linux/qed/rdma_common.h           |   44 +
+ include/linux/qed/roce_common.h           |   17 +
+ include/linux/qed/storage_common.h        |   91 +
+ include/linux/qed/tcp_common.h            |  226 +++
+ 8 files changed, 5040 insertions(+), 1 deletion(-)
+ create mode 100644 include/linux/qed/iscsi_common.h
+ create mode 100644 include/linux/qed/rdma_common.h
+ create mode 100644 include/linux/qed/roce_common.h
+ create mode 100644 include/linux/qed/storage_common.h
+ create mode 100644 include/linux/qed/tcp_common.h
 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev.c b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-index e9ce6a7..151173d 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev.c
-@@ -17,6 +17,7 @@
- #include <linux/pci.h>
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_hsi.h b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+index d104ca7..4cd70bf 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_hsi.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_hsi.h
+@@ -17,7 +17,12 @@
+ #include <linux/list.h>
  #include <linux/slab.h>
- #include <linux/string.h>
-+#include <linux/vmalloc.h>
- #include <linux/etherdevice.h>
- #include <linux/qed/qed_chain.h>
- #include <linux/qed/qed_if.h>
-@@ -1779,92 +1780,285 @@ void qed_hw_remove(struct qed_dev *cdev)
- 	qed_iov_free_hw_info(cdev);
- }
+ #include <linux/qed/common_hsi.h>
++#include <linux/qed/storage_common.h>
++#include <linux/qed/tcp_common.h>
+ #include <linux/qed/eth_common.h>
++#include <linux/qed/iscsi_common.h>
++#include <linux/qed/rdma_common.h>
++#include <linux/qed/roce_common.h>
  
--int qed_chain_alloc(struct qed_dev *cdev,
--		    enum qed_chain_use_mode intended_use,
--		    enum qed_chain_mode mode,
--		    u16 num_elems,
--		    size_t elem_size,
--		    struct qed_chain *p_chain)
-+static void qed_chain_free_next_ptr(struct qed_dev *cdev,
-+				    struct qed_chain *p_chain)
-+{
-+	void *p_virt = p_chain->p_virt_addr, *p_virt_next = NULL;
-+	dma_addr_t p_phys = p_chain->p_phys_addr, p_phys_next = 0;
-+	struct qed_chain_next *p_next;
-+	u32 size, i;
-+
-+	if (!p_virt)
-+		return;
-+
-+	size = p_chain->elem_size * p_chain->usable_per_page;
-+
-+	for (i = 0; i < p_chain->page_cnt; i++) {
-+		if (!p_virt)
-+			break;
-+
-+		p_next = (struct qed_chain_next *)((u8 *)p_virt + size);
-+		p_virt_next = p_next->next_virt;
-+		p_phys_next = HILO_DMA_REGPAIR(p_next->next_phys);
-+
-+		dma_free_coherent(&cdev->pdev->dev,
-+				  QED_CHAIN_PAGE_SIZE, p_virt, p_phys);
-+
-+		p_virt = p_virt_next;
-+		p_phys = p_phys_next;
-+	}
-+}
-+
-+static void qed_chain_free_single(struct qed_dev *cdev,
-+				  struct qed_chain *p_chain)
-+{
-+	if (!p_chain->p_virt_addr)
-+		return;
-+
-+	dma_free_coherent(&cdev->pdev->dev,
-+			  QED_CHAIN_PAGE_SIZE,
-+			  p_chain->p_virt_addr, p_chain->p_phys_addr);
-+}
-+
-+static void qed_chain_free_pbl(struct qed_dev *cdev, struct qed_chain *p_chain)
-+{
-+	void **pp_virt_addr_tbl = p_chain->pbl.pp_virt_addr_tbl;
-+	u32 page_cnt = p_chain->page_cnt, i, pbl_size;
-+	u8 *p_pbl_virt = p_chain->pbl.p_virt_table;
-+
-+	if (!pp_virt_addr_tbl)
-+		return;
-+
-+	if (!p_chain->pbl.p_virt_table)
-+		goto out;
-+
-+	for (i = 0; i < page_cnt; i++) {
-+		if (!pp_virt_addr_tbl[i])
-+			break;
-+
-+		dma_free_coherent(&cdev->pdev->dev,
-+				  QED_CHAIN_PAGE_SIZE,
-+				  pp_virt_addr_tbl[i],
-+				  *(dma_addr_t *)p_pbl_virt);
-+
-+		p_pbl_virt += QED_CHAIN_PBL_ENTRY_SIZE;
-+	}
-+
-+	pbl_size = page_cnt * QED_CHAIN_PBL_ENTRY_SIZE;
-+	dma_free_coherent(&cdev->pdev->dev,
-+			  pbl_size,
-+			  p_chain->pbl.p_virt_table, p_chain->pbl.p_phys_table);
-+out:
-+	vfree(p_chain->pbl.pp_virt_addr_tbl);
-+}
-+
-+void qed_chain_free(struct qed_dev *cdev, struct qed_chain *p_chain)
-+{
-+	switch (p_chain->mode) {
-+	case QED_CHAIN_MODE_NEXT_PTR:
-+		qed_chain_free_next_ptr(cdev, p_chain);
-+		break;
-+	case QED_CHAIN_MODE_SINGLE:
-+		qed_chain_free_single(cdev, p_chain);
-+		break;
-+	case QED_CHAIN_MODE_PBL:
-+		qed_chain_free_pbl(cdev, p_chain);
-+		break;
-+	}
-+}
-+
-+static int
-+qed_chain_alloc_sanity_check(struct qed_dev *cdev,
-+			     enum qed_chain_cnt_type cnt_type,
-+			     size_t elem_size, u32 page_cnt)
-+{
-+	u64 chain_size = ELEMS_PER_PAGE(elem_size) * page_cnt;
-+
-+	/* The actual chain size can be larger than the maximal possible value
-+	 * after rounding up the requested elements number to pages, and after
-+	 * taking into acount the unusuable elements (next-ptr elements).
-+	 * The size of a "u16" chain can be (U16_MAX + 1) since the chain
-+	 * size/capacity fields are of a u32 type.
-+	 */
-+	if ((cnt_type == QED_CHAIN_CNT_TYPE_U16 &&
-+	     chain_size > 0x10000) ||
-+	    (cnt_type == QED_CHAIN_CNT_TYPE_U32 &&
-+	     chain_size > 0x100000000ULL)) {
-+		DP_NOTICE(cdev,
-+			  "The actual chain size (0x%llx) is larger than the maximal possible value\n",
-+			  chain_size);
-+		return -EINVAL;
-+	}
-+
-+	return 0;
-+}
-+
-+static int
-+qed_chain_alloc_next_ptr(struct qed_dev *cdev, struct qed_chain *p_chain)
- {
--	dma_addr_t p_pbl_phys = 0;
--	void *p_pbl_virt = NULL;
-+	void *p_virt = NULL, *p_virt_prev = NULL;
- 	dma_addr_t p_phys = 0;
--	void *p_virt = NULL;
--	u16 page_cnt = 0;
--	size_t size;
-+	u32 i;
- 
--	if (mode == QED_CHAIN_MODE_SINGLE)
--		page_cnt = 1;
--	else
--		page_cnt = QED_CHAIN_PAGE_CNT(num_elems, elem_size, mode);
-+	for (i = 0; i < p_chain->page_cnt; i++) {
-+		p_virt = dma_alloc_coherent(&cdev->pdev->dev,
-+					    QED_CHAIN_PAGE_SIZE,
-+					    &p_phys, GFP_KERNEL);
-+		if (!p_virt) {
-+			DP_NOTICE(cdev, "Failed to allocate chain memory\n");
-+			return -ENOMEM;
-+		}
-+
-+		if (i == 0) {
-+			qed_chain_init_mem(p_chain, p_virt, p_phys);
-+			qed_chain_reset(p_chain);
-+		} else {
-+			qed_chain_init_next_ptr_elem(p_chain, p_virt_prev,
-+						     p_virt, p_phys);
-+		}
-+
-+		p_virt_prev = p_virt;
-+	}
-+	/* Last page's next element should point to the beginning of the
-+	 * chain.
-+	 */
-+	qed_chain_init_next_ptr_elem(p_chain, p_virt_prev,
-+				     p_chain->p_virt_addr,
-+				     p_chain->p_phys_addr);
-+
-+	return 0;
-+}
-+
-+static int
-+qed_chain_alloc_single(struct qed_dev *cdev, struct qed_chain *p_chain)
-+{
-+	dma_addr_t p_phys = 0;
-+	void *p_virt = NULL;
- 
--	size = page_cnt * QED_CHAIN_PAGE_SIZE;
- 	p_virt = dma_alloc_coherent(&cdev->pdev->dev,
--				    size, &p_phys, GFP_KERNEL);
-+				    QED_CHAIN_PAGE_SIZE, &p_phys, GFP_KERNEL);
- 	if (!p_virt) {
--		DP_NOTICE(cdev, "Failed to allocate chain mem\n");
--		goto nomem;
-+		DP_NOTICE(cdev, "Failed to allocate chain memory\n");
-+		return -ENOMEM;
- 	}
- 
--	if (mode == QED_CHAIN_MODE_PBL) {
--		size = page_cnt * QED_CHAIN_PBL_ENTRY_SIZE;
--		p_pbl_virt = dma_alloc_coherent(&cdev->pdev->dev,
--						size, &p_pbl_phys,
--						GFP_KERNEL);
--		if (!p_pbl_virt) {
--			DP_NOTICE(cdev, "Failed to allocate chain pbl mem\n");
--			goto nomem;
--		}
-+	qed_chain_init_mem(p_chain, p_virt, p_phys);
-+	qed_chain_reset(p_chain);
- 
--		qed_chain_pbl_init(p_chain, p_virt, p_phys, page_cnt,
--				   (u8)elem_size, intended_use,
--				   p_pbl_phys, p_pbl_virt);
--	} else {
--		qed_chain_init(p_chain, p_virt, p_phys, page_cnt,
--			       (u8)elem_size, intended_use, mode);
-+	return 0;
-+}
-+
-+static int qed_chain_alloc_pbl(struct qed_dev *cdev, struct qed_chain *p_chain)
-+{
-+	u32 page_cnt = p_chain->page_cnt, size, i;
-+	dma_addr_t p_phys = 0, p_pbl_phys = 0;
-+	void **pp_virt_addr_tbl = NULL;
-+	u8 *p_pbl_virt = NULL;
-+	void *p_virt = NULL;
-+
-+	size = page_cnt * sizeof(*pp_virt_addr_tbl);
-+	pp_virt_addr_tbl = vmalloc(size);
-+	if (!pp_virt_addr_tbl) {
-+		DP_NOTICE(cdev,
-+			  "Failed to allocate memory for the chain virtual addresses table\n");
-+		return -ENOMEM;
- 	}
-+	memset(pp_virt_addr_tbl, 0, size);
- 
--	return 0;
-+	/* The allocation of the PBL table is done with its full size, since it
-+	 * is expected to be successive.
-+	 * qed_chain_init_pbl_mem() is called even in a case of an allocation
-+	 * failure, since pp_virt_addr_tbl was previously allocated, and it
-+	 * should be saved to allow its freeing during the error flow.
-+	 */
-+	size = page_cnt * QED_CHAIN_PBL_ENTRY_SIZE;
-+	p_pbl_virt = dma_alloc_coherent(&cdev->pdev->dev,
-+					size, &p_pbl_phys, GFP_KERNEL);
-+	qed_chain_init_pbl_mem(p_chain, p_pbl_virt, p_pbl_phys,
-+			       pp_virt_addr_tbl);
-+	if (!p_pbl_virt) {
-+		DP_NOTICE(cdev, "Failed to allocate chain pbl memory\n");
-+		return -ENOMEM;
-+	}
- 
--nomem:
--	dma_free_coherent(&cdev->pdev->dev,
--			  page_cnt * QED_CHAIN_PAGE_SIZE,
--			  p_virt, p_phys);
--	dma_free_coherent(&cdev->pdev->dev,
--			  page_cnt * QED_CHAIN_PBL_ENTRY_SIZE,
--			  p_pbl_virt, p_pbl_phys);
-+	for (i = 0; i < page_cnt; i++) {
-+		p_virt = dma_alloc_coherent(&cdev->pdev->dev,
-+					    QED_CHAIN_PAGE_SIZE,
-+					    &p_phys, GFP_KERNEL);
-+		if (!p_virt) {
-+			DP_NOTICE(cdev, "Failed to allocate chain memory\n");
-+			return -ENOMEM;
-+		}
- 
--	return -ENOMEM;
-+		if (i == 0) {
-+			qed_chain_init_mem(p_chain, p_virt, p_phys);
-+			qed_chain_reset(p_chain);
-+		}
-+
-+		/* Fill the PBL table with the physical address of the page */
-+		*(dma_addr_t *)p_pbl_virt = p_phys;
-+		/* Keep the virtual address of the page */
-+		p_chain->pbl.pp_virt_addr_tbl[i] = p_virt;
-+
-+		p_pbl_virt += QED_CHAIN_PBL_ENTRY_SIZE;
-+	}
-+
-+	return 0;
- }
- 
--void qed_chain_free(struct qed_dev *cdev,
--		    struct qed_chain *p_chain)
-+int qed_chain_alloc(struct qed_dev *cdev,
-+		    enum qed_chain_use_mode intended_use,
-+		    enum qed_chain_mode mode,
-+		    enum qed_chain_cnt_type cnt_type,
-+		    u32 num_elems, size_t elem_size, struct qed_chain *p_chain)
- {
--	size_t size;
-+	u32 page_cnt;
-+	int rc = 0;
- 
--	if (!p_chain->p_virt_addr)
--		return;
-+	if (mode == QED_CHAIN_MODE_SINGLE)
-+		page_cnt = 1;
-+	else
-+		page_cnt = QED_CHAIN_PAGE_CNT(num_elems, elem_size, mode);
- 
--	if (p_chain->mode == QED_CHAIN_MODE_PBL) {
--		size = p_chain->page_cnt * QED_CHAIN_PBL_ENTRY_SIZE;
--		dma_free_coherent(&cdev->pdev->dev, size,
--				  p_chain->pbl.p_virt_table,
--				  p_chain->pbl.p_phys_table);
-+	rc = qed_chain_alloc_sanity_check(cdev, cnt_type, elem_size, page_cnt);
-+	if (rc) {
-+		DP_NOTICE(cdev,
-+			  "Cannot allocate a chain with the given arguments:\n"
-+			  "[use_mode %d, mode %d, cnt_type %d, num_elems %d, elem_size %zu]\n",
-+			  intended_use, mode, cnt_type, num_elems, elem_size);
-+		return rc;
- 	}
- 
--	size = p_chain->page_cnt * QED_CHAIN_PAGE_SIZE;
--	dma_free_coherent(&cdev->pdev->dev, size,
--			  p_chain->p_virt_addr,
--			  p_chain->p_phys_addr);
-+	qed_chain_init_params(p_chain, page_cnt, (u8) elem_size, intended_use,
-+			      mode, cnt_type);
-+
-+	switch (mode) {
-+	case QED_CHAIN_MODE_NEXT_PTR:
-+		rc = qed_chain_alloc_next_ptr(cdev, p_chain);
-+		break;
-+	case QED_CHAIN_MODE_SINGLE:
-+		rc = qed_chain_alloc_single(cdev, p_chain);
-+		break;
-+	case QED_CHAIN_MODE_PBL:
-+		rc = qed_chain_alloc_pbl(cdev, p_chain);
-+		break;
-+	}
-+	if (rc)
-+		goto nomem;
-+
-+	return 0;
-+
-+nomem:
-+	qed_chain_free(cdev, p_chain);
-+	return rc;
- }
- 
--int qed_fw_l2_queue(struct qed_hwfn *p_hwfn,
--		    u16 src_id, u16 *dst_id)
-+int qed_fw_l2_queue(struct qed_hwfn *p_hwfn, u16 src_id, u16 *dst_id)
- {
- 	if (src_id >= RESC_NUM(p_hwfn, QED_L2_QUEUE)) {
- 		u16 min, max;
- 
--		min = (u16)RESC_START(p_hwfn, QED_L2_QUEUE);
-+		min = (u16) RESC_START(p_hwfn, QED_L2_QUEUE);
- 		max = min + RESC_NUM(p_hwfn, QED_L2_QUEUE);
- 		DP_NOTICE(p_hwfn,
- 			  "l2_queue id [%d] is not valid, available indices [%d - %d]\n",
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-index dde364d..f810ce4 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-+++ b/drivers/net/ethernet/qlogic/qed/qed_dev_api.h
-@@ -245,9 +245,8 @@ int
- qed_chain_alloc(struct qed_dev *cdev,
- 		enum qed_chain_use_mode intended_use,
- 		enum qed_chain_mode mode,
--		u16 num_elems,
--		size_t elem_size,
--		struct qed_chain *p_chain);
-+		enum qed_chain_cnt_type cnt_type,
-+		u32 num_elems, size_t elem_size, struct qed_chain *p_chain);
- 
- /**
-  * @brief qed_chain_free - Free chain DMA memory
-@@ -255,8 +254,7 @@ qed_chain_alloc(struct qed_dev *cdev,
-  * @param p_hwfn
-  * @param p_chain
-  */
--void qed_chain_free(struct qed_dev *cdev,
--		    struct qed_chain *p_chain);
-+void qed_chain_free(struct qed_dev *cdev, struct qed_chain *p_chain);
- 
- /**
-  * @@brief qed_fw_l2_queue - Get absolute L2 queue ID
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
-index 1225064..63b93fb 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_sp_commands.c
-@@ -308,6 +308,7 @@ int qed_sp_pf_start(struct qed_hwfn *p_hwfn,
- 	struct qed_spq_entry *p_ent = NULL;
- 	struct qed_sp_init_data init_data;
- 	int rc = -EINVAL;
-+	u8 page_cnt;
- 
- 	/* update initial eq producer */
- 	qed_eq_prod_update(p_hwfn,
-@@ -350,8 +351,8 @@ int qed_sp_pf_start(struct qed_hwfn *p_hwfn,
- 	/* Place EQ address in RAMROD */
- 	DMA_REGPAIR_LE(p_ramrod->event_ring_pbl_addr,
- 		       p_hwfn->p_eq->chain.pbl.p_phys_table);
--	p_ramrod->event_ring_num_pages = (u8)p_hwfn->p_eq->chain.page_cnt;
--
-+	page_cnt = (u8)qed_chain_get_page_cnt(&p_hwfn->p_eq->chain);
-+	p_ramrod->event_ring_num_pages = page_cnt;
- 	DMA_REGPAIR_LE(p_ramrod->consolid_q_pbl_addr,
- 		       p_hwfn->p_consq->chain.pbl.p_phys_table);
- 
-diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-index acac662..ad9bf5c 100644
---- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
-+++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
-@@ -343,6 +343,7 @@ struct qed_eq *qed_eq_alloc(struct qed_hwfn *p_hwfn,
- 	if (qed_chain_alloc(p_hwfn->cdev,
- 			    QED_CHAIN_USE_TO_PRODUCE,
- 			    QED_CHAIN_MODE_PBL,
-+			    QED_CHAIN_CNT_TYPE_U16,
- 			    num_elem,
- 			    sizeof(union event_ring_element),
- 			    &p_eq->chain)) {
-@@ -416,10 +417,10 @@ int qed_eth_cqe_completion(struct qed_hwfn *p_hwfn,
- ***************************************************************************/
- void qed_spq_setup(struct qed_hwfn *p_hwfn)
- {
--	struct qed_spq		*p_spq	= p_hwfn->p_spq;
--	struct qed_spq_entry	*p_virt = NULL;
--	dma_addr_t		p_phys	= 0;
--	unsigned int		i	= 0;
-+	struct qed_spq *p_spq = p_hwfn->p_spq;
-+	struct qed_spq_entry *p_virt = NULL;
-+	dma_addr_t p_phys = 0;
-+	u32 i, capacity;
- 
- 	INIT_LIST_HEAD(&p_spq->pending);
- 	INIT_LIST_HEAD(&p_spq->completion_pending);
-@@ -431,7 +432,8 @@ void qed_spq_setup(struct qed_hwfn *p_hwfn)
- 	p_phys	= p_spq->p_phys + offsetof(struct qed_spq_entry, ramrod);
- 	p_virt	= p_spq->p_virt;
- 
--	for (i = 0; i < p_spq->chain.capacity; i++) {
-+	capacity = qed_chain_get_capacity(&p_spq->chain);
-+	for (i = 0; i < capacity; i++) {
- 		DMA_REGPAIR_LE(p_virt->elem.data_ptr, p_phys);
- 
- 		list_add_tail(&p_virt->list, &p_spq->free_pool);
-@@ -459,9 +461,10 @@ void qed_spq_setup(struct qed_hwfn *p_hwfn)
- 
- int qed_spq_alloc(struct qed_hwfn *p_hwfn)
- {
--	struct qed_spq		*p_spq	= NULL;
--	dma_addr_t		p_phys	= 0;
--	struct qed_spq_entry	*p_virt = NULL;
-+	struct qed_spq_entry *p_virt = NULL;
-+	struct qed_spq *p_spq = NULL;
-+	dma_addr_t p_phys = 0;
-+	u32 capacity;
- 
- 	/* SPQ struct */
- 	p_spq =
-@@ -475,6 +478,7 @@ int qed_spq_alloc(struct qed_hwfn *p_hwfn)
- 	if (qed_chain_alloc(p_hwfn->cdev,
- 			    QED_CHAIN_USE_TO_PRODUCE,
- 			    QED_CHAIN_MODE_SINGLE,
-+			    QED_CHAIN_CNT_TYPE_U16,
- 			    0,   /* N/A when the mode is SINGLE */
- 			    sizeof(struct slow_path_element),
- 			    &p_spq->chain)) {
-@@ -483,11 +487,11 @@ int qed_spq_alloc(struct qed_hwfn *p_hwfn)
- 	}
- 
- 	/* allocate and fill the SPQ elements (incl. ramrod data list) */
-+	capacity = qed_chain_get_capacity(&p_spq->chain);
- 	p_virt = dma_alloc_coherent(&p_hwfn->cdev->pdev->dev,
--				    p_spq->chain.capacity *
-+				    capacity *
- 				    sizeof(struct qed_spq_entry),
--				    &p_phys,
--				    GFP_KERNEL);
-+				    &p_phys, GFP_KERNEL);
- 
- 	if (!p_virt)
- 		goto spq_allocate_fail;
-@@ -507,16 +511,18 @@ spq_allocate_fail:
- void qed_spq_free(struct qed_hwfn *p_hwfn)
- {
- 	struct qed_spq *p_spq = p_hwfn->p_spq;
-+	u32 capacity;
- 
- 	if (!p_spq)
- 		return;
- 
--	if (p_spq->p_virt)
-+	if (p_spq->p_virt) {
-+		capacity = qed_chain_get_capacity(&p_spq->chain);
- 		dma_free_coherent(&p_hwfn->cdev->pdev->dev,
--				  p_spq->chain.capacity *
-+				  capacity *
- 				  sizeof(struct qed_spq_entry),
--				  p_spq->p_virt,
--				  p_spq->p_phys);
-+				  p_spq->p_virt, p_spq->p_phys);
-+	}
- 
- 	qed_chain_free(p_hwfn->cdev, &p_spq->chain);
- 	;
-@@ -871,9 +877,9 @@ struct qed_consq *qed_consq_alloc(struct qed_hwfn *p_hwfn)
- 	if (qed_chain_alloc(p_hwfn->cdev,
- 			    QED_CHAIN_USE_TO_PRODUCE,
- 			    QED_CHAIN_MODE_PBL,
-+			    QED_CHAIN_CNT_TYPE_U16,
- 			    QED_CHAIN_PAGE_SIZE / 0x80,
--			    0x80,
--			    &p_consq->chain)) {
-+			    0x80, &p_consq->chain)) {
- 		DP_NOTICE(p_hwfn, "Failed to allocate consq chain");
- 		goto consq_allocate_fail;
- 	}
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index 4f35247..edd2d90 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -2817,6 +2817,7 @@ static int qede_alloc_mem_rxq(struct qede_dev *edev,
- 	rc = edev->ops->common->chain_alloc(edev->cdev,
- 					    QED_CHAIN_USE_TO_CONSUME_PRODUCE,
- 					    QED_CHAIN_MODE_NEXT_PTR,
-+					    QED_CHAIN_CNT_TYPE_U16,
- 					    RX_RING_SIZE,
- 					    sizeof(struct eth_rx_bd),
- 					    &rxq->rx_bd_ring);
-@@ -2828,6 +2829,7 @@ static int qede_alloc_mem_rxq(struct qede_dev *edev,
- 	rc = edev->ops->common->chain_alloc(edev->cdev,
- 					    QED_CHAIN_USE_TO_CONSUME,
- 					    QED_CHAIN_MODE_PBL,
-+					    QED_CHAIN_CNT_TYPE_U16,
- 					    RX_RING_SIZE,
- 					    sizeof(union eth_rx_cqe),
- 					    &rxq->rx_comp_ring);
-@@ -2879,9 +2881,9 @@ static int qede_alloc_mem_txq(struct qede_dev *edev,
- 	rc = edev->ops->common->chain_alloc(edev->cdev,
- 					    QED_CHAIN_USE_TO_CONSUME_PRODUCE,
- 					    QED_CHAIN_MODE_PBL,
-+					    QED_CHAIN_CNT_TYPE_U16,
- 					    NUM_TX_BDS_MAX,
--					    sizeof(*p_virt),
--					    &txq->tx_pbl);
-+					    sizeof(*p_virt), &txq->tx_pbl);
- 	if (rc)
- 		goto err;
- 
-diff --git a/include/linux/qed/qed_chain.h b/include/linux/qed/qed_chain.h
-index 5f8fcaa..eceaa9e 100644
---- a/include/linux/qed/qed_chain.h
-+++ b/include/linux/qed/qed_chain.h
-@@ -47,16 +47,56 @@ enum qed_chain_use_mode {
- 	QED_CHAIN_USE_TO_CONSUME_PRODUCE,	/* Chain starts empty */
+ struct qed_hwfn;
+ struct qed_ptt;
+@@ -3631,6 +3636,3009 @@ struct vport_update_ramrod_data {
+ 	struct eth_vport_rss_config rss_config;
  };
  
-+enum qed_chain_cnt_type {
-+	/* The chain's size/prod/cons are kept in 16-bit variables */
-+	QED_CHAIN_CNT_TYPE_U16,
-+
-+	/* The chain's size/prod/cons are kept in 32-bit variables  */
-+	QED_CHAIN_CNT_TYPE_U32,
++struct mstorm_rdma_task_st_ctx {
++	struct regpair temp[4];
 +};
 +
- struct qed_chain_next {
- 	struct regpair	next_phys;
- 	void		*next_virt;
++struct rdma_close_func_ramrod_data {
++	u8 cnq_start_offset;
++	u8 num_cnqs;
++	u8 vf_id;
++	u8 vf_valid;
++	u8 reserved[4];
++};
++
++struct rdma_cnq_params {
++	__le16 sb_num;
++	u8 sb_index;
++	u8 num_pbl_pages;
++	__le32 reserved;
++	struct regpair pbl_base_addr;
++	__le16 queue_zone_num;
++	u8 reserved1[6];
++};
++
++struct rdma_create_cq_ramrod_data {
++	struct regpair cq_handle;
++	struct regpair pbl_addr;
++	__le32 max_cqes;
++	__le16 pbl_num_pages;
++	__le16 dpi;
++	u8 is_two_level_pbl;
++	u8 cnq_id;
++	u8 pbl_log_page_size;
++	u8 toggle_bit;
++	__le16 int_timeout;
++	__le16 reserved1;
++};
++
++struct rdma_deregister_tid_ramrod_data {
++	__le32 itid;
++	__le32 reserved;
++};
++
++struct rdma_destroy_cq_output_params {
++	__le16 cnq_num;
++	__le16 reserved0;
++	__le32 reserved1;
++};
++
++struct rdma_destroy_cq_ramrod_data {
++	struct regpair output_params_addr;
++};
++
++enum rdma_event_opcode {
++	RDMA_EVENT_UNUSED,
++	RDMA_EVENT_FUNC_INIT,
++	RDMA_EVENT_FUNC_CLOSE,
++	RDMA_EVENT_REGISTER_MR,
++	RDMA_EVENT_DEREGISTER_MR,
++	RDMA_EVENT_CREATE_CQ,
++	RDMA_EVENT_RESIZE_CQ,
++	RDMA_EVENT_DESTROY_CQ,
++	RDMA_EVENT_CREATE_SRQ,
++	RDMA_EVENT_MODIFY_SRQ,
++	RDMA_EVENT_DESTROY_SRQ,
++	MAX_RDMA_EVENT_OPCODE
++};
++
++enum rdma_fw_return_code {
++	RDMA_RETURN_OK = 0,
++	RDMA_RETURN_REGISTER_MR_BAD_STATE_ERR,
++	RDMA_RETURN_DEREGISTER_MR_BAD_STATE_ERR,
++	RDMA_RETURN_RESIZE_CQ_ERR,
++	RDMA_RETURN_NIG_DRAIN_REQ,
++	MAX_RDMA_FW_RETURN_CODE
++};
++
++struct rdma_init_func_hdr {
++	u8 cnq_start_offset;
++	u8 num_cnqs;
++	u8 cq_ring_mode;
++	u8 cnp_vlan_priority;
++	__le32 cnp_send_timeout;
++	u8 cnp_dscp;
++	u8 vf_id;
++	u8 vf_valid;
++	u8 reserved[5];
++};
++
++struct rdma_init_func_ramrod_data {
++	struct rdma_init_func_hdr params_header;
++	struct rdma_cnq_params cnq_params[NUM_OF_GLOBAL_QUEUES];
++};
++
++enum rdma_ramrod_cmd_id {
++	RDMA_RAMROD_UNUSED,
++	RDMA_RAMROD_FUNC_INIT,
++	RDMA_RAMROD_FUNC_CLOSE,
++	RDMA_RAMROD_REGISTER_MR,
++	RDMA_RAMROD_DEREGISTER_MR,
++	RDMA_RAMROD_CREATE_CQ,
++	RDMA_RAMROD_RESIZE_CQ,
++	RDMA_RAMROD_DESTROY_CQ,
++	RDMA_RAMROD_CREATE_SRQ,
++	RDMA_RAMROD_MODIFY_SRQ,
++	RDMA_RAMROD_DESTROY_SRQ,
++	MAX_RDMA_RAMROD_CMD_ID
++};
++
++struct rdma_register_tid_ramrod_data {
++	__le32 flags;
++#define RDMA_REGISTER_TID_RAMROD_DATA_MAX_ID_MASK             0x3FFFF
++#define RDMA_REGISTER_TID_RAMROD_DATA_MAX_ID_SHIFT            0
++#define RDMA_REGISTER_TID_RAMROD_DATA_PAGE_SIZE_LOG_MASK      0x1F
++#define RDMA_REGISTER_TID_RAMROD_DATA_PAGE_SIZE_LOG_SHIFT     18
++#define RDMA_REGISTER_TID_RAMROD_DATA_TWO_LEVEL_PBL_MASK      0x1
++#define RDMA_REGISTER_TID_RAMROD_DATA_TWO_LEVEL_PBL_SHIFT     23
++#define RDMA_REGISTER_TID_RAMROD_DATA_ZERO_BASED_MASK         0x1
++#define RDMA_REGISTER_TID_RAMROD_DATA_ZERO_BASED_SHIFT        24
++#define RDMA_REGISTER_TID_RAMROD_DATA_PHY_MR_MASK             0x1
++#define RDMA_REGISTER_TID_RAMROD_DATA_PHY_MR_SHIFT            25
++#define RDMA_REGISTER_TID_RAMROD_DATA_REMOTE_READ_MASK        0x1
++#define RDMA_REGISTER_TID_RAMROD_DATA_REMOTE_READ_SHIFT       26
++#define RDMA_REGISTER_TID_RAMROD_DATA_REMOTE_WRITE_MASK       0x1
++#define RDMA_REGISTER_TID_RAMROD_DATA_REMOTE_WRITE_SHIFT      27
++#define RDMA_REGISTER_TID_RAMROD_DATA_REMOTE_ATOMIC_MASK      0x1
++#define RDMA_REGISTER_TID_RAMROD_DATA_REMOTE_ATOMIC_SHIFT     28
++#define RDMA_REGISTER_TID_RAMROD_DATA_LOCAL_WRITE_MASK        0x1
++#define RDMA_REGISTER_TID_RAMROD_DATA_LOCAL_WRITE_SHIFT       29
++#define RDMA_REGISTER_TID_RAMROD_DATA_LOCAL_READ_MASK         0x1
++#define RDMA_REGISTER_TID_RAMROD_DATA_LOCAL_READ_SHIFT        30
++#define RDMA_REGISTER_TID_RAMROD_DATA_ENABLE_MW_BIND_MASK     0x1
++#define RDMA_REGISTER_TID_RAMROD_DATA_ENABLE_MW_BIND_SHIFT    31
++	u8 flags1;
++#define RDMA_REGISTER_TID_RAMROD_DATA_PBL_PAGE_SIZE_LOG_MASK  0x1F
++#define RDMA_REGISTER_TID_RAMROD_DATA_PBL_PAGE_SIZE_LOG_SHIFT 0
++#define RDMA_REGISTER_TID_RAMROD_DATA_TID_TYPE_MASK           0x7
++#define RDMA_REGISTER_TID_RAMROD_DATA_TID_TYPE_SHIFT          5
++	u8 flags2;
++#define RDMA_REGISTER_TID_RAMROD_DATA_DMA_MR_MASK             0x1
++#define RDMA_REGISTER_TID_RAMROD_DATA_DMA_MR_SHIFT            0
++#define RDMA_REGISTER_TID_RAMROD_DATA_DIF_ON_HOST_FLG_MASK    0x1
++#define RDMA_REGISTER_TID_RAMROD_DATA_DIF_ON_HOST_FLG_SHIFT   1
++#define RDMA_REGISTER_TID_RAMROD_DATA_RESERVED1_MASK          0x3F
++#define RDMA_REGISTER_TID_RAMROD_DATA_RESERVED1_SHIFT         2
++	u8 key;
++	u8 length_hi;
++	u8 vf_id;
++	u8 vf_valid;
++	__le16 pd;
++	__le32 length_lo;
++	__le32 itid;
++	__le32 reserved2;
++	struct regpair va;
++	struct regpair pbl_base;
++	struct regpair dif_error_addr;
++	struct regpair dif_runt_addr;
++	__le32 reserved3[2];
++};
++
++struct rdma_resize_cq_output_params {
++	__le32 old_cq_cons;
++	__le32 old_cq_prod;
++};
++
++struct rdma_resize_cq_ramrod_data {
++	u8 flags;
++#define RDMA_RESIZE_CQ_RAMROD_DATA_TOGGLE_BIT_MASK        0x1
++#define RDMA_RESIZE_CQ_RAMROD_DATA_TOGGLE_BIT_SHIFT       0
++#define RDMA_RESIZE_CQ_RAMROD_DATA_IS_TWO_LEVEL_PBL_MASK  0x1
++#define RDMA_RESIZE_CQ_RAMROD_DATA_IS_TWO_LEVEL_PBL_SHIFT 1
++#define RDMA_RESIZE_CQ_RAMROD_DATA_RESERVED_MASK          0x3F
++#define RDMA_RESIZE_CQ_RAMROD_DATA_RESERVED_SHIFT         2
++	u8 pbl_log_page_size;
++	__le16 pbl_num_pages;
++	__le32 max_cqes;
++	struct regpair pbl_addr;
++	struct regpair output_params_addr;
++};
++
++struct rdma_srq_context {
++	struct regpair temp[8];
++};
++
++struct rdma_srq_create_ramrod_data {
++	struct regpair pbl_base_addr;
++	__le16 pages_in_srq_pbl;
++	__le16 pd_id;
++	struct rdma_srq_id srq_id;
++	__le16 page_size;
++	__le16 reserved1;
++	__le32 reserved2;
++	struct regpair producers_addr;
++};
++
++struct rdma_srq_destroy_ramrod_data {
++	struct rdma_srq_id srq_id;
++	__le32 reserved;
++};
++
++struct rdma_srq_modify_ramrod_data {
++	struct rdma_srq_id srq_id;
++	__le32 wqe_limit;
++};
++
++struct ystorm_rdma_task_st_ctx {
++	struct regpair temp[4];
++};
++
++struct ystorm_rdma_task_ag_ctx {
++	u8 reserved;
++	u8 byte1;
++	__le16 msem_ctx_upd_seq;
++	u8 flags0;
++#define YSTORM_RDMA_TASK_AG_CTX_CONNECTION_TYPE_MASK  0xF
++#define YSTORM_RDMA_TASK_AG_CTX_CONNECTION_TYPE_SHIFT 0
++#define YSTORM_RDMA_TASK_AG_CTX_EXIST_IN_QM0_MASK     0x1
++#define YSTORM_RDMA_TASK_AG_CTX_EXIST_IN_QM0_SHIFT    4
++#define YSTORM_RDMA_TASK_AG_CTX_BIT1_MASK             0x1
++#define YSTORM_RDMA_TASK_AG_CTX_BIT1_SHIFT            5
++#define YSTORM_RDMA_TASK_AG_CTX_VALID_MASK            0x1
++#define YSTORM_RDMA_TASK_AG_CTX_VALID_SHIFT           6
++#define YSTORM_RDMA_TASK_AG_CTX_BIT3_MASK             0x1
++#define YSTORM_RDMA_TASK_AG_CTX_BIT3_SHIFT            7
++	u8 flags1;
++#define YSTORM_RDMA_TASK_AG_CTX_CF0_MASK              0x3
++#define YSTORM_RDMA_TASK_AG_CTX_CF0_SHIFT             0
++#define YSTORM_RDMA_TASK_AG_CTX_CF1_MASK              0x3
++#define YSTORM_RDMA_TASK_AG_CTX_CF1_SHIFT             2
++#define YSTORM_RDMA_TASK_AG_CTX_CF2SPECIAL_MASK       0x3
++#define YSTORM_RDMA_TASK_AG_CTX_CF2SPECIAL_SHIFT      4
++#define YSTORM_RDMA_TASK_AG_CTX_CF0EN_MASK            0x1
++#define YSTORM_RDMA_TASK_AG_CTX_CF0EN_SHIFT           6
++#define YSTORM_RDMA_TASK_AG_CTX_CF1EN_MASK            0x1
++#define YSTORM_RDMA_TASK_AG_CTX_CF1EN_SHIFT           7
++	u8 flags2;
++#define YSTORM_RDMA_TASK_AG_CTX_BIT4_MASK             0x1
++#define YSTORM_RDMA_TASK_AG_CTX_BIT4_SHIFT            0
++#define YSTORM_RDMA_TASK_AG_CTX_RULE0EN_MASK          0x1
++#define YSTORM_RDMA_TASK_AG_CTX_RULE0EN_SHIFT         1
++#define YSTORM_RDMA_TASK_AG_CTX_RULE1EN_MASK          0x1
++#define YSTORM_RDMA_TASK_AG_CTX_RULE1EN_SHIFT         2
++#define YSTORM_RDMA_TASK_AG_CTX_RULE2EN_MASK          0x1
++#define YSTORM_RDMA_TASK_AG_CTX_RULE2EN_SHIFT         3
++#define YSTORM_RDMA_TASK_AG_CTX_RULE3EN_MASK          0x1
++#define YSTORM_RDMA_TASK_AG_CTX_RULE3EN_SHIFT         4
++#define YSTORM_RDMA_TASK_AG_CTX_RULE4EN_MASK          0x1
++#define YSTORM_RDMA_TASK_AG_CTX_RULE4EN_SHIFT         5
++#define YSTORM_RDMA_TASK_AG_CTX_RULE5EN_MASK          0x1
++#define YSTORM_RDMA_TASK_AG_CTX_RULE5EN_SHIFT         6
++#define YSTORM_RDMA_TASK_AG_CTX_RULE6EN_MASK          0x1
++#define YSTORM_RDMA_TASK_AG_CTX_RULE6EN_SHIFT         7
++	u8 key;
++	__le32 mw_cnt;
++	u8 ref_cnt_seq;
++	u8 ctx_upd_seq;
++	__le16 dif_flags;
++	__le16 tx_ref_count;
++	__le16 last_used_ltid;
++	__le16 parent_mr_lo;
++	__le16 parent_mr_hi;
++	__le32 fbo_lo;
++	__le32 fbo_hi;
++};
++
++struct mstorm_rdma_task_ag_ctx {
++	u8 reserved;
++	u8 byte1;
++	__le16 icid;
++	u8 flags0;
++#define MSTORM_RDMA_TASK_AG_CTX_CONNECTION_TYPE_MASK  0xF
++#define MSTORM_RDMA_TASK_AG_CTX_CONNECTION_TYPE_SHIFT 0
++#define MSTORM_RDMA_TASK_AG_CTX_EXIST_IN_QM0_MASK     0x1
++#define MSTORM_RDMA_TASK_AG_CTX_EXIST_IN_QM0_SHIFT    4
++#define MSTORM_RDMA_TASK_AG_CTX_BIT1_MASK             0x1
++#define MSTORM_RDMA_TASK_AG_CTX_BIT1_SHIFT            5
++#define MSTORM_RDMA_TASK_AG_CTX_BIT2_MASK             0x1
++#define MSTORM_RDMA_TASK_AG_CTX_BIT2_SHIFT            6
++#define MSTORM_RDMA_TASK_AG_CTX_BIT3_MASK             0x1
++#define MSTORM_RDMA_TASK_AG_CTX_BIT3_SHIFT            7
++	u8 flags1;
++#define MSTORM_RDMA_TASK_AG_CTX_CF0_MASK              0x3
++#define MSTORM_RDMA_TASK_AG_CTX_CF0_SHIFT             0
++#define MSTORM_RDMA_TASK_AG_CTX_CF1_MASK              0x3
++#define MSTORM_RDMA_TASK_AG_CTX_CF1_SHIFT             2
++#define MSTORM_RDMA_TASK_AG_CTX_CF2_MASK              0x3
++#define MSTORM_RDMA_TASK_AG_CTX_CF2_SHIFT             4
++#define MSTORM_RDMA_TASK_AG_CTX_CF0EN_MASK            0x1
++#define MSTORM_RDMA_TASK_AG_CTX_CF0EN_SHIFT           6
++#define MSTORM_RDMA_TASK_AG_CTX_CF1EN_MASK            0x1
++#define MSTORM_RDMA_TASK_AG_CTX_CF1EN_SHIFT           7
++	u8 flags2;
++#define MSTORM_RDMA_TASK_AG_CTX_CF2EN_MASK            0x1
++#define MSTORM_RDMA_TASK_AG_CTX_CF2EN_SHIFT           0
++#define MSTORM_RDMA_TASK_AG_CTX_RULE0EN_MASK          0x1
++#define MSTORM_RDMA_TASK_AG_CTX_RULE0EN_SHIFT         1
++#define MSTORM_RDMA_TASK_AG_CTX_RULE1EN_MASK          0x1
++#define MSTORM_RDMA_TASK_AG_CTX_RULE1EN_SHIFT         2
++#define MSTORM_RDMA_TASK_AG_CTX_RULE2EN_MASK          0x1
++#define MSTORM_RDMA_TASK_AG_CTX_RULE2EN_SHIFT         3
++#define MSTORM_RDMA_TASK_AG_CTX_RULE3EN_MASK          0x1
++#define MSTORM_RDMA_TASK_AG_CTX_RULE3EN_SHIFT         4
++#define MSTORM_RDMA_TASK_AG_CTX_RULE4EN_MASK          0x1
++#define MSTORM_RDMA_TASK_AG_CTX_RULE4EN_SHIFT         5
++#define MSTORM_RDMA_TASK_AG_CTX_RULE5EN_MASK          0x1
++#define MSTORM_RDMA_TASK_AG_CTX_RULE5EN_SHIFT         6
++#define MSTORM_RDMA_TASK_AG_CTX_RULE6EN_MASK          0x1
++#define MSTORM_RDMA_TASK_AG_CTX_RULE6EN_SHIFT         7
++	u8 key;
++	__le32 mw_cnt;
++	u8 ref_cnt_seq;
++	u8 ctx_upd_seq;
++	__le16 dif_flags;
++	__le16 tx_ref_count;
++	__le16 last_used_ltid;
++	__le16 parent_mr_lo;
++	__le16 parent_mr_hi;
++	__le32 fbo_lo;
++	__le32 fbo_hi;
++};
++
++struct ustorm_rdma_task_st_ctx {
++	struct regpair temp[2];
++};
++
++struct ustorm_rdma_task_ag_ctx {
++	u8 reserved;
++	u8 byte1;
++	__le16 icid;
++	u8 flags0;
++#define USTORM_RDMA_TASK_AG_CTX_CONNECTION_TYPE_MASK         0xF
++#define USTORM_RDMA_TASK_AG_CTX_CONNECTION_TYPE_SHIFT        0
++#define USTORM_RDMA_TASK_AG_CTX_EXIST_IN_QM0_MASK            0x1
++#define USTORM_RDMA_TASK_AG_CTX_EXIST_IN_QM0_SHIFT           4
++#define USTORM_RDMA_TASK_AG_CTX_DIF_RUNT_VALID_MASK          0x1
++#define USTORM_RDMA_TASK_AG_CTX_DIF_RUNT_VALID_SHIFT         5
++#define USTORM_RDMA_TASK_AG_CTX_DIF_WRITE_RESULT_CF_MASK     0x3
++#define USTORM_RDMA_TASK_AG_CTX_DIF_WRITE_RESULT_CF_SHIFT    6
++	u8 flags1;
++#define USTORM_RDMA_TASK_AG_CTX_DIF_RESULT_TOGGLE_BIT_MASK   0x3
++#define USTORM_RDMA_TASK_AG_CTX_DIF_RESULT_TOGGLE_BIT_SHIFT  0
++#define USTORM_RDMA_TASK_AG_CTX_DIF_TX_IO_FLG_MASK           0x3
++#define USTORM_RDMA_TASK_AG_CTX_DIF_TX_IO_FLG_SHIFT          2
++#define USTORM_RDMA_TASK_AG_CTX_CF3_MASK                     0x3
++#define USTORM_RDMA_TASK_AG_CTX_CF3_SHIFT                    4
++#define USTORM_RDMA_TASK_AG_CTX_DIF_ERROR_CF_MASK            0x3
++#define USTORM_RDMA_TASK_AG_CTX_DIF_ERROR_CF_SHIFT           6
++	u8 flags2;
++#define USTORM_RDMA_TASK_AG_CTX_DIF_WRITE_RESULT_CF_EN_MASK  0x1
++#define USTORM_RDMA_TASK_AG_CTX_DIF_WRITE_RESULT_CF_EN_SHIFT 0
++#define USTORM_RDMA_TASK_AG_CTX_RESERVED2_MASK               0x1
++#define USTORM_RDMA_TASK_AG_CTX_RESERVED2_SHIFT              1
++#define USTORM_RDMA_TASK_AG_CTX_RESERVED3_MASK               0x1
++#define USTORM_RDMA_TASK_AG_CTX_RESERVED3_SHIFT              2
++#define USTORM_RDMA_TASK_AG_CTX_CF3EN_MASK                   0x1
++#define USTORM_RDMA_TASK_AG_CTX_CF3EN_SHIFT                  3
++#define USTORM_RDMA_TASK_AG_CTX_DIF_ERROR_CF_EN_MASK         0x1
++#define USTORM_RDMA_TASK_AG_CTX_DIF_ERROR_CF_EN_SHIFT        4
++#define USTORM_RDMA_TASK_AG_CTX_RULE0EN_MASK                 0x1
++#define USTORM_RDMA_TASK_AG_CTX_RULE0EN_SHIFT                5
++#define USTORM_RDMA_TASK_AG_CTX_RULE1EN_MASK                 0x1
++#define USTORM_RDMA_TASK_AG_CTX_RULE1EN_SHIFT                6
++#define USTORM_RDMA_TASK_AG_CTX_RULE2EN_MASK                 0x1
++#define USTORM_RDMA_TASK_AG_CTX_RULE2EN_SHIFT                7
++	u8 flags3;
++#define USTORM_RDMA_TASK_AG_CTX_RULE3EN_MASK                 0x1
++#define USTORM_RDMA_TASK_AG_CTX_RULE3EN_SHIFT                0
++#define USTORM_RDMA_TASK_AG_CTX_RULE4EN_MASK                 0x1
++#define USTORM_RDMA_TASK_AG_CTX_RULE4EN_SHIFT                1
++#define USTORM_RDMA_TASK_AG_CTX_RULE5EN_MASK                 0x1
++#define USTORM_RDMA_TASK_AG_CTX_RULE5EN_SHIFT                2
++#define USTORM_RDMA_TASK_AG_CTX_RULE6EN_MASK                 0x1
++#define USTORM_RDMA_TASK_AG_CTX_RULE6EN_SHIFT                3
++#define USTORM_RDMA_TASK_AG_CTX_DIF_ERROR_TYPE_MASK          0xF
++#define USTORM_RDMA_TASK_AG_CTX_DIF_ERROR_TYPE_SHIFT         4
++	__le32 dif_err_intervals;
++	__le32 dif_error_1st_interval;
++	__le32 reg2;
++	__le32 dif_runt_value;
++	__le32 reg4;
++	__le32 reg5;
++};
++
++struct rdma_task_context {
++	struct ystorm_rdma_task_st_ctx ystorm_st_context;
++	struct ystorm_rdma_task_ag_ctx ystorm_ag_context;
++	struct tdif_task_context tdif_context;
++	struct mstorm_rdma_task_ag_ctx mstorm_ag_context;
++	struct mstorm_rdma_task_st_ctx mstorm_st_context;
++	struct rdif_task_context rdif_context;
++	struct ustorm_rdma_task_st_ctx ustorm_st_context;
++	struct regpair ustorm_st_padding[2];
++	struct ustorm_rdma_task_ag_ctx ustorm_ag_context;
++};
++
++enum rdma_tid_type {
++	RDMA_TID_REGISTERED_MR,
++	RDMA_TID_FMR,
++	RDMA_TID_MW_TYPE1,
++	RDMA_TID_MW_TYPE2A,
++	MAX_RDMA_TID_TYPE
++};
++
++struct mstorm_rdma_conn_ag_ctx {
++	u8 byte0;
++	u8 byte1;
++	u8 flags0;
++#define MSTORM_RDMA_CONN_AG_CTX_BIT0_MASK     0x1
++#define MSTORM_RDMA_CONN_AG_CTX_BIT0_SHIFT    0
++#define MSTORM_RDMA_CONN_AG_CTX_BIT1_MASK     0x1
++#define MSTORM_RDMA_CONN_AG_CTX_BIT1_SHIFT    1
++#define MSTORM_RDMA_CONN_AG_CTX_CF0_MASK      0x3
++#define MSTORM_RDMA_CONN_AG_CTX_CF0_SHIFT     2
++#define MSTORM_RDMA_CONN_AG_CTX_CF1_MASK      0x3
++#define MSTORM_RDMA_CONN_AG_CTX_CF1_SHIFT     4
++#define MSTORM_RDMA_CONN_AG_CTX_CF2_MASK      0x3
++#define MSTORM_RDMA_CONN_AG_CTX_CF2_SHIFT     6
++	u8 flags1;
++#define MSTORM_RDMA_CONN_AG_CTX_CF0EN_MASK    0x1
++#define MSTORM_RDMA_CONN_AG_CTX_CF0EN_SHIFT   0
++#define MSTORM_RDMA_CONN_AG_CTX_CF1EN_MASK    0x1
++#define MSTORM_RDMA_CONN_AG_CTX_CF1EN_SHIFT   1
++#define MSTORM_RDMA_CONN_AG_CTX_CF2EN_MASK    0x1
++#define MSTORM_RDMA_CONN_AG_CTX_CF2EN_SHIFT   2
++#define MSTORM_RDMA_CONN_AG_CTX_RULE0EN_MASK  0x1
++#define MSTORM_RDMA_CONN_AG_CTX_RULE0EN_SHIFT 3
++#define MSTORM_RDMA_CONN_AG_CTX_RULE1EN_MASK  0x1
++#define MSTORM_RDMA_CONN_AG_CTX_RULE1EN_SHIFT 4
++#define MSTORM_RDMA_CONN_AG_CTX_RULE2EN_MASK  0x1
++#define MSTORM_RDMA_CONN_AG_CTX_RULE2EN_SHIFT 5
++#define MSTORM_RDMA_CONN_AG_CTX_RULE3EN_MASK  0x1
++#define MSTORM_RDMA_CONN_AG_CTX_RULE3EN_SHIFT 6
++#define MSTORM_RDMA_CONN_AG_CTX_RULE4EN_MASK  0x1
++#define MSTORM_RDMA_CONN_AG_CTX_RULE4EN_SHIFT 7
++	__le16 word0;
++	__le16 word1;
++	__le32 reg0;
++	__le32 reg1;
++};
++
++struct tstorm_rdma_conn_ag_ctx {
++	u8 reserved0;
++	u8 byte1;
++	u8 flags0;
++#define TSTORM_RDMA_CONN_AG_CTX_EXIST_IN_QM0_MASK          0x1
++#define TSTORM_RDMA_CONN_AG_CTX_EXIST_IN_QM0_SHIFT         0
++#define TSTORM_RDMA_CONN_AG_CTX_BIT1_MASK                  0x1
++#define TSTORM_RDMA_CONN_AG_CTX_BIT1_SHIFT                 1
++#define TSTORM_RDMA_CONN_AG_CTX_BIT2_MASK                  0x1
++#define TSTORM_RDMA_CONN_AG_CTX_BIT2_SHIFT                 2
++#define TSTORM_RDMA_CONN_AG_CTX_BIT3_MASK                  0x1
++#define TSTORM_RDMA_CONN_AG_CTX_BIT3_SHIFT                 3
++#define TSTORM_RDMA_CONN_AG_CTX_BIT4_MASK                  0x1
++#define TSTORM_RDMA_CONN_AG_CTX_BIT4_SHIFT                 4
++#define TSTORM_RDMA_CONN_AG_CTX_BIT5_MASK                  0x1
++#define TSTORM_RDMA_CONN_AG_CTX_BIT5_SHIFT                 5
++#define TSTORM_RDMA_CONN_AG_CTX_CF0_MASK                   0x3
++#define TSTORM_RDMA_CONN_AG_CTX_CF0_SHIFT                  6
++	u8 flags1;
++#define TSTORM_RDMA_CONN_AG_CTX_CF1_MASK                   0x3
++#define TSTORM_RDMA_CONN_AG_CTX_CF1_SHIFT                  0
++#define TSTORM_RDMA_CONN_AG_CTX_CF2_MASK                   0x3
++#define TSTORM_RDMA_CONN_AG_CTX_CF2_SHIFT                  2
++#define TSTORM_RDMA_CONN_AG_CTX_TIMER_STOP_ALL_CF_MASK     0x3
++#define TSTORM_RDMA_CONN_AG_CTX_TIMER_STOP_ALL_CF_SHIFT    4
++#define TSTORM_RDMA_CONN_AG_CTX_FLUSH_Q0_CF_MASK           0x3
++#define TSTORM_RDMA_CONN_AG_CTX_FLUSH_Q0_CF_SHIFT          6
++	u8 flags2;
++#define TSTORM_RDMA_CONN_AG_CTX_MSTORM_FLUSH_CF_MASK       0x3
++#define TSTORM_RDMA_CONN_AG_CTX_MSTORM_FLUSH_CF_SHIFT      0
++#define TSTORM_RDMA_CONN_AG_CTX_CF6_MASK                   0x3
++#define TSTORM_RDMA_CONN_AG_CTX_CF6_SHIFT                  2
++#define TSTORM_RDMA_CONN_AG_CTX_CF7_MASK                   0x3
++#define TSTORM_RDMA_CONN_AG_CTX_CF7_SHIFT                  4
++#define TSTORM_RDMA_CONN_AG_CTX_CF8_MASK                   0x3
++#define TSTORM_RDMA_CONN_AG_CTX_CF8_SHIFT                  6
++	u8 flags3;
++#define TSTORM_RDMA_CONN_AG_CTX_CF9_MASK                   0x3
++#define TSTORM_RDMA_CONN_AG_CTX_CF9_SHIFT                  0
++#define TSTORM_RDMA_CONN_AG_CTX_CF10_MASK                  0x3
++#define TSTORM_RDMA_CONN_AG_CTX_CF10_SHIFT                 2
++#define TSTORM_RDMA_CONN_AG_CTX_CF0EN_MASK                 0x1
++#define TSTORM_RDMA_CONN_AG_CTX_CF0EN_SHIFT                4
++#define TSTORM_RDMA_CONN_AG_CTX_CF1EN_MASK                 0x1
++#define TSTORM_RDMA_CONN_AG_CTX_CF1EN_SHIFT                5
++#define TSTORM_RDMA_CONN_AG_CTX_CF2EN_MASK                 0x1
++#define TSTORM_RDMA_CONN_AG_CTX_CF2EN_SHIFT                6
++#define TSTORM_RDMA_CONN_AG_CTX_TIMER_STOP_ALL_CF_EN_MASK  0x1
++#define TSTORM_RDMA_CONN_AG_CTX_TIMER_STOP_ALL_CF_EN_SHIFT 7
++	u8 flags4;
++#define TSTORM_RDMA_CONN_AG_CTX_FLUSH_Q0_CF_EN_MASK        0x1
++#define TSTORM_RDMA_CONN_AG_CTX_FLUSH_Q0_CF_EN_SHIFT       0
++#define TSTORM_RDMA_CONN_AG_CTX_MSTORM_FLUSH_CF_EN_MASK    0x1
++#define TSTORM_RDMA_CONN_AG_CTX_MSTORM_FLUSH_CF_EN_SHIFT   1
++#define TSTORM_RDMA_CONN_AG_CTX_CF6EN_MASK                 0x1
++#define TSTORM_RDMA_CONN_AG_CTX_CF6EN_SHIFT                2
++#define TSTORM_RDMA_CONN_AG_CTX_CF7EN_MASK                 0x1
++#define TSTORM_RDMA_CONN_AG_CTX_CF7EN_SHIFT                3
++#define TSTORM_RDMA_CONN_AG_CTX_CF8EN_MASK                 0x1
++#define TSTORM_RDMA_CONN_AG_CTX_CF8EN_SHIFT                4
++#define TSTORM_RDMA_CONN_AG_CTX_CF9EN_MASK                 0x1
++#define TSTORM_RDMA_CONN_AG_CTX_CF9EN_SHIFT                5
++#define TSTORM_RDMA_CONN_AG_CTX_CF10EN_MASK                0x1
++#define TSTORM_RDMA_CONN_AG_CTX_CF10EN_SHIFT               6
++#define TSTORM_RDMA_CONN_AG_CTX_RULE0EN_MASK               0x1
++#define TSTORM_RDMA_CONN_AG_CTX_RULE0EN_SHIFT              7
++	u8 flags5;
++#define TSTORM_RDMA_CONN_AG_CTX_RULE1EN_MASK               0x1
++#define TSTORM_RDMA_CONN_AG_CTX_RULE1EN_SHIFT              0
++#define TSTORM_RDMA_CONN_AG_CTX_RULE2EN_MASK               0x1
++#define TSTORM_RDMA_CONN_AG_CTX_RULE2EN_SHIFT              1
++#define TSTORM_RDMA_CONN_AG_CTX_RULE3EN_MASK               0x1
++#define TSTORM_RDMA_CONN_AG_CTX_RULE3EN_SHIFT              2
++#define TSTORM_RDMA_CONN_AG_CTX_RULE4EN_MASK               0x1
++#define TSTORM_RDMA_CONN_AG_CTX_RULE4EN_SHIFT              3
++#define TSTORM_RDMA_CONN_AG_CTX_RULE5EN_MASK               0x1
++#define TSTORM_RDMA_CONN_AG_CTX_RULE5EN_SHIFT              4
++#define TSTORM_RDMA_CONN_AG_CTX_RULE6EN_MASK               0x1
++#define TSTORM_RDMA_CONN_AG_CTX_RULE6EN_SHIFT              5
++#define TSTORM_RDMA_CONN_AG_CTX_RULE7EN_MASK               0x1
++#define TSTORM_RDMA_CONN_AG_CTX_RULE7EN_SHIFT              6
++#define TSTORM_RDMA_CONN_AG_CTX_RULE8EN_MASK               0x1
++#define TSTORM_RDMA_CONN_AG_CTX_RULE8EN_SHIFT              7
++	__le32 reg0;
++	__le32 reg1;
++	__le32 reg2;
++	__le32 reg3;
++	__le32 reg4;
++	__le32 reg5;
++	__le32 reg6;
++	__le32 reg7;
++	__le32 reg8;
++	u8 byte2;
++	u8 byte3;
++	__le16 word0;
++	u8 byte4;
++	u8 byte5;
++	__le16 word1;
++	__le16 word2;
++	__le16 word3;
++	__le32 reg9;
++	__le32 reg10;
++};
++
++struct tstorm_rdma_task_ag_ctx {
++	u8 byte0;
++	u8 byte1;
++	__le16 word0;
++	u8 flags0;
++#define TSTORM_RDMA_TASK_AG_CTX_NIBBLE0_MASK  0xF
++#define TSTORM_RDMA_TASK_AG_CTX_NIBBLE0_SHIFT 0
++#define TSTORM_RDMA_TASK_AG_CTX_BIT0_MASK     0x1
++#define TSTORM_RDMA_TASK_AG_CTX_BIT0_SHIFT    4
++#define TSTORM_RDMA_TASK_AG_CTX_BIT1_MASK     0x1
++#define TSTORM_RDMA_TASK_AG_CTX_BIT1_SHIFT    5
++#define TSTORM_RDMA_TASK_AG_CTX_BIT2_MASK     0x1
++#define TSTORM_RDMA_TASK_AG_CTX_BIT2_SHIFT    6
++#define TSTORM_RDMA_TASK_AG_CTX_BIT3_MASK     0x1
++#define TSTORM_RDMA_TASK_AG_CTX_BIT3_SHIFT    7
++	u8 flags1;
++#define TSTORM_RDMA_TASK_AG_CTX_BIT4_MASK     0x1
++#define TSTORM_RDMA_TASK_AG_CTX_BIT4_SHIFT    0
++#define TSTORM_RDMA_TASK_AG_CTX_BIT5_MASK     0x1
++#define TSTORM_RDMA_TASK_AG_CTX_BIT5_SHIFT    1
++#define TSTORM_RDMA_TASK_AG_CTX_CF0_MASK      0x3
++#define TSTORM_RDMA_TASK_AG_CTX_CF0_SHIFT     2
++#define TSTORM_RDMA_TASK_AG_CTX_CF1_MASK      0x3
++#define TSTORM_RDMA_TASK_AG_CTX_CF1_SHIFT     4
++#define TSTORM_RDMA_TASK_AG_CTX_CF2_MASK      0x3
++#define TSTORM_RDMA_TASK_AG_CTX_CF2_SHIFT     6
++	u8 flags2;
++#define TSTORM_RDMA_TASK_AG_CTX_CF3_MASK      0x3
++#define TSTORM_RDMA_TASK_AG_CTX_CF3_SHIFT     0
++#define TSTORM_RDMA_TASK_AG_CTX_CF4_MASK      0x3
++#define TSTORM_RDMA_TASK_AG_CTX_CF4_SHIFT     2
++#define TSTORM_RDMA_TASK_AG_CTX_CF5_MASK      0x3
++#define TSTORM_RDMA_TASK_AG_CTX_CF5_SHIFT     4
++#define TSTORM_RDMA_TASK_AG_CTX_CF6_MASK      0x3
++#define TSTORM_RDMA_TASK_AG_CTX_CF6_SHIFT     6
++	u8 flags3;
++#define TSTORM_RDMA_TASK_AG_CTX_CF7_MASK      0x3
++#define TSTORM_RDMA_TASK_AG_CTX_CF7_SHIFT     0
++#define TSTORM_RDMA_TASK_AG_CTX_CF0EN_MASK    0x1
++#define TSTORM_RDMA_TASK_AG_CTX_CF0EN_SHIFT   2
++#define TSTORM_RDMA_TASK_AG_CTX_CF1EN_MASK    0x1
++#define TSTORM_RDMA_TASK_AG_CTX_CF1EN_SHIFT   3
++#define TSTORM_RDMA_TASK_AG_CTX_CF2EN_MASK    0x1
++#define TSTORM_RDMA_TASK_AG_CTX_CF2EN_SHIFT   4
++#define TSTORM_RDMA_TASK_AG_CTX_CF3EN_MASK    0x1
++#define TSTORM_RDMA_TASK_AG_CTX_CF3EN_SHIFT   5
++#define TSTORM_RDMA_TASK_AG_CTX_CF4EN_MASK    0x1
++#define TSTORM_RDMA_TASK_AG_CTX_CF4EN_SHIFT   6
++#define TSTORM_RDMA_TASK_AG_CTX_CF5EN_MASK    0x1
++#define TSTORM_RDMA_TASK_AG_CTX_CF5EN_SHIFT   7
++	u8 flags4;
++#define TSTORM_RDMA_TASK_AG_CTX_CF6EN_MASK    0x1
++#define TSTORM_RDMA_TASK_AG_CTX_CF6EN_SHIFT   0
++#define TSTORM_RDMA_TASK_AG_CTX_CF7EN_MASK    0x1
++#define TSTORM_RDMA_TASK_AG_CTX_CF7EN_SHIFT   1
++#define TSTORM_RDMA_TASK_AG_CTX_RULE0EN_MASK  0x1
++#define TSTORM_RDMA_TASK_AG_CTX_RULE0EN_SHIFT 2
++#define TSTORM_RDMA_TASK_AG_CTX_RULE1EN_MASK  0x1
++#define TSTORM_RDMA_TASK_AG_CTX_RULE1EN_SHIFT 3
++#define TSTORM_RDMA_TASK_AG_CTX_RULE2EN_MASK  0x1
++#define TSTORM_RDMA_TASK_AG_CTX_RULE2EN_SHIFT 4
++#define TSTORM_RDMA_TASK_AG_CTX_RULE3EN_MASK  0x1
++#define TSTORM_RDMA_TASK_AG_CTX_RULE3EN_SHIFT 5
++#define TSTORM_RDMA_TASK_AG_CTX_RULE4EN_MASK  0x1
++#define TSTORM_RDMA_TASK_AG_CTX_RULE4EN_SHIFT 6
++#define TSTORM_RDMA_TASK_AG_CTX_RULE5EN_MASK  0x1
++#define TSTORM_RDMA_TASK_AG_CTX_RULE5EN_SHIFT 7
++	u8 byte2;
++	__le16 word1;
++	__le32 reg0;
++	u8 byte3;
++	u8 byte4;
++	__le16 word2;
++	__le16 word3;
++	__le16 word4;
++	__le32 reg1;
++	__le32 reg2;
++};
++
++struct ustorm_rdma_conn_ag_ctx {
++	u8 reserved;
++	u8 byte1;
++	u8 flags0;
++#define USTORM_RDMA_CONN_AG_CTX_EXIST_IN_QM0_MASK     0x1
++#define USTORM_RDMA_CONN_AG_CTX_EXIST_IN_QM0_SHIFT    0
++#define USTORM_RDMA_CONN_AG_CTX_BIT1_MASK             0x1
++#define USTORM_RDMA_CONN_AG_CTX_BIT1_SHIFT            1
++#define USTORM_RDMA_CONN_AG_CTX_FLUSH_Q0_CF_MASK      0x3
++#define USTORM_RDMA_CONN_AG_CTX_FLUSH_Q0_CF_SHIFT     2
++#define USTORM_RDMA_CONN_AG_CTX_CF1_MASK              0x3
++#define USTORM_RDMA_CONN_AG_CTX_CF1_SHIFT             4
++#define USTORM_RDMA_CONN_AG_CTX_CF2_MASK              0x3
++#define USTORM_RDMA_CONN_AG_CTX_CF2_SHIFT             6
++	u8 flags1;
++#define USTORM_RDMA_CONN_AG_CTX_CF3_MASK              0x3
++#define USTORM_RDMA_CONN_AG_CTX_CF3_SHIFT             0
++#define USTORM_RDMA_CONN_AG_CTX_CQ_ARM_SE_CF_MASK     0x3
++#define USTORM_RDMA_CONN_AG_CTX_CQ_ARM_SE_CF_SHIFT    2
++#define USTORM_RDMA_CONN_AG_CTX_CQ_ARM_CF_MASK        0x3
++#define USTORM_RDMA_CONN_AG_CTX_CQ_ARM_CF_SHIFT       4
++#define USTORM_RDMA_CONN_AG_CTX_CF6_MASK              0x3
++#define USTORM_RDMA_CONN_AG_CTX_CF6_SHIFT             6
++	u8 flags2;
++#define USTORM_RDMA_CONN_AG_CTX_FLUSH_Q0_CF_EN_MASK   0x1
++#define USTORM_RDMA_CONN_AG_CTX_FLUSH_Q0_CF_EN_SHIFT  0
++#define USTORM_RDMA_CONN_AG_CTX_CF1EN_MASK            0x1
++#define USTORM_RDMA_CONN_AG_CTX_CF1EN_SHIFT           1
++#define USTORM_RDMA_CONN_AG_CTX_CF2EN_MASK            0x1
++#define USTORM_RDMA_CONN_AG_CTX_CF2EN_SHIFT           2
++#define USTORM_RDMA_CONN_AG_CTX_CF3EN_MASK            0x1
++#define USTORM_RDMA_CONN_AG_CTX_CF3EN_SHIFT           3
++#define USTORM_RDMA_CONN_AG_CTX_CQ_ARM_SE_CF_EN_MASK  0x1
++#define USTORM_RDMA_CONN_AG_CTX_CQ_ARM_SE_CF_EN_SHIFT 4
++#define USTORM_RDMA_CONN_AG_CTX_CQ_ARM_CF_EN_MASK     0x1
++#define USTORM_RDMA_CONN_AG_CTX_CQ_ARM_CF_EN_SHIFT    5
++#define USTORM_RDMA_CONN_AG_CTX_CF6EN_MASK            0x1
++#define USTORM_RDMA_CONN_AG_CTX_CF6EN_SHIFT           6
++#define USTORM_RDMA_CONN_AG_CTX_CQ_SE_EN_MASK         0x1
++#define USTORM_RDMA_CONN_AG_CTX_CQ_SE_EN_SHIFT        7
++	u8 flags3;
++#define USTORM_RDMA_CONN_AG_CTX_CQ_EN_MASK            0x1
++#define USTORM_RDMA_CONN_AG_CTX_CQ_EN_SHIFT           0
++#define USTORM_RDMA_CONN_AG_CTX_RULE2EN_MASK          0x1
++#define USTORM_RDMA_CONN_AG_CTX_RULE2EN_SHIFT         1
++#define USTORM_RDMA_CONN_AG_CTX_RULE3EN_MASK          0x1
++#define USTORM_RDMA_CONN_AG_CTX_RULE3EN_SHIFT         2
++#define USTORM_RDMA_CONN_AG_CTX_RULE4EN_MASK          0x1
++#define USTORM_RDMA_CONN_AG_CTX_RULE4EN_SHIFT         3
++#define USTORM_RDMA_CONN_AG_CTX_RULE5EN_MASK          0x1
++#define USTORM_RDMA_CONN_AG_CTX_RULE5EN_SHIFT         4
++#define USTORM_RDMA_CONN_AG_CTX_RULE6EN_MASK          0x1
++#define USTORM_RDMA_CONN_AG_CTX_RULE6EN_SHIFT         5
++#define USTORM_RDMA_CONN_AG_CTX_RULE7EN_MASK          0x1
++#define USTORM_RDMA_CONN_AG_CTX_RULE7EN_SHIFT         6
++#define USTORM_RDMA_CONN_AG_CTX_RULE8EN_MASK          0x1
++#define USTORM_RDMA_CONN_AG_CTX_RULE8EN_SHIFT         7
++	u8 byte2;
++	u8 byte3;
++	__le16 conn_dpi;
++	__le16 word1;
++	__le32 cq_cons;
++	__le32 cq_se_prod;
++	__le32 cq_prod;
++	__le32 reg3;
++	__le16 int_timeout;
++	__le16 word3;
++};
++
++struct xstorm_roce_conn_ag_ctx_dq_ext_ld_part {
++	u8 reserved0;
++	u8 state;
++	u8 flags0;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_EXIST_IN_QM0_MASK      0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_EXIST_IN_QM0_SHIFT     0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT1_MASK              0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT1_SHIFT             1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT2_MASK              0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT2_SHIFT             2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_EXIST_IN_QM3_MASK      0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_EXIST_IN_QM3_SHIFT     3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT4_MASK              0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT4_SHIFT             4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT5_MASK              0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT5_SHIFT             5
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT6_MASK              0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT6_SHIFT             6
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT7_MASK              0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT7_SHIFT             7
++	u8 flags1;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT8_MASK              0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT8_SHIFT             0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT9_MASK              0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT9_SHIFT             1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT10_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT10_SHIFT            2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT11_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT11_SHIFT            3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT12_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT12_SHIFT            4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT13_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT13_SHIFT            5
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT14_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT14_SHIFT            6
++#define XSTORMROCECONNAGCTXDQEXTLDPART_YSTORM_FLUSH_MASK      0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_YSTORM_FLUSH_SHIFT     7
++	u8 flags2;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF0_MASK               0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF0_SHIFT              0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF1_MASK               0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF1_SHIFT              2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF2_MASK               0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF2_SHIFT              4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF3_MASK               0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF3_SHIFT              6
++	u8 flags3;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF4_MASK               0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF4_SHIFT              0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF5_MASK               0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF5_SHIFT              2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF6_MASK               0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF6_SHIFT              4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_FLUSH_Q0_CF_MASK       0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_FLUSH_Q0_CF_SHIFT      6
++	u8 flags4;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF8_MASK               0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF8_SHIFT              0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF9_MASK               0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF9_SHIFT              2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF10_MASK              0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF10_SHIFT             4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF11_MASK              0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF11_SHIFT             6
++	u8 flags5;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF12_MASK              0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF12_SHIFT             0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF13_MASK              0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF13_SHIFT             2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF14_MASK              0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF14_SHIFT             4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF15_MASK              0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF15_SHIFT             6
++	u8 flags6;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF16_MASK              0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF16_SHIFT             0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF17_MASK              0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF17_SHIFT             2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF18_MASK              0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF18_SHIFT             4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF19_MASK              0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF19_SHIFT             6
++	u8 flags7;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF20_MASK              0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF20_SHIFT             0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF21_MASK              0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF21_SHIFT             2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_SLOW_PATH_MASK         0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_SLOW_PATH_SHIFT        4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF0EN_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF0EN_SHIFT            6
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF1EN_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF1EN_SHIFT            7
++	u8 flags8;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF2EN_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF2EN_SHIFT            0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF3EN_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF3EN_SHIFT            1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF4EN_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF4EN_SHIFT            2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF5EN_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF5EN_SHIFT            3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF6EN_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF6EN_SHIFT            4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_FLUSH_Q0_CF_EN_MASK    0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_FLUSH_Q0_CF_EN_SHIFT   5
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF8EN_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF8EN_SHIFT            6
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF9EN_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF9EN_SHIFT            7
++	u8 flags9;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF10EN_MASK            0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF10EN_SHIFT           0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF11EN_MASK            0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF11EN_SHIFT           1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF12EN_MASK            0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF12EN_SHIFT           2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF13EN_MASK            0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF13EN_SHIFT           3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF14EN_MASK            0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF14EN_SHIFT           4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF15EN_MASK            0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF15EN_SHIFT           5
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF16EN_MASK            0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF16EN_SHIFT           6
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF17EN_MASK            0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF17EN_SHIFT           7
++	u8 flags10;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF18EN_MASK            0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF18EN_SHIFT           0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF19EN_MASK            0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF19EN_SHIFT           1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF20EN_MASK            0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF20EN_SHIFT           2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF21EN_MASK            0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF21EN_SHIFT           3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_SLOW_PATH_EN_MASK      0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_SLOW_PATH_EN_SHIFT     4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF23EN_MASK            0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF23EN_SHIFT           5
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE0EN_MASK           0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE0EN_SHIFT          6
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE1EN_MASK           0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE1EN_SHIFT          7
++	u8 flags11;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE2EN_MASK           0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE2EN_SHIFT          0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE3EN_MASK           0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE3EN_SHIFT          1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE4EN_MASK           0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE4EN_SHIFT          2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE5EN_MASK           0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE5EN_SHIFT          3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE6EN_MASK           0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE6EN_SHIFT          4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE7EN_MASK           0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE7EN_SHIFT          5
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED1_MASK      0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED1_SHIFT     6
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE9EN_MASK           0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE9EN_SHIFT          7
++	u8 flags12;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE10EN_MASK          0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE10EN_SHIFT         0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE11EN_MASK          0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE11EN_SHIFT         1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED2_MASK      0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED2_SHIFT     2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED3_MASK      0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED3_SHIFT     3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE14EN_MASK          0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE14EN_SHIFT         4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE15EN_MASK          0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE15EN_SHIFT         5
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE16EN_MASK          0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE16EN_SHIFT         6
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE17EN_MASK          0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE17EN_SHIFT         7
++	u8 flags13;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE18EN_MASK          0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE18EN_SHIFT         0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE19EN_MASK          0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RULE19EN_SHIFT         1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED4_MASK      0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED4_SHIFT     2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED5_MASK      0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED5_SHIFT     3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED6_MASK      0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED6_SHIFT     4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED7_MASK      0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED7_SHIFT     5
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED8_MASK      0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED8_SHIFT     6
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED9_MASK      0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_A0_RESERVED9_SHIFT     7
++	u8 flags14;
++#define XSTORMROCECONNAGCTXDQEXTLDPART_MIGRATION_MASK         0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_MIGRATION_SHIFT        0
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT17_MASK             0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_BIT17_SHIFT            1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_DPM_PORT_NUM_MASK      0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_DPM_PORT_NUM_SHIFT     2
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RESERVED_MASK          0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_RESERVED_SHIFT         4
++#define XSTORMROCECONNAGCTXDQEXTLDPART_ROCE_EDPM_ENABLE_MASK  0x1
++#define XSTORMROCECONNAGCTXDQEXTLDPART_ROCE_EDPM_ENABLE_SHIFT 5
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF23_MASK              0x3
++#define XSTORMROCECONNAGCTXDQEXTLDPART_CF23_SHIFT             6
++	u8 byte2;
++	__le16 physical_q0;
++	__le16 word1;
++	__le16 word2;
++	__le16 word3;
++	__le16 word4;
++	__le16 word5;
++	__le16 conn_dpi;
++	u8 byte3;
++	u8 byte4;
++	u8 byte5;
++	u8 byte6;
++	__le32 reg0;
++	__le32 reg1;
++	__le32 reg2;
++	__le32 snd_nxt_psn;
++	__le32 reg4;
++};
++
++struct xstorm_rdma_conn_ag_ctx {
++	u8 reserved0;
++	u8 state;
++	u8 flags0;
++#define XSTORM_RDMA_CONN_AG_CTX_EXIST_IN_QM0_MASK      0x1
++#define XSTORM_RDMA_CONN_AG_CTX_EXIST_IN_QM0_SHIFT     0
++#define XSTORM_RDMA_CONN_AG_CTX_BIT1_MASK              0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT1_SHIFT             1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT2_MASK              0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT2_SHIFT             2
++#define XSTORM_RDMA_CONN_AG_CTX_EXIST_IN_QM3_MASK      0x1
++#define XSTORM_RDMA_CONN_AG_CTX_EXIST_IN_QM3_SHIFT     3
++#define XSTORM_RDMA_CONN_AG_CTX_BIT4_MASK              0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT4_SHIFT             4
++#define XSTORM_RDMA_CONN_AG_CTX_BIT5_MASK              0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT5_SHIFT             5
++#define XSTORM_RDMA_CONN_AG_CTX_BIT6_MASK              0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT6_SHIFT             6
++#define XSTORM_RDMA_CONN_AG_CTX_BIT7_MASK              0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT7_SHIFT             7
++	u8 flags1;
++#define XSTORM_RDMA_CONN_AG_CTX_BIT8_MASK              0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT8_SHIFT             0
++#define XSTORM_RDMA_CONN_AG_CTX_BIT9_MASK              0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT9_SHIFT             1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT10_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT10_SHIFT            2
++#define XSTORM_RDMA_CONN_AG_CTX_BIT11_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT11_SHIFT            3
++#define XSTORM_RDMA_CONN_AG_CTX_BIT12_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT12_SHIFT            4
++#define XSTORM_RDMA_CONN_AG_CTX_BIT13_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT13_SHIFT            5
++#define XSTORM_RDMA_CONN_AG_CTX_BIT14_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT14_SHIFT            6
++#define XSTORM_RDMA_CONN_AG_CTX_YSTORM_FLUSH_MASK      0x1
++#define XSTORM_RDMA_CONN_AG_CTX_YSTORM_FLUSH_SHIFT     7
++	u8 flags2;
++#define XSTORM_RDMA_CONN_AG_CTX_CF0_MASK               0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF0_SHIFT              0
++#define XSTORM_RDMA_CONN_AG_CTX_CF1_MASK               0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF1_SHIFT              2
++#define XSTORM_RDMA_CONN_AG_CTX_CF2_MASK               0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF2_SHIFT              4
++#define XSTORM_RDMA_CONN_AG_CTX_CF3_MASK               0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF3_SHIFT              6
++	u8 flags3;
++#define XSTORM_RDMA_CONN_AG_CTX_CF4_MASK               0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF4_SHIFT              0
++#define XSTORM_RDMA_CONN_AG_CTX_CF5_MASK               0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF5_SHIFT              2
++#define XSTORM_RDMA_CONN_AG_CTX_CF6_MASK               0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF6_SHIFT              4
++#define XSTORM_RDMA_CONN_AG_CTX_FLUSH_Q0_CF_MASK       0x3
++#define XSTORM_RDMA_CONN_AG_CTX_FLUSH_Q0_CF_SHIFT      6
++	u8 flags4;
++#define XSTORM_RDMA_CONN_AG_CTX_CF8_MASK               0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF8_SHIFT              0
++#define XSTORM_RDMA_CONN_AG_CTX_CF9_MASK               0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF9_SHIFT              2
++#define XSTORM_RDMA_CONN_AG_CTX_CF10_MASK              0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF10_SHIFT             4
++#define XSTORM_RDMA_CONN_AG_CTX_CF11_MASK              0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF11_SHIFT             6
++	u8 flags5;
++#define XSTORM_RDMA_CONN_AG_CTX_CF12_MASK              0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF12_SHIFT             0
++#define XSTORM_RDMA_CONN_AG_CTX_CF13_MASK              0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF13_SHIFT             2
++#define XSTORM_RDMA_CONN_AG_CTX_CF14_MASK              0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF14_SHIFT             4
++#define XSTORM_RDMA_CONN_AG_CTX_CF15_MASK              0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF15_SHIFT             6
++	u8 flags6;
++#define XSTORM_RDMA_CONN_AG_CTX_CF16_MASK              0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF16_SHIFT             0
++#define XSTORM_RDMA_CONN_AG_CTX_CF17_MASK              0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF17_SHIFT             2
++#define XSTORM_RDMA_CONN_AG_CTX_CF18_MASK              0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF18_SHIFT             4
++#define XSTORM_RDMA_CONN_AG_CTX_CF19_MASK              0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF19_SHIFT             6
++	u8 flags7;
++#define XSTORM_RDMA_CONN_AG_CTX_CF20_MASK              0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF20_SHIFT             0
++#define XSTORM_RDMA_CONN_AG_CTX_CF21_MASK              0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF21_SHIFT             2
++#define XSTORM_RDMA_CONN_AG_CTX_SLOW_PATH_MASK         0x3
++#define XSTORM_RDMA_CONN_AG_CTX_SLOW_PATH_SHIFT        4
++#define XSTORM_RDMA_CONN_AG_CTX_CF0EN_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF0EN_SHIFT            6
++#define XSTORM_RDMA_CONN_AG_CTX_CF1EN_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF1EN_SHIFT            7
++	u8 flags8;
++#define XSTORM_RDMA_CONN_AG_CTX_CF2EN_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF2EN_SHIFT            0
++#define XSTORM_RDMA_CONN_AG_CTX_CF3EN_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF3EN_SHIFT            1
++#define XSTORM_RDMA_CONN_AG_CTX_CF4EN_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF4EN_SHIFT            2
++#define XSTORM_RDMA_CONN_AG_CTX_CF5EN_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF5EN_SHIFT            3
++#define XSTORM_RDMA_CONN_AG_CTX_CF6EN_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF6EN_SHIFT            4
++#define XSTORM_RDMA_CONN_AG_CTX_FLUSH_Q0_CF_EN_MASK    0x1
++#define XSTORM_RDMA_CONN_AG_CTX_FLUSH_Q0_CF_EN_SHIFT   5
++#define XSTORM_RDMA_CONN_AG_CTX_CF8EN_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF8EN_SHIFT            6
++#define XSTORM_RDMA_CONN_AG_CTX_CF9EN_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF9EN_SHIFT            7
++	u8 flags9;
++#define XSTORM_RDMA_CONN_AG_CTX_CF10EN_MASK            0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF10EN_SHIFT           0
++#define XSTORM_RDMA_CONN_AG_CTX_CF11EN_MASK            0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF11EN_SHIFT           1
++#define XSTORM_RDMA_CONN_AG_CTX_CF12EN_MASK            0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF12EN_SHIFT           2
++#define XSTORM_RDMA_CONN_AG_CTX_CF13EN_MASK            0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF13EN_SHIFT           3
++#define XSTORM_RDMA_CONN_AG_CTX_CF14EN_MASK            0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF14EN_SHIFT           4
++#define XSTORM_RDMA_CONN_AG_CTX_CF15EN_MASK            0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF15EN_SHIFT           5
++#define XSTORM_RDMA_CONN_AG_CTX_CF16EN_MASK            0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF16EN_SHIFT           6
++#define XSTORM_RDMA_CONN_AG_CTX_CF17EN_MASK            0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF17EN_SHIFT           7
++	u8 flags10;
++#define XSTORM_RDMA_CONN_AG_CTX_CF18EN_MASK            0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF18EN_SHIFT           0
++#define XSTORM_RDMA_CONN_AG_CTX_CF19EN_MASK            0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF19EN_SHIFT           1
++#define XSTORM_RDMA_CONN_AG_CTX_CF20EN_MASK            0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF20EN_SHIFT           2
++#define XSTORM_RDMA_CONN_AG_CTX_CF21EN_MASK            0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF21EN_SHIFT           3
++#define XSTORM_RDMA_CONN_AG_CTX_SLOW_PATH_EN_MASK      0x1
++#define XSTORM_RDMA_CONN_AG_CTX_SLOW_PATH_EN_SHIFT     4
++#define XSTORM_RDMA_CONN_AG_CTX_CF23EN_MASK            0x1
++#define XSTORM_RDMA_CONN_AG_CTX_CF23EN_SHIFT           5
++#define XSTORM_RDMA_CONN_AG_CTX_RULE0EN_MASK           0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE0EN_SHIFT          6
++#define XSTORM_RDMA_CONN_AG_CTX_RULE1EN_MASK           0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE1EN_SHIFT          7
++	u8 flags11;
++#define XSTORM_RDMA_CONN_AG_CTX_RULE2EN_MASK           0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE2EN_SHIFT          0
++#define XSTORM_RDMA_CONN_AG_CTX_RULE3EN_MASK           0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE3EN_SHIFT          1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE4EN_MASK           0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE4EN_SHIFT          2
++#define XSTORM_RDMA_CONN_AG_CTX_RULE5EN_MASK           0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE5EN_SHIFT          3
++#define XSTORM_RDMA_CONN_AG_CTX_RULE6EN_MASK           0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE6EN_SHIFT          4
++#define XSTORM_RDMA_CONN_AG_CTX_RULE7EN_MASK           0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE7EN_SHIFT          5
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED1_MASK      0x1
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED1_SHIFT     6
++#define XSTORM_RDMA_CONN_AG_CTX_RULE9EN_MASK           0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE9EN_SHIFT          7
++	u8 flags12;
++#define XSTORM_RDMA_CONN_AG_CTX_RULE10EN_MASK          0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE10EN_SHIFT         0
++#define XSTORM_RDMA_CONN_AG_CTX_RULE11EN_MASK          0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE11EN_SHIFT         1
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED2_MASK      0x1
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED2_SHIFT     2
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED3_MASK      0x1
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED3_SHIFT     3
++#define XSTORM_RDMA_CONN_AG_CTX_RULE14EN_MASK          0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE14EN_SHIFT         4
++#define XSTORM_RDMA_CONN_AG_CTX_RULE15EN_MASK          0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE15EN_SHIFT         5
++#define XSTORM_RDMA_CONN_AG_CTX_RULE16EN_MASK          0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE16EN_SHIFT         6
++#define XSTORM_RDMA_CONN_AG_CTX_RULE17EN_MASK          0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE17EN_SHIFT         7
++	u8 flags13;
++#define XSTORM_RDMA_CONN_AG_CTX_RULE18EN_MASK          0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE18EN_SHIFT         0
++#define XSTORM_RDMA_CONN_AG_CTX_RULE19EN_MASK          0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RULE19EN_SHIFT         1
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED4_MASK      0x1
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED4_SHIFT     2
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED5_MASK      0x1
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED5_SHIFT     3
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED6_MASK      0x1
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED6_SHIFT     4
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED7_MASK      0x1
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED7_SHIFT     5
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED8_MASK      0x1
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED8_SHIFT     6
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED9_MASK      0x1
++#define XSTORM_RDMA_CONN_AG_CTX_A0_RESERVED9_SHIFT     7
++	u8 flags14;
++#define XSTORM_RDMA_CONN_AG_CTX_MIGRATION_MASK         0x1
++#define XSTORM_RDMA_CONN_AG_CTX_MIGRATION_SHIFT        0
++#define XSTORM_RDMA_CONN_AG_CTX_BIT17_MASK             0x1
++#define XSTORM_RDMA_CONN_AG_CTX_BIT17_SHIFT            1
++#define XSTORM_RDMA_CONN_AG_CTX_DPM_PORT_NUM_MASK      0x3
++#define XSTORM_RDMA_CONN_AG_CTX_DPM_PORT_NUM_SHIFT     2
++#define XSTORM_RDMA_CONN_AG_CTX_RESERVED_MASK          0x1
++#define XSTORM_RDMA_CONN_AG_CTX_RESERVED_SHIFT         4
++#define XSTORM_RDMA_CONN_AG_CTX_ROCE_EDPM_ENABLE_MASK  0x1
++#define XSTORM_RDMA_CONN_AG_CTX_ROCE_EDPM_ENABLE_SHIFT 5
++#define XSTORM_RDMA_CONN_AG_CTX_CF23_MASK              0x3
++#define XSTORM_RDMA_CONN_AG_CTX_CF23_SHIFT             6
++	u8 byte2;
++	__le16 physical_q0;
++	__le16 word1;
++	__le16 word2;
++	__le16 word3;
++	__le16 word4;
++	__le16 word5;
++	__le16 conn_dpi;
++	u8 byte3;
++	u8 byte4;
++	u8 byte5;
++	u8 byte6;
++	__le32 reg0;
++	__le32 reg1;
++	__le32 reg2;
++	__le32 snd_nxt_psn;
++	__le32 reg4;
++	__le32 reg5;
++	__le32 reg6;
++};
++
++struct ystorm_rdma_conn_ag_ctx {
++	u8 byte0;
++	u8 byte1;
++	u8 flags0;
++#define YSTORM_RDMA_CONN_AG_CTX_BIT0_MASK     0x1
++#define YSTORM_RDMA_CONN_AG_CTX_BIT0_SHIFT    0
++#define YSTORM_RDMA_CONN_AG_CTX_BIT1_MASK     0x1
++#define YSTORM_RDMA_CONN_AG_CTX_BIT1_SHIFT    1
++#define YSTORM_RDMA_CONN_AG_CTX_CF0_MASK      0x3
++#define YSTORM_RDMA_CONN_AG_CTX_CF0_SHIFT     2
++#define YSTORM_RDMA_CONN_AG_CTX_CF1_MASK      0x3
++#define YSTORM_RDMA_CONN_AG_CTX_CF1_SHIFT     4
++#define YSTORM_RDMA_CONN_AG_CTX_CF2_MASK      0x3
++#define YSTORM_RDMA_CONN_AG_CTX_CF2_SHIFT     6
++	u8 flags1;
++#define YSTORM_RDMA_CONN_AG_CTX_CF0EN_MASK    0x1
++#define YSTORM_RDMA_CONN_AG_CTX_CF0EN_SHIFT   0
++#define YSTORM_RDMA_CONN_AG_CTX_CF1EN_MASK    0x1
++#define YSTORM_RDMA_CONN_AG_CTX_CF1EN_SHIFT   1
++#define YSTORM_RDMA_CONN_AG_CTX_CF2EN_MASK    0x1
++#define YSTORM_RDMA_CONN_AG_CTX_CF2EN_SHIFT   2
++#define YSTORM_RDMA_CONN_AG_CTX_RULE0EN_MASK  0x1
++#define YSTORM_RDMA_CONN_AG_CTX_RULE0EN_SHIFT 3
++#define YSTORM_RDMA_CONN_AG_CTX_RULE1EN_MASK  0x1
++#define YSTORM_RDMA_CONN_AG_CTX_RULE1EN_SHIFT 4
++#define YSTORM_RDMA_CONN_AG_CTX_RULE2EN_MASK  0x1
++#define YSTORM_RDMA_CONN_AG_CTX_RULE2EN_SHIFT 5
++#define YSTORM_RDMA_CONN_AG_CTX_RULE3EN_MASK  0x1
++#define YSTORM_RDMA_CONN_AG_CTX_RULE3EN_SHIFT 6
++#define YSTORM_RDMA_CONN_AG_CTX_RULE4EN_MASK  0x1
++#define YSTORM_RDMA_CONN_AG_CTX_RULE4EN_SHIFT 7
++	u8 byte2;
++	u8 byte3;
++	__le16 word0;
++	__le32 reg0;
++	__le32 reg1;
++	__le16 word1;
++	__le16 word2;
++	__le16 word3;
++	__le16 word4;
++	__le32 reg2;
++	__le32 reg3;
++};
++
++struct mstorm_roce_conn_st_ctx {
++	struct regpair temp[6];
++};
++
++struct pstorm_roce_conn_st_ctx {
++	struct regpair temp[16];
++};
++
++struct ystorm_roce_conn_st_ctx {
++	struct regpair temp[2];
++};
++
++struct xstorm_roce_conn_st_ctx {
++	struct regpair temp[22];
++};
++
++struct tstorm_roce_conn_st_ctx {
++	struct regpair temp[30];
++};
++
++struct ustorm_roce_conn_st_ctx {
++	struct regpair temp[12];
++};
++
++struct roce_conn_context {
++	struct ystorm_roce_conn_st_ctx ystorm_st_context;
++	struct regpair ystorm_st_padding[2];
++	struct pstorm_roce_conn_st_ctx pstorm_st_context;
++	struct xstorm_roce_conn_st_ctx xstorm_st_context;
++	struct regpair xstorm_st_padding[2];
++	struct xstorm_rdma_conn_ag_ctx xstorm_ag_context;
++	struct tstorm_rdma_conn_ag_ctx tstorm_ag_context;
++	struct timers_context timer_context;
++	struct ustorm_rdma_conn_ag_ctx ustorm_ag_context;
++	struct tstorm_roce_conn_st_ctx tstorm_st_context;
++	struct mstorm_roce_conn_st_ctx mstorm_st_context;
++	struct ustorm_roce_conn_st_ctx ustorm_st_context;
++	struct regpair ustorm_st_padding[2];
++};
++
++struct roce_create_qp_req_ramrod_data {
++	__le16 flags;
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_ROCE_FLAVOR_MASK          0x3
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_ROCE_FLAVOR_SHIFT         0
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_FMR_AND_RESERVED_EN_MASK  0x1
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_FMR_AND_RESERVED_EN_SHIFT 2
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_SIGNALED_COMP_MASK        0x1
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_SIGNALED_COMP_SHIFT       3
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_PRI_MASK                  0x7
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_PRI_SHIFT                 4
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_RESERVED_MASK             0x1
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_RESERVED_SHIFT            7
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_ERR_RETRY_CNT_MASK        0xF
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_ERR_RETRY_CNT_SHIFT       8
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_RNR_NAK_CNT_MASK          0xF
++#define ROCE_CREATE_QP_REQ_RAMROD_DATA_RNR_NAK_CNT_SHIFT         12
++	u8 max_ord;
++	u8 traffic_class;
++	u8 hop_limit;
++	u8 orq_num_pages;
++	__le16 p_key;
++	__le32 flow_label;
++	__le32 dst_qp_id;
++	__le32 ack_timeout_val;
++	__le32 initial_psn;
++	__le16 mtu;
++	__le16 pd;
++	__le16 sq_num_pages;
++	__le16 reseved2;
++	struct regpair sq_pbl_addr;
++	struct regpair orq_pbl_addr;
++	__le16 local_mac_addr[3];
++	__le16 remote_mac_addr[3];
++	__le16 vlan_id;
++	__le16 udp_src_port;
++	__le32 src_gid[4];
++	__le32 dst_gid[4];
++	struct regpair qp_handle_for_cqe;
++	struct regpair qp_handle_for_async;
++	u8 stats_counter_id;
++	u8 reserved3[7];
++	__le32 cq_cid;
++	__le16 physical_queue0;
++	__le16 dpi;
++};
++
++struct roce_create_qp_resp_ramrod_data {
++	__le16 flags;
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_ROCE_FLAVOR_MASK          0x3
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_ROCE_FLAVOR_SHIFT         0
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_RDMA_RD_EN_MASK           0x1
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_RDMA_RD_EN_SHIFT          2
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_RDMA_WR_EN_MASK           0x1
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_RDMA_WR_EN_SHIFT          3
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_ATOMIC_EN_MASK            0x1
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_ATOMIC_EN_SHIFT           4
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_SRQ_FLG_MASK              0x1
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_SRQ_FLG_SHIFT             5
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_E2E_FLOW_CONTROL_EN_MASK  0x1
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_E2E_FLOW_CONTROL_EN_SHIFT 6
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_RESERVED0_MASK            0x1
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_RESERVED0_SHIFT           7
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_PRI_MASK                  0x7
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_PRI_SHIFT                 8
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_MIN_RNR_NAK_TIMER_MASK    0x1F
++#define ROCE_CREATE_QP_RESP_RAMROD_DATA_MIN_RNR_NAK_TIMER_SHIFT   11
++	u8 max_ird;
++	u8 traffic_class;
++	u8 hop_limit;
++	u8 irq_num_pages;
++	__le16 p_key;
++	__le32 flow_label;
++	__le32 dst_qp_id;
++	u8 stats_counter_id;
++	u8 reserved1;
++	__le16 mtu;
++	__le32 initial_psn;
++	__le16 pd;
++	__le16 rq_num_pages;
++	struct rdma_srq_id srq_id;
++	struct regpair rq_pbl_addr;
++	struct regpair irq_pbl_addr;
++	__le16 local_mac_addr[3];
++	__le16 remote_mac_addr[3];
++	__le16 vlan_id;
++	__le16 udp_src_port;
++	__le32 src_gid[4];
++	__le32 dst_gid[4];
++	struct regpair qp_handle_for_cqe;
++	struct regpair qp_handle_for_async;
++	__le32 reserved2[2];
++	__le32 cq_cid;
++	__le16 physical_queue0;
++	__le16 dpi;
++};
++
++struct roce_destroy_qp_req_output_params {
++	__le32 num_bound_mw;
++	__le32 reserved;
++};
++
++struct roce_destroy_qp_req_ramrod_data {
++	struct regpair output_params_addr;
++};
++
++struct roce_destroy_qp_resp_output_params {
++	__le32 num_invalidated_mw;
++	__le32 reserved;
++};
++
++struct roce_destroy_qp_resp_ramrod_data {
++	struct regpair output_params_addr;
++};
++
++enum roce_event_opcode {
++	ROCE_EVENT_CREATE_QP = 11,
++	ROCE_EVENT_MODIFY_QP,
++	ROCE_EVENT_QUERY_QP,
++	ROCE_EVENT_DESTROY_QP,
++	MAX_ROCE_EVENT_OPCODE
++};
++
++struct roce_modify_qp_req_ramrod_data {
++	__le16 flags;
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_MOVE_TO_ERR_FLG_MASK      0x1
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_MOVE_TO_ERR_FLG_SHIFT     0
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_MOVE_TO_SQD_FLG_MASK      0x1
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_MOVE_TO_SQD_FLG_SHIFT     1
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_EN_SQD_ASYNC_NOTIFY_MASK  0x1
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_EN_SQD_ASYNC_NOTIFY_SHIFT 2
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_P_KEY_FLG_MASK            0x1
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_P_KEY_FLG_SHIFT           3
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_ADDRESS_VECTOR_FLG_MASK   0x1
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_ADDRESS_VECTOR_FLG_SHIFT  4
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_MAX_ORD_FLG_MASK          0x1
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_MAX_ORD_FLG_SHIFT         5
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_RNR_NAK_CNT_FLG_MASK      0x1
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_RNR_NAK_CNT_FLG_SHIFT     6
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_ERR_RETRY_CNT_FLG_MASK    0x1
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_ERR_RETRY_CNT_FLG_SHIFT   7
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_ACK_TIMEOUT_FLG_MASK      0x1
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_ACK_TIMEOUT_FLG_SHIFT     8
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_PRI_FLG_MASK              0x1
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_PRI_FLG_SHIFT             9
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_PRI_MASK                  0x7
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_PRI_SHIFT                 10
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_RESERVED1_MASK            0x7
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_RESERVED1_SHIFT           13
++	u8 fields;
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_ERR_RETRY_CNT_MASK        0xF
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_ERR_RETRY_CNT_SHIFT       0
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_RNR_NAK_CNT_MASK          0xF
++#define ROCE_MODIFY_QP_REQ_RAMROD_DATA_RNR_NAK_CNT_SHIFT         4
++	u8 max_ord;
++	u8 traffic_class;
++	u8 hop_limit;
++	__le16 p_key;
++	__le32 flow_label;
++	__le32 ack_timeout_val;
++	__le16 mtu;
++	__le16 reserved2;
++	__le32 reserved3[3];
++	__le32 src_gid[4];
++	__le32 dst_gid[4];
++};
++
++struct roce_modify_qp_resp_ramrod_data {
++	__le16 flags;
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_MOVE_TO_ERR_FLG_MASK        0x1
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_MOVE_TO_ERR_FLG_SHIFT       0
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_RDMA_RD_EN_MASK             0x1
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_RDMA_RD_EN_SHIFT            1
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_RDMA_WR_EN_MASK             0x1
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_RDMA_WR_EN_SHIFT            2
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_ATOMIC_EN_MASK              0x1
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_ATOMIC_EN_SHIFT             3
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_P_KEY_FLG_MASK              0x1
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_P_KEY_FLG_SHIFT             4
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_ADDRESS_VECTOR_FLG_MASK     0x1
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_ADDRESS_VECTOR_FLG_SHIFT    5
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_MAX_IRD_FLG_MASK            0x1
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_MAX_IRD_FLG_SHIFT           6
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_PRI_FLG_MASK                0x1
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_PRI_FLG_SHIFT               7
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_MIN_RNR_NAK_TIMER_FLG_MASK  0x1
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_MIN_RNR_NAK_TIMER_FLG_SHIFT 8
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_RDMA_OPS_EN_FLG_MASK        0x1
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_RDMA_OPS_EN_FLG_SHIFT       9
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_RESERVED1_MASK              0x3F
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_RESERVED1_SHIFT             10
++	u8 fields;
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_PRI_MASK                    0x7
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_PRI_SHIFT                   0
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_MIN_RNR_NAK_TIMER_MASK      0x1F
++#define ROCE_MODIFY_QP_RESP_RAMROD_DATA_MIN_RNR_NAK_TIMER_SHIFT     3
++	u8 max_ird;
++	u8 traffic_class;
++	u8 hop_limit;
++	__le16 p_key;
++	__le32 flow_label;
++	__le16 mtu;
++	__le16 reserved2;
++	__le32 src_gid[4];
++	__le32 dst_gid[4];
++};
++
++struct roce_query_qp_req_output_params {
++	__le32 psn;
++	__le32 flags;
++#define ROCE_QUERY_QP_REQ_OUTPUT_PARAMS_ERR_FLG_MASK          0x1
++#define ROCE_QUERY_QP_REQ_OUTPUT_PARAMS_ERR_FLG_SHIFT         0
++#define ROCE_QUERY_QP_REQ_OUTPUT_PARAMS_SQ_DRAINING_FLG_MASK  0x1
++#define ROCE_QUERY_QP_REQ_OUTPUT_PARAMS_SQ_DRAINING_FLG_SHIFT 1
++#define ROCE_QUERY_QP_REQ_OUTPUT_PARAMS_RESERVED0_MASK        0x3FFFFFFF
++#define ROCE_QUERY_QP_REQ_OUTPUT_PARAMS_RESERVED0_SHIFT       2
++};
++
++struct roce_query_qp_req_ramrod_data {
++	struct regpair output_params_addr;
++};
++
++struct roce_query_qp_resp_output_params {
++	__le32 psn;
++	__le32 err_flag;
++#define ROCE_QUERY_QP_RESP_OUTPUT_PARAMS_ERROR_FLG_MASK  0x1
++#define ROCE_QUERY_QP_RESP_OUTPUT_PARAMS_ERROR_FLG_SHIFT 0
++#define ROCE_QUERY_QP_RESP_OUTPUT_PARAMS_RESERVED0_MASK  0x7FFFFFFF
++#define ROCE_QUERY_QP_RESP_OUTPUT_PARAMS_RESERVED0_SHIFT 1
++};
++
++struct roce_query_qp_resp_ramrod_data {
++	struct regpair output_params_addr;
++};
++
++enum roce_ramrod_cmd_id {
++	ROCE_RAMROD_CREATE_QP = 11,
++	ROCE_RAMROD_MODIFY_QP,
++	ROCE_RAMROD_QUERY_QP,
++	ROCE_RAMROD_DESTROY_QP,
++	MAX_ROCE_RAMROD_CMD_ID
++};
++
++struct mstorm_roce_req_conn_ag_ctx {
++	u8 byte0;
++	u8 byte1;
++	u8 flags0;
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_BIT0_MASK     0x1
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_BIT0_SHIFT    0
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_BIT1_MASK     0x1
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_BIT1_SHIFT    1
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_CF0_MASK      0x3
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_CF0_SHIFT     2
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_CF1_MASK      0x3
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_CF1_SHIFT     4
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_CF2_MASK      0x3
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_CF2_SHIFT     6
++	u8 flags1;
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_CF0EN_MASK    0x1
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_CF0EN_SHIFT   0
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_CF1EN_MASK    0x1
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_CF1EN_SHIFT   1
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_CF2EN_MASK    0x1
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_CF2EN_SHIFT   2
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_RULE0EN_MASK  0x1
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_RULE0EN_SHIFT 3
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_RULE1EN_MASK  0x1
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_RULE1EN_SHIFT 4
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_RULE2EN_MASK  0x1
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_RULE2EN_SHIFT 5
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_RULE3EN_MASK  0x1
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_RULE3EN_SHIFT 6
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_RULE4EN_MASK  0x1
++#define MSTORM_ROCE_REQ_CONN_AG_CTX_RULE4EN_SHIFT 7
++	__le16 word0;
++	__le16 word1;
++	__le32 reg0;
++	__le32 reg1;
++};
++
++struct mstorm_roce_resp_conn_ag_ctx {
++	u8 byte0;
++	u8 byte1;
++	u8 flags0;
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_BIT0_MASK     0x1
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_BIT0_SHIFT    0
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_BIT1_MASK     0x1
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_BIT1_SHIFT    1
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_CF0_MASK      0x3
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_CF0_SHIFT     2
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_CF1_MASK      0x3
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_CF1_SHIFT     4
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_CF2_MASK      0x3
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_CF2_SHIFT     6
++	u8 flags1;
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_CF0EN_MASK    0x1
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_CF0EN_SHIFT   0
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_CF1EN_MASK    0x1
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_CF1EN_SHIFT   1
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_CF2EN_MASK    0x1
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_CF2EN_SHIFT   2
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_RULE0EN_MASK  0x1
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_RULE0EN_SHIFT 3
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_RULE1EN_MASK  0x1
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_RULE1EN_SHIFT 4
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_RULE2EN_MASK  0x1
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_RULE2EN_SHIFT 5
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_RULE3EN_MASK  0x1
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_RULE3EN_SHIFT 6
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_RULE4EN_MASK  0x1
++#define MSTORM_ROCE_RESP_CONN_AG_CTX_RULE4EN_SHIFT 7
++	__le16 word0;
++	__le16 word1;
++	__le32 reg0;
++	__le32 reg1;
++};
++
++enum roce_flavor {
++	PLAIN_ROCE /* RoCE v1 */ ,
++	RROCE_IPV4 /* RoCE v2 (Routable RoCE) over ipv4 */ ,
++	RROCE_IPV6 /* RoCE v2 (Routable RoCE) over ipv6 */ ,
++	MAX_ROCE_FLAVOR
++};
++
++struct tstorm_roce_req_conn_ag_ctx {
++	u8 reserved0;
++	u8 state;
++	u8 flags0;
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_EXIST_IN_QM0_MASK                0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_EXIST_IN_QM0_SHIFT               0
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RX_ERROR_OCCURED_MASK            0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RX_ERROR_OCCURED_SHIFT           1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TX_CQE_ERROR_OCCURED_MASK        0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TX_CQE_ERROR_OCCURED_SHIFT       2
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_BIT3_MASK                        0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_BIT3_SHIFT                       3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_MSTORM_FLUSH_MASK                0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_MSTORM_FLUSH_SHIFT               4
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_CACHED_ORQ_MASK                  0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_CACHED_ORQ_SHIFT                 5
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TIMER_CF_MASK                    0x3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TIMER_CF_SHIFT                   6
++	u8 flags1;
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_CF1_MASK                         0x3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_CF1_SHIFT                        0
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_FLUSH_SQ_CF_MASK                 0x3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_FLUSH_SQ_CF_SHIFT                2
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TIMER_STOP_ALL_CF_MASK           0x3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TIMER_STOP_ALL_CF_SHIFT          4
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_FLUSH_Q0_CF_MASK                 0x3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_FLUSH_Q0_CF_SHIFT                6
++	u8 flags2;
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_MSTORM_FLUSH_CF_MASK             0x3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_MSTORM_FLUSH_CF_SHIFT            0
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_SET_TIMER_CF_MASK                0x3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_SET_TIMER_CF_SHIFT               2
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TX_ASYNC_ERROR_CF_MASK           0x3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TX_ASYNC_ERROR_CF_SHIFT          4
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RXMIT_DONE_CF_MASK               0x3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RXMIT_DONE_CF_SHIFT              6
++	u8 flags3;
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_ERROR_SCAN_COMPLETED_CF_MASK     0x3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_ERROR_SCAN_COMPLETED_CF_SHIFT    0
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_SQ_DRAIN_COMPLETED_CF_MASK       0x3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_SQ_DRAIN_COMPLETED_CF_SHIFT      2
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TIMER_CF_EN_MASK                 0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TIMER_CF_EN_SHIFT                4
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_CF1EN_MASK                       0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_CF1EN_SHIFT                      5
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_FLUSH_SQ_CF_EN_MASK              0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_FLUSH_SQ_CF_EN_SHIFT             6
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TIMER_STOP_ALL_CF_EN_MASK        0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TIMER_STOP_ALL_CF_EN_SHIFT       7
++	u8 flags4;
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_FLUSH_Q0_CF_EN_MASK              0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_FLUSH_Q0_CF_EN_SHIFT             0
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_MSTORM_FLUSH_CF_EN_MASK          0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_MSTORM_FLUSH_CF_EN_SHIFT         1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_SET_TIMER_CF_EN_MASK             0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_SET_TIMER_CF_EN_SHIFT            2
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TX_ASYNC_ERROR_CF_EN_MASK        0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_TX_ASYNC_ERROR_CF_EN_SHIFT       3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RXMIT_DONE_CF_EN_MASK            0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RXMIT_DONE_CF_EN_SHIFT           4
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_ERROR_SCAN_COMPLETED_CF_EN_MASK  0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_ERROR_SCAN_COMPLETED_CF_EN_SHIFT 5
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_SQ_DRAIN_COMPLETED_CF_EN_MASK    0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_SQ_DRAIN_COMPLETED_CF_EN_SHIFT   6
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE0EN_MASK                     0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE0EN_SHIFT                    7
++	u8 flags5;
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE1EN_MASK                     0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE1EN_SHIFT                    0
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE2EN_MASK                     0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE2EN_SHIFT                    1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE3EN_MASK                     0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE3EN_SHIFT                    2
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE4EN_MASK                     0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE4EN_SHIFT                    3
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE5EN_MASK                     0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE5EN_SHIFT                    4
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_SND_SQ_CONS_EN_MASK              0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_SND_SQ_CONS_EN_SHIFT             5
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE7EN_MASK                     0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE7EN_SHIFT                    6
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE8EN_MASK                     0x1
++#define TSTORM_ROCE_REQ_CONN_AG_CTX_RULE8EN_SHIFT                    7
++	__le32 reg0;
++	__le32 snd_nxt_psn;
++	__le32 snd_max_psn;
++	__le32 orq_prod;
++	__le32 reg4;
++	__le32 reg5;
++	__le32 reg6;
++	__le32 reg7;
++	__le32 reg8;
++	u8 tx_cqe_error_type;
++	u8 orq_cache_idx;
++	__le16 snd_sq_cons_th;
++	u8 byte4;
++	u8 byte5;
++	__le16 snd_sq_cons;
++	__le16 word2;
++	__le16 word3;
++	__le32 reg9;
++	__le32 reg10;
++};
++
++struct tstorm_roce_resp_conn_ag_ctx {
++	u8 byte0;
++	u8 state;
++	u8 flags0;
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_EXIST_IN_QM0_MASK        0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_EXIST_IN_QM0_SHIFT       0
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_BIT1_MASK                0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_BIT1_SHIFT               1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_BIT2_MASK                0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_BIT2_SHIFT               2
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_BIT3_MASK                0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_BIT3_SHIFT               3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_MSTORM_FLUSH_MASK        0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_MSTORM_FLUSH_SHIFT       4
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_BIT5_MASK                0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_BIT5_SHIFT               5
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF0_MASK                 0x3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF0_SHIFT                6
++	u8 flags1;
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RX_ERROR_CF_MASK         0x3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RX_ERROR_CF_SHIFT        0
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_TX_ERROR_CF_MASK         0x3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_TX_ERROR_CF_SHIFT        2
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF3_MASK                 0x3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF3_SHIFT                4
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_FLUSH_Q0_CF_MASK         0x3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_FLUSH_Q0_CF_SHIFT        6
++	u8 flags2;
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_MSTORM_FLUSH_CF_MASK     0x3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_MSTORM_FLUSH_CF_SHIFT    0
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF6_MASK                 0x3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF6_SHIFT                2
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF7_MASK                 0x3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF7_SHIFT                4
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF8_MASK                 0x3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF8_SHIFT                6
++	u8 flags3;
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF9_MASK                 0x3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF9_SHIFT                0
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF10_MASK                0x3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF10_SHIFT               2
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF0EN_MASK               0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF0EN_SHIFT              4
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RX_ERROR_CF_EN_MASK      0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RX_ERROR_CF_EN_SHIFT     5
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_TX_ERROR_CF_EN_MASK      0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_TX_ERROR_CF_EN_SHIFT     6
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF3EN_MASK               0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF3EN_SHIFT              7
++	u8 flags4;
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_FLUSH_Q0_CF_EN_MASK      0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_FLUSH_Q0_CF_EN_SHIFT     0
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_MSTORM_FLUSH_CF_EN_MASK  0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_MSTORM_FLUSH_CF_EN_SHIFT 1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF6EN_MASK               0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF6EN_SHIFT              2
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF7EN_MASK               0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF7EN_SHIFT              3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF8EN_MASK               0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF8EN_SHIFT              4
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF9EN_MASK               0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF9EN_SHIFT              5
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF10EN_MASK              0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_CF10EN_SHIFT             6
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE0EN_MASK             0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE0EN_SHIFT            7
++	u8 flags5;
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE1EN_MASK             0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE1EN_SHIFT            0
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE2EN_MASK             0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE2EN_SHIFT            1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE3EN_MASK             0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE3EN_SHIFT            2
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE4EN_MASK             0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE4EN_SHIFT            3
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE5EN_MASK             0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE5EN_SHIFT            4
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RQ_RULE_EN_MASK          0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RQ_RULE_EN_SHIFT         5
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE7EN_MASK             0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE7EN_SHIFT            6
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE8EN_MASK             0x1
++#define TSTORM_ROCE_RESP_CONN_AG_CTX_RULE8EN_SHIFT            7
++	__le32 psn_and_rxmit_id_echo;
++	__le32 reg1;
++	__le32 reg2;
++	__le32 reg3;
++	__le32 reg4;
++	__le32 reg5;
++	__le32 reg6;
++	__le32 reg7;
++	__le32 reg8;
++	u8 tx_async_error_type;
++	u8 byte3;
++	__le16 rq_cons;
++	u8 byte4;
++	u8 byte5;
++	__le16 rq_prod;
++	__le16 conn_dpi;
++	__le16 irq_cons;
++	__le32 num_invlidated_mw;
++	__le32 reg10;
++};
++
++struct ustorm_roce_req_conn_ag_ctx {
++	u8 byte0;
++	u8 byte1;
++	u8 flags0;
++#define USTORM_ROCE_REQ_CONN_AG_CTX_BIT0_MASK     0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_BIT0_SHIFT    0
++#define USTORM_ROCE_REQ_CONN_AG_CTX_BIT1_MASK     0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_BIT1_SHIFT    1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF0_MASK      0x3
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF0_SHIFT     2
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF1_MASK      0x3
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF1_SHIFT     4
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF2_MASK      0x3
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF2_SHIFT     6
++	u8 flags1;
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF3_MASK      0x3
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF3_SHIFT     0
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF4_MASK      0x3
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF4_SHIFT     2
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF5_MASK      0x3
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF5_SHIFT     4
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF6_MASK      0x3
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF6_SHIFT     6
++	u8 flags2;
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF0EN_MASK    0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF0EN_SHIFT   0
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF1EN_MASK    0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF1EN_SHIFT   1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF2EN_MASK    0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF2EN_SHIFT   2
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF3EN_MASK    0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF3EN_SHIFT   3
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF4EN_MASK    0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF4EN_SHIFT   4
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF5EN_MASK    0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF5EN_SHIFT   5
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF6EN_MASK    0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_CF6EN_SHIFT   6
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE0EN_MASK  0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE0EN_SHIFT 7
++	u8 flags3;
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE1EN_MASK  0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE1EN_SHIFT 0
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE2EN_MASK  0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE2EN_SHIFT 1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE3EN_MASK  0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE3EN_SHIFT 2
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE4EN_MASK  0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE4EN_SHIFT 3
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE5EN_MASK  0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE5EN_SHIFT 4
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE6EN_MASK  0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE6EN_SHIFT 5
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE7EN_MASK  0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE7EN_SHIFT 6
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE8EN_MASK  0x1
++#define USTORM_ROCE_REQ_CONN_AG_CTX_RULE8EN_SHIFT 7
++	u8 byte2;
++	u8 byte3;
++	__le16 word0;
++	__le16 word1;
++	__le32 reg0;
++	__le32 reg1;
++	__le32 reg2;
++	__le32 reg3;
++	__le16 word2;
++	__le16 word3;
++};
++
++struct ustorm_roce_resp_conn_ag_ctx {
++	u8 byte0;
++	u8 byte1;
++	u8 flags0;
++#define USTORM_ROCE_RESP_CONN_AG_CTX_BIT0_MASK     0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_BIT0_SHIFT    0
++#define USTORM_ROCE_RESP_CONN_AG_CTX_BIT1_MASK     0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_BIT1_SHIFT    1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF0_MASK      0x3
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF0_SHIFT     2
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF1_MASK      0x3
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF1_SHIFT     4
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF2_MASK      0x3
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF2_SHIFT     6
++	u8 flags1;
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF3_MASK      0x3
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF3_SHIFT     0
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF4_MASK      0x3
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF4_SHIFT     2
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF5_MASK      0x3
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF5_SHIFT     4
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF6_MASK      0x3
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF6_SHIFT     6
++	u8 flags2;
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF0EN_MASK    0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF0EN_SHIFT   0
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF1EN_MASK    0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF1EN_SHIFT   1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF2EN_MASK    0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF2EN_SHIFT   2
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF3EN_MASK    0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF3EN_SHIFT   3
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF4EN_MASK    0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF4EN_SHIFT   4
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF5EN_MASK    0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF5EN_SHIFT   5
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF6EN_MASK    0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_CF6EN_SHIFT   6
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE0EN_MASK  0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE0EN_SHIFT 7
++	u8 flags3;
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE1EN_MASK  0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE1EN_SHIFT 0
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE2EN_MASK  0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE2EN_SHIFT 1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE3EN_MASK  0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE3EN_SHIFT 2
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE4EN_MASK  0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE4EN_SHIFT 3
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE5EN_MASK  0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE5EN_SHIFT 4
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE6EN_MASK  0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE6EN_SHIFT 5
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE7EN_MASK  0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE7EN_SHIFT 6
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE8EN_MASK  0x1
++#define USTORM_ROCE_RESP_CONN_AG_CTX_RULE8EN_SHIFT 7
++	u8 byte2;
++	u8 byte3;
++	__le16 word0;
++	__le16 word1;
++	__le32 reg0;
++	__le32 reg1;
++	__le32 reg2;
++	__le32 reg3;
++	__le16 word2;
++	__le16 word3;
++};
++
++struct xstorm_roce_req_conn_ag_ctx {
++	u8 reserved0;
++	u8 state;
++	u8 flags0;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_EXIST_IN_QM0_MASK        0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_EXIST_IN_QM0_SHIFT       0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED1_MASK           0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED1_SHIFT          1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED2_MASK           0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED2_SHIFT          2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_EXIST_IN_QM3_MASK        0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_EXIST_IN_QM3_SHIFT       3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED3_MASK           0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED3_SHIFT          4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED4_MASK           0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED4_SHIFT          5
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED5_MASK           0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED5_SHIFT          6
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED6_MASK           0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED6_SHIFT          7
++	u8 flags1;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED7_MASK           0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED7_SHIFT          0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED8_MASK           0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED8_SHIFT          1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_BIT10_MASK               0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_BIT10_SHIFT              2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_BIT11_MASK               0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_BIT11_SHIFT              3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_BIT12_MASK               0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_BIT12_SHIFT              4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_BIT13_MASK               0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_BIT13_SHIFT              5
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_ERROR_STATE_MASK         0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_ERROR_STATE_SHIFT        6
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_YSTORM_FLUSH_MASK        0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_YSTORM_FLUSH_SHIFT       7
++	u8 flags2;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF0_MASK                 0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF0_SHIFT                0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF1_MASK                 0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF1_SHIFT                2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF2_MASK                 0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF2_SHIFT                4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF3_MASK                 0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF3_SHIFT                6
++	u8 flags3;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SQ_FLUSH_CF_MASK         0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SQ_FLUSH_CF_SHIFT        0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RX_ERROR_CF_MASK         0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RX_ERROR_CF_SHIFT        2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SND_RXMIT_CF_MASK        0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SND_RXMIT_CF_SHIFT       4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_FLUSH_Q0_CF_MASK         0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_FLUSH_Q0_CF_SHIFT        6
++	u8 flags4;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF8_MASK                 0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF8_SHIFT                0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF9_MASK                 0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF9_SHIFT                2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF10_MASK                0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF10_SHIFT               4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF11_MASK                0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF11_SHIFT               6
++	u8 flags5;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF12_MASK                0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF12_SHIFT               0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF13_MASK                0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF13_SHIFT               2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_FMR_ENDED_CF_MASK        0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_FMR_ENDED_CF_SHIFT       4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF15_MASK                0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF15_SHIFT               6
++	u8 flags6;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF16_MASK                0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF16_SHIFT               0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF17_MASK                0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF17_SHIFT               2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF18_MASK                0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF18_SHIFT               4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF19_MASK                0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF19_SHIFT               6
++	u8 flags7;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF20_MASK                0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF20_SHIFT               0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF21_MASK                0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF21_SHIFT               2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SLOW_PATH_MASK           0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SLOW_PATH_SHIFT          4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF0EN_MASK               0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF0EN_SHIFT              6
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF1EN_MASK               0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF1EN_SHIFT              7
++	u8 flags8;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF2EN_MASK               0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF2EN_SHIFT              0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF3EN_MASK               0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF3EN_SHIFT              1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SQ_FLUSH_CF_EN_MASK      0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SQ_FLUSH_CF_EN_SHIFT     2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RX_ERROR_CF_EN_MASK      0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RX_ERROR_CF_EN_SHIFT     3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SND_RXMIT_CF_EN_MASK     0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SND_RXMIT_CF_EN_SHIFT    4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_FLUSH_Q0_CF_EN_MASK      0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_FLUSH_Q0_CF_EN_SHIFT     5
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF8EN_MASK               0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF8EN_SHIFT              6
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF9EN_MASK               0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF9EN_SHIFT              7
++	u8 flags9;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF10EN_MASK              0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF10EN_SHIFT             0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF11EN_MASK              0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF11EN_SHIFT             1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF12EN_MASK              0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF12EN_SHIFT             2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF13EN_MASK              0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF13EN_SHIFT             3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_FME_ENDED_CF_EN_MASK     0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_FME_ENDED_CF_EN_SHIFT    4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF15EN_MASK              0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF15EN_SHIFT             5
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF16EN_MASK              0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF16EN_SHIFT             6
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF17EN_MASK              0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF17EN_SHIFT             7
++	u8 flags10;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF18EN_MASK              0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF18EN_SHIFT             0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF19EN_MASK              0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF19EN_SHIFT             1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF20EN_MASK              0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF20EN_SHIFT             2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF21EN_MASK              0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF21EN_SHIFT             3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SLOW_PATH_EN_MASK        0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SLOW_PATH_EN_SHIFT       4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF23EN_MASK              0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF23EN_SHIFT             5
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE0EN_MASK             0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE0EN_SHIFT            6
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE1EN_MASK             0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE1EN_SHIFT            7
++	u8 flags11;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE2EN_MASK             0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE2EN_SHIFT            0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE3EN_MASK             0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE3EN_SHIFT            1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE4EN_MASK             0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE4EN_SHIFT            2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE5EN_MASK             0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE5EN_SHIFT            3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE6EN_MASK             0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE6EN_SHIFT            4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_E2E_CREDIT_RULE_EN_MASK  0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_E2E_CREDIT_RULE_EN_SHIFT 5
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED1_MASK        0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED1_SHIFT       6
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE9EN_MASK             0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE9EN_SHIFT            7
++	u8 flags12;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SQ_PROD_EN_MASK          0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_SQ_PROD_EN_SHIFT         0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE11EN_MASK            0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE11EN_SHIFT           1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED2_MASK        0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED2_SHIFT       2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED3_MASK        0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED3_SHIFT       3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_INV_FENCE_RULE_EN_MASK   0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_INV_FENCE_RULE_EN_SHIFT  4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE15EN_MASK            0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE15EN_SHIFT           5
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_ORQ_FENCE_RULE_EN_MASK   0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_ORQ_FENCE_RULE_EN_SHIFT  6
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_MAX_ORD_RULE_EN_MASK     0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_MAX_ORD_RULE_EN_SHIFT    7
++	u8 flags13;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE18EN_MASK            0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE18EN_SHIFT           0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE19EN_MASK            0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RULE19EN_SHIFT           1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED4_MASK        0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED4_SHIFT       2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED5_MASK        0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED5_SHIFT       3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED6_MASK        0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED6_SHIFT       4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED7_MASK        0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED7_SHIFT       5
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED8_MASK        0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED8_SHIFT       6
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED9_MASK        0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_A0_RESERVED9_SHIFT       7
++	u8 flags14;
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_MIGRATION_FLAG_MASK      0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_MIGRATION_FLAG_SHIFT     0
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_BIT17_MASK               0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_BIT17_SHIFT              1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_DPM_PORT_NUM_MASK        0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_DPM_PORT_NUM_SHIFT       2
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED_MASK            0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_RESERVED_SHIFT           4
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_ROCE_EDPM_ENABLE_MASK    0x1
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_ROCE_EDPM_ENABLE_SHIFT   5
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF23_MASK                0x3
++#define XSTORM_ROCE_REQ_CONN_AG_CTX_CF23_SHIFT               6
++	u8 byte2;
++	__le16 physical_q0;
++	__le16 word1;
++	__le16 sq_cmp_cons;
++	__le16 sq_cons;
++	__le16 sq_prod;
++	__le16 word5;
++	__le16 conn_dpi;
++	u8 byte3;
++	u8 byte4;
++	u8 byte5;
++	u8 byte6;
++	__le32 lsn;
++	__le32 ssn;
++	__le32 snd_una_psn;
++	__le32 snd_nxt_psn;
++	__le32 reg4;
++	__le32 orq_cons_th;
++	__le32 orq_cons;
++};
++
++struct xstorm_roce_resp_conn_ag_ctx {
++	u8 reserved0;
++	u8 state;
++	u8 flags0;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_EXIST_IN_QM0_MASK      0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_EXIST_IN_QM0_SHIFT     0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED1_MASK         0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED1_SHIFT        1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED2_MASK         0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED2_SHIFT        2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_EXIST_IN_QM3_MASK      0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_EXIST_IN_QM3_SHIFT     3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED3_MASK         0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED3_SHIFT        4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED4_MASK         0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED4_SHIFT        5
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED5_MASK         0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED5_SHIFT        6
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED6_MASK         0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED6_SHIFT        7
++	u8 flags1;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED7_MASK         0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED7_SHIFT        0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED8_MASK         0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RESERVED8_SHIFT        1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT10_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT10_SHIFT            2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT11_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT11_SHIFT            3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT12_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT12_SHIFT            4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT13_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT13_SHIFT            5
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_ERROR_STATE_MASK       0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_ERROR_STATE_SHIFT      6
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_YSTORM_FLUSH_MASK      0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_YSTORM_FLUSH_SHIFT     7
++	u8 flags2;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF0_MASK               0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF0_SHIFT              0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF1_MASK               0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF1_SHIFT              2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF2_MASK               0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF2_SHIFT              4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF3_MASK               0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF3_SHIFT              6
++	u8 flags3;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RXMIT_CF_MASK          0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RXMIT_CF_SHIFT         0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RX_ERROR_CF_MASK       0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RX_ERROR_CF_SHIFT      2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_FORCE_ACK_CF_MASK      0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_FORCE_ACK_CF_SHIFT     4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_FLUSH_Q0_CF_MASK       0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_FLUSH_Q0_CF_SHIFT      6
++	u8 flags4;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF8_MASK               0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF8_SHIFT              0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF9_MASK               0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF9_SHIFT              2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF10_MASK              0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF10_SHIFT             4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF11_MASK              0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF11_SHIFT             6
++	u8 flags5;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF12_MASK              0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF12_SHIFT             0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF13_MASK              0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF13_SHIFT             2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF14_MASK              0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF14_SHIFT             4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF15_MASK              0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF15_SHIFT             6
++	u8 flags6;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF16_MASK              0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF16_SHIFT             0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF17_MASK              0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF17_SHIFT             2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF18_MASK              0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF18_SHIFT             4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF19_MASK              0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF19_SHIFT             6
++	u8 flags7;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF20_MASK              0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF20_SHIFT             0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF21_MASK              0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF21_SHIFT             2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_SLOW_PATH_MASK         0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_SLOW_PATH_SHIFT        4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF0EN_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF0EN_SHIFT            6
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF1EN_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF1EN_SHIFT            7
++	u8 flags8;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF2EN_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF2EN_SHIFT            0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF3EN_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF3EN_SHIFT            1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RXMIT_CF_EN_MASK       0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RXMIT_CF_EN_SHIFT      2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RX_ERROR_CF_EN_MASK    0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RX_ERROR_CF_EN_SHIFT   3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_FORCE_ACK_CF_EN_MASK   0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_FORCE_ACK_CF_EN_SHIFT  4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_FLUSH_Q0_CF_EN_MASK    0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_FLUSH_Q0_CF_EN_SHIFT   5
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF8EN_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF8EN_SHIFT            6
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF9EN_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF9EN_SHIFT            7
++	u8 flags9;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF10EN_MASK            0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF10EN_SHIFT           0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF11EN_MASK            0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF11EN_SHIFT           1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF12EN_MASK            0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF12EN_SHIFT           2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF13EN_MASK            0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF13EN_SHIFT           3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF14EN_MASK            0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF14EN_SHIFT           4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF15EN_MASK            0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF15EN_SHIFT           5
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF16EN_MASK            0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF16EN_SHIFT           6
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF17EN_MASK            0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF17EN_SHIFT           7
++	u8 flags10;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF18EN_MASK            0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF18EN_SHIFT           0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF19EN_MASK            0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF19EN_SHIFT           1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF20EN_MASK            0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF20EN_SHIFT           2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF21EN_MASK            0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF21EN_SHIFT           3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_SLOW_PATH_EN_MASK      0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_SLOW_PATH_EN_SHIFT     4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF23EN_MASK            0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF23EN_SHIFT           5
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE0EN_MASK           0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE0EN_SHIFT          6
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE1EN_MASK           0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE1EN_SHIFT          7
++	u8 flags11;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE2EN_MASK           0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE2EN_SHIFT          0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE3EN_MASK           0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE3EN_SHIFT          1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE4EN_MASK           0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE4EN_SHIFT          2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE5EN_MASK           0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE5EN_SHIFT          3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE6EN_MASK           0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE6EN_SHIFT          4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE7EN_MASK           0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE7EN_SHIFT          5
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED1_MASK      0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED1_SHIFT     6
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE9EN_MASK           0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE9EN_SHIFT          7
++	u8 flags12;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE10EN_MASK          0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE10EN_SHIFT         0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_IRQ_PROD_RULE_EN_MASK  0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_IRQ_PROD_RULE_EN_SHIFT 1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED2_MASK      0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED2_SHIFT     2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED3_MASK      0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED3_SHIFT     3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE14EN_MASK          0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE14EN_SHIFT         4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE15EN_MASK          0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE15EN_SHIFT         5
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE16EN_MASK          0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE16EN_SHIFT         6
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE17EN_MASK          0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE17EN_SHIFT         7
++	u8 flags13;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE18EN_MASK          0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE18EN_SHIFT         0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE19EN_MASK          0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_RULE19EN_SHIFT         1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED4_MASK      0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED4_SHIFT     2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED5_MASK      0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED5_SHIFT     3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED6_MASK      0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED6_SHIFT     4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED7_MASK      0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED7_SHIFT     5
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED8_MASK      0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED8_SHIFT     6
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED9_MASK      0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_A0_RESERVED9_SHIFT     7
++	u8 flags14;
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT16_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT16_SHIFT            0
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT17_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT17_SHIFT            1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT18_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT18_SHIFT            2
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT19_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT19_SHIFT            3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT20_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT20_SHIFT            4
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT21_MASK             0x1
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_BIT21_SHIFT            5
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF23_MASK              0x3
++#define XSTORM_ROCE_RESP_CONN_AG_CTX_CF23_SHIFT             6
++	u8 byte2;
++	__le16 physical_q0;
++	__le16 word1;
++	__le16 irq_prod;
++	__le16 word3;
++	__le16 word4;
++	__le16 word5;
++	__le16 irq_cons;
++	u8 rxmit_opcode;
++	u8 byte4;
++	u8 byte5;
++	u8 byte6;
++	__le32 rxmit_psn_and_id;
++	__le32 rxmit_bytes_length;
++	__le32 psn;
++	__le32 reg3;
++	__le32 reg4;
++	__le32 reg5;
++	__le32 msn_and_syndrome;
++};
++
++struct ystorm_roce_req_conn_ag_ctx {
++	u8 byte0;
++	u8 byte1;
++	u8 flags0;
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_BIT0_MASK     0x1
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_BIT0_SHIFT    0
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_BIT1_MASK     0x1
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_BIT1_SHIFT    1
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_CF0_MASK      0x3
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_CF0_SHIFT     2
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_CF1_MASK      0x3
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_CF1_SHIFT     4
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_CF2_MASK      0x3
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_CF2_SHIFT     6
++	u8 flags1;
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_CF0EN_MASK    0x1
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_CF0EN_SHIFT   0
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_CF1EN_MASK    0x1
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_CF1EN_SHIFT   1
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_CF2EN_MASK    0x1
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_CF2EN_SHIFT   2
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_RULE0EN_MASK  0x1
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_RULE0EN_SHIFT 3
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_RULE1EN_MASK  0x1
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_RULE1EN_SHIFT 4
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_RULE2EN_MASK  0x1
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_RULE2EN_SHIFT 5
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_RULE3EN_MASK  0x1
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_RULE3EN_SHIFT 6
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_RULE4EN_MASK  0x1
++#define YSTORM_ROCE_REQ_CONN_AG_CTX_RULE4EN_SHIFT 7
++	u8 byte2;
++	u8 byte3;
++	__le16 word0;
++	__le32 reg0;
++	__le32 reg1;
++	__le16 word1;
++	__le16 word2;
++	__le16 word3;
++	__le16 word4;
++	__le32 reg2;
++	__le32 reg3;
++};
++
++struct ystorm_roce_resp_conn_ag_ctx {
++	u8 byte0;
++	u8 byte1;
++	u8 flags0;
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_BIT0_MASK     0x1
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_BIT0_SHIFT    0
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_BIT1_MASK     0x1
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_BIT1_SHIFT    1
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_CF0_MASK      0x3
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_CF0_SHIFT     2
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_CF1_MASK      0x3
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_CF1_SHIFT     4
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_CF2_MASK      0x3
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_CF2_SHIFT     6
++	u8 flags1;
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_CF0EN_MASK    0x1
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_CF0EN_SHIFT   0
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_CF1EN_MASK    0x1
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_CF1EN_SHIFT   1
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_CF2EN_MASK    0x1
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_CF2EN_SHIFT   2
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_RULE0EN_MASK  0x1
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_RULE0EN_SHIFT 3
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_RULE1EN_MASK  0x1
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_RULE1EN_SHIFT 4
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_RULE2EN_MASK  0x1
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_RULE2EN_SHIFT 5
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_RULE3EN_MASK  0x1
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_RULE3EN_SHIFT 6
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_RULE4EN_MASK  0x1
++#define YSTORM_ROCE_RESP_CONN_AG_CTX_RULE4EN_SHIFT 7
++	u8 byte2;
++	u8 byte3;
++	__le16 word0;
++	__le32 reg0;
++	__le32 reg1;
++	__le16 word1;
++	__le16 word2;
++	__le16 word3;
++	__le16 word4;
++	__le32 reg2;
++	__le32 reg3;
++};
++
++struct ystorm_iscsi_conn_st_ctx {
++	__le32 reserved[4];
++};
++
++struct pstorm_iscsi_tcp_conn_st_ctx {
++	__le32 tcp[32];
++	__le32 iscsi[4];
++};
++
++struct xstorm_iscsi_tcp_conn_st_ctx {
++	__le32 reserved_iscsi[40];
++	__le32 reserved_tcp[4];
++};
++
++struct xstorm_iscsi_conn_ag_ctx {
++	u8 cdu_validation;
++	u8 state;
++	u8 flags0;
++#define XSTORM_ISCSI_CONN_AG_CTX_EXIST_IN_QM0_MASK                0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_EXIST_IN_QM0_SHIFT               0
++#define XSTORM_ISCSI_CONN_AG_CTX_EXIST_IN_QM1_MASK                0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_EXIST_IN_QM1_SHIFT               1
++#define XSTORM_ISCSI_CONN_AG_CTX_RESERVED1_MASK                   0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RESERVED1_SHIFT                  2
++#define XSTORM_ISCSI_CONN_AG_CTX_EXIST_IN_QM3_MASK                0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_EXIST_IN_QM3_SHIFT               3
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT4_MASK                        0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT4_SHIFT                       4
++#define XSTORM_ISCSI_CONN_AG_CTX_RESERVED2_MASK                   0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RESERVED2_SHIFT                  5
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT6_MASK                        0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT6_SHIFT                       6
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT7_MASK                        0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT7_SHIFT                       7
++	u8 flags1;
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT8_MASK                        0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT8_SHIFT                       0
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT9_MASK                        0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT9_SHIFT                       1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT10_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT10_SHIFT                      2
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT11_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT11_SHIFT                      3
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT12_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT12_SHIFT                      4
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT13_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT13_SHIFT                      5
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT14_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT14_SHIFT                      6
++#define XSTORM_ISCSI_CONN_AG_CTX_TX_TRUNCATE_MASK                 0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_TX_TRUNCATE_SHIFT                7
++	u8 flags2;
++#define XSTORM_ISCSI_CONN_AG_CTX_CF0_MASK                         0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF0_SHIFT                        0
++#define XSTORM_ISCSI_CONN_AG_CTX_CF1_MASK                         0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF1_SHIFT                        2
++#define XSTORM_ISCSI_CONN_AG_CTX_CF2_MASK                         0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF2_SHIFT                        4
++#define XSTORM_ISCSI_CONN_AG_CTX_TIMER_STOP_ALL_MASK              0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_TIMER_STOP_ALL_SHIFT             6
++	u8 flags3;
++#define XSTORM_ISCSI_CONN_AG_CTX_CF4_MASK                         0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF4_SHIFT                        0
++#define XSTORM_ISCSI_CONN_AG_CTX_CF5_MASK                         0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF5_SHIFT                        2
++#define XSTORM_ISCSI_CONN_AG_CTX_CF6_MASK                         0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF6_SHIFT                        4
++#define XSTORM_ISCSI_CONN_AG_CTX_CF7_MASK                         0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF7_SHIFT                        6
++	u8 flags4;
++#define XSTORM_ISCSI_CONN_AG_CTX_CF8_MASK                         0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF8_SHIFT                        0
++#define XSTORM_ISCSI_CONN_AG_CTX_CF9_MASK                         0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF9_SHIFT                        2
++#define XSTORM_ISCSI_CONN_AG_CTX_CF10_MASK                        0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF10_SHIFT                       4
++#define XSTORM_ISCSI_CONN_AG_CTX_CF11_MASK                        0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF11_SHIFT                       6
++	u8 flags5;
++#define XSTORM_ISCSI_CONN_AG_CTX_CF12_MASK                        0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF12_SHIFT                       0
++#define XSTORM_ISCSI_CONN_AG_CTX_CF13_MASK                        0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF13_SHIFT                       2
++#define XSTORM_ISCSI_CONN_AG_CTX_CF14_MASK                        0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF14_SHIFT                       4
++#define XSTORM_ISCSI_CONN_AG_CTX_UPDATE_STATE_TO_BASE_CF_MASK     0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_UPDATE_STATE_TO_BASE_CF_SHIFT    6
++	u8 flags6;
++#define XSTORM_ISCSI_CONN_AG_CTX_CF16_MASK                        0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF16_SHIFT                       0
++#define XSTORM_ISCSI_CONN_AG_CTX_CF17_MASK                        0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF17_SHIFT                       2
++#define XSTORM_ISCSI_CONN_AG_CTX_CF18_MASK                        0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF18_SHIFT                       4
++#define XSTORM_ISCSI_CONN_AG_CTX_DQ_FLUSH_MASK                    0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_DQ_FLUSH_SHIFT                   6
++	u8 flags7;
++#define XSTORM_ISCSI_CONN_AG_CTX_FLUSH_Q0_MASK                    0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_FLUSH_Q0_SHIFT                   0
++#define XSTORM_ISCSI_CONN_AG_CTX_FLUSH_Q1_MASK                    0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_FLUSH_Q1_SHIFT                   2
++#define XSTORM_ISCSI_CONN_AG_CTX_SLOW_PATH_MASK                   0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_SLOW_PATH_SHIFT                  4
++#define XSTORM_ISCSI_CONN_AG_CTX_CF0EN_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF0EN_SHIFT                      6
++#define XSTORM_ISCSI_CONN_AG_CTX_CF1EN_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF1EN_SHIFT                      7
++	u8 flags8;
++#define XSTORM_ISCSI_CONN_AG_CTX_CF2EN_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF2EN_SHIFT                      0
++#define XSTORM_ISCSI_CONN_AG_CTX_TIMER_STOP_ALL_EN_MASK           0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_TIMER_STOP_ALL_EN_SHIFT          1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF4EN_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF4EN_SHIFT                      2
++#define XSTORM_ISCSI_CONN_AG_CTX_CF5EN_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF5EN_SHIFT                      3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF6EN_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF6EN_SHIFT                      4
++#define XSTORM_ISCSI_CONN_AG_CTX_CF7EN_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF7EN_SHIFT                      5
++#define XSTORM_ISCSI_CONN_AG_CTX_CF8EN_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF8EN_SHIFT                      6
++#define XSTORM_ISCSI_CONN_AG_CTX_CF9EN_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF9EN_SHIFT                      7
++	u8 flags9;
++#define XSTORM_ISCSI_CONN_AG_CTX_CF10EN_MASK                      0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF10EN_SHIFT                     0
++#define XSTORM_ISCSI_CONN_AG_CTX_CF11EN_MASK                      0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF11EN_SHIFT                     1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF12EN_MASK                      0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF12EN_SHIFT                     2
++#define XSTORM_ISCSI_CONN_AG_CTX_CF13EN_MASK                      0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF13EN_SHIFT                     3
++#define XSTORM_ISCSI_CONN_AG_CTX_CF14EN_MASK                      0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF14EN_SHIFT                     4
++#define XSTORM_ISCSI_CONN_AG_CTX_UPDATE_STATE_TO_BASE_CF_EN_MASK  0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_UPDATE_STATE_TO_BASE_CF_EN_SHIFT 5
++#define XSTORM_ISCSI_CONN_AG_CTX_CF16EN_MASK                      0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF16EN_SHIFT                     6
++#define XSTORM_ISCSI_CONN_AG_CTX_CF17EN_MASK                      0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF17EN_SHIFT                     7
++	u8 flags10;
++#define XSTORM_ISCSI_CONN_AG_CTX_CF18EN_MASK                      0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_CF18EN_SHIFT                     0
++#define XSTORM_ISCSI_CONN_AG_CTX_DQ_FLUSH_EN_MASK                 0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_DQ_FLUSH_EN_SHIFT                1
++#define XSTORM_ISCSI_CONN_AG_CTX_FLUSH_Q0_EN_MASK                 0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_FLUSH_Q0_EN_SHIFT                2
++#define XSTORM_ISCSI_CONN_AG_CTX_FLUSH_Q1_EN_MASK                 0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_FLUSH_Q1_EN_SHIFT                3
++#define XSTORM_ISCSI_CONN_AG_CTX_SLOW_PATH_EN_MASK                0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_SLOW_PATH_EN_SHIFT               4
++#define XSTORM_ISCSI_CONN_AG_CTX_PROC_ONLY_CLEANUP_EN_MASK        0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_PROC_ONLY_CLEANUP_EN_SHIFT       5
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE0EN_MASK                     0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE0EN_SHIFT                    6
++#define XSTORM_ISCSI_CONN_AG_CTX_MORE_TO_SEND_DEC_RULE_EN_MASK    0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_MORE_TO_SEND_DEC_RULE_EN_SHIFT   7
++	u8 flags11;
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE2EN_MASK                     0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE2EN_SHIFT                    0
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE3EN_MASK                     0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE3EN_SHIFT                    1
++#define XSTORM_ISCSI_CONN_AG_CTX_RESERVED3_MASK                   0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RESERVED3_SHIFT                  2
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE5EN_MASK                     0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE5EN_SHIFT                    3
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE6EN_MASK                     0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE6EN_SHIFT                    4
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE7EN_MASK                     0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE7EN_SHIFT                    5
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED1_MASK                0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED1_SHIFT               6
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE9EN_MASK                     0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE9EN_SHIFT                    7
++	u8 flags12;
++#define XSTORM_ISCSI_CONN_AG_CTX_SQ_DEC_RULE_EN_MASK              0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_SQ_DEC_RULE_EN_SHIFT             0
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE11EN_MASK                    0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE11EN_SHIFT                   1
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED2_MASK                0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED2_SHIFT               2
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED3_MASK                0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED3_SHIFT               3
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE14EN_MASK                    0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE14EN_SHIFT                   4
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE15EN_MASK                    0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE15EN_SHIFT                   5
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE16EN_MASK                    0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE16EN_SHIFT                   6
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE17EN_MASK                    0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_RULE17EN_SHIFT                   7
++	u8 flags13;
++#define XSTORM_ISCSI_CONN_AG_CTX_R2TQ_DEC_RULE_EN_MASK            0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_R2TQ_DEC_RULE_EN_SHIFT           0
++#define XSTORM_ISCSI_CONN_AG_CTX_HQ_DEC_RULE_EN_MASK              0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_HQ_DEC_RULE_EN_SHIFT             1
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED4_MASK                0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED4_SHIFT               2
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED5_MASK                0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED5_SHIFT               3
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED6_MASK                0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED6_SHIFT               4
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED7_MASK                0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED7_SHIFT               5
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED8_MASK                0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED8_SHIFT               6
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED9_MASK                0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_A0_RESERVED9_SHIFT               7
++	u8 flags14;
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT16_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT16_SHIFT                      0
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT17_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT17_SHIFT                      1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT18_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT18_SHIFT                      2
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT19_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT19_SHIFT                      3
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT20_MASK                       0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_BIT20_SHIFT                      4
++#define XSTORM_ISCSI_CONN_AG_CTX_DUMMY_READ_DONE_MASK             0x1
++#define XSTORM_ISCSI_CONN_AG_CTX_DUMMY_READ_DONE_SHIFT            5
++#define XSTORM_ISCSI_CONN_AG_CTX_PROC_ONLY_CLEANUP_MASK           0x3
++#define XSTORM_ISCSI_CONN_AG_CTX_PROC_ONLY_CLEANUP_SHIFT          6
++	u8 byte2;
++	__le16 physical_q0;
++	__le16 physical_q1;
++	__le16 dummy_dorq_var;
++	__le16 sq_cons;
++	__le16 sq_prod;
++	__le16 word5;
++	__le16 slow_io_total_data_tx_update;
++	u8 byte3;
++	u8 byte4;
++	u8 byte5;
++	u8 byte6;
++	__le32 reg0;
++	__le32 reg1;
++	__le32 reg2;
++	__le32 more_to_send_seq;
++	__le32 reg4;
++	__le32 reg5;
++	__le32 hq_scan_next_relevant_ack;
++	__le16 r2tq_prod;
++	__le16 r2tq_cons;
++	__le16 hq_prod;
++	__le16 hq_cons;
++	__le32 remain_seq;
++	__le32 bytes_to_next_pdu;
++	__le32 hq_tcp_seq;
++	u8 byte7;
++	u8 byte8;
++	u8 byte9;
++	u8 byte10;
++	u8 byte11;
++	u8 byte12;
++	u8 byte13;
++	u8 byte14;
++	u8 byte15;
++	u8 byte16;
++	__le16 word11;
++	__le32 reg10;
++	__le32 reg11;
++	__le32 exp_stat_sn;
++	__le32 reg13;
++	__le32 reg14;
++	__le32 reg15;
++	__le32 reg16;
++	__le32 reg17;
++};
++
++struct tstorm_iscsi_conn_ag_ctx {
++	u8 reserved0;
++	u8 state;
++	u8 flags0;
++#define TSTORM_ISCSI_CONN_AG_CTX_EXIST_IN_QM0_MASK       0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_EXIST_IN_QM0_SHIFT      0
++#define TSTORM_ISCSI_CONN_AG_CTX_BIT1_MASK               0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_BIT1_SHIFT              1
++#define TSTORM_ISCSI_CONN_AG_CTX_BIT2_MASK               0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_BIT2_SHIFT              2
++#define TSTORM_ISCSI_CONN_AG_CTX_BIT3_MASK               0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_BIT3_SHIFT              3
++#define TSTORM_ISCSI_CONN_AG_CTX_BIT4_MASK               0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_BIT4_SHIFT              4
++#define TSTORM_ISCSI_CONN_AG_CTX_BIT5_MASK               0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_BIT5_SHIFT              5
++#define TSTORM_ISCSI_CONN_AG_CTX_CF0_MASK                0x3
++#define TSTORM_ISCSI_CONN_AG_CTX_CF0_SHIFT               6
++	u8 flags1;
++#define TSTORM_ISCSI_CONN_AG_CTX_CF1_MASK                0x3
++#define TSTORM_ISCSI_CONN_AG_CTX_CF1_SHIFT               0
++#define TSTORM_ISCSI_CONN_AG_CTX_CF2_MASK                0x3
++#define TSTORM_ISCSI_CONN_AG_CTX_CF2_SHIFT               2
++#define TSTORM_ISCSI_CONN_AG_CTX_TIMER_STOP_ALL_MASK     0x3
++#define TSTORM_ISCSI_CONN_AG_CTX_TIMER_STOP_ALL_SHIFT    4
++#define TSTORM_ISCSI_CONN_AG_CTX_CF4_MASK                0x3
++#define TSTORM_ISCSI_CONN_AG_CTX_CF4_SHIFT               6
++	u8 flags2;
++#define TSTORM_ISCSI_CONN_AG_CTX_CF5_MASK                0x3
++#define TSTORM_ISCSI_CONN_AG_CTX_CF5_SHIFT               0
++#define TSTORM_ISCSI_CONN_AG_CTX_CF6_MASK                0x3
++#define TSTORM_ISCSI_CONN_AG_CTX_CF6_SHIFT               2
++#define TSTORM_ISCSI_CONN_AG_CTX_CF7_MASK                0x3
++#define TSTORM_ISCSI_CONN_AG_CTX_CF7_SHIFT               4
++#define TSTORM_ISCSI_CONN_AG_CTX_CF8_MASK                0x3
++#define TSTORM_ISCSI_CONN_AG_CTX_CF8_SHIFT               6
++	u8 flags3;
++#define TSTORM_ISCSI_CONN_AG_CTX_FLUSH_Q0_MASK           0x3
++#define TSTORM_ISCSI_CONN_AG_CTX_FLUSH_Q0_SHIFT          0
++#define TSTORM_ISCSI_CONN_AG_CTX_CF10_MASK               0x3
++#define TSTORM_ISCSI_CONN_AG_CTX_CF10_SHIFT              2
++#define TSTORM_ISCSI_CONN_AG_CTX_CF0EN_MASK              0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_CF0EN_SHIFT             4
++#define TSTORM_ISCSI_CONN_AG_CTX_CF1EN_MASK              0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_CF1EN_SHIFT             5
++#define TSTORM_ISCSI_CONN_AG_CTX_CF2EN_MASK              0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_CF2EN_SHIFT             6
++#define TSTORM_ISCSI_CONN_AG_CTX_TIMER_STOP_ALL_EN_MASK  0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_TIMER_STOP_ALL_EN_SHIFT 7
++	u8 flags4;
++#define TSTORM_ISCSI_CONN_AG_CTX_CF4EN_MASK              0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_CF4EN_SHIFT             0
++#define TSTORM_ISCSI_CONN_AG_CTX_CF5EN_MASK              0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_CF5EN_SHIFT             1
++#define TSTORM_ISCSI_CONN_AG_CTX_CF6EN_MASK              0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_CF6EN_SHIFT             2
++#define TSTORM_ISCSI_CONN_AG_CTX_CF7EN_MASK              0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_CF7EN_SHIFT             3
++#define TSTORM_ISCSI_CONN_AG_CTX_CF8EN_MASK              0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_CF8EN_SHIFT             4
++#define TSTORM_ISCSI_CONN_AG_CTX_FLUSH_Q0_EN_MASK        0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_FLUSH_Q0_EN_SHIFT       5
++#define TSTORM_ISCSI_CONN_AG_CTX_CF10EN_MASK             0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_CF10EN_SHIFT            6
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE0EN_MASK            0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE0EN_SHIFT           7
++	u8 flags5;
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE1EN_MASK            0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE1EN_SHIFT           0
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE2EN_MASK            0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE2EN_SHIFT           1
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE3EN_MASK            0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE3EN_SHIFT           2
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE4EN_MASK            0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE4EN_SHIFT           3
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE5EN_MASK            0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE5EN_SHIFT           4
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE6EN_MASK            0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE6EN_SHIFT           5
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE7EN_MASK            0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE7EN_SHIFT           6
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE8EN_MASK            0x1
++#define TSTORM_ISCSI_CONN_AG_CTX_RULE8EN_SHIFT           7
++	__le32 reg0;
++	__le32 reg1;
++	__le32 reg2;
++	__le32 reg3;
++	__le32 reg4;
++	__le32 reg5;
++	__le32 reg6;
++	__le32 reg7;
++	__le32 reg8;
++	u8 byte2;
++	u8 byte3;
++	__le16 word0;
++};
++
++struct ustorm_iscsi_conn_ag_ctx {
++	u8 byte0;
++	u8 byte1;
++	u8 flags0;
++#define USTORM_ISCSI_CONN_AG_CTX_BIT0_MASK     0x1
++#define USTORM_ISCSI_CONN_AG_CTX_BIT0_SHIFT    0
++#define USTORM_ISCSI_CONN_AG_CTX_BIT1_MASK     0x1
++#define USTORM_ISCSI_CONN_AG_CTX_BIT1_SHIFT    1
++#define USTORM_ISCSI_CONN_AG_CTX_CF0_MASK      0x3
++#define USTORM_ISCSI_CONN_AG_CTX_CF0_SHIFT     2
++#define USTORM_ISCSI_CONN_AG_CTX_CF1_MASK      0x3
++#define USTORM_ISCSI_CONN_AG_CTX_CF1_SHIFT     4
++#define USTORM_ISCSI_CONN_AG_CTX_CF2_MASK      0x3
++#define USTORM_ISCSI_CONN_AG_CTX_CF2_SHIFT     6
++	u8 flags1;
++#define USTORM_ISCSI_CONN_AG_CTX_CF3_MASK      0x3
++#define USTORM_ISCSI_CONN_AG_CTX_CF3_SHIFT     0
++#define USTORM_ISCSI_CONN_AG_CTX_CF4_MASK      0x3
++#define USTORM_ISCSI_CONN_AG_CTX_CF4_SHIFT     2
++#define USTORM_ISCSI_CONN_AG_CTX_CF5_MASK      0x3
++#define USTORM_ISCSI_CONN_AG_CTX_CF5_SHIFT     4
++#define USTORM_ISCSI_CONN_AG_CTX_CF6_MASK      0x3
++#define USTORM_ISCSI_CONN_AG_CTX_CF6_SHIFT     6
++	u8 flags2;
++#define USTORM_ISCSI_CONN_AG_CTX_CF0EN_MASK    0x1
++#define USTORM_ISCSI_CONN_AG_CTX_CF0EN_SHIFT   0
++#define USTORM_ISCSI_CONN_AG_CTX_CF1EN_MASK    0x1
++#define USTORM_ISCSI_CONN_AG_CTX_CF1EN_SHIFT   1
++#define USTORM_ISCSI_CONN_AG_CTX_CF2EN_MASK    0x1
++#define USTORM_ISCSI_CONN_AG_CTX_CF2EN_SHIFT   2
++#define USTORM_ISCSI_CONN_AG_CTX_CF3EN_MASK    0x1
++#define USTORM_ISCSI_CONN_AG_CTX_CF3EN_SHIFT   3
++#define USTORM_ISCSI_CONN_AG_CTX_CF4EN_MASK    0x1
++#define USTORM_ISCSI_CONN_AG_CTX_CF4EN_SHIFT   4
++#define USTORM_ISCSI_CONN_AG_CTX_CF5EN_MASK    0x1
++#define USTORM_ISCSI_CONN_AG_CTX_CF5EN_SHIFT   5
++#define USTORM_ISCSI_CONN_AG_CTX_CF6EN_MASK    0x1
++#define USTORM_ISCSI_CONN_AG_CTX_CF6EN_SHIFT   6
++#define USTORM_ISCSI_CONN_AG_CTX_RULE0EN_MASK  0x1
++#define USTORM_ISCSI_CONN_AG_CTX_RULE0EN_SHIFT 7
++	u8 flags3;
++#define USTORM_ISCSI_CONN_AG_CTX_RULE1EN_MASK  0x1
++#define USTORM_ISCSI_CONN_AG_CTX_RULE1EN_SHIFT 0
++#define USTORM_ISCSI_CONN_AG_CTX_RULE2EN_MASK  0x1
++#define USTORM_ISCSI_CONN_AG_CTX_RULE2EN_SHIFT 1
++#define USTORM_ISCSI_CONN_AG_CTX_RULE3EN_MASK  0x1
++#define USTORM_ISCSI_CONN_AG_CTX_RULE3EN_SHIFT 2
++#define USTORM_ISCSI_CONN_AG_CTX_RULE4EN_MASK  0x1
++#define USTORM_ISCSI_CONN_AG_CTX_RULE4EN_SHIFT 3
++#define USTORM_ISCSI_CONN_AG_CTX_RULE5EN_MASK  0x1
++#define USTORM_ISCSI_CONN_AG_CTX_RULE5EN_SHIFT 4
++#define USTORM_ISCSI_CONN_AG_CTX_RULE6EN_MASK  0x1
++#define USTORM_ISCSI_CONN_AG_CTX_RULE6EN_SHIFT 5
++#define USTORM_ISCSI_CONN_AG_CTX_RULE7EN_MASK  0x1
++#define USTORM_ISCSI_CONN_AG_CTX_RULE7EN_SHIFT 6
++#define USTORM_ISCSI_CONN_AG_CTX_RULE8EN_MASK  0x1
++#define USTORM_ISCSI_CONN_AG_CTX_RULE8EN_SHIFT 7
++	u8 byte2;
++	u8 byte3;
++	__le16 word0;
++	__le16 word1;
++	__le32 reg0;
++	__le32 reg1;
++	__le32 reg2;
++	__le32 reg3;
++	__le16 word2;
++	__le16 word3;
++};
++
++struct tstorm_iscsi_conn_st_ctx {
++	__le32 reserved[40];
++};
++
++struct mstorm_iscsi_conn_ag_ctx {
++	u8 reserved;
++	u8 state;
++	u8 flags0;
++#define MSTORM_ISCSI_CONN_AG_CTX_BIT0_MASK     0x1
++#define MSTORM_ISCSI_CONN_AG_CTX_BIT0_SHIFT    0
++#define MSTORM_ISCSI_CONN_AG_CTX_BIT1_MASK     0x1
++#define MSTORM_ISCSI_CONN_AG_CTX_BIT1_SHIFT    1
++#define MSTORM_ISCSI_CONN_AG_CTX_CF0_MASK      0x3
++#define MSTORM_ISCSI_CONN_AG_CTX_CF0_SHIFT     2
++#define MSTORM_ISCSI_CONN_AG_CTX_CF1_MASK      0x3
++#define MSTORM_ISCSI_CONN_AG_CTX_CF1_SHIFT     4
++#define MSTORM_ISCSI_CONN_AG_CTX_CF2_MASK      0x3
++#define MSTORM_ISCSI_CONN_AG_CTX_CF2_SHIFT     6
++	u8 flags1;
++#define MSTORM_ISCSI_CONN_AG_CTX_CF0EN_MASK    0x1
++#define MSTORM_ISCSI_CONN_AG_CTX_CF0EN_SHIFT   0
++#define MSTORM_ISCSI_CONN_AG_CTX_CF1EN_MASK    0x1
++#define MSTORM_ISCSI_CONN_AG_CTX_CF1EN_SHIFT   1
++#define MSTORM_ISCSI_CONN_AG_CTX_CF2EN_MASK    0x1
++#define MSTORM_ISCSI_CONN_AG_CTX_CF2EN_SHIFT   2
++#define MSTORM_ISCSI_CONN_AG_CTX_RULE0EN_MASK  0x1
++#define MSTORM_ISCSI_CONN_AG_CTX_RULE0EN_SHIFT 3
++#define MSTORM_ISCSI_CONN_AG_CTX_RULE1EN_MASK  0x1
++#define MSTORM_ISCSI_CONN_AG_CTX_RULE1EN_SHIFT 4
++#define MSTORM_ISCSI_CONN_AG_CTX_RULE2EN_MASK  0x1
++#define MSTORM_ISCSI_CONN_AG_CTX_RULE2EN_SHIFT 5
++#define MSTORM_ISCSI_CONN_AG_CTX_RULE3EN_MASK  0x1
++#define MSTORM_ISCSI_CONN_AG_CTX_RULE3EN_SHIFT 6
++#define MSTORM_ISCSI_CONN_AG_CTX_RULE4EN_MASK  0x1
++#define MSTORM_ISCSI_CONN_AG_CTX_RULE4EN_SHIFT 7
++	__le16 word0;
++	__le16 word1;
++	__le32 reg0;
++	__le32 reg1;
++};
++
++struct mstorm_iscsi_tcp_conn_st_ctx {
++	__le32 reserved_tcp[20];
++	__le32 reserved_iscsi[8];
++};
++
++struct ustorm_iscsi_conn_st_ctx {
++	__le32 reserved[52];
++};
++
++struct iscsi_conn_context {
++	struct ystorm_iscsi_conn_st_ctx ystorm_st_context;
++	struct regpair ystorm_st_padding[2];
++	struct pstorm_iscsi_tcp_conn_st_ctx pstorm_st_context;
++	struct regpair pstorm_st_padding[2];
++	struct pb_context xpb2_context;
++	struct xstorm_iscsi_tcp_conn_st_ctx xstorm_st_context;
++	struct regpair xstorm_st_padding[2];
++	struct xstorm_iscsi_conn_ag_ctx xstorm_ag_context;
++	struct tstorm_iscsi_conn_ag_ctx tstorm_ag_context;
++	struct regpair tstorm_ag_padding[2];
++	struct timers_context timer_context;
++	struct ustorm_iscsi_conn_ag_ctx ustorm_ag_context;
++	struct pb_context upb_context;
++	struct tstorm_iscsi_conn_st_ctx tstorm_st_context;
++	struct regpair tstorm_st_padding[2];
++	struct mstorm_iscsi_conn_ag_ctx mstorm_ag_context;
++	struct mstorm_iscsi_tcp_conn_st_ctx mstorm_st_context;
++	struct ustorm_iscsi_conn_st_ctx ustorm_st_context;
++};
++
++struct iscsi_init_ramrod_params {
++	struct iscsi_spe_func_init iscsi_init_spe;
++	struct tcp_init_params tcp_init;
++};
++
++struct ystorm_iscsi_conn_ag_ctx {
++	u8 byte0;
++	u8 byte1;
++	u8 flags0;
++#define YSTORM_ISCSI_CONN_AG_CTX_BIT0_MASK     0x1
++#define YSTORM_ISCSI_CONN_AG_CTX_BIT0_SHIFT    0
++#define YSTORM_ISCSI_CONN_AG_CTX_BIT1_MASK     0x1
++#define YSTORM_ISCSI_CONN_AG_CTX_BIT1_SHIFT    1
++#define YSTORM_ISCSI_CONN_AG_CTX_CF0_MASK      0x3
++#define YSTORM_ISCSI_CONN_AG_CTX_CF0_SHIFT     2
++#define YSTORM_ISCSI_CONN_AG_CTX_CF1_MASK      0x3
++#define YSTORM_ISCSI_CONN_AG_CTX_CF1_SHIFT     4
++#define YSTORM_ISCSI_CONN_AG_CTX_CF2_MASK      0x3
++#define YSTORM_ISCSI_CONN_AG_CTX_CF2_SHIFT     6
++	u8 flags1;
++#define YSTORM_ISCSI_CONN_AG_CTX_CF0EN_MASK    0x1
++#define YSTORM_ISCSI_CONN_AG_CTX_CF0EN_SHIFT   0
++#define YSTORM_ISCSI_CONN_AG_CTX_CF1EN_MASK    0x1
++#define YSTORM_ISCSI_CONN_AG_CTX_CF1EN_SHIFT   1
++#define YSTORM_ISCSI_CONN_AG_CTX_CF2EN_MASK    0x1
++#define YSTORM_ISCSI_CONN_AG_CTX_CF2EN_SHIFT   2
++#define YSTORM_ISCSI_CONN_AG_CTX_RULE0EN_MASK  0x1
++#define YSTORM_ISCSI_CONN_AG_CTX_RULE0EN_SHIFT 3
++#define YSTORM_ISCSI_CONN_AG_CTX_RULE1EN_MASK  0x1
++#define YSTORM_ISCSI_CONN_AG_CTX_RULE1EN_SHIFT 4
++#define YSTORM_ISCSI_CONN_AG_CTX_RULE2EN_MASK  0x1
++#define YSTORM_ISCSI_CONN_AG_CTX_RULE2EN_SHIFT 5
++#define YSTORM_ISCSI_CONN_AG_CTX_RULE3EN_MASK  0x1
++#define YSTORM_ISCSI_CONN_AG_CTX_RULE3EN_SHIFT 6
++#define YSTORM_ISCSI_CONN_AG_CTX_RULE4EN_MASK  0x1
++#define YSTORM_ISCSI_CONN_AG_CTX_RULE4EN_SHIFT 7
++	u8 byte2;
++	u8 byte3;
++	__le16 word0;
++	__le32 reg0;
++	__le32 reg1;
++	__le16 word1;
++	__le16 word2;
++	__le16 word3;
++	__le16 word4;
++	__le32 reg2;
++	__le32 reg3;
++};
+ #define VF_MAX_STATIC 192
+ 
+ #define MCP_GLOB_PATH_MAX	2
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_sp.h b/drivers/net/ethernet/qlogic/qed/qed_sp.h
+index ea4e9ce..a548504 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_sp.h
++++ b/drivers/net/ethernet/qlogic/qed/qed_sp.h
+@@ -63,6 +63,32 @@ union ramrod_data {
+ 	struct vport_update_ramrod_data vport_update;
+ 	struct vport_filter_update_ramrod_data vport_filter_update;
+ 
++	struct rdma_init_func_ramrod_data rdma_init_func;
++	struct rdma_close_func_ramrod_data rdma_close_func;
++	struct rdma_register_tid_ramrod_data rdma_register_tid;
++	struct rdma_deregister_tid_ramrod_data rdma_deregister_tid;
++	struct roce_create_qp_resp_ramrod_data roce_create_qp_resp;
++	struct roce_create_qp_req_ramrod_data roce_create_qp_req;
++	struct roce_modify_qp_resp_ramrod_data roce_modify_qp_resp;
++	struct roce_modify_qp_req_ramrod_data roce_modify_qp_req;
++	struct roce_query_qp_resp_ramrod_data roce_query_qp_resp;
++	struct roce_query_qp_req_ramrod_data roce_query_qp_req;
++	struct roce_destroy_qp_resp_ramrod_data roce_destroy_qp_resp;
++	struct roce_destroy_qp_req_ramrod_data roce_destroy_qp_req;
++	struct rdma_create_cq_ramrod_data rdma_create_cq;
++	struct rdma_resize_cq_ramrod_data rdma_resize_cq;
++	struct rdma_destroy_cq_ramrod_data rdma_destroy_cq;
++	struct rdma_srq_create_ramrod_data rdma_create_srq;
++	struct rdma_srq_destroy_ramrod_data rdma_destroy_srq;
++	struct rdma_srq_modify_ramrod_data rdma_modify_srq;
++
++	struct iscsi_slow_path_hdr iscsi_empty;
++	struct iscsi_init_ramrod_params iscsi_init;
++	struct iscsi_spe_func_dstry iscsi_destroy;
++	struct iscsi_spe_conn_offload iscsi_conn_offload;
++	struct iscsi_conn_update_ramrod_params iscsi_conn_update;
++	struct iscsi_spe_conn_termination iscsi_conn_terminate;
++
+ 	struct vf_start_ramrod_data vf_start;
+ 	struct vf_stop_ramrod_data vf_stop;
+ };
+diff --git a/include/linux/qed/common_hsi.h b/include/linux/qed/common_hsi.h
+index 285189a..077a3b6 100644
+--- a/include/linux/qed/common_hsi.h
++++ b/include/linux/qed/common_hsi.h
+@@ -12,6 +12,7 @@
+ #define CORE_SPQE_PAGE_SIZE_BYTES                       4096
+ 
+ #define X_FINAL_CLEANUP_AGG_INT 1
++#define NUM_OF_GLOBAL_QUEUES                            128
+ 
+ /* Queue Zone sizes in bytes */
+ #define TSTORM_QZONE_SIZE 8
+@@ -694,7 +695,10 @@ struct parsing_and_err_flags {
+ #define PARSING_AND_ERR_FLAGS_TUNNELL4CHKSMERROR_SHIFT         15
  };
  
-+struct qed_chain_pbl_u16 {
-+	u16 prod_page_idx;
-+	u16 cons_page_idx;
+-/* Concrete Function ID. */
++struct pb_context {
++	__le32 crc[4];
 +};
 +
-+struct qed_chain_pbl_u32 {
-+	u32 prod_page_idx;
-+	u32 cons_page_idx;
-+};
-+
- struct qed_chain_pbl {
-+	/* Base address of a pre-allocated buffer for pbl */
- 	dma_addr_t	p_phys_table;
- 	void		*p_virt_table;
--	u16		prod_page_idx;
--	u16		cons_page_idx;
-+
-+	/* Table for keeping the virtual addresses of the chain pages,
-+	 * respectively to the physical addresses in the pbl table.
-+	 */
-+	void **pp_virt_addr_tbl;
-+
-+	/* Index to current used page by producer/consumer */
-+	union {
-+		struct qed_chain_pbl_u16 pbl16;
-+		struct qed_chain_pbl_u32 pbl32;
-+	} u;
-+};
-+
-+struct qed_chain_u16 {
-+	/* Cyclic index of next element to produce/consme */
-+	u16 prod_idx;
-+	u16 cons_idx;
-+};
-+
-+struct qed_chain_u32 {
-+	/* Cyclic index of next element to produce/consme */
-+	u32 prod_idx;
-+	u32 cons_idx;
+ struct pxp_concrete_fid {
+ 	__le16 fid;
+ #define PXP_CONCRETE_FID_PFID_MASK     0xF
+@@ -761,6 +765,72 @@ struct pxp_ptt_entry {
  };
  
- struct qed_chain {
-@@ -64,13 +104,25 @@ struct qed_chain {
- 	dma_addr_t		p_phys_addr;
- 	void			*p_prod_elem;
- 	void			*p_cons_elem;
--	u16			page_cnt;
+ /* RSS hash type */
++struct rdif_task_context {
++	__le32 initial_ref_tag;
++	__le16 app_tag_value;
++	__le16 app_tag_mask;
++	u8 flags0;
++#define RDIF_TASK_CONTEXT_IGNOREAPPTAG_MASK            0x1
++#define RDIF_TASK_CONTEXT_IGNOREAPPTAG_SHIFT           0
++#define RDIF_TASK_CONTEXT_INITIALREFTAGVALID_MASK      0x1
++#define RDIF_TASK_CONTEXT_INITIALREFTAGVALID_SHIFT     1
++#define RDIF_TASK_CONTEXT_HOSTGUARDTYPE_MASK           0x1
++#define RDIF_TASK_CONTEXT_HOSTGUARDTYPE_SHIFT          2
++#define RDIF_TASK_CONTEXT_SETERRORWITHEOP_MASK         0x1
++#define RDIF_TASK_CONTEXT_SETERRORWITHEOP_SHIFT        3
++#define RDIF_TASK_CONTEXT_PROTECTIONTYPE_MASK          0x3
++#define RDIF_TASK_CONTEXT_PROTECTIONTYPE_SHIFT         4
++#define RDIF_TASK_CONTEXT_CRC_SEED_MASK                0x1
++#define RDIF_TASK_CONTEXT_CRC_SEED_SHIFT               6
++#define RDIF_TASK_CONTEXT_KEEPREFTAGCONST_MASK         0x1
++#define RDIF_TASK_CONTEXT_KEEPREFTAGCONST_SHIFT        7
++	u8 partial_dif_data[7];
++	__le16 partial_crc_value;
++	__le16 partial_checksum_value;
++	__le32 offset_in_io;
++	__le16 flags1;
++#define RDIF_TASK_CONTEXT_VALIDATEGUARD_MASK           0x1
++#define RDIF_TASK_CONTEXT_VALIDATEGUARD_SHIFT          0
++#define RDIF_TASK_CONTEXT_VALIDATEAPPTAG_MASK          0x1
++#define RDIF_TASK_CONTEXT_VALIDATEAPPTAG_SHIFT         1
++#define RDIF_TASK_CONTEXT_VALIDATEREFTAG_MASK          0x1
++#define RDIF_TASK_CONTEXT_VALIDATEREFTAG_SHIFT         2
++#define RDIF_TASK_CONTEXT_FORWARDGUARD_MASK            0x1
++#define RDIF_TASK_CONTEXT_FORWARDGUARD_SHIFT           3
++#define RDIF_TASK_CONTEXT_FORWARDAPPTAG_MASK           0x1
++#define RDIF_TASK_CONTEXT_FORWARDAPPTAG_SHIFT          4
++#define RDIF_TASK_CONTEXT_FORWARDREFTAG_MASK           0x1
++#define RDIF_TASK_CONTEXT_FORWARDREFTAG_SHIFT          5
++#define RDIF_TASK_CONTEXT_INTERVALSIZE_MASK            0x7
++#define RDIF_TASK_CONTEXT_INTERVALSIZE_SHIFT           6
++#define RDIF_TASK_CONTEXT_HOSTINTERFACE_MASK           0x3
++#define RDIF_TASK_CONTEXT_HOSTINTERFACE_SHIFT          9
++#define RDIF_TASK_CONTEXT_DIFBEFOREDATA_MASK           0x1
++#define RDIF_TASK_CONTEXT_DIFBEFOREDATA_SHIFT          11
++#define RDIF_TASK_CONTEXT_RESERVED0_MASK               0x1
++#define RDIF_TASK_CONTEXT_RESERVED0_SHIFT              12
++#define RDIF_TASK_CONTEXT_NETWORKINTERFACE_MASK        0x1
++#define RDIF_TASK_CONTEXT_NETWORKINTERFACE_SHIFT       13
++#define RDIF_TASK_CONTEXT_FORWARDAPPTAGWITHMASK_MASK   0x1
++#define RDIF_TASK_CONTEXT_FORWARDAPPTAGWITHMASK_SHIFT  14
++#define RDIF_TASK_CONTEXT_FORWARDREFTAGWITHMASK_MASK   0x1
++#define RDIF_TASK_CONTEXT_FORWARDREFTAGWITHMASK_SHIFT  15
++	__le16 state;
++#define RDIF_TASK_CONTEXT_RECEIVEDDIFBYTESLEFT_MASK    0xF
++#define RDIF_TASK_CONTEXT_RECEIVEDDIFBYTESLEFT_SHIFT   0
++#define RDIF_TASK_CONTEXT_TRANSMITEDDIFBYTESLEFT_MASK  0xF
++#define RDIF_TASK_CONTEXT_TRANSMITEDDIFBYTESLEFT_SHIFT 4
++#define RDIF_TASK_CONTEXT_ERRORINIO_MASK               0x1
++#define RDIF_TASK_CONTEXT_ERRORINIO_SHIFT              8
++#define RDIF_TASK_CONTEXT_CHECKSUMOVERFLOW_MASK        0x1
++#define RDIF_TASK_CONTEXT_CHECKSUMOVERFLOW_SHIFT       9
++#define RDIF_TASK_CONTEXT_REFTAGMASK_MASK              0xF
++#define RDIF_TASK_CONTEXT_REFTAGMASK_SHIFT             10
++#define RDIF_TASK_CONTEXT_RESERVED1_MASK               0x3
++#define RDIF_TASK_CONTEXT_RESERVED1_SHIFT              14
++	__le32 reserved2;
++};
 +
- 	enum qed_chain_mode	mode;
- 	enum qed_chain_use_mode intended_use; /* used to produce/consume */
--	u16			capacity; /*< number of _usable_ elements */
--	u16			size; /* number of elements */
--	u16			prod_idx;
--	u16			cons_idx;
-+	enum qed_chain_cnt_type cnt_type;
+ enum rss_hash_type {
+ 	RSS_HASH_TYPE_DEFAULT	= 0,
+ 	RSS_HASH_TYPE_IPV4	= 1,
+@@ -789,4 +859,122 @@ struct status_block {
+ #define STATUS_BLOCK_ZERO_PAD3_SHIFT  24
+ };
+ 
++struct tdif_task_context {
++	__le32 initial_ref_tag;
++	__le16 app_tag_value;
++	__le16 app_tag_mask;
++	__le16 partial_crc_valueB;
++	__le16 partial_checksum_valueB;
++	__le16 stateB;
++#define TDIF_TASK_CONTEXT_RECEIVEDDIFBYTESLEFTB_MASK    0xF
++#define TDIF_TASK_CONTEXT_RECEIVEDDIFBYTESLEFTB_SHIFT   0
++#define TDIF_TASK_CONTEXT_TRANSMITEDDIFBYTESLEFTB_MASK  0xF
++#define TDIF_TASK_CONTEXT_TRANSMITEDDIFBYTESLEFTB_SHIFT 4
++#define TDIF_TASK_CONTEXT_ERRORINIOB_MASK               0x1
++#define TDIF_TASK_CONTEXT_ERRORINIOB_SHIFT              8
++#define TDIF_TASK_CONTEXT_CHECKSUMOVERFLOW_MASK         0x1
++#define TDIF_TASK_CONTEXT_CHECKSUMOVERFLOW_SHIFT        9
++#define TDIF_TASK_CONTEXT_RESERVED0_MASK                0x3F
++#define TDIF_TASK_CONTEXT_RESERVED0_SHIFT               10
++	u8 reserved1;
++	u8 flags0;
++#define TDIF_TASK_CONTEXT_IGNOREAPPTAG_MASK             0x1
++#define TDIF_TASK_CONTEXT_IGNOREAPPTAG_SHIFT            0
++#define TDIF_TASK_CONTEXT_INITIALREFTAGVALID_MASK       0x1
++#define TDIF_TASK_CONTEXT_INITIALREFTAGVALID_SHIFT      1
++#define TDIF_TASK_CONTEXT_HOSTGUARDTYPE_MASK            0x1
++#define TDIF_TASK_CONTEXT_HOSTGUARDTYPE_SHIFT           2
++#define TDIF_TASK_CONTEXT_SETERRORWITHEOP_MASK          0x1
++#define TDIF_TASK_CONTEXT_SETERRORWITHEOP_SHIFT         3
++#define TDIF_TASK_CONTEXT_PROTECTIONTYPE_MASK           0x3
++#define TDIF_TASK_CONTEXT_PROTECTIONTYPE_SHIFT          4
++#define TDIF_TASK_CONTEXT_CRC_SEED_MASK                 0x1
++#define TDIF_TASK_CONTEXT_CRC_SEED_SHIFT                6
++#define TDIF_TASK_CONTEXT_RESERVED2_MASK                0x1
++#define TDIF_TASK_CONTEXT_RESERVED2_SHIFT               7
++	__le32 flags1;
++#define TDIF_TASK_CONTEXT_VALIDATEGUARD_MASK            0x1
++#define TDIF_TASK_CONTEXT_VALIDATEGUARD_SHIFT           0
++#define TDIF_TASK_CONTEXT_VALIDATEAPPTAG_MASK           0x1
++#define TDIF_TASK_CONTEXT_VALIDATEAPPTAG_SHIFT          1
++#define TDIF_TASK_CONTEXT_VALIDATEREFTAG_MASK           0x1
++#define TDIF_TASK_CONTEXT_VALIDATEREFTAG_SHIFT          2
++#define TDIF_TASK_CONTEXT_FORWARDGUARD_MASK             0x1
++#define TDIF_TASK_CONTEXT_FORWARDGUARD_SHIFT            3
++#define TDIF_TASK_CONTEXT_FORWARDAPPTAG_MASK            0x1
++#define TDIF_TASK_CONTEXT_FORWARDAPPTAG_SHIFT           4
++#define TDIF_TASK_CONTEXT_FORWARDREFTAG_MASK            0x1
++#define TDIF_TASK_CONTEXT_FORWARDREFTAG_SHIFT           5
++#define TDIF_TASK_CONTEXT_INTERVALSIZE_MASK             0x7
++#define TDIF_TASK_CONTEXT_INTERVALSIZE_SHIFT            6
++#define TDIF_TASK_CONTEXT_HOSTINTERFACE_MASK            0x3
++#define TDIF_TASK_CONTEXT_HOSTINTERFACE_SHIFT           9
++#define TDIF_TASK_CONTEXT_DIFBEFOREDATA_MASK            0x1
++#define TDIF_TASK_CONTEXT_DIFBEFOREDATA_SHIFT           11
++#define TDIF_TASK_CONTEXT_RESERVED3_MASK                0x1
++#define TDIF_TASK_CONTEXT_RESERVED3_SHIFT               12
++#define TDIF_TASK_CONTEXT_NETWORKINTERFACE_MASK         0x1
++#define TDIF_TASK_CONTEXT_NETWORKINTERFACE_SHIFT        13
++#define TDIF_TASK_CONTEXT_RECEIVEDDIFBYTESLEFTA_MASK    0xF
++#define TDIF_TASK_CONTEXT_RECEIVEDDIFBYTESLEFTA_SHIFT   14
++#define TDIF_TASK_CONTEXT_TRANSMITEDDIFBYTESLEFTA_MASK  0xF
++#define TDIF_TASK_CONTEXT_TRANSMITEDDIFBYTESLEFTA_SHIFT 18
++#define TDIF_TASK_CONTEXT_ERRORINIOA_MASK               0x1
++#define TDIF_TASK_CONTEXT_ERRORINIOA_SHIFT              22
++#define TDIF_TASK_CONTEXT_CHECKSUMOVERFLOWA_MASK        0x1
++#define TDIF_TASK_CONTEXT_CHECKSUMOVERFLOWA_SHIFT       23
++#define TDIF_TASK_CONTEXT_REFTAGMASK_MASK               0xF
++#define TDIF_TASK_CONTEXT_REFTAGMASK_SHIFT              24
++#define TDIF_TASK_CONTEXT_FORWARDAPPTAGWITHMASK_MASK    0x1
++#define TDIF_TASK_CONTEXT_FORWARDAPPTAGWITHMASK_SHIFT   28
++#define TDIF_TASK_CONTEXT_FORWARDREFTAGWITHMASK_MASK    0x1
++#define TDIF_TASK_CONTEXT_FORWARDREFTAGWITHMASK_SHIFT   29
++#define TDIF_TASK_CONTEXT_KEEPREFTAGCONST_MASK          0x1
++#define TDIF_TASK_CONTEXT_KEEPREFTAGCONST_SHIFT         30
++#define TDIF_TASK_CONTEXT_RESERVED4_MASK                0x1
++#define TDIF_TASK_CONTEXT_RESERVED4_SHIFT               31
++	__le32 offset_in_iob;
++	__le16 partial_crc_value_a;
++	__le16 partial_checksum_valuea_;
++	__le32 offset_in_ioa;
++	u8 partial_dif_data_a[8];
++	u8 partial_dif_data_b[8];
++};
 +
-+	union {
-+		struct qed_chain_u16 chain16;
-+		struct qed_chain_u32 chain32;
-+	} u;
-+
-+	u32 page_cnt;
-+
-+	/* Number of elements - capacity is for usable elements only,
-+	 * while size will contain total number of elements [for entire chain].
-+	 */
-+	u32 capacity;
-+	u32 size;
-+
-+	/* Elements information for fast calculations */
- 	u16			elem_per_page;
- 	u16			elem_per_page_mask;
- 	u16			elem_unusable;
-@@ -96,66 +148,69 @@ struct qed_chain {
- #define QED_CHAIN_PAGE_CNT(elem_cnt, elem_size, mode) \
- 	DIV_ROUND_UP(elem_cnt, USABLE_ELEMS_PER_PAGE(elem_size, mode))
- 
-+#define is_chain_u16(p) ((p)->cnt_type == QED_CHAIN_CNT_TYPE_U16)
-+#define is_chain_u32(p) ((p)->cnt_type == QED_CHAIN_CNT_TYPE_U32)
-+
- /* Accessors */
- static inline u16 qed_chain_get_prod_idx(struct qed_chain *p_chain)
- {
--	return p_chain->prod_idx;
-+	return p_chain->u.chain16.prod_idx;
- }
- 
- static inline u16 qed_chain_get_cons_idx(struct qed_chain *p_chain)
- {
--	return p_chain->cons_idx;
-+	return p_chain->u.chain16.cons_idx;
-+}
-+
-+static inline u32 qed_chain_get_cons_idx_u32(struct qed_chain *p_chain)
-+{
-+	return p_chain->u.chain32.cons_idx;
- }
- 
- static inline u16 qed_chain_get_elem_left(struct qed_chain *p_chain)
- {
- 	u16 used;
- 
--	/* we don't need to trancate upon assignmet, as we assign u32->u16 */
--	used = ((u32)0x10000u + (u32)(p_chain->prod_idx)) -
--		(u32)p_chain->cons_idx;
-+	used = (u16) (((u32)0x10000 +
-+		       (u32)p_chain->u.chain16.prod_idx) -
-+		      (u32)p_chain->u.chain16.cons_idx);
- 	if (p_chain->mode == QED_CHAIN_MODE_NEXT_PTR)
--		used -= p_chain->prod_idx / p_chain->elem_per_page -
--			p_chain->cons_idx / p_chain->elem_per_page;
-+		used -= p_chain->u.chain16.prod_idx / p_chain->elem_per_page -
-+		    p_chain->u.chain16.cons_idx / p_chain->elem_per_page;
- 
--	return p_chain->capacity - used;
-+	return (u16)(p_chain->capacity - used);
- }
- 
--static inline u8 qed_chain_is_full(struct qed_chain *p_chain)
-+static inline u32 qed_chain_get_elem_left_u32(struct qed_chain *p_chain)
- {
--	return qed_chain_get_elem_left(p_chain) == p_chain->capacity;
--}
-+	u32 used;
- 
--static inline u8 qed_chain_is_empty(struct qed_chain *p_chain)
--{
--	return qed_chain_get_elem_left(p_chain) == 0;
--}
-+	used = (u32) (((u64)0x100000000ULL +
-+		       (u64)p_chain->u.chain32.prod_idx) -
-+		      (u64)p_chain->u.chain32.cons_idx);
-+	if (p_chain->mode == QED_CHAIN_MODE_NEXT_PTR)
-+		used -= p_chain->u.chain32.prod_idx / p_chain->elem_per_page -
-+		    p_chain->u.chain32.cons_idx / p_chain->elem_per_page;
- 
--static inline u16 qed_chain_get_elem_per_page(
--	struct qed_chain *p_chain)
--{
--	return p_chain->elem_per_page;
-+	return p_chain->capacity - used;
- }
- 
--static inline u16 qed_chain_get_usable_per_page(
--	struct qed_chain *p_chain)
-+static inline u16 qed_chain_get_usable_per_page(struct qed_chain *p_chain)
- {
- 	return p_chain->usable_per_page;
- }
- 
--static inline u16 qed_chain_get_unusable_per_page(
--	struct qed_chain *p_chain)
-+static inline u16 qed_chain_get_unusable_per_page(struct qed_chain *p_chain)
- {
- 	return p_chain->elem_unusable;
- }
- 
--static inline u16 qed_chain_get_size(struct qed_chain *p_chain)
-+static inline u32 qed_chain_get_page_cnt(struct qed_chain *p_chain)
- {
--	return p_chain->size;
-+	return p_chain->page_cnt;
- }
- 
--static inline dma_addr_t
--qed_chain_get_pbl_phys(struct qed_chain *p_chain)
-+static inline dma_addr_t qed_chain_get_pbl_phys(struct qed_chain *p_chain)
- {
- 	return p_chain->pbl.p_phys_table;
- }
-@@ -172,65 +227,63 @@ qed_chain_get_pbl_phys(struct qed_chain *p_chain)
-  */
- static inline void
- qed_chain_advance_page(struct qed_chain *p_chain,
--		       void **p_next_elem,
--		       u16 *idx_to_inc,
--		       u16 *page_to_inc)
-+		       void **p_next_elem, void *idx_to_inc, void *page_to_inc)
- 
- {
-+	struct qed_chain_next *p_next = NULL;
-+	u32 page_index = 0;
- 	switch (p_chain->mode) {
- 	case QED_CHAIN_MODE_NEXT_PTR:
--	{
--		struct qed_chain_next *p_next = *p_next_elem;
-+		p_next = *p_next_elem;
- 		*p_next_elem = p_next->next_virt;
--		*idx_to_inc += p_chain->elem_unusable;
-+		if (is_chain_u16(p_chain))
-+			*(u16 *)idx_to_inc += p_chain->elem_unusable;
-+		else
-+			*(u32 *)idx_to_inc += p_chain->elem_unusable;
- 		break;
--	}
- 	case QED_CHAIN_MODE_SINGLE:
- 		*p_next_elem = p_chain->p_virt_addr;
- 		break;
- 
- 	case QED_CHAIN_MODE_PBL:
--		/* It is assumed pages are sequential, next element needs
--		 * to change only when passing going back to first from last.
--		 */
--		if (++(*page_to_inc) == p_chain->page_cnt) {
--			*page_to_inc = 0;
--			*p_next_elem = p_chain->p_virt_addr;
-+		if (is_chain_u16(p_chain)) {
-+			if (++(*(u16 *)page_to_inc) == p_chain->page_cnt)
-+				*(u16 *)page_to_inc = 0;
-+			page_index = *(u16 *)page_to_inc;
-+		} else {
-+			if (++(*(u32 *)page_to_inc) == p_chain->page_cnt)
-+				*(u32 *)page_to_inc = 0;
-+			page_index = *(u32 *)page_to_inc;
- 		}
-+		*p_next_elem = p_chain->pbl.pp_virt_addr_tbl[page_index];
- 	}
- }
- 
- #define is_unusable_idx(p, idx)	\
--	(((p)->idx & (p)->elem_per_page_mask) == (p)->usable_per_page)
-+	(((p)->u.chain16.idx & (p)->elem_per_page_mask) == (p)->usable_per_page)
-+
-+#define is_unusable_idx_u32(p, idx) \
-+	(((p)->u.chain32.idx & (p)->elem_per_page_mask) == (p)->usable_per_page)
-+#define is_unusable_next_idx(p, idx)				 \
-+	((((p)->u.chain16.idx + 1) & (p)->elem_per_page_mask) == \
-+	 (p)->usable_per_page)
- 
--#define is_unusable_next_idx(p, idx) \
--	((((p)->idx + 1) & (p)->elem_per_page_mask) == (p)->usable_per_page)
-+#define is_unusable_next_idx_u32(p, idx)			 \
-+	((((p)->u.chain32.idx + 1) & (p)->elem_per_page_mask) == \
-+	 (p)->usable_per_page)
- 
--#define test_ans_skip(p, idx)				\
-+#define test_and_skip(p, idx)						   \
- 	do {						\
--		if (is_unusable_idx(p, idx)) {		\
--			(p)->idx += (p)->elem_unusable;	\
-+		if (is_chain_u16(p)) {					   \
-+			if (is_unusable_idx(p, idx))			   \
-+				(p)->u.chain16.idx += (p)->elem_unusable;  \
-+		} else {						   \
-+			if (is_unusable_idx_u32(p, idx))		   \
-+				(p)->u.chain32.idx += (p)->elem_unusable;  \
- 		}					\
- 	} while (0)
- 
- /**
-- * @brief qed_chain_return_multi_produced -
-- *
-- * A chain in which the driver "Produces" elements should use this API
-- * to indicate previous produced elements are now consumed.
-- *
-- * @param p_chain
-- * @param num
-- */
--static inline void
--qed_chain_return_multi_produced(struct qed_chain *p_chain,
--				u16 num)
--{
--	p_chain->cons_idx += num;
--	test_ans_skip(p_chain, cons_idx);
--}
--
--/**
-  * @brief qed_chain_return_produced -
-  *
-  * A chain in which the driver "Produces" elements should use this API
-@@ -240,8 +293,11 @@ qed_chain_return_multi_produced(struct qed_chain *p_chain,
-  */
- static inline void qed_chain_return_produced(struct qed_chain *p_chain)
- {
--	p_chain->cons_idx++;
--	test_ans_skip(p_chain, cons_idx);
-+	if (is_chain_u16(p_chain))
-+		p_chain->u.chain16.cons_idx++;
-+	else
-+		p_chain->u.chain32.cons_idx++;
-+	test_and_skip(p_chain, cons_idx);
- }
- 
- /**
-@@ -257,21 +313,33 @@ static inline void qed_chain_return_produced(struct qed_chain *p_chain)
-  */
- static inline void *qed_chain_produce(struct qed_chain *p_chain)
- {
--	void *ret = NULL;
--
--	if ((p_chain->prod_idx & p_chain->elem_per_page_mask) ==
--	    p_chain->next_page_mask) {
--		qed_chain_advance_page(p_chain, &p_chain->p_prod_elem,
--				       &p_chain->prod_idx,
--				       &p_chain->pbl.prod_page_idx);
-+	void *p_ret = NULL, *p_prod_idx, *p_prod_page_idx;
-+
-+	if (is_chain_u16(p_chain)) {
-+		if ((p_chain->u.chain16.prod_idx &
-+		     p_chain->elem_per_page_mask) == p_chain->next_page_mask) {
-+			p_prod_idx = &p_chain->u.chain16.prod_idx;
-+			p_prod_page_idx = &p_chain->pbl.u.pbl16.prod_page_idx;
-+			qed_chain_advance_page(p_chain, &p_chain->p_prod_elem,
-+					       p_prod_idx, p_prod_page_idx);
-+		}
-+		p_chain->u.chain16.prod_idx++;
-+	} else {
-+		if ((p_chain->u.chain32.prod_idx &
-+		     p_chain->elem_per_page_mask) == p_chain->next_page_mask) {
-+			p_prod_idx = &p_chain->u.chain32.prod_idx;
-+			p_prod_page_idx = &p_chain->pbl.u.pbl32.prod_page_idx;
-+			qed_chain_advance_page(p_chain, &p_chain->p_prod_elem,
-+					       p_prod_idx, p_prod_page_idx);
-+		}
-+		p_chain->u.chain32.prod_idx++;
- 	}
- 
--	ret = p_chain->p_prod_elem;
--	p_chain->prod_idx++;
-+	p_ret = p_chain->p_prod_elem;
- 	p_chain->p_prod_elem = (void *)(((u8 *)p_chain->p_prod_elem) +
- 					p_chain->elem_size);
- 
--	return ret;
-+	return p_ret;
- }
- 
- /**
-@@ -282,9 +350,9 @@ static inline void *qed_chain_produce(struct qed_chain *p_chain)
-  * @param p_chain
-  * @param num
-  *
-- * @return u16, number of unusable BDs
-+ * @return number of unusable BDs
-  */
--static inline u16 qed_chain_get_capacity(struct qed_chain *p_chain)
-+static inline u32 qed_chain_get_capacity(struct qed_chain *p_chain)
- {
- 	return p_chain->capacity;
- }
-@@ -297,11 +365,13 @@ static inline u16 qed_chain_get_capacity(struct qed_chain *p_chain)
-  *
-  * @param p_chain
-  */
--static inline void
--qed_chain_recycle_consumed(struct qed_chain *p_chain)
-+static inline void qed_chain_recycle_consumed(struct qed_chain *p_chain)
- {
--	test_ans_skip(p_chain, prod_idx);
--	p_chain->prod_idx++;
-+	test_and_skip(p_chain, prod_idx);
-+	if (is_chain_u16(p_chain))
-+		p_chain->u.chain16.prod_idx++;
-+	else
-+		p_chain->u.chain32.prod_idx++;
- }
- 
- /**
-@@ -316,21 +386,33 @@ qed_chain_recycle_consumed(struct qed_chain *p_chain)
-  */
- static inline void *qed_chain_consume(struct qed_chain *p_chain)
- {
--	void *ret = NULL;
--
--	if ((p_chain->cons_idx & p_chain->elem_per_page_mask) ==
--	    p_chain->next_page_mask) {
-+	void *p_ret = NULL, *p_cons_idx, *p_cons_page_idx;
-+
-+	if (is_chain_u16(p_chain)) {
-+		if ((p_chain->u.chain16.cons_idx &
-+		     p_chain->elem_per_page_mask) == p_chain->next_page_mask) {
-+			p_cons_idx = &p_chain->u.chain16.cons_idx;
-+			p_cons_page_idx = &p_chain->pbl.u.pbl16.cons_page_idx;
-+			qed_chain_advance_page(p_chain, &p_chain->p_cons_elem,
-+					       p_cons_idx, p_cons_page_idx);
-+		}
-+		p_chain->u.chain16.cons_idx++;
-+	} else {
-+		if ((p_chain->u.chain32.cons_idx &
-+		     p_chain->elem_per_page_mask) == p_chain->next_page_mask) {
-+			p_cons_idx = &p_chain->u.chain32.cons_idx;
-+			p_cons_page_idx = &p_chain->pbl.u.pbl32.cons_page_idx;
- 		qed_chain_advance_page(p_chain, &p_chain->p_cons_elem,
--				       &p_chain->cons_idx,
--				       &p_chain->pbl.cons_page_idx);
-+					       p_cons_idx, p_cons_page_idx);
-+		}
-+		p_chain->u.chain32.cons_idx++;
- 	}
- 
--	ret = p_chain->p_cons_elem;
--	p_chain->cons_idx++;
-+	p_ret = p_chain->p_cons_elem;
- 	p_chain->p_cons_elem = (void *)(((u8 *)p_chain->p_cons_elem) +
- 					p_chain->elem_size);
- 
--	return ret;
-+	return p_ret;
- }
- 
- /**
-@@ -340,16 +422,33 @@ static inline void *qed_chain_consume(struct qed_chain *p_chain)
-  */
- static inline void qed_chain_reset(struct qed_chain *p_chain)
- {
--	int i;
--
--	p_chain->prod_idx	= 0;
--	p_chain->cons_idx	= 0;
--	p_chain->p_cons_elem	= p_chain->p_virt_addr;
--	p_chain->p_prod_elem	= p_chain->p_virt_addr;
-+	u32 i;
-+
-+	if (is_chain_u16(p_chain)) {
-+		p_chain->u.chain16.prod_idx = 0;
-+		p_chain->u.chain16.cons_idx = 0;
-+	} else {
-+		p_chain->u.chain32.prod_idx = 0;
-+		p_chain->u.chain32.cons_idx = 0;
-+	}
-+	p_chain->p_cons_elem = p_chain->p_virt_addr;
-+	p_chain->p_prod_elem = p_chain->p_virt_addr;
- 
- 	if (p_chain->mode == QED_CHAIN_MODE_PBL) {
--		p_chain->pbl.prod_page_idx	= p_chain->page_cnt - 1;
--		p_chain->pbl.cons_page_idx	= p_chain->page_cnt - 1;
-+		/* Use (page_cnt - 1) as a reset value for the prod/cons page's
-+		 * indices, to avoid unnecessary page advancing on the first
-+		 * call to qed_chain_produce/consume. Instead, the indices
-+		 * will be advanced to page_cnt and then will be wrapped to 0.
-+		 */
-+		u32 reset_val = p_chain->page_cnt - 1;
-+
-+		if (is_chain_u16(p_chain)) {
-+			p_chain->pbl.u.pbl16.prod_page_idx = (u16)reset_val;
-+			p_chain->pbl.u.pbl16.cons_page_idx = (u16)reset_val;
-+		} else {
-+			p_chain->pbl.u.pbl32.prod_page_idx = reset_val;
-+			p_chain->pbl.u.pbl32.cons_page_idx = reset_val;
-+		}
- 	}
- 
- 	switch (p_chain->intended_use) {
-@@ -377,168 +476,184 @@ static inline void qed_chain_reset(struct qed_chain *p_chain)
-  * @param intended_use
-  * @param mode
-  */
--static inline void qed_chain_init(struct qed_chain *p_chain,
--				  void *p_virt_addr,
--				  dma_addr_t p_phys_addr,
--				  u16 page_cnt,
--				  u8 elem_size,
--				  enum qed_chain_use_mode intended_use,
--				  enum qed_chain_mode mode)
-+static inline void qed_chain_init_params(struct qed_chain *p_chain,
-+					 u32 page_cnt,
-+					 u8 elem_size,
-+					 enum qed_chain_use_mode intended_use,
-+					 enum qed_chain_mode mode,
-+					 enum qed_chain_cnt_type cnt_type)
- {
- 	/* chain fixed parameters */
--	p_chain->p_virt_addr	= p_virt_addr;
--	p_chain->p_phys_addr	= p_phys_addr;
-+	p_chain->p_virt_addr = NULL;
-+	p_chain->p_phys_addr = 0;
- 	p_chain->elem_size	= elem_size;
--	p_chain->page_cnt	= page_cnt;
-+	p_chain->intended_use = intended_use;
- 	p_chain->mode		= mode;
-+	p_chain->cnt_type = cnt_type;
- 
--	p_chain->intended_use		= intended_use;
- 	p_chain->elem_per_page		= ELEMS_PER_PAGE(elem_size);
--	p_chain->usable_per_page =
--		USABLE_ELEMS_PER_PAGE(elem_size, mode);
--	p_chain->capacity		= p_chain->usable_per_page * page_cnt;
--	p_chain->size			= p_chain->elem_per_page * page_cnt;
-+	p_chain->usable_per_page = USABLE_ELEMS_PER_PAGE(elem_size, mode);
- 	p_chain->elem_per_page_mask	= p_chain->elem_per_page - 1;
--
- 	p_chain->elem_unusable = UNUSABLE_ELEMS_PER_PAGE(elem_size, mode);
--
- 	p_chain->next_page_mask = (p_chain->usable_per_page &
- 				   p_chain->elem_per_page_mask);
- 
--	if (mode == QED_CHAIN_MODE_NEXT_PTR) {
--		struct qed_chain_next	*p_next;
--		u16			i;
--
--		for (i = 0; i < page_cnt - 1; i++) {
--			/* Increment mem_phy to the next page. */
--			p_phys_addr += QED_CHAIN_PAGE_SIZE;
--
--			/* Initialize the physical address of the next page. */
--			p_next = (struct qed_chain_next *)((u8 *)p_virt_addr +
--							   elem_size *
--							   p_chain->
--							   usable_per_page);
--
--			p_next->next_phys.lo	= DMA_LO_LE(p_phys_addr);
--			p_next->next_phys.hi	= DMA_HI_LE(p_phys_addr);
--
--			/* Initialize the virtual address of the next page. */
--			p_next->next_virt = (void *)((u8 *)p_virt_addr +
--						     QED_CHAIN_PAGE_SIZE);
--
--			/* Move to the next page. */
--			p_virt_addr = p_next->next_virt;
--		}
--
--		/* Last page's next should point to beginning of the chain */
--		p_next = (struct qed_chain_next *)((u8 *)p_virt_addr +
--						   elem_size *
--						   p_chain->usable_per_page);
-+	p_chain->page_cnt = page_cnt;
-+	p_chain->capacity = p_chain->usable_per_page * page_cnt;
-+	p_chain->size = p_chain->elem_per_page * page_cnt;
- 
--		p_next->next_phys.lo	= DMA_LO_LE(p_chain->p_phys_addr);
--		p_next->next_phys.hi	= DMA_HI_LE(p_chain->p_phys_addr);
--		p_next->next_virt	= p_chain->p_virt_addr;
--	}
--	qed_chain_reset(p_chain);
-+	p_chain->pbl.p_phys_table = 0;
-+	p_chain->pbl.p_virt_table = NULL;
-+	p_chain->pbl.pp_virt_addr_tbl = NULL;
- }
- 
- /**
-- * @brief qed_chain_pbl_init - Initalizes a basic pbl chain
-- *        struct
-+ * @brief qed_chain_init_mem -
++struct timers_context {
++	__le32 logical_client0;
++#define TIMERS_CONTEXT_EXPIRATIONTIMELC0_MASK     0xFFFFFFF
++#define TIMERS_CONTEXT_EXPIRATIONTIMELC0_SHIFT    0
++#define TIMERS_CONTEXT_VALIDLC0_MASK              0x1
++#define TIMERS_CONTEXT_VALIDLC0_SHIFT             28
++#define TIMERS_CONTEXT_ACTIVELC0_MASK             0x1
++#define TIMERS_CONTEXT_ACTIVELC0_SHIFT            29
++#define TIMERS_CONTEXT_RESERVED0_MASK             0x3
++#define TIMERS_CONTEXT_RESERVED0_SHIFT            30
++	__le32 logical_client1;
++#define TIMERS_CONTEXT_EXPIRATIONTIMELC1_MASK     0xFFFFFFF
++#define TIMERS_CONTEXT_EXPIRATIONTIMELC1_SHIFT    0
++#define TIMERS_CONTEXT_VALIDLC1_MASK              0x1
++#define TIMERS_CONTEXT_VALIDLC1_SHIFT             28
++#define TIMERS_CONTEXT_ACTIVELC1_MASK             0x1
++#define TIMERS_CONTEXT_ACTIVELC1_SHIFT            29
++#define TIMERS_CONTEXT_RESERVED1_MASK             0x3
++#define TIMERS_CONTEXT_RESERVED1_SHIFT            30
++	__le32 logical_client2;
++#define TIMERS_CONTEXT_EXPIRATIONTIMELC2_MASK     0xFFFFFFF
++#define TIMERS_CONTEXT_EXPIRATIONTIMELC2_SHIFT    0
++#define TIMERS_CONTEXT_VALIDLC2_MASK              0x1
++#define TIMERS_CONTEXT_VALIDLC2_SHIFT             28
++#define TIMERS_CONTEXT_ACTIVELC2_MASK             0x1
++#define TIMERS_CONTEXT_ACTIVELC2_SHIFT            29
++#define TIMERS_CONTEXT_RESERVED2_MASK             0x3
++#define TIMERS_CONTEXT_RESERVED2_SHIFT            30
++	__le32 host_expiration_fields;
++#define TIMERS_CONTEXT_HOSTEXPRIRATIONVALUE_MASK  0xFFFFFFF
++#define TIMERS_CONTEXT_HOSTEXPRIRATIONVALUE_SHIFT 0
++#define TIMERS_CONTEXT_HOSTEXPRIRATIONVALID_MASK  0x1
++#define TIMERS_CONTEXT_HOSTEXPRIRATIONVALID_SHIFT 28
++#define TIMERS_CONTEXT_RESERVED3_MASK             0x7
++#define TIMERS_CONTEXT_RESERVED3_SHIFT            29
++};
+ #endif /* __COMMON_HSI__ */
+diff --git a/include/linux/qed/iscsi_common.h b/include/linux/qed/iscsi_common.h
+new file mode 100644
+index 0000000..b3c0feb
+--- /dev/null
++++ b/include/linux/qed/iscsi_common.h
+@@ -0,0 +1,1439 @@
++/* QLogic qed NIC Driver
++ * Copyright (c) 2015 QLogic Corporation
 + *
-+ * Initalizes a basic chain struct with its chain buffers
-+ *
-  * @param p_chain
-  * @param p_virt_addr	virtual address of allocated buffer's beginning
-  * @param p_phys_addr	physical address of allocated buffer's beginning
-- * @param page_cnt	number of pages in the allocated buffer
-- * @param elem_size	size of each element in the chain
-- * @param use_mode
-- * @param p_phys_pbl	pointer to a pre-allocated side table
-- *                      which will hold physical page addresses.
-- * @param p_virt_pbl	pointer to a pre allocated side table
-- *                      which will hold virtual page addresses.
-+ *
-  */
--static inline void
--qed_chain_pbl_init(struct qed_chain *p_chain,
--		   void *p_virt_addr,
--		   dma_addr_t p_phys_addr,
--		   u16 page_cnt,
--		   u8 elem_size,
--		   enum qed_chain_use_mode use_mode,
--		   dma_addr_t p_phys_pbl,
--		   dma_addr_t *p_virt_pbl)
-+static inline void qed_chain_init_mem(struct qed_chain *p_chain,
-+				      void *p_virt_addr, dma_addr_t p_phys_addr)
- {
--	dma_addr_t *p_pbl_dma = p_virt_pbl;
--	int i;
--
--	qed_chain_init(p_chain, p_virt_addr, p_phys_addr, page_cnt,
--		       elem_size, use_mode, QED_CHAIN_MODE_PBL);
-+	p_chain->p_virt_addr = p_virt_addr;
-+	p_chain->p_phys_addr = p_phys_addr;
-+}
- 
-+/**
-+ * @brief qed_chain_init_pbl_mem -
-+ *
-+ * Initalizes a basic chain struct with its pbl buffers
-+ *
-+ * @param p_chain
-+ * @param p_virt_pbl	pointer to a pre allocated side table which will hold
-+ *                      virtual page addresses.
-+ * @param p_phys_pbl	pointer to a pre-allocated side table which will hold
-+ *                      physical page addresses.
-+ * @param pp_virt_addr_tbl
-+ *                      pointer to a pre-allocated side table which will hold
-+ *                      the virtual addresses of the chain pages.
-+ *
++ * This software is available under the terms of the GNU General Public License
++ * (GPL) Version 2, available from the file COPYING in the main directory of
++ * this source tree.
 + */
-+static inline void qed_chain_init_pbl_mem(struct qed_chain *p_chain,
-+					  void *p_virt_pbl,
-+					  dma_addr_t p_phys_pbl,
-+					  void **pp_virt_addr_tbl)
-+{
- 	p_chain->pbl.p_phys_table = p_phys_pbl;
- 	p_chain->pbl.p_virt_table = p_virt_pbl;
--
--	/* Fill the PBL with physical addresses*/
--	for (i = 0; i < page_cnt; i++) {
--		*p_pbl_dma = p_phys_addr;
--		p_phys_addr += QED_CHAIN_PAGE_SIZE;
--		p_pbl_dma++;
--	}
-+	p_chain->pbl.pp_virt_addr_tbl = pp_virt_addr_tbl;
- }
- 
- /**
-- * @brief qed_chain_set_prod - sets the prod to the given
-- *        value
-+ * @brief qed_chain_init_next_ptr_elem -
++
++#ifndef __ISCSI_COMMON__
++#define __ISCSI_COMMON__
++/**********************/
++/* ISCSI FW CONSTANTS */
++/**********************/
++
++/* iSCSI HSI constants */
++#define ISCSI_DEFAULT_MTU       (1500)
++
++/* Current iSCSI HSI version number composed of two fields (16 bit) */
++#define ISCSI_HSI_MAJOR_VERSION (0)
++#define ISCSI_HSI_MINOR_VERSION (0)
++
++/* KWQ (kernel work queue) layer codes */
++#define ISCSI_SLOW_PATH_LAYER_CODE   (6)
++
++/* CQE completion status */
++#define ISCSI_EQE_COMPLETION_SUCCESS (0x0)
++#define ISCSI_EQE_RST_CONN_RCVD (0x1)
++
++/* iSCSI parameter defaults */
++#define ISCSI_DEFAULT_HEADER_DIGEST         (0)
++#define ISCSI_DEFAULT_DATA_DIGEST           (0)
++#define ISCSI_DEFAULT_INITIAL_R2T           (1)
++#define ISCSI_DEFAULT_IMMEDIATE_DATA        (1)
++#define ISCSI_DEFAULT_MAX_PDU_LENGTH        (0x2000)
++#define ISCSI_DEFAULT_FIRST_BURST_LENGTH    (0x10000)
++#define ISCSI_DEFAULT_MAX_BURST_LENGTH      (0x40000)
++#define ISCSI_DEFAULT_MAX_OUTSTANDING_R2T   (1)
++
++/* iSCSI parameter limits */
++#define ISCSI_MIN_VAL_MAX_PDU_LENGTH        (0x200)
++#define ISCSI_MAX_VAL_MAX_PDU_LENGTH        (0xffffff)
++#define ISCSI_MIN_VAL_BURST_LENGTH          (0x200)
++#define ISCSI_MAX_VAL_BURST_LENGTH          (0xffffff)
++#define ISCSI_MIN_VAL_MAX_OUTSTANDING_R2T   (1)
++#define ISCSI_MAX_VAL_MAX_OUTSTANDING_R2T   (0xff)
++
++/* iSCSI reserved params */
++#define ISCSI_ITT_ALL_ONES	(0xffffffff)
++#define ISCSI_TTT_ALL_ONES	(0xffffffff)
++
++#define ISCSI_OPTION_1_OFF_CHIP_TCP 1
++#define ISCSI_OPTION_2_ON_CHIP_TCP 2
++
++#define ISCSI_INITIATOR_MODE 0
++#define ISCSI_TARGET_MODE 1
++
++/* iSCSI request op codes */
++#define ISCSI_OPCODE_NOP_OUT_NO_IMM                     (0)
++#define ISCSI_OPCODE_NOP_OUT                            ( \
++		ISCSI_OPCODE_NOP_OUT_NO_IMM | 0x40)
++#define ISCSI_OPCODE_SCSI_CMD_NO_IMM            (1)
++#define ISCSI_OPCODE_SCSI_CMD                           ( \
++		ISCSI_OPCODE_SCSI_CMD_NO_IMM | 0x40)
++#define ISCSI_OPCODE_TMF_REQUEST_NO_IMM         (2)
++#define ISCSI_OPCODE_TMF_REQUEST                        ( \
++		ISCSI_OPCODE_TMF_REQUEST_NO_IMM | 0x40)
++#define ISCSI_OPCODE_LOGIN_REQUEST_NO_IMM       (3)
++#define ISCSI_OPCODE_LOGIN_REQUEST                      ( \
++		ISCSI_OPCODE_LOGIN_REQUEST_NO_IMM | 0x40)
++#define ISCSI_OPCODE_TEXT_REQUEST_NO_IMM        (4)
++#define ISCSI_OPCODE_TEXT_REQUEST                       ( \
++		ISCSI_OPCODE_TEXT_REQUEST_NO_IMM | 0x40)
++#define ISCSI_OPCODE_DATA_OUT                           (5)
++#define ISCSI_OPCODE_LOGOUT_REQUEST_NO_IMM      (6)
++#define ISCSI_OPCODE_LOGOUT_REQUEST                     ( \
++		ISCSI_OPCODE_LOGOUT_REQUEST_NO_IMM | 0x40)
++
++/* iSCSI response/messages op codes */
++#define ISCSI_OPCODE_NOP_IN             (0x20)
++#define ISCSI_OPCODE_SCSI_RESPONSE      (0x21)
++#define ISCSI_OPCODE_TMF_RESPONSE       (0x22)
++#define ISCSI_OPCODE_LOGIN_RESPONSE     (0x23)
++#define ISCSI_OPCODE_TEXT_RESPONSE      (0x24)
++#define ISCSI_OPCODE_DATA_IN            (0x25)
++#define ISCSI_OPCODE_LOGOUT_RESPONSE    (0x26)
++#define ISCSI_OPCODE_R2T                (0x31)
++#define ISCSI_OPCODE_ASYNC_MSG          (0x32)
++#define ISCSI_OPCODE_REJECT             (0x3f)
++
++/* iSCSI stages */
++#define ISCSI_STAGE_SECURITY_NEGOTIATION            (0)
++#define ISCSI_STAGE_LOGIN_OPERATIONAL_NEGOTIATION   (1)
++#define ISCSI_STAGE_FULL_FEATURE_PHASE              (3)
++
++/* iSCSI CQE errors */
++#define CQE_ERROR_BITMAP_DATA_DIGEST          (0x08)
++#define CQE_ERROR_BITMAP_RCV_ON_INVALID_CONN  (0x10)
++#define CQE_ERROR_BITMAP_DATA_TRUNCATED       (0x20)
++
++struct cqe_error_bitmap {
++	u8 cqe_error_status_bits;
++#define CQE_ERROR_BITMAP_DIF_ERR_BITS_MASK         0x7
++#define CQE_ERROR_BITMAP_DIF_ERR_BITS_SHIFT        0
++#define CQE_ERROR_BITMAP_DATA_DIGEST_ERR_MASK      0x1
++#define CQE_ERROR_BITMAP_DATA_DIGEST_ERR_SHIFT     3
++#define CQE_ERROR_BITMAP_RCV_ON_INVALID_CONN_MASK  0x1
++#define CQE_ERROR_BITMAP_RCV_ON_INVALID_CONN_SHIFT 4
++#define CQE_ERROR_BITMAP_DATA_TRUNCATED_ERR_MASK   0x1
++#define CQE_ERROR_BITMAP_DATA_TRUNCATED_ERR_SHIFT  5
++#define CQE_ERROR_BITMAP_UNDER_RUN_ERR_MASK        0x1
++#define CQE_ERROR_BITMAP_UNDER_RUN_ERR_SHIFT       6
++#define CQE_ERROR_BITMAP_RESERVED2_MASK            0x1
++#define CQE_ERROR_BITMAP_RESERVED2_SHIFT           7
++};
++
++union cqe_error_status {
++	u8 error_status;
++	struct cqe_error_bitmap error_bits;
++};
++
++struct data_hdr {
++	__le32 data[12];
++};
++
++struct iscsi_async_msg_hdr {
++	__le16 reserved0;
++	u8 flags_attr;
++#define ISCSI_ASYNC_MSG_HDR_RSRV_MASK           0x7F
++#define ISCSI_ASYNC_MSG_HDR_RSRV_SHIFT          0
++#define ISCSI_ASYNC_MSG_HDR_CONST1_MASK         0x1
++#define ISCSI_ASYNC_MSG_HDR_CONST1_SHIFT        7
++	u8 opcode;
++	__le32 hdr_second_dword;
++#define ISCSI_ASYNC_MSG_HDR_DATA_SEG_LEN_MASK   0xFFFFFF
++#define ISCSI_ASYNC_MSG_HDR_DATA_SEG_LEN_SHIFT  0
++#define ISCSI_ASYNC_MSG_HDR_TOTAL_AHS_LEN_MASK  0xFF
++#define ISCSI_ASYNC_MSG_HDR_TOTAL_AHS_LEN_SHIFT 24
++	struct regpair lun;
++	__le32 all_ones;
++	__le32 reserved1;
++	__le32 stat_sn;
++	__le32 exp_cmd_sn;
++	__le32 max_cmd_sn;
++	__le16 param1_rsrv;
++	u8 async_vcode;
++	u8 async_event;
++	__le16 param3_rsrv;
++	__le16 param2_rsrv;
++	__le32 reserved7;
++};
++
++struct iscsi_sge {
++	struct regpair sge_addr;
++	__le16 sge_len;
++	__le16 reserved0;
++	__le32 reserved1;
++};
++
++struct iscsi_cached_sge_ctx {
++	struct iscsi_sge sge;
++	struct regpair reserved;
++	__le32 dsgl_curr_offset[2];
++};
++
++struct iscsi_cmd_hdr {
++	__le16 reserved1;
++	u8 flags_attr;
++#define ISCSI_CMD_HDR_ATTR_MASK           0x7
++#define ISCSI_CMD_HDR_ATTR_SHIFT          0
++#define ISCSI_CMD_HDR_RSRV_MASK           0x3
++#define ISCSI_CMD_HDR_RSRV_SHIFT          3
++#define ISCSI_CMD_HDR_WRITE_MASK          0x1
++#define ISCSI_CMD_HDR_WRITE_SHIFT         5
++#define ISCSI_CMD_HDR_READ_MASK           0x1
++#define ISCSI_CMD_HDR_READ_SHIFT          6
++#define ISCSI_CMD_HDR_FINAL_MASK          0x1
++#define ISCSI_CMD_HDR_FINAL_SHIFT         7
++	u8 opcode;
++	__le32 hdr_second_dword;
++#define ISCSI_CMD_HDR_DATA_SEG_LEN_MASK   0xFFFFFF
++#define ISCSI_CMD_HDR_DATA_SEG_LEN_SHIFT  0
++#define ISCSI_CMD_HDR_TOTAL_AHS_LEN_MASK  0xFF
++#define ISCSI_CMD_HDR_TOTAL_AHS_LEN_SHIFT 24
++	struct regpair lun;
++	__le32 itt;
++	__le32 expected_transfer_length;
++	__le32 cmd_sn;
++	__le32 exp_stat_sn;
++	__le32 cdb[4];
++};
++
++struct iscsi_common_hdr {
++	u8 hdr_status;
++	u8 hdr_response;
++	u8 hdr_flags;
++	u8 hdr_first_byte;
++#define ISCSI_COMMON_HDR_OPCODE_MASK         0x3F
++#define ISCSI_COMMON_HDR_OPCODE_SHIFT        0
++#define ISCSI_COMMON_HDR_IMM_MASK            0x1
++#define ISCSI_COMMON_HDR_IMM_SHIFT           6
++#define ISCSI_COMMON_HDR_RSRV_MASK           0x1
++#define ISCSI_COMMON_HDR_RSRV_SHIFT          7
++	__le32 hdr_second_dword;
++#define ISCSI_COMMON_HDR_DATA_SEG_LEN_MASK   0xFFFFFF
++#define ISCSI_COMMON_HDR_DATA_SEG_LEN_SHIFT  0
++#define ISCSI_COMMON_HDR_TOTAL_AHS_LEN_MASK  0xFF
++#define ISCSI_COMMON_HDR_TOTAL_AHS_LEN_SHIFT 24
++	__le32 lun_reserved[4];
++	__le32 data[6];
++};
++
++struct iscsi_conn_offload_params {
++	struct regpair sq_pbl_addr;
++	struct regpair r2tq_pbl_addr;
++	struct regpair xhq_pbl_addr;
++	struct regpair uhq_pbl_addr;
++	__le32 initial_ack;
++	__le16 physical_q0;
++	__le16 physical_q1;
++	u8 flags;
++#define ISCSI_CONN_OFFLOAD_PARAMS_TCP_ON_CHIP_1B_MASK  0x1
++#define ISCSI_CONN_OFFLOAD_PARAMS_TCP_ON_CHIP_1B_SHIFT 0
++#define ISCSI_CONN_OFFLOAD_PARAMS_TARGET_MODE_MASK     0x1
++#define ISCSI_CONN_OFFLOAD_PARAMS_TARGET_MODE_SHIFT    1
++#define ISCSI_CONN_OFFLOAD_PARAMS_RESERVED1_MASK       0x3F
++#define ISCSI_CONN_OFFLOAD_PARAMS_RESERVED1_SHIFT      2
++	u8 pbl_page_size_log;
++	u8 pbe_page_size_log;
++	u8 default_cq;
++	__le32 stat_sn;
++};
++
++struct iscsi_slow_path_hdr {
++	u8 op_code;
++	u8 flags;
++#define ISCSI_SLOW_PATH_HDR_RESERVED0_MASK   0xF
++#define ISCSI_SLOW_PATH_HDR_RESERVED0_SHIFT  0
++#define ISCSI_SLOW_PATH_HDR_LAYER_CODE_MASK  0x7
++#define ISCSI_SLOW_PATH_HDR_LAYER_CODE_SHIFT 4
++#define ISCSI_SLOW_PATH_HDR_RESERVED1_MASK   0x1
++#define ISCSI_SLOW_PATH_HDR_RESERVED1_SHIFT  7
++};
++
++struct iscsi_conn_update_ramrod_params {
++	struct iscsi_slow_path_hdr hdr;
++	__le16 conn_id;
++	__le32 fw_cid;
++	u8 flags;
++#define ISCSI_CONN_UPDATE_RAMROD_PARAMS_HD_EN_MASK           0x1
++#define ISCSI_CONN_UPDATE_RAMROD_PARAMS_HD_EN_SHIFT          0
++#define ISCSI_CONN_UPDATE_RAMROD_PARAMS_DD_EN_MASK           0x1
++#define ISCSI_CONN_UPDATE_RAMROD_PARAMS_DD_EN_SHIFT          1
++#define ISCSI_CONN_UPDATE_RAMROD_PARAMS_INITIAL_R2T_MASK     0x1
++#define ISCSI_CONN_UPDATE_RAMROD_PARAMS_INITIAL_R2T_SHIFT    2
++#define ISCSI_CONN_UPDATE_RAMROD_PARAMS_IMMEDIATE_DATA_MASK  0x1
++#define ISCSI_CONN_UPDATE_RAMROD_PARAMS_IMMEDIATE_DATA_SHIFT 3
++#define ISCSI_CONN_UPDATE_RAMROD_PARAMS_RESERVED1_MASK       0xF
++#define ISCSI_CONN_UPDATE_RAMROD_PARAMS_RESERVED1_SHIFT      4
++	u8 reserved0[3];
++	__le32 max_seq_size;
++	__le32 max_send_pdu_length;
++	__le32 max_recv_pdu_length;
++	__le32 first_seq_length;
++	__le32 exp_stat_sn;
++};
++
++struct iscsi_ext_cdb_cmd_hdr {
++	__le16 reserved1;
++	u8 flags_attr;
++#define ISCSI_EXT_CDB_CMD_HDR_ATTR_MASK          0x7
++#define ISCSI_EXT_CDB_CMD_HDR_ATTR_SHIFT         0
++#define ISCSI_EXT_CDB_CMD_HDR_RSRV_MASK          0x3
++#define ISCSI_EXT_CDB_CMD_HDR_RSRV_SHIFT         3
++#define ISCSI_EXT_CDB_CMD_HDR_WRITE_MASK         0x1
++#define ISCSI_EXT_CDB_CMD_HDR_WRITE_SHIFT        5
++#define ISCSI_EXT_CDB_CMD_HDR_READ_MASK          0x1
++#define ISCSI_EXT_CDB_CMD_HDR_READ_SHIFT         6
++#define ISCSI_EXT_CDB_CMD_HDR_FINAL_MASK         0x1
++#define ISCSI_EXT_CDB_CMD_HDR_FINAL_SHIFT        7
++	u8 opcode;
++	__le32 hdr_second_dword;
++#define ISCSI_EXT_CDB_CMD_HDR_DATA_SEG_LEN_MASK  0xFFFFFF
++#define ISCSI_EXT_CDB_CMD_HDR_DATA_SEG_LEN_SHIFT 0
++#define ISCSI_EXT_CDB_CMD_HDR_CDB_SIZE_MASK      0xFF
++#define ISCSI_EXT_CDB_CMD_HDR_CDB_SIZE_SHIFT     24
++	struct regpair lun;
++	__le32 itt;
++	__le32 expected_transfer_length;
++	__le32 cmd_sn;
++	__le32 exp_stat_sn;
++	struct iscsi_sge cdb_sge;
++};
++
++struct iscsi_login_req_hdr {
++	u8 version_min;
++	u8 version_max;
++	u8 flags_attr;
++#define ISCSI_LOGIN_REQ_HDR_NSG_MASK            0x3
++#define ISCSI_LOGIN_REQ_HDR_NSG_SHIFT           0
++#define ISCSI_LOGIN_REQ_HDR_CSG_MASK            0x3
++#define ISCSI_LOGIN_REQ_HDR_CSG_SHIFT           2
++#define ISCSI_LOGIN_REQ_HDR_RSRV_MASK           0x3
++#define ISCSI_LOGIN_REQ_HDR_RSRV_SHIFT          4
++#define ISCSI_LOGIN_REQ_HDR_C_MASK              0x1
++#define ISCSI_LOGIN_REQ_HDR_C_SHIFT             6
++#define ISCSI_LOGIN_REQ_HDR_T_MASK              0x1
++#define ISCSI_LOGIN_REQ_HDR_T_SHIFT             7
++	u8 opcode;
++	__le32 hdr_second_dword;
++#define ISCSI_LOGIN_REQ_HDR_DATA_SEG_LEN_MASK   0xFFFFFF
++#define ISCSI_LOGIN_REQ_HDR_DATA_SEG_LEN_SHIFT  0
++#define ISCSI_LOGIN_REQ_HDR_TOTAL_AHS_LEN_MASK  0xFF
++#define ISCSI_LOGIN_REQ_HDR_TOTAL_AHS_LEN_SHIFT 24
++	__le32 isid_TABC;
++	__le16 tsih;
++	__le16 isid_d;
++	__le32 itt;
++	__le16 reserved1;
++	__le16 cid;
++	__le32 cmd_sn;
++	__le32 exp_stat_sn;
++	__le32 reserved2[4];
++};
++
++struct iscsi_logout_req_hdr {
++	__le16 reserved0;
++	u8 reason_code;
++	u8 opcode;
++	__le32 reserved1;
++	__le32 reserved2[2];
++	__le32 itt;
++	__le16 reserved3;
++	__le16 cid;
++	__le32 cmd_sn;
++	__le32 exp_stat_sn;
++	__le32 reserved4[4];
++};
++
++struct iscsi_data_out_hdr {
++	__le16 reserved1;
++	u8 flags_attr;
++#define ISCSI_DATA_OUT_HDR_RSRV_MASK   0x7F
++#define ISCSI_DATA_OUT_HDR_RSRV_SHIFT  0
++#define ISCSI_DATA_OUT_HDR_FINAL_MASK  0x1
++#define ISCSI_DATA_OUT_HDR_FINAL_SHIFT 7
++	u8 opcode;
++	__le32 reserved2;
++	struct regpair lun;
++	__le32 itt;
++	__le32 ttt;
++	__le32 reserved3;
++	__le32 exp_stat_sn;
++	__le32 reserved4;
++	__le32 data_sn;
++	__le32 buffer_offset;
++	__le32 reserved5;
++};
++
++struct iscsi_data_in_hdr {
++	u8 status_rsvd;
++	u8 reserved1;
++	u8 flags;
++#define ISCSI_DATA_IN_HDR_STATUS_MASK     0x1
++#define ISCSI_DATA_IN_HDR_STATUS_SHIFT    0
++#define ISCSI_DATA_IN_HDR_UNDERFLOW_MASK  0x1
++#define ISCSI_DATA_IN_HDR_UNDERFLOW_SHIFT 1
++#define ISCSI_DATA_IN_HDR_OVERFLOW_MASK   0x1
++#define ISCSI_DATA_IN_HDR_OVERFLOW_SHIFT  2
++#define ISCSI_DATA_IN_HDR_RSRV_MASK       0x7
++#define ISCSI_DATA_IN_HDR_RSRV_SHIFT      3
++#define ISCSI_DATA_IN_HDR_ACK_MASK        0x1
++#define ISCSI_DATA_IN_HDR_ACK_SHIFT       6
++#define ISCSI_DATA_IN_HDR_FINAL_MASK      0x1
++#define ISCSI_DATA_IN_HDR_FINAL_SHIFT     7
++	u8 opcode;
++	__le32 reserved2;
++	struct regpair lun;
++	__le32 itt;
++	__le32 ttt;
++	__le32 stat_sn;
++	__le32 exp_cmd_sn;
++	__le32 max_cmd_sn;
++	__le32 data_sn;
++	__le32 buffer_offset;
++	__le32 residual_count;
++};
++
++struct iscsi_r2t_hdr {
++	u8 reserved0[3];
++	u8 opcode;
++	__le32 reserved2;
++	struct regpair lun;
++	__le32 itt;
++	__le32 ttt;
++	__le32 stat_sn;
++	__le32 exp_cmd_sn;
++	__le32 max_cmd_sn;
++	__le32 r2t_sn;
++	__le32 buffer_offset;
++	__le32 desired_data_trns_len;
++};
++
++struct iscsi_nop_out_hdr {
++	__le16 reserved1;
++	u8 flags_attr;
++#define ISCSI_NOP_OUT_HDR_RSRV_MASK    0x7F
++#define ISCSI_NOP_OUT_HDR_RSRV_SHIFT   0
++#define ISCSI_NOP_OUT_HDR_CONST1_MASK  0x1
++#define ISCSI_NOP_OUT_HDR_CONST1_SHIFT 7
++	u8 opcode;
++	__le32 reserved2;
++	struct regpair lun;
++	__le32 itt;
++	__le32 ttt;
++	__le32 cmd_sn;
++	__le32 exp_stat_sn;
++	__le32 reserved3;
++	__le32 reserved4;
++	__le32 reserved5;
++	__le32 reserved6;
++};
++
++struct iscsi_nop_in_hdr {
++	__le16 reserved0;
++	u8 flags_attr;
++#define ISCSI_NOP_IN_HDR_RSRV_MASK           0x7F
++#define ISCSI_NOP_IN_HDR_RSRV_SHIFT          0
++#define ISCSI_NOP_IN_HDR_CONST1_MASK         0x1
++#define ISCSI_NOP_IN_HDR_CONST1_SHIFT        7
++	u8 opcode;
++	__le32 hdr_second_dword;
++#define ISCSI_NOP_IN_HDR_DATA_SEG_LEN_MASK   0xFFFFFF
++#define ISCSI_NOP_IN_HDR_DATA_SEG_LEN_SHIFT  0
++#define ISCSI_NOP_IN_HDR_TOTAL_AHS_LEN_MASK  0xFF
++#define ISCSI_NOP_IN_HDR_TOTAL_AHS_LEN_SHIFT 24
++	struct regpair lun;
++	__le32 itt;
++	__le32 ttt;
++	__le32 stat_sn;
++	__le32 exp_cmd_sn;
++	__le32 max_cmd_sn;
++	__le32 reserved5;
++	__le32 reserved6;
++	__le32 reserved7;
++};
++
++struct iscsi_login_response_hdr {
++	u8 version_active;
++	u8 version_max;
++	u8 flags_attr;
++#define ISCSI_LOGIN_RESPONSE_HDR_NSG_MASK            0x3
++#define ISCSI_LOGIN_RESPONSE_HDR_NSG_SHIFT           0
++#define ISCSI_LOGIN_RESPONSE_HDR_CSG_MASK            0x3
++#define ISCSI_LOGIN_RESPONSE_HDR_CSG_SHIFT           2
++#define ISCSI_LOGIN_RESPONSE_HDR_RSRV_MASK           0x3
++#define ISCSI_LOGIN_RESPONSE_HDR_RSRV_SHIFT          4
++#define ISCSI_LOGIN_RESPONSE_HDR_C_MASK              0x1
++#define ISCSI_LOGIN_RESPONSE_HDR_C_SHIFT             6
++#define ISCSI_LOGIN_RESPONSE_HDR_T_MASK              0x1
++#define ISCSI_LOGIN_RESPONSE_HDR_T_SHIFT             7
++	u8 opcode;
++	__le32 hdr_second_dword;
++#define ISCSI_LOGIN_RESPONSE_HDR_DATA_SEG_LEN_MASK   0xFFFFFF
++#define ISCSI_LOGIN_RESPONSE_HDR_DATA_SEG_LEN_SHIFT  0
++#define ISCSI_LOGIN_RESPONSE_HDR_TOTAL_AHS_LEN_MASK  0xFF
++#define ISCSI_LOGIN_RESPONSE_HDR_TOTAL_AHS_LEN_SHIFT 24
++	__le32 isid_TABC;
++	__le16 tsih;
++	__le16 isid_d;
++	__le32 itt;
++	__le32 reserved1;
++	__le32 stat_sn;
++	__le32 exp_cmd_sn;
++	__le32 max_cmd_sn;
++	__le16 reserved2;
++	u8 status_detail;
++	u8 status_class;
++	__le32 reserved4[2];
++};
++
++struct iscsi_logout_response_hdr {
++	u8 reserved1;
++	u8 response;
++	u8 flags;
++	u8 opcode;
++	__le32 hdr_second_dword;
++#define ISCSI_LOGOUT_RESPONSE_HDR_DATA_SEG_LEN_MASK   0xFFFFFF
++#define ISCSI_LOGOUT_RESPONSE_HDR_DATA_SEG_LEN_SHIFT  0
++#define ISCSI_LOGOUT_RESPONSE_HDR_TOTAL_AHS_LEN_MASK  0xFF
++#define ISCSI_LOGOUT_RESPONSE_HDR_TOTAL_AHS_LEN_SHIFT 24
++	__le32 reserved2[2];
++	__le32 itt;
++	__le32 reserved3;
++	__le32 stat_sn;
++	__le32 exp_cmd_sn;
++	__le32 max_cmd_sn;
++	__le32 reserved4;
++	__le16 time2retain;
++	__le16 time2wait;
++	__le32 reserved5[1];
++};
++
++struct iscsi_text_request_hdr {
++	__le16 reserved0;
++	u8 flags_attr;
++#define ISCSI_TEXT_REQUEST_HDR_RSRV_MASK           0x3F
++#define ISCSI_TEXT_REQUEST_HDR_RSRV_SHIFT          0
++#define ISCSI_TEXT_REQUEST_HDR_C_MASK              0x1
++#define ISCSI_TEXT_REQUEST_HDR_C_SHIFT             6
++#define ISCSI_TEXT_REQUEST_HDR_F_MASK              0x1
++#define ISCSI_TEXT_REQUEST_HDR_F_SHIFT             7
++	u8 opcode;
++	__le32 hdr_second_dword;
++#define ISCSI_TEXT_REQUEST_HDR_DATA_SEG_LEN_MASK   0xFFFFFF
++#define ISCSI_TEXT_REQUEST_HDR_DATA_SEG_LEN_SHIFT  0
++#define ISCSI_TEXT_REQUEST_HDR_TOTAL_AHS_LEN_MASK  0xFF
++#define ISCSI_TEXT_REQUEST_HDR_TOTAL_AHS_LEN_SHIFT 24
++	struct regpair lun;
++	__le32 itt;
++	__le32 ttt;
++	__le32 cmd_sn;
++	__le32 exp_stat_sn;
++	__le32 reserved4[4];
++};
++
++struct iscsi_text_response_hdr {
++	__le16 reserved1;
++	u8 flags;
++#define ISCSI_TEXT_RESPONSE_HDR_RSRV_MASK           0x3F
++#define ISCSI_TEXT_RESPONSE_HDR_RSRV_SHIFT          0
++#define ISCSI_TEXT_RESPONSE_HDR_C_MASK              0x1
++#define ISCSI_TEXT_RESPONSE_HDR_C_SHIFT             6
++#define ISCSI_TEXT_RESPONSE_HDR_F_MASK              0x1
++#define ISCSI_TEXT_RESPONSE_HDR_F_SHIFT             7
++	u8 opcode;
++	__le32 hdr_second_dword;
++#define ISCSI_TEXT_RESPONSE_HDR_DATA_SEG_LEN_MASK   0xFFFFFF
++#define ISCSI_TEXT_RESPONSE_HDR_DATA_SEG_LEN_SHIFT  0
++#define ISCSI_TEXT_RESPONSE_HDR_TOTAL_AHS_LEN_MASK  0xFF
++#define ISCSI_TEXT_RESPONSE_HDR_TOTAL_AHS_LEN_SHIFT 24
++	struct regpair lun;
++	__le32 itt;
++	__le32 ttt;
++	__le32 stat_sn;
++	__le32 exp_cmd_sn;
++	__le32 max_cmd_sn;
++	__le32 reserved4[3];
++};
++
++struct iscsi_tmf_request_hdr {
++	__le16 reserved0;
++	u8 function;
++	u8 opcode;
++	__le32 hdr_second_dword;
++#define ISCSI_TMF_REQUEST_HDR_DATA_SEG_LEN_MASK   0xFFFFFF
++#define ISCSI_TMF_REQUEST_HDR_DATA_SEG_LEN_SHIFT  0
++#define ISCSI_TMF_REQUEST_HDR_TOTAL_AHS_LEN_MASK  0xFF
++#define ISCSI_TMF_REQUEST_HDR_TOTAL_AHS_LEN_SHIFT 24
++	struct regpair lun;
++	__le32 itt;
++	__le32 rtt;
++	__le32 cmd_sn;
++	__le32 exp_stat_sn;
++	__le32 ref_cmd_sn;
++	__le32 exp_data_sn;
++	__le32 reserved4[2];
++};
++
++struct iscsi_tmf_response_hdr {
++	u8 reserved2;
++	u8 hdr_response;
++	u8 hdr_flags;
++	u8 opcode;
++	__le32 hdr_second_dword;
++#define ISCSI_TMF_RESPONSE_HDR_DATA_SEG_LEN_MASK   0xFFFFFF
++#define ISCSI_TMF_RESPONSE_HDR_DATA_SEG_LEN_SHIFT  0
++#define ISCSI_TMF_RESPONSE_HDR_TOTAL_AHS_LEN_MASK  0xFF
++#define ISCSI_TMF_RESPONSE_HDR_TOTAL_AHS_LEN_SHIFT 24
++	struct regpair reserved0;
++	__le32 itt;
++	__le32 rtt;
++	__le32 stat_sn;
++	__le32 exp_cmd_sn;
++	__le32 max_cmd_sn;
++	__le32 reserved4[3];
++};
++
++struct iscsi_response_hdr {
++	u8 hdr_status;
++	u8 hdr_response;
++	u8 hdr_flags;
++	u8 opcode;
++	__le32 hdr_second_dword;
++#define ISCSI_RESPONSE_HDR_DATA_SEG_LEN_MASK   0xFFFFFF
++#define ISCSI_RESPONSE_HDR_DATA_SEG_LEN_SHIFT  0
++#define ISCSI_RESPONSE_HDR_TOTAL_AHS_LEN_MASK  0xFF
++#define ISCSI_RESPONSE_HDR_TOTAL_AHS_LEN_SHIFT 24
++	struct regpair lun;
++	__le32 itt;
++	__le32 snack_tag;
++	__le32 stat_sn;
++	__le32 exp_cmd_sn;
++	__le32 max_cmd_sn;
++	__le32 exp_data_sn;
++	__le32 bi_residual_count;
++	__le32 residual_count;
++};
++
++struct iscsi_reject_hdr {
++	u8 reserved4;
++	u8 hdr_reason;
++	u8 hdr_flags;
++	u8 opcode;
++	__le32 hdr_second_dword;
++#define ISCSI_REJECT_HDR_DATA_SEG_LEN_MASK   0xFFFFFF
++#define ISCSI_REJECT_HDR_DATA_SEG_LEN_SHIFT  0
++#define ISCSI_REJECT_HDR_TOTAL_AHS_LEN_MASK  0xFF
++#define ISCSI_REJECT_HDR_TOTAL_AHS_LEN_SHIFT 24
++	struct regpair reserved0;
++	__le32 reserved1;
++	__le32 reserved2;
++	__le32 stat_sn;
++	__le32 exp_cmd_sn;
++	__le32 max_cmd_sn;
++	__le32 data_sn;
++	__le32 reserved3[2];
++};
++
++union iscsi_task_hdr {
++	struct iscsi_common_hdr common;
++	struct data_hdr data;
++	struct iscsi_cmd_hdr cmd;
++	struct iscsi_ext_cdb_cmd_hdr ext_cdb_cmd;
++	struct iscsi_login_req_hdr login_req;
++	struct iscsi_logout_req_hdr logout_req;
++	struct iscsi_data_out_hdr data_out;
++	struct iscsi_data_in_hdr data_in;
++	struct iscsi_r2t_hdr r2t;
++	struct iscsi_nop_out_hdr nop_out;
++	struct iscsi_nop_in_hdr nop_in;
++	struct iscsi_login_response_hdr login_response;
++	struct iscsi_logout_response_hdr logout_response;
++	struct iscsi_text_request_hdr text_request;
++	struct iscsi_text_response_hdr text_response;
++	struct iscsi_tmf_request_hdr tmf_request;
++	struct iscsi_tmf_response_hdr tmf_response;
++	struct iscsi_response_hdr response;
++	struct iscsi_reject_hdr reject;
++	struct iscsi_async_msg_hdr async_msg;
++};
++
++struct iscsi_cqe_common {
++	__le16 conn_id;
++	u8 cqe_type;
++	union cqe_error_status error_bitmap;
++	__le32 reserved[3];
++	union iscsi_task_hdr iscsi_hdr;
++};
++
++struct iscsi_cqe_solicited {
++	__le16 conn_id;
++	u8 cqe_type;
++	union cqe_error_status error_bitmap;
++	__le16 itid;
++	u8 task_type;
++	u8 fw_dbg_field;
++	__le32 reserved1[2];
++	union iscsi_task_hdr iscsi_hdr;
++};
++
++struct iscsi_cqe_unsolicited {
++	__le16 conn_id;
++	u8 cqe_type;
++	union cqe_error_status error_bitmap;
++	__le16 reserved0;
++	u8 reserved1;
++	u8 unsol_cqe_type;
++	struct regpair rqe_opaque;
++	union iscsi_task_hdr iscsi_hdr;
++};
++
++union iscsi_cqe {
++	struct iscsi_cqe_common cqe_common;
++	struct iscsi_cqe_solicited cqe_solicited;
++	struct iscsi_cqe_unsolicited cqe_unsolicited;
++};
++
++enum iscsi_cqes_type {
++	ISCSI_CQE_TYPE_SOLICITED = 1,
++	ISCSI_CQE_TYPE_UNSOLICITED,
++	ISCSI_CQE_TYPE_SOLICITED_WITH_SENSE
++	   ,
++	ISCSI_CQE_TYPE_TASK_CLEANUP,
++	ISCSI_CQE_TYPE_DUMMY,
++	MAX_ISCSI_CQES_TYPE
++};
++
++enum iscsi_cqe_unsolicited_type {
++	ISCSI_CQE_UNSOLICITED_NONE,
++	ISCSI_CQE_UNSOLICITED_SINGLE,
++	ISCSI_CQE_UNSOLICITED_FIRST,
++	ISCSI_CQE_UNSOLICITED_MIDDLE,
++	ISCSI_CQE_UNSOLICITED_LAST,
++	MAX_ISCSI_CQE_UNSOLICITED_TYPE
++};
++
++struct iscsi_virt_sgl_ctx {
++	struct regpair sgl_base;
++	struct regpair dsgl_base;
++	__le32 sgl_initial_offset;
++	__le32 dsgl_initial_offset;
++	__le32 dsgl_curr_offset[2];
++};
++
++struct iscsi_sgl_var_params {
++	u8 sgl_ptr;
++	u8 dsgl_ptr;
++	__le16 sge_offset;
++	__le16 dsge_offset;
++};
++
++struct iscsi_phys_sgl_ctx {
++	struct regpair sgl_base;
++	struct regpair dsgl_base;
++	u8 sgl_size;
++	u8 dsgl_size;
++	__le16 reserved;
++	struct iscsi_sgl_var_params var_params[2];
++};
++
++union iscsi_data_desc_ctx {
++	struct iscsi_virt_sgl_ctx virt_sgl;
++	struct iscsi_phys_sgl_ctx phys_sgl;
++	struct iscsi_cached_sge_ctx cached_sge;
++};
++
++struct iscsi_debug_modes {
++	u8 flags;
++#define ISCSI_DEBUG_MODES_ASSERT_IF_RX_CONN_ERROR_MASK         0x1
++#define ISCSI_DEBUG_MODES_ASSERT_IF_RX_CONN_ERROR_SHIFT        0
++#define ISCSI_DEBUG_MODES_ASSERT_IF_RECV_RESET_MASK            0x1
++#define ISCSI_DEBUG_MODES_ASSERT_IF_RECV_RESET_SHIFT           1
++#define ISCSI_DEBUG_MODES_ASSERT_IF_RECV_FIN_MASK              0x1
++#define ISCSI_DEBUG_MODES_ASSERT_IF_RECV_FIN_SHIFT             2
++#define ISCSI_DEBUG_MODES_ASSERT_IF_RECV_CLEANUP_MASK          0x1
++#define ISCSI_DEBUG_MODES_ASSERT_IF_RECV_CLEANUP_SHIFT         3
++#define ISCSI_DEBUG_MODES_ASSERT_IF_RECV_REJECT_OR_ASYNC_MASK  0x1
++#define ISCSI_DEBUG_MODES_ASSERT_IF_RECV_REJECT_OR_ASYNC_SHIFT 4
++#define ISCSI_DEBUG_MODES_ASSERT_IF_RECV_NOP_MASK              0x1
++#define ISCSI_DEBUG_MODES_ASSERT_IF_RECV_NOP_SHIFT             5
++#define ISCSI_DEBUG_MODES_RESERVED0_MASK                       0x3
++#define ISCSI_DEBUG_MODES_RESERVED0_SHIFT                      6
++};
++
++struct iscsi_dif_flags {
++	u8 flags;
++#define ISCSI_DIF_FLAGS_PROT_INTERVAL_SIZE_LOG_MASK  0xF
++#define ISCSI_DIF_FLAGS_PROT_INTERVAL_SIZE_LOG_SHIFT 0
++#define ISCSI_DIF_FLAGS_DIF_TO_PEER_MASK             0x1
++#define ISCSI_DIF_FLAGS_DIF_TO_PEER_SHIFT            4
++#define ISCSI_DIF_FLAGS_HOST_INTERFACE_MASK          0x7
++#define ISCSI_DIF_FLAGS_HOST_INTERFACE_SHIFT         5
++};
++
++enum iscsi_eqe_opcode {
++	ISCSI_EVENT_TYPE_INIT_FUNC = 0,
++	ISCSI_EVENT_TYPE_DESTROY_FUNC,
++	ISCSI_EVENT_TYPE_OFFLOAD_CONN,
++	ISCSI_EVENT_TYPE_UPDATE_CONN,
++	ISCSI_EVENT_TYPE_CLEAR_SQ,
++	ISCSI_EVENT_TYPE_TERMINATE_CONN,
++	ISCSI_EVENT_TYPE_ASYN_CONNECT_COMPLETE,
++	ISCSI_EVENT_TYPE_ASYN_TERMINATE_DONE,
++	RESERVED8,
++	RESERVED9,
++	ISCSI_EVENT_TYPE_START_OF_ERROR_TYPES = 10,
++	ISCSI_EVENT_TYPE_ASYN_ABORT_RCVD,
++	ISCSI_EVENT_TYPE_ASYN_CLOSE_RCVD,
++	ISCSI_EVENT_TYPE_ASYN_SYN_RCVD,
++	ISCSI_EVENT_TYPE_ASYN_MAX_RT_TIME,
++	ISCSI_EVENT_TYPE_ASYN_MAX_RT_CNT,
++	ISCSI_EVENT_TYPE_ASYN_MAX_KA_PROBES_CNT,
++	ISCSI_EVENT_TYPE_ASYN_FIN_WAIT2,
++	ISCSI_EVENT_TYPE_ISCSI_CONN_ERROR,
++	ISCSI_EVENT_TYPE_TCP_CONN_ERROR,
++	ISCSI_EVENT_TYPE_ASYN_DELETE_OOO_ISLES,
++	MAX_ISCSI_EQE_OPCODE
++};
++
++enum iscsi_error_types {
++	ISCSI_STATUS_NONE = 0,
++	ISCSI_CQE_ERROR_UNSOLICITED_RCV_ON_INVALID_CONN = 1,
++	ISCSI_CONN_ERROR_TASK_CID_MISMATCH,
++	ISCSI_CONN_ERROR_TASK_NOT_VALID,
++	ISCSI_CONN_ERROR_RQ_RING_IS_FULL,
++	ISCSI_CONN_ERROR_CMDQ_RING_IS_FULL,
++	ISCSI_CONN_ERROR_HQE_CACHING_FAILED,
++	ISCSI_CONN_ERROR_HEADER_DIGEST_ERROR,
++	ISCSI_CONN_ERROR_LOCAL_COMPLETION_ERROR,
++	ISCSI_CONN_ERROR_DATA_OVERRUN,
++	ISCSI_CONN_ERROR_OUT_OF_SGES_ERROR,
++	ISCSI_CONN_ERROR_TCP_SEG_PROC_URG_ERROR,
++	ISCSI_CONN_ERROR_TCP_SEG_PROC_IP_OPTIONS_ERROR,
++	ISCSI_CONN_ERROR_TCP_SEG_PROC_CONNECT_INVALID_WS_OPTION,
++	ISCSI_CONN_ERROR_TCP_IP_FRAGMENT_ERROR,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_AHS_LEN,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_AHS_TYPE,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_ITT_OUT_OF_RANGE,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_TTT_OUT_OF_RANGE,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_DATA_SEG_LEN_EXCEEDS_PDU_SIZE,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_INVALID_OPCODE,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_INVALID_OPCODE_BEFORE_UPDATE,
++	ISCSI_CONN_ERROR_UNVALID_NOPIN_DSL,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_R2T_CARRIES_NO_DATA,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_DATA_SN,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_DATA_IN_TTT,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_DATA_OUT_ITT,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_R2T_TTT,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_R2T_BUFFER_OFFSET,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_BUFFER_OFFSET_OOO,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_R2T_SN,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_DESIRED_DATA_TRNS_LEN_0,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_DESIRED_DATA_TRNS_LEN_1,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_DESIRED_DATA_TRNS_LEN_2,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_LUN,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_F_BIT_ZERO,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_F_BIT_ZERO_S_BIT_ONE,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_EXP_STAT_SN,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_DSL_NOT_ZERO,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_INVALID_DSL,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_DATA_SEG_LEN_TOO_BIG,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_OUTSTANDING_R2T_COUNT,
++	ISCSI_CONN_ERROR_PROTOCOL_ERR_DIF_TX,
++	ISCSI_CONN_ERROR_SENSE_DATA_LENGTH,
++	ISCSI_CONN_ERROR_DATA_PLACEMENT_ERROR,
++	ISCSI_ERROR_UNKNOWN,
++	MAX_ISCSI_ERROR_TYPES
++};
++
++struct iscsi_mflags {
++	u8 mflags;
++#define ISCSI_MFLAGS_SLOW_IO_MASK     0x1
++#define ISCSI_MFLAGS_SLOW_IO_SHIFT    0
++#define ISCSI_MFLAGS_SINGLE_SGE_MASK  0x1
++#define ISCSI_MFLAGS_SINGLE_SGE_SHIFT 1
++#define ISCSI_MFLAGS_RESERVED_MASK    0x3F
++#define ISCSI_MFLAGS_RESERVED_SHIFT   2
++};
++
++struct iscsi_sgl {
++	struct regpair sgl_addr;
++	__le16 updated_sge_size;
++	__le16 updated_sge_offset;
++	__le32 byte_offset;
++};
++
++union iscsi_mstorm_sgl {
++	struct iscsi_sgl sgl_struct;
++	struct iscsi_sge single_sge;
++};
++
++enum iscsi_ramrod_cmd_id {
++	ISCSI_RAMROD_CMD_ID_UNUSED = 0,
++	ISCSI_RAMROD_CMD_ID_INIT_FUNC = 1,
++	ISCSI_RAMROD_CMD_ID_DESTROY_FUNC = 2,
++	ISCSI_RAMROD_CMD_ID_OFFLOAD_CONN = 3,
++	ISCSI_RAMROD_CMD_ID_UPDATE_CONN = 4,
++	ISCSI_RAMROD_CMD_ID_TERMINATION_CONN = 5,
++	ISCSI_RAMROD_CMD_ID_CLEAR_SQ = 6,
++	MAX_ISCSI_RAMROD_CMD_ID
++};
++
++struct iscsi_reg1 {
++	__le32 reg1_map;
++#define ISCSI_REG1_NUM_FAST_SGES_MASK  0x7
++#define ISCSI_REG1_NUM_FAST_SGES_SHIFT 0
++#define ISCSI_REG1_RESERVED1_MASK      0x1FFFFFFF
++#define ISCSI_REG1_RESERVED1_SHIFT     3
++};
++
++union iscsi_seq_num {
++	__le16 data_sn;
++	__le16 r2t_sn;
++};
++
++struct iscsi_spe_conn_offload {
++	struct iscsi_slow_path_hdr hdr;
++	__le16 conn_id;
++	__le32 fw_cid;
++	struct iscsi_conn_offload_params iscsi;
++	struct tcp_offload_params tcp;
++};
++
++struct iscsi_spe_conn_offload_option2 {
++	struct iscsi_slow_path_hdr hdr;
++	__le16 conn_id;
++	__le32 fw_cid;
++	struct iscsi_conn_offload_params iscsi;
++	struct tcp_offload_params_opt2 tcp;
++};
++
++struct iscsi_spe_conn_termination {
++	struct iscsi_slow_path_hdr hdr;
++	__le16 conn_id;
++	__le32 fw_cid;
++	u8 abortive;
++	u8 reserved0[7];
++	struct regpair queue_cnts_addr;
++	struct regpair query_params_addr;
++};
++
++struct iscsi_spe_func_dstry {
++	struct iscsi_slow_path_hdr hdr;
++	__le16 reserved0;
++	__le32 reserved1;
++};
++
++struct iscsi_spe_func_init {
++	struct iscsi_slow_path_hdr hdr;
++	__le16 half_way_close_timeout;
++	u8 num_sq_pages_in_ring;
++	u8 num_r2tq_pages_in_ring;
++	u8 num_uhq_pages_in_ring;
++	u8 ll2_rx_queue_id;
++	u8 ooo_enable;
++	struct iscsi_debug_modes debug_mode;
++	__le16 reserved1;
++	__le32 reserved2;
++	__le32 reserved3;
++	__le32 reserved4;
++	struct scsi_init_func_params func_params;
++	struct scsi_init_func_queues q_params;
++};
++
++struct ystorm_iscsi_task_state {
++	union iscsi_data_desc_ctx sgl_ctx_union;
++	__le32 buffer_offset[2];
++	__le16 bytes_nxt_dif;
++	__le16 rxmit_bytes_nxt_dif;
++	union iscsi_seq_num seq_num_union;
++	u8 dif_bytes_leftover;
++	u8 rxmit_dif_bytes_leftover;
++	__le16 reuse_count;
++	struct iscsi_dif_flags dif_flags;
++	u8 local_comp;
++	__le32 exp_r2t_sn;
++	__le32 sgl_offset[2];
++};
++
++struct ystorm_iscsi_task_st_ctx {
++	struct ystorm_iscsi_task_state state;
++	union iscsi_task_hdr pdu_hdr;
++};
++
++struct ystorm_iscsi_task_ag_ctx {
++	u8 reserved;
++	u8 byte1;
++	__le16 word0;
++	u8 flags0;
++#define YSTORM_ISCSI_TASK_AG_CTX_NIBBLE0_MASK     0xF
++#define YSTORM_ISCSI_TASK_AG_CTX_NIBBLE0_SHIFT    0
++#define YSTORM_ISCSI_TASK_AG_CTX_BIT0_MASK        0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_BIT0_SHIFT       4
++#define YSTORM_ISCSI_TASK_AG_CTX_BIT1_MASK        0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_BIT1_SHIFT       5
++#define YSTORM_ISCSI_TASK_AG_CTX_VALID_MASK       0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_VALID_SHIFT      6
++#define YSTORM_ISCSI_TASK_AG_CTX_BIT3_MASK        0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_BIT3_SHIFT       7
++	u8 flags1;
++#define YSTORM_ISCSI_TASK_AG_CTX_CF0_MASK         0x3
++#define YSTORM_ISCSI_TASK_AG_CTX_CF0_SHIFT        0
++#define YSTORM_ISCSI_TASK_AG_CTX_CF1_MASK         0x3
++#define YSTORM_ISCSI_TASK_AG_CTX_CF1_SHIFT        2
++#define YSTORM_ISCSI_TASK_AG_CTX_CF2SPECIAL_MASK  0x3
++#define YSTORM_ISCSI_TASK_AG_CTX_CF2SPECIAL_SHIFT 4
++#define YSTORM_ISCSI_TASK_AG_CTX_CF0EN_MASK       0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_CF0EN_SHIFT      6
++#define YSTORM_ISCSI_TASK_AG_CTX_CF1EN_MASK       0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_CF1EN_SHIFT      7
++	u8 flags2;
++#define YSTORM_ISCSI_TASK_AG_CTX_BIT4_MASK        0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_BIT4_SHIFT       0
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE0EN_MASK     0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE0EN_SHIFT    1
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE1EN_MASK     0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE1EN_SHIFT    2
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE2EN_MASK     0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE2EN_SHIFT    3
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE3EN_MASK     0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE3EN_SHIFT    4
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE4EN_MASK     0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE4EN_SHIFT    5
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE5EN_MASK     0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE5EN_SHIFT    6
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE6EN_MASK     0x1
++#define YSTORM_ISCSI_TASK_AG_CTX_RULE6EN_SHIFT    7
++	u8 byte2;
++	__le32 TTT;
++	u8 byte3;
++	u8 byte4;
++	__le16 word1;
++};
++
++struct mstorm_iscsi_task_ag_ctx {
++	u8 cdu_validation;
++	u8 byte1;
++	__le16 task_cid;
++	u8 flags0;
++#define MSTORM_ISCSI_TASK_AG_CTX_CONNECTION_TYPE_MASK     0xF
++#define MSTORM_ISCSI_TASK_AG_CTX_CONNECTION_TYPE_SHIFT    0
++#define MSTORM_ISCSI_TASK_AG_CTX_EXIST_IN_QM0_MASK        0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_EXIST_IN_QM0_SHIFT       4
++#define MSTORM_ISCSI_TASK_AG_CTX_BIT1_MASK                0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_BIT1_SHIFT               5
++#define MSTORM_ISCSI_TASK_AG_CTX_VALID_MASK               0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_VALID_SHIFT              6
++#define MSTORM_ISCSI_TASK_AG_CTX_TASK_CLEANUP_FLAG_MASK   0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_TASK_CLEANUP_FLAG_SHIFT  7
++	u8 flags1;
++#define MSTORM_ISCSI_TASK_AG_CTX_TASK_CLEANUP_CF_MASK     0x3
++#define MSTORM_ISCSI_TASK_AG_CTX_TASK_CLEANUP_CF_SHIFT    0
++#define MSTORM_ISCSI_TASK_AG_CTX_CF1_MASK                 0x3
++#define MSTORM_ISCSI_TASK_AG_CTX_CF1_SHIFT                2
++#define MSTORM_ISCSI_TASK_AG_CTX_CF2_MASK                 0x3
++#define MSTORM_ISCSI_TASK_AG_CTX_CF2_SHIFT                4
++#define MSTORM_ISCSI_TASK_AG_CTX_TASK_CLEANUP_CF_EN_MASK  0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_TASK_CLEANUP_CF_EN_SHIFT 6
++#define MSTORM_ISCSI_TASK_AG_CTX_CF1EN_MASK               0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_CF1EN_SHIFT              7
++	u8 flags2;
++#define MSTORM_ISCSI_TASK_AG_CTX_CF2EN_MASK               0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_CF2EN_SHIFT              0
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE0EN_MASK             0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE0EN_SHIFT            1
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE1EN_MASK             0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE1EN_SHIFT            2
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE2EN_MASK             0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE2EN_SHIFT            3
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE3EN_MASK             0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE3EN_SHIFT            4
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE4EN_MASK             0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE4EN_SHIFT            5
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE5EN_MASK             0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE5EN_SHIFT            6
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE6EN_MASK             0x1
++#define MSTORM_ISCSI_TASK_AG_CTX_RULE6EN_SHIFT            7
++	u8 byte2;
++	__le32 reg0;
++	u8 byte3;
++	u8 byte4;
++	__le16 word1;
++};
++
++struct ustorm_iscsi_task_ag_ctx {
++	u8 reserved;
++	u8 state;
++	__le16 icid;
++	u8 flags0;
++#define USTORM_ISCSI_TASK_AG_CTX_CONNECTION_TYPE_MASK        0xF
++#define USTORM_ISCSI_TASK_AG_CTX_CONNECTION_TYPE_SHIFT       0
++#define USTORM_ISCSI_TASK_AG_CTX_EXIST_IN_QM0_MASK           0x1
++#define USTORM_ISCSI_TASK_AG_CTX_EXIST_IN_QM0_SHIFT          4
++#define USTORM_ISCSI_TASK_AG_CTX_BIT1_MASK                   0x1
++#define USTORM_ISCSI_TASK_AG_CTX_BIT1_SHIFT                  5
++#define USTORM_ISCSI_TASK_AG_CTX_HQ_SCANNED_CF_MASK          0x3
++#define USTORM_ISCSI_TASK_AG_CTX_HQ_SCANNED_CF_SHIFT         6
++	u8 flags1;
++#define USTORM_ISCSI_TASK_AG_CTX_RESERVED1_MASK              0x3
++#define USTORM_ISCSI_TASK_AG_CTX_RESERVED1_SHIFT             0
++#define USTORM_ISCSI_TASK_AG_CTX_R2T2RECV_MASK               0x3
++#define USTORM_ISCSI_TASK_AG_CTX_R2T2RECV_SHIFT              2
++#define USTORM_ISCSI_TASK_AG_CTX_CF3_MASK                    0x3
++#define USTORM_ISCSI_TASK_AG_CTX_CF3_SHIFT                   4
++#define USTORM_ISCSI_TASK_AG_CTX_DIF_ERROR_CF_MASK           0x3
++#define USTORM_ISCSI_TASK_AG_CTX_DIF_ERROR_CF_SHIFT          6
++	u8 flags2;
++#define USTORM_ISCSI_TASK_AG_CTX_HQ_SCANNED_CF_EN_MASK       0x1
++#define USTORM_ISCSI_TASK_AG_CTX_HQ_SCANNED_CF_EN_SHIFT      0
++#define USTORM_ISCSI_TASK_AG_CTX_DISABLE_DATA_ACKED_MASK     0x1
++#define USTORM_ISCSI_TASK_AG_CTX_DISABLE_DATA_ACKED_SHIFT    1
++#define USTORM_ISCSI_TASK_AG_CTX_R2T2RECV_EN_MASK            0x1
++#define USTORM_ISCSI_TASK_AG_CTX_R2T2RECV_EN_SHIFT           2
++#define USTORM_ISCSI_TASK_AG_CTX_CF3EN_MASK                  0x1
++#define USTORM_ISCSI_TASK_AG_CTX_CF3EN_SHIFT                 3
++#define USTORM_ISCSI_TASK_AG_CTX_DIF_ERROR_CF_EN_MASK        0x1
++#define USTORM_ISCSI_TASK_AG_CTX_DIF_ERROR_CF_EN_SHIFT       4
++#define USTORM_ISCSI_TASK_AG_CTX_CMP_DATA_TOTAL_EXP_EN_MASK  0x1
++#define USTORM_ISCSI_TASK_AG_CTX_CMP_DATA_TOTAL_EXP_EN_SHIFT 5
++#define USTORM_ISCSI_TASK_AG_CTX_RULE1EN_MASK                0x1
++#define USTORM_ISCSI_TASK_AG_CTX_RULE1EN_SHIFT               6
++#define USTORM_ISCSI_TASK_AG_CTX_CMP_CONT_RCV_EXP_EN_MASK    0x1
++#define USTORM_ISCSI_TASK_AG_CTX_CMP_CONT_RCV_EXP_EN_SHIFT   7
++	u8 flags3;
++#define USTORM_ISCSI_TASK_AG_CTX_RULE3EN_MASK                0x1
++#define USTORM_ISCSI_TASK_AG_CTX_RULE3EN_SHIFT               0
++#define USTORM_ISCSI_TASK_AG_CTX_RULE4EN_MASK                0x1
++#define USTORM_ISCSI_TASK_AG_CTX_RULE4EN_SHIFT               1
++#define USTORM_ISCSI_TASK_AG_CTX_RULE5EN_MASK                0x1
++#define USTORM_ISCSI_TASK_AG_CTX_RULE5EN_SHIFT               2
++#define USTORM_ISCSI_TASK_AG_CTX_RULE6EN_MASK                0x1
++#define USTORM_ISCSI_TASK_AG_CTX_RULE6EN_SHIFT               3
++#define USTORM_ISCSI_TASK_AG_CTX_DIF_ERROR_TYPE_MASK         0xF
++#define USTORM_ISCSI_TASK_AG_CTX_DIF_ERROR_TYPE_SHIFT        4
++	__le32 dif_err_intervals;
++	__le32 dif_error_1st_interval;
++	__le32 rcv_cont_len;
++	__le32 exp_cont_len;
++	__le32 total_data_acked;
++	__le32 exp_data_acked;
++	u8 next_tid_valid;
++	u8 byte3;
++	__le16 word1;
++	__le16 next_tid;
++	__le16 word3;
++	__le32 hdr_residual_count;
++	__le32 exp_r2t_sn;
++};
++
++struct mstorm_iscsi_task_st_ctx {
++	union iscsi_mstorm_sgl sgl_union;
++	struct iscsi_dif_flags dif_flags;
++	struct iscsi_mflags flags;
++	u8 sgl_size;
++	u8 host_sge_index;
++	__le16 dix_cur_sge_offset;
++	__le16 dix_cur_sge_size;
++	__le32 data_offset_rtid;
++	u8 dif_offset;
++	u8 dix_sgl_size;
++	u8 dix_sge_index;
++	u8 task_type;
++	struct regpair sense_db;
++	struct regpair dix_sgl_cur_sge;
++	__le32 rem_task_size;
++	__le16 reuse_count;
++	__le16 dif_data_residue;
++	u8 reserved0[4];
++	__le32 reserved1[1];
++};
++
++struct ustorm_iscsi_task_st_ctx {
++	__le32 rem_rcv_len;
++	__le32 exp_data_transfer_len;
++	__le32 exp_data_sn;
++	struct regpair lun;
++	struct iscsi_reg1 reg1;
++	u8 flags2;
++#define USTORM_ISCSI_TASK_ST_CTX_AHS_EXIST_MASK             0x1
++#define USTORM_ISCSI_TASK_ST_CTX_AHS_EXIST_SHIFT            0
++#define USTORM_ISCSI_TASK_ST_CTX_RESERVED1_MASK             0x7F
++#define USTORM_ISCSI_TASK_ST_CTX_RESERVED1_SHIFT            1
++	u8 reserved2;
++	__le16 reserved3;
++	__le32 reserved4;
++	__le32 reserved5;
++	__le32 reserved6;
++	__le32 reserved7;
++	u8 task_type;
++	u8 error_flags;
++#define USTORM_ISCSI_TASK_ST_CTX_DATA_DIGEST_ERROR_MASK     0x1
++#define USTORM_ISCSI_TASK_ST_CTX_DATA_DIGEST_ERROR_SHIFT    0
++#define USTORM_ISCSI_TASK_ST_CTX_DATA_TRUNCATED_ERROR_MASK  0x1
++#define USTORM_ISCSI_TASK_ST_CTX_DATA_TRUNCATED_ERROR_SHIFT 1
++#define USTORM_ISCSI_TASK_ST_CTX_UNDER_RUN_ERROR_MASK       0x1
++#define USTORM_ISCSI_TASK_ST_CTX_UNDER_RUN_ERROR_SHIFT      2
++#define USTORM_ISCSI_TASK_ST_CTX_RESERVED8_MASK             0x1F
++#define USTORM_ISCSI_TASK_ST_CTX_RESERVED8_SHIFT            3
++	u8 flags;
++#define USTORM_ISCSI_TASK_ST_CTX_CQE_WRITE_MASK             0x3
++#define USTORM_ISCSI_TASK_ST_CTX_CQE_WRITE_SHIFT            0
++#define USTORM_ISCSI_TASK_ST_CTX_LOCAL_COMP_MASK            0x1
++#define USTORM_ISCSI_TASK_ST_CTX_LOCAL_COMP_SHIFT           2
++#define USTORM_ISCSI_TASK_ST_CTX_Q0_R2TQE_WRITE_MASK        0x1
++#define USTORM_ISCSI_TASK_ST_CTX_Q0_R2TQE_WRITE_SHIFT       3
++#define USTORM_ISCSI_TASK_ST_CTX_TOTALDATAACKED_DONE_MASK   0x1
++#define USTORM_ISCSI_TASK_ST_CTX_TOTALDATAACKED_DONE_SHIFT  4
++#define USTORM_ISCSI_TASK_ST_CTX_HQSCANNED_DONE_MASK        0x1
++#define USTORM_ISCSI_TASK_ST_CTX_HQSCANNED_DONE_SHIFT       5
++#define USTORM_ISCSI_TASK_ST_CTX_R2T2RECV_DONE_MASK         0x1
++#define USTORM_ISCSI_TASK_ST_CTX_R2T2RECV_DONE_SHIFT        6
++#define USTORM_ISCSI_TASK_ST_CTX_RESERVED0_MASK             0x1
++#define USTORM_ISCSI_TASK_ST_CTX_RESERVED0_SHIFT            7
++	u8 cq_rss_number;
++};
++
++struct iscsi_task_context {
++	struct ystorm_iscsi_task_st_ctx ystorm_st_context;
++	struct regpair ystorm_st_padding[2];
++	struct ystorm_iscsi_task_ag_ctx ystorm_ag_context;
++	struct regpair ystorm_ag_padding[2];
++	struct tdif_task_context tdif_context;
++	struct mstorm_iscsi_task_ag_ctx mstorm_ag_context;
++	struct regpair mstorm_ag_padding[2];
++	struct ustorm_iscsi_task_ag_ctx ustorm_ag_context;
++	struct mstorm_iscsi_task_st_ctx mstorm_st_context;
++	struct ustorm_iscsi_task_st_ctx ustorm_st_context;
++	struct rdif_task_context rdif_context;
++};
++
++enum iscsi_task_type {
++	ISCSI_TASK_TYPE_INITIATOR_WRITE,
++	ISCSI_TASK_TYPE_INITIATOR_READ,
++	ISCSI_TASK_TYPE_MIDPATH,
++	ISCSI_TASK_TYPE_UNSOLIC,
++	ISCSI_TASK_TYPE_EXCHCLEANUP,
++	ISCSI_TASK_TYPE_IRRELEVANT,
++	ISCSI_TASK_TYPE_TARGET_WRITE,
++	ISCSI_TASK_TYPE_TARGET_READ,
++	ISCSI_TASK_TYPE_TARGET_RESPONSE,
++	ISCSI_TASK_TYPE_LOGIN_RESPONSE,
++	MAX_ISCSI_TASK_TYPE
++};
++
++union iscsi_ttt_txlen_union {
++	__le32 desired_tx_len;
++	__le32 ttt;
++};
++
++struct iscsi_uhqe {
++	__le32 reg1;
++#define ISCSI_UHQE_PDU_PAYLOAD_LEN_MASK     0xFFFFF
++#define ISCSI_UHQE_PDU_PAYLOAD_LEN_SHIFT    0
++#define ISCSI_UHQE_LOCAL_COMP_MASK          0x1
++#define ISCSI_UHQE_LOCAL_COMP_SHIFT         20
++#define ISCSI_UHQE_TOGGLE_BIT_MASK          0x1
++#define ISCSI_UHQE_TOGGLE_BIT_SHIFT         21
++#define ISCSI_UHQE_PURE_PAYLOAD_MASK        0x1
++#define ISCSI_UHQE_PURE_PAYLOAD_SHIFT       22
++#define ISCSI_UHQE_LOGIN_RESPONSE_PDU_MASK  0x1
++#define ISCSI_UHQE_LOGIN_RESPONSE_PDU_SHIFT 23
++#define ISCSI_UHQE_TASK_ID_HI_MASK          0xFF
++#define ISCSI_UHQE_TASK_ID_HI_SHIFT         24
++	__le32 reg2;
++#define ISCSI_UHQE_BUFFER_OFFSET_MASK       0xFFFFFF
++#define ISCSI_UHQE_BUFFER_OFFSET_SHIFT      0
++#define ISCSI_UHQE_TASK_ID_LO_MASK          0xFF
++#define ISCSI_UHQE_TASK_ID_LO_SHIFT         24
++};
++
++struct iscsi_wqe_field {
++	__le32 contlen_cdbsize_field;
++#define ISCSI_WQE_FIELD_CONT_LEN_MASK  0xFFFFFF
++#define ISCSI_WQE_FIELD_CONT_LEN_SHIFT 0
++#define ISCSI_WQE_FIELD_CDB_SIZE_MASK  0xFF
++#define ISCSI_WQE_FIELD_CDB_SIZE_SHIFT 24
++};
++
++union iscsi_wqe_field_union {
++	struct iscsi_wqe_field cont_field;
++	__le32 prev_tid;
++};
++
++struct iscsi_wqe {
++	__le16 task_id;
++	u8 flags;
++#define ISCSI_WQE_WQE_TYPE_MASK        0x7
++#define ISCSI_WQE_WQE_TYPE_SHIFT       0
++#define ISCSI_WQE_NUM_FAST_SGES_MASK   0x7
++#define ISCSI_WQE_NUM_FAST_SGES_SHIFT  3
++#define ISCSI_WQE_PTU_INVALIDATE_MASK  0x1
++#define ISCSI_WQE_PTU_INVALIDATE_SHIFT 6
++#define ISCSI_WQE_RESPONSE_MASK        0x1
++#define ISCSI_WQE_RESPONSE_SHIFT       7
++	struct iscsi_dif_flags prot_flags;
++	union iscsi_wqe_field_union cont_prevtid_union;
++};
++
++enum iscsi_wqe_type {
++	ISCSI_WQE_TYPE_NORMAL,
++	ISCSI_WQE_TYPE_TASK_CLEANUP,
++	ISCSI_WQE_TYPE_MIDDLE_PATH,
++	ISCSI_WQE_TYPE_LOGIN,
++	ISCSI_WQE_TYPE_FIRST_R2T_CONT,
++	ISCSI_WQE_TYPE_NONFIRST_R2T_CONT,
++	ISCSI_WQE_TYPE_RESPONSE,
++	MAX_ISCSI_WQE_TYPE
++};
++
++struct iscsi_xhqe {
++	union iscsi_ttt_txlen_union ttt_or_txlen;
++	__le32 exp_stat_sn;
++	struct iscsi_dif_flags prot_flags;
++	u8 total_ahs_length;
++	u8 opcode;
++	u8 flags;
++#define ISCSI_XHQE_NUM_FAST_SGES_MASK  0x7
++#define ISCSI_XHQE_NUM_FAST_SGES_SHIFT 0
++#define ISCSI_XHQE_FINAL_MASK          0x1
++#define ISCSI_XHQE_FINAL_SHIFT         3
++#define ISCSI_XHQE_SUPER_IO_MASK       0x1
++#define ISCSI_XHQE_SUPER_IO_SHIFT      4
++#define ISCSI_XHQE_STATUS_BIT_MASK     0x1
++#define ISCSI_XHQE_STATUS_BIT_SHIFT    5
++#define ISCSI_XHQE_RESERVED_MASK       0x3
++#define ISCSI_XHQE_RESERVED_SHIFT      6
++	union iscsi_seq_num seq_num_union;
++	__le16 reserved1;
++};
++
++struct mstorm_iscsi_stats_drv {
++	struct regpair iscsi_rx_dropped_pdus_task_not_valid;
++};
++
++struct ooo_opaque {
++	__le32 cid;
++	u8 drop_isle;
++	u8 drop_size;
++	u8 ooo_opcode;
++	u8 ooo_isle;
++};
++
++struct pstorm_iscsi_stats_drv {
++	struct regpair iscsi_tx_bytes_cnt;
++	struct regpair iscsi_tx_packet_cnt;
++};
++
++struct tstorm_iscsi_stats_drv {
++	struct regpair iscsi_rx_bytes_cnt;
++	struct regpair iscsi_rx_packet_cnt;
++	struct regpair iscsi_rx_new_ooo_isle_events_cnt;
++	__le32 iscsi_cmdq_threshold_cnt;
++	__le32 iscsi_rq_threshold_cnt;
++	__le32 iscsi_immq_threshold_cnt;
++};
++
++struct ustorm_iscsi_stats_drv {
++	struct regpair iscsi_rx_data_pdu_cnt;
++	struct regpair iscsi_rx_r2t_pdu_cnt;
++	struct regpair iscsi_rx_total_pdu_cnt;
++};
++
++struct xstorm_iscsi_stats_drv {
++	struct regpair iscsi_tx_go_to_slow_start_event_cnt;
++	struct regpair iscsi_tx_fast_retransmit_event_cnt;
++};
++
++struct ystorm_iscsi_stats_drv {
++	struct regpair iscsi_tx_data_pdu_cnt;
++	struct regpair iscsi_tx_r2t_pdu_cnt;
++	struct regpair iscsi_tx_total_pdu_cnt;
++};
++
++struct iscsi_db_data {
++	u8 params;
++#define ISCSI_DB_DATA_DEST_MASK         0x3
++#define ISCSI_DB_DATA_DEST_SHIFT        0
++#define ISCSI_DB_DATA_AGG_CMD_MASK      0x3
++#define ISCSI_DB_DATA_AGG_CMD_SHIFT     2
++#define ISCSI_DB_DATA_BYPASS_EN_MASK    0x1
++#define ISCSI_DB_DATA_BYPASS_EN_SHIFT   4
++#define ISCSI_DB_DATA_RESERVED_MASK     0x1
++#define ISCSI_DB_DATA_RESERVED_SHIFT    5
++#define ISCSI_DB_DATA_AGG_VAL_SEL_MASK  0x3
++#define ISCSI_DB_DATA_AGG_VAL_SEL_SHIFT 6
++	u8 agg_flags;
++	__le16 sq_prod;
++};
++
++struct tstorm_iscsi_task_ag_ctx {
++	u8 byte0;
++	u8 byte1;
++	__le16 word0;
++	u8 flags0;
++#define TSTORM_ISCSI_TASK_AG_CTX_NIBBLE0_MASK  0xF
++#define TSTORM_ISCSI_TASK_AG_CTX_NIBBLE0_SHIFT 0
++#define TSTORM_ISCSI_TASK_AG_CTX_BIT0_MASK     0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_BIT0_SHIFT    4
++#define TSTORM_ISCSI_TASK_AG_CTX_BIT1_MASK     0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_BIT1_SHIFT    5
++#define TSTORM_ISCSI_TASK_AG_CTX_BIT2_MASK     0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_BIT2_SHIFT    6
++#define TSTORM_ISCSI_TASK_AG_CTX_BIT3_MASK     0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_BIT3_SHIFT    7
++	u8 flags1;
++#define TSTORM_ISCSI_TASK_AG_CTX_BIT4_MASK     0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_BIT4_SHIFT    0
++#define TSTORM_ISCSI_TASK_AG_CTX_BIT5_MASK     0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_BIT5_SHIFT    1
++#define TSTORM_ISCSI_TASK_AG_CTX_CF0_MASK      0x3
++#define TSTORM_ISCSI_TASK_AG_CTX_CF0_SHIFT     2
++#define TSTORM_ISCSI_TASK_AG_CTX_CF1_MASK      0x3
++#define TSTORM_ISCSI_TASK_AG_CTX_CF1_SHIFT     4
++#define TSTORM_ISCSI_TASK_AG_CTX_CF2_MASK      0x3
++#define TSTORM_ISCSI_TASK_AG_CTX_CF2_SHIFT     6
++	u8 flags2;
++#define TSTORM_ISCSI_TASK_AG_CTX_CF3_MASK      0x3
++#define TSTORM_ISCSI_TASK_AG_CTX_CF3_SHIFT     0
++#define TSTORM_ISCSI_TASK_AG_CTX_CF4_MASK      0x3
++#define TSTORM_ISCSI_TASK_AG_CTX_CF4_SHIFT     2
++#define TSTORM_ISCSI_TASK_AG_CTX_CF5_MASK      0x3
++#define TSTORM_ISCSI_TASK_AG_CTX_CF5_SHIFT     4
++#define TSTORM_ISCSI_TASK_AG_CTX_CF6_MASK      0x3
++#define TSTORM_ISCSI_TASK_AG_CTX_CF6_SHIFT     6
++	u8 flags3;
++#define TSTORM_ISCSI_TASK_AG_CTX_CF7_MASK      0x3
++#define TSTORM_ISCSI_TASK_AG_CTX_CF7_SHIFT     0
++#define TSTORM_ISCSI_TASK_AG_CTX_CF0EN_MASK    0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_CF0EN_SHIFT   2
++#define TSTORM_ISCSI_TASK_AG_CTX_CF1EN_MASK    0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_CF1EN_SHIFT   3
++#define TSTORM_ISCSI_TASK_AG_CTX_CF2EN_MASK    0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_CF2EN_SHIFT   4
++#define TSTORM_ISCSI_TASK_AG_CTX_CF3EN_MASK    0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_CF3EN_SHIFT   5
++#define TSTORM_ISCSI_TASK_AG_CTX_CF4EN_MASK    0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_CF4EN_SHIFT   6
++#define TSTORM_ISCSI_TASK_AG_CTX_CF5EN_MASK    0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_CF5EN_SHIFT   7
++	u8 flags4;
++#define TSTORM_ISCSI_TASK_AG_CTX_CF6EN_MASK    0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_CF6EN_SHIFT   0
++#define TSTORM_ISCSI_TASK_AG_CTX_CF7EN_MASK    0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_CF7EN_SHIFT   1
++#define TSTORM_ISCSI_TASK_AG_CTX_RULE0EN_MASK  0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_RULE0EN_SHIFT 2
++#define TSTORM_ISCSI_TASK_AG_CTX_RULE1EN_MASK  0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_RULE1EN_SHIFT 3
++#define TSTORM_ISCSI_TASK_AG_CTX_RULE2EN_MASK  0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_RULE2EN_SHIFT 4
++#define TSTORM_ISCSI_TASK_AG_CTX_RULE3EN_MASK  0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_RULE3EN_SHIFT 5
++#define TSTORM_ISCSI_TASK_AG_CTX_RULE4EN_MASK  0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_RULE4EN_SHIFT 6
++#define TSTORM_ISCSI_TASK_AG_CTX_RULE5EN_MASK  0x1
++#define TSTORM_ISCSI_TASK_AG_CTX_RULE5EN_SHIFT 7
++	u8 byte2;
++	__le16 word1;
++	__le32 reg0;
++	u8 byte3;
++	u8 byte4;
++	__le16 word2;
++	__le16 word3;
++	__le16 word4;
++	__le32 reg1;
++	__le32 reg2;
++};
++
++#endif /* __ISCSI_COMMON__ */
+diff --git a/include/linux/qed/rdma_common.h b/include/linux/qed/rdma_common.h
+new file mode 100644
+index 0000000..187991c
+--- /dev/null
++++ b/include/linux/qed/rdma_common.h
+@@ -0,0 +1,44 @@
++/* QLogic qed NIC Driver
++ * Copyright (c) 2015 QLogic Corporation
 + *
-+ * Initalizes a next pointer element
-+ *
-+ * @param p_chain
-+ * @param p_virt_curr	virtual address of a chain page of which the next
-+ *                      pointer element is initialized
-+ * @param p_virt_next	virtual address of the next chain page
-+ * @param p_phys_next	physical address of the next chain page
-  *
-- * @param prod_idx
-- * @param p_prod_elem
-  */
--static inline void qed_chain_set_prod(struct qed_chain *p_chain,
--				      u16 prod_idx,
--				      void *p_prod_elem)
-+static inline void
-+qed_chain_init_next_ptr_elem(struct qed_chain *p_chain,
-+			     void *p_virt_curr,
-+			     void *p_virt_next, dma_addr_t p_phys_next)
- {
--	p_chain->prod_idx	= prod_idx;
--	p_chain->p_prod_elem	= p_prod_elem;
-+	struct qed_chain_next *p_next;
-+	u32 size;
-+
-+	size = p_chain->elem_size * p_chain->usable_per_page;
-+	p_next = (struct qed_chain_next *)((u8 *)p_virt_curr + size);
-+
-+	DMA_REGPAIR_LE(p_next->next_phys, p_phys_next);
-+
-+	p_next->next_virt = p_virt_next;
- }
- 
- /**
-- * @brief qed_chain_get_elem -
-+ * @brief qed_chain_get_last_elem -
-  *
-- * get a pointer to an element represented by absolute idx
-+ * Returns a pointer to the last element of the chain
-  *
-  * @param p_chain
-- * @assumption p_chain->size is a power of 2
-  *
-- * @return void*, a pointer to next element
-+ * @return void*
-  */
--static inline void *qed_chain_sge_get_elem(struct qed_chain *p_chain,
--					   u16 idx)
-+static inline void *qed_chain_get_last_elem(struct qed_chain *p_chain)
- {
--	void *ret = NULL;
--
--	if (idx >= p_chain->size)
--		return NULL;
-+	struct qed_chain_next *p_next = NULL;
-+	void *p_virt_addr = NULL;
-+	u32 size, last_page_idx;
- 
--	ret = (u8 *)p_chain->p_virt_addr + p_chain->elem_size * idx;
-+	if (!p_chain->p_virt_addr)
-+		goto out;
- 
--	return ret;
-+	switch (p_chain->mode) {
-+	case QED_CHAIN_MODE_NEXT_PTR:
-+		size = p_chain->elem_size * p_chain->usable_per_page;
-+		p_virt_addr = p_chain->p_virt_addr;
-+		p_next = (struct qed_chain_next *)((u8 *)p_virt_addr + size);
-+		while (p_next->next_virt != p_chain->p_virt_addr) {
-+			p_virt_addr = p_next->next_virt;
-+			p_next = (struct qed_chain_next *)((u8 *)p_virt_addr +
-+							   size);
-+		}
-+		break;
-+	case QED_CHAIN_MODE_SINGLE:
-+		p_virt_addr = p_chain->p_virt_addr;
-+		break;
-+	case QED_CHAIN_MODE_PBL:
-+		last_page_idx = p_chain->page_cnt - 1;
-+		p_virt_addr = p_chain->pbl.pp_virt_addr_tbl[last_page_idx];
-+		break;
-+	}
-+	/* p_virt_addr points at this stage to the last page of the chain */
-+	size = p_chain->elem_size * (p_chain->usable_per_page - 1);
-+	p_virt_addr = (u8 *)p_virt_addr + size;
-+out:
-+	return p_virt_addr;
- }
- 
- /**
-- * @brief qed_chain_sge_inc_cons_prod
-+ * @brief qed_chain_set_prod - sets the prod to the given value
-  *
-- * for sge chains, producer isn't increased serially, the ring
-- * is expected to be full at all times. Once elements are
-- * consumed, they are immediately produced.
-+ * @param prod_idx
-+ * @param p_prod_elem
++ * This software is available under the terms of the GNU General Public License
++ * (GPL) Version 2, available from the file COPYING in the main directory of
++ * this source tree.
 + */
-+static inline void qed_chain_set_prod(struct qed_chain *p_chain,
-+				      u32 prod_idx, void *p_prod_elem)
-+{
-+	if (is_chain_u16(p_chain))
-+		p_chain->u.chain16.prod_idx = (u16) prod_idx;
-+	else
-+		p_chain->u.chain32.prod_idx = prod_idx;
-+	p_chain->p_prod_elem = p_prod_elem;
-+}
 +
-+/**
-+ * @brief qed_chain_pbl_zero_mem - set chain memory to 0
-  *
-  * @param p_chain
-- * @param cnt
-- *
-- * @return inline void
-  */
--static inline void
--qed_chain_sge_inc_cons_prod(struct qed_chain *p_chain,
--			    u16 cnt)
-+static inline void qed_chain_pbl_zero_mem(struct qed_chain *p_chain)
- {
--	p_chain->prod_idx += cnt;
--	p_chain->cons_idx += cnt;
-+	u32 i, page_cnt;
++#ifndef __RDMA_COMMON__
++#define __RDMA_COMMON__
++/************************/
++/* RDMA FW CONSTANTS */
++/************************/
 +
-+	if (p_chain->mode != QED_CHAIN_MODE_PBL)
-+		return;
++#define RDMA_RESERVED_LKEY                      (0)
++#define RDMA_RING_PAGE_SIZE                     (0x1000)
 +
-+	page_cnt = qed_chain_get_page_cnt(p_chain);
++#define RDMA_MAX_SGE_PER_SQ_WQE         (4)
++#define RDMA_MAX_SGE_PER_RQ_WQE         (4)
 +
-+	for (i = 0; i < page_cnt; i++)
-+		memset(p_chain->pbl.pp_virt_addr_tbl[i], 0,
-+		       QED_CHAIN_PAGE_SIZE);
- }
- 
- #endif
-diff --git a/include/linux/qed/qed_if.h b/include/linux/qed/qed_if.h
-index 4c29439..15efccf 100644
---- a/include/linux/qed/qed_if.h
-+++ b/include/linux/qed/qed_if.h
-@@ -325,7 +325,8 @@ struct qed_common_ops {
- 	int		(*chain_alloc)(struct qed_dev *cdev,
- 				       enum qed_chain_use_mode intended_use,
- 				       enum qed_chain_mode mode,
--				       u16 num_elems,
-+				       enum qed_chain_cnt_type cnt_type,
-+				       u32 num_elems,
- 				       size_t elem_size,
- 				       struct qed_chain *p_chain);
- 
++#define RDMA_MAX_DATA_SIZE_IN_WQE       (0x7FFFFFFF)
++
++#define RDMA_REQ_RD_ATOMIC_ELM_SIZE             (0x50)
++#define RDMA_RESP_RD_ATOMIC_ELM_SIZE    (0x20)
++
++#define RDMA_MAX_CQS                            (64 * 1024)
++#define RDMA_MAX_TIDS                           (128 * 1024 - 1)
++#define RDMA_MAX_PDS                            (64 * 1024)
++
++#define RDMA_NUM_STATISTIC_COUNTERS                     MAX_NUM_VPORTS
++
++#define RDMA_TASK_TYPE (PROTOCOLID_ROCE)
++
++struct rdma_srq_id {
++	__le16 srq_idx;
++	__le16 opaque_fid;
++};
++
++struct rdma_srq_producers {
++	__le32 sge_prod;
++	__le32 wqe_prod;
++};
++
++#endif /* __RDMA_COMMON__ */
+diff --git a/include/linux/qed/roce_common.h b/include/linux/qed/roce_common.h
+new file mode 100644
+index 0000000..2eeaf3d
+--- /dev/null
++++ b/include/linux/qed/roce_common.h
+@@ -0,0 +1,17 @@
++/* QLogic qed NIC Driver
++ * Copyright (c) 2015 QLogic Corporation
++ *
++ * This software is available under the terms of the GNU General Public License
++ * (GPL) Version 2, available from the file COPYING in the main directory of
++ * this source tree.
++ */
++
++#ifndef __ROCE_COMMON__
++#define __ROCE_COMMON__
++
++#define ROCE_REQ_MAX_INLINE_DATA_SIZE (256)
++#define ROCE_REQ_MAX_SINGLE_SQ_WQE_SIZE (288)
++
++#define ROCE_MAX_QPS	(32 * 1024)
++
++#endif /* __ROCE_COMMON__ */
+diff --git a/include/linux/qed/storage_common.h b/include/linux/qed/storage_common.h
+new file mode 100644
+index 0000000..3b8e1ef
+--- /dev/null
++++ b/include/linux/qed/storage_common.h
+@@ -0,0 +1,91 @@
++/* QLogic qed NIC Driver
++ * Copyright (c) 2015 QLogic Corporation
++ *
++ * This software is available under the terms of the GNU General Public License
++ * (GPL) Version 2, available from the file COPYING in the main directory of
++ * this source tree.
++ */
++
++#ifndef __STORAGE_COMMON__
++#define __STORAGE_COMMON__
++
++#define NUM_OF_CMDQS_CQS (NUM_OF_GLOBAL_QUEUES / 2)
++#define BDQ_NUM_RESOURCES (4)
++
++#define BDQ_ID_RQ                        (0)
++#define BDQ_ID_IMM_DATA          (1)
++#define BDQ_NUM_IDS          (2)
++
++#define BDQ_MAX_EXTERNAL_RING_SIZE (1 << 15)
++
++struct scsi_bd {
++	struct regpair address;
++	struct regpair opaque;
++};
++
++struct scsi_bdq_ram_drv_data {
++	__le16 external_producer;
++	__le16 reserved0[3];
++};
++
++struct scsi_drv_cmdq {
++	__le16 cmdq_cons;
++	__le16 reserved0;
++	__le32 reserved1;
++};
++
++struct scsi_init_func_params {
++	__le16 num_tasks;
++	u8 log_page_size;
++	u8 debug_mode;
++	u8 reserved2[12];
++};
++
++struct scsi_init_func_queues {
++	struct regpair glbl_q_params_addr;
++	__le16 rq_buffer_size;
++	__le16 cq_num_entries;
++	__le16 cmdq_num_entries;
++	u8 bdq_resource_id;
++	u8 q_validity;
++#define SCSI_INIT_FUNC_QUEUES_RQ_VALID_MASK        0x1
++#define SCSI_INIT_FUNC_QUEUES_RQ_VALID_SHIFT       0
++#define SCSI_INIT_FUNC_QUEUES_IMM_DATA_VALID_MASK  0x1
++#define SCSI_INIT_FUNC_QUEUES_IMM_DATA_VALID_SHIFT 1
++#define SCSI_INIT_FUNC_QUEUES_CMD_VALID_MASK       0x1
++#define SCSI_INIT_FUNC_QUEUES_CMD_VALID_SHIFT      2
++#define SCSI_INIT_FUNC_QUEUES_RESERVED_VALID_MASK  0x1F
++#define SCSI_INIT_FUNC_QUEUES_RESERVED_VALID_SHIFT 3
++	u8 num_queues;
++	u8 queue_relative_offset;
++	u8 cq_sb_pi;
++	u8 cmdq_sb_pi;
++	__le16 cq_cmdq_sb_num_arr[NUM_OF_CMDQS_CQS];
++	__le16 reserved0;
++	u8 bdq_pbl_num_entries[BDQ_NUM_IDS];
++	struct regpair bdq_pbl_base_address[BDQ_NUM_IDS];
++	__le16 bdq_xoff_threshold[BDQ_NUM_IDS];
++	__le16 bdq_xon_threshold[BDQ_NUM_IDS];
++	__le16 cmdq_xoff_threshold;
++	__le16 cmdq_xon_threshold;
++	__le32 reserved1;
++};
++
++struct scsi_ram_per_bdq_resource_drv_data {
++	struct scsi_bdq_ram_drv_data drv_data_per_bdq_id[BDQ_NUM_IDS];
++};
++
++struct scsi_sge {
++	struct regpair sge_addr;
++	__le16 sge_len;
++	__le16 reserved0;
++	__le32 reserved1;
++};
++
++struct scsi_terminate_extra_params {
++	__le16 unsolicited_cq_count;
++	__le16 cmdq_count;
++	u8 reserved[4];
++};
++
++#endif /* __STORAGE_COMMON__ */
+diff --git a/include/linux/qed/tcp_common.h b/include/linux/qed/tcp_common.h
+new file mode 100644
+index 0000000..accba0e
+--- /dev/null
++++ b/include/linux/qed/tcp_common.h
+@@ -0,0 +1,226 @@
++/* QLogic qed NIC Driver
++ * Copyright (c) 2015 QLogic Corporation
++ *
++ * This software is available under the terms of the GNU General Public License
++ * (GPL) Version 2, available from the file COPYING in the main directory of
++ * this source tree.
++ */
++
++#ifndef __TCP_COMMON__
++#define __TCP_COMMON__
++
++#define TCP_INVALID_TIMEOUT_VAL -1
++
++enum tcp_connect_mode {
++	TCP_CONNECT_ACTIVE,
++	TCP_CONNECT_PASSIVE,
++	MAX_TCP_CONNECT_MODE
++};
++
++struct tcp_init_params {
++	__le32 max_cwnd;
++	__le16 dup_ack_threshold;
++	__le16 tx_sws_timer;
++	__le16 min_rto;
++	__le16 min_rto_rt;
++	__le16 max_rto;
++	u8 maxfinrt;
++	u8 reserved[1];
++};
++
++enum tcp_ip_version {
++	TCP_IPV4,
++	TCP_IPV6,
++	MAX_TCP_IP_VERSION
++};
++
++struct tcp_offload_params {
++	__le16 local_mac_addr_lo;
++	__le16 local_mac_addr_mid;
++	__le16 local_mac_addr_hi;
++	__le16 remote_mac_addr_lo;
++	__le16 remote_mac_addr_mid;
++	__le16 remote_mac_addr_hi;
++	__le16 vlan_id;
++	u8 flags;
++#define TCP_OFFLOAD_PARAMS_TS_EN_MASK         0x1
++#define TCP_OFFLOAD_PARAMS_TS_EN_SHIFT        0
++#define TCP_OFFLOAD_PARAMS_DA_EN_MASK         0x1
++#define TCP_OFFLOAD_PARAMS_DA_EN_SHIFT        1
++#define TCP_OFFLOAD_PARAMS_KA_EN_MASK         0x1
++#define TCP_OFFLOAD_PARAMS_KA_EN_SHIFT        2
++#define TCP_OFFLOAD_PARAMS_NAGLE_EN_MASK      0x1
++#define TCP_OFFLOAD_PARAMS_NAGLE_EN_SHIFT     3
++#define TCP_OFFLOAD_PARAMS_DA_CNT_EN_MASK     0x1
++#define TCP_OFFLOAD_PARAMS_DA_CNT_EN_SHIFT    4
++#define TCP_OFFLOAD_PARAMS_FIN_SENT_MASK      0x1
++#define TCP_OFFLOAD_PARAMS_FIN_SENT_SHIFT     5
++#define TCP_OFFLOAD_PARAMS_FIN_RECEIVED_MASK  0x1
++#define TCP_OFFLOAD_PARAMS_FIN_RECEIVED_SHIFT 6
++#define TCP_OFFLOAD_PARAMS_RESERVED0_MASK     0x1
++#define TCP_OFFLOAD_PARAMS_RESERVED0_SHIFT    7
++	u8 ip_version;
++	__le32 remote_ip[4];
++	__le32 local_ip[4];
++	__le32 flow_label;
++	u8 ttl;
++	u8 tos_or_tc;
++	__le16 remote_port;
++	__le16 local_port;
++	__le16 mss;
++	u8 rcv_wnd_scale;
++	u8 connect_mode;
++	__le16 srtt;
++	__le32 cwnd;
++	__le32 ss_thresh;
++	__le16 reserved1;
++	u8 ka_max_probe_cnt;
++	u8 dup_ack_theshold;
++	__le32 rcv_next;
++	__le32 snd_una;
++	__le32 snd_next;
++	__le32 snd_max;
++	__le32 snd_wnd;
++	__le32 rcv_wnd;
++	__le32 snd_wl1;
++	__le32 ts_time;
++	__le32 ts_recent;
++	__le32 ts_recent_age;
++	__le32 total_rt;
++	__le32 ka_timeout_delta;
++	__le32 rt_timeout_delta;
++	u8 dup_ack_cnt;
++	u8 snd_wnd_probe_cnt;
++	u8 ka_probe_cnt;
++	u8 rt_cnt;
++	__le16 rtt_var;
++	__le16 reserved2;
++	__le32 ka_timeout;
++	__le32 ka_interval;
++	__le32 max_rt_time;
++	__le32 initial_rcv_wnd;
++	u8 snd_wnd_scale;
++	u8 ack_frequency;
++	__le16 da_timeout_value;
++	__le32 ts_ticks_per_second;
++};
++
++struct tcp_offload_params_opt2 {
++	__le16 local_mac_addr_lo;
++	__le16 local_mac_addr_mid;
++	__le16 local_mac_addr_hi;
++	__le16 remote_mac_addr_lo;
++	__le16 remote_mac_addr_mid;
++	__le16 remote_mac_addr_hi;
++	__le16 vlan_id;
++	u8 flags;
++#define TCP_OFFLOAD_PARAMS_OPT2_TS_EN_MASK      0x1
++#define TCP_OFFLOAD_PARAMS_OPT2_TS_EN_SHIFT     0
++#define TCP_OFFLOAD_PARAMS_OPT2_DA_EN_MASK      0x1
++#define TCP_OFFLOAD_PARAMS_OPT2_DA_EN_SHIFT     1
++#define TCP_OFFLOAD_PARAMS_OPT2_KA_EN_MASK      0x1
++#define TCP_OFFLOAD_PARAMS_OPT2_KA_EN_SHIFT     2
++#define TCP_OFFLOAD_PARAMS_OPT2_RESERVED0_MASK  0x1F
++#define TCP_OFFLOAD_PARAMS_OPT2_RESERVED0_SHIFT 3
++	u8 ip_version;
++	__le32 remote_ip[4];
++	__le32 local_ip[4];
++	__le32 flow_label;
++	u8 ttl;
++	u8 tos_or_tc;
++	__le16 remote_port;
++	__le16 local_port;
++	__le16 mss;
++	u8 rcv_wnd_scale;
++	u8 connect_mode;
++	__le16 syn_ip_payload_length;
++	__le32 syn_phy_addr_lo;
++	__le32 syn_phy_addr_hi;
++	__le32 reserved1[22];
++};
++
++enum tcp_seg_placement_event {
++	TCP_EVENT_ADD_PEN,
++	TCP_EVENT_ADD_NEW_ISLE,
++	TCP_EVENT_ADD_ISLE_RIGHT,
++	TCP_EVENT_ADD_ISLE_LEFT,
++	TCP_EVENT_JOIN,
++	TCP_EVENT_NOP,
++	MAX_TCP_SEG_PLACEMENT_EVENT
++};
++
++struct tcp_update_params {
++	__le16 flags;
++#define TCP_UPDATE_PARAMS_REMOTE_MAC_ADDR_CHANGED_MASK   0x1
++#define TCP_UPDATE_PARAMS_REMOTE_MAC_ADDR_CHANGED_SHIFT  0
++#define TCP_UPDATE_PARAMS_MSS_CHANGED_MASK               0x1
++#define TCP_UPDATE_PARAMS_MSS_CHANGED_SHIFT              1
++#define TCP_UPDATE_PARAMS_TTL_CHANGED_MASK               0x1
++#define TCP_UPDATE_PARAMS_TTL_CHANGED_SHIFT              2
++#define TCP_UPDATE_PARAMS_TOS_OR_TC_CHANGED_MASK         0x1
++#define TCP_UPDATE_PARAMS_TOS_OR_TC_CHANGED_SHIFT        3
++#define TCP_UPDATE_PARAMS_KA_TIMEOUT_CHANGED_MASK        0x1
++#define TCP_UPDATE_PARAMS_KA_TIMEOUT_CHANGED_SHIFT       4
++#define TCP_UPDATE_PARAMS_KA_INTERVAL_CHANGED_MASK       0x1
++#define TCP_UPDATE_PARAMS_KA_INTERVAL_CHANGED_SHIFT      5
++#define TCP_UPDATE_PARAMS_MAX_RT_TIME_CHANGED_MASK       0x1
++#define TCP_UPDATE_PARAMS_MAX_RT_TIME_CHANGED_SHIFT      6
++#define TCP_UPDATE_PARAMS_FLOW_LABEL_CHANGED_MASK        0x1
++#define TCP_UPDATE_PARAMS_FLOW_LABEL_CHANGED_SHIFT       7
++#define TCP_UPDATE_PARAMS_INITIAL_RCV_WND_CHANGED_MASK   0x1
++#define TCP_UPDATE_PARAMS_INITIAL_RCV_WND_CHANGED_SHIFT  8
++#define TCP_UPDATE_PARAMS_KA_MAX_PROBE_CNT_CHANGED_MASK  0x1
++#define TCP_UPDATE_PARAMS_KA_MAX_PROBE_CNT_CHANGED_SHIFT 9
++#define TCP_UPDATE_PARAMS_KA_EN_CHANGED_MASK             0x1
++#define TCP_UPDATE_PARAMS_KA_EN_CHANGED_SHIFT            10
++#define TCP_UPDATE_PARAMS_NAGLE_EN_CHANGED_MASK          0x1
++#define TCP_UPDATE_PARAMS_NAGLE_EN_CHANGED_SHIFT         11
++#define TCP_UPDATE_PARAMS_KA_EN_MASK                     0x1
++#define TCP_UPDATE_PARAMS_KA_EN_SHIFT                    12
++#define TCP_UPDATE_PARAMS_NAGLE_EN_MASK                  0x1
++#define TCP_UPDATE_PARAMS_NAGLE_EN_SHIFT                 13
++#define TCP_UPDATE_PARAMS_KA_RESTART_MASK                0x1
++#define TCP_UPDATE_PARAMS_KA_RESTART_SHIFT               14
++#define TCP_UPDATE_PARAMS_RETRANSMIT_RESTART_MASK        0x1
++#define TCP_UPDATE_PARAMS_RETRANSMIT_RESTART_SHIFT       15
++	__le16 remote_mac_addr_lo;
++	__le16 remote_mac_addr_mid;
++	__le16 remote_mac_addr_hi;
++	__le16 mss;
++	u8 ttl;
++	u8 tos_or_tc;
++	__le32 ka_timeout;
++	__le32 ka_interval;
++	__le32 max_rt_time;
++	__le32 flow_label;
++	__le32 initial_rcv_wnd;
++	u8 ka_max_probe_cnt;
++	u8 reserved1[7];
++};
++
++struct tcp_upload_params {
++	__le32 rcv_next;
++	__le32 snd_una;
++	__le32 snd_next;
++	__le32 snd_max;
++	__le32 snd_wnd;
++	__le32 rcv_wnd;
++	__le32 snd_wl1;
++	__le32 cwnd;
++	__le32 ss_thresh;
++	__le16 srtt;
++	__le16 rtt_var;
++	__le32 ts_time;
++	__le32 ts_recent;
++	__le32 ts_recent_age;
++	__le32 total_rt;
++	__le32 ka_timeout_delta;
++	__le32 rt_timeout_delta;
++	u8 dup_ack_cnt;
++	u8 snd_wnd_probe_cnt;
++	u8 ka_probe_cnt;
++	u8 rt_cnt;
++	__le32 reserved;
++};
++
++#endif /* __TCP_COMMON__ */
 -- 
 1.9.3
