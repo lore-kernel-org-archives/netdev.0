@@ -1,51 +1,79 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCH] net: igb: Only dma sync frame length
-Date: Fri,  3 Jun 2016 19:45:32 +0200
-Message-ID: <1464975932-13301-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, intel-wired-lan@lists.osuosl.org,
-	Andrew Lunn <andrew@lunn.ch>
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	David Miller <davem@davemloft.net>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCHv2 net-next] sctp: sctp should change socket state when
+ shutdown is received
+Date: Fri, 3 Jun 2016 14:49:18 -0300
+Message-ID: <20160603174918.GX22680@localhost.localdomain>
+References: <67353a74d044f1f643cdfe1442136b44d7188ea9.1464964965.git.lucien.xin@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net, eric.dumazet@gmail.com
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58829 "EHLO vps0.lunn.ch"
+Received: from mx1.redhat.com ([209.132.183.28]:34692 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932268AbcFCRqG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jun 2016 13:46:06 -0400
+	id S1751147AbcFCRtW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jun 2016 13:49:22 -0400
+Content-Disposition: inline
+In-Reply-To: <67353a74d044f1f643cdfe1442136b44d7188ea9.1464964965.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On some platforms, syncing a buffer for DMA is expensive. Rather than
-sync the whole 2K receive buffer, only synchronise the length of the
-frame, which will typically be the MTU, or a much smaller TCP ACK.
+On Fri, Jun 03, 2016 at 10:42:45PM +0800, Xin Long wrote:
+> Now sctp doesn't change socket state upon shutdown reception. It changes
+> just the assoc state, even though it's a TCP-style socket.
+> 
+> For some cases, if we really need to check sk->sk_state, it's necessary to
+> fix this issue, at least when we use ss or netstat to dump, we can get a
+> more exact information.
+> 
+> As an improvement, we will change sk->sk_state when we change asoc->state
+> to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent with
+> sctp_close.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+> ---
+>  net/sctp/sm_sideeffect.c | 4 +++-
+>  net/sctp/socket.c        | 1 +
+>  2 files changed, 4 insertions(+), 1 deletion(-)
+> 
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index aa37122..12d4519 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -806,8 +806,10 @@ static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
+>  
+>  		/* Set the RCV_SHUTDOWN flag when a SHUTDOWN is received. */
+>  		if (sctp_state(asoc, SHUTDOWN_RECEIVED) &&
+> -		    sctp_sstate(sk, ESTABLISHED))
+> +		    sctp_sstate(sk, ESTABLISHED)) {
+> +			sk->sk_state = SCTP_SS_CLOSING;
+>  			sk->sk_shutdown |= RCV_SHUTDOWN;
+> +		}
+>  	}
+>  
+>  	if (sctp_state(asoc, COOKIE_WAIT)) {
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 67154b8..91a460d 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4193,6 +4193,7 @@ static void sctp_shutdown(struct sock *sk, int how)
+>  		return;
+>  
+>  	if (how & SEND_SHUTDOWN) {
+> +		sk->sk_state = SCTP_SS_CLOSING;
+>  		ep = sctp_sk(sk)->ep;
+>  		if (!list_empty(&ep->asocs)) {
+>  			asoc = list_entry(ep->asocs.next,
 
-For an IMX6Q, this gives around 6% increased TCP receive performance,
-which is cache operations bound and reduces CPU load for TCP transmit.
+Oh but I think the removed chunk was important, it just needed fixing.
 
-Signed-off-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/ethernet/intel/igb/igb_main.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+A comment in there said:
+	/* If the association on the newsk is already closed before
+	 * accept() is called, set RCV_SHUTDOWN flag.
+	 */
+Meaning that there is a way that it will create a socket in the state
+you're trying to avoid here, which now is not handled.
 
-diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
-index 0a289dda604a..670e3d612283 100644
---- a/drivers/net/ethernet/intel/igb/igb_main.c
-+++ b/drivers/net/ethernet/intel/igb/igb_main.c
-@@ -6915,6 +6915,7 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
- {
- 	struct igb_rx_buffer *rx_buffer;
- 	struct page *page;
-+	unsigned int size = le16_to_cpu(rx_desc->wb.upper.length);
- 
- 	rx_buffer = &rx_ring->rx_buffer_info[rx_ring->next_to_clean];
- 	page = rx_buffer->page;
-@@ -6948,7 +6949,7 @@ static struct sk_buff *igb_fetch_rx_buffer(struct igb_ring *rx_ring,
- 	dma_sync_single_range_for_cpu(rx_ring->dev,
- 				      rx_buffer->dma,
- 				      rx_buffer->page_offset,
--				      IGB_RX_BUFSZ,
-+				      size,
- 				      DMA_FROM_DEVICE);
- 
- 	/* pull page into skb */
--- 
-2.8.1
+  Marcelo
