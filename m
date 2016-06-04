@@ -1,34 +1,31 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [v2] carl9170: Clarify kconfig text
-Date: Sat,  4 Jun 2016 14:58:35 +0000 (UTC)
-Message-ID: <20160604145835.EE22A613CF@smtp.codeaurora.org>
-References: <20160416171856.1769c0e16bcc75372407e06f@gmx.com>
+Subject: Re: [7/7] mwifiex: fix typo
+Date: Sat,  4 Jun 2016 15:11:25 +0000 (UTC)
+Message-ID: <20160604151125.AB0E1613E5@smtp.codeaurora.org>
+References: <1463495926-13728-8-git-send-email-Julia.Lawall@lip6.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Christian Lamparter <chunkeey@googlemail.com>,
+Cc: Amitkumar Karwar <akarwar@marvell.com>,
+	kernel-janitors@vger.kernel.org,
+	Nishant Sarmukadam <nishants@marvell.com>,
 	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
-To: Lauri Kasanen <cand@gmx.com>
+To: Julia Lawall <Julia.Lawall@lip6.fr>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160416171856.1769c0e16bcc75372407e06f@gmx.com>
+In-Reply-To: <1463495926-13728-8-git-send-email-Julia.Lawall@lip6.fr>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Lauri Kasanen <cand@gmx.com> wrote:
-> The previous text was confusing, leading readers to think this
-> driver was a duplicate, and so didn't need to be enabled.
+Julia Lawall <Julia.Lawall@lip6.fr> wrote:
+> firmare -> firmware
 > 
-> After the removal of the older staging driver, this is the only
-> driver in mainline for these devices.
-> 
-> Signed-off-by: Lauri Kasanen <cand@gmx.com>
-> Acked-by: Christian Lamparter <chunkeey@googlemail.com>
+> Signed-off-by: Julia Lawall <Julia.Lawall@lip6.fr>
 
 Thanks, 1 patch applied to wireless-drivers-next.git:
 
-83e41e77819b carl9170: Clarify kconfig text
+47ce90f9f08a mwifiex: fix typo
 
 -- 
 Sent by pwcli
-https://patchwork.kernel.org/patch/8861621/
+https://patchwork.kernel.org/patch/9113281/
