@@ -1,85 +1,93 @@
-From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
-Subject: Re: [PATCH v2 1/2] b43: Remove unused phy_a code
-Date: Sat, 4 Jun 2016 10:01:40 +0200
-Message-ID: <20160604100140.43ca7621@wiggum>
-References: <1465013512-30301-1-git-send-email-linux@roeck-us.net>
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [PATCH net] bridge: Fix incorrect re-injection of STP
+	packets
+Date: Sat, 4 Jun 2016 11:15:34 +0300
+Message-ID: <20160604081534.GA22055@colbert.idosch.org>
+References: <1464946785-7651-1-git-send-email-idosch@mellanox.com>
+	<20160604094141.7dcc5687@halley>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- boundary="Sig_/ARXZz6nF1DU.aW8+ynAz7ZG"; protocol="application/pgp-signature"
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-kernel@vger.kernel.org,
-	linux-wireless@vger.kernel.org, b43-dev@lists.infradead.org,
-	netdev@vger.kernel.org
-To: Guenter Roeck <linux@roeck-us.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465013512-30301-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: yotamg@mellanox.com, netdev@vger.kernel.org,
+	bridge@lists.linux-foundation.org,
+	Florian Westphal <fw@strlen.de>, jiri@mellanox.com,
+	nogahf@mellanox.com, eladr@mellanox.com, ogerlitz@mellanox.com,
+	davem@davemloft.net
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <20160604094141.7dcc5687@halley>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
---Sig_/ARXZz6nF1DU.aW8+ynAz7ZG
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Sat, Jun 04, 2016 at 09:41:41AM IDT, shmulik.ladkani@gmail.com wrote:
+>Hi,
+>
+>On Fri, 3 Jun 2016 12:39:45 +0300 Ido Schimmel <idosch@mellanox.com> wrote:
+>> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
+>> index 1607977..c73ed44 100644
+>> --- a/net/bridge/br_input.c
+>> +++ b/net/bridge/br_input.c
+>> @@ -223,9 +223,7 @@ static int br_handle_local_finish(struct net *net, struct sock *sk, struct sk_bu
+>>  	if (p->flags & BR_LEARNING && br_should_learn(p, skb, &vid))
+>>  		br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid, false);
+>>  
+>> -	BR_INPUT_SKB_CB(skb)->brdev = p->br->dev;
+>> -	br_pass_frame_up(skb);
+>> -	return 0;
+>> +	return RX_HANDLER_PASS;
+>>  }
+>>  
+>>  /*
+>> @@ -238,6 +236,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+>>  	struct sk_buff *skb = *pskb;
+>>  	const unsigned char *dest = eth_hdr(skb)->h_dest;
+>>  	br_should_route_hook_t *rhook;
+>> +	int err;
+>>  
+>>  	if (unlikely(skb->pkt_type == PACKET_LOOPBACK))
+>>  		return RX_HANDLER_PASS;
+>> @@ -287,8 +286,11 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
+>>  		}
+>>  
+>>  		/* Deliver packet to local host only */
+>> -		NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, dev_net(skb->dev),
+>> -			NULL, skb, skb->dev, NULL, br_handle_local_finish);
+>> +		err = NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, dev_net(skb->dev),
+>> +			      NULL, skb, skb->dev, NULL,
+>> +			      br_handle_local_finish);
+>> +		if (err == RX_HANDLER_PASS)
+>> +			return RX_HANDLER_PASS;
+>>  		return RX_HANDLER_CONSUMED;
+>
+>Seems '*pskb = skb' is needed prior returning RX_HANDLER_PASS - there's
+>a 'skb = skb_share_check()' at beginning of br_handle_frame.
+>
+>(The *pskb = skb was present prior 8626c56c8279, but gone since there
+>was no longer an RX_HANDLER_PASS return).
 
-On Fri,  3 Jun 2016 21:11:51 -0700
-Guenter Roeck <linux@roeck-us.net> wrote:
+Right! Will fix that in v2.
 
-> +static void __b43_phy_initg(struct b43_wldev *dev)
-> +{
-> +	struct b43_phy *phy =3D &dev->phy;
-> +
-> +	might_sleep();
-> +
-> +	if (phy->rev >=3D 6) {
-> +		if (b43_phy_read(dev, B43_PHY_ENCORE) & B43_PHY_ENCORE_EN)
-> +			b43_phy_set(dev, B43_PHY_ENCORE, 0x0010);
-> +		else
-> +			b43_phy_mask(dev, B43_PHY_ENCORE, ~0x1010);
-> +	}
-> +
-> +	b43_wa_all(dev);
-> +
-> +	if (dev->dev->bus_sprom->boardflags_lo & B43_BFL_PACTRL)
-> +		b43_phy_maskset(dev, B43_PHY_OFDM(0x6E), 0xE000, 0x3CF);
-> +}
-> +
->  static void b43_phy_initg(struct b43_wldev *dev)
->  {
->  	struct b43_phy *phy =3D &dev->phy;
-> @@ -1999,7 +2019,7 @@ static void b43_phy_initg(struct b43_wldev *dev)
->  		b43_phy_initb6(dev);
-> =20
->  	if (phy->rev >=3D 2 || phy->gmode)
-> -		b43_phy_inita(dev);
-> +		__b43_phy_initg(dev);
+>
+>One nit to consider:
+>
+>The fix relies on the fact that RX_HANDLER_PASS != 0 (otherwise we end up
+>not knowing whether skb was STOLEN or br_handle_local_finish has
+>executed, which was the original problem 8626c56c8279 tried to address).
+>
+>No reason to use the RX_HANDLER_xxx enumeration space as the ret code
+>of an 'okfn' (br_handle_local_finish in this case).
+>Some positive value locally defined in br_input.c (and documented in
+>br_handle_local_finish) would do.
 
-This actually is correctly called inita(), because there are A-phy parts
-in the G-phy.
-So I wasn't 100% correct saying that _all_ a-phy code is unused.
-I'm Ok with moving that into the g-phy file though. But don't rename it.
+Yes, I agree it would be clearer to state that explicitly. Will add that
+in v2.
 
-
---=20
-Michael
-
---Sig_/ARXZz6nF1DU.aW8+ynAz7ZG
-Content-Type: application/pgp-signature
-Content-Description: OpenPGP digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJXUorkAAoJEPUyvh2QjYsOe/gQAI5qWGqNekiB4NSp/+UX/CVX
-zIDkCiAqivdDG7fucktLCvjBxzfQzBaI1cw+kSVjcFwANs1JPvh5rP/QwiW5TZeV
-RQbODg60P/Lkza415eVWlTT6AZqvlzcGx4i/O8RjAPmtaA3OKSt5fTRIJDCiqSPL
-WyTnjFjZd4GPnmkt9tTfNWQiiLAKRFzFG0t/gwPT1lqy2eHl3dZc+sJ2yVLAcdZ3
-roPhNkYy6wCBcGQ3cTBIemYvR/KN7hak1ihtGIF9y708ClBiy8qNBJuO0oDSQ6oL
-H9QvCiqkndAhAPaiy0WGh1uMIxKEueQyb3z5WWrtNyBLcEMDnv1q3U/z/CSCWBGg
-9UUmYUS9EMyVEgfQFZAZ7GiPO3CDDkazkkc59V79oYr9S1QLkbxs+XWjcs0XavgS
-uvXI+VlyJUsoxivzlzGOvx5FAyPk5CN32MBjs8WADFHIuy6t2jySP+IxpEwQmxtJ
-bZoI2E9gdM/h2BmpfzOOIMRywtxRkhD8nu6G3HBlvrY3LLyaPhxUpTce5xcQ2aHL
-tww9Yjjo+YZFr2WV4PfoCbqRGSoSJZ9/XfgrYiLG65fQ98Tct1vDm42+YrDmhs8+
-lXDRT9IKoRj83OiWkxKZ/Pm61DWxAznD5gIs/qfhJU7EiQGeUCq4LAGIc22/KjLU
-6lj7WuLS/JUdG4gKWAkx
-=nC7Y
------END PGP SIGNATURE-----
-
---Sig_/ARXZz6nF1DU.aW8+ynAz7ZG--
+Thanks for reviewing!
