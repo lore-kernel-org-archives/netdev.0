@@ -1,44 +1,35 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH 1/5] ethernet: add sun8i-emac driver
-Date: Fri, 03 Jun 2016 20:07:12 -0400 (EDT)
-Message-ID: <20160603.200712.1655112462975368614.davem@davemloft.net>
-References: <1464947790-22991-1-git-send-email-clabbe.montjoie@gmail.com>
-	<1464947790-22991-2-git-send-email-clabbe.montjoie@gmail.com>
-Reply-To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] net: dsa: bcm_sf2: Implement FDB operations
+Date: Fri, 3 Jun 2016 17:06:46 -0700
+Message-ID: <57521B96.3050604@gmail.com>
+References: <1464998733-10405-1-git-send-email-f.fainelli@gmail.com>
+ <1464998733-10405-4-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
- ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org,
- maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org, linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org,
- netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-sunxi+bncBDCIDJ4RTAOBBMVXZC5AKGQEMGOMIII-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <1464947790-22991-2-git-send-email-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, andrew@lunn.ch,
+	vivien.didelot@savoirfairelinux.com, john@phrozen.org
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:34282 "EHLO
+	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751160AbcFDAGs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 20:06:48 -0400
+Received: by mail-pf0-f174.google.com with SMTP id 62so48275017pfd.1
+        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 17:06:47 -0700 (PDT)
+In-Reply-To: <1464998733-10405-4-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: LABBE Corentin <clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Fri,  3 Jun 2016 11:56:26 +0200
+On 06/03/2016 05:05 PM, Florian Fainelli wrote:
+> Add support for the FDB add, delete, and dump operations. The add and
+> delete operations are implemented using directed ARL operations using
+> the specified MAC address and consist in a read operation, write and
+> readback operation.
+> 
+> The dump operation consists in using the ARL search and software
+> filtering entries which are not for the desired port.
 
-> +static int nbdesc_tx = 256;
-> +module_param(nbdesc_tx, int, S_IRUGO | S_IWUSR);
-> +MODULE_PARM_DESC(nbdesc_tx, "Number of descriptors in the TX list");
-> +static int nbdesc_rx = 128;
-> +module_param(nbdesc_rx, int, S_IRUGO | S_IWUSR);
-> +MODULE_PARM_DESC(nbdesc_rx, "Number of descriptors in the RX list");
-
-Module parameters are not appropriate.
-
-Please use the proper ethtool configuration facilities to control
-the size of the RX and TX queues.
-
-Thanks.
+And this one too should be discarded.
+-- 
+Florian
