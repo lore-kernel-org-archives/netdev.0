@@ -1,36 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [net] fq_codel: fix NET_XMIT_CN behavior
-Date: Sat, 04 Jun 2016 12:40:32 -0700
-Message-ID: <1465069232.2968.14.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160604190301.GA8857@strlen.de>
+From: Augusto Mecking Caringi <augustocaringi@gmail.com>
+Subject: Re: [PATCH] net: fec: fix spelling mistake "coalesed" -> "coalesced"
+Date: Sat, 4 Jun 2016 16:43:04 -0300
+Message-ID: <CADFy_4GNq-VQj5kgFsoCiHJTHTo21ZdjijfD=mEM602YCrewEw@mail.gmail.com>
+References: <1465066875-7089-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Stas Nichiporovich <stasn77@gmail.com>,
-	WANG Cong <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35235 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750876AbcFDTkf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 15:40:35 -0400
-Received: by mail-pf0-f174.google.com with SMTP id g64so54334119pfb.2
-        for <netdev@vger.kernel.org>; Sat, 04 Jun 2016 12:40:35 -0700 (PDT)
-In-Reply-To: <20160604190301.GA8857@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Fugang Duan <fugang.duan@nxp.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465066875-7089-1-git-send-email-colin.king@canonical.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2016-06-04 at 21:03 +0200, Florian Westphal wrote:
+On Sat, Jun 4, 2016 at 4:01 PM, Colin King <colin.king@canonical.com> wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+>
+> trivial fix to spelling mistake in pr_err message
+>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
+> ---
+>  drivers/net/ethernet/freescale/fec_main.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+> index 3c0255e..96bd210 100644
+> --- a/drivers/net/ethernet/freescale/fec_main.c
+> +++ b/drivers/net/ethernet/freescale/fec_main.c
+> @@ -2427,13 +2427,13 @@ fec_enet_set_coalesce(struct net_device *ndev, struct ethtool_coalesce *ec)
+>
+>         cycle = fec_enet_us_to_itr_clock(ndev, fep->rx_time_itr);
+>         if (cycle > 0xFFFF) {
+> -               pr_err("Rx coalesed usec exceeed hardware limiation");
+> +               pr_err("Rx coalesced usec exceeed hardware limiation");
+>                 return -EINVAL;
+>         }
+>
+>         cycle = fec_enet_us_to_itr_clock(ndev, fep->tx_time_itr);
+>         if (cycle > 0xFFFF) {
+> -               pr_err("Rx coalesed usec exceeed hardware limiation");
+> +               pr_err("Rx coalesced usec exceeed hardware limiation");
+>                 return -EINVAL;
+>         }
+>
 
-> Is skb still valid here? AFAICS its possible that fq_codel_drop() drops it.
-> 
-> Other than that this looks good, thanks Eric!
+s/limiation/limitation
 
-You are are right. skb is guaranteed to be valid only when we return
-NET_XMIT_SUCCESS.
-
-I'll send a V2, thanks !
+-- 
+Augusto Mecking Caringi
