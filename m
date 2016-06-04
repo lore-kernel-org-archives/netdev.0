@@ -1,50 +1,41 @@
-From: Augusto Mecking Caringi <augustocaringi@gmail.com>
-Subject: Re: [PATCH] net: fec: fix spelling mistake "coalesed" -> "coalesced"
-Date: Sat, 4 Jun 2016 16:43:04 -0300
-Message-ID: <CADFy_4GNq-VQj5kgFsoCiHJTHTo21ZdjijfD=mEM602YCrewEw@mail.gmail.com>
-References: <1465066875-7089-1-git-send-email-colin.king@canonical.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 2/9] net: dsa: Add support for parsing the old
+ binding
+Date: Sat, 4 Jun 2016 21:44:20 +0200
+Message-ID: <20160604194420.GC2063@lunn.ch>
+References: <1464998733-10405-1-git-send-email-f.fainelli@gmail.com>
+ <1464998733-10405-5-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Fugang Duan <fugang.duan@nxp.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Colin King <colin.king@canonical.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465066875-7089-1-git-send-email-colin.king@canonical.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com, john@phrozen.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:59615 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750833AbcFDToW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jun 2016 15:44:22 -0400
+Content-Disposition: inline
+In-Reply-To: <1464998733-10405-5-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 4, 2016 at 4:01 PM, Colin King <colin.king@canonical.com> wrote:
-> From: Colin Ian King <colin.king@canonical.com>
->
-> trivial fix to spelling mistake in pr_err message
->
-> Signed-off-by: Colin Ian King <colin.king@canonical.com>
-> ---
->  drivers/net/ethernet/freescale/fec_main.c | 4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-> index 3c0255e..96bd210 100644
-> --- a/drivers/net/ethernet/freescale/fec_main.c
-> +++ b/drivers/net/ethernet/freescale/fec_main.c
-> @@ -2427,13 +2427,13 @@ fec_enet_set_coalesce(struct net_device *ndev, struct ethtool_coalesce *ec)
->
->         cycle = fec_enet_us_to_itr_clock(ndev, fep->rx_time_itr);
->         if (cycle > 0xFFFF) {
-> -               pr_err("Rx coalesed usec exceeed hardware limiation");
-> +               pr_err("Rx coalesced usec exceeed hardware limiation");
->                 return -EINVAL;
->         }
->
->         cycle = fec_enet_us_to_itr_clock(ndev, fep->tx_time_itr);
->         if (cycle > 0xFFFF) {
-> -               pr_err("Rx coalesed usec exceeed hardware limiation");
-> +               pr_err("Rx coalesced usec exceeed hardware limiation");
->                 return -EINVAL;
->         }
->
+> @@ -626,8 +736,8 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
+>  {
+>  	struct device_node *ports = dsa_get_ports(ds, np);
+>  
+> -	if (IS_ERR(ports))
+> -		return PTR_ERR(ports);
+> +	if (IS_ERR(ports) && PTR_ERR(ports) == -EINVAL)
+> +		return _dsa_register_switch_legacy(ds, np);
+>  
+>  	return __dsa_register_switch(ds, np);
+>  }
 
-s/limiation/limitation
+Hi Florian
 
--- 
-Augusto Mecking Caringi
+Could you put this into dsa_register_switch() and so avoid all the __
+prefixes.
+
+Thanks
+	Andrew
