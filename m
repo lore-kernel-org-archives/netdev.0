@@ -1,95 +1,68 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next] net, cls: allow for deleting all filters for given parent
-Date: Sat,  4 Jun 2016 18:24:23 +0200
-Message-ID: <cd8455dfef0cccec5ef0a1ca2d1f678e9397d66e.1465056745.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
-	jhs@mojatatu.com, netdev@vger.kernel.org,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] fq_codel: fix NET_XMIT_CN behavior
+Date: Sat, 04 Jun 2016 10:43:47 -0700
+Message-ID: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Stas Nichiporovich <stasn77@gmail.com>,
+	WANG Cong <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:50238 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750996AbcFDQYh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 12:24:37 -0400
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:36216 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751026AbcFDRnu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 13:43:50 -0400
+Received: by mail-pf0-f193.google.com with SMTP id 62so14309774pfd.3
+        for <netdev@vger.kernel.org>; Sat, 04 Jun 2016 10:43:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a possibility where the user can just specify the parent and
-all filters under that parent are then being purged. Currently,
-for example for scripting, one needs to specify pref/prio to have
-a well-defined number for 'tc filter del' command for addressing
-the previously created instance or additionally filter handle in
-case of priorities being the same. Improve usage by allowing the
-option for tc to specify the parent and removing the whole chain
-for that given parent.
+From: Eric Dumazet <edumazet@google.com>
 
-Example usage after patch, no tc changes required:
+My prior attempt to fix the backlogs of parents failed.
 
-  # tc qdisc replace dev foo clsact
-  # tc filter add dev foo egress bpf da obj ./bpf.o
-  # tc filter add dev foo egress bpf da obj ./bpf.o
-  # tc filter show dev foo egress
-  filter protocol all pref 49151 bpf
-  filter protocol all pref 49151 bpf handle 0x1 bpf.o:[classifier] direct-action
-  filter protocol all pref 49152 bpf
-  filter protocol all pref 49152 bpf handle 0x1 bpf.o:[classifier] direct-action
-  # tc filter del dev foo egress
-  # tc filter show dev foo egress
-  #
+If we return NET_XMIT_CN, our parents wont increase their backlog,
+so our qdisc_tree_reduce_backlog() should take this into account.
 
-Previously, RTM_DELTFILTER requests with invalid prio of 0 were
-rejected, so only netlink requests with RTM_NEWTFILTER and NLM_F_CREATE
-flag were allowed where the kernel would auto-generate a pref/prio.
-We can piggyback on that and use prio of 0 as a wildcard for
-requests of RTM_DELTFILTER.
-
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Fixes: 9d18562a2278 ("fq_codel: add batch ability to fq_codel_drop()")
+Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
+Reported-by: Stas Nichiporovich <stasn77@gmail.com>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: WANG Cong <xiyou.wangcong@gmail.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- net/sched/cls_api.c | 24 ++++++++++++++++++++----
- 1 file changed, 20 insertions(+), 4 deletions(-)
+ net/sched/sch_fq_codel.c |   18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
 
-diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-index a75864d..caa1dd4 100644
---- a/net/sched/cls_api.c
-+++ b/net/sched/cls_api.c
-@@ -156,11 +156,22 @@ replay:
- 	cl = 0;
- 
- 	if (prio == 0) {
--		/* If no priority is given, user wants we allocated it. */
--		if (n->nlmsg_type != RTM_NEWTFILTER ||
--		    !(n->nlmsg_flags & NLM_F_CREATE))
-+		switch (n->nlmsg_type) {
-+		case RTM_DELTFILTER:
-+			if (protocol || t->tcm_handle)
-+				return -ENOENT;
-+			break;
-+		case RTM_NEWTFILTER:
-+			/* If no priority is provided by the user,
-+			 * we allocate one.
-+			 */
-+			if (n->nlmsg_flags & NLM_F_CREATE) {
-+				prio = TC_H_MAKE(0x80000000U, 0U);
-+				break;
-+			}
-+		default:
- 			return -ENOENT;
--		prio = TC_H_MAKE(0x80000000U, 0U);
-+		}
- 	}
- 
- 	/* Find head of filter chain. */
-@@ -200,6 +211,11 @@ replay:
- 	err = -EINVAL;
- 	if (chain == NULL)
- 		goto errout;
-+	if (n->nlmsg_type == RTM_DELTFILTER && prio == 0) {
-+		tcf_destroy_chain(chain);
-+		err = 0;
-+		goto errout;
+diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+index 6883a8971562..c57ec480a2da 100644
+--- a/net/sched/sch_fq_codel.c
++++ b/net/sched/sch_fq_codel.c
+@@ -240,11 +240,19 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+ 	q->drop_overlimit += prev_qlen - sch->q.qlen;
+ 	if (memory_limited)
+ 		q->drop_overmemory += prev_qlen - sch->q.qlen;
+-	/* As we dropped packet(s), better let upper stack know this */
+-	qdisc_tree_reduce_backlog(sch, prev_qlen - sch->q.qlen,
+-				  prev_backlog - sch->qstats.backlog);
+-
+-	return ret == idx ? NET_XMIT_CN : NET_XMIT_SUCCESS;
++	/* As we dropped packet(s), better let upper stack know this.
++	 * If we dropped a packet for this flow, return NET_XMIT_CN,
++	 * but in this case, our parents wont increase their backlogs.
++	 */
++	prev_qlen -= sch->q.qlen;
++	prev_backlog -= sch->qstats.backlog;
++	if (ret == idx) {
++		qdisc_tree_reduce_backlog(sch, prev_qlen - 1,
++					  prev_backlog - qdisc_pkt_len(skb));
++		return NET_XMIT_CN;
 +	}
++	qdisc_tree_reduce_backlog(sch, prev_qlen, prev_backlog);
++	return NET_XMIT_SUCCESS;
+ }
  
- 	/* Check the chain for existence of proto-tcf with this priority */
- 	for (back = chain;
--- 
-1.9.3
+ /* This is the specific function called from codel_dequeue()
