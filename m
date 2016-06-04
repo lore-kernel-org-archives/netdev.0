@@ -1,83 +1,104 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net] bridge: Fix incorrect re-injection of STP packets
-Date: Sat, 4 Jun 2016 09:41:41 +0300
-Message-ID: <20160604094141.7dcc5687@halley>
-References: <1464946785-7651-1-git-send-email-idosch@mellanox.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: rhashtable - rhashtable_insert_fast failed
+Date: Sat, 4 Jun 2016 09:35:27 +0200
+Message-ID: <20160604073527.GE29740@orbyte.nwl.cc>
+References: <5751E702.5040909@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <stephen@networkplumber.org>, <davem@davemloft.net>,
-	<bridge@lists.linux-foundation.org>, <netdev@vger.kernel.org>,
-	<eladr@mellanox.com>, <ogerlitz@mellanox.com>, <jiri@mellanox.com>,
-	<yotamg@mellanox.com>, <nogahf@mellanox.com>,
-	Florian Westphal <fw@strlen.de>
-To: Ido Schimmel <idosch@mellanox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Herbert Xu <herbert@gondor.apana.org.au>,
+	Thomas Graf <tgraf@suug.ch>
+To: Helge Deller <deller@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33987 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750748AbcFDGl4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 02:41:56 -0400
-Received: by mail-wm0-f67.google.com with SMTP id n184so3776496wmn.1
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 23:41:55 -0700 (PDT)
-In-Reply-To: <1464946785-7651-1-git-send-email-idosch@mellanox.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:58818 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750719AbcFDHfa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jun 2016 03:35:30 -0400
+Content-Disposition: inline
+In-Reply-To: <5751E702.5040909@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+[Cc'ing other interested parties, therefore full-quoting.]
 
-On Fri, 3 Jun 2016 12:39:45 +0300 Ido Schimmel <idosch@mellanox.com> wrote:
-> diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-> index 1607977..c73ed44 100644
-> --- a/net/bridge/br_input.c
-> +++ b/net/bridge/br_input.c
-> @@ -223,9 +223,7 @@ static int br_handle_local_finish(struct net *net, struct sock *sk, struct sk_bu
->  	if (p->flags & BR_LEARNING && br_should_learn(p, skb, &vid))
->  		br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid, false);
->  
-> -	BR_INPUT_SKB_CB(skb)->brdev = p->br->dev;
-> -	br_pass_frame_up(skb);
-> -	return 0;
-> +	return RX_HANDLER_PASS;
->  }
->  
->  /*
-> @@ -238,6 +236,7 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
->  	struct sk_buff *skb = *pskb;
->  	const unsigned char *dest = eth_hdr(skb)->h_dest;
->  	br_should_route_hook_t *rhook;
-> +	int err;
->  
->  	if (unlikely(skb->pkt_type == PACKET_LOOPBACK))
->  		return RX_HANDLER_PASS;
-> @@ -287,8 +286,11 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
->  		}
->  
->  		/* Deliver packet to local host only */
-> -		NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, dev_net(skb->dev),
-> -			NULL, skb, skb->dev, NULL, br_handle_local_finish);
-> +		err = NF_HOOK(NFPROTO_BRIDGE, NF_BR_LOCAL_IN, dev_net(skb->dev),
-> +			      NULL, skb, skb->dev, NULL,
-> +			      br_handle_local_finish);
-> +		if (err == RX_HANDLER_PASS)
-> +			return RX_HANDLER_PASS;
->  		return RX_HANDLER_CONSUMED;
+Hi Helge,
 
-Seems '*pskb = skb' is needed prior returning RX_HANDLER_PASS - there's
-a 'skb = skb_share_check()' at beginning of br_handle_frame.
+On Fri, Jun 03, 2016 at 10:22:26PM +0200, Helge Deller wrote:
+> Hi Phil,
+> 
+> I'm testing 4.7.0-rc1-64bit on a parisc/hppa machine and get
+> those message with CONFIG_TEST_RHASHTABLE=y.
+> 
+> Is this expected/normal ?
 
-(The *pskb = skb was present prior 8626c56c8279, but gone since there
-was no longer an RX_HANDLER_PASS return).
+No, this shouldn't happen. Can you possibly bisect the issue?
 
-One nit to consider:
+Cheers, Phil
 
-The fix relies on the fact that RX_HANDLER_PASS != 0 (otherwise we end up
-not knowing whether skb was STOLEN or br_handle_local_finish has
-executed, which was the original problem 8626c56c8279 tried to address).
-
-No reason to use the RX_HANDLER_xxx enumeration space as the ret code
-of an 'okfn' (br_handle_local_finish in this case).
-Some positive value locally defined in br_input.c (and documented in
-br_handle_local_finish) would do.
-
-Regards,
-Shmulik
+> 
+> Helge
+> 
+> [   11.004021] Running rhashtable test nelem=8, max_size=0, shrinking=0
+> [   11.060013] Test 00:
+> [   11.181391]   Adding 50000 keys
+> [   11.299533] Info: encountered resize
+> [   11.344499] Info: encountered resize
+> [   11.392971] Info: encountered resize
+> [   11.447632]   Traversal complete: counted=50628, nelems=50000, entries=50000, table-jumps=3
+> [   11.556024] Test failed: Total count mismatch ^^^
+> [   11.647150]   Traversal complete: counted=50000, nelems=50000, entries=50000, table-jumps=0
+> [   11.760022]   Deleting 50000 keys
+> [   11.822941]   Duration of test: 596000000 ns
+> [   11.876057] Test 01:
+> [   11.919907]   Adding 50000 keys
+> [   12.024027] Info: encountered resize
+> [   12.024767] Info: encountered resize
+> [   12.072981] Info: encountered resize
+> [   12.169265]   Traversal complete: counted=53763, nelems=50000, entries=50000, table-jumps=3
+> [   12.172021] Test failed: Total count mismatch ^^^
+> [   12.377004]   Traversal complete: counted=50000, nelems=50000, entries=50000, table-jumps=0
+> [   12.380022]   Deleting 50000 keys
+> [   12.552900]   Duration of test: 596000000 ns
+> [   12.556069] Test 02:
+> [   12.650017]   Adding 50000 keys
+> [   12.746381] Info: encountered resize
+> [   12.792486] Info: encountered resize
+> [   12.840977] Info: encountered resize
+> [   12.894604]   Traversal complete: counted=52831, nelems=50000, entries=50000, table-jumps=3
+> [   13.004025] Test failed: Total count mismatch ^^^
+> [   13.094046]   Traversal complete: counted=50000, nelems=50000, entries=50000, table-jumps=0
+> [   13.204022]   Deleting 50000 keys
+> [   13.269555]   Duration of test: 576000000 ns
+> [   13.324062] Test 03:
+> [   13.366586]   Adding 50000 keys
+> [   13.466624] Info: encountered resize
+> [   13.468255] Info: encountered resize
+> [   13.516485] Info: encountered resize
+> [   13.564977] Info: encountered resize
+> [   13.662159]   Traversal complete: counted=52381, nelems=50000, entries=50000, table-jumps=4
+> [   13.664022] Test failed: Total count mismatch ^^^
+> [   13.870009]   Traversal complete: counted=50000, nelems=50000, entries=50000, table-jumps=0
+> [   13.876015]   Deleting 50000 keys
+> [   14.045912]   Duration of test: 640000000 ns
+> [   14.048065] Average test time: 602000000
+> [   14.104017] Testing concurrent rhashtable access from 10 threads
+> [   14.537134]   thread[6]: rhashtable_insert_fast failed
+> [   14.540722]   thread[5]: rhashtable_insert_fast failed
+> [   14.540747]   thread[1]: rhashtable_insert_fast failed
+> [   14.540757]   thread[3]: rhashtable_insert_fast failed
+> [   14.540767]   thread[0]: rhashtable_insert_fast failed
+> [   14.540862]   thread[7]: rhashtable_insert_fast failed
+> [   14.540873]   thread[9]: rhashtable_insert_fast failed
+> [   14.540874]   thread[2]: rhashtable_insert_fast failed
+> [   14.540874]   thread[4]: rhashtable_insert_fast failed
+> [   14.676061] Test failed: thread 0 returned: -12
+> [   14.676102] Test failed: thread 1 returned: -12
+> [   14.676120]   thread[8]: rhashtable_insert_fast failed
+> [   14.676153] Test failed: thread 2 returned: -12
+> [   14.676176] Test failed: thread 3 returned: -12
+> [   14.676199] Test failed: thread 4 returned: -12
+> [   14.676224] Test failed: thread 5 returned: -12
+> [   15.516892] Test failed: thread 6 returned: -12
+> [   15.644271] Test failed: thread 7 returned: -12
+> [   15.708319] Test failed: thread 8 returned: -12
+> [   15.772074] Test failed: thread 9 returned: -12
+> [   15.832013] Started 10 threads, 10 failed
