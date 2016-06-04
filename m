@@ -1,45 +1,41 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] net: dsa: Provide CPU port statistics to master
- netdev
-Date: Fri, 3 Jun 2016 17:06:28 -0700
-Message-ID: <57521B84.1040800@gmail.com>
-References: <1464998733-10405-1-git-send-email-f.fainelli@gmail.com>
- <1464998733-10405-3-git-send-email-f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/4] qed: RocE & iSCSI infrastructure
+Date: Fri, 03 Jun 2016 20:09:28 -0400 (EDT)
+Message-ID: <20160603.200928.1525280019631601775.davem@davemloft.net>
+References: <1464953735-2585-1-git-send-email-Yuval.Mintz@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, andrew@lunn.ch,
-	vivien.didelot@savoirfairelinux.com, john@phrozen.org
-To: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, Rajesh.Borundia@qlogic.com,
+	shyam.sundar@qlogic.com
+To: Yuval.Mintz@qlogic.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f169.google.com ([209.85.192.169]:35155 "EHLO
-	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751221AbcFDAGa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 20:06:30 -0400
-Received: by mail-pf0-f169.google.com with SMTP id g64so48313073pfb.2
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 17:06:30 -0700 (PDT)
-In-Reply-To: <1464998733-10405-3-git-send-email-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43711 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751272AbcFDAJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 20:09:30 -0400
+In-Reply-To: <1464953735-2585-1-git-send-email-Yuval.Mintz@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/03/2016 05:05 PM, Florian Fainelli wrote:
-> This patch overloads the DSA master netdev, aka CPU Ethernet MAC to also
-> include switch-side statistics, which is useful for debugging purposes,
-> when the switch is not properly connected to the Ethernet MAC (duplex
-> mismatch, (RG)MII electrical issues etc.).
-> 
-> We accomplish this by retaining the original copy of the master netdev's
-> ethtool_ops, and just overload the 3 operations we care about:
-> get_sset_count, get_strings and get_ethtool_stats so as to intercept
-> these calls and call into the original master_netdev ethtool_ops, plus
-> our own.
-> 
-> We take this approach as opposed to providing a set of DSA helper
-> functions that would retrive the CPU port's statistics, because the
-> entire purpose of DSA is to allow unmodified Ethernet MAC drivers to be
-> used as CPU conduit interfaces, therefore, statistics overlay in such
-> drivers would simply not scale.
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Date: Fri, 3 Jun 2016 14:35:31 +0300
 
-Disregard this patch, it was left in the patches folder...
--- 
-Florian
+> We plan on sending 2 new protocol drivers in the imminent future -
+> both our RoCE [qedr] and iSCSI [qedi] drivers. As both submissions
+> would be rather massive and in order to avoid collisions between them,
+> the common infrastructure on the qed side was prepared as an independent
+> patch-series to be sent ahead of those 2 submissions.
+> 
+> This patch series introduces in QED 2 new 'ids' - one for iscsi and
+> one for roce. It then goes and adds logic required for configuring
+> said protocols in HW. Notice it *doesn't* actually add any client using
+> said ids, but rather only the infrastructure to allow their later usage.
+> 
+> What this patch doesn't contain is the slowpath protocol-configuration
+> toward the firmware. I.e., it contains register-setting logic, memory
+> allocations, etc., but not actual flow-related configuration specific
+> to the protocl. Those would be sent as part of the protocol driver
+> submissions.
+
+Series applied to net-next, thanks.
