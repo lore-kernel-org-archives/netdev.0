@@ -1,93 +1,46 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCHv2 net-next] sctp: sctp should change socket state when
- shutdown is received
-Date: Sat, 4 Jun 2016 09:22:06 -0300
-Message-ID: <72299bbd-475b-b39d-0f5f-6f1916cbe706@gmail.com>
-References: <67353a74d044f1f643cdfe1442136b44d7188ea9.1464964965.git.lucien.xin@gmail.com>
- <20160603174918.GX22680@localhost.localdomain>
- <CADvbK_eCQiw4hhs84t2tj+6zSd7M8_ECNV+W+sviiGEG2WUX_g@mail.gmail.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH net-next] cxgb4: Reduce resource allocation in kdump
+ kernel
+Date: Sat, 4 Jun 2016 13:24:43 +0000
+Message-ID: <CO2PR11MB008805A31B3921BF3C728F7A975A0@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1464975345-12484-1-git-send-email-hariprasad@chelsio.com>
+ <BY2PR12MB064802D9AB46EF297736F308C8590@BY2PR12MB0648.namprd12.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>,
+	Nirranjan Kirubaharan <nirranjan@chelsio.com>
+To: Casey Leedom <leedom@chelsio.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:35827 "EHLO
-	mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750824AbcFDMWM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 08:22:12 -0400
-In-Reply-To: <CADvbK_eCQiw4hhs84t2tj+6zSd7M8_ECNV+W+sviiGEG2WUX_g@mail.gmail.com>
+Received: from mail-bn1on0116.outbound.protection.outlook.com ([157.56.110.116]:27393
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750838AbcFDNYs convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 09:24:48 -0400
+In-Reply-To: <BY2PR12MB064802D9AB46EF297736F308C8590@BY2PR12MB0648.namprd12.prod.outlook.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em 04-06-2016 06:45, Xin Long escreveu:
-> On Sat, Jun 4, 2016 at 1:49 AM, Marcelo Ricardo Leitner
-> <marcelo.leitner@gmail.com> wrote:
->> On Fri, Jun 03, 2016 at 10:42:45PM +0800, Xin Long wrote:
->>> Now sctp doesn't change socket state upon shutdown reception. It changes
->>> just the assoc state, even though it's a TCP-style socket.
->>>
->>> For some cases, if we really need to check sk->sk_state, it's necessary to
->>> fix this issue, at least when we use ss or netstat to dump, we can get a
->>> more exact information.
->>>
->>> As an improvement, we will change sk->sk_state when we change asoc->state
->>> to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent with
->>> sctp_close.
->>>
->>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
->>> ---
->>>  net/sctp/sm_sideeffect.c | 4 +++-
->>>  net/sctp/socket.c        | 1 +
->>>  2 files changed, 4 insertions(+), 1 deletion(-)
->>>
->>> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
->>> index aa37122..12d4519 100644
->>> --- a/net/sctp/sm_sideeffect.c
->>> +++ b/net/sctp/sm_sideeffect.c
->>> @@ -806,8 +806,10 @@ static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
->>>
->>>               /* Set the RCV_SHUTDOWN flag when a SHUTDOWN is received. */
->>>               if (sctp_state(asoc, SHUTDOWN_RECEIVED) &&
->>> -                 sctp_sstate(sk, ESTABLISHED))
->>> +                 sctp_sstate(sk, ESTABLISHED)) {
->>> +                     sk->sk_state = SCTP_SS_CLOSING;
->>>                       sk->sk_shutdown |= RCV_SHUTDOWN;
->>> +             }
->>>       }
->>>
->>>       if (sctp_state(asoc, COOKIE_WAIT)) {
->>> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
->>> index 67154b8..91a460d 100644
->>> --- a/net/sctp/socket.c
->>> +++ b/net/sctp/socket.c
->>> @@ -4193,6 +4193,7 @@ static void sctp_shutdown(struct sock *sk, int how)
->>>               return;
->>>
->>>       if (how & SEND_SHUTDOWN) {
->>> +             sk->sk_state = SCTP_SS_CLOSING;
->>>               ep = sctp_sk(sk)->ep;
->>>               if (!list_empty(&ep->asocs)) {
->>>                       asoc = list_entry(ep->asocs.next,
->>
->> Oh but I think the removed chunk was important, it just needed fixing.
->>
->> A comment in there said:
->>         /* If the association on the newsk is already closed before
->>          * accept() is called, set RCV_SHUTDOWN flag.
->>          */
->> Meaning that there is a way that it will create a socket in the state
->> you're trying to avoid here, which now is not handled.
-> agreed, but it's another problem
-> there, we'd better free newsk and assoc after sctp_sock_migrate,
-> and let sctp_accept return err. I will think more about it and see if
-> I cook another patch for it.
+> When is_kdump_kernel() is true, reduce our memory footprint by only using a
+> single "Queue Set" and Forcing Master so we can reinitialize the Firmware/Chip.
+> 
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
+...
+>         if (q10g > netif_get_num_default_rss_queues())
+>                 q10g = netif_get_num_default_rss_queues();
+> 
+> +       /* Reduce memory usage in kdump environment by using only one queue
+> +        * and disable all offload.
+> +        */
+> +       if (is_kdump_kernel()) {
+> +               q10g = 1;
+> +               adap->params.offload = 0;
+> +       }
+> +
 
-Return error? Please don't. Adam Endrodi asked in May (linux-sctp@) a 
-way to return the addresses used on such attempts and currently this 
-address returned by accept() is the only one we can get.
-
-   Marcelo
+Sounds like a common issue that might interest other devices as well.
+Perhaps we should change netif_get_num_default_rss_queues() to return 1
+when called from a kdump kernel?
