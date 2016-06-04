@@ -1,44 +1,59 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 3/9] net: dsa: Provide unique DSA slave MII bus names
-Date: Fri,  3 Jun 2016 17:05:25 -0700
-Message-ID: <1464998733-10405-6-git-send-email-f.fainelli@gmail.com>
-References: <1464998733-10405-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/9] net: dsa: misc improvements
+Date: Fri,  3 Jun 2016 17:05:20 -0700
+Message-ID: <1464998733-10405-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
 	vivien.didelot@savoirfairelinux.com, john@phrozen.org,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:34033 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751315AbcFDAFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 20:05:51 -0400
-Received: by mail-pa0-f67.google.com with SMTP id x1so6939626pav.1
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 17:05:50 -0700 (PDT)
-In-Reply-To: <1464998733-10405-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36178 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750999AbcFDAFl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 20:05:41 -0400
+Received: by mail-pf0-f196.google.com with SMTP id 62so12610696pfd.3
+        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 17:05:40 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case we have multiples trees and switches with the same index, we
-need to add another discriminating id: the switch tree.
+Hi all,
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/dsa/slave.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+This patch series builds on top of Andrew's "New DSA bind, switches as devices"
+patch set and does the following:
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 15a492261895..a51dfedf0014 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -49,7 +49,8 @@ void dsa_slave_mii_bus_init(struct dsa_switch *ds)
- 	ds->slave_mii_bus->name = "dsa slave smi";
- 	ds->slave_mii_bus->read = dsa_slave_phy_read;
- 	ds->slave_mii_bus->write = dsa_slave_phy_write;
--	snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "dsa-%d", ds->index);
-+	snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "dsa-%d.%d",
-+		 ds->dst->tree, ds->index);
- 	ds->slave_mii_bus->parent = ds->dev;
- 	ds->slave_mii_bus->phy_mask = ~ds->phys_mii_mask;
- }
+- add support for the old DSA binding with the new dsa_register_switch() API
+  which is needed by some platforms where the Device Tree is pretty much frozen
+
+- add a few helper functions/goodies for net/dsa/dsa2.c to be as close as possible
+  from net/dsa/dsa.c in terms of what drivers can expect, in particular the slave
+  MDIO bus and the enabled_port_mask and phy_mii_mask
+
+- fix the CPU port ethtools ops to work in a multiple tree setup since we can
+  no longer assume a single tree is supported
+
+- finally conver the bcm_sf2 driver to be a true platform device driver and
+  slightly rework its internal vs. external MDIO bus indirect read/writes to
+  be cleaner
+
+Florian Fainelli (9):
+  net: dsa: Prepare to support legacy DT binding
+  net: dsa: Add support for parsing the old binding
+  net: dsa: Provide unique DSA slave MII bus names
+  net: dsa: Initialize ds->enabled_port_mask and ds->phys_mii_mask
+  net: dsa: Export suspend/resume functions
+  net: dsa: Add initialization helper for CPU port ethtool_ops
+  net: dsa: Initialize CPU port ethtool ops per tree
+  net: dsa: bcm_sf2: Make it a real platform device driver
+  net: dsa: bcm_sf2: Register our slave MDIO bus
+
+ drivers/net/dsa/bcm_sf2.c | 390 +++++++++++++++++++++++++++++-----------------
+ drivers/net/dsa/bcm_sf2.h |   6 +
+ include/net/dsa.h         |  14 ++
+ net/dsa/dsa.c             |  35 ++++-
+ net/dsa/dsa2.c            | 199 ++++++++++++++++++++---
+ net/dsa/dsa_priv.h        |   3 +
+ net/dsa/slave.c           |  25 ++-
+ 7 files changed, 491 insertions(+), 181 deletions(-)
+
 -- 
 2.7.4
