@@ -1,100 +1,98 @@
 From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Subject: [PATCH] net: wireless: marvell: libertas: Remove create_workqueue
-Date: Sat, 4 Jun 2016 19:29:01 +0530
-Message-ID: <20160604135901.GA29897@Karyakshetra>
+Subject: Re: [PATCH] net: fjes: fjes_main: Remove create_workqueue
+Date: Sat, 4 Jun 2016 19:31:35 +0530
+Message-ID: <CAFNHFT-BJktoaf4JF+q7Qxwm+esyPax1-ydCcPEWMwzXeAg30g@mail.gmail.com>
+References: <20160602093057.GA15351@Karyakshetra> <E86EADE93E2D054CBCD4E708C38D364A7351D7C4@G01JPEXMBYT01>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj@kernel.org>, libertas-dev@lists.infradead.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Kalle Valo <kvalo@codeaurora.org>,
-	Andreas Kemnade <andreas@kemnade.info>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	Bhaktipriya Shridhar <bhaktipriya96@gmail.com>,
-	"Andrew F. Davis" <afd@ti.com>,
-	Jonathan Cameron <jic23@kernel.org>,
-	Mark Brown <broonie@kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Tejun Heo <tj@kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Westphal <fw@strlen.de>
+To: "Izumi, Taku" <izumi.taku@jp.fujitsu.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
+In-Reply-To: <E86EADE93E2D054CBCD4E708C38D364A7351D7C4@G01JPEXMBYT01>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-alloc_workqueue replaces deprecated create_workqueue().
+Thank you for your feedback.
+Will send another patch with changed description.
 
-In if_sdio.c, the workqueue card->workqueue has workitem
-&card->packet_worker, which is mapped to if_sdio_host_to_card_worker.
-The workitem is involved in sending packets to firmware.
-Forward progress under memory pressure is a requirement here.
+Bhaktipriya.
 
-In if_spi.c, the workqueue card->workqueue has workitem
-&card->packet_worker, which is mapped to if_spi_host_to_card_worker.
-The workitem is involved in sending command packets from the host.
-Forward progress under memory pressure is a requirement here.
 
-Dedicated workqueues have been used in both cases since the workitems
-on the workqueues are involved in normal device operation with
-WQ_MEM_RECLAIM set to gurantee forward progress under memory pressure.
-Since there are only a fixed number of work items, explicit concurrency
-limit is unnecessary.
-
-flush_workqueue is unnecessary since destroy_workqueue() itself calls
-drain_workqueue() which flushes repeatedly till the workqueue
-becomes empty. Hence the calls to flush_workqueue() before
-destroy_workqueue() have been dropped.
-
-Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
----
- drivers/net/wireless/marvell/libertas/if_sdio.c | 3 +--
- drivers/net/wireless/marvell/libertas/if_spi.c  | 4 +---
- 2 files changed, 2 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/wireless/marvell/libertas/if_sdio.c b/drivers/net/wireless/marvell/libertas/if_sdio.c
-index 13eae9f..47f4a14 100644
---- a/drivers/net/wireless/marvell/libertas/if_sdio.c
-+++ b/drivers/net/wireless/marvell/libertas/if_sdio.c
-@@ -1228,7 +1228,7 @@ static int if_sdio_probe(struct sdio_func *func,
- 	}
-
- 	spin_lock_init(&card->lock);
--	card->workqueue = create_workqueue("libertas_sdio");
-+	card->workqueue = alloc_workqueue("libertas_sdio", WQ_MEM_RECLAIM, 0);
- 	INIT_WORK(&card->packet_worker, if_sdio_host_to_card_worker);
- 	init_waitqueue_head(&card->pwron_waitq);
-
-@@ -1326,7 +1326,6 @@ static void if_sdio_remove(struct sdio_func *func)
- 	lbs_stop_card(card->priv);
- 	lbs_remove_card(card->priv);
-
--	flush_workqueue(card->workqueue);
- 	destroy_workqueue(card->workqueue);
-
- 	while (card->packets) {
-diff --git a/drivers/net/wireless/marvell/libertas/if_spi.c b/drivers/net/wireless/marvell/libertas/if_spi.c
-index 82c0796..c3a53cd 100644
---- a/drivers/net/wireless/marvell/libertas/if_spi.c
-+++ b/drivers/net/wireless/marvell/libertas/if_spi.c
-@@ -1180,7 +1180,7 @@ static int if_spi_probe(struct spi_device *spi)
- 	priv->fw_ready = 1;
-
- 	/* Initialize interrupt handling stuff. */
--	card->workqueue = create_workqueue("libertas_spi");
-+	card->workqueue = alloc_workqueue("libertas_spi", WQ_MEM_RECLAIM, 0);
- 	INIT_WORK(&card->packet_work, if_spi_host_to_card_worker);
- 	INIT_WORK(&card->resume_work, if_spi_resume_worker);
-
-@@ -1208,7 +1208,6 @@ static int if_spi_probe(struct spi_device *spi)
- release_irq:
- 	free_irq(spi->irq, card);
- terminate_workqueue:
--	flush_workqueue(card->workqueue);
- 	destroy_workqueue(card->workqueue);
- 	lbs_remove_card(priv); /* will call free_netdev */
- free_card:
-@@ -1235,7 +1234,6 @@ static int libertas_spi_remove(struct spi_device *spi)
- 	lbs_remove_card(priv); /* will call free_netdev */
-
- 	free_irq(spi->irq, card);
--	flush_workqueue(card->workqueue);
- 	destroy_workqueue(card->workqueue);
- 	if (card->pdata->teardown)
- 		card->pdata->teardown(spi);
+On Fri, Jun 3, 2016 at 5:25 AM, Izumi, Taku <izumi.taku@jp.fujitsu.com>=
+ wrote:
+> Dear Bhaktipriya,
+>
+> Thanks. Looks good to me.
+>
+> Sincerely,
+> Taku Izumi
+>
+>> -----Original Message-----
+>> From: Bhaktipriya Shridhar [mailto:bhaktipriya96@gmail.com]
+>> Sent: Thursday, June 02, 2016 6:31 PM
+>> To: David S. Miller; Izumi, Taku/=E6=B3=89 =E6=8B=93; Florian Westph=
+al; Bhaktipriya Shridhar
+>> Cc: Tejun Heo; netdev@vger.kernel.org; linux-kernel@vger.kernel.org
+>> Subject: [PATCH] net: fjes: fjes_main: Remove create_workqueue
+>>
+>> alloc_workqueue replaces deprecated create_workqueue().
+>>
+>> The workqueue adapter->txrx_wq has workitem
+>> &adapter->raise_intr_rxdata_task per adapter. Extended Socket Networ=
+k
+>> Device is shared memory based, so someone's transmission denotes oth=
+er's
+>> reception.  raise_intr_rxdata_task raises interruption of receivers =
+from
+>> the sender in order to notify receivers.
+>>
+>> The workqueue adapter->control_wq has workitem
+>> &adapter->interrupt_watch_task per adapter. interrupt_watch_task is =
+used
+>> to prevent delay of interrupts.
+>>
+>> Dedicated workqueues have been used in both cases since the workitem=
+s
+>> on the workqueues are involved in normal device operation and requir=
+e
+>> forward progress under memory pressure.
+>>
+>> max_active has been set to 0 since there is no need for throttling
+>> the number of active work items.
+>>
+>> Since network devices  may be used for memory reclaim,
+>> WQ_MEM_RECLAIM has been set to guarantee forward progress.
+>>
+>> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+>> ---
+>>  drivers/net/fjes/fjes_main.c | 5 +++--
+>>  1 file changed, 3 insertions(+), 2 deletions(-)
+>>
+>> diff --git a/drivers/net/fjes/fjes_main.c b/drivers/net/fjes/fjes_ma=
+in.c
+>> index 86c331b..9006877 100644
+>> --- a/drivers/net/fjes/fjes_main.c
+>> +++ b/drivers/net/fjes/fjes_main.c
+>> @@ -1187,8 +1187,9 @@ static int fjes_probe(struct platform_device *=
+plat_dev)
+>>       adapter->force_reset =3D false;
+>>       adapter->open_guard =3D false;
+>>
+>> -     adapter->txrx_wq =3D create_workqueue(DRV_NAME "/txrx");
+>> -     adapter->control_wq =3D create_workqueue(DRV_NAME "/control");
+>> +     adapter->txrx_wq =3D alloc_workqueue(DRV_NAME "/txrx", WQ_MEM_=
+RECLAIM, 0);
+>> +     adapter->control_wq =3D alloc_workqueue(DRV_NAME "/control",
+>> +                                           WQ_MEM_RECLAIM, 0);
+>>
+>>       INIT_WORK(&adapter->tx_stall_task, fjes_tx_stall_task);
+>>       INIT_WORK(&adapter->raise_intr_rxdata_task,
+>> --
+>> 2.1.4
+>>
+>
