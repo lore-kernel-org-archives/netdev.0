@@ -1,7 +1,7 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next 11/17] net: dsa: Refactor selection of tag ops into a function
-Date: Sat,  4 Jun 2016 21:17:03 +0200
-Message-ID: <1465067829-1875-14-git-send-email-andrew@lunn.ch>
+Subject: [PATCHv2 net-next 04/17] net: dsa: tag_{e}dsa.c: Remove dependency on platform data
+Date: Sat,  4 Jun 2016 21:16:56 +0200
+Message-ID: <1465067829-1875-7-git-send-email-andrew@lunn.ch>
 References: <1465067829-1875-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>, Shawn Guo <shawnguo@kernel.org>,
 	Andrew Lunn <andrew@lunn.ch>
@@ -9,227 +9,65 @@ To: David Miller <davem@davemloft.net>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59542 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:59548 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750829AbcFDTWy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jun 2016 15:22:54 -0400
+	id S1751147AbcFDTXH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jun 2016 15:23:07 -0400
 In-Reply-To: <1465067829-1875-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Replace the two switch statements with an array lookup, and store the
-result in the dsa tree structure. The drivers no longer need to know
-the selected tag protocol, so remove it from the dsa switch structure.
+The platform data nr_chips is used when validating a received packet,
+to ensure it comes from a know switch chip. The number of possible
+switches is limited to DSA_MAX_SWITCHES, so use this as the first
+validation step. The new binding allows holes in the dst->ds[] array,
+so also ensure ensure there is a valid dsa_switch for this packet.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
-rfc->v1:
-Rename _DSA_TAG_LAST to DSA_TAG_LAST and add a comment.
----
- include/net/dsa.h  |  8 +++++-
- net/dsa/dsa.c      | 71 ++++++++++++++++++++++++++++++++++--------------------
- net/dsa/dsa_priv.h |  1 +
- net/dsa/slave.c    | 35 +--------------------------
- 4 files changed, 54 insertions(+), 61 deletions(-)
+ net/dsa/tag_dsa.c  | 6 +++++-
+ net/dsa/tag_edsa.c | 6 +++++-
+ 2 files changed, 10 insertions(+), 2 deletions(-)
 
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index b666f27b3daa..bd6ecaa0de96 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -26,6 +26,7 @@ enum dsa_tag_protocol {
- 	DSA_TAG_PROTO_TRAILER,
- 	DSA_TAG_PROTO_EDSA,
- 	DSA_TAG_PROTO_BRCM,
-+	DSA_TAG_LAST,		/* MUST BE LAST */
- };
- 
- #define DSA_MAX_SWITCHES	4
-@@ -99,7 +100,6 @@ struct dsa_switch_tree {
- 				       struct net_device *dev,
- 				       struct packet_type *pt,
- 				       struct net_device *orig_dev);
--	enum dsa_tag_protocol	tag_protocol;
- 
- 	/*
- 	 * Original copy of the master netdev ethtool_ops
-@@ -116,6 +116,12 @@ struct dsa_switch_tree {
- 	 * Data for the individual switch chips.
+diff --git a/net/dsa/tag_dsa.c b/net/dsa/tag_dsa.c
+index aa780e4ac0bd..f9832f097681 100644
+--- a/net/dsa/tag_dsa.c
++++ b/net/dsa/tag_dsa.c
+@@ -107,9 +107,13 @@ static int dsa_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	 * Check that the source device exists and that the source
+ 	 * port is a registered DSA port.
  	 */
- 	struct dsa_switch	*ds[DSA_MAX_SWITCHES];
+-	if (source_device >= dst->pd->nr_chips)
++	if (source_device >= DSA_MAX_SWITCHES)
+ 		goto out_drop;
 +
-+	/*
-+	 * Tagging protocol operations for adding and removing an
-+	 * encapsulation tag.
-+	 */
-+	const struct dsa_device_ops *tag_ops;
- };
+ 	ds = dst->ds[source_device];
++	if (!ds)
++		goto out_drop;
++
+ 	if (source_port >= DSA_MAX_PORTS || ds->ports[source_port] == NULL)
+ 		goto out_drop;
  
- struct dsa_port {
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 7140de475c07..221ebde4318d 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -29,6 +29,33 @@
- 
- char dsa_driver_version[] = "0.1";
- 
-+static struct sk_buff *dsa_slave_notag_xmit(struct sk_buff *skb,
-+					    struct net_device *dev)
-+{
-+	/* Just return the original SKB */
-+	return skb;
-+}
-+
-+static const struct dsa_device_ops none_ops = {
-+	.xmit	= dsa_slave_notag_xmit,
-+	.rcv	= NULL,
-+};
-+
-+const struct dsa_device_ops *dsa_device_ops[DSA_TAG_LAST] = {
-+#ifdef CONFIG_NET_DSA_TAG_DSA
-+	[DSA_TAG_PROTO_DSA] = &dsa_netdev_ops,
-+#endif
-+#ifdef CONFIG_NET_DSA_TAG_EDSA
-+	[DSA_TAG_PROTO_EDSA] = &edsa_netdev_ops,
-+#endif
-+#ifdef CONFIG_NET_DSA_TAG_TRAILER
-+	[DSA_TAG_PROTO_TRAILER] = &trailer_netdev_ops,
-+#endif
-+#ifdef CONFIG_NET_DSA_TAG_BRCM
-+	[DSA_TAG_PROTO_BRCM] = &brcm_netdev_ops,
-+#endif
-+	[DSA_TAG_PROTO_NONE] = &none_ops,
-+};
- 
- /* switch driver registration ***********************************************/
- static DEFINE_MUTEX(dsa_switch_drivers_mutex);
-@@ -225,6 +252,20 @@ static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
- 	return 0;
- }
- 
-+const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol)
-+{
-+	const struct dsa_device_ops *ops;
-+
-+	if (tag_protocol >= DSA_TAG_LAST)
-+		return ERR_PTR(-EINVAL);
-+	ops = dsa_device_ops[tag_protocol];
-+
-+	if (!ops)
-+		return ERR_PTR(-ENOPROTOOPT);
-+
-+	return ops;
-+}
-+
- static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- {
- 	struct dsa_switch_driver *drv = ds->drv;
-@@ -277,35 +318,13 @@ static int dsa_switch_setup_one(struct dsa_switch *ds, struct device *parent)
- 	 * switch.
+diff --git a/net/dsa/tag_edsa.c b/net/dsa/tag_edsa.c
+index 2288c8098c42..3890aac8190f 100644
+--- a/net/dsa/tag_edsa.c
++++ b/net/dsa/tag_edsa.c
+@@ -120,9 +120,13 @@ static int edsa_rcv(struct sk_buff *skb, struct net_device *dev,
+ 	 * Check that the source device exists and that the source
+ 	 * port is a registered DSA port.
  	 */
- 	if (dst->cpu_switch == index) {
--		switch (drv->tag_protocol) {
--#ifdef CONFIG_NET_DSA_TAG_DSA
--		case DSA_TAG_PROTO_DSA:
--			dst->rcv = dsa_netdev_ops.rcv;
--			break;
--#endif
--#ifdef CONFIG_NET_DSA_TAG_EDSA
--		case DSA_TAG_PROTO_EDSA:
--			dst->rcv = edsa_netdev_ops.rcv;
--			break;
--#endif
--#ifdef CONFIG_NET_DSA_TAG_TRAILER
--		case DSA_TAG_PROTO_TRAILER:
--			dst->rcv = trailer_netdev_ops.rcv;
--			break;
--#endif
--#ifdef CONFIG_NET_DSA_TAG_BRCM
--		case DSA_TAG_PROTO_BRCM:
--			dst->rcv = brcm_netdev_ops.rcv;
--			break;
--#endif
--		case DSA_TAG_PROTO_NONE:
--			break;
--		default:
--			ret = -ENOPROTOOPT;
-+		dst->tag_ops = dsa_resolve_tag_protocol(drv->tag_protocol);
-+		if (IS_ERR(dst->tag_ops)) {
-+			ret = PTR_ERR(dst->tag_ops);
- 			goto out;
- 		}
+-	if (source_device >= dst->pd->nr_chips)
++	if (source_device >= DSA_MAX_SWITCHES)
+ 		goto out_drop;
++
+ 	ds = dst->ds[source_device];
++	if (!ds)
++		goto out_drop;
++
+ 	if (source_port >= DSA_MAX_PORTS || ds->ports[source_port] == NULL)
+ 		goto out_drop;
  
--		dst->tag_protocol = drv->tag_protocol;
-+		dst->rcv = dst->tag_ops->rcv;
- 	}
- 
- 	memcpy(ds->rtable, cd->rtable, sizeof(ds->rtable));
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index dbea5d9e7f75..72f7b8989cfb 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -53,6 +53,7 @@ extern char dsa_driver_version[];
- int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
- 		      struct device_node *port_dn, int port);
- void dsa_cpu_dsa_destroy(struct device_node *port_dn);
-+const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol);
- 
- /* slave.c */
- extern const struct dsa_device_ops notag_netdev_ops;
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 52f1183c42a0..35e5f0f6688b 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -521,14 +521,6 @@ static netdev_tx_t dsa_slave_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return NETDEV_TX_OK;
- }
- 
--static struct sk_buff *dsa_slave_notag_xmit(struct sk_buff *skb,
--					    struct net_device *dev)
--{
--	/* Just return the original SKB */
--	return skb;
--}
--
--
- /* ethtool operations *******************************************************/
- static int
- dsa_slave_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
-@@ -1151,32 +1143,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 	p = netdev_priv(slave_dev);
- 	p->parent = ds;
- 	p->port = port;
--
--	switch (ds->dst->tag_protocol) {
--#ifdef CONFIG_NET_DSA_TAG_DSA
--	case DSA_TAG_PROTO_DSA:
--		p->xmit = dsa_netdev_ops.xmit;
--		break;
--#endif
--#ifdef CONFIG_NET_DSA_TAG_EDSA
--	case DSA_TAG_PROTO_EDSA:
--		p->xmit = edsa_netdev_ops.xmit;
--		break;
--#endif
--#ifdef CONFIG_NET_DSA_TAG_TRAILER
--	case DSA_TAG_PROTO_TRAILER:
--		p->xmit = trailer_netdev_ops.xmit;
--		break;
--#endif
--#ifdef CONFIG_NET_DSA_TAG_BRCM
--	case DSA_TAG_PROTO_BRCM:
--		p->xmit = brcm_netdev_ops.xmit;
--		break;
--#endif
--	default:
--		p->xmit	= dsa_slave_notag_xmit;
--		break;
--	}
-+	p->xmit = dst->tag_ops->xmit;
- 
- 	p->old_pause = -1;
- 	p->old_link = -1;
 -- 
 2.8.1
