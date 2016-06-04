@@ -1,66 +1,93 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [net-next:master 17/24] DockBook: net/core/skbuff.c:4404:
- warning: No description found for parameter 'mtu'
-Date: Sat, 4 Jun 2016 09:19:19 -0300
-Message-ID: <27ae121d-e398-6f68-6058-6096b6f25729@gmail.com>
-References: <201606040815.Lov0U6ON%fengguang.wu@intel.com>
- <20160603.225702.1041264232859054469.davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next] sctp: sctp should change socket state when
+ shutdown is received
+Date: Sat, 4 Jun 2016 09:22:06 -0300
+Message-ID: <72299bbd-475b-b39d-0f5f-6f1916cbe706@gmail.com>
+References: <67353a74d044f1f643cdfe1442136b44d7188ea9.1464964965.git.lucien.xin@gmail.com>
+ <20160603174918.GX22680@localhost.localdomain>
+ <CADvbK_eCQiw4hhs84t2tj+6zSd7M8_ECNV+W+sviiGEG2WUX_g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: kbuild-all@01.org, netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>, fengguang.wu@intel.com
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f195.google.com ([209.85.220.195]:33707 "EHLO
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:35827 "EHLO
 	mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750824AbcFDMT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 08:19:27 -0400
-Received: by mail-qk0-f195.google.com with SMTP id u63so347701qkh.0
-        for <netdev@vger.kernel.org>; Sat, 04 Jun 2016 05:19:27 -0700 (PDT)
-In-Reply-To: <20160603.225702.1041264232859054469.davem@davemloft.net>
+	with ESMTP id S1750824AbcFDMWM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 08:22:12 -0400
+In-Reply-To: <CADvbK_eCQiw4hhs84t2tj+6zSd7M8_ECNV+W+sviiGEG2WUX_g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Em 04-06-2016 02:57, David Miller escreveu:
-> From: kbuild test robot <fengguang.wu@intel.com>
-> Date: Sat, 4 Jun 2016 08:48:17 +0800
->
->> tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
->> head:   330348d94223346f855357fab2517f6c903001c7
->> commit: ae7ef81ef000adeee7a87585b9135ff8a8064acc [17/24] skbuff: introduce skb_gso_validate_mtu
->> reproduce: make htmldocs
+Em 04-06-2016 06:45, Xin Long escreveu:
+> On Sat, Jun 4, 2016 at 1:49 AM, Marcelo Ricardo Leitner
+> <marcelo.leitner@gmail.com> wrote:
+>> On Fri, Jun 03, 2016 at 10:42:45PM +0800, Xin Long wrote:
+>>> Now sctp doesn't change socket state upon shutdown reception. It changes
+>>> just the assoc state, even though it's a TCP-style socket.
+>>>
+>>> For some cases, if we really need to check sk->sk_state, it's necessary to
+>>> fix this issue, at least when we use ss or netstat to dump, we can get a
+>>> more exact information.
+>>>
+>>> As an improvement, we will change sk->sk_state when we change asoc->state
+>>> to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent with
+>>> sctp_close.
+>>>
+>>> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+>>> ---
+>>>  net/sctp/sm_sideeffect.c | 4 +++-
+>>>  net/sctp/socket.c        | 1 +
+>>>  2 files changed, 4 insertions(+), 1 deletion(-)
+>>>
+>>> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+>>> index aa37122..12d4519 100644
+>>> --- a/net/sctp/sm_sideeffect.c
+>>> +++ b/net/sctp/sm_sideeffect.c
+>>> @@ -806,8 +806,10 @@ static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
+>>>
+>>>               /* Set the RCV_SHUTDOWN flag when a SHUTDOWN is received. */
+>>>               if (sctp_state(asoc, SHUTDOWN_RECEIVED) &&
+>>> -                 sctp_sstate(sk, ESTABLISHED))
+>>> +                 sctp_sstate(sk, ESTABLISHED)) {
+>>> +                     sk->sk_state = SCTP_SS_CLOSING;
+>>>                       sk->sk_shutdown |= RCV_SHUTDOWN;
+>>> +             }
+>>>       }
+>>>
+>>>       if (sctp_state(asoc, COOKIE_WAIT)) {
+>>> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+>>> index 67154b8..91a460d 100644
+>>> --- a/net/sctp/socket.c
+>>> +++ b/net/sctp/socket.c
+>>> @@ -4193,6 +4193,7 @@ static void sctp_shutdown(struct sock *sk, int how)
+>>>               return;
+>>>
+>>>       if (how & SEND_SHUTDOWN) {
+>>> +             sk->sk_state = SCTP_SS_CLOSING;
+>>>               ep = sctp_sk(sk)->ep;
+>>>               if (!list_empty(&ep->asocs)) {
+>>>                       asoc = list_entry(ep->asocs.next,
 >>
->> All warnings (new ones prefixed by >>):
+>> Oh but I think the removed chunk was important, it just needed fixing.
 >>
->>    include/linux/skbuff.h:928: warning: No description found for parameter 'sk'
->>    include/net/sock.h:449: warning: No description found for parameter 'sk_padding'
->>    include/net/sock.h:449: warning: No description found for parameter 'sk_rcu'
->>>> net/core/skbuff.c:4404: warning: No description found for parameter 'mtu'
->>    net/core/gen_stats.c:65: warning: No description found for parameter 'padattr'
->>    net/core/gen_stats.c:100: warning: No description found for parameter 'padattr'
->
-> Fixed as follows:
->
-> ====================
-> net: Add docbook description for 'mtu' arg to skb_gso_validate_mtu()
->
-> Signed-off-by: David S. Miller <davem@davemloft.net>
-> ---
->  net/core/skbuff.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-> index b6e0f95..e7ec6d3 100644
-> --- a/net/core/skbuff.c
-> +++ b/net/core/skbuff.c
-> @@ -4399,6 +4399,7 @@ EXPORT_SYMBOL_GPL(skb_gso_transport_seglen);
->   * skb_gso_validate_mtu - Return in case such skb fits a given MTU
->   *
->   * @skb: GSO skb
-> + * @mtu: MTU to validate against
->   *
->   * skb_gso_validate_mtu validates if a given skb will fit a wanted MTU
->   * once split.
->
+>> A comment in there said:
+>>         /* If the association on the newsk is already closed before
+>>          * accept() is called, set RCV_SHUTDOWN flag.
+>>          */
+>> Meaning that there is a way that it will create a socket in the state
+>> you're trying to avoid here, which now is not handled.
+> agreed, but it's another problem
+> there, we'd better free newsk and assoc after sctp_sock_migrate,
+> and let sctp_accept return err. I will think more about it and see if
+> I cook another patch for it.
 
-Thanks David.
+Return error? Please don't. Adam Endrodi asked in May (linux-sctp@) a 
+way to return the addresses used on such attempts and currently this 
+address returned by accept() is the only one we can get.
+
+   Marcelo
