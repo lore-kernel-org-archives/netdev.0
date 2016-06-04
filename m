@@ -1,96 +1,56 @@
-From: "Langer, Thomas" <thomas.langer@intel.com>
-Subject: RE: [RFC v3 1/3] NET: PHY: adds driver for Intel XWAY PHY
-Date: Sat, 4 Jun 2016 14:43:11 +0000
-Message-ID: <0DAF21CFE1B20740AE23D6AF6E54843F1E503ECE@IRSMSX101.ger.corp.intel.com>
-References: <1465040728-4904-1-git-send-email-hauke@hauke-m.de>
- <1465040728-4904-2-git-send-email-hauke@hauke-m.de>
+From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Subject: [PATCH] net: ethernet: cavium: liquidio: response_manager: Remove
+ create_workqueue
+Date: Sat, 4 Jun 2016 20:21:40 +0530
+Message-ID: <20160604145139.GA31437@Karyakshetra>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "alexander.stein@systec-electronic.com"
-	<alexander.stein@systec-electronic.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	"john@phrozen.org" <john@phrozen.org>,
-	"openwrt@kresin.me" <openwrt@kresin.me>,
-	"Mehrtens, Hauke" <hauke.mehrtens@intel.com>,
-	"daniel.schwierzeck@gmail.com" <daniel.schwierzeck@gmail.com>,
-	"eckert.florian@googlemail.com" <eckert.florian@googlemail.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>
-To: Hauke Mehrtens <hauke@hauke-m.de>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:53305 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751119AbcFDOnX convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 10:43:23 -0400
-In-Reply-To: <1465040728-4904-2-git-send-email-hauke@hauke-m.de>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Derek Chickles <derek.chickles@caviumnetworks.com>,
+	Satanand Burla <satananda.burla@caviumnetworks.com>,
+	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Hauke,
+alloc_workqueue replaces deprecated create_workqueue().
 
-[...]
-> +
-> +static int xway_gphy_ack_interrupt(struct phy_device *phydev)
-> +{
-> +	int reg;
-> +
-> +	/**
-> +	 * Possible IRQ numbers:
-> +	 * - IM3_IRL18 for GPHY0
-> +	 * - IM3_IRL17 for GPHY1
+A dedicated workqueue has been used since the workitem viz
+(&cwq->wk.work which maps to oct_poll_req_completion) is involved
+in normal device operation. WQ_MEM_RECLAIM has been set to guarantee
+forward progress under memory pressure, which is a requirement here.
+Since there are only a fixed number of work items, explicit concurrency
+limit is unnecessary.
 
-These are references to the SoC interrupts.
+flush_workqueue is unnecessary since destroy_workqueue() itself calls
+drain_workqueue() which flushes repeatedly till the workqueue
+becomes empty. Hence the call to flush_workqueue() has been dropped.
 
-> +	 *
-> +	 * Due to a silicon bug IRQ lines are not really independent from
-> +	 * each other. Sometimes the two lines are driven at the same time
-> +	 * if only one GPHY core raises the interrupt.
+Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+---
+ drivers/net/ethernet/cavium/liquidio/response_manager.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-So this errata sounds like a SoC errata, not an errata for the PHY.
+diff --git a/drivers/net/ethernet/cavium/liquidio/response_manager.c b/drivers/net/ethernet/cavium/liquidio/response_manager.c
+index 091f537..6287a7c 100644
+--- a/drivers/net/ethernet/cavium/liquidio/response_manager.c
++++ b/drivers/net/ethernet/cavium/liquidio/response_manager.c
+@@ -55,7 +55,7 @@ int octeon_setup_response_list(struct octeon_device *oct)
+ 		atomic_set(&oct->response_list[i].pending_req_count, 0);
+ 	}
 
-> +	 */
-> +	reg = phy_read(phydev, XWAY_MDIO_ISTAT);
-> +
-> +	return (reg < 0) ? reg : 0;
-> +}
-> +
-[...]
-> +
-> +static struct phy_driver xway_gphy[] = {
-> +	{
-> +		.phy_id		= PHY_ID_PHY11G_1_3,
-> +		.phy_id_mask	= 0xffffffff,
-> +		.name		= "Intel XWAY PHY11G (PEF 7071/PEF 7072)
-> v1.3",
-> +		.features	= (PHY_GBIT_FEATURES |
-> SUPPORTED_Pause |
-> +				   SUPPORTED_Asym_Pause),
-> +		 /* there is an errata regarding irqs in this rev */
-
-And then this is comment is also now valid.
-What about a system with a single external phy connected,
-on a non-Lantiq/Intel SoC?
-
-I think the feasibility of using interrupts is not related to the phy version,
-but indirectly by the version of the SoC it is integrated.
-
-So maybe he use of interrupts (on these SoCs) should be controlled by devicetree or
-network driver, where the SoC type and version can be handled?
-
-> +		.flags		= 0,
-> +		.config_init	= xway_gphy_config_init,
-> +		.config_aneg	= xway_gphy14_config_aneg,
-> +		.read_status	= genphy_read_status,
-> +		.ack_interrupt	= xway_gphy_ack_interrupt,
-> +		.did_interrupt	= xway_gphy_did_interrupt,
-> +		.config_intr	= xway_gphy_config_intr,
-> +		.suspend	= genphy_suspend,
-> +		.resume		= genphy_resume,
-> +	}, {
-[...]
-
-Regards,
-Thomas
+-	oct->dma_comp_wq.wq = create_workqueue("dma-comp");
++	oct->dma_comp_wq.wq = alloc_workqueue("dma-comp", WQ_MEM_RECLAIM, 0);
+ 	if (!oct->dma_comp_wq.wq) {
+ 		dev_err(&oct->pci_dev->dev, "failed to create wq thread\n");
+ 		return -ENOMEM;
+@@ -72,7 +72,6 @@ int octeon_setup_response_list(struct octeon_device *oct)
+ void octeon_delete_response_list(struct octeon_device *oct)
+ {
+ 	cancel_delayed_work_sync(&oct->dma_comp_wq.wk.work);
+-	flush_workqueue(oct->dma_comp_wq.wq);
+ 	destroy_workqueue(oct->dma_comp_wq.wq);
+ }
