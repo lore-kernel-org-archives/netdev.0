@@ -1,7 +1,7 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next 03/17] net: dsa: slave: Remove MDIO address from switch MDIO bus name
-Date: Sat,  4 Jun 2016 21:16:55 +0200
-Message-ID: <1465067829-1875-6-git-send-email-andrew@lunn.ch>
+Subject: [PATCHv2 net-next 10/17] net: dsa: mv88e6xxx: Only support EDSA tagging
+Date: Sat,  4 Jun 2016 21:17:02 +0200
+Message-ID: <1465067829-1875-13-git-send-email-andrew@lunn.ch>
 References: <1465067829-1875-1-git-send-email-andrew@lunn.ch>
 Cc: netdev <netdev@vger.kernel.org>, Shawn Guo <shawnguo@kernel.org>,
 	Andrew Lunn <andrew@lunn.ch>
@@ -9,40 +9,50 @@ To: David Miller <davem@davemloft.net>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59510 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:59518 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751443AbcFDTUD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jun 2016 15:20:03 -0400
+	id S1750967AbcFDTUv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jun 2016 15:20:51 -0400
 In-Reply-To: <1465067829-1875-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The DSA layer should no longer assume the switch is connected to an
-MDIO bus. As a result, we cannot use the address on the MDIO bus when
-forming the name of the switches internal MDIO bus for its builtin and
-possibly external PHYs. The switch index is sufficient to make the
-name unique, so drop the MDIO address.
+The merged driver no longer offers the option to use DSA tagging. So
+remove the code to setup the switch to do DSA tagging and hard code
+the use of EDSA.
 
 Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>y
 ---
- net/dsa/slave.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
 
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index 135a91706755..f640a48a6ff3 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -49,8 +49,7 @@ void dsa_slave_mii_bus_init(struct dsa_switch *ds)
- 	ds->slave_mii_bus->name = "dsa slave smi";
- 	ds->slave_mii_bus->read = dsa_slave_phy_read;
- 	ds->slave_mii_bus->write = dsa_slave_phy_write;
--	snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "dsa-%d:%.2x",
--			ds->index, ds->cd->sw_addr);
-+	snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "dsa-%d", ds->index);
- 	ds->slave_mii_bus->parent = ds->dev;
- 	ds->slave_mii_bus->phy_mask = ~ds->phys_mii_mask;
- }
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 492801a6398c..11845eccf670 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -2725,11 +2725,8 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_priv_state *ps, int port)
+ 		if (mv88e6xxx_6352_family(ps) || mv88e6xxx_6351_family(ps) ||
+ 		    mv88e6xxx_6165_family(ps) || mv88e6xxx_6097_family(ps) ||
+ 		    mv88e6xxx_6320_family(ps)) {
+-			if (ds->dst->tag_protocol == DSA_TAG_PROTO_EDSA)
+-				reg |= PORT_CONTROL_FRAME_ETHER_TYPE_DSA;
+-			else
+-				reg |= PORT_CONTROL_FRAME_MODE_DSA;
+-			reg |= PORT_CONTROL_FORWARD_UNKNOWN |
++			reg |= PORT_CONTROL_FRAME_ETHER_TYPE_DSA |
++				PORT_CONTROL_FORWARD_UNKNOWN |
+ 				PORT_CONTROL_FORWARD_UNKNOWN_MC;
+ 		}
+ 
+@@ -2737,7 +2734,6 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_priv_state *ps, int port)
+ 		    mv88e6xxx_6165_family(ps) || mv88e6xxx_6097_family(ps) ||
+ 		    mv88e6xxx_6095_family(ps) || mv88e6xxx_6065_family(ps) ||
+ 		    mv88e6xxx_6185_family(ps) || mv88e6xxx_6320_family(ps)) {
+-			if (ds->dst->tag_protocol == DSA_TAG_PROTO_EDSA)
+ 				reg |= PORT_CONTROL_EGRESS_ADD_TAG;
+ 		}
+ 	}
 -- 
 2.8.1
