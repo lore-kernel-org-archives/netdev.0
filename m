@@ -1,98 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net] fq_codel: fix NET_XMIT_CN behavior
-Date: Sat, 04 Jun 2016 12:55:13 -0700
-Message-ID: <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160604190301.GA8857@strlen.de>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 2/9] net: dsa: Add support for parsing the old
+ binding
+Date: Sat, 4 Jun 2016 22:00:16 +0200
+Message-ID: <20160604200016.GD2063@lunn.ch>
+References: <1464998733-10405-1-git-send-email-f.fainelli@gmail.com>
+ <1464998733-10405-5-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Stas Nichiporovich <stasn77@gmail.com>,
-	WANG Cong <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com, john@phrozen.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34635 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750829AbcFDTzQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 15:55:16 -0400
-Received: by mail-pf0-f196.google.com with SMTP id c84so14453148pfc.1
-        for <netdev@vger.kernel.org>; Sat, 04 Jun 2016 12:55:15 -0700 (PDT)
-In-Reply-To: <20160604190301.GA8857@strlen.de>
+Received: from vps0.lunn.ch ([178.209.37.122]:59624 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750740AbcFDUAT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jun 2016 16:00:19 -0400
+Content-Disposition: inline
+In-Reply-To: <1464998733-10405-5-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+> -static int dsa_cpu_parse(struct device_node *port, u32 index,
+> -			 struct dsa_switch_tree *dst,
+> -			 struct dsa_switch *ds)
+> +static int _dsa_cpu_parse(struct dsa_switch_tree *dst,
+> +			   struct dsa_switch *ds,
+> +			   struct net_device *ethernet_dev,
+> +			   u32 index)
+>  {
+> -	struct net_device *ethernet_dev;
+> -	struct device_node *ethernet;
+> -
+> -	ethernet = of_parse_phandle(port, "ethernet", 0);
+> -	if (!ethernet)
+> -		return -EINVAL;
+> -
+> -	ethernet_dev = of_find_net_device_by_node(ethernet);
+> -	if (!ethernet_dev)
+> -		return -EPROBE_DEFER;
+> -
 
-My prior attempt to fix the backlogs of parents failed.
+Hi Florian
 
-If we return NET_XMIT_CN, our parents wont increase their backlog,
-so our qdisc_tree_reduce_backlog() should take this into account.
+You have just removed all the actual DT parsing. So i would give this
+a different name, and avoid the _ prefix.
 
-v2: Florian Westphal pointed out that we could drop the packet,
-so we need to save qdisc_pkt_len(skb) in a temp variable before
-calling fq_codel_drop()
+> +static int _dsa_register_switch_legacy(struct dsa_switch *ds, struct device_node *np)
+> +{
 
-Fixes: 9d18562a2278 ("fq_codel: add batch ability to fq_codel_drop()")
-Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
-Reported-by: Stas Nichiporovich <stasn77@gmail.com>
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: WANG Cong <xiyou.wangcong@gmail.com>
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
----
- net/sched/sch_fq_codel.c |   24 ++++++++++++++++++------
- 1 file changed, 18 insertions(+), 6 deletions(-)
+We might want to call this _dsa_register_switch_legacy_sf2, since the
+code only supports what is needed for your rather odd sf2 binding. It
+does not appear to work for the generic DSA binding.
 
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index 6883a8971562..fff7867f4a4f 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -199,6 +199,7 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	unsigned int idx, prev_backlog, prev_qlen;
- 	struct fq_codel_flow *flow;
- 	int uninitialized_var(ret);
-+	unsigned int pkt_len;
- 	bool memory_limited;
- 
- 	idx = fq_codel_classify(skb, sch, &ret);
-@@ -230,6 +231,8 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	prev_backlog = sch->qstats.backlog;
- 	prev_qlen = sch->q.qlen;
- 
-+	/* save this packet length as it might be dropped by fq_codel_drop() */
-+	pkt_len = qdisc_pkt_len(skb);
- 	/* fq_codel_drop() is quite expensive, as it performs a linear search
- 	 * in q->backlogs[] to find a fat flow.
- 	 * So instead of dropping a single packet, drop half of its backlog
-@@ -237,14 +240,23 @@ static int fq_codel_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	 */
- 	ret = fq_codel_drop(sch, q->drop_batch_size);
- 
--	q->drop_overlimit += prev_qlen - sch->q.qlen;
-+	prev_qlen -= sch->q.qlen;
-+	prev_backlog -= sch->qstats.backlog;
-+	q->drop_overlimit += prev_qlen;
- 	if (memory_limited)
--		q->drop_overmemory += prev_qlen - sch->q.qlen;
--	/* As we dropped packet(s), better let upper stack know this */
--	qdisc_tree_reduce_backlog(sch, prev_qlen - sch->q.qlen,
--				  prev_backlog - sch->qstats.backlog);
-+		q->drop_overmemory += prev_qlen;
- 
--	return ret == idx ? NET_XMIT_CN : NET_XMIT_SUCCESS;
-+	/* As we dropped packet(s), better let upper stack know this.
-+	 * If we dropped a packet for this flow, return NET_XMIT_CN,
-+	 * but in this case, our parents wont increase their backlogs.
-+	 */
-+	if (ret == idx) {
-+		qdisc_tree_reduce_backlog(sch, prev_qlen - 1,
-+					  prev_backlog - pkt_len);
-+		return NET_XMIT_CN;
-+	}
-+	qdisc_tree_reduce_backlog(sch, prev_qlen, prev_backlog);
-+	return NET_XMIT_SUCCESS;
- }
- 
- /* This is the specific function called from codel_dequeue()
+>  static int __dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
+>  {
+>  	struct device_node *ports = dsa_get_ports(ds, np);
+> @@ -626,8 +736,8 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
+>  {
+>  	struct device_node *ports = dsa_get_ports(ds, np);
+>  
+> -	if (IS_ERR(ports))
+> -		return PTR_ERR(ports);
+> +	if (IS_ERR(ports) && PTR_ERR(ports) == -EINVAL)
+> +		return _dsa_register_switch_legacy(ds, np);
+
+Maybe put this inside if config_enabled(CONFIG_NET_DSA_BCM_SF2)  {}?
+
+      Andrew
