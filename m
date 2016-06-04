@@ -1,341 +1,263 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 8/9] net: dsa: bcm_sf2: Make it a real platform device driver
-Date: Fri,  3 Jun 2016 17:05:32 -0700
-Message-ID: <1464998733-10405-13-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 9/9] net: dsa: bcm_sf2: Register our slave MDIO bus
+Date: Fri,  3 Jun 2016 17:05:33 -0700
+Message-ID: <1464998733-10405-14-git-send-email-f.fainelli@gmail.com>
 References: <1464998733-10405-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
 	vivien.didelot@savoirfairelinux.com, john@phrozen.org,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:34060 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751250AbcFDAGA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 20:06:00 -0400
-Received: by mail-pa0-f68.google.com with SMTP id x1so6939805pav.1
-        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 17:05:59 -0700 (PDT)
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:33617 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751315AbcFDAGB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 3 Jun 2016 20:06:01 -0400
+Received: by mail-pa0-f67.google.com with SMTP id di3so6951550pab.0
+        for <netdev@vger.kernel.org>; Fri, 03 Jun 2016 17:06:00 -0700 (PDT)
 In-Reply-To: <1464998733-10405-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Broadcom Starfighter 2 switch driver should be a proper platform
-driver, now that the DSA code has been updated to allow that, register a
-switch device, feed it with the proper configuration data coming from
-Device Tree and register our switch device with DSA.
-
-The bulk of the changes consist in moving what bcm_sf2_sw_setup() did
-into the platform driver probe function.
+Register a slave MDIO bus which allows us to divert problematic
+read/writes towards conflicting pseudo-PHY address (30). Do no longer
+rely on DSA's slave_mii_bus, but instead provide our own implementation
+which offers more flexibility as to what to do, and when to register it.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/dsa/bcm_sf2.c | 251 ++++++++++++++++++++++++++++------------------
- net/dsa/dsa.c             |   1 -
- 2 files changed, 151 insertions(+), 101 deletions(-)
+ drivers/net/dsa/bcm_sf2.c | 141 ++++++++++++++++++++++++++++++++--------------
+ drivers/net/dsa/bcm_sf2.h |   6 ++
+ 2 files changed, 106 insertions(+), 41 deletions(-)
 
 diff --git a/drivers/net/dsa/bcm_sf2.c b/drivers/net/dsa/bcm_sf2.c
-index 73df91bb0466..8dac74a6b5df 100644
+index 8dac74a6b5df..502ca65435bf 100644
 --- a/drivers/net/dsa/bcm_sf2.c
 +++ b/drivers/net/dsa/bcm_sf2.c
-@@ -934,77 +934,8 @@ static void bcm_sf2_identify_ports(struct bcm_sf2_priv *priv,
+@@ -22,6 +22,7 @@
+ #include <linux/of_irq.h>
+ #include <linux/of_address.h>
+ #include <linux/of_net.h>
++#include <linux/of_mdio.h>
+ #include <net/dsa.h>
+ #include <linux/ethtool.h>
+ #include <linux/if_bridge.h>
+@@ -948,23 +949,6 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+ 			bcm_sf2_port_disable(ds, port, NULL);
+ 	}
  
- static int bcm_sf2_sw_setup(struct dsa_switch *ds)
- {
--	const char *reg_names[BCM_SF2_REGS_NUM] = BCM_SF2_REGS_NAME;
- 	struct bcm_sf2_priv *priv = ds_to_priv(ds);
--	struct device_node *dn;
--	void __iomem **base;
- 	unsigned int port;
--	unsigned int i;
--	u32 reg, rev;
--	int ret;
--
--	spin_lock_init(&priv->indir_lock);
--	mutex_init(&priv->stats_mutex);
--
--	/* All the interesting properties are at the parent device_node
--	 * level
+-	/* Include the pseudo-PHY address and the broadcast PHY address to
+-	 * divert reads towards our workaround. This is only required for
+-	 * 7445D0, since 7445E0 disconnects the internal switch pseudo-PHY such
+-	 * that we can use the regular SWITCH_MDIO master controller instead.
+-	 *
+-	 * By default, DSA initializes ds->phys_mii_mask to
+-	 * ds->enabled_port_mask to have a 1:1 mapping between Port address
+-	 * and PHY address in order to utilize the slave_mii_bus instance to
+-	 * read from Port PHYs. This is not what we want here, so we
+-	 * initialize phys_mii_mask 0 to always utilize the "master" MDIO
+-	 * bus backed by the "mdio-unimac" driver.
 -	 */
--	dn = ds->cd->of_node->parent;
--	bcm_sf2_identify_ports(priv, ds->cd->of_node);
--
--	priv->irq0 = irq_of_parse_and_map(dn, 0);
--	priv->irq1 = irq_of_parse_and_map(dn, 1);
--
--	base = &priv->core;
--	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
--		*base = of_iomap(dn, i);
--		if (*base == NULL) {
--			pr_err("unable to find register: %s\n", reg_names[i]);
--			ret = -ENOMEM;
--			goto out_unmap;
--		}
--		base++;
--	}
--
--	ret = bcm_sf2_sw_rst(priv);
--	if (ret) {
--		pr_err("unable to software reset switch: %d\n", ret);
--		goto out_unmap;
--	}
--
--	/* Disable all interrupts and request them */
--	bcm_sf2_intr_disable(priv);
--
--	ret = request_irq(priv->irq0, bcm_sf2_switch_0_isr, 0,
--			  "switch_0", priv);
--	if (ret < 0) {
--		pr_err("failed to request switch_0 IRQ\n");
--		goto out_unmap;
--	}
--
--	ret = request_irq(priv->irq1, bcm_sf2_switch_1_isr, 0,
--			  "switch_1", priv);
--	if (ret < 0) {
--		pr_err("failed to request switch_1 IRQ\n");
--		goto out_free_irq0;
--	}
--
--	/* Reset the MIB counters */
--	reg = core_readl(priv, CORE_GMNCFGCFG);
--	reg |= RST_MIB_CNT;
--	core_writel(priv, reg, CORE_GMNCFGCFG);
--	reg &= ~RST_MIB_CNT;
--	core_writel(priv, reg, CORE_GMNCFGCFG);
--
--	/* Get the maximum number of ports for this switch */
--	priv->hw_params.num_ports = core_readl(priv, CORE_IMP0_PRT_ID) + 1;
--	if (priv->hw_params.num_ports > DSA_MAX_PORTS)
--		priv->hw_params.num_ports = DSA_MAX_PORTS;
--
--	/* Assume a single GPHY setup if we can't read that property */
--	if (of_property_read_u32(dn, "brcm,num-gphy",
--				 &priv->hw_params.num_gphy))
--		priv->hw_params.num_gphy = 1;
- 
- 	/* Enable all valid ports and disable those unused */
- 	for (port = 0; port < priv->hw_params.num_ports; port++) {
-@@ -1034,31 +965,7 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
- 	else
- 		ds->phys_mii_mask = 0;
- 
--	rev = reg_readl(priv, REG_SWITCH_REVISION);
--	priv->hw_params.top_rev = (rev >> SWITCH_TOP_REV_SHIFT) &
--					SWITCH_TOP_REV_MASK;
--	priv->hw_params.core_rev = (rev & SF2_REV_MASK);
--
--	rev = reg_readl(priv, REG_PHY_REVISION);
--	priv->hw_params.gphy_rev = rev & PHY_REVISION_MASK;
--
--	pr_info("Starfighter 2 top: %x.%02x, core: %x.%02x base: 0x%p, IRQs: %d, %d\n",
--		priv->hw_params.top_rev >> 8, priv->hw_params.top_rev & 0xff,
--		priv->hw_params.core_rev >> 8, priv->hw_params.core_rev & 0xff,
--		priv->core, priv->irq0, priv->irq1);
+-	if (of_machine_is_compatible("brcm,bcm7445d0"))
+-		ds->phys_mii_mask |= ((1 << BRCM_PSEUDO_PHY_ADDR) | (1 << 0));
+-	else
+-		ds->phys_mii_mask = 0;
 -
  	return 0;
--
--out_free_irq0:
--	free_irq(priv->irq0, priv);
--out_unmap:
--	base = &priv->core;
--	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
--		if (*base)
--			iounmap(*base);
--		base++;
+ }
+ 
+@@ -985,10 +969,9 @@ static u32 bcm_sf2_sw_get_phy_flags(struct dsa_switch *ds, int port)
+ 	return priv->hw_params.gphy_rev;
+ }
+ 
+-static int bcm_sf2_sw_indir_rw(struct dsa_switch *ds, int op, int addr,
++static int bcm_sf2_sw_indir_rw(struct bcm_sf2_priv *priv, int op, int addr,
+ 			       int regnum, u16 val)
+ {
+-	struct bcm_sf2_priv *priv = ds_to_priv(ds);
+ 	int ret = 0;
+ 	u32 reg;
+ 
+@@ -1017,32 +1000,31 @@ static int bcm_sf2_sw_indir_rw(struct dsa_switch *ds, int op, int addr,
+ 	return ret & 0xffff;
+ }
+ 
+-static int bcm_sf2_sw_phy_read(struct dsa_switch *ds, int addr, int regnum)
++static int bcm_sf2_sw_phy_read(struct mii_bus *bus, int addr, int regnum)
+ {
+-	/* Intercept reads from the MDIO broadcast address or Broadcom
+-	 * pseudo-PHY address
++	struct bcm_sf2_priv *priv = bus->priv;
++
++	/* Intercept reads from Broadcom pseudo-PHY address, else, send
++	 * them to our master MDIO bus controller
+ 	 */
+-	switch (addr) {
+-	case 0:
+-	case BRCM_PSEUDO_PHY_ADDR:
+-		return bcm_sf2_sw_indir_rw(ds, 1, addr, regnum, 0);
+-	default:
+-		return 0xffff;
 -	}
--	return ret;
++	if (addr == BRCM_PSEUDO_PHY_ADDR && priv->indir_phy_mask & BIT(addr))
++		return bcm_sf2_sw_indir_rw(priv, 1, addr, regnum, 0);
++	else
++		return mdiobus_read(priv->master_mii_bus, addr, regnum);
  }
  
- static int bcm_sf2_sw_set_addr(struct dsa_switch *ds, u8 *addr)
-@@ -1370,7 +1277,7 @@ static int bcm_sf2_sw_set_wol(struct dsa_switch *ds, int port,
- 	return p->ethtool_ops->set_wol(p, wol);
- }
+-static int bcm_sf2_sw_phy_write(struct dsa_switch *ds, int addr, int regnum,
++static int bcm_sf2_sw_phy_write(struct mii_bus *bus, int addr, int regnum,
+ 				u16 val)
+ {
+-	/* Intercept writes to the MDIO broadcast address or Broadcom
+-	 * pseudo-PHY address
++	struct bcm_sf2_priv *priv = bus->priv;
++
++	/* Intercept writes to the Broadcom pseudo-PHY address, else,
++	 * send them to our master MDIO bus controller
+ 	 */
+-	switch (addr) {
+-	case 0:
+-	case BRCM_PSEUDO_PHY_ADDR:
+-		bcm_sf2_sw_indir_rw(ds, 0, addr, regnum, val);
+-		break;
+-	}
++	if (addr == BRCM_PSEUDO_PHY_ADDR && priv->indir_phy_mask & BIT(addr))
++		bcm_sf2_sw_indir_rw(priv, 0, addr, regnum, val);
++	else
++		mdiobus_write(priv->master_mii_bus, addr, regnum, val);
  
--static struct dsa_switch_driver bcm_sf2_switch_driver = {
-+static struct dsa_switch_driver bcm_sf2_switch_ops = {
- 	.tag_protocol		= DSA_TAG_PROTO_BRCM,
- 	.probe			= bcm_sf2_sw_drv_probe,
+ 	return 0;
+ }
+@@ -1283,8 +1265,6 @@ static struct dsa_switch_driver bcm_sf2_switch_ops = {
  	.setup			= bcm_sf2_sw_setup,
-@@ -1400,19 +1307,163 @@ static struct dsa_switch_driver bcm_sf2_switch_driver = {
+ 	.set_addr		= bcm_sf2_sw_set_addr,
+ 	.get_phy_flags		= bcm_sf2_sw_get_phy_flags,
+-	.phy_read		= bcm_sf2_sw_phy_read,
+-	.phy_write		= bcm_sf2_sw_phy_write,
+ 	.get_strings		= bcm_sf2_sw_get_strings,
+ 	.get_ethtool_stats	= bcm_sf2_sw_get_ethtool_stats,
+ 	.get_sset_count		= bcm_sf2_sw_get_sset_count,
+@@ -1307,6 +1287,75 @@ static struct dsa_switch_driver bcm_sf2_switch_ops = {
  	.port_fdb_dump		= bcm_sf2_sw_fdb_dump,
  };
  
--static int __init bcm_sf2_init(void)
-+static int bcm_sf2_sw_probe(struct platform_device *pdev)
- {
--	register_switch_driver(&bcm_sf2_switch_driver);
-+	const char *reg_names[BCM_SF2_REGS_NUM] = BCM_SF2_REGS_NAME;
-+	struct resource *res;
-+	struct dsa_switch *ds;
-+	struct bcm_sf2_priv *priv;
-+	struct device_node *dn = pdev->dev.of_node;
-+	void __iomem **base;
-+	unsigned int i;
-+	u32 reg, rev;
-+	int ret;
++static int bcm_sf2_mdio_register(struct dsa_switch *ds)
++{
++	struct bcm_sf2_priv *priv = ds_to_priv(ds);
++	struct device_node *dn;
++	static int index;
++	int err;
 +
-+	ds = devm_kzalloc(&pdev->dev, sizeof(*ds) + sizeof(*priv), GFP_KERNEL);
-+	if (!ds)
++	/* Find our integratd MDIO bus node */
++	dn = of_find_compatible_node(NULL, NULL, "brcm,unimac-mdio");
++	priv->master_mii_bus = of_mdio_find_bus(dn);
++	if (!priv->master_mii_bus)
++		return -EPROBE_DEFER;
++
++	get_device(&priv->master_mii_bus->dev);
++	priv->master_mii_dn = dn;
++
++	priv->slave_mii_bus = devm_mdiobus_alloc(ds->dev);
++	if (!priv->slave_mii_bus)
 +		return -ENOMEM;
 +
-+	priv = (struct bcm_sf2_priv *)(ds + 1);
++	priv->slave_mii_bus->priv = priv;
++	priv->slave_mii_bus->name = "sf2 slave mii";
++	priv->slave_mii_bus->read = bcm_sf2_sw_phy_read;
++	priv->slave_mii_bus->write = bcm_sf2_sw_phy_write;
++	if (dn)
++		snprintf(priv->slave_mii_bus->id, MII_BUS_ID_SIZE, "%s",
++			 ds->dev->of_node->full_name);
++	else
++		snprintf(priv->slave_mii_bus->id, MII_BUS_ID_SIZE, "sf2-%d",
++			 index++);
++	priv->slave_mii_bus->dev.of_node = dn;
 +
-+	ds->priv = priv;
-+	ds->dev = &pdev->dev;
-+	ds->drv = &bcm_sf2_switch_ops;
-+
-+	spin_lock_init(&priv->indir_lock);
-+	mutex_init(&priv->stats_mutex);
-+
-+	/* The port information of the switch is in the immediate child
-+	 * sub-node
++	/* Include the pseudo-PHY address to divert reads towards our
++	 * workaround. This is only required for 7445D0, since 7445E0
++	 * disconnects the internal switch pseudo-PHY such that we can use the
++	 * regular SWITCH_MDIO master controller instead.
++	 *
++	 * Here we flag the pseudo PHY as needing special treatment and would
++	 * otherwise make all other PHY read/writes go to the master MDIO bus
++	 * controller that comes with this switch backed by the "mdio-unimac"
++	 * driver.
 +	 */
-+	bcm_sf2_identify_ports(priv, dn->child);
++	if (of_machine_is_compatible("brcm,bcm7445d0"))
++		priv->indir_phy_mask |= (1 << BRCM_PSEUDO_PHY_ADDR);
++	else
++		priv->indir_phy_mask = 0;
++	priv->slave_mii_bus->parent = ds->dev;
++	priv->slave_mii_bus->phy_mask = ~priv->indir_phy_mask;
 +
-+	priv->irq0 = platform_get_irq(pdev, 0);
-+	priv->irq1 = platform_get_irq(pdev, 1);
++	if (dn)
++		err = of_mdiobus_register(priv->slave_mii_bus, dn);
++	else
++		err = mdiobus_register(priv->slave_mii_bus);
 +
-+	base = &priv->core;
-+	for (i = 0; i < BCM_SF2_REGS_NUM; i++) {
-+		res = platform_get_resource(pdev, IORESOURCE_MEM, i);
-+		*base = devm_ioremap_resource(&pdev->dev, res);
-+		if (*base == NULL) {
-+			dev_err(&pdev->dev,
-+				"unable to find register: %s\n", reg_names[i]);
-+			return -ENODEV;
-+		}
-+		base++;
-+	}
++	if (err)
++		of_node_put(dn);
 +
-+	ret = bcm_sf2_sw_rst(priv);
-+	if (ret) {
-+		pr_err("unable to software reset switch: %d\n", ret);
-+		return ret;
-+	}
-+
-+	/* Disable all interrupts and request them */
-+	bcm_sf2_intr_disable(priv);
-+
-+	ret = devm_request_irq(&pdev->dev, priv->irq0, bcm_sf2_switch_0_isr, 0,
-+			       "switch_0", priv);
-+	if (ret < 0) {
-+		dev_err(&pdev->dev, "failed to request switch_0 IRQ\n");
-+		return ret;
-+	}
-+
-+	ret = devm_request_irq(&pdev->dev, priv->irq1, bcm_sf2_switch_1_isr, 0,
-+			       "switch_1", priv);
-+	if (ret < 0) {
-+		dev_err(&pdev->dev, "failed to request switch_1 IRQ\n");
-+		return ret;
-+	}
-+
-+	/* Reset the MIB counters */
-+	reg = core_readl(priv, CORE_GMNCFGCFG);
-+	reg |= RST_MIB_CNT;
-+	core_writel(priv, reg, CORE_GMNCFGCFG);
-+	reg &= ~RST_MIB_CNT;
-+	core_writel(priv, reg, CORE_GMNCFGCFG);
-+
-+	/* Get the maximum number of ports for this switch */
-+	priv->hw_params.num_ports = core_readl(priv, CORE_IMP0_PRT_ID) + 1;
-+	if (priv->hw_params.num_ports > DSA_MAX_PORTS)
-+		priv->hw_params.num_ports = DSA_MAX_PORTS;
-+
-+	/* Assume a single GPHY setup if we can't read that property */
-+	if (of_property_read_u32(dn, "brcm,num-gphy",
-+				 &priv->hw_params.num_gphy))
-+		priv->hw_params.num_gphy = 1;
-+
-+	rev = reg_readl(priv, REG_SWITCH_REVISION);
-+	priv->hw_params.top_rev = (rev >> SWITCH_TOP_REV_SHIFT) &
-+					SWITCH_TOP_REV_MASK;
-+	priv->hw_params.core_rev = (rev & SF2_REV_MASK);
-+
-+	rev = reg_readl(priv, REG_PHY_REVISION);
-+	priv->hw_params.gphy_rev = rev & PHY_REVISION_MASK;
-+
-+	dev_set_drvdata(&pdev->dev, ds);
-+
-+	ret = dsa_register_switch(ds, pdev->dev.of_node);
-+	if (ret)
-+		return ret;
-+
-+	dev_info(&pdev->dev,
-+		"Starfighter 2 top: %x.%02x, core: %x.%02x base: 0x%p, IRQs: %d, %d\n",
-+		priv->hw_params.top_rev >> 8, priv->hw_params.top_rev & 0xff,
-+		priv->hw_params.core_rev >> 8, priv->hw_params.core_rev & 0xff,
-+		priv->core, priv->irq0, priv->irq1);
-+
-+	return 0;
++	return err;
 +}
 +
-+static int bcm_sf2_sw_remove(struct platform_device *pdev)
++static void bcm_sf2_mdio_unregister(struct dsa_switch *ds)
 +{
-+	struct dsa_switch *ds = platform_get_drvdata(pdev);
 +	struct bcm_sf2_priv *priv = ds_to_priv(ds);
 +
-+	/* Disable all ports and interrupts */
-+	priv->wol_ports_mask = 0;
-+	bcm_sf2_sw_suspend(ds);
-+	dsa_unregister_switch(ds);
++	mdiobus_unregister(priv->slave_mii_bus);
++	if (priv->master_mii_dn)
++		of_node_put(priv->master_mii_dn);
++}
++
+ static int bcm_sf2_sw_probe(struct platform_device *pdev)
+ {
+ 	const char *reg_names[BCM_SF2_REGS_NUM] = BCM_SF2_REGS_NAME;
+@@ -1402,10 +1451,18 @@ static int bcm_sf2_sw_probe(struct platform_device *pdev)
+ 
+ 	dev_set_drvdata(&pdev->dev, ds);
+ 
+-	ret = dsa_register_switch(ds, pdev->dev.of_node);
++	ret = bcm_sf2_mdio_register(ds);
+ 	if (ret)
+ 		return ret;
+ 
++	ds->slave_mii_bus = priv->slave_mii_bus;
++
++	ret = dsa_register_switch(ds, pdev->dev.of_node);
++	if (ret) {
++		bcm_sf2_mdio_unregister(ds);
++		return ret;
++	}
++
+ 	dev_info(&pdev->dev,
+ 		"Starfighter 2 top: %x.%02x, core: %x.%02x base: 0x%p, IRQs: %d, %d\n",
+ 		priv->hw_params.top_rev >> 8, priv->hw_params.top_rev & 0xff,
+@@ -1424,6 +1481,8 @@ static int bcm_sf2_sw_remove(struct platform_device *pdev)
+ 	priv->wol_ports_mask = 0;
+ 	bcm_sf2_sw_suspend(ds);
+ 	dsa_unregister_switch(ds);
++	put_device(&priv->master_mii_bus->dev);
++	bcm_sf2_mdio_unregister(ds);
  
  	return 0;
  }
--module_init(bcm_sf2_init);
+diff --git a/drivers/net/dsa/bcm_sf2.h b/drivers/net/dsa/bcm_sf2.h
+index 200b1f5fdb56..bde11ebb2742 100644
+--- a/drivers/net/dsa/bcm_sf2.h
++++ b/drivers/net/dsa/bcm_sf2.h
+@@ -142,6 +142,12 @@ struct bcm_sf2_priv {
  
--static void __exit bcm_sf2_exit(void)
-+#ifdef CONFIG_PM_SLEEP
-+static int bcm_sf2_suspend(struct device *dev)
- {
--	unregister_switch_driver(&bcm_sf2_switch_driver);
-+	struct platform_device *pdev = to_platform_device(dev);
-+	struct dsa_switch *ds = platform_get_drvdata(pdev);
+ 	/* Bitmask of ports having an integrated PHY */
+ 	unsigned int			int_phy_mask;
 +
-+	return dsa_switch_suspend(ds);
- }
--module_exit(bcm_sf2_exit);
-+
-+static int bcm_sf2_resume(struct device *dev)
-+{
-+	struct platform_device *pdev = to_platform_device(dev);
-+	struct dsa_switch *ds = platform_get_drvdata(pdev);
-+
-+	return dsa_switch_resume(ds);
-+}
-+#endif /* CONFIG_PM_SLEEP */
-+
-+static SIMPLE_DEV_PM_OPS(bcm_sf2_pm_ops,
-+			 bcm_sf2_suspend, bcm_sf2_resume);
-+
-+static const struct of_device_id bcm_sf2_of_match[] = {
-+	{ .compatible = "brcm,bcm7445-switch-v4.0" },
-+	{ /* sentinel */ },
-+};
-+
-+static struct platform_driver bcm_sf2_driver = {
-+	.probe	= bcm_sf2_sw_probe,
-+	.remove	= bcm_sf2_sw_remove,
-+	.driver = {
-+		.name = "brcm-sf2",
-+		.of_match_table = bcm_sf2_of_match,
-+		.pm = &bcm_sf2_pm_ops,
-+	},
-+};
-+module_platform_driver(bcm_sf2_driver);
- 
- MODULE_AUTHOR("Broadcom Corporation");
- MODULE_DESCRIPTION("Driver for Broadcom Starfighter 2 ethernet switch chip");
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 8fb8de6fb82d..7abe0cd3af9c 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -1065,7 +1065,6 @@ static int dsa_resume(struct device *d)
- static SIMPLE_DEV_PM_OPS(dsa_pm_ops, dsa_suspend, dsa_resume);
- 
- static const struct of_device_id dsa_of_match_table[] = {
--	{ .compatible = "brcm,bcm7445-switch-v4.0" },
- 	{ .compatible = "marvell,dsa", },
- 	{}
++	/* Master and slave MDIO bus controller */
++	unsigned int			indir_phy_mask;
++	struct device_node		*master_mii_dn;
++	struct mii_bus			*slave_mii_bus;
++	struct mii_bus			*master_mii_bus;
  };
+ 
+ struct bcm_sf2_hw_stats {
 -- 
 2.7.4
