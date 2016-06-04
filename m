@@ -1,46 +1,100 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net-next] cxgb4: Reduce resource allocation in kdump
- kernel
-Date: Sat, 4 Jun 2016 13:24:43 +0000
-Message-ID: <CO2PR11MB008805A31B3921BF3C728F7A975A0@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1464975345-12484-1-git-send-email-hariprasad@chelsio.com>
- <BY2PR12MB064802D9AB46EF297736F308C8590@BY2PR12MB0648.namprd12.prod.outlook.com>
+From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Subject: [PATCH] net: wireless: marvell: libertas: Remove create_workqueue
+Date: Sat, 4 Jun 2016 19:29:01 +0530
+Message-ID: <20160604135901.GA29897@Karyakshetra>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Nirranjan Kirubaharan <nirranjan@chelsio.com>
-To: Casey Leedom <leedom@chelsio.com>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0116.outbound.protection.outlook.com ([157.56.110.116]:27393
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750838AbcFDNYs convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 09:24:48 -0400
-In-Reply-To: <BY2PR12MB064802D9AB46EF297736F308C8590@BY2PR12MB0648.namprd12.prod.outlook.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>, libertas-dev@lists.infradead.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Kalle Valo <kvalo@codeaurora.org>,
+	Andreas Kemnade <andreas@kemnade.info>,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	Bhaktipriya Shridhar <bhaktipriya96@gmail.com>,
+	"Andrew F. Davis" <afd@ti.com>,
+	Jonathan Cameron <jic23@kernel.org>,
+	Mark Brown <broonie@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> When is_kdump_kernel() is true, reduce our memory footprint by only using a
-> single "Queue Set" and Forcing Master so we can reinitialize the Firmware/Chip.
-> 
-> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
-...
->         if (q10g > netif_get_num_default_rss_queues())
->                 q10g = netif_get_num_default_rss_queues();
-> 
-> +       /* Reduce memory usage in kdump environment by using only one queue
-> +        * and disable all offload.
-> +        */
-> +       if (is_kdump_kernel()) {
-> +               q10g = 1;
-> +               adap->params.offload = 0;
-> +       }
-> +
+alloc_workqueue replaces deprecated create_workqueue().
 
-Sounds like a common issue that might interest other devices as well.
-Perhaps we should change netif_get_num_default_rss_queues() to return 1
-when called from a kdump kernel?
+In if_sdio.c, the workqueue card->workqueue has workitem
+&card->packet_worker, which is mapped to if_sdio_host_to_card_worker.
+The workitem is involved in sending packets to firmware.
+Forward progress under memory pressure is a requirement here.
+
+In if_spi.c, the workqueue card->workqueue has workitem
+&card->packet_worker, which is mapped to if_spi_host_to_card_worker.
+The workitem is involved in sending command packets from the host.
+Forward progress under memory pressure is a requirement here.
+
+Dedicated workqueues have been used in both cases since the workitems
+on the workqueues are involved in normal device operation with
+WQ_MEM_RECLAIM set to gurantee forward progress under memory pressure.
+Since there are only a fixed number of work items, explicit concurrency
+limit is unnecessary.
+
+flush_workqueue is unnecessary since destroy_workqueue() itself calls
+drain_workqueue() which flushes repeatedly till the workqueue
+becomes empty. Hence the calls to flush_workqueue() before
+destroy_workqueue() have been dropped.
+
+Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+---
+ drivers/net/wireless/marvell/libertas/if_sdio.c | 3 +--
+ drivers/net/wireless/marvell/libertas/if_spi.c  | 4 +---
+ 2 files changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/wireless/marvell/libertas/if_sdio.c b/drivers/net/wireless/marvell/libertas/if_sdio.c
+index 13eae9f..47f4a14 100644
+--- a/drivers/net/wireless/marvell/libertas/if_sdio.c
++++ b/drivers/net/wireless/marvell/libertas/if_sdio.c
+@@ -1228,7 +1228,7 @@ static int if_sdio_probe(struct sdio_func *func,
+ 	}
+
+ 	spin_lock_init(&card->lock);
+-	card->workqueue = create_workqueue("libertas_sdio");
++	card->workqueue = alloc_workqueue("libertas_sdio", WQ_MEM_RECLAIM, 0);
+ 	INIT_WORK(&card->packet_worker, if_sdio_host_to_card_worker);
+ 	init_waitqueue_head(&card->pwron_waitq);
+
+@@ -1326,7 +1326,6 @@ static void if_sdio_remove(struct sdio_func *func)
+ 	lbs_stop_card(card->priv);
+ 	lbs_remove_card(card->priv);
+
+-	flush_workqueue(card->workqueue);
+ 	destroy_workqueue(card->workqueue);
+
+ 	while (card->packets) {
+diff --git a/drivers/net/wireless/marvell/libertas/if_spi.c b/drivers/net/wireless/marvell/libertas/if_spi.c
+index 82c0796..c3a53cd 100644
+--- a/drivers/net/wireless/marvell/libertas/if_spi.c
++++ b/drivers/net/wireless/marvell/libertas/if_spi.c
+@@ -1180,7 +1180,7 @@ static int if_spi_probe(struct spi_device *spi)
+ 	priv->fw_ready = 1;
+
+ 	/* Initialize interrupt handling stuff. */
+-	card->workqueue = create_workqueue("libertas_spi");
++	card->workqueue = alloc_workqueue("libertas_spi", WQ_MEM_RECLAIM, 0);
+ 	INIT_WORK(&card->packet_work, if_spi_host_to_card_worker);
+ 	INIT_WORK(&card->resume_work, if_spi_resume_worker);
+
+@@ -1208,7 +1208,6 @@ static int if_spi_probe(struct spi_device *spi)
+ release_irq:
+ 	free_irq(spi->irq, card);
+ terminate_workqueue:
+-	flush_workqueue(card->workqueue);
+ 	destroy_workqueue(card->workqueue);
+ 	lbs_remove_card(priv); /* will call free_netdev */
+ free_card:
+@@ -1235,7 +1234,6 @@ static int libertas_spi_remove(struct spi_device *spi)
+ 	lbs_remove_card(priv); /* will call free_netdev */
+
+ 	free_irq(spi->irq, card);
+-	flush_workqueue(card->workqueue);
+ 	destroy_workqueue(card->workqueue);
+ 	if (card->pdata->teardown)
+ 		card->pdata->teardown(spi);
