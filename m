@@ -1,32 +1,27 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] qed: Fix next-ptr chains for BE / 32-bit
-Date: Fri, 03 Jun 2016 22:42:40 -0700 (PDT)
-Message-ID: <20160603.224240.1235800253136093689.davem@davemloft.net>
-References: <1465017616-3892-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH net] bnx2x: allow adding VLANs while interface is down
+Date: Sat, 4 Jun 2016 05:28:46 +0000
+Message-ID: <CO2PR11MB00888A27698FB53DB4046D3C975A0@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1464960738-8541-1-git-send-email-mschmidt@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, fengguang.wu@intel.com
-To: Yuval.Mintz@qlogic.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>
+To: Michal Schmidt <mschmidt@redhat.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:45544 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750923AbcFDFml (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 01:42:41 -0400
-In-Reply-To: <1465017616-3892-1-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from mail-bl2on0105.outbound.protection.outlook.com ([65.55.169.105]:60082
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750718AbcFDFoM convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 01:44:12 -0400
+In-Reply-To: <1464960738-8541-1-git-send-email-mschmidt@redhat.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Sat, 4 Jun 2016 08:20:16 +0300
+> Since implementing VLAN filtering in commit 05cc5a39ddb74
+> ("bnx2x: add vlan filtering offload") bnx2x refuses to add a VLAN while the
+> interface is down.
 
-> Commit a91eb52abb50 ("qed: Revisit chain implementation") contains an
-> incorrect implementation for BE platforms, as device's regpairs containing
-> addresses are LE and they're not converted correctly when read back.
-> In addition, it raises a compilation warning for 32-bit platforms where
-> dma_addr_t is a 32-bit variable.
-> 
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-
-Applied, thanks.
+Hi Michal - thanks; I'll review this one on Sunday.
