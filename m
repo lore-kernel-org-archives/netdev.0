@@ -1,83 +1,83 @@
 From: kbuild test robot <fengguang.wu@intel.com>
-Subject: [net-next:master 20/29] net/sctp/output.c:185:21: warning: format
- '%lu' expects argument of type 'long unsigned int', but argument 4 has type
- 'size_t {aka unsigned int}'
-Date: Sat, 4 Jun 2016 10:32:11 +0800
-Message-ID: <201606041010.Uqa8jrpA%fengguang.wu@intel.com>
+Subject: [net-next:master 25/29]
+ drivers/net/ethernet/qlogic/qed/qed_dev.c:1802:57: warning: left shift count
+ >= width of type
+Date: Sat, 4 Jun 2016 11:31:13 +0800
+Message-ID: <201606041112.n8P5D3lj%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="VS++wcV0S1rZb1Fb"
+Content-Type: multipart/mixed; boundary="k1lZvvs/B4yU6o8G"
 Cc: kbuild-all@01.org, netdev@vger.kernel.org,
-	Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+	Yuval Mintz <Yuval.Mintz@qlogic.com>
 To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:45260 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:39376 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750747AbcFDCdo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 3 Jun 2016 22:33:44 -0400
+	id S1750727AbcFDDbr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 3 Jun 2016 23:31:47 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---VS++wcV0S1rZb1Fb
+--k1lZvvs/B4yU6o8G
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 tree:   https://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git master
 head:   03c7f70beee4c5d34881e5d3dd2b6f3e848047ef
-commit: 942b3235bf77e5600a05d6e85f0415bdeb8068bb [20/29] sctp: improve debug message to also log curr pkt and new chunk size
+commit: a91eb52abb504a1dd3248a5d07b54e7f95d5fcf1 [25/29] qed: Revisit chain implementation
 config: i386-allyesconfig (attached as .config)
 compiler: gcc-6 (Debian 6.1.1-1) 6.1.1 20160430
 reproduce:
-        git checkout 942b3235bf77e5600a05d6e85f0415bdeb8068bb
+        git checkout a91eb52abb504a1dd3248a5d07b54e7f95d5fcf1
         # save the attached .config to linux build tree
         make ARCH=i386 
 
 All warnings (new ones prefixed by >>):
 
-   net/sctp/output.c: In function 'sctp_packet_transmit_chunk':
->> net/sctp/output.c:185:21: warning: format '%lu' expects argument of type 'long unsigned int', but argument 4 has type 'size_t {aka unsigned int}' [-Wformat=]
-     pr_debug("%s: packet:%p size:%lu chunk:%p size:%d\n", __func__,
-                        ^~~~~~
+   drivers/net/ethernet/qlogic/qed/qed_dev.c: In function 'qed_chain_free_next_ptr':
+>> drivers/net/ethernet/qlogic/qed/qed_dev.c:1802:57: warning: left shift count >= width of type [-Wshift-count-overflow]
+      p_phys_next = HILO_DMA_REGPAIR(p_next->next_phys);
+                                                            ^ 
 
-vim +185 net/sctp/output.c
+vim +1802 drivers/net/ethernet/qlogic/qed/qed_dev.c
 
-   169	}
-   170	
-   171	/* This routine tries to append the chunk to the offered packet. If adding
-   172	 * the chunk causes the packet to exceed the path MTU and COOKIE_ECHO chunk
-   173	 * is not present in the packet, it transmits the input packet.
-   174	 * Data can be bundled with a packet containing a COOKIE_ECHO chunk as long
-   175	 * as it can fit in the packet, but any more data that does not fit in this
-   176	 * packet can be sent only after receiving the COOKIE_ACK.
-   177	 */
-   178	sctp_xmit_t sctp_packet_transmit_chunk(struct sctp_packet *packet,
-   179					       struct sctp_chunk *chunk,
-   180					       int one_packet, gfp_t gfp)
-   181	{
-   182		sctp_xmit_t retval;
-   183		int error = 0;
-   184	
- > 185		pr_debug("%s: packet:%p size:%lu chunk:%p size:%d\n", __func__,
-   186			 packet, packet->size, chunk, chunk->skb ? chunk->skb->len : -1);
-   187	
-   188		switch ((retval = (sctp_packet_append_chunk(packet, chunk)))) {
-   189		case SCTP_XMIT_PMTU_FULL:
-   190			if (!packet->has_cookie_echo) {
-   191				error = sctp_packet_transmit(packet, gfp);
-   192				if (error < 0)
-   193					chunk->skb->sk->sk_err = -error;
+  1786		void *p_virt = p_chain->p_virt_addr, *p_virt_next = NULL;
+  1787		dma_addr_t p_phys = p_chain->p_phys_addr, p_phys_next = 0;
+  1788		struct qed_chain_next *p_next;
+  1789		u32 size, i;
+  1790	
+  1791		if (!p_virt)
+  1792			return;
+  1793	
+  1794		size = p_chain->elem_size * p_chain->usable_per_page;
+  1795	
+  1796		for (i = 0; i < p_chain->page_cnt; i++) {
+  1797			if (!p_virt)
+  1798				break;
+  1799	
+  1800			p_next = (struct qed_chain_next *)((u8 *)p_virt + size);
+  1801			p_virt_next = p_next->next_virt;
+> 1802			p_phys_next = HILO_DMA_REGPAIR(p_next->next_phys);
+  1803	
+  1804			dma_free_coherent(&cdev->pdev->dev,
+  1805					  QED_CHAIN_PAGE_SIZE, p_virt, p_phys);
+  1806	
+  1807			p_virt = p_virt_next;
+  1808			p_phys = p_phys_next;
+  1809		}
+  1810	}
 
 ---
 0-DAY kernel test infrastructure                Open Source Technology Center
 https://lists.01.org/pipermail/kbuild-all                   Intel Corporation
 
---VS++wcV0S1rZb1Fb
+--k1lZvvs/B4yU6o8G
 Content-Type: application/octet-stream
 Content-Disposition: attachment; filename=".config.gz"
 Content-Transfer-Encoding: base64
 
-H4sICHo8UlcAAy5jb25maWcAjDzLcty2svt8xZRzF+csHOtlWalbWmBAcAYZkqABcDTShqVI
+H4sICAtLUlcAAy5jb25maWcAjDzLcty2svt8xZRzF+csHOtlWalbWmBAcAYZkqABcDTShqVI
 40R1ZClHknOTv7/dAB8NEBzHC9vsboB49Lub8+MPPy7Yt7fnr7dvD3e3j49/L37bP+1fbt/2
 94svD4/7/11kalEpuxCZtD8BcfHw9O2vDw+nF+eLs58+/XT0/uXueLHZvzztHxf8+enLw2/f
 YPTD89MPPwI1V1UuV+352VLaxcPr4un5bfG6f/uhg+8uztvTk8u/yfP4ICtjdcOtVFWbCa4y
@@ -1086,4 +1086,4 @@ jHt585sD6GlMH2hkMZr4Zi0zkOkjdJnYcWEwrVBf4RmFV8y02DBd/LzwEDqUDXT+k3q7MdC7
 n9QHhIEwdkiuJBhA05QKjk7ihtOfSmZHXk1KpVSAro5/0nCtBl4d/Vyx7bHFN1e5urG1GGeE
 vrWZBkWL4zSg1/sTCUXZYTQl+3/w3eSf9GMDAA==
 
---VS++wcV0S1rZb1Fb--
+--k1lZvvs/B4yU6o8G--
