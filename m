@@ -1,178 +1,221 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: [PATCHv2 net-next 02/17] net: dsa: mv88e6xxx: fix circular lock in PPU work
-Date: Sat,  4 Jun 2016 21:16:54 +0200
-Message-ID: <1465067829-1875-5-git-send-email-andrew@lunn.ch>
+Subject: [PATCHv2 net-next 14/17] net: dsa: mv88e6xxx: Refactor MDIO so driver registers mdio bus
+Date: Sat,  4 Jun 2016 21:17:06 +0200
+Message-ID: <1465067829-1875-17-git-send-email-andrew@lunn.ch>
 References: <1465067829-1875-1-git-send-email-andrew@lunn.ch>
-Cc: netdev <netdev@vger.kernel.org>, Shawn Guo <shawnguo@kernel.org>
+Cc: netdev <netdev@vger.kernel.org>, Shawn Guo <shawnguo@kernel.org>,
+	Andrew Lunn <andrew@lunn.ch>
 To: David Miller <davem@davemloft.net>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
 	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:59464 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:59470 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750753AbcFDTR0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 4 Jun 2016 15:17:26 -0400
+	id S1750919AbcFDTRk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 4 Jun 2016 15:17:40 -0400
 In-Reply-To: <1465067829-1875-1-git-send-email-andrew@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Have the switch driver register its own MDIO bus. This allows for an
+mdio property in the device tree, with child nodes for phys, which
+can be referenced via phandles, etc.
 
-Lock debugging shows that there is a possible circular lock in the PPU
-work code. Switch the lock order of smi_mutex and ppu_mutex to fix this.
-
-Here's the full trace:
-
-    [    4.341325] ======================================================
-    [    4.347519] [ INFO: possible circular locking dependency detected ]
-    [    4.353800] 4.6.0 #4 Not tainted
-    [    4.357039] -------------------------------------------------------
-    [    4.363315] kworker/0:1/328 is trying to acquire lock:
-    [    4.368463]  (&ps->smi_mutex){+.+.+.}, at: [<8049c758>] mv88e6xxx_reg_read+0x30/0x54
-    [    4.376313]
-    [    4.376313] but task is already holding lock:
-    [    4.382160]  (&ps->ppu_mutex){+.+...}, at: [<8049cac0>] mv88e6xxx_ppu_reenable_work+0x28/0xd4
-    [    4.390772]
-    [    4.390772] which lock already depends on the new lock.
-    [    4.390772]
-    [    4.398963]
-    [    4.398963] the existing dependency chain (in reverse order) is:
-    [    4.406461]
-    [    4.406461] -> #1 (&ps->ppu_mutex){+.+...}:
-    [    4.410897]        [<806d86bc>] mutex_lock_nested+0x54/0x360
-    [    4.416606]        [<8049a800>] mv88e6xxx_ppu_access_get+0x28/0x100
-    [    4.422906]        [<8049b778>] mv88e6xxx_phy_read+0x90/0xdc
-    [    4.428599]        [<806a4534>] dsa_slave_phy_read+0x3c/0x40
-    [    4.434300]        [<804943ec>] mdiobus_read+0x68/0x80
-    [    4.439481]        [<804939d4>] get_phy_device+0x58/0x1d8
-    [    4.444914]        [<80493ed0>] mdiobus_scan+0x24/0xf4
-    [    4.450078]        [<8049409c>] __mdiobus_register+0xfc/0x1ac
-    [    4.455857]        [<806a40b0>] dsa_probe+0x860/0xca8
-    [    4.460934]        [<8043246c>] platform_drv_probe+0x5c/0xc0
-    [    4.466627]        [<804305a0>] driver_probe_device+0x118/0x450
-    [    4.472589]        [<80430b00>] __device_attach_driver+0xac/0x128
-    [    4.478724]        [<8042e350>] bus_for_each_drv+0x74/0xa8
-    [    4.484235]        [<804302d8>] __device_attach+0xc4/0x154
-    [    4.489755]        [<80430cec>] device_initial_probe+0x1c/0x20
-    [    4.495612]        [<8042f620>] bus_probe_device+0x98/0xa0
-    [    4.501123]        [<8042fbd0>] deferred_probe_work_func+0x4c/0xd4
-    [    4.507328]        [<8013a794>] process_one_work+0x1a8/0x604
-    [    4.513030]        [<8013ac54>] worker_thread+0x64/0x528
-    [    4.518367]        [<801409e8>] kthread+0xec/0x100
-    [    4.523201]        [<80108f30>] ret_from_fork+0x14/0x24
-    [    4.528462]
-    [    4.528462] -> #0 (&ps->smi_mutex){+.+.+.}:
-    [    4.532895]        [<8015ad5c>] lock_acquire+0xb4/0x1dc
-    [    4.538154]        [<806d86bc>] mutex_lock_nested+0x54/0x360
-    [    4.543856]        [<8049c758>] mv88e6xxx_reg_read+0x30/0x54
-    [    4.549549]        [<8049cad8>] mv88e6xxx_ppu_reenable_work+0x40/0xd4
-    [    4.556022]        [<8013a794>] process_one_work+0x1a8/0x604
-    [    4.561707]        [<8013ac54>] worker_thread+0x64/0x528
-    [    4.567053]        [<801409e8>] kthread+0xec/0x100
-    [    4.571878]        [<80108f30>] ret_from_fork+0x14/0x24
-    [    4.577139]
-    [    4.577139] other info that might help us debug this:
-    [    4.577139]
-    [    4.585159]  Possible unsafe locking scenario:
-    [    4.585159]
-    [    4.591093]        CPU0                    CPU1
-    [    4.595631]        ----                    ----
-    [    4.600169]   lock(&ps->ppu_mutex);
-    [    4.603693]                                lock(&ps->smi_mutex);
-    [    4.609742]                                lock(&ps->ppu_mutex);
-    [    4.615790]   lock(&ps->smi_mutex);
-    [    4.619314]
-    [    4.619314]  *** DEADLOCK ***
-    [    4.619314]
-    [    4.625256] 3 locks held by kworker/0:1/328:
-    [    4.629537]  #0:  ("events"){.+.+..}, at: [<8013a704>] process_one_work+0x118/0x604
-    [    4.637288]  #1:  ((&ps->ppu_work)){+.+...}, at: [<8013a704>] process_one_work+0x118/0x604
-    [    4.645653]  #2:  (&ps->ppu_mutex){+.+...}, at: [<8049cac0>] mv88e6xxx_ppu_reenable_work+0x28/0xd4
-    [    4.654714]
-    [    4.654714] stack backtrace:
-    [    4.659098] CPU: 0 PID: 328 Comm: kworker/0:1 Not tainted 4.6.0 #4
-    [    4.665286] Hardware name: Freescale Vybrid VF5xx/VF6xx (Device Tree)
-    [    4.671748] Workqueue: events mv88e6xxx_ppu_reenable_work
-    [    4.677174] Backtrace:
-    [    4.679674] [<8010d354>] (dump_backtrace) from [<8010d5a0>] (show_stack+0x20/0x24)
-    [    4.687252]  r6:80fb3c88 r5:80fb3c88 r4:80fb4728 r3:00000002
-    [    4.693003] [<8010d580>] (show_stack) from [<803b45e8>] (dump_stack+0x24/0x28)
-    [    4.700246] [<803b45c4>] (dump_stack) from [<80157398>] (print_circular_bug+0x208/0x32c)
-    [    4.708361] [<80157190>] (print_circular_bug) from [<8015a630>] (__lock_acquire+0x185c/0x1b80)
-    [    4.716982]  r10:9ec22a00 r9:00000060 r8:8164b6bc r7:00000040 r6:00000003 r5:8163a5b4
-    [    4.724905]  r4:00000003 r3:9ec22de8
-    [    4.728537] [<80158dd4>] (__lock_acquire) from [<8015ad5c>] (lock_acquire+0xb4/0x1dc)
-    [    4.736378]  r10:60000013 r9:00000000 r8:00000000 r7:00000000 r6:9e5e9c50 r5:80e618e0
-    [    4.744301]  r4:00000000
-    [    4.746879] [<8015aca8>] (lock_acquire) from [<806d86bc>] (mutex_lock_nested+0x54/0x360)
-    [    4.754976]  r10:9e5e9c1c r9:80e616c4 r8:9f685ea0 r7:0000001b r6:9ec22a00 r5:8163a5b4
-    [    4.762899]  r4:9e5e9c1c
-    [    4.765477] [<806d8668>] (mutex_lock_nested) from [<8049c758>] (mv88e6xxx_reg_read+0x30/0x54)
-    [    4.774008]  r10:80e60c5b r9:80e616c4 r8:9f685ea0 r7:0000001b r6:00000004 r5:9e5e9c10
-    [    4.781930]  r4:9e5e9c1c
-    [    4.784507] [<8049c728>] (mv88e6xxx_reg_read) from [<8049cad8>] (mv88e6xxx_ppu_reenable_work+0x40/0xd4)
-    [    4.793907]  r7:9ffd5400 r6:9e5e9c68 r5:9e5e9cb0 r4:9e5e9c10
-    [    4.799659] [<8049ca98>] (mv88e6xxx_ppu_reenable_work) from [<8013a794>] (process_one_work+0x1a8/0x604)
-    [    4.809059]  r9:80e616c4 r8:9f685ea0 r7:9ffd5400 r6:80e0a1c8 r5:9f5f2e80 r4:9e5e9cb0
-    [    4.816910] [<8013a5ec>] (process_one_work) from [<8013ac54>] (worker_thread+0x64/0x528)
-    [    4.825010]  r10:9f5f2e80 r9:00000008 r8:80e0dc80 r7:80e0a1fc r6:80e0a1c8 r5:9f5f2e98
-    [    4.832933]  r4:80e0a1c8
-    [    4.835510] [<8013abf0>] (worker_thread) from [<801409e8>] (kthread+0xec/0x100)
-    [    4.842827]  r10:00000000 r9:00000000 r8:00000000 r7:8013abf0 r6:9f5f2e80 r5:9ec15740
-    [    4.850749]  r4:00000000
-    [    4.853327] [<801408fc>] (kthread) from [<80108f30>] (ret_from_fork+0x14/0x24)
-    [    4.860557]  r7:00000000 r6:00000000 r5:801408fc r4:9ec15740
-
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+Signed-off-by: Andrew Lunn <andrew@lunn.ch>
 Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 89 ++++++++++++++++++++++++++++++++++++++++-----
+ drivers/net/dsa/mv88e6xxx.h |  6 +++
+ 2 files changed, 86 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index ba9dfc9421ef..c361036e7f9c 100644
+index b8e65e604f75..192b39cbdbcd 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -288,18 +288,18 @@ static int mv88e6xxx_ppu_enable(struct mv88e6xxx_priv_state *ps)
- 	int ret, err;
- 	unsigned long timeout;
+@@ -21,6 +21,7 @@
+ #include <linux/list.h>
+ #include <linux/mdio.h>
+ #include <linux/module.h>
++#include <linux/of_mdio.h>
+ #include <linux/netdevice.h>
+ #include <linux/gpio/consumer.h>
+ #include <linux/phy.h>
+@@ -3130,13 +3131,11 @@ static int mv88e6xxx_setup(struct dsa_switch *ds)
+ 	int i;
  
--	ret = mv88e6xxx_reg_read(ps, REG_GLOBAL, GLOBAL_CONTROL);
-+	ret = _mv88e6xxx_reg_read(ps, REG_GLOBAL, GLOBAL_CONTROL);
- 	if (ret < 0)
- 		return ret;
+ 	ps->ds = ds;
++	ds->slave_mii_bus = ps->mdio_bus;
  
--	err = mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL,
--				  ret | GLOBAL_CONTROL_PPU_ENABLE);
-+	err = _mv88e6xxx_reg_write(ps, REG_GLOBAL, GLOBAL_CONTROL,
-+				   ret | GLOBAL_CONTROL_PPU_ENABLE);
- 	if (err)
- 		return err;
+ 	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_EEPROM))
+ 		mutex_init(&ps->eeprom_mutex);
  
- 	timeout = jiffies + 1 * HZ;
- 	while (time_before(jiffies, timeout)) {
--		ret = mv88e6xxx_reg_read(ps, REG_GLOBAL, GLOBAL_STATUS);
-+		ret = _mv88e6xxx_reg_read(ps, REG_GLOBAL, GLOBAL_STATUS);
- 		if (ret < 0)
- 			return ret;
+-	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
+-		mv88e6xxx_ppu_state_init(ps);
+-
+ 	mutex_lock(&ps->smi_mutex);
  
-@@ -317,11 +317,16 @@ static void mv88e6xxx_ppu_reenable_work(struct work_struct *ugly)
- 	struct mv88e6xxx_priv_state *ps;
- 
- 	ps = container_of(ugly, struct mv88e6xxx_priv_state, ppu_work);
-+
-+	mutex_lock(&ps->smi_mutex);
-+
- 	if (mutex_trylock(&ps->ppu_mutex)) {
- 		if (mv88e6xxx_ppu_enable(ps) == 0)
- 			ps->ppu_disabled = 0;
- 		mutex_unlock(&ps->ppu_mutex);
- 	}
-+
-+	mutex_unlock(&ps->smi_mutex);
+ 	err = mv88e6xxx_switch_reset(ps);
+@@ -3192,9 +3191,9 @@ static int mv88e6xxx_port_to_mdio_addr(struct mv88e6xxx_priv_state *ps,
+ 	return -EINVAL;
  }
  
- static void mv88e6xxx_ppu_reenable_timer(unsigned long _ps)
+-static int mv88e6xxx_mdio_read(struct dsa_switch *ds, int port, int regnum)
++static int mv88e6xxx_mdio_read(struct mii_bus *bus, int port, int regnum)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct mv88e6xxx_priv_state *ps = bus->priv;
+ 	int addr = mv88e6xxx_port_to_mdio_addr(ps, port);
+ 	int ret;
+ 
+@@ -3214,10 +3213,10 @@ static int mv88e6xxx_mdio_read(struct dsa_switch *ds, int port, int regnum)
+ 	return ret;
+ }
+ 
+-static int mv88e6xxx_mdio_write(struct dsa_switch *ds, int port, int regnum,
++static int mv88e6xxx_mdio_write(struct mii_bus *bus, int port, int regnum,
+ 				u16 val)
+ {
+-	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
++	struct mv88e6xxx_priv_state *ps = bus->priv;
+ 	int addr = mv88e6xxx_port_to_mdio_addr(ps, port);
+ 	int ret;
+ 
+@@ -3237,6 +3236,66 @@ static int mv88e6xxx_mdio_write(struct dsa_switch *ds, int port, int regnum,
+ 	return ret;
+ }
+ 
++static int mv88e6xxx_mdio_register(struct mv88e6xxx_priv_state *ps,
++				   struct device_node *np)
++{
++	static int index;
++	struct mii_bus *bus;
++	int err;
++
++	if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_PPU))
++		mv88e6xxx_ppu_state_init(ps);
++
++	if (np)
++		ps->mdio_np = of_get_child_by_name(np, "mdio");
++
++	bus = devm_mdiobus_alloc(ps->dev);
++	if (!bus)
++		return -ENOMEM;
++
++	bus->priv = (void *)ps;
++	if (np) {
++		bus->name = np->full_name;
++		snprintf(bus->id, MII_BUS_ID_SIZE, "%s", np->full_name);
++	} else {
++		bus->name = "mv88e6xxx SMI";
++		snprintf(bus->id, MII_BUS_ID_SIZE, "mv88e6xxx-%d", index++);
++	}
++
++	bus->read = mv88e6xxx_mdio_read;
++	bus->write = mv88e6xxx_mdio_write;
++	bus->parent = ps->dev;
++
++	if (ps->mdio_np)
++		err = of_mdiobus_register(bus, ps->mdio_np);
++	else
++		err = mdiobus_register(bus);
++	if (err) {
++		dev_err(ps->dev, "Cannot register MDIO bus (%d)\n", err);
++		goto out;
++	}
++	ps->mdio_bus = bus;
++
++	return 0;
++
++out:
++	if (ps->mdio_np)
++		of_node_put(ps->mdio_np);
++
++	return err;
++}
++
++static void mv88e6xxx_mdio_unregister(struct mv88e6xxx_priv_state *ps)
++
++{
++	struct mii_bus *bus = ps->mdio_bus;
++
++	mdiobus_unregister(bus);
++
++	if (ps->mdio_np)
++		of_node_put(ps->mdio_np);
++}
++
+ #ifdef CONFIG_NET_DSA_HWMON
+ 
+ static int mv88e61xx_get_temp(struct dsa_switch *ds, int *temp)
+@@ -3549,6 +3608,7 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
+ 	struct mii_bus *bus;
+ 	const char *name;
+ 	int id, prod_num, rev;
++	int err;
+ 
+ 	bus = dsa_host_dev_to_mii_bus(host_dev);
+ 	if (!bus)
+@@ -3575,8 +3635,13 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
+ 	ps->bus = bus;
+ 	ps->sw_addr = sw_addr;
+ 	ps->info = info;
++	ps->dev = dsa_dev;
+ 	mutex_init(&ps->smi_mutex);
+ 
++	err = mv88e6xxx_mdio_register(ps, NULL);
++	if (err)
++		return NULL;
++
+ 	*priv = ps;
+ 
+ 	dev_info(&ps->bus->dev, "switch 0x%x probed: %s, revision %u\n",
+@@ -3590,8 +3655,6 @@ struct dsa_switch_driver mv88e6xxx_switch_driver = {
+ 	.probe			= mv88e6xxx_drv_probe,
+ 	.setup			= mv88e6xxx_setup,
+ 	.set_addr		= mv88e6xxx_set_addr,
+-	.phy_read		= mv88e6xxx_mdio_read,
+-	.phy_write		= mv88e6xxx_mdio_write,
+ 	.adjust_link		= mv88e6xxx_adjust_link,
+ 	.get_strings		= mv88e6xxx_get_strings,
+ 	.get_ethtool_stats	= mv88e6xxx_get_ethtool_stats,
+@@ -3677,6 +3740,12 @@ int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 	    !of_property_read_u32(np, "eeprom-length", &eeprom_len))
+ 		ps->eeprom_len = eeprom_len;
+ 
++	err = mv88e6xxx_mdio_register(ps, mdiodev->dev.of_node);
++	if (err)
++		return err;
++
++	ds->slave_mii_bus = ps->mdio_bus;
++
+ 	dev_set_drvdata(dev, ds);
+ 
+ 	dev_info(dev, "switch 0x%x probed: %s, revision %u\n",
+@@ -3691,6 +3760,8 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+ 	put_device(&ps->bus->dev);
++
++	mv88e6xxx_mdio_unregister(ps);
+ }
+ 
+ static const struct of_device_id mv88e6xxx_of_match[] = {
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index 36d0e1504de1..8221c3c7ec5a 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -600,6 +600,12 @@ struct mv88e6xxx_priv_state {
+ 
+ 	/* set to size of eeprom if supported by the switch */
+ 	int		eeprom_len;
++
++	/* Device node for the MDIO bus */
++	struct device_node *mdio_np;
++
++	/* And the MDIO bus itself */
++	struct mii_bus *mdio_bus;
+ };
+ 
+ enum stat_type {
 -- 
 2.8.1
