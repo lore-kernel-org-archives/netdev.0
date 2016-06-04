@@ -1,39 +1,36 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH v3 1/2] b43: Remove unused phy_a code
-Date: Sat, 4 Jun 2016 16:23:27 -0500
-Message-ID: <575346CF.9040003@lwfinger.net>
-References: <1465052053-26740-1-git-send-email-linux@roeck-us.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCHv2 net-next 00/17] New DSA bind, switches as devices
+Date: Sat, 04 Jun 2016 14:30:15 -0700 (PDT)
+Message-ID: <20160604.143015.1678571971851827824.davem@davemloft.net>
+References: <1465067829-1875-1-git-send-email-andrew@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	b43-dev@lists.infradead.org, netdev@vger.kernel.org, m@bues.ch
-To: Guenter Roeck <linux@roeck-us.net>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465052053-26740-1-git-send-email-linux@roeck-us.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vivien.didelot@savoirfairelinux.com, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, shawnguo@kernel.org
+To: andrew@lunn.ch
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:52172 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750753AbcFDVaT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 17:30:19 -0400
+In-Reply-To: <1465067829-1875-1-git-send-email-andrew@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/04/2016 09:54 AM, Guenter Roeck wrote:
-> gcc-6 reports the following error with -Werror=3Dunused-const-variabl=
-e.
->
-> drivers/net/wireless/broadcom/b43/phy_a.c:576:40: error:
-> 	'b43_phyops_a' defined but not used
->
-> Per Michael B=C3=BCsch: "All a-phy code is usused", so remove it all,
-> and move the remaining Type-G initialization code into phy_g.c.
->
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
-> Cc: Michael B=C3=BCsch <m@bues.ch>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
-> ---
-> v3: Do not rename b43_phy_inita()
-> v2: Remove phy_a.c; move left-over code into phy_g.c
->      Remove now unused data structure
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Sat,  4 Jun 2016 21:16:50 +0200
 
-These two patches have been tested on a BCM4318.
+> The interesting patches here are the last three. They implement a new
+> binding for DSA, which removes a few limitations of the current DSA
+> binding. In particular, it allows switches to be true Linux devices.
+> These devices can be on any type of bus, unlike the old DSA binding
+> which assumes MDIO. See the commit log for more details. The second to
+> last patch modifies an existing boards device tree to use the new
+> binding, giving a good example of how switches can be true MDIO
+> devices. The last patch documents the new binding.
+> 
+> Thanks go to Florian and Vivien for reviewing, testing and bug fixing
+> these patches.
 
-Larry
+Series applied, thanks Andrew.
