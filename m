@@ -1,34 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] fq_codel: fix NET_XMIT_CN behavior
-Date: Sun, 05 Jun 2016 13:55:23 -0700
-Message-ID: <1465160123.2968.52.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160604190301.GA8857@strlen.de>
-	 <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAM_iQpVORpFx_xx67gYT_3jXfWAuqkMmR03R9VJv1TrcqH4W8A@mail.gmail.com>
-	 <1465160087.2968.51.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Andreas Schwab <schwab@linux-m68k.org>
+Subject: Re: [PATCH 07/23] netfilter: x_tables: check standard target size too
+Date: Sun, 05 Jun 2016 23:11:36 +0200
+Message-ID: <8760tn5ojb.fsf@linux-m68k.org>
+References: <1461332394-3994-1-git-send-email-pablo@netfilter.org>
+	<1461332394-3994-8-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Stas Nichiporovich <stasn77@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Content-Type: text/plain
+Cc: netfilter-devel@vger.kernel.org, davem@davemloft.net,
+	netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33233 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751556AbcFEUzZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 16:55:25 -0400
-Received: by mail-pa0-f47.google.com with SMTP id ec8so23146945pac.0
-        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 13:55:25 -0700 (PDT)
-In-Reply-To: <1465160087.2968.51.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-out.m-online.net ([212.18.0.10]:47481 "EHLO
+	mail-out.m-online.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751727AbcFEVLl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 17:11:41 -0400
+In-Reply-To: <1461332394-3994-8-git-send-email-pablo@netfilter.org> (Pablo
+	Neira Ayuso's message of "Fri, 22 Apr 2016 15:39:38 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2016-06-05 at 13:54 -0700, Eric Dumazet wrote:
+Pablo Neira Ayuso <pablo@netfilter.org> writes:
 
-> BTW, we might need a similar fix in sch_fq.c
+> From: Florian Westphal <fw@strlen.de>
+>
+> We have targets and standard targets -- the latter carries a verdict.
+>
+> The ip/ip6tables validation functions will access t->verdict for the
+> standard targets to fetch the jump offset or verdict for chainloop
+> detection, but this happens before the targets get checked/validated.
+>
+> Thus we also need to check for verdict presence here, else t->verdict
+> can point right after a blob.
+>
+> Spotted with UBSAN while testing malformed blobs.
 
-I meant sch_sfq.c
+This breaks iptables on PPC32.
+
+# iptables -nL
+iptables v1.4.21: can't initialize iptables table `filter': Table does not exist (do you need to insmod?)
+Perhaps iptables or your kernel needs to be upgraded.
+# modprobe iptable-filter
+FATAL: Error inserting iptable_filter (/lib/modules/4.7.0-rc1/kernel/net/ipv4/netfilter/iptable_filter.ko): Invalid argument
+
+Andreas.
+
+-- 
+Andreas Schwab, schwab@linux-m68k.org
+GPG Key fingerprint = 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
