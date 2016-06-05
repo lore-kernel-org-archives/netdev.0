@@ -1,33 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH 1/1] ixgbe: replace rtnl_lock with rcu_read_lock
-Date: Sun, 05 Jun 2016 04:14:16 -0700
-Message-ID: <1465125256.2968.50.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1465118091-6233-1-git-send-email-zyjzyj2000@gmail.com>
-	 <1465118091-6233-2-git-send-email-zyjzyj2000@gmail.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [PATCH net] bnx2x: allow adding VLANs while interface is down
+Date: Sun, 5 Jun 2016 12:03:25 +0000
+Message-ID: <CO2PR11MB0088CFB314E7498E1CC38E71975B0@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1464960738-8541-1-git-send-email-mschmidt@redhat.com>
+ <CO2PR11MB00888A27698FB53DB4046D3C975A0@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
-To: zyjzyj2000@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Ariel Elior <Ariel.Elior@qlogic.com>
+To: Michal Schmidt <mschmidt@redhat.com>,
+	netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35506 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750785AbcFELOS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 07:14:18 -0400
-Received: by mail-pa0-f46.google.com with SMTP id xk1so26922839pac.2
-        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 04:14:18 -0700 (PDT)
-In-Reply-To: <1465118091-6233-2-git-send-email-zyjzyj2000@gmail.com>
+Received: from mail-bn1on0119.outbound.protection.outlook.com ([157.56.110.119]:27008
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750826AbcFEMD3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 08:03:29 -0400
+In-Reply-To: <CO2PR11MB00888A27698FB53DB4046D3C975A0@CO2PR11MB0088.namprd11.prod.outlook.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2016-06-05 at 17:14 +0800, zyjzyj2000@gmail.com wrote:
-> From: Zhu Yanjun <zyjzyj2000@gmail.com>
+> > Since implementing VLAN filtering in commit 05cc5a39ddb74
+> > ("bnx2x: add vlan filtering offload") bnx2x refuses to add a VLAN
+> > while the interface is down.
 > 
-> 
-> Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
-> ---
+> Hi Michal - thanks; I'll review this one on Sunday.
 
-You do not explain if this is a bug fix (targeting net tree) or simply
-an optimization in the slow path (targeting net-next tree) ?
+I'm a bit worried about the fact we're hiding actual issues -
+E.g., if for some [unexpected] reason a vlan configuration ramrod would
+fail, the only effect it will have is that we'll try [and probably fail] to
+change HW into any-vlan mode; We won't propagate the error back to
+caller.
 
-A changelog, even small, would be nice, even if the patch looks valid.
+Having written that, since we can't really avoid this in some scenarios
+ [I.e., if we accept the command while down and configure it later while
+up we can't do anything with an error if it occurs], I guess that's the pros
+out-weight the cons here.
+
+Thanks.
+
+Acked-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
