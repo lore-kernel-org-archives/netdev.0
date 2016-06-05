@@ -1,7 +1,7 @@
 From: John Crispin <john@phrozen.org>
-Subject: [PATCH 11/12] net: mediatek: only wake the queue if it is stopped
-Date: Sun,  5 Jun 2016 08:33:04 +0200
-Message-ID: <1465108385-38286-12-git-send-email-john@phrozen.org>
+Subject: [PATCH 10/12] net: mediatek: fix off by one in the TX ring allocation
+Date: Sun,  5 Jun 2016 08:33:03 +0200
+Message-ID: <1465108385-38286-11-git-send-email-john@phrozen.org>
 References: <1465108385-38286-1-git-send-email-john@phrozen.org>
 Cc: Felix Fietkau <nbd@nbd.name>, Sean Wang <keyhaede@gmail.com>,
 	netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
@@ -12,49 +12,36 @@ In-Reply-To: <1465108385-38286-1-git-send-email-john@phrozen.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The current code unconditionally wakes up the queue at the end of each
-tx_poll action. Change the code to only wake up the queues if any of
-them have actually been stopped before.
+The TX ring setup has an off by one error causing it to not utilise all
+descriptors. This has the side effect that we need to reset the next
+pointer at runtime to make it work. Fix the off by one and remove the
+code fixing the ring at runtime.
 
 Signed-off-by: John Crispin <john@phrozen.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |   17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 6daf48b..40d3cfd 100644
+index 24714ab..6daf48b 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -685,6 +685,20 @@ static inline int mtk_cal_txd_req(struct sk_buff *skb)
- 	return nfrags;
- }
+@@ -903,7 +903,6 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
+ 		}
+ 		mtk_tx_unmap(eth->dev, tx_buf);
  
-+static int mtk_queue_stopped(struct mtk_eth *eth)
-+{
-+	int i;
-+
-+	for (i = 0; i < MTK_MAC_COUNT; i++) {
-+		if (!eth->netdev[i])
-+			continue;
-+		if (netif_queue_stopped(eth->netdev[i]))
-+			return 1;
-+	}
-+
-+	return 0;
-+}
-+
- static void mtk_wake_queue(struct mtk_eth *eth)
- {
- 	int i;
-@@ -929,7 +943,8 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
- 	if (!total)
- 		return 0;
+-		ring->last_free->txd2 = next_cpu;
+ 		ring->last_free = desc;
+ 		atomic_inc(&ring->free_count);
  
--	if (atomic_read(&ring->free_count) > ring->thresh)
-+	if (mtk_queue_stopped(eth) &&
-+	    (atomic_read(&ring->free_count) > ring->thresh))
- 		mtk_wake_queue(eth);
+@@ -1011,7 +1010,7 @@ static int mtk_tx_alloc(struct mtk_eth *eth)
  
- 	return total;
+ 	atomic_set(&ring->free_count, MTK_DMA_SIZE - 2);
+ 	ring->next_free = &ring->dma[0];
+-	ring->last_free = &ring->dma[MTK_DMA_SIZE - 2];
++	ring->last_free = &ring->dma[MTK_DMA_SIZE - 1];
+ 	ring->thresh = MAX_SKB_FRAGS;
+ 
+ 	/* make sure that all changes to the dma ring are flushed before we
 -- 
 1.7.10.4
