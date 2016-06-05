@@ -1,7 +1,7 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH 07/12] net: mediatek: disable all interrupts during probe
-Date: Sun,  5 Jun 2016 08:33:00 +0200
-Message-ID: <1465108385-38286-8-git-send-email-john@phrozen.org>
+Subject: [PATCH 04/12] net: mediatek: invalid buffer lookup in mtk_tx_map()
+Date: Sun,  5 Jun 2016 08:32:57 +0200
+Message-ID: <1465108385-38286-5-git-send-email-john@phrozen.org>
 References: <1465108385-38286-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,9 +23,9 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The current code only disables those IRQs that we will later use. To
-ensure that we have a predefined state, we really want to disable all IRQs.
-Change the code to disable all IRQs to achieve this.
+The lookup of the tx_buffer in the error path inside mtk_tx_map() uses the
+wrong descriptor pointer. This looks like a copy & paste error. Change the
+code to use the correct pointer.
 
 Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
@@ -33,17 +33,17 @@ Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index bfac376..93af4e3 100644
+index 8d79bbf..4f22ee9 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1375,7 +1375,7 @@ static int __init mtk_hw_init(struct mtk_eth *eth)
+@@ -655,7 +655,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
  
- 	/* disable delay and normal interrupt */
- 	mtk_w32(eth, 0, MTK_QDMA_DELAY_INT);
--	mtk_irq_disable(eth, MTK_TX_DONE_INT | MTK_RX_DONE_INT);
-+	mtk_irq_disable(eth, ~0);
- 	mtk_w32(eth, RST_GL_PSE, MTK_RST_GL);
- 	mtk_w32(eth, 0, MTK_RST_GL);
+ err_dma:
+ 	do {
+-		tx_buf = mtk_desc_to_tx_buf(ring, txd);
++		tx_buf = mtk_desc_to_tx_buf(ring, itxd);
  
+ 		/* unmap dma */
+ 		mtk_tx_unmap(&dev->dev, tx_buf);
 -- 
 1.7.10.4
