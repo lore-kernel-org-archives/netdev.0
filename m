@@ -1,64 +1,63 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [PATCH net] bridge: Fix incorrect re-injection of STP
-	packets
-Date: Sun, 5 Jun 2016 10:40:04 +0300
-Message-ID: <20160605074004.GA4491@colbert.mtl.com>
-References: <1464946785-7651-1-git-send-email-idosch@mellanox.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 1/3] arm64: bpf: implement bpf_tail_call() helper
+Date: Sun, 05 Jun 2016 09:53:05 +0200
+Message-ID: <5753DA61.3000505@iogearbox.net>
+References: <201606050700.BLJUHUk2%fengguang.wu@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: yotamg@mellanox.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, jiri@mellanox.com,
-	nogahf@mellanox.com, eladr@mellanox.com, ogerlitz@mellanox.com
-To: <stephen@networkplumber.org>, <davem@davemloft.net>, <fw@strlen.de>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1464946785-7651-1-git-send-email-idosch@mellanox.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kbuild-all@01.org, "David S. Miller" <davem@davemloft.net>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Yang Shi <yang.shi@linaro.org>,
+	Alexei Starovoitov <ast@kernel.org>, netdev@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linux-kernel@vger.kernel.org
+To: kbuild test robot <lkp@intel.com>, Zi Shen Lim <zlim.lnx@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <201606050700.BLJUHUk2%fengguang.wu@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Florian,
-
-Fri, Jun 03, 2016 at 12:39:45PM IDT, idosch@mellanox.com wrote:
->Commit 8626c56c8279 ("bridge: fix potential use-after-free when hook
->returns QUEUE or STOLEN verdict") fixed incorrect usage of NF_HOOK's
->return value by consuming packets in okfn via br_pass_frame_up().
+On 06/05/2016 01:46 AM, kbuild test robot wrote:
+> Hi,
 >
->However, this function re-injects packets to the Rx path with skb->dev
->set to the bridge device, which breaks kernel's STP, as all STP packets
->appear to originate from the bridge device itself.
+> [auto build test ERROR on net-next/master]
 >
->Instead, if okfn was called for a packet, make bridge's rx_handler
->re-inject it to the Rx path by returning RX_HANDLER_PASS. This is
->consistent with previous behavior.
+> url:    https://github.com/0day-ci/linux/commits/Zi-Shen-Lim/arm64-bpf-implement-bpf_tail_call-helper/20160605-060435
+> config: arm64-defconfig (attached as .config)
+> compiler: aarch64-linux-gnu-gcc (Debian 5.3.1-8) 5.3.1 20160205
+> reproduce:
+>          wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
+>          chmod +x ~/bin/make.cross
+>          # save the attached .config to linux build tree
+>          make.cross ARCH=arm64
 >
->Cc: Florian Westphal <fw@strlen.de>
->Fixes: 8626c56c8279 ("bridge: fix potential use-after-free when hook returns QUEUE or STOLEN verdict")
->Reviewed-by: Jiri Pirko <jiri@mellanox.com>
->Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> All errors (new ones prefixed by >>):
+>
+>     In file included from arch/arm64/net/bpf_jit_comp.c:21:0:
+>     include/linux/bpf.h: In function 'bpf_prog_get':
+>>> include/linux/bpf.h:235:9: error: implicit declaration of function 'ERR_PTR' [-Werror=implicit-function-declaration]
+>       return ERR_PTR(-EOPNOTSUPP);
+>              ^
+>     include/linux/bpf.h:235:9: warning: return makes pointer from integer without a cast [-Wint-conversion]
+>     In file included from include/linux/rwsem.h:17:0,
+>                      from include/linux/mm_types.h:10,
+>                      from include/linux/sched.h:27,
+>                      from arch/arm64/include/asm/compat.h:25,
+>                      from arch/arm64/include/asm/stat.h:23,
+>                      from include/linux/stat.h:5,
+>                      from include/linux/compat.h:12,
+>                      from include/linux/filter.h:10,
+>                      from arch/arm64/net/bpf_jit_comp.c:22:
+>     include/linux/err.h: At top level:
+>>> include/linux/err.h:23:35: error: conflicting types for 'ERR_PTR'
+>      static inline void * __must_check ERR_PTR(long error)
+>                                        ^
+>     In file included from arch/arm64/net/bpf_jit_comp.c:21:0:
+>     include/linux/bpf.h:235:9: note: previous implicit declaration of 'ERR_PTR' was here
+>       return ERR_PTR(-EOPNOTSUPP);
+>              ^
+>     cc1: some warnings being treated as errors
 
-I read your commit more closely and also looked at nf_reinject() and I'm
-not sure how the fix should be carried out.
-
-After packet is processed by okfn it should return to the Rx path -
-by making bridge's rx_handler return RX_HANDLER_PASS - so that it 
-could be picked up by the packet handlers.
-
-However, if verdict is NF_QUEUE and packet is later re-injected via
-nf_reinject() then this can't happen, as rx_handler already returned
-RX_HANDLER_CONSUMED for the packet.
-
-So, my patch is wrong because it doesn't consume the packet in okfn, but
-yours consumes it in a way which breaks current packet handlers.
-
-Any suggestions regarding a fix? I have a feeling I'm missing something
-obvious.
-
-Thanks!
+Looks like including linux/bpf.h at the very beginning causes issues when bpf
+syscall is disabled. We should probably just include linux/err.h from bpf.h.
