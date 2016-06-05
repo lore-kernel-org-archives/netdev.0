@@ -1,19 +1,17 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [net-next PATCH 1/3] net sched: actions use tcf_lastuse_update for consistency
-Date: Sun,  5 Jun 2016 10:26:39 -0400
-Message-ID: <1465136801-19644-2-git-send-email-jhs@emojatatu.com>
-References: <1465136801-19644-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	daniel@iogearbox.net, Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net-next PATCH 1/1] net sched: indentation and other OCD stylistic fixes
+Date: Sun,  5 Jun 2016 10:41:32 -0400
+Message-ID: <1465137692-30959-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
+	xiyou.wangcong@gmail.com, Jamal Hadi Salim <jhs@mojatatu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:33809 "EHLO
-	mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750926AbcFEO0x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 10:26:53 -0400
-Received: by mail-it0-f68.google.com with SMTP id k76so3809637ita.1
-        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 07:26:53 -0700 (PDT)
-In-Reply-To: <1465136801-19644-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-io0-f193.google.com ([209.85.223.193]:35743 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951AbcFEOlo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 10:41:44 -0400
+Received: by mail-io0-f193.google.com with SMTP id k19so16260487ioi.2
+        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 07:41:44 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,164 +19,255 @@ From: Jamal Hadi Salim <jhs@mojatatu.com>
 
 Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- net/sched/act_connmark.c | 2 +-
- net/sched/act_csum.c     | 2 +-
- net/sched/act_ife.c      | 6 +++---
- net/sched/act_ipt.c      | 2 +-
- net/sched/act_mirred.c   | 1 -
- net/sched/act_nat.c      | 2 +-
- net/sched/act_pedit.c    | 2 +-
- net/sched/act_simple.c   | 2 +-
- net/sched/act_skbedit.c  | 2 +-
- net/sched/act_vlan.c     | 2 +-
- 10 files changed, 11 insertions(+), 12 deletions(-)
+ include/net/act_api.h          | 14 ++++++++------
+ include/net/tc_act/tc_defact.h |  4 ++--
+ include/uapi/linux/pkt_cls.h   |  6 +++---
+ net/sched/act_api.c            | 19 +++++++++++--------
+ net/sched/act_bpf.c            |  3 ++-
+ net/sched/act_gact.c           |  3 ++-
+ net/sched/act_ipt.c            |  6 ++++--
+ net/sched/act_vlan.c           |  3 ++-
+ net/sched/cls_api.c            | 11 +++++++----
+ 9 files changed, 41 insertions(+), 28 deletions(-)
 
-diff --git a/net/sched/act_connmark.c b/net/sched/act_connmark.c
-index 2ba700c..e0e6c68 100644
---- a/net/sched/act_connmark.c
-+++ b/net/sched/act_connmark.c
-@@ -44,7 +44,7 @@ static int tcf_connmark(struct sk_buff *skb, const struct tc_action *a,
- 	int proto;
+diff --git a/include/net/act_api.h b/include/net/act_api.h
+index 5453f52..b39f5aa 100644
+--- a/include/net/act_api.h
++++ b/include/net/act_api.h
+@@ -2,8 +2,8 @@
+ #define __NET_ACT_API_H
  
- 	spin_lock(&ca->tcf_lock);
--	ca->tcf_tm.lastuse = jiffies;
-+	tcf_lastuse_update(&ca->tcf_tm);
- 	bstats_update(&ca->tcf_bstats, skb);
+ /*
+- * Public police action API for classifiers/qdiscs
+- */
++ * Public action API for classifiers/qdiscs
++*/
  
- 	if (skb->protocol == htons(ETH_P_IP)) {
-diff --git a/net/sched/act_csum.c b/net/sched/act_csum.c
-index 28e934e..065f716 100644
---- a/net/sched/act_csum.c
-+++ b/net/sched/act_csum.c
-@@ -501,7 +501,7 @@ static int tcf_csum(struct sk_buff *skb,
- 	u32 update_flags;
+ #include <net/sch_generic.h>
+ #include <net/pkt_sched.h>
+@@ -107,7 +107,8 @@ struct tc_action_ops {
+ 	char    kind[IFNAMSIZ];
+ 	__u32   type; /* TBD to match kind */
+ 	struct module		*owner;
+-	int     (*act)(struct sk_buff *, const struct tc_action *, struct tcf_result *);
++	int     (*act)(struct sk_buff *, const struct tc_action *,
++		       struct tcf_result *);
+ 	int     (*dump)(struct sk_buff *, struct tc_action *, int, int);
+ 	void	(*cleanup)(struct tc_action *, int bind);
+ 	int     (*lookup)(struct net *, struct tc_action *, u32);
+@@ -125,8 +126,8 @@ struct tc_action_net {
+ };
  
- 	spin_lock(&p->tcf_lock);
--	p->tcf_tm.lastuse = jiffies;
-+	tcf_lastuse_update(&p->tcf_tm);
- 	bstats_update(&p->tcf_bstats, skb);
- 	action = p->tcf_action;
- 	update_flags = p->update_flags;
-diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
-index 658046d..6491576 100644
---- a/net/sched/act_ife.c
-+++ b/net/sched/act_ife.c
-@@ -623,7 +623,7 @@ static int tcf_ife_decode(struct sk_buff *skb, const struct tc_action *a,
+ static inline
+-int tc_action_net_init(struct tc_action_net *tn, const struct tc_action_ops *ops,
+-		       unsigned int mask)
++int tc_action_net_init(struct tc_action_net *tn,
++		       const struct tc_action_ops *ops, unsigned int mask)
+ {
+ 	int err = 0;
  
- 	spin_lock(&ife->tcf_lock);
- 	bstats_update(&ife->tcf_bstats, skb);
--	ife->tcf_tm.lastuse = jiffies;
-+	tcf_lastuse_update(&ife->tcf_tm);
- 	spin_unlock(&ife->tcf_lock);
+@@ -169,7 +170,8 @@ static inline int tcf_hash_release(struct tc_action *a, bool bind)
+ }
  
- 	ifehdrln = ntohs(ifehdrln);
-@@ -711,7 +711,7 @@ static int tcf_ife_encode(struct sk_buff *skb, const struct tc_action *a,
+ int tcf_register_action(struct tc_action_ops *a, struct pernet_operations *ops);
+-int tcf_unregister_action(struct tc_action_ops *a, struct pernet_operations *ops);
++int tcf_unregister_action(struct tc_action_ops *a,
++			  struct pernet_operations *ops);
+ int tcf_action_destroy(struct list_head *actions, int bind);
+ int tcf_action_exec(struct sk_buff *skb, const struct list_head *actions,
+ 		    struct tcf_result *res);
+diff --git a/include/net/tc_act/tc_defact.h b/include/net/tc_act/tc_defact.h
+index 9763dcb..ab9b5d6 100644
+--- a/include/net/tc_act/tc_defact.h
++++ b/include/net/tc_act/tc_defact.h
+@@ -5,8 +5,8 @@
  
- 	spin_lock(&ife->tcf_lock);
- 	bstats_update(&ife->tcf_bstats, skb);
--	ife->tcf_tm.lastuse = jiffies;
-+	tcf_lastuse_update(&ife->tcf_tm);
+ struct tcf_defact {
+ 	struct tcf_common	common;
+-	u32     		tcfd_datalen;
+-	void    		*tcfd_defdata;
++	u32		tcfd_datalen;
++	void		*tcfd_defdata;
+ };
+ #define to_defact(a) \
+ 	container_of(a->priv, struct tcf_defact, common)
+diff --git a/include/uapi/linux/pkt_cls.h b/include/uapi/linux/pkt_cls.h
+index 9ba1410..5702e93 100644
+--- a/include/uapi/linux/pkt_cls.h
++++ b/include/uapi/linux/pkt_cls.h
+@@ -115,8 +115,8 @@ struct tc_police {
+ 	__u32			mtu;
+ 	struct tc_ratespec	rate;
+ 	struct tc_ratespec	peakrate;
+-	int 			refcnt;
+-	int 			bindcnt;
++	int			refcnt;
++	int			bindcnt;
+ 	__u32			capab;
+ };
  
- 	if (!metalen) {		/* no metadata to send */
- 		/* abuse overlimits to count when we allow packet
-@@ -802,7 +802,7 @@ static int tcf_ife_act(struct sk_buff *skb, const struct tc_action *a,
- 	pr_info_ratelimited("unknown failure(policy neither de/encode\n");
- 	spin_lock(&ife->tcf_lock);
- 	bstats_update(&ife->tcf_bstats, skb);
--	ife->tcf_tm.lastuse = jiffies;
-+	tcf_lastuse_update(&ife->tcf_tm);
- 	ife->tcf_qstats.drops++;
- 	spin_unlock(&ife->tcf_lock);
+@@ -128,7 +128,7 @@ struct tcf_t {
+ };
  
+ struct tc_cnt {
+-	int                   refcnt; 
++	int                   refcnt;
+ 	int                   bindcnt;
+ };
+ 
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 5ebf6d6..719bc2e 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -504,8 +504,8 @@ nla_put_failure:
+ }
+ EXPORT_SYMBOL(tcf_action_dump_1);
+ 
+-int
+-tcf_action_dump(struct sk_buff *skb, struct list_head *actions, int bind, int ref)
++int tcf_action_dump(struct sk_buff *skb, struct list_head *actions,
++		    int bind, int ref)
+ {
+ 	struct tc_action *a;
+ 	int err = -EINVAL;
+@@ -688,9 +688,9 @@ errout:
+ 	return -1;
+ }
+ 
+-static int
+-tca_get_fill(struct sk_buff *skb, struct list_head *actions, u32 portid, u32 seq,
+-	     u16 flags, int event, int bind, int ref)
++static int tca_get_fill(struct sk_buff *skb, struct list_head *actions,
++			u32 portid, u32 seq, u16 flags, int event, int bind,
++			int ref)
+ {
+ 	struct tcamsg *t;
+ 	struct nlmsghdr *nlh;
+@@ -731,7 +731,8 @@ act_get_notify(struct net *net, u32 portid, struct nlmsghdr *n,
+ 	skb = alloc_skb(NLMSG_GOODSIZE, GFP_KERNEL);
+ 	if (!skb)
+ 		return -ENOBUFS;
+-	if (tca_get_fill(skb, actions, portid, n->nlmsg_seq, 0, event, 0, 0) <= 0) {
++	if (tca_get_fill(skb, actions, portid, n->nlmsg_seq, 0, event,
++			 0, 0) <= 0) {
+ 		kfree_skb(skb);
+ 		return -EINVAL;
+ 	}
+@@ -839,7 +840,8 @@ static int tca_action_flush(struct net *net, struct nlattr *nla,
+ 	if (a.ops == NULL) /*some idjot trying to flush unknown action */
+ 		goto err_out;
+ 
+-	nlh = nlmsg_put(skb, portid, n->nlmsg_seq, RTM_DELACTION, sizeof(*t), 0);
++	nlh = nlmsg_put(skb, portid, n->nlmsg_seq, RTM_DELACTION,
++			sizeof(*t), 0);
+ 	if (!nlh)
+ 		goto out_module_put;
+ 	t = nlmsg_data(nlh);
+@@ -1002,7 +1004,8 @@ static int tc_ctl_action(struct sk_buff *skb, struct nlmsghdr *n)
+ 	u32 portid = skb ? NETLINK_CB(skb).portid : 0;
+ 	int ret = 0, ovr = 0;
+ 
+-	if ((n->nlmsg_type != RTM_GETACTION) && !netlink_capable(skb, CAP_NET_ADMIN))
++	if ((n->nlmsg_type != RTM_GETACTION) &&
++	    !netlink_capable(skb, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+ 	ret = nlmsg_parse(n, sizeof(struct tcamsg), tca, TCA_ACT_MAX, NULL);
+diff --git a/net/sched/act_bpf.c b/net/sched/act_bpf.c
+index ae0e7cb..f7b6cf4 100644
+--- a/net/sched/act_bpf.c
++++ b/net/sched/act_bpf.c
+@@ -169,7 +169,8 @@ nla_put_failure:
+ static const struct nla_policy act_bpf_policy[TCA_ACT_BPF_MAX + 1] = {
+ 	[TCA_ACT_BPF_PARMS]	= { .len = sizeof(struct tc_act_bpf) },
+ 	[TCA_ACT_BPF_FD]	= { .type = NLA_U32 },
+-	[TCA_ACT_BPF_NAME]	= { .type = NLA_NUL_STRING, .len = ACT_BPF_NAME_LEN },
++	[TCA_ACT_BPF_NAME]	= { .type = NLA_NUL_STRING,
++				    .len = ACT_BPF_NAME_LEN },
+ 	[TCA_ACT_BPF_OPS_LEN]	= { .type = NLA_U16 },
+ 	[TCA_ACT_BPF_OPS]	= { .type = NLA_BINARY,
+ 				    .len = sizeof(struct sock_filter) * BPF_MAXINSNS },
+diff --git a/net/sched/act_gact.c b/net/sched/act_gact.c
+index 4c6e008..19058a7 100644
+--- a/net/sched/act_gact.c
++++ b/net/sched/act_gact.c
+@@ -162,7 +162,8 @@ static void tcf_gact_stats_update(struct tc_action *a, u64 bytes, u32 packets,
+ 	tm->lastuse = lastuse;
+ }
+ 
+-static int tcf_gact_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
++static int tcf_gact_dump(struct sk_buff *skb, struct tc_action *a,
++			 int bind, int ref)
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_gact *gact = a->priv;
 diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index 9f002ad..30e9087 100644
+index 3fcde44..e7c0f4d 100644
 --- a/net/sched/act_ipt.c
 +++ b/net/sched/act_ipt.c
-@@ -212,7 +212,7 @@ static int tcf_ipt(struct sk_buff *skb, const struct tc_action *a,
+@@ -34,7 +34,8 @@ static int ipt_net_id;
  
- 	spin_lock(&ipt->tcf_lock);
+ static int xt_net_id;
  
--	ipt->tcf_tm.lastuse = jiffies;
-+	tcf_lastuse_update(&ipt->tcf_tm);
- 	bstats_update(&ipt->tcf_bstats, skb);
+-static int ipt_init_target(struct xt_entry_target *t, char *table, unsigned int hook)
++static int ipt_init_target(struct xt_entry_target *t, char *table,
++			   unsigned int hook)
+ {
+ 	struct xt_tgchk_param par;
+ 	struct xt_target *target;
+@@ -250,7 +251,8 @@ static int tcf_ipt(struct sk_buff *skb, const struct tc_action *a,
  
- 	/* yes, we have to worry about both in and out dev
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 128942b..d3ac73e 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -157,7 +157,6 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
- 	u32 at;
+ }
  
- 	tcf_lastuse_update(&m->tcf_tm);
--
- 	bstats_cpu_update(this_cpu_ptr(m->common.cpu_bstats), skb);
- 
- 	rcu_read_lock();
-diff --git a/net/sched/act_nat.c b/net/sched/act_nat.c
-index c0a879f..9135aa8 100644
---- a/net/sched/act_nat.c
-+++ b/net/sched/act_nat.c
-@@ -103,7 +103,7 @@ static int tcf_nat(struct sk_buff *skb, const struct tc_action *a,
- 
- 	spin_lock(&p->tcf_lock);
- 
--	p->tcf_tm.lastuse = jiffies;
-+	tcf_lastuse_update(&p->tcf_tm);
- 	old_addr = p->old_addr;
- 	new_addr = p->new_addr;
- 	mask = p->mask;
-diff --git a/net/sched/act_pedit.c b/net/sched/act_pedit.c
-index c6e18f2..67a1726 100644
---- a/net/sched/act_pedit.c
-+++ b/net/sched/act_pedit.c
-@@ -121,7 +121,7 @@ static int tcf_pedit(struct sk_buff *skb, const struct tc_action *a,
- 
- 	spin_lock(&p->tcf_lock);
- 
--	p->tcf_tm.lastuse = jiffies;
-+	tcf_lastuse_update(&p->tcf_tm);
- 
- 	if (p->tcfp_nkeys > 0) {
- 		struct tc_pedit_key *tkey = p->tcfp_keys;
-diff --git a/net/sched/act_simple.c b/net/sched/act_simple.c
-index e42f8da..f95d1c5 100644
---- a/net/sched/act_simple.c
-+++ b/net/sched/act_simple.c
-@@ -35,7 +35,7 @@ static int tcf_simp(struct sk_buff *skb, const struct tc_action *a,
- 	struct tcf_defact *d = a->priv;
- 
- 	spin_lock(&d->tcf_lock);
--	d->tcf_tm.lastuse = jiffies;
-+	tcf_lastuse_update(&d->tcf_tm);
- 	bstats_update(&d->tcf_bstats, skb);
- 
- 	/* print policy string followed by _ then packet count
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-index e928802..82105c8 100644
---- a/net/sched/act_skbedit.c
-+++ b/net/sched/act_skbedit.c
-@@ -37,7 +37,7 @@ static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
- 	struct tcf_skbedit *d = a->priv;
- 
- 	spin_lock(&d->tcf_lock);
--	d->tcf_tm.lastuse = jiffies;
-+	tcf_lastuse_update(&d->tcf_tm);
- 	bstats_update(&d->tcf_bstats, skb);
- 
- 	if (d->flags & SKBEDIT_F_PRIORITY)
+-static int tcf_ipt_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
++static int tcf_ipt_dump(struct sk_buff *skb, struct tc_action *a, int bind,
++			int ref)
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_ipt *ipt = a->priv;
 diff --git a/net/sched/act_vlan.c b/net/sched/act_vlan.c
-index ac4adc8..da5120f 100644
+index f0a08a1..b075d50 100644
 --- a/net/sched/act_vlan.c
 +++ b/net/sched/act_vlan.c
-@@ -31,7 +31,7 @@ static int tcf_vlan(struct sk_buff *skb, const struct tc_action *a,
- 	int err;
+@@ -179,7 +179,8 @@ static int tcf_vlan_dump(struct sk_buff *skb, struct tc_action *a,
  
- 	spin_lock(&v->tcf_lock);
--	v->tcf_tm.lastuse = jiffies;
-+	tcf_lastuse_update(&v->tcf_tm);
- 	bstats_update(&v->tcf_bstats, skb);
- 	action = v->tcf_action;
+ 	if (v->tcfv_action == TCA_VLAN_ACT_PUSH &&
+ 	    (nla_put_u16(skb, TCA_VLAN_PUSH_VLAN_ID, v->tcfv_push_vid) ||
+-	     nla_put_be16(skb, TCA_VLAN_PUSH_VLAN_PROTOCOL, v->tcfv_push_proto)))
++	     nla_put_be16(skb, TCA_VLAN_PUSH_VLAN_PROTOCOL,
++			  v->tcfv_push_proto)))
+ 		goto nla_put_failure;
  
+ 	tcf_tm_dump(&t, &v->tcf_tm);
+diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+index a75864d..aafa6bce 100644
+--- a/net/sched/cls_api.c
++++ b/net/sched/cls_api.c
+@@ -351,8 +351,9 @@ errout:
+ 	return err;
+ }
+ 
+-static int tcf_fill_node(struct net *net, struct sk_buff *skb, struct tcf_proto *tp,
+-			 unsigned long fh, u32 portid, u32 seq, u16 flags, int event)
++static int tcf_fill_node(struct net *net, struct sk_buff *skb,
++			 struct tcf_proto *tp, unsigned long fh, u32 portid,
++			 u32 seq, u16 flags, int event)
+ {
+ 	struct tcmsg *tcm;
+ 	struct nlmsghdr  *nlh;
+@@ -474,9 +475,11 @@ static int tc_dump_tfilter(struct sk_buff *skb, struct netlink_callback *cb)
+ 		    TC_H_MIN(tcm->tcm_info) != tp->protocol)
+ 			continue;
+ 		if (t > s_t)
+-			memset(&cb->args[1], 0, sizeof(cb->args)-sizeof(cb->args[0]));
++			memset(&cb->args[1], 0,
++			       sizeof(cb->args)-sizeof(cb->args[0]));
+ 		if (cb->args[1] == 0) {
+-			if (tcf_fill_node(net, skb, tp, 0, NETLINK_CB(cb->skb).portid,
++			if (tcf_fill_node(net, skb, tp, 0,
++					  NETLINK_CB(cb->skb).portid,
+ 					  cb->nlh->nlmsg_seq, NLM_F_MULTI,
+ 					  RTM_NEWTFILTER) <= 0)
+ 				break;
 -- 
 1.9.1
