@@ -1,77 +1,44 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [RFC net-next 1/1] ethtool: Add support for set eeprom metadata.
-Date: Sun, 5 Jun 2016 13:29:03 +0000
-Message-ID: <CO2PR11MB00889DA9200C03CA3F940D21975B0@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1464269615-4937-1-git-send-email-sudarsana.kalluru@qlogic.com>
-	 <CO2PR11MB00887A3F4C8ABB71421B1651975B0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <1465130957.2847.195.camel@decadent.org.uk>
+From: Shuyu Wei <wsy2220@gmail.com>
+Subject: Re: [PATCH v2] ethernet:arc: Fix racing of TX ring buffer
+Date: Sun, 5 Jun 2016 22:02:59 +0800
+Message-ID: <20160605140259.GA19512@debian-dorm>
+References: <20160520003145.GA22420@electric-eye.fr.zoreil.com>
+ <20160521160910.GA14945@debian-dorm>
+ <5740E82F.8040903@gmx.de>
+ <20160522091742.GA8681@debian-dorm>
+ <57419853.9050701@gmx.de>
+ <20160522223659.GB5086@electric-eye.fr.zoreil.com>
+ <5743A9DD.8010202@gmx.de>
+ <5744EA24.7060806@gmx.de>
+ <20160528064348.GA19649@debian-dorm>
+ <574CB382.7030102@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
-To: Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	David Miller <davem@davemloft.net>, wxt@rock-chips.com,
+	heiko@sntech.de, linux-rockchip@lists.infradead.org,
+	netdev@vger.kernel.org, al.kochet@gmail.com
+To: Lino Sanfilippo <LinoSanfilippo@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0115.outbound.protection.outlook.com ([157.56.110.115]:62976
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750951AbcFEODH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jun 2016 10:03:07 -0400
-In-Reply-To: <1465130957.2847.195.camel@decadent.org.uk>
-Content-Language: en-US
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34689 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750951AbcFEODJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 10:03:09 -0400
+Received: by mail-pa0-f53.google.com with SMTP id bz2so27546025pad.1
+        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 07:03:09 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <574CB382.7030102@gmx.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+ID4gQ3VycmVudGx5IGV0aHRvb2wgaW1wbGVtZW50YXRpb24gZG9lcyBub3QgaGF2ZSBhIHdh
-eSB0byBwYXNzIHRoZQ0KPiA+ID4gbWV0YWRhdGEgZm9yIGVlcHJvbSByZWxhdGVkIG9wZXJhdGlv
-bnMuIFNvbWUgYWRhcHRlcnMgaGF2ZSBhDQo+ID4gPiBjb21wbGljYXRlZCBub24tdm9sYXRpbGUg
-bWVtb3J5IGltcGxlbWVudGF0aW9uIHRoYXQgcmVxdWlyZXMNCj4gPiA+IGFkZGl0aW9uYWwgaW5m
-b3JtYXRpb24g4oCTIHRoZXJlIGFyZSBkcml2ZXJzIFtibngyeCBhbmQgYm54dF0gdGhhdCB1c2UN
-Cj4gPiA+IHRoZSDigJhtYWdpY+KAmSBmaWVsZCBpbiB0aGUge0csU31FRVBST03CoMKgZm9yIHRo
-YXQgcHVycG9zZSwgYWx0aG91Z2ggdGhhdOKAmXMgbm90DQo+IGl0cyBpbnRlbmRlZCB1c2FnZS4N
-Cj4gPiA+DQo+ID4gPiBUaGlzIHBhdGNoIGFkZHMgYSBwcm92aXNpb24gdG8gcGFzcyB0aGUgZWVw
-cm9tIG1ldGFkYXRhIGZvcg0KPiA+ID4gJUVUSFRPT0xfU0VFUFJPTS8lRVRIVE9PTF9HRUVQUk9N
-IGltcGxlbWVudGF0aW9ucy4gVXNlcg0KPiBwcm92aWRlZA0KPiA+ID4gbWV0YWRhdGEgd2lsbCBi
-ZSBjYWNoZWQgYnkgdGhlIGRyaXZlciBhbmQgYXNzaWducyBhIG1hZ2ljIHZhbHVlDQo+ID4gPiB3
-aGljaCB0aGUgYXBwbGljYXRpb24gbmVlZCB0byB1c2UgZm9yIHRoZSBzdWJzZXF1ZW50IHtHLFN9
-RUVQUk9NDQo+IGNvbW1hbmQuDQo+ID4NCj4gPiBIaSBEYXZlLA0KPiA+DQo+ID4gVGhpcyBnb3Qg
-bm8gY29tbWVudHMgYXQgYWxsLg0KPiA+IFdoYXQgZG8geW91IHdhbnQgdXMgdG8gd2l0aCBpdCBu
-ZXh0PyBTaG91bGQgd2UgcmUtc2VuZCBpdCBhcyBhIHBhdGNoPw0KPiANCj4gSGVyZSdzIGEgY29t
-bWVudDogSSByZWFsbHkgZGlzbGlrZSB0aGlzLg0KOi0pDQoNCj4gLSBJdCBkb2Vzbid0IHNwZWNp
-ZnkgYW55IHNlbWFudGljcyBmb3IgdGhlICdtZXRhZGF0YScuIMKgVGhlIGNvbW1lbnQgaGludHMg
-dGhhdA0KPiB0aGV5IGFyZSBkcml2ZXItc3BlY2lmaWMgaWRlbnRpZmllcnMgZm9yIGRpZmZlcmVu
-dCBOVlJBTSBwYXJ0aXRpb25zLg0KTm90IGV4YWN0bHksIGJ1dCBjbG9zZSBbaW4gb3VyIHVzZSBj
-YXNlIHRoZXJlIGFyZSAyICdtZXRob2RzJyBvZiBhY2Nlc3NpbmcgdGhlDQpmbGFzaCAtIGVpdGhl
-ciBhY2NvcmRpbmcgdG8gYWRkcmVzc2VzIG9yIGxvZ2ljYWwgJ2ZpbGVzJ10uDQoNCj4gLSBJdCBk
-b2Vzbid0IHByb3ZpZGUgYSB3YXkgZm9yIHVzZXJsYW5kIHRvIGVudW1lcmF0ZSB0aGUgdmFsaWQg
-bWV0YWRhdGEgdmFsdWVzLg0KSSBhZ3JlZTsgSSBjYW4ndCB0aGluayBvZiBhbnkgZ29vZCB3YXkg
-b2YgZW51bWVyYXRpbmcgZGV2aWNlLXNwZWNpZmljIHZhbHVlcy4NCg0KPiAtIEl0J3Mgbm90IGNs
-ZWFyIHdoZXRoZXIgdGhlIGRyaXZlciBpcyBzdXBwb3NlZCB0byBtYWludGFpbiBqdXN0IG9uZQ0K
-PiBtZXRhZGF0YTptYWdpYyBtYXBwaW5nLCBvciBtb3JlIHRoYW4gdGhhdC4NClRoZW9yZXRpY2Fs
-bHksIEkgZ3Vlc3MgaXQgY291bGQgbWFpbnRhaW4gbXVsdGlwbGUsIGJ1dCB0aGF0IHdhc24ndCB0
-aGUgaW50ZW50aW9uLg0KT25lIHNob3VsZCBkby4NCg0KPiBJcyB0aGUgZXRodG9vbCBBUEkgcmVh
-bGx5IHRoZSByaWdodCBpbnRlcmZhY2UgZm9yIGFjY2VzcyB0byBmbGFzaD8gwqBUaGUgc2ZjIGRy
-aXZlcg0KPiBleHBvc2VzIGEgbGFyZ2UgbnVtYmVyIG9mIGZsYXNoIHBhcnRpdGlvbnMgdXNpbmcg
-TVREIGluc3RlYWQuIMKgVGhlc2UgY2FuIGJlDQo+IGVudW1lcmF0ZWQgKHRocm91Z2ggL3Byb2Mv
-bXRkIG9yIHN5c2ZzKSBhbmQgdGhleSBjYW4gYmUgcmVhZCBhbmQgd3JpdHRlbg0KPiB0aHJvdWdo
-IGJsb2NrIGRldmljZXMuDQoNCkkgdGhpbmsgdGhlIGJldHRlciBxdWVzdGlvbiB0aGVuIGlzICd3
-aGF0J3MgdGhlIHB1cnBvc2Ugb2YgdGhpcyBldGh0b29sIEFQSSBhdCBhbGwnPw0KSSBhZ3JlZSB3
-ZSBjYW4gZ28gYW5kIGRvIGV2ZXJ5dGhpbmcgdmlhIE1URDsgVGhlIHJlYXNvbiB3ZSd2ZSB0cmll
-ZCB1c2luZyB0aGlzDQpBUEkgd2FzIG1haW5seS4uLiBiZWNhdXNlIGl0IHdhcyB0aGVyZS4gQW5k
-IHRodXMgd2UgdGhvdWdodCB0aGlzIGlzIHRoZSBSSUdIVA0KbWV0aG9kIGZvciBwcm92aWRpbmcg
-dXNlcnMgdGhlIHdheSBvZiByZWFkaW5nIHRoZWlyIGZsYXNoLg0KDQpJIGRvbid0IHRoaW5rIHRo
-YXQgJ2hvdyBjb21wbGljYXRlZCBpdCBpcyB0byByZWFkIGZyb20gdGhlIGRldmljZSdzIGZsYXNo
-JyBzaG91bGQNCmJlIHRoZSBkZXRlcm1pbmluZyBmYWN0b3Igb24gd2hldGhlciB0byB1c2UgdGhp
-cyBBUEkgb3Igbm90IFtub3Igc2hvdWxkICdoYXZlDQp3ZSBtYW5hZ2VkIHRvIGdvIHVuZGVyIHRo
-ZSByYWRlcicgYXMgaXMgdGhlIGNhc2UgZm9yIGJueDJ4ICYgYm54dF0uIA0KDQpJIHRoaW5rIGl0
-J3MgYSBiaXQgb2RkIHRoYXQgb3VyIG5ldHdvcmsgZHJpdmVycyBhcmUgb2ZmZXJpbmcgYSBkZWRp
-Y2F0ZWQgQVBJDQpmb3IgcmVhZGluZyBmbGFzaCB3aGVuIHdlIGhhdmUgcGVyZmVjdGx5IHJlYXNv
-bmFibGUgaW5mcmFzdHJ1Y3R1cmUgW01URF0gdGhhdA0KYWxsb3dzIGV4cG9zaW5nIHRoZW0gYXMg
-dGhlaXIgb3duIGRldmljZXMuDQpCdXQgSSB0aGluayB3ZSBuZWVkIHRvIGVpdGhlciBkZWNpZGUg
-dGhhdCB0aGlzIEFQSSBpcyBkZXByZWNhdGVkLCBvciBlbHNlIGZpbmQNCnNvbWUgd2F5IHRvIGV4
-dGVuZCBpdCB0byBzdXBwb3J0IHNsaWdodGx5IG1vcmUgY29tcGxpY2F0ZWQgdXNlIGNhc2VzLg0K
-DQpbTm90IGNsYWltaW5nIHRoaXMgUkZDIGlzIHRoZSBiZXN0IHBvc3NpYmxlIGF2ZW51ZTsgQnV0
-IEkgdGhpbmsgd2UgZmlyc3QgbmVlZA0KdG8gbWFrZSBhIGRlY2lzaW9uIHdoZXRoZXIgaXQncyBl
-dmVuIHdvcnRoIHRoZSBlZmZvcnQgb2YgdHJ5aW5nIHRvIHJldmlzZSBwYXJ0cw0Kb2YgaXRdDQoN
-ClRoYW5rcywNCll1dmFsDQo=
+On Mon, May 30, 2016 at 11:41:22PM +0200, Lino Sanfilippo wrote:
+> 
+> Did you see the same issues with the patch before (the one that, as you wrote,
+> survived a whole night of stress testing)?
+> 
+> Lino
+
+Hi Lino,
+Sorry for my late reply. I retested the previous patch, it did have
+the same issue. However it seems that the possibility of stuck is lower
+(just my instinct, no evidence).
