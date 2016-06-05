@@ -1,46 +1,50 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] staging: r8188eu: Fix crash caused by commit 99aded71b52c
-Date: Sun,  5 Jun 2016 02:30:56 -0500
-Message-ID: <1465111856-4398-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Jacky Boen <aqiank@gmail.com>
-To: gregkh@linuxfoundation.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:32927 "EHLO
-	mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750729AbcFEHbF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 03:31:05 -0400
-Received: by mail-oi0-f67.google.com with SMTP id f12so5855284oig.0
-        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 00:31:03 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/12] net: mediatek: fix DQL support
+Date: Sun, 05 Jun 2016 00:32:42 -0700 (PDT)
+Message-ID: <20160605.003242.796780762112643713.davem@davemloft.net>
+References: <1465108385-38286-1-git-send-email-john@phrozen.org>
+	<1465108385-38286-2-git-send-email-john@phrozen.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nbd@nbd.name, keyhaede@gmail.com, netdev@vger.kernel.org,
+	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org
+To: john@phrozen.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465108385-38286-2-git-send-email-john@phrozen.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 99aded71b52cfdfa22721c42e42efdd13a02f0a6 ("Staging: drivers: rtl8188eu:
-use sizeof(*ptr) instead of sizeof(struct)") introduces an error in that the
-sizeof(struct hal_data_8188e) is 18712, while the sizeof(*adapt->HalData) is
-only 1! As a result, the system panics.
+From: John Crispin <john@phrozen.org>
+Date: Sun,  5 Jun 2016 08:32:54 +0200
 
-Fixes: 99aded71b52cfdfa22721c42e42efdd13a02f0a6 ("Staging: drivers: rtl8188eu: use sizeof(*ptr) instead of sizeof(struct)")
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: Jacky Boen <aqiank@gmail.com>
----
- drivers/staging/rtl8188eu/hal/usb_halinit.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+> @@ -625,7 +625,16 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+>  	WRITE_ONCE(itxd->txd3, (TX_DMA_SWC | TX_DMA_PLEN0(skb_headlen(skb)) |
+>  				(!nr_frags * TX_DMA_LS0)));
+>  
+> -	netdev_sent_queue(dev, skb->len);
+> +	/* we have a single DMA ring so BQL needs to be updated for all devices
+> +	 * sitting on this ring
+> +	 */
+> +	for (i = 0; i < MTK_MAC_COUNT; i++) {
+> +		if (!eth->netdev[i])
+> +			continue;
+> +
+> +		netdev_sent_queue(eth->netdev[i], skb->len);
+> +	}
+> +
+>  	skb_tx_timestamp(skb);
 
-diff --git a/drivers/staging/rtl8188eu/hal/usb_halinit.c b/drivers/staging/rtl8188eu/hal/usb_halinit.c
-index 87ea3b8..363f3a3 100644
---- a/drivers/staging/rtl8188eu/hal/usb_halinit.c
-+++ b/drivers/staging/rtl8188eu/hal/usb_halinit.c
-@@ -2072,7 +2072,8 @@ void rtl8188eu_set_hal_ops(struct adapter *adapt)
- {
- 	struct hal_ops	*halfunc = &adapt->HalFunc;
- 
--	adapt->HalData = kzalloc(sizeof(*adapt->HalData), GFP_KERNEL);
-+
-+	adapt->HalData = kzalloc(sizeof(struct hal_data_8188e), GFP_KERNEL);
- 	if (!adapt->HalData)
- 		DBG_88E("cant not alloc memory for HAL DATA\n");
- 
--- 
-2.1.4
+Sorry, this is very far from working.
+
+You cannot asynchronously touch the DQL state of another netdevice.
+
+You have to hold the TX lock of a queue while changing it's DQL state,
+otherwise you'll corrupt the state.
+
+This "loop over all possible devices on this DMA ring" is pretty
+expensive for the problem you're trying to solve.
+
+You'll have to find another way to fix this bug, which BTW I'm not too
+clear about.  The commit message doesn't explain sufficiently what the
+actual problem is.  "not deterministic" doesn't give enough details.
