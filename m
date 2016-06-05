@@ -1,43 +1,61 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [PATCH net] bnx2x: allow adding VLANs while interface is down
-Date: Sun, 5 Jun 2016 12:03:25 +0000
-Message-ID: <CO2PR11MB0088CFB314E7498E1CC38E71975B0@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1464960738-8541-1-git-send-email-mschmidt@redhat.com>
- <CO2PR11MB00888A27698FB53DB4046D3C975A0@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next] net, cls: allow for deleting all filters for
+ given parent
+Date: Sun, 5 Jun 2016 08:24:33 -0400
+Message-ID: <57541A01.909@mojatatu.com>
+References: <cd8455dfef0cccec5ef0a1ca2d1f678e9397d66e.1465056745.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Ariel Elior <Ariel.Elior@qlogic.com>
-To: Michal Schmidt <mschmidt@redhat.com>,
-	netdev <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
+	netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0119.outbound.protection.outlook.com ([157.56.110.119]:27008
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750826AbcFEMD3 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 08:03:29 -0400
-In-Reply-To: <CO2PR11MB00888A27698FB53DB4046D3C975A0@CO2PR11MB0088.namprd11.prod.outlook.com>
-Content-Language: en-US
+Received: from mail-io0-f196.google.com ([209.85.223.196]:36828 "EHLO
+	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751032AbcFEMYl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 08:24:41 -0400
+Received: by mail-io0-f196.google.com with SMTP id f128so4827382iof.3
+        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 05:24:41 -0700 (PDT)
+In-Reply-To: <cd8455dfef0cccec5ef0a1ca2d1f678e9397d66e.1465056745.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > Since implementing VLAN filtering in commit 05cc5a39ddb74
-> > ("bnx2x: add vlan filtering offload") bnx2x refuses to add a VLAN
-> > while the interface is down.
-> 
-> Hi Michal - thanks; I'll review this one on Sunday.
+On 16-06-04 12:24 PM, Daniel Borkmann wrote:
+> Add a possibility where the user can just specify the parent and
+> all filters under that parent are then being purged. Currently,
+> for example for scripting, one needs to specify pref/prio to have
+> a well-defined number for 'tc filter del' command for addressing
+> the previously created instance or additionally filter handle in
+> case of priorities being the same. Improve usage by allowing the
+> option for tc to specify the parent and removing the whole chain
+> for that given parent.
+>
+> Example usage after patch, no tc changes required:
+>
+>    # tc qdisc replace dev foo clsact
+>    # tc filter add dev foo egress bpf da obj ./bpf.o
+>    # tc filter add dev foo egress bpf da obj ./bpf.o
+>    # tc filter show dev foo egress
+>    filter protocol all pref 49151 bpf
+>    filter protocol all pref 49151 bpf handle 0x1 bpf.o:[classifier] direct-action
+>    filter protocol all pref 49152 bpf
+>    filter protocol all pref 49152 bpf handle 0x1 bpf.o:[classifier] direct-action
+>    # tc filter del dev foo egress
+>    # tc filter show dev foo egress
+>    #
+>
+> Previously, RTM_DELTFILTER requests with invalid prio of 0 were
+> rejected, so only netlink requests with RTM_NEWTFILTER and NLM_F_CREATE
+> flag were allowed where the kernel would auto-generate a pref/prio.
+> We can piggyback on that and use prio of 0 as a wildcard for
+> requests of RTM_DELTFILTER.
+>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
-I'm a bit worried about the fact we're hiding actual issues -
-E.g., if for some [unexpected] reason a vlan configuration ramrod would
-fail, the only effect it will have is that we'll try [and probably fail] to
-change HW into any-vlan mode; We won't propagate the error back to
-caller.
 
-Having written that, since we can't really avoid this in some scenarios
- [I.e., if we accept the command while down and configure it later while
-up we can't do anything with an error if it occurs], I guess that's the pros
-out-weight the cons here.
+Looks good to me.
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Thanks.
-
-Acked-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+cheers,
+jamal
