@@ -1,99 +1,106 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: get rid of spin_trylock() in net_tx_action()
-Date: Sat, 04 Jun 2016 20:02:28 -0700
-Message-ID: <1465095748.2968.45.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <tom@herbertland.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:35673 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751325AbcFEDCc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 4 Jun 2016 23:02:32 -0400
-Received: by mail-pa0-f66.google.com with SMTP id gp3so9000085pac.2
-        for <netdev@vger.kernel.org>; Sat, 04 Jun 2016 20:02:32 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Crispin <john@phrozen.org>
+Subject: [PATCH 03/12] net: mediatek: fix missing free of scratch memory
+Date: Sun,  5 Jun 2016 08:32:56 +0200
+Message-ID: <1465108385-38286-4-git-send-email-john@phrozen.org>
+References: <1465108385-38286-1-git-send-email-john@phrozen.org>
+Cc: Felix Fietkau <nbd@nbd.name>, Sean Wang <keyhaede@gmail.com>,
+	netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+	linux-kernel@vger.kernel.org, John Crispin <john@phrozen.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465108385-38286-1-git-send-email-john@phrozen.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Scratch memory gets allocated in mtk_init_fq_dma() but the corresponding
+code to free it is missing inside mtk_dma_free() causing a memory leak.
+With this patch applied, we can run ifconfig up/down several thousand
+times without any problems.
 
-Note: Tom Herbert posted almost same patch 3 months back, but for
-different reasons.
-
-The reasons we want to get rid of this spin_trylock() are :
-
-1) Under high qdisc pressure, the spin_trylock() has almost no
-chance to succeed.
-
-2) We loop multiple times in softirq handler, eventually reaching
-the max retry count (10), and we schedule ksoftirqd.
-
-Since we want to adhere more strictly to ksoftirqd being waked up in
-the future (https://lwn.net/Articles/687617/), better avoid spurious
-wakeups.
-
-3) calls to __netif_reschedule() dirty the cache line containing
-q->next_sched, slowing down the owner of qdisc.
-
-4) RT kernels can not use the spin_trylock() here.
-
-With help of busylock, we get the qdisc spinlock fast enough, and
-the trylock trick brings only performance penalty.
-
-Depending on qdisc setup, I observed a gain of up to 19 % in qdisc
-performance (1016600 pps instead of 853400 pps, using prio+tbf+fq_codel)
-
-("mpstat -I SCPU 1" is much happier now)
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Tom Herbert <tom@herbertland.com>
+Signed-off-by: John Crispin <john@phrozen.org>
 ---
- net/core/dev.c |   26 +++++++++-----------------
- 1 file changed, 9 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |   18 +++++++++++++-----
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h |    2 ++
+ 2 files changed, 15 insertions(+), 5 deletions(-)
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 904ff431d570e3cfc0e6255480bd25f3c9dec2f3..896b686d19669d61a04bdccf6b0b71c0537cca81 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2253,7 +2253,7 @@ int netif_get_num_default_rss_queues(void)
- }
- EXPORT_SYMBOL(netif_get_num_default_rss_queues);
- 
--static inline void __netif_reschedule(struct Qdisc *q)
-+static void __netif_reschedule(struct Qdisc *q)
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 6780886..8d79bbf 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -453,14 +453,14 @@ static inline void mtk_rx_get_desc(struct mtk_rx_dma *rxd,
+ /* the qdma core needs scratch memory to be setup */
+ static int mtk_init_fq_dma(struct mtk_eth *eth)
  {
- 	struct softnet_data *sd;
- 	unsigned long flags;
-@@ -3898,22 +3898,14 @@ static void net_tx_action(struct softirq_action *h)
- 			head = head->next_sched;
+-	dma_addr_t phy_ring_head, phy_ring_tail;
++	dma_addr_t phy_ring_tail;
+ 	int cnt = MTK_DMA_SIZE;
+ 	dma_addr_t dma_addr;
+ 	int i;
  
- 			root_lock = qdisc_lock(q);
--			if (spin_trylock(root_lock)) {
--				smp_mb__before_atomic();
--				clear_bit(__QDISC_STATE_SCHED,
--					  &q->state);
--				qdisc_run(q);
--				spin_unlock(root_lock);
--			} else {
--				if (!test_bit(__QDISC_STATE_DEACTIVATED,
--					      &q->state)) {
--					__netif_reschedule(q);
--				} else {
--					smp_mb__before_atomic();
--					clear_bit(__QDISC_STATE_SCHED,
--						  &q->state);
--				}
--			}
-+			spin_lock(root_lock);
-+			/* We need to make sure head->next_sched is read
-+			 * before clearing __QDISC_STATE_SCHED
-+			 */
-+			smp_mb__before_atomic();
-+			clear_bit(__QDISC_STATE_SCHED, &q->state);
-+			qdisc_run(q);
-+			spin_unlock(root_lock);
- 		}
+ 	eth->scratch_ring = dma_alloc_coherent(eth->dev,
+ 					       cnt * sizeof(struct mtk_tx_dma),
+-					       &phy_ring_head,
++					       &eth->phy_scratch_ring,
+ 					       GFP_ATOMIC | __GFP_ZERO);
+ 	if (unlikely(!eth->scratch_ring))
+ 		return -ENOMEM;
+@@ -477,19 +477,19 @@ static int mtk_init_fq_dma(struct mtk_eth *eth)
+ 		return -ENOMEM;
+ 
+ 	memset(eth->scratch_ring, 0x0, sizeof(struct mtk_tx_dma) * cnt);
+-	phy_ring_tail = phy_ring_head +
++	phy_ring_tail = eth->phy_scratch_ring +
+ 			(sizeof(struct mtk_tx_dma) * (cnt - 1));
+ 
+ 	for (i = 0; i < cnt; i++) {
+ 		eth->scratch_ring[i].txd1 =
+ 					(dma_addr + (i * MTK_QDMA_PAGE_SIZE));
+ 		if (i < cnt - 1)
+-			eth->scratch_ring[i].txd2 = (phy_ring_head +
++			eth->scratch_ring[i].txd2 = (eth->phy_scratch_ring +
+ 				((i + 1) * sizeof(struct mtk_tx_dma)));
+ 		eth->scratch_ring[i].txd3 = TX_DMA_SDL(MTK_QDMA_PAGE_SIZE);
  	}
- }
+ 
+-	mtk_w32(eth, phy_ring_head, MTK_QDMA_FQ_HEAD);
++	mtk_w32(eth, eth->phy_scratch_ring, MTK_QDMA_FQ_HEAD);
+ 	mtk_w32(eth, phy_ring_tail, MTK_QDMA_FQ_TAIL);
+ 	mtk_w32(eth, (cnt << 16) | cnt, MTK_QDMA_FQ_CNT);
+ 	mtk_w32(eth, MTK_QDMA_PAGE_SIZE << 16, MTK_QDMA_FQ_BLEN);
+@@ -1189,6 +1189,14 @@ static void mtk_dma_free(struct mtk_eth *eth)
+ 	for (i = 0; i < MTK_MAC_COUNT; i++)
+ 		if (eth->netdev[i])
+ 			netdev_reset_queue(eth->netdev[i]);
++	if (eth->scratch_ring) {
++		dma_free_coherent(eth->dev,
++				  MTK_DMA_SIZE * sizeof(struct mtk_tx_dma),
++				  eth->scratch_ring,
++				  eth->phy_scratch_ring);
++		eth->scratch_ring = NULL;
++		eth->phy_scratch_ring = 0;
++	}
+ 	mtk_tx_clean(eth);
+ 	mtk_rx_clean(eth);
+ 	kfree(eth->scratch_head);
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+index eed626d..57f7e8a 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+@@ -357,6 +357,7 @@ struct mtk_rx_ring {
+  * @rx_ring:		Pointer to the memore holding info about the RX ring
+  * @rx_napi:		The NAPI struct
+  * @scratch_ring:	Newer SoCs need memory for a second HW managed TX ring
++ * @phy_scratch_ring:	physical address of scratch_ring
+  * @scratch_head:	The scratch memory that scratch_ring points to.
+  * @clk_ethif:		The ethif clock
+  * @clk_esw:		The switch clock
+@@ -384,6 +385,7 @@ struct mtk_eth {
+ 	struct mtk_rx_ring		rx_ring;
+ 	struct napi_struct		rx_napi;
+ 	struct mtk_tx_dma		*scratch_ring;
++	dma_addr_t			phy_scratch_ring;
+ 	void				*scratch_head;
+ 	struct clk			*clk_ethif;
+ 	struct clk			*clk_esw;
+-- 
+1.7.10.4
