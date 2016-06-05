@@ -1,41 +1,86 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] net, cls: allow for deleting all filters for
- given parent
-Date: Sun, 05 Jun 2016 19:47:19 +0200
-Message-ID: <575465A7.4020308@iogearbox.net>
-References: <cd8455dfef0cccec5ef0a1ca2d1f678e9397d66e.1465056745.git.daniel@iogearbox.net> <42e1cc6f-ad10-33b7-6722-1416e1b92422@cogentembedded.com>
+From: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Subject: RE: [RFC net-next 1/1] ethtool: Add support for set eeprom metadata.
+Date: Sun, 5 Jun 2016 17:44:31 +0000
+Message-ID: <CO2PR11MB0088C6D5B98C6C8E2D173A99975B0@CO2PR11MB0088.namprd11.prod.outlook.com>
+References: <1464269615-4937-1-git-send-email-sudarsana.kalluru@qlogic.com>
+		 <CO2PR11MB00887A3F4C8ABB71421B1651975B0@CO2PR11MB0088.namprd11.prod.outlook.com>
+	 <1465130957.2847.195.camel@decadent.org.uk>
+	 <CO2PR11MB00889DA9200C03CA3F940D21975B0@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <1465144596.2847.241.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
-	jhs@mojatatu.com, netdev@vger.kernel.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	davem@davemloft.net
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev <netdev@vger.kernel.org>,
+	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
+To: Ben Hutchings <ben@decadent.org.uk>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:40307 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751348AbcFERrZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 13:47:25 -0400
-In-Reply-To: <42e1cc6f-ad10-33b7-6722-1416e1b92422@cogentembedded.com>
+Received: from mail-by2on0110.outbound.protection.outlook.com ([207.46.100.110]:31328
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751654AbcFESSU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jun 2016 14:18:20 -0400
+In-Reply-To: <1465144596.2847.241.camel@decadent.org.uk>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/05/2016 02:53 PM, Sergei Shtylyov wrote:
-> On 6/4/2016 7:24 PM, Daniel Borkmann wrote:
-[...]
->
->     Need a comment here, something like /* FALL THRU */.
-
-Hmm, not really, I think it's obvious enough.
-
->> +        default:
->>              return -ENOENT;
->> -        prio = TC_H_MAKE(0x80000000U, 0U);
->> +        }
->>      }
->>
->>      /* Find head of filter chain. */
-> [...]
->
-> MBR, Sergei
->
+PiA+ID4gPiA+IEN1cnJlbnRseSBldGh0b29sIGltcGxlbWVudGF0aW9uIGRvZXMgbm90IGhhdmUg
+YSB3YXkgdG8gcGFzcyB0aGUNCj4gPiA+ID4gPiBtZXRhZGF0YSBmb3IgZWVwcm9tIHJlbGF0ZWQg
+b3BlcmF0aW9ucy4gU29tZSBhZGFwdGVycyBoYXZlIGENCj4gPiA+ID4gPiBjb21wbGljYXRlZCBu
+b24tdm9sYXRpbGUgbWVtb3J5IGltcGxlbWVudGF0aW9uIHRoYXQgcmVxdWlyZXMNCj4gPiA+ID4g
+PiBhZGRpdGlvbmFsIGluZm9ybWF0aW9uIOKAkyB0aGVyZSBhcmUgZHJpdmVycyBbYm54MnggYW5k
+IGJueHRdIHRoYXQNCj4gPiA+ID4gPiB1c2UgdGhlIOKAmG1hZ2lj4oCZIGZpZWxkIGluIHRoZSB7
+RyxTfUVFUFJPTcKgwqBmb3IgdGhhdCBwdXJwb3NlLA0KPiA+ID4gPiA+IGFsdGhvdWdoIHRoYXTi
+gJlzIG5vdA0KPiA+ID4gaXRzIGludGVuZGVkIHVzYWdlLg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4g
+VGhpcyBwYXRjaCBhZGRzIGEgcHJvdmlzaW9uIHRvIHBhc3MgdGhlIGVlcHJvbSBtZXRhZGF0YSBm
+b3INCj4gPiA+ID4gPiAlRVRIVE9PTF9TRUVQUk9NLyVFVEhUT09MX0dFRVBST00gaW1wbGVtZW50
+YXRpb25zLiBVc2VyDQo+ID4gPiBwcm92aWRlZA0KPiA+ID4gPiA+IG1ldGFkYXRhIHdpbGwgYmUg
+Y2FjaGVkIGJ5IHRoZSBkcml2ZXIgYW5kIGFzc2lnbnMgYSBtYWdpYyB2YWx1ZQ0KPiA+ID4gPiA+
+IHdoaWNoIHRoZSBhcHBsaWNhdGlvbiBuZWVkIHRvIHVzZSBmb3IgdGhlIHN1YnNlcXVlbnQge0cs
+U31FRVBST00NCj4gPiA+IGNvbW1hbmQuDQo+ID4gPiA+DQo+ID4gPiA+IEhpIERhdmUsDQo+ID4g
+PiA+DQo+ID4gPiA+IFRoaXMgZ290IG5vIGNvbW1lbnRzIGF0IGFsbC4NCj4gPiA+ID4gV2hhdCBk
+byB5b3Ugd2FudCB1cyB0byB3aXRoIGl0IG5leHQ/IFNob3VsZCB3ZSByZS1zZW5kIGl0IGFzIGEg
+cGF0Y2g/DQo+ID4gPg0KPiA+ID4gSGVyZSdzIGEgY29tbWVudDogSSByZWFsbHkgZGlzbGlrZSB0
+aGlzLg0KPiA+IDotKQ0KPiA+DQo+ID4gPiAtIEl0IGRvZXNuJ3Qgc3BlY2lmeSBhbnkgc2VtYW50
+aWNzIGZvciB0aGUgJ21ldGFkYXRhJy4gwqBUaGUgY29tbWVudA0KPiA+ID4gaGludHMgdGhhdCB0
+aGV5IGFyZSBkcml2ZXItc3BlY2lmaWMgaWRlbnRpZmllcnMgZm9yIGRpZmZlcmVudCBOVlJBTSBw
+YXJ0aXRpb25zLg0KPiA+IE5vdCBleGFjdGx5LCBidXQgY2xvc2UgW2luIG91ciB1c2UgY2FzZSB0
+aGVyZSBhcmUgMiAnbWV0aG9kcycgb2YNCj4gPiBhY2Nlc3NpbmcgdGhlIGZsYXNoIC0gZWl0aGVy
+IGFjY29yZGluZyB0byBhZGRyZXNzZXMgb3IgbG9naWNhbCAnZmlsZXMnXS4NCj4gPg0KPiA+ID4g
+LSBJdCBkb2Vzbid0IHByb3ZpZGUgYSB3YXkgZm9yIHVzZXJsYW5kIHRvIGVudW1lcmF0ZSB0aGUg
+dmFsaWQgbWV0YWRhdGENCj4gdmFsdWVzLg0KPiA+IEkgYWdyZWU7IEkgY2FuJ3QgdGhpbmsgb2Yg
+YW55IGdvb2Qgd2F5IG9mIGVudW1lcmF0aW5nIGRldmljZS1zcGVjaWZpYyB2YWx1ZXMuDQo+ID4N
+Cj4gPiA+IC0gSXQncyBub3QgY2xlYXIgd2hldGhlciB0aGUgZHJpdmVyIGlzIHN1cHBvc2VkIHRv
+IG1haW50YWluIGp1c3Qgb25lDQo+ID4gPiBtZXRhZGF0YTptYWdpYyBtYXBwaW5nLCBvciBtb3Jl
+IHRoYW4gdGhhdC4NCj4gPiBUaGVvcmV0aWNhbGx5LCBJIGd1ZXNzIGl0IGNvdWxkIG1haW50YWlu
+IG11bHRpcGxlLCBidXQgdGhhdCB3YXNuJ3QgdGhlIGludGVudGlvbi4NCj4gPiBPbmUgc2hvdWxk
+IGRvLg0KPiA+DQo+ID4gPiBJcyB0aGUgZXRodG9vbCBBUEkgcmVhbGx5IHRoZSByaWdodCBpbnRl
+cmZhY2UgZm9yIGFjY2VzcyB0byBmbGFzaD8NCj4gPiA+IFRoZSBzZmMgZHJpdmVyIGV4cG9zZXMg
+YSBsYXJnZSBudW1iZXIgb2YgZmxhc2ggcGFydGl0aW9ucyB1c2luZyBNVEQNCj4gPiA+IGluc3Rl
+YWQuIMKgVGhlc2UgY2FuIGJlIGVudW1lcmF0ZWQgKHRocm91Z2ggL3Byb2MvbXRkIG9yIHN5c2Zz
+KSBhbmQNCj4gPiA+IHRoZXkgY2FuIGJlIHJlYWQgYW5kIHdyaXR0ZW4gdGhyb3VnaCBibG9jayBk
+ZXZpY2VzLg0KPiA+DQo+ID4gSSB0aGluayB0aGUgYmV0dGVyIHF1ZXN0aW9uIHRoZW4gaXMgJ3do
+YXQncyB0aGUgcHVycG9zZSBvZiB0aGlzIGV0aHRvb2wgQVBJIGF0DQo+IGFsbCc/DQo+IA0KPiBJ
+IHRoaW5rIGl0J3MgYSBiaXQgb2YgYW4gYWNjaWRlbnQgLSBNVEQgd2FzIGRlc2lnbmVkIGZvciBm
+bGFzaCBpbiBlbWJlZGRlZA0KPiBzeXN0ZW1zLCBhbmQgaXQgdXNlZCB0byBoYXZlIGEgc3RhdGlj
+IGxpbWl0IG9uIHRoZSBudW1iZXIgb2YgcGFydGl0aW9ucy4gwqBUaGUNCj4gZXRodG9vbCBBUEkg
+d2FzIHRoZW4gcmF0aGVyIGJldHRlciBzdWl0ZWQgdG8gcGx1Zy1pbiBjYXJkcyB0aGF0IHdvdWxk
+IGhhdmUgYQ0KPiBzaW5nbGUgc21hbGwgRUVQUk9NLg0KPiANCj4gPiBJIGFncmVlIHdlIGNhbiBn
+byBhbmQgZG8gZXZlcnl0aGluZyB2aWEgTVREOyBUaGUgcmVhc29uIHdlJ3ZlIHRyaWVkDQo+ID4g
+dXNpbmcgdGhpcyBBUEkgd2FzIG1haW5seS4uLiBiZWNhdXNlIGl0IHdhcyB0aGVyZS4gQW5kIHRo
+dXMgd2UgdGhvdWdodA0KPiA+IHRoaXMgaXMgdGhlIFJJR0hUIG1ldGhvZCBmb3IgcHJvdmlkaW5n
+IHVzZXJzIHRoZSB3YXkgb2YgcmVhZGluZyB0aGVpciBmbGFzaC4NCj4gWy4uLl0NCj4gDQo+IEkg
+dGhpbmsgdGhhdCBNVEQgbWFrZXMgbW9yZSBzZW5zZSBmb3IgZmxhc2ggcGFydGl0aW9ucywgZXNw
+ZWNpYWxseSB3aGVuIHRoZXJlDQo+IGFyZSBzZXZlcmFsIG9mIHRoZW0uIMKgSSBhbHJlYWR5IGRp
+ZCB0aGUgd29yayBvZiByZW1vdmluZyB0aGUgc3RhdGljIGxpbWl0IG9uIHRoZQ0KPiBudW1iZXIg
+b2YgcGFydGl0aW9ucywgYW5kIGNvbnZpbmNpbmcgZGlzdHJpYnV0aW9ucyB0byBlbmFibGUgdGhl
+IE1URCBjb3JlDQo+IGRyaXZlcnMuIMKgKFRoYXQgc2FpZCwgeW91IHdpbGwgc3RpbGwgZmluZCBz
+b21lIHVzZXJzIHdobyBuZWVkIHRvIGNoYW5nZSB0aGVpcg0KPiBjdXN0b20ga2VybmVsDQo+IGNv
+bmZpZ3VyYXRpb25zLikNCg0KTm90aWNlIHdlIGRvbid0IHJlYWxseSBoYXZlIG11bHRpcGxlIHBh
+cnRpdGlvbnMuIFdlIGhhdmUgYSBzaW5nbGUgcGFydGl0aW9uDQpwc2V1ZG8gZmlsZS1zeXN0ZW0s
+IGJ1dCBwcm9ibGVtIGlzIGRldmljZSBoYXMgbm8gZGlyZWN0IGFjY2VzcyB0byB0aGUgY29udHJv
+bGxlcjsNCkV2ZXJ5IGFjY2VzcyBoYXMgdG8gZ28gdmlhIHRoZSBtYW5hZ2VtZW50IGZpcm13YXJl
+LiANCkFuZCBpbiBvcmRlciB0byB3b3JrIHdpdGggaXQgd2UgbmVlZCBzb21lIGFkZGl0aW9uYWwg
+bWV0YWRhdGEuDQpJIHRoaW5rIE1URCB3b3VsZCBldmVudHVhbGx5IGxvb2sganVzdCBhcyAnbWFn
+aWNhbCcuDQoNCg0K
