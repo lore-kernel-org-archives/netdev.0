@@ -1,7 +1,7 @@
 From: John Crispin <john@phrozen.org>
-Subject: [PATCH 12/12] net: mediatek: remove superfluous queue wake up call
-Date: Sun,  5 Jun 2016 08:33:05 +0200
-Message-ID: <1465108385-38286-13-git-send-email-john@phrozen.org>
+Subject: [PATCH 11/12] net: mediatek: only wake the queue if it is stopped
+Date: Sun,  5 Jun 2016 08:33:04 +0200
+Message-ID: <1465108385-38286-12-git-send-email-john@phrozen.org>
 References: <1465108385-38286-1-git-send-email-john@phrozen.org>
 Cc: Felix Fietkau <nbd@nbd.name>, Sean Wang <keyhaede@gmail.com>,
 	netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
@@ -12,37 +12,49 @@ In-Reply-To: <1465108385-38286-1-git-send-email-john@phrozen.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The code checks if the queue should be stopped because we are below the
-threshold of free descriptors only to check if it should be started again.
-If we do end up in a state where we are at the threshold limit, it makes
-more sense to just stop the queue and wait for the next IRQ to trigger the
-TX housekeeping again. There is no rush in enqueuing the next packet, it
-needs to wait for all the others in the queue to be dispatched first
-anyway.
+The current code unconditionally wakes up the queue at the end of each
+tx_poll action. Change the code to only wake up the queues if any of
+them have actually been stopped before.
 
 Signed-off-by: John Crispin <john@phrozen.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |   17 ++++++++++++++++-
+ 1 file changed, 16 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 40d3cfd..ebfca7d 100644
+index 6daf48b..40d3cfd 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -764,12 +764,9 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (mtk_tx_map(skb, dev, tx_num, ring, gso) < 0)
- 		goto drop;
+@@ -685,6 +685,20 @@ static inline int mtk_cal_txd_req(struct sk_buff *skb)
+ 	return nfrags;
+ }
  
--	if (unlikely(atomic_read(&ring->free_count) <= ring->thresh)) {
-+	if (unlikely(atomic_read(&ring->free_count) <= ring->thresh))
- 		mtk_stop_queue(eth);
--		if (unlikely(atomic_read(&ring->free_count) >
--			     ring->thresh))
--			mtk_wake_queue(eth);
--	}
++static int mtk_queue_stopped(struct mtk_eth *eth)
++{
++	int i;
 +
- 	spin_unlock_irqrestore(&eth->page_lock, flags);
++	for (i = 0; i < MTK_MAC_COUNT; i++) {
++		if (!eth->netdev[i])
++			continue;
++		if (netif_queue_stopped(eth->netdev[i]))
++			return 1;
++	}
++
++	return 0;
++}
++
+ static void mtk_wake_queue(struct mtk_eth *eth)
+ {
+ 	int i;
+@@ -929,7 +943,8 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
+ 	if (!total)
+ 		return 0;
  
- 	return NETDEV_TX_OK;
+-	if (atomic_read(&ring->free_count) > ring->thresh)
++	if (mtk_queue_stopped(eth) &&
++	    (atomic_read(&ring->free_count) > ring->thresh))
+ 		mtk_wake_queue(eth);
+ 
+ 	return total;
 -- 
 1.7.10.4
