@@ -1,8 +1,7 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH 05/12] net: mediatek: dropped rx packets are not being counted
- properly
-Date: Sun,  5 Jun 2016 08:32:58 +0200
-Message-ID: <1465108385-38286-6-git-send-email-john@phrozen.org>
+Subject: [PATCH 07/12] net: mediatek: disable all interrupts during probe
+Date: Sun,  5 Jun 2016 08:33:00 +0200
+Message-ID: <1465108385-38286-8-git-send-email-john@phrozen.org>
 References: <1465108385-38286-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,34 +23,27 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-There are two places inside mtk_poll_rx where rx_dropped is not being
-incremented properly. Fix this by adding the missing code to increment
-the counter.
+The current code only disables those IRQs that we will later use. To
+ensure that we have a predefined state, we really want to disable all IRQs.
+Change the code to disable all IRQs to achieve this.
 
 Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 4f22ee9..0610262 100644
+index bfac376..93af4e3 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -810,6 +810,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
- 					  DMA_FROM_DEVICE);
- 		if (unlikely(dma_mapping_error(&netdev->dev, dma_addr))) {
- 			skb_free_frag(new_data);
-+			netdev->stats.rx_dropped++;
- 			goto release_desc;
- 		}
+@@ -1375,7 +1375,7 @@ static int __init mtk_hw_init(struct mtk_eth *eth)
  
-@@ -817,6 +818,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
- 		skb = build_skb(data, ring->frag_size);
- 		if (unlikely(!skb)) {
- 			put_page(virt_to_head_page(new_data));
-+			netdev->stats.rx_dropped++;
- 			goto release_desc;
- 		}
- 		skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
+ 	/* disable delay and normal interrupt */
+ 	mtk_w32(eth, 0, MTK_QDMA_DELAY_INT);
+-	mtk_irq_disable(eth, MTK_TX_DONE_INT | MTK_RX_DONE_INT);
++	mtk_irq_disable(eth, ~0);
+ 	mtk_w32(eth, RST_GL_PSE, MTK_RST_GL);
+ 	mtk_w32(eth, 0, MTK_RST_GL);
+ 
 -- 
 1.7.10.4
