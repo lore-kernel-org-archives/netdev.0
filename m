@@ -1,86 +1,69 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [RFC net-next 1/1] ethtool: Add support for set eeprom metadata.
-Date: Sun, 5 Jun 2016 17:44:31 +0000
-Message-ID: <CO2PR11MB0088C6D5B98C6C8E2D173A99975B0@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1464269615-4937-1-git-send-email-sudarsana.kalluru@qlogic.com>
-		 <CO2PR11MB00887A3F4C8ABB71421B1651975B0@CO2PR11MB0088.namprd11.prod.outlook.com>
-	 <1465130957.2847.195.camel@decadent.org.uk>
-	 <CO2PR11MB00889DA9200C03CA3F940D21975B0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <1465144596.2847.241.camel@decadent.org.uk>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH 1/1] ixgbe: replace rtnl_lock with rcu_read_lock
+Date: Sun, 5 Jun 2016 11:40:45 -0700
+Message-ID: <CAKgT0UeF-Ktx5my99NAR4j7ATwUWx249yAZD+sMkQkjBJaeEdA@mail.gmail.com>
+References: <1465118091-6233-1-git-send-email-zyjzyj2000@gmail.com> <1465118091-6233-2-git-send-email-zyjzyj2000@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev <netdev@vger.kernel.org>,
-	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
-To: Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>,
+	Netdev <netdev@vger.kernel.org>
+To: zhuyj <zyjzyj2000@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0110.outbound.protection.outlook.com ([207.46.100.110]:31328
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751654AbcFESSU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jun 2016 14:18:20 -0400
-In-Reply-To: <1465144596.2847.241.camel@decadent.org.uk>
-Content-Language: en-US
+Received: from mail-it0-f65.google.com ([209.85.214.65]:35792 "EHLO
+	mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750956AbcFESkr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 14:40:47 -0400
+Received: by mail-it0-f65.google.com with SMTP id z123so3888161itg.2
+        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 11:40:47 -0700 (PDT)
+In-Reply-To: <1465118091-6233-2-git-send-email-zyjzyj2000@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiA+ID4gPiA+IEN1cnJlbnRseSBldGh0b29sIGltcGxlbWVudGF0aW9uIGRvZXMgbm90IGhhdmUg
-YSB3YXkgdG8gcGFzcyB0aGUNCj4gPiA+ID4gPiBtZXRhZGF0YSBmb3IgZWVwcm9tIHJlbGF0ZWQg
-b3BlcmF0aW9ucy4gU29tZSBhZGFwdGVycyBoYXZlIGENCj4gPiA+ID4gPiBjb21wbGljYXRlZCBu
-b24tdm9sYXRpbGUgbWVtb3J5IGltcGxlbWVudGF0aW9uIHRoYXQgcmVxdWlyZXMNCj4gPiA+ID4g
-PiBhZGRpdGlvbmFsIGluZm9ybWF0aW9uIOKAkyB0aGVyZSBhcmUgZHJpdmVycyBbYm54MnggYW5k
-IGJueHRdIHRoYXQNCj4gPiA+ID4gPiB1c2UgdGhlIOKAmG1hZ2lj4oCZIGZpZWxkIGluIHRoZSB7
-RyxTfUVFUFJPTcKgwqBmb3IgdGhhdCBwdXJwb3NlLA0KPiA+ID4gPiA+IGFsdGhvdWdoIHRoYXTi
-gJlzIG5vdA0KPiA+ID4gaXRzIGludGVuZGVkIHVzYWdlLg0KPiA+ID4gPiA+DQo+ID4gPiA+ID4g
-VGhpcyBwYXRjaCBhZGRzIGEgcHJvdmlzaW9uIHRvIHBhc3MgdGhlIGVlcHJvbSBtZXRhZGF0YSBm
-b3INCj4gPiA+ID4gPiAlRVRIVE9PTF9TRUVQUk9NLyVFVEhUT09MX0dFRVBST00gaW1wbGVtZW50
-YXRpb25zLiBVc2VyDQo+ID4gPiBwcm92aWRlZA0KPiA+ID4gPiA+IG1ldGFkYXRhIHdpbGwgYmUg
-Y2FjaGVkIGJ5IHRoZSBkcml2ZXIgYW5kIGFzc2lnbnMgYSBtYWdpYyB2YWx1ZQ0KPiA+ID4gPiA+
-IHdoaWNoIHRoZSBhcHBsaWNhdGlvbiBuZWVkIHRvIHVzZSBmb3IgdGhlIHN1YnNlcXVlbnQge0cs
-U31FRVBST00NCj4gPiA+IGNvbW1hbmQuDQo+ID4gPiA+DQo+ID4gPiA+IEhpIERhdmUsDQo+ID4g
-PiA+DQo+ID4gPiA+IFRoaXMgZ290IG5vIGNvbW1lbnRzIGF0IGFsbC4NCj4gPiA+ID4gV2hhdCBk
-byB5b3Ugd2FudCB1cyB0byB3aXRoIGl0IG5leHQ/IFNob3VsZCB3ZSByZS1zZW5kIGl0IGFzIGEg
-cGF0Y2g/DQo+ID4gPg0KPiA+ID4gSGVyZSdzIGEgY29tbWVudDogSSByZWFsbHkgZGlzbGlrZSB0
-aGlzLg0KPiA+IDotKQ0KPiA+DQo+ID4gPiAtIEl0IGRvZXNuJ3Qgc3BlY2lmeSBhbnkgc2VtYW50
-aWNzIGZvciB0aGUgJ21ldGFkYXRhJy4gwqBUaGUgY29tbWVudA0KPiA+ID4gaGludHMgdGhhdCB0
-aGV5IGFyZSBkcml2ZXItc3BlY2lmaWMgaWRlbnRpZmllcnMgZm9yIGRpZmZlcmVudCBOVlJBTSBw
-YXJ0aXRpb25zLg0KPiA+IE5vdCBleGFjdGx5LCBidXQgY2xvc2UgW2luIG91ciB1c2UgY2FzZSB0
-aGVyZSBhcmUgMiAnbWV0aG9kcycgb2YNCj4gPiBhY2Nlc3NpbmcgdGhlIGZsYXNoIC0gZWl0aGVy
-IGFjY29yZGluZyB0byBhZGRyZXNzZXMgb3IgbG9naWNhbCAnZmlsZXMnXS4NCj4gPg0KPiA+ID4g
-LSBJdCBkb2Vzbid0IHByb3ZpZGUgYSB3YXkgZm9yIHVzZXJsYW5kIHRvIGVudW1lcmF0ZSB0aGUg
-dmFsaWQgbWV0YWRhdGENCj4gdmFsdWVzLg0KPiA+IEkgYWdyZWU7IEkgY2FuJ3QgdGhpbmsgb2Yg
-YW55IGdvb2Qgd2F5IG9mIGVudW1lcmF0aW5nIGRldmljZS1zcGVjaWZpYyB2YWx1ZXMuDQo+ID4N
-Cj4gPiA+IC0gSXQncyBub3QgY2xlYXIgd2hldGhlciB0aGUgZHJpdmVyIGlzIHN1cHBvc2VkIHRv
-IG1haW50YWluIGp1c3Qgb25lDQo+ID4gPiBtZXRhZGF0YTptYWdpYyBtYXBwaW5nLCBvciBtb3Jl
-IHRoYW4gdGhhdC4NCj4gPiBUaGVvcmV0aWNhbGx5LCBJIGd1ZXNzIGl0IGNvdWxkIG1haW50YWlu
-IG11bHRpcGxlLCBidXQgdGhhdCB3YXNuJ3QgdGhlIGludGVudGlvbi4NCj4gPiBPbmUgc2hvdWxk
-IGRvLg0KPiA+DQo+ID4gPiBJcyB0aGUgZXRodG9vbCBBUEkgcmVhbGx5IHRoZSByaWdodCBpbnRl
-cmZhY2UgZm9yIGFjY2VzcyB0byBmbGFzaD8NCj4gPiA+IFRoZSBzZmMgZHJpdmVyIGV4cG9zZXMg
-YSBsYXJnZSBudW1iZXIgb2YgZmxhc2ggcGFydGl0aW9ucyB1c2luZyBNVEQNCj4gPiA+IGluc3Rl
-YWQuIMKgVGhlc2UgY2FuIGJlIGVudW1lcmF0ZWQgKHRocm91Z2ggL3Byb2MvbXRkIG9yIHN5c2Zz
-KSBhbmQNCj4gPiA+IHRoZXkgY2FuIGJlIHJlYWQgYW5kIHdyaXR0ZW4gdGhyb3VnaCBibG9jayBk
-ZXZpY2VzLg0KPiA+DQo+ID4gSSB0aGluayB0aGUgYmV0dGVyIHF1ZXN0aW9uIHRoZW4gaXMgJ3do
-YXQncyB0aGUgcHVycG9zZSBvZiB0aGlzIGV0aHRvb2wgQVBJIGF0DQo+IGFsbCc/DQo+IA0KPiBJ
-IHRoaW5rIGl0J3MgYSBiaXQgb2YgYW4gYWNjaWRlbnQgLSBNVEQgd2FzIGRlc2lnbmVkIGZvciBm
-bGFzaCBpbiBlbWJlZGRlZA0KPiBzeXN0ZW1zLCBhbmQgaXQgdXNlZCB0byBoYXZlIGEgc3RhdGlj
-IGxpbWl0IG9uIHRoZSBudW1iZXIgb2YgcGFydGl0aW9ucy4gwqBUaGUNCj4gZXRodG9vbCBBUEkg
-d2FzIHRoZW4gcmF0aGVyIGJldHRlciBzdWl0ZWQgdG8gcGx1Zy1pbiBjYXJkcyB0aGF0IHdvdWxk
-IGhhdmUgYQ0KPiBzaW5nbGUgc21hbGwgRUVQUk9NLg0KPiANCj4gPiBJIGFncmVlIHdlIGNhbiBn
-byBhbmQgZG8gZXZlcnl0aGluZyB2aWEgTVREOyBUaGUgcmVhc29uIHdlJ3ZlIHRyaWVkDQo+ID4g
-dXNpbmcgdGhpcyBBUEkgd2FzIG1haW5seS4uLiBiZWNhdXNlIGl0IHdhcyB0aGVyZS4gQW5kIHRo
-dXMgd2UgdGhvdWdodA0KPiA+IHRoaXMgaXMgdGhlIFJJR0hUIG1ldGhvZCBmb3IgcHJvdmlkaW5n
-IHVzZXJzIHRoZSB3YXkgb2YgcmVhZGluZyB0aGVpciBmbGFzaC4NCj4gWy4uLl0NCj4gDQo+IEkg
-dGhpbmsgdGhhdCBNVEQgbWFrZXMgbW9yZSBzZW5zZSBmb3IgZmxhc2ggcGFydGl0aW9ucywgZXNw
-ZWNpYWxseSB3aGVuIHRoZXJlDQo+IGFyZSBzZXZlcmFsIG9mIHRoZW0uIMKgSSBhbHJlYWR5IGRp
-ZCB0aGUgd29yayBvZiByZW1vdmluZyB0aGUgc3RhdGljIGxpbWl0IG9uIHRoZQ0KPiBudW1iZXIg
-b2YgcGFydGl0aW9ucywgYW5kIGNvbnZpbmNpbmcgZGlzdHJpYnV0aW9ucyB0byBlbmFibGUgdGhl
-IE1URCBjb3JlDQo+IGRyaXZlcnMuIMKgKFRoYXQgc2FpZCwgeW91IHdpbGwgc3RpbGwgZmluZCBz
-b21lIHVzZXJzIHdobyBuZWVkIHRvIGNoYW5nZSB0aGVpcg0KPiBjdXN0b20ga2VybmVsDQo+IGNv
-bmZpZ3VyYXRpb25zLikNCg0KTm90aWNlIHdlIGRvbid0IHJlYWxseSBoYXZlIG11bHRpcGxlIHBh
-cnRpdGlvbnMuIFdlIGhhdmUgYSBzaW5nbGUgcGFydGl0aW9uDQpwc2V1ZG8gZmlsZS1zeXN0ZW0s
-IGJ1dCBwcm9ibGVtIGlzIGRldmljZSBoYXMgbm8gZGlyZWN0IGFjY2VzcyB0byB0aGUgY29udHJv
-bGxlcjsNCkV2ZXJ5IGFjY2VzcyBoYXMgdG8gZ28gdmlhIHRoZSBtYW5hZ2VtZW50IGZpcm13YXJl
-LiANCkFuZCBpbiBvcmRlciB0byB3b3JrIHdpdGggaXQgd2UgbmVlZCBzb21lIGFkZGl0aW9uYWwg
-bWV0YWRhdGEuDQpJIHRoaW5rIE1URCB3b3VsZCBldmVudHVhbGx5IGxvb2sganVzdCBhcyAnbWFn
-aWNhbCcuDQoNCg0K
+On Sun, Jun 5, 2016 at 2:14 AM,  <zyjzyj2000@gmail.com> wrote:
+> From: Zhu Yanjun <zyjzyj2000@gmail.com>
+>
+>
+> Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index 088c47c..cb19cbc 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -6840,7 +6840,7 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
+>         netif_tx_wake_all_queues(adapter->netdev);
+>
+>         /* enable any upper devices */
+> -       rtnl_lock();
+> +       rcu_read_lock();
+>         netdev_for_each_all_upper_dev_rcu(adapter->netdev, upper, iter) {
+>                 if (netif_is_macvlan(upper)) {
+>                         struct macvlan_dev *vlan = netdev_priv(upper);
+> @@ -6849,7 +6849,7 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
+>                                 netif_tx_wake_all_queues(upper);
+>                 }
+>         }
+> -       rtnl_unlock();
+> +       rcu_read_unlock();
+>
+>         /* update the default user priority for VFs */
+>         ixgbe_update_default_up(adapter);
+
+The rtnl_lock is being used to prevent any changes to the upper
+devices while the interface is going through and updating the Tx queue
+configuration on them.  Without that lock you introduce possible bugs
+since you could have queues freed or added while this loop is in the
+middle of trying to update the state of it.
+
+As a general rule you use rcu_read_lock when you are only reading an
+RCU protected structure, you use rtnl_lock when you have to protect
+the system from any other changes while you are updating network
+configuration.  In this case netif_tx_wake_all_queues changes the
+state of the upper device.  The use of rtnl_lock here is intentional
+and it is best to just leave it as is unless you have some actual bug
+you are seeing.
+
+- Alex
