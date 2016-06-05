@@ -1,98 +1,50 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] net, cls: allow for deleting all filters for
- given parent
-Date: Sun, 5 Jun 2016 15:53:52 +0300
-Message-ID: <42e1cc6f-ad10-33b7-6722-1416e1b92422@cogentembedded.com>
-References: <cd8455dfef0cccec5ef0a1ca2d1f678e9397d66e.1465056745.git.daniel@iogearbox.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v2 net] fq_codel: fix NET_XMIT_CN behavior
+Date: Sun, 5 Jun 2016 09:03:10 -0400
+Message-ID: <5754230E.3040508@mojatatu.com>
+References: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160604190301.GA8857@strlen.de>
+ <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
-	jhs@mojatatu.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stas Nichiporovich <stasn77@gmail.com>,
+	WANG Cong <xiyou.wangcong@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f50.google.com ([209.85.215.50]:34086 "EHLO
-	mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750911AbcFEMxy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 08:53:54 -0400
-Received: by mail-lf0-f50.google.com with SMTP id s186so14643652lfs.1
-        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 05:53:53 -0700 (PDT)
-In-Reply-To: <cd8455dfef0cccec5ef0a1ca2d1f678e9397d66e.1465056745.git.daniel@iogearbox.net>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:34540 "EHLO
+	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750911AbcFENDN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 09:03:13 -0400
+Received: by mail-io0-f180.google.com with SMTP id p194so119228536iod.1
+        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 06:03:12 -0700 (PDT)
+In-Reply-To: <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On 16-06-04 03:55 PM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> My prior attempt to fix the backlogs of parents failed.
+>
+> If we return NET_XMIT_CN, our parents wont increase their backlog,
+> so our qdisc_tree_reduce_backlog() should take this into account.
+>
+> v2: Florian Westphal pointed out that we could drop the packet,
+> so we need to save qdisc_pkt_len(skb) in a temp variable before
+> calling fq_codel_drop()
+>
+> Fixes: 9d18562a2278 ("fq_codel: add batch ability to fq_codel_drop()")
+> Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
+> Reported-by: Stas Nichiporovich <stasn77@gmail.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: WANG Cong <xiyou.wangcong@gmail.com>
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
 
-On 6/4/2016 7:24 PM, Daniel Borkmann wrote:
+Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-> Add a possibility where the user can just specify the parent and
-> all filters under that parent are then being purged. Currently,
-> for example for scripting, one needs to specify pref/prio to have
-> a well-defined number for 'tc filter del' command for addressing
-> the previously created instance or additionally filter handle in
-> case of priorities being the same. Improve usage by allowing the
-> option for tc to specify the parent and removing the whole chain
-> for that given parent.
->
-> Example usage after patch, no tc changes required:
->
->   # tc qdisc replace dev foo clsact
->   # tc filter add dev foo egress bpf da obj ./bpf.o
->   # tc filter add dev foo egress bpf da obj ./bpf.o
->   # tc filter show dev foo egress
->   filter protocol all pref 49151 bpf
->   filter protocol all pref 49151 bpf handle 0x1 bpf.o:[classifier] direct-action
->   filter protocol all pref 49152 bpf
->   filter protocol all pref 49152 bpf handle 0x1 bpf.o:[classifier] direct-action
->   # tc filter del dev foo egress
->   # tc filter show dev foo egress
->   #
->
-> Previously, RTM_DELTFILTER requests with invalid prio of 0 were
-> rejected, so only netlink requests with RTM_NEWTFILTER and NLM_F_CREATE
-> flag were allowed where the kernel would auto-generate a pref/prio.
-> We can piggyback on that and use prio of 0 as a wildcard for
-> requests of RTM_DELTFILTER.
->
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> ---
->  net/sched/cls_api.c | 24 ++++++++++++++++++++----
->  1 file changed, 20 insertions(+), 4 deletions(-)
->
-> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
-> index a75864d..caa1dd4 100644
-> --- a/net/sched/cls_api.c
-> +++ b/net/sched/cls_api.c
-> @@ -156,11 +156,22 @@ replay:
->  	cl = 0;
->
->  	if (prio == 0) {
-> -		/* If no priority is given, user wants we allocated it. */
-> -		if (n->nlmsg_type != RTM_NEWTFILTER ||
-> -		    !(n->nlmsg_flags & NLM_F_CREATE))
-> +		switch (n->nlmsg_type) {
-> +		case RTM_DELTFILTER:
-> +			if (protocol || t->tcm_handle)
-> +				return -ENOENT;
-> +			break;
-> +		case RTM_NEWTFILTER:
-> +			/* If no priority is provided by the user,
-> +			 * we allocate one.
-> +			 */
-> +			if (n->nlmsg_flags & NLM_F_CREATE) {
-> +				prio = TC_H_MAKE(0x80000000U, 0U);
-> +				break;
-> +			}
-
-    Need a comment here, something like /* FALL THRU */.
-
-> +		default:
->  			return -ENOENT;
-> -		prio = TC_H_MAKE(0x80000000U, 0U);
-> +		}
->  	}
->
->  	/* Find head of filter chain. */
-[...]
-
-MBR, Sergei
+cheers,
+jamal
