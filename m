@@ -1,77 +1,41 @@
-From: Sudip Mukherjee <sudipm.mukherjee@gmail.com>
-Subject: Re: ath9k gpio request
-Date: Sun, 05 Jun 2016 23:10:25 +0530
-Message-ID: <57546409.70506@gmail.com>
-References: <20160530132225.4d297678@canb.auug.org.au>	<574C4851.9090201@gmail.com>	<87fusy3cqx.fsf_-_@kamboji.qca.qualcomm.com>	<574D3EAA.3060102@gmail.com> <1464764036580.70506@qti.qualcomm.com>	<574EC331.1080901@gmail.com> <574ED297.4080004@gmail.com>	<1464854569880.79341@qti.qualcomm.com> <57501AE4.7080104@gmail.com>	<8760tqn8fc.fsf@purkki.adurom.net>	<1464932944074.85131@qti.qualcomm.com> <87d1nxt3y9.fsf@kamboji.qca.qualcomm.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] net, cls: allow for deleting all filters for
+ given parent
+Date: Sun, 05 Jun 2016 19:47:19 +0200
+Message-ID: <575465A7.4020308@iogearbox.net>
+References: <cd8455dfef0cccec5ef0a1ca2d1f678e9397d66e.1465056745.git.daniel@iogearbox.net> <42e1cc6f-ad10-33b7-6722-1416e1b92422@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Rothwell <sfr@canb.auug.org.au>,
-	ath9k-devel <ath9k-devel@qualcomm.com>,
-	"linux-next@vger.kernel.org" <linux-next@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"ath9k-devel@lists.ath9k.org" <ath9k-devel@lists.ath9k.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Miaoqing Pan <miaoqing@codeaurora.org>
-To: Kalle Valo <kvalo@codeaurora.org>,
-	"Pan, Miaoqing" <miaoqing@qti.qualcomm.com>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <87d1nxt3y9.fsf@kamboji.qca.qualcomm.com>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
+	jhs@mojatatu.com, netdev@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:40307 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751348AbcFERrZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 13:47:25 -0400
+In-Reply-To: <42e1cc6f-ad10-33b7-6722-1416e1b92422@cogentembedded.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Saturday 04 June 2016 08:07 PM, Kalle Valo wrote:
-> (Fixing top posting)
+On 06/05/2016 02:53 PM, Sergei Shtylyov wrote:
+> On 6/4/2016 7:24 PM, Daniel Borkmann wrote:
+[...]
 >
-> "Pan, Miaoqing" <miaoqing@qti.qualcomm.com> writes:
->
->>>> --- a/drivers/net/wireless/ath/ath9k/reg.h
->>>> +++ b/drivers/net/wireless/ath/ath9k/reg.h
->>>> @@ -1122,8 +1122,8 @@ enum {
->>>>    #define AR9300_NUM_GPIO                          16
->>>>    #define AR9330_NUM_GPIO                                 16
->>>>    #define AR9340_NUM_GPIO                                 23
->>>> -#define AR9462_NUM_GPIO                                 10
->>>> -#define AR9485_NUM_GPIO                                 12
->>>> +#define AR9462_NUM_GPIO                                 14
->>>> +#define AR9485_NUM_GPIO                                 11
->>>>    #define AR9531_NUM_GPIO                                 18
->>>>    #define AR9550_NUM_GPIO                                 24
->>>>    #define AR9561_NUM_GPIO                                 23
->>>> @@ -1139,8 +1139,8 @@ enum {
->>>>    #define AR9300_GPIO_MASK                        0x0000F4FF
->>>>    #define AR9330_GPIO_MASK                        0x0000F4FF
->>>>    #define AR9340_GPIO_MASK                        0x0000000F
->>>> -#define AR9462_GPIO_MASK                        0x000003FF
->>>> -#define AR9485_GPIO_MASK                        0x00000FFF
->>>> +#define AR9462_GPIO_MASK                        0x00003FFF
->>>> +#define AR9485_GPIO_MASK                        0x000007FF
->>>>    #define AR9531_GPIO_MASK                        0x0000000F
->>>>    #define AR9550_GPIO_MASK                        0x0000000F
->>>>    #define AR9561_GPIO_MASK                        0x0000000F
->>>
->>> solves the problem.
->>>
->>> Tested-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
+>     Need a comment here, something like /* FALL THRU */.
+
+Hmm, not really, I think it's obvious enough.
+
+>> +        default:
+>>              return -ENOENT;
+>> -        prio = TC_H_MAKE(0x80000000U, 0U);
+>> +        }
+>>      }
 >>
->> Done, https://patchwork.kernel.org/patch/9151847/
+>>      /* Find head of filter chain. */
+> [...]
 >
-> But the patch 9151847 is different from what Sudip tested above? Why?
+> MBR, Sergei
 >
-> And if you modify something _after_ the reporter has tested the patch
-> clearly document what you changed and why. I do not want find hidden
-> changes like this, even more so when the patch is going to a 4.7-rc
-> release.
->
-> Sudip, could you also test patch 9151847, please? You can download the
-> patch from the patchwork link above.
-
-This is also ok. Please add my
-Tested-by: Sudip Mukherjee <sudip.mukherjee@codethink.co.uk>
-
-and maybe a Reported-by tag is also appropriate in this case.
-
-
-Regards
-Sudip
