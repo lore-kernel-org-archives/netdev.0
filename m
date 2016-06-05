@@ -1,22 +1,28 @@
-From: "Bernard Arnault" <info@ihug.com>
-Subject: Free Gift
-Date: Sun, 05 Jun 2016 08:58:56 +0100
-Message-ID: <20160605075951.A5254700D2A@mailserver.fcaq.k12.ec>
-Reply-To: bena12345@qq.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <info@ihug.com>
+From: zyjzyj2000@gmail.com
+Subject: ixgbe: replace rtnl_lock with rcu_read_lock
+Date: Sun,  5 Jun 2016 17:14:50 +0800
+Message-ID: <1465118091-6233-1-git-send-email-zyjzyj2000@gmail.com>
+To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from tordera.spamina.com ([92.54.22.155]:47607 "EHLO
-	tordera.sesf.spamina.priv" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750729AbcFEIAx convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 5 Jun 2016 04:00:53 -0400
-Content-Description: Mail message body
+Received: from [111.193.70.236] ([111.193.70.236]:56848 "EHLO mail.zhuyj.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750785AbcFEJUW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 5 Jun 2016 05:20:22 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-I intend to give to you a portion of my Wealth as a free-will financial donation to you. Respond now to partake. Regards. 
-Bernard Arnault Philanthropic 
-Email: bena12345@qq.com
+
+Hi,all
+
+ I am using the ixgbe nic. I found that the rtnl_lock is being 
+ used to enable upper device, such as macvlan. I am curious
+ why rcu_read_lock is not used here.
+
+ I replaced rtnl_lock with rcu_read_lock here. Then I made tests and
+ it can work well.
+
+ So can the rtnl_lock be replaced with rcu_read_lock?
+ Anyone can explain it in details?
+
+ Any reply is appreciated.
+ Zhu Yanjun
