@@ -1,69 +1,56 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 1/1] ixgbe: replace rtnl_lock with rcu_read_lock
-Date: Sun, 5 Jun 2016 11:40:45 -0700
-Message-ID: <CAKgT0UeF-Ktx5my99NAR4j7ATwUWx249yAZD+sMkQkjBJaeEdA@mail.gmail.com>
-References: <1465118091-6233-1-git-send-email-zyjzyj2000@gmail.com> <1465118091-6233-2-git-send-email-zyjzyj2000@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	Netdev <netdev@vger.kernel.org>
-To: zhuyj <zyjzyj2000@gmail.com>
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: [PATCH] staging: r8188eu: Fix scheduling while atomic splat
+Date: Sun,  5 Jun 2016 14:11:19 -0500
+Message-ID: <1465153879-18948-1-git-send-email-Larry.Finger@lwfinger.net>
+Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
+	Larry Finger <Larry.Finger@lwfinger.net>,
+	navin patidar <navin.patidar@gmail.com>
+To: gregkh@linuxfoundation.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:35792 "EHLO
-	mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750956AbcFESkr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 14:40:47 -0400
-Received: by mail-it0-f65.google.com with SMTP id z123so3888161itg.2
-        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 11:40:47 -0700 (PDT)
-In-Reply-To: <1465118091-6233-2-git-send-email-zyjzyj2000@gmail.com>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:36784 "EHLO
+	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751654AbcFETL1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 15:11:27 -0400
+Received: by mail-oi0-f68.google.com with SMTP id n3so5226039oig.3
+        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 12:11:27 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 5, 2016 at 2:14 AM,  <zyjzyj2000@gmail.com> wrote:
-> From: Zhu Yanjun <zyjzyj2000@gmail.com>
->
->
-> Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
->  1 file changed, 2 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index 088c47c..cb19cbc 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -6840,7 +6840,7 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
->         netif_tx_wake_all_queues(adapter->netdev);
->
->         /* enable any upper devices */
-> -       rtnl_lock();
-> +       rcu_read_lock();
->         netdev_for_each_all_upper_dev_rcu(adapter->netdev, upper, iter) {
->                 if (netif_is_macvlan(upper)) {
->                         struct macvlan_dev *vlan = netdev_priv(upper);
-> @@ -6849,7 +6849,7 @@ static void ixgbe_watchdog_link_is_up(struct ixgbe_adapter *adapter)
->                                 netif_tx_wake_all_queues(upper);
->                 }
->         }
-> -       rtnl_unlock();
-> +       rcu_read_unlock();
->
->         /* update the default user priority for VFs */
->         ixgbe_update_default_up(adapter);
+Commit fadbe0cd5292851608e2e01b91d9295fa287b9fe ("staging: rtl8188eu:
+Remove rtw_zmalloc(), wrapper for kzalloc()") changed all allocation
+calls to be GFP_KERNEL even though the original wrapper was testing
+to determine if the caller was in atomic mode. Most of the mistakes
+were corrected with commit 33dc85c3c667209c930b2dac5ccbc2a365e06b7a
+("staging: r8188eu: Fix scheduling while atomic error introduced in
+commit fadbe0cd"); however, two kzalloc calls were missed as the
+call only happens when the driver is shutting down.
 
-The rtnl_lock is being used to prevent any changes to the upper
-devices while the interface is going through and updating the Tx queue
-configuration on them.  Without that lock you introduce possible bugs
-since you could have queues freed or added while this loop is in the
-middle of trying to update the state of it.
+Fixes: fadbe0cd5292851608e2e01b91d9295fa287b9fe ("staging: rtl8188eu: Remove rtw_zmalloc(), wrapper for kzalloc()")
+Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
+Cc: navin patidar <navin.patidar@gmail.com>
+---
+ drivers/staging/rtl8188eu/core/rtw_cmd.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-As a general rule you use rcu_read_lock when you are only reading an
-RCU protected structure, you use rtnl_lock when you have to protect
-the system from any other changes while you are updating network
-configuration.  In this case netif_tx_wake_all_queues changes the
-state of the upper device.  The use of rtnl_lock here is intentional
-and it is best to just leave it as is unless you have some actual bug
-you are seeing.
-
-- Alex
+diff --git a/drivers/staging/rtl8188eu/core/rtw_cmd.c b/drivers/staging/rtl8188eu/core/rtw_cmd.c
+index 7748523..32d3a9c 100644
+--- a/drivers/staging/rtl8188eu/core/rtw_cmd.c
++++ b/drivers/staging/rtl8188eu/core/rtw_cmd.c
+@@ -670,13 +670,13 @@ u8 rtw_addbareq_cmd(struct adapter *padapter, u8 tid, u8 *addr)
+ 	u8	res = _SUCCESS;
+ 
+ 
+-	ph2c = kzalloc(sizeof(struct cmd_obj), GFP_KERNEL);
++	ph2c = kzalloc(sizeof(struct cmd_obj), GFP_ATOMIC);
+ 	if (!ph2c) {
+ 		res = _FAIL;
+ 		goto exit;
+ 	}
+ 
+-	paddbareq_parm = kzalloc(sizeof(struct addBaReq_parm), GFP_KERNEL);
++	paddbareq_parm = kzalloc(sizeof(struct addBaReq_parm), GFP_ATOMIC);
+ 	if (!paddbareq_parm) {
+ 		kfree(ph2c);
+ 		res = _FAIL;
+-- 
+2.1.4
