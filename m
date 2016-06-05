@@ -1,57 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH] net: fec: fix spelling mistake "coalesed" -> "coalesced"
-Date: Sat, 04 Jun 2016 23:36:35 -0700
-Message-ID: <1465108595.11800.55.camel@perches.com>
-References: <1465066875-7089-1-git-send-email-colin.king@canonical.com>
-	 <CADFy_4GNq-VQj5kgFsoCiHJTHTo21ZdjijfD=mEM602YCrewEw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Fugang Duan <fugang.duan@nxp.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Augusto Mecking Caringi <augustocaringi@gmail.com>,
-	Colin King <colin.king@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0138.hostedemail.com ([216.40.44.138]:32955 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752018AbcFEGgj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 02:36:39 -0400
-In-Reply-To: <CADFy_4GNq-VQj5kgFsoCiHJTHTo21ZdjijfD=mEM602YCrewEw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Crispin <john@phrozen.org>
+Subject: [PATCH 12/12] net: mediatek: remove superfluous queue wake up call
+Date: Sun,  5 Jun 2016 08:33:05 +0200
+Message-ID: <1465108385-38286-13-git-send-email-john@phrozen.org>
+References: <1465108385-38286-1-git-send-email-john@phrozen.org>
+Cc: Felix Fietkau <nbd@nbd.name>, Sean Wang <keyhaede@gmail.com>,
+	netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+	linux-kernel@vger.kernel.org, John Crispin <john@phrozen.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465108385-38286-1-git-send-email-john@phrozen.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, 2016-06-04 at 16:43 -0300, Augusto Mecking Caringi wrote:
-> On Sat, Jun 4, 2016 at 4:01 PM, Colin King <colin.king@canonical.com>=
- wrote:
-> > From: Colin Ian King <colin.king@canonical.com>
-> > trivial fix to spelling mistake in pr_err message
-[]
-> > diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/ne=
-t/ethernet/freescale/fec_main.c
-[]
-> > @@ -2427,13 +2427,13 @@ fec_enet_set_coalesce(struct net_device *nd=
-ev, struct ethtool_coalesce *ec)
-> >=20
-> > =A0=A0=A0=A0=A0=A0=A0=A0cycle =3D fec_enet_us_to_itr_clock(ndev, fe=
-p->rx_time_itr);
-> > =A0=A0=A0=A0=A0=A0=A0=A0if (cycle > 0xFFFF) {
-> > -=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0pr_err("Rx coalesed u=
-sec exceeed hardware limiation");
-> > +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0pr_err("Rx coalesced =
-usec exceeed hardware limiation");
-> > =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0return -EINVAL;
-> > =A0=A0=A0=A0=A0=A0=A0=A0}
-> >=20
-> > =A0=A0=A0=A0=A0=A0=A0=A0cycle =3D fec_enet_us_to_itr_clock(ndev, fe=
-p->tx_time_itr);
-> > =A0=A0=A0=A0=A0=A0=A0=A0if (cycle > 0xFFFF) {
-> > -=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0pr_err("Rx coalesed u=
-sec exceeed hardware limiation");
-> > +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0pr_err("Rx coalesced =
-usec exceeed hardware limiation");
-> > =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0return -EINVAL;
-> > =A0=A0=A0=A0=A0=A0=A0=A0}
-> >=20
-> s/limiation/limitation
+The code checks if the queue should be stopped because we are below the
+threshold of free descriptors only to check if it should be started again.
+If we do end up in a state where we are at the threshold limit, it makes
+more sense to just stop the queue and wait for the next IRQ to trigger the
+TX housekeeping again. There is no rush in enqueuing the next packet, it
+needs to wait for all the others in the queue to be dispatched first
+anyway.
 
-Could also add \n terminations to the pr_err uses.
+Signed-off-by: John Crispin <john@phrozen.org>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    7 ++-----
+ 1 file changed, 2 insertions(+), 5 deletions(-)
+
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 40d3cfd..ebfca7d 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -764,12 +764,9 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if (mtk_tx_map(skb, dev, tx_num, ring, gso) < 0)
+ 		goto drop;
+ 
+-	if (unlikely(atomic_read(&ring->free_count) <= ring->thresh)) {
++	if (unlikely(atomic_read(&ring->free_count) <= ring->thresh))
+ 		mtk_stop_queue(eth);
+-		if (unlikely(atomic_read(&ring->free_count) >
+-			     ring->thresh))
+-			mtk_wake_queue(eth);
+-	}
++
+ 	spin_unlock_irqrestore(&eth->page_lock, flags);
+ 
+ 	return NETDEV_TX_OK;
+-- 
+1.7.10.4
