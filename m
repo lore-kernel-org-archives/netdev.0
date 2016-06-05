@@ -1,56 +1,35 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: [PATCH] staging: r8188eu: Fix scheduling while atomic splat
-Date: Sun,  5 Jun 2016 14:11:19 -0500
-Message-ID: <1465153879-18948-1-git-send-email-Larry.Finger@lwfinger.net>
-Cc: netdev@vger.kernel.org, devel@driverdev.osuosl.org,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	navin patidar <navin.patidar@gmail.com>
-To: gregkh@linuxfoundation.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v2 net] fq_codel: fix NET_XMIT_CN behavior
+Date: Sun, 5 Jun 2016 13:30:40 -0700
+Message-ID: <CAM_iQpVORpFx_xx67gYT_3jXfWAuqkMmR03R9VJv1TrcqH4W8A@mail.gmail.com>
+References: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160604190301.GA8857@strlen.de> <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Westphal <fw@strlen.de>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stas Nichiporovich <stasn77@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:36784 "EHLO
-	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751654AbcFETL1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 15:11:27 -0400
-Received: by mail-oi0-f68.google.com with SMTP id n3so5226039oig.3
-        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 12:11:27 -0700 (PDT)
+Received: from mail-yw0-f173.google.com ([209.85.161.173]:34124 "EHLO
+	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751211AbcFEUbB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 16:31:01 -0400
+Received: by mail-yw0-f173.google.com with SMTP id c127so124267592ywb.1
+        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 13:31:00 -0700 (PDT)
+In-Reply-To: <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit fadbe0cd5292851608e2e01b91d9295fa287b9fe ("staging: rtl8188eu:
-Remove rtw_zmalloc(), wrapper for kzalloc()") changed all allocation
-calls to be GFP_KERNEL even though the original wrapper was testing
-to determine if the caller was in atomic mode. Most of the mistakes
-were corrected with commit 33dc85c3c667209c930b2dac5ccbc2a365e06b7a
-("staging: r8188eu: Fix scheduling while atomic error introduced in
-commit fadbe0cd"); however, two kzalloc calls were missed as the
-call only happens when the driver is shutting down.
+On Sat, Jun 4, 2016 at 12:55 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> My prior attempt to fix the backlogs of parents failed.
+>
+> If we return NET_XMIT_CN, our parents wont increase their backlog,
+> so our qdisc_tree_reduce_backlog() should take this into account.
+>
 
-Fixes: fadbe0cd5292851608e2e01b91d9295fa287b9fe ("staging: rtl8188eu: Remove rtw_zmalloc(), wrapper for kzalloc()")
-Signed-off-by: Larry Finger <Larry.Finger@lwfinger.net>
-Cc: navin patidar <navin.patidar@gmail.com>
----
- drivers/staging/rtl8188eu/core/rtw_cmd.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/staging/rtl8188eu/core/rtw_cmd.c b/drivers/staging/rtl8188eu/core/rtw_cmd.c
-index 7748523..32d3a9c 100644
---- a/drivers/staging/rtl8188eu/core/rtw_cmd.c
-+++ b/drivers/staging/rtl8188eu/core/rtw_cmd.c
-@@ -670,13 +670,13 @@ u8 rtw_addbareq_cmd(struct adapter *padapter, u8 tid, u8 *addr)
- 	u8	res = _SUCCESS;
- 
- 
--	ph2c = kzalloc(sizeof(struct cmd_obj), GFP_KERNEL);
-+	ph2c = kzalloc(sizeof(struct cmd_obj), GFP_ATOMIC);
- 	if (!ph2c) {
- 		res = _FAIL;
- 		goto exit;
- 	}
- 
--	paddbareq_parm = kzalloc(sizeof(struct addBaReq_parm), GFP_KERNEL);
-+	paddbareq_parm = kzalloc(sizeof(struct addBaReq_parm), GFP_ATOMIC);
- 	if (!paddbareq_parm) {
- 		kfree(ph2c);
- 		res = _FAIL;
--- 
-2.1.4
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
