@@ -1,7 +1,8 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH 09/12] net: mediatek: increase watchdog_timeo
-Date: Sun,  5 Jun 2016 08:33:02 +0200
-Message-ID: <1465108385-38286-10-git-send-email-john@phrozen.org>
+Subject: [PATCH 05/12] net: mediatek: dropped rx packets are not being counted
+ properly
+Date: Sun,  5 Jun 2016 08:32:58 +0200
+Message-ID: <1465108385-38286-6-git-send-email-john@phrozen.org>
 References: <1465108385-38286-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,28 +24,34 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-During stress testing, after reducing the threshold value, we have seen
-TX timeouts that were caused by the watchdog_timeo value being too low.
-Increase the value to 5 * HZ which is a value commonly used by many other
-drivers.
+There are two places inside mtk_poll_rx where rx_dropped is not being
+incremented properly. Fix this by adding the missing code to increment
+the counter.
 
 Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 ++
+ 1 file changed, 2 insertions(+)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 8b289e1..24714ab 100644
+index 4f22ee9..0610262 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1688,7 +1688,7 @@ static int mtk_add_mac(struct mtk_eth *eth, struct device_node *np)
- 	mac->hw_stats->reg_offset = id * MTK_STAT_OFFSET;
+@@ -810,6 +810,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
+ 					  DMA_FROM_DEVICE);
+ 		if (unlikely(dma_mapping_error(&netdev->dev, dma_addr))) {
+ 			skb_free_frag(new_data);
++			netdev->stats.rx_dropped++;
+ 			goto release_desc;
+ 		}
  
- 	SET_NETDEV_DEV(eth->netdev[id], eth->dev);
--	eth->netdev[id]->watchdog_timeo = HZ;
-+	eth->netdev[id]->watchdog_timeo = 5 * HZ;
- 	eth->netdev[id]->netdev_ops = &mtk_netdev_ops;
- 	eth->netdev[id]->base_addr = (unsigned long)eth->base;
- 	eth->netdev[id]->vlan_features = MTK_HW_FEATURES &
+@@ -817,6 +818,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
+ 		skb = build_skb(data, ring->frag_size);
+ 		if (unlikely(!skb)) {
+ 			put_page(virt_to_head_page(new_data));
++			netdev->stats.rx_dropped++;
+ 			goto release_desc;
+ 		}
+ 		skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
 -- 
 1.7.10.4
