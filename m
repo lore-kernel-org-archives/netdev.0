@@ -1,87 +1,49 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: [PATCH 3.10 128/143] VSOCK: do not disconnect socket when peer has shutdown SEND only
-Date: Sun,  5 Jun 2016 12:20:31 +0200
-Message-ID: <1465122046-9645-129-git-send-email-w@1wt.eu>
-References: <1465122046-9645-1-git-send-email-w@1wt.eu>
-Cc: Ian Campbell <ian.campbell@docker.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stefan Hajnoczi <stefanha@redhat.com>,
-	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
-	Andy King <acking@vmware.com>,
-	Dmitry Torokhov <dtor@vmware.com>,
-	Jorgen Hansen <jhansen@vmware.com>,
-	Adit Ranadive <aditr@vmware.com>, netdev@vger.kernel.org,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Willy Tarreau <w@1wt.eu>
-To: linux-kernel@vger.kernel.org, stable@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465122046-9645-1-git-send-email-w@1wt.eu>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH] net: ethernet: cavium: liquidio: response_manager:
+ Remove create_workqueue
+Date: Sun, 5 Jun 2016 06:24:25 -0400
+Message-ID: <20160605102425.GB31708@htj.duckdns.org>
+References: <20160604145139.GA31437@Karyakshetra>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Derek Chickles <derek.chickles@caviumnetworks.com>,
+	Satanand Burla <satananda.burla@caviumnetworks.com>,
+	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qg0-f68.google.com ([209.85.192.68]:36638 "EHLO
+	mail-qg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753216AbcFEKY3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 06:24:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20160604145139.GA31437@Karyakshetra>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <ian.campbell@docker.com>
+On Sat, Jun 04, 2016 at 08:21:40PM +0530, Bhaktipriya Shridhar wrote:
+> alloc_workqueue replaces deprecated create_workqueue().
+> 
+> A dedicated workqueue has been used since the workitem viz
+> (&cwq->wk.work which maps to oct_poll_req_completion) is involved
+> in normal device operation. WQ_MEM_RECLAIM has been set to guarantee
+> forward progress under memory pressure, which is a requirement here.
+> Since there are only a fixed number of work items, explicit concurrency
+> limit is unnecessary.
+> 
+> flush_workqueue is unnecessary since destroy_workqueue() itself calls
+> drain_workqueue() which flushes repeatedly till the workqueue
+> becomes empty. Hence the call to flush_workqueue() has been dropped.
+> 
+> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 
-commit dedc58e067d8c379a15a8a183c5db318201295bb upstream.
+As with the previous patch, the subject tag doesn't need to contain
+the full hierarchy but other than that,
 
-The peer may be expecting a reply having sent a request and then done a
-shutdown(SHUT_WR), so tearing down the whole socket at this point seems
-wrong and breaks for me with a client which does a SHUT_WR.
+ Acked-by: Tejun Heo <tj@kernel.org>
 
-Looking at other socket family's stream_recvmsg callbacks doing a shutdown
-here does not seem to be the norm and removing it does not seem to have
-had any adverse effects that I can see.
+Thanks.
 
-I'm using Stefan's RFC virtio transport patches, I'm unsure of the impact
-on the vmci transport.
-
-Signed-off-by: Ian Campbell <ian.campbell@docker.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Stefan Hajnoczi <stefanha@redhat.com>
-Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-Cc: Andy King <acking@vmware.com>
-Cc: Dmitry Torokhov <dtor@vmware.com>
-Cc: Jorgen Hansen <jhansen@vmware.com>
-Cc: Adit Ranadive <aditr@vmware.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Signed-off-by: Willy Tarreau <w@1wt.eu>
----
- net/vmw_vsock/af_vsock.c | 21 +--------------------
- 1 file changed, 1 insertion(+), 20 deletions(-)
-
-diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-index 9b88693..66a9bf5 100644
---- a/net/vmw_vsock/af_vsock.c
-+++ b/net/vmw_vsock/af_vsock.c
-@@ -1804,27 +1804,8 @@ vsock_stream_recvmsg(struct kiocb *kiocb,
- 	else if (sk->sk_shutdown & RCV_SHUTDOWN)
- 		err = 0;
- 
--	if (copied > 0) {
--		/* We only do these additional bookkeeping/notification steps
--		 * if we actually copied something out of the queue pair
--		 * instead of just peeking ahead.
--		 */
--
--		if (!(flags & MSG_PEEK)) {
--			/* If the other side has shutdown for sending and there
--			 * is nothing more to read, then modify the socket
--			 * state.
--			 */
--			if (vsk->peer_shutdown & SEND_SHUTDOWN) {
--				if (vsock_stream_has_data(vsk) <= 0) {
--					sk->sk_state = SS_UNCONNECTED;
--					sock_set_flag(sk, SOCK_DONE);
--					sk->sk_state_change(sk);
--				}
--			}
--		}
-+	if (copied > 0)
- 		err = copied;
--	}
- 
- out_wait:
- 	finish_wait(sk_sleep(sk), &wait);
 -- 
-2.8.0.rc2.1.gbe9624a
+tejun
