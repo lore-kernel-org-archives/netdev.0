@@ -1,104 +1,98 @@
-From: Ben Hutchings <ben@decadent.org.uk>
-Subject: Re: [RFC net-next 1/1] ethtool: Add support for set eeprom metadata.
-Date: Sun, 05 Jun 2016 13:49:17 +0100
-Message-ID: <1465130957.2847.195.camel@decadent.org.uk>
-References: <1464269615-4937-1-git-send-email-sudarsana.kalluru@qlogic.com>
-	 <CO2PR11MB00887A3F4C8ABB71421B1651975B0@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next] net, cls: allow for deleting all filters for
+ given parent
+Date: Sun, 5 Jun 2016 15:53:52 +0300
+Message-ID: <42e1cc6f-ad10-33b7-6722-1416e1b92422@cogentembedded.com>
+References: <cd8455dfef0cccec5ef0a1ca2d1f678e9397d66e.1465056745.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg="pgp-sha512";
-	protocol="application/pgp-signature"; boundary="=-fp4YtQECG+1LdwhAPgec"
-Cc: netdev <netdev@vger.kernel.org>,
-	Sudarsana Kalluru <Sudarsana.Kalluru@qlogic.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
+	jhs@mojatatu.com, netdev@vger.kernel.org
+To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:38438 "EHLO
-	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750908AbcFEMt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 08:49:26 -0400
-In-Reply-To: <CO2PR11MB00887A3F4C8ABB71421B1651975B0@CO2PR11MB0088.namprd11.prod.outlook.com>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:34086 "EHLO
+	mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750911AbcFEMxy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 08:53:54 -0400
+Received: by mail-lf0-f50.google.com with SMTP id s186so14643652lfs.1
+        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 05:53:53 -0700 (PDT)
+In-Reply-To: <cd8455dfef0cccec5ef0a1ca2d1f678e9397d66e.1465056745.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Hello.
 
---=-fp4YtQECG+1LdwhAPgec
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: quoted-printable
+On 6/4/2016 7:24 PM, Daniel Borkmann wrote:
 
-On Sun, 2016-06-05 at 10:16 +0000, Yuval Mintz wrote:
-> >=20
-> > Currently ethtool implementation does not have a way to pass the metada=
-ta for
-> > eeprom related operations. Some adapters have a complicated non-volatil=
-e
-> > memory implementation that requires additional information =E2=80=93 th=
-ere are drivers
-> > [bnx2x and bnxt] that use the =E2=80=98magic=E2=80=99 field in the {G,S=
-}EEPROM=C2=A0=C2=A0for that purpose,
-> > although that=E2=80=99s not its intended usage.
-> >=20
-> > This patch adds a provision to pass the eeprom metadata for
-> > %ETHTOOL_SEEPROM/%ETHTOOL_GEEPROM implementations. User provided
-> > metadata will be cached by the driver and assigns a magic value which t=
-he
-> > application need to use for the subsequent {G,S}EEPROM command.
->=20
-> Hi Dave,
->=20
-> This got no comments at all.
-> What do you want us to with it next? Should we re-send it as a patch?
+> Add a possibility where the user can just specify the parent and
+> all filters under that parent are then being purged. Currently,
+> for example for scripting, one needs to specify pref/prio to have
+> a well-defined number for 'tc filter del' command for addressing
+> the previously created instance or additionally filter handle in
+> case of priorities being the same. Improve usage by allowing the
+> option for tc to specify the parent and removing the whole chain
+> for that given parent.
+>
+> Example usage after patch, no tc changes required:
+>
+>   # tc qdisc replace dev foo clsact
+>   # tc filter add dev foo egress bpf da obj ./bpf.o
+>   # tc filter add dev foo egress bpf da obj ./bpf.o
+>   # tc filter show dev foo egress
+>   filter protocol all pref 49151 bpf
+>   filter protocol all pref 49151 bpf handle 0x1 bpf.o:[classifier] direct-action
+>   filter protocol all pref 49152 bpf
+>   filter protocol all pref 49152 bpf handle 0x1 bpf.o:[classifier] direct-action
+>   # tc filter del dev foo egress
+>   # tc filter show dev foo egress
+>   #
+>
+> Previously, RTM_DELTFILTER requests with invalid prio of 0 were
+> rejected, so only netlink requests with RTM_NEWTFILTER and NLM_F_CREATE
+> flag were allowed where the kernel would auto-generate a pref/prio.
+> We can piggyback on that and use prio of 0 as a wildcard for
+> requests of RTM_DELTFILTER.
+>
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> ---
+>  net/sched/cls_api.c | 24 ++++++++++++++++++++----
+>  1 file changed, 20 insertions(+), 4 deletions(-)
+>
+> diff --git a/net/sched/cls_api.c b/net/sched/cls_api.c
+> index a75864d..caa1dd4 100644
+> --- a/net/sched/cls_api.c
+> +++ b/net/sched/cls_api.c
+> @@ -156,11 +156,22 @@ replay:
+>  	cl = 0;
+>
+>  	if (prio == 0) {
+> -		/* If no priority is given, user wants we allocated it. */
+> -		if (n->nlmsg_type != RTM_NEWTFILTER ||
+> -		    !(n->nlmsg_flags & NLM_F_CREATE))
+> +		switch (n->nlmsg_type) {
+> +		case RTM_DELTFILTER:
+> +			if (protocol || t->tcm_handle)
+> +				return -ENOENT;
+> +			break;
+> +		case RTM_NEWTFILTER:
+> +			/* If no priority is provided by the user,
+> +			 * we allocate one.
+> +			 */
+> +			if (n->nlmsg_flags & NLM_F_CREATE) {
+> +				prio = TC_H_MAKE(0x80000000U, 0U);
+> +				break;
+> +			}
 
-Here's a comment: I really dislike this.
+    Need a comment here, something like /* FALL THRU */.
 
-- It doesn't specify any semantics for the 'metadata'. =C2=A0The comment
-hints that they are driver-specific identifiers for different NVRAM
-partitions.
+> +		default:
+>  			return -ENOENT;
+> -		prio = TC_H_MAKE(0x80000000U, 0U);
+> +		}
+>  	}
+>
+>  	/* Find head of filter chain. */
+[...]
 
-- It doesn't provide a way for userland to enumerate the valid metadata
-values.
-
-- It's not clear whether the driver is supposed to maintain just one
-metadata:magic mapping, or more than that.
-
-Is the ethtool API really the right interface for access to flash? =C2=A0Th=
-e
-sfc driver exposes a large number of flash partitions using MTD
-instead. =C2=A0These can be enumerated (through /proc/mtd or sysfs) and the=
-y
-can be read and written through block devices.
-
-Ben.
-
---=20
-Ben Hutchings
-Everything should be made as simple as possible, but not simpler.
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
-=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
-=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- Albert
-Einstein
-
---=-fp4YtQECG+1LdwhAPgec
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAABCgAGBQJXVB/OAAoJEOe/yOyVhhEJZeMP/jued7gr7yLH+X+8WkCpbM4g
-z6PlkoMUmG5Wdyi6yazqBnqHmuvJFxyG8/h/ltPeu8loVjiHNPfdiJz4ndXcAKyx
-G9gYcq3L/iXVqT+DXOj7xJmivYNtVs9u9JTPR5rkvYdVYWMUKByq7FFSaYGkQaN9
-fPeKBXCVqgw/qG7soD4Jaay48HL54FLRZGRFuTx9b6lTi299P5gkdCeu6xPZOpKT
-lsu2y/Yoy+08reyDerPUyyN4fiOgVYFrhmK+kMVR9qxqHO0CxmZWAujjcdTOs9Py
-05G9qpPywyIrLQgnhUiU9ABjN7brlwIpQS+CnXlmJwhFKEMStmxSZUkeqBbfSoBj
-hMkF8TzRwI0rcZBOWJrmENwXpYZo8z5yyqp+d1cyE6PNc12i+ows5N5YcF+FZI2B
-yFFLwe3SPyNTWXpGcg90hXpnSburFcZmTyUJ0UZEO9MggJ76ZoIsX3EX0+lGBVXJ
-B2d8xGKKNJuAfh8HYBzswn5fzuLGuWJ2vKG6YM4zuGacnC1jBNoR6T2Adliecyod
-JZFE2pNdwobCm+/g6TBQspZcx0fLO/tBy8yKCWp1vqoisThaFlPELSBOyCaCnInC
-fY1DOgRv2Yai6tWZQGphB9EfpQqwmWbNDqgUR3d0ZtTS6WpWk6y03QTOS6AGzsDy
-htkpF1UdsaxXsi2OobHx
-=Qtyj
------END PGP SIGNATURE-----
-
---=-fp4YtQECG+1LdwhAPgec--
+MBR, Sergei
