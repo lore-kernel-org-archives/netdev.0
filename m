@@ -1,9 +1,9 @@
 From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH] net: ethernet: cavium: liquidio: response_manager:
- Remove create_workqueue
-Date: Sun, 5 Jun 2016 06:24:25 -0400
-Message-ID: <20160605102425.GB31708@htj.duckdns.org>
-References: <20160604145139.GA31437@Karyakshetra>
+Subject: Re: [PATCH] net: ethernet: cavium: liquidio: request_manager: Remove
+ create_workqueue
+Date: Sun, 5 Jun 2016 06:26:01 -0400
+Message-ID: <20160605102601.GC31708@htj.duckdns.org>
+References: <20160604152400.GA559@Karyakshetra>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Derek Chickles <derek.chickles@caviumnetworks.com>,
@@ -12,34 +12,29 @@ Cc: Derek Chickles <derek.chickles@caviumnetworks.com>,
 	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f68.google.com ([209.85.192.68]:36638 "EHLO
-	mail-qg0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753216AbcFEKY3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 06:24:29 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160604145139.GA31437@Karyakshetra>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20160604152400.GA559@Karyakshetra>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 04, 2016 at 08:21:40PM +0530, Bhaktipriya Shridhar wrote:
-> alloc_workqueue replaces deprecated create_workqueue().
+On Sat, Jun 04, 2016 at 08:54:00PM +0530, Bhaktipriya Shridhar wrote:
+> diff --git a/drivers/net/ethernet/cavium/liquidio/request_manager.c b/drivers/net/ethernet/cavium/liquidio/request_manager.c
+> index a2a2465..9313915 100644
+> --- a/drivers/net/ethernet/cavium/liquidio/request_manager.c
+> +++ b/drivers/net/ethernet/cavium/liquidio/request_manager.c
+> @@ -144,7 +144,9 @@ int octeon_init_instr_queue(struct octeon_device *oct,
 > 
-> A dedicated workqueue has been used since the workitem viz
-> (&cwq->wk.work which maps to oct_poll_req_completion) is involved
-> in normal device operation. WQ_MEM_RECLAIM has been set to guarantee
-> forward progress under memory pressure, which is a requirement here.
-> Since there are only a fixed number of work items, explicit concurrency
-> limit is unnecessary.
+>  	oct->fn_list.setup_iq_regs(oct, iq_no);
 > 
-> flush_workqueue is unnecessary since destroy_workqueue() itself calls
-> drain_workqueue() which flushes repeatedly till the workqueue
-> becomes empty. Hence the call to flush_workqueue() has been dropped.
-> 
-> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+> -	oct->check_db_wq[iq_no].wq = create_workqueue("check_iq_db");
+> +	oct->check_db_wq[iq_no].wq = alloc_workqueue("check_iq_db",
+> +						     WQ_MEM_RECLAIM,
+> +						     0);
 
-As with the previous patch, the subject tag doesn't need to contain
-the full hierarchy but other than that,
+Why the new line between WQ_MEM_RECLAIM and 0?
+
+Except for the subj tag and the above nit,
 
  Acked-by: Tejun Heo <tj@kernel.org>
 
