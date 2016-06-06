@@ -1,130 +1,30 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH ipvs-next] ipvs: count pre-established TCP states as
- active
-Date: Mon, 6 Jun 2016 10:23:20 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1606060943060.1691@ja.home.ssi.bg>
-References: <20160603155650.292BEA0E60@unicorn.suse.cz>
+From: Luca Coelho <luca@coelho.fi>
+Subject: Re: [PATCH] iwlwifi: Remove unused array 'iwlagn_loose_lookup'
+Date: Mon, 06 Jun 2016 10:54:59 +0300
+Message-ID: <1465199699.1921.18.camel@coelho.fi>
+References: <1464989959-2021-1-git-send-email-linux@roeck-us.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: lvs-devel@vger.kernel.org, Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:47761 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751856AbcFFHYN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jun 2016 03:24:13 -0400
-In-Reply-To: <20160603155650.292BEA0E60@unicorn.suse.cz>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linuxwifi@intel.com, Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>,
+	Johannes Berg <johannes.berg@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464989959-2021-1-git-send-email-linux@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-
-	Hello,
-
-On Fri, 3 Jun 2016, Michal Kubecek wrote:
-
-> Some users observed that "least connection" distribution algorithm doesn't
-> handle well bursts of TCP connections from reconnecting clients after
-> a node or network failure.
+On Fri, 2016-06-03 at 14:39 -0700, Guenter Roeck wrote:
+> gcc-6 reports the following error if -Werror=unused-const-variable
+> is enabled.
 > 
-> This is because the algorithm counts active connection as worth 256
-> inactive ones where for TCP, "active" only means TCP connections in
-> ESTABLISHED state. In case of a connection burst, new connections are
-> handled before previous ones have finished the three way handshaking so
-> that all are still counted as "inactive", i.e. cheap ones. The become
-> "active" quickly but at that time, all of them are already assigned to one
-> real server (or few), resulting in highly unbalanced distribution.
+> drivers/net/wireless/intel/iwlwifi/dvm/lib.c:210:21: error:
+> 	'iwlagn_loose_lookup' defined but not used
 > 
-> Address this by counting the "pre-established" states as "active".
-> 
-> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-
-	LC and WLC are bursty by nature. May be a new
-scheduler is needed that combines the LC algorithm with
-WRR mode to adaptively reduce the difference in load,
-especially for the case when new server is started in
-a setup with many servers.
-
-	Give me some days or week to analyze the effects of
-your patch, mostly in situations of SYN attack. Note that
-there can be schedulers affected by this change but I think
-they will only benefit from it.
-For example:
-
-- LBLC, LBLCR: can use weight as threshold for activeconns
-- NQ, SED: only activeconns are used
-- OVF: weight is used as threshold for activeconns,
-	inactconns are not used
-
-	Schedulers not part of the kernel can be affacted
-too. So, for now the plan is to apply this patch. If there
-are other opinions, please speak up.
-
+> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
 > ---
->  net/netfilter/ipvs/ip_vs_proto_tcp.c | 25 +++++++++++++++++++++++--
->  1 file changed, 23 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-> index d7024b2ed769..5117bcb7d2f0 100644
-> --- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
-> +++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-> @@ -395,6 +395,20 @@ static const char *const tcp_state_name_table[IP_VS_TCP_S_LAST+1] = {
->  	[IP_VS_TCP_S_LAST]		=	"BUG!",
->  };
->  
-> +static const bool tcp_state_active_table[IP_VS_TCP_S_LAST] = {
-> +	[IP_VS_TCP_S_NONE]		=	false,
-> +	[IP_VS_TCP_S_ESTABLISHED]	=	true,
-> +	[IP_VS_TCP_S_SYN_SENT]		=	true,
-> +	[IP_VS_TCP_S_SYN_RECV]		=	true,
-> +	[IP_VS_TCP_S_FIN_WAIT]		=	false,
-> +	[IP_VS_TCP_S_TIME_WAIT]		=	false,
-> +	[IP_VS_TCP_S_CLOSE]		=	false,
-> +	[IP_VS_TCP_S_CLOSE_WAIT]	=	false,
-> +	[IP_VS_TCP_S_LAST_ACK]		=	false,
-> +	[IP_VS_TCP_S_LISTEN]		=	false,
-> +	[IP_VS_TCP_S_SYNACK]		=	true,
-> +};
-> +
->  #define sNO IP_VS_TCP_S_NONE
->  #define sES IP_VS_TCP_S_ESTABLISHED
->  #define sSS IP_VS_TCP_S_SYN_SENT
-> @@ -418,6 +432,13 @@ static const char * tcp_state_name(int state)
->  	return tcp_state_name_table[state] ? tcp_state_name_table[state] : "?";
->  }
->  
-> +static bool tcp_state_active(int state)
-> +{
-> +	if (state >= IP_VS_TCP_S_LAST)
-> +		return false;
-> +	return tcp_state_active_table[state];
-> +}
-> +
->  static struct tcp_states_t tcp_states [] = {
->  /*	INPUT */
->  /*        sNO, sES, sSS, sSR, sFW, sTW, sCL, sCW, sLA, sLI, sSA	*/
-> @@ -540,12 +561,12 @@ set_tcp_state(struct ip_vs_proto_data *pd, struct ip_vs_conn *cp,
->  
->  		if (dest) {
->  			if (!(cp->flags & IP_VS_CONN_F_INACTIVE) &&
-> -			    (new_state != IP_VS_TCP_S_ESTABLISHED)) {
-> +			    !tcp_state_active(new_state)) {
->  				atomic_dec(&dest->activeconns);
->  				atomic_inc(&dest->inactconns);
->  				cp->flags |= IP_VS_CONN_F_INACTIVE;
->  			} else if ((cp->flags & IP_VS_CONN_F_INACTIVE) &&
-> -				   (new_state == IP_VS_TCP_S_ESTABLISHED)) {
-> +				   tcp_state_active(new_state)) {
->  				atomic_inc(&dest->activeconns);
->  				atomic_dec(&dest->inactconns);
->  				cp->flags &= ~IP_VS_CONN_F_INACTIVE;
-> -- 
-> 2.8.3
 
-Regards
+Thanks! I'm queuing this via our internal trees (adding "dvm: " to the
+subject, to indicate this is related to the dvm module).
