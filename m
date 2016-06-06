@@ -1,48 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bnx2x: allow adding VLANs while interface is down
-Date: Sun, 05 Jun 2016 23:12:13 -0400 (EDT)
-Message-ID: <20160605.231213.1678457595287788841.davem@davemloft.net>
-References: <1464960738-8541-1-git-send-email-mschmidt@redhat.com>
+Subject: Re: [PATCHv2 net-next] sctp: sctp should change socket state when
+ shutdown is received
+Date: Sun, 05 Jun 2016 23:12:51 -0400 (EDT)
+Message-ID: <20160605.231251.1554542848732028723.davem@davemloft.net>
+References: <67353a74d044f1f643cdfe1442136b44d7188ea9.1464964965.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yuval.Mintz@qlogic.com,
-	Ariel.Elior@qlogic.com
-To: mschmidt@redhat.com
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	marcelo.leitner@gmail.com, vyasevich@gmail.com,
+	daniel@iogearbox.net, eric.dumazet@gmail.com
+To: lucien.xin@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37725 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37729 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750763AbcFFDMO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 23:12:14 -0400
-In-Reply-To: <1464960738-8541-1-git-send-email-mschmidt@redhat.com>
+	with ESMTP id S1750853AbcFFDMw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 23:12:52 -0400
+In-Reply-To: <67353a74d044f1f643cdfe1442136b44d7188ea9.1464964965.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Michal Schmidt <mschmidt@redhat.com>
-Date: Fri,  3 Jun 2016 15:32:18 +0200
+From: Xin Long <lucien.xin@gmail.com>
+Date: Fri,  3 Jun 2016 22:42:45 +0800
 
-> Since implementing VLAN filtering in commit 05cc5a39ddb74
-> ("bnx2x: add vlan filtering offload") bnx2x refuses to add a VLAN while
-> the interface is down:
+> Now sctp doesn't change socket state upon shutdown reception. It changes
+> just the assoc state, even though it's a TCP-style socket.
 > 
->   # ip link add link enp3s0f0 enp3s0f0_10 type vlan id 10
->   RTNETLINK answers: Bad address
+> For some cases, if we really need to check sk->sk_state, it's necessary to
+> fix this issue, at least when we use ss or netstat to dump, we can get a
+> more exact information.
 > 
-> and in dmesg (with bnx2x.debug=0x20):
->   bnx2x: [bnx2x_vlan_rx_add_vid:12941(enp3s0f0)]Ignoring VLAN
->   configuration the interface is down
+> As an improvement, we will change sk->sk_state when we change asoc->state
+> to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent with
+> sctp_close.
 > 
-> Other drivers have no problem with this.
-> Fix this peculiar behavior in the following way:
->  - Accept requests to add/kill VID regardless of the device state.
->    Maintain the requested list of VIDs in the bp->vlan_reg list.
->  - If the device is up, try to configure the VID list into the hardware.
->    If we run out of VLAN credits or encounter a failure configuring an
->    entry, fall back to accepting all VLANs.
->    If we successfully configure all entries from the list, turn the
->    fallback off.
->  - Use the same code for reconfiguring VLANs during NIC load.
-> 
-> Signed-off-by: Michal Schmidt <mschmidt@redhat.com>
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Applied, thanks.
+It looks like some changes are still needed for this.
