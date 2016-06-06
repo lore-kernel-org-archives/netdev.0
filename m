@@ -1,39 +1,46 @@
-From: Greg KH <gregkh@linuxfoundation.org>
-Subject: Re: [PATCH v3] r8152: Add support for setting pass through MAC
+From: Konstantin Shkolnyy <Konstantin.Shkolnyy@silabs.com>
+Subject: RE: [EXT] [PATCH v4] r8152: Add support for setting pass through MAC
  address on RTL8153-AD
-Date: Mon, 6 Jun 2016 10:38:58 -0700
-Message-ID: <20160606173858.GA24836@kroah.com>
-References: <1465222521-7217-1-git-send-email-mario_limonciello@dell.com>
- <1465222521-7217-2-git-send-email-mario_limonciello@dell.com>
- <20160606143947.GA4758@kroah.com>
- <e0b44bac635f41a9a3f47f909cf16f42@ausx13mpc124.AMER.DELL.COM>
- <20160606161222.GA12114@kroah.com>
- <e1fd0ce1589743acbd1342ec38ff8071@ausx13mpc124.AMER.DELL.COM>
+Date: Mon, 6 Jun 2016 17:42:52 +0000
+Message-ID: <BLUPR0701MB157202FD9A92FF62F52382CF915C0@BLUPR0701MB1572.namprd07.prod.outlook.com>
+References: <1465233569-13585-1-git-send-email-mario_limonciello@dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hayeswang@realtek.com, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
-	pali.rohar@gmail.com, anthony.wong@canonical.com
-To: Mario_Limonciello@Dell.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Linux USB <linux-usb@vger.kernel.org>,
+	"pali.rohar@gmail.com" <pali.rohar@gmail.com>,
+	"anthony.wong@canonical.com" <anthony.wong@canonical.com>,
+	Greg KH <gregkh@linuxfoundation.org>
+To: Mario Limonciello <mario_limonciello@dell.com>,
+	"hayeswang@realtek.com" <hayeswang@realtek.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <e1fd0ce1589743acbd1342ec38ff8071@ausx13mpc124.AMER.DELL.COM>
+In-Reply-To: <1465233569-13585-1-git-send-email-mario_limonciello@dell.com>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 06, 2016 at 05:24:57PM +0000, Mario_Limonciello@Dell.com wrote:
-> That said, I would be highly surprised if Realtek decided to implement
-> with another OEM differently.  It would increase their code complexity
-> on Windows as well since this is part of the generic driver.
+> -----Original Message-----
+> From: linux-usb-owner@vger.kernel.org [mailto:linux-usb-
+> owner@vger.kernel.org] On Behalf Of Mario Limonciello
+> Sent: Monday, June 06, 2016 12:19
+> To: hayeswang@realtek.com
+> Cc: LKML; Netdev; Linux USB; pali.rohar@gmail.com;
+> anthony.wong@canonical.com; Greg KH; Mario Limonciello
+> Subject: [EXT] [PATCH v4] r8152: Add support for setting pass through MAC
+> address on RTL8153-AD
+> 
+> The RTL8153-AD supports a persistent system specific MAC address.
+> This means a device plugged into two different systems with host side
+> support will show different (but persistent) MAC addresses.
+> 
+> This information for the system's persistent MAC address is burned in when
+> the system HW is built and available under _SB\AMAC in the DSDT at
+> runtime.
+> 
+> This technology is currently implemented in the Dell TB15 and WD15 Type-C
+> docks.  More information is available here:
+> http://www.dell.com/support/article/us/en/04/SLN301147
 
-Ah, it's refreshing to see people who haven't dealt with BIOS and system
-vendors for very long, your good attitude is a wonderful sign :)
-
-Seriously, if there is ANY chance that it could be broken or changed, it
-will be.  I place the odds that your next hardware product will do just
-this for no obvious reason at all and am willing to buy the beer if it
-doesn't happen.
-
-thanks,
-
-greg k-h
+What is going to happen if I connect multiple dongles? Will they all get the same address?
