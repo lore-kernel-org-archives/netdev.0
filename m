@@ -1,10 +1,10 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH v4 1/7] mdio: mux: Enhanced MDIO mux framework for
- integrated multiplexers
-Date: Mon, 6 Jun 2016 11:33:50 -0700
-Message-ID: <5755C20E.5040308@gmail.com>
+Subject: Re: [PATCH v4 3/7] binding: mdio-mux: Add DT binding doc for Broadcom
+ MDIO bus multiplexer
+Date: Mon, 6 Jun 2016 11:36:00 -0700
+Message-ID: <5755C290.2020704@gmail.com>
 References: <1465216900-11755-1-git-send-email-pramod.kumar@broadcom.com>
- <1465216900-11755-2-git-send-email-pramod.kumar@broadcom.com>
+ <1465216900-11755-4-git-send-email-pramod.kumar@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -23,35 +23,37 @@ To: Pramod Kumar <pramod.kumar@broadcom.com>,
 	Kishon Vijay Abraham I <kishon@ti.com>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465216900-11755-2-git-send-email-pramod.kumar@broadcom.com>
+In-Reply-To: <1465216900-11755-4-git-send-email-pramod.kumar@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On 06/06/2016 05:41 AM, Pramod Kumar wrote:
-> An integrated multiplexer uses same address space for
-> "muxed bus selection" and "generation of mdio transaction"
-> hence its good to register parent bus from mux driver.
+> Add DT binding doc for Broadcom MDIO bus multiplexer driver.
 > 
-> Hence added a mechanism where mux driver could register a
-> parent bus and pass it down to framework via mdio_mux_init api.
-> 
+> Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 > Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
 
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 
 
-> diff --git a/include/linux/mdio-mux.h b/include/linux/mdio-mux.h
-> index a243dbb..61f5b21 100644
-> --- a/include/linux/mdio-mux.h
-> +++ b/include/linux/mdio-mux.h
-> @@ -10,11 +10,13 @@
->  #ifndef __LINUX_MDIO_MUX_H
->  #define __LINUX_MDIO_MUX_H
->  #include <linux/device.h>
-> +#include <linux/phy.h>
+> +for example:
+> +		mdio_mux_iproc: mdio-mux@6602023c {
 
-You could have added just a forward declaration, this is a pointer to
-the structure so you don't need the compiler to have full knowledge of
-the storage type. Not a biggie.
+I think Rob wanted you to drop the underscores here in favor of dashes,
+there are more below, not critical imho.
+
+> +			compatible = "brcm,mdio-mux-iproc";
+> +			reg = <0x6602023c 0x14>;
+> +			#address-cells = <1>;
+> +			#size-cells = <0>;
+> +
+> +			mdio@0 {
+> +				reg = <0x0>;
+> +				#address-cells = <1>;
+> +				#size-cells = <0>;
+> +
+> +				pci_phy0: pci-phy@0 {
+
+
 -- 
 Florian
