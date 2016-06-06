@@ -1,66 +1,86 @@
-From: Manfred Schlaegl <manfred.schlaegl@ginzinger.com>
-Subject: [PATCH] net: phy: smsc: reintroduced unconditional soft reset
-Date: Mon, 6 Jun 2016 10:47:47 +0200
-Message-ID: <575538B3.8030406@ginzinger.com>
+From: Hanjun Guo <guohanjun@huawei.com>
+Subject: Re: [bug discuss] fjes driver call trace warning, "PNP0C02" used in
+ fjes seems like a bug,
+Date: Mon, 6 Jun 2016 17:13:46 +0800
+Message-ID: <57553ECA.90701@huawei.com>
+References: <57515004.1080301@huawei.com>
+ <EE11001F9E5DDD47B7634E2F8A612F2E1F76DB68@lhreml507-mbx>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>,
-	Manfred Schlaegl <manfred.schlaegl@gmx.at>
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Linuxarm <linuxarm@huawei.com>
+To: Gabriele Paoloni <gabriele.paoloni@huawei.com>,
+	"liudongdong (C)" <liudongdong3@huawei.com>,
+	"izumi.taku@jp.fujitsu.com" <izumi.taku@jp.fujitsu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:63201 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751825AbcFFJOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 05:14:11 -0400
+In-Reply-To: <EE11001F9E5DDD47B7634E2F8A612F2E1F76DB68@lhreml507-mbx>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We detected some problems using the smsc lan8720a in combination with
-i.MX28 and tracked this down to commit 21009686662f ("net: phy: smsc: move
-smsc_phy_config_init reset part in a soft_reset function")
-With 2100968666 the generic soft reset is replaced by a specific function
-which handles power down state correctly. But additionally the soft reset
-itself got conditional and is therefore also only performed if the phy is
-in power down state.
+On 2016/6/3 17:58, Gabriele Paoloni wrote:
+> Hi Dongdong
+>
+> Thanks for flagging this
+>
+> +to: Taku Izumi <izumi.taku@jp.fujitsu.com>
+>
+> Gab
+>
+>> -----Original Message-----
+>> From: linuxarm-bounces@huawei.com [mailto:linuxarm-bounces@huawei.com]
+>> On Behalf Of Dongdong Liu
+>> Sent: 03 June 2016 10:38
+>> To: netdev@vger.kernel.org
+>> Cc: Linuxarm
+>> Subject: [bug discuss] fjes driver call trace warning, "PNP0C02" used
+>> in fjes seems like a bug,
+>>
+>> Hi all:
+>>
+>> The bug is recorded in https://bugs.linaro.org/show_bug.cgi?id=2292.
+>>
+>> "PNP0C02" attached two modules drivers/pnp/system.c and
+>> drivers/net/fjes/fjes_main.c .
+>> "fjes" driver lead to the call trace.
+>>
+>> system.c:
+>> static const struct pnp_device_id pnp_dev_table[] = {
+>>          /* General ID for reserving resources */
+>>          {"PNP0c02", 0},
+>>          /* memory controller */
+>>          {"PNP0c01", 0},
+>>          {"", 0}
+>> };
+>>
+>> jes_main.c:
+>> static const struct acpi_device_id fjes_acpi_ids[] = {
+>>          {"PNP0C02", 0},
+>>          {"", 0},
+>> };
+>>
+>> Both of the modules use id "PNP0C02" (case insensitive),
+>>
+>> I used "PNP0C02" to mark motherboard reserved resource as below in
+>> UEFI.
+>> Device (RES1)
+>> {
+>> 	Name (_HID, "HISI0081") // HiSi PCIe RC config baseaddress
+>> 	Name (_CID, "PNP0C02") // Motherboard reserved resource
+>> 		Name (_CRS, ResourceTemplate (){
+>> 			Memory32Fixed (ReadWrite, 0xb0080000 , 0x10000)
+>> 		})
+>> }
+>>
+>> I think that "PNP0C02" should be used to mark any motherboard reserved
+>> resource and not a specific network driver.
+>> It seems like a bug in the "fjes" driver.
 
-This patch keeps the conditional wake up from power down, but
-re-introduces the unconditional soft reset using the generic soft reset
-function.
-It was tested on linux-4.1.25 and linux-4.7.0-rc2.
+I agree,  PNP0C02 is not a valid ACPI device HID but only for reserved resources.
 
-Signed-off-by: Manfred Schlaegl <manfred.schlaegl@ginzinger.com>
----
- drivers/net/phy/smsc.c | 17 ++++-------------
- 1 file changed, 4 insertions(+), 13 deletions(-)
-
-diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
-index 2e21e93..b62c4aa 100644
---- a/drivers/net/phy/smsc.c
-+++ b/drivers/net/phy/smsc.c
-@@ -75,22 +75,13 @@ static int smsc_phy_reset(struct phy_device *phydev)
- 	 * in all capable mode before using it.
- 	 */
- 	if ((rc & MII_LAN83C185_MODE_MASK) == MII_LAN83C185_MODE_POWERDOWN) {
--		int timeout = 50000;
--
--		/* set "all capable" mode and reset the phy */
-+		/* set "all capable" mode */
- 		rc |= MII_LAN83C185_MODE_ALL;
- 		phy_write(phydev, MII_LAN83C185_SPECIAL_MODES, rc);
--		phy_write(phydev, MII_BMCR, BMCR_RESET);
--
--		/* wait end of reset (max 500 ms) */
--		do {
--			udelay(10);
--			if (timeout-- == 0)
--				return -1;
--			rc = phy_read(phydev, MII_BMCR);
--		} while (rc & BMCR_RESET);
- 	}
--	return 0;
-+
-+	/* reset the phy */
-+	return genphy_soft_reset(phydev);
- }
- 
- static int lan911x_config_init(struct phy_device *phydev)
--- 
-2.1.4
+Thanks
+Hanjun
