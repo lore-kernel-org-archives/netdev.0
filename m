@@ -1,47 +1,44 @@
-From: Sathya Perla <sathya.perla@broadcom.com>
-Subject: [net-next PATCH 0/3] be2net: patch set
-Date: Mon,  6 Jun 2016 07:22:07 -0400
-Message-ID: <1465212130-510-1-git-send-email-sathya.perla@broadcom.com>
-To: netdev@vger.kernel.org
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH v2 net] fq_codel: fix NET_XMIT_CN behavior
+Date: Mon, 6 Jun 2016 13:42:34 +0200
+Message-ID: <20160606114234.GB7827@breakpoint.cc>
+References: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160604190301.GA8857@strlen.de>
+ <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVORpFx_xx67gYT_3jXfWAuqkMmR03R9VJv1TrcqH4W8A@mail.gmail.com>
+ <1465160087.2968.51.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1465160123.2968.52.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpXMwT20nhWW4Pd2yy6nkeXkSNdxV9wAEGzGd22PcyePmg@mail.gmail.com>
+ <57555536.1090801@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Florian Westphal <fw@strlen.de>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stas Nichiporovich <stasn77@gmail.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [192.19.245.250] ([192.19.245.250]:15324 "EHLO
-	CMRELAYP1.ad.emulex.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751616AbcFFLkK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 07:40:10 -0400
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:52679 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751631AbcFFLmk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 07:42:40 -0400
+Content-Disposition: inline
+In-Reply-To: <57555536.1090801@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David, the following patch set contains three non-critical fixes that
-can go into the net-next tree.
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> BTW, returning NET_XMIT_CN could be confusing to tcp;
+> it does not mean that the packet that we are getting return
+> code for was dropped; it could mean _another_ packet in
+> the queue was dropped.
 
-Patch 1 fixes the logic for provisioning queue pairs on VFs to take into
-account the limit on number of TXQs too as in some profiles the number
-of TXQs is less than that of RXQs.
+Yes, but we currently conceal NET_XMIT_CN from upper layer (tcp)
+via the net_xmit_* macros:
 
-Patch 2 enables WoL support from shutdown on Skyhawk.
+#define net_xmit_eval(e)       ((e) == NET_XMIT_CN ? 0 : (e))
+#define net_xmit_errno(e)      ((e) != NET_XMIT_CN ? -ENOBUFS : 0)
 
-Patch 3 enhances the logic for provisioning queue pairs on VFs on
-SR-IOV over multi-partition configs. Each PF (partition) on a port has to
-compute the number of RSS tables it's VFs can use.
-
-thanks!
-
-Somnath Kotur (1):
-  be2net: Fix provisioning of RSS for VFs in multi-partition
-    configurations
-
-Sriharsha Basavapatna (1):
-  be2net: Enable Wake-On-LAN from shutdown for Skyhawk
-
-Suresh Reddy (1):
-  be2net: use max-TXQs limit too while provisioning VF queue pairs
-
- drivers/net/ethernet/emulex/benet/be.h         |  16 +-
- drivers/net/ethernet/emulex/benet/be_cmds.c    | 147 +++++++++---------
- drivers/net/ethernet/emulex/benet/be_cmds.h    |  14 +-
- drivers/net/ethernet/emulex/benet/be_ethtool.c |  35 ++++-
- drivers/net/ethernet/emulex/benet/be_main.c    | 203 +++++++++++++++----------
- 5 files changed, 256 insertions(+), 159 deletions(-)
-
--- 
-2.4.1
+Might be worth changing this so tcp reduces cwnd in _CN case too.
