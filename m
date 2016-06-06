@@ -1,46 +1,31 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: [PATCH net] tcp: record TLP and ER timer stats in v6 stats
-Date: Mon,  6 Jun 2016 15:07:18 -0700
-Message-ID: <1465250838-13731-1-git-send-email-ycheng@google.com>
-Cc: netdev@vger.kernel.org, nanditad@google.com,
-	Yuchung Cheng <ycheng@google.com>,
-	Neal Cardwell <ncardwell@google.com>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] net: vrf: Add support for local traffic
+ to local addresses
+Date: Mon, 06 Jun 2016 15:12:28 -0700 (PDT)
+Message-ID: <20160606.151228.325662111382577833.davem@davemloft.net>
+References: <1464898512-5157-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:32905 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751773AbcFFWHu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 18:07:50 -0400
-Received: by mail-pa0-f42.google.com with SMTP id ec8so33316381pac.0
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 15:07:49 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:47330 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751297AbcFFWMc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 18:12:32 -0400
+In-Reply-To: <1464898512-5157-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The v6 tcp stats scan do not provide TLP and ER timer information
-correctly like the v4 version . This patch fixes that.
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Thu,  2 Jun 2016 13:15:09 -0700
 
-Fixes: 6ba8a3b19e76 ("tcp: Tail loss probe (TLP)")
-Fixes: eed530b6c676 ("tcp: early retransmit")
-Signed-off-by: Yuchung Cheng <ycheng@google.com>
-Signed-off-by: Neal Cardwell <ncardwell@google.com>
----
- net/ipv6/tcp_ipv6.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+> Add support for locally originated traffic to VRF-local addresses,
+> be it addresses on enslaved devices or addresses on the VRF device:
+ ...
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index 4ad8edb..d1fc453 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -1707,7 +1707,9 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
- 	destp = ntohs(inet->inet_dport);
- 	srcp  = ntohs(inet->inet_sport);
- 
--	if (icsk->icsk_pending == ICSK_TIME_RETRANS) {
-+	if (icsk->icsk_pending == ICSK_TIME_RETRANS ||
-+	    icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
-+	    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
- 		timer_active	= 1;
- 		timer_expires	= icsk->icsk_timeout;
- 	} else if (icsk->icsk_pending == ICSK_TIME_PROBE0) {
--- 
-2.8.0.rc3.226.g39d4020
+Series applied, but I've been wondering what happens to hw offloads
+when these VRF devices sit in the middle.
+
+Does TSO et al. still occur properly?
