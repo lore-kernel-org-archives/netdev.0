@@ -1,36 +1,44 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3 RESEND 0/7] Add MDIO bus multiplexer support for
- iProc SoCs
-Date: Sun, 05 Jun 2016 23:21:35 -0400 (EDT)
-Message-ID: <20160605.232135.1270822980912550134.davem@davemloft.net>
-References: <1464969786-22742-1-git-send-email-pramod.kumar@broadcom.com>
-	<20160603163247.GI22120@lunn.ch>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: rhashtable - rhashtable_insert_fast failed
+Date: Mon, 6 Jun 2016 11:57:18 +0800
+Message-ID: <20160606035718.GA19559@gondor.apana.org.au>
+References: <5751E702.5040909@gmx.de>
+ <20160604073527.GE29740@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: pramod.kumar@broadcom.com, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, catalin.marinas@arm.com, will.deacon@arm.com,
-	kishon@ti.com, devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	bcm-kernel-feedback-list@broadcom.com,
-	linux-arm-kernel@lists.infradead.org
-To: andrew@lunn.ch
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160603163247.GI22120@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Phil Sutter <phil@nwl.cc>, Helge Deller <deller@gmx.de>,
+	netdev@vger.kernel.org, Thomas Graf <tgraf@suug.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:47842 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751784AbcFFD5b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 5 Jun 2016 23:57:31 -0400
+Content-Disposition: inline
+In-Reply-To: <20160604073527.GE29740@orbyte.nwl.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Lunn <andrew@lunn.ch>
-Date: Fri, 3 Jun 2016 18:32:47 +0200
-
->> Reason for resend:
->> -Rebased on v4.7-rc1
+On Sat, Jun 04, 2016 at 09:35:27AM +0200, Phil Sutter wrote:
+> [Cc'ing other interested parties, therefore full-quoting.]
 > 
-> How do you see this getting merged? Via netdev? If so, you should be
-> based on net-next/master, not v4.7-rc1.
+> Hi Helge,
+> 
+> On Fri, Jun 03, 2016 at 10:22:26PM +0200, Helge Deller wrote:
+> > Hi Phil,
+> > 
+> > I'm testing 4.7.0-rc1-64bit on a parisc/hppa machine and get
+> > those message with CONFIG_TEST_RHASHTABLE=y.
+> > 
+> > Is this expected/normal ?
+> 
+> No, this shouldn't happen. Can you possibly bisect the issue?
 
-Indeed, please respin.
+This reminds me that I do still have to tackle the multi-page
+kmalloc issue.  This may or may not be the problem here.  Enabling
+warnings at the kmalloc call should be an easy way to check.
 
-Also, in your Subject lines, always have a space after the ":"
-characters.
+Thanks,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
