@@ -1,69 +1,47 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] fq_codel: fix NET_XMIT_CN behavior
-Date: Mon, 06 Jun 2016 07:29:30 -0700
-Message-ID: <1465223370.2968.59.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160604190301.GA8857@strlen.de>
-	 <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAM_iQpVORpFx_xx67gYT_3jXfWAuqkMmR03R9VJv1TrcqH4W8A@mail.gmail.com>
-	 <1465160087.2968.51.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1465160123.2968.52.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAM_iQpXMwT20nhWW4Pd2yy6nkeXkSNdxV9wAEGzGd22PcyePmg@mail.gmail.com>
-	 <57555536.1090801@mojatatu.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH v2 1/2] ARM: imx6: disable deeper idle states when FEC is
+ active w/o HW workaround
+Date: Mon, 6 Jun 2016 09:33:11 -0500
+Message-ID: <20160606143311.GA21103@rob-hp-laptop>
+References: <1464971480-9203-1-git-send-email-l.stach@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Florian Westphal <fw@strlen.de>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Stas Nichiporovich <stasn77@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Shawn Guo <shawnguo@kernel.org>, Fugang Duan <fugang.duan@nxp.com>,
+	devicetree@vger.kernel.org, patchwork-lst@pengutronix.de,
+	kernel@pengutronix.de, linux-arm-kernel@lists.infradead.org,
+	netdev@vger.kernel.org
+To: Lucas Stach <l.stach@pengutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34564 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752278AbcFFO3e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 10:29:34 -0400
-Received: by mail-pf0-f177.google.com with SMTP id 62so67518285pfd.1
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 07:29:34 -0700 (PDT)
-In-Reply-To: <57555536.1090801@mojatatu.com>
+Received: from mail-oi0-f67.google.com ([209.85.218.67]:32792 "EHLO
+	mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751861AbcFFOdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 10:33:13 -0400
+Content-Disposition: inline
+In-Reply-To: <1464971480-9203-1-git-send-email-l.stach@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-06-06 at 06:49 -0400, Jamal Hadi Salim wrote:
-> On 16-06-05 07:30 PM, Cong Wang wrote:
+On Fri, Jun 03, 2016 at 06:31:19PM +0200, Lucas Stach wrote:
+> The i.MX6 Q/DL has an erratum (ERR006687) that prevents the FEC from
+> waking the CPUs when they are in wait(unclocked) state. As the hardware
+> workaround isn't applicable to all boards, disable the deeper idle state
+> when the workaround isn't present and the FEC is in use.
 > 
-> > Potentially all of the following:
-> >
-> > net/sched/sch_choke.c:  return NET_XMIT_CN;
-> > net/sched/sch_fifo.c:   return NET_XMIT_CN;
-> > net/sched/sch_generic.c:        return NET_XMIT_CN;
-> > net/sched/sch_gred.c:   return NET_XMIT_CN;
-> > net/sched/sch_hhf.c:            return NET_XMIT_CN;
-> > net/sched/sch_red.c:    return NET_XMIT_CN;
-> > net/sched/sch_sfb.c:    return NET_XMIT_CN;
-> > net/sched/sch_sfq.c:            return NET_XMIT_CN;
-> >
+> This allows to safely run a kernel with CPUidle enabled on all i.MX6
+> boards.
 > 
-> As long as we are not loosing the stat that the packet
-> is dropped. Some qdiscs have a counter which indicates
-> congestion drops(look at RED variants of early drops);
-> maybe codel needs one. The parent also must account for
-> childs drops.
-> BTW, returning NET_XMIT_CN could be confusing to tcp;
-> it does not mean that the packet that we are getting return
-> code for was dropped; it could mean _another_ packet in
-> the queue was dropped.
+> Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
+> Acked-by: David S. Miller <davem@davemloft.net> (for network changes)
+> ---
+> v2: Spell out "workaround" to avoid confusion.
+> ---
+>  Documentation/devicetree/bindings/net/fsl-fec.txt |  3 +++
 
-NET_XMIT_CN does not confuse TCP at all.
+Acked-by: Rob Herring <robh@kernel.org>
 
-Look, the issue here is the accuracy of byte backlog in upper qdiscs,
-after Cong patch.
-
-When at enqueue(sch, P2) we drop P1, but enqueue P2, we need to take
-care of reporting to upper qdisc qdisc_pkt_len(P2) - qdisc_pkt_len(P1)
-
-We used to not call qdisc_tree_reduce_backlog() in this case, since it
-was qdisc_tree_decrease_qlen(sch, delta_packets) before Cong patch.
-
-We now need to call qdisc_tree_reduce_backlog(sch, 0, delta_bytes)
+>  arch/arm/mach-imx/cpuidle-imx6q.c                 | 16 +++++++++++++++
+>  drivers/net/ethernet/freescale/fec.h              |  2 ++
+>  drivers/net/ethernet/freescale/fec_main.c         | 12 +++++++++++
+>  include/soc/imx/cpuidle.h                         | 25 +++++++++++++++++++++++
+>  5 files changed, 58 insertions(+)
+>  create mode 100644 include/soc/imx/cpuidle.h
