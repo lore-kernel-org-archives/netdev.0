@@ -1,134 +1,41 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 2/2] ipvs: update real-server binding of outgoing connections in SIP-pe
-Date: Tue,  7 Jun 2016 00:38:17 +0200
-Message-ID: <1465252697-1986-3-git-send-email-pablo@netfilter.org>
-References: <1465252697-1986-1-git-send-email-pablo@netfilter.org>
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: netfilter-devel@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v3 0/2] net: vrf: Improve use of FIB rules
+Date: Mon, 06 Jun 2016 15:47:38 -0700 (PDT)
+Message-ID: <20160606.154738.2069568651897544011.davem@davemloft.net>
+References: <1464982616-23030-1-git-send-email-dsa@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:50790 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751973AbcFFWig (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jun 2016 18:38:36 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 7B97ECD6F18
-	for <netdev@vger.kernel.org>; Tue,  7 Jun 2016 00:38:34 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 6C1F99EBA8
-	for <netdev@vger.kernel.org>; Tue,  7 Jun 2016 00:38:34 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 81C299EBAA
-	for <netdev@vger.kernel.org>; Tue,  7 Jun 2016 00:38:28 +0200 (CEST)
-In-Reply-To: <1465252697-1986-1-git-send-email-pablo@netfilter.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47601 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751969AbcFFWrk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 18:47:40 -0400
+In-Reply-To: <1464982616-23030-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marco Angaroni <marcoangaroni@gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Fri,  3 Jun 2016 12:36:54 -0700
 
-Previous patch that introduced handling of outgoing packets in SIP
-persistent-engine did not call ip_vs_check_template() in case packet was
-matching a connection template. Assumption was that real-server was
-healthy, since it was sending a packet just in that moment.
+> Currently, VRFs require 1 oif and 1 iif rule per address family per
+> VRF. As the number of VRF devices increases it brings scalability
+> issues with the increasing rule list. All of the VRF rules have the
+> same format with the exception of the specific table id to direct the
+> lookup. Since the table id is available from the oif or iif in the
+> loopup, the VRF rules can be consolidated to a single rule that pulls
+> the table from the VRF device.
+> 
+> This solution still allows a user to insert their own rules for VRFs,
+> including rules with additional attributes. Accordingly, it is backwards
+> compatible with existing setups and allows other policy routing as
+> desired.
 
-There are however real-server fault conditions requiring that association
-between call-id and real-server (represented by connection template)
-gets updated. Here is an example of the sequence of events:
-  1) RS1 is a back2back user agent that handled call-id1 and call-id2
-  2) RS1 is down and was marked as unavailable
-  3) new message from outside comes to IPVS with call-id1
-  4) IPVS reschedules the message to RS2, which becomes new call handler
-  5) RS2 forwards the message outside, translating call-id1 to call-id2
-  6) inside pe->conn_out() IPVS matches call-id2 with existing template
-  7) IPVS does not change association call-id2 <-> RS1
-  8) new message comes from client with call-id2
-  9) IPVS reschedules the message to a real-server potentially different
-     from RS2, which is now the correct destination
+I hate module parameters.
 
-This patch introduces ip_vs_check_template() call in the handling of
-outgoing packets for SIP-pe. And also introduces a second optional
-argument for ip_vs_check_template() that allows to check if dest
-associated to a connection template is the same dest that was identified
-as the source of the packet. This is to change the real-server bound to a
-particular call-id independently from its availability status: the idea
-is that it's more reliable, for in->out direction (where internal
-network can be considered trusted), to always associate a call-id with
-the last real-server that used it in one of its messages. Think about
-above sequence of events where, just after step 5, RS1 returns instead
-to be available.
+And you don't even need one in this situation, just use a default preference
+of 1000 and add a newlink netlink attribute that can change it.
 
-Comparison of dests is done by simply comparing pointers to struct
-ip_vs_dest; there should be no cases where struct ip_vs_dest keeps its
-memory address, but represent a different real-server in terms of
-ip-address / port.
-
-Fixes: 39b972231536 ("ipvs: handle connections started by real-servers")
-Signed-off-by: Marco Angaroni <marcoangaroni@gmail.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- include/net/ip_vs.h             | 2 +-
- net/netfilter/ipvs/ip_vs_conn.c | 5 +++--
- net/netfilter/ipvs/ip_vs_core.c | 5 +++--
- 3 files changed, 7 insertions(+), 5 deletions(-)
-
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index af4c10e..cd6018a 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1232,7 +1232,7 @@ void ip_vs_conn_expire_now(struct ip_vs_conn *cp);
- const char *ip_vs_state_name(__u16 proto, int state);
- 
- void ip_vs_tcp_conn_listen(struct ip_vs_conn *cp);
--int ip_vs_check_template(struct ip_vs_conn *ct);
-+int ip_vs_check_template(struct ip_vs_conn *ct, struct ip_vs_dest *cdest);
- void ip_vs_random_dropentry(struct netns_ipvs *ipvs);
- int ip_vs_conn_init(void);
- void ip_vs_conn_cleanup(void);
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 2cb3c62..096a451 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -762,7 +762,7 @@ static int expire_quiescent_template(struct netns_ipvs *ipvs,
-  *	If available, return 1, otherwise invalidate this connection
-  *	template and return 0.
-  */
--int ip_vs_check_template(struct ip_vs_conn *ct)
-+int ip_vs_check_template(struct ip_vs_conn *ct, struct ip_vs_dest *cdest)
- {
- 	struct ip_vs_dest *dest = ct->dest;
- 	struct netns_ipvs *ipvs = ct->ipvs;
-@@ -772,7 +772,8 @@ int ip_vs_check_template(struct ip_vs_conn *ct)
- 	 */
- 	if ((dest == NULL) ||
- 	    !(dest->flags & IP_VS_DEST_F_AVAILABLE) ||
--	    expire_quiescent_template(ipvs, dest)) {
-+	    expire_quiescent_template(ipvs, dest) ||
-+	    (cdest && (dest != cdest))) {
- 		IP_VS_DBG_BUF(9, "check_template: dest not available for "
- 			      "protocol %s s:%s:%d v:%s:%d "
- 			      "-> d:%s:%d\n",
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 1207f20..2c1b498 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -321,7 +321,7 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
- 
- 	/* Check if a template already exists */
- 	ct = ip_vs_ct_in_get(&param);
--	if (!ct || !ip_vs_check_template(ct)) {
-+	if (!ct || !ip_vs_check_template(ct, NULL)) {
- 		struct ip_vs_scheduler *sched;
- 
- 		/*
-@@ -1154,7 +1154,8 @@ struct ip_vs_conn *ip_vs_new_conn_out(struct ip_vs_service *svc,
- 						  vport, &param) < 0)
- 			return NULL;
- 		ct = ip_vs_ct_in_get(&param);
--		if (!ct) {
-+		/* check if template exists and points to the same dest */
-+		if (!ct || !ip_vs_check_template(ct, dest)) {
- 			ct = ip_vs_conn_new(&param, dest->af, daddr, dport,
- 					    IP_VS_CONN_F_TEMPLATE, dest, 0);
- 			if (!ct) {
--- 
-2.1.4
+Thanks.
