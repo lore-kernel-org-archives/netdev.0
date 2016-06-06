@@ -1,46 +1,29 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: [PATCH 09/12] net: mediatek: increase watchdog_timeo
-Date: Mon, 6 Jun 2016 08:24:08 +0200
-Message-ID: <0da64a49-d100-f83d-e6d3-91b706710660@phrozen.org>
-References: <1465108385-38286-1-git-send-email-john@phrozen.org>
- <1465108385-38286-10-git-send-email-john@phrozen.org>
- <20160605145632.GI12165@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Sean Wang <keyhaede@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Felix Fietkau <nbd@nbd.name>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160605145632.GI12165@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net 0/3] bnxt_en: Bug fixes.
+Date: Mon,  6 Jun 2016 02:37:13 -0400
+Message-ID: <1465195036-4107-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:33762 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751039AbcFFGh0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 02:37:26 -0400
+Received: by mail-pa0-f48.google.com with SMTP id ec8so26683041pac.0
+        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 23:37:25 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Fix a race condition and VLAN rx acceleration logic.
 
+Michael Chan (3):
+  bnxt_en: Fix tx push race condition.
+  bnxt_en: Enable and disable RX CTAG and RX STAG VLAN acceleration
+    together.
+  bnxt_en: Simplify VLAN receive logic.
 
-On 05/06/2016 16:56, Andrew Lunn wrote:
-> On Sun, Jun 05, 2016 at 08:33:02AM +0200, John Crispin wrote:
->> During stress testing, after reducing the threshold value, we have seen
->> TX timeouts that were caused by the watchdog_timeo value being too low.
->> Increase the value to 5 * HZ which is a value commonly used by many other
->> drivers.
-> 
-> I've never studied what watchdog_timeo actually means. Does it mean a
-> transmit has not completed in that amount of time? Would this imply
-> you have 5 seconds worth of packets in your transmit queue? Do you
-> know what the driver is doing during this 5 seconds?
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 47 +++++++++++++++++--------------
+ 1 file changed, 26 insertions(+), 21 deletions(-)
 
-Hi Andrew,
-
-it is waiting for the watchdog to trigger :-) TBH the 1s seems to be too
-short to for the dma ring length to be flushed and i had to pick some
-value and 5 is used most places.
-
-it really depends on the amount of packets in the queue, their length
-and the mac setting. the timeout needs to be large enough that it would
-not trigger incorrectly even if the mac is on 10mbit half duplex and all
-frames in the queue were maximum size.
-
-	John
+-- 
+1.8.3.1
