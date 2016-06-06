@@ -1,25 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] soreuseport: Fix reuseport_bpf testcase on 32bit
- architectures
-Date: Mon, 06 Jun 2016 15:20:33 -0700 (PDT)
-Message-ID: <20160606.152033.1378544015225851217.davem@davemloft.net>
-References: <20160603171920.GB3664@ls3530.box>
+Subject: Re: [PATCH v2] soreuseport: add compat case for setsockopt
+ SO_ATTACH_REUSEPORT_CBPF
+Date: Mon, 06 Jun 2016 15:21:20 -0700 (PDT)
+Message-ID: <20160606.152120.2108923624823325086.davem@davemloft.net>
+References: <CAEfhGiwwvwf31Dj+s0zA0bpVAZ4x4=rLuU5g217u=wRrgm07Dg@mail.gmail.com>
+	<20160603214002.GA58242@ast-mbp.thefacebook.com>
+	<20160603214917.GA12557@ls3530.box>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: kraig@google.com, ast@kernel.org, netdev@vger.kernel.org,
-	linux-parisc@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: alexei.starovoitov@gmail.com, kraigatgoog@gmail.com,
+	sergei.shtylyov@cogentembedded.com, ast@kernel.org,
+	netdev@vger.kernel.org, linux-parisc@vger.kernel.org
 To: deller@gmx.de
 Return-path: <linux-parisc-owner@vger.kernel.org>
-In-Reply-To: <20160603171920.GB3664@ls3530.box>
+In-Reply-To: <20160603214917.GA12557@ls3530.box>
 Sender: linux-parisc-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-RnJvbTogSGVsZ2UgRGVsbGVyIDxkZWxsZXJAZ214LmRlPg0KRGF0ZTogRnJpLCAzIEp1biAyMDE2
-IDE5OjE5OjIwICswMjAwDQoNCj4gVGhpcyBmaXhlcyB0aGUgZm9sbG93aW5nIGNvbXBpbGVyIHdh
-cm5pbmdzIHdoZW4gY29tcGlsaW5nIHRoZQ0KPiByZXVzZXBvcnRfYnBmIHRlc3RjYXNlIG9uIGEg
-MzIgYml0IHBsYXRmb3JtOg0KPiANCj4gcmV1c2Vwb3J0X2JwZi5jOiBJbiBmdW5jdGlvbiChYXR0
-YWNoX2VicGaiOg0KPiByZXVzZXBvcnRfYnBmLmM6MTE0OjE1OiB3YXJuaW5nOiBjYXN0IGZyb20g
-cG9pbnRlciB0byBpbnRlZ2VyIG9mIGlmZmVyZW50IHNpemUgWy1XcG9pbnRlci10by1pbnQtY2Fz
-dF0NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEhlbGdlIERlbGxlciA8ZGVsbGVyQGdteC5kZT4NCg0K
-QXBwbGllZC4NCg==
+From: Helge Deller <deller@gmx.de>
+Date: Fri, 3 Jun 2016 23:49:17 +0200
+
+> Commit 538950a1b752 ("soreuseport: setsockopt SO_ATTACH_REUSEPORT_[CE]BPF")
+> missed to add the compat case for the SO_ATTACH_REUSEPORT_CBPF option.
+> 
+> Signed-off-by: Helge Deller <deller@gmx.de>
+
+Applied.
