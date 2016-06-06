@@ -1,41 +1,42 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][RESEND] gtp: #define _UAPI_LINUX_GTP_H_ and not _UAPI_LINUX_GTP_H__
-Date: Mon,  6 Jun 2016 16:08:41 +0100
-Message-ID: <1465225721-16371-1-git-send-email-colin.king@canonical.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:35165 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751663AbcFFPIn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 11:08:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: Re: [PATCH net] ethernet/sfc: report supported link speeds on SFP
+ connections
+Date: Mon, 6 Jun 2016 16:07:35 +0100
+Message-ID: <425d6ed8-32ef-de58-6452-3a989bf93517@solarflare.com>
+References: <1464917604-11596-1-git-send-email-jarod@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	"Edward Cree" <ecree@solarflare.com>, <netdev@vger.kernel.org>
+To: Jarod Wilson <jarod@redhat.com>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464917604-11596-1-git-send-email-jarod@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+Apologies for delay in replying.
 
-Fix clang build warning:
+On 03/06/16 02:33, Jarod Wilson wrote:
+> My solarflare cards connected to a 10GbE switch with an SFP+ module/cable
+> don't currently report any supported link speeds:
+>
+> ...
+> 
+> diff --git a/drivers/net/ethernet/sfc/mcdi_port.c b/drivers/net/ethernet/sfc/mcdi_port.c
+> index 7f295c4..6516471 100644
+> --- a/drivers/net/ethernet/sfc/mcdi_port.c
+> +++ b/drivers/net/ethernet/sfc/mcdi_port.c
+> @@ -189,6 +189,10 @@ static u32 mcdi_to_ethtool_cap(u32 media, u32 cap)
+>  
+>  	case MC_CMD_MEDIA_XFP:
+>  	case MC_CMD_MEDIA_SFP_PLUS:
+> +		if (cap & (1 << MC_CMD_PHY_CAP_1000FDX_LBN))
+> +			result |= SUPPORTED_1000baseKX_Full;
+> +		if (cap & (1 << MC_CMD_PHY_CAP_10000FDX_LBN))
+> +			result |= SUPPORTED_10000baseKX4_Full;
 
-./include/uapi/linux/gtp.h:1:9: warning: '_UAPI_LINUX_GTP_H_' is
-used as a header guard here, followed by #define of a different
-macro [-Wheader-guard]
+We probably shouldn't be claiming KX/KX4 here, because it isn't. I'll post an
+updated patch shortly.
 
-fix by defining  _UAPI_LINUX_GTP_H_ and not _UAPI_LINUX_GTP_H__
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- include/uapi/linux/gtp.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/include/uapi/linux/gtp.h b/include/uapi/linux/gtp.h
-index ca1054d..72a04a0 100644
---- a/include/uapi/linux/gtp.h
-+++ b/include/uapi/linux/gtp.h
-@@ -1,5 +1,5 @@
- #ifndef _UAPI_LINUX_GTP_H_
--#define _UAPI_LINUX_GTP_H__
-+#define _UAPI_LINUX_GTP_H_
- 
- enum gtp_genl_cmds {
- 	GTP_CMD_NEWPDP,
--- 
-2.8.1
+Bert.
