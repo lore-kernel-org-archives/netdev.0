@@ -1,41 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/2] net: vrf: Improve use of FIB rules
-Date: Mon, 06 Jun 2016 15:47:38 -0700 (PDT)
-Message-ID: <20160606.154738.2069568651897544011.davem@davemloft.net>
-References: <1464982616-23030-1-git-send-email-dsa@cumulusnetworks.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH -next] cbq: remove only caller of qdisc->drop()
+Date: Tue, 7 Jun 2016 00:52:27 +0200
+Message-ID: <20160606225227.GE7827@breakpoint.cc>
+References: <1465248027-21652-1-git-send-email-fw@strlen.de>
+ <1465251192.24873.1.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47601 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751969AbcFFWrk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 18:47:40 -0400
-In-Reply-To: <1464982616-23030-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54674 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750764AbcFFWwc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 18:52:32 -0400
+Content-Disposition: inline
+In-Reply-To: <1465251192.24873.1.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Fri,  3 Jun 2016 12:36:54 -0700
-
-> Currently, VRFs require 1 oif and 1 iif rule per address family per
-> VRF. As the number of VRF devices increases it brings scalability
-> issues with the increasing rule list. All of the VRF rules have the
-> same format with the exception of the specific table id to direct the
-> lookup. Since the table id is available from the oif or iif in the
-> loopup, the VRF rules can be consolidated to a single rule that pulls
-> the table from the VRF device.
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >  static void cbq_ovl_drop(struct cbq_class *cl)
+> >  {
+> > -	if (cl->q->ops->drop)
+> > -		if (cl->q->ops->drop(cl->q))
+> > -			cl->qdisc->q.qlen--;
+> > +	struct sk_buff *skb = cl->q->ops->dequeue(cl->q);
+> > +
+> > +	if (skb) {
+> > +		cl->deficit -= qdisc_pkt_len(skb);
+> > +		cl->qdisc->q.qlen--;
+> > +		qdisc_drop(skb, cl->qdisc);
+> > +	}
+> > +
+> >  	cl->xstats.overactions++;
+> >  	cbq_ovl_classic(cl);
+> >  }
 > 
-> This solution still allows a user to insert their own rules for VRFs,
-> including rules with additional attributes. Accordingly, it is backwards
-> compatible with existing setups and allows other policy routing as
-> desired.
+> A drop() is not equivalent to a dequeue() followed by qdisc_drop() for
+> statistics.
+> 
+> dequeue() will update stats of _sent_ packets/bytes, while drop() should
+> not.
 
-I hate module parameters.
+Well, I could send patch to just remove cbq_ovl_drop completely,
+you can't configure this facility with iproute2.
 
-And you don't even need one in this situation, just use a default preference
-of 1000 and add a newlink netlink attribute that can change it.
+You are right of course, but is it really worth to have this?
 
-Thanks.
+Not calling cl->q->ops->drop() in cbq would allow removal of ~300 LOC
+in qdiscs...
