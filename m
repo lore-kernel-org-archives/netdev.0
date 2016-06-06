@@ -1,47 +1,39 @@
-From: <Mario_Limonciello@Dell.com>
-Subject: RE: [PATCH v3] r8152: Add support for setting pass through MAC
- address on RTL8153-AD
-Date: Mon, 6 Jun 2016 14:57:06 +0000
-Message-ID: <29950f6ff4a74058bbc5c756d1085cd4@ausx13mpc124.AMER.DELL.COM>
-References: <1465222521-7217-1-git-send-email-mario_limonciello@dell.com>
- <1465222521-7217-2-git-send-email-mario_limonciello@dell.com>
- <20160606144036.GA30948@lunn.ch>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH] gtp: #define _UAPI_LINUX_GTP_H_ and not
+ _UAPI_LINUX_GTP_H__
+Date: Mon, 6 Jun 2016 16:58:32 +0200
+Message-ID: <20160606145832.GA1502@salvia>
+References: <1465217500-13945-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <hayeswang@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<pali.rohar@gmail.com>, <anthony.wong@canonical.com>,
-	<gregkh@linuxfoundation.org>
-To: <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S . Miller" <davem@davemloft.net>,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160606144036.GA30948@lunn.ch>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <1465217500-13945-1-git-send-email-colin.king@canonical.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Andrew Lunn [mailto:andrew@lunn.ch]
-> Sent: Monday, June 6, 2016 9:41 AM
-> To: Limonciello, Mario <Mario_Limonciello@Dell.com>
-> Cc: hayeswang@realtek.com; LKML <linux-kernel@vger.kernel.org>; Netdev
-> <netdev@vger.kernel.org>; Linux USB <linux-usb@vger.kernel.org>;
-> pali.rohar@gmail.com; anthony.wong@canonical.com; Greg KH
-> <gregkh@linuxfoundation.org>
-> Subject: Re: [PATCH v3] r8152: Add support for setting pass through MAC
-> address on RTL8153-AD
+On Mon, Jun 06, 2016 at 01:51:40PM +0100, Colin King wrote:
+> From: Colin Ian King <colin.king@canonical.com>
 > 
-> > +	/* returns _AUXMAC_#AABBCCDDEEFF# */
-> > +	status = acpi_evaluate_object(NULL, "\\_SB.AMAC", NULL, &buffer);
-> > +	obj = (union acpi_object *)buffer.pointer;
-> > +	if (ACPI_SUCCESS(status)) {
-> > +		if (obj->type != ACPI_TYPE_BUFFER ||
-> > +		    obj->string.length != 0x17) {
-> > +			pr_warn("r8152: get_passthru_addr: Invalid buffer");
+> Fix clang build warning:
 > 
-> Please don't use pr_warn() when you can use the better alternatives
-> like dev_warn().
+> ./include/uapi/linux/gtp.h:1:9: warning: '_UAPI_LINUX_GTP_H_' is
+> used as a header guard here, followed by #define of a different
+> macro [-Wheader-guard]
 > 
->      Andrew
+> fix by defining  _UAPI_LINUX_GTP_H_ and not _UAPI_LINUX_GTP_H__
+> 
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-OK thanks, I'll adjust that to use a different warn.
+Acked-by: Pablo Neira Ayuso <pablo@netfilter.org>
+
+I don't see this in netdev's patchwork:
+
+        http://patchwork.ozlabs.org/project/netdev/list/
+
+So please, resubmit Cc'ing netdev@vger.kernel.org.
+
+Thanks.
