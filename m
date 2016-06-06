@@ -1,55 +1,66 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH][V2] net: fec: fix spelling mistakes and add missing newline
-Date: Mon,  6 Jun 2016 09:21:44 +0100
-Message-ID: <1465201304-5136-1-git-send-email-colin.king@canonical.com>
-Cc: linux-kernel@vger.kernel.org
-To: Fugang Duan <fugang.duan@nxp.com>, netdev@vger.kernel.org
+From: Manfred Schlaegl <manfred.schlaegl@ginzinger.com>
+Subject: [PATCH] net: phy: smsc: reintroduced unconditional soft reset
+Date: Mon, 6 Jun 2016 10:47:47 +0200
+Message-ID: <575538B3.8030406@ginzinger.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Gwenhael Goavec-Merou <gwenhael.goavec-merou@armadeus.com>,
+	Manfred Schlaegl <manfred.schlaegl@gmx.at>
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+We detected some problems using the smsc lan8720a in combination with
+i.MX28 and tracked this down to commit 21009686662f ("net: phy: smsc: move
+smsc_phy_config_init reset part in a soft_reset function")
+With 2100968666 the generic soft reset is replaced by a specific function
+which handles power down state correctly. But additionally the soft reset
+itself got conditional and is therefore also only performed if the phy is
+in power down state.
 
-trivial fix to spelling mistakes and add missing newline in pr_err
-messages
+This patch keeps the conditional wake up from power down, but
+re-introduces the unconditional soft reset using the generic soft reset
+function.
+It was tested on linux-4.1.25 and linux-4.7.0-rc2.
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Manfred Schlaegl <manfred.schlaegl@ginzinger.com>
 ---
- drivers/net/ethernet/freescale/fec_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/phy/smsc.c | 17 ++++-------------
+ 1 file changed, 4 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
-index 3c0255e..fea0f33 100644
---- a/drivers/net/ethernet/freescale/fec_main.c
-+++ b/drivers/net/ethernet/freescale/fec_main.c
-@@ -2416,24 +2416,24 @@ fec_enet_set_coalesce(struct net_device *ndev, struct ethtool_coalesce *ec)
- 		return -EOPNOTSUPP;
- 
- 	if (ec->rx_max_coalesced_frames > 255) {
--		pr_err("Rx coalesced frames exceed hardware limiation");
-+		pr_err("Rx coalesced frames exceed hardware limitation\n");
- 		return -EINVAL;
+diff --git a/drivers/net/phy/smsc.c b/drivers/net/phy/smsc.c
+index 2e21e93..b62c4aa 100644
+--- a/drivers/net/phy/smsc.c
++++ b/drivers/net/phy/smsc.c
+@@ -75,22 +75,13 @@ static int smsc_phy_reset(struct phy_device *phydev)
+ 	 * in all capable mode before using it.
+ 	 */
+ 	if ((rc & MII_LAN83C185_MODE_MASK) == MII_LAN83C185_MODE_POWERDOWN) {
+-		int timeout = 50000;
+-
+-		/* set "all capable" mode and reset the phy */
++		/* set "all capable" mode */
+ 		rc |= MII_LAN83C185_MODE_ALL;
+ 		phy_write(phydev, MII_LAN83C185_SPECIAL_MODES, rc);
+-		phy_write(phydev, MII_BMCR, BMCR_RESET);
+-
+-		/* wait end of reset (max 500 ms) */
+-		do {
+-			udelay(10);
+-			if (timeout-- == 0)
+-				return -1;
+-			rc = phy_read(phydev, MII_BMCR);
+-		} while (rc & BMCR_RESET);
  	}
+-	return 0;
++
++	/* reset the phy */
++	return genphy_soft_reset(phydev);
+ }
  
- 	if (ec->tx_max_coalesced_frames > 255) {
--		pr_err("Tx coalesced frame exceed hardware limiation");
-+		pr_err("Tx coalesced frame exceed hardware limitation\n");
- 		return -EINVAL;
- 	}
- 
- 	cycle = fec_enet_us_to_itr_clock(ndev, fep->rx_time_itr);
- 	if (cycle > 0xFFFF) {
--		pr_err("Rx coalesed usec exceeed hardware limiation");
-+		pr_err("Rx coalesced usec exceed hardware limitation\n");
- 		return -EINVAL;
- 	}
- 
- 	cycle = fec_enet_us_to_itr_clock(ndev, fep->tx_time_itr);
- 	if (cycle > 0xFFFF) {
--		pr_err("Rx coalesed usec exceeed hardware limiation");
-+		pr_err("Rx coalesced usec exceed hardware limitation\n");
- 		return -EINVAL;
- 	}
- 
+ static int lan911x_config_init(struct phy_device *phydev)
 -- 
-2.8.1
+2.1.4
