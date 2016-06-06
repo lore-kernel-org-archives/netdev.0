@@ -1,125 +1,220 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH 1/1] ixgbe: replace rtnl_lock with
-	rcu_read_lock
-Date: Mon, 6 Jun 2016 09:12:21 -0700
-Message-ID: <CAKgT0UcxJy=eRKKiz3RxS74qjUsg6P44EU4Me0WXT8XoXuvkjw@mail.gmail.com>
-References: <1465118091-6233-1-git-send-email-zyjzyj2000@gmail.com>
-	<1465118091-6233-2-git-send-email-zyjzyj2000@gmail.com>
-	<CAKgT0UeF-Ktx5my99NAR4j7ATwUWx249yAZD+sMkQkjBJaeEdA@mail.gmail.com>
-	<CAD=hENfNuCrBXbKjcPYzJ7+dPEx4KNeEEds1O7LYdqrObZXscg@mail.gmail.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v3] r8152: Add support for setting pass through MAC
+ address on RTL8153-AD
+Date: Mon, 6 Jun 2016 09:12:22 -0700
+Message-ID: <20160606161222.GA12114@kroah.com>
+References: <1465222521-7217-1-git-send-email-mario_limonciello@dell.com>
+ <1465222521-7217-2-git-send-email-mario_limonciello@dell.com>
+ <20160606143947.GA4758@kroah.com>
+ <e0b44bac635f41a9a3f47f909cf16f42@ausx13mpc124.AMER.DELL.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
-	Netdev <netdev@vger.kernel.org>
-To: zhuyj <zyjzyj2000@gmail.com>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <CAD=hENfNuCrBXbKjcPYzJ7+dPEx4KNeEEds1O7LYdqrObZXscg@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: hayeswang@realtek.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	pali.rohar@gmail.com, anthony.wong@canonical.com
+To: Mario_Limonciello@Dell.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <e0b44bac635f41a9a3f47f909cf16f42@ausx13mpc124.AMER.DELL.COM>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Just a quick scan has me wondering what code you are comparing it to?
+On Mon, Jun 06, 2016 at 02:56:32PM +0000, Mario_Limonciello@Dell.com wrote:
+> > -----Original Message-----
+> > From: Greg KH [mailto:gregkh@linuxfoundation.org]
+> > Sent: Monday, June 6, 2016 9:40 AM
+> > To: Limonciello, Mario <Mario_Limonciello@Dell.com>
+> > Cc: hayeswang@realtek.com; LKML <linux-kernel@vger.kernel.org>; Netdev
+> > <netdev@vger.kernel.org>; Linux USB <linux-usb@vger.kernel.org>;
+> > pali.rohar@gmail.com; anthony.wong@canonical.com
+> > Subject: Re: [PATCH v3] r8152: Add support for setting pass through MAC
+> > address on RTL8153-AD
+> > 
+> > On Mon, Jun 06, 2016 at 09:15:21AM -0500, Mario Limonciello wrote:
+> > > The RTL8153-AD supports a persistent system specific MAC address.
+> > > This means a device plugged into two different systems with host side
+> > > support will show different (but persistent) MAC addresses.
+> > >
+> > > This information for the system's persistent MAC address is burned in
+> > when
+> > > the system HW is built and available under _SB\AMAC in the DSDT at
+> > runtime.
+> > >
+> > > This technology is currently implemented in the Dell TB15 and WD15 Type-C
+> > > docks.  More information is available here:
+> > > http://www.dell.com/support/article/us/en/04/SLN301147
+> > >
+> > > Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
+> > > ---
+> > >  drivers/net/usb/r8152.c | 60
+> > +++++++++++++++++++++++++++++++++++++++++++++++--
+> > >  1 file changed, 58 insertions(+), 2 deletions(-)
+> > >
+> > > diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+> > > index 3f9f6ed..f4bd46d 100644
+> > > --- a/drivers/net/usb/r8152.c
+> > > +++ b/drivers/net/usb/r8152.c
+> > > @@ -26,6 +26,7 @@
+> > >  #include <linux/mdio.h>
+> > >  #include <linux/usb/cdc.h>
+> > >  #include <linux/suspend.h>
+> > > +#include <linux/acpi.h>
+> > >
+> > >  /* Information for net-next */
+> > >  #define NETNEXT_VERSION		"08"
+> > > @@ -455,6 +456,11 @@
+> > >  /* SRAM_IMPEDANCE */
+> > >  #define RX_DRIVING_MASK		0x6000
+> > >
+> > > +/* MAC PASSTHRU */
+> > > +#define AD_MASK			0xfee0
+> > > +#define EFUSE			0xcfdb
+> > > +#define PASS_THRU_MASK		0x1
+> > > +
+> > >  enum rtl_register_content {
+> > >  	_1000bps	= 0x10,
+> > >  	_100bps		= 0x08,
+> > > @@ -1030,6 +1036,53 @@ out1:
+> > >  	return ret;
+> > >  }
+> > >
+> > > +static int get_passthru_addr(struct r8152 *tp, struct sockaddr *sa)
+> > 
+> > I see no "Dell" specific markings or tests here at all, please be
+> > EXPLICIT in the code exactly what this is for, and what it is doing.
+> > Otherwise no one can tell you what machines/devices this will trigger on
+> > at all.
+> > 
+> > As it is, it's totally vague and unknown what this whole function is
+> > here for.
+> > 
+> 
+> I intentionally removed the Dell tests.  I tried to go into this in the cover
+> Letter as I knew there would be discussion about it.
+> 
+> This is intended because the better approach (as mentioned by this ML)
+> is to look for the exact chip that supports this feature, and query the bit
+> that can be set on that device's eFuse to indicate it supports this feature.
+> 
+> That device is an RTL8153-AD and there is a bit on the eFuse for MAC
+> pass through.
+> 
+> The ACPI code is intended to run on any device that has one of these
+> Devices plugged in.  From what I learned discussing with others is that
+> is the approach the Realtek driver takes on the Windows side as well.
+> 
+> If the Dell TB15 (containin RTL8153-AD with this pass through bit set)
+> is plugged into for example an HP machine with the latest Realtek driver
+> installed this ACPI query will be run on Windows too.  It will fail and fall
+> back to the address burned into the HW.
+> 
+> If the netdev maintainers still want a DMI check put in place again 
+> here I'll put it back in, but I really think this is overkill.
 
-The key bit here that is the reason for taking the RTNL lock is
-because this section is handled in the watchdog which is not an RTNL
-protected region, and because it is messing with devices other than
-the ones controlled by the ixgbe driver itself.  As far as I can tell
-I don't see similar code in the other drivers.  You end up having to
-take the RTNL lock any time you start trying to manipulate some state
-of a device that is not protected through other means.  For example
-pretty much all the net device operations expect that the RTNL lock
-has already been taken before calling them, however a driver can call
-into those functions if it is maintaining the state for the devices
-without the RTNL lock assuming it has some other means of keeping the
-state consistent such as a __IXGBE_DOWN state bit in the ixgbe driver.
+I'm not asking for a DMI check, I'm asking for the ability to look at
+this code, no changelog text at all, and know what is going on and what
+this whole function is here for.
 
-- Alex
+Right now I can't do that.  No one can.  You have documented what the
+code does in it, but not described _why_ it is doing that at all.
 
-On Mon, Jun 6, 2016 at 6:37 AM, zhuyj <zyjzyj2000@gmail.com> wrote:
-> Hi, Alex
->
-> Thanks for your reply.
->
-> I checked all the nic driver in driver/net/ethernet/intel. And I found that
-> only here the rtnl_lock is used.
-> So I am curios why rtnl_lock is used when waking up the tupper device tx
-> queue here. And the rtnl_lock is not used in other places.
->
-> Best Regards!
-> Zhu Yanjun
->
-> On Mon, Jun 6, 2016 at 2:40 AM, Alexander Duyck <alexander.duyck@gmail.com>
-> wrote:
->>
->> On Sun, Jun 5, 2016 at 2:14 AM,  <zyjzyj2000@gmail.com> wrote:
->> > From: Zhu Yanjun <zyjzyj2000@gmail.com>
->> >
->> >
->> > Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
->> > ---
->> >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    4 ++--
->> >  1 file changed, 2 insertions(+), 2 deletions(-)
->> >
->> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> > b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> > index 088c47c..cb19cbc 100644
->> > --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> > +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
->> > @@ -6840,7 +6840,7 @@ static void ixgbe_watchdog_link_is_up(struct
->> > ixgbe_adapter *adapter)
->> >         netif_tx_wake_all_queues(adapter->netdev);
->> >
->> >         /* enable any upper devices */
->> > -       rtnl_lock();
->> > +       rcu_read_lock();
->> >         netdev_for_each_all_upper_dev_rcu(adapter->netdev, upper, iter)
->> > {
->> >                 if (netif_is_macvlan(upper)) {
->> >                         struct macvlan_dev *vlan = netdev_priv(upper);
->> > @@ -6849,7 +6849,7 @@ static void ixgbe_watchdog_link_is_up(struct
->> > ixgbe_adapter *adapter)
->> >                                 netif_tx_wake_all_queues(upper);
->> >                 }
->> >         }
->> > -       rtnl_unlock();
->> > +       rcu_read_unlock();
->> >
->> >         /* update the default user priority for VFs */
->> >         ixgbe_update_default_up(adapter);
->>
->> The rtnl_lock is being used to prevent any changes to the upper
->> devices while the interface is going through and updating the Tx queue
->> configuration on them.  Without that lock you introduce possible bugs
->> since you could have queues freed or added while this loop is in the
->> middle of trying to update the state of it.
->>
->> As a general rule you use rcu_read_lock when you are only reading an
->> RCU protected structure, you use rtnl_lock when you have to protect
->> the system from any other changes while you are updating network
->> configuration.  In this case netif_tx_wake_all_queues changes the
->> state of the upper device.  The use of rtnl_lock here is intentional
->> and it is best to just leave it as is unless you have some actual bug
->> you are seeing.
->>
->> - Alex
->
->
+> > > +{
+> > > +	acpi_status status;
+> > > +	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
+> > > +	union acpi_object *obj;
+> > > +	int ret = -EINVAL;
+> > > +	u32 ocp_data;
+> > > +	unsigned char buf[6];
+> > > +
+> > > +	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_MISC_0);
+> > > +	if ((ocp_data & AD_MASK) != 0x1000)
+> > > +		return -ENODEV;
+> > > +
+> > > +	ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, EFUSE);
+> > > +	if ((ocp_data & PASS_THRU_MASK) != 1)
+> > > +		return -ENODEV;
+> > > +
+> > > +	/* returns _AUXMAC_#AABBCCDDEEFF# */
+> > > +	status = acpi_evaluate_object(NULL, "\\_SB.AMAC", NULL, &buffer);
+> > > +	obj = (union acpi_object *)buffer.pointer;
+> > > +	if (ACPI_SUCCESS(status)) {
+> > > +		if (obj->type != ACPI_TYPE_BUFFER ||
+> > > +		    obj->string.length != 0x17) {
+> > > +			pr_warn("r8152: get_passthru_addr: Invalid buffer");
+> > > +			goto amacout;
+> > > +		}
+> > > +		if (strncmp(obj->string.pointer, "_AUXMAC_#", 9) != 0) {
+> > > +			pr_warn("r8152: get_passthru_addr: Invalid
+> > header");
+> > > +			goto amacout;
+> > > +		}
+> > > +		ret = hex2bin(buf, obj->string.pointer + 9, 6);
+> > > +		if (ret < 0 || !is_valid_ether_addr(buf)) {
+> > > +			pr_warn("r8152: get_passthru_addr: Invalid MAC");
+> > > +			goto amacout;
+> > > +		}
+> > > +		memcpy(sa->sa_data, buf, 6);
+> > > +		ether_addr_copy(tp->netdev->dev_addr, sa->sa_data);
+> > > +		netdev_info(tp->netdev, "Using pass-through MAC address
+> > %pM\n",
+> > > +			    sa->sa_data);
+> > > +		ret = 0;
+> > > +	}
+> > > +
+> > > +amacout:
+> > > +	kfree(obj);
+> > > +	return ret;
+> > > +}
+> > > +
+> > >  static int set_ethernet_addr(struct r8152 *tp)
+> > >  {
+> > >  	struct net_device *dev = tp->netdev;
+> > > @@ -1038,8 +1091,11 @@ static int set_ethernet_addr(struct r8152 *tp)
+> > >
+> > >  	if (tp->version == RTL_VER_01)
+> > >  		ret = pla_ocp_read(tp, PLA_IDR, 8, sa.sa_data);
+> > > -	else
+> > > -		ret = pla_ocp_read(tp, PLA_BACKUP, 8, sa.sa_data);
+> > > +	else {
+> > > +		ret = get_passthru_addr(tp, &sa);
+> > > +		if (ret < 0)
+> > 
+> > an "error" here is a "normal" thing, so please document it.
+> 
+> OK.
+> 
+> > 
+> > Or again, change the function to be "dell_crazy_hardware_hack_enabled()"
+> > so it'b obvious what is going on.
+> 
+> I'm really trying to be a good citizen here, just because it is implemented in 
+> Dell HW first doesn't mean it won't be implemented by our competitors too
+> with their docks and dongles that get provided by Realtek.
 
-------------------------------------------------------------------------------
-What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
-patterns at an interface-level. Reveals which users, apps, and protocols are 
-consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
-J-Flow, sFlow and other flows. Make informed decisions using capacity 
-planning reports. https://ad.doubleclick.net/ddm/clk/305295220;132659582;e
-_______________________________________________
-E1000-devel mailing list
-E1000-devel@lists.sourceforge.net
-https://lists.sourceforge.net/lists/listinfo/e1000-devel
-To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
+That's fine, then call it "crazy_vendor_mac_passthrough() or something
+like that.  "get_passthru_addr()" makes this look like it is a "normal"
+thing to have happen, which really, it isn't at all (hence these long
+email threads.)
+
+> Realtek has this in their Windows driver that all OEM's will be taking.
+> Another OEM would just need to burn the right information into the SPI at
+> manufacturing and expose it to the DSDT.
+
+Where it the match up for the Realtek bit to corrispond with this
+specific ACPI field?  If it's not in the ACPI spec, then vendors _WILL_
+do this in different ways.
+
+Again, document it, in the code, what is going on here, that's all I'm
+asking.  I'm not asking you to change the logic at all!
+
+> If considering all my above comments you still want it to be Dell specific I'll
+> return the DMI system vendor match.
+> I really don't think the netdev maintainers are going to want a list of every
+> specific DMI product string that Dell machine has this  though.  Maybe 
+> they can speak up here.
+
+If I were them, I sure would :)
+
+good luck!
+
+greg k-h
