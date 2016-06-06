@@ -1,93 +1,32 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH -next] cbq: remove only caller of qdisc->drop()
-Date: Mon, 06 Jun 2016 15:13:12 -0700
-Message-ID: <1465251192.24873.1.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1465248027-21652-1-git-send-email-fw@strlen.de>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/15] net/smc: Shared Memory Communications -
+ RDMA
+Date: Mon, 06 Jun 2016 15:17:40 -0700 (PDT)
+Message-ID: <20160606.151740.2048296086973073274.davem@davemloft.net>
+References: <201606031527.u53FQ9dR045418@mx0a-001b2d01.pphosted.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	utz.bacher@de.ibm.com
+To: ubraun@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:32996 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752457AbcFFWNP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 18:13:15 -0400
-Received: by mail-pf0-f196.google.com with SMTP id u67so2685541pfu.0
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 15:13:15 -0700 (PDT)
-In-Reply-To: <1465248027-21652-1-git-send-email-fw@strlen.de>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47365 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751574AbcFFWRm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 18:17:42 -0400
+In-Reply-To: <201606031527.u53FQ9dR045418@mx0a-001b2d01.pphosted.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-06-06 at 23:20 +0200, Florian Westphal wrote:
-> since initial revision of cbq in 2004 iproute2 never implemented
-> support for TCA_CBQ_OVL_STRATEGY, which is what needs to be set to
-> activate the class->drop() call (TC_CBQ_OVL_DROP strategy must be
-> set by userspace).
-> 
-> So lets remove this.  We can even do this in a backwards compatible
-> way by switching ovl_drop to perform a dequeue+drop on the leaf.
-> 
-> A followup commit can then remove all .drop qdisc methods since this
-> was the only caller.
-> 
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> ---
->  On a related note, iproute2 doesn't support the TCA_CBQ_POLICE
->  attribute either.  If we'd remove that too we could then get rid
->  of __parent and reshape_fail in struct Qdisc.
-> 
->  However, in TCA_CBQ_POLICE case there is no way to replace
->  the functionality, i.e. we'd have to -EOPNOTSUPP or ignore
->  TCA_CBQ_POLICE if some other non-iproute2 tool presents it to us.
-> 
->  AFAICS TCA_CBQ_POLICE doesn't work all that well even if userspace
->  would set it, one needs to:
-> 
->   add a class
->   attach a qdisc to the class (default pfifo doesn't work as
->       q->handle is 0 and cbq_set_police() is a no-op in this case)
->   re-'add' the same class (tc class change ...) again
-> 
->   user must also specifiy a defmap (e.g. 'split 1:0 defmap 3f'), since
->   this 'police' feature relies on its presence
->   the added qdisc (or the leaves) must be one of bfifo, pfifo, tbf or
->   netem as only these implement qdisc_reshape_fail() call.
-> 
->   If all of these conditions are met, then instead of drop the leaf
->   qdiscs mentioned above would attempt to re-enqueue the skb in the
->   cbq TC_PRIO_BESTEFFORT class if their limit is reached.
-> 
->   I think it would be safe to just ignore TCA_CBQ_POLICE and change the
->   qdiscs to drop right away.
-> 
->   Does anyone have a reason to leave this in the tree?  Thanks!
-> 
-> diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-> index baafddf..df79791 100644
-> --- a/net/sched/sch_cbq.c
-> +++ b/net/sched/sch_cbq.c
-> @@ -542,9 +542,14 @@ static void cbq_ovl_lowprio(struct cbq_class *cl)
->  
->  static void cbq_ovl_drop(struct cbq_class *cl)
->  {
-> -	if (cl->q->ops->drop)
-> -		if (cl->q->ops->drop(cl->q))
-> -			cl->qdisc->q.qlen--;
-> +	struct sk_buff *skb = cl->q->ops->dequeue(cl->q);
-> +
-> +	if (skb) {
-> +		cl->deficit -= qdisc_pkt_len(skb);
-> +		cl->qdisc->q.qlen--;
-> +		qdisc_drop(skb, cl->qdisc);
-> +	}
-> +
->  	cl->xstats.overactions++;
->  	cbq_ovl_classic(cl);
->  }
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Fri,  3 Jun 2016 17:26:59 +0200
 
-A drop() is not equivalent to a dequeue() followed by qdisc_drop() for
-statistics.
+> It is transparent to most existing TCP connection load balancers
+> that are commonly used in the enterprise data center environment for
+> multi-tier application workloads.
 
-dequeue() will update stats of _sent_ packets/bytes, while drop() should
-not.
+I think a better word would be "bypass".  And likewise the data stream
+bypasses our packet scheduler, netfilter, classifiers, and just about
+every other interesting facility in the kernel.
