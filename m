@@ -1,72 +1,904 @@
 From: Iyappan Subramanian <isubramanian@apm.com>
-Subject: [PATCH v3 0/5] drivers: net: xgene: Fix 1G hot-plug and module support
-Date: Mon,  6 Jun 2016 11:15:57 -0700
-Message-ID: <1465236962-12131-1-git-send-email-isubramanian@apm.com>
+Subject: [PATCH v3 5/5] drivers: net: xgene: Fix module load/unload crash
+Date: Mon,  6 Jun 2016 11:16:02 -0700
+Message-ID: <1465236962-12131-6-git-send-email-isubramanian@apm.com>
+References: <1465236962-12131-1-git-send-email-isubramanian@apm.com>
 Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
 	matthias.bgg@gmail.com, andrew@lunn.ch,
 	Iyappan Subramanian <isubramanian@apm.com>
 To: davem@davemloft.net, netdev@vger.kernel.org,
 	devicetree@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34927 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751904AbcFFSQP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 14:16:15 -0400
-Received: by mail-pf0-f181.google.com with SMTP id g64so69199571pfb.2
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 11:16:14 -0700 (PDT)
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:34941 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752688AbcFFSQV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 14:16:21 -0400
+Received: by mail-pf0-f176.google.com with SMTP id g64so69200306pfb.2
+        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 11:16:21 -0700 (PDT)
+In-Reply-To: <1465236962-12131-1-git-send-email-isubramanian@apm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patchset addresses the following issues,
+When the driver is configured as kernel module and when it gets unloaded
+and reloaded, kernel crash was observed, due to incomplete hardware
+cleanup.  This patch addresses this issue with the following changes,
 
-1. hot-plug issue on the SGMII 1G interface
-	- by adding a driver for MDIO management
-2. fixes the kernel crash when the driver loaded as an kernel module
-	- by fixing hardware cleanups and rearrange kernel API calls
+- Reordered mac enable and disable
+- Added hardware prefetch buffer cleanup
+- Added Tx completion ring free
+- Fixed delete bufpool
+- Moved down delete_desc_rings after ring cleanup
+
+- Moved regsiter_netdev call after hardware is ready
+- deleted napi_del function call, since it's called by free_netdev
+- Calling netif_tx_start_queues and netif_tx_stop_queues
+- correcting setting irq_name before calling request_irq.
+- Calling dev_close() within remove
+- Added shutdown callback
+- Changed to use dmam_ APIs
 
 Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+Tested-by: Fushen Chen <fchen@apm.com>
+Tested-by: Toan Le <toanle@apm.com>
 Tested-by: Matthias Brugger <mbrugger@suse.com>
 ---
-v3: Address review comments from v2
-	- Add comment about hardware clock reset sequence on xgene_mdio_reset
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    |  71 +++++++-
+ drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |  14 +-
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 199 +++++++++++++---------
+ drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  32 +---
+ drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c |  90 ++++++++--
+ drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |  66 ++++++-
+ 6 files changed, 329 insertions(+), 143 deletions(-)
 
-v2: Address review comments from v1
-	- Fixed patch 1 compilation error
-	- Fixed mdio@1f610000 xge0clk reference
-	- Squashed dtb patches
-	- Added PORT_OFFSET macro
-
-v1:
-	- Initial version
----
-
-Iyappan Subramanian (5):
-  drivers: net: xgene: MAC and PHY configuration changes
-  drivers: net: xgene: Backward compatibility with older firmware
-  drivers: net: phy: Add MDIO driver
-  dtb: xgene: Add MDIO node
-  drivers: net: xgene: Fix module load/unload crash
-
- arch/arm64/boot/dts/apm/apm-merlin.dts            |   9 +
- arch/arm64/boot/dts/apm/apm-mustang.dts           |  12 +
- arch/arm64/boot/dts/apm/apm-shadowcat.dtsi        |  11 +
- arch/arm64/boot/dts/apm/apm-storm.dtsi            |  38 +-
- drivers/net/ethernet/apm/xgene/Kconfig            |   1 +
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.c    | 241 ++++++----
- drivers/net/ethernet/apm/xgene/xgene_enet_hw.h    |  19 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_main.c  | 325 ++++++++-----
- drivers/net/ethernet/apm/xgene/xgene_enet_main.h  |  36 +-
- drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c | 191 +++++++-
- drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.h |   8 +
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c |  66 ++-
- drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.h |   4 +
- drivers/net/phy/Kconfig                           |   7 +
- drivers/net/phy/Makefile                          |   1 +
- drivers/net/phy/mdio-xgene.c                      | 532 ++++++++++++++++++++++
- drivers/net/phy/mdio-xgene.h                      | 140 ++++++
- 17 files changed, 1374 insertions(+), 267 deletions(-)
- create mode 100644 drivers/net/phy/mdio-xgene.c
- create mode 100644 drivers/net/phy/mdio-xgene.h
-
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+index 38d6ee4..8e3827f 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.c
+@@ -684,21 +684,75 @@ static int xgene_enet_reset(struct xgene_enet_pdata *pdata)
+ 	if (!xgene_ring_mgr_init(pdata))
+ 		return -ENODEV;
+ 
+-	if (!pdata->mdio_driver) {
+-		if (!IS_ERR(pdata->clk)) {
+-			clk_prepare_enable(pdata->clk);
+-			clk_disable_unprepare(pdata->clk);
+-			clk_prepare_enable(pdata->clk);
+-			xgene_enet_ecc_init(pdata);
++	if (pdata->mdio_driver) {
++		xgene_enet_config_ring_if_assoc(pdata);
++		return 0;
++	}
++	if (!IS_ERR(pdata->clk)) {
++		clk_prepare_enable(pdata->clk);
++		clk_disable_unprepare(pdata->clk);
++		clk_prepare_enable(pdata->clk);
++	} else {
++#ifdef CONFIG_ACPI
++		if (acpi_has_method(ACPI_HANDLE(&pdata->pdev->dev), "_RST")) {
++			acpi_evaluate_object(ACPI_HANDLE(&pdata->pdev->dev),
++					     "_RST", NULL, NULL);
++		} else if (acpi_has_method(ACPI_HANDLE(&pdata->pdev->dev),
++					 "_INI")) {
++			acpi_evaluate_object(ACPI_HANDLE(&pdata->pdev->dev),
++					     "_INI", NULL, NULL);
+ 		}
++#endif
+ 	}
++
++	xgene_enet_ecc_init(pdata);
+ 	xgene_enet_config_ring_if_assoc(pdata);
+ 
+ 	return 0;
+ }
+ 
++static void xgene_enet_clear(struct xgene_enet_pdata *pdata,
++			     struct xgene_enet_desc_ring *ring)
++{
++	u32 addr, val, data;
++
++	val = xgene_enet_ring_bufnum(ring->id);
++
++	if (xgene_enet_is_bufpool(ring->id)) {
++		addr = ENET_CFGSSQMIFPRESET_ADDR;
++		data = BIT(val - 0x20);
++	} else {
++		addr = ENET_CFGSSQMIWQRESET_ADDR;
++		data = BIT(val);
++	}
++
++	xgene_enet_wr_ring_if(pdata, addr, data);
++}
++
+ static void xgene_gport_shutdown(struct xgene_enet_pdata *pdata)
+ {
++	struct xgene_enet_desc_ring *ring;
++	u32 pb, val;
++	int i;
++
++	pb = 0;
++	for (i = 0; i < pdata->rxq_cnt; i++) {
++		ring = pdata->rx_ring[i]->buf_pool;
++
++		val = xgene_enet_ring_bufnum(ring->id);
++		pb |= BIT(val - 0x20);
++	}
++	xgene_enet_wr_ring_if(pdata, ENET_CFGSSQMIFPRESET_ADDR, pb);
++
++	pb = 0;
++	for (i = 0; i < pdata->txq_cnt; i++) {
++		ring = pdata->tx_ring[i];
++
++		val = xgene_enet_ring_bufnum(ring->id);
++		pb |= BIT(val);
++	}
++	xgene_enet_wr_ring_if(pdata, ENET_CFGSSQMIWQRESET_ADDR, pb);
++
+ 	if (!IS_ERR(pdata->clk))
+ 		clk_disable_unprepare(pdata->clk);
+ }
+@@ -748,7 +802,7 @@ static void xgene_enet_adjust_link(struct net_device *ndev)
+ }
+ 
+ #ifdef CONFIG_ACPI
+-static struct acpi_device *acpi_phy_find_device(struct device *dev)
++struct acpi_device *acpi_phy_find_device(struct device *dev)
+ {
+ 	struct acpi_reference_args args;
+ 	struct fwnode_handle *fw_node;
+@@ -869,7 +923,7 @@ int xgene_enet_mdio_config(struct xgene_enet_pdata *pdata)
+ 		 ndev->name);
+ 
+ 	mdio_bus->priv = pdata;
+-	mdio_bus->parent = &ndev->dev;
++	mdio_bus->parent = &pdata->pdev->dev;
+ 
+ 	ret = xgene_mdiobus_register(pdata, mdio_bus);
+ 	if (ret) {
+@@ -917,6 +971,7 @@ const struct xgene_mac_ops xgene_gmac_ops = {
+ 
+ const struct xgene_port_ops xgene_gport_ops = {
+ 	.reset = xgene_enet_reset,
++	.clear = xgene_enet_clear,
+ 	.cle_bypass = xgene_enet_cle_bypass,
+ 	.shutdown = xgene_gport_shutdown,
+ };
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+index 5540db9..c656a1c 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_hw.h
+@@ -113,9 +113,13 @@ enum xgene_enet_rm {
+ #define BLOCK_ETH_DIAG_CSR_OFFSET	0xD000
+ #define BLOCK_ETH_MAC_OFFSET		0x0000
+ #define BLOCK_ETH_MAC_CSR_OFFSET	0x2800
++#define BLOCK_ETH_CLKRST_SRST_OFFSET	0xa000
++#define BLOCK_ETH_CLKRST_CLKEN_OFFSET	0xa008
+ 
+ #define CLKEN_ADDR			0xc208
+ #define SRST_ADDR			0xc200
++#define XGENE_CLKEN_ADDR		0xa008
++#define XGENE_SRST_ADDR			0xa000
+ 
+ #define MAC_ADDR_REG_OFFSET		0x00
+ #define MAC_COMMAND_REG_OFFSET		0x04
+@@ -168,6 +172,8 @@ enum xgene_enet_rm {
+ #define TX_DV_GATE_EN0			BIT(2)
+ #define RX_DV_GATE_EN0			BIT(1)
+ #define RESUME_RX0			BIT(0)
++#define ENET_CFGSSQMIFPRESET_ADDR		0x14
++#define ENET_CFGSSQMIWQRESET_ADDR		0x1c
+ #define ENET_CFGSSQMIWQASSOC_ADDR		0xe0
+ #define ENET_CFGSSQMIFPQASSOC_ADDR		0xdc
+ #define ENET_CFGSSQMIQMLITEFPQASSOC_ADDR	0xf0
+@@ -300,11 +306,6 @@ enum xgene_enet_ring_bufnum {
+ 	RING_BUFNUM_INVALID
+ };
+ 
+-enum xgene_enet_cmd {
+-	XGENE_ENET_WR_CMD = BIT(31),
+-	XGENE_ENET_RD_CMD = BIT(30)
+-};
+-
+ enum xgene_enet_err_code {
+ 	HBF_READ_DATA = 3,
+ 	HBF_LL_READ = 4,
+@@ -352,6 +353,9 @@ void xgene_enet_mdio_remove(struct xgene_enet_pdata *pdata);
+ bool xgene_ring_mgr_init(struct xgene_enet_pdata *p);
+ int xgene_enet_phy_connect(struct net_device *ndev);
+ void xgene_enet_phy_disconnect(struct xgene_enet_pdata *pdata);
++#ifdef CONFIG_ACPI
++struct acpi_device *acpi_phy_find_device(struct device *dev);
++#endif
+ 
+ extern const struct xgene_mac_ops xgene_gmac_ops;
+ extern const struct xgene_port_ops xgene_gport_ops;
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+index c31ea56..75da192 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.c
+@@ -102,25 +102,13 @@ static u8 xgene_enet_hdr_len(const void *data)
+ 
+ static void xgene_enet_delete_bufpool(struct xgene_enet_desc_ring *buf_pool)
+ {
+-	struct xgene_enet_pdata *pdata = netdev_priv(buf_pool->ndev);
+-	struct xgene_enet_raw_desc16 *raw_desc;
+-	u32 slots = buf_pool->slots - 1;
+-	u32 tail = buf_pool->tail;
+-	u32 userinfo;
+-	int i, len;
+-
+-	len = pdata->ring_ops->len(buf_pool);
+-	for (i = 0; i < len; i++) {
+-		tail = (tail - 1) & slots;
+-		raw_desc = &buf_pool->raw_desc16[tail];
++	int i;
+ 
+-		/* Hardware stores descriptor in little endian format */
+-		userinfo = GET_VAL(USERINFO, le64_to_cpu(raw_desc->m0));
+-		dev_kfree_skb_any(buf_pool->rx_skb[userinfo]);
++	/* Free up the buffers held by hardware */
++	for (i = 0; i < buf_pool->slots; i++) {
++		if (buf_pool->rx_skb[i])
++			dev_kfree_skb_any(buf_pool->rx_skb[i]);
+ 	}
+-
+-	pdata->ring_ops->wr_cmd(buf_pool, -len);
+-	buf_pool->tail = tail;
+ }
+ 
+ static irqreturn_t xgene_enet_rx_irq(const int irq, void *data)
+@@ -481,6 +469,7 @@ static int xgene_enet_rx_frame(struct xgene_enet_desc_ring *rx_ring,
+ 			 XGENE_ENET_MAX_MTU, DMA_FROM_DEVICE);
+ 	skb_index = GET_VAL(USERINFO, le64_to_cpu(raw_desc->m0));
+ 	skb = buf_pool->rx_skb[skb_index];
++	buf_pool->rx_skb[skb_index] = NULL;
+ 
+ 	/* checking for error */
+ 	status = (GET_VAL(ELERR, le64_to_cpu(raw_desc->m0)) << LERR_LEN) ||
+@@ -619,6 +608,30 @@ static void xgene_enet_timeout(struct net_device *ndev)
+ 	}
+ }
+ 
++static void xgene_enet_set_irq_name(struct net_device *ndev)
++{
++	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
++	struct xgene_enet_desc_ring *ring;
++	int i;
++
++	for (i = 0; i < pdata->rxq_cnt; i++) {
++		ring = pdata->rx_ring[i];
++		if (!pdata->cq_cnt) {
++			snprintf(ring->irq_name, IRQ_ID_SIZE, "%s-rx-txc",
++				 ndev->name);
++		} else {
++			snprintf(ring->irq_name, IRQ_ID_SIZE, "%s-rx-%d",
++				 ndev->name, i);
++		}
++	}
++
++	for (i = 0; i < pdata->cq_cnt; i++) {
++		ring = pdata->tx_ring[i]->cp_ring;
++		snprintf(ring->irq_name, IRQ_ID_SIZE, "%s-txc-%d",
++			 ndev->name, i);
++	}
++}
++
+ static int xgene_enet_register_irq(struct net_device *ndev)
+ {
+ 	struct xgene_enet_pdata *pdata = netdev_priv(ndev);
+@@ -626,6 +639,7 @@ static int xgene_enet_register_irq(struct net_device *ndev)
+ 	struct xgene_enet_desc_ring *ring;
+ 	int ret = 0, i;
+ 
++	xgene_enet_set_irq_name(ndev);
+ 	for (i = 0; i < pdata->rxq_cnt; i++) {
+ 		ring = pdata->rx_ring[i];
+ 		irq_set_status_flags(ring->irq, IRQ_DISABLE_UNLAZY);
+@@ -720,9 +734,6 @@ static int xgene_enet_open(struct net_device *ndev)
+ 	if (ret)
+ 		return ret;
+ 
+-	mac_ops->tx_enable(pdata);
+-	mac_ops->rx_enable(pdata);
+-
+ 	xgene_enet_napi_enable(pdata);
+ 	ret = xgene_enet_register_irq(ndev);
+ 	if (ret)
+@@ -734,7 +745,9 @@ static int xgene_enet_open(struct net_device *ndev)
+ 		netif_carrier_off(ndev);
+ 	}
+ 
+-	netif_start_queue(ndev);
++	mac_ops->tx_enable(pdata);
++	mac_ops->rx_enable(pdata);
++	netif_tx_start_all_queues(ndev);
+ 
+ 	return ret;
+ }
+@@ -745,17 +758,17 @@ static int xgene_enet_close(struct net_device *ndev)
+ 	const struct xgene_mac_ops *mac_ops = pdata->mac_ops;
+ 	int i;
+ 
+-	netif_stop_queue(ndev);
++	netif_tx_stop_all_queues(ndev);
++	mac_ops->tx_disable(pdata);
++	mac_ops->rx_disable(pdata);
+ 
+ 	if (pdata->phy_dev)
+ 		phy_stop(pdata->phy_dev);
+ 	else
+ 		cancel_delayed_work_sync(&pdata->link_work);
+ 
+-	mac_ops->tx_disable(pdata);
+-	mac_ops->rx_disable(pdata);
+-
+ 	xgene_enet_free_irq(ndev);
++	netif_carrier_off(ndev);
+ 	xgene_enet_napi_disable(pdata);
+ 	for (i = 0; i < pdata->rxq_cnt; i++)
+ 		xgene_enet_process_ring(pdata->rx_ring[i], -1);
+@@ -772,7 +785,7 @@ static void xgene_enet_delete_ring(struct xgene_enet_desc_ring *ring)
+ 	dev = ndev_to_dev(ring->ndev);
+ 
+ 	pdata->ring_ops->clear(ring);
+-	dma_free_coherent(dev, ring->size, ring->desc_addr, ring->dma);
++	dmam_free_coherent(dev, ring->size, ring->desc_addr, ring->dma);
+ }
+ 
+ static void xgene_enet_delete_desc_rings(struct xgene_enet_pdata *pdata)
+@@ -785,6 +798,9 @@ static void xgene_enet_delete_desc_rings(struct xgene_enet_pdata *pdata)
+ 		ring = pdata->tx_ring[i];
+ 		if (ring) {
+ 			xgene_enet_delete_ring(ring);
++			pdata->port_ops->clear(pdata, ring);
++			if (pdata->cq_cnt)
++				xgene_enet_delete_ring(ring->cp_ring);
+ 			pdata->tx_ring[i] = NULL;
+ 		}
+ 	}
+@@ -795,6 +811,7 @@ static void xgene_enet_delete_desc_rings(struct xgene_enet_pdata *pdata)
+ 			buf_pool = ring->buf_pool;
+ 			xgene_enet_delete_bufpool(buf_pool);
+ 			xgene_enet_delete_ring(buf_pool);
++			pdata->port_ops->clear(pdata, buf_pool);
+ 			xgene_enet_delete_ring(ring);
+ 			pdata->rx_ring[i] = NULL;
+ 		}
+@@ -843,7 +860,7 @@ static void xgene_enet_free_desc_ring(struct xgene_enet_desc_ring *ring)
+ 
+ 	if (ring->desc_addr) {
+ 		pdata->ring_ops->clear(ring);
+-		dma_free_coherent(dev, ring->size, ring->desc_addr, ring->dma);
++		dmam_free_coherent(dev, ring->size, ring->desc_addr, ring->dma);
+ 	}
+ 	devm_kfree(dev, ring);
+ }
+@@ -920,8 +937,8 @@ static struct xgene_enet_desc_ring *xgene_enet_create_desc_ring(
+ 	ring->cfgsize = cfgsize;
+ 	ring->id = ring_id;
+ 
+-	ring->desc_addr = dma_zalloc_coherent(dev, size, &ring->dma,
+-					      GFP_KERNEL);
++	ring->desc_addr = dmam_alloc_coherent(dev, size, &ring->dma,
++					GFP_KERNEL | __GFP_ZERO);
+ 	if (!ring->desc_addr) {
+ 		devm_kfree(dev, ring);
+ 		return NULL;
+@@ -929,11 +946,12 @@ static struct xgene_enet_desc_ring *xgene_enet_create_desc_ring(
+ 	ring->size = size;
+ 
+ 	if (is_irq_mbox_required(pdata, ring)) {
+-		ring->irq_mbox_addr = dma_zalloc_coherent(dev, INTR_MBOX_SIZE,
+-				&ring->irq_mbox_dma, GFP_KERNEL);
++		ring->irq_mbox_addr = dmam_alloc_coherent(dev, INTR_MBOX_SIZE,
++					&ring->irq_mbox_dma,
++					GFP_KERNEL | __GFP_ZERO);
+ 		if (!ring->irq_mbox_addr) {
+-			dma_free_coherent(dev, size, ring->desc_addr,
+-					  ring->dma);
++			dmam_free_coherent(dev, size, ring->desc_addr,
++					   ring->dma);
+ 			devm_kfree(dev, ring);
+ 			return NULL;
+ 		}
+@@ -1028,13 +1046,6 @@ static int xgene_enet_create_desc_rings(struct net_device *ndev)
+ 		rx_ring->nbufpool = NUM_BUFPOOL;
+ 		rx_ring->buf_pool = buf_pool;
+ 		rx_ring->irq = pdata->irqs[i];
+-		if (!pdata->cq_cnt) {
+-			snprintf(rx_ring->irq_name, IRQ_ID_SIZE, "%s-rx-txc",
+-				 ndev->name);
+-		} else {
+-			snprintf(rx_ring->irq_name, IRQ_ID_SIZE, "%s-rx%d",
+-				 ndev->name, i);
+-		}
+ 		buf_pool->rx_skb = devm_kcalloc(dev, buf_pool->slots,
+ 						sizeof(struct sk_buff *),
+ 						GFP_KERNEL);
+@@ -1061,9 +1072,9 @@ static int xgene_enet_create_desc_rings(struct net_device *ndev)
+ 		}
+ 
+ 		size = (tx_ring->slots / 2) * sizeof(__le64) * MAX_EXP_BUFFS;
+-		tx_ring->exp_bufs = dma_zalloc_coherent(dev, size,
+-							&dma_exp_bufs,
+-							GFP_KERNEL);
++		tx_ring->exp_bufs = dmam_alloc_coherent(dev, size,
++					&dma_exp_bufs,
++					GFP_KERNEL | __GFP_ZERO);
+ 		if (!tx_ring->exp_bufs) {
+ 			ret = -ENOMEM;
+ 			goto err;
+@@ -1087,8 +1098,6 @@ static int xgene_enet_create_desc_rings(struct net_device *ndev)
+ 
+ 			cp_ring->irq = pdata->irqs[pdata->rxq_cnt + i];
+ 			cp_ring->index = i;
+-			snprintf(cp_ring->irq_name, IRQ_ID_SIZE, "%s-txc%d",
+-				 ndev->name, i);
+ 		}
+ 
+ 		cp_ring->cp_skb = devm_kcalloc(dev, tx_ring->slots,
+@@ -1283,56 +1292,68 @@ static int xgene_enet_get_irqs(struct xgene_enet_pdata *pdata)
+ static int xgene_enet_check_phy_handle(struct xgene_enet_pdata *pdata)
+ {
+ 	struct device *dev = &pdata->pdev->dev;
+-	int ret, phy_id, phy_mode = pdata->phy_mode;
+-	struct device_node *mdio_np = NULL;
++	struct device_node *mdio_np;
++	bool mdio_probe_done;
+ 	const char *ph;
+-#ifdef CONFIG_ACPI
+-	struct acpi_reference_args args;
+-	struct fwnode_handle *fw_node;
+-#endif
++	u32 phy_id;
++	int ret;
++
++	if (pdata->phy_mode == PHY_INTERFACE_MODE_XGMII)
++		return 0;
+ 
+ 	if (!IS_ENABLED(CONFIG_MDIO_XGENE))
+ 		return 0;
+ 
+-	if (dev->of_node) {
+-		ret = device_property_read_string(dev, "phy-handle", &ph);
++	mdio_probe_done = xgene_mdio_probe_successful();
+ 
+-		if (phy_mode == PHY_INTERFACE_MODE_RGMII) {
++	if (mdio_probe_done) {
++		if (dev->of_node) {
++			ret = device_property_read_string(dev, "phy-handle",
++							  &ph);
+ 			if (ret) {
+-				dev_err(dev, "Unable to get phy-handle\n");
++				dev_err(dev, "Unable to find phy-handle\n");
+ 				return ret;
+ 			}
++		} else {
++#ifdef CONFIG_ACPI
++			ret = device_property_present(dev, "phy-handle");
++			if (!ret) {
++				dev_err(dev, "Unable to find phy-handle\n");
++				return -1;
++			}
++#endif
++		}
++
++		pdata->mdio_driver = true;
++	} else {
++		if (pdata->phy_mode == PHY_INTERFACE_MODE_SGMII)
++			return 0;
+ 
++		if (dev->of_node) {
+ 			mdio_np = of_find_compatible_node(dev->of_node, NULL,
+ 							  "apm,xgene-mdio");
+-			if (!mdio_np)
+-				pdata->mdio_driver = true;
+-			else
+-				pdata->mdio_np = mdio_np;
++			if (!mdio_np) {
++				dev_err(dev, "No mdio node in the dts\n");
++				return -ENXIO;
++			}
++
++			pdata->mdio_np = mdio_np;
++			return 0;
+ 		} else {
+-			if (!ret)
+-				pdata->mdio_driver = true;
+-		}
+-	} else {
+ #ifdef CONFIG_ACPI
+-		fw_node = acpi_fwnode_handle(ACPI_COMPANION(dev));
+-		ret = acpi_node_get_property_reference(fw_node, "mboxes", 0,
+-						       &args);
+-		if (!ACPI_FAILURE(ret)) {
+-			pdata->mdio_driver = true;
+-			pdata->phy_dev =  args.adev->driver_data;
+-		} else {
+ 			ret = device_property_read_u32(dev, "phy-channel",
+ 						       &phy_id);
+-			if (ret) {
++			if (ret)
+ 				ret = device_property_read_u32(dev, "phy-addr",
+-							       &phy_id);
++								    &phy_id);
++			if (ret) {
++				dev_err(dev, "Unable to get phy-channel or phy-addr\n");
++				return -EINVAL;
+ 			}
+ 
+-			if (!ret)
+-				pdata->phy_id = phy_id;
+-		}
++			pdata->phy_id = phy_id;
+ #endif
++		}
+ 	}
+ 
+ 	return 0;
+@@ -1703,12 +1724,6 @@ static int xgene_enet_probe(struct platform_device *pdev)
+ 		goto err;
+ 	}
+ 
+-	ret = register_netdev(ndev);
+-	if (ret) {
+-		netdev_err(ndev, "Failed to register netdev\n");
+-		goto err;
+-	}
+-
+ 	ret = xgene_enet_init_hw(pdata);
+ 	if (ret)
+ 		goto err_netdev;
+@@ -1729,6 +1744,11 @@ static int xgene_enet_probe(struct platform_device *pdev)
+ 		goto err;
+ 
+ 	xgene_enet_napi_add(pdata);
++	ret = register_netdev(ndev);
++	if (ret) {
++		netdev_err(ndev, "Failed to register netdev\n");
++		goto err;
++	}
+ 	return 0;
+ err_netdev:
+ 	if (ndev->reg_state == NETREG_REGISTERED)
+@@ -1762,13 +1782,27 @@ static int xgene_enet_remove(struct platform_device *pdev)
+ 		xgene_enet_mdio_remove(pdata);
+ 
+ 	unregister_netdev(ndev);
+-	xgene_enet_delete_desc_rings(pdata);
+ 	pdata->port_ops->shutdown(pdata);
++	xgene_enet_delete_desc_rings(pdata);
+ 	free_netdev(ndev);
+ 
+ 	return 0;
+ }
+ 
++static void xgene_enet_shutdown(struct platform_device *pdev)
++{
++	struct xgene_enet_pdata *pdata;
++
++	pdata = platform_get_drvdata(pdev);
++	if (!pdata)
++		return;
++
++	if (!pdata->ndev)
++		return;
++
++	xgene_enet_remove(pdev);
++}
++
+ #ifdef CONFIG_ACPI
+ static const struct acpi_device_id xgene_enet_acpi_match[] = {
+ 	{ "APMC0D05", XGENE_ENET1},
+@@ -1803,6 +1837,7 @@ static struct platform_driver xgene_enet_driver = {
+ 	},
+ 	.probe = xgene_enet_probe,
+ 	.remove = xgene_enet_remove,
++	.shutdown = xgene_enet_shutdown,
+ };
+ 
+ module_platform_driver(xgene_enet_driver);
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+index c2804c2..9975105 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_main.h
+@@ -38,6 +38,7 @@
+ #include "xgene_enet_hw.h"
+ #include "xgene_enet_cle.h"
+ #include "xgene_enet_ring2.h"
++#include "../../../phy/mdio-xgene.h"
+ 
+ #define XGENE_DRV_VERSION	"v1.0"
+ #define XGENE_ENET_MAX_MTU	1536
+@@ -103,6 +104,7 @@ struct xgene_enet_desc_ring {
+ 	void __iomem *cmd_base;
+ 	void __iomem *cmd;
+ 	dma_addr_t dma;
++	dma_addr_t dma_exp_bufs;
+ 	dma_addr_t irq_mbox_dma;
+ 	void *irq_mbox_addr;
+ 	u16 dst_ring_num;
+@@ -148,6 +150,8 @@ struct xgene_mac_ops {
+ 
+ struct xgene_port_ops {
+ 	int (*reset)(struct xgene_enet_pdata *pdata);
++	void (*clear)(struct xgene_enet_pdata *pdata,
++		      struct xgene_enet_desc_ring *ring);
+ 	void (*cle_bypass)(struct xgene_enet_pdata *pdata,
+ 			   u32 dst_ring_num, u16 bufpool_id);
+ 	void (*shutdown)(struct xgene_enet_pdata *pdata);
+@@ -224,34 +228,6 @@ struct xgene_indirect_ctl {
+ 	void __iomem *cmd_done;
+ };
+ 
+-/* Set the specified value into a bit-field defined by its starting position
+- * and length within a single u64.
+- */
+-static inline u64 xgene_enet_set_field_value(int pos, int len, u64 val)
+-{
+-	return (val & ((1ULL << len) - 1)) << pos;
+-}
+-
+-#define SET_VAL(field, val) \
+-		xgene_enet_set_field_value(field ## _POS, field ## _LEN, val)
+-
+-#define SET_BIT(field) \
+-		xgene_enet_set_field_value(field ## _POS, 1, 1)
+-
+-/* Get the value from a bit-field defined by its starting position
+- * and length within the specified u64.
+- */
+-static inline u64 xgene_enet_get_field_value(int pos, int len, u64 src)
+-{
+-	return (src >> pos) & ((1ULL << len) - 1);
+-}
+-
+-#define GET_VAL(field, src) \
+-		xgene_enet_get_field_value(field ## _POS, field ## _LEN, src)
+-
+-#define GET_BIT(field, src) \
+-		xgene_enet_get_field_value(field ## _POS, 1, src)
+-
+ static inline struct device *ndev_to_dev(struct net_device *ndev)
+ {
+ 	return ndev->dev.parent;
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
+index ae93dc2..24725fa 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_sgmac.c
+@@ -143,9 +143,18 @@ static u32 xgene_enet_rd_mac(struct xgene_enet_pdata *p, u32 rd_addr)
+ static int xgene_enet_ecc_init(struct xgene_enet_pdata *p)
+ {
+ 	struct net_device *ndev = p->ndev;
+-	u32 data;
++	u32 data, shutdown;
+ 	int i = 0;
+ 
++	shutdown = xgene_enet_rd_diag_csr(p, ENET_CFG_MEM_RAM_SHUTDOWN_ADDR);
++	data = xgene_enet_rd_diag_csr(p, ENET_BLOCK_MEM_RDY_ADDR);
++
++	if (!shutdown && data == ~0U) {
++		netdev_dbg(ndev, "+ ecc_init called before, shutdown: %08x mem_ready: %08x\n",
++			   shutdown, data);
++		return 0;
++	}
++
+ 	xgene_enet_wr_diag_csr(p, ENET_CFG_MEM_RAM_SHUTDOWN_ADDR, 0);
+ 	do {
+ 		usleep_range(100, 110);
+@@ -327,9 +336,10 @@ static void xgene_sgmac_init(struct xgene_enet_pdata *p)
+ 		xgene_sgmac_reset(p);
+ 
+ 	/* Enable auto-negotiation */
++	xgene_mii_phy_write(p, INT_PHY_ADDR, SGMII_CONTROL_ADDR >> 2, 0x1000);
+ 	xgene_mii_phy_write(p, INT_PHY_ADDR, SGMII_TBI_CONTROL_ADDR >> 2,
+ 			    0x8000);
+-	xgene_mii_phy_write(p, INT_PHY_ADDR, SGMII_CONTROL_ADDR >> 2, 0x9000);
++	xgene_mii_phy_write(p, INT_PHY_ADDR, SGMII_CONTROL_ADDR >> 2, 0x9140);
+ 	xgene_mii_phy_write(p, INT_PHY_ADDR, SGMII_TBI_CONTROL_ADDR >> 2, 0);
+ 
+ 	while (loop--) {
+@@ -415,24 +425,40 @@ static void xgene_sgmac_tx_disable(struct xgene_enet_pdata *p)
+ 
+ static int xgene_enet_reset(struct xgene_enet_pdata *p)
+ {
+-	int ret;
++	struct device *dev = &p->pdev->dev;
+ 
+ 	if (!xgene_ring_mgr_init(p))
+ 		return -ENODEV;
+ 
++	if (p->mdio_driver && p->enet_id == XGENE_ENET2) {
++		xgene_enet_config_ring_if_assoc(p);
++		return 0;
++	}
++
+ 	if (p->enet_id == XGENE_ENET2)
+ 		xgene_enet_wr_clkrst_csr(p, XGENET_CONFIG_REG_ADDR, SGMII_EN);
+ 
+-	if (!IS_ERR(p->clk)) {
+-		clk_prepare_enable(p->clk);
+-		clk_disable_unprepare(p->clk);
+-		clk_prepare_enable(p->clk);
++	if (dev->of_node) {
++		if (!IS_ERR(p->clk)) {
++			clk_prepare_enable(p->clk);
++			clk_disable_unprepare(p->clk);
++			clk_prepare_enable(p->clk);
++		}
++	} else {
++#ifdef CONFIG_ACPI
++		if (acpi_has_method(ACPI_HANDLE(&p->pdev->dev), "_RST"))
++			acpi_evaluate_object(ACPI_HANDLE(&p->pdev->dev),
++					     "_RST", NULL, NULL);
++		else if (acpi_has_method(ACPI_HANDLE(&p->pdev->dev), "_INI"))
++			acpi_evaluate_object(ACPI_HANDLE(&p->pdev->dev),
++					     "_INI", NULL, NULL);
++#endif
+ 	}
+ 
+-	ret = xgene_enet_ecc_init(p);
+-	if (ret)
+-		return ret;
+-	xgene_enet_config_ring_if_assoc(p);
++	if (!p->port_id) {
++		xgene_enet_ecc_init(p);
++		xgene_enet_config_ring_if_assoc(p);
++	}
+ 
+ 	return 0;
+ }
+@@ -460,10 +486,47 @@ static void xgene_enet_cle_bypass(struct xgene_enet_pdata *p,
+ 	xgene_enet_wr_csr(p, cle_bypass_reg1 + offset, data);
+ }
+ 
++static void xgene_enet_clear(struct xgene_enet_pdata *pdata,
++			     struct xgene_enet_desc_ring *ring)
++{
++	u32 addr, val, data;
++
++	val = xgene_enet_ring_bufnum(ring->id);
++
++	if (xgene_enet_is_bufpool(ring->id)) {
++		addr = ENET_CFGSSQMIFPRESET_ADDR;
++		data = BIT(val - 0x20);
++	} else {
++		addr = ENET_CFGSSQMIWQRESET_ADDR;
++		data = BIT(val);
++	}
++
++	xgene_enet_wr_ring_if(pdata, addr, data);
++}
++
+ static void xgene_enet_shutdown(struct xgene_enet_pdata *p)
+ {
+-	if (!IS_ERR(p->clk))
+-		clk_disable_unprepare(p->clk);
++	struct xgene_enet_desc_ring *ring;
++	u32 pb, val;
++	int i;
++
++	pb = 0;
++	for (i = 0; i < p->rxq_cnt; i++) {
++		ring = p->rx_ring[i]->buf_pool;
++
++		val = xgene_enet_ring_bufnum(ring->id);
++		pb |= BIT(val - 0x20);
++	}
++	xgene_enet_wr_ring_if(p, ENET_CFGSSQMIFPRESET_ADDR, pb);
++
++	pb = 0;
++	for (i = 0; i < p->txq_cnt; i++) {
++		ring = p->tx_ring[i];
++
++		val = xgene_enet_ring_bufnum(ring->id);
++		pb |= BIT(val);
++	}
++	xgene_enet_wr_ring_if(p, ENET_CFGSSQMIWQRESET_ADDR, pb);
+ }
+ 
+ static void xgene_enet_link_state(struct work_struct *work)
+@@ -511,6 +574,7 @@ const struct xgene_mac_ops xgene_sgmac_ops = {
+ 
+ const struct xgene_port_ops xgene_sgport_ops = {
+ 	.reset		= xgene_enet_reset,
++	.clear		= xgene_enet_clear,
+ 	.cle_bypass	= xgene_enet_cle_bypass,
+ 	.shutdown	= xgene_enet_shutdown
+ };
+diff --git a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+index ba030dc..925dc45 100644
+--- a/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
++++ b/drivers/net/ethernet/apm/xgene/xgene_enet_xgmac.c
+@@ -258,15 +258,29 @@ static void xgene_xgmac_tx_disable(struct xgene_enet_pdata *pdata)
+ 
+ static int xgene_enet_reset(struct xgene_enet_pdata *pdata)
+ {
++	struct device *dev = &pdata->pdev->dev;
++
+ 	if (!xgene_ring_mgr_init(pdata))
+ 		return -ENODEV;
+ 
+-	if (!IS_ERR(pdata->clk)) {
+-		clk_prepare_enable(pdata->clk);
+-		clk_disable_unprepare(pdata->clk);
+-		clk_prepare_enable(pdata->clk);
++	if (dev->of_node) {
++		if (!IS_ERR(pdata->clk)) {
++			clk_prepare_enable(pdata->clk);
++			clk_disable_unprepare(pdata->clk);
++			clk_prepare_enable(pdata->clk);
++		}
++	} else {
++#ifdef CONFIG_ACPI
++		if (acpi_has_method(ACPI_HANDLE(&pdata->pdev->dev), "_RST")) {
++			acpi_evaluate_object(ACPI_HANDLE(&pdata->pdev->dev),
++					     "_RST", NULL, NULL);
++		} else if (acpi_has_method(ACPI_HANDLE(&pdata->pdev->dev),
++					   "_INI")) {
++			acpi_evaluate_object(ACPI_HANDLE(&pdata->pdev->dev),
++					     "_INI", NULL, NULL);
++		}
++#endif
+ 	}
+-
+ 	xgene_enet_ecc_init(pdata);
+ 	xgene_enet_config_ring_if_assoc(pdata);
+ 
+@@ -292,8 +306,45 @@ static void xgene_enet_xgcle_bypass(struct xgene_enet_pdata *pdata,
+ 
+ static void xgene_enet_shutdown(struct xgene_enet_pdata *pdata)
+ {
+-	if (!IS_ERR(pdata->clk))
+-		clk_disable_unprepare(pdata->clk);
++	struct xgene_enet_desc_ring *ring;
++	u32 pb, val;
++	int i;
++
++	pb = 0;
++	for (i = 0; i < pdata->rxq_cnt; i++) {
++		ring = pdata->rx_ring[i]->buf_pool;
++
++		val = xgene_enet_ring_bufnum(ring->id);
++		pb |= BIT(val - 0x20);
++	}
++	xgene_enet_wr_ring_if(pdata, ENET_CFGSSQMIFPRESET_ADDR, pb);
++
++	pb = 0;
++	for (i = 0; i < pdata->txq_cnt; i++) {
++		ring = pdata->tx_ring[i];
++
++		val = xgene_enet_ring_bufnum(ring->id);
++		pb |= BIT(val);
++	}
++	xgene_enet_wr_ring_if(pdata, ENET_CFGSSQMIWQRESET_ADDR, pb);
++}
++
++static void xgene_enet_clear(struct xgene_enet_pdata *pdata,
++			     struct xgene_enet_desc_ring *ring)
++{
++	u32 addr, val, data;
++
++	val = xgene_enet_ring_bufnum(ring->id);
++
++	if (xgene_enet_is_bufpool(ring->id)) {
++		addr = ENET_CFGSSQMIFPRESET_ADDR;
++		data = BIT(val - 0x20);
++	} else {
++		addr = ENET_CFGSSQMIWQRESET_ADDR;
++		data = BIT(val);
++	}
++
++	xgene_enet_wr_ring_if(pdata, addr, data);
+ }
+ 
+ static void xgene_enet_link_state(struct work_struct *work)
+@@ -340,6 +391,7 @@ const struct xgene_mac_ops xgene_xgmac_ops = {
+ 
+ const struct xgene_port_ops xgene_xgport_ops = {
+ 	.reset = xgene_enet_reset,
++	.clear = xgene_enet_clear,
+ 	.cle_bypass = xgene_enet_xgcle_bypass,
+ 	.shutdown = xgene_enet_shutdown,
+ };
 -- 
 1.9.1
