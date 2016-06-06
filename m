@@ -1,74 +1,105 @@
 From: Pramod Kumar <pramod.kumar@broadcom.com>
-Subject: [PATCH v4 6/7] binding: PHY: Binding doc for NS2 PCIe PHYs.
-Date: Mon,  6 Jun 2016 18:11:39 +0530
-Message-ID: <1465216900-11755-7-git-send-email-pramod.kumar@broadcom.com>
+Subject: [PATCH v4 4/7] dt: mdio-mux: Add mdio multiplexer driver node
+Date: Mon,  6 Jun 2016 18:11:37 +0530
+Message-ID: <1465216900-11755-5-git-send-email-pramod.kumar@broadcom.com>
 References: <1465216900-11755-1-git-send-email-pramod.kumar@broadcom.com>
-Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	bcm-kernel-feedback-list@broadcom.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Pramod Kumar <pramod.kumar@broadcom.com>,
-	Jon Mason <jonmason@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org, Pramod Kumar <pramod.kumar@broadcom.com>,
+ bcm-kernel-feedback-list@broadcom.com, linux-arm-kernel@lists.infradead.org
 To: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Kishon Vijay Abraham I <kishon@ti.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:35626 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752222AbcFFMmU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 08:42:20 -0400
-Received: by mail-pf0-f174.google.com with SMTP id g64so66796895pfb.2
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 05:42:20 -0700 (PDT)
+ Mark Rutland <mark.rutland@arm.com>,
+ Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ Kumar Gala <galak@codeaurora.org>,
+ Catalin Marinas <catalin.marinas@arm.com>,
+ Will Deacon <will.deacon@arm.com>, Kishon Vijay Abraham I <kishon@ti.com>,
+ "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1465216900-11755-1-git-send-email-pramod.kumar@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Binding doc for NS2 PCIe PHYs.
+Add integrated MDIO multiplexer driver node which contains
+two mux PCIe bus and one ethernet bus along with phys
+lying on these bus.
 
-Acked-by: Rob Herring <robh@kernel.org>
-Signed-off-by: Jon Mason <jonmason@broadcom.com>
 Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
 ---
- .../bindings/phy/brcm,mdio-mux-bus-pci.txt         | 27 ++++++++++++++++++++++
- 1 file changed, 27 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/phy/brcm,mdio-mux-bus-pci.txt
+ arch/arm64/boot/dts/broadcom/ns2-svk.dts | 12 ++++++++++++
+ arch/arm64/boot/dts/broadcom/ns2.dtsi    | 31 +++++++++++++++++++++++++++++++
+ 2 files changed, 43 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/phy/brcm,mdio-mux-bus-pci.txt b/Documentation/devicetree/bindings/phy/brcm,mdio-mux-bus-pci.txt
-new file mode 100644
-index 0000000..5b51007
---- /dev/null
-+++ b/Documentation/devicetree/bindings/phy/brcm,mdio-mux-bus-pci.txt
-@@ -0,0 +1,27 @@
-+* Broadcom NS2 PCIe PHY binding document
+diff --git a/arch/arm64/boot/dts/broadcom/ns2-svk.dts b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
+index 54ca40c..71f8503 100644
+--- a/arch/arm64/boot/dts/broadcom/ns2-svk.dts
++++ b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
+@@ -132,3 +132,15 @@
+ 		#size-cells = <1>;
+ 	};
+ };
 +
-+Required bus properties:
-+- reg: MDIO Bus number for the MDIO interface
-+- #address-cells: must be 1
-+- #size-cells: must be 0
++&mdio_mux_iproc {
++	mdio@10 {
++		reg = <0x10>;
++		#address-cells = <1>;
++		#size-cells = <0>;
 +
-+Required PHY properties:
-+- compatible: should be "brcm,ns2-pcie-phy"
-+- reg: MDIO Phy ID for the MDIO interface
-+- #phy-cells: must be 0
-+
-+This is a child bus node of "brcm,mdio-mux-iproc" node.
-+
-+Example:
-+
-+mdio@0 {
-+	reg = <0x0>;
-+	#address-cells = <1>;
-+	#size-cells = <0>;
-+
-+	pci_phy0: pci-phy@0 {
-+		compatible = "brcm,ns2-pcie-phy";
-+		reg = <0x0>;
-+		#phy-cells = <0>;
++		gphy0: eth-phy@10 {
++			reg = <0x10>;
++		};
 +	};
 +};
+diff --git a/arch/arm64/boot/dts/broadcom/ns2.dtsi b/arch/arm64/boot/dts/broadcom/ns2.dtsi
+index ec68ec1..9f20a66 100644
+--- a/arch/arm64/boot/dts/broadcom/ns2.dtsi
++++ b/arch/arm64/boot/dts/broadcom/ns2.dtsi
+@@ -263,6 +263,37 @@
+ 				      IRQ_TYPE_LEVEL_HIGH)>;
+ 		};
+ 
++		mdio_mux_iproc: mdio-mux@6602023c {
++			compatible = "brcm,mdio-mux-iproc";
++			reg = <0x6602023c 0x14>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			mdio@0 {
++				reg = <0x0>;
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				pci_phy0: pci-phy@0 {
++					compatible = "brcm,ns2-pcie-phy";
++					reg = <0x0>;
++					#phy-cells = <0>;
++				};
++			};
++
++			mdio@7 {
++				reg = <0x7>;
++				#address-cells = <1>;
++				#size-cells = <0>;
++
++				pci_phy1: pci-phy@0 {
++					compatible = "brcm,ns2-pcie-phy";
++					reg = <0x0>;
++					#phy-cells = <0>;
++				};
++			};
++		};
++
+ 		timer0: timer@66030000 {
+ 			compatible = "arm,sp804", "arm,primecell";
+ 			reg = <0x66030000 0x1000>;
 -- 
 1.9.1
