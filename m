@@ -1,37 +1,55 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 1/3] arm64: bpf: implement bpf_tail_call() helper
-Date: Mon, 06 Jun 2016 10:11:25 +0200
-Message-ID: <5755302D.1000708@iogearbox.net>
-References: <201606050700.BLJUHUk2%fengguang.wu@intel.com> <5753DA61.3000505@iogearbox.net> <CABg9mcv0kYvk7-wsfVR3fg0nBBDVbs0QtTiWZfGRDqq7kGeFPQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kbuild test robot <lkp@intel.com>, kbuild-all@01.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Yang Shi <yang.shi@linaro.org>,
-	Alexei Starovoitov <ast@kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Z Lim <zlim.lnx@gmail.com>
+From: Colin King <colin.king@canonical.com>
+Subject: [PATCH][V2] net: fec: fix spelling mistakes and add missing newline
+Date: Mon,  6 Jun 2016 09:21:44 +0100
+Message-ID: <1465201304-5136-1-git-send-email-colin.king@canonical.com>
+Cc: linux-kernel@vger.kernel.org
+To: Fugang Duan <fugang.duan@nxp.com>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CABg9mcv0kYvk7-wsfVR3fg0nBBDVbs0QtTiWZfGRDqq7kGeFPQ@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/06/2016 06:56 AM, Z Lim wrote:
-[...]
-> How about the attached patch? Fixes compilation error on build
-> !CONFIG_BPF_SYSCALL.
->
-> Also, should this patch be sent to net or net-next (along with this series)?
+From: Colin Ian King <colin.king@canonical.com>
 
-Looks good, feel free to add:
+trivial fix to spelling mistakes and add missing newline in pr_err
+messages
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Colin Ian King <colin.king@canonical.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-I think net-next along with your series should be fine since the issue
-first appeared there. Thanks, Zi!
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 3c0255e..fea0f33 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -2416,24 +2416,24 @@ fec_enet_set_coalesce(struct net_device *ndev, struct ethtool_coalesce *ec)
+ 		return -EOPNOTSUPP;
+ 
+ 	if (ec->rx_max_coalesced_frames > 255) {
+-		pr_err("Rx coalesced frames exceed hardware limiation");
++		pr_err("Rx coalesced frames exceed hardware limitation\n");
+ 		return -EINVAL;
+ 	}
+ 
+ 	if (ec->tx_max_coalesced_frames > 255) {
+-		pr_err("Tx coalesced frame exceed hardware limiation");
++		pr_err("Tx coalesced frame exceed hardware limitation\n");
+ 		return -EINVAL;
+ 	}
+ 
+ 	cycle = fec_enet_us_to_itr_clock(ndev, fep->rx_time_itr);
+ 	if (cycle > 0xFFFF) {
+-		pr_err("Rx coalesed usec exceeed hardware limiation");
++		pr_err("Rx coalesced usec exceed hardware limitation\n");
+ 		return -EINVAL;
+ 	}
+ 
+ 	cycle = fec_enet_us_to_itr_clock(ndev, fep->tx_time_itr);
+ 	if (cycle > 0xFFFF) {
+-		pr_err("Rx coalesed usec exceeed hardware limiation");
++		pr_err("Rx coalesced usec exceed hardware limitation\n");
+ 		return -EINVAL;
+ 	}
+ 
+-- 
+2.8.1
