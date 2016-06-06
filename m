@@ -1,36 +1,39 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH v2 net-next 0/3] net sched action timestamp improvements
-Date: Mon, 6 Jun 2016 10:37:50 -0700
-Message-ID: <CAM_iQpWcgZUycrDFurGMUNiq1bAB2cUDsG8r6+u8KwjGki9GfA@mail.gmail.com>
-References: <1465209175-8002-1-git-send-email-jhs@emojatatu.com>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v3] r8152: Add support for setting pass through MAC
+ address on RTL8153-AD
+Date: Mon, 6 Jun 2016 10:38:58 -0700
+Message-ID: <20160606173858.GA24836@kroah.com>
+References: <1465222521-7217-1-git-send-email-mario_limonciello@dell.com>
+ <1465222521-7217-2-git-send-email-mario_limonciello@dell.com>
+ <20160606143947.GA4758@kroah.com>
+ <e0b44bac635f41a9a3f47f909cf16f42@ausx13mpc124.AMER.DELL.COM>
+ <20160606161222.GA12114@kroah.com>
+ <e1fd0ce1589743acbd1342ec38ff8071@ausx13mpc124.AMER.DELL.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f182.google.com ([209.85.161.182]:36644 "EHLO
-	mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752115AbcFFRiK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 13:38:10 -0400
-Received: by mail-yw0-f182.google.com with SMTP id x189so146885695ywe.3
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 10:38:10 -0700 (PDT)
-In-Reply-To: <1465209175-8002-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: hayeswang@realtek.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	pali.rohar@gmail.com, anthony.wong@canonical.com
+To: Mario_Limonciello@Dell.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <e1fd0ce1589743acbd1342ec38ff8071@ausx13mpc124.AMER.DELL.COM>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 6, 2016 at 3:32 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> Various aggregations of duplicated code, fixes and introduction of firstused
-> timestamp
->
-> v2: add const for source time info per suggestion from Cong
+On Mon, Jun 06, 2016 at 05:24:57PM +0000, Mario_Limonciello@Dell.com wrote:
+> That said, I would be highly surprised if Realtek decided to implement
+> with another OEM differently.  It would increase their code complexity
+> on Windows as well since this is part of the generic driver.
 
-For this whole series,
+Ah, it's refreshing to see people who haven't dealt with BIOS and system
+vendors for very long, your good attitude is a wonderful sign :)
 
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+Seriously, if there is ANY chance that it could be broken or changed, it
+will be.  I place the odds that your next hardware product will do just
+this for no obvious reason at all and am willing to buy the beer if it
+doesn't happen.
 
+thanks,
 
-Thanks!
+greg k-h
