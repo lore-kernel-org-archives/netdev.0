@@ -1,81 +1,46 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH -next] cbq: remove only caller of qdisc->drop()
-Date: Mon,  6 Jun 2016 23:20:27 +0200
-Message-ID: <1465248027-21652-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: [PATCH net] tcp: record TLP and ER timer stats in v6 stats
+Date: Mon,  6 Jun 2016 15:07:18 -0700
+Message-ID: <1465250838-13731-1-git-send-email-ycheng@google.com>
+Cc: netdev@vger.kernel.org, nanditad@google.com,
+	Yuchung Cheng <ycheng@google.com>,
+	Neal Cardwell <ncardwell@google.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54037 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750933AbcFFVUO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 17:20:14 -0400
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:32905 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751773AbcFFWHu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 18:07:50 -0400
+Received: by mail-pa0-f42.google.com with SMTP id ec8so33316381pac.0
+        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 15:07:49 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-since initial revision of cbq in 2004 iproute2 never implemented
-support for TCA_CBQ_OVL_STRATEGY, which is what needs to be set to
-activate the class->drop() call (TC_CBQ_OVL_DROP strategy must be
-set by userspace).
+The v6 tcp stats scan do not provide TLP and ER timer information
+correctly like the v4 version . This patch fixes that.
 
-So lets remove this.  We can even do this in a backwards compatible
-way by switching ovl_drop to perform a dequeue+drop on the leaf.
-
-A followup commit can then remove all .drop qdisc methods since this
-was the only caller.
-
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Fixes: 6ba8a3b19e76 ("tcp: Tail loss probe (TLP)")
+Fixes: eed530b6c676 ("tcp: early retransmit")
+Signed-off-by: Yuchung Cheng <ycheng@google.com>
+Signed-off-by: Neal Cardwell <ncardwell@google.com>
 ---
- On a related note, iproute2 doesn't support the TCA_CBQ_POLICE
- attribute either.  If we'd remove that too we could then get rid
- of __parent and reshape_fail in struct Qdisc.
+ net/ipv6/tcp_ipv6.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
- However, in TCA_CBQ_POLICE case there is no way to replace
- the functionality, i.e. we'd have to -EOPNOTSUPP or ignore
- TCA_CBQ_POLICE if some other non-iproute2 tool presents it to us.
-
- AFAICS TCA_CBQ_POLICE doesn't work all that well even if userspace
- would set it, one needs to:
-
-  add a class
-  attach a qdisc to the class (default pfifo doesn't work as
-      q->handle is 0 and cbq_set_police() is a no-op in this case)
-  re-'add' the same class (tc class change ...) again
-
-  user must also specifiy a defmap (e.g. 'split 1:0 defmap 3f'), since
-  this 'police' feature relies on its presence
-  the added qdisc (or the leaves) must be one of bfifo, pfifo, tbf or
-  netem as only these implement qdisc_reshape_fail() call.
-
-  If all of these conditions are met, then instead of drop the leaf
-  qdiscs mentioned above would attempt to re-enqueue the skb in the
-  cbq TC_PRIO_BESTEFFORT class if their limit is reached.
-
-  I think it would be safe to just ignore TCA_CBQ_POLICE and change the
-  qdiscs to drop right away.
-
-  Does anyone have a reason to leave this in the tree?  Thanks!
-
-diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
-index baafddf..df79791 100644
---- a/net/sched/sch_cbq.c
-+++ b/net/sched/sch_cbq.c
-@@ -542,9 +542,14 @@ static void cbq_ovl_lowprio(struct cbq_class *cl)
+diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+index 4ad8edb..d1fc453 100644
+--- a/net/ipv6/tcp_ipv6.c
++++ b/net/ipv6/tcp_ipv6.c
+@@ -1707,7 +1707,9 @@ static void get_tcp6_sock(struct seq_file *seq, struct sock *sp, int i)
+ 	destp = ntohs(inet->inet_dport);
+ 	srcp  = ntohs(inet->inet_sport);
  
- static void cbq_ovl_drop(struct cbq_class *cl)
- {
--	if (cl->q->ops->drop)
--		if (cl->q->ops->drop(cl->q))
--			cl->qdisc->q.qlen--;
-+	struct sk_buff *skb = cl->q->ops->dequeue(cl->q);
-+
-+	if (skb) {
-+		cl->deficit -= qdisc_pkt_len(skb);
-+		cl->qdisc->q.qlen--;
-+		qdisc_drop(skb, cl->qdisc);
-+	}
-+
- 	cl->xstats.overactions++;
- 	cbq_ovl_classic(cl);
- }
+-	if (icsk->icsk_pending == ICSK_TIME_RETRANS) {
++	if (icsk->icsk_pending == ICSK_TIME_RETRANS ||
++	    icsk->icsk_pending == ICSK_TIME_EARLY_RETRANS ||
++	    icsk->icsk_pending == ICSK_TIME_LOSS_PROBE) {
+ 		timer_active	= 1;
+ 		timer_expires	= icsk->icsk_timeout;
+ 	} else if (icsk->icsk_pending == ICSK_TIME_PROBE0) {
 -- 
-2.7.3
+2.8.0.rc3.226.g39d4020
