@@ -1,40 +1,57 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [PATCH net-next] net/mlx4_en: mlx4_en_netpoll() should schedule
- TX, not RX
-Date: Mon, 6 Jun 2016 13:38:08 +0300
-Message-ID: <e85b3fe6-3b55-7519-0956-3f9322952815@gmail.com>
-References: <1464195039-5098-1-git-send-email-edumazet@google.com>
- <1464195039-5098-5-git-send-email-edumazet@google.com>
- <6320ccdc-d369-c08c-c959-6c8ed9b88d10@gmail.com>
- <1464267580.5939.83.camel@edumazet-glaptop3.roam.corp.google.com>
- <1464979969.5939.200.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v2 net] fq_codel: fix NET_XMIT_CN behavior
+Date: Mon, 6 Jun 2016 06:49:26 -0400
+Message-ID: <57555536.1090801@mojatatu.com>
+References: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160604190301.GA8857@strlen.de>
+ <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVORpFx_xx67gYT_3jXfWAuqkMmR03R9VJv1TrcqH4W8A@mail.gmail.com>
+ <1465160087.2968.51.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1465160123.2968.52.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpXMwT20nhWW4Pd2yy6nkeXkSNdxV9wAEGzGd22PcyePmg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
+Cc: Florian Westphal <fw@strlen.de>,
+	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	=?UTF-8?Q?Maciej_=c5=bbenczykowski?= <maze@google.com>
+	Stas Nichiporovich <stasn77@gmail.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34653 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750764AbcFFKiM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 06:38:12 -0400
-Received: by mail-wm0-f65.google.com with SMTP id n184so15355666wmn.1
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 03:38:12 -0700 (PDT)
-In-Reply-To: <1464979969.5939.200.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-it0-f42.google.com ([209.85.214.42]:37896 "EHLO
+	mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751125AbcFFKt2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 06:49:28 -0400
+Received: by mail-it0-f42.google.com with SMTP id i65so31976435ith.1
+        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 03:49:28 -0700 (PDT)
+In-Reply-To: <CAM_iQpXMwT20nhWW4Pd2yy6nkeXkSNdxV9wAEGzGd22PcyePmg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Eric.
+On 16-06-05 07:30 PM, Cong Wang wrote:
 
-> Totally untested patch, I would appreciate some feedback before merge,
-> thanks !
-I'm testing it, and will reply shortly.
+> Potentially all of the following:
+>
+> net/sched/sch_choke.c:  return NET_XMIT_CN;
+> net/sched/sch_fifo.c:   return NET_XMIT_CN;
+> net/sched/sch_generic.c:        return NET_XMIT_CN;
+> net/sched/sch_gred.c:   return NET_XMIT_CN;
+> net/sched/sch_hhf.c:            return NET_XMIT_CN;
+> net/sched/sch_red.c:    return NET_XMIT_CN;
+> net/sched/sch_sfb.c:    return NET_XMIT_CN;
+> net/sched/sch_sfq.c:            return NET_XMIT_CN;
+>
 
-Regards,
-Tariq
+As long as we are not loosing the stat that the packet
+is dropped. Some qdiscs have a counter which indicates
+congestion drops(look at RED variants of early drops);
+maybe codel needs one. The parent also must account for
+childs drops.
+BTW, returning NET_XMIT_CN could be confusing to tcp;
+it does not mean that the packet that we are getting return
+code for was dropped; it could mean _another_ packet in
+the queue was dropped.
+
+cheers,
+jamal
