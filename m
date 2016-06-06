@@ -1,82 +1,57 @@
-From: <Mario_Limonciello@Dell.com>
-Subject: RE: [PATCH v3] r8152: Add support for setting pass through MAC
- address on RTL8153-AD
-Date: Mon, 6 Jun 2016 14:51:04 +0000
-Message-ID: <8986582922fa40a095e740214d4a05da@ausx13mpc124.AMER.DELL.COM>
-References: <1465222521-7217-1-git-send-email-mario_limonciello@dell.com>
- <20160606144009.GB4758@kroah.com>
- <fa640d6998d8477b8ed43b70ddf6c0a8@ausx13mpc124.AMER.DELL.COM>
- <20160606145021.GA6433@kroah.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: off-by-one in DecodeQ931
+Date: Mon, 6 Jun 2016 16:55:10 +0200
+Message-ID: <20160606145510.GB1168@salvia>
+References: <CAML0wpEBwXdzWX7g3LDJRDOVM0J7dkuhH8b+96ZhRf54+qUgwQ@mail.gmail.com>
+ <20160425152905.GA8621@strlen.de>
+ <CAML0wpGWvcpB5GE_zAjOeO6ki_nszaj+hR9yyadwu_3hQno7Cg@mail.gmail.com>
+ <CAML0wpGqddtn92Rb2CSmV0kZfTzOxdCU-+dAFG1HUAaqQa8RUw@mail.gmail.com>
+ <20160606143555.GC7827@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <hayeswang@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<pali.rohar@gmail.com>, <anthony.wong@canonical.com>
-To: <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160606145021.GA6433@kroah.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Toby DiPasquale <toby@cbcg.net>, Patrick McHardy <kaber@trash.net>,
+	kadlec@blackhole.kfki.hu, davem@davemloft.net,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:35450 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752768AbcFFOzU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jun 2016 10:55:20 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id C8687740ECC
+	for <netdev@vger.kernel.org>; Mon,  6 Jun 2016 16:55:18 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id B037C1B406D
+	for <netdev@vger.kernel.org>; Mon,  6 Jun 2016 16:55:18 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 6CB141B3D33
+	for <netdev@vger.kernel.org>; Mon,  6 Jun 2016 16:55:16 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20160606143555.GC7827@breakpoint.cc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -----Original Message-----
-> From: Greg KH [mailto:gregkh@linuxfoundation.org]
-> Sent: Monday, June 6, 2016 9:50 AM
-> To: Limonciello, Mario <Mario_Limonciello@Dell.com>
-> Cc: hayeswang@realtek.com; linux-kernel@vger.kernel.org;
-> netdev@vger.kernel.org; linux-usb@vger.kernel.org; pali.rohar@gmail.com;
-> anthony.wong@canonical.com
-> Subject: Re: [PATCH v3] r8152: Add support for setting pass through MAC
-> address on RTL8153-AD
+On Mon, Jun 06, 2016 at 04:35:55PM +0200, Florian Westphal wrote:
+> Toby DiPasquale <toby@cbcg.net> wrote:
+> > Is this latest patch OK?
 > 
-> On Mon, Jun 06, 2016 at 02:43:37PM +0000, Mario_Limonciello@Dell.com
-> wrote:
-> > > -----Original Message-----
-> > > From: Greg KH [mailto:gregkh@linuxfoundation.org]
-> > > Sent: Monday, June 6, 2016 9:40 AM
-> > > To: Limonciello, Mario <Mario_Limonciello@Dell.com>
-> > > Cc: hayeswang@realtek.com; LKML <linux-kernel@vger.kernel.org>;
-> Netdev
-> > > <netdev@vger.kernel.org>; Linux USB <linux-usb@vger.kernel.org>;
-> > > pali.rohar@gmail.com; anthony.wong@canonical.com
-> > > Subject: Re: [PATCH v3] r8152: Add support for setting pass through MAC
-> > > address on RTL8153-AD
-> > >
-> > > On Mon, Jun 06, 2016 at 09:15:20AM -0500, Mario Limonciello wrote:
-> > > > Since this is a Realtek feature, I feel this shouldn't be moved into a
-> platform
-> > > > MAC address lookup.  The code should only be run when the correct
-> > > Realtek device
-> > > > is plugged in.
-> > > >
-> > > > Changes from v2:
-> > > >  * Only apply to RTL8153-AD w/ eFuse pass through mac address pass
-> thru
-> > > >    bit set.
-> > > >  * Drop matching DMI information on Dell.  Although this is
-> implemented
-> > > on
-> > > >    Dell, this is a Realtek feature that may may be implemented on other
-> > > >    OEMs as well.
-> > > >  * Test that pass through MAC address is valid, fall back to HW address if
-> > > >    invalid.
-> > > >  * Don't track status of which device has MAC pass through activated.
-> > > >  - Expected experience is that if two docks (RTL8153-AD's w/ mac pass
-> thru
-> > > >    bit set) were plugged in both should have MAC pass through
-> activated.
-> > >
-> > > cover letters for single-patch submissions is overkill and confusing,
-> > > please don't.
-> >
-> > I was trying to convey differences between versions of this patch, I'll avoid
-> > that in the future and let the audience find them themselves.
+> Yes, I don't know why it wasn't applied yet.
 > 
-> No, put them in the patch itself, under the --- line, like is documented
-> to do so.  Don't make people "find them themselves", if you do that,
-> your patch will just be ignored.
-> 
-> greg k-h
+> Pablo?
 
-Sorry I was not aware of that.  I'll do that in the next patch.
+This doesn't apply.
+
+$ git am /tmp/off-by-one-in-DecodeQ931.patch -s
+Applying: off-by-one in DecodeQ931
+error: patch failed: net/netfilter/nf_conntrack_h323_asn1.c:846
+error: net/netfilter/nf_conntrack_h323_asn1.c: patch does not apply
+Patch failed at 0001 off-by-one in DecodeQ931
+The copy of the patch that failed is found in:
+   patch
+When you have resolved this problem, run "git am --continue".
+If you prefer to skip this patch, run "git am --skip" instead.
+To restore the original branch and stop patching, run "git am --abort".
+
+Could you resubmit using git-format-patch? Thanks.
