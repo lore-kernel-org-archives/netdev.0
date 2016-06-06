@@ -1,45 +1,60 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next] net, cls: allow for deleting all filters for
- given parent
-Date: Mon, 06 Jun 2016 21:25:46 +0200
-Message-ID: <5755CE3A.7050002@iogearbox.net>
-References: <cd8455dfef0cccec5ef0a1ca2d1f678e9397d66e.1465056745.git.daniel@iogearbox.net> <CAM_iQpWDc1JAa9MhcSAOdJVVRoG52Z+p47CD-rd81LzN28zk1A@mail.gmail.com>
+From: Paul Moore <pmoore@redhat.com>
+Subject: [PATCH] netlabel: add address family checks to netlbl_{sock,
+ req}_delattr()
+Date: Mon, 06 Jun 2016 15:35:58 -0400
+Message-ID: <146524175890.8042.12012703565205416569.stgit@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:54520 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752404AbcFFTZw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 15:25:52 -0400
-In-Reply-To: <CAM_iQpWDc1JAa9MhcSAOdJVVRoG52Z+p47CD-rd81LzN28zk1A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: maninder1.s@samsung.com, selinux@tycho.nsa.gov
+To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/06/2016 07:12 PM, Cong Wang wrote:
-> On Sat, Jun 4, 2016 at 9:24 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> +       if (n->nlmsg_type == RTM_DELTFILTER && prio == 0) {
->> +               tcf_destroy_chain(chain);
->> +               err = 0;
->> +               goto errout;
->> +       }
->
-> We need to notify users we removed which filters, right?
+From: Paul Moore <paul@paul-moore.com>
 
-As far as I know, most such use cases that listen on this are bypasses
-that mirror kernel configs from user space ... but well, sure, I can add
-a notification if people care. Would do this as a separate patch.
+It seems risky to always rely on the caller to ensure the socket's
+address family is correct before passing it to the NetLabel kAPI,
+especially since we see at least one LSM which didn't. Add address
+family checks to the *_delattr() functions to help prevent future
+problems.
 
-Looking into this, I would probably make this a single notification that
-denotes this 'wild-card' removal for that parent instead of calling
-tfilter_notify() for each filter separately (which allocs skb, dumps it,
-etc), qdisc del doesn't loop through it either, so probably fine this way.
+Cc: <stable@vger.kernel.org>
+Reported-by: Maninder Singh <maninder1.s@samsung.com>
+Signed-off-by: Paul Moore <paul@paul-moore.com>
+---
+ net/netlabel/netlabel_kapi.c |   12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-Thanks,
-Daniel
+diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
+index 1325776..bd007a9 100644
+--- a/net/netlabel/netlabel_kapi.c
++++ b/net/netlabel/netlabel_kapi.c
+@@ -824,7 +824,11 @@ socket_setattr_return:
+  */
+ void netlbl_sock_delattr(struct sock *sk)
+ {
+-	cipso_v4_sock_delattr(sk);
++	switch (sk->sk_family) {
++	case AF_INET:
++		cipso_v4_sock_delattr(sk);
++		break;
++	}
+ }
+ 
+ /**
+@@ -987,7 +991,11 @@ req_setattr_return:
+ */
+ void netlbl_req_delattr(struct request_sock *req)
+ {
+-	cipso_v4_req_delattr(req);
++	switch (req->rsk_ops->family) {
++	case AF_INET:
++		cipso_v4_req_delattr(req);
++		break;
++	}
+ }
+ 
+ /**
+
