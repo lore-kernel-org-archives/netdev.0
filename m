@@ -1,484 +1,128 @@
-From: Zhao Qiang <qiang.zhao@nxp.com>
-Subject: [Patch v3 4/5] fsl/qe: Add QE TDM lib
-Date: Mon, 6 Jun 2016 14:30:01 +0800
-Message-ID: <1465194602-43209-4-git-send-email-qiang.zhao@nxp.com>
-References: <1465194602-43209-1-git-send-email-qiang.zhao@nxp.com>
+From: Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org>
+Subject: Re: [RFC PATCH 0/4] Make inotify instance/watches be accounted per
+	userns
+Date: Mon, 6 Jun 2016 09:41:20 +0300
+Message-ID: <57551B10.6080505@kyup.com>
+References: <1464767580-22732-1-git-send-email-kernel@kyup.com>
+	<8737ow7vcp.fsf@x220.int.ebiederm.org>
+	<20160602074920.GG19636@quack2.suse.cz>
+	<87bn3jy1cd.fsf@x220.int.ebiederm.org> <5751667D.7010207@kyup.com>
+	<87inxqovho.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <xiaobo.xie@nxp.com>,
-	Zhao Qiang <qiang.zhao@nxp.com>
-To: <oss@buserror.net>, <davem@davemloft.net>,
-	<Joakim.Tjernlund@infinera.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0083.outbound.protection.outlook.com ([207.46.100.83]:25376
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751579AbcFFGku (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jun 2016 02:40:50 -0400
-In-Reply-To: <1465194602-43209-1-git-send-email-qiang.zhao@nxp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jan Kara <jack-AlSwsSmVLrQ@public.gmane.org>, avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Linux Containers <containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	operations-/eCPMmvKun9pLGFMi4vTTA@public.gmane.org, gorcunov-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org, john-jueV0HHMeujJJrXXpGQQMAC/G2K4zDHf@public.gmane.org
+To: "Eric W. Biederman" <ebiederm-aS9lmoZGLiVWk0Htik3J/w@public.gmane.org>
+Return-path: <containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <87inxqovho.fsf-JOvCrm2gF+uungPnsOpG7nhyD016LWXt@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/containers/>
+List-Post: <mailto:containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/containers>,
+	<mailto:containers-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: containers-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-QE has module to support TDM, some other protocols
-supported by QE are based on TDM.
-add a qe-tdm lib, this lib provides functions to the protocols
-using TDM to configurate QE-TDM.
 
-Signed-off-by: Zhao Qiang <qiang.zhao@nxp.com>
----
-Changes for v2:
-	- delete dead code
-	- use strcmp instead of strcasecmp
-	- use of_find_compatible_node instead of of_find_by_name
-	- use devm_ioremap_resource 
-	- rename init_si to ucc_tdm_init
-	- rename of_parse_tdm to ucc_of_parse_tdm
-	- return err when there is not t1 or e1
-Changes for v3:
-	- na
 
- drivers/soc/fsl/qe/Kconfig    |   6 +-
- drivers/soc/fsl/qe/Makefile   |   1 +
- drivers/soc/fsl/qe/qe_tdm.c   | 276 ++++++++++++++++++++++++++++++++++++++++++
- include/soc/fsl/qe/immap_qe.h |   5 +-
- include/soc/fsl/qe/qe_tdm.h   |  94 ++++++++++++++
- 5 files changed, 377 insertions(+), 5 deletions(-)
- create mode 100644 drivers/soc/fsl/qe/qe_tdm.c
- create mode 100644 include/soc/fsl/qe/qe_tdm.h
+On 06/03/2016 11:41 PM, Eric W. Biederman wrote:
+> Nikolay Borisov <kernel-6AxghH7DbtA@public.gmane.org> writes:
+> 
+>> On 06/02/2016 07:58 PM, Eric W. Biederman wrote:
+>>>
+>>> Nikolay please see my question for you at the end.
+> [snip] 
+>>> All of that said there is definitely a practical question that needs to
+>>> be asked.  Nikolay how did you get into this situation?  A typical user
+>>> namespace configuration will set up uid and gid maps with the help of a
+>>> privileged program and not map the uid of the user who created the user
+>>> namespace.  Thus avoiding exhausting the limits of the user who created
+>>> the container.
+>>
+>> Right but imagine having multiple containers with identical uid/gid maps
+>> for LXC-based setups imagine this:
+>>
+>> lxc.id_map = u 0 1337 65536
+> 
+> So I am only moderately concerned when the containers have overlapping
+> ids.  Because at some level overlapping ids means they are the same
+> user.  This is certainly true for file permissions and for other
+> permissions.  To isolate one container from another it fundamentally
+> needs to have separate uids and gids on the host system.
+> 
+>> Now all processes which are running with the same user on different
+>> containers will actually share the underlying user_struct thus the
+>> inotify limits. In such cases even running multiple instances of 'tail'
+>> in one container will eventually use all allowed inotify/mark instances.
+>> For this to happen you needn't also have complete overlap of the uid
+>> map, it's enough to have at least one UID between 2 containers overlap.
+>>
+>>
+>> So the risk of exhaustion doesn't apply to the privileged user that
+>> created the container and the uid mapping, but rather the users under
+>> which the various processes in the container are running. Does that make
+>> it clear?
+> 
+> Yes.  That is clear.
+> 
+>>> Which makes me personally more worried about escaping the existing
+>>> limits than exhausting the limits of a particular user.
+>>
+>> So I thought bit about it and I guess a solution can be concocted which
+>> utilize the hierarchical nature of page counter, and the inotify limits
+>> are set per namespace if you have capable(CAP_SYS_ADMIN). That way the
+>> admin can set one fairly large on the init_user_ns and then in every
+>> namespace created one can set smaller limits. That way for a branch in
+>> the tree (in the nomenclature you used in your previous reply to me) you
+>> will really be upper-bound to the limit set in the namespace which have
+>> ->level = 1. For the width of the tree, you will be bound by the
+>> "global" init_user_ns limits. How does that sound?
+> 
+> As a addendum to that design.  I think there should be an additional
+> sysctl or two that specifies how much the limit decreases when creating
+> a new user namespace and when creating a new user in that user
+> namespace.  That way with a good selection of limits and a limit
+> decrease people can use the kernel defaults without needing to change
+> them.
 
-diff --git a/drivers/soc/fsl/qe/Kconfig b/drivers/soc/fsl/qe/Kconfig
-index 20978f2..73a2e08 100644
---- a/drivers/soc/fsl/qe/Kconfig
-+++ b/drivers/soc/fsl/qe/Kconfig
-@@ -22,7 +22,7 @@ config UCC_SLOW
- 
- config UCC_FAST
- 	bool
--	default y if UCC_GETH
-+	default y if UCC_GETH || QE_TDM
- 	help
- 	  This option provides qe_lib support to UCC fast
- 	  protocols: HDLC, Ethernet, ATM, transparent
-@@ -31,6 +31,10 @@ config UCC
- 	bool
- 	default y if UCC_FAST || UCC_SLOW
- 
-+config QE_TDM
-+	bool
-+	default y if FSL_UCC_HDLC
-+
- config QE_USB
- 	bool
- 	default y if USB_FSL_QE
-diff --git a/drivers/soc/fsl/qe/Makefile b/drivers/soc/fsl/qe/Makefile
-index ffac541..2031d38 100644
---- a/drivers/soc/fsl/qe/Makefile
-+++ b/drivers/soc/fsl/qe/Makefile
-@@ -6,5 +6,6 @@ obj-$(CONFIG_CPM)	+= qe_common.o
- obj-$(CONFIG_UCC)	+= ucc.o
- obj-$(CONFIG_UCC_SLOW)	+= ucc_slow.o
- obj-$(CONFIG_UCC_FAST)	+= ucc_fast.o
-+obj-$(CONFIG_QE_TDM)	+= qe_tdm.o
- obj-$(CONFIG_QE_USB)	+= usb.o
- obj-$(CONFIG_QE_GPIO)	+= gpio.o
-diff --git a/drivers/soc/fsl/qe/qe_tdm.c b/drivers/soc/fsl/qe/qe_tdm.c
-new file mode 100644
-index 0000000..5e48b14
---- /dev/null
-+++ b/drivers/soc/fsl/qe/qe_tdm.c
-@@ -0,0 +1,276 @@
-+/*
-+ * Copyright (C) 2015 Freescale Semiconductor, Inc. All rights reserved.
-+ *
-+ * Authors:	Zhao Qiang <qiang.zhao@nxp.com>
-+ *
-+ * Description:
-+ * QE TDM API Set - TDM specific routines implementations.
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version.
-+ */
-+#include <linux/io.h>
-+#include <linux/kernel.h>
-+#include <linux/of_address.h>
-+#include <linux/of_irq.h>
-+#include <linux/of_platform.h>
-+#include <soc/fsl/qe/qe_tdm.h>
-+
-+static int set_tdm_framer(const char *tdm_framer_type)
-+{
-+	if (strcmp(tdm_framer_type, "e1") == 0)
-+		return TDM_FRAMER_E1;
-+	else if (strcmp(tdm_framer_type, "t1") == 0)
-+		return TDM_FRAMER_T1;
-+	else
-+		return -EINVAL;
-+}
-+
-+static void set_si_param(struct ucc_tdm *utdm, struct ucc_tdm_info *ut_info)
-+{
-+	struct si_mode_info *si_info = &ut_info->si_info;
-+
-+	if (utdm->tdm_mode == TDM_INTERNAL_LOOPBACK) {
-+		si_info->simr_crt = 1;
-+		si_info->simr_rfsd = 0;
-+	}
-+}
-+
-+int ucc_of_parse_tdm(struct device_node *np, struct ucc_tdm *utdm,
-+		     struct ucc_tdm_info *ut_info)
-+{
-+	const char *sprop;
-+	int ret = 0;
-+	u32 val;
-+	struct resource *res;
-+	struct device_node *np2;
-+	static int siram_init_flag;
-+	struct platform_device *pdev;
-+
-+	sprop = of_get_property(np, "fsl,rx-sync-clock", NULL);
-+	if (sprop) {
-+		ut_info->uf_info.rx_sync = qe_clock_source(sprop);
-+		if ((ut_info->uf_info.rx_sync < QE_CLK_NONE) ||
-+		    (ut_info->uf_info.rx_sync > QE_RSYNC_PIN)) {
-+			pr_err("QE-TDM: Invalid rx-sync-clock property\n");
-+			return -EINVAL;
-+		}
-+	} else {
-+		pr_err("QE-TDM: Invalid rx-sync-clock property\n");
-+		return -EINVAL;
-+	}
-+
-+	sprop = of_get_property(np, "fsl,tx-sync-clock", NULL);
-+	if (sprop) {
-+		ut_info->uf_info.tx_sync = qe_clock_source(sprop);
-+		if ((ut_info->uf_info.tx_sync < QE_CLK_NONE) ||
-+		    (ut_info->uf_info.tx_sync > QE_TSYNC_PIN)) {
-+			pr_err("QE-TDM: Invalid tx-sync-clock property\n");
-+		return -EINVAL;
-+		}
-+	} else {
-+		pr_err("QE-TDM: Invalid tx-sync-clock property\n");
-+		return -EINVAL;
-+	}
-+
-+	ret = of_property_read_u32_index(np, "fsl,tx-timeslot-mask", 0, &val);
-+	if (ret) {
-+		pr_err("QE-TDM: Invalid tx-timeslot-mask property\n");
-+		return -EINVAL;
-+	}
-+	utdm->tx_ts_mask = val;
-+
-+	ret = of_property_read_u32_index(np, "fsl,rx-timeslot-mask", 0, &val);
-+	if (ret) {
-+		ret = -EINVAL;
-+		pr_err("QE-TDM: Invalid rx-timeslot-mask property\n");
-+		return ret;
-+	}
-+	utdm->rx_ts_mask = val;
-+
-+	ret = of_property_read_u32_index(np, "fsl,tdm-id", 0, &val);
-+	if (ret) {
-+		ret = -EINVAL;
-+		pr_err("QE-TDM: No fsl,tdm-id property for this UCC\n");
-+		return ret;
-+	}
-+	utdm->tdm_port = val;
-+	ut_info->uf_info.tdm_num = utdm->tdm_port;
-+
-+	if (of_get_property(np, "fsl,tdm-internal-loopback", NULL))
-+		utdm->tdm_mode = TDM_INTERNAL_LOOPBACK;
-+	else
-+		utdm->tdm_mode = TDM_NORMAL;
-+
-+	sprop = of_get_property(np, "fsl,tdm-framer-type", NULL);
-+	if (!sprop) {
-+		ret = -EINVAL;
-+		pr_err("QE-TDM: No tdm-framer-type property for UCC\n");
-+		return ret;
-+	}
-+	ret = set_tdm_framer(sprop);
-+	if (ret < 0)
-+		return -EINVAL;
-+	utdm->tdm_framer_type = ret;
-+
-+	ret = of_property_read_u32_index(np, "fsl,siram-entry-id", 0, &val);
-+	if (ret) {
-+		ret = -EINVAL;
-+		pr_err("QE-TDM: No siram entry id for UCC\n");
-+		return ret;
-+	}
-+	utdm->siram_entry_id = val;
-+
-+	set_si_param(utdm, ut_info);
-+
-+	np2 = of_find_compatible_node(NULL, NULL, "fsl,t1040-qe-si");
-+	if (!np2)
-+		return -EINVAL;
-+
-+	pdev = of_find_device_by_node(np2);
-+	if (!pdev) {
-+		pr_err("%s: failed to lookup pdev\n", np2->name);
-+		of_node_put(np2);
-+		return -EINVAL;
-+	}
-+
-+	of_node_put(np2);
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	utdm->si_regs = devm_ioremap_resource(&pdev->dev, res);
-+	if (IS_ERR(utdm->si_regs)) {
-+		ret = PTR_ERR(utdm->si_regs);
-+		goto err_miss_siram_property;
-+	}
-+
-+	np2 = of_find_compatible_node(NULL, NULL, "fsl,t1040-qe-siram");
-+	if (!np2) {
-+		ret = -EINVAL;
-+		goto err_miss_siram_property;
-+	}
-+
-+	pdev = of_find_device_by_node(np2);
-+	if (!pdev) {
-+		ret = -EINVAL;
-+		pr_err("%s: failed to lookup pdev\n", np2->name);
-+		of_node_put(np2);
-+		goto err_miss_siram_property;
-+	}
-+
-+	of_node_put(np2);
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	utdm->siram = devm_ioremap_resource(&pdev->dev, res);
-+	if (IS_ERR(utdm->siram)) {
-+		ret = PTR_ERR(utdm->siram);
-+		goto err_miss_siram_property;
-+	}
-+
-+	if (siram_init_flag == 0) {
-+		memset_io(utdm->siram, 0,  res->end - res->start + 1);
-+		siram_init_flag = 1;
-+	}
-+
-+	return ret;
-+
-+err_miss_siram_property:
-+	devm_iounmap(&pdev->dev, utdm->si_regs);
-+	return ret;
-+}
-+
-+void ucc_tdm_init(struct ucc_tdm *utdm, struct ucc_tdm_info *ut_info)
-+{
-+	struct si1 __iomem *si_regs;
-+	u16 __iomem *siram;
-+	u16 siram_entry_valid;
-+	u16 siram_entry_closed;
-+	u16 ucc_num;
-+	u8 csel;
-+	u16 sixmr;
-+	u16 tdm_port;
-+	u32 siram_entry_id;
-+	u32 mask;
-+	int i;
-+
-+	si_regs = utdm->si_regs;
-+	siram = utdm->siram;
-+	ucc_num = ut_info->uf_info.ucc_num;
-+	tdm_port = utdm->tdm_port;
-+	siram_entry_id = utdm->siram_entry_id;
-+
-+	if (utdm->tdm_framer_type == TDM_FRAMER_T1)
-+		utdm->num_of_ts = 24;
-+	if (utdm->tdm_framer_type == TDM_FRAMER_E1)
-+		utdm->num_of_ts = 32;
-+
-+	/* set siram table */
-+	csel = (ucc_num < 4) ? ucc_num + 9 : ucc_num - 3;
-+
-+	siram_entry_valid = SIR_CSEL(csel) | SIR_BYTE | SIR_CNT(0);
-+	siram_entry_closed = SIR_IDLE | SIR_BYTE | SIR_CNT(0);
-+
-+	for (i = 0; i < utdm->num_of_ts; i++) {
-+		mask = 0x01 << i;
-+
-+		if (utdm->tx_ts_mask & mask)
-+			iowrite16be(siram_entry_valid,
-+				    &siram[siram_entry_id * 32 + i]);
-+		else
-+			iowrite16be(siram_entry_closed,
-+				    &siram[siram_entry_id * 32 + i]);
-+
-+		if (utdm->rx_ts_mask & mask)
-+			iowrite16be(siram_entry_valid,
-+				    &siram[siram_entry_id * 32 + 0x200 +  i]);
-+		else
-+			iowrite16be(siram_entry_closed,
-+				    &siram[siram_entry_id * 32 + 0x200 +  i]);
-+	}
-+
-+	setbits16(&siram[(siram_entry_id * 32) + (utdm->num_of_ts - 1)],
-+		  SIR_LAST);
-+	setbits16(&siram[(siram_entry_id * 32) + 0x200 + (utdm->num_of_ts - 1)],
-+		  SIR_LAST);
-+
-+	/* Set SIxMR register */
-+	sixmr = SIMR_SAD(siram_entry_id);
-+
-+	sixmr &= ~SIMR_SDM_MASK;
-+
-+	if (utdm->tdm_mode == TDM_INTERNAL_LOOPBACK)
-+		sixmr |= SIMR_SDM_INTERNAL_LOOPBACK;
-+	else
-+		sixmr |= SIMR_SDM_NORMAL;
-+
-+	sixmr |= SIMR_RFSD(ut_info->si_info.simr_rfsd) |
-+			SIMR_TFSD(ut_info->si_info.simr_tfsd);
-+
-+	if (ut_info->si_info.simr_crt)
-+		sixmr |= SIMR_CRT;
-+	if (ut_info->si_info.simr_sl)
-+		sixmr |= SIMR_SL;
-+	if (ut_info->si_info.simr_ce)
-+		sixmr |= SIMR_CE;
-+	if (ut_info->si_info.simr_fe)
-+		sixmr |= SIMR_FE;
-+	if (ut_info->si_info.simr_gm)
-+		sixmr |= SIMR_GM;
-+
-+	switch (tdm_port) {
-+	case 0:
-+		iowrite16be(sixmr, &si_regs->sixmr1[0]);
-+		break;
-+	case 1:
-+		iowrite16be(sixmr, &si_regs->sixmr1[1]);
-+		break;
-+	case 2:
-+		iowrite16be(sixmr, &si_regs->sixmr1[2]);
-+		break;
-+	case 3:
-+		iowrite16be(sixmr, &si_regs->sixmr1[3]);
-+		break;
-+	default:
-+		pr_err("QE-TDM: can not find tdm sixmr reg\n");
-+		break;
-+	}
-+}
-diff --git a/include/soc/fsl/qe/immap_qe.h b/include/soc/fsl/qe/immap_qe.h
-index bedbff8..c76ef30 100644
---- a/include/soc/fsl/qe/immap_qe.h
-+++ b/include/soc/fsl/qe/immap_qe.h
-@@ -159,10 +159,7 @@ struct spi {
- 
- /* SI */
- struct si1 {
--	__be16	siamr1;		/* SI1 TDMA mode register */
--	__be16	sibmr1;		/* SI1 TDMB mode register */
--	__be16	sicmr1;		/* SI1 TDMC mode register */
--	__be16	sidmr1;		/* SI1 TDMD mode register */
-+	__be16	sixmr1[4];	/* SI1 TDMx (x = A B C D) mode register */
- 	u8	siglmr1_h;	/* SI1 global mode register high */
- 	u8	res0[0x1];
- 	u8	sicmdr1_h;	/* SI1 command register high */
-diff --git a/include/soc/fsl/qe/qe_tdm.h b/include/soc/fsl/qe/qe_tdm.h
-new file mode 100644
-index 0000000..4c91498
---- /dev/null
-+++ b/include/soc/fsl/qe/qe_tdm.h
-@@ -0,0 +1,94 @@
-+/*
-+ * Internal header file for QE TDM mode routines.
-+ *
-+ * Copyright (C) 2016 Freescale Semiconductor, Inc. All rights reserved.
-+ *
-+ * Authors:	Zhao Qiang <qiang.zhao@nxp.com>
-+ *
-+ * This program is free software; you can redistribute  it and/or modify it
-+ * under  the terms of  the GNU General  Public License as published by the
-+ * Free Software Foundation;  either version 2 of the  License, or (at your
-+ * option) any later version
-+ */
-+
-+#ifndef CONFIG_QE_TDM_H
-+#define CONFIG_QE_TDM_H
-+
-+#include <linux/kernel.h>
-+#include <linux/list.h>
-+
-+#include <soc/fsl/qe/immap_qe.h>
-+#include <soc/fsl/qe/qe.h>
-+
-+#include <soc/fsl/qe/ucc.h>
-+#include <soc/fsl/qe/ucc_fast.h>
-+
-+/* SI RAM entries */
-+#define SIR_LAST	0x0001
-+#define SIR_BYTE	0x0002
-+#define SIR_CNT(x)	((x) << 2)
-+#define SIR_CSEL(x)	((x) << 5)
-+#define SIR_SGS		0x0200
-+#define SIR_SWTR	0x4000
-+#define SIR_MCC		0x8000
-+#define SIR_IDLE	0
-+
-+/* SIxMR fields */
-+#define SIMR_SAD(x) ((x) << 12)
-+#define SIMR_SDM_NORMAL	0x0000
-+#define SIMR_SDM_INTERNAL_LOOPBACK	0x0800
-+#define SIMR_SDM_MASK	0x0c00
-+#define SIMR_CRT	0x0040
-+#define SIMR_SL		0x0020
-+#define SIMR_CE		0x0010
-+#define SIMR_FE		0x0008
-+#define SIMR_GM		0x0004
-+#define SIMR_TFSD(n)	(n)
-+#define SIMR_RFSD(n)	((n) << 8)
-+
-+enum tdm_ts_t {
-+	TDM_TX_TS,
-+	TDM_RX_TS
-+};
-+
-+enum tdm_framer_t {
-+	TDM_FRAMER_T1,
-+	TDM_FRAMER_E1
-+};
-+
-+enum tdm_mode_t {
-+	TDM_INTERNAL_LOOPBACK,
-+	TDM_NORMAL
-+};
-+
-+struct si_mode_info {
-+	u8 simr_rfsd;
-+	u8 simr_tfsd;
-+	u8 simr_crt;
-+	u8 simr_sl;
-+	u8 simr_ce;
-+	u8 simr_fe;
-+	u8 simr_gm;
-+};
-+
-+struct ucc_tdm_info {
-+	struct ucc_fast_info uf_info;
-+	struct si_mode_info si_info;
-+};
-+
-+struct ucc_tdm {
-+	u16 tdm_port;		/* port for this tdm:TDMA,TDMB */
-+	u32 siram_entry_id;
-+	u16 __iomem *siram;
-+	struct si1 __iomem *si_regs;
-+	enum tdm_framer_t tdm_framer_type;
-+	enum tdm_mode_t tdm_mode;
-+	u8 num_of_ts;		/* the number of timeslots in this tdm frame */
-+	u32 tx_ts_mask;		/* tx time slot mask */
-+	u32 rx_ts_mask;		/* rx time slot mask */
-+};
-+
-+int ucc_of_parse_tdm(struct device_node *np, struct ucc_tdm *utdm,
-+		     struct ucc_tdm_info *ut_info);
-+void ucc_tdm_init(struct ucc_tdm *utdm, struct ucc_tdm_info *ut_info);
-+#endif
--- 
-2.1.0.27.g96db324
+I agree that a sysctl which controls how the limits are set for new
+namespaces is a good idea. I think it's best if this is in % rather than
+some absolute value. Also I'm not sure about the sysctl when a user is
+added in a namespace since just adding a new user should fall under the
+limits of the current userns.
+
+Also should those sysctls be global or should they be per-namespace? At
+this point I'm more inclined to have global sysctl and maybe refine it
+in the future if the need arises?
+
+
+> 
+> Having default settings that are good enough 99% of the time and that
+> people don't need to tune, would be my biggest requirement (aside from
+> being light-weight) for merging something like this.
+> 
+> If things are set and forget and even the continer case does not need to
+> be aware then I think we have a design sufficiently robust and different
+> from what cgroups is doing to make it worth while to have a userns based
+> solution.
+
+Provided that we agree on the overall design, so far it seems we just
+need to iron out the details with the sysctl I'll be happy to implement
+this.
+
+
+> 
+> I can see a lot of different limits implemented this way.
+> 
+> Eric
+> _______________________________________________
+> Containers mailing list
+> Containers-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+> https://lists.linuxfoundation.org/mailman/listinfo/containers
+> 
