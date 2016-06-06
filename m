@@ -1,50 +1,142 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] fq_codel: fix NET_XMIT_CN behavior
-Date: Mon, 06 Jun 2016 07:37:25 -0700
-Message-ID: <1465223845.2968.61.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160604190301.GA8857@strlen.de>
-	 <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAM_iQpVORpFx_xx67gYT_3jXfWAuqkMmR03R9VJv1TrcqH4W8A@mail.gmail.com>
-	 <1465160087.2968.51.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1465160123.2968.52.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAM_iQpXMwT20nhWW4Pd2yy6nkeXkSNdxV9wAEGzGd22PcyePmg@mail.gmail.com>
-	 <57555536.1090801@mojatatu.com> <20160606114234.GB7827@breakpoint.cc>
+From: Greg KH <gregkh@linuxfoundation.org>
+Subject: Re: [PATCH v3] r8152: Add support for setting pass through MAC
+ address on RTL8153-AD
+Date: Mon, 6 Jun 2016 07:39:47 -0700
+Message-ID: <20160606143947.GA4758@kroah.com>
+References: <1465222521-7217-1-git-send-email-mario_limonciello@dell.com>
+ <1465222521-7217-2-git-send-email-mario_limonciello@dell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Stas Nichiporovich <stasn77@gmail.com>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:36684 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753108AbcFFOh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 10:37:27 -0400
-Received: by mail-pa0-f52.google.com with SMTP id b5so7510378pas.3
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 07:37:27 -0700 (PDT)
-In-Reply-To: <20160606114234.GB7827@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: hayeswang@realtek.com, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Linux USB <linux-usb@vger.kernel.org>, pali.rohar@gmail.com,
+	anthony.wong@canonical.com
+To: Mario Limonciello <mario_limonciello@dell.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1465222521-7217-2-git-send-email-mario_limonciello@dell.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-06-06 at 13:42 +0200, Florian Westphal wrote:
-> Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> > BTW, returning NET_XMIT_CN could be confusing to tcp;
-> > it does not mean that the packet that we are getting return
-> > code for was dropped; it could mean _another_ packet in
-> > the queue was dropped.
+On Mon, Jun 06, 2016 at 09:15:21AM -0500, Mario Limonciello wrote:
+> The RTL8153-AD supports a persistent system specific MAC address.
+> This means a device plugged into two different systems with host side
+> support will show different (but persistent) MAC addresses.
 > 
-> Yes, but we currently conceal NET_XMIT_CN from upper layer (tcp)
-> via the net_xmit_* macros:
+> This information for the system's persistent MAC address is burned in when
+> the system HW is built and available under _SB\AMAC in the DSDT at runtime.
 > 
-> #define net_xmit_eval(e)       ((e) == NET_XMIT_CN ? 0 : (e))
-> #define net_xmit_errno(e)      ((e) != NET_XMIT_CN ? -ENOBUFS : 0)
+> This technology is currently implemented in the Dell TB15 and WD15 Type-C
+> docks.  More information is available here:
+> http://www.dell.com/support/article/us/en/04/SLN301147
 > 
-> Might be worth changing this so tcp reduces cwnd in _CN case too.
+> Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
+> ---
+>  drivers/net/usb/r8152.c | 60 +++++++++++++++++++++++++++++++++++++++++++++++--
+>  1 file changed, 58 insertions(+), 2 deletions(-)
+> 
+> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+> index 3f9f6ed..f4bd46d 100644
+> --- a/drivers/net/usb/r8152.c
+> +++ b/drivers/net/usb/r8152.c
+> @@ -26,6 +26,7 @@
+>  #include <linux/mdio.h>
+>  #include <linux/usb/cdc.h>
+>  #include <linux/suspend.h>
+> +#include <linux/acpi.h>
+>  
+>  /* Information for net-next */
+>  #define NETNEXT_VERSION		"08"
+> @@ -455,6 +456,11 @@
+>  /* SRAM_IMPEDANCE */
+>  #define RX_DRIVING_MASK		0x6000
+>  
+> +/* MAC PASSTHRU */
+> +#define AD_MASK			0xfee0
+> +#define EFUSE			0xcfdb
+> +#define PASS_THRU_MASK		0x1
+> +
+>  enum rtl_register_content {
+>  	_1000bps	= 0x10,
+>  	_100bps		= 0x08,
+> @@ -1030,6 +1036,53 @@ out1:
+>  	return ret;
+>  }
+>  
+> +static int get_passthru_addr(struct r8152 *tp, struct sockaddr *sa)
 
-It always had been the case.
+I see no "Dell" specific markings or tests here at all, please be
+EXPLICIT in the code exactly what this is for, and what it is doing.
+Otherwise no one can tell you what machines/devices this will trigger on
+at all.
 
-tcp_transmit_skb() calls tcp_enter_cwr(), unless someone broke this.
+As it is, it's totally vague and unknown what this whole function is
+here for.
+
+
+
+> +{
+> +	acpi_status status;
+> +	struct acpi_buffer buffer = { ACPI_ALLOCATE_BUFFER, NULL };
+> +	union acpi_object *obj;
+> +	int ret = -EINVAL;
+> +	u32 ocp_data;
+> +	unsigned char buf[6];
+> +
+> +	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_MISC_0);
+> +	if ((ocp_data & AD_MASK) != 0x1000)
+> +		return -ENODEV;
+> +
+> +	ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, EFUSE);
+> +	if ((ocp_data & PASS_THRU_MASK) != 1)
+> +		return -ENODEV;
+> +
+> +	/* returns _AUXMAC_#AABBCCDDEEFF# */
+> +	status = acpi_evaluate_object(NULL, "\\_SB.AMAC", NULL, &buffer);
+> +	obj = (union acpi_object *)buffer.pointer;
+> +	if (ACPI_SUCCESS(status)) {
+> +		if (obj->type != ACPI_TYPE_BUFFER ||
+> +		    obj->string.length != 0x17) {
+> +			pr_warn("r8152: get_passthru_addr: Invalid buffer");
+> +			goto amacout;
+> +		}
+> +		if (strncmp(obj->string.pointer, "_AUXMAC_#", 9) != 0) {
+> +			pr_warn("r8152: get_passthru_addr: Invalid header");
+> +			goto amacout;
+> +		}
+> +		ret = hex2bin(buf, obj->string.pointer + 9, 6);
+> +		if (ret < 0 || !is_valid_ether_addr(buf)) {
+> +			pr_warn("r8152: get_passthru_addr: Invalid MAC");
+> +			goto amacout;
+> +		}
+> +		memcpy(sa->sa_data, buf, 6);
+> +		ether_addr_copy(tp->netdev->dev_addr, sa->sa_data);
+> +		netdev_info(tp->netdev, "Using pass-through MAC address %pM\n",
+> +			    sa->sa_data);
+> +		ret = 0;
+> +	}
+> +
+> +amacout:
+> +	kfree(obj);
+> +	return ret;
+> +}
+> +
+>  static int set_ethernet_addr(struct r8152 *tp)
+>  {
+>  	struct net_device *dev = tp->netdev;
+> @@ -1038,8 +1091,11 @@ static int set_ethernet_addr(struct r8152 *tp)
+>  
+>  	if (tp->version == RTL_VER_01)
+>  		ret = pla_ocp_read(tp, PLA_IDR, 8, sa.sa_data);
+> -	else
+> -		ret = pla_ocp_read(tp, PLA_BACKUP, 8, sa.sa_data);
+> +	else {
+> +		ret = get_passthru_addr(tp, &sa);
+> +		if (ret < 0)
+
+an "error" here is a "normal" thing, so please document it.
+
+Or again, change the function to be "dell_crazy_hardware_hack_enabled()"
+so it'b obvious what is going on.
+
+greg k-h
