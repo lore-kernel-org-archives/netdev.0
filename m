@@ -1,78 +1,91 @@
-From: John Crispin <john@phrozen.org>
-Subject: Re: [PATCH 09/12] net: mediatek: increase watchdog_timeo
-Date: Mon, 6 Jun 2016 14:38:43 +0200
-Message-ID: <5d1b3fe3-4577-207a-3e28-831218158144@phrozen.org>
-References: <1465108385-38286-1-git-send-email-john@phrozen.org>
- <1465108385-38286-10-git-send-email-john@phrozen.org>
- <20160605145632.GI12165@lunn.ch>
- <0da64a49-d100-f83d-e6d3-91b706710660@phrozen.org>
- <20160606122132.GM12165@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Sean Wang <keyhaede@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Felix Fietkau <nbd@nbd.name>
-To: Andrew Lunn <andrew@lunn.ch>
+From: Pramod Kumar <pramod.kumar@broadcom.com>
+Subject: [PATCH v4 0/7] Add MDIO bus multiplexer support for iProc SoCs
+Date: Mon,  6 Jun 2016 18:11:33 +0530
+Message-ID: <1465216900-11755-1-git-send-email-pramod.kumar@broadcom.com>
+Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	bcm-kernel-feedback-list@broadcom.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Pramod Kumar <pramod.kumar@broadcom.com>
+To: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Catalin Marinas <catalin.marinas@arm.com>,
+	Will Deacon <will.deacon@arm.com>,
+	Kishon Vijay Abraham I <kishon@ti.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160606122132.GM12165@lunn.ch>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Broadcom iProc based SoCs use a MDIO bus multiplexer where child buses
+could be internal as well external to SoCs. These buses could supports
+MDIO transaction compatible to C-22/C-45.
 
+Broadcom MDIO bus multiplexer is an integrated multiplexer where child bus
+selection and mdio transaction logic lies inside multiplexer itself.
+To accommodate this multiplexer in existing mux framework below changes
+were required-
 
-On 06/06/2016 14:21, Andrew Lunn wrote:
->> Hi Andrew,
->>
->> it is waiting for the watchdog to trigger :-) TBH the 1s seems to be too
->> short to for the dma ring length to be flushed and i had to pick some
->> value and 5 is used most places.
->>
->> it really depends on the amount of packets in the queue, their length
->> and the mac setting. the timeout needs to be large enough that it would
->> not trigger incorrectly even if the mac is on 10mbit half duplex and all
->> frames in the queue were maximum size.
-> 
-> So you are saying there is 5 seconds worth of traffic in the transmit ring.
-> 
-> As a general point, not specific to this driver, is that wise? Isn't
-> that really bad buffer bloat?
-> 
-> I just wondered what happened to cause it to have 5 seconds worth of
-> traffic in the transmit ring. Did downstream signal a pause?  But i
-> thought the byte queue limit was designed to prevent a big backlog in
-> the transmit queue? At 10/Half, is it not reacting fast enough?  Since
-> it is half duplex, do you have a lot of traffic coming the other way
-> and something is not being fair at distributing up and down traffic?
-> 
-> I'm just wondering if by increasing the watchdog to 5 seconds, you are
-> just hiding a problem.
-> 
->     Andrew
+1. Passed MDIO parent bus via mdio_mux_init to MDIO mux framework.
 
-Hi Andrew,
+This patch set includes MDIO bus multiplexer driver along with above
+framework change. It includes one external bus node having Ethernet PHY
+attached and two internal bus node holding PCIe PHYs.
 
-running the driver without any QoS and using the typical ringsize for
-gigabit devices, 1s is not enough. we were seeing false positive
-watchdog events. then i grepped to see what other drivers do and most
-set 5seconds. ideally the watchdog never triggers as the driver is
-functional an does not suffer from deadlocks.
+This patch series is based on v4.7-rc1 and is available from github-
+repo: https://github.com/Broadcom/arm64-linux.git
+branch:mdio-mux-v4
 
-at gbit ethernet can transmit 83 packets that are 1500 bytes long /
-second, if there are no pause gaps. at 10Mbit that would be 6 packets.
+-Changes from v3:
+- Unregister and free the parent MDIO bus.
+- rebased on net-next/master branch.
 
-so assuming we have a ring of 128 and napi set to 64, we would want at
-least 2 seconds, 3 if there are a lot of pause gaps, 4-5 if it is half
-duplex ... so i took the value commonly used, which is 5 according to grep.
+Reason for resend:
+-Rebased on v4.7-rc1
 
-figuring out when the queue is stuck seems to be a little bit more
-complicated. imho the trigger should not be based on how long it took to
-send a packet, but how long since the last packet was dequeued from dma.
+Changes from v2:
+-Addressed Rob's comments in this patch regarding typo/grammers.
+-Addressed David's comments regarding local variables order.
+-Removed property "mdio-integrated-mux" and used mdiobus_register()
+in place of of_mdiobus_regsiter().
+-removed usage of IS_ERR_OR_NULL to IS_ERR in PCIe PHY driver.
 
-personally i'd rather fix the deadlocks that can happen, which is what
-we did, than rely on the watchdog to reset the queue. right now we can
-hammer the driver with several streams on both macs utilizing all 4 cpu
-cores for several days without seeing any hickups.
+Changes from v1:
+- stop using "brcm,is_c45" from bus node as suggested by Andrew. MDIO
+PHY driver will logically OR MII_ADDR_C45 into the address when issues
+any C45 MDIO read/write transaction.
 
-		John
+Pramod Kumar (7):
+  mdio: mux: Enhanced MDIO mux framework for integrated multiplexers
+  binding: Make "mdio-parent-bus" property from mandatory to optional
+  binding: mdio-mux: Add DT binding doc for Broadcom MDIO bus
+    multiplexer
+  dt: mdio-mux: Add mdio multiplexer driver node
+  net: mdio-mux: Add MDIO mux driver for iProc SoCs
+  binding: PHY: Binding doc for NS2 PCIe PHYs.
+  phy: Add Northstar2 PCI Phy support
+
+ .../bindings/net/brcm,mdio-mux-iproc.txt           |  59 +++++
+ Documentation/devicetree/bindings/net/mdio-mux.txt |   3 +-
+ .../bindings/phy/brcm,mdio-mux-bus-pci.txt         |  27 +++
+ arch/arm64/boot/dts/broadcom/ns2-svk.dts           |  12 +
+ arch/arm64/boot/dts/broadcom/ns2.dtsi              |  31 +++
+ drivers/net/phy/Kconfig                            |  11 +
+ drivers/net/phy/Makefile                           |   1 +
+ drivers/net/phy/mdio-mux-bcm-iproc.c               | 248 +++++++++++++++++++++
+ drivers/net/phy/mdio-mux-gpio.c                    |   2 +-
+ drivers/net/phy/mdio-mux-mmioreg.c                 |   2 +-
+ drivers/net/phy/mdio-mux.c                         |  28 ++-
+ drivers/phy/Kconfig                                |   8 +
+ drivers/phy/Makefile                               |   2 +-
+ drivers/phy/phy-bcm-ns2-pcie.c                     | 115 ++++++++++
+ include/linux/mdio-mux.h                           |   4 +-
+ 15 files changed, 538 insertions(+), 15 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
+ create mode 100644 Documentation/devicetree/bindings/phy/brcm,mdio-mux-bus-pci.txt
+ create mode 100644 drivers/net/phy/mdio-mux-bcm-iproc.c
+ create mode 100644 drivers/phy/phy-bcm-ns2-pcie.c
+
+-- 
+1.9.1
