@@ -1,65 +1,45 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [EDT][Patch 1/1] socket family check in netlabel APIs
-Date: Mon, 6 Jun 2016 15:24:42 -0400
-Message-ID: <CAHC9VhRMNfESJRN3e+FJV+JwzZn1Lcxc=gzfkBvy-h80jLOHrQ@mail.gmail.com>
-References: <612771736.621921430978030389.JavaMail.weblogic@epmlwas01d>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] net, cls: allow for deleting all filters for
+ given parent
+Date: Mon, 06 Jun 2016 21:25:46 +0200
+Message-ID: <5755CE3A.7050002@iogearbox.net>
+References: <cd8455dfef0cccec5ef0a1ca2d1f678e9397d66e.1465056745.git.daniel@iogearbox.net> <CAM_iQpWDc1JAa9MhcSAOdJVVRoG52Z+p47CD-rd81LzN28zk1A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Vaneet Narang <v.narang@samsung.com>,
-	AJEET YADAV <ajeet.y@samsung.com>
-To: maninder1.s@samsung.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <612771736.621921430978030389.JavaMail.weblogic@epmlwas01d>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:54520 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752404AbcFFTZw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 15:25:52 -0400
+In-Reply-To: <CAM_iQpWDc1JAa9MhcSAOdJVVRoG52Z+p47CD-rd81LzN28zk1A@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, May 7, 2015 at 1:53 AM, Maninder Singh <maninder1.s@samsung.com> wrote:
-> EP-E68D5E24548545C9BBB607A98ADD61E6
+On 06/06/2016 07:12 PM, Cong Wang wrote:
+> On Sat, Jun 4, 2016 at 9:24 AM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>> +       if (n->nlmsg_type == RTM_DELTFILTER && prio == 0) {
+>> +               tcf_destroy_chain(chain);
+>> +               err = 0;
+>> +               goto errout;
+>> +       }
 >
-> Hi Paul,
->
->>On Monday, March 30, 2015 11:09:00 AM Maninder Singh wrote:
->>> Dear All,
->>> we found One Kernel Crash issue in cipso_v4_sock_delattr :-
->>> As Cipso supports only inet sockets so cipso_v4_sock_delattr will crash when
->>> try to access any other socket type.  cipso_v4_sock_delattr access
->>> sk_inet->inet_opt which may contain not NULL but invalid address. we found
->>> this issue with netlink socket.(reproducible by trinity using sendto system
->>> call .)
->
->>Hello,
->
->>First, please go read the Documentation/SubmittingPatches from the kernel
->>sources; your patch needs to be resubmitted and the instructions in that file
->>will show you how to do it correctly next time.
->
->>Second, this appears to only affect Smack based systems, yes?  SELinux based
->>systems should have the proper checking in place to prevent this (the checks
->>are handled in the LSM).  That said, it probably wouldn't hurt to add the
->>extra checking to netlbl_sock_delattr().  If you properly resubmit your patch
->>I'll ACK it.
->
->>-Paul
->
->>--
->>paul moore
->>www.paul-moore.com
->
-> As suggested resubmitting the patch .
+> We need to notify users we removed which filters, right?
 
-I was delayed in responding because your patch is still not in a form
-that makes it easy to merge/review upstream, it appears to be MIME
-encoded and not in plain text.  You should be able to save your raw
-email message and apply it directly to the kernel source tree using
-the patch command.
+As far as I know, most such use cases that listen on this are bypasses
+that mirror kernel configs from user space ... but well, sure, I can add
+a notification if people care. Would do this as a separate patch.
 
-When you send MIME encoded emails with patches, we have to apply the
-patches manually, line by line, which is both time consuming and error
-prone.
+Looking into this, I would probably make this a single notification that
+denotes this 'wild-card' removal for that parent instead of calling
+tfilter_notify() for each filter separately (which allocs skb, dumps it,
+etc), qdisc del doesn't loop through it either, so probably fine this way.
 
--- 
-paul moore
-www.paul-moore.com
+Thanks,
+Daniel
