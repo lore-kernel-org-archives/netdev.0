@@ -1,46 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] netlabel: add address family checks to netlbl_{sock,
- req}_delattr()
-Date: Mon, 06 Jun 2016 14:06:57 -0700 (PDT)
-Message-ID: <20160606.140657.1714281987390130104.davem@davemloft.net>
-References: <146524175890.8042.12012703565205416569.stgit@localhost>
-	<CAGH-Kgsftoux6aaJg6c5WCX1sTSpaGoyDN_Y0Od+9Qh+87FD4w@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, maninder1.s@samsung.com,
-	selinux@tycho.nsa.gov, linux-security-module@vger.kernel.org
-To: pmoore@redhat.com
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH -next] cbq: remove only caller of qdisc->drop()
+Date: Mon,  6 Jun 2016 23:20:27 +0200
+Message-ID: <1465248027-21652-1-git-send-email-fw@strlen.de>
+Cc: Florian Westphal <fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:46733 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751473AbcFFVHB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 17:07:01 -0400
-In-Reply-To: <CAGH-Kgsftoux6aaJg6c5WCX1sTSpaGoyDN_Y0Od+9Qh+87FD4w@mail.gmail.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54037 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750933AbcFFVUO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 17:20:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Paul Moore <pmoore@redhat.com>
-Date: Mon, 6 Jun 2016 15:37:56 -0400
+since initial revision of cbq in 2004 iproute2 never implemented
+support for TCA_CBQ_OVL_STRATEGY, which is what needs to be set to
+activate the class->drop() call (TC_CBQ_OVL_DROP strategy must be
+set by userspace).
 
-> On Mon, Jun 6, 2016 at 3:35 PM, Paul Moore <pmoore@redhat.com> wrote:
->> From: Paul Moore <paul@paul-moore.com>
->>
->> It seems risky to always rely on the caller to ensure the socket's
->> address family is correct before passing it to the NetLabel kAPI,
->> especially since we see at least one LSM which didn't. Add address
->> family checks to the *_delattr() functions to help prevent future
->> problems.
->>
->> Cc: <stable@vger.kernel.org>
->> Reported-by: Maninder Singh <maninder1.s@samsung.com>
->> Signed-off-by: Paul Moore <paul@paul-moore.com>
->> ---
->>  net/netlabel/netlabel_kapi.c |   12 ++++++++++--
->>  1 file changed, 10 insertions(+), 2 deletions(-)
-> 
-> DaveM, since this is such a trivial fix I'm adding it into my
-> selinux#next branch right now, but if you would prefer to carry it via
-> netdev#next let me know.
+So lets remove this.  We can even do this in a backwards compatible
+way by switching ovl_drop to perform a dequeue+drop on the leaf.
 
-That's fine.
+A followup commit can then remove all .drop qdisc methods since this
+was the only caller.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+---
+ On a related note, iproute2 doesn't support the TCA_CBQ_POLICE
+ attribute either.  If we'd remove that too we could then get rid
+ of __parent and reshape_fail in struct Qdisc.
+
+ However, in TCA_CBQ_POLICE case there is no way to replace
+ the functionality, i.e. we'd have to -EOPNOTSUPP or ignore
+ TCA_CBQ_POLICE if some other non-iproute2 tool presents it to us.
+
+ AFAICS TCA_CBQ_POLICE doesn't work all that well even if userspace
+ would set it, one needs to:
+
+  add a class
+  attach a qdisc to the class (default pfifo doesn't work as
+      q->handle is 0 and cbq_set_police() is a no-op in this case)
+  re-'add' the same class (tc class change ...) again
+
+  user must also specifiy a defmap (e.g. 'split 1:0 defmap 3f'), since
+  this 'police' feature relies on its presence
+  the added qdisc (or the leaves) must be one of bfifo, pfifo, tbf or
+  netem as only these implement qdisc_reshape_fail() call.
+
+  If all of these conditions are met, then instead of drop the leaf
+  qdiscs mentioned above would attempt to re-enqueue the skb in the
+  cbq TC_PRIO_BESTEFFORT class if their limit is reached.
+
+  I think it would be safe to just ignore TCA_CBQ_POLICE and change the
+  qdiscs to drop right away.
+
+  Does anyone have a reason to leave this in the tree?  Thanks!
+
+diff --git a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+index baafddf..df79791 100644
+--- a/net/sched/sch_cbq.c
++++ b/net/sched/sch_cbq.c
+@@ -542,9 +542,14 @@ static void cbq_ovl_lowprio(struct cbq_class *cl)
+ 
+ static void cbq_ovl_drop(struct cbq_class *cl)
+ {
+-	if (cl->q->ops->drop)
+-		if (cl->q->ops->drop(cl->q))
+-			cl->qdisc->q.qlen--;
++	struct sk_buff *skb = cl->q->ops->dequeue(cl->q);
++
++	if (skb) {
++		cl->deficit -= qdisc_pkt_len(skb);
++		cl->qdisc->q.qlen--;
++		qdisc_drop(skb, cl->qdisc);
++	}
++
+ 	cl->xstats.overactions++;
+ 	cbq_ovl_classic(cl);
+ }
+-- 
+2.7.3
