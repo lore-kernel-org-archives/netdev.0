@@ -1,51 +1,41 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH -next] cbq: remove only caller of qdisc->drop()
-Date: Tue, 7 Jun 2016 00:52:27 +0200
-Message-ID: <20160606225227.GE7827@breakpoint.cc>
-References: <1465248027-21652-1-git-send-email-fw@strlen.de>
- <1465251192.24873.1.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/3] net: vrf: Add support for local traffic
+ to local addresses
+Date: Mon, 06 Jun 2016 15:56:43 -0700 (PDT)
+Message-ID: <20160606.155643.1439926167947457716.davem@davemloft.net>
+References: <1464898512-5157-1-git-send-email-dsa@cumulusnetworks.com>
+	<20160606.151228.325662111382577833.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:54674 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750764AbcFFWwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 18:52:32 -0400
-Content-Disposition: inline
-In-Reply-To: <1465251192.24873.1.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47656 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751982AbcFFW4p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 18:56:45 -0400
+In-Reply-To: <20160606.151228.325662111382577833.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> >  static void cbq_ovl_drop(struct cbq_class *cl)
-> >  {
-> > -	if (cl->q->ops->drop)
-> > -		if (cl->q->ops->drop(cl->q))
-> > -			cl->qdisc->q.qlen--;
-> > +	struct sk_buff *skb = cl->q->ops->dequeue(cl->q);
-> > +
-> > +	if (skb) {
-> > +		cl->deficit -= qdisc_pkt_len(skb);
-> > +		cl->qdisc->q.qlen--;
-> > +		qdisc_drop(skb, cl->qdisc);
-> > +	}
-> > +
-> >  	cl->xstats.overactions++;
-> >  	cbq_ovl_classic(cl);
-> >  }
+From: David Miller <davem@davemloft.net>
+Date: Mon, 06 Jun 2016 15:12:28 -0700 (PDT)
+
+> From: David Ahern <dsa@cumulusnetworks.com>
+> Date: Thu,  2 Jun 2016 13:15:09 -0700
 > 
-> A drop() is not equivalent to a dequeue() followed by qdisc_drop() for
-> statistics.
+>> Add support for locally originated traffic to VRF-local addresses,
+>> be it addresses on enslaved devices or addresses on the VRF device:
+>  ...
 > 
-> dequeue() will update stats of _sent_ packets/bytes, while drop() should
-> not.
+> Series applied, but I've been wondering what happens to hw offloads
+> when these VRF devices sit in the middle.
+> 
+> Does TSO et al. still occur properly?
 
-Well, I could send patch to just remove cbq_ovl_drop completely,
-you can't configure this facility with iproute2.
+Actually I have to revert this series, ip6_input() is not an exported
+module symbol.
 
-You are right of course, but is it really worth to have this?
-
-Not calling cl->q->ops->drop() in cbq would allow removal of ~300 LOC
-in qdiscs...
+If you're only build testing things like this with everything "=y",
+please reconsider.
