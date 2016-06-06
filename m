@@ -1,46 +1,57 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] fq_codel: return non zero qlen in class dumps
-Date: Mon, 06 Jun 2016 09:12:39 -0700
-Message-ID: <1465229559.2968.75.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH v2 net] fq_codel: fix NET_XMIT_CN behavior
+Date: Mon, 6 Jun 2016 18:18:43 +0200
+Message-ID: <20160606161843.GD7827@breakpoint.cc>
+References: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160604190301.GA8857@strlen.de>
+ <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpVORpFx_xx67gYT_3jXfWAuqkMmR03R9VJv1TrcqH4W8A@mail.gmail.com>
+ <1465160087.2968.51.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1465160123.2968.52.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpXMwT20nhWW4Pd2yy6nkeXkSNdxV9wAEGzGd22PcyePmg@mail.gmail.com>
+ <57555536.1090801@mojatatu.com>
+ <20160606114234.GB7827@breakpoint.cc>
+ <1465223845.2968.61.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Stas Nichiporovich <stasn77@gmail.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35118 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751631AbcFFQMq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 12:12:46 -0400
-Received: by mail-pf0-f195.google.com with SMTP id z187so3951187pfz.2
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 09:12:46 -0700 (PDT)
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:53365 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751399AbcFFQSv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 12:18:51 -0400
+Content-Disposition: inline
+In-Reply-To: <1465223845.2968.61.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2016-06-06 at 13:42 +0200, Florian Westphal wrote:
+> > Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> > > BTW, returning NET_XMIT_CN could be confusing to tcp;
+> > > it does not mean that the packet that we are getting return
+> > > code for was dropped; it could mean _another_ packet in
+> > > the queue was dropped.
+> > 
+> > Yes, but we currently conceal NET_XMIT_CN from upper layer (tcp)
+> > via the net_xmit_* macros:
+> > 
+> > #define net_xmit_eval(e)       ((e) == NET_XMIT_CN ? 0 : (e))
+> > #define net_xmit_errno(e)      ((e) != NET_XMIT_CN ? -ENOBUFS : 0)
+> > 
+> > Might be worth changing this so tcp reduces cwnd in _CN case too.
+> 
+> It always had been the case.
+> 
+> tcp_transmit_skb() calls tcp_enter_cwr(), unless someone broke this.
 
-We properly scan the flow list to count number of packets,
-but John passed 0 to gnet_stats_copy_queue() so we report
-a zero value to user space instead of the result.
+No, you're right.  We hide error in ip_send_skb but that function is
+not used in tcp case.
 
-Fixes: 640158536632 ("net: sched: restrict use of qstats qlen")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: John Fastabend <john.r.fastabend@intel.com>
----
- net/sched/sch_fq_codel.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-index 6883a8971562..7a280360aeed 100644
---- a/net/sched/sch_fq_codel.c
-+++ b/net/sched/sch_fq_codel.c
-@@ -649,7 +649,7 @@ static int fq_codel_dump_class_stats(struct Qdisc *sch, unsigned long cl,
- 		qs.backlog = q->backlogs[idx];
- 		qs.drops = flow->dropped;
- 	}
--	if (gnet_stats_copy_queue(d, NULL, &qs, 0) < 0)
-+	if (gnet_stats_copy_queue(d, NULL, &qs, qs.qlen) < 0)
- 		return -1;
- 	if (idx < q->flows_cnt)
- 		return gnet_stats_copy_app(d, &xstats, sizeof(xstats));
+So all is good here.
