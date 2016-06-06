@@ -1,45 +1,162 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next] net, cls: allow for deleting all filters for
- given parent
-Date: Mon, 6 Jun 2016 19:41:16 +0300
-Message-ID: <f2e1eb44-a0ef-5b41-2dc0-6823cbe4f392@cogentembedded.com>
-References: <cd8455dfef0cccec5ef0a1ca2d1f678e9397d66e.1465056745.git.daniel@iogearbox.net>
- <42e1cc6f-ad10-33b7-6722-1416e1b92422@cogentembedded.com>
- <575465A7.4020308@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
-	jhs@mojatatu.com, netdev@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>, davem@davemloft.net
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net v2] act_police: fix a crash during removal
+Date: Mon,  6 Jun 2016 09:54:30 -0700
+Message-ID: <1465232070-7844-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f51.google.com ([209.85.215.51]:33081 "EHLO
-	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752086AbcFFQlX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 12:41:23 -0400
-Received: by mail-lf0-f51.google.com with SMTP id s64so98479707lfe.0
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 09:41:20 -0700 (PDT)
-In-Reply-To: <575465A7.4020308@iogearbox.net>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:35088 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751765AbcFFQyr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 12:54:47 -0400
+Received: by mail-pa0-f65.google.com with SMTP id gp3so12157352pac.2
+        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 09:54:47 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/05/2016 08:47 PM, Daniel Borkmann wrote:
+The police action is using its own code to initialize tcf hash
+info, which makes us to forgot to initialize a->hinfo correctly.
+Fix this by calling the helper function tcf_hash_create() directly.
 
->> On 6/4/2016 7:24 PM, Daniel Borkmann wrote:
-> [...]
->>
->>     Need a comment here, something like /* FALL THRU */.
->
-> Hmm, not really, I think it's obvious enough.
+This patch fixed the following crash:
 
-    Well, at least the *switch* example in the CodingStyle chapter 1 has such 
-comment (though there's no explicit statement on this matter).
+ BUG: unable to handle kernel NULL pointer dereference at 0000000000000028
+ IP: [<ffffffff810c099f>] __lock_acquire+0xd3/0xf91
+ PGD d3c34067 PUD d3e18067 PMD 0
+ Oops: 0000 [#1] SMP
+ CPU: 2 PID: 853 Comm: tc Not tainted 4.6.0+ #87
+ Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
+ task: ffff8800d3e28040 ti: ffff8800d3f6c000 task.ti: ffff8800d3f6c000
+ RIP: 0010:[<ffffffff810c099f>]  [<ffffffff810c099f>] __lock_acquire+0xd3/0xf91
+ RSP: 0000:ffff88011b203c80  EFLAGS: 00010002
+ RAX: 0000000000000046 RBX: 0000000000000000 RCX: 0000000000000000
+ RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000028
+ RBP: ffff88011b203d40 R08: 0000000000000001 R09: 0000000000000000
+ R10: ffff88011b203d58 R11: ffff88011b208000 R12: 0000000000000001
+ R13: ffff8800d3e28040 R14: 0000000000000028 R15: 0000000000000000
+ FS:  0000000000000000(0000) GS:ffff88011b200000(0000) knlGS:0000000000000000
+ CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+ CR2: 0000000000000028 CR3: 00000000d4be1000 CR4: 00000000000006e0
+ Stack:
+  ffff8800d3e289c0 0000000000000046 000000001b203d60 ffffffff00000000
+  0000000000000000 ffff880000000000 0000000000000000 ffffffff00000000
+  ffffffff8187142c ffff88011b203ce8 ffff88011b203ce8 ffffffff8101dbfc
+ Call Trace:
+  <IRQ>
+  [<ffffffff8187142c>] ? __tcf_hash_release+0x77/0xd1
+  [<ffffffff8101dbfc>] ? native_sched_clock+0x1a/0x35
+  [<ffffffff8101dbfc>] ? native_sched_clock+0x1a/0x35
+  [<ffffffff810a9604>] ? sched_clock_local+0x11/0x78
+  [<ffffffff810bf6a1>] ? mark_lock+0x24/0x201
+  [<ffffffff810c1dbd>] lock_acquire+0x120/0x1b4
+  [<ffffffff810c1dbd>] ? lock_acquire+0x120/0x1b4
+  [<ffffffff8187142c>] ? __tcf_hash_release+0x77/0xd1
+  [<ffffffff81aad89f>] _raw_spin_lock_bh+0x3c/0x72
+  [<ffffffff8187142c>] ? __tcf_hash_release+0x77/0xd1
+  [<ffffffff8187142c>] __tcf_hash_release+0x77/0xd1
+  [<ffffffff81871a27>] tcf_action_destroy+0x49/0x7c
+  [<ffffffff81870b1c>] tcf_exts_destroy+0x20/0x2d
+  [<ffffffff8189273b>] u32_destroy_key+0x1b/0x4d
+  [<ffffffff81892788>] u32_delete_key_freepf_rcu+0x1b/0x1d
+  [<ffffffff810de3b8>] rcu_process_callbacks+0x610/0x82e
+  [<ffffffff8189276d>] ? u32_destroy_key+0x4d/0x4d
+  [<ffffffff81ab0bc1>] __do_softirq+0x191/0x3f4
 
->>> +        default:
->>>              return -ENOENT;
->>> -        prio = TC_H_MAKE(0x80000000U, 0U);
->>> +        }
->>>      }
-[...]
+Fixes: ddf97ccdd7cb ("net_sched: add network namespace support for tc actions")
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/sched/act_police.c | 33 +++++++++++----------------------
+ 1 file changed, 11 insertions(+), 22 deletions(-)
 
-MBR, Sergei
+diff --git a/net/sched/act_police.c b/net/sched/act_police.c
+index b884dae..c557789 100644
+--- a/net/sched/act_police.c
++++ b/net/sched/act_police.c
+@@ -38,7 +38,7 @@ struct tcf_police {
+ 	bool			peak_present;
+ };
+ #define to_police(pc)	\
+-	container_of(pc, struct tcf_police, common)
++	container_of(pc->priv, struct tcf_police, common)
+ 
+ #define POL_TAB_MASK     15
+ 
+@@ -119,14 +119,12 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
+ 				 struct nlattr *est, struct tc_action *a,
+ 				 int ovr, int bind)
+ {
+-	unsigned int h;
+ 	int ret = 0, err;
+ 	struct nlattr *tb[TCA_POLICE_MAX + 1];
+ 	struct tc_police *parm;
+ 	struct tcf_police *police;
+ 	struct qdisc_rate_table *R_tab = NULL, *P_tab = NULL;
+ 	struct tc_action_net *tn = net_generic(net, police_net_id);
+-	struct tcf_hashinfo *hinfo = tn->hinfo;
+ 	int size;
+ 
+ 	if (nla == NULL)
+@@ -145,7 +143,7 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
+ 
+ 	if (parm->index) {
+ 		if (tcf_hash_search(tn, a, parm->index)) {
+-			police = to_police(a->priv);
++			police = to_police(a);
+ 			if (bind) {
+ 				police->tcf_bindcnt += 1;
+ 				police->tcf_refcnt += 1;
+@@ -156,16 +154,15 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
+ 			/* not replacing */
+ 			return -EEXIST;
+ 		}
++	} else {
++		ret = tcf_hash_create(tn, parm->index, NULL, a,
++				      sizeof(*police), bind, false);
++		if (ret)
++			return ret;
++		ret = ACT_P_CREATED;
+ 	}
+ 
+-	police = kzalloc(sizeof(*police), GFP_KERNEL);
+-	if (police == NULL)
+-		return -ENOMEM;
+-	ret = ACT_P_CREATED;
+-	police->tcf_refcnt = 1;
+-	spin_lock_init(&police->tcf_lock);
+-	if (bind)
+-		police->tcf_bindcnt = 1;
++	police = to_police(a);
+ override:
+ 	if (parm->rate.rate) {
+ 		err = -ENOMEM;
+@@ -237,16 +234,8 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
+ 		return ret;
+ 
+ 	police->tcfp_t_c = ktime_get_ns();
+-	police->tcf_index = parm->index ? parm->index :
+-		tcf_hash_new_index(tn);
+-	police->tcf_tm.install = jiffies;
+-	police->tcf_tm.lastuse = jiffies;
+-	h = tcf_hash(police->tcf_index, POL_TAB_MASK);
+-	spin_lock_bh(&hinfo->lock);
+-	hlist_add_head(&police->tcf_head, &hinfo->htab[h]);
+-	spin_unlock_bh(&hinfo->lock);
++	tcf_hash_insert(tn, a);
+ 
+-	a->priv = police;
+ 	return ret;
+ 
+ failure_unlock:
+@@ -255,7 +244,7 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
+ 	qdisc_put_rtab(P_tab);
+ 	qdisc_put_rtab(R_tab);
+ 	if (ret == ACT_P_CREATED)
+-		kfree(police);
++		tcf_hash_cleanup(a, est);
+ 	return err;
+ }
+ 
+-- 
+2.1.0
