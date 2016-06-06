@@ -1,71 +1,36 @@
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Subject: Re: [PATCH net 2/2] net: cls_u32: be more strict about skip-sw flag
-Date: Mon, 06 Jun 2016 10:25:57 -0700
-Message-ID: <5755B225.7040600@intel.com>
-References: <1465226208-32097-1-git-send-email-jakub.kicinski@netronome.com> <1465226208-32097-3-git-send-email-jakub.kicinski@netronome.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v2 net-next 0/3] net sched action timestamp improvements
+Date: Mon, 6 Jun 2016 10:37:50 -0700
+Message-ID: <CAM_iQpWcgZUycrDFurGMUNiq1bAB2cUDsG8r6+u8KwjGki9GfA@mail.gmail.com>
+References: <1465209175-8002-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga01.intel.com ([192.55.52.88]:34103 "EHLO mga01.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751772AbcFFR0Y (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 6 Jun 2016 13:26:24 -0400
-In-Reply-To: <1465226208-32097-3-git-send-email-jakub.kicinski@netronome.com>
+Received: from mail-yw0-f182.google.com ([209.85.161.182]:36644 "EHLO
+	mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752115AbcFFRiK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 13:38:10 -0400
+Received: by mail-yw0-f182.google.com with SMTP id x189so146885695ywe.3
+        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 10:38:10 -0700 (PDT)
+In-Reply-To: <1465209175-8002-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On 6/6/2016 8:16 AM, Jakub Kicinski wrote:
-> Return an error if user requested skip-sw and the underlaying
-> hardware cannot handle tc offloads (or offloads are disabled).
+On Mon, Jun 6, 2016 at 3:32 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
 >
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-
-looks good. I think we need similar checks in u32_replace_hw_knode() too.
-
-
-> ---
->   net/sched/cls_u32.c | 21 +++++++++++----------
->   1 file changed, 11 insertions(+), 10 deletions(-)
+> Various aggregations of duplicated code, fixes and introduction of firstused
+> timestamp
 >
-> diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-> index b17e090f2fe1..fe05449537a3 100644
-> --- a/net/sched/cls_u32.c
-> +++ b/net/sched/cls_u32.c
-> @@ -457,20 +457,21 @@ static int u32_replace_hw_hnode(struct tcf_proto *tp,
->   	struct tc_to_netdev offload;
->   	int err;
->   
-> +	if (!tc_should_offload(dev, flags))
-> +		return tc_skip_sw(flags) ? -EINVAL : 0;
-> +
->   	offload.type = TC_SETUP_CLSU32;
->   	offload.cls_u32 = &u32_offload;
->   
-> -	if (tc_should_offload(dev, flags)) {
-> -		offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
-> -		offload.cls_u32->hnode.divisor = h->divisor;
-> -		offload.cls_u32->hnode.handle = h->handle;
-> -		offload.cls_u32->hnode.prio = h->prio;
-> +	offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
-> +	offload.cls_u32->hnode.divisor = h->divisor;
-> +	offload.cls_u32->hnode.handle = h->handle;
-> +	offload.cls_u32->hnode.prio = h->prio;
->   
-> -		err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
-> -						    tp->protocol, &offload);
-> -		if (tc_skip_sw(flags))
-> -			return err;
-> -	}
-> +	err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
-> +					    tp->protocol, &offload);
-> +	if (tc_skip_sw(flags))
-> +		return err;
->   
->   	return 0;
->   }
+> v2: add const for source time info per suggestion from Cong
+
+For this whole series,
+
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+
+
+Thanks!
