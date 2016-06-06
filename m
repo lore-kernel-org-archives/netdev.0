@@ -1,162 +1,104 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net v2] act_police: fix a crash during removal
-Date: Mon,  6 Jun 2016 09:54:30 -0700
-Message-ID: <1465232070-7844-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:35088 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751765AbcFFQyr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 12:54:47 -0400
-Received: by mail-pa0-f65.google.com with SMTP id gp3so12157352pac.2
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 09:54:47 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: [PATCH v2 1/3] mwifiex: add a cfg80211 .get_tx_power operation callback
+Date: Mon,  6 Jun 2016 13:02:36 -0400
+Message-ID: <1465232558-31678-2-git-send-email-javier@osg.samsung.com>
+References: <1465232558-31678-1-git-send-email-javier@osg.samsung.com>
+Cc: Julian Calaby <julian.calaby@gmail.com>,
+	Shengzhen Li <szli@marvell.com>,
+	Enric Balletbo i Serra <enric.balletbo@collabora.com>,
+	Javier Martinez Canillas <javier@osg.samsung.com>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	Nishant Sarmukadam <nishants@marvell.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465232558-31678-1-git-send-email-javier@osg.samsung.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The police action is using its own code to initialize tcf hash
-info, which makes us to forgot to initialize a->hinfo correctly.
-Fix this by calling the helper function tcf_hash_create() directly.
+The mwifiex driver implements a cfg80211 .set_tx_power operation handler
+but doesn't have the inverse .get_tx_power callback.
 
-This patch fixed the following crash:
+This not only has the effect that the Tx power can't be reported to user
+space tools such as iwconfig and iwlist but also that the wireless core
+prints a warning when a new wiphy is created due an cfg80211 operation
+being implemented without its counterpart.
 
- BUG: unable to handle kernel NULL pointer dereference at 0000000000000028
- IP: [<ffffffff810c099f>] __lock_acquire+0xd3/0xf91
- PGD d3c34067 PUD d3e18067 PMD 0
- Oops: 0000 [#1] SMP
- CPU: 2 PID: 853 Comm: tc Not tainted 4.6.0+ #87
- Hardware name: Bochs Bochs, BIOS Bochs 01/01/2011
- task: ffff8800d3e28040 ti: ffff8800d3f6c000 task.ti: ffff8800d3f6c000
- RIP: 0010:[<ffffffff810c099f>]  [<ffffffff810c099f>] __lock_acquire+0xd3/0xf91
- RSP: 0000:ffff88011b203c80  EFLAGS: 00010002
- RAX: 0000000000000046 RBX: 0000000000000000 RCX: 0000000000000000
- RDX: 0000000000000000 RSI: 0000000000000000 RDI: 0000000000000028
- RBP: ffff88011b203d40 R08: 0000000000000001 R09: 0000000000000000
- R10: ffff88011b203d58 R11: ffff88011b208000 R12: 0000000000000001
- R13: ffff8800d3e28040 R14: 0000000000000028 R15: 0000000000000000
- FS:  0000000000000000(0000) GS:ffff88011b200000(0000) knlGS:0000000000000000
- CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
- CR2: 0000000000000028 CR3: 00000000d4be1000 CR4: 00000000000006e0
- Stack:
-  ffff8800d3e289c0 0000000000000046 000000001b203d60 ffffffff00000000
-  0000000000000000 ffff880000000000 0000000000000000 ffffffff00000000
-  ffffffff8187142c ffff88011b203ce8 ffff88011b203ce8 ffffffff8101dbfc
- Call Trace:
-  <IRQ>
-  [<ffffffff8187142c>] ? __tcf_hash_release+0x77/0xd1
-  [<ffffffff8101dbfc>] ? native_sched_clock+0x1a/0x35
-  [<ffffffff8101dbfc>] ? native_sched_clock+0x1a/0x35
-  [<ffffffff810a9604>] ? sched_clock_local+0x11/0x78
-  [<ffffffff810bf6a1>] ? mark_lock+0x24/0x201
-  [<ffffffff810c1dbd>] lock_acquire+0x120/0x1b4
-  [<ffffffff810c1dbd>] ? lock_acquire+0x120/0x1b4
-  [<ffffffff8187142c>] ? __tcf_hash_release+0x77/0xd1
-  [<ffffffff81aad89f>] _raw_spin_lock_bh+0x3c/0x72
-  [<ffffffff8187142c>] ? __tcf_hash_release+0x77/0xd1
-  [<ffffffff8187142c>] __tcf_hash_release+0x77/0xd1
-  [<ffffffff81871a27>] tcf_action_destroy+0x49/0x7c
-  [<ffffffff81870b1c>] tcf_exts_destroy+0x20/0x2d
-  [<ffffffff8189273b>] u32_destroy_key+0x1b/0x4d
-  [<ffffffff81892788>] u32_delete_key_freepf_rcu+0x1b/0x1d
-  [<ffffffff810de3b8>] rcu_process_callbacks+0x610/0x82e
-  [<ffffffff8189276d>] ? u32_destroy_key+0x4d/0x4d
-  [<ffffffff81ab0bc1>] __do_softirq+0x191/0x3f4
+After this patch, the Tx power is properly reported to user-space tools:
 
-Fixes: ddf97ccdd7cb ("net_sched: add network namespace support for tc actions")
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+$ iwlist mlan0 txpower
+mlan0     unknown transmit-power information.
+
+          Current Tx-Power=13 dBm       (19 mW)
+
+and also the following warning isn't shown anymore on the driver probe:
+
+WARNING: CPU: 3 PID: 127 at net/wireless/core.c:366 wiphy_new_nm+0x66c/0x6ac
+Modules linked in: mwifiex_sdio mwifiex
+CPU: 3 PID: 127 Comm: kworker/3:1 Tainted: G        W       4.7.0-rc1-next-20160531-00006-g569df5b983f3
+Hardware name: SAMSUNG EXYNOS (Flattened Device Tree)
+Workqueue: events request_firmware_work_func
+[<c010e1ac>] (unwind_backtrace) from [<c010af38>] (show_stack+0x10/0x14)
+[<c010af38>] (show_stack) from [<c0323b9c>] (dump_stack+0x88/0x9c)
+[<c0323b9c>] (dump_stack) from [<c011a828>] (__warn+0xe8/0x100)
+[<c011a828>] (__warn) from [<c011a8f0>] (warn_slowpath_null+0x20/0x28)
+[<c011a8f0>] (warn_slowpath_null) from [<c06a42d4>] (wiphy_new_nm+0x66c/0x6ac)
+[<c06a42d4>] (wiphy_new_nm) from [<bf1c24cc>] (mwifiex_register_cfg80211+0x28/0x3f0 [mwifiex])
+[<bf1c24cc>] (mwifiex_register_cfg80211 [mwifiex]) from [<bf1a0018>] (mwifiex_fw_dpc+0x2b0/0x474 [mwifiex])
+[<bf1a0018>] (mwifiex_fw_dpc [mwifiex]) from [<c040eb74>] (request_firmware_work_func+0x30/0x58)
+[<c040eb74>] (request_firmware_work_func) from [<c012fe90>] (process_one_work+0x124/0x338)
+[<c012fe90>] (process_one_work) from [<c01300dc>] (worker_thread+0x38/0x4d4)
+[<c01300dc>] (worker_thread) from [<c01353b8>] (kthread+0xdc/0xf4)
+[<c01353b8>] (kthread) from [<c0107978>] (ret_from_fork+0x14/0x3c)
+
+Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
 ---
- net/sched/act_police.c | 33 +++++++++++----------------------
- 1 file changed, 11 insertions(+), 22 deletions(-)
 
-diff --git a/net/sched/act_police.c b/net/sched/act_police.c
-index b884dae..c557789 100644
---- a/net/sched/act_police.c
-+++ b/net/sched/act_police.c
-@@ -38,7 +38,7 @@ struct tcf_police {
- 	bool			peak_present;
- };
- #define to_police(pc)	\
--	container_of(pc, struct tcf_police, common)
-+	container_of(pc->priv, struct tcf_police, common)
- 
- #define POL_TAB_MASK     15
- 
-@@ -119,14 +119,12 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
- 				 struct nlattr *est, struct tc_action *a,
- 				 int ovr, int bind)
- {
--	unsigned int h;
- 	int ret = 0, err;
- 	struct nlattr *tb[TCA_POLICE_MAX + 1];
- 	struct tc_police *parm;
- 	struct tcf_police *police;
- 	struct qdisc_rate_table *R_tab = NULL, *P_tab = NULL;
- 	struct tc_action_net *tn = net_generic(net, police_net_id);
--	struct tcf_hashinfo *hinfo = tn->hinfo;
- 	int size;
- 
- 	if (nla == NULL)
-@@ -145,7 +143,7 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
- 
- 	if (parm->index) {
- 		if (tcf_hash_search(tn, a, parm->index)) {
--			police = to_police(a->priv);
-+			police = to_police(a);
- 			if (bind) {
- 				police->tcf_bindcnt += 1;
- 				police->tcf_refcnt += 1;
-@@ -156,16 +154,15 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
- 			/* not replacing */
- 			return -EEXIST;
- 		}
-+	} else {
-+		ret = tcf_hash_create(tn, parm->index, NULL, a,
-+				      sizeof(*police), bind, false);
-+		if (ret)
-+			return ret;
-+		ret = ACT_P_CREATED;
- 	}
- 
--	police = kzalloc(sizeof(*police), GFP_KERNEL);
--	if (police == NULL)
--		return -ENOMEM;
--	ret = ACT_P_CREATED;
--	police->tcf_refcnt = 1;
--	spin_lock_init(&police->tcf_lock);
--	if (bind)
--		police->tcf_bindcnt = 1;
-+	police = to_police(a);
- override:
- 	if (parm->rate.rate) {
- 		err = -ENOMEM;
-@@ -237,16 +234,8 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
- 		return ret;
- 
- 	police->tcfp_t_c = ktime_get_ns();
--	police->tcf_index = parm->index ? parm->index :
--		tcf_hash_new_index(tn);
--	police->tcf_tm.install = jiffies;
--	police->tcf_tm.lastuse = jiffies;
--	h = tcf_hash(police->tcf_index, POL_TAB_MASK);
--	spin_lock_bh(&hinfo->lock);
--	hlist_add_head(&police->tcf_head, &hinfo->htab[h]);
--	spin_unlock_bh(&hinfo->lock);
-+	tcf_hash_insert(tn, a);
- 
--	a->priv = police;
- 	return ret;
- 
- failure_unlock:
-@@ -255,7 +244,7 @@ static int tcf_act_police_locate(struct net *net, struct nlattr *nla,
- 	qdisc_put_rtab(P_tab);
- 	qdisc_put_rtab(R_tab);
- 	if (ret == ACT_P_CREATED)
--		kfree(police);
-+		tcf_hash_cleanup(a, est);
- 	return err;
+ drivers/net/wireless/marvell/mwifiex/cfg80211.c | 24 ++++++++++++++++++++++++
+ 1 file changed, 24 insertions(+)
+
+diff --git a/drivers/net/wireless/marvell/mwifiex/cfg80211.c b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
+index ff948a922222..b17f3d09a2c7 100644
+--- a/drivers/net/wireless/marvell/mwifiex/cfg80211.c
++++ b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
+@@ -377,6 +377,29 @@ mwifiex_cfg80211_set_tx_power(struct wiphy *wiphy,
  }
  
+ /*
++ * CFG802.11 operation handler to get Tx power.
++ */
++static int
++mwifiex_cfg80211_get_tx_power(struct wiphy *wiphy,
++			      struct wireless_dev *wdev,
++			      int *dbm)
++{
++	struct mwifiex_adapter *adapter = mwifiex_cfg80211_get_adapter(wiphy);
++	struct mwifiex_private *priv = mwifiex_get_priv(adapter,
++							MWIFIEX_BSS_ROLE_ANY);
++	int ret = mwifiex_send_cmd(priv, HostCmd_CMD_RF_TX_PWR,
++				   HostCmd_ACT_GEN_GET, 0, NULL, true);
++
++	if (ret < 0)
++		return ret;
++
++	/* tx_power_level is set in HostCmd_CMD_RF_TX_PWR command handler */
++	*dbm = priv->tx_power_level;
++
++	return 0;
++}
++
++/*
+  * CFG802.11 operation handler to set Power Save option.
+  *
+  * The timeout value, if provided, is currently ignored.
+@@ -3940,6 +3963,7 @@ static struct cfg80211_ops mwifiex_cfg80211_ops = {
+ 	.set_default_key = mwifiex_cfg80211_set_default_key,
+ 	.set_power_mgmt = mwifiex_cfg80211_set_power_mgmt,
+ 	.set_tx_power = mwifiex_cfg80211_set_tx_power,
++	.get_tx_power = mwifiex_cfg80211_get_tx_power,
+ 	.set_bitrate_mask = mwifiex_cfg80211_set_bitrate_mask,
+ 	.start_ap = mwifiex_cfg80211_start_ap,
+ 	.stop_ap = mwifiex_cfg80211_stop_ap,
 -- 
-2.1.0
+2.5.5
