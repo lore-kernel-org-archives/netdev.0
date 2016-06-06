@@ -1,34 +1,40 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [PATCH net v2] sfc: report supported link speeds on SFP
- connections
-Date: Mon, 6 Jun 2016 14:55:29 -0400
-Message-ID: <20160606185529.GV56933@redhat.com>
-References: <1464917604-11596-1-git-send-email-jarod@redhat.com>
- <a354e801-dc3e-bae4-0dcb-f174df8b9161@solarflare.com>
+From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Subject: Re: [PATCH net 1/3] RDS: TCP: Add/use rds_tcp_reset_callbacks to
+ reset tcp socket safely
+Date: Mon, 6 Jun 2016 12:04:26 -0700
+Message-ID: <ed1d0ee5-0006-5773-56cd-a85a2614fece@oracle.com>
+References: <cover.1465071319.git.sowmini.varadhan@oracle.com>
+ <1d38b67763bc39068310a4dbc13ee9e56b8f0dab.1465071319.git.sowmini.varadhan@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-To: Bert Kenward <bkenward@solarflare.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <a354e801-dc3e-bae4-0dcb-f174df8b9161@solarflare.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
+	ajaykumar.hotchandani@oracle.com
+To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:22562 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751313AbcFFTEi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 15:04:38 -0400
+In-Reply-To: <1d38b67763bc39068310a4dbc13ee9e56b8f0dab.1465071319.git.sowmini.varadhan@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 06, 2016 at 05:29:30PM +0100, Bert Kenward wrote:
-> 7000-series SFC NICs connected with an SFP+ module currently fail to
-> report any supported link speeds.
-> 
-> Reported-by: Jarod Wilson <jarod@redhat.com>
-> Signed-off-by: Bert Kenward <bkenward@solarflare.com>
-
-Had a feeling my cut might not have been quite right. Looks good to me.
-
-Reviewed-by: Jarod Wilson <jarod@redhat.com>
-
--- 
-Jarod Wilson
-jarod@redhat.com
+On 6/4/2016 1:59 PM, Sowmini Varadhan wrote:
+> When rds_tcp_accept_one() has to replace the existing tcp socket
+> with a newer tcp socket (duelling-syn resolution), it must lock_sock()
+> to suppress the rds_tcp_data_recv() path while callbacks are being
+> changed.  Also, existing RDS datagram reassembly state must be reset,
+> so that the next datagram on the new socket  does not have corrupted
+> state. Similarly when resetting the newly accepted socket, appropriate
+> locks and synchronization is needed.
+>
+> This commit ensures correct synchronization by invoking
+> kernel_sock_shutdown to reset a newly accepted sock, and by taking
+> appropriate lock_sock()s (for old and new sockets) when resetting
+> existing callbacks.
+>
+> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+> ---
+Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
