@@ -1,48 +1,79 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] cxgb4: Reduce resource allocation in kdump
- kernel
-Date: Mon, 06 Jun 2016 15:31:49 -0700 (PDT)
-Message-ID: <20160606.153149.1705224523826590864.davem@davemloft.net>
-References: <1464975345-12484-1-git-send-email-hariprasad@chelsio.com>
-	<BY2PR12MB064802D9AB46EF297736F308C8590@BY2PR12MB0648.namprd12.prod.outlook.com>
-	<CO2PR11MB008805A31B3921BF3C728F7A975A0@CO2PR11MB0088.namprd11.prod.outlook.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: leedom@chelsio.com, hariprasad@chelsio.com, netdev@vger.kernel.org,
-	nirranjan@chelsio.com
-To: Yuval.Mintz@qlogic.com
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: [PATCH 1/2] netfilter: x_tables: don't reject valid target size on some architectures
+Date: Tue,  7 Jun 2016 00:38:16 +0200
+Message-ID: <1465252697-1986-2-git-send-email-pablo@netfilter.org>
+References: <1465252697-1986-1-git-send-email-pablo@netfilter.org>
+Cc: davem@davemloft.net, netdev@vger.kernel.org
+To: netfilter-devel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:47478 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752632AbcFFWbv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 18:31:51 -0400
-In-Reply-To: <CO2PR11MB008805A31B3921BF3C728F7A975A0@CO2PR11MB0088.namprd11.prod.outlook.com>
+Received: from mail.us.es ([193.147.175.20]:50784 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751973AbcFFWie (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jun 2016 18:38:34 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 65F4ACD6F16
+	for <netdev@vger.kernel.org>; Tue,  7 Jun 2016 00:38:32 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 54BAF9EBA7
+	for <netdev@vger.kernel.org>; Tue,  7 Jun 2016 00:38:32 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 3CE159EBA9
+	for <netdev@vger.kernel.org>; Tue,  7 Jun 2016 00:38:27 +0200 (CEST)
+In-Reply-To: <1465252697-1986-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Sat, 4 Jun 2016 13:24:43 +0000
+From: Florian Westphal <fw@strlen.de>
 
->> When is_kdump_kernel() is true, reduce our memory footprint by only using a
->> single "Queue Set" and Forcing Master so we can reinitialize the Firmware/Chip.
->> 
->> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
-> ...
->>         if (q10g > netif_get_num_default_rss_queues())
->>                 q10g = netif_get_num_default_rss_queues();
->> 
->> +       /* Reduce memory usage in kdump environment by using only one queue
->> +        * and disable all offload.
->> +        */
->> +       if (is_kdump_kernel()) {
->> +               q10g = 1;
->> +               adap->params.offload = 0;
->> +       }
->> +
-> 
-> Sounds like a common issue that might interest other devices as well.
-> Perhaps we should change netif_get_num_default_rss_queues() to return 1
-> when called from a kdump kernel?
+Quoting John Stultz:
+  In updating a 32bit arm device from 4.6 to Linus' current HEAD, I
+  noticed I was having some trouble with networking, and realized that
+  /proc/net/ip_tables_names was suddenly empty.
+  Digging through the registration process, it seems we're catching on the:
 
-Yeah that might make sense.
+   if (strcmp(t->u.user.name, XT_STANDARD_TARGET) == 0 &&
+       target_offset + sizeof(struct xt_standard_target) != next_offset)
+         return -EINVAL;
+
+  Where next_offset seems to be 4 bytes larger then the
+  offset + standard_target struct size.
+
+next_offset needs to be aligned via XT_ALIGN (so we can access all members
+of ip(6)t_entry struct).
+
+This problem didn't show up on i686 as it only needs 4-byte alignment for
+u64, but iptables userspace on other 32bit arches does insert extra padding.
+
+Reported-by: John Stultz <john.stultz@linaro.org>
+Tested-by: John Stultz <john.stultz@linaro.org>
+Fixes: 7ed2abddd20cf ("netfilter: x_tables: check standard target size too")
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
+---
+ net/netfilter/x_tables.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
+index c69c892..2675d58 100644
+--- a/net/netfilter/x_tables.c
++++ b/net/netfilter/x_tables.c
+@@ -612,7 +612,7 @@ int xt_compat_check_entry_offsets(const void *base, const char *elems,
+ 		return -EINVAL;
+ 
+ 	if (strcmp(t->u.user.name, XT_STANDARD_TARGET) == 0 &&
+-	    target_offset + sizeof(struct compat_xt_standard_target) != next_offset)
++	    COMPAT_XT_ALIGN(target_offset + sizeof(struct compat_xt_standard_target)) != next_offset)
+ 		return -EINVAL;
+ 
+ 	/* compat_xt_entry match has less strict aligment requirements,
+@@ -694,7 +694,7 @@ int xt_check_entry_offsets(const void *base,
+ 		return -EINVAL;
+ 
+ 	if (strcmp(t->u.user.name, XT_STANDARD_TARGET) == 0 &&
+-	    target_offset + sizeof(struct xt_standard_target) != next_offset)
++	    XT_ALIGN(target_offset + sizeof(struct xt_standard_target)) != next_offset)
+ 		return -EINVAL;
+ 
+ 	return xt_check_entry_match(elems, base + target_offset,
+-- 
+2.1.4
