@@ -1,130 +1,60 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH] ipvs: update real-server binding of outgoing connections in SIP-pe
-Date: Mon,  6 Jun 2016 18:24:37 +0900
-Message-ID: <1465205077-15139-2-git-send-email-horms@verge.net.au>
-References: <1465205077-15139-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Marco Angaroni <marcoangaroni@gmail.com>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from kirsty.vergenet.net ([202.4.237.240]:56750 "EHLO
-	kirsty.vergenet.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751025AbcFFJYr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 05:24:47 -0400
-In-Reply-To: <1465205077-15139-1-git-send-email-horms@verge.net.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Nikolay Borisov <kernel@kyup.com>
+Subject: Re: [PATCH 1/4] inotify: Add infrastructure to account inotify limits
+ per-namespace
+Date: Mon, 6 Jun 2016 12:26:20 +0300
+Message-ID: <575541BC.5030809@kyup.com>
+References: <1464767580-22732-1-git-send-email-kernel@kyup.com>
+ <1464767580-22732-2-git-send-email-kernel@kyup.com>
+ <20160606080557.GG2211@uranus.lan>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: john@johnmccutchan.com, eparis@redhat.com, ebiederm@xmission.com,
+	jack@suse.cz, linux-kernel@vger.kernel.org, avagin@openvz.org,
+	netdev@vger.kernel.org, operations@siteground.com
+To: Cyrill Gorcunov <gorcunov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160606080557.GG2211@uranus.lan>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Marco Angaroni <marcoangaroni@gmail.com>
 
-Previous patch that introduced handling of outgoing packets in SIP
-persistent-engine did not call ip_vs_check_template() in case packet was
-matching a connection template. Assumption was that real-server was
-healthy, since it was sending a packet just in that moment.
 
-There are however real-server fault conditions requiring that association
-between call-id and real-server (represented by connection template)
-gets updated. Here is an example of the sequence of events:
-  1) RS1 is a back2back user agent that handled call-id1 and call-id2
-  2) RS1 is down and was marked as unavailable
-  3) new message from outside comes to IPVS with call-id1
-  4) IPVS reschedules the message to RS2, which becomes new call handler
-  5) RS2 forwards the message outside, translating call-id1 to call-id2
-  6) inside pe->conn_out() IPVS matches call-id2 with existing template
-  7) IPVS does not change association call-id2 <-> RS1
-  8) new message comes from client with call-id2
-  9) IPVS reschedules the message to a real-server potentially different
-     from RS2, which is now the correct destination
+On 06/06/2016 11:05 AM, Cyrill Gorcunov wrote:
+> On Wed, Jun 01, 2016 at 10:52:57AM +0300, Nikolay Borisov wrote:
+>> This patch adds the necessary members to user_struct. The idea behind
+>> the solution is really simple - user the userns pointers as keys into
+>> a hash table which holds the inotify instances/watches counts. This
+>> allows to account the limits per userns rather than per real user,
+>> which makes certain scenarios such as a single mapped user in a
+>> container deplete the inotify resources for all other users, which
+>> map to the exact same real user.
+>>
+>> Signed-off-by: Nikolay Borisov <kernel@kyup.com>
+> ...
+>> +static inline unsigned long inotify_dec_return_dev(struct user_struct *user,
+>> +						   void *key)
+>> +{
+>> +	struct inotify_state *state;
+>> +	unsigned long ret;
+>> +
+>> +	spin_lock(&user->inotify_lock);
+>> +	state = __find_inotify_state(user, key);
+>> +	ret = --state->inotify_devs;
+>> +	spin_unlock(&user->inotify_lock);
+>> +
+>> +	return ret;
+>> +}
+> 
+> Hi Nikolay! Could you please explain why this new function is not used anywhere
+> in other patches or I miss something obvious?
 
-This patch introduces ip_vs_check_template() call in the handling of
-outgoing packets for SIP-pe. And also introduces a second optional
-argument for ip_vs_check_template() that allows to check if dest
-associated to a connection template is the same dest that was identified
-as the source of the packet. This is to change the real-server bound to a
-particular call-id independently from its availability status: the idea
-is that it's more reliable, for in->out direction (where internal
-network can be considered trusted), to always associate a call-id with
-the last real-server that used it in one of its messages. Think about
-above sequence of events where, just after step 5, RS1 returns instead
-to be available.
+Hi Cyrill,
 
-Comparison of dests is done by simply comparing pointers to struct
-ip_vs_dest; there should be no cases where struct ip_vs_dest keeps its
-memory address, but represent a different real-server in terms of
-ip-address / port.
+It seems this is a left-over from an earlier, internal version of this
+patchset. You can disregard it. Also, given the direction that the
+discussion with Eric took I think I will be redesigning the solution
+entirely. Thanks for taking the time to read the code!
 
-Fixes: 39b972231536 ("ipvs: handle connections started by real-servers")
-Signed-off-by: Marco Angaroni <marcoangaroni@gmail.com>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- include/net/ip_vs.h             | 2 +-
- net/netfilter/ipvs/ip_vs_conn.c | 5 +++--
- net/netfilter/ipvs/ip_vs_core.c | 5 +++--
- 3 files changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/ip_vs.h b/include/net/ip_vs.h
-index af4c10ebb241..cd6018a9ee24 100644
---- a/include/net/ip_vs.h
-+++ b/include/net/ip_vs.h
-@@ -1232,7 +1232,7 @@ void ip_vs_conn_expire_now(struct ip_vs_conn *cp);
- const char *ip_vs_state_name(__u16 proto, int state);
- 
- void ip_vs_tcp_conn_listen(struct ip_vs_conn *cp);
--int ip_vs_check_template(struct ip_vs_conn *ct);
-+int ip_vs_check_template(struct ip_vs_conn *ct, struct ip_vs_dest *cdest);
- void ip_vs_random_dropentry(struct netns_ipvs *ipvs);
- int ip_vs_conn_init(void);
- void ip_vs_conn_cleanup(void);
-diff --git a/net/netfilter/ipvs/ip_vs_conn.c b/net/netfilter/ipvs/ip_vs_conn.c
-index 2cb3c626cd43..096a45103f14 100644
---- a/net/netfilter/ipvs/ip_vs_conn.c
-+++ b/net/netfilter/ipvs/ip_vs_conn.c
-@@ -762,7 +762,7 @@ static int expire_quiescent_template(struct netns_ipvs *ipvs,
-  *	If available, return 1, otherwise invalidate this connection
-  *	template and return 0.
-  */
--int ip_vs_check_template(struct ip_vs_conn *ct)
-+int ip_vs_check_template(struct ip_vs_conn *ct, struct ip_vs_dest *cdest)
- {
- 	struct ip_vs_dest *dest = ct->dest;
- 	struct netns_ipvs *ipvs = ct->ipvs;
-@@ -772,7 +772,8 @@ int ip_vs_check_template(struct ip_vs_conn *ct)
- 	 */
- 	if ((dest == NULL) ||
- 	    !(dest->flags & IP_VS_DEST_F_AVAILABLE) ||
--	    expire_quiescent_template(ipvs, dest)) {
-+	    expire_quiescent_template(ipvs, dest) ||
-+	    (cdest && (dest != cdest))) {
- 		IP_VS_DBG_BUF(9, "check_template: dest not available for "
- 			      "protocol %s s:%s:%d v:%s:%d "
- 			      "-> d:%s:%d\n",
-diff --git a/net/netfilter/ipvs/ip_vs_core.c b/net/netfilter/ipvs/ip_vs_core.c
-index 1207f20d24e4..2c1b498a7a27 100644
---- a/net/netfilter/ipvs/ip_vs_core.c
-+++ b/net/netfilter/ipvs/ip_vs_core.c
-@@ -321,7 +321,7 @@ ip_vs_sched_persist(struct ip_vs_service *svc,
- 
- 	/* Check if a template already exists */
- 	ct = ip_vs_ct_in_get(&param);
--	if (!ct || !ip_vs_check_template(ct)) {
-+	if (!ct || !ip_vs_check_template(ct, NULL)) {
- 		struct ip_vs_scheduler *sched;
- 
- 		/*
-@@ -1154,7 +1154,8 @@ struct ip_vs_conn *ip_vs_new_conn_out(struct ip_vs_service *svc,
- 						  vport, &param) < 0)
- 			return NULL;
- 		ct = ip_vs_ct_in_get(&param);
--		if (!ct) {
-+		/* check if template exists and points to the same dest */
-+		if (!ct || !ip_vs_check_template(ct, dest)) {
- 			ct = ip_vs_conn_new(&param, dest->af, daddr, dport,
- 					    IP_VS_CONN_F_TEMPLATE, dest, 0);
- 			if (!ct) {
--- 
-2.1.4
+Nikolay
