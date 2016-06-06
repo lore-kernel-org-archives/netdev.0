@@ -1,82 +1,75 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net 3/3] bnxt_en: Simplify VLAN receive logic.
-Date: Mon,  6 Jun 2016 02:37:16 -0400
-Message-ID: <1465195036-4107-4-git-send-email-michael.chan@broadcom.com>
-References: <1465195036-4107-1-git-send-email-michael.chan@broadcom.com>
-Cc: netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:33769 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751208AbcFFGh2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 02:37:28 -0400
-Received: by mail-pa0-f51.google.com with SMTP id ec8so26683394pac.0
-        for <netdev@vger.kernel.org>; Sun, 05 Jun 2016 23:37:28 -0700 (PDT)
-In-Reply-To: <1465195036-4107-1-git-send-email-michael.chan@broadcom.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Zhao Qiang <qiang.zhao@nxp.com>
+Subject: [Patch v3 1/5] fsl/qe: add rx_sync and tx_sync for TDM mode
+Date: Mon, 6 Jun 2016 14:29:58 +0800
+Message-ID: <1465194602-43209-1-git-send-email-qiang.zhao@nxp.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <linuxppc-dev@lists.ozlabs.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <xiaobo.xie@nxp.com>,
+	Zhao Qiang <qiang.zhao@nxp.com>
+To: <oss@buserror.net>, <davem@davemloft.net>,
+	<Joakim.Tjernlund@infinera.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Since both CTAG and STAG rx acceleration must be enabled together, we
-only need to check one feature flag (NETIF_F_HW_VLAN_CTAG_RX) before
-calling __vlan_hwaccel_put_tag().
+Rx_sync and tx_sync are used by QE-TDM mode,
+add them to struct ucc_fast_info.
 
-Signed-off-by: Michael Chan <mchan@broadcom.com>
+Signed-off-by: Zhao Qiang <qiang.zhao@nxp.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 29 +++++++++--------------------
- 1 file changed, 9 insertions(+), 20 deletions(-)
+Changes for v2:
+	- use strcmp instead of strcasecmp
+Changes for v3:
+	- na 
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index ae2b264..c777cde 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -1113,19 +1113,13 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
- 	if (tpa_info->hash_type != PKT_HASH_TYPE_NONE)
- 		skb_set_hash(skb, tpa_info->rss_hash, tpa_info->hash_type);
+ drivers/soc/fsl/qe/qe.c       | 6 ++++++
+ include/soc/fsl/qe/qe.h       | 2 ++
+ include/soc/fsl/qe/ucc_fast.h | 2 ++
+ 3 files changed, 10 insertions(+)
+
+diff --git a/drivers/soc/fsl/qe/qe.c b/drivers/soc/fsl/qe/qe.c
+index 709fc63..7026507 100644
+--- a/drivers/soc/fsl/qe/qe.c
++++ b/drivers/soc/fsl/qe/qe.c
+@@ -239,6 +239,12 @@ enum qe_clock qe_clock_source(const char *source)
+ 	if (strcasecmp(source, "none") == 0)
+ 		return QE_CLK_NONE;
  
--	if (tpa_info->flags2 & RX_CMP_FLAGS2_META_FORMAT_VLAN) {
--		netdev_features_t features = skb->dev->features;
-+	if ((tpa_info->flags2 & RX_CMP_FLAGS2_META_FORMAT_VLAN) &&
-+	    (skb->dev->features & NETIF_F_HW_VLAN_CTAG_RX)) {
- 		u16 vlan_proto = tpa_info->metadata >>
- 			RX_CMP_FLAGS2_METADATA_TPID_SFT;
-+		u16 vtag = tpa_info->metadata & RX_CMP_FLAGS2_METADATA_VID_MASK;
++	if (strcmp(source, "tsync_pin") == 0)
++		return QE_TSYNC_PIN;
++
++	if (strcmp(source, "rsync_pin") == 0)
++		return QE_RSYNC_PIN;
++
+ 	if (strncasecmp(source, "brg", 3) == 0) {
+ 		i = simple_strtoul(source + 3, NULL, 10);
+ 		if ((i >= 1) && (i <= 16))
+diff --git a/include/soc/fsl/qe/qe.h b/include/soc/fsl/qe/qe.h
+index 33b29ea..f918745 100644
+--- a/include/soc/fsl/qe/qe.h
++++ b/include/soc/fsl/qe/qe.h
+@@ -80,6 +80,8 @@ enum qe_clock {
+ 	QE_CLK22,		/* Clock 22 */
+ 	QE_CLK23,		/* Clock 23 */
+ 	QE_CLK24,		/* Clock 24 */
++	QE_RSYNC_PIN,		/* RSYNC from pin */
++	QE_TSYNC_PIN,		/* TSYNC from pin */
+ 	QE_CLK_DUMMY
+ };
  
--		if (((features & NETIF_F_HW_VLAN_CTAG_RX) &&
--		     vlan_proto == ETH_P_8021Q) ||
--		    ((features & NETIF_F_HW_VLAN_STAG_RX) &&
--		     vlan_proto == ETH_P_8021AD)) {
--			__vlan_hwaccel_put_tag(skb, htons(vlan_proto),
--					       tpa_info->metadata &
--					       RX_CMP_FLAGS2_METADATA_VID_MASK);
--		}
-+		__vlan_hwaccel_put_tag(skb, htons(vlan_proto), vtag);
- 	}
- 
- 	skb_checksum_none_assert(skb);
-@@ -1278,19 +1272,14 @@ static int bnxt_rx_pkt(struct bnxt *bp, struct bnxt_napi *bnapi, u32 *raw_cons,
- 
- 	skb->protocol = eth_type_trans(skb, dev);
- 
--	if (rxcmp1->rx_cmp_flags2 &
--	    cpu_to_le32(RX_CMP_FLAGS2_META_FORMAT_VLAN)) {
--		netdev_features_t features = skb->dev->features;
-+	if ((rxcmp1->rx_cmp_flags2 &
-+	     cpu_to_le32(RX_CMP_FLAGS2_META_FORMAT_VLAN)) &&
-+	    (skb->dev->features & NETIF_F_HW_VLAN_CTAG_RX)) {
- 		u32 meta_data = le32_to_cpu(rxcmp1->rx_cmp_meta_data);
-+		u16 vtag = meta_data & RX_CMP_FLAGS2_METADATA_VID_MASK;
- 		u16 vlan_proto = meta_data >> RX_CMP_FLAGS2_METADATA_TPID_SFT;
- 
--		if (((features & NETIF_F_HW_VLAN_CTAG_RX) &&
--		     vlan_proto == ETH_P_8021Q) ||
--		    ((features & NETIF_F_HW_VLAN_STAG_RX) &&
--		     vlan_proto == ETH_P_8021AD))
--			__vlan_hwaccel_put_tag(skb, htons(vlan_proto),
--					       meta_data &
--					       RX_CMP_FLAGS2_METADATA_VID_MASK);
-+		__vlan_hwaccel_put_tag(skb, htons(vlan_proto), vtag);
- 	}
- 
- 	skb_checksum_none_assert(skb);
+diff --git a/include/soc/fsl/qe/ucc_fast.h b/include/soc/fsl/qe/ucc_fast.h
+index df8ea79..31548b7 100644
+--- a/include/soc/fsl/qe/ucc_fast.h
++++ b/include/soc/fsl/qe/ucc_fast.h
+@@ -120,6 +120,8 @@ struct ucc_fast_info {
+ 	int ucc_num;
+ 	enum qe_clock rx_clock;
+ 	enum qe_clock tx_clock;
++	enum qe_clock rx_sync;
++	enum qe_clock tx_sync;
+ 	u32 regs;
+ 	int irq;
+ 	u32 uccm_mask;
 -- 
-1.8.3.1
+2.1.0.27.g96db324
