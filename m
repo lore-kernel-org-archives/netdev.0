@@ -1,34 +1,82 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next v3 0/2] net: vrf: Improve use of FIB rules
-Date: Mon, 6 Jun 2016 17:47:52 -0600
-Message-ID: <990a6fac-f38b-766f-cbdd-a9025604bb8f@cumulusnetworks.com>
-References: <1464982616-23030-1-git-send-email-dsa@cumulusnetworks.com>
- <20160606.154738.2069568651897544011.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 2/2] net: sched: do not acquire qdisc spinlock
+ in qdisc/class stats dump
+Date: Mon, 06 Jun 2016 16:53:19 -0700
+Message-ID: <1465257199.24873.10.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1465231036-10674-1-git-send-email-edumazet@google.com>
+	 <1465231036-10674-3-git-send-email-edumazet@google.com>
+	 <CAM_iQpURiYyBqpKG=u4qvbgToe4kQd4=8d_N0ohbfG_cONw_8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	John Fastabend <john.fastabend@gmail.com>,
+	Kevin Athey <kda@google.com>,
+	Xiaotian Pei <xiaotian@google.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:33843 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751025AbcFFXrt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 19:47:49 -0400
-Received: by mail-pa0-f52.google.com with SMTP id bz2so39825596pad.1
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 16:47:49 -0700 (PDT)
-In-Reply-To: <20160606.154738.2069568651897544011.davem@davemloft.net>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33549 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751291AbcFFXxV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 19:53:21 -0400
+Received: by mail-pf0-f193.google.com with SMTP id u67so2828910pfu.0
+        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 16:53:21 -0700 (PDT)
+In-Reply-To: <CAM_iQpURiYyBqpKG=u4qvbgToe4kQd4=8d_N0ohbfG_cONw_8Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/6/16 4:47 PM, David Miller wrote:
->
-> I hate module parameters.
->
-> And you don't even need one in this situation, just use a default preference
-> of 1000 and add a newlink netlink attribute that can change it.
+On Mon, 2016-06-06 at 16:15 -0700, Cong Wang wrote:
+> On Mon, Jun 6, 2016 at 9:37 AM, Eric Dumazet <edumazet@google.com> wrote:
+> >  void
+> > -__gnet_stats_copy_basic(struct gnet_stats_basic_packed *bstats,
+> > +__gnet_stats_copy_basic(const seqcount_t *running,
+> > +                       struct gnet_stats_basic_packed *bstats,
+> >                         struct gnet_stats_basic_cpu __percpu *cpu,
+> >                         struct gnet_stats_basic_packed *b)
+> >  {
+> > +       unsigned int seq;
+> > +
+> >         if (cpu) {
+> >                 __gnet_stats_copy_basic_cpu(bstats, cpu);
+> > -       } else {
+> > +               return;
+> > +       }
+> > +       do {
+> > +               if (running)
+> > +                       seq = read_seqcount_begin(running);
+> >                 bstats->bytes = b->bytes;
+> >                 bstats->packets = b->packets;
+> > -       }
+> > +       } while (running && read_seqcount_retry(running, seq));
+> >  }
+> 
+> Why only these basic stats need to get read seqlock?
 
-The intent is to generate default rules similar to what is done for 
-local and main tables. Users are free to delete and move rules if they 
-don't like the defaults. I'll drop the module parameter and just do the 
-rule add once on first device create. From there user intentions reign 
-if they move it.
+(seqcount)
+
+> Queue stats (gnet_stats_copy_queue()) too, right?
+
+All these values are 32bit values, right ?
+
+struct gnet_stats_queue {
+        __u32   qlen;
+        __u32   backlog;
+        __u32   drops;
+        __u32   requeues;
+        __u32   overlimits;
+};
+
+Really sounds overkill to care about these, as probably no one needs to
+get a 'consistent view of all these counters in a snapshot'.
+
+Even as of today, the qlen/backlog pair is wrong. No one ever used these
+values in an SNMP agent.
+
+Note that qlen/backlog is changed both by enqueue/dequeue, so the
+seqcount protection would not work.
+
+With the percpu stats thing, stats can not be fetched in a 'consistent'
+way.
