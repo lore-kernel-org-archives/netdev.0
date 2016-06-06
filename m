@@ -1,57 +1,31 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v2 net] fq_codel: fix NET_XMIT_CN behavior
-Date: Mon, 6 Jun 2016 06:49:26 -0400
-Message-ID: <57555536.1090801@mojatatu.com>
-References: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160604190301.GA8857@strlen.de>
- <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpVORpFx_xx67gYT_3jXfWAuqkMmR03R9VJv1TrcqH4W8A@mail.gmail.com>
- <1465160087.2968.51.camel@edumazet-glaptop3.roam.corp.google.com>
- <1465160123.2968.52.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpXMwT20nhWW4Pd2yy6nkeXkSNdxV9wAEGzGd22PcyePmg@mail.gmail.com>
+From: Holger Schurig <holgerschurig@gmail.com>
+Subject: RE: [PATCH v2 1/2] ARM: imx6: disable deeper idle states when FEC is active w/o HW workaround
+Date: Mon, 06 Jun 2016 13:04:12 +0200
+Message-ID: <87a8iypoib.fsf@gmail.com>
+References: <1464971480-9203-1-git-send-email-l.stach@pengutronix.de> <VI1PR0401MB1855AA40FA576AF677A68E6FFF5C0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Florian Westphal <fw@strlen.de>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Stas Nichiporovich <stasn77@gmail.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Cc: "devicetree\@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-arm-kernel\@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"kernel\@pengutronix.de" <kernel@pengutronix.de>,
+	"patchwork-lst\@pengutronix.de" <patchwork-lst@pengutronix.de>
+To: Fugang Duan <fugang.duan@nxp.com>,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Shawn Guo <shawnguo@kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f42.google.com ([209.85.214.42]:37896 "EHLO
-	mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751125AbcFFKt2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 06:49:28 -0400
-Received: by mail-it0-f42.google.com with SMTP id i65so31976435ith.1
-        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 03:49:28 -0700 (PDT)
-In-Reply-To: <CAM_iQpXMwT20nhWW4Pd2yy6nkeXkSNdxV9wAEGzGd22PcyePmg@mail.gmail.com>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:37602 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752127AbcFFLEQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 07:04:16 -0400
+In-Reply-To: <VI1PR0401MB1855AA40FA576AF677A68E6FFF5C0@VI1PR0401MB1855.eurprd04.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-06-05 07:30 PM, Cong Wang wrote:
+> You just config the gpio irq like below patches:
+> bc20a5d6da71 (ARM: dts: imx6qdl-sabreauto: use GPIO_6 for FEC interrupt.)
+> 6261c4c8f13e (ARM: dts: imx6qdl-sabrelite: use GPIO_6 for FEC interrupt.)
 
-> Potentially all of the following:
->
-> net/sched/sch_choke.c:  return NET_XMIT_CN;
-> net/sched/sch_fifo.c:   return NET_XMIT_CN;
-> net/sched/sch_generic.c:        return NET_XMIT_CN;
-> net/sched/sch_gred.c:   return NET_XMIT_CN;
-> net/sched/sch_hhf.c:            return NET_XMIT_CN;
-> net/sched/sch_red.c:    return NET_XMIT_CN;
-> net/sched/sch_sfb.c:    return NET_XMIT_CN;
-> net/sched/sch_sfq.c:            return NET_XMIT_CN;
->
-
-As long as we are not loosing the stat that the packet
-is dropped. Some qdiscs have a counter which indicates
-congestion drops(look at RED variants of early drops);
-maybe codel needs one. The parent also must account for
-childs drops.
-BTW, returning NET_XMIT_CN could be confusing to tcp;
-it does not mean that the packet that we are getting return
-code for was dropped; it could mean _another_ packet in
-the queue was dropped.
-
-cheers,
-jamal
+But this is per-board, e.g. not board-agnostic??!?!   Some board might
+have uses GPIO6 for other things and rendered it unusable for this ...
