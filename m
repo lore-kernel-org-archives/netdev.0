@@ -1,151 +1,99 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [RFC PATCH 0/4] Make inotify instance/watches be accounted per userns
-Date: Mon, 06 Jun 2016 15:00:33 -0500
-Message-ID: <87lh2im6ji.fsf@x220.int.ebiederm.org>
-References: <1464767580-22732-1-git-send-email-kernel@kyup.com>
-	<8737ow7vcp.fsf@x220.int.ebiederm.org>
-	<20160602074920.GG19636@quack2.suse.cz>
-	<87bn3jy1cd.fsf@x220.int.ebiederm.org> <5751667D.7010207@kyup.com>
-	<87inxqovho.fsf@x220.int.ebiederm.org> <57551B10.6080505@kyup.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 2/9] net: dsa: Add support for parsing the old
+ binding
+Date: Mon, 6 Jun 2016 13:13:54 -0700
+Message-ID: <5755D982.6010206@gmail.com>
+References: <1464998733-10405-1-git-send-email-f.fainelli@gmail.com>
+ <1464998733-10405-5-git-send-email-f.fainelli@gmail.com>
+ <20160604200016.GD2063@lunn.ch> <5754AAC6.3080701@gmail.com>
+ <20160606031936.GK12165@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Jan Kara <jack@suse.cz>, avagin@openvz.org, netdev@vger.kernel.org,
-	Linux Containers <containers@lists.linux-foundation.org>,
-	linux-kernel@vger.kernel.org, eparis@redhat.com,
-	operations@siteground.com, gorcunov@openvz.org,
-	john@johnmccutchan.com
-To: Nikolay Borisov <kernel@kyup.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57551B10.6080505@kyup.com> (Nikolay Borisov's message of "Mon, 6
-	Jun 2016 09:41:20 +0300")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com, john@phrozen.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33200 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751480AbcFFUN6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 16:13:58 -0400
+Received: by mail-pf0-f195.google.com with SMTP id u67so2517013pfu.0
+        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 13:13:58 -0700 (PDT)
+In-Reply-To: <20160606031936.GK12165@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Nikolay Borisov <kernel@kyup.com> writes:
+On 06/05/2016 08:19 PM, Andrew Lunn wrote:
+>> How much support do we want to have for the old binding for in tree
+>> platforms? Is the plan to migrate them all to the new binding?
+> 
+> I think there are three cases to consider.
+> 
+> 1) There are some old boards using setup.c files which have a platform
+>    device, platform data, etc. I've never used DSA in this way, and it
+>    could be all the recent additions have broken this. We might want
+>    to test this, and if it is in fact broken, and has been for a
+>    while, it indicates nobody uses those boards any more. We might
+>    suggest removing them. Even if they do work, i doubt anybody is
+>    interested in converting them to device tree. So we might have to
+>    keep the platform data support around.
 
-> On 06/03/2016 11:41 PM, Eric W. Biederman wrote:
->> Nikolay Borisov <kernel@kyup.com> writes:
->> 
->>> On 06/02/2016 07:58 PM, Eric W. Biederman wrote:
->>>>
->>>> Nikolay please see my question for you at the end.
->> [snip] 
->>>> All of that said there is definitely a practical question that needs to
->>>> be asked.  Nikolay how did you get into this situation?  A typical user
->>>> namespace configuration will set up uid and gid maps with the help of a
->>>> privileged program and not map the uid of the user who created the user
->>>> namespace.  Thus avoiding exhausting the limits of the user who created
->>>> the container.
->>>
->>> Right but imagine having multiple containers with identical uid/gid maps
->>> for LXC-based setups imagine this:
->>>
->>> lxc.id_map = u 0 1337 65536
->> 
->> So I am only moderately concerned when the containers have overlapping
->> ids.  Because at some level overlapping ids means they are the same
->> user.  This is certainly true for file permissions and for other
->> permissions.  To isolate one container from another it fundamentally
->> needs to have separate uids and gids on the host system.
->> 
->>> Now all processes which are running with the same user on different
->>> containers will actually share the underlying user_struct thus the
->>> inotify limits. In such cases even running multiple instances of 'tail'
->>> in one container will eventually use all allowed inotify/mark instances.
->>> For this to happen you needn't also have complete overlap of the uid
->>> map, it's enough to have at least one UID between 2 containers overlap.
->>>
->>>
->>> So the risk of exhaustion doesn't apply to the privileged user that
->>> created the container and the uid mapping, but rather the users under
->>> which the various processes in the container are running. Does that make
->>> it clear?
->> 
->> Yes.  That is clear.
->> 
->>>> Which makes me personally more worried about escaping the existing
->>>> limits than exhausting the limits of a particular user.
->>>
->>> So I thought bit about it and I guess a solution can be concocted which
->>> utilize the hierarchical nature of page counter, and the inotify limits
->>> are set per namespace if you have capable(CAP_SYS_ADMIN). That way the
->>> admin can set one fairly large on the init_user_ns and then in every
->>> namespace created one can set smaller limits. That way for a branch in
->>> the tree (in the nomenclature you used in your previous reply to me) you
->>> will really be upper-bound to the limit set in the namespace which have
->>> ->level = 1. For the width of the tree, you will be bound by the
->>> "global" init_user_ns limits. How does that sound?
->> 
->> As a addendum to that design.  I think there should be an additional
->> sysctl or two that specifies how much the limit decreases when creating
->> a new user namespace and when creating a new user in that user
->> namespace.  That way with a good selection of limits and a limit
->> decrease people can use the kernel defaults without needing to change
->> them.
->
-> I agree that a sysctl which controls how the limits are set for new
-> namespaces is a good idea. I think it's best if this is in % rather than
-> some absolute value. Also I'm not sure about the sysctl when a user is
-> added in a namespace since just adding a new user should fall under the
-> limits of the current userns.
+We had a report a while ago of breakage, which got addressed and fixed
+upstream, so if it breaks again, it will get fixed again.
 
-My hunch is that a reserve per namespace as an absolute number will be
-easier to implement and analyze but I don't much care.
+> 
+> 2) In tree devices using the DT binding. We can update them all to the
+>    new binding. The kirkwood boards don't have a u-boot which is DT
+>    capable. Some of the armada boards do have a DT capable uboot, but
+>    all these boards have been added by the community, so i suspect
+>    they are not flashed never to be changed again.
+> 
+> 3) Out of tree devices using the DT binding. As far as i can see,
+>    there is no in three board actually using the Broadcom SF2 driver
+>    and its odd binding. However from talking to you, i know there are
+>    devices out in the wild using this binding, and their DT blob is
+>    fixed, never to be changed again.
 
-I meant that we have a tree where we track created inotify things
-that looks like:
+The concept of an "in-tree" board does not make much sense once the
+bootloader provides a blob to the kernel, and synchronizing the Device
+Tree sources with what a bootloader provides is just a pain with no
+reward as long as the binding remains standard and works.
 
-                    uns0:
-      +-------------//\\----------+
-     /       /------/  \----\      \
-   user1  user2            user3  user4
-                   +-------//\\--------+
-                  /     /--/  \---\     \
-                uns1  uns2       uns3  uns4
-              +-------//\\---------+
-             /    /---/  \---\      \
-          user5 user6       user7  user8
+> 
+> It actually seems odd to me that we have a nice new binding and an
+> implement which is reasonably clean, and we want to add code to
+> support a legacy binding for an out of tree board.
+> 
+> I need to think on this for a while. However, i don't see the old code
+> and binding going away anytime soon. It will take a few cycles to
+> determine if the old platform device/platform data still works, and to
+> remove the old boards if not. We can update the in tree devices to the
+> new binding, but we should keep the old binding a while to aid the
+> transition.
 
+I do not see the need for platform data going away actually, there are
+tons of devices out there that are not supported using Device Tree, yet
+feature Ethernet switches that could easily be supported would we want
+to add support for that, and clearly an answer along the lines of let's
+add Device Tree support for these platforms is not going to fly.
 
-Allowing a hierarchical tracking of things per user and per user
-namespace.
+> 
+> I'm tempted to say you should keep using the old code to support your
+> out of tree devices. You should define a new binding for SF2 which
+> conforms to the device tree binding document which just got accepted,
+> and add it to SF 2 alongside the legacy binding. And it would be great
+> if you could go the last step and actually add a boards device tree
+> file using it.
 
-The limits programed with the sysctl would look something like they do
-today.
-          
-> Also should those sysctls be global or should they be per-namespace? At
-> this point I'm more inclined to have global sysctl and maybe refine it
-> in the future if the need arises?
+I suppose I could do that.
 
-I think at the end of the day per-namespace is interesting.  We
-certainly need to track the values as if they were per namespace.
+> 
+> I'm hesitant to add legacy binding support for SF2 to the new DSA2
+> code. We should try to keep it free of cruft, and set a good example
+> for others to follow when they bring along there new drivers.
 
-However given that this should be a setup and forget kind of operation
-we don't need to worry about how to implement the sysctl settings as per
-namespace in the until everything else is sorted.  
-
->> Having default settings that are good enough 99% of the time and that
->> people don't need to tune, would be my biggest requirement (aside from
->> being light-weight) for merging something like this.
->> 
->> If things are set and forget and even the continer case does not need to
->> be aware then I think we have a design sufficiently robust and different
->> from what cgroups is doing to make it worth while to have a userns based
->> solution.
->
-> Provided that we agree on the overall design, so far it seems we just
-> need to iron out the details with the sysctl I'll be happy to implement
-> this.
-
-Thanks.  There are some other limits that need to be implemented in this
-style that are more important to me: maximum number of user namespaces,
-max number of pid namespaces, max number of mount namespaces, etc.
-Those limits I will gladly implement.  As I can finally see how to make
-all of this just work.  Which is to say the per userns per user per data
-structures that hold the counts will be worth creating generically.
-
-No need to generalize the code prematurely I think it make sense to sort
-out the logic on whichever we implement first and then the rest of the
-interesting limits can just follow the pattern that gets laid down.
-
-Eric
+What if this code was moved to the bcm_sf2.c where it matters and there
+is just the bottom part of dsa_register_switch() exposed instead?
+-- 
+Florian
