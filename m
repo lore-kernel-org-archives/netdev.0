@@ -1,29 +1,31 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v3 4/6] net: dsa: Add initialization helper for CPU port ethtool_ops
-Date: Tue, 07 Jun 2016 18:54:03 -0400
-Message-ID: <878tyg7gqc.fsf@ketchup.mtl.sfl>
-References: <1465333616-6351-1-git-send-email-f.fainelli@gmail.com> <1465333616-6351-5-git-send-email-f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/3] net sched action timestamp improvements
+Date: Tue, 07 Jun 2016 15:54:05 -0700 (PDT)
+Message-ID: <20160607.155405.778592531194331404.davem@davemloft.net>
+References: <1465209175-8002-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, andrew@lunn.ch,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	daniel@iogearbox.net
+To: jhs@mojatatu.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:38039 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932119AbcFGWyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 18:54:06 -0400
-In-Reply-To: <1465333616-6351-5-git-send-email-f.fainelli@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58743 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932249AbcFGWyI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 18:54:08 -0400
+In-Reply-To: <1465209175-8002-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Mon,  6 Jun 2016 06:32:52 -0400
 
-> Add a helper function: dsa_cpu_port_ethtool_init() which initializes a
-> custom ethtool_ops structure with custom DSA ethtool operations for CPU
-> ports. This is a preliminary change to move the initialization outside
-> of net/dsa/slave.c.
->
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> 
+> Various aggregations of duplicated code, fixes and introduction of firstused
+> timestamp
+> 
+> v2: add const for source time info per suggestion from Cong
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Series applied.
