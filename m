@@ -1,81 +1,76 @@
-From: Zi Shen Lim <zlim.lnx@gmail.com>
-Subject: [PATCH net-next v2 1/4] bpf: fix missing header inclusion
-Date: Mon,  6 Jun 2016 22:22:56 -0700
-Message-ID: <1465276979-10147-2-git-send-email-zlim.lnx@gmail.com>
-References: <1465276979-10147-1-git-send-email-zlim.lnx@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Yang Shi <yang.shi@linaro.org>, Daniel Borkmann <daniel@iogearbox.net>,
- Zi Shen Lim <zlim.lnx@gmail.com>, Alexei Starovoitov <ast@kernel.org>,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: "David S. Miller" <davem@davemloft.net>,
- Catalin Marinas <catalin.marinas@arm.com>,
- Will Deacon <will.deacon@arm.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1465276979-10147-1-git-send-email-zlim.lnx@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: vidya@cumulusnetworks.com
+Subject: [PATCH net-next] ethtool: Macro definition for SFF-8436/8636 Memory map max sizes
+Date: Mon,  6 Jun 2016 22:55:26 -0700
+Message-ID: <1465278926-10231-1-git-send-email-vidya@cumulusnetworks.com>
+Cc: roopa@cumulusnetworks.com
+To: bwh@kernel.org, davem@davemloft.net, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34861 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751125AbcFGFzd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 01:55:33 -0400
+Received: by mail-pa0-f50.google.com with SMTP id xk1so42649340pac.2
+        for <netdev@vger.kernel.org>; Mon, 06 Jun 2016 22:55:33 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Commit 0fc174dea545 ("ebpf: make internal bpf API independent of
-CONFIG_BPF_SYSCALL ifdefs") introduced usage of ERR_PTR() in
-bpf_prog_get(), however did not include linux/err.h.
+From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
 
-Without this patch, when compiling arm64 BPF without CONFIG_BPF_SYSCALL:
-...
-In file included from arch/arm64/net/bpf_jit_comp.c:21:0:
-include/linux/bpf.h: In function 'bpf_prog_get':
-include/linux/bpf.h:235:9: error: implicit declaration of function 'ERR_PTR' [-Werror=implicit-function-declaration]
-  return ERR_PTR(-EOPNOTSUPP);
-         ^
-include/linux/bpf.h:235:9: warning: return makes pointer from integer without a cast [-Wint-conversion]
-In file included from include/linux/rwsem.h:17:0,
-                 from include/linux/mm_types.h:10,
-                 from include/linux/sched.h:27,
-                 from arch/arm64/include/asm/compat.h:25,
-                 from arch/arm64/include/asm/stat.h:23,
-                 from include/linux/stat.h:5,
-                 from include/linux/compat.h:12,
-                 from include/linux/filter.h:10,
-                 from arch/arm64/net/bpf_jit_comp.c:22:
-include/linux/err.h: At top level:
-include/linux/err.h:23:35: error: conflicting types for 'ERR_PTR'
- static inline void * __must_check ERR_PTR(long error)
-                                   ^
-In file included from arch/arm64/net/bpf_jit_comp.c:21:0:
-include/linux/bpf.h:235:9: note: previous implicit declaration of 'ERR_PTR' was here
-  return ERR_PTR(-EOPNOTSUPP);
-         ^
-...
+This patch provides macro definitions for maximum possible
+memory map size of QSFP+/QSFP28 EEPROMs as per SFF-8436/SFF-8636
 
-Fixes: 0fc174dea545 ("ebpf: make internal bpf API independent of CONFIG_BPF_SYSCALL ifdefs")
-Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
-Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+According to SFF-8436/SFF-8636 specs, the common memory map for
+managing external cable interfaces is arranged into a single
+lower page address space of 128 bytes and multiple upper address pages
+of 128 bytes each. The total size of memory map is up to 5 128 byte pages
+defined by a "pages valid" register and switched via a "page select"
+register for "optional pages". Memory of 256 bytes can be memory mapped
+at a time and QSFP+/QSFP28  drivers can export upto 5*128 bytes of
+eeprom dump.
+
+QSFP+/QSFP28 Memory layout
+           2-Wire Serial Address: 1010000x
+           Lower Page 00h (128 bytes)
+           ======================
+           |Page Select Byte(127)|
+           ======================
+                    |
+                    V
+       ----------------------------------------
+      |             |            |             |
+      V             V            V             V
+   ----------   ----------   ---------    ------------
+  | Upper    | | Upper    | | Upper    | | Upper      |
+  | Page 00h | | Page 01h | | Page 02h | | Page 03h   |
+  |          | |(Optional)| |(Optional)| | (Optional) |
+  |    ID    | |   AST    | |  User    | |  For       |
+  |  Fields  | |  Table   | | EEPROM   | |  Cable     |
+  -----------  -----------   ----------  --------------
+
+Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
 ---
- include/linux/bpf.h | 1 +
- 1 file changed, 1 insertion(+)
+ include/uapi/linux/ethtool.h | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 8ee27b8..1bcae82 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -11,6 +11,7 @@
- #include <linux/workqueue.h>
- #include <linux/file.h>
- #include <linux/percpu.h>
-+#include <linux/err.h>
+diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+index 5f030b4..ff6ccbd 100644
+--- a/include/uapi/linux/ethtool.h
++++ b/include/uapi/linux/ethtool.h
+@@ -1584,9 +1584,15 @@ static inline int ethtool_validate_duplex(__u8 duplex)
+ #define ETH_MODULE_SFF_8472		0x2
+ #define ETH_MODULE_SFF_8472_LEN		512
+ #define ETH_MODULE_SFF_8636		0x3
++/* min, without optional page */
+ #define ETH_MODULE_SFF_8636_LEN		256
++/* max, with all optional pages */
++#define ETH_MODULE_SFF_8636_MAX_LEN		640
+ #define ETH_MODULE_SFF_8436		0x4
++/* min, without optional page */
+ #define ETH_MODULE_SFF_8436_LEN		256
++/* max, with all optional pages */
++#define ETH_MODULE_SFF_8436_MAX_LEN		640
  
- struct bpf_map;
- 
+ /* Reset flags */
+ /* The reset() operation must clear the flags for the components which
 -- 
-1.9.1
+2.1.4
