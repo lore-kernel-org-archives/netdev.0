@@ -1,41 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] net: sched: faster stats gathering
-Date: Tue, 07 Jun 2016 16:37:31 -0700 (PDT)
-Message-ID: <20160607.163731.1914725336655728632.davem@davemloft.net>
-References: <1465231036-10674-1-git-send-email-edumazet@google.com>
+Subject: Re: [Patch net v2] act_police: fix a crash during removal
+Date: Tue, 07 Jun 2016 16:39:37 -0700 (PDT)
+Message-ID: <20160607.163937.912604117468317513.davem@davemloft.net>
+References: <1465232070-7844-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, jhs@mojatatu.com,
-	eric.dumazet@gmail.com
-To: edumazet@google.com
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59076 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59083 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932233AbcFGXhe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 19:37:34 -0400
-In-Reply-To: <1465231036-10674-1-git-send-email-edumazet@google.com>
+	with ESMTP id S1751627AbcFGXjj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 19:39:39 -0400
+In-Reply-To: <1465232070-7844-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Mon,  6 Jun 2016 09:37:14 -0700
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Mon,  6 Jun 2016 09:54:30 -0700
 
-> A while back, I sent one RFC patch using lockless stats gathering
-> on 64bit arches.
+> The police action is using its own code to initialize tcf hash
+> info, which makes us to forgot to initialize a->hinfo correctly.
+> Fix this by calling the helper function tcf_hash_create() directly.
 > 
-> This patch series does it more cleanly, using a seqcount.
-> 
-> Since qdisc/class stats are written at dequeue() time,
-> we can ask the dequeue to change the seqcount, so that
-> stats readers can avoid taking the root qdisc lock,
-> and instead the typical read_seqcount_{begin|retry} guarded
-> loop.
-> 
-> This does not change fast path costs, as the seqcount
-> increments are not more expensive than the bit manipulation,
-> and allows readers to not freeze the fast path anymore.
+> This patch fixed the following crash:
+ ...
+> Fixes: ddf97ccdd7cb ("net_sched: add network namespace support for tc actions")
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-I like this, looks great!
-
-Applied.
+Applied, thanks.
