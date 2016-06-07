@@ -1,38 +1,51 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] l2tp: fix configuration passed to
- setup_udp_tunnel_sock()
-Date: Tue, 07 Jun 2016 16:20:17 -0700 (PDT)
-Message-ID: <20160607.162017.1294730894994990373.davem@davemloft.net>
-References: <a8f79b662219b6fdeef7556899051108b9294a15.1465213131.git.g.nault@alphalink.fr>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH 01/12] net: mediatek: fix DQL support
+Date: Tue, 7 Jun 2016 16:20:33 -0700
+Message-ID: <CALx6S357KoKbS6tMKUgvHHLowXauZqAXib=bGuJBprwMDFkQ2g@mail.gmail.com>
+References: <1465108385-38286-2-git-send-email-john@phrozen.org>
+	<20160605.003242.796780762112643713.davem@davemloft.net>
+	<e1b52f75-edb7-8504-3e6d-40fcb03e39df@phrozen.org>
+	<20160607.160116.2076757909377302163.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com, jchapman@katalix.com
-To: g.nault@alphalink.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58983 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751365AbcFGXUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 19:20:23 -0400
-In-Reply-To: <a8f79b662219b6fdeef7556899051108b9294a15.1465213131.git.g.nault@alphalink.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: john@phrozen.org,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	linux-mediatek@lists.infradead.org, keyhaede@gmail.com,
+	LKML <linux-kernel@vger.kernel.org>, nbd@nbd.name
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160607.160116.2076757909377302163.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Mon, 6 Jun 2016 13:48:02 +0200
+On Tue, Jun 7, 2016 at 4:01 PM, David Miller <davem@davemloft.net> wrote:
+> From: John Crispin <john@phrozen.org>
+> Date: Mon, 6 Jun 2016 08:43:13 +0200
+>
+>> i think one solution would be to add some code to have 2 devices share
+>> the same dql instance. would that be an acceptable solution ?
+>
+> You still need to address the issue of synchronization.
+>
+> dql purposefully doesn't use locking, always because a higher level
+> object (in this case the netdev TX queue) it is contained within
+> provides the synchronization.
+>
+> That breaks apart once you share the dql between two netdevs, as you
+> are proposing here.  You'll have to add locking, which is expensive.
+>
+> That's why I'm trying to encourage you to think out of the box and
+> find some way to solve the issue without having to access shared
+> state shared between multiple devices.
+>
 
-> @@ -1581,7 +1581,7 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
->  	/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
->  	tunnel->encap = encap;
->  	if (encap == L2TP_ENCAPTYPE_UDP) {
-> -		struct udp_tunnel_sock_cfg udp_cfg;
-> +		struct udp_tunnel_sock_cfg udp_cfg = { NULL };
+I think you guys mean mean BQL not DQL :-)
 
-This assumes that the first member of udp_tunnel_sock_cfg is, and will always
-be, a pointer.
+If two netdevs share the same DMA ring then is using two netdevs the
+right approach. Seems like this would have other consequences beyond
+BQL...
 
-You could use a named initializer to make this better, but the cleanest way to
-deal with this is to use an empty initializer "{ }", or just plain memset()
-the thing to zero.
+Tom
 
-Thanks.
+> Thanks.
+>
