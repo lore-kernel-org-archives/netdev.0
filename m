@@ -1,99 +1,97 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: [PATCH net v2] bridge: Fix incorrect re-injection of STP
-	packets
-Date: Tue, 7 Jun 2016 12:06:58 +0300
-Message-ID: <1465290418-8015-1-git-send-email-idosch@mellanox.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH v3] virtio-net: Add initial MTU advice feature
+Date: Tue, 7 Jun 2016 12:21:48 +0300
+Message-ID: <20160607121706-mutt-send-email-mst@redhat.com>
+References: <1464987432-1458-1-git-send-email-aconole@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: yotamg@mellanox.com, netdev@vger.kernel.org,
-	bridge@lists.linux-foundation.org, Florian Westphal <fw@strlen.de>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>, nogahf@mellanox.com,
-	eladr@mellanox.com, ogerlitz@mellanox.com,
-	Shmulik Ladkani <shmulik.ladkani@gmail.com>
-To: <stephen@networkplumber.org>, <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+Content-Type: text/plain; charset=us-ascii
+Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Aaron Conole <aconole@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1464987432-1458-1-git-send-email-aconole@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 8626c56c8279 ("bridge: fix potential use-after-free when hook
-returns QUEUE or STOLEN verdict") fixed incorrect usage of NF_HOOK's
-return value by consuming packets in okfn via br_pass_frame_up().
+On Fri, Jun 03, 2016 at 04:57:12PM -0400, Aaron Conole wrote:
+> This commit adds the feature bit and associated mtu device entry for the
+> virtio network device.  When a virtio device comes up, it checks the
+> feature bit for the VIRTIO_NET_F_MTU feature.  If such feature bit is
+> enabled, the driver will read the advised MTU and use it as the initial
+> value.
+> 
+> Signed-off-by: Aaron Conole <aconole@redhat.com>
+> ---
+> v2->v3:
+> * Added a check for the MTU, and a bit clear for it being out of range.
+> 
+>  drivers/net/virtio_net.c        | 10 ++++++++++
+>  include/uapi/linux/virtio_net.h |  3 +++
+>  2 files changed, 13 insertions(+)
+> 
+> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
+> index e0638e5..192f321 100644
+> --- a/drivers/net/virtio_net.c
+> +++ b/drivers/net/virtio_net.c
+> @@ -1780,6 +1780,7 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	struct net_device *dev;
+>  	struct virtnet_info *vi;
+>  	u16 max_queue_pairs;
+> +	int mtu;
+>  
+>  	if (!vdev->config->get) {
+>  		dev_err(&vdev->dev, "%s failure: config access disabled\n",
+> @@ -1896,6 +1897,14 @@ static int virtnet_probe(struct virtio_device *vdev)
+>  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
+>  		vi->has_cvq = true;
+>  
+> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
+> +		mtu = virtio_cread16(vdev,
+> +				     offsetof(struct virtio_net_config,
+> +					      mtu));
+> +		if (virtnet_change_mtu(dev, mtu))
+> +			__virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
+> +	}
+> +
+>  	if (vi->any_header_sg)
+>  		dev->needed_headroom = vi->hdr_len;
+>  
+> @@ -2067,6 +2076,7 @@ static unsigned int features[] = {
+>  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
+>  	VIRTIO_NET_F_CTRL_MAC_ADDR,
+>  	VIRTIO_F_ANY_LAYOUT,
+> +	VIRTIO_NET_F_MTU,
+>  };
+>  
+>  static struct virtio_driver virtio_net_driver = {
+> diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
+> index ec32293..1ab4ea6 100644
+> --- a/include/uapi/linux/virtio_net.h
+> +++ b/include/uapi/linux/virtio_net.h
+> @@ -55,6 +55,7 @@
+>  #define VIRTIO_NET_F_MQ	22	/* Device supports Receive Flow
+>  					 * Steering */
+>  #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
+> +#define VIRTIO_NET_F_MTU 25	/* Initial MTU advice */
+>  
+>  #ifndef VIRTIO_NET_NO_LEGACY
+>  #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
 
-However, this function re-injects packets to the Rx path with skb->dev
-set to the bridge device, which breaks kernel's STP, as all STP packets
-appear to originate from the bridge device itself.
 
-Instead, if STP is enabled and bridge isn't a 802.1ad bridge, then learn
-packet's SMAC and inject it back to the Rx path for further processing
-by the packet handlers.
+Oops I just notices this conflicts with virtio spec which says
+devices must only use features up to 24.
+Please post a follow-up patch changing this to bit 3.
 
-The patch also makes netfilter's behavior consistent with regards to
-packets destined to the Bridge Group Address, as no hook registered at
-LOCAL_IN will ever be called, regardless if STP is enabled or not.
 
-Cc: Florian Westphal <fw@strlen.de>
-Cc: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
-Fixes: 8626c56c8279 ("bridge: fix potential use-after-free when hook returns QUEUE or STOLEN verdict")
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
---
-v1->v2:
-* Prevent a memory leak and set pskb before returning RX_HANDLER_PASS
-(Shmulik L)
-* Skip LOCAL_IN hooks
----
- net/bridge/br_input.c | 15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
-
-diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
-index 1607977..43d2cd8 100644
---- a/net/bridge/br_input.c
-+++ b/net/bridge/br_input.c
-@@ -213,8 +213,7 @@ drop:
- }
- EXPORT_SYMBOL_GPL(br_handle_frame_finish);
- 
--/* note: already called with rcu_read_lock */
--static int br_handle_local_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
-+static void __br_handle_local_finish(struct sk_buff *skb)
- {
- 	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
- 	u16 vid = 0;
-@@ -222,6 +221,14 @@ static int br_handle_local_finish(struct net *net, struct sock *sk, struct sk_bu
- 	/* check if vlan is allowed, to avoid spoofing */
- 	if (p->flags & BR_LEARNING && br_should_learn(p, skb, &vid))
- 		br_fdb_update(p->br, p, eth_hdr(skb)->h_source, vid, false);
-+}
-+
-+/* note: already called with rcu_read_lock */
-+static int br_handle_local_finish(struct net *net, struct sock *sk, struct sk_buff *skb)
-+{
-+	struct net_bridge_port *p = br_port_get_rcu(skb->dev);
-+
-+	__br_handle_local_finish(skb);
- 
- 	BR_INPUT_SKB_CB(skb)->brdev = p->br->dev;
- 	br_pass_frame_up(skb);
-@@ -274,7 +281,9 @@ rx_handler_result_t br_handle_frame(struct sk_buff **pskb)
- 			if (p->br->stp_enabled == BR_NO_STP ||
- 			    fwd_mask & (1u << dest[5]))
- 				goto forward;
--			break;
-+			*pskb = skb;
-+			__br_handle_local_finish(skb);
-+			return RX_HANDLER_PASS;
- 
- 		case 0x01:	/* IEEE MAC (Pause) */
- 			goto drop;
--- 
-2.8.2
+> @@ -73,6 +74,8 @@ struct virtio_net_config {
+>  	 * Legal values are between 1 and 0x8000
+>  	 */
+>  	__u16 max_virtqueue_pairs;
+> +	/* Default maximum transmit unit advice */
+> +	__u16 mtu;
+>  } __attribute__((packed));
+>  
+>  /*
+> -- 
+> 2.5.5
