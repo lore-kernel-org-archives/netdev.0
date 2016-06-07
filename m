@@ -1,106 +1,142 @@
-From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next] NSH(Network Service Header)
-	implementation
-Date: Mon, 6 Jun 2016 17:45:08 -0700
-Message-ID: <CAOrHB_DF+LvRyJAOu6h=ofbf-T-Q85FutsFZ118FhsCsLsVBCg@mail.gmail.com>
-References: <1465205686-96724-1-git-send-email-yi.y.yang@intel.com>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: Re: [PATCH net-next 2/2] tcp: add NV congestion control
+Date: Tue, 7 Jun 2016 01:04:06 +0000
+Message-ID: <D37B5339.19584%brakmo@fb.com>
+References: <1464986278-2096156-1-git-send-email-brakmo@fb.com>
+ <1464986278-2096156-3-git-send-email-brakmo@fb.com>
+ <20160606.160108.1481703166637051807.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Yi Yang <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1465205686-96724-1-git-send-email-yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kernel Team <Kernel-team@fb.com>,
+	"ncardwell@google.com" <ncardwell@google.com>,
+	"eric.dumazet@gmail.com" <eric.dumazet@gmail.com>,
+	"ycheng@google.com" <ycheng@google.com>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	"kennetkl@ifi.uio.no" <kennetkl@ifi.uio.no>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:33327 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750788AbcFGBEV convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 6 Jun 2016 21:04:21 -0400
+In-Reply-To: <20160606.160108.1481703166637051807.davem@davemloft.net>
+Content-Language: en-US
+Content-ID: <D08DF8BCDA89C04C9020DB6AAE61E48F@namprd15.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBKdW4gNiwgMjAxNiBhdCAyOjM0IEFNLCBZaSBZYW5nIDx5aS55LnlhbmdAaW50ZWwu
-Y29tPiB3cm90ZToKPiBJRVRGIGRlZmluZWQgTlNIKE5ldHdvcmsgU2VydmljZSBIZWFkZXIpIGZv
-ciBTZXJ2aWNlCj4gRnVuY3Rpb24gQ2hhaW5pbmcsIHRoaXMgaXMgYW4gSUVURiBkcmFmdAo+Cj4g
-aHR0cHM6Ly90b29scy5pZXRmLm9yZy9odG1sL2RyYWZ0LWlldGYtc2ZjLW5zaC0wNQo+Cj4gSXQg
-d2lsbCBiZSBhIElFVEYgc3RhbmRhcmQgc2hvcnRseSwgdGhpcyBwYXRjaCBpbXBsZW1lbnRlZAo+
-IE5TSCBmb3IgT3BlbiB2U3dpdGNoLgo+Cj4gU2lnbmVkLW9mZi1ieTogSm9obnNvbiBMaSA8am9o
-bnNvbi5saUBpbnRlbC5jb20+Cj4gU2lnbmVkLW9mZi1ieTogWWkgWWFuZyA8eWkueS55YW5nQGlu
-dGVsLmNvbT4KPiAtLS0KPiAgZHJpdmVycy9uZXQvdnhsYW4uYyAgICAgICAgICAgICAgfCAgIDcg
-KysKPiAgaW5jbHVkZS9uZXQvbnNoLmggICAgICAgICAgICAgICAgfCAxMTcgKysrKysrKysrKysr
-KysrKysrKysrKysKPiAgaW5jbHVkZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmggfCAgMzIgKysr
-KysrKwo+ICBuZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jICAgICAgICB8ICA2OCArKysrKysrKysr
-KysrCj4gIG5ldC9vcGVudnN3aXRjaC9mbG93LmMgICAgICAgICAgIHwgIDQ1ICsrKysrKysrLQo+
-ICBuZXQvb3BlbnZzd2l0Y2gvZmxvdy5oICAgICAgICAgICB8ICAxNSArKysKPiAgbmV0L29wZW52
-c3dpdGNoL2Zsb3dfbmV0bGluay5jICAgfCAyMDIgKysrKysrKysrKysrKysrKysrKysrKysrKysr
-KysrKysrKysrKystCj4gIG5ldC9vcGVudnN3aXRjaC92cG9ydC1uZXRkZXYuYyAgIHwgICAzICst
-Cj4gIG5ldC9vcGVudnN3aXRjaC92cG9ydC12eGxhbi5jICAgIHwgIDE1ICsrKwo+ICA5IGZpbGVz
-IGNoYW5nZWQsIDUwMSBpbnNlcnRpb25zKCspLCAzIGRlbGV0aW9ucygtKQo+ICBjcmVhdGUgbW9k
-ZSAxMDA2NDQgaW5jbHVkZS9uZXQvbnNoLmgKPgoKLi4uCi4uLgo+IGRpZmYgLS1naXQgYS9uZXQv
-b3BlbnZzd2l0Y2gvYWN0aW9ucy5jIGIvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYwo+IGluZGV4
-IDlhM2ViN2EuLjM4ZTc4N2MgMTAwNjQ0Cj4gLS0tIGEvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMu
-Ywo+ICsrKyBiL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMKPiBAQCAtMjksNiArMjksNyBAQAo+
-ICAjaW5jbHVkZSA8bGludXgvaW42Lmg+Cj4gICNpbmNsdWRlIDxsaW51eC9pZl9hcnAuaD4KPiAg
-I2luY2x1ZGUgPGxpbnV4L2lmX3ZsYW4uaD4KPiArI2luY2x1ZGUgPGxpbnV4L2lmX2V0aGVyLmg+
-Cj4KPiAgI2luY2x1ZGUgPG5ldC9kc3QuaD4KPiAgI2luY2x1ZGUgPG5ldC9pcC5oPgo+IEBAIC0z
-OCw2ICszOSw3IEBACj4gICNpbmNsdWRlIDxuZXQvZHNmaWVsZC5oPgo+ICAjaW5jbHVkZSA8bmV0
-L21wbHMuaD4KPiAgI2luY2x1ZGUgPG5ldC9zY3RwL2NoZWNrc3VtLmg+Cj4gKyNpbmNsdWRlIDxu
-ZXQvbnNoLmg+Cj4KPiAgI2luY2x1ZGUgImRhdGFwYXRoLmgiCj4gICNpbmNsdWRlICJmbG93Lmgi
-Cj4gQEAgLTI1OSw2ICsyNjEsNjQgQEAgc3RhdGljIGludCBwdXNoX3ZsYW4oc3RydWN0IHNrX2J1
-ZmYgKnNrYiwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXksCj4gICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICBudG9ocyh2bGFuLT52bGFuX3RjaSkgJiB+VkxBTl9UQUdfUFJFU0VOVCk7Cj4gIH0K
-PgouLi4KLi4uCj4gKwo+ICtzdGF0aWMgaW50IHB1c2hfbnNoKHN0cnVjdCBza19idWZmICpza2Is
-IHN0cnVjdCBzd19mbG93X2tleSAqa2V5LAo+ICsgICAgICAgICAgICAgICAgICAgY29uc3Qgc3Ry
-dWN0IG92c19hY3Rpb25fcHVzaF9uc2ggKm5zaCkKPiArewo+ICsgICAgICAgaWYgKG5zaC0+bGVu
-ID4gMCAmJiBuc2gtPmxlbiA8PSAyNTYpIHsKPiArICAgICAgICAgICAgICAgc3RydWN0IG5zaF9o
-ZHIgKm5zaF9oZHIgPSBOVUxMOwo+ICsKPiArICAgICAgICAgICAgICAgaWYgKHNrYl9jb3dfaGVh
-ZChza2IsIG5zaC0+bGVuKSA8IDApCj4gKyAgICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIC1F
-Tk9NRU07Cj4gKwo+ICsgICAgICAgICAgICAgICBza2JfcHVzaChza2IsIG5zaC0+bGVuKTsKPiAr
-ICAgICAgICAgICAgICAgbnNoX2hkciA9IChzdHJ1Y3QgbnNoX2hkciAqKShza2ItPmRhdGEpOwo+
-ICsgICAgICAgICAgICAgICBtZW1jcHkobnNoX2hkciwgbnNoLT5oZWFkZXIsIG5zaC0+bGVuKTsK
-PiArCj4gKyAgICAgICAgICAgICAgIGlmICghc2tiLT5pbm5lcl9wcm90b2NvbCkKPiArICAgICAg
-ICAgICAgICAgICAgICAgICBza2Jfc2V0X2lubmVyX3Byb3RvY29sKHNrYiwgc2tiLT5wcm90b2Nv
-bCk7Cj4gKwo+ICsgICAgICAgICAgICAgICBza2ItPnByb3RvY29sID0gaHRvbnMoRVRIX1BfTlNI
-KTsgLyogMHg4OTRGICovCj4gKyAgICAgICAgICAgICAgIGtleS0+ZXRoLnR5cGUgPSBodG9ucyhF
-VEhfUF9OU0gpOwo+ICsgICAgICAgfSBlbHNlIHsKPiArICAgICAgICAgICAgICAgcmV0dXJuIC1F
-SU5WQUw7Cj4gKyAgICAgICB9Cj4gKwo+ICsgICAgICAgcmV0dXJuIDA7Cj4gK30KCk5ldHdvcmtp
-bmcgc3RhY2sgb3IgT1ZTIGNhbiBub3QgaGFuZGxlIGFyYml0cmFyeSBza2ItcHJvdG9jb2wuIEZv
-cgpleGFtcGxlIHdoYXQgaGFwcGVucyBpZiBPVlMgaGFzIHB1c2ggdmxhbiBhY3Rpb24gb3IgaXQg
-c2VuZHMgdGhpcyBuc2gKcGFja2V0IHRvIG5ldCBkZXZpY2Ugd2hpY2ggY2FuIG5vdCBoYW5kbGUg
-bnNoIHBhY2tldD8gRXZlbiBuZXR3b3JraW5nCnN0YWNrIGNhbiBub3QgcGFyc2Ugc3VjaCBwYWNr
-ZXQgZm9yIGhhbmRsaW5nIG9mZmxvYWRzIGluIHNvZnR3YXJlLgouLi4KCj4gZGlmZiAtLWdpdCBh
-L25ldC9vcGVudnN3aXRjaC92cG9ydC12eGxhbi5jIGIvbmV0L29wZW52c3dpdGNoL3Zwb3J0LXZ4
-bGFuLmMKPiBpbmRleCA1ZWI3Njk0Li4zZDA2MGM0IDEwMDY0NAo+IC0tLSBhL25ldC9vcGVudnN3
-aXRjaC92cG9ydC12eGxhbi5jCj4gKysrIGIvbmV0L29wZW52c3dpdGNoL3Zwb3J0LXZ4bGFuLmMK
-PiBAQCAtNTIsNiArNTIsMTggQEAgc3RhdGljIGludCB2eGxhbl9nZXRfb3B0aW9ucyhjb25zdCBz
-dHJ1Y3QgdnBvcnQgKnZwb3J0LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQo+ICAgICAgICAgICAgICAg
-ICAgICAgICAgIHJldHVybiAtRU1TR1NJWkU7Cj4KPiAgICAgICAgICAgICAgICAgbmxhX25lc3Rf
-ZW5kKHNrYiwgZXh0cyk7Cj4gKyAgICAgICB9IGVsc2UgaWYgKHZ4bGFuLT5mbGFncyAmIFZYTEFO
-X0ZfR1BFKSB7Cj4gKyAgICAgICAgICAgICAgIHN0cnVjdCBubGF0dHIgKmV4dHM7Cj4gKwo+ICsg
-ICAgICAgICAgICAgICBleHRzID0gbmxhX25lc3Rfc3RhcnQoc2tiLCBPVlNfVFVOTkVMX0FUVFJf
-RVhURU5TSU9OKTsKPiArICAgICAgICAgICAgICAgaWYgKCFleHRzKQo+ICsgICAgICAgICAgICAg
-ICAgICAgICAgIHJldHVybiAtRU1TR1NJWkU7Cj4gKwo+ICsgICAgICAgICAgICAgICBpZiAodnhs
-YW4tPmZsYWdzICYgVlhMQU5fRl9HUEUgJiYKPiArICAgICAgICAgICAgICAgICAgIG5sYV9wdXRf
-ZmxhZyhza2IsIE9WU19WWExBTl9FWFRfR1BFKSkKPiArICAgICAgICAgICAgICAgICAgICAgICBy
-ZXR1cm4gLUVNU0dTSVpFOwo+ICsKPiArICAgICAgICAgICAgICAgbmxhX25lc3RfZW5kKHNrYiwg
-ZXh0cyk7Cj4gICAgICAgICB9Cj4KPiAgICAgICAgIHJldHVybiAwOwo+IEBAIC01OSw2ICs3MSw3
-IEBAIHN0YXRpYyBpbnQgdnhsYW5fZ2V0X29wdGlvbnMoY29uc3Qgc3RydWN0IHZwb3J0ICp2cG9y
-dCwgc3RydWN0IHNrX2J1ZmYgKnNrYikKPgo+ICBzdGF0aWMgY29uc3Qgc3RydWN0IG5sYV9wb2xp
-Y3kgZXh0c19wb2xpY3lbT1ZTX1ZYTEFOX0VYVF9NQVggKyAxXSA9IHsKPiAgICAgICAgIFtPVlNf
-VlhMQU5fRVhUX0dCUF0gICAgID0geyAudHlwZSA9IE5MQV9GTEFHLCB9LAo+ICsgICAgICAgW09W
-U19WWExBTl9FWFRfR1BFXSAgICAgPSB7IC50eXBlID0gTkxBX0ZMQUcsIH0sCj4gIH07Cj4KPiAg
-c3RhdGljIGludCB2eGxhbl9jb25maWd1cmVfZXh0cyhzdHJ1Y3QgdnBvcnQgKnZwb3J0LCBzdHJ1
-Y3QgbmxhdHRyICphdHRyLAo+IEBAIC03Niw2ICs4OSw4IEBAIHN0YXRpYyBpbnQgdnhsYW5fY29u
-ZmlndXJlX2V4dHMoc3RydWN0IHZwb3J0ICp2cG9ydCwgc3RydWN0IG5sYXR0ciAqYXR0ciwKPgo+
-ICAgICAgICAgaWYgKGV4dHNbT1ZTX1ZYTEFOX0VYVF9HQlBdKQo+ICAgICAgICAgICAgICAgICBj
-b25mLT5mbGFncyB8PSBWWExBTl9GX0dCUDsKPiArICAgICAgIGVsc2UgaWYgKGV4dHNbT1ZTX1ZY
-TEFOX0VYVF9HUEVdKQo+ICsgICAgICAgICAgICAgICBjb25mLT5mbGFncyB8PSBWWExBTl9GX0dQ
-RTsKPgpUaGlzIGlzIGNvbXBhdGliaWxpdHkgY29kZSwgbm8gbmVlZCB0byBhZGQgbmV3IGZlYXR1
-cmVzIHRvIHRoaXMgY29kZS4KTm93IHdlIHNob3VsZCBiZSBkaXJlY3RseSB1c2luZyBuZXQgZGV2
-aWNlcy4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2
-IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcv
-bWFpbG1hbi9saXN0aW5mby9kZXYK
+On 6/6/16, 4:01 PM, "David Miller" <davem@davemloft.net> wrote:
+
+>From: Lawrence Brakmo <brakmo@fb.com>
+>Date: Fri, 3 Jun 2016 13:37:58 -0700
+>
+>> +module_param(nv_enable, int, 0644);
+>> +MODULE_PARM_DESC(nv_enable, "enable NV (congestion avoidance)
+>>behavior");
+>> +module_param(nv_pad, int, 0644);
+>> +MODULE_PARM_DESC(nv_pad, "extra packets above congestion level");
+>> +module_param(nv_pad_buffer, int, 0644);
+>> +MODULE_PARM_DESC(nv_pad_buffer, "no growth buffer zone");
+>> +module_param(nv_reset_period, int, 0644);
+>> +MODULE_PARM_DESC(nv_reset_period, "nv_min_rtt reset period (secs)")=
+;
+>> +module_param(nv_min_cwnd, int, 0644);
+>> +MODULE_PARM_DESC(nv_min_cwnd, "NV will not decrease cwnd below this
+>>value"
+>> +		 " without losses");
+>> +module_param(nv_dec_eval_min_calls, int, 0644);
+>> +MODULE_PARM_DESC(nv_dec_eval_min_calls, "Wait for this many data
+>>points"
+>> +		 " before declaring congestion");
+>> +module_param(nv_inc_eval_min_calls, int, 0644);
+>> +MODULE_PARM_DESC(nv_inc_eval_min_calls, "Wait for this many data
+>>points"
+>> +		 " before allowing cwnd growth");
+>> +module_param(nv_stop_rtt_cnt, int, 0644);
+>> +MODULE_PARM_DESC(nv_stop_rtt_cnt, "Wait for this many RTTs before
+>>stopping"
+>> +		 " cwnd growth");
+>> +module_param(nv_ssthresh_eval_min_calls, int, 0644);
+>> +MODULE_PARM_DESC(nv_ssthresh_eval_min_calls, "Wait for this many da=
+ta
+>>points"
+>> +		 " before declaring congestion during initial slow-start");
+>> +module_param(nv_rtt_min_cnt, int, 0644);
+>> +MODULE_PARM_DESC(nv_rtt_min_cnt, "Wait for this many RTTs before
+>>declaring"
+>> +		 " congestion");
+>> +module_param(nv_cong_dec_mult, int, 0644);
+>> +MODULE_PARM_DESC(nv_cong_dec_mult, "Congestion decrease factor");
+>> +module_param(nv_ssthresh_factor, int, 0644);
+>> +MODULE_PARM_DESC(nv_ssthresh_factor, "ssthresh factor");
+>> +module_param(nv_rtt_factor, int, 0644);
+>> +MODULE_PARM_DESC(nv_rtt_factor, "rtt averaging factor");
+>> +module_param(nv_rtt_cnt_dec_delta, int, 0644);
+>> +MODULE_PARM_DESC(nv_rtt_cnt_dec_delta, "decrease cwnd for this many
+>>RTTs"
+>> +		 " every 100 RTTs");
+>> +module_param(nv_dec_factor, int, 0644);
+>> +MODULE_PARM_DESC(nv_dec_factor, "decrease cwnd every ~192 RTTS by
+>>factor/8");
+>> +module_param(nv_loss_dec_factor, int, 0644);
+>> +MODULE_PARM_DESC(nv_loss_dec_factor, "on loss new cwnd =3D cwnd * t=
+his /
+>>1024");
+>> +module_param(nv_cwnd_growth_rate_neg, int, 0644);
+>> +MODULE_PARM_DESC(nv_cwnd_growth_rate_neg, "Applies when current cwn=
+d
+>>growth"
+>> +		 " rate < Reno");
+>> +module_param(nv_cwnd_growth_rate_pos, int, 0644);
+>> +MODULE_PARM_DESC(nv_cwnd_growth_rate_pos, "Applies when current cwn=
+d
+>>growth"
+>> +		 " rate >=3D Reno");
+>> +module_param(nv_min_min_rtt, int, 0644);
+>> +MODULE_PARM_DESC(nv_min_min_rtt, "lower bound for ca->nv_min_rtt");
+>> +module_param(nv_max_min_rtt, int, 0644);
+>> +MODULE_PARM_DESC(nv_max_min_rtt, "upper bound for ca->nv_min_rtt");
+>
+>That's a disturbingly huge number of module parameters.  Even the firs=
+t
+>one "nv_enable" is superfluous, just hook up another congestion contro=
+l
+>algorithm.
+>
+>Please trim this down to something reasonable.  The more of these you
+>have,
+>the more of them people will start wanting to use and depend upon, and
+>then
+>you're stuck with them whether you like it or not.
+
+I will trim them down to something much smaller. My original intent was=
+ to
+support experimentation, but those interested can use this version of t=
+he
+patch to play with a larger number of parameters/tunables.
+
+In regards to the parameter =B3nv_enable=B2, its function is to quickly=
+ allow
+existing NV flows to revert to Reno behavior (by =B3echo 0 >
+/sys/module/tcp_nv/parameters/nv_enable=B2). The reason why this may be
+necessary, is that under some conditions NV flows competing with more
+aggressive flows will perform poorly. People may be more willing to tes=
+t
+NV if there is a quick and simple way to revert if necessary (without
+having to restart the flows).
+
+As to why NV could perform poorly, it has to do with the inherent
+unfairness between flows that only decrease their cwnd when there are
+losses (congestion control) and flows that decrease their cwnd when the=
+y
+detect queue buildup (congestion avoidance) unless there is network
+support. This is specially true when the RTTs for both types are small
+(traffic within a DC), but the unfairness decreases as the RTTs of the
+congestion control flows increases.
+
+So, is it okay if I leave the parameter =B3nv_enable=B2 or would you st=
+ill
+prefer that I remove it?
