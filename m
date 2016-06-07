@@ -1,60 +1,50 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 5/5] net: dsa: bcm_sf2: Register our slave
- MDIO bus
-Date: Tue, 7 Jun 2016 12:29:52 -0700
-Message-ID: <575720B0.3040901@gmail.com>
-References: <1465254895-11152-1-git-send-email-f.fainelli@gmail.com>
- <1465254895-11152-6-git-send-email-f.fainelli@gmail.com>
- <87oa7dxdis.fsf@ketchup.mtl.sfl> <87r3c9vtay.fsf@ketchup.mtl.sfl>
- <20160607170050.GA28994@lunn.ch> <87oa7cx5sx.fsf@ketchup.mtl.sfl>
- <20160607184420.GB28994@lunn.ch> <87vb1kke5u.fsf@ketchup.mtl.sfl>
+From: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] RDS: IB: Remove deprecated create_workqueue
+Date: Wed, 8 Jun 2016 01:03:45 +0530
+Message-ID: <20160607193345.GA10562@Karyakshetra>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:34735 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752248AbcFGT34 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 15:29:56 -0400
-Received: by mail-pf0-f171.google.com with SMTP id 62so80656485pfd.1
-        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 12:29:56 -0700 (PDT)
-In-Reply-To: <87vb1kke5u.fsf@ketchup.mtl.sfl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 06/07/2016 12:11 PM, Vivien Didelot wrote:
-> Hi Andrew,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
->>>> With the legacy interface it is tricky. When would you call such a
->>>> remove/tairdown function when using the old binding?
->>>
->>> That'd go in dsa_switch_destroy I guess, but it just covers the case
->>> where the whole DSA code is unloaded...
->>
->> I don't think that helps you. It should not be possible to unload the
->> DSA core while there is an active driver. The drivers needs to unload
->> first....
-> 
-> Well, dsa_switch_destroy() is where ds->slave_mii_bus gets unregistered
-> (if registered by the framework), so it seems fair to do something like:
-> 
->     if (ds->drv->shutdown)
->         ds->drv->shutdown(ds);
-> 
-> But I'm still not sure if it is worth it to add a new legacy specific
-> function to DSA drivers, unless there is a use case for such optional
-> teardown callback for the new bindings too.
+alloc_workqueue replaces deprecated create_workqueue().
 
-The new binding requires the use of dsa_unregister_switch() so this is
-where all the teardown and resource freeing should occur.
+Since the driver is infiniband which can be used as block device and the
+workqueue seems involved in regular operation of the device, so a
+dedicated workqueue has been used  with WQ_MEM_RECLAIM set to guarantee
+forward progress under memory pressure.
+Since there are only a fixed number of work items, explicit concurrency
+limit is unnecessary here.
 
-I do not really think it is worth trying to fix the old binding and
-support code now, unless we want to migrate it somehow to using the code
-from net/dsa/dsa2.c.
--- 
-Florian
+Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+---
+ net/rds/ib_rdma.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
+index f7164ac..a0f21b6 100644
+--- a/net/rds/ib_rdma.c
++++ b/net/rds/ib_rdma.c
+@@ -618,7 +618,7 @@ struct rds_ib_mr_pool *rds_ib_create_mr_pool(struct rds_ib_device *rds_ibdev,
+
+ int rds_ib_mr_init(void)
+ {
+-	rds_ib_mr_wq = create_workqueue("rds_mr_flushd");
++	rds_ib_mr_wq = alloc_workqueue("rds_mr_flushd", WQ_MEM_RECLAIM, 0);
+ 	if (!rds_ib_mr_wq)
+ 		return -ENOMEM;
+ 	return 0;
+--
+2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
