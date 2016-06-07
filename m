@@ -1,62 +1,50 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: [PATCH] ping: ICMP error replies while errno < 0 is a hard error
-Date: Tue,  7 Jun 2016 14:05:22 +0200
-Message-ID: <20160607120522.9474-1-Jason@zx2c4.com>
-Cc: "Jason A. Donenfeld" <Jason@zx2c4.com>
-To: netdev@vger.kernel.org, hideaki@yoshifuji.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: Introduce support in
+ SKIP SW flag
+Date: Tue, 7 Jun 2016 14:14:07 +0200
+Message-ID: <20160607121407.GB2054@nanopsycho.orion>
+References: <20160605141118.10986-1-amir@vadai.me>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Jiri Pirko <jiri@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Har-Zion <hadarh@mellanox.com>,
+	Amir Vadai <amirva@mellanox.com>
+To: Amir Vadai <amir@vadai.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:43054 "EHLO frisell.zx2c4.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751196AbcFGMKy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jun 2016 08:10:54 -0400
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35413 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753109AbcFGMOL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 08:14:11 -0400
+Received: by mail-wm0-f65.google.com with SMTP id k184so17310797wme.2
+        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 05:14:10 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160605141118.10986-1-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are some odd conditions in which a device will return an error for
-sendto, while at the same time an ICMP error response is generated. In
-this case, with the current code, the packet is retransmitted in a
-flood, which is not what anybody wants. In fact, when these two
-conditions occur, we want to treat the packet as a "hard local error"
-and do the ordinary pause as before. The reasoning is that if we did
-receive an ICMP error message, then the packet was transmitted, and so
-it should be accounted for. But, since we also received an errno, this
-should be reported to the user, as something is wonky with their network
-interface.
-
-Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
----
- ping_common.c | 12 +++++++++---
- 1 file changed, 9 insertions(+), 3 deletions(-)
-
-diff --git a/ping_common.c b/ping_common.c
-index 6054a91..89c0463 100644
---- a/ping_common.c
-+++ b/ping_common.c
-@@ -567,9 +567,14 @@ resend:
- 		return MININTERVAL;
- 	} else {
- 		if ((i=receive_error_msg()) > 0) {
--			/* An ICMP error arrived. */
--			tokens += interval;
--			return MININTERVAL;
-+			/* An ICMP error arrived. In this case, we've received
-+			 * an error from sendto(), but we've also received an
-+			 * ICMP message, which means the packet did in fact
-+			 * send in some capacity. So, in this odd case, report
-+			 * the more specific errno as the error, and treat this
-+			 * as a hard local error. */
-+			i = 0;
-+			goto hard_local_error;
- 		}
- 		/* Compatibility with old linuces. */
- 		if (i == 0 && confirm_flag && errno == EINVAL) {
-@@ -580,6 +585,7 @@ resend:
- 			goto resend;
- 	}
- 
-+hard_local_error:
- 	/* Hard local error. Pretend we sent packet. */
- 	advance_ntransmitted();
- 
--- 
-2.8.3
+Sun, Jun 05, 2016 at 04:11:18PM CEST, amir@vadai.me wrote:
+>From: Amir Vadai <amirva@mellanox.com>
+>
+>In order to make a filter processed only by hardware, skip_sw flag
+>should be supplied. This is an addition to the already existing skip_hw
+>flag (filter will be processed by software only). If no flag is
+>specified, filter will be processed by both software and hardware.
+>
+>If only hardware offloaded filters exist, fl_classify() will return
+>without doing anything.
+>
+>A following userspace patch will be sent once kernel patch is accepted.
+>
+>Example:
+>
+>tc filter add dev enp0s9 protocol ip prio 20 parent ffff: \
+>	flower \
+>		ip_proto 6 \
+>		indev enp0s9 \
+>		skip_sw \
+>	action skbedit mark 0x1234
+>
+>Signed-off-by: Amir Vadai <amirva@mellanox.com>
+Acked-by: Jiri Pirko <jiri@mellanox.com>
