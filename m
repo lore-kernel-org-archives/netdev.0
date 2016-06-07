@@ -1,38 +1,85 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/15] net/smc: Shared Memory Communications -
- RDMA
-Date: Tue, 07 Jun 2016 15:07:25 -0700 (PDT)
-Message-ID: <20160607.150725.893789208195156330.davem@davemloft.net>
-References: <201606031527.u53FQ9dR045418@mx0a-001b2d01.pphosted.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	utz.bacher@de.ibm.com
-To: ubraun@linux.vnet.ibm.com
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 3/3] bgmac: Maintain some netdev statistics
+Date: Tue,  7 Jun 2016 15:06:15 -0700
+Message-ID: <1465337175-22368-4-git-send-email-f.fainelli@gmail.com>
+References: <1465337175-22368-1-git-send-email-f.fainelli@gmail.com>
+Cc: ben@decadent.org.uk, zajec5@gmail.com, hauke@hauke-m.de,
+	jon.mason@broadcom.com, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58437 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755371AbcFGWH1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 18:07:27 -0400
-In-Reply-To: <201606031527.u53FQ9dR045418@mx0a-001b2d01.pphosted.com>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34783 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754645AbcFGWG2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 18:06:28 -0400
+Received: by mail-pf0-f194.google.com with SMTP id l188so4608132pfl.1
+        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 15:06:28 -0700 (PDT)
+In-Reply-To: <1465337175-22368-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Add a few netdev statistics to report transmitted and received bytes and
+packets and a few obvious errors.
 
-In case my previous reply wasn't clear enough, I require that you provide
-a more accurate description of what the implications of this feature are.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ drivers/net/ethernet/broadcom/bgmac.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
 
-Namely, that important _CORE_ networking features are completely bypassed
-and unusable when SMC applies to a connection.
-
-Specifically, all packet shaping, filtering, traffic inspection, and
-flow management facilitites in the kernel will not be able to see nor
-act upon the data flow of these TCP connections once established.
-
-It is always important, and in my opinion required, to list the
-negative aspects of your change and not just the "wow, amazing"
-positive aspects.
-
-Thanks.
+diff --git a/drivers/net/ethernet/broadcom/bgmac.c b/drivers/net/ethernet/broadcom/bgmac.c
+index 133bf64c7a8b..0ee34cc96bc9 100644
+--- a/drivers/net/ethernet/broadcom/bgmac.c
++++ b/drivers/net/ethernet/broadcom/bgmac.c
+@@ -246,6 +246,8 @@ err_dma_head:
+ 
+ err_drop:
+ 	dev_kfree_skb(skb);
++	net_dev->stats.tx_dropped++;
++	net_dev->stats.tx_errors++;
+ 	return NETDEV_TX_OK;
+ }
+ 
+@@ -284,6 +286,8 @@ static void bgmac_dma_tx_free(struct bgmac *bgmac, struct bgmac_dma_ring *ring)
+ 				       DMA_TO_DEVICE);
+ 
+ 		if (slot->skb) {
++			bgmac->net_dev->stats.tx_bytes += slot->skb->len;
++			bgmac->net_dev->stats.tx_packets++;
+ 			bytes_compl += slot->skb->len;
+ 			pkts_compl++;
+ 
+@@ -464,6 +468,7 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 				bgmac_err(bgmac, "Found poisoned packet at slot %d, DMA issue!\n",
+ 					  ring->start);
+ 				put_page(virt_to_head_page(buf));
++				bgmac->net_dev->stats.rx_errors++;
+ 				break;
+ 			}
+ 
+@@ -471,6 +476,8 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 				bgmac_err(bgmac, "Found oversized packet at slot %d, DMA issue!\n",
+ 					  ring->start);
+ 				put_page(virt_to_head_page(buf));
++				bgmac->net_dev->stats.rx_length_errors++;
++				bgmac->net_dev->stats.rx_errors++;
+ 				break;
+ 			}
+ 
+@@ -481,6 +488,7 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 			if (unlikely(!skb)) {
+ 				bgmac_err(bgmac, "build_skb failed\n");
+ 				put_page(virt_to_head_page(buf));
++				bgmac->net_dev->stats.rx_errors++;
+ 				break;
+ 			}
+ 			skb_put(skb, BGMAC_RX_FRAME_OFFSET +
+@@ -490,6 +498,8 @@ static int bgmac_dma_rx_read(struct bgmac *bgmac, struct bgmac_dma_ring *ring,
+ 
+ 			skb_checksum_none_assert(skb);
+ 			skb->protocol = eth_type_trans(skb, bgmac->net_dev);
++			bgmac->net_dev->stats.rx_bytes += len;
++			bgmac->net_dev->stats.rx_packets++;
+ 			napi_gro_receive(&bgmac->napi, skb);
+ 			handled++;
+ 		} while (0);
+-- 
+2.7.4
