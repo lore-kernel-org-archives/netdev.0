@@ -1,37 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/6] qed: IOV series - relax firmware
- requirements
-Date: Tue, 07 Jun 2016 15:40:27 -0700 (PDT)
-Message-ID: <20160607.154027.1554806910616155317.davem@davemloft.net>
-References: <1465121476-32494-1-git-send-email-Yuval.Mintz@qlogic.com>
+From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
+Subject: Re: [PATCHv3 net 3/3] net: cls_u32: catch all hardware offload errors
+Date: Tue, 07 Jun 2016 15:38:24 -0700
+Message-ID: <57574CE0.3060202@intel.com>
+References: <1465226208-32097-1-git-send-email-jakub.kicinski@netronome.com> <1465337823-16096-1-git-send-email-jakub.kicinski@netronome.com> <1465337823-16096-4-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Yuval.Mintz@qlogic.com
+Cc: john.r.fastabend@intel.com
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58646 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422669AbcFGWk2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 18:40:28 -0400
-In-Reply-To: <1465121476-32494-1-git-send-email-Yuval.Mintz@qlogic.com>
+Received: from mga01.intel.com ([192.55.52.88]:57193 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422669AbcFGWiZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jun 2016 18:38:25 -0400
+In-Reply-To: <1465337823-16096-4-git-send-email-jakub.kicinski@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Date: Sun, 5 Jun 2016 13:11:10 +0300
 
-> In order for VFs to work, current implementation demands that the VF's
-> requried storm firmware would be exactly the version that was loaded by
-> the PF, which is a very harsh requirement.
-> This patch series is intended to relax this -
-> the recently submitted firmware is intended to be forward/backward
-> compatible in its fastpath [slowpath is configured by PF on behalf of VF],
-> and so VFs would only be required of having the same major faspath HSI in
-> order to work.
-> 
-> Most of the other patches in this series extend current forward
-> compatibilty of driver to reduce chance of breaking PF/VF compatibility
-> in the future. A few are unrelated IOV changes.
 
-Series applied, thanks.
+On 6/7/2016 3:17 PM, Jakub Kicinski wrote:
+> Errors reported by u32_replace_hw_hnode() were not propagated.
+>
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
+> ---
+> v3:
+>   - new patch
+Acked-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+
+>
+>   net/sched/cls_u32.c | 8 +++++++-
+>   1 file changed, 7 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+> index 0fc1d47885f8..b9c3875fddc6 100644
+> --- a/net/sched/cls_u32.c
+> +++ b/net/sched/cls_u32.c
+> @@ -923,11 +923,17 @@ static int u32_change(struct net *net, struct sk_buff *in_skb,
+>   		ht->divisor = divisor;
+>   		ht->handle = handle;
+>   		ht->prio = tp->prio;
+> +
+> +		err = u32_replace_hw_hnode(tp, ht, flags);
+> +		if (err) {
+> +			kfree(ht);
+> +			return err;
+> +		}
+> +
+>   		RCU_INIT_POINTER(ht->next, tp_c->hlist);
+>   		rcu_assign_pointer(tp_c->hlist, ht);
+>   		*arg = (unsigned long)ht;
+>   
+> -		u32_replace_hw_hnode(tp, ht, flags);
+>   		return 0;
+>   	}
+>   
