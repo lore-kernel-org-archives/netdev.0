@@ -1,50 +1,29 @@
-From: Fabien Siron <fabien.siron@epita.fr>
-Subject: [PATCH] net/netlink/af_netlink.h: Remove unused structure.
-Date: Tue, 7 Jun 2016 13:02:04 +0000
-Message-ID: <20160607130204.414-1-fabien.siron@epita.fr>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 3/5] net: dsa: Add initialization helper for CPU port ethtool_ops
+Date: Tue, 07 Jun 2016 09:05:23 -0400
+Message-ID: <871t499mjw.fsf@ketchup.mtl.sfl>
+References: <1465254895-11152-1-git-send-email-f.fainelli@gmail.com> <1465254895-11152-4-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <davem@davemloft.net>,
-	Fabien Siron <fabien.siron@epita.fr>
-To: <linux-kernel@vger.kernel.org>
+Cc: davem@davemlof.net, andrew@lunn.ch,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0062.outbound.protection.outlook.com ([157.56.112.62]:31376
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754069AbcFGNC1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jun 2016 09:02:27 -0400
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:40941 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755102AbcFGNF0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 09:05:26 -0400
+In-Reply-To: <1465254895-11152-4-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Fabien Siron <fabien.siron@epita.fr>
----
- net/netlink/af_netlink.h | 14 --------------
- 1 file changed, 14 deletions(-)
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-diff --git a/net/netlink/af_netlink.h b/net/netlink/af_netlink.h
-index e68ef9c..3cfd6cc 100644
---- a/net/netlink/af_netlink.h
-+++ b/net/netlink/af_netlink.h
-@@ -8,20 +8,6 @@
- #define NLGRPSZ(x)	(ALIGN(x, sizeof(unsigned long) * 8) / 8)
- #define NLGRPLONGS(x)	(NLGRPSZ(x)/sizeof(unsigned long))
- 
--struct netlink_ring {
--	void			**pg_vec;
--	unsigned int		head;
--	unsigned int		frames_per_block;
--	unsigned int		frame_size;
--	unsigned int		frame_max;
--
--	unsigned int		pg_vec_order;
--	unsigned int		pg_vec_pages;
--	unsigned int		pg_vec_len;
--
--	atomic_t		pending;
--};
--
- struct netlink_sock {
- 	/* struct sock has to be the first member of netlink_sock */
- 	struct sock		sk;
--- 
-2.8.3
+> Add a helper function: dsa_cpu_port_ethtool_init() which initializes a
+> custom ethtool_ops structure with custom DSA ethtool operations for CPU
+> ports. This is a preliminary change to move the initialization outside
+> of net/dsa/slave.c.
+>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
