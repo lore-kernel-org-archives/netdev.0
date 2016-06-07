@@ -1,9 +1,9 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: ethernet: cavium: liquidio: response_manager:
+Subject: Re: [PATCH] net: ethernet: cavium: liquidio: request_manager:
  Remove create_workqueue
-Date: Mon, 06 Jun 2016 21:17:31 -0400 (EDT)
-Message-ID: <20160606.211731.118661996751187859.davem@davemloft.net>
-References: <20160604145139.GA31437@Karyakshetra>
+Date: Mon, 06 Jun 2016 21:17:38 -0400 (EDT)
+Message-ID: <20160606.211738.2024649171587450962.davem@davemloft.net>
+References: <20160604152400.GA559@Karyakshetra>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -14,17 +14,17 @@ Cc: derek.chickles@caviumnetworks.com,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: bhaktipriya96@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160604145139.GA31437@Karyakshetra>
+In-Reply-To: <20160604152400.GA559@Karyakshetra>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Date: Sat, 4 Jun 2016 20:21:40 +0530
+Date: Sat, 4 Jun 2016 20:54:00 +0530
 
 > alloc_workqueue replaces deprecated create_workqueue().
 > 
 > A dedicated workqueue has been used since the workitem viz
-> (&cwq->wk.work which maps to oct_poll_req_completion) is involved
+> (&db_wq->wk.work which maps to check_db_timeout) is involved
 > in normal device operation. WQ_MEM_RECLAIM has been set to guarantee
 > forward progress under memory pressure, which is a requirement here.
 > Since there are only a fixed number of work items, explicit concurrency
@@ -32,7 +32,7 @@ Date: Sat, 4 Jun 2016 20:21:40 +0530
 > 
 > flush_workqueue is unnecessary since destroy_workqueue() itself calls
 > drain_workqueue() which flushes repeatedly till the workqueue
-> becomes empty. Hence the call to flush_workqueue() has been dropped.
+> becomes empty.
 > 
 > Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 
