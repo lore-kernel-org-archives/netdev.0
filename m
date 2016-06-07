@@ -1,59 +1,50 @@
-From: Joshua Clayton <stillcompiling@gmail.com>
-Subject: Re: [PATCH 2/2] ARM: dts: imx6: tag boards that have the HW
- workaround for ERR006687
-Date: Tue, 7 Jun 2016 12:46:50 -0700
-Message-ID: <20160607124650.1e69c658@jclayton-pc>
-References: <1464794983-31484-1-git-send-email-l.stach@pengutronix.de>
-	<1464794983-31484-3-git-send-email-l.stach@pengutronix.de>
-	<20160601161729.GB19428@n2100.arm.linux.org.uk>
-	<1464855906.9501.1.camel@pengutronix.de>
+From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Subject: [PATCH] mlxsw: core: Remove deprecated create_workqueue
+Date: Wed, 8 Jun 2016 01:29:46 +0530
+Message-ID: <20160607195946.GA11743@Karyakshetra>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Russell King - ARM Linux <linux@armlinux.org.uk>,
-	devicetree@vger.kernel.org, Fugang Duan <fugang.duan@nxp.com>,
-	netdev@vger.kernel.org, patchwork-lst@pengutronix.de,
-	kernel@pengutronix.de, Shawn Guo <shawnguo@kernel.org>,
-	linux-arm-kernel@lists.infradead.org
-To: Lucas Stach <l.stach@pengutronix.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33670 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752832AbcFGTrA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 15:47:00 -0400
-In-Reply-To: <1464855906.9501.1.camel@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jiri Pirko <jiri@mellanox.com>, Ido Schimmel <idosch@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 02 Jun 2016 10:25:06 +0200
-Lucas Stach <l.stach@pengutronix.de> wrote:
+alloc_workqueue replaces deprecated create_workqueue().
 
-> Am Mittwoch, den 01.06.2016, 17:17 +0100 schrieb Russell King - ARM
-> Linux:
-> > On Wed, Jun 01, 2016 at 05:29:43PM +0200, Lucas Stach wrote:  
-> > > @@ -97,6 +97,7 @@
-> > >  	phy-reset-gpios = <&gpio3 31 0>;
-> > >  	interrupts-extended = <&gpio1 6 IRQ_TYPE_LEVEL_HIGH>,
-> > >  			      <&intc 0 119 IRQ_TYPE_LEVEL_HIGH>;
-> > > +	fsl,err006687-war-present;  
-> > 
+A dedicated workqueue has been used since the workqueue
+mlxsw_wq is used for FDB notif. processing with workitems that are
+involved in normal device operation && because it's a network device
+which can be depended upon during memory reclaim.
 
-Why can't we just have the quirk detect the interrupts-extended
-property, which is not present on boards without the workaround.
-Wouldn't that be better? No dts change needed.
+Workitems &trans->timeout_dw and &mlxsw_sp->fdb_notify.dw,
+map to mlxsw_sp_fdb_notify_work (processes FDB notifications from the
+underlying device and resolves the netdev to which the entry points to
+and notifies the bridge using the switchdev notifier) and
+mlxsw_emad_trans_timeout_work (provides async EMAD register access)
+respectively. They require forward progress under memory pressure and
+hence, WQ_MEM_RECLAIM has been set.
 
-> > war?  Any reason not to spell it out, or use the more natural
-> > abbreviation "wa"?
-> >   
-> Apparently I've read too many documents where WAR is the abbreviation
-> for workaround, so it felt completely natural to me. I agree that it
-> would make sense to just spell it out to avoid any confusion.
-> 
-> Regards,
-> Lucas
-> 
-> 
-> _______________________________________________
-> linux-arm-kernel mailing list
-> linux-arm-kernel@lists.infradead.org
-> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
+Since there are only a fixed number of work items, explicit concurrency
+limit is unnecessary here.
+
+Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
+index b0a0b01..01ae548 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
+@@ -1736,7 +1736,7 @@ static int __init mlxsw_core_module_init(void)
+ {
+ 	int err;
+
+-	mlxsw_wq = create_workqueue(mlxsw_core_driver_name);
++	mlxsw_wq = alloc_workqueue(mlxsw_core_driver_name, WQ_MEM_RECLAIM, 0);
+ 	if (!mlxsw_wq)
+ 		return -ENOMEM;
+ 	mlxsw_core_dbg_root = debugfs_create_dir(mlxsw_core_driver_name, NULL);
