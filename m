@@ -1,75 +1,80 @@
-From: pravin shelar <pshelar@ovn.org>
-Subject: Re: [PATCH net-next v10 3/5] openvswitch: add support to push and pop
- mpls for layer3 packets
-Date: Tue, 7 Jun 2016 15:45:42 -0700
-Message-ID: <CAOrHB_B3phbNub9sdnCM0EFDSL3fRHB-unKjUgjFMX5ZHqM3Dw@mail.gmail.com>
+From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v10 4/5] openvswitch: add layer 3
+	flow/port support
+Date: Tue, 7 Jun 2016 15:45:58 -0700
+Message-ID: <CAOrHB_DvRmXwm19yWg9f+4sX_bK8Je_qWEFPHs9tS1QE1AiTqg@mail.gmail.com>
 References: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
- <1464848686-7656-4-git-send-email-simon.horman@netronome.com>
- <CAOrHB_D0XoGUjSXztNMdektGgTMPxeVfbNF0WcTZuTbR4VYz5g@mail.gmail.com> <20160607025130.GD31696@vergenet.net>
+ <1464848686-7656-5-git-send-email-simon.horman@netronome.com>
+ <CAOrHB_Cy-Gtt3OJSpAdZu3M07xNWv5dYNAbYbD6ei3H-r66vyA@mail.gmail.com>
+ <20160607024609.GC31696@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	ovs dev <dev@openvswitch.org>
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay3-d.mail.gandi.net ([217.70.183.195]:57855 "EHLO
-	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750818AbcFGWpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 18:45:47 -0400
-Received: from mfilter41-d.gandi.net (mfilter41-d.gandi.net [217.70.178.173])
-	by relay3-d.mail.gandi.net (Postfix) with ESMTP id 747F8A80CD
-	for <netdev@vger.kernel.org>; Wed,  8 Jun 2016 00:45:45 +0200 (CEST)
-Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
-	by mfilter41-d.gandi.net (mfilter41-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id jewRijHmhISw for <netdev@vger.kernel.org>;
-	Wed,  8 Jun 2016 00:45:44 +0200 (CEST)
-Received: from mail-it0-f49.google.com (mail-it0-f49.google.com [209.85.214.49])
-	(Authenticated sender: pshelar@ovn.org)
-	by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id DCB10A80C6
-	for <netdev@vger.kernel.org>; Wed,  8 Jun 2016 00:45:43 +0200 (CEST)
-Received: by mail-it0-f49.google.com with SMTP id h62so50168942itb.1
-        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 15:45:43 -0700 (PDT)
-In-Reply-To: <20160607025130.GD31696@vergenet.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20160607024609.GC31696-IxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 6, 2016 at 7:51 PM, Simon Horman <simon.horman@netronome.com> wrote:
-> On Thu, Jun 02, 2016 at 03:02:00PM -0700, pravin shelar wrote:
->> On Wed, Jun 1, 2016 at 11:24 PM, Simon Horman
->> <simon.horman@netronome.com> wrote:
->> > Allow push and pop mpls actions to act on layer 3 packets by teaching
->> > them not to access non-existent L2 headers of such packets.
->> >
->> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
->> > ---
->> > v10
->> > * Limit scope of hdr in {push,pop}_mpls()
->> >
->> > v9
->> > * New Patch
->> > ---
->> >  net/openvswitch/actions.c | 19 ++++++++++++-------
->> >  1 file changed, 12 insertions(+), 7 deletions(-)
->> >
->> > diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
->> > index 9a3eb7a0ebf4..15f130e4c22b 100644
->> > --- a/net/openvswitch/actions.c
->> > +++ b/net/openvswitch/actions.c
->> > @@ -172,7 +172,8 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
->> >
->> >         skb_postpush_rcsum(skb, new_mpls_lse, MPLS_HLEN);
->> >
->> > -       update_ethertype(skb, eth_hdr(skb), mpls->mpls_ethertype);
->> > +       if (skb->mac_len)
->> > +               update_ethertype(skb, eth_hdr(skb), mpls->mpls_ethertype);
->> We can move all ethernet related code in this if block. for example memmove().
->
-> My assumption is that the memmove() does nothing if skb->mac_len is zero
-> and from my point of view it seems clean to leave it where it is unless
-> the code around it also moves.
->
-> Is there other code you think could/should be moved into the
-> if (skb->mac_len) block?
->
-yes, the code is correct. But I think grouping l2 related updated
-together makes code easier to follow.
+T24gTW9uLCBKdW4gNiwgMjAxNiBhdCA3OjQ2IFBNLCBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1h
+bkBuZXRyb25vbWUuY29tPiB3cm90ZToKPiBPbiBUaHUsIEp1biAwMiwgMjAxNiBhdCAwMzowMjox
+OFBNIC0wNzAwLCBwcmF2aW4gc2hlbGFyIHdyb3RlOgo+PiBPbiBXZWQsIEp1biAxLCAyMDE2IGF0
+IDExOjI0IFBNLCBTaW1vbiBIb3JtYW4KPj4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUuY29tPiB3
+cm90ZToKPgo+IFsuLi5dCj4KPj4gPiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2FjdGlv
+bnMuYyBiL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMKPj4gPiBpbmRleCAxNWYxMzBlNGMyMmIu
+LjU1Njc1Mjk5MDRmYSAxMDA2NDQKPj4gPiAtLS0gYS9uZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5j
+Cj4+ID4gKysrIGIvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYwo+PiA+IEBAIC0zMDAsNiArMzAw
+LDUxIEBAIHN0YXRpYyBpbnQgc2V0X2V0aF9hZGRyKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVj
+dCBzd19mbG93X2tleSAqZmxvd19rZXksCj4+ID4gICAgICAgICByZXR1cm4gMDsKPj4gPiAgfQo+
+PiA+Cj4+ID4gK3N0YXRpYyBpbnQgcG9wX2V0aChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qg
+c3dfZmxvd19rZXkgKmtleSkKPj4gPiArewo+PiA+ICsgICAgICAgLyogUG9wIG91dGVybW9zdCBW
+TEFOIHRhZyB0byBza2IgbWV0YWRhdGEgdW5sZXNzIGEgVkxBTiB0YWcKPj4gPiArICAgICAgICAq
+IGlzIGFscmVhZHkgcHJlc2VudCB0aGVyZS4KPj4gPiArICAgICAgICAqLwo+PiA+ICsgICAgICAg
+aWYgKChza2ItPnByb3RvY29sID09IGh0b25zKEVUSF9QXzgwMjFRKSB8fAo+PiA+ICsgICAgICAg
+ICAgICBza2ItPnByb3RvY29sID09IGh0b25zKEVUSF9QXzgwMjFBRCkpICYmCj4+ID4gKyAgICAg
+ICAgICAgIXNrYl92bGFuX3RhZ19wcmVzZW50KHNrYikpIHsKPj4gPiArICAgICAgICAgICAgICAg
+aW50IGVyciA9IHNrYl92bGFuX2FjY2VsKHNrYik7Cj4+ID4gKyAgICAgICAgICAgICAgIGlmICh1
+bmxpa2VseShlcnIpKQo+PiA+ICsgICAgICAgICAgICAgICAgICAgICAgIHJldHVybiBlcnI7Cj4+
+ID4gKyAgICAgICB9Cj4+ID4gKwo+Pgo+PiBJIGRvIG5vdCB0aGluayB3ZSBjYW4ga2VlcCBqdXN0
+IHRoZSB2bGFuIHRhZyBhbmQgcG9wIGV0aGVybmV0IGhlYWRlci4KPj4gVGhlcmUgYXJlIG11bHRp
+cGxlIGlzc3VlcyB3aXRoIHRoaXMuCj4+IEZpcnN0IG5ldHdvcmtpbmcgc3RhY2sgY2FuIG5vdCBo
+YW5kbGUgc3VjayBwYWNrZXQuIHNlY29uZCBpc3N1ZSBldmVuCj4+IGFmdGVyIHRoaXMgcGF0Y2gg
+T1ZTIGNhbiBub3QgcGFyc2UgdGhpcyB0eXBlIG9mIHBhY2tldC4gdGhpcmQgdGhpcwo+PiBwYXRj
+aCBkb2VzIG5vdCBhbGxvdyBwb3AtZXRoIGFjdGlvbiBvbiB2bGFuIHRhZ2dlZCBwYWNrZXQuCj4+
+IFRoZXJlIGlzIGFscmVhZHkgc2VwYXJhdGUgdmxhbiByZWxhdGVkIGFjdGlvbnMgaW4gT1ZTIHNv
+IGxldHMga2VlcCBpdCBzaW1wbGUuCj4KPiBJIHdvbmRlciBpZiB0aGUgYmVzdCBzb2x1dGlvbiBp
+cyB0byBzaW1wbHkgb21pdCBoYW5kbGluZyBWTEFOIHRhZ3MKPiBpbiBwb3BfZXRoIGZvciBub3cu
+IEFzIHlvdSBtZW50aW9uIHBvcF9ldGggaXMgbm90IHBlcm1pdHRlZCBvbiBzdWNoIHBhY2tldHMu
+Cj4KeWVzLCBsZXRzIGp1c3QgZHJvcCB2bGFuIHN1cHBvcnQgaGVyZS4KCgo+PiA+IGRpZmYgLS1n
+aXQgYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgYi9uZXQvb3BlbnZzd2l0Y2gvZmxv
+d19uZXRsaW5rLmMKPj4gPiBpbmRleCAwYmI2NTBmNGYyMTkuLjFlMTM5MmMzYzBlZCAxMDA2NDQK
+Pj4gPiAtLS0gYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKPj4gPiArKysgYi9uZXQv
+b3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKPgo+IFsuLi5dCj4KPj4gPiBAQCAtMzU1LDYgKzM1
+OSw3IEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3Qgb3ZzX2xlbl90Ymwgb3ZzX2tleV9sZW5zW09WU19L
+RVlfQVRUUl9NQVggKyAxXSA9IHsKPj4gPiAgICAgICAgIFtPVlNfS0VZX0FUVFJfQ1RfWk9ORV0g
+ICA9IHsgLmxlbiA9IHNpemVvZih1MTYpIH0sCj4+ID4gICAgICAgICBbT1ZTX0tFWV9BVFRSX0NU
+X01BUktdICAgPSB7IC5sZW4gPSBzaXplb2YodTMyKSB9LAo+PiA+ICAgICAgICAgW09WU19LRVlf
+QVRUUl9DVF9MQUJFTFNdID0geyAubGVuID0gc2l6ZW9mKHN0cnVjdCBvdnNfa2V5X2N0X2xhYmVs
+cykgfSwKPj4gPiArICAgICAgIFtPVlNfS0VZX0FUVFJfUEFDS0VUX0VUSEVSVFlQRV0gPSB7IC5s
+ZW4gPSBzaXplb2YoX19iZTE2KSB9LAo+PiA+ICB9Owo+PiA+Cj4+IEkgZG8gbm90IHNlZSBuZWVk
+IGZvciBPVlNfS0VZX0FUVFJfUEFDS0VUX0VUSEVSVFlQRSwgd2UgY2FuIHVzZQo+PiBleGlzdGlu
+ZyBPVlNfS0VZX0FUVFJfRVRIRVJUWVBFIHRvIHNlcmlhbGl6ZSB0aGUgZmxvdyBrZXkuIElmIHRo
+ZXJlIGlzCj4+IG5vIE9WU19LRVlfQVRUUl9FVEhFUk5FVCBhdHRyaWJ1dGUgdGhlbiBpdHMgbDMg
+cGFja2V0Lgo+Cj4gVGhlIGlkZWEgb2YgT1ZTX0tFWV9BVFRSX1BBQ0tFVF9FVEhFUlRZUEUgaXMg
+dG8gYWxsb3cgY29tbXVuaWNhdGlvbiBvZgo+IHRoZSBMMiB0eXBlIG9mIHRoZSBwYWNrZXQgd2hp
+Y2ggaXMgbm90IHByZXNlbnQgaW4gYW4gTDMgcGFja2V0LiBJbiB0ZXJtcwo+IG9mIEdSRSAobm9u
+LVRFQikgdGhpcyBjb3JyZWxhdGVzIHRvIHRoZSBQcm90b2NvbCBUeXBlIGZpZWxkIGluIHRoZSBH
+UkUKPiBoZWFkZXIuCgpIb3cgYWJvdXQgdXNpbmcgT1ZTX0tFWV9BVFRSX0VUSEVSVFlQRSB0byBj
+b21tdW5pY2F0ZSB0aGUgcHJvdG9jb2wgdHlwZT8KX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3Jn
+Cmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
