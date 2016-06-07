@@ -1,44 +1,37 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: [PATCH] net-sysfs: fix missing <linux/of_net.h>
-Date: Tue,  7 Jun 2016 19:27:51 +0100
-Message-ID: <1465324071-7337-1-git-send-email-ben.dooks@codethink.co.uk>
-Cc: Ben Dooks <ben.dooks@codethink.co.uk>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: linux-kernel@lists.codethink.co.uk
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 5/5] net: dsa: bcm_sf2: Register our slave
+ MDIO bus
+Date: Tue, 7 Jun 2016 20:44:20 +0200
+Message-ID: <20160607184420.GB28994@lunn.ch>
+References: <1465254895-11152-1-git-send-email-f.fainelli@gmail.com>
+ <1465254895-11152-6-git-send-email-f.fainelli@gmail.com>
+ <87oa7dxdis.fsf@ketchup.mtl.sfl>
+ <87r3c9vtay.fsf@ketchup.mtl.sfl>
+ <20160607170050.GA28994@lunn.ch>
+ <87oa7cx5sx.fsf@ketchup.mtl.sfl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
+	davem@davemlof.net
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-70-136-246.dsl.in-addr.zen.co.uk ([82.70.136.246]:37798 "EHLO
-	rainbowdash.ducie.codethink.co.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751946AbcFGS2E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 14:28:04 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:36052 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161597AbcFGSoY (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jun 2016 14:44:24 -0400
+Content-Disposition: inline
+In-Reply-To: <87oa7cx5sx.fsf@ketchup.mtl.sfl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The of_find_net_device_by_node() function is defined in
-<linux/of_net.h> but not included in the .c file that
-implements it. Fix the following warning by including the
-header:
+> > With the legacy interface it is tricky. When would you call such a
+> > remove/tairdown function when using the old binding?
+> 
+> That'd go in dsa_switch_destroy I guess, but it just covers the case
+> where the whole DSA code is unloaded...
 
-net/core/net-sysfs.c:1494:19: warning: symbol 'of_find_net_device_by_node' was not declared. Should it be static?
+I don't think that helps you. It should not be possible to unload the
+DSA core while there is an active driver. The drivers needs to unload
+first....
 
-Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
----
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
----
- net/core/net-sysfs.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
-index 2b3f76f..7a0b616 100644
---- a/net/core/net-sysfs.c
-+++ b/net/core/net-sysfs.c
-@@ -24,6 +24,7 @@
- #include <linux/jiffies.h>
- #include <linux/pm_runtime.h>
- #include <linux/of.h>
-+#include <linux/of_net.h>
- 
- #include "net-sysfs.h"
- 
--- 
-2.8.1
+	Andrew
