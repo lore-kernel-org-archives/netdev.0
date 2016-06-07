@@ -1,80 +1,48 @@
-From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v10 4/5] openvswitch: add layer 3
-	flow/port support
-Date: Tue, 7 Jun 2016 15:45:58 -0700
-Message-ID: <CAOrHB_DvRmXwm19yWg9f+4sX_bK8Je_qWEFPHs9tS1QE1AiTqg@mail.gmail.com>
-References: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
- <1464848686-7656-5-git-send-email-simon.horman@netronome.com>
- <CAOrHB_Cy-Gtt3OJSpAdZu3M07xNWv5dYNAbYbD6ei3H-r66vyA@mail.gmail.com>
- <20160607024609.GC31696@vergenet.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net/sched: cls_flower: Introduce support in
+ SKIP SW flag
+Date: Tue, 07 Jun 2016 15:50:06 -0700 (PDT)
+Message-ID: <20160607.155006.1171124874702317139.davem@davemloft.net>
+References: <20160605141118.10986-1-amir@vadai.me>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160607024609.GC31696-IxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, ogerlitz@mellanox.com,
+	hadarh@mellanox.com, amirva@mellanox.com
+To: amir@vadai.me
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58716 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161196AbcFGWuJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 18:50:09 -0400
+In-Reply-To: <20160605141118.10986-1-amir@vadai.me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBKdW4gNiwgMjAxNiBhdCA3OjQ2IFBNLCBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1h
-bkBuZXRyb25vbWUuY29tPiB3cm90ZToKPiBPbiBUaHUsIEp1biAwMiwgMjAxNiBhdCAwMzowMjox
-OFBNIC0wNzAwLCBwcmF2aW4gc2hlbGFyIHdyb3RlOgo+PiBPbiBXZWQsIEp1biAxLCAyMDE2IGF0
-IDExOjI0IFBNLCBTaW1vbiBIb3JtYW4KPj4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUuY29tPiB3
-cm90ZToKPgo+IFsuLi5dCj4KPj4gPiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2FjdGlv
-bnMuYyBiL25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMKPj4gPiBpbmRleCAxNWYxMzBlNGMyMmIu
-LjU1Njc1Mjk5MDRmYSAxMDA2NDQKPj4gPiAtLS0gYS9uZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5j
-Cj4+ID4gKysrIGIvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYwo+PiA+IEBAIC0zMDAsNiArMzAw
-LDUxIEBAIHN0YXRpYyBpbnQgc2V0X2V0aF9hZGRyKHN0cnVjdCBza19idWZmICpza2IsIHN0cnVj
-dCBzd19mbG93X2tleSAqZmxvd19rZXksCj4+ID4gICAgICAgICByZXR1cm4gMDsKPj4gPiAgfQo+
-PiA+Cj4+ID4gK3N0YXRpYyBpbnQgcG9wX2V0aChzdHJ1Y3Qgc2tfYnVmZiAqc2tiLCBzdHJ1Y3Qg
-c3dfZmxvd19rZXkgKmtleSkKPj4gPiArewo+PiA+ICsgICAgICAgLyogUG9wIG91dGVybW9zdCBW
-TEFOIHRhZyB0byBza2IgbWV0YWRhdGEgdW5sZXNzIGEgVkxBTiB0YWcKPj4gPiArICAgICAgICAq
-IGlzIGFscmVhZHkgcHJlc2VudCB0aGVyZS4KPj4gPiArICAgICAgICAqLwo+PiA+ICsgICAgICAg
-aWYgKChza2ItPnByb3RvY29sID09IGh0b25zKEVUSF9QXzgwMjFRKSB8fAo+PiA+ICsgICAgICAg
-ICAgICBza2ItPnByb3RvY29sID09IGh0b25zKEVUSF9QXzgwMjFBRCkpICYmCj4+ID4gKyAgICAg
-ICAgICAgIXNrYl92bGFuX3RhZ19wcmVzZW50KHNrYikpIHsKPj4gPiArICAgICAgICAgICAgICAg
-aW50IGVyciA9IHNrYl92bGFuX2FjY2VsKHNrYik7Cj4+ID4gKyAgICAgICAgICAgICAgIGlmICh1
-bmxpa2VseShlcnIpKQo+PiA+ICsgICAgICAgICAgICAgICAgICAgICAgIHJldHVybiBlcnI7Cj4+
-ID4gKyAgICAgICB9Cj4+ID4gKwo+Pgo+PiBJIGRvIG5vdCB0aGluayB3ZSBjYW4ga2VlcCBqdXN0
-IHRoZSB2bGFuIHRhZyBhbmQgcG9wIGV0aGVybmV0IGhlYWRlci4KPj4gVGhlcmUgYXJlIG11bHRp
-cGxlIGlzc3VlcyB3aXRoIHRoaXMuCj4+IEZpcnN0IG5ldHdvcmtpbmcgc3RhY2sgY2FuIG5vdCBo
-YW5kbGUgc3VjayBwYWNrZXQuIHNlY29uZCBpc3N1ZSBldmVuCj4+IGFmdGVyIHRoaXMgcGF0Y2gg
-T1ZTIGNhbiBub3QgcGFyc2UgdGhpcyB0eXBlIG9mIHBhY2tldC4gdGhpcmQgdGhpcwo+PiBwYXRj
-aCBkb2VzIG5vdCBhbGxvdyBwb3AtZXRoIGFjdGlvbiBvbiB2bGFuIHRhZ2dlZCBwYWNrZXQuCj4+
-IFRoZXJlIGlzIGFscmVhZHkgc2VwYXJhdGUgdmxhbiByZWxhdGVkIGFjdGlvbnMgaW4gT1ZTIHNv
-IGxldHMga2VlcCBpdCBzaW1wbGUuCj4KPiBJIHdvbmRlciBpZiB0aGUgYmVzdCBzb2x1dGlvbiBp
-cyB0byBzaW1wbHkgb21pdCBoYW5kbGluZyBWTEFOIHRhZ3MKPiBpbiBwb3BfZXRoIGZvciBub3cu
-IEFzIHlvdSBtZW50aW9uIHBvcF9ldGggaXMgbm90IHBlcm1pdHRlZCBvbiBzdWNoIHBhY2tldHMu
-Cj4KeWVzLCBsZXRzIGp1c3QgZHJvcCB2bGFuIHN1cHBvcnQgaGVyZS4KCgo+PiA+IGRpZmYgLS1n
-aXQgYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMgYi9uZXQvb3BlbnZzd2l0Y2gvZmxv
-d19uZXRsaW5rLmMKPj4gPiBpbmRleCAwYmI2NTBmNGYyMTkuLjFlMTM5MmMzYzBlZCAxMDA2NDQK
-Pj4gPiAtLS0gYS9uZXQvb3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKPj4gPiArKysgYi9uZXQv
-b3BlbnZzd2l0Y2gvZmxvd19uZXRsaW5rLmMKPgo+IFsuLi5dCj4KPj4gPiBAQCAtMzU1LDYgKzM1
-OSw3IEBAIHN0YXRpYyBjb25zdCBzdHJ1Y3Qgb3ZzX2xlbl90Ymwgb3ZzX2tleV9sZW5zW09WU19L
-RVlfQVRUUl9NQVggKyAxXSA9IHsKPj4gPiAgICAgICAgIFtPVlNfS0VZX0FUVFJfQ1RfWk9ORV0g
-ICA9IHsgLmxlbiA9IHNpemVvZih1MTYpIH0sCj4+ID4gICAgICAgICBbT1ZTX0tFWV9BVFRSX0NU
-X01BUktdICAgPSB7IC5sZW4gPSBzaXplb2YodTMyKSB9LAo+PiA+ICAgICAgICAgW09WU19LRVlf
-QVRUUl9DVF9MQUJFTFNdID0geyAubGVuID0gc2l6ZW9mKHN0cnVjdCBvdnNfa2V5X2N0X2xhYmVs
-cykgfSwKPj4gPiArICAgICAgIFtPVlNfS0VZX0FUVFJfUEFDS0VUX0VUSEVSVFlQRV0gPSB7IC5s
-ZW4gPSBzaXplb2YoX19iZTE2KSB9LAo+PiA+ICB9Owo+PiA+Cj4+IEkgZG8gbm90IHNlZSBuZWVk
-IGZvciBPVlNfS0VZX0FUVFJfUEFDS0VUX0VUSEVSVFlQRSwgd2UgY2FuIHVzZQo+PiBleGlzdGlu
-ZyBPVlNfS0VZX0FUVFJfRVRIRVJUWVBFIHRvIHNlcmlhbGl6ZSB0aGUgZmxvdyBrZXkuIElmIHRo
-ZXJlIGlzCj4+IG5vIE9WU19LRVlfQVRUUl9FVEhFUk5FVCBhdHRyaWJ1dGUgdGhlbiBpdHMgbDMg
-cGFja2V0Lgo+Cj4gVGhlIGlkZWEgb2YgT1ZTX0tFWV9BVFRSX1BBQ0tFVF9FVEhFUlRZUEUgaXMg
-dG8gYWxsb3cgY29tbXVuaWNhdGlvbiBvZgo+IHRoZSBMMiB0eXBlIG9mIHRoZSBwYWNrZXQgd2hp
-Y2ggaXMgbm90IHByZXNlbnQgaW4gYW4gTDMgcGFja2V0LiBJbiB0ZXJtcwo+IG9mIEdSRSAobm9u
-LVRFQikgdGhpcyBjb3JyZWxhdGVzIHRvIHRoZSBQcm90b2NvbCBUeXBlIGZpZWxkIGluIHRoZSBH
-UkUKPiBoZWFkZXIuCgpIb3cgYWJvdXQgdXNpbmcgT1ZTX0tFWV9BVFRSX0VUSEVSVFlQRSB0byBj
-b21tdW5pY2F0ZSB0aGUgcHJvdG9jb2wgdHlwZT8KX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3Jn
-Cmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+From: Amir Vadai <amir@vadai.me>
+Date: Sun,  5 Jun 2016 17:11:18 +0300
+
+> From: Amir Vadai <amirva@mellanox.com>
+> 
+> In order to make a filter processed only by hardware, skip_sw flag
+> should be supplied. This is an addition to the already existing skip_hw
+> flag (filter will be processed by software only). If no flag is
+> specified, filter will be processed by both software and hardware.
+> 
+> If only hardware offloaded filters exist, fl_classify() will return
+> without doing anything.
+> 
+> A following userspace patch will be sent once kernel patch is accepted.
+> 
+> Example:
+> 
+> tc filter add dev enp0s9 protocol ip prio 20 parent ffff: \
+> 	flower \
+> 		ip_proto 6 \
+> 		indev enp0s9 \
+> 		skip_sw \
+> 	action skbedit mark 0x1234
+> 
+> Signed-off-by: Amir Vadai <amirva@mellanox.com>
+
+Applied.
