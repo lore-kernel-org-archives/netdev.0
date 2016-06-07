@@ -1,90 +1,59 @@
 From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCHv2 net 2/2] net: cls_u32: be more strict about skip-sw flag
-Date: Tue, 7 Jun 2016 08:53:35 -0700
-Message-ID: <5756EDFF.2000301@gmail.com>
-References: <1465226208-32097-1-git-send-email-jakub.kicinski@netronome.com>
- <1465296416-21449-1-git-send-email-jakub.kicinski@netronome.com>
- <1465296416-21449-3-git-send-email-jakub.kicinski@netronome.com>
+Subject: Re: [PATCH net] fq_codel: return non zero qlen in class dumps
+Date: Tue, 7 Jun 2016 09:03:00 -0700
+Message-ID: <5756F034.4080604@gmail.com>
+References: <1465229559.2968.75.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: john.r.fastabend@intel.com, sridhar.samudrala@intel.com
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-	netdev@vger.kernel.org
+Cc: netdev <netdev@vger.kernel.org>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:33740 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752515AbcFGPxy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 11:53:54 -0400
-Received: by mail-pa0-f68.google.com with SMTP id di3so14484693pab.0
-        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 08:53:53 -0700 (PDT)
-In-Reply-To: <1465296416-21449-3-git-send-email-jakub.kicinski@netronome.com>
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:35937 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932497AbcFGQDO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 12:03:14 -0400
+Received: by mail-pa0-f67.google.com with SMTP id fg1so14488848pad.3
+        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 09:03:14 -0700 (PDT)
+In-Reply-To: <1465229559.2968.75.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-06-07 03:46 AM, Jakub Kicinski wrote:
-> Return an error if user requested skip-sw and the underlaying
-> hardware cannot handle tc offloads (or offloads are disabled).
+On 16-06-06 09:12 AM, Eric Dumazet wrote:
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
-> Reviewed-by: Simon Horman <simon.horman@netronome.com>
-> ---
-> v2:
->   - handle both knode and hnodes
-> ---
->  net/sched/cls_u32.c | 58 +++++++++++++++++++++++++++--------------------------
->  1 file changed, 30 insertions(+), 28 deletions(-)
+> We properly scan the flow list to count number of packets,
+> but John passed 0 to gnet_stats_copy_queue() so we report
+> a zero value to user space instead of the result.
 > 
-> diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-> index b17e090f2fe1..0fc1d47885f8 100644
-> --- a/net/sched/cls_u32.c
-> +++ b/net/sched/cls_u32.c
-> @@ -457,20 +457,21 @@ static int u32_replace_hw_hnode(struct tcf_proto *tp,
->  	struct tc_to_netdev offload;
->  	int err;
->  
-> +	if (!tc_should_offload(dev, flags))
-> +		return tc_skip_sw(flags) ? -EINVAL : 0;
-> +
->  	offload.type = TC_SETUP_CLSU32;
->  	offload.cls_u32 = &u32_offload;
->  
-> -	if (tc_should_offload(dev, flags)) {
-> -		offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
-> -		offload.cls_u32->hnode.divisor = h->divisor;
-> -		offload.cls_u32->hnode.handle = h->handle;
-> -		offload.cls_u32->hnode.prio = h->prio;
-> +	offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
-> +	offload.cls_u32->hnode.divisor = h->divisor;
-> +	offload.cls_u32->hnode.handle = h->handle;
-> +	offload.cls_u32->hnode.prio = h->prio;
->  
-> -		err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
-> -						    tp->protocol, &offload);
-> -		if (tc_skip_sw(flags))
-> -			return err;
-> -	}
-> +	err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
-> +					    tp->protocol, &offload);
-> +	if (tc_skip_sw(flags))
-> +		return err;
->  
->  	return 0;
->  }
+> Fixes: 640158536632 ("net: sched: restrict use of qstats qlen")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> ---
+>  net/sched/sch_fq_codel.c |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
+> index 6883a8971562..7a280360aeed 100644
+> --- a/net/sched/sch_fq_codel.c
+> +++ b/net/sched/sch_fq_codel.c
+> @@ -649,7 +649,7 @@ static int fq_codel_dump_class_stats(struct Qdisc *sch, unsigned long cl,
+>  		qs.backlog = q->backlogs[idx];
+>  		qs.drops = flow->dropped;
+>  	}
+> -	if (gnet_stats_copy_queue(d, NULL, &qs, 0) < 0)
+> +	if (gnet_stats_copy_queue(d, NULL, &qs, qs.qlen) < 0)
+>  		return -1;
+>  	if (idx < q->flows_cnt)
+>  		return gnet_stats_copy_app(d, &xstats, sizeof(xstats));
+> 
+> 
 
-Looks like we also need to catch the error at u32_replace_hw_hnode call
-sites?
+Apparently I only passed zero in the sch_fq_codel case, strange. At
+the moment I can't think of any reason other than it being a typo.
 
+Thanks for fixing it!
 
-                u32_replace_hw_hnode(tp, ht, flags);
-                return 0;
-        }
-
-should be
-
-		return replace_hw_hnode(tp, ht,flags)
-
-
-Thanks,
-John
+Acked-by: John Fastabend <john.r.fastabend@intel.com>
