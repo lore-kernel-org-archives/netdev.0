@@ -1,78 +1,67 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v4 4/6] net: dsa: Add initialization helper for CPU port ethtool_ops
-Date: Tue,  7 Jun 2016 16:32:41 -0700
-Message-ID: <1465342363-28055-5-git-send-email-f.fainelli@gmail.com>
-References: <1465342363-28055-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v4 0/6] net: dsa: misc improvements
+Date: Tue,  7 Jun 2016 16:32:37 -0700
+Message-ID: <1465342363-28055-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
 	vivien.didelot@savoirfairelinux.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33476 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932542AbcFGXc6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 19:32:58 -0400
-Received: by mail-pf0-f193.google.com with SMTP id u67so5360657pfu.0
+Received: from mail-pa0-f67.google.com ([209.85.220.67]:36015 "EHLO
+	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932545AbcFGXc7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 19:32:59 -0400
+Received: by mail-pa0-f67.google.com with SMTP id fg1so15096850pad.3
         for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 16:32:58 -0700 (PDT)
-In-Reply-To: <1465342363-28055-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a helper function: dsa_cpu_port_ethtool_init() which initializes a
-custom ethtool_ops structure with custom DSA ethtool operations for CPU
-ports. This is a preliminary change to move the initialization outside
-of net/dsa/slave.c.
+Hi all,
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/dsa/dsa_priv.h |  1 +
- net/dsa/slave.c    | 14 ++++++++------
- 2 files changed, 9 insertions(+), 6 deletions(-)
+This patch series builds on top of Andrew's "New DSA bind, switches as devices"
+patch set and does the following:
 
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index b42f1a5f95f3..106a9f067f94 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -58,6 +58,7 @@ const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol);
- /* slave.c */
- extern const struct dsa_device_ops notag_netdev_ops;
- void dsa_slave_mii_bus_init(struct dsa_switch *ds);
-+void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops);
- int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 		     int port, const char *name);
- void dsa_slave_destroy(struct net_device *slave_dev);
-diff --git a/net/dsa/slave.c b/net/dsa/slave.c
-index a51dfedf0014..8d159932e082 100644
---- a/net/dsa/slave.c
-+++ b/net/dsa/slave.c
-@@ -865,6 +865,13 @@ static void dsa_slave_poll_controller(struct net_device *dev)
- }
- #endif
- 
-+void dsa_cpu_port_ethtool_init(struct ethtool_ops *ops)
-+{
-+	ops->get_sset_count = dsa_cpu_port_get_sset_count;
-+	ops->get_ethtool_stats = dsa_cpu_port_get_ethtool_stats;
-+	ops->get_strings = dsa_cpu_port_get_strings;
-+}
-+
- static const struct ethtool_ops dsa_slave_ethtool_ops = {
- 	.get_settings		= dsa_slave_get_settings,
- 	.set_settings		= dsa_slave_set_settings,
-@@ -1124,12 +1131,7 @@ int dsa_slave_create(struct dsa_switch *ds, struct device *parent,
- 		       sizeof(struct ethtool_ops));
- 		memcpy(&dsa_cpu_port_ethtool_ops, &dst->master_ethtool_ops,
- 		       sizeof(struct ethtool_ops));
--		dsa_cpu_port_ethtool_ops.get_sset_count =
--					dsa_cpu_port_get_sset_count;
--		dsa_cpu_port_ethtool_ops.get_ethtool_stats =
--					dsa_cpu_port_get_ethtool_stats;
--		dsa_cpu_port_ethtool_ops.get_strings =
--					dsa_cpu_port_get_strings;
-+		dsa_cpu_port_ethtool_init(&dsa_cpu_port_ethtool_ops);
- 		master->ethtool_ops = &dsa_cpu_port_ethtool_ops;
- 	}
- 	eth_hw_addr_inherit(slave_dev, master);
+- add a few helper functions/goodies for net/dsa/dsa2.c to be as close as possible
+  from net/dsa/dsa.c in terms of what drivers can expect, in particular the slave
+  MDIO bus and the enabled_port_mask and phy_mii_mask
+
+- fix the CPU port ethtools ops to work in a multiple tree setup since we can
+  no longer assume a single tree is supported
+
+- make the bcm_sf2 driver register its own MDIO bus, yet assign it to
+  ds->slave_mii_bus for everything to work in net/dsa/slave.c wrt. PHY probing,
+  this is a tad cleaner than what we have now
+
+Changes in v2:
+
+Most of the previous patches have been dropped to just keep the relevant ones
+now.
+
+Changes in v3:
+- split the addition of the slave MII bus as a separate patch
+- properly unwind all operations at the right place and right time (ethtool ops,
+  slave MDIO bus
+- fixed a few typos here and there
+
+Changes in v4:
+- removed superfluous dst agrument to dsa_cpu_port_ethtool_{setup,restore}
+
+Florian Fainelli (6):
+  net: dsa: Provide unique DSA slave MII bus names
+  net: dsa: Initialize ds->enabled_port_mask and ds->phys_mii_mask
+  net: dsa: Provide a slave MII bus if needed
+  net: dsa: Add initialization helper for CPU port ethtool_ops
+  net: dsa: Initialize CPU port ethtool ops per tree
+  net: dsa: bcm_sf2: Register our slave MDIO bus
+
+ drivers/net/dsa/bcm_sf2.c | 215 +++++++++++++++++++++++++++++-----------------
+ drivers/net/dsa/bcm_sf2.h |   6 ++
+ include/net/dsa.h         |   1 +
+ net/dsa/dsa.c             |  41 +++++++++
+ net/dsa/dsa2.c            |  36 ++++++++
+ net/dsa/dsa_priv.h        |   5 ++
+ net/dsa/slave.c           |  25 ++----
+ 7 files changed, 232 insertions(+), 97 deletions(-)
+
 -- 
 2.7.4
