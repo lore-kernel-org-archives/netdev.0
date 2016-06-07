@@ -1,44 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V3 1/2] vhost_net: stop polling socket during rx processing
-Date: Tue, 07 Jun 2016 14:46:33 -0700 (PDT)
-Message-ID: <20160607.144633.1372446059350476794.davem@davemloft.net>
-References: <1464760594-30326-1-git-send-email-jasowang@redhat.com>
-	<1464760594-30326-2-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH net] bpf, trace: use READ_ONCE for retrieving file ptr
+Date: Tue, 07 Jun 2016 14:48:46 -0700 (PDT)
+Message-ID: <20160607.144846.1662240162265441902.davem@davemloft.net>
+References: <5aa8512414e4f9f19734e59665f0fe893a109be2.1465065428.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1464760594-30326-2-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: alexei.starovoitov@gmail.com, xiakaixu@huawei.com,
+	netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:58333 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161277AbcFGVss (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 17:48:48 -0400
+In-Reply-To: <5aa8512414e4f9f19734e59665f0fe893a109be2.1465065428.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Wed,  1 Jun 2016 01:56:33 -0400
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Sat,  4 Jun 2016 20:50:59 +0200
 
-> We don't stop rx polling socket during rx processing, this will lead
-> unnecessary wakeups from under layer net devices (E.g
-> sock_def_readable() form tun). Rx will be slowed down in this
-> way. This patch avoids this by stop polling socket during rx
-> processing. A small drawback is that this introduces some overheads in
-> light load case because of the extra start/stop polling, but single
-> netperf TCP_RR does not notice any change. In a super heavy load case,
-> e.g using pktgen to inject packet to guest, we get about ~8.8%
-> improvement on pps:
+> In bpf_perf_event_read() and bpf_perf_event_output(), we must use
+> READ_ONCE() for fetching the struct file pointer, which could get
+> updated concurrently, so we must prevent the compiler from potential
+> refetching.
 > 
-> before: ~1240000 pkt/s
-> after:  ~1350000 pkt/s
+> We already do this with tail calls for fetching the related bpf_prog,
+> but not so on stored perf events. Semantics for both are the same
+> with regards to updates.
 > 
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Fixes: a43eec304259 ("bpf: introduce bpf_perf_event_output() helper")
+> Fixes: 35578d798400 ("bpf: Implement function bpf_perf_event_read() that get the selected hardware PMU conuter")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
 
-Applied.
+Applied and queued up for -stable, thanks.
