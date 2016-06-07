@@ -1,73 +1,46 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v4 2/6] net: dsa: Initialize ds->enabled_port_mask and ds->phys_mii_mask
-Date: Tue,  7 Jun 2016 16:32:39 -0700
-Message-ID: <1465342363-28055-3-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v4 1/6] net: dsa: Provide unique DSA slave MII bus names
+Date: Tue,  7 Jun 2016 16:32:38 -0700
+Message-ID: <1465342363-28055-2-git-send-email-f.fainelli@gmail.com>
 References: <1465342363-28055-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
 	vivien.didelot@savoirfairelinux.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:34459 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932503AbcFGXc4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 19:32:56 -0400
-Received: by mail-pf0-f194.google.com with SMTP id l188so4726777pfl.1
-        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 16:32:56 -0700 (PDT)
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36789 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932478AbcFGXcz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 19:32:55 -0400
+Received: by mail-pf0-f195.google.com with SMTP id 62so21543503pfd.3
+        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 16:32:54 -0700 (PDT)
 In-Reply-To: <1465342363-28055-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Some drivers rely on these two bitmasks to contain the correct values
-for them to successfully probe and initialize at drv->setup() time,
-calculate correct values to put in both masks as early as possible in
-dsa_get_ports_dn().
+In case we have multiples trees and switches with the same index, we
+need to add another discriminating id: the switch tree.
 
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- net/dsa/dsa2.c | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+ net/dsa/slave.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 80dfe08db825..921a36fd139d 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -283,6 +283,7 @@ static void dsa_user_port_unapply(struct device_node *port, u32 index,
- 	if (ds->ports[index].netdev) {
- 		dsa_slave_destroy(ds->ports[index].netdev);
- 		ds->ports[index].netdev = NULL;
-+		ds->enabled_port_mask &= ~(1 << index);
- 	}
+diff --git a/net/dsa/slave.c b/net/dsa/slave.c
+index 15a492261895..a51dfedf0014 100644
+--- a/net/dsa/slave.c
++++ b/net/dsa/slave.c
+@@ -49,7 +49,8 @@ void dsa_slave_mii_bus_init(struct dsa_switch *ds)
+ 	ds->slave_mii_bus->name = "dsa slave smi";
+ 	ds->slave_mii_bus->read = dsa_slave_phy_read;
+ 	ds->slave_mii_bus->write = dsa_slave_phy_write;
+-	snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "dsa-%d", ds->index);
++	snprintf(ds->slave_mii_bus->id, MII_BUS_ID_SIZE, "dsa-%d.%d",
++		 ds->dst->tree, ds->index);
+ 	ds->slave_mii_bus->parent = ds->dev;
+ 	ds->slave_mii_bus->phy_mask = ~ds->phys_mii_mask;
  }
- 
-@@ -292,6 +293,13 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- 	u32 index;
- 	int err;
- 
-+	/* Initialize ds->phys_mii_mask before registering the slave MDIO bus
-+	 * driver and before drv->setup() has run, since the switch drivers and
-+	 * the slave MDIO bus driver rely on these values for probing PHY
-+	 * devices or not
-+	 */
-+	ds->phys_mii_mask = ds->enabled_port_mask;
-+
- 	err = ds->drv->setup(ds);
- 	if (err < 0)
- 		return err;
-@@ -511,6 +519,13 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
- 			return -EINVAL;
- 
- 		ds->ports[reg].dn = port;
-+
-+		/* Initialize enabled_port_mask now for drv->setup()
-+		 * to have access to a correct value, just like what
-+		 * net/dsa/dsa.c::dsa_switch_setup_one does.
-+		 */
-+		if (!dsa_port_is_cpu(port))
-+			ds->enabled_port_mask |= 1 << reg;
- 	}
- 
- 	return 0;
 -- 
 2.7.4
