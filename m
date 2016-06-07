@@ -1,59 +1,116 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [PATCH net] fq_codel: return non zero qlen in class dumps
-Date: Tue, 7 Jun 2016 09:03:00 -0700
-Message-ID: <5756F034.4080604@gmail.com>
-References: <1465229559.2968.75.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] net: get rid of spin_trylock() in
+ net_tx_action()
+Date: Tue, 07 Jun 2016 08:59:06 -0700
+Message-ID: <1465315146.24873.21.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1465095748.2968.45.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CALx6S36UbZt6ec+jowyWZRr7J0pSbBy4PMMpQeXh7vTqwvMY8Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:35937 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932497AbcFGQDO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 12:03:14 -0400
-Received: by mail-pa0-f67.google.com with SMTP id fg1so14488848pad.3
-        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 09:03:14 -0700 (PDT)
-In-Reply-To: <1465229559.2968.75.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:35313 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750995AbcFGP7L (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 11:59:11 -0400
+Received: by mail-pa0-f68.google.com with SMTP id gp3so14469398pac.2
+        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 08:59:11 -0700 (PDT)
+In-Reply-To: <CALx6S36UbZt6ec+jowyWZRr7J0pSbBy4PMMpQeXh7vTqwvMY8Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-06-06 09:12 AM, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
+On Tue, 2016-06-07 at 08:40 -0700, Tom Herbert wrote:
+> On Sat, Jun 4, 2016 at 8:02 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > Note: Tom Herbert posted almost same patch 3 months back, but for
+> > different reasons.
+> >
+> > The reasons we want to get rid of this spin_trylock() are :
+> >
+> > 1) Under high qdisc pressure, the spin_trylock() has almost no
+> > chance to succeed.
+> >
+> > 2) We loop multiple times in softirq handler, eventually reaching
+> > the max retry count (10), and we schedule ksoftirqd.
+> >
+> > Since we want to adhere more strictly to ksoftirqd being waked up in
+> > the future (https://lwn.net/Articles/687617/), better avoid spurious
+> > wakeups.
+> >
+> > 3) calls to __netif_reschedule() dirty the cache line containing
+> > q->next_sched, slowing down the owner of qdisc.
+> >
+> > 4) RT kernels can not use the spin_trylock() here.
+> >
+> > With help of busylock, we get the qdisc spinlock fast enough, and
+> > the trylock trick brings only performance penalty.
+> >
+> > Depending on qdisc setup, I observed a gain of up to 19 % in qdisc
+> > performance (1016600 pps instead of 853400 pps, using prio+tbf+fq_codel)
+> >
+> > ("mpstat -I SCPU 1" is much happier now)
+> >
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Cc: Tom Herbert <tom@herbertland.com>
+> > ---
+> >  net/core/dev.c |   26 +++++++++-----------------
+> >  1 file changed, 9 insertions(+), 17 deletions(-)
+> >
+> > diff --git a/net/core/dev.c b/net/core/dev.c
+> > index 904ff431d570e3cfc0e6255480bd25f3c9dec2f3..896b686d19669d61a04bdccf6b0b71c0537cca81 100644
+> > --- a/net/core/dev.c
+> > +++ b/net/core/dev.c
+> > @@ -2253,7 +2253,7 @@ int netif_get_num_default_rss_queues(void)
+> >  }
+> >  EXPORT_SYMBOL(netif_get_num_default_rss_queues);
+> >
+> > -static inline void __netif_reschedule(struct Qdisc *q)
+> > +static void __netif_reschedule(struct Qdisc *q)
+> >  {
+> >         struct softnet_data *sd;
+> >         unsigned long flags;
+> > @@ -3898,22 +3898,14 @@ static void net_tx_action(struct softirq_action *h)
+> >                         head = head->next_sched;
+> >
+> >                         root_lock = qdisc_lock(q);
+> > -                       if (spin_trylock(root_lock)) {
+> > -                               smp_mb__before_atomic();
+> > -                               clear_bit(__QDISC_STATE_SCHED,
+> > -                                         &q->state);
+> > -                               qdisc_run(q);
+> > -                               spin_unlock(root_lock);
+> > -                       } else {
+> > -                               if (!test_bit(__QDISC_STATE_DEACTIVATED,
+> > -                                             &q->state)) {
 > 
-> We properly scan the flow list to count number of packets,
-> but John passed 0 to gnet_stats_copy_queue() so we report
-> a zero value to user space instead of the result.
-> 
-> Fixes: 640158536632 ("net: sched: restrict use of qstats qlen")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: John Fastabend <john.r.fastabend@intel.com>
-> ---
->  net/sched/sch_fq_codel.c |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/net/sched/sch_fq_codel.c b/net/sched/sch_fq_codel.c
-> index 6883a8971562..7a280360aeed 100644
-> --- a/net/sched/sch_fq_codel.c
-> +++ b/net/sched/sch_fq_codel.c
-> @@ -649,7 +649,7 @@ static int fq_codel_dump_class_stats(struct Qdisc *sch, unsigned long cl,
->  		qs.backlog = q->backlogs[idx];
->  		qs.drops = flow->dropped;
->  	}
-> -	if (gnet_stats_copy_queue(d, NULL, &qs, 0) < 0)
-> +	if (gnet_stats_copy_queue(d, NULL, &qs, qs.qlen) < 0)
->  		return -1;
->  	if (idx < q->flows_cnt)
->  		return gnet_stats_copy_app(d, &xstats, sizeof(xstats));
-> 
-> 
+> This check no longer needed?
 
-Apparently I only passed zero in the sch_fq_codel case, strange. At
-the moment I can't think of any reason other than it being a typo.
 
-Thanks for fixing it!
+It is not needed, since we always take the spinlock.
 
-Acked-by: John Fastabend <john.r.fastabend@intel.com>
+This section is really dead code now.
+
+> 
+> > -                                       __netif_reschedule(q);
+> > -                               } else {
+> > -                                       smp_mb__before_atomic();
+> > -                                       clear_bit(__QDISC_STATE_SCHED,
+> > -                                                 &q->state);
+> > -                               }
+> > -                       }
+> > +                       spin_lock(root_lock);
+> > +                       /* We need to make sure head->next_sched is read
+> > +                        * before clearing __QDISC_STATE_SCHED
+> > +                        */
+> > +                       smp_mb__before_atomic();
+> > +                       clear_bit(__QDISC_STATE_SCHED, &q->state);
+> > +                       qdisc_run(q);
+> > +                       spin_unlock(root_lock);
+> >                 }
+> >         }
+> >  }
+> >
+> >
