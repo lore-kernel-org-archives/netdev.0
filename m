@@ -1,53 +1,49 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: Fwd: Loopback properties in routing on linux kernel
-Date: Tue, 7 Jun 2016 13:23:21 +0200
-Message-ID: <d696a6da-022a-654a-d676-03e70df145aa@stressinduktion.org>
-References: <CAE+=0-gQEwaAz79HoRsQGjvuTjiCR3cBdOYgbhX19HNiGuU1rg@mail.gmail.com>
- <CAE+=0-jQo14t232RVsV2o=BmbX3T0kphAjbvaAhT3cnxzc5gqg@mail.gmail.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: ath9k gpio request
+Date: Tue, 07 Jun 2016 14:43:59 +0300
+Message-ID: <87ziqxns00.fsf@kamboji.qca.qualcomm.com>
+References: <20160530132225.4d297678@canb.auug.org.au>
+	<574C4851.9090201@gmail.com>
+	<87fusy3cqx.fsf_-_@kamboji.qca.qualcomm.com>
+	<574D3EAA.3060102@gmail.com> <1464764036580.70506@qti.qualcomm.com>
+	<574EC331.1080901@gmail.com> <574ED297.4080004@gmail.com>
+	<1464854569880.79341@qti.qualcomm.com> <57501AE4.7080104@gmail.com>
+	<8760tqn8fc.fsf@purkki.adurom.net>
+	<1464932944074.85131@qti.qualcomm.com>
+	<87d1nxt3y9.fsf@kamboji.qca.qualcomm.com> <57546409.70506@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Krishna Mohan <krishnamohany3k@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:40349 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754008AbcFGLXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 07:23:24 -0400
-In-Reply-To: <CAE+=0-jQo14t232RVsV2o=BmbX3T0kphAjbvaAhT3cnxzc5gqg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Pan\, Miaoqing" <miaoqing-Rm6X0d1/PG5y9aJCnZT0Uw@public.gmane.org>,
+	Stephen Rothwell <sfr-3FnU+UHB4dNDw9hX6IcOSA@public.gmane.org>,
+	ath9k-devel <ath9k-devel-zC7DfRvBq/JWk0Htik3J/w@public.gmane.org>,
+	"linux-next\@vger.kernel.org" <linux-next-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-wireless\@vger.kernel.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"ath9k-devel\@lists.ath9k.org" <ath9k-devel-xDcbHBWguxHbcTqmT+pZeQ@public.gmane.org>,
+	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Miaoqing Pan <miaoqing-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+To: Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <57546409.70506-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> (Sudip Mukherjee's message of "Sun, 05
+	Jun 2016 23:10:25 +0530")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 07.06.2016 12:46, Krishna Mohan wrote:
-> HI All,
->     I have a question to determine the uses of multiple loopbacks
-> interfaces(int loopback) in routing(quagga) on linux kernel. Please
-> apologise if it is a dumb question. This is what I understand, please
-> clarify if my understanding is correct.
-> 
-> 1. we need them to represent a /32 ip, normally used for router-id.
-> 2. we can measure traffic destined to that ip, via its independent
-> statistics per loopback interface.
-> 3. ip unnumbered uses loopbacks to represent that ip.
-> 
-> my question is, is it necessary to have ifindex per loopback interface
-> we create? if I create kernel loopback as lo:1 (as subinterface on
-> default loopback in kernel) with ip assigned to it will do 1. for
-> getting 2 and 3 done, loopback needs to be a separate netdev. is that
-> correct?
+Sudip Mukherjee <sudipm.mukherjee-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-That is correct, you can terminate the ip addresses for iBGP (or
-router-id in this case) connections easily on any ip address that is
-bound to some interface within the kernel. Note, that you don't
-necessarily get the statistics correctly updated if you short-cut the
-packet internally in the kernel. So the statistics on the dummy or
-loopback device might not be accurate in such a setup.
+>> Sudip, could you also test patch 9151847, please? You can download the
+>> patch from the patchwork link above.
+>
+> This is also ok. Please add my
+> Tested-by: Sudip Mukherjee <sudip.mukherjee-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>
+>
+> and maybe a Reported-by tag is also appropriate in this case.
 
-> Will I be having any advantage if I configure the interface as lo:1 vs
-> a separate netdev per loopback interface (i mean dummy netdev) to
-> terminate the /32 destined traffic?
+Yeah, I add those. Thanks Sudip.
 
->From kernel PoV it doesn't matter. It is a question of taste and what
-your tools prefer.
-
-Bye,
-Hannes
+-- 
+Kalle Valo
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
