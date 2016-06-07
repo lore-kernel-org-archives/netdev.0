@@ -1,97 +1,33 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH v3] virtio-net: Add initial MTU advice feature
-Date: Tue, 7 Jun 2016 12:21:48 +0300
-Message-ID: <20160607121706-mutt-send-email-mst@redhat.com>
-References: <1464987432-1458-1-git-send-email-aconole@redhat.com>
+From: David Binderman <linuxdev.baldrick@gmail.com>
+Subject: linux-4.7-rc2/drivers/net/ethernet/freescale/fman/fman.c:2329]:
+ (style) Redundant condition
+Date: Tue, 7 Jun 2016 10:41:09 +0100
+Message-ID: <CAMzoamZfyCrPFWVr-nh3HvG6v7UXT_SWCfxF0pTjNeOuX4w7uA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Aaron Conole <aconole@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	dcb314@hotmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1464987432-1458-1-git-send-email-aconole@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 03, 2016 at 04:57:12PM -0400, Aaron Conole wrote:
-> This commit adds the feature bit and associated mtu device entry for the
-> virtio network device.  When a virtio device comes up, it checks the
-> feature bit for the VIRTIO_NET_F_MTU feature.  If such feature bit is
-> enabled, the driver will read the advised MTU and use it as the initial
-> value.
-> 
-> Signed-off-by: Aaron Conole <aconole@redhat.com>
-> ---
-> v2->v3:
-> * Added a check for the MTU, and a bit clear for it being out of range.
-> 
->  drivers/net/virtio_net.c        | 10 ++++++++++
->  include/uapi/linux/virtio_net.h |  3 +++
->  2 files changed, 13 insertions(+)
-> 
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index e0638e5..192f321 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -1780,6 +1780,7 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	struct net_device *dev;
->  	struct virtnet_info *vi;
->  	u16 max_queue_pairs;
-> +	int mtu;
->  
->  	if (!vdev->config->get) {
->  		dev_err(&vdev->dev, "%s failure: config access disabled\n",
-> @@ -1896,6 +1897,14 @@ static int virtnet_probe(struct virtio_device *vdev)
->  	if (virtio_has_feature(vdev, VIRTIO_NET_F_CTRL_VQ))
->  		vi->has_cvq = true;
->  
-> +	if (virtio_has_feature(vdev, VIRTIO_NET_F_MTU)) {
-> +		mtu = virtio_cread16(vdev,
-> +				     offsetof(struct virtio_net_config,
-> +					      mtu));
-> +		if (virtnet_change_mtu(dev, mtu))
-> +			__virtio_clear_bit(vdev, VIRTIO_NET_F_MTU);
-> +	}
-> +
->  	if (vi->any_header_sg)
->  		dev->needed_headroom = vi->hdr_len;
->  
-> @@ -2067,6 +2076,7 @@ static unsigned int features[] = {
->  	VIRTIO_NET_F_GUEST_ANNOUNCE, VIRTIO_NET_F_MQ,
->  	VIRTIO_NET_F_CTRL_MAC_ADDR,
->  	VIRTIO_F_ANY_LAYOUT,
-> +	VIRTIO_NET_F_MTU,
->  };
->  
->  static struct virtio_driver virtio_net_driver = {
-> diff --git a/include/uapi/linux/virtio_net.h b/include/uapi/linux/virtio_net.h
-> index ec32293..1ab4ea6 100644
-> --- a/include/uapi/linux/virtio_net.h
-> +++ b/include/uapi/linux/virtio_net.h
-> @@ -55,6 +55,7 @@
->  #define VIRTIO_NET_F_MQ	22	/* Device supports Receive Flow
->  					 * Steering */
->  #define VIRTIO_NET_F_CTRL_MAC_ADDR 23	/* Set MAC address */
-> +#define VIRTIO_NET_F_MTU 25	/* Initial MTU advice */
->  
->  #ifndef VIRTIO_NET_NO_LEGACY
->  #define VIRTIO_NET_F_GSO	6	/* Host handles pkts w/ any GSO type */
+Hello there,
 
+linux-4.7-rc2/drivers/net/ethernet/freescale/fman/fman.c:2329]:
+(style) Redundant condition: fman.state.port_mfl[mac_id]. '!A || (A &&
+B)' is equivalent to '!A || B'
 
-Oops I just notices this conflicts with virtio spec which says
-devices must only use features up to 24.
-Please post a follow-up patch changing this to bit 3.
+Source code is
 
+    if ((!fman->state->port_mfl[mac_id]) ||
+        (fman->state->port_mfl[mac_id] &&
+        (mfl <= fman->state->port_mfl[mac_id]))) {
 
-> @@ -73,6 +74,8 @@ struct virtio_net_config {
->  	 * Legal values are between 1 and 0x8000
->  	 */
->  	__u16 max_virtqueue_pairs;
-> +	/* Default maximum transmit unit advice */
-> +	__u16 mtu;
->  } __attribute__((packed));
->  
->  /*
-> -- 
-> 2.5.5
+Suggest new code
+
+    if ((!fman->state->port_mfl[mac_id]) ||
+        (mfl <= fman->state->port_mfl[mac_id])) {
+
+Regards
+
+David Binderman
