@@ -1,118 +1,84 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv2 net 2/2] net: cls_u32: be more strict about skip-sw flag
-Date: Tue,  7 Jun 2016 11:46:56 +0100
-Message-ID: <1465296416-21449-3-git-send-email-jakub.kicinski@netronome.com>
-References: <1465226208-32097-1-git-send-email-jakub.kicinski@netronome.com>
- <1465296416-21449-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: john.r.fastabend@intel.com, sridhar.samudrala@intel.com,
-	Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: Re: [PATCHv2 net-next] sctp: sctp should change socket state when
+ shutdown is received
+Date: Tue, 7 Jun 2016 19:03:55 +0800
+Message-ID: <CADvbK_eK0XUGr3+Nmnwy_sC9NHdWj-+k1BtnzNsjE516XBKcWQ@mail.gmail.com>
+References: <67353a74d044f1f643cdfe1442136b44d7188ea9.1464964965.git.lucien.xin@gmail.com>
+ <20160603174918.GX22680@localhost.localdomain> <CADvbK_eCQiw4hhs84t2tj+6zSd7M8_ECNV+W+sviiGEG2WUX_g@mail.gmail.com>
+ <72299bbd-475b-b39d-0f5f-6f1916cbe706@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem <davem@davemloft.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:37758 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932301AbcFGKrL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 06:47:11 -0400
-Received: by mail-wm0-f44.google.com with SMTP id k204so63165402wmk.0
-        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 03:47:10 -0700 (PDT)
-In-Reply-To: <1465296416-21449-1-git-send-email-jakub.kicinski@netronome.com>
+Received: from mail-qk0-f194.google.com ([209.85.220.194]:35798 "EHLO
+	mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753333AbcFGLD5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 07:03:57 -0400
+In-Reply-To: <72299bbd-475b-b39d-0f5f-6f1916cbe706@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Return an error if user requested skip-sw and the underlaying
-hardware cannot handle tc offloads (or offloads are disabled).
+On Sat, Jun 4, 2016 at 8:22 PM, Marcelo Ricardo Leitner
+<marcelo.leitner@gmail.com> wrote:
+>
+> Return error? Please don't. Adam Endrodi asked in May (linux-sctp@) a way to
+> return the addresses used on such attempts and currently this address
+> returned by accept() is the only one we can get.
+[1] I've checked Adam's email, what he asked  was different case,  in
+his case, the assoc
+closed *after* sctp_accept, that's why he can catch the SCTP_COMM_UP event on
+accept_sk but asoc is freed already.
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-Reviewed-by: Dinan Gunawardena <dgunawardena@netronome.com>
-Reviewed-by: Simon Horman <simon.horman@netronome.com>
----
-v2:
-  - handle both knode and hnodes
----
- net/sched/cls_u32.c | 58 +++++++++++++++++++++++++++--------------------------
- 1 file changed, 30 insertions(+), 28 deletions(-)
+[2] if assoc close *before* sctp_accept return, I mean asoc close
+during sctp_accept schedule out.
+listen sk will be the assoc's parent sk, in sctp_cmd_delete_tcb
+(SCTP_CMD_DELETE_TCB):
 
-diff --git a/net/sched/cls_u32.c b/net/sched/cls_u32.c
-index b17e090f2fe1..0fc1d47885f8 100644
---- a/net/sched/cls_u32.c
-+++ b/net/sched/cls_u32.c
-@@ -457,20 +457,21 @@ static int u32_replace_hw_hnode(struct tcf_proto *tp,
- 	struct tc_to_netdev offload;
- 	int err;
- 
-+	if (!tc_should_offload(dev, flags))
-+		return tc_skip_sw(flags) ? -EINVAL : 0;
-+
- 	offload.type = TC_SETUP_CLSU32;
- 	offload.cls_u32 = &u32_offload;
- 
--	if (tc_should_offload(dev, flags)) {
--		offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
--		offload.cls_u32->hnode.divisor = h->divisor;
--		offload.cls_u32->hnode.handle = h->handle;
--		offload.cls_u32->hnode.prio = h->prio;
-+	offload.cls_u32->command = TC_CLSU32_NEW_HNODE;
-+	offload.cls_u32->hnode.divisor = h->divisor;
-+	offload.cls_u32->hnode.handle = h->handle;
-+	offload.cls_u32->hnode.prio = h->prio;
- 
--		err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
--						    tp->protocol, &offload);
--		if (tc_skip_sw(flags))
--			return err;
--	}
-+	err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
-+					    tp->protocol, &offload);
-+	if (tc_skip_sw(flags))
-+		return err;
- 
- 	return 0;
- }
-@@ -507,27 +508,28 @@ static int u32_replace_hw_knode(struct tcf_proto *tp,
- 	offload.type = TC_SETUP_CLSU32;
- 	offload.cls_u32 = &u32_offload;
- 
--	if (tc_should_offload(dev, flags)) {
--		offload.cls_u32->command = TC_CLSU32_REPLACE_KNODE;
--		offload.cls_u32->knode.handle = n->handle;
--		offload.cls_u32->knode.fshift = n->fshift;
-+	if (!tc_should_offload(dev, flags))
-+		return tc_skip_sw(flags) ? -EINVAL : 0;
-+
-+	offload.cls_u32->command = TC_CLSU32_REPLACE_KNODE;
-+	offload.cls_u32->knode.handle = n->handle;
-+	offload.cls_u32->knode.fshift = n->fshift;
- #ifdef CONFIG_CLS_U32_MARK
--		offload.cls_u32->knode.val = n->val;
--		offload.cls_u32->knode.mask = n->mask;
-+	offload.cls_u32->knode.val = n->val;
-+	offload.cls_u32->knode.mask = n->mask;
- #else
--		offload.cls_u32->knode.val = 0;
--		offload.cls_u32->knode.mask = 0;
-+	offload.cls_u32->knode.val = 0;
-+	offload.cls_u32->knode.mask = 0;
- #endif
--		offload.cls_u32->knode.sel = &n->sel;
--		offload.cls_u32->knode.exts = &n->exts;
--		if (n->ht_down)
--			offload.cls_u32->knode.link_handle = n->ht_down->handle;
--
--		err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
--						    tp->protocol, &offload);
--		if (tc_skip_sw(flags))
--			return err;
--	}
-+	offload.cls_u32->knode.sel = &n->sel;
-+	offload.cls_u32->knode.exts = &n->exts;
-+	if (n->ht_down)
-+		offload.cls_u32->knode.link_handle = n->ht_down->handle;
-+
-+	err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle,
-+					    tp->protocol, &offload);
-+	if (tc_skip_sw(flags))
-+		return err;
- 
- 	return 0;
- }
--- 
-1.9.1
+        if (sctp_style(sk, TCP) && sctp_sstate(sk, LISTENING) &&
+            (!asoc->temp) && (sk->sk_shutdown != SHUTDOWN_MASK))
+                return;
+
+assoc can't be freed. and the event skb will be appended to
+listen_sk->sk_receive_queue
+when sctp_accept schedule back, it will transfer to
+accept_sk->sk_receive_queue. we can
+still get the closed assoc information. until we call sctp_close:
+                        if (sctp_state(asoc, CLOSED)) {
+                                sctp_association_free(asoc);
+                                continue;
+                        }
+
+and your suggestion to improve for his case [1] is to not schedule
+SCTP_CMD_DELETE_TCB
+(only for tcp style). right ?
+
+if so, in the case [2] that assoc close *before* sctp_accept return,
+we should also update
+the newsk->sk_state, like:
+
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -7565,10 +7565,12 @@ static void sctp_sock_migrate(struct sock
+*oldsk, struct sock *newsk,
+        /* If the association on the newsk is already closed before accept()
+         * is called, set RCV_SHUTDOWN flag.
+         */
+-       if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP))
++       if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP)) {
++               newsk->sk_state = SCTP_SS_CLOSING;
+                newsk->sk_shutdown |= RCV_SHUTDOWN;
++       } else
++               newsk->sk_state = SCTP_SS_ESTABLISHED;
+
+-       newsk->sk_state = SCTP_SS_ESTABLISHED;
+
+so that this two cases have the similar process, and wait for
+sctp_close to clean assoc.
+what do you think ?
+
+>
+>   Marcelo
