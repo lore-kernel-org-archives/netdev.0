@@ -1,45 +1,39 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next] net: ipv4: Add ability to have GRE ignore DF bit in
- IPv4 payloads
-Date: Tue, 07 Jun 2016 22:23:42 +0200
-Message-ID: <1465331022.134529.630880921.787BED73@webmail.messagingengine.com>
-References: <20160607194846.11494-1-philipp@redfish-solutions.com>
+From: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH] RDS: IB: Remove deprecated create_workqueue
+Date: Tue, 7 Jun 2016 13:31:30 -0700
+Message-ID: <2a32db91-441d-7536-0c45-dc26c486d9fe@oracle.com>
+References: <20160607193345.GA10562@Karyakshetra>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-To: Philip Prindeville <philipp@redfish-solutions.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:40413 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1161315AbcFGUXn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 16:23:43 -0400
-In-Reply-To: <20160607194846.11494-1-philipp@redfish-solutions.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160607193345.GA10562@Karyakshetra>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+Hi,
 
+On 6/7/2016 12:33 PM, Bhaktipriya Shridhar wrote:
+> alloc_workqueue replaces deprecated create_workqueue().
+>
+> Since the driver is infiniband which can be used as block device and the
+> workqueue seems involved in regular operation of the device, so a
+> dedicated workqueue has been used  with WQ_MEM_RECLAIM set to guarantee
+> forward progress under memory pressure.
 
-On Tue, Jun 7, 2016, at 21:48, Philip Prindeville wrote:
->  static struct rtnl_link_ops ipgre_link_ops __read_mostly = {
-> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
-> index d8f5e0a..95649eb 100644
-> --- a/net/ipv4/ip_tunnel.c
-> +++ b/net/ipv4/ip_tunnel.c
-> @@ -682,7 +682,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct
-> net_device *dev,
->  	}
->  
->  	df = tnl_params->frag_off;
-> -       if (skb->protocol == htons(ETH_P_IP))
-> +       if (skb->protocol == htons(ETH_P_IP) && !tunnel->ignore_df)
->  		df |= (inner_iph->frag_off&htons(IP_DF));
->  
->  	max_headroom = LL_RESERVED_SPACE(rt->dst.dev) + sizeof(struct iphdr)
-
-Is still enforce that we inherit the ttl from the inner header to the
-outer header if we don't set df bit?
-
-Thanks,
-Hannes
+> Since there are only a fixed number of work items, explicit concurrency
+> limit is unnecessary here.
+>
+> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+Looks fine.
+Acked-by: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
