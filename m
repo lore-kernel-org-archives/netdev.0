@@ -1,59 +1,45 @@
-From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Subject: [PATCH] net: cavium: liquidio: Remove deprecated create_workqueue
-Date: Wed, 8 Jun 2016 01:47:59 +0530
-Message-ID: <20160607201758.GA14937@Karyakshetra>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next] net: ipv4: Add ability to have GRE ignore DF bit in
+ IPv4 payloads
+Date: Tue, 07 Jun 2016 22:23:42 +0200
+Message-ID: <1465331022.134529.630880921.787BED73@webmail.messagingengine.com>
+References: <20160607194846.11494-1-philipp@redfish-solutions.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj@kernel.org>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Derek Chickles <derek.chickles@caviumnetworks.com>,
-	Satanand Burla <satananda.burla@caviumnetworks.com>,
-	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+To: Philip Prindeville <philipp@redfish-solutions.com>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out2-smtp.messagingengine.com ([66.111.4.26]:40413 "EHLO
+	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1161315AbcFGUXn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 16:23:43 -0400
+In-Reply-To: <20160607194846.11494-1-philipp@redfish-solutions.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-alloc_workqueue replaces deprecated create_workqueue().
 
-A dedicated workqueue has been used since the workitem viz
-(&lio->txq_status_wq.wk.work which maps to octnet_poll_check_txq_status)
-is involved in a brief poll routine for checking transmit queue status
-and is an intergral part of normal device operation.
-WQ_MEM_RECLAIM has been set to guarantee forward progress under memory
-pressure, which is a requirement here.
-Since there are only a fixed number of work items, explicit concurrency
-limit is unnecessary.
 
-flush_workqueue is unnecessary since destroy_workqueue() itself calls
-drain_workqueue() which flushes repeatedly till the workqueue
-becomes empty.
+On Tue, Jun 7, 2016, at 21:48, Philip Prindeville wrote:
+>  static struct rtnl_link_ops ipgre_link_ops __read_mostly = {
+> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
+> index d8f5e0a..95649eb 100644
+> --- a/net/ipv4/ip_tunnel.c
+> +++ b/net/ipv4/ip_tunnel.c
+> @@ -682,7 +682,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct
+> net_device *dev,
+>  	}
+>  
+>  	df = tnl_params->frag_off;
+> -       if (skb->protocol == htons(ETH_P_IP))
+> +       if (skb->protocol == htons(ETH_P_IP) && !tunnel->ignore_df)
+>  		df |= (inner_iph->frag_off&htons(IP_DF));
+>  
+>  	max_headroom = LL_RESERVED_SPACE(rt->dst.dev) + sizeof(struct iphdr)
 
-Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_main.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+Is still enforce that we inherit the ttl from the inner header to the
+outer header if we don't set df bit?
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 8de79ae..655d89e 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2036,7 +2036,8 @@ static inline void setup_tx_poll_fn(struct net_device *netdev)
- 	struct lio *lio = GET_LIO(netdev);
- 	struct octeon_device *oct = lio->oct_dev;
-
--	lio->txq_status_wq.wq = create_workqueue("txq-status");
-+	lio->txq_status_wq.wq = alloc_workqueue("txq-status",
-+						WQ_MEM_RECLAIM, 0);
- 	if (!lio->txq_status_wq.wq) {
- 		dev_err(&oct->pci_dev->dev, "unable to create cavium txq status wq\n");
- 		return;
-@@ -2103,7 +2104,6 @@ static int liquidio_stop(struct net_device *netdev)
- 	send_rx_ctrl_cmd(lio, 0);
-
- 	cancel_delayed_work_sync(&lio->txq_status_wq.wk.work);
--	flush_workqueue(lio->txq_status_wq.wq);
- 	destroy_workqueue(lio->txq_status_wq.wq);
-
- 	if (lio->ptp_clock) {
+Thanks,
+Hannes
