@@ -1,53 +1,53 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v2 5/5] net: dsa: bcm_sf2: Register our slave
- MDIO bus
-Date: Tue, 7 Jun 2016 19:00:50 +0200
-Message-ID: <20160607170050.GA28994@lunn.ch>
-References: <1465254895-11152-1-git-send-email-f.fainelli@gmail.com>
- <1465254895-11152-6-git-send-email-f.fainelli@gmail.com>
- <87oa7dxdis.fsf@ketchup.mtl.sfl>
- <87r3c9vtay.fsf@ketchup.mtl.sfl>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 1/3] bridge: netfilter: checkpatch whitespace fixes
+Date: Tue, 07 Jun 2016 10:04:40 -0700
+Message-ID: <1465319080.25087.28.camel@perches.com>
+References: <1462843618-21914-1-git-send-email-me@tobin.cc>
+	 <1462843618-21914-2-git-send-email-me@tobin.cc>
+	 <20160607151458.GA18008@salvia>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org,
-	davem@davemlof.net
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>, tcharding <me@tobin.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:34863 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161308AbcFGRAx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jun 2016 13:00:53 -0400
-Content-Disposition: inline
-In-Reply-To: <87r3c9vtay.fsf@ketchup.mtl.sfl>
+Received: from smtprelay0221.hostedemail.com ([216.40.44.221]:52876 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755411AbcFGREs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 13:04:48 -0400
+In-Reply-To: <20160607151458.GA18008@salvia>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 07, 2016 at 12:48:37PM -0400, Vivien Didelot wrote:
-> Hi Florian, Andrew,
-> 
-> Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
-> 
-> > Hum reviewing that again, I see that if one of the 2 subsequent calls to
-> > request_irq fails, you end up with an unregistered MDIO bus.
-> >
-> > We have the same issue in the mv88e6xxx legacy probe code if dsa.c fails
-> > to allocate the dsa_switch structure. I'm moving the MDIO register code
-> > to the setup function like you are doing here (good idea!) to fix that.
-> 
-> In fact it doesn't fix the issue because dsa_switch_driver doesn't
-> provide any remove/teardown function, in which mv88e6xxx and sf2 could
-> unregister their MDIO bus on switch removal.
-> 
-> Would it be worth it to add such optional function to DSA drivers?
+On Tue, 2016-06-07 at 17:14 +0200, Pablo Neira Ayuso wrote:
+> On Tue, May 10, 2016 at 11:26:56AM +1000, tcharding wrote:
+> > From: Tobin C Harding <me@tobin.cc>
+> > This is my second linux kernel patch. Unsure if I was meant to cc m=
+ultiple mailing lists?
+[]
+> > diff --git a/net/bridge/netfilter/ebt_stp.c b/net/bridge/netfilter/=
+ebt_stp.c
+[]
+> > @@ -55,65 +55,65 @@ static bool ebt_filter_config(const struct ebt_=
+stp_info *info,
+> > =A0	if (info->bitmask & EBT_STP_ROOTPRIO) {
+> > =A0		v16 =3D NR16(stpc->root);
+> > =A0		if (FWINV(v16 < c->root_priol ||
+> > -		=A0=A0=A0=A0v16 > c->root_priou, EBT_STP_ROOTPRIO))
+> > +			=A0=A0v16 > c->root_priou, EBT_STP_ROOTPRIO))
+> I don't think this coding style is right. This is a common approach
+> (to align the condition when split in several lines) in other 'net' c=
+ode.
 
-It is not needed with DSA2 binding. The driver is always in control,
-and it performs the unregister from the core. So it knows when to
-unregister the mdio bus, either because probe has failed for some
-reason, or it is being unloaded. That is also why i register the mdio
-bus in probe, and unregister it in remove. Normal practice for a
-driver.
+Perhaps you misread the code.
 
-With the legacy interface it is tricky. When would you call such a
-remove/tairdown function when using the old binding?
+The alignment is changed for the 1st argument of the FWINV macro
+to be more similar to the style used in the rest of net/
 
-	Andrew
+But using a longer initial line would be more readable:
+
+=A0		if (FWINV(v16 < c->root_priol ||=A0v16 > c->root_priou,
+			=A0=A0EBT_STP_ROOTPRIO))
