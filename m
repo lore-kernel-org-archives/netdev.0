@@ -1,31 +1,77 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/3] net sched action timestamp improvements
-Date: Tue, 07 Jun 2016 15:54:05 -0700 (PDT)
-Message-ID: <20160607.155405.778592531194331404.davem@davemloft.net>
-References: <1465209175-8002-1-git-send-email-jhs@emojatatu.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 6/6] ppc: ebpf/jit: Implement JIT compiler for extended
+ BPF
+Date: Tue, 7 Jun 2016 15:56:11 -0700
+Message-ID: <20160607225609.GA40706@ast-mbp.thefacebook.com>
+References: <cover.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
+ <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	daniel@iogearbox.net
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58743 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932249AbcFGWyI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 18:54:08 -0400
-In-Reply-To: <1465209175-8002-1-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, mpe@ellerman.id.au,
+	Matt Evans <matt@ozlabs.org>,
+	Denis Kirjanov <kda@linux-powerpc.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Alexei Starovoitov <ast@fb.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+To: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Mon,  6 Jun 2016 06:32:52 -0400
-
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Tue, Jun 07, 2016 at 07:02:23PM +0530, Naveen N. Rao wrote:
+> PPC64 eBPF JIT compiler.
 > 
-> Various aggregations of duplicated code, fixes and introduction of firstused
-> timestamp
+> Enable with:
+> echo 1 > /proc/sys/net/core/bpf_jit_enable
+> or
+> echo 2 > /proc/sys/net/core/bpf_jit_enable
 > 
-> v2: add const for source time info per suggestion from Cong
+> ... to see the generated JIT code. This can further be processed with
+> tools/net/bpf_jit_disasm.
+> 
+> With CONFIG_TEST_BPF=m and 'modprobe test_bpf':
+> test_bpf: Summary: 305 PASSED, 0 FAILED, [297/297 JIT'ed]
+> 
+> ... on both ppc64 BE and LE.
 
-Series applied.
+Nice. That's even better than on x64 which cannot jit one test:
+test_bpf: #262 BPF_MAXINSNS: Jump, gap, jump, ... jited:0 168 PASS
+which was designed specifically to hit x64 jit pass limit.
+ppc jit has predicatble number of passes and doesn't have this problem
+as expected. Great.
+
+> The details of the approach are documented through various comments in
+> the code.
+> 
+> Cc: Matt Evans <matt@ozlabs.org>
+> Cc: Denis Kirjanov <kda@linux-powerpc.org>
+> Cc: Michael Ellerman <mpe@ellerman.id.au>
+> Cc: Paul Mackerras <paulus@samba.org>
+> Cc: Alexei Starovoitov <ast@fb.com>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+> Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
+> ---
+>  arch/powerpc/Kconfig                  |   3 +-
+>  arch/powerpc/include/asm/asm-compat.h |   2 +
+>  arch/powerpc/include/asm/ppc-opcode.h |  20 +-
+>  arch/powerpc/net/Makefile             |   4 +
+>  arch/powerpc/net/bpf_jit.h            |  53 +-
+>  arch/powerpc/net/bpf_jit64.h          | 102 ++++
+>  arch/powerpc/net/bpf_jit_asm64.S      | 180 +++++++
+>  arch/powerpc/net/bpf_jit_comp64.c     | 956 ++++++++++++++++++++++++++++++++++
+>  8 files changed, 1317 insertions(+), 3 deletions(-)
+>  create mode 100644 arch/powerpc/net/bpf_jit64.h
+>  create mode 100644 arch/powerpc/net/bpf_jit_asm64.S
+>  create mode 100644 arch/powerpc/net/bpf_jit_comp64.c
+
+don't see any issues with the code.
+Thank you for working on this.
+
+Acked-by: Alexei Starovoitov <ast@kernel.org>
