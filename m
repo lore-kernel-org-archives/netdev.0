@@ -1,33 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] net_sched: keep backlog updated with qlen
-Date: Mon, 06 Jun 2016 21:15:16 -0400 (EDT)
-Message-ID: <20160606.211516.119527470608167374.davem@davemloft.net>
-References: <1464991557-5135-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH] net: ethernet: cavium: liquidio: response_manager:
+ Remove create_workqueue
+Date: Mon, 06 Jun 2016 21:17:31 -0400 (EDT)
+Message-ID: <20160606.211731.118661996751187859.davem@davemloft.net>
+References: <20160604145139.GA31437@Karyakshetra>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stasn77@gmail.com, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:48719 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751060AbcFGBPT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 21:15:19 -0400
-In-Reply-To: <1464991557-5135-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: derek.chickles@caviumnetworks.com,
+	satananda.burla@caviumnetworks.com,
+	felix.manlunas@caviumnetworks.com,
+	raghu.vatsavayi@caviumnetworks.com, tj@kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: bhaktipriya96@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160604145139.GA31437@Karyakshetra>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Fri,  3 Jun 2016 15:05:57 -0700
+From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Date: Sat, 4 Jun 2016 20:21:40 +0530
 
-> For gso_skb we only update qlen, backlog should be updated too.
+> alloc_workqueue replaces deprecated create_workqueue().
 > 
-> Note, it is correct to just update these stats at one layer,
-> because the gso_skb is cached there.
+> A dedicated workqueue has been used since the workitem viz
+> (&cwq->wk.work which maps to oct_poll_req_completion) is involved
+> in normal device operation. WQ_MEM_RECLAIM has been set to guarantee
+> forward progress under memory pressure, which is a requirement here.
+> Since there are only a fixed number of work items, explicit concurrency
+> limit is unnecessary.
 > 
-> Reported-by: Stas Nichiporovich <stasn77@gmail.com>
-> Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> flush_workqueue is unnecessary since destroy_workqueue() itself calls
+> drain_workqueue() which flushes repeatedly till the workqueue
+> becomes empty. Hence the call to flush_workqueue() has been dropped.
+> 
+> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 
-Applied, thanks.
+Applied.
