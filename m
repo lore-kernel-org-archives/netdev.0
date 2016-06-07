@@ -1,117 +1,74 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH v2 1/2] net: ethernet: ti: cpsw: remove rx_descs property
-Date: Tue,  7 Jun 2016 16:59:35 +0300
-Message-ID: <1465307976-12235-2-git-send-email-ivan.khoronzhuk@linaro.org>
-References: <1465307976-12235-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Cc: grygorii.strashko@ti.com, linux-omap@vger.kernel.org,
-	netdev@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, bcousson@baylibre.com, tony@atomide.com,
-	devicetree@vger.kernel.org,
-	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: mugunthanvnm@ti.com, linux-kernel@vger.kernel.org
+From: Su Xuemin <suxm@chinanetcenter.com>
+Subject: [PATCH] udp reuseport: fix packet of same flow hashed to different socket
+Date: Tue,  7 Jun 2016 21:54:47 +0800
+Message-ID: <1465307687-23211-1-git-send-email-suxm@chinanetcenter.com>
+Cc: linux-kernel@vger.kernel.org, suxm@chinanetcenter.com
+To: "David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465307976-12235-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is no reason in rx_descs property because davinici_cpdma
-driver splits pool of descriptors equally between tx and rx channels.
-That is, if number of descriptors 256, 128 of them are for rx
-channels. While receiving, the descriptor is freed to the pool and
-then allocated with new skb. And if in DT the "rx_descs" is set to
-64, then 128 - 64 = 64 descriptors are always in the pool and cannot
-be used, for tx, for instance. It's not correct resource usage,
-better to set it to half of pool, then the rx pool can be used in
-full. It will not have any impact on performance, as anyway, the
-"redundant" descriptors were unused.
+From: "Su, Xuemin" <suxm@chinanetcenter.com>
 
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+There is a corner case in which udp packets belonging to a same
+flow are hashed to different socket when hslot->count changes from 10
+to 11:
+
+1) When hslot->count <= 10, __udp_lib_lookup() searches udp_table->hash,
+and always passes 'daddr' to udp_ehashfn().
+
+2) When hslot->count > 10, __udp_lib_lookup() searches udp_table->hash2,
+but may pass 'INADDR_ANY' to udp_ehashfn() if the sockets are bound to
+INADDR_ANY instead of some specific addr.
+
+That means when hslot->count changes from 10 to 11, the hash calculated by
+udp_ehashfn() is also changed, and the udp packets belonging to a same
+flow will be hashed to different socket.
+
+This is easily reproduced:
+1) Create 10 udp sockets and bind all of them to 0.0.0.0:40000.
+2) From the same host send udp packets to 127.0.0.1:40000, record the
+socket index which receives the packets.
+3) Create 1 more udp socket and bind it to 0.0.0.0:44096. The number 44096
+is 40000 + UDP_HASH_SIZE(4096), this makes the new socket put into the
+same hslot as the aformentioned 10 sockets, and makes the hslot->count
+change from 10 to 11.
+4) From the same host send udp packets to 127.0.0.1:40000, and the socket
+index which receives the packets will be different from the one received
+in step 2.
+This should not happen as the socket bound to 0.0.0.0:44096 should not
+change the behavior of the sockets bound to 0.0.0.0:40000.
+
+The fix here is that when searching udp_table->hash, if the socket
+supports reuseport, pass inet_sk(sk)->inet_rcv_saddr to udp_ehashfn()
+instead of daddr. When the sockets are bound to some specific addr,
+inet_sk(sk)->inet_rcv_saddr should equal to daddr, and when the sockets
+are bould to INADDR_ANY, this will pass INADDR_ANY to udp_ehashfn() as
+what is done when searching udp_table->hash2.
+
+Signed-off-by: Su, Xuemin <suxm@chinanetcenter.com>
 ---
- drivers/net/ethernet/ti/cpsw.c          | 13 +++----------
- drivers/net/ethernet/ti/cpsw.h          |  1 -
- drivers/net/ethernet/ti/davinci_cpdma.c |  6 ++++++
- drivers/net/ethernet/ti/davinci_cpdma.h |  1 +
- 4 files changed, 10 insertions(+), 11 deletions(-)
+ net/ipv4/udp.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 4b08a2f..db2bdd7 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1277,6 +1277,7 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 				  ALE_ALL_PORTS, ALE_ALL_PORTS, 0, 0);
- 
- 	if (!cpsw_common_res_usage_state(priv)) {
-+		int buf_num;
- 		struct cpsw_priv *priv_sl0 = cpsw_get_slave_priv(priv, 0);
- 
- 		/* setup tx dma to fixed prio and zero offset */
-@@ -1305,10 +1306,8 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 			enable_irq(priv->irqs_table[0]);
- 		}
- 
--		if (WARN_ON(!priv->data.rx_descs))
--			priv->data.rx_descs = 128;
--
--		for (i = 0; i < priv->data.rx_descs; i++) {
-+		buf_num = cpdma_chan_get_rx_buf_num(priv->dma);
-+		for (i = 0; i < buf_num; i++) {
- 			struct sk_buff *skb;
- 
- 			ret = -ENOMEM;
-@@ -1999,12 +1998,6 @@ static int cpsw_probe_dt(struct cpsw_platform_data *data,
- 	}
- 	data->bd_ram_size = prop;
- 
--	if (of_property_read_u32(node, "rx_descs", &prop)) {
--		dev_err(&pdev->dev, "Missing rx_descs property in the DT.\n");
--		return -EINVAL;
--	}
--	data->rx_descs = prop;
--
- 	if (of_property_read_u32(node, "mac_control", &prop)) {
- 		dev_err(&pdev->dev, "Missing mac_control property in the DT.\n");
- 		return -EINVAL;
-diff --git a/drivers/net/ethernet/ti/cpsw.h b/drivers/net/ethernet/ti/cpsw.h
-index e50afd1..16b54c6 100644
---- a/drivers/net/ethernet/ti/cpsw.h
-+++ b/drivers/net/ethernet/ti/cpsw.h
-@@ -35,7 +35,6 @@ struct cpsw_platform_data {
- 	u32	cpts_clock_shift; /* convert input clock ticks to nanoseconds */
- 	u32	ale_entries;	/* ale table size */
- 	u32	bd_ram_size;  /*buffer descriptor ram size */
--	u32	rx_descs;	/* Number of Rx Descriptios */
- 	u32	mac_control;	/* Mac control register */
- 	u16	default_vlan;	/* Def VLAN for ALE lookup in VLAN aware mode*/
- 	bool	dual_emac;	/* Enable Dual EMAC mode */
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
-index 18bf3a8..bcd9e45 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.c
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.c
-@@ -543,6 +543,12 @@ struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
- }
- EXPORT_SYMBOL_GPL(cpdma_chan_create);
- 
-+int cpdma_chan_get_rx_buf_num(struct cpdma_ctlr *ctlr)
-+{
-+	return ctlr->pool->num_desc / 2;
-+}
-+EXPORT_SYMBOL_GPL(cpdma_chan_get_rx_buf_num);
-+
- int cpdma_chan_destroy(struct cpdma_chan *chan)
- {
- 	struct cpdma_ctlr *ctlr;
-diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
-index 86dee48..80c015c 100644
---- a/drivers/net/ethernet/ti/davinci_cpdma.h
-+++ b/drivers/net/ethernet/ti/davinci_cpdma.h
-@@ -81,6 +81,7 @@ int cpdma_ctlr_dump(struct cpdma_ctlr *ctlr);
- 
- struct cpdma_chan *cpdma_chan_create(struct cpdma_ctlr *ctlr, int chan_num,
- 				     cpdma_handler_fn handler);
-+int cpdma_chan_get_rx_buf_num(struct cpdma_ctlr *ctlr);
- int cpdma_chan_destroy(struct cpdma_chan *chan);
- int cpdma_chan_start(struct cpdma_chan *chan);
- int cpdma_chan_stop(struct cpdma_chan *chan);
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index d56c055..57c38f6 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -577,7 +577,9 @@ begin:
+ 		if (score > badness) {
+ 			reuseport = sk->sk_reuseport;
+ 			if (reuseport) {
+-				hash = udp_ehashfn(net, daddr, hnum,
++				hash = udp_ehashfn(net,
++						   inet_sk(sk)->inet_rcv_saddr,
++						   hnum,
+ 						   saddr, sport);
+ 				result = reuseport_select_sock(sk, hash, skb,
+ 							sizeof(struct udphdr));
 -- 
-1.9.1
+1.8.3.1
