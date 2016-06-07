@@ -1,50 +1,59 @@
-From: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] RDS: IB: Remove deprecated create_workqueue
-Date: Wed, 8 Jun 2016 01:03:45 +0530
-Message-ID: <20160607193345.GA10562@Karyakshetra>
+From: Joshua Clayton <stillcompiling@gmail.com>
+Subject: Re: [PATCH 2/2] ARM: dts: imx6: tag boards that have the HW
+ workaround for ERR006687
+Date: Tue, 7 Jun 2016 12:46:50 -0700
+Message-ID: <20160607124650.1e69c658@jclayton-pc>
+References: <1464794983-31484-1-git-send-email-l.stach@pengutronix.de>
+	<1464794983-31484-3-git-send-email-l.stach@pengutronix.de>
+	<20160601161729.GB19428@n2100.arm.linux.org.uk>
+	<1464855906.9501.1.camel@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Santosh Shilimkar <santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Russell King - ARM Linux <linux@armlinux.org.uk>,
+	devicetree@vger.kernel.org, Fugang Duan <fugang.duan@nxp.com>,
+	netdev@vger.kernel.org, patchwork-lst@pengutronix.de,
+	kernel@pengutronix.de, Shawn Guo <shawnguo@kernel.org>,
+	linux-arm-kernel@lists.infradead.org
+To: Lucas Stach <l.stach@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33670 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752832AbcFGTrA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 15:47:00 -0400
+In-Reply-To: <1464855906.9501.1.camel@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-alloc_workqueue replaces deprecated create_workqueue().
+On Thu, 02 Jun 2016 10:25:06 +0200
+Lucas Stach <l.stach@pengutronix.de> wrote:
 
-Since the driver is infiniband which can be used as block device and the
-workqueue seems involved in regular operation of the device, so a
-dedicated workqueue has been used  with WQ_MEM_RECLAIM set to guarantee
-forward progress under memory pressure.
-Since there are only a fixed number of work items, explicit concurrency
-limit is unnecessary here.
+> Am Mittwoch, den 01.06.2016, 17:17 +0100 schrieb Russell King - ARM
+> Linux:
+> > On Wed, Jun 01, 2016 at 05:29:43PM +0200, Lucas Stach wrote:  
+> > > @@ -97,6 +97,7 @@
+> > >  	phy-reset-gpios = <&gpio3 31 0>;
+> > >  	interrupts-extended = <&gpio1 6 IRQ_TYPE_LEVEL_HIGH>,
+> > >  			      <&intc 0 119 IRQ_TYPE_LEVEL_HIGH>;
+> > > +	fsl,err006687-war-present;  
+> > 
 
-Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
----
- net/rds/ib_rdma.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Why can't we just have the quirk detect the interrupts-extended
+property, which is not present on boards without the workaround.
+Wouldn't that be better? No dts change needed.
 
-diff --git a/net/rds/ib_rdma.c b/net/rds/ib_rdma.c
-index f7164ac..a0f21b6 100644
---- a/net/rds/ib_rdma.c
-+++ b/net/rds/ib_rdma.c
-@@ -618,7 +618,7 @@ struct rds_ib_mr_pool *rds_ib_create_mr_pool(struct rds_ib_device *rds_ibdev,
-
- int rds_ib_mr_init(void)
- {
--	rds_ib_mr_wq = create_workqueue("rds_mr_flushd");
-+	rds_ib_mr_wq = alloc_workqueue("rds_mr_flushd", WQ_MEM_RECLAIM, 0);
- 	if (!rds_ib_mr_wq)
- 		return -ENOMEM;
- 	return 0;
---
-2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > war?  Any reason not to spell it out, or use the more natural
+> > abbreviation "wa"?
+> >   
+> Apparently I've read too many documents where WAR is the abbreviation
+> for workaround, so it felt completely natural to me. I agree that it
+> would make sense to just spell it out to avoid any confusion.
+> 
+> Regards,
+> Lucas
+> 
+> 
+> _______________________________________________
+> linux-arm-kernel mailing list
+> linux-arm-kernel@lists.infradead.org
+> http://lists.infradead.org/mailman/listinfo/linux-arm-kernel
