@@ -1,31 +1,44 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next v3 3/6] net: dsa: Provide a slave MII bus if
- needed
-Date: Tue, 7 Jun 2016 23:40:13 +0200
-Message-ID: <20160607214013.GE28994@lunn.ch>
-References: <1465333616-6351-1-git-send-email-f.fainelli@gmail.com>
- <1465333616-6351-4-git-send-email-f.fainelli@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V3 1/2] vhost_net: stop polling socket during rx processing
+Date: Tue, 07 Jun 2016 14:46:33 -0700 (PDT)
+Message-ID: <20160607.144633.1372446059350476794.davem@davemloft.net>
+References: <1464760594-30326-1-git-send-email-jasowang@redhat.com>
+	<1464760594-30326-2-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	vivien.didelot@savoirfairelinux.com
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:38298 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1161185AbcFGVkP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jun 2016 17:40:15 -0400
-Content-Disposition: inline
-In-Reply-To: <1465333616-6351-4-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, kvm@vger.kernel.org, mst@redhat.com
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1464760594-30326-2-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 07, 2016 at 02:06:53PM -0700, Florian Fainelli wrote:
-> Mimic what net/dsa/dsa.c does and provide a slave MII bus by default
-> which will be created if the driver implements a phy_read method.
+From: Jason Wang <jasowang@redhat.com>
+Date: Wed,  1 Jun 2016 01:56:33 -0400
+
+> We don't stop rx polling socket during rx processing, this will lead
+> unnecessary wakeups from under layer net devices (E.g
+> sock_def_readable() form tun). Rx will be slowed down in this
+> way. This patch avoids this by stop polling socket during rx
+> processing. A small drawback is that this introduces some overheads in
+> light load case because of the extra start/stop polling, but single
+> netperf TCP_RR does not notice any change. In a super heavy load case,
+> e.g using pktgen to inject packet to guest, we get about ~8.8%
+> improvement on pps:
 > 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> before: ~1240000 pkt/s
+> after:  ~1350000 pkt/s
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-	Andrew
+Applied.
