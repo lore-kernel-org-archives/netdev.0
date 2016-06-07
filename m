@@ -1,50 +1,64 @@
-From: Philip Prindeville <philipp_subx@redfish-solutions.com>
-Subject: Re: [PATCH net-next] net: ipv4: Add ability to have GRE ignore DF bit
- in IPv4 payloads
-Date: Tue, 7 Jun 2016 14:42:16 -0600
-Message-ID: <575731A8.1040303@redfish-solutions.com>
-References: <20160607194846.11494-1-philipp@redfish-solutions.com>
- <1465331022.134529.630880921.787BED73@webmail.messagingengine.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <stephen@networkplumber.org>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next v3 0/6] net: dsa: misc improvements
+Date: Tue,  7 Jun 2016 14:06:50 -0700
+Message-ID: <1465333616-6351-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+	vivien.didelot@savoirfairelinux.com,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.redfish-solutions.com ([66.232.79.143]:54896 "EHLO
-	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756598AbcFGUmZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 16:42:25 -0400
-In-Reply-To: <1465331022.134529.630880921.787BED73@webmail.messagingengine.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33058 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754022AbcFGVJa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 17:09:30 -0400
+Received: by mail-pf0-f193.google.com with SMTP id u67so5167250pfu.0
+        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 14:09:30 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/07/2016 02:23 PM, Hannes Frederic Sowa wrote:
->
-> On Tue, Jun 7, 2016, at 21:48, Philip Prindeville wrote:
->>   static struct rtnl_link_ops ipgre_link_ops __read_mostly = {
->> diff --git a/net/ipv4/ip_tunnel.c b/net/ipv4/ip_tunnel.c
->> index d8f5e0a..95649eb 100644
->> --- a/net/ipv4/ip_tunnel.c
->> +++ b/net/ipv4/ip_tunnel.c
->> @@ -682,7 +682,7 @@ void ip_tunnel_xmit(struct sk_buff *skb, struct
->> net_device *dev,
->>   	}
->>   
->>   	df = tnl_params->frag_off;
->> -       if (skb->protocol == htons(ETH_P_IP))
->> +       if (skb->protocol == htons(ETH_P_IP) && !tunnel->ignore_df)
->>   		df |= (inner_iph->frag_off&htons(IP_DF));
->>   
->>   	max_headroom = LL_RESERVED_SPACE(rt->dst.dev) + sizeof(struct iphdr)
-> Is still enforce that we inherit the ttl from the inner header to the
-> outer header if we don't set df bit?
->
-> Thanks,
-> Hannes
+Hi all,
 
-That's correct.  That happens a few lines above and we don't change that 
-behavior with this patch.
+This patch series builds on top of Andrew's "New DSA bind, switches as devices"
+patch set and does the following:
 
--Philip
+- add a few helper functions/goodies for net/dsa/dsa2.c to be as close as possible
+  from net/dsa/dsa.c in terms of what drivers can expect, in particular the slave
+  MDIO bus and the enabled_port_mask and phy_mii_mask
+
+- fix the CPU port ethtools ops to work in a multiple tree setup since we can
+  no longer assume a single tree is supported
+
+- make the bcm_sf2 driver register its own MDIO bus, yet assign it to
+  ds->slave_mii_bus for everything to work in net/dsa/slave.c wrt. PHY probing,
+  this is a tad cleaner than what we have now
+
+Changes in v2:
+
+Most of the previous patches have been dropped to just keep the relevant ones
+now.
+
+Changes in v3:
+- split the addition of the slave MII bus as a separate patch
+- properly unwind all operations at the right place and right time (ethtool ops,
+  slave MDIO bus
+- fixed a few typos here and there
+
+Florian Fainelli (6):
+  net: dsa: Provide unique DSA slave MII bus names
+  net: dsa: Initialize ds->enabled_port_mask and ds->phys_mii_mask
+  net: dsa: Provide a slave MII bus if needed
+  net: dsa: Add initialization helper for CPU port ethtool_ops
+  net: dsa: Initialize CPU port ethtool ops per tree
+  net: dsa: bcm_sf2: Register our slave MDIO bus
+
+ drivers/net/dsa/bcm_sf2.c | 215 +++++++++++++++++++++++++++++-----------------
+ drivers/net/dsa/bcm_sf2.h |   6 ++
+ include/net/dsa.h         |   1 +
+ net/dsa/dsa.c             |  41 +++++++++
+ net/dsa/dsa2.c            |  36 ++++++++
+ net/dsa/dsa_priv.h        |   5 ++
+ net/dsa/slave.c           |  25 ++----
+ 7 files changed, 232 insertions(+), 97 deletions(-)
+
+-- 
+2.7.4
