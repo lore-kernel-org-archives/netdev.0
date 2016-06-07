@@ -1,79 +1,75 @@
-From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next v10 2/5] openvswitch: set skb
- protocol and mac_len when receiving on internal device
-Date: Tue, 7 Jun 2016 15:45:27 -0700
-Message-ID: <CAOrHB_Cp4bw1beQb8tCk+cR9k2Nv5kBMVD-a8SYRVkOeeQYJvA@mail.gmail.com>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH net-next v10 3/5] openvswitch: add support to push and pop
+ mpls for layer3 packets
+Date: Tue, 7 Jun 2016 15:45:42 -0700
+Message-ID: <CAOrHB_B3phbNub9sdnCM0EFDSL3fRHB-unKjUgjFMX5ZHqM3Dw@mail.gmail.com>
 References: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
- <1464848686-7656-3-git-send-email-simon.horman@netronome.com>
- <CAOrHB_Aqdkr-26GxGh=W0AsojOMzDXYf5zif=kaFbWBty5uHKA@mail.gmail.com>
- <20160607030809.GE31696@vergenet.net>
+ <1464848686-7656-4-git-send-email-simon.horman@netronome.com>
+ <CAOrHB_D0XoGUjSXztNMdektGgTMPxeVfbNF0WcTZuTbR4VYz5g@mail.gmail.com> <20160607025130.GD31696@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <20160607030809.GE31696-IxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>
+To: Simon Horman <simon.horman@netronome.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:57855 "EHLO
+	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750818AbcFGWpr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 18:45:47 -0400
+Received: from mfilter41-d.gandi.net (mfilter41-d.gandi.net [217.70.178.173])
+	by relay3-d.mail.gandi.net (Postfix) with ESMTP id 747F8A80CD
+	for <netdev@vger.kernel.org>; Wed,  8 Jun 2016 00:45:45 +0200 (CEST)
+Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
+	by mfilter41-d.gandi.net (mfilter41-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id jewRijHmhISw for <netdev@vger.kernel.org>;
+	Wed,  8 Jun 2016 00:45:44 +0200 (CEST)
+Received: from mail-it0-f49.google.com (mail-it0-f49.google.com [209.85.214.49])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id DCB10A80C6
+	for <netdev@vger.kernel.org>; Wed,  8 Jun 2016 00:45:43 +0200 (CEST)
+Received: by mail-it0-f49.google.com with SMTP id h62so50168942itb.1
+        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 15:45:43 -0700 (PDT)
+In-Reply-To: <20160607025130.GD31696@vergenet.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCBKdW4gNiwgMjAxNiBhdCA4OjA4IFBNLCBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1h
-bkBuZXRyb25vbWUuY29tPiB3cm90ZToKPiBPbiBUaHUsIEp1biAwMiwgMjAxNiBhdCAwMzowMTo0
-N1BNIC0wNzAwLCBwcmF2aW4gc2hlbGFyIHdyb3RlOgo+PiBPbiBXZWQsIEp1biAxLCAyMDE2IGF0
-IDExOjI0IFBNLCBTaW1vbiBIb3JtYW4KPj4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUuY29tPiB3
-cm90ZToKPj4gPiAqIFNldCBza2IgcHJvdG9jb2wgYmFzZWQgb24gY29udGVudHMgb2YgcGFja2V0
-LiBJIGhhdmUgb2JzZXJ2ZWQgdGhpcyBpcwo+PiA+ICAgbmVjZXNzYXJ5IHRvIGdldCBhY3R1YWwg
-cHJvdG9jb2wgb2YgYSBwYWNrZXQgd2hlbiBpdCBpcyBpbmplY3RlZCBpbnRvIGFuCj4+ID4gICBp
-bnRlcm5hbCBkZXZpY2UgZS5nLiBieSBsaWJuZXQgaW4gd2hpY2ggY2FzZSBza2IgcHJvdG9jb2wg
-d2lsbCBiZSBzZXQgdG8KPj4gPiAgIEVUSF9BTEwuCj4+ID4KPj4gPiAqIFNldCB0aGUgbWFjX2xl
-biB3aGljaCBoYXMgYmVlbiBvYnNlcnZlZCB0byBub3QgYmUgc2V0IHVwIGNvcnJlY3RseSB3aGVu
-Cj4+ID4gICBhbiBBUlAgcGFja2V0IGlzIGdlbmVyYXRlZCBhbmQgc2VudCB2aWEgYW4gb3BlbnZz
-d2l0Y2ggYnJpZGdlLgo+PiA+ICAgTXkgdGVzdCBjYXNlIGlzIGEgc2NlbmFyaW8gd2hlcmUgdGhl
-cmUgYXJlIHR3byBvcGVuIHZzd3RpY2ggYnJpZGdlcy4KPj4gPiAgIE9uZSBvdXRwdXRzIHRvIGEg
-dHVubmVsIHBvcnQgd2hpY2ggZWdyZXNzZXMgb24gdGhlIG90aGVyLgo+PiA+Cj4+ID4gVGhlIG1v
-dGl2YXRpb24gZm9yIHRoaXMgaXMgdGhhdCBzdXBwb3J0IGZvciBvdXRwdXR0aW5nIHRvIGxheWVy
-IDMgKG5vbi10YXApCj4+ID4gR1JFIHR1bm5lbHMgYXMgaW1wbGVtZW50ZWQgYnkgYSBzdWJzZXF1
-ZW50IHBhdGNoIGRlcGVuZHMgb24gcHJvdG9jb2wgYW5kCj4+ID4gbWFjX2xlbiBiZWluZyBzZXQg
-Y29ycmVjdGx5IG9uIHJlY2VpdmUuCj4+ID4KPj4gPiBTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb3Jt
-YW4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUuY29tPgo+PiA+Cj4+ID4gLS0tCj4+ID4gdjEwCj4+
-ID4gKiBTZXQgbWFjX2xlbgo+PiA+Cj4+ID4gdjkKPj4gPiAqIE5ldyBwYXRjaAo+PiA+IC0tLQo+
-PiA+ICBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQtaW50ZXJuYWxfZGV2LmMgfCA0ICsrKysKPj4gPiAg
-MSBmaWxlIGNoYW5nZWQsIDQgaW5zZXJ0aW9ucygrKQo+PiA+Cj4+ID4gZGlmZiAtLWdpdCBhL25l
-dC9vcGVudnN3aXRjaC92cG9ydC1pbnRlcm5hbF9kZXYuYyBiL25ldC9vcGVudnN3aXRjaC92cG9y
-dC1pbnRlcm5hbF9kZXYuYwo+PiA+IGluZGV4IDJlZTQ4ZTQ0N2I3Mi4uZjg5YjFlZmE4OGYxIDEw
-MDY0NAo+PiA+IC0tLSBhL25ldC9vcGVudnN3aXRjaC92cG9ydC1pbnRlcm5hbF9kZXYuYwo+PiA+
-ICsrKyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC1pbnRlcm5hbF9kZXYuYwo+PiA+IEBAIC00OCw2
-ICs0OCwxMCBAQCBzdGF0aWMgaW50IGludGVybmFsX2Rldl94bWl0KHN0cnVjdCBza19idWZmICpz
-a2IsIHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpCj4+ID4gIHsKPj4gPiAgICAgICAgIGludCBs
-ZW4sIGVycjsKPj4gPgo+PiA+ICsgICAgICAgc2tiLT5wcm90b2NvbCA9IGV0aF90eXBlX3RyYW5z
-KHNrYiwgbmV0ZGV2KTsKPj4gPiArICAgICAgIHNrYl9wdXNoKHNrYiwgRVRIX0hMRU4pOwo+PiA+
-ICsgICAgICAgc2tiX3Jlc2V0X21hY19sZW4oc2tiKTsKPj4gPiArCj4+IHJlc2V0dGluZyBtYWMt
-bGVuIGJyZWFrcyB0aGUgYXNzdW1wdGlvbiBhYm91dCBtYWNfbGVuIGZvciByZWZlcmVuY2luZwo+
-PiBNUExTIGhlYWRlciByZWY6IHNrYl9tcGxzX2hlYWRlcigpLgo+Cj4gVGhhbmtzIEkgaGFkIG92
-ZXJsb29rZWQgdGhpcy4gSSB0aGluayBpdCBpcyBhY3R1YWxseSBzYWZlIGFzCj4gdGhlIG1hY19s
-ZW4gaXMgcmVjYWxjdWxhdGVkIHF1aXRlIHNvb24gaW4ga2V5X2V4dHJhY3QoKSBhbmQgSUlSQwo+
-IHRoZSBtb3N0IGltcG9ydGFudCB0aGluZyBpcyBmb3IgbWFjX2xlbiB0byBiZSAwIG9yIG5vbi16
-ZXJvCj4gZm9yIHRoZSBiZW5lZml0IG9mIG92c19mbG93X2tleV9leHRyYWN0KCkuIE5vbmUgdGhl
-IGxlc3MgaXQgZG9lcwo+IHNlZW0gdW50aWR5IGFuZCBtb3Jlb3ZlciBpbmNvbnNpc3RlbnQgd2l0
-aCB0aGUgaGFuZGxpbmcgaW4KPiBuZXRkZXZfcG9ydF9yZWNlaXZlKCkgYnkgYSBsYXR0ZXIgcGF0
-Y2ggd2hpY2ggZG9lcyB0aGUgZm9sbG93aW5nOgo+Cj4gICAgICAgICBldGhfdHlwZSA9IGV0aF90
-eXBlX3RyYW5zKHNrYiwgc2tiLT5kZXYpOwo+ICAgICAgICAgc2tiLT5tYWNfbGVuID0gc2tiLT5k
-YXRhIC0gc2tiX21hY19oZWFkZXIoc2tiKTsKPiAgICAgICAgIF9fc2tiX3B1c2goc2tiLCBza2It
-Pm1hY19sZW4pOwo+Cj4gICAgICAgICBpZiAoZXRoX3R5cGUgPT0gaHRvbnMoRVRIX1BfODAyMVEp
-KQo+ICAgICAgICAgICAgICAgICBza2ItPm1hY19sZW4gKz0gVkxBTl9ITEVOOwo+Cj4gUGVyaGFw
-cyB0aGF0IGxvZ2ljIG91Z2h0IHRvIGJlIGluIGEgaGVscGVyIHVzZWQgYnkgYm90aCBpbnRlcm5h
-bF9kZXZfeG1pdCgpCj4gYW5kIG5ldGRldl9wb3J0X3JlY2VpdmUoKS4gT3Igc29tZWhvdyBjZW50
-cmFsaXNlZCBpbiBvdnNfdnBvcnRfcmVjZWl2ZSgpLgoKVGhpcyBkb2VzIGxvb2tzIGJpdCBjb21w
-bGV4LiBDYW4gd2UgdXNlIG90aGVyIHNrYiBtZXRhZGF0YSBsaWtlCnNrYl9tYWNfaGVhZGVyX3dh
-c19zZXQoKT8KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
-ZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5v
-cmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
+On Mon, Jun 6, 2016 at 7:51 PM, Simon Horman <simon.horman@netronome.com> wrote:
+> On Thu, Jun 02, 2016 at 03:02:00PM -0700, pravin shelar wrote:
+>> On Wed, Jun 1, 2016 at 11:24 PM, Simon Horman
+>> <simon.horman@netronome.com> wrote:
+>> > Allow push and pop mpls actions to act on layer 3 packets by teaching
+>> > them not to access non-existent L2 headers of such packets.
+>> >
+>> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
+>> > ---
+>> > v10
+>> > * Limit scope of hdr in {push,pop}_mpls()
+>> >
+>> > v9
+>> > * New Patch
+>> > ---
+>> >  net/openvswitch/actions.c | 19 ++++++++++++-------
+>> >  1 file changed, 12 insertions(+), 7 deletions(-)
+>> >
+>> > diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+>> > index 9a3eb7a0ebf4..15f130e4c22b 100644
+>> > --- a/net/openvswitch/actions.c
+>> > +++ b/net/openvswitch/actions.c
+>> > @@ -172,7 +172,8 @@ static int push_mpls(struct sk_buff *skb, struct sw_flow_key *key,
+>> >
+>> >         skb_postpush_rcsum(skb, new_mpls_lse, MPLS_HLEN);
+>> >
+>> > -       update_ethertype(skb, eth_hdr(skb), mpls->mpls_ethertype);
+>> > +       if (skb->mac_len)
+>> > +               update_ethertype(skb, eth_hdr(skb), mpls->mpls_ethertype);
+>> We can move all ethernet related code in this if block. for example memmove().
+>
+> My assumption is that the memmove() does nothing if skb->mac_len is zero
+> and from my point of view it seems clean to leave it where it is unless
+> the code around it also moves.
+>
+> Is there other code you think could/should be moved into the
+> if (skb->mac_len) block?
+>
+yes, the code is correct. But I think grouping l2 related updated
+together makes code easier to follow.
