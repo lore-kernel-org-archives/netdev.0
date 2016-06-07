@@ -1,87 +1,166 @@
 From: Johannes Thumshirn <jthumshirn@suse.de>
-Subject: [PATCH v3 6/6] alx: Use pci_(request|release)_mem_regions
-Date: Tue,  7 Jun 2016 09:44:06 +0200
-Message-ID: <996820d5a84063fa20d3d7d7cc1760f18eedf694.1465200425.git.jthumshirn@suse.de>
-References: <cover.1465200424.git.jthumshirn@suse.de>
+Subject: [PATCH v3 0/6] Introduce pci_(request|release)_(mem|io)_regions
+Date: Tue,  7 Jun 2016 09:44:00 +0200
+Message-ID: <cover.1465200424.git.jthumshirn@suse.de>
 Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Christoph Hellwig <hch@infradead.org>,
 	Johannes Thumshirn <jthumshirn@suse.de>,
+	Keith Busch <keith.busch@intel.com>, Jens Axboe <axboe@fb.com>,
+	linux-nvme@lists.infradead.org,
+	James Smart <james.smart@avagotech.com>,
+	Dick Kennedy <dick.kennedy@avagotech.com>,
+	"James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+	"Martin K. Petersen" <martin.petersen@oracle.com>,
+	linux-scsi@vger.kernel.org,
+	Frank Haverkamp <haver@linux.vnet.ibm.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
 	Jay Cliburn <jcliburn@gmail.com>,
 	Chris Snook <chris.snook@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
 	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
 	intel-wired-lan@lists.osuosl.org
 To: Bjorn Helgaas <bhelgaas@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:56882 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751856AbcFGHoO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 7 Jun 2016 03:44:14 -0400
-In-Reply-To: <cover.1465200424.git.jthumshirn@suse.de>
-In-Reply-To: <cover.1465200424.git.jthumshirn@suse.de>
-References: <cover.1465200424.git.jthumshirn@suse.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Now that we do have pci_request_mem_regions() and pci_release_mem_regions() at
-hand, use it in the ethernet drivers.
+The first patch in this series introduces the following 4 helper functions to
+the PCI core:
 
-Suggested-by: Christoph Hellwig <hch@infradead.org>
-Signed-off-by: Johannes Thumshirn <jthumshirn@suse.de>
+* pci_request_mem_regions()
+* pci_request_io_regions()
+* pci_release_mem_regions()
+* pci_release_io_regions()
+
+which encapsulate the request and release of a PCI device's memory or I/O
+bars.
+
+The subsequent patches convert the drivers, which use the
+pci_request_selected_regions(pdev, 
+	pci_select_bars(pdev, IORESOURCE_MEM), name); 
+and similar pattern to use the new interface.
+
+This was suggested by Christoph Hellwig in
+http://lists.infradead.org/pipermail/linux-nvme/2016-May/004570.html and
+tested on kernel v4.6 with NVMe.
+
+The conversion of the drivers has been performed by the following coccinelle
+spatch:
+// IORESOURCE_MEM
+@@
+expression err, pdev, name;
+@@
+
+- err = pci_request_selected_regions(pdev, pci_select_bars(pdev, IORESOURCE_MEM), name);
++ err = pci_request_mem_regions(pdev, name);
+
+@@
+expression pdev;
+@@
+- pci_release_selected_regions(pdev, pci_select_bars(pdev, IORESOURCE_MEM));
++ pci_release_mem_regions(pdev);
+
+@@
+expression err, pdev, name;
+identifier bars;
+@@
+- bars = pci_select_bars(pdev, IORESOURCE_MEM);
+...
+- err = pci_request_selected_regions(pdev, bars, name);
++ err = pci_request_mem_regions(pdev, name);
+
+@@
+expression pdev;
+identifier bars;
+@@
+- bars = pci_select_bars(pdev, IORESOURCE_MEM);
+...
+- pci_release_selected_regions(pdev, bars);
++ pci_release_mem_regions(pdev);
+
+// IORESOURCE_IO
+@@
+expression err, pdev, name;
+@@
+
+- err = pci_request_selected_regions(pdev, pci_select_bars(pdev,
+IORESOURCE_IO), name);
++ err = pci_request_io_regions(pdev, name);
+
+@@
+expression pdev;
+@@
+- pci_release_selected_regions(pdev, pci_select_bars(pdev, IORESOURCE_IO));
++ pci_release_io_regions(pdev);
+
+@@
+expression err, pdev, name;
+identifier bars;
+@@
+- bars = pci_select_bars(pdev, IORESOURCE_IO);
+...
+- err = pci_request_selected_regions(pdev, bars, name);
++ err = pci_request_io_regions(pdev, name);
+
+@@
+expression pdev;
+identifier bars;
+@@
+- bars = pci_select_bars(pdev, IORESOURCE_IO);
+...
+- pci_release_selected_regions(pdev, bars);
++ pci_release_io_regions(pdev);
+
+Changes since v2:
+* Fixed compilation error on platforms with CONFIG_PCI=n
+* Added Jeff's Acked-by on the Intel ethernet patch
+* Added Dick's Acked-by on the lpfc patch
+
+Changes since v1:
+* Fixed indendatoin in pci.h patch to not cross the 80 chars boundary.
+* Split Ethernet patches into two, one for Atheros and one for Intel drivers.
+* Correctly named lpfc patch.
+* Converted init-path of lpfc driver as well.
+* Added Reviewed-by tags were appropriate.
+
+Johannes Thumshirn (6):
+  PCI: Add helpers to request/release memory and I/O regions
+  NVMe: Use pci_(request|release)_mem_regions
+  lpfc: Use pci_(request|release)_mem_regions
+  GenWQE: Use pci_(request|release)_mem_regions
+  ethernet/intel: Use pci_(request|release)_mem_regions
+  alx: Use pci_(request|release)_mem_regions
+
+ drivers/misc/genwqe/card_base.c               | 13 +++++--------
+ drivers/net/ethernet/atheros/alx/main.c       | 12 +++++-------
+ drivers/net/ethernet/intel/e1000e/netdev.c    |  6 ++----
+ drivers/net/ethernet/intel/fm10k/fm10k_pci.c  | 11 +++--------
+ drivers/net/ethernet/intel/i40e/i40e_main.c   |  9 +++------
+ drivers/net/ethernet/intel/igb/igb_main.c     | 10 +++-------
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  9 +++------
+ drivers/nvme/host/pci.c                       | 10 +++-------
+ drivers/scsi/lpfc/lpfc_init.c                 | 15 ++++----------
+ include/linux/pci.h                           | 28 +++++++++++++++++++++++++++
+ 10 files changed, 59 insertions(+), 64 deletions(-)
+
+Cc: Christoph Hellwig <hch@infradead.org>
+Cc: Keith Busch <keith.busch@intel.com>
+Cc: Jens Axboe <axboe@fb.com>
+Cc: linux-nvme@lists.infradead.org
+Cc: James Smart <james.smart@avagotech.com>
+Cc: Dick Kennedy <dick.kennedy@avagotech.com>
+Cc: "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>
+Cc: "Martin K. Petersen" <martin.petersen@oracle.com>
+Cc: linux-scsi@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: Frank Haverkamp <haver@linux.vnet.ibm.com>
+Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
 Cc: Jay Cliburn <jcliburn@gmail.com>
 Cc: Chris Snook <chris.snook@gmail.com>
+Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 Cc: David S. Miller <davem@davemloft.net>
 Cc: netdev@vger.kernel.org
 Cc: linux-kernel@vger.kernel.org
 Cc: intel-wired-lan@lists.osuosl.org
----
- drivers/net/ethernet/atheros/alx/main.c | 12 +++++-------
- 1 file changed, 5 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
-index 55b118e..d2363de 100644
---- a/drivers/net/ethernet/atheros/alx/main.c
-+++ b/drivers/net/ethernet/atheros/alx/main.c
-@@ -1238,7 +1238,7 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	struct alx_priv *alx;
- 	struct alx_hw *hw;
- 	bool phy_configured;
--	int bars, err;
-+	int err;
- 
- 	err = pci_enable_device_mem(pdev);
- 	if (err)
-@@ -1258,11 +1258,10 @@ static int alx_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		}
- 	}
- 
--	bars = pci_select_bars(pdev, IORESOURCE_MEM);
--	err = pci_request_selected_regions(pdev, bars, alx_drv_name);
-+	err = pci_request_mem_regions(pdev, alx_drv_name);
- 	if (err) {
- 		dev_err(&pdev->dev,
--			"pci_request_selected_regions failed(bars:%d)\n", bars);
-+			"pci_request_mem_regions failed\n");
- 		goto out_pci_disable;
- 	}
- 
-@@ -1388,7 +1387,7 @@ out_unmap:
- out_free_netdev:
- 	free_netdev(netdev);
- out_pci_release:
--	pci_release_selected_regions(pdev, bars);
-+	pci_release_mem_regions(pdev);
- out_pci_disable:
- 	pci_disable_device(pdev);
- 	return err;
-@@ -1407,8 +1406,7 @@ static void alx_remove(struct pci_dev *pdev)
- 
- 	unregister_netdev(alx->dev);
- 	iounmap(hw->hw_addr);
--	pci_release_selected_regions(pdev,
--				     pci_select_bars(pdev, IORESOURCE_MEM));
-+	pci_release_mem_regions(pdev);
- 
- 	pci_disable_pcie_error_reporting(pdev);
- 	pci_disable_device(pdev);
 -- 
 1.8.5.6
