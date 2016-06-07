@@ -1,43 +1,49 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [ldv-project] [net] libertas: potential race condition
-Date: Tue, 07 Jun 2016 09:39:55 -0500
-Message-ID: <1465310395.29158.2.camel@redhat.com>
-References: <57569424.9040906@ispras.ru>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 5/5] net: dsa: bcm_sf2: Register our slave MDIO bus
+Date: Tue, 07 Jun 2016 10:46:35 -0400
+Message-ID: <87oa7dxdis.fsf@ketchup.mtl.sfl>
+References: <1465254895-11152-1-git-send-email-f.fainelli@gmail.com> <1465254895-11152-6-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: libertas-dev@lists.infradead.org, LDV list <ldv-project@ispras.ru>,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vaishali.thakkar@oracle.com
-To: Pavel Andrianov <andrianov@ispras.ru>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57569424.9040906@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: davem@davemlof.net, andrew@lunn.ch,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:45890 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753453AbcFGOqk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 10:46:40 -0400
+In-Reply-To: <1465254895-11152-6-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-06-07 at 13:30 +0400, Pavel Andrianov wrote:
-> Hi!
->=20
-> There is a potential race condition in=C2=A0
-> drivers/net/wireless/libertas/libertas.ko.
-> In the function lbs_hard_start_xmit(..), line 159, a socket buffer
-> is=C2=A0
-> written to priv->current_skb with a spin_lock protection.
-> In the function lbs_mac_event_disconnected(..), lines 50-51, the
-> field=C2=A0
-> current_skb is cleaned. There is no protection used. The
-> corresponding=C2=A0
-> handlers are activated at the same time in lbs_start_card(..) and
-> then=C2=A0
-> may be executed simultaneously. Note, there are two structures=C2=A0
-> lbs_netdev_ops and mesh_netdev_ops, which have the target handler=C2=A0
-> lbs_hard_start_xmit.
-> Is it a real race or I have missed something?
+Hi Florian,
 
-Yeah, it looks like it should be grabbing priv->driver_lock before
-clearing priv->currenttxskb in=C2=A0lbs_mac_event_disconnected(). =C2=A0=
-Care to
-submit a patch after testing? =C2=A0Do you have any of that hardware?
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-Dan
+>  static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+>  {
+>  	const char *reg_names[BCM_SF2_REGS_NUM] = BCM_SF2_REGS_NAME;
+> @@ -972,6 +1099,12 @@ static int bcm_sf2_sw_setup(struct dsa_switch *ds)
+>  		goto out_unmap;
+>  	}
+>  
+> +	ret = bcm_sf2_mdio_register(ds);
+> +	if (ret) {
+> +		pr_err("failed to register MDIO bus\n");
+> +		goto out_unmap;
+> +	}
+> +
+>  	/* Disable all interrupts and request them */
+>  	bcm_sf2_intr_disable(priv);
+
+Hum reviewing that again, I see that if one of the 2 subsequent calls to
+request_irq fails, you end up with an unregistered MDIO bus.
+
+We have the same issue in the mv88e6xxx legacy probe code if dsa.c fails
+to allocate the dsa_switch structure. I'm moving the MDIO register code
+to the setup function like you are doing here (good idea!) to fix that.
+
+Thanks,
+
+        Vivien
