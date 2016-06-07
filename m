@@ -1,33 +1,43 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: accept RST if SEQ matches right edge of
- right-most SACK block
-Date: Tue, 07 Jun 2016 08:21:01 -0700
-Message-ID: <1465312861.24873.19.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <CADVnQymeArQhGTUFuTXQb4v3aabzseumybjpJ8UtTugnX=2=cA@mail.gmail.com>
-	 <1465309834-31942-1-git-send-email-pau.espin@tessares.net>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH 3/3] bridge: netfilter: checkpatch null comparison fixes
+Date: Tue, 7 Jun 2016 17:21:38 +0200
+Message-ID: <20160607152138.GB23655@salvia>
+References: <1462843618-21914-1-git-send-email-me@tobin.cc>
+ <1462843618-21914-4-git-send-email-me@tobin.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com, ycheng@google.com
-To: Pau Espin Pedrol <pau.espin@tessares.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <stephen@networkplumber.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org
+To: tcharding <me@tobin.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:32934 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751475AbcFGPVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 11:21:04 -0400
-Received: by mail-pf0-f193.google.com with SMTP id u67so4635797pfu.0
-        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 08:21:03 -0700 (PDT)
-In-Reply-To: <1465309834-31942-1-git-send-email-pau.espin@tessares.net>
+Received: from mail.us.es ([193.147.175.20]:58196 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161418AbcFGPVn (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jun 2016 11:21:43 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 1CEE1921774
+	for <netdev@vger.kernel.org>; Tue,  7 Jun 2016 17:21:42 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 0F13B15D62E
+	for <netdev@vger.kernel.org>; Tue,  7 Jun 2016 17:21:42 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id E6D1215D633
+	for <netdev@vger.kernel.org>; Tue,  7 Jun 2016 17:21:39 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <1462843618-21914-4-git-send-email-me@tobin.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 2016-06-07 at 16:30 +0200, Pau Espin Pedrol wrote:
-> RFC 5961 advises to only accept RST packets containing a seq number
-> matching the next expected seq number instead of the whole receive
-> window in order to avoid spoofing attacks.
+On Tue, May 10, 2016 at 11:26:58AM +1000, tcharding wrote:
+> From: Tobin C Harding <me@tobin.cc>
+> 
+> checkpatch produces comparison to null 'checks'.
+> 
+> This patch amends them.
 
-> Signed-off-by: Pau Espin Pedrol <pau.espin@tessares.net>
-
-Acked-by: Eric Dumazet <edumazet@google.com>
-
-Thanks !
+We have quite a lot of these in the netfilter tree, so I'd rather
+start using prefered coding style from now on rather than getting a
+large patch to convert this. This just makes harder to pass back
+patches to -stable branches as the process becomes not so immediate.
