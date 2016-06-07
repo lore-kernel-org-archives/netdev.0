@@ -1,38 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] bpf, trace: use READ_ONCE for retrieving file ptr
-Date: Tue, 07 Jun 2016 14:48:46 -0700 (PDT)
-Message-ID: <20160607.144846.1662240162265441902.davem@davemloft.net>
-References: <5aa8512414e4f9f19734e59665f0fe893a109be2.1465065428.git.daniel@iogearbox.net>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v3 5/6] net: dsa: Initialize CPU port ethtool
+ ops per tree
+Date: Tue, 7 Jun 2016 23:51:20 +0200
+Message-ID: <20160607215120.GF28994@lunn.ch>
+References: <1465333616-6351-1-git-send-email-f.fainelli@gmail.com>
+ <1465333616-6351-6-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, xiakaixu@huawei.com,
-	netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58333 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161277AbcFGVss (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 17:48:48 -0400
-In-Reply-To: <5aa8512414e4f9f19734e59665f0fe893a109be2.1465065428.git.daniel@iogearbox.net>
+Received: from vps0.lunn.ch ([178.209.37.122]:38305 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751475AbcFGVvX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 7 Jun 2016 17:51:23 -0400
+Content-Disposition: inline
+In-Reply-To: <1465333616-6351-6-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Sat,  4 Jun 2016 20:50:59 +0200
+> +int dsa_cpu_port_ethtool_setup(struct dsa_switch_tree *dst,
+> +			       struct dsa_switch *ds)
+> +{
+> +	struct net_device *master;
+> +	struct ethtool_ops *cpu_ops;
+> +
+> +	master = ds->dst->master_netdev;
 
-> In bpf_perf_event_read() and bpf_perf_event_output(), we must use
-> READ_ONCE() for fetching the struct file pointer, which could get
-> updated concurrently, so we must prevent the compiler from potential
-> refetching.
-> 
-> We already do this with tail calls for fetching the related bpf_prog,
-> but not so on stored perf events. Semantics for both are the same
-> with regards to updates.
-> 
-> Fixes: a43eec304259 ("bpf: introduce bpf_perf_event_output() helper")
-> Fixes: 35578d798400 ("bpf: Implement function bpf_perf_event_read() that get the selected hardware PMU conuter")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
+You pass in dst as a parameter, and then don't use it!
 
-Applied and queued up for -stable, thanks.
+> +void dsa_cpu_port_ethtool_restore(struct dsa_switch_tree *dst,
+> +				  struct dsa_switch *ds)
+> +{
+> +	struct net_device *master;
+> +
+> +	master = ds->dst->master_netdev;
+
+Same here.
+
+     Andrew
