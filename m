@@ -1,36 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] virtio-net: Add initial MTU advice feature
-Date: Mon, 06 Jun 2016 21:10:59 -0400 (EDT)
-Message-ID: <20160606.211059.447701408091916319.davem@davemloft.net>
-References: <1464987432-1458-1-git-send-email-aconole@redhat.com>
+Subject: Re: [Patch net] net_sched: keep backlog updated with qlen
+Date: Mon, 06 Jun 2016 21:15:16 -0400 (EDT)
+Message-ID: <20160606.211516.119527470608167374.davem@davemloft.net>
+References: <1464991557-5135-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mst@redhat.com, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: aconole@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1464987432-1458-1-git-send-email-aconole@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, stasn77@gmail.com, jhs@mojatatu.com
+To: xiyou.wangcong@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:48719 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751060AbcFGBPT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 6 Jun 2016 21:15:19 -0400
+In-Reply-To: <1464991557-5135-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Aaron Conole <aconole@redhat.com>
-Date: Fri,  3 Jun 2016 16:57:12 -0400
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Date: Fri,  3 Jun 2016 15:05:57 -0700
 
-> This commit adds the feature bit and associated mtu device entry for the
-> virtio network device.  When a virtio device comes up, it checks the
-> feature bit for the VIRTIO_NET_F_MTU feature.  If such feature bit is
-> enabled, the driver will read the advised MTU and use it as the initial
-> value.
+> For gso_skb we only update qlen, backlog should be updated too.
 > 
-> Signed-off-by: Aaron Conole <aconole@redhat.com>
+> Note, it is correct to just update these stats at one layer,
+> because the gso_skb is cached there.
+> 
+> Reported-by: Stas Nichiporovich <stasn77@gmail.com>
+> Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
+> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 
 Applied, thanks.
