@@ -1,166 +1,185 @@
-From: Johannes Thumshirn <jthumshirn@suse.de>
-Subject: [PATCH v3 0/6] Introduce pci_(request|release)_(mem|io)_regions
-Date: Tue,  7 Jun 2016 09:44:00 +0200
-Message-ID: <cover.1465200424.git.jthumshirn@suse.de>
-Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Christoph Hellwig <hch@infradead.org>,
-	Johannes Thumshirn <jthumshirn@suse.de>,
-	Keith Busch <keith.busch@intel.com>, Jens Axboe <axboe@fb.com>,
-	linux-nvme@lists.infradead.org,
-	James Smart <james.smart@avagotech.com>,
-	Dick Kennedy <dick.kennedy@avagotech.com>,
-	"James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-	"Martin K. Petersen" <martin.petersen@oracle.com>,
-	linux-scsi@vger.kernel.org,
-	Frank Haverkamp <haver@linux.vnet.ibm.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org
-To: Bjorn Helgaas <bhelgaas@google.com>
+From: Pali =?utf-8?B?Um9ow6Fy?= <pali.rohar@gmail.com>
+Subject: Re: [PATCH v4] r8152: Add support for setting pass through MAC
+ address on RTL8153-AD
+Date: Tue, 7 Jun 2016 09:59:34 +0200
+Message-ID: <20160607075934.GY29844@pali>
+References: <1465233569-13585-1-git-send-email-mario_limonciello@dell.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: hayeswang@realtek.com, LKML <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	Linux USB <linux-usb@vger.kernel.org>,
+	anthony.wong@canonical.com, Greg KH <gregkh@linuxfoundation.org>
+To: Mario Limonciello <mario_limonciello@dell.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1465233569-13585-1-git-send-email-mario_limonciello@dell.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The first patch in this series introduces the following 4 helper functions to
-the PCI core:
+Hi! Below are my comments, all about coding style.
 
-* pci_request_mem_regions()
-* pci_request_io_regions()
-* pci_release_mem_regions()
-* pci_release_io_regions()
+On Monday 06 June 2016 12:19:29 Mario Limonciello wrote:
+> The RTL8153-AD supports a persistent system specific MAC address.
+> This means a device plugged into two different systems with host side
+> support will show different (but persistent) MAC addresses.
+>=20
+> This information for the system's persistent MAC address is burned in=
+ when
+> the system HW is built and available under _SB\AMAC in the DSDT at ru=
+ntime.
 
-which encapsulate the request and release of a PCI device's memory or I/O
-bars.
+=46or consistency it would be great to use same ACPI name in whole patc=
+h: \_SB.AMAC
 
-The subsequent patches convert the drivers, which use the
-pci_request_selected_regions(pdev, 
-	pci_select_bars(pdev, IORESOURCE_MEM), name); 
-and similar pattern to use the new interface.
+> This technology is currently implemented in the Dell TB15 and WD15 Ty=
+pe-C
+> docks.  More information is available here:
+> http://www.dell.com/support/article/us/en/04/SLN301147
+>=20
+> Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
+> ---
+> Changes from v3:
+>  * Add additional comments about functions and what they're doing
+>  * Adjust warning calls to use netif instead
+>  * Rename function
+>=20
+>  drivers/net/usb/r8152.c | 70 +++++++++++++++++++++++++++++++++++++++=
+++++++++--
+>  1 file changed, 68 insertions(+), 2 deletions(-)
+>=20
+> diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+> index 3f9f6ed..b2339d3 100644
+> --- a/drivers/net/usb/r8152.c
+> +++ b/drivers/net/usb/r8152.c
+> @@ -26,6 +26,7 @@
+>  #include <linux/mdio.h>
+>  #include <linux/usb/cdc.h>
+>  #include <linux/suspend.h>
+> +#include <linux/acpi.h>
+> =20
+>  /* Information for net-next */
+>  #define NETNEXT_VERSION		"08"
+> @@ -455,6 +456,11 @@
+>  /* SRAM_IMPEDANCE */
+>  #define RX_DRIVING_MASK		0x6000
+> =20
+> +/* MAC PASSTHRU */
+> +#define AD_MASK			0xfee0
+> +#define EFUSE			0xcfdb
+> +#define PASS_THRU_MASK		0x1
+> +
+>  enum rtl_register_content {
+>  	_1000bps	=3D 0x10,
+>  	_100bps		=3D 0x08,
+> @@ -1030,6 +1036,59 @@ out1:
+>  	return ret;
+>  }
+> =20
+> +/* Devices containing RTL8153-AD can support a persistent
+> + * host system provided MAC address.
+> + * Examples of this are Dell TB15 and Dell WD15 docks
+> + */
+> +static int get_vendor_mac_passthru_addr(struct r8152 *tp, struct soc=
+kaddr *sa)
+> +{
+> +	acpi_status status;
+> +	struct acpi_buffer buffer =3D { ACPI_ALLOCATE_BUFFER, NULL };
+> +	union acpi_object *obj;
+> +	int ret =3D -EINVAL;
+> +	u32 ocp_data;
+> +	unsigned char buf[6];
+> +
+> +	/* test for -AD variant of RTL8153 */
+> +	ocp_data =3D ocp_read_word(tp, MCU_TYPE_USB, USB_MISC_0);
+> +	if ((ocp_data & AD_MASK) !=3D 0x1000)
+> +		return -ENODEV;
+> +
+> +	/* test for MAC address pass-through bit */
+> +	ocp_data =3D ocp_read_byte(tp, MCU_TYPE_USB, EFUSE);
+> +	if ((ocp_data & PASS_THRU_MASK) !=3D 1)
+> +		return -ENODEV;
+> +
+> +	/* returns _AUXMAC_#AABBCCDDEEFF# */
+> +	status =3D acpi_evaluate_object(NULL, "\\_SB.AMAC", NULL, &buffer);
 
-This was suggested by Christoph Hellwig in
-http://lists.infradead.org/pipermail/linux-nvme/2016-May/004570.html and
-tested on kernel v4.6 with NVMe.
+What about?
 
-The conversion of the drivers has been performed by the following coccinelle
-spatch:
-// IORESOURCE_MEM
-@@
-expression err, pdev, name;
-@@
+	if (!ACPI_SUCCESS(status))
+		return -ENODEV;
 
-- err = pci_request_selected_regions(pdev, pci_select_bars(pdev, IORESOURCE_MEM), name);
-+ err = pci_request_mem_regions(pdev, name);
+You will save one level of indentation.
 
-@@
-expression pdev;
-@@
-- pci_release_selected_regions(pdev, pci_select_bars(pdev, IORESOURCE_MEM));
-+ pci_release_mem_regions(pdev);
+> +	obj =3D (union acpi_object *)buffer.pointer;
+> +	if (ACPI_SUCCESS(status)) {
+> +		if (obj->type !=3D ACPI_TYPE_BUFFER ||
+> +		    obj->string.length !=3D 0x17) {
+> +			netif_warn(tp, probe, tp->netdev, "Invalid buffer\n");
 
-@@
-expression err, pdev, name;
-identifier bars;
-@@
-- bars = pci_select_bars(pdev, IORESOURCE_MEM);
-...
-- err = pci_request_selected_regions(pdev, bars, name);
-+ err = pci_request_mem_regions(pdev, name);
+I would suggest more specific warning messages. These are very general
+and if I would see them in dmesg log I would have no idea what that
+means.
 
-@@
-expression pdev;
-identifier bars;
-@@
-- bars = pci_select_bars(pdev, IORESOURCE_MEM);
-...
-- pci_release_selected_regions(pdev, bars);
-+ pci_release_mem_regions(pdev);
+> +			goto amacout;
+> +		}
+> +		if (strncmp(obj->string.pointer, "_AUXMAC_#", 9) !=3D 0) {
+> +			netif_warn(tp, probe, tp->netdev, "Invalid header\n");
+> +			goto amacout;
+> +		}
 
-// IORESOURCE_IO
-@@
-expression err, pdev, name;
-@@
+If your specification state that last character is '#' then I think you
+should check it too.
 
-- err = pci_request_selected_regions(pdev, pci_select_bars(pdev,
-IORESOURCE_IO), name);
-+ err = pci_request_io_regions(pdev, name);
+> +		ret =3D hex2bin(buf, obj->string.pointer + 9, 6);
+> +		if (ret < 0 || !is_valid_ether_addr(buf)) {
+> +			netif_warn(tp, probe, tp->netdev, "Invalid MAC\n");
+> +			goto amacout;
+> +		}
+> +		memcpy(sa->sa_data, buf, 6);
+> +		ether_addr_copy(tp->netdev->dev_addr, sa->sa_data);
+> +		netif_info(tp, probe, tp->netdev,
+> +			   "Using pass-through MAC addr %pM\n", sa->sa_data);
+> +		ret =3D 0;
+> +	}
+> +
+> +amacout:
+> +	kfree(obj);
+> +	return ret;
+> +}
+> +
+>  static int set_ethernet_addr(struct r8152 *tp)
+>  {
+>  	struct net_device *dev =3D tp->netdev;
+> @@ -1038,8 +1097,15 @@ static int set_ethernet_addr(struct r8152 *tp)
+> =20
+>  	if (tp->version =3D=3D RTL_VER_01)
+>  		ret =3D pla_ocp_read(tp, PLA_IDR, 8, sa.sa_data);
+> -	else
+> -		ret =3D pla_ocp_read(tp, PLA_BACKUP, 8, sa.sa_data);
+> +	else {
+> +		/* if this is not an RTL8153-AD, no eFuse mac pass thru set,
+> +		 * or system doesn't provide valid _SB.AMAC this will be
+> +		 * be expected to non-zero
+> +		 */
+> +		ret =3D get_vendor_mac_passthru_addr(tp, &sa);
 
-@@
-expression pdev;
-@@
-- pci_release_selected_regions(pdev, pci_select_bars(pdev, IORESOURCE_IO));
-+ pci_release_io_regions(pdev);
+You do not "get" (return) any mac address. Personally I would use "read=
+"
+word in function name (like above pla_ocp_read). What about?
 
-@@
-expression err, pdev, name;
-identifier bars;
-@@
-- bars = pci_select_bars(pdev, IORESOURCE_IO);
-...
-- err = pci_request_selected_regions(pdev, bars, name);
-+ err = pci_request_io_regions(pdev, name);
+ret =3D vendor_mac_passthru_addr_read(tp, sa.sa_data);
 
-@@
-expression pdev;
-identifier bars;
-@@
-- bars = pci_select_bars(pdev, IORESOURCE_IO);
-...
-- pci_release_selected_regions(pdev, bars);
-+ pci_release_io_regions(pdev);
+Or something similar... "Get" looks like function "get" something, but
+instead it set address in &sa structure.
 
-Changes since v2:
-* Fixed compilation error on platforms with CONFIG_PCI=n
-* Added Jeff's Acked-by on the Intel ethernet patch
-* Added Dick's Acked-by on the lpfc patch
+> +		if (ret < 0)
+> +			ret =3D pla_ocp_read(tp, PLA_BACKUP, 8, sa.sa_data);
+> +	}
+> =20
+>  	if (ret < 0) {
+>  		netif_err(tp, probe, dev, "Get ether addr fail\n");
 
-Changes since v1:
-* Fixed indendatoin in pci.h patch to not cross the 80 chars boundary.
-* Split Ethernet patches into two, one for Atheros and one for Intel drivers.
-* Correctly named lpfc patch.
-* Converted init-path of lpfc driver as well.
-* Added Reviewed-by tags were appropriate.
-
-Johannes Thumshirn (6):
-  PCI: Add helpers to request/release memory and I/O regions
-  NVMe: Use pci_(request|release)_mem_regions
-  lpfc: Use pci_(request|release)_mem_regions
-  GenWQE: Use pci_(request|release)_mem_regions
-  ethernet/intel: Use pci_(request|release)_mem_regions
-  alx: Use pci_(request|release)_mem_regions
-
- drivers/misc/genwqe/card_base.c               | 13 +++++--------
- drivers/net/ethernet/atheros/alx/main.c       | 12 +++++-------
- drivers/net/ethernet/intel/e1000e/netdev.c    |  6 ++----
- drivers/net/ethernet/intel/fm10k/fm10k_pci.c  | 11 +++--------
- drivers/net/ethernet/intel/i40e/i40e_main.c   |  9 +++------
- drivers/net/ethernet/intel/igb/igb_main.c     | 10 +++-------
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  9 +++------
- drivers/nvme/host/pci.c                       | 10 +++-------
- drivers/scsi/lpfc/lpfc_init.c                 | 15 ++++----------
- include/linux/pci.h                           | 28 +++++++++++++++++++++++++++
- 10 files changed, 59 insertions(+), 64 deletions(-)
-
-Cc: Christoph Hellwig <hch@infradead.org>
-Cc: Keith Busch <keith.busch@intel.com>
-Cc: Jens Axboe <axboe@fb.com>
-Cc: linux-nvme@lists.infradead.org
-Cc: James Smart <james.smart@avagotech.com>
-Cc: Dick Kennedy <dick.kennedy@avagotech.com>
-Cc: "James E.J. Bottomley" <jejb@linux.vnet.ibm.com>
-Cc: "Martin K. Petersen" <martin.petersen@oracle.com>
-Cc: linux-scsi@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: Frank Haverkamp <haver@linux.vnet.ibm.com>
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Cc: Jay Cliburn <jcliburn@gmail.com>
-Cc: Chris Snook <chris.snook@gmail.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Cc: David S. Miller <davem@davemloft.net>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: intel-wired-lan@lists.osuosl.org
--- 
-1.8.5.6
+--=20
+Pali Roh=C3=A1r
+pali.rohar@gmail.com
