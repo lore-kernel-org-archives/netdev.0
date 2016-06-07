@@ -1,28 +1,64 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: GSO packets on lower MTU retaining gso_size?
-Date: Tue, 7 Jun 2016 06:05:26 +0000
-Message-ID: <CO2PR11MB008861B24F9DA5CBA56F58C8975D0@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH] brcmfmac: include required headers in cfg80211.h
+Date: Tue,  7 Jun 2016 08:20:21 +0200
+Message-ID: <1465280428-5782-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-To: netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0104.outbound.protection.outlook.com ([65.55.169.104]:28224
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750792AbcFGGFb convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 02:05:31 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	brcm80211-dev-list@broadcom.com (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-While experimenting with Vxlan tunnels, I've reached a topology where the
-Vxlan interface's MTU was 1500 while base-interface was smaller [600].
+Without this including cfg80211.h in a wrong order could result in:
 
-While 'regular' packets broke via ip-fragmentation, GSO SKBs passing from
-the vxlan interface to the base interface remained whole, and their 
-`gso_size' remained matching to that of the vxlan-interface's MTU;
-This caused the HW to drop said packets, as it would have resulted with
-the device sending to the line packets with length larger than the mtu.
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h:122:24: err=
+or: array type has incomplete element type
+  struct brcmf_wsec_key key[BRCMF_MAX_DEFAULT_KEYS];
+                        ^
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h:291:24: err=
+or: field =E2=80=98p2p=E2=80=99 has incomplete type
+  struct brcmf_p2p_info p2p;
+                        ^
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h:297:27: err=
+or: field =E2=80=98pmk_list=E2=80=99 has incomplete type
+  struct brcmf_pmk_list_le pmk_list;
+                           ^
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h:317:28: err=
+or: field =E2=80=98assoclist=E2=80=99 has incomplete type
+  struct brcmf_assoclist_le assoclist;
 
-Is this broken on the udp-tunnel transmit path, the setup or the driver [qede]?
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+---
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.=
+h b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h
+index c6f9986..04bfc7e 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h
+@@ -20,6 +20,9 @@
+ /* for brcmu_d11inf */
+ #include <brcmu_d11.h>
+=20
++#include "fwil_types.h"
++#include "p2p.h"
++
+ #define WL_NUM_SCAN_MAX			10
+ #define WL_TLV_INFO_MAX			1024
+ #define WL_BSS_INFO_MAX			2048
+--=20
+1.8.4.5
