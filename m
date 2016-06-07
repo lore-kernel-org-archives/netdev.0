@@ -1,7 +1,7 @@
 From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: [PATCH 2/6] ppc: bpf/jit: Optimize 64-bit Immediate loads
-Date: Tue,  7 Jun 2016 19:02:19 +0530
-Message-ID: <652931bfae718f0ca83fd4ccb070dd601db8f3b9.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
+Subject: [PATCH 4/6] ppc: bpf/jit: A few cleanups
+Date: Tue,  7 Jun 2016 19:02:21 +0530
+Message-ID: <eb61773bf6fe65c5e0715f51fe47927581e88461.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
 References: <cover.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
 Cc: Matt Evans <matt@ozlabs.org>,
 	Denis Kirjanov <kda@linux-powerpc.org>,
@@ -12,31 +12,20 @@ Cc: Matt Evans <matt@ozlabs.org>,
 	Ananth N Mavinakayanahalli <ananth@in.ibm.com>
 To: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, mpe@ellerman.id.au
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:15770 "EHLO
-	mx0b-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932697AbcFGNdu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 09:33:50 -0400
-Received: from pps.filterd (m0082756.ppops.net [127.0.0.1])
-	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u57DTsUt007325
-	for <netdev@vger.kernel.org>; Tue, 7 Jun 2016 09:33:49 -0400
-Received: from e28smtp08.in.ibm.com (e28smtp08.in.ibm.com [125.16.236.8])
-	by mx0a-001b2d01.pphosted.com with ESMTP id 23dxwehcwy-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 09:33:48 -0400
-Received: from localhost
-	by e28smtp08.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <naveen.n.rao@linux.vnet.ibm.com>;
-	Tue, 7 Jun 2016 19:03:44 +0530
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <cover.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
 In-Reply-To: <cover.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
 References: <cover.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Similar to the LI32() optimization, if the value can be represented
-in 32-bits, use LI32(). Also handle loading a few specific forms of
-immediate values in an optimum manner.
+1. Per the ISA, ADDIS actually uses RT, rather than RS. Though
+the result is the same, make the usage clear.
+2. The multiply instruction used is a 32-bit multiply. Rename PPC_MUL()
+to PPC_MULW() to make the same clear.
+3. PPC_STW[U] take the entire 16-bit immediate value and do not require
+word-alignment, per the ISA. Change the macros to use IMM_L().
+4. A few white-space cleanups to satisfy checkpatch.pl.
 
 Cc: Matt Evans <matt@ozlabs.org>
 Cc: Denis Kirjanov <kda@linux-powerpc.org>
@@ -48,44 +37,98 @@ Cc: "David S. Miller" <davem@davemloft.net>
 Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
 Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
 ---
- arch/powerpc/net/bpf_jit.h | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
+ arch/powerpc/net/bpf_jit.h      | 13 +++++++------
+ arch/powerpc/net/bpf_jit_comp.c |  8 ++++----
+ 2 files changed, 11 insertions(+), 10 deletions(-)
 
 diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
-index a9882db..4c1e055 100644
+index 95d0e38..9041d3f 100644
 --- a/arch/powerpc/net/bpf_jit.h
 +++ b/arch/powerpc/net/bpf_jit.h
-@@ -244,20 +244,25 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
- 		} } while(0)
+@@ -83,7 +83,7 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
+  */
+ #define IMM_H(i)		((uintptr_t)(i)>>16)
+ #define IMM_HA(i)		(((uintptr_t)(i)>>16) +			      \
+-				 (((uintptr_t)(i) & 0x8000) >> 15))
++					(((uintptr_t)(i) & 0x8000) >> 15))
+ #define IMM_L(i)		((uintptr_t)(i) & 0xffff)
  
- #define PPC_LI64(d, i)		do {					      \
--		if (!((uintptr_t)(i) & 0xffffffff00000000ULL))		      \
-+		if ((long)(i) >= -2147483648 &&				      \
-+				(long)(i) < 2147483648)			      \
- 			PPC_LI32(d, i);					      \
- 		else {							      \
--			PPC_LIS(d, ((uintptr_t)(i) >> 48));		      \
--			if ((uintptr_t)(i) & 0x0000ffff00000000ULL)	      \
--				PPC_ORI(d, d,				      \
--					((uintptr_t)(i) >> 32) & 0xffff);     \
-+			if (!((uintptr_t)(i) & 0xffff800000000000ULL))	      \
-+				PPC_LI(d, ((uintptr_t)(i) >> 32) & 0xffff);   \
-+			else {						      \
-+				PPC_LIS(d, ((uintptr_t)(i) >> 48));	      \
-+				if ((uintptr_t)(i) & 0x0000ffff00000000ULL)   \
-+					PPC_ORI(d, d,			      \
-+					  ((uintptr_t)(i) >> 32) & 0xffff);   \
-+			}						      \
- 			PPC_SLDI(d, d, 32);				      \
- 			if ((uintptr_t)(i) & 0x00000000ffff0000ULL)	      \
- 				PPC_ORIS(d, d,				      \
- 					 ((uintptr_t)(i) >> 16) & 0xffff);    \
- 			if ((uintptr_t)(i) & 0x000000000000ffffULL)	      \
- 				PPC_ORI(d, d, (uintptr_t)(i) & 0xffff);	      \
--		} } while (0);
-+		} } while (0)
+ #define PLANT_INSTR(d, idx, instr)					      \
+@@ -99,16 +99,16 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
+ #define PPC_MR(d, a)		PPC_OR(d, a, a)
+ #define PPC_LI(r, i)		PPC_ADDI(r, 0, i)
+ #define PPC_ADDIS(d, a, i)	EMIT(PPC_INST_ADDIS |			      \
+-				     ___PPC_RS(d) | ___PPC_RA(a) | IMM_L(i))
++				     ___PPC_RT(d) | ___PPC_RA(a) | IMM_L(i))
+ #define PPC_LIS(r, i)		PPC_ADDIS(r, 0, i)
+ #define PPC_STD(r, base, i)	EMIT(PPC_INST_STD | ___PPC_RS(r) |	      \
+ 				     ___PPC_RA(base) | ((i) & 0xfffc))
+ #define PPC_STDU(r, base, i)	EMIT(PPC_INST_STDU | ___PPC_RS(r) |	      \
+ 				     ___PPC_RA(base) | ((i) & 0xfffc))
+ #define PPC_STW(r, base, i)	EMIT(PPC_INST_STW | ___PPC_RS(r) |	      \
+-				     ___PPC_RA(base) | ((i) & 0xfffc))
++				     ___PPC_RA(base) | IMM_L(i))
+ #define PPC_STWU(r, base, i)	EMIT(PPC_INST_STWU | ___PPC_RS(r) |	      \
+-				     ___PPC_RA(base) | ((i) & 0xfffc))
++				     ___PPC_RA(base) | IMM_L(i))
  
- #ifdef CONFIG_PPC64
- #define PPC_FUNC_ADDR(d,i) do { PPC_LI64(d, i); } while(0)
+ #define PPC_LBZ(r, base, i)	EMIT(PPC_INST_LBZ | ___PPC_RT(r) |	      \
+ 				     ___PPC_RA(base) | IMM_L(i))
+@@ -174,13 +174,14 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
+ #define PPC_CMPWI(a, i)		EMIT(PPC_INST_CMPWI | ___PPC_RA(a) | IMM_L(i))
+ #define PPC_CMPDI(a, i)		EMIT(PPC_INST_CMPDI | ___PPC_RA(a) | IMM_L(i))
+ #define PPC_CMPLWI(a, i)	EMIT(PPC_INST_CMPLWI | ___PPC_RA(a) | IMM_L(i))
+-#define PPC_CMPLW(a, b)		EMIT(PPC_INST_CMPLW | ___PPC_RA(a) | ___PPC_RB(b))
++#define PPC_CMPLW(a, b)		EMIT(PPC_INST_CMPLW | ___PPC_RA(a) |	      \
++					___PPC_RB(b))
+ 
+ #define PPC_SUB(d, a, b)	EMIT(PPC_INST_SUB | ___PPC_RT(d) |	      \
+ 				     ___PPC_RB(a) | ___PPC_RA(b))
+ #define PPC_ADD(d, a, b)	EMIT(PPC_INST_ADD | ___PPC_RT(d) |	      \
+ 				     ___PPC_RA(a) | ___PPC_RB(b))
+-#define PPC_MUL(d, a, b)	EMIT(PPC_INST_MULLW | ___PPC_RT(d) |	      \
++#define PPC_MULW(d, a, b)	EMIT(PPC_INST_MULLW | ___PPC_RT(d) |	      \
+ 				     ___PPC_RA(a) | ___PPC_RB(b))
+ #define PPC_MULHWU(d, a, b)	EMIT(PPC_INST_MULHWU | ___PPC_RT(d) |	      \
+ 				     ___PPC_RA(a) | ___PPC_RB(b))
+diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
+index 2d66a84..6012aac 100644
+--- a/arch/powerpc/net/bpf_jit_comp.c
++++ b/arch/powerpc/net/bpf_jit_comp.c
+@@ -161,14 +161,14 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 			break;
+ 		case BPF_ALU | BPF_MUL | BPF_X: /* A *= X; */
+ 			ctx->seen |= SEEN_XREG;
+-			PPC_MUL(r_A, r_A, r_X);
++			PPC_MULW(r_A, r_A, r_X);
+ 			break;
+ 		case BPF_ALU | BPF_MUL | BPF_K: /* A *= K */
+ 			if (K < 32768)
+ 				PPC_MULI(r_A, r_A, K);
+ 			else {
+ 				PPC_LI32(r_scratch1, K);
+-				PPC_MUL(r_A, r_A, r_scratch1);
++				PPC_MULW(r_A, r_A, r_scratch1);
+ 			}
+ 			break;
+ 		case BPF_ALU | BPF_MOD | BPF_X: /* A %= X; */
+@@ -184,7 +184,7 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 			}
+ 			if (code == (BPF_ALU | BPF_MOD | BPF_X)) {
+ 				PPC_DIVWU(r_scratch1, r_A, r_X);
+-				PPC_MUL(r_scratch1, r_X, r_scratch1);
++				PPC_MULW(r_scratch1, r_X, r_scratch1);
+ 				PPC_SUB(r_A, r_A, r_scratch1);
+ 			} else {
+ 				PPC_DIVWU(r_A, r_A, r_X);
+@@ -193,7 +193,7 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 		case BPF_ALU | BPF_MOD | BPF_K: /* A %= K; */
+ 			PPC_LI32(r_scratch2, K);
+ 			PPC_DIVWU(r_scratch1, r_A, r_scratch2);
+-			PPC_MUL(r_scratch1, r_scratch2, r_scratch1);
++			PPC_MULW(r_scratch1, r_scratch2, r_scratch1);
+ 			PPC_SUB(r_A, r_A, r_scratch1);
+ 			break;
+ 		case BPF_ALU | BPF_DIV | BPF_K: /* A /= K */
 -- 
 2.8.2
