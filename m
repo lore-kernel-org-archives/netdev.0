@@ -1,42 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] fq_codel: fix NET_XMIT_CN behavior
-Date: Tue, 07 Jun 2016 15:39:35 -0700 (PDT)
-Message-ID: <20160607.153935.952593668152189228.davem@davemloft.net>
-References: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
-	<20160604190301.GA8857@strlen.de>
-	<1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: Re: [PATCH net-next] net: get rid of spin_trylock() in
+ net_tx_action()
+Date: Tue, 07 Jun 2016 15:38:55 -0700 (PDT)
+Message-ID: <20160607.153855.854539552647659208.davem@davemloft.net>
+References: <1465095748.2968.45.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fw@strlen.de, netdev@vger.kernel.org, stasn77@gmail.com,
-	xiyou.wangcong@gmail.com, jhs@mojatatu.com
+Cc: netdev@vger.kernel.org, tom@herbertland.com
 To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:58637 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:58632 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422669AbcFGWjg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 18:39:36 -0400
-In-Reply-To: <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
+	with ESMTP id S1422669AbcFGWi5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 18:38:57 -0400
+In-Reply-To: <1465095748.2968.45.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 04 Jun 2016 12:55:13 -0700
+Date: Sat, 04 Jun 2016 20:02:28 -0700
 
 > From: Eric Dumazet <edumazet@google.com>
 > 
-> My prior attempt to fix the backlogs of parents failed.
+> Note: Tom Herbert posted almost same patch 3 months back, but for
+> different reasons.
 > 
-> If we return NET_XMIT_CN, our parents wont increase their backlog,
-> so our qdisc_tree_reduce_backlog() should take this into account.
+> The reasons we want to get rid of this spin_trylock() are :
 > 
-> v2: Florian Westphal pointed out that we could drop the packet,
-> so we need to save qdisc_pkt_len(skb) in a temp variable before
-> calling fq_codel_drop()
+> 1) Under high qdisc pressure, the spin_trylock() has almost no
+> chance to succeed.
 > 
-> Fixes: 9d18562a2278 ("fq_codel: add batch ability to fq_codel_drop()")
-> Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
-> Reported-by: Stas Nichiporovich <stasn77@gmail.com>
+> 2) We loop multiple times in softirq handler, eventually reaching
+> the max retry count (10), and we schedule ksoftirqd.
+> 
+> Since we want to adhere more strictly to ksoftirqd being waked up in
+> the future (https://lwn.net/Articles/687617/), better avoid spurious
+> wakeups.
+> 
+> 3) calls to __netif_reschedule() dirty the cache line containing
+> q->next_sched, slowing down the owner of qdisc.
+> 
+> 4) RT kernels can not use the spin_trylock() here.
+> 
+> With help of busylock, we get the qdisc spinlock fast enough, and
+> the trylock trick brings only performance penalty.
+> 
+> Depending on qdisc setup, I observed a gain of up to 19 % in qdisc
+> performance (1016600 pps instead of 853400 pps, using prio+tbf+fq_codel)
+> 
+> ("mpstat -I SCPU 1" is much happier now)
+> 
 > Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Applied.
+Applied, thanks.
