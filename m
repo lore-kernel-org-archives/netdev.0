@@ -1,53 +1,38 @@
-From: James Cameron <quozl@laptop.org>
-Subject: Re: [ldv-project] [net] libertas: potential race condition
-Date: Wed, 8 Jun 2016 08:51:14 +1000
-Message-ID: <20160607225114.GA21437@us.netrek.org>
-References: <57569424.9040906@ispras.ru>
- <1465310395.29158.2.camel@redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 01/12] net: mediatek: fix DQL support
+Date: Tue, 07 Jun 2016 16:01:16 -0700 (PDT)
+Message-ID: <20160607.160116.2076757909377302163.davem@davemloft.net>
+References: <1465108385-38286-2-git-send-email-john@phrozen.org>
+	<20160605.003242.796780762112643713.davem@davemloft.net>
+	<e1b52f75-edb7-8504-3e6d-40fcb03e39df@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Pavel Andrianov <andrianov@ispras.ru>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	libertas-dev@lists.infradead.org, LDV list <ldv-project@ispras.ru>,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vaishali.thakkar@oracle.com
-To: Dan Williams <dcbw@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+	keyhaede@gmail.com, linux-kernel@vger.kernel.org, nbd@nbd.name
+To: john@phrozen.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1465310395.29158.2.camel@redhat.com>
+In-Reply-To: <e1b52f75-edb7-8504-3e6d-40fcb03e39df@phrozen.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 07, 2016 at 09:39:55AM -0500, Dan Williams wrote:
-> On Tue, 2016-06-07 at 13:30 +0400, Pavel Andrianov wrote:
-> > Hi!
-> >=20
-> > There is a potential race condition in=A0
-> > drivers/net/wireless/libertas/libertas.ko.
-> > In the function lbs_hard_start_xmit(..), line 159, a socket buffer
-> > is=A0
-> > written to priv->current_skb with a spin_lock protection.
-> > In the function lbs_mac_event_disconnected(..), lines 50-51, the
-> > field=A0
-> > current_skb is cleaned. There is no protection used. The
-> > corresponding=A0
-> > handlers are activated at the same time in lbs_start_card(..) and
-> > then=A0
-> > may be executed simultaneously. Note, there are two structures=A0
-> > lbs_netdev_ops and mesh_netdev_ops, which have the target handler=A0
-> > lbs_hard_start_xmit.
-> > Is it a real race or I have missed something?
->=20
-> Yeah, it looks like it should be grabbing priv->driver_lock before
-> clearing priv->currenttxskb in=A0lbs_mac_event_disconnected(). =A0Car=
-e to
-> submit a patch after testing? =A0Do you have any of that hardware?
+From: John Crispin <john@phrozen.org>
+Date: Mon, 6 Jun 2016 08:43:13 +0200
 
-I've hardware, with serial console.
+> i think one solution would be to add some code to have 2 devices share
+> the same dql instance. would that be an acceptable solution ?
 
-Can test any patch, on USB (8388) or SDIO (8686).
+You still need to address the issue of synchronization.
 
---=20
-James Cameron
-http://quozl.netrek.org/
+dql purposefully doesn't use locking, always because a higher level
+object (in this case the netdev TX queue) it is contained within
+provides the synchronization.
+
+That breaks apart once you share the dql between two netdevs, as you
+are proposing here.  You'll have to add locking, which is expensive.
+
+That's why I'm trying to encourage you to think out of the box and
+find some way to solve the issue without having to access shared
+state shared between multiple devices.
+
+Thanks.
