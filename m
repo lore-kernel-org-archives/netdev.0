@@ -1,61 +1,66 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net-next] net: sched: fix missing doc annotations
-Date: Wed, 08 Jun 2016 07:22:49 -0700
-Message-ID: <1465395769.7945.8.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH RFC net-next] netvsc: get rid of completion timeouts
+Date: Wed, 8 Jun 2016 14:31:03 +0000
+Message-ID: <CY1PR03MB2284D095D1651ED4EE9BCB85CA5E0@CY1PR03MB2284.namprd03.prod.outlook.com>
+References: <1465395546-28272-1-git-send-email-vkuznets@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36778 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423238AbcFHOWy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 10:22:54 -0400
-Received: by mail-pf0-f195.google.com with SMTP id 62so724458pfd.3
-        for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 07:22:54 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Vitaly Kuznetsov <vkuznets@redhat.com>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1465395546-28272-1-git-send-email-vkuznets@redhat.com>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
 
-"make htmldocs" complains otherwise:
 
-.//net/core/gen_stats.c:168: warning: No description found for parameter 'running'
-.//include/linux/netdevice.h:1867: warning: No description found for parameter 'qdisc_running_key'
+> -----Original Message-----
+> From: Vitaly Kuznetsov [mailto:vkuznets@redhat.com]
+> Sent: Wednesday, June 8, 2016 10:19 AM
+> To: netdev@vger.kernel.org
+> Cc: devel@linuxdriverproject.org; linux-kernel@vger.kernel.org; KY
+> Srinivasan <kys@microsoft.com>; Haiyang Zhang <haiyangz@microsoft.com>
+> Subject: [PATCH RFC net-next] netvsc: get rid of completion timeouts
+> 
+> I'm hitting 5 second timeout in rndis_filter_set_rss_param() while setting
+> RSS parameters for the device. When this happens we end up returning
+> -ETIMEDOUT from the function and rndis_filter_device_add() falls back to
+> setting
+> 
+> 	net_device->max_chn = 1;
+>         net_device->num_chn = 1;
+>         net_device->num_sc_offered = 0;
+> 
+> but after a moment the rndis request succeeds and subchannels start to
+> appear. netvsc_sc_open() does unconditional nvscdev->num_sc_offered--
+> and
+> it becomes U32_MAX-1. Consequent rndis_filter_device_remove() will hang
+> while waiting for all U32_MAX-1 subchannels to appear and this is not
+> going to happen.
+> 
+> The immediate issue could be solved by adding num_sc_offered > 0 check to
+> netvsc_sc_open() but we're getting out of sync with the host and it's not
+> easy to adjust things later, e.g. in this particular case we'll be creating
+> queues without a user request for it and races are expected. Same applies
+> to other parts of the driver which have the same completion timeout.
+> 
+> Following the trend in drivers/hv/* code I suggest we remove all these
+> timeouts completely. As a guest we can always trust the host we're running
+> on and if the host screws things up there is no easy way to recover anyway.
+> 
+> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 
-Fixes: f9eb8aea2a1e ("net_sched: transform qdisc running bit into a seqcount")
-Fixes: edb09eb17ed8 ("net: sched: do not acquire qdisc spinlock in qdisc/class stats dump")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: kbuild test robot <fengguang.wu@intel.com>
----
- include/linux/netdevice.h |    3 ++-
- net/core/gen_stats.c      |    1 +
- 2 files changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 59d7e06d88d5d9f0358eb2916d2e1aebc53d64e3..541562333ba5dd9184205364d378d0a72c6026f9 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1594,7 +1594,8 @@ enum netdev_priv_flags {
-  *	@phydev:	Physical device may attach itself
-  *			for hardware timestamping
-  *
-- *	@qdisc_tx_busylock:	XXX: need comments on this one
-+ *	@qdisc_tx_busylock: lockdep class annotating Qdisc->busylock spinlock
-+ *	@qdisc_running_key: lockdep class annotating Qdisc->running seqcount
-  *
-  *	@proto_down:	protocol port state information can be sent to the
-  *			switch driver and used to set the phys state of the
-diff --git a/net/core/gen_stats.c b/net/core/gen_stats.c
-index d9c210caff32f3c3044723f094fc0349dc516381..32207e6a942cd7093a0819310afb4500f9590ceb 100644
---- a/net/core/gen_stats.c
-+++ b/net/core/gen_stats.c
-@@ -150,6 +150,7 @@ EXPORT_SYMBOL(__gnet_stats_copy_basic);
- 
- /**
-  * gnet_stats_copy_basic - copy basic statistics into statistic TLV
-+ * @running: seqcount_t pointer
-  * @d: dumping handle
-  * @cpu: copy statistic per cpu
-  * @b: basic statistics
+Thank you.
+Acked-by: Haiyang Zhang <haiyangz@microsoft.com>
