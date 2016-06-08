@@ -1,104 +1,426 @@
-From: Guillaume Nault <g.nault@alphalink.fr>
-Subject: [PATCH v2 net] l2tp: fix configuration passed to
- setup_udp_tunnel_sock()
-Date: Wed, 8 Jun 2016 12:59:17 +0200
-Message-ID: <330c38fb18cbe52932e6b4b29cca748f29191fab.1465383438.git.g.nault@alphalink.fr>
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+Subject: [PATCH resend net-next 3/3] qede: Add dcbnl support.
+Date: Wed, 8 Jun 2016 06:22:12 -0400
+Message-ID: <1465381332-10064-4-git-send-email-sudarsana.kalluru@qlogic.com>
+References: <1465381332-10064-1-git-send-email-sudarsana.kalluru@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Tom Herbert <tom@herbertland.com>,
-	James Chapman <jchapman@katalix.com>,
-	David Miller <davem@davemloft.net>
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
+	<sudarsana.kalluru@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from zimbra.alphalink.fr ([217.15.80.77]:35665 "EHLO
-	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753433AbcFHK7W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 06:59:22 -0400
-Content-Disposition: inline
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:42020 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1753208AbcFHLGe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 07:06:34 -0400
+In-Reply-To: <1465381332-10064-1-git-send-email-sudarsana.kalluru@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Unused fields of udp_cfg must be all zeros. Otherwise
-setup_udp_tunnel_sock() fills ->gro_receive and ->gro_complete
-callbacks with garbage, eventually resulting in panic when used by
-udp_gro_receive().
+This patch adds the interfaces for ieee/cee dcbnl callbacks and registers
+them with the kernel.
 
-[   72.694123] BUG: unable to handle kernel paging request at ffff880033f87d78
-[   72.695518] IP: [<ffff880033f87d78>] 0xffff880033f87d78
-[   72.696530] PGD 26e2067 PUD 26e3067 PMD 342ed063 PTE 8000000033f87163
-[   72.696530] Oops: 0011 [#1] SMP KASAN
-[   72.696530] Modules linked in: l2tp_ppp l2tp_netlink l2tp_core ip6_udp_tunnel udp_tunnel pptp gre pppox ppp_generic slhc crc32c_intel ghash_clmulni_intel jitterentropy_rng sha256_generic hmac drbg ansi_cprng aesni_intel evdev aes_x86_64 ablk_helper cryptd lrw gf128mul glue_helper serio_raw acpi_cpufreq button proc\
-essor ext4 crc16 jbd2 mbcache virtio_blk virtio_net virtio_pci virtio_ring virtio
-[   72.696530] CPU: 3 PID: 0 Comm: swapper/3 Not tainted 4.7.0-rc1 #1
-[   72.696530] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Debian-1.8.2-1 04/01/2014
-[   72.696530] task: ffff880035b59700 ti: ffff880035b70000 task.ti: ffff880035b70000
-[   72.696530] RIP: 0010:[<ffff880033f87d78>]  [<ffff880033f87d78>] 0xffff880033f87d78
-[   72.696530] RSP: 0018:ffff880035f87bc0  EFLAGS: 00010246
-[   72.696530] RAX: ffffed000698f996 RBX: ffff88003326b840 RCX: ffffffff814cc823
-[   72.696530] RDX: ffff88003326b840 RSI: ffff880033e48038 RDI: ffff880034c7c780
-[   72.696530] RBP: ffff880035f87c18 R08: 000000000000a506 R09: 0000000000000000
-[   72.696530] R10: ffff880035f87b38 R11: ffff880034b9344d R12: 00000000ebfea715
-[   72.696530] R13: 0000000000000000 R14: ffff880034c7c780 R15: 0000000000000000
-[   72.696530] FS:  0000000000000000(0000) GS:ffff880035f80000(0000) knlGS:0000000000000000
-[   72.696530] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-[   72.696530] CR2: ffff880033f87d78 CR3: 0000000033c98000 CR4: 00000000000406a0
-[   72.696530] Stack:
-[   72.696530]  ffffffff814cc834 ffff880034b93468 0000001481416818 ffff88003326b874
-[   72.696530]  ffff880034c7ccb0 ffff880033e48038 ffff88003326b840 ffff880034b93462
-[   72.696530]  ffff88003326b88a ffff88003326b88c ffff880034b93468 ffff880035f87c70
-[   72.696530] Call Trace:
-[   72.696530]  <IRQ>
-[   72.696530]  [<ffffffff814cc834>] ? udp_gro_receive+0x1c6/0x1f9
-[   72.696530]  [<ffffffff814ccb1c>] udp4_gro_receive+0x2b5/0x310
-[   72.696530]  [<ffffffff814d989b>] inet_gro_receive+0x4a3/0x4cd
-[   72.696530]  [<ffffffff81431b32>] dev_gro_receive+0x584/0x7a3
-[   72.696530]  [<ffffffff810adf7a>] ? __lock_is_held+0x29/0x64
-[   72.696530]  [<ffffffff814321f7>] napi_gro_receive+0x124/0x21d
-[   72.696530]  [<ffffffffa000b145>] virtnet_receive+0x8df/0x8f6 [virtio_net]
-[   72.696530]  [<ffffffffa000b27e>] virtnet_poll+0x1d/0x8d [virtio_net]
-[   72.696530]  [<ffffffff81431350>] net_rx_action+0x15b/0x3b9
-[   72.696530]  [<ffffffff815893d6>] __do_softirq+0x216/0x546
-[   72.696530]  [<ffffffff81062392>] irq_exit+0x49/0xb6
-[   72.696530]  [<ffffffff81588e9a>] do_IRQ+0xe2/0xfa
-[   72.696530]  [<ffffffff81587a49>] common_interrupt+0x89/0x89
-[   72.696530]  <EOI>
-[   72.696530]  [<ffffffff810b05df>] ? trace_hardirqs_on_caller+0x229/0x270
-[   72.696530]  [<ffffffff8102b3c7>] ? default_idle+0x1c/0x2d
-[   72.696530]  [<ffffffff8102b3c5>] ? default_idle+0x1a/0x2d
-[   72.696530]  [<ffffffff8102bb8c>] arch_cpu_idle+0xa/0xc
-[   72.696530]  [<ffffffff810a6c39>] default_idle_call+0x1a/0x1c
-[   72.696530]  [<ffffffff810a6d96>] cpu_startup_entry+0x15b/0x20f
-[   72.696530]  [<ffffffff81039a81>] start_secondary+0x12c/0x133
-[   72.696530] Code: ff ff ff ff ff ff ff ff ff ff 7f ff ff ff ff ff ff ff 7f 00 7e f8 33 00 88 ff ff 6d 61 58 81 ff ff ff ff 5e de 0a 81 ff ff ff ff <00> 5c e2 34 00 88 ff ff 00 00 00 00 00 00 00 00 00 00 00 00 00
-[   72.696530] RIP  [<ffff880033f87d78>] 0xffff880033f87d78
-[   72.696530]  RSP <ffff880035f87bc0>
-[   72.696530] CR2: ffff880033f87d78
-[   72.696530] ---[ end trace ad7758b9a1dccf99 ]---
-[   72.696530] Kernel panic - not syncing: Fatal exception in interrupt
-[   72.696530] Kernel Offset: disabled
-[   72.696530] ---[ end Kernel panic - not syncing: Fatal exception in interrupt
-
-v2: use empty initialiser instead of "{ NULL }" to avoid relying on
-    first field's type.
-
-Fixes: 38fd2af24fcf ("udp: Add socket based GRO and config")
-Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- net/l2tp/l2tp_core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/qlogic/qede/Makefile     |   1 +
+ drivers/net/ethernet/qlogic/qede/qede.h       |   3 +
+ drivers/net/ethernet/qlogic/qede/qede_dcbnl.c | 348 ++++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qede/qede_main.c  |   4 +
+ 4 files changed, 356 insertions(+)
+ create mode 100644 drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
 
-diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
-index 6edfa99..1e40dac 100644
---- a/net/l2tp/l2tp_core.c
-+++ b/net/l2tp/l2tp_core.c
-@@ -1581,7 +1581,7 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
- 	/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
- 	tunnel->encap = encap;
- 	if (encap == L2TP_ENCAPTYPE_UDP) {
--		struct udp_tunnel_sock_cfg udp_cfg;
-+		struct udp_tunnel_sock_cfg udp_cfg = { };
+diff --git a/drivers/net/ethernet/qlogic/qede/Makefile b/drivers/net/ethernet/qlogic/qede/Makefile
+index 06ff90d..74a4985 100644
+--- a/drivers/net/ethernet/qlogic/qede/Makefile
++++ b/drivers/net/ethernet/qlogic/qede/Makefile
+@@ -1,3 +1,4 @@
+ obj-$(CONFIG_QEDE) := qede.o
  
- 		udp_cfg.sk_user_data = tunnel;
- 		udp_cfg.encap_type = UDP_ENCAP_L2TPINUDP;
+ qede-y := qede_main.o qede_ethtool.o
++qede-$(CONFIG_DCB) += qede_dcbnl.o
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index 47d6b22..1441c8f 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -304,6 +304,9 @@ union qede_reload_args {
+ 	u16 mtu;
+ };
+ 
++#ifdef CONFIG_DCB
++void qede_set_dcbnl_ops(struct net_device *ndev);
++#endif
+ void qede_config_debug(uint debug, u32 *p_dp_module, u8 *p_dp_level);
+ void qede_set_ethtool_ops(struct net_device *netdev);
+ void qede_reload(struct qede_dev *edev,
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
+new file mode 100644
+index 0000000..03e8c02
+--- /dev/null
++++ b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
+@@ -0,0 +1,348 @@
++/* QLogic qede NIC Driver
++* Copyright (c) 2015 QLogic Corporation
++*
++* This software is available under the terms of the GNU General Public License
++* (GPL) Version 2, available from the file COPYING in the main directory of
++* this source tree.
++*/
++
++#include <linux/types.h>
++#include <linux/netdevice.h>
++#include <linux/rtnetlink.h>
++#include <net/dcbnl.h>
++#include "qede.h"
++
++static u8 qede_dcbnl_getstate(struct net_device *netdev)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->getstate(edev->cdev);
++}
++
++static u8 qede_dcbnl_setstate(struct net_device *netdev, u8 state)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->setstate(edev->cdev, state);
++}
++
++static void qede_dcbnl_getpermhwaddr(struct net_device *netdev,
++				     u8 *perm_addr)
++{
++	memcpy(perm_addr, netdev->dev_addr, netdev->addr_len);
++}
++
++static void qede_dcbnl_getpgtccfgtx(struct net_device *netdev, int prio,
++				    u8 *prio_type, u8 *pgid, u8 *bw_pct,
++				    u8 *up_map)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	edev->ops->dcb->getpgtccfgtx(edev->cdev, prio, prio_type,
++				     pgid, bw_pct, up_map);
++}
++
++static void qede_dcbnl_getpgbwgcfgtx(struct net_device *netdev,
++				     int pgid, u8 *bw_pct)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	edev->ops->dcb->getpgbwgcfgtx(edev->cdev, pgid, bw_pct);
++}
++
++static void qede_dcbnl_getpgtccfgrx(struct net_device *netdev, int prio,
++				    u8 *prio_type, u8 *pgid, u8 *bw_pct,
++				    u8 *up_map)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	edev->ops->dcb->getpgtccfgrx(edev->cdev, prio, prio_type, pgid, bw_pct,
++				     up_map);
++}
++
++static void qede_dcbnl_getpgbwgcfgrx(struct net_device *netdev,
++				     int pgid, u8 *bw_pct)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	edev->ops->dcb->getpgbwgcfgrx(edev->cdev, pgid, bw_pct);
++}
++
++static void qede_dcbnl_getpfccfg(struct net_device *netdev, int prio,
++				 u8 *setting)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	edev->ops->dcb->getpfccfg(edev->cdev, prio, setting);
++}
++
++static void qede_dcbnl_setpfccfg(struct net_device *netdev, int prio,
++				 u8 setting)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	edev->ops->dcb->setpfccfg(edev->cdev, prio, setting);
++}
++
++static u8 qede_dcbnl_getcap(struct net_device *netdev, int capid, u8 *cap)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->getcap(edev->cdev, capid, cap);
++}
++
++static int qede_dcbnl_getnumtcs(struct net_device *netdev, int tcid, u8 *num)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->getnumtcs(edev->cdev, tcid, num);
++}
++
++static u8 qede_dcbnl_getpfcstate(struct net_device *netdev)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->getpfcstate(edev->cdev);
++}
++
++static int qede_dcbnl_getapp(struct net_device *netdev, u8 idtype, u16 id)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->getapp(edev->cdev, idtype, id);
++}
++
++static u8 qede_dcbnl_getdcbx(struct net_device *netdev)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->getdcbx(edev->cdev);
++}
++
++static void qede_dcbnl_setpgtccfgtx(struct net_device *netdev, int prio,
++				    u8 pri_type, u8 pgid, u8 bw_pct, u8 up_map)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->setpgtccfgtx(edev->cdev, prio, pri_type, pgid,
++					    bw_pct, up_map);
++}
++
++static void qede_dcbnl_setpgtccfgrx(struct net_device *netdev, int prio,
++				    u8 pri_type, u8 pgid, u8 bw_pct, u8 up_map)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->setpgtccfgrx(edev->cdev, prio, pri_type, pgid,
++					    bw_pct, up_map);
++}
++
++static void qede_dcbnl_setpgbwgcfgtx(struct net_device *netdev, int pgid,
++				     u8 bw_pct)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->setpgbwgcfgtx(edev->cdev, pgid, bw_pct);
++}
++
++static void qede_dcbnl_setpgbwgcfgrx(struct net_device *netdev, int pgid,
++				     u8 bw_pct)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->setpgbwgcfgrx(edev->cdev, pgid, bw_pct);
++}
++
++static u8 qede_dcbnl_setall(struct net_device *netdev)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->setall(edev->cdev);
++}
++
++static int qede_dcbnl_setnumtcs(struct net_device *netdev, int tcid, u8 num)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->setnumtcs(edev->cdev, tcid, num);
++}
++
++static void qede_dcbnl_setpfcstate(struct net_device *netdev, u8 state)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->setpfcstate(edev->cdev, state);
++}
++
++static int qede_dcbnl_setapp(struct net_device *netdev, u8 idtype, u16 idval,
++			     u8 up)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->setapp(edev->cdev, idtype, idval, up);
++}
++
++static u8 qede_dcbnl_setdcbx(struct net_device *netdev, u8 state)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->setdcbx(edev->cdev, state);
++}
++
++static u8 qede_dcbnl_getfeatcfg(struct net_device *netdev, int featid,
++				u8 *flags)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->getfeatcfg(edev->cdev, featid, flags);
++}
++
++static u8 qede_dcbnl_setfeatcfg(struct net_device *netdev, int featid, u8 flags)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->setfeatcfg(edev->cdev, featid, flags);
++}
++
++static int qede_dcbnl_peer_getappinfo(struct net_device *netdev,
++				      struct dcb_peer_app_info *info,
++				      u16 *count)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->peer_getappinfo(edev->cdev, info, count);
++}
++
++static int qede_dcbnl_peer_getapptable(struct net_device *netdev,
++				       struct dcb_app *app)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->peer_getapptable(edev->cdev, app);
++}
++
++static int qede_dcbnl_cee_peer_getpfc(struct net_device *netdev,
++				      struct cee_pfc *pfc)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->cee_peer_getpfc(edev->cdev, pfc);
++}
++
++static int qede_dcbnl_cee_peer_getpg(struct net_device *netdev,
++				     struct cee_pg *pg)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->cee_peer_getpg(edev->cdev, pg);
++}
++
++static int qede_dcbnl_ieee_getpfc(struct net_device *netdev,
++				  struct ieee_pfc *pfc)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->ieee_getpfc(edev->cdev, pfc);
++}
++
++static int qede_dcbnl_ieee_setpfc(struct net_device *netdev,
++				  struct ieee_pfc *pfc)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->ieee_setpfc(edev->cdev, pfc);
++}
++
++static int qede_dcbnl_ieee_getets(struct net_device *netdev,
++				  struct ieee_ets *ets)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->ieee_getets(edev->cdev, ets);
++}
++
++static int qede_dcbnl_ieee_setets(struct net_device *netdev,
++				  struct ieee_ets *ets)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->ieee_setets(edev->cdev, ets);
++}
++
++static int qede_dcbnl_ieee_getapp(struct net_device *netdev,
++				  struct dcb_app *app)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->ieee_getapp(edev->cdev, app);
++}
++
++static int qede_dcbnl_ieee_setapp(struct net_device *netdev,
++				  struct dcb_app *app)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->ieee_setapp(edev->cdev, app);
++}
++
++static int qede_dcbnl_ieee_peer_getpfc(struct net_device *netdev,
++				       struct ieee_pfc *pfc)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->ieee_peer_getpfc(edev->cdev, pfc);
++}
++
++static int qede_dcbnl_ieee_peer_getets(struct net_device *netdev,
++				       struct ieee_ets *ets)
++{
++	struct qede_dev *edev = netdev_priv(netdev);
++
++	return edev->ops->dcb->ieee_peer_getets(edev->cdev, ets);
++}
++
++static const struct dcbnl_rtnl_ops qede_dcbnl_ops = {
++	.ieee_getpfc = qede_dcbnl_ieee_getpfc,
++	.ieee_setpfc = qede_dcbnl_ieee_setpfc,
++	.ieee_getets = qede_dcbnl_ieee_getets,
++	.ieee_setets = qede_dcbnl_ieee_setets,
++	.ieee_getapp = qede_dcbnl_ieee_getapp,
++	.ieee_setapp = qede_dcbnl_ieee_setapp,
++	.getdcbx = qede_dcbnl_getdcbx,
++	.ieee_peer_getpfc = qede_dcbnl_ieee_peer_getpfc,
++	.ieee_peer_getets = qede_dcbnl_ieee_peer_getets,
++	.getstate = qede_dcbnl_getstate,
++	.setstate = qede_dcbnl_setstate,
++	.getpermhwaddr = qede_dcbnl_getpermhwaddr,
++	.getpgtccfgtx = qede_dcbnl_getpgtccfgtx,
++	.getpgbwgcfgtx = qede_dcbnl_getpgbwgcfgtx,
++	.getpgtccfgrx = qede_dcbnl_getpgtccfgrx,
++	.getpgbwgcfgrx = qede_dcbnl_getpgbwgcfgrx,
++	.getpfccfg = qede_dcbnl_getpfccfg,
++	.setpfccfg = qede_dcbnl_setpfccfg,
++	.getcap = qede_dcbnl_getcap,
++	.getnumtcs = qede_dcbnl_getnumtcs,
++	.getpfcstate = qede_dcbnl_getpfcstate,
++	.getapp = qede_dcbnl_getapp,
++	.getdcbx = qede_dcbnl_getdcbx,
++	.setpgtccfgtx = qede_dcbnl_setpgtccfgtx,
++	.setpgtccfgrx = qede_dcbnl_setpgtccfgrx,
++	.setpgbwgcfgtx = qede_dcbnl_setpgbwgcfgtx,
++	.setpgbwgcfgrx = qede_dcbnl_setpgbwgcfgrx,
++	.setall = qede_dcbnl_setall,
++	.setnumtcs = qede_dcbnl_setnumtcs,
++	.setpfcstate = qede_dcbnl_setpfcstate,
++	.setapp = qede_dcbnl_setapp,
++	.setdcbx = qede_dcbnl_setdcbx,
++	.setfeatcfg = qede_dcbnl_setfeatcfg,
++	.getfeatcfg = qede_dcbnl_getfeatcfg,
++	.peer_getappinfo = qede_dcbnl_peer_getappinfo,
++	.peer_getapptable = qede_dcbnl_peer_getapptable,
++	.cee_peer_getpfc = qede_dcbnl_cee_peer_getpfc,
++	.cee_peer_getpg = qede_dcbnl_cee_peer_getpg,
++};
++
++void qede_set_dcbnl_ops(struct net_device *dev)
++{
++	dev->dcbnl_ops = &qede_dcbnl_ops;
++}
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index edd2d90..f5962f6 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -2499,6 +2499,10 @@ static int __qede_probe(struct pci_dev *pdev, u32 dp_module, u8 dp_level,
+ 
+ 	edev->ops->register_ops(cdev, &qede_ll_ops, edev);
+ 
++#ifdef CONFIG_DCB
++	qede_set_dcbnl_ops(edev->ndev);
++#endif
++
+ 	INIT_DELAYED_WORK(&edev->sp_task, qede_sp_task);
+ 	mutex_init(&edev->qede_lock);
+ 
 -- 
-2.8.1
+1.8.3.1
