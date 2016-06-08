@@ -1,34 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] gue: Implement direction IP encapsulation
-Date: Tue, 07 Jun 2016 23:51:56 -0700 (PDT)
-Message-ID: <20160607.235156.1959568628820629457.davem@davemloft.net>
-References: <1465254362-1321531-1-git-send-email-tom@herbertland.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net-next] r8152: replace netdev_alloc_skb_ip_align with napi_alloc_skb
+Date: Wed, 8 Jun 2016 14:52:33 +0800
+Message-ID: <1394712342-15778-174-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: tom@herbertland.com
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33227 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754091AbcFHGv7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 02:51:59 -0400
-In-Reply-To: <1465254362-1321531-1-git-send-email-tom@herbertland.com>
+Received: from rtits2.realtek.com ([60.250.210.242]:37897 "EHLO
+	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755355AbcFHGxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 02:53:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Mon, 6 Jun 2016 16:06:02 -0700
+Replace netdev_alloc_skb_ip_align() with napi_alloc_skb() which can save
+several CPU cycles by avoiding having to disable and re-enable IRQs.
 
-> This patch implements direct encapsulation of IPv4 and IPv6 packets
-> in UDP. This is done a version "1" of GUE and as explained in I-D
-> draft-ietf-nvo3-gue-03.
-> 
-> Changes here are only in the receive path, fou with IPxIPx already
-> supports the transmit side. Both the normal receive path and
-> GRO path are modified to check for GUE version and check for
-> IP version in the case that GUE version is "1".
- ...
-> Signed-off-by: Tom Herbert <tom@herbertland.com>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Applied, thanks.
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 3f9f6ed..161c25e 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -1742,7 +1742,7 @@ static int rx_bottom(struct r8152 *tp, int budget)
+ 			pkt_len -= CRC_SIZE;
+ 			rx_data += sizeof(struct rx_desc);
+ 
+-			skb = netdev_alloc_skb_ip_align(netdev, pkt_len);
++			skb = napi_alloc_skb(&tp->napi, pkt_len);
+ 			if (!skb) {
+ 				stats->rx_dropped++;
+ 				goto find_next_rx;
+-- 
+2.4.11
