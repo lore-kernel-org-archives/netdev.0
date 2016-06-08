@@ -1,48 +1,35 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net-next 2/2] net: sched: do not acquire qdisc spinlock in
- qdisc/class stats dump
-Date: Tue, 7 Jun 2016 16:39:20 -0700
-Message-ID: <CAM_iQpXvynRVFW3e=sojVp1njBhq4GyTY1zgdUMoD2KqicBvqw@mail.gmail.com>
-References: <1465231036-10674-1-git-send-email-edumazet@google.com>
- <1465231036-10674-3-git-send-email-edumazet@google.com> <CAM_iQpURiYyBqpKG=u4qvbgToe4kQd4=8d_N0ohbfG_cONw_8Q@mail.gmail.com>
- <1465257199.24873.10.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net: sched: fix tc_should_offload for specific
+ clsact classes
+Date: Tue, 07 Jun 2016 17:00:07 -0700 (PDT)
+Message-ID: <20160607.170007.2097162678054823317.davem@davemloft.net>
+References: <6eb47dcc252d843d7338ce2c9b98f667b45c8450.1465245985.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	John Fastabend <john.fastabend@gmail.com>,
-	Kevin Athey <kda@google.com>,
-	Xiaotian Pei <xiaotian@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: john.fastabend@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f195.google.com ([209.85.161.195]:33814 "EHLO
-	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751632AbcFGXjl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 19:39:41 -0400
-Received: by mail-yw0-f195.google.com with SMTP id j74so24841889ywg.1
-        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 16:39:41 -0700 (PDT)
-In-Reply-To: <1465257199.24873.10.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:59193 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751475AbcFHAAJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 20:00:09 -0400
+In-Reply-To: <6eb47dcc252d843d7338ce2c9b98f667b45c8450.1465245985.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 6, 2016 at 4:53 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> Really sounds overkill to care about these, as probably no one needs to
-> get a 'consistent view of all these counters in a snapshot'.
->
-> Even as of today, the qlen/backlog pair is wrong. No one ever used these
-> values in an SNMP agent.
->
-> Note that qlen/backlog is changed both by enqueue/dequeue, so the
-> seqcount protection would not work.
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Mon,  6 Jun 2016 22:50:39 +0200
 
-I see.
+> When offloading classifiers such as u32 or flower to hardware, and the
+> qdisc is clsact (TC_H_CLSACT), then we need to differentiate its classes,
+> since not all of them handle ingress, therefore we must leave those in
+> software path. Add a .tcf_cl_offload() callback, so we can generically
+> handle them, tested on ixgbe.
+> 
+> Fixes: 10cbc6843446 ("net/sched: cls_flower: Hardware offloaded filters statistics support")
+> Fixes: 5b33f48842fa ("net/flower: Introduce hardware offload support")
+> Fixes: a1b7c5fd7fe9 ("net: sched: add cls_u32 offload hooks for netdevs")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
 
->
-> With the percpu stats thing, stats can not be fetched in a 'consistent'
-> way.
-
-Fair enough.
-
-Thanks!
+Applied, thanks Daniel.
