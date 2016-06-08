@@ -1,40 +1,54 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net] net_sched: add missing paddattr description
-Date: Wed, 8 Jun 2016 15:37:03 +0200
-Message-ID: <57581F7F.4020507@6wind.com>
-References: <1465391985.7945.4.camel@edumazet-glaptop3.roam.corp.google.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [PATCH net v2] sfc: report supported link speeds on SFP
+ connections
+Date: Wed, 8 Jun 2016 09:41:14 -0400
+Message-ID: <20160608134114.GJ56933@redhat.com>
+References: <1464917604-11596-1-git-send-email-jarod@redhat.com>
+ <a354e801-dc3e-bae4-0dcb-f174df8b9161@solarflare.com>
+ <20160606185529.GV56933@redhat.com>
+ <20160607212016.GH56933@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:37414 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753404AbcFHNhH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 09:37:07 -0400
-Received: by mail-wm0-f48.google.com with SMTP id k204so17552115wmk.0
-        for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 06:37:06 -0700 (PDT)
-In-Reply-To: <1465391985.7945.4.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org,
+	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
+	Edward Cree <ecree@solarflare.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+To: Bert Kenward <bkenward@solarflare.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160607212016.GH56933@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Le 08/06/2016 15:19, Eric Dumazet a =C3=A9crit :
-> From: Eric Dumazet <edumazet@google.com>
->=20
-> "make htmldocs" complains otherwise:
->=20
-> .//net/core/gen_stats.c:65: warning: No description found for paramet=
-er 'padattr'
-> .//net/core/gen_stats.c:101: warning: No description found for parame=
-ter 'padattr'
->=20
->=20
-> Fixes: 9854518ea04d ("sched: align nlattr properly when needed")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
-Acked-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+On Tue, Jun 07, 2016 at 05:20:16PM -0400, Jarod Wilson wrote:
+> On Mon, Jun 06, 2016 at 02:55:29PM -0400, Jarod Wilson wrote:
+> > On Mon, Jun 06, 2016 at 05:29:30PM +0100, Bert Kenward wrote:
+> > > 7000-series SFC NICs connected with an SFP+ module currently fail to
+> > > report any supported link speeds.
+> > > 
+> > > Reported-by: Jarod Wilson <jarod@redhat.com>
+> > > Signed-off-by: Bert Kenward <bkenward@solarflare.com>
+> > 
+> > Had a feeling my cut might not have been quite right. Looks good to me.
+> > 
+> > Reviewed-by: Jarod Wilson <jarod@redhat.com>
+> 
+> ...however, upon testing, there's a gotcha. This results in my 10Gbps sfc
+> nic reporting that it supports 40Gbps:
+> 
+> $ ethtool ens4f0
+> Settings for ens4f0:
+> 	Supported ports: [ FIBRE ]
+> 	Supported link modes:   1000baseT/Full
+> 	                        10000baseT/Full
+> 	                        40000baseKR4/Full
 
-Thanks Eric.
+This turned out to be a flub on my part. My local tree wasn't clean, had
+some lingering test/debug crap in it that I thought I'd removed, but
+clearly, hadn't. With that removed, we're all good here.
+
+Tested-by: Jarod Wilson <jarod@redhat.com>
+
+-- 
+Jarod Wilson
+jarod@redhat.com
