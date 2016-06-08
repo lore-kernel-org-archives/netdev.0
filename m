@@ -1,151 +1,82 @@
 From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Subject: [PATCH 4/6] tuntap: use common code for virtio_net_hdr and skb GSO conversion
-Date: Wed,  8 Jun 2016 16:09:20 +0300
-Message-ID: <1465391362-18437-5-git-send-email-rppt@linux.vnet.ibm.com>
+Subject: [PATCH 6/6] packet: use common code for virtio_net_hdr and skb GSO
+	conversion
+Date: Wed,  8 Jun 2016 16:09:22 +0300
+Message-ID: <1465391362-18437-7-git-send-email-rppt@linux.vnet.ibm.com>
 References: <1465391362-18437-1-git-send-email-rppt@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org,
-	Mike Rapoport <mike.rapoport@gmail.com>,
-	Mike Rapoport <rppt@linux.vnet.ibm.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Mike Rapoport <rppt@linux.vnet.ibm.com>,
+	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
 To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
 In-Reply-To: <1465391362-18437-1-git-send-email-rppt@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
 Replace open coded conversion between virtio_net_hdr to skb GSO info with
-virtio_net_hdr_{from,to}_skb
+virtio_net_hdr_from_skb
 
 Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
 ---
- drivers/net/tun.c | 97 ++++++++++++-------------------------------------------
- 1 file changed, 21 insertions(+), 76 deletions(-)
+ net/packet/af_packet.c | 36 ++----------------------------------
+ 1 file changed, 2 insertions(+), 34 deletions(-)
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index e16487c..8cc6bf4 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1254,15 +1254,6 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		return -EFAULT;
- 	}
+diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
+index 4040eb9..ec35aa9 100644
+--- a/net/packet/af_packet.c
++++ b/net/packet/af_packet.c
+@@ -1978,40 +1978,8 @@ static int __packet_rcv_vnet(const struct sk_buff *skb,
+ {
+ 	*vnet_hdr = (const struct virtio_net_hdr) { 0 };
  
--	if (gso.flags & VIRTIO_NET_HDR_F_NEEDS_CSUM) {
--		if (!skb_partial_csum_set(skb, tun16_to_cpu(tun, gso.csum_start),
--					  tun16_to_cpu(tun, gso.csum_offset))) {
--			this_cpu_inc(tun->pcpu_stats->rx_frame_errors);
--			kfree_skb(skb);
+-	if (skb_is_gso(skb)) {
+-		struct skb_shared_info *sinfo = skb_shinfo(skb);
+-
+-		/* This is a hint as to how much should be linear. */
+-		vnet_hdr->hdr_len =
+-			__cpu_to_virtio16(vio_le(), skb_headlen(skb));
+-		vnet_hdr->gso_size =
+-			__cpu_to_virtio16(vio_le(), sinfo->gso_size);
+-
+-		if (sinfo->gso_type & SKB_GSO_TCPV4)
+-			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
+-		else if (sinfo->gso_type & SKB_GSO_TCPV6)
+-			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
+-		else if (sinfo->gso_type & SKB_GSO_UDP)
+-			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
+-		else if (sinfo->gso_type & SKB_GSO_FCOE)
 -			return -EINVAL;
--		}
--	}
+-		else
+-			BUG();
 -
- 	switch (tun->flags & TUN_TYPE_MASK) {
- 	case IFF_TUN:
- 		if (tun->flags & IFF_NO_PI) {
-@@ -1289,37 +1280,11 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
- 		break;
- 	}
+-		if (sinfo->gso_type & SKB_GSO_TCP_ECN)
+-			vnet_hdr->gso_type |= VIRTIO_NET_HDR_GSO_ECN;
+-	} else
+-		vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
+-
+-	if (skb->ip_summed == CHECKSUM_PARTIAL) {
+-		vnet_hdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
+-		vnet_hdr->csum_start = __cpu_to_virtio16(vio_le(),
+-				  skb_checksum_start_offset(skb));
+-		vnet_hdr->csum_offset = __cpu_to_virtio16(vio_le(),
+-						 skb->csum_offset);
+-	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
+-		vnet_hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
+-	} /* else everything is zero */
++	if (virtio_net_hdr_from_skb(skb, vnet_hdr, vio_le()))
++		BUG();
  
--	if (gso.gso_type != VIRTIO_NET_HDR_GSO_NONE) {
--		pr_debug("GSO!\n");
--		switch (gso.gso_type & ~VIRTIO_NET_HDR_GSO_ECN) {
--		case VIRTIO_NET_HDR_GSO_TCPV4:
--			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV4;
--			break;
--		case VIRTIO_NET_HDR_GSO_TCPV6:
--			skb_shinfo(skb)->gso_type = SKB_GSO_TCPV6;
--			break;
--		case VIRTIO_NET_HDR_GSO_UDP:
--			skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
--			break;
--		default:
--			this_cpu_inc(tun->pcpu_stats->rx_frame_errors);
--			kfree_skb(skb);
--			return -EINVAL;
--		}
--
--		if (gso.gso_type & VIRTIO_NET_HDR_GSO_ECN)
--			skb_shinfo(skb)->gso_type |= SKB_GSO_TCP_ECN;
--
--		skb_shinfo(skb)->gso_size = tun16_to_cpu(tun, gso.gso_size);
--		if (skb_shinfo(skb)->gso_size == 0) {
--			this_cpu_inc(tun->pcpu_stats->rx_frame_errors);
--			kfree_skb(skb);
--			return -EINVAL;
--		}
--
--		/* Header must be checked, and gso_segs computed. */
--		skb_shinfo(skb)->gso_type |= SKB_GSO_DODGY;
--		skb_shinfo(skb)->gso_segs = 0;
-+	err = virtio_net_hdr_to_skb(skb, &gso, tun_is_little_endian(tun));
-+	if (err) {
-+		this_cpu_inc(tun->pcpu_stats->rx_frame_errors);
-+		kfree_skb(skb);
-+		return -EINVAL;
- 	}
- 
- 	/* copy skb_ubuf_info for callback when skb has no error */
-@@ -1399,46 +1364,26 @@ static ssize_t tun_put_user(struct tun_struct *tun,
- 
- 	if (vnet_hdr_sz) {
- 		struct virtio_net_hdr gso = { 0 }; /* no info leak */
-+		int ret;
-+
- 		if (iov_iter_count(iter) < vnet_hdr_sz)
- 			return -EINVAL;
- 
--		if (skb_is_gso(skb)) {
-+		ret = virtio_net_hdr_from_skb(skb, &gso,
-+					      tun_is_little_endian(tun));
-+		if (ret) {
- 			struct skb_shared_info *sinfo = skb_shinfo(skb);
--
--			/* This is a hint as to how much should be linear. */
--			gso.hdr_len = cpu_to_tun16(tun, skb_headlen(skb));
--			gso.gso_size = cpu_to_tun16(tun, sinfo->gso_size);
--			if (sinfo->gso_type & SKB_GSO_TCPV4)
--				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
--			else if (sinfo->gso_type & SKB_GSO_TCPV6)
--				gso.gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
--			else if (sinfo->gso_type & SKB_GSO_UDP)
--				gso.gso_type = VIRTIO_NET_HDR_GSO_UDP;
--			else {
--				pr_err("unexpected GSO type: "
--				       "0x%x, gso_size %d, hdr_len %d\n",
--				       sinfo->gso_type, tun16_to_cpu(tun, gso.gso_size),
--				       tun16_to_cpu(tun, gso.hdr_len));
--				print_hex_dump(KERN_ERR, "tun: ",
--					       DUMP_PREFIX_NONE,
--					       16, 1, skb->head,
--					       min((int)tun16_to_cpu(tun, gso.hdr_len), 64), true);
--				WARN_ON_ONCE(1);
--				return -EINVAL;
--			}
--			if (sinfo->gso_type & SKB_GSO_TCP_ECN)
--				gso.gso_type |= VIRTIO_NET_HDR_GSO_ECN;
--		} else
--			gso.gso_type = VIRTIO_NET_HDR_GSO_NONE;
--
--		if (skb->ip_summed == CHECKSUM_PARTIAL) {
--			gso.flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
--			gso.csum_start = cpu_to_tun16(tun, skb_checksum_start_offset(skb) +
--						      vlan_hlen);
--			gso.csum_offset = cpu_to_tun16(tun, skb->csum_offset);
--		} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
--			gso.flags = VIRTIO_NET_HDR_F_DATA_VALID;
--		} /* else everything is zero */
-+			pr_err("unexpected GSO type: "
-+			       "0x%x, gso_size %d, hdr_len %d\n",
-+			       sinfo->gso_type, tun16_to_cpu(tun, gso.gso_size),
-+			       tun16_to_cpu(tun, gso.hdr_len));
-+			print_hex_dump(KERN_ERR, "tun: ",
-+				       DUMP_PREFIX_NONE,
-+				       16, 1, skb->head,
-+				       min((int)tun16_to_cpu(tun, gso.hdr_len), 64), true);
-+			WARN_ON_ONCE(1);
-+			return -EINVAL;
-+		}
- 
- 		if (copy_to_iter(&gso, sizeof(gso), iter) != sizeof(gso))
- 			return -EFAULT;
+ 	return 0;
+ }
 -- 
 1.9.1
