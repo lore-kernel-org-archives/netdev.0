@@ -1,35 +1,53 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: sched: fix missing doc annotations
-Date: Wed, 08 Jun 2016 11:20:53 -0700 (PDT)
-Message-ID: <20160608.112053.636712634640568028.davem@davemloft.net>
-References: <1465395769.7945.8.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: [PATCH] stmmac: fix parameter to dwmac4_set_umac_addr()
+Date: Wed,  8 Jun 2016 19:21:17 +0100
+Message-ID: <1465410077-25381-1-git-send-email-ben.dooks@codethink.co.uk>
+Cc: Ben Dooks <ben.dooks@codethink.co.uk>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Alexandre Torgue <alexandre.torgue@st.com>,
+	netdev@vger.kernel.org
+To: linux-kernel@lists.codethink.co.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38266 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161132AbcFHSUz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 14:20:55 -0400
-In-Reply-To: <1465395769.7945.8.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from 82-70-136-246.dsl.in-addr.zen.co.uk ([82.70.136.246]:53744 "EHLO
+	rainbowdash.ducie.codethink.co.uk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1162016AbcFHSVj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 14:21:39 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Wed, 08 Jun 2016 07:22:49 -0700
+The dwmac4_set_umac_addr() takes a struct mac_device_info as
+the first parameter, but is being passed a ioaddr instead from
+dwmac4_set_filter(). Fix the warning/bug by changing the first
+parameter.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> "make htmldocs" complains otherwise:
-> 
-> .//net/core/gen_stats.c:168: warning: No description found for parameter 'running'
-> .//include/linux/netdevice.h:1867: warning: No description found for parameter 'qdisc_running_key'
-> 
-> Fixes: f9eb8aea2a1e ("net_sched: transform qdisc running bit into a seqcount")
-> Fixes: edb09eb17ed8 ("net: sched: do not acquire qdisc spinlock in qdisc/class stats dump")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c:159:46: warning: incorrect type in argument 1 (different address spaces)
+drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c:159:46:    expected struct mac_device_info *hw
+drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c:159:46:    got void [noderef] <asn:2>*ioaddr
 
-Applied, thanks Eric.
+Note, only compile tested this as do not have any
+hardware with it in.
+
+Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+---
+Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+Cc: Alexandre Torgue <alexandre.torgue@st.com>
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+index 4f7283d..44da877 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
+@@ -156,7 +156,7 @@ static void dwmac4_set_filter(struct mac_device_info *hw,
+ 		struct netdev_hw_addr *ha;
+ 
+ 		netdev_for_each_uc_addr(ha, dev) {
+-			dwmac4_set_umac_addr(ioaddr, ha->addr, reg);
++			dwmac4_set_umac_addr(hw, ha->addr, reg);
+ 			reg++;
+ 		}
+ 	}
+-- 
+2.8.1
