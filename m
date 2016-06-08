@@ -1,122 +1,42 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 2/2] tipc: change node timer unit from jiffies to ms
-Date: Wed,  8 Jun 2016 12:00:05 -0400
-Message-ID: <1465401605-15925-3-git-send-email-jon.maloy@ericsson.com>
-References: <1465401605-15925-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
+Subject: [PATCH net-next 0/2] tipc: two small fixes
+Date: Wed,  8 Jun 2016 12:00:03 -0400
+Message-ID: <1465401605-15925-1-git-send-email-jon.maloy@ericsson.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
-	ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
+	tipc-discussion@lists.sourceforge.net, ying.xue@windriver.com
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:48465 "EHLO
-	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1162026AbcFHQAN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 12:00:13 -0400
-In-Reply-To: <1465401605-15925-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-The node keepalive interval is recalculated at each timer expiration
-to catch any changes in the link tolerance, and stored in a field in
-struct tipc_node. We use jiffies as unit for the stored value.
+We fix a couple of rarely seen anomalies discovered during testing.
 
-This is suboptimal, because it makes the calculation unnecessary
-complex, including two unit conversions. The conversions also lead to
-a rounding error that causes the link "abort limit" to be 3 in the
-normal case, instead of 4, as intended. This again leads to unnecessary
-link resets when the network is pushed close to its limit, e.g., in an
-environment with hundreds of nodes or namesapces.
+Jon Maloy (2):
+  tipc: correct error in node fsm
+  tipc: change node timer unit from jiffies to ms
 
-In this commit, we do instead let the keepalive value be calculated and
-stored in milliseconds, so that there is only one conversion and the
-rounding error is eliminated.
-
-We also remove a redundant "keepalive" field in struct tipc_link. This
-is remnant from the previous implementation.
-
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
  net/tipc/link.c |  2 --
- net/tipc/node.c | 18 ++++++++++--------
- 2 files changed, 10 insertions(+), 10 deletions(-)
+ net/tipc/node.c | 22 ++++++++++++----------
+ 2 files changed, 12 insertions(+), 12 deletions(-)
 
-diff --git a/net/tipc/link.c b/net/tipc/link.c
-index 7059c94..a904ccd 100644
---- a/net/tipc/link.c
-+++ b/net/tipc/link.c
-@@ -87,7 +87,6 @@ struct tipc_stats {
-  * @peer_bearer_id: bearer id used by link's peer endpoint
-  * @bearer_id: local bearer id used by link
-  * @tolerance: minimum link continuity loss needed to reset link [in ms]
-- * @keepalive_intv: link keepalive timer interval
-  * @abort_limit: # of unacknowledged continuity probes needed to reset link
-  * @state: current state of link FSM
-  * @peer_caps: bitmap describing capabilities of peer node
-@@ -131,7 +130,6 @@ struct tipc_link {
- 	u32 peer_bearer_id;
- 	u32 bearer_id;
- 	u32 tolerance;
--	unsigned long keepalive_intv;
- 	u32 abort_limit;
- 	u32 state;
- 	u16 peer_caps;
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index c7985b2..d6a490f 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -378,14 +378,13 @@ static void tipc_node_calculate_timer(struct tipc_node *n, struct tipc_link *l)
- {
- 	unsigned long tol = tipc_link_tolerance(l);
- 	unsigned long intv = ((tol / 4) > 500) ? 500 : tol / 4;
--	unsigned long keepalive_intv = msecs_to_jiffies(intv);
- 
- 	/* Link with lowest tolerance determines timer interval */
--	if (keepalive_intv < n->keepalive_intv)
--		n->keepalive_intv = keepalive_intv;
-+	if (intv < n->keepalive_intv)
-+		n->keepalive_intv = intv;
- 
--	/* Ensure link's abort limit corresponds to current interval */
--	tipc_link_set_abort_limit(l, tol / jiffies_to_msecs(n->keepalive_intv));
-+	/* Ensure link's abort limit corresponds to current tolerance */
-+	tipc_link_set_abort_limit(l, tol / n->keepalive_intv);
- }
- 
- static void tipc_node_delete(struct tipc_node *node)
-@@ -526,7 +525,7 @@ static void tipc_node_timeout(unsigned long data)
- 		if (rc & TIPC_LINK_DOWN_EVT)
- 			tipc_node_link_down(n, bearer_id, false);
- 	}
--	mod_timer(&n->timer, jiffies + n->keepalive_intv);
-+	mod_timer(&n->timer, jiffies + msecs_to_jiffies(n->keepalive_intv));
- }
- 
- /**
-@@ -735,6 +734,7 @@ void tipc_node_check_dest(struct net *net, u32 onode,
- 	bool accept_addr = false;
- 	bool reset = true;
- 	char *if_name;
-+	unsigned long intv;
- 
- 	*dupl_addr = false;
- 	*respond = false;
-@@ -840,9 +840,11 @@ void tipc_node_check_dest(struct net *net, u32 onode,
- 		le->link = l;
- 		n->link_cnt++;
- 		tipc_node_calculate_timer(n, l);
--		if (n->link_cnt == 1)
--			if (!mod_timer(&n->timer, jiffies + n->keepalive_intv))
-+		if (n->link_cnt == 1) {
-+			intv = jiffies + msecs_to_jiffies(n->keepalive_intv);
-+			if (!mod_timer(&n->timer, intv))
- 				tipc_node_get(n);
-+		}
- 	}
- 	memcpy(&le->maddr, maddr, sizeof(*maddr));
- exit:
 -- 
 1.9.1
+
+
+------------------------------------------------------------------------------
+What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
+patterns at an interface-level. Reveals which users, apps, and protocols are 
+consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
+J-Flow, sFlow and other flows. Make informed decisions using capacity 
+planning reports. https://ad.doubleclick.net/ddm/clk/305295220;132659582;e
