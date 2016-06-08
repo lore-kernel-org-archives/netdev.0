@@ -1,36 +1,32 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 v4 4/4] ip: add MACsec support
-Date: Wed, 8 Jun 2016 09:37:39 -0700
-Message-ID: <20160608093739.0edea430@xeon-e3>
-References: <cover.1464963543.git.sd@queasysnail.net>
-	<d835c2e55dc2fbf604dc8819fd44ccca25a609b1.1464963543.git.sd@queasysnail.net>
+Subject: Re: [PATCH iproute2 net-next] iproute2: correct port in FOU/GRE
+ example
+Date: Wed, 8 Jun 2016 09:41:47 -0700
+Message-ID: <20160608094147.3c65ac42@xeon-e3>
+References: <1464751301-18709-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Phil Sutter <phil@nwl.cc>
-To: Sabrina Dubroca <sd@queasysnail.net>
+Cc: netdev@vger.kernel.org, Tom Herbert <tom@herbertland.com>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:33792 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424602AbcFHQh0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 12:37:26 -0400
-Received: by mail-pa0-f42.google.com with SMTP id bz2so3953661pad.1
-        for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 09:37:26 -0700 (PDT)
-In-Reply-To: <d835c2e55dc2fbf604dc8819fd44ccca25a609b1.1464963543.git.sd@queasysnail.net>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:34957 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751140AbcFHQlc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 12:41:32 -0400
+Received: by mail-pf0-f178.google.com with SMTP id c2so4180861pfa.2
+        for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 09:41:32 -0700 (PDT)
+In-Reply-To: <1464751301-18709-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri,  3 Jun 2016 16:45:48 +0200
-Sabrina Dubroca <sd@queasysnail.net> wrote:
+On Wed,  1 Jun 2016 12:21:41 +0900
+Simon Horman <simon.horman@netronome.com> wrote:
 
-> Extend ip-link to create MACsec devices
+> This resolves what appears to be a typo.
 > 
->   ip link add link <master> <macsec> type macsec [options]
-> 
-> Add `ip macsec` command to configure receive-side secure channels and
-> secure associations within a macsec netdevice.
-> 
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
-> Acked-by: Phil Sutter <phil@nwl.cc>
+> Cc: Tom Herbert <tom@herbertland.com>
+> Reviewed-by: Dinan Gunawardena <dinan.gunawardena@netronome.com>
+> Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-Applied.
+Applied to net-next
