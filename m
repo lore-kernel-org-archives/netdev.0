@@ -1,42 +1,149 @@
 From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 0/2] tipc: two small fixes
-Date: Wed,  8 Jun 2016 12:00:03 -0400
-Message-ID: <1465401605-15925-1-git-send-email-jon.maloy@ericsson.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
+Subject: [PATCH net-next 1/2] tipc: correct error in node fsm
+Date: Wed,  8 Jun 2016 12:00:04 -0400
+Message-ID: <1465401605-15925-2-git-send-email-jon.maloy@ericsson.com>
+References: <1465401605-15925-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
 	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net, ying.xue@windriver.com
+	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
+	ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
 To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:48458 "EHLO
+	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1161729AbcFHQAN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 12:00:13 -0400
+In-Reply-To: <1465401605-15925-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We fix a couple of rarely seen anomalies discovered during testing.
+commit 88e8ac7000dc ("tipc: reduce transmission rate of reset messages
+when link is down") revealed a flaw in the node FSM, as defined in
+the log of commit 66996b6c47ed ("tipc: extend node FSM").
 
-Jon Maloy (2):
-  tipc: correct error in node fsm
-  tipc: change node timer unit from jiffies to ms
+We see the following scenario:
+1: Node B receives a RESET message from node A before its link endpoint
+   is fully up, i.e., the node FSM is in state SELF_UP_PEER_COMING. This
+   event will not change the node FSM state, but the (distinct) link FSM
+   will move to state RESETTING.
+2: As an effect of the previous event, the local endpoint on B will
+   declare node A lost, and post the event SELF_DOWN to the its node
+   FSM. This moves the FSM state to SELF_DOWN_PEER_LEAVING, meaning
+   that no messages will be accepted from A until it receives another
+   RESET message that confirms that A's endpoint has been reset. This
+   is  wasteful, since we know this as a fact already from the first
+   received RESET, but worse is that the link instance's FSM has not
+   wasted this information, but instead moved on to state ESTABLISHING,
+   meaning that it repeatedly sends out ACTIVATE messages to the reset
+   peer A.
+3: Node A will receive one of the ACTIVATE messages, move its link FSM
+   to state ESTABLISHED, and start repeatedly sending out STATE messages
+   to node B.
+4: Node B will consistently drop these messages, since it can only accept
+   accept a RESET according to its node FSM.
+5: After four lost STATE messages node A will reset its link and start
+   repeatedly sending out RESET messages to B.
+6: Because of the reduced send rate for RESET messages, it is very
+   likely that A will receive an ACTIVATE (which is sent out at a much
+   higher frequency) before it gets the chance to send a RESET, and A
+   may hence quickly move back to state ESTABLISHED and continue sending
+   out STATE messages, which will again be dropped by B.
+7: GOTO 5.
+8: After having repeated the cycle 5-7 a number of times, node A will
+   by chance get in between with sending a RESET, and the situation is
+   resolved.
 
- net/tipc/link.c |  2 --
- net/tipc/node.c | 22 ++++++++++++----------
- 2 files changed, 12 insertions(+), 12 deletions(-)
+Unfortunately, we have seen that it may take a substantial amount of
+time before this vicious loop is broken, sometimes in the order of
+minutes.
 
+We correct this by making a small correction to the node FSM: When a
+node in state SELF_UP_PEER_COMING receives a SELF_DOWN event, it now
+moves directly back to state SELF_DOWN_PEER_DOWN, instead of as now
+SELF_DOWN_PEER_LEAVING. This is logically consistent, since we don't
+need to wait for RESET confirmation from of an endpoint that we alread
+know has been reset. It also means that node B in the scenario above
+will not be dropping incoming STATE messages, and the link can come up
+immediately.
+
+Finally, a symmetry comparison reveals that the  FSM has a similar
+error when receiving the event PEER_DOWN in state PEER_UP_SELF_COMING.
+Instead of moving to PERR_DOWN_SELF_LEAVING, it should move directly
+to SELF_DOWN_PEER_DOWN. Although we have never seen any negative effect
+of this logical error, we choose fix this one, too.
+
+The node FSM looks as follows after those changes:
+
+                           +----------------------------------------+
+                           |                           PEER_DOWN_EVT|
+                           |                                        |
+  +------------------------+----------------+                       |
+  |SELF_DOWN_EVT           |                |                       |
+  |                        |                |                       |
+  |              +-----------+          +-----------+               |
+  |              |NODE_      |          |NODE_      |               |
+  |   +----------|FAILINGOVER|<---------|SYNCHING   |-----------+   |
+  |   |SELF_     +-----------+ FAILOVER_+-----------+   PEER_   |   |
+  |   |DOWN_EVT   |          A BEGIN_EVT  A         |   DOWN_EVT|   |
+  |   |           |          |            |         |           |   |
+  |   |           |          |            |         |           |   |
+  |   |           |FAILOVER_ |FAILOVER_   |SYNCH_   |SYNCH_     |   |
+  |   |           |END_EVT   |BEGIN_EVT   |BEGIN_EVT|END_EVT    |   |
+  |   |           |          |            |         |           |   |
+  |   |           |          |            |         |           |   |
+  |   |           |         +--------------+        |           |   |
+  |   |           +-------->|   SELF_UP_   |<-------+           |   |
+  |   |   +-----------------|   PEER_UP    |----------------+   |   |
+  |   |   |SELF_DOWN_EVT    +--------------+   PEER_DOWN_EVT|   |   |
+  |   |   |                    A        A                   |   |   |
+  |   |   |                    |        |                   |   |   |
+  |   |   |         PEER_UP_EVT|        |SELF_UP_EVT        |   |   |
+  |   |   |                    |        |                   |   |   |
+  V   V   V                    |        |                   V   V   V
++------------+       +-----------+    +-----------+       +------------+
+|SELF_DOWN_  |       |SELF_UP_   |    |PEER_UP_   |       |PEER_DOWN   |
+|PEER_LEAVING|       |PEER_COMING|    |SELF_COMING|       |SELF_LEAVING|
++------------+       +-----------+    +-----------+       +------------+
+       |               |       A        A       |                |
+       |               |       |        |       |                |
+       |       SELF_   |       |SELF_   |PEER_  |PEER_           |
+       |       DOWN_EVT|       |UP_EVT  |UP_EVT |DOWN_EVT        |
+       |               |       |        |       |                |
+       |               |       |        |       |                |
+       |               |    +--------------+    |                |
+       |PEER_DOWN_EVT  +--->|  SELF_DOWN_  |<---+   SELF_DOWN_EVT|
+       +------------------->|  PEER_DOWN   |<--------------------+
+                            +--------------+
+
+Acked-by: Ying Xue <ying.xue@windriver.com>
+Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+---
+ net/tipc/node.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/net/tipc/node.c b/net/tipc/node.c
+index e01e2c71..c7985b2 100644
+--- a/net/tipc/node.c
++++ b/net/tipc/node.c
+@@ -950,7 +950,7 @@ static void tipc_node_fsm_evt(struct tipc_node *n, int evt)
+ 			state = SELF_UP_PEER_UP;
+ 			break;
+ 		case SELF_LOST_CONTACT_EVT:
+-			state = SELF_DOWN_PEER_LEAVING;
++			state = SELF_DOWN_PEER_DOWN;
+ 			break;
+ 		case SELF_ESTABL_CONTACT_EVT:
+ 		case PEER_LOST_CONTACT_EVT:
+@@ -969,7 +969,7 @@ static void tipc_node_fsm_evt(struct tipc_node *n, int evt)
+ 			state = SELF_UP_PEER_UP;
+ 			break;
+ 		case PEER_LOST_CONTACT_EVT:
+-			state = SELF_LEAVING_PEER_DOWN;
++			state = SELF_DOWN_PEER_DOWN;
+ 			break;
+ 		case SELF_LOST_CONTACT_EVT:
+ 		case PEER_ESTABL_CONTACT_EVT:
 -- 
 1.9.1
-
-
-------------------------------------------------------------------------------
-What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
-patterns at an interface-level. Reveals which users, apps, and protocols are 
-consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
-J-Flow, sFlow and other flows. Make informed decisions using capacity 
-planning reports. https://ad.doubleclick.net/ddm/clk/305295220;132659582;e
