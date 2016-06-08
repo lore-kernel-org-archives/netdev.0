@@ -1,40 +1,54 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/3] bridge: netfilter: checkpatch whitespace fixes
-Date: Wed, 8 Jun 2016 19:38:30 +0200
-Message-ID: <20160608173830.GA25403@salvia>
-References: <1462843618-21914-1-git-send-email-me@tobin.cc>
- <1462843618-21914-2-git-send-email-me@tobin.cc>
- <20160607151458.GA18008@salvia>
- <1465319080.25087.28.camel@perches.com>
- <20160607173417.GA1141@salvia>
- <1465322550.25087.40.camel@perches.com>
- <20160608115248.GA2603@salvia>
- <1465404750.25087.68.camel@perches.com>
- <20160608173121.GA25147@salvia>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH -next 3/4] sched: remove qdisc_rehape_fail
+Date: Wed, 08 Jun 2016 10:42:56 -0700
+Message-ID: <1465407776.7945.24.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1465400141-29088-1-git-send-email-fw@strlen.de>
+	 <1465400141-29088-4-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: tcharding <me@tobin.cc>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160608173121.GA25147@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33997 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751885AbcFHRm6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 13:42:58 -0400
+Received: by mail-pf0-f195.google.com with SMTP id l188so1029807pfl.1
+        for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 10:42:58 -0700 (PDT)
+In-Reply-To: <1465400141-29088-4-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 08, 2016 at 07:31:21PM +0200, Pablo Neira Ayuso wrote:
-> Then you can follow up with a patch to add this function.
+On Wed, 2016-06-08 at 17:35 +0200, Florian Westphal wrote:
+> After the removal of TCA_CBQ_POLICE in cbq scheduler qdisc->reshape_fail
+> is always NULL, i.e. qdisc_rehape_fail is now the same as qdisc_drop.
 > 
-> Just a suggestion, let me know if this is fine with you.
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
+>  include/net/sch_generic.h | 19 -------------------
+>  net/sched/sch_fifo.c      |  4 ++--
+>  net/sched/sch_netem.c     |  4 ++--
+>  net/sched/sch_plug.c      |  2 +-
+>  net/sched/sch_tbf.c       |  4 ++--
+>  5 files changed, 7 insertions(+), 26 deletions(-)
+> 
+> diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+> index c069ac1..a9aec63 100644
+> --- a/include/net/sch_generic.h
+> +++ b/include/net/sch_generic.h
+> @@ -63,9 +63,6 @@ struct Qdisc {
+>  	struct list_head	list;
+>  	u32			handle;
+>  	u32			parent;
+> -	int			(*reshape_fail)(struct sk_buff *skb,
+> -					struct Qdisc *q);
+> -
+>  	void			*u32_node;
+>  
 
-Forget this idea.
+You removed 2 pointers from Qdisc, so now next_sched & gso_skb are in a
+different cache line than ->state
 
-Actually your patch from: Date: Tue, 07 Jun 2016 11:02:30 -0700
-
-looks easier to readable than original Tobin's, so I'll wait for you
-to resubmit.
-
-Thanks.
+Some performance penalty is expected, unless you move a read_mostly
+field there to compensate.
