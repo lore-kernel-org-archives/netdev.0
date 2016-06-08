@@ -1,35 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] l2tp: fix configuration passed to
- setup_udp_tunnel_sock()
-Date: Wed, 08 Jun 2016 11:12:34 -0700 (PDT)
-Message-ID: <20160608.111234.1806433196448343755.davem@davemloft.net>
-References: <330c38fb18cbe52932e6b4b29cca748f29191fab.1465383438.git.g.nault@alphalink.fr>
+Subject: Re: [PATCH net-next 0/4] sched, cbq: remove OVL_STRATEGY/POLICE
+ support
+Date: Wed, 08 Jun 2016 11:24:37 -0700 (PDT)
+Message-ID: <20160608.112437.1079267186183137035.davem@davemloft.net>
+References: <1465400141-29088-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com, jchapman@katalix.com
-To: g.nault@alphalink.fr
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38198 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38293 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161092AbcFHSMg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 14:12:36 -0400
-In-Reply-To: <330c38fb18cbe52932e6b4b29cca748f29191fab.1465383438.git.g.nault@alphalink.fr>
+	with ESMTP id S1753815AbcFHSYk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 14:24:40 -0400
+In-Reply-To: <1465400141-29088-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Guillaume Nault <g.nault@alphalink.fr>
-Date: Wed, 8 Jun 2016 12:59:17 +0200
+From: Florian Westphal <fw@strlen.de>
+Date: Wed,  8 Jun 2016 17:35:37 +0200
 
-> Unused fields of udp_cfg must be all zeros. Otherwise
-> setup_udp_tunnel_sock() fills ->gro_receive and ->gro_complete
-> callbacks with garbage, eventually resulting in panic when used by
-> udp_gro_receive().
- ...
-> v2: use empty initialiser instead of "{ NULL }" to avoid relying on
->     first field's type.
+> iproute2 does not implement any options that result in the
+> TCA_CBQ_OVL_STRATEGY/TCA_CBQ_POLICE attributes being set/used.
 > 
-> Fixes: 38fd2af24fcf ("udp: Add socket based GRO and config")
-> Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+> This series removes these two attributes from cbq and makes kernel reject
+> them via EOPNOTSUPP in case they are seen.
 
-Applied and queued up for -stable, thanks.
+Please address Eric's struct layout feedback and I'll apply this.
