@@ -1,149 +1,62 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net-next 1/2] tipc: correct error in node fsm
-Date: Wed,  8 Jun 2016 12:00:04 -0400
-Message-ID: <1465401605-15925-2-git-send-email-jon.maloy@ericsson.com>
-References: <1465401605-15925-1-git-send-email-jon.maloy@ericsson.com>
-Cc: netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
-	ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net,
-	Jon Maloy <jon.maloy@ericsson.com>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp105.biz.mail.bf1.yahoo.com ([98.139.221.43]:48458 "EHLO
-	smtp105.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1161729AbcFHQAN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 12:00:13 -0400
-In-Reply-To: <1465401605-15925-1-git-send-email-jon.maloy@ericsson.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vitaly Kuznetsov <vkuznets@redhat.com>
+Subject: Re: [PATCH RFC net-next] netvsc: get rid of completion timeouts
+Date: Wed, 08 Jun 2016 18:05:57 +0200
+Message-ID: <87inxjacnu.fsf@vitty.brq.redhat.com>
+References: <1465395546-28272-1-git-send-email-vkuznets@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devel@linuxdriverproject.org, Haiyang Zhang <haiyangz@microsoft.com>,
+ linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1465395546-28272-1-git-send-email-vkuznets@redhat.com> (Vitaly
+ Kuznetsov's message of "Wed, 8 Jun 2016 16:19:06 +0200")
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-commit 88e8ac7000dc ("tipc: reduce transmission rate of reset messages
-when link is down") revealed a flaw in the node FSM, as defined in
-the log of commit 66996b6c47ed ("tipc: extend node FSM").
+Vitaly Kuznetsov <vkuznets@redhat.com> writes:
 
-We see the following scenario:
-1: Node B receives a RESET message from node A before its link endpoint
-   is fully up, i.e., the node FSM is in state SELF_UP_PEER_COMING. This
-   event will not change the node FSM state, but the (distinct) link FSM
-   will move to state RESETTING.
-2: As an effect of the previous event, the local endpoint on B will
-   declare node A lost, and post the event SELF_DOWN to the its node
-   FSM. This moves the FSM state to SELF_DOWN_PEER_LEAVING, meaning
-   that no messages will be accepted from A until it receives another
-   RESET message that confirms that A's endpoint has been reset. This
-   is  wasteful, since we know this as a fact already from the first
-   received RESET, but worse is that the link instance's FSM has not
-   wasted this information, but instead moved on to state ESTABLISHING,
-   meaning that it repeatedly sends out ACTIVATE messages to the reset
-   peer A.
-3: Node A will receive one of the ACTIVATE messages, move its link FSM
-   to state ESTABLISHED, and start repeatedly sending out STATE messages
-   to node B.
-4: Node B will consistently drop these messages, since it can only accept
-   accept a RESET according to its node FSM.
-5: After four lost STATE messages node A will reset its link and start
-   repeatedly sending out RESET messages to B.
-6: Because of the reduced send rate for RESET messages, it is very
-   likely that A will receive an ACTIVATE (which is sent out at a much
-   higher frequency) before it gets the chance to send a RESET, and A
-   may hence quickly move back to state ESTABLISHED and continue sending
-   out STATE messages, which will again be dropped by B.
-7: GOTO 5.
-8: After having repeated the cycle 5-7 a number of times, node A will
-   by chance get in between with sending a RESET, and the situation is
-   resolved.
+> I'm hitting 5 second timeout in rndis_filter_set_rss_param() while setting
+> RSS parameters for the device. When this happens we end up returning
+> -ETIMEDOUT from the function and rndis_filter_device_add() falls back to
+> setting
+>
+> 	net_device->max_chn = 1;
+>         net_device->num_chn = 1;
+>         net_device->num_sc_offered = 0;
+>
+> but after a moment the rndis request succeeds and subchannels start to
+> appear. netvsc_sc_open() does unconditional nvscdev->num_sc_offered-- and
+> it becomes U32_MAX-1. Consequent rndis_filter_device_remove() will hang
+> while waiting for all U32_MAX-1 subchannels to appear and this is not
+> going to happen.
+>
+> The immediate issue could be solved by adding num_sc_offered > 0 check to
+> netvsc_sc_open() but we're getting out of sync with the host and it's not
+> easy to adjust things later, e.g. in this particular case we'll be creating
+> queues without a user request for it and races are expected. Same applies
+> to other parts of the driver which have the same completion timeout.
+>
+> Following the trend in drivers/hv/* code I suggest we remove all these
+> timeouts completely. As a guest we can always trust the host we're running
+> on and if the host screws things up there is no easy way to recover anyway.
+>
+> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
 
-Unfortunately, we have seen that it may take a substantial amount of
-time before this vicious loop is broken, sometimes in the order of
-minutes.
+Kbuild test robot reports an unused variable after the patch, I'll fix
+this and resend together with a related fix so please don't apply this
+RFC to net-next atm.
 
-We correct this by making a small correction to the node FSM: When a
-node in state SELF_UP_PEER_COMING receives a SELF_DOWN event, it now
-moves directly back to state SELF_DOWN_PEER_DOWN, instead of as now
-SELF_DOWN_PEER_LEAVING. This is logically consistent, since we don't
-need to wait for RESET confirmation from of an endpoint that we alread
-know has been reset. It also means that node B in the scenario above
-will not be dropping incoming STATE messages, and the link can come up
-immediately.
+[skip]
 
-Finally, a symmetry comparison reveals that the  FSM has a similar
-error when receiving the event PEER_DOWN in state PEER_UP_SELF_COMING.
-Instead of moving to PERR_DOWN_SELF_LEAVING, it should move directly
-to SELF_DOWN_PEER_DOWN. Although we have never seen any negative effect
-of this logical error, we choose fix this one, too.
-
-The node FSM looks as follows after those changes:
-
-                           +----------------------------------------+
-                           |                           PEER_DOWN_EVT|
-                           |                                        |
-  +------------------------+----------------+                       |
-  |SELF_DOWN_EVT           |                |                       |
-  |                        |                |                       |
-  |              +-----------+          +-----------+               |
-  |              |NODE_      |          |NODE_      |               |
-  |   +----------|FAILINGOVER|<---------|SYNCHING   |-----------+   |
-  |   |SELF_     +-----------+ FAILOVER_+-----------+   PEER_   |   |
-  |   |DOWN_EVT   |          A BEGIN_EVT  A         |   DOWN_EVT|   |
-  |   |           |          |            |         |           |   |
-  |   |           |          |            |         |           |   |
-  |   |           |FAILOVER_ |FAILOVER_   |SYNCH_   |SYNCH_     |   |
-  |   |           |END_EVT   |BEGIN_EVT   |BEGIN_EVT|END_EVT    |   |
-  |   |           |          |            |         |           |   |
-  |   |           |          |            |         |           |   |
-  |   |           |         +--------------+        |           |   |
-  |   |           +-------->|   SELF_UP_   |<-------+           |   |
-  |   |   +-----------------|   PEER_UP    |----------------+   |   |
-  |   |   |SELF_DOWN_EVT    +--------------+   PEER_DOWN_EVT|   |   |
-  |   |   |                    A        A                   |   |   |
-  |   |   |                    |        |                   |   |   |
-  |   |   |         PEER_UP_EVT|        |SELF_UP_EVT        |   |   |
-  |   |   |                    |        |                   |   |   |
-  V   V   V                    |        |                   V   V   V
-+------------+       +-----------+    +-----------+       +------------+
-|SELF_DOWN_  |       |SELF_UP_   |    |PEER_UP_   |       |PEER_DOWN   |
-|PEER_LEAVING|       |PEER_COMING|    |SELF_COMING|       |SELF_LEAVING|
-+------------+       +-----------+    +-----------+       +------------+
-       |               |       A        A       |                |
-       |               |       |        |       |                |
-       |       SELF_   |       |SELF_   |PEER_  |PEER_           |
-       |       DOWN_EVT|       |UP_EVT  |UP_EVT |DOWN_EVT        |
-       |               |       |        |       |                |
-       |               |       |        |       |                |
-       |               |    +--------------+    |                |
-       |PEER_DOWN_EVT  +--->|  SELF_DOWN_  |<---+   SELF_DOWN_EVT|
-       +------------------->|  PEER_DOWN   |<--------------------+
-                            +--------------+
-
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/node.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/net/tipc/node.c b/net/tipc/node.c
-index e01e2c71..c7985b2 100644
---- a/net/tipc/node.c
-+++ b/net/tipc/node.c
-@@ -950,7 +950,7 @@ static void tipc_node_fsm_evt(struct tipc_node *n, int evt)
- 			state = SELF_UP_PEER_UP;
- 			break;
- 		case SELF_LOST_CONTACT_EVT:
--			state = SELF_DOWN_PEER_LEAVING;
-+			state = SELF_DOWN_PEER_DOWN;
- 			break;
- 		case SELF_ESTABL_CONTACT_EVT:
- 		case PEER_LOST_CONTACT_EVT:
-@@ -969,7 +969,7 @@ static void tipc_node_fsm_evt(struct tipc_node *n, int evt)
- 			state = SELF_UP_PEER_UP;
- 			break;
- 		case PEER_LOST_CONTACT_EVT:
--			state = SELF_LEAVING_PEER_DOWN;
-+			state = SELF_DOWN_PEER_DOWN;
- 			break;
- 		case SELF_LOST_CONTACT_EVT:
- 		case PEER_ESTABL_CONTACT_EVT:
 -- 
-1.9.1
+  Vitaly
