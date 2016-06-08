@@ -1,88 +1,93 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 1/3] bridge: netfilter: checkpatch whitespace fixes
-Date: Wed, 8 Jun 2016 13:52:48 +0200
-Message-ID: <20160608115248.GA2603@salvia>
-References: <1462843618-21914-1-git-send-email-me@tobin.cc>
- <1462843618-21914-2-git-send-email-me@tobin.cc>
- <20160607151458.GA18008@salvia>
- <1465319080.25087.28.camel@perches.com>
- <20160607173417.GA1141@salvia>
- <1465322550.25087.40.camel@perches.com>
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RESEND PATCH v9 00/22] Add HiSilicon RoCE driver
+Date: Wed, 8 Jun 2016 07:55:11 -0400
+Message-ID: <7860e33e-42a0-b98e-116d-45fd32d8acdd@redhat.com>
+References: <1465368297-82118-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: tcharding <me@tobin.cc>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:48522 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1756587AbcFHLx1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jun 2016 07:53:27 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 1A46C46B440
-	for <netdev@vger.kernel.org>; Wed,  8 Jun 2016 13:53:26 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 0A646100A5F
-	for <netdev@vger.kernel.org>; Wed,  8 Jun 2016 13:53:26 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id E71EB100A63
-	for <netdev@vger.kernel.org>; Wed,  8 Jun 2016 13:53:23 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <1465322550.25087.40.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ protocol="application/pgp-signature";
+ boundary="h17xiHcsuxFEjPQEHrd9qkhqbt6BkUtlD"
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1465368297-82118-1-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 07, 2016 at 11:02:30AM -0700, Joe Perches wrote:
-> On Tue, 2016-06-07 at 19:34 +0200, Pablo Neira Ayuso wrote:
-> > On Tue, Jun 07, 2016 at 10:04:40AM -0700, Joe Perches wrote:
-> > > One more question, is this chunk below correct from
-> > > coding style point of view?
-> >=20
-> > =A0=A0=A0=A0=A0=A0=A0=A0if (info->bitmask & EBT_STP_ROOTADDR) {
-> > =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0verdict =3D 0;
-> > =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0for (i =3D 0; i < 6=
-; i++)
-> > -=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0verdict |=3D (stpc->root[2+i] ^ c->root_addr[i]) &
-> > -=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0c->root_addrmsk[i];
-> > +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0verdict |=3D (stpc->root[2 + i] ^ c->root_addr[i]) &
-> > +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0=A0c->root_addrmsk[i];
-> >=20
-> > I think the previous line is fine.
->=20
-> "2+i" or "2 + i", either is OK.
-> Multiple line statement alignment doesn't
-> matter much.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--h17xiHcsuxFEjPQEHrd9qkhqbt6BkUtlD
+Content-Type: multipart/mixed; boundary="t1kWgjFwJHFK8Ac69wRQIu0HdaxIB0pcB"
+From: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+To: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+ jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org
+Cc: linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+ tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+ yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+Message-ID: <7860e33e-42a0-b98e-116d-45fd32d8acdd-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Subject: Re: [RESEND PATCH v9 00/22] Add HiSilicon RoCE driver
+References: <1465368297-82118-1-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+In-Reply-To: <1465368297-82118-1-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
 
-Sorry, I was actually refering to:
+--t1kWgjFwJHFK8Ac69wRQIu0HdaxIB0pcB
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: quoted-printable
 
-> > +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0verdict |=3D (stpc->root[2 + i] ^ c->root_addr[i]) &
-> > +=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0=A0c->root_addrmsk[i];
-                                    ^^^
+On 6/8/2016 2:44 AM, Lijun Ou wrote:
+> The HiSilicon Network Substem is a long term evolution IP which is
+> supposed to be used in HiSilicon ICT SoCs. HNS (HiSilicon Network
+> Sybsystem) also has a hardware support of performing RDMA with
+> RoCEE.
+> The driver for HiSilicon RoCEE(RoCE Engine) is a platform driver and
+> will support mulitple versions of SOCs in future. This version of drive=
+r
+> is meant to support Hip06 SoC(which confirms to RoCEEv1 hardware
+> specifications).
 
-instead of:
+Please don't resend unless you think the patch has gotten lost.  This is
+a large patchset and takes a considerable deal of time to process.
 
-> > -=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0verdict |=3D (stpc->root[2+i] ^ c->root_addr[i]) &
-> > -=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
-=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0c->root_addrmsk[i];
-                                       ^
+That said, I pulled the v9 patchset into my repo in a branch called hns
+yesterday and am doing final review before I accept it into my for-next
+area.
 
-here.
 
-> I think either is fine and both are "don't care, don't need"
-> to change from one to another to satisfy some silly whitespace
-> overlord brainless script.
->=20
-> Perhaps it's better to add a function for this though.
+--t1kWgjFwJHFK8Ac69wRQIu0HdaxIB0pcB--
 
-I like this function idea :).
+--h17xiHcsuxFEjPQEHrd9qkhqbt6BkUtlD
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+Comment: Using GnuPG with Thunderbird - http://www.enigmail.net/
+
+iQIcBAEBCAAGBQJXWAefAAoJELgmozMOVy/d/ogQAKt3rA+nrGDz8bjg3cUKr4oI
+gYYapv/5WfC5STRW995DJESF1zJgD3UrdHfpxx+UxN1xevTHrlvfUruZGTHR/a2Y
+gweHT6arYW5n6mgQLFw4/G14n+EFVjo9RHVhMU+zBNL36wxKKdXotb85rqUtFDih
+0Ni2CQzVVuCL+8Y/5rqjCB9ZM+OI2uASrEH3p5wopdCPHq/0viUWnT8VsbwIu1Oe
+rfFsCPTMfTZez71Y6bLXpF/k5JL7M/dvz6ZrD2v4s2uARWFV7ZtJ48fR4Aq2AchJ
+IzmQX6hrjzQwePvXcE4ySwVscX7sf8bkL882O501bTqSoLVKVMeKTiyl6KLi86AX
+FMow6QZXE014D6f6iYuleIphn0dkl4ZL1xj0cB7NdDaMgv/7pZ0u2E/YWbQazBD+
+EIrNWfMSK7Xk+jRCnBYvHGszhSf5MN2KNMhPzOKB4+Zjyyl9x8RDhwIMlm6+BkOn
+agXWyOf8MfFLV+C9r80KybXW3/LjCStm1Jm1jormGl0VzMs0EtFNBqG0HsIUJZTH
+nqcVfFuMkGbWQbNQVWLEz/UkhhCbHYTMnJ+4ZzE5whY9CfQgy+hmfxGUcfaChabk
+DAJ7LRM5oZjxxV9sNSfsmPAgUd5kdf4yAU3U0Yi1mrvfm8LuJnTxdNFHRXlziMgJ
+qLR1ZW5aZ494Acnv1j7/
+=vZmG
+-----END PGP SIGNATURE-----
+
+--h17xiHcsuxFEjPQEHrd9qkhqbt6BkUtlD--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
