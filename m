@@ -1,82 +1,113 @@
-From: Mike Rapoport <rppt@linux.vnet.ibm.com>
-Subject: [PATCH 6/6] packet: use common code for virtio_net_hdr and skb GSO
-	conversion
-Date: Wed,  8 Jun 2016 16:09:22 +0300
-Message-ID: <1465391362-18437-7-git-send-email-rppt@linux.vnet.ibm.com>
-References: <1465391362-18437-1-git-send-email-rppt@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Mike Rapoport <rppt@linux.vnet.ibm.com>,
-	linux-kernel@vger.kernel.org, virtualization@lists.linux-foundation.org
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1465391362-18437-1-git-send-email-rppt@linux.vnet.ibm.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: [PATCH net] ipv6: Skip XFRM lookup if dst_entry in socket cache is valid
+Date: Wed,  8 Jun 2016 15:13:34 +0200
+Message-ID: <1465391614-8961-1-git-send-email-jkbs@redhat.com>
+Cc: Jan Tluka <jtluka@redhat.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Jakub Sitnicki <jkbs@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:37791 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751039AbcFHNNv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 09:13:51 -0400
+Received: by mail-wm0-f46.google.com with SMTP id k204so16566372wmk.0
+        for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 06:13:50 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Replace open coded conversion between virtio_net_hdr to skb GSO info with
-virtio_net_hdr_from_skb
+At present we perform an xfrm_lookup() for each UDPv6 message we
+send. The lookup involves querying the flow cache (flow_cache_lookup)
+and, in case of a cache miss, creating an XFRM bundle.
 
-Signed-off-by: Mike Rapoport <rppt@linux.vnet.ibm.com>
+If we miss the flow cache, we can end up creating a new bundle and
+deriving the path MTU (xfrm_init_pmtu) from on an already transformed
+dst_entry, which we pass from the socket cache (sk->sk_dst_cache) down
+to xfrm_lookup(). This can happen only if we're caching the dst_entry
+in the socket, that is when we're using a connected UDP socket.
+
+To put it another way, the path MTU shrinks each time we miss the flow
+cache, which later on leads to incorrectly fragmented payload. It can
+be observed with ESPv6 in transport mode:
+
+  1) Set up a transformation and lower the MTU to trigger fragmentation
+    # ip xfrm policy add dir out src ::1 dst ::1 \
+      tmpl src ::1 dst ::1 proto esp spi 1
+    # ip xfrm state add src ::1 dst ::1 \
+      proto esp spi 1 enc 'aes' 0x0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b
+    # ip link set dev lo mtu 1500
+
+  2) Monitor the packet flow and set up an UDP sink
+    # tcpdump -ni lo -ttt &
+    # socat udp6-listen:12345,fork /dev/null &
+
+  3) Send a datagram that needs fragmentation with a connected socket
+    # perl -e 'print "@" x 1470 | socat - udp6:[::1]:12345
+    2016/06/07 18:52:52 socat[724] E read(3, 0x555bb3d5ba00, 8192): Protocol error
+    00:00:00.000000 IP6 ::1 > ::1: frag (0|1448) ESP(spi=0x00000001,seq=0x2), length 1448
+    00:00:00.000014 IP6 ::1 > ::1: frag (1448|32)
+    00:00:00.000050 IP6 ::1 > ::1: ESP(spi=0x00000001,seq=0x3), length 1272
+    (^ ICMPv6 Parameter Problem)
+    00:00:00.000022 IP6 ::1 > ::1: ESP(spi=0x00000001,seq=0x5), length 136
+
+  4) Compare it to a non-connected socket
+    # perl -e 'print "@" x 1500' | socat - udp6-sendto:[::1]:12345
+    00:00:40.535488 IP6 ::1 > ::1: frag (0|1448) ESP(spi=0x00000001,seq=0x6), length 1448
+    00:00:00.000010 IP6 ::1 > ::1: frag (1448|64)
+
+What happens in step (3) is:
+
+  1) when connecting the socket in __ip6_datagram_connect(), we
+     perform an XFRM lookup, miss the flow cache, create an XFRM
+     bundle, and cache the destination,
+
+  2) afterwards, when sending the datagram, we perform an XFRM lookup,
+     again, miss the flow cache (due to mismatch of flowi6_iif and
+     flowi6_oif, which is an issue of its own), and recreate an XFRM
+     bundle based on the cached (and already transformed) destination.
+
+To prevent the recreation of an XFRM bundle, avoid an XFRM lookup
+altogether whenever we already have a destination entry cached in the
+socket. This prevents the path MTU shrinkage and brings us on par with
+UDPv4.
+
+The fix also benefits connected PINGv6 sockets, another user of
+ip6_sk_dst_lookup_flow(), who also suffer messages being transformed
+twice.
+
+Joint work with Hannes Frederic Sowa.
+
+Reported-by: Jan Tluka <jtluka@redhat.com>
+Signed-off-by: Jakub Sitnicki <jkbs@redhat.com>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
 ---
- net/packet/af_packet.c | 36 ++----------------------------------
- 1 file changed, 2 insertions(+), 34 deletions(-)
+ net/ipv6/ip6_output.c | 11 +++--------
+ 1 file changed, 3 insertions(+), 8 deletions(-)
 
-diff --git a/net/packet/af_packet.c b/net/packet/af_packet.c
-index 4040eb9..ec35aa9 100644
---- a/net/packet/af_packet.c
-+++ b/net/packet/af_packet.c
-@@ -1978,40 +1978,8 @@ static int __packet_rcv_vnet(const struct sk_buff *skb,
+diff --git a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+index 6b2f60a..fd32175 100644
+--- a/net/ipv6/ip6_output.c
++++ b/net/ipv6/ip6_output.c
+@@ -1071,17 +1071,12 @@ struct dst_entry *ip6_sk_dst_lookup_flow(struct sock *sk, struct flowi6 *fl6,
+ 					 const struct in6_addr *final_dst)
  {
- 	*vnet_hdr = (const struct virtio_net_hdr) { 0 };
+ 	struct dst_entry *dst = sk_dst_check(sk, inet6_sk(sk)->dst_cookie);
+-	int err;
  
--	if (skb_is_gso(skb)) {
--		struct skb_shared_info *sinfo = skb_shinfo(skb);
--
--		/* This is a hint as to how much should be linear. */
--		vnet_hdr->hdr_len =
--			__cpu_to_virtio16(vio_le(), skb_headlen(skb));
--		vnet_hdr->gso_size =
--			__cpu_to_virtio16(vio_le(), sinfo->gso_size);
--
--		if (sinfo->gso_type & SKB_GSO_TCPV4)
--			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV4;
--		else if (sinfo->gso_type & SKB_GSO_TCPV6)
--			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_TCPV6;
--		else if (sinfo->gso_type & SKB_GSO_UDP)
--			vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_UDP;
--		else if (sinfo->gso_type & SKB_GSO_FCOE)
--			return -EINVAL;
--		else
--			BUG();
--
--		if (sinfo->gso_type & SKB_GSO_TCP_ECN)
--			vnet_hdr->gso_type |= VIRTIO_NET_HDR_GSO_ECN;
--	} else
--		vnet_hdr->gso_type = VIRTIO_NET_HDR_GSO_NONE;
--
--	if (skb->ip_summed == CHECKSUM_PARTIAL) {
--		vnet_hdr->flags = VIRTIO_NET_HDR_F_NEEDS_CSUM;
--		vnet_hdr->csum_start = __cpu_to_virtio16(vio_le(),
--				  skb_checksum_start_offset(skb));
--		vnet_hdr->csum_offset = __cpu_to_virtio16(vio_le(),
--						 skb->csum_offset);
--	} else if (skb->ip_summed == CHECKSUM_UNNECESSARY) {
--		vnet_hdr->flags = VIRTIO_NET_HDR_F_DATA_VALID;
--	} /* else everything is zero */
-+	if (virtio_net_hdr_from_skb(skb, vnet_hdr, vio_le()))
-+		BUG();
+ 	dst = ip6_sk_dst_check(sk, dst, fl6);
++	if (!dst)
++		dst = ip6_dst_lookup_flow(sk, fl6, final_dst);
  
- 	return 0;
+-	err = ip6_dst_lookup_tail(sock_net(sk), sk, &dst, fl6);
+-	if (err)
+-		return ERR_PTR(err);
+-	if (final_dst)
+-		fl6->daddr = *final_dst;
+-
+-	return xfrm_lookup_route(sock_net(sk), dst, flowi6_to_flowi(fl6), sk, 0);
++	return dst;
  }
+ EXPORT_SYMBOL_GPL(ip6_sk_dst_lookup_flow);
+ 
 -- 
-1.9.1
+2.5.5
