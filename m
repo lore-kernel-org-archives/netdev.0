@@ -1,189 +1,318 @@
-From: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [RESEND PATCH v9 15/22] IB/hns: Add PD operations support
-Date: Wed, 8 Jun 2016 14:44:50 +0800
-Message-ID: <1465368297-82118-16-git-send-email-oulijun@huawei.com>
+From: Lijun Ou <oulijun@huawei.com>
+Subject: [RESEND PATCH v9 03/22] IB/hns: Add initial main frame driver and get cfg info
+Date: Wed, 8 Jun 2016 14:44:38 +0800
+Message-ID: <1465368297-82118-4-git-send-email-oulijun@huawei.com>
 References: <1465368297-82118-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1465368297-82118-1-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
+	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
+	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
+	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
+	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
+To: <dledford@redhat.com>, <sean.hefty@intel.com>,
+	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
+	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
+	<ogerlitz@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465368297-82118-1-git-send-email-oulijun@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch added the verbs to operate PD. It mainly includes
-the functions of allocating PD and deallocating PD.
+This patch mainly added the initial bare main driver. It
+could get the relative configure information of net node.
 
-Signed-off-by: Wei Hu <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Nenglong Zhao <zhaonenglong-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
+Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
+Signed-off-by: Lijun Ou <oulijun@huawei.com>
 ---
- drivers/infiniband/hw/hns/hns_roce_device.h | 17 ++++++++
- drivers/infiniband/hw/hns/hns_roce_main.c   |  8 +++-
- drivers/infiniband/hw/hns/hns_roce_pd.c     | 62 +++++++++++++++++++++++++++++
- 3 files changed, 86 insertions(+), 1 deletion(-)
+ drivers/infiniband/hw/hns/hns_roce_device.h |  72 ++++++++++
+ drivers/infiniband/hw/hns/hns_roce_main.c   | 197 ++++++++++++++++++++++++++++
+ 2 files changed, 269 insertions(+)
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_device.h
+ create mode 100644 drivers/infiniband/hw/hns/hns_roce_main.c
 
 diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
-index 99f2653..36fd4f3 100644
---- a/drivers/infiniband/hw/hns/hns_roce_device.h
+new file mode 100644
+index 0000000..f9de8e4
+--- /dev/null
 +++ b/drivers/infiniband/hw/hns/hns_roce_device.h
-@@ -134,6 +134,11 @@ struct hns_roce_ucontext {
- 	struct hns_roce_uar	uar;
- };
- 
-+struct hns_roce_pd {
-+	struct ib_pd		ibpd;
-+	unsigned long		pdn;
+@@ -0,0 +1,72 @@
++/*
++ * Copyright (c) 2016 Hisilicon Limited.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#ifndef _HNS_ROCE_DEVICE_H
++#define _HNS_ROCE_DEVICE_H
++
++#include <linux/platform_device.h>
++#include <linux/radix-tree.h>
++#include <linux/semaphore.h>
++#include <rdma/ib_addr.h>
++#include <rdma/ib_smi.h>
++#include <rdma/ib_umem.h>
++#include <rdma/ib_user_verbs.h>
++#include <rdma/ib_verbs.h>
++
++#define DRV_NAME "hns_roce"
++
++#define HNS_ROCE_MAX_IRQ_NUM			34
++#define HNS_ROCE_MAX_PORTS			6
++
++struct hns_roce_ib_iboe {
++	struct net_device      *netdevs[HNS_ROCE_MAX_PORTS];
++	u8			phy_port[HNS_ROCE_MAX_PORTS];
 +};
 +
- struct hns_roce_bitmap {
- 	/* Bitmap Traversal last a bit which is 1 */
- 	unsigned long		last;
-@@ -399,6 +404,11 @@ static inline struct hns_roce_ucontext
- 	return container_of(ibucontext, struct hns_roce_ucontext, ibucontext);
- }
- 
-+static inline struct hns_roce_pd *to_hr_pd(struct ib_pd *ibpd)
-+{
-+	return container_of(ibpd, struct hns_roce_pd, ibpd);
-+}
++struct hns_roce_caps {
++	u8			num_ports;
++};
 +
- static inline void hns_roce_write64_k(__be32 val[2], void __iomem *dest)
- {
- 	__raw_writeq(*(u64 *) val, dest);
-@@ -446,6 +456,13 @@ int hns_roce_bitmap_alloc_range(struct hns_roce_bitmap *bitmap, int cnt,
- void hns_roce_bitmap_free_range(struct hns_roce_bitmap *bitmap,
- 				unsigned long obj, int cnt);
- 
-+struct ib_pd *hns_roce_alloc_pd(struct ib_device *ib_dev,
-+				struct ib_ucontext *context,
-+				struct ib_udata *udata);
-+int hns_roce_pd_alloc(struct hns_roce_dev *hr_dev, unsigned long *pdn);
-+void hns_roce_pd_free(struct hns_roce_dev *hr_dev, unsigned long pdn);
-+int hns_roce_dealloc_pd(struct ib_pd *pd);
++struct hns_roce_dev {
++	struct ib_device	ib_dev;
++	struct platform_device  *pdev;
++	struct hns_roce_ib_iboe iboe;
 +
- void hns_roce_cq_completion(struct hns_roce_dev *hr_dev, u32 cqn);
- void hns_roce_cq_event(struct hns_roce_dev *hr_dev, u32 cqn, int event_type);
- void hns_roce_qp_event(struct hns_roce_dev *hr_dev, u32 qpn, int event_type);
++	int			irq[HNS_ROCE_MAX_IRQ_NUM];
++	u8 __iomem		*reg_base;
++	struct hns_roce_caps	caps;
++
++	int			cmd_mod;
++	int			loop_idc;
++};
++
++#endif /* _HNS_ROCE_DEVICE_H */
 diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
-index 64cf5c8..2cebbc8 100644
---- a/drivers/infiniband/hw/hns/hns_roce_main.c
+new file mode 100644
+index 0000000..21c5e8e
+--- /dev/null
 +++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -604,7 +604,9 @@ int hns_roce_register_device(struct hns_roce_dev *hr_dev)
- 	ib_dev->uverbs_cmd_mask		=
- 		(1ULL << IB_USER_VERBS_CMD_GET_CONTEXT) |
- 		(1ULL << IB_USER_VERBS_CMD_QUERY_DEVICE) |
--		(1ULL << IB_USER_VERBS_CMD_QUERY_PORT);
-+		(1ULL << IB_USER_VERBS_CMD_QUERY_PORT) |
-+		(1ULL << IB_USER_VERBS_CMD_ALLOC_PD) |
-+		(1ULL << IB_USER_VERBS_CMD_DEALLOC_PD);
- 
- 	/* HCA||device||port */
- 	ib_dev->modify_device		= hns_roce_modify_device;
-@@ -618,6 +620,10 @@ int hns_roce_register_device(struct hns_roce_dev *hr_dev)
- 	ib_dev->dealloc_ucontext	= hns_roce_dealloc_ucontext;
- 	ib_dev->mmap			= hns_roce_mmap;
- 
-+	/* PD */
-+	ib_dev->alloc_pd		= hns_roce_alloc_pd;
-+	ib_dev->dealloc_pd		= hns_roce_dealloc_pd;
+@@ -0,0 +1,197 @@
++/*
++ * Copyright (c) 2016 Hisilicon Limited.
++ * Copyright (c) 2007, 2008 Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
 +
- 	ret = ib_register_device(ib_dev, NULL);
- 	if (ret) {
- 		dev_err(dev, "ib_register_device failed!\n");
-diff --git a/drivers/infiniband/hw/hns/hns_roce_pd.c b/drivers/infiniband/hw/hns/hns_roce_pd.c
-index 6ad38f2..f7f8fc0 100644
---- a/drivers/infiniband/hw/hns/hns_roce_pd.c
-+++ b/drivers/infiniband/hw/hns/hns_roce_pd.c
-@@ -40,6 +40,28 @@
- #include "hns_roce_common.h"
- #include "hns_roce_device.h"
- 
-+int hns_roce_pd_alloc(struct hns_roce_dev *hr_dev, unsigned long *pdn)
++#include <linux/cdev.h>
++#include <linux/delay.h>
++#include <linux/device.h>
++#include <linux/dma-mapping.h>
++#include <linux/ethtool.h>
++#include <linux/etherdevice.h>
++#include <linux/fs.h>
++#include <linux/init.h>
++#include <linux/interrupt.h>
++#include <linux/kernel.h>
++#include <linux/list.h>
++#include <linux/module.h>
++#include <linux/netdevice.h>
++#include <linux/of.h>
++#include <linux/of_address.h>
++#include <linux/of_net.h>
++#include <linux/of_platform.h>
++#include <linux/platform_device.h>
++#include <linux/slab.h>
++#include <linux/netdevice.h>
++#include <net/ipv6.h>
++#include <net/addrconf.h>
++#include <rdma/ib_addr.h>
++#include <rdma/ib_smi.h>
++#include <rdma/ib_umem.h>
++#include <rdma/ib_user_verbs.h>
++#include <rdma/ib_verbs.h>
++#include "hns_roce_device.h"
++
++int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
 +{
++	int i;
++	u8 phy_port;
++	int port_cnt = 0;
 +	struct device *dev = &hr_dev->pdev->dev;
-+	unsigned long pd_number;
-+	int ret = 0;
++	struct device_node *np = dev->of_node;
++	struct device_node *net_node;
++	struct net_device *netdev = NULL;
++	struct platform_device *pdev = NULL;
++	struct resource *res;
 +
-+	ret = hns_roce_bitmap_alloc(&hr_dev->pd_bitmap, &pd_number);
-+	if (ret == -1) {
-+		dev_err(dev, "alloc pdn from pdbitmap failed\n");
++	if (!of_device_is_compatible(np, "hisilicon,hns-roce-v1")) {
++		dev_err(dev, "device no compatible!\n");
++		return -EINVAL;
++	}
++
++	res = platform_get_resource(hr_dev->pdev, IORESOURCE_MEM, 0);
++	hr_dev->reg_base = devm_ioremap_resource(dev, res);
++	if (!hr_dev->reg_base)
 +		return -ENOMEM;
-+	}
 +
-+	*pdn = pd_number;
-+
-+	return 0;
-+}
-+
-+void hns_roce_pd_free(struct hns_roce_dev *hr_dev, unsigned long pdn)
-+{
-+	hns_roce_bitmap_free(&hr_dev->pd_bitmap, pdn);
-+}
-+
- int hns_roce_init_pd_table(struct hns_roce_dev *hr_dev)
- {
- 	return hns_roce_bitmap_init(&hr_dev->pd_bitmap, hr_dev->caps.num_pds,
-@@ -52,6 +74,46 @@ void hns_roce_cleanup_pd_table(struct hns_roce_dev *hr_dev)
- 	hns_roce_bitmap_cleanup(&hr_dev->pd_bitmap);
- }
- 
-+struct ib_pd *hns_roce_alloc_pd(struct ib_device *ib_dev,
-+				struct ib_ucontext *context,
-+				struct ib_udata *udata)
-+{
-+	struct hns_roce_dev *hr_dev = to_hr_dev(ib_dev);
-+	struct device *dev = &hr_dev->pdev->dev;
-+	struct hns_roce_pd *pd;
-+	int ret;
-+
-+	pd = kmalloc(sizeof(*pd), GFP_KERNEL);
-+	if (!pd)
-+		return ERR_PTR(-ENOMEM);
-+
-+	ret = hns_roce_pd_alloc(to_hr_dev(ib_dev), &pd->pdn);
-+	if (ret) {
-+		kfree(pd);
-+		dev_err(dev, "[alloc_pd]hns_roce_pd_alloc failed!\n");
-+		return ERR_PTR(ret);
-+	}
-+
-+	if (context) {
-+		if (ib_copy_to_udata(udata, &pd->pdn, sizeof(u64))) {
-+			hns_roce_pd_free(to_hr_dev(ib_dev), pd->pdn);
-+			dev_err(dev, "[alloc_pd]ib_copy_to_udata failed!\n");
-+			kfree(pd);
-+			return ERR_PTR(-EFAULT);
++	for (i = 0; i < HNS_ROCE_MAX_PORTS; i++) {
++		net_node = of_parse_phandle(np, "eth-handle", i);
++		if (net_node) {
++			pdev = of_find_device_by_node(net_node);
++			netdev = platform_get_drvdata(pdev);
++			phy_port = (u8)i;
++			if (netdev) {
++				hr_dev->iboe.netdevs[port_cnt] = netdev;
++				hr_dev->iboe.phy_port[port_cnt] = phy_port;
++			} else {
++				return -ENODEV;
++			}
++			port_cnt++;
 +		}
 +	}
 +
-+	return &pd->ibpd;
-+}
++	hr_dev->caps.num_ports = port_cnt;
 +
-+int hns_roce_dealloc_pd(struct ib_pd *pd)
-+{
-+	hns_roce_pd_free(to_hr_dev(pd->device), to_hr_pd(pd)->pdn);
-+	kfree(to_hr_pd(pd));
++	/* Cmd issue mode: 0 is poll, 1 is event */
++	hr_dev->cmd_mod = 1;
++	hr_dev->loop_idc = 0;
++
++	for (i = 0; i < HNS_ROCE_MAX_IRQ_NUM; i++) {
++		hr_dev->irq[i] = platform_get_irq(hr_dev->pdev, i);
++		if (hr_dev->irq[i] <= 0) {
++			dev_err(dev, "Get No.%d irq resource failed!\n", i);
++			return -EINVAL;
++		}
++	}
 +
 +	return 0;
 +}
 +
- int hns_roce_uar_alloc(struct hns_roce_dev *hr_dev, struct hns_roce_uar *uar)
- {
- 	struct resource *res;
++/**
++* hns_roce_probe - RoCE driver entrance
++* @pdev: pointer to platform device
++* Return : int
++*
++*/
++static int hns_roce_probe(struct platform_device *pdev)
++{
++	int ret;
++	struct hns_roce_dev *hr_dev;
++	struct device *dev = &pdev->dev;
++
++	hr_dev = (struct hns_roce_dev *)ib_alloc_device(sizeof(*hr_dev));
++	if (!hr_dev)
++		return -ENOMEM;
++
++	memset((u8 *)hr_dev + sizeof(struct ib_device), 0,
++		sizeof(struct hns_roce_dev) - sizeof(struct ib_device));
++
++	hr_dev->pdev = pdev;
++	platform_set_drvdata(pdev, hr_dev);
++
++	if (!dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64ULL)))
++		dev_info(dev, "set mask to 64bit\n");
++	else if (!dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32ULL)))
++		dev_info(dev, "set mask to 32bit\n");
++	else {
++		dev_err(dev, "No usable DMA addressing mode\n");
++		ret = -EIO;
++		goto error_failed_get_cfg;
++	}
++
++	ret = hns_roce_get_cfg(hr_dev);
++	if (ret) {
++		dev_err(dev, "Get Configuration failed!\n");
++		goto error_failed_get_cfg;
++	}
++
++error_failed_get_cfg:
++	ib_dealloc_device(&hr_dev->ib_dev);
++
++	return ret;
++}
++
++/**
++* hns_roce_remove - remove roce device
++* @pdev: pointer to platform device
++*/
++static int hns_roce_remove(struct platform_device *pdev)
++{
++	struct hns_roce_dev *hr_dev = platform_get_drvdata(pdev);
++
++	ib_dealloc_device(&hr_dev->ib_dev);
++
++	return 0;
++}
++
++static const struct of_device_id hns_roce_of_match[] = {
++	{ .compatible = "hisilicon,hns-roce-v1",},
++	{},
++};
++MODULE_DEVICE_TABLE(of, hns_roce_of_match);
++
++static struct platform_driver hns_roce_driver = {
++	.probe = hns_roce_probe,
++	.remove = hns_roce_remove,
++	.driver = {
++		.name = DRV_NAME,
++		.of_match_table = hns_roce_of_match,
++	},
++};
++
++module_platform_driver(hns_roce_driver);
++
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Wei Hu <xavier.huwei@huawei.com>");
++MODULE_AUTHOR("Nenglong Zhao <zhaonenglong@hisilicon.com>");
++MODULE_AUTHOR("Lijun Ou <oulijun@huawei.com>");
++MODULE_DESCRIPTION("HISILICON RoCE driver");
++MODULE_ALIAS("platform:" DRV_NAME);
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
