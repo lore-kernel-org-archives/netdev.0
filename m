@@ -1,54 +1,104 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: Re: [PATCHv2 net-next] sctp: sctp should change socket state when
- shutdown is received
-Date: Wed, 8 Jun 2016 18:42:25 +0800
-Message-ID: <CADvbK_ekPqeApqFQx6fT_pJy4_3vFW0aLbsLeabUrSRM6bchtg@mail.gmail.com>
-References: <67353a74d044f1f643cdfe1442136b44d7188ea9.1464964965.git.lucien.xin@gmail.com>
- <20160603174918.GX22680@localhost.localdomain> <CADvbK_eCQiw4hhs84t2tj+6zSd7M8_ECNV+W+sviiGEG2WUX_g@mail.gmail.com>
- <72299bbd-475b-b39d-0f5f-6f1916cbe706@gmail.com> <CADvbK_eK0XUGr3+Nmnwy_sC9NHdWj-+k1BtnzNsjE516XBKcWQ@mail.gmail.com>
+From: Guillaume Nault <g.nault@alphalink.fr>
+Subject: [PATCH v2 net] l2tp: fix configuration passed to
+ setup_udp_tunnel_sock()
+Date: Wed, 8 Jun 2016 12:59:17 +0200
+Message-ID: <330c38fb18cbe52932e6b4b29cca748f29191fab.1465383438.git.g.nault@alphalink.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem <davem@davemloft.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tom Herbert <tom@herbertland.com>,
+	James Chapman <jchapman@katalix.com>,
+	David Miller <davem@davemloft.net>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qg0-f46.google.com ([209.85.192.46]:33665 "EHLO
-	mail-qg0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161902AbcFHKm1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 06:42:27 -0400
-In-Reply-To: <CADvbK_eK0XUGr3+Nmnwy_sC9NHdWj-+k1BtnzNsjE516XBKcWQ@mail.gmail.com>
+Received: from zimbra.alphalink.fr ([217.15.80.77]:35665 "EHLO
+	zimbra.alphalink.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753433AbcFHK7W (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 06:59:22 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 7, 2016 at 7:03 PM, Xin Long <lucien.xin@gmail.com> wrote:
-> On Sat, Jun 4, 2016 at 8:22 PM, Marcelo Ricardo Leitner
->
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -7565,10 +7565,12 @@ static void sctp_sock_migrate(struct sock
-> *oldsk, struct sock *newsk,
->         /* If the association on the newsk is already closed before accept()
->          * is called, set RCV_SHUTDOWN flag.
->          */
-> -       if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP))
-> +       if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP)) {
-> +               newsk->sk_state = SCTP_SS_CLOSING;
->                 newsk->sk_shutdown |= RCV_SHUTDOWN;
-> +       } else
-> +               newsk->sk_state = SCTP_SS_ESTABLISHED;
->
-> -       newsk->sk_state = SCTP_SS_ESTABLISHED;
->
-I'm still thinking about this, if we want to get addrs info from
-closed assoc, like Adam's requirement. this will make it more
-impossible.
+Unused fields of udp_cfg must be all zeros. Otherwise
+setup_udp_tunnel_sock() fills ->gro_receive and ->gro_complete
+callbacks with garbage, eventually resulting in panic when used by
+udp_gro_receive().
 
-case in
-sctp_getsockopt_peer_addrs()->sctp_id2assoc():
+[   72.694123] BUG: unable to handle kernel paging request at ffff880033f87d78
+[   72.695518] IP: [<ffff880033f87d78>] 0xffff880033f87d78
+[   72.696530] PGD 26e2067 PUD 26e3067 PMD 342ed063 PTE 8000000033f87163
+[   72.696530] Oops: 0011 [#1] SMP KASAN
+[   72.696530] Modules linked in: l2tp_ppp l2tp_netlink l2tp_core ip6_udp_tunnel udp_tunnel pptp gre pppox ppp_generic slhc crc32c_intel ghash_clmulni_intel jitterentropy_rng sha256_generic hmac drbg ansi_cprng aesni_intel evdev aes_x86_64 ablk_helper cryptd lrw gf128mul glue_helper serio_raw acpi_cpufreq button proc\
+essor ext4 crc16 jbd2 mbcache virtio_blk virtio_net virtio_pci virtio_ring virtio
+[   72.696530] CPU: 3 PID: 0 Comm: swapper/3 Not tainted 4.7.0-rc1 #1
+[   72.696530] Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Debian-1.8.2-1 04/01/2014
+[   72.696530] task: ffff880035b59700 ti: ffff880035b70000 task.ti: ffff880035b70000
+[   72.696530] RIP: 0010:[<ffff880033f87d78>]  [<ffff880033f87d78>] 0xffff880033f87d78
+[   72.696530] RSP: 0018:ffff880035f87bc0  EFLAGS: 00010246
+[   72.696530] RAX: ffffed000698f996 RBX: ffff88003326b840 RCX: ffffffff814cc823
+[   72.696530] RDX: ffff88003326b840 RSI: ffff880033e48038 RDI: ffff880034c7c780
+[   72.696530] RBP: ffff880035f87c18 R08: 000000000000a506 R09: 0000000000000000
+[   72.696530] R10: ffff880035f87b38 R11: ffff880034b9344d R12: 00000000ebfea715
+[   72.696530] R13: 0000000000000000 R14: ffff880034c7c780 R15: 0000000000000000
+[   72.696530] FS:  0000000000000000(0000) GS:ffff880035f80000(0000) knlGS:0000000000000000
+[   72.696530] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   72.696530] CR2: ffff880033f87d78 CR3: 0000000033c98000 CR4: 00000000000406a0
+[   72.696530] Stack:
+[   72.696530]  ffffffff814cc834 ffff880034b93468 0000001481416818 ffff88003326b874
+[   72.696530]  ffff880034c7ccb0 ffff880033e48038 ffff88003326b840 ffff880034b93462
+[   72.696530]  ffff88003326b88a ffff88003326b88c ffff880034b93468 ffff880035f87c70
+[   72.696530] Call Trace:
+[   72.696530]  <IRQ>
+[   72.696530]  [<ffffffff814cc834>] ? udp_gro_receive+0x1c6/0x1f9
+[   72.696530]  [<ffffffff814ccb1c>] udp4_gro_receive+0x2b5/0x310
+[   72.696530]  [<ffffffff814d989b>] inet_gro_receive+0x4a3/0x4cd
+[   72.696530]  [<ffffffff81431b32>] dev_gro_receive+0x584/0x7a3
+[   72.696530]  [<ffffffff810adf7a>] ? __lock_is_held+0x29/0x64
+[   72.696530]  [<ffffffff814321f7>] napi_gro_receive+0x124/0x21d
+[   72.696530]  [<ffffffffa000b145>] virtnet_receive+0x8df/0x8f6 [virtio_net]
+[   72.696530]  [<ffffffffa000b27e>] virtnet_poll+0x1d/0x8d [virtio_net]
+[   72.696530]  [<ffffffff81431350>] net_rx_action+0x15b/0x3b9
+[   72.696530]  [<ffffffff815893d6>] __do_softirq+0x216/0x546
+[   72.696530]  [<ffffffff81062392>] irq_exit+0x49/0xb6
+[   72.696530]  [<ffffffff81588e9a>] do_IRQ+0xe2/0xfa
+[   72.696530]  [<ffffffff81587a49>] common_interrupt+0x89/0x89
+[   72.696530]  <EOI>
+[   72.696530]  [<ffffffff810b05df>] ? trace_hardirqs_on_caller+0x229/0x270
+[   72.696530]  [<ffffffff8102b3c7>] ? default_idle+0x1c/0x2d
+[   72.696530]  [<ffffffff8102b3c5>] ? default_idle+0x1a/0x2d
+[   72.696530]  [<ffffffff8102bb8c>] arch_cpu_idle+0xa/0xc
+[   72.696530]  [<ffffffff810a6c39>] default_idle_call+0x1a/0x1c
+[   72.696530]  [<ffffffff810a6d96>] cpu_startup_entry+0x15b/0x20f
+[   72.696530]  [<ffffffff81039a81>] start_secondary+0x12c/0x133
+[   72.696530] Code: ff ff ff ff ff ff ff ff ff ff 7f ff ff ff ff ff ff ff 7f 00 7e f8 33 00 88 ff ff 6d 61 58 81 ff ff ff ff 5e de 0a 81 ff ff ff ff <00> 5c e2 34 00 88 ff ff 00 00 00 00 00 00 00 00 00 00 00 00 00
+[   72.696530] RIP  [<ffff880033f87d78>] 0xffff880033f87d78
+[   72.696530]  RSP <ffff880035f87bc0>
+[   72.696530] CR2: ffff880033f87d78
+[   72.696530] ---[ end trace ad7758b9a1dccf99 ]---
+[   72.696530] Kernel panic - not syncing: Fatal exception in interrupt
+[   72.696530] Kernel Offset: disabled
+[   72.696530] ---[ end Kernel panic - not syncing: Fatal exception in interrupt
 
-                if (!sctp_sstate(sk, ESTABLISHED))
-                        return NULL;
+v2: use empty initialiser instead of "{ NULL }" to avoid relying on
+    first field's type.
 
-we can't  get assoc as sstate is SS_CLOSING already.
+Fixes: 38fd2af24fcf ("udp: Add socket based GRO and config")
+Signed-off-by: Guillaume Nault <g.nault@alphalink.fr>
+---
+ net/l2tp/l2tp_core.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/l2tp/l2tp_core.c b/net/l2tp/l2tp_core.c
+index 6edfa99..1e40dac 100644
+--- a/net/l2tp/l2tp_core.c
++++ b/net/l2tp/l2tp_core.c
+@@ -1581,7 +1581,7 @@ int l2tp_tunnel_create(struct net *net, int fd, int version, u32 tunnel_id, u32
+ 	/* Mark socket as an encapsulation socket. See net/ipv4/udp.c */
+ 	tunnel->encap = encap;
+ 	if (encap == L2TP_ENCAPTYPE_UDP) {
+-		struct udp_tunnel_sock_cfg udp_cfg;
++		struct udp_tunnel_sock_cfg udp_cfg = { };
+ 
+ 		udp_cfg.sk_user_data = tunnel;
+ 		udp_cfg.encap_type = UDP_ENCAP_L2TPINUDP;
+-- 
+2.8.1
