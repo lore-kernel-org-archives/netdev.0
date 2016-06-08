@@ -1,87 +1,51 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2] udp reuseport: fix packet of same flow hashed to
- different socket
-Date: Wed, 08 Jun 2016 08:43:40 -0700
-Message-ID: <1465400620.7945.16.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1465357219-34240-1-git-send-email-suxm@chinanetcenter.com>
+Subject: Re: [PATCH net] qfq: don't leak skb if kzalloc fails
+Date: Wed, 08 Jun 2016 08:54:33 -0700
+Message-ID: <1465401273.7945.18.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1465389093-29674-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Su Xuemin <suxm@chinanetcenter.com>
+Cc: netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:35201 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753325AbcFHPnn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 11:43:43 -0400
-In-Reply-To: <1465357219-34240-1-git-send-email-suxm@chinanetcenter.com>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34016 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752276AbcFHPyf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 11:54:35 -0400
+Received: by mail-pa0-f66.google.com with SMTP id ug1so821094pab.1
+        for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 08:54:35 -0700 (PDT)
+In-Reply-To: <1465389093-29674-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-06-08 at 11:40 +0800, Su Xuemin wrote:
-> From: "Su, Xuemin" <suxm@chinanetcenter.com>
+On Wed, 2016-06-08 at 14:31 +0200, Florian Westphal wrote:
+> When we need to create a new aggregate to enqueue the skb we need
+> to kzalloc the new struct.
 > 
-> There is a corner case in which udp packets belonging to a same
-> flow are hashed to different socket when hslot->count changes from 10
-> to 11:
-
-> It's the same case for IPv6, and this patch also fixes that.
+> If that fails we returned ENOBUFS without freeing the skb.
 > 
-> Signed-off-by: Su, Xuemin <suxm@chinanetcenter.com>
+> Spotted during code review.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 > ---
-> The patch v1 does not fix the code in IPv6. Thank Eric Dumazet for
-> pointing that.
-> And I use this tree to generate this patch, hope it's correct:
->   git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
+>  net/sched/sch_qfq.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 > 
+> diff --git a/net/sched/sch_qfq.c b/net/sched/sch_qfq.c
+> index 8d2d8d9..435b970 100644
+> --- a/net/sched/sch_qfq.c
+> +++ b/net/sched/sch_qfq.c
+> @@ -1236,7 +1236,7 @@ static int qfq_enqueue(struct sk_buff *skb, struct Qdisc *sch)
+>  		err = qfq_change_agg(sch, cl, cl->agg->class_weight,
+>  				     qdisc_pkt_len(skb));
+>  		if (err)
+> -			return err;
+> +			return qdisc_drop(skb, sch);
+>  	}
+>  
+>  	err = qdisc_enqueue(skb, cl->qdisc);
 
-I am not convinced this is the right way to fix the issue.
+Good catch, but it looks like you forgot :
 
-Fact that you did not change udp4_lib_lookup2() is telling me something.
-
-
-1) If host has 100 different IP, and 10 sockets bound to 0.0.0.0:53 
-2) If we receive datagrams from SRCIP:srcport send to IP{1..100}:53
-will all be hashed on same slot.
-
-See the hash used in soreuseport logic as an equivalent of a 4-tuple
-hash really, not a 3-tuple one.
-
-I would try instead :
-
-(Looks like we missed this when commit 1223c67c093 ("udp: fix for
-unicast RX path optimization") was reviewed/merged.
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index d56c0559b477cb96ce78c9b9b7dacc3109594f3a..5847fe48f17d64bee32551e9dd42024a8e65fb10 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -563,7 +563,7 @@ struct sock *__udp4_lib_lookup(struct net *net, __be32 saddr,
- 				goto begin;
- 
- 			result = udp4_lib_lookup2(net, saddr, sport,
--						  htonl(INADDR_ANY), hnum, dif,
-+						  daddr, hnum, dif,
- 						  hslot2, slot2, skb);
- 		}
- 		return result;
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 2da1896af93496cc58762c67b4cd4b4f42924901..501b5563234d0921eff9f1e50155db76f27b3837 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -277,7 +277,7 @@ struct sock *__udp6_lib_lookup(struct net *net,
- 				goto begin;
- 
- 			result = udp6_lib_lookup2(net, saddr, sport,
--						  &in6addr_any, hnum, dif,
-+						  daddr, hnum, dif,
- 						  hslot2, slot2, skb);
- 		}
- 		return result;
-
- 
+	cl->qstats.drops++;
