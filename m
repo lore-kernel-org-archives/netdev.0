@@ -1,31 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] tcp: record TLP and ER timer stats in v6 stats
-Date: Tue, 07 Jun 2016 17:13:24 -0700 (PDT)
-Message-ID: <20160607.171324.828826151768554568.davem@davemloft.net>
-References: <1465250838-13731-1-git-send-email-ycheng@google.com>
+Subject: Re: [PATCH 0/2] Netfilter/IPVS fixes for net
+Date: Tue, 07 Jun 2016 17:14:26 -0700 (PDT)
+Message-ID: <20160607.171426.1162562691220395952.davem@davemloft.net>
+References: <1465252697-1986-1-git-send-email-pablo@netfilter.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nanditad@google.com, ncardwell@google.com
-To: ycheng@google.com
+Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59259 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:59263 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753661AbcFHAN0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 20:13:26 -0400
-In-Reply-To: <1465250838-13731-1-git-send-email-ycheng@google.com>
+	with ESMTP id S1752893AbcFHAO1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 20:14:27 -0400
+In-Reply-To: <1465252697-1986-1-git-send-email-pablo@netfilter.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yuchung Cheng <ycheng@google.com>
-Date: Mon,  6 Jun 2016 15:07:18 -0700
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Date: Tue,  7 Jun 2016 00:38:15 +0200
 
-> The v6 tcp stats scan do not provide TLP and ER timer information
-> correctly like the v4 version . This patch fixes that.
+> The following patchset contains two Netfilter/IPVS fixes for your net
+> tree, they are:
 > 
-> Fixes: 6ba8a3b19e76 ("tcp: Tail loss probe (TLP)")
-> Fixes: eed530b6c676 ("tcp: early retransmit")
-> Signed-off-by: Yuchung Cheng <ycheng@google.com>
-> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> 1) Fix missing alignment in next offset calculation for standard
+>    targets, introduced in the previous merge window, patch from
+>    Florian Westphal.
+> 
+> 2) Fix to correct the handling of outgoing connections which use the
+>    SIP-pe such that the binding of a real-server is updated when needed.
+>    This was an omission from changes introduced by Marco Angaroni in
+>    the previous merge window too, to allow handling of outgoing
+>    connections by the SIP-pe. Patch and report came via Simon Horman.
 
-Applied and queued up for -stable, thanks.
+Pulled, thanks Pablo.
