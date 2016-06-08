@@ -1,80 +1,66 @@
-From: Vincent Palatin <vpalatin@chromium.org>
-Subject: Re: [PATCH] net: stmmac: dwmac-rk: keep PHY up for WoL
-Date: Wed, 8 Jun 2016 15:25:38 -0700
-Message-ID: <CAP_ceTwLg-e_gUaYLrUiBy8Fu31n=UemzbA_sDP2_-5wiY2p5A@mail.gmail.com>
-References: <1464974960-26672-1-git-send-email-vpalatin@chromium.org> <f543c3e1-fa55-a6fd-c916-cf043e562ec2@st.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Alexandre Torgue <alexandre.torgue@st.com>,
-	=?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko@sntech.de>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: [PATCH v2 net-next 0/5] sched, cbq: remove OVL_STRATEGY/POLICE support
+Date: Thu,  9 Jun 2016 00:27:38 +0200
+Message-ID: <1465424863-18456-1-git-send-email-fw@strlen.de>
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:35303 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424140AbcFHWZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 18:25:58 -0400
-Received: by mail-io0-f181.google.com with SMTP id o189so22481846ioe.2
-        for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 15:25:58 -0700 (PDT)
-In-Reply-To: <f543c3e1-fa55-a6fd-c916-cf043e562ec2@st.com>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:60732 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753089AbcFHW10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 18:27:26 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 7, 2016 at 12:23 AM, Giuseppe CAVALLARO
-<peppe.cavallaro@st.com> wrote:
-> Hello
->
-> On 6/3/2016 7:29 PM, Vincent Palatin wrote:
->>
->> Do not shutdown the PHY if Wake-on-Lan is enabled, else it cannot wake
->> us up.
->>
->
-> I do not understand why you need that.
-> This is done inside the PHY layer and it is tested on our platforms
-> he idea is: If the parent wants to Wake the system then the PHY should
-> not power-down.
+iproute2 does not implement any options that result in the
+TCA_CBQ_OVL_STRATEGY/TCA_CBQ_POLICE attributes being set/used.
 
-I'm not sure I understand :
-you mean that this path is not called if WoL is enabled ?
-[ currently stmmac_pltfr_suspend() is calling priv->plat->exit() which
-is the rk_gmac_exit() code I'm modifying ]
-or the RK driver code should not power down the phy in its exit() callback ?
+This series removes these two attributes from cbq and makes kernel reject
+ them via EOPNOTSUPP in case they are present.
 
+The two followup changes then remove several features from qdisc
+infrastructure that are then no longer used/needed.  These are:
+ - The 'drop' method provided by most qdiscs
+ - the 'reshape_fail' function used by some qdiscs
+ - the __parent member in struct Qdisc
 
->> Signed-off-by: Vincent Palatin <vpalatin@chromium.org>
->> ---
->>  drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 8 ++++++++
->>  1 file changed, 8 insertions(+)
->>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
->> b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
->> index 0cd3ecf..2e45e75 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
->> @@ -534,6 +534,10 @@ static int rk_gmac_init(struct platform_device *pdev,
->> void *priv)
->>         struct rk_priv_data *bsp_priv = priv;
->>         int ret;
->>
->> +       /* Keep the PHY up if we use Wake-on-Lan. */
->> +       if (device_may_wakeup(&pdev->dev))
->> +               return 0;
->> +
->>         ret = phy_power_on(bsp_priv, true);
->>         if (ret)
->>                 return ret;
->> @@ -549,6 +553,10 @@ static void rk_gmac_exit(struct platform_device
->> *pdev, void *priv)
->>  {
->>         struct rk_priv_data *gmac = priv;
->>
->> +       /* The PHY was up for Wake-on-Lan. */
->> +       if (device_may_wakeup(&pdev->dev))
->> +               return;
->> +
->>         phy_power_on(gmac, false);
->>         gmac_clk_enable(gmac, false);
->>  }
->>
->
+I tested this with allmod and allyesconfig builds and also with
+a brief cbq script:
+
+  tc qdisc add dev eth0 root handle 1:0 cbq bandwidth 10Mbit avpkt 1000 cell 8
+  tc class add dev eth0 parent 1:0 classid 1:1 est 1sec 8sec cbq bandwidth 10Mbit rate 5Mbit prio 1 allot 1514 maxburst 20 cell 8 avpkt 1000 bounded split 1:0 defmap 3f
+  tc class add dev eth0 parent 1:0 classid 1:2 est 1sec 8sec cbq bandwidth 10Mbit rate 5Mbit prio 1 allot 1514 maxburst 20 cell 8 avpkt 1000 bounded split 1:0 defmap 3f
+  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 match ip tos 0x10 0xff classid 1:1 police rate 2Mbit burst 10K reclassify
+  tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 match ip tos 0x0c 0xff classid 1:2
+  tc filter add dev eth0 parent 1:0 protocol ip prio 2 u32 match ip tos 0x10 0xff classid 1:2
+  tc filter add dev eth0 parent 1:0 protocol ip prio 3 u32 match ip tos 0x0 0x0 classid 1:2
+
+No changes since v1 except patch #5 to fix up struct Qdisc layout.
+
+Florian Westphal (5):
+      cbq: remove TCA_CBQ_OVL_STRATEGY support
+      cbq: remove TCA_CBQ_POLICE support
+      sched: remove qdisc_rehape_fail
+      sched: remove qdisc->drop
+      sched: place state, next_sched and gso_skb in same cacheline again
+
+ include/net/sch_generic.h |   63 ----------
+ net/sched/sch_atm.c       |   15 --
+ net/sched/sch_cbq.c       |  285 ----------------------------------------------
+ net/sched/sch_choke.c     |   17 --
+ net/sched/sch_drr.c       |   21 ---
+ net/sched/sch_dsmark.c    |   18 --
+ net/sched/sch_fifo.c      |    7 -
+ net/sched/sch_fq_codel.c  |   10 -
+ net/sched/sch_gred.c      |   35 -----
+ net/sched/sch_hfsc.c      |   26 ----
+ net/sched/sch_hhf.c       |   10 -
+ net/sched/sch_htb.c       |   26 ----
+ net/sched/sch_multiq.c    |   22 ---
+ net/sched/sch_netem.c     |   34 -----
+ net/sched/sch_plug.c      |    2 
+ net/sched/sch_prio.c      |   19 ---
+ net/sched/sch_qfq.c       |   47 -------
+ net/sched/sch_red.c       |   20 ---
+ net/sched/sch_sfq.c       |    1 
+ net/sched/sch_tbf.c       |   17 --
+ 20 files changed, 15 insertions(+), 680 deletions(-)
