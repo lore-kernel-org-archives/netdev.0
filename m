@@ -1,73 +1,42 @@
-From: Rob Herring <robh@kernel.org>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 Subject: Re: [PATCH v4 3/7] binding: mdio-mux: Add DT binding doc for
  Broadcom MDIO bus multiplexer
-Date: Wed, 8 Jun 2016 14:40:43 -0500
-Message-ID: <20160608194043.GA32093@rob-hp-laptop>
+Date: Wed, 8 Jun 2016 14:43:23 -0500
+Message-ID: <20160608194323.GB32093@rob-hp-laptop>
 References: <1465216900-11755-1-git-send-email-pramod.kumar@broadcom.com>
  <1465216900-11755-4-git-send-email-pramod.kumar@broadcom.com>
- <5755C290.2020704@gmail.com>
- <f6cd5df22ef8ea070d7b35e628b6d25a@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Kishon Vijay Abraham I <kishon@ti.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	bcm-kernel-feedback-list@broadcom.com,
-	linux-arm-kernel@lists.infradead.org
-To: Pramod Kumar <pramod.kumar@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:36251 "EHLO
-	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422872AbcFHTkp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 15:40:45 -0400
+Cc: Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
+	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Catalin Marinas <catalin.marinas-5wv7dgnIgG8@public.gmane.org>,
+	Will Deacon <will.deacon-5wv7dgnIgG8@public.gmane.org>,
+	Kishon Vijay Abraham I <kishon-l0cyMroinI0@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <f6cd5df22ef8ea070d7b35e628b6d25a@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <1465216900-11755-4-git-send-email-pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 07, 2016 at 05:27:29PM +0530, Pramod Kumar wrote:
-> Hi Florian,
+On Mon, Jun 06, 2016 at 06:11:36PM +0530, Pramod Kumar wrote:
+> Add DT binding doc for Broadcom MDIO bus multiplexer driver.
 > 
-> > -----Original Message-----
-> > From: Florian Fainelli [mailto:f.fainelli@gmail.com]
-> > Sent: 07 June 2016 00:06
-> > To: Pramod Kumar; Rob Herring; Pawel Moll; Mark Rutland; Ian Campbell;
-> > Kumar Gala; Catalin Marinas; Will Deacon; Kishon Vijay Abraham I; David S.
-> > Miller
-> > Cc: devicetree@vger.kernel.org; netdev@vger.kernel.org; linux-
-> > kernel@vger.kernel.org; bcm-kernel-feedback-list@broadcom.com; linux-arm-
-> > kernel@lists.infradead.org
-> > Subject: Re: [PATCH v4 3/7] binding: mdio-mux: Add DT binding doc for
-> > Broadcom MDIO bus multiplexer
-> >
-> > On 06/06/2016 05:41 AM, Pramod Kumar wrote:
-> > > Add DT binding doc for Broadcom MDIO bus multiplexer driver.
-> > >
-> > > Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-> > > Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
-> >
-> > Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-> >
-> >
-> > > +for example:
-> > > +		mdio_mux_iproc: mdio-mux@6602023c {
-> >
-> > I think Rob wanted you to drop the underscores here in favor of dashes,
-> > there
-> > are more below, not critical imho.
-> >
-> 
-> I'd changed node name in favor of dashes. I don't think Label could be
-> written with hyphens,"-".  "-" in label provides DT parsing error.
+> Reviewed-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
+> Signed-off-by: Pramod Kumar <pramod.kumar-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+> ---
+>  .../bindings/net/brcm,mdio-mux-iproc.txt           | 59 ++++++++++++++++++++++
+>  1 file changed, 59 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
 
-Right. Labels don't matter as they aren't part of the binding.
-
-Rob
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
