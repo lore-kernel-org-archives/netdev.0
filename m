@@ -1,40 +1,76 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH v2 2/2] Documentation: DT: cpsw: remove rx_descs property
-Date: Wed, 8 Jun 2016 15:11:38 -0500
-Message-ID: <20160608201138.GA17007@rob-hp-laptop>
-References: <1465307976-12235-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <1465307976-12235-3-git-send-email-ivan.khoronzhuk@linaro.org>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: circular locking dependency splat due to f9eb8aea2a1e
+Date: Wed, 8 Jun 2016 13:30:21 -0700
+Message-ID: <CANn89iLquP-_fsFrSOUqxtg3YCYNuXgqO+TCYMcxc8foChB8jA@mail.gmail.com>
+References: <471b265b-d938-fd3c-7de6-91cc232b4e2b@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mugunthanvnm@ti.com, linux-kernel@vger.kernel.org,
-	grygorii.strashko@ti.com, linux-omap@vger.kernel.org,
-	netdev@vger.kernel.org, pawel.moll@arm.com, mark.rutland@arm.com,
-	ijc+devicetree@hellion.org.uk, galak@codeaurora.org,
-	bcousson@baylibre.com, tony@atomide.com, devicetree@vger.kernel.org
-To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34748 "EHLO
-	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754152AbcFHULk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 16:11:40 -0400
-Content-Disposition: inline
-In-Reply-To: <1465307976-12235-3-git-send-email-ivan.khoronzhuk@linaro.org>
+Received: from mail-yw0-f172.google.com ([209.85.161.172]:33810 "EHLO
+	mail-yw0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932233AbcFHUaX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 16:30:23 -0400
+Received: by mail-yw0-f172.google.com with SMTP id c72so18796365ywb.1
+        for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 13:30:23 -0700 (PDT)
+In-Reply-To: <471b265b-d938-fd3c-7de6-91cc232b4e2b@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 07, 2016 at 04:59:36PM +0300, Ivan Khoronzhuk wrote:
-> There is no reason to hold s/w dependent parameter in device tree.
-> Even more, there is no reason in this parameter because davinici_cpdma
-> driver splits pool of descriptors equally between tx and rx channels
-> anyway.
-> 
-> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-> ---
->  Documentation/devicetree/bindings/net/cpsw.txt | 1 -
->  arch/arm/boot/dts/am33xx.dtsi                  | 1 -
->  arch/arm/boot/dts/am4372.dtsi                  | 1 -
->  arch/arm/boot/dts/dm814x.dtsi                  | 1 -
->  arch/arm/boot/dts/dra7.dtsi                    | 1 -
->  5 files changed, 5 deletions(-)
+On Wed, Jun 8, 2016 at 11:17 AM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> Getting the below splat with ping in a VRF. git bisect points to:
+>
+> dsa@kenny:~/kernel-2.git$ git bisect good
+> f9eb8aea2a1e12fc2f584d1627deeb957435a801 is the first bad commit
+> commit f9eb8aea2a1e12fc2f584d1627deeb957435a801
+> Author: Eric Dumazet <edumazet@google.com>
+> Date:   Mon Jun 6 09:37:15 2016 -0700
+>
+>     net_sched: transform qdisc running bit into a seqcount
+>
+>     Instead of using a single bit (__QDISC___STATE_RUNNING)
+>     in sch->__state, use a seqcount.
+>
+>     This adds lockdep support, but more importantly it will allow us
+>     to sample qdisc/class statistics without having to grab qdisc root lock.
+>
+>     Signed-off-by: Eric Dumazet <edumazet@google.com>
+>     Cc: Cong Wang <xiyou.wangcong@gmail.com>
+>     Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+>     Signed-off-by: David S. Miller <davem@davemloft.net>
+>
+>
+> [   49.036323] ======================================================
+> [   49.038300] [ INFO: possible circular locking dependency detected ]
+> [   49.040313] 4.7.0-rc1+ #252 Not tainted
+> [   49.041502] -------------------------------------------------------
+> [   49.043518] ping/2143 is trying to acquire lock:
+> [
 
-Acked-by: Rob Herring <robh@kernel.org>
+It looks VRF was already lacking annotation for busylock then ?
+
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index 1b214ea4619a5838d6478a2835f8e73da85bef78..3c1c414623196f2bd8bf99c1d84563a54b3f6822
+100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -635,6 +635,9 @@ static void vrf_dev_uninit(struct net_device *dev)
+        dev->dstats = NULL;
+ }
+
++static struct lock_class_key vrf_tx_busylock;
++static struct lock_class_key vrf_qdisc_running_key;
++
+ static int vrf_dev_init(struct net_device *dev)
+ {
+        struct net_vrf *vrf = netdev_priv(dev);
+@@ -658,6 +661,8 @@ static int vrf_dev_init(struct net_device *dev)
+        /* similarly, oper state is irrelevant; set to up to avoid confusion */
+        dev->operstate = IF_OPER_UP;
+
++       dev->qdisc_tx_busylock = &vrf_tx_busylock;
++       dev->qdisc_running_key = &vrf_qdisc_running_key;
+        return 0;
+
+ out_rth:
