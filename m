@@ -1,101 +1,62 @@
-From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
-Subject: [PATCH v6 2/2] can: rcar_can: Move Renesas CAN driver to rcar dir
-Date: Wed,  8 Jun 2016 07:38:16 +0100
-Message-ID: <1465367896-60207-3-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-References: <SG2PR06MB1038056F44EFBCB51674B832C35D0@SG2PR06MB1038.apcprd06.prod.outlook.com>
- <1465367896-60207-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
-	chris.paterson2@renesas.com, horms@verge.net.au,
-	magnus.damm@gmail.com, ulrich.hecht@gmail.com,
-	Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
-To: mkl@pengutronix.de, wg@grandegger.com, socketcan@hartkopp.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relmlor2.renesas.com ([210.160.252.172]:13732 "EHLO
-	relmlie1.idc.renesas.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753902AbcFHGom (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 02:44:42 -0400
-In-Reply-To: <1465367896-60207-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH V3 2/2] vhost_net: conditionally enable tx polling
+Date: Wed, 8 Jun 2016 14:48:18 +0800
+Message-ID: <5757BFB2.6020400@redhat.com>
+References: <1464760594-30326-1-git-send-email-jasowang@redhat.com>
+	<1464760594-30326-3-git-send-email-jasowang@redhat.com>
+	<20160607152407-mutt-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160607152407-mutt-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-This patch clubs the Renesas controller drivers in one rcar dir.
-
-Signed-off-by: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
----
- drivers/net/can/Kconfig               | 10 ----------
- drivers/net/can/Makefile              |  1 -
- drivers/net/can/rcar/Kconfig          | 10 ++++++++++
- drivers/net/can/rcar/Makefile         |  3 ++-
- drivers/net/can/{ => rcar}/rcar_can.c |  0
- 5 files changed, 12 insertions(+), 12 deletions(-)
- rename drivers/net/can/{ => rcar}/rcar_can.c (100%)
-
-diff --git a/drivers/net/can/Kconfig b/drivers/net/can/Kconfig
-index 13003a9..22570ea 100644
---- a/drivers/net/can/Kconfig
-+++ b/drivers/net/can/Kconfig
-@@ -104,16 +104,6 @@ config CAN_JANZ_ICAN3
- 	  This driver can also be built as a module. If so, the module will be
- 	  called janz-ican3.ko.
- 
--config CAN_RCAR
--	tristate "Renesas R-Car CAN controller"
--	depends on ARCH_RENESAS || ARM
--	---help---
--	  Say Y here if you want to use CAN controller found on Renesas R-Car
--	  SoCs.
--
--	  To compile this driver as a module, choose M here: the module will
--	  be called rcar_can.
--
- config CAN_SUN4I
- 	tristate "Allwinner A10 CAN controller"
- 	depends on MACH_SUN4I || MACH_SUN7I || COMPILE_TEST
-diff --git a/drivers/net/can/Makefile b/drivers/net/can/Makefile
-index 226d5b5..26ba4b7 100644
---- a/drivers/net/can/Makefile
-+++ b/drivers/net/can/Makefile
-@@ -25,7 +25,6 @@ obj-$(CONFIG_CAN_IFI_CANFD)	+= ifi_canfd/
- obj-$(CONFIG_CAN_JANZ_ICAN3)	+= janz-ican3.o
- obj-$(CONFIG_CAN_MSCAN)		+= mscan/
- obj-$(CONFIG_CAN_M_CAN)		+= m_can/
--obj-$(CONFIG_CAN_RCAR)		+= rcar_can.o
- obj-$(CONFIG_CAN_SJA1000)	+= sja1000/
- obj-$(CONFIG_CAN_SUN4I)		+= sun4i_can.o
- obj-$(CONFIG_CAN_TI_HECC)	+= ti_hecc.o
-diff --git a/drivers/net/can/rcar/Kconfig b/drivers/net/can/rcar/Kconfig
-index 6ea64d1..7b03a3a 100644
---- a/drivers/net/can/rcar/Kconfig
-+++ b/drivers/net/can/rcar/Kconfig
-@@ -1,3 +1,13 @@
-+config CAN_RCAR
-+	tristate "Renesas R-Car CAN controller"
-+	depends on ARCH_RENESAS || ARM
-+	---help---
-+	  Say Y here if you want to use CAN controller found on Renesas R-Car
-+	  SoCs.
-+
-+	  To compile this driver as a module, choose M here: the module will
-+	  be called rcar_can.
-+
- config CAN_RCAR_CANFD
- 	tristate "Renesas R-Car CAN FD controller"
- 	depends on ARCH_RENESAS || ARM
-diff --git a/drivers/net/can/rcar/Makefile b/drivers/net/can/rcar/Makefile
-index cbaf498e..08de36a 100644
---- a/drivers/net/can/rcar/Makefile
-+++ b/drivers/net/can/rcar/Makefile
-@@ -1,5 +1,6 @@
- #
--#  Makefile for the Renesas R-Car CAN FD controller driver
-+#  Makefile for the Renesas R-Car CAN & CAN FD controller drivers
- #
- 
-+obj-$(CONFIG_CAN_RCAR)		+= rcar_can.o
- obj-$(CONFIG_CAN_RCAR_CANFD)	+= rcar_canfd.o
-diff --git a/drivers/net/can/rcar_can.c b/drivers/net/can/rcar/rcar_can.c
-similarity index 100%
-rename from drivers/net/can/rcar_can.c
-rename to drivers/net/can/rcar/rcar_can.c
--- 
-1.9.1
+CgpPbiAyMDE25bm0MDbmnIgwN+aXpSAyMDoyNiwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFdlZCwgSnVuIDAxLCAyMDE2IGF0IDAxOjU2OjM0QU0gLTA0MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+IFdlIGFsd2F5cyBwb2xsIHR4IGZvciBzb2NrZXQsIHRoaXMgaXMgc3ViIG9wdGltYWwg
+c2luY2U6Cj4+Cj4+IC0gaXQgd2lsbCBiZSBvbmx5IHVzZWQgd2hlbiB3ZSBleGNlZWQgdGhlIHNu
+ZGJ1ZiBvZiB0aGUgc29ja2V0Lgo+PiAtIHNpbmNlIHdlIHVzZSB0d28gaW5kZXBlbmRlbnQgcG9s
+bHMgZm9yIHR4IGFuZCB2cSwgdGhpcyB3aWxsIHNsaWdodGx5Cj4+ICAgIGluY3JlYXNlIHRoZSB3
+YWl0cXVldWUgdHJhdmVyc2luZyB0aW1lIGFuZCBtb3JlIGltcG9ydGFudCwgdmhvc3QKPj4gICAg
+Y291bGQgbm90IGJlbmVmaXQgZnJvbSBjb21taXQKPj4gICAgOWU2NDFiZGNmYTRlZjRkNmUyZmJh
+YTU5YzFiZTBhZDVkMTU1MWZkNSAoIm5ldC10dW46IHJlc3RydWN0dXJlCj4+ICAgIHR1bl9kb19y
+ZWFkIGZvciBiZXR0ZXIgc2xlZXAvd2FrZXVwIGVmZmljaWVuY3kiKSBldmVuIGlmIHdlJ3ZlCj4+
+ICAgIHN0b3BwZWQgcnggcG9sbGluZyBkdXJpbmcgaGFuZGxlX3J4IHNpbmNlIHR4IHBvbGwgd2Vy
+ZSBzdGlsbCBsZWZ0IGluCj4+ICAgIHRoZSB3YWl0cXVldWUuCj4+Cj4+IEZpeCB0aGlzIGJ5IGNv
+bmRpdGlvbmFsbHkgZW5hYmxlIHR4IHBvbGxpbmcgb25seSB3aGVuIC1FQUdBSU4gd2VyZQo+PiBt
+ZXQuCj4+Cj4+IFRlc3Qgc2hvd3MgYWJvdXQgOCUgaW1wcm92ZW1lbnQgb24gZ3Vlc3QgcnggcHBz
+Lgo+Pgo+PiBCZWZvcmU6IH4xMzUwMDAwCj4+IEFmdGVyOiAgfjE0NjAwMDAKPj4KPj4gU2lnbmVk
+LW9mZi1ieTogSmFzb24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPj4gLS0tCj4+ICAgZHJp
+dmVycy92aG9zdC9uZXQuYyB8IDMgKysrCj4+ICAgMSBmaWxlIGNoYW5nZWQsIDMgaW5zZXJ0aW9u
+cygrKQo+Pgo+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy92aG9zdC9uZXQuYyBiL2RyaXZlcnMvdmhv
+c3QvbmV0LmMKPj4gaW5kZXggMWQzZTQ1Zi4uZTc1ZmZjYyAxMDA2NDQKPj4gLS0tIGEvZHJpdmVy
+cy92aG9zdC9uZXQuYwo+PiArKysgYi9kcml2ZXJzL3Zob3N0L25ldC5jCj4+IEBAIC0zNzgsNiAr
+Mzc4LDcgQEAgc3RhdGljIHZvaWQgaGFuZGxlX3R4KHN0cnVjdCB2aG9zdF9uZXQgKm5ldCkKPj4g
+ICAJCWdvdG8gb3V0Owo+PiAgIAo+PiAgIAl2aG9zdF9kaXNhYmxlX25vdGlmeSgmbmV0LT5kZXYs
+IHZxKTsKPj4gKwl2aG9zdF9uZXRfZGlzYWJsZV92cShuZXQsIHZxKTsKPj4gICAKPj4gICAJaGRy
+X3NpemUgPSBudnEtPnZob3N0X2hsZW47Cj4+ICAgCXpjb3B5ID0gbnZxLT51YnVmczsKPj4gQEAg
+LTQ1OSw2ICs0NjAsOCBAQCBzdGF0aWMgdm9pZCBoYW5kbGVfdHgoc3RydWN0IHZob3N0X25ldCAq
+bmV0KQo+PiAgIAkJCQkJJSBVSU9fTUFYSU9WOwo+PiAgIAkJCX0KPj4gICAJCQl2aG9zdF9kaXNj
+YXJkX3ZxX2Rlc2ModnEsIDEpOwo+PiArCQkJaWYgKGVyciA9PSAtRUFHQUlOKQo+PiArCQkJCXZo
+b3N0X25ldF9lbmFibGVfdnEobmV0LCB2cSk7Cj4+ICAgCQkJYnJlYWs7Cj4+ICAgCQl9Cj4+ICAg
+CQlpZiAoZXJyICE9IGxlbikKPiBUaGlzIHNlZW1zIHJhdGhlciByaXNreS4gV2hhdCBpZiBUWCBm
+YWlsZWQgZm9yIHNvbWUgb3RoZXIgcmVhc29uPwo+IFBvbGxpbmcgd29uJ3QgZXZlciBiZSByZS1l
+bmFibGVkIC4uLgo+CgpCdXQgd2h5IHdlIG5lZWQgdG8gZW5hYmxlIHR4IHBvbGwgaW4gdGhpcyBj
+YXNlPyBFdmVuIGlmIHdlIGVuYWJsZSBpdCwgd2UgCndvbnQnIGdldCBhbnkgd2FrZXVwLgoKPj4g
+LS0gCj4+IDEuOC4zLjEKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5s
+aW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFp
+bG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
