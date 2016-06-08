@@ -1,36 +1,68 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/2] Netfilter/IPVS fixes for net
-Date: Tue, 07 Jun 2016 17:14:26 -0700 (PDT)
-Message-ID: <20160607.171426.1162562691220395952.davem@davemloft.net>
-References: <1465252697-1986-1-git-send-email-pablo@netfilter.org>
+From: Alison Chaiken <alison@peloton-tech.com>
+Subject: Re: [PATCH][RT] netpoll: Always take poll_lock when doing polling
+Date: Tue, 7 Jun 2016 17:19:43 -0700
+Message-ID: <CAOuSAjeUX_tvzr9K8B4T-TdXUDcYqFxbtYTa=ke-ePhMJo5NVQ@mail.gmail.com>
+References: <20160526195641.6c26e979@gandalf.local.home> <20160602161235.GA12971@linutronix.de>
+ <20160604071131.08d449db@grimm.local.home> <CAOuSAjfXsLQWkrcE7Y3t-k0Bv5qieqgziu8Zf-au4SK-rLvRHQ@mail.gmail.com>
+ <20160607094642.GA4089@linutronix.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-To: pablo@netfilter.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Steven Rostedt <rostedt@goodmis.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	linux-rt-users <linux-rt-users@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Clark Williams <williams@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:59263 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752893AbcFHAO1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 20:14:27 -0400
-In-Reply-To: <1465252697-1986-1-git-send-email-pablo@netfilter.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:37665 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751399AbcFHATq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 7 Jun 2016 20:19:46 -0400
+Received: by mail-wm0-f44.google.com with SMTP id k204so90035667wmk.0
+        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 17:19:45 -0700 (PDT)
+In-Reply-To: <20160607094642.GA4089@linutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Tue,  7 Jun 2016 00:38:15 +0200
+I wrote:
+>>We've applied Sebastian's commit "softirq: split timer softirqs out of
+>>ksoftirqd," which improved event loop stability substantially when we
 
-> The following patchset contains two Netfilter/IPVS fixes for your net
-> tree, they are:
-> 
-> 1) Fix missing alignment in next offset calculation for standard
->    targets, introduced in the previous merge window, patch from
->    Florian Westphal.
-> 
-> 2) Fix to correct the handling of outgoing connections which use the
->    SIP-pe such that the binding of a real-server is updated when needed.
->    This was an omission from changes introduced by Marco Angaroni in
->    the previous merge window too, to allow handling of outgoing
->    connections by the SIP-pe. Patch and report came via Simon Horman.
+Sebastian Andrzej Siewior <bigeasy@linutronix.de>replied:
+>Why did you apply that one? You have 4.1.18-ti-rt so I don't know how
+>that works but v4.1.15-rt18 had this patch included. Also "net: provide
+>a way to delegate processing a softirq to ksoftirqd" should be applied
+>(which is also part of v4.1.15-rt18).
 
-Pulled, thanks Pablo.
+Sorry to be obscure; I had applied that patch to v4.1.6-rt5.
+
+> What I remember from testing the two patches on am335x was that before a
+> ping flood on gbit froze the serial console but with them it the ping
+> flood was not noticed.
+
+I compiled a kernel from upstream d060a36 "Merge branch
+'ti-linux-4.1.y' of git.ti.com:ti-linux-kernel/ti-linux-kernel into
+ti-rt-linux-4.1.y" which is unpatched except for using a
+board-appropriate device-tree.    The serial console is responsive
+with all our RT userspace applications running alongside a rapid
+external ping.   However, our main event loop misses frequently as
+soon as ping faster than 'ping -i 0.0002' is run.    mpstat shows that
+the sum of the hard IRQ rates in a second is equal precisely to the
+NET_RX rate, which is ~3400/s.   Does the fact that 3400 < (1/0.0002)
+already mean that some packets are dropped?   ftrace shows that
+cpsw_rx_poll() is called even when there is essentially no network
+traffic, so I'm not sure how to tell if NAPI is working as intended.
+
+I tried running the wakeup_rt tracer, but it loads the system too
+much.     With ftrace capturing IRQ, scheduler and net events, we're
+writing out markers into the trace buffer when the event loop makes
+its deadline and then when it misses so that we can compare the normal
+and long-latency intervals, but there doesn't appear to be a smoking
+gun in the difference between the two.
+
+Thanks for all your help,
+Alison
