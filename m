@@ -1,34 +1,40 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: Re: [Pv-drivers] [PATCH net v2] vmxnet3: segCnt can be 1 for LRO
- packets
-Date: Wed, 8 Jun 2016 07:43:16 -0700 (PDT)
-Message-ID: <alpine.DEB.2.10.1606080741541.14228@shri-linux.eng.vmware.com>
-References: <1465366415-124072-1-git-send-email-skhare@vmware.com> <5757EEFC.3060709@vmware.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v4 5/6] net: dsa: Initialize CPU port ethtool
+ ops per tree
+Date: Wed, 8 Jun 2016 17:09:35 +0200
+Message-ID: <20160608150935.GI28994@lunn.ch>
+References: <1465342363-28055-1-git-send-email-f.fainelli@gmail.com>
+ <1465342363-28055-6-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pv-drivers@vmware.com, Jin Heo <heoj@vmware.com>
-To: Thomas Hellstrom <thellstrom@vmware.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-2.vmware.com ([208.91.2.13]:53015 "EHLO
-	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1423479AbcFHOnS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 10:43:18 -0400
-In-Reply-To: <5757EEFC.3060709@vmware.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:38978 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751497AbcFHPJj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jun 2016 11:09:39 -0400
+Content-Disposition: inline
+In-Reply-To: <1465342363-28055-6-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-
-
-On Wed, 8 Jun 2016, Thomas Hellstrom wrote:
-
-> >  				mss = rcdlro->mss;
-> >  				if (unlikely(segCnt <= 1))
-> >  					segCnt = 0;
+On Tue, Jun 07, 2016 at 04:32:42PM -0700, Florian Fainelli wrote:
+> Now that we can properly support multiple distinct trees in the system,
+> using a global variable: dsa_cpu_port_ethtool_ops is getting clobbered
+> as soon as the second switch tree gets probed, and we don't want that.
 > 
-> Based on this code, it looks like it can handle the case without taking
-> down the kernel completely, so instead of a
-> "BUG_ON", would it make sense with a WARN_ON_ONCE() or WARN_ON()?
+> We need to move this to be dynamically allocated, and since we can't
+> really be comparing addresses anymore to determine first time
+> initialization versus any other times, just move this to dsa.c and
+> dsa2.c where the remainder of the dst/ds initialization happens.
+> 
+> The operations teardown restores the master netdev's ethtool_ops to its
+> original ethtool_ops pointer (typically within the Ethernet driver)
+> 
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Thanks for the review Thomas. I fixed the code to use WARN_ON_ONCE. Sent 
-out revised patch.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
