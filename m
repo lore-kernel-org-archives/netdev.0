@@ -1,53 +1,37 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: [PATCH] stmmac: fix parameter to dwmac4_set_umac_addr()
-Date: Wed,  8 Jun 2016 19:21:17 +0100
-Message-ID: <1465410077-25381-1-git-send-email-ben.dooks@codethink.co.uk>
-Cc: Ben Dooks <ben.dooks@codethink.co.uk>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Alexandre Torgue <alexandre.torgue@st.com>,
-	netdev@vger.kernel.org
-To: linux-kernel@lists.codethink.co.uk
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v4 0/6] net: dsa: misc improvements
+Date: Wed, 08 Jun 2016 11:24:05 -0700 (PDT)
+Message-ID: <20160608.112405.1536795849510897588.davem@davemloft.net>
+References: <1465342363-28055-1-git-send-email-f.fainelli@gmail.com>
+	<20160608151059.GJ28994@lunn.ch>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	vivien.didelot@savoirfairelinux.com
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from 82-70-136-246.dsl.in-addr.zen.co.uk ([82.70.136.246]:53744 "EHLO
-	rainbowdash.ducie.codethink.co.uk" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1162016AbcFHSVj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 14:21:39 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:38285 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752478AbcFHSYJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 14:24:09 -0400
+In-Reply-To: <20160608151059.GJ28994@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The dwmac4_set_umac_addr() takes a struct mac_device_info as
-the first parameter, but is being passed a ioaddr instead from
-dwmac4_set_filter(). Fix the warning/bug by changing the first
-parameter.
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Wed, 8 Jun 2016 17:10:59 +0200
 
-drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c:159:46: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c:159:46:    expected struct mac_device_info *hw
-drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c:159:46:    got void [noderef] <asn:2>*ioaddr
+> On Tue, Jun 07, 2016 at 04:32:37PM -0700, Florian Fainelli wrote:
+>> Hi all,
+>> 
+>> This patch series builds on top of Andrew's "New DSA bind, switches as devices"
+>> patch set and does the following:
+> 
+> Hi Florian
+> 
+> Thanks for the patience with my nit picking.
+> 
+> This is now ready to be applied.
 
-Note, only compile tested this as do not have any
-hardware with it in.
-
-Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
----
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-Cc: Alexandre Torgue <alexandre.torgue@st.com>
-Cc: netdev@vger.kernel.org
----
- drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-index 4f7283d..44da877 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac4_core.c
-@@ -156,7 +156,7 @@ static void dwmac4_set_filter(struct mac_device_info *hw,
- 		struct netdev_hw_addr *ha;
- 
- 		netdev_for_each_uc_addr(ha, dev) {
--			dwmac4_set_umac_addr(ioaddr, ha->addr, reg);
-+			dwmac4_set_umac_addr(hw, ha->addr, reg);
- 			reg++;
- 		}
- 	}
--- 
-2.8.1
+Applied to net-next, thanks everyone.
