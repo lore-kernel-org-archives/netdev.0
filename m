@@ -1,64 +1,59 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: Re: [PATCH net-next] net/sched: cls_flower: Introduce support in
- SKIP SW flag
-Date: Wed, 8 Jun 2016 09:04:43 +0300
-Message-ID: <20160608060443.GA19287@office.localdomain>
-References: <20160605141118.10986-1-amir@vadai.me>
- <5756EA44.7050301@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Jiri Pirko <jiri@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Amir Vadai <amirva@mellanox.com>
-To: John Fastabend <john.fastabend@gmail.com>
+From: Shrikrishna Khare <skhare@vmware.com>
+Subject: [PATCH net v2] vmxnet3: segCnt can be 1 for LRO packets
+Date: Tue,  7 Jun 2016 23:13:35 -0700
+Message-ID: <1465366415-124072-1-git-send-email-skhare@vmware.com>
+Cc: Shrikrishna Khare <skhare@vmware.com>, Jin Heo <heoj@vmware.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36544 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753665AbcFHGEr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 02:04:47 -0400
-Received: by mail-wm0-f65.google.com with SMTP id m124so154668wme.3
-        for <netdev@vger.kernel.org>; Tue, 07 Jun 2016 23:04:46 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <5756EA44.7050301@gmail.com>
+Received: from smtp-outbound-2.vmware.com ([208.91.2.13]:47910 "EHLO
+	smtp-outbound-2.vmware.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754319AbcFHGNd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 02:13:33 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 07, 2016 at 08:37:40AM -0700, John Fastabend wrote:
-> On 16-06-05 07:11 AM, Amir Vadai wrote:
-> > From: Amir Vadai <amirva@mellanox.com>
-> > 
-> > In order to make a filter processed only by hardware, skip_sw flag
-> > should be supplied. This is an addition to the already existing skip_hw
-> > flag (filter will be processed by software only). If no flag is
-> > specified, filter will be processed by both software and hardware.
-> > 
-> > If only hardware offloaded filters exist, fl_classify() will return
-> > without doing anything.
-> > 
-> > A following userspace patch will be sent once kernel patch is accepted.
-> > 
-> > Example:
-> > 
-> > tc filter add dev enp0s9 protocol ip prio 20 parent ffff: \
-> > 	flower \
-> > 		ip_proto 6 \
-> > 		indev enp0s9 \
-> > 		skip_sw \
-> > 	action skbedit mark 0x1234
-> > 
-> > Signed-off-by: Amir Vadai <amirva@mellanox.com>
-> > ---
-> 
-> 
-> 
-> Looks good to me. Although we need to do the same error propagation in
-> flower that Jakub just added to cls_u32.
-Thanks John,
-I will send a patch to return error when add to hw is failing and skip_sw
-is set.
+The device emulation may send segCnt of 1 for LRO packets.
 
-> 
-> Acked-by: John Fastabend <john.r.fastabend@intel.com>
-> 
+Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+Signed-off-by: Jin Heo <heoj@vmware.com>
+
+---
+v2: fix subject line
+---
+ drivers/net/vmxnet3/vmxnet3_drv.c | 2 +-
+ drivers/net/vmxnet3/vmxnet3_int.h | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index db8022a..6f399b2 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1369,7 +1369,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 				rcdlro = (struct Vmxnet3_RxCompDescExt *)rcd;
+ 
+ 				segCnt = rcdlro->segCnt;
+-				BUG_ON(segCnt <= 1);
++				BUG_ON(segCnt == 0);
+ 				mss = rcdlro->mss;
+ 				if (unlikely(segCnt <= 1))
+ 					segCnt = 0;
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index c482539..3d2b64e 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -69,10 +69,10 @@
+ /*
+  * Version numbers
+  */
+-#define VMXNET3_DRIVER_VERSION_STRING   "1.4.7.0-k"
++#define VMXNET3_DRIVER_VERSION_STRING   "1.4.8.0-k"
+ 
+ /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
+-#define VMXNET3_DRIVER_VERSION_NUM      0x01040700
++#define VMXNET3_DRIVER_VERSION_NUM      0x01040800
+ 
+ #if defined(CONFIG_PCI_MSI)
+ 	/* RSS only makes sense if MSI-X is supported. */
+-- 
+2.8.2
