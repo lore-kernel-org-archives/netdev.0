@@ -1,63 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tcp: accept RST if SEQ matches right edge of
- right-most SACK block
-Date: Wed, 08 Jun 2016 00:37:05 -0700 (PDT)
-Message-ID: <20160608.003705.114702162623042599.davem@davemloft.net>
-References: <CADVnQymeArQhGTUFuTXQb4v3aabzseumybjpJ8UtTugnX=2=cA@mail.gmail.com>
-	<1465309834-31942-1-git-send-email-pau.espin@tessares.net>
+Subject: Re: [PATCH] net-sysfs: fix missing <linux/of_net.h>
+Date: Wed, 08 Jun 2016 00:38:21 -0700 (PDT)
+Message-ID: <20160608.003821.2052356443958850976.davem@davemloft.net>
+References: <1465324071-7337-1-git-send-email-ben.dooks@codethink.co.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ncardwell@google.com,
-	eric.dumazet@gmail.com, ycheng@google.com
-To: pau.espin@tessares.net
+Cc: linux-kernel@lists.codethink.co.uk, netdev@vger.kernel.org
+To: ben.dooks@codethink.co.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33568 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:33585 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755422AbcFHHhG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 03:37:06 -0400
-In-Reply-To: <1465309834-31942-1-git-send-email-pau.espin@tessares.net>
+	with ESMTP id S1752082AbcFHHiW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 03:38:22 -0400
+In-Reply-To: <1465324071-7337-1-git-send-email-ben.dooks@codethink.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Pau Espin Pedrol <pau.espin@tessares.net>
-Date: Tue,  7 Jun 2016 16:30:34 +0200
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Date: Tue,  7 Jun 2016 19:27:51 +0100
 
-> RFC 5961 advises to only accept RST packets containing a seq number
-> matching the next expected seq number instead of the whole receive
-> window in order to avoid spoofing attacks.
+> The of_find_net_device_by_node() function is defined in
+> <linux/of_net.h> but not included in the .c file that
+> implements it. Fix the following warning by including the
+> header:
 > 
-> However, this situation is not optimal in the case SACK is in use at the
-> time the RST is sent. I recently run into a scenario in which packet
-> losses were high while uploading data to a server, and userspace was
-> willing to frequently terminate connections by sending a RST. In
-> this case, the ACK sent on the receiver side (rcv_nxt) is frozen waiting
-> for a lost packet retransmission and SACK blocks are used to let the
-> client continue uploading data. At some point later on, the client sends
-> the RST (snd_nxt), which matches the next expected seq number of the
-> right-most SACK block on the receiver side which is going forward
-> receiving data.
+> net/core/net-sysfs.c:1494:19: warning: symbol 'of_find_net_device_by_node' was not declared. Should it be static?
 > 
-> In this scenario, as RFC 5961 defines, the RST SEQ doesn't match the
-> frozen main ACK at receiver side and thus gets dropped and a challenge
-> ACK is sent, which gets usually lost due to network conditions. The main
-> consequence is that the connection stays alive for a while even if it
-> made sense to accept the RST. This can get really bad if lots of
-> connections like this one are created in few seconds, allocating all the
-> resources of the server easily.
-> 
-> For security reasons, not all SACK blocks are checked (there could be a
-> big amount of SACK blocks => acceptable SEQ numbers). Furthermore, it
-> wouldn't make sense to check for RST in blocks other than the right-most
-> received one because the sender is not expected to be sending new data
-> after the RST. For simplicity, only up to the 4 most recently updated
-> SACK blocks (selective_acks[4] field) are compared to find the
-> right-most block, as usually those are the ones with bigger probability
-> to contain it.
-> 
-> This patch was tested in a 3.18 kernel and probed to improve the
-> situation in the scenario described above.
-> 
-> Signed-off-by: Pau Espin Pedrol <pau.espin@tessares.net>
+> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
 
-Applied.
+Applied, thanks.
