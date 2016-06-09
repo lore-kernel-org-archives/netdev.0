@@ -1,80 +1,79 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v3 net-next 5/5] net: ipvlan: call netdev_lockdep_set_classes()
-Date: Thu,  9 Jun 2016 07:45:15 -0700
-Message-ID: <1465483515-10821-6-git-send-email-edumazet@google.com>
-References: <1465483515-10821-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCHv4 net-next] sctp: sctp should change socket state when shutdown is received
+Date: Thu,  9 Jun 2016 22:48:18 +0800
+Message-ID: <d964561c0d409848ea5724615c910e6d2ce53557.1465483698.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net, eric.dumazet@gmail.com
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:33150 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932251AbcFIOpe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 10:45:34 -0400
-Received: by mail-pf0-f177.google.com with SMTP id y124so14135610pfy.0
-        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 07:45:34 -0700 (PDT)
-In-Reply-To: <1465483515-10821-1-git-send-email-edumazet@google.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:33033 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932114AbcFIOsY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 10:48:24 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In case a qdisc is used on a ipvlan device, we need to use different
-lockdep classes to avoid false positives.
+Now sctp doesn't change socket state upon shutdown reception. It changes
+just the assoc state, even though it's a TCP-style socket.
 
-Use the new netdev_lockdep_set_classes() generic helper.
+For some cases, if we really need to check sk->sk_state, it's necessary to
+fix this issue, at least when we use ss or netstat to dump, we can get a
+more exact information.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+As an improvement, we will change sk->sk_state when we change asoc->state
+to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent
+with sctp_close.
+
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- drivers/net/ipvlan/ipvlan_main.c | 22 +---------------------
- 1 file changed, 1 insertion(+), 21 deletions(-)
+ net/sctp/sm_sideeffect.c | 4 +++-
+ net/sctp/socket.c        | 8 ++++++--
+ 2 files changed, 9 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ipvlan/ipvlan_main.c b/drivers/net/ipvlan/ipvlan_main.c
-index 1c4d395fbd49..18b4e8c7f68a 100644
---- a/drivers/net/ipvlan/ipvlan_main.c
-+++ b/drivers/net/ipvlan/ipvlan_main.c
-@@ -80,13 +80,6 @@ static void ipvlan_port_destroy(struct net_device *dev)
- 	kfree_rcu(port, rcu);
+diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+index aa37122..12d4519 100644
+--- a/net/sctp/sm_sideeffect.c
++++ b/net/sctp/sm_sideeffect.c
+@@ -806,8 +806,10 @@ static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
+ 
+ 		/* Set the RCV_SHUTDOWN flag when a SHUTDOWN is received. */
+ 		if (sctp_state(asoc, SHUTDOWN_RECEIVED) &&
+-		    sctp_sstate(sk, ESTABLISHED))
++		    sctp_sstate(sk, ESTABLISHED)) {
++			sk->sk_state = SCTP_SS_CLOSING;
+ 			sk->sk_shutdown |= RCV_SHUTDOWN;
++		}
+ 	}
+ 
+ 	if (sctp_state(asoc, COOKIE_WAIT)) {
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 67154b8..125ddcb 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -4193,6 +4193,7 @@ static void sctp_shutdown(struct sock *sk, int how)
+ 		return;
+ 
+ 	if (how & SEND_SHUTDOWN) {
++		sk->sk_state = SCTP_SS_CLOSING;
+ 		ep = sctp_sk(sk)->ep;
+ 		if (!list_empty(&ep->asocs)) {
+ 			asoc = list_entry(ep->asocs.next,
+@@ -7564,10 +7565,13 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+ 	/* If the association on the newsk is already closed before accept()
+ 	 * is called, set RCV_SHUTDOWN flag.
+ 	 */
+-	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP))
++	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP)) {
++		newsk->sk_state = SCTP_SS_CLOSING;
+ 		newsk->sk_shutdown |= RCV_SHUTDOWN;
++	} else {
++		newsk->sk_state = SCTP_SS_ESTABLISHED;
++	}
+ 
+-	newsk->sk_state = SCTP_SS_ESTABLISHED;
+ 	release_sock(newsk);
  }
  
--/* ipvlan network devices have devices nesting below it and are a special
-- * "super class" of normal network devices; split their locks off into a
-- * separate class since they always nest.
-- */
--static struct lock_class_key ipvlan_netdev_xmit_lock_key;
--static struct lock_class_key ipvlan_netdev_addr_lock_key;
--
- #define IPVLAN_FEATURES \
- 	(NETIF_F_SG | NETIF_F_HW_CSUM | NETIF_F_HIGHDMA | NETIF_F_FRAGLIST | \
- 	 NETIF_F_GSO | NETIF_F_TSO | NETIF_F_UFO | NETIF_F_GSO_ROBUST | \
-@@ -96,19 +89,6 @@ static struct lock_class_key ipvlan_netdev_addr_lock_key;
- #define IPVLAN_STATE_MASK \
- 	((1<<__LINK_STATE_NOCARRIER) | (1<<__LINK_STATE_DORMANT))
- 
--static void ipvlan_set_lockdep_class_one(struct net_device *dev,
--					 struct netdev_queue *txq,
--					 void *_unused)
--{
--	lockdep_set_class(&txq->_xmit_lock, &ipvlan_netdev_xmit_lock_key);
--}
--
--static void ipvlan_set_lockdep_class(struct net_device *dev)
--{
--	lockdep_set_class(&dev->addr_list_lock, &ipvlan_netdev_addr_lock_key);
--	netdev_for_each_tx_queue(dev, ipvlan_set_lockdep_class_one, NULL);
--}
--
- static int ipvlan_init(struct net_device *dev)
- {
- 	struct ipvl_dev *ipvlan = netdev_priv(dev);
-@@ -123,7 +103,7 @@ static int ipvlan_init(struct net_device *dev)
- 	dev->gso_max_segs = phy_dev->gso_max_segs;
- 	dev->hard_header_len = phy_dev->hard_header_len;
- 
--	ipvlan_set_lockdep_class(dev);
-+	netdev_lockdep_set_classes(dev);
- 
- 	ipvlan->pcpu_stats = alloc_percpu(struct ipvl_pcpu_stats);
- 	if (!ipvlan->pcpu_stats)
 -- 
-2.8.0.rc3.226.g39d4020
+2.1.0
