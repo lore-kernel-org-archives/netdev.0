@@ -1,65 +1,35 @@
-From: David Sterba <dsterba@suse.cz>
-Subject: Re: [PATCH 04/21] fs: Replace CURRENT_TIME with current_fs_time()
- for inode timestamps
-Date: Thu, 9 Jun 2016 09:55:39 +0200
-Message-ID: <20160609075539.GF3905@suse.cz>
-References: <1465448705-25055-1-git-send-email-deepa.kernel@gmail.com>
- <1465448705-25055-5-git-send-email-deepa.kernel@gmail.com>
-Reply-To: dsterba@suse.cz
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: [PATCH net-next] net/mlx4_en: fix ethtool -x
+Date: Thu, 9 Jun 2016 11:00:13 +0300
+Message-ID: <bf8f7abd-98e6-02df-a329-9bae300da136@gmail.com>
+References: <1464195039-5098-1-git-send-email-edumazet@google.com>
+ <1464195039-5098-5-git-send-email-edumazet@google.com>
+ <6320ccdc-d369-c08c-c959-6c8ed9b88d10@gmail.com>
+ <1464267580.5939.83.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1464979969.5939.200.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1465359858.24873.35.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-fsdevel@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Naoya Horiguchi <n-horiguchi@ah.jp.nec.com>,
-	Colin Cross <ccross@android.com>, Arnd Bergmann <arnd@arndb.de>,
-	pvfs2-developers@beowulf-underground.org,
-	Kees Cook <keescook@chromium.org>,
-	Matt Fleming <matt@codeblueprint.co.uk>,
-	"David S. Miller" <davem@davemloft.net>,
-	Boaz Harrosh <ooo@electrozaur.com>,
-	Anton Vorontsov <anton@enomsg.org>,
-	Joel Becker <jlbec@evilplan.org>, Chris Mason <clm@fb.com>,
-	Josef Bacik <jbacik@fb.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	Eric Van Hensbergen <ericvh@gmail.com>,
-	Firo Yang <firogm@gmail.com>,
-	Hal Rosenstock <hal.rosenstock@gmail.com>,
-	Konstantin Khlebnikov <koct9i@gmail.com>,
-	Prasad Joshi <prasadjoshi.linux@gmail.com>,
-	Hugh Dickins <hughd@google.com>,
-	"Serge E. Hallyn" <serge@hallyn.com>,
-	Nadia Yvette Chambers <nyc@holomorphy.com>,
-	Peter Hurley <peter@hurleysof
-To: Deepa Dinamani <deepa.kernel@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-Content-Disposition: inline
-In-Reply-To: <1465448705-25055-5-git-send-email-deepa.kernel@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: =?UTF-8?Q?Maciej_=c5=bbenczykowski?= <maze@google.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Willem de Bruijn <willemb@google.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Wei Wang <weiwan@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34957 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751140AbcFIIAS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 04:00:18 -0400
+Received: by mail-wm0-f68.google.com with SMTP id k184so8454987wme.2
+        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 01:00:18 -0700 (PDT)
+In-Reply-To: <1465359858.24873.35.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 08, 2016 at 10:04:48PM -0700, Deepa Dinamani wrote:
-> CURRENT_TIME macro is not appropriate for filesystems as it
-> doesn't use the right granularity for filesystem timestamps.
-> Use current_fs_time() instead.
-> 
-> CURRENT_TIME is also not y2038 safe.
-> 
-> This is also in preparation for the patch that transitions
-> vfs timestamps to use 64 bit time and hence make them
-> y2038 safe. As part of the effort current_fs_time() will be
-> extended to do range checks. Hence, it is necessary for all
-> file system timestamps to use current_fs_time(). Also,
-> current_fs_time() will be transitioned along with vfs to be
-> y2038 safe.
-> 
-> Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
-> Cc: David Sterba <dsterba@suse.com>
+Thanks, looks good.
 
-for the btrfs bits
-
-Reviewed-by: David Sterba <dsterba@suse.com>
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
