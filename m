@@ -1,108 +1,77 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: latest iproute2 compilation issue with linux-4.6-rc7
-Date: Thu, 9 Jun 2016 09:10:10 -0700
-Message-ID: <20160609091010.0ac5d45a@xeon-e3>
-References: <DF4PR84MB0169ABB98113BCC2AB9CD625825F0@DF4PR84MB0169.NAMPRD84.PROD.OUTLOOK.COM>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: brcmfmac: rework function picking free BSS index
+Date: Thu,  9 Jun 2016 16:17:32 +0000 (UTC)
+Message-ID: <20160609161732.90E20613F6@smtp.codeaurora.org>
+References: <1464219876-13776-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "Cherukuru, Siva Ramaprasad" <sivaramaprasad.c@hpe.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:34464 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932082AbcFIQOc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 12:14:32 -0400
-Received: by mail-pa0-f44.google.com with SMTP id bz2so14148157pad.1
-        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 09:14:32 -0700 (PDT)
-In-Reply-To: <DF4PR84MB0169ABB98113BCC2AB9CD625825F0@DF4PR84MB0169.NAMPRD84.PROD.OUTLOOK.COM>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	brcm80211-dev-list@broadcom.com (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464219876-13776-1-git-send-email-zajec5@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Jun 2016 11:46:38 +0000
-"Cherukuru, Siva Ramaprasad" <sivaramaprasad.c@hpe.com> wrote:
+Rafa=C5=82 Mi=C5=82ecki wrote:
+> The old implementation was overcomplicated and slightly bugged in som=
+e
+> corner cases.
+>=20
+> Consider following state of BSS-es (limited to 6 for simplification):
+> drvr->iflist[0]: { bsscfgidx:0, ndev->name:wlan1, }
+> drvr->iflist[1]:  (null)
+> drvr->iflist[2]: { bsscfgidx:2, ndev->name:wlan1-1, }
+> drvr->iflist[3]: { bsscfgidx:3, ndev->name:wlan1-2, }
+> drvr->iflist[4]:  (null)
+> drvr->iflist[5]:  (null)
+> In such case the next AP interface should bsscfgidx 4 (we don't use 1=
+ as
+> it's reserved for P2P).
+>=20
+> With old code the loop iterations were following:
+> [ifidx =3D 0] [bsscfgidx =3D 2] [highest =3D 2]
+> [ifidx =3D 1] [bsscfgidx =3D 2] [highest =3D 2] available =3D true
+> [ifidx =3D 2] [bsscfgidx =3D 2] [highest =3D 2] bsscfgidx =3D highest=
+ + 1
+> [ifidx =3D 3] [bsscfgidx =3D 3] [highest =3D 2] bsscfgidx =3D highest=
+ + 1
+> [ifidx =3D 4] [bsscfgidx =3D 3] [highest =3D 2] available =3D true
+> [ifidx =3D 5] [bsscfgidx =3D 3] [highest =3D 2] available =3D true
+> There were 2 obvious problems:
+> 1) Having empty BSS at index 1 was resulting in available being alway=
+s
+>    set to true, even if we would run out of BSS-es.
+> 2) Calculated bsscfgidx was invalid (3 instead of 4) resulting in dri=
+ver
+>    not being able to create the 4th AP interface.
+>=20
+> New code is simpler, placed in file where it's really used, handles
+> running out of free BSS-es and allows using 4 interfaces at the same
+> time. It also looks for the first free BSS instead of one after the l=
+ast
+> in use. It works well with current driver (which doesn't allow deleti=
+ng
+> interfaces) and should be future proof (if we ever allow deleting).
+>=20
+> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 
-> Hi ,
-> 
->       When I try to compile latest iproute2 code, I am seeing the following errors.
-> Please let me know if there is any workaround available Or fix for this issue?
-> 
-> ====
-> 
-> In file included from m_ipt.c:19:0:
-> ../include/linux/if.h:106:19: error: redeclaration of enumerator 'IFF_UP'
-> #define IFF_UP    IFF_UP
->                    ^
-> ../include/linux/if.h:79:2: note: previous definition of 'IFF_UP' was here
->   IFF_UP    = 1<<0,  /* sysfs */
->  ^
-> ../include/linux/if.h:107:25: error: redeclaration of enumerator 'IFF_BROADCAST'
-> #define IFF_BROADCAST   IFF_BROADCAST
->                          ^
-> ../include/linux/if.h:80:2: note: previous definition of 'IFF_BROADCAST' was here
->   IFF_BROADCAST   = 1<<1,  /* __volatile__ */
->   ^
-> ../include/linux/if.h:108:21: error: redeclaration of enumerator 'IFF_DEBUG'
-> #define IFF_DEBUG   IFF_DEBUG
->                      ^
-> ../include/linux/if.h:81:2: note: previous definition of 'IFF_DEBUG' was here
->   IFF_DEBUG   = 1<<2,  /* sysfs */
->   ^
-> 
-> ...
-> ...
-> 
-> In file included from ../include/iptables.h:5:0,
->                  from m_ipt.c:22:
-> ../include/xtables.h:34:29: fatal error: xtables-version.h: No such file or directory
-> #include <xtables-version.h>
->                              ^
-> compilation terminated.
-> make[1]: *** [m_ipt.o] Error 1
-> rm emp_ematch.lex.c
-> make: *** [all] Error 2
-> 
-> =========
-> 
-> I have tried the following to work around the errors  but still stuck with the xtables-version.h error?
-> 
-> ===
-> root@dock1:~/siva_iproute2/iproute2# git diff tc/m_ipt.c
-> diff --git a/tc/m_ipt.c b/tc/m_ipt.c
-> index d088f5e..1ebd2f7 100644
-> --- a/tc/m_ipt.c
-> +++ b/tc/m_ipt.c
-> @@ -14,7 +14,9 @@
-> #include <sys/socket.h>
-> #include <netinet/in.h>
-> #include <arpa/inet.h>
-> +#ifndef linux/if.h
-> #include <linux/if.h>
-> +#endif
-> #include <iptables.h>
-> #include <linux/netfilter.h>
-> #include <linux/netfilter_ipv4/ip_tables.h>
-> 
-> ====
-> 
-> 
->     CC       m_ipt.o
-> In file included from ../include/iptables.h:5:0,
->                  from m_ipt.c:23:
-> ../include/xtables.h:34:29: fatal error: xtables-version.h: No such file or directory
-> #include <xtables-version.h>
->                              ^
-> compilation terminated.
-> make[1]: *** [m_ipt.o] Error 1
-> rm emp_ematch.lex.c
+Thanks, 1 patch applied to wireless-drivers-next.git:
 
-The update to iptables headers broke compilation because they switched to
-xtables.
+d02fb8f14b2d brcmfmac: rework function picking free BSS index
 
-For now, do
- $ make distclean
- $ make
-
-There is a patch to fix this, but it got no review/feedback and was not submitted
-in proper form to netdev for review. Therefore I am waiting for correct fix
-to come.
+--=20
+Sent by pwcli
+https://patchwork.kernel.org/patch/9136421/
