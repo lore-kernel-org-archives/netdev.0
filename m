@@ -1,120 +1,139 @@
-From: Deepa Dinamani <deepa.kernel@gmail.com>
-Subject: Re: [PATCH 04/21] fs: Replace CURRENT_TIME with current_fs_time() for
- inode timestamps
-Date: Thu, 9 Jun 2016 13:38:21 -0700
-Message-ID: <CABeXuvouhSSAd6nymV4hjq3U2QCO0d-ueeCOnzqrbpdWzjLwjA@mail.gmail.com>
-References: <1465448705-25055-1-git-send-email-deepa.kernel@gmail.com>
- <1465448705-25055-5-git-send-email-deepa.kernel@gmail.com> <CA+55aFzceGREzGEJda8qt6gv6=iE_yDbM+mO2dJJa0wbu-o-Ww@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-fsdevel <linux-fsdevel@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>, Arnd Bergmann <arnd@arndb.de>,
-	Thomas Gleixner <tglx@linutronix.de>, Al Viro <viro@zeniv.linux.org.uk>, y2038@lists.linaro.org,
-	Steve French <sfrench@samba.org>,
-	"linux-cifs@vger.kernel.org" <linux-cifs@vger.kernel.org>, samba-technical@lists.samba.org,
-	Joern Engel <joern@logfs.org>, Prasad Joshi <prasadjoshi.linux@gmail.com>, logfs@logfs.org,
-	Andrew Morton <akpm@linux-foundation.org>, Julia Lawall <Julia.Lawall@lip6.fr>,
-	David Howells <dhowells@redhat.com>, Firo Yang <firogm@gmail.com>, Jaegeuk Kim <jaegeuk@kernel.org>,
-	Changman Lee <cm224.lee@samsung.com>, Chao Yu <chao2.yu@samsung.com>,
-	"Linux F2FS DEV, Mailing List" <linux-f2fs-devel@lists.sourceforge.net>, Michal Hocko <mhocko@suse.com>,
-	Konstantin Khlebnikov <koct9i@gmail.com>, Naoya Horiguchi <n-horiguch
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <CA+55aFzceGREzGEJda8qt6gv6=iE_yDbM+mO2dJJa0wbu-o-Ww@mail.gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next] nfnetlink_queue: enable PID info retrieval
+Date: Thu,  9 Jun 2016 23:50:08 +0300
+Message-ID: <1465505409-1232-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Andre Melkoumian <andre@mellanox.com>,
+	Matthew Finlay <matt@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:32808 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750796AbcFIUvI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2016 16:51:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 9, 2016 at 12:08 PM, Linus Torvalds
-<torvalds@linux-foundation.org> wrote:
-> On Wed, Jun 8, 2016 at 10:04 PM, Deepa Dinamani <deepa.kernel@gmail.com> wrote:
->> CURRENT_TIME macro is not appropriate for filesystems as it
->> doesn't use the right granularity for filesystem timestamps.
->> Use current_fs_time() instead.
->
-> Again - using the inode instead fo the syuperblock in tghis patch
-> would have made the patch much more obvious (it could have been 99%
-> generated with the sed-script I sent out a week or two ago), and it
-> would have made it unnecessary to add these kinds of things:
->
->> diff --git a/drivers/usb/core/devio.c b/drivers/usb/core/devio.c
->> index e9f5043..85c12f0 100644
->> --- a/drivers/usb/core/devio.c
->> +++ b/drivers/usb/core/devio.c
->> @@ -2359,6 +2359,7 @@ static long usbdev_do_ioctl(struct file *file, unsigned int cmd,
->>  {
->>         struct usb_dev_state *ps = file->private_data;
->>         struct inode *inode = file_inode(file);
->> +       struct super_block *sb = inode->i_sb;
->>         struct usb_device *dev = ps->dev;
->>         int ret = -ENOTTY;
->
-> where we add a new variable just because the calling convention was wrong.
->
-> It's not even 100% obvious that a filesystem has to have one single
-> time representation, so making the time function about the entity
-> whose time is set is also conceptually a much better model, never mind
-> that it is just what every single user seems to want anyway.
->
-> So I'd *much* rather see
->
-> +       inode->i_atime = inode->i_mtime = inode->i_ctime =
-> current_fs_time(inode);
->
-> over seeing either of these two variants::
->
-> +       inode->i_atime = inode->i_mtime = inode->i_ctime =
-> current_fs_time(inode->i_sb);
-> +       ret->i_atime = ret->i_mtime = ret->i_ctime = current_fs_time(sb);
->
-> because the first of those variants (grep for current_fs_time() in the
-> current git tree, and notice that it's the common one) we have the
-> pointless "let's chase a pointer in every caller"
->
-> And while it's true that the second variant is natural for *some*
-> situations, I've yet to find one where it wasn't equally sane to just
-> pass in the inode instead.
+From: Matthew Finlay <matt@mellanox.com>
 
-I did try changing the patches to pass inode.
-But, there are a few instances that made me think that keeping
-super_block was beneficial.
+Allow the netlink_queue_module to get the PID associated with an outgoing
+connection. Finding the PID based on the tuple in userspace is expensive.
+This additional attribute makes it convenient and efficient to get the PID
+associated with the outgoing connection in userspace, without the need to
+parse procfs.
 
-1. There are a few link, rename functions which assign times like this:
+Signed-off-by: Matthew Finlay <matt@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+CC: Pablo Neira Ayuso <pablo@netfilter.org>
+CC: Patrick McHardy <kaber@trash.net>
+CC: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+---
+ include/linux/fs.h                             |  1 +
+ include/uapi/linux/netfilter/nfnetlink_queue.h |  4 +++-
+ net/netfilter/nfnetlink_queue.c                | 25 +++++++++++++++++++++++++
+ net/socket.c                                   |  1 +
+ 4 files changed, 30 insertions(+), 1 deletion(-)
 
--       inode->i_ctime = dir->i_ctime = dir->i_mtime = CURRENT_TIME;
-+       inode->i_ctime = dir->i_ctime = dir->i_mtime =
-current_fs_time(dir->i_sb);
-
-Now, if we pass in inode, we end up making 2 calls to current_fs_time().
-We could actually just use 1 call because for all parameters the
-function uses, they are identical.
-But, it seems odd to assume that the function wouldn't use the inode,
-even though it is getting passed in to the function.
-
-2. Also, this means that we will make it an absolute policy that any filesystem
-timestamp that is not directly connected to an inode would have to use
-ktime_get_* apis.
-Some timestamps use the same on disk format and might be useful to
-have same api to be reused.
-Eg: [patch 6/21] of the current series
-
-3. Even if the filesystem inode has extra timestamps and these are not
-part of vfs inode, we still use
-vfs inode to get the timestamps from current_fs_time(): Eg: ext4 create time
-
-4. And, filesystem attributes must be assigned only after the inode is
-created or use ktime apis.
-And, only when these get assigned to inode, they will call timespec_trunc().
-
-5. 2 and 3 might lead to more code rearrangement for few filesystems.
-These will lead to more patches probably and they will not be mechanical.
-
-If these are not a problem, I can update the series that accepts inode as an
-argument instead of super_block.
-
--Deepa
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/include/linux/fs.h b/include/linux/fs.h
+index dd28814..f6e0ae3 100644
+--- a/include/linux/fs.h
++++ b/include/linux/fs.h
+@@ -871,6 +871,7 @@ extern struct block_device *I_BDEV(struct inode *inode);
+ struct fown_struct {
+ 	rwlock_t lock;          /* protects pid, uid, euid fields */
+ 	struct pid *pid;	/* pid or -pgrp where SIGIO should be sent */
++	struct pid *sock_pid;	/* pid of the process that created the socket */
+ 	enum pid_type pid_type;	/* Kind of process group SIGIO should be sent to */
+ 	kuid_t uid, euid;	/* uid/euid of process setting the owner */
+ 	int signum;		/* posix.1b rt signal to be delivered on IO */
+diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/include/uapi/linux/netfilter/nfnetlink_queue.h
+index ae30841..87379ae 100644
+--- a/include/uapi/linux/netfilter/nfnetlink_queue.h
++++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
+@@ -60,6 +60,7 @@ enum nfqnl_attr_type {
+ 	NFQA_SECCTX,			/* security context string */
+ 	NFQA_VLAN,			/* nested attribute: packet vlan info */
+ 	NFQA_L2HDR,			/* full L2 header */
++	NFQA_PID,			/* __s32 sk pid */
+ 
+ 	__NFQA_MAX
+ };
+@@ -114,7 +115,8 @@ enum nfqnl_attr_config {
+ #define NFQA_CFG_F_GSO				(1 << 2)
+ #define NFQA_CFG_F_UID_GID			(1 << 3)
+ #define NFQA_CFG_F_SECCTX			(1 << 4)
+-#define NFQA_CFG_F_MAX				(1 << 5)
++#define NFQA_CFG_F_PID				(1 << 5)
++#define NFQA_CFG_F_MAX				(1 << 6)
+ 
+ /* flags for NFQA_SKB_INFO */
+ /* packet appears to have wrong checksums, but they are ok */
+diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
+index aa93877..b7a7f5a3 100644
+--- a/net/netfilter/nfnetlink_queue.c
++++ b/net/netfilter/nfnetlink_queue.c
+@@ -278,6 +278,24 @@ nla_put_failure:
+ 	return -1;
+ }
+ 
++static int nfqnl_put_sk_pid(struct sk_buff *skb, struct sock *sk)
++{
++	struct pid *sk_pid;
++	int err = 0;
++
++	if (!sk_fullsock(sk))
++		return 0;
++
++	read_lock_bh(&sk->sk_callback_lock);
++	if (sk->sk_socket && sk->sk_socket->file) {
++		sk_pid = sk->sk_socket->file->f_owner.sock_pid;
++		if (sk_pid)
++			err = nla_put_be32(skb, NFQA_PID, htonl(pid_nr(sk_pid)));
++	}
++	read_unlock_bh(&sk->sk_callback_lock);
++	return err;
++}
++
+ static u32 nfqnl_get_sk_secctx(struct sk_buff *skb, char **secdata)
+ {
+ 	u32 seclen = 0;
+@@ -440,6 +458,9 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 			size += nla_total_size(seclen);
+ 	}
+ 
++	if (queue->flags & NFQA_CFG_F_PID)
++		size += nla_total_size(sizeof(int32_t)); /* pid */
++
+ 	skb = alloc_skb(size, GFP_ATOMIC);
+ 	if (!skb) {
+ 		skb_tx_error(entskb);
+@@ -570,6 +591,10 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
+ 	    nfqnl_put_sk_uidgid(skb, entskb->sk) < 0)
+ 		goto nla_put_failure;
+ 
++	if ((queue->flags & NFQA_CFG_F_PID) && entskb->sk &&
++	    nfqnl_put_sk_pid(skb, entskb->sk) < 0)
++		goto nla_put_failure;
++
+ 	if (seclen && nla_put(skb, NFQA_SECCTX, seclen, secdata))
+ 		goto nla_put_failure;
+ 
+diff --git a/net/socket.c b/net/socket.c
+index a1bd161..67de200 100644
+--- a/net/socket.c
++++ b/net/socket.c
+@@ -382,6 +382,7 @@ struct file *sock_alloc_file(struct socket *sock, int flags, const char *dname)
+ 	}
+ 
+ 	sock->file = file;
++	file->f_owner.sock_pid  = find_get_pid(task_pid_nr(current));
+ 	file->f_flags = O_RDWR | (flags & O_NONBLOCK);
+ 	file->private_data = sock;
+ 	return file;
+-- 
+2.8.0
