@@ -1,10 +1,9 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 8/8] net: dsa: mv88e6xxx: fail on mismatching
- probe
-Date: Thu, 9 Jun 2016 04:21:49 +0200
-Message-ID: <20160609022149.GF2227@lunn.ch>
+Subject: Re: [PATCH net-next 1/8] net: dsa: mv88e6xxx: fix style issues
+Date: Thu, 9 Jun 2016 04:22:48 +0200
+Message-ID: <20160609022248.GG2227@lunn.ch>
 References: <20160609004456.5441-1-vivien.didelot@savoirfairelinux.com>
- <20160609004456.5441-9-vivien.didelot@savoirfairelinux.com>
+ <20160609004456.5441-2-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -12,29 +11,43 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	"David S. Miller" <davem@davemloft.net>,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:39435 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751949AbcFICVv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 8 Jun 2016 22:21:51 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160609004456.5441-9-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20160609004456.5441-2-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 08, 2016 at 08:44:56PM -0400, Vivien Didelot wrote:
-> Now that we have access at probe time to the chip info described in the
-> device tree, check if the probed device matches the device node,
-> otherwise warn the user and fail.
+On Wed, Jun 08, 2016 at 08:44:49PM -0400, Vivien Didelot wrote:
+> This patch fixes 5 style problems reported by checkpatch:
+> 
+>     WARNING: suspect code indent for conditional statements (8, 24)
+>     #492: FILE: drivers/net/dsa/mv88e6xxx.c:492:
+>     +	if (phydev->link)
+>     +			reg |= PORT_PCS_CTRL_LINK_UP;
+> 
+>     CHECK: Logical continuations should be on the previous line
+>     #1318: FILE: drivers/net/dsa/mv88e6xxx.c:1318:
+>     +		     oldstate == PORT_CONTROL_STATE_FORWARDING)
+>     +		    && (state == PORT_CONTROL_STATE_DISABLED ||
+> 
+>     CHECK: multiple assignments should be avoided
+>     #1662: FILE: drivers/net/dsa/mv88e6xxx.c:1662:
+>     +		vlan->vid_begin = vlan->vid_end = next.vid;
+> 
+>     WARNING: line over 80 characters
+>     #2097: FILE: drivers/net/dsa/mv88e6xxx.c:2097:
+>     +				       const struct switchdev_obj_port_vlan *vlan,
+> 
+>     WARNING: suspect code indent for conditional statements (16, 32)
+>     #2734: FILE: drivers/net/dsa/mv88e6xxx.c:2734:
+>     +		if (mv88e6xxx_6352_family(ps) || mv88e6xxx_6351_family(ps) ||
+>     [...]
+>     +				reg |= PORT_CONTROL_EGRESS_ADD_TAG;
+> 
+>     total: 0 errors, 3 warnings, 2 checks, 3805 lines checked
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-What good is this? So what if the device tree says a different
-model. We don't care, we don't use that information at all, we read it
-from the device itself.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-The only thing that might make sense to check is the number of ports
-in device tree against what we know the switch has. I don't think we
-currently do this. But that actually requires a new method in the
-driver structure, so the core can ask the driver after probe how many
-ports it has.
-
-       Andrew
+    Andrew
