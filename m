@@ -1,55 +1,320 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v3 net-next 3/5] net: vrf: call
- netdev_lockdep_set_classes()
-Date: Thu, 9 Jun 2016 09:05:12 -0600
-Message-ID: <dbf12e0e-a4b6-f5f2-ff1c-3e2d52371fab@cumulusnetworks.com>
-References: <1465483515-10821-1-git-send-email-edumazet@google.com>
- <1465483515-10821-4-git-send-email-edumazet@google.com>
+From: Gerard Garcia <ggarcia@abra.uab.cat>
+Subject: Re: [RFC 2/3] vsockmon: Add vsockmon device
+Date: Thu, 9 Jun 2016 17:21:26 +0200
+Message-ID: <d5141c2f-0558-2b1b-9089-4901d54e5beb@deic.uab.cat>
+References: <20160528162907.14809-1-ggarcia@deic.uab.cat>
+ <20160528162907.14809-3-ggarcia@deic.uab.cat>
+ <20160601211554.GG15594@stefanha-x1.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org, jhansen@vmware.com
+To: Stefan Hajnoczi <stefanha@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35470 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751469AbcFIPFO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 11:05:14 -0400
-Received: by mail-pa0-f46.google.com with SMTP id hl6so13621525pac.2
-        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 08:05:14 -0700 (PDT)
-In-Reply-To: <1465483515-10821-4-git-send-email-edumazet@google.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35674 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752042AbcFIPV3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 11:21:29 -0400
+Received: by mail-wm0-f66.google.com with SMTP id k184so11500924wme.2
+        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 08:21:28 -0700 (PDT)
+In-Reply-To: <20160601211554.GG15594@stefanha-x1.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/9/16 8:45 AM, Eric Dumazet wrote:
-> In case a qdisc is used on a vrf device, we need to use different
-> lockdep classes to avoid false positives.
->
-> Use the new netdev_lockdep_set_classes() generic helper.
->
-> Reported-by: David Ahern <dsa@cumulusnetworks.com>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> ---
->  drivers/net/vrf.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
-> index e3e693bf0dec..b82e3527924e 100644
-> --- a/drivers/net/vrf.c
-> +++ b/drivers/net/vrf.c
-> @@ -661,7 +661,7 @@ static int vrf_dev_init(struct net_device *dev)
->
->  	/* similarly, oper state is irrelevant; set to up to avoid confusion */
->  	dev->operstate = IF_OPER_UP;
-> -
-> +	netdev_lockdep_set_classes(dev);
->  	return 0;
->
->  out_rth:
->
 
-Works for me. Thanks, Eric.
 
-Tested-by: David Ahern <dsa@cumulusnetworks.com>
+On 06/01/2016 11:15 PM, Stefan Hajnoczi wrote:
+> On Sat, May 28, 2016 at 06:29:06PM +0200, ggarcia@abra.uab.cat wrote:
+>> From: Gerard Garcia <ggarcia@deic.uab.cat>
+>>
+>> Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
+>> ---
+>>   drivers/net/Kconfig           |   8 ++
+>>   drivers/net/Makefile          |   1 +
+>>   drivers/net/vsockmon.c        | 171 ++++++++++++++++++++++++++++++++++++++++++
+>>   include/uapi/linux/Kbuild     |   1 +
+>>   include/uapi/linux/vsockmon.h |  37 +++++++++
+>>   5 files changed, 218 insertions(+)
+>>   create mode 100644 drivers/net/vsockmon.c
+>>   create mode 100644 include/uapi/linux/vsockmon.h
+>>
+>> diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+>> index 0c5415b..42c43b6 100644
+>> --- a/drivers/net/Kconfig
+>> +++ b/drivers/net/Kconfig
+>> @@ -330,6 +330,14 @@ config NET_VRF
+>>   	  This option enables the support for mapping interfaces into VRF's. The
+>>   	  support enables VRF devices.
+>>   
+>> +config VSOCKMON
+>> +    tristate "Virtual vsock monitoring device"
+>> +    depends on VHOST_VSOCK
+>> +    ---help---
+>> +     This option enables a monitoring net device for vsock sockets. It is
+>> +     mostly intended for developers or support to debug vsock issues. If
+>> +     unsure, say N.
+>> +
+>>   endif # NET_CORE
+>>   
+>>   config SUNGEM_PHY
+>> diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+>> index 7336cbd..e2188d4 100644
+>> --- a/drivers/net/Makefile
+>> +++ b/drivers/net/Makefile
+>> @@ -28,6 +28,7 @@ obj-$(CONFIG_GENEVE) += geneve.o
+>>   obj-$(CONFIG_GTP) += gtp.o
+>>   obj-$(CONFIG_NLMON) += nlmon.o
+>>   obj-$(CONFIG_NET_VRF) += vrf.o
+>> +obj-$(CONFIG_VSOCKMON) += vsockmon.o
+>>   
+>>   #
+>>   # Networking Drivers
+>> diff --git a/drivers/net/vsockmon.c b/drivers/net/vsockmon.c
+>> new file mode 100644
+>> index 0000000..becddc9
+>> --- /dev/null
+>> +++ b/drivers/net/vsockmon.c
+>> @@ -0,0 +1,171 @@
+>> +#include <linux/module.h>
+>> +#include <linux/kernel.h>
+>> +#include <linux/if_arp.h>
+>> +#include <net/rtnetlink.h>
+>> +#include <net/sock.h>
+>> +#include <net/af_vsock.h>
+>> +#include <uapi/linux/vsockmon.h>
+>> +
+>> +/* Virtio transport max packet size plus header */
+>> +#define DEFAULT_MTU 1024 * 64 + sizeof(struct af_vsockmon_hdr);
+>> +
+>> +struct pcpu_lstats {
+>> +	u64 rx_packets;
+>> +	u64 rx_bytes;
+>> +	struct u64_stats_sync syncp;
+>> +};
+>> +
+>> +static int vsockmon_dev_init(struct net_device *dev)
+>> +{
+>> +	dev->lstats = netdev_alloc_pcpu_stats(struct pcpu_lstats);
+>> +	return dev->lstats == NULL ? -ENOMEM : 0;
+>> +}
+>> +
+>> +static void vsockmon_dev_uninit(struct net_device *dev)
+>> +{
+>> +	free_percpu(dev->lstats);
+>> +}
+>> +
+>> +struct vsockmon {
+>> +	struct vsock_tap vt;
+>> +};
+>> +
+>> +static int vsockmon_open(struct net_device *dev)
+>> +{
+>> +	struct vsockmon *vsockmon = netdev_priv(dev);
+>> +
+>> +	vsockmon->vt.dev = dev;
+>> +	vsockmon->vt.module = THIS_MODULE;
+>> +	return vsock_add_tap(&vsockmon->vt);
+>> +}
+>> +
+>> +static int vsockmon_close(struct net_device *dev) {
+>> +	struct vsockmon *vsockmon = netdev_priv(dev);
+>> +
+>> +	return vsock_remove_tap(&vsockmon->vt);
+>> +}
+>> +
+>> +static netdev_tx_t vsockmon_xmit(struct sk_buff *skb, struct net_device *dev)
+>> +{
+>> +	int len = skb->len;
+>> +	struct pcpu_lstats *stats = this_cpu_ptr(dev->lstats);
+>> +
+>> +	u64_stats_update_begin(&stats->syncp);
+>> +	stats->rx_bytes += len;
+>> +	stats->rx_packets++;
+>> +	u64_stats_update_end(&stats->syncp);
+>> +
+>> +	dev_kfree_skb(skb);
+>> +
+>> +	return NETDEV_TX_OK;
+>> +}
+>> +
+>> +static struct rtnl_link_stats64 *
+>> +vsockmon_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+>> +{
+>> +	int i;
+>> +	u64 bytes = 0, packets = 0;
+>> +
+>> +	for_each_possible_cpu(i) {
+>> +		const struct pcpu_lstats *vstats;
+>> +		u64 tbytes, tpackets;
+>> +		unsigned int start;
+>> +
+>> +		vstats = per_cpu_ptr(dev->lstats, i);
+>> +
+>> +		do {
+>> +			start = u64_stats_fetch_begin_irq(&vstats->syncp);
+>> +			tbytes = vstats->rx_bytes;
+>> +			tpackets = vstats->rx_packets;
+>> +		} while (u64_stats_fetch_retry_irq(&vstats->syncp, start));
+>> +
+>> +		packets += tpackets;
+>> +		bytes += tbytes;
+>> +	}
+>> +
+>> +	stats->rx_packets = packets;
+>> +	stats->tx_packets = 0;
+>> +
+>> +	stats->rx_bytes = bytes;
+>> +	stats->tx_bytes = 0;
+>> +
+>> +	return stats;
+>> +}
+>> +
+>> +static int vsockmon_is_valid_mtu(int new_mtu)
+>> +{
+>> +	return new_mtu >= (int) sizeof(struct af_vsockmon_hdr);
+>> +}
+>> +
+>> +static int vsockmon_change_mtu(struct net_device *dev, int new_mtu)
+>> +{
+>> +	if (!vsockmon_is_valid_mtu(new_mtu))
+>> +		return -EINVAL;
+>> +
+>> +	dev->mtu = new_mtu;
+>> +	return 0;
+>> +}
+> I wonder if the mtu serves any purpose.  What happens when you change it
+> from the default value?
+It does not happen anything as we don't consider the mtu anywhere.
+I think it is interesting to set it so monitoring programs can adjust 
+their buffers and it may be interesting to be able to change it so if 
+the transport changes the mtu (or if vmci support is added) it can be 
+adjusted.
+>> +
+>> +static const struct net_device_ops vsockmon_ops = {
+>> +	.ndo_init = vsockmon_dev_init,
+>> +	.ndo_uninit = vsockmon_dev_uninit,
+>> +	.ndo_open = vsockmon_open,
+>> +	.ndo_stop = vsockmon_close,
+>> +	.ndo_start_xmit = vsockmon_xmit,
+>> +	.ndo_get_stats64 = vsockmon_get_stats64,
+>> +	.ndo_change_mtu = vsockmon_change_mtu,
+>> +};
+>> +
+>> +static u32 always_on(struct net_device *dev)
+>> +{
+>> +	return 1;
+>> +}
+>> +
+>> +static const struct ethtool_ops vsockmon_ethtool_ops = {
+>> +	.get_link = always_on,
+>> +};
+>> +
+>> +static void vsockmon_setup(struct net_device *dev)
+>> +{
+>> +	dev->type = ARPHRD_VSOCKMON;
+>> +	dev->priv_flags |= IFF_NO_QUEUE;
+>> +
+>> +	dev->netdev_ops	= &vsockmon_ops;
+>> +	dev->ethtool_ops = &vsockmon_ethtool_ops;
+>> +	dev->destructor	= free_netdev;
+>> +
+>> +	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST |
+>> +			NETIF_F_HIGHDMA | NETIF_F_LLTX;
+>> +
+>> +	dev->flags = IFF_NOARP;
+>> +
+>> +	dev->mtu = DEFAULT_MTU;
+>> +}
+>> +
+>> +static struct rtnl_link_ops vsockmon_link_ops __read_mostly = {
+>> +	.kind			= "vsockmon",
+>> +	.priv_size		= sizeof(struct vsockmon),
+>> +	.setup			= vsockmon_setup,
+>> +};
+>> +
+>> +static __init int vsockmon_register(void)
+>> +{
+>> +	int ret = rtnl_link_register(&vsockmon_link_ops);
+>> +	if (!ret)
+>> +		vsock_init_tap();
+>> +
+>> +	return ret;
+>> +}
+>> +
+>> +static __exit void vsockmon_unregister(void)
+>> +{
+>> +	rtnl_link_unregister(&vsockmon_link_ops);
+>> +}
+>> +
+>> +module_init(vsockmon_register);
+>> +module_exit(vsockmon_unregister);
+>> +
+>> +MODULE_LICENSE("GPL v2");
+>> +MODULE_AUTHOR("Gerard Garcia <ggarcia@deic.uab.cat>");
+>> +MODULE_DESCRIPTION("Vsock monitoring device");
+>> +MODULE_ALIAS_RTNL_LINK("vsockmon");
+> there should be some mention that this is derived from nlmon.c.
+Ok, I'll add in the description that it is based on the nlmon code.
+>> diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+>> index 5f047d2..b1836cc 100644
+>> --- a/include/uapi/linux/Kbuild
+>> +++ b/include/uapi/linux/Kbuild
+>> @@ -454,6 +454,7 @@ header-y += virtio_scsi.h
+>>   header-y += virtio_types.h
+>>   header-y += virtio_vsock.h
+>>   header-y += vm_sockets.h
+>> +header-y += vsockmon.h
+>>   header-y += vt.h
+>>   header-y += wait.h
+>>   header-y += wanrouter.h
+>> diff --git a/include/uapi/linux/vsockmon.h b/include/uapi/linux/vsockmon.h
+>> new file mode 100644
+>> index 0000000..c73166f
+>> --- /dev/null
+>> +++ b/include/uapi/linux/vsockmon.h
+>> @@ -0,0 +1,37 @@
+>> +#ifndef _UAPI_VSOCKMON_H
+>> +#define _UAPI_VSOCKMON_H
+>> +
+>> +#include <linux/virtio_vsock.h>
+>> +
+>> +/* Packet structure of packets received from the vsockmon device. */
+>> +
+>> +struct af_vsockmon_g {
+>> +	unsigned short op; /* enum af_vsock_g_ops */
+>> +	unsigned int src_cid;
+>> +	unsigned int src_port;
+>> +	unsigned int dst_cid;
+>> +	unsigned int dst_port;
+>> +};
+>> +
+>> +struct af_vsockmon_hdr {
+>> +	unsigned short type;  /* enum af_vosck_type */
+>> +	struct af_vsockmon_g g_hdr;
+>> +	union {
+>> +		struct virtio_vsock_hdr virtio_hdr;
+>> +	} t_hdr;
+>> +};
+> How does endianness work?  virtio_hdr uses little-endian fields on the
+> wire.  I guess that af_vsockmon_g is always CPU-endian.
+Yes, af_vsockmon_g is CPU-endian. I don't know what criteria is normally 
+used regarding the endianness of structs facing user space but I think 
+it is better to not modify the vsock transport structs.
+>> +
+>> +enum af_vsockmon_type {
+>> +	AF_VSOCK_GENERIC = 1, /* No transport header */
+>> +	AF_VSOCK_VIRTIO = 2,  /* Addtional virtio transport header */
+>> +};
+>> +
+>> +enum af_vsockmon_g_ops {
+>> +	AF_VSOCK_G_OP_UNKNOWN = 0,
+>> +	AF_VSOCK_G_OP_CONNECT = 1,
+>> +	AF_VSOCK_G_OP_DISCONNECT = 2,
+>> +	AF_VSOCK_G_OP_CONTROL = 3,
+>> +	AF_VSOCK_G_OP_PAYLOAD = 4,
+>> +};
+>> +
+>> +#endif
+>> -- 
+>> 2.8.3
+>>
