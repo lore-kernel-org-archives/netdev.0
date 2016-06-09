@@ -1,72 +1,64 @@
 From: Amitkumar Karwar <akarwar@marvell.com>
-Subject: RE: [PATCH 0/8] mwifiex: Fix some error handling issues in
- mwifiex_sdio_probe() function
-Date: Thu, 9 Jun 2016 13:43:32 +0000
-Message-ID: <4e8cc9d4a8db4283aaa38564b6a36556@SC-EXCH04.marvell.com>
+Subject: RE: [PATCH 7/8] mwifiex: don't print an error if an optional DT
+ property is missing
+Date: Thu, 9 Jun 2016 13:51:45 +0000
+Message-ID: <01bb6d9c1c7f4419b2d88051b8e811f4@SC-EXCH04.marvell.com>
 References: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
+ <1464358702-19083-8-git-send-email-javier@osg.samsung.com>
+ <CAGRGNgUZ+mG_KzhiOzquB3qd-V_Pdbazag=nrFpG87mRQGmXLg@mail.gmail.com>
+ <ec09757e-302a-b341-6bf0-46737abb7976@osg.samsung.com>
+ <CAGRGNgUaNAxhhvnVJDx73yABvp3HXfqK5JFKCKvOgkM0DyFuPA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Xinming Hu <huxm@marvell.com>, Kalle Valo <kvalo@codeaurora.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"Nishant Sarmukadam" <nishants@marvell.com>
-To: Javier Martinez Canillas <javier@osg.samsung.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Nishant Sarmukadam <nishants@marvell.com>
+To: Julian Calaby <julian.calaby@gmail.com>,
+	Javier Martinez Canillas <javier@osg.samsung.com>,
+	Xinming Hu <huxm@marvell.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:63983 "EHLO
+	mx0a-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751168AbcFINvt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 09:51:49 -0400
+In-Reply-To: <CAGRGNgUaNAxhhvnVJDx73yABvp3HXfqK5JFKCKvOgkM0DyFuPA@mail.gmail.com>
 Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: Javier Martinez Canillas [mailto:javier@osg.samsung.com]
-> Sent: Friday, May 27, 2016 7:48 PM
-> To: linux-kernel@vger.kernel.org
-> Cc: Xinming Hu; Javier Martinez Canillas; Amitkumar Karwar; Kalle Valo;
-> netdev@vger.kernel.org; linux-wireless@vger.kernel.org; Nishant
-> Sarmukadam
-> Subject: [PATCH 0/8] mwifiex: Fix some error handling issues in
-> mwifiex_sdio_probe() function
-> 
-> Hello,
-> 
-> While booting a system with a mwifiex WiFi card, I noticed the following
-> missleading error message:
-> 
-> [  12.480042] mwifiex_sdio mmc2:0001:1: sdio platform data not available
-> 
-> This error only applies to platforms that define a child node for the
-> SDIO device, but it's currently shown even in platforms that don't have
-> a child node defined.
-> 
-> So this series fixes this issue and others I found in the .probe
-> function (mostly related to error handling and the error path) while
-> looking at it.
-> 
-> Best regards,
-> Javier
-> 
-> 
-> Javier Martinez Canillas (8):
->   mwifiex: only call mwifiex_sdio_probe_of() if dev has an OF node
->   mwifiex: propagate sdio_enable_func() errno code in
->     mwifiex_sdio_probe()
->   mwifiex: propagate mwifiex_add_card() errno code in
->     mwifiex_sdio_probe()
->   mwifiex: consolidate mwifiex_sdio_probe() error paths
->   mwifiex: use dev_err() instead of pr_err() in mwifiex_sdio_probe()
->   mwifiex: check if mwifiex_sdio_probe_of() fails and return error
->   mwifiex: don't print an error if an optional DT property is missing
->   mwifiex: use better message and error code when OF node doesn't match
-> 
->  drivers/net/wireless/marvell/mwifiex/sdio.c | 46 ++++++++++++++++++----
-> -------
->  1 file changed, 28 insertions(+), 18 deletions(-)
-> 
-
-Thanks for fixing the error handling code. These patches look fine to me.
-
-Acked-by: Amitkumar Karwar <akarwar@marvell.com>
-
-Regards,
-Amitkumar
+PiBGcm9tOiBKdWxpYW4gQ2FsYWJ5IFttYWlsdG86anVsaWFuLmNhbGFieUBnbWFpbC5jb21dDQo+
+IFNlbnQ6IFRodXJzZGF5LCBKdW5lIDAyLCAyMDE2IDQ6NDQgQU0NCj4gVG86IEphdmllciBNYXJ0
+aW5leiBDYW5pbGxhczsgWGlubWluZyBIdQ0KPiBDYzogbGludXgta2VybmVsQHZnZXIua2VybmVs
+Lm9yZzsgQW1pdGt1bWFyIEthcndhcjsgS2FsbGUgVmFsbzsgbmV0ZGV2Ow0KPiBsaW51eC13aXJl
+bGVzczsgTmlzaGFudCBTYXJtdWthZGFtDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggNy84XSBtd2lm
+aWV4OiBkb24ndCBwcmludCBhbiBlcnJvciBpZiBhbiBvcHRpb25hbCBEVA0KPiBwcm9wZXJ0eSBp
+cyBtaXNzaW5nDQo+IA0KPiBIaSBKYXZpZXIsDQo+IA0KPiBPbiBXZWQsIEp1biAxLCAyMDE2IGF0
+IDExOjUxIFBNLCBKYXZpZXIgTWFydGluZXogQ2FuaWxsYXMNCj4gPGphdmllckBvc2cuc2Ftc3Vu
+Zy5jb20+IHdyb3RlOg0KPiA+IEhlbGxvIEp1bGlhbiwNCj4gPg0KPiA+IFRoYW5rcyBhIGxvdCBm
+b3IgeW91ciBmZWVkYmFjayBhbmQgcmV2aWV3cy4NCj4gPg0KPiA+IE9uIDA2LzAxLzIwMTYgMTI6
+MjAgQU0sIEp1bGlhbiBDYWxhYnkgd3JvdGU6DQo+ID4+IEhpIEFsbCwNCj4gPj4NCj4gPj4gT24g
+U2F0LCBNYXkgMjgsIDIwMTYgYXQgMTI6MTggQU0sIEphdmllciBNYXJ0aW5leiBDYW5pbGxhcw0K
+PiA+PiA8amF2aWVyQG9zZy5zYW1zdW5nLmNvbT4gd3JvdGU6DQo+ID4+PiBUaGUNCj4gPj4+IERv
+Y3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvd2lyZWxlc3MvbWFydmVsbC1zZDh4
+eHgudHh0IERUDQo+ID4+PiBiaW5kaW5nIGRvY3VtZW50IHNheSB0aGF0IHRoZSAiaW50ZXJydXB0
+cyIgcHJvcGVydHkgaW4gdGhlIGNoaWxkDQo+IG5vZGUgaXMgb3B0aW9uYWwuIFNvIHRoZSBwcm9w
+ZXJ0eSBiZWluZyBtaXNzZWQgc2hvdWxkbid0IGJlIHRyZWF0ZWQgYXMNCj4gYW4gZXJyb3IuDQo+
+ID4+DQo+ID4+IEhhdmUgeW91IGNoZWNrZWQgd2hldGhlciBpdCBpcyB0cnVseSBvcHRpb25hbD8g
+SS5lLiBub3RoaW5nIGVsc2UNCj4gPj4gYnJlYWtzIGlmIHRoaXMgcHJvcGVydHkgaXNuJ3Qgc2V0
+Pw0KPiA+Pg0KPiA+DQo+ID4gVGhhdCdzIHdoYXQgdGhlIERUIGJpbmRpbmcgc2F5cyBhbmQgdGhl
+IElSUSBpcyBvbmx5IHVzZWQgYXMgYSB3YWtldXANCj4gPiBzb3VyY2UgZHVyaW5nIHN5c3RlbSBz
+dXNwZW5kLCBpdCBpcyBub3QgdXNlZCBkdXJpbmcgcnVudGltZS4gQW5kIHRoYXQNCj4gPiBpcyB3
+aHkgdGhlDQo+ID4gbXdpZmlleF9zZGlvX3Byb2JlX29mKCkgZnVuY3Rpb24gZG9lcyBub3QgZmFp
+bCBpZiB0aGUgSVJRIGlzIG1pc3NpbmcuDQo+IA0KPiBBd2Vzb21lLCB0aGF0J3Mgd2hhdCBJIHdh
+bnRlZCB0byBrbm93Lg0KPiANCj4gPiBOb3csIEkganVzdCBnb3QgdG8gdGhhdCBjb25jbHVzaW9u
+IGJ5IHJlYWRpbmcgdGhlIGJpbmRpbmcgZG9jcywgdGhlDQo+ID4gbWVzc2FnZSBpbiB0aGUgY29t
+bWl0cyB0aGF0IGludHJvZHVjZWQgdGhpcyBhbmQgdGhlIGRyaXZlciBjb2RlLg0KPiA+IFhpbm1p
+bmcgSHUgc2hvdWxkIGNvbW1lbnQgb24gaG93IGNyaXRpY2FsIHRoaXMgZmVhdHVyZSBpcyBmb3Ig
+c3lzdGVtcw0KPiB0aGF0IG5lZWRzIHRvIGJlIHdha2V1cC4NCj4gDQo+IFhpbm1pbmcsIGNvdWxk
+IHlvdSByZXZpZXcgdGhpcyBhbHNvPw0KPiANCg0KWWVzLiBJUlEgaXMgdGhlIG9wdGlvbmFsIHBh
+cmFtZXRlci4gU3lzdGVtIGhhcyBhIGZsZXhpYmlsaXR5IHRvIG5vdCB1c2UgaXQsIGJ1dCBpdCBz
+dGlsbCBjYW4gY29uZmlndXJlIG90aGVyIGRldmljZSB0cmVlIHBhcmFtZXRlcnMuIFRoZSBwYXRj
+aCBsb29rcyBnb29kLg0KDQpSZWdhcmRzLA0KQW1pdGt1bWFyDQo=
