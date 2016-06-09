@@ -1,53 +1,35 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: pull-request: mac80211 2016-06-09
-Date: Thu,  9 Jun 2016 14:47:57 +0200
-Message-ID: <1465476478-23080-1-git-send-email-johannes@sipsolutions.net>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 5/8] net: dsa: mv88e6xxx: add switch register helpers
+Date: Thu, 09 Jun 2016 08:53:53 -0400
+Message-ID: <878tyewmji.fsf@ketchup.mtl.sfl>
+References: <20160609004456.5441-1-vivien.didelot@savoirfairelinux.com> <20160609004456.5441-6-vivien.didelot@savoirfairelinux.com> <20160609023934.GK2227@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160609023934.GK2227@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Here are two more fixes for the current cycle, please pull.
+> On Wed, Jun 08, 2016 at 08:44:53PM -0400, Vivien Didelot wrote:
+>> Extract the allocation and registration code related to the dsa_switch
+>> structure in a mv88e6xxx_register_switch helper function.
+>> 
+>> For symmetry in the code, add a mv88e6xxx_unregister_switch function.
+>
+> You say what you are doing, but not why?
 
-Let me know if there's any problem.
+The mixed assignements and registrations in the probe code make it hard
+to read and figure out what is dsa or chip specific, so I made that
+change to provide a simple function doing one thing, make it easier to
+follow the probe logic.
 
-Thanks,
-johannes
+Thanks, I'll update the commit message.
 
-
-
-The following changes since commit 6fe04128f158c5ad27e7504bfdf1b12e63331bc9:
-
-  mac80211: fix fast_tx header alignment (2016-05-31 12:14:04 +0200)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-06-09
-
-for you to fetch changes up to 3d5fdff46c4b2b9534fa2f9fc78e90a48e0ff724:
-
-  wext: Fix 32 bit iwpriv compatibility issue with 64 bit Kernel (2016-06-09 09:56:11 +0200)
-
-----------------------------------------------------------------
-Two more fixes for now:
- * a fix for a long-standing iwpriv 32/64 compat issue
- * two fairly recently introduced (4.6) warning asking for
-   symmetric operations are erroneous and I remove them
-
-----------------------------------------------------------------
-Johannes Berg (1):
-      cfg80211: remove get/set antenna and tx power warnings
-
-Prasun Maiti (1):
-      wext: Fix 32 bit iwpriv compatibility issue with 64 bit Kernel
-
- net/wireless/core.c      |  2 --
- net/wireless/wext-core.c | 25 +++++++++++++++++++++++--
- 2 files changed, 23 insertions(+), 4 deletions(-)
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+        Vivien
