@@ -1,139 +1,137 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next] nfnetlink_queue: enable PID info retrieval
-Date: Thu,  9 Jun 2016 23:50:08 +0300
-Message-ID: <1465505409-1232-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Andre Melkoumian <andre@mellanox.com>,
-	Matthew Finlay <matt@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:32808 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750796AbcFIUvI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2016 16:51:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [Intel-wired-lan] [RFC PATCH net] e1000e: keep vlan interfaces
+ functional after rxvlan off
+Date: Thu, 9 Jun 2016 16:55:01 -0400
+Message-ID: <20160609205501.GS56933@redhat.com>
+References: <1463511831-13684-1-git-send-email-jarod@redhat.com>
+ <CAKgT0UfKV23p18L=wCoyy7WXa7s7pQQRVVK8F_mVea0dOJKekA@mail.gmail.com>
+ <20160601192724.GA56933@redhat.com>
+ <CAKgT0UdXyHt1tbFijqiN57H49TBxSrJ4VcT4A7uKS0oXUouWTA@mail.gmail.com>
+ <20160609180204.GR56933@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160609180204.GR56933@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Matthew Finlay <matt@mellanox.com>
+On Thu, Jun 09, 2016 at 02:02:04PM -0400, Jarod Wilson wrote:
+> On Wed, Jun 01, 2016 at 03:31:46PM -0700, Alexander Duyck wrote:
+> > On Wed, Jun 1, 2016 at 12:27 PM, Jarod Wilson <jarod@redhat.com> wrote:
+> > > On Wed, Jun 01, 2016 at 07:31:53AM -0700, Alexander Duyck wrote:
+> > >> On Tue, May 17, 2016 at 12:03 PM, Jarod Wilson <jarod@redhat.com> wrote:
+> > >> > I've got a bug report about an e1000e interface, where a vlan interface is
+> > >> > set up on top of it:
+> > >> >
+> > >> > $ ip link add link ens1f0 name ens1f0.99 type vlan id 99
+> > >> > $ ip link set ens1f0 up
+> > >> > $ ip link set ens1f0.99 up
+> > >> > $ ip addr add 192.168.99.92 dev ens1f0.99
+> > >> >
+> > >> > At this point, I can ping another host on vlan 99, ip 192.168.99.91.
+> > >> > However, if I do the following:
+> > >> >
+> > >> > $ ethtool -K ens1f0 rxvlan off
+> > >> >
+> > >> > Then no traffic passes on ens1f0.99. It comes back if I toggle rxvlan on
+> > >> > again. I'm not sure if this is actually intended behavior, or if there's a
+> > >> > lack of software vlan stripping fallback, or what, but things continue to
+> > >> > work if I simply don't call e1000e_vlan_strip_disable() if there are
+> > >> > active vlans (plagiarizing a function from the e1000 driver here) on the
+> > >> > interface.
+> > >> >
+> > >> > Also slipped a related-ish fix to the kerneldoc text for
+> > >> > e1000e_vlan_strip_disable here...
+> > >> >
+> > >> > CC: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+> > >> > CC: intel-wired-lan@lists.osuosl.org
+> > >> > CC: netdev@vger.kernel.org
+> > >> > Signed-off-by: Jarod Wilson <jarod@redhat.com>
+> > >> > ---
+> > >> >  drivers/net/ethernet/intel/e1000e/netdev.c | 15 +++++++++++++--
+> > >> >  1 file changed, 13 insertions(+), 2 deletions(-)
+> > >> >
+> > >> > diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+> > >> > index 75e6089..73f7452 100644
+> > >> > --- a/drivers/net/ethernet/intel/e1000e/netdev.c
+> > >> > +++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+> > >> > @@ -154,6 +154,16 @@ void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val)
+> > >> >         writel(val, hw->hw_addr + reg);
+> > >> >  }
+> > >> >
+> > >> > +static bool e1000e_vlan_used(struct e1000_adapter *adapter)
+> > >> > +{
+> > >> > +       u16 vid;
+> > >> > +
+> > >> > +       for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
+> > >> > +               return true;
+> > >> > +
+> > >>
+> > >> I'm pretty sure this is always going to return true if 8021q is loaded
+> > >> because VLAN 0 is always added to the device even if no other VLANs
+> > >> are in use.
+> > >
+> > > Ah, hadn't considered that, I just plucked it straight from e1000.
+> > >
+> > >> > +       return false;
+> > >> > +}
+> > >> > +
+> > >> >  /**
+> > >> >   * e1000_regdump - register printout routine
+> > >> >   * @hw: pointer to the HW structure
+> > >> > @@ -2789,7 +2799,7 @@ static void e1000e_vlan_filter_enable(struct e1000_adapter *adapter)
+> > >> >  }
+> > >> >
+> > >> >  /**
+> > >> > - * e1000e_vlan_strip_enable - helper to disable HW VLAN stripping
+> > >> > + * e1000e_vlan_strip_disable - helper to disable HW VLAN stripping
+> > >> >   * @adapter: board private structure to initialize
+> > >> >   **/
+> > >> >  static void e1000e_vlan_strip_disable(struct e1000_adapter *adapter)
+> > >> > @@ -3443,7 +3453,8 @@ static void e1000e_set_rx_mode(struct net_device *netdev)
+> > >> >
+> > >> >         ew32(RCTL, rctl);
+> > >> >
+> > >> > -       if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
+> > >> > +       if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX ||
+> > >> > +           e1000e_vlan_used(adapter))
+> > >> >                 e1000e_vlan_strip_enable(adapter);
+> > >> >         else
+> > >> >                 e1000e_vlan_strip_disable(adapter);
+> > >>
+> > >> So if the VLAN tag stripping is disabled what happens that is causing
+> > >> the VLAN test to fail?  It sounds like this might be working around a
+> > >> kernel bug where a VLAN created on a device that supports hardware tag
+> > >> stripping only supports hardware tag stripping.  Maybe a better fix
+> > >> would be to add a fall back so if the VLAN tag is in the frame instead
+> > >> of stripped it still makes it to the correct spot.
+> > >
+> > > That's the main reason I labeled it as an RFC -- I wasn't sure exactly how
+> > > things were intended to work when the hardware stripping was disabled. It
+> > > seems quite plausible to me that this patch simply papers over the real
+> > > bug: lack of a functional software fallback. I'm not particularly up on
+> > > the vlan code just yet though, so I'm not yet sure where to poke next.
+> > > Suggestions welcomed. :)
+> > 
+> > Well the software fallback should be the call to skb_vlan_untag in
+> > __netif_receive_skb_core.  If that isn't being triggered then we
+> > should probably be fixing the files in the core code then.
+> 
+> So I've been poking at a debug-spew-laden kernel some, and skb_vlan_untag
+> is most definitely not getting called when rxvlan off is set. I'm still
+> poking around, trying to track down where things are going askew.
 
-Allow the netlink_queue_module to get the PID associated with an outgoing
-connection. Finding the PID based on the tuple in userspace is expensive.
-This additional attribute makes it convenient and efficient to get the PID
-associated with the outgoing connection in userspace, without the need to
-parse procfs.
+Okay, so rxvlan is *supposed* to only impact the rx path, right? It's
+looking like it is actually impacting the tx path too here. I actually
+*do* see calls to skb_vlan_untag with rxvlan off, if I ping from an
+external host, so it seems only the packets from the host with rxvlan
+toggled off aren't escaping correctly for some reason.
 
-Signed-off-by: Matthew Finlay <matt@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-CC: Pablo Neira Ayuso <pablo@netfilter.org>
-CC: Patrick McHardy <kaber@trash.net>
-CC: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
----
- include/linux/fs.h                             |  1 +
- include/uapi/linux/netfilter/nfnetlink_queue.h |  4 +++-
- net/netfilter/nfnetlink_queue.c                | 25 +++++++++++++++++++++++++
- net/socket.c                                   |  1 +
- 4 files changed, 30 insertions(+), 1 deletion(-)
-
-diff --git a/include/linux/fs.h b/include/linux/fs.h
-index dd28814..f6e0ae3 100644
---- a/include/linux/fs.h
-+++ b/include/linux/fs.h
-@@ -871,6 +871,7 @@ extern struct block_device *I_BDEV(struct inode *inode);
- struct fown_struct {
- 	rwlock_t lock;          /* protects pid, uid, euid fields */
- 	struct pid *pid;	/* pid or -pgrp where SIGIO should be sent */
-+	struct pid *sock_pid;	/* pid of the process that created the socket */
- 	enum pid_type pid_type;	/* Kind of process group SIGIO should be sent to */
- 	kuid_t uid, euid;	/* uid/euid of process setting the owner */
- 	int signum;		/* posix.1b rt signal to be delivered on IO */
-diff --git a/include/uapi/linux/netfilter/nfnetlink_queue.h b/include/uapi/linux/netfilter/nfnetlink_queue.h
-index ae30841..87379ae 100644
---- a/include/uapi/linux/netfilter/nfnetlink_queue.h
-+++ b/include/uapi/linux/netfilter/nfnetlink_queue.h
-@@ -60,6 +60,7 @@ enum nfqnl_attr_type {
- 	NFQA_SECCTX,			/* security context string */
- 	NFQA_VLAN,			/* nested attribute: packet vlan info */
- 	NFQA_L2HDR,			/* full L2 header */
-+	NFQA_PID,			/* __s32 sk pid */
- 
- 	__NFQA_MAX
- };
-@@ -114,7 +115,8 @@ enum nfqnl_attr_config {
- #define NFQA_CFG_F_GSO				(1 << 2)
- #define NFQA_CFG_F_UID_GID			(1 << 3)
- #define NFQA_CFG_F_SECCTX			(1 << 4)
--#define NFQA_CFG_F_MAX				(1 << 5)
-+#define NFQA_CFG_F_PID				(1 << 5)
-+#define NFQA_CFG_F_MAX				(1 << 6)
- 
- /* flags for NFQA_SKB_INFO */
- /* packet appears to have wrong checksums, but they are ok */
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index aa93877..b7a7f5a3 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -278,6 +278,24 @@ nla_put_failure:
- 	return -1;
- }
- 
-+static int nfqnl_put_sk_pid(struct sk_buff *skb, struct sock *sk)
-+{
-+	struct pid *sk_pid;
-+	int err = 0;
-+
-+	if (!sk_fullsock(sk))
-+		return 0;
-+
-+	read_lock_bh(&sk->sk_callback_lock);
-+	if (sk->sk_socket && sk->sk_socket->file) {
-+		sk_pid = sk->sk_socket->file->f_owner.sock_pid;
-+		if (sk_pid)
-+			err = nla_put_be32(skb, NFQA_PID, htonl(pid_nr(sk_pid)));
-+	}
-+	read_unlock_bh(&sk->sk_callback_lock);
-+	return err;
-+}
-+
- static u32 nfqnl_get_sk_secctx(struct sk_buff *skb, char **secdata)
- {
- 	u32 seclen = 0;
-@@ -440,6 +458,9 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- 			size += nla_total_size(seclen);
- 	}
- 
-+	if (queue->flags & NFQA_CFG_F_PID)
-+		size += nla_total_size(sizeof(int32_t)); /* pid */
-+
- 	skb = alloc_skb(size, GFP_ATOMIC);
- 	if (!skb) {
- 		skb_tx_error(entskb);
-@@ -570,6 +591,10 @@ nfqnl_build_packet_message(struct net *net, struct nfqnl_instance *queue,
- 	    nfqnl_put_sk_uidgid(skb, entskb->sk) < 0)
- 		goto nla_put_failure;
- 
-+	if ((queue->flags & NFQA_CFG_F_PID) && entskb->sk &&
-+	    nfqnl_put_sk_pid(skb, entskb->sk) < 0)
-+		goto nla_put_failure;
-+
- 	if (seclen && nla_put(skb, NFQA_SECCTX, seclen, secdata))
- 		goto nla_put_failure;
- 
-diff --git a/net/socket.c b/net/socket.c
-index a1bd161..67de200 100644
---- a/net/socket.c
-+++ b/net/socket.c
-@@ -382,6 +382,7 @@ struct file *sock_alloc_file(struct socket *sock, int flags, const char *dname)
- 	}
- 
- 	sock->file = file;
-+	file->f_owner.sock_pid  = find_get_pid(task_pid_nr(current));
- 	file->f_flags = O_RDWR | (flags & O_NONBLOCK);
- 	file->private_data = sock;
- 	return file;
 -- 
-2.8.0
+Jarod Wilson
+jarod@redhat.com
