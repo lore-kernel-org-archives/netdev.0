@@ -1,259 +1,222 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 1/2] mlxsw: spectrum: Make split flow match firmware requirements
-Date: Thu,  9 Jun 2016 09:51:39 +0200
-Message-ID: <1465458700-5744-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net 2/2] mlxsw: spectrum: Don't sleep during ndo_get_phys_port_name()
+Date: Thu,  9 Jun 2016 09:51:40 +0200
+Message-ID: <1465458700-5744-3-git-send-email-jiri@resnulli.us>
 References: <1465458700-5744-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
 	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35257 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753930AbcFIHvp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 03:51:45 -0400
-Received: by mail-wm0-f67.google.com with SMTP id k184so8401067wme.2
-        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 00:51:44 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36362 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754007AbcFIHvr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 03:51:47 -0400
+Received: by mail-wm0-f68.google.com with SMTP id m124so8393221wme.3
+        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 00:51:46 -0700 (PDT)
 In-Reply-To: <1465458700-5744-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-When a port is created following a split / unsplit we need to map it to
-the correct module and lane, enable it and then continue to initialize
-its various parameters such as MTU and VLAN filters.
+When rtnl_fill_ifinfo() is called for a certain netdevice it queries its
+various parameters such as switch id and physical port name. The
+function might get called in an atomic context, which means the
+underlying driver must not sleep during the query operation.
 
-Under certain conditions, such as trying to split ports at the bottom
-row of the front panel by four, we get firmware errors.
+Don't query the device and sleep during ndo_get_phys_port_name(), but
+instead store the needed parameters in port creation time.
 
-After evaluating this with the firmware team it was decided to alter the
-split / unsplit flow, so that first all the affected ports are mapped,
-then enabled and finally each is initialized separately.
-
-Fix the split / unsplit flow by first mapping and enabling all the
-affected ports. Newer firmware versions will support both flows.
-
-Fixes: 18f1e70c4137 ("mlxsw: spectrum: Introduce port splitting")
+Fixes: 2bf9a58675c5 ("mlxsw: spectrum: Add support for physical port names")
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 147 ++++++++++++++++---------
- 1 file changed, 95 insertions(+), 52 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 64 +++++++++-----------------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  5 ++
+ 2 files changed, 26 insertions(+), 43 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 4a72737..cc62d4c 100644
+index cc62d4c..6f9e3dd 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -247,15 +247,23 @@ static int mlxsw_sp_port_mtu_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 mtu)
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(pmtu), pmtu_pl);
+@@ -313,9 +313,9 @@ mlxsw_sp_port_system_port_mapping_set(struct mlxsw_sp_port *mlxsw_sp_port)
+ 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sspr), sspr_pl);
  }
  
--static int mlxsw_sp_port_swid_set(struct mlxsw_sp_port *mlxsw_sp_port, u8 swid)
-+static int __mlxsw_sp_port_swid_set(struct mlxsw_sp *mlxsw_sp, u8 local_port,
-+				    u8 swid)
+-static int __mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
+-					   u8 local_port, u8 *p_module,
+-					   u8 *p_width, u8 *p_lane)
++static int mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
++					 u8 local_port, u8 *p_module,
++					 u8 *p_width, u8 *p_lane)
  {
--	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
- 	char pspa_pl[MLXSW_REG_PSPA_LEN];
- 
--	mlxsw_reg_pspa_pack(pspa_pl, swid, mlxsw_sp_port->local_port);
-+	mlxsw_reg_pspa_pack(pspa_pl, swid, local_port);
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(pspa), pspa_pl);
- }
- 
-+static int mlxsw_sp_port_swid_set(struct mlxsw_sp_port *mlxsw_sp_port, u8 swid)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+
-+	return __mlxsw_sp_port_swid_set(mlxsw_sp, mlxsw_sp_port->local_port,
-+					swid);
-+}
-+
- static int mlxsw_sp_port_vp_mode_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 				     bool enable)
- {
-@@ -1681,8 +1689,8 @@ static int mlxsw_sp_port_ets_init(struct mlxsw_sp_port *mlxsw_sp_port)
+ 	char pmlp_pl[MLXSW_REG_PMLP_LEN];
+ 	int err;
+@@ -330,16 +330,6 @@ static int __mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
  	return 0;
  }
  
--static int __mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
--				  bool split, u8 module, u8 width)
-+static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
-+				bool split, u8 module, u8 width)
+-static int mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
+-					 u8 local_port, u8 *p_module,
+-					 u8 *p_width)
+-{
+-	u8 lane;
+-
+-	return __mlxsw_sp_port_module_info_get(mlxsw_sp, local_port, p_module,
+-					       p_width, &lane);
+-}
+-
+ static int mlxsw_sp_port_module_map(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+ 				    u8 module, u8 width, u8 lane)
+ {
+@@ -957,17 +947,11 @@ static int mlxsw_sp_port_get_phys_port_name(struct net_device *dev, char *name,
+ 					    size_t len)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
+-	u8 module, width, lane;
++	u8 module = mlxsw_sp_port->mapping.module;
++	u8 width = mlxsw_sp_port->mapping.width;
++	u8 lane = mlxsw_sp_port->mapping.lane;
+ 	int err;
+ 
+-	err = __mlxsw_sp_port_module_info_get(mlxsw_sp_port->mlxsw_sp,
+-					      mlxsw_sp_port->local_port,
+-					      &module, &width, &lane);
+-	if (err) {
+-		netdev_err(dev, "Failed to retrieve module information\n");
+-		return err;
+-	}
+-
+ 	if (!mlxsw_sp_port->split)
+ 		err = snprintf(name, len, "p%d", module + 1);
+ 	else
+@@ -1690,7 +1674,7 @@ static int mlxsw_sp_port_ets_init(struct mlxsw_sp_port *mlxsw_sp_port)
+ }
+ 
+ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+-				bool split, u8 module, u8 width)
++				bool split, u8 module, u8 width, u8 lane)
  {
  	struct mlxsw_sp_port *mlxsw_sp_port;
  	struct net_device *dev;
-@@ -1839,28 +1847,6 @@ err_port_active_vlans_alloc:
- 	return err;
- }
+@@ -1705,6 +1689,9 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+ 	mlxsw_sp_port->mlxsw_sp = mlxsw_sp;
+ 	mlxsw_sp_port->local_port = local_port;
+ 	mlxsw_sp_port->split = split;
++	mlxsw_sp_port->mapping.module = module;
++	mlxsw_sp_port->mapping.width = width;
++	mlxsw_sp_port->mapping.lane = lane;
+ 	bytes = DIV_ROUND_UP(VLAN_N_VID, BITS_PER_BYTE);
+ 	mlxsw_sp_port->active_vlans = kzalloc(bytes, GFP_KERNEL);
+ 	if (!mlxsw_sp_port->active_vlans) {
+@@ -1895,8 +1882,8 @@ static void mlxsw_sp_ports_remove(struct mlxsw_sp *mlxsw_sp)
  
--static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
--				bool split, u8 module, u8 width, u8 lane)
--{
--	int err;
--
--	err = mlxsw_sp_port_module_map(mlxsw_sp, local_port, module, width,
--				       lane);
--	if (err)
--		return err;
--
--	err = __mlxsw_sp_port_create(mlxsw_sp, local_port, split, module,
--				     width);
--	if (err)
--		goto err_port_create;
--
--	return 0;
--
--err_port_create:
--	mlxsw_sp_port_module_unmap(mlxsw_sp, local_port);
--	return err;
--}
--
- static void mlxsw_sp_port_vports_fini(struct mlxsw_sp_port *mlxsw_sp_port)
+ static int mlxsw_sp_ports_create(struct mlxsw_sp *mlxsw_sp)
  {
- 	struct net_device *dev = mlxsw_sp_port->dev;
-@@ -1927,7 +1913,7 @@ static int mlxsw_sp_ports_create(struct mlxsw_sp *mlxsw_sp)
++	u8 module, width, lane;
+ 	size_t alloc_size;
+-	u8 module, width;
+ 	int i;
+ 	int err;
+ 
+@@ -1907,13 +1894,14 @@ static int mlxsw_sp_ports_create(struct mlxsw_sp *mlxsw_sp)
+ 
+ 	for (i = 1; i < MLXSW_PORT_MAX_PORTS; i++) {
+ 		err = mlxsw_sp_port_module_info_get(mlxsw_sp, i, &module,
+-						    &width);
++						    &width, &lane);
+ 		if (err)
+ 			goto err_port_module_info_get;
  		if (!width)
  			continue;
  		mlxsw_sp->port_to_module[i] = module;
--		err = __mlxsw_sp_port_create(mlxsw_sp, i, false, module, width);
-+		err = mlxsw_sp_port_create(mlxsw_sp, i, false, module, width);
+-		err = mlxsw_sp_port_create(mlxsw_sp, i, false, module, width);
++		err = mlxsw_sp_port_create(mlxsw_sp, i, false, module, width,
++					   lane);
  		if (err)
  			goto err_port_create;
  	}
-@@ -1948,12 +1934,85 @@ static u8 mlxsw_sp_cluster_base_port_get(u8 local_port)
- 	return local_port - offset;
+@@ -1955,7 +1943,7 @@ static int mlxsw_sp_port_split_create(struct mlxsw_sp *mlxsw_sp, u8 base_port,
+ 
+ 	for (i = 0; i < count; i++) {
+ 		err = mlxsw_sp_port_create(mlxsw_sp, base_port + i, true,
+-					   module, width);
++					   module, width, i * width);
+ 		if (err)
+ 			goto err_port_create;
+ 	}
+@@ -2004,7 +1992,7 @@ static void mlxsw_sp_port_unsplit_create(struct mlxsw_sp *mlxsw_sp,
+ 		module = mlxsw_sp->port_to_module[local_port];
+ 
+ 		mlxsw_sp_port_create(mlxsw_sp, local_port, false, module,
+-				     width);
++				     width, 0);
+ 	}
  }
  
-+static int mlxsw_sp_port_split_create(struct mlxsw_sp *mlxsw_sp, u8 base_port,
-+				      u8 module, unsigned int count)
-+{
-+	u8 width = MLXSW_PORT_MODULE_MAX_WIDTH / count;
-+	int err, i;
+@@ -2024,18 +2012,14 @@ static int mlxsw_sp_port_split(struct mlxsw_core *mlxsw_core, u8 local_port,
+ 		return -EINVAL;
+ 	}
+ 
++	module = mlxsw_sp_port->mapping.module;
++	cur_width = mlxsw_sp_port->mapping.width;
 +
-+	for (i = 0; i < count; i++) {
-+		err = mlxsw_sp_port_module_map(mlxsw_sp, base_port + i, module,
-+					       width, i * width);
-+		if (err)
-+			goto err_port_module_map;
-+	}
-+
-+	for (i = 0; i < count; i++) {
-+		err = __mlxsw_sp_port_swid_set(mlxsw_sp, base_port + i, 0);
-+		if (err)
-+			goto err_port_swid_set;
-+	}
-+
-+	for (i = 0; i < count; i++) {
-+		err = mlxsw_sp_port_create(mlxsw_sp, base_port + i, true,
-+					   module, width);
-+		if (err)
-+			goto err_port_create;
-+	}
-+
-+	return 0;
-+
-+err_port_create:
-+	for (i--; i >= 0; i--)
-+		mlxsw_sp_port_remove(mlxsw_sp, base_port + i);
-+	i = count;
-+err_port_swid_set:
-+	for (i--; i >= 0; i--)
-+		__mlxsw_sp_port_swid_set(mlxsw_sp, base_port + i,
-+					 MLXSW_PORT_SWID_DISABLED_PORT);
-+	i = count;
-+err_port_module_map:
-+	for (i--; i >= 0; i--)
-+		mlxsw_sp_port_module_unmap(mlxsw_sp, base_port + i);
-+	return err;
-+}
-+
-+static void mlxsw_sp_port_unsplit_create(struct mlxsw_sp *mlxsw_sp,
-+					 u8 base_port, unsigned int count)
-+{
-+	u8 local_port, module, width = MLXSW_PORT_MODULE_MAX_WIDTH;
-+	int i;
-+
-+	/* Split by four means we need to re-create two ports, otherwise
-+	 * only one.
-+	 */
-+	count = count / 2;
-+
-+	for (i = 0; i < count; i++) {
-+		local_port = base_port + i * 2;
-+		module = mlxsw_sp->port_to_module[local_port];
-+
-+		mlxsw_sp_port_module_map(mlxsw_sp, local_port, module, width,
-+					 0);
-+	}
-+
-+	for (i = 0; i < count; i++)
-+		__mlxsw_sp_port_swid_set(mlxsw_sp, base_port + i * 2, 0);
-+
-+	for (i = 0; i < count; i++) {
-+		local_port = base_port + i * 2;
-+		module = mlxsw_sp->port_to_module[local_port];
-+
-+		mlxsw_sp_port_create(mlxsw_sp, local_port, false, module,
-+				     width);
-+	}
-+}
-+
- static int mlxsw_sp_port_split(struct mlxsw_core *mlxsw_core, u8 local_port,
- 			       unsigned int count)
+ 	if (count != 2 && count != 4) {
+ 		netdev_err(mlxsw_sp_port->dev, "Port can only be split into 2 or 4 ports\n");
+ 		return -EINVAL;
+ 	}
+ 
+-	err = mlxsw_sp_port_module_info_get(mlxsw_sp, local_port, &module,
+-					    &cur_width);
+-	if (err) {
+-		netdev_err(mlxsw_sp_port->dev, "Failed to get port's width\n");
+-		return err;
+-	}
+-
+ 	if (cur_width != MLXSW_PORT_MODULE_MAX_WIDTH) {
+ 		netdev_err(mlxsw_sp_port->dev, "Port cannot be split further\n");
+ 		return -EINVAL;
+@@ -2077,10 +2061,9 @@ static int mlxsw_sp_port_unsplit(struct mlxsw_core *mlxsw_core, u8 local_port)
  {
  	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
  	struct mlxsw_sp_port *mlxsw_sp_port;
--	u8 width = MLXSW_PORT_MODULE_MAX_WIDTH / count;
- 	u8 module, cur_width, base_port;
+-	u8 module, cur_width, base_port;
++	u8 cur_width, base_port;
+ 	unsigned int count;
  	int i;
- 	int err;
-@@ -2001,25 +2060,16 @@ static int mlxsw_sp_port_split(struct mlxsw_core *mlxsw_core, u8 local_port,
- 	for (i = 0; i < count; i++)
- 		mlxsw_sp_port_remove(mlxsw_sp, base_port + i);
+-	int err;
  
--	for (i = 0; i < count; i++) {
--		err = mlxsw_sp_port_create(mlxsw_sp, base_port + i, true,
--					   module, width, i * width);
--		if (err) {
--			dev_err(mlxsw_sp->bus_info->dev, "Failed to create split port\n");
--			goto err_port_create;
--		}
-+	err = mlxsw_sp_port_split_create(mlxsw_sp, base_port, module, count);
-+	if (err) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Failed to create split ports\n");
-+		goto err_port_split_create;
+ 	mlxsw_sp_port = mlxsw_sp->ports[local_port];
+ 	if (!mlxsw_sp_port) {
+@@ -2094,12 +2077,7 @@ static int mlxsw_sp_port_unsplit(struct mlxsw_core *mlxsw_core, u8 local_port)
+ 		return -EINVAL;
  	}
  
- 	return 0;
- 
--err_port_create:
--	for (i--; i >= 0; i--)
--		mlxsw_sp_port_remove(mlxsw_sp, base_port + i);
--	for (i = 0; i < count / 2; i++) {
--		module = mlxsw_sp->port_to_module[base_port + i * 2];
--		mlxsw_sp_port_create(mlxsw_sp, base_port + i * 2, false,
--				     module, MLXSW_PORT_MODULE_MAX_WIDTH, 0);
+-	err = mlxsw_sp_port_module_info_get(mlxsw_sp, local_port, &module,
+-					    &cur_width);
+-	if (err) {
+-		netdev_err(mlxsw_sp_port->dev, "Failed to get port's width\n");
+-		return err;
 -	}
-+err_port_split_create:
-+	mlxsw_sp_port_unsplit_create(mlxsw_sp, base_port, count);
- 	return err;
- }
++	cur_width = mlxsw_sp_port->mapping.width;
+ 	count = cur_width == 1 ? 4 : 2;
  
-@@ -2061,14 +2111,7 @@ static int mlxsw_sp_port_unsplit(struct mlxsw_core *mlxsw_core, u8 local_port)
- 	for (i = 0; i < count; i++)
- 		mlxsw_sp_port_remove(mlxsw_sp, base_port + i);
- 
--	for (i = 0; i < count / 2; i++) {
--		module = mlxsw_sp->port_to_module[base_port + i * 2];
--		err = mlxsw_sp_port_create(mlxsw_sp, base_port + i * 2, false,
--					   module, MLXSW_PORT_MODULE_MAX_WIDTH,
--					   0);
--		if (err)
--			dev_err(mlxsw_sp->bus_info->dev, "Failed to reinstantiate port\n");
--	}
-+	mlxsw_sp_port_unsplit_create(mlxsw_sp, base_port, count);
- 
- 	return 0;
- }
+ 	base_port = mlxsw_sp_cluster_base_port_get(local_port);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index e2c022d..13b30ea 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -229,6 +229,11 @@ struct mlxsw_sp_port {
+ 		struct ieee_maxrate *maxrate;
+ 		struct ieee_pfc *pfc;
+ 	} dcb;
++	struct {
++		u8 module;
++		u8 width;
++		u8 lane;
++	} mapping;
+ 	/* 802.1Q bridge VLANs */
+ 	unsigned long *active_vlans;
+ 	unsigned long *untagged_vlans;
 -- 
 2.5.5
