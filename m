@@ -1,222 +1,75 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 2/2] mlxsw: spectrum: Don't sleep during ndo_get_phys_port_name()
-Date: Thu,  9 Jun 2016 09:51:40 +0200
-Message-ID: <1465458700-5744-3-git-send-email-jiri@resnulli.us>
-References: <1465458700-5744-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36362 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754007AbcFIHvr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 03:51:47 -0400
-Received: by mail-wm0-f68.google.com with SMTP id m124so8393221wme.3
-        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 00:51:46 -0700 (PDT)
-In-Reply-To: <1465458700-5744-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH 00/21] Delete CURRENT_TIME and CURRENT_TIME_SEC macros
+Date: Thu, 09 Jun 2016 10:51:31 +0300
+Message-ID: <87twh294vw.fsf@linux.intel.com>
+References: <1465448705-25055-1-git-send-email-deepa.kernel@gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; boundary="=-=-=";
+	micalg=pgp-sha256; protocol="application/pgp-signature"
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Thomas Gleixner <tglx-hfZtesqFncYOwBW4kG4KsQ@public.gmane.org>,
+	Al Viro <viro-RmSDqhL/yNMiFSDQTTA3OLVCufUGDwFn@public.gmane.org>,
+	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
+	y2038-cunTk1MwBs8s++Sfvej+rw@public.gmane.org, Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
+	Anton Vorontsov <anton-9xeibp6oKSgdnm+yROfE0A@public.gmane.org>,
+	Benny Halevy <bhalevy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>,
+	Boaz Harrosh <ooo-rh7Tgz9RNieUD9Wbbkgo/g@public.gmane.org>,
+	Changman Lee <cm224.lee-Sze3O3UU22JBDgjK7y7TUQ@public.gmane.org>, Chris Mason <clm-b10kYP2dOMg@public.gmane.org>,
+	Colin Cross <ccross-z5hGa2qSFaRBDgjK7y7TUQ@public.gmane.org>,
+	Dave Kleikamp <shaggy-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	David Sterba <dsterba-IBi9RG/b67k@public.gmane.org>,
+	Eric Van Hensbergen <ericvh-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Hugh Dickins <hughd-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Ian Kent <raven-PKsaG3nR2I+sTnJN9+BGXg@public.gmane.org>,
+	Jaegeuk Kim <jaegeuk-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Joern Engel <joern-PCqxUs/MD9bYtjvyW6yDsg@public.gmane.org>, Josef Bacik <jbacik-b10kYP2dOMg@public.gmane.org>,
+	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
+	Latchesar Ionkov <lucho-OnYtXJJ0/fesTnJN9+BGXg@public.gmane.org>,
+	Matt Fleming <matt-mF/unelCI9GS6iBeEJttW/XRex20P6io@public.gmane.org>,
+	Matthew Garrett <matthew.gar
+To: Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	linux-fsdevel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-efi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1465448705-25055-1-git-send-email-deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Sender: linux-efi-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
+--=-=-=
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-When rtnl_fill_ifinfo() is called for a certain netdevice it queries its
-various parameters such as switch id and physical port name. The
-function might get called in an atomic context, which means the
-underlying driver must not sleep during the query operation.
 
-Don't query the device and sleep during ndo_get_phys_port_name(), but
-instead store the needed parameters in port creation time.
+Hi,
 
-Fixes: 2bf9a58675c5 ("mlxsw: spectrum: Add support for physical port names")
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 64 +++++++++-----------------
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  5 ++
- 2 files changed, 26 insertions(+), 43 deletions(-)
+Deepa Dinamani <deepa.kernel-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
+>  drivers/usb/gadget/function/f_fs.c                 |  2 +-
+>  drivers/usb/gadget/legacy/inode.c                  |  2 +-
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index cc62d4c..6f9e3dd 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -313,9 +313,9 @@ mlxsw_sp_port_system_port_mapping_set(struct mlxsw_sp_port *mlxsw_sp_port)
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sspr), sspr_pl);
- }
- 
--static int __mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
--					   u8 local_port, u8 *p_module,
--					   u8 *p_width, u8 *p_lane)
-+static int mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
-+					 u8 local_port, u8 *p_module,
-+					 u8 *p_width, u8 *p_lane)
- {
- 	char pmlp_pl[MLXSW_REG_PMLP_LEN];
- 	int err;
-@@ -330,16 +330,6 @@ static int __mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
- 	return 0;
- }
- 
--static int mlxsw_sp_port_module_info_get(struct mlxsw_sp *mlxsw_sp,
--					 u8 local_port, u8 *p_module,
--					 u8 *p_width)
--{
--	u8 lane;
--
--	return __mlxsw_sp_port_module_info_get(mlxsw_sp, local_port, p_module,
--					       p_width, &lane);
--}
--
- static int mlxsw_sp_port_module_map(struct mlxsw_sp *mlxsw_sp, u8 local_port,
- 				    u8 module, u8 width, u8 lane)
- {
-@@ -957,17 +947,11 @@ static int mlxsw_sp_port_get_phys_port_name(struct net_device *dev, char *name,
- 					    size_t len)
- {
- 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
--	u8 module, width, lane;
-+	u8 module = mlxsw_sp_port->mapping.module;
-+	u8 width = mlxsw_sp_port->mapping.width;
-+	u8 lane = mlxsw_sp_port->mapping.lane;
- 	int err;
- 
--	err = __mlxsw_sp_port_module_info_get(mlxsw_sp_port->mlxsw_sp,
--					      mlxsw_sp_port->local_port,
--					      &module, &width, &lane);
--	if (err) {
--		netdev_err(dev, "Failed to retrieve module information\n");
--		return err;
--	}
--
- 	if (!mlxsw_sp_port->split)
- 		err = snprintf(name, len, "p%d", module + 1);
- 	else
-@@ -1690,7 +1674,7 @@ static int mlxsw_sp_port_ets_init(struct mlxsw_sp_port *mlxsw_sp_port)
- }
- 
- static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
--				bool split, u8 module, u8 width)
-+				bool split, u8 module, u8 width, u8 lane)
- {
- 	struct mlxsw_sp_port *mlxsw_sp_port;
- 	struct net_device *dev;
-@@ -1705,6 +1689,9 @@ static int mlxsw_sp_port_create(struct mlxsw_sp *mlxsw_sp, u8 local_port,
- 	mlxsw_sp_port->mlxsw_sp = mlxsw_sp;
- 	mlxsw_sp_port->local_port = local_port;
- 	mlxsw_sp_port->split = split;
-+	mlxsw_sp_port->mapping.module = module;
-+	mlxsw_sp_port->mapping.width = width;
-+	mlxsw_sp_port->mapping.lane = lane;
- 	bytes = DIV_ROUND_UP(VLAN_N_VID, BITS_PER_BYTE);
- 	mlxsw_sp_port->active_vlans = kzalloc(bytes, GFP_KERNEL);
- 	if (!mlxsw_sp_port->active_vlans) {
-@@ -1895,8 +1882,8 @@ static void mlxsw_sp_ports_remove(struct mlxsw_sp *mlxsw_sp)
- 
- static int mlxsw_sp_ports_create(struct mlxsw_sp *mlxsw_sp)
- {
-+	u8 module, width, lane;
- 	size_t alloc_size;
--	u8 module, width;
- 	int i;
- 	int err;
- 
-@@ -1907,13 +1894,14 @@ static int mlxsw_sp_ports_create(struct mlxsw_sp *mlxsw_sp)
- 
- 	for (i = 1; i < MLXSW_PORT_MAX_PORTS; i++) {
- 		err = mlxsw_sp_port_module_info_get(mlxsw_sp, i, &module,
--						    &width);
-+						    &width, &lane);
- 		if (err)
- 			goto err_port_module_info_get;
- 		if (!width)
- 			continue;
- 		mlxsw_sp->port_to_module[i] = module;
--		err = mlxsw_sp_port_create(mlxsw_sp, i, false, module, width);
-+		err = mlxsw_sp_port_create(mlxsw_sp, i, false, module, width,
-+					   lane);
- 		if (err)
- 			goto err_port_create;
- 	}
-@@ -1955,7 +1943,7 @@ static int mlxsw_sp_port_split_create(struct mlxsw_sp *mlxsw_sp, u8 base_port,
- 
- 	for (i = 0; i < count; i++) {
- 		err = mlxsw_sp_port_create(mlxsw_sp, base_port + i, true,
--					   module, width);
-+					   module, width, i * width);
- 		if (err)
- 			goto err_port_create;
- 	}
-@@ -2004,7 +1992,7 @@ static void mlxsw_sp_port_unsplit_create(struct mlxsw_sp *mlxsw_sp,
- 		module = mlxsw_sp->port_to_module[local_port];
- 
- 		mlxsw_sp_port_create(mlxsw_sp, local_port, false, module,
--				     width);
-+				     width, 0);
- 	}
- }
- 
-@@ -2024,18 +2012,14 @@ static int mlxsw_sp_port_split(struct mlxsw_core *mlxsw_core, u8 local_port,
- 		return -EINVAL;
- 	}
- 
-+	module = mlxsw_sp_port->mapping.module;
-+	cur_width = mlxsw_sp_port->mapping.width;
-+
- 	if (count != 2 && count != 4) {
- 		netdev_err(mlxsw_sp_port->dev, "Port can only be split into 2 or 4 ports\n");
- 		return -EINVAL;
- 	}
- 
--	err = mlxsw_sp_port_module_info_get(mlxsw_sp, local_port, &module,
--					    &cur_width);
--	if (err) {
--		netdev_err(mlxsw_sp_port->dev, "Failed to get port's width\n");
--		return err;
--	}
--
- 	if (cur_width != MLXSW_PORT_MODULE_MAX_WIDTH) {
- 		netdev_err(mlxsw_sp_port->dev, "Port cannot be split further\n");
- 		return -EINVAL;
-@@ -2077,10 +2061,9 @@ static int mlxsw_sp_port_unsplit(struct mlxsw_core *mlxsw_core, u8 local_port)
- {
- 	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
- 	struct mlxsw_sp_port *mlxsw_sp_port;
--	u8 module, cur_width, base_port;
-+	u8 cur_width, base_port;
- 	unsigned int count;
- 	int i;
--	int err;
- 
- 	mlxsw_sp_port = mlxsw_sp->ports[local_port];
- 	if (!mlxsw_sp_port) {
-@@ -2094,12 +2077,7 @@ static int mlxsw_sp_port_unsplit(struct mlxsw_core *mlxsw_core, u8 local_port)
- 		return -EINVAL;
- 	}
- 
--	err = mlxsw_sp_port_module_info_get(mlxsw_sp, local_port, &module,
--					    &cur_width);
--	if (err) {
--		netdev_err(mlxsw_sp_port->dev, "Failed to get port's width\n");
--		return err;
--	}
-+	cur_width = mlxsw_sp_port->mapping.width;
- 	count = cur_width == 1 ? 4 : 2;
- 
- 	base_port = mlxsw_sp_cluster_base_port_get(local_port);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index e2c022d..13b30ea 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -229,6 +229,11 @@ struct mlxsw_sp_port {
- 		struct ieee_maxrate *maxrate;
- 		struct ieee_pfc *pfc;
- 	} dcb;
-+	struct {
-+		u8 module;
-+		u8 width;
-+		u8 lane;
-+	} mapping;
- 	/* 802.1Q bridge VLANs */
- 	unsigned long *active_vlans;
- 	unsigned long *untagged_vlans;
--- 
-2.5.5
+for drivers/usb/gadget:
+
+Acked-by: Felipe Balbi <balbi-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+
+=2D-=20
+balbi
+
+--=-=-=
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJXWSADAAoJEIaOsuA1yqRE3xkP/iQ1fuTIybbV6wTI8KcBipLN
+RYE+b6JJVPFMIpj76aDznk/eZG+CSnwRUAPoPGWs1o7xVqnVGqfLDMWyHLp3pU5C
+NQyphaTDahzkV3cbTbAjbLpcluDKmCmRb++9YyfSyEcFP4HnlpgmIVFM7SinMADk
+OXGwum3/L0HpAs+91j4FORMHiKma5fa5CXmE5aHsM3TSWONWldycLywu9jlF/AyU
+lY83J4AjvL2qii9hWdlxX81+zFZ92Vh9v5vvms8ErPB2w3a75PbM70gaoVM2VOxQ
+kMeLZUiGywrnDv+/RKC+9WX3KiwDsAlTk1rbuDBePE7PbjQmRW/hfRtXcpECXAyG
+LrV9HskF1UIIv8aVyWoR/GwQdO0cdxoW8uBuw+/l7pSHTvfpvl3/sb+VNBH3j2lQ
+aosxpF7QlU08QxWzpPHgrQ7TNbZ0o9zl5aZ8HAhAPt9FZDu1KKHy/EEJ0aI5d25y
+p7aTdxvf2SxMGVo6K1ozZUq/EeXOW061oeOUmDLT1NZWS69g19lGBx/XSWLpqf1b
+V6SK0hpP3QqHajNOsTFfHLuP13zygCZsSQJU1Z4MO3RyawyMsgjCqAKrEHCoF0zL
+rCfYHY+r6PMRmrirPoBdPwdoWB8/i1INydBfU4OqjO/7dRgjhl2iPSUvSOPrhVlu
+g2HkIFwp1Wj8eyUm+JYM
+=tfo4
+-----END PGP SIGNATURE-----
+--=-=-=--
