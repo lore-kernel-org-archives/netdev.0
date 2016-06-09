@@ -1,284 +1,175 @@
-From: Zi Shen Lim <zlim.lnx@gmail.com>
-Subject: [PATCH net-next v3 2/4] arm64: bpf: implement bpf_tail_call() helper
-Date: Wed,  8 Jun 2016 21:18:48 -0700
-Message-ID: <1465445930-3960-3-git-send-email-zlim.lnx@gmail.com>
-References: <1465445930-3960-1-git-send-email-zlim.lnx@gmail.com>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [PATCH] openvswitch: Add packet truncation support.
+Date: Wed, 8 Jun 2016 21:30:05 -0700
+Message-ID: <CAOrHB_CNZ2_JCt7RCaMQehZvYxZO-3wL00krbPX-iT1z3iAu=w@mail.gmail.com>
+References: <1465435105-21777-1-git-send-email-u9012063@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Yang Shi <yang.shi@linaro.org>, Daniel Borkmann <daniel@iogearbox.net>,
- Zi Shen Lim <zlim.lnx@gmail.com>, Alexei Starovoitov <ast@kernel.org>,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: "David S. Miller" <davem@davemloft.net>,
- Catalin Marinas <catalin.marinas@arm.com>,
- Will Deacon <will.deacon@arm.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1465445930-3960-1-git-send-email-zlim.lnx@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: William Tu <u9012063@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from relay3-d.mail.gandi.net ([217.70.183.195]:41044 "EHLO
+	relay3-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932253AbcFIEaM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 00:30:12 -0400
+Received: from mfilter22-d.gandi.net (mfilter22-d.gandi.net [217.70.178.150])
+	by relay3-d.mail.gandi.net (Postfix) with ESMTP id 6F062A80CB
+	for <netdev@vger.kernel.org>; Thu,  9 Jun 2016 06:30:09 +0200 (CEST)
+Received: from relay3-d.mail.gandi.net ([IPv6:::ffff:217.70.183.195])
+	by mfilter22-d.gandi.net (mfilter22-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id tKcyRTWouWm5 for <netdev@vger.kernel.org>;
+	Thu,  9 Jun 2016 06:30:07 +0200 (CEST)
+Received: from mail-it0-f43.google.com (mail-it0-f43.google.com [209.85.214.43])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay3-d.mail.gandi.net (Postfix) with ESMTPSA id E802DA80C8
+	for <netdev@vger.kernel.org>; Thu,  9 Jun 2016 06:30:06 +0200 (CEST)
+Received: by mail-it0-f43.google.com with SMTP id i6so516635ith.0
+        for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 21:30:06 -0700 (PDT)
+In-Reply-To: <1465435105-21777-1-git-send-email-u9012063@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add support for JMP_CALL_X (tail call) introduced by commit 04fd61ab36ec
-("bpf: allow bpf programs to tail-call other bpf programs").
+On Wed, Jun 8, 2016 at 6:18 PM, William Tu <u9012063@gmail.com> wrote:
+> The patch adds a new OVS action, OVS_ACTION_ATTR_TRUNC, in order to
+> truncate packets. A 'max_len' is added for setting up the maximum
+> packet size, and a 'cutlen' field is to record the number of bytes
+> to trim the packet when the packet is outputting to a port, or when
+> the packet is sent to userspace.
+>
+> Signed-off-by: William Tu <u9012063@gmail.com>
+> ---
+>  include/uapi/linux/openvswitch.h |  7 +++++++
+>  net/openvswitch/actions.c        | 28 +++++++++++++++++++++++++++-
+>  net/openvswitch/datapath.c       |  9 +++++++--
+>  net/openvswitch/datapath.h       |  2 ++
+>  net/openvswitch/flow_netlink.c   |  9 +++++++++
+>  net/openvswitch/vport.c          |  1 +
+>  6 files changed, 53 insertions(+), 3 deletions(-)
+>
+> diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+> index bb0d515..6d7ac5b 100644
+> --- a/include/uapi/linux/openvswitch.h
+> +++ b/include/uapi/linux/openvswitch.h
+> @@ -580,6 +580,11 @@ enum ovs_userspace_attr {
+>
+>  #define OVS_USERSPACE_ATTR_MAX (__OVS_USERSPACE_ATTR_MAX - 1)
+>
+> +struct ovs_action_trunc {
+> +       uint32_t max_len; /* Max packet size in bytes. */
+This could uint16_t. as it is related to packet len.
 
-bpf_tail_call() arguments:
-  ctx   - context pointer passed to next program
-  array - pointer to map which type is BPF_MAP_TYPE_PROG_ARRAY
-  index - index inside array that selects specific program to run
+> +};
+> +#define ETH_MIN_FRAME_LEN 60
+> +
 
-In this implementation arm64 JIT jumps into callee program after prologue,
-so callee program reuses the same stack. For tail_call_cnt, we use the
-callee-saved R26 (which was already saved/restored but previously unused
-by JIT).
+There is already symbol defined, ETH_ZLEN can used here.
 
-With this patch a tail call generates the following code on arm64:
+...
 
-  if (index >= array->map.max_entries)
-      goto out;
+> diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
+> index 9a3eb7a..889b78b 100644
+> --- a/net/openvswitch/actions.c
+> +++ b/net/openvswitch/actions.c
+> @@ -750,6 +750,10 @@ static void do_output(struct datapath *dp, struct sk_buff *skb, int out_port,
+>
+>         if (likely(vport)) {
+>                 u16 mru = OVS_CB(skb)->mru;
+> +               u16 cutlen = OVS_CB(skb)->cutlen;
+> +
+> +               if (cutlen > 0)
+> +                       pskb_trim(skb, skb->len - cutlen);
+>
+>                 if (likely(!mru || (skb->len <= mru + ETH_HLEN))) {
+>                         ovs_vport_send(vport, skb);
+> @@ -858,10 +862,19 @@ static int sample(struct datapath *dp, struct sk_buff *skb,
+>                 return 0;
+>
+>         /* The only known usage of sample action is having a single user-space
+> +        * action, or having a truncate action followed by a single user-space
+>          * action. Treat this usage as a special case.
+>          * The output_userspace() should clone the skb to be sent to the
+>          * user space. This skb will be consumed by its caller.
+>          */
+> +       if (unlikely(nla_type(a) == OVS_ACTION_ATTR_TRUNC)) {
+> +               struct ovs_action_trunc *trunc = nla_data(a);
+> +
+> +               OVS_CB(skb)->cutlen = skb->len > trunc->max_len ?
+> +                                               skb->len - trunc->max_len : 0;
 
-  34:   mov     x10, #0x10                      // #16
-  38:   ldr     w10, [x1,x10]
-  3c:   cmp     w2, w10
-  40:   b.ge    0x0000000000000074
+There is no need to initialize the cutlen to zero if max-len is
+greater then skb len. it should be already zero.
 
-  if (tail_call_cnt > MAX_TAIL_CALL_CNT)
-      goto out;
-  tail_call_cnt++;
+> +               a = nla_next(a, &rem);
+> +       }
+> +
+There cutlen is set in skb cb, but next action could be other than
+userspace, in that case cutlen is leaked to remain action list.
 
-  44:   mov     x10, #0x20                      // #32
-  48:   cmp     x26, x10
-  4c:   b.gt    0x0000000000000074
-  50:   add     x26, x26, #0x1
+>         if (likely(nla_type(a) == OVS_ACTION_ATTR_USERSPACE &&
+>                    nla_is_last(a, rem)))
+>                 return output_userspace(dp, skb, key, a, actions, actions_len);
+> @@ -1044,13 +1057,18 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+>         for (a = attr, rem = len; rem > 0;
+>              a = nla_next(a, &rem)) {
+>                 int err = 0;
+> +               int cutlen = OVS_CB(skb)->cutlen;
+>
+>                 if (unlikely(prev_port != -1)) {
+>                         struct sk_buff *out_skb = skb_clone(skb, GFP_ATOMIC);
+>
+> -                       if (out_skb)
+> +                       if (out_skb) {
+> +                               /* skb_clone does not clone the CB. */
+Are you sure about this? __copy_skb_header() seem to be doing the copy.
 
-  prog = array->ptrs[index];
-  if (prog == NULL)
-      goto out;
+> +                               OVS_CB(out_skb)->cutlen = cutlen;
+>                                 do_output(dp, out_skb, prev_port, key);
+> +                       }
+>
+> +                       OVS_CB(skb)->cutlen = 0;
+You also need to set cutlen local variable. otherwise next output
+could pickup the value.
 
-  54:   mov     x10, #0x68                      // #104
-  58:   ldr     x10, [x1,x10]
-  5c:   ldr     x11, [x10,x2]
-  60:   cbz     x11, 0x0000000000000074
+>                         prev_port = -1;
+>                 }
+>
+> @@ -1059,6 +1077,14 @@ static int do_execute_actions(struct datapath *dp, struct sk_buff *skb,
+>                         prev_port = nla_get_u32(a);
+>                         break;
+>
+> +               case OVS_ACTION_ATTR_TRUNC: {
+> +                       struct ovs_action_trunc *trunc = nla_data(a);
+> +
+> +                       OVS_CB(skb)->cutlen = skb->len > trunc->max_len ?
+> +                                               skb->len - trunc->max_len : 0;
+similar to sample() function comment, no need to set OVS_CB cutlen to zero.
 
-  goto *(prog->bpf_func + prologue_size);
-
-  64:   mov     x10, #0x20                      // #32
-  68:   ldr     x10, [x11,x10]
-  6c:   add     x10, x10, #0x20
-  70:   br      x10
-  74:
-
-Signed-off-by: Zi Shen Lim <zlim.lnx@gmail.com>
----
- arch/arm64/net/bpf_jit.h      |   3 +-
- arch/arm64/net/bpf_jit_comp.c | 105 ++++++++++++++++++++++++++++++++++++++----
- 2 files changed, 98 insertions(+), 10 deletions(-)
-
-diff --git a/arch/arm64/net/bpf_jit.h b/arch/arm64/net/bpf_jit.h
-index aee5637..7c16e54 100644
---- a/arch/arm64/net/bpf_jit.h
-+++ b/arch/arm64/net/bpf_jit.h
-@@ -1,7 +1,7 @@
- /*
-  * BPF JIT compiler for ARM64
-  *
-- * Copyright (C) 2014-2015 Zi Shen Lim <zlim.lnx@gmail.com>
-+ * Copyright (C) 2014-2016 Zi Shen Lim <zlim.lnx@gmail.com>
-  *
-  * This program is free software; you can redistribute it and/or modify
-  * it under the terms of the GNU General Public License version 2 as
-@@ -55,6 +55,7 @@
- #define A64_BL(imm26) A64_BRANCH((imm26) << 2, LINK)
- 
- /* Unconditional branch (register) */
-+#define A64_BR(Rn)  aarch64_insn_gen_branch_reg(Rn, AARCH64_INSN_BRANCH_NOLINK)
- #define A64_BLR(Rn) aarch64_insn_gen_branch_reg(Rn, AARCH64_INSN_BRANCH_LINK)
- #define A64_RET(Rn) aarch64_insn_gen_branch_reg(Rn, AARCH64_INSN_BRANCH_RETURN)
- 
-diff --git a/arch/arm64/net/bpf_jit_comp.c b/arch/arm64/net/bpf_jit_comp.c
-index 49ba37e..51abc97 100644
---- a/arch/arm64/net/bpf_jit_comp.c
-+++ b/arch/arm64/net/bpf_jit_comp.c
-@@ -18,6 +18,7 @@
- 
- #define pr_fmt(fmt) "bpf_jit: " fmt
- 
-+#include <linux/bpf.h>
- #include <linux/filter.h>
- #include <linux/printk.h>
- #include <linux/skbuff.h>
-@@ -33,6 +34,7 @@ int bpf_jit_enable __read_mostly;
- 
- #define TMP_REG_1 (MAX_BPF_JIT_REG + 0)
- #define TMP_REG_2 (MAX_BPF_JIT_REG + 1)
-+#define TCALL_CNT (MAX_BPF_JIT_REG + 2)
- 
- /* Map BPF registers to A64 registers */
- static const int bpf2a64[] = {
-@@ -54,6 +56,8 @@ static const int bpf2a64[] = {
- 	/* temporary registers for internal BPF JIT */
- 	[TMP_REG_1] = A64_R(10),
- 	[TMP_REG_2] = A64_R(11),
-+	/* tail_call_cnt */
-+	[TCALL_CNT] = A64_R(26),
- 	/* temporary register for blinding constants */
- 	[BPF_REG_AX] = A64_R(9),
- };
-@@ -146,13 +150,18 @@ static inline int epilogue_offset(const struct jit_ctx *ctx)
- 
- #define STACK_SIZE STACK_ALIGN(_STACK_SIZE)
- 
--static void build_prologue(struct jit_ctx *ctx)
-+#define PROLOGUE_OFFSET 8
-+
-+static int build_prologue(struct jit_ctx *ctx)
- {
- 	const u8 r6 = bpf2a64[BPF_REG_6];
- 	const u8 r7 = bpf2a64[BPF_REG_7];
- 	const u8 r8 = bpf2a64[BPF_REG_8];
- 	const u8 r9 = bpf2a64[BPF_REG_9];
- 	const u8 fp = bpf2a64[BPF_REG_FP];
-+	const u8 tcc = bpf2a64[TCALL_CNT];
-+	const int idx0 = ctx->idx;
-+	int cur_offset;
- 
- 	/*
- 	 * BPF prog stack layout
-@@ -162,8 +171,6 @@ static void build_prologue(struct jit_ctx *ctx)
- 	 *                        |FP/LR|
- 	 * current A64_FP =>  -16:+-----+
- 	 *                        | ... | callee saved registers
--	 *                        +-----+
--	 *                        |     | x25/x26
- 	 * BPF fp register => -64:+-----+ <= (BPF_FP)
- 	 *                        |     |
- 	 *                        | ... | BPF prog stack
-@@ -183,18 +190,90 @@ static void build_prologue(struct jit_ctx *ctx)
- 	emit(A64_PUSH(A64_FP, A64_LR, A64_SP), ctx);
- 	emit(A64_MOV(1, A64_FP, A64_SP), ctx);
- 
--	/* Save callee-saved register */
-+	/* Save callee-saved registers */
- 	emit(A64_PUSH(r6, r7, A64_SP), ctx);
- 	emit(A64_PUSH(r8, r9, A64_SP), ctx);
-+	emit(A64_PUSH(fp, tcc, A64_SP), ctx);
- 
--	/* Save fp (x25) and x26. SP requires 16 bytes alignment */
--	emit(A64_PUSH(fp, A64_R(26), A64_SP), ctx);
--
--	/* Set up BPF prog stack base register (x25) */
-+	/* Set up BPF prog stack base register */
- 	emit(A64_MOV(1, fp, A64_SP), ctx);
- 
-+	/* Initialize tail_call_cnt */
-+	emit(A64_MOVZ(1, tcc, 0, 0), ctx);
-+
- 	/* Set up function call stack */
- 	emit(A64_SUB_I(1, A64_SP, A64_SP, STACK_SIZE), ctx);
-+
-+	cur_offset = ctx->idx - idx0;
-+	if (cur_offset != PROLOGUE_OFFSET) {
-+		pr_err_once("PROLOGUE_OFFSET = %d, expected %d!\n",
-+			    cur_offset, PROLOGUE_OFFSET);
-+		return -1;
-+	}
-+	return 0;
-+}
-+
-+static int out_offset = -1; /* initialized on the first pass of build_body() */
-+static int emit_bpf_tail_call(struct jit_ctx *ctx)
-+{
-+	/* bpf_tail_call(void *prog_ctx, struct bpf_array *array, u64 index) */
-+	const u8 r2 = bpf2a64[BPF_REG_2];
-+	const u8 r3 = bpf2a64[BPF_REG_3];
-+
-+	const u8 tmp = bpf2a64[TMP_REG_1];
-+	const u8 prg = bpf2a64[TMP_REG_2];
-+	const u8 tcc = bpf2a64[TCALL_CNT];
-+	const int idx0 = ctx->idx;
-+#define cur_offset (ctx->idx - idx0)
-+#define jmp_offset (out_offset - (cur_offset))
-+	size_t off;
-+
-+	/* if (index >= array->map.max_entries)
-+	 *     goto out;
-+	 */
-+	off = offsetof(struct bpf_array, map.max_entries);
-+	emit_a64_mov_i64(tmp, off, ctx);
-+	emit(A64_LDR32(tmp, r2, tmp), ctx);
-+	emit(A64_CMP(0, r3, tmp), ctx);
-+	emit(A64_B_(A64_COND_GE, jmp_offset), ctx);
-+
-+	/* if (tail_call_cnt > MAX_TAIL_CALL_CNT)
-+	 *     goto out;
-+	 * tail_call_cnt++;
-+	 */
-+	emit_a64_mov_i64(tmp, MAX_TAIL_CALL_CNT, ctx);
-+	emit(A64_CMP(1, tcc, tmp), ctx);
-+	emit(A64_B_(A64_COND_GT, jmp_offset), ctx);
-+	emit(A64_ADD_I(1, tcc, tcc, 1), ctx);
-+
-+	/* prog = array->ptrs[index];
-+	 * if (prog == NULL)
-+	 *     goto out;
-+	 */
-+	off = offsetof(struct bpf_array, ptrs);
-+	emit_a64_mov_i64(tmp, off, ctx);
-+	emit(A64_LDR64(tmp, r2, tmp), ctx);
-+	emit(A64_LDR64(prg, tmp, r3), ctx);
-+	emit(A64_CBZ(1, prg, jmp_offset), ctx);
-+
-+	/* goto *(prog->bpf_func + prologue_size); */
-+	off = offsetof(struct bpf_prog, bpf_func);
-+	emit_a64_mov_i64(tmp, off, ctx);
-+	emit(A64_LDR64(tmp, prg, tmp), ctx);
-+	emit(A64_ADD_I(1, tmp, tmp, sizeof(u32) * PROLOGUE_OFFSET), ctx);
-+	emit(A64_BR(tmp), ctx);
-+
-+	/* out: */
-+	if (out_offset == -1)
-+		out_offset = cur_offset;
-+	if (cur_offset != out_offset) {
-+		pr_err_once("tail_call out_offset = %d, expected %d!\n",
-+			    cur_offset, out_offset);
-+		return -1;
-+	}
-+	return 0;
-+#undef cur_offset
-+#undef jmp_offset
- }
- 
- static void build_epilogue(struct jit_ctx *ctx)
-@@ -506,6 +585,11 @@ emit_cond_jmp:
- 		emit(A64_POP(A64_FP, A64_LR, A64_SP), ctx);
- 		break;
- 	}
-+	/* tail call */
-+	case BPF_JMP | BPF_CALL | BPF_X:
-+		if (emit_bpf_tail_call(ctx))
-+			return -EFAULT;
-+		break;
- 	/* function return */
- 	case BPF_JMP | BPF_EXIT:
- 		/* Optimization: when last instruction is EXIT,
-@@ -780,7 +864,10 @@ struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *prog)
- 		goto out_off;
- 	}
- 
--	build_prologue(&ctx);
-+	if (build_prologue(&ctx)) {
-+		prog = orig_prog;
-+		goto out_off;
-+	}
- 
- 	ctx.epilogue_offset = ctx.idx;
- 	build_epilogue(&ctx);
--- 
-1.9.1
+> +                       break;
+> +               }
+> +
+>                 case OVS_ACTION_ATTR_USERSPACE:
+>                         output_userspace(dp, skb, key, a, attr, len);
+>                         break;
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index 856bd8d..fb3e5a3 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+> @@ -425,6 +425,7 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+>         size_t len;
+>         unsigned int hlen;
+>         int err, dp_ifindex;
+> +       int cutlen = OVS_CB(skb)->cutlen;
+>
+>         dp_ifindex = get_dpifindex(dp);
+>         if (!dp_ifindex)
+> @@ -461,6 +462,9 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+>         else
+>                 hlen = skb->len;
+>
+> +       if (cutlen > 0)
+> +               hlen -= cutlen;
+> +
+I do not think headline should be changed in case of sib-zero copy.
+This is size of linear data in skb, changing this value could result
+in wrong data copy in skb-zerocpy.
+Also no need to compare cut-lea to zero, it can be directly subtracted.
