@@ -1,46 +1,40 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net-next 2/4] net: vrf: call netdev_lockdep_set_classes()
-Date: Wed, 8 Jun 2016 18:52:15 -0700
-Message-ID: <CANn89iLH-6EzyOwQ67owxhYOnA9CPyoN_Y0Pf2EtBpBc_+=zEw@mail.gmail.com>
-References: <1465430127-22993-1-git-send-email-edumazet@google.com>
- <1465430127-22993-2-git-send-email-edumazet@google.com> <31939b76-efa5-f1dd-3a8b-92d9343df7ee@cumulusnetworks.com>
- <CANn89iLr_H+hdti2wHzjP3P64oRiATTRe-usNkKjTu6XizNBHw@mail.gmail.com> <80f2d58b-4ad7-b367-2b46-dbf510a3e2fc@cumulusnetworks.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next 7/8] net: dsa: mv88e6xxx: explicit compatible
+ devices
+Date: Thu, 9 Jun 2016 04:14:15 +0200
+Message-ID: <20160609021415.GE2227@lunn.ch>
+References: <20160609004456.5441-1-vivien.didelot@savoirfairelinux.com>
+ <20160609004456.5441-8-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f178.google.com ([209.85.161.178]:36142 "EHLO
-	mail-yw0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161644AbcFIBwR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 8 Jun 2016 21:52:17 -0400
-Received: by mail-yw0-f178.google.com with SMTP id x189so24915190ywe.3
-        for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 18:52:17 -0700 (PDT)
-In-Reply-To: <80f2d58b-4ad7-b367-2b46-dbf510a3e2fc@cumulusnetworks.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:39429 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751710AbcFICOT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 8 Jun 2016 22:14:19 -0400
+Content-Disposition: inline
+In-Reply-To: <20160609004456.5441-8-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 8, 2016 at 6:49 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
-> On 6/8/16 7:43 PM, Eric Dumazet wrote:
->>
->> For this one, it looks vrf misses the _xmit_lock lockdep support.
->>
->> We might need to factorize the code found for example in
->> bond_set_lockdep_class_one()
->>
->> Have you run lockdep before ? Strange that these issues were not
->> spotted earlier.
->
->
-> Standard config for non-performance builds has the locking and rcu debugs
-> enabled. You posted the patches on Jun 6; this morning was the first build
-> with them and first run hit it.
+On Wed, Jun 08, 2016 at 08:44:55PM -0400, Vivien Didelot wrote:
+> Thanks to the new device probing, we can explicit the exact switch model
+> in the device tree.
+> 
+> Name the driver "mv88e6xxx" and list all its compatible supported chips.
 
-Then you were simply avoiding the deadlock detection for some reason.
+No. This goes against the usual way of doing device tree compatible
+strings. As far as probing goes, all the currently supported switches
+are compatible with 6095. We can at run time determine the specific
+switch model. This list is just a pain to managed, and has no value.
 
-Two ->_xmit_more with same class would detect an issue. This has
-nothing to do with my patches.
+We only need to add a new compatible string when we cannot determine
+at probe time what a switch model is, or we need to read the ID
+register in a different way.
 
-(Note they are all false positives... of course)
+	 Andrew
