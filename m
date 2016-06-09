@@ -1,96 +1,71 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: brcmfmac: rework function picking free BSS index
-Date: Thu, 9 Jun 2016 18:48:31 +0200
-Message-ID: <CACna6rxZEnPydDfzpyE2NXz1FSj=PVmT+vWuJ_PdScvGnBmNfQ@mail.gmail.com>
-References: <20160609161732.90E20613F6@smtp.codeaurora.org> <87eg86l3zo.fsf@purkki.adurom.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Brett Rudley <brudley-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Arend van Spriel <arend-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Hante Meuleman <meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	brcm80211 development <brcm80211-dev-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87eg86l3zo.fsf-5ukZ45wKbUHoml4zekdYB16hYfS7NtTn@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Ben Dooks <ben.dooks@codethink.co.uk>
+Subject: [PATCH] [V2] net: diag: add missing declarations
+Date: Thu,  9 Jun 2016 18:05:09 +0100
+Message-ID: <1465491909-27878-1-git-send-email-ben.dooks@codethink.co.uk>
+Cc: Ben Dooks <ben.dooks@codethink.co.uk>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: linux-kernel@lists.codethink.co.uk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 82-70-136-246.dsl.in-addr.zen.co.uk ([82.70.136.246]:42942 "EHLO
+	rainbowdash.ducie.codethink.co.uk" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932365AbcFIRFR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 13:05:17 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 9 June 2016 at 18:30, Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> wrote:
-> Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org> writes:
->
->> Rafa=C5=82 Mi=C5=82ecki wrote:
->>> The old implementation was overcomplicated and slightly bugged in s=
-ome
->>> corner cases.
->>>
->>> Consider following state of BSS-es (limited to 6 for simplification=
-):
->>> drvr->iflist[0]: { bsscfgidx:0, ndev->name:wlan1, }
->>> drvr->iflist[1]:  (null)
->>> drvr->iflist[2]: { bsscfgidx:2, ndev->name:wlan1-1, }
->>> drvr->iflist[3]: { bsscfgidx:3, ndev->name:wlan1-2, }
->>> drvr->iflist[4]:  (null)
->>> drvr->iflist[5]:  (null)
->>> In such case the next AP interface should bsscfgidx 4 (we don't use=
- 1 as
->>> it's reserved for P2P).
->>>
->>> With old code the loop iterations were following:
->>> [ifidx =3D 0] [bsscfgidx =3D 2] [highest =3D 2]
->>> [ifidx =3D 1] [bsscfgidx =3D 2] [highest =3D 2] available =3D true
->>> [ifidx =3D 2] [bsscfgidx =3D 2] [highest =3D 2] bsscfgidx =3D highe=
-st + 1
->>> [ifidx =3D 3] [bsscfgidx =3D 3] [highest =3D 2] bsscfgidx =3D highe=
-st + 1
->>> [ifidx =3D 4] [bsscfgidx =3D 3] [highest =3D 2] available =3D true
->>> [ifidx =3D 5] [bsscfgidx =3D 3] [highest =3D 2] available =3D true
->>> There were 2 obvious problems:
->>> 1) Having empty BSS at index 1 was resulting in available being alw=
-ays
->>>    set to true, even if we would run out of BSS-es.
->>> 2) Calculated bsscfgidx was invalid (3 instead of 4) resulting in d=
-river
->>>    not being able to create the 4th AP interface.
->>>
->>> New code is simpler, placed in file where it's really used, handles
->>> running out of free BSS-es and allows using 4 interfaces at the sam=
-e
->>> time. It also looks for the first free BSS instead of one after the=
- last
->>> in use. It works well with current driver (which doesn't allow dele=
-ting
->>> interfaces) and should be future proof (if we ever allow deleting).
->>>
->>> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->>
->> Thanks, 1 patch applied to wireless-drivers-next.git:
->>
->> d02fb8f14b2d brcmfmac: rework function picking free BSS index
->
-> Now that patchwork.kernel.org is finally updated and I fixed my pytho=
-n
-> script, this is the first time I applied a patch using UTF-8 charset
-> directly from patchwork. As it's not exactly easy to get UTF-8 suppor=
-t
-> right in python, I would very much like to hear if there any issues
-> either with the commit below or the email above.
->
-> https://git.kernel.org/cgit/linux/kernel/git/kvalo/wireless-drivers-n=
-ext.git/commit/?id=3Dd02fb8f14b2d
+The functions inet_diag_msg_common_fill and inet_diag_msg_attrs_fill
+seem to have been missed from the include/linux/inet_diag.h header
+file. Add them to fix the following warnings:
 
-Look fine, thanks!
+net/ipv4/inet_diag.c:69:6: warning: symbol 'inet_diag_msg_common_fill' was not declared. Should it be static?
+net/ipv4/inet_diag.c:108:5: warning: symbol 'inet_diag_msg_attrs_fill' was not declared. Should it be static?
 
---=20
-Rafa=C5=82
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+---
+V2: remove duplicates from net/sctp/sctp_diag.c
+---
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+---
+ include/linux/inet_diag.h | 6 ++++++
+ net/sctp/sctp_diag.c      | 6 ------
+ 2 files changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+index 7c27fa1..feb04ea 100644
+--- a/include/linux/inet_diag.h
++++ b/include/linux/inet_diag.h
+@@ -52,6 +52,12 @@ struct sock *inet_diag_find_one_icsk(struct net *net,
+ 
+ int inet_diag_bc_sk(const struct nlattr *_bc, struct sock *sk);
+ 
++void inet_diag_msg_common_fill(struct inet_diag_msg *r, struct sock *sk);
++
++int inet_diag_msg_attrs_fill(struct sock *sk, struct sk_buff *skb,
++			     struct inet_diag_msg *r, int ext,
++			     struct user_namespace *user_ns);
++
+ extern int  inet_diag_register(const struct inet_diag_handler *handler);
+ extern void inet_diag_unregister(const struct inet_diag_handler *handler);
+ #endif /* _INET_DIAG_H_ */
+diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
+index 1ce724b..f69edcf 100644
+--- a/net/sctp/sctp_diag.c
++++ b/net/sctp/sctp_diag.c
+@@ -3,12 +3,6 @@
+ #include <linux/sock_diag.h>
+ #include <net/sctp/sctp.h>
+ 
+-extern void inet_diag_msg_common_fill(struct inet_diag_msg *r,
+-				      struct sock *sk);
+-extern int inet_diag_msg_attrs_fill(struct sock *sk, struct sk_buff *skb,
+-				    struct inet_diag_msg *r, int ext,
+-				    struct user_namespace *user_ns);
+-
+ static void sctp_diag_get_info(struct sock *sk, struct inet_diag_msg *r,
+ 			       void *info);
+ 
+-- 
+2.8.1
