@@ -1,56 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3] netvsc: get rid of completion timeouts
-Date: Thu, 09 Jun 2016 11:43:17 -0700 (PDT)
-Message-ID: <20160609.114317.1472997580286446895.davem@davemloft.net>
-References: <1465469043-23516-1-git-send-email-vkuznets@redhat.com>
+Subject: Re: [PATCH] net: ipconfgi: add declaration for ic_addrservaddr
+Date: Thu, 09 Jun 2016 11:45:29 -0700 (PDT)
+Message-ID: <20160609.114529.1278133355511511268.davem@davemloft.net>
+References: <57595469.7010708@iogearbox.net>
+	<ab991904-5443-1b2a-cae0-ff9697690f05@codethink.co.uk>
+	<57595DEF.8010105@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, haiyangz@microsoft.com,
- linux-kernel@vger.kernel.org, devel@linuxdriverproject.org
-To: vkuznets@redhat.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1465469043-23516-1-git-send-email-vkuznets@redhat.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: ben.dooks@codethink.co.uk, linux-kernel@lists.codethink.co.uk,
+	kuznet@ms2.inr.ac.ru, jmorris@namei.org, yoshfuji@linux-ipv6.org,
+	kaber@trash.net, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:49222 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750752AbcFISpa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 14:45:30 -0400
+In-Reply-To: <57595DEF.8010105@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vitaly Kuznetsov <vkuznets@redhat.com>
-Date: Thu,  9 Jun 2016 12:44:03 +0200
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Thu, 09 Jun 2016 14:15:43 +0200
 
-> I'm hitting 5 second timeout in rndis_filter_set_rss_param() while setting
-> RSS parameters for the device. When this happens we end up returning
-> -ETIMEDOUT from the function and rndis_filter_device_add() falls back to
-> setting
+> On 06/09/2016 02:11 PM, Ben Dooks wrote:
+>> On 09/06/16 12:35, Daniel Borkmann wrote:
+>>> On 06/09/2016 01:07 PM, Ben Dooks wrote:
+>>>> The symbol ic_addrservaddr is not static, but has no declaration
+>>>> to match. Since the similar variables are all exported, add this
+>>>> one to the header file as well.
+>>>>
+>>>> This fixes the following warning:
+>>>>
+>>>> net/ipv4/ipconfig.c:130:8: warning: symbol 'ic_addrservaddr' was not
+>>>> declared. Should it be static?
+>>>>
+>>>> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+>>>
+>>> Well, how about making it actually static if it's only used
+>>> from ipconfig.c ?
+>>
+>> The only reason is that I thought someone might want to
+>> use it in the future. I have no particular insight though.
 > 
->         net_device->max_chn = 1;
->         net_device->num_chn = 1;
->         net_device->num_sc_offered = 0;
-> 
-> but after a moment the rndis request succeeds and subchannels start to
-> appear. netvsc_sc_open() does unconditional nvscdev->num_sc_offered-- and
-> it becomes U32_MAX-1. Consequent rndis_filter_device_remove() will hang
-> while waiting for all U32_MAX-1 subchannels to appear and this is not
-> going to happen.
-> 
-> The immediate issue could be solved by adding num_sc_offered > 0 check to
-> netvsc_sc_open() but we're getting out of sync with the host and it's not
-> easy to adjust things later, e.g. in this particular case we'll be creating
-> queues without a user request for it and races are expected. Same applies
-> to other parts of the driver which have the same completion timeout.
-> 
-> Following the trend in drivers/hv/* code I suggest we remove all these
-> timeouts completely. As a guest we can always trust the host we're running
-> on and if the host screws things up there is no easy way to recover anyway.
-> 
-> Signed-off-by: Vitaly Kuznetsov <vkuznets@redhat.com>
-> Acked-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Usual policy is that if such thing is required, then it can be
+> exported along with the code that is making use of it from elsewhere.
 
-Applied.
+Right.
