@@ -1,179 +1,158 @@
-From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-Subject: Re: [PATCH v3 1/1] net: ethernet: Add TSE PCS support to
- dwmac-socfpga
-Date: Thu, 9 Jun 2016 08:20:05 +0200
-Message-ID: <ac036ba2-c9ce-1fb4-89e3-9af499954907@st.com>
-References: <1465268516-31480-1-git-send-email-thloh@altera.com>
- <ab65dd4e-830a-c774-c8fa-1adfb3be1a69@st.com>
- <1465451310.4467.21.camel@ubuntu>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH v9 11/22] IB/hns: Add IB device registration
+Date: Thu, 9 Jun 2016 09:26:31 +0300
+Message-ID: <20160609062631.GN3663@leon.nu>
+References: <1464795484-77395-1-git-send-email-oulijun@huawei.com>
+ <1464795484-77395-12-git-send-email-oulijun@huawei.com>
+Reply-To: leon@kernel.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <thloh85-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <cnphoon-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
-To: Tien Hock Loh <thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1465451310.4467.21.camel@ubuntu>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-Hello Tien Hock
-
-On 6/9/2016 7:48 AM, Tien Hock Loh wrote:
-
-[snip]
-
->>>  .../devicetree/bindings/net/socfpga-dwmac.txt      |   4 +
->>>  drivers/net/ethernet/stmicro/stmmac/Makefile       |   2 +-
->>>  .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 140 +++++++++--
->>>  drivers/net/ethernet/stmicro/stmmac/tse_pcs.c      | 261 +++++++++++++++++++++
->>>  drivers/net/ethernet/stmicro/stmmac/tse_pcs.h      |  36 +++
->>>  5 files changed, 419 insertions(+), 24 deletions(-)
->>>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/tse_pcs.c
->>>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/tse_pcs.h
->>
->> I just wonder if it could make sense to rename the
->> tse_pcs.[hc] files or creating a sub-directory for altera devel.
->> It seems that tse_pcs.[hc] are common files but this support
->> is for Altera.
->> Anyway, I let you decide and I also ask you to update the stmmac.txt
->> file.
->
-> Yeah the PCS support for TSE is Altera. To avoid confusion, let's rename
-> them, would altr_tse_pcs.[hc] be good? I don't think creating a
-> sub-directory with only 2 files is necessary though.
-
-ok for two files w/o sub-dir.
-
->
-> I see that stmmac.txt is generic, and other vendor's PCS support
-> documents their specific uses in their own *-dwmac.txt (eg.
-> rockchip-dwmac.txt). Is this not the case?
-
-yes you can use this name convention. I let you decide.
-
-[snip]
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="Y4VYWfdFdHwFhC6D"
+Cc: dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, jiri@mellanox.com,
+	ogerlitz@mellanox.com, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	gongyangming@huawei.com, xiaokun@huawei.com,
+	tangchaofei@huawei.com, haifeng.wei@huawei.com,
+	yisen.zhuang@huawei.com, yankejian@huawei.com,
+	charles.chenxin@huawei.com, linuxarm@huawei.com
+To: Lijun Ou <oulijun@huawei.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.kernel.org ([198.145.29.136]:50838 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753622AbcFIG0y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2016 02:26:54 -0400
+Content-Disposition: inline
+In-Reply-To: <1464795484-77395-12-git-send-email-oulijun@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
->>> +
->>> +		index = of_property_match_string(np_sgmii_adapter, "reg-names",
->>> +						 "eth_tse_control_port");
->>
->> reg-names looks to be specific and mandatory, IMO they should be
->> documented in the binding.
->
-> That's the binding for the adapter (the phandle to the sgmii adapter),
-> not the stmac binding itself. Do you mean I should document the sgmii
-> adapter as well?
+--Y4VYWfdFdHwFhC6D
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-no I just meant for the adapter binding, I had understood that
-eth_tse_control_port and gmii_to_sgmii_adapter_avalon_slave
-were not documented and these seem to be mandatory.
+On Wed, Jun 01, 2016 at 11:37:53PM +0800, Lijun Ou wrote:
+> This patch registered IB device when loaded, and unregistered
+> IB device when removed.
+>=20
+> Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
+> Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
+> Signed-off-by: Lijun Ou <oulijun@huawei.com>
+> ---
+>  drivers/infiniband/hw/hns/hns_roce_main.c | 46 +++++++++++++++++++++++++=
+++++++
+>  1 file changed, 46 insertions(+)
+>=20
+> diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniba=
+nd/hw/hns/hns_roce_main.c
+> index 7fb0d34..f179a7f 100644
+> --- a/drivers/infiniband/hw/hns/hns_roce_main.c
+> +++ b/drivers/infiniband/hw/hns/hns_roce_main.c
+> @@ -62,6 +62,41 @@
+>  #include "hns_roce_device.h"
+>  #include "hns_roce_icm.h"
+> =20
+> +void hns_roce_unregister_device(struct hns_roce_dev *hr_dev)
 
-[snip]
+You are not calling to this function in this patch.
 
->>> +
->>> +static void auto_nego_timer_callback(unsigned long data)
->>> +{
->>> +	u16 val = 0;
->>> +	u16 speed = 0;
->>> +	u16 duplex = 0;
->>> +
->>> +	struct tse_pcs *pcs = (struct tse_pcs *)data;
->>> +	void __iomem *tse_pcs_base = pcs->tse_pcs_base;
->>> +	void __iomem *sgmii_adapter_base = pcs->sgmii_adapter_base;
->>> +
->>> +	val = readw(tse_pcs_base + TSE_PCS_STATUS_REG);
->>> +	val &=  TSE_PCS_STATUS_AN_COMPLETED_MASK;
+> +{
+> +	ib_unregister_device(&hr_dev->ib_dev);
+> +}
+> +
+> +int hns_roce_register_device(struct hns_roce_dev *hr_dev)
 
-[snip]
+This function should be static.
 
->>
->> ANE is completed but speed or duplex is NOK. Any failure to signalling?
->> I see that you then enable the adpter in any case.
->>
->> Maybe we could try to restart ANE again or force it (reducing the speed)
->> I wonder what happens if, for some reason, there is some hw problem. In
->> that case the timer is always running signalling an invalid Parter
->> speed. Anyway, this is jus a question... I expect that this error will
->> always point us to a problem to debug further (if occurs).
->
-> Let me look at how we can handle the case. Perhaps we could do a restart
-> and register the timer again. I'm just worried it will go into an
-> infinite timer registering hogging up the kernel if the hardware really
-> fails. Maybe I can do a n-time retry here. Looking into this. Let me
-> know if you have any opinions on this.
->
-> I haven't been able to check for this behaviour though, negative testing
-> on this code isn't too easy to simulate.
+> +{
+> +	int ret;
+> +	struct hns_roce_ib_iboe *iboe =3D NULL;
+> +	struct ib_device *ib_dev =3D NULL;
+> +	struct device *dev =3D &hr_dev->pdev->dev;
+> +
+> +	iboe =3D &hr_dev->iboe;
+> +
+> +	ib_dev =3D &hr_dev->ib_dev;
+> +	strlcpy(ib_dev->name, "hisi_%d", IB_DEVICE_NAME_MAX);
+> +
+> +	ib_dev->owner			=3D THIS_MODULE;
+> +	ib_dev->node_type		=3D RDMA_NODE_IB_CA;
+> +	ib_dev->dma_device		=3D dev;
+> +
+> +	ib_dev->phys_port_cnt		=3D hr_dev->caps.num_ports;
+> +	ib_dev->local_dma_lkey		=3D hr_dev->caps.reserved_lkey;
+> +	ib_dev->num_comp_vectors	=3D hr_dev->caps.num_comp_vectors;
+> +	ib_dev->uverbs_abi_ver		=3D 1;
+> +
+> +	ret =3D ib_register_device(ib_dev, NULL);
+> +	if (ret) {
+> +		dev_err(dev, "ib_register_device failed!\n");
+> +		return ret;
+> +	}
+> +
+> +	return 0;
+> +}
+> +
+>  int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
+>  {
+>  	int i;
+> @@ -363,6 +398,17 @@ static int hns_roce_probe(struct platform_device *pd=
+ev)
+>  		goto error_failed_engine_init;
+>  	}
+> =20
+> +	ret =3D hns_roce_register_device(hr_dev);
+> +	if (ret) {
+> +		dev_err(dev, "register_device failed!\n");
 
-yes and I expect this can occur on hw / conf problems. Take a look at
-how the Physical Abstraction Layer manages this.
-Indeed, we can try to restart ANE for a while and then just report the
-failure (dev_err). Or we can try to fix other speed or duplex. But not
-sure this is a good solution. We just mask a problem.
+According to the current code, you will print this error together with
+error line in hns_roce_register_device for the same failure.
 
-[snip]
+"ib_register_device failed!"
+"register_device failed!"
 
->>> +
->>> +		setup_timer(&pcs->an_timer,
->>> +			    auto_nego_timer_callback,
->>> +			    (unsigned long)pcs);
->>> +		mod_timer(&pcs->an_timer, jiffies +
->>> +			  msecs_to_jiffies(AUTONEGO_TIMER));
->>> +	} else if (phy_dev->autoneg == AUTONEG_DISABLE) {
->>> +		val = readw(tse_pcs_base + TSE_PCS_CONTROL_REG);
->>> +		val &= ~TSE_PCS_CONTROL_AN_EN_MASK;
->>> +		writew(val, tse_pcs_base + TSE_PCS_CONTROL_REG);
->>> +
->>> +		val = readw(tse_pcs_base + TSE_PCS_IF_MODE_REG);
->>> +		val &= ~TSE_PCS_USE_SGMII_AN_MASK;
->>> +		writew(val, tse_pcs_base + TSE_PCS_IF_MODE_REG);
->>> +
->>> +		val = readw(tse_pcs_base + TSE_PCS_IF_MODE_REG);
->>> +		val &= ~TSE_PCS_SGMII_SPEED_MASK;
->>> +
->>> +		switch (speed) {
->>> +		case 1000:
->>> +			val |= TSE_PCS_SGMII_SPEED_1000;
->>> +			break;
->>> +		case 100:
->>> +			val |= TSE_PCS_SGMII_SPEED_100;
->>> +			break;
->>> +		case 10:
->>> +			val |= TSE_PCS_SGMII_SPEED_10;
->>> +			break;
->>> +		default:
->>> +			return;
->>> +		}
->>> +		writew(val, tse_pcs_base + TSE_PCS_IF_MODE_REG);
->>> +
->>> +		tse_pcs_reset(tse_pcs_base, pcs);
->>> +
->>> +		setup_timer(&pcs->link_timer,
->>> +			    pcs_link_timer_callback,
->>> +					(unsigned long)pcs);
->>> +		mod_timer(&pcs->link_timer, jiffies +
->>> +			  msecs_to_jiffies(LINK_TIMER));
->>
->> I wonder if we can have just one timer to manage ANE and LINK.
->>
->
-> That would increase the complexity of the code because we would need to
-> check the callback type on when the callback is triggered and call the
-> correct function.
+> +		goto error_failed_register_device;
+> +	}
+> +
+> +	return 0;
+> +
+> +error_failed_register_device:
+> +	hns_roce_engine_exit(hr_dev);
+> +
+>  error_failed_engine_init:
+>  	hns_roce_cleanup_bitmap(hr_dev);
+> =20
+> --=20
+> 1.9.1
+>=20
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-hmm, in that case, you have two timers and no lock protection:
-I suspect there could be some hidden problem. The link goes down
-and a timer polls this then another one try to restart ANE and
-both timers read the TSE_PCS_STATUS_REG.
-IMO, a timer is enough and you could keep the code to manage ANE and
-LINK in two different functions. Pls take a look at if this is feasible.
+--Y4VYWfdFdHwFhC6D
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-Peppe
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXWQwXAAoJEORje4g2clin7vEP/1rLiLZjbw7DUSlFZIjKMCGj
+PDyZEf+JOn+WAzePp+DLCmdLxYng9lyLfGzamXXjl/ynGG0VJ30PVftKu984ohyr
+h4zTwDRnsZLq0dYCXodjOdtc4LmvidTrqp04bPff/A1vAQpLth+kbw+wvLYSXiuv
+W0d2MndeWhxbLmF83ueonTw+bubBTI9bzSAHRoKlzZjBaKlig59Ai7NlfMZ257dt
+49VEDj89OtPL+u/fwC2RZ0nHVJkEjytWmnPI0aZcd5nITVbXSoFmXa7hEJte+SzK
+AfyIAl6EGANyxcsaylh2110UjPXqvTBnO2hAlRnLf96ZJGv32xfz2YD8E2aJTVqV
+3zJ2bBA3Db4xAXJykS8cVzduUyizOC2Weg7VNk/y/zjitQgdK3Jil3bWII4Ln+OQ
+VQL4f8vYm0EkubmadK8FzSwDEeSIt5Xz+6TGGNs7Cj2yV5Zv1Rv7OM8DF2ROQ7sh
+sv6pd/AsbgngP3gF0mSTBcrC9g0GGGo9wjH6cphr0XYs5oYVLMn9/ZHx1YTbDWxG
+V6BLFCxFZcORQQe1Cm6uvk/K9j/woXqtTdD566WGmFdE/RB+lCz4RsoFttBBxq7H
+3PskdV8Q6NDCE1oPn2e7fh/+vU5WnDeFo6Vg+vkwYIljeEeQgJdExEZNI6jKgMOF
+bsT0dG+eJXsJdIwZj6nz
+=hPeh
+-----END PGP SIGNATURE-----
+
+--Y4VYWfdFdHwFhC6D--
