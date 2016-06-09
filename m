@@ -1,181 +1,195 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 10/13] net/mlx5: E-Switch, Modify node guid on vf set MAC
-Date: Fri, 10 Jun 2016 00:07:37 +0300
-Message-ID: <1465506460-1854-11-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 08/13] net/mlx5: E-Switch, Use the correct error check on returned pointers
+Date: Fri, 10 Jun 2016 00:07:35 +0300
+Message-ID: <1465506460-1854-9-git-send-email-saeedm@mellanox.com>
 References: <1465506460-1854-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Noa Osherovich <noaos@mellanox.com>,
-	Majd Dibbiny <majd@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:34470 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:34500 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750795AbcFIVJD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2016 17:09:03 -0400
+	id S1751887AbcFIVJb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2016 17:09:31 -0400
 In-Reply-To: <1465506460-1854-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Noa Osherovich <noaos@mellanox.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-In RoCE, the RDMA-CM needs the node guid to establish connection
-between nodes.
-Today, the node guid exposed to mlx5 Ethernet VFs is zero, therefore
-RDMA-CM on the VF is broken.
+The mlx5 flow-steering API (mlx5_create_flow_table/group/rule) never
+returns null pointer on error. Even if it was doing that, checking
+for IS_ERR_OR_NULL(p) and then returning PTR_ERR(p) would have cause
+bugs, since PTR_ERR(NULL) --> success, crash.
 
-Whenever the administrator sets a MAC for a VF, derive the node guid
-from it and set it as well in the following way:
-MAC: e4:1d:2d:b3:f4:01 -> node_guid: e4:1d:2d:ff:fe:b3:f4:01
+To make things more robust and protect against related future bugs,
+convert all IS_ERR_OR_NULL checks on returned values to IS_ERR.
 
-Fixes: 77256579c6b43 ('net/mlx5: E-Switch, Introduce Vport...')
-Signed-off-by: Noa Osherovich <noaos@mellanox.com>
-Signed-off-by: Majd Dibbiny <majd@mellanox.com>
+Fixes: 5742df0f7dbe ('net/mlx5: E-Switch, Introduce VST vport ingress/egress ACLs')
+Fixes: 86d722ad2c3b ('net/mlx5: Use flow steering infrastructure for mlx5_en')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Reported-by: Ilya Lesokhin <ilyal@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 23 ++++++++++++--
- drivers/net/ethernet/mellanox/mlx5/core/vport.c   | 38 +++++++++++++++++++++++
- include/linux/mlx5/mlx5_ifc.h                     |  9 ++++--
- include/linux/mlx5/vport.h                        |  2 ++
- 4 files changed, 68 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 34 +++++++++++------------
+ 1 file changed, 17 insertions(+), 17 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-index cfec20c..9b1855b 100644
+index 5374796..a350af2 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-@@ -1725,11 +1725,24 @@ void mlx5_eswitch_vport_event(struct mlx5_eswitch *esw, struct mlx5_eqe *eqe)
- 	(esw && MLX5_CAP_GEN(esw->dev, vport_group_manager) && mlx5_core_is_pf(esw->dev))
- #define LEGAL_VPORT(esw, vport) (vport >= 0 && vport < esw->total_vports)
+@@ -383,7 +383,7 @@ __esw_fdb_set_vport_rule(struct mlx5_eswitch *esw, u32 vport, bool rx_rule,
+ 				   match_v,
+ 				   MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
+ 				   0, &dest);
+-	if (IS_ERR_OR_NULL(flow_rule)) {
++	if (IS_ERR(flow_rule)) {
+ 		pr_warn(
+ 			"FDB: Failed to add flow rule: dmac_v(%pM) dmac_c(%pM) -> vport(%d), err(%ld)\n",
+ 			 dmac_v, dmac_c, vport, PTR_ERR(flow_rule));
+@@ -457,7 +457,7 @@ static int esw_create_fdb_table(struct mlx5_eswitch *esw, int nvports)
  
-+static void node_guid_gen_from_mac(u64 *node_guid, u8 mac[ETH_ALEN])
-+{
-+	((u8 *)node_guid)[7] = mac[0];
-+	((u8 *)node_guid)[6] = mac[1];
-+	((u8 *)node_guid)[5] = mac[2];
-+	((u8 *)node_guid)[4] = 0xff;
-+	((u8 *)node_guid)[3] = 0xfe;
-+	((u8 *)node_guid)[2] = mac[3];
-+	((u8 *)node_guid)[1] = mac[4];
-+	((u8 *)node_guid)[0] = mac[5];
-+}
-+
- int mlx5_eswitch_set_vport_mac(struct mlx5_eswitch *esw,
- 			       int vport, u8 mac[ETH_ALEN])
- {
--	int err = 0;
- 	struct mlx5_vport *evport;
-+	u64 node_guid;
-+	int err = 0;
+ 	table_size = BIT(MLX5_CAP_ESW_FLOWTABLE_FDB(dev, log_max_ft_size));
+ 	fdb = mlx5_create_flow_table(root_ns, 0, table_size, 0);
+-	if (IS_ERR_OR_NULL(fdb)) {
++	if (IS_ERR(fdb)) {
+ 		err = PTR_ERR(fdb);
+ 		esw_warn(dev, "Failed to create FDB Table err %d\n", err);
+ 		goto out;
+@@ -474,7 +474,7 @@ static int esw_create_fdb_table(struct mlx5_eswitch *esw, int nvports)
+ 	MLX5_SET(create_flow_group_in, flow_group_in, end_flow_index, table_size - 3);
+ 	eth_broadcast_addr(dmac);
+ 	g = mlx5_create_flow_group(fdb, flow_group_in);
+-	if (IS_ERR_OR_NULL(g)) {
++	if (IS_ERR(g)) {
+ 		err = PTR_ERR(g);
+ 		esw_warn(dev, "Failed to create flow group err(%d)\n", err);
+ 		goto out;
+@@ -489,7 +489,7 @@ static int esw_create_fdb_table(struct mlx5_eswitch *esw, int nvports)
+ 	eth_zero_addr(dmac);
+ 	dmac[0] = 0x01;
+ 	g = mlx5_create_flow_group(fdb, flow_group_in);
+-	if (IS_ERR_OR_NULL(g)) {
++	if (IS_ERR(g)) {
+ 		err = PTR_ERR(g);
+ 		esw_warn(dev, "Failed to create allmulti flow group err(%d)\n", err);
+ 		goto out;
+@@ -506,7 +506,7 @@ static int esw_create_fdb_table(struct mlx5_eswitch *esw, int nvports)
+ 	MLX5_SET(create_flow_group_in, flow_group_in, start_flow_index, table_size - 1);
+ 	MLX5_SET(create_flow_group_in, flow_group_in, end_flow_index, table_size - 1);
+ 	g = mlx5_create_flow_group(fdb, flow_group_in);
+-	if (IS_ERR_OR_NULL(g)) {
++	if (IS_ERR(g)) {
+ 		err = PTR_ERR(g);
+ 		esw_warn(dev, "Failed to create promisc flow group err(%d)\n", err);
+ 		goto out;
+@@ -1060,7 +1060,7 @@ static void esw_vport_enable_egress_acl(struct mlx5_eswitch *esw,
+ 		return;
  
- 	if (!ESW_ALLOWED(esw))
- 		return -EPERM;
-@@ -1753,11 +1766,17 @@ int mlx5_eswitch_set_vport_mac(struct mlx5_eswitch *esw,
- 		return err;
- 	}
+ 	acl = mlx5_create_vport_flow_table(root_ns, 0, table_size, 0, vport->vport);
+-	if (IS_ERR_OR_NULL(acl)) {
++	if (IS_ERR(acl)) {
+ 		err = PTR_ERR(acl);
+ 		esw_warn(dev, "Failed to create E-Switch vport[%d] egress flow Table, err(%d)\n",
+ 			 vport->vport, err);
+@@ -1075,7 +1075,7 @@ static void esw_vport_enable_egress_acl(struct mlx5_eswitch *esw,
+ 	MLX5_SET(create_flow_group_in, flow_group_in, end_flow_index, 0);
  
-+	node_guid_gen_from_mac(&node_guid, mac);
-+	err = mlx5_modify_nic_vport_node_guid(esw->dev, vport, node_guid);
-+	if (err)
-+		mlx5_core_warn(esw->dev,
-+			       "Failed to set vport %d node guid, err = %d. RDMA_CM will not function properly for this VF.\n",
-+			       vport, err);
-+
- 	mutex_lock(&esw->state_lock);
- 	if (evport->enabled)
- 		err = esw_vport_ingress_config(esw, evport);
- 	mutex_unlock(&esw->state_lock);
--
- 	return err;
- }
+ 	vlan_grp = mlx5_create_flow_group(acl, flow_group_in);
+-	if (IS_ERR_OR_NULL(vlan_grp)) {
++	if (IS_ERR(vlan_grp)) {
+ 		err = PTR_ERR(vlan_grp);
+ 		esw_warn(dev, "Failed to create E-Switch vport[%d] egress allowed vlans flow group, err(%d)\n",
+ 			 vport->vport, err);
+@@ -1086,7 +1086,7 @@ static void esw_vport_enable_egress_acl(struct mlx5_eswitch *esw,
+ 	MLX5_SET(create_flow_group_in, flow_group_in, start_flow_index, 1);
+ 	MLX5_SET(create_flow_group_in, flow_group_in, end_flow_index, 1);
+ 	drop_grp = mlx5_create_flow_group(acl, flow_group_in);
+-	if (IS_ERR_OR_NULL(drop_grp)) {
++	if (IS_ERR(drop_grp)) {
+ 		err = PTR_ERR(drop_grp);
+ 		esw_warn(dev, "Failed to create E-Switch vport[%d] egress drop flow group, err(%d)\n",
+ 			 vport->vport, err);
+@@ -1174,7 +1174,7 @@ static void esw_vport_enable_ingress_acl(struct mlx5_eswitch *esw,
+ 		return;
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-index b69dadc..daf44cd 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
-@@ -508,6 +508,44 @@ int mlx5_query_nic_vport_node_guid(struct mlx5_core_dev *mdev, u64 *node_guid)
- }
- EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_node_guid);
+ 	acl = mlx5_create_vport_flow_table(root_ns, 0, table_size, 0, vport->vport);
+-	if (IS_ERR_OR_NULL(acl)) {
++	if (IS_ERR(acl)) {
+ 		err = PTR_ERR(acl);
+ 		esw_warn(dev, "Failed to create E-Switch vport[%d] ingress flow Table, err(%d)\n",
+ 			 vport->vport, err);
+@@ -1192,7 +1192,7 @@ static void esw_vport_enable_ingress_acl(struct mlx5_eswitch *esw,
+ 	MLX5_SET(create_flow_group_in, flow_group_in, end_flow_index, 0);
  
-+int mlx5_modify_nic_vport_node_guid(struct mlx5_core_dev *mdev,
-+				    u32 vport, u64 node_guid)
-+{
-+	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
-+	void *nic_vport_context;
-+	u8 *guid;
-+	void *in;
-+	int err;
-+
-+	if (!vport)
-+		return -EINVAL;
-+	if (!MLX5_CAP_GEN(mdev, vport_group_manager))
-+		return -EACCES;
-+	if (!MLX5_CAP_ESW(mdev, nic_vport_node_guid_modify))
-+		return -ENOTSUPP;
-+
-+	in = mlx5_vzalloc(inlen);
-+	if (!in)
-+		return -ENOMEM;
-+
-+	MLX5_SET(modify_nic_vport_context_in, in,
-+		 field_select.node_guid, 1);
-+	MLX5_SET(modify_nic_vport_context_in, in, vport_number, vport);
-+	MLX5_SET(modify_nic_vport_context_in, in, other_vport, !!vport);
-+
-+	nic_vport_context = MLX5_ADDR_OF(modify_nic_vport_context_in,
-+					 in, nic_vport_context);
-+	guid = MLX5_ADDR_OF(nic_vport_context, nic_vport_context,
-+			    node_guid);
-+	MLX5_SET64(nic_vport_context, nic_vport_context, node_guid, node_guid);
-+
-+	err = mlx5_modify_nic_vport_context(mdev, in, inlen);
-+
-+	kvfree(in);
-+
-+	return err;
-+}
-+
- int mlx5_query_nic_vport_qkey_viol_cntr(struct mlx5_core_dev *mdev,
- 					u16 *qkey_viol_cntr)
- {
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 986a615..e955a28 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -501,7 +501,9 @@ struct mlx5_ifc_e_switch_cap_bits {
- 	u8         vport_svlan_insert[0x1];
- 	u8         vport_cvlan_insert_if_not_exist[0x1];
- 	u8         vport_cvlan_insert_overwrite[0x1];
--	u8         reserved_at_5[0x1b];
-+	u8         reserved_at_5[0x19];
-+	u8         nic_vport_node_guid_modify[0x1];
-+	u8         nic_vport_port_guid_modify[0x1];
+ 	g = mlx5_create_flow_group(acl, flow_group_in);
+-	if (IS_ERR_OR_NULL(g)) {
++	if (IS_ERR(g)) {
+ 		err = PTR_ERR(g);
+ 		esw_warn(dev, "Failed to create E-Switch vport[%d] ingress untagged spoofchk flow group, err(%d)\n",
+ 			 vport->vport, err);
+@@ -1207,7 +1207,7 @@ static void esw_vport_enable_ingress_acl(struct mlx5_eswitch *esw,
+ 	MLX5_SET(create_flow_group_in, flow_group_in, end_flow_index, 1);
  
- 	u8         reserved_at_20[0x7e0];
- };
-@@ -4584,7 +4586,10 @@ struct mlx5_ifc_modify_nic_vport_context_out_bits {
- };
+ 	g = mlx5_create_flow_group(acl, flow_group_in);
+-	if (IS_ERR_OR_NULL(g)) {
++	if (IS_ERR(g)) {
+ 		err = PTR_ERR(g);
+ 		esw_warn(dev, "Failed to create E-Switch vport[%d] ingress untagged flow group, err(%d)\n",
+ 			 vport->vport, err);
+@@ -1223,7 +1223,7 @@ static void esw_vport_enable_ingress_acl(struct mlx5_eswitch *esw,
+ 	MLX5_SET(create_flow_group_in, flow_group_in, end_flow_index, 2);
  
- struct mlx5_ifc_modify_nic_vport_field_select_bits {
--	u8         reserved_at_0[0x19];
-+	u8         reserved_at_0[0x16];
-+	u8         node_guid[0x1];
-+	u8         port_guid[0x1];
-+	u8         reserved_at_18[0x1];
- 	u8         mtu[0x1];
- 	u8         change_event[0x1];
- 	u8         promisc[0x1];
-diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
-index 301da4a..6c16c19 100644
---- a/include/linux/mlx5/vport.h
-+++ b/include/linux/mlx5/vport.h
-@@ -50,6 +50,8 @@ int mlx5_modify_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 mtu);
- int mlx5_query_nic_vport_system_image_guid(struct mlx5_core_dev *mdev,
- 					   u64 *system_image_guid);
- int mlx5_query_nic_vport_node_guid(struct mlx5_core_dev *mdev, u64 *node_guid);
-+int mlx5_modify_nic_vport_node_guid(struct mlx5_core_dev *mdev,
-+				    u32 vport, u64 node_guid);
- int mlx5_query_nic_vport_qkey_viol_cntr(struct mlx5_core_dev *mdev,
- 					u16 *qkey_viol_cntr);
- int mlx5_query_hca_vport_gid(struct mlx5_core_dev *dev, u8 other_vport,
+ 	g = mlx5_create_flow_group(acl, flow_group_in);
+-	if (IS_ERR_OR_NULL(g)) {
++	if (IS_ERR(g)) {
+ 		err = PTR_ERR(g);
+ 		esw_warn(dev, "Failed to create E-Switch vport[%d] ingress spoofchk flow group, err(%d)\n",
+ 			 vport->vport, err);
+@@ -1236,7 +1236,7 @@ static void esw_vport_enable_ingress_acl(struct mlx5_eswitch *esw,
+ 	MLX5_SET(create_flow_group_in, flow_group_in, end_flow_index, 3);
+ 
+ 	g = mlx5_create_flow_group(acl, flow_group_in);
+-	if (IS_ERR_OR_NULL(g)) {
++	if (IS_ERR(g)) {
+ 		err = PTR_ERR(g);
+ 		esw_warn(dev, "Failed to create E-Switch vport[%d] ingress drop flow group, err(%d)\n",
+ 			 vport->vport, err);
+@@ -1363,7 +1363,7 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
+ 				   match_v,
+ 				   MLX5_FLOW_CONTEXT_ACTION_ALLOW,
+ 				   0, NULL);
+-	if (IS_ERR_OR_NULL(vport->ingress.allow_rule)) {
++	if (IS_ERR(vport->ingress.allow_rule)) {
+ 		err = PTR_ERR(vport->ingress.allow_rule);
+ 		pr_warn("vport[%d] configure ingress allow rule, err(%d)\n",
+ 			vport->vport, err);
+@@ -1380,7 +1380,7 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
+ 				   match_v,
+ 				   MLX5_FLOW_CONTEXT_ACTION_DROP,
+ 				   0, NULL);
+-	if (IS_ERR_OR_NULL(vport->ingress.drop_rule)) {
++	if (IS_ERR(vport->ingress.drop_rule)) {
+ 		err = PTR_ERR(vport->ingress.drop_rule);
+ 		pr_warn("vport[%d] configure ingress drop rule, err(%d)\n",
+ 			vport->vport, err);
+@@ -1439,7 +1439,7 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
+ 				   match_v,
+ 				   MLX5_FLOW_CONTEXT_ACTION_ALLOW,
+ 				   0, NULL);
+-	if (IS_ERR_OR_NULL(vport->egress.allowed_vlan)) {
++	if (IS_ERR(vport->egress.allowed_vlan)) {
+ 		err = PTR_ERR(vport->egress.allowed_vlan);
+ 		pr_warn("vport[%d] configure egress allowed vlan rule failed, err(%d)\n",
+ 			vport->vport, err);
+@@ -1457,7 +1457,7 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
+ 				   match_v,
+ 				   MLX5_FLOW_CONTEXT_ACTION_DROP,
+ 				   0, NULL);
+-	if (IS_ERR_OR_NULL(vport->egress.drop_rule)) {
++	if (IS_ERR(vport->egress.drop_rule)) {
+ 		err = PTR_ERR(vport->egress.drop_rule);
+ 		pr_warn("vport[%d] configure egress drop rule failed, err(%d)\n",
+ 			vport->vport, err);
 -- 
 2.8.0
