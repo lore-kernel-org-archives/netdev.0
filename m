@@ -1,36 +1,67 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: ipv4: Constrain UFO fragment sizes to multiples of 8 bytes
-Date: Fri, 10 Jun 2016 00:39:11 +0200
-Message-ID: <475a604a-6364-659c-afee-67e31005b17d@stressinduktion.org>
-References: <6A051441C8B95A448E49718A747690B901CA76BE7B@gbplmail03.genband.com>
- <CAM_iQpUmts3gXa3cNSVxt=gVr-Erx5iAwoVhbEVgQqpGK6xLeA@mail.gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net-next] net, cls: allow for deleting all filters for
+ given parent
+Date: Thu, 9 Jun 2016 15:54:30 -0700
+Message-ID: <CAM_iQpVga4J92BJr6_zxMwVg4M=VBeqveiTiqHG+chnk3ZD2TA@mail.gmail.com>
+References: <cd8455dfef0cccec5ef0a1ca2d1f678e9397d66e.1465056745.git.daniel@iogearbox.net>
+ <CAM_iQpWDc1JAa9MhcSAOdJVVRoG52Z+p47CD-rd81LzN28zk1A@mail.gmail.com>
+ <5755CE3A.7050002@iogearbox.net> <CAM_iQpXJAa5B=4ez9z+-Q66rFj+EUTGwrYWMhYoCK=3rp65gYw@mail.gmail.com>
+ <57588E66.8070509@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-	Steven Caron <steven.caron@genband.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Thomas Graf <tgraf@suug.ch>
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:45603 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751119AbcFIWjQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 18:39:16 -0400
-In-Reply-To: <CAM_iQpUmts3gXa3cNSVxt=gVr-Erx5iAwoVhbEVgQqpGK6xLeA@mail.gmail.com>
+Received: from mail-yw0-f169.google.com ([209.85.161.169]:36569 "EHLO
+	mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751732AbcFIWyu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 18:54:50 -0400
+Received: by mail-yw0-f169.google.com with SMTP id x189so51644602ywe.3
+        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 15:54:50 -0700 (PDT)
+In-Reply-To: <57588E66.8070509@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09.06.2016 06:59, Cong Wang wrote:
-> (Cc'ing netdev...)
-> 
-> On Mon, Jun 6, 2016 at 1:24 PM, Steven Caron <steven.caron@genband.com> wrote:
->> Back in 2011, Bill Sommerfeld submitted an update to prevent ip_append_data to create malformed packets:
->>  Commit: d9be4f7a6f5a8da3133b832eca41c3591420b1ca
+On Wed, Jun 8, 2016 at 2:30 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 06/06/2016 09:52 PM, Cong Wang wrote:
 >>
->> Now we're finding that we need to apply the same logic to ip_append_page  to get nfs to work with udp when UFO is enabled:
+>> On Mon, Jun 6, 2016 at 12:25 PM, Daniel Borkmann <daniel@iogearbox.net>
+>> wrote:
+>
+> [...]
+>>
+>> This is fundamental for libnl to update caches.
+>>
+>> I don't understand why it should be separated, since notification is
+>> not a feature, we already have notifications in other paths.
+>>
+>>> Looking into this, I would probably make this a single notification that
+>>> denotes this 'wild-card' removal for that parent instead of calling
+>>> tfilter_notify() for each filter separately (which allocs skb, dumps it,
+>>> etc), qdisc del doesn't loop through it either, so probably fine this
+>>> way.
+>>
+>>
+>> Makes sense.
+>
+>
+> I've been playing around with both options and am actually currently
+> leaning towards the tfilter_notify() for each proto for the reason
+> that user space tc monitors can simply stay as is. F.e., if someone
+> keeps an older libnl binary that wouldn't understand such a wildcard
+> message, then elements in libnl cache won't receive updates since the
+> meta data won't match on them (average case, there probably are only
+> one up to a handful of classifiers per parent) ... hm, different topic
+> but still wondering whether libnl relying on such messages is a good
+> idea in general since under stress tfilter_notify() can also fail and
+> user space won't get the updates (except for queries with RTM_GETTFILTER).
 
-Uhh, absolutely for the same reason as described in the referred commit.
- Can you send a patch?
+Don't worry about any failure in tfilter_notify(), we call it in
+non-wildcard removal too. Your current patch looks good to me.
 
-Thanks,
-Hannes
+Thanks!
