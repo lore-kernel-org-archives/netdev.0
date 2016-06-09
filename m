@@ -1,87 +1,97 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH v2 net-next 2/4] net: vrf: call netdev_lockdep_set_classes()
-Date: Wed, 8 Jun 2016 21:58:58 -0700
-Message-ID: <CANn89iKprT4CZBpnSZTvp=BmK+zjffFqhxArLkUU73xGkV+x8A@mail.gmail.com>
-References: <1465442964-5786-1-git-send-email-edumazet@google.com>
- <1465442964-5786-2-git-send-email-edumazet@google.com> <c067a755-d414-60b9-a2f0-215c2b41bc6f@cumulusnetworks.com>
- <CANn89i+3m=6jNJPs2Ns+0uYqx7B-4pKENQ3Oi3dibFuTqaErzg@mail.gmail.com> <0231E33E-1C1A-4B32-992C-9BFC7470E7E0@cumulusnetworks.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: ipv4: Constrain UFO fragment sizes to multiples of 8 bytes
+Date: Wed, 8 Jun 2016 21:59:23 -0700
+Message-ID: <CAM_iQpUmts3gXa3cNSVxt=gVr-Erx5iAwoVhbEVgQqpGK6xLeA@mail.gmail.com>
+References: <6A051441C8B95A448E49718A747690B901CA76BE7B@gbplmail03.genband.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: David Ahern <dsa@cumulusnetworks.com>
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Steven Caron <steven.caron@genband.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f173.google.com ([209.85.161.173]:35124 "EHLO
-	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932812AbcFIE7A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 00:59:00 -0400
-Received: by mail-yw0-f173.google.com with SMTP id z186so9269210ywd.2
-        for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 21:58:59 -0700 (PDT)
-In-Reply-To: <0231E33E-1C1A-4B32-992C-9BFC7470E7E0@cumulusnetworks.com>
+Received: from mail-yw0-f196.google.com ([209.85.161.196]:35927 "EHLO
+	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932812AbcFIE7n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 00:59:43 -0400
+In-Reply-To: <6A051441C8B95A448E49718A747690B901CA76BE7B@gbplmail03.genband.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 8, 2016 at 9:35 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+(Cc'ing netdev...)
+
+On Mon, Jun 6, 2016 at 1:24 PM, Steven Caron <steven.caron@genband.com> wrote:
+> Back in 2011, Bill Sommerfeld submitted an update to prevent ip_append_data to create malformed packets:
+>  Commit: d9be4f7a6f5a8da3133b832eca41c3591420b1ca
 >
->> On Jun 8, 2016, at 10:01 PM, Eric Dumazet <edumazet@google.com> wrote:
->>
->>> On Wed, Jun 8, 2016 at 8:41 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
->>>> On 6/8/16 9:29 PM, Eric Dumazet wrote:
->>>>
->>>> In case a qdisc is used on a vrf device, we need to use different
->>>> lockdep classes to avoid false positives.
->>>>
->>>> Fixes: f9eb8aea2a1e ("net_sched: transform qdisc running bit into a
->>>> seqcount")
->>>> Reported-by: David Ahern <dsa@cumulusnetworks.com>
->>>> Signed-off-by: Eric Dumazet <edumazet@google.com>
->>>
->>>
->>> same result with this patch set.
->>
->> Are you stacking multiple vrf devices ?
+> Now we're finding that we need to apply the same logic to ip_append_page  to get nfs to work with udp when UFO is enabled:
 >
-> No. You can also look at ipvlan. It shows the same trace. For me it is 3 commands that create the vrf, add eth1, run ping.
-
-
-Okay, lockdep is hard ;)
-
-I will send a v3 after some sleep, adding the following :
-
-(I might have to add a new seqcount api instead of hard coding it)
-
-diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
-index c4f5749342ec..d53ecfc1d60e 100644
---- a/include/net/sch_generic.h
-+++ b/include/net/sch_generic.h
-@@ -104,7 +104,11 @@ static inline bool qdisc_run_begin(struct Qdisc *qdisc)
- {
-        if (qdisc_is_running(qdisc))
-                return false;
--       write_seqcount_begin(&qdisc->running);
-+       /* Variant of write_seqcount_begin() telling lockdep a trylock
-+        * was attempted.
-+        */
-+       raw_write_seqcount_begin(&qdisc->running);
-+       seqcount_acquire(&qdisc->running.dep_map, 0, 1, _RET_IP_);
-        return true;
- }
-
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index cebea73e70ac..cad810b45e31 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -137,10 +137,10 @@ int sch_direct_xmit(struct sk_buff *skb, struct Qdisc *q,
-
-                HARD_TX_UNLOCK(dev, txq);
-        } else {
--               spin_lock_nested(root_lock, SINGLE_DEPTH_NESTING);
-+               spin_lock(root_lock);
-                return qdisc_qlen(q);
-        }
--       spin_lock_nested(root_lock, SINGLE_DEPTH_NESTING);
-+       spin_lock(root_lock);
-
-        if (dev_xmit_complete(ret)) {
-                /* Driver sent out skb successfully or skb was consumed */
+> diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+> index 124bf0a..21ec54e 100644
+> --- a/net/ipv4/ip_output.c
+> +++ b/net/ipv4/ip_output.c
+> @@ -1239,7 +1239,7 @@ ssize_t   ip_append_page(struct sock *sk, struct flowi4 *fl4, struct page *page,
+>                 if (skb->ip_summed != CHECKSUM_PARTIAL)
+>                         return -EOPNOTSUPP;
+>
+> -               skb_shinfo(skb)->gso_size = mtu - fragheaderlen;
+> +               skb_shinfo(skb)->gso_size = maxfraglen - fragheaderlen;
+>                 skb_shinfo(skb)->gso_type = SKB_GSO_UDP;
+>         }
+>         cork->length += size;
+>
+> We're wondering if this is something that was missed by that initial update of if there is a reason for ip_append_page to behave differently.
+>
+> We realize that there might not be a lot of people who care about running NFS over UDP, but the issue is still reproducible in the latest kernel.
+>
+> I include some additional info in case anyone is interested in reproducing with their own setup.
+>
+> Using two VMs connected with a bridge, one using e1000, the other virtio.
+> Test done using FInnix 111 (kernel 4.0) as the guest.
+>
+> # On each VM export which allows NFSv3
+> mount -t tmpfs tmps /export
+> vi /etc/exports
+> /export *(rw,no_subtree_check,fsid=0,insecure) # insecure to allow NFSv3
+> /etc/init.d/rpcbind start
+> /etc/init.d/nfs-kernel-server start
+>
+> # On each VM mount each other exported as UDP
+> mkdir /mnt/import
+> mount 169.254.208.5:/export /mnt/import -o vers=3,udp,rsize=16394,wsize=16384,soft,nolock # soft to avoid permanent hang
+>
+> # Using common MTU of 1500 on both VMs
+> ifconfig eth0 mtu 1500
+>
+> # On the one with UFO=on (virtio):
+> dd if=/dev/zero count=1 bs=16384 of=/mnt/import/test
+> # Work as expected
+>
+> # On the one with UFO=on (virtio)
+> dd if=/dev/zero count=1 bs=16384 of=/export/test
+> # On the one with UFO=off (e1000)
+> dd if=/mnt/import/test count=1 bs=16384 of=/dev/null
+> # Work as expected
+>
+>
+> # Using non-standard MTU of 1496 of both VMs
+> ifconfig eth0 mtu 1496
+>
+> # On the one with UFO=on (virtio)
+> dd if=/dev/zero count=1 bs=16384 of=/mnt/import/test
+> # get Input/output error
+>
+> # On the one with UFO=on (virtio)
+> dd if=/dev/zero count=1 bs=16384 of=/export/test
+> # On the one with UFO=off (e1000)
+> dd if=/mnt/import/test count=1 bs=1496 of=/dev/null
+> # get Input/output error
+>
+> Regards,
+>
+> Steven Caron
+> Designer, GENWare
+> 500 Palladium Dr. Suite 2100| Ottawa ON, K2V 1C2
+> office: +1.343.883.2345  |  steven.caron.genband.com
+>
+>
+>
