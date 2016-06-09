@@ -1,69 +1,49 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v9 08/22] IB/hns: Add icm support
-Date: Thu, 9 Jun 2016 09:58:17 +0300
-Message-ID: <20160609065817.GP3663@leon.nu>
-References: <1464795484-77395-1-git-send-email-oulijun@huawei.com>
- <1464795484-77395-9-git-send-email-oulijun@huawei.com>
-Reply-To: leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net-next 0/5] sched, cbq: remove OVL_STRATEGY/POLICE
+ support
+Date: Wed, 08 Jun 2016 23:59:11 -0700 (PDT)
+Message-ID: <20160608.235911.2037615285346040712.davem@davemloft.net>
+References: <1465424863-18456-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="e2bLSPRkEYxxSNev"
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1464795484-77395-9-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:42163 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S934155AbcFIG7P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 02:59:15 -0400
+In-Reply-To: <1465424863-18456-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Florian Westphal <fw@strlen.de>
+Date: Thu,  9 Jun 2016 00:27:38 +0200
 
---e2bLSPRkEYxxSNev
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> iproute2 does not implement any options that result in the
+> TCA_CBQ_OVL_STRATEGY/TCA_CBQ_POLICE attributes being set/used.
+> 
+> This series removes these two attributes from cbq and makes kernel reject
+>  them via EOPNOTSUPP in case they are present.
+> 
+> The two followup changes then remove several features from qdisc
+> infrastructure that are then no longer used/needed.  These are:
+>  - The 'drop' method provided by most qdiscs
+>  - the 'reshape_fail' function used by some qdiscs
+>  - the __parent member in struct Qdisc
+> 
+> I tested this with allmod and allyesconfig builds and also with
+> a brief cbq script:
+> 
+>   tc qdisc add dev eth0 root handle 1:0 cbq bandwidth 10Mbit avpkt 1000 cell 8
+>   tc class add dev eth0 parent 1:0 classid 1:1 est 1sec 8sec cbq bandwidth 10Mbit rate 5Mbit prio 1 allot 1514 maxburst 20 cell 8 avpkt 1000 bounded split 1:0 defmap 3f
+>   tc class add dev eth0 parent 1:0 classid 1:2 est 1sec 8sec cbq bandwidth 10Mbit rate 5Mbit prio 1 allot 1514 maxburst 20 cell 8 avpkt 1000 bounded split 1:0 defmap 3f
+>   tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 match ip tos 0x10 0xff classid 1:1 police rate 2Mbit burst 10K reclassify
+>   tc filter add dev eth0 parent 1:0 protocol ip prio 1 u32 match ip tos 0x0c 0xff classid 1:2
+>   tc filter add dev eth0 parent 1:0 protocol ip prio 2 u32 match ip tos 0x10 0xff classid 1:2
+>   tc filter add dev eth0 parent 1:0 protocol ip prio 3 u32 match ip tos 0x0 0x0 classid 1:2
+> 
+> No changes since v1 except patch #5 to fix up struct Qdisc layout.
 
-On Wed, Jun 01, 2016 at 11:37:50PM +0800, Lijun Ou wrote:
-> This patch mainly added icm support for RoCE. It initializes icm
-> which managers the relative memory blocks for RoCE. The data
-> structures of RoCE will be located in it. For example, CQ table,
-> QP table and MTPT table so on.
-
-I wonder if you have the same needs for ICM as it is in mlx4 device.
-Do you have firmware?
-
-Thanks
-
---e2bLSPRkEYxxSNev
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJXWROJAAoJEORje4g2clinai8P/2NpOvkWOdQ3mtkNX11Z2Oyq
-mzbsAw5DCltPnrZAWcaEEiaZcFp//RqDRKF6sIkvgDr+5lChdRzosOntFUoXLiBC
-AqVsUffyMGjhQFepUaPDdsk3gjizdV8mxgk+tuPtkKPY1DZHPJ2mZOIvikSwsDi3
-dcLTmykGO5u5o7cVopviSiPXhVXUJ7px9PveN6qyYL4P2hOrwARQnwyS6eyYEDDC
-7JXwjhsessneQ03lhRwXnne04u/6i+lhvG7M0TfQWjnXgjvKC3cEHzGf0HAjiabS
-uRCKB4xZF1FWw2iQNhKOaL6Z3gawg2Cy98Auh2XuFJhdsds0Ro/f7QD9JPlGMtxx
-nvEjXcxouehJRkDA2YM7KCYqyeYj6MPmSyw3FWAv9YTx4zKLsFgcZz1W0+LBq6bK
-cmNxNc79Nuz/5FprbuvVzZoe39FbEs4B5uUM7mDH4iYLOMWIZvMl+8SOgxYFzul9
-/bnh0jVOM3E64FkFzFDYQ0nxgH3AZcLNlmi40z9dV0a3wxLM1srtMwpOCR4ElfED
-EbXmz8fBuxRrRo8BC+6RitB7Bsf/mDQY6eLrOcgLPRz8VsRhnvcO9EjHnbyUpVOf
-1GC8aUYoUOIsHOM/rXFR1DCo6tpdXvo64yIew9iCDDxYUDQrzGrRiNqJw7DnuGon
-+SEuFj4nKEeQQIDCsoW+
-=pZNH
------END PGP SIGNATURE-----
-
---e2bLSPRkEYxxSNev--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Looks good, series applied, thanks.
