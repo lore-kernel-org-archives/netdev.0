@@ -1,37 +1,53 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH] net: dsa: mv88e6xxx: make unexported functions static
-Date: Thu, 09 Jun 2016 08:47:41 -0400
-Message-ID: <87fusm8r6a.fsf@ketchup.mtl.sfl>
-References: <1465468206-2890-1-git-send-email-ben.dooks@codethink.co.uk> <87fusm8rbd.fsf@ketchup.mtl.sfl>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Ben Dooks <ben.dooks@codethink.co.uk>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Lennert Buytenhek <buytenh@wantstofly.org>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
-To: Ben Dooks <ben.dooks@codethink.co.uk>,
-	linux-kernel@lists.codethink.co.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:33642 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751011AbcFIMro (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 08:47:44 -0400
-In-Reply-To: <87fusm8rbd.fsf@ketchup.mtl.sfl>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: pull-request: mac80211 2016-06-09
+Date: Thu,  9 Jun 2016 14:47:57 +0200
+Message-ID: <1465476478-23080-1-git-send-email-johannes@sipsolutions.net>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi Ben,
+Hi Dave,
 
-Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
+Here are two more fixes for the current cycle, please pull.
 
-> Most of them are fixed or being handled in net-next.
->
-> I don't know if net should diverge or if it can live with these
-> warnings...
-
-In fact I have a series in net-next fixing a few checkpatch.pl issue. If
-you don't mind I can rebase your fix and integrate the missing static.
+Let me know if there's any problem.
 
 Thanks,
+johannes
 
-        Vivien
+
+
+The following changes since commit 6fe04128f158c5ad27e7504bfdf1b12e63331bc9:
+
+  mac80211: fix fast_tx header alignment (2016-05-31 12:14:04 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-06-09
+
+for you to fetch changes up to 3d5fdff46c4b2b9534fa2f9fc78e90a48e0ff724:
+
+  wext: Fix 32 bit iwpriv compatibility issue with 64 bit Kernel (2016-06-09 09:56:11 +0200)
+
+----------------------------------------------------------------
+Two more fixes for now:
+ * a fix for a long-standing iwpriv 32/64 compat issue
+ * two fairly recently introduced (4.6) warning asking for
+   symmetric operations are erroneous and I remove them
+
+----------------------------------------------------------------
+Johannes Berg (1):
+      cfg80211: remove get/set antenna and tx power warnings
+
+Prasun Maiti (1):
+      wext: Fix 32 bit iwpriv compatibility issue with 64 bit Kernel
+
+ net/wireless/core.c      |  2 --
+ net/wireless/wext-core.c | 25 +++++++++++++++++++++++--
+ 2 files changed, 23 insertions(+), 4 deletions(-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
