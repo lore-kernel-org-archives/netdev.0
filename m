@@ -1,61 +1,181 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 09/13] net/mlx5: E-Switch, Fix vport enable flow
-Date: Fri, 10 Jun 2016 00:07:36 +0300
-Message-ID: <1465506460-1854-10-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 10/13] net/mlx5: E-Switch, Modify node guid on vf set MAC
+Date: Fri, 10 Jun 2016 00:07:37 +0300
+Message-ID: <1465506460-1854-11-git-send-email-saeedm@mellanox.com>
 References: <1465506460-1854-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Mohamad Haj Yahia <mohamad@mellanox.com>,
+	Noa Osherovich <noaos@mellanox.com>,
+	Majd Dibbiny <majd@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:34461 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:34470 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751118AbcFIVI6 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2016 17:08:58 -0400
+	id S1750795AbcFIVJD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2016 17:09:03 -0400
 In-Reply-To: <1465506460-1854-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mohamad Haj Yahia <mohamad@mellanox.com>
+From: Noa Osherovich <noaos@mellanox.com>
 
-Reorder vport enable flow to mark the vport as enabled before calling
-the vport change handler which was modified to handle the case for
-when vport is not enabled.
+In RoCE, the RDMA-CM needs the node guid to establish connection
+between nodes.
+Today, the node guid exposed to mlx5 Ethernet VFs is zero, therefore
+RDMA-CM on the VF is broken.
 
-This fixes the case for when the PF netdev is open before sriov is
-enabled, once sriov is enabled at esw_enable_vport,
-esw_vport_change_handle_locked didn't read the PF context since it
-thought the PF vport was not enabled.
+Whenever the administrator sets a MAC for a VF, derive the node guid
+from it and set it as well in the following way:
+MAC: e4:1d:2d:b3:f4:01 -> node_guid: e4:1d:2d:ff:fe:b3:f4:01
 
-When we enable the vport, arming for events is not required anymore,
-since it's done on the vport change handle
-
-Fixes: 586cfa7f1d58 ('net/mlx5: E-Switch, Use vport event handler for vport cleanup')
-Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
+Fixes: 77256579c6b43 ('net/mlx5: E-Switch, Introduce Vport...')
+Signed-off-by: Noa Osherovich <noaos@mellanox.com>
+Signed-off-by: Majd Dibbiny <majd@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 23 ++++++++++++--
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c   | 38 +++++++++++++++++++++++
+ include/linux/mlx5/mlx5_ifc.h                     |  9 ++++--
+ include/linux/mlx5/vport.h                        |  2 ++
+ 4 files changed, 68 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-index a350af2..cfec20c 100644
+index cfec20c..9b1855b 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-@@ -1491,14 +1491,11 @@ static void esw_enable_vport(struct mlx5_eswitch *esw, int vport_num,
+@@ -1725,11 +1725,24 @@ void mlx5_eswitch_vport_event(struct mlx5_eswitch *esw, struct mlx5_eqe *eqe)
+ 	(esw && MLX5_CAP_GEN(esw->dev, vport_group_manager) && mlx5_core_is_pf(esw->dev))
+ #define LEGAL_VPORT(esw, vport) (vport >= 0 && vport < esw->total_vports)
  
- 	/* Sync with current vport context */
- 	vport->enabled_events = enable_events;
--	esw_vport_change_handle_locked(vport);
++static void node_guid_gen_from_mac(u64 *node_guid, u8 mac[ETH_ALEN])
++{
++	((u8 *)node_guid)[7] = mac[0];
++	((u8 *)node_guid)[6] = mac[1];
++	((u8 *)node_guid)[5] = mac[2];
++	((u8 *)node_guid)[4] = 0xff;
++	((u8 *)node_guid)[3] = 0xfe;
++	((u8 *)node_guid)[2] = mac[3];
++	((u8 *)node_guid)[1] = mac[4];
++	((u8 *)node_guid)[0] = mac[5];
++}
++
+ int mlx5_eswitch_set_vport_mac(struct mlx5_eswitch *esw,
+ 			       int vport, u8 mac[ETH_ALEN])
+ {
+-	int err = 0;
+ 	struct mlx5_vport *evport;
++	u64 node_guid;
++	int err = 0;
+ 
+ 	if (!ESW_ALLOWED(esw))
+ 		return -EPERM;
+@@ -1753,11 +1766,17 @@ int mlx5_eswitch_set_vport_mac(struct mlx5_eswitch *esw,
+ 		return err;
+ 	}
+ 
++	node_guid_gen_from_mac(&node_guid, mac);
++	err = mlx5_modify_nic_vport_node_guid(esw->dev, vport, node_guid);
++	if (err)
++		mlx5_core_warn(esw->dev,
++			       "Failed to set vport %d node guid, err = %d. RDMA_CM will not function properly for this VF.\n",
++			       vport, err);
++
+ 	mutex_lock(&esw->state_lock);
+ 	if (evport->enabled)
+ 		err = esw_vport_ingress_config(esw, evport);
+ 	mutex_unlock(&esw->state_lock);
 -
- 	vport->enabled = true;
+ 	return err;
+ }
  
- 	/* only PF is trusted by default */
- 	vport->trusted = (vport_num) ? false : true;
--
--	arm_vport_context_events_cmd(esw->dev, vport_num, enable_events);
-+	esw_vport_change_handle_locked(vport);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index b69dadc..daf44cd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -508,6 +508,44 @@ int mlx5_query_nic_vport_node_guid(struct mlx5_core_dev *mdev, u64 *node_guid)
+ }
+ EXPORT_SYMBOL_GPL(mlx5_query_nic_vport_node_guid);
  
- 	esw->enabled_vports++;
- 	esw_debug(esw->dev, "Enabled VPORT(%d)\n", vport_num);
++int mlx5_modify_nic_vport_node_guid(struct mlx5_core_dev *mdev,
++				    u32 vport, u64 node_guid)
++{
++	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
++	void *nic_vport_context;
++	u8 *guid;
++	void *in;
++	int err;
++
++	if (!vport)
++		return -EINVAL;
++	if (!MLX5_CAP_GEN(mdev, vport_group_manager))
++		return -EACCES;
++	if (!MLX5_CAP_ESW(mdev, nic_vport_node_guid_modify))
++		return -ENOTSUPP;
++
++	in = mlx5_vzalloc(inlen);
++	if (!in)
++		return -ENOMEM;
++
++	MLX5_SET(modify_nic_vport_context_in, in,
++		 field_select.node_guid, 1);
++	MLX5_SET(modify_nic_vport_context_in, in, vport_number, vport);
++	MLX5_SET(modify_nic_vport_context_in, in, other_vport, !!vport);
++
++	nic_vport_context = MLX5_ADDR_OF(modify_nic_vport_context_in,
++					 in, nic_vport_context);
++	guid = MLX5_ADDR_OF(nic_vport_context, nic_vport_context,
++			    node_guid);
++	MLX5_SET64(nic_vport_context, nic_vport_context, node_guid, node_guid);
++
++	err = mlx5_modify_nic_vport_context(mdev, in, inlen);
++
++	kvfree(in);
++
++	return err;
++}
++
+ int mlx5_query_nic_vport_qkey_viol_cntr(struct mlx5_core_dev *mdev,
+ 					u16 *qkey_viol_cntr)
+ {
+diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
+index 986a615..e955a28 100644
+--- a/include/linux/mlx5/mlx5_ifc.h
++++ b/include/linux/mlx5/mlx5_ifc.h
+@@ -501,7 +501,9 @@ struct mlx5_ifc_e_switch_cap_bits {
+ 	u8         vport_svlan_insert[0x1];
+ 	u8         vport_cvlan_insert_if_not_exist[0x1];
+ 	u8         vport_cvlan_insert_overwrite[0x1];
+-	u8         reserved_at_5[0x1b];
++	u8         reserved_at_5[0x19];
++	u8         nic_vport_node_guid_modify[0x1];
++	u8         nic_vport_port_guid_modify[0x1];
+ 
+ 	u8         reserved_at_20[0x7e0];
+ };
+@@ -4584,7 +4586,10 @@ struct mlx5_ifc_modify_nic_vport_context_out_bits {
+ };
+ 
+ struct mlx5_ifc_modify_nic_vport_field_select_bits {
+-	u8         reserved_at_0[0x19];
++	u8         reserved_at_0[0x16];
++	u8         node_guid[0x1];
++	u8         port_guid[0x1];
++	u8         reserved_at_18[0x1];
+ 	u8         mtu[0x1];
+ 	u8         change_event[0x1];
+ 	u8         promisc[0x1];
+diff --git a/include/linux/mlx5/vport.h b/include/linux/mlx5/vport.h
+index 301da4a..6c16c19 100644
+--- a/include/linux/mlx5/vport.h
++++ b/include/linux/mlx5/vport.h
+@@ -50,6 +50,8 @@ int mlx5_modify_nic_vport_mtu(struct mlx5_core_dev *mdev, u16 mtu);
+ int mlx5_query_nic_vport_system_image_guid(struct mlx5_core_dev *mdev,
+ 					   u64 *system_image_guid);
+ int mlx5_query_nic_vport_node_guid(struct mlx5_core_dev *mdev, u64 *node_guid);
++int mlx5_modify_nic_vport_node_guid(struct mlx5_core_dev *mdev,
++				    u32 vport, u64 node_guid);
+ int mlx5_query_nic_vport_qkey_viol_cntr(struct mlx5_core_dev *mdev,
+ 					u16 *qkey_viol_cntr);
+ int mlx5_query_hca_vport_gid(struct mlx5_core_dev *dev, u8 other_vport,
 -- 
 2.8.0
