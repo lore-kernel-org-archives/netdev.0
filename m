@@ -1,63 +1,72 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCHv3 net-next] sctp: sctp should change socket state when
- shutdown is received
-Date: Thu, 9 Jun 2016 16:42:47 +0300
-Message-ID: <ce5d05f9-3700-1007-2253-2ccaa00e6064@cogentembedded.com>
-References: <4ad023d07da2c81ea9f5014e48f0aa34b50b64eb.1465471336.git.lucien.xin@gmail.com>
+From: Amitkumar Karwar <akarwar@marvell.com>
+Subject: RE: [PATCH 0/8] mwifiex: Fix some error handling issues in
+ mwifiex_sdio_probe() function
+Date: Thu, 9 Jun 2016 13:43:32 +0000
+Message-ID: <4e8cc9d4a8db4283aaa38564b6a36556@SC-EXCH04.marvell.com>
+References: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem@davemloft.net, eric.dumazet@gmail.com
-To: Xin Long <lucien.xin@gmail.com>,
-	network dev <netdev@vger.kernel.org>,
-	linux-sctp@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f46.google.com ([209.85.215.46]:34933 "EHLO
-	mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932069AbcFINmu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 09:42:50 -0400
-Received: by mail-lf0-f46.google.com with SMTP id u74so26616131lff.2
-        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 06:42:50 -0700 (PDT)
-In-Reply-To: <4ad023d07da2c81ea9f5014e48f0aa34b50b64eb.1465471336.git.lucien.xin@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Xinming Hu <huxm@marvell.com>, Kalle Valo <kvalo@codeaurora.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"Nishant Sarmukadam" <nishants@marvell.com>
+To: Javier Martinez Canillas <javier@osg.samsung.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+> From: Javier Martinez Canillas [mailto:javier@osg.samsung.com]
+> Sent: Friday, May 27, 2016 7:48 PM
+> To: linux-kernel@vger.kernel.org
+> Cc: Xinming Hu; Javier Martinez Canillas; Amitkumar Karwar; Kalle Valo;
+> netdev@vger.kernel.org; linux-wireless@vger.kernel.org; Nishant
+> Sarmukadam
+> Subject: [PATCH 0/8] mwifiex: Fix some error handling issues in
+> mwifiex_sdio_probe() function
+> 
+> Hello,
+> 
+> While booting a system with a mwifiex WiFi card, I noticed the following
+> missleading error message:
+> 
+> [  12.480042] mwifiex_sdio mmc2:0001:1: sdio platform data not available
+> 
+> This error only applies to platforms that define a child node for the
+> SDIO device, but it's currently shown even in platforms that don't have
+> a child node defined.
+> 
+> So this series fixes this issue and others I found in the .probe
+> function (mostly related to error handling and the error path) while
+> looking at it.
+> 
+> Best regards,
+> Javier
+> 
+> 
+> Javier Martinez Canillas (8):
+>   mwifiex: only call mwifiex_sdio_probe_of() if dev has an OF node
+>   mwifiex: propagate sdio_enable_func() errno code in
+>     mwifiex_sdio_probe()
+>   mwifiex: propagate mwifiex_add_card() errno code in
+>     mwifiex_sdio_probe()
+>   mwifiex: consolidate mwifiex_sdio_probe() error paths
+>   mwifiex: use dev_err() instead of pr_err() in mwifiex_sdio_probe()
+>   mwifiex: check if mwifiex_sdio_probe_of() fails and return error
+>   mwifiex: don't print an error if an optional DT property is missing
+>   mwifiex: use better message and error code when OF node doesn't match
+> 
+>  drivers/net/wireless/marvell/mwifiex/sdio.c | 46 ++++++++++++++++++----
+> -------
+>  1 file changed, 28 insertions(+), 18 deletions(-)
+> 
 
-On 6/9/2016 2:22 PM, Xin Long wrote:
+Thanks for fixing the error handling code. These patches look fine to me.
 
-> Now sctp doesn't change socket state upon shutdown reception. It changes
-> just the assoc state, even though it's a TCP-style socket.
->
-> For some cases, if we really need to check sk->sk_state, it's necessary to
-> fix this issue, at least when we use ss or netstat to dump, we can get a
-> more exact information.
->
-> As an improvement, we will change sk->sk_state when we change asoc->state
-> to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent with
-> sctp_close.
->
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
-[...]
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 67154b8..80d860a 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-[...]
-> @@ -7564,10 +7565,12 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
->  	/* If the association on the newsk is already closed before accept()
->  	 * is called, set RCV_SHUTDOWN flag.
->  	 */
-> -	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP))
-> +	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP)) {
-> +		newsk->sk_state = SCTP_SS_CLOSING;
->  		newsk->sk_shutdown |= RCV_SHUTDOWN;
-> +	} else
-> +		newsk->sk_state = SCTP_SS_ESTABLISHED;
+Acked-by: Amitkumar Karwar <akarwar@marvell.com>
 
-    CodingStyle: all arms of the *if* statment should use {} if at least one 
-arm uses {}.
-
-MBR, Sergei
+Regards,
+Amitkumar
