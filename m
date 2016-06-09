@@ -1,64 +1,59 @@
-From: Amitkumar Karwar <akarwar@marvell.com>
-Subject: RE: [PATCH 7/8] mwifiex: don't print an error if an optional DT
- property is missing
-Date: Thu, 9 Jun 2016 13:51:45 +0000
-Message-ID: <01bb6d9c1c7f4419b2d88051b8e811f4@SC-EXCH04.marvell.com>
-References: <1464358702-19083-1-git-send-email-javier@osg.samsung.com>
- <1464358702-19083-8-git-send-email-javier@osg.samsung.com>
- <CAGRGNgUZ+mG_KzhiOzquB3qd-V_Pdbazag=nrFpG87mRQGmXLg@mail.gmail.com>
- <ec09757e-302a-b341-6bf0-46737abb7976@osg.samsung.com>
- <CAGRGNgUaNAxhhvnVJDx73yABvp3HXfqK5JFKCKvOgkM0DyFuPA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] net: diag: add missing declarations
+Date: Thu, 09 Jun 2016 07:10:46 -0700
+Message-ID: <1465481446.7945.40.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1465471048-13493-1-git-send-email-ben.dooks@codethink.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	netdev <netdev@vger.kernel.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Nishant Sarmukadam <nishants@marvell.com>
-To: Julian Calaby <julian.calaby@gmail.com>,
-	Javier Martinez Canillas <javier@osg.samsung.com>,
-	Xinming Hu <huxm@marvell.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@lists.codethink.co.uk,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Ben Dooks <ben.dooks@codethink.co.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016f401.pphosted.com ([67.231.148.174]:63983 "EHLO
-	mx0a-0016f401.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751168AbcFINvt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 09:51:49 -0400
-In-Reply-To: <CAGRGNgUaNAxhhvnVJDx73yABvp3HXfqK5JFKCKvOgkM0DyFuPA@mail.gmail.com>
-Content-Language: en-US
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33516 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750810AbcFIOKu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 10:10:50 -0400
+In-Reply-To: <1465471048-13493-1-git-send-email-ben.dooks@codethink.co.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBKdWxpYW4gQ2FsYWJ5IFttYWlsdG86anVsaWFuLmNhbGFieUBnbWFpbC5jb21dDQo+
-IFNlbnQ6IFRodXJzZGF5LCBKdW5lIDAyLCAyMDE2IDQ6NDQgQU0NCj4gVG86IEphdmllciBNYXJ0
-aW5leiBDYW5pbGxhczsgWGlubWluZyBIdQ0KPiBDYzogbGludXgta2VybmVsQHZnZXIua2VybmVs
-Lm9yZzsgQW1pdGt1bWFyIEthcndhcjsgS2FsbGUgVmFsbzsgbmV0ZGV2Ow0KPiBsaW51eC13aXJl
-bGVzczsgTmlzaGFudCBTYXJtdWthZGFtDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggNy84XSBtd2lm
-aWV4OiBkb24ndCBwcmludCBhbiBlcnJvciBpZiBhbiBvcHRpb25hbCBEVA0KPiBwcm9wZXJ0eSBp
-cyBtaXNzaW5nDQo+IA0KPiBIaSBKYXZpZXIsDQo+IA0KPiBPbiBXZWQsIEp1biAxLCAyMDE2IGF0
-IDExOjUxIFBNLCBKYXZpZXIgTWFydGluZXogQ2FuaWxsYXMNCj4gPGphdmllckBvc2cuc2Ftc3Vu
-Zy5jb20+IHdyb3RlOg0KPiA+IEhlbGxvIEp1bGlhbiwNCj4gPg0KPiA+IFRoYW5rcyBhIGxvdCBm
-b3IgeW91ciBmZWVkYmFjayBhbmQgcmV2aWV3cy4NCj4gPg0KPiA+IE9uIDA2LzAxLzIwMTYgMTI6
-MjAgQU0sIEp1bGlhbiBDYWxhYnkgd3JvdGU6DQo+ID4+IEhpIEFsbCwNCj4gPj4NCj4gPj4gT24g
-U2F0LCBNYXkgMjgsIDIwMTYgYXQgMTI6MTggQU0sIEphdmllciBNYXJ0aW5leiBDYW5pbGxhcw0K
-PiA+PiA8amF2aWVyQG9zZy5zYW1zdW5nLmNvbT4gd3JvdGU6DQo+ID4+PiBUaGUNCj4gPj4+IERv
-Y3VtZW50YXRpb24vZGV2aWNldHJlZS9iaW5kaW5ncy9uZXQvd2lyZWxlc3MvbWFydmVsbC1zZDh4
-eHgudHh0IERUDQo+ID4+PiBiaW5kaW5nIGRvY3VtZW50IHNheSB0aGF0IHRoZSAiaW50ZXJydXB0
-cyIgcHJvcGVydHkgaW4gdGhlIGNoaWxkDQo+IG5vZGUgaXMgb3B0aW9uYWwuIFNvIHRoZSBwcm9w
-ZXJ0eSBiZWluZyBtaXNzZWQgc2hvdWxkbid0IGJlIHRyZWF0ZWQgYXMNCj4gYW4gZXJyb3IuDQo+
-ID4+DQo+ID4+IEhhdmUgeW91IGNoZWNrZWQgd2hldGhlciBpdCBpcyB0cnVseSBvcHRpb25hbD8g
-SS5lLiBub3RoaW5nIGVsc2UNCj4gPj4gYnJlYWtzIGlmIHRoaXMgcHJvcGVydHkgaXNuJ3Qgc2V0
-Pw0KPiA+Pg0KPiA+DQo+ID4gVGhhdCdzIHdoYXQgdGhlIERUIGJpbmRpbmcgc2F5cyBhbmQgdGhl
-IElSUSBpcyBvbmx5IHVzZWQgYXMgYSB3YWtldXANCj4gPiBzb3VyY2UgZHVyaW5nIHN5c3RlbSBz
-dXNwZW5kLCBpdCBpcyBub3QgdXNlZCBkdXJpbmcgcnVudGltZS4gQW5kIHRoYXQNCj4gPiBpcyB3
-aHkgdGhlDQo+ID4gbXdpZmlleF9zZGlvX3Byb2JlX29mKCkgZnVuY3Rpb24gZG9lcyBub3QgZmFp
-bCBpZiB0aGUgSVJRIGlzIG1pc3NpbmcuDQo+IA0KPiBBd2Vzb21lLCB0aGF0J3Mgd2hhdCBJIHdh
-bnRlZCB0byBrbm93Lg0KPiANCj4gPiBOb3csIEkganVzdCBnb3QgdG8gdGhhdCBjb25jbHVzaW9u
-IGJ5IHJlYWRpbmcgdGhlIGJpbmRpbmcgZG9jcywgdGhlDQo+ID4gbWVzc2FnZSBpbiB0aGUgY29t
-bWl0cyB0aGF0IGludHJvZHVjZWQgdGhpcyBhbmQgdGhlIGRyaXZlciBjb2RlLg0KPiA+IFhpbm1p
-bmcgSHUgc2hvdWxkIGNvbW1lbnQgb24gaG93IGNyaXRpY2FsIHRoaXMgZmVhdHVyZSBpcyBmb3Ig
-c3lzdGVtcw0KPiB0aGF0IG5lZWRzIHRvIGJlIHdha2V1cC4NCj4gDQo+IFhpbm1pbmcsIGNvdWxk
-IHlvdSByZXZpZXcgdGhpcyBhbHNvPw0KPiANCg0KWWVzLiBJUlEgaXMgdGhlIG9wdGlvbmFsIHBh
-cmFtZXRlci4gU3lzdGVtIGhhcyBhIGZsZXhpYmlsaXR5IHRvIG5vdCB1c2UgaXQsIGJ1dCBpdCBz
-dGlsbCBjYW4gY29uZmlndXJlIG90aGVyIGRldmljZSB0cmVlIHBhcmFtZXRlcnMuIFRoZSBwYXRj
-aCBsb29rcyBnb29kLg0KDQpSZWdhcmRzLA0KQW1pdGt1bWFyDQo=
+On Thu, 2016-06-09 at 12:17 +0100, Ben Dooks wrote:
+> The functions inet_diag_msg_common_fill and inet_diag_msg_attrs_fill
+> seem to have been missed from the include/linux/inet_diag.h header
+> file. Add them to fix the following warnings:
+> 
+> net/ipv4/inet_diag.c:69:6: warning: symbol 'inet_diag_msg_common_fill' was not declared. Should it be static?
+> net/ipv4/inet_diag.c:108:5: warning: symbol 'inet_diag_msg_attrs_fill' was not declared. Should it be static?
+> 
+> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
+> ---
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: netdev@vger.kernel.org
+> Cc: linux-kernel@vger.kernel.org
+> ---
+>  include/linux/inet_diag.h | 6 ++++++
+>  1 file changed, 6 insertions(+)
+> 
+> diff --git a/include/linux/inet_diag.h b/include/linux/inet_diag.h
+> index 7c27fa1..feb04ea 100644
+> --- a/include/linux/inet_diag.h
+> +++ b/include/linux/inet_diag.h
+> @@ -52,6 +52,12 @@ struct sock *inet_diag_find_one_icsk(struct net *net,
+>  
+>  int inet_diag_bc_sk(const struct nlattr *_bc, struct sock *sk);
+>  
+> +void inet_diag_msg_common_fill(struct inet_diag_msg *r, struct sock *sk);
+> +
+> +int inet_diag_msg_attrs_fill(struct sock *sk, struct sk_buff *skb,
+> +			     struct inet_diag_msg *r, int ext,
+> +			     struct user_namespace *user_ns);
+> +
+>  extern int  inet_diag_register(const struct inet_diag_handler *handler);
+>  extern void inet_diag_unregister(const struct inet_diag_handler *handler);
+>  #endif /* _INET_DIAG_H_ */
+
+Please send a v2, deleting them from net/sctp/sctp_diag.c
+
+Thanks.
