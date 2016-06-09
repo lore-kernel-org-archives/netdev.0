@@ -1,77 +1,61 @@
-From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
-Subject: Re: [PATCH][RT] netpoll: Always take poll_lock when doing polling
-Date: Thu, 9 Jun 2016 14:37:33 +0200
-Message-ID: <20160609123733.GB6305@linutronix.de>
-References: <20160526195641.6c26e979@gandalf.local.home>
- <20160602161235.GA12971@linutronix.de>
- <20160604071131.08d449db@grimm.local.home>
- <CAOuSAjfXsLQWkrcE7Y3t-k0Bv5qieqgziu8Zf-au4SK-rLvRHQ@mail.gmail.com>
- <20160607094642.GA4089@linutronix.de>
- <CAOuSAjeUX_tvzr9K8B4T-TdXUDcYqFxbtYTa=ke-ePhMJo5NVQ@mail.gmail.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [RESEND PATCH 1/3] rfkill: Create "rfkill-airplane-mode" LED
+ trigger
+Date: Thu, 09 Jun 2016 14:43:14 +0200
+Message-ID: <1465476194.3442.21.camel@sipsolutions.net>
+References: <1462199948-6424-1-git-send-email-jprvita@endlessm.com>
+	 <1462199948-6424-2-git-send-email-jprvita@endlessm.com>
+	 <20160504072936.GB17045@amd> <1463045572.13313.21.camel@sipsolutions.net>
+	 <20160519071639.GB17077@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: Steven Rostedt <rostedt@goodmis.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	linux-rt-users <linux-rt-users@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	Peter Zijlstra <peterz@infradead.org>,
-	Clark Williams <williams@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>
-To: Alison Chaiken <alison@peloton-tech.com>
-Return-path: <linux-rt-users-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAOuSAjeUX_tvzr9K8B4T-TdXUDcYqFxbtYTa=ke-ePhMJo5NVQ@mail.gmail.com>
-Sender: linux-rt-users-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Darren Hart <dvhart-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	platform-driver-x86-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-api-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-doc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-6IF/jdPJHihWk0Htik3J/w@public.gmane.org,
+	=?ISO-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
+	<jprvita-6IF/jdPJHihWk0Htik3J/w@public.gmane.org>
+To: Pavel Machek <pavel-+ZI9xUNit7I@public.gmane.org>
+Return-path: <linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160519071639.GB17077@amd>
+Sender: linux-api-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-* Alison Chaiken | 2016-06-07 17:19:43 [-0700]:
+On Thu, 2016-05-19 at 09:16 +0200, Pavel Machek wrote:
 
->Sorry to be obscure; I had applied that patch to v4.1.6-rt5.
+> > In the original situation, without these patches, userspace has to
+> > have a list of all LEDs that are supposed to indicate airplane
+> > mode.
+> Well, that's situation for many LEDs.
 
-Using the latest is often not a bad choice compared to the random tree
-you have here.
+That doesn't make it a *good* situation though.
 
->> What I remember from testing the two patches on am335x was that before a
->> ping flood on gbit froze the serial console but with them it the ping
->> flood was not noticed.
->
->I compiled a kernel from upstream d060a36 "Merge branch
->'ti-linux-4.1.y' of git.ti.com:ti-linux-kernel/ti-linux-kernel into
->ti-rt-linux-4.1.y" which is unpatched except for using a
->board-appropriate device-tree.    The serial console is responsive
->with all our RT userspace applications running alongside a rapid
->external ping.   However, our main event loop misses frequently as
->soon as ping faster than 'ping -i 0.0002' is run.    mpstat shows that
->the sum of the hard IRQ rates in a second is equal precisely to the
->NET_RX rate, which is ~3400/s.   Does the fact that 3400 < (1/0.0002)
->already mean that some packets are dropped?   ftrace shows that
+> > With this patch only (without patch 2/3), userspace can look up the
+> > default trigger, but then has to change it, causing the necessary
+> > information to be lost immediately when you actually use it - that
+> > also seems like a bad idea.
+> We should not store "what kind of led this is" in a trigger.=20
 
-Not necessarily. The ping command reports how many packets were
-received. It is possible that the sender was not able to send that many
-packates _or_ the received was able to process more packets during a
-single interrupt.
+That's pretty much what I'm arguing though.
 
->cpsw_rx_poll() is called even when there is essentially no network
->traffic, so I'm not sure how to tell if NAPI is working as intended.
+> LED
+> subsystem seems to use suffix of LED name to do that. So if we
+> standartize, lets say "::rfkill" suffix for this, it should work and
+> follow existing practice.
+[...]
+> There is one -- suffix in the LED name.
 
-You should see an invocation of __raise_softirq_irqoff_ksoft() and then
-cpsw's poll function should run in "ksoftirqd/" context instead in the
-context of the task it runs now.
+I don't really think that's a good way, and it doesn't seem to be used
+universally, but I suppose it's good enough.
 
->I tried running the wakeup_rt tracer, but it loads the system too
->much.     With ftrace capturing IRQ, scheduler and net events, we're
->writing out markers into the trace buffer when the event loop makes
->its deadline and then when it misses so that we can compare the normal
->and long-latency intervals, but there doesn't appear to be a smoking
->gun in the difference between the two.
+Jo=C3=A3o, that means you should send a patch to add the ::rfkill suffi=
+x.
 
-You would need to figure out what adds the latency. My understanding is
-that your RT application is doing CAN traffic and is not meeting the
-deadline. So you drop CAN packets in the end?
+And Pavel should send a patch to document the practice and the existing
+suffixes with their meaning ;-)
 
->Thanks for all your help,
->Alison
-
-Sebastian
+johannes
