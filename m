@@ -1,24 +1,37 @@
-From: McLean Emily Lou <EMcLean@simsbury.k12.ct.us>
-Subject: All Faculty/Staff(s)
-Date: Wed, 8 Jun 2016 22:20:50 +0000
-Message-ID: <8CA71546F29FF247828C0A4978DD333C01C3181F20@HSMAILBOX.sps.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH] net: dsa: mv88e6xxx: make unexported functions static
+Date: Thu, 09 Jun 2016 08:47:41 -0400
+Message-ID: <87fusm8r6a.fsf@ketchup.mtl.sfl>
+References: <1465468206-2890-1-git-send-email-ben.dooks@codethink.co.uk> <87fusm8rbd.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: "info@westsideunion.com" <info@westsideunion.com>
+Content-Type: text/plain
+Cc: Ben Dooks <ben.dooks@codethink.co.uk>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Lennert Buytenhek <buytenh@wantstofly.org>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org
+To: Ben Dooks <ben.dooks@codethink.co.uk>,
+	linux-kernel@lists.codethink.co.uk
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.simsbury.k12.ct.us ([204.60.170.219]:52065 "EHLO
-	mail.simsbury.k12.ct.us" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751172AbcFIMpq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 08:45:46 -0400
-Content-Language: en-US
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:33642 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751011AbcFIMro (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 08:47:44 -0400
+In-Reply-To: <87fusm8rbd.fsf@ketchup.mtl.sfl>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Staff(s).
+Hi Ben,
 
+Vivien Didelot <vivien.didelot@savoirfairelinux.com> writes:
 
-Your e-mailbox password will soon expire. To keep your password active. Click Here<http://powerdateee.altervista.org/index.html.html> to update
+> Most of them are fixed or being handled in net-next.
+>
+> I don't know if net should diverge or if it can live with these
+> warnings...
 
+In fact I have a series in net-next fixing a few checkpatch.pl issue. If
+you don't mind I can rebase your fix and integrate the missing static.
 
-IT- Desk
+Thanks,
+
+        Vivien
