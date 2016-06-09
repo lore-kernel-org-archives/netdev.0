@@ -1,57 +1,48 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 13/13] net/mlx5e: Fix blue flame quota logic
-Date: Fri, 10 Jun 2016 00:07:40 +0300
-Message-ID: <1465506460-1854-14-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 12/13] net/mlx5e: Use ndo_stop explicitly at shutdown flow
+Date: Fri, 10 Jun 2016 00:07:39 +0300
+Message-ID: <1465506460-1854-13-git-send-email-saeedm@mellanox.com>
 References: <1465506460-1854-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Eli Cohen <eli@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:34533 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:34555 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750792AbcFIVKJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2016 17:10:09 -0400
+	id S1751016AbcFIVK3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2016 17:10:29 -0400
 In-Reply-To: <1465506460-1854-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cohen <eli@mellanox.com>
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-Blue flame is a latency enhancement feature that allows the driver to
-write the packet data directly to the NIC's registers thus making the
-read of the packet data from host memory redundant.
+The current implementation copies the flow of ndo_stop instead of
+calling it explicitly, Fixed it.
 
-We maintain a quota for the blue flame which is reloaded whenever we
-identify that the hardware is processing send requests and processes
-them fast enough so by the time we post the next send request it was
-able to process all the pending ones. This indicates that the hardware
-is capable of processing more blue flame requests efficiently. The blue
-flame quota is decremented whenever we send using blue flame.
-
-The current code erroneously clears the budget if we did not use blue
-flame for the current post send operation and we fix it here.
-
-Fixes: 88a85f99e51f ('net/mlx5e: TX latency optimization to save DMA reads')
-Signed-off-by: Eli Cohen <eli@mellanox.com>
+Fixes: 5fc7197d3a25 ("net/mlx5: Add pci shutdown callback")
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 229ab16..b000ddc 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -317,7 +317,8 @@ static netdev_tx_t mlx5e_sq_xmit(struct mlx5e_sq *sq, struct sk_buff *skb)
- 	while ((sq->pc & wq->sz_m1) > sq->edge)
- 		mlx5e_send_nop(sq, false);
- 
--	sq->bf_budget = bf ? sq->bf_budget - 1 : 0;
-+	if (bf)
-+		sq->bf_budget--;
- 
- 	sq->stats.packets++;
- 	sq->stats.bytes += num_bytes;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index fd43929..f5c8d5d 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -3192,10 +3192,7 @@ static void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, void *vpriv)
+ 	flush_workqueue(priv->wq);
+ 	if (test_bit(MLX5_INTERFACE_STATE_SHUTDOWN, &mdev->intf_state)) {
+ 		netif_device_detach(netdev);
+-		mutex_lock(&priv->state_lock);
+-		if (test_bit(MLX5E_STATE_OPENED, &priv->state))
+-			mlx5e_close_locked(netdev);
+-		mutex_unlock(&priv->state_lock);
++		mlx5e_close(netdev);
+ 	} else {
+ 		unregister_netdev(netdev);
+ 	}
 -- 
 2.8.0
