@@ -1,55 +1,124 @@
-From: Zi Shen Lim <zlim.lnx@gmail.com>
-Subject: [PATCH net-next v3 0/4] arm64 BPF JIT updates
-Date: Wed,  8 Jun 2016 21:18:46 -0700
-Message-ID: <1465445930-3960-1-git-send-email-zlim.lnx@gmail.com>
+From: Lawrence Brakmo <brakmo@fb.com>
+Subject: [PATCH net-next v2 1/2] tcp: add in_flight to tcp_skb_cb
+Date: Wed, 8 Jun 2016 21:16:44 -0700
+Message-ID: <1465445805-2521783-2-git-send-email-brakmo@fb.com>
+References: <1465445805-2521783-1-git-send-email-brakmo@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Yang Shi <yang.shi@linaro.org>, Daniel Borkmann <daniel@iogearbox.net>,
- Zi Shen Lim <zlim.lnx@gmail.com>, Alexei Starovoitov <ast@kernel.org>,
- linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org
-To: "David S. Miller" <davem@davemloft.net>,
- Catalin Marinas <catalin.marinas@arm.com>,
- Will Deacon <will.deacon@arm.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Kernel Team <kernel-team@fb.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Yuchung Cheng <ycheng@google.com>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	Kenneth Klette Jonassen <kennetkl@ifi.uio.no>
+To: netdev <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:60558 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752459AbcFIERD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 00:17:03 -0400
+Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u594GQ3M003067
+	for <netdev@vger.kernel.org>; Wed, 8 Jun 2016 21:17:02 -0700
+Received: from mail.thefacebook.com ([199.201.64.23])
+	by mx0a-00082601.pphosted.com with ESMTP id 23ex8k0g4x-1
+	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 21:17:02 -0700
+Received: from facebook.com (2401:db00:11:d037:face:0:33:0)	by
+ mx-out.facebook.com (10.212.236.87) with ESMTP	id
+ 02d104a02df911e692b20002c9521c9e-c2bf62e0 for <netdev@vger.kernel.org>;	Wed,
+ 08 Jun 2016 21:17:00 -0700
+In-Reply-To: <1465445805-2521783-1-git-send-email-brakmo@fb.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Updates for arm64 eBPF JIT.
-The main addition here is implementation of bpf_tail_call.
+Add in_flight (bytes in flight when packet was sent) field
+to tx component of tcp_skb_cb and make it available to
+congestion modules' pkts_acked() function through the
+ack_sample function argument.
 
-#1: Fix missing header inclusion in linux/bpf.h.
-#2: Add bpf_tail_call for arm64.
-#3,4: Optimizations to reduce instruction count for jitted code.
+Signed-off-by: Lawrence Brakmo <brakmo@fb.com>
+Acked-by: Yuchung Cheng <ycheng@google.com>
+---
+ include/net/tcp.h     | 2 ++
+ net/ipv4/tcp_input.c  | 5 ++++-
+ net/ipv4/tcp_output.c | 4 +++-
+ 3 files changed, 9 insertions(+), 2 deletions(-)
 
-Changes since v2:
- - None. Resubmit per David Miller.
-
-Changes since v1:
- - Added patch #1 to address build error due to missing header inclusion
-   in linux/bpf.h. (Thanks to suggestion and ack by Daniel Borkmann)
-   Ordered it ahead of bpf_tail_call patch #2 so build error is not
-   triggered.
-
-Zi Shen Lim (4):
-  bpf: fix missing header inclusion
-  arm64: bpf: implement bpf_tail_call() helper
-  arm64: bpf: optimize JMP_CALL
-  arm64: bpf: optimize LD_ABS, LD_IND
-
- arch/arm64/net/bpf_jit.h      |   3 +-
- arch/arm64/net/bpf_jit_comp.c | 111 ++++++++++++++++++++++++++++++++++++------
- include/linux/bpf.h           |   1 +
- 3 files changed, 99 insertions(+), 16 deletions(-)
-
+diff --git a/include/net/tcp.h b/include/net/tcp.h
+index 0bcc70f..a79894b 100644
+--- a/include/net/tcp.h
++++ b/include/net/tcp.h
+@@ -767,6 +767,7 @@ struct tcp_skb_cb {
+ 	union {
+ 		struct {
+ 			/* There is space for up to 20 bytes */
++			__u32 in_flight;/* Bytes in flight when packet sent */
+ 		} tx;   /* only used for outgoing skbs */
+ 		union {
+ 			struct inet_skb_parm	h4;
+@@ -859,6 +860,7 @@ union tcp_cc_info;
+ struct ack_sample {
+ 	u32 pkts_acked;
+ 	s32 rtt_us;
++	u32 in_flight;
+ };
+ 
+ struct tcp_congestion_ops {
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index d6c8f4cd0..c7f33f0 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3115,6 +3115,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 	long ca_rtt_us = -1L;
+ 	struct sk_buff *skb;
+ 	u32 pkts_acked = 0;
++	u32 last_in_flight = 0;
+ 	bool rtt_update;
+ 	int flag = 0;
+ 
+@@ -3154,6 +3155,7 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 			if (!first_ackt.v64)
+ 				first_ackt = last_ackt;
+ 
++			last_in_flight = TCP_SKB_CB(skb)->tx.in_flight;
+ 			reord = min(pkts_acked, reord);
+ 			if (!after(scb->end_seq, tp->high_seq))
+ 				flag |= FLAG_ORIG_SACK_ACKED;
+@@ -3250,7 +3252,8 @@ static int tcp_clean_rtx_queue(struct sock *sk, int prior_fackets,
+ 
+ 	if (icsk->icsk_ca_ops->pkts_acked) {
+ 		struct ack_sample sample = { .pkts_acked = pkts_acked,
+-					     .rtt_us = ca_rtt_us };
++					     .rtt_us = ca_rtt_us,
++					     .in_flight = last_in_flight };
+ 
+ 		icsk->icsk_ca_ops->pkts_acked(sk, &sample);
+ 	}
+diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+index 8bd9911..b1bcba0 100644
+--- a/net/ipv4/tcp_output.c
++++ b/net/ipv4/tcp_output.c
+@@ -911,9 +911,12 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 	int err;
+ 
+ 	BUG_ON(!skb || !tcp_skb_pcount(skb));
++	tp = tcp_sk(sk);
+ 
+ 	if (clone_it) {
+ 		skb_mstamp_get(&skb->skb_mstamp);
++		TCP_SKB_CB(skb)->tx.in_flight = TCP_SKB_CB(skb)->end_seq
++			- tp->snd_una;
+ 
+ 		if (unlikely(skb_cloned(skb)))
+ 			skb = pskb_copy(skb, gfp_mask);
+@@ -924,7 +927,6 @@ static int tcp_transmit_skb(struct sock *sk, struct sk_buff *skb, int clone_it,
+ 	}
+ 
+ 	inet = inet_sk(sk);
+-	tp = tcp_sk(sk);
+ 	tcb = TCP_SKB_CB(skb);
+ 	memset(&opts, 0, sizeof(opts));
+ 
 -- 
-1.9.1
+2.8.0.rc2
