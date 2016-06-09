@@ -1,63 +1,78 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 03/13] net/mlx5: Fix MLX5_CMD_OP_MAX to be defined correctly
-Date: Fri, 10 Jun 2016 00:07:30 +0300
-Message-ID: <1465506460-1854-4-git-send-email-saeedm@mellanox.com>
-References: <1465506460-1854-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 00/13] Mellanox 100G mlx5 fixes for 4.7-rc
+Date: Fri, 10 Jun 2016 00:07:27 +0300
+Message-ID: <1465506460-1854-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Shahar Klein <shahark@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:34414 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:34406 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751455AbcFIVIf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2016 17:08:35 -0400
-In-Reply-To: <1465506460-1854-1-git-send-email-saeedm@mellanox.com>
+	id S1752111AbcFIVI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2016 17:08:29 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Shahar Klein <shahark@mellanox.com>
+Hi Dave,
 
-Having MLX5_CMD_OP_MAX on another file causes us to repeatedly miss
-accounting new commands added to the driver and hence there're no entries
-for them in debugfs. To solve that, we integrate it into the commands enum
-as the last entry.
+The following series provides some small fixes for mlx5 driver.
 
-Fixes: 34a40e689393 ('net/mlx5_core: Introduce modify flow table command')
-Signed-off-by: Shahar Klein <shahark@mellanox.com>
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- include/linux/mlx5/device.h   | 2 --
- include/linux/mlx5/mlx5_ifc.h | 3 ++-
- 2 files changed, 2 insertions(+), 3 deletions(-)
+Two small fixes for the mlx5e netdev, the 1st is for the blue flame 
+quota accounting and the 2nd is a small refactoring in shutdown flow.
 
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 035abdf..51f0caf 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -1240,8 +1240,6 @@ struct mlx5_destroy_psv_out {
- 	u8                      rsvd[8];
- };
- 
--#define MLX5_CMD_OP_MAX 0x920
--
- enum {
- 	VPORT_STATE_DOWN		= 0x0,
- 	VPORT_STATE_UP			= 0x1,
-diff --git a/include/linux/mlx5/mlx5_ifc.h b/include/linux/mlx5/mlx5_ifc.h
-index 9a05cd7..986a615 100644
---- a/include/linux/mlx5/mlx5_ifc.h
-+++ b/include/linux/mlx5/mlx5_ifc.h
-@@ -205,7 +205,8 @@ enum {
- 	MLX5_CMD_OP_ALLOC_FLOW_COUNTER            = 0x939,
- 	MLX5_CMD_OP_DEALLOC_FLOW_COUNTER          = 0x93a,
- 	MLX5_CMD_OP_QUERY_FLOW_COUNTER            = 0x93b,
--	MLX5_CMD_OP_MODIFY_FLOW_TABLE             = 0x93c
-+	MLX5_CMD_OP_MODIFY_FLOW_TABLE             = 0x93c,
-+	MLX5_CMD_OP_MAX
- };
- 
- struct mlx5_ifc_flow_table_fields_supported_bits {
+Five trivial fixes for mlx5 E-Switch.
+	- Allmulti mc_promisc flag was not set in a specific flow.
+	- Modify VF node guid when admin mac is changed.
+	- Race in vport enable flow.
+	- Misc code fixes (kvfree when needed and error pointers checking).
+	
+Three in mlx5 steering area.  Correct capabilities checking and root flow table update.
+
+Three misc fixes in mlx5 commands enum and layouts.
+
+Thanks,
+Saeed.
+
+Eli Cohen (1):
+  net/mlx5e: Fix blue flame quota logic
+
+Eran Ben Elisha (1):
+  net/mlx5e: Use ndo_stop explicitly at shutdown flow
+
+Majd Dibbiny (2):
+  net/mlx5: Fix the size of modify QP mailbox
+  net/mlx5: Fix masking of reserved bits in XRCD number
+
+Maor Gottlieb (3):
+  net/mlx5: Fix root flow table update
+  net/mlx5: Fix flow steering NIC capabilities check
+  net/mlx5: Fix E-Switch flow steering capabilities check
+
+Mohamad Haj Yahia (2):
+  net/mlx5: E-Switch, Fix vport enable flow
+  net/mlx5: E-Switch, always set mc_promisc for allmulti vports
+
+Noa Osherovich (1):
+  net/mlx5: E-Switch, Modify node guid on vf set MAC
+
+Or Gerlitz (2):
+  net/mlx5: E-Switch, Use the correct free() function
+  net/mlx5: E-Switch, Use the correct error check on returned pointers
+
+Shahar Klein (1):
+  net/mlx5: Fix MLX5_CMD_OP_MAX to be defined correctly
+
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |  5 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   |  3 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c | 69 ++++++++++++++---------
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 40 ++++++++-----
+ drivers/net/ethernet/mellanox/mlx5/core/qp.c      |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c   | 38 +++++++++++++
+ include/linux/mlx5/device.h                       |  8 ++-
+ include/linux/mlx5/mlx5_ifc.h                     | 12 +++-
+ include/linux/mlx5/qp.h                           |  1 +
+ include/linux/mlx5/vport.h                        |  2 +
+ 10 files changed, 128 insertions(+), 52 deletions(-)
+
 -- 
 2.8.0
