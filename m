@@ -1,35 +1,108 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH] openvswitch: Add packet truncation support.
-Date: Thu, 9 Jun 2016 08:57:21 -0700
-Message-ID: <575991E1.9020906@hpe.com>
-References: <1465435105-21777-1-git-send-email-u9012063@gmail.com>
- <CAOrHB_CNZ2_JCt7RCaMQehZvYxZO-3wL00krbPX-iT1z3iAu=w@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: latest iproute2 compilation issue with linux-4.6-rc7
+Date: Thu, 9 Jun 2016 09:10:10 -0700
+Message-ID: <20160609091010.0ac5d45a@xeon-e3>
+References: <DF4PR84MB0169ABB98113BCC2AB9CD625825F0@DF4PR84MB0169.NAMPRD84.PROD.OUTLOOK.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: pravin shelar <pshelar@ovn.org>, William Tu <u9012063@gmail.com>
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Cherukuru, Siva Ramaprasad" <sivaramaprasad.c@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t1613g.houston.hpe.com ([15.241.32.99]:44803 "EHLO
-	g9t1613g.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168AbcFIP5Y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 11:57:24 -0400
-Received: from g4t3427.houston.hpe.com (g4t3427.houston.hpe.com [15.241.140.73])
-	(using TLSv1.2 with cipher DHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(No client certificate requested)
-	by g9t1613g.houston.hpe.com (Postfix) with ESMTPS id 9E99260C23
-	for <netdev@vger.kernel.org>; Thu,  9 Jun 2016 15:57:23 +0000 (UTC)
-In-Reply-To: <CAOrHB_CNZ2_JCt7RCaMQehZvYxZO-3wL00krbPX-iT1z3iAu=w@mail.gmail.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34464 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932082AbcFIQOc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 12:14:32 -0400
+Received: by mail-pa0-f44.google.com with SMTP id bz2so14148157pad.1
+        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 09:14:32 -0700 (PDT)
+In-Reply-To: <DF4PR84MB0169ABB98113BCC2AB9CD625825F0@DF4PR84MB0169.NAMPRD84.PROD.OUTLOOK.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/08/2016 09:30 PM, pravin shelar wrote:
-> On Wed, Jun 8, 2016 at 6:18 PM, William Tu <u9012063@gmail.com> wrote:
->> +struct ovs_action_trunc {
->> +       uint32_t max_len; /* Max packet size in bytes. */
-> This could uint16_t. as it is related to packet len.
->
+On Thu, 9 Jun 2016 11:46:38 +0000
+"Cherukuru, Siva Ramaprasad" <sivaramaprasad.c@hpe.com> wrote:
 
-Is there something limiting MTUs to 65535 bytes?
+> Hi ,
+> 
+>       When I try to compile latest iproute2 code, I am seeing the following errors.
+> Please let me know if there is any workaround available Or fix for this issue?
+> 
+> ====
+> 
+> In file included from m_ipt.c:19:0:
+> ../include/linux/if.h:106:19: error: redeclaration of enumerator 'IFF_UP'
+> #define IFF_UP    IFF_UP
+>                    ^
+> ../include/linux/if.h:79:2: note: previous definition of 'IFF_UP' was here
+>   IFF_UP    = 1<<0,  /* sysfs */
+>  ^
+> ../include/linux/if.h:107:25: error: redeclaration of enumerator 'IFF_BROADCAST'
+> #define IFF_BROADCAST   IFF_BROADCAST
+>                          ^
+> ../include/linux/if.h:80:2: note: previous definition of 'IFF_BROADCAST' was here
+>   IFF_BROADCAST   = 1<<1,  /* __volatile__ */
+>   ^
+> ../include/linux/if.h:108:21: error: redeclaration of enumerator 'IFF_DEBUG'
+> #define IFF_DEBUG   IFF_DEBUG
+>                      ^
+> ../include/linux/if.h:81:2: note: previous definition of 'IFF_DEBUG' was here
+>   IFF_DEBUG   = 1<<2,  /* sysfs */
+>   ^
+> 
+> ...
+> ...
+> 
+> In file included from ../include/iptables.h:5:0,
+>                  from m_ipt.c:22:
+> ../include/xtables.h:34:29: fatal error: xtables-version.h: No such file or directory
+> #include <xtables-version.h>
+>                              ^
+> compilation terminated.
+> make[1]: *** [m_ipt.o] Error 1
+> rm emp_ematch.lex.c
+> make: *** [all] Error 2
+> 
+> =========
+> 
+> I have tried the following to work around the errors  but still stuck with the xtables-version.h error?
+> 
+> ===
+> root@dock1:~/siva_iproute2/iproute2# git diff tc/m_ipt.c
+> diff --git a/tc/m_ipt.c b/tc/m_ipt.c
+> index d088f5e..1ebd2f7 100644
+> --- a/tc/m_ipt.c
+> +++ b/tc/m_ipt.c
+> @@ -14,7 +14,9 @@
+> #include <sys/socket.h>
+> #include <netinet/in.h>
+> #include <arpa/inet.h>
+> +#ifndef linux/if.h
+> #include <linux/if.h>
+> +#endif
+> #include <iptables.h>
+> #include <linux/netfilter.h>
+> #include <linux/netfilter_ipv4/ip_tables.h>
+> 
+> ====
+> 
+> 
+>     CC       m_ipt.o
+> In file included from ../include/iptables.h:5:0,
+>                  from m_ipt.c:23:
+> ../include/xtables.h:34:29: fatal error: xtables-version.h: No such file or directory
+> #include <xtables-version.h>
+>                              ^
+> compilation terminated.
+> make[1]: *** [m_ipt.o] Error 1
+> rm emp_ematch.lex.c
 
-rick jones
+The update to iptables headers broke compilation because they switched to
+xtables.
+
+For now, do
+ $ make distclean
+ $ make
+
+There is a patch to fix this, but it got no review/feedback and was not submitted
+in proper form to netdev for review. Therefore I am waiting for correct fix
+to come.
