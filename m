@@ -1,41 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: vrf: Add IFF_NO_QUEUE flag
-Date: Wed, 08 Jun 2016 21:00:14 -0700 (PDT)
-Message-ID: <20160608.210014.1852381886881414893.davem@davemloft.net>
-References: <1465412931-29567-1-git-send-email-dsa@cumulusnetworks.com>
-	<2fb324b8-e107-3ed9-16e2-0cf59937081d@cumulusnetworks.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH v2 net-next 2/4] net: vrf: call netdev_lockdep_set_classes()
+Date: Wed, 8 Jun 2016 21:01:35 -0700
+Message-ID: <CANn89i+3m=6jNJPs2Ns+0uYqx7B-4pKENQ3Oi3dibFuTqaErzg@mail.gmail.com>
+References: <1465442964-5786-1-git-send-email-edumazet@google.com>
+ <1465442964-5786-2-git-send-email-edumazet@google.com> <c067a755-d414-60b9-a2f0-215c2b41bc6f@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41526 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750752AbcFIEAV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 00:00:21 -0400
-In-Reply-To: <2fb324b8-e107-3ed9-16e2-0cf59937081d@cumulusnetworks.com>
+Received: from mail-yw0-f175.google.com ([209.85.161.175]:33032 "EHLO
+	mail-yw0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751062AbcFIEBh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 00:01:37 -0400
+Received: by mail-yw0-f175.google.com with SMTP id g20so26930825ywb.0
+        for <netdev@vger.kernel.org>; Wed, 08 Jun 2016 21:01:37 -0700 (PDT)
+In-Reply-To: <c067a755-d414-60b9-a2f0-215c2b41bc6f@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Wed, 8 Jun 2016 19:31:51 -0600
-
-> On 6/8/16 1:08 PM, David Ahern wrote:
->> Getting the following splat with ping in a VRF:
-> 
-> ...
-> 
->> Fix by adding the IFF_NO_QUEUE flag for VRF devices.
+On Wed, Jun 8, 2016 at 8:41 PM, David Ahern <dsa@cumulusnetworks.com> wrote:
+> On 6/8/16 9:29 PM, Eric Dumazet wrote:
+>>
+>> In case a qdisc is used on a vrf device, we need to use different
+>> lockdep classes to avoid false positives.
 >>
 >> Fixes: f9eb8aea2a1e ("net_sched: transform qdisc running bit into a
 >> seqcount")
->> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
->> ---
->>  drivers/net/vrf.c | 2 ++
->>  1 file changed, 2 insertions(+)
-> 
-> Dave: drop this one. I'll resubmit a flags + features update after
-> Eric resolves the lock issue.
+>> Reported-by: David Ahern <dsa@cumulusnetworks.com>
+>> Signed-off-by: Eric Dumazet <edumazet@google.com>
+>
+>
+> same result with this patch set.
+>
 
-Ok.
+Are you stacking multiple vrf devices ?
