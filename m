@@ -1,38 +1,67 @@
-From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: Re: [PATCH 6/6] ppc: ebpf/jit: Implement JIT compiler for extended
- BPF
-Date: Thu, 9 Jun 2016 11:37:52 +0530
-Message-ID: <20160609060752.GQ18654@naverao1-tp.localdomain>
-References: <cover.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
- <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
- <CACbG308O_+hXHuUo_opRPeLXLmoZj=gzEnMrwhwidf0m3+SOTQ@mail.gmail.com>
+From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Subject: Re: [PATCH 1/2] NET: PHY: Add PHY LED control binding.
+Date: Thu, 9 Jun 2016 08:12:08 +0200
+Message-ID: <f1e22176-d30a-be66-a4ea-dd0666775597@phrozen.org>
+References: <1465163150-21429-1-git-send-email-hauke@hauke-m.de>
+ <1465163150-21429-2-git-send-email-hauke@hauke-m.de>
+ <20160608193008.GA20738@rob-hp-laptop> <3869397.kzojzy3Xzu@ws-stein>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Matt Evans <matt@ozlabs.org>, Alexei Starovoitov <ast@fb.com>,
-	netdev@vger.kernel.org, Denis Kirjanov <kda@linux-powerpc.org>,
-	Linux Kernel list <linux-kernel@vger.kernel.org>,
-	Paul Mackerras <paulus@samba.org>,
-	linuxppc-dev@lists.ozlabs.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-To: Nilay Vaish <nilayvaish@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CACbG308O_+hXHuUo_opRPeLXLmoZj=gzEnMrwhwidf0m3+SOTQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>, f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org, openwrt-zg6vgJgm1sizQB+pC5nmwQ@public.gmane.org,
+	hauke.mehrtens-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, daniel.schwierzeck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	eckert.florian-gM/Ye1E23mwN+BqQ9rBEUg@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	thomas.langer-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org
+To: Alexander Stein <alexander.stein-93q1YBGzJSMe9JSWTWOYM3xStJ4P+DSV@public.gmane.org>,
+	Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <3869397.kzojzy3Xzu@ws-stein>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2016/06/08 10:19PM, Nilay Vaish wrote:
-> Naveen, can you point out where in the patch you update the variable:
-> idx, a member of codegen_contex structure?  Somehow I am unable to
-> figure it out.  I can only see that we set it to 0 in the
-> bpf_int_jit_compile function.  Since all your test cases pass, I am
-> clearly overlooking something.
 
-Yes, that's being done in bpf_jit.h (see the earlier patches in the 
-series). All the PPC_*() instruction macros are defined to EMIT() the 
-respective powerpc instruction encoding.  EMIT() translates to 
-PLANT_INSTR(), which actually increments idx.
 
-- Naveen
+On 09/06/2016 08:06, Alexander Stein wrote:
+> On Wednesday 08 June 2016 14:30:08, Rob Herring wrote:
+>>> diff --git a/Documentation/devicetree/bindings/phy/phy-leds.txt
+>>> b/Documentation/devicetree/bindings/phy/phy-leds.txt new file mode 100644
+>>> index 0000000..1a35e3d
+>>> --- /dev/null
+>>> +++ b/Documentation/devicetree/bindings/phy/phy-leds.txt
+>>> @@ -0,0 +1,52 @@
+>>> +LED configuration for Ethernet phys
+>>> +
+>>> +All these properties are optional, not all properties are supported by
+>>> +all PHYs. When more then one property name is define for one LED the
+>>> +order they get applied is device depended.
+>>> +Property names:
+>>> +	led-const-on: conditions the LED should be constant on
+>>> +	led-pulse: condition the LED should be pulsed on
+>>> +	led-blink-slow: condition the LED should slowly blink
+>>
+>> How slow is slow?
+> 
+> This depends on the MMD.INTERNAL.LEDCH.SBF setting which is 2 Hz by default.
+> 
+>>> +	led-blink-fast: condition the LED should fast blink
+>>
+>> How fast is fast?
+> 
+> This depends on the MMD.INTERNAL.LEDCH.FBF setting which is 16 Hz by default.
+> 
+> Both can be set independently to 2, 4, 8 or 16 Hz.
+> 
+
+and both are intel/lantiq implementation specific and hence should not
+be part of a generic led-phy binding.
+
+imho these leds should be exposed via a led driver and the configurtion
+should be exposed via a led driver specific trigger, in the same manner
+in which wireless macs do it.
+
+	John
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
