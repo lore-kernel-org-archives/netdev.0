@@ -1,48 +1,80 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next] nfnetlink_queue: enable PID info retrieval
-Date: Fri, 10 Jun 2016 14:29:47 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4D4981@AcuExch.aculab.com>
-References: <1465505409-1232-1-git-send-email-saeedm@mellanox.com>
- <1465507031.7945.44.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Javier Martinez Canillas <javier@osg.samsung.com>
+Subject: Re: [PATCH v2 2/3] mwifiex: move .get_tx_power logic to station ioctl
+ file
+Date: Fri, 10 Jun 2016 10:37:24 -0400
+Message-ID: <12ccd90e-e3eb-ecac-b23f-8124b0db32ad@osg.samsung.com>
+References: <1465232558-31678-1-git-send-email-javier@osg.samsung.com>
+ <1465232558-31678-3-git-send-email-javier@osg.samsung.com>
+ <87wplxdsln.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Andre Melkoumian <andre@mellanox.com>,
-	Matthew Finlay <matt@mellanox.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-To: 'Eric Dumazet' <eric.dumazet@gmail.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.183]:64793 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161191AbcFJObP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 10:31:15 -0400
-In-Reply-To: <1465507031.7945.44.camel@edumazet-glaptop3.roam.corp.google.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org,
+	Julian Calaby <julian.calaby@gmail.com>,
+	Shengzhen Li <szli@marvell.com>,
+	Enric Balletbo i Serra <enric.balletbo@collabora.com>,
+	Amitkumar Karwar <akarwar@marvell.com>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	Nishant Sarmukadam <nishants@marvell.com>
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87wplxdsln.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-RnJvbTogRXJpYyBEdW1hemV0DQo+IFNlbnQ6IDA5IEp1bmUgMjAxNiAyMjoxNw0KPiBPbiBUaHUs
-IDIwMTYtMDYtMDkgYXQgMjM6NTAgKzAzMDAsIFNhZWVkIE1haGFtZWVkIHdyb3RlOg0KPiA+IEZy
-b206IE1hdHRoZXcgRmlubGF5IDxtYXR0QG1lbGxhbm94LmNvbT4NCj4gDQo+IA0KPiA+IGRpZmYg
-LS1naXQgYS9uZXQvc29ja2V0LmMgYi9uZXQvc29ja2V0LmMNCj4gPiBpbmRleCBhMWJkMTYxLi42
-N2RlMjAwIDEwMDY0NA0KPiA+IC0tLSBhL25ldC9zb2NrZXQuYw0KPiA+ICsrKyBiL25ldC9zb2Nr
-ZXQuYw0KPiA+IEBAIC0zODIsNiArMzgyLDcgQEAgc3RydWN0IGZpbGUgKnNvY2tfYWxsb2NfZmls
-ZShzdHJ1Y3Qgc29ja2V0ICpzb2NrLCBpbnQgZmxhZ3MsIGNvbnN0IGNoYXIgKmRuYW1lKQ0KPiA+
-ICAJfQ0KPiA+DQo+ID4gIAlzb2NrLT5maWxlID0gZmlsZTsNCj4gPiArCWZpbGUtPmZfb3duZXIu
-c29ja19waWQgID0gZmluZF9nZXRfcGlkKHRhc2tfcGlkX25yKGN1cnJlbnQpKTsNCj4gPiAgCWZp
-bGUtPmZfZmxhZ3MgPSBPX1JEV1IgfCAoZmxhZ3MgJiBPX05PTkJMT0NLKTsNCj4gPiAgCWZpbGUt
-PnByaXZhdGVfZGF0YSA9IHNvY2s7DQo+ID4gIAlyZXR1cm4gZmlsZTsNCj4gDQo+IFdvdywgdGhh
-dCBpcyBhIHNlcmlvdXMgbWVtb3J5IGxlYWsgd2VhcG9uIChvZiBzdHJ1Y3QgcGlkKQ0KPiANCj4g
-V2h5IGRvbid0IHlvdSBzdG9yZSB0aGUgcGlkIHZhbHVlLCBpbnN0ZWFkIG9mIGEgcG9pbnRlciA/
-DQoNClNpbmNlIHRoZSBudW1lcmljICdwaWQnIHZhbHVlcyBjYW4gYmUgcmV1c2VkICh3aXRoIG5v
-IGdyYWNlIHRpbWUpIHlvdSdkDQpuZWVkIHRvIGhvbGQgYSByZWZlcmVuY2UgdG8gdGhlIHBpZCBz
-dHJ1Y3R1cmUgKGFkZGVkIGluIGFib3V0IDIuNi4yNykgaW5zdGVhZC4NCldoaWNoIGlzIGp1c3Qg
-YSBzbWFsbGVyIG1lbW9yeSBsZWFrIQ0KKGFuZCBhbm5veWluZ2x5IGEgbm9uLWdwbCBkcml2ZXIg
-Y2FuJ3QgZHJvcCBhIHJlZmVyZW5jZSB0byBpdCkuDQoNCglEYXZpZA0KDQo=
+Hello Kalle,
+
+On 06/10/2016 10:30 AM, Kalle Valo wrote:
+> Javier Martinez Canillas <javier@osg.samsung.com> writes:
+> 
+>> From: Shengzhen Li <szli@marvell.com>
+>>
+>> Most cfg80211 operations are just a wrappers to functions defined in the
+>> sta_ioctl.c file, so for consistency move the .get_tx_power logic there.
+>>
+>> Signed-off-by: Shengzhen Li <szli@marvell.com>
+>> Signed-off-by: Amitkumar Karwar <akarwar@marvell.com>
+>> [javier: update the subject line and commit message]
+>> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+> 
+> [...]
+> 
+>> --- a/drivers/net/wireless/marvell/mwifiex/cfg80211.c
+>> +++ b/drivers/net/wireless/marvell/mwifiex/cfg80211.c
+>> @@ -385,18 +385,10 @@ mwifiex_cfg80211_get_tx_power(struct wiphy *wiphy,
+>>  			      int *dbm)
+>>  {
+>>  	struct mwifiex_adapter *adapter = mwifiex_cfg80211_get_adapter(wiphy);
+>> -	struct mwifiex_private *priv = mwifiex_get_priv(adapter,
+>> -							MWIFIEX_BSS_ROLE_ANY);
+>> -	int ret = mwifiex_send_cmd(priv, HostCmd_CMD_RF_TX_PWR,
+>> -				   HostCmd_ACT_GEN_GET, 0, NULL, true);
+>> -
+>> -	if (ret < 0)
+>> -		return ret;
+>> -
+>> -	/* tx_power_level is set in HostCmd_CMD_RF_TX_PWR command handler */
+>> -	*dbm = priv->tx_power_level;
+>> +	struct mwifiex_private *priv;
+>>  
+>> -	return 0;
+>> +	priv = mwifiex_get_priv(adapter, MWIFIEX_BSS_ROLE_ANY);
+>> +	return mwifiex_get_tx_power(priv, dbm);
+>>  }
+> 
+> So in patch 1 you added the patch and in patch 2 you move it to a
+> different location? That doesn't make any sense, can't you just fold the
+> two patches into one so that the function is added only once.
+>
+
+I posted this patch in v1 but then Amitkumar shared his patch with me that
+was very similar to mine, only that the logic was in a different location.
+
+So I included his delta as a separate patch to try keeping attribution as
+best as possible.
+
+Best regards,
+-- 
+Javier Martinez Canillas
+Open Source Group
+Samsung Research America
