@@ -1,201 +1,165 @@
-From: KY Srinivasan <kys@microsoft.com>
-Subject: RE: [PATCH net-next] netvsc: Use the new in-place consumption APIs in
+From: Linus Torvalds <torvalds@linux-foundation.org>
+Subject: Re: [PATCH net-next] netvsc: Use the new in-place consumption APIs in
  the rx path
-Date: Fri, 10 Jun 2016 00:16:09 +0000
-Message-ID: <DM2PR0301MB0783B20286ABDAF4C1FD2151A0500@DM2PR0301MB0783.namprd03.prod.outlook.com>
+Date: Thu, 9 Jun 2016 17:12:25 -0700
+Message-ID: <CAADWXX-kpC1UG-Gkteh7zatuwy97d7fAdCoE+xHcDyak+TNqqQ@mail.gmail.com>
 References: <1465522473-21250-1-git-send-email-kys@microsoft.com>
- <CAADWXX-kpC1UG-Gkteh7zatuwy97d7fAdCoE+xHcDyak+TNqqQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- lkml <linux-kernel@vger.kernel.org>, "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "leann.ogasawara@canonical.com" <leann.ogasawara@canonical.com>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Linus Torvalds <torvalds@linux-foundation.org>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <CAADWXX-kpC1UG-Gkteh7zatuwy97d7fAdCoE+xHcDyak+TNqqQ@mail.gmail.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	lkml <linux-kernel@vger.kernel.org>,
+	devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+	jasowang@redhat.com, leann.ogasawara@canonical.com
+To: "K. Y. Srinivasan" <kys@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465522473-21250-1-git-send-email-kys@microsoft.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Srinivasan,
 
+ these are all sent through linuxonhyperv.com, and fail DMARC because
+they have a microsoft.com address but no valid DKIM.
 
-> -----Original Message-----
-> From: Linus Torvalds [mailto:torvalds@linux-foundation.org]
-> Sent: Thursday, June 9, 2016 5:12 PM
-> To: KY Srinivasan <kys@microsoft.com>
-> Cc: davem@davemloft.net; netdev@vger.kernel.org; lkml <linux-
-> kernel@vger.kernel.org>; devel@linuxdriverproject.org; olaf@aepfle.de;
-> apw@canonical.com; jasowang@redhat.com;
-> leann.ogasawara@canonical.com
-> Subject: Re: [PATCH net-next] netvsc: Use the new in-place consumption APIs in
-> the rx path
-> 
-> Srinivasan,
-> 
->  these are all sent through linuxonhyperv.com, and fail DMARC because
-> they have a microsoft.com address but no valid DKIM.
-> 
-> Please fix your email setup.  You need to go through the real
-> microsoft smtp servers if you use a microsoft.com address. Or you need
-> to get linuxonhyperv.com fixed as a smtp server with the proper MS
-> email signing.
-> 
->                Linus
+Please fix your email setup.  You need to go through the real
+microsoft smtp servers if you use a microsoft.com address. Or you need
+to get linuxonhyperv.com fixed as a smtp server with the proper MS
+email signing.
 
-Thanks Linus, we will fix our email setup.
+               Linus
 
-Regards,
-
-K. Y
-> 
-> On Thu, Jun 9, 2016 at 6:34 PM, K. Y. Srinivasan <kys@microsoft.com> wrote:
-> > Use the new APIs for eliminating a copy on the receive path. These new APIs
-> also
-> > help in minimizing the number of memory barriers we end up issuing (in the
-> > ringbuffer code) since we can better control when we want to expose the ring
-> > state to the host.
-> >
-> > Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
-> > Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
-> > Tested-by: Dexuan Cui <decui@microsoft.com>
-> > Tested-by: Simon Xiao <sixiao@microsoft.com>
-> > ---
-> >  drivers/net/hyperv/netvsc.c |   88 +++++++++++++++++++++++++++++---------
-> -----
-> >  1 files changed, 59 insertions(+), 29 deletions(-)
-> >
-> > diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
-> > index 719cb35..8cd4c19 100644
-> > --- a/drivers/net/hyperv/netvsc.c
-> > +++ b/drivers/net/hyperv/netvsc.c
-> > @@ -1141,6 +1141,39 @@ static inline void netvsc_receive_inband(struct
-> hv_device *hdev,
-> >         }
-> >  }
-> >
-> > +static void netvsc_process_raw_pkt(struct hv_device *device,
-> > +                                  struct vmbus_channel *channel,
-> > +                                  struct netvsc_device *net_device,
-> > +                                  struct net_device *ndev,
-> > +                                  u64 request_id,
-> > +                                  struct vmpacket_descriptor *desc)
-> > +{
-> > +       struct nvsp_message *nvmsg;
-> > +
-> > +       nvmsg = (struct nvsp_message *)((unsigned long)
-> > +               desc + (desc->offset8 << 3));
-> > +
-> > +       switch (desc->type) {
-> > +       case VM_PKT_COMP:
-> > +               netvsc_send_completion(net_device, channel, device, desc);
-> > +               break;
-> > +
-> > +       case VM_PKT_DATA_USING_XFER_PAGES:
-> > +               netvsc_receive(net_device, channel, device, desc);
-> > +               break;
-> > +
-> > +       case VM_PKT_DATA_INBAND:
-> > +               netvsc_receive_inband(device, net_device, nvmsg);
-> > +               break;
-> > +
-> > +       default:
-> > +               netdev_err(ndev, "unhandled packet type %d, tid %llx\n",
-> > +                          desc->type, request_id);
-> > +               break;
-> > +       }
-> > +}
-> > +
-> > +
-> >  void netvsc_channel_cb(void *context)
-> >  {
-> >         int ret;
-> > @@ -1153,7 +1186,7 @@ void netvsc_channel_cb(void *context)
-> >         unsigned char *buffer;
-> >         int bufferlen = NETVSC_PACKET_SIZE;
-> >         struct net_device *ndev;
-> > -       struct nvsp_message *nvmsg;
-> > +       bool need_to_commit = false;
-> >
-> >         if (channel->primary_channel != NULL)
-> >                 device = channel->primary_channel->device_obj;
-> > @@ -1167,39 +1200,36 @@ void netvsc_channel_cb(void *context)
-> >         buffer = get_per_channel_state(channel);
-> >
-> >         do {
-> > +               desc = get_next_pkt_raw(channel);
-> > +               if (desc != NULL) {
-> > +                       netvsc_process_raw_pkt(device,
-> > +                                              channel,
-> > +                                              net_device,
-> > +                                              ndev,
-> > +                                              desc->trans_id,
-> > +                                              desc);
-> > +
-> > +                       put_pkt_raw(channel, desc);
-> > +                       need_to_commit = true;
-> > +                       continue;
-> > +               }
-> > +               if (need_to_commit) {
-> > +                       need_to_commit = false;
-> > +                       commit_rd_index(channel);
-> > +               }
-> > +
-> >                 ret = vmbus_recvpacket_raw(channel, buffer, bufferlen,
-> >                                            &bytes_recvd, &request_id);
-> >                 if (ret == 0) {
-> >                         if (bytes_recvd > 0) {
-> >                                 desc = (struct vmpacket_descriptor *)buffer;
-> > -                               nvmsg = (struct nvsp_message *)((unsigned long)
-> > -                                        desc + (desc->offset8 << 3));
-> > -                               switch (desc->type) {
-> > -                               case VM_PKT_COMP:
-> > -                                       netvsc_send_completion(net_device,
-> > -                                                               channel,
-> > -                                                               device, desc);
-> > -                                       break;
-> > -
-> > -                               case VM_PKT_DATA_USING_XFER_PAGES:
-> > -                                       netvsc_receive(net_device, channel,
-> > -                                                      device, desc);
-> > -                                       break;
-> > -
-> > -                               case VM_PKT_DATA_INBAND:
-> > -                                       netvsc_receive_inband(device,
-> > -                                                             net_device,
-> > -                                                             nvmsg);
-> > -                                       break;
-> > -
-> > -                               default:
-> > -                                       netdev_err(ndev,
-> > -                                                  "unhandled packet type %d, "
-> > -                                                  "tid %llx len %d\n",
-> > -                                                  desc->type, request_id,
-> > -                                                  bytes_recvd);
-> > -                                       break;
-> > -                               }
-> > +                               netvsc_process_raw_pkt(device,
-> > +                                                      channel,
-> > +                                                      net_device,
-> > +                                                      ndev,
-> > +                                                      request_id,
-> > +                                                      desc);
-> > +
-> >
-> >                         } else {
-> >                                 /*
-> > --
-> > 1.7.4.1
-> >
+On Thu, Jun 9, 2016 at 6:34 PM, K. Y. Srinivasan <kys@microsoft.com> wrote:
+> Use the new APIs for eliminating a copy on the receive path. These new APIs also
+> help in minimizing the number of memory barriers we end up issuing (in the
+> ringbuffer code) since we can better control when we want to expose the ring
+> state to the host.
+>
+> Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+> Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Tested-by: Dexuan Cui <decui@microsoft.com>
+> Tested-by: Simon Xiao <sixiao@microsoft.com>
+> ---
+>  drivers/net/hyperv/netvsc.c |   88 +++++++++++++++++++++++++++++--------------
+>  1 files changed, 59 insertions(+), 29 deletions(-)
+>
+> diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+> index 719cb35..8cd4c19 100644
+> --- a/drivers/net/hyperv/netvsc.c
+> +++ b/drivers/net/hyperv/netvsc.c
+> @@ -1141,6 +1141,39 @@ static inline void netvsc_receive_inband(struct hv_device *hdev,
+>         }
+>  }
+>
+> +static void netvsc_process_raw_pkt(struct hv_device *device,
+> +                                  struct vmbus_channel *channel,
+> +                                  struct netvsc_device *net_device,
+> +                                  struct net_device *ndev,
+> +                                  u64 request_id,
+> +                                  struct vmpacket_descriptor *desc)
+> +{
+> +       struct nvsp_message *nvmsg;
+> +
+> +       nvmsg = (struct nvsp_message *)((unsigned long)
+> +               desc + (desc->offset8 << 3));
+> +
+> +       switch (desc->type) {
+> +       case VM_PKT_COMP:
+> +               netvsc_send_completion(net_device, channel, device, desc);
+> +               break;
+> +
+> +       case VM_PKT_DATA_USING_XFER_PAGES:
+> +               netvsc_receive(net_device, channel, device, desc);
+> +               break;
+> +
+> +       case VM_PKT_DATA_INBAND:
+> +               netvsc_receive_inband(device, net_device, nvmsg);
+> +               break;
+> +
+> +       default:
+> +               netdev_err(ndev, "unhandled packet type %d, tid %llx\n",
+> +                          desc->type, request_id);
+> +               break;
+> +       }
+> +}
+> +
+> +
+>  void netvsc_channel_cb(void *context)
+>  {
+>         int ret;
+> @@ -1153,7 +1186,7 @@ void netvsc_channel_cb(void *context)
+>         unsigned char *buffer;
+>         int bufferlen = NETVSC_PACKET_SIZE;
+>         struct net_device *ndev;
+> -       struct nvsp_message *nvmsg;
+> +       bool need_to_commit = false;
+>
+>         if (channel->primary_channel != NULL)
+>                 device = channel->primary_channel->device_obj;
+> @@ -1167,39 +1200,36 @@ void netvsc_channel_cb(void *context)
+>         buffer = get_per_channel_state(channel);
+>
+>         do {
+> +               desc = get_next_pkt_raw(channel);
+> +               if (desc != NULL) {
+> +                       netvsc_process_raw_pkt(device,
+> +                                              channel,
+> +                                              net_device,
+> +                                              ndev,
+> +                                              desc->trans_id,
+> +                                              desc);
+> +
+> +                       put_pkt_raw(channel, desc);
+> +                       need_to_commit = true;
+> +                       continue;
+> +               }
+> +               if (need_to_commit) {
+> +                       need_to_commit = false;
+> +                       commit_rd_index(channel);
+> +               }
+> +
+>                 ret = vmbus_recvpacket_raw(channel, buffer, bufferlen,
+>                                            &bytes_recvd, &request_id);
+>                 if (ret == 0) {
+>                         if (bytes_recvd > 0) {
+>                                 desc = (struct vmpacket_descriptor *)buffer;
+> -                               nvmsg = (struct nvsp_message *)((unsigned long)
+> -                                        desc + (desc->offset8 << 3));
+> -                               switch (desc->type) {
+> -                               case VM_PKT_COMP:
+> -                                       netvsc_send_completion(net_device,
+> -                                                               channel,
+> -                                                               device, desc);
+> -                                       break;
+> -
+> -                               case VM_PKT_DATA_USING_XFER_PAGES:
+> -                                       netvsc_receive(net_device, channel,
+> -                                                      device, desc);
+> -                                       break;
+> -
+> -                               case VM_PKT_DATA_INBAND:
+> -                                       netvsc_receive_inband(device,
+> -                                                             net_device,
+> -                                                             nvmsg);
+> -                                       break;
+> -
+> -                               default:
+> -                                       netdev_err(ndev,
+> -                                                  "unhandled packet type %d, "
+> -                                                  "tid %llx len %d\n",
+> -                                                  desc->type, request_id,
+> -                                                  bytes_recvd);
+> -                                       break;
+> -                               }
+> +                               netvsc_process_raw_pkt(device,
+> +                                                      channel,
+> +                                                      net_device,
+> +                                                      ndev,
+> +                                                      request_id,
+> +                                                      desc);
+> +
+>
+>                         } else {
+>                                 /*
+> --
+> 1.7.4.1
+>
