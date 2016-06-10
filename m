@@ -1,68 +1,55 @@
-From: Manuel Lauss <manuel.lauss@gmail.com>
-Subject: [PATCH] net: au1000_eth: fix PHY detection
-Date: Fri, 10 Jun 2016 16:53:05 +0200
-Message-ID: <20160610145305.665482-1-manuel.lauss@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Manuel Lauss <manuel.lauss@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33572 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751440AbcFJOxO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 10:53:14 -0400
-Received: by mail-wm0-f68.google.com with SMTP id r5so18540337wmr.0
-        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 07:53:13 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Subject: Re: [PATCH][RT] netpoll: Always take poll_lock when doing polling
+Date: Fri, 10 Jun 2016 17:30:51 +0200
+Message-ID: <20160610153051.GA10775@linutronix.de>
+References: <20160526195641.6c26e979@gandalf.local.home>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	linux-rt-users <linux-rt-users@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Clark Williams <williams@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>, alison@peloton-tech.com
+To: Steven Rostedt <rostedt@goodmis.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160526195641.6c26e979@gandalf.local.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 7f854420fbfe9d49afe2ffb1df052cfe8e215541
-("phy: Add API for {un}registering an mdio device to a bus.")
-broke PHY detection on this driver with a copy-paste bug:
-The code is looking 32 times for a PHY at address 0.
+* Steven Rostedt | 2016-05-26 19:56:41 [-0400]:
 
-Fixes ethernet on AMD DB1100/DB1500/DB1550 boards which have
-their (autodetected) PHYs at address 31.
+>For example:
+>
+>   <interrupt thread (as all interrupts on RT are threaded>
+>
+>   napi_schedule_prep()
+>        test_and_set_bit(NAPI_STATE_SCHED, &n->state)
+>
+>   <preempted by higher prio task that runs softirqs in its context>
+>
+>   sk_busy_loop()
+>
+>      do {
+>           rc = busy_poll()
+>               ret = napi_schedule_prep()
+>                    return !test_and_set_bit(NAPI_STATE_SCHED, &n->state)
+>                     <returns zero because NAPI_STATE_SCHED is set>
+>               if (!ret) return 0
+>           <rc is zero>
+>      } while (...) /* for ever */
+>
 
-Cc: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Manuel Lauss <manuel.lauss@gmail.com>
----
-before:
-libphy: au1000_eth_mii: probed
-au1000-eth au1000-eth.0 (unnamed net_device) (uninitialized): no PHY found
-au1000-eth: probe of au1000-eth.0 failed with error -1
+No, I don't see the busyloop. while() is here:
+|    while (!nonblock && skb_queue_empty(&sk->sk_receive_queue) &&
+|                  !need_resched() && !busy_loop_timeout(end_time));
 
-after:
-libphy: au1000_eth_mii: probed
-AM79C874 au1000-eth-0:1f: attached PHY driver [AM79C874] (mii_bus:phy_addr=au1000-eth-0:1f, irq=-1)
-au1000-eth au1000-eth.0 eth0: Au1xx0 Ethernet found at 0x11500000, irq 36
+and this seems to be the case since v3.11 where it was introduced (but
+now it moved to dev.c). So even if there is no busy_poll() and
+napi_schedule_prep() returns 0 our cycles here are limited by
+busy_loop_timeout().
 
- drivers/net/ethernet/amd/au1000_eth.c | 13 ++++++-------
- 1 file changed, 6 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/amd/au1000_eth.c b/drivers/net/ethernet/amd/au1000_eth.c
-index e0fb0f1..d8c77e8 100644
---- a/drivers/net/ethernet/amd/au1000_eth.c
-+++ b/drivers/net/ethernet/amd/au1000_eth.c
-@@ -508,13 +508,12 @@ static int au1000_mii_probe(struct net_device *dev)
- 	/* find the first (lowest address) PHY
- 	 * on the current MAC's MII bus
- 	 */
--	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++)
--		if (mdiobus_get_phy(aup->mii_bus, aup->phy_addr)) {
--			phydev = mdiobus_get_phy(aup->mii_bus, aup->phy_addr);
--			if (!aup->phy_search_highest_addr)
--				/* break out with first one found */
--				break;
--		}
-+	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++) {
-+		phydev = mdiobus_get_phy(aup->mii_bus, phy_addr);
-+		if (phydev && !aup->phy_search_highest_addr)
-+			/* break out with first one found */
-+			break;
-+	}
- 
- 	if (aup->phy1_search_mac0) {
- 		/* try harder to find a PHY */
--- 
-2.8.4
+Sebastian
