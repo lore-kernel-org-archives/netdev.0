@@ -1,62 +1,39 @@
-From: "Eggert, Lars" <lars@netapp.com>
-Subject: TCP_REPAIR MSS issue
-Date: Fri, 10 Jun 2016 11:22:55 +0000
-Message-ID: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_A2223963-9437-46E7-B77A-AFEA43BEA025";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"criu@openvz.org" <criu@openvz.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx141.netapp.com ([216.240.21.12]:9617 "EHLO mx141.netapp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751419AbcFJLW7 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jun 2016 07:22:59 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: John Crispin <john@phrozen.org>
+Subject: [PATCH V2 08/11] net: mediatek: increase watchdog_timeo
+Date: Fri, 10 Jun 2016 13:28:05 +0200
+Message-ID: <1465558088-15265-9-git-send-email-john@phrozen.org>
+References: <1465558088-15265-1-git-send-email-john@phrozen.org>
+Cc: Felix Fietkau <nbd@nbd.name>, Sean Wang <keyhaede@gmail.com>,
+	netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+	linux-kernel@vger.kernel.org, John Crispin <john@phrozen.org>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465558088-15265-1-git-send-email-john@phrozen.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---Apple-Mail=_A2223963-9437-46E7-B77A-AFEA43BEA025
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+During stress testing, after reducing the threshold value, we have seen
+TX timeouts that were caused by the watchdog_timeo value being too low.
+Increase the value to 5 * HZ which is a value commonly used by many other
+drivers.
 
-Hi,
+Signed-off-by: John Crispin <john@phrozen.org>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I see an issue with TCP_REPAIR on kernel 4.6.0, where a migrated =
-connection is only sending minimum-sized segments (~500 bytes), although =
-the interfaces and path support Ethernet-sized MTUs. A connection that =
-doesn't use TCP_REPAIR over the same path uses full-sized segments.
-
-Know issue? Any workaround?
-
-Thanks,
-Lars
-
-
-
---Apple-Mail=_A2223963-9437-46E7-B77A-AFEA43BEA025
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
-
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBCAAGBQJXWqMRAAoJEFS1wwm/cMFXma8P/2piEQJeGASchXDiGTpIEwG9
-QhFcPF/WmZBzngX1InYKajtt1CU72OXSV82rlwy5z4NnUof0GMT282VPILw9KlqD
-CAFLSA13iYXcYpE5hT3A9Q88OYnqBCNIAOW429IAvCDKcLrFU/ltBtO0IX5SbF3b
-0MtljUrWgNgn/A9vUqh1K1NXnipT1GCGt0ZYgHgbiL3XMP97aqfV9zM9Ue2kKP7d
-W3Ik5EIVL2b4/RB4Uv37tn4VpxjGmM8pZ56Y5mzCpYbnsrrN3ZuhXJ2gUURVJ/o3
-11OWetq/2NHZybCo/xYXgE3aWHftk9TlFnpyxCQkKpZmuaf6u1bCWCy00XIrFFW6
-MT2fDCpZ0jZ75ZRZ/Q/1XUyHiaUZ950CVN2T0RzRr1ucdp3PKOJ+vSYhbue7KgTH
-zZnLzPK911b/L7uJuJyk9Xu996xrZoPWrww/RAckhWVs7DV7CEtxA6lG5/pPBisY
-TjlrpxvpXBnDvkVfRnGnqU3apDw8YwGxcHlZ9OJEla9NQNnc0ouVp0VpQ84DWzoe
-ZPFqSYW58+2AHaYneA4smzkBSTr77leBU6gbABrpuwleuocdX8W9oP8zLOnB9Xfh
-0ypPqCD2TeBoSJPZQKVp4wdIeMPmMwICofqWQIVOLXeG8QhJTRSdkhr30fW781vG
-yVLIJ9Bbkfo3Zpo1Tpgq
-=kVEw
------END PGP SIGNATURE-----
-
---Apple-Mail=_A2223963-9437-46E7-B77A-AFEA43BEA025--
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 8b289e1..24714ab 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -1688,7 +1688,7 @@ static int mtk_add_mac(struct mtk_eth *eth, struct device_node *np)
+ 	mac->hw_stats->reg_offset = id * MTK_STAT_OFFSET;
+ 
+ 	SET_NETDEV_DEV(eth->netdev[id], eth->dev);
+-	eth->netdev[id]->watchdog_timeo = HZ;
++	eth->netdev[id]->watchdog_timeo = 5 * HZ;
+ 	eth->netdev[id]->netdev_ops = &mtk_netdev_ops;
+ 	eth->netdev[id]->base_addr = (unsigned long)eth->base;
+ 	eth->netdev[id]->vlan_features = MTK_HW_FEATURES &
+-- 
+1.7.10.4
