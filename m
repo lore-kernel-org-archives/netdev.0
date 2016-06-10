@@ -1,33 +1,30 @@
-From: pravin shelar <pshelar@ovn.org>
+From: Jesse Gross <jesse@kernel.org>
 Subject: Re: [PATCH net 1/2] ovs/vxlan: fix rtnl notifications on iface deletion
-Date: Fri, 10 Jun 2016 10:50:35 -0700
-Message-ID: <CAOrHB_DCupNkAz+BSaOKKE+KLYhK-hytqW2vEV1yQ-iYr6hakg@mail.gmail.com>
+Date: Fri, 10 Jun 2016 10:52:26 -0700
+Message-ID: <CAEh+42iyQ-O8QMRkN1T_kp5n3r4HJ8RBL9r6r+cvWK45MA6svg@mail.gmail.com>
 References: <1465551147-17185-1-git-send-email-nicolas.dichtel@6wind.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
+Cc: David Miller <davem@davemloft.net>,
 	Linux Kernel Network Developers <netdev@vger.kernel.org>,
 	Thomas Graf <tgraf@suug.ch>,
 	Pravin B Shelar <pshelar@nicira.com>
 To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay6-d.mail.gandi.net ([217.70.183.198]:47156 "EHLO
-	relay6-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752347AbcFJRuk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 13:50:40 -0400
-Received: from mfilter37-d.gandi.net (mfilter37-d.gandi.net [217.70.178.168])
-	by relay6-d.mail.gandi.net (Postfix) with ESMTP id A2357FB886
-	for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 19:50:38 +0200 (CEST)
-Received: from relay6-d.mail.gandi.net ([IPv6:::ffff:217.70.183.198])
-	by mfilter37-d.gandi.net (mfilter37-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id 38I54coUO9gW for <netdev@vger.kernel.org>;
-	Fri, 10 Jun 2016 19:50:37 +0200 (CEST)
-Received: from mail-it0-f54.google.com (mail-it0-f54.google.com [209.85.214.54])
-	(Authenticated sender: pshelar@ovn.org)
-	by relay6-d.mail.gandi.net (Postfix) with ESMTPSA id 31F60FB881
-	for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 19:50:37 +0200 (CEST)
-Received: by mail-it0-f54.google.com with SMTP id h190so1405778ith.1
-        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 10:50:37 -0700 (PDT)
+Received: from mail.kernel.org ([198.145.29.136]:46264 "EHLO mail.kernel.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750921AbcFJRwo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jun 2016 13:52:44 -0400
+Received: from mail.kernel.org (localhost [127.0.0.1])
+	by mail.kernel.org (Postfix) with ESMTP id 698EE20295
+	for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 17:52:42 +0000 (UTC)
+Received: from mail-qg0-f49.google.com (mail-qg0-f49.google.com [209.85.192.49])
+	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
+	(No client certificate requested)
+	by mail.kernel.org (Postfix) with ESMTPSA id 7100F2021A
+	for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 17:52:41 +0000 (UTC)
+Received: by mail-qg0-f49.google.com with SMTP id l44so38968611qgd.0
+        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 10:52:41 -0700 (PDT)
 In-Reply-To: <1465551147-17185-1-git-send-email-nicolas.dichtel@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -44,24 +41,5 @@ On Fri, Jun 10, 2016 at 2:32 AM, Nicolas Dichtel
 > CC: Thomas Graf <tgraf@suug.ch>
 > CC: Pravin B Shelar <pshelar@nicira.com>
 > Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> ---
->  drivers/net/vxlan.c | 6 ++++++
->  1 file changed, 6 insertions(+)
->
-> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-> index f999db2f97b4..f7669d60b3f7 100644
-> --- a/drivers/net/vxlan.c
-> +++ b/drivers/net/vxlan.c
-> @@ -2972,6 +2972,12 @@ struct net_device *vxlan_dev_create(struct net *net, const char *name,
->                 return ERR_PTR(err);
->         }
->
-> +       err = rtnl_configure_link(dev, NULL);
-> +       if (err < 0) {
-> +               free_netdev(dev);
-> +               return ERR_PTR(err);
-> +       }
-> +
-Patch looks good except the error handling code. earlier call to
-vxlan_dev_configure() registers the net-device  and add the device to
-vxlan device list. it needs to be undone before freeing the device.
+
+Does Geneve need this as well?
