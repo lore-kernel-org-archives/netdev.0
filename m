@@ -1,92 +1,54 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: ebpf: issue with clang
-Date: Thu, 9 Jun 2016 17:34:18 -0700
-Message-ID: <20160610003416.GA70641@ast-mbp.thefacebook.com>
-References: <1465506605.23482.10.camel@regit.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Eric Leblond <eric@regit.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 0/4] net: dsa: bcm_sf2: add VLAN support
+Date: Thu,  9 Jun 2016 17:42:04 -0700
+Message-ID: <1465519328-14249-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+	vivien.didelot@savoirfairelinux.com, jiri@mellanox.com,
+	idosch@mellanox.com, Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:34023 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751060AbcFJAeY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 20:34:24 -0400
-Received: by mail-pf0-f193.google.com with SMTP id 66so1975823pfy.1
-        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 17:34:24 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1465506605.23482.10.camel@regit.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:33083 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750759AbcFJAmg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 20:42:36 -0400
+Received: by mail-pf0-f194.google.com with SMTP id c74so3814056pfb.0
+        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 17:42:36 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 09, 2016 at 11:10:05PM +0200, Eric Leblond wrote:
-> Hello,
->=20
-> I'm working on integrating ebpf cluster load balancing for AF_PACKET
-> and I've got some problem to get real code inside the EBPF filter.
->=20
-> I've tried different command lines in the build process. One of them
-> is:
-> clang-3.9 -Wall -O2 -emit-llvm -c hash_ports.c -o - | llc-3.9 -march=3D=
-bpf -filetype=3Dobj -o hash_ports.bpf
->=20
-> If I use that one, then the generated code is almost void. If I remov=
-e
-> the -O2 then I've got a generated code that fails during load. When n=
-ot
-> using -O2, I manage to load a trivial filter (return of static value)=
-=2E
-> =A0
-> The C code is the following (a derivative of http-simple-filter.c use=
-d
-> for testing):
->=20
-> int filter(struct __sk_buff *skb) {
-> 	uint8_t *cursor =3D 0;
-> 	struct ethernet_t *ethernet =3D cursor_advance(cursor, sizeof(*ether=
-net));
+Hi all,
 
-this is bcc C syntax that is hiding the explicit load_byte/half/word op=
-erations
-we have to do when using plain C.
-If you want to compile C code with clang -O2 -target bpf file.c -c -o f=
-ile.o
-and copy .o around to be used in tc like:
-tc filter add dev eth0 ingress bpf da obj file.o
-then plain C should be used like in all samples/bpf/*_kern.c examples.
-Other folks like the convenience of bcc that hides clang/llvm invocatio=
-n.
-It mostly applicable to tracing tools where both bcc-C and
-corresponding python or lua bits are in the same file
-like in iovisor/bcc/tools/* scripts.
-The iovisor/bcc/examples/networking/* (where this http-simple-filter.c =
-came from)
-are also suitable for networking and relying on pyroute2 to talk to
-kernel to create netns, veth and to attach bpf to qdisc.
+This is long overdue, finally add support for VLANs in the Broadcom Starfigther
+2 switch driver.
 
-In summary there are several ways to write bpf C code:
-1. plain C syntax as in samples/bpf/*_kern.c
-Pro: compiles with clang into .o
-Con: .o requires elf loader (integrated into tc already for networking)=
-,
-but not friendly for tracing that needs recompile for every kernel
-due to unstable kprobes
-2. bcc C syntax that compiles C on the fly in memory and loads directly
-Pro: there is no .o, no extra files, no need to install clang/llvm
-Con: bcc is not widely available yet. ubuntu and others already have it=
- in apt.
-python and lua may not be for everyone. c++ api is not stable yet.
-3. perf+bpf, it is similar to samples/pbf/ C style with few extensions.
-If .c file is passed, the perf calls external clang and loads .o eventu=
-ally
-Pro: out-of-the-box perf and clang work well
-Con: not available for networking
+There are a few things that make us differ from e.g; mv88e6xxx.c:
 
-Sounds like you want to use it with af_packet then
-tools/testing/selftests/net/reuseport_bpf.c
-could be a good start too, but there bpf is written in asm.
+- we keep a software cache of which VLANs are enabled and which are not to
+  dramatically speed up the VLAN dump operation, we do not have any HW operation
+  which would only return the list of valid VLAN entries, they would have to be
+  all queried one by one, with 4K vlans, this takes a while
 
-If you pick bcc style then iovisor-dev@lists.iovisor.org mailing list
-is a good place to ask questions. Be sure to subscribe first, since
-it rejects non-subscriber emails to reduce spam.
+- the default behavior is equivalent to setting VLAN filtering to 1, still working
+  on implementing a proper port_vlan_filtering callback, but I figured the most
+  conservative behavior is probably okay anyway
+
+- without enabling VLANs, the default behavior is to receive any 802.1q frames
+  (per the DSA documentation), however, once we start enabling VLAN support, if
+  an interface leaves the bridge, we still want it to receive all 802.1q frames
+  so we utiliez the "Join all VLAN" feature of the switch to perform that
+
+Thanks!
+
+Florian Fainelli (4):
+  net: dsa: bcm_sf2: Split fast age into a helper function
+  net: dsa: bcm_sf2: Move setup function at the far end
+  net: dsa: bcm_sf2: Add VLAN registers definitions
+  net: dsa: bcm_sf2: Add VLAN support
+
+ drivers/net/dsa/bcm_sf2.c      | 524 +++++++++++++++++++++++++++++++----------
+ drivers/net/dsa/bcm_sf2.h      |  10 +
+ drivers/net/dsa/bcm_sf2_regs.h |  70 ++++++
+ 3 files changed, 477 insertions(+), 127 deletions(-)
+
+-- 
+2.7.4
