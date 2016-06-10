@@ -1,41 +1,43 @@
-From: Ben Dooks <ben.dooks@codethink.co.uk>
-Subject: Re: [PATCH] [V2] net: ipconfig: add declaration for ic_addrservaddr
-Date: Fri, 10 Jun 2016 09:53:16 +0100
-Message-ID: <83806a60-5186-13f4-bcd2-d44ac4673a6b@codethink.co.uk>
-References: <1465494877-10552-1-git-send-email-ben.dooks@codethink.co.uk>
- <20160609.133535.1784019078497827547.davem@davemloft.net>
+From: Pavel Andrianov <andrianov@ispras.ru>
+Subject: [ldv-project] [net] rtl8188ee: a potential race condition
+Date: Fri, 10 Jun 2016 12:21:32 +0400
+Message-ID: <575A788C.5020509@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=UTF-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@lists.codethink.co.uk, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:49663 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751698AbcFJIxV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 04:53:21 -0400
-In-Reply-To: <20160609.133535.1784019078497827547.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Vaishali Thakkar <vaishali.thakkar@oracle.com>,
+	ldv-project@linuxtesting.org
+To: Larry Finger <Larry.Finger@lwfinger.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 09/06/16 21:35, David Miller wrote:
-> From: Ben Dooks <ben.dooks@codethink.co.uk>
-> Date: Thu,  9 Jun 2016 18:54:37 +0100
-> 
->> The symbol ic_addrservaddr is not static, but has no declaration
->> to match so make it static to fix the following warning:
->>
->> net/ipv4/ipconfig.c:130:8: warning: symbol 'ic_addrservaddr' was not declared. Should it be static?
->>
->> Signed-off-by: Ben Dooks <ben.dooks@codethink.co.uk>
-> 
-> Your Subject line needs to be updated, you're not ading a declaration
-> any more.
+Hi!
 
-OOPS. Will fix and re-send thanks.
+There is a potential data race in 
+drivers/net/wireless/realtek/rtlwifi/rtl8188ee/rtl8188ee.ko.
+
+In the function rtl88ee_gpio_radio_on_off_checking the flag 
+ppsc->rfchange_inprogress is set with a spinlock protection. In the 
+function rtl_ps_set_rf_state the flag is read also under a spinlock. But 
+the function rtl88e_dm_watchdog read it without any locks. As a result 
+rtl88e_dm_watchdog may execute the succeeding code while changing (with 
+the flag rfchange_inprogress == true). I do not exactly determine the 
+consequences, but likely they are not good if there exists such check. 
+Could anybody more confident confirm this?
+
+The function rtl_ps_set_rf_state is always called with its parameter 
+[protect_or_not == false]. Is this flag really necessary, if the value 
+'true' is never used? The function is also set the flag 
+ppsc->rfchange_inprogress and may affect the rtl88e_dm_watchdog as in 
+the previous case.
 
 -- 
-Ben Dooks				http://www.codethink.co.uk/
-Senior Engineer				Codethink - Providing Genius
+Pavel Andrianov
+Linux Verification Center, ISPRAS
+web: http://linuxtesting.org
+e-mail: andrianov@ispras.ru
