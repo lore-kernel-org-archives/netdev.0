@@ -1,330 +1,199 @@
-From: Pramod Kumar <pramod.kumar@broadcom.com>
-Subject: [PATCH v5 5/7] net: mdio-mux: Add MDIO mux driver for iProc SoCs
-Date: Fri, 10 Jun 2016 11:03:49 +0530
-Message-ID: <1465536831-13023-6-git-send-email-pramod.kumar@broadcom.com>
-References: <1465536831-13023-1-git-send-email-pramod.kumar@broadcom.com>
-Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	bcm-kernel-feedback-list@broadcom.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	Pramod Kumar <pramod.kumar@broadcom.com>
-To: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Kishon Vijay Abraham I <kishon@ti.com>,
-	"David S. Miller" <davem@davemloft.net>
+From: Tien Hock Loh <thloh@altera.com>
+Subject: Re: [PATCH v3 1/1] net: ethernet: Add TSE PCS support to
+ dwmac-socfpga
+Date: Thu, 9 Jun 2016 23:12:25 -0700
+Message-ID: <1465539145.4467.42.camel@ubuntu>
+References: <1465268516-31480-1-git-send-email-thloh@altera.com>
+	 <ab65dd4e-830a-c774-c8fa-1adfb3be1a69@st.com>
+	 <1465451310.4467.21.camel@ubuntu>
+	 <ac036ba2-c9ce-1fb4-89e3-9af499954907@st.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 8BIT
+Cc: <robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <thloh85@gmail.com>,
+	Chee Nouk Phoon <cnphoon@altera.com>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465536831-13023-1-git-send-email-pramod.kumar@broadcom.com>
+In-Reply-To: <ac036ba2-c9ce-1fb4-89e3-9af499954907@st.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-iProc based SoCs supports the integrated mdio multiplexer which
-has the bus selection as well as mdio transaction generation logic
-inside.
+Hi Peppe, 
 
-This multiplexer has child buses for PCIe, SATA, USB and ETH. These
-buses could be internal or external to SOC where PHYs are attached.
-These buses could use C-45 or C-22 mdio transaction.
+On Wed, 2016-06-08 at 23:20 +0000, Giuseppe CAVALLARO wrote:
+> Hello Tien Hock
+> 
+> On 6/9/2016 7:48 AM, Tien Hock Loh wrote:
+> 
+> [snip]
+> 
+> >>>  .../devicetree/bindings/net/socfpga-dwmac.txt      |   4 +
+> >>>  drivers/net/ethernet/stmicro/stmmac/Makefile       |   2 +-
+> >>>  .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 140 +++++++++--
+> >>>  drivers/net/ethernet/stmicro/stmmac/tse_pcs.c      | 261 +++++++++++++++++++++
+> >>>  drivers/net/ethernet/stmicro/stmmac/tse_pcs.h      |  36 +++
+> >>>  5 files changed, 419 insertions(+), 24 deletions(-)
+> >>>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/tse_pcs.c
+> >>>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/tse_pcs.h
+> >>
+> >> I just wonder if it could make sense to rename the
+> >> tse_pcs.[hc] files or creating a sub-directory for altera devel.
+> >> It seems that tse_pcs.[hc] are common files but this support
+> >> is for Altera.
+> >> Anyway, I let you decide and I also ask you to update the stmmac.txt
+> >> file.
+> >
+> > Yeah the PCS support for TSE is Altera. To avoid confusion, let's rename
+> > them, would altr_tse_pcs.[hc] be good? I don't think creating a
+> > sub-directory with only 2 files is necessary though.
+> 
+> ok for two files w/o sub-dir.
+> 
+> >
+> > I see that stmmac.txt is generic, and other vendor's PCS support
+> > documents their specific uses in their own *-dwmac.txt (eg.
+> > rockchip-dwmac.txt). Is this not the case?
+> 
+> yes you can use this name convention. I let you decide.
 
-Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
----
- drivers/net/phy/Kconfig              |  11 ++
- drivers/net/phy/Makefile             |   1 +
- drivers/net/phy/mdio-mux-bcm-iproc.c | 248 +++++++++++++++++++++++++++++++++++
- 3 files changed, 260 insertions(+)
- create mode 100644 drivers/net/phy/mdio-mux-bcm-iproc.c
+What I meant was we've documented the bindings in socfpga-dwmac.txt for
+platform specific bindings, and I won't be updating stmmac.txt because
+that is the generic driver binding. Agree?
 
-diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
-index 6dad9a9..94c0707 100644
---- a/drivers/net/phy/Kconfig
-+++ b/drivers/net/phy/Kconfig
-@@ -254,6 +254,17 @@ config MDIO_BUS_MUX_MMIOREG
- 
- 	  Currently, only 8-bit registers are supported.
- 
-+config MDIO_BUS_MUX_BCM_IPROC
-+	tristate "Support for iProc based MDIO bus multiplexers"
-+	depends on OF && OF_MDIO && (ARCH_BCM_IPROC || COMPILE_TEST)
-+	select MDIO_BUS_MUX
-+	default ARCH_BCM_IPROC
-+	help
-+	  This module provides a driver for MDIO bus multiplexers found in
-+	  iProc based Broadcom SoCs. This multiplexer connects one of several
-+	  child MDIO bus to a parent bus. Buses could be internal as well as
-+	  external and selection logic lies inside the same multiplexer.
-+
- config MDIO_BCM_UNIMAC
- 	tristate "Broadcom UniMAC MDIO bus controller"
- 	depends on HAS_IOMEM
-diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
-index fcdbb92..f5951d5a 100644
---- a/drivers/net/phy/Makefile
-+++ b/drivers/net/phy/Makefile
-@@ -39,6 +39,7 @@ obj-$(CONFIG_AMD_PHY)		+= amd.o
- obj-$(CONFIG_MDIO_BUS_MUX)	+= mdio-mux.o
- obj-$(CONFIG_MDIO_BUS_MUX_GPIO)	+= mdio-mux-gpio.o
- obj-$(CONFIG_MDIO_BUS_MUX_MMIOREG) += mdio-mux-mmioreg.o
-+obj-$(CONFIG_MDIO_BUS_MUX_BCM_IPROC)	+= mdio-mux-bcm-iproc.o
- obj-$(CONFIG_MDIO_SUN4I)	+= mdio-sun4i.o
- obj-$(CONFIG_MDIO_MOXART)	+= mdio-moxart.o
- obj-$(CONFIG_MDIO_BCM_UNIMAC)	+= mdio-bcm-unimac.o
-diff --git a/drivers/net/phy/mdio-mux-bcm-iproc.c b/drivers/net/phy/mdio-mux-bcm-iproc.c
-new file mode 100644
-index 0000000..0a04125
---- /dev/null
-+++ b/drivers/net/phy/mdio-mux-bcm-iproc.c
-@@ -0,0 +1,248 @@
-+/*
-+ * Copyright 2016 Broadcom
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License, version 2, as
-+ * published by the Free Software Foundation (the "GPL").
-+ *
-+ * This program is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-+ * General Public License version 2 (GPLv2) for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * version 2 (GPLv2) along with this source code.
-+ */
-+
-+#include <linux/platform_device.h>
-+#include <linux/device.h>
-+#include <linux/of_mdio.h>
-+#include <linux/module.h>
-+#include <linux/phy.h>
-+#include <linux/mdio-mux.h>
-+#include <linux/delay.h>
-+
-+#define MDIO_PARAM_OFFSET		0x00
-+#define MDIO_PARAM_MIIM_CYCLE		29
-+#define MDIO_PARAM_INTERNAL_SEL		25
-+#define MDIO_PARAM_BUS_ID		22
-+#define MDIO_PARAM_C45_SEL		21
-+#define MDIO_PARAM_PHY_ID		16
-+#define MDIO_PARAM_PHY_DATA		0
-+
-+#define MDIO_READ_OFFSET		0x04
-+#define MDIO_READ_DATA_MASK		0xffff
-+#define MDIO_ADDR_OFFSET		0x08
-+
-+#define MDIO_CTRL_OFFSET		0x0C
-+#define MDIO_CTRL_WRITE_OP		0x1
-+#define MDIO_CTRL_READ_OP		0x2
-+
-+#define MDIO_STAT_OFFSET		0x10
-+#define MDIO_STAT_DONE			1
-+
-+#define BUS_MAX_ADDR			32
-+#define EXT_BUS_START_ADDR		16
-+
-+struct iproc_mdiomux_desc {
-+	void *mux_handle;
-+	void __iomem *base;
-+	struct device *dev;
-+	struct mii_bus *mii_bus;
-+};
-+
-+static int iproc_mdio_wait_for_idle(void __iomem *base, bool result)
-+{
-+	unsigned int timeout = 1000; /* loop for 1s */
-+	u32 val;
-+
-+	do {
-+		val = readl(base + MDIO_STAT_OFFSET);
-+		if ((val & MDIO_STAT_DONE) == result)
-+			return 0;
-+
-+		usleep_range(1000, 2000);
-+	} while (timeout--);
-+
-+	return -ETIMEDOUT;
-+}
-+
-+/* start_miim_ops- Program and start MDIO transaction over mdio bus.
-+ * @base: Base address
-+ * @phyid: phyid of the selected bus.
-+ * @reg: register offset to be read/written.
-+ * @val :0 if read op else value to be written in @reg;
-+ * @op: Operation that need to be carried out.
-+ *      MDIO_CTRL_READ_OP: Read transaction.
-+ *      MDIO_CTRL_WRITE_OP: Write transaction.
-+ *
-+ * Return value: Successful Read operation returns read reg values and write
-+ *      operation returns 0. Failure operation returns negative error code.
-+ */
-+static int start_miim_ops(void __iomem *base,
-+			  u16 phyid, u32 reg, u16 val, u32 op)
-+{
-+	u32 param;
-+	int ret;
-+
-+	writel(0, base + MDIO_CTRL_OFFSET);
-+	ret = iproc_mdio_wait_for_idle(base, 0);
-+	if (ret)
-+		goto err;
-+
-+	param = readl(base + MDIO_PARAM_OFFSET);
-+	param |= phyid << MDIO_PARAM_PHY_ID;
-+	param |= val << MDIO_PARAM_PHY_DATA;
-+	if (reg & MII_ADDR_C45)
-+		param |= BIT(MDIO_PARAM_C45_SEL);
-+
-+	writel(param, base + MDIO_PARAM_OFFSET);
-+
-+	writel(reg, base + MDIO_ADDR_OFFSET);
-+
-+	writel(op, base + MDIO_CTRL_OFFSET);
-+
-+	ret = iproc_mdio_wait_for_idle(base, 1);
-+	if (ret)
-+		goto err;
-+
-+	if (op == MDIO_CTRL_READ_OP)
-+		ret = readl(base + MDIO_READ_OFFSET) & MDIO_READ_DATA_MASK;
-+err:
-+	return ret;
-+}
-+
-+static int iproc_mdiomux_read(struct mii_bus *bus, int phyid, int reg)
-+{
-+	struct iproc_mdiomux_desc *md = bus->priv;
-+	int ret;
-+
-+	ret = start_miim_ops(md->base, phyid, reg, 0, MDIO_CTRL_READ_OP);
-+	if (ret < 0)
-+		dev_err(&bus->dev, "mdiomux read operation failed!!!");
-+
-+	return ret;
-+}
-+
-+static int iproc_mdiomux_write(struct mii_bus *bus,
-+			       int phyid, int reg, u16 val)
-+{
-+	struct iproc_mdiomux_desc *md = bus->priv;
-+	int ret;
-+
-+	/* Write val at reg offset */
-+	ret = start_miim_ops(md->base, phyid, reg, val, MDIO_CTRL_WRITE_OP);
-+	if (ret < 0)
-+		dev_err(&bus->dev, "mdiomux write operation failed!!!");
-+
-+	return ret;
-+}
-+
-+static int mdio_mux_iproc_switch_fn(int current_child, int desired_child,
-+				    void *data)
-+{
-+	struct iproc_mdiomux_desc *md = data;
-+	u32 param, bus_id;
-+	bool bus_dir;
-+
-+	/* select bus and its properties */
-+	bus_dir = (desired_child < EXT_BUS_START_ADDR);
-+	bus_id = bus_dir ? desired_child : (desired_child - EXT_BUS_START_ADDR);
-+
-+	param = (bus_dir ? 1 : 0) << MDIO_PARAM_INTERNAL_SEL;
-+	param |= (bus_id << MDIO_PARAM_BUS_ID);
-+
-+	writel(param, md->base + MDIO_PARAM_OFFSET);
-+	return 0;
-+}
-+
-+static int mdio_mux_iproc_probe(struct platform_device *pdev)
-+{
-+	struct iproc_mdiomux_desc *md;
-+	struct mii_bus *bus;
-+	struct resource *res;
-+	int rc;
-+
-+	md = devm_kzalloc(&pdev->dev, sizeof(*md), GFP_KERNEL);
-+	if (!md)
-+		return -ENOMEM;
-+	md->dev = &pdev->dev;
-+
-+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-+	md->base = devm_ioremap_resource(&pdev->dev, res);
-+	if (IS_ERR(md->base)) {
-+		dev_err(&pdev->dev, "failed to ioremap register\n");
-+		return PTR_ERR(md->base);
-+	}
-+
-+	md->mii_bus = mdiobus_alloc();
-+	if (!md->mii_bus) {
-+		dev_err(&pdev->dev, "mdiomux bus alloc failed\n");
-+		return -ENOMEM;
-+	}
-+
-+	bus = md->mii_bus;
-+	bus->priv = md;
-+	bus->name = "iProc MDIO mux bus";
-+	snprintf(bus->id, MII_BUS_ID_SIZE, "%s-%d", pdev->name, pdev->id);
-+	bus->parent = &pdev->dev;
-+	bus->read = iproc_mdiomux_read;
-+	bus->write = iproc_mdiomux_write;
-+
-+	bus->phy_mask = ~0;
-+	bus->dev.of_node = pdev->dev.of_node;
-+	rc = mdiobus_register(bus);
-+	if (rc) {
-+		dev_err(&pdev->dev, "mdiomux registration failed\n");
-+		goto out;
-+	}
-+
-+	platform_set_drvdata(pdev, md);
-+
-+	rc = mdio_mux_init(md->dev, mdio_mux_iproc_switch_fn,
-+			   &md->mux_handle, md, md->mii_bus);
-+	if (rc) {
-+		dev_info(md->dev, "mdiomux initialization failed\n");
-+		goto out;
-+	}
-+
-+	dev_info(md->dev, "iProc mdiomux registered\n");
-+	return 0;
-+out:
-+	mdiobus_free(bus);
-+	return rc;
-+}
-+
-+static int mdio_mux_iproc_remove(struct platform_device *pdev)
-+{
-+	struct iproc_mdiomux_desc *md = dev_get_platdata(&pdev->dev);
-+
-+	mdio_mux_uninit(md->mux_handle);
-+	mdiobus_unregister(md->mii_bus);
-+	mdiobus_free(md->mii_bus);
-+
-+	return 0;
-+}
-+
-+static const struct of_device_id mdio_mux_iproc_match[] = {
-+	{
-+		.compatible = "brcm,mdio-mux-iproc",
-+	},
-+	{},
-+};
-+MODULE_DEVICE_TABLE(of, mdio_mux_iproc_match);
-+
-+static struct platform_driver mdiomux_iproc_driver = {
-+	.driver = {
-+		.name		= "mdio-mux-iproc",
-+		.of_match_table = mdio_mux_iproc_match,
-+	},
-+	.probe		= mdio_mux_iproc_probe,
-+	.remove		= mdio_mux_iproc_remove,
-+};
-+
-+module_platform_driver(mdiomux_iproc_driver);
-+
-+MODULE_DESCRIPTION("iProc MDIO Mux Bus Driver");
-+MODULE_AUTHOR("Pramod Kumar <pramod.kumar@broadcom.com>");
-+MODULE_LICENSE("GPL v2");
--- 
-1.9.1
+> 
+> [snip]
+> 
+> 
+> >>> +
+> >>> +		index = of_property_match_string(np_sgmii_adapter, "reg-names",
+> >>> +						 "eth_tse_control_port");
+> >>
+> >> reg-names looks to be specific and mandatory, IMO they should be
+> >> documented in the binding.
+> >
+> > That's the binding for the adapter (the phandle to the sgmii adapter),
+> > not the stmac binding itself. Do you mean I should document the sgmii
+> > adapter as well?
+> 
+> no I just meant for the adapter binding, I had understood that
+> eth_tse_control_port and gmii_to_sgmii_adapter_avalon_slave
+> were not documented and these seem to be mandatory.
+
+OK noted.
+
+> 
+> [snip]
+> 
+> >>> +
+> >>> +static void auto_nego_timer_callback(unsigned long data)
+> >>> +{
+> >>> +	u16 val = 0;
+> >>> +	u16 speed = 0;
+> >>> +	u16 duplex = 0;
+> >>> +
+> >>> +	struct tse_pcs *pcs = (struct tse_pcs *)data;
+> >>> +	void __iomem *tse_pcs_base = pcs->tse_pcs_base;
+> >>> +	void __iomem *sgmii_adapter_base = pcs->sgmii_adapter_base;
+> >>> +
+> >>> +	val = readw(tse_pcs_base + TSE_PCS_STATUS_REG);
+> >>> +	val &=  TSE_PCS_STATUS_AN_COMPLETED_MASK;
+> 
+> [snip]
+> 
+> >>
+> >> ANE is completed but speed or duplex is NOK. Any failure to signalling?
+> >> I see that you then enable the adpter in any case.
+> >>
+> >> Maybe we could try to restart ANE again or force it (reducing the speed)
+> >> I wonder what happens if, for some reason, there is some hw problem. In
+> >> that case the timer is always running signalling an invalid Parter
+> >> speed. Anyway, this is jus a question... I expect that this error will
+> >> always point us to a problem to debug further (if occurs).
+> >
+> > Let me look at how we can handle the case. Perhaps we could do a restart
+> > and register the timer again. I'm just worried it will go into an
+> > infinite timer registering hogging up the kernel if the hardware really
+> > fails. Maybe I can do a n-time retry here. Looking into this. Let me
+> > know if you have any opinions on this.
+> >
+> > I haven't been able to check for this behaviour though, negative testing
+> > on this code isn't too easy to simulate.
+> 
+> yes and I expect this can occur on hw / conf problems. Take a look at
+> how the Physical Abstraction Layer manages this.
+> Indeed, we can try to restart ANE for a while and then just report the
+> failure (dev_err). Or we can try to fix other speed or duplex. But not
+> sure this is a good solution. We just mask a problem.
+
+Done some read up on the generic PHY in Physical Abstraction Layer and
+it halts the PHY on aneg failure. I guess we can do do the same then, to
+not enable the SGMII adapter.
+
+> 
+> [snip]
+> 
+> >>> +
+> >>> +		setup_timer(&pcs->an_timer,
+> >>> +			    auto_nego_timer_callback,
+> >>> +			    (unsigned long)pcs);
+> >>> +		mod_timer(&pcs->an_timer, jiffies +
+> >>> +			  msecs_to_jiffies(AUTONEGO_TIMER));
+> >>> +	} else if (phy_dev->autoneg == AUTONEG_DISABLE) {
+> >>> +		val = readw(tse_pcs_base + TSE_PCS_CONTROL_REG);
+> >>> +		val &= ~TSE_PCS_CONTROL_AN_EN_MASK;
+> >>> +		writew(val, tse_pcs_base + TSE_PCS_CONTROL_REG);
+> >>> +
+> >>> +		val = readw(tse_pcs_base + TSE_PCS_IF_MODE_REG);
+> >>> +		val &= ~TSE_PCS_USE_SGMII_AN_MASK;
+> >>> +		writew(val, tse_pcs_base + TSE_PCS_IF_MODE_REG);
+> >>> +
+> >>> +		val = readw(tse_pcs_base + TSE_PCS_IF_MODE_REG);
+> >>> +		val &= ~TSE_PCS_SGMII_SPEED_MASK;
+> >>> +
+> >>> +		switch (speed) {
+> >>> +		case 1000:
+> >>> +			val |= TSE_PCS_SGMII_SPEED_1000;
+> >>> +			break;
+> >>> +		case 100:
+> >>> +			val |= TSE_PCS_SGMII_SPEED_100;
+> >>> +			break;
+> >>> +		case 10:
+> >>> +			val |= TSE_PCS_SGMII_SPEED_10;
+> >>> +			break;
+> >>> +		default:
+> >>> +			return;
+> >>> +		}
+> >>> +		writew(val, tse_pcs_base + TSE_PCS_IF_MODE_REG);
+> >>> +
+> >>> +		tse_pcs_reset(tse_pcs_base, pcs);
+> >>> +
+> >>> +		setup_timer(&pcs->link_timer,
+> >>> +			    pcs_link_timer_callback,
+> >>> +					(unsigned long)pcs);
+> >>> +		mod_timer(&pcs->link_timer, jiffies +
+> >>> +			  msecs_to_jiffies(LINK_TIMER));
+> >>
+> >> I wonder if we can have just one timer to manage ANE and LINK.
+> >>
+> >
+> > That would increase the complexity of the code because we would need to
+> > check the callback type on when the callback is triggered and call the
+> > correct function.
+> 
+> hmm, in that case, you have two timers and no lock protection:
+> I suspect there could be some hidden problem. The link goes down
+> and a timer polls this then another one try to restart ANE and
+> both timers read the TSE_PCS_STATUS_REG.
+> IMO, a timer is enough and you could keep the code to manage ANE and
+> LINK in two different functions. Pls take a look at if this is feasible.
+
+Yeah you're right about the lock protection. I'll patch them to use one
+timer.
+
+> 
+> Peppe
+
+Tien Hock
