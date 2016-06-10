@@ -1,45 +1,43 @@
-From: Jesse Gross <jesse@kernel.org>
-Subject: Re: [PATCH net 1/2] ovs/vxlan: fix rtnl notifications on iface deletion
-Date: Fri, 10 Jun 2016 10:52:26 -0700
-Message-ID: <CAEh+42iyQ-O8QMRkN1T_kp5n3r4HJ8RBL9r6r+cvWK45MA6svg@mail.gmail.com>
-References: <1465551147-17185-1-git-send-email-nicolas.dichtel@6wind.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH] phy: marvell: remove LED config override
+Date: Fri, 10 Jun 2016 20:38:57 +0200
+Message-ID: <20160610183857.GF2338@lunn.ch>
+References: <20160610174252.14017-1-clemens.gruber@pqgruber.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	"David S . Miller" <davem@davemloft.net>
+To: Clemens Gruber <clemens.gruber@pqgruber.com>,
+	Sergei Poselenov <sposelenov@emcraft.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:46264 "EHLO mail.kernel.org"
+Received: from vps0.lunn.ch ([178.209.37.122]:41769 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750921AbcFJRwo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jun 2016 13:52:44 -0400
-Received: from mail.kernel.org (localhost [127.0.0.1])
-	by mail.kernel.org (Postfix) with ESMTP id 698EE20295
-	for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 17:52:42 +0000 (UTC)
-Received: from mail-qg0-f49.google.com (mail-qg0-f49.google.com [209.85.192.49])
-	(using TLSv1.2 with cipher AES128-GCM-SHA256 (128/128 bits))
-	(No client certificate requested)
-	by mail.kernel.org (Postfix) with ESMTPSA id 7100F2021A
-	for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 17:52:41 +0000 (UTC)
-Received: by mail-qg0-f49.google.com with SMTP id l44so38968611qgd.0
-        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 10:52:41 -0700 (PDT)
-In-Reply-To: <1465551147-17185-1-git-send-email-nicolas.dichtel@6wind.com>
+	id S1751203AbcFJSjI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jun 2016 14:39:08 -0400
+Content-Disposition: inline
+In-Reply-To: <20160610174252.14017-1-clemens.gruber@pqgruber.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 10, 2016 at 2:32 AM, Nicolas Dichtel
-<nicolas.dichtel@6wind.com> wrote:
-> The function vxlan_dev_create() (only used by ovs) never calls
-> rtnl_configure_link(). The consequence is that dev->rtnl_link_state is
-> never set to RTNL_LINK_INITIALIZED.
-> During the deletion phase, the function rollback_registered_many() sends
-> a RTM_DELLINK only if dev->rtnl_link_state is set to RTNL_LINK_INITIALIZED.
->
-> Fixes: dcc38c033b32 ("openvswitch: Re-add CONFIG_OPENVSWITCH_VXLAN")
-> CC: Thomas Graf <tgraf@suug.ch>
-> CC: Pravin B Shelar <pshelar@nicira.com>
-> Signed-off-by: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+On Fri, Jun 10, 2016 at 07:42:52PM +0200, Clemens Gruber wrote:
+> Configuring the PHY LED registers for the Marvell 88E1510 and others is
+> not possible, because regardless of the values in marvell,reg-init, it
+> is later overridden in m88e1121_config_aneg with a non-standard default.
+> 
+> This became visible after we moved the call of marvell_of_reg_init in
+> commit 79be1a1c9090 ("phy: marvell: Fix and unify reg-init behavior").
+> Moving it to _config_init was necessary due to the PHY state machine
+> getting stuck if the PHY interrupts were not enabled early on.
+> As that default LED configuration is set in _config_aneg, it overrides
+> the marvell,reg-init configuration from the device tree.
+> 
+> This patch removes this override and allows the user to again set the
+> PHY LED configuration through marvell,reg-init or if that does not
+> exist, keep the original defaults as documented in the datasheet.
 
-Does Geneve need this as well?
+That override code exists for a reason. I don't like just removing it
+without understanding why it is there. Sergei Poselenov added it as
+part of the 1121 support. Maybe he knows why it is there?
+
+     Andrew
