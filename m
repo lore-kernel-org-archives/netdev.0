@@ -1,71 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next 4/8] net: dsa: mv88e6xxx: do not increment bus
- refcount
-Date: Fri, 10 Jun 2016 22:06:43 +0200
-Message-ID: <20160610200643.GK2338@lunn.ch>
-References: <20160609004456.5441-1-vivien.didelot@savoirfairelinux.com>
- <20160609004456.5441-5-vivien.didelot@savoirfairelinux.com>
- <20160609023641.GJ2227@lunn.ch>
- <87k2hwq0h1.fsf@ketchup.mtl.sfl>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [net-next,v3] openvswitch: Add packet truncation support.
+Date: Fri, 10 Jun 2016 13:22:15 -0700
+Message-ID: <CAOrHB_A-gnvndiT4ejx9k9ByXPLbz5_sAj2ZqaqfvRSrFMF24w@mail.gmail.com>
+References: <1465584573-58583-1-git-send-email-u9012063@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Pravin Shelar <pshelar@nicira.com>
+To: William Tu <u9012063@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41873 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752007AbcFJUGq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jun 2016 16:06:46 -0400
-Content-Disposition: inline
-In-Reply-To: <87k2hwq0h1.fsf@ketchup.mtl.sfl>
+Received: from relay2-d.mail.gandi.net ([217.70.183.194]:54786 "EHLO
+	relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751440AbcFJUWU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 16:22:20 -0400
+Received: from mfilter39-d.gandi.net (mfilter39-d.gandi.net [217.70.178.170])
+	by relay2-d.mail.gandi.net (Postfix) with ESMTP id 91A13C5A53
+	for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 22:22:18 +0200 (CEST)
+Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
+	by mfilter39-d.gandi.net (mfilter39-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id khvFNa0oKfD8 for <netdev@vger.kernel.org>;
+	Fri, 10 Jun 2016 22:22:17 +0200 (CEST)
+Received: from mail-io0-f177.google.com (mail-io0-f177.google.com [209.85.223.177])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 11FD0C5A4E
+	for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 22:22:16 +0200 (CEST)
+Received: by mail-io0-f177.google.com with SMTP id n127so75242976iof.3
+        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 13:22:16 -0700 (PDT)
+In-Reply-To: <1465584573-58583-1-git-send-email-u9012063@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 10, 2016 at 03:59:22PM -0400, Vivien Didelot wrote:
-> Hi,
-> 
-> Andrew Lunn <andrew@lunn.ch> writes:
-> 
-> > On Wed, Jun 08, 2016 at 08:44:52PM -0400, Vivien Didelot wrote:
-> >> The MDIO device probe and remove functions are respectively incrementing
-> >> and decrementing the bus refcount themselves. Since these bus level
-> >> actions are out of the device scope, remove them.
-> >
-> > I agree with the patch. But have you checked the mdio layer is doing
-> > the right thing? If not, we should fix that first.
-> 
-> So I added some printing after incrementing/decrementing the refcount in
-> get_device/put_device to track &ps->bus->dev, which name is "0.1".
-> 
-> Regardless having this patch or not, the refcount of the 0.1 mii_bus
-> device is 5 before loading the mv88e6xxx module on vf610-zii-dev-rev-b.
-> 
-> Below is a portion of dmesg:
-> 
->     [    8.921647] get_device: 400d1000.etherne refcount: 4
->     [    8.926225] get_device: 0.1 refcount: 2
->     [    8.929561] get_device: mdio-mux refcount: 5
->     [    8.934076] get_device: 0.1 refcount: 3
->     [    8.937446] get_device: 0.1 refcount: 4
->     [    8.940792] put_device: 0.1 refcount: 3
->     [    8.944181] libphy: mdio_mux: probed
->     [    8.947885] mdio_bus 0.1:00: mdio_device_register
->     [    8.952649] get_device: 0.1:00 refcount: 2
->     [    8.956283] get_device: 0.1 refcount: 4
->     [    8.959838] get_device: 0.1:00 refcount: 3
->     [    8.963991] get_device: 0.1:00 refcount: 4
->     [    8.967598] put_device: 0.1:00 refcount: 3
->     [    8.971298] get_device: 0.2 refcount: 2
->     [    8.974687] get_device: mdio-mux refcount: 7
-> 
-> So it seems like of_ is managing the bus refcount on events such as a
-> new child node (0.1:00).
+On Fri, Jun 10, 2016 at 11:49 AM, William Tu <u9012063@gmail.com> wrote:
+> The patch adds a new OVS action, OVS_ACTION_ATTR_TRUNC, in order to
+> truncate packets. A 'max_len' is added for setting up the maximum
+> packet size, and a 'cutlen' field is to record the number of bytes
+> to trim the packet when the packet is outputting to a port, or when
+> the packet is sent to userspace.
+>
+> Signed-off-by: William Tu <u9012063@gmail.com>
+> Cc: Pravin Shelar <pshelar@nicira.com>
+>
+> ---
+> v2 -> v3
+> - Change minimum packet size after truncate to 14 (ETH_HLEN).
+> - Pass cutlen to userspace action.
+> - Allocate smaller skb buffer if packet is truncated.
+>
+> v1 -> v2:
+> - Use 32 bits cutlen and fix unnecessary cutlen initilization.
+> - Fix cutlen leaks to remaining actions under sample action.
+> - In queue_userspace_packet, don't extract hlen when using skb_zerocopy.
+> ---
 
-Great, thanks for looking at this.
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
 
-Acked-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+Thanks.
