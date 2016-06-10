@@ -1,26 +1,39 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH 1/2] rxrpc: Trim line-terminal whitespace [ver #2]
-Date: Fri, 10 Jun 2016 14:41:21 +0100
-Message-ID: <17756.1465566081@warthog.procyon.org.uk>
-References: <146556587905.17482.14686239628937102032.stgit@warthog.procyon.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36486 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752759AbcFJNlX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jun 2016 09:41:23 -0400
-In-Reply-To: <146556587905.17482.14686239628937102032.stgit@warthog.procyon.org.uk>
-Content-ID: <17755.1465566081.1@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Luis de Bethencourt <luisbg@osg.samsung.com>
+Subject: [PATCH] rtl8xxxu: remove unneeded assignments
+Date: Fri, 10 Jun 2016 14:57:34 +0100
+Message-ID: <1465567054-32664-1-git-send-email-luisbg@osg.samsung.com>
+Cc: Jes.Sorensen@redhat.com, kvalo@codeaurora.org,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Luis de Bethencourt <luisbg@osg.samsung.com>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+reg_eac and reg_ecc are only used if candidate is bigger than 0, and in
+that case new values will be given to them. Removing the unused
+assignments.
 
-Can you please add these two patches to net-next?
+Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
+---
+ drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-Thanks,
-David
+diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
+index fe19ace..984af46 100644
+--- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
++++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
+@@ -1249,11 +1249,9 @@ static void rtl8192eu_phy_iq_calibrate(struct rtl8xxxu_priv *priv)
+ 		reg_e94 = result[i][0];
+ 		reg_e9c = result[i][1];
+ 		reg_ea4 = result[i][2];
+-		reg_eac = result[i][3];
+ 		reg_eb4 = result[i][4];
+ 		reg_ebc = result[i][5];
+ 		reg_ec4 = result[i][6];
+-		reg_ecc = result[i][7];
+ 	}
+ 
+ 	if (candidate >= 0) {
+-- 
+2.5.3
