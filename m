@@ -1,61 +1,49 @@
-From: Manuel Lauss <manuel.lauss@gmail.com>
-Subject: [PATCH] [PATCH v2] net: au1000_eth: fix PHY detection
-Date: Sat, 11 Jun 2016 00:13:04 +0200
-Message-ID: <20160610221304.694639-1-manuel.lauss@gmail.com>
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	Manuel Lauss <manuel.lauss@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34348 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752216AbcFJWNI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 18:13:08 -0400
-Received: by mail-wm0-f67.google.com with SMTP id n184so1548546wmn.1
-        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 15:13:07 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: [PATCH] net: ethernet: ti: cpsw: use destroy ctlr to destroy channels
+Date: Sat, 11 Jun 2016 01:11:54 +0300
+Message-ID: <1465596714-26697-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Cc: grygorii.strashko@ti.com, netdev@vger.kernel.org,
+	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+To: linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
+	mugunthanvnm@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit 7f854420fbfe9d49afe2ffb1df052cfe8e215541
-("phy: Add API for {un}registering an mdio device to a bus.")
-broke PHY detection on this driver with a copy-paste bug:
-The code is looking 32 times for a PHY at address 0.
+There is no reason to destroy channels that are destroyed while
+cpdma_ctlr destroy. In this case no need to remember how much
+channels where created and destroy them by one, as cpdma_ctlr
+destroys all of them.
 
-Fixes ethernet on AMD DB1100/DB1500/DB1550 boards which have
-their (autodetected) PHYs at address 31.
-
-Cc: Andrew Lunn <andrew@lunn.ch>
-Signed-off-by: Manuel Lauss <manuel.lauss@gmail.com>
+Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 ---
-v2: unbreak "use highest phy addr" case.
 
-before:
-libphy: au1000_eth_mii: probed
-au1000-eth au1000-eth.0 (unnamed net_device) (uninitialized): no PHY found
-au1000-eth: probe of au1000-eth.0 failed with error -1
+Based on master
 
-after:
-libphy: au1000_eth_mii: probed
-AM79C874 au1000-eth-0:1f: attached PHY driver [AM79C874] (mii_bus:phy_addr=au1000-eth-0:1f, irq=-1)
-au1000-eth au1000-eth.0 eth0: Au1xx0 Ethernet found at 0x11500000, irq 36
+ drivers/net/ethernet/ti/cpsw.c | 4 ----
+ 1 file changed, 4 deletions(-)
 
- drivers/net/ethernet/amd/au1000_eth.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/amd/au1000_eth.c b/drivers/net/ethernet/amd/au1000_eth.c
-index e0fb0f1..20760e1 100644
---- a/drivers/net/ethernet/amd/au1000_eth.c
-+++ b/drivers/net/ethernet/amd/au1000_eth.c
-@@ -509,8 +509,8 @@ static int au1000_mii_probe(struct net_device *dev)
- 	 * on the current MAC's MII bus
- 	 */
- 	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++)
--		if (mdiobus_get_phy(aup->mii_bus, aup->phy_addr)) {
--			phydev = mdiobus_get_phy(aup->mii_bus, aup->phy_addr);
-+		if (mdiobus_get_phy(aup->mii_bus, phy_addr)) {
-+			phydev = mdiobus_get_phy(aup->mii_bus, phy_addr);
- 			if (!aup->phy_search_highest_addr)
- 				/* break out with first one found */
- 				break;
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index e6bb0ec..5319089 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -2505,8 +2505,6 @@ static int cpsw_probe(struct platform_device *pdev)
+ clean_ale_ret:
+ 	cpsw_ale_destroy(priv->ale);
+ clean_dma_ret:
+-	cpdma_chan_destroy(priv->txch);
+-	cpdma_chan_destroy(priv->rxch);
+ 	cpdma_ctlr_destroy(priv->dma);
+ clean_runtime_disable_ret:
+ 	pm_runtime_disable(&pdev->dev);
+@@ -2534,8 +2532,6 @@ static int cpsw_remove(struct platform_device *pdev)
+ 	unregister_netdev(ndev);
+ 
+ 	cpsw_ale_destroy(priv->ale);
+-	cpdma_chan_destroy(priv->txch);
+-	cpdma_chan_destroy(priv->rxch);
+ 	cpdma_ctlr_destroy(priv->dma);
+ 	pm_runtime_disable(&pdev->dev);
+ 	device_for_each_child(&pdev->dev, NULL, cpsw_remove_child_device);
 -- 
-2.8.4
+1.9.1
