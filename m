@@ -1,40 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] mlxsw: core: Remove deprecated create_workqueue
-Date: Thu, 09 Jun 2016 23:50:05 -0700 (PDT)
-Message-ID: <20160609.235005.436161549558871599.davem@davemloft.net>
-References: <20160607195946.GA11743@Karyakshetra>
+Subject: Re: [PATCH net v2] vmxnet3: segCnt can be 1 for LRO packets
+Date: Fri, 10 Jun 2016 00:15:21 -0700 (PDT)
+Message-ID: <20160610.001521.416745882807129497.davem@davemloft.net>
+References: <1465366415-124072-1-git-send-email-skhare@vmware.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jiri@mellanox.com, idosch@mellanox.com, tj@kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: bhaktipriya96@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160607195946.GA11743@Karyakshetra>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com, heoj@vmware.com
+To: skhare@vmware.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54333 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750752AbcFJHPW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 03:15:22 -0400
+In-Reply-To: <1465366415-124072-1-git-send-email-skhare@vmware.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Date: Wed, 8 Jun 2016 01:29:46 +0530
+From: Shrikrishna Khare <skhare@vmware.com>
+Date: Tue,  7 Jun 2016 23:13:35 -0700
 
-> alloc_workqueue replaces deprecated create_workqueue().
+> The device emulation may send segCnt of 1 for LRO packets.
 > 
-> A dedicated workqueue has been used since the workqueue
-> mlxsw_wq is used for FDB notif. processing with workitems that are
-> involved in normal device operation && because it's a network device
-> which can be depended upon during memory reclaim.
-> 
-> Workitems &trans->timeout_dw and &mlxsw_sp->fdb_notify.dw,
-> map to mlxsw_sp_fdb_notify_work (processes FDB notifications from the
-> underlying device and resolves the netdev to which the entry points to
-> and notifies the bridge using the switchdev notifier) and
-> mlxsw_emad_trans_timeout_work (provides async EMAD register access)
-> respectively. They require forward progress under memory pressure and
-> hence, WQ_MEM_RECLAIM has been set.
-> 
-> Since there are only a fixed number of work items, explicit concurrency
-> limit is unnecessary here.
-> 
-> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+> Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+> Signed-off-by: Jin Heo <heoj@vmware.com>
 
 Applied.
