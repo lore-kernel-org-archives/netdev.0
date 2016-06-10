@@ -1,74 +1,81 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] nfnetlink_queue: enable PID info retrieval
-Date: Fri, 10 Jun 2016 08:31:08 -0700
-Message-ID: <1465572668.7945.62.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1465505409-1232-1-git-send-email-saeedm@mellanox.com>
-	 <1465507031.7945.44.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <063D6719AE5E284EB5DD2968C1650D6D5F4D4981@AcuExch.aculab.com>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [RFC 2/3] vsockmon: Add vsockmon device
+Date: Fri, 10 Jun 2016 16:37:09 +0100
+Message-ID: <20160610153709.GD3855@stefanha-x1.localdomain>
+References: <20160528162907.14809-1-ggarcia@deic.uab.cat>
+ <20160528162907.14809-3-ggarcia@deic.uab.cat>
+ <20160601211554.GG15594@stefanha-x1.localdomain>
+ <d5141c2f-0558-2b1b-9089-4901d54e5beb@deic.uab.cat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Andre Melkoumian <andre@mellanox.com>,
-	Matthew Finlay <matt@mellanox.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D5F4D4981@AcuExch.aculab.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Fri, 2016-06-10 at 14:29 +0000, David Laight wrote:
-> From: Eric Dumazet
-> > Sent: 09 June 2016 22:17
-> > On Thu, 2016-06-09 at 23:50 +0300, Saeed Mahameed wrote:
-> > > From: Matthew Finlay <matt@mellanox.com>
-> > 
-> > 
-> > > diff --git a/net/socket.c b/net/socket.c
-> > > index a1bd161..67de200 100644
-> > > --- a/net/socket.c
-> > > +++ b/net/socket.c
-> > > @@ -382,6 +382,7 @@ struct file *sock_alloc_file(struct socket *sock, int flags, const char *dname)
-> > >  	}
-> > >
-> > >  	sock->file = file;
-> > > +	file->f_owner.sock_pid  = find_get_pid(task_pid_nr(current));
-> > >  	file->f_flags = O_RDWR | (flags & O_NONBLOCK);
-> > >  	file->private_data = sock;
-> > >  	return file;
-> > 
-> > Wow, that is a serious memory leak weapon (of struct pid)
-> > 
-> > Why don't you store the pid value, instead of a pointer ?
-> 
-> Since the numeric 'pid' values can be reused (with no grace time) you'd
-> need to hold a reference to the pid structure (added in about 2.6.27) instead.
-> Which is just a smaller memory leak!
-
-Smaller than what ?
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="DiL7RhKs8rK9YGuF"
+Cc: netdev@vger.kernel.org, jhansen@vmware.com
+To: Gerard Garcia <ggarcia@abra.uab.cat>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:57185 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932099AbcFJPhN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jun 2016 11:37:13 -0400
+Content-Disposition: inline
+In-Reply-To: <d5141c2f-0558-2b1b-9089-4901d54e5beb@deic.uab.cat>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-I fail to see how keeping a reference on the pid structure of the
-process who created a socket can be useful, other than some optional
-LSM.
+--DiL7RhKs8rK9YGuF
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-A socket can be given via af_unix to another process.
+On Thu, Jun 09, 2016 at 05:21:26PM +0200, Gerard Garcia wrote:
+> > > diff --git a/include/uapi/linux/vsockmon.h b/include/uapi/linux/vsockmon.h
+> > > new file mode 100644
+> > > index 0000000..c73166f
+> > > --- /dev/null
+> > > +++ b/include/uapi/linux/vsockmon.h
+> > > @@ -0,0 +1,37 @@
+> > > +#ifndef _UAPI_VSOCKMON_H
+> > > +#define _UAPI_VSOCKMON_H
+> > > +
+> > > +#include <linux/virtio_vsock.h>
+> > > +
+> > > +/* Packet structure of packets received from the vsockmon device. */
+> > > +
+> > > +struct af_vsockmon_g {
+> > > +	unsigned short op; /* enum af_vsock_g_ops */
+> > > +	unsigned int src_cid;
+> > > +	unsigned int src_port;
+> > > +	unsigned int dst_cid;
+> > > +	unsigned int dst_port;
+> > > +};
+> > > +
+> > > +struct af_vsockmon_hdr {
+> > > +	unsigned short type;  /* enum af_vosck_type */
+> > > +	struct af_vsockmon_g g_hdr;
+> > > +	union {
+> > > +		struct virtio_vsock_hdr virtio_hdr;
+> > > +	} t_hdr;
+> > > +};
+> > How does endianness work?  virtio_hdr uses little-endian fields on the
+> > wire.  I guess that af_vsockmon_g is always CPU-endian.
+> Yes, af_vsockmon_g is CPU-endian. I don't know what criteria is normally
+> used regarding the endianness of structs facing user space but I think it is
+> better to not modify the vsock transport structs.
 
-Original process might have died.
+Endianness must to be documented in this uapi header file.
 
-Keeping a ref on the pid wont prevent this.
+--DiL7RhKs8rK9YGuF
+Content-Type: application/pgp-signature; name="signature.asc"
 
-So the 'pid' here looks as a pure hint/info. Better store it directly
-and avoid all the ref counting and indirection games that are going to
-slow down nfnetlink quite a lot with all these extra cache line misses
-and locks.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
 
+iQEcBAEBAgAGBQJXWt6lAAoJEJykq7OBq3PILDEH/3z24qmgG8htPZNhN/PSPs1r
+52u67nSjmBAkWAbo3TGTIg7wT1GSy8yms8v/XaMlN0sW9kpJR5jjkGLA8whvsvqt
+UWS/kSo3K7Vu43Pc290jU8tijRU1eMSEFzHoWjIH41K0ZdnoMUg2Q/AmRgDCO8E1
+fZ1DA0HqIY1tGISuejxaa9UQd/jTABqHgbH0xSH/kiKzgQ+DpF0Oahum/JMvPm6M
+TtpI15zDJEOGfpAB0a4Qhmgmfh721ht5DYwn5yOCnUavZjtFyvgXtzdoFtvkv8kH
+LT6uMRdZbFrSgih4V84avb9HkiQCQngrbcaj1uYqF/ljrklJVZ8WL8UJAip4sN8=
+=/T4e
+-----END PGP SIGNATURE-----
 
-
+--DiL7RhKs8rK9YGuF--
