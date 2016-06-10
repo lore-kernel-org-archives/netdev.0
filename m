@@ -1,39 +1,39 @@
-From: Luis de Bethencourt <luisbg@osg.samsung.com>
-Subject: [PATCH] rtl8xxxu: remove unneeded assignments
-Date: Fri, 10 Jun 2016 14:57:34 +0100
-Message-ID: <1465567054-32664-1-git-send-email-luisbg@osg.samsung.com>
-Cc: Jes.Sorensen@redhat.com, kvalo@codeaurora.org,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Luis de Bethencourt <luisbg@osg.samsung.com>
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH next] sched: remove NET_XMIT_POLICED
+Date: Fri, 10 Jun 2016 07:28:38 -0700
+Message-ID: <1465568918.7945.51.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1465561289-15401-1-git-send-email-fw@strlen.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, a@unstable.cc, sw@simonwunderlich.de,
+	mareklindner@neomailbox.ch, sven@narfation.org
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:34294 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750886AbcFJO2n (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 10:28:43 -0400
+Received: by mail-pa0-f68.google.com with SMTP id ug1so5191385pab.1
+        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 07:28:43 -0700 (PDT)
+In-Reply-To: <1465561289-15401-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-reg_eac and reg_ecc are only used if candidate is bigger than 0, and in
-that case new values will be given to them. Removing the unused
-assignments.
+On Fri, 2016-06-10 at 14:21 +0200, Florian Westphal wrote:
+> ... its not returned anywhere.
+> 
+> BATMAN uses it as an intermediate return value to signal
+> forwarding vs. buffering, but it will not return POLICED to
+> callers outside of BATMAN.
+> 
+> sch_atm uses it, but on closer look its not returned either since
+> the initialisation is always overwritten with qdisc_enqueue() retval.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
+> ---
 
-Signed-off-by: Luis de Bethencourt <luisbg@osg.samsung.com>
----
- drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c | 2 --
- 1 file changed, 2 deletions(-)
+Reviewed-by: Eric Dumazet <edumazet@google.com>
 
-diff --git a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
-index fe19ace..984af46 100644
---- a/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
-+++ b/drivers/net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c
-@@ -1249,11 +1249,9 @@ static void rtl8192eu_phy_iq_calibrate(struct rtl8xxxu_priv *priv)
- 		reg_e94 = result[i][0];
- 		reg_e9c = result[i][1];
- 		reg_ea4 = result[i][2];
--		reg_eac = result[i][3];
- 		reg_eb4 = result[i][4];
- 		reg_ebc = result[i][5];
- 		reg_ec4 = result[i][6];
--		reg_ecc = result[i][7];
- 	}
- 
- 	if (candidate >= 0) {
--- 
-2.5.3
+I have a patch series removing couples of qdisc_unthrottled() and
+qdisc_throttled() which are pretty expensive for very little gain.
