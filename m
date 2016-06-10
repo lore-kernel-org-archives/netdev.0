@@ -1,43 +1,56 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] phy: marvell: remove LED config override
-Date: Fri, 10 Jun 2016 20:38:57 +0200
-Message-ID: <20160610183857.GF2338@lunn.ch>
-References: <20160610174252.14017-1-clemens.gruber@pqgruber.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 4/4] net: dsa: bcm_sf2: Add VLAN support
+Date: Fri, 10 Jun 2016 11:47:48 -0700
+Message-ID: <575B0B54.7030305@gmail.com>
+References: <1465519328-14249-1-git-send-email-f.fainelli@gmail.com>
+ <1465519328-14249-5-git-send-email-f.fainelli@gmail.com>
+ <20160610120046.GB2338@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	"David S . Miller" <davem@davemloft.net>
-To: Clemens Gruber <clemens.gruber@pqgruber.com>,
-	Sergei Poselenov <sposelenov@emcraft.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com, jiri@mellanox.com,
+	idosch@mellanox.com
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:41769 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751203AbcFJSjI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jun 2016 14:39:08 -0400
-Content-Disposition: inline
-In-Reply-To: <20160610174252.14017-1-clemens.gruber@pqgruber.com>
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:35986 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751632AbcFJSrv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 14:47:51 -0400
+Received: by mail-pf0-f196.google.com with SMTP id 62so5563275pfd.3
+        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 11:47:51 -0700 (PDT)
+In-Reply-To: <20160610120046.GB2338@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 10, 2016 at 07:42:52PM +0200, Clemens Gruber wrote:
-> Configuring the PHY LED registers for the Marvell 88E1510 and others is
-> not possible, because regardless of the values in marvell,reg-init, it
-> is later overridden in m88e1121_config_aneg with a non-standard default.
+On 06/10/2016 05:00 AM, Andrew Lunn wrote:
+>> @@ -148,6 +155,9 @@ struct bcm_sf2_priv {
+>>  	struct device_node		*master_mii_dn;
+>>  	struct mii_bus			*slave_mii_bus;
+>>  	struct mii_bus			*master_mii_bus;
+>> +
+>> +	/* Cache of programmed VLANs */
+>> +	struct bcm_sf2_vlan		vlans[VLAN_N_VID];
 > 
-> This became visible after we moved the call of marvell_of_reg_init in
-> commit 79be1a1c9090 ("phy: marvell: Fix and unify reg-init behavior").
-> Moving it to _config_init was necessary due to the PHY state machine
-> getting stuck if the PHY interrupts were not enabled early on.
-> As that default LED configuration is set in _config_aneg, it overrides
-> the marvell,reg-init configuration from the device tree.
+> Hi Florian
 > 
-> This patch removes this override and allows the user to again set the
-> PHY LED configuration through marvell,reg-init or if that does not
-> exist, keep the original defaults as documented in the datasheet.
+> This is a 16Kbyte array. So i assume the whole priv structure needs 5
+> pages. Have you had any trouble allocating this much memory,
+> particularly once it has been used for a while and fragmented?
 
-That override code exists for a reason. I don't like just removing it
-without understanding why it is there. Sergei Poselenov added it as
-part of the 1121 support. Maybe he knows why it is there?
+Well, since this is using the old binding, we can't unload the driver,
+it's built into the kernel, so initializes early enough we have got
+plenty of memory.
 
-     Andrew
+> 
+> I just wondered if it might be better to use vmalloc() for the
+> vlans.
+
+That's a very good point, I can't really see a drawback to doing this,
+will submit a patch moving this to a dynamic allocation.
+
+Another possible approach would have been to allocate the vlan structure
+upong port_vlan_prepare() though that would typically result in more
+fragmentation over time once se start using more VLANs.
+-- 
+Florian
