@@ -1,102 +1,156 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [Intel-wired-lan] [RFC PATCH net] e1000e: keep vlan interfaces
- functional after rxvlan off
-Date: Thu, 9 Jun 2016 19:26:10 -0400
-Message-ID: <20160609232610.GU56933@redhat.com>
-References: <1463511831-13684-1-git-send-email-jarod@redhat.com>
- <CAKgT0UfKV23p18L=wCoyy7WXa7s7pQQRVVK8F_mVea0dOJKekA@mail.gmail.com>
- <20160601192724.GA56933@redhat.com>
- <CAKgT0UdXyHt1tbFijqiN57H49TBxSrJ4VcT4A7uKS0oXUouWTA@mail.gmail.com>
- <20160609180204.GR56933@redhat.com>
- <20160609205501.GS56933@redhat.com>
- <20160609221745.GT56933@redhat.com>
+From: "K. Y. Srinivasan" <kys@microsoft.com>
+Subject: [PATCH net-next] netvsc: Use the new in-place consumption APIs in the
+ rx path
+Date: Thu,  9 Jun 2016 18:34:33 -0700
+Message-ID: <1465522473-21250-1-git-send-email-kys@microsoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Netdev <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:36046 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751419AbcFIX0Q (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 19:26:16 -0400
-Received: by mail-wm0-f47.google.com with SMTP id n184so245044641wmn.1
-        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 16:26:15 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160609221745.GT56933@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+ jasowang@redhat.com, leann.ogasawara@canonical.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 09, 2016 at 06:17:45PM -0400, Jarod Wilson wrote:
-> On Thu, Jun 09, 2016 at 04:55:01PM -0400, Jarod Wilson wrote:
-> > On Thu, Jun 09, 2016 at 02:02:04PM -0400, Jarod Wilson wrote:
-> > > On Wed, Jun 01, 2016 at 03:31:46PM -0700, Alexander Duyck wrote:
-> > > > On Wed, Jun 1, 2016 at 12:27 PM, Jarod Wilson <jarod@redhat.com> wrote:
-> > > > > On Wed, Jun 01, 2016 at 07:31:53AM -0700, Alexander Duyck wrote:
-> > > > >> On Tue, May 17, 2016 at 12:03 PM, Jarod Wilson <jarod@redhat.com> wrote:
-> > > > >> > I've got a bug report about an e1000e interface, where a vlan interface is
-> > > > >> > set up on top of it:
-> > > > >> >
-> > > > >> > $ ip link add link ens1f0 name ens1f0.99 type vlan id 99
-> > > > >> > $ ip link set ens1f0 up
-> > > > >> > $ ip link set ens1f0.99 up
-> > > > >> > $ ip addr add 192.168.99.92 dev ens1f0.99
-> > > > >> >
-> > > > >> > At this point, I can ping another host on vlan 99, ip 192.168.99.91.
-> > > > >> > However, if I do the following:
-> > > > >> >
-> > > > >> > $ ethtool -K ens1f0 rxvlan off
-> > > > >> >
-> > > > >> > Then no traffic passes on ens1f0.99. It comes back if I toggle rxvlan on
-> > > > >> > again. I'm not sure if this is actually intended behavior, or if there's a
-> > > > >> > lack of software vlan stripping fallback, or what, but things continue to
-> > > > >> > work if I simply don't call e1000e_vlan_strip_disable() if there are
-> > > > >> > active vlans (plagiarizing a function from the e1000 driver here) on the
-> > > > >> > interface.
-...
-> > Okay, so rxvlan is *supposed* to only impact the rx path, right? It's
-> > looking like it is actually impacting the tx path too here. I actually
-> > *do* see calls to skb_vlan_untag with rxvlan off, if I ping from an
-> > external host, so it seems only the packets from the host with rxvlan
-> > toggled off aren't escaping correctly for some reason.
-> 
-> And this leads me to believe maybe the bit in the e1000 driver that
-> mentions explicitly that the hardware has no support for separate RX/TX
-> vlan accel toggling rings true for e1000e as well, and thus both
-> NETIF_F_HW_VLAN_CTAG_RX and NETIF_F_HW_VLAN_CTAG_TX need to be kept in
-> sync. Testing this theory out shortly...
+Use the new APIs for eliminating a copy on the receive path. These new APIs also
+help in minimizing the number of memory barriers we end up issuing (in the
+ringbuffer code) since we can better control when we want to expose the ring
+state to the host.
 
-We have a winner. If I make sure the TX flag gets toggled too, ping
-continues to work after disabling rxvlan.
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
+Reviewed-by: Haiyang Zhang <haiyangz@microsoft.com>
+Tested-by: Dexuan Cui <decui@microsoft.com>
+Tested-by: Simon Xiao <sixiao@microsoft.com>
+---
+ drivers/net/hyperv/netvsc.c |   88 +++++++++++++++++++++++++++++--------------
+ 1 files changed, 59 insertions(+), 29 deletions(-)
 
-$ ping 192.168.99.91
-PING 192.168.99.91 (192.168.99.91) 56(84) bytes of data.
-64 bytes from 192.168.99.91: icmp_seq=1 ttl=64 time=0.591 ms
-64 bytes from 192.168.99.91: icmp_seq=2 ttl=64 time=0.335 ms
-64 bytes from 192.168.99.91: icmp_seq=3 ttl=64 time=0.417 ms
-^C
---- 192.168.99.91 ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 2000ms
-rtt min/avg/max/mdev = 0.335/0.447/0.591/0.109 ms
-
-$ sudo ethtool -K ens1f0 rxvlan off
-Actual changes:
-rx-vlan-offload: off
-tx-vlan-offload: off [requested on]
-
-$ ping 192.168.99.91
-PING 192.168.99.91 (192.168.99.91) 56(84) bytes of data.
-64 bytes from 192.168.99.91: icmp_seq=1 ttl=64 time=0.327 ms
-64 bytes from 192.168.99.91: icmp_seq=2 ttl=64 time=0.393 ms
-64 bytes from 192.168.99.91: icmp_seq=3 ttl=64 time=0.424 ms
-^C
---- 192.168.99.91 ping statistics ---
-3 packets transmitted, 3 received, 0% packet loss, time 1999ms
-rtt min/avg/max/mdev = 0.327/0.381/0.424/0.043 ms
-
-I'll clean things up and submit a patch tonight or tomorrow.
-
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 719cb35..8cd4c19 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -1141,6 +1141,39 @@ static inline void netvsc_receive_inband(struct hv_device *hdev,
+ 	}
+ }
+ 
++static void netvsc_process_raw_pkt(struct hv_device *device,
++				   struct vmbus_channel *channel,
++				   struct netvsc_device *net_device,
++				   struct net_device *ndev,
++				   u64 request_id,
++				   struct vmpacket_descriptor *desc)
++{
++	struct nvsp_message *nvmsg;
++
++	nvmsg = (struct nvsp_message *)((unsigned long)
++		desc + (desc->offset8 << 3));
++
++	switch (desc->type) {
++	case VM_PKT_COMP:
++		netvsc_send_completion(net_device, channel, device, desc);
++		break;
++
++	case VM_PKT_DATA_USING_XFER_PAGES:
++		netvsc_receive(net_device, channel, device, desc);
++		break;
++
++	case VM_PKT_DATA_INBAND:
++		netvsc_receive_inband(device, net_device, nvmsg);
++		break;
++
++	default:
++		netdev_err(ndev, "unhandled packet type %d, tid %llx\n",
++			   desc->type, request_id);
++		break;
++	}
++}
++
++
+ void netvsc_channel_cb(void *context)
+ {
+ 	int ret;
+@@ -1153,7 +1186,7 @@ void netvsc_channel_cb(void *context)
+ 	unsigned char *buffer;
+ 	int bufferlen = NETVSC_PACKET_SIZE;
+ 	struct net_device *ndev;
+-	struct nvsp_message *nvmsg;
++	bool need_to_commit = false;
+ 
+ 	if (channel->primary_channel != NULL)
+ 		device = channel->primary_channel->device_obj;
+@@ -1167,39 +1200,36 @@ void netvsc_channel_cb(void *context)
+ 	buffer = get_per_channel_state(channel);
+ 
+ 	do {
++		desc = get_next_pkt_raw(channel);
++		if (desc != NULL) {
++			netvsc_process_raw_pkt(device,
++					       channel,
++					       net_device,
++					       ndev,
++					       desc->trans_id,
++					       desc);
++
++			put_pkt_raw(channel, desc);
++			need_to_commit = true;
++			continue;
++		}
++		if (need_to_commit) {
++			need_to_commit = false;
++			commit_rd_index(channel);
++		}
++
+ 		ret = vmbus_recvpacket_raw(channel, buffer, bufferlen,
+ 					   &bytes_recvd, &request_id);
+ 		if (ret == 0) {
+ 			if (bytes_recvd > 0) {
+ 				desc = (struct vmpacket_descriptor *)buffer;
+-				nvmsg = (struct nvsp_message *)((unsigned long)
+-					 desc + (desc->offset8 << 3));
+-				switch (desc->type) {
+-				case VM_PKT_COMP:
+-					netvsc_send_completion(net_device,
+-								channel,
+-								device, desc);
+-					break;
+-
+-				case VM_PKT_DATA_USING_XFER_PAGES:
+-					netvsc_receive(net_device, channel,
+-						       device, desc);
+-					break;
+-
+-				case VM_PKT_DATA_INBAND:
+-					netvsc_receive_inband(device,
+-							      net_device,
+-							      nvmsg);
+-					break;
+-
+-				default:
+-					netdev_err(ndev,
+-						   "unhandled packet type %d, "
+-						   "tid %llx len %d\n",
+-						   desc->type, request_id,
+-						   bytes_recvd);
+-					break;
+-				}
++				netvsc_process_raw_pkt(device,
++						       channel,
++						       net_device,
++						       ndev,
++						       request_id,
++						       desc);
++
+ 
+ 			} else {
+ 				/*
 -- 
-Jarod Wilson
-jarod@redhat.com
+1.7.4.1
