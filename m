@@ -1,64 +1,43 @@
-From: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Subject: Re: [RFC] Handle error writing UINT_MAX to u32 fields
-Date: Fri, 10 Jun 2016 08:28:00 +0200
-Message-ID: <575A5DF0.7020300@gmx.de>
-References: <1465526452-30567-1-git-send-email-subashab@codeaurora.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] rxrpc: Simplify connect() implementation and simplify
+ sendmsg() op
+Date: Thu, 09 Jun 2016 23:30:25 -0700 (PDT)
+Message-ID: <20160609.233025.1997097561663090020.davem@davemloft.net>
+References: <146550977184.3563.9271906788876997357.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
-	eric.dumazet@gmail.com, netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.17.21]:54020 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751017AbcFJG2N (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jun 2016 02:28:13 -0400
-In-Reply-To: <1465526452-30567-1-git-send-email-subashab@codeaurora.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54044 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751203AbcFJGa2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 02:30:28 -0400
+In-Reply-To: <146550977184.3563.9271906788876997357.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: David Howells <dhowells@redhat.com>
+Date: Thu, 09 Jun 2016 23:02:51 +0100
 
-
-On 06/10/2016 04:40 AM, Subash Abhinov Kasiviswanathan wrote:
-> We have scripts which write to certain fields on 3.18 kernels but
-> this seems to be failing on 4.4 kernels.
-> An entry which we write to here is xfrm_aevent_rseqth which is u32.
+> Simplify the RxRPC connect() implementation.  It will just note the
+> destination address it is given, and if a sendmsg() comes along with no
+> address, this will be assigned as the address.  No transport struct will be
+> held internally, which will allow us to remove this later.
 > 
-> echo 4294967295  > /proc/sys/net/core/xfrm_aevent_rseqth
+> Simplify sendmsg() also.  Whilst a call is active, userspace refers to it
+> by a private unique user ID specified in a control message.  When sendmsg()
+> sees a user ID that doesn't map to an extant call, it creates a new call
+> for that user ID and attempts to add it.  If, when we try to add it, the
+> user ID is now registered, we now reject the message with -EEXIST.  We
+> should never see this situation unless two threads are racing, trying to
+> create a call with the same ID - which would be an error.
 > 
-> Commit 230633d109e35b0a24277498e773edeb79b4a331 ("kernel/sysctl.c:
-> detect overflows when converting to int") prevented writing to
-> sysctl entries when integer overflow occurs.
-> However, this does not apply to unsigned integers.
+> It also isn't required to provide sendmsg() with an address - provided the
+> control message data holds a user ID that maps to a currently active call.
 > 
-> u32 should be able to hold 4294967295 here, however it fails due
-> to this check.
-> 
-> static int do_proc_dointvec_conv(bool *negp, unsigned long *lvalp,
-> ...
-> 			if (*lvalp > (unsigned long) INT_MAX)
-> 				return -EINVAL;
->
+> Signed-off-by: David Howells <dhowells@redhat.com>
 
-The task of the routine is to move data from unsigned long *lvalp to int
-*valv considering the sign in bool *negp. So the output was never meant
-to be > INT_MAX.
-
-> I would like to know if introducing a new handler proc_douintvec
-> would work here. Sample output and implementation below. This can be
-> cleaned up and added for other u32 fields in kernel.
-
-The suggested change would extend the usable range of positive numbers
-by one bit only. As many systems are 64 bit this does not seem forward
-looking.
-
-I would prefer to have a routine that can handle 64 bit integers with
-limits (let's call it proc_doint64vec_minmax) which uses fields extra1
-and extra2 of ctl_table as min and max.
-
-Then set xfrm_table[].extra1 = 0 and xfrm_table[].extra2 = UINT_MAX if
-you need a result in the u32 range.
-
-Best regards
-
-Heinrich Schuchardt
+Applied to net-next, thanks.
