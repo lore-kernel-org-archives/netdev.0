@@ -1,41 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: vrf: Fix crash when IPv6 is disabled at
- boot time
-Date: Thu, 09 Jun 2016 23:34:58 -0700 (PDT)
-Message-ID: <20160609.233458.1449029966409837912.davem@davemloft.net>
-References: <1465492860-19246-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH -next] virtio_net: Update the feature bit to comply
+	with spec
+Date: Thu, 09 Jun 2016 23:35:37 -0700 (PDT)
+Message-ID: <20160609.233537.1751385856841761894.davem@davemloft.net>
+References: <1465494075-31170-1-git-send-email-aconole@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54069 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752068AbcFJGe7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 02:34:59 -0400
-In-Reply-To: <1465492860-19246-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, mst@redhat.com
+To: aconole@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1465494075-31170-1-git-send-email-aconole@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Thu,  9 Jun 2016 10:21:00 -0700
+From: Aaron Conole <aconole@redhat.com>
+Date: Thu,  9 Jun 2016 13:41:15 -0400
 
-> Frank Kellermann reported a kernel crash with 4.5.0 when IPv6 is
-> disabled at boot using the kernel option ipv6.disable=1. Using
-> current net-next with the boot option:
+> A draft version of the MTU Advice feature bit was specified as 25.  This
+> bit is not within the allowed range for network device feature bits, and
+> should be changed to be feature bit 3 to fully comply with the spec.
 > 
-> $ ip link add red type vrf table 1001
- ...
-> The problem above is due to the fact that the fib hash table is not
-> allocated when IPv6 is disabled at boot.
-> 
-> As for the VRF driver it should not do any IPv6 initializations if IPv6
-> is disabled, so it needs to know if IPv6 is disabled at boot. The disable
-> parameter is private to the IPv6 module, so provide an accessor for
-> modules to determine if IPv6 was disabled at boot time.
-> 
-> Fixes: 35402e3136634 ("net: Add IPv6 support to VRF device")
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> Fixes 14de9d114a82 ('virtio-net: Add initial MTU advice feature')
+> Signed-off-by: Aaron Conole <aconole@redhat.com>
+> Suggested-by: "Michael S. Tsirkin" <mst@redhat.com>
 
 Applied.
