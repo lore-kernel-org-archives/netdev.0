@@ -1,237 +1,74 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next] rxrpc: Limit the listening backlog
-Date: Fri, 10 Jun 2016 22:30:37 +0100
-Message-ID: <146559423718.20422.5984823569057840023.stgit@warthog.procyon.org.uk>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next 4/7] ixgbe: protect vxlan_get_rx_port in
+ ixgbe_service_task with rtnl_lock
+Date: Fri, 10 Jun 2016 14:33:57 -0700
+Message-ID: <CAKgT0UfHEDOu_qPwUX9Jc087JGGWgk9K8JKFDY-AGA-kZ=p71g@mail.gmail.com>
+References: <1461007188-1603-1-git-send-email-hannes@stressinduktion.org>
+ <1461007188-1603-5-git-send-email-hannes@stressinduktion.org> <1465593442.7945.68.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	Shannon Nelson <shannon.nelson@intel.com>,
+	Carolyn Wyborny <carolyn.wyborny@intel.com>,
+	Don Skidmore <donald.c.skidmore@intel.com>,
+	Bruce Allan <bruce.w.allan@intel.com>,
+	John Ronciak <john.ronciak@intel.com>,
+	Mitch Williams <mitch.a.williams@intel.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:32907 "EHLO
+	mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752016AbcFJVd6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 17:33:58 -0400
+Received: by mail-it0-f67.google.com with SMTP id i6so848751ith.0
+        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 14:33:58 -0700 (PDT)
+In-Reply-To: <1465593442.7945.68.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Limit the socket incoming call backlog queue size so that a remote client
-can't pump in sufficient new calls that the server runs out of memory.  Note
-that this is partially theoretical at the moment since whilst the number of
-calls is limited, the number of packets trying to set up new calls is not.
-This will be addressed in a later patch.
+On Fri, Jun 10, 2016 at 2:17 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> On Mon, 2016-04-18 at 21:19 +0200, Hannes Frederic Sowa wrote:
+>> vxlan_get_rx_port requires rtnl_lock to be held.
+>>
+>> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+>> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
+>> Cc: Shannon Nelson <shannon.nelson@intel.com>
+>> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
+>> Cc: Don Skidmore <donald.c.skidmore@intel.com>
+>> Cc: Bruce Allan <bruce.w.allan@intel.com>
+>> Cc: John Ronciak <john.ronciak@intel.com>
+>> Cc: Mitch Williams <mitch.a.williams@intel.com>
+>> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+>> ---
+>>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 ++
+>>  1 file changed, 2 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> index 2976df77bf14f5..b2f2cf40f06a87 100644
+>> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+>> @@ -7192,10 +7192,12 @@ static void ixgbe_service_task(struct work_struct *work)
+>>               return;
+>>       }
+>>  #ifdef CONFIG_IXGBE_VXLAN
+>> +     rtnl_lock();
+>>       if (adapter->flags2 & IXGBE_FLAG2_VXLAN_REREG_NEEDED) {
+>>               adapter->flags2 &= ~IXGBE_FLAG2_VXLAN_REREG_NEEDED;
+>>               vxlan_get_rx_port(adapter->netdev);
+>>       }
+>> +     rtnl_unlock();
+>>  #endif /* CONFIG_IXGBE_VXLAN */
+>>       ixgbe_reset_subtask(adapter);
+>>       ixgbe_phy_interrupt_subtask(adapter);
+>
+> Although there might be a deadlock with a concurrent
+> cancel_work_sync(&adapter->service_task);  from ixgbe_remove()
 
-If the caller of listen() specifies a backlog INT_MAX, then they get the
-current maximum; anything else greater than max_backlog or anything
-negative incurs EINVAL.
+I don't think we are holding the rtnl_lock when that is called.  The
+ixgbe_remove function is a PCI function.  The ixgbe_close routine is
+the one called with the rtnl_lock held.
 
-The limit on the maximum queue size can be set by:
-
-	echo N >/proc/sys/net/rxrpc/max_backlog
-
-where 4<=N<=32.
-
-Further, set the default backlog to 0, requiring listen() to be called
-before we start actually queueing new calls.  Whilst this kind of is a
-change in the UAPI, the caller can't actually *accept* new calls anyway
-unless they've first called listen() to put the socket into the LISTENING
-state - thus the aforementioned new calls would otherwise just sit there,
-eating up kernel memory.  (Note that sockets that don't have a non-zero
-service ID bound don't get incoming calls anyway.)
-
-Given that the default backlog is now 0, make the AFS filesystem call
-kernel_listen() to set the maximum backlog for itself.
-
-Possible improvements include:
-
- (1) Trimming a too-large backlog to max_backlog when listen is called.
-
- (2) Trimming the backlog value whenever the value is used so that changes
-     to max_backlog are applied to an open socket automatically.  Note that
-     the AFS filesystem opens one socket and keeps it open for extended
-     periods, so would miss out on changes to max_backlog.
-
- (3) Having a separate setting for the AFS filesystem.
-
-Signed-off-by: David Howells <dhowells@redhat.com>
----
-
- fs/afs/rxrpc.c          |   34 +++++++++++++++++++---------------
- net/rxrpc/af_rxrpc.c    |   19 +++++++++++--------
- net/rxrpc/ar-internal.h |    1 +
- net/rxrpc/misc.c        |    6 ++++++
- net/rxrpc/sysctl.c      |   10 ++++++++++
- 5 files changed, 47 insertions(+), 23 deletions(-)
-
-diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
-index 63cd9f939f19..4832de84d52c 100644
---- a/fs/afs/rxrpc.c
-+++ b/fs/afs/rxrpc.c
-@@ -85,18 +85,14 @@ int afs_open_socket(void)
- 
- 	skb_queue_head_init(&afs_incoming_calls);
- 
-+	ret = -ENOMEM;
- 	afs_async_calls = create_singlethread_workqueue("kafsd");
--	if (!afs_async_calls) {
--		_leave(" = -ENOMEM [wq]");
--		return -ENOMEM;
--	}
-+	if (!afs_async_calls)
-+		goto error_0;
- 
- 	ret = sock_create_kern(&init_net, AF_RXRPC, SOCK_DGRAM, PF_INET, &socket);
--	if (ret < 0) {
--		destroy_workqueue(afs_async_calls);
--		_leave(" = %d [socket]", ret);
--		return ret;
--	}
-+	if (ret < 0)
-+		goto error_1;
- 
- 	socket->sk->sk_allocation = GFP_NOFS;
- 
-@@ -111,18 +107,26 @@ int afs_open_socket(void)
- 	       sizeof(srx.transport.sin.sin_addr));
- 
- 	ret = kernel_bind(socket, (struct sockaddr *) &srx, sizeof(srx));
--	if (ret < 0) {
--		sock_release(socket);
--		destroy_workqueue(afs_async_calls);
--		_leave(" = %d [bind]", ret);
--		return ret;
--	}
-+	if (ret < 0)
-+		goto error_2;
-+
-+	ret = kernel_listen(socket, INT_MAX);
-+	if (ret < 0)
-+		goto error_2;
- 
- 	rxrpc_kernel_intercept_rx_messages(socket, afs_rx_interceptor);
- 
- 	afs_socket = socket;
- 	_leave(" = 0");
- 	return 0;
-+
-+error_2:
-+	sock_release(socket);
-+error_1:
-+	destroy_workqueue(afs_async_calls);
-+error_0:
-+	_leave(" = %d", ret);
-+	return ret;
- }
- 
- /*
-diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
-index 38512a200db6..a1bcb0e17250 100644
---- a/net/rxrpc/af_rxrpc.c
-+++ b/net/rxrpc/af_rxrpc.c
-@@ -33,8 +33,6 @@ unsigned int rxrpc_debug; // = RXRPC_DEBUG_KPROTO;
- module_param_named(debug, rxrpc_debug, uint, S_IWUSR | S_IRUGO);
- MODULE_PARM_DESC(debug, "RxRPC debugging mask");
- 
--static int sysctl_rxrpc_max_qlen __read_mostly = 10;
--
- static struct proto rxrpc_proto;
- static const struct proto_ops rxrpc_rpc_ops;
- 
-@@ -191,6 +189,7 @@ static int rxrpc_listen(struct socket *sock, int backlog)
- {
- 	struct sock *sk = sock->sk;
- 	struct rxrpc_sock *rx = rxrpc_sk(sk);
-+	unsigned int max;
- 	int ret;
- 
- 	_enter("%p,%d", rx, backlog);
-@@ -201,17 +200,21 @@ static int rxrpc_listen(struct socket *sock, int backlog)
- 	case RXRPC_UNBOUND:
- 		ret = -EADDRNOTAVAIL;
- 		break;
--	case RXRPC_CLIENT_UNBOUND:
--	case RXRPC_CLIENT_BOUND:
--	default:
--		ret = -EBUSY;
--		break;
- 	case RXRPC_SERVER_BOUND:
- 		ASSERT(rx->local != NULL);
-+		max = READ_ONCE(rxrpc_max_backlog);
-+		ret = -EINVAL;
-+		if (backlog == INT_MAX)
-+			backlog = max;
-+		else if (backlog < 0 || backlog > max)
-+			break;
- 		sk->sk_max_ack_backlog = backlog;
- 		rx->sk.sk_state = RXRPC_SERVER_LISTENING;
- 		ret = 0;
- 		break;
-+	default:
-+		ret = -EBUSY;
-+		break;
- 	}
- 
- 	release_sock(&rx->sk);
-@@ -591,7 +594,7 @@ static int rxrpc_create(struct net *net, struct socket *sock, int protocol,
- 	sock_init_data(sock, sk);
- 	sk->sk_state		= RXRPC_UNBOUND;
- 	sk->sk_write_space	= rxrpc_write_space;
--	sk->sk_max_ack_backlog	= sysctl_rxrpc_max_qlen;
-+	sk->sk_max_ack_backlog	= 0;
- 	sk->sk_destruct		= rxrpc_sock_destructor;
- 
- 	rx = rxrpc_sk(sk);
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index b89dcdcbc65a..f715cca767cd 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -641,6 +641,7 @@ extern const struct rxrpc_security rxrpc_no_security;
- /*
-  * misc.c
-  */
-+extern unsigned int rxrpc_max_backlog __read_mostly;
- extern unsigned int rxrpc_requested_ack_delay;
- extern unsigned int rxrpc_soft_ack_delay;
- extern unsigned int rxrpc_idle_ack_delay;
-diff --git a/net/rxrpc/misc.c b/net/rxrpc/misc.c
-index 1afe9876e79f..bdc5e42fe600 100644
---- a/net/rxrpc/misc.c
-+++ b/net/rxrpc/misc.c
-@@ -15,6 +15,12 @@
- #include "ar-internal.h"
- 
- /*
-+ * The maximum listening backlog queue size that may be set on a socket by
-+ * listen().
-+ */
-+unsigned int rxrpc_max_backlog __read_mostly = 10;
-+
-+/*
-  * How long to wait before scheduling ACK generation after seeing a
-  * packet with RXRPC_REQUEST_ACK set (in jiffies).
-  */
-diff --git a/net/rxrpc/sysctl.c b/net/rxrpc/sysctl.c
-index d20ed575acf4..a99690a8a3da 100644
---- a/net/rxrpc/sysctl.c
-+++ b/net/rxrpc/sysctl.c
-@@ -18,6 +18,7 @@ static struct ctl_table_header *rxrpc_sysctl_reg_table;
- static const unsigned int zero = 0;
- static const unsigned int one = 1;
- static const unsigned int four = 4;
-+static const unsigned int thirtytwo = 32;
- static const unsigned int n_65535 = 65535;
- static const unsigned int n_max_acks = RXRPC_MAXACKS;
- 
-@@ -100,6 +101,15 @@ static struct ctl_table rxrpc_sysctl_table[] = {
- 
- 	/* Non-time values */
- 	{
-+		.procname	= "max_backlog",
-+		.data		= &rxrpc_max_backlog,
-+		.maxlen		= sizeof(unsigned int),
-+		.mode		= 0644,
-+		.proc_handler	= proc_dointvec_minmax,
-+		.extra1		= (void *)&four,
-+		.extra2		= (void *)&thirtytwo,
-+	},
-+	{
- 		.procname	= "rx_window_size",
- 		.data		= &rxrpc_rx_window_size,
- 		.maxlen		= sizeof(unsigned int),
+- Alex
