@@ -1,47 +1,64 @@
-From: John Crispin <john@phrozen.org>
-Subject: [PATCH V2 07/11] net: mediatek: fix threshold value
-Date: Fri, 10 Jun 2016 13:28:04 +0200
-Message-ID: <1465558088-15265-8-git-send-email-john@phrozen.org>
+From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Subject: [PATCH V2 05/11] net: mediatek: add next data pointer coherency
+ protection
+Date: Fri, 10 Jun 2016 13:28:02 +0200
+Message-ID: <1465558088-15265-6-git-send-email-john@phrozen.org>
 References: <1465558088-15265-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Felix Fietkau <nbd@nbd.name>, Sean Wang <keyhaede@gmail.com>,
-	netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
-	linux-kernel@vger.kernel.org, John Crispin <john@phrozen.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465558088-15265-1-git-send-email-john@phrozen.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sean Wang <keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, Felix Fietkau <nbd-Vt+b4OUoWG0@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1465558088-15265-1-git-send-email-john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The logic to calculate the threshold value for stopping the TX queue is
-bad. Currently it will always use 1/2 of the rings size, which is way t=
-oo
-much. Set the threshold to MAX_SKB_FRAGS. This makes sure that the queu=
-e
-is stopped when there is not enough room to accept an additional segmen=
-t.=C2=A0
+The QDMA engine can fail to update the register pointing to the next TX
+descriptor if this bit does not get set in the QDMA configuration register.
+Not setting this bit can result in invalid values inside the TX rings
+registers which will causes TX stalls.
 
-Signed-off-by: John Crispin <john@phrozen.org>
+Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 +-
+ drivers/net/ethernet/mediatek/mtk_eth_soc.h |    1 +
+ 2 files changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/=
-ethernet/mediatek/mtk_eth_soc.c
-index 93af4e3..8b289e1 100644
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 0610262..bfac376 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1012,8 +1012,7 @@ static int mtk_tx_alloc(struct mtk_eth *eth)
- 	atomic_set(&ring->free_count, MTK_DMA_SIZE - 2);
- 	ring->next_free =3D &ring->dma[0];
- 	ring->last_free =3D &ring->dma[MTK_DMA_SIZE - 2];
--	ring->thresh =3D max((unsigned long)MTK_DMA_SIZE >> 2,
--			      MAX_SKB_FRAGS);
-+	ring->thresh =3D MAX_SKB_FRAGS;
-=20
- 	/* make sure that all changes to the dma ring are flushed before we
- 	 * continue
---=20
+@@ -1261,7 +1261,7 @@ static int mtk_start_dma(struct mtk_eth *eth)
+ 	mtk_w32(eth,
+ 		MTK_TX_WB_DDONE | MTK_RX_DMA_EN | MTK_TX_DMA_EN |
+ 		MTK_RX_2B_OFFSET | MTK_DMA_SIZE_16DWORDS |
+-		MTK_RX_BT_32DWORDS,
++		MTK_RX_BT_32DWORDS | MTK_NDP_CO_PRO,
+ 		MTK_QDMA_GLO_CFG);
+ 
+ 	return 0;
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+index 57f7e8a..a5eb7c6 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
+@@ -91,6 +91,7 @@
+ #define MTK_QDMA_GLO_CFG	0x1A04
+ #define MTK_RX_2B_OFFSET	BIT(31)
+ #define MTK_RX_BT_32DWORDS	(3 << 11)
++#define MTK_NDP_CO_PRO		BIT(10)
+ #define MTK_TX_WB_DDONE		BIT(6)
+ #define MTK_DMA_SIZE_16DWORDS	(2 << 4)
+ #define MTK_RX_DMA_BUSY		BIT(3)
+-- 
 1.7.10.4
