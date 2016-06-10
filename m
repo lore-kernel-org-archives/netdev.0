@@ -1,57 +1,53 @@
-From: pravin shelar <pshelar@ovn.org>
-Subject: Re: [net-next,v3] openvswitch: Add packet truncation support.
-Date: Fri, 10 Jun 2016 13:22:15 -0700
-Message-ID: <CAOrHB_A-gnvndiT4ejx9k9ByXPLbz5_sAj2ZqaqfvRSrFMF24w@mail.gmail.com>
-References: <1465584573-58583-1-git-send-email-u9012063@gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next 7/8] net: dsa: mv88e6xxx: explicit compatible devices
+Date: Fri, 10 Jun 2016 16:26:03 -0400
+Message-ID: <87inxgkcys.fsf@ketchup.mtl.sfl>
+References: <20160609004456.5441-1-vivien.didelot@savoirfairelinux.com> <20160609004456.5441-8-vivien.didelot@savoirfairelinux.com> <20160609021415.GE2227@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Pravin Shelar <pshelar@nicira.com>
-To: William Tu <u9012063@gmail.com>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay2-d.mail.gandi.net ([217.70.183.194]:54786 "EHLO
-	relay2-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751440AbcFJUWU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 16:22:20 -0400
-Received: from mfilter39-d.gandi.net (mfilter39-d.gandi.net [217.70.178.170])
-	by relay2-d.mail.gandi.net (Postfix) with ESMTP id 91A13C5A53
-	for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 22:22:18 +0200 (CEST)
-Received: from relay2-d.mail.gandi.net ([IPv6:::ffff:217.70.183.194])
-	by mfilter39-d.gandi.net (mfilter39-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id khvFNa0oKfD8 for <netdev@vger.kernel.org>;
-	Fri, 10 Jun 2016 22:22:17 +0200 (CEST)
-Received: from mail-io0-f177.google.com (mail-io0-f177.google.com [209.85.223.177])
-	(Authenticated sender: pshelar@ovn.org)
-	by relay2-d.mail.gandi.net (Postfix) with ESMTPSA id 11FD0C5A4E
-	for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 22:22:16 +0200 (CEST)
-Received: by mail-io0-f177.google.com with SMTP id n127so75242976iof.3
-        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 13:22:16 -0700 (PDT)
-In-Reply-To: <1465584573-58583-1-git-send-email-u9012063@gmail.com>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:32795 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752216AbcFJU0H (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 16:26:07 -0400
+In-Reply-To: <20160609021415.GE2227@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 10, 2016 at 11:49 AM, William Tu <u9012063@gmail.com> wrote:
-> The patch adds a new OVS action, OVS_ACTION_ATTR_TRUNC, in order to
-> truncate packets. A 'max_len' is added for setting up the maximum
-> packet size, and a 'cutlen' field is to record the number of bytes
-> to trim the packet when the packet is outputting to a port, or when
-> the packet is sent to userspace.
->
-> Signed-off-by: William Tu <u9012063@gmail.com>
-> Cc: Pravin Shelar <pshelar@nicira.com>
->
-> ---
-> v2 -> v3
-> - Change minimum packet size after truncate to 14 (ETH_HLEN).
-> - Pass cutlen to userspace action.
-> - Allocate smaller skb buffer if packet is truncated.
->
-> v1 -> v2:
-> - Use 32 bits cutlen and fix unnecessary cutlen initilization.
-> - Fix cutlen leaks to remaining actions under sample action.
-> - In queue_userspace_packet, don't extract hlen when using skb_zerocopy.
-> ---
+Hi,
 
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Thanks.
+> On Wed, Jun 08, 2016 at 08:44:55PM -0400, Vivien Didelot wrote:
+>> Thanks to the new device probing, we can explicit the exact switch model
+>> in the device tree.
+>> 
+>> Name the driver "mv88e6xxx" and list all its compatible supported chips.
+>
+> No. This goes against the usual way of doing device tree compatible
+> strings. As far as probing goes, all the currently supported switches
+> are compatible with 6095. We can at run time determine the specific
+> switch model. This list is just a pain to managed, and has no value.
+>
+> We only need to add a new compatible string when we cannot determine
+> at probe time what a switch model is, or we need to read the ID
+> register in a different way.
+
+So thinking about this, I might agree that a "compatible" string per
+model is not necessary (even though some drivers are doing this, such as
+b53), but at least we might want one compatible string per Marvell
+switch family. They have different number of ports, different way to
+access them via SMI, different way to access the switch ID register.
+this information is useful at probe time.
+
+If one string per model is not recommended, I'd suggest one per
+family. What do you guys think?
+
+Thanks,
+
+        Vivien
