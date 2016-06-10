@@ -1,95 +1,145 @@
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: Re: [PATCHv4 net-next] sctp: sctp should change socket state when
- shutdown is received
-Date: Thu, 9 Jun 2016 23:39:03 -0300
-Message-ID: <20160610023903.GC22693@localhost.localdomain>
-References: <d964561c0d409848ea5724615c910e6d2ce53557.1465483698.git.lucien.xin@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	davem@davemloft.net, eric.dumazet@gmail.com
-To: Xin Long <lucien.xin@gmail.com>
+From: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+Subject: [RFC] Handle error writing UINT_MAX to u32 fields
+Date: Thu,  9 Jun 2016 20:40:52 -0600
+Message-ID: <1465526452-30567-1-git-send-email-subashab@codeaurora.org>
+Cc: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+To: xypron.glpk@gmx.de, eric.dumazet@gmail.com, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43284 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751958AbcFJCjI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 9 Jun 2016 22:39:08 -0400
-Content-Disposition: inline
-In-Reply-To: <d964561c0d409848ea5724615c910e6d2ce53557.1465483698.git.lucien.xin@gmail.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:58273 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751193AbcFJCnP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 22:43:15 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 09, 2016 at 10:48:18PM +0800, Xin Long wrote:
-> Now sctp doesn't change socket state upon shutdown reception. It changes
-> just the assoc state, even though it's a TCP-style socket.
-> 
-> For some cases, if we really need to check sk->sk_state, it's necessary to
-> fix this issue, at least when we use ss or netstat to dump, we can get a
-> more exact information.
-> 
-> As an improvement, we will change sk->sk_state when we change asoc->state
-> to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent
-> with sctp_close.
-> 
-> Signed-off-by: Xin Long <lucien.xin@gmail.com>
+We have scripts which write to certain fields on 3.18 kernels but
+this seems to be failing on 4.4 kernels.
+An entry which we write to here is xfrm_aevent_rseqth which is u32.
 
-Acked-by: Marcelo R. Leitner <marcelo.leitner@gmail.com>
+echo 4294967295  > /proc/sys/net/core/xfrm_aevent_rseqth
 
-> ---
->  net/sctp/sm_sideeffect.c | 4 +++-
->  net/sctp/socket.c        | 8 ++++++--
->  2 files changed, 9 insertions(+), 3 deletions(-)
-> 
-> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
-> index aa37122..12d4519 100644
-> --- a/net/sctp/sm_sideeffect.c
-> +++ b/net/sctp/sm_sideeffect.c
-> @@ -806,8 +806,10 @@ static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
->  
->  		/* Set the RCV_SHUTDOWN flag when a SHUTDOWN is received. */
->  		if (sctp_state(asoc, SHUTDOWN_RECEIVED) &&
-> -		    sctp_sstate(sk, ESTABLISHED))
-> +		    sctp_sstate(sk, ESTABLISHED)) {
-> +			sk->sk_state = SCTP_SS_CLOSING;
->  			sk->sk_shutdown |= RCV_SHUTDOWN;
-> +		}
->  	}
->  
->  	if (sctp_state(asoc, COOKIE_WAIT)) {
-> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-> index 67154b8..125ddcb 100644
-> --- a/net/sctp/socket.c
-> +++ b/net/sctp/socket.c
-> @@ -4193,6 +4193,7 @@ static void sctp_shutdown(struct sock *sk, int how)
->  		return;
->  
->  	if (how & SEND_SHUTDOWN) {
-> +		sk->sk_state = SCTP_SS_CLOSING;
->  		ep = sctp_sk(sk)->ep;
->  		if (!list_empty(&ep->asocs)) {
->  			asoc = list_entry(ep->asocs.next,
-> @@ -7564,10 +7565,13 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
->  	/* If the association on the newsk is already closed before accept()
->  	 * is called, set RCV_SHUTDOWN flag.
->  	 */
-> -	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP))
-> +	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP)) {
-> +		newsk->sk_state = SCTP_SS_CLOSING;
->  		newsk->sk_shutdown |= RCV_SHUTDOWN;
-> +	} else {
-> +		newsk->sk_state = SCTP_SS_ESTABLISHED;
-> +	}
->  
-> -	newsk->sk_state = SCTP_SS_ESTABLISHED;
->  	release_sock(newsk);
->  }
->  
-> -- 
-> 2.1.0
-> 
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
+Commit 230633d109e35b0a24277498e773edeb79b4a331 ("kernel/sysctl.c:
+detect overflows when converting to int") prevented writing to
+sysctl entries when integer overflow occurs.
+However, this does not apply to unsigned integers.
+
+u32 should be able to hold 4294967295 here, however it fails due
+to this check.
+
+static int do_proc_dointvec_conv(bool *negp, unsigned long *lvalp,
+...
+			if (*lvalp > (unsigned long) INT_MAX)
+				return -EINVAL;
+
+I would like to know if introducing a new handler proc_douintvec
+would work here. Sample output and implementation below. This can be
+cleaned up and added for other u32 fields in kernel.
+
+dev0# cat /proc/sys/net/core/xfrm_aevent_rseqth
+2
+dev0# echo 4294967295  > /proc/sys/net/core/xfrm_aevent_rseqth
+dev0# cat /proc/sys/net/core/xfrm_aevent_rseqth
+4294967295
+dev0#
+dev0# echo -1  > /proc/sys/net/core/xfrm_aevent_rseqth
+bash: echo: write error: Invalid argument
+
+Signed-off-by: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>
+---
+ include/linux/sysctl.h |  2 ++
+ kernel/sysctl.c        | 32 ++++++++++++++++++++++++++++++++
+ net/xfrm/xfrm_sysctl.c |  2 +-
+ 3 files changed, 35 insertions(+), 1 deletion(-)
+
+diff --git a/include/linux/sysctl.h b/include/linux/sysctl.h
+index fa7bc29..ef17db6c 100644
+--- a/include/linux/sysctl.h
++++ b/include/linux/sysctl.h
+@@ -41,6 +41,8 @@ extern int proc_dostring(struct ctl_table *, int,
+ 			 void __user *, size_t *, loff_t *);
+ extern int proc_dointvec(struct ctl_table *, int,
+ 			 void __user *, size_t *, loff_t *);
++extern int proc_douintvec(struct ctl_table *, int,
++			 void __user *, size_t *, loff_t *);
+ extern int proc_dointvec_minmax(struct ctl_table *, int,
+ 				void __user *, size_t *, loff_t *);
+ extern int proc_dointvec_jiffies(struct ctl_table *, int,
+diff --git a/kernel/sysctl.c b/kernel/sysctl.c
+index 725587f..6362859 100644
+--- a/kernel/sysctl.c
++++ b/kernel/sysctl.c
+@@ -2094,6 +2094,21 @@ static int do_proc_dointvec_conv(bool *negp, unsigned long *lvalp,
+ 	return 0;
+ }
+ 
++static int do_proc_douintvec_conv(bool *negp, unsigned long *lvalp,
++				 int *valp,
++				 int write, void *data)
++{
++	if (write) {
++		if (*negp)
++			return -EINVAL;
++		*valp = *lvalp;
++	} else {
++		unsigned int val = *valp;
++		*lvalp = (unsigned long)val;
++	}
++	return 0;
++}
++
+ static const char proc_wspace_sep[] = { ' ', '\t', '\n' };
+ 
+ static int __do_proc_dointvec(void *tbl_data, struct ctl_table *table,
+@@ -2217,6 +2232,16 @@ int proc_dointvec(struct ctl_table *table, int write,
+ 		    	    NULL,NULL);
+ }
+ 
++/**
++ * proc_douintvec - read a vector of unsigned integers
++ */
++int proc_douintvec(struct ctl_table *table, int write,
++		     void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++    return do_proc_dointvec(table,write,buffer,lenp,ppos,
++			    do_proc_douintvec_conv, NULL);
++}
++
+ /*
+  * Taint values can only be increased
+  * This means we can safely use a temporary.
+@@ -2812,6 +2837,12 @@ int proc_dointvec(struct ctl_table *table, int write,
+ 	return -ENOSYS;
+ }
+ 
++int proc_douintvec(struct ctl_table *table, int write,
++		  void __user *buffer, size_t *lenp, loff_t *ppos)
++{
++	return -ENOSYS;
++}
++
+ int proc_dointvec_minmax(struct ctl_table *table, int write,
+ 		    void __user *buffer, size_t *lenp, loff_t *ppos)
+ {
+@@ -2857,6 +2888,7 @@ int proc_doulongvec_ms_jiffies_minmax(struct ctl_table *table, int write,
+  * exception granted :-)
+  */
+ EXPORT_SYMBOL(proc_dointvec);
++EXPORT_SYMBOL(proc_douintvec);
+ EXPORT_SYMBOL(proc_dointvec_jiffies);
+ EXPORT_SYMBOL(proc_dointvec_minmax);
+ EXPORT_SYMBOL(proc_dointvec_userhz_jiffies);
+diff --git a/net/xfrm/xfrm_sysctl.c b/net/xfrm/xfrm_sysctl.c
+index 05a6e3d..1fa3b1a 100644
+--- a/net/xfrm/xfrm_sysctl.c
++++ b/net/xfrm/xfrm_sysctl.c
+@@ -23,7 +23,7 @@ static struct ctl_table xfrm_table[] = {
+ 		.procname	= "xfrm_aevent_rseqth",
+ 		.maxlen		= sizeof(u32),
+ 		.mode		= 0644,
+-		.proc_handler	= proc_dointvec
++		.proc_handler	= proc_douintvec
+ 	},
+ 	{
+ 		.procname	= "xfrm_larval_drop",
+-- 
+1.9.1
