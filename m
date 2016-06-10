@@ -1,7 +1,7 @@
 From: Pramod Kumar <pramod.kumar@broadcom.com>
-Subject: [PATCH v5 3/7] binding: mdio-mux: Add DT binding doc for Broadcom MDIO bus multiplexer
-Date: Fri, 10 Jun 2016 11:03:47 +0530
-Message-ID: <1465536831-13023-4-git-send-email-pramod.kumar@broadcom.com>
+Subject: [PATCH v5 1/7] mdio: mux: Enhanced MDIO mux framework for integrated multiplexers
+Date: Fri, 10 Jun 2016 11:03:45 +0530
+Message-ID: <1465536831-13023-2-git-send-email-pramod.kumar@broadcom.com>
 References: <1465536831-13023-1-git-send-email-pramod.kumar@broadcom.com>
 Cc: devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
 	bcm-kernel-feedback-list@broadcom.com,
@@ -16,91 +16,138 @@ To: Rob Herring <robh+dt@kernel.org>, Pawel Moll <pawel.moll@arm.com>,
 	Kishon Vijay Abraham I <kishon@ti.com>,
 	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34412 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752570AbcFJFeU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 01:34:20 -0400
-Received: by mail-pa0-f50.google.com with SMTP id bz2so20242115pad.1
-        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 22:34:20 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:33691 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752170AbcFJFeL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 01:34:11 -0400
+Received: by mail-pa0-f48.google.com with SMTP id ec8so20268107pac.0
+        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 22:34:11 -0700 (PDT)
 In-Reply-To: <1465536831-13023-1-git-send-email-pramod.kumar@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add DT binding doc for Broadcom MDIO bus multiplexer driver.
+An integrated multiplexer uses same address space for
+"muxed bus selection" and "generation of mdio transaction"
+hence its good to register parent bus from mux driver.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Hence added a mechanism where mux driver could register a
+parent bus and pass it down to framework via mdio_mux_init api.
+
 Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
-Acked-by: Rob Herring <robh@kernel.org>
 ---
- .../bindings/net/brcm,mdio-mux-iproc.txt           | 59 ++++++++++++++++++++++
- 1 file changed, 59 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
+ drivers/net/phy/mdio-mux-gpio.c    |  2 +-
+ drivers/net/phy/mdio-mux-mmioreg.c |  2 +-
+ drivers/net/phy/mdio-mux.c         | 28 ++++++++++++++++++----------
+ include/linux/mdio-mux.h           |  4 +++-
+ 4 files changed, 23 insertions(+), 13 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt b/Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
-new file mode 100644
-index 0000000..dfe287a
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/brcm,mdio-mux-iproc.txt
-@@ -0,0 +1,59 @@
-+Properties for an MDIO bus multiplexer found in Broadcom iProc based SoCs.
+diff --git a/drivers/net/phy/mdio-mux-gpio.c b/drivers/net/phy/mdio-mux-gpio.c
+index 7ddb1ab..9199499 100644
+--- a/drivers/net/phy/mdio-mux-gpio.c
++++ b/drivers/net/phy/mdio-mux-gpio.c
+@@ -55,7 +55,7 @@ static int mdio_mux_gpio_probe(struct platform_device *pdev)
+ 		return PTR_ERR(s->gpios);
+ 
+ 	r = mdio_mux_init(&pdev->dev,
+-			  mdio_mux_gpio_switch_fn, &s->mux_handle, s);
++			  mdio_mux_gpio_switch_fn, &s->mux_handle, s, NULL);
+ 
+ 	if (r != 0) {
+ 		gpiod_put_array(s->gpios);
+diff --git a/drivers/net/phy/mdio-mux-mmioreg.c b/drivers/net/phy/mdio-mux-mmioreg.c
+index 7fde454..d0bed52 100644
+--- a/drivers/net/phy/mdio-mux-mmioreg.c
++++ b/drivers/net/phy/mdio-mux-mmioreg.c
+@@ -126,7 +126,7 @@ static int mdio_mux_mmioreg_probe(struct platform_device *pdev)
+ 	}
+ 
+ 	ret = mdio_mux_init(&pdev->dev, mdio_mux_mmioreg_switch_fn,
+-			    &s->mux_handle, s);
++			    &s->mux_handle, s, NULL);
+ 	if (ret) {
+ 		dev_err(&pdev->dev, "failed to register mdio-mux bus %s\n",
+ 			np->full_name);
+diff --git a/drivers/net/phy/mdio-mux.c b/drivers/net/phy/mdio-mux.c
+index 5c81d6f..dbd4ecc 100644
+--- a/drivers/net/phy/mdio-mux.c
++++ b/drivers/net/phy/mdio-mux.c
+@@ -89,7 +89,8 @@ static int parent_count;
+ int mdio_mux_init(struct device *dev,
+ 		  int (*switch_fn)(int cur, int desired, void *data),
+ 		  void **mux_handle,
+-		  void *data)
++		  void *data,
++		  struct mii_bus *mux_bus)
+ {
+ 	struct device_node *parent_bus_node;
+ 	struct device_node *child_bus_node;
+@@ -101,10 +102,21 @@ int mdio_mux_init(struct device *dev,
+ 	if (!dev->of_node)
+ 		return -ENODEV;
+ 
+-	parent_bus_node = of_parse_phandle(dev->of_node, "mdio-parent-bus", 0);
++	if (!mux_bus) {
++		parent_bus_node = of_parse_phandle(dev->of_node,
++						   "mdio-parent-bus", 0);
+ 
+-	if (!parent_bus_node)
+-		return -ENODEV;
++		if (!parent_bus_node)
++			return -ENODEV;
 +
-+This MDIO bus multiplexer defines buses that could be internal as well as
-+external to SoCs and could accept MDIO transaction compatible to C-22 or
-+C-45 Clause. When child bus is selected, one needs to select these two
-+properties as well to generate desired MDIO transaction on appropriate bus.
-+
-+Required properties in addition to the generic multiplexer properties:
-+
-+MDIO multiplexer node:
-+- compatible: brcm,mdio-mux-iproc.
-+
-+Every non-ethernet PHY requires a compatible so that it could be probed based
-+on this compatible string.
-+
-+Additional information regarding generic multiplexer properties can be found
-+at- Documentation/devicetree/bindings/net/mdio-mux.txt
-+
-+
-+for example:
-+		mdio_mux_iproc: mdio-mux@6602023c {
-+			compatible = "brcm,mdio-mux-iproc";
-+			reg = <0x6602023c 0x14>;
-+			#address-cells = <1>;
-+			#size-cells = <0>;
-+
-+			mdio@0 {
-+				reg = <0x0>;
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+
-+				pci_phy0: pci-phy@0 {
-+					compatible = "brcm,ns2-pcie-phy";
-+					reg = <0x0>;
-+					#phy-cells = <0>;
-+				};
-+			};
-+
-+			mdio@7 {
-+				reg = <0x7>;
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+
-+				pci_phy1: pci-phy@0 {
-+					compatible = "brcm,ns2-pcie-phy";
-+					reg = <0x0>;
-+					#phy-cells = <0>;
-+				};
-+			};
-+			mdio@10 {
-+				reg = <0x10>;
-+				#address-cells = <1>;
-+				#size-cells = <0>;
-+
-+				gphy0: eth-phy@10 {
-+					reg = <0x10>;
-+				};
-+			};
-+		};
++		parent_bus = of_mdio_find_bus(parent_bus_node);
++		if (!parent_bus) {
++			ret_val = -EPROBE_DEFER;
++			goto err_parent_bus;
++		}
++	} else {
++		parent_bus = mux_bus;
++	}
+ 
+ 	pb = devm_kzalloc(dev, sizeof(*pb), GFP_KERNEL);
+ 	if (pb == NULL) {
+@@ -112,11 +124,6 @@ int mdio_mux_init(struct device *dev,
+ 		goto err_parent_bus;
+ 	}
+ 
+-	parent_bus = of_mdio_find_bus(parent_bus_node);
+-	if (parent_bus == NULL) {
+-		ret_val = -EPROBE_DEFER;
+-		goto err_parent_bus;
+-	}
+ 
+ 	pb->switch_data = data;
+ 	pb->switch_fn = switch_fn;
+@@ -177,7 +184,8 @@ int mdio_mux_init(struct device *dev,
+ 	put_device(&pb->mii_bus->dev);
+ 
+ err_parent_bus:
+-	of_node_put(parent_bus_node);
++	if (!mux_bus)
++		of_node_put(parent_bus_node);
+ 	return ret_val;
+ }
+ EXPORT_SYMBOL_GPL(mdio_mux_init);
+diff --git a/include/linux/mdio-mux.h b/include/linux/mdio-mux.h
+index a243dbb..61f5b21 100644
+--- a/include/linux/mdio-mux.h
++++ b/include/linux/mdio-mux.h
+@@ -10,11 +10,13 @@
+ #ifndef __LINUX_MDIO_MUX_H
+ #define __LINUX_MDIO_MUX_H
+ #include <linux/device.h>
++#include <linux/phy.h>
+ 
+ int mdio_mux_init(struct device *dev,
+ 		  int (*switch_fn) (int cur, int desired, void *data),
+ 		  void **mux_handle,
+-		  void *data);
++		  void *data,
++		  struct mii_bus *mux_bus);
+ 
+ void mdio_mux_uninit(void *mux_handle);
+ 
 -- 
 1.9.1
