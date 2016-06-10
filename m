@@ -1,63 +1,239 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: Re: [net v3] veth: advertise peer link once both links are tied
- together
-Date: Fri, 10 Jun 2016 09:20:58 -0400 (EDT)
-Message-ID: <1764704950.51133004.1465564858359.JavaMail.zimbra@redhat.com>
-References: <574C6095.9050804@6wind.com> <1464623917-11536-1-git-send-email-vincent@bernat.im> <87bn3n358j.fsf@zoro.exoscale.ch> <574C69DE.3050305@6wind.com> <m3fusyg2pi.fsf@neo.luffy.cx> <574D56A0.3090606@6wind.com> <694175272.49661350.1465417849878.JavaMail.zimbra@redhat.com> <575ABD55.7020202@6wind.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH 2/2] rxrpc: Limit the listening backlog
+Date: Fri, 10 Jun 2016 14:37:23 +0100
+Message-ID: <146556584336.17266.3323627198404452525.stgit@warthog.procyon.org.uk>
+References: <146556583626.17266.7208552374581913605.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Vincent Bernat <vincent@bernat.im>,
-	"David S. Miller" <davem@davemloft.net>,
-	Vijay Pandurangan <vijayp@vijayp.ca>,
-	Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
-To: nicolas dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx4-phx2.redhat.com ([209.132.183.25]:50626 "EHLO
-	mx4-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932783AbcFJNVE convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 09:21:04 -0400
-In-Reply-To: <575ABD55.7020202@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <146556583626.17266.7208552374581913605.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
------ Original Message -----
-> From: "Nicolas Dichtel" <nicolas.dichtel@6wind.com>
-> To: "Lance Richardson" <lrichard@redhat.com>, "Vincent Bernat" <vince=
-nt@bernat.im>
-> Cc: "David S. Miller" <davem@davemloft.net>, "Vijay Pandurangan" <vij=
-ayp@vijayp.ca>, "Paolo Abeni"
-> <pabeni@redhat.com>, netdev@vger.kernel.org
-> Sent: Friday, June 10, 2016 9:15:01 AM
-> Subject: Re: [net v3] veth: advertise peer link once both links are t=
-ied together
->=20
-> Le 08/06/2016 22:30, Lance Richardson a =C3=A9crit :
-> [snip]
-> > I've been pondering how to fix this very problem off-and-on for a f=
-ew
-> > months
-> > now, without having arrived at any solution that was particularly
-> > satisfying.
-> >=20
-> > The main constraints I've been trying to meet are:
-> >    - User-space should be informed of veth pairing for both peers.
-> >    - RTM_NEWLINK messages should not refer to interfaces that haven=
-'t
-> >      been announced to user-space via previous RTM_NEWLINK messages=
-=2E
-> >    - The first (and only the first) RTM_NEWLINK message for a given
-> >      interface should have ifi_changes set to ~0U, subsequent RTM_N=
-EWLINK
-> >      messages should have ifi_changes set to reflect the flags that
-> >      have changed.
-> >=20
-> > This is the closest I've come to a satisfactory solution, it does m=
-eet
-> > the above constraints but still seems a little unnatural to me:
-> The patch looks good to me. Can you submit it formally?
->=20
+Limit the socket incoming call backlog queue size so that a remote client
+can't pump in sufficient new calls that the server runs out of memory.  Note
+that this is partially theoretical at the moment since whilst the number of
+calls is limited, the number of packets trying to set up new calls is not.
+This will be addressed in a later patch.
 
-Will post in a bit, thanks!
+If the caller of listen() specifies a backlog INT_MAX, then they get the
+current maximum; anything else greater than max_backlog or anything
+negative incurs EINVAL.
 
-  Lance
+The limit on the maximum queue size can be set by:
+
+	echo N >/proc/sys/net/rxrpc/max_backlog
+
+where 4<=N<=32.
+
+Further, set the default backlog to 0, requiring listen() to be called
+before we start actually queueing new calls.  Whilst this kind of is a
+change in the UAPI, the caller can't actually *accept* new calls anyway
+unless they've first called listen() to put the socket into the LISTENING
+state - thus the aforementioned new calls would otherwise just sit there,
+eating up kernel memory.  (Note that sockets that don't have a non-zero
+service ID bound don't get incoming calls anyway.)
+
+Given that the default backlog is now 0, make the AFS filesystem call
+kernel_listen() to set the maximum backlog for itself.
+
+Possible improvements include:
+
+ (1) Trimming a too-large backlog to max_backlog when listen is called.
+
+ (2) Trimming the backlog value whenever the value is used so that changes
+     to max_backlog are applied to an open socket automatically.  Note that
+     the AFS filesystem opens one socket and keeps it open for extended
+     periods, so would miss out on changes to max_backlog.
+
+ (3) Having a separate setting for the AFS filesystem.
+
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
+
+ fs/afs/rxrpc.c          |   34 +++++++++++++++++++---------------
+ net/rxrpc/af_rxrpc.c    |   19 +++++++++++--------
+ net/rxrpc/ar-internal.h |    1 +
+ net/rxrpc/misc.c        |    6 ++++++
+ net/rxrpc/sysctl.c      |   10 ++++++++++
+ 5 files changed, 47 insertions(+), 23 deletions(-)
+
+diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
+index 63cd9f939f19..4832de84d52c 100644
+--- a/fs/afs/rxrpc.c
++++ b/fs/afs/rxrpc.c
+@@ -85,18 +85,14 @@ int afs_open_socket(void)
+ 
+ 	skb_queue_head_init(&afs_incoming_calls);
+ 
++	ret = -ENOMEM;
+ 	afs_async_calls = create_singlethread_workqueue("kafsd");
+-	if (!afs_async_calls) {
+-		_leave(" = -ENOMEM [wq]");
+-		return -ENOMEM;
+-	}
++	if (!afs_async_calls)
++		goto error_0;
+ 
+ 	ret = sock_create_kern(&init_net, AF_RXRPC, SOCK_DGRAM, PF_INET, &socket);
+-	if (ret < 0) {
+-		destroy_workqueue(afs_async_calls);
+-		_leave(" = %d [socket]", ret);
+-		return ret;
+-	}
++	if (ret < 0)
++		goto error_1;
+ 
+ 	socket->sk->sk_allocation = GFP_NOFS;
+ 
+@@ -111,18 +107,26 @@ int afs_open_socket(void)
+ 	       sizeof(srx.transport.sin.sin_addr));
+ 
+ 	ret = kernel_bind(socket, (struct sockaddr *) &srx, sizeof(srx));
+-	if (ret < 0) {
+-		sock_release(socket);
+-		destroy_workqueue(afs_async_calls);
+-		_leave(" = %d [bind]", ret);
+-		return ret;
+-	}
++	if (ret < 0)
++		goto error_2;
++
++	ret = kernel_listen(socket, INT_MAX);
++	if (ret < 0)
++		goto error_2;
+ 
+ 	rxrpc_kernel_intercept_rx_messages(socket, afs_rx_interceptor);
+ 
+ 	afs_socket = socket;
+ 	_leave(" = 0");
+ 	return 0;
++
++error_2:
++	sock_release(socket);
++error_1:
++	destroy_workqueue(afs_async_calls);
++error_0:
++	_leave(" = %d", ret);
++	return ret;
+ }
+ 
+ /*
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index 38512a200db6..7a07362163ec 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -33,8 +33,6 @@ unsigned int rxrpc_debug; // = RXRPC_DEBUG_KPROTO;
+ module_param_named(debug, rxrpc_debug, uint, S_IWUSR | S_IRUGO);
+ MODULE_PARM_DESC(debug, "RxRPC debugging mask");
+ 
+-static int sysctl_rxrpc_max_qlen __read_mostly = 10;
+-
+ static struct proto rxrpc_proto;
+ static const struct proto_ops rxrpc_rpc_ops;
+ 
+@@ -191,6 +189,7 @@ static int rxrpc_listen(struct socket *sock, int backlog)
+ {
+ 	struct sock *sk = sock->sk;
+ 	struct rxrpc_sock *rx = rxrpc_sk(sk);
++	unsigned int max;
+ 	int ret;
+ 
+ 	_enter("%p,%d", rx, backlog);
+@@ -201,17 +200,21 @@ static int rxrpc_listen(struct socket *sock, int backlog)
+ 	case RXRPC_UNBOUND:
+ 		ret = -EADDRNOTAVAIL;
+ 		break;
+-	case RXRPC_CLIENT_UNBOUND:
+-	case RXRPC_CLIENT_BOUND:
+-	default:
+-		ret = -EBUSY;
+-		break;
+ 	case RXRPC_SERVER_BOUND:
+ 		ASSERT(rx->local != NULL);
++		max = READ_ONCE(rxrpc_max_backlog);
++		ret = -EINVAL;
++		if (backlog == INT_MAX)
++			backlog = max;
++		else if (backlog > max)
++			break;
+ 		sk->sk_max_ack_backlog = backlog;
+ 		rx->sk.sk_state = RXRPC_SERVER_LISTENING;
+ 		ret = 0;
+ 		break;
++	default:
++		ret = -EBUSY;
++		break;
+ 	}
+ 
+ 	release_sock(&rx->sk);
+@@ -591,7 +594,7 @@ static int rxrpc_create(struct net *net, struct socket *sock, int protocol,
+ 	sock_init_data(sock, sk);
+ 	sk->sk_state		= RXRPC_UNBOUND;
+ 	sk->sk_write_space	= rxrpc_write_space;
+-	sk->sk_max_ack_backlog	= sysctl_rxrpc_max_qlen;
++	sk->sk_max_ack_backlog	= 0;
+ 	sk->sk_destruct		= rxrpc_sock_destructor;
+ 
+ 	rx = rxrpc_sk(sk);
+diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
+index b89dcdcbc65a..f715cca767cd 100644
+--- a/net/rxrpc/ar-internal.h
++++ b/net/rxrpc/ar-internal.h
+@@ -641,6 +641,7 @@ extern const struct rxrpc_security rxrpc_no_security;
+ /*
+  * misc.c
+  */
++extern unsigned int rxrpc_max_backlog __read_mostly;
+ extern unsigned int rxrpc_requested_ack_delay;
+ extern unsigned int rxrpc_soft_ack_delay;
+ extern unsigned int rxrpc_idle_ack_delay;
+diff --git a/net/rxrpc/misc.c b/net/rxrpc/misc.c
+index 1afe9876e79f..bdc5e42fe600 100644
+--- a/net/rxrpc/misc.c
++++ b/net/rxrpc/misc.c
+@@ -15,6 +15,12 @@
+ #include "ar-internal.h"
+ 
+ /*
++ * The maximum listening backlog queue size that may be set on a socket by
++ * listen().
++ */
++unsigned int rxrpc_max_backlog __read_mostly = 10;
++
++/*
+  * How long to wait before scheduling ACK generation after seeing a
+  * packet with RXRPC_REQUEST_ACK set (in jiffies).
+  */
+diff --git a/net/rxrpc/sysctl.c b/net/rxrpc/sysctl.c
+index d20ed575acf4..a99690a8a3da 100644
+--- a/net/rxrpc/sysctl.c
++++ b/net/rxrpc/sysctl.c
+@@ -18,6 +18,7 @@ static struct ctl_table_header *rxrpc_sysctl_reg_table;
+ static const unsigned int zero = 0;
+ static const unsigned int one = 1;
+ static const unsigned int four = 4;
++static const unsigned int thirtytwo = 32;
+ static const unsigned int n_65535 = 65535;
+ static const unsigned int n_max_acks = RXRPC_MAXACKS;
+ 
+@@ -100,6 +101,15 @@ static struct ctl_table rxrpc_sysctl_table[] = {
+ 
+ 	/* Non-time values */
+ 	{
++		.procname	= "max_backlog",
++		.data		= &rxrpc_max_backlog,
++		.maxlen		= sizeof(unsigned int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= (void *)&four,
++		.extra2		= (void *)&thirtytwo,
++	},
++	{
+ 		.procname	= "rx_window_size",
+ 		.data		= &rxrpc_rx_window_size,
+ 		.maxlen		= sizeof(unsigned int),
