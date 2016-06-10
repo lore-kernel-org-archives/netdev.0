@@ -1,48 +1,55 @@
 From: John Crispin <john@phrozen.org>
-Subject: [PATCH V2 11/11] net: mediatek: remove superfluous queue wake up call
-Date: Fri, 10 Jun 2016 13:28:08 +0200
-Message-ID: <1465558088-15265-12-git-send-email-john@phrozen.org>
+Subject: Re: [PATCH V2 00/11] net: mediatek: various small fixes
+Date: Fri, 10 Jun 2016 13:30:15 +0200
+Message-ID: <ac8eae20-f8a5-6e06-43fd-c2826599b709@phrozen.org>
 References: <1465558088-15265-1-git-send-email-john@phrozen.org>
-Cc: Felix Fietkau <nbd@nbd.name>, Sean Wang <keyhaede@gmail.com>,
-	netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
-	linux-kernel@vger.kernel.org, John Crispin <john@phrozen.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Sean Wang <keyhaede@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-mediatek@lists.infradead.org,
+	Felix Fietkau <nbd@nbd.name>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1465558088-15265-1-git-send-email-john@phrozen.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The code checks if the queue should be stopped because we are below the
-threshold of free descriptors only to check if it should be started again.
-If we do end up in a state where we are at the threshold limit, it makes
-more sense to just stop the queue and wait for the next IRQ to trigger the
-TX housekeeping again. There is no rush in enqueuing the next packet, it
-needs to wait for all the others in the queue to be dispatched first
-anyway.
 
-Signed-off-by: John Crispin <john@phrozen.org>
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    7 ++-----
- 1 file changed, 2 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 40d3cfd..ebfca7d 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -764,12 +764,9 @@ static int mtk_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 	if (mtk_tx_map(skb, dev, tx_num, ring, gso) < 0)
- 		goto drop;
- 
--	if (unlikely(atomic_read(&ring->free_count) <= ring->thresh)) {
-+	if (unlikely(atomic_read(&ring->free_count) <= ring->thresh))
- 		mtk_stop_queue(eth);
--		if (unlikely(atomic_read(&ring->free_count) >
--			     ring->thresh))
--			mtk_wake_queue(eth);
--	}
-+
- 	spin_unlock_irqrestore(&eth->page_lock, flags);
- 
- 	return NETDEV_TX_OK;
--- 
-1.7.10.4
+On 10/06/2016 13:27, John Crispin wrote:
+> This series contains various small fixes that we stumbled across while
+> doing thorough testing and code level reviewing of the driver. The only
+> patch that sticks out is the first one, which addresses a DQL related
+> issue. The rest are just minor fixes.
+> 
+
+Hi David,
+
+i forgot to remove the last sentence here. can you live with that as it
+wont end up in the git history or do you want me to send a V3 with this
+line removed.
+
+	John
+
+
+> Changes in V2:
+> * drop the DQL patch from the list until a better solution is found
+> 
+> John Crispin (11):
+>   net: mediatek: add missing return code check
+>   net: mediatek: fix missing free of scratch memory
+>   net: mediatek: invalid buffer lookup in mtk_tx_map()
+>   net: mediatek: dropped rx packets are not being counted properly
+>   net: mediatek: add next data pointer coherency protection
+>   net: mediatek: disable all interrupts during probe
+>   net: mediatek: fix threshold value
+>   net: mediatek: increase watchdog_timeo
+>   net: mediatek: fix off by one in the TX ring allocation
+>   net: mediatek: only wake the queue if it is stopped
+>   net: mediatek: remove superfluous queue wake up call
+> 
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.c |   61 ++++++++++++++++++---------
+>  drivers/net/ethernet/mediatek/mtk_eth_soc.h |    3 ++
+>  2 files changed, 45 insertions(+), 19 deletions(-)
+> 
