@@ -1,72 +1,61 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 4/7] ixgbe: protect vxlan_get_rx_port in
- ixgbe_service_task with rtnl_lock
-Date: Fri, 10 Jun 2016 14:35:39 -0700
-Message-ID: <CAKgT0UeB-cQ_QAmwqLD+QsHOSy27XoayoL1qss_eBkAtvQk=pw@mail.gmail.com>
-References: <1461007188-1603-1-git-send-email-hannes@stressinduktion.org> <1461007188-1603-5-git-send-email-hannes@stressinduktion.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>, Jesse Gross <jesse@kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	Shannon Nelson <shannon.nelson@intel.com>,
-	Carolyn Wyborny <carolyn.wyborny@intel.com>,
-	Don Skidmore <donald.c.skidmore@intel.com>,
-	Bruce Allan <bruce.w.allan@intel.com>,
-	John Ronciak <john.ronciak@intel.com>,
-	Mitch Williams <mitch.a.williams@intel.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+From: Manuel Lauss <manuel.lauss@gmail.com>
+Subject: [PATCH] [PATCH v2] net: au1000_eth: fix PHY detection
+Date: Sat, 11 Jun 2016 00:13:04 +0200
+Message-ID: <20160610221304.694639-1-manuel.lauss@gmail.com>
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Manuel Lauss <manuel.lauss@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:34986 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752113AbcFJVfl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 17:35:41 -0400
-Received: by mail-io0-f194.google.com with SMTP id n127so10411807iof.2
-        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 14:35:40 -0700 (PDT)
-In-Reply-To: <1461007188-1603-5-git-send-email-hannes@stressinduktion.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34348 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752216AbcFJWNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 18:13:08 -0400
+Received: by mail-wm0-f67.google.com with SMTP id n184so1548546wmn.1
+        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 15:13:07 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Apr 18, 2016 at 12:19 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> vxlan_get_rx_port requires rtnl_lock to be held.
->
-> Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-> Cc: Jesse Brandeburg <jesse.brandeburg@intel.com>
-> Cc: Shannon Nelson <shannon.nelson@intel.com>
-> Cc: Carolyn Wyborny <carolyn.wyborny@intel.com>
-> Cc: Don Skidmore <donald.c.skidmore@intel.com>
-> Cc: Bruce Allan <bruce.w.allan@intel.com>
-> Cc: John Ronciak <john.ronciak@intel.com>
-> Cc: Mitch Williams <mitch.a.williams@intel.com>
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> index 2976df77bf14f5..b2f2cf40f06a87 100644
-> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-> @@ -7192,10 +7192,12 @@ static void ixgbe_service_task(struct work_struct *work)
->                 return;
->         }
->  #ifdef CONFIG_IXGBE_VXLAN
-> +       rtnl_lock();
->         if (adapter->flags2 & IXGBE_FLAG2_VXLAN_REREG_NEEDED) {
->                 adapter->flags2 &= ~IXGBE_FLAG2_VXLAN_REREG_NEEDED;
->                 vxlan_get_rx_port(adapter->netdev);
->         }
-> +       rtnl_unlock();
->  #endif /* CONFIG_IXGBE_VXLAN */
->         ixgbe_reset_subtask(adapter);
->         ixgbe_phy_interrupt_subtask(adapter);
-> --
-> 2.5.5
->
+Commit 7f854420fbfe9d49afe2ffb1df052cfe8e215541
+("phy: Add API for {un}registering an mdio device to a bus.")
+broke PHY detection on this driver with a copy-paste bug:
+The code is looking 32 times for a PHY at address 0.
 
-Would it be possible to only take the lock inside of the conditional
-statement?  There isn't really any need to be holding the rtnl_lock to
-check the adapter flag.
+Fixes ethernet on AMD DB1100/DB1500/DB1550 boards which have
+their (autodetected) PHYs at address 31.
 
-- Alex
+Cc: Andrew Lunn <andrew@lunn.ch>
+Signed-off-by: Manuel Lauss <manuel.lauss@gmail.com>
+---
+v2: unbreak "use highest phy addr" case.
+
+before:
+libphy: au1000_eth_mii: probed
+au1000-eth au1000-eth.0 (unnamed net_device) (uninitialized): no PHY found
+au1000-eth: probe of au1000-eth.0 failed with error -1
+
+after:
+libphy: au1000_eth_mii: probed
+AM79C874 au1000-eth-0:1f: attached PHY driver [AM79C874] (mii_bus:phy_addr=au1000-eth-0:1f, irq=-1)
+au1000-eth au1000-eth.0 eth0: Au1xx0 Ethernet found at 0x11500000, irq 36
+
+ drivers/net/ethernet/amd/au1000_eth.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/net/ethernet/amd/au1000_eth.c b/drivers/net/ethernet/amd/au1000_eth.c
+index e0fb0f1..20760e1 100644
+--- a/drivers/net/ethernet/amd/au1000_eth.c
++++ b/drivers/net/ethernet/amd/au1000_eth.c
+@@ -509,8 +509,8 @@ static int au1000_mii_probe(struct net_device *dev)
+ 	 * on the current MAC's MII bus
+ 	 */
+ 	for (phy_addr = 0; phy_addr < PHY_MAX_ADDR; phy_addr++)
+-		if (mdiobus_get_phy(aup->mii_bus, aup->phy_addr)) {
+-			phydev = mdiobus_get_phy(aup->mii_bus, aup->phy_addr);
++		if (mdiobus_get_phy(aup->mii_bus, phy_addr)) {
++			phydev = mdiobus_get_phy(aup->mii_bus, phy_addr);
+ 			if (!aup->phy_search_highest_addr)
+ 				/* break out with first one found */
+ 				break;
+-- 
+2.8.4
