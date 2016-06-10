@@ -1,100 +1,41 @@
-From: Lance Richardson <lrichard@redhat.com>
-Subject: [PATCHi next] veth: advertise peer link relationship for both devices
-Date: Fri, 10 Jun 2016 12:32:19 -0400
-Message-ID: <1465576339-17641-1-git-send-email-lrichard@redhat.com>
-Cc: nicolas.dichtel@6wind.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43665 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753041AbcFJQcY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 10 Jun 2016 12:32:24 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [PATCH][RT] netpoll: Always take poll_lock when doing polling
+Date: Fri, 10 Jun 2016 12:45:25 -0400
+Message-ID: <20160610124525.32cac2e0@gandalf.local.home>
+References: <20160526195641.6c26e979@gandalf.local.home>
+	<20160602161235.GA12971@linutronix.de>
+	<20160604071131.08d449db@grimm.local.home>
+	<20160610155717.GB10775@linutronix.de>
+	<20160610121118.03f281e8@gandalf.local.home>
+	<8582eb37-3b5b-ee7e-3a67-8f4609b0ac3f@linutronix.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: alison@peloton-tech.com, LKML <linux-kernel@vger.kernel.org>,
+	linux-rt-users <linux-rt-users@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	Peter Zijlstra <peterz@infradead.org>,
+	Clark Williams <williams@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>
+To: Sebastian Andrzej Siewior <bigeasy@linutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <8582eb37-3b5b-ee7e-3a67-8f4609b0ac3f@linutronix.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Currently, when creating a veth pair, notfications to user
-space only include link peer for one end of the veth pair:
-   # ip monitor link &
-   # ip link add dev vm1 type veth peer name vm2
-   30: vm2@NONE: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-       link/ether be:e3:b7:0e:14:52 brd ff:ff:ff:ff:ff:ff
-   31: vm1@vm2: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
-       link/ether da:e6:a6:c5:42:54 brd ff:ff:ff:ff:ff:ff
+On Fri, 10 Jun 2016 18:20:22 +0200
+Sebastian Andrzej Siewior <bigeasy@linutronix.de> wrote:
 
-With this change, netlink notifications are sent with complete
-information for both interfaces of the veth pair:
+> > We actually triggered a starvation due to this. I was just seeing if
+> > Alison hit the same issue we did in our tests.  
+> 
+> Okay. Didn't get this information from him. But this is only because
+> the softirqs not running in ksoftirqd, right?
 
-   # 3: vm2@NONE: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
-       link/ether e2:94:54:8a:ac:f5 brd ff:ff:ff:ff:ff:ff
-   4: vm1@vm2: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
-       link/ether b2:05:70:e0:fc:35 brd ff:ff:ff:ff:ff:ff
-   3: vm2@vm1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
-       link/ether e2:94:54:8a:ac:f5 brd ff:ff:ff:ff:ff:ff
+Right, I think we supplied this patch before we added the one that
+would push repeated softirqs to ksoftirqd. We probably should see if
+that patch alone fixes our issue.
 
-Signed-off-by: Lance Richardson <lrichard@redhat.com>
----
- drivers/net/veth.c   | 10 +++++++++-
- net/core/rtnetlink.c | 10 ++++++++--
- 2 files changed, 17 insertions(+), 3 deletions(-)
-
-diff --git a/drivers/net/veth.c b/drivers/net/veth.c
-index f37a6e6..9151686 100644
---- a/drivers/net/veth.c
-+++ b/drivers/net/veth.c
-@@ -458,7 +458,7 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 	netif_carrier_off(dev);
- 
- 	/*
--	 * tie the deviced together
-+	 * tie the devices together
- 	 */
- 
- 	priv = netdev_priv(dev);
-@@ -466,8 +466,16 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
- 
- 	priv = netdev_priv(peer);
- 	rcu_assign_pointer(priv->peer, dev);
-+
-+	err = rtnl_configure_link(dev, NULL);
-+	if (err < 0)
-+		goto err_configure_dev;
-+
-+	rtmsg_ifinfo(RTM_NEWLINK, peer, 0, GFP_KERNEL);
- 	return 0;
- 
-+err_configure_dev:
-+	/* nothing to do */
- err_register_dev:
- 	/* nothing to do */
- err_configure_peer:
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index d69c464..e0956bb 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -2165,6 +2165,7 @@ static int rtnl_dellink(struct sk_buff *skb, struct nlmsghdr *nlh)
- int rtnl_configure_link(struct net_device *dev, const struct ifinfomsg *ifm)
- {
- 	unsigned int old_flags;
-+	unsigned int gchanges;
- 	int err;
- 
- 	old_flags = dev->flags;
-@@ -2174,9 +2175,14 @@ int rtnl_configure_link(struct net_device *dev, const struct ifinfomsg *ifm)
- 			return err;
- 	}
- 
--	dev->rtnl_link_state = RTNL_LINK_INITIALIZED;
-+	if (dev->rtnl_link_state == RTNL_LINK_INITIALIZING) {
-+		dev->rtnl_link_state = RTNL_LINK_INITIALIZED;
-+		gchanges = ~0U;
-+	} else {
-+		gchanges = dev->flags ^ old_flags;
-+	}
- 
--	__dev_notify_flags(dev, old_flags, ~0U);
-+	__dev_notify_flags(dev, old_flags, gchanges);
- 	return 0;
- }
- EXPORT_SYMBOL(rtnl_configure_link);
--- 
-2.5.5
+-- Steve
