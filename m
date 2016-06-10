@@ -1,199 +1,64 @@
-From: Tien Hock Loh <thloh@altera.com>
-Subject: Re: [PATCH v3 1/1] net: ethernet: Add TSE PCS support to
- dwmac-socfpga
-Date: Thu, 9 Jun 2016 23:12:25 -0700
-Message-ID: <1465539145.4467.42.camel@ubuntu>
-References: <1465268516-31480-1-git-send-email-thloh@altera.com>
-	 <ab65dd4e-830a-c774-c8fa-1adfb3be1a69@st.com>
-	 <1465451310.4467.21.camel@ubuntu>
-	 <ac036ba2-c9ce-1fb4-89e3-9af499954907@st.com>
+From: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Subject: Re: [RFC] Handle error writing UINT_MAX to u32 fields
+Date: Fri, 10 Jun 2016 08:28:00 +0200
+Message-ID: <575A5DF0.7020300@gmx.de>
+References: <1465526452-30567-1-git-send-email-subashab@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: <robh+dt@kernel.org>, <pawel.moll@arm.com>, <mark.rutland@arm.com>,
-	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
-	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <thloh85@gmail.com>,
-	Chee Nouk Phoon <cnphoon@altera.com>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <ac036ba2-c9ce-1fb4-89e3-9af499954907@st.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+To: Subash Abhinov Kasiviswanathan <subashab@codeaurora.org>,
+	eric.dumazet@gmail.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.gmx.net ([212.227.17.21]:54020 "EHLO mout.gmx.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751017AbcFJG2N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jun 2016 02:28:13 -0400
+In-Reply-To: <1465526452-30567-1-git-send-email-subashab@codeaurora.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Peppe, 
 
-On Wed, 2016-06-08 at 23:20 +0000, Giuseppe CAVALLARO wrote:
-> Hello Tien Hock
-> 
-> On 6/9/2016 7:48 AM, Tien Hock Loh wrote:
-> 
-> [snip]
-> 
-> >>>  .../devicetree/bindings/net/socfpga-dwmac.txt      |   4 +
-> >>>  drivers/net/ethernet/stmicro/stmmac/Makefile       |   2 +-
-> >>>  .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 140 +++++++++--
-> >>>  drivers/net/ethernet/stmicro/stmmac/tse_pcs.c      | 261 +++++++++++++++++++++
-> >>>  drivers/net/ethernet/stmicro/stmmac/tse_pcs.h      |  36 +++
-> >>>  5 files changed, 419 insertions(+), 24 deletions(-)
-> >>>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/tse_pcs.c
-> >>>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/tse_pcs.h
-> >>
-> >> I just wonder if it could make sense to rename the
-> >> tse_pcs.[hc] files or creating a sub-directory for altera devel.
-> >> It seems that tse_pcs.[hc] are common files but this support
-> >> is for Altera.
-> >> Anyway, I let you decide and I also ask you to update the stmmac.txt
-> >> file.
-> >
-> > Yeah the PCS support for TSE is Altera. To avoid confusion, let's rename
-> > them, would altr_tse_pcs.[hc] be good? I don't think creating a
-> > sub-directory with only 2 files is necessary though.
-> 
-> ok for two files w/o sub-dir.
-> 
-> >
-> > I see that stmmac.txt is generic, and other vendor's PCS support
-> > documents their specific uses in their own *-dwmac.txt (eg.
-> > rockchip-dwmac.txt). Is this not the case?
-> 
-> yes you can use this name convention. I let you decide.
 
-What I meant was we've documented the bindings in socfpga-dwmac.txt for
-platform specific bindings, and I won't be updating stmmac.txt because
-that is the generic driver binding. Agree?
+On 06/10/2016 04:40 AM, Subash Abhinov Kasiviswanathan wrote:
+> We have scripts which write to certain fields on 3.18 kernels but
+> this seems to be failing on 4.4 kernels.
+> An entry which we write to here is xfrm_aevent_rseqth which is u32.
+> 
+> echo 4294967295  > /proc/sys/net/core/xfrm_aevent_rseqth
+> 
+> Commit 230633d109e35b0a24277498e773edeb79b4a331 ("kernel/sysctl.c:
+> detect overflows when converting to int") prevented writing to
+> sysctl entries when integer overflow occurs.
+> However, this does not apply to unsigned integers.
+> 
+> u32 should be able to hold 4294967295 here, however it fails due
+> to this check.
+> 
+> static int do_proc_dointvec_conv(bool *negp, unsigned long *lvalp,
+> ...
+> 			if (*lvalp > (unsigned long) INT_MAX)
+> 				return -EINVAL;
+>
 
-> 
-> [snip]
-> 
-> 
-> >>> +
-> >>> +		index = of_property_match_string(np_sgmii_adapter, "reg-names",
-> >>> +						 "eth_tse_control_port");
-> >>
-> >> reg-names looks to be specific and mandatory, IMO they should be
-> >> documented in the binding.
-> >
-> > That's the binding for the adapter (the phandle to the sgmii adapter),
-> > not the stmac binding itself. Do you mean I should document the sgmii
-> > adapter as well?
-> 
-> no I just meant for the adapter binding, I had understood that
-> eth_tse_control_port and gmii_to_sgmii_adapter_avalon_slave
-> were not documented and these seem to be mandatory.
+The task of the routine is to move data from unsigned long *lvalp to int
+*valv considering the sign in bool *negp. So the output was never meant
+to be > INT_MAX.
 
-OK noted.
+> I would like to know if introducing a new handler proc_douintvec
+> would work here. Sample output and implementation below. This can be
+> cleaned up and added for other u32 fields in kernel.
 
-> 
-> [snip]
-> 
-> >>> +
-> >>> +static void auto_nego_timer_callback(unsigned long data)
-> >>> +{
-> >>> +	u16 val = 0;
-> >>> +	u16 speed = 0;
-> >>> +	u16 duplex = 0;
-> >>> +
-> >>> +	struct tse_pcs *pcs = (struct tse_pcs *)data;
-> >>> +	void __iomem *tse_pcs_base = pcs->tse_pcs_base;
-> >>> +	void __iomem *sgmii_adapter_base = pcs->sgmii_adapter_base;
-> >>> +
-> >>> +	val = readw(tse_pcs_base + TSE_PCS_STATUS_REG);
-> >>> +	val &=  TSE_PCS_STATUS_AN_COMPLETED_MASK;
-> 
-> [snip]
-> 
-> >>
-> >> ANE is completed but speed or duplex is NOK. Any failure to signalling?
-> >> I see that you then enable the adpter in any case.
-> >>
-> >> Maybe we could try to restart ANE again or force it (reducing the speed)
-> >> I wonder what happens if, for some reason, there is some hw problem. In
-> >> that case the timer is always running signalling an invalid Parter
-> >> speed. Anyway, this is jus a question... I expect that this error will
-> >> always point us to a problem to debug further (if occurs).
-> >
-> > Let me look at how we can handle the case. Perhaps we could do a restart
-> > and register the timer again. I'm just worried it will go into an
-> > infinite timer registering hogging up the kernel if the hardware really
-> > fails. Maybe I can do a n-time retry here. Looking into this. Let me
-> > know if you have any opinions on this.
-> >
-> > I haven't been able to check for this behaviour though, negative testing
-> > on this code isn't too easy to simulate.
-> 
-> yes and I expect this can occur on hw / conf problems. Take a look at
-> how the Physical Abstraction Layer manages this.
-> Indeed, we can try to restart ANE for a while and then just report the
-> failure (dev_err). Or we can try to fix other speed or duplex. But not
-> sure this is a good solution. We just mask a problem.
+The suggested change would extend the usable range of positive numbers
+by one bit only. As many systems are 64 bit this does not seem forward
+looking.
 
-Done some read up on the generic PHY in Physical Abstraction Layer and
-it halts the PHY on aneg failure. I guess we can do do the same then, to
-not enable the SGMII adapter.
+I would prefer to have a routine that can handle 64 bit integers with
+limits (let's call it proc_doint64vec_minmax) which uses fields extra1
+and extra2 of ctl_table as min and max.
 
-> 
-> [snip]
-> 
-> >>> +
-> >>> +		setup_timer(&pcs->an_timer,
-> >>> +			    auto_nego_timer_callback,
-> >>> +			    (unsigned long)pcs);
-> >>> +		mod_timer(&pcs->an_timer, jiffies +
-> >>> +			  msecs_to_jiffies(AUTONEGO_TIMER));
-> >>> +	} else if (phy_dev->autoneg == AUTONEG_DISABLE) {
-> >>> +		val = readw(tse_pcs_base + TSE_PCS_CONTROL_REG);
-> >>> +		val &= ~TSE_PCS_CONTROL_AN_EN_MASK;
-> >>> +		writew(val, tse_pcs_base + TSE_PCS_CONTROL_REG);
-> >>> +
-> >>> +		val = readw(tse_pcs_base + TSE_PCS_IF_MODE_REG);
-> >>> +		val &= ~TSE_PCS_USE_SGMII_AN_MASK;
-> >>> +		writew(val, tse_pcs_base + TSE_PCS_IF_MODE_REG);
-> >>> +
-> >>> +		val = readw(tse_pcs_base + TSE_PCS_IF_MODE_REG);
-> >>> +		val &= ~TSE_PCS_SGMII_SPEED_MASK;
-> >>> +
-> >>> +		switch (speed) {
-> >>> +		case 1000:
-> >>> +			val |= TSE_PCS_SGMII_SPEED_1000;
-> >>> +			break;
-> >>> +		case 100:
-> >>> +			val |= TSE_PCS_SGMII_SPEED_100;
-> >>> +			break;
-> >>> +		case 10:
-> >>> +			val |= TSE_PCS_SGMII_SPEED_10;
-> >>> +			break;
-> >>> +		default:
-> >>> +			return;
-> >>> +		}
-> >>> +		writew(val, tse_pcs_base + TSE_PCS_IF_MODE_REG);
-> >>> +
-> >>> +		tse_pcs_reset(tse_pcs_base, pcs);
-> >>> +
-> >>> +		setup_timer(&pcs->link_timer,
-> >>> +			    pcs_link_timer_callback,
-> >>> +					(unsigned long)pcs);
-> >>> +		mod_timer(&pcs->link_timer, jiffies +
-> >>> +			  msecs_to_jiffies(LINK_TIMER));
-> >>
-> >> I wonder if we can have just one timer to manage ANE and LINK.
-> >>
-> >
-> > That would increase the complexity of the code because we would need to
-> > check the callback type on when the callback is triggered and call the
-> > correct function.
-> 
-> hmm, in that case, you have two timers and no lock protection:
-> I suspect there could be some hidden problem. The link goes down
-> and a timer polls this then another one try to restart ANE and
-> both timers read the TSE_PCS_STATUS_REG.
-> IMO, a timer is enough and you could keep the code to manage ANE and
-> LINK in two different functions. Pls take a look at if this is feasible.
+Then set xfrm_table[].extra1 = 0 and xfrm_table[].extra2 = UINT_MAX if
+you need a result in the u32 range.
 
-Yeah you're right about the lock protection. I'll patch them to use one
-timer.
+Best regards
 
-> 
-> Peppe
-
-Tien Hock
+Heinrich Schuchardt
