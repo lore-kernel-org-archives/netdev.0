@@ -1,49 +1,29 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH 1/2] rxrpc: Trim line-terminal whitespace [ver #2]
-Date: Fri, 10 Jun 2016 14:37:59 +0100
-Message-ID: <146556587905.17482.14686239628937102032.stgit@warthog.procyon.org.uk>
+Subject: Re: [PATCH 2/2] rxrpc: Limit the listening backlog
+Date: Fri, 10 Jun 2016 14:40:28 +0100
+Message-ID: <17686.1465566028@warthog.procyon.org.uk>
+References: <146556584336.17266.3323627198404452525.stgit@warthog.procyon.org.uk> <146556583626.17266.7208552374581913605.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="us-ascii"
 Cc: dhowells@redhat.com, netdev@vger.kernel.org,
 	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:36243 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753350AbcFJNka (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 10 Jun 2016 09:40:30 -0400
+In-Reply-To: <146556584336.17266.3323627198404452525.stgit@warthog.procyon.org.uk>
+Content-ID: <17685.1465566028.1@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Trim line-terminal whitespace in net/rxrpc/
+David Howells <dhowells@redhat.com> wrote:
 
-Signed-off-by: David Howells <dhowells@redhat.com>
----
+> +		else if (backlog > max)
+> +			break;
 
- net/rxrpc/ar-input.c |    2 +-
- net/rxrpc/ar-local.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+Oops.  Please ignore this version of the patch - I forgot to commit a change
+to it before posting.
 
-diff --git a/net/rxrpc/ar-input.c b/net/rxrpc/ar-input.c
-index d7c2a0bc839e..e0815a033999 100644
---- a/net/rxrpc/ar-input.c
-+++ b/net/rxrpc/ar-input.c
-@@ -734,7 +734,7 @@ void rxrpc_data_ready(struct sock *sk)
- 		rxrpc_post_packet_to_local(local, skb);
- 		goto out;
- 	}
--	
-+
- 	if (sp->hdr.type == RXRPC_PACKET_TYPE_DATA &&
- 	    (sp->hdr.callNumber == 0 || sp->hdr.seq == 0))
- 		goto bad_message;
-diff --git a/net/rxrpc/ar-local.c b/net/rxrpc/ar-local.c
-index 701c42b7050e..111f250b045f 100644
---- a/net/rxrpc/ar-local.c
-+++ b/net/rxrpc/ar-local.c
-@@ -388,7 +388,7 @@ static void rxrpc_process_local_events(struct work_struct *work)
- 	_enter("");
- 
- 	atomic_inc(&local->usage);
--	
-+
- 	while ((skb = skb_dequeue(&local->event_queue))) {
- 		struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
- 
+David
