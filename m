@@ -1,40 +1,39 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: cavium: liquidio: Remove deprecated
- create_workqueue
-Date: Thu, 09 Jun 2016 23:49:07 -0700 (PDT)
-Message-ID: <20160609.234907.1896722620762197262.davem@davemloft.net>
-References: <20160607201758.GA14937@Karyakshetra>
+Subject: Re: [PATCH] mlxsw: core: Remove deprecated create_workqueue
+Date: Thu, 09 Jun 2016 23:50:05 -0700 (PDT)
+Message-ID: <20160609.235005.436161549558871599.davem@davemloft.net>
+References: <20160607195946.GA11743@Karyakshetra>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: derek.chickles@caviumnetworks.com,
-	satananda.burla@caviumnetworks.com,
-	felix.manlunas@caviumnetworks.com,
-	raghu.vatsavayi@caviumnetworks.com, tj@kernel.org,
+Cc: jiri@mellanox.com, idosch@mellanox.com, tj@kernel.org,
 	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
 To: bhaktipriya96@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160607201758.GA14937@Karyakshetra>
+In-Reply-To: <20160607195946.GA11743@Karyakshetra>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Date: Wed, 8 Jun 2016 01:47:59 +0530
+Date: Wed, 8 Jun 2016 01:29:46 +0530
 
 > alloc_workqueue replaces deprecated create_workqueue().
 > 
-> A dedicated workqueue has been used since the workitem viz
-> (&lio->txq_status_wq.wk.work which maps to octnet_poll_check_txq_status)
-> is involved in a brief poll routine for checking transmit queue status
-> and is an intergral part of normal device operation.
-> WQ_MEM_RECLAIM has been set to guarantee forward progress under memory
-> pressure, which is a requirement here.
-> Since there are only a fixed number of work items, explicit concurrency
-> limit is unnecessary.
+> A dedicated workqueue has been used since the workqueue
+> mlxsw_wq is used for FDB notif. processing with workitems that are
+> involved in normal device operation && because it's a network device
+> which can be depended upon during memory reclaim.
 > 
-> flush_workqueue is unnecessary since destroy_workqueue() itself calls
-> drain_workqueue() which flushes repeatedly till the workqueue
-> becomes empty.
+> Workitems &trans->timeout_dw and &mlxsw_sp->fdb_notify.dw,
+> map to mlxsw_sp_fdb_notify_work (processes FDB notifications from the
+> underlying device and resolves the netdev to which the entry points to
+> and notifies the bridge using the switchdev notifier) and
+> mlxsw_emad_trans_timeout_work (provides async EMAD register access)
+> respectively. They require forward progress under memory pressure and
+> hence, WQ_MEM_RECLAIM has been set.
+> 
+> Since there are only a fixed number of work items, explicit concurrency
+> limit is unnecessary here.
 > 
 > Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 
