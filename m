@@ -1,105 +1,85 @@
-From: Scott Wood <oss@buserror.net>
-Subject: Re: [PATCH 4/4] Revert "powerpc/fsl: Move fsl_guts.h out of
- arch/powerpc"
-Date: Fri, 10 Jun 2016 21:13:07 -0500
-Message-ID: <1465611186.22191.169.camel@buserror.net>
-References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
-	 <5513501.AmZs7h1vI2@wuerfel> <1464830660.22191.6.camel@buserror.net>
-	 <3225846.9EJ0sHv0XK@wuerfel>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 04/21] fs: Replace CURRENT_TIME with
+	current_fs_time() for inode timestamps
+Date: Sat, 11 Jun 2016 00:23:39 +0200
+Message-ID: <3828814.bejVmX1kJo__40680.5351296954$1465611492$gmane$org@wuerfel>
+References: <1465448705-25055-1-git-send-email-deepa.kernel@gmail.com>
+	<1465448705-25055-5-git-send-email-deepa.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: linuxppc-dev@lists.ozlabs.org,
-	Ulf Hansson <ulf.hansson@linaro.org>,
-	Yangbo Lu <yangbo.lu@nxp.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Xiaobo Xie <xiaobo.xie@nxp.com>,
-	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
-	"linux-clk@vger.kernel.org" <linux-clk@vger.kernel.org>,
-	Qiang Zhao <qiang.zhao@nxp.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-	Joerg Roedel <joro@8bytes.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	Santosh Shilimkar <ssantosh@kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Yang-Leo
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <3225846.9EJ0sHv0XK@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Latchesar Ionkov <lucho@ionkov.net>, Dave Kleikamp <shaggy@kernel.org>,
+	jfs-discussion@lists.sourceforge.net, Michal Hocko <mhocko@suse.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Matt Fleming <matt@codeblueprint.co.uk>, Firo Yang <firogm@gmail.com>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	Alexei Starovoitov <ast@kernel.org>, David Howells <dhowells@redhat.com>,
+	Julia Lawall <Julia.Lawall@lip6.fr>, linux-efi@vger.kernel.org,
+	selinux@tycho.nsa.gov, Eric Paris <eparis@parisplace.org>,
+	Matthew Garrett <matthew.garrett@nebula.com>,
+	Jeff Layton <jlayton@poochiereds.net>,
+	linux-f2fs-devel@lists.sourceforge.net,
+	Sean Hefty <sean.hefty@intel.com>, Ian Kent <raven@themaw.net>,
+	linux-cifs@vger.kernel.org, Paul Moore <paul@paul-moore.com>,
+	"David S. Miller" <davem@davemloft.net>, y2038@lists.linaro.org,
+	Anton Vorontsov <anton@enomsg.org>, Hugh Dickins <hughd@
+To: Deepa Dinamani <deepa.kernel@gmail.com>,
+	Mike Marshall <hubcap@omnibond.com>,
+	Nadia Yvette Chambers <nyc@holomorphy.com>,
+	Chao Yu <chao2.yu@samsung.com>, linux-nilfs@vger.kernel.org
+Return-path: <jfs-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1465448705-25055-5-git-send-email-deepa.kernel@gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/jfs-discussion>,
+	<mailto:jfs-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=jfs-discussion>
+List-Post: <mailto:jfs-discussion@lists.sourceforge.net>
+List-Help: <mailto:jfs-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/jfs-discussion>,
+	<mailto:jfs-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: jfs-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-06-02 at 11:01 +0200, Arnd Bergmann wrote:
-> On Wednesday, June 1, 2016 8:24:20 PM CEST Scott Wood wrote:
-> > On Mon, 2016-05-30 at 15:18 +0200, Arnd Bergmann wrote:
-> > > All users of this driver are PowerPC specific and the header file
-> > > has no business in the global include/linux/ hierarchy, so move
-> > > it back before anyone starts using it on ARM.
-> > > 
-> > > This reverts commit 948486544713492f00ac8a9572909101ea892cb0.
-> > > 
-> > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> > > ---
-> > > This part of the series is not required for the eSDHC quirk,
-> > > but it restores the asm/fsl_guts.h header so it doesn't accidentally
-> > > get abused for this in the future. I found two drivers outside of
-> > > arch/powerpc that already accessed the registers directly, but the
-> > > functions look fairly contained, and can be easily hidden in an
-> > > #ifdef CONFIG_PPC
-> > 
-> > NACK
-> > 
-> > Besides adding ifdef pollution for no good reason, this register block is
-> > used
-> > on some ARM chips as well.  Why is it a problem if "anyone starts using it
-> > on
-> > ARM"?
+On Wednesday, June 8, 2016 10:04:48 PM CEST Deepa Dinamani wrote:
 > 
-> It's just not a good interface when it's defined as "this is the layout of
-> a register area that any driver can ioremap() if they can figure out the
-> device node".
+> Signed-off-by: Deepa Dinamani <deepa.kernel@gmail.com>
+> Cc: Steve French <sfrench@samba.org>
+> Cc: linux-cifs@vger.kernel.org
+> Cc: samba-technical@lists.samba.org
+> Cc: Joern Engel <joern@logfs.org>
+> Cc: Prasad Joshi <prasadjoshi.linux@gmail.com>
+> Cc: logfs@logfs.org
+> Cc: Andrew Morton <akpm@linux-foundation.org>
+> Cc: Julia Lawall <Julia.Lawall@lip6.fr>
+> Cc: David Howells <dhowells@redhat.com>
+> Cc: Firo Yang <firogm@gmail.com>
+> Cc: Jaegeuk Kim <jaegeuk@kernel.org>
+> Cc: Changman Lee <cm224.lee@samsung.com>
+> ...
 
-That's why I want to move accesses into one guts driver.
 
->  It's not uncommon to have register areas like that, but
-> normally you have at the minimum a 'syscon' device to handle locking
-> between drivers accessing the same registers and to avoid having to map
-> the same area multiple times.
+Hi Deepa,
 
-syscon requires device tree changes.
 
-I don't see read-modify-write operations in regmap -- how does locking around
-an individual, inherently-atomic load or store help?
+Just FYI, the vger.kernel.org list server and some others
+intentionally reject mails with more than 1024 characters in the
+Cc header, to stop people from cross-posting to too many folks.
 
-> If we need to use 'guts' registers on ARM, we can find a way to abstract
-> them properly for the given use cases, using a syscon or a driver with
-> exported functions, but just making a PowerPC platform specific header
-> global to all Linux drivers by putting it into include/linux doesn't seem
-> right.
+I realize that you merged the patch after Linus' comment about
+doing things in fewer steps for the simple conversion, which is
+fine, but then the patch should be obvious enough that you
+don't need to Cc every single maintainer and mailing list.
 
-Again, it's not PowerPC-specific!  It started that way but then the same
-register block got put onto some ARM chips.
+I've had some cases like this, and I usually remove the people
+that are less likely to reply, leaving one per subsystem.
+Leaving out the cleartext names is another trick you can use
+if you think that you really need to Cc more people than
+allowed ;-)
 
-It's not global to "all Linux drivers", just the ones that choose to include
-an fsl-specific header.
+	Arnd
 
-If and when all uses of guts are moved into the guts driver, the header can be
-moved into drivers/soc/fsl.
-
-> Note that the header file uses a structure definition rather than the more
-> common macros with register offsets, which is fine for a driver that has
-> its own registers and abstracts them, but it doesn't really work with
-> the regmap interface, so if we want to use it with syscon, it also needs to
-> be rewritten.
-
-We don't want to use it with syscon.  If we did, the solution wouldn't be to
-move the header back to arch/powerpc, but to convert the struct into offsets.
-
--Scott
+------------------------------------------------------------------------------
+What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
+patterns at an interface-level. Reveals which users, apps, and protocols are 
+consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
+J-Flow, sFlow and other flows. Make informed decisions using capacity 
+planning reports. https://ad.doubleclick.net/ddm/clk/305295220;132659582;e
