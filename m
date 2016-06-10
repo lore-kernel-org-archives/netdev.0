@@ -1,75 +1,51 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH v2 net] fq_codel: fix NET_XMIT_CN behavior
-Date: Fri, 10 Jun 2016 08:02:55 -0400
-Message-ID: <575AAC6F.7090301@mojatatu.com>
-References: <1465062227.2968.7.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160604190301.GA8857@strlen.de>
- <1465070113.2968.18.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpVORpFx_xx67gYT_3jXfWAuqkMmR03R9VJv1TrcqH4W8A@mail.gmail.com>
- <1465160087.2968.51.camel@edumazet-glaptop3.roam.corp.google.com>
- <1465160123.2968.52.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpXMwT20nhWW4Pd2yy6nkeXkSNdxV9wAEGzGd22PcyePmg@mail.gmail.com>
- <57555536.1090801@mojatatu.com> <20160606114234.GB7827@breakpoint.cc>
- <1465223845.2968.61.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160606161843.GD7827@breakpoint.cc>
+From: Giuseppe CAVALLARO <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
+Subject: Re: [PATCH v3 1/1] net: ethernet: Add TSE PCS support to
+ dwmac-socfpga
+Date: Fri, 10 Jun 2016 14:09:54 +0200
+Message-ID: <6ab2c663-5559-5818-5357-6801ff452dfb@st.com>
+References: <1465268516-31480-1-git-send-email-thloh@altera.com>
+ <ab65dd4e-830a-c774-c8fa-1adfb3be1a69@st.com>
+ <1465451310.4467.21.camel@ubuntu>
+ <ac036ba2-c9ce-1fb4-89e3-9af499954907@st.com>
+ <1465539145.4467.42.camel@ubuntu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Stas Nichiporovich <stasn77@gmail.com>
-To: Florian Westphal <fw@strlen.de>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f178.google.com ([209.85.223.178]:36154 "EHLO
-	mail-io0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751559AbcFJMDE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 08:03:04 -0400
-Received: by mail-io0-f178.google.com with SMTP id n127so63531331iof.3
-        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 05:03:03 -0700 (PDT)
-In-Reply-To: <20160606161843.GD7827@breakpoint.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <pawel.moll-5wv7dgnIgG8@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <thloh85-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Chee Nouk Phoon <cnphoon-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
+To: Tien Hock Loh <thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1465539145.4467.42.camel@ubuntu>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 16-06-06 12:18 PM, Florian Westphal wrote:
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> On Mon, 2016-06-06 at 13:42 +0200, Florian Westphal wrote:
->>> Jamal Hadi Salim <jhs@mojatatu.com> wrote:
->>>> BTW, returning NET_XMIT_CN could be confusing to tcp;
->>>> it does not mean that the packet that we are getting return
->>>> code for was dropped; it could mean _another_ packet in
->>>> the queue was dropped.
->>>
->>> Yes, but we currently conceal NET_XMIT_CN from upper layer (tcp)
->>> via the net_xmit_* macros:
->>>
->>> #define net_xmit_eval(e)       ((e) == NET_XMIT_CN ? 0 : (e))
->>> #define net_xmit_errno(e)      ((e) != NET_XMIT_CN ? -ENOBUFS : 0)
->>>
->>> Might be worth changing this so tcp reduces cwnd in _CN case too.
->>
->> It always had been the case.
->>
->> tcp_transmit_skb() calls tcp_enter_cwr(), unless someone broke this.
->
-> No, you're right.  We hide error in ip_send_skb but that function is
-> not used in tcp case.
->
-> So all is good here.
->
+Hello Tien Hock
 
-Just making sure because that little gem is not obvious;->
+On 6/10/2016 8:12 AM, Tien Hock Loh wrote:
+>>> Yeah the PCS support for TSE is Altera. To avoid confusion, let's rename
+>>> > > them, would altr_tse_pcs.[hc] be good? I don't think creating a
+>>> > > sub-directory with only 2 files is necessary though.
+>> >
+>> > ok for two files w/o sub-dir.
+>> >
+>>> > >
+>>> > > I see that stmmac.txt is generic, and other vendor's PCS support
+>>> > > documents their specific uses in their own *-dwmac.txt (eg.
+>>> > > rockchip-dwmac.txt). Is this not the case?
+>> >
+>> > yes you can use this name convention. I let you decide.
+> What I meant was we've documented the bindings in socfpga-dwmac.txt for
+> platform specific bindings, and I won't be updating stmmac.txt because
+> that is the generic driver binding. Agree?
 
-Eric, on the NET_XMIT_CN digression:
-depends on the qdisc scheduler.
-NET_XMIT_CN could mean one of two things:
-"There is congestion. The packet you sent was dropped locally" and
-"There is congestion. The packet you sent was not dropped locally"
-Yes, they both react with tcp_enter_cwr() and from a macroscopic
-view it probably doesnt matter as much because tcp state machine will
-kick in at some point. I think better use could be made of such
-knowledge.
+ok if you documented all in socfpga-dwmac.txt
 
-cheers,
-jamal
+peppe
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
