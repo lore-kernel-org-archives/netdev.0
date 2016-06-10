@@ -1,76 +1,95 @@
-From: Baozeng Ding <sploving1@gmail.com>
-Subject: [PATCH] tipc: fix potential null pointer dereference in the nla_data
- function
-Date: Fri, 10 Jun 2016 10:26:59 +0800
-Message-ID: <a692a179-6f59-fdbb-9c49-e943677fce43@gmail.com>
-References: <4b00b274-d144-2809-fa86-1ea38d913fd5@gmail.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCHv4 net-next] sctp: sctp should change socket state when
+ shutdown is received
+Date: Thu, 9 Jun 2016 23:39:03 -0300
+Message-ID: <20160610023903.GC22693@localhost.localdomain>
+References: <d964561c0d409848ea5724615c910e6d2ce53557.1465483698.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com, ying.xue@windriver.com, davem@davemloft.net
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net, eric.dumazet@gmail.com
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:33703 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750772AbcFJC1H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 9 Jun 2016 22:27:07 -0400
-Received: by mail-pa0-f65.google.com with SMTP id di3so3965194pab.0
-        for <netdev@vger.kernel.org>; Thu, 09 Jun 2016 19:27:07 -0700 (PDT)
-In-Reply-To: <4b00b274-d144-2809-fa86-1ea38d913fd5@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:43284 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751958AbcFJCjI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 9 Jun 2016 22:39:08 -0400
+Content-Disposition: inline
+In-Reply-To: <d964561c0d409848ea5724615c910e6d2ce53557.1465483698.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Before calling the nla_data function, make sure the argument is not null.
-Fix potential null pointer dereference vulnerability for this.
+On Thu, Jun 09, 2016 at 10:48:18PM +0800, Xin Long wrote:
+> Now sctp doesn't change socket state upon shutdown reception. It changes
+> just the assoc state, even though it's a TCP-style socket.
+> 
+> For some cases, if we really need to check sk->sk_state, it's necessary to
+> fix this issue, at least when we use ss or netstat to dump, we can get a
+> more exact information.
+> 
+> As an improvement, we will change sk->sk_state when we change asoc->state
+> to SHUTDOWN_RECEIVED, and also do it in sctp_shutdown to keep consistent
+> with sctp_close.
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-Signed-off-by: Baozeng Ding <sploving1@gmail.com>
----
- net/tipc/netlink_compat.c | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+Acked-by: Marcelo R. Leitner <marcelo.leitner@gmail.com>
 
-diff --git a/net/tipc/netlink_compat.c b/net/tipc/netlink_compat.c
-index f795b1d..efbba26 100644
---- a/net/tipc/netlink_compat.c
-+++ b/net/tipc/netlink_compat.c
-@@ -356,6 +356,9 @@ static int tipc_nl_compat_bearer_dump(struct tipc_nl_compat_msg *msg,
- 	if (err)
- 		return err;
- 
-+	if (!bearer[TIPC_NLA_BEARER_NAME])
-+		return -EINVAL;
-+
- 	return tipc_add_tlv(msg->rep, TIPC_TLV_BEARER_NAME,
- 			    nla_data(bearer[TIPC_NLA_BEARER_NAME]),
- 			    nla_len(bearer[TIPC_NLA_BEARER_NAME]));
-@@ -492,6 +495,9 @@ static int tipc_nl_compat_link_stat_dump(struct tipc_nl_compat_msg *msg,
- 	if (err)
- 		return err;
- 
-+	if (!link[TIPC_NLA_LINK_NAME])
-+		return -EINVAL;
-+
- 	name = (char *)TLV_DATA(msg->req);
- 	if (strcmp(name, nla_data(link[TIPC_NLA_LINK_NAME])) != 0)
- 		return 0;
-@@ -602,6 +608,9 @@ static int tipc_nl_compat_link_dump(struct tipc_nl_compat_msg *msg,
- 	if (err)
- 		return err;
- 
-+	if (!link[TIPC_NLA_LINK_NAME])
-+		return -EINVAL;
-+
- 	link_info.dest = nla_get_flag(link[TIPC_NLA_LINK_DEST]);
- 	link_info.up = htonl(nla_get_flag(link[TIPC_NLA_LINK_UP]));
- 	strcpy(link_info.str, nla_data(link[TIPC_NLA_LINK_NAME]));
-@@ -981,6 +990,9 @@ static int tipc_nl_compat_media_dump(struct tipc_nl_compat_msg *msg,
- 	if (err)
- 		return err;
- 
-+	if (!media[TIPC_NLA_MEDIA_NAME])
-+		return -EINVAL;
-+
- 	return tipc_add_tlv(msg->rep, TIPC_TLV_MEDIA_NAME,
- 			    nla_data(media[TIPC_NLA_MEDIA_NAME]),
- 			    nla_len(media[TIPC_NLA_MEDIA_NAME]));
--- 
-1.9.1
+> ---
+>  net/sctp/sm_sideeffect.c | 4 +++-
+>  net/sctp/socket.c        | 8 ++++++--
+>  2 files changed, 9 insertions(+), 3 deletions(-)
+> 
+> diff --git a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
+> index aa37122..12d4519 100644
+> --- a/net/sctp/sm_sideeffect.c
+> +++ b/net/sctp/sm_sideeffect.c
+> @@ -806,8 +806,10 @@ static void sctp_cmd_new_state(sctp_cmd_seq_t *cmds,
+>  
+>  		/* Set the RCV_SHUTDOWN flag when a SHUTDOWN is received. */
+>  		if (sctp_state(asoc, SHUTDOWN_RECEIVED) &&
+> -		    sctp_sstate(sk, ESTABLISHED))
+> +		    sctp_sstate(sk, ESTABLISHED)) {
+> +			sk->sk_state = SCTP_SS_CLOSING;
+>  			sk->sk_shutdown |= RCV_SHUTDOWN;
+> +		}
+>  	}
+>  
+>  	if (sctp_state(asoc, COOKIE_WAIT)) {
+> diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+> index 67154b8..125ddcb 100644
+> --- a/net/sctp/socket.c
+> +++ b/net/sctp/socket.c
+> @@ -4193,6 +4193,7 @@ static void sctp_shutdown(struct sock *sk, int how)
+>  		return;
+>  
+>  	if (how & SEND_SHUTDOWN) {
+> +		sk->sk_state = SCTP_SS_CLOSING;
+>  		ep = sctp_sk(sk)->ep;
+>  		if (!list_empty(&ep->asocs)) {
+>  			asoc = list_entry(ep->asocs.next,
+> @@ -7564,10 +7565,13 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+>  	/* If the association on the newsk is already closed before accept()
+>  	 * is called, set RCV_SHUTDOWN flag.
+>  	 */
+> -	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP))
+> +	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP)) {
+> +		newsk->sk_state = SCTP_SS_CLOSING;
+>  		newsk->sk_shutdown |= RCV_SHUTDOWN;
+> +	} else {
+> +		newsk->sk_state = SCTP_SS_ESTABLISHED;
+> +	}
+>  
+> -	newsk->sk_state = SCTP_SS_ESTABLISHED;
+>  	release_sock(newsk);
+>  }
+>  
+> -- 
+> 2.1.0
+> 
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> 
