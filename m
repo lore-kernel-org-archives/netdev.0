@@ -1,36 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2 0/3] net: bgmac: Misc improvements
-Date: Thu, 09 Jun 2016 23:37:37 -0700 (PDT)
-Message-ID: <20160609.233737.1585934679357918917.davem@davemloft.net>
-References: <1465337175-22368-1-git-send-email-f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next] r8152: replace netdev_alloc_skb_ip_align with
+ napi_alloc_skb
+Date: Thu, 09 Jun 2016 23:38:34 -0700 (PDT)
+Message-ID: <20160609.233834.1165575341006793639.davem@davemloft.net>
+References: <1394712342-15778-174-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ben@decadent.org.uk, zajec5@gmail.com,
-	hauke@hauke-m.de, jon.mason@broadcom.com
-To: f.fainelli@gmail.com
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54097 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54101 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752178AbcFJGhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 02:37:38 -0400
-In-Reply-To: <1465337175-22368-1-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S1751251AbcFJGif (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 02:38:35 -0400
+In-Reply-To: <1394712342-15778-174-Taiwan-albertk@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Florian Fainelli <f.fainelli@gmail.com>
-Date: Tue,  7 Jun 2016 15:06:12 -0700
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Wed, 8 Jun 2016 14:52:33 +0800
 
-> Hi David, Rafal, Hauke, Felix,
+> Replace netdev_alloc_skb_ip_align() with napi_alloc_skb() which can save
+> several CPU cycles by avoiding having to disable and re-enable IRQs.
 > 
-> This patch series add minor changes to the bgmac driver:
-> 
-> - properly bind net_device with its backing device structure such that
->   we can locate the device using common helper functions
-> 
-> - add support for ethtool statistics reading the HW MIB counters which
->   is useful for debugging
-> 
-> - add netdev statistics throughout the TX/RX path to know what is going on
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
-Series applied, thanks.
+Applied.
