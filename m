@@ -1,7 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next] rxrpc: Trim line-terminal whitespace
-Date: Fri, 10 Jun 2016 22:30:27 +0100
-Message-ID: <146559422722.20366.1083896579245647541.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next] rxrpc: Limit the listening backlog
+Date: Fri, 10 Jun 2016 22:30:37 +0100
+Message-ID: <146559423718.20422.5984823569057840023.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
@@ -12,38 +12,226 @@ Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Trim line-terminal whitespace in net/rxrpc/
+Limit the socket incoming call backlog queue size so that a remote client
+can't pump in sufficient new calls that the server runs out of memory.  Note
+that this is partially theoretical at the moment since whilst the number of
+calls is limited, the number of packets trying to set up new calls is not.
+This will be addressed in a later patch.
+
+If the caller of listen() specifies a backlog INT_MAX, then they get the
+current maximum; anything else greater than max_backlog or anything
+negative incurs EINVAL.
+
+The limit on the maximum queue size can be set by:
+
+	echo N >/proc/sys/net/rxrpc/max_backlog
+
+where 4<=N<=32.
+
+Further, set the default backlog to 0, requiring listen() to be called
+before we start actually queueing new calls.  Whilst this kind of is a
+change in the UAPI, the caller can't actually *accept* new calls anyway
+unless they've first called listen() to put the socket into the LISTENING
+state - thus the aforementioned new calls would otherwise just sit there,
+eating up kernel memory.  (Note that sockets that don't have a non-zero
+service ID bound don't get incoming calls anyway.)
+
+Given that the default backlog is now 0, make the AFS filesystem call
+kernel_listen() to set the maximum backlog for itself.
+
+Possible improvements include:
+
+ (1) Trimming a too-large backlog to max_backlog when listen is called.
+
+ (2) Trimming the backlog value whenever the value is used so that changes
+     to max_backlog are applied to an open socket automatically.  Note that
+     the AFS filesystem opens one socket and keeps it open for extended
+     periods, so would miss out on changes to max_backlog.
+
+ (3) Having a separate setting for the AFS filesystem.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-input.c |    2 +-
- net/rxrpc/ar-local.c |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ fs/afs/rxrpc.c          |   34 +++++++++++++++++++---------------
+ net/rxrpc/af_rxrpc.c    |   19 +++++++++++--------
+ net/rxrpc/ar-internal.h |    1 +
+ net/rxrpc/misc.c        |    6 ++++++
+ net/rxrpc/sysctl.c      |   10 ++++++++++
+ 5 files changed, 47 insertions(+), 23 deletions(-)
 
-diff --git a/net/rxrpc/ar-input.c b/net/rxrpc/ar-input.c
-index d7c2a0bc839e..e0815a033999 100644
---- a/net/rxrpc/ar-input.c
-+++ b/net/rxrpc/ar-input.c
-@@ -734,7 +734,7 @@ void rxrpc_data_ready(struct sock *sk)
- 		rxrpc_post_packet_to_local(local, skb);
- 		goto out;
+diff --git a/fs/afs/rxrpc.c b/fs/afs/rxrpc.c
+index 63cd9f939f19..4832de84d52c 100644
+--- a/fs/afs/rxrpc.c
++++ b/fs/afs/rxrpc.c
+@@ -85,18 +85,14 @@ int afs_open_socket(void)
+ 
+ 	skb_queue_head_init(&afs_incoming_calls);
+ 
++	ret = -ENOMEM;
+ 	afs_async_calls = create_singlethread_workqueue("kafsd");
+-	if (!afs_async_calls) {
+-		_leave(" = -ENOMEM [wq]");
+-		return -ENOMEM;
+-	}
++	if (!afs_async_calls)
++		goto error_0;
+ 
+ 	ret = sock_create_kern(&init_net, AF_RXRPC, SOCK_DGRAM, PF_INET, &socket);
+-	if (ret < 0) {
+-		destroy_workqueue(afs_async_calls);
+-		_leave(" = %d [socket]", ret);
+-		return ret;
+-	}
++	if (ret < 0)
++		goto error_1;
+ 
+ 	socket->sk->sk_allocation = GFP_NOFS;
+ 
+@@ -111,18 +107,26 @@ int afs_open_socket(void)
+ 	       sizeof(srx.transport.sin.sin_addr));
+ 
+ 	ret = kernel_bind(socket, (struct sockaddr *) &srx, sizeof(srx));
+-	if (ret < 0) {
+-		sock_release(socket);
+-		destroy_workqueue(afs_async_calls);
+-		_leave(" = %d [bind]", ret);
+-		return ret;
+-	}
++	if (ret < 0)
++		goto error_2;
++
++	ret = kernel_listen(socket, INT_MAX);
++	if (ret < 0)
++		goto error_2;
+ 
+ 	rxrpc_kernel_intercept_rx_messages(socket, afs_rx_interceptor);
+ 
+ 	afs_socket = socket;
+ 	_leave(" = 0");
+ 	return 0;
++
++error_2:
++	sock_release(socket);
++error_1:
++	destroy_workqueue(afs_async_calls);
++error_0:
++	_leave(" = %d", ret);
++	return ret;
+ }
+ 
+ /*
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index 38512a200db6..a1bcb0e17250 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -33,8 +33,6 @@ unsigned int rxrpc_debug; // = RXRPC_DEBUG_KPROTO;
+ module_param_named(debug, rxrpc_debug, uint, S_IWUSR | S_IRUGO);
+ MODULE_PARM_DESC(debug, "RxRPC debugging mask");
+ 
+-static int sysctl_rxrpc_max_qlen __read_mostly = 10;
+-
+ static struct proto rxrpc_proto;
+ static const struct proto_ops rxrpc_rpc_ops;
+ 
+@@ -191,6 +189,7 @@ static int rxrpc_listen(struct socket *sock, int backlog)
+ {
+ 	struct sock *sk = sock->sk;
+ 	struct rxrpc_sock *rx = rxrpc_sk(sk);
++	unsigned int max;
+ 	int ret;
+ 
+ 	_enter("%p,%d", rx, backlog);
+@@ -201,17 +200,21 @@ static int rxrpc_listen(struct socket *sock, int backlog)
+ 	case RXRPC_UNBOUND:
+ 		ret = -EADDRNOTAVAIL;
+ 		break;
+-	case RXRPC_CLIENT_UNBOUND:
+-	case RXRPC_CLIENT_BOUND:
+-	default:
+-		ret = -EBUSY;
+-		break;
+ 	case RXRPC_SERVER_BOUND:
+ 		ASSERT(rx->local != NULL);
++		max = READ_ONCE(rxrpc_max_backlog);
++		ret = -EINVAL;
++		if (backlog == INT_MAX)
++			backlog = max;
++		else if (backlog < 0 || backlog > max)
++			break;
+ 		sk->sk_max_ack_backlog = backlog;
+ 		rx->sk.sk_state = RXRPC_SERVER_LISTENING;
+ 		ret = 0;
+ 		break;
++	default:
++		ret = -EBUSY;
++		break;
  	}
--	
-+
- 	if (sp->hdr.type == RXRPC_PACKET_TYPE_DATA &&
- 	    (sp->hdr.callNumber == 0 || sp->hdr.seq == 0))
- 		goto bad_message;
-diff --git a/net/rxrpc/ar-local.c b/net/rxrpc/ar-local.c
-index 701c42b7050e..111f250b045f 100644
---- a/net/rxrpc/ar-local.c
-+++ b/net/rxrpc/ar-local.c
-@@ -388,7 +388,7 @@ static void rxrpc_process_local_events(struct work_struct *work)
- 	_enter("");
  
- 	atomic_inc(&local->usage);
--	
-+
- 	while ((skb = skb_dequeue(&local->event_queue))) {
- 		struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
+ 	release_sock(&rx->sk);
+@@ -591,7 +594,7 @@ static int rxrpc_create(struct net *net, struct socket *sock, int protocol,
+ 	sock_init_data(sock, sk);
+ 	sk->sk_state		= RXRPC_UNBOUND;
+ 	sk->sk_write_space	= rxrpc_write_space;
+-	sk->sk_max_ack_backlog	= sysctl_rxrpc_max_qlen;
++	sk->sk_max_ack_backlog	= 0;
+ 	sk->sk_destruct		= rxrpc_sock_destructor;
  
+ 	rx = rxrpc_sk(sk);
+diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
+index b89dcdcbc65a..f715cca767cd 100644
+--- a/net/rxrpc/ar-internal.h
++++ b/net/rxrpc/ar-internal.h
+@@ -641,6 +641,7 @@ extern const struct rxrpc_security rxrpc_no_security;
+ /*
+  * misc.c
+  */
++extern unsigned int rxrpc_max_backlog __read_mostly;
+ extern unsigned int rxrpc_requested_ack_delay;
+ extern unsigned int rxrpc_soft_ack_delay;
+ extern unsigned int rxrpc_idle_ack_delay;
+diff --git a/net/rxrpc/misc.c b/net/rxrpc/misc.c
+index 1afe9876e79f..bdc5e42fe600 100644
+--- a/net/rxrpc/misc.c
++++ b/net/rxrpc/misc.c
+@@ -15,6 +15,12 @@
+ #include "ar-internal.h"
+ 
+ /*
++ * The maximum listening backlog queue size that may be set on a socket by
++ * listen().
++ */
++unsigned int rxrpc_max_backlog __read_mostly = 10;
++
++/*
+  * How long to wait before scheduling ACK generation after seeing a
+  * packet with RXRPC_REQUEST_ACK set (in jiffies).
+  */
+diff --git a/net/rxrpc/sysctl.c b/net/rxrpc/sysctl.c
+index d20ed575acf4..a99690a8a3da 100644
+--- a/net/rxrpc/sysctl.c
++++ b/net/rxrpc/sysctl.c
+@@ -18,6 +18,7 @@ static struct ctl_table_header *rxrpc_sysctl_reg_table;
+ static const unsigned int zero = 0;
+ static const unsigned int one = 1;
+ static const unsigned int four = 4;
++static const unsigned int thirtytwo = 32;
+ static const unsigned int n_65535 = 65535;
+ static const unsigned int n_max_acks = RXRPC_MAXACKS;
+ 
+@@ -100,6 +101,15 @@ static struct ctl_table rxrpc_sysctl_table[] = {
+ 
+ 	/* Non-time values */
+ 	{
++		.procname	= "max_backlog",
++		.data		= &rxrpc_max_backlog,
++		.maxlen		= sizeof(unsigned int),
++		.mode		= 0644,
++		.proc_handler	= proc_dointvec_minmax,
++		.extra1		= (void *)&four,
++		.extra2		= (void *)&thirtytwo,
++	},
++	{
+ 		.procname	= "rx_window_size",
+ 		.data		= &rxrpc_rx_window_size,
+ 		.maxlen		= sizeof(unsigned int),
