@@ -1,7 +1,7 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH V2 03/11] net: mediatek: invalid buffer lookup in mtk_tx_map()
-Date: Fri, 10 Jun 2016 13:28:00 +0200
-Message-ID: <1465558088-15265-4-git-send-email-john@phrozen.org>
+Subject: [PATCH V2 01/11] net: mediatek: add missing return code check
+Date: Fri, 10 Jun 2016 13:27:58 +0200
+Message-ID: <1465558088-15265-2-git-send-email-john@phrozen.org>
 References: <1465558088-15265-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,27 +23,27 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The lookup of the tx_buffer in the error path inside mtk_tx_map() uses the
-wrong descriptor pointer. This looks like a copy & paste error. Change the
-code to use the correct pointer.
+The code fails to check if the scratch memory was properly allocated. Add
+this check and return with an error if the allocation failed.
 
 Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    3 +++
+ 1 file changed, 3 insertions(+)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 8d79bbf..4f22ee9 100644
+index 45f8dbf..6780886 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -655,7 +655,7 @@ static int mtk_tx_map(struct sk_buff *skb, struct net_device *dev,
+@@ -467,6 +467,9 @@ static int mtk_init_fq_dma(struct mtk_eth *eth)
  
- err_dma:
- 	do {
--		tx_buf = mtk_desc_to_tx_buf(ring, txd);
-+		tx_buf = mtk_desc_to_tx_buf(ring, itxd);
- 
- 		/* unmap dma */
- 		mtk_tx_unmap(&dev->dev, tx_buf);
+ 	eth->scratch_head = kcalloc(cnt, MTK_QDMA_PAGE_SIZE,
+ 				    GFP_KERNEL);
++	if (unlikely(!eth->scratch_head))
++		return -ENOMEM;
++
+ 	dma_addr = dma_map_single(eth->dev,
+ 				  eth->scratch_head, cnt * MTK_QDMA_PAGE_SIZE,
+ 				  DMA_FROM_DEVICE);
 -- 
 1.7.10.4
