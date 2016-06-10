@@ -1,88 +1,38 @@
-From: Pramod Kumar <pramod.kumar@broadcom.com>
-Subject: RE: [PATCH v4 4/7] dt: mdio-mux: Add mdio multiplexer driver node
-Date: Fri, 10 Jun 2016 09:54:11 +0530
-Message-ID: <0581378b82179ea816fb2f8644d3fc93@mail.gmail.com>
-References: <1465216900-11755-1-git-send-email-pramod.kumar@broadcom.com>
- <1465216900-11755-5-git-send-email-pramod.kumar@broadcom.com> <5755C2FE.1090303@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net 00/13] Mellanox 100G mlx5 fixes for 4.7-rc
+Date: Thu, 09 Jun 2016 22:06:43 -0700 (PDT)
+Message-ID: <20160609.220643.1184823601138840003.davem@davemloft.net>
+References: <1465506460-1854-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: devicetree@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	bcm-kernel-feedback-list@broadcom.com,
-	linux-arm-kernel@lists.infradead.org
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Catalin Marinas <catalin.marinas@arm.com>,
-	Will Deacon <will.deacon@arm.com>,
-	Kishon Vijay Abraham I <kishon@ti.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5755C2FE.1090303@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com
+To: saeedm@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:53620 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750873AbcFJFGr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 01:06:47 -0400
+In-Reply-To: <1465506460-1854-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Fri, 10 Jun 2016 00:07:27 +0300
 
-> -----Original Message-----
-> From: Florian Fainelli [mailto:f.fainelli@gmail.com]
-> Sent: 07 June 2016 00:08
-> To: Pramod Kumar; Rob Herring; Pawel Moll; Mark Rutland; Ian Campbell;
-> Kumar Gala; Catalin Marinas; Will Deacon; Kishon Vijay Abraham I; David S.
-> Miller
-> Cc: devicetree@vger.kernel.org; netdev@vger.kernel.org; linux-
-> kernel@vger.kernel.org; bcm-kernel-feedback-list@broadcom.com; linux-arm-
-> kernel@lists.infradead.org
-> Subject: Re: [PATCH v4 4/7] dt: mdio-mux: Add mdio multiplexer driver node
->
-> On 06/06/2016 05:41 AM, Pramod Kumar wrote:
-> > Add integrated MDIO multiplexer driver node which contains two mux
-> > PCIe bus and one ethernet bus along with phys lying on these bus.
-> >
-> > Signed-off-by: Pramod Kumar <pramod.kumar@broadcom.com>
-> > ---
-> > +		mdio_mux_iproc: mdio-mux@6602023c {
-> > +			compatible = "brcm,mdio-mux-iproc";
-> > +			reg = <0x6602023c 0x14>;
-> > +			#address-cells = <1>;
-> > +			#size-cells = <0>;
-> > +
-> > +			mdio@0 {
-> > +				reg = <0x0>;
-> > +				#address-cells = <1>;
-> > +				#size-cells = <0>;
-> > +
-> > +				pci_phy0: pci-phy@0 {
-> > +					compatible = "brcm,ns2-pcie-phy";
-> > +					reg = <0x0>;
-> > +					#phy-cells = <0>;
-> > +				};
-> > +			};
-> > +
-> > +			mdio@7 {
-> > +				reg = <0x7>;
-> > +				#address-cells = <1>;
-> > +				#size-cells = <0>;
-> > +
-> > +				pci_phy1: pci-phy@0 {
-> > +					compatible = "brcm,ns2-pcie-phy";
-> > +					reg = <0x0>;
-> > +					#phy-cells = <0>;
-> > +				};
->
-> Are these two PHYs always available in the NS2 SoC, or does that depend on
-> interfaces exposed at the board level? Should not they be flagged with a
-> disabled status property by default and enabled in their respective board
-> files?
-> --
+> The following series provides some small fixes for mlx5 driver.
+> 
+> Two small fixes for the mlx5e netdev, the 1st is for the blue flame 
+> quota accounting and the 2nd is a small refactoring in shutdown flow.
+> 
+> Five trivial fixes for mlx5 E-Switch.
+> 	- Allmulti mc_promisc flag was not set in a specific flow.
+> 	- Modify VF node guid when admin mac is changed.
+> 	- Race in vport enable flow.
+> 	- Misc code fixes (kvfree when needed and error pointers checking).
+> 	
+> Three in mlx5 steering area.  Correct capabilities checking and root flow table update.
+> 
+> Three misc fixes in mlx5 commands enum and layouts.
 
-It depends on the interfaces exposed at board level. We will disable it in
-dtsi and enable it dts file. I'll address this through next patch set.
-
-> Florian
-
-Regards,
-Pramod
+Series applied, thanks.
