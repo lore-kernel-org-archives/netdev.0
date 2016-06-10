@@ -1,8 +1,8 @@
 From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH V2 04/11] net: mediatek: dropped rx packets are not being
- counted properly
-Date: Fri, 10 Jun 2016 13:28:01 +0200
-Message-ID: <1465558088-15265-5-git-send-email-john@phrozen.org>
+Subject: [PATCH V2 09/11] net: mediatek: fix off by one in the TX ring
+ allocation
+Date: Fri, 10 Jun 2016 13:28:06 +0200
+Message-ID: <1465558088-15265-10-git-send-email-john@phrozen.org>
 References: <1465558088-15265-1-git-send-email-john@phrozen.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -24,34 +24,36 @@ Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-There are two places inside mtk_poll_rx where rx_dropped is not being
-incremented properly. Fix this by adding the missing code to increment
-the counter.
+The TX ring setup has an off by one error causing it to not utilise all
+descriptors. This has the side effect that we need to reset the next
+pointer at runtime to make it work. Fix the off by one and remove the
+code fixing the ring at runtime.
 
 Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |    3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 4f22ee9..0610262 100644
+index 24714ab..6daf48b 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -810,6 +810,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
- 					  DMA_FROM_DEVICE);
- 		if (unlikely(dma_mapping_error(&netdev->dev, dma_addr))) {
- 			skb_free_frag(new_data);
-+			netdev->stats.rx_dropped++;
- 			goto release_desc;
+@@ -903,7 +903,6 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
  		}
+ 		mtk_tx_unmap(eth->dev, tx_buf);
  
-@@ -817,6 +818,7 @@ static int mtk_poll_rx(struct napi_struct *napi, int budget,
- 		skb = build_skb(data, ring->frag_size);
- 		if (unlikely(!skb)) {
- 			put_page(virt_to_head_page(new_data));
-+			netdev->stats.rx_dropped++;
- 			goto release_desc;
- 		}
- 		skb_reserve(skb, NET_SKB_PAD + NET_IP_ALIGN);
+-		ring->last_free->txd2 = next_cpu;
+ 		ring->last_free = desc;
+ 		atomic_inc(&ring->free_count);
+ 
+@@ -1011,7 +1010,7 @@ static int mtk_tx_alloc(struct mtk_eth *eth)
+ 
+ 	atomic_set(&ring->free_count, MTK_DMA_SIZE - 2);
+ 	ring->next_free = &ring->dma[0];
+-	ring->last_free = &ring->dma[MTK_DMA_SIZE - 2];
++	ring->last_free = &ring->dma[MTK_DMA_SIZE - 1];
+ 	ring->thresh = MAX_SKB_FRAGS;
+ 
+ 	/* make sure that all changes to the dma ring are flushed before we
 -- 
 1.7.10.4
