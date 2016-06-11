@@ -1,62 +1,152 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ethtool: Macro definition for SFF-8436/8636
- Memory map max sizes
-Date: Sat, 11 Jun 2016 15:51:34 -0700 (PDT)
-Message-ID: <20160611.155134.1474324006340328110.davem@davemloft.net>
-References: <1465278926-10231-1-git-send-email-vidya@cumulusnetworks.com>
+From: Henrik Austad <henrik@austad.us>
+Subject: Re: [very-RFC 2/8] TSN: Add the standard formerly known as AVB to
+ the kernel
+Date: Sun, 12 Jun 2016 00:53:03 +0200
+Message-ID: <20160611225303.GE10685@sisyphus.home.austad.us>
+References: <1465683741-20390-1-git-send-email-henrik@austad.us>
+ <1465683741-20390-3-git-send-email-henrik@austad.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bwh@kernel.org, netdev@vger.kernel.org, roopa@cumulusnetworks.com
-To: vidya@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40568 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752949AbcFKWvf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 18:51:35 -0400
-In-Reply-To: <1465278926-10231-1-git-send-email-vidya@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-media@vger.kernel.org, alsa-devel@vger.kernel.org,
+	netdev@vger.kernel.org, henrk@austad.us,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-media-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1465683741-20390-3-git-send-email-henrik@austad.us>
+Sender: linux-media-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: vidya@cumulusnetworks.com
-Date: Mon,  6 Jun 2016 22:55:26 -0700
+clearing up netdev-typo
 
-> From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+On Sun, Jun 12, 2016 at 12:22:15AM +0200, Henrik Austad wrote:
+> TSN provides a mechanism to create reliable, jitter-free, low latency
+> guaranteed bandwidth links over a local network. It does this by
+> reserving a path through the network. Support for TSN must be found in
+> both the NIC as well as in the network itself.
 > 
-> This patch provides macro definitions for maximum possible
-> memory map size of QSFP+/QSFP28 EEPROMs as per SFF-8436/SFF-8636
+> This adds required hooks into netdev_ops so that the core TSN driver can
+> use this when configuring a new NIC or setting up a new link.
 > 
-> According to SFF-8436/SFF-8636 specs, the common memory map for
-> managing external cable interfaces is arranged into a single
-> lower page address space of 128 bytes and multiple upper address pages
-> of 128 bytes each. The total size of memory map is up to 5 128 byte pages
-> defined by a "pages valid" register and switched via a "page select"
-> register for "optional pages". Memory of 256 bytes can be memory mapped
-> at a time and QSFP+/QSFP28  drivers can export upto 5*128 bytes of
-> eeprom dump.
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Henrik Austad <henrik@austad.us>
+> ---
+>  include/linux/netdevice.h | 32 ++++++++++++++++++++++++++++++++
+>  net/Kconfig               |  1 +
+>  net/tsn/Kconfig           | 32 ++++++++++++++++++++++++++++++++
+>  3 files changed, 65 insertions(+)
+>  create mode 100644 net/tsn/Kconfig
 > 
-> QSFP+/QSFP28 Memory layout
->            2-Wire Serial Address: 1010000x
->            Lower Page 00h (128 bytes)
->            ======================
->            |Page Select Byte(127)|
->            ======================
->                     |
->                     V
->        ----------------------------------------
->       |             |            |             |
->       V             V            V             V
->    ----------   ----------   ---------    ------------
->   | Upper    | | Upper    | | Upper    | | Upper      |
->   | Page 00h | | Page 01h | | Page 02h | | Page 03h   |
->   |          | |(Optional)| |(Optional)| | (Optional) |
->   |    ID    | |   AST    | |  User    | |  For       |
->   |  Fields  | |  Table   | | EEPROM   | |  Cable     |
->   -----------  -----------   ----------  --------------
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index f45929c..de025eb 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -109,6 +109,13 @@ enum netdev_tx {
+>  };
+>  typedef enum netdev_tx netdev_tx_t;
+>  
+> +#if IS_ENABLED(CONFIG_TSN)
+> +enum sr_class {
+> +	SR_CLASS_A = 1,
+> +	SR_CLASS_B = 2,
+> +};
+> +#endif
+> +
+>  /*
+>   * Current order: NETDEV_TX_MASK > NET_XMIT_MASK >= 0 is significant;
+>   * hard_start_xmit() return < NET_XMIT_MASK means skb was consumed.
+> @@ -902,6 +909,22 @@ struct tc_to_netdev {
+>   *
+>   * void (*ndo_poll_controller)(struct net_device *dev);
+>   *
+> + *	TSN functions (if CONFIG_TSN)
+> + *
+> + * int (*ndo_tsn_capable)(struct net_device *dev);
+> + *	If a particular device is capable of sustaining TSN traffic
+> + *	provided current configuration
+> + * int (*ndo_tsn_link_configure)(struct net_device *dev,
+> + *				 enum sr_class class,
+> + *				 u16 framesize,
+> + *				 u16 vid);
+> + *     - When a new TSN link is either added or removed, this is called to
+> + *       update the bandwidth for the particular stream-class
+> + *     - The framesize is the size of the _entire_ frame, not just the
+> + *       payload since the full size is required to allocate bandwidth through
+> + *       the credit based shaper in the NIC
+> + *     - the vlan_id is the configured vlan for TSN in this session.
+> + *
+>   *	SR-IOV management functions.
+>   * int (*ndo_set_vf_mac)(struct net_device *dev, int vf, u8* mac);
+>   * int (*ndo_set_vf_vlan)(struct net_device *dev, int vf, u16 vlan, u8 qos);
+> @@ -1148,6 +1171,15 @@ struct net_device_ops {
+>  #ifdef CONFIG_NET_RX_BUSY_POLL
+>  	int			(*ndo_busy_poll)(struct napi_struct *dev);
+>  #endif
+> +
+> +#if IS_ENABLED(CONFIG_TSN)
+> +	int			(*ndo_tsn_capable)(struct net_device *dev);
+> +	int			(*ndo_tsn_link_configure)(struct net_device *dev,
+> +							  enum sr_class class,
+> +							  u16 framesize,
+> +							  u16 vid);
+> +#endif	/* CONFIG_TSN */
+> +
+>  	int			(*ndo_set_vf_mac)(struct net_device *dev,
+>  						  int queue, u8 *mac);
+>  	int			(*ndo_set_vf_vlan)(struct net_device *dev,
+> diff --git a/net/Kconfig b/net/Kconfig
+> index ff40562..fa9f691 100644
+> --- a/net/Kconfig
+> +++ b/net/Kconfig
+> @@ -215,6 +215,7 @@ source "net/802/Kconfig"
+>  source "net/bridge/Kconfig"
+>  source "net/dsa/Kconfig"
+>  source "net/8021q/Kconfig"
+> +source "net/tsn/Kconfig"
+>  source "net/decnet/Kconfig"
+>  source "net/llc/Kconfig"
+>  source "net/ipx/Kconfig"
+> diff --git a/net/tsn/Kconfig b/net/tsn/Kconfig
+> new file mode 100644
+> index 0000000..1fc3c1d
+> --- /dev/null
+> +++ b/net/tsn/Kconfig
+> @@ -0,0 +1,32 @@
+> +#
+> +# Configuration for 802.1 Time Sensitive Networking (TSN)
+> +#
+> +
+> +config TSN
+> +	tristate "802.1 TSN Support"
+> +	depends on VLAN_8021Q && PTP_1588_CLOCK && CONFIGFS_FS
+> +	---help---
+> +	  Select this if you want to enable TSN on capable interfaces.
+> +
+> +	  TSN allows you to set up deterministic links on your LAN (only
+> +	  L2 is currently supported). Once loaded, the driver will probe
+> +	  all available interfaces if they are capable of supporting TSN
+> +	  links.
+> +
+> +	  Once loaded, a directory in configfs called tsn/ will expose
+> +	  the capable NICs and allow userspace to create
+> +	  links. Userspace must provide us with a StreamID as well as
+> +	  reserving bandwidth through the network and once this is done,
+> +	  a new link can be created by issuing a mkdir() in configfs and
+> +	  updating the attributes for the new link.
+> +
+> +	  TSN itself does not produce nor consume data, it is dependent
+> +	  upon 'shims' doing this, which can be virtually anything. ALSA
+> +	  is a good candidate.
+> +
+> +	  For more information, refer to the TSN-documentation in the
+> +	  kernel documentation repository.
+> +
+> +	  The resulting module will be called 'tsn'
+> +
+> +	  If unsure, say N.
+> -- 
+> 2.7.4
 > 
-> Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
 
-Why do we need these values in the header file at all?
-
-The application can probe the size by repeated eeprom calls, increasing
-the buffer size each time as needed until success.
+-- 
+Henrik Austad
