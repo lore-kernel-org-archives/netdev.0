@@ -1,75 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHi next] veth: advertise peer link relationship for both
- devices
-Date: Sat, 11 Jun 2016 15:43:40 -0700 (PDT)
-Message-ID: <20160611.154340.1340829899277605940.davem@davemloft.net>
-References: <1465576339-17641-1-git-send-email-lrichard@redhat.com>
+From: Tejun Heo <tj@kernel.org>
+Subject: Re: [PATCH] libertas_tf: Remove create_workqueue
+Date: Sat, 11 Jun 2016 17:47:08 -0500
+Message-ID: <20160611224708.GC31708@htj.duckdns.org>
+References: <20160607200853.GA13742@Karyakshetra>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: lrichard@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	Johannes Berg <johannes.berg@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40481 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751924AbcFKWnl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 18:43:41 -0400
-In-Reply-To: <1465576339-17641-1-git-send-email-lrichard@redhat.com>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:35468 "EHLO
+	mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751896AbcFKWrR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 18:47:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20160607200853.GA13742@Karyakshetra>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lance Richardson <lrichard@redhat.com>
-Date: Fri, 10 Jun 2016 12:32:19 -0400
-
-> Currently, when creating a veth pair, notfications to user
-> space only include link peer for one end of the veth pair:
->    # ip monitor link &
->    # ip link add dev vm1 type veth peer name vm2
->    30: vm2@NONE: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
->        link/ether be:e3:b7:0e:14:52 brd ff:ff:ff:ff:ff:ff
->    31: vm1@vm2: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
->        link/ether da:e6:a6:c5:42:54 brd ff:ff:ff:ff:ff:ff
+On Wed, Jun 08, 2016 at 01:38:53AM +0530, Bhaktipriya Shridhar wrote:
+> alloc_workqueue replaces deprecated create_workqueue().
 > 
-> With this change, netlink notifications are sent with complete
-> information for both interfaces of the veth pair:
+> A dedicated workqueue has been used since the workitem (viz
+> &priv->cmd_work per priv, which maps to lbtf_cmd_work) is involved in
+> actual command processing and may be used on a memory reclaim path.
+> The workitems require forward progress under memory pressure and hence,
+> WQ_MEM_RECLAIM has been set. Since there are only a fixed number of work
+> items, explicit concurrency limit is unnecessary here.
 > 
->    # 3: vm2@NONE: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
->        link/ether e2:94:54:8a:ac:f5 brd ff:ff:ff:ff:ff:ff
->    4: vm1@vm2: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
->        link/ether b2:05:70:e0:fc:35 brd ff:ff:ff:ff:ff:ff
->    3: vm2@vm1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
->        link/ether e2:94:54:8a:ac:f5 brd ff:ff:ff:ff:ff:ff
-> 
-> Signed-off-by: Lance Richardson <lrichard@redhat.com>
+> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 
-I don't know about this.
+Acked-by: Tejun Heo <tj@kernel.org>
 
-First of all, those notifications you get above tell you everything you
-need to know in order to figure out what both ends of the veth pair are.
+Thanks.
 
-In fact, I would say that the vm1@vm2 notification #31 above is the _only_
-one you absolutely need.
-
-> @@ -466,8 +466,16 @@ static int veth_newlink(struct net *src_net, struct net_device *dev,
->  
->  	priv = netdev_priv(peer);
->  	rcu_assign_pointer(priv->peer, dev);
-> +
-> +	err = rtnl_configure_link(dev, NULL);
-> +	if (err < 0)
-> +		goto err_configure_dev;
-> +
-> +	rtmsg_ifinfo(RTM_NEWLINK, peer, 0, GFP_KERNEL);
->  	return 0;
->  
-> +err_configure_dev:
-> +	/* nothing to do */
->  err_register_dev:
->  	/* nothing to do */
->  err_configure_peer:
-
-If you're registering the peer here explicitly, this means a link configure
-somewhere else is now superfluous.
-
-I really don't like this change at all, both from a necessity perspective as
-well as from it's implementation.
+-- 
+tejun
