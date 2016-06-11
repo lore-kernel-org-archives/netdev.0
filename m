@@ -1,35 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: mac80211-next 2016-06-09
-Date: Sat, 11 Jun 2016 10:33:16 -0700 (PDT)
-Message-ID: <20160611.103316.1890396721765986770.davem@davemloft.net>
-References: <1465477466-23756-1-git-send-email-johannes@sipsolutions.net>
-	<20160610.231604.604019579709781335.davem@davemloft.net>
-	<1465631903.2827.0.camel@sipsolutions.net>
+Subject: Re: [PATCH v6] r8152: Add support for setting pass through MAC
+ address on RTL8153-AD
+Date: Sat, 11 Jun 2016 10:42:26 -0700 (PDT)
+Message-ID: <20160611.104226.1571085838142610714.davem@davemloft.net>
+References: <1465323757-7249-1-git-send-email-mario_limonciello@dell.com>
+	<20160610.225156.638004322598763463.davem@davemloft.net>
+	<20160611153921.GP2338@lunn.ch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
-To: johannes@sipsolutions.net
+Cc: mario_limonciello@dell.com, hayeswang@realtek.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, pali.rohar@gmail.com,
+	anthony.wong@canonical.com, gregkh@linuxfoundation.org
+To: andrew@lunn.ch
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38758 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:38820 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751651AbcFKRdS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 13:33:18 -0400
-In-Reply-To: <1465631903.2827.0.camel@sipsolutions.net>
+	with ESMTP id S1751916AbcFKRm3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 13:42:29 -0400
+In-Reply-To: <20160611153921.GP2338@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Johannes Berg <johannes@sipsolutions.net>
-Date: Sat, 11 Jun 2016 09:58:23 +0200
+From: Andrew Lunn <andrew@lunn.ch>
+Date: Sat, 11 Jun 2016 17:39:21 +0200
 
-> On Fri, 2016-06-10 at 23:16 -0700, David Miller wrote:
+> What is still open is do we want to accept it at all? Do we accept the
+> concept of putting the same MAC address on multiple interfaces at
+> hotplug time? Do we trust BIOS vendors to not keep changing DSDT
+> property name, since it is not standardised?
 > 
->> > Can I ask you to pull net into net-next, preferably before merging
->> > this?
-> 
->> Looks good, pulled, thanks!
-> 
-> Thanks! I see you also had pulled net in for other reasons, so I'll
-> include the hwsim namespace patch in the next pull request :)
+> Do we want this at all should be decided by somebody more senior then
+> those passing comments on the code.
 
-I pulled it in because you said that I had to before pulling this one.
+Indeed, I think the behavior of using the same MAC address on multiple
+interfaces if we plug several of these in at once is not good.
+
+We shouldn't behave this way just because the Microsoft driver does.
