@@ -1,128 +1,105 @@
-From: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH 3/4] mmc: sdhci-of-esdhc: fix host version for
-	T4240-R1.0-R2.0
-Date: Fri, 10 Jun 2016 21:00:16 -0500
-Message-ID: <1465610416.22191.160.camel@buserror.net>
+From: Scott Wood <oss@buserror.net>
+Subject: Re: [PATCH 4/4] Revert "powerpc/fsl: Move fsl_guts.h out of
+ arch/powerpc"
+Date: Fri, 10 Jun 2016 21:13:07 -0500
+Message-ID: <1465611186.22191.169.camel@buserror.net>
 References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
-	<6110875.0k1HlSKhzn@wuerfel> <1464829874.16584.163.camel@buserror.net>
-	<3851136.KiJNtFycNm@wuerfel>
+	 <5513501.AmZs7h1vI2@wuerfel> <1464830660.22191.6.camel@buserror.net>
+	 <3225846.9EJ0sHv0XK@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
-	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>,
-	"linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
-	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Yang-Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
-	"linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
-	<linux-a
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
-Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-In-Reply-To: <3851136.KiJNtFycNm@wuerfel>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
-List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
-List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
-	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
-Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
-Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Cc: linuxppc-dev@lists.ozlabs.org,
+	Ulf Hansson <ulf.hansson@linaro.org>,
+	Yangbo Lu <yangbo.lu@nxp.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Xiaobo Xie <xiaobo.xie@nxp.com>,
+	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
+	"linux-clk@vger.kernel.org" <linux-clk@vger.kernel.org>,
+	Qiang Zhao <qiang.zhao@nxp.com>,
+	Russell King <linux@arm.linux.org.uk>,
+	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
+	Joerg Roedel <joro@8bytes.org>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	Rob Herring <robh+dt@kernel.org>,
+	Santosh Shilimkar <ssantosh@kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Yang-Leo
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <3225846.9EJ0sHv0XK@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-06-02 at 10:52 +0200, Arnd Bergmann wrote:
-> On Wednesday, June 1, 2016 8:11:14 PM CEST Scott Wood wrote:
-> > > +#define T4240_HOST_VER ((VENDOR_V_23 << SDHCI_VENDOR_VER_SHIFT) |
-> > > SDHCI_SPEC_200)
-> > > +static const struct soc_device_attribute esdhc_t4240_quirk = {
-> > > +     /* T4240 revision < 0x20 uses vendor version 23, SDHCI version 200
-> > > */
-> > > +     { .soc_id = "T4*(0x824000)", .revision = "0x[01]?",
-> > > +       .data = (void *)(uintptr_t)(T4240_HOST_VER) },
+On Thu, 2016-06-02 at 11:01 +0200, Arnd Bergmann wrote:
+> On Wednesday, June 1, 2016 8:24:20 PM CEST Scott Wood wrote:
+> > On Mon, 2016-05-30 at 15:18 +0200, Arnd Bergmann wrote:
+> > > All users of this driver are PowerPC specific and the header file
+> > > has no business in the global include/linux/ hierarchy, so move
+> > > it back before anyone starts using it on ARM.
+> > > 
+> > > This reverts commit 948486544713492f00ac8a9572909101ea892cb0.
+> > > 
+> > > Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> > > ---
+> > > This part of the series is not required for the eSDHC quirk,
+> > > but it restores the asm/fsl_guts.h header so it doesn't accidentally
+> > > get abused for this in the future. I found two drivers outside of
+> > > arch/powerpc that already accessed the registers directly, but the
+> > > functions look fairly contained, and can be easily hidden in an
+> > > #ifdef CONFIG_PPC
 > > 
-> > Why should this code need to care that the string begins with "T4"?  This
-> > creates dual maintenance if that were to change.  It's also broken because
-> > T4240 has compatible = "fsl,t4240-device-config", "fsl,qoriq-device-config
-> > -2.0" and thus with these patches it would incorrectly show up as "P
-> > series
-> > (0x824000)".  The compatible string of this node was never meant to be a
-> > key
-> > for choosing a string to describe the system to userspace.
-> 
-> This is an artifact of not knowing the specific SoC name, and we can change
-> that by looking up the name from the SVR value in the soc_device driver.
-
-...or we could keep it simple and just match the number.
-
-> > 0x824000 is a magic number which should be represented symbolically.
-> 
-> Sure, feel free to change the format of the soc_device string in any
-> name,
-
-That's not what I was asking for...  The match should be numeric but the
-knowledge of what the number is should come from a symbolic #define.
-
-> > If T4240 is affected, then so are the reduced-core variants T4160 and
-> > T4080,
-> > but 0x824000 doesn't match them (Yangbo's patch had the same problem). 
-> >  And
-> > please don't respond with "0x824*"
+> > NACK
 > > 
-> > You also didn't strip out the E bit of SVR which indicates encryption
-> > capability and nothing else (Yangbo's patch did not have this problem
-> > because
-> > it used SVR_SOC_VER).
+> > Besides adding ifdef pollution for no good reason, this register block is
+> > used
+> > on some ARM chips as well.  Why is it a problem if "anyone starts using it
+> > on
+> > ARM"?
 > 
-> Ok, that should be easy enough to fix in the soc_device driver.
+> It's just not a good interface when it's defined as "this is the layout of
+> a register area that any driver can ioremap() if they can figure out the
+> device node".
 
-No, because the soc_device driver doesn't know whether the consumer of the ID
-cares about the E bit.
+That's why I want to move accesses into one guts driver.
 
-> > What happens if the revision condition is more complicated, such as <=
-> > 0x20
-> > with 0x21 being fine?  Multiple quirk entries where before we had as
-> > simple
-> > comparison?
-> 
-> I guess yes. I would really hope that there is no need to use this interface
-> pervasively, it's really just to work around the cases where there is no
-> way to pass the information in DT otherwise.
+>  It's not uncommon to have register areas like that, but
+> normally you have at the minimum a 'syscon' device to handle locking
+> between drivers accessing the same registers and to avoid having to map
+> the same area multiple times.
 
-How does putting it in the DT work when you have multiple versions of the same
-SoC, some of which have the bug and some which don't?
+syscon requires device tree changes.
 
-> > I fail to see how this approach is an improvement (much less one that
-> > needs to
-> > hold up a patchset that is fixing a problem and is not touching any
-> > generic
-> > code).  Why does this need to be a string?
-> 
-> A string is what user space gets in /sys/devices/soc/*,
+I don't see read-modify-write operations in regmap -- how does locking around
+an individual, inherently-atomic load or store help?
 
-It is rare that the kernel accesses information in the exact same way that
-userspace does.  And once we expose this to userspace we're stuck with it, so
-exporting anything other than a simple number is even less desirable.
+> If we need to use 'guts' registers on ARM, we can find a way to abstract
+> them properly for the given use cases, using a syscon or a driver with
+> exported functions, but just making a PowerPC platform specific header
+> global to all Linux drivers by putting it into include/linux doesn't seem
+> right.
 
->  and we already have
-> code that does the same things there to work around quirks, here we just
-> use the same interface in a completely generic way. Note that not every
-> SoC family uses numbers in the same way, some have multiple subrevisions,
-> some have names etc.
+Again, it's not PowerPC-specific!  It started that way but then the same
+register block got put onto some ARM chips.
 
-Where is the need for a "completely generic way" for one piece of vendor
--specific code to get information that is inherently specific to that vendor,
-that is supplied by code specific to that vendor?
+It's not global to "all Linux drivers", just the ones that choose to include
+an fsl-specific header.
+
+If and when all uses of guts are moved into the guts driver, the header can be
+moved into drivers/soc/fsl.
+
+> Note that the header file uses a structure definition rather than the more
+> common macros with register offsets, which is fine for a driver that has
+> its own registers and abstracts them, but it doesn't really work with
+> the regmap interface, so if we want to use it with syscon, it also needs to
+> be rewritten.
+
+We don't want to use it with syscon.  If we did, the solution wouldn't be to
+move the header back to arch/powerpc, but to convert the struct into offsets.
 
 -Scott
