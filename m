@@ -1,105 +1,220 @@
 From: Henrik Austad <henrik@austad.us>
-Subject: [very-RFC 0/8] TSN driver for the kernel
-Date: Sun, 12 Jun 2016 01:01:28 +0200
-Message-ID: <1465686096-22156-1-git-send-email-henrik@austad.us>
+Subject: [very-RFC 1/8] TSN: add documentation
+Date: Sun, 12 Jun 2016 01:01:29 +0200
+Message-ID: <1465686096-22156-2-git-send-email-henrik@austad.us>
+References: <1465686096-22156-1-git-send-email-henrik@austad.us>
 Cc: linux-media@vger.kernel.org, alsa-devel@vger.kernel.org,
 	netdev@vger.kernel.org, henrk@austad.us,
-	Henrik Austad <henrik@austad.us>
+	Henrik Austad <haustad@cisco.com>,
+	"David S. Miller" <davem@davemloft.net>
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465686096-22156-1-git-send-email-henrik@austad.us>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi all
-(series based on v4.7-rc2, now with the correct netdev)
+From: Henrik Austad <haustad@cisco.com>
 
-This is a *very* early RFC for a TSN-driver in the kernel. It has been
-floating around in my repo for a while and I would appreciate some
-feedback on the overall design to avoid doing some major blunders.
+Describe the overall design behind the TSN standard, the TSN-driver,
+requirements to userspace and new functionality introduced.
 
-TSN: Time Sensitive Networking, formely known as AVB (Audio/Video
-Bridging).
-
-There are at least one AVB-driver (the AV-part of TSN) in the kernel
-already, however this driver aims to solve a wider scope as TSN can do
-much more than just audio. A very basic ALSA-driver is added to the end
-that allows you to play music between 2 machines using aplay in one end
-and arecord | aplay on the other (some fiddling required) We have plans
-for doing the same for v4l2 eventually (but there are other fishes to
-fry first). The same goes for a TSN_SOCK type approach as well.
-
-TSN is all about providing infrastructure. Allthough there are a few
-very interesting uses for TSN (reliable, deterministic network for audio
-and video), once you have that reliable link, you can do a lot more.
-
-Some notes on the design:
-
-The driver is directed via ConfigFS as we need userspace to handle
-stream-reservation (MSRP), discovery and enumeration (IEEE 1722.1) and
-whatever other management is needed. Once we have all the required
-attributes, we can create link using mkdir, and use write() to set the
-attributes. Once ready, specify the 'shim' (basically a thin wrapper
-between TSN and another subsystem) and we start pushing out frames.
-
-The network part: it ties directly into the rx-handler for receive and
-writes skb's using netdev_start_xmit(). This could probably be
-improved. 2 new fields in netdev_ops have been introduced, and the Intel
-igb-driver has been updated (as this is available as a PCI-e card). The
-igb-driver works-ish
-
-
-What remains
-- tie to (g)PTP properly, currently using ktime_get() for presentation
-  time
-- get time from shim into TSN and vice versa
-- let shim create/manage buffer
-
-Henrik Austad (8):
-  TSN: add documentation
-  TSN: Add the standard formerly known as AVB to the kernel
-  Adding TSN-driver to Intel I210 controller
-  Add TSN header for the driver
-  Add TSN machinery to drive the traffic from a shim over the network
-  Add TSN event-tracing
-  AVB ALSA - Add ALSA shim for TSN
-  MAINTAINERS: add TSN/AVB-entries
-
- Documentation/TSN/tsn.txt                 | 147 +++++
- MAINTAINERS                               |  14 +
- drivers/media/Kconfig                     |  15 +
- drivers/media/Makefile                    |   3 +-
- drivers/media/avb/Makefile                |   5 +
- drivers/media/avb/avb_alsa.c              | 742 +++++++++++++++++++++++
- drivers/media/avb/tsn_iec61883.h          | 124 ++++
- drivers/net/ethernet/intel/Kconfig        |  18 +
- drivers/net/ethernet/intel/igb/Makefile   |   2 +-
- drivers/net/ethernet/intel/igb/igb.h      |  19 +
- drivers/net/ethernet/intel/igb/igb_main.c |  10 +-
- drivers/net/ethernet/intel/igb/igb_tsn.c  | 396 ++++++++++++
- include/linux/netdevice.h                 |  32 +
- include/linux/tsn.h                       | 806 ++++++++++++++++++++++++
- include/trace/events/tsn.h                | 349 +++++++++++
- net/Kconfig                               |   1 +
- net/Makefile                              |   1 +
- net/tsn/Kconfig                           |  32 +
- net/tsn/Makefile                          |   6 +
- net/tsn/tsn_configfs.c                    | 623 +++++++++++++++++++
- net/tsn/tsn_core.c                        | 975 ++++++++++++++++++++++++++++++
- net/tsn/tsn_header.c                      | 203 +++++++
- net/tsn/tsn_internal.h                    | 383 ++++++++++++
- net/tsn/tsn_net.c                         | 403 ++++++++++++
- 24 files changed, 5306 insertions(+), 3 deletions(-)
+Cc: "David S. Miller" <davem@davemloft.net>
+Signed-off-by: Henrik Austad <haustad@cisco.com>
+---
+ Documentation/TSN/tsn.txt | 147 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 147 insertions(+)
  create mode 100644 Documentation/TSN/tsn.txt
- create mode 100644 drivers/media/avb/Makefile
- create mode 100644 drivers/media/avb/avb_alsa.c
- create mode 100644 drivers/media/avb/tsn_iec61883.h
- create mode 100644 drivers/net/ethernet/intel/igb/igb_tsn.c
- create mode 100644 include/linux/tsn.h
- create mode 100644 include/trace/events/tsn.h
- create mode 100644 net/tsn/Kconfig
- create mode 100644 net/tsn/Makefile
- create mode 100644 net/tsn/tsn_configfs.c
- create mode 100644 net/tsn/tsn_core.c
- create mode 100644 net/tsn/tsn_header.c
- create mode 100644 net/tsn/tsn_internal.h
- create mode 100644 net/tsn/tsn_net.c
+
+Index: linux/Documentation/TSN/tsn.txt
+===================================================================
+--- /dev/null
++++ linux/Documentation/TSN/tsn.txt
+@@ -0,0 +1,188 @@
++		Time Sensitive Networking (TSN)
++		-------------------------------
++
++[work in progress]
++
++1. Motivation
++=============
++
++TSN is a set of open standards, formerly known as 'AVB' (Audio/Video
++Bridging). It was renamed to TSN to better reflect that it can do much
++more than just media transport.
++
++TSN is a way to create reliable streams across a network without loss of
++frames due to congestion in the network. By using gPTP (a specialized
++IEEE-1588v2 PTP profile), the time can be synchronized with sub-us
++granularity across all the connected devices in the AVB domain.
++
++2. Intro to AVB/TSN
++===================
++
++The original standards were written with Audio/Video in mind, so the
++initial standards refer to this as 'AVB'. In later standards, this has
++changed to TSN, and AVB now refers to a service you can add on top of
++TSN. Hopefully it will not be too confusing.
++
++In this document, we refer to the infrastructure part as TSN and AVB to
++the ALSA/V4L2 shim which can be added on top of TSN to provide a
++media-service.
++
++TSN operates with 'streams', and one stream can contain pretty much
++whatever you like. Currently, only media has been defined properly
++though, which is why you only have media-subtypes for the
++avtp_subtype-field.
++
++For a media-setup, one stream can contain multiple channels, all going
++to the same destination. A destination can be a single Listener
++(singlecast) or a group of Listeners (multicast).
++
++2.1 Endpoints
++
++A TSN 'endpoint' is where a stream either originates or ends -what
++others would call sources (Talkers) and sinks (Listeners). Looking back
++at pre-TSN when this was called AVB, these names make a bit more sense.
++
++Common for both types, they need to be PTPv2 capable, i.e. you need to
++timestamp gPTP frames upon ingress/egress to improve the accuracy of
++PTP.
++
++2.1.1 Talkers
++
++Hardware requirements:
++- Multiple Tx-queues
++- Credit based shaper on at least one of the queues for pacing the
++  frames onto the network
++- VLAN capable
++
++2.1.2 Listener
++
++A Listener does not have the same requirements as a Talker as it cannot
++control the pace of the incoming frames anyway. It is beneficial if the
++NIC understands VLANs and has a few Rx-queues so that you can steer all
++TSN-frames to a dedicated queue.
++
++2.2 Bridges
++
++What TSN calls switches that are TSN-capable. They must be able to
++prioritize TSN-streams, have the credit-based shaper available for that
++class, support SRP, support gPTP and so on.
++
++2.3 Relevant standards
++
++* IEEE 802.1BA-2011 Audio Video Bridging (AVB) Systems
++
++* IEEE 802.1Q-2011 sec 34 and 35
++
++  What is referred to as:
++  IEEE 802.1Qav (Forwarding and Queueing for Time-sensitive Streams)
++  IEEE 802.1Qat (Stream Registration protocol)
++
++* IEEE 802.1AS gPTP
++
++  A PTPv2 profile (from IEEE 1588) tailored for this domain. Notable
++  changes include the requirement that all nodes in the network must be
++  gPTP capable (i.e. no traversing non-PTP entities), and it allows
++  traffic over a wider range of medium that what "pure" PTPv2 allows.
++
++* IEEE 1722 AVTP Layer 2 Transport Protocol for Time-Sensitive
++  Applications in Bridged Local Area Networks
++
++* IEEE 1722.1 Device Discovery, Connection Management and Control for 1722
++
++  What allows AVB (TSN) devices to handle discovery, enumeration and
++  control, basically let you connect 2 devices from a 3rd
++
++  In this (in the scope of the Linux kernel TSN driver) must be done
++  purely from userspace as we do not want the kernel to suddenly attach
++  to a remote system without the user's knowledge. This is further
++  reflected in how the attributes for the link is managed via ConfigFS.
++
++
++3. Overview and/or design of the TSN-driver
++===========================================
++
++The driver handles the shifting of data for TSN-streams. Anything else
++is left for userspace to handle. This includes stream reservation (using
++some sort of MSRP client), negotiating multicast addresses, finding the
++value of the different attributes and connect application(s) to the
++exposed devices (currently we only have an ALSA-device).
++
++       	       /--------------------\
++       	       |                    |
++	       |  Media application |
++	       |       	       	    |
++	       \--------------------/
++		     | 	      |
++       	  +----------+	      +----+
++	  | 			   |
++	  | 			   |
++     +------------+		   |
++     |   ALSA  	  |		   |
++     +------------+		   |
++	  |			   |
++	  |			   |
++     +------------+          +--------------+
++     | 	avb_alsa  | 	     | tsn_configfs |
++     | (tsn-shim) |	     +--------------+
++     +------------+ 		   |
++       	  |  	    		   |
++	  |    	  		   |
++	  +------+     	  	   |
++	   	 |		   |
++       	       	 |		   |
++            +------------+	   |
++ 	    |  tsn_core  |<--------+
++            +------------+
++       	       	 |
++		 |
++            +------------+
++       	    |  tsn_net   |
++            +------------+
++		 |
++		 |
++	    +------------+
++	    |  network	 |
++       	    | subsystem  |
++	    +------------+
++	       	 |
++		 |
++		...
++
++
++3.1 Terms and concepts
++
++TSN uses the concept of streams and shims.
++
++- A shim is a thin wrapper that binds TSN to another subsystem (or
++  directly to userspace). avb_alsa is an example of such a shim.
++
++- A stream is the only data TSN cares about. What the data inside the
++  stream represents, is left for the associated shim to handle. TSN will
++  verify the headers up to the protocol specific header and then pass it
++  along to the shim.
++
++Note: currently, only the data-unit part is implemented, the control
++part, in which 1722.1 (discovery and enumeration) is part, is not
++handled.
++
++3.2 Userspace requirements
++
++(msrp-client, "tsnctl"-tool
++
++4. Creating a new link from userspace
++=====================================
++
++[coming]
++
++
++5. Creating a new shim
++======================
++
++shim_ops
++[coming]
++
++
++6. Other resources:
++===================
++
++https://en.wikipedia.org/wiki/Audio_Video_Bridging
