@@ -1,122 +1,57 @@
-From: Henrik Austad <henrik@austad.us>
-Subject: Re: [very-RFC 0/8] TSN driver for the kernel
-Date: Sun, 12 Jun 2016 00:49:54 +0200
-Message-ID: <20160611224954.GB10685@sisyphus.home.austad.us>
-References: <1465683741-20390-1-git-send-email-henrik@austad.us>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v2] bridge: Synchronize unicast filtering with
+ FDB
+Date: Sat, 11 Jun 2016 15:50:16 -0700 (PDT)
+Message-ID: <20160611.155016.671585186295613791.davem@davemloft.net>
+References: <1465215613-3468-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+	<20160610.223512.206489271156278288.davem@davemloft.net>
+	<575C39B1.3010300@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-media@vger.kernel.org, alsa-devel@vger.kernel.org,
-	netdev@vger.kernel.org, henrk@austad.us
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1465683741-20390-1-git-send-email-henrik@austad.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: makita.toshiaki@lab.ntt.co.jp, stephen@networkplumber.org,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	netdev@bof.de
+To: nikolay@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40553 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932081AbcFKWuR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 18:50:17 -0400
+In-Reply-To: <575C39B1.3010300@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 12, 2016 at 12:22:13AM +0200, Henrik Austad wrote:
-> Hi all
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Date: Sat, 11 Jun 2016 18:17:53 +0200
 
-Sorry.. I somehow managed to mess up the address to netdev, so if you feel 
-like replying to this, use this as it has the correct netdev-address.
+> Oops, I almost missed the v2, sorry about that. So, technically it
+> looks correct, but I only fear the scalability impact of the
+> change. If there're a large number of vlans adding a macvlan (or any
+> device that syncs uc addr) might become very slow and every flag
+> change will become very slow too without an option to revert to the
+> original behaviour so we'll have to wait for the entries to be added
+> in order to delete them.  Another common scenario is having 8021q
+> interfaces on top of the bridge with different mac addresses for
+> some of the configured vlans (or with macvlans on top of them for
+> VRR), that use case would suffer as well because their macs need to
+> be local only for those vlans, and not the 2000+ other vlans that
+> might exist.  On every sync_uc() call all the fdb entries get
+> deleted and added again, so even after deleting some manually they
+> can come back unexpectedly after some operation and also the message
+> storm from all the deletes and adds could be problematic as well.
+> 
+> 
+> E.g. 2000 br0 vlans, 25 macvlans on br0 (adding them took more than 5 minutes, 53k fdb entries):
+> $ bridge fdb del de:8e:9f:16:c5:71 dev br0 vlan 289
+> $ ip l set br0 multicast on
+> $ bridge fdb | grep 289 | grep de:8e:9f:16:c5:71
+> de:8e:9f:16:c5:71 dev br0 vlan 1289 master br0 permanent
+> de:8e:9f:16:c5:71 dev br0 vlan 289 master br0 permanent
+> 
+> In fact you can't escape the slow performance even if you delete all
+> entries because on the next flag change or interface add, they will
+> be added back.
 
-again, sorry
-
-> (series based on v4.7-rc2)
-> 
-> This is a *very* early RFC for a TSN-driver in the kernel. It has been
-> floating around in my repo for a while and I would appreciate some
-> feedback on the overall design to avoid doing some major blunders.
-> 
-> TSN: Time Sensitive Networking, formely known as AVB (Audio/Video
-> Bridging).
-> 
-> There are at least one AVB-driver (the AV-part of TSN) in the kernel
-> already, however this driver aims to solve a wider scope as TSN can do
-> much more than just audio. A very basic ALSA-driver is added to the end
-> that allows you to play music between 2 machines using aplay in one end
-> and arecord | aplay on the other (some fiddling required) We have plans
-> for doing the same for v4l2 eventually (but there are other fishes to
-> fry first). The same goes for a TSN_SOCK type approach as well.
-> 
-> TSN is all about providing infrastructure. Allthough there are a few
-> very interesting uses for TSN (reliable, deterministic network for audio
-> and video), once you have that reliable link, you can do a lot more.
-> 
-> Some notes on the design:
-> 
-> The driver is directed via ConfigFS as we need userspace to handle
-> stream-reservation (MSRP), discovery and enumeration (IEEE 1722.1) and
-> whatever other management is needed. Once we have all the required
-> attributes, we can create link using mkdir, and use write() to set the
-> attributes. Once ready, specify the 'shim' (basically a thin wrapper
-> between TSN and another subsystem) and we start pushing out frames.
-> 
-> The network part: it ties directly into the rx-handler for receive and
-> writes skb's using netdev_start_xmit(). This could probably be
-> improved. 2 new fields in netdev_ops have been introduced, and the Intel
-> igb-driver has been updated (as this is available as a PCI-e card). The
-> igb-driver works-ish
-> 
-> 
-> What remains
-> - tie to (g)PTP properly, currently using ktime_get() for presentation
->   time
-> - get time from shim into TSN and vice versa
-> - let shim create/manage buffer
-> 
-> Henrik Austad (8):
->   TSN: add documentation
->   TSN: Add the standard formerly known as AVB to the kernel
->   Adding TSN-driver to Intel I210 controller
->   Add TSN header for the driver
->   Add TSN machinery to drive the traffic from a shim over the network
->   Add TSN event-tracing
->   AVB ALSA - Add ALSA shim for TSN
->   MAINTAINERS: add TSN/AVB-entries
-> 
->  Documentation/TSN/tsn.txt                 | 147 +++++
->  MAINTAINERS                               |  14 +
->  drivers/media/Kconfig                     |  15 +
->  drivers/media/Makefile                    |   3 +-
->  drivers/media/avb/Makefile                |   5 +
->  drivers/media/avb/avb_alsa.c              | 742 +++++++++++++++++++++++
->  drivers/media/avb/tsn_iec61883.h          | 124 ++++
->  drivers/net/ethernet/intel/Kconfig        |  18 +
->  drivers/net/ethernet/intel/igb/Makefile   |   2 +-
->  drivers/net/ethernet/intel/igb/igb.h      |  19 +
->  drivers/net/ethernet/intel/igb/igb_main.c |  10 +-
->  drivers/net/ethernet/intel/igb/igb_tsn.c  | 396 ++++++++++++
->  include/linux/netdevice.h                 |  32 +
->  include/linux/tsn.h                       | 806 ++++++++++++++++++++++++
->  include/trace/events/tsn.h                | 349 +++++++++++
->  net/Kconfig                               |   1 +
->  net/Makefile                              |   1 +
->  net/tsn/Kconfig                           |  32 +
->  net/tsn/Makefile                          |   6 +
->  net/tsn/tsn_configfs.c                    | 623 +++++++++++++++++++
->  net/tsn/tsn_core.c                        | 975 ++++++++++++++++++++++++++++++
->  net/tsn/tsn_header.c                      | 203 +++++++
->  net/tsn/tsn_internal.h                    | 383 ++++++++++++
->  net/tsn/tsn_net.c                         | 403 ++++++++++++
->  24 files changed, 5306 insertions(+), 3 deletions(-)
->  create mode 100644 Documentation/TSN/tsn.txt
->  create mode 100644 drivers/media/avb/Makefile
->  create mode 100644 drivers/media/avb/avb_alsa.c
->  create mode 100644 drivers/media/avb/tsn_iec61883.h
->  create mode 100644 drivers/net/ethernet/intel/igb/igb_tsn.c
->  create mode 100644 include/linux/tsn.h
->  create mode 100644 include/trace/events/tsn.h
->  create mode 100644 net/tsn/Kconfig
->  create mode 100644 net/tsn/Makefile
->  create mode 100644 net/tsn/tsn_configfs.c
->  create mode 100644 net/tsn/tsn_core.c
->  create mode 100644 net/tsn/tsn_header.c
->  create mode 100644 net/tsn/tsn_internal.h
->  create mode 100644 net/tsn/tsn_net.c
-> 
-> --
-> 2.7.4
-
--- 
-Henrik Austad
+Yeah, I think the performance implications are too severe too, I'm
+not applying this.
