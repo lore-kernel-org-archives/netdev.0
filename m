@@ -1,30 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] bpf: couple of fixes
-Date: Fri, 10 Jun 2016 18:01:15 -0700 (PDT)
-Message-ID: <20160610.180115.1511833272202422951.davem@davemloft.net>
-References: <cover.1465578089.git.daniel@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, hannes@stressinduktion.org,
-	netdev@vger.kernel.org
-To: daniel@iogearbox.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:33806 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932489AbcFKBBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 21:01:16 -0400
-In-Reply-To: <cover.1465578089.git.daniel@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vincent Palatin <vpalatin@chromium.org>
+Subject: [PATCH 3/3] ARM: dts: rockchip: add interrupt for Wake-on-Lan on RK3288
+Date: Fri, 10 Jun 2016 18:00:39 -0700
+Message-ID: <1465606839-7722-4-git-send-email-vpalatin@chromium.org>
+References: <bd302fc6-feae-b99a-4632-a0ff9ead0123@st.com>
+ <1465606839-7722-1-git-send-email-vpalatin@chromium.org>
+Cc: linux-kernel@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
+	Douglas Anderson <dianders@chromium.org>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	=?UTF-8?q?Heiko=20St=C3=BCbner?= <heiko@sntech.de>,
+	Shunqian Zheng <zhengsq@rock-chips.com>,
+	Vincent Palatin <vpalatin@chromium.org>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465606839-7722-1-git-send-email-vpalatin@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri, 10 Jun 2016 21:19:05 +0200
+In order to use Wake-on-Lan on RK3288 integrated MAC, we need to wake-up
+the CPU on the PMT interrupt when the MAC and the PHY are in low power mode.
+Adding the interrupt declaration.
 
-> These are two fixes for BPF, one to introduce xmit recursion limiter for
-> tc bpf programs and the other one to reject filters a bit earlier. For
-> more details please see individual patches. I have no strong opinion
-> to which tree they should go, they apply to both, but I think net-next
-> seems okay to me.
+Signed-off-by: Vincent Palatin <vpalatin@chromium.org>
+---
+ arch/arm/boot/dts/rk3288.dtsi | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Series applied to net-next, thanks Daniel.
+diff --git a/arch/arm/boot/dts/rk3288.dtsi b/arch/arm/boot/dts/rk3288.dtsi
+index 3b44ef3..3ebee53 100644
+--- a/arch/arm/boot/dts/rk3288.dtsi
++++ b/arch/arm/boot/dts/rk3288.dtsi
+@@ -539,8 +539,9 @@
+ 	gmac: ethernet@ff290000 {
+ 		compatible = "rockchip,rk3288-gmac";
+ 		reg = <0xff290000 0x10000>;
+-		interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
+-		interrupt-names = "macirq";
++		interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>,
++				<GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
++		interrupt-names = "macirq", "eth_wake_irq";
+ 		rockchip,grf = <&grf>;
+ 		clocks = <&cru SCLK_MAC>,
+ 			<&cru SCLK_MAC_RX>, <&cru SCLK_MAC_TX>,
+-- 
+2.8.0.rc3.226.g39d4020
