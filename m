@@ -1,45 +1,73 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH net] ipv6: tcp: fix endianness annotation in tcp_v6_send_response
-Date: Sat, 11 Jun 2016 20:41:38 +0200
-Message-ID: <1465670498-23896-1-git-send-email-hannes@stressinduktion.org>
-Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:55258 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751708AbcFKSls (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 14:41:48 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haiyang Zhang <haiyangz@microsoft.com>
+Subject: RE: [PATCH net-next,v2] tools: hv: Add a script to help bonding
+ synthetic and VF NICs
+Date: Sat, 11 Jun 2016 18:55:02 +0000
+Message-ID: <CY1PR03MB2284BA58929855BDE219C3FACA510@CY1PR03MB2284.namprd03.prod.outlook.com>
+References: <1465593792-31672-1-git-send-email-haiyangz@microsoft.com>
+ <20160610.181336.132305021219588924.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "driverdev-devel@linuxdriverproject.org"
+ <driverdev-devel@linuxdriverproject.org>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20160610.181336.132305021219588924.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Cc: Florent Fourcot <florent.fourcot@enst-bretagne.fr>
-Fixes: 1d13a96c74fc ("ipv6: tcp: fix flowlabel value in ACK messages send from TIME_WAIT")
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- net/ipv6/tcp_ipv6.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index f36c2d076fce0d..2255d2bf5f6bdb 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -738,7 +738,7 @@ static const struct tcp_request_sock_ops tcp_request_sock_ipv6_ops = {
- static void tcp_v6_send_response(const struct sock *sk, struct sk_buff *skb, u32 seq,
- 				 u32 ack, u32 win, u32 tsval, u32 tsecr,
- 				 int oif, struct tcp_md5sig_key *key, int rst,
--				 u8 tclass, u32 label)
-+				 u8 tclass, __be32 label)
- {
- 	const struct tcphdr *th = tcp_hdr(skb);
- 	struct tcphdr *t1;
-@@ -911,7 +911,7 @@ out:
- static void tcp_v6_send_ack(const struct sock *sk, struct sk_buff *skb, u32 seq,
- 			    u32 ack, u32 win, u32 tsval, u32 tsecr, int oif,
- 			    struct tcp_md5sig_key *key, u8 tclass,
--			    u32 label)
-+			    __be32 label)
- {
- 	tcp_v6_send_response(sk, skb, seq, ack, win, tsval, tsecr, oif, key, 0,
- 			     tclass, label);
--- 
-2.5.5
+
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Friday, June 10, 2016 9:14 PM
+> To: Haiyang Zhang <haiyangz@microsoft.com>
+> Cc: netdev@vger.kernel.org; KY Srinivasan <kys@microsoft.com>;
+> olaf@aepfle.de; vkuznets@redhat.com; linux-kernel@vger.kernel.org;
+> driverdev-devel@linuxdriverproject.org
+> Subject: Re: [PATCH net-next,v2] tools: hv: Add a script to help bonding
+> synthetic and VF NICs
+> 
+> From: Haiyang Zhang <haiyangz@microsoft.com>
+> Date: Fri, 10 Jun 2016 14:23:12 -0700
+> 
+> > This script helps to create bonding network devices based on synthetic NIC
+> > (the virtual network adapter usually provided by Hyper-V) and the
+> matching
+> > VF NIC (SRIOV virtual function). So the synthetic NIC and VF NIC can
+> > function as one network device, and fail over to the synthetic NIC if VF is
+> > down.
+> >
+> > Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> > Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+> > ---
+> > v2: Make it to be distro neutral.
+> 
+> This tool doesn't configure anything.
+> 
+> It fishes information out of sysfs and prints it out.
+> 
+> I don't think this is useful, not appropriate for the kernel
+> tools subdirectory at all.
+> 
+> When I said make it distro neutral, that meant if you wanted to submit
+> this again you were expected to do the hard work of making it
+> configure things properly on all major distributions.
+
+The major distros supported by Hyper-V include RHEL, SLES, and Ubuntu.
+I will put them into the configuration scripts -- is this sufficient?
+
+Thanks,
+- Haiyang
