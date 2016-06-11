@@ -1,7 +1,7 @@
 From: Vincent Palatin <vpalatin@chromium.org>
-Subject: [PATCH 3/3] ARM: dts: rockchip: add interrupt for Wake-on-Lan on RK3288
-Date: Fri, 10 Jun 2016 18:00:39 -0700
-Message-ID: <1465606839-7722-4-git-send-email-vpalatin@chromium.org>
+Subject: [PATCH 2/3] net: stmmac: dwmac-rk: keep the PHY up for WoL
+Date: Fri, 10 Jun 2016 18:00:38 -0700
+Message-ID: <1465606839-7722-3-git-send-email-vpalatin@chromium.org>
 References: <bd302fc6-feae-b99a-4632-a0ff9ead0123@st.com>
  <1465606839-7722-1-git-send-email-vpalatin@chromium.org>
 Cc: linux-kernel@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
@@ -11,35 +11,117 @@ Cc: linux-kernel@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
 	Shunqian Zheng <zhengsq@rock-chips.com>,
 	Vincent Palatin <vpalatin@chromium.org>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35688 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932502AbcFKBBL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 21:01:11 -0400
+Received: by mail-pa0-f48.google.com with SMTP id hl6so28237813pac.2
+        for <netdev@vger.kernel.org>; Fri, 10 Jun 2016 18:01:10 -0700 (PDT)
 In-Reply-To: <1465606839-7722-1-git-send-email-vpalatin@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In order to use Wake-on-Lan on RK3288 integrated MAC, we need to wake-up
-the CPU on the PMT interrupt when the MAC and the PHY are in low power mode.
-Adding the interrupt declaration.
+When suspending the machine, do not shutdown the external PHY by cutting
+its regulator in the mac platform driver suspend code if Wake-on-Lan is enabled,
+else it cannot wake us up.
+In order to do this, split the suspend/resume callbacks from the
+init/exit callbacks, so we can condition the power-down on the lack of
+need to wake-up from the LAN but do it unconditionally when unloading the
+module.
 
 Signed-off-by: Vincent Palatin <vpalatin@chromium.org>
 ---
- arch/arm/boot/dts/rk3288.dtsi | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 49 +++++++++++++++++++++++---
+ 1 file changed, 44 insertions(+), 5 deletions(-)
 
-diff --git a/arch/arm/boot/dts/rk3288.dtsi b/arch/arm/boot/dts/rk3288.dtsi
-index 3b44ef3..3ebee53 100644
---- a/arch/arm/boot/dts/rk3288.dtsi
-+++ b/arch/arm/boot/dts/rk3288.dtsi
-@@ -539,8 +539,9 @@
- 	gmac: ethernet@ff290000 {
- 		compatible = "rockchip,rk3288-gmac";
- 		reg = <0xff290000 0x10000>;
--		interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
--		interrupt-names = "macirq";
-+		interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>,
-+				<GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupt-names = "macirq", "eth_wake_irq";
- 		rockchip,grf = <&grf>;
- 		clocks = <&cru SCLK_MAC>,
- 			<&cru SCLK_MAC_RX>, <&cru SCLK_MAC_TX>,
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+index 0cd3ecf..fa05771 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+@@ -46,6 +46,7 @@ struct rk_priv_data {
+ 	struct platform_device *pdev;
+ 	int phy_iface;
+ 	struct regulator *regulator;
++	bool powered_down;
+ 	const struct rk_gmac_ops *ops;
+ 
+ 	bool clk_enabled;
+@@ -529,9 +530,8 @@ static struct rk_priv_data *rk_gmac_setup(struct platform_device *pdev,
+ 	return bsp_priv;
+ }
+ 
+-static int rk_gmac_init(struct platform_device *pdev, void *priv)
++static int rk_gmac_powerup(struct rk_priv_data *bsp_priv)
+ {
+-	struct rk_priv_data *bsp_priv = priv;
+ 	int ret;
+ 
+ 	ret = phy_power_on(bsp_priv, true);
+@@ -542,15 +542,52 @@ static int rk_gmac_init(struct platform_device *pdev, void *priv)
+ 	if (ret)
+ 		return ret;
+ 
++	bsp_priv->powered_down = true;
++
+ 	return 0;
+ }
+ 
+-static void rk_gmac_exit(struct platform_device *pdev, void *priv)
++static void rk_gmac_powerdown(struct rk_priv_data *gmac)
+ {
+-	struct rk_priv_data *gmac = priv;
+-
+ 	phy_power_on(gmac, false);
+ 	gmac_clk_enable(gmac, false);
++	gmac->powered_down = true;
++}
++
++static int rk_gmac_init(struct platform_device *pdev, void *priv)
++{
++	struct rk_priv_data *bsp_priv = priv;
++
++	return rk_gmac_powerup(bsp_priv);
++}
++
++static void rk_gmac_exit(struct platform_device *pdev, void *priv)
++{
++	struct rk_priv_data *bsp_priv = priv;
++
++	rk_gmac_powerdown(bsp_priv);
++}
++
++static void rk_gmac_suspend(struct platform_device *pdev, void *priv)
++{
++	struct rk_priv_data *bsp_priv = priv;
++
++	/* Keep the PHY up if we use Wake-on-Lan. */
++	if (device_may_wakeup(&pdev->dev))
++		return;
++
++	rk_gmac_powerdown(bsp_priv);
++}
++
++static void rk_gmac_resume(struct platform_device *pdev, void *priv)
++{
++	struct rk_priv_data *bsp_priv = priv;
++
++	/* The PHY was up for Wake-on-Lan. */
++	if (!bsp_priv->powered_down)
++		return;
++
++	rk_gmac_powerup(bsp_priv);
+ }
+ 
+ static void rk_fix_speed(void *priv, unsigned int speed)
+@@ -591,6 +628,8 @@ static int rk_gmac_probe(struct platform_device *pdev)
+ 	plat_dat->init = rk_gmac_init;
+ 	plat_dat->exit = rk_gmac_exit;
+ 	plat_dat->fix_mac_speed = rk_fix_speed;
++	plat_dat->suspend = rk_gmac_suspend;
++	plat_dat->resume = rk_gmac_resume;
+ 
+ 	plat_dat->bsp_priv = rk_gmac_setup(pdev, data);
+ 	if (IS_ERR(plat_dat->bsp_priv))
 -- 
 2.8.0.rc3.226.g39d4020
