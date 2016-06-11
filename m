@@ -1,63 +1,62 @@
-From: Henrik Austad <henrik@austad.us>
-Subject: Re: [very-RFC 1/8] TSN: add documentation
-Date: Sun, 12 Jun 2016 00:51:07 +0200
-Message-ID: <20160611225107.GD10685@sisyphus.home.austad.us>
-References: <1465683741-20390-2-git-send-email-henrik@austad.us>
- <20160611.153510.1132155249275383253.davem@davemloft.net>
- <20160611224728.GA10685@sisyphus.home.austad.us>
- <20160611.154942.1952550958882932442.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] ethtool: Macro definition for SFF-8436/8636
+ Memory map max sizes
+Date: Sat, 11 Jun 2016 15:51:34 -0700 (PDT)
+Message-ID: <20160611.155134.1474324006340328110.davem@davemloft.net>
+References: <1465278926-10231-1-git-send-email-vidya@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="neYutvxvOLaeuPCA"
-Cc: linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
-	alsa-devel@vger.kernel.org, netdev@vger.kernel.org,
-	henrk@austad.us, haustad@cisco.com
-To: David Miller <davem@davemloft.net>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: bwh@kernel.org, netdev@vger.kernel.org, roopa@cumulusnetworks.com
+To: vidya@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:34233 "EHLO
-	mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752758AbcFKWvL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 18:51:11 -0400
-Received: by mail-lf0-f67.google.com with SMTP id k192so8562827lfb.1
-        for <netdev@vger.kernel.org>; Sat, 11 Jun 2016 15:51:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160611.154942.1952550958882932442.davem@davemloft.net>
+Received: from shards.monkeyblade.net ([149.20.54.216]:40568 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752949AbcFKWvf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 18:51:35 -0400
+In-Reply-To: <1465278926-10231-1-git-send-email-vidya@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: vidya@cumulusnetworks.com
+Date: Mon,  6 Jun 2016 22:55:26 -0700
 
---neYutvxvOLaeuPCA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+> 
+> This patch provides macro definitions for maximum possible
+> memory map size of QSFP+/QSFP28 EEPROMs as per SFF-8436/SFF-8636
+> 
+> According to SFF-8436/SFF-8636 specs, the common memory map for
+> managing external cable interfaces is arranged into a single
+> lower page address space of 128 bytes and multiple upper address pages
+> of 128 bytes each. The total size of memory map is up to 5 128 byte pages
+> defined by a "pages valid" register and switched via a "page select"
+> register for "optional pages". Memory of 256 bytes can be memory mapped
+> at a time and QSFP+/QSFP28  drivers can export upto 5*128 bytes of
+> eeprom dump.
+> 
+> QSFP+/QSFP28 Memory layout
+>            2-Wire Serial Address: 1010000x
+>            Lower Page 00h (128 bytes)
+>            ======================
+>            |Page Select Byte(127)|
+>            ======================
+>                     |
+>                     V
+>        ----------------------------------------
+>       |             |            |             |
+>       V             V            V             V
+>    ----------   ----------   ---------    ------------
+>   | Upper    | | Upper    | | Upper    | | Upper      |
+>   | Page 00h | | Page 01h | | Page 02h | | Page 03h   |
+>   |          | |(Optional)| |(Optional)| | (Optional) |
+>   |    ID    | |   AST    | |  User    | |  For       |
+>   |  Fields  | |  Table   | | EEPROM   | |  Cable     |
+>   -----------  -----------   ----------  --------------
+> 
+> Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
 
-On Sat, Jun 11, 2016 at 03:49:42PM -0700, David Miller wrote:
-> From: Henrik Austad <henrik@austad.us>
-> Date: Sun, 12 Jun 2016 00:47:28 +0200
->=20
-> > What would be the best approach? Resend series to netdev@vger? I don't =
-want=20
-> > to spam too many lists either.
->=20
-> Resend to all the lists.
+Why do we need these values in the header file at all?
 
-ok, I'll do that then.
-
-Thanks
-
---=20
-Henrik Austad
-
---neYutvxvOLaeuPCA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iEYEARECAAYFAldcldsACgkQ6k5VT6v45lkKvwCg0kQNMh4eWx8yCskvVYaA8rOq
-0jAAn06e1PvLgBRbq9d7YC5pQXh9g8Mg
-=hqrh
------END PGP SIGNATURE-----
-
---neYutvxvOLaeuPCA--
+The application can probe the size by repeated eeprom calls, increasing
+the buffer size each time as needed until success.
