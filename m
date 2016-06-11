@@ -1,28 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 00/11] net: mediatek: various small fixes
-Date: Fri, 10 Jun 2016 23:30:16 -0700 (PDT)
-Message-ID: <20160610.233016.1590591569188856238.davem@davemloft.net>
-References: <1465558088-15265-1-git-send-email-john@phrozen.org>
+Subject: Re: [PATCH next] sched: remove NET_XMIT_POLICED
+Date: Fri, 10 Jun 2016 23:31:37 -0700 (PDT)
+Message-ID: <20160610.233137.888795126611100309.davem@davemloft.net>
+References: <1465561289-15401-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nbd@nbd.name, keyhaede@gmail.com, netdev@vger.kernel.org,
-	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org
-To: john@phrozen.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465558088-15265-1-git-send-email-john@phrozen.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, a@unstable.cc, sw@simonwunderlich.de,
+	mareklindner@neomailbox.ch, sven@narfation.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:35265 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751171AbcFKGbi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 02:31:38 -0400
+In-Reply-To: <1465561289-15401-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: John Crispin <john@phrozen.org>
-Date: Fri, 10 Jun 2016 13:27:57 +0200
+From: Florian Westphal <fw@strlen.de>
+Date: Fri, 10 Jun 2016 14:21:29 +0200
 
-> This series contains various small fixes that we stumbled across while
-> doing thorough testing and code level reviewing of the driver. The only
-> patch that sticks out is the first one, which addresses a DQL related
-> issue. The rest are just minor fixes.
+> ... its not returned anywhere.
 > 
-> Changes in V2:
-> * drop the DQL patch from the list until a better solution is found
+> BATMAN uses it as an intermediate return value to signal
+> forwarding vs. buffering, but it will not return POLICED to
+> callers outside of BATMAN.
+> 
+> sch_atm uses it, but on closer look its not returned either since
+> the initialisation is always overwritten with qdisc_enqueue() retval.
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Series applied, thanks.
+Applied, thanks.
