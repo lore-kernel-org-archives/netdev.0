@@ -1,32 +1,21 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 -next] sched: remove NET_XMIT_POLICED
-Date: Sat, 11 Jun 2016 15:54:07 -0700 (PDT)
-Message-ID: <20160611.155407.1424553523659683009.davem@davemloft.net>
-References: <1465641964-12342-1-git-send-email-fw@strlen.de>
+Subject: Re: [very-RFC 2/8] TSN: Add the standard formerly known as AVB to
+ the kernel
+Date: Sat, 11 Jun 2016 15:54:34 -0700 (PDT)
+Message-ID: <20160611.155434.1647200873289468269.davem@davemloft.net>
+References: <1465683741-20390-1-git-send-email-henrik@austad.us>
+	<1465683741-20390-3-git-send-email-henrik@austad.us>
+	<20160611225303.GE10685@sisyphus.home.austad.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: fw@strlen.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40587 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752758AbcFKWyN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 18:54:13 -0400
-In-Reply-To: <1465641964-12342-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
+	alsa-devel@vger.kernel.org, netdev@vger.kernel.org, henrk@austad.us
+To: henrik@austad.us
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160611225303.GE10685@sisyphus.home.austad.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
-Date: Sat, 11 Jun 2016 12:46:04 +0200
 
-> sch_atm returns this when TC_ACT_SHOT classification occurs.
-> 
-> But all other schedulers that use tc_classify
-> (htb, hfsc, drr, fq_codel ...) return NET_XMIT_SUCCESS | __BYPASS
-> in this case so just do that in atm.
-
-Yes, but it's been like this for two decades.
-
-One of the points of my reply to the previous version of this
-patch is that indeed it is explicitly returned, intentionally.
+Not as a reply, fresh new patch postings. :-/
