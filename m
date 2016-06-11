@@ -1,49 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next,v2] tools: hv: Add a script to help bonding
- synthetic and VF NICs
-Date: Fri, 10 Jun 2016 18:13:36 -0700 (PDT)
-Message-ID: <20160610.181336.132305021219588924.davem@davemloft.net>
-References: <1465593792-31672-1-git-send-email-haiyangz@microsoft.com>
+Subject: Re: [PATCH net-next v2] net, cls: allow for deleting all filters
+ for given parent
+Date: Fri, 10 Jun 2016 18:15:08 -0700 (PDT)
+Message-ID: <20160610.181508.1584248034068110825.davem@davemloft.net>
+References: <4f60a899712d32c9c635107b4278a1b62cd18f3e.1465591897.git.daniel@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, netdev@vger.kernel.org,
- driverdev-devel@linuxdriverproject.org, linux-kernel@vger.kernel.org
-To: haiyangz@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <1465593792-31672-1-git-send-email-haiyangz@microsoft.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: xiyou.wangcong@gmail.com, jhs@mojatatu.com,
+	alexei.starovoitov@gmail.com, john.fastabend@gmail.com,
+	netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33862 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751031AbcFKBPK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 21:15:10 -0400
+In-Reply-To: <4f60a899712d32c9c635107b4278a1b62cd18f3e.1465591897.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haiyang Zhang <haiyangz@microsoft.com>
-Date: Fri, 10 Jun 2016 14:23:12 -0700
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri, 10 Jun 2016 23:10:22 +0200
 
-> This script helps to create bonding network devices based on synthetic NIC
-> (the virtual network adapter usually provided by Hyper-V) and the matching
-> VF NIC (SRIOV virtual function). So the synthetic NIC and VF NIC can
-> function as one network device, and fail over to the synthetic NIC if VF is
-> down.
+> Add a possibility where the user can just specify the parent and
+> all filters under that parent are then being purged. Currently,
+> for example for scripting, one needs to specify pref/prio to have
+> a well-defined number for 'tc filter del' command for addressing
+> the previously created instance or additionally filter handle in
+> case of priorities being the same. Improve usage by allowing the
+> option for tc to specify the parent and removing the whole chain
+> for that given parent.
 > 
-> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
-> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
-> ---
-> v2: Make it to be distro neutral.
+> Example usage after patch, no tc changes required:
+ ...
+> Previously, RTM_DELTFILTER requests with invalid prio of 0 were
+> rejected, so only netlink requests with RTM_NEWTFILTER and NLM_F_CREATE
+> flag were allowed where the kernel would auto-generate a pref/prio.
+> We can piggyback on that and use prio of 0 as a wildcard for
+> requests of RTM_DELTFILTER.
+> 
+> For notifying tc netlink monitoring users (e.g. libnl uses this
+> for caching), there are two options, that is, sending individual
+> tfilter_notify() notifications for each tcf_proto, or sending a
+> single one indicating wildcard removal. I tried both and there
+> are pros and cons for each, eventually I decided for sending
+> individual tfilter_notify(), so that user space can support this
+> seamlessly and there won't be a mess of changing each and every
+> application to make sure expectations from the kernel won't break
+> when they don't understand single notification. Since linear chains
+> don't really scale, I expect only a handful of classifiers to be
+> attached at max for a given parent anyway.
+> 
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-This tool doesn't configure anything.
-
-It fishes information out of sysfs and prints it out.
-
-I don't think this is useful, not appropriate for the kernel
-tools subdirectory at all.
-
-When I said make it distro neutral, that meant if you wanted to submit
-this again you were expected to do the hard work of making it
-configure things properly on all major distributions.
+Applied.
