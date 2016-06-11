@@ -1,107 +1,62 @@
-From: Clemens Gruber <clemens.gruber@pqgruber.com>
-Subject: [PATCH] phy: marvell: fix LED configuration via marvell,reg-init
-Date: Sat, 11 Jun 2016 17:21:26 +0200
-Message-ID: <20160611152126.24024-1-clemens.gruber@pqgruber.com>
-Cc: Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	linux-kernel@vger.kernel.org,
-	"David S . Miller" <davem@davemloft.net>,
-	Sergei Poselenov <sposelenov@emcraft.com>,
-	Clemens Gruber <clemens.gruber@pqgruber.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v6] r8152: Add support for setting pass through MAC
+ address on RTL8153-AD
+Date: Sat, 11 Jun 2016 17:39:21 +0200
+Message-ID: <20160611153921.GP2338@lunn.ch>
+References: <1465323757-7249-1-git-send-email-mario_limonciello@dell.com>
+ <20160610.225156.638004322598763463.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: mario_limonciello@dell.com, hayeswang@realtek.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, pali.rohar@gmail.com,
+	anthony.wong@canonical.com, gregkh@linuxfoundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:42234 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751180AbcFKPja (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 11 Jun 2016 11:39:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20160610.225156.638004322598763463.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Configuring the PHY LED registers for the Marvell 88E1510 and others is
-not possible, because regardless of the values in marvell,reg-init, it
-is later overridden in m88e1121_config_aneg with a non-standard default.
+On Fri, Jun 10, 2016 at 10:51:56PM -0700, David Miller wrote:
+> From: Mario Limonciello <mario_limonciello@dell.com>
+> Date: Tue,  7 Jun 2016 13:22:37 -0500
+> 
+> > The RTL8153-AD supports a persistent system specific MAC address.
+> > This means a device plugged into two different systems with host side
+> > support will show different (but persistent) MAC addresses.
+> > 
+> > This information for the system's persistent MAC address is burned in when
+> > the system HW is built and available under \_SB.AMAC in the DSDT at runtime.
+> > 
+> > This technology is currently implemented in the Dell TB15 and WD15 Type-C
+> > docks.  More information is available here:
+> > http://www.dell.com/support/article/us/en/04/SLN301147
+> > 
+> > Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
+> > ---
+> > Changes from v5:
+> >  * Correct return value if hex2bin succesful but invalid ether addr
+> 
+> Have things calmed down enough now that I can apply this?
 
-This patch moves that default configuration to .config_init to allow
-setting the LED configuration through marvell,reg-init in the device
-tree, which should override said default if it exists.
+Hi David
 
-Signed-off-by: Clemens Gruber <clemens.gruber@pqgruber.com>
----
- drivers/net/phy/marvell.c | 38 ++++++++++++++++++++++++++------------
- 1 file changed, 26 insertions(+), 12 deletions(-)
+I think the code has reaching the level of maturity needed for
+acceptance. So for the code quality:
 
-diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
-index 280e879..79ccc11 100644
---- a/drivers/net/phy/marvell.c
-+++ b/drivers/net/phy/marvell.c
-@@ -407,15 +407,7 @@ static int m88e1121_config_aneg(struct phy_device *phydev)
- 	if (err < 0)
- 		return err;
- 
--	oldpage = phy_read(phydev, MII_MARVELL_PHY_PAGE);
--
--	phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_88E1121_PHY_LED_PAGE);
--	phy_write(phydev, MII_88E1121_PHY_LED_CTRL, MII_88E1121_PHY_LED_DEF);
--	phy_write(phydev, MII_MARVELL_PHY_PAGE, oldpage);
--
--	err = genphy_config_aneg(phydev);
--
--	return err;
-+	return genphy_config_aneg(phydev);
- }
- 
- static int m88e1318_config_aneg(struct phy_device *phydev)
-@@ -636,6 +628,28 @@ static int m88e1111_config_init(struct phy_device *phydev)
- 	return phy_write(phydev, MII_BMCR, BMCR_RESET);
- }
- 
-+static int m88e1121_config_init(struct phy_device *phydev)
-+{
-+	int err, oldpage;
-+
-+	oldpage = phy_read(phydev, MII_MARVELL_PHY_PAGE);
-+
-+	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_88E1121_PHY_LED_PAGE);
-+	if (err < 0)
-+		return err;
-+
-+	/* Default PHY LED config: LED[0] .. Link, LED[1] .. Activity */
-+	err = phy_write(phydev, MII_88E1121_PHY_LED_CTRL,
-+			MII_88E1121_PHY_LED_DEF);
-+	if (err < 0)
-+		return err;
-+
-+	phy_write(phydev, MII_MARVELL_PHY_PAGE, oldpage);
-+
-+	/* Set marvell,reg-init configuration from device tree */
-+	return marvell_config_init(phydev);
-+}
-+
- static int m88e1510_config_init(struct phy_device *phydev)
- {
- 	int err;
-@@ -668,7 +682,7 @@ static int m88e1510_config_init(struct phy_device *phydev)
- 			return err;
- 	}
- 
--	return marvell_config_init(phydev);
-+	return m88e1121_config_init(phydev);
- }
- 
- static int m88e1118_config_aneg(struct phy_device *phydev)
-@@ -1196,7 +1210,7 @@ static struct phy_driver marvell_drivers[] = {
- 		.features = PHY_GBIT_FEATURES,
- 		.flags = PHY_HAS_INTERRUPT,
- 		.probe = marvell_probe,
--		.config_init = &marvell_config_init,
-+		.config_init = &m88e1121_config_init,
- 		.config_aneg = &m88e1121_config_aneg,
- 		.read_status = &marvell_read_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
-@@ -1215,7 +1229,7 @@ static struct phy_driver marvell_drivers[] = {
- 		.features = PHY_GBIT_FEATURES,
- 		.flags = PHY_HAS_INTERRUPT,
- 		.probe = marvell_probe,
--		.config_init = &marvell_config_init,
-+		.config_init = &m88e1121_config_init,
- 		.config_aneg = &m88e1318_config_aneg,
- 		.read_status = &marvell_read_status,
- 		.ack_interrupt = &marvell_ack_interrupt,
--- 
-2.8.3
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+What is still open is do we want to accept it at all? Do we accept the
+concept of putting the same MAC address on multiple interfaces at
+hotplug time? Do we trust BIOS vendors to not keep changing DSDT
+property name, since it is not standardised?
+
+Do we want this at all should be decided by somebody more senior then
+those passing comments on the code.
+
+	Andrew
