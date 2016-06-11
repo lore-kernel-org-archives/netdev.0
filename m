@@ -1,35 +1,36 @@
-From: Shawn Guo <shawnguo@kernel.org>
-Subject: Re: [PATCH v2 1/2] ARM: imx6: disable deeper idle states when FEC is
- active w/o HW workaround
-Date: Sat, 11 Jun 2016 17:04:38 +0800
-Message-ID: <20160611090438.GG20243@tiger>
-References: <1464971480-9203-1-git-send-email-l.stach@pengutronix.de>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH next] sched: remove NET_XMIT_POLICED
+Date: Sat, 11 Jun 2016 11:06:05 +0200
+Message-ID: <20160611090605.GA3669@breakpoint.cc>
+References: <1465561289-15401-1-git-send-email-fw@strlen.de>
+ <20160610.233137.888795126611100309.davem@davemloft.net>
+ <20160611.000047.2179423929953796335.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Fugang Duan <fugang.duan@nxp.com>, devicetree@vger.kernel.org,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	kernel@pengutronix.de, patchwork-lst@pengutronix.de
-To: Lucas Stach <l.stach@pengutronix.de>
+Cc: fw@strlen.de, netdev@vger.kernel.org, a@unstable.cc,
+	sw@simonwunderlich.de, mareklindner@neomailbox.ch,
+	sven@narfation.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.kernel.org ([198.145.29.136]:34474 "EHLO mail.kernel.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750929AbcFKJFU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 11 Jun 2016 05:05:20 -0400
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:37679 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750929AbcFKJGM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 05:06:12 -0400
 Content-Disposition: inline
-In-Reply-To: <1464971480-9203-1-git-send-email-l.stach@pengutronix.de>
+In-Reply-To: <20160611.000047.2179423929953796335.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 03, 2016 at 06:31:19PM +0200, Lucas Stach wrote:
-> The i.MX6 Q/DL has an erratum (ERR006687) that prevents the FEC from
-> waking the CPUs when they are in wait(unclocked) state. As the hardware
-> workaround isn't applicable to all boards, disable the deeper idle state
-> when the workaround isn't present and the FEC is in use.
+David Miller <davem@davemloft.net> wrote:
+> I have to revert this, the sch_atm.c change is wrong.
 > 
-> This allows to safely run a kernel with CPUidle enabled on all i.MX6
-> boards.
-> 
-> Signed-off-by: Lucas Stach <l.stach@pengutronix.de>
-> Acked-by: David S. Miller <davem@davemloft.net> (for network changes)
+> NET_XMIT_POLICED is the default value of 'ret' which can be used
+> if we branch to 'drop'.  So now GCC says that 'ret' might be used
+> uninitialized.
 
-Applied both, thanks.
+Hmpf, seems I need to update gcc :-|
+
+> So it is actually used, and reported by sch_atm when TC_ACT_SHOT
+> classifications occur.
+
+I'll resubmit a v2 changing initializer to NET_XMIT_DROP.
