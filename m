@@ -1,40 +1,54 @@
-From: Tejun Heo <tj@kernel.org>
-Subject: Re: [PATCH] libertas_tf: Remove create_workqueue
-Date: Sat, 11 Jun 2016 17:47:08 -0500
-Message-ID: <20160611224708.GC31708@htj.duckdns.org>
-References: <20160607200853.GA13742@Karyakshetra>
+From: Henrik Austad <henrik@austad.us>
+Subject: Re: [very-RFC 1/8] TSN: add documentation
+Date: Sun, 12 Jun 2016 00:47:28 +0200
+Message-ID: <20160611224728.GA10685@sisyphus.home.austad.us>
+References: <1465683741-20390-1-git-send-email-henrik@austad.us>
+ <1465683741-20390-2-git-send-email-henrik@austad.us>
+ <20160611.153510.1132155249275383253.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-	Johannes Berg <johannes.berg@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f65.google.com ([209.85.214.65]:35468 "EHLO
-	mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751896AbcFKWrR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 18:47:17 -0400
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="x+6KMIRAuhnl3hBn"
+Cc: linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
+	alsa-devel@vger.kernel.org, netdev@vger.kernel.org,
+	henrk@austad.us, haustad@cisco.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-media-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160607200853.GA13742@Karyakshetra>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <20160611.153510.1132155249275383253.davem@davemloft.net>
+Sender: linux-media-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 08, 2016 at 01:38:53AM +0530, Bhaktipriya Shridhar wrote:
-> alloc_workqueue replaces deprecated create_workqueue().
-> 
-> A dedicated workqueue has been used since the workitem (viz
-> &priv->cmd_work per priv, which maps to lbtf_cmd_work) is involved in
-> actual command processing and may be used on a memory reclaim path.
-> The workitems require forward progress under memory pressure and hence,
-> WQ_MEM_RECLAIM has been set. Since there are only a fixed number of work
-> items, explicit concurrency limit is unnecessary here.
-> 
-> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 
-Acked-by: Tejun Heo <tj@kernel.org>
+--x+6KMIRAuhnl3hBn
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks.
+On Sat, Jun 11, 2016 at 03:35:10PM -0700, David Miller wrote:
+>=20
+> Networking patches not CC:'d to netdev@vger.kernel.org are unlikely to
+> be reviewed by networking developers at all.
 
--- 
-tejun
+Oh no! I messed up git send-email and wrote linux-netdev@vger instead of=20
+netdev@vger.
+
+What would be the best approach? Resend series to netdev@vger? I don't want=
+=20
+to spam too many lists either.
+
+--=20
+Henrik Austad
+
+--x+6KMIRAuhnl3hBn
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAldclQAACgkQ6k5VT6v45lmEmgCeIP4AuvPwVEO5MJFJjlcAgEWq
+zdsAoOA+vATHaEMCRhUuEb7uhvKFL2kI
+=p2tc
+-----END PGP SIGNATURE-----
+
+--x+6KMIRAuhnl3hBn--
