@@ -1,35 +1,36 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] eBPF JIT for PPC64
-Date: Fri, 10 Jun 2016 22:47:55 -0700 (PDT)
-Message-ID: <20160610.224755.1614979708956751311.davem@davemloft.net>
-References: <cover.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
+Subject: Re: [PATCH v2 1/2] net: ethernet: ti: cpsw: remove rx_descs
+ property
+Date: Fri, 10 Jun 2016 22:50:43 -0700 (PDT)
+Message-ID: <20160610.225043.1035032413161700163.davem@davemloft.net>
+References: <1465307976-12235-1-git-send-email-ivan.khoronzhuk@linaro.org>
+	<1465307976-12235-2-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, mpe@ellerman.id.au, matt@ozlabs.org,
-	kda@linux-powerpc.org, paulus@samba.org, ast@fb.com,
-	daniel@iogearbox.net, ananth@in.ibm.com
-To: naveen.n.rao@linux.vnet.ibm.com
+Cc: mugunthanvnm@ti.com, linux-kernel@vger.kernel.org,
+	grygorii.strashko@ti.com, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, bcousson@baylibre.com, tony@atomide.com,
+	devicetree@vger.kernel.org
+To: ivan.khoronzhuk@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:35013 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:35045 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751462AbcFKFr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 01:47:57 -0400
-In-Reply-To: <cover.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
+	with ESMTP id S1750995AbcFKFup (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 01:50:45 -0400
+In-Reply-To: <1465307976-12235-2-git-send-email-ivan.khoronzhuk@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Date: Tue,  7 Jun 2016 19:02:17 +0530
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Date: Tue,  7 Jun 2016 16:59:35 +0300
 
-> Please note that patch [2] is a pre-requisite for this patchset, and is
-> not yet upstream.
- ...
-> [1] http://thread.gmane.org/gmane.linux.kernel/2188694
-> [2] http://thread.gmane.org/gmane.linux.ports.ppc.embedded/96514
+>  	if (!cpsw_common_res_usage_state(priv)) {
+> +		int buf_num;
+>  		struct cpsw_priv *priv_sl0 = cpsw_get_slave_priv(priv, 0);
+>  
 
-Because of #2 I don't think I can take this directly into the networking
-tree, right?
-
-Therefore, how would you like this to be merged?
+Please always order local variable declarations from longest to shortest
+line.
