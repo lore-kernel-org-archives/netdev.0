@@ -1,42 +1,42 @@
 From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH] net: ethernet: ti: cpsw: use destroy ctlr to destroy
- channels
-Date: Sat, 11 Jun 2016 12:24:25 +0300
-Message-ID: <575BD8C9.7010809@linaro.org>
-References: <1465596714-26697-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <20160610.181737.1845629611779297454.davem@davemloft.net>
+Subject: Re: [PATCH v2 1/2] net: ethernet: ti: cpsw: remove rx_descs property
+Date: Sat, 11 Jun 2016 13:11:29 +0300
+Message-ID: <575BE3D1.5000507@linaro.org>
+References: <1465307976-12235-1-git-send-email-ivan.khoronzhuk@linaro.org>
+ <1465307976-12235-2-git-send-email-ivan.khoronzhuk@linaro.org>
+ <20160610.225043.1035032413161700163.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
-	mugunthanvnm@ti.com, grygorii.strashko@ti.com,
-	netdev@vger.kernel.org
+Cc: mugunthanvnm@ti.com, linux-kernel@vger.kernel.org,
+	grygorii.strashko@ti.com, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, bcousson@baylibre.com, tony@atomide.com,
+	devicetree@vger.kernel.org
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f41.google.com ([209.85.215.41]:34358 "EHLO
-	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750929AbcFKJY3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 05:24:29 -0400
-Received: by mail-lf0-f41.google.com with SMTP id j7so35090427lfg.1
-        for <netdev@vger.kernel.org>; Sat, 11 Jun 2016 02:24:29 -0700 (PDT)
-In-Reply-To: <20160610.181737.1845629611779297454.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160610.225043.1035032413161700163.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
 
-On 11.06.16 04:17, David Miller wrote:
+On 11.06.16 08:50, David Miller wrote:
 > From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-> Date: Sat, 11 Jun 2016 01:11:54 +0300
+> Date: Tue,  7 Jun 2016 16:59:35 +0300
 >
->> Based on master
+>>   	if (!cpsw_common_res_usage_state(priv)) {
+>> +		int buf_num;
+>>   		struct cpsw_priv *priv_sl0 = cpsw_get_slave_priv(priv, 0);
+>>
 >
-> master... of what?
+> Please always order local variable declarations from longest to shortest
+> line.
 >
+I will correct it in v3
 
-master of
-git://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git
-but it's applicable on linux-next master also.
+
 
 -- 
 Regards,
