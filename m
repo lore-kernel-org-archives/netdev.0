@@ -1,129 +1,107 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: [PATCH v2 -next] sched: remove NET_XMIT_POLICED
-Date: Sat, 11 Jun 2016 12:46:04 +0200
-Message-ID: <1465641964-12342-1-git-send-email-fw@strlen.de>
-Cc: Florian Westphal <fw@strlen.de>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:37741 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751076AbcFKKpr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 06:45:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Clemens Gruber <clemens.gruber@pqgruber.com>
+Subject: [PATCH] phy: marvell: fix LED configuration via marvell,reg-init
+Date: Sat, 11 Jun 2016 17:21:26 +0200
+Message-ID: <20160611152126.24024-1-clemens.gruber@pqgruber.com>
+Cc: Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	linux-kernel@vger.kernel.org,
+	"David S . Miller" <davem@davemloft.net>,
+	Sergei Poselenov <sposelenov@emcraft.com>,
+	Clemens Gruber <clemens.gruber@pqgruber.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-sch_atm returns this when TC_ACT_SHOT classification occurs.
+Configuring the PHY LED registers for the Marvell 88E1510 and others is
+not possible, because regardless of the values in marvell,reg-init, it
+is later overridden in m88e1121_config_aneg with a non-standard default.
 
-But all other schedulers that use tc_classify
-(htb, hfsc, drr, fq_codel ...) return NET_XMIT_SUCCESS | __BYPASS
-in this case so just do that in atm.
+This patch moves that default configuration to .config_init to allow
+setting the LED configuration through marvell,reg-init in the device
+tree, which should override said default if it exists.
 
-BATMAN uses it as an intermediate return value to signal
-forwarding vs. buffering, but it did not return POLICED to
-callers outside of BATMAN.
-
-Reviewed-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Clemens Gruber <clemens.gruber@pqgruber.com>
 ---
- Change since v2:
-  don't remove the POLICED initialisation in sch_atm, its used
-  if we hit ACT_SHOT.
+ drivers/net/phy/marvell.c | 38 ++++++++++++++++++++++++++------------
+ 1 file changed, 26 insertions(+), 12 deletions(-)
 
- I preseved Svens Reviewed-by since I did not change the BATMAN
- part in any way.
-
- include/linux/netdevice.h | 1 -
- net/batman-adv/routing.c  | 2 +-
- net/batman-adv/send.c     | 4 ++--
- net/core/pktgen.c         | 1 -
- net/sched/sch_api.c       | 2 --
- net/sched/sch_atm.c       | 2 +-
- 6 files changed, 4 insertions(+), 8 deletions(-)
-
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index 94eef35..d101e4d 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -90,7 +90,6 @@ void netdev_set_default_ethtool_ops(struct net_device *dev,
- #define NET_XMIT_SUCCESS	0x00
- #define NET_XMIT_DROP		0x01	/* skb dropped			*/
- #define NET_XMIT_CN		0x02	/* congestion notification	*/
--#define NET_XMIT_POLICED	0x03	/* skb is shot by police	*/
- #define NET_XMIT_MASK		0x0f	/* qdisc flags in net/sch_generic.h */
+diff --git a/drivers/net/phy/marvell.c b/drivers/net/phy/marvell.c
+index 280e879..79ccc11 100644
+--- a/drivers/net/phy/marvell.c
++++ b/drivers/net/phy/marvell.c
+@@ -407,15 +407,7 @@ static int m88e1121_config_aneg(struct phy_device *phydev)
+ 	if (err < 0)
+ 		return err;
  
- /* NET_XMIT_CN is special. It does not guarantee that this packet is lost. It
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index e3857ed..f75091c 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -653,7 +653,7 @@ static int batadv_route_unicast_packet(struct sk_buff *skb,
- 				   len + ETH_HLEN);
+-	oldpage = phy_read(phydev, MII_MARVELL_PHY_PAGE);
+-
+-	phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_88E1121_PHY_LED_PAGE);
+-	phy_write(phydev, MII_88E1121_PHY_LED_CTRL, MII_88E1121_PHY_LED_DEF);
+-	phy_write(phydev, MII_MARVELL_PHY_PAGE, oldpage);
+-
+-	err = genphy_config_aneg(phydev);
+-
+-	return err;
++	return genphy_config_aneg(phydev);
+ }
  
- 		ret = NET_RX_SUCCESS;
--	} else if (res == NET_XMIT_POLICED) {
-+	} else if (res == -EINPROGRESS) {
- 		/* skb was buffered and consumed */
- 		ret = NET_RX_SUCCESS;
+ static int m88e1318_config_aneg(struct phy_device *phydev)
+@@ -636,6 +628,28 @@ static int m88e1111_config_init(struct phy_device *phydev)
+ 	return phy_write(phydev, MII_BMCR, BMCR_RESET);
+ }
+ 
++static int m88e1121_config_init(struct phy_device *phydev)
++{
++	int err, oldpage;
++
++	oldpage = phy_read(phydev, MII_MARVELL_PHY_PAGE);
++
++	err = phy_write(phydev, MII_MARVELL_PHY_PAGE, MII_88E1121_PHY_LED_PAGE);
++	if (err < 0)
++		return err;
++
++	/* Default PHY LED config: LED[0] .. Link, LED[1] .. Activity */
++	err = phy_write(phydev, MII_88E1121_PHY_LED_CTRL,
++			MII_88E1121_PHY_LED_DEF);
++	if (err < 0)
++		return err;
++
++	phy_write(phydev, MII_MARVELL_PHY_PAGE, oldpage);
++
++	/* Set marvell,reg-init configuration from device tree */
++	return marvell_config_init(phydev);
++}
++
+ static int m88e1510_config_init(struct phy_device *phydev)
+ {
+ 	int err;
+@@ -668,7 +682,7 @@ static int m88e1510_config_init(struct phy_device *phydev)
+ 			return err;
  	}
-diff --git a/net/batman-adv/send.c b/net/batman-adv/send.c
-index f2f1256..b1a4e8a 100644
---- a/net/batman-adv/send.c
-+++ b/net/batman-adv/send.c
-@@ -156,7 +156,7 @@ int batadv_send_unicast_skb(struct sk_buff *skb,
-  * attempted.
-  *
-  * Return: NET_XMIT_SUCCESS on success, NET_XMIT_DROP on failure, or
-- * NET_XMIT_POLICED if the skb is buffered for later transmit.
-+ * -EINPROGRESS if the skb is buffered for later transmit.
-  */
- int batadv_send_skb_to_orig(struct sk_buff *skb,
- 			    struct batadv_orig_node *orig_node,
-@@ -188,7 +188,7 @@ int batadv_send_skb_to_orig(struct sk_buff *skb,
- 	 * network coding fails, then send the packet as usual.
- 	 */
- 	if (recv_if && batadv_nc_skb_forward(skb, neigh_node)) {
--		ret = NET_XMIT_POLICED;
-+		ret = -EINPROGRESS;
- 	} else {
- 		batadv_send_unicast_skb(skb, neigh_node);
- 		ret = NET_XMIT_SUCCESS;
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index 8b02df0..f74ab9c 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -3463,7 +3463,6 @@ xmit_more:
- 		break;
- 	case NET_XMIT_DROP:
- 	case NET_XMIT_CN:
--	case NET_XMIT_POLICED:
- 		/* skb has been consumed */
- 		pkt_dev->errors++;
- 		break;
-diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
-index 401eda6..12ebde8 100644
---- a/net/sched/sch_api.c
-+++ b/net/sched/sch_api.c
-@@ -95,8 +95,6 @@ static int tclass_notify(struct net *net, struct sk_buff *oskb,
-      Expected action: do not backoff, but wait until queue will clear.
-    NET_XMIT_CN	 	- probably this packet enqueued, but another one dropped.
-      Expected action: backoff or ignore
--   NET_XMIT_POLICED	- dropped by police.
--     Expected action: backoff or error to real-time apps.
  
-    Auxiliary routines:
+-	return marvell_config_init(phydev);
++	return m88e1121_config_init(phydev);
+ }
  
-diff --git a/net/sched/sch_atm.c b/net/sched/sch_atm.c
-index 7e6c12d..0785b23 100644
---- a/net/sched/sch_atm.c
-+++ b/net/sched/sch_atm.c
-@@ -363,7 +363,7 @@ static int atm_tc_enqueue(struct sk_buff *skb, struct Qdisc *sch)
- 	struct atm_flow_data *flow;
- 	struct tcf_result res;
- 	int result;
--	int ret = NET_XMIT_POLICED;
-+	int ret = NET_XMIT_SUCCESS | __NET_XMIT_BYPASS;
- 
- 	pr_debug("atm_tc_enqueue(skb %p,sch %p,[qdisc %p])\n", skb, sch, p);
- 	result = TC_POLICE_OK;	/* be nice to gcc */
+ static int m88e1118_config_aneg(struct phy_device *phydev)
+@@ -1196,7 +1210,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.features = PHY_GBIT_FEATURES,
+ 		.flags = PHY_HAS_INTERRUPT,
+ 		.probe = marvell_probe,
+-		.config_init = &marvell_config_init,
++		.config_init = &m88e1121_config_init,
+ 		.config_aneg = &m88e1121_config_aneg,
+ 		.read_status = &marvell_read_status,
+ 		.ack_interrupt = &marvell_ack_interrupt,
+@@ -1215,7 +1229,7 @@ static struct phy_driver marvell_drivers[] = {
+ 		.features = PHY_GBIT_FEATURES,
+ 		.flags = PHY_HAS_INTERRUPT,
+ 		.probe = marvell_probe,
+-		.config_init = &marvell_config_init,
++		.config_init = &m88e1121_config_init,
+ 		.config_aneg = &m88e1318_config_aneg,
+ 		.read_status = &marvell_read_status,
+ 		.ack_interrupt = &marvell_ack_interrupt,
 -- 
-2.7.3
+2.8.3
