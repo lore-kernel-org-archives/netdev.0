@@ -1,212 +1,142 @@
-From: Scott Wood <oss@buserror.net>
-Subject: Re: [PATCH 2/4] soc: fsl: add GUTS driver for QorIQ platforms
-Date: Fri, 10 Jun 2016 20:50:53 -0500
-Message-ID: <1465609853.22191.151.camel@buserror.net>
-References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
-	 <5339448.D8rpq4ofAC@wuerfel> <1464832042.22191.23.camel@buserror.net>
-	 <3435609.s5m1DCsoNb@wuerfel>
+From: Heiko Stuebner <heiko@sntech.de>
+Subject: Re: [PATCH 2/3] net: stmmac: dwmac-rk: keep the PHY up for WoL
+Date: Sat, 11 Jun 2016 03:57:44 +0200
+Message-ID: <2847430.O0lKQgdM0K@phil>
+References: <bd302fc6-feae-b99a-4632-a0ff9ead0123@st.com> <1465606839-7722-1-git-send-email-vpalatin@chromium.org> <1465606839-7722-3-git-send-email-vpalatin@chromium.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>,
-	Ulf Hansson <ulf.hansson@linaro.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
-	"linux-clk@vger.kernel.org" <linux-clk@vger.kernel.org>,
-	Qiang Zhao <qiang.zhao@nxp.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-	Joerg Roedel <joro@8bytes.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Kumar Gala <galak@codeaurora.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	Santosh Shilimkar <ssantosh@kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
-	Xiaobo Xie <xiaobo.xie@nxp.com>,
-	Yang-Leo Li <leoyang.li@nxp.com>,
-	"i
-To: Arnd Bergmann <arnd@arndb.de>, linuxppc-dev@lists.ozlabs.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from host.buserror.net ([209.198.135.123]:49564 "EHLO
-	host.buserror.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751004AbcFKBvR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 10 Jun 2016 21:51:17 -0400
-In-Reply-To: <3435609.s5m1DCsoNb@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Andrew Lunn <andrew@lunn.ch>,
+	Douglas Anderson <dianders@chromium.org>,
+	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Shunqian Zheng <zhengsq@rock-chips.com>
+To: Vincent Palatin <vpalatin@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465606839-7722-3-git-send-email-vpalatin@chromium.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-06-02 at 10:43 +0200, Arnd Bergmann wrote:
-> On Wednesday, June 1, 2016 8:47:22 PM CEST Scott Wood wrote:
-> > On Mon, 2016-05-30 at 15:15 +0200, Arnd Bergmann wrote:
-> > > diff --git a/drivers/soc/fsl/guts.c b/drivers/soc/fsl/guts.c
-> > > new file mode 100644
-> > > index 000000000000..2f30698f5bcf
-> > > --- /dev/null
-> > > +++ b/drivers/soc/fsl/guts.c
-> > > @@ -0,0 +1,130 @@
-> > > +/*
-> > > + * Freescale QorIQ Platforms GUTS Driver
-> > > + *
-> > > + * Copyright (C) 2016 Freescale Semiconductor, Inc.
-> > > + *
-> > > + * This program is free software; you can redistribute it and/or modify
-> > > + * it under the terms of the GNU General Public License as published by
-> > > + * the Free Software Foundation; either version 2 of the License, or
-> > > + * (at your option) any later version.
-> > > + */
-> > > +
-> > > +#include <linux/io.h>
-> > > +#include <linux/platform_device.h>
-> > > +#include <linux/module.h>
-> > > +#include <linux/slab.h>
-> > > +#include <linux/of_address.h>
-> > > +#include <linux/of_platform.h>
-> > > +#include <linux/sys_soc.h>
-> > > +
-> > > +#define GUTS_PVR	0x0a0
-> > > +#define GUTS_SVR	0x0a4
-> > > +
-> > > +struct guts {
-> > > +	void __iomem *regs;
-> > 
-> > We already have a struct to define guts.  Why are you not using it?  Why
-> > do
-> > you consider using it to be "abuse"?  What if we want to move more guts
-> > functionality into this driver?
+Am Freitag, 10. Juni 2016, 18:00:38 schrieb Vincent Palatin:
+> When suspending the machine, do not shutdown the external PHY by cutting
+> its regulator in the mac platform driver suspend code if Wake-on-Lan is
+> enabled, else it cannot wake us up.
+> In order to do this, split the suspend/resume callbacks from the
+> init/exit callbacks, so we can condition the power-down on the lack of
+> need to wake-up from the LAN but do it unconditionally when unloading the
+> module.
 > 
-> This structure was in the original patch, I left it in there, only
-> removed the inclusion of the powerpc header file, which seemed to
-> be misplaced.
-
-I'm not refering "struct guts".  I'm referring to changing
-"struct ccsr_guts __iomem *regs" into "void __iomem *regs".
-
-And it's not a powerpc header file.
-
-> > > +/*
-> > > + * Table for matching compatible strings, for device tree
-> > > + * guts node, for Freescale QorIQ SOCs.
-> > > + */
-> > > +static const struct of_device_id fsl_guts_of_match[] = {
-> > > +	/* For T4 & B4 Series SOCs */
-> > > +	{ .compatible = "fsl,qoriq-device-config-1.0", .data = "T4/B4
-> > > series" },
-> > [snip]
-> > > +	{ .compatible = "fsl,qoriq-device-config-2.0", .data = "P
-> > > series"
-> > 
-> > As noted in my comment on patch 3/4, these descriptions are reversed.
-> > 
-> > They're also incomplete.  t2080 has device config 2.0.  t1040 is described
-> > as
-> > 2.0 though it should probably be 2.1 (or better, drop the generic
-> > compatible
-> > altogether).
+> Signed-off-by: Vincent Palatin <vpalatin@chromium.org>
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 49
+> +++++++++++++++++++++++--- 1 file changed, 44 insertions(+), 5
+> deletions(-)
 > 
-> Ok. Ideally I think we'd even look up the specific SoC names from the
-> SVC rather than the compatible string. I just didn't have a good list
-> for those to put in the driver.
-
-The list is in arch/powerpc/include/asm/mpc85xx.h but I don't know why we need
-to convert it to a string in the first place.
-
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+> b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c index 0cd3ecf..fa05771
+> 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+> @@ -46,6 +46,7 @@ struct rk_priv_data {
+>  	struct platform_device *pdev;
+>  	int phy_iface;
+>  	struct regulator *regulator;
+> +	bool powered_down;
+>  	const struct rk_gmac_ops *ops;
 > 
-> > > +	/*
-> > > +	 * syscon devices default to little-endian, but on powerpc we
-> > > have
-> > > +	 * existing device trees with big-endian maps and an absent
-> > > endianess
-> > > +	 * "big-property"
-> > > +	 */
-> > > +	if (!IS_ENABLED(CONFIG_POWERPC) &&
-> > > +	    !of_property_read_bool(dev->of_node, "big-endian"))
-> > > +		guts->little_endian = true;
-> > 
-> > This is not a syscon device (Yangbo's patch to add a guts node on ls2080
-> > is
-> > the only guts node that says "syscon", and that was a leftover from
-> > earlier
-> > revisions and should probably be removed).  Even if it were, where is it
-> > documented that syscon defaults to little-endian?
+>  	bool clk_enabled;
+> @@ -529,9 +530,8 @@ static struct rk_priv_data *rk_gmac_setup(struct
+> platform_device *pdev, return bsp_priv;
+>  }
 > 
-> Documentation/devicetree/bindings/regmap/regmap.txt
+> -static int rk_gmac_init(struct platform_device *pdev, void *priv)
+> +static int rk_gmac_powerup(struct rk_priv_data *bsp_priv)
+>  {
+> -	struct rk_priv_data *bsp_priv = priv;
+>  	int ret;
 > 
-> We had a little screwup here, basically regmap (and by consequence, syscon)
-> always defaulted to little-endian way before that was documented, so it's
-> too late to change it, 
-
-What causes a device node to fall under the jurisdiction of regmap.txt? 
- Again, these nodes do not claim "syscon" compatibility.
-
-> although I agree it would have made sense to document
-> regmap to default to big-endian on powerpc.
-
-Please don't.  It's enough of a mess as is; no need to start throwing in
-architecture ifdefs.
-
-> > Documentation/devicetree/bindings/common-properties.txt says that the
-> > individual binding specifies the default.  The default for this node
-> > should be
-> > big-endian because that's what existed before there was a need to describe
-> > the
-> > endianness.  And we need an update to the guts binding to specify that.
+>  	ret = phy_power_on(bsp_priv, true);
+> @@ -542,15 +542,52 @@ static int rk_gmac_init(struct platform_device
+> *pdev, void *priv) if (ret)
+>  		return ret;
 > 
-> Good point. This proably means that specifying both the "guts" and "syscon"
-> compatible strings implies having to also specify the endianess explicitly
-> both ways, because otherwise we break one of the two bindings.
-
-Yes, but the node should only specify "guts".
-
+> +	bsp_priv->powered_down = true;
+> +
+>  	return 0;
+>  }
 > 
-> > > +
-> > > +	guts->regs = devm_ioremap_resource(dev, 0);
-> > > +	if (!guts->regs) {
-> > > +		ret = -ENOMEM;
-> > > +		kfree(guts);
-> > > +		goto out;
-> > > +	}
-> > > +
-> > > +	fsl_guts_init(dev, guts);
-> > > +	ret = 0;
-> > > +out:
-> > > +	return ret;
-> > > +}
-> > > +
-> > > +static struct platform_driver fsl_soc_guts = {
-> > > +	.probe = fsl_guts_probe,
-> > > +	.driver.of_match_table = fsl_guts_of_match,
-> > > +};
-> > > +
-> > > +module_platform_driver(fsl_soc_guts);
-> > 
-> > Again, this means that the information is not available during early boot,
-> > such as in the clock driver.  Thus we would not be able to convert clk
-> > -qoriq's
-> > direct mfspr(SPRN_SVR) into an soc_device_match() (or anything else that
-> > makes
-> > use of this file), nor would we be able to move its access of the guts RCW
-> > registers into this driver.
+> -static void rk_gmac_exit(struct platform_device *pdev, void *priv)
+> +static void rk_gmac_powerdown(struct rk_priv_data *gmac)
+>  {
+> -	struct rk_priv_data *gmac = priv;
+> -
+>  	phy_power_on(gmac, false);
+>  	gmac_clk_enable(gmac, false);
+> +	gmac->powered_down = true;
+
+naming it gmac->suspended and doing all accesses in the suspend/resume 
+callback might provide a nicer way? Now the check is in resume while the 
+powerdown callback is setting it.
+
+> +}
+> +
+> +static int rk_gmac_init(struct platform_device *pdev, void *priv)
+> +{
+> +	struct rk_priv_data *bsp_priv = priv;
+> +
+> +	return rk_gmac_powerup(bsp_priv);
+> +}
+> +
+> +static void rk_gmac_exit(struct platform_device *pdev, void *priv)
+> +{
+> +	struct rk_priv_data *bsp_priv = priv;
+> +
+> +	rk_gmac_powerdown(bsp_priv);
+> +}
+> +
+> +static void rk_gmac_suspend(struct platform_device *pdev, void *priv)
+> +{
+> +	struct rk_priv_data *bsp_priv = priv;
+> +
+> +	/* Keep the PHY up if we use Wake-on-Lan. */
+> +	if (device_may_wakeup(&pdev->dev))
+> +		return;
+> +
+> +	rk_gmac_powerdown(bsp_priv);
+
+aka do
+	bsp_priv->suspended = true;
+here
+
+> +}
+> +
+> +static void rk_gmac_resume(struct platform_device *pdev, void *priv)
+> +{
+> +	struct rk_priv_data *bsp_priv = priv;
+> +
+> +	/* The PHY was up for Wake-on-Lan. */
+> +	if (!bsp_priv->powered_down)
+> +		return;
+> +
+> +	rk_gmac_powerup(bsp_priv);
+
+missing something like
+	bsp_priv->suspended = false;
+
+Right now it looks like your bsp_priv->powered_down will always be true 
+after the first suspend with powerdown.
+
+>  }
 > 
-> Correct. Do we have a reason to convert the mfspr() though? I don't really
-> see an improvement over the current state if we do that, 
-
-Then should we drop this patchset and put a similar PPC ifdef in
- drivers/mmc/host/sdhci-of-esdhc.c?
-
-There's also the RCW access.  You said in the patch 4/4 discussion that you di
-dn't like any random driver ioremapping the registers...
-
-> and for new devices
-> that might need the erratum workaround, we could add a DT property that
-> would
-> be preferred to both.
-
-It's unlikely that we would know the erratum exists at the time the device
-tree is created.  We also generally don't have separate device trees for each
-revision of a chip (and if we did, we'd have users that use the wrong one).
-
--Scott
+>  static void rk_fix_speed(void *priv, unsigned int speed)
+> @@ -591,6 +628,8 @@ static int rk_gmac_probe(struct platform_device *pdev)
+> plat_dat->init = rk_gmac_init;
+>  	plat_dat->exit = rk_gmac_exit;
+>  	plat_dat->fix_mac_speed = rk_fix_speed;
+> +	plat_dat->suspend = rk_gmac_suspend;
+> +	plat_dat->resume = rk_gmac_resume;
+> 
+>  	plat_dat->bsp_priv = rk_gmac_setup(pdev, data);
+>  	if (IS_ERR(plat_dat->bsp_priv))
+> --
+> 2.8.0.rc3.226.g39d4020
