@@ -1,57 +1,231 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v2] bridge: Synchronize unicast filtering with
- FDB
-Date: Sat, 11 Jun 2016 15:50:16 -0700 (PDT)
-Message-ID: <20160611.155016.671585186295613791.davem@davemloft.net>
-References: <1465215613-3468-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
-	<20160610.223512.206489271156278288.davem@davemloft.net>
-	<575C39B1.3010300@cumulusnetworks.com>
+From: Henrik Austad <henrik@austad.us>
+Subject: Re: [very-RFC 1/8] TSN: add documentation
+Date: Sun, 12 Jun 2016 00:50:29 +0200
+Message-ID: <20160611225029.GC10685@sisyphus.home.austad.us>
+References: <1465683741-20390-1-git-send-email-henrik@austad.us>
+ <1465683741-20390-2-git-send-email-henrik@austad.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: makita.toshiaki@lab.ntt.co.jp, stephen@networkplumber.org,
-	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	netdev@bof.de
-To: nikolay@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40553 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932081AbcFKWuR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 18:50:17 -0400
-In-Reply-To: <575C39B1.3010300@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-media@vger.kernel.org, alsa-devel@vger.kernel.org,
+	netdev@vger.kernel.org, henrk@austad.us,
+	Henrik Austad <haustad@cisco.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1465683741-20390-2-git-send-email-henrik@austad.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Sat, 11 Jun 2016 18:17:53 +0200
+On Sun, Jun 12, 2016 at 12:22:14AM +0200, Henrik Austad wrote:
+> From: Henrik Austad <haustad@cisco.com>
 
-> Oops, I almost missed the v2, sorry about that. So, technically it
-> looks correct, but I only fear the scalability impact of the
-> change. If there're a large number of vlans adding a macvlan (or any
-> device that syncs uc addr) might become very slow and every flag
-> change will become very slow too without an option to revert to the
-> original behaviour so we'll have to wait for the entries to be added
-> in order to delete them.  Another common scenario is having 8021q
-> interfaces on top of the bridge with different mac addresses for
-> some of the configured vlans (or with macvlans on top of them for
-> VRR), that use case would suffer as well because their macs need to
-> be local only for those vlans, and not the 2000+ other vlans that
-> might exist.  On every sync_uc() call all the fdb entries get
-> deleted and added again, so even after deleting some manually they
-> can come back unexpectedly after some operation and also the message
-> storm from all the deletes and adds could be problematic as well.
-> 
-> 
-> E.g. 2000 br0 vlans, 25 macvlans on br0 (adding them took more than 5 minutes, 53k fdb entries):
-> $ bridge fdb del de:8e:9f:16:c5:71 dev br0 vlan 289
-> $ ip l set br0 multicast on
-> $ bridge fdb | grep 289 | grep de:8e:9f:16:c5:71
-> de:8e:9f:16:c5:71 dev br0 vlan 1289 master br0 permanent
-> de:8e:9f:16:c5:71 dev br0 vlan 289 master br0 permanent
-> 
-> In fact you can't escape the slow performance even if you delete all
-> entries because on the next flag change or interface add, they will
-> be added back.
+Clearing up the netdev-typo
 
-Yeah, I think the performance implications are too severe too, I'm
-not applying this.
+> 
+> Describe the overall design behind the TSN standard, the TSN-driver,
+> requirements to userspace and new functionality introduced.
+> 
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Signed-off-by: Henrik Austad <haustad@cisco.com>
+> ---
+>  Documentation/TSN/tsn.txt | 147 ++++++++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 147 insertions(+)
+>  create mode 100644 Documentation/TSN/tsn.txt
+> 
+> Index: linux/Documentation/TSN/tsn.txt
+> ===================================================================
+> --- /dev/null
+> +++ linux/Documentation/TSN/tsn.txt
+> @@ -0,0 +1,188 @@
+> +		Time Sensitive Networking (TSN)
+> +		-------------------------------
+> +
+> +[work in progress]
+> +
+> +1. Motivation
+> +=============
+> +
+> +TSN is a set of open standards, formerly known as 'AVB' (Audio/Video
+> +Bridging). It was renamed to TSN to better reflect that it can do much
+> +more than just media transport.
+> +
+> +TSN is a way to create reliable streams across a network without loss of
+> +frames due to congestion in the network. By using gPTP (a specialized
+> +IEEE-1588v2 PTP profile), the time can be synchronized with sub-us
+> +granularity across all the connected devices in the AVB domain.
+> +
+> +2. Intro to AVB/TSN
+> +===================
+> +
+> +The original standards were written with Audio/Video in mind, so the
+> +initial standards refer to this as 'AVB'. In later standards, this has
+> +changed to TSN, and AVB now refers to a service you can add on top of
+> +TSN. Hopefully it will not be too confusing.
+> +
+> +In this document, we refer to the infrastructure part as TSN and AVB to
+> +the ALSA/V4L2 shim which can be added on top of TSN to provide a
+> +media-service.
+> +
+> +TSN operates with 'streams', and one stream can contain pretty much
+> +whatever you like. Currently, only media has been defined properly
+> +though, which is why you only have media-subtypes for the
+> +avtp_subtype-field.
+> +
+> +For a media-setup, one stream can contain multiple channels, all going
+> +to the same destination. A destination can be a single Listener
+> +(singlecast) or a group of Listeners (multicast).
+> +
+> +2.1 Endpoints
+> +
+> +A TSN 'endpoint' is where a stream either originates or ends -what
+> +others would call sources (Talkers) and sinks (Listeners). Looking back
+> +at pre-TSN when this was called AVB, these names make a bit more sense.
+> +
+> +Common for both types, they need to be PTPv2 capable, i.e. you need to
+> +timestamp gPTP frames upon ingress/egress to improve the accuracy of
+> +PTP.
+> +
+> +2.1.1 Talkers
+> +
+> +Hardware requirements:
+> +- Multiple Tx-queues
+> +- Credit based shaper on at least one of the queues for pacing the
+> +  frames onto the network
+> +- VLAN capable
+> +
+> +2.1.2 Listener
+> +
+> +A Listener does not have the same requirements as a Talker as it cannot
+> +control the pace of the incoming frames anyway. It is beneficial if the
+> +NIC understands VLANs and has a few Rx-queues so that you can steer all
+> +TSN-frames to a dedicated queue.
+> +
+> +2.2 Bridges
+> +
+> +What TSN calls switches that are TSN-capable. They must be able to
+> +prioritize TSN-streams, have the credit-based shaper available for that
+> +class, support SRP, support gPTP and so on.
+> +
+> +2.3 Relevant standards
+> +
+> +* IEEE 802.1BA-2011 Audio Video Bridging (AVB) Systems
+> +
+> +* IEEE 802.1Q-2011 sec 34 and 35
+> +
+> +  What is referred to as:
+> +  IEEE 802.1Qav (Forwarding and Queueing for Time-sensitive Streams)
+> +  IEEE 802.1Qat (Stream Registration protocol)
+> +
+> +* IEEE 802.1AS gPTP
+> +
+> +  A PTPv2 profile (from IEEE 1588) tailored for this domain. Notable
+> +  changes include the requirement that all nodes in the network must be
+> +  gPTP capable (i.e. no traversing non-PTP entities), and it allows
+> +  traffic over a wider range of medium that what "pure" PTPv2 allows.
+> +
+> +* IEEE 1722 AVTP Layer 2 Transport Protocol for Time-Sensitive
+> +  Applications in Bridged Local Area Networks
+> +
+> +* IEEE 1722.1 Device Discovery, Connection Management and Control for 1722
+> +
+> +  What allows AVB (TSN) devices to handle discovery, enumeration and
+> +  control, basically let you connect 2 devices from a 3rd
+> +
+> +  In this (in the scope of the Linux kernel TSN driver) must be done
+> +  purely from userspace as we do not want the kernel to suddenly attach
+> +  to a remote system without the user's knowledge. This is further
+> +  reflected in how the attributes for the link is managed via ConfigFS.
+> +
+> +
+> +3. Overview and/or design of the TSN-driver
+> +===========================================
+> +
+> +The driver handles the shifting of data for TSN-streams. Anything else
+> +is left for userspace to handle. This includes stream reservation (using
+> +some sort of MSRP client), negotiating multicast addresses, finding the
+> +value of the different attributes and connect application(s) to the
+> +exposed devices (currently we only have an ALSA-device).
+> +
+> +       	       /--------------------\
+> +       	       |                    |
+> +	       |  Media application |
+> +	       |       	       	    |
+> +	       \--------------------/
+> +		     | 	      |
+> +       	  +----------+	      +----+
+> +	  | 			   |
+> +	  | 			   |
+> +     +------------+		   |
+> +     |   ALSA  	  |		   |
+> +     +------------+		   |
+> +	  |			   |
+> +	  |			   |
+> +     +------------+          +--------------+
+> +     | 	avb_alsa  | 	     | tsn_configfs |
+> +     | (tsn-shim) |	     +--------------+
+> +     +------------+ 		   |
+> +       	  |  	    		   |
+> +	  |    	  		   |
+> +	  +------+     	  	   |
+> +	   	 |		   |
+> +       	       	 |		   |
+> +            +------------+	   |
+> + 	    |  tsn_core  |<--------+
+> +            +------------+
+> +       	       	 |
+> +		 |
+> +            +------------+
+> +       	    |  tsn_net   |
+> +            +------------+
+> +		 |
+> +		 |
+> +	    +------------+
+> +	    |  network	 |
+> +       	    | subsystem  |
+> +	    +------------+
+> +	       	 |
+> +		 |
+> +		...
+> +
+> +
+> +3.1 Terms and concepts
+> +
+> +TSN uses the concept of streams and shims.
+> +
+> +- A shim is a thin wrapper that binds TSN to another subsystem (or
+> +  directly to userspace). avb_alsa is an example of such a shim.
+> +
+> +- A stream is the only data TSN cares about. What the data inside the
+> +  stream represents, is left for the associated shim to handle. TSN will
+> +  verify the headers up to the protocol specific header and then pass it
+> +  along to the shim.
+> +
+> +Note: currently, only the data-unit part is implemented, the control
+> +part, in which 1722.1 (discovery and enumeration) is part, is not
+> +handled.
+> +
+> +3.2 Userspace requirements
+> +
+> +(msrp-client, "tsnctl"-tool
+> +
+> +4. Creating a new link from userspace
+> +=====================================
+> +
+> +[coming]
+> +
+> +
+> +5. Creating a new shim
+> +======================
+> +
+> +shim_ops
+> +[coming]
+> +
+> +
+> +6. Other resources:
+> +===================
+> +
+> +https://en.wikipedia.org/wiki/Audio_Video_Bridging
+
+-- 
+Henrik Austad
