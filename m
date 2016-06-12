@@ -1,116 +1,136 @@
-From: Eric Leblond <eric@regit.org>
-Subject: Re: ebpf: issue with clang
-Date: Sun, 12 Jun 2016 22:53:56 +0200
-Message-ID: <1465764836.29807.21.camel@regit.org>
-References: <1465506605.23482.10.camel@regit.org>
-		 <20160610003416.GA70641@ast-mbp.thefacebook.com>
-	 <1465753068.29807.14.camel@regit.org> <575DAB82.5020608@iogearbox.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	netdev <netdev@vger.kernel.org>
-To: Daniel Borkmann <daniel@iogearbox.net>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [net-next PATCH 1/1] net sched actions: skbedit add support for mod-ing skb pkt_type
+Date: Sun, 12 Jun 2016 17:12:22 -0400
+Message-ID: <1465765942-24679-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	daniel@iogearbox.net, Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from home.regit.org ([37.187.126.138]:35218 "EHLO home.regit.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932521AbcFLUyH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 12 Jun 2016 16:54:07 -0400
-In-Reply-To: <575DAB82.5020608@iogearbox.net>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:35504 "EHLO
+	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753045AbcFLVMf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2016 17:12:35 -0400
+Received: by mail-io0-f194.google.com with SMTP id n127so14658741iof.2
+        for <netdev@vger.kernel.org>; Sun, 12 Jun 2016 14:12:34 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-On Sun, 2016-06-12 at 20:35 +0200, Daniel Borkmann wrote:
-> On 06/12/2016 07:37 PM, Eric Leblond wrote:
-> > On Thu, 2016-06-09 at 17:34 -0700, Alexei Starovoitov wrote:
-> > > On Thu, Jun 09, 2016 at 11:10:05PM +0200, Eric Leblond wrote:
-> > > > Hello,
-> > > > 
-> > > > I'm working on integrating ebpf cluster load balancing for
-> > > > AF_PACKET
-> > > > and I've got some problem to get real code inside the EBPF
-> > > > filter.
-> > > > 
-> > > > I've tried different command lines in the build process. One of
-> > > > them
-> > > > is:
-> > > > clang-3.9 -Wall -O2 -emit-llvm -c hash_ports.c -o - | llc-3.9
-> > > > -march=bpf -filetype=obj -o hash_ports.bpf
-> > > > 
-> > > > If I use that one, then the generated code is almost void. If I
-> > > > remove
-> > > > the -O2 then I've got a generated code that fails during load.
-> > > > When
-> > > > not
-> > > > using -O2, I manage to load a trivial filter (return of static
-> > > > value).
-> > > > 
-> > > > The C code is the following (a derivative of http-simple-
-> > > > filter.c
-> > > > used
-> > > > for testing):
-> > > > 
-> > > > int filter(struct __sk_buff *skb) {
-> > > > 	uint8_t *cursor = 0;
-> > > > 	struct ethernet_t *ethernet = cursor_advance(cursor,
-> > > > sizeof(*ethernet));
-> > > 
-> > > this is bcc C syntax that is hiding the explicit
-> > > load_byte/half/word
-> > > operations
-> > > we have to do when using plain C.
-> > > If you want to compile C code with clang -O2 -target bpf file.c
-> > > -c -o
-> > > file.o
-> > > and copy .o around to be used in tc like:
-> > > tc filter add dev eth0 ingress bpf da obj file.o
-> > > then plain C should be used like in all samples/bpf/*_kern.c
-> > > examples.
-> > > Other folks like the convenience of bcc that hides clang/llvm
-> > > invocation.
-> > > It mostly applicable to tracing tools where both bcc-C and
-> > > corresponding python or lua bits are in the same file
-> > > like in iovisor/bcc/tools/* scripts.
-> > > The iovisor/bcc/examples/networking/* (where this http-simple-
-> > > filter.c came from)
-> > > are also suitable for networking and relying on pyroute2 to talk
-> > > to
-> > > kernel to create netns, veth and to attach bpf to qdisc.
-> > > 
-> > > In summary there are several ways to write bpf C code:
-> > > 1. plain C syntax as in samples/bpf/*_kern.c
-> > > Pro: compiles with clang into .o
-> > > Con: .o requires elf loader (integrated into tc already for
-> > > networking),
-> > 
-> > Yes, that's not an easy part. I've devel one loader for suricata
-> > but I
-> > will check the one in tc to see if I can take advantage of it.
-> 
-> Sure, feel free to rip it out and adapt it.
-> 
-> With AF_PACKET load balancing you mean a packet fanout eBPF demuxing
-> or
-> something else controlled via tc ingress?
+Extremely useful for setting packet type to host so i dont
+have to modify the dst mac address using pedit (which requires
+that i know the mac address)
 
-I'm using fanout eBPF demuxing to implement load balancing in Suricata.
-Current alpha level code is here:
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ include/net/tc_act/tc_skbedit.h        | 10 +++++-----
+ include/uapi/linux/tc_act/tc_skbedit.h |  2 ++
+ net/sched/act_skbedit.c                | 17 ++++++++++++++++-
+ 3 files changed, 23 insertions(+), 6 deletions(-)
 
-https://github.com/regit/suricata/commit/f299abe90bfed3590a9f3de1179091
-b7afc2d90c
-
-I'm currently working on the demuxing to implement something more
-realistic than what current demuxing function.
-
-> 
-> If packet fanout, then you also need to adapt the program type into
-> BPF_PROG_TYPE_SOCKET_FILTER.
-
-Yes, already done that (or at least it seems to work).
-
-BR,
+diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
+index b496d5a..d01a5d4 100644
+--- a/include/net/tc_act/tc_skbedit.h
++++ b/include/net/tc_act/tc_skbedit.h
+@@ -24,11 +24,11 @@
+ 
+ struct tcf_skbedit {
+ 	struct tcf_common	common;
+-	u32			flags;
+-	u32     		priority;
+-	u32     		mark;
+-	u16			queue_mapping;
+-	/* XXX: 16-bit pad here? */
++	u32		flags;
++	u32		priority;
++	u32		mark;
++	u16		queue_mapping;
++	u16		ptype;
+ };
+ #define to_skbedit(a) \
+ 	container_of(a->priv, struct tcf_skbedit, common)
+diff --git a/include/uapi/linux/tc_act/tc_skbedit.h b/include/uapi/linux/tc_act/tc_skbedit.h
+index fecb5cc..a4d00c6 100644
+--- a/include/uapi/linux/tc_act/tc_skbedit.h
++++ b/include/uapi/linux/tc_act/tc_skbedit.h
+@@ -27,6 +27,7 @@
+ #define SKBEDIT_F_PRIORITY		0x1
+ #define SKBEDIT_F_QUEUE_MAPPING		0x2
+ #define SKBEDIT_F_MARK			0x4
++#define SKBEDIT_F_PTYPE			0x8
+ 
+ struct tc_skbedit {
+ 	tc_gen;
+@@ -40,6 +41,7 @@ enum {
+ 	TCA_SKBEDIT_QUEUE_MAPPING,
+ 	TCA_SKBEDIT_MARK,
+ 	TCA_SKBEDIT_PAD,
++	TCA_SKBEDIT_PTYPE,
+ 	__TCA_SKBEDIT_MAX
+ };
+ #define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
+diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
+index 8f235ff..8ab5d0c 100644
+--- a/net/sched/act_skbedit.c
++++ b/net/sched/act_skbedit.c
+@@ -47,6 +47,8 @@ static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
+ 		skb_set_queue_mapping(skb, d->queue_mapping);
+ 	if (d->flags & SKBEDIT_F_MARK)
+ 		skb->mark = d->mark;
++	if (d->flags & SKBEDIT_F_PTYPE)
++		skb->pkt_type = d->ptype;
+ 
+ 	spin_unlock(&d->tcf_lock);
+ 	return d->tcf_action;
+@@ -57,6 +59,7 @@ static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
+ 	[TCA_SKBEDIT_PRIORITY]		= { .len = sizeof(u32) },
+ 	[TCA_SKBEDIT_QUEUE_MAPPING]	= { .len = sizeof(u16) },
+ 	[TCA_SKBEDIT_MARK]		= { .len = sizeof(u32) },
++	[TCA_SKBEDIT_PTYPE]		= { .len = sizeof(u16) },
+ };
+ 
+ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+@@ -68,7 +71,7 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 	struct tc_skbedit *parm;
+ 	struct tcf_skbedit *d;
+ 	u32 flags = 0, *priority = NULL, *mark = NULL;
+-	u16 *queue_mapping = NULL;
++	u16 *queue_mapping = NULL, *ptype = NULL;
+ 	int ret = 0, err, aexists = 0;
+ 
+ 	if (nla == NULL)
+@@ -91,6 +94,13 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 		queue_mapping = nla_data(tb[TCA_SKBEDIT_QUEUE_MAPPING]);
+ 	}
+ 
++	if (tb[TCA_SKBEDIT_PTYPE] != NULL) {
++		flags |= SKBEDIT_F_PTYPE;
++		ptype = nla_data(tb[TCA_SKBEDIT_PTYPE]);
++		if (*ptype > PACKET_KERNEL)
++			return -EINVAL;
++	}
++
+ 	if (tb[TCA_SKBEDIT_MARK] != NULL) {
+ 		flags |= SKBEDIT_F_MARK;
+ 		mark = nla_data(tb[TCA_SKBEDIT_MARK]);
+@@ -135,6 +145,8 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 		d->queue_mapping = *queue_mapping;
+ 	if (flags & SKBEDIT_F_MARK)
+ 		d->mark = *mark;
++	if (flags & SKBEDIT_F_PTYPE)
++		d->ptype = *ptype;
+ 
+ 	d->tcf_action = parm->action;
+ 
+@@ -171,6 +183,9 @@ static int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
+ 	if ((d->flags & SKBEDIT_F_MARK) &&
+ 	    nla_put(skb, TCA_SKBEDIT_MARK, sizeof(d->mark),
+ 		    &d->mark))
++	if ((d->flags & SKBEDIT_F_PTYPE) &&
++	    nla_put(skb, TCA_SKBEDIT_PTYPE, sizeof(d->ptype),
++		    &d->ptype))
+ 		goto nla_put_failure;
+ 
+ 	tcf_tm_dump(&t, &d->tcf_tm);
 -- 
-
-Eric Leblond <eric@regit.org>
+1.9.1
