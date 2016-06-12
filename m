@@ -1,105 +1,121 @@
-From: Toshiaki Makita <toshiaki.makita1@gmail.com>
-Subject: Re: [Bridge] [PATCH net-next v2] bridge: Synchronize unicast
- filtering with FDB
-Date: Sun, 12 Jun 2016 15:35:23 +0900
-Message-ID: <575D02AB.6040008@gmail.com>
-References: <1465215613-3468-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
- <20160610.223512.206489271156278288.davem@davemloft.net>
- <575C39B1.3010300@cumulusnetworks.com>
+From: "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] NSH(Network Service Header)
+ implementation
+Date: Sun, 12 Jun 2016 15:53:50 +0800
+Message-ID: <20160612075349.GA35971@cran64.bj.intel.com>
+References: <1465205686-96724-1-git-send-email-yi.y.yang@intel.com>
+ <CAOrHB_DF+LvRyJAOu6h=ofbf-T-Q85FutsFZ118FhsCsLsVBCg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	netdev@bof.de
-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>,
-	makita.toshiaki@lab.ntt.co.jp
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:33712 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751242AbcFLGf1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2016 02:35:27 -0400
-Received: by mail-pf0-f178.google.com with SMTP id y124so35972465pfy.0
-        for <netdev@vger.kernel.org>; Sat, 11 Jun 2016 23:35:27 -0700 (PDT)
-In-Reply-To: <575C39B1.3010300@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <CAOrHB_DF+LvRyJAOu6h=ofbf-T-Q85FutsFZ118FhsCsLsVBCg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On 16/06/12 (=E6=97=A5) 1:17, Nikolay Aleksandrov via Bridge wrote:
-> On 06/11/2016 07:35 AM, David Miller wrote:
->> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->> Date: Mon,  6 Jun 2016 21:20:13 +0900
->>
->>> Patrick Schaaf reported that flooding due to a missing fdb entry of
->>> the address of macvlan on the bridge device caused high CPU
->>> consumption of an openvpn process behind a tap bridge port.
->>> Adding an fdb entry of the macvlan address can suppress flooding
->>> and avoid this problem.
->>>
->>> This change makes bridge able to synchronize unicast filtering with
->>> fdb automatically so admin do not need to manually add an fdb entry=
-=2E
->>> This effectively supports IFF_UNICAST_FLT in bridge, thus adding an
->>> macvlan device would not place bridge into promiscuous mode as well=
-=2E
->>>
->>> v2:
->>> - Test vlan with br_vlan_should_use() in br_fdb_sync_uc() as per
->>>    Nikolay Aleksandrov.
->>>
->>> Reported-by: Patrick Schaaf <netdev@bof.de>
->>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
->>
->> I really need bridging experts to review and ACK/NACK this.
->>
->> Thanks.
->>
->
-> Oops, I almost missed the v2, sorry about that. So, technically it lo=
-oks correct, but
-> I only fear the scalability impact of the change. If there're a large=
- number of vlans
-> adding a macvlan (or any device that syncs uc addr) might become very=
- slow and every
-> flag change will become very slow too without an option to revert to =
-the original
-> behaviour so we'll have to wait for the entries to be added in order =
-to delete them.
-> Another common scenario is having 8021q interfaces on top of the brid=
-ge with different
-> mac addresses for some of the configured vlans (or with macvlans on t=
-op of them for VRR),
-> that use case would suffer as well because their macs need to be loca=
-l only for those vlans,
-> and not the 2000+ other vlans that might exist.
-> On every sync_uc() call all the fdb entries get deleted and added aga=
-in, so even after deleting
-> some manually they can come back unexpectedly after some operation an=
-d also the message storm from
-> all the deletes and adds could be problematic as well.
->
-> E.g. 2000 br0 vlans, 25 macvlans on br0 (adding them took more than 5=
- minutes, 53k fdb entries):
-> $ bridge fdb del de:8e:9f:16:c5:71 dev br0 vlan 289
-> $ ip l set br0 multicast on
-> $ bridge fdb | grep 289 | grep de:8e:9f:16:c5:71
-> de:8e:9f:16:c5:71 dev br0 vlan 1289 master br0 permanent
-> de:8e:9f:16:c5:71 dev br0 vlan 289 master br0 permanent
->
-> In fact you can't escape the slow performance even if you delete all =
-entries because on the
-> next flag change or interface add, they will be added back.
-
-I still think this auto-sync should be done, otherwise macvlan imposes=20
-promiscuous mode on bridge even if you manually add such fdb entries.
-I believe most of your concern would disappear by making use of=20
-__dev_uc_sync() instead.
-Indeed it seems that there is no easy way to propagate the combination=20
-of uc addr and vlan from upper device, so local entries for unneeded=20
-vlan can still be created even if using __dev_uc_sync(). In case you=20
-worry about those unneeded entries, I can add a knob to disable this=20
-feature.
-Are you comfortable with this change?
-
-Toshiaki Makita
+T24gTW9uLCBKdW4gMDYsIDIwMTYgYXQgMDU6NDU6MDhQTSAtMDcwMCwgcHJhdmluIHNoZWxhciB3
+cm90ZToKPiBPbiBNb24sIEp1biA2LCAyMDE2IGF0IDI6MzQgQU0sIFlpIFlhbmcgPHlpLnkueWFu
+Z0BpbnRlbC5jb20+IHdyb3RlOgo+ID4gSUVURiBkZWZpbmVkIE5TSChOZXR3b3JrIFNlcnZpY2Ug
+SGVhZGVyKSBmb3IgU2VydmljZQo+ID4gRnVuY3Rpb24gQ2hhaW5pbmcsIHRoaXMgaXMgYW4gSUVU
+RiBkcmFmdAo+ID4KPiA+IGh0dHBzOi8vdG9vbHMuaWV0Zi5vcmcvaHRtbC9kcmFmdC1pZXRmLXNm
+Yy1uc2gtMDUKPiA+Cj4gPiBJdCB3aWxsIGJlIGEgSUVURiBzdGFuZGFyZCBzaG9ydGx5LCB0aGlz
+IHBhdGNoIGltcGxlbWVudGVkCj4gPiBOU0ggZm9yIE9wZW4gdlN3aXRjaC4KPiA+Cj4gPiBTaWdu
+ZWQtb2ZmLWJ5OiBKb2huc29uIExpIDxqb2huc29uLmxpQGludGVsLmNvbT4KPiA+IFNpZ25lZC1v
+ZmYtYnk6IFlpIFlhbmcgPHlpLnkueWFuZ0BpbnRlbC5jb20+Cj4gPiAtLS0KPiA+ICBkcml2ZXJz
+L25ldC92eGxhbi5jICAgICAgICAgICAgICB8ICAgNyArKwo+ID4gIGluY2x1ZGUvbmV0L25zaC5o
+ICAgICAgICAgICAgICAgIHwgMTE3ICsrKysrKysrKysrKysrKysrKysrKysrCj4gPiAgaW5jbHVk
+ZS91YXBpL2xpbnV4L29wZW52c3dpdGNoLmggfCAgMzIgKysrKysrKwo+ID4gIG5ldC9vcGVudnN3
+aXRjaC9hY3Rpb25zLmMgICAgICAgIHwgIDY4ICsrKysrKysrKysrKysKPiA+ICBuZXQvb3BlbnZz
+d2l0Y2gvZmxvdy5jICAgICAgICAgICB8ICA0NSArKysrKysrKy0KPiA+ICBuZXQvb3BlbnZzd2l0
+Y2gvZmxvdy5oICAgICAgICAgICB8ICAxNSArKysKPiA+ICBuZXQvb3BlbnZzd2l0Y2gvZmxvd19u
+ZXRsaW5rLmMgICB8IDIwMiArKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0K
+PiA+ICBuZXQvb3BlbnZzd2l0Y2gvdnBvcnQtbmV0ZGV2LmMgICB8ICAgMyArLQo+ID4gIG5ldC9v
+cGVudnN3aXRjaC92cG9ydC12eGxhbi5jICAgIHwgIDE1ICsrKwo+ID4gIDkgZmlsZXMgY2hhbmdl
+ZCwgNTAxIGluc2VydGlvbnMoKyksIDMgZGVsZXRpb25zKC0pCj4gPiAgY3JlYXRlIG1vZGUgMTAw
+NjQ0IGluY2x1ZGUvbmV0L25zaC5oCj4gPgo+IAo+IC4uLgo+IC4uLgo+ID4gZGlmZiAtLWdpdCBh
+L25ldC9vcGVudnN3aXRjaC9hY3Rpb25zLmMgYi9uZXQvb3BlbnZzd2l0Y2gvYWN0aW9ucy5jCj4g
+PiBpbmRleCA5YTNlYjdhLi4zOGU3ODdjIDEwMDY0NAo+ID4gLS0tIGEvbmV0L29wZW52c3dpdGNo
+L2FjdGlvbnMuYwo+ID4gKysrIGIvbmV0L29wZW52c3dpdGNoL2FjdGlvbnMuYwo+ID4gQEAgLTI5
+LDYgKzI5LDcgQEAKPiA+ICAjaW5jbHVkZSA8bGludXgvaW42Lmg+Cj4gPiAgI2luY2x1ZGUgPGxp
+bnV4L2lmX2FycC5oPgo+ID4gICNpbmNsdWRlIDxsaW51eC9pZl92bGFuLmg+Cj4gPiArI2luY2x1
+ZGUgPGxpbnV4L2lmX2V0aGVyLmg+Cj4gPgo+ID4gICNpbmNsdWRlIDxuZXQvZHN0Lmg+Cj4gPiAg
+I2luY2x1ZGUgPG5ldC9pcC5oPgo+ID4gQEAgLTM4LDYgKzM5LDcgQEAKPiA+ICAjaW5jbHVkZSA8
+bmV0L2RzZmllbGQuaD4KPiA+ICAjaW5jbHVkZSA8bmV0L21wbHMuaD4KPiA+ICAjaW5jbHVkZSA8
+bmV0L3NjdHAvY2hlY2tzdW0uaD4KPiA+ICsjaW5jbHVkZSA8bmV0L25zaC5oPgo+ID4KPiA+ICAj
+aW5jbHVkZSAiZGF0YXBhdGguaCIKPiA+ICAjaW5jbHVkZSAiZmxvdy5oIgo+ID4gQEAgLTI1OSw2
+ICsyNjEsNjQgQEAgc3RhdGljIGludCBwdXNoX3ZsYW4oc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3Ry
+dWN0IHN3X2Zsb3dfa2V5ICprZXksCj4gPiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIG50
+b2hzKHZsYW4tPnZsYW5fdGNpKSAmIH5WTEFOX1RBR19QUkVTRU5UKTsKPiA+ICB9Cj4gPgo+IC4u
+Lgo+IC4uLgo+ID4gKwo+ID4gK3N0YXRpYyBpbnQgcHVzaF9uc2goc3RydWN0IHNrX2J1ZmYgKnNr
+Yiwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXksCj4gPiArICAgICAgICAgICAgICAgICAgIGNvbnN0
+IHN0cnVjdCBvdnNfYWN0aW9uX3B1c2hfbnNoICpuc2gpCj4gPiArewo+ID4gKyAgICAgICBpZiAo
+bnNoLT5sZW4gPiAwICYmIG5zaC0+bGVuIDw9IDI1Nikgewo+ID4gKyAgICAgICAgICAgICAgIHN0
+cnVjdCBuc2hfaGRyICpuc2hfaGRyID0gTlVMTDsKPiA+ICsKPiA+ICsgICAgICAgICAgICAgICBp
+ZiAoc2tiX2Nvd19oZWFkKHNrYiwgbnNoLT5sZW4pIDwgMCkKPiA+ICsgICAgICAgICAgICAgICAg
+ICAgICAgIHJldHVybiAtRU5PTUVNOwo+ID4gKwo+ID4gKyAgICAgICAgICAgICAgIHNrYl9wdXNo
+KHNrYiwgbnNoLT5sZW4pOwo+ID4gKyAgICAgICAgICAgICAgIG5zaF9oZHIgPSAoc3RydWN0IG5z
+aF9oZHIgKikoc2tiLT5kYXRhKTsKPiA+ICsgICAgICAgICAgICAgICBtZW1jcHkobnNoX2hkciwg
+bnNoLT5oZWFkZXIsIG5zaC0+bGVuKTsKPiA+ICsKPiA+ICsgICAgICAgICAgICAgICBpZiAoIXNr
+Yi0+aW5uZXJfcHJvdG9jb2wpCj4gPiArICAgICAgICAgICAgICAgICAgICAgICBza2Jfc2V0X2lu
+bmVyX3Byb3RvY29sKHNrYiwgc2tiLT5wcm90b2NvbCk7Cj4gPiArCj4gPiArICAgICAgICAgICAg
+ICAgc2tiLT5wcm90b2NvbCA9IGh0b25zKEVUSF9QX05TSCk7IC8qIDB4ODk0RiAqLwo+ID4gKyAg
+ICAgICAgICAgICAgIGtleS0+ZXRoLnR5cGUgPSBodG9ucyhFVEhfUF9OU0gpOwo+ID4gKyAgICAg
+ICB9IGVsc2Ugewo+ID4gKyAgICAgICAgICAgICAgIHJldHVybiAtRUlOVkFMOwo+ID4gKyAgICAg
+ICB9Cj4gPiArCj4gPiArICAgICAgIHJldHVybiAwOwo+ID4gK30KPiAKPiBOZXR3b3JraW5nIHN0
+YWNrIG9yIE9WUyBjYW4gbm90IGhhbmRsZSBhcmJpdHJhcnkgc2tiLXByb3RvY29sLiBGb3IKPiBl
+eGFtcGxlIHdoYXQgaGFwcGVucyBpZiBPVlMgaGFzIHB1c2ggdmxhbiBhY3Rpb24gb3IgaXQgc2Vu
+ZHMgdGhpcyBuc2gKPiBwYWNrZXQgdG8gbmV0IGRldmljZSB3aGljaCBjYW4gbm90IGhhbmRsZSBu
+c2ggcGFja2V0PyBFdmVuIG5ldHdvcmtpbmcKPiBzdGFjayBjYW4gbm90IHBhcnNlIHN1Y2ggcGFj
+a2V0IGZvciBoYW5kbGluZyBvZmZsb2FkcyBpbiBzb2Z0d2FyZS4KPiAuLi4KPgpvdnMgbnNoIHBh
+dGNoIHNldCBoYXZlIGJlZW4gc2VudCBvdXQsIHRoZXkgY2FuIGhhbmRsZSBuc2ggaGVhZGVyLiBU
+aGlzCnBhdGNoIGp1c3QgaW1wbGVtZW50ZWQgTlNIIHB1c2ggYW5kIHBvcCBhY3Rpb25zLCB3ZSBk
+byBuZWVkIHNvbWUgY2RvZSB0bwpkbyBzb21lIHNhbml0eSBjaGVjayBmb3IgdGhlIGNhc2UgeW91
+IG1lbnRpb25lZCwgYnV0IEkgdGhpbmsgaXQgaXMgb3V0Cm9mIHNjb3BlIG9mIHRoaSBwYXRjaC4K
+Cj4gPiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL3Zwb3J0LXZ4bGFuLmMgYi9uZXQvb3Bl
+bnZzd2l0Y2gvdnBvcnQtdnhsYW4uYwo+ID4gaW5kZXggNWViNzY5NC4uM2QwNjBjNCAxMDA2NDQK
+PiA+IC0tLSBhL25ldC9vcGVudnN3aXRjaC92cG9ydC12eGxhbi5jCj4gPiArKysgYi9uZXQvb3Bl
+bnZzd2l0Y2gvdnBvcnQtdnhsYW4uYwo+ID4gQEAgLTUyLDYgKzUyLDE4IEBAIHN0YXRpYyBpbnQg
+dnhsYW5fZ2V0X29wdGlvbnMoY29uc3Qgc3RydWN0IHZwb3J0ICp2cG9ydCwgc3RydWN0IHNrX2J1
+ZmYgKnNrYikKPiA+ICAgICAgICAgICAgICAgICAgICAgICAgIHJldHVybiAtRU1TR1NJWkU7Cj4g
+Pgo+ID4gICAgICAgICAgICAgICAgIG5sYV9uZXN0X2VuZChza2IsIGV4dHMpOwo+ID4gKyAgICAg
+ICB9IGVsc2UgaWYgKHZ4bGFuLT5mbGFncyAmIFZYTEFOX0ZfR1BFKSB7Cj4gPiArICAgICAgICAg
+ICAgICAgc3RydWN0IG5sYXR0ciAqZXh0czsKPiA+ICsKPiA+ICsgICAgICAgICAgICAgICBleHRz
+ID0gbmxhX25lc3Rfc3RhcnQoc2tiLCBPVlNfVFVOTkVMX0FUVFJfRVhURU5TSU9OKTsKPiA+ICsg
+ICAgICAgICAgICAgICBpZiAoIWV4dHMpCj4gPiArICAgICAgICAgICAgICAgICAgICAgICByZXR1
+cm4gLUVNU0dTSVpFOwo+ID4gKwo+ID4gKyAgICAgICAgICAgICAgIGlmICh2eGxhbi0+ZmxhZ3Mg
+JiBWWExBTl9GX0dQRSAmJgo+ID4gKyAgICAgICAgICAgICAgICAgICBubGFfcHV0X2ZsYWcoc2ti
+LCBPVlNfVlhMQU5fRVhUX0dQRSkpCj4gPiArICAgICAgICAgICAgICAgICAgICAgICByZXR1cm4g
+LUVNU0dTSVpFOwo+ID4gKwo+ID4gKyAgICAgICAgICAgICAgIG5sYV9uZXN0X2VuZChza2IsIGV4
+dHMpOwo+ID4gICAgICAgICB9Cj4gPgo+ID4gICAgICAgICByZXR1cm4gMDsKPiA+IEBAIC01OSw2
+ICs3MSw3IEBAIHN0YXRpYyBpbnQgdnhsYW5fZ2V0X29wdGlvbnMoY29uc3Qgc3RydWN0IHZwb3J0
+ICp2cG9ydCwgc3RydWN0IHNrX2J1ZmYgKnNrYikKPiA+Cj4gPiAgc3RhdGljIGNvbnN0IHN0cnVj
+dCBubGFfcG9saWN5IGV4dHNfcG9saWN5W09WU19WWExBTl9FWFRfTUFYICsgMV0gPSB7Cj4gPiAg
+ICAgICAgIFtPVlNfVlhMQU5fRVhUX0dCUF0gICAgID0geyAudHlwZSA9IE5MQV9GTEFHLCB9LAo+
+ID4gKyAgICAgICBbT1ZTX1ZYTEFOX0VYVF9HUEVdICAgICA9IHsgLnR5cGUgPSBOTEFfRkxBRywg
+fSwKPiA+ICB9Owo+ID4KPiA+ICBzdGF0aWMgaW50IHZ4bGFuX2NvbmZpZ3VyZV9leHRzKHN0cnVj
+dCB2cG9ydCAqdnBvcnQsIHN0cnVjdCBubGF0dHIgKmF0dHIsCj4gPiBAQCAtNzYsNiArODksOCBA
+QCBzdGF0aWMgaW50IHZ4bGFuX2NvbmZpZ3VyZV9leHRzKHN0cnVjdCB2cG9ydCAqdnBvcnQsIHN0
+cnVjdCBubGF0dHIgKmF0dHIsCj4gPgo+ID4gICAgICAgICBpZiAoZXh0c1tPVlNfVlhMQU5fRVhU
+X0dCUF0pCj4gPiAgICAgICAgICAgICAgICAgY29uZi0+ZmxhZ3MgfD0gVlhMQU5fRl9HQlA7Cj4g
+PiArICAgICAgIGVsc2UgaWYgKGV4dHNbT1ZTX1ZYTEFOX0VYVF9HUEVdKQo+ID4gKyAgICAgICAg
+ICAgICAgIGNvbmYtPmZsYWdzIHw9IFZYTEFOX0ZfR1BFOwo+ID4KPiBUaGlzIGlzIGNvbXBhdGli
+aWxpdHkgY29kZSwgbm8gbmVlZCB0byBhZGQgbmV3IGZlYXR1cmVzIHRvIHRoaXMgY29kZS4KPiBO
+b3cgd2Ugc2hvdWxkIGJlIGRpcmVjdGx5IHVzaW5nIG5ldCBkZXZpY2VzLgpXaWxsIHVzZSBuZXQg
+ZGV2aWNlIGFmdGVyIHRob3NlIHBhdGNoZXMgYXJlIG1lcmdlZCBpbnRvIG5ldC1uZXh0LCBJdApz
+ZWVtcyBjdXJyZW50IG5ldCBkZXZpY2UgaW1wbGVtZW50YXRpb24gaW4gbmV0LW5leHQgZG9lc24n
+dCBpbmNsdWRlIGl0LApkbyB5b3UgbWVhbiB0aGlzIG9uZQoiaHR0cDovL2FydGljbGUuZ21hbmUu
+b3JnL2dtYW5lLm5ldHdvcmsub3BlbnZzd2l0Y2guZGV2ZWwvNjQ3OTkiPwpfX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBv
+cGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rl
+dgo=
