@@ -1,37 +1,138 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH 1/1] net sched actions: skbedit add support for
- mod-ing skb pkt_type
-Date: Sun, 12 Jun 2016 17:20:50 -0400
-Message-ID: <575DD232.2070602@mojatatu.com>
-References: <1465765942-24679-1-git-send-email-jhs@emojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
+Subject: [net-next PATCH v2 1/1] net sched actions: skbedit add support for mod-ing skb pkt_type
+Date: Sun, 12 Jun 2016 17:24:53 -0400
+Message-ID: <1465766693-2336-1-git-send-email-jhs@emojatatu.com>
 Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
-	daniel@iogearbox.net
+	daniel@iogearbox.net, Jamal Hadi Salim <hadi@mojatatu.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33221 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932212AbcFLVVH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2016 17:21:07 -0400
-Received: by mail-io0-f194.google.com with SMTP id 5so14673208ioy.0
-        for <netdev@vger.kernel.org>; Sun, 12 Jun 2016 14:21:07 -0700 (PDT)
-In-Reply-To: <1465765942-24679-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:32857 "EHLO
+	mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932156AbcFLVZF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2016 17:25:05 -0400
+Received: by mail-it0-f67.google.com with SMTP id i6so5168935ith.0
+        for <netdev@vger.kernel.org>; Sun, 12 Jun 2016 14:25:04 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-06-12 05:12 PM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> Extremely useful for setting packet type to host so i dont
-> have to modify the dst mac address using pedit (which requires
-> that i know the mac address)
->
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+From: Jamal Hadi Salim <hadi@mojatatu.com>
 
-Please ignore this version; dumping was buggy. Sending a new version
-in a minute.
+Extremely useful for setting packet type to host so i dont
+have to modify the dst mac address using pedit (which requires
+that i know the mac address)
 
-cheers.
-jamal
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ include/net/tc_act/tc_skbedit.h        | 10 +++++-----
+ include/uapi/linux/tc_act/tc_skbedit.h |  2 ++
+ net/sched/act_skbedit.c                | 18 +++++++++++++++++-
+ 3 files changed, 24 insertions(+), 6 deletions(-)
+
+diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
+index b496d5a..d01a5d4 100644
+--- a/include/net/tc_act/tc_skbedit.h
++++ b/include/net/tc_act/tc_skbedit.h
+@@ -24,11 +24,11 @@
+ 
+ struct tcf_skbedit {
+ 	struct tcf_common	common;
+-	u32			flags;
+-	u32     		priority;
+-	u32     		mark;
+-	u16			queue_mapping;
+-	/* XXX: 16-bit pad here? */
++	u32		flags;
++	u32		priority;
++	u32		mark;
++	u16		queue_mapping;
++	u16		ptype;
+ };
+ #define to_skbedit(a) \
+ 	container_of(a->priv, struct tcf_skbedit, common)
+diff --git a/include/uapi/linux/tc_act/tc_skbedit.h b/include/uapi/linux/tc_act/tc_skbedit.h
+index fecb5cc..a4d00c6 100644
+--- a/include/uapi/linux/tc_act/tc_skbedit.h
++++ b/include/uapi/linux/tc_act/tc_skbedit.h
+@@ -27,6 +27,7 @@
+ #define SKBEDIT_F_PRIORITY		0x1
+ #define SKBEDIT_F_QUEUE_MAPPING		0x2
+ #define SKBEDIT_F_MARK			0x4
++#define SKBEDIT_F_PTYPE			0x8
+ 
+ struct tc_skbedit {
+ 	tc_gen;
+@@ -40,6 +41,7 @@ enum {
+ 	TCA_SKBEDIT_QUEUE_MAPPING,
+ 	TCA_SKBEDIT_MARK,
+ 	TCA_SKBEDIT_PAD,
++	TCA_SKBEDIT_PTYPE,
+ 	__TCA_SKBEDIT_MAX
+ };
+ #define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
+diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
+index 8f235ff..8a7a34b 100644
+--- a/net/sched/act_skbedit.c
++++ b/net/sched/act_skbedit.c
+@@ -47,6 +47,8 @@ static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
+ 		skb_set_queue_mapping(skb, d->queue_mapping);
+ 	if (d->flags & SKBEDIT_F_MARK)
+ 		skb->mark = d->mark;
++	if (d->flags & SKBEDIT_F_PTYPE)
++		skb->pkt_type = d->ptype;
+ 
+ 	spin_unlock(&d->tcf_lock);
+ 	return d->tcf_action;
+@@ -57,6 +59,7 @@ static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
+ 	[TCA_SKBEDIT_PRIORITY]		= { .len = sizeof(u32) },
+ 	[TCA_SKBEDIT_QUEUE_MAPPING]	= { .len = sizeof(u16) },
+ 	[TCA_SKBEDIT_MARK]		= { .len = sizeof(u32) },
++	[TCA_SKBEDIT_PTYPE]		= { .len = sizeof(u16) },
+ };
+ 
+ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+@@ -68,7 +71,7 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 	struct tc_skbedit *parm;
+ 	struct tcf_skbedit *d;
+ 	u32 flags = 0, *priority = NULL, *mark = NULL;
+-	u16 *queue_mapping = NULL;
++	u16 *queue_mapping = NULL, *ptype = NULL;
+ 	int ret = 0, err, aexists = 0;
+ 
+ 	if (nla == NULL)
+@@ -91,6 +94,13 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 		queue_mapping = nla_data(tb[TCA_SKBEDIT_QUEUE_MAPPING]);
+ 	}
+ 
++	if (tb[TCA_SKBEDIT_PTYPE] != NULL) {
++		flags |= SKBEDIT_F_PTYPE;
++		ptype = nla_data(tb[TCA_SKBEDIT_PTYPE]);
++		if (*ptype > PACKET_KERNEL)
++			return -EINVAL;
++	}
++
+ 	if (tb[TCA_SKBEDIT_MARK] != NULL) {
+ 		flags |= SKBEDIT_F_MARK;
+ 		mark = nla_data(tb[TCA_SKBEDIT_MARK]);
+@@ -135,6 +145,8 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 		d->queue_mapping = *queue_mapping;
+ 	if (flags & SKBEDIT_F_MARK)
+ 		d->mark = *mark;
++	if (flags & SKBEDIT_F_PTYPE)
++		d->ptype = *ptype;
+ 
+ 	d->tcf_action = parm->action;
+ 
+@@ -172,6 +184,10 @@ static int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
+ 	    nla_put(skb, TCA_SKBEDIT_MARK, sizeof(d->mark),
+ 		    &d->mark))
+ 		goto nla_put_failure;
++	if ((d->flags & SKBEDIT_F_PTYPE) &&
++	    nla_put(skb, TCA_SKBEDIT_PTYPE, sizeof(d->ptype),
++		    &d->ptype))
++		goto nla_put_failure;
+ 
+ 	tcf_tm_dump(&t, &d->tcf_tm);
+ 	if (nla_put_64bit(skb, TCA_SKBEDIT_TM, sizeof(t), &t, TCA_SKBEDIT_PAD))
+-- 
+1.9.1
