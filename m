@@ -1,156 +1,67 @@
-From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH 0/5] net-next: ethernet: add sun8i-emac driver
-Date: Sun, 12 Jun 2016 13:22:23 +0200
-Message-ID: <c8037d93-1d12-fdfb-a88b-e88ff0f72d52@redhat.com>
-References: <1464947790-22991-1-git-send-email-clabbe.montjoie@gmail.com>
-Reply-To: hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next] ethtool: Macro definition for SFF-8436/8636
+ Memory map max sizes
+Date: Sun, 12 Jun 2016 13:33:04 +0100
+Message-ID: <1465734784.3529.147.camel@decadent.org.uk>
+References: <1465278926-10231-1-git-send-email-vidya@cumulusnetworks.com>
+	 <20160611.155134.1474324006340328110.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------63AEC2D0A22D8FDA5B3AF78A"
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-To: clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, pawel.moll-5wv7dgnIgG8@public.gmane.org,
-        mark.rutland-5wv7dgnIgG8@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org,
-        galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, maxime.ripard-wi1+55ScJUtKEb57/3fJTNBPR1lH4CV8@public.gmane.org, wens-jdAy2FN1RRM@public.gmane.org,
-        linux-I+IVW8TIWO2tmTQ+vhA3Yw@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-Return-path: <linux-sunxi+bncBDRZXY4CYYORB7EL6W5AKGQEPDW4AUA-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-Sender: linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org
-In-Reply-To: <1464947790-22991-1-git-send-email-clabbe.montjoie-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Post: <https://groups.google.com/group/linux-sunxi/post>, <mailto:linux-sunxi-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Help: <https://groups.google.com/support/>, <mailto:linux-sunxi+help-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Archive: <https://groups.google.com/group/linux-sunxi
-List-Subscribe: <https://groups.google.com/group/linux-sunxi/subscribe>, <mailto:linux-sunxi+subscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>
-List-Unsubscribe: <mailto:googlegroups-manage+1076902468213+unsubscribe-/JYPxA39Uh5TLH3MbocFFw@public.gmane.org>,
- <https://groups.google.com/group/linux-sunxi/subscribe>
-List-Id: netdev.vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-6d5SyBLMtfRjawu2gOeV"
+Cc: bwh@kernel.org, netdev@vger.kernel.org, roopa@cumulusnetworks.com
+To: David Miller <davem@davemloft.net>, vidya@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:33589 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932156AbcFLMdP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2016 08:33:15 -0400
+In-Reply-To: <20160611.155134.1474324006340328110.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This is a multi-part message in MIME format.
---------------63AEC2D0A22D8FDA5B3AF78A
-Content-Type: text/plain; charset=UTF-8; format=flowed
 
-Hi,
+--=-6d5SyBLMtfRjawu2gOeV
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-On 03-06-16 11:56, LABBE Corentin wrote:
-> Hello
->
-> This patch series add the driver for sun8i-emac which handle the Ethernet MAC
-> present on Allwinner H3/A83T/A64 SoCs.
->
-> It supports 10/100/1000 Mbit/s speed with half/full duplex.
-> It can use an internal PHY (MII 10/100) or an external PHY
-> via RGMII/RMII.
->
-> This patch series enable the driver only for the H3 SoC since A83T and A64
-> doesn't have the necessary clocks present in mainline.
->
-> This patch series enable the driver only for the OrangePiPC board since other
-> board with H3 use external PHY which need optional regulators that will be
-> supported later.
->
-> The driver have been tested on the following boards:
-> - H3 Orange PI PC, Orange PI Plus, BananaPI-M2+
-> - A64 Pine64
-> - A83T BananaPI-M3
->
-> I would like to thanks Chen-Yu Tsai for his help on developing this driver.
+On Sat, 2016-06-11 at 15:51 -0700, David Miller wrote:
+[...]
+> Why do we need these values in the header file at all?
 
-Awesome! Thanks for your work on this.
+Because we don't like putting magic numbers in driver code, and these
+sizes are defined by standards that are independent of a single driver.
 
-I've tested this on a orangepi-one. You can add my:
+> The application can probe the size by repeated eeprom calls, increasing
+> the buffer size each time as needed until success.
 
-Tested-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+But really it should use ETHTOOL_GMODULEINFO first.
 
-For the next version of this series.
+Ben.
 
-Attached is a dts patch for adding support
-for the emac one that one (to be applied on top of this patch-set).
+--=20
+Ben Hutchings
+The program is absolutely right; therefore, the computer must be wrong.
 
-I've a Orange PI Plus and a Orange PI 2 as well, both of which use an external
-phy, I would love to test on those as well, do you've a tree with adds the
-necessary regulator bits and an example of how this would like in dts
-somewhere ?
+--=-6d5SyBLMtfRjawu2gOeV
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
 
-One remark about:
-[PATCH 5/5] ARM: dts: sun8i: Enable sun8i-emac on the Orange PI PC
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-We always keep the nodes in board.dts files sorted alphebetically,
-so the emac node should be after the ehci node rather then at the end.
+iQIcBAABCgAGBQJXXVaAAAoJEOe/yOyVhhEJuIEQAJCVcE2eJ1O5LZYsInxr0A6M
+PAZsEDcYvhjjCeOLEp59zvMUbuyV0b4krhpLrE6KYEgmG2isBOyjMsTEvQm+3pM2
+Wx4QDsQBRE3AUVyufprNZP/M0g/3Bj036cCviiWhfHzshJON0E1Kz3rJ4MiHnWBf
+yGMKZkqjQz3Mwi2LbSNL80a1SZzRG5ZDRRPmaxo9iBaI/CA7NtzDVC5rUS6vFNEK
+/PmpfRRF0r4OgWHnFXoSmnVBFtllLdyJDCAS6cZZ00lJ4iMB+FZevawE1fvgM3ev
+ctC4A76QmxUyxNtfGqRbO343xrWr56bHTuYgwouce4RF36DSwqdaQKJT1Abd2nr9
+5kHKhdkQRctPkNnfKbTh46hZ5Fi0CZJW4AXnSU5FkQ9RQq4G67qqSJL7d2xVaxI0
+komUkPn1yWYqlCBpJ1dbWHuPpCVn2qsBhLJ53FxP1i+AuMHrlvb7UCWkpCMn14Vs
+zDgWX0vdmI9dsAu/B8LLI2G0mU5XRzOu/QTsvysCQafdj8CSySbPmqF8Vy9rRoQK
+acEJBKTaxTX1CllD8BE6gyZ6ct6KuLIAof498gMCNfd2mlBrTbtLEAn0SpICn9aB
+E1isw/wW5FyHIP2XqEhs8ZvNvm6Ub8uBMsot3lQ7d7F8lTzFyP1dm/2OhJ+F2UEm
+lvCOr3adXRwILb8IUiHf
+=I1Gp
+-----END PGP SIGNATURE-----
 
-Regards,
-
-Hans
-
->
-> Regards
->
-> LABBE Corentin (5):
->   ethernet: add sun8i-emac driver
->   MAINTAINERS: Add myself as maintainers of sun8i-emac
->   ARM: sun8i: dt: Add DT bindings documentation for Allwinner sun8i-emac
->   ARM: dts: sun8i-h3: add sun8i-emac ethernet driver
->   ARM: dts: sun8i: Enable sun8i-emac on the Orange PI PC
->
->  .../bindings/net/allwinner,sun8i-emac.txt          |   64 +
->  MAINTAINERS                                        |    6 +
->  arch/arm/boot/dts/sun8i-h3-orangepi-pc.dts         |   11 +
->  arch/arm/boot/dts/sun8i-h3.dtsi                    |   14 +
->  drivers/net/ethernet/allwinner/Kconfig             |   13 +
->  drivers/net/ethernet/allwinner/Makefile            |    1 +
->  drivers/net/ethernet/allwinner/sun8i-emac.c        | 1943 ++++++++++++++++++++
->  7 files changed, 2052 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/allwinner,sun8i-emac.txt
->  create mode 100644 drivers/net/ethernet/allwinner/sun8i-emac.c
->
-
--- 
-You received this message because you are subscribed to the Google Groups "linux-sunxi" group.
-To unsubscribe from this group and stop receiving emails from it, send an email to linux-sunxi+unsubscribe-/JYPxA39Uh5TLH3MbocFF+G/Ez6ZCGd0@public.gmane.org
-For more options, visit https://groups.google.com/d/optout.
-
---------------63AEC2D0A22D8FDA5B3AF78A
-Content-Type: text/x-patch;
- name="0001-ARM-dts-sun8i-Enable-sun8i-emac-on-the-Orange-PI-One.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
- filename*0="0001-ARM-dts-sun8i-Enable-sun8i-emac-on-the-Orange-PI-One.pa";
- filename*1="tch"
-
->From 25ea802c4c2962dc50c34bd02faa9a5f3acd2e34 Mon Sep 17 00:00:00 2001
-From: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Date: Sun, 12 Jun 2016 13:20:05 +0200
-Subject: [PATCH v3] ARM: dts: sun8i: Enable sun8i-emac on the Orange PI One
-
-The sun8i-emac hardware is present on the Orange PI One.
-It uses the internal PHY.
-
-This patch create the needed emac and phy nodes.
-
-Signed-off-by: Hans de Goede <hdegoede-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
----
- arch/arm/boot/dts/sun8i-h3-orangepi-one.dts | 11 +++++++++++
- 1 file changed, 11 insertions(+)
-
-diff --git a/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts b/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
-index 0adf932..8df5c74 100644
---- a/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
-+++ b/arch/arm/boot/dts/sun8i-h3-orangepi-one.dts
-@@ -94,6 +94,17 @@
- 	status = "okay";
- };
- 
-+&emac {
-+	phy = <&phy1>;
-+	phy-mode = "mii";
-+	allwinner,use-internal-phy;
-+	allwinner,leds-active-low;
-+	status = "okay";
-+	phy1: ethernet-phy@1 {
-+		reg = <1>;
-+	};
-+};
-+
- &mmc0 {
- 	pinctrl-names = "default";
- 	pinctrl-0 = <&mmc0_pins_a>, <&mmc0_cd_pin>;
---------------63AEC2D0A22D8FDA5B3AF78A--
+--=-6d5SyBLMtfRjawu2gOeV--
