@@ -1,82 +1,38 @@
-From: Toby DiPasquale <toby@cbcg.net>
-Subject: Re: off-by-one in DecodeQ931
-Date: Sun, 12 Jun 2016 19:29:44 -0400
-Message-ID: <CAML0wpF0--_6kz_zSNrrz7XgWjtJ6JzULgZDKZULfQrghUqYaA@mail.gmail.com>
-References: <CAML0wpEBwXdzWX7g3LDJRDOVM0J7dkuhH8b+96ZhRf54+qUgwQ@mail.gmail.com>
- <20160425152905.GA8621@strlen.de> <CAML0wpGWvcpB5GE_zAjOeO6ki_nszaj+hR9yyadwu_3hQno7Cg@mail.gmail.com>
- <CAML0wpGqddtn92Rb2CSmV0kZfTzOxdCU-+dAFG1HUAaqQa8RUw@mail.gmail.com>
- <20160606143555.GC7827@breakpoint.cc> <20160606145510.GB1168@salvia>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=001a1142738c97e2a805351d2554
-Cc: Florian Westphal <fw@strlen.de>, Patrick McHardy <kaber@trash.net>,
-	kadlec@blackhole.kfki.hu, davem@davemloft.net,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+From: Blair Steven <blair.steven@alliedtelesis.co.nz>
+Subject: [PATCH] IPsec NAT-T issue
+Date: Mon, 13 Jun 2016 11:48:13 +1200
+Message-ID: <20160612234814.15460-1-blair.steven@alliedtelesis.co.nz>
+Cc: Blair Steven <blair.steven@alliedtelesis.co.nz>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f173.google.com ([209.85.161.173]:35710 "EHLO
-	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753090AbcFLX3p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2016 19:29:45 -0400
-Received: by mail-yw0-f173.google.com with SMTP id z186so94191889ywd.2
-        for <netdev@vger.kernel.org>; Sun, 12 Jun 2016 16:29:45 -0700 (PDT)
-In-Reply-To: <20160606145510.GB1168@salvia>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:55087 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753259AbcFLXsX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2016 19:48:23 -0400
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(Client did not present a certificate)
+	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id D744D801B8
+	for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 11:48:18 +1200 (NZST)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---001a1142738c97e2a805351d2554
-Content-Type: text/plain; charset=UTF-8
 
-Attached is the patch generated with git format-patch.
+During testing we have discovered an issue with IPsec NAT-T where the SPI
+is over writing the source and dest ports of the UDP header. I'm not
+super familiar with this code, but I've found a solution that seems
+to work in my setup.
 
-On Mon, Jun 6, 2016 at 10:55 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> On Mon, Jun 06, 2016 at 04:35:55PM +0200, Florian Westphal wrote:
->> Toby DiPasquale <toby@cbcg.net> wrote:
->> > Is this latest patch OK?
->>
->> Yes, I don't know why it wasn't applied yet.
->>
->> Pablo?
->
-> This doesn't apply.
->
-> $ git am /tmp/off-by-one-in-DecodeQ931.patch -s
-> Applying: off-by-one in DecodeQ931
-> error: patch failed: net/netfilter/nf_conntrack_h323_asn1.c:846
-> error: net/netfilter/nf_conntrack_h323_asn1.c: patch does not apply
-> Patch failed at 0001 off-by-one in DecodeQ931
-> The copy of the patch that failed is found in:
->    patch
-> When you have resolved this problem, run "git am --continue".
-> If you prefer to skip this patch, run "git am --skip" instead.
-> To restore the original branch and stop patching, run "git am --abort".
->
-> Could you resubmit using git-format-patch? Thanks.
+I'd like some feedback on this please, if it's the right thing to be doing
+here, or if it should be done elsewhere.
 
+Thanks very much
 
+Blair Steven (1):
+  esp: correct offset for ESN when using NAT-T
+
+ net/ipv4/esp4.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
 -- 
-Toby DiPasquale
-
---001a1142738c97e2a805351d2554
-Content-Type: application/octet-stream; name="off-by-one.patch"
-Content-Disposition: attachment; filename="off-by-one.patch"
-Content-Transfer-Encoding: base64
-X-Attachment-Id: f_ipd83dgt0
-
-RnJvbSAyY2FkYTVmZGNlMGVjZDViNDQ1YTM2MDkxNzQzMWNmMGRmZmZhNGJiIE1vbiBTZXAgMTcg
-MDA6MDA6MDAgMjAwMQpGcm9tOiBUb2J5IERpUGFzcXVhbGUgPHRvYnlAY2JjZy5uZXQ+CkRhdGU6
-IFN1biwgMTIgSnVuIDIwMTYgMTk6Mjc6NTMgLTA0MDAKU3ViamVjdDogW1BBVENIXSBmaXggb2Zm
-LWJ5LW9uZSBpbiBEZWNvZGVROTMxCgotLS0KIG5ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2gz
-MjNfYXNuMS5jIHwgMyArKy0KIDEgZmlsZSBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDEgZGVs
-ZXRpb24oLSkKCmRpZmYgLS1naXQgYS9uZXQvbmV0ZmlsdGVyL25mX2Nvbm50cmFja19oMzIzX2Fz
-bjEuYyBiL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2gzMjNfYXNuMS5jCmluZGV4IGJjZDVl
-ZDYuLjg5YjJlNDYgMTAwNjQ0Ci0tLSBhL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2gzMjNf
-YXNuMS5jCisrKyBiL25ldC9uZXRmaWx0ZXIvbmZfY29ubnRyYWNrX2gzMjNfYXNuMS5jCkBAIC04
-NDYsOSArODQ2LDEwIEBAIGludCBEZWNvZGVROTMxKHVuc2lnbmVkIGNoYXIgKmJ1Ziwgc2l6ZV90
-IHN6LCBROTMxICpxOTMxKQogCXN6IC09IGxlbjsKIAogCS8qIE1lc3NhZ2UgVHlwZSAqLwotCWlm
-IChzeiA8IDEpCisJaWYgKHN6IDwgMikKIAkJcmV0dXJuIEgzMjNfRVJST1JfQk9VTkQ7CiAJcTkz
-MS0+TWVzc2FnZVR5cGUgPSAqcCsrOworCXN6LS07CiAJUFJJTlQoIk1lc3NhZ2VUeXBlID0gJTAy
-WFxuIiwgcTkzMS0+TWVzc2FnZVR5cGUpOwogCWlmICgqcCAmIDB4ODApIHsKIAkJcCsrOwotLSAK
-Mi43LjQKCg==
---001a1142738c97e2a805351d2554--
+2.8.3
