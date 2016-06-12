@@ -1,128 +1,89 @@
 From: Henrik Austad <henrik@austad.us>
 Subject: Re: [very-RFC 0/8] TSN driver for the kernel
-Date: Sun, 12 Jun 2016 10:28:52 +0200
-Message-ID: <20160612082852.GA32724@icarus.home.austad.us>
+Date: Sun, 12 Jun 2016 10:31:22 +0200
+Message-ID: <20160612083122.GB32724@icarus.home.austad.us>
 References: <1465686096-22156-1-git-send-email-henrik@austad.us>
  <575CD93C.50006@sakamocchi.jp>
+ <575CE560.9090608@sakamocchi.jp>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1621042781918497061=="
-Cc: netdev@vger.kernel.org, alsa-devel@alsa-project.org,
- linux-media@vger.kernel.org, alsa-devel@vger.kernel.org, henrk@austad.us
-To: Takashi Sakamoto <o-takashi@sakamocchi.jp>
-Return-path: <alsa-devel-bounces@alsa-project.org>
-In-Reply-To: <575CD93C.50006@sakamocchi.jp>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
-List-Id: netdev.vger.kernel.org
-
-
---===============1621042781918497061==
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="FL5UXtIhxfXey3p5"
+	protocol="application/pgp-signature"; boundary="aM3YZ0Iwxop3KEKx"
+Cc: alsa-devel@alsa-project.org, netdev@vger.kernel.org,
+	linux-media@vger.kernel.org, alsa-devel@vger.kernel.org,
+	henrk@austad.us
+To: Takashi Sakamoto <o-takashi@sakamocchi.jp>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:36026 "EHLO
+	mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751182AbcFLIb0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2016 04:31:26 -0400
+Received: by mail-lf0-f65.google.com with SMTP id h68so8959731lfh.3
+        for <netdev@vger.kernel.org>; Sun, 12 Jun 2016 01:31:26 -0700 (PDT)
 Content-Disposition: inline
+In-Reply-To: <575CE560.9090608@sakamocchi.jp>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
---FL5UXtIhxfXey3p5
+--aM3YZ0Iwxop3KEKx
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, Jun 12, 2016 at 12:38:36PM +0900, Takashi Sakamoto wrote:
-> Hi,
+On Sun, Jun 12, 2016 at 01:30:24PM +0900, Takashi Sakamoto wrote:
+> On Jun 12 2016 12:38, Takashi Sakamoto wrote:
+> > In your patcset, there's no actual codes about how to handle any
+> > interrupt contexts (software / hardware), how to handle packet payload,
+> > and so on. Especially, for recent sound subsystem, the timing of
+> > generating interrupts and which context does what works are important to
+> > reduce playback/capture latency and power consumption.
+> >=20
+> > Of source, your intention of this patchset is to show your early concept
+> > of TSN feature. Nevertheless, both of explaination and codes are
+> > important to the other developers who have little knowledges about TSN,
+> > AVB and AES-64 such as me.
 >=20
-> I'm one of maintainers for ALSA firewire stack, which handles IEC
-> 61883-1/6 and vendor-unique packets on IEEE 1394 bus for consumer
-> recording equipments.
-> (I'm not in MAINTAINERS because I'm a shy boy.)
+> Oops. Your 5th patch was skipped by alsa-project.org. I guess that size
+> of the patch is too large to the list service. I can see it:
+> http://marc.info/?l=3Dlinux-netdev&m=3D146568672728661&w=3D2
 >=20
-> IEC 61883-6 describes that one packet can multiplex several types of
-> data in its data channels; i.e. Multi Bit Linear Audio data (PCM
-> samples), One Bit Audio Data (DSD), MIDI messages and so on.
+> As long as seeing the patch, packets are queueing in hrtimer callbacks
+> every 1 seconds.
 
-Hmm, that I did not know, not sure how that applies to AVB, but definately=
+Actually, the hrtimer fires every 1ms, and that part is something I have to=
 =20
-something I have to look into.
-
-> If you handles packet payload in 'struct snd_pcm_ops.copy', a process
-> context of an ALSA PCM applications performs the work. Thus, no chances
-> to multiplex data with the other types.
-
-Hmm, ok, I didn't know that, that is something I need to look into -and=20
-incidentally one of the reasons why I posted the series now instead of a=20
-few more months down the road - thanks!
-
-The driver is not adhering fully to any standards right now, the amount of=
+do something about, also because it sends of the same number of frames=20
+every time, regardless of how accurate the internal timer is to the rest of=
 =20
-detail is quite high - but I'm slowly improving as I go through the=20
-standards. Getting on top of all the standards and all the different=20
-subsystems are definately a work in progress (it's a lot to digest!)
+the network (there's no backpressure from the networking layer).
 
-> To prevent this situation, current ALSA firewire stack handles packet
-> payload in software interrupt context of isochronous context of OHCI
-> 1394. As a result of this, the software stack supports PCM substreams
-> and MIDI substreams.
->=20
-> In your patcset, there's no actual codes about how to handle any
-> interrupt contexts (software / hardware), how to handle packet payload,
-> and so on. Especially, for recent sound subsystem, the timing of
-> generating interrupts and which context does what works are important to
-> reduce playback/capture latency and power consumption.
+> (This is a high level discussion and it's OK to ignore it for the
+> moment. When writing packet-oriented drivers for sound subsystem, you
+> need to pay special attention to accuracy of the number of PCM frames
+> transferred currently, and granularity of the number of PCM frames
+> transferred by one operation. In this case, snd_avb_hw,
+> snd_avb_pcm_pointer(), tsn_buffer_write_net() and tsn_buffer_read_net()
+> are involved in this discussion. You can see ALSA developers' struggle
+> in USB audio device class drivers and (of cource) IEC 61883-1/6 drivers.)
 
-See reply in other mail :)
+Ah, good point. Any particular parts of the USB-subsystem I should start=20
+looking at? Knowing where to start looking is a tremendous help
 
-> Of source, your intention of this patchset is to show your early concept
-> of TSN feature. Nevertheless, both of explaination and codes are
-> important to the other developers who have little knowledges about TSN,
-> AVB and AES-64 such as me.
-
-Yes, that is one of the things I aimed for, and also getting feedback on=20
-the overall thinking
-
-> And, I might cooperate to prepare for common IEC 61883 layer. For actual
-> codes of ALSA firewire stack, please see mainline kernel code. For
-> actual devices of IEC 61883-1/6 and IEEE 1394 bus, please refer to my
-> report in 2014. At least, you can get to know what to consider about
-> developing upper drivers near ALSA userspace applications.
-> https://github.com/takaswie/alsa-firewire-report
-
-Thanks, I'll dig into that, much appreciated
-
-> (But I confirm that the report includes my misunderstandings in clause
-> 3.4 and 6.2. need more time...)
-
-ok, good to know
-
-Thank you for your input, very much appreicated!
+Thanks for the feedback!
 
 --=20
 Henrik Austad
 
---FL5UXtIhxfXey3p5
+--aM3YZ0Iwxop3KEKx
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iEYEARECAAYFAlddHUQACgkQ6k5VT6v45lkz/QCgv1Kytb0lLnfTKnkXuWq6s/KD
-0R8AniOUfPEJN8rcLNQBH3s/HuBD+FUw
-=MnV+
+iEYEARECAAYFAlddHdoACgkQ6k5VT6v45llG3wCgqAG/ur2mhrFeG832BSvdd2Gq
+K4MAnjoJZoCKvUGX8+im5CilGy6kQ8of
+=UjHz
 -----END PGP SIGNATURE-----
 
---FL5UXtIhxfXey3p5--
-
---===============1621042781918497061==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-
---===============1621042781918497061==--
+--aM3YZ0Iwxop3KEKx--
