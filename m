@@ -1,31 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCHi next] veth: advertise peer link relationship for both
- devices
-Date: Sat, 11 Jun 2016 19:30:19 -0700 (PDT)
-Message-ID: <20160611.193019.365613971876579784.davem@davemloft.net>
-References: <1465576339-17641-1-git-send-email-lrichard@redhat.com>
-	<20160611.154340.1340829899277605940.davem@davemloft.net>
-	<489378018.52267492.1465697053847.JavaMail.zimbra@redhat.com>
+From: Lorenzo Colitti <lorenzo@google.com>
+Subject: Re: [PATCH net] ipv6: fix endianness error in icmpv6_err
+Date: Sun, 12 Jun 2016 12:38:30 +0900
+Message-ID: <CAKD1Yr1xPFMY50zniE056H438nZdAcHnQ=fE1KANnPM7FA_7Hg@mail.gmail.com>
+References: <1465669926-16272-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
-To: lrichard@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42017 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932081AbcFLCaV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 22:30:21 -0400
-In-Reply-To: <489378018.52267492.1465697053847.JavaMail.zimbra@redhat.com>
+Received: from mail-yw0-f180.google.com ([209.85.161.180]:34310 "EHLO
+	mail-yw0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752607AbcFLDiv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 23:38:51 -0400
+Received: by mail-yw0-f180.google.com with SMTP id c72so100022278ywb.1
+        for <netdev@vger.kernel.org>; Sat, 11 Jun 2016 20:38:50 -0700 (PDT)
+In-Reply-To: <1465669926-16272-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lance Richardson <lrichard@redhat.com>
-Date: Sat, 11 Jun 2016 22:04:13 -0400 (EDT)
+On Sun, Jun 12, 2016 at 3:32 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> IPv6 ping socket error handler doesn't correctly convert the new 32 bit
+> mtu to host endianness before using.
+> ...
+>         if (!(type & ICMPV6_INFOMSG_MASK))
+>                 if (icmp6->icmp6_type == ICMPV6_ECHO_REQUEST)
+> -                       ping_err(skb, offset, info);
+> +                       ping_err(skb, offset, ntohl(info));
+>  }
 
-> I'll confess to not being super-happy with it myself, which is why I've
-> been sitting on this patch for some time now. A hard NAK will help justify
-> a "will not fix" to the reporter of this issue.
-
-Since userspace can learn everything is needs to using the existing
-notifications, there is no reason for this change, NACK.
+Acked-by: Lorenzo Colitti <lorenzo@google.com>
