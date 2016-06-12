@@ -1,149 +1,139 @@
-From: Takashi Sakamoto <o-takashi@sakamocchi.jp>
-Subject: Re: [very-RFC 0/8] TSN driver for the kernel
-Date: Sun, 12 Jun 2016 19:43:34 +0900
-Message-ID: <575D3CD6.3050001@sakamocchi.jp>
-References: <1465686096-22156-1-git-send-email-henrik@austad.us>
- <575CD93C.50006@sakamocchi.jp> <575CE560.9090608@sakamocchi.jp>
- <20160612083122.GB32724@icarus.home.austad.us>
+From: "Michael Kerrisk (man-pages)" <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH] netlink.7: describe netlink socket options
+Date: Sun, 12 Jun 2016 13:21:36 +0200
+Message-ID: <a8483b6f-160e-1743-35d3-65b0d4594fd6@gmail.com>
+References: <1465590517-7182-1-git-send-email-avagin@openvz.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
- protocol="application/pgp-signature";
- boundary="UsR84E3dGIn60IX3V7DNPtulHtaLdK7uD"
-Cc: netdev@vger.kernel.org, linux-media@vger.kernel.org
-To: Henrik Austad <henrik@austad.us>, alsa-devel@alsa-project.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-proxy002.phy.lolipop.jp ([157.7.104.43]:45102 "EHLO
-	smtp-proxy002.phy.lolipop.jp" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750924AbcFLKnm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2016 06:43:42 -0400
-In-Reply-To: <20160612083122.GB32724@icarus.home.austad.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---UsR84E3dGIn60IX3V7DNPtulHtaLdK7uD
-Content-Type: multipart/mixed; boundary="K0b4NFlup2Hr3Mf9McNagelra53C3B9tq"
-From: Takashi Sakamoto <o-takashi@sakamocchi.jp>
-To: Henrik Austad <henrik@austad.us>, alsa-devel@alsa-project.org
-Cc: netdev@vger.kernel.org, linux-media@vger.kernel.org
-Message-ID: <575D3CD6.3050001@sakamocchi.jp>
-Subject: Re: [very-RFC 0/8] TSN driver for the kernel
-References: <1465686096-22156-1-git-send-email-henrik@austad.us>
- <575CD93C.50006@sakamocchi.jp> <575CE560.9090608@sakamocchi.jp>
- <20160612083122.GB32724@icarus.home.austad.us>
-In-Reply-To: <20160612083122.GB32724@icarus.home.austad.us>
-
---K0b4NFlup2Hr3Mf9McNagelra53C3B9tq
 Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: 7bit
+Cc: mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-man-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Kir Kolyshkin <kir-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>,
+	Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>,
+	Christophe Ricard <christophe.ricard-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+To: Andrey Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Return-path: <linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1465590517-7182-1-git-send-email-avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+Sender: linux-man-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Jun 12 2016 17:31, Henrik Austad wrote:
-> On Sun, Jun 12, 2016 at 01:30:24PM +0900, Takashi Sakamoto wrote:
->> On Jun 12 2016 12:38, Takashi Sakamoto wrote:
->>> In your patcset, there's no actual codes about how to handle any
->>> interrupt contexts (software / hardware), how to handle packet payloa=
-d,
->>> and so on. Especially, for recent sound subsystem, the timing of
->>> generating interrupts and which context does what works are important=
- to
->>> reduce playback/capture latency and power consumption.
->>>
->>> Of source, your intention of this patchset is to show your early conc=
-ept
->>> of TSN feature. Nevertheless, both of explaination and codes are
->>> important to the other developers who have little knowledges about TS=
-N,
->>> AVB and AES-64 such as me.
->>
->> Oops. Your 5th patch was skipped by alsa-project.org. I guess that siz=
-e
->> of the patch is too large to the list service. I can see it:
->> http://marc.info/?l=3Dlinux-netdev&m=3D146568672728661&w=3D2
->>
->> As long as seeing the patch, packets are queueing in hrtimer callbacks=
+Hi Andrey,
 
->> every 1 seconds.
->=20
-> Actually, the hrtimer fires every 1ms, and that part is something I hav=
-e to=20
-> do something about, also because it sends of the same number of frames =
-
-> every time, regardless of how accurate the internal timer is to the res=
-t of=20
-> the network (there's no backpressure from the networking layer).
->=20
->> (This is a high level discussion and it's OK to ignore it for the
->> moment. When writing packet-oriented drivers for sound subsystem, you
->> need to pay special attention to accuracy of the number of PCM frames
->> transferred currently, and granularity of the number of PCM frames
->> transferred by one operation. In this case, snd_avb_hw,
->> snd_avb_pcm_pointer(), tsn_buffer_write_net() and tsn_buffer_read_net(=
-)
->> are involved in this discussion. You can see ALSA developers' struggle=
-
->> in USB audio device class drivers and (of cource) IEC 61883-1/6 driver=
-s.)
->=20
-> Ah, good point. Any particular parts of the USB-subsystem I should star=
-t=20
-> looking at?
-
-I don't think it's a beter way for you to study USB Audio Device Class
-driver unless you're interested in ALSA or USB subsystem.
-
-(But for your information, snd-usb-audio is in sound/usb/* of Linux
-kernel. IEC 61883-1/6 driver is in sound/firewire/*.)
-
-We need different strategy to achieve it on different transmission backen=
-d.
-
-> Knowing where to start looking is a tremendous help
-
-It's not well-documented, and not well-generalized for packet-oriented
-drivers. Most of developers who have enough knowledge about it work for
-DMA-oriented drivers in mobile platforms and have little interests in
-packet-oriented drivers. You need to find your own way.
-
-Currently I have few advices to you, because I'm also on the way for
-drivers to process IEC 61883-1/6 packets on IEEE 1394 bus with enough
-accuracy and granularity. The paper I introduced is for the way (but not
-mature).
-
-I wish you get more helps from the other developers. Your work is more
-significant to Linux system, than mine.
-
-(And I hope your future work get no ignorance and no unreasonable
-hostility from coarse users.)
+On 06/10/2016 10:28 PM, Andrey Vagin wrote:
+> Cc: Kir Kolyshkin <kir-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+> Cc: Michael Kerrisk <mtk.manpages-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+> Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+> Cc: Christophe Ricard <christophe.ricard-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> Cc: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+> Signed-off-by: Andrey Vagin <avagin-GEFAQzZX7r8dnm+yROfE0A@public.gmane.org>
+> ---
+>  man7/netlink.7 | 75 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 75 insertions(+)
 
 
-Regards
+Thanks for the nicely done patch. Applied!
 
-Takashi Sakamoto
+Cheers,
+
+Michael
 
 
---K0b4NFlup2Hr3Mf9McNagelra53C3B9tq--
+> diff --git a/man7/netlink.7 b/man7/netlink.7
+> index 513f854..b4848df 100644
+> --- a/man7/netlink.7
+> +++ b/man7/netlink.7
+> @@ -368,6 +368,81 @@ and
+>  .BR NETLINK_SELINUX
+>  groups allow other users to receive messages.
+>  No groups allow other users to send messages.
+> +
+> +.SS Socket options
+> +To set or get a netlink socket option, call
+> +.BR getsockopt (2)
+> +to read or
+> +.BR setsockopt (2)
+> +to write the option with the option level argument set to
+> +.BR SOL_NETLINK .
+> +Unless otherwise noted,
+> +.I optval
+> +is a pointer to an
+> +.IR int .
+> +.TP
+> +.BR NETLINK_PKTINFO " (since Linux 2.6.14)"
+> +Enable
+> +.B nl_pktinfo
+> +control messages for received packets to get the extended
+> +destination group number.
+> +.TP
+> +.BR NETLINK_ADD_MEMBERSHIP ,\  NETLINK_DROP_MEMBERSHIP " (since Linux 2.6.14)"
+> +Join/leave a group specified by
+> +.IR optval .
+> +.\"	commit 9a4595bc7e67962f13232ee55a64e063062c3a99
+> +.\"	Author: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
+> +.TP
+> +.BR NETLINK_LIST_MEMBERSHIPS " (since Linux 4.2)"
+> +Retrieve all groups a socket is a member of.
+> +.I optval
+> +is a pointer to
+> +.B __u32
+> +and
+> +.I optlen
+> +is the size of the array. The array is filled with the full membership set of the
+> +socket, and the required array size is returned in
+> +.I optlen.
+> +.\"	commit b42be38b2778eda2237fc759e55e3b698b05b315
+> +.\"	Author: David Herrmann <dh.herrmann-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> +.TP
+> +.BR NETLINK_BROADCAST_ERROR " (since Linux 2.6.30)"
+> +When not set,
+> +.B netlink_broadcast()
+> +only reports
+> +.B ESRCH
+> +errors and silently ignore
+> +.B NOBUFS
+> +errors.
+> +.\"	commit be0c22a46cfb79ab2342bb28fde99afa94ef868e
+> +.\"	Author: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+> +.TP
+> +.BR NETLINK_NO_ENOBUFS " (since Linux 2.6.30)"
+> +This flag can be used by unicast and broadcast listeners to avoid receiving
+> +.B ENOBUFS
+> +errors.
+> +.\"	commit 38938bfe3489394e2eed5e40c9bb8f66a2ce1405
+> +.\"	Author: Pablo Neira Ayuso <pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org>
+> +.TP
+> +.BR NETLINK_LISTEN_ALL_NSID " (since Linux 4.2)"
+> +When set, this socket will receive netlink notifications from all network namespaces that
+> +have an
+> +.I nsid
+> +assigned into the network namespace where the socket has been opened. The
+> +.I nsid
+> +is sent to user space via an ancillary data.
+> +.\"	commit 59324cf35aba5336b611074028777838a963d03b
+> +.\"	Author: Nicolas Dichtel <nicolas.dichtel-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+> +.TP
+> +.BR NETLINK_CAP_ACK " (since Linux 4.2)"
+> +The kernel may fail to allocate the necessary room for the acknowledgment
+> +message back to userspace. This option trims off the payload of the original
+> +netlink message.
+> +The netlink message header is still included, so the user can guess from the
+> +sequence number what is the message that has triggered the acknowledgment.
+> +.\"	commit 0a6a3a23ea6efde079a5b77688541a98bf202721
+> +.\"	Author: Christophe Ricard <christophe.ricard-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> +
+>  .SH VERSIONS
+>  The socket interface to netlink is a new feature of Linux 2.2.
+>  
+> 
 
---UsR84E3dGIn60IX3V7DNPtulHtaLdK7uD
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQIcBAEBCAAGBQJXXTzWAAoJELWlhsfWb9NBiy0P/0l3ILGCvxaE50WGVEFUFJdJ
-tOHBl9Nw2T+VZNxpspbRMZ/03qx7VMCfszn4CzTYuA3nN1h5KxPDJo5/Fq6/v6tA
-eneP2c623wPmzUAPhGE8ThAgmJGUtmq82JYVAWsjTYm7m5LeOhVjckyw9P8uy1od
-DJeqO5oth2HGWb86JaVSMOpVqY+JVwb9qT04yOZ+JRa2VAgsgs/YdhYBHi7RS45O
-vfvNuR2EAvqNQwY4woDefdQJoHA0hlpx0NiCrJuRQebHsXSeTsCloB5bL+xbfS1V
-dFtf66P2BUMQ7u78xQ1Q/GDeYN23s6VhS5KcuRZ5ExC2Mp913Le55ovxOlZflg14
-3xJHt8PCXZp/Xbn0X/46mrSn0kErib6B10ublL6Ocr8rO/DxoHip4MGtrOl66LDa
-qy4DFxniE69b8wPxbf6h8mc7zzXYlYy0vIjsBqR37AvvHZdy2FiyAUO7Al7U0qwl
-NMuglNCDObkTnNF8Zlmyy9gZyMwNkTNguV8YM7Kx9B6H0OzWmqTJXTcJdEf7p0xa
-5i8tOMWoFhNnk6zM0T4tWbSZ84OQx1Y3ER7pDZAZQRnKTun0AQO7cdHqS5jU+CyC
-iuMdo0+83vW8sCc/Bp8YEdyc9crDSlUeMVOPldn90zHyz/69i39FWb4jdczrbDnb
-/I6fs/pYTFIfISTTs6pr
-=zn4h
------END PGP SIGNATURE-----
-
---UsR84E3dGIn60IX3V7DNPtulHtaLdK7uD--
+-- 
+Michael Kerrisk
+Linux man-pages maintainer; http://www.kernel.org/doc/man-pages/
+Linux/UNIX System Programming Training: http://man7.org/training/
+--
+To unsubscribe from this list: send the line "unsubscribe linux-man" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
