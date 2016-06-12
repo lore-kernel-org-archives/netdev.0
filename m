@@ -1,48 +1,92 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net v2] ipv6: fix checksum annotation in udp6_csum_init
-Date: Sat, 11 Jun 2016 18:07:29 -0700
-Message-ID: <CAM_iQpWJNCE44ZhqWedzpK36yCmvJJx_o9Eg9HYs42=7y+-41w@mail.gmail.com>
-References: <1465671401-6329-1-git-send-email-hannes@stressinduktion.org> <1465672537-26131-1-git-send-email-hannes@stressinduktion.org>
+From: Lance Richardson <lrichard@redhat.com>
+Subject: Re: [PATCHi next] veth: advertise peer link relationship for both
+ devices
+Date: Sat, 11 Jun 2016 22:04:13 -0400 (EDT)
+Message-ID: <489378018.52267492.1465697053847.JavaMail.zimbra@redhat.com>
+References: <1465576339-17641-1-git-send-email-lrichard@redhat.com> <20160611.154340.1340829899277605940.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, nicolas dichtel <nicolas.dichtel@6wind.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f195.google.com ([209.85.161.195]:36586 "EHLO
-	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752111AbcFLBHu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 21:07:50 -0400
-Received: by mail-yw0-f195.google.com with SMTP id w195so1902740ywd.3
-        for <netdev@vger.kernel.org>; Sat, 11 Jun 2016 18:07:49 -0700 (PDT)
-In-Reply-To: <1465672537-26131-1-git-send-email-hannes@stressinduktion.org>
+Received: from mx3-phx2.redhat.com ([209.132.183.24]:50034 "EHLO
+	mx3-phx2.redhat.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932222AbcFLCES (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 22:04:18 -0400
+In-Reply-To: <20160611.154340.1340829899277605940.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jun 11, 2016 at 12:15 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> Cc: Tom Herbert <tom@herbertland.com>
-> Fixes: 4068579e1e098fa ("net: Implmement RFC 6936 (zero RX csums for UDP/IPv6")
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  net/ipv6/ip6_checksum.c | 7 +++++--
->  1 file changed, 5 insertions(+), 2 deletions(-)
->
-> diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
-> index b2025bf3da4af2..c0cbcb259f5a9a 100644
-> --- a/net/ipv6/ip6_checksum.c
-> +++ b/net/ipv6/ip6_checksum.c
-> @@ -78,9 +78,12 @@ int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
->          * we accept a checksum of zero here. When we find the socket
->          * for the UDP packet we'll check if that socket allows zero checksum
->          * for IPv6 (set by socket option).
-> +        *
-> +        * Note, we are only interested in != 0 or == 0, thus the
-> +        * force to int.
->          */
-> -       return skb_checksum_init_zero_check(skb, proto, uh->check,
-> -                                          ip6_compute_pseudo);
-> +       return (__force int)skb_checksum_init_zero_check(skb, proto, uh->check,
-> +                                                        ip6_compute_pseudo);
+----- Original Message -----
+> From: "David Miller" <davem@davemloft.net>
+> To: lrichard@redhat.com
+> Cc: netdev@vger.kernel.org, "nicolas dichtel" <nicolas.dichtel@6wind.com>
+> Sent: Saturday, June 11, 2016 6:43:40 PM
+> Subject: Re: [PATCHi next] veth: advertise peer link relationship for both devices
+> 
+> From: Lance Richardson <lrichard@redhat.com>
+> Date: Fri, 10 Jun 2016 12:32:19 -0400
+> 
+> > Currently, when creating a veth pair, notfications to user
+> > space only include link peer for one end of the veth pair:
+> >    # ip monitor link &
+> >    # ip link add dev vm1 type veth peer name vm2
+> >    30: vm2@NONE: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> >        link/ether be:e3:b7:0e:14:52 brd ff:ff:ff:ff:ff:ff
+> >    31: vm1@vm2: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
+> >        link/ether da:e6:a6:c5:42:54 brd ff:ff:ff:ff:ff:ff
+> > 
+> > With this change, netlink notifications are sent with complete
+> > information for both interfaces of the veth pair:
+> > 
+> >    # 3: vm2@NONE: <BROADCAST,MULTICAST> mtu 1500 qdisc noop state DOWN
+> >        link/ether e2:94:54:8a:ac:f5 brd ff:ff:ff:ff:ff:ff
+> >    4: vm1@vm2: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
+> >        link/ether b2:05:70:e0:fc:35 brd ff:ff:ff:ff:ff:ff
+> >    3: vm2@vm1: <BROADCAST,MULTICAST,M-DOWN> mtu 1500 qdisc noop state DOWN
+> >        link/ether e2:94:54:8a:ac:f5 brd ff:ff:ff:ff:ff:ff
+> > 
+> > Signed-off-by: Lance Richardson <lrichard@redhat.com>
+> 
+> I don't know about this.
+> 
+> First of all, those notifications you get above tell you everything you
+> need to know in order to figure out what both ends of the veth pair are.
+> 
+> In fact, I would say that the vm1@vm2 notification #31 above is the _only_
+> one you absolutely need.
+> 
+> > @@ -466,8 +466,16 @@ static int veth_newlink(struct net *src_net, struct
+> > net_device *dev,
+> >  
+> >  	priv = netdev_priv(peer);
+> >  	rcu_assign_pointer(priv->peer, dev);
+> > +
+> > +	err = rtnl_configure_link(dev, NULL);
+> > +	if (err < 0)
+> > +		goto err_configure_dev;
+> > +
+> > +	rtmsg_ifinfo(RTM_NEWLINK, peer, 0, GFP_KERNEL);
+> >  	return 0;
+> >  
+> > +err_configure_dev:
+> > +	/* nothing to do */
+> >  err_register_dev:
+> >  	/* nothing to do */
+> >  err_configure_peer:
+> 
+> If you're registering the peer here explicitly, this means a link configure
+> somewhere else is now superfluous.
+> 
+> I really don't like this change at all, both from a necessity perspective as
+> well as from it's implementation.
+> 
 
-Same for udp4_csum_init() ?
+I'll confess to not being super-happy with it myself, which is why I've
+been sitting on this patch for some time now. A hard NAK will help justify
+a "will not fix" to the reporter of this issue.
+
+Thanks,
+
+  Lance
