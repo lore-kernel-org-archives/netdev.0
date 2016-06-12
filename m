@@ -1,52 +1,83 @@
-From: Alexander Aring <aar@pengutronix.de>
-Subject: Re: [RFC PATCH iproute2] tc: let m_ipt work with new iptables API
- headers
-Date: Sun, 12 Jun 2016 23:30:40 +0200
-Message-ID: <3e654b82-2e16-7a5e-62cc-c137b7b75a5c@pengutronix.de>
-References: <20160529182713.2131-1-aar@pengutronix.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: kernel@pengutronix.de, clemens.gruber@pqgruber.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:53044 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932156AbcFLVam (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2016 17:30:42 -0400
-In-Reply-To: <20160529182713.2131-1-aar@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH] net: ethernet: enic: move to new ethtool api {get|set}_link_ksettings
+Date: Sun, 12 Jun 2016 23:30:54 +0200
+Message-ID: <1465767054-28765-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Philippe Reynes <tremyfr@gmail.com>
+To: benve@cisco.com, ssujith@cisco.com, _govind@gmx.com,
+	neepatel@cisco.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+The ethtool api {get|set}_settings is deprecated.
+We move the enic driver to new api {get|set}_link_ksettings.
 
-Hi,
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/cisco/enic/enic_ethtool.c |   28 +++++++++++++----------
+ 1 files changed, 16 insertions(+), 12 deletions(-)
 
-On 05/29/2016 08:27 PM, Alexander Aring wrote:
-> Since commit 5cd1adb ("Update to current iptables headers") the build
-> with m_ipt.o and the following config will fail:
-> 
-> TC_CONFIG_XT:=n
-> TC_CONFIG_XT_OLD:=n
-> TC_CONFIG_XT_OLD_H:=n
-> 
-> This patch renames "iptables_target" to "xtables_target" and some other
-> things which gets renamed and I noticed while reading iptables git log.
-> Functions which are not used in m_ipt.c and not exported by the header
-> are removed, if they still used in m_ipt.c I added a static to the function.
-> 
-> Reported-by: Clemens Gruber <clemens.gruber@pqgruber.com>
-> Signed-off-by: Alexander Aring <aar@pengutronix.de>
-> ---
-> I removed also "linux/if.h" because some redifinition errors and seems
-> not be necessary anymore.
-> 
-> I didn't test this implementation, I just fix the compile issues at m_ipt
-> implementation according to the algoritmn described above.
-> 
-> Maybe there are more TC_CONFIG_XT* config variants broken than just m_ipt?
-> 
-
-ping, any comments to this patch?
-I can rebase and resend this patch if necessary.
-
-- Alex
+diff --git a/drivers/net/ethernet/cisco/enic/enic_ethtool.c b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+index f44a39c..fd3980c 100644
+--- a/drivers/net/ethernet/cisco/enic/enic_ethtool.c
++++ b/drivers/net/ethernet/cisco/enic/enic_ethtool.c
+@@ -103,25 +103,29 @@ static void enic_intr_coal_set_rx(struct enic *enic, u32 timer)
+ 	}
+ }
+ 
+-static int enic_get_settings(struct net_device *netdev,
+-	struct ethtool_cmd *ecmd)
++static int enic_get_ksettings(struct net_device *netdev,
++			      struct ethtool_link_ksettings *ecmd)
+ {
+ 	struct enic *enic = netdev_priv(netdev);
++	struct ethtool_link_settings *base = &ecmd->base;
+ 
+-	ecmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
+-	ecmd->advertising = (ADVERTISED_10000baseT_Full | ADVERTISED_FIBRE);
+-	ecmd->port = PORT_FIBRE;
+-	ecmd->transceiver = XCVR_EXTERNAL;
++	ethtool_link_ksettings_add_link_mode(ecmd, supported,
++					     10000baseT_Full);
++	ethtool_link_ksettings_add_link_mode(ecmd, supported, FIBRE);
++	ethtool_link_ksettings_add_link_mode(ecmd, advertising,
++					     10000baseT_Full);
++	ethtool_link_ksettings_add_link_mode(ecmd, advertising, FIBRE);
++	base->port = PORT_FIBRE;
+ 
+ 	if (netif_carrier_ok(netdev)) {
+-		ethtool_cmd_speed_set(ecmd, vnic_dev_port_speed(enic->vdev));
+-		ecmd->duplex = DUPLEX_FULL;
++		base->speed = vnic_dev_port_speed(enic->vdev);
++		base->duplex = DUPLEX_FULL;
+ 	} else {
+-		ethtool_cmd_speed_set(ecmd, SPEED_UNKNOWN);
+-		ecmd->duplex = DUPLEX_UNKNOWN;
++		base->speed = SPEED_UNKNOWN;
++		base->duplex = DUPLEX_UNKNOWN;
+ 	}
+ 
+-	ecmd->autoneg = AUTONEG_DISABLE;
++	base->autoneg = AUTONEG_DISABLE;
+ 
+ 	return 0;
+ }
+@@ -500,7 +504,6 @@ static int enic_set_rxfh(struct net_device *netdev, const u32 *indir,
+ }
+ 
+ static const struct ethtool_ops enic_ethtool_ops = {
+-	.get_settings = enic_get_settings,
+ 	.get_drvinfo = enic_get_drvinfo,
+ 	.get_msglevel = enic_get_msglevel,
+ 	.set_msglevel = enic_set_msglevel,
+@@ -516,6 +519,7 @@ static const struct ethtool_ops enic_ethtool_ops = {
+ 	.get_rxfh_key_size = enic_get_rxfh_key_size,
+ 	.get_rxfh = enic_get_rxfh,
+ 	.set_rxfh = enic_set_rxfh,
++	.get_link_ksettings = enic_get_ksettings,
+ };
+ 
+ void enic_set_ethtool_ops(struct net_device *netdev)
+-- 
+1.7.4.4
