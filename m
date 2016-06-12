@@ -1,57 +1,48 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net] fib_rules: don't break ECN with TOS rules
-Date: Sun, 12 Jun 2016 02:38:20 +0200
-Message-ID: <1465691900.3002733.634955425.22770D5E@webmail.messagingengine.com>
-References: <1465679423-27414-1-git-send-email-hannes@stressinduktion.org>
- <alpine.LFD.2.11.1606120230560.2087@ja.home.ssi.bg>
- <1465691799.3002631.634954313.3E40DB3C@webmail.messagingengine.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net v2] ipv6: fix checksum annotation in udp6_csum_init
+Date: Sat, 11 Jun 2016 18:07:29 -0700
+Message-ID: <CAM_iQpWJNCE44ZhqWedzpK36yCmvJJx_o9Eg9HYs42=7y+-41w@mail.gmail.com>
+References: <1465671401-6329-1-git-send-email-hannes@stressinduktion.org> <1465672537-26131-1-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Florian Westphal <fw@strlen.de>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Tom Herbert <tom@herbertland.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out2-smtp.messagingengine.com ([66.111.4.26]:33574 "EHLO
-	out2-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751823AbcFLAiV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 20:38:21 -0400
-In-Reply-To: <1465691799.3002631.634954313.3E40DB3C@webmail.messagingengine.com>
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:36586 "EHLO
+	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752111AbcFLBHu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 21:07:50 -0400
+Received: by mail-yw0-f195.google.com with SMTP id w195so1902740ywd.3
+        for <netdev@vger.kernel.org>; Sat, 11 Jun 2016 18:07:49 -0700 (PDT)
+In-Reply-To: <1465672537-26131-1-git-send-email-hannes@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 12, 2016, at 02:36, Hannes Frederic Sowa wrote:
-> On Sun, Jun 12, 2016, at 02:09, Julian Anastasov wrote:
-> > 
-> > 	Hello,
-> > 
-> > On Sat, 11 Jun 2016, Hannes Frederic Sowa wrote:
-> > 
-> > > Users of ToS rules could accidentally break ECN, this patch tries to
-> > > fix this in a way so we don't break shell scripts depending on the old
-> > > behavior while still being transparent to ECN. This quietly fixes ECN
-> > > behavior for old setups.
-> > > 
-> > > For IPv6 we have no check if we check for ECN bits, in IPv4 we only
-> > > check for the last bit, which is specified to be '0' from pre-DSCP times
-> > > (because of implementation confusion).
-> > > 
-> > > This patch changes fib rules in a way that matches only for ecn bits
-> > > will never match from now on (I consider them illegal), as we simply
-> > > ignore those rules (it was easier to explain in a pr_warn). Opinions?
-> > 
-> > 	Well, may be the confusion comes from commit 89aef8921bfb
-> > ("ipv4: Delete routing cache.") where the 'tos &= IPTOS_RT_MASK;'
-> > line is lost from ip_route_input_common. I think, we should
-> > add it back, so that we can properly match input routes with rules
-> > that specify tos value. Old kernels didn't stored ECN bits in
-> > flowi4_tos in the input path, so we should do the same.
-> 
-> I would love to have done that but was fearing problems with user space
-> compatibility. Also IPTOS_RT_MASK is not enough for filtering, we need
-> to check for the whole INET_ECN_MASK.
+On Sat, Jun 11, 2016 at 12:15 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> Cc: Tom Herbert <tom@herbertland.com>
+> Fixes: 4068579e1e098fa ("net: Implmement RFC 6936 (zero RX csums for UDP/IPv6")
+> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> ---
+>  net/ipv6/ip6_checksum.c | 7 +++++--
+>  1 file changed, 5 insertions(+), 2 deletions(-)
+>
+> diff --git a/net/ipv6/ip6_checksum.c b/net/ipv6/ip6_checksum.c
+> index b2025bf3da4af2..c0cbcb259f5a9a 100644
+> --- a/net/ipv6/ip6_checksum.c
+> +++ b/net/ipv6/ip6_checksum.c
+> @@ -78,9 +78,12 @@ int udp6_csum_init(struct sk_buff *skb, struct udphdr *uh, int proto)
+>          * we accept a checksum of zero here. When we find the socket
+>          * for the UDP packet we'll check if that socket allows zero checksum
+>          * for IPv6 (set by socket option).
+> +        *
+> +        * Note, we are only interested in != 0 or == 0, thus the
+> +        * force to int.
+>          */
+> -       return skb_checksum_init_zero_check(skb, proto, uh->check,
+> -                                          ip6_compute_pseudo);
+> +       return (__force int)skb_checksum_init_zero_check(skb, proto, uh->check,
+> +                                                        ip6_compute_pseudo);
 
-Correction: IPTOS_RT_MASK would be fine, but fib4_rule_configure uses
-IPTOS_TOS_MASK.
-
-Bye,
-Hannes
+Same for udp4_csum_init() ?
