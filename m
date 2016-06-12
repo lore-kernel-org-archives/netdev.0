@@ -1,41 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] ethtool: Macro definition for SFF-8436/8636
- Memory map max sizes
-Date: Sat, 11 Jun 2016 19:26:48 -0700 (PDT)
-Message-ID: <20160611.192648.91885921700006865.davem@davemloft.net>
-References: <1465278926-10231-1-git-send-email-vidya@cumulusnetworks.com>
-	<20160611.155134.1474324006340328110.davem@davemloft.net>
-	<CAKWE-Xrw6kE7-rSOP1NRQaT3jAHWVVkhWz8c2oinYmQc+LrnjQ@mail.gmail.com>
+Subject: Re: [PATCHi next] veth: advertise peer link relationship for both
+ devices
+Date: Sat, 11 Jun 2016 19:30:19 -0700 (PDT)
+Message-ID: <20160611.193019.365613971876579784.davem@davemloft.net>
+References: <1465576339-17641-1-git-send-email-lrichard@redhat.com>
+	<20160611.154340.1340829899277605940.davem@davemloft.net>
+	<489378018.52267492.1465697053847.JavaMail.zimbra@redhat.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: bwh@kernel.org, netdev@vger.kernel.org, roopa@cumulusnetworks.com
-To: vidya@cumulusnetworks.com
+Cc: netdev@vger.kernel.org, nicolas.dichtel@6wind.com
+To: lrichard@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41995 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:42017 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752446AbcFLC0v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 22:26:51 -0400
-In-Reply-To: <CAKWE-Xrw6kE7-rSOP1NRQaT3jAHWVVkhWz8c2oinYmQc+LrnjQ@mail.gmail.com>
+	with ESMTP id S932081AbcFLCaV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 11 Jun 2016 22:30:21 -0400
+In-Reply-To: <489378018.52267492.1465697053847.JavaMail.zimbra@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
-Date: Sat, 11 Jun 2016 16:22:38 -0700
+From: Lance Richardson <lrichard@redhat.com>
+Date: Sat, 11 Jun 2016 22:04:13 -0400 (EDT)
 
-> As part of ethtool application, application is requesting  the drivers
-> to provide the supported eeprom size to allocate memory buffer for
-> getting complete dump.
+> I'll confess to not being super-happy with it myself, which is why I've
+> been sitting on this patch for some time now. A hard NAK will help justify
+> a "will not fix" to the reporter of this issue.
 
-And the right way to do that is the driver requests the eeprom info
-with a buffer size of zero, then the driver fills in the size field
-for what the size actually is.
-
-Then the application can allocate the proper buffer size and rerun
-the eeprom request.
-
-Putting endless values for each and every eeprom type a device has is
-just rediculous.
-
-I'm not going to continue promoting this broken and unscalable scheme,
-we have to fix this.
+Since userspace can learn everything is needs to using the existing
+notifications, there is no reason for this change, NACK.
