@@ -1,56 +1,30 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [net-next PATCH 04/15] bnxt: Replace ndo_add/del_vxlan_port with ndo_add/del_udp_enc_port
-Date: Mon, 13 Jun 2016 12:16:42 -0700
-Message-ID: <CACKFLi=opqb393SGEKLgN-cvQn7xL8kYVr+=MhW7SO41-xPJZQ@mail.gmail.com>
-References: <20160613173750.15186.24381.stgit@localhost.localdomain>
-	<20160613174822.15186.55819.stgit@localhost.localdomain>
-	<CAEh+42jyXOytgidZN4MNBoPaKL-xoQDXptFqnbhWrMGc5=8z=w@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH v1 1/1] ipv4: Prevent malformed UFO fragments in
+ ip_append_page
+Date: Mon, 13 Jun 2016 21:27:16 +0200
+Message-ID: <63247f00-968a-e77a-70e5-90301df64b84@stressinduktion.org>
+References: <6A051441C8B95A448E49718A747690B901CA76C84F@gbplmail03.genband.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Hannes Frederic Sowa <hannes@redhat.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Dept-GELinuxNICDev@qlogic.com, David Miller <davem@davemloft.net>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Jesse Gross <jesse@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f49.google.com ([209.85.218.49]:36654 "EHLO
-	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423278AbcFMTQo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 15:16:44 -0400
-Received: by mail-oi0-f49.google.com with SMTP id p204so222864202oih.3
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 12:16:43 -0700 (PDT)
-In-Reply-To: <CAEh+42jyXOytgidZN4MNBoPaKL-xoQDXptFqnbhWrMGc5=8z=w@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Steven Caron <steven.caron@genband.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <6A051441C8B95A448E49718A747690B901CA76C84F@gbplmail03.genband.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 13, 2016 at 11:41 AM, Jesse Gross <jesse@kernel.org> wrote:
-> On Mon, Jun 13, 2016 at 10:48 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
->> This change replaces the network device operations for adding or removing a
->> VXLAN port with operations that are more generically defined to be used for
->> any UDP offload port but provide a type.  As such by just adding a line to
->> verify that the offload type if VXLAN we can maintain the same
->> functionality.
->>
->> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->
-> It looks like bnxt actually has a hardcoded offload of the Geneve port
-> rather than using the registration (maybe it predated it?).
+On 13.06.2016 16:01, Steven Caron wrote:
+> 
+> As  the ip fragment offset field counts 8-byte chunks, non-final ip
+> fragments must be multiples of 8 bytes of payload. Depending  on the
+> mtu and ip option sizes, ip_append_page wasn't respecting this,
+> notably when running NFS under UDP.
+> 
+> Signed-off-by: Steven Caron <steven.caron@genband.com>
 
-It's not hardcoded.  The driver code just predated the ndo geneve calls.
+Awesome!
 
->  It would
-> be nice to incorporate that into your unified handler as well.
->
-> I think you could actually just kill all of these
-> CONFIG_VXLAN/CONFIG_GENEVE checks (across all the drivers, not just
-> this one). They shouldn't be necessary any more now that there's no
-> longer strong linkage to the tunnel drivers.
-
-Agreed.
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
