@@ -1,50 +1,38 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH v2 net] net_sched: prio: insure proper transactional behavior
-Date: Mon, 13 Jun 2016 14:21:17 -0700
-Message-ID: <CAM_iQpX3OsM8nX-GG1KFCii8Ad5RsuuoZ159fEBYp6sshp1FHg@mail.gmail.com>
-References: <1465773707.7945.133.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpXY0Ce5hbXYGOcd-N1tb9BH33JYXFQdmWEbsc5SWYsV8A@mail.gmail.com>
- <1465792157.7945.145.camel@edumazet-glaptop3.roam.corp.google.com>
- <1465794231.7945.150.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAM_iQpWWLTMRUNUeS9=6B3KqA6Tyu0qaUYSRw_PFYFK_mo7Urw@mail.gmail.com>
- <1465838004.7945.167.camel@edumazet-glaptop3.roam.corp.google.com>
- <1465838879.7945.168.camel@edumazet-glaptop3.roam.corp.google.com> <1465842812.7945.175.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net] fib_rules: don't break ECN with TOS rules
+Date: Mon, 13 Jun 2016 23:49:45 +0200
+Message-ID: <1465854585.1443672.636616881.5FACCAD4@webmail.messagingengine.com>
+References: <1465679423-27414-1-git-send-email-hannes@stressinduktion.org>
+ <c5fb0fbf-6b8e-a479-198a-817ff9071d74@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Florian Westphal <fw@strlen.de>
+To: David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f196.google.com ([209.85.161.196]:35768 "EHLO
-	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423303AbcFMVVh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 17:21:37 -0400
-Received: by mail-yw0-f196.google.com with SMTP id v137so9521089ywa.2
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 14:21:37 -0700 (PDT)
-In-Reply-To: <1465842812.7945.175.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:57310 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752701AbcFMVtr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 17:49:47 -0400
+In-Reply-To: <c5fb0fbf-6b8e-a479-198a-817ff9071d74@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 13, 2016 at 11:33 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Now prio_init() can return -ENOMEM, it also has to make sure
-> any allocated qdiscs are freed, since the caller (qdisc_create()) wont
-> call ->destroy() handler for us.
->
-> More generally, we want a transactional behavior for "tc qdisc
-> change ...", so prio_tune() should not make modifications if
-> any error is returned.
->
-> It means that we must validate parameters and allocate missing qdisc(s)
-> before taking root qdisc lock exactly once, to not leave the prio qdisc
-> in an intermediate state.
->
-> Fixes: cbdf45116478 ("net_sched: prio: properly report out of memory errors")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Cong Wang <xiyou.wangcong@gmail.com>
+On Mon, Jun 13, 2016, at 00:18, David Ahern wrote:
+> On 6/11/16 3:10 PM, Hannes Frederic Sowa wrote:
+> > @@ -215,6 +216,9 @@ static int fib4_rule_configure(struct fib_rule *rule, struct sk_buff *skb,
+> >  	rule4->dst_len = frh->dst_len;
+> >  	rule4->dstmask = inet_make_mask(rule4->dst_len);
+> >  	rule4->tos = frh->tos;
+> > +	if (!INET_ECN_ignore(rule4->tos))
+> > +		pr_warn("ipv4: never matching ipv4 rule with match for %x added\n",
+> > +			rule4->tos);
+> >
+> 
+> The wording of the warning message is not very clear on what the problem
+> is.
 
-Looks good to me,
+I will redesign this whole patch and will improve those warnings, too.
 
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
-
-Thanks!
+Thanks,
+Hannes
