@@ -1,98 +1,93 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next 05/17] RDS: Add rds_send_path_reset()
-Date: Mon, 13 Jun 2016 09:44:30 -0700
-Message-ID: <0264268d44b3dedc8d87ac8816cb0c3e2735bc2b.1465829626.git.sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next 07/17] RDS: Remove stale function rds_send_get_message()
+Date: Mon, 13 Jun 2016 09:44:32 -0700
+Message-ID: <3c645bd5c8d906fa0d3093826a54b68ad5de1e7b.1465829626.git.sowmini.varadhan@oracle.com>
 References: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
 	ajaykumar.hotchandani@oracle.com, santosh.shilimkar@oracle.com,
 	sowmini.varadhan@oracle.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:25864 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964982AbcFMQpI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:45:08 -0400
+Received: from userp1040.oracle.com ([156.151.31.81]:40945 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964982AbcFMQpK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:45:10 -0400
 In-Reply-To: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 In-Reply-To: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 References: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rds_send_path_reset() is the path specific version of rds_send_reset()
-intended for MP capable callers.
+The only caller of rds_send_get_message() was
+rds_iw_send_cq_comp_handler() which was removed as part of
+commit dcdede0406d3 ("RDS: Drop stale iWARP RDMA transport"),
+so remove rds_send_get_message() for the same reason.
 
 Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 ---
- net/rds/send.c |   39 ++++++++++++++++++++++-----------------
- 1 files changed, 22 insertions(+), 17 deletions(-)
+ net/rds/rds.h  |    2 --
+ net/rds/send.c |   36 ------------------------------------
+ 2 files changed, 0 insertions(+), 38 deletions(-)
 
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index d94aa36..2cffd37 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -789,8 +789,6 @@ void rds_send_drop_acked(struct rds_connection *conn, u64 ack,
+ void rds_send_path_drop_acked(struct rds_conn_path *cp, u64 ack,
+ 			      is_acked_func is_acked);
+ int rds_send_pong(struct rds_connection *conn, __be16 dport);
+-struct rds_message *rds_send_get_message(struct rds_connection *,
+-					 struct rm_rdma_op *);
+ 
+ /* rdma.c */
+ void rds_rdma_unuse(struct rds_sock *rs, u32 r_key, int force);
 diff --git a/net/rds/send.c b/net/rds/send.c
-index a3b3b35..bfb3e05 100644
+index 3f6a96c..3fb280b 100644
 --- a/net/rds/send.c
 +++ b/net/rds/send.c
-@@ -63,14 +63,14 @@ static void rds_send_remove_from_sock(struct list_head *messages, int status);
-  * Reset the send state.  Callers must ensure that this doesn't race with
-  * rds_send_xmit().
-  */
--void rds_send_reset(struct rds_connection *conn)
-+static void rds_send_path_reset(struct rds_conn_path *cp)
- {
- 	struct rds_message *rm, *tmp;
- 	unsigned long flags;
- 
--	if (conn->c_xmit_rm) {
--		rm = conn->c_xmit_rm;
--		conn->c_xmit_rm = NULL;
-+	if (cp->cp_xmit_rm) {
-+		rm = cp->cp_xmit_rm;
-+		cp->cp_xmit_rm = NULL;
- 		/* Tell the user the RDMA op is no longer mapped by the
- 		 * transport. This isn't entirely true (it's flushed out
- 		 * independently) but as the connection is down, there's
-@@ -79,26 +79,31 @@ void rds_send_reset(struct rds_connection *conn)
- 		rds_message_put(rm);
- 	}
- 
--	conn->c_xmit_sg = 0;
--	conn->c_xmit_hdr_off = 0;
--	conn->c_xmit_data_off = 0;
--	conn->c_xmit_atomic_sent = 0;
--	conn->c_xmit_rdma_sent = 0;
--	conn->c_xmit_data_sent = 0;
-+	cp->cp_xmit_sg = 0;
-+	cp->cp_xmit_hdr_off = 0;
-+	cp->cp_xmit_data_off = 0;
-+	cp->cp_xmit_atomic_sent = 0;
-+	cp->cp_xmit_rdma_sent = 0;
-+	cp->cp_xmit_data_sent = 0;
- 
--	conn->c_map_queued = 0;
-+	cp->cp_conn->c_map_queued = 0;
- 
--	conn->c_unacked_packets = rds_sysctl_max_unacked_packets;
--	conn->c_unacked_bytes = rds_sysctl_max_unacked_bytes;
-+	cp->cp_unacked_packets = rds_sysctl_max_unacked_packets;
-+	cp->cp_unacked_bytes = rds_sysctl_max_unacked_bytes;
- 
- 	/* Mark messages as retransmissions, and move them to the send q */
--	spin_lock_irqsave(&conn->c_lock, flags);
--	list_for_each_entry_safe(rm, tmp, &conn->c_retrans, m_conn_item) {
-+	spin_lock_irqsave(&cp->cp_lock, flags);
-+	list_for_each_entry_safe(rm, tmp, &cp->cp_retrans, m_conn_item) {
- 		set_bit(RDS_MSG_ACK_REQUIRED, &rm->m_flags);
- 		set_bit(RDS_MSG_RETRANSMITTED, &rm->m_flags);
- 	}
--	list_splice_init(&conn->c_retrans, &conn->c_send_queue);
--	spin_unlock_irqrestore(&conn->c_lock, flags);
-+	list_splice_init(&cp->cp_retrans, &cp->cp_send_queue);
-+	spin_unlock_irqrestore(&cp->cp_lock, flags);
-+}
-+
-+void rds_send_reset(struct rds_connection *conn)
-+{
-+	rds_send_path_reset(&conn->c_path[0]);
+@@ -566,42 +566,6 @@ __rds_send_complete(struct rds_sock *rs, struct rds_message *rm, int status)
  }
- EXPORT_SYMBOL_GPL(rds_send_reset);
  
+ /*
+- * This is called from the IB send completion when we detect
+- * a RDMA operation that failed with remote access error.
+- * So speed is not an issue here.
+- */
+-struct rds_message *rds_send_get_message(struct rds_connection *conn,
+-					 struct rm_rdma_op *op)
+-{
+-	struct rds_message *rm, *tmp, *found = NULL;
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&conn->c_lock, flags);
+-
+-	list_for_each_entry_safe(rm, tmp, &conn->c_retrans, m_conn_item) {
+-		if (&rm->rdma == op) {
+-			atomic_inc(&rm->m_refcount);
+-			found = rm;
+-			goto out;
+-		}
+-	}
+-
+-	list_for_each_entry_safe(rm, tmp, &conn->c_send_queue, m_conn_item) {
+-		if (&rm->rdma == op) {
+-			atomic_inc(&rm->m_refcount);
+-			found = rm;
+-			break;
+-		}
+-	}
+-
+-out:
+-	spin_unlock_irqrestore(&conn->c_lock, flags);
+-
+-	return found;
+-}
+-EXPORT_SYMBOL_GPL(rds_send_get_message);
+-
+-/*
+  * This removes messages from the socket's list if they're on it.  The list
+  * argument must be private to the caller, we must be able to modify it
+  * without locks.  The messages must have a reference held for their
 -- 
 1.7.1
