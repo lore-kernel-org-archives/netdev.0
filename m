@@ -1,7 +1,7 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v8 4/5] ptr_ring: resize support
-Date: Mon, 13 Jun 2016 23:54:45 +0300
-Message-ID: <20160613235445-mutt-send-email-mst@redhat.com>
+Subject: [PATCH v8 3/5] skb_array: array based FIFO for skbs
+Date: Mon, 13 Jun 2016 23:54:41 +0300
+Message-ID: <20160613235441-mutt-send-email-mst@redhat.com>
 References: <1465851234-13558-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -10,247 +10,171 @@ Cc: Jason Wang <jasowang@redhat.com>,
 	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
 	brouer@redhat.com, kvm@vger.kernel.org
 To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <kvm-owner@vger.kernel.org>
 Content-Disposition: inline
 In-Reply-To: <1465851234-13558-1-git-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: kvm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This adds ring resize support. Seems to be necessary as
-users such as tun allow userspace control over queue size.
-
-If resize is used, this costs us ability to peek at queue without
-consumer lock - should not be a big deal as peek and consumer are
-usually run on the same CPU.
-
-If ring is made bigger, ring contents is preserved.  If ring is made
-smaller, extra pointers are passed to an optional destructor callback.
-
-Cleanup function also gains destructor callback such that
-all pointers in queue can be cleaned up.
-
-This changes some APIs but we don't have any users yet,
-so it won't break bisect.
+A simple array based FIFO of pointers.  Intended for net stack so uses
+skbs for type safety. Implemented as a set of wrappers around ptr_ring.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- include/linux/ptr_ring.h | 157 ++++++++++++++++++++++++++++++++++++++++++-----
- 1 file changed, 143 insertions(+), 14 deletions(-)
+ include/linux/skb_array.h | 144 ++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 144 insertions(+)
+ create mode 100644 include/linux/skb_array.h
 
-diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-index 633406f..562a65e 100644
---- a/include/linux/ptr_ring.h
-+++ b/include/linux/ptr_ring.h
-@@ -43,9 +43,9 @@ struct ptr_ring {
- };
- 
- /* Note: callers invoking this in a loop must use a compiler barrier,
-- * for example cpu_relax().
-- * Callers don't need to take producer lock - if they don't
-- * the next call to __ptr_ring_produce may fail.
-+ * for example cpu_relax().  If ring is ever resized, callers must hold
-+ * producer_lock - see e.g. ptr_ring_full.  Otherwise, if callers don't hold
-+ * producer_lock, the next call to __ptr_ring_produce may fail.
-  */
- static inline bool __ptr_ring_full(struct ptr_ring *r)
- {
-@@ -54,16 +54,55 @@ static inline bool __ptr_ring_full(struct ptr_ring *r)
- 
- static inline bool ptr_ring_full(struct ptr_ring *r)
- {
--	barrier();
--	return __ptr_ring_full(r);
-+	bool ret;
-+
-+	spin_lock(&r->producer_lock);
-+	ret = __ptr_ring_full(r);
-+	spin_unlock(&r->producer_lock);
-+
-+	return ret;
-+}
-+
-+static inline bool ptr_ring_full_irq(struct ptr_ring *r)
-+{
-+	bool ret;
-+
-+	spin_lock_irq(&r->producer_lock);
-+	ret = __ptr_ring_full(r);
-+	spin_unlock_irq(&r->producer_lock);
-+
-+	return ret;
-+}
-+
-+static inline bool ptr_ring_full_any(struct ptr_ring *r)
-+{
-+	unsigned long flags;
-+	bool ret;
-+
-+	spin_lock_irqsave(&r->producer_lock, flags);
-+	ret = __ptr_ring_full(r);
-+	spin_unlock_irqrestore(&r->producer_lock, flags);
-+
-+	return ret;
-+}
-+
-+static inline bool ptr_ring_full_bh(struct ptr_ring *r)
-+{
-+	bool ret;
-+
-+	spin_lock_bh(&r->producer_lock);
-+	ret = __ptr_ring_full(r);
-+	spin_unlock_bh(&r->producer_lock);
-+
-+	return ret;
- }
- 
- /* Note: callers invoking this in a loop must use a compiler barrier,
-- * for example cpu_relax().
-+ * for example cpu_relax(). Callers must hold producer_lock.
-  */
- static inline int __ptr_ring_produce(struct ptr_ring *r, void *ptr)
- {
--	if (__ptr_ring_full(r))
-+	if (r->queue[r->producer])
- 		return -ENOSPC;
- 
- 	r->queue[r->producer++] = ptr;
-@@ -120,20 +159,68 @@ static inline int ptr_ring_produce_bh(struct ptr_ring *r, void *ptr)
- /* Note: callers invoking this in a loop must use a compiler barrier,
-  * for example cpu_relax(). Callers must take consumer_lock
-  * if they dereference the pointer - see e.g. PTR_RING_PEEK_CALL.
-- * There's no need for a lock if pointer is merely tested - see e.g.
-- * ptr_ring_empty.
-+ * If ring is never resized, and if the pointer is merely
-+ * tested, there's no need to take the lock - see e.g.  __ptr_ring_empty.
-  */
- static inline void *__ptr_ring_peek(struct ptr_ring *r)
- {
- 	return r->queue[r->consumer];
- }
- 
--static inline bool ptr_ring_empty(struct ptr_ring *r)
-+/* Note: callers invoking this in a loop must use a compiler barrier,
-+ * for example cpu_relax(). Callers must take consumer_lock
-+ * if the ring is ever resized - see e.g. ptr_ring_empty.
+diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
+new file mode 100644
+index 0000000..c4c0902
+--- /dev/null
++++ b/include/linux/skb_array.h
+@@ -0,0 +1,144 @@
++/*
++ *	Definitions for the 'struct skb_array' datastructure.
++ *
++ *	Author:
++ *		Michael S. Tsirkin <mst@redhat.com>
++ *
++ *	Copyright (C) 2016 Red Hat, Inc.
++ *
++ *	This program is free software; you can redistribute it and/or modify it
++ *	under the terms of the GNU General Public License as published by the
++ *	Free Software Foundation; either version 2 of the License, or (at your
++ *	option) any later version.
++ *
++ *	Limited-size FIFO of skbs. Can be used more or less whenever
++ *	sk_buff_head can be used, except you need to know the queue size in
++ *	advance.
++ *	Implemented as a type-safe wrapper around ptr_ring.
 + */
-+static inline bool __ptr_ring_empty(struct ptr_ring *r)
- {
--	barrier();
- 	return !__ptr_ring_peek(r);
- }
- 
-+static inline bool ptr_ring_empty(struct ptr_ring *r)
++
++#ifndef _LINUX_SKB_ARRAY_H
++#define _LINUX_SKB_ARRAY_H 1
++
++#ifdef __KERNEL__
++#include <linux/ptr_ring.h>
++#include <linux/skbuff.h>
++#include <linux/if_vlan.h>
++#endif
++
++struct skb_array {
++	struct ptr_ring ring;
++};
++
++/* Might be slightly faster than skb_array_full below, but callers invoking
++ * this in a loop must use a compiler barrier, for example cpu_relax().
++ */
++static inline bool __skb_array_full(struct skb_array *a)
 +{
-+	bool ret;
-+
-+	spin_lock(&r->consumer_lock);
-+	ret = __ptr_ring_empty(r);
-+	spin_unlock(&r->consumer_lock);
-+
-+	return ret;
++	return __ptr_ring_full(&a->ring);
 +}
 +
-+static inline bool ptr_ring_empty_irq(struct ptr_ring *r)
++static inline bool skb_array_full(struct skb_array *a)
 +{
-+	bool ret;
-+
-+	spin_lock_irq(&r->consumer_lock);
-+	ret = __ptr_ring_empty(r);
-+	spin_unlock_irq(&r->consumer_lock);
-+
-+	return ret;
++	return ptr_ring_full(&a->ring);
 +}
 +
-+static inline bool ptr_ring_empty_any(struct ptr_ring *r)
++static inline int skb_array_produce(struct skb_array *a, struct sk_buff *skb)
 +{
-+	unsigned long flags;
-+	bool ret;
-+
-+	spin_lock_irqsave(&r->consumer_lock, flags);
-+	ret = __ptr_ring_empty(r);
-+	spin_unlock_irqrestore(&r->consumer_lock, flags);
-+
-+	return ret;
++	return ptr_ring_produce(&a->ring, skb);
 +}
 +
-+static inline bool ptr_ring_empty_bh(struct ptr_ring *r)
++static inline int skb_array_produce_irq(struct skb_array *a, struct sk_buff *skb)
 +{
-+	bool ret;
-+
-+	spin_lock_bh(&r->consumer_lock);
-+	ret = __ptr_ring_empty(r);
-+	spin_unlock_bh(&r->consumer_lock);
-+
-+	return ret;
++	return ptr_ring_produce_irq(&a->ring, skb);
 +}
 +
- /* Must only be called after __ptr_ring_peek returned !NULL */
- static inline void __ptr_ring_discard_one(struct ptr_ring *r)
- {
-@@ -241,10 +328,14 @@ static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
- 	__PTR_RING_PEEK_CALL_v; \
- })
- 
-+static inline void **__ptr_ring_init_queue_alloc(int size, gfp_t gfp)
++static inline int skb_array_produce_bh(struct skb_array *a, struct sk_buff *skb)
 +{
-+	return kzalloc(ALIGN(size * sizeof(void *), SMP_CACHE_BYTES), gfp);
++	return ptr_ring_produce_bh(&a->ring, skb);
 +}
 +
- static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
- {
--	r->queue = kzalloc(ALIGN(size * sizeof *(r->queue), SMP_CACHE_BYTES),
--			   gfp);
-+	r->queue = __ptr_ring_init_queue_alloc(size, gfp);
- 	if (!r->queue)
- 		return -ENOMEM;
- 
-@@ -256,8 +347,46 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
- 	return 0;
- }
- 
--static inline void ptr_ring_cleanup(struct ptr_ring *r)
-+static inline int ptr_ring_resize(struct ptr_ring *r, int size, gfp_t gfp,
-+				  void (*destroy)(void *))
++static inline int skb_array_produce_any(struct skb_array *a, struct sk_buff *skb)
 +{
-+	unsigned long flags;
-+	int producer = 0;
-+	void **queue = __ptr_ring_init_queue_alloc(size, gfp);
-+	void **old;
-+	void *ptr;
-+
-+	if (!queue)
-+		return -ENOMEM;
-+
-+	spin_lock_irqsave(&(r)->producer_lock, flags);
-+
-+	while ((ptr = ptr_ring_consume(r)))
-+		if (producer < size)
-+			queue[producer++] = ptr;
-+		else if (destroy)
-+			destroy(ptr);
-+
-+	r->size = size;
-+	r->producer = producer;
-+	r->consumer = 0;
-+	old = r->queue;
-+	r->queue = queue;
-+
-+	spin_unlock_irqrestore(&(r)->producer_lock, flags);
-+
-+	kfree(old);
-+
-+	return 0;
++	return ptr_ring_produce_any(&a->ring, skb);
 +}
 +
-+static inline void ptr_ring_cleanup(struct ptr_ring *r, void (*destroy)(void *))
- {
-+	void *ptr;
++/* Might be slightly faster than skb_array_empty below, but callers invoking
++ * this in a loop must take care to use a compiler barrier, for example
++ * cpu_relax().
++ */
++static inline bool __skb_array_empty(struct skb_array *a)
++{
++	return !__ptr_ring_peek(&a->ring);
++}
 +
-+	if (destroy)
-+		while ((ptr = ptr_ring_consume(r)))
-+			destroy(ptr);
- 	kfree(r->queue);
- }
- 
++static inline bool skb_array_empty(struct skb_array *a)
++{
++	return ptr_ring_empty(&a->ring);
++}
++
++static inline struct sk_buff *skb_array_consume(struct skb_array *a)
++{
++	return ptr_ring_consume(&a->ring);
++}
++
++static inline struct sk_buff *skb_array_consume_irq(struct skb_array *a)
++{
++	return ptr_ring_consume_irq(&a->ring);
++}
++
++static inline struct sk_buff *skb_array_consume_any(struct skb_array *a)
++{
++	return ptr_ring_consume_any(&a->ring);
++}
++
++static inline struct sk_buff *skb_array_consume_bh(struct skb_array *a)
++{
++	return ptr_ring_consume_bh(&a->ring);
++}
++
++static inline int __skb_array_len_with_tag(struct sk_buff *skb)
++{
++	if (likely(skb)) {
++		int len = skb->len;
++
++		if (skb_vlan_tag_present(skb))
++			len += VLAN_HLEN;
++
++		return len;
++	} else {
++		return 0;
++	}
++}
++
++static inline int skb_array_peek_len(struct skb_array *a)
++{
++	return PTR_RING_PEEK_CALL(&a->ring, __skb_array_len_with_tag);
++}
++
++static inline int skb_array_peek_len_irq(struct skb_array *a)
++{
++	return PTR_RING_PEEK_CALL_IRQ(&a->ring, __skb_array_len_with_tag);
++}
++
++static inline int skb_array_peek_len_bh(struct skb_array *a)
++{
++	return PTR_RING_PEEK_CALL_BH(&a->ring, __skb_array_len_with_tag);
++}
++
++static inline int skb_array_peek_len_any(struct skb_array *a)
++{
++	return PTR_RING_PEEK_CALL_ANY(&a->ring, __skb_array_len_with_tag);
++}
++
++static inline int skb_array_init(struct skb_array *a, int size, gfp_t gfp)
++{
++	return ptr_ring_init(&a->ring, size, gfp);
++}
++
++static inline void skb_array_cleanup(struct skb_array *a)
++{
++	ptr_ring_cleanup(&a->ring);
++}
++
++#endif /* _LINUX_SKB_ARRAY_H  */
 -- 
 MST
+
