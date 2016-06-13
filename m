@@ -1,104 +1,114 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next 12/17] RDS: Add rds_conn_path_connect_if_down() for MP-aware callers
-Date: Mon, 13 Jun 2016 09:44:37 -0700
-Message-ID: <b2737ea769b5774a2f0db7ebad17eac3906bfb4d.1465829626.git.sowmini.varadhan@oracle.com>
-References: <cover.1465829626.git.sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next 00/17] RDS: multiple connection paths for scaling
+Date: Mon, 13 Jun 2016 09:44:25 -0700
+Message-ID: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
 	ajaykumar.hotchandani@oracle.com, santosh.shilimkar@oracle.com,
 	sowmini.varadhan@oracle.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:25913 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:25875 "EHLO
 	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965097AbcFMQpR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:45:17 -0400
-In-Reply-To: <cover.1465829626.git.sowmini.varadhan@oracle.com>
-In-Reply-To: <cover.1465829626.git.sowmini.varadhan@oracle.com>
-References: <cover.1465829626.git.sowmini.varadhan@oracle.com>
+	with ESMTP id S965097AbcFMQpO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:45:14 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-rds_conn_path_connect_if_down() works on the rds_conn_path
-that it is passed. Callers who are not t_m_capable may continue
-calling rds_conn_connect_if_down, which will invoke
-rds_conn_path_connect_if_down() with the default c_path[0].
+Today RDS-over-TCP is implemented by demux-ing multiple PF_RDS sockets
+between any 2 endpoints (where endpoint == [IP address, port]) over a
+single TCP socket between the 2 IP addresses involved. This has the
+limitation that it ends up funneling multiple RDS flows over a single
+TCP flow, thus the rds/tcp connection is
+   (a) upper-bounded to the single-flow bandwidth,
+   (b) suffers from head-of-line blocking for the RDS sockets. 
 
-Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
----
- net/rds/connection.c |   12 +++++++++---
- net/rds/rds.h        |    1 +
- net/rds/send.c       |    9 ++++-----
- 3 files changed, 14 insertions(+), 8 deletions(-)
+Better throughput (for a fixed small packet size, MTU) can be achieved
+by having multiple TCP/IP flows per rds/tcp connection, i.e., multipathed
+RDS (mprds).  Each such TCP/IP flow constitutes a path for the rds/tcp
+connection. RDS sockets will be attached to a path based on some hash
+(e.g., of local address and RDS port number) and packets for that RDS
+socket will be sent over the attached path using TCP to segment/reassemble
+RDS datagrams on that path.
 
-diff --git a/net/rds/connection.c b/net/rds/connection.c
-index 6fa2074..953a426 100644
---- a/net/rds/connection.c
-+++ b/net/rds/connection.c
-@@ -572,11 +572,17 @@ EXPORT_SYMBOL_GPL(rds_conn_drop);
-  * If the connection is down, trigger a connect. We may have scheduled a
-  * delayed reconnect however - in this case we should not interfere.
-  */
-+void rds_conn_path_connect_if_down(struct rds_conn_path *cp)
-+{
-+	if (rds_conn_path_state(cp) == RDS_CONN_DOWN &&
-+	    !test_and_set_bit(RDS_RECONNECT_PENDING, &cp->cp_flags))
-+		queue_delayed_work(rds_wq, &cp->cp_conn_w, 0);
-+}
-+
- void rds_conn_connect_if_down(struct rds_connection *conn)
- {
--	if (rds_conn_state(conn) == RDS_CONN_DOWN &&
--	    !test_and_set_bit(RDS_RECONNECT_PENDING, &conn->c_flags))
--		queue_delayed_work(rds_wq, &conn->c_conn_w, 0);
-+	WARN_ON(conn->c_trans->t_mp_capable);
-+	rds_conn_path_connect_if_down(&conn->c_path[0]);
- }
- EXPORT_SYMBOL_GPL(rds_conn_connect_if_down);
- 
-diff --git a/net/rds/rds.h b/net/rds/rds.h
-index e315151..74fcf5a 100644
---- a/net/rds/rds.h
-+++ b/net/rds/rds.h
-@@ -658,6 +658,7 @@ void rds_conn_destroy(struct rds_connection *conn);
- void rds_conn_drop(struct rds_connection *conn);
- void rds_conn_path_drop(struct rds_conn_path *cpath);
- void rds_conn_connect_if_down(struct rds_connection *conn);
-+void rds_conn_path_connect_if_down(struct rds_conn_path *cp);
- void rds_for_each_conn_info(struct socket *sock, unsigned int len,
- 			  struct rds_info_iterator *iter,
- 			  struct rds_info_lengths *lens,
-diff --git a/net/rds/send.c b/net/rds/send.c
-index e614513..369bd66 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -1088,16 +1088,15 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
- 		goto out;
- 	}
- 
--	rds_conn_connect_if_down(conn);
-+	cpath = &conn->c_path[0];
-+
-+	rds_conn_path_connect_if_down(cpath);
- 
- 	ret = rds_cong_wait(conn->c_fcong, dport, nonblock, rs);
- 	if (ret) {
- 		rs->rs_seen_congestion = 1;
- 		goto out;
- 	}
--
--	cpath = &conn->c_path[0];
--
- 	while (!rds_send_queue_rm(rs, conn, cpath, rm, rs->rs_bound_port,
- 				  dport, &queued)) {
- 		rds_stats_inc(s_send_queue_full);
-@@ -1167,7 +1166,7 @@ rds_send_pong(struct rds_conn_path *cp, __be16 dport)
- 	rm->m_daddr = cp->cp_conn->c_faddr;
- 	rm->data.op_active = 1;
- 
--	rds_conn_connect_if_down(cp->cp_conn);
-+	rds_conn_path_connect_if_down(cp);
- 
- 	ret = rds_cong_wait(cp->cp_conn->c_fcong, dport, 1, NULL);
- 	if (ret)
--- 
-1.7.1
+The table below, generated using a prototype that implements mprds,
+shows that this is significant for scaling to 40G.  Packet sizes
+used were: 8K byte req, 256 byte resp. MTU: 1500.  The parameters for
+RDS-concurrency used below are described in the rds-stress(1) man page-
+the number listed is proportional to the number of threads at which max
+throughput was attained.
+
+  -------------------------------------------------------------------
+     RDS-concurrency   Num of       tx+rx K/s (iops)       throughput
+     (-t N -d N)       TCP paths
+  -------------------------------------------------------------------
+        16             1             600K -  700K            4 Gbps
+        28             8            5000K - 6000K           32 Gbps
+  -------------------------------------------------------------------
+
+FAQ: what is the relation between mprds and mptcp?
+  mprds is orthogonal to mptcp. Whereas mptcp creates
+  sub-flows for a single TCP connection, mprds parallelizes tx/rx
+  at the RDS layer. MPRDS with N paths will allow N datagrams to
+  be sent in parallel; each path will continue to send one
+  datagram at a time, with sender and receiver keeping track of
+  the retransmit and dgram-assembly state based on the RDS header.
+  If desired, mptcp can additionally be used to speed up each TCP
+  path. That acceleration is orthogonal to the parallelization benefits
+  of mprds.
+
+This patch series lays down the foundational data-structures to support
+mprds in the kernel. It implements the changes to split up the
+rds_connection structure into a common (to all paths) part,
+and a per-path rds_conn_path. All I/O workqs are driven from
+the rds_conn_path. 
+
+Note that this patchset does not (yet) actually enable multipathing
+for any of the transports; all transports will continue to use a 
+single path with the refactored data-structures. A subsequent patchset
+will  add the changes to the rds-tcp module to actually use mprds
+in rds-tcp.
+
+Sowmini Varadhan (17):
+  RDS: split out connection specific state from rds_connection to
+    rds_conn_path
+  RDS: add t_mp_capable bit to be set by MP capable transports
+  RDS: recv path gets the conn_path from rds_incoming for MP capable
+    transports
+  RDS: rds_inc_path_init() helper function for MP capable transports
+  RDS: Add rds_send_path_reset()
+  RDS: Add rds_send_path_drop_acked()
+  RDS: Remove stale function rds_send_get_message()
+  RDS: Make rds_send_queue_rm() rds_conn_path aware
+  RDS: Pass rds_conn_path to rds_send_xmit()
+  RDS: Extract rds_conn_path from i_conn_path in rds_send_drop_to() for
+    MP-capable transports
+  RDS: Make rds_send_pong() take a rds_conn_path argument
+  RDS: Add rds_conn_path_connect_if_down() for MP-aware callers
+  RDS: update rds-info related functions to traverse multiple
+    conn_paths
+  RDS: Add rds_conn_path_error()
+  RDS: Initialize all RDS_MPATH_WORKERS in __rds_conn_create
+  RDS: Update rds_conn_shutdown to work with rds_conn_path
+  RDS: Update rds_conn_destroy to be MP capable
+
+ net/rds/cong.c            |    3 +-
+ net/rds/connection.c      |  329 +++++++++++++++++++++++++++++++-------------
+ net/rds/ib.c              |    1 +
+ net/rds/ib_cm.c           |    3 +-
+ net/rds/ib_rdma.c         |    1 +
+ net/rds/ib_recv.c         |    1 +
+ net/rds/ib_send.c         |    1 +
+ net/rds/loop.c            |    1 +
+ net/rds/rdma_transport.c  |    1 +
+ net/rds/rds.h             |  152 ++++++++++++++-------
+ net/rds/rds_single_path.h |   30 ++++
+ net/rds/recv.c            |   27 +++-
+ net/rds/send.c            |  293 ++++++++++++++++++++--------------------
+ net/rds/tcp.c             |    3 +-
+ net/rds/tcp_connect.c     |    4 +-
+ net/rds/tcp_listen.c      |   11 +-
+ net/rds/tcp_recv.c        |    1 +
+ net/rds/tcp_send.c        |    1 +
+ net/rds/threads.c         |   95 ++++++++------
+ 19 files changed, 611 insertions(+), 347 deletions(-)
+ create mode 100644 net/rds/rds_single_path.h
