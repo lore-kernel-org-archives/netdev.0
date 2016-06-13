@@ -1,48 +1,87 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] act_ipt: fix a bind refcnt leak
-Date: Mon, 13 Jun 2016 13:44:14 -0700
-Message-ID: <1465850654-27128-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 1/3] net: l3mdev: Remove const from flowi6 arg to get_rt6_dst
+Date: Mon, 13 Jun 2016 13:44:17 -0700
+Message-ID: <1465850659-27830-2-git-send-email-dsa@cumulusnetworks.com>
+References: <1465850659-27830-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:34381 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422685AbcFMUoU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 16:44:20 -0400
-Received: by mail-pa0-f68.google.com with SMTP id ug1so11100911pab.1
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 13:44:20 -0700 (PDT)
+Received: from mail-pf0-f177.google.com ([209.85.192.177]:36495 "EHLO
+	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422685AbcFMUoi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 16:44:38 -0400
+Received: by mail-pf0-f177.google.com with SMTP id t190so49525720pfb.3
+        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 13:44:32 -0700 (PDT)
+In-Reply-To: <1465850659-27830-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-And avoid calling tcf_hash_check() twice.
+Allow drivers to pass flow arg to functions where the arg is not const
+and allow the driver to make updates as needed (eg., setting oif).
 
-Fixes: a57f19d30b2d ("net sched: ipt action fix late binding")
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- net/sched/act_ipt.c | 7 +++++--
- 1 file changed, 5 insertions(+), 2 deletions(-)
+ drivers/net/vrf.c    | 2 +-
+ include/net/l3mdev.h | 6 +++---
+ net/l3mdev/l3mdev.c  | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
 
-diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
-index 9f002ad..d4bd19e 100644
---- a/net/sched/act_ipt.c
-+++ b/net/sched/act_ipt.c
-@@ -121,10 +121,13 @@ static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
- 	}
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index b4d746943bc5..d2ce76c9dc64 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -861,7 +861,7 @@ static struct sk_buff *vrf_l3_rcv(struct net_device *vrf_dev,
  
- 	td = (struct xt_entry_target *)nla_data(tb[TCA_IPT_TARG]);
--	if (nla_len(tb[TCA_IPT_TARG]) < td->u.target_size)
-+	if (nla_len(tb[TCA_IPT_TARG]) < td->u.target_size) {
-+		if (exists)
-+			tcf_hash_release(a, bind);
- 		return -EINVAL;
-+	}
+ #if IS_ENABLED(CONFIG_IPV6)
+ static struct dst_entry *vrf_get_rt6_dst(const struct net_device *dev,
+-					 const struct flowi6 *fl6)
++					 struct flowi6 *fl6)
+ {
+ 	struct dst_entry *dst = NULL;
  
--	if (!tcf_hash_check(tn, index, a, bind)) {
-+	if (!exists) {
- 		ret = tcf_hash_create(tn, index, est, a, sizeof(*ipt), bind,
- 				      false);
- 		if (ret)
+diff --git a/include/net/l3mdev.h b/include/net/l3mdev.h
+index 34f33eb96a5e..f8a416ec674c 100644
+--- a/include/net/l3mdev.h
++++ b/include/net/l3mdev.h
+@@ -38,7 +38,7 @@ struct l3mdev_ops {
+ 
+ 	/* IPv6 ops */
+ 	struct dst_entry * (*l3mdev_get_rt6_dst)(const struct net_device *dev,
+-						 const struct flowi6 *fl6);
++						 struct flowi6 *fl6);
+ };
+ 
+ #ifdef CONFIG_NET_L3_MASTER_DEV
+@@ -139,7 +139,7 @@ static inline bool netif_index_is_l3_master(struct net *net, int ifindex)
+ 
+ int l3mdev_get_saddr(struct net *net, int ifindex, struct flowi4 *fl4);
+ 
+-struct dst_entry *l3mdev_get_rt6_dst(struct net *net, const struct flowi6 *fl6);
++struct dst_entry *l3mdev_get_rt6_dst(struct net *net, struct flowi6 *fl6);
+ 
+ static inline
+ struct sk_buff *l3mdev_l3_rcv(struct sk_buff *skb, u16 proto)
+@@ -225,7 +225,7 @@ static inline int l3mdev_get_saddr(struct net *net, int ifindex,
+ }
+ 
+ static inline
+-struct dst_entry *l3mdev_get_rt6_dst(struct net *net, const struct flowi6 *fl6)
++struct dst_entry *l3mdev_get_rt6_dst(struct net *net, struct flowi6 *fl6)
+ {
+ 	return NULL;
+ }
+diff --git a/net/l3mdev/l3mdev.c b/net/l3mdev/l3mdev.c
+index 7da97809a7e8..d90e4ef09e85 100644
+--- a/net/l3mdev/l3mdev.c
++++ b/net/l3mdev/l3mdev.c
+@@ -108,7 +108,7 @@ EXPORT_SYMBOL_GPL(l3mdev_fib_table_by_index);
+  */
+ 
+ struct dst_entry *l3mdev_get_rt6_dst(struct net *net,
+-				     const struct flowi6 *fl6)
++				     struct flowi6 *fl6)
+ {
+ 	struct dst_entry *dst = NULL;
+ 	struct net_device *dev;
 -- 
-2.1.0
+2.1.4
