@@ -1,184 +1,131 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next 13/17] RDS: update rds-info related functions to traverse multiple conn_paths
-Date: Mon, 13 Jun 2016 09:44:38 -0700
-Message-ID: <76a423c0062eba4845a7cc27a8e350d29038d399.1465829626.git.sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next 17/17] RDS: Update rds_conn_destroy to be MP capable
+Date: Mon, 13 Jun 2016 09:44:42 -0700
+Message-ID: <20a59c8b9be76a9f2a6c2ebd48719a6c68365979.1465829626.git.sowmini.varadhan@oracle.com>
 References: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
 	ajaykumar.hotchandani@oracle.com, santosh.shilimkar@oracle.com,
 	sowmini.varadhan@oracle.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:25939 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964982AbcFMQpP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:45:15 -0400
+Received: from userp1040.oracle.com ([156.151.31.81]:41044 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161313AbcFMQpT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:45:19 -0400
 In-Reply-To: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 In-Reply-To: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 References: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This commit updates the callbacks related to the rds-info command
-so that they walk through all the rds_conn_path structures and
-report the requested info.
+Refactor rds_conn_destroy() so that the per-path dismantling
+is done in rds_conn_path_destroy, and then iterate as needed
+over rds_conn_path_destroy().
 
 Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 ---
- net/rds/connection.c |  109 +++++++++++++++++++++++++++++++++++++------------
- 1 files changed, 82 insertions(+), 27 deletions(-)
+ net/rds/connection.c |   59 +++++++++++++++++++++++++++++++++-----------------
+ 1 files changed, 39 insertions(+), 20 deletions(-)
 
 diff --git a/net/rds/connection.c b/net/rds/connection.c
-index 953a426..9e0b489 100644
+index a88d26f..a4b07c8 100644
 --- a/net/rds/connection.c
 +++ b/net/rds/connection.c
-@@ -400,6 +400,7 @@ static void rds_conn_message_info(struct socket *sock, unsigned int len,
- 	unsigned int total = 0;
- 	unsigned long flags;
- 	size_t i;
-+	int j;
+@@ -36,7 +36,6 @@
+ #include <linux/export.h>
+ #include <net/inet_hashtables.h>
  
- 	len /= sizeof(struct rds_info_message);
+-#include "rds_single_path.h"
+ #include "rds.h"
+ #include "loop.h"
  
-@@ -408,23 +409,32 @@ static void rds_conn_message_info(struct socket *sock, unsigned int len,
- 	for (i = 0, head = rds_conn_hash; i < ARRAY_SIZE(rds_conn_hash);
- 	     i++, head++) {
- 		hlist_for_each_entry_rcu(conn, head, c_hash_node) {
--			if (want_send)
--				list = &conn->c_send_queue;
--			else
--				list = &conn->c_retrans;
--
--			spin_lock_irqsave(&conn->c_lock, flags);
--
--			/* XXX too lazy to maintain counts.. */
--			list_for_each_entry(rm, list, m_conn_item) {
--				total++;
--				if (total <= len)
--					rds_inc_info_copy(&rm->m_inc, iter,
--							  conn->c_laddr,
--							  conn->c_faddr, 0);
-+			struct rds_conn_path *cp;
-+
-+			for (j = 0; j < RDS_MPATH_WORKERS; j++) {
-+				cp = &conn->c_path[j];
-+				if (want_send)
-+					list = &cp->cp_send_queue;
-+				else
-+					list = &cp->cp_retrans;
-+
-+				spin_lock_irqsave(&cp->cp_lock, flags);
-+
-+				/* XXX too lazy to maintain counts.. */
-+				list_for_each_entry(rm, list, m_conn_item) {
-+					total++;
-+					if (total <= len)
-+						rds_inc_info_copy(&rm->m_inc,
-+								  iter,
-+								  conn->c_laddr,
-+								  conn->c_faddr,
-+								  0);
-+				}
-+
-+				spin_unlock_irqrestore(&cp->cp_lock, flags);
-+				if (!conn->c_trans->t_mp_capable)
-+					break;
- 			}
--
--			spin_unlock_irqrestore(&conn->c_lock, flags);
- 		}
+@@ -364,6 +363,34 @@ void rds_conn_shutdown(struct rds_conn_path *cp)
  	}
- 	rcu_read_unlock();
-@@ -486,27 +496,72 @@ void rds_for_each_conn_info(struct socket *sock, unsigned int len,
  }
- EXPORT_SYMBOL_GPL(rds_for_each_conn_info);
  
--static int rds_conn_info_visitor(struct rds_connection *conn,
--				  void *buffer)
-+void rds_walk_conn_path_info(struct socket *sock, unsigned int len,
-+			     struct rds_info_iterator *iter,
-+			     struct rds_info_lengths *lens,
-+			     int (*visitor)(struct rds_conn_path *, void *),
-+			     size_t item_len)
++/* destroy a single rds_conn_path. rds_conn_destroy() iterates over
++ * all paths using rds_conn_path_destroy()
++ */
++static void rds_conn_path_destroy(struct rds_conn_path *cp)
 +{
-+	u64  buffer[(item_len + 7) / 8];
-+	struct hlist_head *head;
-+	struct rds_connection *conn;
-+	size_t i;
-+	int j;
++	struct rds_message *rm, *rtmp;
 +
-+	rcu_read_lock();
++	rds_conn_path_drop(cp);
++	flush_work(&cp->cp_down_w);
 +
-+	lens->nr = 0;
-+	lens->each = item_len;
++	/* make sure lingering queued work won't try to ref the conn */
++	cancel_delayed_work_sync(&cp->cp_send_w);
++	cancel_delayed_work_sync(&cp->cp_recv_w);
 +
-+	for (i = 0, head = rds_conn_hash; i < ARRAY_SIZE(rds_conn_hash);
-+	     i++, head++) {
-+		hlist_for_each_entry_rcu(conn, head, c_hash_node) {
-+			struct rds_conn_path *cp;
-+
-+			for (j = 0; j < RDS_MPATH_WORKERS; j++) {
-+				cp = &conn->c_path[j];
-+
-+				/* XXX no cp_lock usage.. */
-+				if (!visitor(cp, buffer))
-+					continue;
-+				if (!conn->c_trans->t_mp_capable)
-+					break;
-+			}
-+
-+			/* We copy as much as we can fit in the buffer,
-+			 * but we count all items so that the caller
-+			 * can resize the buffer.
-+			 */
-+			if (len >= item_len) {
-+				rds_info_copy(iter, buffer, item_len);
-+				len -= item_len;
-+			}
-+			lens->nr++;
-+		}
++	/* tear down queued messages */
++	list_for_each_entry_safe(rm, rtmp,
++				 &cp->cp_send_queue,
++				 m_conn_item) {
++		list_del_init(&rm->m_conn_item);
++		BUG_ON(!list_empty(&rm->m_sock_item));
++		rds_message_put(rm);
 +	}
-+	rcu_read_unlock();
++	if (cp->cp_xmit_rm)
++		rds_message_put(cp->cp_xmit_rm);
++
++	cp->cp_conn->c_trans->conn_free(cp->cp_transport_data);
 +}
 +
-+static int rds_conn_info_visitor(struct rds_conn_path *cp, void *buffer)
+ /*
+  * Stop and free a connection.
+  *
+@@ -373,7 +400,6 @@ void rds_conn_shutdown(struct rds_conn_path *cp)
+  */
+ void rds_conn_destroy(struct rds_connection *conn)
  {
- 	struct rds_info_connection *cinfo = buffer;
+-	struct rds_message *rm, *rtmp;
+ 	unsigned long flags;
  
--	cinfo->next_tx_seq = conn->c_next_tx_seq;
--	cinfo->next_rx_seq = conn->c_next_rx_seq;
--	cinfo->laddr = conn->c_laddr;
--	cinfo->faddr = conn->c_faddr;
--	strncpy(cinfo->transport, conn->c_trans->t_name,
-+	cinfo->next_tx_seq = cp->cp_next_tx_seq;
-+	cinfo->next_rx_seq = cp->cp_next_rx_seq;
-+	cinfo->laddr = cp->cp_conn->c_laddr;
-+	cinfo->faddr = cp->cp_conn->c_faddr;
-+	strncpy(cinfo->transport, cp->cp_conn->c_trans->t_name,
- 		sizeof(cinfo->transport));
- 	cinfo->flags = 0;
+ 	rdsdebug("freeing conn %p for %pI4 -> "
+@@ -387,25 +413,19 @@ void rds_conn_destroy(struct rds_connection *conn)
+ 	synchronize_rcu();
  
--	rds_conn_info_set(cinfo->flags, test_bit(RDS_IN_XMIT, &conn->c_flags),
-+	rds_conn_info_set(cinfo->flags, test_bit(RDS_IN_XMIT, &cp->cp_flags),
- 			  SENDING);
- 	/* XXX Future: return the state rather than these funky bits */
- 	rds_conn_info_set(cinfo->flags,
--			  atomic_read(&conn->c_state) == RDS_CONN_CONNECTING,
-+			  atomic_read(&cp->cp_state) == RDS_CONN_CONNECTING,
- 			  CONNECTING);
- 	rds_conn_info_set(cinfo->flags,
--			  atomic_read(&conn->c_state) == RDS_CONN_UP,
-+			  atomic_read(&cp->cp_state) == RDS_CONN_UP,
- 			  CONNECTED);
- 	return 1;
- }
-@@ -515,7 +570,7 @@ static void rds_conn_info(struct socket *sock, unsigned int len,
- 			  struct rds_info_iterator *iter,
- 			  struct rds_info_lengths *lens)
- {
--	rds_for_each_conn_info(sock, len, iter, lens,
-+	rds_walk_conn_path_info(sock, len, iter, lens,
- 				rds_conn_info_visitor,
- 				sizeof(struct rds_info_connection));
- }
+ 	/* shut the connection down */
+-	rds_conn_drop(conn);
+-	flush_work(&conn->c_down_w);
+-
+-	/* make sure lingering queued work won't try to ref the conn */
+-	cancel_delayed_work_sync(&conn->c_send_w);
+-	cancel_delayed_work_sync(&conn->c_recv_w);
++	if (!conn->c_trans->t_mp_capable) {
++		rds_conn_path_destroy(&conn->c_path[0]);
++		BUG_ON(!list_empty(&conn->c_path[0].cp_retrans));
++	} else {
++		int i;
++		struct rds_conn_path *cp;
+ 
+-	/* tear down queued messages */
+-	list_for_each_entry_safe(rm, rtmp,
+-				 &conn->c_send_queue,
+-				 m_conn_item) {
+-		list_del_init(&rm->m_conn_item);
+-		BUG_ON(!list_empty(&rm->m_sock_item));
+-		rds_message_put(rm);
++		for (i = 0; i < RDS_MPATH_WORKERS; i++) {
++			cp = &conn->c_path[i];
++			rds_conn_path_destroy(cp);
++			BUG_ON(!list_empty(&cp->cp_retrans));
++		}
+ 	}
+-	if (conn->c_xmit_rm)
+-		rds_message_put(conn->c_xmit_rm);
+-
+-	conn->c_trans->conn_free(conn->c_transport_data);
+ 
+ 	/*
+ 	 * The congestion maps aren't freed up here.  They're
+@@ -414,7 +434,6 @@ void rds_conn_destroy(struct rds_connection *conn)
+ 	 */
+ 	rds_cong_remove_conn(conn);
+ 
+-	BUG_ON(!list_empty(&conn->c_retrans));
+ 	kmem_cache_free(rds_conn_slab, conn);
+ 
+ 	spin_lock_irqsave(&rds_conn_lock, flags);
 -- 
 1.7.1
