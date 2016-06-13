@@ -1,146 +1,167 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCH 1/2] add basic register-field manipulation macros
-Date: Mon, 13 Jun 2016 14:29:53 +0100
-Message-ID: <1465824594-29662-2-git-send-email-jakub.kicinski@netronome.com>
-References: <1465824594-29662-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: hannes@stressinduktion.org, nbd@nbd.name,
-	linux-kernel@vger.kernel.org, kvalo@codeaurora.org,
-	Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f50.google.com ([74.125.82.50]:35527 "EHLO
-	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965491AbcFMNaO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 09:30:14 -0400
-Received: by mail-wm0-f50.google.com with SMTP id v199so78513556wmv.0
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 06:30:13 -0700 (PDT)
-In-Reply-To: <1465824594-29662-1-git-send-email-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH 1/3] net: Add MDIO bus driver for the Hisilicon FEMAC
+Date: Mon, 13 Jun 2016 15:32:30 +0200
+Message-ID: <20160613133230.GA3132@lunn.ch>
+References: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com>
+ <1465798076-176393-2-git-send-email-lidongpo@hisilicon.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
+	davem@davemloft.net, xuejiancheng@hisilicon.com,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Dongpo Li <lidongpo@hisilicon.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1465798076-176393-2-git-send-email-lidongpo@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-C bitfields are problematic and best avoided.  Developers
-interacting with hardware registers find themselves searching
-for easy-to-use alternatives.  Common approach is to define
-structures or sets of macros containing mask and shift pair.
-Operations on the register are then performed as follows:
+On Mon, Jun 13, 2016 at 02:07:54PM +0800, Dongpo Li wrote:
+> This patch adds a separate driver for the MDIO interface of the
+> Hisilicon Fast Ethernet MAC.
+> 
+> Reviewed-by: Jiancheng Xue <xuejiancheng@hisilicon.com>
+> Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
+> ---
+>  .../bindings/net/hisilicon-femac-mdio.txt          |  22 +++
+>  drivers/net/phy/Kconfig                            |   8 +
+>  drivers/net/phy/Makefile                           |   1 +
+>  drivers/net/phy/mdio-hisi-femac.c                  | 165 +++++++++++++++++++++
+>  4 files changed, 196 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/hisilicon-femac-mdio.txt
+>  create mode 100644 drivers/net/phy/mdio-hisi-femac.c
+> 
+> diff --git a/Documentation/devicetree/bindings/net/hisilicon-femac-mdio.txt b/Documentation/devicetree/bindings/net/hisilicon-femac-mdio.txt
+> new file mode 100644
+> index 0000000..6f46337
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/hisilicon-femac-mdio.txt
+> @@ -0,0 +1,22 @@
+> +Hisilicon Fast Ethernet MDIO Controller interface
+> +
+> +Required properties:
+> +- compatible: should be "hisilicon,hisi-femac-mdio".
+> +- reg: address and length of the register set for the device.
+> +- clocks: A phandle to the reference clock for this device.
+> +
+> +- PHY subnode: inherits from phy binding [1]
+> +[1] Documentation/devicetree/bindings/net/phy.txt
+> +
+> +Example:
+> +mdio: mdio@10091100 {
+> +	compatible = "hisilicon,hisi-femac-mdio";
+> +	reg = <0x10091100 0x10>;
+> +	clocks = <&crg HI3518EV200_MDIO_CLK>;
+> +	#address-cells = <1>;
+> +	#size-cells = <0>;
+> +
+> +	phy0: phy@1 {
+> +		reg = <1>;
+> +	};
+> +};
+> diff --git a/drivers/net/phy/Kconfig b/drivers/net/phy/Kconfig
+> index 6dad9a9..e257322 100644
+> --- a/drivers/net/phy/Kconfig
+> +++ b/drivers/net/phy/Kconfig
+> @@ -271,6 +271,14 @@ config MDIO_BCM_IPROC
+>  	  This module provides a driver for the MDIO busses found in the
+>  	  Broadcom iProc SoC's.
+>  
+> +config MDIO_HISI_FEMAC
+> +	tristate "Hisilicon FEMAC MDIO bus controller"
+> +	depends on ARCH_HISI
+> +	depends on HAS_IOMEM && OF_MDIO
+> +	help
+> +	  This module provides a driver for the MDIO busses found in the
+> +	  Hisilicon SoC that have an Fast Ethernet MAC.
+> +
+>  endif # PHYLIB
+>  
+>  config MICREL_KS8995MA
+> diff --git a/drivers/net/phy/Makefile b/drivers/net/phy/Makefile
+> index fcdbb92..039c4be 100644
+> --- a/drivers/net/phy/Makefile
+> +++ b/drivers/net/phy/Makefile
+> @@ -44,3 +44,4 @@ obj-$(CONFIG_MDIO_MOXART)	+= mdio-moxart.o
+>  obj-$(CONFIG_MDIO_BCM_UNIMAC)	+= mdio-bcm-unimac.o
+>  obj-$(CONFIG_MICROCHIP_PHY)	+= microchip.o
+>  obj-$(CONFIG_MDIO_BCM_IPROC)	+= mdio-bcm-iproc.o
+> +obj-$(CONFIG_MDIO_HISI_FEMAC)	+= mdio-hisi-femac.o
+> diff --git a/drivers/net/phy/mdio-hisi-femac.c b/drivers/net/phy/mdio-hisi-femac.c
+> new file mode 100644
+> index 0000000..a9eea61
+> --- /dev/null
+> +++ b/drivers/net/phy/mdio-hisi-femac.c
+> @@ -0,0 +1,165 @@
+> +/*
+> + * Hisilicon Fast Ethernet MDIO Bus Driver
+> + *
+> + * Copyright (c) 2016 HiSilicon Technologies Co., Ltd.
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License as published by
+> + * the Free Software Foundation; either version 2 of the License, or
+> + * (at your option) any later version.
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + *
+> + * You should have received a copy of the GNU General Public License
+> + * along with this program. If not, see <http://www.gnu.org/licenses/>.
+> + */
+> +
+> +#include <linux/clk.h>
+> +#include <linux/iopoll.h>
+> +#include <linux/kernel.h>
+> +#include <linux/module.h>
+> +#include <linux/of_address.h>
+> +#include <linux/of_mdio.h>
+> +#include <linux/platform_device.h>
+> +
+> +#define MDIO_RWCTRL		0x00
+> +#define MDIO_RO_DATA		0x04
+> +#define MDIO_WRITE		BIT(13)
+> +#define MDIO_RW_FINISH		BIT(15)
+> +#define BIT_PHY_ADDR_OFFSET	8
+> +#define BIT_WR_DATA_OFFSET	16
+> +
+> +struct hisi_femac_mdio_data {
+> +	struct clk *clk;
+> +	void __iomem *membase;
+> +};
+> +
 
- field = (reg >> shift) & mask;
+Hi Dongpo
 
- reg &= ~(mask << shift);
- reg |= (field & mask) << shift;
+Overall this looks good. Just some minor comments
 
-Defining shift and mask separately is tedious.  Ivo van Doorn
-came up with an idea of computing them at compilation time
-based on a single shifted mask (later refined by Felix) which
-can be used like this:
+> +static int hisi_femac_mdio_wait_ready(struct mii_bus *bus)
+> +{
+> +	struct hisi_femac_mdio_data *data = bus->priv;
 
- #define X_REG_FIELD 0x000ff000
+You could just pass data here. Your read and write functions already
+have it.
 
- field = FIELD_GET(X_REG_FIELD, reg);
+> +	data->clk = devm_clk_get(&pdev->dev, NULL);
+> +	if (IS_ERR(data->clk)) {
+> +		ret = -ENODEV;
+> +		goto err_out_free_mdiobus;
+> +	}
 
- reg &= ~X_REG_FIELD;
- reg |= FIELD_PUT(X_REG_FIELD, field);
+Return the error which devm_clk_get() gives you.
 
-FIELD_{GET,PUT} macros take care of finding out what the
-appropriate shift is based on compilation time ffs operation.
+> +
+> +	ret = clk_prepare_enable(data->clk);
+> +	if (ret)
+> +		goto err_out_free_mdiobus;
+> +
+> +	ret = of_mdiobus_register(bus, np);
+> +	if (ret)
+> +		goto err_out_free_mdiobus;
 
-GENMASK can be used to define registers (which is usually
-less error-prone and easier to match with datasheets).
+You leave the clock prepared and enabled on error.
 
-This approach is the most convenient I've seen so to limit code
-multiplication let's move the macros to a global header file.
-
-Compared to Felix Fietkau's implementation from mt76 this one
-uses standard Linux and GCC functions such as is_power_of_2()
-and __builtin_ffsll().
-
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
----
- include/linux/bitfield.h | 58 ++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/log2.h     |  6 +++++
- 2 files changed, 64 insertions(+)
- create mode 100644 include/linux/bitfield.h
-
-diff --git a/include/linux/bitfield.h b/include/linux/bitfield.h
-new file mode 100644
-index 000000000000..ae2224464523
---- /dev/null
-+++ b/include/linux/bitfield.h
-@@ -0,0 +1,58 @@
-+/*
-+ * Copyright (C) 2014 Felix Fietkau <nbd@openwrt.org>
-+ * Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#ifndef _LINUX_BITFIELD_H
-+#define _LINUX_BITFIELD_H
-+
-+#include <asm/types.h>
-+#include <linux/bug.h>
-+#include <linux/log2.h>
-+
-+#define _bf_shf(x) (__builtin_ffsll(x) - 1)
-+
-+#define _BF_FIELD_CHECK(_mask, _val)					\
-+	({								\
-+		const u64 hi = (_mask) + (1ULL << _bf_shf(_mask));	\
-+									\
-+		BUILD_BUG_ON(!(_mask) || (hi && !is_power_of_2_u64(hi))); \
-+		BUILD_BUG_ON(__builtin_constant_p(_val) ?		\
-+			     ~((_mask) >> _bf_shf(_mask)) & (_val) :	\
-+			     0);					\
-+	})
-+
-+#define FIELD_PUT(_mask, _val)					\
-+	({							\
-+		_BF_FIELD_CHECK(_mask, _val);			\
-+		((u32)(_val) << _bf_shf(_mask)) & (_mask);	\
-+	})
-+
-+#define FIELD_GET(_mask, _val)					\
-+	({							\
-+		_BF_FIELD_CHECK(_mask, 0);			\
-+		(u32)(((_val) & (_mask)) >> _bf_shf(_mask));	\
-+	})
-+
-+#define FIELD_PUT64(_mask, _val)				\
-+	({							\
-+		_BF_FIELD_CHECK(_mask, _val);			\
-+		((u64)(_val) << _bf_shf(_mask)) & (_mask);	\
-+	})
-+
-+#define FIELD_GET64(_mask, _val)				\
-+	({							\
-+		_BF_FIELD_CHECK(_mask, 0);			\
-+		(u64)(((_val) & (_mask)) >> _bf_shf(_mask));	\
-+	})
-+
-+#endif
-diff --git a/include/linux/log2.h b/include/linux/log2.h
-index fd7ff3d91e6a..1b5e1f4da043 100644
---- a/include/linux/log2.h
-+++ b/include/linux/log2.h
-@@ -54,6 +54,12 @@ bool is_power_of_2(unsigned long n)
- 	return (n != 0 && ((n & (n - 1)) == 0));
- }
- 
-+static inline __attribute__((const))
-+bool is_power_of_2_u64(u64 n)
-+{
-+	return (n != 0 && ((n & (n - 1)) == 0));
-+}
-+
- /*
-  * round up to nearest power of two
-  */
--- 
-1.9.1
+    Andrew
