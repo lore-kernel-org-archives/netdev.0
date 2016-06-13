@@ -1,250 +1,93 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 01/15] net: Combine GENEVE and VXLAN port offload
- notifiers into single functions
-Date: Mon, 13 Jun 2016 13:24:41 -0700
-Message-ID: <CAKgT0Ue+ik+wj2C=o66Va6f5qNSo=0xEkYsD--BV6_zqg16kHA@mail.gmail.com>
-References: <20160613173750.15186.24381.stgit@localhost.localdomain>
- <20160613174754.15186.37885.stgit@localhost.localdomain> <CALx6S37b9pw4u5O1qm4uhsFuJ708DGLQ-sU4=xkPRbuw=wykGg@mail.gmail.com>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH] brcmfmac: rework function picking free BSS index
+Date: Mon, 13 Jun 2016 22:25:05 +0200
+Message-ID: <CACna6rwJUFzBbggtcmz_LYLRe-9TN1LeKtsGDuavLhAkWD90nQ@mail.gmail.com>
+References: <1464219876-13776-1-git-send-email-zajec5@gmail.com>
+ <5759C09F.7020704@broadcom.com> <575F09D7.6030505@broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Hannes Frederic Sowa <hannes@redhat.com>,
-	Jesse Gross <jesse@kernel.org>, Jiri Benc <jbenc@redhat.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Dept-GELinuxNICDev@qlogic.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:36710 "EHLO
-	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161183AbcFMUYn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 16:24:43 -0400
-Received: by mail-io0-f196.google.com with SMTP id o127so15408150iod.3
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 13:24:42 -0700 (PDT)
-In-Reply-To: <CALx6S37b9pw4u5O1qm4uhsFuJ708DGLQ-sU4=xkPRbuw=wykGg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kalle Valo <kvalo@codeaurora.org>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+	<linux-wireless@vger.kernel.org>,
+	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+	<brcm80211-dev-list@broadcom.com>,
+	"open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Arend van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <575F09D7.6030505@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 13, 2016 at 12:55 PM, Tom Herbert <tom@herbertland.com> wrote:
-> On Mon, Jun 13, 2016 at 10:47 AM, Alexander Duyck <aduyck@mirantis.com> wrote:
->> This patch merges the GENEVE and VXLAN code so that both functions pass
->> through a shared code path.  This way we can start the effort of using a
->> single function on the network device drivers to handle both of these
->> tunnel offload types.
+On 13 June 2016 at 21:30, Arend van Spriel <arend.vanspriel@broadcom.co=
+m> wrote:
+> On 09-06-16 21:16, Arend van Spriel wrote:
+>> On 26-05-16 01:44, Rafa=C5=82 Mi=C5=82ecki wrote:
+>>> The old implementation was overcomplicated and slightly bugged in s=
+ome
+>>> corner cases.
+>>>
+>
+> [...]
+>
+>>> New code is simpler, placed in file where it's really used, handles
+>>> running out of free BSS-es and allows using 4 interfaces at the sam=
+e
+>>> time. It also looks for the first free BSS instead of one after the=
+ last
+>>> in use. It works well with current driver (which doesn't allow dele=
+ting
+>>> interfaces) and should be future proof (if we ever allow deleting).
+>>>
+>>> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+>>> ---
+>>>  .../broadcom/brcm80211/brcmfmac/cfg80211.c         | 17 ++++++++++=
+++++-
+>>>  .../wireless/broadcom/brcm80211/brcmfmac/core.c    | 24 ----------=
+------------
+>>>  .../wireless/broadcom/brcm80211/brcmfmac/core.h    |  1 -
+>>>  3 files changed, 16 insertions(+), 26 deletions(-)
+>>>
+>>> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80=
+211.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+>>> index 3d09d23..d00eef8 100644
+>>> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+>>> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
+>>> @@ -541,6 +541,21 @@ brcmf_cfg80211_update_proto_addr_mode(struct w=
+ireless_dev *wdev)
+>>>                                              ADDR_INDIRECT);
+>>>  }
+>>>
+>>> +static int brcmf_get_first_free_bsscfgidx(struct brcmf_pub *drvr)
+>>> +{
+>>> +    int bsscfgidx;
+>>> +
+>>> +    for (bsscfgidx =3D 0; bsscfgidx < BRCMF_MAX_IFS; bsscfgidx++) =
+{
+>>> +            /* bsscfgidx 1 is reserved for legacy P2P */
 >>
->> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->> ---
->>  drivers/net/geneve.c     |   48 ++++-------------------------
->>  drivers/net/vxlan.c      |   46 ++++-----------------------
->>  include/net/udp_tunnel.h |   12 +++++++
->>  net/ipv4/udp_tunnel.c    |   77 ++++++++++++++++++++++++++++++++++++++++++++++
->>  4 files changed, 103 insertions(+), 80 deletions(-)
+>> Hi Rafa=C5=82,
 >>
->> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
->> index cadefe4fdaa2..f5ce41532cf4 100644
->> --- a/drivers/net/geneve.c
->> +++ b/drivers/net/geneve.c
->> @@ -399,19 +399,7 @@ static struct socket *geneve_create_sock(struct net *net, bool ipv6,
->>
->>  static void geneve_notify_add_rx_port(struct geneve_sock *gs)
->>  {
->> -       struct net_device *dev;
->> -       struct sock *sk = gs->sock->sk;
->> -       struct net *net = sock_net(sk);
->> -       sa_family_t sa_family = geneve_get_sk_family(gs);
->> -       __be16 port = inet_sk(sk)->inet_sport;
->> -
->> -       rcu_read_lock();
->> -       for_each_netdev_rcu(net, dev) {
->> -               if (dev->netdev_ops->ndo_add_geneve_port)
->> -                       dev->netdev_ops->ndo_add_geneve_port(dev, sa_family,
->> -                                                            port);
->> -       }
->> -       rcu_read_unlock();
->> +       udp_tunnel_notify_add_rx_port(gs->sock, UDP_ENC_OFFLOAD_TYPE_GENEVE);
->>  }
->>
->>  static int geneve_hlen(struct genevehdr *gh)
->> @@ -550,20 +538,7 @@ static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
->>
->>  static void geneve_notify_del_rx_port(struct geneve_sock *gs)
->>  {
->> -       struct net_device *dev;
->> -       struct sock *sk = gs->sock->sk;
->> -       struct net *net = sock_net(sk);
->> -       sa_family_t sa_family = geneve_get_sk_family(gs);
->> -       __be16 port = inet_sk(sk)->inet_sport;
->> -
->> -       rcu_read_lock();
->> -       for_each_netdev_rcu(net, dev) {
->> -               if (dev->netdev_ops->ndo_del_geneve_port)
->> -                       dev->netdev_ops->ndo_del_geneve_port(dev, sa_family,
->> -                                                            port);
->> -       }
->> -
->> -       rcu_read_unlock();
->> +       udp_tunnel_notify_add_rx_port(gs->sock, UDP_ENC_OFFLOAD_TYPE_GENEVE);
->>  }
->>
->>  static void __geneve_sock_release(struct geneve_sock *gs)
->> @@ -1165,29 +1140,20 @@ static struct device_type geneve_type = {
->>         .name = "geneve",
->>  };
->>
->> -/* Calls the ndo_add_geneve_port of the caller in order to
->> +/* Calls the ndo_add_udp_enc_port of the caller in order to
->>   * supply the listening GENEVE udp ports. Callers are expected
->> - * to implement the ndo_add_geneve_port.
->> + * to implement the ndo_add_udp_enc_port.
->>   */
->>  static void geneve_push_rx_ports(struct net_device *dev)
->>  {
->>         struct net *net = dev_net(dev);
->>         struct geneve_net *gn = net_generic(net, geneve_net_id);
->>         struct geneve_sock *gs;
->> -       sa_family_t sa_family;
->> -       struct sock *sk;
->> -       __be16 port;
->> -
->> -       if (!dev->netdev_ops->ndo_add_geneve_port)
->> -               return;
->>
->>         rcu_read_lock();
->> -       list_for_each_entry_rcu(gs, &gn->sock_list, list) {
->> -               sk = gs->sock->sk;
->> -               sa_family = sk->sk_family;
->> -               port = inet_sk(sk)->inet_sport;
->> -               dev->netdev_ops->ndo_add_geneve_port(dev, sa_family, port);
->> -       }
->> +       list_for_each_entry_rcu(gs, &gn->sock_list, list)
->> +               udp_tunnel_push_rx_port(dev, gs->sock,
->> +                                       UDP_ENC_OFFLOAD_TYPE_GENEVE);
->>         rcu_read_unlock();
->>  }
->>
->> diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
->> index f999db2f97b4..43f634282726 100644
->> --- a/drivers/net/vxlan.c
->> +++ b/drivers/net/vxlan.c
->> @@ -622,37 +622,13 @@ static int vxlan_gro_complete(struct sock *sk, struct sk_buff *skb, int nhoff)
->>  /* Notify netdevs that UDP port started listening */
->>  static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
->>  {
->> -       struct net_device *dev;
->> -       struct sock *sk = vs->sock->sk;
->> -       struct net *net = sock_net(sk);
->> -       sa_family_t sa_family = vxlan_get_sk_family(vs);
->> -       __be16 port = inet_sk(sk)->inet_sport;
->> -
->> -       rcu_read_lock();
->> -       for_each_netdev_rcu(net, dev) {
->> -               if (dev->netdev_ops->ndo_add_vxlan_port)
->> -                       dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
->> -                                                           port);
->> -       }
->> -       rcu_read_unlock();
->> +       udp_tunnel_notify_add_rx_port(vs->sock, UDP_ENC_OFFLOAD_TYPE_VXLAN);
->>  }
->>
->>  /* Notify netdevs that UDP port is no more listening */
->>  static void vxlan_notify_del_rx_port(struct vxlan_sock *vs)
->>  {
->> -       struct net_device *dev;
->> -       struct sock *sk = vs->sock->sk;
->> -       struct net *net = sock_net(sk);
->> -       sa_family_t sa_family = vxlan_get_sk_family(vs);
->> -       __be16 port = inet_sk(sk)->inet_sport;
->> -
->> -       rcu_read_lock();
->> -       for_each_netdev_rcu(net, dev) {
->> -               if (dev->netdev_ops->ndo_del_vxlan_port)
->> -                       dev->netdev_ops->ndo_del_vxlan_port(dev, sa_family,
->> -                                                           port);
->> -       }
->> -       rcu_read_unlock();
->> +       udp_tunnel_notify_del_rx_port(vs->sock, UDP_ENC_OFFLOAD_TYPE_VXLAN);
->>  }
->>
->>  /* Add new entry to forwarding table -- assumes lock held */
->> @@ -2525,30 +2501,22 @@ static struct device_type vxlan_type = {
->>         .name = "vxlan",
->>  };
->>
->> -/* Calls the ndo_add_vxlan_port of the caller in order to
->> +/* Calls the ndo_add_udp_enc_port of the caller in order to
->>   * supply the listening VXLAN udp ports. Callers are expected
->> - * to implement the ndo_add_vxlan_port.
->> + * to implement the ndo_add_udp_enc_port.
->>   */
->>  static void vxlan_push_rx_ports(struct net_device *dev)
->>  {
->>         struct vxlan_sock *vs;
->>         struct net *net = dev_net(dev);
->>         struct vxlan_net *vn = net_generic(net, vxlan_net_id);
->> -       sa_family_t sa_family;
->> -       __be16 port;
->>         unsigned int i;
->>
->> -       if (!dev->netdev_ops->ndo_add_vxlan_port)
->> -               return;
->> -
->>         spin_lock(&vn->sock_lock);
->>         for (i = 0; i < PORT_HASH_SIZE; ++i) {
->> -               hlist_for_each_entry_rcu(vs, &vn->sock_list[i], hlist) {
->> -                       port = inet_sk(vs->sock->sk)->inet_sport;
->> -                       sa_family = vxlan_get_sk_family(vs);
->> -                       dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
->> -                                                           port);
->> -               }
->> +               hlist_for_each_entry_rcu(vs, &vn->sock_list[i], hlist)
->> +                       udp_tunnel_push_rx_port(dev, vs->sock,
->> +                                               UDP_ENC_OFFLOAD_TYPE_VXLAN);
->>         }
->>         spin_unlock(&vn->sock_lock);
->>  }
->> diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
->> index 9d14f707e534..704f931fd9ad 100644
->> --- a/include/net/udp_tunnel.h
->> +++ b/include/net/udp_tunnel.h
->> @@ -84,6 +84,18 @@ struct udp_tunnel_sock_cfg {
->>  void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
->>                            struct udp_tunnel_sock_cfg *sock_cfg);
->>
->> +/* List of offloadable UDP tunnel types */
->> +enum udp_enc_offloads {
->> +       UDP_ENC_OFFLOAD_TYPE_VXLAN,     /* RFC 7348 */
->> +       UDP_ENC_OFFLOAD_TYPE_GENEVE,    /* draft-ietf-nvo3-geneve */
->> +};
->> +
-> We've already had a lot of discussion on this. The clear outcome from
-> netdev was that we need to support generic offloads and move away from
-> protocol specific offload. Generalizing the interface to allow vendors
-> to unnecessarily leak out protocol specific features undermines that
-> effort.
+>> A bit late as the patch is already applied, but this reserved index =
+is
+>> no longer needed as we removed all trickery that was build on the
+>> assumption that the P2P_DEVICE interface was always in bsscfgidx 1.
+>> Hence this could be removed.
+>
+> I tested STA on bsscfgidx=3D0, AP on bsscfgidx=3D1, and P2P_DEV on
+> bsscfgidx=3D2. P2P discovery on P2P_DEV interface works as expected s=
+o we
+> can indeed drop the 'bsscfgidx 1 is reserved' statement. I want to
+> verify on an older device before creating a patch.
 
-Then in turn we get dirty hacks like what we have right now where
-VXLAN-GPE is attempting to reuse the VXLAN offload functions or
-drivers that just hard-code GENEVE ports.
+Thanks for taking look at this.
 
-Going full obstructionist on this isn't going to work.  We need to be
-able to support these type of offloads because the switch vendors are
-going to force the NIC vendors to do so.  We will likely never be able
-to convince Cisco to implement an outer transmit checksum on their
-switches.  In order to make offloads work without the outer checksum
-we will need to be able to parse the frames in order to be able to
-validate the inner checksum values.
-
-At this point what we need to focus on is being able to show that this
-feature is essentially a crutch.  To that end I really think we need
-to focus on enabling Tx checksum for all new UDP tunnels going forward
-by default.  That way we get the full benefits of the offload before
-we even have to start thinking about adding this kind of code.  It
-isn't until we start having to deal with switches and other OSes that
-cannot support the outer checksum on Tx that we need these kind of
-workarounds in the hardware.
-
-- Alex
+--=20
+Rafa=C5=82
