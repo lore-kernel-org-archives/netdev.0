@@ -1,92 +1,48 @@
-From: Alex Williamson <alex.williamson@redhat.com>
-Subject: Re: [RFC 12/18] limits: track RLIMIT_MEMLOCK actual max
-Date: Mon, 13 Jun 2016 14:43:59 -0600
-Message-ID: <20160613144359.677edee4@ul30vt.home>
-References: <1465847065-3577-1-git-send-email-toiwoton@gmail.com>
-	<1465847065-3577-13-git-send-email-toiwoton@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>,
-        Fenghua
- Yu <fenghua.yu@intel.com>, Alexander Graf <agraf@suse.com>,
-        Paolo Bonzini
- <pbonzini@redhat.com>,
-        Radim =?UTF-8?B?S3LEjW3DocWZ?= <rkrcmar@redhat.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        Paul Mackerras
- <paulus@samba.org>,
-        Michael Ellerman <mpe@ellerman.id.au>,
-        Doug Ledford
- <dledford@redhat.com>, Sean Hefty <sean.hefty@intel.com>,
-        Hal Rosenstock
- <hal.rosenstock@gmail.com>,
-        Mike Marciniszyn <mike.marciniszyn@intel.com>,
-        Dennis Dalessandro <dennis.dalessandro@intel.com>,
-        Christian Benvenuti
- <benve@cisco.com>,
-        Dave Goodell <dgoodell@cisco.com>,
-        Sudeep Dutt
- <sudeep.dutt@intel.com>,
-        Ashutosh Dixit <ashutosh.dixit@intel.com>,
-        Ingo
- Molnar <mingo@redhat.com>, Peter Zijlstra <peterz@i
-To: Topi Miettinen <toiwoton@gmail.com>
-Return-path: <owner-linux-mm@kvack.org>
-In-Reply-To: <1465847065-3577-13-git-send-email-toiwoton@gmail.com>
-Sender: owner-linux-mm@kvack.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] act_ipt: fix a bind refcnt leak
+Date: Mon, 13 Jun 2016 13:44:14 -0700
+Message-ID: <1465850654-27128-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:34381 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422685AbcFMUoU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 16:44:20 -0400
+Received: by mail-pa0-f68.google.com with SMTP id ug1so11100911pab.1
+        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 13:44:20 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 13 Jun 2016 22:44:19 +0300
-Topi Miettinen <toiwoton@gmail.com> wrote:
+And avoid calling tcf_hash_check() twice.
 
-> Track maximum size of locked memory, presented in /proc/self/limits.
-> 
-> Signed-off-by: Topi Miettinen <toiwoton@gmail.com>
-> ---
->  arch/ia64/kernel/perfmon.c                 |  1 +
->  arch/powerpc/kvm/book3s_64_vio.c           |  1 +
->  arch/powerpc/mm/mmu_context_iommu.c        |  1 +
->  drivers/infiniband/core/umem.c             |  1 +
->  drivers/infiniband/hw/hfi1/user_pages.c    |  1 +
->  drivers/infiniband/hw/qib/qib_user_pages.c |  1 +
->  drivers/infiniband/hw/usnic/usnic_uiom.c   |  2 ++
->  drivers/misc/mic/scif/scif_rma.c           |  1 +
->  drivers/vfio/vfio_iommu_spapr_tce.c        |  2 ++
->  drivers/vfio/vfio_iommu_type1.c            |  2 ++
->  include/linux/sched.h                      | 10 ++++++++--
->  kernel/bpf/syscall.c                       |  6 ++++++
->  kernel/events/core.c                       |  1 +
->  mm/mlock.c                                 |  7 +++++++
->  mm/mmap.c                                  |  3 +++
->  mm/mremap.c                                |  3 +++
->  16 files changed, 41 insertions(+), 2 deletions(-)
-...  
->
-> diff --git a/drivers/vfio/vfio_iommu_type1.c b/drivers/vfio/vfio_iommu_type1.c
-> index 2ba1942..4c6e7a3 100644
-> --- a/drivers/vfio/vfio_iommu_type1.c
-> +++ b/drivers/vfio/vfio_iommu_type1.c
-> @@ -312,6 +312,8 @@ static long vfio_pin_pages(unsigned long vaddr, long npage,
->  		}
->  	}
->  
-> +	bump_rlimit(RLIMIT_MEMLOCK, (current->mm->locked_vm + i) << PAGE_SHIFT);
-> +
->  	if (!rsvd)
->  		vfio_lock_acct(i);
->  
+Fixes: a57f19d30b2d ("net sched: ipt action fix late binding")
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ net/sched/act_ipt.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
 
-
-Not all cases passing through here bump rlimit (see: rsvd), there's an
-entire case above the other end of this closing bracket that does bump
-rlimit but returns before here, and I wonder why we wouldn't just do
-this in our vfio_lock_acct() accounting function anyway.  Thanks,
-
-Alex
-
---
-To unsubscribe, send a message with 'unsubscribe linux-mm' in
-the body to majordomo@kvack.org.  For more info on Linux MM,
-see: http://www.linux-mm.org/ .
-Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
+diff --git a/net/sched/act_ipt.c b/net/sched/act_ipt.c
+index 9f002ad..d4bd19e 100644
+--- a/net/sched/act_ipt.c
++++ b/net/sched/act_ipt.c
+@@ -121,10 +121,13 @@ static int __tcf_ipt_init(struct tc_action_net *tn, struct nlattr *nla,
+ 	}
+ 
+ 	td = (struct xt_entry_target *)nla_data(tb[TCA_IPT_TARG]);
+-	if (nla_len(tb[TCA_IPT_TARG]) < td->u.target_size)
++	if (nla_len(tb[TCA_IPT_TARG]) < td->u.target_size) {
++		if (exists)
++			tcf_hash_release(a, bind);
+ 		return -EINVAL;
++	}
+ 
+-	if (!tcf_hash_check(tn, index, a, bind)) {
++	if (!exists) {
+ 		ret = tcf_hash_create(tn, index, est, a, sizeof(*ipt), bind,
+ 				      false);
+ 		if (ret)
+-- 
+2.1.0
