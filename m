@@ -1,61 +1,72 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [RESEND PATCH 1/3] rfkill: Create "rfkill-airplane-mode" LED
- trigger
-Date: Mon, 13 Jun 2016 21:00:48 +0200
-Message-ID: <20160613190048.GA17101@amd>
-References: <1462199948-6424-1-git-send-email-jprvita@endlessm.com>
- <1462199948-6424-2-git-send-email-jprvita@endlessm.com>
- <20160504072936.GB17045@amd>
- <1463045572.13313.21.camel@sipsolutions.net>
- <20160519071639.GB17077@amd>
- <1465476194.3442.21.camel@sipsolutions.net>
- <CA+A7VXXP3TYuk4Vvgc8YvxPFo06GG6WpyLJS+2vMLzr0iKQgsA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Darren Hart <dvhart@infradead.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	linux@endlessm.com,
-	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita@endlessm.com>
-To: =?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+A7VXXP3TYuk4Vvgc8YvxPFo06GG6WpyLJS+2vMLzr0iKQgsA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Philip Prindeville <philipp@redfish-solutions.com>
+Subject: Re: [PATCH net-next] net: ipv4: Add ability to have GRE ignore DF bit in IPv4 payloads
+Date: Mon, 13 Jun 2016 12:59:31 -0600
+Message-ID: <59274155-ED76-420B-A1F1-667DDCF6CB49@redfish-solutions.com>
+References: <20160607194846.11494-1-philipp@redfish-solutions.com> <20160610.230202.897629473050684544.davem@davemloft.net>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: multipart/signed; boundary="Apple-Mail=_6C5F891A-3487-41E3-ABC4-8ADEFBA91C57"; protocol="application/pgp-signature"; micalg=pgp-sha512
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.redfish-solutions.com ([66.232.79.143]:39220 "EHLO
+	mail.redfish-solutions.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1423864AbcFMTFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 15:05:49 -0400
+In-Reply-To: <20160610.230202.897629473050684544.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi!
 
-> > Jo=E3o, that means you should send a patch to add the ::rfkill suff=
-ix.
-> >
->=20
-> IMO "airplane" (or maybe "airplane-mode") is a better suffix, as it
-> reflects the label on the machine's chassis. I'll name it
-> "asus-wireless::airplane" and send this through platform-drivers-x86,
-> as this is now contained in the platform-drivers-x86 subsystem. Thank=
-s
-> Johannes for your patience and help designing and reviewing the rfkil=
-l
-> changes, even if not all of them made it through in the end. And
-> thanks everyone else involved for the feedback.
+--Apple-Mail=_6C5F891A-3487-41E3-ABC4-8ADEFBA91C57
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset=us-ascii
 
-Actually, I'd do '::rfkill', for consistency with other places in
-/sys.
 
-/sys/devices/platform/thinkpad_acpi/rfkill/rfkill1/name
-/sys/class/rfkill
-/sys/module/rfkill
+> On Jun 11, 2016, at 12:02 AM, David Miller <davem@davemloft.net> wrote:
+> 
+> From: "Philip Prindeville" <philipp@redfish-solutions.com>
+> Date: Tue,  7 Jun 2016 13:48:46 -0600
+> 
+>> From: Philip Prindeville <philipp@redfish-solutions.com>
+>> 
+>> In the presence of firewalls which improperly block ICMP Unreachable
+>> (including Fragmentation Required) messages, Path MTU Discovery is
+>> prevented from working.
+>> 
+>> A workaround is to handle IPv4 payloads opaquely, ignoring the DF bit--as
+>> is done for other payloads like AppleTalk--and doing transparent
+>> fragmentation and reassembly.
+>> 
+>> Reviewed-by: Stephen Hemminger <stephen@networkplumber.org>
+>> Signed-off-by: Philip Prindeville <philipp@redfish-solutions.com>
+> 
+> I think the feedback that this feature should be mutually exclusive
+> to pmtudisc is valid and you should address that.
 
-Thanks for patience,
-									Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses=
-/blog.html
+Yes, understood.  Looking into this.
+
+-Philip
+
+
+--Apple-Mail=_6C5F891A-3487-41E3-ABC4-8ADEFBA91C57
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename=signature.asc
+Content-Type: application/pgp-signature;
+	name=signature.asc
+Content-Description: Message signed with OpenPGP using GPGMail
+
+-----BEGIN PGP SIGNATURE-----
+Comment: GPGTools - https://gpgtools.org
+
+iQEcBAEBCgAGBQJXXwKTAAoJEGTaZwSfpZInLJ8H/Aqh75RYumrRW4k4lMc89pwS
+woWA1YNp42bDjZdSj4QlDbyqxvsfe+3LtVA/ZRTOyChVnTmAIhrZ/3inuVNbUsc8
+cOUazwitABb7TZVIgEIAT183vNReUzHKJaH44JmBIac3m182WasTLMRPE/9cv9bS
+InRariEmO2GBkvKkwIZ7EBv18tCSomb1QH4MjRrmDd8qcahkFtpQvwLDWcqe1HIy
+ZxTMQP93+xTvenohUhrCf465T/xyJDZzjOd6h22EOpVgVWpOb8RHgUhGf5TRtfhm
+OKq/22ACRefhWUv2ir68K3bmi4HFUfQkwd7eWO+hsi2Dp+lzYeeUF0Mb2Mh3NJs=
+=iYmG
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_6C5F891A-3487-41E3-ABC4-8ADEFBA91C57--
