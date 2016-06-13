@@ -1,49 +1,76 @@
-From: Dongpo Li <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Subject: [PATCH 0/3] Add Hisilicon MDIO bus driver and FEMAC driver
-Date: Mon, 13 Jun 2016 14:07:53 +0800
-Message-ID: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com>
+From: Dongpo Li <lidongpo@hisilicon.com>
+Subject: [PATCH 2/3] ethtool: Add common functions for get and set settings
+Date: Mon, 13 Jun 2016 14:07:55 +0800
+Message-ID: <1465798076-176393-3-git-send-email-lidongpo@hisilicon.com>
+References: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <xuejiancheng-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Dongpo Li <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-To: <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	<mark.rutland-5wv7dgnIgG8@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <xuejiancheng@hisilicon.com>, <netdev@vger.kernel.org>,
+	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	Dongpo Li <lidongpo@hisilicon.com>
+To: <f.fainelli@gmail.com>, <robh+dt@kernel.org>,
+	<mark.rutland@arm.com>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch set adds a Hisilicon MDIO bus driver and
-a Fast Ethernet MAC(FEMAC) driver.
-We found that most ethernet mac drivers use the same ethtool
-get_settings and set_settings, so this patch set also adds
-common functions for get and set settings.
+Currently, most drivers only support get and set PHY settings
+by PHY ethtool API. For those drivers, it's better to
+supply common functions for get_settings and set_settings.
+This patch adds common functions implementation.
 
-Dongpo Li (3):
-  net: Add MDIO bus driver for the Hisilicon FEMAC
-  ethtool: Add common functions for get and set settings
-  net: hisilicon: Add Fast Ethernet MAC driver
+Reviewed-by: Jiancheng Xue <xuejiancheng@hisilicon.com>
+Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
+---
+ include/linux/ethtool.h |  2 ++
+ net/core/ethtool.c      | 21 +++++++++++++++++++++
+ 2 files changed, 23 insertions(+)
 
- .../bindings/net/hisilicon-femac-mdio.txt          |   22 +
- .../devicetree/bindings/net/hisilicon-femac.txt    |   40 +
- drivers/net/ethernet/hisilicon/Kconfig             |   12 +
- drivers/net/ethernet/hisilicon/Makefile            |    1 +
- drivers/net/ethernet/hisilicon/hisi_femac.c        | 1015 ++++++++++++++++++++
- drivers/net/phy/Kconfig                            |    8 +
- drivers/net/phy/Makefile                           |    1 +
- drivers/net/phy/mdio-hisi-femac.c                  |  165 ++++
- include/linux/ethtool.h                            |    2 +
- net/core/ethtool.c                                 |   21 +
- 10 files changed, 1287 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/hisilicon-femac-mdio.txt
- create mode 100644 Documentation/devicetree/bindings/net/hisilicon-femac.txt
- create mode 100644 drivers/net/ethernet/hisilicon/hisi_femac.c
- create mode 100644 drivers/net/phy/mdio-hisi-femac.c
-
+diff --git a/include/linux/ethtool.h b/include/linux/ethtool.h
+index 9ded8c6..e114db9 100644
+--- a/include/linux/ethtool.h
++++ b/include/linux/ethtool.h
+@@ -82,6 +82,8 @@ struct net_device;
+ /* Some generic methods drivers may use in their ethtool_ops */
+ u32 ethtool_op_get_link(struct net_device *dev);
+ int ethtool_op_get_ts_info(struct net_device *dev, struct ethtool_ts_info *eti);
++int ethtool_op_get_settings(struct net_device *dev, struct ethtool_cmd *cmd);
++int ethtool_op_set_settings(struct net_device *dev, struct ethtool_cmd *cmd);
+ 
+ /**
+  * ethtool_rxfh_indir_default - get default value for RX flow hash indirection
+diff --git a/net/core/ethtool.c b/net/core/ethtool.c
+index f403481..270b6d1 100644
+--- a/net/core/ethtool.c
++++ b/net/core/ethtool.c
+@@ -50,6 +50,27 @@ int ethtool_op_get_ts_info(struct net_device *dev, struct ethtool_ts_info *info)
+ }
+ EXPORT_SYMBOL(ethtool_op_get_ts_info);
+ 
++int ethtool_op_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	if (!dev->phydev)
++		return -ENODEV;
++
++	return phy_ethtool_gset(dev->phydev, cmd);
++}
++EXPORT_SYMBOL(ethtool_op_get_settings);
++
++int ethtool_op_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
++{
++	if (!capable(CAP_NET_ADMIN))
++		return -EPERM;
++
++	if (!dev->phydev)
++		return -ENODEV;
++
++	return phy_ethtool_sset(dev->phydev, cmd);
++}
++EXPORT_SYMBOL(ethtool_op_set_settings);
++
+ /* Handlers for each ethtool command */
+ 
+ #define ETHTOOL_DEV_FEATURE_WORDS	((NETDEV_FEATURE_COUNT + 31) / 32)
 -- 
 2.8.2
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
