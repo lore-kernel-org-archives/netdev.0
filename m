@@ -1,83 +1,84 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [RESEND PATCH 1/3] rfkill: Create "rfkill-airplane-mode" LED
- trigger
-Date: Mon, 13 Jun 2016 23:01:09 +0200
-Message-ID: <20160613210109.GA9303@amd>
-References: <1462199948-6424-1-git-send-email-jprvita@endlessm.com>
- <1462199948-6424-2-git-send-email-jprvita@endlessm.com>
- <20160504072936.GB17045@amd>
- <1463045572.13313.21.camel@sipsolutions.net>
- <20160519071639.GB17077@amd>
- <1465476194.3442.21.camel@sipsolutions.net>
- <CA+A7VXXP3TYuk4Vvgc8YvxPFo06GG6WpyLJS+2vMLzr0iKQgsA@mail.gmail.com>
- <20160613190048.GA17101@amd>
- <CA+A7VXXOfN1Td2T6uiunWZMS4gvS5sHDzPiDp9VEdx+OPJpSmA@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: [net-next PATCH 02/15] net: Merge VXLAN and GENEVE push notifiers
+ into a single notifier
+Date: Mon, 13 Jun 2016 23:08:19 +0200
+Message-ID: <014f26d6-c747-5506-8dee-59866408c760@redhat.com>
+References: <20160613173750.15186.24381.stgit@localhost.localdomain>
+ <20160613174806.15186.64702.stgit@localhost.localdomain>
+ <77eb25b2-d775-ec6f-c945-524d73113c96@redhat.com>
+ <CAKgT0Ufd_BNSLrJUqN-eWjytf0aD2w_LVWFD7E1ym+A0jRhCtA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Darren Hart <dvhart@infradead.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	linux@endlessm.com,
-	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita@endlessm.com>
-To: =?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+A7VXXOfN1Td2T6uiunWZMS4gvS5sHDzPiDp9VEdx+OPJpSmA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Jesse Gross <jesse@kernel.org>, Jiri Benc <jbenc@redhat.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Dept-GELinuxNICDev@qlogic.com, David Miller <davem@davemloft.net>,
+	Eugenia Emantayev <eugenia@mellanox.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:53713 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1161278AbcFMVI3 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jun 2016 17:08:29 -0400
+In-Reply-To: <CAKgT0Ufd_BNSLrJUqN-eWjytf0aD2w_LVWFD7E1ym+A0jRhCtA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon 2016-06-13 15:59:35, Jo=E3o Paulo Rechi Vita wrote:
-> On 13 June 2016 at 15:00, Pavel Machek <pavel@ucw.cz> wrote:
-> > Hi!
-> >
-> >> > Jo=E3o, that means you should send a patch to add the ::rfkill s=
-uffix.
-> >> >
-> >>
-> >> IMO "airplane" (or maybe "airplane-mode") is a better suffix, as i=
-t
-> >> reflects the label on the machine's chassis. I'll name it
-> >> "asus-wireless::airplane" and send this through platform-drivers-x=
-86,
-> >> as this is now contained in the platform-drivers-x86 subsystem. Th=
-anks
-> >> Johannes for your patience and help designing and reviewing the rf=
-kill
-> >> changes, even if not all of them made it through in the end. And
-> >> thanks everyone else involved for the feedback.
-> >
-> > Actually, I'd do '::rfkill', for consistency with other places in
-> > /sys.
-> >
-> > /sys/devices/platform/thinkpad_acpi/rfkill/rfkill1/name
-> > /sys/class/rfkill
-> > /sys/module/rfkill
-> >
->=20
-> If we use "rfkill" as a suffix, how do you expect userspace to be abl=
-e
-> to differentiate between a LED that indicates airplane-mode (LED ON
-> when all radios are OFF) and a LED that indicates the state of a
-> specific radio like WiFi or Bluetooth (LED ON when that specific radi=
-o
-> is ON)? If we're going this route we should provide meaningful
-> information here.
+On 13.06.2016 21:47, Alexander Duyck wrote:
+> On Mon, Jun 13, 2016 at 10:57 AM, Hannes Frederic Sowa
+> <hannes@redhat.com> wrote:
+>> Hi Alex,
+>>
+>> very cool series!
+>>
+>> On 13.06.2016 19:48, Alexander Duyck wrote:
+>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+>>> index d101e4d904ba..e959b6348f91 100644
+>>> --- a/include/linux/netdevice.h
+>>> +++ b/include/linux/netdevice.h
+>>> @@ -1269,6 +1269,14 @@ struct net_device_ops {
+>>>       void                    (*ndo_del_geneve_port)(struct  net_device *dev,
+>>>                                                      sa_family_t sa_family,
+>>>                                                      __be16 port);
+>>> +     void                    (*ndo_add_udp_enc_port)(struct  net_device *dev,
+>>> +                                                    sa_family_t sa_family,
+>>> +                                                    __be16 port,
+>>> +                                                    unsigned int type);
+>>> +     void                    (*ndo_del_udp_enc_port)(struct  net_device *dev,
+>>> +                                                    sa_family_t sa_family,
+>>> +                                                    __be16 port,
+>>> +                                                    unsigned int type);
+>>>       void*                   (*ndo_dfwd_add_station)(struct net_device *pdev,
+>>>                                                       struct net_device *dev);
+>>>       void                    (*ndo_dfwd_del_station)(struct net_device *pdev,
+>>
+>> What do you think about adding a struct as argument to
+>> ndo_*_udp_enc_port? As a result we can much easier add new fields in
+>> case future NICs allow us to e.g. specify a bound ip address?
+> 
+> Actually that is probably a good idea.  Suggestions on the name are
+> welcome.  Otherwise I will try to come up with something in a bit as I
+> am currently going through and flushing out all the driver specific
+> VXLAN and GENEVE build flags.
 
-'::airplane' has same problem, no?
+Hmmm... struct net_device_hw_offload, to be most generic? Maybe we can
+even drop the udp_enc in the name and go completely generic:
 
-If you want to distinguish that, maybe you can do '::rfkill' for
-everything vs '::rfkill-wifi' for wifi-only and '::rfkill-bt' for
-bluetooth...
+int (*ndo_apply_offload)(..., struct hw_offload).
 
-Best regards,
-									Pavel
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses=
-/blog.html
+(enc reminded me too much at encryption)
+
+Another idea, should we add error indications also for the future? We
+can signal if a specific card was not able to enable offloading.
+Different situations can be signaled: port list depleted, protocol
+unsupported etc.
+
+Might make sense for later postprocessing and signaling to user space.
+
+Thanks,
+Hannes
