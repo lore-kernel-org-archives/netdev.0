@@ -1,16 +1,16 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next 08/17] RDS: Make rds_send_queue_rm() rds_conn_path aware
-Date: Mon, 13 Jun 2016 09:44:33 -0700
-Message-ID: <c54dc9e91ee2a26945dc87d9873edf081f305cf2.1465829626.git.sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next 11/17] RDS: Make rds_send_pong() take a rds_conn_path argument
+Date: Mon, 13 Jun 2016 09:44:36 -0700
+Message-ID: <0441adf5fc4aafc1149859c8cfbb38df7cc2ab60.1465829626.git.sowmini.varadhan@oracle.com>
 References: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
 	ajaykumar.hotchandani@oracle.com, santosh.shilimkar@oracle.com,
 	sowmini.varadhan@oracle.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:40965 "EHLO
+Received: from userp1040.oracle.com ([156.151.31.81]:40970 "EHLO
 	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161018AbcFMQpM (ORCPT
+	with ESMTP id S1161049AbcFMQpM (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:45:12 -0400
 In-Reply-To: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 In-Reply-To: <cover.1465829626.git.sowmini.varadhan@oracle.com>
@@ -18,75 +18,108 @@ References: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Pass the rds_conn_path to rds_send_queue_rm, and use it to initialize
-the i_conn_path field in struct rds_incoming. This commit also makes
-rds_send_queue_rm() MP capable, because it now takes locks
-specific to the rds_conn_path passed in, instead of defaulting to
-the c_path[0] based defines from rds_single_path.h
+This commit allows rds_send_pong() callers to send back
+the rds pong message on some path other than c_path[0] by
+passing in a struct rds_conn_path * argument.  It also
+removes the last dependency on the #defines in rds_single.h
+from send.c
 
 Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 ---
- net/rds/send.c |   17 +++++++++++------
- 1 files changed, 11 insertions(+), 6 deletions(-)
+ net/rds/rds.h  |    2 +-
+ net/rds/recv.c |    2 +-
+ net/rds/send.c |   24 ++++++++++++------------
+ 3 files changed, 14 insertions(+), 14 deletions(-)
 
-diff --git a/net/rds/send.c b/net/rds/send.c
-index 3fb280b..076ee41 100644
---- a/net/rds/send.c
-+++ b/net/rds/send.c
-@@ -787,6 +787,7 @@ void rds_send_drop_to(struct rds_sock *rs, struct sockaddr_in *dest)
-  * message from the flow with RDS_CANCEL_SENT_TO.
-  */
- static int rds_send_queue_rm(struct rds_sock *rs, struct rds_connection *conn,
-+			     struct rds_conn_path *cp,
- 			     struct rds_message *rm, __be16 sport,
- 			     __be16 dport, int *queued)
- {
-@@ -830,13 +831,14 @@ static int rds_send_queue_rm(struct rds_sock *rs, struct rds_connection *conn,
- 		   trying to minimize the time we hold c_lock */
- 		rds_message_populate_header(&rm->m_inc.i_hdr, sport, dport, 0);
- 		rm->m_inc.i_conn = conn;
-+		rm->m_inc.i_conn_path = cp;
- 		rds_message_addref(rm);
+diff --git a/net/rds/rds.h b/net/rds/rds.h
+index b6072eb..e315151 100644
+--- a/net/rds/rds.h
++++ b/net/rds/rds.h
+@@ -790,7 +790,7 @@ void rds_send_drop_acked(struct rds_connection *conn, u64 ack,
+ 			 is_acked_func is_acked);
+ void rds_send_path_drop_acked(struct rds_conn_path *cp, u64 ack,
+ 			      is_acked_func is_acked);
+-int rds_send_pong(struct rds_connection *conn, __be16 dport);
++int rds_send_pong(struct rds_conn_path *cp, __be16 dport);
  
--		spin_lock(&conn->c_lock);
--		rm->m_inc.i_hdr.h_sequence = cpu_to_be64(conn->c_next_tx_seq++);
--		list_add_tail(&rm->m_conn_item, &conn->c_send_queue);
-+		spin_lock(&cp->cp_lock);
-+		rm->m_inc.i_hdr.h_sequence = cpu_to_be64(cp->cp_next_tx_seq++);
-+		list_add_tail(&rm->m_conn_item, &cp->cp_send_queue);
- 		set_bit(RDS_MSG_ON_CONN, &rm->m_flags);
--		spin_unlock(&conn->c_lock);
-+		spin_unlock(&cp->cp_lock);
+ /* rdma.c */
+ void rds_rdma_unuse(struct rds_sock *rs, u32 r_key, int force);
+diff --git a/net/rds/recv.c b/net/rds/recv.c
+index 6d7bd63..b58f505 100644
+--- a/net/rds/recv.c
++++ b/net/rds/recv.c
+@@ -227,7 +227,7 @@ void rds_recv_incoming(struct rds_connection *conn, __be32 saddr, __be32 daddr,
  
- 		rdsdebug("queued msg %p len %d, rs %p bytes %d seq %llu\n",
- 			 rm, len, rs, rs->rs_snd_bytes,
-@@ -968,6 +970,7 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
- 	int queued = 0, allocated_mr = 0;
- 	int nonblock = msg->msg_flags & MSG_DONTWAIT;
- 	long timeo = sock_sndtimeo(sk, nonblock);
-+	struct rds_conn_path *cpath;
- 
- 	/* Mirror Linux UDP mirror of BSD error message compatibility */
- 	/* XXX: Perhaps MSG_MORE someday */
-@@ -1074,7 +1077,9 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
+ 	if (rds_sysctl_ping_enable && inc->i_hdr.h_dport == 0) {
+ 		rds_stats_inc(s_recv_ping);
+-		rds_send_pong(conn, inc->i_hdr.h_sport);
++		rds_send_pong(cp, inc->i_hdr.h_sport);
  		goto out;
  	}
  
--	while (!rds_send_queue_rm(rs, conn, rm, rs->rs_bound_port,
-+	cpath = &conn->c_path[0];
-+
-+	while (!rds_send_queue_rm(rs, conn, cpath, rm, rs->rs_bound_port,
- 				  dport, &queued)) {
- 		rds_stats_inc(s_send_queue_full);
+diff --git a/net/rds/send.c b/net/rds/send.c
+index 9c34fd2..e614513 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -40,7 +40,6 @@
+ #include <linux/export.h>
+ #include <linux/sizes.h>
  
-@@ -1084,7 +1089,7 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
- 		}
+-#include "rds_single_path.h"
+ #include "rds.h"
  
- 		timeo = wait_event_interruptible_timeout(*sk_sleep(sk),
--					rds_send_queue_rm(rs, conn, rm,
-+					rds_send_queue_rm(rs, conn, cpath, rm,
- 							  rs->rs_bound_port,
- 							  dport,
- 							  &queued),
+ /* When transmitting messages in rds_send_xmit, we need to emerge from
+@@ -1153,7 +1152,7 @@ int rds_sendmsg(struct socket *sock, struct msghdr *msg, size_t payload_len)
+  * Reply to a ping packet.
+  */
+ int
+-rds_send_pong(struct rds_connection *conn, __be16 dport)
++rds_send_pong(struct rds_conn_path *cp, __be16 dport)
+ {
+ 	struct rds_message *rm;
+ 	unsigned long flags;
+@@ -1165,31 +1164,32 @@ rds_send_pong(struct rds_connection *conn, __be16 dport)
+ 		goto out;
+ 	}
+ 
+-	rm->m_daddr = conn->c_faddr;
++	rm->m_daddr = cp->cp_conn->c_faddr;
+ 	rm->data.op_active = 1;
+ 
+-	rds_conn_connect_if_down(conn);
++	rds_conn_connect_if_down(cp->cp_conn);
+ 
+-	ret = rds_cong_wait(conn->c_fcong, dport, 1, NULL);
++	ret = rds_cong_wait(cp->cp_conn->c_fcong, dport, 1, NULL);
+ 	if (ret)
+ 		goto out;
+ 
+-	spin_lock_irqsave(&conn->c_lock, flags);
+-	list_add_tail(&rm->m_conn_item, &conn->c_send_queue);
++	spin_lock_irqsave(&cp->cp_lock, flags);
++	list_add_tail(&rm->m_conn_item, &cp->cp_send_queue);
+ 	set_bit(RDS_MSG_ON_CONN, &rm->m_flags);
+ 	rds_message_addref(rm);
+-	rm->m_inc.i_conn = conn;
++	rm->m_inc.i_conn = cp->cp_conn;
++	rm->m_inc.i_conn_path = cp;
+ 
+ 	rds_message_populate_header(&rm->m_inc.i_hdr, 0, dport,
+-				    conn->c_next_tx_seq);
+-	conn->c_next_tx_seq++;
+-	spin_unlock_irqrestore(&conn->c_lock, flags);
++				    cp->cp_next_tx_seq);
++	cp->cp_next_tx_seq++;
++	spin_unlock_irqrestore(&cp->cp_lock, flags);
+ 
+ 	rds_stats_inc(s_send_queued);
+ 	rds_stats_inc(s_send_pong);
+ 
+ 	/* schedule the send work on rds_wq */
+-	queue_delayed_work(rds_wq, &conn->c_send_w, 1);
++	queue_delayed_work(rds_wq, &cp->cp_send_w, 1);
+ 
+ 	rds_message_put(rm);
+ 	return 0;
 -- 
 1.7.1
