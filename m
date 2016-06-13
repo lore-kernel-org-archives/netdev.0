@@ -1,91 +1,90 @@
 From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: [PATCH net-next 03/17] RDS: recv path gets the conn_path from rds_incoming for MP capable transports
-Date: Mon, 13 Jun 2016 09:44:28 -0700
-Message-ID: <1db17f2c3112d5cf743c75c0e7edd2620017600d.1465829626.git.sowmini.varadhan@oracle.com>
+Subject: [PATCH net-next 06/17] RDS: Add rds_send_path_drop_acked()
+Date: Mon, 13 Jun 2016 09:44:31 -0700
+Message-ID: <78dbe8cef1c52d12ba552bf1b16fdcbccdf67412.1465829626.git.sowmini.varadhan@oracle.com>
 References: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 Cc: davem@davemloft.net, rds-devel@oss.oracle.com,
 	ajaykumar.hotchandani@oracle.com, santosh.shilimkar@oracle.com,
 	sowmini.varadhan@oracle.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:40941 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S965088AbcFMQpK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:45:10 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:25872 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965088AbcFMQpO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:45:14 -0400
 In-Reply-To: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 In-Reply-To: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 References: <cover.1465829626.git.sowmini.varadhan@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Transports that are t_mp_capable should set the rds_conn_path
-on which the datagram was recived in the ->i_conn_path field
-of struct rds_incoming.
+rds_send_path_drop_acked() is the path-specific version of
+rds_send_drop_acked() to be invoked by MP capable callers.
 
 Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 ---
- net/rds/rds.h  |    1 +
- net/rds/recv.c |   12 ++++++++----
- 2 files changed, 9 insertions(+), 4 deletions(-)
+ net/rds/rds.h  |    2 ++
+ net/rds/send.c |   18 +++++++++++++-----
+ 2 files changed, 15 insertions(+), 5 deletions(-)
 
 diff --git a/net/rds/rds.h b/net/rds/rds.h
-index 28f001c..7c85b2d 100644
+index c3b14cc..d94aa36 100644
 --- a/net/rds/rds.h
 +++ b/net/rds/rds.h
-@@ -231,6 +231,7 @@ struct rds_incoming {
- 	atomic_t		i_refcount;
- 	struct list_head	i_item;
- 	struct rds_connection	*i_conn;
-+	struct rds_conn_path	*i_conn_path;
- 	struct rds_header	i_hdr;
- 	unsigned long		i_rx_jiffies;
- 	__be32			i_saddr;
-diff --git a/net/rds/recv.c b/net/rds/recv.c
-index 78b5c43..e36652c 100644
---- a/net/rds/recv.c
-+++ b/net/rds/recv.c
-@@ -38,7 +38,6 @@
- #include <linux/time.h>
- #include <linux/rds.h>
- 
--#include "rds_single_path.h"
- #include "rds.h"
- 
- void rds_inc_init(struct rds_incoming *inc, struct rds_connection *conn,
-@@ -165,13 +164,18 @@ void rds_recv_incoming(struct rds_connection *conn, __be32 saddr, __be32 daddr,
- 	struct rds_sock *rs = NULL;
- 	struct sock *sk;
+@@ -786,6 +786,8 @@ void rds_send_drop_to(struct rds_sock *rs, struct sockaddr_in *dest);
+ typedef int (*is_acked_func)(struct rds_message *rm, uint64_t ack);
+ void rds_send_drop_acked(struct rds_connection *conn, u64 ack,
+ 			 is_acked_func is_acked);
++void rds_send_path_drop_acked(struct rds_conn_path *cp, u64 ack,
++			      is_acked_func is_acked);
+ int rds_send_pong(struct rds_connection *conn, __be16 dport);
+ struct rds_message *rds_send_get_message(struct rds_connection *,
+ 					 struct rm_rdma_op *);
+diff --git a/net/rds/send.c b/net/rds/send.c
+index bfb3e05..3f6a96c 100644
+--- a/net/rds/send.c
++++ b/net/rds/send.c
+@@ -691,16 +691,16 @@ static void rds_send_remove_from_sock(struct list_head *messages, int status)
+  * assigned the m_ack_seq yet - but that's fine as long as tcp_is_acked
+  * checks the RDS_MSG_HAS_ACK_SEQ bit.
+  */
+-void rds_send_drop_acked(struct rds_connection *conn, u64 ack,
+-			 is_acked_func is_acked)
++void rds_send_path_drop_acked(struct rds_conn_path *cp, u64 ack,
++			      is_acked_func is_acked)
+ {
+ 	struct rds_message *rm, *tmp;
  	unsigned long flags;
-+	struct rds_conn_path *cp;
+ 	LIST_HEAD(list);
  
- 	inc->i_conn = conn;
- 	inc->i_rx_jiffies = jiffies;
-+	if (conn->c_trans->t_mp_capable)
-+		cp = inc->i_conn_path;
-+	else
-+		cp = &conn->c_path[0];
+-	spin_lock_irqsave(&conn->c_lock, flags);
++	spin_lock_irqsave(&cp->cp_lock, flags);
  
- 	rdsdebug("conn %p next %llu inc %p seq %llu len %u sport %u dport %u "
- 		 "flags 0x%x rx_jiffies %lu\n", conn,
--		 (unsigned long long)conn->c_next_rx_seq,
-+		 (unsigned long long)cp->cp_next_rx_seq,
- 		 inc,
- 		 (unsigned long long)be64_to_cpu(inc->i_hdr.h_sequence),
- 		 be32_to_cpu(inc->i_hdr.h_len),
-@@ -200,12 +204,12 @@ void rds_recv_incoming(struct rds_connection *conn, __be32 saddr, __be32 daddr,
- 	 * XXX we could spend more on the wire to get more robust failure
- 	 * detection, arguably worth it to avoid data corruption.
- 	 */
--	if (be64_to_cpu(inc->i_hdr.h_sequence) < conn->c_next_rx_seq &&
-+	if (be64_to_cpu(inc->i_hdr.h_sequence) < cp->cp_next_rx_seq &&
- 	    (inc->i_hdr.h_flags & RDS_FLAG_RETRANSMITTED)) {
- 		rds_stats_inc(s_recv_drop_old_seq);
- 		goto out;
- 	}
--	conn->c_next_rx_seq = be64_to_cpu(inc->i_hdr.h_sequence) + 1;
-+	cp->cp_next_rx_seq = be64_to_cpu(inc->i_hdr.h_sequence) + 1;
+-	list_for_each_entry_safe(rm, tmp, &conn->c_retrans, m_conn_item) {
++	list_for_each_entry_safe(rm, tmp, &cp->cp_retrans, m_conn_item) {
+ 		if (!rds_send_is_acked(rm, ack, is_acked))
+ 			break;
  
- 	if (rds_sysctl_ping_enable && inc->i_hdr.h_dport == 0) {
- 		rds_stats_inc(s_recv_ping);
+@@ -712,11 +712,19 @@ void rds_send_drop_acked(struct rds_connection *conn, u64 ack,
+ 	if (!list_empty(&list))
+ 		smp_mb__after_atomic();
+ 
+-	spin_unlock_irqrestore(&conn->c_lock, flags);
++	spin_unlock_irqrestore(&cp->cp_lock, flags);
+ 
+ 	/* now remove the messages from the sock list as needed */
+ 	rds_send_remove_from_sock(&list, RDS_RDMA_SUCCESS);
+ }
++EXPORT_SYMBOL_GPL(rds_send_path_drop_acked);
++
++void rds_send_drop_acked(struct rds_connection *conn, u64 ack,
++			 is_acked_func is_acked)
++{
++	WARN_ON(conn->c_trans->t_mp_capable);
++	rds_send_path_drop_acked(&conn->c_path[0], ack, is_acked);
++}
+ EXPORT_SYMBOL_GPL(rds_send_drop_acked);
+ 
+ void rds_send_drop_to(struct rds_sock *rs, struct sockaddr_in *dest)
 -- 
 1.7.1
