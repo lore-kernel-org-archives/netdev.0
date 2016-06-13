@@ -1,48 +1,35 @@
-From: Kishan Sandeep <sandeepkishan108@gmail.com>
-Subject: Re: [PATCH] netfilter: fix buffer null termination
-Date: Mon, 13 Jun 2016 21:07:19 +0530
-Message-ID: <CAJ3s=NAf5x3W9spRjxKKnX0Qxoc+nmr3rRkNy5dKYbyXG6mP4g@mail.gmail.com>
-References: <1465620484-5543-1-git-send-email-sandeepkishan108@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next] tcp: return sizeof tcp_dctcp_info in dctcp_get_info()
+Date: Mon, 13 Jun 2016 17:47:41 +0200
+Message-ID: <575ED59D.2000908@iogearbox.net>
+References: <1465831235-29876-1-git-send-email-ncardwell@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: pablo@netfilter.org, netdev@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Soheil Hassas Yeganeh <soheil@google.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Neal Cardwell <ncardwell@google.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:33565 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424071AbcFMPhU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 11:37:20 -0400
-Received: by mail-io0-f194.google.com with SMTP id 5so17172600ioy.0
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 08:37:20 -0700 (PDT)
-In-Reply-To: <1465620484-5543-1-git-send-email-sandeepkishan108@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:60458 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1424144AbcFMPrp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 11:47:45 -0400
+In-Reply-To: <1465831235-29876-1-git-send-email-ncardwell@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-+ netdev
+On 06/13/2016 05:20 PM, Neal Cardwell wrote:
+> Make sure that dctcp_get_info() returns only the size of the
+> info->dctcp struct that it zeroes out and fills in. Previously it had
+> been returning the size of the enclosing tcp_cc_info union,
+> sizeof(*info).  There is no problem yet, but that union that may one
+> day be larger than struct tcp_dctcp_info, in which case the
+> TCP_CC_INFO code might accidentally copy uninitialized bytes from the
+> stack.
+>
+> Signed-off-by: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-On Sat, Jun 11, 2016 at 10:18 AM, Kishan Sandeep
-<sandeepkishan108@gmail.com> wrote:
-> strncpy generally perferable fo non-terminated
-> fixed-width strings. For NULL termination strlcpy
-> is preferrable.
->
-> Signed-off-by: Kishan Sandeep <sandeepkishan108@gmail.com>
-> ---
->  net/netfilter/xt_repldata.h |    2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/netfilter/xt_repldata.h b/net/netfilter/xt_repldata.h
-> index 8fd3241..a460211 100644
-> --- a/net/netfilter/xt_repldata.h
-> +++ b/net/netfilter/xt_repldata.h
-> @@ -28,7 +28,7 @@
->         if (tbl == NULL) \
->                 return NULL; \
->         term = (struct type##_error *)&(((char *)tbl)[term_offset]); \
-> -       strncpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
-> +       strlcpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
->         *term = (struct type##_error)typ2##_ERROR_INIT;  \
->         tbl->repl.valid_hooks = hook_mask; \
->         tbl->repl.num_entries = nhooks + 1; \
-> --
-> 1.7.9.5
->
+Acked-by: Daniel Borkmann <daniel@iogearbox.net>
