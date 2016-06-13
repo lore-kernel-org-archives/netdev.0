@@ -1,58 +1,49 @@
 From: Alexander Shiyan <shc_work@mail.ru>
-Subject: [PATCH 1/2] net: cx89x0: Add DT support
-Date: Mon, 13 Jun 2016 18:51:05 +0300
-Message-ID: <1465833065-785-1-git-send-email-shc_work@mail.ru>
-Cc: Alexander Shiyan <shc_work@mail.ru>
+Subject: [PATCH 2/2] dt: bindings: Add bindings for Cirrus Logic CS89x0 ethernet chip
+Date: Mon, 13 Jun 2016 18:52:17 +0300
+Message-ID: <1465833137-836-1-git-send-email-shc_work@mail.ru>
+Cc: devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>,
+	Alexander Shiyan <shc_work@mail.ru>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback8.mail.ru ([94.100.181.110]:53832 "EHLO
-	fallback8.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1424127AbcFMQPt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:15:49 -0400
-Received: from smtp35.i.mail.ru (smtp35.i.mail.ru [94.100.177.95])
-	by fallback8.mail.ru (mPOP.Fallback_MX) with ESMTP id 480AD9FD11C6
-	for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 18:51:17 +0300 (MSK)
+Received: from fallback2.mail.ru ([94.100.179.22]:43854 "EHLO
+	fallback2.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161143AbcFMQXb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:23:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add DT support to the Cirrus Logic CS89x0 driver.
+Add device tree binding documentation details for Cirrus Logic
+CS8900/CS8920 ethernet chip.
 
 Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
 ---
- drivers/net/ethernet/cirrus/cs89x0.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
+ Documentation/devicetree/bindings/net/cirrus,cs89x0.txt | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+ create mode 100644 Documentation/devicetree/bindings/net/cirrus,cs89x0.txt
 
-diff --git a/drivers/net/ethernet/cirrus/cs89x0.c b/drivers/net/ethernet/cirrus/cs89x0.c
-index 6038304..c363b58 100644
---- a/drivers/net/ethernet/cirrus/cs89x0.c
-+++ b/drivers/net/ethernet/cirrus/cs89x0.c
-@@ -53,6 +53,8 @@
- #include <linux/errno.h>
- #include <linux/netdevice.h>
- #include <linux/etherdevice.h>
-+#include <linux/of.h>
-+#include <linux/of_device.h>
- #include <linux/platform_device.h>
- #include <linux/kernel.h>
- #include <linux/types.h>
-@@ -1895,9 +1897,17 @@ static int cs89x0_platform_remove(struct platform_device *pdev)
- 	return 0;
- }
- 
-+static const struct __maybe_unused of_device_id cs89x0_match[] = {
-+	{ .compatible = "cirrus,cs8900", },
-+	{ .compatible = "cirrus,cs8920", },
-+	{ },
-+};
-+MODULE_DEVICE_TABLE(of, cs89x0_match);
+diff --git a/Documentation/devicetree/bindings/net/cirrus,cs89x0.txt b/Documentation/devicetree/bindings/net/cirrus,cs89x0.txt
+new file mode 100644
+index 0000000..c070076
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/cirrus,cs89x0.txt
+@@ -0,0 +1,13 @@
++* Cirrus Logic CS8900/CS8920 Network Controller
 +
- static struct platform_driver cs89x0_driver = {
- 	.driver	= {
--		.name	= DRV_NAME,
-+		.name		= DRV_NAME,
-+		.of_match_table	= of_match_ptr(cs89x0_match),
- 	},
- 	.remove	= cs89x0_platform_remove,
- };
++Required properties:
++- compatible	: Should be "cirrus,cs8900" or "cirrus,cs8920".
++- reg		: Address and length of the IO space.
++- interrupts	: Should contain the controller interrupt line.
++
++Examples:
++	eth0: eth@10000000 {
++		compatible = "cirrus,cs8900";
++		reg = <0x10000000 0x400>;
++		interrupts = <10>;
++	};
 -- 
 2.4.9
