@@ -1,193 +1,132 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 08/11] bnxt_en: Add GRO logic for BCM5731X chips.
-Date: Mon, 13 Jun 2016 02:25:35 -0400
-Message-ID: <1465799138-27529-9-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 07/11] bnxt_en: Refactor bnxt_gro_skb().
+Date: Mon, 13 Jun 2016 02:25:34 -0400
+Message-ID: <1465799138-27529-8-git-send-email-michael.chan@broadcom.com>
 References: <1465799138-27529-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:33719 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030182AbcFMGZ7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 02:25:59 -0400
-Received: by mail-pf0-f174.google.com with SMTP id y124so43026997pfy.0
-        for <netdev@vger.kernel.org>; Sun, 12 Jun 2016 23:25:58 -0700 (PDT)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:34618 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964808AbcFMGZ6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 02:25:58 -0400
+Received: by mail-pa0-f42.google.com with SMTP id bz2so42651396pad.1
+        for <netdev@vger.kernel.org>; Sun, 12 Jun 2016 23:25:57 -0700 (PDT)
 In-Reply-To: <1465799138-27529-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add bnxt_gro_func_5731x() to handle GRO packets for this chip.  The
-completion structures used in the new chip have new data to help determine
-the header offsets.  The offsets can be off by 4 if the packet is an
-internal loopback packet (e.g. from one VF to another VF).  Some additional
-logic is added to adjust the offsets if it is a loopback packet.
+Newer chips require different logic to handle GRO packets.  So refactor
+the code so that we can call different functions depending on the chip.
 
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 89 ++++++++++++++++++++++++++++++-
- drivers/net/ethernet/broadcom/bnxt/bnxt.h | 16 +++++-
- 2 files changed, 103 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 52 ++++++++++++++++++++-----------
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h |  3 ++
+ 2 files changed, 36 insertions(+), 19 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 4e3b9f5..5f9285c 100644
+index 0fd27b0..4e3b9f5 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -924,6 +924,7 @@ static void bnxt_tpa_start(struct bnxt *bp, struct bnxt_rx_ring_info *rxr,
- 	}
- 	tpa_info->flags2 = le32_to_cpu(tpa_start1->rx_tpa_start_cmp_flags2);
- 	tpa_info->metadata = le32_to_cpu(tpa_start1->rx_tpa_start_cmp_metadata);
-+	tpa_info->hdr_info = le32_to_cpu(tpa_start1->rx_tpa_start_cmp_hdr_info);
+@@ -945,29 +945,15 @@ static void bnxt_abort_tpa(struct bnxt *bp, struct bnxt_napi *bnapi,
+ #define BNXT_IPV4_HDR_SIZE	(sizeof(struct iphdr) + sizeof(struct tcphdr))
+ #define BNXT_IPV6_HDR_SIZE	(sizeof(struct ipv6hdr) + sizeof(struct tcphdr))
  
- 	rxr->rx_prod = NEXT_RX(prod);
- 	cons = NEXT_RX(cons);
-@@ -942,6 +943,90 @@ static void bnxt_abort_tpa(struct bnxt *bp, struct bnxt_napi *bnapi,
- 		bnxt_reuse_rx_agg_bufs(bnapi, cp_cons, agg_bufs);
+-static inline struct sk_buff *bnxt_gro_skb(struct bnxt_tpa_info *tpa_info,
+-					   struct rx_tpa_end_cmp *tpa_end,
+-					   struct rx_tpa_end_cmp_ext *tpa_end1,
++static struct sk_buff *bnxt_gro_func_5730x(struct bnxt_tpa_info *tpa_info,
++					   int payload_off, int tcp_ts,
+ 					   struct sk_buff *skb)
+ {
+ #ifdef CONFIG_INET
+ 	struct tcphdr *th;
+-	int payload_off, tcp_opt_len = 0;
+-	int len, nw_off;
+-	u16 segs;
+-
+-	segs = TPA_END_TPA_SEGS(tpa_end);
+-	if (segs == 1)
+-		return skb;
++	int len, nw_off, tcp_opt_len;
+ 
+-	NAPI_GRO_CB(skb)->count = segs;
+-	skb_shinfo(skb)->gso_size =
+-		le32_to_cpu(tpa_end1->rx_tpa_end_cmp_seg_len);
+-	skb_shinfo(skb)->gso_type = tpa_info->gso_type;
+-	payload_off = (le32_to_cpu(tpa_end->rx_tpa_end_cmp_misc_v1) &
+-		       RX_TPA_END_CMP_PAYLOAD_OFFSET) >>
+-		      RX_TPA_END_CMP_PAYLOAD_OFFSET_SHIFT;
+-	if (TPA_END_GRO_TS(tpa_end))
++	if (tcp_ts)
+ 		tcp_opt_len = 12;
+ 
+ 	if (tpa_info->gso_type == SKB_GSO_TCPV4) {
+@@ -1024,6 +1010,32 @@ static inline struct sk_buff *bnxt_gro_skb(struct bnxt_tpa_info *tpa_info,
+ 	return skb;
  }
  
-+static struct sk_buff *bnxt_gro_func_5731x(struct bnxt_tpa_info *tpa_info,
-+					   int payload_off, int tcp_ts,
++static inline struct sk_buff *bnxt_gro_skb(struct bnxt *bp,
++					   struct bnxt_tpa_info *tpa_info,
++					   struct rx_tpa_end_cmp *tpa_end,
++					   struct rx_tpa_end_cmp_ext *tpa_end1,
 +					   struct sk_buff *skb)
 +{
 +#ifdef CONFIG_INET
-+	struct tcphdr *th;
-+	int len, nw_off;
-+	u16 outer_ip_off, inner_ip_off, inner_mac_off;
-+	u32 hdr_info = tpa_info->hdr_info;
-+	bool loopback = false;
++	int payload_off;
++	u16 segs;
 +
-+	inner_ip_off = BNXT_TPA_INNER_L3_OFF(hdr_info);
-+	inner_mac_off = BNXT_TPA_INNER_L2_OFF(hdr_info);
-+	outer_ip_off = BNXT_TPA_OUTER_L3_OFF(hdr_info);
++	segs = TPA_END_TPA_SEGS(tpa_end);
++	if (segs == 1)
++		return skb;
 +
-+	/* If the packet is an internal loopback packet, the offsets will
-+	 * have an extra 4 bytes.
-+	 */
-+	if (inner_mac_off == 4) {
-+		loopback = true;
-+	} else if (inner_mac_off > 4) {
-+		__be16 proto = *((__be16 *)(skb->data + inner_ip_off -
-+					    ETH_HLEN - 2));
-+
-+		/* We only support inner iPv4/ipv6.  If we don't see the
-+		 * correct protocol ID, it must be a loopback packet where
-+		 * the offsets are off by 4.
-+		 */
-+		if (proto != htons(ETH_P_IP) && proto && htons(ETH_P_IPV6))
-+			loopback = true;
-+	}
-+	if (loopback) {
-+		/* internal loopback packet, subtract all offsets by 4 */
-+		inner_ip_off -= 4;
-+		inner_mac_off -= 4;
-+		outer_ip_off -= 4;
-+	}
-+
-+	nw_off = inner_ip_off - ETH_HLEN;
-+	skb_set_network_header(skb, nw_off);
-+	if (tpa_info->flags2 & RX_TPA_START_CMP_FLAGS2_IP_TYPE) {
-+		struct ipv6hdr *iph = ipv6_hdr(skb);
-+
-+		skb_set_transport_header(skb, nw_off + sizeof(struct ipv6hdr));
-+		len = skb->len - skb_transport_offset(skb);
-+		th = tcp_hdr(skb);
-+		th->check = ~tcp_v6_check(len, &iph->saddr, &iph->daddr, 0);
-+	} else {
-+		struct iphdr *iph = ip_hdr(skb);
-+
-+		skb_set_transport_header(skb, nw_off + sizeof(struct iphdr));
-+		len = skb->len - skb_transport_offset(skb);
-+		th = tcp_hdr(skb);
-+		th->check = ~tcp_v4_check(len, iph->saddr, iph->daddr, 0);
-+	}
-+
-+	if (inner_mac_off) { /* tunnel */
-+		struct udphdr *uh = NULL;
-+		__be16 proto = *((__be16 *)(skb->data + outer_ip_off -
-+					    ETH_HLEN - 2));
-+
-+		if (proto == htons(ETH_P_IP)) {
-+			struct iphdr *iph = (struct iphdr *)skb->data;
-+
-+			if (iph->protocol == IPPROTO_UDP)
-+				uh = (struct udphdr *)(iph + 1);
-+		} else {
-+			struct ipv6hdr *iph = (struct ipv6hdr *)skb->data;
-+
-+			if (iph->nexthdr == IPPROTO_UDP)
-+				uh = (struct udphdr *)(iph + 1);
-+		}
-+		if (uh) {
-+			if (uh->check)
-+				skb_shinfo(skb)->gso_type |=
-+					SKB_GSO_UDP_TUNNEL_CSUM;
-+			else
-+				skb_shinfo(skb)->gso_type |= SKB_GSO_UDP_TUNNEL;
-+		}
-+	}
++	NAPI_GRO_CB(skb)->count = segs;
++	skb_shinfo(skb)->gso_size =
++		le32_to_cpu(tpa_end1->rx_tpa_end_cmp_seg_len);
++	skb_shinfo(skb)->gso_type = tpa_info->gso_type;
++	payload_off = (le32_to_cpu(tpa_end->rx_tpa_end_cmp_misc_v1) &
++		       RX_TPA_END_CMP_PAYLOAD_OFFSET) >>
++		      RX_TPA_END_CMP_PAYLOAD_OFFSET_SHIFT;
++	skb = bp->gro_func(tpa_info, payload_off, TPA_END_GRO_TS(tpa_end), skb);
 +#endif
 +	return skb;
 +}
 +
- #define BNXT_IPV4_HDR_SIZE	(sizeof(struct iphdr) + sizeof(struct tcphdr))
- #define BNXT_IPV6_HDR_SIZE	(sizeof(struct ipv6hdr) + sizeof(struct tcphdr))
+ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
+ 					   struct bnxt_napi *bnapi,
+ 					   u32 *raw_cons,
+@@ -1134,7 +1146,7 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
+ 	}
  
-@@ -2283,7 +2368,7 @@ static void bnxt_set_tpa_flags(struct bnxt *bp)
- 	bp->flags &= ~BNXT_FLAG_TPA;
- 	if (bp->dev->features & NETIF_F_LRO)
- 		bp->flags |= BNXT_FLAG_LRO;
--	if ((bp->dev->features & NETIF_F_GRO) && (bp->pdev->revision > 0))
-+	if (bp->dev->features & NETIF_F_GRO)
- 		bp->flags |= BNXT_FLAG_GRO;
+ 	if (TPA_END_GRO(tpa_end))
+-		skb = bnxt_gro_skb(tpa_info, tpa_end, tpa_end1, skb);
++		skb = bnxt_gro_skb(bp, tpa_info, tpa_end, tpa_end1, skb);
+ 
+ 	return skb;
  }
- 
-@@ -6433,6 +6518,8 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+@@ -6420,6 +6432,8 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	if (rc)
  		goto init_err;
  
- 	bp->gro_func = bnxt_gro_func_5730x;
-+	if (BNXT_CHIP_NUM_57X1X(bp->chip_num))
-+		bp->gro_func = bnxt_gro_func_5731x;
- 
++	bp->gro_func = bnxt_gro_func_5730x;
++
  	rc = bnxt_hwrm_func_drv_rgtr(bp);
  	if (rc)
+ 		goto init_err;
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index d62f4c2..c1b41fb 100644
+index b754be6..d62f4c2 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -298,13 +298,14 @@ struct rx_tpa_start_cmp_ext {
- 	#define RX_TPA_START_CMP_FLAGS2_L4_CS_CALC		(0x1 << 1)
- 	#define RX_TPA_START_CMP_FLAGS2_T_IP_CS_CALC		(0x1 << 2)
- 	#define RX_TPA_START_CMP_FLAGS2_T_L4_CS_CALC		(0x1 << 3)
-+	#define RX_TPA_START_CMP_FLAGS2_IP_TYPE			(0x1 << 8)
+@@ -953,6 +953,9 @@ struct bnxt {
+ 	struct bnxt_rx_ring_info	*rx_ring;
+ 	struct bnxt_tx_ring_info	*tx_ring;
  
- 	__le32 rx_tpa_start_cmp_metadata;
- 	__le32 rx_tpa_start_cmp_cfa_code_v2;
- 	#define RX_TPA_START_CMP_V2				(0x1 << 0)
- 	#define RX_TPA_START_CMP_CFA_CODE			(0xffff << 16)
- 	 #define RX_TPA_START_CMPL_CFA_CODE_SHIFT		 16
--	__le32 rx_tpa_start_cmp_unused5;
-+	__le32 rx_tpa_start_cmp_hdr_info;
- };
- 
- struct rx_tpa_end_cmp {
-@@ -584,6 +585,19 @@ struct bnxt_tpa_info {
- 	u32			metadata;
- 	enum pkt_hash_types	hash_type;
- 	u32			rss_hash;
-+	u32			hdr_info;
++	struct sk_buff *	(*gro_func)(struct bnxt_tpa_info *, int, int,
++					    struct sk_buff *);
 +
-+#define BNXT_TPA_L4_SIZE(hdr_info)	\
-+	(((hdr_info) & 0xf8000000) ? ((hdr_info) >> 27) : 32)
-+
-+#define BNXT_TPA_INNER_L3_OFF(hdr_info)	\
-+	(((hdr_info) >> 18) & 0x1ff)
-+
-+#define BNXT_TPA_INNER_L2_OFF(hdr_info)	\
-+	(((hdr_info) >> 9) & 0x1ff)
-+
-+#define BNXT_TPA_OUTER_L3_OFF(hdr_info)	\
-+	((hdr_info) & 0x1ff)
- };
- 
- struct bnxt_rx_ring_info {
+ 	u32			rx_buf_size;
+ 	u32			rx_buf_use_size;	/* useable size */
+ 	u32			rx_ring_size;
 -- 
 1.8.3.1
