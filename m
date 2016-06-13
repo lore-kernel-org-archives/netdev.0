@@ -1,54 +1,63 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: udp failures traced to e858fae2b0b8
-Date: Mon, 13 Jun 2016 13:56:05 -0600
-Message-ID: <973d7528-2ea7-47e3-cf19-208c24d85dec@cumulusnetworks.com>
-References: <84272f6d-8c68-6b84-7f0a-6ef4ad8b9e03@cumulusnetworks.com>
- <20160613064202.GA14048@rapoport-lnx>
- <2ba80fe2-8274-33e2-afef-70170f31002c@cumulusnetworks.com>
- <20160613184040.GC14048@rapoport-lnx>
+From: =?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@gmail.com>
+Subject: Re: [RESEND PATCH 1/3] rfkill: Create "rfkill-airplane-mode" LED trigger
+Date: Mon, 13 Jun 2016 15:59:35 -0400
+Message-ID: <CA+A7VXXOfN1Td2T6uiunWZMS4gvS5sHDzPiDp9VEdx+OPJpSmA@mail.gmail.com>
+References: <1462199948-6424-1-git-send-email-jprvita@endlessm.com>
+ <1462199948-6424-2-git-send-email-jprvita@endlessm.com> <20160504072936.GB17045@amd>
+ <1463045572.13313.21.camel@sipsolutions.net> <20160519071639.GB17077@amd>
+ <1465476194.3442.21.camel@sipsolutions.net> <CA+A7VXXP3TYuk4Vvgc8YvxPFo06GG6WpyLJS+2vMLzr0iKQgsA@mail.gmail.com>
+ <20160613190048.GA17101@amd>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Mike Rapoport <rppt@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Johannes Berg <johannes@sipsolutions.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Darren Hart <dvhart@infradead.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Network Development <netdev@vger.kernel.org>,
+	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
+	linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	linux@endlessm.com,
+	=?UTF-8?Q?Jo=C3=A3o_Paulo_Rechi_Vita?= <jprvita@endlessm.com>
+To: Pavel Machek <pavel@ucw.cz>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33566 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932757AbcFMT4I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 15:56:08 -0400
-Received: by mail-pf0-f176.google.com with SMTP id y124so49289583pfy.0
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 12:56:07 -0700 (PDT)
-In-Reply-To: <20160613184040.GC14048@rapoport-lnx>
+Received: from mail-yw0-f196.google.com ([209.85.161.196]:35144 "EHLO
+	mail-yw0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932430AbcFMUAQ convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 16:00:16 -0400
+In-Reply-To: <20160613190048.GA17101@amd>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/13/16 12:40 PM, Mike Rapoport wrote:
-> diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-> index 9af0a98..9f8be96 100644
-> --- a/drivers/net/virtio_net.c
-> +++ b/drivers/net/virtio_net.c
-> @@ -482,10 +482,6 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
->  	if (hdr->hdr.flags & VIRTIO_NET_HDR_F_DATA_VALID)
->  		skb->ip_summed = CHECKSUM_UNNECESSARY;
+On 13 June 2016 at 15:00, Pavel Machek <pavel@ucw.cz> wrote:
+> Hi!
 >
-> -	skb->protocol = eth_type_trans(skb, dev);
-> -	pr_debug("Receiving skb proto 0x%04x len %i type %i\n",
-> -		 ntohs(skb->protocol), skb->len, skb->pkt_type);
-> -
->  	if (virtio_net_hdr_to_skb(skb, &hdr->hdr,
->  				  virtio_is_little_endian(vi->vdev))) {
->  		net_warn_ratelimited("%s: bad gso: type: %u, size: %u\n",
-> @@ -494,6 +490,10 @@ static void receive_buf(struct virtnet_info *vi, struct receive_queue *rq,
->  		goto frame_err;
->  	}
+>> > Jo=C3=A3o, that means you should send a patch to add the ::rfkill =
+suffix.
+>> >
+>>
+>> IMO "airplane" (or maybe "airplane-mode") is a better suffix, as it
+>> reflects the label on the machine's chassis. I'll name it
+>> "asus-wireless::airplane" and send this through platform-drivers-x86=
+,
+>> as this is now contained in the platform-drivers-x86 subsystem. Than=
+ks
+>> Johannes for your patience and help designing and reviewing the rfki=
+ll
+>> changes, even if not all of them made it through in the end. And
+>> thanks everyone else involved for the feedback.
 >
-> +	skb->protocol = eth_type_trans(skb, dev);
-> +	pr_debug("Receiving skb proto 0x%04x len %i type %i\n",
-> +		 ntohs(skb->protocol), skb->len, skb->pkt_type);
-> +
->  	napi_gro_receive(&rq->napi, skb);
->  	return;
+> Actually, I'd do '::rfkill', for consistency with other places in
+> /sys.
 >
+> /sys/devices/platform/thinkpad_acpi/rfkill/rfkill1/name
+> /sys/class/rfkill
+> /sys/module/rfkill
 >
 
-Fixes the problem.
+If we use "rfkill" as a suffix, how do you expect userspace to be able
+to differentiate between a LED that indicates airplane-mode (LED ON
+when all radios are OFF) and a LED that indicates the state of a
+specific radio like WiFi or Bluetooth (LED ON when that specific radio
+is ON)? If we're going this route we should provide meaningful
+information here.
