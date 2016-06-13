@@ -1,240 +1,58 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH net-next] tcp: use RFC6298 compliant TCP RTO calculation
-Date: Mon, 13 Jun 2016 15:38:24 -0700
-Message-ID: <CAK6E8=cw2JNsqm+1x4dJxmOe2xpt_ywAq3TNtaUv4hOaJL9qiA@mail.gmail.com>
-References: <20160613204529.18826-1-dmetz@mytum.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net 1/1] net sched actions: bug fix dumping actions
+ directly didnt produce NLMSG_DONE
+Date: Mon, 13 Jun 2016 15:58:53 -0700
+Message-ID: <CAM_iQpUmHZBHvykV0V2u9+Bja5-NwN1=z9NqZcxkB=zAfawoDQ@mail.gmail.com>
+References: <1465855722-26727-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	Pasi Sarolahti <pasi.sarolahti@iki.fi>,
-	Van Jacobson <vanj@google.com>
-To: Daniel Metz <dmetz@mytum.de>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f51.google.com ([209.85.214.51]:37933 "EHLO
-	mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422745AbcFMWqk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 18:46:40 -0400
-Received: by mail-it0-f51.google.com with SMTP id h190so54175234ith.1
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 15:46:40 -0700 (PDT)
-In-Reply-To: <20160613204529.18826-1-dmetz@mytum.de>
+Received: from mail-yw0-f194.google.com ([209.85.161.194]:35647 "EHLO
+	mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751802AbcFMW7N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 18:59:13 -0400
+Received: by mail-yw0-f194.google.com with SMTP id v137so9755792ywa.2
+        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 15:59:12 -0700 (PDT)
+In-Reply-To: <1465855722-26727-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 13, 2016 at 1:45 PM, Daniel Metz <dmetz@mytum.de> wrote:
-> This patch adjusts Linux RTO calculation to be RFC6298 Standard
-> compliant. MinRTO is no longer added to the computed RTO, RTO damping
-> and overestimation are decreased.
+On Mon, Jun 13, 2016 at 3:08 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
 >
-> In RFC 6298 Standard TCP Retransmission Timeout (RTO) calculation the
-> calculated RTO is rounded up to the Minimum RTO (MinRTO), if it is
-> less. The Linux implementation as a discrepancy to the Standard
-> basically adds the defined MinRTO to the calculated RTO. When
-> comparing both approaches, the Linux calculation seems to perform
-> worse for sender limited TCP flows like Telnet, SSH or constant bit
-> rate encoded transmissions, especially for Round Trip Times (RTT) of
-> 50ms to 800ms.
+> This refers to commands to direct action access as follows:
 >
-> Compared to the Linux implementation the RFC 6298 proposed RTO
-> calculation performs better and more precise in adapting to current
-> network characteristics. Extensive measurements for bulk data did not
-> show a negative impact of the adjusted calculation.
+> sudo tc actions add action drop index 12
+> sudo tc actions add action pipe index 10
 >
-> Exemplary performance comparison for sender-limited-flows:
+> And then dumping them like so:
+> sudo tc actions ls action gact
 >
-> - Rate: 10Mbit/s
-> - Delay: 200ms, Delay Variation: 10ms
-> - Time between each scheduled segment: 1s
-> - Amount Data Segments: 300
-> - Mean of 11 runs
+> iproute2 worked because it depended on absence of TCA_ACT_TAB TLV
+> as end of message.
+> This fix has been tested with iproute2 and is backward compatible.
 >
->          Mean Response Waiting Time [milliseconds]
->
-> PER [%] |   0.5      1    1.5      2      3      5      7     10
-> --------+-------------------------------------------------------
-> old     | 206.4  208.6  218.0  218.6  227.2  249.3  274.7  308.2
-> new     | 203.9  206.0  207.0  209.9  217.3  225.6  238.7  259.1
->
->
-> Detailed Analysis:
->
-> https://docs.google.com/document/d/1pKmPfnQb6fDK4qpiNVkN8cQyGE4wYDZuk=
-cuZfR-BnnM/
-Thanks for the patch. I also have long wanted to evaluate Linux's RTO v=
-s RFC's.
-
-Since this is not a small change, and your patch is only tested on
-emulation-based testbed AFAICT, I'd like to try your patch on Google
-servers to get more data. But this would take a few days to setup &
-collect.
-
-Note that this paper
-https://www.cs.helsinki.fi/research/iwtcp/papers/linuxtcp.pdf has
-detailed rationale of current design (section 4). IMO having a "tight"
-RTO is less necessary now after TLP. I am also testing a new set of
-patches to install a quick reordering timer. But it's worth mentioning
-the paper in the commit message.
-
-
->
->
-> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
-> Signed-off-by: Daniel Metz <dmetz@mytum.de>
-> Cc: Eric Dumazet <edumazet@google.com>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 > ---
+>  net/sched/act_api.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> We removed outdated comments in the code, though more cleanup may req=
-uired.
->
->
->  net/ipv4/tcp_input.c | 74 ++++++++++++------------------------------=
-----------
->  1 file changed, 17 insertions(+), 57 deletions(-)
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index d6c8f4cd0..a0f66f8 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -680,8 +680,7 @@ static void tcp_event_data_recv(struct sock *sk, =
-struct sk_buff *skb)
->  /* Called to compute a smoothed rtt estimate. The data fed to this
->   * routine either comes from timestamps, or from segments that were
->   * known _not_ to have been retransmitted [see Karn/Partridge
-> - * Proceedings SIGCOMM 87]. The algorithm is from the SIGCOMM 88
-> - * piece by Van Jacobson.
-> + * Proceedings SIGCOMM 87].
->   * NOTE: the next three routines used to be one big routine.
->   * To save cycles in the RFC 1323 implementation it was better to br=
-eak
->   * it up into three procedures. -- erics
-> @@ -692,59 +691,21 @@ static void tcp_rtt_estimator(struct sock *sk, =
-long mrtt_us)
->         long m =3D mrtt_us; /* RTT */
->         u32 srtt =3D tp->srtt_us;
->
-> -       /*      The following amusing code comes from Jacobson's
-> -        *      article in SIGCOMM '88.  Note that rtt and mdev
-> -        *      are scaled versions of rtt and mean deviation.
-> -        *      This is designed to be as fast as possible
-> -        *      m stands for "measurement".
-> -        *
-> -        *      On a 1990 paper the rto value is changed to:
-> -        *      RTO =3D rtt + 4 * mdev
-> -        *
-> -        * Funny. This algorithm seems to be very broken.
-> -        * These formulae increase RTO, when it should be decreased, =
-increase
-> -        * too slowly, when it should be increased quickly, decrease =
-too quickly
-> -        * etc. I guess in BSD RTO takes ONE value, so that it is abs=
-olutely
-> -        * does not matter how to _calculate_ it. Seems, it was trap
-> -        * that VJ failed to avoid. 8)
-> -        */
->         if (srtt !=3D 0) {
-> -               m -=3D (srtt >> 3);       /* m is now error in rtt es=
-t */
-> -               srtt +=3D m;              /* rtt =3D 7/8 rtt + 1/8 ne=
-w */
-> -               if (m < 0) {
-> -                       m =3D -m;         /* m is now abs(error) */
-> -                       m -=3D (tp->mdev_us >> 2);   /* similar updat=
-e on mdev */
-> -                       /* This is similar to one of Eifel findings.
-> -                        * Eifel blocks mdev updates when rtt decreas=
-es.
-> -                        * This solution is a bit different: we use f=
-iner gain
-> -                        * for mdev in this case (alpha*beta).
-> -                        * Like Eifel it also prevents growth of rto,
-> -                        * but also it limits too fast rto decreases,
-> -                        * happening in pure Eifel.
-> -                        */
-> -                       if (m > 0)
-> -                               m >>=3D 3;
-> -               } else {
-> -                       m -=3D (tp->mdev_us >> 2);   /* similar updat=
-e on mdev */
-> -               }
-> -               tp->mdev_us +=3D m;               /* mdev =3D 3/4 mde=
-v + 1/4 new */
-> -               if (tp->mdev_us > tp->mdev_max_us) {
-> -                       tp->mdev_max_us =3D tp->mdev_us;
-> -                       if (tp->mdev_max_us > tp->rttvar_us)
-> -                               tp->rttvar_us =3D tp->mdev_max_us;
-> -               }
-> -               if (after(tp->snd_una, tp->rtt_seq)) {
-> -                       if (tp->mdev_max_us < tp->rttvar_us)
-> -                               tp->rttvar_us -=3D (tp->rttvar_us - t=
-p->mdev_max_us) >> 2;
-> +               m -=3D (srtt >> 3);        /* m' =3D m - srtt / 8 =3D=
- (R' - SRTT) */
-> +               srtt +=3D m;               /* srtt =3D srtt + m=E2=80=
-=99 =3D srtt + m - srtt / 8 */
-> +               if (m < 0)
-> +                       m =3D -m;
-> +               m -=3D (tp->mdev_us >> 2); /* m'' =3D |m'| - mdev / 4=
- */
-> +               tp->mdev_us +=3D m;
-> +               tp->rttvar_us =3D tp->mdev_us;
-> +               if (after(tp->snd_una, tp->rtt_seq))
->                         tp->rtt_seq =3D tp->snd_nxt;
-> -                       tp->mdev_max_us =3D tcp_rto_min_us(sk);
-> -               }
->         } else {
->                 /* no previous measure. */
-> -               srtt =3D m << 3;          /* take the measured time t=
-o be rtt */
-> -               tp->mdev_us =3D m << 1;   /* make sure rto =3D 3*rtt =
-*/
-> -               tp->rttvar_us =3D max(tp->mdev_us, tcp_rto_min_us(sk)=
-);
-> -               tp->mdev_max_us =3D tp->rttvar_us;
-> +               srtt =3D m << 3;
-> +               tp->mdev_us =3D m << 1;
-> +               tp->rttvar_us =3D tp->mdev_us;
->                 tp->rtt_seq =3D tp->snd_nxt;
->         }
->         tp->srtt_us =3D max(1U, srtt);
-> @@ -798,6 +759,7 @@ static void tcp_update_pacing_rate(struct sock *s=
-k)
->   */
->  static void tcp_set_rto(struct sock *sk)
->  {
-> +       const u32 min_rto =3D tcp_rto_min_us(sk);
->         const struct tcp_sock *tp =3D tcp_sk(sk);
->         /* Old crap is replaced with new one. 8)
->          *
-> @@ -809,17 +771,15 @@ static void tcp_set_rto(struct sock *sk)
->          *    is invisible. Actually, Linux-2.4 also generates errati=
-c
->          *    ACKs in some circumstances.
->          */
-> -       inet_csk(sk)->icsk_rto =3D __tcp_set_rto(tp);
-> -
-> +       if (((tp->srtt_us >> 3) + tp->rttvar_us) < min_rto)
-> +               inet_csk(sk)->icsk_rto =3D usecs_to_jiffies(min_rto);
-> +       else
-> +               inet_csk(sk)->icsk_rto =3D __tcp_set_rto(tp);
->         /* 2. Fixups made earlier cannot be right.
->          *    If we do not estimate RTO correctly without them,
->          *    all the algo is pure shit and should be replaced
->          *    with correct one. It is exactly, which we pretend to do=
-=2E
->          */
-> -
-> -       /* NOTE: clamping at TCP_RTO_MIN is not required, current alg=
-o
-> -        * guarantees that rto is higher.
-> -        */
->         tcp_bound_rto(sk);
->  }
->
-> --
-> 2.8.3
->
+> diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+> index 336774a..c7a0b0d 100644
+> --- a/net/sched/act_api.c
+> +++ b/net/sched/act_api.c
+> @@ -1118,7 +1118,7 @@ tc_dump_action(struct sk_buff *skb, struct netlink_callback *cb)
+>                 nla_nest_end(skb, nest);
+>                 ret = skb->len;
+>         } else
+> -               nla_nest_cancel(skb, nest);
+> +               nlmsg_trim(skb, b);
+
+So trim the whole tcamsg instead of just the nest attribute,
+looks reasonable:
+
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
