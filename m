@@ -1,136 +1,136 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 04/11] bnxt_en: Enable NPAR (NIC Partitioning) Support.
-Date: Mon, 13 Jun 2016 02:25:31 -0400
-Message-ID: <1465799138-27529-5-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 01/11] bnxt_en: Add function for VF driver to query default VLAN.
+Date: Mon, 13 Jun 2016 02:25:28 -0400
+Message-ID: <1465799138-27529-2-git-send-email-michael.chan@broadcom.com>
 References: <1465799138-27529-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:34612 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964814AbcFMGZz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 02:25:55 -0400
-Received: by mail-pa0-f50.google.com with SMTP id bz2so42651107pad.1
-        for <netdev@vger.kernel.org>; Sun, 12 Jun 2016 23:25:55 -0700 (PDT)
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:35616 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964807AbcFMGZx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 02:25:53 -0400
+Received: by mail-pa0-f41.google.com with SMTP id hl6so42688329pac.2
+        for <netdev@vger.kernel.org>; Sun, 12 Jun 2016 23:25:53 -0700 (PDT)
 In-Reply-To: <1465799138-27529-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Satish Baddipadige <sbaddipa@broadcom.com>
+The PF can setup a default VLAN for a VF.  The default VLAN tag is
+automatically inserted and stripped without the knowledge of the
+stack running on the VF.  The VF driver needs to know that default
+VLAN is enabled as VLAN acceleration on the RX side is no longer
+supported.  Call netdev_update_features() to fix up the VLAN features
+as necessary.  Also, VLAN strip mode must be enabled to strip out
+the default VLAN tag.
 
-NPAR type is read from bnxt_hwrm_func_qcfg.  Do not allow changing link
-parameters if in NPAR mode sinc ethe port is shared among multiple
-partitions.  The link parameters are set up by firmware.
+Only allow VF default VLAN to be set if the firmware spec is >= 1.2.1.
 
-Signed-off-by: Satish Baddipadige <sbaddipa@broadcom.com>
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c         | 13 +++++++++++--
- drivers/net/ethernet/broadcom/bnxt/bnxt.h         |  3 +++
- drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c |  6 +++---
- 3 files changed, 17 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c       | 47 +++++++++++++++++++++++--
+ drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c |  3 ++
+ 2 files changed, 48 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 51f9e38..9d785e6 100644
+index c777cde..67608d5 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -3850,6 +3850,7 @@ static int bnxt_hwrm_stat_ctx_alloc(struct bnxt *bp)
- static int bnxt_hwrm_func_qcfg(struct bnxt *bp)
+@@ -3277,6 +3277,7 @@ static int bnxt_hwrm_vnic_cfg(struct bnxt *bp, u16 vnic_id)
+ 	unsigned int ring = 0, grp_idx;
+ 	struct bnxt_vnic_info *vnic = &bp->vnic_info[vnic_id];
+ 	struct hwrm_vnic_cfg_input req = {0};
++	u16 def_vlan = 0;
+ 
+ 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_VNIC_CFG, -1, -1);
+ 	/* Only RSS support for now TBD: COS & LB */
+@@ -3297,7 +3298,11 @@ static int bnxt_hwrm_vnic_cfg(struct bnxt *bp, u16 vnic_id)
+ 	req.mru = cpu_to_le16(bp->dev->mtu + ETH_HLEN + ETH_FCS_LEN +
+ 			      VLAN_HLEN);
+ 
+-	if (bp->flags & BNXT_FLAG_STRIP_VLAN)
++#ifdef CONFIG_BNXT_SRIOV
++	if (BNXT_VF(bp))
++		def_vlan = bp->vf.vlan;
++#endif
++	if ((bp->flags & BNXT_FLAG_STRIP_VLAN) || def_vlan)
+ 		req.flags |= cpu_to_le32(VNIC_CFG_REQ_FLAGS_VLAN_STRIP_MODE);
+ 
+ 	return hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
+@@ -3836,6 +3841,32 @@ static int bnxt_hwrm_stat_ctx_alloc(struct bnxt *bp)
+ 	return 0;
+ }
+ 
++static int bnxt_hwrm_func_qcfg(struct bnxt *bp)
++{
++	struct hwrm_func_qcfg_input req = {0};
++	int rc;
++
++	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_QCFG, -1, -1);
++	req.fid = cpu_to_le16(0xffff);
++	mutex_lock(&bp->hwrm_cmd_lock);
++	rc = _hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
++	if (rc)
++		goto func_qcfg_exit;
++
++#ifdef CONFIG_BNXT_SRIOV
++	if (BNXT_VF(bp)) {
++		struct hwrm_func_qcfg_output *resp = bp->hwrm_cmd_resp_addr;
++		struct bnxt_vf_info *vf = &bp->vf;
++
++		vf->vlan = le16_to_cpu(resp->vlan) & VLAN_VID_MASK;
++	}
++#endif
++
++func_qcfg_exit:
++	mutex_unlock(&bp->hwrm_cmd_lock);
++	return rc;
++}
++
+ int bnxt_hwrm_func_qcaps(struct bnxt *bp)
  {
- 	struct hwrm_func_qcfg_input req = {0};
-+	struct hwrm_func_qcfg_output *resp = bp->hwrm_cmd_resp_addr;
+ 	int rc = 0;
+@@ -4230,6 +4261,11 @@ static int bnxt_init_chip(struct bnxt *bp, bool irq_re_init)
+ 		netdev_warn(bp->dev, "HWRM set coalescing failure rc: %x\n",
+ 			    rc);
+ 
++	if (BNXT_VF(bp)) {
++		bnxt_hwrm_func_qcfg(bp);
++		netdev_update_features(bp->dev);
++	}
++
+ 	return 0;
+ 
+ err_out:
+@@ -5469,7 +5505,14 @@ static netdev_features_t bnxt_fix_features(struct net_device *dev,
+ 			features |= NETIF_F_HW_VLAN_CTAG_RX |
+ 				    NETIF_F_HW_VLAN_STAG_RX;
+ 	}
+-
++#ifdef CONFIG_BNXT_SRIOV
++	if (BNXT_VF(bp)) {
++		if (bp->vf.vlan) {
++			features &= ~(NETIF_F_HW_VLAN_CTAG_RX |
++				      NETIF_F_HW_VLAN_STAG_RX);
++		}
++	}
++#endif
+ 	return features;
+ }
+ 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+index 363884d..50d2007 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+@@ -143,6 +143,9 @@ int bnxt_set_vf_vlan(struct net_device *dev, int vf_id, u16 vlan_id, u8 qos)
+ 	u16 vlan_tag;
  	int rc;
  
- 	bnxt_hwrm_cmd_hdr_init(bp, &req, HWRM_FUNC_QCFG, -1, -1);
-@@ -3861,12 +3862,18 @@ static int bnxt_hwrm_func_qcfg(struct bnxt *bp)
- 
- #ifdef CONFIG_BNXT_SRIOV
- 	if (BNXT_VF(bp)) {
--		struct hwrm_func_qcfg_output *resp = bp->hwrm_cmd_resp_addr;
- 		struct bnxt_vf_info *vf = &bp->vf;
- 
- 		vf->vlan = le16_to_cpu(resp->vlan) & VLAN_VID_MASK;
- 	}
- #endif
-+	switch (resp->port_partition_type) {
-+	case FUNC_QCFG_RESP_PORT_PARTITION_TYPE_NPAR1_0:
-+	case FUNC_QCFG_RESP_PORT_PARTITION_TYPE_NPAR1_5:
-+	case FUNC_QCFG_RESP_PORT_PARTITION_TYPE_NPAR2_0:
-+		bp->port_partition_type = resp->port_partition_type;
-+		break;
-+	}
- 
- func_qcfg_exit:
- 	mutex_unlock(&bp->hwrm_cmd_lock);
-@@ -4965,7 +4972,7 @@ static int bnxt_hwrm_shutdown_link(struct bnxt *bp)
- {
- 	struct hwrm_port_phy_cfg_input req = {0};
- 
--	if (BNXT_VF(bp))
-+	if (!BNXT_SINGLE_PF(bp))
- 		return 0;
- 
- 	if (pci_num_vf(bp->pdev))
-@@ -6427,6 +6434,8 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 		goto init_err;
- 	}
- 
-+	bnxt_hwrm_func_qcfg(bp);
++	if (bp->hwrm_spec_code < 0x10201)
++		return -ENOTSUPP;
 +
- 	bnxt_set_tpa_flags(bp);
- 	bnxt_set_ring_params(bp);
- 	if (BNXT_PF(bp))
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 538eb1c..ec18a07 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -907,6 +907,8 @@ struct bnxt {
- 
- #define BNXT_PF(bp)		(!((bp)->flags & BNXT_FLAG_VF))
- #define BNXT_VF(bp)		((bp)->flags & BNXT_FLAG_VF)
-+#define BNXT_NPAR(bp)		((bp)->port_partition_type)
-+#define BNXT_SINGLE_PF(bp)	(BNXT_PF(bp) && !BNXT_NPAR(bp))
- 
- 	struct bnxt_napi	**bnapi;
- 
-@@ -993,6 +995,7 @@ struct bnxt {
- 	__le16			vxlan_fw_dst_port_id;
- 	u8			nge_port_cnt;
- 	__le16			nge_fw_dst_port_id;
-+	u8			port_partition_type;
- 
- 	u16			rx_coal_ticks;
- 	u16			rx_coal_ticks_irq;
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-index a38cb04..89050ed 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c
-@@ -823,7 +823,7 @@ static int bnxt_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 	u32 speed, fw_advertising = 0;
- 	bool set_pause = false;
- 
--	if (BNXT_VF(bp))
-+	if (!BNXT_SINGLE_PF(bp))
+ 	rc = bnxt_vf_ndo_prep(bp, vf_id);
+ 	if (rc)
  		return rc;
- 
- 	if (cmd->autoneg == AUTONEG_ENABLE) {
-@@ -911,7 +911,7 @@ static int bnxt_set_pauseparam(struct net_device *dev,
- 	struct bnxt *bp = netdev_priv(dev);
- 	struct bnxt_link_info *link_info = &bp->link_info;
- 
--	if (BNXT_VF(bp))
-+	if (!BNXT_SINGLE_PF(bp))
- 		return rc;
- 
- 	if (epause->autoneg) {
-@@ -1433,7 +1433,7 @@ static int bnxt_set_eee(struct net_device *dev, struct ethtool_eee *edata)
- 		 _bnxt_fw_to_ethtool_adv_spds(link_info->advertising, 0);
- 	int rc = 0;
- 
--	if (BNXT_VF(bp))
-+	if (!BNXT_SINGLE_PF(bp))
- 		return 0;
- 
- 	if (!(bp->flags & BNXT_FLAG_EEE_CAP))
 -- 
 1.8.3.1
