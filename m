@@ -1,132 +1,108 @@
 From: Michael Chan <michael.chan@broadcom.com>
-Subject: [PATCH net-next 07/11] bnxt_en: Refactor bnxt_gro_skb().
-Date: Mon, 13 Jun 2016 02:25:34 -0400
-Message-ID: <1465799138-27529-8-git-send-email-michael.chan@broadcom.com>
+Subject: [PATCH net-next 09/11] bnxt_en: Add BCM5731X and BCM5741X device IDs.
+Date: Mon, 13 Jun 2016 02:25:36 -0400
+Message-ID: <1465799138-27529-10-git-send-email-michael.chan@broadcom.com>
 References: <1465799138-27529-1-git-send-email-michael.chan@broadcom.com>
 Cc: netdev@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:34618 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964808AbcFMGZ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 02:25:58 -0400
-Received: by mail-pa0-f42.google.com with SMTP id bz2so42651396pad.1
-        for <netdev@vger.kernel.org>; Sun, 12 Jun 2016 23:25:57 -0700 (PDT)
+Received: from mail-pa0-f43.google.com ([209.85.220.43]:34622 "EHLO
+	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030183AbcFMGZ7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 02:25:59 -0400
+Received: by mail-pa0-f43.google.com with SMTP id bz2so42651602pad.1
+        for <netdev@vger.kernel.org>; Sun, 12 Jun 2016 23:25:59 -0700 (PDT)
 In-Reply-To: <1465799138-27529-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Newer chips require different logic to handle GRO packets.  So refactor
-the code so that we can call different functions depending on the chip.
-
 Signed-off-by: Michael Chan <michael.chan@broadcom.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c | 52 ++++++++++++++++++++-----------
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |  3 ++
- 2 files changed, 36 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c | 30 +++++++++++++++++++++++++++++-
+ 1 file changed, 29 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 0fd27b0..4e3b9f5 100644
+index 5f9285c..c275329 100644
 --- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
 +++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -945,29 +945,15 @@ static void bnxt_abort_tpa(struct bnxt *bp, struct bnxt_napi *bnapi,
- #define BNXT_IPV4_HDR_SIZE	(sizeof(struct iphdr) + sizeof(struct tcphdr))
- #define BNXT_IPV6_HDR_SIZE	(sizeof(struct ipv6hdr) + sizeof(struct tcphdr))
+@@ -75,13 +75,22 @@ enum board_idx {
+ 	BCM57301,
+ 	BCM57302,
+ 	BCM57304,
++	BCM57311,
++	BCM57312,
+ 	BCM57402,
+ 	BCM57404,
+ 	BCM57406,
+ 	BCM57404_NPAR,
++	BCM57412,
++	BCM57414,
++	BCM57416,
++	BCM57417,
++	BCM57414_NPAR,
+ 	BCM57314,
+ 	BCM57304_VF,
+ 	BCM57404_VF,
++	BCM57414_VF,
++	BCM57314_VF,
+ };
  
--static inline struct sk_buff *bnxt_gro_skb(struct bnxt_tpa_info *tpa_info,
--					   struct rx_tpa_end_cmp *tpa_end,
--					   struct rx_tpa_end_cmp_ext *tpa_end1,
-+static struct sk_buff *bnxt_gro_func_5730x(struct bnxt_tpa_info *tpa_info,
-+					   int payload_off, int tcp_ts,
- 					   struct sk_buff *skb)
+ /* indexed by enum above */
+@@ -91,27 +100,45 @@ static const struct {
+ 	{ "Broadcom BCM57301 NetXtreme-C Single-port 10Gb Ethernet" },
+ 	{ "Broadcom BCM57302 NetXtreme-C Dual-port 10Gb/25Gb Ethernet" },
+ 	{ "Broadcom BCM57304 NetXtreme-C Dual-port 10Gb/25Gb/40Gb/50Gb Ethernet" },
++	{ "Broadcom BCM57311 NetXtreme-C Single-port 10Gb Ethernet" },
++	{ "Broadcom BCM57312 NetXtreme-C Dual-port 10Gb/25Gb Ethernet" },
+ 	{ "Broadcom BCM57402 NetXtreme-E Dual-port 10Gb Ethernet" },
+ 	{ "Broadcom BCM57404 NetXtreme-E Dual-port 10Gb/25Gb Ethernet" },
+ 	{ "Broadcom BCM57406 NetXtreme-E Dual-port 10GBase-T Ethernet" },
+ 	{ "Broadcom BCM57404 NetXtreme-E Ethernet Partition" },
++	{ "Broadcom BCM57412 NetXtreme-E Dual-port 10Gb Ethernet" },
++	{ "Broadcom BCM57414 NetXtreme-E Dual-port 10Gb/25Gb Ethernet" },
++	{ "Broadcom BCM57416 NetXtreme-E Dual-port 10GBase-T Ethernet" },
++	{ "Broadcom BCM57417 NetXtreme-E Dual-port 10GBase-T Ethernet" },
++	{ "Broadcom BCM57414 NetXtreme-E Ethernet Partition" },
+ 	{ "Broadcom BCM57314 NetXtreme-C Dual-port 10Gb/25Gb/40Gb/50Gb Ethernet" },
+ 	{ "Broadcom BCM57304 NetXtreme-C Ethernet Virtual Function" },
+ 	{ "Broadcom BCM57404 NetXtreme-E Ethernet Virtual Function" },
++	{ "Broadcom BCM57414 NetXtreme-E Ethernet Virtual Function" },
++	{ "Broadcom BCM57314 NetXtreme-E Ethernet Virtual Function" },
+ };
+ 
+ static const struct pci_device_id bnxt_pci_tbl[] = {
+ 	{ PCI_VDEVICE(BROADCOM, 0x16c8), .driver_data = BCM57301 },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16c9), .driver_data = BCM57302 },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16ca), .driver_data = BCM57304 },
++	{ PCI_VDEVICE(BROADCOM, 0x16ce), .driver_data = BCM57311 },
++	{ PCI_VDEVICE(BROADCOM, 0x16cf), .driver_data = BCM57312 },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16d0), .driver_data = BCM57402 },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16d1), .driver_data = BCM57404 },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16d2), .driver_data = BCM57406 },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16d4), .driver_data = BCM57404_NPAR },
++	{ PCI_VDEVICE(BROADCOM, 0x16d6), .driver_data = BCM57412 },
++	{ PCI_VDEVICE(BROADCOM, 0x16d7), .driver_data = BCM57414 },
++	{ PCI_VDEVICE(BROADCOM, 0x16d8), .driver_data = BCM57416 },
++	{ PCI_VDEVICE(BROADCOM, 0x16d9), .driver_data = BCM57417 },
++	{ PCI_VDEVICE(BROADCOM, 0x16de), .driver_data = BCM57414_NPAR },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16df), .driver_data = BCM57314 },
+ #ifdef CONFIG_BNXT_SRIOV
+ 	{ PCI_VDEVICE(BROADCOM, 0x16cb), .driver_data = BCM57304_VF },
+ 	{ PCI_VDEVICE(BROADCOM, 0x16d3), .driver_data = BCM57404_VF },
++	{ PCI_VDEVICE(BROADCOM, 0x16dc), .driver_data = BCM57414_VF },
++	{ PCI_VDEVICE(BROADCOM, 0x16e1), .driver_data = BCM57314_VF },
+ #endif
+ 	{ 0 }
+ };
+@@ -134,7 +161,8 @@ static const u16 bnxt_async_events_arr[] = {
+ 
+ static bool bnxt_vf_pciid(enum board_idx idx)
  {
- #ifdef CONFIG_INET
- 	struct tcphdr *th;
--	int payload_off, tcp_opt_len = 0;
--	int len, nw_off;
--	u16 segs;
--
--	segs = TPA_END_TPA_SEGS(tpa_end);
--	if (segs == 1)
--		return skb;
-+	int len, nw_off, tcp_opt_len;
- 
--	NAPI_GRO_CB(skb)->count = segs;
--	skb_shinfo(skb)->gso_size =
--		le32_to_cpu(tpa_end1->rx_tpa_end_cmp_seg_len);
--	skb_shinfo(skb)->gso_type = tpa_info->gso_type;
--	payload_off = (le32_to_cpu(tpa_end->rx_tpa_end_cmp_misc_v1) &
--		       RX_TPA_END_CMP_PAYLOAD_OFFSET) >>
--		      RX_TPA_END_CMP_PAYLOAD_OFFSET_SHIFT;
--	if (TPA_END_GRO_TS(tpa_end))
-+	if (tcp_ts)
- 		tcp_opt_len = 12;
- 
- 	if (tpa_info->gso_type == SKB_GSO_TCPV4) {
-@@ -1024,6 +1010,32 @@ static inline struct sk_buff *bnxt_gro_skb(struct bnxt_tpa_info *tpa_info,
- 	return skb;
+-	return (idx == BCM57304_VF || idx == BCM57404_VF);
++	return (idx == BCM57304_VF || idx == BCM57404_VF ||
++		idx == BCM57314_VF || idx == BCM57414_VF);
  }
  
-+static inline struct sk_buff *bnxt_gro_skb(struct bnxt *bp,
-+					   struct bnxt_tpa_info *tpa_info,
-+					   struct rx_tpa_end_cmp *tpa_end,
-+					   struct rx_tpa_end_cmp_ext *tpa_end1,
-+					   struct sk_buff *skb)
-+{
-+#ifdef CONFIG_INET
-+	int payload_off;
-+	u16 segs;
-+
-+	segs = TPA_END_TPA_SEGS(tpa_end);
-+	if (segs == 1)
-+		return skb;
-+
-+	NAPI_GRO_CB(skb)->count = segs;
-+	skb_shinfo(skb)->gso_size =
-+		le32_to_cpu(tpa_end1->rx_tpa_end_cmp_seg_len);
-+	skb_shinfo(skb)->gso_type = tpa_info->gso_type;
-+	payload_off = (le32_to_cpu(tpa_end->rx_tpa_end_cmp_misc_v1) &
-+		       RX_TPA_END_CMP_PAYLOAD_OFFSET) >>
-+		      RX_TPA_END_CMP_PAYLOAD_OFFSET_SHIFT;
-+	skb = bp->gro_func(tpa_info, payload_off, TPA_END_GRO_TS(tpa_end), skb);
-+#endif
-+	return skb;
-+}
-+
- static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
- 					   struct bnxt_napi *bnapi,
- 					   u32 *raw_cons,
-@@ -1134,7 +1146,7 @@ static inline struct sk_buff *bnxt_tpa_end(struct bnxt *bp,
- 	}
- 
- 	if (TPA_END_GRO(tpa_end))
--		skb = bnxt_gro_skb(tpa_info, tpa_end, tpa_end1, skb);
-+		skb = bnxt_gro_skb(bp, tpa_info, tpa_end, tpa_end1, skb);
- 
- 	return skb;
- }
-@@ -6420,6 +6432,8 @@ static int bnxt_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
- 	if (rc)
- 		goto init_err;
- 
-+	bp->gro_func = bnxt_gro_func_5730x;
-+
- 	rc = bnxt_hwrm_func_drv_rgtr(bp);
- 	if (rc)
- 		goto init_err;
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index b754be6..d62f4c2 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -953,6 +953,9 @@ struct bnxt {
- 	struct bnxt_rx_ring_info	*rx_ring;
- 	struct bnxt_tx_ring_info	*tx_ring;
- 
-+	struct sk_buff *	(*gro_func)(struct bnxt_tpa_info *, int, int,
-+					    struct sk_buff *);
-+
- 	u32			rx_buf_size;
- 	u32			rx_buf_use_size;	/* useable size */
- 	u32			rx_ring_size;
+ #define DB_CP_REARM_FLAGS	(DB_KEY_CP | DB_IDX_VALID)
 -- 
 1.8.3.1
