@@ -1,99 +1,48 @@
-From: Moni Shoua <monis-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [PATCH 3/3] infiniband: rxe: fix 32-bit build warnings
-Date: Mon, 13 Jun 2016 18:29:09 +0300
-Message-ID: <CAG9sBKPUYo0WH5ecWhR55iNw=4teQ04mHHv+v7P2iOb6ymnE1A@mail.gmail.com>
-References: <1465822509-4167617-1-git-send-email-arnd@arndb.de> <1465822509-4167617-3-git-send-email-arnd@arndb.de>
+From: Kishan Sandeep <sandeepkishan108@gmail.com>
+Subject: Re: [PATCH] netfilter: fix buffer null termination
+Date: Mon, 13 Jun 2016 21:07:19 +0530
+Message-ID: <CAJ3s=NAf5x3W9spRjxKKnX0Qxoc+nmr3rRkNy5dKYbyXG6mP4g@mail.gmail.com>
+References: <1465620484-5543-1-git-send-email-sandeepkishan108@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Sean Hefty <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Hal Rosenstock <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kamal Heib <kamalh-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Haggai Eran <haggaie-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	linux-rdma <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1465822509-4167617-3-git-send-email-arnd-r2nGTMty4D4@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+To: pablo@netfilter.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:33565 "EHLO
+	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1424071AbcFMPhU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 11:37:20 -0400
+Received: by mail-io0-f194.google.com with SMTP id 5so17172600ioy.0
+        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 08:37:20 -0700 (PDT)
+In-Reply-To: <1465620484-5543-1-git-send-email-sandeepkishan108@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-thanks. will be applied to next series.
++ netdev
 
-On Mon, Jun 13, 2016 at 3:54 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
-> The new rxe infinband driver passes around pointers that have been
-> converted to 64-bit integers. This is valid, but causes compile-time
-> warnings on all 32-bit architectures:
+On Sat, Jun 11, 2016 at 10:18 AM, Kishan Sandeep
+<sandeepkishan108@gmail.com> wrote:
+> strncpy generally perferable fo non-terminated
+> fixed-width strings. For NULL termination strlcpy
+> is preferrable.
 >
-> infiniband/hw/rxe/rxe_dma.c: In function 'rxe_dma_map_single':
-> infiniband/hw/rxe/rxe_dma.c:49:9: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
->   return (u64)cpu_addr;
->          ^
-> infiniband/hw/rxe/rxe_dma.c: In function 'rxe_dma_map_page':
-> infiniband/hw/rxe/rxe_dma.c:73:9: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
-> infiniband/hw/rxe/rxe_dma.c: In function 'rxe_map_sg':
-> infiniband/hw/rxe/rxe_dma.c:99:10: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
-> infiniband/hw/rxe/rxe_dma.c: In function 'rxe_dma_alloc_coherent':
-> infiniband/hw/rxe/rxe_dma.c:143:17: error: cast from pointer to integer of different size [-Werror=pointer-to-int-cast]
->
-> This changes the cast to use 'uintptr_t', which can always be
-> cast to and from pointer, and can be assigned to and from 64-bit
-> integers.
->
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+> Signed-off-by: Kishan Sandeep <sandeepkishan108@gmail.com>
 > ---
->  drivers/infiniband/hw/rxe/rxe_dma.c | 8 ++++----
->  1 file changed, 4 insertions(+), 4 deletions(-)
+>  net/netfilter/xt_repldata.h |    2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
 >
-> diff --git a/drivers/infiniband/hw/rxe/rxe_dma.c b/drivers/infiniband/hw/rxe/rxe_dma.c
-> index f080bc5bda43..7634c1a81b2b 100644
-> --- a/drivers/infiniband/hw/rxe/rxe_dma.c
-> +++ b/drivers/infiniband/hw/rxe/rxe_dma.c
-> @@ -46,7 +46,7 @@ static u64 rxe_dma_map_single(struct ib_device *dev,
->                               enum dma_data_direction direction)
->  {
->         WARN_ON(!valid_dma_direction(direction));
-> -       return (u64)cpu_addr;
-> +       return (uintptr_t)cpu_addr;
->  }
->
->  static void rxe_dma_unmap_single(struct ib_device *dev,
-> @@ -70,7 +70,7 @@ static u64 rxe_dma_map_page(struct ib_device *dev,
->                 goto done;
->         }
->
-> -       addr = (u64)page_address(page);
-> +       addr = (uintptr_t)page_address(page);
->         if (addr)
->                 addr += offset;
->
-> @@ -96,7 +96,7 @@ static int rxe_map_sg(struct ib_device *dev, struct scatterlist *sgl,
->         WARN_ON(!valid_dma_direction(direction));
->
->         for_each_sg(sgl, sg, nents, i) {
-> -               addr = (u64)page_address(sg_page(sg));
-> +               addr = (uintptr_t)page_address(sg_page(sg));
->                 if (!addr) {
->                         ret = 0;
->                         break;
-> @@ -140,7 +140,7 @@ static void *rxe_dma_alloc_coherent(struct ib_device *dev, size_t size,
->                 addr = page_address(p);
->
->         if (dma_handle)
-> -               *dma_handle = (u64)addr;
-> +               *dma_handle = (uintptr_t)addr;
->
->         return addr;
->  }
+> diff --git a/net/netfilter/xt_repldata.h b/net/netfilter/xt_repldata.h
+> index 8fd3241..a460211 100644
+> --- a/net/netfilter/xt_repldata.h
+> +++ b/net/netfilter/xt_repldata.h
+> @@ -28,7 +28,7 @@
+>         if (tbl == NULL) \
+>                 return NULL; \
+>         term = (struct type##_error *)&(((char *)tbl)[term_offset]); \
+> -       strncpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
+> +       strlcpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
+>         *term = (struct type##_error)typ2##_ERROR_INIT;  \
+>         tbl->repl.valid_hooks = hook_mask; \
+>         tbl->repl.num_entries = nhooks + 1; \
 > --
-> 2.7.0
+> 1.7.9.5
 >
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-> the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
