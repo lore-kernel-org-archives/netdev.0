@@ -1,111 +1,91 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: [RESEND PATCH 1/3] rfkill: Create "rfkill-airplane-mode" LED
- trigger
-Date: Mon, 13 Jun 2016 23:21:16 +0200
-Message-ID: <20160613212116.GA10478@amd>
-References: <1462199948-6424-2-git-send-email-jprvita@endlessm.com>
- <20160504072936.GB17045@amd>
- <1463045572.13313.21.camel@sipsolutions.net>
- <20160519071639.GB17077@amd>
- <1465476194.3442.21.camel@sipsolutions.net>
- <CA+A7VXXP3TYuk4Vvgc8YvxPFo06GG6WpyLJS+2vMLzr0iKQgsA@mail.gmail.com>
- <20160613190048.GA17101@amd>
- <CA+A7VXXOfN1Td2T6uiunWZMS4gvS5sHDzPiDp9VEdx+OPJpSmA@mail.gmail.com>
- <20160613210109.GA9303@amd>
- <CA+A7VXWdt16KHNx0n9jnpimCvN9dV38kb6smTbGWaJYo5VYcOQ@mail.gmail.com>
+From: Topi Miettinen <toiwoton@gmail.com>
+Subject: Re: [RFC 12/18] limits: track RLIMIT_MEMLOCK actual max
+Date: Mon, 13 Jun 2016 21:17:43 +0000
+Message-ID: <6e1a7caa-e4e8-fd41-4bab-00089c12b781@gmail.com>
+References: <1465847065-3577-1-git-send-email-toiwoton@gmail.com>
+ <1465847065-3577-13-git-send-email-toiwoton@gmail.com>
+ <20160613144359.677edee4@ul30vt.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Darren Hart <dvhart@infradead.org>,
-	linux-wireless <linux-wireless@vger.kernel.org>,
-	Network Development <netdev@vger.kernel.org>,
-	platform-driver-x86@vger.kernel.org, linux-api@vger.kernel.org,
-	linux-doc@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	linux@endlessm.com,
-	=?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita
-	<jprvita@endlessm.com>
-To: =?iso-8859-1?Q?Jo=E3o?= Paulo Rechi Vita <jprvita@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CA+A7VXWdt16KHNx0n9jnpimCvN9dV38kb6smTbGWaJYo5VYcOQ@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Tony Luck <tony.luck@intel.com>,
+ Fenghua Yu <fenghua.yu@intel.com>, Alexander Graf <agraf@suse.com>,
+ Paolo Bonzini <pbonzini@redhat.com>, =?UTF-8?B?UmFkaW0gS3LEjW3DocWZ?=
+ <rkrcmar@redhat.com>, Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>,
+ Doug Ledford <dledford@redhat.com>, Sean Hefty <sean.hefty@intel.com>,
+ Hal Rosenstock <hal.rosenstock@gmail.com>,
+ Mike Marciniszyn <mike.marciniszyn@intel.com>,
+ Dennis Dalessandro <dennis.dalessandro@intel.com>,
+ Christian Benvenuti <benve@cisco.com>, Dave Goodell <dgoodell@cisco.com>,
+ Sudeep Dutt <sudeep.dutt@intel.com>,
+ Ashutosh Dixit <ashutosh.dixit@intel.com>, Ingo Molnar <mingo@redhat.com>,
+ Peter Zijlstra <peterz@infradead.org>, Alexei Starovoitov <ast@kernel.org>,
+ Arnaldo Carvalho de Melo <acme@kernel.org>,
+ Alexander Shishk
+To: Alex Williamson <alex.williamson@redhat.com>
+Return-path: <owner-linux-mm@kvack.org>
+In-Reply-To: <20160613144359.677edee4@ul30vt.home>
+Sender: owner-linux-mm@kvack.org
 List-Id: netdev.vger.kernel.org
 
-On Mon 2016-06-13 17:10:02, Jo=E3o Paulo Rechi Vita wrote:
-> On 13 June 2016 at 17:01, Pavel Machek <pavel@ucw.cz> wrote:
-> > On Mon 2016-06-13 15:59:35, Jo=E3o Paulo Rechi Vita wrote:
-> >> On 13 June 2016 at 15:00, Pavel Machek <pavel@ucw.cz> wrote:
-> >> > Hi!
-> >> >
-> >> >> > Jo=E3o, that means you should send a patch to add the ::rfkil=
-l suffix.
-> >> >> >
-> >> >>
-> >> >> IMO "airplane" (or maybe "airplane-mode") is a better suffix, a=
-s it
-> >> >> reflects the label on the machine's chassis. I'll name it
-> >> >> "asus-wireless::airplane" and send this through platform-driver=
-s-x86,
-> >> >> as this is now contained in the platform-drivers-x86 subsystem.=
- Thanks
-> >> >> Johannes for your patience and help designing and reviewing the=
- rfkill
-> >> >> changes, even if not all of them made it through in the end. An=
-d
-> >> >> thanks everyone else involved for the feedback.
-> >> >
-> >> > Actually, I'd do '::rfkill', for consistency with other places i=
-n
-> >> > /sys.
-> >> >
-> >> > /sys/devices/platform/thinkpad_acpi/rfkill/rfkill1/name
-> >> > /sys/class/rfkill
-> >> > /sys/module/rfkill
-> >> >
-> >>
-> >> If we use "rfkill" as a suffix, how do you expect userspace to be =
-able
-> >> to differentiate between a LED that indicates airplane-mode (LED O=
-N
-> >> when all radios are OFF) and a LED that indicates the state of a
-> >> specific radio like WiFi or Bluetooth (LED ON when that specific r=
-adio
-> >> is ON)? If we're going this route we should provide meaningful
-> >> information here.
-> >
-> > '::airplane' has same problem, no?
-> >
->=20
-> No, because in this case we would not use "airplane" as a suffix for =
-a
-> LED associated with an individual radio.
->=20
-> > If you want to distinguish that, maybe you can do '::rfkill' for
-> > everything vs '::rfkill-wifi' for wifi-only and '::rfkill-bt' for
-> > bluetooth...
-> >
->=20
-> The problem here is that the "rfkill" name is already associated with
-> individual rfkill switches under /sys/class/rfkill,
-> /sys/devices/platform/*/rfkill etc, so I think we're better off
-> distinguishing "airplane" vs "wifi" vs "bluetooth" etc, to avoid
-> confusion.
+On 06/13/16 20:43, Alex Williamson wrote:
+> On Mon, 13 Jun 2016 22:44:19 +0300
+> Topi Miettinen <toiwoton@gmail.com> wrote:
+> 
+>> Track maximum size of locked memory, presented in /proc/self/limits.
+>>
+>> Signed-off-by: Topi Miettinen <toiwoton@gmail.com>
+>> ---
+>>  arch/ia64/kernel/perfmon.c                 |  1 +
+>>  arch/powerpc/kvm/book3s_64_vio.c           |  1 +
+>>  arch/powerpc/mm/mmu_context_iommu.c        |  1 +
+>>  drivers/infiniband/core/umem.c             |  1 +
+>>  drivers/infiniband/hw/hfi1/user_pages.c    |  1 +
+>>  drivers/infiniband/hw/qib/qib_user_pages.c |  1 +
+>>  drivers/infiniband/hw/usnic/usnic_uiom.c   |  2 ++
+>>  drivers/misc/mic/scif/scif_rma.c           |  1 +
+>>  drivers/vfio/vfio_iommu_spapr_tce.c        |  2 ++
+>>  drivers/vfio/vfio_iommu_type1.c            |  2 ++
+>>  include/linux/sched.h                      | 10 ++++++++--
+>>  kernel/bpf/syscall.c                       |  6 ++++++
+>>  kernel/events/core.c                       |  1 +
+>>  mm/mlock.c                                 |  7 +++++++
+>>  mm/mmap.c                                  |  3 +++
+>>  mm/mremap.c                                |  3 +++
+>>  16 files changed, 41 insertions(+), 2 deletions(-)
+> ...  
+>>
+>> diff --git a/drivers/vfio/vfio_iommu_type1.c b/drivers/vfio/vfio_iommu_type1.c
+>> index 2ba1942..4c6e7a3 100644
+>> --- a/drivers/vfio/vfio_iommu_type1.c
+>> +++ b/drivers/vfio/vfio_iommu_type1.c
+>> @@ -312,6 +312,8 @@ static long vfio_pin_pages(unsigned long vaddr, long npage,
+>>  		}
+>>  	}
+>>  
+>> +	bump_rlimit(RLIMIT_MEMLOCK, (current->mm->locked_vm + i) << PAGE_SHIFT);
+>> +
+>>  	if (!rsvd)
+>>  		vfio_lock_acct(i);
+>>  
+> 
+> 
+> Not all cases passing through here bump rlimit (see: rsvd), there's an
+> entire case above the other end of this closing bracket that does bump
+> rlimit but returns before here, and I wonder why we wouldn't just do
+> this in our vfio_lock_acct() accounting function anyway.  Thanks,
 
-(Actually, "::wifi" is super confusing, I'd expect that to be a led
-that blinks when wifi is active.)
+Yes, just make disable_hugepages case go to end of function.
 
-Well... "airplane" is quite confusing. I'd we use "rfkill" for
-disabling radios, and I believe we should stick with that.
+-Topi
 
-But small problem might be polarity. You may need both "::rfkill" and
-"::not-rfkill".
+> 
+> Alex
+> 
 
-Best regards,
-									Pavel
-
---=20
-(english) http://www.livejournal.com/~pavelmachek
-(cesky, pictures) http://atrey.karlin.mff.cuni.cz/~pavel/picture/horses=
-/blog.html
+--
+To unsubscribe, send a message with 'unsubscribe linux-mm' in
+the body to majordomo@kvack.org.  For more info on Linux MM,
+see: http://www.linux-mm.org/ .
+Don't email: <a href=mailto:"dont@kvack.org"> email@kvack.org </a>
