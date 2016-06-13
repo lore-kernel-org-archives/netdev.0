@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH 07/15] i40e: Move all UDP port notifiers to single
- function
-Date: Mon, 13 Jun 2016 10:48:49 -0700
-Message-ID: <20160613174849.15186.61867.stgit@localhost.localdomain>
+Subject: [net-next PATCH 10/15] mlx5_en: Replace ndo_add/del_vxlan_port with
+ ndo_add/del_udp_enc_port
+Date: Mon, 13 Jun 2016 10:49:18 -0700
+Message-ID: <20160613174918.15186.83306.stgit@localhost.localdomain>
 References: <20160613173750.15186.24381.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,244 +14,80 @@ Cc: hannes@redhat.com, jesse@kernel.org, jbenc@redhat.com,
 	eugenia@mellanox.com
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33364 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423248AbcFMRsz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 13:48:55 -0400
-Received: by mail-pa0-f45.google.com with SMTP id b13so25419682pat.0
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 10:48:55 -0700 (PDT)
+Received: from mail-pa0-f52.google.com ([209.85.220.52]:35565 "EHLO
+	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423279AbcFMRtY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 13:49:24 -0400
+Received: by mail-pa0-f52.google.com with SMTP id hl6so47818766pac.2
+        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 10:49:24 -0700 (PDT)
 In-Reply-To: <20160613173750.15186.24381.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch goes through and combines the notifiers for VXLAN and GENEVE
-into a single function for each action.  So there is now one combined
-function for getting ports, one for adding the ports, and one for deleting
-the ports.
+This change replaces the network device operations for adding or removing a
+VXLAN port with operations that are more generically defined to be used for
+any UDP offload port but provide a type.  As such by just adding a line to
+verify that the offload type is VXLAN we can maintain the same
+functionality.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c |  148 ++++++---------------------
- 1 file changed, 35 insertions(+), 113 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c |   18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 68172759bf71..8695ef467c58 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -5367,14 +5367,9 @@ int i40e_open(struct net_device *netdev)
- 						       TCP_FLAG_CWR) >> 16);
- 	wr32(&pf->hw, I40E_GLLAN_TSOMSK_L, be32_to_cpu(TCP_FLAG_CWR) >> 16);
- 
--#ifdef CONFIG_I40E_VXLAN
--	vxlan_get_rx_port(netdev);
-+#if defined(CONFIG_I40E_VXLAN) || defined(CONFIG_I40E_GENEVE)
-+	udp_tunnel_get_rx_port(netdev);
- #endif
--#ifdef CONFIG_I40E_GENEVE
--	if (pf->flags & I40E_FLAG_GENEVE_OFFLOAD_CAPABLE)
--		geneve_get_rx_port(netdev);
--#endif
--
- 	i40e_notify_client_of_netdev_open(vsi);
- 
- 	return 0;
-@@ -8678,17 +8673,16 @@ static u8 i40e_get_udp_port_idx(struct i40e_pf *pf, __be16 port)
- 	return i;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index f5c8d5db25a8..217ea4ba1a29 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2520,10 +2520,14 @@ static int mlx5e_get_vf_stats(struct net_device *dev,
  }
  
--#endif
--
--#if IS_ENABLED(CONFIG_VXLAN)
- /**
-- * i40e_add_vxlan_port - Get notifications about VXLAN ports that come up
-+ * i40e_add_udp_enc_port - Get notifications about UDP tunnel ports that come up
-  * @netdev: This physical port's netdev
-- * @sa_family: Socket Family that VXLAN is notifying us about
-- * @port: New UDP port number that VXLAN started listening to
-+ * @sa_family: Socket Family that tunnel is notifying us about
-+ * @port: New UDP port number that tunnel started listening to
-+ * @type: Enumerated type specifying UDP encapsulation type to be offloaded
-  **/
--static void i40e_add_vxlan_port(struct net_device *netdev,
--				sa_family_t sa_family, __be16 port)
-+static void i40e_add_udp_enc_port(struct net_device *netdev,
-+				  sa_family_t sa_family, __be16 port,
-+				  unsigned int type)
- {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
-@@ -8700,7 +8694,7 @@ static void i40e_add_vxlan_port(struct net_device *netdev,
- 
- 	/* Check if port already exists */
- 	if (idx < I40E_MAX_PF_UDP_OFFLOAD_PORTS) {
--		netdev_info(netdev, "vxlan port %d already offloaded\n",
-+		netdev_info(netdev, "port %d already offloaded\n",
- 			    ntohs(port));
- 		return;
- 	}
-@@ -8709,112 +8703,46 @@ static void i40e_add_vxlan_port(struct net_device *netdev,
- 	next_idx = i40e_get_udp_port_idx(pf, 0);
- 
- 	if (next_idx == I40E_MAX_PF_UDP_OFFLOAD_PORTS) {
--		netdev_info(netdev, "maximum number of vxlan UDP ports reached, not adding port %d\n",
--			    ntohs(port));
--		return;
--	}
--
--	/* New port: add it and mark its index in the bitmap */
--	pf->udp_ports[next_idx].index = port;
--	pf->udp_ports[next_idx].type = I40E_AQC_TUNNEL_TYPE_VXLAN;
--	pf->pending_udp_bitmap |= BIT_ULL(next_idx);
--	pf->flags |= I40E_FLAG_UDP_FILTER_SYNC;
--}
--
--/**
-- * i40e_del_vxlan_port - Get notifications about VXLAN ports that go away
-- * @netdev: This physical port's netdev
-- * @sa_family: Socket Family that VXLAN is notifying us about
-- * @port: UDP port number that VXLAN stopped listening to
-- **/
--static void i40e_del_vxlan_port(struct net_device *netdev,
--				sa_family_t sa_family, __be16 port)
--{
--	struct i40e_netdev_priv *np = netdev_priv(netdev);
--	struct i40e_vsi *vsi = np->vsi;
--	struct i40e_pf *pf = vsi->back;
--	u8 idx;
--
--	idx = i40e_get_udp_port_idx(pf, port);
--
--	/* Check if port already exists */
--	if (idx < I40E_MAX_PF_UDP_OFFLOAD_PORTS) {
--		/* if port exists, set it to 0 (mark for deletion)
--		 * and make it pending
--		 */
--		pf->udp_ports[idx].index = 0;
--		pf->pending_udp_bitmap |= BIT_ULL(idx);
--		pf->flags |= I40E_FLAG_UDP_FILTER_SYNC;
--	} else {
--		netdev_warn(netdev, "vxlan port %d was not found, not deleting\n",
--			    ntohs(port));
--	}
--}
--#endif
--
--#if IS_ENABLED(CONFIG_GENEVE)
--/**
-- * i40e_add_geneve_port - Get notifications about GENEVE ports that come up
-- * @netdev: This physical port's netdev
-- * @sa_family: Socket Family that GENEVE is notifying us about
-- * @port: New UDP port number that GENEVE started listening to
-- **/
--static void i40e_add_geneve_port(struct net_device *netdev,
+ static void mlx5e_add_vxlan_port(struct net_device *netdev,
 -				 sa_family_t sa_family, __be16 port)
--{
--	struct i40e_netdev_priv *np = netdev_priv(netdev);
--	struct i40e_vsi *vsi = np->vsi;
--	struct i40e_pf *pf = vsi->back;
--	u8 next_idx;
--	u8 idx;
--
--	if (!(pf->flags & I40E_FLAG_GENEVE_OFFLOAD_CAPABLE))
--		return;
--
--	idx = i40e_get_udp_port_idx(pf, port);
--
--	/* Check if port already exists */
--	if (idx < I40E_MAX_PF_UDP_OFFLOAD_PORTS) {
--		netdev_info(netdev, "udp port %d already offloaded\n",
-+		netdev_info(netdev, "maximum number of offloaded UDP ports reached, not adding port %d\n",
- 			    ntohs(port));
- 		return;
- 	}
- 
--	/* Now check if there is space to add the new port */
--	next_idx = i40e_get_udp_port_idx(pf, 0);
--
--	if (next_idx == I40E_MAX_PF_UDP_OFFLOAD_PORTS) {
--		netdev_info(netdev, "maximum number of UDP ports reached, not adding port %d\n",
--			    ntohs(port));
-+	switch (type) {
-+	case UDP_ENC_OFFLOAD_TYPE_VXLAN:
-+		pf->udp_ports[next_idx].type = I40E_AQC_TUNNEL_TYPE_VXLAN;
-+		break;
-+	case UDP_ENC_OFFLOAD_TYPE_GENEVE:
-+		if (!(pf->flags & I40E_FLAG_GENEVE_OFFLOAD_CAPABLE))
-+			return;
-+		pf->udp_ports[next_idx].type = I40E_AQC_TUNNEL_TYPE_NGE;
-+		break;
-+	default:
- 		return;
- 	}
- 
- 	/* New port: add it and mark its index in the bitmap */
- 	pf->udp_ports[next_idx].index = port;
--	pf->udp_ports[next_idx].type = I40E_AQC_TUNNEL_TYPE_NGE;
- 	pf->pending_udp_bitmap |= BIT_ULL(next_idx);
- 	pf->flags |= I40E_FLAG_UDP_FILTER_SYNC;
--
--	dev_info(&pf->pdev->dev, "adding geneve port %d\n", ntohs(port));
- }
- 
- /**
-- * i40e_del_geneve_port - Get notifications about GENEVE ports that go away
-+ * i40e_del_udp_enc_port - Get notifications about UDP tunnel ports that go away
-  * @netdev: This physical port's netdev
-- * @sa_family: Socket Family that GENEVE is notifying us about
-- * @port: UDP port number that GENEVE stopped listening to
-+ * @sa_family: Socket Family that tunnel is notifying us about
-+ * @port: UDP port number that tunnel stopped listening to
-+ * @type: Enumerated type specifying UDP encapsulation type to be offloaded
-  **/
--static void i40e_del_geneve_port(struct net_device *netdev,
--				 sa_family_t sa_family, __be16 port)
-+static void i40e_del_udp_enc_port(struct net_device *netdev,
-+				  sa_family_t sa_family, __be16 port,
-+				  unsigned int type)
++				 sa_family_t sa_family, __be16 port,
++				 unsigned int type)
  {
- 	struct i40e_netdev_priv *np = netdev_priv(netdev);
- 	struct i40e_vsi *vsi = np->vsi;
- 	struct i40e_pf *pf = vsi->back;
- 	u8 idx;
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
  
--	if (!(pf->flags & I40E_FLAG_GENEVE_OFFLOAD_CAPABLE))
--		return;
--
- 	idx = i40e_get_udp_port_idx(pf, port);
- 
- 	/* Check if port already exists */
-@@ -8825,13 +8753,11 @@ static void i40e_del_geneve_port(struct net_device *netdev,
- 		pf->udp_ports[idx].index = 0;
- 		pf->pending_udp_bitmap |= BIT_ULL(idx);
- 		pf->flags |= I40E_FLAG_UDP_FILTER_SYNC;
--
--		dev_info(&pf->pdev->dev, "deleting geneve port %d\n",
--			 ntohs(port));
--	} else {
--		netdev_warn(netdev, "geneve port %d was not found, not deleting\n",
--			    ntohs(port));
++	if (type != UDP_ENC_OFFLOAD_TYPE_VXLAN)
 +		return;
- 	}
 +
-+	netdev_warn(netdev, "UDP port %d was not found, not deleting\n",
-+		    ntohs(port));
- }
- #endif
+ 	if (!mlx5e_vxlan_allowed(priv->mdev))
+ 		return;
  
-@@ -9063,13 +8989,9 @@ static const struct net_device_ops i40e_netdev_ops = {
- 	.ndo_set_vf_link_state	= i40e_ndo_set_vf_link_state,
- 	.ndo_set_vf_spoofchk	= i40e_ndo_set_vf_spoofchk,
- 	.ndo_set_vf_trust	= i40e_ndo_set_vf_trust,
--#if IS_ENABLED(CONFIG_VXLAN)
--	.ndo_add_vxlan_port	= i40e_add_vxlan_port,
--	.ndo_del_vxlan_port	= i40e_del_vxlan_port,
--#endif
--#if IS_ENABLED(CONFIG_GENEVE)
--	.ndo_add_geneve_port	= i40e_add_geneve_port,
--	.ndo_del_geneve_port	= i40e_del_geneve_port,
-+#if IS_ENABLED(CONFIG_VXLAN) || IS_ENABLED(CONFIG_GENEVE)
-+	.ndo_add_udp_enc_port	= i40e_add_udp_enc_port,
-+	.ndo_del_udp_enc_port	= i40e_del_udp_enc_port,
- #endif
- 	.ndo_get_phys_port_id	= i40e_get_phys_port_id,
- 	.ndo_fdb_add		= i40e_ndo_fdb_add,
+@@ -2531,10 +2535,14 @@ static void mlx5e_add_vxlan_port(struct net_device *netdev,
+ }
+ 
+ static void mlx5e_del_vxlan_port(struct net_device *netdev,
+-				 sa_family_t sa_family, __be16 port)
++				 sa_family_t sa_family, __be16 port,
++				 unsigned int type)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 
++	if (type != UDP_ENC_OFFLOAD_TYPE_VXLAN)
++		return;
++
+ 	if (!mlx5e_vxlan_allowed(priv->mdev))
+ 		return;
+ 
+@@ -2624,8 +2632,8 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
+ 	.ndo_set_features        = mlx5e_set_features,
+ 	.ndo_change_mtu          = mlx5e_change_mtu,
+ 	.ndo_do_ioctl            = mlx5e_ioctl,
+-	.ndo_add_vxlan_port      = mlx5e_add_vxlan_port,
+-	.ndo_del_vxlan_port      = mlx5e_del_vxlan_port,
++	.ndo_add_udp_enc_port	 = mlx5e_add_vxlan_port,
++	.ndo_del_udp_enc_port	 = mlx5e_del_vxlan_port,
+ 	.ndo_features_check      = mlx5e_features_check,
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
+@@ -3128,7 +3136,7 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
+ 
+ 	if (mlx5e_vxlan_allowed(mdev)) {
+ 		rtnl_lock();
+-		vxlan_get_rx_port(netdev);
++		udp_tunnel_get_rx_port(netdev);
+ 		rtnl_unlock();
+ 	}
+ 
