@@ -1,52 +1,240 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH RFC 3/3] ipv4: kill RTO_ONLINK, RT_CONN_FLAGS and
- RT_CONN_FLAGS_TOS
-Date: Mon, 13 Jun 2016 16:40:54 -0600
-Message-ID: <37f32e2c-13e9-27af-6a14-2d379073b4aa@cumulusnetworks.com>
-References: <1465850858-8559-1-git-send-email-hannes@stressinduktion.org>
- <1465850858-8559-4-git-send-email-hannes@stressinduktion.org>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next] tcp: use RFC6298 compliant TCP RTO calculation
+Date: Mon, 13 Jun 2016 15:38:24 -0700
+Message-ID: <CAK6E8=cw2JNsqm+1x4dJxmOe2xpt_ywAq3TNtaUv4hOaJL9qiA@mail.gmail.com>
+References: <20160613204529.18826-1-dmetz@mytum.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: ja@ssi.bg
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Pasi Sarolahti <pasi.sarolahti@iki.fi>,
+	Van Jacobson <vanj@google.com>
+To: Daniel Metz <dmetz@mytum.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:36257 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422745AbcFMWk5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 18:40:57 -0400
-Received: by mail-pa0-f48.google.com with SMTP id b5so49666315pas.3
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 15:40:57 -0700 (PDT)
-In-Reply-To: <1465850858-8559-4-git-send-email-hannes@stressinduktion.org>
+Received: from mail-it0-f51.google.com ([209.85.214.51]:37933 "EHLO
+	mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1422745AbcFMWqk convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 18:46:40 -0400
+Received: by mail-it0-f51.google.com with SMTP id h190so54175234ith.1
+        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 15:46:40 -0700 (PDT)
+In-Reply-To: <20160613204529.18826-1-dmetz@mytum.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/13/16 2:47 PM, Hannes Frederic Sowa wrote:
-> Unfortunately because of bisectability I cannot split this patch. :(
+On Mon, Jun 13, 2016 at 1:45 PM, Daniel Metz <dmetz@mytum.de> wrote:
+> This patch adjusts Linux RTO calculation to be RFC6298 Standard
+> compliant. MinRTO is no longer added to the computed RTO, RTO damping
+> and overestimation are decreased.
 >
-> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> ---
->  drivers/net/bonding/bond_main.c |  3 +--
->  drivers/net/gtp.c               |  3 ++-
->  drivers/net/ppp/pptp.c          |  2 +-
->  drivers/net/vrf.c               |  7 -------
->  include/net/ip.h                |  5 -----
->  include/net/route.h             | 38 ++++++++++++++++++++++++++++----------
->  net/dccp/ipv4.c                 |  5 +++--
->  net/ipv4/af_inet.c              |  4 ++--
->  net/ipv4/arp.c                  |  4 ++--
->  net/ipv4/datagram.c             |  5 +++--
->  net/ipv4/inet_connection_sock.c | 11 ++++++-----
->  net/ipv4/ip_output.c            |  2 +-
->  net/ipv4/ping.c                 |  6 +++---
->  net/ipv4/raw.c                  | 13 ++++++++-----
->  net/ipv4/route.c                | 18 +++++++-----------
->  net/ipv4/syncookies.c           |  4 ++--
->  net/ipv4/tcp_ipv4.c             |  2 +-
->  net/ipv4/udp.c                  |  6 +++---
->  net/l2tp/l2tp_ip.c              |  3 ++-
->  net/sctp/protocol.c             |  6 ++++--
->  20 files changed, 79 insertions(+), 68 deletions(-)
+> In RFC 6298 Standard TCP Retransmission Timeout (RTO) calculation the
+> calculated RTO is rounded up to the Minimum RTO (MinRTO), if it is
+> less. The Linux implementation as a discrepancy to the Standard
+> basically adds the defined MinRTO to the calculated RTO. When
+> comparing both approaches, the Linux calculation seems to perform
+> worse for sender limited TCP flows like Telnet, SSH or constant bit
+> rate encoded transmissions, especially for Round Trip Times (RTT) of
+> 50ms to 800ms.
+>
+> Compared to the Linux implementation the RFC 6298 proposed RTO
+> calculation performs better and more precise in adapting to current
+> network characteristics. Extensive measurements for bulk data did not
+> show a negative impact of the adjusted calculation.
+>
+> Exemplary performance comparison for sender-limited-flows:
+>
+> - Rate: 10Mbit/s
+> - Delay: 200ms, Delay Variation: 10ms
+> - Time between each scheduled segment: 1s
+> - Amount Data Segments: 300
+> - Mean of 11 runs
+>
+>          Mean Response Waiting Time [milliseconds]
+>
+> PER [%] |   0.5      1    1.5      2      3      5      7     10
+> --------+-------------------------------------------------------
+> old     | 206.4  208.6  218.0  218.6  227.2  249.3  274.7  308.2
+> new     | 203.9  206.0  207.0  209.9  217.3  225.6  238.7  259.1
+>
+>
+> Detailed Analysis:
+>
+> https://docs.google.com/document/d/1pKmPfnQb6fDK4qpiNVkN8cQyGE4wYDZuk=
+cuZfR-BnnM/
+Thanks for the patch. I also have long wanted to evaluate Linux's RTO v=
+s RFC's.
 
-Reviewed-by: David Ahern <dsa@cumulusnetworks.com>
+Since this is not a small change, and your patch is only tested on
+emulation-based testbed AFAICT, I'd like to try your patch on Google
+servers to get more data. But this would take a few days to setup &
+collect.
+
+Note that this paper
+https://www.cs.helsinki.fi/research/iwtcp/papers/linuxtcp.pdf has
+detailed rationale of current design (section 4). IMO having a "tight"
+RTO is less necessary now after TLP. I am also testing a new set of
+patches to install a quick reordering timer. But it's worth mentioning
+the paper in the commit message.
+
+
+>
+>
+> Signed-off-by: Hagen Paul Pfeifer <hagen@jauu.net>
+> Signed-off-by: Daniel Metz <dmetz@mytum.de>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> ---
+>
+> We removed outdated comments in the code, though more cleanup may req=
+uired.
+>
+>
+>  net/ipv4/tcp_input.c | 74 ++++++++++++------------------------------=
+----------
+>  1 file changed, 17 insertions(+), 57 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index d6c8f4cd0..a0f66f8 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -680,8 +680,7 @@ static void tcp_event_data_recv(struct sock *sk, =
+struct sk_buff *skb)
+>  /* Called to compute a smoothed rtt estimate. The data fed to this
+>   * routine either comes from timestamps, or from segments that were
+>   * known _not_ to have been retransmitted [see Karn/Partridge
+> - * Proceedings SIGCOMM 87]. The algorithm is from the SIGCOMM 88
+> - * piece by Van Jacobson.
+> + * Proceedings SIGCOMM 87].
+>   * NOTE: the next three routines used to be one big routine.
+>   * To save cycles in the RFC 1323 implementation it was better to br=
+eak
+>   * it up into three procedures. -- erics
+> @@ -692,59 +691,21 @@ static void tcp_rtt_estimator(struct sock *sk, =
+long mrtt_us)
+>         long m =3D mrtt_us; /* RTT */
+>         u32 srtt =3D tp->srtt_us;
+>
+> -       /*      The following amusing code comes from Jacobson's
+> -        *      article in SIGCOMM '88.  Note that rtt and mdev
+> -        *      are scaled versions of rtt and mean deviation.
+> -        *      This is designed to be as fast as possible
+> -        *      m stands for "measurement".
+> -        *
+> -        *      On a 1990 paper the rto value is changed to:
+> -        *      RTO =3D rtt + 4 * mdev
+> -        *
+> -        * Funny. This algorithm seems to be very broken.
+> -        * These formulae increase RTO, when it should be decreased, =
+increase
+> -        * too slowly, when it should be increased quickly, decrease =
+too quickly
+> -        * etc. I guess in BSD RTO takes ONE value, so that it is abs=
+olutely
+> -        * does not matter how to _calculate_ it. Seems, it was trap
+> -        * that VJ failed to avoid. 8)
+> -        */
+>         if (srtt !=3D 0) {
+> -               m -=3D (srtt >> 3);       /* m is now error in rtt es=
+t */
+> -               srtt +=3D m;              /* rtt =3D 7/8 rtt + 1/8 ne=
+w */
+> -               if (m < 0) {
+> -                       m =3D -m;         /* m is now abs(error) */
+> -                       m -=3D (tp->mdev_us >> 2);   /* similar updat=
+e on mdev */
+> -                       /* This is similar to one of Eifel findings.
+> -                        * Eifel blocks mdev updates when rtt decreas=
+es.
+> -                        * This solution is a bit different: we use f=
+iner gain
+> -                        * for mdev in this case (alpha*beta).
+> -                        * Like Eifel it also prevents growth of rto,
+> -                        * but also it limits too fast rto decreases,
+> -                        * happening in pure Eifel.
+> -                        */
+> -                       if (m > 0)
+> -                               m >>=3D 3;
+> -               } else {
+> -                       m -=3D (tp->mdev_us >> 2);   /* similar updat=
+e on mdev */
+> -               }
+> -               tp->mdev_us +=3D m;               /* mdev =3D 3/4 mde=
+v + 1/4 new */
+> -               if (tp->mdev_us > tp->mdev_max_us) {
+> -                       tp->mdev_max_us =3D tp->mdev_us;
+> -                       if (tp->mdev_max_us > tp->rttvar_us)
+> -                               tp->rttvar_us =3D tp->mdev_max_us;
+> -               }
+> -               if (after(tp->snd_una, tp->rtt_seq)) {
+> -                       if (tp->mdev_max_us < tp->rttvar_us)
+> -                               tp->rttvar_us -=3D (tp->rttvar_us - t=
+p->mdev_max_us) >> 2;
+> +               m -=3D (srtt >> 3);        /* m' =3D m - srtt / 8 =3D=
+ (R' - SRTT) */
+> +               srtt +=3D m;               /* srtt =3D srtt + m=E2=80=
+=99 =3D srtt + m - srtt / 8 */
+> +               if (m < 0)
+> +                       m =3D -m;
+> +               m -=3D (tp->mdev_us >> 2); /* m'' =3D |m'| - mdev / 4=
+ */
+> +               tp->mdev_us +=3D m;
+> +               tp->rttvar_us =3D tp->mdev_us;
+> +               if (after(tp->snd_una, tp->rtt_seq))
+>                         tp->rtt_seq =3D tp->snd_nxt;
+> -                       tp->mdev_max_us =3D tcp_rto_min_us(sk);
+> -               }
+>         } else {
+>                 /* no previous measure. */
+> -               srtt =3D m << 3;          /* take the measured time t=
+o be rtt */
+> -               tp->mdev_us =3D m << 1;   /* make sure rto =3D 3*rtt =
+*/
+> -               tp->rttvar_us =3D max(tp->mdev_us, tcp_rto_min_us(sk)=
+);
+> -               tp->mdev_max_us =3D tp->rttvar_us;
+> +               srtt =3D m << 3;
+> +               tp->mdev_us =3D m << 1;
+> +               tp->rttvar_us =3D tp->mdev_us;
+>                 tp->rtt_seq =3D tp->snd_nxt;
+>         }
+>         tp->srtt_us =3D max(1U, srtt);
+> @@ -798,6 +759,7 @@ static void tcp_update_pacing_rate(struct sock *s=
+k)
+>   */
+>  static void tcp_set_rto(struct sock *sk)
+>  {
+> +       const u32 min_rto =3D tcp_rto_min_us(sk);
+>         const struct tcp_sock *tp =3D tcp_sk(sk);
+>         /* Old crap is replaced with new one. 8)
+>          *
+> @@ -809,17 +771,15 @@ static void tcp_set_rto(struct sock *sk)
+>          *    is invisible. Actually, Linux-2.4 also generates errati=
+c
+>          *    ACKs in some circumstances.
+>          */
+> -       inet_csk(sk)->icsk_rto =3D __tcp_set_rto(tp);
+> -
+> +       if (((tp->srtt_us >> 3) + tp->rttvar_us) < min_rto)
+> +               inet_csk(sk)->icsk_rto =3D usecs_to_jiffies(min_rto);
+> +       else
+> +               inet_csk(sk)->icsk_rto =3D __tcp_set_rto(tp);
+>         /* 2. Fixups made earlier cannot be right.
+>          *    If we do not estimate RTO correctly without them,
+>          *    all the algo is pure shit and should be replaced
+>          *    with correct one. It is exactly, which we pretend to do=
+=2E
+>          */
+> -
+> -       /* NOTE: clamping at TCP_RTO_MIN is not required, current alg=
+o
+> -        * guarantees that rto is higher.
+> -        */
+>         tcp_bound_rto(sk);
+>  }
+>
+> --
+> 2.8.3
+>
