@@ -1,33 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next RFT] net: fec: handle small PHY reset
- durations more precisely
-Date: Sun, 12 Jun 2016 21:58:32 -0400 (EDT)
-Message-ID: <20160612.215832.1472080008176652824.davem@davemloft.net>
-References: <1465418567-2694-1-git-send-email-stefan.wahren@i2se.com>
+Subject: Re: [PATCH] net: ethernet: ti: cpsw: use destroy ctlr to destroy
+ channels
+Date: Sun, 12 Jun 2016 22:01:35 -0400 (EDT)
+Message-ID: <20160612.220135.2211381636490955858.davem@davemloft.net>
+References: <1465596714-26697-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: fugang.duan@nxp.com, fabio.estevam@nxp.com, l.stach@pengutronix.de,
-	andrew@lunn.ch, holgerschurig@gmail.com,
-	troy.kisky@boundarydevices.com,
-	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org
-To: stefan.wahren@i2se.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54486 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933059AbcFMB6e (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 12 Jun 2016 21:58:34 -0400
-In-Reply-To: <1465418567-2694-1-git-send-email-stefan.wahren@i2se.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
+	mugunthanvnm@ti.com, grygorii.strashko@ti.com,
+	netdev@vger.kernel.org
+To: ivan.khoronzhuk@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465596714-26697-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Stefan Wahren <stefan.wahren@i2se.com>
-Date: Wed,  8 Jun 2016 20:42:46 +0000
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Date: Sat, 11 Jun 2016 01:11:54 +0300
 
-> Since msleep is based on jiffies the PHY reset could take longer
-> than expected. So use msleep for values greater than 20 msec otherwise
-> usleep_range.
+> There is no reason to destroy channels that are destroyed while
+> cpdma_ctlr destroy. In this case no need to remember how much
+> channels where created and destroy them by one, as cpdma_ctlr
+> destroys all of them.
 > 
-> Signed-off-by: Stefan Wahren <stefan.wahren@i2se.com>
+> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
 
 Applied.
