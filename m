@@ -1,44 +1,42 @@
-From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH] net: hns: update the dependency
-Date: Mon, 13 Jun 2016 19:56:27 +0800
-Message-ID: <1465818987-218513-1-git-send-email-Yisen.Zhuang@huawei.com>
+From: "Yang, Yi" <yi.y.yang-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH net-next] NSH(Network Service Header)
+ implementation
+Date: Mon, 13 Jun 2016 19:35:43 +0800
+Message-ID: <20160613113543.GA39084@cran64.bj.intel.com>
+References: <1465205686-96724-1-git-send-email-yi.y.yang@intel.com>
+ <CAOrHB_DF+LvRyJAOu6h=ofbf-T-Q85FutsFZ118FhsCsLsVBCg@mail.gmail.com>
+ <20160612075349.GA35971@cran64.bj.intel.com>
+ <20160613121114.7c55fd14@griffin>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <charles.chenxin@huawei.com>, <netdev@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>, <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:30072 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422911AbcFMLiJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 07:38:09 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <20160613121114.7c55fd14@griffin>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Kejian Yan <yankejian@huawei.com>
-
-After the patchset about adding support of ACPI (commit id is 6343488)
-being applied, HNS does not depend on OF. It depends on OF or ACPI, so
-the Kconfig file needs to be updated.
-
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
-Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
----
- drivers/net/ethernet/hisilicon/Kconfig | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/Kconfig b/drivers/net/ethernet/hisilicon/Kconfig
-index 4ccc032..2e25662 100644
---- a/drivers/net/ethernet/hisilicon/Kconfig
-+++ b/drivers/net/ethernet/hisilicon/Kconfig
-@@ -5,7 +5,7 @@
- config NET_VENDOR_HISILICON
- 	bool "Hisilicon devices"
- 	default y
--	depends on OF && HAS_DMA
-+	depends on (OF || ACPI) && HAS_DMA
- 	depends on ARM || ARM64 || COMPILE_TEST
- 	---help---
- 	  If you have a network (Ethernet) card belonging to this class, say Y.
--- 
-1.9.1
+T24gTW9uLCBKdW4gMTMsIDIwMTYgYXQgMTI6MTE6MTRQTSArMDIwMCwgSmlyaSBCZW5jIHdyb3Rl
+Ogo+IE9uIFN1biwgMTIgSnVuIDIwMTYgMTU6NTM6NTAgKzA4MDAsIFlhbmcsIFlpIHdyb3RlOgo+
+ID4gV2lsbCB1c2UgbmV0IGRldmljZSBhZnRlciB0aG9zZSBwYXRjaGVzIGFyZSBtZXJnZWQgaW50
+byBuZXQtbmV4dCwgSXQKPiA+IHNlZW1zIGN1cnJlbnQgbmV0IGRldmljZSBpbXBsZW1lbnRhdGlv
+biBpbiBuZXQtbmV4dCBkb2Vzbid0IGluY2x1ZGUgaXQsCj4gCj4gVGhlIGN1cnJlbnQga2VybmVs
+IHNob3VsZCBoYXZlIGV2ZXJ5dGhpbmcgdGhhdCdzIG5lZWRlZCBmb3IgVlhMQU4tR1BFCj4gc3Vw
+cG9ydC4KPiAKPiA+IGRvIHlvdSBtZWFuIHRoaXMgb25lCj4gPiAiaHR0cDovL2FydGljbGUuZ21h
+bmUub3JnL2dtYW5lLm5ldHdvcmsub3BlbnZzd2l0Y2guZGV2ZWwvNjQ3OTkiPwo+IAo+IFRoaXMg
+cGF0Y2hzZXQgaXMgYWJzb2x1dGVseSBuZWVkZWQgZm9yIG92cyB0byBzdXBwb3J0IG5ldyBWWExB
+Tgo+IGZlYXR1cmVzLCBpbmNsdWRpbmcgVlhMQU4tR1BFLgo+IAo+ICBKaXJpCgpHb3QgaXQsIEkn
+bGwgcmV3b3JrIGl0IGFmdGVyIFNpbW9uIGFuZCBUaGFkZXUgTGltYSBkZSBTb3V6YSBDYXNjYXJk
+bydzCnBhdGNoZXMgYXJlIG1lcmdlZC4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6
+Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
