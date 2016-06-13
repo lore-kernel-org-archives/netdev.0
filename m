@@ -1,96 +1,27 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/3] net: hisilicon: Add Fast Ethernet MAC driver
-Date: Mon, 13 Jun 2016 11:06:05 +0200
-Message-ID: <4004629.ilZU8AvAjF@wuerfel>
-References: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com> <1465798076-176393-4-git-send-email-lidongpo@hisilicon.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] IPsec NAT-T issue
+Date: Mon, 13 Jun 2016 12:20:24 +0200
+Message-ID: <20160613102024.GX7698@gauss.secunet.com>
+References: <20160612234814.15460-1-blair.steven@alliedtelesis.co.nz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
-	davem@davemloft.net, xuejiancheng@hisilicon.com,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Dongpo Li <lidongpo@hisilicon.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465798076-176393-4-git-send-email-lidongpo@hisilicon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>
+To: Blair Steven <blair.steven@alliedtelesis.co.nz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:46145 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S964910AbcFMKqm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jun 2016 06:46:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20160612234814.15460-1-blair.steven@alliedtelesis.co.nz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, June 13, 2016 2:07:56 PM CEST Dongpo Li wrote:
+On Mon, Jun 13, 2016 at 11:48:13AM +1200, Blair Steven wrote:
+> 
+> During testing we have discovered an issue with IPsec NAT-T where the SPI
+> is over writing the source and dest ports of the UDP header. 
 
-> +- reset-names: should contain the reset signal name "mac_reset"(required)
-> +	and "phy_reset"(optional).
-
-Maybe just name the resets 'mac' and 'phy'? The '_reset' part is
-implied by the property.
-
-I gave the driver a brief review and basically everything looks
-great, very nice work!
-
-There are two small things that I noticed:
-
-> +
-> +       do {
-> +               hisi_femac_xmit_reclaim(dev);
-> +               num = hisi_femac_rx(dev, task);
-> +               work_done += num;
-> +               task -= num;
-> +               if ((work_done >= budget) || (num == 0))
-> +                       break;
-> +
-> +               ints = readl(priv->glb_base + GLB_IRQ_STAT);
-> +               writel(ints & DEF_INT_MASK,
-> +                      priv->glb_base + GLB_IRQ_RAW);
-> +       } while (ints & DEF_INT_MASK);
-> +
-> +       if (work_done < budget) {
-> +               napi_complete(napi);
-> +               hisi_femac_irq_enable(priv, DEF_INT_MASK);
-> +       }
-
-You tx function uses BQL to optimize the queue length, and that
-is great. You also check xmit reclaim for rx interrupts, so
-as long as you have both rx and tx traffic, this should work
-great.
-
-However, I notice that you only have a 'tx fifo empty'
-interrupt triggering the napi poll, so I guess on a tx-only
-workload you will always end up pushing packets into the
-queue until BQL throttles tx, and then get the interrupt
-after all packets have been sent, which will cause BQL to
-make the queue longer up to the maximum queue size, and that
-negates the effect of BQL.
-
-Is there any way you can get a tx interrupt earlier than
-this in order to get a more balanced queue, or is it ok
-to just rely on rx packets to come in occasionally, and
-just use the tx fifo empty interrupt as a fallback?
-
-> +	priv->phy_mode = of_get_phy_mode(node);
-> +	if (priv->phy_mode < 0) {
-> +		dev_err(dev, "not find phy-mode\n");
-> +		ret = -EINVAL;
-> +		goto out_disable_clk;
-> +	}
-> +
-> +	priv->phy_node = of_parse_phandle(node, "phy-handle", 0);
-> +	if (!priv->phy_node) {
-> +		dev_err(dev, "not find phy-handle\n");
-> +		ret = -EINVAL;
-> +		goto out_disable_clk;
-> +	}
-> +
-> +	priv->phy = of_phy_connect(ndev, priv->phy_node,
-> +				   hisi_femac_adjust_link, 0, priv->phy_mode);
-> +	if (!(priv->phy) || IS_ERR(priv->phy)) {
-> +		dev_err(dev, "connect to PHY failed!\n");
-> +		ret = -ENODEV;
-> +		goto out_phy_node;
-> +	}
-
-I wonder if we could generalize this set of three calls, I
-get the impression that we duplicate this across several
-drivers that shouldn't need to bother with the specific
-phy-handle and phy-mode properties.
-
-	Arnd
+The headers should be restored after the crypto operation in
+esp_restore_header(). Does this not happen in your case? What
+kind of problem do you experience?
