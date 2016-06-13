@@ -1,101 +1,64 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH 02/15] net: Merge VXLAN and GENEVE push notifiers
- into a single notifier
-Date: Mon, 13 Jun 2016 14:58:35 -0700
-Message-ID: <CAKgT0UcbqAvN=NprtD8hsK-y1ex5m8wPOZinTVPHi72yoqwVsw@mail.gmail.com>
-References: <20160613173750.15186.24381.stgit@localhost.localdomain>
- <20160613174806.15186.64702.stgit@localhost.localdomain> <77eb25b2-d775-ec6f-c945-524d73113c96@redhat.com>
- <CAKgT0Ufd_BNSLrJUqN-eWjytf0aD2w_LVWFD7E1ym+A0jRhCtA@mail.gmail.com> <014f26d6-c747-5506-8dee-59866408c760@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Netdev <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Jesse Gross <jesse@kernel.org>, Jiri Benc <jbenc@redhat.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Dept-GELinuxNICDev@qlogic.com, David Miller <davem@davemloft.net>,
-	Eugenia Emantayev <eugenia@mellanox.com>
-To: Hannes Frederic Sowa <hannes@redhat.com>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net-next] tun: fix csum generation for tap devices
+Date: Tue, 14 Jun 2016 00:00:04 +0200
+Message-ID: <b4a4ba554658d07e8213e1e57cddef2f9485cc1b.1465854647.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"Michael S. Tsirkin" <mst@redhat.com>,
+	Mike Rapoport <rppt@linux.vnet.ibm.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:33836 "EHLO
-	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1422854AbcFMV6h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 17:58:37 -0400
-Received: by mail-io0-f195.google.com with SMTP id d2so11383267iof.1
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 14:58:36 -0700 (PDT)
-In-Reply-To: <014f26d6-c747-5506-8dee-59866408c760@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:51385 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1422700AbcFMWBk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 13 Jun 2016 18:01:40 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 13, 2016 at 2:08 PM, Hannes Frederic Sowa <hannes@redhat.com> wrote:
-> On 13.06.2016 21:47, Alexander Duyck wrote:
->> On Mon, Jun 13, 2016 at 10:57 AM, Hannes Frederic Sowa
->> <hannes@redhat.com> wrote:
->>> Hi Alex,
->>>
->>> very cool series!
->>>
->>> On 13.06.2016 19:48, Alexander Duyck wrote:
->>>> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
->>>> index d101e4d904ba..e959b6348f91 100644
->>>> --- a/include/linux/netdevice.h
->>>> +++ b/include/linux/netdevice.h
->>>> @@ -1269,6 +1269,14 @@ struct net_device_ops {
->>>>       void                    (*ndo_del_geneve_port)(struct  net_device *dev,
->>>>                                                      sa_family_t sa_family,
->>>>                                                      __be16 port);
->>>> +     void                    (*ndo_add_udp_enc_port)(struct  net_device *dev,
->>>> +                                                    sa_family_t sa_family,
->>>> +                                                    __be16 port,
->>>> +                                                    unsigned int type);
->>>> +     void                    (*ndo_del_udp_enc_port)(struct  net_device *dev,
->>>> +                                                    sa_family_t sa_family,
->>>> +                                                    __be16 port,
->>>> +                                                    unsigned int type);
->>>>       void*                   (*ndo_dfwd_add_station)(struct net_device *pdev,
->>>>                                                       struct net_device *dev);
->>>>       void                    (*ndo_dfwd_del_station)(struct net_device *pdev,
->>>
->>> What do you think about adding a struct as argument to
->>> ndo_*_udp_enc_port? As a result we can much easier add new fields in
->>> case future NICs allow us to e.g. specify a bound ip address?
->>
->> Actually that is probably a good idea.  Suggestions on the name are
->> welcome.  Otherwise I will try to come up with something in a bit as I
->> am currently going through and flushing out all the driver specific
->> VXLAN and GENEVE build flags.
->
-> Hmmm... struct net_device_hw_offload, to be most generic? Maybe we can
-> even drop the udp_enc in the name and go completely generic:
->
-> int (*ndo_apply_offload)(..., struct hw_offload).
+The commit 34166093639b ("tuntap: use common code for virtio_net_hdr
+and skb GSO conversion") replaced the tun code for header manipulation
+with the generic helpers. While doing so, it implictly moved the
+skb_partial_csum_set() invocation after eth_type_trans(), which
+invalidate the current gso start/offset values.
+Fix it by moving the helper invocation before the mac pulling.
 
-The only probably with generically using the offload keyword is it is
-not very clear about what is going on.
+Fixes: 34166093639 ("tuntap: use common code for virtio_net_hdr and skb GSO conversion")
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ drivers/net/tun.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-For now I am just going with udp_enc_endpoint_info since that is
-basically what we are passing.  Then I just use the pointer variable
-ei for passing it back and forth between the functions.
-
-> (enc reminded me too much at encryption)
-
-I don't know.  In a way that isn't too far off since we are looking at
-packet data buried inside of a UDP packet.  I thought it worked based
-on the fact that we have hw_enc_features which is what is used to
-indicate the hw features when a packet is encapsulated.  I could add a
-few more letters and move things over to "encap" if you prefer.  It
-just means adding 2 more letters.
-
-> Another idea, should we add error indications also for the future? We
-> can signal if a specific card was not able to enable offloading.
-> Different situations can be signaled: port list depleted, protocol
-> unsupported etc.
->
-> Might make sense for later postprocessing and signaling to user space.
-
-The problem is we are using a notifier type setup.  As such we cannot
-really exit out if an error occurs on one of the ports.
-
-- Alex
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 8cc6bf4..4884802 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -1254,6 +1254,13 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		return -EFAULT;
+ 	}
+ 
++	err = virtio_net_hdr_to_skb(skb, &gso, tun_is_little_endian(tun));
++	if (err) {
++		this_cpu_inc(tun->pcpu_stats->rx_frame_errors);
++		kfree_skb(skb);
++		return -EINVAL;
++	}
++
+ 	switch (tun->flags & TUN_TYPE_MASK) {
+ 	case IFF_TUN:
+ 		if (tun->flags & IFF_NO_PI) {
+@@ -1280,13 +1287,6 @@ static ssize_t tun_get_user(struct tun_struct *tun, struct tun_file *tfile,
+ 		break;
+ 	}
+ 
+-	err = virtio_net_hdr_to_skb(skb, &gso, tun_is_little_endian(tun));
+-	if (err) {
+-		this_cpu_inc(tun->pcpu_stats->rx_frame_errors);
+-		kfree_skb(skb);
+-		return -EINVAL;
+-	}
+-
+ 	/* copy skb_ubuf_info for callback when skb has no error */
+ 	if (zerocopy) {
+ 		skb_shinfo(skb)->destructor_arg = msg_control;
+-- 
+1.8.3.1
