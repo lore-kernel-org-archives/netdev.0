@@ -1,87 +1,187 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: Re: [PATCH] iucv: properly clone LSM attributes to newly created
- child sockets
-Date: Mon, 13 Jun 2016 16:38:01 +0200
-Message-ID: <1465828681.4401.24.camel@BR9GV9YG.de.ibm.com>
-References: <OFBFC201CF.D9C45214-ONC1257FCD.0059BB30-C1257FCD.0059C94A@notes.na.collabserv.com>
-	 <1465812526.4401.4.camel@BR9GV9YG.de.ibm.com>
-	 <CAHC9VhQPhSAudMSJ6j7cYYdZvYYwpyxMhT6yoGYeXm_oBThSaQ@mail.gmail.com>
+From: Toshiaki Makita <toshiaki.makita1@gmail.com>
+Subject: Re: [Bridge] [PATCH net-next v2] bridge: Synchronize unicast
+ filtering with FDB
+Date: Mon, 13 Jun 2016 23:49:13 +0900
+Message-ID: <575EC7E9.4040000@gmail.com>
+References: <1465215613-3468-1-git-send-email-makita.toshiaki@lab.ntt.co.jp>
+ <20160610.223512.206489271156278288.davem@davemloft.net>
+ <575C39B1.3010300@cumulusnetworks.com> <575D02AB.6040008@gmail.com>
+ <af1a5db5-fb9a-f3d9-f94c-b987c70f02da@lab.ntt.co.jp>
+ <575E97B3.1060704@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Moore <pmoore@redhat.com>, linux-s390@vger.kernel.org,
-	netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-To: Paul Moore <paul@paul-moore.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>,
+	netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	netdev@bof.de
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:34683 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S933313AbcFMOiI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 10:38:08 -0400
-Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
-	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u5DEXl8W141429
-	for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 10:38:08 -0400
-Received: from e06smtp07.uk.ibm.com (e06smtp07.uk.ibm.com [195.75.94.103])
-	by mx0b-001b2d01.pphosted.com with ESMTP id 23gbjuwbbu-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 10:38:07 -0400
-Received: from localhost
-	by e06smtp07.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Mon, 13 Jun 2016 15:38:06 +0100
-In-Reply-To: <CAHC9VhQPhSAudMSJ6j7cYYdZvYYwpyxMhT6yoGYeXm_oBThSaQ@mail.gmail.com>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:33926 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1161084AbcFMOtS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 10:49:18 -0400
+Received: by mail-pf0-f170.google.com with SMTP id 62so46977327pfd.1
+        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 07:49:18 -0700 (PDT)
+In-Reply-To: <575E97B3.1060704@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-06-13 at 08:38 -0400, Paul Moore wrote:
-> On Mon, Jun 13, 2016 at 6:08 AM, Ursula Braun <ubraun@linux.vnet.ibm.com> wrote:
-> >> From: Paul Moore <paul@paul-moore.com>
-> >>
-> >> Much like we had to do for AF_BLUETOOTH and AF_ALG, make sure we
-> >> properly clone the parent socket's LSM attributes to newly created
-> >> child sockets.
-> >>
-> >> Signed-off-by: Paul Moore <paul@paul-moore.com>
-> >> ---
-> >> net/iucv/af_iucv.c |    5 ++++-
-> >> 1 file changed, 4 insertions(+), 1 deletion(-)
-> >>
-> >> diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
-> >> index fc3598a..a0d1e36 100644
-> >> --- a/net/iucv/af_iucv.c
-> >> +++ b/net/iucv/af_iucv.c
-> >> @@ -22,6 +22,7 @@
-> >> #include <linux/skbuff.h>
-> >> #include <linux/init.h>
-> >> #include <linux/poll.h>
-> >> +#include <linux/security.h>
-> >> #include <net/sock.h>
-> >> #include <asm/ebcdic.h>
-> >> #include <asm/cpcmd.h>
-> >> @@ -530,8 +531,10 @@ static void iucv_sock_close(struct sock *sk)
-> >>
-> >> static void iucv_sock_init(struct sock *sk, struct sock *parent)
-> >> {
-> >> -                 if (parent)
-> >> +                 if (parent) {
-> >>                                   sk->sk_type = parent->sk_type;
-> >> +                                  security_sk_clone(parent, sk);
-> >> +                 }
-> >> }
-> >>
-> >> static struct sock *iucv_sock_alloc(struct socket *sock, int proto,
-> >> gfp_t prio, int kern)
-> >
-> > applied locally - thx. Your patch will now be submitted for inclusion
-> > into net-next.
-> 
-> Hi Ursula,
-> 
-> For what it's worth, I applied to the selinux#next branch last week,
-> it should be in the linux-next builds.
-> 
-> * git://git.infradead.org/users/pcmoore/selinux
-> * http://git.infradead.org/users/pcmoore/selinux
-> 
+On 16/06/13 (=E6=9C=88) 20:23, Nikolay Aleksandrov wrote:
+> On 13/06/16 13:13, Toshiaki Makita wrote:
+>> On 2016/06/12 15:35, Toshiaki Makita wrote:
+>>> On 16/06/12 (=E6=97=A5) 1:17, Nikolay Aleksandrov via Bridge wrote:
+>>>> On 06/11/2016 07:35 AM, David Miller wrote:
+>>>>> From: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>>>>> Date: Mon,  6 Jun 2016 21:20:13 +0900
+>>>>>
+>>>>>> Patrick Schaaf reported that flooding due to a missing fdb entry=
+ of
+>>>>>> the address of macvlan on the bridge device caused high CPU
+>>>>>> consumption of an openvpn process behind a tap bridge port.
+>>>>>> Adding an fdb entry of the macvlan address can suppress flooding
+>>>>>> and avoid this problem.
+>>>>>>
+>>>>>> This change makes bridge able to synchronize unicast filtering w=
+ith
+>>>>>> fdb automatically so admin do not need to manually add an fdb en=
+try.
+>>>>>> This effectively supports IFF_UNICAST_FLT in bridge, thus adding=
+ an
+>>>>>> macvlan device would not place bridge into promiscuous mode as w=
+ell.
+>>>>>>
+>>>>>> v2:
+>>>>>> - Test vlan with br_vlan_should_use() in br_fdb_sync_uc() as per
+>>>>>>     Nikolay Aleksandrov.
+>>>>>>
+>>>>>> Reported-by: Patrick Schaaf <netdev@bof.de>
+>>>>>> Signed-off-by: Toshiaki Makita <makita.toshiaki@lab.ntt.co.jp>
+>>>>>
+>>>>> I really need bridging experts to review and ACK/NACK this.
+>>>>>
+>>>>> Thanks.
+>>>>>
+>>>>
+>>>> Oops, I almost missed the v2, sorry about that. So, technically it
+>>>> looks correct, but
+>>>> I only fear the scalability impact of the change. If there're a la=
+rge
+>>>> number of vlans
+>>>> adding a macvlan (or any device that syncs uc addr) might become v=
+ery
+>>>> slow and every
+>>>> flag change will become very slow too without an option to revert =
+to
+>>>> the original
+>>>> behaviour so we'll have to wait for the entries to be added in ord=
+er
+>>>> to delete them.
+>>>> Another common scenario is having 8021q interfaces on top of the
+>>>> bridge with different
+>>>> mac addresses for some of the configured vlans (or with macvlans o=
+n
+>>>> top of them for VRR),
+>>>> that use case would suffer as well because their macs need to be l=
+ocal
+>>>> only for those vlans,
+>>>> and not the 2000+ other vlans that might exist.
+>>>> On every sync_uc() call all the fdb entries get deleted and added
+>>>> again, so even after deleting
+>>>> some manually they can come back unexpectedly after some operation=
+ and
+>>>> also the message storm from
+>>>> all the deletes and adds could be problematic as well.
+>>>>
+>>>> E.g. 2000 br0 vlans, 25 macvlans on br0 (adding them took more tha=
+n 5
+>>>> minutes, 53k fdb entries):
+>>>> $ bridge fdb del de:8e:9f:16:c5:71 dev br0 vlan 289
+>>>> $ ip l set br0 multicast on
+>>>> $ bridge fdb | grep 289 | grep de:8e:9f:16:c5:71
+>>>> de:8e:9f:16:c5:71 dev br0 vlan 1289 master br0 permanent
+>>>> de:8e:9f:16:c5:71 dev br0 vlan 289 master br0 permanent
+>>>>
+>>>> In fact you can't escape the slow performance even if you delete a=
+ll
+>>>> entries because on the
+>>>> next flag change or interface add, they will be added back.
+>>>
+>>> I still think this auto-sync should be done, otherwise macvlan impo=
+ses
+>>> promiscuous mode on bridge even if you manually add such fdb entrie=
+s.
+>>> I believe most of your concern would disappear by making use of
+>>> __dev_uc_sync() instead.
+>>> Indeed it seems that there is no easy way to propagate the combinat=
+ion
+>>> of uc addr and vlan from upper device, so local entries for unneede=
+d
+>>> vlan can still be created even if using __dev_uc_sync(). In case yo=
+u
+>>> worry about those unneeded entries, I can add a knob to disable thi=
+s
+>>> feature.
+>>> Are you comfortable with this change?
+>>
+>> Tested performance using __dev_uc_sync() and got expected results.
+>> (Add 3000 br0 vlans, 50 macvlans on br0)
+>>
+>> * Without patch
+>>   1.8s
+>>
+>> * Patch v2
+>>   2m42s
+> Your machine is much faster apparently. :-) It took me ~5 minutes for=
+ 25
+> macvlans
+> in my VM.
+>
+>>
+>> * Patch using __dev_uc_sync()
+>>   3.5s
+>>   Also, a manually deleted entry is not restored by flag change.
+>>
+>>
+>> Nikolay, David, I'd like to hear your feedback.
+>> I'm thinking the performance implication now looks reasonable.
+>> If you don't have objection, I'll work on v3 (using __dev_uc_sync() =
+and
+>> knob to disable the feature).
+>>
+>> Thanks,
+>> Toshiaki Makita
+>>
+>
+> The numbers sound okay, but I'd have to see the patch to be able to c=
+omment
+> further.
 
-ok, in this case I will not submit your patch myself.
+Sure.
+
+ > I wonder why the push for this change when this can be currently
+> "fixed" by adding the macs manually as local (pointing to the bridge)=
+ ?
+
+Well, there are two problems.
+One is what Patrick Schaaf reported and can be solved by manually addin=
+g=20
+local entries as well.
+The other is that macvlans force the bridge to be promiscuous. That=20
+means bridge ports cannot be non-promiscuous if any macvlan exists. Thi=
+s=20
+is because bridge's non-promiscuous feature requires all necessary fdb=20
+entries to be configured in order to sync them to brport's uc list.=20
+Without sync_uc of the bridge device, bridge cannot know what addresses=
+=20
+are needed for brport's uc filter so we cannot get around promiscuous=20
+mode with macvlans. This is what I feel is worth fixing with this patch=
+=2E=20
+I'm thinking this auto non-promiscuous should be transparently done wit=
+h=20
+macvlans...
+Sorry about the lack of explanation.
+
+Thanks,
+Toshiaki Makita
