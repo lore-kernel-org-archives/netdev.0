@@ -1,49 +1,32 @@
-From: Alexander Shiyan <shc_work@mail.ru>
-Subject: [PATCH 2/2] dt: bindings: Add bindings for Cirrus Logic CS89x0 ethernet chip
-Date: Mon, 13 Jun 2016 18:52:17 +0300
-Message-ID: <1465833137-836-1-git-send-email-shc_work@mail.ru>
-Cc: devicetree@vger.kernel.org, Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Alexander Shiyan <shc_work@mail.ru>
-To: netdev@vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] net_sched: prio: rollback allocations if prio_init() fails
+Date: Mon, 13 Jun 2016 09:28:48 -0700
+Message-ID: <CAM_iQpWWLTMRUNUeS9=6B3KqA6Tyu0qaUYSRw_PFYFK_mo7Urw@mail.gmail.com>
+References: <1465773707.7945.133.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAM_iQpXY0Ce5hbXYGOcd-N1tb9BH33JYXFQdmWEbsc5SWYsV8A@mail.gmail.com>
+ <1465792157.7945.145.camel@edumazet-glaptop3.roam.corp.google.com> <1465794231.7945.150.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from fallback2.mail.ru ([94.100.179.22]:43854 "EHLO
-	fallback2.mail.ru" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161143AbcFMQXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:23:31 -0400
+Received: from mail-yw0-f176.google.com ([209.85.161.176]:35224 "EHLO
+	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S965049AbcFMQ3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:29:09 -0400
+Received: by mail-yw0-f176.google.com with SMTP id z186so112447519ywd.2
+        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 09:29:08 -0700 (PDT)
+In-Reply-To: <1465794231.7945.150.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add device tree binding documentation details for Cirrus Logic
-CS8900/CS8920 ethernet chip.
+On Sun, Jun 12, 2016 at 10:03 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Now prio_init() can return -ENOMEM, it also has to make sure
+> any allocated qdisc are freed, since the caller (qdisc_create()) wont
+> call ->destroy() handler for us.
 
-Signed-off-by: Alexander Shiyan <shc_work@mail.ru>
----
- Documentation/devicetree/bindings/net/cirrus,cs89x0.txt | 13 +++++++++++++
- 1 file changed, 13 insertions(+)
- create mode 100644 Documentation/devicetree/bindings/net/cirrus,cs89x0.txt
 
-diff --git a/Documentation/devicetree/bindings/net/cirrus,cs89x0.txt b/Documentation/devicetree/bindings/net/cirrus,cs89x0.txt
-new file mode 100644
-index 0000000..c070076
---- /dev/null
-+++ b/Documentation/devicetree/bindings/net/cirrus,cs89x0.txt
-@@ -0,0 +1,13 @@
-+* Cirrus Logic CS8900/CS8920 Network Controller
-+
-+Required properties:
-+- compatible	: Should be "cirrus,cs8900" or "cirrus,cs8920".
-+- reg		: Address and length of the IO space.
-+- interrupts	: Should contain the controller interrupt line.
-+
-+Examples:
-+	eth0: eth@10000000 {
-+		compatible = "cirrus,cs8900";
-+		reg = <0x10000000 0x400>;
-+		interrupts = <10>;
-+	};
--- 
-2.4.9
+But prio_tune() is called by ->change() too, so just call prio_destroy()
+inside prio_tune() ?
