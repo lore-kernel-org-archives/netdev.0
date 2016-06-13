@@ -1,38 +1,45 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [PATCH net 1/2] ovs/vxlan: fix rtnl notifications on iface
- deletion
-Date: Mon, 13 Jun 2016 09:44:59 +0200
-Message-ID: <575E647B.5040503@6wind.com>
-References: <1465551147-17185-1-git-send-email-nicolas.dichtel@6wind.com>
- <CAOrHB_DCupNkAz+BSaOKKE+KLYhK-hytqW2vEV1yQ-iYr6hakg@mail.gmail.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [net-next PATCH v2 1/1] net sched actions: skbedit add support
+ for mod-ing skb pkt_type
+Date: Mon, 13 Jun 2016 10:00:27 +0200
+Message-ID: <575E681B.8080500@iogearbox.net>
+References: <1465766693-2336-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Pravin B Shelar <pshelar@nicira.com>
-To: pravin shelar <pshelar@ovn.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	Jamal Hadi Salim <hadi@mojatatu.com>
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f44.google.com ([74.125.82.44]:36531 "EHLO
-	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932165AbcFMHpE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 03:45:04 -0400
-Received: by mail-wm0-f44.google.com with SMTP id n184so65737439wmn.1
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 00:45:02 -0700 (PDT)
-In-Reply-To: <CAOrHB_DCupNkAz+BSaOKKE+KLYhK-hytqW2vEV1yQ-iYr6hakg@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:33872 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964919AbcFMIAb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 04:00:31 -0400
+In-Reply-To: <1465766693-2336-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 10/06/2016 19:50, pravin shelar a =C3=A9crit :
-[snip]
-> Patch looks good except the error handling code. earlier call to
-> vxlan_dev_configure() registers the net-device  and add the device to
-> vxlan device list. it needs to be undone before freeing the device.
->=20
-Ok, will fix it (and also for GRE).
+Hi Jamal,
 
+On 06/12/2016 11:24 PM, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <hadi@mojatatu.com>
+>
+> Extremely useful for setting packet type to host so i dont
+> have to modify the dst mac address using pedit (which requires
+> that i know the mac address)
+>
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Thank you,
-Nicolas
+I'm wondering if this is a good idea, I was thinking about something
+like this as well some time ago. So far pkt_type is just exposed as
+read-only to user space right now and I'm a bit worried that when we
+allow to set it arbitrarily, then this could lead to hard to debug
+issues since skb->pkt_type is used in a lot of places with possibly
+different assumptions and applications now need to mistrust the kernel
+whether skb->pkt_type was actually what the kernel itself set in the
+first place or skbedit with possibly some nonsense value (like rewriting
+PACKET_OUTGOING into PACKET_LOOPBACK, etc). Did you audit that this
+is safe?
+
+Thanks,
+Daniel
