@@ -1,122 +1,115 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: [PATCH RFC 2/3] ipv4: make flow functions more grepable by removing flowi4_update_output
-Date: Mon, 13 Jun 2016 22:47:37 +0200
-Message-ID: <1465850858-8559-3-git-send-email-hannes@stressinduktion.org>
-References: <1465850858-8559-1-git-send-email-hannes@stressinduktion.org>
-Cc: ja@ssi.bg, dsa@cumulusnetworks.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:33552 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1423033AbcFMUrv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 16:47:51 -0400
-In-Reply-To: <1465850858-8559-1-git-send-email-hannes@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: [PATCH v8 0/5] skb_array: array based FIFO for skbs
+Date: Mon, 13 Jun 2016 23:54:26 +0300
+Message-ID: <20160613235426-mutt-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
+	brouer@redhat.com, kvm@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
----
- include/net/flow.h              | 11 -----------
- include/net/route.h             |  8 ++++----
- net/netfilter/ipvs/ip_vs_xmit.c |  9 +++++++--
- net/sctp/protocol.c             | 10 ++++------
- 4 files changed, 15 insertions(+), 23 deletions(-)
+This is in response to the proposal by Jason to make tun
+rx packet queue lockless using a circular buffer.
+My testing seems to show that at least for the common usecase
+in networking, which isn't lockless, circular buffer
+with indices does not perform that well, because
+each index access causes a cache line to bounce between
+CPUs, and index access causes stalls due to the dependency.
 
-diff --git a/include/net/flow.h b/include/net/flow.h
-index 2c8e95b987c98c..6276a81f7b3d13 100644
---- a/include/net/flow.h
-+++ b/include/net/flow.h
-@@ -90,17 +90,6 @@ struct flowi4 {
- #define fl4_gre_key		uli.gre_key
- } __attribute__((__aligned__(BITS_PER_LONG/8)));
- 
--/* Reset some input parameters after previous lookup */
--static inline void flowi4_update_output(struct flowi4 *fl4, int oif, __u8 tos,
--					__be32 daddr, __be32 saddr)
--{
--	fl4->flowi4_oif = oif;
--	fl4->flowi4_tos = tos;
--	fl4->daddr = daddr;
--	fl4->saddr = saddr;
--}
--				      
--
- struct flowi6 {
- 	struct flowi_common	__fl_common;
- #define flowi6_oif		__fl_common.flowic_oif
-diff --git a/include/net/route.h b/include/net/route.h
-index 61164593d41ecf..8937e36fc9fd11 100644
---- a/include/net/route.h
-+++ b/include/net/route.h
-@@ -320,7 +320,8 @@ static inline struct rtable *ip_route_connect(struct flowi4 *fl4,
- 		if (IS_ERR(rt))
- 			return rt;
- 		ip_rt_put(rt);
--		flowi4_update_output(fl4, oif, tos, fl4->daddr, fl4->saddr);
-+		fl4->flowi4_oif = oif;
-+		fl4->flowi4_tos = tos;
- 	}
- 	security_sk_classify_flow(sk, flowi4_to_flowi(fl4));
- 	return ip_route_output_flow(net, fl4, sk);
-@@ -335,9 +336,8 @@ static inline struct rtable *ip_route_newports(struct flowi4 *fl4, struct rtable
- 		fl4->fl4_dport = dport;
- 		fl4->fl4_sport = sport;
- 		ip_rt_put(rt);
--		flowi4_update_output(fl4, sk->sk_bound_dev_if,
--				     RT_CONN_FLAGS(sk), fl4->daddr,
--				     fl4->saddr);
-+		fl4->flowi4_oif = sk->sk_bound_dev_if;
-+		fl4->flowi4_tos = RT_CONN_FLAGS(sk);
- 		security_sk_classify_flow(sk, flowi4_to_flowi(fl4));
- 		return ip_route_output_flow(sock_net(sk), fl4, sk);
- 	}
-diff --git a/net/netfilter/ipvs/ip_vs_xmit.c b/net/netfilter/ipvs/ip_vs_xmit.c
-index 01d3d894de4630..89444ee244c930 100644
---- a/net/netfilter/ipvs/ip_vs_xmit.c
-+++ b/net/netfilter/ipvs/ip_vs_xmit.c
-@@ -140,7 +140,10 @@ retry:
- 		if (PTR_ERR(rt) == -EINVAL && *saddr &&
- 		    rt_mode & IP_VS_RT_MODE_CONNECT && !loop) {
- 			*saddr = 0;
--			flowi4_update_output(&fl4, 0, 0, daddr, 0);
-+			fl4.flowi4_oif = 0;
-+			fl4.flowi4_tos = 0;
-+			fl4.daddr = daddr;
-+			fl4.saddr = 0;
- 			goto retry;
- 		}
- 		IP_VS_DBG_RL("ip_route_output error, dest: %pI4\n", &daddr);
-@@ -148,7 +151,9 @@ retry:
- 	} else if (!*saddr && rt_mode & IP_VS_RT_MODE_CONNECT && fl4.saddr) {
- 		ip_rt_put(rt);
- 		*saddr = fl4.saddr;
--		flowi4_update_output(&fl4, 0, 0, daddr, fl4.saddr);
-+		fl4.flowi4_oif = 0;
-+		fl4.flowi4_tos = 0;
-+		fl4.daddr = daddr;
- 		loop++;
- 		goto retry;
- 	}
-diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-index 40022ee885d7e8..f85b37a73ee633 100644
---- a/net/sctp/protocol.c
-+++ b/net/sctp/protocol.c
-@@ -499,12 +499,10 @@ static void sctp_v4_get_dst(struct sctp_transport *t, union sctp_addr *saddr,
- 			continue;
- 
- 		fl4->fl4_sport = laddr->a.v4.sin_port;
--		flowi4_update_output(fl4,
--				     asoc->base.sk->sk_bound_dev_if,
--				     RT_CONN_FLAGS(asoc->base.sk),
--				     daddr->v4.sin_addr.s_addr,
--				     laddr->a.v4.sin_addr.s_addr);
--
-+		fl4->flowi4_oif = asoc->base.sk->sk_bound_dev_if;
-+		fl4->flowi4_tos = RT_CONN_FLAGS(asoc->base.sk);
-+		fl4->daddr = daddr->v4.sin_addr.s_addr;
-+		fl4->saddr = laddr->a.v4.sin_addr.s_addr;
- 		rt = ip_route_output_key(sock_net(sk), fl4);
- 		if (IS_ERR(rt))
- 			continue;
+By comparison, an array of pointers where NULL means invalid
+and !NULL means valid, can be updated without messing up barriers
+at all and does not have this issue.
+
+On the flip side, cache pressure may be caused by using large queues.
+tun has a queue of 1000 entries by default and that's 8K.
+At this point I'm not sure this can be solved efficiently.
+The correct solution might be sizing the queues appropriately.
+
+Here's an implementation of this idea: it can be used more
+or less whenever sk_buff_head can be used, except you need
+to know the queue size in advance.
+
+As this might be useful outside of networking, I implemented
+a generic array of void pointers, with a type-safe wrapper for skbs.
+
+It remains to be seen whether resizing is required, in case it is
+I included patches implementing resizing by holding both the
+consumer and the producer locks.
+
+I think this code works fine without any extra memory barriers since we
+always read and write the same location, so the accesses can not be
+reordered.
+Multiple writes of the same value into memory would mess things up
+for us, I don't think compilers would do it though.
+But if people feel it's better to be safe wrt compiler optimizations,
+specifying queue as volatile would probably do it in a cleaner way
+than converting all accesses to READ_ONCE/WRITE_ONCE. Thoughts?
+
+The only issue is with calls within a loop using the __ptr_ring_XXX
+accessors - in theory compiler could hoist accesses out of the loop.
+
+Following volatile-considered-harmful.txt I merely
+documented that callers that busy-poll should invoke cpu_relax().
+Most people will use the external skb_array_XXX APIs with a spinlock,
+so this should not be an issue for them.
+
+Eric Dumazet suggested adding an extra pointer to skb for when
+we have a single outstanding packet. I could not figure out
+a way to implement this without a shared consumer/producer lock
+though, which would cause cache line bounces by itself.
+
+Jesper, Jason, I know that both of you tested this,
+please post Tested-by tags for whatever was tested.
+
+changes since v7
+	fix typos noticed by Jesper Brouer
+
+changes since v6
+	resize implemented. peek/full calls are no longer lockless
+
+	replaced _FIELD macros with _CALL which invoke a function
+	on the pointer rather than just returning a value
+
+	destroy now scans the array and frees all queued skbs
+
+changes since v5
+	implemented a generic ptr_ring api, and
+		made skb_array a type-safe wrapper
+	apis for taking the spinlock in different contexts
+		following expected usecase in tun
+changes since v4 (v3 was never posted)
+	documentation
+	dropped SKB_ARRAY_MIN_SIZE heuristic
+	unit test (in userspace, included as patch 2)
+
+changes since v2:
+        fixed integer overflow pointed out by Eric.
+        added some comments.
+
+changes since v1:
+        fixed bug pointed out by Eric.
+
+Michael S. Tsirkin (5):
+  ptr_ring: array based FIFO for pointers
+  ptr_ring: ring test
+  skb_array: array based FIFO for skbs
+  ptr_ring: resize support
+  skb_array: resize support
+
+ include/linux/ptr_ring.h         | 393 +++++++++++++++++++++++++++++++++++++++
+ include/linux/skb_array.h        | 169 +++++++++++++++++
+ tools/virtio/ringtest/ptr_ring.c | 192 +++++++++++++++++++
+ tools/virtio/ringtest/Makefile   |   5 +-
+ 4 files changed, 758 insertions(+), 1 deletion(-)
+ create mode 100644 include/linux/ptr_ring.h
+ create mode 100644 include/linux/skb_array.h
+ create mode 100644 tools/virtio/ringtest/ptr_ring.c
+
 -- 
-2.5.5
+MST
