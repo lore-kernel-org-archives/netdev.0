@@ -1,15 +1,14 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: [PATCH v8 2/5] ptr_ring: ring test
-Date: Mon, 13 Jun 2016 23:54:36 +0300
-Message-ID: <20160613235436-mutt-send-email-mst@redhat.com>
+Subject: [PATCH v8 1/5] ptr_ring: array based FIFO for pointers
+Date: Mon, 13 Jun 2016 23:54:31 +0300
+Message-ID: <20160613235431-mutt-send-email-mst@redhat.com>
 References: <1465851234-13558-1-git-send-email-mst@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jason Wang <jasowang@redhat.com>,
 	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
 	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
-	brouer@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
+	brouer@redhat.com, kvm@vger.kernel.org
 To: linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
@@ -17,248 +16,284 @@ In-Reply-To: <1465851234-13558-1-git-send-email-mst@redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add ringtest based unit test for ptr ring.
+A simple array based FIFO of pointers.  Intended for net stack which
+commonly has a single consumer/producer.
 
 Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
 ---
- tools/virtio/ringtest/ptr_ring.c | 192 +++++++++++++++++++++++++++++++++++++++
- tools/virtio/ringtest/Makefile   |   5 +-
- 2 files changed, 196 insertions(+), 1 deletion(-)
- create mode 100644 tools/virtio/ringtest/ptr_ring.c
+ include/linux/ptr_ring.h | 264 +++++++++++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 264 insertions(+)
+ create mode 100644 include/linux/ptr_ring.h
 
-diff --git a/tools/virtio/ringtest/ptr_ring.c b/tools/virtio/ringtest/ptr_ring.c
+diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
 new file mode 100644
-index 0000000..74abd74
+index 0000000..633406f
 --- /dev/null
-+++ b/tools/virtio/ringtest/ptr_ring.c
-@@ -0,0 +1,192 @@
-+#define _GNU_SOURCE
-+#include "main.h"
-+#include <stdlib.h>
-+#include <stdio.h>
-+#include <string.h>
-+#include <pthread.h>
-+#include <malloc.h>
-+#include <assert.h>
-+#include <errno.h>
-+#include <limits.h>
++++ b/include/linux/ptr_ring.h
+@@ -0,0 +1,264 @@
++/*
++ *	Definitions for the 'struct ptr_ring' datastructure.
++ *
++ *	Author:
++ *		Michael S. Tsirkin <mst@redhat.com>
++ *
++ *	Copyright (C) 2016 Red Hat, Inc.
++ *
++ *	This program is free software; you can redistribute it and/or modify it
++ *	under the terms of the GNU General Public License as published by the
++ *	Free Software Foundation; either version 2 of the License, or (at your
++ *	option) any later version.
++ *
++ *	This is a limited-size FIFO maintaining pointers in FIFO order, with
++ *	one CPU producing entries and another consuming entries from a FIFO.
++ *
++ *	This implementation tries to minimize cache-contention when there is a
++ *	single producer and a single consumer CPU.
++ */
 +
-+#define SMP_CACHE_BYTES 64
-+#define cache_line_size() SMP_CACHE_BYTES
-+#define ____cacheline_aligned_in_smp __attribute__ ((aligned (SMP_CACHE_BYTES)))
-+#define unlikely(x)    (__builtin_expect(!!(x), 0))
-+#define ALIGN(x, a) (((x) + (a) - 1) / (a) * (a))
-+typedef pthread_spinlock_t  spinlock_t;
++#ifndef _LINUX_PTR_RING_H
++#define _LINUX_PTR_RING_H 1
 +
-+typedef int gfp_t;
-+static void *kzalloc(unsigned size, gfp_t gfp)
++#ifdef __KERNEL__
++#include <linux/spinlock.h>
++#include <linux/cache.h>
++#include <linux/types.h>
++#include <linux/compiler.h>
++#include <linux/cache.h>
++#include <linux/slab.h>
++#include <asm/errno.h>
++#endif
++
++struct ptr_ring {
++	int producer ____cacheline_aligned_in_smp;
++	spinlock_t producer_lock;
++	int consumer ____cacheline_aligned_in_smp;
++	spinlock_t consumer_lock;
++	/* Shared consumer/producer data */
++	/* Read-only by both the producer and the consumer */
++	int size ____cacheline_aligned_in_smp; /* max entries in queue */
++	void **queue;
++};
++
++/* Note: callers invoking this in a loop must use a compiler barrier,
++ * for example cpu_relax().
++ * Callers don't need to take producer lock - if they don't
++ * the next call to __ptr_ring_produce may fail.
++ */
++static inline bool __ptr_ring_full(struct ptr_ring *r)
 +{
-+	void *p = memalign(64, size);
-+	if (!p)
-+		return p;
-+	memset(p, 0, size);
-+
-+	return p;
++	return r->queue[r->producer];
 +}
 +
-+static void kfree(void *p)
++static inline bool ptr_ring_full(struct ptr_ring *r)
 +{
-+	if (p)
-+		free(p);
++	barrier();
++	return __ptr_ring_full(r);
 +}
 +
-+static void spin_lock_init(spinlock_t *lock)
++/* Note: callers invoking this in a loop must use a compiler barrier,
++ * for example cpu_relax().
++ */
++static inline int __ptr_ring_produce(struct ptr_ring *r, void *ptr)
 +{
-+	int r = pthread_spin_init(lock, 0);
-+	assert(!r);
++	if (__ptr_ring_full(r))
++		return -ENOSPC;
++
++	r->queue[r->producer++] = ptr;
++	if (unlikely(r->producer >= r->size))
++		r->producer = 0;
++	return 0;
 +}
 +
-+static void spin_lock(spinlock_t *lock)
-+{
-+	int ret = pthread_spin_lock(lock);
-+	assert(!ret);
-+}
-+
-+static void spin_unlock(spinlock_t *lock)
-+{
-+	int ret = pthread_spin_unlock(lock);
-+	assert(!ret);
-+}
-+
-+static void spin_lock_bh(spinlock_t *lock)
-+{
-+	spin_lock(lock);
-+}
-+
-+static void spin_unlock_bh(spinlock_t *lock)
-+{
-+	spin_unlock(lock);
-+}
-+
-+static void spin_lock_irq(spinlock_t *lock)
-+{
-+	spin_lock(lock);
-+}
-+
-+static void spin_unlock_irq(spinlock_t *lock)
-+{
-+	spin_unlock(lock);
-+}
-+
-+static void spin_lock_irqsave(spinlock_t *lock, unsigned long f)
-+{
-+	spin_lock(lock);
-+}
-+
-+static void spin_unlock_irqrestore(spinlock_t *lock, unsigned long f)
-+{
-+	spin_unlock(lock);
-+}
-+
-+#include "../../../include/linux/ptr_ring.h"
-+
-+static unsigned long long headcnt, tailcnt;
-+static struct ptr_ring array ____cacheline_aligned_in_smp;
-+
-+/* implemented by ring */
-+void alloc_ring(void)
-+{
-+	int ret = ptr_ring_init(&array, ring_size, 0);
-+	assert(!ret);
-+}
-+
-+/* guest side */
-+int add_inbuf(unsigned len, void *buf, void *datap)
++static inline int ptr_ring_produce(struct ptr_ring *r, void *ptr)
 +{
 +	int ret;
 +
-+	ret = __ptr_ring_produce(&array, buf);
-+	if (ret >= 0) {
-+		ret = 0;
-+		headcnt++;
-+	}
++	spin_lock(&r->producer_lock);
++	ret = __ptr_ring_produce(r, ptr);
++	spin_unlock(&r->producer_lock);
 +
 +	return ret;
 +}
 +
-+/*
-+ * ptr_ring API provides no way for producer to find out whether a given
-+ * buffer was consumed.  Our tests merely require that a successful get_buf
-+ * implies that add_inbuf succeed in the past, and that add_inbuf will succeed,
-+ * fake it accordingly.
++static inline int ptr_ring_produce_irq(struct ptr_ring *r, void *ptr)
++{
++	int ret;
++
++	spin_lock_irq(&r->producer_lock);
++	ret = __ptr_ring_produce(r, ptr);
++	spin_unlock_irq(&r->producer_lock);
++
++	return ret;
++}
++
++static inline int ptr_ring_produce_any(struct ptr_ring *r, void *ptr)
++{
++	unsigned long flags;
++	int ret;
++
++	spin_lock_irqsave(&r->producer_lock, flags);
++	ret = __ptr_ring_produce(r, ptr);
++	spin_unlock_irqrestore(&r->producer_lock, flags);
++
++	return ret;
++}
++
++static inline int ptr_ring_produce_bh(struct ptr_ring *r, void *ptr)
++{
++	int ret;
++
++	spin_lock_bh(&r->producer_lock);
++	ret = __ptr_ring_produce(r, ptr);
++	spin_unlock_bh(&r->producer_lock);
++
++	return ret;
++}
++
++/* Note: callers invoking this in a loop must use a compiler barrier,
++ * for example cpu_relax(). Callers must take consumer_lock
++ * if they dereference the pointer - see e.g. PTR_RING_PEEK_CALL.
++ * There's no need for a lock if pointer is merely tested - see e.g.
++ * ptr_ring_empty.
 + */
-+void *get_buf(unsigned *lenp, void **bufp)
++static inline void *__ptr_ring_peek(struct ptr_ring *r)
 +{
-+	void *datap;
-+
-+	if (tailcnt == headcnt || __ptr_ring_full(&array))
-+		datap = NULL;
-+	else {
-+		datap = "Buffer\n";
-+		++tailcnt;
-+	}
-+
-+	return datap;
++	return r->queue[r->consumer];
 +}
 +
-+void poll_used(void)
++static inline bool ptr_ring_empty(struct ptr_ring *r)
 +{
-+	void *b;
-+
-+	do {
-+		if (tailcnt == headcnt || __ptr_ring_full(&array)) {
-+			b = NULL;
-+			barrier();
-+		} else {
-+			b = "Buffer\n";
-+		}
-+	} while (!b);
++	barrier();
++	return !__ptr_ring_peek(r);
 +}
 +
-+void disable_call()
++/* Must only be called after __ptr_ring_peek returned !NULL */
++static inline void __ptr_ring_discard_one(struct ptr_ring *r)
 +{
-+	assert(0);
++	r->queue[r->consumer++] = NULL;
++	if (unlikely(r->consumer >= r->size))
++		r->consumer = 0;
 +}
 +
-+bool enable_call()
-+{
-+	assert(0);
-+}
-+
-+void kick_available(void)
-+{
-+	assert(0);
-+}
-+
-+/* host side */
-+void disable_kick()
-+{
-+	assert(0);
-+}
-+
-+bool enable_kick()
-+{
-+	assert(0);
-+}
-+
-+void poll_avail(void)
-+{
-+	void *b;
-+
-+	do {
-+		barrier();
-+		b = __ptr_ring_peek(&array);
-+	} while (!b);
-+}
-+
-+bool use_buf(unsigned *lenp, void **bufp)
++static inline void *__ptr_ring_consume(struct ptr_ring *r)
 +{
 +	void *ptr;
 +
-+	ptr = __ptr_ring_consume(&array);
++	ptr = __ptr_ring_peek(r);
++	if (ptr)
++		__ptr_ring_discard_one(r);
 +
 +	return ptr;
 +}
 +
-+void call_used(void)
++static inline void *ptr_ring_consume(struct ptr_ring *r)
 +{
-+	assert(0);
++	void *ptr;
++
++	spin_lock(&r->consumer_lock);
++	ptr = __ptr_ring_consume(r);
++	spin_unlock(&r->consumer_lock);
++
++	return ptr;
 +}
-diff --git a/tools/virtio/ringtest/Makefile b/tools/virtio/ringtest/Makefile
-index 6173ada..877a8a4 100644
---- a/tools/virtio/ringtest/Makefile
-+++ b/tools/virtio/ringtest/Makefile
-@@ -1,6 +1,6 @@
- all:
- 
--all: ring virtio_ring_0_9 virtio_ring_poll virtio_ring_inorder noring
-+all: ring virtio_ring_0_9 virtio_ring_poll virtio_ring_inorder ptr_ring noring
- 
- CFLAGS += -Wall
- CFLAGS += -pthread -O2 -ggdb
-@@ -8,6 +8,7 @@ LDFLAGS += -pthread -O2 -ggdb
- 
- main.o: main.c main.h
- ring.o: ring.c main.h
-+ptr_ring.o: ptr_ring.c main.h ../../../include/linux/ptr_ring.h
- virtio_ring_0_9.o: virtio_ring_0_9.c main.h
- virtio_ring_poll.o: virtio_ring_poll.c virtio_ring_0_9.c main.h
- virtio_ring_inorder.o: virtio_ring_inorder.c virtio_ring_0_9.c main.h
-@@ -15,6 +16,7 @@ ring: ring.o main.o
- virtio_ring_0_9: virtio_ring_0_9.o main.o
- virtio_ring_poll: virtio_ring_poll.o main.o
- virtio_ring_inorder: virtio_ring_inorder.o main.o
-+ptr_ring: ptr_ring.o main.o
- noring: noring.o main.o
- clean:
- 	-rm main.o
-@@ -22,6 +24,7 @@ clean:
- 	-rm virtio_ring_0_9.o virtio_ring_0_9
- 	-rm virtio_ring_poll.o virtio_ring_poll
- 	-rm virtio_ring_inorder.o virtio_ring_inorder
-+	-rm ptr_ring.o ptr_ring
- 	-rm noring.o noring
- 
- .PHONY: all clean
++
++static inline void *ptr_ring_consume_irq(struct ptr_ring *r)
++{
++	void *ptr;
++
++	spin_lock_irq(&r->consumer_lock);
++	ptr = __ptr_ring_consume(r);
++	spin_unlock_irq(&r->consumer_lock);
++
++	return ptr;
++}
++
++static inline void *ptr_ring_consume_any(struct ptr_ring *r)
++{
++	unsigned long flags;
++	void *ptr;
++
++	spin_lock_irqsave(&r->consumer_lock, flags);
++	ptr = __ptr_ring_consume(r);
++	spin_unlock_irqrestore(&r->consumer_lock, flags);
++
++	return ptr;
++}
++
++static inline void *ptr_ring_consume_bh(struct ptr_ring *r)
++{
++	void *ptr;
++
++	spin_lock_bh(&r->consumer_lock);
++	ptr = __ptr_ring_consume(r);
++	spin_unlock_bh(&r->consumer_lock);
++
++	return ptr;
++}
++
++/* Cast to structure type and call a function without discarding from FIFO.
++ * Function must return a value.
++ * Callers must take consumer_lock.
++ */
++#define __PTR_RING_PEEK_CALL(r, f) ((f)(__ptr_ring_peek(r)))
++
++#define PTR_RING_PEEK_CALL(r, f) ({ \
++	typeof((f)(NULL)) __PTR_RING_PEEK_CALL_v; \
++	\
++	spin_lock(&(r)->consumer_lock); \
++	__PTR_RING_PEEK_CALL_v = __PTR_RING_PEEK_CALL(r, f); \
++	spin_unlock(&(r)->consumer_lock); \
++	__PTR_RING_PEEK_CALL_v; \
++})
++
++#define PTR_RING_PEEK_CALL_IRQ(r, f) ({ \
++	typeof((f)(NULL)) __PTR_RING_PEEK_CALL_v; \
++	\
++	spin_lock_irq(&(r)->consumer_lock); \
++	__PTR_RING_PEEK_CALL_v = __PTR_RING_PEEK_CALL(r, f); \
++	spin_unlock_irq(&(r)->consumer_lock); \
++	__PTR_RING_PEEK_CALL_v; \
++})
++
++#define PTR_RING_PEEK_CALL_BH(r, f) ({ \
++	typeof((f)(NULL)) __PTR_RING_PEEK_CALL_v; \
++	\
++	spin_lock_bh(&(r)->consumer_lock); \
++	__PTR_RING_PEEK_CALL_v = __PTR_RING_PEEK_CALL(r, f); \
++	spin_unlock_bh(&(r)->consumer_lock); \
++	__PTR_RING_PEEK_CALL_v; \
++})
++
++#define PTR_RING_PEEK_CALL_ANY(r, f) ({ \
++	typeof((f)(NULL)) __PTR_RING_PEEK_CALL_v; \
++	unsigned long __PTR_RING_PEEK_CALL_f;\
++	\
++	spin_lock_irqsave(&(r)->consumer_lock, __PTR_RING_PEEK_CALL_f); \
++	__PTR_RING_PEEK_CALL_v = __PTR_RING_PEEK_CALL(r, f); \
++	spin_unlock_irqrestore(&(r)->consumer_lock, __PTR_RING_PEEK_CALL_f); \
++	__PTR_RING_PEEK_CALL_v; \
++})
++
++static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
++{
++	r->queue = kzalloc(ALIGN(size * sizeof *(r->queue), SMP_CACHE_BYTES),
++			   gfp);
++	if (!r->queue)
++		return -ENOMEM;
++
++	r->size = size;
++	r->producer = r->consumer = 0;
++	spin_lock_init(&r->producer_lock);
++	spin_lock_init(&r->consumer_lock);
++
++	return 0;
++}
++
++static inline void ptr_ring_cleanup(struct ptr_ring *r)
++{
++	kfree(r->queue);
++}
++
++#endif /* _LINUX_PTR_RING_H  */
 -- 
 MST
