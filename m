@@ -1,120 +1,54 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 2/3] af_iucv: remove fragment_skb() to use paged SKBs
-Date: Mon, 13 Jun 2016 18:46:15 +0200
-Message-ID: <1465836376-24452-3-git-send-email-ubraun@linux.vnet.ibm.com>
-References: <1465836376-24452-1-git-send-email-ubraun@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	utz.bacher@de.ibm.com
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] net_sched: prio: rollback allocations if
+ prio_init() fails
+Date: Mon, 13 Jun 2016 10:13:24 -0700
+Message-ID: <1465838004.7945.167.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1465773707.7945.133.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAM_iQpXY0Ce5hbXYGOcd-N1tb9BH33JYXFQdmWEbsc5SWYsV8A@mail.gmail.com>
+	 <1465792157.7945.145.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1465794231.7945.150.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CAM_iQpWWLTMRUNUeS9=6B3KqA6Tyu0qaUYSRw_PFYFK_mo7Urw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:8735 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S965266AbcFMQrF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 12:47:05 -0400
-Received: from pps.filterd (m0098404.ppops.net [127.0.0.1])
-	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u5DGhuaJ132358
-	for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 12:47:04 -0400
-Received: from e06smtp12.uk.ibm.com (e06smtp12.uk.ibm.com [195.75.94.108])
-	by mx0a-001b2d01.pphosted.com with ESMTP id 23geqn6dp9-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 12:47:04 -0400
-Received: from localhost
-	by e06smtp12.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Mon, 13 Jun 2016 17:47:02 +0100
-In-Reply-To: <1465836376-24452-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:36575 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933027AbcFMRN0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 13:13:26 -0400
+Received: by mail-pa0-f41.google.com with SMTP id b5so47476034pas.3
+        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 10:13:26 -0700 (PDT)
+In-Reply-To: <CAM_iQpWWLTMRUNUeS9=6B3KqA6Tyu0qaUYSRw_PFYFK_mo7Urw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
+On Mon, 2016-06-13 at 09:28 -0700, Cong Wang wrote:
+> On Sun, Jun 12, 2016 at 10:03 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > Now prio_init() can return -ENOMEM, it also has to make sure
+> > any allocated qdisc are freed, since the caller (qdisc_create()) wont
+> > call ->destroy() handler for us.
+> 
+> 
+> But prio_tune() is called by ->change() too, so just call prio_destroy()
+> inside prio_tune() ?
 
-Before introducing paged skbs in the receive path, get rid of the
-function `iucv_fragment_skb()` that replaces one large linear skb
-with several smaller linear skbs.
+Because the following should work :
 
-Signed-off-by: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
----
- net/iucv/af_iucv.c | 59 +++---------------------------------------------------
- 1 file changed, 3 insertions(+), 56 deletions(-)
+tc qdisc replace dev eth0 root prio bands 3
 
-diff --git a/net/iucv/af_iucv.c b/net/iucv/af_iucv.c
-index 38448d1..9ed2adf 100644
---- a/net/iucv/af_iucv.c
-+++ b/net/iucv/af_iucv.c
-@@ -1231,44 +1231,6 @@ out:
- 	return err;
- }
- 
--/* iucv_fragment_skb() - Fragment a single IUCV message into multiple skb's
-- *
-- * Locking: must be called with message_q.lock held
-- */
--static int iucv_fragment_skb(struct sock *sk, struct sk_buff *skb, int len)
--{
--	int dataleft, size, copied = 0;
--	struct sk_buff *nskb;
--
--	dataleft = len;
--	while (dataleft) {
--		if (dataleft >= sk->sk_rcvbuf / 4)
--			size = sk->sk_rcvbuf / 4;
--		else
--			size = dataleft;
--
--		nskb = alloc_skb(size, GFP_ATOMIC | GFP_DMA);
--		if (!nskb)
--			return -ENOMEM;
--
--		/* copy target class to control buffer of new skb */
--		IUCV_SKB_CB(nskb)->class = IUCV_SKB_CB(skb)->class;
--
--		/* copy data fragment */
--		memcpy(nskb->data, skb->data + copied, size);
--		copied += size;
--		dataleft -= size;
--
--		skb_reset_transport_header(nskb);
--		skb_reset_network_header(nskb);
--		nskb->len = size;
--
--		skb_queue_tail(&iucv_sk(sk)->backlog_skb_q, nskb);
--	}
--
--	return 0;
--}
--
- /* iucv_process_message() - Receive a single outstanding IUCV message
-  *
-  * Locking: must be called with message_q.lock held
-@@ -1300,24 +1262,9 @@ static void iucv_process_message(struct sock *sk, struct sk_buff *skb,
- 			kfree_skb(skb);
- 			return;
- 		}
--		/* we need to fragment iucv messages for SOCK_STREAM only;
--		 * for SOCK_SEQPACKET, it is only relevant if we support
--		 * record segmentation using MSG_EOR (see also recvmsg()) */
--		if (sk->sk_type == SOCK_STREAM &&
--		    skb->truesize >= sk->sk_rcvbuf / 4) {
--			rc = iucv_fragment_skb(sk, skb, len);
--			kfree_skb(skb);
--			skb = NULL;
--			if (rc) {
--				pr_iucv->path_sever(path, NULL);
--				return;
--			}
--			skb = skb_dequeue(&iucv_sk(sk)->backlog_skb_q);
--		} else {
--			skb_reset_transport_header(skb);
--			skb_reset_network_header(skb);
--			skb->len = len;
--		}
-+		skb_reset_transport_header(skb);
-+		skb_reset_network_header(skb);
-+		skb->len = len;
- 	}
- 
- 	IUCV_SKB_CB(skb)->offset = 0;
--- 
-2.6.6
+(later...)
+
+tc qdisc change dev eth0 root prio bands 5 // memory allocation failure
+
+We must not destroy the qdisc on a change operation if it fails.
+
+Only the init should clean the qdisc state/memory/children since qdisc
+wont be created for real.
+
+Presumably we should commit changes on qdisc only if the whole
+->change() succeeded, but I guess lot of qdisc are buggy in this
+respect.
