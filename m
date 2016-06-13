@@ -1,121 +1,42 @@
-From: Amir Vadai <amir@vadai.me>
-Subject: [PATCH net-next] net/sched: flower: Return error when hw can't offload and skip_sw is set
-Date: Mon, 13 Jun 2016 12:06:39 +0300
-Message-ID: <20160613090639.31110-1-amir@vadai.me>
-Cc: netdev@vger.kernel.org, Jiri Pirko <jiri@mellanox.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jakub Kicinski <jakub.kicinski@netronome.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Amir Vadai <amirva@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+Subject: [PATCH net-next 1/1] Remove the redundant initialization statement.
+Date: Mon, 13 Jun 2016 05:01:10 -0400
+Message-ID: <1465808470-27424-1-git-send-email-sudarsana.kalluru@qlogic.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
+	<sudarsana.kalluru@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36010 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1161185AbcFMJGv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 05:06:51 -0400
-Received: by mail-wm0-f68.google.com with SMTP id m124so13120416wme.3
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 02:06:50 -0700 (PDT)
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:11771 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S964840AbcFMJpG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 05:45:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amirva@mellanox.com>
+The callback ".getcbx" is being initialized twice. This was introduced by
+the commit 0fdeb72aa6c9 ("qede: Add dcbnl support."). The patch removes the
+redundant initialization statement.
 
-When skip_sw is set and hardware fails to apply filter, return error to
-user. This will make error propagation logic similar to the one
-currently used in u32 classifier.
-Also, changed code to use tc_skip_sw() utility function.
-
-Signed-off-by: Amir Vadai <amirva@mellanox.com>
+Reported-by: Julia Lawall <julia.lawall@lip6.fr> 
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
 ---
- net/sched/cls_flower.c | 42 +++++++++++++++++++++++++-----------------
- 1 file changed, 25 insertions(+), 17 deletions(-)
+ drivers/net/ethernet/qlogic/qede/qede_dcbnl.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/net/sched/cls_flower.c b/net/sched/cls_flower.c
-index 1ea6f76..5060801 100644
---- a/net/sched/cls_flower.c
-+++ b/net/sched/cls_flower.c
-@@ -140,7 +140,7 @@ static int fl_classify(struct sk_buff *skb, const struct tcf_proto *tp,
- 	f = rhashtable_lookup_fast(&head->ht,
- 				   fl_key_get_start(&skb_mkey, &head->mask),
- 				   head->ht_params);
--	if (f && !(f->flags & TCA_CLS_FLAGS_SKIP_SW)) {
-+	if (f && !tc_skip_sw(f->flags)) {
- 		*res = f->res;
- 		return tcf_exts_exec(skb, &f->exts, res);
- 	}
-@@ -187,19 +187,20 @@ static void fl_hw_destroy_filter(struct tcf_proto *tp, unsigned long cookie)
- 	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
- }
- 
--static void fl_hw_replace_filter(struct tcf_proto *tp,
--				 struct flow_dissector *dissector,
--				 struct fl_flow_key *mask,
--				 struct fl_flow_key *key,
--				 struct tcf_exts *actions,
--				 unsigned long cookie, u32 flags)
-+static int fl_hw_replace_filter(struct tcf_proto *tp,
-+				struct flow_dissector *dissector,
-+				struct fl_flow_key *mask,
-+				struct fl_flow_key *key,
-+				struct tcf_exts *actions,
-+				unsigned long cookie, u32 flags)
- {
- 	struct net_device *dev = tp->q->dev_queue->dev;
- 	struct tc_cls_flower_offload offload = {0};
- 	struct tc_to_netdev tc;
-+	int err;
- 
- 	if (!tc_should_offload(dev, tp, flags))
--		return;
-+		return tc_skip_sw(flags) ? -EINVAL : 0;
- 
- 	offload.command = TC_CLSFLOWER_REPLACE;
- 	offload.cookie = cookie;
-@@ -211,7 +212,12 @@ static void fl_hw_replace_filter(struct tcf_proto *tp,
- 	tc.type = TC_SETUP_CLSFLOWER;
- 	tc.cls_flower = &offload;
- 
--	dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
-+	err = dev->netdev_ops->ndo_setup_tc(dev, tp->q->handle, tp->protocol, &tc);
-+
-+	if (tc_skip_sw(flags))
-+		return err;
-+
-+	return 0;
- }
- 
- static void fl_hw_update_stats(struct tcf_proto *tp, struct cls_fl_filter *f)
-@@ -572,20 +578,22 @@ static int fl_change(struct net *net, struct sk_buff *in_skb,
- 	if (err)
- 		goto errout;
- 
--	if (!(fnew->flags & TCA_CLS_FLAGS_SKIP_SW)) {
-+	if (!tc_skip_sw(fnew->flags)) {
- 		err = rhashtable_insert_fast(&head->ht, &fnew->ht_node,
- 					     head->ht_params);
- 		if (err)
- 			goto errout;
- 	}
- 
--	fl_hw_replace_filter(tp,
--			     &head->dissector,
--			     &mask.key,
--			     &fnew->key,
--			     &fnew->exts,
--			     (unsigned long)fnew,
--			     fnew->flags);
-+	err = fl_hw_replace_filter(tp,
-+				   &head->dissector,
-+				   &mask.key,
-+				   &fnew->key,
-+				   &fnew->exts,
-+				   (unsigned long)fnew,
-+				   fnew->flags);
-+	if (err)
-+		goto errout;
- 
- 	if (fold) {
- 		rhashtable_remove_fast(&head->ht, &fold->ht_node,
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
+index 03e8c02..318f0cb 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
+@@ -308,7 +308,6 @@ static const struct dcbnl_rtnl_ops qede_dcbnl_ops = {
+ 	.ieee_setets = qede_dcbnl_ieee_setets,
+ 	.ieee_getapp = qede_dcbnl_ieee_getapp,
+ 	.ieee_setapp = qede_dcbnl_ieee_setapp,
+-	.getdcbx = qede_dcbnl_getdcbx,
+ 	.ieee_peer_getpfc = qede_dcbnl_ieee_peer_getpfc,
+ 	.ieee_peer_getets = qede_dcbnl_ieee_peer_getets,
+ 	.getstate = qede_dcbnl_getstate,
 -- 
-2.8.3
+1.8.3.1
