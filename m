@@ -1,43 +1,67 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v2 net-next v2 11/12] net: dsa: mv88e6xxx: add an SMI ops structure
-Date: Tue, 14 Jun 2016 18:26:44 -0400
-Message-ID: <87y467z9sr.fsf@ketchup.mtl.sfl>
-References: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com> <20160614183153.32327-12-vivien.didelot@savoirfairelinux.com> <20160614220435.GI12832@lunn.ch>
+From: <Mario_Limonciello@Dell.com>
+Subject: RE: [PATCH v6] r8152: Add support for setting pass through MAC
+ address on RTL8153-AD
+Date: Tue, 14 Jun 2016 22:27:12 +0000
+Message-ID: <45cd7254286844fbbd198afa68723063@ausx13mpc124.AMER.DELL.COM>
+References: <201606141828.10969@pali>	<20160614164017.GB14477@kroah.com>
+	<201606141847.36109@pali>
+ <20160614.143521.2085426866285759820.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <gregkh@linuxfoundation.org>, <andrew@lunn.ch>,
+	<hayeswang@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	<anthony.wong@canonical.com>
+To: <davem@davemloft.net>, <pali.rohar@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160614220435.GI12832@lunn.ch>
+In-Reply-To: <20160614.143521.2085426866285759820.davem@davemloft.net>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, June 14, 2016 1:35 PM
+> To: pali.rohar@gmail.com
+> Cc: gregkh@linuxfoundation.org; andrew@lunn.ch; Limonciello, Mario
+> <Mario_Limonciello@Dell.com>; hayeswang@realtek.com; linux-
+> kernel@vger.kernel.org; netdev@vger.kernel.org; linux-
+> usb@vger.kernel.org; anthony.wong@canonical.com
+> Subject: Re: [PATCH v6] r8152: Add support for setting pass through M=
+AC
+> address on RTL8153-AD
+>=20
+> From: Pali Roh=E1r <pali.rohar@gmail.com>
+> Date: Tue, 14 Jun 2016 18:47:36 +0200
+>=20
+> > You have never seen two ethernet cards with same MAC addresses? Rig=
+ht
+> I
+> > have not seen two USB, but there is non zero chance that could happ=
+en.
+>=20
+> It would be an error scenerio, and something to be avoided.
+>=20
+> It is a valid and correct assumption that one is able to put
+> several devices at the same time on the same physical network
+> and expect it to work.
+>=20
+> The behavior added by the change in question invalidates that.
+>=20
+> I'm trying to consider the long term aspects of this, which is that i=
+f
+> more devices adopt this scheme we're in trouble if we blindly
+> interpret the MAC address in this way.
+>=20
 
-Andrew Lunn <andrew@lunn.ch> writes:
+Do you mean if other manufacturers start to ship devices with=20
+RTL8135-AD's w/ this pass through bit set and people start to try to=20
+mix and match?
 
->> +struct mv88e6xxx_smi_ops {
->> +	int (*read)(struct mii_bus *bus, int sw_addr,
->> +		    int addr, int reg, u16 *val);
->> +	int (*write)(struct mii_bus *bus, int sw_addr,
->> +		     int addr, int reg, u16 val);
->> +};
->> +
->
-> I think this API would be better if it used ps, not bus and sw_addr.
->
-> The only problem is the very first read to get the switch ID. I would
-> add one more layer in between, so that you can call the lowest level
-> functions without having a ps structure.
+> This firmware MAC property facility seems to be designed with only an
+> extremely narrow use case being considered.
 
-That's why I keep it simple for the moment.
-
-The low-level API using ps is now _mv88e6xxx_reg_{read,write}. I can
-rename them to mv88e6xxx_smi_{read,write} in v3 or later.
-
-Thanks,
-
-        Vivien
+Yes, as I understand it this is the reason that it's only on such speci=
+fic devices
+that the mac address pass through bit is actually set on the efuse.
