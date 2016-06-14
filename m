@@ -1,48 +1,58 @@
-From: Andrey Vagin <avagin@virtuozzo.com>
-Subject: Re: [CRIU] TCP_REPAIR MSS issue
-Date: Tue, 14 Jun 2016 14:21:28 -0700
-Message-ID: <20160614205741.GB20722@outlook.office365.com>
-References: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
- <575FEA4B.2000603@virtuozzo.com>
- <3758708E-B5DE-4D8B-A8CC-37346F994B32@netapp.com>
- <20160614171528.GA14276@outlook.office365.com>
- <EE75D5F9-7243-4DE0-94FE-F6279939C231@netapp.com>
+From: Jeremy Linton <jeremy.linton@arm.com>
+Subject: Re: [PATCH] net: smsc911x: If PHY doesn't have an interrupt then POLL
+Date: Tue, 14 Jun 2016 16:40:12 -0500
+Message-ID: <576079BC.8010802@arm.com>
+References: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
+ <46b56679-e92a-a8f9-f290-f67495169bdc@cogentembedded.com>
+ <57607742.5080208@arm.com>
+ <308d1da5-a869-7664-e5b4-0c838d9d2c60@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="koi8-r"
-Cc: Pavel Emelyanov <xemul@virtuozzo.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"criu@openvz.org" <criu@openvz.org>,
-	"Honda, Michio" <michio@netapp.com>
-To: "Eggert, Lars" <lars@netapp.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: steve.glendinning@shawell.net
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0111.outbound.protection.outlook.com ([157.56.112.111]:10228
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750771AbcFNVg4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2016 17:36:56 -0400
-Content-Disposition: inline
-In-Reply-To: <EE75D5F9-7243-4DE0-94FE-F6279939C231@netapp.com>
+Received: from foss.arm.com ([217.140.101.70]:33454 "EHLO foss.arm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750771AbcFNVkO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2016 17:40:14 -0400
+In-Reply-To: <308d1da5-a869-7664-e5b4-0c838d9d2c60@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 14, 2016 at 07:37:12PM +0000, Eggert, Lars wrote:
-> Hi,
-> 
-> On 2016-06-14, at 19:15, Andrey Vagin <avagin@virtuozzo.com> wrote:
-> > Recently we found that we have to restore more parameters for tcp
-> > sockets.
-> > https://patchwork.kernel.org/patch/9144995/
-> 
-> thanks for the pointer.
-> 
-> > As for your problem, criu saves and restores mss_clamp. Could you check
-> > that it works for your case?
-> 
-> I do this already, but clamping doesn't help here, since it only limits the MSS (but does not increase it from the minimum.)
+On 06/14/2016 04:34 PM, Sergei Shtylyov wrote:
+> On 06/15/2016 12:29 AM, Jeremy Linton wrote:
+>
+>>>> If the interrupt configuration isn't set and we are using the
+>>>
+>>>     It's never set, judging by the driver code.
+>>>
+>>>> internal phy, then we need to poll the phy to reliably detect
+>>>> phy state changes.
+>>>
+>>>     What address your internal PHY is at? Mine is at 1, and things seem
+>>> to work reliably after probing:
+>>>
+>>> SMSC LAN8700 18000000.etherne:01: attached PHY driver [SMSC LAN8700]
+>>> (mii_bus:phy_addr=18000000.etherne:01, irq=-1)
+>>>
+>>>     I'm using the device tree on my board.
+>>
+>> Ok, I'm back on the machine, this is what mine says without that patch.
+>>
+>>
+>>
+>> SMSC LAN911x Internal PHY 18000000.etherne:01: attached PHY driver [SMSC
+>> LAN911x Internal PHY] (mii_bus:phy_addr=18000000.etherne:01, irq=0)
+>
+>     Hum, that's unexpected... things are probably more complex that I
+> thought. Do you have extra patches to this driver by changce?
 
-Yes, you are right.
+No, the initial kernel where the problem was discovered is
+4.5.2-301.fc24.aarch64, but I built a mainline 4.6, and modprobed the 
+driver with the same effect.
 
-On my host, I see that dst is set in tcp_v4_connect() -> sk_setup_caps()
 
-> 
-> Lars
+Although, now that I'm looking closer at phy_irq, I'm curious how it 
+works for anyone else...
