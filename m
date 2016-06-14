@@ -1,44 +1,85 @@
-From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
-Subject: RE: [PATCH v6 1/2] can: rcar_canfd: Add Renesas R-Car CAN FD driver
-Date: Tue, 14 Jun 2016 07:23:54 +0000
-Message-ID: <SG2PR06MB103867812893000E1DDED08AC3540@SG2PR06MB1038.apcprd06.prod.outlook.com>
-References: <SG2PR06MB1038056F44EFBCB51674B832C35D0@SG2PR06MB1038.apcprd06.prod.outlook.com>
- <1465367896-60207-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <1465367896-60207-2-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
- <CAO3366xx0e3TVBL+cps6ye81S_vi6oOGugOOu6FWQr-XBcCx6g@mail.gmail.com>
+From: Li Dongpo <lidongpo@hisilicon.com>
+Subject: Re: [PATCH 1/3] net: Add MDIO bus driver for the Hisilicon FEMAC
+Date: Tue, 14 Jun 2016 16:24:48 +0800
+Message-ID: <575FBF50.30904@hisilicon.com>
+References: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com>
+ <1465798076-176393-2-git-send-email-lidongpo@hisilicon.com>
+ <20160613133230.GA3132@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "mkl@pengutronix.de" <mkl@pengutronix.de>,
-	"wg@grandegger.com" <wg@grandegger.com>,
-	"socketcan@hartkopp.net" <socketcan@hartkopp.net>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Chris Paterson <Chris.Paterson2@renesas.com>,
-	Simon Horman <horms@verge.net.au>,
-	Magnus Damm <magnus.damm@gmail.com>,
-	"linux-renesas-soc@vger.kernel.org"
-	<linux-renesas-soc@vger.kernel.org>
-To: Ulrich Hecht <ulrich.hecht@gmail.com>
-Return-path: <linux-renesas-soc-owner@vger.kernel.org>
-In-Reply-To: <CAO3366xx0e3TVBL+cps6ye81S_vi6oOGugOOu6FWQr-XBcCx6g@mail.gmail.com>
-Content-Language: en-US
-Sender: linux-renesas-soc-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <f.fainelli@gmail.com>, <robh+dt@kernel.org>,
+	<mark.rutland@arm.com>, <davem@davemloft.net>,
+	<xuejiancheng@hisilicon.com>, <netdev@vger.kernel.org>,
+	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:42262 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750806AbcFNIZl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 04:25:41 -0400
+In-Reply-To: <20160613133230.GA3132@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-SGkgVWxyaWNoLA0KDQo+IFRoYW5rcyBmb3IgdGhlIHBhdGNoLCB0aGlzIGlzIGEgbG90IGVhc2ll
-ciB0byBoYW5kbGUuDQo+IA0KWy4uLl0NCj4gPiArI2RlZmluZSBSQ0FORkRfUkZQVFJfUkZUUyh4
-KSAgICAgICAgICAgKCgoeCkgPj4gMCkgJiAweGZmKQ0KPiANCj4gVGhhdCBzaG91bGQgYmUgIigo
-KHgpID4+IDApICYgMHhmZmZmKSIuDQo+IA0KPiA+ICsNClsuLi5dDQoNCj4gPiArLyogUlNDRkRu
-Q0ZEUk1YWFhxIC0+IFJDQU5GRF9GX1JNWFhYKHEpICovDQo+ID4gKyNkZWZpbmUgUkNBTkZEX0Zf
-Uk1JRChxKSAgICAgICAgICAgICAgICgweDIwMDAgKyAoMHgxMCAqIChxKSkpDQo+ID4gKyNkZWZp
-bmUgUkNBTkZEX0ZfUk1QVFIocSkgICAgICAgICAgICAgICgweDIwMDQgKyAoMHgxMCAqIChxKSkp
-DQo+ID4gKyNkZWZpbmUgUkNBTkZEX0ZfUk1GRFNUUyhxKSAgICAgICAgICAgICgweDIwMDggKyAo
-MHgxMCAqIChxKSkpDQo+IA0KPiBUaGVzZSBzaG91bGQgYWxsIGJlICIrICgweDIwICogKHEpKSIu
-DQo+IA0KWy4uLl0NCj4gDQo+IEFwYXJ0IGZyb20gdGhhdCwgYWxsIHJlZ2lzdGVyIGFkZHJlc3Nl
-cywgb2Zmc2V0cywgYml0IHBvc2l0aW9ucyBhbmQgbWFza3MNCj4gY2hlY2sgb3V0LiBXaXRoIHRo
-ZSB0d28gaXNzdWVzIGZpeGVkOg0KPiANCj4gUmV2aWV3ZWQtYnk6IFVscmljaCBIZWNodCA8dWxy
-aWNoLmhlY2h0K3JlbmVzYXNAZ21haWwuY29tPg0KDQpUaGFuayB5b3UgZm9yIHlvdXIgdGltZSAm
-IHJldmlldyBjb21tZW50cy4gSSBoYXZlIGZpeGVkIHRoZXNlIHR5cG9zIGFuZCBzZW50IG91dCBh
-IHY3IHBhdGNoIHNldCBhZGRpbmcgeW91ciBSZXZpZXdlZC1ieSB0YWcuDQoNClRoYW5rcywNClJh
-bWVzaA0K
+
+
+On 2016/6/13 21:32, Andrew Lunn wrote:
+> On Mon, Jun 13, 2016 at 02:07:54PM +0800, Dongpo Li wrote:
+>> This patch adds a separate driver for the MDIO interface of the
+>> Hisilicon Fast Ethernet MAC.
+>>
+>> Reviewed-by: Jiancheng Xue <xuejiancheng@hisilicon.com>
+>> Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
+>> ---
+>>  .../bindings/net/hisilicon-femac-mdio.txt          |  22 +++
+>>  drivers/net/phy/Kconfig                            |   8 +
+>>  drivers/net/phy/Makefile                           |   1 +
+>>  drivers/net/phy/mdio-hisi-femac.c                  | 165 +++++++++++++++++++++
+>>  4 files changed, 196 insertions(+)
+>>  create mode 100644 Documentation/devicetree/bindings/net/hisilicon-femac-mdio.txt
+>>  create mode 100644 drivers/net/phy/mdio-hisi-femac.c
+
+[...]
+>> +
+> 
+> Hi Dongpo
+> 
+> Overall this looks good. Just some minor comments
+> 
+>> +static int hisi_femac_mdio_wait_ready(struct mii_bus *bus)
+>> +{
+>> +	struct hisi_femac_mdio_data *data = bus->priv;
+> 
+> You could just pass data here. Your read and write functions already
+> have it.
+> 
+Thank you, I will fix it in next patch version.
+
+>> +	data->clk = devm_clk_get(&pdev->dev, NULL);
+>> +	if (IS_ERR(data->clk)) {
+>> +		ret = -ENODEV;
+>> +		goto err_out_free_mdiobus;
+>> +	}
+> 
+> Return the error which devm_clk_get() gives you.
+> 
+ok, I will fix it.
+
+>> +
+>> +	ret = clk_prepare_enable(data->clk);
+>> +	if (ret)
+>> +		goto err_out_free_mdiobus;
+>> +
+>> +	ret = of_mdiobus_register(bus, np);
+>> +	if (ret)
+>> +		goto err_out_free_mdiobus;
+> 
+> You leave the clock prepared and enabled on error.
+> 
+ok, I will fix it.
+
+>     Andrew
+> 
+> .
+> 
