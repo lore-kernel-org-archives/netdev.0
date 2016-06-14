@@ -1,39 +1,57 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: [PATCH] net: smsc911x: If PHY doesn't have an interrupt then POLL
-Date: Tue, 14 Jun 2016 11:16:02 -0500
-Message-ID: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
-Cc: steve.glendinning@shawell.net
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:59979 "EHLO foss.arm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751388AbcFNQQI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2016 12:16:08 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kishan Sandeep <sandeepkishan108@gmail.com>
+Subject: Re: [PATCH] netfilter: fix buffer null termination
+Date: Tue, 14 Jun 2016 21:52:49 +0530
+Message-ID: <CAJ3s=ND18x4g4gwVOb0G4cqRbAiF-6F341gWJK7_vumc2BLB0w@mail.gmail.com>
+References: <1465620484-5543-1-git-send-email-sandeepkishan108@gmail.com>
+ <CAJ3s=NBCvYnRaWcFb==vZqP1_YE6w=uKqbtBvESkCo1sED2CHg@mail.gmail.com> <20160614150802.GA1029@salvia>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <20160614150802.GA1029@salvia>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If the interrupt configuration isn't set and we are using the
-internal phy, then we need to poll the phy to reliably detect
-phy state changes.
+Hi Pablo,
 
-Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
----
- drivers/net/ethernet/smsc/smsc911x.c | 3 +++
- 1 file changed, 3 insertions(+)
+On Tue, Jun 14, 2016 at 8:38 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
+> Cc'ing netfilter-devel.
+>
+> On Tue, Jun 14, 2016 at 07:39:27PM +0530, Kishan Sandeep wrote:
+>> + netdev
+>>
+>> On Sat, Jun 11, 2016 at 10:18 AM, Kishan Sandeep
+>> <sandeepkishan108@gmail.com> wrote:
+>> > strncpy generally perferable fo non-terminated
+>> > fixed-width strings. For NULL termination strlcpy
+>> > is preferrable.
+>> >
+>> > Signed-off-by: Kishan Sandeep <sandeepkishan108@gmail.com>
+>> > ---
+>> >  net/netfilter/xt_repldata.h |    2 +-
+>> >  1 file changed, 1 insertion(+), 1 deletion(-)
+>> >
+>> > diff --git a/net/netfilter/xt_repldata.h b/net/netfilter/xt_repldata.h
+>> > index 8fd3241..a460211 100644
+>> > --- a/net/netfilter/xt_repldata.h
+>> > +++ b/net/netfilter/xt_repldata.h
+>> > @@ -28,7 +28,7 @@
+>> >         if (tbl == NULL) \
+>> >                 return NULL; \
+>> >         term = (struct type##_error *)&(((char *)tbl)[term_offset]); \
+>> > -       strncpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
+>> > +       strlcpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
+>
+> I don't think this is actually fixing anything. Tables in x_tables
+> have a known and fixed name that is defined from the kernel side, that
+> is always smaller that the buffer we have there. So are you observing
+> any real problem from there?
+>
+> Thanks.
 
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index 8af2556..369dc7d 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -1020,6 +1020,9 @@ static int smsc911x_mii_probe(struct net_device *dev)
- 		return -ENODEV;
- 	}
- 
-+	if ((!phydev->irq) && (!pdata->using_extphy))
-+		phydev->irq = PHY_POLL;
-+
- 	SMSC_TRACE(pdata, probe, "PHY: addr %d, phy_id 0x%08X",
- 		   phydev->mdio.addr, phydev->phy_id);
- 
--- 
-2.5.5
+Not observed any real problem. Here the string is not NULL terminated with
+the use of strncpy - that is the problem. With the use of strlcpy we can make
+the string to terminated properly.
+
+Thanks!
