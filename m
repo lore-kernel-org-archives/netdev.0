@@ -1,144 +1,85 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv2 1/2] add basic register-field manipulation macros
-Date: Tue, 14 Jun 2016 12:44:19 +0100
-Message-ID: <1465904660-22242-2-git-send-email-jakub.kicinski@netronome.com>
-References: <1465904660-22242-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: hannes@stressinduktion.org, nbd@nbd.name,
-	linux-kernel@vger.kernel.org, kvalo@codeaurora.org,
-	linux-wireless@vger.kernel.org,
-	Jakub Kicinski <jakub.kicinski@netronome.com>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465904660-22242-1-git-send-email-jakub.kicinski@netronome.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Subject: [PATCHv3 net-next 11/12] 6lowpan: add support for getting short address
+Date: Tue, 14 Jun 2016 13:52:38 +0200
+Message-ID: <20160614115239.17788-12-aar@pengutronix.de>
+References: <20160614115239.17788-1-aar@pengutronix.de>
+Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
+	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
+	stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
+	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160614115239.17788-1-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-C bitfields are problematic and best avoided.  Developers
-interacting with hardware registers find themselves searching
-for easy-to-use alternatives.  Common approach is to define
-structures or sets of macros containing mask and shift pair.
-Operations on the register are then performed as follows:
+In case of sending RA messages we need some way to get the short address
+from an 802.15.4 6LoWPAN interface. This patch will add a temporary
+debugfs entry for experimental userspace api.
 
- field = (reg >> shift) & mask;
-
- reg &= ~(mask << shift);
- reg |= (field & mask) << shift;
-
-Defining shift and mask separately is tedious.  Ivo van Doorn
-came up with an idea of computing them at compilation time
-based on a single shifted mask (later refined by Felix) which
-can be used like this:
-
- #define X_REG_FIELD 0x000ff000
-
- field = FIELD_GET(X_REG_FIELD, reg);
-
- reg &= ~X_REG_FIELD;
- reg |= FIELD_PUT(X_REG_FIELD, field);
-
-FIELD_{GET,PUT} macros take care of finding out what the
-appropriate shift is based on compilation time ffs operation.
-
-GENMASK can be used to define registers (which is usually
-less error-prone and easier to match with datasheets).
-
-This approach is the most convenient I've seen so to limit code
-multiplication let's move the macros to a global header file.
-
-Compared to Felix Fietkau's implementation from mt76 this one
-uses standard Linux and GCC functions such as is_power_of_2()
-and __builtin_ffsll().
-
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 ---
-v2:
- - change Felix's email address.
+ net/6lowpan/debugfs.c | 39 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 39 insertions(+)
 
- include/linux/bitfield.h | 58 ++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/log2.h     |  6 +++++
- 2 files changed, 64 insertions(+)
- create mode 100644 include/linux/bitfield.h
-
-diff --git a/include/linux/bitfield.h b/include/linux/bitfield.h
-new file mode 100644
-index 000000000000..9560d1877cbc
---- /dev/null
-+++ b/include/linux/bitfield.h
-@@ -0,0 +1,58 @@
-+/*
-+ * Copyright (C) 2014 Felix Fietkau <nbd@nbd.name>
-+ * Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#ifndef _LINUX_BITFIELD_H
-+#define _LINUX_BITFIELD_H
-+
-+#include <asm/types.h>
-+#include <linux/bug.h>
-+#include <linux/log2.h>
-+
-+#define _bf_shf(x) (__builtin_ffsll(x) - 1)
-+
-+#define _BF_FIELD_CHECK(_mask, _val)					\
-+	({								\
-+		const u64 hi = (_mask) + (1ULL << _bf_shf(_mask));	\
-+									\
-+		BUILD_BUG_ON(!(_mask) || (hi && !is_power_of_2_u64(hi))); \
-+		BUILD_BUG_ON(__builtin_constant_p(_val) ?		\
-+			     ~((_mask) >> _bf_shf(_mask)) & (_val) :	\
-+			     0);					\
-+	})
-+
-+#define FIELD_PUT(_mask, _val)					\
-+	({							\
-+		_BF_FIELD_CHECK(_mask, _val);			\
-+		((u32)(_val) << _bf_shf(_mask)) & (_mask);	\
-+	})
-+
-+#define FIELD_GET(_mask, _val)					\
-+	({							\
-+		_BF_FIELD_CHECK(_mask, 0);			\
-+		(u32)(((_val) & (_mask)) >> _bf_shf(_mask));	\
-+	})
-+
-+#define FIELD_PUT64(_mask, _val)				\
-+	({							\
-+		_BF_FIELD_CHECK(_mask, _val);			\
-+		((u64)(_val) << _bf_shf(_mask)) & (_mask);	\
-+	})
-+
-+#define FIELD_GET64(_mask, _val)				\
-+	({							\
-+		_BF_FIELD_CHECK(_mask, 0);			\
-+		(u64)(((_val) & (_mask)) >> _bf_shf(_mask));	\
-+	})
-+
-+#endif
-diff --git a/include/linux/log2.h b/include/linux/log2.h
-index fd7ff3d91e6a..1b5e1f4da043 100644
---- a/include/linux/log2.h
-+++ b/include/linux/log2.h
-@@ -54,6 +54,12 @@ bool is_power_of_2(unsigned long n)
- 	return (n != 0 && ((n & (n - 1)) == 0));
- }
+diff --git a/net/6lowpan/debugfs.c b/net/6lowpan/debugfs.c
+index acbaa3d..24915e0 100644
+--- a/net/6lowpan/debugfs.c
++++ b/net/6lowpan/debugfs.c
+@@ -245,6 +245,41 @@ static const struct file_operations lowpan_context_fops = {
+ 	.release	= single_release,
+ };
  
-+static inline __attribute__((const))
-+bool is_power_of_2_u64(u64 n)
++static int lowpan_short_addr_get(void *data, u64 *val)
 +{
-+	return (n != 0 && ((n & (n - 1)) == 0));
++	struct wpan_dev *wdev = data;
++
++	rtnl_lock();
++	*val = le16_to_cpu(wdev->short_addr);
++	rtnl_unlock();
++
++	return 0;
 +}
 +
- /*
-  * round up to nearest power of two
-  */
++DEFINE_SIMPLE_ATTRIBUTE(lowpan_short_addr_fops, lowpan_short_addr_get,
++			NULL, "0x%04llx\n");
++
++static int lowpan_dev_debugfs_802154_init(const struct net_device *dev,
++					  struct lowpan_dev *ldev)
++{
++	struct dentry *dentry, *root;
++
++	if (!lowpan_is_ll(dev, LOWPAN_LLTYPE_IEEE802154))
++		return 0;
++
++	root = debugfs_create_dir("ieee802154", ldev->iface_debugfs);
++	if (!root)
++		return -EINVAL;
++
++	dentry = debugfs_create_file("short_addr", 0444, root,
++				     lowpan_802154_dev(dev)->wdev->ieee802154_ptr,
++				     &lowpan_short_addr_fops);
++	if (!dentry)
++		return -EINVAL;
++
++	return 0;
++}
++
+ int lowpan_dev_debugfs_init(struct net_device *dev)
+ {
+ 	struct lowpan_dev *ldev = lowpan_dev(dev);
+@@ -272,6 +307,10 @@ int lowpan_dev_debugfs_init(struct net_device *dev)
+ 			goto remove_root;
+ 	}
+ 
++	ret = lowpan_dev_debugfs_802154_init(dev, ldev);
++	if (ret < 0)
++		goto remove_root;
++
+ 	return 0;
+ 
+ remove_root:
 -- 
-1.9.1
+2.8.3
