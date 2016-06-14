@@ -1,46 +1,125 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [CRIU] TCP_REPAIR MSS issue
-Date: Tue, 14 Jun 2016 06:10:02 -0700
-Message-ID: <1465909802.7945.183.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
-	 <575FEA4B.2000603@virtuozzo.com>
-	 <3758708E-B5DE-4D8B-A8CC-37346F994B32@netapp.com>
-	 <1465909415.7945.182.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Li Dongpo <lidongpo@hisilicon.com>
+Subject: Re: [PATCH 3/3] net: hisilicon: Add Fast Ethernet MAC driver
+Date: Tue, 14 Jun 2016 21:17:44 +0800
+Message-ID: <576003F8.3090000@hisilicon.com>
+References: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com>
+ <1465798076-176393-4-git-send-email-lidongpo@hisilicon.com>
+ <4004629.ilZU8AvAjF@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Pavel Emelyanov <xemul@virtuozzo.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"criu@openvz.org" <criu@openvz.org>,
-	Andrey Vagin <avagin@virtuozzo.com>,
-	"Honda, Michio" <michio@netapp.com>
-To: "Eggert, Lars" <lars@netapp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:35654 "EHLO
-	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751346AbcFNNKF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 09:10:05 -0400
-Received: by mail-io0-f195.google.com with SMTP id n127so20547070iof.2
-        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 06:10:05 -0700 (PDT)
-In-Reply-To: <1465909415.7945.182.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <f.fainelli@gmail.com>, <robh+dt@kernel.org>,
+	<mark.rutland@arm.com>, <davem@davemloft.net>,
+	<xuejiancheng@hisilicon.com>, <netdev@vger.kernel.org>,
+	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <4004629.ilZU8AvAjF@wuerfel>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-06-14 at 06:03 -0700, Eric Dumazet wrote:
-> On Tue, 2016-06-14 at 11:40 +0000, Eggert, Lars wrote:
-> > On 2016-06-14, at 13:28, Pavel Emelyanov <xemul@virtuozzo.com> wrote:
-> > > Andrey (in Cc) has played with TCP_REPAIR recently, I guess he can know something.
-> > 
-> > Thanks for CC'ing him. We looked a little bit more into this:
-> > 
-> > When TCP_REPAIR is on, tcp_connect() directly calls tcp_finish_connect() before returning, passing NULL for skb, which causes sk_rx_dst_set() to be bypassed. Later, when TCP_REPAIR is being turned off, do_tcp_setsockopt() just does tcp_send_window_probe(), but apparently all the "dst" stuff is being bypassed then also, so the mss remains at TCP_MSS_DEFAULT.
-> > 
-> > Lars
-> 
-> What gives :
-> 
-> sysctl net/ipv4/ip_no_pmtu_disc net/ipv4/tcp_mtu_probing
-> 
 
-Also, is it a regression ? Was this working better with an older linux
-version ?
+
+On 2016/6/13 17:06, Arnd Bergmann wrote:
+> On Monday, June 13, 2016 2:07:56 PM CEST Dongpo Li wrote:
+> 
+>> +- reset-names: should contain the reset signal name "mac_reset"(required)
+>> +	and "phy_reset"(optional).
+> 
+> Maybe just name the resets 'mac' and 'phy'? The '_reset' part is
+> implied by the property.
+> 
+Hi, Arnd,
+Thank you for your advice. It's ok to omit the '_reset', I'll fix it in next version.
+
+> I gave the driver a brief review and basically everything looks
+> great, very nice work!
+> 
+> There are two small things that I noticed:
+> 
+>> +
+>> +       do {
+>> +               hisi_femac_xmit_reclaim(dev);
+>> +               num = hisi_femac_rx(dev, task);
+>> +               work_done += num;
+>> +               task -= num;
+>> +               if ((work_done >= budget) || (num == 0))
+>> +                       break;
+>> +
+>> +               ints = readl(priv->glb_base + GLB_IRQ_STAT);
+>> +               writel(ints & DEF_INT_MASK,
+>> +                      priv->glb_base + GLB_IRQ_RAW);
+>> +       } while (ints & DEF_INT_MASK);
+>> +
+>> +       if (work_done < budget) {
+>> +               napi_complete(napi);
+>> +               hisi_femac_irq_enable(priv, DEF_INT_MASK);
+>> +       }
+> 
+> You tx function uses BQL to optimize the queue length, and that
+> is great. You also check xmit reclaim for rx interrupts, so
+> as long as you have both rx and tx traffic, this should work
+> great.
+> 
+> However, I notice that you only have a 'tx fifo empty'
+> interrupt triggering the napi poll, so I guess on a tx-only
+> workload you will always end up pushing packets into the
+> queue until BQL throttles tx, and then get the interrupt
+> after all packets have been sent, which will cause BQL to
+> make the queue longer up to the maximum queue size, and that
+> negates the effect of BQL.
+> 
+> Is there any way you can get a tx interrupt earlier than
+> this in order to get a more balanced queue, or is it ok
+> to just rely on rx packets to come in occasionally, and
+> just use the tx fifo empty interrupt as a fallback?
+> 
+In tx direction, there are only two kinds of interrupts, 'tx fifo empty'
+and 'tx one packet finish'. I didn't use 'tx one packet finish' because
+it would lead to high hardware interrupts rate. This has been verified in
+our chips. It's ok to just use tx fifo empty interrupt.
+
+>> +	priv->phy_mode = of_get_phy_mode(node);
+>> +	if (priv->phy_mode < 0) {
+>> +		dev_err(dev, "not find phy-mode\n");
+>> +		ret = -EINVAL;
+>> +		goto out_disable_clk;
+>> +	}
+>> +
+>> +	priv->phy_node = of_parse_phandle(node, "phy-handle", 0);
+>> +	if (!priv->phy_node) {
+>> +		dev_err(dev, "not find phy-handle\n");
+>> +		ret = -EINVAL;
+>> +		goto out_disable_clk;
+>> +	}
+>> +
+>> +	priv->phy = of_phy_connect(ndev, priv->phy_node,
+>> +				   hisi_femac_adjust_link, 0, priv->phy_mode);
+>> +	if (!(priv->phy) || IS_ERR(priv->phy)) {
+>> +		dev_err(dev, "connect to PHY failed!\n");
+>> +		ret = -ENODEV;
+>> +		goto out_phy_node;
+>> +	}
+> 
+> I wonder if we could generalize this set of three calls, I
+> get the impression that we duplicate this across several
+> drivers that shouldn't need to bother with the specific
+> phy-handle and phy-mode properties.
+> 
+Some drivers only call 'of_phy_connect' when ndo_open called,
+some call when driver probed. But 'phy_mode' and 'phy_node' are
+usually initialized when driver probed.
+So I think it's not suitable to combine 'of_phy_connect' with
+'of_get_phy_mode' and 'of_parse_phandle'.
+Do you have any more suggestions ?
+
+> 	Arnd
+> 
+> 
+> .
+> 
+	Regards,
+	Dongpo
+
+
+.
