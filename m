@@ -1,40 +1,71 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v6] r8152: Add support for setting pass through MAC
- address on RTL8153-AD
-Date: Tue, 14 Jun 2016 19:23:04 +0200
-Message-ID: <20160614172304.GB4914@lunn.ch>
-References: <1465323757-7249-1-git-send-email-mario_limonciello@dell.com>
- <201606141828.10969@pali>
- <20160614164017.GB14477@kroah.com>
- <201606141847.36109@pali>
- <ba393fe424fd4a8fb82703dd0f42eea7@ausx13mpc124.AMER.DELL.COM>
+From: Andrey Vagin <avagin@virtuozzo.com>
+Subject: Re: [CRIU] TCP_REPAIR MSS issue
+Date: Tue, 14 Jun 2016 10:15:29 -0700
+Message-ID: <20160614171528.GA14276@outlook.office365.com>
+References: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
+ <575FEA4B.2000603@virtuozzo.com>
+ <3758708E-B5DE-4D8B-A8CC-37346F994B32@netapp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: pali.rohar@gmail.com, gregkh@linuxfoundation.org,
-	davem@davemloft.net, hayeswang@realtek.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, anthony.wong@canonical.com
-To: Mario_Limonciello@Dell.com
+Content-Type: text/plain; charset="koi8-r"
+Cc: Pavel Emelyanov <xemul@virtuozzo.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"criu@openvz.org" <criu@openvz.org>,
+	"Honda, Michio" <michio@netapp.com>
+To: "Eggert, Lars" <lars@netapp.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45405 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751442AbcFNRXO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2016 13:23:14 -0400
+Received: from mail-db3on0138.outbound.protection.outlook.com ([157.55.234.138]:46000
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751029AbcFNRax (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2016 13:30:53 -0400
 Content-Disposition: inline
-In-Reply-To: <ba393fe424fd4a8fb82703dd0f42eea7@ausx13mpc124.AMER.DELL.COM>
+In-Reply-To: <3758708E-B5DE-4D8B-A8CC-37346F994B32@netapp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> > It is same, how to handle two network cards which tell us, that they
-> > have same MAC addresses.
-> > 
+Hi,
+
+Recently we found that we have to restore more parameters for tcp
+sockets.
+https://patchwork.kernel.org/patch/9144995/
+
+As for your problem, criu saves and restores mss_clamp. Could you check
+that it works for your case?
+
+on dump:
+	static int tcp_stream_get_options(int sk, struct tcp_info *ti,
+	TcpStreamEntry *tse)
+	{
+		int ret;
+		socklen_t auxl;
+		int val;
+
+		auxl = sizeof(tse->mss_clamp);
+		ret = getsockopt(sk, SOL_TCP, TCP_MAXSEG, &tse->mss_clamp, &auxl);
+		if (ret < 0)
+			goto err_sopt;
+
+on restore:
+        pr_debug("Will set mss clamp to %u\n", tse->mss_clamp);
+        opts[onr].opt_code = TCPOPT_MAXSEG;
+        opts[onr].opt_val = tse->mss_clamp;
+        onr++;
+
+        if (setsockopt(sk, SOL_TCP, TCP_REPAIR_OPTIONS,
+                                opts, onr * sizeof(struct tcp_repair_opt)) < 0) {
+                pr_perror("Can't repair options");
+                return -1;
+        }
+
+Thanks,
+Andrew
+
+On Tue, Jun 14, 2016 at 11:40:01AM +0000, Eggert, Lars wrote:
+> On 2016-06-14, at 13:28, Pavel Emelyanov <xemul@virtuozzo.com> wrote:
+> > Andrey (in Cc) has played with TCP_REPAIR recently, I guess he can know something.
 > 
-> The kernel handles this just fine.  In doing this patch I checked to see
-> what it does in that scenario.  Two devices are made.  systemd doesn't
-> rename the second device via the MAC name (eg enxAABBCCDDEEFF).
-
-What does you dhcp server do? Does it gives out the same IP address?
-You then have two interfaces on the same network, with the same MAC
-address and IP address. Then what happens?
-
-     Andrew
+> Thanks for CC'ing him. We looked a little bit more into this:
+> 
+> When TCP_REPAIR is on, tcp_connect() directly calls tcp_finish_connect() before returning, passing NULL for skb, which causes sk_rx_dst_set() to be bypassed. Later, when TCP_REPAIR is being turned off, do_tcp_setsockopt() just does tcp_send_window_probe(), but apparently all the "dst" stuff is being bypassed then also, so the mss remains at TCP_MSS_DEFAULT.
+> 
+> Lars
