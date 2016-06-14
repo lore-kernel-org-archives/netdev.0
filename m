@@ -1,63 +1,115 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH net-next v4 6/7] vmxnet3: introduce command to register memory region
-Date: Tue, 14 Jun 2016 11:52:27 -0700
-Message-ID: <1465930348-92164-7-git-send-email-skhare@vmware.com>
-References: <1465930348-92164-1-git-send-email-skhare@vmware.com>
+From: Arend van Spriel <arend.vanspriel@broadcom.com>
+Subject: Re: [PATCHv2 1/2] add basic register-field manipulation macros
+Date: Tue, 14 Jun 2016 20:53:28 +0200
+Message-ID: <576052A7.2030503@broadcom.com>
+References: <1465904660-22242-1-git-send-email-jakub.kicinski@netronome.com>
+ <1465904660-22242-2-git-send-email-jakub.kicinski@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shrikrishna Khare <skhare@vmware.com>,
-	Guolin Yang <gyang@vmware.com>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<pv-drivers@vmware.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ex13-edg-ou-002.vmware.com ([208.91.0.190]:33466 "EHLO
-	EX13-EDG-OU-002.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932251AbcFNSwi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 14:52:38 -0400
-In-Reply-To: <1465930348-92164-1-git-send-email-skhare@vmware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: hannes@stressinduktion.org, nbd@nbd.name,
+	linux-kernel@vger.kernel.org, kvalo@codeaurora.org,
+	linux-wireless@vger.kernel.org
+To: Jakub Kicinski <jakub.kicinski@netronome.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465904660-22242-2-git-send-email-jakub.kicinski@netronome.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Guolin Yang <gyang@vmware.com>
-Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
----
- drivers/net/vmxnet3/vmxnet3_defs.h | 17 +++++++++++++++++
- 1 file changed, 17 insertions(+)
+On 14-06-16 13:44, Jakub Kicinski wrote:
+> C bitfields are problematic and best avoided.  Developers
+> interacting with hardware registers find themselves searching
+> for easy-to-use alternatives.  Common approach is to define
+> structures or sets of macros containing mask and shift pair.
+> Operations on the register are then performed as follows:
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
-index 274e145..c3a3164 100644
---- a/drivers/net/vmxnet3/vmxnet3_defs.h
-+++ b/drivers/net/vmxnet3/vmxnet3_defs.h
-@@ -81,6 +81,7 @@ enum {
- 	VMXNET3_CMD_RESERVED2,
- 	VMXNET3_CMD_RESERVED3,
- 	VMXNET3_CMD_SET_COALESCE,
-+	VMXNET3_CMD_REGISTER_MEMREGS,
- 
- 	VMXNET3_CMD_FIRST_GET = 0xF00D0000,
- 	VMXNET3_CMD_GET_QUEUE_STATUS = VMXNET3_CMD_FIRST_GET,
-@@ -668,6 +669,22 @@ struct Vmxnet3_CoalesceScheme {
- 	} coalPara;
- };
- 
-+struct Vmxnet3_MemoryRegion {
-+	__le64					startPA;
-+	__le32					length;
-+	__le16					txQueueBits;
-+	__le16					rxQueueBits;
-+};
-+
-+#define MAX_MEMORY_REGION_PER_QUEUE 16
-+#define MAX_MEMORY_REGION_PER_DEVICE 256
-+
-+struct Vmxnet3_MemRegs {
-+	__le16					numRegs;
-+	__le16					pad[3];
-+	struct Vmxnet3_MemoryRegion		memRegs[1];
-+};
-+
- /* If the command data <= 16 bytes, use the shared memory directly.
-  * otherwise, use variable length configuration descriptor.
-  */
--- 
-2.8.2
+[...]
+
+> Compared to Felix Fietkau's implementation from mt76 this one
+> uses standard Linux and GCC functions such as is_power_of_2()
+> and __builtin_ffsll().
+> 
+> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+> ---
+> v2:
+>  - change Felix's email address.
+> 
+>  include/linux/bitfield.h | 58 ++++++++++++++++++++++++++++++++++++++++++++++++
+>  include/linux/log2.h     |  6 +++++
+>  2 files changed, 64 insertions(+)
+>  create mode 100644 include/linux/bitfield.h
+> 
+> diff --git a/include/linux/bitfield.h b/include/linux/bitfield.h
+> new file mode 100644
+> index 000000000000..9560d1877cbc
+> --- /dev/null
+> +++ b/include/linux/bitfield.h
+> @@ -0,0 +1,58 @@
+> +/*
+> + * Copyright (C) 2014 Felix Fietkau <nbd@nbd.name>
+> + * Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
+> + *
+> + * This program is free software; you can redistribute it and/or modify
+> + * it under the terms of the GNU General Public License version 2
+> + * as published by the Free Software Foundation
+> + *
+> + * This program is distributed in the hope that it will be useful,
+> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
+> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+> + * GNU General Public License for more details.
+> + */
+> +
+> +#ifndef _LINUX_BITFIELD_H
+> +#define _LINUX_BITFIELD_H
+> +
+> +#include <asm/types.h>
+> +#include <linux/bug.h>
+> +#include <linux/log2.h>
+> +
+> +#define _bf_shf(x) (__builtin_ffsll(x) - 1)
+> +
+> +#define _BF_FIELD_CHECK(_mask, _val)					\
+> +	({								\
+> +		const u64 hi = (_mask) + (1ULL << _bf_shf(_mask));	\
+> +									\
+> +		BUILD_BUG_ON(!(_mask) || (hi && !is_power_of_2_u64(hi))); \
+> +		BUILD_BUG_ON(__builtin_constant_p(_val) ?		\
+> +			     ~((_mask) >> _bf_shf(_mask)) & (_val) :	\
+> +			     0);					\
+> +	})
+
+I am sceptic whether it is useful to have 64-bit used here and there is
+a price to pay on (many) 32-bit architectures for using 64-bit
+operations. Maybe it is not an issue because it is inside BUILD_BUG_ON()
+macro.
+
+> +#define FIELD_PUT(_mask, _val)					\
+> +	({							\
+> +		_BF_FIELD_CHECK(_mask, _val);			\
+> +		((u32)(_val) << _bf_shf(_mask)) & (_mask);	\
+> +	})
+> +
+> +#define FIELD_GET(_mask, _val)					\
+> +	({							\
+> +		_BF_FIELD_CHECK(_mask, 0);			\
+> +		(u32)(((_val) & (_mask)) >> _bf_shf(_mask));	\
+> +	})
+> +
+> +#define FIELD_PUT64(_mask, _val)				\
+> +	({							\
+> +		_BF_FIELD_CHECK(_mask, _val);			\
+> +		((u64)(_val) << _bf_shf(_mask)) & (_mask);	\
+> +	})
+> +
+> +#define FIELD_GET64(_mask, _val)				\
+> +	({							\
+> +		_BF_FIELD_CHECK(_mask, 0);			\
+> +		(u64)(((_val) & (_mask)) >> _bf_shf(_mask));	\
+> +	})
+
+Is there really hardware out there that exposes 64-bit wide hardware
+registers?
+
+Regards,
+Arend
