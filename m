@@ -1,70 +1,47 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [very-RFC 0/8] TSN driver for the kernel
-Date: Tue, 14 Jun 2016 20:26:15 +0200
-Message-ID: <20160614182615.GA2741@netboy>
-References: <1465686096-22156-1-git-send-email-henrik@austad.us>
- <20160613114713.GA9544@localhost.localdomain>
- <20160613130059.GA20320@sisyphus.home.austad.us>
- <20160613193208.GA2441@netboy>
- <20160614093000.GB21689@sisyphus.home.austad.us>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: smsc911x: If PHY doesn't have an interrupt then POLL
+Date: Tue, 14 Jun 2016 21:30:53 +0300
+Message-ID: <81bb72b5-ccea-ee75-24f9-ffec73853fd9@cogentembedded.com>
+References: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
-	alsa-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Arnd Bergmann <arnd@linaro.org>
-To: Henrik Austad <henrik@austad.us>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: steve.glendinning@shawell.net
+To: Jeremy Linton <jeremy.linton@arm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33306 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752618AbcFNS0V (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 14:26:21 -0400
-Content-Disposition: inline
-In-Reply-To: <20160614093000.GB21689@sisyphus.home.austad.us>
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:34044 "EHLO
+	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932151AbcFNSa6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 14:30:58 -0400
+Received: by mail-lf0-f41.google.com with SMTP id j7so86077156lfg.1
+        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 11:30:57 -0700 (PDT)
+In-Reply-To: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 14, 2016 at 11:30:00AM +0200, Henrik Austad wrote:
-> So loop data from kernel -> userspace -> kernelspace and finally back to 
-> userspace and the media application?
+On 06/14/2016 07:16 PM, Jeremy Linton wrote:
 
-Huh?  I wonder where you got that idea.  Let me show an example of
-what I mean.
+> If the interrupt configuration isn't set and we are using the
+> internal phy, then we need to poll the phy to reliably detect
+> phy state changes.
+>
+> Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+> ---
+>  drivers/net/ethernet/smsc/smsc911x.c | 3 +++
+>  1 file changed, 3 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> index 8af2556..369dc7d 100644
+> --- a/drivers/net/ethernet/smsc/smsc911x.c
+> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+> @@ -1020,6 +1020,9 @@ static int smsc911x_mii_probe(struct net_device *dev)
+>  		return -ENODEV;
+>  	}
+>
+> +	if ((!phydev->irq) && (!pdata->using_extphy))
 
-	void listener()
-	{
-		int in = socket();
-		int out = open("/dev/dsp");
-		char buf[];
+    Inner parens aren't needed at all.
 
-		while (1) {
-			recv(in, buf, packetsize);
-			write(out, buf + offset, datasize);
-		}
-	}
+[...]
 
-See?
-
-> Yes, I know some audio apps "use networking", I can stream netradio, I can 
-> use jack to connect devices using RTP and probably a whole lot of other 
-> applications do similar things. However, AVB is more about using the 
-> network as a virtual sound-card.
-
-That is news to me.  I don't recall ever having seen AVB described
-like that before.
-
-> For the media application, it should not 
-> have to care if the device it is using is a soudncard inside the box or a 
-> set of AVB-capable speakers somewhere on the network.
-
-So you would like a remote listener to appear in the system as a local
-PCM audio sink?  And a remote talker would be like a local media URL?
-Sounds unworkable to me, but even if you were to implement it, the
-logic would surely belong in alsa-lib and not in the kernel.  Behind
-the enulated device, the library would run a loop like the example,
-above.
-
-In any case, your patches don't implement that sort of thing at all,
-do they?
-
-Thanks,
-Richard
+MBR, Sergei
