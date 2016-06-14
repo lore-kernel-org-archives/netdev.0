@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v2 net-next v2 02/12] net: dsa: mv88e6xxx: remove redundant assignments
-Date: Tue, 14 Jun 2016 14:31:43 -0400
-Message-ID: <20160614183153.32327-3-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v2 net-next v2 05/12] net: dsa: mv88e6xxx: add switch register helpers
+Date: Tue, 14 Jun 2016 14:31:46 -0400
+Message-ID: <20160614183153.32327-6-vivien.didelot@savoirfairelinux.com>
 References: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -9,42 +9,110 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:58412 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932503AbcFNScW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 14:32:22 -0400
 In-Reply-To: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The chip->ds and ds->slave_mii_bus assignments are common to both legacy
-and new MDIO probing and are already done in the later setup code.
+The mixed assignments, allocations and registrations in the probe code
+make it hard to follow the logic and figure out what is DSA or chip
+specific.
 
-Remove the duplicated assignments from the MDIO probing code.
+Extract the struct dsa_switch related code in a simple
+mv88e6xxx_register_switch helper function.
+
+For symmetry in the code, add a mv88e6xxx_unregister_switch function.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx.c | 3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 41 ++++++++++++++++++++++++++++-------------
+ 1 file changed, 28 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 1972ec5..673283a 100644
+index 4b4bffc..ad7735d 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3708,7 +3708,6 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	ds->priv = ps;
- 	ds->dev = dev;
+@@ -3690,30 +3690,48 @@ static struct dsa_switch_driver mv88e6xxx_switch_driver = {
+ 	.port_fdb_dump          = mv88e6xxx_port_fdb_dump,
+ };
+ 
++static int mv88e6xxx_register_switch(struct mv88e6xxx_priv_state *ps,
++				     struct device_node *np)
++{
++	struct device *dev = ps->dev;
++	struct dsa_switch *ds;
++
++	ds = devm_kzalloc(dev, sizeof(*ds), GFP_KERNEL);
++	if (!ds)
++		return -ENOMEM;
++
++	ds->dev = dev;
++	ds->priv = ps;
++	ds->drv = &mv88e6xxx_switch_driver;
++
++	dev_set_drvdata(dev, ds);
++
++	return dsa_register_switch(ds, np);
++}
++
++static void mv88e6xxx_unregister_switch(struct mv88e6xxx_priv_state *ps)
++{
++	dsa_unregister_switch(ps->ds);
++}
++
+ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ {
+ 	struct device *dev = &mdiodev->dev;
+ 	struct device_node *np = dev->of_node;
+ 	struct mv88e6xxx_priv_state *ps;
+ 	int id, prod_num, rev;
+-	struct dsa_switch *ds;
+ 	u32 eeprom_len;
+ 	int err;
+ 
+-	ds = devm_kzalloc(dev, sizeof(*ds) + sizeof(*ps), GFP_KERNEL);
+-	if (!ds)
++	ps = devm_kzalloc(dev, sizeof(*ps), GFP_KERNEL);
++	if (!ps)
+ 		return -ENOMEM;
+ 
+-	ps = (struct mv88e6xxx_priv_state *)(ds + 1);
+-	ds->priv = ps;
+-	ds->dev = dev;
  	ps->dev = dev;
--	ps->ds = ds;
  	ps->bus = mdiodev->bus;
  	ps->sw_addr = mdiodev->addr;
  	mutex_init(&ps->smi_mutex);
-@@ -3748,8 +3747,6 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 
+-	ds->drv = &mv88e6xxx_switch_driver;
+-
+ 	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
+ 	if (id < 0)
+ 		return id;
+@@ -3745,9 +3763,7 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
  	if (err)
  		return err;
  
--	ds->slave_mii_bus = ps->mdio_bus;
+-	dev_set_drvdata(dev, ds);
 -
- 	dev_set_drvdata(dev, ds);
+-	err = dsa_register_switch(ds, np);
++	err = mv88e6xxx_register_switch(ps, np);
+ 	if (err) {
+ 		mv88e6xxx_mdio_unregister(ps);
+ 		return err;
+@@ -3764,8 +3780,7 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
+ 	struct dsa_switch *ds = dev_get_drvdata(&mdiodev->dev);
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
  
- 	err = dsa_register_switch(ds, mdiodev->dev.of_node);
+-	dsa_unregister_switch(ds);
+-
++	mv88e6xxx_unregister_switch(ps);
+ 	mv88e6xxx_mdio_unregister(ps);
+ }
+ 
 -- 
 2.8.3
