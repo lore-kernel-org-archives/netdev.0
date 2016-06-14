@@ -1,43 +1,49 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6] r8152: Add support for setting pass through MAC
- address on RTL8153-AD
-Date: Tue, 14 Jun 2016 14:35:21 -0400 (EDT)
-Message-ID: <20160614.143521.2085426866285759820.davem@davemloft.net>
-References: <201606141828.10969@pali>
-	<20160614164017.GB14477@kroah.com>
-	<201606141847.36109@pali>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: gregkh@linuxfoundation.org, andrew@lunn.ch,
-	mario_limonciello@dell.com, hayeswang@realtek.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, anthony.wong@canonical.com
-To: pali.rohar@gmail.com
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v2 net-next v2 04/12] net: dsa: mv88e6xxx: do not increment bus refcount
+Date: Tue, 14 Jun 2016 14:31:45 -0400
+Message-ID: <20160614183153.32327-5-vivien.didelot@savoirfairelinux.com>
+References: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <201606141847.36109@pali>
+In-Reply-To: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-=46rom: Pali Roh=E1r <pali.rohar@gmail.com>
-Date: Tue, 14 Jun 2016 18:47:36 +0200
+The MDIO device probe and remove functions are respectively incrementing
+and decrementing the bus refcount themselves. Since these bus level
+actions are out of the device scope, remove them.
 
-> You have never seen two ethernet cards with same MAC addresses? Right=
- I=20
-> have not seen two USB, but there is non zero chance that could happen=
-=2E=20
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Acked-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6xxx.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-It would be an error scenerio, and something to be avoided.
-
-It is a valid and correct assumption that one is able to put
-several devices at the same time on the same physical network
-and expect it to work.
-
-The behavior added by the change in question invalidates that.
-
-I'm trying to consider the long term aspects of this, which is that if
-more devices adopt this scheme we're in trouble if we blindly
-interpret the MAC address in this way.
-
-This firmware MAC property facility seems to be designed with only an
-extremely narrow use case being considered.
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index b3170ea..4b4bffc 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -3712,8 +3712,6 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 	ps->sw_addr = mdiodev->addr;
+ 	mutex_init(&ps->smi_mutex);
+ 
+-	get_device(&ps->bus->dev);
+-
+ 	ds->drv = &mv88e6xxx_switch_driver;
+ 
+ 	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
+@@ -3767,7 +3765,6 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+ 	dsa_unregister_switch(ds);
+-	put_device(&ps->bus->dev);
+ 
+ 	mv88e6xxx_mdio_unregister(ps);
+ }
+-- 
+2.8.3
