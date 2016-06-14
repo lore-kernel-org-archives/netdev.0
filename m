@@ -1,36 +1,48 @@
-From: Beniamino Galvani <bgalvani@redhat.com>
-Subject: [iproute2 PATCH] utils: fix hex digits parsing in hexstring_a2n()
-Date: Tue, 14 Jun 2016 22:55:17 +0200
-Message-ID: <1465937717-16247-1-git-send-email-bgalvani@redhat.com>
-To: netdev@vger.kernel.org, Stephen Hemminger <shemming@brocade.com>
+From: Jeremy Linton <jeremy.linton@arm.com>
+Subject: Re: [PATCH] net: smsc911x: If PHY doesn't have an interrupt then POLL
+Date: Tue, 14 Jun 2016 15:59:11 -0500
+Message-ID: <5760701F.6000204@arm.com>
+References: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
+ <46b56679-e92a-a8f9-f290-f67495169bdc@cogentembedded.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: steve.glendinning@shawell.net
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56653 "EHLO mx1.redhat.com"
+Received: from foss.arm.com ([217.140.101.70]:33295 "EHLO foss.arm.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932082AbcFNUzh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2016 16:55:37 -0400
+	id S1753059AbcFNU7N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2016 16:59:13 -0400
+In-Reply-To: <46b56679-e92a-a8f9-f290-f67495169bdc@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-strtoul() only modifies errno on overflow, so if errno is not zero
-before calling the function its value is preserved and makes the
-function fail for valid inputs; initialize it.
+On 06/14/2016 03:44 PM, Sergei Shtylyov wrote:
+> On 06/14/2016 07:16 PM, Jeremy Linton wrote:
+>
+>> If the interrupt configuration isn't set and we are using the
+>
+>     It's never set, judging by the driver code.
+>
+>> internal phy, then we need to poll the phy to reliably detect
+>> phy state changes.
+>
+>     What address your internal PHY is at? Mine is at 1, and things seem
+> to work reliably after probing:
+>
+> SMSC LAN8700 18000000.etherne:01: attached PHY driver [SMSC LAN8700]
+> (mii_bus:phy_addr=18000000.etherne:01, irq=-1)
 
-Signed-off-by: Beniamino Galvani <bgalvani@redhat.com>
----
- lib/utils.c | 1 +
- 1 file changed, 1 insertion(+)
+	Looks like your phy ends up polling (-1==IRQ_POLL)...
 
-diff --git a/lib/utils.c b/lib/utils.c
-index 70e85b7..7dceeb5 100644
---- a/lib/utils.c
-+++ b/lib/utils.c
-@@ -924,6 +924,7 @@ __u8 *hexstring_a2n(const char *str, __u8 *buf, int blen, unsigned int *len)
- 
- 		strncpy(tmpstr, str, 2);
- 		tmpstr[2] = '\0';
-+		errno = 0;
- 		tmp = strtoul(tmpstr, &endptr, 16);
- 		if (errno != 0 || tmp > 0xFF || *endptr != '\0')
- 			return NULL;
--- 
-2.5.5
+>
+>     I'm using the device tree on my board.
+
+	This was DT as well with a recent fedora/NetworkManager. It actually 
+seems to be timing related to how fast the device gets configured after 
+the initial phy probe. There is something like a 1 second window or so 
+where it will work, but if network manager takes longer than that, the 
+link state drops and cannot be brought back up unless the cable is 
+pulled, replugged while the netdevice is being restarted.
