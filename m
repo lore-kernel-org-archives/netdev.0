@@ -1,45 +1,31 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: Re: [PATCH] net: smsc911x: If PHY doesn't have an interrupt then POLL
-Date: Tue, 14 Jun 2016 16:29:38 -0500
-Message-ID: <57607742.5080208@arm.com>
-References: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
- <46b56679-e92a-a8f9-f290-f67495169bdc@cogentembedded.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [iproute2 PATCH 1/1] action pedit: stylistic changes
+Date: Tue, 14 Jun 2016 14:33:10 -0700
+Message-ID: <20160614143310.39e1ab79@xeon-e3>
+References: <1465767634-2708-1-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@shawell.net
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:33438 "EHLO foss.arm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750818AbcFNV3k (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2016 17:29:40 -0400
-In-Reply-To: <46b56679-e92a-a8f9-f290-f67495169bdc@cogentembedded.com>
+Received: from mail-pf0-f172.google.com ([209.85.192.172]:36307 "EHLO
+	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751268AbcFNVdN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 17:33:13 -0400
+Received: by mail-pf0-f172.google.com with SMTP id t190so878295pfb.3
+        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 14:33:13 -0700 (PDT)
+In-Reply-To: <1465767634-2708-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/14/2016 03:44 PM, Sergei Shtylyov wrote:
-> On 06/14/2016 07:16 PM, Jeremy Linton wrote:
->
->> If the interrupt configuration isn't set and we are using the
->
->     It's never set, judging by the driver code.
->
->> internal phy, then we need to poll the phy to reliably detect
->> phy state changes.
->
->     What address your internal PHY is at? Mine is at 1, and things seem
-> to work reliably after probing:
->
-> SMSC LAN8700 18000000.etherne:01: attached PHY driver [SMSC LAN8700]
-> (mii_bus:phy_addr=18000000.etherne:01, irq=-1)
->
->     I'm using the device tree on my board.
+On Sun, 12 Jun 2016 17:40:34 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-Ok, I'm back on the machine, this is what mine says without that patch.
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> 
+> More modern layout.
+> 
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 
-
-
-SMSC LAN911x Internal PHY 18000000.etherne:01: attached PHY driver [SMSC 
-LAN911x Internal PHY] (mii_bus:phy_addr=18000000.etherne:01, irq=0)
+Applied, also added a few more cleanups here.
