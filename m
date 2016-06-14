@@ -1,85 +1,98 @@
-From: Li Dongpo <lidongpo@hisilicon.com>
-Subject: Re: [PATCH 1/3] net: Add MDIO bus driver for the Hisilicon FEMAC
-Date: Tue, 14 Jun 2016 16:24:48 +0800
-Message-ID: <575FBF50.30904@hisilicon.com>
-References: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com>
- <1465798076-176393-2-git-send-email-lidongpo@hisilicon.com>
- <20160613133230.GA3132@lunn.ch>
+From: Henrik Austad <henrik@austad.us>
+Subject: Re: [very-RFC 0/8] TSN driver for the kernel
+Date: Tue, 14 Jun 2016 10:35:55 +0200
+Message-ID: <20160614083555.GA21689@sisyphus.home.austad.us>
+References: <1465686096-22156-1-git-send-email-henrik@austad.us>
+ <20160613114713.GA9544@localhost.localdomain>
+ <575ED7BC.4000803@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <f.fainelli@gmail.com>, <robh+dt@kernel.org>,
-	<mark.rutland@arm.com>, <davem@davemloft.net>,
-	<xuejiancheng@hisilicon.com>, <netdev@vger.kernel.org>,
-	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:42262 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750806AbcFNIZl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 04:25:41 -0400
-In-Reply-To: <20160613133230.GA3132@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="LQksG6bCIzRHxTLp"
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
+	alsa-devel@vger.kernel.org, netdev@vger.kernel.org,
+	henrik@austad.us, Arnd Bergmann <arnd@linaro.org>
+To: John Fastabend <john.fastabend@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <575ED7BC.4000803@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
+--LQksG6bCIzRHxTLp
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On 2016/6/13 21:32, Andrew Lunn wrote:
-> On Mon, Jun 13, 2016 at 02:07:54PM +0800, Dongpo Li wrote:
->> This patch adds a separate driver for the MDIO interface of the
->> Hisilicon Fast Ethernet MAC.
->>
->> Reviewed-by: Jiancheng Xue <xuejiancheng@hisilicon.com>
->> Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
->> ---
->>  .../bindings/net/hisilicon-femac-mdio.txt          |  22 +++
->>  drivers/net/phy/Kconfig                            |   8 +
->>  drivers/net/phy/Makefile                           |   1 +
->>  drivers/net/phy/mdio-hisi-femac.c                  | 165 +++++++++++++++++++++
->>  4 files changed, 196 insertions(+)
->>  create mode 100644 Documentation/devicetree/bindings/net/hisilicon-femac-mdio.txt
->>  create mode 100644 drivers/net/phy/mdio-hisi-femac.c
+On Mon, Jun 13, 2016 at 08:56:44AM -0700, John Fastabend wrote:
+> On 16-06-13 04:47 AM, Richard Cochran wrote:
+> > [...]
+> > Here is what is missing to support audio TSN:
+> >=20
+> > * User Space
+> >=20
+> > 1. A proper userland stack for AVDECC, MAAP, FQTSS, and so on.  The
+> >    OpenAVB project does not offer much beyond simple examples.
+> >=20
+> > 2. A user space audio application that puts it all together, making
+> >    use of the services in #1, the linuxptp gPTP service, the ALSA
+> >    services, and the network connections.  This program will have all
+> >    the knowledge about packet formats, AV encodings, and the local HW
+> >    capabilities.  This program cannot yet be written, as we still need
+> >    some kernel work in the audio and networking subsystems.
+> >=20
+> > * Kernel Space
+> >=20
+> > 1. Providing frames with a future transmit time.  For normal sockets,
+> >    this can be in the CMESG data.  For mmap'ed buffers, we will need a
+> >    new format.  (I think Arnd is working on a new layout.)
+> >=20
+> > 2. Time based qdisc for transmitted frames.  For MACs that support
+> >    this (like the i210), we only have to place the frame into the
+> >    correct queue.  For normal HW, we want to be able to reserve a time
+> >    window in which non-TSN frames are blocked.  This is some work, but
+> >    in the end it should be a generic solution that not only works
+> >    "perfectly" with TSN HW but also provides best effort service using
+> >    any NIC.
+> >=20
+>=20
+> When I looked at this awhile ago I convinced myself that it could fit
+> fairly well into the DCB stack (DCB is also part of 802.1Q). A lot of
+> the traffic class to queue mappings and priories could be handled here.
+> It might be worth taking a look at ./net/sched/mqprio.c and ./net/dcb/.
 
-[...]
->> +
-> 
-> Hi Dongpo
-> 
-> Overall this looks good. Just some minor comments
-> 
->> +static int hisi_femac_mdio_wait_ready(struct mii_bus *bus)
->> +{
->> +	struct hisi_femac_mdio_data *data = bus->priv;
-> 
-> You could just pass data here. Your read and write functions already
-> have it.
-> 
-Thank you, I will fix it in next patch version.
+Interesting, I'll have a look at dcb and mqprio, I'm not familiar with=20
+those systems. Thanks for pointing those out!
 
->> +	data->clk = devm_clk_get(&pdev->dev, NULL);
->> +	if (IS_ERR(data->clk)) {
->> +		ret = -ENODEV;
->> +		goto err_out_free_mdiobus;
->> +	}
-> 
-> Return the error which devm_clk_get() gives you.
-> 
-ok, I will fix it.
+I hope that the complexity doesn't run crazy though, TSN is not aimed at=20
+datacentra, a lot of the endpoints are going to be embedded devices,=20
+introducing a massive stack for handling every eventuality in 802.1q is=20
+going to be counter productive.
 
->> +
->> +	ret = clk_prepare_enable(data->clk);
->> +	if (ret)
->> +		goto err_out_free_mdiobus;
->> +
->> +	ret = of_mdiobus_register(bus, np);
->> +	if (ret)
->> +		goto err_out_free_mdiobus;
-> 
-> You leave the clock prepared and enabled on error.
-> 
-ok, I will fix it.
+> Unfortunately I didn't get too far along but we probably don't want
+> another mechanism to map hw queues/tcs/etc if the existing interfaces
+> work or can be extended to support this.
 
->     Andrew
-> 
-> .
-> 
+Sure, I get that, as long as the complexity for setting up a link doesn't=
+=20
+go through the roof :)
+
+Thanks!
+
+--=20
+Henrik Austad
+
+--LQksG6bCIzRHxTLp
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAldfwesACgkQ6k5VT6v45lm4UgCgx5tJr0oxqxBs3gOFge4/WGxn
+2OYAoPFryz9agirAG2n5bXTRHKBQbDo3
+=Nu4n
+-----END PGP SIGNATURE-----
+
+--LQksG6bCIzRHxTLp--
