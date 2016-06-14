@@ -1,93 +1,198 @@
-From: <Mario_Limonciello@Dell.com>
-Subject: RE: [PATCH v6] r8152: Add support for setting pass through MAC
- address on RTL8153-AD
-Date: Tue, 14 Jun 2016 15:08:49 +0000
-Message-ID: <70b92fde9b5b4e478b0d50986cc09b41@ausx13mpc124.AMER.DELL.COM>
-References: <1465323757-7249-1-git-send-email-mario_limonciello@dell.com>
-	<20160610.225156.638004322598763463.davem@davemloft.net>
-	<20160611153921.GP2338@lunn.ch>
- <20160611.104226.1571085838142610714.davem@davemloft.net>
+From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Subject: Re: [PATCH 1/1] ixgbe: add fiber
+	tranceiver	plug/unplug notifier
+Date: Tue, 14 Jun 2016 15:20:07 +0000
+Message-ID: <F6FB0E698C9B3143BDF729DF2228664696AC171C@ORSMSX116.amr.corp.intel.com>
+References: <1465911805-27528-1-git-send-email-zyjzyj2000@gmail.com>
+	<1465911805-27528-2-git-send-email-zyjzyj2000@gmail.com>
+	<CAD=hENdq=NfePHCQEmS-msQfcDfWbZp7O+W68ci8pA2=5whfFw@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: <hayeswang@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<pali.rohar@gmail.com>, <anthony.wong@canonical.com>,
-	<gregkh@linuxfoundation.org>
-To: <davem@davemloft.net>, <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from AUSXIPPS310.us.dell.com ([143.166.148.211]:39543 "EHLO
-	ausxipps310.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750985AbcFNPIw convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 11:08:52 -0400
-In-Reply-To: <20160611.104226.1571085838142610714.davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+To: zhuyj <zyjzyj2000@gmail.com>, "e1000-devel@lists.sourceforge.net"
+	<e1000-devel@lists.sourceforge.net>, netdev <netdev@vger.kernel.org>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <CAD=hENdq=NfePHCQEmS-msQfcDfWbZp7O+W68ci8pA2=5whfFw@mail.gmail.com>
 Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
 > -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Saturday, June 11, 2016 12:42 PM
-> To: andrew@lunn.ch
-> Cc: Limonciello, Mario <Mario_Limonciello@Dell.com>;
-> hayeswang@realtek.com; linux-kernel@vger.kernel.org;
-> netdev@vger.kernel.org; linux-usb@vger.kernel.org; pali.rohar@gmail.com;
-> anthony.wong@canonical.com; gregkh@linuxfoundation.org
-> Subject: Re: [PATCH v6] r8152: Add support for setting pass through MAC
-> address on RTL8153-AD
+> From: zhuyj [mailto:zyjzyj2000@gmail.com]
+> Sent: Tuesday, June 14, 2016 6:55 AM
+> To: e1000-devel@lists.sourceforge.net; netdev <netdev@vger.kernel.org>
+> Subject: Re: [E1000-devel] [PATCH 1/1] ixgbe: add fiber tranceiver
+> plug/unplug notifier
 > 
-> From: Andrew Lunn <andrew@lunn.ch>
-> Date: Sat, 11 Jun 2016 17:39:21 +0200
+> Hi, all
 > 
-> > What is still open is do we want to accept it at all? Do we accept the
-> > concept of putting the same MAC address on multiple interfaces at
-> > hotplug time? Do we trust BIOS vendors to not keep changing DSDT
-> > property name, since it is not standardised?
+> When the fiber tranceiver is plugged/unplugged from the nic, there is no any
+> notifier to indicate this event now.
+> This event sometimes is needed by the userspace tools or kernel.
+> 
+> So,
+> 
+> Is there any interrupt to indicate this event?
+> If no interrupt, is there any method to notify this event to the netdev notifier
+> chain?
+> 
+> I made a new patch to send the notifier when the fiber tranceiver is
+> plugged/unplugged.
+> 
+> This patch is based on the function ixgbe_sfp_detection_subtask.
+> 
+> When the fiber tranceiver is plugged/unplugged, the value in the register is
+> changed, then
+> NETDEV_FIBER_TRANCEIVER_UNPLUG/NETDEV_FIBER_TRANCEIVER_PLUG
+> notifier is sent.
+> 
+> This patch can work well with the following steps:
+> 
+> 1. boot the host
+> 2. ip link set eth0 up
+> 3. unplug the fiber tranceiver
+> 4. a message NETDEV_FIBER_TRANCEIVER_UNPLUG is sent 5. plug the fiber
+> tranceiver 6. a notifier NETDEV_FIBER_TRANCEIVER_PLUG is sent
+> 
+> Please comment on it.
+> 
+> On Tue, Jun 14, 2016 at 9:43 PM, <zyjzyj2000@gmail.com> wrote:
+> 
+> > From: Zhu Yanjun <zyjzyj2000@gmail.com>
+> >
+> > When the fiber tranceiver is plugged/unplugged, a netdev notifier is
+> > sent. The userspace tools or kernel can receive this notifier.
+> >
+> > Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
+> > ---
+> >  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   26
+> > ++++++++++++++++++++++++-
+> >  drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |    3 +++
+> >  include/linux/netdevice.h                     |    2 ++
+> >  3 files changed, 30 insertions(+), 1 deletion(-)
+> >
+> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> > b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> > index cb19cbc..df0eed3 100644
+> > --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> > +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> > @@ -5635,6 +5635,8 @@ static int ixgbe_sw_init(struct ixgbe_adapter
+> > *adapter)
+> >         hw->revision_id = pdev->revision;
+> >         hw->subsystem_vendor_id = pdev->subsystem_vendor;
+> >         hw->subsystem_device_id = pdev->subsystem_device;
+> > +       hw->last_tranceiver_status = IXGBE_NOT_IMPLEMENTED;
+> > +       hw->tranceiver_polltime = 0;
+> >
+> >         /* Set common capability flags and settings */
+> >         rss = min_t(int, ixgbe_max_rss_indices(adapter),
+> > num_online_cpus()); @@ -7067,7 +7069,25 @@ static void
+> > ixgbe_watchdog_subtask(struct ixgbe_adapter *adapter)  static void
+> > ixgbe_sfp_detection_subtask(struct ixgbe_adapter *adapter)  {
+> >         struct ixgbe_hw *hw = &adapter->hw;
+> > -       s32 err;
+> > +       s32 err, status;
+> > +
+> > +       if ((hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber)
+> &&
+> > +           time_after(jiffies, hw->tranceiver_polltime)) {
+> > +               u8 identifier;
+> > +
+> > +               status = hw->phy.ops.read_i2c_eeprom(hw,
+> > +                                                    0x0,
+> > +                                                    &identifier);
+> > +               if ((status != hw->last_tranceiver_status) && status) {
+> > +                       hw->phy.sfp_type = ixgbe_sfp_type_not_present;
+> > +                       rtnl_lock();
+> > +
+> >  call_netdevice_notifiers(NETDEV_FIBER_TRANCEIVER_UNPLUG,
+> > +                                                adapter->netdev);
+> > +                       rtnl_unlock();
+> > +               }
+> > +               hw->last_tranceiver_status = status;
+> > +               hw->tranceiver_polltime = jiffies + 3 * HZ;
+> > +       }
+> >
+> >         /* If crosstalk fix enabled verify the SFP+ cage is full */
+> >         if (adapter->need_crosstalk_fix) { @@ -7130,6 +7150,10 @@
+> > static void ixgbe_sfp_detection_subtask(struct
+> > ixgbe_adapter *adapter)
+> >         adapter->flags |= IXGBE_FLAG_NEED_LINK_CONFIG;
+> >         e_info(probe, "detected SFP+: %d\n", hw->phy.sfp_type);
+> >
+> > +       rtnl_lock();
+> > +       call_netdevice_notifiers(NETDEV_FIBER_TRANCEIVER_PLUG,
+> > adapter->netdev);
+> > +       rtnl_unlock();
+> > +
+> >  sfp_out:
+> >         clear_bit(__IXGBE_IN_SFP_INIT, &adapter->state);
+> >
+> > diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+> > b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+> > index da3d835..0dde95c 100644
+> > --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+> > +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+> > @@ -3525,6 +3525,8 @@ struct ixgbe_hw {
+> >         bool                            force_full_reset;
+> >         bool                            allow_unsupported_sfp;
+> >         bool                            wol_enabled;
+> > +       s32                             last_tranceiver_status;
+> > +       unsigned long                   tranceiver_polltime;
+> >  };
+> >
+> >  struct ixgbe_info {
+> > @@ -3574,6 +3576,7 @@ struct ixgbe_info {
+> >  #define IXGBE_ERR_FDIR_CMD_INCOMPLETE          -38
+> >  #define IXGBE_ERR_FW_RESP_INVALID              -39
+> >  #define IXGBE_ERR_TOKEN_RETRY                  -40
+> > +#define IXGBE_ERR_TRANCEIVER_NOT_PRESENT       -41
+> >  #define IXGBE_NOT_IMPLEMENTED                   0x7FFFFFFF
+> >
+> >  #define IXGBE_FUSES0_GROUP(_i)         (0x11158 + ((_i) * 4))
+> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> > index d101e4d..693ba92 100644
+> > --- a/include/linux/netdevice.h
+> > +++ b/include/linux/netdevice.h
+> > @@ -2253,6 +2253,8 @@ struct netdev_lag_lower_state_info {
+> >  #define NETDEV_CHANGELOWERSTATE        0x001B
+> >  #define NETDEV_OFFLOAD_PUSH_VXLAN      0x001C
+> >  #define NETDEV_OFFLOAD_PUSH_GENEVE     0x001D
+> > +#define NETDEV_FIBER_TRANCEIVER_PLUG   0x001E
+> > +#define NETDEV_FIBER_TRANCEIVER_UNPLUG 0x001F
+> >
+> >  int register_netdevice_notifier(struct notifier_block *nb);  int
+> > unregister_netdevice_notifier(struct notifier_block *nb);
+> > --
+> > 1.7.9.5
+> >
 > >
 
-It's worth saying - standardized a property name doesn't indemnify it.
-Properties change all the time from one version of a spec to another.
+It's not as simple as this patch is implying.  The ixgbe_sfp_detection_subtask function is driven by our master service task which isn't always running and doesn't always run at the same frequency.  Likewise the all hardware supported by ixgbe doesn't all behave the same way in relation to a transceiver insertion/removal event.  Some receive interrupts while others have to poll.  Off the top of my head I think you would also have to be concerned with the following cases:
 
-I can only speak for Dell, but it's in our best interest to keep the BIOS
-side of the codebase around this simpler too.
+- Insertion/removal while the device is down.
+- Initial query when the driver is loaded.
+- Some modules aren't supported I'm not sure how you would want to there, still report the insertion to the stack, ignore it?
+- I've also recently added a crosstalk fix that your patch would not take in to consideration.
 
-> > Do we want this at all should be decided by somebody more senior then
-> > those passing comments on the code.
-> 
-> Indeed, I think the behavior of using the same MAC address on multiple
-> interfaces if we plug several of these in at once is not good.
-> 
-> We shouldn't behave this way just because the Microsoft driver does.
+Thanks,
+-Don Skidmore <donald.c.skidmore@intel.com>
 
-This is really grasping at an extreme corner case scenario.
-
-Dell TB15 and WD15 docks are currently only ones on the market with
-RTL8135-AD and MAC address pass through efuse bit set.  These docks
-are not inexpensive.  If someone really wants multiple USB NIC's plugged
-in, they can pick up a second USB NIC from the web for far cheaper than
-buying a second dock.
-
-Also for what it's worth, the docks don't allow daisy chaining.  The dock EC's 
-will reject the second dock from functioning through the downstream 
-connection.  The only way that two docks could be hooked up and
-functional is on a machine with multiple type C ports.
-
-If you still think it's worth solving, what would you like done as an 
-alternative?  I would really like to have some implementation of this
-that you guys are comfortable with upstream.
-
-There was already discussion and an implementation in this 
-thread about tracking if the aux MAC was assigned to something and only 
-allowing one device to get that assignment.  There was a limitation that 
-you won't be able to know which device gets the auxiliary MAC address.  
-It will be based solely upon hotplug order.
-
-There was also in one version of the patch a way to turn off this behavior
-In a module parameter.  Greg KH wasn't fond of that, so it's not present
-in the current version.
-
-I can add either of those back in if they would help the case.
-
-Another option I wanted to offer was turning this behavior on via kernel
-configuration option and let the distros decide if they want to turn it on
-for users.
+------------------------------------------------------------------------------
+What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
+patterns at an interface-level. Reveals which users, apps, and protocols are 
+consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
+J-Flow, sFlow and other flows. Make informed decisions using capacity 
+planning reports. https://ad.doubleclick.net/ddm/clk/305295220;132659582;e
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
