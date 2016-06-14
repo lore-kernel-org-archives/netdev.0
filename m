@@ -1,179 +1,150 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v2 net-next v2 06/12] net: dsa: mv88e6xxx: add port base address to info
-Date: Tue, 14 Jun 2016 14:31:47 -0400
-Message-ID: <20160614183153.32327-7-vivien.didelot@savoirfairelinux.com>
-References: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: vrf: Switch dst dev to loopback on device delete
+Date: Tue, 14 Jun 2016 11:37:21 -0700
+Message-ID: <1465929441-19163-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:36219 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932319AbcFNSh2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 14:37:28 -0400
+Received: by mail-pf0-f170.google.com with SMTP id t190so59855739pfb.3
+        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 11:37:27 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Not all Marvell switches have their Port Registers SMI Addresses
-starting at 0x10. Add this data in the info structure.
+Attempting to delete a VRF device with a socket bound to it can stall:
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+  unregister_netdevice: waiting for red to become free. Usage count = 1
+
+The unregister is waiting for the dst to be released and with it
+references to the vrf device. Similar to dst_ifdown switch the dst
+dev to loopback on delete for all of the dst's for the vrf device
+and release the references to the vrf device.
+
+Fixes: 193125dbd8eb2 ("net: Introduce VRF device driver")
+Fixes: 35402e3136634 ("net: Add IPv6 support to VRF device")
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 17 +++++++++++++++++
- drivers/net/dsa/mv88e6xxx.h |  1 +
- 2 files changed, 18 insertions(+)
+ drivers/net/vrf.c | 55 ++++++++++++++++++++++++++++++++++++++++++-------------
+ 1 file changed, 42 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index ad7735d..6f43280 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3442,6 +3442,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6085",
- 		.num_databases = 4096,
- 		.num_ports = 10,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6097,
- 	},
+diff --git a/drivers/net/vrf.c b/drivers/net/vrf.c
+index e3fc6d32a289..32173aa9208e 100644
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@ -378,23 +378,37 @@ static int vrf_output6(struct net *net, struct sock *sk, struct sk_buff *skb)
+ }
  
-@@ -3451,6 +3452,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6095/88E6095F",
- 		.num_databases = 256,
- 		.num_ports = 11,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6095,
- 	},
+ /* holding rtnl */
+-static void vrf_rt6_release(struct net_vrf *vrf)
++static void vrf_rt6_release(struct net_device *dev, struct net_vrf *vrf)
+ {
+ 	struct rt6_info *rt6 = rtnl_dereference(vrf->rt6);
+ 	struct rt6_info *rt6_local = rtnl_dereference(vrf->rt6_local);
++	struct net *net = dev_net(dev);
++	struct dst_entry *dst;
  
-@@ -3460,6 +3462,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6123",
- 		.num_databases = 4096,
- 		.num_ports = 3,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 	},
+ 	RCU_INIT_POINTER(vrf->rt6, NULL);
+ 	RCU_INIT_POINTER(vrf->rt6_local, NULL);
+ 	synchronize_rcu();
  
-@@ -3469,6 +3472,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6131",
- 		.num_databases = 256,
- 		.num_ports = 8,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6185,
- 	},
+-	if (rt6)
+-		dst_release(&rt6->dst);
++	/* move dev in dst's to loopback so this VRF device can be deleted
++	 * - based on dst_ifdown
++	 */
++	if (rt6) {
++		dst = &rt6->dst;
++		dev_put(dst->dev);
++		dst->dev = net->loopback_dev;
++		dev_hold(dst->dev);
++		dst_release(dst);
++	}
  
-@@ -3478,6 +3482,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6161",
- 		.num_databases = 4096,
- 		.num_ports = 6,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 	},
+ 	if (rt6_local) {
+ 		if (rt6_local->rt6i_idev)
+ 			in6_dev_put(rt6_local->rt6i_idev);
  
-@@ -3487,6 +3492,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6165",
- 		.num_databases = 4096,
- 		.num_ports = 6,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
- 	},
+-		dst_release(&rt6_local->dst);
++		dst = &rt6_local->dst;
++		dev_put(dst->dev);
++		dst->dev = net->loopback_dev;
++		dev_hold(dst->dev);
++		dst_release(dst);
+ 	}
+ }
  
-@@ -3496,6 +3502,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6171",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 	},
+@@ -449,7 +463,7 @@ static int vrf_rt6_create(struct net_device *dev)
+ 	return rc;
+ }
+ #else
+-static void vrf_rt6_release(struct net_vrf *vrf)
++static void vrf_rt6_release(struct net_device *dev, struct net_vrf *vrf)
+ {
+ }
  
-@@ -3505,6 +3512,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6172",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 	},
+@@ -518,20 +532,35 @@ static int vrf_output(struct net *net, struct sock *sk, struct sk_buff *skb)
+ }
  
-@@ -3514,6 +3522,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6175",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 	},
+ /* holding rtnl */
+-static void vrf_rtable_release(struct net_vrf *vrf)
++static void vrf_rtable_release(struct net_device *dev, struct net_vrf *vrf)
+ {
+ 	struct rtable *rth = rtnl_dereference(vrf->rth);
+ 	struct rtable *rth_local = rtnl_dereference(vrf->rth_local);
++	struct net *net = dev_net(dev);
++	struct dst_entry *dst;
  
-@@ -3523,6 +3532,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6176",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 	},
+ 	RCU_INIT_POINTER(vrf->rth, NULL);
+ 	RCU_INIT_POINTER(vrf->rth_local, NULL);
+ 	synchronize_rcu();
  
-@@ -3532,6 +3542,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6185",
- 		.num_databases = 256,
- 		.num_ports = 10,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6185,
- 	},
+-	if (rth)
+-		dst_release(&rth->dst);
++	/* move dev in dst's to loopback so this VRF device can be deleted
++	 * - based on dst_ifdown
++	 */
++	if (rth) {
++		dst = &rth->dst;
++		dev_put(dst->dev);
++		dst->dev = net->loopback_dev;
++		dev_hold(dst->dev);
++		dst_release(dst);
++	}
  
-@@ -3541,6 +3552,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6240",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 	},
+-	if (rth_local)
+-		dst_release(&rth_local->dst);
++	if (rth_local) {
++		dst = &rth_local->dst;
++		dev_put(dst->dev);
++		dst->dev = net->loopback_dev;
++		dev_hold(dst->dev);
++		dst_release(dst);
++	}
+ }
  
-@@ -3550,6 +3562,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6320",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6320,
- 	},
+ static int vrf_rtable_create(struct net_device *dev)
+@@ -633,8 +662,8 @@ static void vrf_dev_uninit(struct net_device *dev)
+ 	struct net_device *port_dev;
+ 	struct list_head *iter;
  
-@@ -3559,6 +3572,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6321",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6320,
- 	},
+-	vrf_rtable_release(vrf);
+-	vrf_rt6_release(vrf);
++	vrf_rtable_release(dev, vrf);
++	vrf_rt6_release(dev, vrf);
  
-@@ -3568,6 +3582,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6350",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 	},
+ 	netdev_for_each_lower_dev(dev, port_dev, iter)
+ 		vrf_del_slave(dev, port_dev);
+@@ -669,7 +698,7 @@ static int vrf_dev_init(struct net_device *dev)
+ 	return 0;
  
-@@ -3577,6 +3592,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6351",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
- 	},
- 
-@@ -3586,6 +3602,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 		.name = "Marvell 88E6352",
- 		.num_databases = 4096,
- 		.num_ports = 7,
-+		.port_base_addr = 0x10,
- 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
- 	},
- };
-diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
-index 8221c3c..613cfa1 100644
---- a/drivers/net/dsa/mv88e6xxx.h
-+++ b/drivers/net/dsa/mv88e6xxx.h
-@@ -519,6 +519,7 @@ struct mv88e6xxx_info {
- 	const char *name;
- 	unsigned int num_databases;
- 	unsigned int num_ports;
-+	unsigned int port_base_addr;
- 	unsigned long flags;
- };
- 
+ out_rth:
+-	vrf_rtable_release(vrf);
++	vrf_rtable_release(dev, vrf);
+ out_stats:
+ 	free_percpu(dev->dstats);
+ 	dev->dstats = NULL;
 -- 
-2.8.3
+2.1.4
