@@ -1,88 +1,42 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [RFC PATCH V3 0/3] basic device IOTLB support
-Date: Tue, 14 Jun 2016 18:40:53 +0800
-Message-ID: <575FDF35.40201@redhat.com>
-References: <1464082585-13049-1-git-send-email-jasowang@redhat.com>
+From: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
+Subject: Re: [very-RFC 0/8] TSN driver for the kernel
+Date: Tue, 14 Jun 2016 12:18:44 +0100
+Message-ID: <20160614121844.54a125a5@lxorguk.ukuu.org.uk>
+References: <1465686096-22156-1-git-send-email-henrik@austad.us>
+	<20160613114713.GA9544@localhost.localdomain>
+	<20160613195136.GC2441@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: wexu@redhat.com, peterx@redhat.com, vkaplans@redhat.com
-To: mst@redhat.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Henrik Austad <henrik@austad.us>, linux-kernel@vger.kernel.org,
+	linux-media@vger.kernel.org, alsa-devel@vger.kernel.org,
+	netdev@vger.kernel.org, henrk@austad.us,
+	Arnd Bergmann <arnd@linaro.org>
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464082585-13049-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <20160613195136.GC2441@netboy>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Mon, 13 Jun 2016 21:51:36 +0200
+Richard Cochran <richardcochran@gmail.com> wrote:
 
+> On Mon, Jun 13, 2016 at 01:47:13PM +0200, Richard Cochran wrote:
+> > 3. ALSA support for tunable AD/DA clocks.  The rate of the Listener's
+> >    DA clock must match that of the Talker and the other Listeners.
+> >    Either you adjust it in HW using a VCO or similar, or you do
+> >    adaptive sample rate conversion in the application. (And that is
+> >    another reason for *not* having a shared kernel buffer.)  For the
+> >    Talker, either you adjust the AD clock to match the PTP time, or
+> >    you measure the frequency offset.  
+> 
+> Actually, we already have support for tunable clock-like HW elements,
+> namely the dynamic posix clock API.  It is trivial to write a driver
+> for VCO or the like.  I am just not too familiar with the latest high
+> end audio devices.
 
-On 2016=E5=B9=B405=E6=9C=8824=E6=97=A5 17:36, Jason Wang wrote:
-> This patch tries to implement an device IOTLB for vhost. This could b=
-e
-> used with for co-operation with userspace IOMMU implementation (qemu)
-> for a secure DMA environment (DMAR) in guest.
->
-> The idea is simple. When vhost meets an IOTLB miss, it will request
-> the assistance of userspace to do the translation, this is done
-> through:
->
-> - when there's a IOTLB miss, it will notify userspace through
->    vhost_net fd and then userspace read the fault address, size and
->    access from vhost fd.
-> - userspace write the translation result back to vhost fd, vhost can
->    then update its IOTLB.
->
-> The codes were optimized for fixed mapping users e.g dpdk in guest. I=
-t
-> will be slow if dynamic mappings were used in guest. We could do
-> optimizations on top.
->
-> The codes were designed to be architecture independent. It should be
-> easily ported to any architecture.
->
-> Stress tested with l2fwd/vfio in guest with 4K/2M/1G page size. On 1G
-> hugepage case, 100% TLB hit rate were noticed.
->
-> Changes from V2:
-> - introduce memory accessors for vhost
-> - switch from ioctls to oridinary file read/write for iotlb miss and
->    updating
-> - do not assume virtqueue were virtually mapped contiguously, all
->    virtqueue access were done throug IOTLB
-> - verify memory access during IOTLB update and fail early
-> - introduce a module parameter for the size of IOTLB
->
-> Changes from V1:
-> - support any size/range of updating and invalidation through
->    introducing the interval tree.
-> - convert from per device iotlb request to per virtqueue iotlb
->    request, this solves the possible deadlock in V1.
-> - read/write permission check support.
->
-> Please review.
+Why high end ? Even the most basic USB audio is frame based and
+isosynchronous to the USB clock. It also reports back the delay
+properties.
 
-Have a benchmark on this. Test was done with l2fwd in guest.
-
-=46or 2MB page, no difference in 64B performance and I notice a 4%-5% d=
-rop=20
-for 1500B performance compare to UIO in guest. We can add some shortcut=
-=20
-to bypass the IOTLB for virtqueue accessing, but I think it's better to=
-=20
-be done on top.
-
->
-> Jason Wang (3):
->    vhost: introduce vhost memory accessors
->    vhost: convert pre sorted vhost memory array to interval tree
->    vhost: device IOTLB API
->
->   drivers/vhost/net.c        |  63 +++-
->   drivers/vhost/vhost.c      | 760 ++++++++++++++++++++++++++++++++++=
-++++-------
->   drivers/vhost/vhost.h      |  60 +++-
->   include/uapi/linux/vhost.h |  28 ++
->   4 files changed, 790 insertions(+), 121 deletions(-)
->
+Alan
