@@ -1,58 +1,74 @@
-From: Neil Horman <nhorman@tuxdriver.com>
-Subject: Re: [PATCH -next] sctp: fix error return code in sctp_init()
-Date: Tue, 14 Jun 2016 09:21:36 -0400
-Message-ID: <20160614132136.GA32288@hmsreliant.think-freely.org>
-References: <1465830506-22752-1-git-send-email-weiyj_lk@163.com>
- <CADvbK_eOtTS9NSRoKmJYXSYHtCRMFMkKqkeCREVY09qtE=Y4og@mail.gmail.com>
+From: "Eggert, Lars" <lars@netapp.com>
+Subject: Re: [CRIU] TCP_REPAIR MSS issue
+Date: Tue, 14 Jun 2016 13:24:00 +0000
+Message-ID: <183844BD-7118-44EB-9D97-62B2A164D7BC@netapp.com>
+References: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
+ <575FEA4B.2000603@virtuozzo.com>
+ <3758708E-B5DE-4D8B-A8CC-37346F994B32@netapp.com>
+ <1465909415.7945.182.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1465909802.7945.183.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: weiyj_lk@163.com, Vlad Yasevich <vyasevich@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	linux-sctp@vger.kernel.org, network dev <netdev@vger.kernel.org>
-To: Xin Long <lucien.xin@gmail.com>
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_4851DEC8-AFDB-4DCC-9CF9-BCFB4D50DB85";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: Pavel Emelyanov <xemul@virtuozzo.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"criu@openvz.org" <criu@openvz.org>,
+	Andrey Vagin <avagin@virtuozzo.com>,
+	"Honda, Michio" <michio@netapp.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:56365 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751976AbcFNNVt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 09:21:49 -0400
-Content-Disposition: inline
-In-Reply-To: <CADvbK_eOtTS9NSRoKmJYXSYHtCRMFMkKqkeCREVY09qtE=Y4og@mail.gmail.com>
+Received: from mx143.netapp.com ([216.240.21.24]:48741 "EHLO mx143.netapp.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752326AbcFNNY1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2016 09:24:27 -0400
+In-Reply-To: <1465909802.7945.183.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 14, 2016 at 11:04:05AM +0800, Xin Long wrote:
-> On Mon, Jun 13, 2016 at 11:08 PM,  <weiyj_lk@163.com> wrote:
-> > From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> >
-> > Fix to return a negative error code from the error handling
-> > case instead of 0, as done elsewhere in this function.
-> >
-> > Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> > ---
-> >  net/sctp/protocol.c | 3 ++-
-> >  1 file changed, 2 insertions(+), 1 deletion(-)
-> >
-> > diff --git a/net/sctp/protocol.c b/net/sctp/protocol.c
-> > index 40022ee..3b56ae5 100644
-> > --- a/net/sctp/protocol.c
-> > +++ b/net/sctp/protocol.c
-> > @@ -1479,7 +1479,8 @@ static __init int sctp_init(void)
-> >                 INIT_HLIST_HEAD(&sctp_port_hashtable[i].chain);
-> >         }
-> >
-> > -       if (sctp_transport_hashtable_init())
-> > +       status = sctp_transport_hashtable_init();
-> > +       if (status)
-> >                 goto err_thash_alloc;
-> >
-> >         pr_info("Hash tables configured (bind %d/%d)\n", sctp_port_hashsize,
-> >
-> >
-> Acked-by: Xin Long <lucien.xin@gmail.com>
-> --
-> To unsubscribe from this list: send the line "unsubscribe linux-sctp" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+--Apple-Mail=_4851DEC8-AFDB-4DCC-9CF9-BCFB4D50DB85
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=us-ascii
 
-Acked-by: Neil Horman <nhorman@tuxdriver.com>
+On 2016-06-14, at 15:10, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>> What gives :
+>> sysctl net/ipv4/ip_no_pmtu_disc net/ipv4/tcp_mtu_probing
+
+net.ipv4.ip_no_pmtu_disc =3D 0
+net.ipv4.tcp_mtu_probing =3D 0
+
+> Also, is it a regression ? Was this working better with an older linux
+> version ?
+
+No idea, 4.6.0 is the only kernel I ran this on (is a new project). What =
+would be a good older version to check?
+
+Thanks,
+Lars
+
+--Apple-Mail=_4851DEC8-AFDB-4DCC-9CF9-BCFB4D50DB85
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBCAAGBQJXYAVvAAoJEFS1wwm/cMFXPYAQAKjOmMnto0V5Z/IkhhJNOsuM
+106wMLfmwuWZfiw64NFlU17wXaE0/3QCf+q4T3bTyC4hbwuW8/fUEO7dPLKn/pA3
+Vh4/vTey8s8jgYZo5kJ3t4wG6dRzbNaSPkfk1dpq+q93ANIXpzKXCR1uU800TVIK
+MbnThzVRu/2LFVhskcJ+mIF0WglKv+xbDPsD0TrCX+Zlm/ENvocB2hldLv8sJuFr
+b7JZnW4qdiGE9ADYddh6HeafU9QR+929YC81nxmhM4wT8yDitbqDxJrVVVSOpHkp
+MKB/pFRwP5Cjf6IrDgRq+wgz3rFA/Ekh8lmnvjqOB6B+RMzceRITImtzzkc5R3GG
+FC23v6XqpbEdOnp9IMzQkxJIzZ+20nDgVNyjl6MXosP8hkyc29a9TGZH0NcoMxou
+Q6lvMyLDJEOy3lqrWr/5bkFABKdb/cHYv/svn4FpDvJf0zJqqDuj+zHZQPFtunB8
+qOyI6aYHXCOB82gfWvkhPgL8+ouR92yC1bZMahI43bojy4sOZSjh6z2DLvRKJng+
+QQ4qdltZtn7zaR6/ZRo8EuY9TNfp8HzvOCoMvqnhbV1weVq+GQaDvQQAfxxG9exm
+xtkIEyAx4kPNQFvUFKe2kkuRJ3rhVUYIRErDtvJgsidDSpcEqMdiX5R/z1xM4U26
+qDQbzB8TTRF1vAMFJdc9
+=helw
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_4851DEC8-AFDB-4DCC-9CF9-BCFB4D50DB85--
