@@ -1,57 +1,78 @@
-From: Kishan Sandeep <sandeepkishan108@gmail.com>
-Subject: Re: [PATCH] netfilter: fix buffer null termination
-Date: Tue, 14 Jun 2016 21:52:49 +0530
-Message-ID: <CAJ3s=ND18x4g4gwVOb0G4cqRbAiF-6F341gWJK7_vumc2BLB0w@mail.gmail.com>
-References: <1465620484-5543-1-git-send-email-sandeepkishan108@gmail.com>
- <CAJ3s=NBCvYnRaWcFb==vZqP1_YE6w=uKqbtBvESkCo1sED2CHg@mail.gmail.com> <20160614150802.GA1029@salvia>
+From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
+Subject: Re: [PATCH v6] r8152: Add support for setting pass through MAC address on RTL8153-AD
+Date: Tue, 14 Jun 2016 18:28:10 +0200
+Message-ID: <201606141828.10969@pali>
+References: <1465323757-7249-1-git-send-email-mario_limonciello@dell.com> <20160611153921.GP2338@lunn.ch> <20160611.104226.1571085838142610714.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160614150802.GA1029@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: multipart/signed;
+  boundary="nextPart1931430.yfpjyEjA35";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: andrew@lunn.ch, mario_limonciello@dell.com, hayeswang@realtek.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, anthony.wong@canonical.com,
+	gregkh@linuxfoundation.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160611.104226.1571085838142610714.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi Pablo,
+--nextPart1931430.yfpjyEjA35
+Content-Type: Text/Plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
 
-On Tue, Jun 14, 2016 at 8:38 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> Cc'ing netfilter-devel.
->
-> On Tue, Jun 14, 2016 at 07:39:27PM +0530, Kishan Sandeep wrote:
->> + netdev
->>
->> On Sat, Jun 11, 2016 at 10:18 AM, Kishan Sandeep
->> <sandeepkishan108@gmail.com> wrote:
->> > strncpy generally perferable fo non-terminated
->> > fixed-width strings. For NULL termination strlcpy
->> > is preferrable.
->> >
->> > Signed-off-by: Kishan Sandeep <sandeepkishan108@gmail.com>
->> > ---
->> >  net/netfilter/xt_repldata.h |    2 +-
->> >  1 file changed, 1 insertion(+), 1 deletion(-)
->> >
->> > diff --git a/net/netfilter/xt_repldata.h b/net/netfilter/xt_repldata.h
->> > index 8fd3241..a460211 100644
->> > --- a/net/netfilter/xt_repldata.h
->> > +++ b/net/netfilter/xt_repldata.h
->> > @@ -28,7 +28,7 @@
->> >         if (tbl == NULL) \
->> >                 return NULL; \
->> >         term = (struct type##_error *)&(((char *)tbl)[term_offset]); \
->> > -       strncpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
->> > +       strlcpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
->
-> I don't think this is actually fixing anything. Tables in x_tables
-> have a known and fixed name that is defined from the kernel side, that
-> is always smaller that the buffer we have there. So are you observing
-> any real problem from there?
->
-> Thanks.
+On Saturday 11 June 2016 19:42:26 David Miller wrote:
+> From: Andrew Lunn <andrew@lunn.ch>
+> Date: Sat, 11 Jun 2016 17:39:21 +0200
+>=20
+> > What is still open is do we want to accept it at all? Do we accept
+> > the concept of putting the same MAC address on multiple interfaces
+> > at hotplug time? Do we trust BIOS vendors to not keep changing
+> > DSDT property name, since it is not standardised?
+> >=20
+> > Do we want this at all should be decided by somebody more senior
+> > then those passing comments on the code.
+>=20
+> Indeed, I think the behavior of using the same MAC address on
+> multiple interfaces if we plug several of these in at once is not
+> good.
+>=20
+> We shouldn't behave this way just because the Microsoft driver does.
 
-Not observed any real problem. Here the string is not NULL terminated with
-the use of strncpy - that is the problem. With the use of strlcpy we can make
-the string to terminated properly.
+I agree, but in some cases it is night mare for local admins when=20
+booting different OS cause changing MAC address on local network.
 
-Thanks!
+Another similar situation: Imagine that you have two USB network cards=20
+and both have "burned" into their registers same MAC address. If you=20
+connect both those USB network cards, linux kernel bind appropriate=20
+driver which read MAC address for both those cards. But those addresses=20
+are same. What will linux kernel do in this case?
+
+This is very similar situation as those Dell usb network cards told us=20
+"hey, use address which is in ACPI DSDT table".
+
+Either we should trust what network card what told us, or not and then=20
+generate MAC addresses in better way.
+
+Just my opinion...
+
+=2D-=20
+Pali Roh=C3=A1r
+pali.rohar@gmail.com
+
+--nextPart1931430.yfpjyEjA35
+Content-Type: application/pgp-signature; name=signature.asc 
+Content-Description: This is a digitally signed message part.
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.11 (GNU/Linux)
+
+iEYEABECAAYFAldgMJoACgkQi/DJPQPkQ1IHrQCfaIVHBc15BzsnyUg9BEWsc3dA
+ZIYAn2aSDM62b8c5S1nr7SFlZBM5OZ7Y
+=/Bk2
+-----END PGP SIGNATURE-----
+
+--nextPart1931430.yfpjyEjA35--
