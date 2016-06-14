@@ -1,71 +1,43 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 1/2] tc: m_action: Fix for field init before memset
-Date: Wed, 15 Jun 2016 00:26:08 +0200
-Message-ID: <1465943169-4101-2-git-send-email-phil@nwl.cc>
-References: <1465943169-4101-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org, Phil Sutter <psutter@redhat.com>
-To: Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:39894 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751943AbcFNW0f (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2016 18:26:35 -0400
-In-Reply-To: <1465943169-4101-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v2 net-next v2 11/12] net: dsa: mv88e6xxx: add an SMI ops structure
+Date: Tue, 14 Jun 2016 18:26:44 -0400
+Message-ID: <87y467z9sr.fsf@ketchup.mtl.sfl>
+References: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com> <20160614183153.32327-12-vivien.didelot@savoirfairelinux.com> <20160614220435.GI12832@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160614220435.GI12832@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Phil Sutter <psutter@redhat.com>
+Hi Andrew,
 
-Initializing req.t.tca_family before setting the whole req object to
-zero using memset does not make sense. Instead initialize the field
-after calling memset.
+Andrew Lunn <andrew@lunn.ch> writes:
 
-Note that this change has no functional effect since AF_UNSPEC is
-defined to 0 anyway, so this fix is a purely cosmetic one.
+>> +struct mv88e6xxx_smi_ops {
+>> +	int (*read)(struct mii_bus *bus, int sw_addr,
+>> +		    int addr, int reg, u16 *val);
+>> +	int (*write)(struct mii_bus *bus, int sw_addr,
+>> +		     int addr, int reg, u16 val);
+>> +};
+>> +
+>
+> I think this API would be better if it used ps, not bus and sw_addr.
+>
+> The only problem is the very first read to get the switch ID. I would
+> add one more layer in between, so that you can call the lowest level
+> functions without having a ps structure.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- tc/m_action.c | 11 +++--------
- 1 file changed, 3 insertions(+), 8 deletions(-)
+That's why I keep it simple for the moment.
 
-diff --git a/tc/m_action.c b/tc/m_action.c
-index c416d98a775a6..1b34370f4ec09 100644
---- a/tc/m_action.c
-+++ b/tc/m_action.c
-@@ -397,9 +397,8 @@ static int tc_action_gd(int cmd, unsigned int flags, int *argc_p, char ***argv_p
- 		char                    buf[MAX_MSG];
- 	} req;
- 
--	req.t.tca_family = AF_UNSPEC;
--
- 	memset(&req, 0, sizeof(req));
-+	req.t.tca_family = AF_UNSPEC;
- 
- 	memset(&nladdr, 0, sizeof(nladdr));
- 	nladdr.nl_family = AF_NETLINK;
-@@ -502,10 +501,8 @@ static int tc_action_modify(int cmd, unsigned int flags, int *argc_p, char ***ar
- 		char                    buf[MAX_MSG];
- 	} req;
- 
--	req.t.tca_family = AF_UNSPEC;
--
- 	memset(&req, 0, sizeof(req));
--
-+	req.t.tca_family = AF_UNSPEC;
- 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg));
- 	req.n.nlmsg_flags = NLM_F_REQUEST|flags;
- 	req.n.nlmsg_type = cmd;
-@@ -541,10 +538,8 @@ static int tc_act_list_or_flush(int argc, char **argv, int event)
- 		char                    buf[MAX_MSG];
- 	} req;
- 
--	req.t.tca_family = AF_UNSPEC;
--
- 	memset(&req, 0, sizeof(req));
--
-+	req.t.tca_family = AF_UNSPEC;
- 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg));
- 
- 	tail = NLMSG_TAIL(&req.n);
--- 
-2.8.2
+The low-level API using ps is now _mv88e6xxx_reg_{read,write}. I can
+rename them to mv88e6xxx_smi_{read,write} in v3 or later.
+
+Thanks,
+
+        Vivien
