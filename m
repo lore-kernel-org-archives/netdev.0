@@ -1,28 +1,34 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net 2/3] macsec: allocate sg and iv on the heap
-Date: Tue, 14 Jun 2016 16:19:33 +0200
-Message-ID: <38ae03e7-4e28-eb8f-2d03-b2017cbc5462@stressinduktion.org>
-References: <cover.1465908271.git.sd@queasysnail.net>
- <da30e15d4c309ed7b598b6d0eb12be0436d461a8.1465908271.git.sd@queasysnail.net>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [1/1] mwifiex: illegal assignment
+Date: Tue, 14 Jun 2016 14:19:50 +0000 (UTC)
+Message-ID: <20160614141950.158DC61404@smtp.codeaurora.org>
+References: <1463526118-11822-1-git-send-email-xypron.glpk@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:59668 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751332AbcFNOTk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 10:19:40 -0400
-In-Reply-To: <da30e15d4c309ed7b598b6d0eb12be0436d461a8.1465908271.git.sd@queasysnail.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>,
+	Xinming Hu <huxm@marvell.com>, Cathy Luo <cluo@marvell.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Heinrich Schuchardt <xypron.glpk@gmx.de>
+To: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463526118-11822-1-git-send-email-xypron.glpk@gmx.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 14.06.2016 15:25, Sabrina Dubroca wrote:
-> For the crypto callbacks to work properly, we cannot have sg and iv on
-> the stack.  Use kmalloc instead, with a single allocation for
-> aead_request + scatterlist + iv.
+Heinrich Schuchardt <xypron.glpk@gmx.de> wrote:
+> Variable adapter is incorrectly initialized.
 > 
-> Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
-> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
+> Fixes: bf00dc22bc7a ("mwifiex: AMSDU Rx frame handling in AP mode")
+> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> Acked-by: Amitkumar Karwar <akarwar@marvell.com>
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Thanks, 1 patch applied to wireless-drivers-next.git:
+
+3fdbda446fbc mwifiex: illegal assignment
+
+-- 
+Sent by pwcli
+https://patchwork.kernel.org/patch/9115501/
