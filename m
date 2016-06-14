@@ -1,39 +1,36 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: Re: [PATCH] net: smsc911x: If PHY doesn't have an interrupt then POLL
-Date: Tue, 14 Jun 2016 15:48:50 -0500
-Message-ID: <57606DB2.5030602@arm.com>
-References: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
- <20160614184236.GB8518@lunn.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net
-To: Andrew Lunn <andrew@lunn.ch>
+From: Beniamino Galvani <bgalvani@redhat.com>
+Subject: [iproute2 PATCH] utils: fix hex digits parsing in hexstring_a2n()
+Date: Tue, 14 Jun 2016 22:55:17 +0200
+Message-ID: <1465937717-16247-1-git-send-email-bgalvani@redhat.com>
+To: netdev@vger.kernel.org, Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:33231 "EHLO foss.arm.com"
+Received: from mx1.redhat.com ([209.132.183.28]:56653 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752989AbcFNUsw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2016 16:48:52 -0400
-In-Reply-To: <20160614184236.GB8518@lunn.ch>
+	id S932082AbcFNUzh (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2016 16:55:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/14/2016 01:42 PM, Andrew Lunn wrote:
-> On Tue, Jun 14, 2016 at 11:16:02AM -0500, Jeremy Linton wrote:
->> If the interrupt configuration isn't set and we are using the
->> internal phy, then we need to poll the phy to reliably detect
->> phy state changes.
->
-> Hi Jeremy
->  Why does the external phy not have the exact same problem?
+strtoul() only modifies errno on overflow, so if errno is not zero
+before calling the function its value is preserved and makes the
+function fail for valid inputs; initialize it.
 
-Hello,
+Signed-off-by: Beniamino Galvani <bgalvani@redhat.com>
+---
+ lib/utils.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-It may... but I've only got a fairly limited hardware testing setup, and 
-this driver is used across a pretty broad set of hardware configured in 
-various ways. So, I'm trying to limit the scope of things I might break. 
-Initially I thought it was added to avoid a QEMU issue, but now I don't 
-think that is the case.
-
-So, if 0 can't be an interrupt why not update phy_interrupt_is_valid() 
-to check for it? That would fix the problem too...
+diff --git a/lib/utils.c b/lib/utils.c
+index 70e85b7..7dceeb5 100644
+--- a/lib/utils.c
++++ b/lib/utils.c
+@@ -924,6 +924,7 @@ __u8 *hexstring_a2n(const char *str, __u8 *buf, int blen, unsigned int *len)
+ 
+ 		strncpy(tmpstr, str, 2);
+ 		tmpstr[2] = '\0';
++		errno = 0;
+ 		tmp = strtoul(tmpstr, &endptr, 16);
+ 		if (errno != 0 || tmp > 0xFF || *endptr != '\0')
+ 			return NULL;
+-- 
+2.5.5
