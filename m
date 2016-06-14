@@ -1,56 +1,36 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: smsc911x: If PHY doesn't have an interrupt then POLL
-Date: Tue, 14 Jun 2016 22:49:20 +0300
-Message-ID: <0b8c79f9-f938-8357-fb6a-af49ada03fda@cogentembedded.com>
-References: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
- <81bb72b5-ccea-ee75-24f9-ffec73853fd9@cogentembedded.com>
- <1881cbee-2d9f-a933-63dd-caf91f3e14a3@cogentembedded.com>
+From: Murali Karicheri <m-karicheri2@ti.com>
+Subject: Avoiding bridge flood of multicast when L2 switch is used
+Date: Tue, 14 Jun 2016 16:12:32 -0400
+Message-ID: <57606530.6030208@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@shawell.net
-To: Jeremy Linton <jeremy.linton@arm.com>, netdev@vger.kernel.org
+To: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
+	<john.r.fastabend@intel.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f52.google.com ([209.85.215.52]:36128 "EHLO
-	mail-lf0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751392AbcFNTt0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 15:49:26 -0400
-Received: by mail-lf0-f52.google.com with SMTP id q132so341958lfe.3
-        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 12:49:25 -0700 (PDT)
-In-Reply-To: <1881cbee-2d9f-a933-63dd-caf91f3e14a3@cogentembedded.com>
+Received: from arroyo.ext.ti.com ([198.47.19.12]:59449 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751392AbcFNUM2 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2016 16:12:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/14/2016 10:27 PM, Sergei Shtylyov wrote:
+netdev experts,
 
->>> If the interrupt configuration isn't set and we are using the
->>> internal phy, then we need to poll the phy to reliably detect
->>> phy state changes.
->>>
->>> Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
->>> ---
->>>  drivers/net/ethernet/smsc/smsc911x.c | 3 +++
->>>  1 file changed, 3 insertions(+)
->>>
->>> diff --git a/drivers/net/ethernet/smsc/smsc911x.c
->>> b/drivers/net/ethernet/smsc/smsc911x.c
->>> index 8af2556..369dc7d 100644
->>> --- a/drivers/net/ethernet/smsc/smsc911x.c
->>> +++ b/drivers/net/ethernet/smsc/smsc911x.c
->>> @@ -1020,6 +1020,9 @@ static int smsc911x_mii_probe(struct net_device *dev)
->>>          return -ENODEV;
->>>      }
->>>
->>> +    if ((!phydev->irq) && (!pdata->using_extphy))
->>
->>    Inner parens aren't needed at all.
->
->    Hm, 'phydev->irq' shouldn't be 0 in the first place. It seems to me we
-> should correctly initialize 'pdata->phy_irq[]' in smsc911x_mii_init()...
+When there is a L2 switch underneath the network interface a flooding of
+multicast at the bridge interface results in one copy of this going through each
+of the slave resulting in multiple multicast packets reaching the underlying switch.
+L2 switch also duplicates the multicast packet on each egress port as done
+in software bridge. This is undesirable as it reduces the available bandwidth to
+half when multicast packets are involved.
 
-    And looking at that array, I doubt it's really useful for anything... And 
-the memcpy() there seems buggy as well -- it copies just 4 bytes of this array 
-to 'pdata->mii_bus->irq'. I do care about this driver, so might be a good idea 
-to clean it up a bit...
+Is there something that can be done to avoid software bridge flooding mulicast
+through a ip command or similar or to be done in the network driver? I have a TODO
+item to add dsa support in our netcp driver. If this is already solved by dsa, I can
+handle it as part of this work. 
 
-MBR, Sergei
+Thanks in advance for your response! 
+-- 
+Murali Karicheri
+Linux Kernel, Keystone
