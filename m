@@ -1,69 +1,44 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH net-next v3 2/7] vmxnet3: introduce generic command interface to configure the device
-Date: Mon, 13 Jun 2016 18:50:02 -0700
-Message-ID: <1465869007-10822-3-git-send-email-skhare@vmware.com>
-References: <1465869007-10822-1-git-send-email-skhare@vmware.com>
-Cc: Shrikrishna Khare <skhare@vmware.com>,
-	Guolin Yang <gyang@vmware.com>
-To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pv-drivers@vmware.com
+From: Quentin Armitage <quentin@armitage.org.uk>
+Subject: [PATCH 4/5] ipvs: Lock socket before setting SK_CAN_REUSE
+Date: Tue, 14 Jun 2016 02:43:32 +0100
+Message-ID: <1465868613-26146-5-git-send-email-quentin@armitage.org.uk>
+References: <1465868613-26146-1-git-send-email-quentin@armitage.org.uk>
+Cc: Quentin Armitage <quentin@armitage.org.uk>
+To: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465869007-10822-1-git-send-email-skhare@vmware.com>
+In-Reply-To: <1465868613-26146-1-git-send-email-quentin@armitage.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Guolin Yang <gyang@vmware.com>
-Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
----
- drivers/net/vmxnet3/vmxnet3_defs.h | 22 +++++++++++++++++++++-
- 1 file changed, 21 insertions(+), 1 deletion(-)
+When other settings are changed in the socket it is locked, so
+lock the socket before setting SK_CAN_REUSE.
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
-index 8345e0c..a26a69d 100644
---- a/drivers/net/vmxnet3/vmxnet3_defs.h
-+++ b/drivers/net/vmxnet3/vmxnet3_defs.h
-@@ -79,6 +79,7 @@ enum {
- 	VMXNET3_CMD_RESERVED1,
- 	VMXNET3_CMD_LOAD_PLUGIN,
- 	VMXNET3_CMD_RESERVED2,
-+	VMXNET3_CMD_RESERVED3,
+Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
+---
+ net/netfilter/ipvs/ip_vs_sync.c |    2 ++
+ 1 files changed, 2 insertions(+), 0 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index 29d73d8..dfac9ef 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -1540,7 +1540,9 @@ static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id, int ifi
+ 	}
  
- 	VMXNET3_CMD_FIRST_GET = 0xF00D0000,
- 	VMXNET3_CMD_GET_QUEUE_STATUS = VMXNET3_CMD_FIRST_GET,
-@@ -612,6 +613,18 @@ struct Vmxnet3_RxQueueDesc {
- 	u8				      __pad[88]; /* 128 aligned */
- };
- 
-+struct Vmxnet3_SetPolling {
-+	u8					enablePolling;
-+};
-+
-+/* If the command data <= 16 bytes, use the shared memory directly.
-+ * otherwise, use variable length configuration descriptor.
-+ */
-+union Vmxnet3_CmdInfo {
-+	struct Vmxnet3_VariableLenConfDesc	varConf;
-+	struct Vmxnet3_SetPolling		setPolling;
-+	__le64					data[2];
-+};
- 
- struct Vmxnet3_DSDevRead {
- 	/* read-only region for device, read by dev in response to a SET cmd */
-@@ -630,7 +643,14 @@ struct Vmxnet3_DriverShared {
- 	__le32				pad;
- 	struct Vmxnet3_DSDevRead	devRead;
- 	__le32				ecr;
--	__le32				reserved[5];
-+	__le32				reserved;
-+	union {
-+		__le32			reserved1[4];
-+		union Vmxnet3_CmdInfo	cmdInfo; /* only valid in the context of
-+						  * executing the relevant
-+						  * command
-+						  */
-+	} cu;
- };
- 
- 
+ 	/* it is equivalent to the REUSEADDR option in user-space */
++	lock_sock(sock->sk);
+ 	sock->sk->sk_reuse = SK_CAN_REUSE;
++	release_sock(sock->sk);
+ 	result = sysctl_sync_sock_size(ipvs);
+ 	if (result > 0)
+ 		set_sock_size(sock->sk, 0, result);
 -- 
-2.8.2
+1.7.7.6
