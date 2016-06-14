@@ -1,39 +1,44 @@
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Subject: padata - is serial actually serial?
-Date: Tue, 14 Jun 2016 23:00:54 +0200
-Message-ID: <CAHmME9qnufO90qF7v9bVb7L+6KQA=kaZ=BML2sRwzbQHtFLJGA@mail.gmail.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH v2 net-next v2 08/12] net: dsa: mv88e6xxx: read switch ID from info
+Date: Tue, 14 Jun 2016 17:01:38 -0400
+Message-ID: <87k2hrbi31.fsf@ketchup.mtl.sfl>
+References: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com> <20160614183153.32327-9-vivien.didelot@savoirfairelinux.com> <fea82e7e-7c1d-baac-8a91-07cd94b13b6c@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-crypto@vger.kernel.org, Netdev <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
+Content-Type: text/plain
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from frisell.zx2c4.com ([192.95.5.64]:33130 "EHLO frisell.zx2c4.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752779AbcFNVBH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2016 17:01:07 -0400
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:36706 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752184AbcFNVBm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 17:01:42 -0400
+In-Reply-To: <fea82e7e-7c1d-baac-8a91-07cd94b13b6c@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Steffen & Folks,
+Hi,
 
-I submit a job to padata_do_parallel(). When the parallel() function
-triggers, I do some things, and then call padata_do_serial(). Finally
-the serial() function triggers, where I complete the job (check a
-nonce, etc).
+Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> writes:
 
-The padata API is very appealing because not only does it allow for
-parallel computation, but it claims that the serial() functions will
-execute in the order that jobs were originally submitted to
-padata_do_parallel().
+>> -	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
+>> +	of_id = of_match_node(mv88e6xxx_of_id_table, np);
+>
+>     You could use of_device_get_match_data() here.
+>
+>> +	if (!of_id)
+>> +		return -EINVAL;
+>> +
+>> +	info = (const struct mv88e6xxx_info *)of_id->data;
+>
+>     Pointer casts from 'void *' are automatic.
 
-Unfortunately, in practice, I'm pretty sure I'm seeing deviations from
-this. When I submit tons and tons of tasks at rapid speed to
-padata_do_parallel(), it seems like the serial() function isn't being
-called in the exactly the same order that tasks were submitted to
-padata_do_parallel().
-
-Is this known (expected) behavior? Or have I stumbled upon a potential
-bug that's worthwhile for me to investigate more?
+I applied your comments and also squashed patches 7 and 8 together.
+I'll respin a v3 soon unless there are other comments.
 
 Thanks,
-Jason
+
+        Vivien
