@@ -1,91 +1,77 @@
-From: Pali =?utf-8?q?Roh=C3=A1r?= <pali.rohar@gmail.com>
-Subject: Re: [PATCH v6] r8152: Add support for setting pass through MAC address on RTL8153-AD
-Date: Tue, 14 Jun 2016 18:47:36 +0200
-Message-ID: <201606141847.36109@pali>
-References: <1465323757-7249-1-git-send-email-mario_limonciello@dell.com> <201606141828.10969@pali> <20160614164017.GB14477@kroah.com>
+From: <Mario_Limonciello@Dell.com>
+Subject: RE: [PATCH v6] r8152: Add support for setting pass through MAC
+ address on RTL8153-AD
+Date: Tue, 14 Jun 2016 16:55:21 +0000
+Message-ID: <ba393fe424fd4a8fb82703dd0f42eea7@ausx13mpc124.AMER.DELL.COM>
+References: <1465323757-7249-1-git-send-email-mario_limonciello@dell.com>
+ <201606141828.10969@pali> <20160614164017.GB14477@kroah.com>
+ <201606141847.36109@pali>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart4293973.Md3BYvXXoE";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, andrew@lunn.ch,
-	mario_limonciello@dell.com, hayeswang@realtek.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, anthony.wong@canonical.com
-To: Greg KH <gregkh@linuxfoundation.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160614164017.GB14477@kroah.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: <davem@davemloft.net>, <andrew@lunn.ch>, <hayeswang@realtek.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, <anthony.wong@canonical.com>
+To: <pali.rohar@gmail.com>, <gregkh@linuxfoundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ausc60pc101.us.dell.com ([143.166.85.206]:22549 "EHLO
+	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752790AbcFNQzY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 12:55:24 -0400
+In-Reply-To: <201606141847.36109@pali>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---nextPart4293973.Md3BYvXXoE
-Content-Type: Text/Plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-
-On Tuesday 14 June 2016 18:40:17 Greg KH wrote:
-> On Tue, Jun 14, 2016 at 06:28:10PM +0200, Pali Roh=C3=A1r wrote:
-> > On Saturday 11 June 2016 19:42:26 David Miller wrote:
-> > > From: Andrew Lunn <andrew@lunn.ch>
-> > > Date: Sat, 11 Jun 2016 17:39:21 +0200
-> > >=20
-> > > > What is still open is do we want to accept it at all? Do we
-> > > > accept the concept of putting the same MAC address on multiple
-> > > > interfaces at hotplug time? Do we trust BIOS vendors to not
-> > > > keep changing DSDT property name, since it is not
-> > > > standardised?
-> > > >=20
-> > > > Do we want this at all should be decided by somebody more
-> > > > senior then those passing comments on the code.
-> > >=20
-> > > Indeed, I think the behavior of using the same MAC address on
-> > > multiple interfaces if we plug several of these in at once is not
-> > > good.
-> > >=20
-> > > We shouldn't behave this way just because the Microsoft driver
-> > > does.
-> >=20
-> > I agree, but in some cases it is night mare for local admins when
-> > booting different OS cause changing MAC address on local network.
-> >=20
-> > Another similar situation: Imagine that you have two USB network
-> > cards and both have "burned" into their registers same MAC
-> > address. If you connect both those USB network cards, linux kernel
-> > bind appropriate driver which read MAC address for both those
-> > cards. But those addresses are same. What will linux kernel do in
-> > this case?
->=20
-> If you can find such a broken USB device, try it and see :)
-
-What do you mean by broken USB device?
-
-You have never seen two ethernet cards with same MAC addresses? Right I=20
-have not seen two USB, but there is non zero chance that could happen.=20
-Specially now when more and more people starts using USB network cards.
-
-> (hint, might be hard to find, I've never seen such a device before.)
->=20
-> I don't see how that pertains to this issue, sorry, how does broken
-> USB hardware compare to a working Dell device?
-
-It is same, how to handle two network cards which tell us, that they=20
-have same MAC addresses.
-
-=2D-=20
-Pali Roh=C3=A1r
-pali.rohar@gmail.com
-
---nextPart4293973.Md3BYvXXoE
-Content-Type: application/pgp-signature; name=signature.asc 
-Content-Description: This is a digitally signed message part.
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.11 (GNU/Linux)
-
-iEYEABECAAYFAldgNSgACgkQi/DJPQPkQ1Ls0ACfVKFxPb5W0tujrX3d3i1hiUKE
-+w8AoKXedylZWWzJAY97DPqgptloz3Nn
-=Prv/
------END PGP SIGNATURE-----
-
---nextPart4293973.Md3BYvXXoE--
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBQYWxpIFJvaMOhciBbbWFpbHRv
+OnBhbGkucm9oYXJAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBKdW5lIDE0LCAyMDE2IDEx
+OjQ4IEFNDQo+IFRvOiBHcmVnIEtIIDxncmVna2hAbGludXhmb3VuZGF0aW9uLm9yZz4NCj4gQ2M6
+IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD47IGFuZHJld0BsdW5uLmNoOyBMaW1v
+bmNpZWxsbywNCj4gTWFyaW8gPE1hcmlvX0xpbW9uY2llbGxvQERlbGwuY29tPjsgaGF5ZXN3YW5n
+QHJlYWx0ZWsuY29tOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2QHZn
+ZXIua2VybmVsLm9yZzsgbGludXgtDQo+IHVzYkB2Z2VyLmtlcm5lbC5vcmc7IGFudGhvbnkud29u
+Z0BjYW5vbmljYWwuY29tDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjZdIHI4MTUyOiBBZGQgc3Vw
+cG9ydCBmb3Igc2V0dGluZyBwYXNzIHRocm91Z2ggTUFDDQo+IGFkZHJlc3Mgb24gUlRMODE1My1B
+RA0KPiANCj4gT24gVHVlc2RheSAxNCBKdW5lIDIwMTYgMTg6NDA6MTcgR3JlZyBLSCB3cm90ZToN
+Cj4gPiBPbiBUdWUsIEp1biAxNCwgMjAxNiBhdCAwNjoyODoxMFBNICswMjAwLCBQYWxpIFJvaMOh
+ciB3cm90ZToNCj4gPiA+IE9uIFNhdHVyZGF5IDExIEp1bmUgMjAxNiAxOTo0MjoyNiBEYXZpZCBN
+aWxsZXIgd3JvdGU6DQo+ID4gPiA+IEZyb206IEFuZHJldyBMdW5uIDxhbmRyZXdAbHVubi5jaD4N
+Cj4gPiA+ID4gRGF0ZTogU2F0LCAxMSBKdW4gMjAxNiAxNzozOToyMSArMDIwMA0KPiA+ID4gPg0K
+PiA+ID4gPiA+IFdoYXQgaXMgc3RpbGwgb3BlbiBpcyBkbyB3ZSB3YW50IHRvIGFjY2VwdCBpdCBh
+dCBhbGw/IERvIHdlDQo+ID4gPiA+ID4gYWNjZXB0IHRoZSBjb25jZXB0IG9mIHB1dHRpbmcgdGhl
+IHNhbWUgTUFDIGFkZHJlc3Mgb24gbXVsdGlwbGUNCj4gPiA+ID4gPiBpbnRlcmZhY2VzIGF0IGhv
+dHBsdWcgdGltZT8gRG8gd2UgdHJ1c3QgQklPUyB2ZW5kb3JzIHRvIG5vdA0KPiA+ID4gPiA+IGtl
+ZXAgY2hhbmdpbmcgRFNEVCBwcm9wZXJ0eSBuYW1lLCBzaW5jZSBpdCBpcyBub3QNCj4gPiA+ID4g
+PiBzdGFuZGFyZGlzZWQ/DQo+ID4gPiA+ID4NCj4gPiA+ID4gPiBEbyB3ZSB3YW50IHRoaXMgYXQg
+YWxsIHNob3VsZCBiZSBkZWNpZGVkIGJ5IHNvbWVib2R5IG1vcmUNCj4gPiA+ID4gPiBzZW5pb3Ig
+dGhlbiB0aG9zZSBwYXNzaW5nIGNvbW1lbnRzIG9uIHRoZSBjb2RlLg0KPiA+ID4gPg0KPiA+ID4g
+PiBJbmRlZWQsIEkgdGhpbmsgdGhlIGJlaGF2aW9yIG9mIHVzaW5nIHRoZSBzYW1lIE1BQyBhZGRy
+ZXNzIG9uDQo+ID4gPiA+IG11bHRpcGxlIGludGVyZmFjZXMgaWYgd2UgcGx1ZyBzZXZlcmFsIG9m
+IHRoZXNlIGluIGF0IG9uY2UgaXMgbm90DQo+ID4gPiA+IGdvb2QuDQo+ID4gPiA+DQo+ID4gPiA+
+IFdlIHNob3VsZG4ndCBiZWhhdmUgdGhpcyB3YXkganVzdCBiZWNhdXNlIHRoZSBNaWNyb3NvZnQg
+ZHJpdmVyDQo+ID4gPiA+IGRvZXMuDQo+ID4gPg0KPiA+ID4gSSBhZ3JlZSwgYnV0IGluIHNvbWUg
+Y2FzZXMgaXQgaXMgbmlnaHQgbWFyZSBmb3IgbG9jYWwgYWRtaW5zIHdoZW4NCj4gPiA+IGJvb3Rp
+bmcgZGlmZmVyZW50IE9TIGNhdXNlIGNoYW5naW5nIE1BQyBhZGRyZXNzIG9uIGxvY2FsIG5ldHdv
+cmsuDQo+ID4gPg0KPiA+ID4gQW5vdGhlciBzaW1pbGFyIHNpdHVhdGlvbjogSW1hZ2luZSB0aGF0
+IHlvdSBoYXZlIHR3byBVU0IgbmV0d29yaw0KPiA+ID4gY2FyZHMgYW5kIGJvdGggaGF2ZSAiYnVy
+bmVkIiBpbnRvIHRoZWlyIHJlZ2lzdGVycyBzYW1lIE1BQw0KPiA+ID4gYWRkcmVzcy4gSWYgeW91
+IGNvbm5lY3QgYm90aCB0aG9zZSBVU0IgbmV0d29yayBjYXJkcywgbGludXgga2VybmVsDQo+ID4g
+PiBiaW5kIGFwcHJvcHJpYXRlIGRyaXZlciB3aGljaCByZWFkIE1BQyBhZGRyZXNzIGZvciBib3Ro
+IHRob3NlDQo+ID4gPiBjYXJkcy4gQnV0IHRob3NlIGFkZHJlc3NlcyBhcmUgc2FtZS4gV2hhdCB3
+aWxsIGxpbnV4IGtlcm5lbCBkbyBpbg0KPiA+ID4gdGhpcyBjYXNlPw0KPiA+DQo+ID4gSWYgeW91
+IGNhbiBmaW5kIHN1Y2ggYSBicm9rZW4gVVNCIGRldmljZSwgdHJ5IGl0IGFuZCBzZWUgOikNCj4g
+DQo+IFdoYXQgZG8geW91IG1lYW4gYnkgYnJva2VuIFVTQiBkZXZpY2U/DQo+IA0KPiBZb3UgaGF2
+ZSBuZXZlciBzZWVuIHR3byBldGhlcm5ldCBjYXJkcyB3aXRoIHNhbWUgTUFDIGFkZHJlc3Nlcz8g
+UmlnaHQgSQ0KPiBoYXZlIG5vdCBzZWVuIHR3byBVU0IsIGJ1dCB0aGVyZSBpcyBub24gemVybyBj
+aGFuY2UgdGhhdCBjb3VsZCBoYXBwZW4uDQo+IFNwZWNpYWxseSBub3cgd2hlbiBtb3JlIGFuZCBt
+b3JlIHBlb3BsZSBzdGFydHMgdXNpbmcgVVNCIG5ldHdvcmsgY2FyZHMuDQo+IA0KPiA+IChoaW50
+LCBtaWdodCBiZSBoYXJkIHRvIGZpbmQsIEkndmUgbmV2ZXIgc2VlbiBzdWNoIGEgZGV2aWNlIGJl
+Zm9yZS4pDQo+ID4NCj4gPiBJIGRvbid0IHNlZSBob3cgdGhhdCBwZXJ0YWlucyB0byB0aGlzIGlz
+c3VlLCBzb3JyeSwgaG93IGRvZXMgYnJva2VuDQo+ID4gVVNCIGhhcmR3YXJlIGNvbXBhcmUgdG8g
+YSB3b3JraW5nIERlbGwgZGV2aWNlPw0KPiANCj4gSXQgaXMgc2FtZSwgaG93IHRvIGhhbmRsZSB0
+d28gbmV0d29yayBjYXJkcyB3aGljaCB0ZWxsIHVzLCB0aGF0IHRoZXkNCj4gaGF2ZSBzYW1lIE1B
+QyBhZGRyZXNzZXMuDQo+IA0KDQpUaGUga2VybmVsIGhhbmRsZXMgdGhpcyBqdXN0IGZpbmUuICBJ
+biBkb2luZyB0aGlzIHBhdGNoIEkgY2hlY2tlZCB0byBzZWUNCndoYXQgaXQgZG9lcyBpbiB0aGF0
+IHNjZW5hcmlvLiAgVHdvIGRldmljZXMgYXJlIG1hZGUuICBzeXN0ZW1kIGRvZXNuJ3QNCnJlbmFt
+ZSB0aGUgc2Vjb25kIGRldmljZSB2aWEgdGhlIE1BQyBuYW1lIChlZyBlbnhBQUJCQ0NEREVFRkYp
+Lg0K
