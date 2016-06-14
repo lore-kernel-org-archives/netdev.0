@@ -1,25 +1,24 @@
-From: Vidya Chowdary <vidya.chowdary@gmail.com>
+From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
 Subject: Re: [ethtool PATCH v7 1/2] ethtool.c: add support for
  ETHTOOL_xLINKSETTINGS ioctls
-Date: Mon, 13 Jun 2016 20:40:26 -0700
-Message-ID: <CACd6PL3aKJpRWKvkwsSQafPBmcT9S-TN=hHSfKSV2_+EjumH4w@mail.gmail.com>
-References: <1465520144-132788-1-git-send-email-ddecotig@gmail.com> <1465520144-132788-2-git-send-email-ddecotig@gmail.com>
+Date: Mon, 13 Jun 2016 20:42:14 -0700
+Message-ID: <CAKWE-XrV=xP+XBLKSj67sAZK3LKqvSFchYX4jz4BaXAcgwCR9w@mail.gmail.com>
+References: <1465520144-132788-1-git-send-email-ddecotig@gmail.com>
+	<1465520144-132788-2-git-send-email-ddecotig@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: netdev@vger.kernel.org, Jeff Garzik <jgarzik@pobox.com>,
 	Ben Hutchings <ben@decadent.org.uk>,
-	David Miller <davem@redhat.com>,
-	Vidya Sagar Ravipati <vidya@cumulusnetworks.com>,
-	Joe Perches <joe@perches.com>,
+	David Miller <davem@redhat.com>, Joe Perches <joe@perches.com>,
 	David Decotigny <decot@googlers.com>
 To: David Decotigny <ddecotig@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f68.google.com ([209.85.213.68]:36533 "EHLO
-	mail-vk0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932797AbcFNDk3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 23:40:29 -0400
-Received: by mail-vk0-f68.google.com with SMTP id v188so13964706vkf.3
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 20:40:28 -0700 (PDT)
+Received: from mail-yw0-f176.google.com ([209.85.161.176]:35977 "EHLO
+	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932797AbcFNDmP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 23:42:15 -0400
+Received: by mail-yw0-f176.google.com with SMTP id v137so42244357ywa.3
+        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 20:42:15 -0700 (PDT)
 In-Reply-To: <1465520144-132788-2-git-send-email-ddecotig@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -27,6 +26,8 @@ List-ID: <netdev.vger.kernel.org>
 Acked-by:Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
 
 Validated this patch with various modules.
+
+Replied from wrong email alias earlier.
 
 On Thu, Jun 9, 2016 at 5:55 PM, David Decotigny <ddecotig@gmail.com> wrote:
 > From: David Decotigny <decot@googlers.com>
