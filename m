@@ -1,38 +1,39 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 net-next v2 12/12] net: dsa: mv88e6xxx: add addressing
- mode to info
-Date: Tue, 14 Jun 2016 23:34:48 +0200
-Message-ID: <20160614213448.GF12832@lunn.ch>
-References: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com>
- <20160614183153.32327-13-vivien.didelot@savoirfairelinux.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH iproute2] ip route: Add annotation for replaced routes
+Date: Tue, 14 Jun 2016 15:37:01 -0600
+Message-ID: <34430dc7-9393-125a-bed9-46cd1a79b919@cumulusnetworks.com>
+References: <1465502742-17289-1-git-send-email-dsa@cumulusnetworks.com>
+ <20160614143423.5f202e8c@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:46146 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751119AbcFNVev (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2016 17:34:51 -0400
-Content-Disposition: inline
-In-Reply-To: <20160614183153.32327-13-vivien.didelot@savoirfairelinux.com>
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:32794 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751356AbcFNVhE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 17:37:04 -0400
+Received: by mail-pa0-f41.google.com with SMTP id b13so890684pat.0
+        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 14:37:04 -0700 (PDT)
+In-Reply-To: <20160614143423.5f202e8c@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> @@ -3681,7 +3681,7 @@ mv88e6xxx_smi_detect(struct device *dev, struct mii_bus *bus, int sw_addr,
->  	u16 id;
->  
->  	ops = &mv88e6xxx_smi_direct_ops;
-> -	if (sw_addr > 0)
-> +	if (sw_addr > 0 && info->flags & MV88E6XXX_FLAG_MULTI_CHIP)
->  		ops = &mv88e6xxx_smi_indirect_ops;
+On 6/14/16 3:34 PM, Stephen Hemminger wrote:
+> On Thu,  9 Jun 2016 13:05:42 -0700
+> David Ahern <dsa@cumulusnetworks.com> wrote:
+>
+>> If NLM_F_REPLACE flag is set then a route is replacing an existing route.
+>> Prepend "Replaced " to these routes similar to how "Deleted " is added
+>> to deleted routes.
+>>
+>> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+>
+> Why just routes, there are several other places where Replaced entries could
+> be returned?
+>
 
-Hi Vivien
+b/c that's the use case I was investigating. :-)
 
-Is sw_addr is > 0 and MV88E6XXX_FLAG_MULTI_CHIP is not set, you should
-return -EINVAL. The device tree is invalid.
-
-       Andrew
+Will add the others.
