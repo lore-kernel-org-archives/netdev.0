@@ -1,34 +1,46 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [1/1] brcm80211: simplify assignment
-Date: Tue, 14 Jun 2016 14:23:57 +0000 (UTC)
-Message-ID: <20160614142357.9D4B0613E6@smtp.codeaurora.org>
-References: <1463533033-13336-1-git-send-email-xypron.glpk@gmx.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: Heinrich Schuchardt <xypron.glpk@gmx.de>
+From: Quentin Armitage <quentin@armitage.org.uk>
+Subject: [PATCH v2 0/5] ipvs: fix backup sync daemon with IPv6, and minor updates
+Date: Tue, 14 Jun 2016 15:24:17 +0100
+Message-ID: <1465914262-30112-1-git-send-email-quentin@armitage.org.uk>
+Cc: Quentin Armitage <quentin@armitage.org.uk>
+To: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463533033-13336-1-git-send-email-xypron.glpk@gmx.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Heinrich Schuchardt <xypron.glpk@gmx.de> wrote:
-> Simplify assignment in wlc_phy_rxcal_gainctrl_nphy_rev5.
-> 
-> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
-> Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
+This series of patches arise from discovering that:
+ipvsadm --start-daemon backup --mcast-group IPv6_address ...
+would always fail.
 
-Thanks, 1 patch applied to wireless-drivers-next.git:
+The first patch resolves the problem. The second and third patches are
+optimizations that were noticed while investigating the original problem.
+The fourth patch adds a lock which appears to have been omitted, and the
+final patch adds the recently added sync daemon multicast parameters to
+the log messages that are written when the sync daemons start.
 
-6b128a01c673 brcm80211: simplify assignment
+v2 fixes a compile error in a debug message identified by kbuild test robot.
+Now compiles with CONFIG_IP_VS_DEBUG enabled. Patch 2/5 is modified to correct
+the problem, and patch 3/5 is modifed to apply with the modified patch 2/5.
+
+Quentin Armitage (5):
+  ipvs: Enable setting IPv6 multicast address for ipvs sync daemon
+    backup
+  ipvs: Stop calling __dev_get_by_name() repeatedly when starting sync
+    daemon
+  ipvs: Don't check result < 0 after setting result = 0
+  ipvs: Lock socket before setting SK_CAN_REUSE
+  ipvs: log additional sync daemon parameters
+
+ net/netfilter/ipvs/ip_vs_sync.c |  104 +++++++++++++++++++-------------------
+ 1 files changed, 52 insertions(+), 52 deletions(-)
 
 -- 
-Sent by pwcli
-https://patchwork.kernel.org/patch/9115761/
+1.7.7.6
