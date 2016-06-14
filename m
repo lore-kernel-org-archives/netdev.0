@@ -1,55 +1,56 @@
-From: "Jorgen S. Hansen" <jhansen@vmware.com>
-Subject: Re: [RFC 1/3] vsockmon: Add tap functions.
-Date: Tue, 14 Jun 2016 12:05:25 +0000
-Message-ID: <4DBA9FBB-4E54-47C0-90A5-011002A96D4D@vmware.com>
-References: <20160528162907.14809-1-ggarcia@deic.uab.cat>
- <20160528162907.14809-2-ggarcia@deic.uab.cat>
- <20160601210703.GF15594@stefanha-x1.localdomain>
- <969687fe-f812-7412-bd06-89b159daa88a@deic.uab.cat>
- <20160610154445.GE3855@stefanha-x1.localdomain>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v8 5/5] skb_array: resize support
+Date: Tue, 14 Jun 2016 14:21:13 +0200
+Message-ID: <20160614142113.1f0391d0@redhat.com>
+References: <1465851234-13558-1-git-send-email-mst@redhat.com>
+	<20160613235450-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stefan Hajnoczi <stefanha@redhat.com>,
-	Gerard Garcia <ggarcia@abra.uab.cat>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:55271 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751773AbcFNMF1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 08:05:27 -0400
-In-Reply-To: <20160610154445.GE3855@stefanha-x1.localdomain>
-Content-Language: en-US
-Content-ID: <1E32189EC9C9324F8EFBD9F00D8CAFB9@vmware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
+	kvm@vger.kernel.org, brouer@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160613235450-mutt-send-email-mst@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-T24gNi8xMC8xNiwgNTo0NCBQTSwgIlN0ZWZhbiBIYWpub2N6aSIgPHN0ZWZhbmhhQHJlZGhhdC5j
-b20+IHdyb3RlOg0KDQoNCg0KPk9uIFRodSwgSnVuIDA5LCAyMDE2IGF0IDA1OjAyOjQ3UE0gKzAy
-MDAsIEdlcmFyZCBHYXJjaWEgd3JvdGU6DQo+PiBPbiAwNi8wMS8yMDE2IDExOjA3IFBNLCBTdGVm
-YW4gSGFqbm9jemkgd3JvdGU6DQo+PiA+IE9uIFNhdCwgTWF5IDI4LCAyMDE2IGF0IDA2OjI5OjA1
-UE0gKzAyMDAsIGdnYXJjaWFAYWJyYS51YWIuY2F0IHdyb3RlOg0KPj4gPiA+IGRpZmYgLS1naXQg
-YS9uZXQvdm13X3Zzb2NrL2FmX3Zzb2NrLmMgYi9uZXQvdm13X3Zzb2NrL2FmX3Zzb2NrLmMNCj4+
-ID4gPiBpbmRleCA2YjE1OGFiLi5lYzdhMDVkIDEwMDY0NA0KPj4gPiA+IC0tLSBhL25ldC92bXdf
-dnNvY2svYWZfdnNvY2suYw0KPj4gPiA+ICsrKyBiL25ldC92bXdfdnNvY2svYWZfdnNvY2suYw0K
-Pj4gPiA+IEBAIC05Niw2ICs5Niw3IEBADQo+PiA+ID4gICAjaW5jbHVkZSA8bGludXgvdW5pc3Rk
-Lmg+DQo+PiA+ID4gICAjaW5jbHVkZSA8bGludXgvd2FpdC5oPg0KPj4gPiA+ICAgI2luY2x1ZGUg
-PGxpbnV4L3dvcmtxdWV1ZS5oPg0KPj4gPiA+ICsjaW5jbHVkZSA8bGludXgvaWZfYXJwLmg+DQo+
-PiA+ID4gICAjaW5jbHVkZSA8bmV0L3NvY2suaD4NCj4+ID4gPiAgICNpbmNsdWRlIDxuZXQvYWZf
-dnNvY2suaD4NCj4+ID4gPiBAQCAtMjAxMiw2ICsyMDEzLDExMCBAQCBjb25zdCBzdHJ1Y3QgdnNv
-Y2tfdHJhbnNwb3J0ICp2c29ja19jb3JlX2dldF90cmFuc3BvcnQodm9pZCkNCj4+ID4gPiAgIH0N
-Cj4+ID4gPiAgIEVYUE9SVF9TWU1CT0xfR1BMKHZzb2NrX2NvcmVfZ2V0X3RyYW5zcG9ydCk7DQo+
-PiA+ID4gKy8qKioqIFRBUCAqKioqLw0KPj4gPiBGZWVsIGZyZWUgdG8gcHV0IHRoaXMgaW4gYSBz
-ZXBhcmF0ZSBzb3VyY2UgZmlsZS4gIFRoZSBLYnVpbGQgY2FuIGxpbmsNCj4+ID4gbXVsdGlwbGUg
-b2JqZWN0cyBpbnRvIGEgc2luZ2xlIGtlcm5lbCBtb2R1bGUuICBUaGF0IHdvdWxkIGJlIGNsZWFu
-ZXINCj4+ID4gdGhhbiB1c2luZyBhIGJpZyBjb21tZW50IHRvIHNlcGFyYXRlIGl0IGZyb20gYWZf
-dnNvY2suYyBjb2RlLg0KPj4gSSdtIGZvbGxvd2luZyB0aGUgYWZfdnNvY2suYyBzdHlsZSwgd2hl
-cmUgZGlmZmVyZW50IGxvZ2ljIGlzIHNlcGFyYXRlZCB1c2luZw0KPj4gdGhpcyBzdHlsZSBvZiBj
-b21tZW50cy4gSXQgaXMgbm90IGEgbG90IG9mIGNvZGUNCj4+IHNvIEkgdGhvdWdodCBpdCB3b3Vs
-ZCBiZSBjbGVhbmVyIHRvIGhhdmUgaXQgaW4gdGhlIHNhbWUgZmlsZS4NCj4NCj5JdCdzIHVwIHRv
-IHRoZSBhZl92c29jay5jIG1haW50YWluZXIsIGJ1dCBpZiB3ZSBrZWVwIGFwcGVuZGluZw0KPmlu
-ZGVwZW5kZW50IGNodW5rcyBvZiBjb2RlIHRvIG9uZSBmaWxlIGl0IGJlY29tZXMgaGFyZCB0byBt
-YW5hZ2UgYW5kDQo+Y2hhbmNlcyBvZiBjb25mbGljdHMgZHVyaW5nIHBhdGNoIG1lcmdpbmcgaW5j
-cmVhc2VzLg0KDQpJIGFncmVlIHdpdGggU3RlZmFuIC0gYWZfdnNvY2suYyBpcyBhbHJlYWR5IHVu
-ZGVzaXJhYmx5IGxhcmdlLCBzbyBpdCB3b3VsZCBiZSBncmVhdCBpZiB5b3UgY291bGQgbWFrZSB0
-aGlzIGEgc2VwYXJhdGUgZmlsZS4NCg==
+On Mon, 13 Jun 2016 23:54:50 +0300
+"Michael S. Tsirkin" <mst@redhat.com> wrote:
+
+> Update skb_array after ptr_ring API changes.
+> 
+> Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+
+Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+Tested-by: Jesper Dangaard Brouer <brouer@redhat.com>
+
+Also did resize unit test:
+ https://github.com/netoptimizer/prototype-kernel/commit/af0b4d7e7261e9
+
+The parallel benchmark:
+ https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/skb_array_parallel01.c
+
+Have been adjusted to use the non-BH variant of the lock.  And the
+parallel benchmark results, where a single producer and a single
+consumer CPU runs concurrently, and the queue always partly full
+(optimal case for minimize cache-contention):
+
+On CPU i7-4790K @ 4.00GHz:
+ - Enqueue 32 cycles(tsc) 8.162 ns 
+ - Dequeue 33 cycles(tsc) 8.417 ns
+
+Notice this is an extremely good concurrency results, as it is very
+close to the optimal case benchmark 26 cycles, when running
+enqueue+dequeue on the same CPU in a tight loop[2].  
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+[2] https://github.com/netoptimizer/prototype-kernel/blob/master/kernel/lib/skb_array_bench01.c
