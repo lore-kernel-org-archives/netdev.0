@@ -1,62 +1,132 @@
 From: Hariprasad Shenai <hariprasad@chelsio.com>
-Subject: [PATCH net-next 1/3] cxgb4: Force cxgb4 driver as MASTER in kdump kernel
-Date: Tue, 14 Jun 2016 14:39:30 +0530
-Message-ID: <1465895372-21101-2-git-send-email-hariprasad@chelsio.com>
+Subject: [PATCH net-next 2/3] cxgb4: Enable SR-IOV configuration via PCI sysfs interface
+Date: Tue, 14 Jun 2016 14:39:31 +0530
+Message-ID: <1465895372-21101-3-git-send-email-hariprasad@chelsio.com>
 References: <1465895372-21101-1-git-send-email-hariprasad@chelsio.com>
 Cc: netdev@vger.kernel.org, nirranjan@chelsio.com,
 	Hariprasad Shenai <hariprasad@chelsio.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [12.32.117.8] ([12.32.117.8]:10357 "EHLO
+Received: from [12.32.117.8] ([12.32.117.8]:39768 "EHLO
 	stargate3.asicdesigners.com" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751834AbcFNJEO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 05:04:14 -0400
+	by vger.kernel.org with ESMTP id S1751701AbcFNJEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 05:04:15 -0400
 In-Reply-To: <1465895372-21101-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When is_kdump_kernel() is true, Forcing cxgb4 driver as Master so we can
-reinitialize the Firmware/Chip. Also reduce memory usage by disabling
-offload.
+Implement callback in the driver for the new PCI bus driver
+interface that allows the user to enable/disable SR-IOV
+virtual functions in a device via the sysfs interface.
+
+Deprecate module parameter used to configure SRIOV
 
 Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 ---
- drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 9 ++++++++-
- 1 file changed, 8 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c | 66 ++++++++++++++++++++++++-
+ 1 file changed, 64 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-index 477db477b133..c045f65d4106 100644
+index c045f65d4106..6ce4344ea6fb 100644
 --- a/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
 +++ b/drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c
-@@ -64,6 +64,7 @@
- #include <net/bonding.h>
- #include <net/addrconf.h>
- #include <asm/uaccess.h>
-+#include <linux/crash_dump.h>
+@@ -207,7 +207,7 @@ static int rx_dma_offset = 2;
+ static unsigned int num_vf[NUM_OF_PF_WITH_SRIOV];
  
- #include "cxgb4.h"
- #include "t4_regs.h"
-@@ -3735,7 +3736,8 @@ static int adap_init0(struct adapter *adap)
- 		return ret;
+ module_param_array(num_vf, uint, NULL, 0644);
+-MODULE_PARM_DESC(num_vf, "number of VFs for each of PFs 0-3");
++MODULE_PARM_DESC(num_vf, "number of VFs for each of PFs 0-3, deprecated parameter - please use the pci sysfs interface.");
+ #endif
  
- 	/* Contact FW, advertising Master capability */
--	ret = t4_fw_hello(adap, adap->mbox, adap->mbox, MASTER_MAY, &state);
-+	ret = t4_fw_hello(adap, adap->mbox, adap->mbox,
-+			  is_kdump_kernel() ? MASTER_MUST : MASTER_MAY, &state);
- 	if (ret < 0) {
- 		dev_err(adap->pdev_dev, "could not connect to FW, error %d\n",
- 			ret);
-@@ -4366,6 +4368,11 @@ static void cfg_queues(struct adapter *adap)
- 	if (q10g > netif_get_num_default_rss_queues())
- 		q10g = netif_get_num_default_rss_queues();
+ /* TX Queue select used to determine what algorithm to use for selecting TX
+@@ -4836,6 +4836,60 @@ static int get_chip_type(struct pci_dev *pdev, u32 pl_rev)
+ 	return -EINVAL;
+ }
  
-+	/* Reduce memory usage in kdump environment, disable all offload.
-+	 */
-+	if (is_kdump_kernel())
-+		adap->params.offload = 0;
++#ifdef CONFIG_PCI_IOV
++static int cxgb4_iov_configure(struct pci_dev *pdev, int num_vfs)
++{
++	int err = 0;
++	int current_vfs = pci_num_vf(pdev);
++	u32 pcie_fw;
++	void __iomem *regs;
 +
- 	for_each_port(adap, i) {
- 		struct port_info *pi = adap2pinfo(adap, i);
++	regs = pci_ioremap_bar(pdev, 0);
++	if (!regs) {
++		dev_err(&pdev->dev, "cannot map device registers\n");
++		return -ENOMEM;
++	}
++
++	pcie_fw = readl(regs + PCIE_FW_A);
++	iounmap(regs);
++	/* Check if cxgb4 is the MASTER and fw is initialized */
++	if (!(pcie_fw & PCIE_FW_INIT_F) ||
++	    !(pcie_fw & PCIE_FW_MASTER_VLD_F) ||
++	    PCIE_FW_MASTER_G(pcie_fw) != 4) {
++		dev_warn(&pdev->dev,
++			 "cxgb4 driver needs to be MASTER to support SRIOV\n");
++		return -EOPNOTSUPP;
++	}
++
++	/* If any of the VF's is already assigned to Guest OS, then
++	 * SRIOV for the same cannot be modified
++	 */
++	if (current_vfs && pci_vfs_assigned(pdev)) {
++		dev_err(&pdev->dev,
++			"Cannot modify SR-IOV while VFs are assigned\n");
++		num_vfs = current_vfs;
++		return num_vfs;
++	}
++
++	/* Disable SRIOV when zero is passed.
++	 * One needs to disable SRIOV before modifying it, else
++	 * stack throws the below warning:
++	 * " 'n' VFs already enabled. Disable before enabling 'm' VFs."
++	 */
++	if (!num_vfs) {
++		pci_disable_sriov(pdev);
++		return num_vfs;
++	}
++
++	if (num_vfs != current_vfs) {
++		err = pci_enable_sriov(pdev, num_vfs);
++		if (err)
++			return err;
++	}
++	return num_vfs;
++}
++#endif
++
+ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	int func, i, err, s_qpp, qpp, num_seg;
+@@ -5169,11 +5223,16 @@ static int init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ sriov:
+ #ifdef CONFIG_PCI_IOV
+-	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0)
++	if (func < ARRAY_SIZE(num_vf) && num_vf[func] > 0) {
++		dev_warn(&pdev->dev,
++			 "Enabling SR-IOV VFs using the num_vf module "
++			 "parameter is deprecated - please use the pci sysfs "
++			 "interface instead.\n");
+ 		if (pci_enable_sriov(pdev, num_vf[func]) == 0)
+ 			dev_info(&pdev->dev,
+ 				 "instantiated %u virtual functions\n",
+ 				 num_vf[func]);
++	}
+ #endif
+ 	return 0;
+ 
+@@ -5266,6 +5325,9 @@ static struct pci_driver cxgb4_driver = {
+ 	.probe    = init_one,
+ 	.remove   = remove_one,
+ 	.shutdown = remove_one,
++#ifdef CONFIG_PCI_IOV
++	.sriov_configure = cxgb4_iov_configure,
++#endif
+ 	.err_handler = &cxgb4_eeh,
+ };
  
 -- 
 2.3.4
