@@ -1,69 +1,43 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v2 net-next v2 10/12] net: dsa: mv88e6xxx: iterate on compatible info
-Date: Tue, 14 Jun 2016 14:31:51 -0400
-Message-ID: <20160614183153.32327-11-vivien.didelot@savoirfairelinux.com>
-References: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v6] r8152: Add support for setting pass through MAC
+ address on RTL8153-AD
+Date: Tue, 14 Jun 2016 14:35:21 -0400 (EDT)
+Message-ID: <20160614.143521.2085426866285759820.davem@davemloft.net>
+References: <201606141828.10969@pali>
+	<20160614164017.GB14477@kroah.com>
+	<201606141847.36109@pali>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: gregkh@linuxfoundation.org, andrew@lunn.ch,
+	mario_limonciello@dell.com, hayeswang@realtek.com,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	linux-usb@vger.kernel.org, anthony.wong@canonical.com
+To: pali.rohar@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <201606141847.36109@pali>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With legacy probing, we cannot have a compatible info structure. We have
-to guess it. Instead of using only the first info structure of the info
-table, iterate over the compatible data.
+=46rom: Pali Roh=E1r <pali.rohar@gmail.com>
+Date: Tue, 14 Jun 2016 18:47:36 +0200
 
-That way, the legacy code will support new compatible chips with
-different register access without requiring any code change.
+> You have never seen two ethernet cards with same MAC addresses? Right=
+ I=20
+> have not seen two USB, but there is non zero chance that could happen=
+=2E=20
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
----
- drivers/net/dsa/mv88e6xxx.c | 21 ++++++++++++++++++++-
- 1 file changed, 20 insertions(+), 1 deletion(-)
+It would be an error scenerio, and something to be avoided.
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 2f36d01..88c09d5 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3668,6 +3668,25 @@ mv88e6xxx_smi_detect(struct device *dev, struct mii_bus *bus, int sw_addr,
- 	return ps;
- }
- 
-+static struct mv88e6xxx_priv_state *
-+mv88e6xxx_drv_detect(struct device *dev, struct mii_bus *bus, int sw_addr)
-+{
-+	struct mv88e6xxx_priv_state *ps = NULL;
-+	const struct mv88e6xxx_info *info;
-+	const struct of_device_id *id;
-+
-+	/* Iterate over compatible info to detect the chip */
-+	for (id = &mv88e6xxx_of_id_table[0]; id && id->data; ++id) {
-+		info = (const struct mv88e6xxx_info *)id->data;
-+
-+		ps = mv88e6xxx_smi_detect(dev, bus, sw_addr, info);
-+		if (ps)
-+			break;
-+	}
-+
-+	return ps;
-+}
-+
- static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
- 				       struct device *host_dev, int sw_addr,
- 				       void **priv)
-@@ -3680,7 +3699,7 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
- 	if (!bus)
- 		return NULL;
- 
--	ps = mv88e6xxx_smi_detect(dsa_dev, bus, sw_addr, &mv88e6xxx_table[0]);
-+	ps = mv88e6xxx_drv_detect(dsa_dev, bus, sw_addr);
- 	if (!ps)
- 		return NULL;
- 
--- 
-2.8.3
+It is a valid and correct assumption that one is able to put
+several devices at the same time on the same physical network
+and expect it to work.
+
+The behavior added by the change in question invalidates that.
+
+I'm trying to consider the long term aspects of this, which is that if
+more devices adopt this scheme we're in trouble if we blindly
+interpret the MAC address in this way.
+
+This firmware MAC property facility seems to be designed with only an
+extremely narrow use case being considered.
