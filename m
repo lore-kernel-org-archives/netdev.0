@@ -1,44 +1,56 @@
-From: Pavel Emelyanov <xemul@virtuozzo.com>
-Subject: Re: [CRIU] TCP_REPAIR MSS issue
-Date: Tue, 14 Jun 2016 14:28:11 +0300
-Message-ID: <575FEA4B.2000603@virtuozzo.com>
-References: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v8 0/5] skb_array: array based FIFO for skbs
+Date: Tue, 14 Jun 2016 13:56:59 +0200
+Message-ID: <20160614135659.0cb9f2ff@redhat.com>
+References: <20160613235426-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"criu@openvz.org" <criu@openvz.org>,
-	Andrey Vagin <avagin@virtuozzo.com>
-To: "Eggert, Lars" <lars@netapp.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0145.outbound.protection.outlook.com ([157.55.234.145]:18724
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751035AbcFNL4h (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2016 07:56:37 -0400
-In-Reply-To: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, Jason Wang <jasowang@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Steven Rostedt <rostedt@goodmis.org>,
+	kvm@vger.kernel.org, brouer@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <kvm-owner@vger.kernel.org>
+In-Reply-To: <20160613235426-mutt-send-email-mst@redhat.com>
+Sender: kvm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/10/2016 02:22 PM, Eggert, Lars wrote:
-> Hi,
-> 
-> I see an issue with TCP_REPAIR on kernel 4.6.0, where a migrated connection is only sending minimum-sized
-> segments (~500 bytes), although the interfaces and path support Ethernet-sized MTUs. A connection that 
-> doesn't use TCP_REPAIR over the same path uses full-sized segments.
-> 
-> Know issue? Any workaround?
 
-Andrey (in Cc) has played with TCP_REPAIR recently, I guess he can know something.
+On Mon, 13 Jun 2016 23:54:26 +0300 "Michael S. Tsirkin" <mst@redhat.com> wrote:
+> 
+> Jesper, Jason, I know that both of you tested this,
+> please post Tested-by tags for whatever was tested.
 
-> Thanks,
-> Lars
+Yes, I tested this via "external" kernel modules, not your framework.
+I have verified that this V8 patchset is equivalent, to what I have in:
+ https://github.com/netoptimizer/prototype-kernel/ (at 81ca09c2a945)
+
+> changes since v7
+> 	fix typos noticed by Jesper Brouer
+
+You also fixed a missing _bh ... I verified you also included this fix ;-)
+ https://github.com/netoptimizer/prototype-kernel/commit/24da4f495bb
+
+> changes since v6
+> 	resize implemented. peek/full calls are no longer lockless
 > 
+> 	replaced _FIELD macros with _CALL which invoke a function
+> 	on the pointer rather than just returning a value
 > 
+> 	destroy now scans the array and frees all queued skbs
 > 
-> 
-> _______________________________________________
-> CRIU mailing list
-> CRIU@openvz.org
-> https://lists.openvz.org/mailman/listinfo/criu
-> 
+> changes since v5
+> 	implemented a generic ptr_ring api, and
+> 		made skb_array a type-safe wrapper
+> 	apis for taking the spinlock in different contexts
+> 		following expected usecase in tun
+
+Tested-by: Jesper Dangaard Brouer <brouer@redhat.com>
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
