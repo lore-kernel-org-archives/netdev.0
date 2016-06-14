@@ -1,47 +1,37 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [iproute2 PATCH] utils: fix hex digits parsing in
- hexstring_a2n()
-Date: Tue, 14 Jun 2016 14:25:50 -0700
-Message-ID: <20160614142550.12a8cf76@xeon-e3>
-References: <80a1168c78944f39ab2b270df68ad9e5@HQ1WP-EXMB11.corp.brocade.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: smsc911x: If PHY doesn't have an interrupt then POLL
+Date: Wed, 15 Jun 2016 00:26:31 +0300
+Message-ID: <fdcc3c47-b060-d5c2-94bf-d9ab70a3cff5@cogentembedded.com>
+References: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
+ <46b56679-e92a-a8f9-f290-f67495169bdc@cogentembedded.com>
+ <57607352.4020900@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Beniamino Galvani <bgalvani@redhat.com>
+Cc: steve.glendinning@shawell.net
+To: Jeremy Linton <jeremy.linton@arm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:58122 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750818AbcFNVZj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 17:25:39 -0400
-In-Reply-To: <80a1168c78944f39ab2b270df68ad9e5@HQ1WP-EXMB11.corp.brocade.com>
+Received: from mail-lb0-f174.google.com ([209.85.217.174]:33463 "EHLO
+	mail-lb0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751119AbcFNV0e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 17:26:34 -0400
+Received: by mail-lb0-f174.google.com with SMTP id xp5so462320lbb.0
+        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 14:26:34 -0700 (PDT)
+In-Reply-To: <57607352.4020900@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 14 Jun 2016 20:55:17 +0000
-Beniamino Galvani <bgalvani@redhat.com> wrote:
+On 06/15/2016 12:12 AM, Jeremy Linton wrote:
 
-> strtoul() only modifies errno on overflow, so if errno is not zero
-> before calling the function its value is preserved and makes the
-> function fail for valid inputs; initialize it.
-> 
-> Signed-off-by: Beniamino Galvani <bgalvani@redhat.com>
-> ---
->  lib/utils.c | 1 +
->  1 file changed, 1 insertion(+)
-> 
-> diff --git a/lib/utils.c b/lib/utils.c
-> index 70e85b7..7dceeb5 100644
-> --- a/lib/utils.c
-> +++ b/lib/utils.c
-> @@ -924,6 +924,7 @@ __u8 *hexstring_a2n(const char *str, __u8 *buf, int blen, unsigned int *len)
->  
->  		strncpy(tmpstr, str, 2);
->  		tmpstr[2] = '\0';
-> +		errno = 0;
->  		tmp = strtoul(tmpstr, &endptr, 16);
->  		if (errno != 0 || tmp > 0xFF || *endptr != '\0')
->  			return NULL;
+>>> If the interrupt configuration isn't set and we are using the
+>>
+>>     It's never set, judging by the driver code.
+>
+>     AFAIK, I think that its set when the device is configured as a platform
+> device, or there is an external phy/interrupt setup in DT. I might be wrong on
+> that..
 
-Applied.
-The code here is doing things in a manner much harder than necessary...
+    I totally fail to see that, even in net-next. The only place that uses 
+'phy_irq' is that buggy memcpy()...
+
+MBR, Sergei
