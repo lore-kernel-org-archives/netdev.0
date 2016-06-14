@@ -1,7 +1,7 @@
 From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv2 2/2] mt7601u: use linux/bitfield.h
-Date: Tue, 14 Jun 2016 12:44:20 +0100
-Message-ID: <1465904660-22242-3-git-send-email-jakub.kicinski@netronome.com>
+Subject: [PATCHv2 1/2] add basic register-field manipulation macros
+Date: Tue, 14 Jun 2016 12:44:19 +0100
+Message-ID: <1465904660-22242-2-git-send-email-jakub.kicinski@netronome.com>
 References: <1465904660-22242-1-git-send-email-jakub.kicinski@netronome.com>
 Cc: hannes@stressinduktion.org, nbd@nbd.name,
 	linux-kernel@vger.kernel.org, kvalo@codeaurora.org,
@@ -13,141 +13,132 @@ In-Reply-To: <1465904660-22242-1-git-send-email-jakub.kicinski@netronome.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use the newly added linux/bitfield.h.
+C bitfields are problematic and best avoided.  Developers
+interacting with hardware registers find themselves searching
+for easy-to-use alternatives.  Common approach is to define
+structures or sets of macros containing mask and shift pair.
+Operations on the register are then performed as follows:
+
+ field = (reg >> shift) & mask;
+
+ reg &= ~(mask << shift);
+ reg |= (field & mask) << shift;
+
+Defining shift and mask separately is tedious.  Ivo van Doorn
+came up with an idea of computing them at compilation time
+based on a single shifted mask (later refined by Felix) which
+can be used like this:
+
+ #define X_REG_FIELD 0x000ff000
+
+ field = FIELD_GET(X_REG_FIELD, reg);
+
+ reg &= ~X_REG_FIELD;
+ reg |= FIELD_PUT(X_REG_FIELD, field);
+
+FIELD_{GET,PUT} macros take care of finding out what the
+appropriate shift is based on compilation time ffs operation.
+
+GENMASK can be used to define registers (which is usually
+less error-prone and easier to match with datasheets).
+
+This approach is the most convenient I've seen so to limit code
+multiplication let's move the macros to a global header file.
+
+Compared to Felix Fietkau's implementation from mt76 this one
+uses standard Linux and GCC functions such as is_power_of_2()
+and __builtin_ffsll().
 
 Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
 ---
- drivers/net/wireless/mediatek/mt7601u/dma.h     |  2 -
- drivers/net/wireless/mediatek/mt7601u/mt7601u.h |  5 +-
- drivers/net/wireless/mediatek/mt7601u/util.h    | 77 -------------------------
- 3 files changed, 4 insertions(+), 80 deletions(-)
- delete mode 100644 drivers/net/wireless/mediatek/mt7601u/util.h
+v2:
+ - change Felix's email address.
 
-diff --git a/drivers/net/wireless/mediatek/mt7601u/dma.h b/drivers/net/wireless/mediatek/mt7601u/dma.h
-index 978e8a90b87f..166ac71905d2 100644
---- a/drivers/net/wireless/mediatek/mt7601u/dma.h
-+++ b/drivers/net/wireless/mediatek/mt7601u/dma.h
-@@ -18,8 +18,6 @@
- #include <asm/unaligned.h>
- #include <linux/skbuff.h>
- 
--#include "util.h"
--
- #define MT_DMA_HDR_LEN			4
- #define MT_RX_INFO_LEN			4
- #define MT_FCE_INFO_LEN			4
-diff --git a/drivers/net/wireless/mediatek/mt7601u/mt7601u.h b/drivers/net/wireless/mediatek/mt7601u/mt7601u.h
-index 428bd2f10b7b..5ef62e02ce66 100644
---- a/drivers/net/wireless/mediatek/mt7601u/mt7601u.h
-+++ b/drivers/net/wireless/mediatek/mt7601u/mt7601u.h
-@@ -15,6 +15,7 @@
- #ifndef MT7601U_H
- #define MT7601U_H
- 
-+#include <linux/bitfield.h>
- #include <linux/kernel.h>
- #include <linux/device.h>
- #include <linux/mutex.h>
-@@ -24,7 +25,6 @@
- #include <linux/debugfs.h>
- 
- #include "regs.h"
--#include "util.h"
- 
- #define MT_CALIBRATE_INTERVAL		(4 * HZ)
- 
-@@ -282,6 +282,9 @@ struct mt7601u_rxwi;
- 
- extern const struct ieee80211_ops mt7601u_ops;
- 
-+#define MT76_SET	FIELD_PUT
-+#define MT76_GET	FIELD_GET
+ include/linux/bitfield.h | 58 ++++++++++++++++++++++++++++++++++++++++++++++++
+ include/linux/log2.h     |  6 +++++
+ 2 files changed, 64 insertions(+)
+ create mode 100644 include/linux/bitfield.h
+
+diff --git a/include/linux/bitfield.h b/include/linux/bitfield.h
+new file mode 100644
+index 000000000000..9560d1877cbc
+--- /dev/null
++++ b/include/linux/bitfield.h
+@@ -0,0 +1,58 @@
++/*
++ * Copyright (C) 2014 Felix Fietkau <nbd@nbd.name>
++ * Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ */
 +
- void mt7601u_init_debugfs(struct mt7601u_dev *dev);
++#ifndef _LINUX_BITFIELD_H
++#define _LINUX_BITFIELD_H
++
++#include <asm/types.h>
++#include <linux/bug.h>
++#include <linux/log2.h>
++
++#define _bf_shf(x) (__builtin_ffsll(x) - 1)
++
++#define _BF_FIELD_CHECK(_mask, _val)					\
++	({								\
++		const u64 hi = (_mask) + (1ULL << _bf_shf(_mask));	\
++									\
++		BUILD_BUG_ON(!(_mask) || (hi && !is_power_of_2_u64(hi))); \
++		BUILD_BUG_ON(__builtin_constant_p(_val) ?		\
++			     ~((_mask) >> _bf_shf(_mask)) & (_val) :	\
++			     0);					\
++	})
++
++#define FIELD_PUT(_mask, _val)					\
++	({							\
++		_BF_FIELD_CHECK(_mask, _val);			\
++		((u32)(_val) << _bf_shf(_mask)) & (_mask);	\
++	})
++
++#define FIELD_GET(_mask, _val)					\
++	({							\
++		_BF_FIELD_CHECK(_mask, 0);			\
++		(u32)(((_val) & (_mask)) >> _bf_shf(_mask));	\
++	})
++
++#define FIELD_PUT64(_mask, _val)				\
++	({							\
++		_BF_FIELD_CHECK(_mask, _val);			\
++		((u64)(_val) << _bf_shf(_mask)) & (_mask);	\
++	})
++
++#define FIELD_GET64(_mask, _val)				\
++	({							\
++		_BF_FIELD_CHECK(_mask, 0);			\
++		(u64)(((_val) & (_mask)) >> _bf_shf(_mask));	\
++	})
++
++#endif
+diff --git a/include/linux/log2.h b/include/linux/log2.h
+index fd7ff3d91e6a..1b5e1f4da043 100644
+--- a/include/linux/log2.h
++++ b/include/linux/log2.h
+@@ -54,6 +54,12 @@ bool is_power_of_2(unsigned long n)
+ 	return (n != 0 && ((n & (n - 1)) == 0));
+ }
  
- u32 mt7601u_rr(struct mt7601u_dev *dev, u32 offset);
-diff --git a/drivers/net/wireless/mediatek/mt7601u/util.h b/drivers/net/wireless/mediatek/mt7601u/util.h
-deleted file mode 100644
-index b89140bf1210..000000000000
---- a/drivers/net/wireless/mediatek/mt7601u/util.h
-+++ /dev/null
-@@ -1,77 +0,0 @@
--/*
-- * Copyright (C) 2014 Felix Fietkau <nbd@openwrt.org>
-- * Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
-- *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License version 2
-- * as published by the Free Software Foundation
-- *
-- * This program is distributed in the hope that it will be useful,
-- * but WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-- * GNU General Public License for more details.
-- */
--
--#ifndef __MT76_UTIL_H
--#define __MT76_UTIL_H
--
--/*
-- * Power of two check, this will check
-- * if the mask that has been given contains and contiguous set of bits.
-- * Note that we cannot use the is_power_of_2() function since this
-- * check must be done at compile-time.
-- */
--#define is_power_of_two(x)	( !((x) & ((x)-1)) )
--#define low_bit_mask(x)		( ((x)-1) & ~(x) )
--#define is_valid_mask(x)	is_power_of_two(1LU + (x) + low_bit_mask(x))
--
--/*
-- * Macros to find first set bit in a variable.
-- * These macros behave the same as the __ffs() functions but
-- * the most important difference that this is done during
-- * compile-time rather then run-time.
-- */
--#define compile_ffs2(__x) \
--	__builtin_choose_expr(((__x) & 0x1), 0, 1)
--
--#define compile_ffs4(__x) \
--	__builtin_choose_expr(((__x) & 0x3), \
--			      (compile_ffs2((__x))), \
--			      (compile_ffs2((__x) >> 2) + 2))
--
--#define compile_ffs8(__x) \
--	__builtin_choose_expr(((__x) & 0xf), \
--			      (compile_ffs4((__x))), \
--			      (compile_ffs4((__x) >> 4) + 4))
--
--#define compile_ffs16(__x) \
--	__builtin_choose_expr(((__x) & 0xff), \
--			      (compile_ffs8((__x))), \
--			      (compile_ffs8((__x) >> 8) + 8))
--
--#define compile_ffs32(__x) \
--	__builtin_choose_expr(((__x) & 0xffff), \
--			      (compile_ffs16((__x))), \
--			      (compile_ffs16((__x) >> 16) + 16))
--
--/*
-- * This macro will check the requirements for the FIELD{8,16,32} macros
-- * The mask should be a constant non-zero contiguous set of bits which
-- * does not exceed the given typelimit.
-- */
--#define FIELD_CHECK(__mask) \
--	BUILD_BUG_ON(!(__mask) || !is_valid_mask(__mask))
--
--#define MT76_SET(_mask, _val)						\
--	({								\
--		FIELD_CHECK(_mask);					\
--		(((u32) (_val)) << compile_ffs32(_mask)) & _mask;	\
--	})
--
--#define MT76_GET(_mask, _val)						\
--	({								\
--		FIELD_CHECK(_mask);					\
--		(u32) (((_val) & _mask) >> compile_ffs32(_mask));	\
--	})
--
--#endif
++static inline __attribute__((const))
++bool is_power_of_2_u64(u64 n)
++{
++	return (n != 0 && ((n & (n - 1)) == 0));
++}
++
+ /*
+  * round up to nearest power of two
+  */
 -- 
 1.9.1
