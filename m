@@ -1,81 +1,59 @@
-From: Quentin Armitage <quentin@armitage.org.uk>
-Subject: [PATCH v2 1/5] ipvs: Enable setting IPv6 multicast address for ipvs sync daemon backup
-Date: Tue, 14 Jun 2016 15:24:18 +0100
-Message-ID: <1465914262-30112-2-git-send-email-quentin@armitage.org.uk>
-References: <1465914262-30112-1-git-send-email-quentin@armitage.org.uk>
-Cc: Quentin Armitage <quentin@armitage.org.uk>
-To: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org
-Return-path: <lvs-devel-owner@vger.kernel.org>
-In-Reply-To: <1465914262-30112-1-git-send-email-quentin@armitage.org.uk>
-Sender: lvs-devel-owner@vger.kernel.org
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [V2, 4.8,
+ 1/2] brcmutil: add field storing control channel to the struct
+ brcmu_chan
+Date: Tue, 14 Jun 2016 14:28:19 +0000 (UTC)
+Message-ID: <20160614142819.8522261381@smtp.codeaurora.org>
+References: <1463744355-5528-1-git-send-email-zajec5@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	brcm80211-dev-list@broadcom.com (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1463744355-5528-1-git-send-email-zajec5@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-When using HEAD from https://git.kernel.org/cgit/utils/kernel/ipvsadm/ipvsadm.git/,
-the command:
-ipvsadm --start-daemon backup --mcast-interface eth0.60 --mcast-group ff01::1:81
-fails with the error message:
-Argument list too long
+Rafa=C5=82 Mi=C5=82ecki wrote:
+> Our d11 code supports encoding/decoding channel info into/from chansp=
+ec
+> format used by firmware. Current implementation is quite misleading
+> because of the way "chnum" field is used.
+> When encoding channel info, "chnum" has to be filled by a caller with
+> *center* channel number. However when decoding chanspec the same fiel=
+d
+> is filled with a *control* channel number.
+>=20
+> 1) This can be confusing. It's expected for information to be the sam=
+e
+>    after encoding and decoding.
+> 2) It doesn't allow accessing all info when decoding. Some functions =
+may
+>    need to know both channel numbers, e.g. cfg80211 callback getting
+>    current channel.
+> Solve this by adding a separated field for control channel.
+>=20
+> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+> Reviewed-by: Arend van Spriel <arend.vanspriel@broadcom.com>
 
-whereas both:
-ipvsadm --start-daemon master --mcast-interface eth0.60 --mcast-group ff01::1:81
-and:
-ipvsadm --start-daemon backup --mcast-interface eth0.60 --mcast-group 224.0.0.81
-are successful.
+Thanks, 2 patches applied to wireless-drivers-next.git:
 
-The error message "Argument list too long" isn't helpful. The error occurs
-because an IPv6 address is given in backup mode.
+4712d88a5732 brcmutil: add field storing control channel to the struct =
+brcmu_chan
+ee6e7aa38394 brcmfmac: support get_channel cfg80211 callback
 
-The error is in make_receive_sock() in net/netfilter/ipvs/ip_vs_sync.c, since
-it fails to set the interface on the address or the socket before calling
-inet6_bind() (via sock->ops->bind), where the test 'if (!sk->sk_bound_dev_if)'
-failed.
-
-Setting sin6_scope_id on the sockaddr before calling inet6_bind() resolves
-the issue.
-
-Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
----
- net/netfilter/ipvs/ip_vs_sync.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 803001a..85b48f1 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -1545,7 +1545,7 @@ error:
- /*
-  *      Set up receiving multicast socket over UDP
-  */
--static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id)
-+static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id, int ifindex)
- {
- 	/* multicast addr */
- 	union ipvs_sockaddr mcast_addr;
-@@ -1566,6 +1566,7 @@ static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id)
- 		set_sock_size(sock->sk, 0, result);
- 
- 	get_mcast_sockaddr(&mcast_addr, &salen, &ipvs->bcfg, id);
-+	((struct sockaddr_in6 *)&mcast_addr)->sin6_scope_id = ifindex;
- 	result = sock->ops->bind(sock, (struct sockaddr *)&mcast_addr, salen);
- 	if (result < 0) {
- 		pr_err("Error binding to the multicast addr\n");
-@@ -1868,7 +1869,7 @@ int start_sync_thread(struct netns_ipvs *ipvs, struct ipvs_sync_daemon_cfg *c,
- 		if (state == IP_VS_STATE_MASTER)
- 			sock = make_send_sock(ipvs, id);
- 		else
--			sock = make_receive_sock(ipvs, id);
-+			sock = make_receive_sock(ipvs, id, dev->ifindex);
- 		if (IS_ERR(sock)) {
- 			result = PTR_ERR(sock);
- 			goto outtinfo;
--- 
-1.7.7.6
-
+--=20
+Sent by pwcli
+https://patchwork.kernel.org/patch/9129323/
