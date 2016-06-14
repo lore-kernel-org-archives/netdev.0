@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 07/10] net_sched: sch_htb: defer skb freeing
-Date: Mon, 13 Jun 2016 20:21:56 -0700
-Message-ID: <1465874519-25494-8-git-send-email-edumazet@google.com>
+Subject: [PATCH net-next 08/10] net_sched: sch_netem: defer skb freeing
+Date: Mon, 13 Jun 2016 20:21:57 -0700
+Message-ID: <1465874519-25494-9-git-send-email-edumazet@google.com>
 References: <1465874519-25494-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
@@ -10,46 +10,41 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:34949 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1423251AbcFNDYA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 23:24:00 -0400
-Received: by mail-pf0-f176.google.com with SMTP id c2so52523140pfa.2
-        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 20:23:59 -0700 (PDT)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:33219 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1423760AbcFNDYD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 13 Jun 2016 23:24:03 -0400
+Received: by mail-pf0-f181.google.com with SMTP id y124so52573093pfy.0
+        for <netdev@vger.kernel.org>; Mon, 13 Jun 2016 20:24:03 -0700 (PDT)
 In-Reply-To: <1465874519-25494-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Both htb_reset() and htb_destroy() can use __qdisc_reset_queue()
-instead of __skb_queue_purge() to defer skb freeing of internal
-queues.
+rtnl_kfree_skbs() can be used in tfifo_reset()
+
+It would be nice if we could iterate through rb tree instead
+of removing one skb at a time, and build a single skb chain.
+But this is left for a future patch.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- net/sched/sch_htb.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ net/sched/sch_netem.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index 07dcd2933f01..a454605ab5cb 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -957,7 +957,7 @@ static void htb_reset(struct Qdisc *sch)
- 		}
+diff --git a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+index 876df13c745a..e271967439bf 100644
+--- a/net/sched/sch_netem.c
++++ b/net/sched/sch_netem.c
+@@ -368,9 +368,7 @@ static void tfifo_reset(struct Qdisc *sch)
+ 		struct sk_buff *skb = netem_rb_to_skb(p);
+ 
+ 		rb_erase(p, &q->t_root);
+-		skb->next = NULL;
+-		skb->prev = NULL;
+-		kfree_skb(skb);
++		rtnl_kfree_skbs(skb, skb);
  	}
- 	qdisc_watchdog_cancel(&q->watchdog);
--	__skb_queue_purge(&q->direct_queue);
-+	__qdisc_reset_queue(&q->direct_queue);
- 	sch->q.qlen = 0;
- 	sch->qstats.backlog = 0;
- 	memset(q->hlevel, 0, sizeof(q->hlevel));
-@@ -1231,7 +1231,7 @@ static void htb_destroy(struct Qdisc *sch)
- 			htb_destroy_class(sch, cl);
- 	}
- 	qdisc_class_hash_destroy(&q->clhash);
--	__skb_queue_purge(&q->direct_queue);
-+	__qdisc_reset_queue(&q->direct_queue);
  }
  
- static int htb_delete(struct Qdisc *sch, unsigned long arg)
 -- 
 2.8.0.rc3.226.g39d4020
