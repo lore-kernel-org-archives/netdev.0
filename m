@@ -1,118 +1,64 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH iproute2 5/6] ip vrf: Add ipvrf_get_table
-Date: Tue, 14 Jun 2016 13:59:31 -0700
-Message-ID: <1465937972-25011-6-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2 3/6] ip neigh: Add support for keyword
+Date: Tue, 14 Jun 2016 13:59:29 -0700
+Message-ID: <1465937972-25011-4-git-send-email-dsa@cumulusnetworks.com>
 References: <1465937972-25011-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:33299 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932324AbcFNU7n (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 16:59:43 -0400
-Received: by mail-pa0-f48.google.com with SMTP id b13so643988pat.0
-        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 13:59:43 -0700 (PDT)
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:35920 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752913AbcFNU7m (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 16:59:42 -0400
+Received: by mail-pa0-f46.google.com with SMTP id b5so610639pas.3
+        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 13:59:41 -0700 (PDT)
 In-Reply-To: <1465937972-25011-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add ipvrf_get_table to lookup table id for device name. Returns 0
-on any error or if name is not a VRF device.
+Add vrf keyword to 'ip neigh' commands. Allows listing neighbor
+entries for all links associated with a given VRF.
+  $ ip neigh show vrf NAME
+
+versus current syntax:
+  $ ip neigh show master DEV
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- ip/ip_common.h  |  1 +
- ip/iplink_vrf.c | 66 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 67 insertions(+)
+ ip/ipneigh.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
 
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index 410eb135774a..8fdb7219fc2b 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -90,6 +90,7 @@ struct link_util *get_link_slave_kind(const char *slave_kind);
- 
- void br_dump_bridge_id(const struct ifla_bridge_id *id, char *buf, size_t len);
- 
-+__u32 ipvrf_get_table(char *name);
- bool name_is_vrf(char *name);
- 
- #ifndef	INFINITY_LIFE_TIME
-diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
-index abd43c08423e..2eecb4564f7e 100644
---- a/ip/iplink_vrf.c
-+++ b/ip/iplink_vrf.c
-@@ -97,6 +97,72 @@ struct link_util vrf_slave_link_util = {
- 	.slave          = true,
- };
- 
-+/* returns table id if name is a VRF device */
-+__u32 ipvrf_get_table(char *name)
-+{
-+	struct {
-+		struct nlmsghdr		n;
-+		struct ifinfomsg	i;
-+		char			buf[1024];
-+	} req = {
-+		.n = {
-+			.nlmsg_len   = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
-+			.nlmsg_flags = NLM_F_REQUEST,
-+			.nlmsg_type  = RTM_GETLINK,
-+		},
-+		.i = {
-+			.ifi_family  = preferred_family,
-+		},
-+	};
-+	struct {
-+		struct nlmsghdr n;
-+		char buf[8192];
-+	} answer;
-+	struct rtattr *tb[IFLA_MAX+1];
-+	struct rtattr *li[IFLA_INFO_MAX+1];
-+	struct rtattr *vrf_attr[IFLA_VRF_MAX + 1];
-+	struct ifinfomsg *ifi;
-+	__u32 tb_id = 0;
-+	int len;
-+
-+	addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, strlen(name) + 1);
-+
-+	if (rtnl_talk(&rth, &req.n, &answer.n, sizeof(answer)) < 0)
-+		goto err;
-+
-+	ifi = NLMSG_DATA(&answer.n);
-+	len = answer.n.nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
-+	if (len < 0) {
-+		fprintf(stderr, "BUG: Invalid response to link query.\n");
-+		goto err;
-+	}
-+
-+	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
-+
-+	if (!tb[IFLA_LINKINFO])
-+		goto err;
-+
-+	parse_rtattr_nested(li, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
-+
-+	if (!li[IFLA_INFO_KIND] || !li[IFLA_INFO_DATA])
-+		goto err;
-+
-+	if (strcmp(RTA_DATA(li[IFLA_INFO_KIND]), "vrf"))
-+		goto err;
-+
-+	parse_rtattr_nested(vrf_attr, IFLA_VRF_MAX, li[IFLA_INFO_DATA]);
-+	if (vrf_attr[IFLA_VRF_TABLE])
-+		tb_id = rta_getattr_u32(vrf_attr[IFLA_VRF_TABLE]);
-+
-+	if (!tb_id)
-+		fprintf(stderr, "BUG: VRF %s is missing table id\n", name);
-+
-+	return tb_id;
-+
-+err:
-+	return 0;
-+}
-+
- bool name_is_vrf(char *name)
+diff --git a/ip/ipneigh.c b/ip/ipneigh.c
+index 4ddb747e2086..3e444712645f 100644
+--- a/ip/ipneigh.c
++++ b/ip/ipneigh.c
+@@ -48,7 +48,8 @@ static void usage(void)
  {
- 	struct {
+ 	fprintf(stderr, "Usage: ip neigh { add | del | change | replace }\n"
+ 			"                { ADDR [ lladdr LLADDR ] [ nud STATE ] | proxy ADDR } [ dev DEV ]\n");
+-	fprintf(stderr, "       ip neigh { show | flush } [ proxy ] [ to PREFIX ] [ dev DEV ] [ nud STATE ]\n\n");
++	fprintf(stderr, "       ip neigh { show | flush } [ proxy ] [ to PREFIX ] [ dev DEV ] [ nud STATE ]\n");
++	fprintf(stderr, "                                 [ vrf NAME ]\n\n");
+ 	fprintf(stderr, "STATE := { permanent | noarp | stale | reachable | none |\n"
+ 			"           incomplete | delay | probe | failed }\n");
+ 	exit(-1);
+@@ -385,6 +386,17 @@ static int do_show_or_flush(int argc, char **argv, int flush)
+ 				invarg("Device does not exist\n", *argv);
+ 			addattr32(&req.n, sizeof(req), NDA_MASTER, ifindex);
+ 			filter.master = ifindex;
++		} else if (strcmp(*argv, "vrf") == 0) {
++			int ifindex;
++
++			NEXT_ARG();
++			ifindex = ll_name_to_index(*argv);
++			if (!ifindex)
++				invarg("Not a valid VRF name\n", *argv);
++			if (!name_is_vrf(*argv))
++				invarg("Not a valid VRF name\n", *argv);
++			addattr32(&req.n, sizeof(req), NDA_MASTER, ifindex);
++			filter.master = ifindex;
+ 		} else if (strcmp(*argv, "unused") == 0) {
+ 			filter.unused_only = 1;
+ 		} else if (strcmp(*argv, "nud") == 0) {
 -- 
 2.1.4
