@@ -1,41 +1,44 @@
-From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCHv3 net-next 03/12] 6lowpan: remove ipv6 module request
-Date: Tue, 14 Jun 2016 13:52:30 +0200
-Message-ID: <20160614115239.17788-4-aar@pengutronix.de>
-References: <20160614115239.17788-1-aar@pengutronix.de>
-Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
-	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
-	stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160614115239.17788-1-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Pavel Emelyanov <xemul@virtuozzo.com>
+Subject: Re: [CRIU] TCP_REPAIR MSS issue
+Date: Tue, 14 Jun 2016 14:28:11 +0300
+Message-ID: <575FEA4B.2000603@virtuozzo.com>
+References: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"criu@openvz.org" <criu@openvz.org>,
+	Andrey Vagin <avagin@virtuozzo.com>
+To: "Eggert, Lars" <lars@netapp.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0145.outbound.protection.outlook.com ([157.55.234.145]:18724
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751035AbcFNL4h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2016 07:56:37 -0400
+In-Reply-To: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since we use exported function from ipv6 kernel module we don't need to
-request the module anymore to have ipv6 functionality.
+On 06/10/2016 02:22 PM, Eggert, Lars wrote:
+> Hi,
+> 
+> I see an issue with TCP_REPAIR on kernel 4.6.0, where a migrated connection is only sending minimum-sized
+> segments (~500 bytes), although the interfaces and path support Ethernet-sized MTUs. A connection that 
+> doesn't use TCP_REPAIR over the same path uses full-sized segments.
+> 
+> Know issue? Any workaround?
 
-Acked-by: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
----
- net/6lowpan/core.c | 2 --
- 1 file changed, 2 deletions(-)
+Andrey (in Cc) has played with TCP_REPAIR recently, I guess he can know something.
 
-diff --git a/net/6lowpan/core.c b/net/6lowpan/core.c
-index 801404c..1c7a42b 100644
---- a/net/6lowpan/core.c
-+++ b/net/6lowpan/core.c
-@@ -158,8 +158,6 @@ static int __init lowpan_module_init(void)
- 		return ret;
- 	}
- 
--	request_module_nowait("ipv6");
--
- 	request_module_nowait("nhc_dest");
- 	request_module_nowait("nhc_fragment");
- 	request_module_nowait("nhc_hop");
--- 
-2.8.3
+> Thanks,
+> Lars
+> 
+> 
+> 
+> 
+> _______________________________________________
+> CRIU mailing list
+> CRIU@openvz.org
+> https://lists.openvz.org/mailman/listinfo/criu
+> 
