@@ -1,78 +1,234 @@
-From: Quentin Armitage <quentin@armitage.org.uk>
-Subject: [PATCH 5/5] ipvs: log additional sync daemon parameters
-Date: Tue, 14 Jun 2016 02:43:33 +0100
-Message-ID: <1465868613-26146-6-git-send-email-quentin@armitage.org.uk>
-References: <1465868613-26146-1-git-send-email-quentin@armitage.org.uk>
-Cc: Quentin Armitage <quentin@armitage.org.uk>
-To: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org
+From: Shrikrishna Khare <skhare@vmware.com>
+Subject: [PATCH net-next v3 1/7] vmxnet3: prepare for version 3 changes
+Date: Mon, 13 Jun 2016 18:50:01 -0700
+Message-ID: <1465869007-10822-2-git-send-email-skhare@vmware.com>
+References: <1465869007-10822-1-git-send-email-skhare@vmware.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Shrikrishna Khare <skhare@vmware.com>
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<pv-drivers@vmware.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465868613-26146-1-git-send-email-quentin@armitage.org.uk>
+In-Reply-To: <1465869007-10822-1-git-send-email-skhare@vmware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add new multicast parameters to log messages when sync daemons start.
-
-Commits <e4ff67513096> ("ipvs: add sync_maxlen parameter for the sync
-daemon") and <d33288172e72> ("ipvs: add more mcast parameters for the
-sync daemon") added additional multicast parameters, but didn't add
-them to the log messages when the sync daemons started.
-
-Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
+Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
 ---
- net/netfilter/ipvs/ip_vs_sync.c |   26 ++++++++++++++++++++++----
- 1 files changed, 22 insertions(+), 4 deletions(-)
+ drivers/net/vmxnet3/Makefile          |  4 ++--
+ drivers/net/vmxnet3/upt1_defs.h       |  4 ++--
+ drivers/net/vmxnet3/vmxnet3_defs.h    |  9 ++++++---
+ drivers/net/vmxnet3/vmxnet3_drv.c     | 22 +++++++++++++---------
+ drivers/net/vmxnet3/vmxnet3_ethtool.c |  4 ++--
+ drivers/net/vmxnet3/vmxnet3_int.h     | 13 +++++++++++--
+ 6 files changed, 36 insertions(+), 20 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index dfac9ef..e5f6739 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -1670,8 +1670,17 @@ static int sync_thread_master(void *data)
- 	struct ip_vs_sync_buff *sb;
+diff --git a/drivers/net/vmxnet3/Makefile b/drivers/net/vmxnet3/Makefile
+index 880f509..8cdbb63 100644
+--- a/drivers/net/vmxnet3/Makefile
++++ b/drivers/net/vmxnet3/Makefile
+@@ -2,7 +2,7 @@
+ #
+ # Linux driver for VMware's vmxnet3 ethernet NIC.
+ #
+-# Copyright (C) 2007-2009, VMware, Inc. All Rights Reserved.
++# Copyright (C) 2007-2016, VMware, Inc. All Rights Reserved.
+ #
+ # This program is free software; you can redistribute it and/or modify it
+ # under the terms of the GNU General Public License as published by the
+@@ -21,7 +21,7 @@
+ # The full GNU General Public License is included in this distribution in
+ # the file called "COPYING".
+ #
+-# Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++# Maintained by: pv-drivers@vmware.com
+ #
+ #
+ ################################################################################
+diff --git a/drivers/net/vmxnet3/upt1_defs.h b/drivers/net/vmxnet3/upt1_defs.h
+index 969c751..db9f1fd 100644
+--- a/drivers/net/vmxnet3/upt1_defs.h
++++ b/drivers/net/vmxnet3/upt1_defs.h
+@@ -1,7 +1,7 @@
+ /*
+  * Linux driver for VMware's vmxnet3 ethernet NIC.
+  *
+- * Copyright (C) 2008-2009, VMware, Inc. All Rights Reserved.
++ * Copyright (C) 2008-2016, VMware, Inc. All Rights Reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License as published by the
+@@ -20,7 +20,7 @@
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+  *
+- * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ * Maintained by: pv-drivers@vmware.com
+  *
+  */
  
- 	pr_info("sync thread started: state = MASTER, mcast_ifn = %s, "
--		"syncid = %d, id = %d\n",
--		ipvs->mcfg.mcast_ifn, ipvs->mcfg.syncid, tinfo->id);
-+			"syncid = %d, id = %d, maxlen = %d\n",
-+			ipvs->mcfg.mcast_ifn, ipvs->mcfg.syncid,
-+			tinfo->id, ipvs->mcfg.sync_maxlen);
-+	if (ipvs->mcfg.mcast_af == AF_INET)
-+		pr_info("                   : group = %pI4, port = %d, ttl = %d\n",
-+			&ipvs->mcfg.mcast_group.in, ipvs->mcfg.mcast_port,
-+			ipvs->mcfg.mcast_ttl);
-+	else
-+		pr_info("                   : group = %pI6c, port = %d, ttl = %d\n",
-+			&ipvs->mcfg.mcast_group.in6, ipvs->mcfg.mcast_port,
-+			ipvs->mcfg.mcast_ttl);
+diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
+index 72ba8ae..8345e0c 100644
+--- a/drivers/net/vmxnet3/vmxnet3_defs.h
++++ b/drivers/net/vmxnet3/vmxnet3_defs.h
+@@ -1,7 +1,7 @@
+ /*
+  * Linux driver for VMware's vmxnet3 ethernet NIC.
+  *
+- * Copyright (C) 2008-2015, VMware, Inc. All Rights Reserved.
++ * Copyright (C) 2008-2016, VMware, Inc. All Rights Reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License as published by the
+@@ -20,7 +20,7 @@
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+  *
+- * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ * Maintained by: pv-drivers@vmware.com
+  *
+  */
  
- 	for (;;) {
- 		sb = next_sync_buff(ipvs, ms);
-@@ -1724,8 +1733,17 @@ static int sync_thread_backup(void *data)
- 	int len;
+@@ -76,7 +76,9 @@ enum {
+ 	VMXNET3_CMD_UPDATE_IML,
+ 	VMXNET3_CMD_UPDATE_PMCFG,
+ 	VMXNET3_CMD_UPDATE_FEATURE,
++	VMXNET3_CMD_RESERVED1,
+ 	VMXNET3_CMD_LOAD_PLUGIN,
++	VMXNET3_CMD_RESERVED2,
  
- 	pr_info("sync thread started: state = BACKUP, mcast_ifn = %s, "
--		"syncid = %d, id = %d\n",
--		ipvs->bcfg.mcast_ifn, ipvs->bcfg.syncid, tinfo->id);
-+			"syncid = %d, id = %d, maxlen = %d\n",
-+			ipvs->bcfg.mcast_ifn, ipvs->bcfg.syncid,
-+			tinfo->id, ipvs->bcfg.sync_maxlen);
-+	if (ipvs->bcfg.mcast_af == AF_INET)
-+		pr_info("                   : group = %pI4, port = %d, ttl = %d\n",
-+			&ipvs->bcfg.mcast_group.in, ipvs->bcfg.mcast_port,
-+			ipvs->bcfg.mcast_ttl);
-+	else
-+		pr_info("                   : group = %pI6c, port = %d, ttl = %d\n",
-+			&ipvs->bcfg.mcast_group.in6, ipvs->bcfg.mcast_port,
-+			ipvs->bcfg.mcast_ttl);
+ 	VMXNET3_CMD_FIRST_GET = 0xF00D0000,
+ 	VMXNET3_CMD_GET_QUEUE_STATUS = VMXNET3_CMD_FIRST_GET,
+@@ -87,7 +89,8 @@ enum {
+ 	VMXNET3_CMD_GET_DID_LO,
+ 	VMXNET3_CMD_GET_DID_HI,
+ 	VMXNET3_CMD_GET_DEV_EXTRA_INFO,
+-	VMXNET3_CMD_GET_CONF_INTR
++	VMXNET3_CMD_GET_CONF_INTR,
++	VMXNET3_CMD_GET_RESERVED1,
+ };
  
- 	while (!kthread_should_stop()) {
- 		wait_event_interruptible(*sk_sleep(tinfo->sock->sk),
+ /*
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 08885bc..507c53d 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1,7 +1,7 @@
+ /*
+  * Linux driver for VMware's vmxnet3 ethernet NIC.
+  *
+- * Copyright (C) 2008-2009, VMware, Inc. All Rights Reserved.
++ * Copyright (C) 2008-2016, VMware, Inc. All Rights Reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License as published by the
+@@ -20,7 +20,7 @@
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+  *
+- * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ * Maintained by: pv-drivers@vmware.com
+  *
+  */
+ 
+@@ -1363,7 +1363,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 			rbi->dma_addr = new_dma_addr;
+ 			rxd->addr = cpu_to_le64(rbi->dma_addr);
+ 			rxd->len = rbi->len;
+-			if (adapter->version == 2 &&
++			if (VMXNET3_VERSION_GE_2(adapter) &&
+ 			    rcd->type == VMXNET3_CDTYPE_RXCOMP_LRO) {
+ 				struct Vmxnet3_RxCompDescExt *rcdlro;
+ 				rcdlro = (struct Vmxnet3_RxCompDescExt *)rcd;
+@@ -3200,12 +3200,16 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 		goto err_alloc_pci;
+ 
+ 	ver = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_VRRS);
+-	if (ver & 2) {
+-		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_VRRS, 2);
+-		adapter->version = 2;
+-	} else if (ver & 1) {
+-		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_VRRS, 1);
+-		adapter->version = 1;
++	if (ver & (1 << VMXNET3_REV_2)) {
++		VMXNET3_WRITE_BAR1_REG(adapter,
++				       VMXNET3_REG_VRRS,
++				       1 << VMXNET3_REV_2);
++		adapter->version = VMXNET3_REV_2 + 1;
++	} else if (ver & (1 << VMXNET3_REV_1)) {
++		VMXNET3_WRITE_BAR1_REG(adapter,
++				       VMXNET3_REG_VRRS,
++				       1 << VMXNET3_REV_1);
++		adapter->version = VMXNET3_REV_1 + 1;
+ 	} else {
+ 		dev_err(&pdev->dev,
+ 			"Incompatible h/w version (0x%x) for adapter\n", ver);
+diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+index 9ba11d7..163e99c 100644
+--- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
++++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+@@ -1,7 +1,7 @@
+ /*
+  * Linux driver for VMware's vmxnet3 ethernet NIC.
+  *
+- * Copyright (C) 2008-2009, VMware, Inc. All Rights Reserved.
++ * Copyright (C) 2008-2016, VMware, Inc. All Rights Reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License as published by the
+@@ -20,7 +20,7 @@
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+  *
+- * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ * Maintained by: pv-drivers@vmware.com
+  *
+  */
+ 
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 3d2b64e..de068e9 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -1,7 +1,7 @@
+ /*
+  * Linux driver for VMware's vmxnet3 ethernet NIC.
+  *
+- * Copyright (C) 2008-2009, VMware, Inc. All Rights Reserved.
++ * Copyright (C) 2008-2016, VMware, Inc. All Rights Reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License as published by the
+@@ -20,7 +20,7 @@
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+  *
+- * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ * Maintained by: pv-drivers@vmware.com
+  *
+  */
+ 
+@@ -79,6 +79,10 @@
+ 	#define VMXNET3_RSS
+ #endif
+ 
++#define VMXNET3_REV_3		2	/* Vmxnet3 Rev. 3 */
++#define VMXNET3_REV_2		1	/* Vmxnet3 Rev. 2 */
++#define VMXNET3_REV_1		0	/* Vmxnet3 Rev. 1 */
++
+ /*
+  * Capabilities
+  */
+@@ -387,6 +391,11 @@ struct vmxnet3_adapter {
+ #define VMXNET3_GET_ADDR_LO(dma)   ((u32)(dma))
+ #define VMXNET3_GET_ADDR_HI(dma)   ((u32)(((u64)(dma)) >> 32))
+ 
++#define VMXNET3_VERSION_GE_2(adapter) \
++	(adapter->version >= VMXNET3_REV_2 + 1)
++#define VMXNET3_VERSION_GE_3(adapter) \
++	(adapter->version >= VMXNET3_REV_3 + 1)
++
+ /* must be a multiple of VMXNET3_RING_SIZE_ALIGN */
+ #define VMXNET3_DEF_TX_RING_SIZE    512
+ #define VMXNET3_DEF_RX_RING_SIZE    256
 -- 
-1.7.7.6
+2.8.2
