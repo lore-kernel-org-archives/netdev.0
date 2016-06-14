@@ -1,107 +1,34 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 3/3] net: hisilicon: Add Fast Ethernet MAC driver
-Date: Tue, 14 Jun 2016 23:20:10 +0200
-Message-ID: <247637090.PhpfAhp4VJ@wuerfel>
-References: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com> <4004629.ilZU8AvAjF@wuerfel> <576003F8.3090000@hisilicon.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] net_sched: fix pfifo_head_drop behavior vs backlog
+Date: Tue, 14 Jun 2016 17:19:34 -0400 (EDT)
+Message-ID: <20160614.171934.446947069434231926.davem@davemloft.net>
+References: <1465786885.7945.140.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, xuejiancheng-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Li Dongpo <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <576003F8.3090000-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, jhs@mojatatu.com
+To: eric.dumazet@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:50163 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932452AbcFNVTi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 17:19:38 -0400
+In-Reply-To: <1465786885.7945.140.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, June 14, 2016 9:17:44 PM CEST Li Dongpo wrote:
-> On 2016/6/13 17:06, Arnd Bergmann wrote:
-> > On Monday, June 13, 2016 2:07:56 PM CEST Dongpo Li wrote:
-> > You tx function uses BQL to optimize the queue length, and that
-> > is great. You also check xmit reclaim for rx interrupts, so
-> > as long as you have both rx and tx traffic, this should work
-> > great.
-> > 
-> > However, I notice that you only have a 'tx fifo empty'
-> > interrupt triggering the napi poll, so I guess on a tx-only
-> > workload you will always end up pushing packets into the
-> > queue until BQL throttles tx, and then get the interrupt
-> > after all packets have been sent, which will cause BQL to
-> > make the queue longer up to the maximum queue size, and that
-> > negates the effect of BQL.
-> > 
-> > Is there any way you can get a tx interrupt earlier than
-> > this in order to get a more balanced queue, or is it ok
-> > to just rely on rx packets to come in occasionally, and
-> > just use the tx fifo empty interrupt as a fallback?
-> > 
-> In tx direction, there are only two kinds of interrupts, 'tx fifo empty'
-> and 'tx one packet finish'. I didn't use 'tx one packet finish' because
-> it would lead to high hardware interrupts rate. This has been verified in
-> our chips. It's ok to just use tx fifo empty interrupt.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sun, 12 Jun 2016 20:01:25 -0700
 
-I'm not convinced by the explanation, I don't think that has anything
-to do with the hardware design, but instead is about the correctness
-of the BQL logic with your driver.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> When the qdisc is full, we drop a packet at the head of the queue,
+> queue the current skb and return NET_XMIT_CN
+> 
+> Now we track backlog on upper qdiscs, we need to call
+> qdisc_tree_reduce_backlog(), even if the qlen did not change.
+> 
+> Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Maybe your xmit function can do something like
-
-	if (dql_avail(netdev_get_tx_queue(dev, 0)->dql) < 0)
-		enable per-packet interrupt
-	else
-		use only fifo-empty interrupt
-
-That way, you don't get a lot of interrupts when the system is
-in a state of packets being received and sent continuously,
-but if you get to the point where your tx queue fills up
-and no rx interrupts arrive, you don't have to wait for it
-to become completely empty before adding new packets, and
-BQL won't keep growing the queue.
-
-> >> +    priv->phy_mode = of_get_phy_mode(node);
-> >> +    if (priv->phy_mode < 0) {
-> >> +            dev_err(dev, "not find phy-mode\n");
-> >> +            ret = -EINVAL;
-> >> +            goto out_disable_clk;
-> >> +    }
-> >> +
-> >> +    priv->phy_node = of_parse_phandle(node, "phy-handle", 0);
-> >> +    if (!priv->phy_node) {
-> >> +            dev_err(dev, "not find phy-handle\n");
-> >> +            ret = -EINVAL;
-> >> +            goto out_disable_clk;
-> >> +    }
-> >> +
-> >> +    priv->phy = of_phy_connect(ndev, priv->phy_node,
-> >> +                               hisi_femac_adjust_link, 0, priv->phy_mode);
-> >> +    if (!(priv->phy) || IS_ERR(priv->phy)) {
-> >> +            dev_err(dev, "connect to PHY failed!\n");
-> >> +            ret = -ENODEV;
-> >> +            goto out_phy_node;
-> >> +    }
-> > 
-> > I wonder if we could generalize this set of three calls, I
-> > get the impression that we duplicate this across several
-> > drivers that shouldn't need to bother with the specific
-> > phy-handle and phy-mode properties.
-> > 
-> Some drivers only call 'of_phy_connect' when ndo_open called,
-> some call when driver probed. But 'phy_mode' and 'phy_node' are
-> usually initialized when driver probed.
-> So I think it's not suitable to combine 'of_phy_connect' with
-> 'of_get_phy_mode' and 'of_parse_phandle'.
-> Do you have any more suggestions ?
-
-My idea was to add another interface that drivers could optionally
-call if they use the logic that you have here, but other drivers
-could keep using the plain of_phy_connect.
-
-Anyway, this was just an idea, it's not important.
-
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied and queued up for -stable, thanks.
