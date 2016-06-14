@@ -1,64 +1,103 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH iproute2 3/6] ip neigh: Add support for keyword
-Date: Tue, 14 Jun 2016 13:59:29 -0700
-Message-ID: <1465937972-25011-4-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2 1/6] ip vrf: Add name_is_vrf
+Date: Tue, 14 Jun 2016 13:59:27 -0700
+Message-ID: <1465937972-25011-2-git-send-email-dsa@cumulusnetworks.com>
 References: <1465937972-25011-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f46.google.com ([209.85.220.46]:35920 "EHLO
-	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752913AbcFNU7m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 16:59:42 -0400
-Received: by mail-pa0-f46.google.com with SMTP id b5so610639pas.3
-        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 13:59:41 -0700 (PDT)
+Received: from mail-pf0-f170.google.com ([209.85.192.170]:36039 "EHLO
+	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752752AbcFNU7k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 16:59:40 -0400
+Received: by mail-pf0-f170.google.com with SMTP id t190so645841pfb.3
+        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 13:59:40 -0700 (PDT)
 In-Reply-To: <1465937972-25011-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add vrf keyword to 'ip neigh' commands. Allows listing neighbor
-entries for all links associated with a given VRF.
-  $ ip neigh show vrf NAME
-
-versus current syntax:
-  $ ip neigh show master DEV
+Add name_is_vrf function to determine if given name corresponds to a
+VRF device.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- ip/ipneigh.c | 14 +++++++++++++-
- 1 file changed, 13 insertions(+), 1 deletion(-)
+ ip/ip_common.h  |  2 ++
+ ip/iplink_vrf.c | 53 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 55 insertions(+)
 
-diff --git a/ip/ipneigh.c b/ip/ipneigh.c
-index 4ddb747e2086..3e444712645f 100644
---- a/ip/ipneigh.c
-+++ b/ip/ipneigh.c
-@@ -48,7 +48,8 @@ static void usage(void)
- {
- 	fprintf(stderr, "Usage: ip neigh { add | del | change | replace }\n"
- 			"                { ADDR [ lladdr LLADDR ] [ nud STATE ] | proxy ADDR } [ dev DEV ]\n");
--	fprintf(stderr, "       ip neigh { show | flush } [ proxy ] [ to PREFIX ] [ dev DEV ] [ nud STATE ]\n\n");
-+	fprintf(stderr, "       ip neigh { show | flush } [ proxy ] [ to PREFIX ] [ dev DEV ] [ nud STATE ]\n");
-+	fprintf(stderr, "                                 [ vrf NAME ]\n\n");
- 	fprintf(stderr, "STATE := { permanent | noarp | stale | reachable | none |\n"
- 			"           incomplete | delay | probe | failed }\n");
- 	exit(-1);
-@@ -385,6 +386,17 @@ static int do_show_or_flush(int argc, char **argv, int flush)
- 				invarg("Device does not exist\n", *argv);
- 			addattr32(&req.n, sizeof(req), NDA_MASTER, ifindex);
- 			filter.master = ifindex;
-+		} else if (strcmp(*argv, "vrf") == 0) {
-+			int ifindex;
+diff --git a/ip/ip_common.h b/ip/ip_common.h
+index e8da9e034b15..410eb135774a 100644
+--- a/ip/ip_common.h
++++ b/ip/ip_common.h
+@@ -90,6 +90,8 @@ struct link_util *get_link_slave_kind(const char *slave_kind);
+ 
+ void br_dump_bridge_id(const struct ifla_bridge_id *id, char *buf, size_t len);
+ 
++bool name_is_vrf(char *name);
 +
-+			NEXT_ARG();
-+			ifindex = ll_name_to_index(*argv);
-+			if (!ifindex)
-+				invarg("Not a valid VRF name\n", *argv);
-+			if (!name_is_vrf(*argv))
-+				invarg("Not a valid VRF name\n", *argv);
-+			addattr32(&req.n, sizeof(req), NDA_MASTER, ifindex);
-+			filter.master = ifindex;
- 		} else if (strcmp(*argv, "unused") == 0) {
- 			filter.unused_only = 1;
- 		} else if (strcmp(*argv, "nud") == 0) {
+ #ifndef	INFINITY_LIFE_TIME
+ #define     INFINITY_LIFE_TIME      0xFFFFFFFFU
+ #endif
+diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
+index e3c7b4652da5..abd43c08423e 100644
+--- a/ip/iplink_vrf.c
++++ b/ip/iplink_vrf.c
+@@ -96,3 +96,56 @@ struct link_util vrf_slave_link_util = {
+ 	.print_opt	= vrf_slave_print_opt,
+ 	.slave          = true,
+ };
++
++bool name_is_vrf(char *name)
++{
++	struct {
++		struct nlmsghdr		n;
++		struct ifinfomsg	i;
++		char			buf[1024];
++	} req = {
++		.n = {
++			.nlmsg_len   = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
++			.nlmsg_flags = NLM_F_REQUEST,
++			.nlmsg_type  = RTM_GETLINK,
++		},
++		.i = {
++			.ifi_family  = preferred_family,
++		},
++	};
++	struct {
++		struct nlmsghdr n;
++		char buf[8192];
++	} answer;
++	struct rtattr *tb[IFLA_MAX+1];
++	struct rtattr *li[IFLA_INFO_MAX+1];
++	struct ifinfomsg *ifi;
++	int len;
++
++	addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, strlen(name) + 1);
++
++	if (rtnl_talk(&rth, &req.n, &answer.n, sizeof(answer)) < 0)
++		goto err;
++
++	ifi = NLMSG_DATA(&answer.n);
++	len = answer.n.nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
++	if (len < 0) {
++		fprintf(stderr, "BUG: Invalid response to link query.\n");
++		goto err;
++	}
++
++	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
++
++	if (!tb[IFLA_LINKINFO])
++		goto err;
++
++	parse_rtattr_nested(li, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
++
++	if (!li[IFLA_INFO_KIND])
++		goto err;
++
++	return strcmp(RTA_DATA(li[IFLA_INFO_KIND]), "vrf") == 0;
++
++err:
++	return false;
++}
 -- 
 2.1.4
