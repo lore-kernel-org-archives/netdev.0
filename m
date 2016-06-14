@@ -1,37 +1,48 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v4 0/7] vmxnet3: upgrade to version 3
-Date: Tue, 14 Jun 2016 13:22:02 -0700
-Message-ID: <5760676A.7070103@gmail.com>
-References: <1465930348-92164-1-git-send-email-skhare@vmware.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Avoiding bridge flood of multicast when L2 switch is used
+Date: Tue, 14 Jun 2016 22:26:26 +0200
+Message-ID: <20160614202626.GD8518@lunn.ch>
+References: <57606530.6030208@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-To: Shrikrishna Khare <skhare@vmware.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, pv-drivers@vmware.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465930348-92164-1-git-send-email-skhare@vmware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "open list:TI NETCP ETHERNET DRIVER" <netdev@vger.kernel.org>,
+	john.r.fastabend@intel.com, Florian Fainelli <f.fainelli@gmail.com>
+To: Murali Karicheri <m-karicheri2@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:45925 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751597AbcFNU0b (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2016 16:26:31 -0400
+Content-Disposition: inline
+In-Reply-To: <57606530.6030208@ti.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/14/2016 11:52 AM, Shrikrishna Khare wrote:
-> This patchset upgrades vmxnet3 to version 3.
+> netdev experts,
 > 
-> Changes in v2:
->  - Following patch is updated. See that patch for details:
->    vmxnet3: add support for get_coalesce, set_coalesce ethtool
-> 
-> Changes in v3:
->  - fix subject line to use vmxnet3: instead of Driver:Vmxnet3
->  - resubmit when net-next is open
-> 
-> Changes in v4:
->  - Following patch is updated. See that patch for details:
->    vmxnet3: add support for get_coalesce, set_coalesce ethtool
+> When there is a L2 switch underneath the network interface a flooding of
+> multicast at the bridge interface results in one copy of this going through each
+> of the slave resulting in multiple multicast packets reaching the underlying switch.
 
-You really need to improve your commit messages, because right now they
-are inexistent or too obvious to be of any value. A reviewer must be
-introduced to what code changes he/she is going to review next by
-looking at the diff and whether this will match or not the description
-that was provided in the commit message.
--- 
-Florian
+Yes, this is something Florian, Vivien and i have discussed. We don't
+yet see a way around it. Neither the Marvell or Broadcast switches
+have a mechanism to say: Send this frame out of this list of
+interfaces. All we can do is send it out a single interface. Even if
+we could direct a single frame out multiple interfaces, we still have
+the problem of how to teach the bridge about this, in a clean and
+elegant fashion.
+
+Overall, this seems like a hard problem. Since it is a hard problem,
+implementing IGMP snooping first would make sense. Don't forward the
+packet out a port unless you know there is somebody interested in it.
+The swichdev parts of IGMP snooping are in place, we just need to
+continue them down into DSA.
+
+> L2 switch also duplicates the multicast packet on each egress port as done
+> in software bridge. This is undesirable as it reduces the available bandwidth to
+> half when multicast packets are involved.
+
+Once you have a DSA driver, the switch will not do this replication.
+So you will gain something there.
+
+     Andrew
