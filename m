@@ -1,55 +1,108 @@
-From: subashab@codeaurora.org
-Subject: Re: [RFC] Handle error writing UINT_MAX to u32 fields
-Date: Tue, 14 Jun 2016 14:36:41 -0600
-Message-ID: <191b6c778e6e0ccf3c60e23cee724d8f@codeaurora.org>
-References: <1465526452-30567-1-git-send-email-subashab@codeaurora.org>
- <575A5DF0.7020300@gmx.de> <363ac4f6f7e1a8b905af567667a1559a@codeaurora.org>
+From: Henrik Austad <henrik@austad.us>
+Subject: Re: [very-RFC 0/8] TSN driver for the kernel
+Date: Tue, 14 Jun 2016 22:38:10 +0200
+Message-ID: <20160614203810.GC21689@sisyphus.home.austad.us>
+References: <1465686096-22156-1-git-send-email-henrik@austad.us>
+ <20160613114713.GA9544@localhost.localdomain>
+ <20160613130059.GA20320@sisyphus.home.austad.us>
+ <20160613193208.GA2441@netboy>
+ <20160614093000.GB21689@sisyphus.home.austad.us>
+ <20160614182615.GA2741@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	netdev-owner@vger.kernel.org
-To: Heinrich Schuchardt <xypron.glpk@gmx.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:32976 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751932AbcFNUgn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 16:36:43 -0400
-In-Reply-To: <363ac4f6f7e1a8b905af567667a1559a@codeaurora.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ZwgA9U+XZDXt4+m+"
+Cc: linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
+	alsa-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Arnd Bergmann <arnd@linaro.org>
+To: Richard Cochran <richardcochran@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160614182615.GA2741@netboy>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 2016-06-12 20:30, subashab@codeaurora.org wrote:
->> The suggested change would extend the usable range of positive numbers
->> by one bit only. As many systems are 64 bit this does not seem forward
->> looking.
->> 
->> I would prefer to have a routine that can handle 64 bit integers with
->> limits (let's call it proc_doint64vec_minmax) which uses fields extra1
->> and extra2 of ctl_table as min and max.
->> 
->> Then set xfrm_table[].extra1 = 0 and xfrm_table[].extra2 = UINT_MAX if
->> you need a result in the u32 range.
->> 
-> 
-> Thanks Heinrich. Do you think we can use proc_doulongvec_minmax for 
-> this?
 
-Actually proc_doulongvec_minmax does not work here.
-I would expect similar problems due to casting if we use u64 
-(proc_doint64vec_minmax) here.
+--ZwgA9U+XZDXt4+m+
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-static int __do_proc_doulongvec_minmax(void *data, struct ctl_table 
-*table, int write,
-{
-	unsigned long *i, *min, *max;
-	int vleft, first = 1, err = 0;
+On Tue, Jun 14, 2016 at 08:26:15PM +0200, Richard Cochran wrote:
+> On Tue, Jun 14, 2016 at 11:30:00AM +0200, Henrik Austad wrote:
+> > So loop data from kernel -> userspace -> kernelspace and finally back t=
+o=20
+> > userspace and the media application?
+>=20
+> Huh?  I wonder where you got that idea.  Let me show an example of
+> what I mean.
+>=20
+> 	void listener()
+> 	{
+> 		int in =3D socket();
+> 		int out =3D open("/dev/dsp");
+> 		char buf[];
+>=20
+> 		while (1) {
+> 			recv(in, buf, packetsize);
+> 			write(out, buf + offset, datasize);
+> 		}
+> 	}
+>=20
+> See?
 
-	i = (unsigned long *) data;   //This cast is causing to read beyond the 
-size of data (u32)
-	min = (unsigned long *) table->extra1;
-	max = (unsigned long *) table->extra2;
-	vleft = table->maxlen / sizeof(unsigned long); //vleft is 0 because 
-maxlen is sizeof(u32) which is lesser than sizeof(unsigned long) on 
-x86_64.
+Where is your media-application in this? You only loop the audio from=20
+network to the dsp, is the media-application attached to the dsp-device?
+
+Whereas I want to do=20
+
+aplay some_song.wav
+or mplayer
+or spotify
+or ..
+
+
+> > Yes, I know some audio apps "use networking", I can stream netradio, I =
+can=20
+> > use jack to connect devices using RTP and probably a whole lot of other=
+=20
+> > applications do similar things. However, AVB is more about using the=20
+> > network as a virtual sound-card.
+>=20
+> That is news to me.  I don't recall ever having seen AVB described
+> like that before.
+>=20
+> > For the media application, it should not=20
+> > have to care if the device it is using is a soudncard inside the box or=
+ a=20
+> > set of AVB-capable speakers somewhere on the network.
+>=20
+> So you would like a remote listener to appear in the system as a local
+> PCM audio sink?  And a remote talker would be like a local media URL?
+> Sounds unworkable to me, but even if you were to implement it, the
+> logic would surely belong in alsa-lib and not in the kernel.  Behind
+> the enulated device, the library would run a loop like the example,
+> above.
+>=20
+> In any case, your patches don't implement that sort of thing at all,
+> do they?
+
+Subject: [very-RFC 7/8] AVB ALSA - Add ALSA shim for TSN
+
+Did you even bother to look?
+
+--=20
+Henrik Austad
+
+--ZwgA9U+XZDXt4+m+
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iEYEARECAAYFAldgazIACgkQ6k5VT6v45lkBYACePNiLE3TpU9VONnqHAbNfEtBA
+HzIAn3AGu7lakjCHeutRZ7Yn2fDegbSV
+=QsdK
+-----END PGP SIGNATURE-----
+
+--ZwgA9U+XZDXt4+m+--
