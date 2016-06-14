@@ -1,37 +1,41 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: iwlegacy: avoid warning about missing braces
-Date: Tue, 14 Jun 2016 14:26:37 +0000 (UTC)
-Message-ID: <20160614142637.553336130F@smtp.codeaurora.org>
-References: <1463644741-529379-1-git-send-email-arnd@arndb.de>
+Subject: Re: brcmfmac: use kmemdup
+Date: Tue, 14 Jun 2016 14:27:09 +0000 (UTC)
+Message-ID: <20160614142709.29C84613EB@smtp.codeaurora.org>
+References: <1463666357-16719-1-git-send-email-falakreyaz@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Stanislaw Gruszka <sgruszka@redhat.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Johannes Berg <johannes.berg@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1463644741-529379-1-git-send-email-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Muhammad Falak R Wani <falakreyaz@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:60071 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751261AbcFNO1O (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 10:27:14 -0400
+In-Reply-To: <1463666357-16719-1-git-send-email-falakreyaz@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd@arndb.de> wrote:
-> gcc-6 warns about code in il3945_hw_txq_ctx_free() being
-> somewhat ambiguous:
+Muhammad Falak R Wani <falakreyaz@gmail.com> wrote:
+> Use kmemdup when some other buffer is immediately copied into allocated
+> region. It replaces call to allocation followed by memcpy, by a single
+> call to kmemdup.
 > 
-> drivers/net/wireless/intel/iwlegacy/3945.c:1022:5: warning: suggest explicit braces to avoid ambiguous 'else' [-Wparentheses]
-> 
-> This adds a set of curly braces to avoid the warning.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Acked-by: Stanislaw Gruszka <sgruszka@redhat.com>
+> Signed-off-by: Muhammad Falak R Wani <falakreyaz@gmail.com>
+> Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
 
 Thanks, 1 patch applied to wireless-drivers-next.git:
 
-2cce76c3fab4 iwlegacy: avoid warning about missing braces
+d464fd8b48f3 brcmfmac: use kmemdup
 
 -- 
 Sent by pwcli
-https://patchwork.kernel.org/patch/9124661/
+https://patchwork.kernel.org/patch/9127677/
