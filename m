@@ -1,73 +1,89 @@
-From: "Eggert, Lars" <lars@netapp.com>
-Subject: Re: [CRIU] TCP_REPAIR MSS issue
-Date: Tue, 14 Jun 2016 14:54:00 +0000
-Message-ID: <512CF3B7-F805-49E5-9CBE-6D51F8C5E70F@netapp.com>
-References: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
- <575FEA4B.2000603@virtuozzo.com>
- <3758708E-B5DE-4D8B-A8CC-37346F994B32@netapp.com>
- <1465909415.7945.182.camel@edumazet-glaptop3.roam.corp.google.com>
- <1465909802.7945.183.camel@edumazet-glaptop3.roam.corp.google.com>
- <183844BD-7118-44EB-9D97-62B2A164D7BC@netapp.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next v3 5/7] vmxnet3: add support for get_coalesce,
+ set_coalesce ethtool operations
+Date: Tue, 14 Jun 2016 16:04:12 +0100
+Message-ID: <1465916652.3529.242.camel@decadent.org.uk>
+References: <1465869007-10822-1-git-send-email-skhare@vmware.com>
+	 <1465869007-10822-6-git-send-email-skhare@vmware.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_0A3C98E2-D252-4893-A997-648E3F6DDB5F";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: Pavel Emelyanov <xemul@virtuozzo.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"criu@openvz.org" <criu@openvz.org>,
-	Andrey Vagin <avagin@virtuozzo.com>,
-	"Honda, Michio" <michio@netapp.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-9UEwLe/lORDS/Gt3ltbB"
+Cc: Keyong Sun <sunk@vmware.com>, Manoj Tammali <tammalim@vmware.com>
+To: Shrikrishna Khare <skhare@vmware.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, pv-drivers@vmware.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx143.netapp.com ([216.240.21.24]:54977 "EHLO mx143.netapp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750789AbcFNOyH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2016 10:54:07 -0400
-In-Reply-To: <183844BD-7118-44EB-9D97-62B2A164D7BC@netapp.com>
-Content-Language: en-US
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:50962 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751247AbcFNPET (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 11:04:19 -0400
+In-Reply-To: <1465869007-10822-6-git-send-email-skhare@vmware.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail=_0A3C98E2-D252-4893-A997-648E3F6DDB5F
+
+--=-9UEwLe/lORDS/Gt3ltbB
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
 
-On 2016-06-14, at 15:24, Eggert, Lars <lars@netapp.com> wrote:
-> On 2016-06-14, at 15:10, Eric Dumazet <eric.dumazet@gmail.com> wrote:
->> Also, is it a regression ? Was this working better with an older =
-linux
->> version ?
->=20
-> No idea, 4.6.0 is the only kernel I ran this on (is a new project). =
-What would be a good older version to check?
+On Mon, 2016-06-13 at 18:50 -0700, Shrikrishna Khare wrote:
+[...]
+> --- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
+> +++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+> @@ -725,6 +725,164 @@ vmxnet3_set_rss(struct net_device *netdev, const u3=
+2 *p, const u8 *key,
+> =C2=A0}
+> =C2=A0#endif
+> =C2=A0
+> +static int
+> +vmxnet3_get_coalesce(struct net_device *netdev, struct ethtool_coalesce =
+*ec)
+> +{
+> +	struct vmxnet3_adapter *adapter =3D netdev_priv(netdev);
+> +
+> +	if (!VMXNET3_VERSION_GE_3(adapter))
+> +		return -EOPNOTSUPP;
+> +
+> +	memset(ec, 0, sizeof(struct ethtool_coalesce));
+[...]
 
-FWIW, I had 4.2.0 available on this machine, and it has the same =
-problem.
+The ethtool core already clears the structure, and it sets the cmd
+field properly. =C2=A0This memset() should be removed.
 
-Lars
+Otherwise I think this is fine.
 
---Apple-Mail=_0A3C98E2-D252-4893-A997-648E3F6DDB5F
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
+Ben.
+=C2=A0
+--=20
+Ben Hutchings
+We get into the habit of living before acquiring the habit of thinking.
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0- A=
+lbert
+Camus
+
+--=-9UEwLe/lORDS/Gt3ltbB
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
+Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-iQIcBAEBCAAGBQJXYBqIAAoJEFS1wwm/cMFX9s0P/iCSvdbWfNJKXwVxfvSAJvkC
-U+9HrXmm6egoBwLnkCN5LPg0EVs0yr6HO4ItkOLqDc+Lz/NimMEoSMr0UJz5tNRG
-rgUyHiqpYcqdptdmxcwHL6+ynf75nwGzT9/4wzyAS5aO0ss1IzuZ3jdmkHUHnY1W
-ahANuQoetSONsGMpdS9dLrndGC6E0qGvtWNh5tjLH0LTgVP8qSPH94/4atWMdJ2e
-cMTApT6LRpqNpRN1AMnHcJ3U6JnCUpPbcy3k5hqS5kNdN6UCDtuflHYBkKAJqE+L
-uripMaa+Z7fTzm7KQq287AakZjXqOufUtxWDI8qLkwVgxIoMr+IHR6PHMRNBtj5Z
-9eVCYty/3T7yNNtSNwpn40qA5MDC1PlARxyKGQz9A+2Rcf6CR3JZWRlcAB+ForAP
-E2FH1nZMBOxK/u/PN++vFBPRwvVLJmSOF53DOIzR69Uj9vHTSKBHMRcenNZQgpsT
-XQJsqDAt74UD2J1EoqMDXNQb6yprOA59CyK5naQp5D2ELpuAG7tF1i6G4M9sV/uQ
-i1Xvo15OPIXefOJpfoKh3ryHIXmEd86DxSMv2r6LSExIk4FaxRm9XFsfUwyXhxtt
-trHu+ENNIGq2qVmeGQuxy4yiA/yyg0OP6dWYpAPCsP5bZ68jTLEnoc16IuJoIiJV
-97oujanoVct5yUN2g18B
-=k15S
+iQIcBAABCgAGBQJXYBzsAAoJEOe/yOyVhhEJEKkP/A49tzqscPWRLXsCorVLcDoU
+grbnTSkrw+4u2x0PFeqzpBLiqENnbiW4LR2WzRrLO+U7Dd3tErhrBD5Sv2xTV+H9
+uQ5Yw1EQpQbvFi9pSebgKsTUzSdCBmgoxjcOWBfPNewtJ9pSl27sGhkmFCp5NWLc
+PSKm7hFIFQxKEKpsdsEC7UsF64mzL91MGqQyWFlnon1d5KcEpNvrKHvsO2tYD9qX
++mEzAuP8orUIey+UDsxtpGhsdpSpY7WHGuyZck71Uxn5zO5vTnymUoxv+Yo76KfG
+5Gsn0n/52oVXzY7pGoSZJgpiWaU08oawQwA7HXXFjiMsQiHNTyLUQy30/go99P0F
++y5bP74v0hWO5ShQ6QyhhTvMPtGqIf+gF/xvcyR7gHddBGAKTAgTgcX2ZhLVVZAR
+pv++1nHPEq7kQiowEV5k3TaUIUXBucwGrysLJW+N7IkiUsAnfncsyAr5SzX+oU5b
+pJ0S0yD0tf+uam2NYkFutYDYytlLIApxAq8FsHr5vn2agW7Tn45RAEOZWlxaDfce
+hIxG4Y4Jb2ZWxddkTiDTW36PNrDquxUg5fANOqLY6klIl5V4TpvzXkQvOvGQOW8I
+0EBdhvJoN6sSmnxXdMeGRPr0kkIbIQKZ5jV1N/YtI0/V5wH6CIqZdxUvztpF/YCj
+W4ol+ORbTs205xl7o4Qx
+=kIWK
 -----END PGP SIGNATURE-----
 
---Apple-Mail=_0A3C98E2-D252-4893-A997-648E3F6DDB5F--
+--=-9UEwLe/lORDS/Gt3ltbB--
