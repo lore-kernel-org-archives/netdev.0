@@ -1,41 +1,81 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: brcmfmac: use kmemdup
-Date: Tue, 14 Jun 2016 14:27:09 +0000 (UTC)
-Message-ID: <20160614142709.29C84613EB@smtp.codeaurora.org>
-References: <1463666357-16719-1-git-send-email-falakreyaz@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	=?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Muhammad Falak R Wani <falakreyaz@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:60071 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751261AbcFNO1O (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 10:27:14 -0400
-In-Reply-To: <1463666357-16719-1-git-send-email-falakreyaz@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Quentin Armitage <quentin@armitage.org.uk>
+Subject: [PATCH v2 1/5] ipvs: Enable setting IPv6 multicast address for ipvs sync daemon backup
+Date: Tue, 14 Jun 2016 15:24:18 +0100
+Message-ID: <1465914262-30112-2-git-send-email-quentin@armitage.org.uk>
+References: <1465914262-30112-1-git-send-email-quentin@armitage.org.uk>
+Cc: Quentin Armitage <quentin@armitage.org.uk>
+To: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1465914262-30112-1-git-send-email-quentin@armitage.org.uk>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Muhammad Falak R Wani <falakreyaz@gmail.com> wrote:
-> Use kmemdup when some other buffer is immediately copied into allocated
-> region. It replaces call to allocation followed by memcpy, by a single
-> call to kmemdup.
-> 
-> Signed-off-by: Muhammad Falak R Wani <falakreyaz@gmail.com>
-> Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
+When using HEAD from https://git.kernel.org/cgit/utils/kernel/ipvsadm/ipvsadm.git/,
+the command:
+ipvsadm --start-daemon backup --mcast-interface eth0.60 --mcast-group ff01::1:81
+fails with the error message:
+Argument list too long
 
-Thanks, 1 patch applied to wireless-drivers-next.git:
+whereas both:
+ipvsadm --start-daemon master --mcast-interface eth0.60 --mcast-group ff01::1:81
+and:
+ipvsadm --start-daemon backup --mcast-interface eth0.60 --mcast-group 224.0.0.81
+are successful.
 
-d464fd8b48f3 brcmfmac: use kmemdup
+The error message "Argument list too long" isn't helpful. The error occurs
+because an IPv6 address is given in backup mode.
 
+The error is in make_receive_sock() in net/netfilter/ipvs/ip_vs_sync.c, since
+it fails to set the interface on the address or the socket before calling
+inet6_bind() (via sock->ops->bind), where the test 'if (!sk->sk_bound_dev_if)'
+failed.
+
+Setting sin6_scope_id on the sockaddr before calling inet6_bind() resolves
+the issue.
+
+Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
+---
+ net/netfilter/ipvs/ip_vs_sync.c |    5 +++--
+ 1 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index 803001a..85b48f1 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -1545,7 +1545,7 @@ error:
+ /*
+  *      Set up receiving multicast socket over UDP
+  */
+-static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id)
++static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id, int ifindex)
+ {
+ 	/* multicast addr */
+ 	union ipvs_sockaddr mcast_addr;
+@@ -1566,6 +1566,7 @@ static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id)
+ 		set_sock_size(sock->sk, 0, result);
+ 
+ 	get_mcast_sockaddr(&mcast_addr, &salen, &ipvs->bcfg, id);
++	((struct sockaddr_in6 *)&mcast_addr)->sin6_scope_id = ifindex;
+ 	result = sock->ops->bind(sock, (struct sockaddr *)&mcast_addr, salen);
+ 	if (result < 0) {
+ 		pr_err("Error binding to the multicast addr\n");
+@@ -1868,7 +1869,7 @@ int start_sync_thread(struct netns_ipvs *ipvs, struct ipvs_sync_daemon_cfg *c,
+ 		if (state == IP_VS_STATE_MASTER)
+ 			sock = make_send_sock(ipvs, id);
+ 		else
+-			sock = make_receive_sock(ipvs, id);
++			sock = make_receive_sock(ipvs, id, dev->ifindex);
+ 		if (IS_ERR(sock)) {
+ 			result = PTR_ERR(sock);
+ 			goto outtinfo;
 -- 
-Sent by pwcli
-https://patchwork.kernel.org/patch/9127677/
+1.7.7.6
+
