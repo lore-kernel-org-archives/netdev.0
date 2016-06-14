@@ -1,85 +1,105 @@
 From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCHv3 net-next 11/12] 6lowpan: add support for getting short address
-Date: Tue, 14 Jun 2016 13:52:38 +0200
-Message-ID: <20160614115239.17788-12-aar@pengutronix.de>
+Subject: [PATCHv3 net-next 01/12] 6lowpan: add private neighbour data
+Date: Tue, 14 Jun 2016 13:52:28 +0200
+Message-ID: <20160614115239.17788-2-aar@pengutronix.de>
 References: <20160614115239.17788-1-aar@pengutronix.de>
 Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
 	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
 	stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
 	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <20160614115239.17788-1-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-In case of sending RA messages we need some way to get the short address
-from an 802.15.4 6LoWPAN interface. This patch will add a temporary
-debugfs entry for experimental userspace api.
+This patch will introduce a 6lowpan neighbour private data. Like the
+interface private data we handle private data for generic 6lowpan and
+for link-layer specific 6lowpan.
 
+The current first use case if to save the short address for a 802.15.4
+6lowpan neighbour.
+
+Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
 Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 ---
- net/6lowpan/debugfs.c | 39 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 39 insertions(+)
+ include/linux/netdevice.h     |  3 +--
+ include/net/6lowpan.h         | 10 ++++++++++
+ net/ieee802154/6lowpan/core.c | 12 ++++++++++++
+ 3 files changed, 23 insertions(+), 2 deletions(-)
 
-diff --git a/net/6lowpan/debugfs.c b/net/6lowpan/debugfs.c
-index acbaa3d..24915e0 100644
---- a/net/6lowpan/debugfs.c
-+++ b/net/6lowpan/debugfs.c
-@@ -245,6 +245,41 @@ static const struct file_operations lowpan_context_fops = {
- 	.release	= single_release,
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d101e4d..36e43bd 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1483,8 +1483,7 @@ enum netdev_priv_flags {
+  * 	@perm_addr:		Permanent hw address
+  * 	@addr_assign_type:	Hw address assignment type
+  * 	@addr_len:		Hardware address length
+- * 	@neigh_priv_len;	Used in neigh_alloc(),
+- * 				initialized only in atm/clip.c
++ *	@neigh_priv_len:	Used in neigh_alloc()
+  * 	@dev_id:		Used to differentiate devices that share
+  * 				the same link layer address
+  * 	@dev_port:		Used to differentiate devices that share
+diff --git a/include/net/6lowpan.h b/include/net/6lowpan.h
+index da84cf9..2d9b9d3 100644
+--- a/include/net/6lowpan.h
++++ b/include/net/6lowpan.h
+@@ -141,6 +141,16 @@ struct lowpan_dev {
+ 	u8 priv[0] __aligned(sizeof(void *));
  };
  
-+static int lowpan_short_addr_get(void *data, u64 *val)
++struct lowpan_802154_neigh {
++	__le16 short_addr;
++};
++
++static inline
++struct lowpan_802154_neigh *lowpan_802154_neigh(void *neigh_priv)
 +{
-+	struct wpan_dev *wdev = data;
-+
-+	rtnl_lock();
-+	*val = le16_to_cpu(wdev->short_addr);
-+	rtnl_unlock();
-+
-+	return 0;
++	return neigh_priv;
 +}
 +
-+DEFINE_SIMPLE_ATTRIBUTE(lowpan_short_addr_fops, lowpan_short_addr_get,
-+			NULL, "0x%04llx\n");
-+
-+static int lowpan_dev_debugfs_802154_init(const struct net_device *dev,
-+					  struct lowpan_dev *ldev)
-+{
-+	struct dentry *dentry, *root;
-+
-+	if (!lowpan_is_ll(dev, LOWPAN_LLTYPE_IEEE802154))
-+		return 0;
-+
-+	root = debugfs_create_dir("ieee802154", ldev->iface_debugfs);
-+	if (!root)
-+		return -EINVAL;
-+
-+	dentry = debugfs_create_file("short_addr", 0444, root,
-+				     lowpan_802154_dev(dev)->wdev->ieee802154_ptr,
-+				     &lowpan_short_addr_fops);
-+	if (!dentry)
-+		return -EINVAL;
-+
-+	return 0;
-+}
-+
- int lowpan_dev_debugfs_init(struct net_device *dev)
+ static inline
+ struct lowpan_dev *lowpan_dev(const struct net_device *dev)
  {
- 	struct lowpan_dev *ldev = lowpan_dev(dev);
-@@ -272,6 +307,10 @@ int lowpan_dev_debugfs_init(struct net_device *dev)
- 			goto remove_root;
- 	}
- 
-+	ret = lowpan_dev_debugfs_802154_init(dev, ldev);
-+	if (ret < 0)
-+		goto remove_root;
-+
+diff --git a/net/ieee802154/6lowpan/core.c b/net/ieee802154/6lowpan/core.c
+index 4e2b308..8c004a0 100644
+--- a/net/ieee802154/6lowpan/core.c
++++ b/net/ieee802154/6lowpan/core.c
+@@ -81,11 +81,21 @@ static int lowpan_stop(struct net_device *dev)
  	return 0;
+ }
  
- remove_root:
++static int lowpan_neigh_construct(struct neighbour *n)
++{
++	struct lowpan_802154_neigh *neigh = lowpan_802154_neigh(neighbour_priv(n));
++
++	/* default no short_addr is available for a neighbour */
++	neigh->short_addr = cpu_to_le16(IEEE802154_ADDR_SHORT_UNSPEC);
++	return 0;
++}
++
+ static const struct net_device_ops lowpan_netdev_ops = {
+ 	.ndo_init		= lowpan_dev_init,
+ 	.ndo_start_xmit		= lowpan_xmit,
+ 	.ndo_open		= lowpan_open,
+ 	.ndo_stop		= lowpan_stop,
++	.ndo_neigh_construct    = lowpan_neigh_construct,
+ };
+ 
+ static void lowpan_setup(struct net_device *ldev)
+@@ -150,6 +160,8 @@ static int lowpan_newlink(struct net *src_net, struct net_device *ldev,
+ 				wdev->needed_headroom;
+ 	ldev->needed_tailroom = wdev->needed_tailroom;
+ 
++	ldev->neigh_priv_len = sizeof(struct lowpan_802154_neigh);
++
+ 	ret = lowpan_register_netdevice(ldev, LOWPAN_LLTYPE_IEEE802154);
+ 	if (ret < 0) {
+ 		dev_put(wdev);
 -- 
 2.8.3
