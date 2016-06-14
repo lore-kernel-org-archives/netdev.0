@@ -1,75 +1,80 @@
-From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH net-next v4 2/7] vmxnet3: introduce generic command interface to configure the device
-Date: Tue, 14 Jun 2016 11:52:23 -0700
-Message-ID: <1465930348-92164-3-git-send-email-skhare@vmware.com>
-References: <1465930348-92164-1-git-send-email-skhare@vmware.com>
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCHv2 1/2] add basic register-field manipulation macros
+Date: Tue, 14 Jun 2016 20:18:15 +0100
+Message-ID: <20160614201815.0e0c384c@jkicinski-Precision-T1700>
+References: <1465904660-22242-1-git-send-email-jakub.kicinski@netronome.com>
+	<1465904660-22242-2-git-send-email-jakub.kicinski@netronome.com>
+	<576052A7.2030503@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shrikrishna Khare <skhare@vmware.com>,
-	Guolin Yang <gyang@vmware.com>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<pv-drivers@vmware.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ex13-edg-ou-001.vmware.com ([208.91.0.189]:53844 "EHLO
-	EX13-EDG-OU-001.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932125AbcFNSwe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 14:52:34 -0400
-In-Reply-To: <1465930348-92164-1-git-send-email-skhare@vmware.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, hannes@stressinduktion.org, nbd@nbd.name,
+	linux-kernel@vger.kernel.org, kvalo@codeaurora.org,
+	linux-wireless@vger.kernel.org
+To: Arend van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <576052A7.2030503@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Guolin Yang <gyang@vmware.com>
-Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
----
- drivers/net/vmxnet3/vmxnet3_defs.h | 22 +++++++++++++++++++++-
- 1 file changed, 21 insertions(+), 1 deletion(-)
+On Tue, 14 Jun 2016 20:53:28 +0200, Arend van Spriel wrote:
+> On 14-06-16 13:44, Jakub Kicinski wrote:
+> > +#ifndef _LINUX_BITFIELD_H
+> > +#define _LINUX_BITFIELD_H
+> > +
+> > +#include <asm/types.h>
+> > +#include <linux/bug.h>
+> > +#include <linux/log2.h>
+> > +
+> > +#define _bf_shf(x) (__builtin_ffsll(x) - 1)
+> > +
+> > +#define _BF_FIELD_CHECK(_mask, _val)					\
+> > +	({								\
+> > +		const u64 hi = (_mask) + (1ULL << _bf_shf(_mask));	\
+> > +									\
+> > +		BUILD_BUG_ON(!(_mask) || (hi && !is_power_of_2_u64(hi))); \
+> > +		BUILD_BUG_ON(__builtin_constant_p(_val) ?		\
+> > +			     ~((_mask) >> _bf_shf(_mask)) & (_val) :	\
+> > +			     0);					\
+> > +	})  
+> 
+> I am sceptic whether it is useful to have 64-bit used here and there is
+> a price to pay on (many) 32-bit architectures for using 64-bit
+> operations. Maybe it is not an issue because it is inside BUILD_BUG_ON()
+> macro.
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
-index 8345e0c..a26a69d 100644
---- a/drivers/net/vmxnet3/vmxnet3_defs.h
-+++ b/drivers/net/vmxnet3/vmxnet3_defs.h
-@@ -79,6 +79,7 @@ enum {
- 	VMXNET3_CMD_RESERVED1,
- 	VMXNET3_CMD_LOAD_PLUGIN,
- 	VMXNET3_CMD_RESERVED2,
-+	VMXNET3_CMD_RESERVED3,
- 
- 	VMXNET3_CMD_FIRST_GET = 0xF00D0000,
- 	VMXNET3_CMD_GET_QUEUE_STATUS = VMXNET3_CMD_FIRST_GET,
-@@ -612,6 +613,18 @@ struct Vmxnet3_RxQueueDesc {
- 	u8				      __pad[88]; /* 128 aligned */
- };
- 
-+struct Vmxnet3_SetPolling {
-+	u8					enablePolling;
-+};
-+
-+/* If the command data <= 16 bytes, use the shared memory directly.
-+ * otherwise, use variable length configuration descriptor.
-+ */
-+union Vmxnet3_CmdInfo {
-+	struct Vmxnet3_VariableLenConfDesc	varConf;
-+	struct Vmxnet3_SetPolling		setPolling;
-+	__le64					data[2];
-+};
- 
- struct Vmxnet3_DSDevRead {
- 	/* read-only region for device, read by dev in response to a SET cmd */
-@@ -630,7 +643,14 @@ struct Vmxnet3_DriverShared {
- 	__le32				pad;
- 	struct Vmxnet3_DSDevRead	devRead;
- 	__le32				ecr;
--	__le32				reserved[5];
-+	__le32				reserved;
-+	union {
-+		__le32			reserved1[4];
-+		union Vmxnet3_CmdInfo	cmdInfo; /* only valid in the context of
-+						  * executing the relevant
-+						  * command
-+						  */
-+	} cu;
- };
- 
- 
--- 
-2.8.2
+It's a trade-off between having a separate set of macros for 32-bit
+machines and risking someone potentially loosing cycles when using the
+macros in a non-standard way.  Note that all 64 bit operations are
+performed on the mask which I expect to be compile time constant.
+
+> > +#define FIELD_PUT(_mask, _val)					\
+> > +	({							\
+> > +		_BF_FIELD_CHECK(_mask, _val);			\
+> > +		((u32)(_val) << _bf_shf(_mask)) & (_mask);	\
+> > +	})
+> > +
+> > +#define FIELD_GET(_mask, _val)					\
+> > +	({							\
+> > +		_BF_FIELD_CHECK(_mask, 0);			\
+> > +		(u32)(((_val) & (_mask)) >> _bf_shf(_mask));	\
+> > +	})
+> > +
+> > +#define FIELD_PUT64(_mask, _val)				\
+> > +	({							\
+> > +		_BF_FIELD_CHECK(_mask, _val);			\
+> > +		((u64)(_val) << _bf_shf(_mask)) & (_mask);	\
+> > +	})
+> > +
+> > +#define FIELD_GET64(_mask, _val)				\
+> > +	({							\
+> > +		_BF_FIELD_CHECK(_mask, 0);			\
+> > +		(u64)(((_val) & (_mask)) >> _bf_shf(_mask));	\
+> > +	})  
+> 
+> Is there really hardware out there that exposes 64-bit wide hardware
+> registers?
+
+I need this for encoding 64-bit wide RISC instructions [1] to be honest.
+
+[1] http://thread.gmane.org/gmane.linux.network/414538
