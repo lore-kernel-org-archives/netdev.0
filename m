@@ -1,51 +1,38 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH] net: smsc911x: If PHY doesn't have an interrupt then POLL
-Date: Wed, 15 Jun 2016 00:34:10 +0300
-Message-ID: <308d1da5-a869-7664-e5b4-0c838d9d2c60@cogentembedded.com>
-References: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
- <46b56679-e92a-a8f9-f290-f67495169bdc@cogentembedded.com>
- <57607742.5080208@arm.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v2 net-next v2 12/12] net: dsa: mv88e6xxx: add addressing
+ mode to info
+Date: Tue, 14 Jun 2016 23:34:48 +0200
+Message-ID: <20160614213448.GF12832@lunn.ch>
+References: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com>
+ <20160614183153.32327-13-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@shawell.net
-To: Jeremy Linton <jeremy.linton@arm.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f177.google.com ([209.85.217.177]:34972 "EHLO
-	mail-lb0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751488AbcFNVeO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 17:34:14 -0400
-Received: by mail-lb0-f177.google.com with SMTP id o4so561527lbp.2
-        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 14:34:13 -0700 (PDT)
-In-Reply-To: <57607742.5080208@arm.com>
+Received: from vps0.lunn.ch ([178.209.37.122]:46146 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751119AbcFNVev (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2016 17:34:51 -0400
+Content-Disposition: inline
+In-Reply-To: <20160614183153.32327-13-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/15/2016 12:29 AM, Jeremy Linton wrote:
+> @@ -3681,7 +3681,7 @@ mv88e6xxx_smi_detect(struct device *dev, struct mii_bus *bus, int sw_addr,
+>  	u16 id;
+>  
+>  	ops = &mv88e6xxx_smi_direct_ops;
+> -	if (sw_addr > 0)
+> +	if (sw_addr > 0 && info->flags & MV88E6XXX_FLAG_MULTI_CHIP)
+>  		ops = &mv88e6xxx_smi_indirect_ops;
 
->>> If the interrupt configuration isn't set and we are using the
->>
->>     It's never set, judging by the driver code.
->>
->>> internal phy, then we need to poll the phy to reliably detect
->>> phy state changes.
->>
->>     What address your internal PHY is at? Mine is at 1, and things seem
->> to work reliably after probing:
->>
->> SMSC LAN8700 18000000.etherne:01: attached PHY driver [SMSC LAN8700]
->> (mii_bus:phy_addr=18000000.etherne:01, irq=-1)
->>
->>     I'm using the device tree on my board.
->
-> Ok, I'm back on the machine, this is what mine says without that patch.
->
->
->
-> SMSC LAN911x Internal PHY 18000000.etherne:01: attached PHY driver [SMSC
-> LAN911x Internal PHY] (mii_bus:phy_addr=18000000.etherne:01, irq=0)
+Hi Vivien
 
-    Hum, that's unexpected... things are probably more complex that I thought. 
-Do you have extra patches to this driver by changce?
+Is sw_addr is > 0 and MV88E6XXX_FLAG_MULTI_CHIP is not set, you should
+return -EINVAL. The device tree is invalid.
 
-MBR, Sergei
+       Andrew
