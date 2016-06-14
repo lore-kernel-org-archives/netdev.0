@@ -1,35 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] phy: marvell: fix LED configuration via
- marvell,reg-init
-Date: Tue, 14 Jun 2016 15:24:01 -0400 (EDT)
-Message-ID: <20160614.152401.2085431617357835569.davem@davemloft.net>
-References: <20160611152126.24024-1-clemens.gruber@pqgruber.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH] net: smsc911x: If PHY doesn't have an interrupt then POLL
+Date: Tue, 14 Jun 2016 22:27:27 +0300
+Message-ID: <1881cbee-2d9f-a933-63dd-caf91f3e14a3@cogentembedded.com>
+References: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
+ <81bb72b5-ccea-ee75-24f9-ffec73853fd9@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, andrew@lunn.ch, f.fainelli@gmail.com,
-	linux-kernel@vger.kernel.org, sposelenov@emcraft.com
-To: clemens.gruber@pqgruber.com
+Cc: steve.glendinning@shawell.net
+To: Jeremy Linton <jeremy.linton@arm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:49037 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751388AbcFNTYG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 15:24:06 -0400
-In-Reply-To: <20160611152126.24024-1-clemens.gruber@pqgruber.com>
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:33642 "EHLO
+	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751392AbcFNT1b (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 15:27:31 -0400
+Received: by mail-lf0-f41.google.com with SMTP id f6so86234lfg.0
+        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 12:27:30 -0700 (PDT)
+In-Reply-To: <81bb72b5-ccea-ee75-24f9-ffec73853fd9@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Clemens Gruber <clemens.gruber@pqgruber.com>
-Date: Sat, 11 Jun 2016 17:21:26 +0200
+On 06/14/2016 09:30 PM, Sergei Shtylyov wrote:
 
-> Configuring the PHY LED registers for the Marvell 88E1510 and others is
-> not possible, because regardless of the values in marvell,reg-init, it
-> is later overridden in m88e1121_config_aneg with a non-standard default.
-> 
-> This patch moves that default configuration to .config_init to allow
-> setting the LED configuration through marvell,reg-init in the device
-> tree, which should override said default if it exists.
-> 
-> Signed-off-by: Clemens Gruber <clemens.gruber@pqgruber.com>
+>> If the interrupt configuration isn't set and we are using the
+>> internal phy, then we need to poll the phy to reliably detect
+>> phy state changes.
+>>
+>> Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+>> ---
+>>  drivers/net/ethernet/smsc/smsc911x.c | 3 +++
+>>  1 file changed, 3 insertions(+)
+>>
+>> diff --git a/drivers/net/ethernet/smsc/smsc911x.c
+>> b/drivers/net/ethernet/smsc/smsc911x.c
+>> index 8af2556..369dc7d 100644
+>> --- a/drivers/net/ethernet/smsc/smsc911x.c
+>> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+>> @@ -1020,6 +1020,9 @@ static int smsc911x_mii_probe(struct net_device *dev)
+>>          return -ENODEV;
+>>      }
+>>
+>> +    if ((!phydev->irq) && (!pdata->using_extphy))
+>
+>    Inner parens aren't needed at all.
 
-Applied.
+    Hm, 'phydev->irq' shouldn't be 0 in the first place. It seems to me we 
+should correctly initialize 'pdata->phy_irq[]' in smsc911x_mii_init()...
+
+MBR, Sergei
