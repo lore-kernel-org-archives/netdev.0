@@ -1,67 +1,35 @@
-From: <Mario_Limonciello@Dell.com>
-Subject: RE: [PATCH v6] r8152: Add support for setting pass through MAC
- address on RTL8153-AD
-Date: Tue, 14 Jun 2016 22:27:12 +0000
-Message-ID: <45cd7254286844fbbd198afa68723063@ausx13mpc124.AMER.DELL.COM>
-References: <201606141828.10969@pali>	<20160614164017.GB14477@kroah.com>
-	<201606141847.36109@pali>
- <20160614.143521.2085426866285759820.davem@davemloft.net>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 1/3] net: Add MDIO bus driver for the Hisilicon FEMAC
+Date: Tue, 14 Jun 2016 17:27:46 -0500
+Message-ID: <20160614222746.GA4322@rob-hp-laptop>
+References: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com>
+ <1465798076-176393-2-git-send-email-lidongpo@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <gregkh@linuxfoundation.org>, <andrew@lunn.ch>,
-	<hayeswang@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
-	<anthony.wong@canonical.com>
-To: <davem@davemloft.net>, <pali.rohar@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: f.fainelli@gmail.com, mark.rutland@arm.com, davem@davemloft.net,
+	xuejiancheng@hisilicon.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Dongpo Li <lidongpo@hisilicon.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160614.143521.2085426866285759820.davem@davemloft.net>
-Content-Language: en-US
+Content-Disposition: inline
+In-Reply-To: <1465798076-176393-2-git-send-email-lidongpo@hisilicon.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Tuesday, June 14, 2016 1:35 PM
-> To: pali.rohar@gmail.com
-> Cc: gregkh@linuxfoundation.org; andrew@lunn.ch; Limonciello, Mario
-> <Mario_Limonciello@Dell.com>; hayeswang@realtek.com; linux-
-> kernel@vger.kernel.org; netdev@vger.kernel.org; linux-
-> usb@vger.kernel.org; anthony.wong@canonical.com
-> Subject: Re: [PATCH v6] r8152: Add support for setting pass through M=
-AC
-> address on RTL8153-AD
->=20
-> From: Pali Roh=E1r <pali.rohar@gmail.com>
-> Date: Tue, 14 Jun 2016 18:47:36 +0200
->=20
-> > You have never seen two ethernet cards with same MAC addresses? Rig=
-ht
-> I
-> > have not seen two USB, but there is non zero chance that could happ=
-en.
->=20
-> It would be an error scenerio, and something to be avoided.
->=20
-> It is a valid and correct assumption that one is able to put
-> several devices at the same time on the same physical network
-> and expect it to work.
->=20
-> The behavior added by the change in question invalidates that.
->=20
-> I'm trying to consider the long term aspects of this, which is that i=
-f
-> more devices adopt this scheme we're in trouble if we blindly
-> interpret the MAC address in this way.
->=20
+On Mon, Jun 13, 2016 at 02:07:54PM +0800, Dongpo Li wrote:
+> This patch adds a separate driver for the MDIO interface of the
+> Hisilicon Fast Ethernet MAC.
+> 
+> Reviewed-by: Jiancheng Xue <xuejiancheng@hisilicon.com>
+> Signed-off-by: Dongpo Li <lidongpo@hisilicon.com>
+> ---
+>  .../bindings/net/hisilicon-femac-mdio.txt          |  22 +++
 
-Do you mean if other manufacturers start to ship devices with=20
-RTL8135-AD's w/ this pass through bit set and people start to try to=20
-mix and match?
+Acked-by: Rob Herring <robh@kernel.org>
 
-> This firmware MAC property facility seems to be designed with only an
-> extremely narrow use case being considered.
-
-Yes, as I understand it this is the reason that it's only on such speci=
-fic devices
-that the mac address pass through bit is actually set on the efuse.
+>  drivers/net/phy/Kconfig                            |   8 +
+>  drivers/net/phy/Makefile                           |   1 +
+>  drivers/net/phy/mdio-hisi-femac.c                  | 165 +++++++++++++++++++++
+>  4 files changed, 196 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/hisilicon-femac-mdio.txt
+>  create mode 100644 drivers/net/phy/mdio-hisi-femac.c
