@@ -1,77 +1,46 @@
-From: <Mario_Limonciello@Dell.com>
-Subject: RE: [PATCH v6] r8152: Add support for setting pass through MAC
- address on RTL8153-AD
-Date: Tue, 14 Jun 2016 16:55:21 +0000
-Message-ID: <ba393fe424fd4a8fb82703dd0f42eea7@ausx13mpc124.AMER.DELL.COM>
-References: <1465323757-7249-1-git-send-email-mario_limonciello@dell.com>
- <201606141828.10969@pali> <20160614164017.GB14477@kroah.com>
- <201606141847.36109@pali>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [very-RFC 0/8] TSN driver for the kernel
+Date: Tue, 14 Jun 2016 19:04:44 +0200
+Message-ID: <20160614170442.GA1825@netboy>
+References: <1465686096-22156-1-git-send-email-henrik@austad.us>
+ <20160613114713.GA9544@localhost.localdomain>
+ <20160613195136.GC2441@netboy>
+ <20160614121844.54a125a5@lxorguk.ukuu.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: <davem@davemloft.net>, <andrew@lunn.ch>, <hayeswang@realtek.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, <anthony.wong@canonical.com>
-To: <pali.rohar@gmail.com>, <gregkh@linuxfoundation.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Henrik Austad <henrik@austad.us>, linux-kernel@vger.kernel.org,
+	linux-media@vger.kernel.org, alsa-devel@vger.kernel.org,
+	netdev@vger.kernel.org, henrk@austad.us,
+	Arnd Bergmann <arnd@linaro.org>
+To: One Thousand Gnomes <gnomes@lxorguk.ukuu.org.uk>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ausc60pc101.us.dell.com ([143.166.85.206]:22549 "EHLO
-	ausc60pc101.us.dell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752790AbcFNQzY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 12:55:24 -0400
-In-Reply-To: <201606141847.36109@pali>
-Content-Language: en-US
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34255 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751153AbcFNREz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 13:04:55 -0400
+Content-Disposition: inline
+In-Reply-To: <20160614121844.54a125a5@lxorguk.ukuu.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBQYWxpIFJvaMOhciBbbWFpbHRv
-OnBhbGkucm9oYXJAZ21haWwuY29tXQ0KPiBTZW50OiBUdWVzZGF5LCBKdW5lIDE0LCAyMDE2IDEx
-OjQ4IEFNDQo+IFRvOiBHcmVnIEtIIDxncmVna2hAbGludXhmb3VuZGF0aW9uLm9yZz4NCj4gQ2M6
-IERhdmlkIE1pbGxlciA8ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD47IGFuZHJld0BsdW5uLmNoOyBMaW1v
-bmNpZWxsbywNCj4gTWFyaW8gPE1hcmlvX0xpbW9uY2llbGxvQERlbGwuY29tPjsgaGF5ZXN3YW5n
-QHJlYWx0ZWsuY29tOyBsaW51eC0NCj4ga2VybmVsQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2QHZn
-ZXIua2VybmVsLm9yZzsgbGludXgtDQo+IHVzYkB2Z2VyLmtlcm5lbC5vcmc7IGFudGhvbnkud29u
-Z0BjYW5vbmljYWwuY29tDQo+IFN1YmplY3Q6IFJlOiBbUEFUQ0ggdjZdIHI4MTUyOiBBZGQgc3Vw
-cG9ydCBmb3Igc2V0dGluZyBwYXNzIHRocm91Z2ggTUFDDQo+IGFkZHJlc3Mgb24gUlRMODE1My1B
-RA0KPiANCj4gT24gVHVlc2RheSAxNCBKdW5lIDIwMTYgMTg6NDA6MTcgR3JlZyBLSCB3cm90ZToN
-Cj4gPiBPbiBUdWUsIEp1biAxNCwgMjAxNiBhdCAwNjoyODoxMFBNICswMjAwLCBQYWxpIFJvaMOh
-ciB3cm90ZToNCj4gPiA+IE9uIFNhdHVyZGF5IDExIEp1bmUgMjAxNiAxOTo0MjoyNiBEYXZpZCBN
-aWxsZXIgd3JvdGU6DQo+ID4gPiA+IEZyb206IEFuZHJldyBMdW5uIDxhbmRyZXdAbHVubi5jaD4N
-Cj4gPiA+ID4gRGF0ZTogU2F0LCAxMSBKdW4gMjAxNiAxNzozOToyMSArMDIwMA0KPiA+ID4gPg0K
-PiA+ID4gPiA+IFdoYXQgaXMgc3RpbGwgb3BlbiBpcyBkbyB3ZSB3YW50IHRvIGFjY2VwdCBpdCBh
-dCBhbGw/IERvIHdlDQo+ID4gPiA+ID4gYWNjZXB0IHRoZSBjb25jZXB0IG9mIHB1dHRpbmcgdGhl
-IHNhbWUgTUFDIGFkZHJlc3Mgb24gbXVsdGlwbGUNCj4gPiA+ID4gPiBpbnRlcmZhY2VzIGF0IGhv
-dHBsdWcgdGltZT8gRG8gd2UgdHJ1c3QgQklPUyB2ZW5kb3JzIHRvIG5vdA0KPiA+ID4gPiA+IGtl
-ZXAgY2hhbmdpbmcgRFNEVCBwcm9wZXJ0eSBuYW1lLCBzaW5jZSBpdCBpcyBub3QNCj4gPiA+ID4g
-PiBzdGFuZGFyZGlzZWQ/DQo+ID4gPiA+ID4NCj4gPiA+ID4gPiBEbyB3ZSB3YW50IHRoaXMgYXQg
-YWxsIHNob3VsZCBiZSBkZWNpZGVkIGJ5IHNvbWVib2R5IG1vcmUNCj4gPiA+ID4gPiBzZW5pb3Ig
-dGhlbiB0aG9zZSBwYXNzaW5nIGNvbW1lbnRzIG9uIHRoZSBjb2RlLg0KPiA+ID4gPg0KPiA+ID4g
-PiBJbmRlZWQsIEkgdGhpbmsgdGhlIGJlaGF2aW9yIG9mIHVzaW5nIHRoZSBzYW1lIE1BQyBhZGRy
-ZXNzIG9uDQo+ID4gPiA+IG11bHRpcGxlIGludGVyZmFjZXMgaWYgd2UgcGx1ZyBzZXZlcmFsIG9m
-IHRoZXNlIGluIGF0IG9uY2UgaXMgbm90DQo+ID4gPiA+IGdvb2QuDQo+ID4gPiA+DQo+ID4gPiA+
-IFdlIHNob3VsZG4ndCBiZWhhdmUgdGhpcyB3YXkganVzdCBiZWNhdXNlIHRoZSBNaWNyb3NvZnQg
-ZHJpdmVyDQo+ID4gPiA+IGRvZXMuDQo+ID4gPg0KPiA+ID4gSSBhZ3JlZSwgYnV0IGluIHNvbWUg
-Y2FzZXMgaXQgaXMgbmlnaHQgbWFyZSBmb3IgbG9jYWwgYWRtaW5zIHdoZW4NCj4gPiA+IGJvb3Rp
-bmcgZGlmZmVyZW50IE9TIGNhdXNlIGNoYW5naW5nIE1BQyBhZGRyZXNzIG9uIGxvY2FsIG5ldHdv
-cmsuDQo+ID4gPg0KPiA+ID4gQW5vdGhlciBzaW1pbGFyIHNpdHVhdGlvbjogSW1hZ2luZSB0aGF0
-IHlvdSBoYXZlIHR3byBVU0IgbmV0d29yaw0KPiA+ID4gY2FyZHMgYW5kIGJvdGggaGF2ZSAiYnVy
-bmVkIiBpbnRvIHRoZWlyIHJlZ2lzdGVycyBzYW1lIE1BQw0KPiA+ID4gYWRkcmVzcy4gSWYgeW91
-IGNvbm5lY3QgYm90aCB0aG9zZSBVU0IgbmV0d29yayBjYXJkcywgbGludXgga2VybmVsDQo+ID4g
-PiBiaW5kIGFwcHJvcHJpYXRlIGRyaXZlciB3aGljaCByZWFkIE1BQyBhZGRyZXNzIGZvciBib3Ro
-IHRob3NlDQo+ID4gPiBjYXJkcy4gQnV0IHRob3NlIGFkZHJlc3NlcyBhcmUgc2FtZS4gV2hhdCB3
-aWxsIGxpbnV4IGtlcm5lbCBkbyBpbg0KPiA+ID4gdGhpcyBjYXNlPw0KPiA+DQo+ID4gSWYgeW91
-IGNhbiBmaW5kIHN1Y2ggYSBicm9rZW4gVVNCIGRldmljZSwgdHJ5IGl0IGFuZCBzZWUgOikNCj4g
-DQo+IFdoYXQgZG8geW91IG1lYW4gYnkgYnJva2VuIFVTQiBkZXZpY2U/DQo+IA0KPiBZb3UgaGF2
-ZSBuZXZlciBzZWVuIHR3byBldGhlcm5ldCBjYXJkcyB3aXRoIHNhbWUgTUFDIGFkZHJlc3Nlcz8g
-UmlnaHQgSQ0KPiBoYXZlIG5vdCBzZWVuIHR3byBVU0IsIGJ1dCB0aGVyZSBpcyBub24gemVybyBj
-aGFuY2UgdGhhdCBjb3VsZCBoYXBwZW4uDQo+IFNwZWNpYWxseSBub3cgd2hlbiBtb3JlIGFuZCBt
-b3JlIHBlb3BsZSBzdGFydHMgdXNpbmcgVVNCIG5ldHdvcmsgY2FyZHMuDQo+IA0KPiA+IChoaW50
-LCBtaWdodCBiZSBoYXJkIHRvIGZpbmQsIEkndmUgbmV2ZXIgc2VlbiBzdWNoIGEgZGV2aWNlIGJl
-Zm9yZS4pDQo+ID4NCj4gPiBJIGRvbid0IHNlZSBob3cgdGhhdCBwZXJ0YWlucyB0byB0aGlzIGlz
-c3VlLCBzb3JyeSwgaG93IGRvZXMgYnJva2VuDQo+ID4gVVNCIGhhcmR3YXJlIGNvbXBhcmUgdG8g
-YSB3b3JraW5nIERlbGwgZGV2aWNlPw0KPiANCj4gSXQgaXMgc2FtZSwgaG93IHRvIGhhbmRsZSB0
-d28gbmV0d29yayBjYXJkcyB3aGljaCB0ZWxsIHVzLCB0aGF0IHRoZXkNCj4gaGF2ZSBzYW1lIE1B
-QyBhZGRyZXNzZXMuDQo+IA0KDQpUaGUga2VybmVsIGhhbmRsZXMgdGhpcyBqdXN0IGZpbmUuICBJ
-biBkb2luZyB0aGlzIHBhdGNoIEkgY2hlY2tlZCB0byBzZWUNCndoYXQgaXQgZG9lcyBpbiB0aGF0
-IHNjZW5hcmlvLiAgVHdvIGRldmljZXMgYXJlIG1hZGUuICBzeXN0ZW1kIGRvZXNuJ3QNCnJlbmFt
-ZSB0aGUgc2Vjb25kIGRldmljZSB2aWEgdGhlIE1BQyBuYW1lIChlZyBlbnhBQUJCQ0NEREVFRkYp
-Lg0K
+On Tue, Jun 14, 2016 at 12:18:44PM +0100, One Thousand Gnomes wrote:
+> On Mon, 13 Jun 2016 21:51:36 +0200
+> Richard Cochran <richardcochran@gmail.com> wrote:
+> > 
+> > Actually, we already have support for tunable clock-like HW elements,
+> > namely the dynamic posix clock API.  It is trivial to write a driver
+> > for VCO or the like.  I am just not too familiar with the latest high
+> > end audio devices.
+> 
+> Why high end ? Even the most basic USB audio is frame based and
+> isosynchronous to the USB clock. It also reports back the delay
+> properties.
+
+Well, I guess I should have said, I am not too familiar with the
+breadth of current audio hardware, high end or low end.  Of course I
+would like to see even consumer devices work with AVB, but it is up to
+the ALSA people to make that happen.  So far, nothing has been done,
+afaict.
+
+Thanks,
+Richard
