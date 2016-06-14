@@ -1,40 +1,121 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH iproute2 0/6] Add support for vrf keyword
-Date: Tue, 14 Jun 2016 13:59:26 -0700
-Message-ID: <1465937972-25011-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2 6/6] ip route: Add support for vrf keyword
+Date: Tue, 14 Jun 2016 13:59:32 -0700
+Message-ID: <1465937972-25011-7-git-send-email-dsa@cumulusnetworks.com>
+References: <1465937972-25011-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34151 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752184AbcFNU7k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 16:59:40 -0400
-Received: by mail-pa0-f49.google.com with SMTP id bz2so626679pad.1
-        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 13:59:40 -0700 (PDT)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:35593 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932328AbcFNU7o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 16:59:44 -0400
+Received: by mail-pa0-f50.google.com with SMTP id hl6so616605pac.2
+        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 13:59:44 -0700 (PDT)
+In-Reply-To: <1465937972-25011-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Currently the syntax for VRF related commands is rather kludgy and
-inconsistent from one subcommand to another. This set adds support
-for the VRF keyword to the link, address, neigh, and route commands
-to improve the user experience listing data associated with vrfs,
-modifying routes or doing a route lookup.
+Add vrf keyword to 'ip route' commands. Allows:
+1. Users can list routes by VRF name:
+       $ ip route show vrf NAME
 
-David Ahern (6):
-  ip vrf: Add name_is_vrf
-  ip link/addr: Add support for vrf keyword
-  ip neigh: Add support for keyword
-  ip route: Change type mask to bitmask
-  ip vrf: Add ipvrf_get_table
-  ip route: Add support for vrf keyword
+   VRF tables have all routes including local and broadcast routes.
+   The VRF keyword filters LOCAL and BROADCAST routes; to see all
+   routes the table option can be used. Or to see local routes only
+   for a VRF:
+       $ ip route show vrf NAME type local
 
- ip/ip_common.h  |   3 ++
- ip/ipaddress.c  |  11 ++++++
- ip/iplink.c     |  15 ++++++-
- ip/iplink_vrf.c | 119 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- ip/ipneigh.c    |  14 ++++++-
- ip/iproute.c    |  43 ++++++++++++++++----
- 6 files changed, 195 insertions(+), 10 deletions(-)
+   Contrast with current syntax:
+       $ ip route show table ID
 
+   where the user needs to find the vrf to table ID or maintain a
+   text file in /etc/iproute2/rt_tables.d.
+
+2. Add or delete a route for a VRF:
+       $ ip route {add|delete} vrf NAME <route spec>
+
+   Similarly for this command, users currently need to use table
+   option and know the table id or maintain a mapping.
+
+3. Do a route lookup for a VRF:
+       $ ip route get vrf NAME ADDRESS
+
+   Contrast with current syntax:
+       $ ip route get oif DEV ADDRESS
+
+   (specifying table id for route get does not work kernel side).
+
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ ip/iproute.c | 32 ++++++++++++++++++++++++++++++--
+ 1 file changed, 30 insertions(+), 2 deletions(-)
+
+diff --git a/ip/iproute.c b/ip/iproute.c
+index aae693d17be8..bd661c16cb46 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -67,10 +67,10 @@ static void usage(void)
+ 	fprintf(stderr, "       ip route showdump\n");
+ 	fprintf(stderr, "       ip route get ADDRESS [ from ADDRESS iif STRING ]\n");
+ 	fprintf(stderr, "                            [ oif STRING ] [ tos TOS ]\n");
+-	fprintf(stderr, "                            [ mark NUMBER ]\n");
++	fprintf(stderr, "                            [ mark NUMBER ] [ vrf NAME ]\n");
+ 	fprintf(stderr, "       ip route { add | del | change | append | replace } ROUTE\n");
+ 	fprintf(stderr, "SELECTOR := [ root PREFIX ] [ match PREFIX ] [ exact PREFIX ]\n");
+-	fprintf(stderr, "            [ table TABLE_ID ] [ proto RTPROTO ]\n");
++	fprintf(stderr, "            [ table TABLE_ID ] [ vrf NAME ] [ proto RTPROTO ]\n");
+ 	fprintf(stderr, "            [ type TYPE ] [ scope SCOPE ]\n");
+ 	fprintf(stderr, "ROUTE := NODE_SPEC [ INFO_SPEC ]\n");
+ 	fprintf(stderr, "NODE_SPEC := [ TYPE ] PREFIX [ tos TOS ]\n");
+@@ -1141,6 +1141,20 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 				addattr32(&req.n, sizeof(req), RTA_TABLE, tid);
+ 			}
+ 			table_ok = 1;
++		} else if (matches(*argv, "vrf") == 0) {
++			__u32 tid;
++
++			NEXT_ARG();
++			tid = ipvrf_get_table(*argv);
++			if (tid == 0)
++				invarg("Invalid VRF\n", *argv);
++			if (tid < 256)
++				req.r.rtm_table = tid;
++			else {
++				req.r.rtm_table = RT_TABLE_UNSPEC;
++				addattr32(&req.n, sizeof(req), RTA_TABLE, tid);
++			}
++			table_ok = 1;
+ 		} else if (strcmp(*argv, "dev") == 0 ||
+ 			   strcmp(*argv, "oif") == 0) {
+ 			NEXT_ARG();
+@@ -1395,6 +1409,15 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
+ 				}
+ 			} else
+ 				filter.tb = tid;
++		} else if (matches(*argv, "vrf") == 0) {
++			__u32 tid;
++
++			NEXT_ARG();
++			tid = ipvrf_get_table(*argv);
++			if (tid == 0)
++				invarg("Invalid VRF\n", *argv);
++			filter.tb = tid;
++			filter.typemask = ~(1 << RTN_LOCAL | 1<<RTN_BROADCAST);
+ 		} else if (matches(*argv, "cached") == 0 ||
+ 			   matches(*argv, "cloned") == 0) {
+ 			filter.cloned = 1;
+@@ -1681,6 +1704,11 @@ static int iproute_get(int argc, char **argv)
+ 			req.r.rtm_flags |= RTM_F_NOTIFY;
+ 		} else if (matches(*argv, "connected") == 0) {
+ 			connected = 1;
++		} else if (matches(*argv, "vrf") == 0) {
++			NEXT_ARG();
++			if (!name_is_vrf(*argv))
++				invarg("Invalid VRF\n", *argv);
++			odev = *argv;
+ 		} else {
+ 			inet_prefix addr;
+ 
 -- 
 2.1.4
