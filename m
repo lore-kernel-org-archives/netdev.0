@@ -1,43 +1,52 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next v3 6/7] vmxnet3: introduce command to register
- memory region
-Date: Tue, 14 Jun 2016 08:54:04 +0300
-Message-ID: <CAJ3xEMgpK5n8SgEAXh-7UOea1GezkAF4g0bjdULjzKgR7hmndA@mail.gmail.com>
-References: <1465869007-10822-1-git-send-email-skhare@vmware.com> <1465869007-10822-7-git-send-email-skhare@vmware.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH RFC 1/3] ipv4: make flow functions more grepable by
+ removing flowi4_init_output
+Date: Tue, 14 Jun 2016 09:02:14 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1606140856010.2467@ja.home.ssi.bg>
+References: <1465850858-8559-1-git-send-email-hannes@stressinduktion.org> <1465850858-8559-2-git-send-email-hannes@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	pv-drivers@vmware.com, Guolin Yang <gyang@vmware.com>
-To: Shrikrishna Khare <skhare@vmware.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465869007-10822-7-git-send-email-skhare@vmware.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
-
-On Tue, Jun 14, 2016 at 4:50 AM, Shrikrishna Khare <skhare@vmware.com> wrote:
-
-> +++ b/drivers/net/vmxnet3/vmxnet3_defs.h
-> @@ -81,6 +81,7 @@ enum {
->         VMXNET3_CMD_RESERVED2,
->         VMXNET3_CMD_RESERVED3,
->         VMXNET3_CMD_SET_COALESCE,
-> +       VMXNET3_CMD_REGISTER_MEMREGS,
->
->         VMXNET3_CMD_FIRST_GET = 0xF00D0000,
->         VMXNET3_CMD_GET_QUEUE_STATUS = VMXNET3_CMD_FIRST_GET,
-> @@ -668,6 +669,22 @@ struct Vmxnet3_CoalesceScheme {
->         } coalPara;
->  };
->
-> +struct Vmxnet3_MemoryRegion {
-> +       __le64                                  startPA;
-> +       __le32                                  length;
-> +       __le16                                  txQueueBits;
-> +       __le16                                  rxQueueBits;
-> +};
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ja.ssi.bg ([178.16.129.10]:55128 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750993AbcFNGCX (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2016 02:02:23 -0400
+In-Reply-To: <1465850858-8559-2-git-send-email-hannes@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-What is the use case for this command?
+	Hello,
 
-What's the role of the tx/rx queue bits fields?
+On Mon, 13 Jun 2016, Hannes Frederic Sowa wrote:
+
+> -	flowi4_init_output(fl4, oif, sk->sk_mark, tos, RT_SCOPE_UNIVERSE,
+> -			   protocol, flow_flags, dst, src, dport, sport);
+> +	fl4->flowi4_oif = oif;
+> +	fl4->flowi4_iif = LOOPBACK_IFINDEX;
+> +	fl4->flowi4_mark = sk->sk_mark;
+> +	fl4->flowi4_tos = tos;
+> +	fl4->flowi4_scope = RT_SCOPE_UNIVERSE;
+> +	fl4->flowi4_proto = protocol;
+> +	fl4->flowi4_flags = flow_flags;
+> +	fl4->flowi4_secid = 0;
+> +	fl4->flowi4_tun_key.tun_id = 0;
+> +	fl4->daddr = dst;
+> +	fl4->saddr = src;
+> +	fl4->fl4_dport = dport;
+> +	fl4->fl4_sport = sport;
+
+	The way you initialize the fields adds new risks
+when new field is added, it is difficult to track all such
+places. If they are missed, the lookup will use random
+value for the new field. I'm not sure what will compile,
+may be something likes this?:
+
+	*fl4 = (struct flowi4) {
+		.flowi4_oif = oif,
+		...
+	};
+
+Regards
