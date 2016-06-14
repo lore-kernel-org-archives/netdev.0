@@ -1,36 +1,38 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [1/1] mwiflex: avoid possible null pointer dereference
-Date: Tue, 14 Jun 2016 14:21:44 +0000 (UTC)
-Message-ID: <20160614142144.D65D061381@smtp.codeaurora.org>
-References: <1463526961-12019-1-git-send-email-xypron.glpk@gmx.de>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [1/1] rtlwifi: rtl8192ee: simplify coding
+Date: Tue, 14 Jun 2016 14:23:03 +0000 (UTC)
+Message-ID: <20160614142303.BC3396141C@smtp.codeaurora.org>
+References: <1463532238-13135-1-git-send-email-xypron.glpk@gmx.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Heinrich Schuchardt <xypron.glpk-Mmb7MZpHnFY@public.gmane.org>
-To: Heinrich Schuchardt <xypron.glpk-Mmb7MZpHnFY@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1463526961-12019-1-git-send-email-xypron.glpk-Mmb7MZpHnFY@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Kalle Valo <kvalo@qca.qualcomm.com>,
+	Wu Fengguang <fengguang.wu@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Heinrich Schuchardt <xypron.glpk@gmx.de>
+To: Heinrich Schuchardt <xypron.glpk@gmx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:59611 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751382AbcFNOXE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 10:23:04 -0400
+In-Reply-To: <1463532238-13135-1-git-send-email-xypron.glpk@gmx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Heinrich Schuchardt <xypron.glpk-Mmb7MZpHnFY@public.gmane.org> wrote:
-> Do not dereference card before checking against NULL value.
+Heinrich Schuchardt <xypron.glpk@gmx.de> wrote:
+> Simplify _rtl92ee_phy_path_adda_on.
 > 
-> Signed-off-by: Heinrich Schuchardt <xypron.glpk-Mmb7MZpHnFY@public.gmane.org>
+> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
 
 Thanks, 1 patch applied to wireless-drivers-next.git:
 
-141bcf099076 mwiflex: avoid possible null pointer dereference
+a81605b14942 rtlwifi: rtl8192ee: simplify coding
 
 -- 
 Sent by pwcli
-https://patchwork.kernel.org/patch/9115521/
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+https://patchwork.kernel.org/patch/9115711/
