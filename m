@@ -1,44 +1,40 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v2 net-next v2 08/12] net: dsa: mv88e6xxx: read switch ID from info
-Date: Tue, 14 Jun 2016 17:01:38 -0400
-Message-ID: <87k2hrbi31.fsf@ketchup.mtl.sfl>
-References: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com> <20160614183153.32327-9-vivien.didelot@savoirfairelinux.com> <fea82e7e-7c1d-baac-8a91-07cd94b13b6c@cogentembedded.com>
+From: Jeremy Linton <jeremy.linton@arm.com>
+Subject: Re: [PATCH] net: smsc911x: If PHY doesn't have an interrupt then POLL
+Date: Tue, 14 Jun 2016 16:02:48 -0500
+Message-ID: <576070F8.1040403@arm.com>
+References: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
+ <46b56679-e92a-a8f9-f290-f67495169bdc@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: steve.glendinning@shawell.net
 To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:36706 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752184AbcFNVBm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 17:01:42 -0400
-In-Reply-To: <fea82e7e-7c1d-baac-8a91-07cd94b13b6c@cogentembedded.com>
+Received: from foss.arm.com ([217.140.101.70]:33312 "EHLO foss.arm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752912AbcFNVCu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2016 17:02:50 -0400
+In-Reply-To: <46b56679-e92a-a8f9-f290-f67495169bdc@cogentembedded.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
-
-Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> writes:
-
->> -	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
->> +	of_id = of_match_node(mv88e6xxx_of_id_table, np);
+On 06/14/2016 03:44 PM, Sergei Shtylyov wrote:
+> On 06/14/2016 07:16 PM, Jeremy Linton wrote:
 >
->     You could use of_device_get_match_data() here.
+>> If the interrupt configuration isn't set and we are using the
 >
->> +	if (!of_id)
->> +		return -EINVAL;
->> +
->> +	info = (const struct mv88e6xxx_info *)of_id->data;
+>     It's never set, judging by the driver code.
 >
->     Pointer casts from 'void *' are automatic.
+>> internal phy, then we need to poll the phy to reliably detect
+>> phy state changes.
+>
+>     What address your internal PHY is at? Mine is at 1, and things seem
+> to work reliably after probing:
+>
+> SMSC LAN8700 18000000.etherne:01: attached PHY driver [SMSC LAN8700]
+> (mii_bus:phy_addr=18000000.etherne:01, irq=-1)
+>
 
-I applied your comments and also squashed patches 7 and 8 together.
-I'll respin a v3 soon unless there are other comments.
-
-Thanks,
-
-        Vivien
+	BTW, the phy that is causing the problem is the one
+labeled "SMSC LAN911x Internal PHY" in phy/smsc.c.
