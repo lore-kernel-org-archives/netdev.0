@@ -1,29 +1,70 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH] net: smsc911x: If PHY doesn't have an interrupt then POLL
-Date: Tue, 14 Jun 2016 20:42:36 +0200
-Message-ID: <20160614184236.GB8518@lunn.ch>
-References: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH v2 net-next v2 08/12] net: dsa: mv88e6xxx: read switch ID
+ from info
+Date: Tue, 14 Jun 2016 21:50:28 +0300
+Message-ID: <fea82e7e-7c1d-baac-8a91-07cd94b13b6c@cogentembedded.com>
+References: <20160614183153.32327-1-vivien.didelot@savoirfairelinux.com>
+ <20160614183153.32327-9-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, steve.glendinning@shawell.net
-To: Jeremy Linton <jeremy.linton@arm.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:45645 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932085AbcFNSmj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 14 Jun 2016 14:42:39 -0400
-Content-Disposition: inline
-In-Reply-To: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160614183153.32327-9-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 14, 2016 at 11:16:02AM -0500, Jeremy Linton wrote:
-> If the interrupt configuration isn't set and we are using the
-> internal phy, then we need to poll the phy to reliably detect
-> phy state changes.
+Hello.
 
-Hi Jeremy
+On 06/14/2016 09:31 PM, Vivien Didelot wrote:
 
-Why does the external phy not have the exact same problem?
+> Retrieve the info structure of the compatible of device in the new probe
+> function, in order to know how to access the switch ID register.
+>
+> That way, a compatible info can be used to describe how to access the
+> switch registers on models with different registers layout or addressing
+> modes.
+>
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> ---
+>  drivers/net/dsa/mv88e6xxx.c | 11 ++++++++++-
+>  1 file changed, 10 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+> index 8c39dd0..8ac9f9a 100644
+> --- a/drivers/net/dsa/mv88e6xxx.c
+> +++ b/drivers/net/dsa/mv88e6xxx.c
+[...]
+> @@ -3745,6 +3746,8 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+>  {
+>  	struct device *dev = &mdiodev->dev;
+>  	struct device_node *np = dev->of_node;
+> +	const struct of_device_id *of_id;
+> +	const struct mv88e6xxx_info *info;
+>  	struct mv88e6xxx_priv_state *ps;
+>  	int id, prod_num, rev;
+>  	u32 eeprom_len;
+> @@ -3759,7 +3762,13 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+>  	ps->sw_addr = mdiodev->addr;
+>  	mutex_init(&ps->smi_mutex);
+>
+> -	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
+> +	of_id = of_match_node(mv88e6xxx_of_id_table, np);
 
-    Andrew
+    You could use of_device_get_match_data() here.
+
+> +	if (!of_id)
+> +		return -EINVAL;
+> +
+> +	info = (const struct mv88e6xxx_info *)of_id->data;
+
+    Pointer casts from 'void *' are automatic.
+
+[...]
+
+MBR, Sergei
