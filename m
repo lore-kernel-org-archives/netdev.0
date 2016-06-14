@@ -1,37 +1,26 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [1/1] rsi: eliminate superfluous NULL check
-Date: Tue, 14 Jun 2016 14:18:18 +0000 (UTC)
-Message-ID: <20160614141818.2ED106120D@smtp.codeaurora.org>
-References: <1463524241-11351-1-git-send-email-xypron.glpk@gmx.de>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net 1/3] macsec: add rcu_barrier() on module exit
+Date: Tue, 14 Jun 2016 16:18:26 +0200
+Message-ID: <64e11819-5eda-2479-5a89-06f967c20a3c@stressinduktion.org>
+References: <cover.1465908271.git.sd@queasysnail.net>
+ <5120805ba38a47a8f5c662191339fc4f9e50f44a.1465908271.git.sd@queasysnail.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Nicholas Mc Guire <hofrat@osadl.org>,
-	Johannes Berg <johannes.berg@intel.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Heinrich Schuchardt <xypron.glpk@gmx.de>
-To: Heinrich Schuchardt <xypron.glpk@gmx.de>
+To: Sabrina Dubroca <sd@queasysnail.net>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:59033 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751239AbcFNOSS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 10:18:18 -0400
-In-Reply-To: <1463524241-11351-1-git-send-email-xypron.glpk@gmx.de>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:42758 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752715AbcFNOSc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 10:18:32 -0400
+In-Reply-To: <5120805ba38a47a8f5c662191339fc4f9e50f44a.1465908271.git.sd@queasysnail.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Heinrich Schuchardt <xypron.glpk@gmx.de> wrote:
-> msg is dereferenced before checking against NULL, e.g.
-> when assigning pad_bytes.
-> Remove the superfluous check in function rsi_mgmt_pkt_to_core.
+On 14.06.2016 15:25, Sabrina Dubroca wrote:
+> Without this, the various uses of call_rcu could cause a kernel panic.
 > 
-> Signed-off-by: Heinrich Schuchardt <xypron.glpk@gmx.de>
+> Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
+> Signed-off-by: Sabrina Dubroca <sd@queasysnail.net>
 
-Thanks, 1 patch applied to wireless-drivers-next.git:
-
-9b648d788d78 rsi: eliminate superfluous NULL check
-
--- 
-Sent by pwcli
-https://patchwork.kernel.org/patch/9115441/
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
