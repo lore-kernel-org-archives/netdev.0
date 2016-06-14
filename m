@@ -1,103 +1,39 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH iproute2 1/6] ip vrf: Add name_is_vrf
-Date: Tue, 14 Jun 2016 13:59:27 -0700
-Message-ID: <1465937972-25011-2-git-send-email-dsa@cumulusnetworks.com>
-References: <1465937972-25011-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
+From: "Jason A. Donenfeld" <Jason@zx2c4.com>
+Subject: padata - is serial actually serial?
+Date: Tue, 14 Jun 2016 23:00:54 +0200
+Message-ID: <CAHmME9qnufO90qF7v9bVb7L+6KQA=kaZ=BML2sRwzbQHtFLJGA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-crypto@vger.kernel.org, Netdev <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:36039 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752752AbcFNU7k (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 16:59:40 -0400
-Received: by mail-pf0-f170.google.com with SMTP id t190so645841pfb.3
-        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 13:59:40 -0700 (PDT)
-In-Reply-To: <1465937972-25011-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from frisell.zx2c4.com ([192.95.5.64]:33130 "EHLO frisell.zx2c4.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752779AbcFNVBH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 14 Jun 2016 17:01:07 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add name_is_vrf function to determine if given name corresponds to a
-VRF device.
+Hi Steffen & Folks,
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- ip/ip_common.h  |  2 ++
- ip/iplink_vrf.c | 53 +++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 55 insertions(+)
+I submit a job to padata_do_parallel(). When the parallel() function
+triggers, I do some things, and then call padata_do_serial(). Finally
+the serial() function triggers, where I complete the job (check a
+nonce, etc).
 
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index e8da9e034b15..410eb135774a 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -90,6 +90,8 @@ struct link_util *get_link_slave_kind(const char *slave_kind);
- 
- void br_dump_bridge_id(const struct ifla_bridge_id *id, char *buf, size_t len);
- 
-+bool name_is_vrf(char *name);
-+
- #ifndef	INFINITY_LIFE_TIME
- #define     INFINITY_LIFE_TIME      0xFFFFFFFFU
- #endif
-diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
-index e3c7b4652da5..abd43c08423e 100644
---- a/ip/iplink_vrf.c
-+++ b/ip/iplink_vrf.c
-@@ -96,3 +96,56 @@ struct link_util vrf_slave_link_util = {
- 	.print_opt	= vrf_slave_print_opt,
- 	.slave          = true,
- };
-+
-+bool name_is_vrf(char *name)
-+{
-+	struct {
-+		struct nlmsghdr		n;
-+		struct ifinfomsg	i;
-+		char			buf[1024];
-+	} req = {
-+		.n = {
-+			.nlmsg_len   = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
-+			.nlmsg_flags = NLM_F_REQUEST,
-+			.nlmsg_type  = RTM_GETLINK,
-+		},
-+		.i = {
-+			.ifi_family  = preferred_family,
-+		},
-+	};
-+	struct {
-+		struct nlmsghdr n;
-+		char buf[8192];
-+	} answer;
-+	struct rtattr *tb[IFLA_MAX+1];
-+	struct rtattr *li[IFLA_INFO_MAX+1];
-+	struct ifinfomsg *ifi;
-+	int len;
-+
-+	addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, strlen(name) + 1);
-+
-+	if (rtnl_talk(&rth, &req.n, &answer.n, sizeof(answer)) < 0)
-+		goto err;
-+
-+	ifi = NLMSG_DATA(&answer.n);
-+	len = answer.n.nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
-+	if (len < 0) {
-+		fprintf(stderr, "BUG: Invalid response to link query.\n");
-+		goto err;
-+	}
-+
-+	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
-+
-+	if (!tb[IFLA_LINKINFO])
-+		goto err;
-+
-+	parse_rtattr_nested(li, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
-+
-+	if (!li[IFLA_INFO_KIND])
-+		goto err;
-+
-+	return strcmp(RTA_DATA(li[IFLA_INFO_KIND]), "vrf") == 0;
-+
-+err:
-+	return false;
-+}
--- 
-2.1.4
+The padata API is very appealing because not only does it allow for
+parallel computation, but it claims that the serial() functions will
+execute in the order that jobs were originally submitted to
+padata_do_parallel().
+
+Unfortunately, in practice, I'm pretty sure I'm seeing deviations from
+this. When I submit tons and tons of tasks at rapid speed to
+padata_do_parallel(), it seems like the serial() function isn't being
+called in the exactly the same order that tasks were submitted to
+padata_do_parallel().
+
+Is this known (expected) behavior? Or have I stumbled upon a potential
+bug that's worthwhile for me to investigate more?
+
+Thanks,
+Jason
