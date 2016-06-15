@@ -1,81 +1,38 @@
-From: Quentin Armitage <quentin@armitage.org.uk>
-Subject: [PATCH v3 4/4] ipvs: log additional sync daemon parameters
-Date: Wed, 15 Jun 2016 22:42:44 +0100
-Message-ID: <1466026964-14114-5-git-send-email-quentin@armitage.org.uk>
-References: <1465914262-30112-1-git-send-email-quentin@armitage.org.uk>
- <1466026964-14114-1-git-send-email-quentin@armitage.org.uk>
-Cc: Quentin Armitage <quentin@armitage.org.uk>
-To: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Julian Anastasov <ja@ssi.bg>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1466026964-14114-1-git-send-email-quentin@armitage.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] htb: call qdisc_root with rcu read lock held
+Date: Wed, 15 Jun 2016 14:43:14 -0700 (PDT)
+Message-ID: <20160615.144314.193340755064900330.davem@davemloft.net>
+References: <1465877787-7974-1-git-send-email-fw@strlen.de>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: fw@strlen.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34381 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933039AbcFOVnX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 17:43:23 -0400
+In-Reply-To: <1465877787-7974-1-git-send-email-fw@strlen.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add new multicast parameters to log messages when sync daemons start.
+From: Florian Westphal <fw@strlen.de>
+Date: Tue, 14 Jun 2016 06:16:27 +0200
 
-Commit e4ff67513096 ("ipvs: add sync_maxlen parameter for the sync
-daemon") and commit d33288172e72 ("ipvs: add more mcast parameters for
-the sync daemon") added additional multicast parameters, but didn't add
-them to the log messages when the sync daemons started.
+> saw a debug splat:
+> net/include/net/sch_generic.h:287 suspicious rcu_dereference_check() usage!
+> other info that might help us debug this:
+> rcu_scheduler_active = 1, debug_locks = 0
+>  2 locks held by kworker/2:1/710:
+>   #0:  ("events"){.+.+.+}, at: [<ffffffff8106ca1d>]
+>   #1:  ((&q->work)){+.+...}, at: [<ffffffff8106ca1d>] process_one_work+0x14d/0x690
+> Workqueue: events htb_work_func
+> Call Trace:
+>  [<ffffffff812dc763>] dump_stack+0x85/0xc2
+>  [<ffffffff8109fee7>] lockdep_rcu_suspicious+0xe7/0x120
+>  [<ffffffff814ced47>] htb_work_func+0x67/0x70
+> 
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
----
- net/netfilter/ipvs/ip_vs_sync.c |   28 ++++++++++++++++++++++------
- 1 files changed, 22 insertions(+), 6 deletions(-)
-
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 2be99b2..a52c4be 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -1669,9 +1669,17 @@ static int sync_thread_master(void *data)
- 	struct sock *sk = tinfo->sock->sk;
- 	struct ip_vs_sync_buff *sb;
- 
--	pr_info("sync thread started: state = MASTER, mcast_ifn = %s, "
--		"syncid = %d, id = %d\n",
--		ipvs->mcfg.mcast_ifn, ipvs->mcfg.syncid, tinfo->id);
-+	pr_info("sync thread started: state = MASTER, mcast_ifn = %s, syncid = %d, id = %d, maxlen = %d\n",
-+		ipvs->mcfg.mcast_ifn, ipvs->mcfg.syncid,
-+		tinfo->id, ipvs->mcfg.sync_maxlen);
-+	if (ipvs->mcfg.mcast_af == AF_INET)
-+		pr_info("group = %pI4, port = %d, ttl = %d\n",
-+			&ipvs->mcfg.mcast_group.in, ipvs->mcfg.mcast_port,
-+			ipvs->mcfg.mcast_ttl);
-+	else
-+		pr_info("group = %pI6c, port = %d, ttl = %d\n",
-+			&ipvs->mcfg.mcast_group.in6, ipvs->mcfg.mcast_port,
-+			ipvs->mcfg.mcast_ttl);
- 
- 	for (;;) {
- 		sb = next_sync_buff(ipvs, ms);
-@@ -1723,9 +1731,17 @@ static int sync_thread_backup(void *data)
- 	struct netns_ipvs *ipvs = tinfo->ipvs;
- 	int len;
- 
--	pr_info("sync thread started: state = BACKUP, mcast_ifn = %s, "
--		"syncid = %d, id = %d\n",
--		ipvs->bcfg.mcast_ifn, ipvs->bcfg.syncid, tinfo->id);
-+	pr_info("sync thread started: state = BACKUP, mcast_ifn = %s, syncid = %d, id = %d, maxlen = %d\n",
-+		ipvs->bcfg.mcast_ifn, ipvs->bcfg.syncid,
-+		tinfo->id, ipvs->bcfg.sync_maxlen);
-+	if (ipvs->bcfg.mcast_af == AF_INET)
-+		pr_info("group = %pI4, port = %d, ttl = %d\n",
-+			&ipvs->bcfg.mcast_group.in, ipvs->bcfg.mcast_port,
-+			ipvs->bcfg.mcast_ttl);
-+	else
-+		pr_info("group = %pI6c, port = %d, ttl = %d\n",
-+			&ipvs->bcfg.mcast_group.in6, ipvs->bcfg.mcast_port,
-+			ipvs->bcfg.mcast_ttl);
- 
- 	while (!kthread_should_stop()) {
- 		wait_event_interruptible(*sk_sleep(tinfo->sock->sk),
--- 
-1.7.7.6
+Applied.
