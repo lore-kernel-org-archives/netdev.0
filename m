@@ -1,92 +1,69 @@
-From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 14/17] sfc: VLAN filters must only be created if the
- firmware supports this.
-Date: Wed, 15 Jun 2016 17:51:07 +0100
-Message-ID: <6ec99ce0-ba94-e60f-9e71-57d660cb97dc@solarflare.com>
-References: <4daf4ef4-7a8b-4a16-c640-04275298abad@solarflare.com>
+From: Vincent Palatin <vpalatin@chromium.org>
+Subject: Re: net: stmmac: dwmac-rk: fixes for Wake-on-Lan on RK3288
+Date: Wed, 15 Jun 2016 10:04:06 -0700
+Message-ID: <CAP_ceTwbrx0vO8ufMO_SiwXFAxv5OUuQaYYS27gNqPTR6kRXyQ@mail.gmail.com>
+References: <bd302fc6-feae-b99a-4632-a0ff9ead0123@st.com> <1465606839-7722-1-git-send-email-vpalatin@chromium.org>
+ <3d278dd6-0b61-f618-b723-52f9c302c999@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: <linux-net-drivers@solarflare.com>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Douglas Anderson <dianders@chromium.org>,
+	=?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko@sntech.de>,
+	Shunqian Zheng <zhengsq@rock-chips.com>,
+	David Miller <davem@davemloft.net>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:52850 "EHLO
-	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932820AbcFOQw1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 12:52:27 -0400
-In-Reply-To: <4daf4ef4-7a8b-4a16-c640-04275298abad@solarflare.com>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:34312 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751765AbcFORE2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 13:04:28 -0400
+Received: by mail-io0-f174.google.com with SMTP id 5so26683633ioy.1
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 10:04:28 -0700 (PDT)
+In-Reply-To: <3d278dd6-0b61-f618-b723-52f9c302c999@st.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin Habets <mhabets@solarflare.com>
+On Sun, Jun 12, 2016 at 11:46 PM, Giuseppe CAVALLARO
+<peppe.cavallaro@st.com> wrote:
+> On 6/11/2016 3:00 AM, Vincent Palatin wrote:
+>>
+>> In order to support Wake-On-Lan when using the RK3288 integrated MAC
+>> (with an external RGMII PHY), we need to avoid shutting down the regulator
+>> of the external PHY when the MAC is suspended as it's currently done in
+>> the MAC
+>> platform code.
+>> As a first step, create independant callbacks for suspend/resume rather
+>> than
+>> re-using exit/init callbacks. So the dwmac platform driver can behave
+>> differently
+>> on suspend where it might skip shutting the PHY and at module unloading.
+>> Then update the dwmac-rk driver to switch off the PHY regulator only if we
+>> are
+>> not planning to wake up from the LAN.
+>> Finally add the PMT interrupt to the MAC device tree configuration, so we
+>> can
+>> wake up the core from it when the PHY has received the magic packet.
+>
+>
+> IMO these could be sent for net-next and also other glue logic
+> files should be reworked in order to use the new API for coherence.
 
-If it is not supported we simply disable the feature.
+Given they will have the same set of functions for exit/init and
+suspend/resume, you mean duplicating the callbacks like this :
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+@@ -359,6 +359,8 @@ static int sti_dwmac_probe(struct platform_device *pdev)
+        plat_dat->bsp_priv = dwmac;
+        plat_dat->init = sti_dwmac_init;
+        plat_dat->exit = sti_dwmac_exit;
++       plat_dat->suspend = sti_dwmac_exit;
++       plat_dat->resume = sti_dwmac_init;
+        plat_dat->fix_mac_speed = data->fix_retime_src;
 
-For the feature to work we need firmware filter support for
-OUTER_VID + LOC_MAC and for OUTER_VID + LOC_MAC_IG.
-The low-latency firmware can match on OUTER_VID + LOC_MAC but not on
-OUTER_VID + LOC_MAC_IG.
-For the capture packet firmware it is the other way around.
-Only the full-feature variant can match on both combinations.
+        ret = sti_dwmac_init(pdev, plat_dat->bsp_priv);
 
-Incorporates a fix by Andrew Rybchenko <Andrew.Rybchenko@oktetlabs.ru>
-in the net_dev->[hw_]features handling.
+Is this anyhow useful ?
 
-Signed-off-by: Edward Cree <ecree@solarflare.com>
----
- drivers/net/ethernet/sfc/ef10.c       | 13 +++++++++++++
- drivers/net/ethernet/sfc/net_driver.h | 12 ++++++++++++
- 2 files changed, 25 insertions(+)
-
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 626054d..353ceef 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -3977,6 +3977,7 @@ static int efx_ef10_filter_table_probe(struct efx_nic *efx)
- 	MCDI_DECLARE_BUF(inbuf, MC_CMD_GET_PARSER_DISP_INFO_IN_LEN);
- 	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_PARSER_DISP_INFO_OUT_LENMAX);
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+	struct net_device *net_dev = efx->net_dev;
- 	unsigned int pd_match_pri, pd_match_count;
- 	struct efx_ef10_filter_table *table;
- 	struct efx_ef10_vlan *vlan;
-@@ -4026,6 +4027,18 @@ static int efx_ef10_filter_table_probe(struct efx_nic *efx)
- 		}
- 	}
- 
-+	if ((efx_supported_features(efx) & NETIF_F_HW_VLAN_CTAG_FILTER) &&
-+	    !(efx_ef10_filter_match_supported(table,
-+		(EFX_FILTER_MATCH_OUTER_VID | EFX_FILTER_MATCH_LOC_MAC)) &&
-+	      efx_ef10_filter_match_supported(table,
-+		(EFX_FILTER_MATCH_OUTER_VID | EFX_FILTER_MATCH_LOC_MAC_IG)))) {
-+		netif_info(efx, probe, net_dev,
-+			   "VLAN filters are not supported in this firmware variant\n");
-+		net_dev->features &= ~NETIF_F_HW_VLAN_CTAG_FILTER;
-+		efx->fixed_features &= ~NETIF_F_HW_VLAN_CTAG_FILTER;
-+		net_dev->hw_features &= ~NETIF_F_HW_VLAN_CTAG_FILTER;
-+	}
-+
- 	table->entry = vzalloc(HUNT_FILTER_TBL_ROWS * sizeof(*table->entry));
- 	if (!table->entry) {
- 		rc = -ENOMEM;
-diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
-index 7613f79..9ff062a 100644
---- a/drivers/net/ethernet/sfc/net_driver.h
-+++ b/drivers/net/ethernet/sfc/net_driver.h
-@@ -1524,4 +1524,16 @@ static inline void efx_xmit_hwtstamp_pending(struct sk_buff *skb)
- 	skb_shinfo(skb)->tx_flags |= SKBTX_IN_PROGRESS;
- }
- 
-+/* Get all supported features.
-+ * If a feature is not fixed, it is present in hw_features.
-+ * If a feature is fixed, it does not present in hw_features, but
-+ * always in features.
-+ */
-+static inline netdev_features_t efx_supported_features(const struct efx_nic *efx)
-+{
-+	const struct net_device *net_dev = efx->net_dev;
-+
-+	return net_dev->features | net_dev->hw_features;
-+}
-+
- #endif /* EFX_NET_DRIVER_H */
+-- 
+Vincent
