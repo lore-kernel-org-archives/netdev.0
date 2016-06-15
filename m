@@ -1,110 +1,86 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH 2/5] genirq: add flags for controlling the default threaded irq behavior
-Date: Wed, 15 Jun 2016 15:42:03 +0200
-Message-ID: <27519147c77d201c5d380a7a34803d3a7bbc0e18.1465996447.git.pabeni@redhat.com>
-References: <cover.1465996447.git.pabeni@redhat.com>
-Cc: Thomas Gleixner <tglx@linutronix.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	"Peter Zijlstra (Intel)" <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1465996447.git.pabeni@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: zyjzyj2000@gmail.com
+Subject: [PATCH 1/1] ixgbe: add fiber tranceiver plug/unplug notifier
+Date: Wed, 15 Jun 2016 21:36:38 +0800
+Message-ID: <1465997798-3261-2-git-send-email-zyjzyj2000@gmail.com>
+References: <F6FB0E698C9B3143BDF729DF2228664696AC171C@ORSMSX116.amr.corp.intel.com>
+ <1465997798-3261-1-git-send-email-zyjzyj2000@gmail.com>
+Cc: Zhu Yanjun <zyjzyj2000@gmail.com>
+To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
+	donald.c.skidmore@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [111.193.78.174] ([111.193.78.174]:35791 "EHLO mail.zhuyj.com"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932130AbcFONp0 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jun 2016 09:45:26 -0400
+In-Reply-To: <1465997798-3261-1-git-send-email-zyjzyj2000@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-A threadable irq can benefit from irq_set_affinity when running
-in non threaded mode and prefer running unbounded to cpu when in
-threaded mode. Setting the IRQF_TH_NO_AFFINITY flag on irq
-registration allow the irq to achieve both behaviors.
+From: Zhu Yanjun <zyjzyj2000@gmail.com>
 
-A long running threaded irq can starve the system if scheduled under
-SCHED_FIFO. Setting the IRQF_TH_SCHED_NORMAL flag on irq will cause
-the irq thread to run by default under the SCHED_NORMAL scheduler.
+When the fiber tranceiver is plugged/unplugged, a netdev notifier is
+ sent. The userspace tools or kernel can receive this notifier.
 
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
 ---
- include/linux/interrupt.h |  6 ++++++
- kernel/irq/manage.c       | 17 +++++++++++------
- 2 files changed, 17 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   24 +++++++++++++++++++++++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |    2 ++
+ 2 files changed, 25 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/interrupt.h b/include/linux/interrupt.h
-index 85d3738..33c3033 100644
---- a/include/linux/interrupt.h
-+++ b/include/linux/interrupt.h
-@@ -61,6 +61,10 @@
-  *                interrupt handler after suspending interrupts. For system
-  *                wakeup devices users need to implement wakeup detection in
-  *                their interrupt handlers.
-+ * IRQF_TH_SCHED_NORMAL - If the IRQ is threaded, it will use SCHED_NORMAL,
-+ *                instead the default SCHED_FIFO scheduler
-+ * IRQF_TH_NO_AFFINITY - If the IRQ is threaded, the affinity hint will not be
-+ *                enforced in the IRQ thread
-  */
- #define IRQF_SHARED		0x00000080
- #define IRQF_PROBE_SHARED	0x00000100
-@@ -74,6 +78,8 @@
- #define IRQF_NO_THREAD		0x00010000
- #define IRQF_EARLY_RESUME	0x00020000
- #define IRQF_COND_SUSPEND	0x00040000
-+#define IRQF_TH_SCHED_NORMAL	0x00080000
-+#define IRQF_TH_NO_AFFINITY	0x00100000
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 088c47c..1d8c1ff 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -5635,6 +5635,8 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
+ 	hw->revision_id = pdev->revision;
+ 	hw->subsystem_vendor_id = pdev->subsystem_vendor;
+ 	hw->subsystem_device_id = pdev->subsystem_device;
++	hw->last_tranceiver_status = IXGBE_NOT_IMPLEMENTED;
++	hw->tranceiver_polltime = 0;
  
- #define IRQF_TIMER		(__IRQF_TIMER | IRQF_NO_SUSPEND | IRQF_NO_THREAD)
- 
-diff --git a/kernel/irq/manage.c b/kernel/irq/manage.c
-index cce4efd..d695e12 100644
---- a/kernel/irq/manage.c
-+++ b/kernel/irq/manage.c
-@@ -1055,9 +1055,7 @@ static struct task_struct *
- create_irq_thread(struct irqaction *new, unsigned int irq, bool secondary)
+ 	/* Set common capability flags and settings */
+ 	rss = min_t(int, ixgbe_max_rss_indices(adapter), num_online_cpus());
+@@ -7067,7 +7069,27 @@ static void ixgbe_watchdog_subtask(struct ixgbe_adapter *adapter)
+ static void ixgbe_sfp_detection_subtask(struct ixgbe_adapter *adapter)
  {
- 	struct task_struct *t;
--	struct sched_param param = {
--		.sched_priority = MAX_USER_RT_PRIO/2,
--	};
-+	struct sched_param param;
- 
- 	if (!secondary) {
- 		t = kthread_create(irq_thread, new, "irq/%d-%s", irq,
-@@ -1071,7 +1069,12 @@ create_irq_thread(struct irqaction *new, unsigned int irq, bool secondary)
- 	if (IS_ERR(t))
- 		return t;
- 
--	sched_setscheduler_nocheck(t, SCHED_FIFO, &param);
-+	if (new->flags & IRQF_TH_SCHED_NORMAL) {
-+		sched_setscheduler_nocheck(t, SCHED_NORMAL, &param);
-+	} else {
-+		param.sched_priority = MAX_USER_RT_PRIO/2;
-+		sched_setscheduler_nocheck(t, SCHED_FIFO, &param);
+ 	struct ixgbe_hw *hw = &adapter->hw;
+-	s32 err;
++	s32 err, status;
++
++	if ((hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
++	    time_after(jiffies, hw->tranceiver_polltime)) {
++		status = IXGBE_READ_REG(hw, IXGBE_ESDP) & IXGBE_ESDP_SDP2;
++		if (status != hw->last_tranceiver_status) {
++			unsigned long val;
++
++			if (!status) {
++				hw->phy.sfp_type = ixgbe_sfp_type_not_present;
++				val = NETDEV_FIBER_TRANCEIVER_UNPLUG;
++			} else {
++				val = NETDEV_FIBER_TRANCEIVER_PLUG;
++			}
++			rtnl_lock();
++			call_netdevice_notifiers(val, adapter->netdev);
++			rtnl_unlock();
++		}
++		hw->last_tranceiver_status = status;
++		hw->tranceiver_polltime = jiffies + 3 * HZ;
 +	}
  
- 	/*
- 	 * We keep the reference to the task struct even if
-@@ -1100,7 +1103,8 @@ setup_irq_thread(struct irqaction *new, unsigned int irq, bool secondary)
- 	 * correct as we want the thread to move to the cpu(s)
- 	 * on which the requesting code placed the interrupt.
- 	 */
--	set_bit(IRQTF_AFFINITY, &new->thread_flags);
-+	if (!(new->flags & IRQF_TH_NO_AFFINITY))
-+		set_bit(IRQTF_AFFINITY, &new->thread_flags);
- 	return 0;
- }
+ 	/* If crosstalk fix enabled verify the SFP+ cage is full */
+ 	if (adapter->need_crosstalk_fix) {
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+index da3d835..fe19899 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+@@ -3525,6 +3525,8 @@ struct ixgbe_hw {
+ 	bool				force_full_reset;
+ 	bool				allow_unsupported_sfp;
+ 	bool				wol_enabled;
++	s32				last_tranceiver_status;
++	unsigned long			tranceiver_polltime;
+ };
  
-@@ -1549,7 +1553,8 @@ void __irq_reconfigure_action(struct irq_desc *desc, struct irqaction *action,
- 
- 	action->thread = t;
- 	set_bit(IRQTF_FORCED_THREAD, &action->thread_flags);
--	set_bit(IRQTF_AFFINITY, &action->thread_flags);
-+	if (!(action->flags & IRQF_TH_NO_AFFINITY))
-+		set_bit(IRQTF_AFFINITY, &action->thread_flags);
- 
- 	if (!(desc->irq_data.chip->flags & IRQCHIP_ONESHOT_SAFE)) {
- 		/*
+ struct ixgbe_info {
 -- 
-1.8.3.1
+1.7.9.5
