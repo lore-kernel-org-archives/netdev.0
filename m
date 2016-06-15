@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v2 02/17] net: Combine GENEVE and VXLAN port
- notifiers into single functions
-Date: Wed, 15 Jun 2016 15:07:28 -0700
-Message-ID: <20160615220728.15575.62132.stgit@localhost.localdomain>
+Subject: [net-next PATCH v2 03/17] net: Merge VXLAN and GENEVE push
+ notifiers into a single notifier
+Date: Wed, 15 Jun 2016 15:07:35 -0700
+Message-ID: <20160615220735.15575.36973.stgit@localhost.localdomain>
 References: <20160615220449.15575.17031.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,345 +14,203 @@ Cc: hannes@redhat.com, jesse@kernel.org, eugenia@mellanox.com,
 	davem@davemloft.net
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f47.google.com ([209.85.220.47]:33268 "EHLO
-	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752819AbcFOWHb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 18:07:31 -0400
-Received: by mail-pa0-f47.google.com with SMTP id b13so11262843pat.0
-        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 15:07:30 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:33636 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932918AbcFOWHh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 18:07:37 -0400
+Received: by mail-pf0-f180.google.com with SMTP id i123so8978637pfg.0
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 15:07:37 -0700 (PDT)
 In-Reply-To: <20160615220449.15575.17031.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch merges the GENEVE and VXLAN code so that both functions pass
-through a shared code path.  This way we can start the effort of using a
-single function on the network device drivers to handle both of these
-tunnel types.
+This patch merges the notifiers for VXLAN and GENEVE into a single UDP
+tunnel notifier.  The idea is that we will want to only have to make one
+notifier call to receive the list of ports for VXLAN and GENEVE tunnels
+that need to be offloaded.
+
+In addition we add a new set of ndo functions named ndo_udp_tunnel_add and
+ndo_udp_tunnel_del that are meant to allow us to track the tunnel meta-data
+such as port and address family as tunnels are added and removed.  The
+tunnel meta-data is now transported in a structure named udp_tunnel_info
+which for now carries the type, address family, and port number.  In the
+future this could be updated so that we can include a tuple of values
+including things such as the destination IP address and other fields.
+
+I also ended up going with a naming scheme that consisted of using the
+prefix udp_tunnel on function names.  I applied this to the notifier and
+ndo ops as well so that it hopefully points to the fact that these are
+primarily used in the udp_tunnel functions.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/geneve.c     |   48 +++-------------------
- drivers/net/vxlan.c      |   46 +++------------------
- include/net/udp_tunnel.h |   33 +++++++++++++++
- net/ipv4/udp_tunnel.c    |  102 ++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 149 insertions(+), 80 deletions(-)
+ drivers/net/geneve.c      |    2 +-
+ drivers/net/vxlan.c       |    2 +-
+ include/linux/netdevice.h |   22 ++++++++++++++++++++--
+ include/net/geneve.h      |    3 +--
+ include/net/udp_tunnel.h  |    6 ++++++
+ include/net/vxlan.h       |    4 ++--
+ net/ipv4/udp_tunnel.c     |   10 ++++++++++
+ 7 files changed, 41 insertions(+), 8 deletions(-)
 
 diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index e5e33cd01082..d12ee3a92fb5 100644
+index d12ee3a92fb5..771cf4e82422 100644
 --- a/drivers/net/geneve.c
 +++ b/drivers/net/geneve.c
-@@ -398,19 +398,7 @@ static struct socket *geneve_create_sock(struct net *net, bool ipv6,
- 
- static void geneve_notify_add_rx_port(struct geneve_sock *gs)
+@@ -1507,7 +1507,7 @@ static int geneve_netdevice_event(struct notifier_block *unused,
  {
--	struct net_device *dev;
--	struct sock *sk = gs->sock->sk;
--	struct net *net = sock_net(sk);
--	sa_family_t sa_family = geneve_get_sk_family(gs);
--	__be16 port = inet_sk(sk)->inet_sport;
--
--	rcu_read_lock();
--	for_each_netdev_rcu(net, dev) {
--		if (dev->netdev_ops->ndo_add_geneve_port)
--			dev->netdev_ops->ndo_add_geneve_port(dev, sa_family,
--							     port);
--	}
--	rcu_read_unlock();
-+	udp_tunnel_notify_add_rx_port(gs->sock, UDP_TUNNEL_TYPE_GENEVE);
- }
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
  
- static int geneve_hlen(struct genevehdr *gh)
-@@ -549,20 +537,7 @@ static struct geneve_sock *geneve_socket_create(struct net *net, __be16 port,
+-	if (event == NETDEV_OFFLOAD_PUSH_GENEVE)
++	if (event == NETDEV_UDP_TUNNEL_PUSH_INFO)
+ 		geneve_push_rx_ports(dev);
  
- static void geneve_notify_del_rx_port(struct geneve_sock *gs)
- {
--	struct net_device *dev;
--	struct sock *sk = gs->sock->sk;
--	struct net *net = sock_net(sk);
--	sa_family_t sa_family = geneve_get_sk_family(gs);
--	__be16 port = inet_sk(sk)->inet_sport;
--
--	rcu_read_lock();
--	for_each_netdev_rcu(net, dev) {
--		if (dev->netdev_ops->ndo_del_geneve_port)
--			dev->netdev_ops->ndo_del_geneve_port(dev, sa_family,
--							     port);
--	}
--
--	rcu_read_unlock();
-+	udp_tunnel_notify_add_rx_port(gs->sock, UDP_TUNNEL_TYPE_GENEVE);
- }
- 
- static void __geneve_sock_release(struct geneve_sock *gs)
-@@ -1164,29 +1139,20 @@ static struct device_type geneve_type = {
- 	.name = "geneve",
- };
- 
--/* Calls the ndo_add_geneve_port of the caller in order to
-+/* Calls the ndo_add_udp_enc_port of the caller in order to
-  * supply the listening GENEVE udp ports. Callers are expected
-- * to implement the ndo_add_geneve_port.
-+ * to implement the ndo_add_udp_enc_port.
-  */
- static void geneve_push_rx_ports(struct net_device *dev)
- {
- 	struct net *net = dev_net(dev);
- 	struct geneve_net *gn = net_generic(net, geneve_net_id);
- 	struct geneve_sock *gs;
--	sa_family_t sa_family;
--	struct sock *sk;
--	__be16 port;
--
--	if (!dev->netdev_ops->ndo_add_geneve_port)
--		return;
- 
- 	rcu_read_lock();
--	list_for_each_entry_rcu(gs, &gn->sock_list, list) {
--		sk = gs->sock->sk;
--		sa_family = sk->sk_family;
--		port = inet_sk(sk)->inet_sport;
--		dev->netdev_ops->ndo_add_geneve_port(dev, sa_family, port);
--	}
-+	list_for_each_entry_rcu(gs, &gn->sock_list, list)
-+		udp_tunnel_push_rx_port(dev, gs->sock,
-+					UDP_TUNNEL_TYPE_GENEVE);
- 	rcu_read_unlock();
- }
- 
+ 	return NOTIFY_DONE;
 diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 10ad41d60652..fa30e0238794 100644
+index fa30e0238794..888356bc1233 100644
 --- a/drivers/net/vxlan.c
 +++ b/drivers/net/vxlan.c
-@@ -605,37 +605,13 @@ static int vxlan_gro_complete(struct sock *sk, struct sk_buff *skb, int nhoff)
- /* Notify netdevs that UDP port started listening */
- static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
+@@ -3249,7 +3249,7 @@ static int vxlan_netdevice_event(struct notifier_block *unused,
+ 
+ 	if (event == NETDEV_UNREGISTER)
+ 		vxlan_handle_lowerdev_unregister(vn, dev);
+-	else if (event == NETDEV_OFFLOAD_PUSH_VXLAN)
++	else if (event == NETDEV_UDP_TUNNEL_PUSH_INFO)
+ 		vxlan_push_rx_ports(dev);
+ 
+ 	return NOTIFY_DONE;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index d101e4d904ba..7f45e96967ce 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -61,6 +61,8 @@ struct wireless_dev;
+ /* 802.15.4 specific */
+ struct wpan_dev;
+ struct mpls_dev;
++/* UDP Tunnel offloads */
++struct udp_tunnel_info;
+ 
+ void netdev_set_default_ethtool_ops(struct net_device *dev,
+ 				    const struct ethtool_ops *ops);
+@@ -1050,6 +1052,19 @@ struct tc_to_netdev {
+  *	address family that vxlan is not listening to anymore. The operation
+  *	is protected by the vxlan_net->sock_lock.
+  *
++ * void (*ndo_udp_tunnel_add)(struct net_device *dev,
++ *			      struct udp_tunnel_info *ti);
++ *	Called by UDP tunnel to notify a driver about the UDP port and socket
++ *	address family that a UDP tunnel is listnening to. It is called only
++ *	when a new port starts listening. The operation is protected by the
++ *	tunnel socket lock.
++ *
++ * void (*ndo_udp_tunnel_del)(struct net_device *dev,
++ *			      struct udp_tunnel_info *ti);
++ *	Called by UDP tunnel to notify the driver about a UDP port and socket
++ *	address family that the UDP tunnel is not listening to anymore. The
++ *	operation is protected by the tunnel socket lock.
++ *
+  * void* (*ndo_dfwd_add_station)(struct net_device *pdev,
+  *				 struct net_device *dev)
+  *	Called by upper layer devices to accelerate switching or other
+@@ -1269,6 +1284,10 @@ struct net_device_ops {
+ 	void			(*ndo_del_geneve_port)(struct  net_device *dev,
+ 						       sa_family_t sa_family,
+ 						       __be16 port);
++	void			(*ndo_udp_tunnel_add)(struct net_device *dev,
++						      struct udp_tunnel_info *ti);
++	void			(*ndo_udp_tunnel_del)(struct net_device *dev,
++						      struct udp_tunnel_info *ti);
+ 	void*			(*ndo_dfwd_add_station)(struct net_device *pdev,
+ 							struct net_device *dev);
+ 	void			(*ndo_dfwd_del_station)(struct net_device *pdev,
+@@ -2251,8 +2270,7 @@ struct netdev_lag_lower_state_info {
+ #define NETDEV_BONDING_INFO	0x0019
+ #define NETDEV_PRECHANGEUPPER	0x001A
+ #define NETDEV_CHANGELOWERSTATE	0x001B
+-#define NETDEV_OFFLOAD_PUSH_VXLAN	0x001C
+-#define NETDEV_OFFLOAD_PUSH_GENEVE	0x001D
++#define NETDEV_UDP_TUNNEL_PUSH_INFO	0x001C
+ 
+ int register_netdevice_notifier(struct notifier_block *nb);
+ int unregister_netdevice_notifier(struct notifier_block *nb);
+diff --git a/include/net/geneve.h b/include/net/geneve.h
+index f8aff18d6702..3410c4b5a382 100644
+--- a/include/net/geneve.h
++++ b/include/net/geneve.h
+@@ -61,8 +61,7 @@ struct genevehdr {
+ 
+ static inline void geneve_get_rx_port(struct net_device *netdev)
  {
--	struct net_device *dev;
--	struct sock *sk = vs->sock->sk;
--	struct net *net = sock_net(sk);
--	sa_family_t sa_family = vxlan_get_sk_family(vs);
--	__be16 port = inet_sk(sk)->inet_sport;
--
--	rcu_read_lock();
--	for_each_netdev_rcu(net, dev) {
--		if (dev->netdev_ops->ndo_add_vxlan_port)
--			dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
--							    port);
--	}
--	rcu_read_unlock();
-+	udp_tunnel_notify_add_rx_port(vs->sock, UDP_TUNNEL_TYPE_VXLAN);
+-	ASSERT_RTNL();
+-	call_netdevice_notifiers(NETDEV_OFFLOAD_PUSH_GENEVE, netdev);
++	udp_tunnel_get_rx_info(netdev);
  }
  
- /* Notify netdevs that UDP port is no more listening */
- static void vxlan_notify_del_rx_port(struct vxlan_sock *vs)
- {
--	struct net_device *dev;
--	struct sock *sk = vs->sock->sk;
--	struct net *net = sock_net(sk);
--	sa_family_t sa_family = vxlan_get_sk_family(vs);
--	__be16 port = inet_sk(sk)->inet_sport;
--
--	rcu_read_lock();
--	for_each_netdev_rcu(net, dev) {
--		if (dev->netdev_ops->ndo_del_vxlan_port)
--			dev->netdev_ops->ndo_del_vxlan_port(dev, sa_family,
--							    port);
--	}
--	rcu_read_unlock();
-+	udp_tunnel_notify_del_rx_port(vs->sock, UDP_TUNNEL_TYPE_VXLAN);
- }
- 
- /* Add new entry to forwarding table -- assumes lock held */
-@@ -2508,30 +2484,22 @@ static struct device_type vxlan_type = {
- 	.name = "vxlan",
- };
- 
--/* Calls the ndo_add_vxlan_port of the caller in order to
-+/* Calls the ndo_add_udp_enc_port of the caller in order to
-  * supply the listening VXLAN udp ports. Callers are expected
-- * to implement the ndo_add_vxlan_port.
-+ * to implement the ndo_add_udp_enc_port.
-  */
- static void vxlan_push_rx_ports(struct net_device *dev)
- {
- 	struct vxlan_sock *vs;
- 	struct net *net = dev_net(dev);
- 	struct vxlan_net *vn = net_generic(net, vxlan_net_id);
--	sa_family_t sa_family;
--	__be16 port;
- 	unsigned int i;
- 
--	if (!dev->netdev_ops->ndo_add_vxlan_port)
--		return;
--
- 	spin_lock(&vn->sock_lock);
- 	for (i = 0; i < PORT_HASH_SIZE; ++i) {
--		hlist_for_each_entry_rcu(vs, &vn->sock_list[i], hlist) {
--			port = inet_sk(vs->sock->sk)->inet_sport;
--			sa_family = vxlan_get_sk_family(vs);
--			dev->netdev_ops->ndo_add_vxlan_port(dev, sa_family,
--							    port);
--		}
-+		hlist_for_each_entry_rcu(vs, &vn->sock_list[i], hlist)
-+			udp_tunnel_push_rx_port(dev, vs->sock,
-+						UDP_TUNNEL_TYPE_VXLAN);
- 	}
- 	spin_unlock(&vn->sock_lock);
- }
+ #ifdef CONFIG_INET
 diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
-index 59019562d14c..71afbea873a0 100644
+index 71afbea873a0..1c9408a04213 100644
 --- a/include/net/udp_tunnel.h
 +++ b/include/net/udp_tunnel.h
-@@ -84,6 +84,39 @@ struct udp_tunnel_sock_cfg {
- void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
- 			   struct udp_tunnel_sock_cfg *sock_cfg);
+@@ -117,6 +117,12 @@ void udp_tunnel_push_rx_port(struct net_device *dev, struct socket *sock,
+ void udp_tunnel_notify_add_rx_port(struct socket *sock, unsigned short type);
+ void udp_tunnel_notify_del_rx_port(struct socket *sock, unsigned short type);
  
-+/* -- List of parsable UDP tunnel types --
-+ *
-+ * Adding to this list will result in serious debate.  The main issue is
-+ * that this list is essentially a list of workarounds for either poorly
-+ * designed tunnels, or poorly designed device offloads.
-+ *
-+ * The parsing supported via these types should really be used for Rx
-+ * traffic only as the network stack will have already inserted offsets for
-+ * the location of the headers in the skb.  In addition any ports that are
-+ * pushed should be kept within the namespace without leaking to other
-+ * devices such as VFs or other ports on the same device.
-+ *
-+ * It is strongly encouraged to use CHECKSUM_COMPLETE for Rx to avoid the
-+ * need to use this for Rx checksum offload.  It should not be necessary to
-+ * call this function to perform Tx offloads on outgoing traffic.
-+ */
-+enum udp_parsable_tunnel_type {
-+	UDP_TUNNEL_TYPE_VXLAN,		/* RFC 7348 */
-+	UDP_TUNNEL_TYPE_GENEVE,		/* draft-ietf-nvo3-geneve */
-+};
-+
-+struct udp_tunnel_info {
-+	unsigned short type;
-+	sa_family_t sa_family;
-+	__be16 port;
-+};
-+
-+/* Notify network devices of offloadable types */
-+void udp_tunnel_push_rx_port(struct net_device *dev, struct socket *sock,
-+			     unsigned short type);
-+void udp_tunnel_notify_add_rx_port(struct socket *sock, unsigned short type);
-+void udp_tunnel_notify_del_rx_port(struct socket *sock, unsigned short type);
++static inline void udp_tunnel_get_rx_info(struct net_device *dev)
++{
++	ASSERT_RTNL();
++	call_netdevice_notifiers(NETDEV_UDP_TUNNEL_PUSH_INFO, dev);
++}
 +
  /* Transmit the skb using UDP encapsulation. */
  void udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
  			 __be32 src, __be32 dst, __u8 tos, __u8 ttl,
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index 7d944941f32f..c62e2ed1c3af 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -4,6 +4,7 @@
+ #include <linux/if_vlan.h>
+ #include <net/udp_tunnel.h>
+ #include <net/dst_metadata.h>
++#include <net/udp_tunnel.h>
+ 
+ /* VXLAN protocol (RFC 7348) header:
+  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+@@ -390,8 +391,7 @@ static inline __be32 vxlan_compute_rco(unsigned int start, unsigned int offset)
+ 
+ static inline void vxlan_get_rx_port(struct net_device *netdev)
+ {
+-	ASSERT_RTNL();
+-	call_netdevice_notifiers(NETDEV_OFFLOAD_PUSH_VXLAN, netdev);
++	udp_tunnel_get_rx_info(netdev);
+ }
+ 
+ static inline unsigned short vxlan_get_sk_family(struct vxlan_sock *vs)
 diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
-index 47f12c73d959..8174753e6494 100644
+index 8174753e6494..683e494d9000 100644
 --- a/net/ipv4/udp_tunnel.c
 +++ b/net/ipv4/udp_tunnel.c
-@@ -76,6 +76,108 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
- }
- EXPORT_SYMBOL_GPL(setup_udp_tunnel_sock);
- 
-+static void __udp_tunnel_push_rx_port(struct net_device *dev,
-+				      struct udp_tunnel_info *ti)
-+{
-+	switch (ti->type) {
-+	case UDP_TUNNEL_TYPE_VXLAN:
-+		if (!dev->netdev_ops->ndo_add_vxlan_port)
-+			break;
-+
-+		dev->netdev_ops->ndo_add_vxlan_port(dev,
-+						    ti->sa_family,
-+						    ti->port);
-+		break;
-+	case UDP_TUNNEL_TYPE_GENEVE:
-+		if (!dev->netdev_ops->ndo_add_geneve_port)
-+			break;
-+
-+		dev->netdev_ops->ndo_add_geneve_port(dev,
-+						     ti->sa_family,
-+						     ti->port);
-+		break;
-+	default:
-+		break;
+@@ -79,6 +79,11 @@ EXPORT_SYMBOL_GPL(setup_udp_tunnel_sock);
+ static void __udp_tunnel_push_rx_port(struct net_device *dev,
+ 				      struct udp_tunnel_info *ti)
+ {
++	if (dev->netdev_ops->ndo_udp_tunnel_add) {
++		dev->netdev_ops->ndo_udp_tunnel_add(dev, ti);
++		return;
 +	}
-+}
 +
-+void udp_tunnel_push_rx_port(struct net_device *dev, struct socket *sock,
-+			     unsigned short type)
-+{
-+	struct sock *sk = sock->sk;
-+	struct udp_tunnel_info ti;
-+
-+	ti.type = type;
-+	ti.sa_family = sk->sk_family;
-+	ti.port = inet_sk(sk)->inet_sport;
-+
-+	__udp_tunnel_push_rx_port(dev, &ti);
-+}
-+EXPORT_SYMBOL_GPL(udp_tunnel_push_rx_port);
-+
-+/* Notify netdevs that UDP port started listening */
-+void udp_tunnel_notify_add_rx_port(struct socket *sock, unsigned short type)
-+{
-+	struct sock *sk = sock->sk;
-+	struct net *net = sock_net(sk);
-+	struct udp_tunnel_info ti;
-+	struct net_device *dev;
-+
-+	ti.type = type;
-+	ti.sa_family = sk->sk_family;
-+	ti.port = inet_sk(sk)->inet_sport;
-+
-+	rcu_read_lock();
-+	for_each_netdev_rcu(net, dev)
-+		__udp_tunnel_push_rx_port(dev, &ti);
-+	rcu_read_unlock();
-+}
-+EXPORT_SYMBOL_GPL(udp_tunnel_notify_add_rx_port);
-+
-+static void __udp_tunnel_pull_rx_port(struct net_device *dev,
-+				      struct udp_tunnel_info *ti)
-+{
-+	switch (ti->type) {
-+	case UDP_TUNNEL_TYPE_VXLAN:
-+		if (!dev->netdev_ops->ndo_del_vxlan_port)
-+			break;
-+
-+		dev->netdev_ops->ndo_del_vxlan_port(dev,
-+						    ti->sa_family,
-+						    ti->port);
-+		break;
-+	case UDP_TUNNEL_TYPE_GENEVE:
-+		if (!dev->netdev_ops->ndo_del_geneve_port)
-+			break;
-+
-+		dev->netdev_ops->ndo_del_geneve_port(dev,
-+						     ti->sa_family,
-+						     ti->port);
-+		break;
-+	default:
-+		break;
+ 	switch (ti->type) {
+ 	case UDP_TUNNEL_TYPE_VXLAN:
+ 		if (!dev->netdev_ops->ndo_add_vxlan_port)
+@@ -137,6 +142,11 @@ EXPORT_SYMBOL_GPL(udp_tunnel_notify_add_rx_port);
+ static void __udp_tunnel_pull_rx_port(struct net_device *dev,
+ 				      struct udp_tunnel_info *ti)
+ {
++	if (dev->netdev_ops->ndo_udp_tunnel_del) {
++		dev->netdev_ops->ndo_udp_tunnel_del(dev, ti);
++		return;
 +	}
-+}
 +
-+/* Notify netdevs that UDP port is no more listening */
-+void udp_tunnel_notify_del_rx_port(struct socket *sock, unsigned short type)
-+{
-+	struct sock *sk = sock->sk;
-+	struct net *net = sock_net(sk);
-+	struct udp_tunnel_info ti;
-+	struct net_device *dev;
-+
-+	ti.type = type;
-+	ti.sa_family = sk->sk_family;
-+	ti.port = inet_sk(sk)->inet_sport;
-+
-+	rcu_read_lock();
-+	for_each_netdev_rcu(net, dev)
-+		__udp_tunnel_pull_rx_port(dev, &ti);
-+	rcu_read_unlock();
-+}
-+EXPORT_SYMBOL_GPL(udp_tunnel_notify_del_rx_port);
-+
- void udp_tunnel_xmit_skb(struct rtable *rt, struct sock *sk, struct sk_buff *skb,
- 			 __be32 src, __be32 dst, __u8 tos, __u8 ttl,
- 			 __be16 df, __be16 src_port, __be16 dst_port,
+ 	switch (ti->type) {
+ 	case UDP_TUNNEL_TYPE_VXLAN:
+ 		if (!dev->netdev_ops->ndo_del_vxlan_port)
