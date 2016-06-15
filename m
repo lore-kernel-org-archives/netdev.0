@@ -1,40 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] Remove the redundant initialization
- statement.
-Date: Tue, 14 Jun 2016 22:28:23 -0700 (PDT)
-Message-ID: <20160614.222823.1233657486694266740.davem@davemloft.net>
-References: <1465808470-27424-1-git-send-email-sudarsana.kalluru@qlogic.com>
+Subject: Re: [PATCH net-next] net/sched: flower: Return error when hw can't
+ offload and skip_sw is set
+Date: Tue, 14 Jun 2016 22:30:06 -0700 (PDT)
+Message-ID: <20160614.223006.189994765324675237.davem@davemloft.net>
+References: <20160613090639.31110-1-amir@vadai.me>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yuval.Mintz@qlogic.com
-To: sudarsana.kalluru@qlogic.com
+Cc: netdev@vger.kernel.org, jiri@mellanox.com,
+	john.r.fastabend@intel.com, jakub.kicinski@netronome.com,
+	ogerlitz@mellanox.com, hadarh@mellanox.com, amirva@mellanox.com
+To: amir@vadai.me
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54144 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:54183 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750745AbcFOF2Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 01:28:25 -0400
-In-Reply-To: <1465808470-27424-1-git-send-email-sudarsana.kalluru@qlogic.com>
+	with ESMTP id S1750745AbcFOFaI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 01:30:08 -0400
+In-Reply-To: <20160613090639.31110-1-amir@vadai.me>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Date: Mon, 13 Jun 2016 05:01:10 -0400
+From: Amir Vadai <amir@vadai.me>
+Date: Mon, 13 Jun 2016 12:06:39 +0300
 
-> The callback ".getcbx" is being initialized twice. This was introduced by
-> the commit 0fdeb72aa6c9 ("qede: Add dcbnl support."). The patch removes the
-> redundant initialization statement.
+> From: Amir Vadai <amirva@mellanox.com>
 > 
-> Reported-by: Julia Lawall <julia.lawall@lip6.fr> 
-> Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-> Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+> When skip_sw is set and hardware fails to apply filter, return error to
+> user. This will make error propagation logic similar to the one
+> currently used in u32 classifier.
+> Also, changed code to use tc_skip_sw() utility function.
+> 
+> Signed-off-by: Amir Vadai <amirva@mellanox.com>
 
-This subject line is not properly formed.
-
-After "[PATCH ...] " you must provide a proper subsystem prefix specifier
-followed by a colon character, and a SPACE.
-
-Otherwise nobody reading the GIT shortlog has any idea where in the kernel
-your change is taking place.
-
-An appropriate subsystem prefix for this patch woult be "qede: ".
+Applied, thanks.
