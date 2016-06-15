@@ -1,70 +1,56 @@
-From: Vaishali Thakkar <vaishali.thakkar@oracle.com>
-Subject: Re: [PATCH] libertas: Add spinlock to avoid race condition
-Date: Wed, 15 Jun 2016 18:31:39 +0530
-Message-ID: <576151B3.9040802@oracle.com>
-References: <1465990443-19738-1-git-send-email-andrianov@ispras.ru>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] net: Fragment large datagrams even when IP_HDRINCL is
+ set.
+Date: Wed, 15 Jun 2016 15:03:39 +0200
+Message-ID: <42afc113-d6b1-e289-b4ea-5a83d10d7b19@stressinduktion.org>
+References: <1464013425-31129-1-git-send-email-alan.davey@metaswitch.com>
+ <20160531.113913.1477085966766110028.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ldv-project@linuxtesting.org
-To: Pavel Andrianov <andrianov@ispras.ru>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465990443-19738-1-git-send-email-andrianov@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net
+To: David Miller <davem@davemloft.net>, alan.davey@metaswitch.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:50628 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753154AbcFONDm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 09:03:42 -0400
+In-Reply-To: <20160531.113913.1477085966766110028.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On Wednesday 15 June 2016 05:04 PM, Pavel Andrianov wrote:
-> lbs_mac_event_disconnected may free priv->currenttxskb
-> while lbs_hard_start_xmit accesses to it.
-> The patch adds a spinlock for mutual exclusion.
+On 31.05.2016 20:39, David Miller wrote:
+> From: Alan Davey <alan.davey@metaswitch.com>
+> Date: Mon, 23 May 2016 15:23:45 +0100
 > 
-> Tested on OLPC XO-1 (usb8388) and XO-1.5 (sd8686) with v4.7-rc3.
+>> One of the bugs documented in the raw(7) man page is as follows: When the
+>> IP_HDRINCL option is set, datagrams will not be fragmented and are limited to
+>> the interface MTU.
+>>
+>> This patch fixes the bug by removing the check for "length > rt->dst.dev->mtu"
+>> in raw_send_hdrinc() (net/ipv4/raw.c).  Datagrams are no longer limited to the
+>> interface MTU size if the IP_HDRINCL option is set, but are fragmented, if
+>> necessary, in the same way as all other datagrams.
+>>
+>> Signed-off-by: Alan Davey <alan.davey@metaswitch.com>
 > 
-> Confirmed that lbs_mac_event_disconnected is being called on the
-> station when hostapd on access point is given SIGHUP.
+> This is not a bug, it's a feature and it's how RAW ipv4 sockets have behaved
+> for two decades.
 > 
-> Signed-off-by: Pavel <andrianov@ispras.ru>
-> Tested-by: James Cameron <quozl@laptop.org>
+> If the user wants to use hdr inclusion, he can send multiple frames and set
+> the fragmentation bits appropriately.
 
-Looks good to me.
+Actually this is difficult, as only the kernel is in control of the
+IP_ID generator and it should never leak its state to user space.
 
-Acked-by: Vaishali Thakkar <vaishali.thakkar@oracle.com>
+The probability of IP_ID collisions would increase drastically because
+of this, even imagine different programs doing so concurrently.
 
-> ---
->  drivers/net/wireless/marvell/libertas/cmdresp.c | 4 ++++
->  1 file changed, 4 insertions(+)
-> 
-> diff --git a/drivers/net/wireless/marvell/libertas/cmdresp.c b/drivers/net/wireless/marvell/libertas/cmdresp.c
-> index c95bf6d..c67ae07 100644
-> --- a/drivers/net/wireless/marvell/libertas/cmdresp.c
-> +++ b/drivers/net/wireless/marvell/libertas/cmdresp.c
-> @@ -27,6 +27,8 @@
->  void lbs_mac_event_disconnected(struct lbs_private *priv,
->  				bool locally_generated)
->  {
-> +	unsigned long flags;
-> +
->  	if (priv->connect_status != LBS_CONNECTED)
->  		return;
->  
-> @@ -46,9 +48,11 @@ void lbs_mac_event_disconnected(struct lbs_private *priv,
->  	netif_carrier_off(priv->dev);
->  
->  	/* Free Tx and Rx packets */
-> +	spin_lock_irqsave(&priv->driver_lock, flags);
->  	kfree_skb(priv->currenttxskb);
->  	priv->currenttxskb = NULL;
->  	priv->tx_pending_len = 0;
-> +	spin_unlock_irqrestore(&priv->driver_lock, flags);
->  
->  	priv->connect_status = LBS_DISCONNECTED;
->  
-> 
+Basically those checks are pretty much unnecessary anyway, if we set raw
+sockets by default into inet->pmtudisc IPPMTUDISC_DO mode, so a user can
+easily control the fragmentation on a raw socket themselves based on
+already provided infrastructure.
 
--- 
-Vaishali
+Bye,
+Hannes
