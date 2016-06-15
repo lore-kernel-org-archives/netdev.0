@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v2 06/17] bnxt: Move GENEVE support from hard-coded
- port to using port notifier
-Date: Wed, 15 Jun 2016 15:07:54 -0700
-Message-ID: <20160615220754.15575.94576.stgit@localhost.localdomain>
+Subject: [net-next PATCH v2 07/17] benet: Replace ndo_add/del_vxlan_port
+ with ndo_add/del_udp_enc_port
+Date: Wed, 15 Jun 2016 15:08:00 -0700
+Message-ID: <20160615220800.15575.38275.stgit@localhost.localdomain>
 References: <20160615220449.15575.17031.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,114 +14,153 @@ Cc: hannes@redhat.com, jesse@kernel.org, eugenia@mellanox.com,
 	davem@davemloft.net
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:36135 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753113AbcFOWH4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 18:07:56 -0400
-Received: by mail-pf0-f174.google.com with SMTP id t190so12746480pfb.3
-        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 15:07:55 -0700 (PDT)
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:34460 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753640AbcFOWIC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 18:08:02 -0400
+Received: by mail-pf0-f178.google.com with SMTP id 62so12748785pfd.1
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 15:08:02 -0700 (PDT)
 In-Reply-To: <20160615220449.15575.17031.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The port number for GENEVE is hard coded into the bnxt driver.  This is the
-kind of thing we want to avoid going forward.  For now I will integrate
-this back into the port notifier so that we can change the GENEVE port
-number if we need to in the future.
+This change replaces the network device operations for adding or removing a
+VXLAN port with operations that are more generically defined to be used for
+any UDP offload port but provide a type.  As such by just adding a line to
+verify that the offload type if VXLAN we can maintain the same
+functionality.
+
+I have also gone though and removed the BE2NET_VXLAN config option since it
+no longer relies on the VXLAN code anyway.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/ethernet/broadcom/bnxt/bnxt.c |   36 ++++++++++++++++++++++++-----
- drivers/net/ethernet/broadcom/bnxt/bnxt.h |    3 ++
- 2 files changed, 33 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/emulex/benet/Kconfig   |    8 -------
+ drivers/net/ethernet/emulex/benet/be_main.c |   32 +++++++++++++--------------
+ 2 files changed, 15 insertions(+), 25 deletions(-)
 
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index bb66091b7dd6..8755c554a61b 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -5071,13 +5071,8 @@ static int __bnxt_open_nic(struct bnxt *bp, bool irq_re_init, bool link_re_init)
- 			netdev_warn(bp->dev, "failed to update phy settings\n");
+diff --git a/drivers/net/ethernet/emulex/benet/Kconfig b/drivers/net/ethernet/emulex/benet/Kconfig
+index 7108563260ae..b4853ec9de8d 100644
+--- a/drivers/net/ethernet/emulex/benet/Kconfig
++++ b/drivers/net/ethernet/emulex/benet/Kconfig
+@@ -13,11 +13,3 @@ config BE2NET_HWMON
+ 	---help---
+ 	  Say Y here if you want to expose thermal sensor data on
+ 	  be2net network adapter.
+-
+-config BE2NET_VXLAN
+-        bool "VXLAN offload support on be2net driver"
+-        default y
+-        depends on BE2NET && VXLAN && !(BE2NET=y && VXLAN=m)
+-        ---help---
+-	  Say Y here if you want to enable VXLAN offload support on
+-	  be2net driver.
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 2451a47e88ab..3d947897bb6a 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -3625,10 +3625,8 @@ static int be_open(struct net_device *netdev)
+ 		be_link_status_update(adapter, link_status);
+ 
+ 	netif_tx_start_all_queues(netdev);
+-#ifdef CONFIG_BE2NET_VXLAN
+ 	if (skyhawk_chip(adapter))
+-		vxlan_get_rx_port(netdev);
+-#endif
++		udp_tunnel_get_rx_info(netdev);
+ 
+ 	return 0;
+ err:
+@@ -3755,7 +3753,6 @@ static void be_cancel_err_detection(struct be_adapter *adapter)
+ 	}
+ }
+ 
+-#ifdef CONFIG_BE2NET_VXLAN
+ static void be_disable_vxlan_offloads(struct be_adapter *adapter)
+ {
+ 	struct net_device *netdev = adapter->netdev;
+@@ -3774,7 +3771,6 @@ static void be_disable_vxlan_offloads(struct be_adapter *adapter)
+ 	netdev->hw_features &= ~(NETIF_F_GSO_UDP_TUNNEL);
+ 	netdev->features &= ~(NETIF_F_GSO_UDP_TUNNEL);
+ }
+-#endif
+ 
+ static void be_calculate_vf_res(struct be_adapter *adapter, u16 num_vfs,
+ 				struct be_resources *vft_res)
+@@ -3875,9 +3871,7 @@ static int be_clear(struct be_adapter *adapter)
+ 					&vft_res);
  	}
  
--	if (irq_re_init) {
-+	if (irq_re_init)
- 		udp_tunnel_get_rx_info(bp->dev);
--		if (!bnxt_hwrm_tunnel_dst_port_alloc(
--				bp, htons(0x17c1),
--				TUNNEL_DST_PORT_FREE_REQ_TUNNEL_TYPE_GENEVE))
--			bp->nge_port_cnt = 1;
--	}
+-#ifdef CONFIG_BE2NET_VXLAN
+ 	be_disable_vxlan_offloads(adapter);
+-#endif
+ 	kfree(adapter->pmac_id);
+ 	adapter->pmac_id = NULL;
  
- 	set_bit(BNXT_STATE_OPEN, &bp->state);
- 	bnxt_enable_int(bp);
-@@ -5670,6 +5665,15 @@ static void bnxt_sp_task(struct work_struct *work)
- 		bnxt_hwrm_tunnel_dst_port_free(
- 			bp, TUNNEL_DST_PORT_FREE_REQ_TUNNEL_TYPE_VXLAN);
- 	}
-+	if (test_and_clear_bit(BNXT_GENEVE_ADD_PORT_SP_EVENT, &bp->sp_event)) {
-+		bnxt_hwrm_tunnel_dst_port_alloc(
-+			bp, bp->nge_port,
-+			TUNNEL_DST_PORT_FREE_REQ_TUNNEL_TYPE_GENEVE);
-+	}
-+	if (test_and_clear_bit(BNXT_GENEVE_DEL_PORT_SP_EVENT, &bp->sp_event)) {
-+		bnxt_hwrm_tunnel_dst_port_free(
-+			bp, TUNNEL_DST_PORT_FREE_REQ_TUNNEL_TYPE_GENEVE);
-+	}
- 	if (test_and_clear_bit(BNXT_RESET_TASK_SP_EVENT, &bp->sp_event)) {
- 		/* bnxt_reset_task() calls bnxt_close_nic() which waits
- 		 * for BNXT_STATE_IN_SP_TASK to clear.
-@@ -6067,6 +6071,16 @@ static void bnxt_udp_tunnel_add(struct net_device *dev,
- 			schedule_work(&bp->sp_task);
- 		}
- 		break;
-+	case UDP_TUNNEL_TYPE_GENEVE:
-+		if (bp->nge_port_cnt && bp->nge_port != ti->port)
-+			return;
+@@ -4705,7 +4699,6 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+ 				       0, 0, nlflags, filter_mask, NULL);
+ }
+ 
+-#ifdef CONFIG_BE2NET_VXLAN
+ /* VxLAN offload Notes:
+  *
+  * The stack defines tunnel offload flags (hw_enc_features) for IP and doesn't
+@@ -4720,13 +4713,17 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
+  * adds more than one port, disable offloads and don't re-enable them again
+  * until after all the tunnels are removed.
+  */
+-static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+-			      __be16 port)
++static void be_add_vxlan_port(struct net_device *netdev,
++			      struct udp_tunnel_info *ti)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 	struct device *dev = &adapter->pdev->dev;
++	__be16 port = ti->port;
+ 	int status;
+ 
++	if (ti->type != UDP_TUNNEL_TYPE_VXLAN)
++		return;
 +
-+		bp->nge_port_cnt++;
-+		if (bp->nge_port_cnt == 1) {
-+			bp->nge_port = ti->port;
-+			set_bit(BNXT_GENEVE_ADD_PORT_SP_EVENT, &bp->sp_event);
-+		}
-+		break;
- 	default:
+ 	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
  		return;
- 	}
-@@ -6096,6 +6110,16 @@ static void bnxt_udp_tunnel_del(struct net_device *dev,
  
- 		set_bit(BNXT_VXLAN_DEL_PORT_SP_EVENT, &bp->sp_event);
- 		break;
-+	case UDP_TUNNEL_TYPE_GENEVE:
-+		if (!bp->nge_port_cnt || bp->nge_port != ti->port)
-+			return;
-+		bp->nge_port_cnt--;
+@@ -4774,10 +4771,14 @@ err:
+ 	be_disable_vxlan_offloads(adapter);
+ }
+ 
+-static void be_del_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
+-			      __be16 port)
++static void be_del_vxlan_port(struct net_device *netdev,
++			      struct udp_tunnel_info *ti)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
++	__be16 port = ti->port;
 +
-+		if (bp->nge_port_cnt != 0)
-+			return;
-+
-+		set_bit(BNXT_GENEVE_DEL_PORT_SP_EVENT, &bp->sp_event);
-+		break;
- 	default:
++	if (ti->type != UDP_TUNNEL_TYPE_VXLAN)
++		return;
+ 
+ 	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
  		return;
- 	}
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.h b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-index 2824d65b2e35..9878c1db4402 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.h
-@@ -991,6 +991,7 @@ struct bnxt {
- 	__be16			vxlan_port;
- 	u8			vxlan_port_cnt;
- 	__le16			vxlan_fw_dst_port_id;
-+	__be16			nge_port;
- 	u8			nge_port_cnt;
- 	__le16			nge_fw_dst_port_id;
+@@ -4839,7 +4840,6 @@ static netdev_features_t be_features_check(struct sk_buff *skb,
  
-@@ -1018,6 +1019,8 @@ struct bnxt {
- #define BNXT_HWRM_PF_UNLOAD_SP_EVENT	8
- #define BNXT_PERIODIC_STATS_SP_EVENT	9
- #define BNXT_HWRM_PORT_MODULE_SP_EVENT	10
-+#define BNXT_GENEVE_ADD_PORT_SP_EVENT	11
-+#define BNXT_GENEVE_DEL_PORT_SP_EVENT	12
+ 	return features;
+ }
+-#endif
  
- 	struct bnxt_pf_info	pf;
- #ifdef CONFIG_BNXT_SRIOV
+ static int be_get_phys_port_id(struct net_device *dev,
+ 			       struct netdev_phys_item_id *ppid)
+@@ -4887,11 +4887,9 @@ static const struct net_device_ops be_netdev_ops = {
+ #ifdef CONFIG_NET_RX_BUSY_POLL
+ 	.ndo_busy_poll		= be_busy_poll,
+ #endif
+-#ifdef CONFIG_BE2NET_VXLAN
+-	.ndo_add_vxlan_port	= be_add_vxlan_port,
+-	.ndo_del_vxlan_port	= be_del_vxlan_port,
++	.ndo_udp_tunnel_add	= be_add_vxlan_port,
++	.ndo_udp_tunnel_del	= be_del_vxlan_port,
+ 	.ndo_features_check	= be_features_check,
+-#endif
+ 	.ndo_get_phys_port_id   = be_get_phys_port_id,
+ };
+ 
