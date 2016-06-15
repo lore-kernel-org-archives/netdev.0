@@ -1,76 +1,106 @@
-From: John Crispin <john@phrozen.org>
-Subject: [PATCH 3/4] net-next: mediatek: add IRQ locking
-Date: Wed, 15 Jun 2016 16:58:49 +0200
-Message-ID: <1466002730-58476-4-git-send-email-john@phrozen.org>
+From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+Subject: [PATCH 2/4] net-next: mediatek: don't use intermediate variables to
+ store IRQ masks
+Date: Wed, 15 Jun 2016 16:58:48 +0200
+Message-ID: <1466002730-58476-3-git-send-email-john@phrozen.org>
 References: <1466002730-58476-1-git-send-email-john@phrozen.org>
-Cc: Felix Fietkau <nbd@nbd.name>, Sean Wang <keyhaede@gmail.com>,
-	netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
-	linux-kernel@vger.kernel.org, John Crispin <john@phrozen.org>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1466002730-58476-1-git-send-email-john@phrozen.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Sean Wang <keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, Felix Fietkau <nbd-Vt+b4OUoWG0@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1466002730-58476-1-git-send-email-john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The code that enables and disables IRQs is missing proper locking. After
-adding the IRQ grouping patch and routing the RX and TX IRQs to different
-cores we experienced IRQ stalls. Fix this by adding proper locking.
-We use a dedicated lock to reduce the latency if the IRQ code.
+The code currently uses variables to store and never modify the bit masks
+of interrupts. This is legacy code from an early version of the driver
+that supported MIPS based SoCs where the IRQ bits depended on the actual
+SoC. As the bits are the same for all ARM based SoCs using this driver we
+can remove the intermediate variables.
 
-Signed-off-by: John Crispin <john@phrozen.org>
+Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
 ---
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    7 +++++++
- drivers/net/ethernet/mediatek/mtk_eth_soc.h |    1 +
- 2 files changed, 8 insertions(+)
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c |   22 ++++++++++------------
+ 1 file changed, 10 insertions(+), 12 deletions(-)
 
 diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index cc38eae..c7da00b 100644
+index b3032f4..cc38eae 100644
 --- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
 +++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -300,18 +300,24 @@ static void mtk_mdio_cleanup(struct mtk_eth *eth)
- 
- static inline void mtk_irq_disable(struct mtk_eth *eth, u32 mask)
- {
-+	unsigned long flags;
- 	u32 val;
- 
-+	spin_lock_irqsave(&eth->irq_lock, flags);
- 	val = mtk_r32(eth, MTK_QDMA_INT_MASK);
- 	mtk_w32(eth, val & ~mask, MTK_QDMA_INT_MASK);
-+	spin_unlock_irqrestore(&eth->irq_lock, flags);
+@@ -775,7 +775,7 @@ drop:
  }
  
- static inline void mtk_irq_enable(struct mtk_eth *eth, u32 mask)
+ static int mtk_poll_rx(struct napi_struct *napi, int budget,
+-		       struct mtk_eth *eth, u32 rx_intr)
++		       struct mtk_eth *eth)
  {
-+	unsigned long flags;
- 	u32 val;
+ 	struct mtk_rx_ring *ring = &eth->rx_ring;
+ 	int idx = ring->calc_idx;
+@@ -863,7 +863,7 @@ release_desc:
+ 	}
  
-+	spin_lock_irqsave(&eth->irq_lock, flags);
- 	val = mtk_r32(eth, MTK_QDMA_INT_MASK);
- 	mtk_w32(eth, val | mask, MTK_QDMA_INT_MASK);
-+	spin_unlock_irqrestore(&eth->irq_lock, flags);
+ 	if (done < budget)
+-		mtk_w32(eth, rx_intr, MTK_QMTK_INT_STATUS);
++		mtk_w32(eth, MTK_RX_DONE_INT, MTK_QMTK_INT_STATUS);
+ 
+ 	return done;
  }
+@@ -946,28 +946,26 @@ static int mtk_poll_tx(struct mtk_eth *eth, int budget, bool *tx_again)
+ static int mtk_poll(struct napi_struct *napi, int budget)
+ {
+ 	struct mtk_eth *eth = container_of(napi, struct mtk_eth, rx_napi);
+-	u32 status, status2, mask, tx_intr, rx_intr, status_intr;
++	u32 status, status2, mask;
+ 	int tx_done, rx_done;
+ 	bool tx_again = false;
  
- static int mtk_set_mac_address(struct net_device *dev, void *p)
-@@ -1739,6 +1745,7 @@ static int mtk_probe(struct platform_device *pdev)
- 		return PTR_ERR(eth->base);
+ 	status = mtk_r32(eth, MTK_QMTK_INT_STATUS);
+ 	status2 = mtk_r32(eth, MTK_INT_STATUS2);
+-	tx_intr = MTK_TX_DONE_INT;
+-	rx_intr = MTK_RX_DONE_INT;
+-	status_intr = (MTK_GDM1_AF | MTK_GDM2_AF);
+ 	tx_done = 0;
+ 	rx_done = 0;
+ 	tx_again = 0;
  
- 	spin_lock_init(&eth->page_lock);
-+	spin_lock_init(&eth->irq_lock);
+-	if (status & tx_intr)
++	if (status & MTK_TX_DONE_INT)
+ 		tx_done = mtk_poll_tx(eth, budget, &tx_again);
  
- 	eth->ethsys = syscon_regmap_lookup_by_phandle(pdev->dev.of_node,
- 						      "mediatek,ethsys");
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.h b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-index a5eb7c6..3159d2a 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.h
-@@ -373,6 +373,7 @@ struct mtk_eth {
- 	void __iomem			*base;
- 	struct reset_control		*rstc;
- 	spinlock_t			page_lock;
-+	spinlock_t			irq_lock;
- 	struct net_device		dummy_dev;
- 	struct net_device		*netdev[MTK_MAX_DEVS];
- 	struct mtk_mac			*mac[MTK_MAX_DEVS];
+-	if (status & rx_intr)
+-		rx_done = mtk_poll_rx(napi, budget, eth, rx_intr);
++	if (status & MTK_RX_DONE_INT)
++		rx_done = mtk_poll_rx(napi, budget, eth);
+ 
+-	if (unlikely(status2 & status_intr)) {
++	if (unlikely(status2 & (MTK_GDM1_AF | MTK_GDM2_AF))) {
+ 		mtk_stats_update(eth);
+-		mtk_w32(eth, status_intr, MTK_INT_STATUS2);
++		mtk_w32(eth, (MTK_GDM1_AF | MTK_GDM2_AF),
++			MTK_INT_STATUS2);
+ 	}
+ 
+ 	if (unlikely(netif_msg_intr(eth))) {
+@@ -985,7 +983,7 @@ static int mtk_poll(struct napi_struct *napi, int budget)
+ 		return budget;
+ 
+ 	napi_complete(napi);
+-	mtk_irq_enable(eth, tx_intr | rx_intr);
++	mtk_irq_enable(eth, MTK_RX_DONE_INT | MTK_RX_DONE_INT);
+ 
+ 	return rx_done;
+ }
 -- 
 1.7.10.4
