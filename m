@@ -1,26 +1,56 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next v3 0/7] vmxnet3: upgrade to version 3
-Date: Wed, 15 Jun 2016 00:23:52 -0700 (PDT)
-Message-ID: <20160615.002352.1381014639121724661.davem@davemloft.net>
-References: <1465869007-10822-1-git-send-email-skhare@vmware.com>
+From: Yisen Zhuang <Yisen.zhuang@huawei.com>
+Subject: Re: [PATCH] net: hns: update the dependency
+Date: Wed, 15 Jun 2016 15:34:14 +0800
+Message-ID: <576104F6.5090808@huawei.com>
+References: <1465818987-218513-1-git-send-email-Yisen.Zhuang@huawei.com>
+ <20160614.222613.1939489970427406792.davem@davemloft.net>
+ <5760EFB5.4040909@huawei.com>
+ <20160614.232412.270313987866244147.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	pv-drivers@vmware.com
-To: skhare@vmware.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <arnd@arndb.de>, <charles.chenxin@huawei.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linuxarm@huawei.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465869007-10822-1-git-send-email-skhare@vmware.com>
+In-Reply-To: <20160614.232412.270313987866244147.davem@davemloft.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Shrikrishna Khare <skhare@vmware.com>
-Date: Mon, 13 Jun 2016 18:50:00 -0700
+Hi David,
 
-> This patchset upgrades vmxnet3 to version 3.
+I'm really sorry for this.
 
-As stated by others, it is completely unacceptable to post so many
-patches with little or no commit log message.
+Because i didn't receive the first two emails, i resented it a few time=
+s.
 
-You must describe, in full detail, what each and every patch does, why
-it is doing so, and how it is doing it.
+I will pay more attention next time.
+
+Thanks,
+
+Yisen
+
+=E5=9C=A8 2016/6/15 14:24, David Miller =E5=86=99=E9=81=93:
+> From: Yisen Zhuang <Yisen.zhuang@huawei.com>
+> Date: Wed, 15 Jun 2016 14:03:33 +0800
+>=20
+>> Hi David,
+>>
+>> You mean that i send this patch 3 times?
+>>
+>> I am sorry for this.
+>>
+>> I don't know why you can receive 3 times. I can only receive an emai=
+l for this patch.
+>=20
+> I got three copies, each with a different Date: field.
+>=20
+> patchwork saw all 3 copies as well:
+>=20
+> http://patchwork.ozlabs.org/patch/634452/
+> http://patchwork.ozlabs.org/patch/634559/
+> http://patchwork.ozlabs.org/patch/634586/
+>=20
+> .
+>=20
