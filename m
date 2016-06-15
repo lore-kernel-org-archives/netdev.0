@@ -1,37 +1,52 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH net] htb: call qdisc_root with rcu read lock held
-Date: Tue, 14 Jun 2016 18:26:05 -0700
-Message-ID: <CAM_iQpXN2_FRm522t4NzjhBZFzD2NNoX7Pxqek0FkXjjmmqtEA@mail.gmail.com>
-References: <1465877787-7974-1-git-send-email-fw@strlen.de>
+From: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v9 05/22] IB/hns: Add initial profile resource
+Date: Wed, 15 Jun 2016 09:34:14 +0800
+Message-ID: <5760B096.7050609@huawei.com>
+References: <1464795484-77395-1-git-send-email-oulijun@huawei.com>
+ <1464795484-77395-6-git-send-email-oulijun@huawei.com>
+ <20160609070136.GQ3663@leon.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f193.google.com ([209.85.161.193]:36189 "EHLO
-	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752182AbcFOB0Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 21:26:25 -0400
-Received: by mail-yw0-f193.google.com with SMTP id w195so884617ywd.3
-        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 18:26:24 -0700 (PDT)
-In-Reply-To: <1465877787-7974-1-git-send-email-fw@strlen.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160609070136.GQ3663-2ukJVAZIZ/Y@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 13, 2016 at 9:16 PM, Florian Westphal <fw@strlen.de> wrote:
-> saw a debug splat:
-> net/include/net/sch_generic.h:287 suspicious rcu_dereference_check() usage!
-> other info that might help us debug this:
-> rcu_scheduler_active = 1, debug_locks = 0
->  2 locks held by kworker/2:1/710:
->   #0:  ("events"){.+.+.+}, at: [<ffffffff8106ca1d>]
->   #1:  ((&q->work)){+.+...}, at: [<ffffffff8106ca1d>] process_one_work+0x14d/0x690
-> Workqueue: events htb_work_func
-> Call Trace:
->  [<ffffffff812dc763>] dump_stack+0x85/0xc2
->  [<ffffffff8109fee7>] lockdep_rcu_suspicious+0xe7/0x120
->  [<ffffffff814ced47>] htb_work_func+0x67/0x70
->
-> Signed-off-by: Florian Westphal <fw@strlen.de>
+Hi,
+On 2016/6/9 15:01, Leon Romanovsky wrote:
+> On Wed, Jun 01, 2016 at 11:37:47PM +0800, Lijun Ou wrote:
+>> This patch mainly configured some profile resoure. For example,
+>> vendor_id, hardware version, and some data structure sizes so on.
+>>
+>> Signed-off-by: Wei Hu <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> Signed-off-by: Nenglong Zhao <zhaonenglong-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+>> Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>> ---
+> 
+> <...>
+> 
+>> +#define HNS_ROCE_V1_NUM_COMP_EQE			0x8000
+>> +#define	HNS_ROCE_V1_NUM_ASYNC_EQE			0x400
+> 
+> Something wrong with indentation.
+> 
+I have checked it in my local code and will send a new patch at soon.
 
-Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
+thanks
+Lijun Ou
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
