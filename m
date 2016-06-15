@@ -1,75 +1,43 @@
-From: James Cameron <quozl@laptop.org>
-Subject: Re: [ldv-project] [net] libertas: potential race condition
-Date: Wed, 15 Jun 2016 10:46:55 +1000
-Message-ID: <20160615004655.GE5852@us.netrek.org>
-References: <57569424.9040906@ispras.ru>
- <1465310395.29158.2.camel@redhat.com>
- <20160607225114.GA21437@us.netrek.org>
- <5760039B.4050902@ispras.ru>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [RFC PATCH iproute2] tc: let m_ipt work with new iptables API
+ headers
+Date: Tue, 14 Jun 2016 18:05:38 -0700
+Message-ID: <20160614180538.3d22d86f@xeon-e3>
+References: <20160529182713.2131-1-aar@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Dan Williams <dcbw@redhat.com>, Kalle Valo <kvalo@codeaurora.org>,
-	libertas-dev@lists.infradead.org, LDV list <ldv-project@ispras.ru>,
-	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
-	linux-kernel@vger.kernel.org, vaishali.thakkar@oracle.com
-To: Pavel Andrianov <andrianov@ispras.ru>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5760039B.4050902@ispras.ru>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
+	clemens.gruber@pqgruber.com
+To: Alexander Aring <aar@pengutronix.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f175.google.com ([209.85.192.175]:36570 "EHLO
+	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751893AbcFOBFZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 21:05:25 -0400
+Received: by mail-pf0-f175.google.com with SMTP id t190so2848164pfb.3
+        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 18:05:24 -0700 (PDT)
+In-Reply-To: <20160529182713.2131-1-aar@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 14, 2016 at 05:16:11PM +0400, Pavel Andrianov wrote:
-> 08.06.2016 02:51, James Cameron =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
-> >On Tue, Jun 07, 2016 at 09:39:55AM -0500, Dan Williams wrote:
-> >>On Tue, 2016-06-07 at 13:30 +0400, Pavel Andrianov wrote:
-> >>>Hi!
-> >>>
-> >>>There is a potential race condition in
-> >>>drivers/net/wireless/libertas/libertas.ko.
-> >>>In the function lbs_hard_start_xmit(..), line 159, a socket buffer
-> >>>is
-> >>>written to priv->current_skb with a spin_lock protection.
-> >>>In the function lbs_mac_event_disconnected(..), lines 50-51, the
-> >>>field
-> >>>current_skb is cleaned. There is no protection used. The
-> >>>corresponding
-> >>>handlers are activated at the same time in lbs_start_card(..) and
-> >>>then
-> >>>may be executed simultaneously. Note, there are two structures
-> >>>lbs_netdev_ops and mesh_netdev_ops, which have the target handler
-> >>>lbs_hard_start_xmit.
-> >>>Is it a real race or I have missed something?
-> >>Yeah, it looks like it should be grabbing priv->driver_lock before
-> >>clearing priv->currenttxskb in lbs_mac_event_disconnected().  Care =
-to
-> >>submit a patch after testing?  Do you have any of that hardware?
-> >I've hardware, with serial console.
-> >
-> >Can test any patch, on USB (8388) or SDIO (8686).
-> >
-> Hi!
->=20
-> I've prepare the patch for this issue. Could you test it?
->=20
-> Thank you.
+On Sun, 29 May 2016 20:27:13 +0200
+Alexander Aring <aar@pengutronix.de> wrote:
 
-Tested on OLPC XO-1 (usb8388) and XO-1.5 (sd8686) with v4.7-rc3.
+> Since commit 5cd1adb ("Update to current iptables headers") the build
+> with m_ipt.o and the following config will fail:
+> 
+> TC_CONFIG_XT:=n
+> TC_CONFIG_XT_OLD:=n
+> TC_CONFIG_XT_OLD_H:=n
+> 
+> This patch renames "iptables_target" to "xtables_target" and some other
+> things which gets renamed and I noticed while reading iptables git log.
+> Functions which are not used in m_ipt.c and not exported by the header
+> are removed, if they still used in m_ipt.c I added a static to the function.
+> 
+> Reported-by: Clemens Gruber <clemens.gruber@pqgruber.com>
+> Signed-off-by: Alexander Aring <aar@pengutronix.de>
 
-Confirmed that lbs_mac_event_disconnected is being called on the
-station when hostapd on access point is given SIGHUP.
-
-Longer duration test was;
-
-- SSH to station and run "top -d 0.2",
-
-- send SIGHUP every six seconds, for 300 cycles,
-
-You may add my;
-
-Tested-by: James Cameron <quozl@laptop.org>
-
---=20
-James Cameron
-http://quozl.netrek.org/
+Applied.
+Not sure why this never showed up in patchwork.
