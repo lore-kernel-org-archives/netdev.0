@@ -1,56 +1,59 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH 4/5] netdev: implement infrastructure for threadable napi irq
-Date: Wed, 15 Jun 2016 07:21:53 -0700
-Message-ID: <CANn89iJ-Wq8khPqzBg3j+D55BLhbeSAFbPGHOezfmvRh8N_y6A@mail.gmail.com>
-References: <cover.1465996447.git.pabeni@redhat.com> <f5e431e8336f80d0e6f6b4c40c81a373db6d6052.1465996447.git.pabeni@redhat.com>
- <CANn89i+EJMHeMN8=e12hoT1Jv8cCBDXeexTBdsd9hU2G=HpGZA@mail.gmail.com>
+From: Gary R Hook <ghook@amd.com>
+Subject: Re: padata - is serial actually serial?
+Date: Wed, 15 Jun 2016 08:53:42 -0500
+Message-ID: <57615DE6.6000407@amd.com>
+References: <CAHmME9qnufO90qF7v9bVb7L+6KQA=kaZ=BML2sRwzbQHtFLJGA@mail.gmail.com>
+ <20160615115203.GB7698@gauss.secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	"Peter Zijlstra (Intel)" <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev <netdev@vger.kernel.org>,
-	Andy Lutomirski <luto@kernel.org>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CANn89i+EJMHeMN8=e12hoT1Jv8cCBDXeexTBdsd9hU2G=HpGZA@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <linux-crypto@vger.kernel.org>, Netdev <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	"Jason A. Donenfeld" <Jason@zx2c4.com>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20160615115203.GB7698@gauss.secunet.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 15, 2016 at 7:17 AM, Eric Dumazet <edumazet@google.com> wrote:
-> On Wed, Jun 15, 2016 at 6:42 AM, Paolo Abeni <pabeni@redhat.com> wrote:
->> This commit adds the infrastructure needed for threadable
->> rx interrupt. A reference to the irq thread is used to
->> mark the threaded irq mode.
->> In threaded mode the poll loop is invoked directly from
->> __napi_schedule().
->> napi drivers which want to support threadable irq interrupts
->> must provide an irq mode change handler which actually set
->> napi->thread and register it after requesting the irq.
+On 06/15/2016 06:52 AM, Steffen Klassert wrote:
+> Hi Jason.
+>
+> On Tue, Jun 14, 2016 at 11:00:54PM +0200, Jason A. Donenfeld wrote:
+>> Hi Steffen & Folks,
 >>
->> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
->> Signed-off-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
->> ---
->>  include/linux/netdevice.h |  4 ++++
->>  net/core/dev.c            | 59 +++++++++++++++++++++++++++++++++++++++++++++++
->>  2 files changed, 63 insertions(+)
+>> I submit a job to padata_do_parallel(). When the parallel() function
+>> triggers, I do some things, and then call padata_do_serial(). Finally
+>> the serial() function triggers, where I complete the job (check a
+>> nonce, etc).
 >>
+>> The padata API is very appealing because not only does it allow for
+>> parallel computation, but it claims that the serial() functions will
+>> execute in the order that jobs were originally submitted to
+>> padata_do_parallel().
+>>
+>> Unfortunately, in practice, I'm pretty sure I'm seeing deviations from
+>> this. When I submit tons and tons of tasks at rapid speed to
+>> padata_do_parallel(), it seems like the serial() function isn't being
+>> called in the exactly the same order that tasks were submitted to
+>> padata_do_parallel().
+>>
+>> Is this known (expected) behavior? Or have I stumbled upon a potential
+>> bug that's worthwhile for me to investigate more?
 >
-> I really appreciate the effort, but as I already said this is not going to work.
->
-> Many NIC have 2 NAPI contexts per queue, one for TX, one for RX.
->
-> Relying on CFS to switch from the two 'threads' you need in the one
-> vCPU case will add latencies that your 'pure throughput UDP flood' is
-> not able to detect.
->
-> I was waiting a fix from Andy Lutomirski to be merged before sending
-> my ksoftirqd fix, which will work and wont bring kernel bloat.
+> It should return in the same order as the job were submitted,
+> given that the submitting cpu and the callback cpu are fixed
+> for all the jobs you want to preserve the order.  If you submit
+> jobs from more than one cpu, we can not know in which order
+> they are enqueued. The cpu that gets the lock as the first
+> has its job in front.
 
+Isn't there an element of indeterminacy at the application thread level
+(i.e. user space) too? We don't know how the jobs are being submitted, but
+unless that is being handled by a single thread in a single process, I
+think all bets are off with respect to ordering.
 
-Andy's patch was"x86/traps: Don't force in_interrupt() to return true
-in IST handlers"
+Then again, perhaps I'm not grokking the details here.
+
+> Same if you use more than one callback cpu
+> we can't know in which order they are dequeued, because the
+> serial workers are scheduled independent on each cpu.
