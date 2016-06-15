@@ -1,148 +1,66 @@
-From: Vincent Palatin <vpalatin@chromium.org>
-Subject: Re: [PATCH 2/3] net: stmmac: dwmac-rk: keep the PHY up for WoL
-Date: Wed, 15 Jun 2016 09:03:20 -0700
-Message-ID: <CAP_ceTxFuCsqRQJ_9GMc5PSKqczA8Qwaa0jX22wQ2Dq=+GZUuQ@mail.gmail.com>
-References: <bd302fc6-feae-b99a-4632-a0ff9ead0123@st.com> <1465606839-7722-1-git-send-email-vpalatin@chromium.org>
- <1465606839-7722-3-git-send-email-vpalatin@chromium.org> <2847430.O0lKQgdM0K@phil>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH 1/2] mlx5: only register devlink when ethernet is available
+Date: Wed, 15 Jun 2016 19:04:54 +0300
+Message-ID: <CALzJLG_CkvbrCehMjMht5KfMK6r-FbvPzzYUEhpA40YHymsh+Q@mail.gmail.com>
+References: <20160615152816.2800830-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Douglas Anderson <dianders@chromium.org>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Shunqian Zheng <zhengsq@rock-chips.com>
-To: Heiko Stuebner <heiko@sntech.de>
+Cc: Matan Barak <matanb@mellanox.com>,
+	Leon Romanovsky <leonro@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Doug Ledford <dledford@redhat.com>,
+	Eli Cohen <eli@mellanox.com>, Majd Dibbiny <majd@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <2847430.O0lKQgdM0K@phil>
+In-Reply-To: <20160615152816.2800830-1-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 10, 2016 at 6:57 PM, Heiko Stuebner <heiko@sntech.de> wrote:
-> Am Freitag, 10. Juni 2016, 18:00:38 schrieb Vincent Palatin:
->> When suspending the machine, do not shutdown the external PHY by cutting
->> its regulator in the mac platform driver suspend code if Wake-on-Lan is
->> enabled, else it cannot wake us up.
->> In order to do this, split the suspend/resume callbacks from the
->> init/exit callbacks, so we can condition the power-down on the lack of
->> need to wake-up from the LAN but do it unconditionally when unloading the
->> module.
->>
->> Signed-off-by: Vincent Palatin <vpalatin@chromium.org>
->> ---
->>  drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 49
->> +++++++++++++++++++++++--- 1 file changed, 44 insertions(+), 5
->> deletions(-)
->>
->> diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
->> b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c index 0cd3ecf..fa05771
->> 100644
->> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
->> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
->> @@ -46,6 +46,7 @@ struct rk_priv_data {
->>       struct platform_device *pdev;
->>       int phy_iface;
->>       struct regulator *regulator;
->> +     bool powered_down;
->>       const struct rk_gmac_ops *ops;
->>
->>       bool clk_enabled;
->> @@ -529,9 +530,8 @@ static struct rk_priv_data *rk_gmac_setup(struct
->> platform_device *pdev, return bsp_priv;
->>  }
->>
->> -static int rk_gmac_init(struct platform_device *pdev, void *priv)
->> +static int rk_gmac_powerup(struct rk_priv_data *bsp_priv)
->>  {
->> -     struct rk_priv_data *bsp_priv = priv;
->>       int ret;
->>
->>       ret = phy_power_on(bsp_priv, true);
->> @@ -542,15 +542,52 @@ static int rk_gmac_init(struct platform_device
->> *pdev, void *priv) if (ret)
->>               return ret;
->>
->> +     bsp_priv->powered_down = true;
->> +
->>       return 0;
->>  }
->>
->> -static void rk_gmac_exit(struct platform_device *pdev, void *priv)
->> +static void rk_gmac_powerdown(struct rk_priv_data *gmac)
->>  {
->> -     struct rk_priv_data *gmac = priv;
->> -
->>       phy_power_on(gmac, false);
->>       gmac_clk_enable(gmac, false);
->> +     gmac->powered_down = true;
+On Wed, Jun 15, 2016 at 6:27 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> We get a build error with the mlx5 driver when the ethernet
+> support (CONFIG_MLX5_CORE_EN) is disabled:
 >
-> naming it gmac->suspended and doing all accesses in the suspend/resume
-> callback might provide a nicer way? Now the check is in resume while the
-> powerdown callback is setting it.
+> drivers/net/ethernet/mellanox/mlx5/core/main.c:1320:22: error: 'mlx5_devlink_eswitch_mode_set' undeclared here (not in a function)
+> drivers/net/ethernet/mellanox/mlx5/core/main.c:1321:22: error: 'mlx5_devlink_eswitch_mode_get' undeclared here (not in a function)
+> drivers/net/built-in.o:(.rodata+0x25a68): undefined reference to `mlx5_devlink_eswitch_mode_get'
+> drivers/net/built-in.o:(.rodata+0x25a6c): undefined reference to `mlx5_devlink_eswitch_mode_set'
 >
->> +}
->> +
->> +static int rk_gmac_init(struct platform_device *pdev, void *priv)
->> +{
->> +     struct rk_priv_data *bsp_priv = priv;
->> +
->> +     return rk_gmac_powerup(bsp_priv);
->> +}
->> +
->> +static void rk_gmac_exit(struct platform_device *pdev, void *priv)
->> +{
->> +     struct rk_priv_data *bsp_priv = priv;
->> +
->> +     rk_gmac_powerdown(bsp_priv);
->> +}
->> +
->> +static void rk_gmac_suspend(struct platform_device *pdev, void *priv)
->> +{
->> +     struct rk_priv_data *bsp_priv = priv;
->> +
->> +     /* Keep the PHY up if we use Wake-on-Lan. */
->> +     if (device_may_wakeup(&pdev->dev))
->> +             return;
->> +
->> +     rk_gmac_powerdown(bsp_priv);
+> There are actually two problems here, but they are closely related,
+> so I'm addressing them both:
 >
-> aka do
->         bsp_priv->suspended = true;
-> here
+> - The header is included under an #ifdef, which is usually a bad idea
+>   as it hides the function declarations, so we fail to compile even
+>   if we don't actually use the functions in the end.
+> - The references to the functions are kept in the object file because
+>   we don't check whether they are built-in or not.
 >
->> +}
->> +
->> +static void rk_gmac_resume(struct platform_device *pdev, void *priv)
->> +{
->> +     struct rk_priv_data *bsp_priv = priv;
->> +
->> +     /* The PHY was up for Wake-on-Lan. */
->> +     if (!bsp_priv->powered_down)
->> +             return;
->> +
->> +     rk_gmac_powerup(bsp_priv);
+> As we don't want to add any useless #ifdef here, this uses an
+> IS_ENABLED() check to drop the mlx5_devlink_ops structure when we don't
+> need it, and to skip the register/unregister step.
 >
-> missing something like
->         bsp_priv->suspended = false;
->
-> Right now it looks like your bsp_priv->powered_down will always be true
-> after the first suspend with powerdown.
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: f7856daf57b9 ("net/mlx5: Add devlink interface")
 
-Yes I screw up badly, that's a good reason to use a more sensible name
-for the variable.
+Hi Arnd,
 
->
->>  }
->>
->>  static void rk_fix_speed(void *priv, unsigned int speed)
->> @@ -591,6 +628,8 @@ static int rk_gmac_probe(struct platform_device *pdev)
->> plat_dat->init = rk_gmac_init;
->>       plat_dat->exit = rk_gmac_exit;
->>       plat_dat->fix_mac_speed = rk_fix_speed;
->> +     plat_dat->suspend = rk_gmac_suspend;
->> +     plat_dat->resume = rk_gmac_resume;
->>
->>       plat_dat->bsp_priv = rk_gmac_setup(pdev, data);
->>       if (IS_ERR(plat_dat->bsp_priv))
->> --
->> 2.8.0.rc3.226.g39d4020
->
+We already took care of those issues, they only apply to Leon's tree
+https://git.kernel.org/cgit/linux/kernel/git/leon/linux-rdma.git/,
+this tree is meant to maintain MLX5 Shared code between netdev and
+linux-rdma trees prior to submission to both trees.
+
+This patch is a non-shared code and it only exists in
+https://git.kernel.org/cgit/linux/kernel/git/leon/linux-rdma.git/log/?h=topic/net-next-mlx5.
+It is yet to be submitted to Dave's net/net-next tree. later on, this
+patch and all the others will go through the normal submission
+process.
+
+For the future I don't see any reason to CC the whole netdev, rdma and
+kernel folks.
+Unless you, Dave and Doug think otherwise.
+
+Thanks
+Saeed.
