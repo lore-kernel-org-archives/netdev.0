@@ -1,106 +1,70 @@
 From: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Subject: [PATCHv4 net-next 01/12] 6lowpan: add private neighbour data
-Date: Wed, 15 Jun 2016 21:20:16 +0200
-Message-ID: <20160615192027.4064-2-aar@pengutronix.de>
+Subject: [PATCHv4 net-next 05/12] ndisc: add __ndisc_opt_addr_data function
+Date: Wed, 15 Jun 2016 21:20:20 +0200
+Message-ID: <20160615192027.4064-6-aar@pengutronix.de>
 References: <20160615192027.4064-1-aar@pengutronix.de>
 Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
 	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org,
 	stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org, mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
 	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
+	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
+	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
+	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
 To: linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 In-Reply-To: <20160615192027.4064-1-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch will introduce a 6lowpan neighbour private data. Like the
-interface private data we handle private data for generic 6lowpan and
-for link-layer specific 6lowpan.
-
-The current first use case if to save the short address for a 802.15.4
-6lowpan neighbour.
+This patch adds __ndisc_opt_addr_data as low-level function for
+ndisc_opt_addr_data which doesn't depend on net_device parameter.
 
 Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
+Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
+Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
+Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
 Acked-by: YOSHIFUJI Hideaki <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
+Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
 Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 ---
- include/linux/netdevice.h     |  3 +--
- include/net/6lowpan.h         | 10 ++++++++++
- net/ieee802154/6lowpan/core.c | 12 ++++++++++++
- 3 files changed, 23 insertions(+), 2 deletions(-)
+ include/net/ndisc.h | 14 ++++++++++----
+ 1 file changed, 10 insertions(+), 4 deletions(-)
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d101e4d..36e43bd 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1483,8 +1483,7 @@ enum netdev_priv_flags {
-  * 	@perm_addr:		Permanent hw address
-  * 	@addr_assign_type:	Hw address assignment type
-  * 	@addr_len:		Hardware address length
-- * 	@neigh_priv_len;	Used in neigh_alloc(),
-- * 				initialized only in atm/clip.c
-+ *	@neigh_priv_len:	Used in neigh_alloc()
-  * 	@dev_id:		Used to differentiate devices that share
-  * 				the same link layer address
-  * 	@dev_port:		Used to differentiate devices that share
-diff --git a/include/net/6lowpan.h b/include/net/6lowpan.h
-index da84cf9..2d9b9d3 100644
---- a/include/net/6lowpan.h
-+++ b/include/net/6lowpan.h
-@@ -141,6 +141,16 @@ struct lowpan_dev {
- 	u8 priv[0] __aligned(sizeof(void *));
- };
- 
-+struct lowpan_802154_neigh {
-+	__le16 short_addr;
-+};
-+
-+static inline
-+struct lowpan_802154_neigh *lowpan_802154_neigh(void *neigh_priv)
-+{
-+	return neigh_priv;
-+}
-+
- static inline
- struct lowpan_dev *lowpan_dev(const struct net_device *dev)
- {
-diff --git a/net/ieee802154/6lowpan/core.c b/net/ieee802154/6lowpan/core.c
-index 4e2b308..8c004a0 100644
---- a/net/ieee802154/6lowpan/core.c
-+++ b/net/ieee802154/6lowpan/core.c
-@@ -81,11 +81,21 @@ static int lowpan_stop(struct net_device *dev)
- 	return 0;
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index 4cee826..c8962ad 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -138,17 +138,23 @@ static inline int ndisc_opt_addr_space(struct net_device *dev)
+ 				      ndisc_addr_option_pad(dev->type));
  }
  
-+static int lowpan_neigh_construct(struct neighbour *n)
+-static inline u8 *ndisc_opt_addr_data(struct nd_opt_hdr *p,
+-				      struct net_device *dev)
++static inline u8 *__ndisc_opt_addr_data(struct nd_opt_hdr *p,
++					unsigned char addr_len, int prepad)
+ {
+ 	u8 *lladdr = (u8 *)(p + 1);
+ 	int lladdrlen = p->nd_opt_len << 3;
+-	int prepad = ndisc_addr_option_pad(dev->type);
+-	if (lladdrlen != ndisc_opt_addr_space(dev))
++	if (lladdrlen != __ndisc_opt_addr_space(addr_len, prepad))
+ 		return NULL;
+ 	return lladdr + prepad;
+ }
+ 
++static inline u8 *ndisc_opt_addr_data(struct nd_opt_hdr *p,
++				      struct net_device *dev)
 +{
-+	struct lowpan_802154_neigh *neigh = lowpan_802154_neigh(neighbour_priv(n));
-+
-+	/* default no short_addr is available for a neighbour */
-+	neigh->short_addr = cpu_to_le16(IEEE802154_ADDR_SHORT_UNSPEC);
-+	return 0;
++	return __ndisc_opt_addr_data(p, dev->addr_len,
++				     ndisc_addr_option_pad(dev->type));
 +}
 +
- static const struct net_device_ops lowpan_netdev_ops = {
- 	.ndo_init		= lowpan_dev_init,
- 	.ndo_start_xmit		= lowpan_xmit,
- 	.ndo_open		= lowpan_open,
- 	.ndo_stop		= lowpan_stop,
-+	.ndo_neigh_construct    = lowpan_neigh_construct,
- };
- 
- static void lowpan_setup(struct net_device *ldev)
-@@ -150,6 +160,8 @@ static int lowpan_newlink(struct net *src_net, struct net_device *ldev,
- 				wdev->needed_headroom;
- 	ldev->needed_tailroom = wdev->needed_tailroom;
- 
-+	ldev->neigh_priv_len = sizeof(struct lowpan_802154_neigh);
-+
- 	ret = lowpan_register_netdevice(ldev, LOWPAN_LLTYPE_IEEE802154);
- 	if (ret < 0) {
- 		dev_put(wdev);
+ static inline u32 ndisc_hashfn(const void *pkey, const struct net_device *dev, __u32 *hash_rnd)
+ {
+ 	const u32 *p32 = pkey;
 -- 
 2.8.3
