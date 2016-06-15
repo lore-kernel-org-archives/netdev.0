@@ -1,51 +1,45 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 5/8] rxrpc: Do a little bit of tidying in the ICMP
- processing
-Date: Wed, 15 Jun 2016 17:42:13 +0100
-Message-ID: <146600893348.18270.9226995532265575434.stgit@warthog.procyon.org.uk>
-References: <146600889842.18270.2306896489831492957.stgit@warthog.procyon.org.uk>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 04/15] drivers: net: cpsw: ethtool: fix accessing to
+ suspended device
+Date: Wed, 15 Jun 2016 19:45:00 +0300
+Message-ID: <5761860C.2020502@ti.com>
+References: <20160615115603.4897-1-grygorii.strashko@ti.com>
+ <20160615115603.4897-5-grygorii.strashko@ti.com> <57617ECF.2010902@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54173 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932862AbcFOQmP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jun 2016 12:42:15 -0400
-In-Reply-To: <146600889842.18270.2306896489831492957.stgit@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <linux-kernel@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>, <devicetree@vger.kernel.org>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Sekhar Nori <nsekhar@ti.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <57617ECF.2010902@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Do a little bit of tidying in the ICMP processing code.
+On 06/15/2016 07:14 PM, Florian Fainelli wrote:
+> On 06/15/2016 04:55 AM, Grygorii Strashko wrote:
+>> The CPSW might be suspended by RPM if all ethX interfaces are down,
+>> but it still could be accesible through ethtool interfce. In this case
+>> ethtool operations, requiring registers access, will cause L3 errors and
+>> CPSW crash.
+>>
+>> Hence, fix it by adding RPM get/put calls in ethtool callbcaks which
+>> can access CPSW registers: .set_coalesce(), .get_ethtool_stats(),
+>> .set_pauseparam(), .get_regs()
+>
+> Provided that you implement an ethtool_ops::begin, it will be called
+> before each ethtool operation runs, so that could allow you to eliminate
+> some of the duplication here. Conversely ethtool_ops::end terminates
+> each operation and can be used for that purpose.
 
-Signed-off-by: David Howells <dhowells@redhat.com>
----
+Ah. Thanks for the advice. (assume you've meant .complete())
 
- net/rxrpc/peer_event.c |    6 ++----
- 1 file changed, 2 insertions(+), 4 deletions(-)
 
-diff --git a/net/rxrpc/peer_event.c b/net/rxrpc/peer_event.c
-index 6ba798d6659e..31c440acd8c9 100644
---- a/net/rxrpc/peer_event.c
-+++ b/net/rxrpc/peer_event.c
-@@ -245,15 +245,13 @@ void rxrpc_UDP_error_handler(struct work_struct *work)
- 		break;
- 
- 	case SO_EE_ORIGIN_LOCAL:
--		_proto("Rx Received local error { error=%d }",
--		       ee->ee_errno);
-+		_proto("Rx Received local error { error=%d }", err);
- 		break;
- 
- 	case SO_EE_ORIGIN_NONE:
- 	case SO_EE_ORIGIN_ICMP6:
- 	default:
--		_proto("Rx Received error report { orig=%u }",
--		       ee->ee_origin);
-+		_proto("Rx Received error report { orig=%u }", ee->ee_origin);
- 		break;
- 	}
- 
+
+-- 
+regards,
+-grygorii
