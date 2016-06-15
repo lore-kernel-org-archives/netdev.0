@@ -1,43 +1,37 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [RFC PATCH iproute2] tc: let m_ipt work with new iptables API
- headers
-Date: Tue, 14 Jun 2016 18:05:38 -0700
-Message-ID: <20160614180538.3d22d86f@xeon-e3>
-References: <20160529182713.2131-1-aar@pengutronix.de>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] htb: call qdisc_root with rcu read lock held
+Date: Tue, 14 Jun 2016 18:26:05 -0700
+Message-ID: <CAM_iQpXN2_FRm522t4NzjhBZFzD2NNoX7Pxqek0FkXjjmmqtEA@mail.gmail.com>
+References: <1465877787-7974-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
-	clemens.gruber@pqgruber.com
-To: Alexander Aring <aar@pengutronix.de>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:36570 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751893AbcFOBFZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 21:05:25 -0400
-Received: by mail-pf0-f175.google.com with SMTP id t190so2848164pfb.3
-        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 18:05:24 -0700 (PDT)
-In-Reply-To: <20160529182713.2131-1-aar@pengutronix.de>
+Received: from mail-yw0-f193.google.com ([209.85.161.193]:36189 "EHLO
+	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752182AbcFOB0Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 21:26:25 -0400
+Received: by mail-yw0-f193.google.com with SMTP id w195so884617ywd.3
+        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 18:26:24 -0700 (PDT)
+In-Reply-To: <1465877787-7974-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 29 May 2016 20:27:13 +0200
-Alexander Aring <aar@pengutronix.de> wrote:
+On Mon, Jun 13, 2016 at 9:16 PM, Florian Westphal <fw@strlen.de> wrote:
+> saw a debug splat:
+> net/include/net/sch_generic.h:287 suspicious rcu_dereference_check() usage!
+> other info that might help us debug this:
+> rcu_scheduler_active = 1, debug_locks = 0
+>  2 locks held by kworker/2:1/710:
+>   #0:  ("events"){.+.+.+}, at: [<ffffffff8106ca1d>]
+>   #1:  ((&q->work)){+.+...}, at: [<ffffffff8106ca1d>] process_one_work+0x14d/0x690
+> Workqueue: events htb_work_func
+> Call Trace:
+>  [<ffffffff812dc763>] dump_stack+0x85/0xc2
+>  [<ffffffff8109fee7>] lockdep_rcu_suspicious+0xe7/0x120
+>  [<ffffffff814ced47>] htb_work_func+0x67/0x70
+>
+> Signed-off-by: Florian Westphal <fw@strlen.de>
 
-> Since commit 5cd1adb ("Update to current iptables headers") the build
-> with m_ipt.o and the following config will fail:
-> 
-> TC_CONFIG_XT:=n
-> TC_CONFIG_XT_OLD:=n
-> TC_CONFIG_XT_OLD_H:=n
-> 
-> This patch renames "iptables_target" to "xtables_target" and some other
-> things which gets renamed and I noticed while reading iptables git log.
-> Functions which are not used in m_ipt.c and not exported by the header
-> are removed, if they still used in m_ipt.c I added a static to the function.
-> 
-> Reported-by: Clemens Gruber <clemens.gruber@pqgruber.com>
-> Signed-off-by: Alexander Aring <aar@pengutronix.de>
-
-Applied.
-Not sure why this never showed up in patchwork.
+Acked-by: Cong Wang <xiyou.wangcong@gmail.com>
