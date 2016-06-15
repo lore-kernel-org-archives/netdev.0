@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v2 15/17] qlcnic: Replace ndo_add/del_vxlan_port
- with ndo_add/del_udp_enc_port
-Date: Wed, 15 Jun 2016 15:08:52 -0700
-Message-ID: <20160615220851.15575.38749.stgit@localhost.localdomain>
+Subject: [net-next PATCH v2 16/17] net: Remove deprecated tunnel specific
+ UDP offload functions
+Date: Wed, 15 Jun 2016 15:08:58 -0700
+Message-ID: <20160615220858.15575.556.stgit@localhost.localdomain>
 References: <20160615220449.15575.17031.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,195 +14,231 @@ Cc: hannes@redhat.com, jesse@kernel.org, eugenia@mellanox.com,
 	davem@davemloft.net
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:36258 "EHLO
-	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933112AbcFOWIy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 18:08:54 -0400
-Received: by mail-pf0-f179.google.com with SMTP id t190so12753355pfb.3
-        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 15:08:53 -0700 (PDT)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:36272 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753224AbcFOWJA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 18:09:00 -0400
+Received: by mail-pf0-f181.google.com with SMTP id t190so12754097pfb.3
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 15:09:00 -0700 (PDT)
 In-Reply-To: <20160615220449.15575.17031.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This change replaces the network device operations for adding or removing a
-VXLAN port with operations that are more generically defined to be used for
-any UDP offload port but provide a type.  As such by just adding a line to
-verify that the offload type is VXLAN we can maintain the same
-functionality.
+Now that we have all the drivers using udp_tunnel_get_rx_ports,
+ndo_add_udp_enc_rx_port, and ndo_del_udp_enc_rx_port we can drop the
+function calls that were specific to VXLAN and GENEVE.
 
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/ethernet/qlogic/Kconfig                |   10 -------
- drivers/net/ethernet/qlogic/qlcnic/qlcnic.h        |    2 -
- .../net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c  |    4 ---
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c   |   30 +++++++++-----------
- 4 files changed, 14 insertions(+), 32 deletions(-)
+ include/linux/netdevice.h |   38 ----------------------
+ include/net/geneve.h      |    5 ---
+ include/net/vxlan.h       |    5 ---
+ net/ipv4/udp_tunnel.c     |   79 ++++++++-------------------------------------
+ 4 files changed, 14 insertions(+), 113 deletions(-)
 
-diff --git a/drivers/net/ethernet/qlogic/Kconfig b/drivers/net/ethernet/qlogic/Kconfig
-index 613dd2874644..6ba48406899e 100644
---- a/drivers/net/ethernet/qlogic/Kconfig
-+++ b/drivers/net/ethernet/qlogic/Kconfig
-@@ -54,16 +54,6 @@ config QLCNIC_DCB
- 	  mode of DCB is supported. PG and PFC values are related only
- 	  to Tx.
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 7f45e96967ce..49dd27a2b2a8 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1026,32 +1026,6 @@ struct tc_to_netdev {
+  *	not implement this, it is assumed that the hw is not able to have
+  *	multiple net devices on single physical port.
+  *
+- * void (*ndo_add_vxlan_port)(struct  net_device *dev,
+- *			      sa_family_t sa_family, __be16 port);
+- *	Called by vxlan to notify a driver about the UDP port and socket
+- *	address family that vxlan is listening to. It is called only when
+- *	a new port starts listening. The operation is protected by the
+- *	vxlan_net->sock_lock.
+- *
+- * void (*ndo_add_geneve_port)(struct net_device *dev,
+- *			       sa_family_t sa_family, __be16 port);
+- *	Called by geneve to notify a driver about the UDP port and socket
+- *	address family that geneve is listnening to. It is called only when
+- *	a new port starts listening. The operation is protected by the
+- *	geneve_net->sock_lock.
+- *
+- * void (*ndo_del_geneve_port)(struct net_device *dev,
+- *			       sa_family_t sa_family, __be16 port);
+- *	Called by geneve to notify the driver about a UDP port and socket
+- *	address family that geneve is not listening to anymore. The operation
+- *	is protected by the geneve_net->sock_lock.
+- *
+- * void (*ndo_del_vxlan_port)(struct  net_device *dev,
+- *			      sa_family_t sa_family, __be16 port);
+- *	Called by vxlan to notify the driver about a UDP port and socket
+- *	address family that vxlan is not listening to anymore. The operation
+- *	is protected by the vxlan_net->sock_lock.
+- *
+  * void (*ndo_udp_tunnel_add)(struct net_device *dev,
+  *			      struct udp_tunnel_info *ti);
+  *	Called by UDP tunnel to notify a driver about the UDP port and socket
+@@ -1272,18 +1246,6 @@ struct net_device_ops {
+ 							struct netdev_phys_item_id *ppid);
+ 	int			(*ndo_get_phys_port_name)(struct net_device *dev,
+ 							  char *name, size_t len);
+-	void			(*ndo_add_vxlan_port)(struct  net_device *dev,
+-						      sa_family_t sa_family,
+-						      __be16 port);
+-	void			(*ndo_del_vxlan_port)(struct  net_device *dev,
+-						      sa_family_t sa_family,
+-						      __be16 port);
+-	void			(*ndo_add_geneve_port)(struct  net_device *dev,
+-						       sa_family_t sa_family,
+-						       __be16 port);
+-	void			(*ndo_del_geneve_port)(struct  net_device *dev,
+-						       sa_family_t sa_family,
+-						       __be16 port);
+ 	void			(*ndo_udp_tunnel_add)(struct net_device *dev,
+ 						      struct udp_tunnel_info *ti);
+ 	void			(*ndo_udp_tunnel_del)(struct net_device *dev,
+diff --git a/include/net/geneve.h b/include/net/geneve.h
+index 3410c4b5a382..ec0327d4331b 100644
+--- a/include/net/geneve.h
++++ b/include/net/geneve.h
+@@ -59,11 +59,6 @@ struct genevehdr {
+ 	struct geneve_opt options[];
+ };
  
--config QLCNIC_VXLAN
--	bool "Virtual eXtensible Local Area Network (VXLAN) offload support"
--	default n
--	depends on QLCNIC && VXLAN && !(QLCNIC=y && VXLAN=m)
--	---help---
--	  This enables hardware offload support for VXLAN protocol over QLogic's
--	  84XX series adapters.
--	  Say Y here if you want to enable hardware offload support for
--	  Virtual eXtensible Local Area Network (VXLAN) in the driver.
+-static inline void geneve_get_rx_port(struct net_device *netdev)
+-{
+-	udp_tunnel_get_rx_info(netdev);
+-}
 -
- config QLCNIC_HWMON
- 	bool "QLOGIC QLCNIC 82XX and 83XX family HWMON support"
- 	depends on QLCNIC && HWMON && !(QLCNIC=y && HWMON=m)
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-index caf6ddb7ea76..fd973f4f16c7 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic.h
-@@ -1026,10 +1026,8 @@ struct qlcnic_ipaddr {
- #define QLCNIC_HAS_PHYS_PORT_ID		0x40000
- #define QLCNIC_TSS_RSS			0x80000
- 
--#ifdef CONFIG_QLCNIC_VXLAN
- #define QLCNIC_ADD_VXLAN_PORT		0x100000
- #define QLCNIC_DEL_VXLAN_PORT		0x200000
--#endif
- 
- #define QLCNIC_VLAN_FILTERING		0x800000
- 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-index bf892160dd5f..a496390b8632 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_init.c
-@@ -1020,7 +1020,6 @@ static int qlcnic_83xx_idc_check_state_validity(struct qlcnic_adapter *adapter,
- 	return 0;
+ #ifdef CONFIG_INET
+ struct net_device *geneve_dev_create_fb(struct net *net, const char *name,
+ 					u8 name_assign_type, u16 dst_port);
+diff --git a/include/net/vxlan.h b/include/net/vxlan.h
+index c62e2ed1c3af..b96d0360c095 100644
+--- a/include/net/vxlan.h
++++ b/include/net/vxlan.h
+@@ -389,11 +389,6 @@ static inline __be32 vxlan_compute_rco(unsigned int start, unsigned int offset)
+ 	return vni_field;
  }
  
--#ifdef CONFIG_QLCNIC_VXLAN
- #define QLC_83XX_ENCAP_TYPE_VXLAN	BIT_1
- #define QLC_83XX_MATCH_ENCAP_ID		BIT_2
- #define QLC_83XX_SET_VXLAN_UDP_DPORT	BIT_3
-@@ -1089,14 +1088,12 @@ static int qlcnic_set_vxlan_parsing(struct qlcnic_adapter *adapter,
- 
- 	return ret;
- }
--#endif
- 
- static void qlcnic_83xx_periodic_tasks(struct qlcnic_adapter *adapter)
+-static inline void vxlan_get_rx_port(struct net_device *netdev)
+-{
+-	udp_tunnel_get_rx_info(netdev);
+-}
+-
+ static inline unsigned short vxlan_get_sk_family(struct vxlan_sock *vs)
  {
- 	if (adapter->fhash.fnum)
- 		qlcnic_prune_lb_filters(adapter);
- 
--#ifdef CONFIG_QLCNIC_VXLAN
- 	if (adapter->flags & QLCNIC_ADD_VXLAN_PORT) {
- 		if (qlcnic_set_vxlan_port(adapter))
- 			return;
-@@ -1112,7 +1109,6 @@ static void qlcnic_83xx_periodic_tasks(struct qlcnic_adapter *adapter)
- 		adapter->ahw->vxlan_port = 0;
- 		adapter->flags &= ~QLCNIC_DEL_VXLAN_PORT;
- 	}
--#endif
+ 	return vs->sock->sk->sk_family;
+diff --git a/net/ipv4/udp_tunnel.c b/net/ipv4/udp_tunnel.c
+index 683e494d9000..58bd39fb14b4 100644
+--- a/net/ipv4/udp_tunnel.c
++++ b/net/ipv4/udp_tunnel.c
+@@ -76,47 +76,20 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
  }
+ EXPORT_SYMBOL_GPL(setup_udp_tunnel_sock);
  
- /**
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-index 1c29105b6c36..3ebef27e0964 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_main.c
-@@ -16,9 +16,7 @@
- #include <linux/aer.h>
- #include <linux/log2.h>
- #include <linux/pci.h>
--#ifdef CONFIG_QLCNIC_VXLAN
- #include <net/vxlan.h>
--#endif
- 
- #include "qlcnic.h"
- #include "qlcnic_sriov.h"
-@@ -474,13 +472,15 @@ static int qlcnic_get_phys_port_id(struct net_device *netdev,
- 	return 0;
- }
- 
--#ifdef CONFIG_QLCNIC_VXLAN
- static void qlcnic_add_vxlan_port(struct net_device *netdev,
--				  sa_family_t sa_family, __be16 port)
-+				  struct udp_tunnel_info *ti)
+-static void __udp_tunnel_push_rx_port(struct net_device *dev,
+-				      struct udp_tunnel_info *ti)
+-{
+-	if (dev->netdev_ops->ndo_udp_tunnel_add) {
+-		dev->netdev_ops->ndo_udp_tunnel_add(dev, ti);
+-		return;
+-	}
+-
+-	switch (ti->type) {
+-	case UDP_TUNNEL_TYPE_VXLAN:
+-		if (!dev->netdev_ops->ndo_add_vxlan_port)
+-			break;
+-
+-		dev->netdev_ops->ndo_add_vxlan_port(dev,
+-						    ti->sa_family,
+-						    ti->port);
+-		break;
+-	case UDP_TUNNEL_TYPE_GENEVE:
+-		if (!dev->netdev_ops->ndo_add_geneve_port)
+-			break;
+-
+-		dev->netdev_ops->ndo_add_geneve_port(dev,
+-						     ti->sa_family,
+-						     ti->port);
+-		break;
+-	default:
+-		break;
+-	}
+-}
+-
+ void udp_tunnel_push_rx_port(struct net_device *dev, struct socket *sock,
+ 			     unsigned short type)
  {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+ 	struct sock *sk = sock->sk;
+ 	struct udp_tunnel_info ti;
  
-+	if (ti->type != UDP_TUNNEL_TYPE_VXLAN)
++	if (!dev->netdev_ops->ndo_udp_tunnel_add)
 +		return;
 +
- 	/* Adapter supports only one VXLAN port. Use very first port
- 	 * for enabling offload
- 	 */
-@@ -488,23 +488,26 @@ static void qlcnic_add_vxlan_port(struct net_device *netdev,
- 		return;
- 	if (!ahw->vxlan_port_count) {
- 		ahw->vxlan_port_count = 1;
--		ahw->vxlan_port = ntohs(port);
-+		ahw->vxlan_port = ntohs(ti->port);
- 		adapter->flags |= QLCNIC_ADD_VXLAN_PORT;
- 		return;
- 	}
--	if (ahw->vxlan_port == ntohs(port))
-+	if (ahw->vxlan_port == ntohs(ti->port))
- 		ahw->vxlan_port_count++;
+ 	ti.type = type;
+ 	ti.sa_family = sk->sk_family;
+ 	ti.port = inet_sk(sk)->inet_sport;
  
+-	__udp_tunnel_push_rx_port(dev, &ti);
++	dev->netdev_ops->ndo_udp_tunnel_add(dev, &ti);
  }
+ EXPORT_SYMBOL_GPL(udp_tunnel_push_rx_port);
  
- static void qlcnic_del_vxlan_port(struct net_device *netdev,
--				  sa_family_t sa_family, __be16 port)
-+				  struct udp_tunnel_info *ti)
+@@ -133,42 +106,15 @@ void udp_tunnel_notify_add_rx_port(struct socket *sock, unsigned short type)
+ 	ti.port = inet_sk(sk)->inet_sport;
+ 
+ 	rcu_read_lock();
+-	for_each_netdev_rcu(net, dev)
+-		__udp_tunnel_push_rx_port(dev, &ti);
++	for_each_netdev_rcu(net, dev) {
++		if (!dev->netdev_ops->ndo_udp_tunnel_add)
++			continue;
++		dev->netdev_ops->ndo_udp_tunnel_add(dev, &ti);
++	}
+ 	rcu_read_unlock();
+ }
+ EXPORT_SYMBOL_GPL(udp_tunnel_notify_add_rx_port);
+ 
+-static void __udp_tunnel_pull_rx_port(struct net_device *dev,
+-				      struct udp_tunnel_info *ti)
+-{
+-	if (dev->netdev_ops->ndo_udp_tunnel_del) {
+-		dev->netdev_ops->ndo_udp_tunnel_del(dev, ti);
+-		return;
+-	}
+-
+-	switch (ti->type) {
+-	case UDP_TUNNEL_TYPE_VXLAN:
+-		if (!dev->netdev_ops->ndo_del_vxlan_port)
+-			break;
+-
+-		dev->netdev_ops->ndo_del_vxlan_port(dev,
+-						    ti->sa_family,
+-						    ti->port);
+-		break;
+-	case UDP_TUNNEL_TYPE_GENEVE:
+-		if (!dev->netdev_ops->ndo_del_geneve_port)
+-			break;
+-
+-		dev->netdev_ops->ndo_del_geneve_port(dev,
+-						     ti->sa_family,
+-						     ti->port);
+-		break;
+-	default:
+-		break;
+-	}
+-}
+-
+ /* Notify netdevs that UDP port is no more listening */
+ void udp_tunnel_notify_del_rx_port(struct socket *sock, unsigned short type)
  {
- 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
- 	struct qlcnic_hardware_context *ahw = adapter->ahw;
+@@ -182,8 +128,11 @@ void udp_tunnel_notify_del_rx_port(struct socket *sock, unsigned short type)
+ 	ti.port = inet_sk(sk)->inet_sport;
  
-+	if (ti->type != UDP_TUNNEL_TYPE_VXLAN)
-+		return;
-+
- 	if (!qlcnic_encap_rx_offload(adapter) || !ahw->vxlan_port_count ||
--	    (ahw->vxlan_port != ntohs(port)))
-+	    (ahw->vxlan_port != ntohs(ti->port)))
- 		return;
- 
- 	ahw->vxlan_port_count--;
-@@ -519,7 +522,6 @@ static netdev_features_t qlcnic_features_check(struct sk_buff *skb,
- 	features = vlan_features_check(skb, features);
- 	return vxlan_features_check(skb, features);
+ 	rcu_read_lock();
+-	for_each_netdev_rcu(net, dev)
+-		__udp_tunnel_pull_rx_port(dev, &ti);
++	for_each_netdev_rcu(net, dev) {
++		if (!dev->netdev_ops->ndo_udp_tunnel_del)
++			continue;
++		dev->netdev_ops->ndo_udp_tunnel_del(dev, &ti);
++	}
+ 	rcu_read_unlock();
  }
--#endif
- 
- static const struct net_device_ops qlcnic_netdev_ops = {
- 	.ndo_open	   = qlcnic_open,
-@@ -539,11 +541,9 @@ static const struct net_device_ops qlcnic_netdev_ops = {
- 	.ndo_fdb_del		= qlcnic_fdb_del,
- 	.ndo_fdb_dump		= qlcnic_fdb_dump,
- 	.ndo_get_phys_port_id	= qlcnic_get_phys_port_id,
--#ifdef CONFIG_QLCNIC_VXLAN
--	.ndo_add_vxlan_port	= qlcnic_add_vxlan_port,
--	.ndo_del_vxlan_port	= qlcnic_del_vxlan_port,
-+	.ndo_udp_tunnel_add	= qlcnic_add_vxlan_port,
-+	.ndo_udp_tunnel_del	= qlcnic_del_vxlan_port,
- 	.ndo_features_check	= qlcnic_features_check,
--#endif
- #ifdef CONFIG_NET_POLL_CONTROLLER
- 	.ndo_poll_controller = qlcnic_poll_controller,
- #endif
-@@ -2015,10 +2015,8 @@ qlcnic_attach(struct qlcnic_adapter *adapter)
- 
- 	qlcnic_create_sysfs_entries(adapter);
- 
--#ifdef CONFIG_QLCNIC_VXLAN
- 	if (qlcnic_encap_rx_offload(adapter))
--		vxlan_get_rx_port(netdev);
--#endif
-+		udp_tunnel_get_rx_info(netdev);
- 
- 	adapter->is_up = QLCNIC_ADAPTER_UP_MAGIC;
- 	return 0;
+ EXPORT_SYMBOL_GPL(udp_tunnel_notify_del_rx_port);
