@@ -1,44 +1,75 @@
-From: Blair Steven <Blair.Steven@alliedtelesis.co.nz>
-Subject: Re: [PATCH] IPsec NAT-T issue
-Date: Wed, 15 Jun 2016 00:44:54 +0000
-Message-ID: <5760A501.3070504@alliedtelesis.co.nz>
-References: <20160612234814.15460-1-blair.steven@alliedtelesis.co.nz>
- <20160613102024.GX7698@gauss.secunet.com>
+From: James Cameron <quozl@laptop.org>
+Subject: Re: [ldv-project] [net] libertas: potential race condition
+Date: Wed, 15 Jun 2016 10:46:55 +1000
+Message-ID: <20160615004655.GE5852@us.netrek.org>
+References: <57569424.9040906@ispras.ru>
+ <1465310395.29158.2.camel@redhat.com>
+ <20160607225114.GA21437@us.netrek.org>
+ <5760039B.4050902@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:60804 "EHLO
-	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932223AbcFOAo7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 14 Jun 2016 20:44:59 -0400
-Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
-	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
-	(Client did not present a certificate)
-	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id F0BB28604B
-	for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 12:44:55 +1200 (NZST)
-In-Reply-To: <20160613102024.GX7698@gauss.secunet.com>
-Content-Language: en-US
-Content-ID: <AE0B84439B5183469F21451012A2FA97@atlnz.lc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Dan Williams <dcbw@redhat.com>, Kalle Valo <kvalo@codeaurora.org>,
+	libertas-dev@lists.infradead.org, LDV list <ldv-project@ispras.ru>,
+	netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+	linux-kernel@vger.kernel.org, vaishali.thakkar@oracle.com
+To: Pavel Andrianov <andrianov@ispras.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <5760039B.4050902@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The restoration is happening - but being actioned on the wrong location.
+On Tue, Jun 14, 2016 at 05:16:11PM +0400, Pavel Andrianov wrote:
+> 08.06.2016 02:51, James Cameron =D0=BF=D0=B8=D1=88=D0=B5=D1=82:
+> >On Tue, Jun 07, 2016 at 09:39:55AM -0500, Dan Williams wrote:
+> >>On Tue, 2016-06-07 at 13:30 +0400, Pavel Andrianov wrote:
+> >>>Hi!
+> >>>
+> >>>There is a potential race condition in
+> >>>drivers/net/wireless/libertas/libertas.ko.
+> >>>In the function lbs_hard_start_xmit(..), line 159, a socket buffer
+> >>>is
+> >>>written to priv->current_skb with a spin_lock protection.
+> >>>In the function lbs_mac_event_disconnected(..), lines 50-51, the
+> >>>field
+> >>>current_skb is cleaned. There is no protection used. The
+> >>>corresponding
+> >>>handlers are activated at the same time in lbs_start_card(..) and
+> >>>then
+> >>>may be executed simultaneously. Note, there are two structures
+> >>>lbs_netdev_ops and mesh_netdev_ops, which have the target handler
+> >>>lbs_hard_start_xmit.
+> >>>Is it a real race or I have missed something?
+> >>Yeah, it looks like it should be grabbing priv->driver_lock before
+> >>clearing priv->currenttxskb in lbs_mac_event_disconnected().  Care =
+to
+> >>submit a patch after testing?  Do you have any of that hardware?
+> >I've hardware, with serial console.
+> >
+> >Can test any patch, on USB (8388) or SDIO (8686).
+> >
+> Hi!
+>=20
+> I've prepare the patch for this issue. Could you test it?
+>=20
+> Thank you.
 
-The destination IP address is being saved and restored, and the SPI 
-being written directly after the destination IP address. From my 
-understanding though, the ESN shuffling should have saved and restored 
-the UDP source / dest ports + SPI.
+Tested on OLPC XO-1 (usb8388) and XO-1.5 (sd8686) with v4.7-rc3.
 
--Blair
+Confirmed that lbs_mac_event_disconnected is being called on the
+station when hostapd on access point is given SIGHUP.
 
-On 06/13/2016 10:20 PM, Steffen Klassert wrote:
-> On Mon, Jun 13, 2016 at 11:48:13AM +1200, Blair Steven wrote:
->> During testing we have discovered an issue with IPsec NAT-T where the SPI
->> is over writing the source and dest ports of the UDP header.
-> The headers should be restored after the crypto operation in
-> esp_restore_header(). Does this not happen in your case? What
-> kind of problem do you experience?
->
+Longer duration test was;
+
+- SSH to station and run "top -d 0.2",
+
+- send SIGHUP every six seconds, for 300 cycles,
+
+You may add my;
+
+Tested-by: James Cameron <quozl@laptop.org>
+
+--=20
+James Cameron
+http://quozl.netrek.org/
