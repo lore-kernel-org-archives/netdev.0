@@ -1,40 +1,42 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: hns: update the dependency
-Date: Tue, 14 Jun 2016 23:24:12 -0700 (PDT)
-Message-ID: <20160614.232412.270313987866244147.davem@davemloft.net>
-References: <1465818987-218513-1-git-send-email-Yisen.Zhuang@huawei.com>
-	<20160614.222613.1939489970427406792.davem@davemloft.net>
-	<5760EFB5.4040909@huawei.com>
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+Subject: [PATCH resend net-next 1/1] qede: Remove the redundant initialization statement.
+Date: Wed, 15 Jun 2016 01:41:55 -0400
+Message-ID: <1465969315-1859-1-git-send-email-sudarsana.kalluru@qlogic.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, charles.chenxin@huawei.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linuxarm@huawei.com
-To: Yisen.zhuang@huawei.com
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
+	<sudarsana.kalluru@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54631 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752021AbcFOGYP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 02:24:15 -0400
-In-Reply-To: <5760EFB5.4040909@huawei.com>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:35334 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751406AbcFOGZ5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 02:25:57 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yisen Zhuang <Yisen.zhuang@huawei.com>
-Date: Wed, 15 Jun 2016 14:03:33 +0800
+The callback ".getcbx" is being initialized twice. This was introduced by
+the commit 0fdeb72aa6c9 ("qede: Add dcbnl support."). The patch removes the
+redundant initialization statement.
 
-> Hi David,
-> 
-> You mean that i send this patch 3 times?
-> 
-> I am sorry for this.
-> 
-> I don't know why you can receive 3 times. I can only receive an email for this patch.
+Reported-by: Julia Lawall <julia.lawall@lip6.fr>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qede/qede_dcbnl.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-I got three copies, each with a different Date: field.
-
-patchwork saw all 3 copies as well:
-
-http://patchwork.ozlabs.org/patch/634452/
-http://patchwork.ozlabs.org/patch/634559/
-http://patchwork.ozlabs.org/patch/634586/
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
+index 03e8c02..318f0cb 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
+@@ -308,7 +308,6 @@ static const struct dcbnl_rtnl_ops qede_dcbnl_ops = {
+ 	.ieee_setets = qede_dcbnl_ieee_setets,
+ 	.ieee_getapp = qede_dcbnl_ieee_getapp,
+ 	.ieee_setapp = qede_dcbnl_ieee_setapp,
+-	.getdcbx = qede_dcbnl_getdcbx,
+ 	.ieee_peer_getpfc = qede_dcbnl_ieee_peer_getpfc,
+ 	.ieee_peer_getets = qede_dcbnl_ieee_peer_getets,
+ 	.getstate = qede_dcbnl_getstate,
+-- 
+1.8.3.1
