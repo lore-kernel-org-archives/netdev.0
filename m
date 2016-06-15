@@ -1,91 +1,45 @@
 From: Ying Xue <ying.xue@windriver.com>
-Subject: [PATCH] tipc: fix suspicious RCU usage
-Date: Wed, 15 Jun 2016 14:10:57 +0800
-Message-ID: <1465971057-16660-1-git-send-email-ying.xue@windriver.com>
+Subject: [PATCH] tipc: eliminate uninitialized variable warning
+Date: Wed, 15 Jun 2016 14:11:31 +0800
+Message-ID: <1465971091-16695-1-git-send-email-ying.xue@windriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: <jon.maloy@ericsson.com>, <erik.hugne@gmail.com>,
 	<netdev@vger.kernel.org>, <tipc-discussion@lists.sourceforge.net>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail5.windriver.com ([192.103.53.11]:35537 "EHLO mail5.wrs.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750841AbcFOGLb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jun 2016 02:11:31 -0400
+Received: from mail.windriver.com ([147.11.1.11]:41228 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752986AbcFOGMB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 02:12:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When run tipcTS&tipcTC test suite, the following complaint appears:
+net/tipc/link.c: In function =E2=80=98tipc_link_timeout=E2=80=99:
+net/tipc/link.c:744:28: warning: =E2=80=98mtyp=E2=80=99 may be used uni=
+nitialized in this function [-Wuninitialized]
 
-[   56.926168] ===============================
-[   56.926169] [ INFO: suspicious RCU usage. ]
-[   56.926171] 4.7.0-rc1+ #160 Not tainted
-[   56.926173] -------------------------------
-[   56.926174] net/tipc/bearer.c:408 suspicious rcu_dereference_protected() usage!
-[   56.926175]
-[   56.926175] other info that might help us debug this:
-[   56.926175]
-[   56.926177]
-[   56.926177] rcu_scheduler_active = 1, debug_locks = 1
-[   56.926179] 3 locks held by swapper/4/0:
-[   56.926180]  #0:  (((&req->timer))){+.-...}, at: [<ffffffff810e79b5>] call_timer_fn+0x5/0x340
-[   56.926203]  #1:  (&(&req->lock)->rlock){+.-...}, at: [<ffffffffa000c29b>] disc_timeout+0x1b/0xd0 [tipc]
-[   56.926212]  #2:  (rcu_read_lock){......}, at: [<ffffffffa00055e0>] tipc_bearer_xmit_skb+0xb0/0x2e0 [tipc]
-[   56.926218]
-[   56.926218] stack backtrace:
-[   56.926221] CPU: 4 PID: 0 Comm: swapper/4 Not tainted 4.7.0-rc1+ #160
-[   56.926222] Hardware name: Bochs Bochs, BIOS Bochs 01/01/2007
-[   56.926224]  0000000000000000 ffff880016803d28 ffffffff813c4423 ffff8800154252c0
-[   56.926227]  0000000000000001 ffff880016803d58 ffffffff810b7512 ffff8800124d8120
-[   56.926230]  ffff880013f8a160 ffff8800132b5ccc ffff8800124d8120 ffff880016803d88
-[   56.926234] Call Trace:
-[   56.926235]  <IRQ>  [<ffffffff813c4423>] dump_stack+0x67/0x94
-[   56.926250]  [<ffffffff810b7512>] lockdep_rcu_suspicious+0xe2/0x120
-[   56.926256]  [<ffffffffa00051f1>] tipc_l2_send_msg+0x131/0x1c0 [tipc]
-[   56.926261]  [<ffffffffa000567c>] tipc_bearer_xmit_skb+0x14c/0x2e0 [tipc]
-[   56.926266]  [<ffffffffa00055e0>] ? tipc_bearer_xmit_skb+0xb0/0x2e0 [tipc]
-[   56.926273]  [<ffffffffa000c280>] ? tipc_disc_init_msg+0x1f0/0x1f0 [tipc]
-[   56.926278]  [<ffffffffa000c280>] ? tipc_disc_init_msg+0x1f0/0x1f0 [tipc]
-[   56.926283]  [<ffffffffa000c2d6>] disc_timeout+0x56/0xd0 [tipc]
-[   56.926288]  [<ffffffff810e7a68>] call_timer_fn+0xb8/0x340
-[   56.926291]  [<ffffffff810e79b5>] ? call_timer_fn+0x5/0x340
-[   56.926296]  [<ffffffffa000c280>] ? tipc_disc_init_msg+0x1f0/0x1f0 [tipc]
-[   56.926300]  [<ffffffff810e8f4a>] run_timer_softirq+0x23a/0x390
-[   56.926306]  [<ffffffff810f89ff>] ? clockevents_program_event+0x7f/0x130
-[   56.926316]  [<ffffffff819727c3>] __do_softirq+0xc3/0x4a2
-[   56.926323]  [<ffffffff8106ba5a>] irq_exit+0x8a/0xb0
-[   56.926327]  [<ffffffff81972456>] smp_apic_timer_interrupt+0x46/0x60
-[   56.926331]  [<ffffffff81970a49>] apic_timer_interrupt+0x89/0x90
-[   56.926333]  <EOI>  [<ffffffff81027fda>] ? default_idle+0x2a/0x1a0
-[   56.926340]  [<ffffffff81027fd8>] ? default_idle+0x28/0x1a0
-[   56.926342]  [<ffffffff810289cf>] arch_cpu_idle+0xf/0x20
-[   56.926345]  [<ffffffff810adf0f>] default_idle_call+0x2f/0x50
-[   56.926347]  [<ffffffff810ae145>] cpu_startup_entry+0x215/0x3e0
-[   56.926353]  [<ffffffff81040ad9>] start_secondary+0xf9/0x100
-
-The warning appears as rtnl_dereference() is wrongly used in
-tipc_l2_send_msg() under RCU read lock protection. Instead the proper
-usage should be that rcu_dereference_rtnl() is called here.
-
-Fixes: 5b7066c3dd24 ("tipc: stricter filtering of packets in bearer layer")
+=46ixes: 42b18f605fea ("tipc: refactor function tipc_link_timeout()")
 Acked-by: Jon Maloy <jon.maloy@ericsson.com>
 Signed-off-by: Ying Xue <ying.xue@windriver.com>
 ---
- net/tipc/bearer.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ net/tipc/link.c |    3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/net/tipc/bearer.c b/net/tipc/bearer.c
-index 6f11c62..bf8f05c 100644
---- a/net/tipc/bearer.c
-+++ b/net/tipc/bearer.c
-@@ -405,7 +405,7 @@ int tipc_l2_send_msg(struct net *net, struct sk_buff *skb,
- 		return 0;
- 
- 	/* Send RESET message even if bearer is detached from device */
--	tipc_ptr = rtnl_dereference(dev->tipc_ptr);
-+	tipc_ptr = rcu_dereference_rtnl(dev->tipc_ptr);
- 	if (unlikely(!tipc_ptr && !msg_is_reset(buf_msg(skb))))
- 		goto drop;
- 
--- 
+diff --git a/net/tipc/link.c b/net/tipc/link.c
+index 7059c94..67b6ab9 100644
+--- a/net/tipc/link.c
++++ b/net/tipc/link.c
+@@ -704,7 +704,8 @@ static void link_profile_stats(struct tipc_link *l)
+  */
+ int tipc_link_timeout(struct tipc_link *l, struct sk_buff_head *xmitq)
+ {
+-	int mtyp, rc =3D 0;
++	int mtyp =3D 0;
++	int rc =3D 0;
+ 	bool state =3D false;
+ 	bool probe =3D false;
+ 	bool setup =3D false;
+--=20
 1.7.9.5
