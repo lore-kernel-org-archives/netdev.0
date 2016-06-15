@@ -1,71 +1,52 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net] ixgbe: napi_poll must return the work done
-Date: Wed, 15 Jun 2016 17:43:47 +0200
-Message-ID: <1466005427.24431.18.camel@redhat.com>
-References: <37ccedd746ed932b9d73eff592f324f2a3fc6c6f.1465995724.git.pabeni@redhat.com>
-	 <CAKgT0UeU7tfo=i5O1j9ORwBJUVYGta5Z-NLw+xKGVLeHQ=PPtg@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH v2 08/11] drm: amd: remove broken include path
+Date: Wed, 15 Jun 2016 17:45:50 +0200
+Message-ID: <20160615154553.3177021-9-arnd@arndb.de>
+References: <20160615154553.3177021-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@vger.kernel.org>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@redhat.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:38243 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932439AbcFOPnv (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jun 2016 11:43:51 -0400
-In-Reply-To: <CAKgT0UeU7tfo=i5O1j9ORwBJUVYGta5Z-NLw+xKGVLeHQ=PPtg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Arnd Bergmann <arnd@arndb.de>, linux-kbuild@vger.kernel.org,
+ netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ dri-devel@lists.freedesktop.org, linux-arm-kernel@lists.infradead.org
+To: Michal Marek <mmarek@suse.com>
+Return-path: <dri-devel-bounces@lists.freedesktop.org>
+In-Reply-To: <20160615154553.3177021-1-arnd@arndb.de>
+List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
+List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
+List-Post: <mailto:dri-devel@lists.freedesktop.org>
+List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
+List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
+ <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
+Errors-To: dri-devel-bounces@lists.freedesktop.org
+Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-06-15 at 08:20 -0700, Alexander Duyck wrote:
-> On Wed, Jun 15, 2016 at 6:37 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> > Currently the function ixgbe_poll() returns 0 when it clean completely
-> > the rx rings, but this foul budget accounting in core code.
-> > Fix this returning the actual work done, capped to weight - 1, since
-> > the core doesn't allow to return the full budget when the driver modifies
-> > the napi status
-> >
-> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
-> 
-> I think the origin of reporting 0 was actually compatibility with some
-> NAPI code floating around from before the 2.6.24 kernel.
-> 
-> I'd be curious to know how much this is actually fouling things up.
-> Can you point to any specific issues it was causing?  
-
-I noticed this while instrumenting the napi poll loop for another
-patch. 
-
-It's not easy to reproduce the bugged scenario, several NICs receiving a
-relevant amount of traffic on napi instances scheduled on the same
-softirq are needed. 
-
-If any/some of them has the buggy poll() method, the napi_poll() loop
-may process (much) more than netdev_budget packets per invocation,
-possibly delaying others softirq more than needed/expected. 
-
-The maxium delay will be no matter what capped to a couple of jiffies,
-due to the time-based loop end condition, so in the worst possible
-scenario (most probably not a real thing), this adds a latency of 2
-jiffies - <time required to process netdev_budget packets> (~1.8ms on
-recent h/w with HZ==1000).
-
-> If you end up
-> having to submit a v2 for any reason it might be useful if you can
-> provide the additional details on what actual issue it was causing.
-> 
-> You might also want to look at the other Intel drivers, specifically
-> ixgbevf and fm10k as I believe we have similar code in those drivers
-> as well.
-
-Thank you for the head-up. I need to get an hand on that h/w, first!
-
-Paolo
-
-> 
-> Acked-by: Alexander Duyck <aduyck@mirantis.com>
+VGhlIEFNRCBBQ1AgZHJpdmVyIGFkZHMgIi1JLi4vYWNwIC1JLi4vYWNwL2luY2x1ZGUiIHRvIHRo
+ZSBnY2MgY29tbWFuZApsaW5lLCB3aGljaCBtYWtlcyBubyBzZW5zZSwgc2luY2UgdGhlc2UgYXJl
+IGV2YWx1YXRlZCByZWxhdGl2ZSB0byB0aGUKYnVpbGQgZGlyZWN0b3J5LiBXaGVuIHdlIGJ1aWxk
+IHdpdGggIm1ha2UgVz0xIiwgdGhleSBpbnN0ZWFkIGNhdXNlCmEgd2FybmluZzoKCmNjMTogZXJy
+b3I6IC4uL2FjcC86IE5vIHN1Y2ggZmlsZSBvciBkaXJlY3RvcnkgWy1XZXJyb3I9bWlzc2luZy1p
+bmNsdWRlLWRpcnNdCmNjMTogZXJyb3I6IC4uL2FjcC9pbmNsdWRlOiBObyBzdWNoIGZpbGUgb3Ig
+ZGlyZWN0b3J5IFstV2Vycm9yPW1pc3NpbmctaW5jbHVkZS1kaXJzXQpjYzE6IGFsbCB3YXJuaW5n
+cyBiZWluZyB0cmVhdGVkIGFzIGVycm9ycwouLi9zY3JpcHRzL01ha2VmaWxlLmJ1aWxkOjI4OTog
+cmVjaXBlIGZvciB0YXJnZXQgJ2RyaXZlcnMvZ3B1L2RybS9hbWQvYW1kZ3B1L2FtZGdwdV9kcnYu
+bycgZmFpbGVkCi4uL3NjcmlwdHMvTWFrZWZpbGUuYnVpbGQ6Mjg5OiByZWNpcGUgZm9yIHRhcmdl
+dCAnZHJpdmVycy9ncHUvZHJtL2FtZC9hbWRncHUvYW1kZ3B1X2RldmljZS5vJyBmYWlsZWQKLi4v
+c2NyaXB0cy9NYWtlZmlsZS5idWlsZDoyODk6IHJlY2lwZSBmb3IgdGFyZ2V0ICdkcml2ZXJzL2dw
+dS9kcm0vYW1kL2FtZGdwdS9hbWRncHVfa21zLm8nIGZhaWxlZAoKVGhpcyByZW1vdmVzIHRoZSBz
+dWJkaXItY2NmbGFncyB2YXJpYWJsZSB0aGF0IGV2aWRlbnRseSBkaWQgbm90CnNlcnZlIGFueSBw
+dXJwb3NlIGhlcmUuCgpTaWduZWQtb2ZmLWJ5OiBBcm5kIEJlcmdtYW5uIDxhcm5kQGFybmRiLmRl
+PgotLS0KIGRyaXZlcnMvZ3B1L2RybS9hbWQvYWNwL01ha2VmaWxlIHwgMiAtLQogMSBmaWxlIGNo
+YW5nZWQsIDIgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9ncHUvZHJtL2FtZC9h
+Y3AvTWFrZWZpbGUgYi9kcml2ZXJzL2dwdS9kcm0vYW1kL2FjcC9NYWtlZmlsZQppbmRleCA4MzYz
+Y2I1NzkxNWIuLjhhMDhlODFlZTkwZCAxMDA2NDQKLS0tIGEvZHJpdmVycy9ncHUvZHJtL2FtZC9h
+Y3AvTWFrZWZpbGUKKysrIGIvZHJpdmVycy9ncHUvZHJtL2FtZC9hY3AvTWFrZWZpbGUKQEAgLTMs
+NiArMyw0IEBACiAjIG9mIEFNRFNPQy9BTURHUFUgZHJtIGRyaXZlci4KICMgSXQgcHJvdmlkZXMg
+dGhlIEhXIGNvbnRyb2wgZm9yIEFDUCByZWxhdGVkIGZ1bmN0aW9uYWxpdGllcy4KIAotc3ViZGly
+LWNjZmxhZ3MteSArPSAtSSQoQU1EQUNQUEFUSCkvIC1JJChBTURBQ1BQQVRIKS9pbmNsdWRlCi0K
+IEFNRF9BQ1BfRklMRVMgOj0gJChBTURBQ1BQQVRIKS9hY3BfaHcubwotLSAKMi45LjAKCl9fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRyaS1kZXZlbCBtYWls
+aW5nIGxpc3QKZHJpLWRldmVsQGxpc3RzLmZyZWVkZXNrdG9wLm9yZwpodHRwczovL2xpc3RzLmZy
+ZWVkZXNrdG9wLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RyaS1kZXZlbAo=
