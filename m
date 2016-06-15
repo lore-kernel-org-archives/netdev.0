@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH 15/15] ARM: dts: am335x/am437x/dra7: use new "ti,cpsw-mdio" compat string
-Date: Wed, 15 Jun 2016 14:56:03 +0300
-Message-ID: <20160615115603.4897-16-grygorii.strashko@ti.com>
+Subject: [PATCH 09/15] drivers: net: davinci_mdio: split reset function on init_clk and enable
+Date: Wed, 15 Jun 2016 14:55:57 +0300
+Message-ID: <20160615115603.4897-10-grygorii.strashko@ti.com>
 References: <20160615115603.4897-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,55 +17,89 @@ In-Reply-To: <20160615115603.4897-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add "ti,cpsw-mdio" for am335x/am437x/dra7 SoCs where MDIO is
-implemented as part of TI CPSW and, this way, enable PM runtime auto
-suspend for Davinci MDIO driver on these paltforms.
+The Davinci MDIO MDIO_CONTROL.CLKDIV can be calculated only once
+during probe, hence split __davinci_mdio_reset() on
+davinci_mdio_init_clk() and davinci_mdio_enable(). Initialize and
+save CLKDIV in .probe(). Then just use saved value.
 
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- arch/arm/boot/dts/am33xx.dtsi | 2 +-
- arch/arm/boot/dts/am4372.dtsi | 2 +-
- arch/arm/boot/dts/dra7.dtsi   | 2 +-
- 3 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/ti/davinci_mdio.c | 21 ++++++++++++++-------
+ 1 file changed, 14 insertions(+), 7 deletions(-)
 
-diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
-index 52be48b..7fa9a1d 100644
---- a/arch/arm/boot/dts/am33xx.dtsi
-+++ b/arch/arm/boot/dts/am33xx.dtsi
-@@ -789,7 +789,7 @@
- 			status = "disabled";
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index b6d0059..b206fd3 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -98,9 +98,10 @@ struct davinci_mdio_data {
+ 	 * if MDIO bus is registered from DT.
+ 	 */
+ 	bool		skip_scan;
++	u32		clk_div;
+ };
  
- 			davinci_mdio: mdio@4a101000 {
--				compatible = "ti,davinci_mdio";
-+				compatible = "ti,cpsw-mdio","ti,davinci_mdio";
- 				#address-cells = <1>;
- 				#size-cells = <0>;
- 				ti,hwmods = "davinci_mdio";
-diff --git a/arch/arm/boot/dts/am4372.dtsi b/arch/arm/boot/dts/am4372.dtsi
-index 12fcde4..ea76fa7 100644
---- a/arch/arm/boot/dts/am4372.dtsi
-+++ b/arch/arm/boot/dts/am4372.dtsi
-@@ -636,7 +636,7 @@
- 			syscon = <&scm_conf>;
+-static void __davinci_mdio_reset(struct davinci_mdio_data *data)
++static void davinci_mdio_init_clk(struct davinci_mdio_data *data)
+ {
+ 	u32 mdio_in, div, mdio_out_khz, access_time;
  
- 			davinci_mdio: mdio@4a101000 {
--				compatible = "ti,am4372-mdio","ti,davinci_mdio";
-+				compatible = "ti,am4372-mdio","ti,cpsw-mdio","ti,davinci_mdio";
- 				reg = <0x4a101000 0x100>;
- 				#address-cells = <1>;
- 				#size-cells = <0>;
-diff --git a/arch/arm/boot/dts/dra7.dtsi b/arch/arm/boot/dts/dra7.dtsi
-index e007401..911ef85 100644
---- a/arch/arm/boot/dts/dra7.dtsi
-+++ b/arch/arm/boot/dts/dra7.dtsi
-@@ -1661,7 +1661,7 @@
- 			status = "disabled";
+@@ -109,9 +110,7 @@ static void __davinci_mdio_reset(struct davinci_mdio_data *data)
+ 	if (div > CONTROL_MAX_DIV)
+ 		div = CONTROL_MAX_DIV;
  
- 			davinci_mdio: mdio@48485000 {
--				compatible = "ti,davinci_mdio";
-+				compatible = "ti,cpsw-mdio","ti,davinci_mdio";
- 				#address-cells = <1>;
- 				#size-cells = <0>;
- 				ti,hwmods = "davinci_mdio";
+-	/* set enable and clock divider */
+-	__raw_writel(div | CONTROL_ENABLE, &data->regs->control);
+-
++	data->clk_div = div;
+ 	/*
+ 	 * One mdio transaction consists of:
+ 	 *	32 bits of preamble
+@@ -132,12 +131,18 @@ static void __davinci_mdio_reset(struct davinci_mdio_data *data)
+ 		data->access_time = 1;
+ }
+ 
++static void davinci_mdio_enable(struct davinci_mdio_data *data)
++{
++	/* set enable and clock divider */
++	__raw_writel(data->clk_div | CONTROL_ENABLE, &data->regs->control);
++}
++
+ static int davinci_mdio_reset(struct mii_bus *bus)
+ {
+ 	struct davinci_mdio_data *data = bus->priv;
+ 	u32 phy_mask, ver;
+ 
+-	__davinci_mdio_reset(data);
++	davinci_mdio_enable(data);
+ 
+ 	/* wait for scan logic to settle */
+ 	msleep(PHY_MAX_ADDR * data->access_time);
+@@ -188,7 +193,7 @@ static inline int wait_for_user_access(struct davinci_mdio_data *data)
+ 		 * operation
+ 		 */
+ 		dev_warn(data->dev, "resetting idled controller\n");
+-		__davinci_mdio_reset(data);
++		davinci_mdio_enable(data);
+ 		return -EAGAIN;
+ 	}
+ 
+@@ -350,6 +355,8 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 	if (IS_ERR(data->regs))
+ 		return PTR_ERR(data->regs);
+ 
++	davinci_mdio_init_clk(data);
++
+ 	pm_runtime_enable(&pdev->dev);
+ 	pm_runtime_get_sync(&pdev->dev);
+ 
+@@ -425,7 +432,7 @@ static int davinci_mdio_resume(struct device *dev)
+ 	pinctrl_pm_select_default_state(dev);
+ 
+ 	/* restart the scan state machine */
+-	__davinci_mdio_reset(data);
++	davinci_mdio_enable(data);
+ 
+ 	return 0;
+ }
 -- 
 2.8.4
