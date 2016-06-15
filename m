@@ -1,60 +1,41 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH v2 03/11] Kbuild: always prefix objtree in LINUXINCLUDE
-Date: Wed, 15 Jun 2016 17:45:45 +0200
-Message-ID: <20160615154553.3177021-4-arnd@arndb.de>
+Subject: [PATCH v2 09/11] net: skfb: remove obsolete -I cflag
+Date: Wed, 15 Jun 2016 17:45:51 +0200
+Message-ID: <20160615154553.3177021-10-arnd@arndb.de>
 References: <20160615154553.3177021-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Arnd Bergmann <arnd@arndb.de>, linux-kbuild@vger.kernel.org,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- dri-devel@lists.freedesktop.org, linux-arm-kernel@lists.infradead.org
+Cc: linux-kbuild@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, netdev@vger.kernel.org,
+	dri-devel@lists.freedesktop.org, Arnd Bergmann <arnd@arndb.de>
 To: Michal Marek <mmarek@suse.com>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20160615154553.3177021-1-arnd@arndb.de>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-V2hlbiAkKExJTlVYSU5DTFVERSkgaXMgYWRkZWQgdG8gdGhlIGNmbGFncyBvZiBhIHRhcmdldCB0
-aGF0Cm5vcm1hbGwgZG9lc24ndCBoYXZlIGl0IChlLmcuIEhPU1RDRkxBR1MpLCBlYWNoIGVudHJ5
-IGluIHRoZQpsaXN0IGlzIGV4cGFuZGVkIHNvIHRoYXQgd2Ugc2VhcmNoIGJvdGggJChvYmp0cmVl
-KSBhbmQgJChzcmN0cmVlKSwKd2hpY2ggaXMgYSBiaXQgc2lsbHksIGFzIHdlIGFscmVhZHkga25v
-dyB3aGljaCBvZiB0aGUgdHdvIHdlCndhbnQgZm9yIGVhY2ggZW50cnkgaW4gTElOVVhJTkNMVURF
-LgoKQWxzbywgYSBmb2xsb3ctdXAgcGF0Y2ggY2hhbmdlcyB0aGUgYmVoYXZpb3Igc28gd2Ugb25s
-eSBsb29rIGluCiQoc3JjdHJlZSkgZm9yIG1hbnVhbGx5IGFkZGVkIGluY2x1ZGUgcGF0aCwgYW5k
-IHRoYXQgYnJlYWtzIGZpbmRpbmcKdGhlIGdlbmVyYXRlZCBoZWFkZXJzLgoKVGhpcyBhZGRzIGFu
-IGV4cGxpY2l0ICQob2JqdHJlZSkgZm9yIGVhY2ggdHJlZSB0aGF0IHdlIHdhbnQgdG8KbG9vayBm
-b3IgZ2VuZXJhdGVkIGZpbGVzLgoKU2lnbmVkLW9mZi1ieTogQXJuZCBCZXJnbWFubiA8YXJuZEBh
-cm5kYi5kZT4KLS0tCiBNYWtlZmlsZSB8IDEwICsrKysrLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCA1
-IGluc2VydGlvbnMoKyksIDUgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvTWFrZWZpbGUgYi9N
-YWtlZmlsZQppbmRleCA0NTE1OTg2MWU2NDUuLjk2OTkyNDc4MzU0MyAxMDA2NDQKLS0tIGEvTWFr
-ZWZpbGUKKysrIGIvTWFrZWZpbGUKQEAgLTM3NywxOSArMzc3LDE5IEBAIENGTEFHU19LQ09WCTo9
-ICQoY2FsbCBjYy1vcHRpb24sLWZzYW5pdGl6ZS1jb3ZlcmFnZT10cmFjZS1wYywpCiAjIFVzZSBV
-U0VSSU5DTFVERSB3aGVuIHlvdSBtdXN0IHJlZmVyZW5jZSB0aGUgVUFQSSBkaXJlY3RvcmllcyBv
-bmx5LgogVVNFUklOQ0xVREUgICAgOj0gXAogCQktSSQoc3JjdHJlZSkvYXJjaC8kKGhkci1hcmNo
-KS9pbmNsdWRlL3VhcGkgXAotCQktSWFyY2gvJChoZHItYXJjaCkvaW5jbHVkZS9nZW5lcmF0ZWQv
-dWFwaSBcCisJCS1JJChvYmp0cmVlKS9hcmNoLyQoaGRyLWFyY2gpL2luY2x1ZGUvZ2VuZXJhdGVk
-L3VhcGkgXAogCQktSSQoc3JjdHJlZSkvaW5jbHVkZS91YXBpIFwKLQkJLUlpbmNsdWRlL2dlbmVy
-YXRlZC91YXBpIFwKKwkJLUkkKG9ianRyZWUpL2luY2x1ZGUvZ2VuZXJhdGVkL3VhcGkgXAogICAg
-ICAgICAgICAgICAgIC1pbmNsdWRlICQoc3JjdHJlZSkvaW5jbHVkZS9saW51eC9rY29uZmlnLmgK
-IAogIyBVc2UgTElOVVhJTkNMVURFIHdoZW4geW91IG11c3QgcmVmZXJlbmNlIHRoZSBpbmNsdWRl
-LyBkaXJlY3RvcnkuCiAjIE5lZWRlZCB0byBiZSBjb21wYXRpYmxlIHdpdGggdGhlIE89IG9wdGlv
-bgogTElOVVhJTkNMVURFICAgIDo9IFwKIAkJLUkkKHNyY3RyZWUpL2FyY2gvJChoZHItYXJjaCkv
-aW5jbHVkZSBcCi0JCS1JYXJjaC8kKGhkci1hcmNoKS9pbmNsdWRlL2dlbmVyYXRlZC91YXBpIFwK
-LQkJLUlhcmNoLyQoaGRyLWFyY2gpL2luY2x1ZGUvZ2VuZXJhdGVkIFwKKwkJLUkkKG9ianRyZWUp
-L2FyY2gvJChoZHItYXJjaCkvaW5jbHVkZS9nZW5lcmF0ZWQvdWFwaSBcCisJCS1JJChvYmp0cmVl
-KS9hcmNoLyQoaGRyLWFyY2gpL2luY2x1ZGUvZ2VuZXJhdGVkIFwKIAkJJChpZiAkKEtCVUlMRF9T
-UkMpLCAtSSQoc3JjdHJlZSkvaW5jbHVkZSkgXAotCQktSWluY2x1ZGUKKwkJLUkkKG9ianRyZWUp
-L2luY2x1ZGUKIAogTElOVVhJTkNMVURFCSs9ICQoZmlsdGVyLW91dCAkKExJTlVYSU5DTFVERSks
-JChVU0VSSU5DTFVERSkpCiAKLS0gCjIuOS4wCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpkcmktZGV2ZWwgbWFpbGluZyBsaXN0CmRyaS1kZXZlbEBsaXN0
-cy5mcmVlZGVza3RvcC5vcmcKaHR0cHM6Ly9saXN0cy5mcmVlZGVza3RvcC5vcmcvbWFpbG1hbi9s
-aXN0aW5mby9kcmktZGV2ZWwK
+The skfp driver has been moved to drivers/net/fddi/skfp a long time
+ago, but we still attempt to include headers from the old location,
+which causes a warning when building with W=1:
+
+cc1: error: /git/arm-soc/drivers/net/skfp: No such file or directory [-Werror=missing-include-dirs]
+cc1: error: drivers/net/skfp: No such file or directory [-Werror=missing-include-dirs]
+
+Clearly this include directive is not needed any more, so we can
+just remove it now.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/fddi/skfp/Makefile | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/fddi/skfp/Makefile b/drivers/net/fddi/skfp/Makefile
+index b0be0234abf6..a957a1c7e5ba 100644
+--- a/drivers/net/fddi/skfp/Makefile
++++ b/drivers/net/fddi/skfp/Makefile
+@@ -17,4 +17,4 @@ skfp-objs :=  skfddi.o    hwmtm.o    fplustm.o  smt.o      cfm.o     \
+ #   projects. To keep the source common for all those drivers (and
+ #   thus simplify fixes to it), please do not clean it up!
+ 
+-ccflags-y := -Idrivers/net/skfp -DPCI -DMEM_MAPPED_IO -Wno-strict-prototypes
++ccflags-y := -DPCI -DMEM_MAPPED_IO -Wno-strict-prototypes
+-- 
+2.9.0
