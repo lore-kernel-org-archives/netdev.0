@@ -1,50 +1,78 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 1/1] tipc: add neighbor monitoring framework
-Date: Wed, 15 Jun 2016 14:07:22 -0700 (PDT)
-Message-ID: <20160615.140722.735826371979735548.davem@davemloft.net>
-References: <1465865182-10461-1-git-send-email-jon.maloy@ericsson.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next v2] tcp: use RFC6298 compliant TCP RTO calculation
+Date: Wed, 15 Jun 2016 14:07:21 -0700
+Message-ID: <CAK6E8=e2yqANBVKJBfwLj3vsMefNfaQaTZcgGx0bBNBA-mS5yA@mail.gmail.com>
+References: <CAK6E8=dWLF+gRprxEbHRLnkRNHmf5sbedtv2Dt1jOqKPh7fmjA@mail.gmail.com>
+ <20160614191841.21496-1-dmetz@mytum.de> <CAK6E8=eeso8OEN_0-znqkuEyVTqzP1mTvwktk4QOsrLJXmuj9Q@mail.gmail.com>
+ <20160615174114.GA16217@virgo.localdomain> <CAK6E8=fgQitOiXwjjn0gq93w7m5DQ2OHr_wvq-oGeAF2fhE-uA@mail.gmail.com>
+ <16f7fad2-e8e3-44b7-af09-43467840bd00@mytum.de> <CANn89iLY27dQLXEmk9GMtACjjE0CWxqSK2FdM-Zo5HM5iA82XQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
-	ying.xue@windriver.com, maloy@donjonn.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Metz <dmetz@mytum.de>, Hagen Paul Pfeifer <hagen@jauu.net>,
+	netdev <netdev@vger.kernel.org>,
+	Daniel Metz <daniel.metz@rohde-schwarz.com>
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34183 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753076AbcFOVHY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 17:07:24 -0400
-In-Reply-To: <1465865182-10461-1-git-send-email-jon.maloy@ericsson.com>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:35857 "EHLO
+	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753117AbcFOVID (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 17:08:03 -0400
+Received: by mail-io0-f182.google.com with SMTP id n127so32746865iof.3
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 14:08:02 -0700 (PDT)
+In-Reply-To: <CANn89iLY27dQLXEmk9GMtACjjE0CWxqSK2FdM-Zo5HM5iA82XQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Mon, 13 Jun 2016 20:46:22 -0400
+On Wed, Jun 15, 2016 at 1:38 PM, Eric Dumazet <edumazet@google.com> wrote:
+>
+> On Wed, Jun 15, 2016 at 1:34 PM, Daniel Metz <dmetz@mytum.de> wrote:
+> > Yuchung Cheng | 2016-06-15 20:02:
+> >> Let me explain in a different way:
+> >>
+> >> * RFC6298 applies a lower bound of 1 second to RTO (section 2.4)
+> >>
+> >> * Linux currently applies a lower bound of 200ms (min_rto) to
+> >> K*RTTVAR, but /not/ RTO itself.
+> >>
+> >> * This patch applies the lower bound of 200ms to RTO, similar to RFC6298
+> >>
+> >>
+> >> Let's say the SRTT is 100ms and RTT variations is 10ms. The variation
+> >> is low because we've been sending large chunks, and RTT is fairly
+> >> stable, and we sample on every ACK. The RTOs produced are
+> >>
+> >> RFC6298: RTO=1s
+> >> Linux: RTO=300ms
+> >> This patch: RTO=200ms
+> >>
+> >> Then we send 1 packet out. The receiver delays the ACK up to 200ms.
+> >> The actual RTT can be longer because other network components further
+> >> delay the data or the ACK. This patch would surely fire the RTO
+> >> spuriously.
+> >>
+> >> so we can either implement RFC6298 faithfully, or apply the
+> >> lower-bound as-is, or something in between. But the current patch
+> >> as-is is more aggressive. Did I miss something?
+> >
+> > Thank you for the clarification. The fundamental thought of this patch was
+> > to decrease Linux RTO overestimation. This also involved not clinging to the
+> > RFC 6298 MinRTO of 1 second ((2.4) "[...] at the same time acknowledging
+> > that at some future point, research may show that a smaller minimum RTO is
+> > acceptable or superior."). A more aggressive RTO will of course increase the
+> > amount of Spurious Retransmission. The question is, if the benefit is higher
+> > than the sacrifice. The tests we conducted did not show significant negative
+> > impact so far. However, for sender-limited TCP flows the results were
+> > promising.
+> >
+>
+> I guess the problem is that some folks use smaller rto than
+> RTAX_RTO_MIN , look at tcp_rto_min()
 
-> TIPC based clusters are by default set up with full-mesh link
-> connectivity between all nodes. Those links are expected to provide
-> a short failure detection time, by default set to 1500 ms. Because
-> of this, the background load for neighbor monitoring in an N-node
-> cluster increases with a factor N on each node, while the overall
-> monitoring traffic through the network infrastructure increases at
-> a ~(N * (N - 1)) rate. Experience has shown that such clusters don't
-> scale well beyond ~100 nodes unless we significantly increase failure
-> discovery tolerance.
-> 
-> This commit introduces a framework and an algorithm that drastically
-> reduces this background load, while basically maintaining the original
-> failure detection times across the whole cluster. Using this algorithm,
-> background load will now grow at a rate of ~(2 * sqrt(N)) per node, and
-> at ~(2 * N * sqrt(N)) in traffic overhead. As an example, each node will
-> now have to actively monitor 38 neighbors in a 400-node cluster, instead
-> of as before 399.
-> 
-> This "Overlapping Ring Supervision Algorithm" is completely distributed
-> and employs no centralized or coordinated state. It goes as follows:
- ...
-> Acked-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+Also many other stacks (e.g., Windows until very recently) do not have
+40ms delayed ACKs like Linux. One thing we at least know is that the
+current 200ms lower-bound on RTTVAR works for a long time. That's why
+I propose to do so. In other words, change the RTT variation
+averaging, but not the lower-bound.
 
-Applied, thanks.
+Will try to get the experiment going to test different min_rto values
+so we have more data.
