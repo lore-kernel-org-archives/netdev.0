@@ -1,8 +1,8 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 06/17] sfc: Move filter IDs to per-VLAN data
- structure
-Date: Wed, 15 Jun 2016 17:45:36 +0100
-Message-ID: <60c02708-262e-a96c-d63d-30589b74de9c@solarflare.com>
+Subject: [PATCH net-next 09/17] sfc: Implement list of VLANs added over
+ interface
+Date: Wed, 15 Jun 2016 17:48:14 +0100
+Message-ID: <4f0a1788-5f3d-fead-5c20-8f5c50a78cfe@solarflare.com>
 References: <4daf4ef4-7a8b-4a16-c640-04275298abad@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,92 +10,396 @@ Content-Transfer-Encoding: 7bit
 To: <linux-net-drivers@solarflare.com>, <netdev@vger.kernel.org>,
 	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:23662 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753122AbcFOQu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 12:50:29 -0400
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:5200 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932738AbcFOQup (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 12:50:45 -0400
 In-Reply-To: <4daf4ef4-7a8b-4a16-c640-04275298abad@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Andrew Rybchenko <Andrew.Rybchenko@oktetlabs.ru>
 
-It is a step to support VLAN filtering in HW.
-Until then, there is only one struct efx_ef10_filter_vlan per struct
-efx_ef10_filter_table, with no VLAN information yet.
+Right now it contains dummy VLAN entry with unspecified VID only.
+The entry is used for the case when HW VLAN filtering is not used.
 
 Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c | 88 ++++++++++++++++++++++++-----------------
- 1 file changed, 51 insertions(+), 37 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c | 325 +++++++++++++++++++++++++++++++++++-----
+ drivers/net/ethernet/sfc/nic.h  |   5 +
+ 2 files changed, 295 insertions(+), 35 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index 120a4b7..7abb8a7 100644
+index d1bc0dc..6dd0a79 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -50,9 +50,21 @@ enum {
- #define HUNT_FILTER_TBL_ROWS 8192
+@@ -54,8 +54,15 @@ enum {
+ #define EFX_EF10_FILTER_DEV_UC_MAX	32
+ #define EFX_EF10_FILTER_DEV_MC_MAX	256
  
- #define EFX_EF10_FILTER_ID_INVALID 0xffff
-+
-+#define EFX_EF10_FILTER_DEV_UC_MAX	32
-+#define EFX_EF10_FILTER_DEV_MC_MAX	256
-+
-+/* Per-VLAN filters information */
-+struct efx_ef10_filter_vlan {
-+	u16 uc[EFX_EF10_FILTER_DEV_UC_MAX];
-+	u16 mc[EFX_EF10_FILTER_DEV_MC_MAX];
-+	u16 ucdef;
-+	u16 bcast;
-+	u16 mcdef;
++/* VLAN list entry */
++struct efx_ef10_vlan {
++	struct list_head list;
++	u16 vid;
 +};
 +
- struct efx_ef10_dev_addr {
- 	u8 addr[ETH_ALEN];
--	u16 id;
- };
- 
- struct efx_ef10_filter_table {
-@@ -73,18 +85,13 @@ struct efx_ef10_filter_table {
- 	} *entry;
- 	wait_queue_head_t waitq;
- /* Shadow of net_device address lists, guarded by mac_lock */
--#define EFX_EF10_FILTER_DEV_UC_MAX	32
--#define EFX_EF10_FILTER_DEV_MC_MAX	256
- 	struct efx_ef10_dev_addr dev_uc_list[EFX_EF10_FILTER_DEV_UC_MAX];
- 	struct efx_ef10_dev_addr dev_mc_list[EFX_EF10_FILTER_DEV_MC_MAX];
- 	int dev_uc_count;
- 	int dev_mc_count;
--/* Indices (like efx_ef10_dev_addr.id) for promisc/allmulti filters */
--	u16 ucdef_id;
--	u16 bcast_id;
--	u16 mcdef_id;
+ /* Per-VLAN filters information */
+ struct efx_ef10_filter_vlan {
++	struct list_head list;
+ 	u16 vid;
+ 	u16 uc[EFX_EF10_FILTER_DEV_UC_MAX];
+ 	u16 mc[EFX_EF10_FILTER_DEV_MC_MAX];
+@@ -94,7 +101,7 @@ struct efx_ef10_filter_table {
+ 	bool mc_promisc;
  /* Whether in multicast promiscuous mode when last changed */
  	bool mc_promisc_last;
-+	struct efx_ef10_filter_vlan vlan;
+-	struct efx_ef10_filter_vlan vlan;
++	struct list_head vlan_list;
  };
  
  /* An arbitrary search limit for the software hash table */
-@@ -3732,6 +3739,7 @@ static int efx_ef10_filter_table_probe(struct efx_nic *efx)
+@@ -102,6 +109,10 @@ struct efx_ef10_filter_table {
+ 
+ static void efx_ef10_rx_free_indir_table(struct efx_nic *efx);
+ static void efx_ef10_filter_table_remove(struct efx_nic *efx);
++static int efx_ef10_filter_add_vlan(struct efx_nic *efx, u16 vid);
++static void efx_ef10_filter_del_vlan_internal(struct efx_nic *efx,
++					      struct efx_ef10_filter_vlan *vlan);
++static void efx_ef10_filter_del_vlan(struct efx_nic *efx, u16 vid);
+ 
+ static int efx_ef10_get_warm_boot_count(struct efx_nic *efx)
+ {
+@@ -287,6 +298,96 @@ static ssize_t efx_ef10_show_primary_flag(struct device *dev,
+ 		       ? 1 : 0);
+ }
+ 
++static struct efx_ef10_vlan *efx_ef10_find_vlan(struct efx_nic *efx, u16 vid)
++{
++	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++	struct efx_ef10_vlan *vlan;
++
++	WARN_ON(!mutex_is_locked(&nic_data->vlan_lock));
++
++	list_for_each_entry(vlan, &nic_data->vlan_list, list) {
++		if (vlan->vid == vid)
++			return vlan;
++	}
++
++	return NULL;
++}
++
++static int efx_ef10_add_vlan(struct efx_nic *efx, u16 vid)
++{
++	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++	struct efx_ef10_vlan *vlan;
++	int rc;
++
++	mutex_lock(&nic_data->vlan_lock);
++
++	vlan = efx_ef10_find_vlan(efx, vid);
++	if (vlan) {
++		netif_warn(efx, drv, efx->net_dev,
++			   "VLAN %u already added\n", vid);
++		rc = -EALREADY;
++		goto fail_exist;
++	}
++
++	rc = -ENOMEM;
++	vlan = kzalloc(sizeof(*vlan), GFP_KERNEL);
++	if (!vlan)
++		goto fail_alloc;
++
++	vlan->vid = vid;
++
++	list_add_tail(&vlan->list, &nic_data->vlan_list);
++
++	if (efx->filter_state) {
++		mutex_lock(&efx->mac_lock);
++		down_write(&efx->filter_sem);
++		rc = efx_ef10_filter_add_vlan(efx, vlan->vid);
++		up_write(&efx->filter_sem);
++		mutex_unlock(&efx->mac_lock);
++		if (rc)
++			goto fail_filter_add_vlan;
++	}
++
++	mutex_unlock(&nic_data->vlan_lock);
++	return 0;
++
++fail_filter_add_vlan:
++	list_del(&vlan->list);
++	kfree(vlan);
++fail_alloc:
++fail_exist:
++	mutex_unlock(&nic_data->vlan_lock);
++	return rc;
++}
++
++static void efx_ef10_del_vlan_internal(struct efx_nic *efx,
++				       struct efx_ef10_vlan *vlan)
++{
++	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++
++	WARN_ON(!mutex_is_locked(&nic_data->vlan_lock));
++
++	if (efx->filter_state) {
++		down_write(&efx->filter_sem);
++		efx_ef10_filter_del_vlan(efx, vlan->vid);
++		up_write(&efx->filter_sem);
++	}
++
++	list_del(&vlan->list);
++	kfree(vlan);
++}
++
++static void efx_ef10_cleanup_vlans(struct efx_nic *efx)
++{
++	struct efx_ef10_nic_data *nic_data = efx->nic_data;
++	struct efx_ef10_vlan *vlan, *next_vlan;
++
++	mutex_lock(&nic_data->vlan_lock);
++	list_for_each_entry_safe(vlan, next_vlan, &nic_data->vlan_list, list)
++		efx_ef10_del_vlan_internal(efx, vlan);
++	mutex_unlock(&nic_data->vlan_lock);
++}
++
+ static DEVICE_ATTR(link_control_flag, 0444, efx_ef10_show_link_control_flag,
+ 		   NULL);
+ static DEVICE_ATTR(primary_flag, 0444, efx_ef10_show_primary_flag, NULL);
+@@ -433,8 +534,20 @@ static int efx_ef10_probe(struct efx_nic *efx)
+ #endif
+ 		ether_addr_copy(nic_data->port_id, efx->net_dev->perm_addr);
+ 
++	INIT_LIST_HEAD(&nic_data->vlan_list);
++	mutex_init(&nic_data->vlan_lock);
++
++	/* Add unspecified VID to support VLAN filtering being disabled */
++	rc = efx_ef10_add_vlan(efx, EFX_FILTER_VID_UNSPEC);
++	if (rc)
++		goto fail_add_vid_unspec;
++
+ 	return 0;
+ 
++fail_add_vid_unspec:
++	mutex_destroy(&nic_data->vlan_lock);
++	efx_ptp_remove(efx);
++	efx_mcdi_mon_remove(efx);
+ fail5:
+ 	device_remove_file(&efx->pci_dev->dev, &dev_attr_primary_flag);
+ fail4:
+@@ -688,6 +801,9 @@ static void efx_ef10_remove(struct efx_nic *efx)
+ 	}
+ #endif
+ 
++	efx_ef10_cleanup_vlans(efx);
++	mutex_destroy(&nic_data->vlan_lock);
++
+ 	efx_ptp_remove(efx);
+ 
+ 	efx_mcdi_mon_remove(efx);
+@@ -3736,14 +3852,30 @@ static int efx_ef10_filter_match_flags_from_mcdi(u32 mcdi_flags)
+ 	return match_flags;
+ }
+ 
++static void efx_ef10_filter_cleanup_vlans(struct efx_nic *efx)
++{
++	struct efx_ef10_filter_table *table = efx->filter_state;
++	struct efx_ef10_filter_vlan *vlan, *next_vlan;
++
++	/* See comment in efx_ef10_filter_table_remove() */
++	if (!efx_rwsem_assert_write_locked(&efx->filter_sem))
++		return;
++
++	if (!table)
++		return;
++
++	list_for_each_entry_safe(vlan, next_vlan, &table->vlan_list, list)
++		efx_ef10_filter_del_vlan_internal(efx, vlan);
++}
++
+ static int efx_ef10_filter_table_probe(struct efx_nic *efx)
+ {
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_GET_PARSER_DISP_INFO_IN_LEN);
  	MCDI_DECLARE_BUF(outbuf, MC_CMD_GET_PARSER_DISP_INFO_OUT_LENMAX);
++	struct efx_ef10_nic_data *nic_data = efx->nic_data;
  	unsigned int pd_match_pri, pd_match_count;
  	struct efx_ef10_filter_table *table;
-+	struct efx_ef10_filter_vlan *vlan;
- 	unsigned int i;
+-	struct efx_ef10_filter_vlan *vlan;
+-	unsigned int i;
++	struct efx_ef10_vlan *vlan;
  	size_t outlen;
  	int rc;
-@@ -3784,13 +3792,14 @@ static int efx_ef10_filter_table_probe(struct efx_nic *efx)
+ 
+@@ -3795,21 +3927,23 @@ static int efx_ef10_filter_table_probe(struct efx_nic *efx)
  		goto fail;
  	}
  
--	for (i = 0; i < ARRAY_SIZE(table->dev_uc_list); i++)
--		table->dev_uc_list[i].id = EFX_EF10_FILTER_ID_INVALID;
--	for (i = 0; i < ARRAY_SIZE(table->dev_mc_list); i++)
--		table->dev_mc_list[i].id = EFX_EF10_FILTER_ID_INVALID;
--	table->ucdef_id = EFX_EF10_FILTER_ID_INVALID;
--	table->bcast_id = EFX_EF10_FILTER_ID_INVALID;
--	table->mcdef_id = EFX_EF10_FILTER_ID_INVALID;
-+	vlan = &table->vlan;
+-	vlan = &table->vlan;
+-	vlan->vid = EFX_FILTER_VID_UNSPEC;
+-	for (i = 0; i < ARRAY_SIZE(vlan->uc); i++)
+-		vlan->uc[i] = EFX_EF10_FILTER_ID_INVALID;
+-	for (i = 0; i < ARRAY_SIZE(vlan->mc); i++)
+-		vlan->mc[i] = EFX_EF10_FILTER_ID_INVALID;
+-	vlan->ucdef = EFX_EF10_FILTER_ID_INVALID;
+-	vlan->bcast = EFX_EF10_FILTER_ID_INVALID;
+-	vlan->mcdef = EFX_EF10_FILTER_ID_INVALID;
+ 	table->mc_promisc_last = false;
++	INIT_LIST_HEAD(&table->vlan_list);
+ 
+ 	efx->filter_state = table;
+ 	init_waitqueue_head(&table->waitq);
++
++	list_for_each_entry(vlan, &nic_data->vlan_list, list) {
++		rc = efx_ef10_filter_add_vlan(efx, vlan->vid);
++		if (rc)
++			goto fail_add_vlan;
++	}
++
+ 	return 0;
+ 
++fail_add_vlan:
++	efx_ef10_filter_cleanup_vlans(efx);
++	efx->filter_state = NULL;
+ fail:
+ 	kfree(table);
+ 	return rc;
+@@ -3878,6 +4012,7 @@ static void efx_ef10_filter_table_remove(struct efx_nic *efx)
+ 	unsigned int filter_idx;
+ 	int rc;
+ 
++	efx_ef10_filter_cleanup_vlans(efx);
+ 	efx->filter_state = NULL;
+ 	/* If we were called without locking, then it's not safe to free
+ 	 * the table as others might be using it.  So we just WARN, leak
+@@ -3947,13 +4082,18 @@ static void _efx_ef10_filter_vlan_mark_old(struct efx_nic *efx,
+ 	efx_ef10_filter_mark_one_old(efx, &vlan->mcdef);
+ }
+ 
+-/* Mark old filters that may need to be removed */
++/* Mark old filters that may need to be removed.
++ * Caller must hold efx->filter_sem for read if race against
++ * efx_ef10_filter_table_remove() is possible
++ */
+ static void efx_ef10_filter_mark_old(struct efx_nic *efx)
+ {
+ 	struct efx_ef10_filter_table *table = efx->filter_state;
++	struct efx_ef10_filter_vlan *vlan;
+ 
+ 	spin_lock_bh(&efx->filter_lock);
+-	_efx_ef10_filter_vlan_mark_old(efx, &table->vlan);
++	list_for_each_entry(vlan, &table->vlan_list, list)
++		_efx_ef10_filter_vlan_mark_old(efx, vlan);
+ 	spin_unlock_bh(&efx->filter_lock);
+ }
+ 
+@@ -4254,30 +4394,11 @@ reset_nic:
+ /* Caller must hold efx->filter_sem for read if race against
+  * efx_ef10_filter_table_remove() is possible
+  */
+-static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
++static void efx_ef10_filter_vlan_sync_rx_mode(struct efx_nic *efx,
++					      struct efx_ef10_filter_vlan *vlan)
+ {
+ 	struct efx_ef10_filter_table *table = efx->filter_state;
+ 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
+-	struct net_device *net_dev = efx->net_dev;
+-	struct efx_ef10_filter_vlan *vlan;
+-
+-	if (!efx_dev_registered(efx))
+-		return;
+-
+-	if (!table)
+-		return;
+-
+-	efx_ef10_filter_mark_old(efx);
+-
+-	/* Copy/convert the address lists; add the primary station
+-	 * address and broadcast address
+-	 */
+-	netif_addr_lock_bh(net_dev);
+-	efx_ef10_filter_uc_addr_list(efx);
+-	efx_ef10_filter_mc_addr_list(efx);
+-	netif_addr_unlock_bh(net_dev);
+-
+-	vlan = &table->vlan;
+ 
+ 	/* Insert/renew unicast filters */
+ 	if (table->uc_promisc) {
+@@ -4332,11 +4453,145 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
+ 								 true, false);
+ 		}
+ 	}
++}
++
++/* Caller must hold efx->filter_sem for read if race against
++ * efx_ef10_filter_table_remove() is possible
++ */
++static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
++{
++	struct efx_ef10_filter_table *table = efx->filter_state;
++	struct net_device *net_dev = efx->net_dev;
++	struct efx_ef10_filter_vlan *vlan;
++
++	if (!efx_dev_registered(efx))
++		return;
++
++	if (!table)
++		return;
++
++	efx_ef10_filter_mark_old(efx);
++
++	/* Copy/convert the address lists; add the primary station
++	 * address and broadcast address
++	 */
++	netif_addr_lock_bh(net_dev);
++	efx_ef10_filter_uc_addr_list(efx);
++	efx_ef10_filter_mc_addr_list(efx);
++	netif_addr_unlock_bh(net_dev);
++
++	list_for_each_entry(vlan, &table->vlan_list, list)
++		efx_ef10_filter_vlan_sync_rx_mode(efx, vlan);
+ 
+ 	efx_ef10_filter_remove_old(efx);
+ 	table->mc_promisc_last = table->mc_promisc;
+ }
+ 
++static struct efx_ef10_filter_vlan *efx_ef10_filter_find_vlan(struct efx_nic *efx, u16 vid)
++{
++	struct efx_ef10_filter_table *table = efx->filter_state;
++	struct efx_ef10_filter_vlan *vlan;
++
++	WARN_ON(!rwsem_is_locked(&efx->filter_sem));
++
++	list_for_each_entry(vlan, &table->vlan_list, list) {
++		if (vlan->vid == vid)
++			return vlan;
++	}
++
++	return NULL;
++}
++
++static int efx_ef10_filter_add_vlan(struct efx_nic *efx, u16 vid)
++{
++	struct efx_ef10_filter_table *table = efx->filter_state;
++	struct efx_ef10_filter_vlan *vlan;
++	unsigned int i;
++
++	if (!efx_rwsem_assert_write_locked(&efx->filter_sem))
++		return -EINVAL;
++
++	vlan = efx_ef10_filter_find_vlan(efx, vid);
++	if (WARN_ON(vlan)) {
++		netif_err(efx, drv, efx->net_dev,
++			  "VLAN %u already added\n", vid);
++		return -EALREADY;
++	}
++
++	vlan = kzalloc(sizeof(*vlan), GFP_KERNEL);
++	if (!vlan)
++		return -ENOMEM;
++
++	vlan->vid = vid;
++
 +	for (i = 0; i < ARRAY_SIZE(vlan->uc); i++)
 +		vlan->uc[i] = EFX_EF10_FILTER_ID_INVALID;
 +	for (i = 0; i < ARRAY_SIZE(vlan->mc); i++)
@@ -103,153 +407,90 @@ index 120a4b7..7abb8a7 100644
 +	vlan->ucdef = EFX_EF10_FILTER_ID_INVALID;
 +	vlan->bcast = EFX_EF10_FILTER_ID_INVALID;
 +	vlan->mcdef = EFX_EF10_FILTER_ID_INVALID;
- 	table->mc_promisc_last = false;
- 
- 	efx->filter_state = table;
-@@ -3921,6 +3930,7 @@ static void efx_ef10_filter_mark_one_old(struct efx_nic *efx, uint16_t *id)
- static void efx_ef10_filter_mark_old(struct efx_nic *efx)
++
++	list_add_tail(&vlan->list, &table->vlan_list);
++
++	if (efx_dev_registered(efx))
++		efx_ef10_filter_vlan_sync_rx_mode(efx, vlan);
++
++	return 0;
++}
++
++static void efx_ef10_filter_del_vlan_internal(struct efx_nic *efx,
++					      struct efx_ef10_filter_vlan *vlan)
++{
++	unsigned int i;
++
++	/* See comment in efx_ef10_filter_table_remove() */
++	if (!efx_rwsem_assert_write_locked(&efx->filter_sem))
++		return;
++
++	list_del(&vlan->list);
++
++	for (i = 0; i < ARRAY_SIZE(vlan->uc); i++) {
++		if (vlan->uc[i] != EFX_EF10_FILTER_ID_INVALID)
++			efx_ef10_filter_remove_unsafe(efx, EFX_FILTER_PRI_AUTO,
++						      vlan->uc[i]);
++	}
++	for (i = 0; i < ARRAY_SIZE(vlan->mc); i++) {
++		if (vlan->mc[i] != EFX_EF10_FILTER_ID_INVALID)
++			efx_ef10_filter_remove_unsafe(efx, EFX_FILTER_PRI_AUTO,
++						      vlan->mc[i]);
++	}
++	if (vlan->ucdef != EFX_EF10_FILTER_ID_INVALID)
++		efx_ef10_filter_remove_unsafe(efx, EFX_FILTER_PRI_AUTO,
++					      vlan->ucdef);
++	if (vlan->bcast != EFX_EF10_FILTER_ID_INVALID)
++		efx_ef10_filter_remove_unsafe(efx, EFX_FILTER_PRI_AUTO,
++					      vlan->bcast);
++	if (vlan->mcdef != EFX_EF10_FILTER_ID_INVALID)
++		efx_ef10_filter_remove_unsafe(efx, EFX_FILTER_PRI_AUTO,
++					      vlan->mcdef);
++
++	kfree(vlan);
++}
++
++static void efx_ef10_filter_del_vlan(struct efx_nic *efx, u16 vid)
++{
++	struct efx_ef10_filter_vlan *vlan;
++
++	/* See comment in efx_ef10_filter_table_remove() */
++	if (!efx_rwsem_assert_write_locked(&efx->filter_sem))
++		return;
++
++	vlan = efx_ef10_filter_find_vlan(efx, vid);
++	if (!vlan) {
++		netif_err(efx, drv, efx->net_dev,
++			  "VLAN %u not found in filter state\n", vid);
++		return;
++	}
++
++	efx_ef10_filter_del_vlan_internal(efx, vlan);
++}
++
+ static int efx_ef10_set_mac_address(struct efx_nic *efx)
  {
- 	struct efx_ef10_filter_table *table = efx->filter_state;
-+	struct efx_ef10_filter_vlan *vlan = &table->vlan;
- 	unsigned int i;
+ 	MCDI_DECLARE_BUF(inbuf, MC_CMD_VADAPTOR_SET_MAC_IN_LEN);
+diff --git a/drivers/net/ethernet/sfc/nic.h b/drivers/net/ethernet/sfc/nic.h
+index 0b536e2..96944c3 100644
+--- a/drivers/net/ethernet/sfc/nic.h
++++ b/drivers/net/ethernet/sfc/nic.h
+@@ -519,6 +519,9 @@ enum {
+ #ifdef CONFIG_SFC_SRIOV
+  * @vf: Pointer to VF data structure
+ #endif
++ * @vport_mac: The MAC address on the vport, only for PFs; VFs will be zero
++ * @vlan_list: List of VLANs added over the interface. Serialised by vlan_lock.
++ * @vlan_lock: Lock to serialize access to vlan_list.
+  */
+ struct efx_ef10_nic_data {
+ 	struct efx_buffer mcdi_buf;
+@@ -550,6 +553,8 @@ struct efx_ef10_nic_data {
+ 	struct ef10_vf *vf;
+ #endif
+ 	u8 vport_mac[ETH_ALEN];
++	struct list_head vlan_list;
++	struct mutex vlan_lock;
+ };
  
- 	if (!table)
-@@ -3929,12 +3939,12 @@ static void efx_ef10_filter_mark_old(struct efx_nic *efx)
- 	/* Mark old filters that may need to be removed */
- 	spin_lock_bh(&efx->filter_lock);
- 	for (i = 0; i < table->dev_uc_count; i++)
--		efx_ef10_filter_mark_one_old(efx, &table->dev_uc_list[i].id);
-+		efx_ef10_filter_mark_one_old(efx, &vlan->uc[i]);
- 	for (i = 0; i < table->dev_mc_count; i++)
--		efx_ef10_filter_mark_one_old(efx, &table->dev_mc_list[i].id);
--	efx_ef10_filter_mark_one_old(efx, &table->ucdef_id);
--	efx_ef10_filter_mark_one_old(efx, &table->bcast_id);
--	efx_ef10_filter_mark_one_old(efx, &table->mcdef_id);
-+		efx_ef10_filter_mark_one_old(efx, &vlan->mc[i]);
-+	efx_ef10_filter_mark_one_old(efx, &vlan->ucdef);
-+	efx_ef10_filter_mark_one_old(efx, &vlan->bcast);
-+	efx_ef10_filter_mark_one_old(efx, &vlan->mcdef);
- 	spin_unlock_bh(&efx->filter_lock);
- }
- 
-@@ -3990,20 +4000,24 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
- 					     bool multicast, bool rollback)
- {
- 	struct efx_ef10_filter_table *table = efx->filter_state;
-+	struct efx_ef10_filter_vlan *vlan = &table->vlan;
- 	struct efx_ef10_dev_addr *addr_list;
- 	enum efx_filter_flags filter_flags;
- 	struct efx_filter_spec spec;
- 	u8 baddr[ETH_ALEN];
- 	unsigned int i, j;
- 	int addr_count;
-+	u16 *ids;
- 	int rc;
- 
- 	if (multicast) {
- 		addr_list = table->dev_mc_list;
- 		addr_count = table->dev_mc_count;
-+		ids = vlan->mc;
- 	} else {
- 		addr_list = table->dev_uc_list;
- 		addr_count = table->dev_uc_count;
-+		ids = vlan->uc;
- 	}
- 
- 	filter_flags = efx_rss_enabled(efx) ? EFX_FILTER_FLAG_RX_RSS : 0;
-@@ -4021,12 +4035,12 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
- 					   rc);
- 				/* Fall back to promiscuous */
- 				for (j = 0; j < i; j++) {
--					if (addr_list[j].id == EFX_EF10_FILTER_ID_INVALID)
-+					if (ids[j] == EFX_EF10_FILTER_ID_INVALID)
- 						continue;
- 					efx_ef10_filter_remove_unsafe(
- 						efx, EFX_FILTER_PRI_AUTO,
--						addr_list[j].id);
--					addr_list[j].id = EFX_EF10_FILTER_ID_INVALID;
-+						ids[j]);
-+					ids[j] = EFX_EF10_FILTER_ID_INVALID;
- 				}
- 				return rc;
- 			} else {
-@@ -4034,7 +4048,7 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
- 				rc = EFX_EF10_FILTER_ID_INVALID;
- 			}
- 		}
--		addr_list[i].id = efx_ef10_filter_get_unsafe_id(efx, rc);
-+		ids[i] = efx_ef10_filter_get_unsafe_id(efx, rc);
- 	}
- 
- 	if (multicast && rollback) {
-@@ -4048,18 +4062,18 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
- 				   "Broadcast filter insert failed rc=%d\n", rc);
- 			/* Fall back to promiscuous */
- 			for (j = 0; j < i; j++) {
--				if (addr_list[j].id == EFX_EF10_FILTER_ID_INVALID)
-+				if (ids[j] == EFX_EF10_FILTER_ID_INVALID)
- 					continue;
- 				efx_ef10_filter_remove_unsafe(
- 					efx, EFX_FILTER_PRI_AUTO,
--					addr_list[j].id);
--				addr_list[j].id = EFX_EF10_FILTER_ID_INVALID;
-+					ids[j]);
-+				ids[j] = EFX_EF10_FILTER_ID_INVALID;
- 			}
- 			return rc;
- 		} else {
--			EFX_WARN_ON_PARANOID(table->bcast_id !=
-+			EFX_WARN_ON_PARANOID(vlan->bcast !=
- 					     EFX_EF10_FILTER_ID_INVALID);
--			table->bcast_id = efx_ef10_filter_get_unsafe_id(efx, rc);
-+			vlan->bcast = efx_ef10_filter_get_unsafe_id(efx, rc);
- 		}
- 	}
- 
-@@ -4071,6 +4085,7 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx, bool multicast,
- {
- 	struct efx_ef10_filter_table *table = efx->filter_state;
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
-+	struct efx_ef10_filter_vlan *vlan = &table->vlan;
- 	enum efx_filter_flags filter_flags;
- 	struct efx_filter_spec spec;
- 	u8 baddr[ETH_ALEN];
-@@ -4092,9 +4107,8 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx, bool multicast,
- 			     "%scast mismatch filter insert failed rc=%d\n",
- 			     multicast ? "Multi" : "Uni", rc);
- 	} else if (multicast) {
--		EFX_WARN_ON_PARANOID(table->mcdef_id !=
--				     EFX_EF10_FILTER_ID_INVALID);
--		table->mcdef_id = efx_ef10_filter_get_unsafe_id(efx, rc);
-+		EFX_WARN_ON_PARANOID(vlan->mcdef != EFX_EF10_FILTER_ID_INVALID);
-+		vlan->mcdef = efx_ef10_filter_get_unsafe_id(efx, rc);
- 		if (!nic_data->workaround_26807) {
- 			/* Also need an Ethernet broadcast filter */
- 			efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
-@@ -4111,20 +4125,20 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx, bool multicast,
- 					/* Roll back the mc_def filter */
- 					efx_ef10_filter_remove_unsafe(
- 							efx, EFX_FILTER_PRI_AUTO,
--							table->mcdef_id);
--					table->mcdef_id = EFX_EF10_FILTER_ID_INVALID;
-+							vlan->mcdef);
-+					vlan->mcdef = EFX_EF10_FILTER_ID_INVALID;
- 					return rc;
- 				}
- 			} else {
--				EFX_WARN_ON_PARANOID(table->bcast_id !=
-+				EFX_WARN_ON_PARANOID(vlan->bcast !=
- 						     EFX_EF10_FILTER_ID_INVALID);
--				table->bcast_id = efx_ef10_filter_get_unsafe_id(efx, rc);
-+				vlan->bcast = efx_ef10_filter_get_unsafe_id(efx, rc);
- 			}
- 		}
- 		rc = 0;
- 	} else {
--		EFX_WARN_ON_PARANOID(table->ucdef_id != EFX_EF10_FILTER_ID_INVALID);
--		table->ucdef_id = rc;
-+		EFX_WARN_ON_PARANOID(vlan->ucdef != EFX_EF10_FILTER_ID_INVALID);
-+		vlan->ucdef = rc;
- 		rc = 0;
- 	}
- 	return rc;
+ int efx_init_sriov(void);
