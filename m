@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 3/8] rxrpc: Break MTU determination from ICMP into
- its own function
-Date: Wed, 15 Jun 2016 17:41:59 +0100
-Message-ID: <146600891961.18270.17418789706237015059.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 4/8] rxrpc: Don't assume anything about the address
+ in an ICMP packet
+Date: Wed, 15 Jun 2016 17:42:06 +0100
+Message-ID: <146600892656.18270.13704590800333247497.stgit@warthog.procyon.org.uk>
 References: <146600889842.18270.2306896489831492957.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,128 +15,39 @@ In-Reply-To: <146600889842.18270.2306896489831492957.stgit@warthog.procyon.org.u
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Break MTU determination from ICMP out into its own function to reduce the
-complexity of the error report handler.
+Don't assume anything about the address in an ICMP packet in
+rxrpc_error_report() as the address may not be IPv4 in future, especially
+since we're just printing these details.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/peer_event.c |   93 ++++++++++++++++++++++++++++--------------------
- 1 file changed, 54 insertions(+), 39 deletions(-)
+ net/rxrpc/peer_event.c |    8 --------
+ 1 file changed, 8 deletions(-)
 
 diff --git a/net/rxrpc/peer_event.c b/net/rxrpc/peer_event.c
-index 2c2df3a5d1b9..80de84257227 100644
+index 80de84257227..6ba798d6659e 100644
 --- a/net/rxrpc/peer_event.c
 +++ b/net/rxrpc/peer_event.c
-@@ -72,6 +72,45 @@ static struct rxrpc_peer *rxrpc_lookup_peer_icmp_rcu(struct rxrpc_local *local,
- }
+@@ -120,8 +120,6 @@ void rxrpc_error_report(struct sock *sk)
+ 	struct rxrpc_local *local = sk->sk_user_data;
+ 	struct rxrpc_peer *peer;
+ 	struct sk_buff *skb;
+-	__be32 addr;
+-	__be16 port;
  
- /*
-+ * Handle an MTU/fragmentation problem.
-+ */
-+static void rxrpc_adjust_mtu(struct rxrpc_peer *peer, struct sock_exterr_skb *serr)
-+{
-+	u32 mtu = serr->ee.ee_info;
-+
-+	_net("Rx ICMP Fragmentation Needed (%d)", mtu);
-+
-+	/* wind down the local interface MTU */
-+	if (mtu > 0 && peer->if_mtu == 65535 && mtu < peer->if_mtu) {
-+		peer->if_mtu = mtu;
-+		_net("I/F MTU %u", mtu);
-+	}
-+
-+	if (mtu == 0) {
-+		/* they didn't give us a size, estimate one */
-+		mtu = peer->if_mtu;
-+		if (mtu > 1500) {
-+			mtu >>= 1;
-+			if (mtu < 1500)
-+				mtu = 1500;
-+		} else {
-+			mtu -= 100;
-+			if (mtu < peer->hdrsize)
-+				mtu = peer->hdrsize + 4;
-+		}
-+	}
-+
-+	if (mtu < peer->mtu) {
-+		spin_lock_bh(&peer->lock);
-+		peer->mtu = mtu;
-+		peer->maxdata = peer->mtu - peer->hdrsize;
-+		spin_unlock_bh(&peer->lock);
-+		_net("Net MTU %u (maxdata %u)",
-+		     peer->mtu, peer->maxdata);
-+	}
-+}
-+
-+/*
-  * handle an error received on the local endpoint
-  */
- void rxrpc_error_report(struct sock *sk)
-@@ -126,50 +165,26 @@ void rxrpc_error_report(struct sock *sk)
- 		return;
- 	}
+ 	_enter("%p{%d}", sk, local->debug_id);
  
--	if (serr->ee.ee_origin == SO_EE_ORIGIN_ICMP &&
--	    serr->ee.ee_type == ICMP_DEST_UNREACH &&
--	    serr->ee.ee_code == ICMP_FRAG_NEEDED
--	    ) {
--		u32 mtu = serr->ee.ee_info;
+@@ -139,12 +137,6 @@ void rxrpc_error_report(struct sock *sk)
+ 
+ 	rxrpc_new_skb(skb);
+ 
+-	addr = *(__be32 *)(skb_network_header(skb) + serr->addr_offset);
+-	port = serr->port;
 -
--		_net("Rx Received ICMP Fragmentation Needed (%d)", mtu);
+-	_net("Rx UDP Error from %pI4:%hu", &addr, ntohs(port));
+-	_debug("Msg l:%d d:%d", skb->len, skb->data_len);
 -
--		/* wind down the local interface MTU */
--		if (mtu > 0 && peer->if_mtu == 65535 && mtu < peer->if_mtu) {
--			peer->if_mtu = mtu;
--			_net("I/F MTU %u", mtu);
--		}
--
--		if (mtu == 0) {
--			/* they didn't give us a size, estimate one */
--			mtu = peer->if_mtu;
--			if (mtu > 1500) {
--				mtu >>= 1;
--				if (mtu < 1500)
--					mtu = 1500;
--			} else {
--				mtu -= 100;
--				if (mtu < peer->hdrsize)
--					mtu = peer->hdrsize + 4;
--			}
--		}
--
--		if (mtu < peer->mtu) {
--			spin_lock_bh(&peer->lock);
--			peer->mtu = mtu;
--			peer->maxdata = peer->mtu - peer->hdrsize;
--			spin_unlock_bh(&peer->lock);
--			_net("Net MTU %u (maxdata %u)",
--			     peer->mtu, peer->maxdata);
--		}
-+	if ((serr->ee.ee_origin == SO_EE_ORIGIN_ICMP &&
-+	     serr->ee.ee_type == ICMP_DEST_UNREACH &&
-+	     serr->ee.ee_code == ICMP_FRAG_NEEDED)) {
-+		rxrpc_adjust_mtu(peer, serr);
-+		rxrpc_free_skb(skb);
-+		skb = NULL;
-+		goto out;
- 	}
- 
-+out:
- 	rcu_read_unlock();
- 	rxrpc_put_peer(peer);
- 
--	/* pass the transport ref to error_handler to release */
--	skb_queue_tail(&trans->error_queue, skb);
--	rxrpc_queue_work(&trans->error_handler);
-+	if (skb) {
-+		/* pass the transport ref to error_handler to release */
-+		skb_queue_tail(&trans->error_queue, skb);
-+		rxrpc_queue_work(&trans->error_handler);
-+	} else {
-+		rxrpc_put_transport(trans);
-+	}
- 	_leave("");
- }
- 
+ 	rcu_read_lock();
+ 	peer = rxrpc_lookup_peer_icmp_rcu(local, skb);
+ 	if (peer && !rxrpc_get_peer_maybe(peer))
