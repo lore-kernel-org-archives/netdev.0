@@ -1,90 +1,110 @@
-From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v2 17/17] vxlan: Add new UDP encapsulation offload
- type for VXLAN-GPE
-Date: Wed, 15 Jun 2016 15:09:04 -0700
-Message-ID: <20160615220904.15575.77650.stgit@localhost.localdomain>
-References: <20160615220449.15575.17031.stgit@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: hannes@redhat.com, jesse@kernel.org, eugenia@mellanox.com,
-	jbenc@redhat.com, alexander.duyck@gmail.com, saeedm@mellanox.com,
-	ariel.elior@qlogic.com, tom@herbertland.com,
-	michael.chan@broadcom.com, Dept-GELinuxNICDev@qlogic.com,
-	davem@davemloft.net
-To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:34597 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753105AbcFOWJG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 18:09:06 -0400
-Received: by mail-pf0-f182.google.com with SMTP id 62so12756320pfd.1
-        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 15:09:06 -0700 (PDT)
-In-Reply-To: <20160615220449.15575.17031.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 1/2] net: ethernet: ax88796: use phydev from struct net_device
+Date: Thu, 16 Jun 2016 00:12:48 +0200
+Message-ID: <1466028769-27866-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Philippe Reynes <tremyfr@gmail.com>
+To: andrew@lunn.ch, davem@davemloft.net, f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The fact is VXLAN with Generic Protocol Extensions cannot be supported by
-the same hardware parsers that support VXLAN.  The protocol extensions
-allow for things like a Next Protocol field which in turn allows for things
-other than Ethernet to be passed over the tunnel.  Most existing parsers
-will not know how to interpret this.
+The private structure contain a pointer to phydev, but the structure
+net_device already contain such pointer. So we can remove the pointer
+phydev in the private structure, and update the driver to use the
+one contained in struct net_device.
 
-To resolve this I am giving VXLAN-GPE its own UDP encapsulation offload
-type.  This way hardware that does support GPE can simply add this type to
-the switch statement for VXLAN, and if they don't support it then this will
-fix any issues where headers might be interpreted incorrectly.
-
-Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/vxlan.c      |   12 ++++++++++--
- include/net/udp_tunnel.h |    1 +
- 2 files changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/8390/ax88796.c |   20 +++++++-------------
+ 1 files changed, 7 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index 888356bc1233..ff1b47c9c03d 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -605,13 +605,19 @@ static int vxlan_gro_complete(struct sock *sk, struct sk_buff *skb, int nhoff)
- /* Notify netdevs that UDP port started listening */
- static void vxlan_notify_add_rx_port(struct vxlan_sock *vs)
+diff --git a/drivers/net/ethernet/8390/ax88796.c b/drivers/net/ethernet/8390/ax88796.c
+index c89b9ae..b446977 100644
+--- a/drivers/net/ethernet/8390/ax88796.c
++++ b/drivers/net/ethernet/8390/ax88796.c
+@@ -84,7 +84,6 @@ static u32 ax_msg_enable;
+ struct ax_device {
+ 	struct mii_bus *mii_bus;
+ 	struct mdiobb_ctrl bb_ctrl;
+-	struct phy_device *phy_dev;
+ 	void __iomem *addr_memr;
+ 	u8 reg_memr;
+ 	int link;
+@@ -320,7 +319,7 @@ static void ax_block_output(struct net_device *dev, int count,
+ static void ax_handle_link_change(struct net_device *dev)
  {
--	udp_tunnel_notify_add_rx_port(vs->sock, UDP_TUNNEL_TYPE_VXLAN);
-+	udp_tunnel_notify_add_rx_port(vs->sock,
-+				      (vs->flags & VXLAN_F_GPE) ?
-+				      UDP_TUNNEL_TYPE_VXLAN_GPE :
-+				      UDP_TUNNEL_TYPE_VXLAN);
- }
+ 	struct ax_device  *ax = to_ax_dev(dev);
+-	struct phy_device *phy_dev = ax->phy_dev;
++	struct phy_device *phy_dev = dev->phydev;
+ 	int status_change = 0;
  
- /* Notify netdevs that UDP port is no more listening */
- static void vxlan_notify_del_rx_port(struct vxlan_sock *vs)
+ 	if (phy_dev->link && ((ax->speed != phy_dev->speed) ||
+@@ -369,8 +368,6 @@ static int ax_mii_probe(struct net_device *dev)
+ 	phy_dev->supported &= PHY_BASIC_FEATURES;
+ 	phy_dev->advertising = phy_dev->supported;
+ 
+-	ax->phy_dev = phy_dev;
+-
+ 	netdev_info(dev, "PHY driver [%s] (mii_bus:phy_addr=%s, irq=%d)\n",
+ 		    phy_dev->drv->name, phydev_name(phy_dev), phy_dev->irq);
+ 
+@@ -410,7 +407,7 @@ static int ax_open(struct net_device *dev)
+ 	ret = ax_mii_probe(dev);
+ 	if (ret)
+ 		goto failed_mii_probe;
+-	phy_start(ax->phy_dev);
++	phy_start(dev->phydev);
+ 
+ 	ret = ax_ei_open(dev);
+ 	if (ret)
+@@ -421,7 +418,7 @@ static int ax_open(struct net_device *dev)
+ 	return 0;
+ 
+  failed_ax_ei_open:
+-	phy_disconnect(ax->phy_dev);
++	phy_disconnect(dev->phydev);
+  failed_mii_probe:
+ 	ax_phy_switch(dev, 0);
+ 	free_irq(dev->irq, dev);
+@@ -442,7 +439,7 @@ static int ax_close(struct net_device *dev)
+ 
+ 	/* turn the phy off */
+ 	ax_phy_switch(dev, 0);
+-	phy_disconnect(ax->phy_dev);
++	phy_disconnect(dev->phydev);
+ 
+ 	free_irq(dev->irq, dev);
+ 	return 0;
+@@ -450,8 +447,7 @@ static int ax_close(struct net_device *dev)
+ 
+ static int ax_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
  {
--	udp_tunnel_notify_del_rx_port(vs->sock, UDP_TUNNEL_TYPE_VXLAN);
-+	udp_tunnel_notify_del_rx_port(vs->sock,
-+				      (vs->flags & VXLAN_F_GPE) ?
-+				      UDP_TUNNEL_TYPE_VXLAN_GPE :
-+				      UDP_TUNNEL_TYPE_VXLAN);
- }
+-	struct ax_device *ax = to_ax_dev(dev);
+-	struct phy_device *phy_dev = ax->phy_dev;
++	struct phy_device *phy_dev = dev->phydev;
  
- /* Add new entry to forwarding table -- assumes lock held */
-@@ -2499,6 +2505,8 @@ static void vxlan_push_rx_ports(struct net_device *dev)
- 	for (i = 0; i < PORT_HASH_SIZE; ++i) {
- 		hlist_for_each_entry_rcu(vs, &vn->sock_list[i], hlist)
- 			udp_tunnel_push_rx_port(dev, vs->sock,
-+						(vs->flags & VXLAN_F_GPE) ?
-+						UDP_TUNNEL_TYPE_VXLAN_GPE :
- 						UDP_TUNNEL_TYPE_VXLAN);
- 	}
- 	spin_unlock(&vn->sock_lock);
-diff --git a/include/net/udp_tunnel.h b/include/net/udp_tunnel.h
-index 1c9408a04213..02c5be037451 100644
---- a/include/net/udp_tunnel.h
-+++ b/include/net/udp_tunnel.h
-@@ -103,6 +103,7 @@ void setup_udp_tunnel_sock(struct net *net, struct socket *sock,
- enum udp_parsable_tunnel_type {
- 	UDP_TUNNEL_TYPE_VXLAN,		/* RFC 7348 */
- 	UDP_TUNNEL_TYPE_GENEVE,		/* draft-ietf-nvo3-geneve */
-+	UDP_TUNNEL_TYPE_VXLAN_GPE,	/* draft-ietf-nvo3-vxlan-gpe */
- };
+ 	if (!netif_running(dev))
+ 		return -EINVAL;
+@@ -476,8 +472,7 @@ static void ax_get_drvinfo(struct net_device *dev,
  
- struct udp_tunnel_info {
+ static int ax_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+-	struct ax_device *ax = to_ax_dev(dev);
+-	struct phy_device *phy_dev = ax->phy_dev;
++	struct phy_device *phy_dev = dev->phydev;
+ 
+ 	if (!phy_dev)
+ 		return -ENODEV;
+@@ -487,8 +482,7 @@ static int ax_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 
+ static int ax_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+-	struct ax_device *ax = to_ax_dev(dev);
+-	struct phy_device *phy_dev = ax->phy_dev;
++	struct phy_device *phy_dev = dev->phydev;
+ 
+ 	if (!phy_dev)
+ 		return -ENODEV;
+-- 
+1.7.4.4
