@@ -1,67 +1,106 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter: fix buffer null termination
-Date: Wed, 15 Jun 2016 14:17:40 +0200
-Message-ID: <20160615121740.GA3088@salvia>
-References: <1465620484-5543-1-git-send-email-sandeepkishan108@gmail.com>
- <CAJ3s=NBCvYnRaWcFb==vZqP1_YE6w=uKqbtBvESkCo1sED2CHg@mail.gmail.com>
- <20160614150802.GA1029@salvia>
- <CAJ3s=ND18x4g4gwVOb0G4cqRbAiF-6F341gWJK7_vumc2BLB0w@mail.gmail.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next 01/10] net_sched: add the ability to defer skb
+ freeing
+Date: Wed, 15 Jun 2016 14:33:46 +0200
+Message-ID: <20160615143346.2300e64b@redhat.com>
+References: <1465874519-25494-1-git-send-email-edumazet@google.com>
+	<1465874519-25494-2-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Kishan Sandeep <sandeepkishan108@gmail.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <CAJ3s=ND18x4g4gwVOb0G4cqRbAiF-6F341gWJK7_vumc2BLB0w@mail.gmail.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, "David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:37358 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753129AbcFOMdw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jun 2016 08:33:52 -0400
+In-Reply-To: <1465874519-25494-2-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 14, 2016 at 09:52:49PM +0530, Kishan Sandeep wrote:
-> Hi Pablo,
+On Mon, 13 Jun 2016 20:21:50 -0700
+Eric Dumazet <edumazet@google.com> wrote:
+
+> qdisc are changed under RTNL protection and often
+> while blocking BH and root qdisc spinlock.
 > 
-> On Tue, Jun 14, 2016 at 8:38 PM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> > Cc'ing netfilter-devel.
-> >
-> > On Tue, Jun 14, 2016 at 07:39:27PM +0530, Kishan Sandeep wrote:
-> >> + netdev
-> >>
-> >> On Sat, Jun 11, 2016 at 10:18 AM, Kishan Sandeep
-> >> <sandeepkishan108@gmail.com> wrote:
-> >> > strncpy generally perferable fo non-terminated
-> >> > fixed-width strings. For NULL termination strlcpy
-> >> > is preferrable.
-> >> >
-> >> > Signed-off-by: Kishan Sandeep <sandeepkishan108@gmail.com>
-> >> > ---
-> >> >  net/netfilter/xt_repldata.h |    2 +-
-> >> >  1 file changed, 1 insertion(+), 1 deletion(-)
-> >> >
-> >> > diff --git a/net/netfilter/xt_repldata.h b/net/netfilter/xt_repldata.h
-> >> > index 8fd3241..a460211 100644
-> >> > --- a/net/netfilter/xt_repldata.h
-> >> > +++ b/net/netfilter/xt_repldata.h
-> >> > @@ -28,7 +28,7 @@
-> >> >         if (tbl == NULL) \
-> >> >                 return NULL; \
-> >> >         term = (struct type##_error *)&(((char *)tbl)[term_offset]); \
-> >> > -       strncpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
-> >> > +       strlcpy(tbl->repl.name, info->name, sizeof(tbl->repl.name)); \
-> >
-> > I don't think this is actually fixing anything. Tables in x_tables
-> > have a known and fixed name that is defined from the kernel side, that
-> > is always smaller that the buffer we have there. So are you observing
-> > any real problem from there?
-> >
-> > Thanks.
+> When lots of skbs need to be dropped, we free
+> them under these locks causing TX/RX freezes,
+> and more generally latency spikes.
 > 
-> Not observed any real problem. Here the string is not NULL terminated with
-> the use of strncpy - that is the problem. With the use of strlcpy we can make
-> the string to terminated properly.
+> This commit adds rtnl_kfree_skbs(), used to queue
+> skbs for deferred freeing.
+> 
+> Actual freeing happens right after RTNL is released,
+> with appropriate scheduling points.
+> 
+> rtnl_qdisc_drop() can also be used in place
+> of disc_drop() when RTNL is held.
+> 
+> qdisc_reset_queue() and __qdisc_reset_queue() get
+> the new behavior, so standard qdiscs like pfifo, pfifo_fast...
+> have their ->reset() method automatically handled.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+>  include/linux/rtnetlink.h |  5 +++--
+>  include/net/sch_generic.h | 16 ++++++++++++----
+>  net/core/rtnetlink.c      | 22 ++++++++++++++++++++++
+>  net/sched/sch_generic.c   |  2 +-
+>  4 files changed, 38 insertions(+), 7 deletions(-)
+> 
+> diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+> index c006cc900c44..2daece8979f7 100644
+> --- a/include/linux/rtnetlink.h
+> +++ b/include/linux/rtnetlink.h
+[...]
+> diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+> index d69c4644f8f2..eb49ca24274a 100644
+> --- a/net/core/rtnetlink.c
+> +++ b/net/core/rtnetlink.c
+> @@ -71,9 +71,31 @@ void rtnl_lock(void)
+>  }
+>  EXPORT_SYMBOL(rtnl_lock);
+>  
+> +static struct sk_buff *defer_kfree_skb_list;
+> +void rtnl_kfree_skbs(struct sk_buff *head, struct sk_buff *tail)
+> +{
+> +	if (head && tail) {
+> +		tail->next = defer_kfree_skb_list;
+> +		defer_kfree_skb_list = head;
+> +	}
+> +}
+> +EXPORT_SYMBOL(rtnl_kfree_skbs);
+> +
+>  void __rtnl_unlock(void)
+>  {
+> +	struct sk_buff *head = defer_kfree_skb_list;
+> +
+> +	defer_kfree_skb_list = NULL;
+> +
+>  	mutex_unlock(&rtnl_mutex);
+> +
+> +	while (head) {
+> +		struct sk_buff *next = head->next;
+> +
+> +		kfree_skb(head);
+> +		cond_resched();
+> +		head = next;
+> +	}
+>  }
 
-1) Table names set from the kernel codebase, so they are always
-   way smaller than that.
+This looks a lot like kfree_skb_list()....
 
-2) We're not expecting the addition of new tables in the future that
-   we result in the hypothetical problem that you indicate.
+What about bulk free'ing SKBs here?
 
-Thanks.
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
