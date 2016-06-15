@@ -1,108 +1,111 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] gre: fix error handler
-Date: Tue, 14 Jun 2016 22:15:01 -0700
-Message-ID: <1465967701.7945.200.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH v2 0/5] ipvs: fix backup sync daemon with IPv6, and minor
+ updates
+Date: Wed, 15 Jun 2016 08:21:00 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1606150815500.2828@ja.home.ssi.bg>
+References: <1465914262-30112-1-git-send-email-quentin@armitage.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>, Tom Herbert <tom@herbertland.com>,
-	Maciej =?UTF-8?Q?=C5=BBenczykowski?= <maze@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:35042 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750717AbcFOFPG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 01:15:06 -0400
-Received: by mail-pa0-f65.google.com with SMTP id hf6so714682pac.2
-        for <netdev@vger.kernel.org>; Tue, 14 Jun 2016 22:15:04 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org
+To: Quentin Armitage <quentin@armitage.org.uk>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1465914262-30112-1-git-send-email-quentin@armitage.org.uk>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-=46rom: Eric Dumazet <edumazet@google.com>
 
-1) gre_parse_header() can be called from gre_err()
+	Hello,
 
-   At this point transport header points to ICMP header, not the inner
-header.
+On Tue, 14 Jun 2016, Quentin Armitage wrote:
 
-2) We can not really change transport header as ipgre_err() will later
-assume transport header still points to ICMP header.
+> This series of patches arise from discovering that:
+> ipvsadm --start-daemon backup --mcast-group IPv6_address ...
+> would always fail.
+> 
+> The first patch resolves the problem. The second and third patches are
+> optimizations that were noticed while investigating the original problem.
+> The fourth patch adds a lock which appears to have been omitted, and the
+> final patch adds the recently added sync daemon multicast parameters to
+> the log messages that are written when the sync daemons start.
+> 
+> v2 fixes a compile error in a debug message identified by kbuild test robot.
+> Now compiles with CONFIG_IP_VS_DEBUG enabled. Patch 2/5 is modified to correct
+> the problem, and patch 3/5 is modifed to apply with the modified patch 2/5.
+> 
+> Quentin Armitage (5):
+>   ipvs: Enable setting IPv6 multicast address for ipvs sync daemon
+>     backup
+>   ipvs: Stop calling __dev_get_by_name() repeatedly when starting sync
+>     daemon
+>   ipvs: Don't check result < 0 after setting result = 0
+>   ipvs: Lock socket before setting SK_CAN_REUSE
+>   ipvs: log additional sync daemon parameters
+> 
+>  net/netfilter/ipvs/ip_vs_sync.c |  104 +++++++++++++++++++-------------------
+>  1 files changed, 52 insertions(+), 52 deletions(-)
+> 
+> -- 
+> 1.7.7.6
 
-3) pskb_may_pull() logic in gre_parse_header() really works
-  if we are interested at zone pointed by skb->data
+	Thanks for catching this bug. Following are my
+comments for the patches:
 
-So this fix :
+Patch 1:
 
-A) changes gre_parse_header() to use skb->data instead of
-skb_transport_header()
+	I missed the fact that link-local addresses (ffx2) require
+binding to ifindex due to __ipv6_addr_needs_scope_id check,
+I tested only with a ff05 address. BTW, ff01 is a node-local
+address (loopback), you should not use it for IPVS.
 
-B) changes gre_err() to pull the IPv4 header immediately following
-the ICMP header that was already pulled earlier.
+	Instead of directly writing into sin6_scope_id we can use
+'sock->sk->sk_bound_dev_if = ifindex;' before bind(), it will
+work for v4 and v6. Let me know if such solution works.
 
-C) remove obsolete IPV6 includes
+	You have to send this patch as a bugfix, it should
+apply to the net tree and later will go to stable trees (4.3+),
+i.e. 4.4, 4.5, 4.6 and 4.7, I don't see stable 4.3 in
+https://www.kernel.org/. You should mention in commit message
+that this patch is a fix to specific commit (check
+Documentation/SubmittingPatches):
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Cc: Tom Herbert <tom@herbertland.com>
-Cc: Maciej =C5=BBenczykowski <maze@google.com>
----
- net/ipv4/gre_demux.c |    4 ++--
- net/ipv4/ip_gre.c    |    9 +++------
- 2 files changed, 5 insertions(+), 8 deletions(-)
+Fixes: d33288172e72 ("ipvs: add more mcast parameters for the sync daemon")
 
-diff --git a/net/ipv4/gre_demux.c b/net/ipv4/gre_demux.c
-index 4c39f4fd332a..0ba26ad9809d 100644
---- a/net/ipv4/gre_demux.c
-+++ b/net/ipv4/gre_demux.c
-@@ -71,7 +71,7 @@ int gre_parse_header(struct sk_buff *skb, struct tnl_=
-ptk_info *tpi,
- 	if (unlikely(!pskb_may_pull(skb, sizeof(struct gre_base_hdr))))
- 		return -EINVAL;
-=20
--	greh =3D (struct gre_base_hdr *)skb_transport_header(skb);
-+	greh =3D (struct gre_base_hdr *)skb->data;
- 	if (unlikely(greh->flags & (GRE_VERSION | GRE_ROUTING)))
- 		return -EINVAL;
-=20
-@@ -81,7 +81,7 @@ int gre_parse_header(struct sk_buff *skb, struct tnl_=
-ptk_info *tpi,
- 	if (!pskb_may_pull(skb, hdr_len))
- 		return -EINVAL;
-=20
--	greh =3D (struct gre_base_hdr *)skb_transport_header(skb);
-+	greh =3D (struct gre_base_hdr *)skb->data;
- 	tpi->proto =3D greh->protocol;
-=20
- 	options =3D (__be32 *)(greh + 1);
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 4d2025f7ec57..454832bc2897 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -49,12 +49,6 @@
- #include <net/gre.h>
- #include <net/dst_metadata.h>
-=20
--#if IS_ENABLED(CONFIG_IPV6)
--#include <net/ipv6.h>
--#include <net/ip6_fib.h>
--#include <net/ip6_route.h>
--#endif
--
- /*
-    Problems & solutions
-    --------------------
-@@ -217,11 +211,14 @@ static void gre_err(struct sk_buff *skb, u32 info=
-)
- 	 * by themselves???
- 	 */
-=20
-+	const struct iphdr *iph =3D (struct iphdr *)skb->data;
- 	const int type =3D icmp_hdr(skb)->type;
- 	const int code =3D icmp_hdr(skb)->code;
- 	struct tnl_ptk_info tpi;
- 	bool csum_err =3D false;
-=20
-+	pskb_pull(skb, iph->ihl * 4);
-+
- 	if (gre_parse_header(skb, &tpi, &csum_err, htons(ETH_P_IP)) < 0) {
- 		if (!csum_err)		/* ignore csum errors. */
- 			return;
+	The other patches will go to the net-next tree in
+separate patchset but I see little fuzz if patch 2 is applied
+without patch 1, so may be this patchset should wait the first
+patch to appear in net-next kernel.
+
+Patch 2: looks OK
+
+Patch 3: looks OK
+
+	It was done this way to not exceed the 80-char limit.
+May be you can reduce the message for the same reason.
+
+Patch 4: looks OK
+
+	Before bind() such operations should be safe without locks.
+
+Patch 5:
+
+	No need of <> for the commit IDs.
+
+	The indentation of existing pr_info in both cases
+should not be changed.
+
+	Patches 1, 2, 3 have coding style warnings from checkpatch
+that can be fixed, you can check them in this way:
+
+scripts/checkpatch.pl --strict /tmp/file.patch
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
