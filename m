@@ -1,117 +1,110 @@
-From: Dongpo Li <lidongpo@hisilicon.com>
+From: Dongpo Li <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
 Subject: Re: [PATCH 3/3] net: hisilicon: Add Fast Ethernet MAC driver
-Date: Wed, 15 Jun 2016 17:56:25 +0800
-Message-ID: <57612649.40907@hisilicon.com>
+Date: Wed, 15 Jun 2016 18:08:11 +0800
+Message-ID: <5761290B.6000500@hisilicon.com>
 References: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com>
- <4004629.ilZU8AvAjF@wuerfel> <576003F8.3090000@hisilicon.com>
- <247637090.PhpfAhp4VJ@wuerfel>
+ <1465798076-176393-4-git-send-email-lidongpo@hisilicon.com>
+ <20160614223108.GA5079@rob-hp-laptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="windows-1252"
 Content-Transfer-Encoding: 7bit
-Cc: <f.fainelli@gmail.com>, <robh+dt@kernel.org>,
-	<mark.rutland@arm.com>, <davem@davemloft.net>,
-	<xuejiancheng@hisilicon.com>, <netdev@vger.kernel.org>,
-	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <247637090.PhpfAhp4VJ@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <xuejiancheng-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160614223108.GA5079@rob-hp-laptop>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
 
-On 2016/6/15 5:20, Arnd Bergmann wrote:
-> On Tuesday, June 14, 2016 9:17:44 PM CEST Li Dongpo wrote:
->> On 2016/6/13 17:06, Arnd Bergmann wrote:
->>> On Monday, June 13, 2016 2:07:56 PM CEST Dongpo Li wrote:
->>> You tx function uses BQL to optimize the queue length, and that
->>> is great. You also check xmit reclaim for rx interrupts, so
->>> as long as you have both rx and tx traffic, this should work
->>> great.
->>>
->>> However, I notice that you only have a 'tx fifo empty'
->>> interrupt triggering the napi poll, so I guess on a tx-only
->>> workload you will always end up pushing packets into the
->>> queue until BQL throttles tx, and then get the interrupt
->>> after all packets have been sent, which will cause BQL to
->>> make the queue longer up to the maximum queue size, and that
->>> negates the effect of BQL.
->>>
->>> Is there any way you can get a tx interrupt earlier than
->>> this in order to get a more balanced queue, or is it ok
->>> to just rely on rx packets to come in occasionally, and
->>> just use the tx fifo empty interrupt as a fallback?
->>>
->> In tx direction, there are only two kinds of interrupts, 'tx fifo empty'
->> and 'tx one packet finish'. I didn't use 'tx one packet finish' because
->> it would lead to high hardware interrupts rate. This has been verified in
->> our chips. It's ok to just use tx fifo empty interrupt.
+On 2016/6/15 6:31, Rob Herring wrote:
+> On Mon, Jun 13, 2016 at 02:07:56PM +0800, Dongpo Li wrote:
+>> This patch adds the Hisilicon Fast Ethernet MAC(FEMAC) driver.
+>> The FEMAC supports max speed 100Mbps and has been used in many
+>> Hisilicon SoC.
+>>
+>> Reviewed-by: Jiancheng Xue <xuejiancheng-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+>> Signed-off-by: Dongpo Li <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+>> ---
+>>  .../devicetree/bindings/net/hisilicon-femac.txt    |   40 +
+>>  drivers/net/ethernet/hisilicon/Kconfig             |   12 +
+>>  drivers/net/ethernet/hisilicon/Makefile            |    1 +
+>>  drivers/net/ethernet/hisilicon/hisi_femac.c        | 1015 ++++++++++++++++++++
+>>  4 files changed, 1068 insertions(+)
+>>  create mode 100644 Documentation/devicetree/bindings/net/hisilicon-femac.txt
+>>  create mode 100644 drivers/net/ethernet/hisilicon/hisi_femac.c
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/hisilicon-femac.txt b/Documentation/devicetree/bindings/net/hisilicon-femac.txt
+>> new file mode 100644
+>> index 0000000..b953a56
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/hisilicon-femac.txt
+>> @@ -0,0 +1,40 @@
+>> +Hisilicon Fast Ethernet MAC controller
+>> +
+>> +Required properties:
+>> +- compatible: should be "hisilicon,hisi-femac" and one of the following:
 > 
-> I'm not convinced by the explanation, I don't think that has anything
-> to do with the hardware design, but instead is about the correctness
-> of the BQL logic with your driver.
+> This compatible seems a bit pointless. The following 2 are generic 
+> enough.
 > 
-> Maybe your xmit function can do something like
-> 
-> 	if (dql_avail(netdev_get_tx_queue(dev, 0)->dql) < 0)
-> 		enable per-packet interrupt
-> 	else
-> 		use only fifo-empty interrupt
-> 
-> That way, you don't get a lot of interrupts when the system is
-> in a state of packets being received and sent continuously,
-> but if you get to the point where your tx queue fills up
-> and no rx interrupts arrive, you don't have to wait for it
-> to become completely empty before adding new packets, and
-> BQL won't keep growing the queue.
-> 
-Hi Arnd,
-Thanks for your advice. It's a good advice and I will try to fix it and
-test on our chip.
+ok, I will remove this compatible.
 
->>>> +    priv->phy_mode = of_get_phy_mode(node);
->>>> +    if (priv->phy_mode < 0) {
->>>> +            dev_err(dev, "not find phy-mode\n");
->>>> +            ret = -EINVAL;
->>>> +            goto out_disable_clk;
->>>> +    }
->>>> +
->>>> +    priv->phy_node = of_parse_phandle(node, "phy-handle", 0);
->>>> +    if (!priv->phy_node) {
->>>> +            dev_err(dev, "not find phy-handle\n");
->>>> +            ret = -EINVAL;
->>>> +            goto out_disable_clk;
->>>> +    }
->>>> +
->>>> +    priv->phy = of_phy_connect(ndev, priv->phy_node,
->>>> +                               hisi_femac_adjust_link, 0, priv->phy_mode);
->>>> +    if (!(priv->phy) || IS_ERR(priv->phy)) {
->>>> +            dev_err(dev, "connect to PHY failed!\n");
->>>> +            ret = -ENODEV;
->>>> +            goto out_phy_node;
->>>> +    }
->>>
->>> I wonder if we could generalize this set of three calls, I
->>> get the impression that we duplicate this across several
->>> drivers that shouldn't need to bother with the specific
->>> phy-handle and phy-mode properties.
->>>
->> Some drivers only call 'of_phy_connect' when ndo_open called,
->> some call when driver probed. But 'phy_mode' and 'phy_node' are
->> usually initialized when driver probed.
->> So I think it's not suitable to combine 'of_phy_connect' with
->> 'of_get_phy_mode' and 'of_parse_phandle'.
->> Do you have any more suggestions ?
+>> +	* "hisilicon,hisi-femac-v1"
+>> +	* "hisilicon,hisi-femac-v2"
 > 
-> My idea was to add another interface that drivers could optionally
-> call if they use the logic that you have here, but other drivers
-> could keep using the plain of_phy_connect.
+> SoC specific compatible strings in addition to these please.
 > 
-> Anyway, this was just an idea, it's not important.
+ok.
+
+>> +- reg: specifies base physical address(s) and size of the device registers.
+>> +  The first region is the MAC core register base and size.
+>> +  The second region is the global MAC control register.
+>> +- interrupts: should contain the MAC interrupt.
+>> +- clocks: clock phandle and specifier pair.
 > 
-ok, I get your point. I will try to figure out the general interface.
-If there is a solution, I'd like to get more review.
-> 	Arnd
+> How many clocks?
+> 
+Only one clock, the following description is ok?
+- clocks: phandle reference to the MAC main clock
+
+>> +- resets: should contain the phandle to the MAC reset signal(required) and
+>> +	the PHY reset signal(optional).
+>> +- reset-names: should contain the reset signal name "mac_reset"(required)
+>> +	and "phy_reset"(optional).
+>> +- mac-address: see ethernet.txt [1].
+>> +- phy-mode: see ethernet.txt [1].
+>> +- phy-handle: see ethernet.txt [1].
+>> +- hisilicon,phy-reset-delays: triplet of delays if PHY reset signal given.
+>> +	The 1st cell is reset pre-delay in micro seconds.
+>> +	The 2nd cell is reset pulse in micro seconds.
+>> +	The 3rd cell is reset post-delay in micro seconds.
+> 
+> Add standard unit suffixes.
+> 
+ok.
+
+>> +
+>> +[1] Documentation/devicetree/bindings/net/ethernet.txt
+>> +
+>> +Example:
+>> +	hisi_femac: ethernet@10090000 {
+>> +		compatible = "hisilicon,hisi-femac-v2", "hisilicon,hisi-femac";
+>> +		reg = <0x10090000 0x1000>,<0x10091300 0x200>;
+>> +		interrupts = <12>;
+>> +		clocks = <&crg HI3518EV200_ETH_CLK>;
+>> +		resets = <&crg 0xec 0>,
+>> +				<&crg 0xec 3>;
+>> +		reset-names = "mac_reset",
+>> +				"phy_reset";
+>> +		mac-address = [00 00 00 00 00 00];
+>> +		phy-mode = "mii";
+>> +		phy-handle = <&phy0>;
+>> +		hisilicon,phy-reset-delays = <10000 20000 20000>;
+>> +	};
 > 
 > .
 > 
@@ -120,3 +113,8 @@ If there is a solution, I'd like to get more review.
     Dongpo
 
 .
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
