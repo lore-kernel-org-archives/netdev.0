@@ -1,439 +1,376 @@
 From: Alexander Aring <aar@pengutronix.de>
-Subject: [PATCHv4 net-next 12/12] 6lowpan: add support for 802.15.4 short addr handling
-Date: Wed, 15 Jun 2016 21:20:27 +0200
-Message-ID: <20160615192027.4064-13-aar@pengutronix.de>
+Subject: [PATCHv4 net-next 10/12] 6lowpan: introduce 6lowpan-nd
+Date: Wed, 15 Jun 2016 21:20:25 +0200
+Message-ID: <20160615192027.4064-11-aar@pengutronix.de>
 References: <20160615192027.4064-1-aar@pengutronix.de>
 Cc: kernel@pengutronix.de, marcel@holtmann.org,
 	jukka.rissanen@linux.intel.com, hannes@stressinduktion.org,
 	stefan@osg.samsung.com, mcr@sandelman.ca, werner@almesberger.net,
 	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	Alexander Aring <aar@pengutronix.de>
+	Alexander Aring <aar@pengutronix.de>,
+	"David S . Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
 To: linux-wpan@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:46309 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:49767 "EHLO
 	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932235AbcFOTVX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 15:21:23 -0400
+	by vger.kernel.org with ESMTP id S933088AbcFOTVV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 15:21:21 -0400
 In-Reply-To: <20160615192027.4064-1-aar@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds necessary handling for use the short address for
-802.15.4 6lowpan. It contains support for IPHC address compression
-and new matching algorithmn to decide which link layer address will be
-used for 802.15.4 frame.
+This patch introduce different 6lowpan handling for receive and transmit
+NS/NA messages for the ipv6 neighbour discovery. The first use-case is
+for supporting 802.15.4 short addresses inside the option fields and
+handling for RFC6775 6CO option field as userspace option.
 
+Cc: David S. Miller <davem@davemloft.net>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: James Morris <jmorris@namei.org>
+Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Cc: Patrick McHardy <kaber@trash.net>
 Reviewed-by: Stefan Schmidt <stefan@osg.samsung.com>
+Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Signed-off-by: Alexander Aring <aar@pengutronix.de>
 ---
- net/6lowpan/iphc.c          | 167 ++++++++++++++++++++++++++++++++++++--------
- net/ieee802154/6lowpan/tx.c | 113 +++++++++++++++---------------
- 2 files changed, 195 insertions(+), 85 deletions(-)
+ include/net/ndisc.h     |  18 ++--
+ net/6lowpan/6lowpan_i.h |   4 +
+ net/6lowpan/Makefile    |   2 +-
+ net/6lowpan/core.c      |   4 +-
+ net/6lowpan/ndisc.c     | 234 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 254 insertions(+), 8 deletions(-)
+ create mode 100644 net/6lowpan/ndisc.c
 
-diff --git a/net/6lowpan/iphc.c b/net/6lowpan/iphc.c
-index 8501dd5..79f1fa2 100644
---- a/net/6lowpan/iphc.c
-+++ b/net/6lowpan/iphc.c
-@@ -761,22 +761,75 @@ static const u8 lowpan_iphc_dam_to_sam_value[] = {
- 	[LOWPAN_IPHC_DAM_11] = LOWPAN_IPHC_SAM_11,
+diff --git a/include/net/ndisc.h b/include/net/ndisc.h
+index 3f0f41d..be1fe228 100644
+--- a/include/net/ndisc.h
++++ b/include/net/ndisc.h
+@@ -35,6 +35,7 @@ enum {
+ 	ND_OPT_ROUTE_INFO = 24,		/* RFC4191 */
+ 	ND_OPT_RDNSS = 25,		/* RFC5006 */
+ 	ND_OPT_DNSSL = 31,		/* RFC6106 */
++	ND_OPT_6CO = 34,		/* RFC6775 */
+ 	__ND_OPT_MAX
  };
  
--static u8 lowpan_compress_ctx_addr(u8 **hc_ptr, const struct in6_addr *ipaddr,
-+static inline bool
-+lowpan_iphc_compress_ctx_802154_lladdr(const struct in6_addr *ipaddr,
-+				       const struct lowpan_iphc_ctx *ctx,
-+				       const void *lladdr)
-+{
-+	const struct ieee802154_addr *addr = lladdr;
-+	unsigned char extended_addr[EUI64_ADDR_LEN];
-+	bool lladdr_compress = false;
-+	struct in6_addr tmp = {};
-+
-+	switch (addr->mode) {
-+	case IEEE802154_ADDR_LONG:
-+		ieee802154_le64_to_be64(&extended_addr, &addr->extended_addr);
-+		/* check for SAM/DAM = 11 */
-+		memcpy(&tmp.s6_addr[8], &extended_addr, EUI64_ADDR_LEN);
-+		/* second bit-flip (Universe/Local) is done according RFC2464 */
-+		tmp.s6_addr[8] ^= 0x02;
-+		/* context information are always used */
-+		ipv6_addr_prefix_copy(&tmp, &ctx->pfx, ctx->plen);
-+		if (ipv6_addr_equal(&tmp, ipaddr))
-+			lladdr_compress = true;
-+		break;
-+	case IEEE802154_ADDR_SHORT:
-+		tmp.s6_addr[11] = 0xFF;
-+		tmp.s6_addr[12] = 0xFE;
-+		ieee802154_le16_to_be16(&tmp.s6_addr16[7],
-+					&addr->short_addr);
-+		/* context information are always used */
-+		ipv6_addr_prefix_copy(&tmp, &ctx->pfx, ctx->plen);
-+		if (ipv6_addr_equal(&tmp, ipaddr))
-+			lladdr_compress = true;
-+		break;
-+	default:
-+		/* should never handled and filtered by 802154 6lowpan */
-+		WARN_ON_ONCE(1);
-+		break;
-+	}
-+
-+	return lladdr_compress;
-+}
-+
-+static u8 lowpan_compress_ctx_addr(u8 **hc_ptr, const struct net_device *dev,
-+				   const struct in6_addr *ipaddr,
- 				   const struct lowpan_iphc_ctx *ctx,
- 				   const unsigned char *lladdr, bool sam)
- {
- 	struct in6_addr tmp = {};
- 	u8 dam;
+@@ -109,14 +110,19 @@ struct ndisc_options {
+ #endif
+ 	struct nd_opt_hdr *nd_useropts;
+ 	struct nd_opt_hdr *nd_useropts_end;
++#if IS_ENABLED(CONFIG_IEEE802154_6LOWPAN)
++	struct nd_opt_hdr *nd_802154_opt_array[ND_OPT_TARGET_LL_ADDR + 1];
++#endif
+ };
  
--	/* check for SAM/DAM = 11 */
--	memcpy(&tmp.s6_addr[8], lladdr, 8);
--	/* second bit-flip (Universe/Local) is done according RFC2464 */
--	tmp.s6_addr[8] ^= 0x02;
--	/* context information are always used */
--	ipv6_addr_prefix_copy(&tmp, &ctx->pfx, ctx->plen);
--	if (ipv6_addr_equal(&tmp, ipaddr)) {
--		dam = LOWPAN_IPHC_DAM_11;
--		goto out;
-+	switch (lowpan_dev(dev)->lltype) {
-+	case LOWPAN_LLTYPE_IEEE802154:
-+		if (lowpan_iphc_compress_ctx_802154_lladdr(ipaddr, ctx,
-+							   lladdr)) {
-+			dam = LOWPAN_IPHC_DAM_11;
-+			goto out;
-+		}
-+		break;
-+	default:
-+		/* check for SAM/DAM = 11 */
-+		memcpy(&tmp.s6_addr[8], lladdr, EUI64_ADDR_LEN);
-+		/* second bit-flip (Universe/Local) is done according RFC2464 */
-+		tmp.s6_addr[8] ^= 0x02;
-+		/* context information are always used */
-+		ipv6_addr_prefix_copy(&tmp, &ctx->pfx, ctx->plen);
-+		if (ipv6_addr_equal(&tmp, ipaddr)) {
-+			dam = LOWPAN_IPHC_DAM_11;
-+			goto out;
-+		}
-+		break;
- 	}
+-#define nd_opts_src_lladdr	nd_opt_array[ND_OPT_SOURCE_LL_ADDR]
+-#define nd_opts_tgt_lladdr	nd_opt_array[ND_OPT_TARGET_LL_ADDR]
+-#define nd_opts_pi		nd_opt_array[ND_OPT_PREFIX_INFO]
+-#define nd_opts_pi_end		nd_opt_array[__ND_OPT_PREFIX_INFO_END]
+-#define nd_opts_rh		nd_opt_array[ND_OPT_REDIRECT_HDR]
+-#define nd_opts_mtu		nd_opt_array[ND_OPT_MTU]
++#define nd_opts_src_lladdr		nd_opt_array[ND_OPT_SOURCE_LL_ADDR]
++#define nd_opts_tgt_lladdr		nd_opt_array[ND_OPT_TARGET_LL_ADDR]
++#define nd_opts_pi			nd_opt_array[ND_OPT_PREFIX_INFO]
++#define nd_opts_pi_end			nd_opt_array[__ND_OPT_PREFIX_INFO_END]
++#define nd_opts_rh			nd_opt_array[ND_OPT_REDIRECT_HDR]
++#define nd_opts_mtu			nd_opt_array[ND_OPT_MTU]
++#define nd_802154_opts_src_lladdr	nd_802154_opt_array[ND_OPT_SOURCE_LL_ADDR]
++#define nd_802154_opts_tgt_lladdr	nd_802154_opt_array[ND_OPT_TARGET_LL_ADDR]
  
- 	memset(&tmp, 0, sizeof(tmp));
-@@ -813,28 +866,85 @@ out:
- 		return dam;
+ #define NDISC_OPT_SPACE(len) (((len)+2+7)&~7)
+ 
+diff --git a/net/6lowpan/6lowpan_i.h b/net/6lowpan/6lowpan_i.h
+index 97ecc27..a67caee 100644
+--- a/net/6lowpan/6lowpan_i.h
++++ b/net/6lowpan/6lowpan_i.h
+@@ -12,6 +12,10 @@ static inline bool lowpan_is_ll(const struct net_device *dev,
+ 	return lowpan_dev(dev)->lltype == lltype;
  }
  
--static u8 lowpan_compress_addr_64(u8 **hc_ptr, const struct in6_addr *ipaddr,
-+static inline bool
-+lowpan_iphc_compress_802154_lladdr(const struct in6_addr *ipaddr,
-+				   const void *lladdr)
-+{
-+	const struct ieee802154_addr *addr = lladdr;
-+	unsigned char extended_addr[EUI64_ADDR_LEN];
-+	bool lladdr_compress = false;
-+	struct in6_addr tmp = {};
++extern const struct ndisc_ops lowpan_ndisc_ops;
 +
-+	switch (addr->mode) {
-+	case IEEE802154_ADDR_LONG:
-+		ieee802154_le64_to_be64(&extended_addr, &addr->extended_addr);
-+		if (is_addr_mac_addr_based(ipaddr, extended_addr))
-+			lladdr_compress = true;
-+		break;
-+	case IEEE802154_ADDR_SHORT:
-+		/* fe:80::ff:fe00:XXXX
-+		 *                \__/
-+		 *             short_addr
-+		 *
-+		 * Universe/Local bit is zero.
-+		 */
-+		tmp.s6_addr[0] = 0xFE;
-+		tmp.s6_addr[1] = 0x80;
-+		tmp.s6_addr[11] = 0xFF;
-+		tmp.s6_addr[12] = 0xFE;
-+		ieee802154_le16_to_be16(&tmp.s6_addr16[7],
-+					&addr->short_addr);
-+		if (ipv6_addr_equal(&tmp, ipaddr))
-+			lladdr_compress = true;
-+		break;
-+	default:
-+		/* should never handled and filtered by 802154 6lowpan */
-+		WARN_ON_ONCE(1);
-+		break;
-+	}
++int addrconf_ifid_802154_6lowpan(u8 *eui, struct net_device *dev);
 +
-+	return lladdr_compress;
-+}
+ #ifdef CONFIG_6LOWPAN_DEBUGFS
+ int lowpan_dev_debugfs_init(struct net_device *dev);
+ void lowpan_dev_debugfs_exit(struct net_device *dev);
+diff --git a/net/6lowpan/Makefile b/net/6lowpan/Makefile
+index e44f3bf..12d131a 100644
+--- a/net/6lowpan/Makefile
++++ b/net/6lowpan/Makefile
+@@ -1,6 +1,6 @@
+ obj-$(CONFIG_6LOWPAN) += 6lowpan.o
+ 
+-6lowpan-y := core.o iphc.o nhc.o
++6lowpan-y := core.o iphc.o nhc.o ndisc.o
+ 6lowpan-$(CONFIG_6LOWPAN_DEBUGFS) += debugfs.o
+ 
+ #rfc6282 nhcs
+diff --git a/net/6lowpan/core.c b/net/6lowpan/core.c
+index 1c7a42b..5945f7e 100644
+--- a/net/6lowpan/core.c
++++ b/net/6lowpan/core.c
+@@ -34,6 +34,8 @@ int lowpan_register_netdevice(struct net_device *dev,
+ 	for (i = 0; i < LOWPAN_IPHC_CTX_TABLE_SIZE; i++)
+ 		lowpan_dev(dev)->ctx.table[i].id = i;
+ 
++	dev->ndisc_ops = &lowpan_ndisc_ops;
 +
-+static u8 lowpan_compress_addr_64(u8 **hc_ptr, const struct net_device *dev,
-+				  const struct in6_addr *ipaddr,
- 				  const unsigned char *lladdr, bool sam)
+ 	ret = register_netdevice(dev);
+ 	if (ret < 0)
+ 		return ret;
+@@ -73,7 +75,7 @@ void lowpan_unregister_netdev(struct net_device *dev)
+ }
+ EXPORT_SYMBOL(lowpan_unregister_netdev);
+ 
+-static int addrconf_ifid_802154_6lowpan(u8 *eui, struct net_device *dev)
++int addrconf_ifid_802154_6lowpan(u8 *eui, struct net_device *dev)
  {
--	u8 dam = LOWPAN_IPHC_DAM_00;
-+	u8 dam = LOWPAN_IPHC_DAM_01;
+ 	struct wpan_dev *wpan_dev = lowpan_802154_dev(dev)->wdev->ieee802154_ptr;
  
--	if (is_addr_mac_addr_based(ipaddr, lladdr)) {
--		dam = LOWPAN_IPHC_DAM_11; /* 0-bits */
--		pr_debug("address compression 0 bits\n");
--	} else if (lowpan_is_iid_16_bit_compressable(ipaddr)) {
-+	switch (lowpan_dev(dev)->lltype) {
-+	case LOWPAN_LLTYPE_IEEE802154:
-+		if (lowpan_iphc_compress_802154_lladdr(ipaddr, lladdr)) {
-+			dam = LOWPAN_IPHC_DAM_11; /* 0-bits */
-+			pr_debug("address compression 0 bits\n");
-+			goto out;
-+		}
-+		break;
-+	default:
-+		if (is_addr_mac_addr_based(ipaddr, lladdr)) {
-+			dam = LOWPAN_IPHC_DAM_11; /* 0-bits */
-+			pr_debug("address compression 0 bits\n");
-+			goto out;
-+		}
-+		break;
-+	}
+diff --git a/net/6lowpan/ndisc.c b/net/6lowpan/ndisc.c
+new file mode 100644
+index 0000000..ae1d419
+--- /dev/null
++++ b/net/6lowpan/ndisc.c
+@@ -0,0 +1,234 @@
++/* This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License version 2
++ * as published by the Free Software Foundation.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
++ * GNU General Public License for more details.
++ *
++ * Authors:
++ * (C) 2016 Pengutronix, Alexander Aring <aar@pengutronix.de>
++ */
 +
-+	if (lowpan_is_iid_16_bit_compressable(ipaddr)) {
- 		/* compress IID to 16 bits xxxx::XXXX */
- 		lowpan_push_hc_data(hc_ptr, &ipaddr->s6_addr16[7], 2);
- 		dam = LOWPAN_IPHC_DAM_10; /* 16-bits */
- 		raw_dump_inline(NULL, "Compressed ipv6 addr is (16 bits)",
- 				*hc_ptr - 2, 2);
--	} else {
--		/* do not compress IID => xxxx::IID */
--		lowpan_push_hc_data(hc_ptr, &ipaddr->s6_addr16[4], 8);
--		dam = LOWPAN_IPHC_DAM_01; /* 64-bits */
--		raw_dump_inline(NULL, "Compressed ipv6 addr is (64 bits)",
--				*hc_ptr - 8, 8);
-+		goto out;
- 	}
- 
-+	/* do not compress IID => xxxx::IID */
-+	lowpan_push_hc_data(hc_ptr, &ipaddr->s6_addr16[4], 8);
-+	raw_dump_inline(NULL, "Compressed ipv6 addr is (64 bits)",
-+			*hc_ptr - 8, 8);
-+
-+out:
-+
- 	if (sam)
- 		return lowpan_iphc_dam_to_sam_value[dam];
- 	else
-@@ -1013,9 +1123,6 @@ int lowpan_header_compress(struct sk_buff *skb, const struct net_device *dev,
- 	iphc0 = LOWPAN_DISPATCH_IPHC;
- 	iphc1 = 0;
- 
--	raw_dump_inline(__func__, "saddr", saddr, EUI64_ADDR_LEN);
--	raw_dump_inline(__func__, "daddr", daddr, EUI64_ADDR_LEN);
--
- 	raw_dump_table(__func__, "sending raw skb network uncompressed packet",
- 		       skb->data, skb->len);
- 
-@@ -1088,14 +1195,15 @@ int lowpan_header_compress(struct sk_buff *skb, const struct net_device *dev,
- 		iphc1 |= LOWPAN_IPHC_SAC;
- 	} else {
- 		if (sci) {
--			iphc1 |= lowpan_compress_ctx_addr(&hc_ptr, &hdr->saddr,
-+			iphc1 |= lowpan_compress_ctx_addr(&hc_ptr, dev,
-+							  &hdr->saddr,
- 							  &sci_entry, saddr,
- 							  true);
- 			iphc1 |= LOWPAN_IPHC_SAC;
- 		} else {
- 			if (ipv6_saddr_type & IPV6_ADDR_LINKLOCAL &&
- 			    lowpan_is_linklocal_zero_padded(hdr->saddr)) {
--				iphc1 |= lowpan_compress_addr_64(&hc_ptr,
-+				iphc1 |= lowpan_compress_addr_64(&hc_ptr, dev,
- 								 &hdr->saddr,
- 								 saddr, true);
- 				pr_debug("source address unicast link-local %pI6c iphc1 0x%02x\n",
-@@ -1123,14 +1231,15 @@ int lowpan_header_compress(struct sk_buff *skb, const struct net_device *dev,
- 		}
- 	} else {
- 		if (dci) {
--			iphc1 |= lowpan_compress_ctx_addr(&hc_ptr, &hdr->daddr,
-+			iphc1 |= lowpan_compress_ctx_addr(&hc_ptr, dev,
-+							  &hdr->daddr,
- 							  &dci_entry, daddr,
- 							  false);
- 			iphc1 |= LOWPAN_IPHC_DAC;
- 		} else {
- 			if (ipv6_daddr_type & IPV6_ADDR_LINKLOCAL &&
- 			    lowpan_is_linklocal_zero_padded(hdr->daddr)) {
--				iphc1 |= lowpan_compress_addr_64(&hc_ptr,
-+				iphc1 |= lowpan_compress_addr_64(&hc_ptr, dev,
- 								 &hdr->daddr,
- 								 daddr, false);
- 				pr_debug("dest address unicast link-local %pI6c iphc1 0x%02x\n",
-diff --git a/net/ieee802154/6lowpan/tx.c b/net/ieee802154/6lowpan/tx.c
-index e459afd..dbb476d 100644
---- a/net/ieee802154/6lowpan/tx.c
-+++ b/net/ieee802154/6lowpan/tx.c
-@@ -9,6 +9,7 @@
-  */
- 
- #include <net/6lowpan.h>
++#include <net/6lowpan.h>
++#include <net/addrconf.h>
 +#include <net/ndisc.h>
- #include <net/ieee802154_netdev.h>
- #include <net/mac802154.h>
- 
-@@ -17,19 +18,9 @@
- #define LOWPAN_FRAG1_HEAD_SIZE	0x4
- #define LOWPAN_FRAGN_HEAD_SIZE	0x5
- 
--/* don't save pan id, it's intra pan */
--struct lowpan_addr {
--	u8 mode;
--	union {
--		/* IPv6 needs big endian here */
--		__be64 extended_addr;
--		__be16 short_addr;
--	} u;
--};
--
- struct lowpan_addr_info {
--	struct lowpan_addr daddr;
--	struct lowpan_addr saddr;
-+	struct ieee802154_addr daddr;
-+	struct ieee802154_addr saddr;
- };
- 
- static inline struct
-@@ -48,12 +39,14 @@ lowpan_addr_info *lowpan_skb_priv(const struct sk_buff *skb)
-  * RAW/DGRAM sockets.
-  */
- int lowpan_header_create(struct sk_buff *skb, struct net_device *ldev,
--			 unsigned short type, const void *_daddr,
--			 const void *_saddr, unsigned int len)
-+			 unsigned short type, const void *daddr,
-+			 const void *saddr, unsigned int len)
- {
--	const u8 *saddr = _saddr;
--	const u8 *daddr = _daddr;
--	struct lowpan_addr_info *info;
-+	struct wpan_dev *wpan_dev = lowpan_802154_dev(ldev)->wdev->ieee802154_ptr;
-+	struct lowpan_addr_info *info = lowpan_skb_priv(skb);
-+	struct lowpan_802154_neigh *llneigh = NULL;
-+	const struct ipv6hdr *hdr = ipv6_hdr(skb);
-+	struct neighbour *n;
- 
- 	/* TODO:
- 	 * if this package isn't ipv6 one, where should it be routed?
-@@ -61,21 +54,50 @@ int lowpan_header_create(struct sk_buff *skb, struct net_device *ldev,
- 	if (type != ETH_P_IPV6)
- 		return 0;
- 
--	if (!saddr)
--		saddr = ldev->dev_addr;
-+	/* intra-pan communication */
-+	info->saddr.pan_id = wpan_dev->pan_id;
-+	info->daddr.pan_id = info->saddr.pan_id;
- 
--	raw_dump_inline(__func__, "saddr", (unsigned char *)saddr, 8);
--	raw_dump_inline(__func__, "daddr", (unsigned char *)daddr, 8);
-+	if (!memcmp(daddr, ldev->broadcast, EUI64_ADDR_LEN)) {
-+		info->daddr.short_addr = cpu_to_le16(IEEE802154_ADDR_BROADCAST);
-+		info->daddr.mode = IEEE802154_ADDR_SHORT;
-+	} else {
-+		__le16 short_addr = cpu_to_le16(IEEE802154_ADDR_SHORT_UNSPEC);
 +
-+		n = neigh_lookup(&nd_tbl, &hdr->daddr, ldev);
-+		if (n) {
-+			llneigh = lowpan_802154_neigh(neighbour_priv(n));
-+			read_lock_bh(&n->lock);
-+			short_addr = llneigh->short_addr;
-+			read_unlock_bh(&n->lock);
++#include "6lowpan_i.h"
++
++static int lowpan_ndisc_is_useropt(u8 nd_opt_type)
++{
++	return nd_opt_type == ND_OPT_6CO;
++}
++
++#if IS_ENABLED(CONFIG_IEEE802154_6LOWPAN)
++#define NDISC_802154_SHORT_ADDR_LENGTH	1
++static int lowpan_ndisc_parse_802154_options(const struct net_device *dev,
++					     struct nd_opt_hdr *nd_opt,
++					     struct ndisc_options *ndopts)
++{
++	switch (nd_opt->nd_opt_len) {
++	case NDISC_802154_SHORT_ADDR_LENGTH:
++		if (ndopts->nd_802154_opt_array[nd_opt->nd_opt_type])
++			ND_PRINTK(2, warn,
++				  "%s: duplicated short addr ND6 option found: type=%d\n",
++				  __func__, nd_opt->nd_opt_type);
++		else
++			ndopts->nd_802154_opt_array[nd_opt->nd_opt_type] = nd_opt;
++		return 1;
++	default:
++		/* all others will be handled by ndisc IPv6 option parsing */
++		return 0;
++	}
++}
++
++static int lowpan_ndisc_parse_options(const struct net_device *dev,
++				      struct nd_opt_hdr *nd_opt,
++				      struct ndisc_options *ndopts)
++{
++	switch (nd_opt->nd_opt_type) {
++	case ND_OPT_SOURCE_LL_ADDR:
++	case ND_OPT_TARGET_LL_ADDR:
++		return lowpan_ndisc_parse_802154_options(dev, nd_opt, ndopts);
++	default:
++		return 0;
++	}
++}
++
++static void lowpan_ndisc_802154_update(struct neighbour *n, u32 flags,
++				       u8 icmp6_type,
++				       const struct ndisc_options *ndopts)
++{
++	struct lowpan_802154_neigh *neigh = lowpan_802154_neigh(neighbour_priv(n));
++	u8 *lladdr_short = NULL;
++
++	switch (icmp6_type) {
++	case NDISC_ROUTER_SOLICITATION:
++	case NDISC_ROUTER_ADVERTISEMENT:
++	case NDISC_NEIGHBOUR_SOLICITATION:
++		if (ndopts->nd_802154_opts_src_lladdr) {
++			lladdr_short = __ndisc_opt_addr_data(ndopts->nd_802154_opts_src_lladdr,
++							     IEEE802154_SHORT_ADDR_LEN, 0);
++			if (!lladdr_short) {
++				ND_PRINTK(2, warn,
++					  "NA: invalid short link-layer address length\n");
++				return;
++			}
 +		}
- 
--	info = lowpan_skb_priv(skb);
-+		if (llneigh &&
-+		    lowpan_802154_is_valid_src_short_addr(short_addr)) {
-+			info->daddr.short_addr = short_addr;
-+			info->daddr.mode = IEEE802154_ADDR_SHORT;
-+		} else {
-+			info->daddr.mode = IEEE802154_ADDR_LONG;
-+			ieee802154_be64_to_le64(&info->daddr.extended_addr,
-+						daddr);
++		break;
++	case NDISC_REDIRECT:
++	case NDISC_NEIGHBOUR_ADVERTISEMENT:
++		if (ndopts->nd_802154_opts_tgt_lladdr) {
++			lladdr_short = __ndisc_opt_addr_data(ndopts->nd_802154_opts_tgt_lladdr,
++							     IEEE802154_SHORT_ADDR_LEN, 0);
++			if (!lladdr_short) {
++				ND_PRINTK(2, warn,
++					  "NA: invalid short link-layer address length\n");
++				return;
++			}
 +		}
- 
--	/* TODO: Currently we only support extended_addr */
--	info->daddr.mode = IEEE802154_ADDR_LONG;
--	memcpy(&info->daddr.u.extended_addr, daddr,
--	       sizeof(info->daddr.u.extended_addr));
--	info->saddr.mode = IEEE802154_ADDR_LONG;
--	memcpy(&info->saddr.u.extended_addr, saddr,
--	       sizeof(info->daddr.u.extended_addr));
-+		if (n)
-+			neigh_release(n);
++		break;
++	default:
++		break;
 +	}
 +
-+	if (!saddr) {
-+		if (lowpan_802154_is_valid_src_short_addr(wpan_dev->short_addr)) {
-+			info->saddr.mode = IEEE802154_ADDR_SHORT;
-+			info->saddr.short_addr = wpan_dev->short_addr;
-+		} else {
-+			info->saddr.mode = IEEE802154_ADDR_LONG;
-+			info->saddr.extended_addr = wpan_dev->extended_addr;
-+		}
-+	} else {
-+		info->saddr.mode = IEEE802154_ADDR_LONG;
-+		ieee802154_be64_to_le64(&info->saddr.extended_addr, saddr);
-+	}
- 
- 	return 0;
- }
-@@ -209,47 +231,26 @@ static int lowpan_header(struct sk_buff *skb, struct net_device *ldev,
- 			 u16 *dgram_size, u16 *dgram_offset)
- {
- 	struct wpan_dev *wpan_dev = lowpan_802154_dev(ldev)->wdev->ieee802154_ptr;
--	struct ieee802154_addr sa, da;
- 	struct ieee802154_mac_cb *cb = mac_cb_init(skb);
- 	struct lowpan_addr_info info;
--	void *daddr, *saddr;
- 
- 	memcpy(&info, lowpan_skb_priv(skb), sizeof(info));
- 
--	/* TODO: Currently we only support extended_addr */
--	daddr = &info.daddr.u.extended_addr;
--	saddr = &info.saddr.u.extended_addr;
--
- 	*dgram_size = skb->len;
--	lowpan_header_compress(skb, ldev, daddr, saddr);
-+	lowpan_header_compress(skb, ldev, &info.daddr, &info.saddr);
- 	/* dgram_offset = (saved bytes after compression) + lowpan header len */
- 	*dgram_offset = (*dgram_size - skb->len) + skb_network_header_len(skb);
- 
- 	cb->type = IEEE802154_FC_TYPE_DATA;
- 
--	/* prepare wpan address data */
--	sa.mode = IEEE802154_ADDR_LONG;
--	sa.pan_id = wpan_dev->pan_id;
--	sa.extended_addr = ieee802154_devaddr_from_raw(saddr);
--
--	/* intra-PAN communications */
--	da.pan_id = sa.pan_id;
--
--	/* if the destination address is the broadcast address, use the
--	 * corresponding short address
--	 */
--	if (!memcmp(daddr, ldev->broadcast, EUI64_ADDR_LEN)) {
--		da.mode = IEEE802154_ADDR_SHORT;
--		da.short_addr = cpu_to_le16(IEEE802154_ADDR_BROADCAST);
-+	if (info.daddr.mode == IEEE802154_ADDR_SHORT &&
-+	    ieee802154_is_broadcast_short_addr(info.daddr.short_addr))
- 		cb->ackreq = false;
--	} else {
--		da.mode = IEEE802154_ADDR_LONG;
--		da.extended_addr = ieee802154_devaddr_from_raw(daddr);
++	write_lock_bh(&n->lock);
++	if (lladdr_short)
++		ieee802154_be16_to_le16(&neigh->short_addr, lladdr_short);
 +	else
- 		cb->ackreq = wpan_dev->ackreq;
--	}
- 
--	return wpan_dev_hard_header(skb, lowpan_802154_dev(ldev)->wdev, &da,
--				    &sa, 0);
-+	return wpan_dev_hard_header(skb, lowpan_802154_dev(ldev)->wdev,
-+				    &info.daddr, &info.saddr, 0);
- }
- 
- netdev_tx_t lowpan_xmit(struct sk_buff *skb, struct net_device *ldev)
++		neigh->short_addr = cpu_to_le16(IEEE802154_ADDR_SHORT_UNSPEC);
++	write_unlock_bh(&n->lock);
++}
++
++static void lowpan_ndisc_update(const struct net_device *dev,
++				struct neighbour *n, u32 flags, u8 icmp6_type,
++				const struct ndisc_options *ndopts)
++{
++	if (!lowpan_is_ll(dev, LOWPAN_LLTYPE_IEEE802154))
++		return;
++
++	/* react on overrides only. TODO check if this is really right. */
++	if (flags & NEIGH_UPDATE_F_OVERRIDE)
++		lowpan_ndisc_802154_update(n, flags, icmp6_type, ndopts);
++}
++
++static int lowpan_ndisc_opt_addr_space(const struct net_device *dev,
++				       u8 icmp6_type, struct neighbour *neigh,
++				       u8 *ha_buf, u8 **ha)
++{
++	struct lowpan_802154_neigh *n;
++	struct wpan_dev *wpan_dev;
++	int addr_space = 0;
++
++	if (!lowpan_is_ll(dev, LOWPAN_LLTYPE_IEEE802154))
++		return 0;
++
++	switch (icmp6_type) {
++	case NDISC_REDIRECT:
++		n = lowpan_802154_neigh(neighbour_priv(neigh));
++
++		read_lock_bh(&neigh->lock);
++		if (lowpan_802154_is_valid_src_short_addr(n->short_addr)) {
++			memcpy(ha_buf, &n->short_addr,
++			       IEEE802154_SHORT_ADDR_LEN);
++			read_unlock_bh(&neigh->lock);
++			addr_space += __ndisc_opt_addr_space(IEEE802154_SHORT_ADDR_LEN, 0);
++			*ha = ha_buf;
++		}
++		read_unlock_bh(&neigh->lock);
++		break;
++	case NDISC_NEIGHBOUR_ADVERTISEMENT:
++	case NDISC_NEIGHBOUR_SOLICITATION:
++	case NDISC_ROUTER_SOLICITATION:
++		wpan_dev = lowpan_802154_dev(dev)->wdev->ieee802154_ptr;
++
++		if (lowpan_802154_is_valid_src_short_addr(wpan_dev->short_addr))
++			addr_space = __ndisc_opt_addr_space(IEEE802154_SHORT_ADDR_LEN, 0);
++		break;
++	default:
++		break;
++	}
++
++	return addr_space;
++}
++
++static void lowpan_ndisc_fill_addr_option(const struct net_device *dev,
++					  struct sk_buff *skb, u8 icmp6_type,
++					  const u8 *ha)
++{
++	struct wpan_dev *wpan_dev;
++	__be16 short_addr;
++	u8 opt_type;
++
++	if (!lowpan_is_ll(dev, LOWPAN_LLTYPE_IEEE802154))
++		return;
++
++	switch (icmp6_type) {
++	case NDISC_REDIRECT:
++		if (ha) {
++			ieee802154_le16_to_be16(&short_addr, ha);
++			__ndisc_fill_addr_option(skb, ND_OPT_TARGET_LL_ADDR,
++						 &short_addr,
++						 IEEE802154_SHORT_ADDR_LEN, 0);
++		}
++		return;
++	case NDISC_NEIGHBOUR_ADVERTISEMENT:
++		opt_type = ND_OPT_TARGET_LL_ADDR;
++		break;
++	case NDISC_ROUTER_SOLICITATION:
++	case NDISC_NEIGHBOUR_SOLICITATION:
++		opt_type = ND_OPT_SOURCE_LL_ADDR;
++		break;
++	default:
++		return;
++	}
++
++	wpan_dev = lowpan_802154_dev(dev)->wdev->ieee802154_ptr;
++
++	if (lowpan_802154_is_valid_src_short_addr(wpan_dev->short_addr)) {
++		ieee802154_le16_to_be16(&short_addr,
++					&wpan_dev->short_addr);
++		__ndisc_fill_addr_option(skb, opt_type, &short_addr,
++					 IEEE802154_SHORT_ADDR_LEN, 0);
++	}
++}
++
++static void lowpan_ndisc_prefix_rcv_add_addr(struct net *net,
++					     struct net_device *dev,
++					     const struct prefix_info *pinfo,
++					     struct inet6_dev *in6_dev,
++					     struct in6_addr *addr,
++					     int addr_type, u32 addr_flags,
++					     bool sllao, bool tokenized,
++					     __u32 valid_lft,
++					     u32 prefered_lft,
++					     bool dev_addr_generated)
++{
++	int err;
++
++	/* generates short based address for RA PIO's */
++	if (lowpan_is_ll(dev, LOWPAN_LLTYPE_IEEE802154) && dev_addr_generated &&
++	    !addrconf_ifid_802154_6lowpan(addr->s6_addr + 8, dev)) {
++		err = addrconf_prefix_rcv_add_addr(net, dev, pinfo, in6_dev,
++						   addr, addr_type, addr_flags,
++						   sllao, tokenized, valid_lft,
++						   prefered_lft);
++		if (err)
++			ND_PRINTK(2, warn,
++				  "RA: could not add a short address based address for prefix: %pI6c\n",
++				  &pinfo->prefix);
++	}
++}
++#endif
++
++const struct ndisc_ops lowpan_ndisc_ops = {
++	.is_useropt		= lowpan_ndisc_is_useropt,
++#if IS_ENABLED(CONFIG_IEEE802154_6LOWPAN)
++	.parse_options		= lowpan_ndisc_parse_options,
++	.update			= lowpan_ndisc_update,
++	.opt_addr_space		= lowpan_ndisc_opt_addr_space,
++	.fill_addr_option	= lowpan_ndisc_fill_addr_option,
++	.prefix_rcv_add_addr	= lowpan_ndisc_prefix_rcv_add_addr,
++#endif
++};
 -- 
 2.8.3
