@@ -1,61 +1,46 @@
-From: "Lubashev, Igor" <ilubashe@akamai.com>
-Subject: RE: [PATCH] netfilter/nflog: nflog-range does not truncate packets
-Date: Wed, 15 Jun 2016 15:13:15 +0000
-Message-ID: <c7780b528f80417bbac319767a2ecf65@usma1ex-dag1mb5.msg.corp.akamai.com>
-References: <20160602002354.GG1644@akamai.com> <20160606223106.GA1621@salvia>
- <57575367.4010604@akamai.com> <20160608121625.GA4097@salvia>
- <5759AE1B.2080500@akamai.com> <575E2B49.7090809@akamai.com>
- <20160615123945.GA3594@salvia> <57616C49.7090403@akamai.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net] ixgbe: napi_poll must return the work done
+Date: Wed, 15 Jun 2016 08:20:57 -0700
+Message-ID: <CAKgT0UeU7tfo=i5O1j9ORwBJUVYGta5Z-NLw+xKGVLeHQ=PPtg@mail.gmail.com>
+References: <37ccedd746ed932b9d73eff592f324f2a3fc6c6f.1465995724.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "kaber@trash.net" <kaber@trash.net>,
-	"kadlec@blackhole.kfki.hu" <kadlec@blackhole.kfki.hu>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"coreteam@netfilter.org" <coreteam@netfilter.org>,
-	"Hunt, Joshua" <johunt@akamai.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"pai.vishwain@gmail.com" <pai.vishwain@gmail.com>
-To: "Pai, Vishwanath" <vpai@akamai.com>,
-	Pablo Neira Ayuso <pablo@netfilter.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@redhat.com>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay06.akamai.com ([96.6.114.98]:33529 "EHLO
-	prod-mail-xrelay06.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932700AbcFOPUD convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jun 2016 11:20:03 -0400
-In-Reply-To: <57616C49.7090403@akamai.com>
-Content-Language: en-US
+Received: from mail-it0-f45.google.com ([209.85.214.45]:35983 "EHLO
+	mail-it0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753504AbcFOPU7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 11:20:59 -0400
+Received: by mail-it0-f45.google.com with SMTP id a5so110459233ita.1
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 08:20:58 -0700 (PDT)
+In-Reply-To: <37ccedd746ed932b9d73eff592f324f2a3fc6c6f.1465995724.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vish, Pablo,
+On Wed, Jun 15, 2016 at 6:37 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> Currently the function ixgbe_poll() returns 0 when it clean completely
+> the rx rings, but this foul budget accounting in core code.
+> Fix this returning the actual work done, capped to weight - 1, since
+> the core doesn't allow to return the full budget when the driver modifies
+> the napi status
+>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 
-I wonder about the value of sending more data than a client is willing to consume (setting aside the important fact that the client code crashes due to the extra data).
+I think the origin of reporting 0 was actually compatibility with some
+NAPI code floating around from before the 2.6.24 kernel.
 
-It seems that we should either drop the nflog-range parameter from nflog altogether (and just use the len from the client) or allow nflog-range to further *restrict* the number of bytes sent to the client.
+I'd be curious to know how much this is actually fouling things up.
+Can you point to any specific issues it was causing?  If you end up
+having to submit a v2 for any reason it might be useful if you can
+provide the additional details on what actual issue it was causing.
 
-The "further restrict" logic would make it easier to build iptables rules that vary nflog-range based on some match conditions, so a single client would get different packet length depending on what rules matched.
+You might also want to look at the other Intel drivers, specifically
+ixgbevf and fm10k as I believe we have similar code in those drivers
+as well.
 
-Thoughts?
-
-- Igor
-
-
------Original Message-----
-From: Vishwanath Pai [mailto:vpai@akamai.com] 
-Sent: Wednesday, June 15, 2016 10:55 AM
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Cc: kaber@trash.net; kadlec@blackhole.kfki.hu; netfilter-devel@vger.kernel.org; coreteam@netfilter.org; Hunt, Joshua <johunt@akamai.com>; netdev@vger.kernel.org; pai.vishwain@gmail.com; Lubashev, Igor <ilubashe@akamai.com>
-Subject: Re: [PATCH] netfilter/nflog: nflog-range does not truncate packets
-
-On 06/15/2016 08:39 AM, Pablo Neira Ayuso wrote:
-> But nlmsg_len should match len in this.
-> 
-> If we're just sending a part of the packet to userspace, then we 
-> should adjust nlmsg_len to indicate exactly the netlink message length 
-> that we're sending to userspace.
-> 
-> Is your patch triggering this nlmsg_len != len?
-
-The value of len here is how many bytes were returned by recv. We do send the entire nlmsg_len to userspace, but recv cannot copy the full packet because the buffer is not big enough to hold this. They only allocate the buffer assuming that the packet won't be bigger than their snap len, but we send more data than their snap len and they don't handle this condition well.
+Acked-by: Alexander Duyck <aduyck@mirantis.com>
