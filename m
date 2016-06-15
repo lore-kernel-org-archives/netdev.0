@@ -1,36 +1,46 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [very-RFC 0/8] TSN driver for the kernel
-Date: Wed, 15 Jun 2016 13:41:47 +0200
-Message-ID: <20160615114147.GA31281@localhost.localdomain>
-References: <1465686096-22156-1-git-send-email-henrik@austad.us>
- <20160613114713.GA9544@localhost.localdomain>
- <20160613130059.GA20320@sisyphus.home.austad.us>
- <20160613193208.GA2441@netboy>
- <20160614093000.GB21689@sisyphus.home.austad.us>
- <20160614182615.GA2741@netboy>
- <20160614203810.GC21689@sisyphus.home.austad.us>
- <20160615070441.GB2919@netboy>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH net-next 00/10] net_sched: defer skb freeing while
+ changing qdiscs
+Date: Wed, 15 Jun 2016 07:43:03 -0400
+Message-ID: <57613F47.9060106@mojatatu.com>
+References: <1465874519-25494-1-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
-	alsa-devel@vger.kernel.org, netdev@vger.kernel.org,
-	Arnd Bergmann <arnd@linaro.org>
-To: Henrik Austad <henrik@austad.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160615070441.GB2919@netboy>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: Eric Dumazet <edumazet@google.com>,
+	"David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:35081 "EHLO
+	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752789AbcFOLnG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 07:43:06 -0400
+Received: by mail-io0-f194.google.com with SMTP id n127so2752085iof.2
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 04:43:05 -0700 (PDT)
+In-Reply-To: <1465874519-25494-1-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 15, 2016 at 09:04:41AM +0200, Richard Cochran wrote:
-> On Tue, Jun 14, 2016 at 10:38:10PM +0200, Henrik Austad wrote:
-> > Whereas I want to do 
-> > 
-> > aplay some_song.wav
-> 
-> Can you please explain how your patches accomplish this?
+On 16-06-13 11:21 PM, Eric Dumazet wrote:
+> qdiscs/classes are changed under RTNL protection and often
+> while blocking BH and root qdisc spinlock.
+>
+> When lots of skbs need to be dropped, we free
+> them under these locks causing TX/RX freezes,
+> and more generally latency spikes.
+>
+> I saw spikes of 50+ ms on quite fast hardware...
+>
+> This patch series adds a simple queue protected by RTNL
+> where skbs can be placed until RTNL is released.
+>
+> Note that this might also serve in the future for optional
+> reinjection of packets when a qdisc is replaced.
+>
 
-Never mind.  Looking back, I found it in patch #7.
+Nice optimization Eric.
 
-Thanks,
-Richard
+cheers,
+jamal
