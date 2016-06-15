@@ -1,42 +1,44 @@
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Subject: [PATCH resend net-next 1/1] qede: Remove the redundant initialization statement.
-Date: Wed, 15 Jun 2016 01:41:55 -0400
-Message-ID: <1465969315-1859-1-git-send-email-sudarsana.kalluru@qlogic.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] net: ena: Add a driver for Amazon Elastic
+ Network Adapters (ENA)
+Date: Tue, 14 Jun 2016 23:27:09 -0700 (PDT)
+Message-ID: <20160614.232709.326751260784989181.davem@davemloft.net>
+References: <1465807573-11293-1-git-send-email-netanel@annapurnalabs.com>
+	<20160614.222516.1192717052949905017.davem@davemloft.net>
+	<20160615062336.GA26911@u54ee753d2d1854bda401.ant.amazon.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
-	<sudarsana.kalluru@qlogic.com>
-To: <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:35334 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751406AbcFOGZ5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 02:25:57 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netanel@annapurnalabs.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, zorik@annapurnalabs.com,
+	saeed@annapurnalabs.com, alex@annapurnalabs.com,
+	aliguori@amazon.com, antoine.tenart@free-electrons.com
+To: msw@amzn.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160615062336.GA26911@u54ee753d2d1854bda401.ant.amazon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The callback ".getcbx" is being initialized twice. This was introduced by
-the commit 0fdeb72aa6c9 ("qede: Add dcbnl support."). The patch removes the
-redundant initialization statement.
+From: Matt Wilson <msw@amzn.com>
+Date: Tue, 14 Jun 2016 23:23:36 -0700
 
-Reported-by: Julia Lawall <julia.lawall@lip6.fr>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
----
- drivers/net/ethernet/qlogic/qede/qede_dcbnl.c | 1 -
- 1 file changed, 1 deletion(-)
+> Point taken, though existing drivers (even fairly popular ones) also
+> aren't as clean as you might like. A quick look around...
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
-index 03e8c02..318f0cb 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_dcbnl.c
-@@ -308,7 +308,6 @@ static const struct dcbnl_rtnl_ops qede_dcbnl_ops = {
- 	.ieee_setets = qede_dcbnl_ieee_setets,
- 	.ieee_getapp = qede_dcbnl_ieee_getapp,
- 	.ieee_setapp = qede_dcbnl_ieee_setapp,
--	.getdcbx = qede_dcbnl_getdcbx,
- 	.ieee_peer_getpfc = qede_dcbnl_ieee_peer_getpfc,
- 	.ieee_peer_getets = qede_dcbnl_ieee_peer_getets,
- 	.getstate = qede_dcbnl_getstate,
--- 
-1.8.3.1
+Existing drivers do undesirable things, film at 11...
+
+Yet are never a reason to accept such things in new drivers.
+
+> Like many other network drivers, some of this is common code used for
+> non-Linux systems, and that's why there is some overlap with Linux
+> facilities.
+
+Again, never an excuse for such things.
+
+> Are there other things that jump out at you?
+
+I review hundreds of patches a day, I invested what I was able to
+before moving on to other people's work.
+
+Other developers must help review such a large driver submission, it
+can't all be on me.
