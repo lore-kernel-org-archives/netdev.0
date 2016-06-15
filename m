@@ -1,47 +1,50 @@
-From: Vincent Palatin <vpalatin@chromium.org>
-Subject: [PATCH v2 3/3] ARM: dts: rockchip: add interrupt for Wake-on-Lan on RK3288
-Date: Wed, 15 Jun 2016 11:32:23 -0700
-Message-ID: <6a7df421fce9603d31757b80bd96c72598c7fc2f.1466015458.git.vpalatin@chromium.org>
-References: <CAP_ceTxFuCsqRQJ_9GMc5PSKqczA8Qwaa0jX22wQ2Dq=+GZUuQ@mail.gmail.com>
- <cover.1466015458.git.vpalatin@chromium.org>
-Cc: linux-kernel@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
-	Douglas Anderson <dianders@chromium.org>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	=?UTF-8?q?Heiko=20St=C3=BCbner?= <heiko@sntech.de>,
-	Shunqian Zheng <zhengsq@rock-chips.com>,
-	Vincent Palatin <vpalatin@chromium.org>
-To: netdev@vger.kernel.org
+From: Matt Wilson <msw@amzn.com>
+Subject: Re: [PATCH net-next] net: ena: Add a driver for Amazon Elastic
+ Network Adapters (ENA)
+Date: Wed, 15 Jun 2016 11:39:24 -0700
+Message-ID: <20160615183924.GA19719@u54ee753d2d1854bda401.ant.amazon.com>
+References: <1465807573-11293-1-git-send-email-netanel@annapurnalabs.com>
+ <20160615180717.GA14049@u54ee753d2d1854bda401.ant.amazon.com>
+ <20160615182231.GB14049@u54ee753d2d1854bda401.ant.amazon.com>
+ <CAO+Uck_mkRmhkFedb1FsbvuEFFebhYEfYb1UqM+VGSFfKFWN0Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Matt Wilson <msw@amzn.com>, netdev@vger.kernel.org,
+	davem@davemloft.net, linux-kernel@vger.kernel.org,
+	Zorik Machulsky <zorik@annapurnalabs.com>,
+	Saeed Bishara <saeed@annapurnalabs.com>,
+	Alexander Matushevsky <alex@annapurnalabs.com>,
+	"Liguori, Anthony" <aliguori@amazon.com>,
+	Antoine =?iso-8859-1?Q?T=E9nart?=
+	<antoine.tenart@free-electrons.com>
+To: Netanel Belgazal <netanel@annapurnalabs.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1466015458.git.vpalatin@chromium.org>
-In-Reply-To: <cover.1466015458.git.vpalatin@chromium.org>
-References: <cover.1466015458.git.vpalatin@chromium.org>
+Content-Disposition: inline
+In-Reply-To: <CAO+Uck_mkRmhkFedb1FsbvuEFFebhYEfYb1UqM+VGSFfKFWN0Q@mail.gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In order to use Wake-on-Lan on RK3288 integrated MAC, we need to wake-up
-the CPU on the PMT interrupt when the MAC and the PHY are in low power mode.
-Adding the interrupt declaration.
+On Wed, Jun 15, 2016 at 09:32:35PM +0300, Netanel Belgazal wrote:
+> I removed HAVE_NETDEV_NAPI_LIST and fixed the ena print macro.
+> I'll wait a bit to see if there are additional comment before I'll send the
+> v2 patch.
 
-Signed-off-by: Vincent Palatin <vpalatin@chromium.org>
----
- arch/arm/boot/dts/rk3288.dtsi | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
+Also, please don't top post (reply inline) and send emails as plain
+text only. Have a look at [1] for how to set up a mailer like mutt
+with Gmail.
 
-diff --git a/arch/arm/boot/dts/rk3288.dtsi b/arch/arm/boot/dts/rk3288.dtsi
-index 3b44ef3..3ebee53 100644
---- a/arch/arm/boot/dts/rk3288.dtsi
-+++ b/arch/arm/boot/dts/rk3288.dtsi
-@@ -539,8 +539,9 @@
- 	gmac: ethernet@ff290000 {
- 		compatible = "rockchip,rk3288-gmac";
- 		reg = <0xff290000 0x10000>;
--		interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>;
--		interrupt-names = "macirq";
-+		interrupts = <GIC_SPI 27 IRQ_TYPE_LEVEL_HIGH>,
-+				<GIC_SPI 28 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupt-names = "macirq", "eth_wake_irq";
- 		rockchip,grf = <&grf>;
- 		clocks = <&cru SCLK_MAC>,
- 			<&cru SCLK_MAC_RX>, <&cru SCLK_MAC_TX>,
--- 
-2.8.0.rc3.226.g39d4020
+--msw
+
+[1] https://www.kernel.org/doc/Documentation/email-clients.txt
+
+> On 15 June 2016 at 21:22, Matt Wilson <msw@amzn.com> wrote:
+> 
+> > On Wed, Jun 15, 2016 at 11:07:17AM -0700, Matt Wilson wrote:
+> > >
+> > > You also had a few typos in the email addresses on the Cc: line that
+> > > I've corrected (davm@avemeloft.net -> davem@davemeloft.net,
+> >
+> > Argh, and of course I typo'ed the correction. -> davem@davemloft.net.
+> >
+> > --msw
+> >
