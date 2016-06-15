@@ -1,104 +1,71 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 2/2] mlx5: fix 64-bit division on times
-Date: Wed, 15 Jun 2016 17:27:52 +0200
-Message-ID: <20160615152816.2800830-2-arnd@arndb.de>
-References: <20160615152816.2800830-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Saeed Mahameed <saeedm@mellanox.com>,
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net] ixgbe: napi_poll must return the work done
+Date: Wed, 15 Jun 2016 17:43:47 +0200
+Message-ID: <1466005427.24431.18.camel@redhat.com>
+References: <37ccedd746ed932b9d73eff592f324f2a3fc6c6f.1465995724.git.pabeni@redhat.com>
+	 <CAKgT0UeU7tfo=i5O1j9ORwBJUVYGta5Z-NLw+xKGVLeHQ=PPtg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@vger.kernel.org>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
 	"David S. Miller" <davem@davemloft.net>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Huy Nguyen <huyn@mellanox.com>, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Matan Barak <matanb@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160615152816.2800830-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Hannes Frederic Sowa <hannes@redhat.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:38243 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932439AbcFOPnv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jun 2016 11:43:51 -0400
+In-Reply-To: <CAKgT0UeU7tfo=i5O1j9ORwBJUVYGta5Z-NLw+xKGVLeHQ=PPtg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The mlx5 driver fails to build on 32-bit architectures after some
-references to 64-bit divisions got added:
+On Wed, 2016-06-15 at 08:20 -0700, Alexander Duyck wrote:
+> On Wed, Jun 15, 2016 at 6:37 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> > Currently the function ixgbe_poll() returns 0 when it clean completely
+> > the rx rings, but this foul budget accounting in core code.
+> > Fix this returning the actual work done, capped to weight - 1, since
+> > the core doesn't allow to return the full budget when the driver modifies
+> > the napi status
+> >
+> > Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> 
+> I think the origin of reporting 0 was actually compatibility with some
+> NAPI code floating around from before the 2.6.24 kernel.
+> 
+> I'd be curious to know how much this is actually fouling things up.
+> Can you point to any specific issues it was causing?  
 
-drivers/net/built-in.o: In function `mlx5e_rx_am':
-:(.text+0xf88ac): undefined reference to `__aeabi_ldivmod'
+I noticed this while instrumenting the napi poll loop for another
+patch. 
 
-The driver even performs three division here, and it uses the
-obsolete 'struct timespec' that we want to get rid of.
+It's not easy to reproduce the bugged scenario, several NICs receiving a
+relevant amount of traffic on napi instances scheduled on the same
+softirq are needed. 
 
-Using ktime_t and ktime_us_delta() replaces one of the divisions
-and is mildly more efficient, aside from working across 'settimeofday'
-calls and being the right type for the y2038 conversion.
+If any/some of them has the buggy poll() method, the napi_poll() loop
+may process (much) more than netdev_budget packets per invocation,
+possibly delaying others softirq more than needed/expected. 
 
-Using a u32 instead of s64 to store the number of microseconds
-limits the maximum time to about 71 minutes, but if we exceed that
-time, we probably don't care about the result any more for the
-purpose of rx coalescing.
+The maxium delay will be no matter what capped to a couple of jiffies,
+due to the time-based loop end condition, so in the worst possible
+scenario (most probably not a real thing), this adds a latency of 2
+jiffies - <time required to process netdev_budget packets> (~1.8ms on
+recent h/w with HZ==1000).
 
-For the number of packets, we are taking the difference between
-two 'unsigned int', so the result won't ever be greater than that
-either.
+> If you end up
+> having to submit a v2 for any reason it might be useful if you can
+> provide the additional details on what actual issue it was causing.
+> 
+> You might also want to look at the other Intel drivers, specifically
+> ixgbevf and fm10k as I believe we have similar code in those drivers
+> as well.
 
-After those changes, the other two divisions are done as 32-bit
-arithmetic operations, which are much faster.
+Thank you for the head-up. I need to get an hand on that h/w, first!
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 3841f0b3493b ("net/mlx5e: Support adaptive RX coalescing")
----
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c | 12 ++++++------
- 2 files changed, 7 insertions(+), 7 deletions(-)
+Paolo
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 775b8d02a3dc..37df5728323b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -272,7 +272,7 @@ struct mlx5e_rx_am_stats {
- };
- 
- struct mlx5e_rx_am_sample {
--	struct timespec	time;
-+	ktime_t		time;
- 	unsigned int	pkt_ctr;
- 	u16		event_ctr;
- };
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c
-index cdff5cace4c2..bd0c70220a80 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c
-@@ -267,7 +267,7 @@ static bool mlx5e_am_decision(struct mlx5e_rx_am_stats *curr_stats,
- static void mlx5e_am_sample(struct mlx5e_rq *rq,
- 			    struct mlx5e_rx_am_sample *s)
- {
--	getnstimeofday(&s->time);
-+	s->time	     = ktime_get();
- 	s->pkt_ctr   = rq->stats.packets;
- 	s->event_ctr = rq->cq.event_ctr;
- }
-@@ -278,17 +278,17 @@ static void mlx5e_am_calc_stats(struct mlx5e_rx_am_sample *start,
- 				struct mlx5e_rx_am_sample *end,
- 				struct mlx5e_rx_am_stats *curr_stats)
- {
--	struct timespec time = timespec_sub(end->time, start->time);
--	s64 delta_us = timespec_to_ns(&time) / 1000;
--	s64 npkts = end->pkt_ctr - start->pkt_ctr;
-+	/* u32 holds up to 71 minutes, should be enough */
-+	u32 delta_us = ktime_us_delta(end->time, start->time);
-+	unsigned int npkts = end->pkt_ctr - start->pkt_ctr;
- 
- 	if (!delta_us) {
- 		WARN_ONCE(true, "mlx5e_am_calc_stats: delta_us=0\n");
- 		return;
- 	}
- 
--	curr_stats->ppms =            (npkts * 1000) / delta_us;
--	curr_stats->epms = (MLX5E_AM_NEVENTS * 1000) / delta_us;
-+	curr_stats->ppms = 	      (npkts * USEC_PER_MSEC) / delta_us;
-+	curr_stats->epms = (MLX5E_AM_NEVENTS * USEC_PER_MSEC) / delta_us;
- }
- 
- void mlx5e_rx_am_work(struct work_struct *work)
--- 
-2.9.0
+> 
+> Acked-by: Alexander Duyck <aduyck@mirantis.com>
