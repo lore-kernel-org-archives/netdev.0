@@ -1,36 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v1 1/1] ipv4: Prevent malformed UFO fragments in
- ip_append_page
-Date: Tue, 14 Jun 2016 22:49:30 -0700 (PDT)
-Message-ID: <20160614.224930.457532408906248954.davem@davemloft.net>
-References: <6A051441C8B95A448E49718A747690B901CA76C84F@gbplmail03.genband.com>
+From: Yisen Zhuang <Yisen.zhuang@huawei.com>
+Subject: Re: [PATCH] net: hns: update the dependency
+Date: Wed, 15 Jun 2016 14:03:33 +0800
+Message-ID: <5760EFB5.4040909@huawei.com>
+References: <1465818987-218513-1-git-send-email-Yisen.Zhuang@huawei.com>
+ <20160614.222613.1939489970427406792.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hannes@stressinduktion.org, xiyou.wangcong@gmail.com,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: steven.caron@genband.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:54303 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750717AbcFOFtb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 01:49:31 -0400
-In-Reply-To: <6A051441C8B95A448E49718A747690B901CA76C84F@gbplmail03.genband.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <arnd@arndb.de>, <charles.chenxin@huawei.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linuxarm@huawei.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160614.222613.1939489970427406792.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Steven Caron <steven.caron@genband.com>
-Date: Mon, 13 Jun 2016 14:01:19 +0000
+Hi David,
 
-> As  the ip fragment offset field counts 8-byte chunks, non-final ip
-> fragments must be multiples of 8 bytes of payload. Depending  on the
-> mtu and ip option sizes, ip_append_page wasn't respecting this,
-> notably when running NFS under UDP.
-> 
-> Signed-off-by: Steven Caron <steven.caron@genband.com>
+You mean that i send this patch 3 times?
 
-This seems to have DOS newlines or something strange like that.
+I am sorry for this.
 
-Please fix your email client to send clean patches.
+I don't know why you can receive 3 times. I can only receive an email f=
+or this patch.
 
-Thanks.
+Thanks,
+
+Yisen
+
+=E5=9C=A8 2016/6/15 13:26, David Miller =E5=86=99=E9=81=93:
+> From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+> Date: Mon, 13 Jun 2016 19:56:27 +0800
+>=20
+>> From: Kejian Yan <yankejian@huawei.com>
+>>
+>> After the patchset about adding support of ACPI (commit id is 634348=
+8)
+>> being applied, HNS does not depend on OF. It depends on OF or ACPI, =
+so
+>> the Kconfig file needs to be updated.
+>>
+>> Signed-off-by: Kejian Yan <yankejian@huawei.com>
+>> Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+>=20
+> Why did you submit this same exact patch 3 times?
+>=20
+> .
+>=20
