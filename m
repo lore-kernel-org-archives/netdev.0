@@ -1,35 +1,53 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] rtlwifi: use s8 instead of char
-Date: Wed, 15 Jun 2016 23:25:13 +0200
-Message-ID: <5245411.kmNEkqpVVS@wuerfel>
-References: <20160615210318.4130648-1-arnd@arndb.de> <wrfjbn32taxw.fsf@redhat.com>
+From: Alexander Duyck <aduyck@mirantis.com>
+Subject: [net PATCH] mlx4e: Do not attempt to offload VXLAN ports that are
+ unrecognized
+Date: Wed, 15 Jun 2016 14:42:11 -0700
+Message-ID: <20160615214105.14734.93787.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Kalle Valo <kvalo@codeaurora.org>,
-	Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jes Sorensen <Jes.Sorensen@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <wrfjbn32taxw.fsf@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, alexander.duyck@gmail.com
+To: eugenia@mellanox.com, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:33389 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751907AbcFOVmP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 17:42:15 -0400
+Received: by mail-pf0-f181.google.com with SMTP id i123so8797903pfg.0
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 14:42:14 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, June 15, 2016 5:10:51 PM CEST Jes Sorensen wrote:
-> 
-> Arnd,
-> 
-> rtlwifi and rtl8xxxu are two distinct drivers managed by different
-> people. I'd be really nice if you could split this into a per driver
-> patch.
-> 
-> That said, the use of char in rtl8xxxu is all as a flag indicator, so I
-> don't think the s/char/s8/ conversion is justified. I used char rather
-> than ugly bool to reduce the size of the struct.
+The mlx4e driver does not support more than one port for VXLAN offload.  As
+such expecting the hardware to offload other ports is invalid since it
+appears the parsing logic is used to perform Tx checksum and segmentation
+offloads.  Use the vxlan_port number to determine in which cases we can
+apply the offload and in which cases we can not.
 
-Makes sense, I'll resend without that change. If anything, the flag
-should become u8, not s8 anyway.
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
 
-	Arnd
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 973391bfe286..2221403b65e4 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2447,9 +2447,14 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
+ 	 * strip that feature if this is an IPv6 encapsulated frame.
+ 	 */
+ 	if (skb->encapsulation &&
+-	    (skb->ip_summed == CHECKSUM_PARTIAL) &&
+-	    (ip_hdr(skb)->version != 4))
+-		features &= ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
++	    (skb->ip_summed == CHECKSUM_PARTIAL)) {
++		struct mlx4_en_priv *priv = netdev_priv(dev);
++
++		if (!priv->vxlan_port ||
++		    (ip_hdr(skb)->version != 4) ||
++		    (udp_hdr(skb)->dest != priv->vxlan_port))
++			features &= ~(NETIF_F_CSUM_MASK | NETIF_F_GSO_MASK);
++	}
+ 
+ 	return features;
+ }
