@@ -1,70 +1,48 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH v2 00/11] Kbuild: fix -Wmissing-include-path warnings
-Date: Wed, 15 Jun 2016 17:45:42 +0200
-Message-ID: <20160615154553.3177021-1-arnd@arndb.de>
+From: Jeremy Linton <jeremy.linton@arm.com>
+Subject: Re: [PATCH] net: smsc911x: If PHY doesn't have an interrupt then POLL
+Date: Wed, 15 Jun 2016 10:50:47 -0500
+Message-ID: <57617957.9070201@arm.com>
+References: <1465920962-24946-1-git-send-email-jeremy.linton@arm.com>
+ <46b56679-e92a-a8f9-f290-f67495169bdc@cogentembedded.com>
+ <5760701F.6000204@arm.com> <20160614222615.GK12832@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Arnd Bergmann <arnd@arndb.de>, linux-kbuild@vger.kernel.org,
- netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- dri-devel@lists.freedesktop.org, linux-arm-kernel@lists.infradead.org
-To: Michal Marek <mmarek@suse.com>
-Return-path: <dri-devel-bounces@lists.freedesktop.org>
-List-Unsubscribe: <https://lists.freedesktop.org/mailman/options/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=unsubscribe>
-List-Archive: <https://lists.freedesktop.org/archives/dri-devel>
-List-Post: <mailto:dri-devel@lists.freedesktop.org>
-List-Help: <mailto:dri-devel-request@lists.freedesktop.org?subject=help>
-List-Subscribe: <https://lists.freedesktop.org/mailman/listinfo/dri-devel>,
- <mailto:dri-devel-request@lists.freedesktop.org?subject=subscribe>
-Errors-To: dri-devel-bounces@lists.freedesktop.org
-Sender: "dri-devel" <dri-devel-bounces@lists.freedesktop.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, steve.glendinning@shawell.net
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from foss.arm.com ([217.140.101.70]:38584 "EHLO foss.arm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932700AbcFOPut (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jun 2016 11:50:49 -0400
+In-Reply-To: <20160614222615.GK12832@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VGhpcyB3YXJuaW5nIGlzIGVuYWJsZWQgYXQgIm1ha2UgVz0xIiBsZXZlbCwgYW5kIGZvdW5kIGEg
-YnVuY2ggb2YKYWN0dWFsIHByb2JsZW1zIGluIGNvZGUgdGhhdCBhZGRzIC1JIGZsYWdzIHRvIG5v
-bmV4aXN0aW5nIGRpcmVjdG9yaWVzLgpBbGwgb2YgdGhlc2UgYXJlIGhhcm1sZXNzLCBidXQgY2xl
-YXJseSB3cm9uZy4KCktidWlsZCBpdHNlbGYgYWxzbyBhZGRzIGEgYnVuY2ggb2YgZXh0cmEgZGly
-ZWN0b3JpZXMsIGluY2x1ZGluZyBpbgpzb21lIGNhc2VzIHRob3NlIG91dHNpZGUgb2YgdGhlIGtl
-cm5lbCB0cmVlIChlLmcuIC4uLy4uL2luY2x1ZGUpLAp3aGljaCBjYW4gaGF2ZSBzdXJwcmlzaW5n
-IGNvbnNlcXVlbmNlcy4KClRoaXMgc2VyaWVzIGZpeGVzIGFsbCB0aGUgd2FybmluZ3MgSSBmb3Vu
-ZCB3aXRoIC1XbWlzc2luZy1pbmNsdWRlLWRpcnMKZW5hYmxlZCBvbiBBUk0gcmFuZGNvbmZpZ3Mg
-YW5kIHg4NiBhbGxtb2Rjb25maWcuIFRoZSBub24tS2J1aWxkCnBhdGNoZXMgY2FuIGFsbCBiZSBh
-cHBsaWVkIGluZGVwZW5kZW50bHksIHdoaWxlIHdlIHByb2JhYmx5IHdhbnQKdGhlIEtidWlsZCBz
-dHVmZiB0byBiZSBrZXB0IGFzIGEgc2VyaWVzLCBpZiB3ZSBkZWNpZGUgdG8gbWVyZ2UgdGhlbS4K
-CkkgaGF2ZSBhZGRlZCBteSB0ZXN0IHBhdGNoIGF0IHRoZSBlbmQsIG1haW5seSB0byBzZWUgaWYg
-dGhlIEtidWlsZApib3QgZmluZHMgYW55IG90aGVyIHdhcm5pbmdzIG9uIGFkZGl0aW9uYWwgYXJj
-aGl0ZWN0dXJlcy4KCglBcm5kCgpBcm5kIEJlcmdtYW5uICgxMSk6CiAgS2J1aWxkOiBkb24ndCBh
-ZGQgLi4vLi4vIHRvIGluY2x1ZGUgcGF0aAogIEtidWlsZDogYXZvaWQgZHVwbGljYXRlIGluY2x1
-ZGUgcGF0aAogIEtidWlsZDogYWx3YXlzIHByZWZpeCBvYmp0cmVlIGluIExJTlVYSU5DTFVERQog
-IEtidWlsZDogYXJjaDogbG9vayBmb3IgZ2VuZXJhdGVkIGhlYWRlcnMgaW4gb2J0cmVlCiAgS2J1
-aWxkOiBkb24ndCBhZGQgb2JqIHRyZWUgaW4gYWRkaXRpb25hbCBpbmNsdWRlcwogIEFSTTogZG9u
-J3QgaW5jbHVkZSByZW1vdmVkIGRpcmVjdG9yaWVzCiAgQVJNOiBoaWRlIG1hY2gtKi8gaW5jbHVk
-ZSBmb3IgQVJNX1NJTkdMRV9BUk1WN00KICBkcm06IGFtZDogcmVtb3ZlIGJyb2tlbiBpbmNsdWRl
-IHBhdGgKICBuZXQ6IHNrZmI6IHJlbW92ZSBvYnNvbGV0ZSAtSSBjZmxhZwogIHJ0bHdpZmk6IGRv
-bid0IGFkZCBpbmNsdWRlIHBhdGggZm9yIHJ0bDgxODhlZQogIFtFWFBFUklNRU5UQUxdIEtidWls
-ZDogZW5hYmxlIC1XbWlzc2luZy1pbmNsdWRlLWRpcnMgYnkgZGVmYXVsdAoKIE1ha2VmaWxlICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAxNiArKysrKysr
-KysrLS0tLS0tCiBhcmNoL2FscGhhL2Jvb3QvTWFrZWZpbGUgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgIHwgIDIgKy0KIGFyY2gvYXJtL01ha2VmaWxlICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgfCAgMiArKwogYXJjaC9hcm0vbWFjaC1tdmVidS9NYWtlZmlsZSAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAzICstLQogYXJjaC9hcm0vbWFjaC1yZWFsdmll
-dy9NYWtlZmlsZSAgICAgICAgICAgICAgICAgICAgICAgICB8ICAzICstLQogYXJjaC9hcm0vbWFj
-aC1zNXB2MjEwL01ha2VmaWxlICAgICAgICAgICAgICAgICAgICAgICAgICB8ICAyICstCiBhcmNo
-L3Bvd2VycGMvYm9vdC9NYWtlZmlsZSAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIg
-Ky0KIGFyY2gvcG93ZXJwYy9rdm0vTWFrZWZpbGUgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgfCAgMiArLQogYXJjaC9zMzkwL2Jvb3QvY29tcHJlc3NlZC9NYWtlZmlsZSAgICAgICAgICAg
-ICAgICAgICAgICB8ICA0ICsrLS0KIGFyY2gvdW0vTWFrZWZpbGUgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgfCAgNCArKy0tCiBhcmNoL3g4Ni9ib290L01ha2VmaWxlICAg
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHwgIDIgKy0KIGFyY2gveDg2L3JlYWxtb2Rl
-L3JtL01ha2VmaWxlICAgICAgICAgICAgICAgICAgICAgICAgICAgfCAgMiArLQogZHJpdmVycy9n
-cHUvZHJtL2FtZC9hY3AvTWFrZWZpbGUgICAgICAgICAgICAgICAgICAgICAgICB8ICAyIC0tCiBk
-cml2ZXJzL25ldC9mZGRpL3NrZnAvTWFrZWZpbGUgICAgICAgICAgICAgICAgICAgICAgICAgIHwg
-IDIgKy0KIGRyaXZlcnMvbmV0L3dpcmVsZXNzL3JlYWx0ZWsvcnRsd2lmaS9ydGw4MTg4ZWUvTWFr
-ZWZpbGUgfCAgMiArLQogc2NyaXB0cy9LYnVpbGQuaW5jbHVkZSAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICB8ICAyICstCiBzY3JpcHRzL01ha2VmaWxlLmxpYiAgICAgICAgICAgICAg
-ICAgICAgICAgICAgICAgICAgICAgIHwgIDcgKysrKy0tLQogMTcgZmlsZXMgY2hhbmdlZCwgMzEg
-aW5zZXJ0aW9ucygrKSwgMjggZGVsZXRpb25zKC0pCgotLSAKMi45LjAKCl9fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRyaS1kZXZlbCBtYWlsaW5nIGxpc3QK
-ZHJpLWRldmVsQGxpc3RzLmZyZWVkZXNrdG9wLm9yZwpodHRwczovL2xpc3RzLmZyZWVkZXNrdG9w
-Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2RyaS1kZXZlbAo=
+On 06/14/2016 05:26 PM, Andrew Lunn wrote:
+>> 	This was DT as well with a recent fedora/NetworkManager. It
+>> actually seems to be timing related to how fast the device gets
+>> configured after the initial phy probe. There is something like a 1
+>> second window or so where it will work, but if network manager takes
+>> longer than that, the link state drops and cannot be brought back up
+>> unless the cable is pulled, replugged while the netdevice is being
+>> restarted.
+>
+> Ah!
+>
+> There is another bug in the driver. The phy is connected to the netdev
+> after calling register_netdev(). You are supposed to do it before,
+> because the interface is usable, and can be used, directly after the
+> register.
+>
+> Move the call to smsc911x_mii_init() before the register_netdev().
+
+	Yah, I buy that, and will move it an see what happens.
+
+	But it doesn't solve the problem of the module use count being bumped 
+in the probe rather than the ndo_open(). The users of 
+phy_connect_direct() seem to be split between using it in the probe, and 
+using it in the ndo_open (pxa168, and ax88796 for two examples of using 
+it in the open).
+	
