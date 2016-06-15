@@ -1,41 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] net sched actions: bug fix dumping actions
- directly didnt produce NLMSG_DONE
-Date: Wed, 15 Jun 2016 14:03:04 -0700 (PDT)
-Message-ID: <20160615.140304.366893182696453314.davem@davemloft.net>
-References: <1465855722-26727-1-git-send-email-jhs@emojatatu.com>
+Subject: Re: [PATCH net-next] net: vrf: Update flags and features settings
+Date: Wed, 15 Jun 2016 14:04:14 -0700 (PDT)
+Message-ID: <20160615.140414.1569244843473003397.davem@davemloft.net>
+References: <1465863252-17288-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-	xiyou.wangcong@gmail.com
-To: jhs@mojatatu.com
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34152 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:34164 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753136AbcFOVDG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 17:03:06 -0400
-In-Reply-To: <1465855722-26727-1-git-send-email-jhs@emojatatu.com>
+	with ESMTP id S1753203AbcFOVEP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 17:04:15 -0400
+In-Reply-To: <1465863252-17288-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Mon, 13 Jun 2016 18:08:42 -0400
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Mon, 13 Jun 2016 17:14:12 -0700
 
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
+> 1. Default VRF devices to not having a qdisc (IFF_NO_QUEUE). Users
+>    can add one as desired.
 > 
-> This refers to commands to direct action access as follows:
+> 2. Disable adding a VLAN to a VRF device.
 > 
-> sudo tc actions add action drop index 12
-> sudo tc actions add action pipe index 10
+> 3. Enable offloads and hardware features similar to other logical
+>    devices (e.g., dummy, veth)
 > 
-> And then dumping them like so:
-> sudo tc actions ls action gact
+> Change provides a significant boost in TCP stream Tx performance,
+> from ~2,700 Mbps to ~18,100 Mbps and makes throughput close to the
+> performance without a VRF (18,500 Mbps). netperf TCP_STREAM benchmark
+> using qemu with virtio+vhost for the NICs
 > 
-> iproute2 worked because it depended on absence of TCA_ACT_TAB TLV
-> as end of message.
-> This fix has been tested with iproute2 and is backward compatible.
-> 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
 Applied.
