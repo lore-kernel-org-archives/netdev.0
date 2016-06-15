@@ -1,50 +1,36 @@
-From: Alan Davey <Alan.Davey@metaswitch.com>
-Subject: RE: [PATCH] net: Fragment large datagrams even when IP_HDRINCL is
- set.
-Date: Wed, 15 Jun 2016 10:41:56 +0000
-Message-ID: <BN3PR0201MB10599C7780CBC6EB4BC2894DF9550@BN3PR0201MB1059.namprd02.prod.outlook.com>
-References: <1464013425-31129-1-git-send-email-alan.davey@metaswitch.com>
-	<20160531.113913.1477085966766110028.davem@davemloft.net>
-	<BN3PR0201MB1059316BEC3EC7F6CBF2F0E4F95E0@BN3PR0201MB1059.namprd02.prod.outlook.com>
- <20160608.102558.903056863834035706.davem@davemloft.net>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [very-RFC 0/8] TSN driver for the kernel
+Date: Wed, 15 Jun 2016 13:41:47 +0200
+Message-ID: <20160615114147.GA31281@localhost.localdomain>
+References: <1465686096-22156-1-git-send-email-henrik@austad.us>
+ <20160613114713.GA9544@localhost.localdomain>
+ <20160613130059.GA20320@sisyphus.home.austad.us>
+ <20160613193208.GA2441@netboy>
+ <20160614093000.GB21689@sisyphus.home.austad.us>
+ <20160614182615.GA2741@netboy>
+ <20160614203810.GC21689@sisyphus.home.austad.us>
+ <20160615070441.GB2919@netboy>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
-	"jmorris@namei.org" <jmorris@namei.org>,
-	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
-	"kaber@trash.net" <kaber@trash.net>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0142.outbound.protection.outlook.com ([65.55.169.142]:43116
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753426AbcFOLQi convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 07:16:38 -0400
-In-Reply-To: <20160608.102558.903056863834035706.davem@davemloft.net>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
+	alsa-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Arnd Bergmann <arnd@linaro.org>
+To: Henrik Austad <henrik@austad.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160615070441.GB2919@netboy>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Wed, Jun 15, 2016 at 09:04:41AM +0200, Richard Cochran wrote:
+> On Tue, Jun 14, 2016 at 10:38:10PM +0200, Henrik Austad wrote:
+> > Whereas I want to do 
+> > 
+> > aplay some_song.wav
+> 
+> Can you please explain how your patches accomplish this?
 
+Never mind.  Looking back, I found it in patch #7.
 
-From: David Miller [mailto:davem@davemloft.net] 
-Sent: 08 June 2016 18:26
-
->> -  The current behaviour is counter-intuitive (fragmentation takes
->> -  place in all other cases) and therefore different to what
->> -  everyone expects.
->
-> But it's what all existing applications must expect, and as you have seen in these replied they absolutely do.
->
-> You cannot just break things on people like this.
-
-The only case that would break is that where an application relies on the existing (documented as a bug) feature of getting an EMSGSIZE return code in the case of an over-sized packet.  Applications that perform their own fragmentation would be unaffected.
-
-I think that the benefit of the patch, in moving all fragmentation and reassembly into the kernel, outweigh the very small chance that applications rely on the send of an over-sized packet failing.
-
-What is your thinking on taking the patch?
-
-Regards
-Alan
+Thanks,
+Richard
