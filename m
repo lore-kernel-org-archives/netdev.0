@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH 02/15] drivers: net: cpsw: check return code from pm runtime calls
-Date: Wed, 15 Jun 2016 14:55:50 +0300
-Message-ID: <20160615115603.4897-3-grygorii.strashko@ti.com>
+Subject: [PATCH 06/15] drivers: net: davinci_mdio: do pm runtime initialization later in probe
+Date: Wed, 15 Jun 2016 14:55:54 +0300
+Message-ID: <20160615115603.4897-7-grygorii.strashko@ti.com>
 References: <20160615115603.4897-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,51 +12,54 @@ Cc: <linux-kernel@vger.kernel.org>, <linux-omap@vger.kernel.org>,
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	Sekhar Nori <nsekhar@ti.com>,
 	Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:36421 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932728AbcFOL4X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 07:56:23 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20160615115603.4897-1-grygorii.strashko@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add missed check of return codes from PM runtime get() calls.
+Do PM runtime initialization later in probe - this allows to simplify
+error handling a bit.
 
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 12 ++++++++++--
- 1 file changed, 10 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/ti/davinci_mdio.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index 736c77a..c76f9db 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1253,7 +1253,11 @@ static int cpsw_ndo_open(struct net_device *ndev)
- 	int i, ret;
- 	u32 reg;
+diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
+index 4e7c9b9..2e19dd1 100644
+--- a/drivers/net/ethernet/ti/davinci_mdio.c
++++ b/drivers/net/ethernet/ti/davinci_mdio.c
+@@ -356,14 +356,10 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 	data->bus->parent	= dev;
+ 	data->bus->priv		= data;
  
--	pm_runtime_get_sync(&priv->pdev->dev);
-+	ret = pm_runtime_get_sync(&priv->pdev->dev);
-+	if (ret < 0) {
-+		pm_runtime_put_noidle(&priv->pdev->dev);
-+		return ret;
-+	}
- 
- 	if (!cpsw_common_res_usage_state(priv))
- 		cpsw_intr_disable(priv);
-@@ -2322,7 +2326,11 @@ static int cpsw_probe(struct platform_device *pdev)
- 	/* Need to enable clocks with runtime PM api to access module
- 	 * registers
- 	 */
+-	pm_runtime_enable(&pdev->dev);
 -	pm_runtime_get_sync(&pdev->dev);
-+	ret = pm_runtime_get_sync(&pdev->dev);
-+	if (ret < 0) {
-+		pm_runtime_put_noidle(&pdev->dev);
-+		goto clean_runtime_disable_ret;
-+	}
- 	priv->version = readl(&priv->regs->id_ver);
- 	pm_runtime_put_sync(&pdev->dev);
+ 	data->clk = devm_clk_get(dev, "fck");
+ 	if (IS_ERR(data->clk)) {
+ 		dev_err(dev, "failed to get device clock\n");
+-		ret = PTR_ERR(data->clk);
+-		data->clk = NULL;
+-		goto bail_out;
++		return PTR_ERR(data->clk);
+ 	}
  
+ 	dev_set_drvdata(dev, data);
+@@ -372,10 +368,11 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	data->regs = devm_ioremap_resource(dev, res);
+-	if (IS_ERR(data->regs)) {
+-		ret = PTR_ERR(data->regs);
+-		goto bail_out;
+-	}
++	if (IS_ERR(data->regs))
++		return PTR_ERR(data->regs);
++
++	pm_runtime_enable(&pdev->dev);
++	pm_runtime_get_sync(&pdev->dev);
+ 
+ 	/* register the mii bus
+ 	 * Create PHYs from DT only in case if PHY child nodes are explicitly
 -- 
 2.8.4
