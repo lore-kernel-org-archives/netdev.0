@@ -1,44 +1,56 @@
-From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next] sctp: change sk state to CLOSED instead of CLOSING in sctp_sock_migrate
-Date: Thu, 16 Jun 2016 01:15:06 +0800
-Message-ID: <9229f8aa0f4324831fc31b5334cde9a258404b62.1466010906.git.lucien.xin@gmail.com>
-Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
-	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
-	xiaolong.ye@intel.com, davem@davemloft.net, eric.dumazet@gmail.com
-To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH net-next v2] tcp: use RFC6298 compliant TCP RTO
+ calculation
+Date: Wed, 15 Jun 2016 19:41:14 +0200
+Message-ID: <20160615174114.GA16217@virgo.localdomain>
+References: <CAK6E8=dWLF+gRprxEbHRLnkRNHmf5sbedtv2Dt1jOqKPh7fmjA@mail.gmail.com>
+ <20160614191841.21496-1-dmetz@mytum.de>
+ <CAK6E8=eeso8OEN_0-znqkuEyVTqzP1mTvwktk4QOsrLJXmuj9Q@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Daniel Metz <dmetz@mytum.de>, netdev <netdev@vger.kernel.org>,
+	Daniel Metz <daniel.metz@rohde-schwarz.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Yuchung Cheng <ycheng@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34556 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751765AbcFORPN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 13:15:13 -0400
+Received: from mx2.mailbox.org ([80.241.60.215]:34368 "EHLO mx2.mailbox.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753083AbcFORlb (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 15 Jun 2016 13:41:31 -0400
+Content-Disposition: inline
+In-Reply-To: <CAK6E8=eeso8OEN_0-znqkuEyVTqzP1mTvwktk4QOsrLJXmuj9Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Commit d46e416c11c8 ("sctp: sctp should change socket state when
-shutdown is received") may set sk_state CLOSING in sctp_sock_migrate,
-but inet_accept doesn't allow the sk_state other than ESTABLISHED/
-CLOSED for sctp. So we will change sk_state to CLOSED, instead of
-CLOSING, as actually sk is closed already there.
+* Yuchung Cheng | 2016-06-14 14:33:18 [-0700]:
 
-Fixes: commit d46e416c11c8 ("sctp: sctp should change socket state when shutdown is received")
-Reported-by: Ye Xiaolong <xiaolong.ye@intel.com>
-Signed-off-by: Xin Long <lucien.xin@gmail.com>
----
- net/sctp/socket.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+>> +               tp->rttvar_us =3D tp->mdev_us;
+>AFAICT we can update rttvar_us directly and don't need mdev_us anymore=
+?
 
-diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index 6cae4c6..cdabbd8 100644
---- a/net/sctp/socket.c
-+++ b/net/sctp/socket.c
-@@ -7568,7 +7568,7 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
- 	 * is called, set RCV_SHUTDOWN flag.
- 	 */
- 	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP)) {
--		newsk->sk_state = SCTP_SS_CLOSING;
-+		newsk->sk_state = SCTP_SS_CLOSED;
- 		newsk->sk_shutdown |= RCV_SHUTDOWN;
- 	} else {
- 		newsk->sk_state = SCTP_SS_ESTABLISHED;
--- 
-2.1.0
+Yes, v3 will remove mdev_us.
+
+>This is more aggressive than  RFC6298 that RTO <- SRTT + max (G,
+>K*RTTVAR) where G =3D MIN_RTO =3D 200ms
+>
+>based on our discussion, in the spirit of keeping RTO more
+>conservative, I recommend we implement RFC formula. Acks being delayed
+>over 200ms is not uncommon (unfortunately due to bloat or other
+>issues).
+>
+>Also I think we should change __tcp_set_rto so that the formula
+>applies to backoffs or ICMP timeouts calculations too.
+
+We are a unsure what you mean Yuchung. We believe this patch not to be =
+more
+aggressive than RFC 6298. In fact, we believe it to be RFC 6298 complia=
+nt, as
+in RFC 6298, G is the clock granularity and we don=E2=80=99t see where =
+it deviates
+from the RFC. However, it is more aggressive than =E2=80=9CRTO <- SRTT =
++ max (G,
+K*RTTVAR) where G =3D MIN_RTO =3D 200ms=E2=80=9D. Which formula do you =
+want to implement?
+
+Hagen
