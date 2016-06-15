@@ -1,46 +1,44 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [PATCH net-next 00/10] net_sched: defer skb freeing while
- changing qdiscs
-Date: Wed, 15 Jun 2016 07:43:03 -0400
-Message-ID: <57613F47.9060106@mojatatu.com>
-References: <1465874519-25494-1-git-send-email-edumazet@google.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [very-RFC 7/8] AVB ALSA - Add ALSA shim for TSN
+Date: Wed, 15 Jun 2016 13:49:08 +0200
+Message-ID: <20160615114908.GB31281@localhost.localdomain>
+References: <1465686096-22156-1-git-send-email-henrik@austad.us>
+ <1465686096-22156-8-git-send-email-henrik@austad.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Cong Wang <xiyou.wangcong@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:35081 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752789AbcFOLnG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 07:43:06 -0400
-Received: by mail-io0-f194.google.com with SMTP id n127so2752085iof.2
-        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 04:43:05 -0700 (PDT)
-In-Reply-To: <1465874519-25494-1-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
+	alsa-devel@vger.kernel.org, netdev@vger.kernel.org,
+	henrk@austad.us, Henrik Austad <haustad@cisco.com>,
+	Mauro Carvalho Chehab <mchehab@osg.samsung.com>,
+	Takashi Iwai <tiwai@suse.de>, Mark Brown <broonie@kernel.org>
+To: Henrik Austad <henrik@austad.us>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1465686096-22156-8-git-send-email-henrik@austad.us>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-06-13 11:21 PM, Eric Dumazet wrote:
-> qdiscs/classes are changed under RTNL protection and often
-> while blocking BH and root qdisc spinlock.
->
-> When lots of skbs need to be dropped, we free
-> them under these locks causing TX/RX freezes,
-> and more generally latency spikes.
->
-> I saw spikes of 50+ ms on quite fast hardware...
->
-> This patch series adds a simple queue protected by RTNL
-> where skbs can be placed until RTNL is released.
->
-> Note that this might also serve in the future for optional
-> reinjection of packets when a qdisc is replaced.
->
+Now that I understand better...
 
-Nice optimization Eric.
+On Sun, Jun 12, 2016 at 01:01:35AM +0200, Henrik Austad wrote:
+> Userspace is supposed to reserve bandwidth, find StreamID etc.
+> 
+> To use as a Talker:
+> 
+> mkdir /config/tsn/test/eth0/talker
+> cd /config/tsn/test/eth0/talker
+> echo 65535 > buffer_size
+> echo 08:00:27:08:9f:c3 > remote_mac
+> echo 42 > stream_id
+> echo alsa > enabled
 
-cheers,
-jamal
+This is exactly why configfs is the wrong interface.  If you implement
+the AVB device in alsa-lib user space, then you can handle the
+reservations, configuration, UDP sockets, etc, in a way transparent to
+the aplay program.
+
+Heck, if done properly, your layer could discover the AVB nodes in the
+network and present each one as a separate device...
+
+Thanks,
+Richard
