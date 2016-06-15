@@ -1,103 +1,44 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 1/2] tc: m_action: Use C99 style initializers for struct req
-Date: Thu, 16 Jun 2016 00:50:38 +0200
-Message-ID: <1466031039-18411-2-git-send-email-phil@nwl.cc>
-References: <1466031039-18411-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH v2 06/17] bnxt: Move GENEVE support from
+ hard-coded port to using port notifier
+Date: Wed, 15 Jun 2016 16:19:59 -0700
+Message-ID: <CAKgT0UfPFjy7_wuzzfgbPbnyBzZ+grUOnykEbrYSw4=EvhTVFA@mail.gmail.com>
+References: <20160615220449.15575.17031.stgit@localhost.localdomain> <20160615220754.15575.94576.stgit@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Hannes Frederic Sowa <hannes@redhat.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Michael Chan <michael.chan@broadcom.com>,
+	Dept-GELinuxNICDev@qlogic.com, David Miller <davem@davemloft.net>
+To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:49487 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932235AbcFOWvF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jun 2016 18:51:05 -0400
-In-Reply-To: <1466031039-18411-1-git-send-email-phil@nwl.cc>
+Received: from mail-io0-f170.google.com ([209.85.223.170]:32787 "EHLO
+	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753161AbcFOXUA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 19:20:00 -0400
+Received: by mail-io0-f170.google.com with SMTP id t74so27503678ioi.0
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 16:20:00 -0700 (PDT)
+In-Reply-To: <20160615220754.15575.94576.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of initializing fields after (or sometimes even before) zeroing
-the whole struct via memset(), initialize the whole thing at declaration
-time.
+On Wed, Jun 15, 2016 at 3:07 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> The port number for GENEVE is hard coded into the bnxt driver.  This is the
+> kind of thing we want to avoid going forward.  For now I will integrate
+> this back into the port notifier so that we can change the GENEVE port
+> number if we need to in the future.
+>
+> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- tc/m_action.c | 46 +++++++++++++++++++++++-----------------------
- 1 file changed, 23 insertions(+), 23 deletions(-)
+So it turns out this patch doesn't apply on top of the current tree.
+I will submit a v3 of these patches tomorrow after everyone has had a
+chance to review.
 
-diff --git a/tc/m_action.c b/tc/m_action.c
-index c416d98a775a6..f97ed2e775012 100644
---- a/tc/m_action.c
-+++ b/tc/m_action.c
-@@ -395,18 +395,19 @@ static int tc_action_gd(int cmd, unsigned int flags, int *argc_p, char ***argv_p
- 		struct nlmsghdr         n;
- 		struct tcamsg           t;
- 		char                    buf[MAX_MSG];
--	} req;
--
--	req.t.tca_family = AF_UNSPEC;
--
--	memset(&req, 0, sizeof(req));
-+	} req = {
-+		.n = {
-+			.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg)),
-+			.nlmsg_flags = NLM_F_REQUEST | flags,
-+			.nlmsg_type = cmd,
-+		},
-+		.t.tca_family = AF_UNSPEC,
-+		.buf = { 0 }
-+	};
- 
- 	memset(&nladdr, 0, sizeof(nladdr));
- 	nladdr.nl_family = AF_NETLINK;
- 
--	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg));
--	req.n.nlmsg_flags = NLM_F_REQUEST|flags;
--	req.n.nlmsg_type = cmd;
- 	argc -= 1;
- 	argv += 1;
- 
-@@ -500,15 +501,16 @@ static int tc_action_modify(int cmd, unsigned int flags, int *argc_p, char ***ar
- 		struct nlmsghdr         n;
- 		struct tcamsg           t;
- 		char                    buf[MAX_MSG];
--	} req;
--
--	req.t.tca_family = AF_UNSPEC;
--
--	memset(&req, 0, sizeof(req));
-+	} req = {
-+		.n = {
-+			.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg)),
-+			.nlmsg_flags = NLM_F_REQUEST | flags,
-+			.nlmsg_type = cmd,
-+		},
-+		.t.tca_family = AF_UNSPEC,
-+		.buf = { 0 }
-+	};
- 
--	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg));
--	req.n.nlmsg_flags = NLM_F_REQUEST|flags;
--	req.n.nlmsg_type = cmd;
- 	tail = NLMSG_TAIL(&req.n);
- 	argc -= 1;
- 	argv += 1;
-@@ -539,13 +541,11 @@ static int tc_act_list_or_flush(int argc, char **argv, int event)
- 		struct nlmsghdr         n;
- 		struct tcamsg           t;
- 		char                    buf[MAX_MSG];
--	} req;
--
--	req.t.tca_family = AF_UNSPEC;
--
--	memset(&req, 0, sizeof(req));
--
--	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg));
-+	} req = {
-+		.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg)),
-+		.t.tca_family = AF_UNSPEC,
-+		.buf = { 0 }
-+	};
- 
- 	tail = NLMSG_TAIL(&req.n);
- 	addattr_l(&req.n, MAX_MSG, TCA_ACT_TAB, NULL, 0);
--- 
-2.8.2
+- Alex
