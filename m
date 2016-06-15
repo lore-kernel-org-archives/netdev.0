@@ -1,55 +1,58 @@
-From: Pavel Andrianov <andrianov@ispras.ru>
-Subject: [PATCH] libertas: Add spinlock to avoid race condition
-Date: Wed, 15 Jun 2016 15:34:03 +0400
-Message-ID: <1465990443-19738-1-git-send-email-andrianov@ispras.ru>
-Cc: Pavel Andrianov <andrianov@ispras.ru>,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	ldv-project@linuxtesting.org, vaishali.thakkar@oracle.com
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH] mac80211_hwsim: Allow wmediumd to attach to radios
+ created in its netns
+Date: Wed, 15 Jun 2016 14:51:50 +0200
+Message-ID: <1465995110.2994.6.camel@sipsolutions.net>
+References: <1463214884-5983-1-git-send-email-martin@strongswan.org>
+	 <1465978217.2994.4.camel@sipsolutions.net>
+	 <1465994233.3807.18.camel@strongswan.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Martin Willi <martin-jzJueiEJWxp8fCCB1iTX4w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1465994233.3807.18.camel-jzJueiEJWxp8fCCB1iTX4w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-lbs_mac_event_disconnected may free priv->currenttxskb
-while lbs_hard_start_xmit accesses to it.
-The patch adds a spinlock for mutual exclusion.
+On Wed, 2016-06-15 at 14:37 +0200, Martin Willi wrote:
+> >=20
+> >=20
+> > > =C2=A0printk(KERN_INFO "mac80211_hwsim: wmediumd released netlink=
+"
+> > > =C2=A0 =C2=A0 =C2=A0 =C2=A0 " socket, switching to perfect channe=
+l medium\n");
+>=20
+> > I wonder if we can do something better about them? Or perhaps if we
+> > should remove them, so other namespaces won't mess up the kernel
+> > log
+>=20
+> This is in fact not very nice, but not specific to hwsim. Any
+> namespace
+> can mess up the kernel log from different (networking) subsystems.
+> This
+> has been discussed some time ago [1], but AFAIK there is no real
+> solution so far.
+>=20
+> For this patch I think we have the following options:
+> =C2=A0* Keep the printk() messages as proposed
+> =C2=A0* Remove those callable from non-initial namespaces completely
+> =C2=A0* Suppress them when called from non-initial namespaces
+> =C2=A0* Include the associated "netgroup" in the message
+>=20
+> I personally would prefer the first option, as this problem is not
+> specific to hwsim or mac80211, but many subsystems. So we certainly
+> can
+> add some work-around, but there is not much to gain if other modules
+> don't.
+>=20
 
-Tested on OLPC XO-1 (usb8388) and XO-1.5 (sd8686) with v4.7-rc3.
+=46air enough.
 
-Confirmed that lbs_mac_event_disconnected is being called on the
-station when hostapd on access point is given SIGHUP.
-
-Signed-off-by: Pavel <andrianov@ispras.ru>
-Tested-by: James Cameron <quozl@laptop.org>
----
- drivers/net/wireless/marvell/libertas/cmdresp.c | 4 ++++
- 1 file changed, 4 insertions(+)
-
-diff --git a/drivers/net/wireless/marvell/libertas/cmdresp.c b/drivers/net/wireless/marvell/libertas/cmdresp.c
-index c95bf6d..c67ae07 100644
---- a/drivers/net/wireless/marvell/libertas/cmdresp.c
-+++ b/drivers/net/wireless/marvell/libertas/cmdresp.c
-@@ -27,6 +27,8 @@
- void lbs_mac_event_disconnected(struct lbs_private *priv,
- 				bool locally_generated)
- {
-+	unsigned long flags;
-+
- 	if (priv->connect_status != LBS_CONNECTED)
- 		return;
- 
-@@ -46,9 +48,11 @@ void lbs_mac_event_disconnected(struct lbs_private *priv,
- 	netif_carrier_off(priv->dev);
- 
- 	/* Free Tx and Rx packets */
-+	spin_lock_irqsave(&priv->driver_lock, flags);
- 	kfree_skb(priv->currenttxskb);
- 	priv->currenttxskb = NULL;
- 	priv->tx_pending_len = 0;
-+	spin_unlock_irqrestore(&priv->driver_lock, flags);
- 
- 	priv->connect_status = LBS_DISCONNECTED;
- 
--- 
-1.7.11.7
+johannes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
