@@ -1,66 +1,103 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH 1/2] mlx5: only register devlink when ethernet is available
-Date: Wed, 15 Jun 2016 19:04:54 +0300
-Message-ID: <CALzJLG_CkvbrCehMjMht5KfMK6r-FbvPzzYUEhpA40YHymsh+Q@mail.gmail.com>
-References: <20160615152816.2800830-1-arnd@arndb.de>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [net-next PATCH 01/15] net: Combine GENEVE and VXLAN port offload
+ notifiers into single functions
+Date: Wed, 15 Jun 2016 09:12:57 -0700
+Message-ID: <CALx6S35NLSm=JKF=n01uB=ZQ3xe2GuANAkTUBepXjvRpyi07cg@mail.gmail.com>
+References: <CAKgT0Uc8SZSsi9EULv0GVNO38OHhw__7_MDQ3PtDf-8y7+1Jgg@mail.gmail.com>
+	<CALx6S359Q_qqj6Wc7K41hVfjzqHgLsHmH-91WTOS9tGw3=G5fA@mail.gmail.com>
+	<CAKgT0Ue_-2KTMY6LsJjonTC7A16jB3hJZj+VU=4Fcp_9ZoNf+g@mail.gmail.com>
+	<20160615.002205.499467944175786.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Matan Barak <matanb@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	Alex Duyck <aduyck@mirantis.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Hannes Frederic Sowa <hannes@redhat.com>,
+	Jesse Gross <jesse@kernel.org>, Jiri Benc <jbenc@redhat.com>,
 	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Eli Cohen <eli@mellanox.com>, Majd Dibbiny <majd@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160615152816.2800830-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Dept-GELinuxNICDev@qlogic.com,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f65.google.com ([209.85.214.65]:35317 "EHLO
+	mail-it0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752493AbcFOQM6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 12:12:58 -0400
+Received: by mail-it0-f65.google.com with SMTP id e5so3965730ith.2
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 09:12:58 -0700 (PDT)
+In-Reply-To: <20160615.002205.499467944175786.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 15, 2016 at 6:27 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> We get a build error with the mlx5 driver when the ethernet
-> support (CONFIG_MLX5_CORE_EN) is disabled:
+On Wed, Jun 15, 2016 at 12:22 AM, David Miller <davem@davemloft.net> wrote:
+> From: Alexander Duyck <alexander.duyck@gmail.com>
+> Date: Mon, 13 Jun 2016 19:50:02 -0700
 >
-> drivers/net/ethernet/mellanox/mlx5/core/main.c:1320:22: error: 'mlx5_devlink_eswitch_mode_set' undeclared here (not in a function)
-> drivers/net/ethernet/mellanox/mlx5/core/main.c:1321:22: error: 'mlx5_devlink_eswitch_mode_get' undeclared here (not in a function)
-> drivers/net/built-in.o:(.rodata+0x25a68): undefined reference to `mlx5_devlink_eswitch_mode_get'
-> drivers/net/built-in.o:(.rodata+0x25a6c): undefined reference to `mlx5_devlink_eswitch_mode_set'
+>> I'm not going to speculate on what Dave's opinion on this is.  I'll
+>> wait to hear it from him.
+>>
+>> My concern at this point is that we have several issues.  Specifically
+>> we have VXLAN-GPE trying to pass itself off as VXLAN when it clearly
+>> is not, and I know we are going to end up with somebody eventually
+>> trying to push this feature into the kernel.  I know for a fact there
+>> is hardware out there that already supports it.  I'm trying to get
+>> ahead of this and define what the interface is supposed to look like
+>> myself so that we don't end up with somebody unfamiliar with all this
+>> trying to push it.  This way we can avoid having some hardware vendor
+>> on a timeline trying to push it through quick as in the case of i40e,
+>> or somebody trying to get around it by just hard coding it into their
+>> driver like occurred with bnxt.
+>>
+>> While I appreciate the opinion, outright refusing to enable the
+>> existing offloads is counterproductive.  There are customers out there
+>> that already have this hardware.  There are driver writers out there
+>> who are going to have to enable these features one way or another.  If
+>> we want to be obstructionists then I am sure they can just work around
+>> us and write up out-of-tree drivers and use something like module
+>> parameters to enable offloads on a specific port.  Most of these
+>> implementations only seem to support one port anyway.  I just thought
+>> it might be better to have this figured out in the kernel so that we
+>> didn't end up creating a bigger mess than needed with each vendor
+>> going off and doing their own out-of-tree implementation.
 >
-> There are actually two problems here, but they are closely related,
-> so I'm addressing them both:
+> My plan is to try and properly balance the two side of this situation.
 >
-> - The header is included under an #ifdef, which is usually a bad idea
->   as it hides the function declarations, so we fail to compile even
->   if we don't actually use the functions in the end.
-> - The references to the functions are kept in the object file because
->   we don't check whether they are built-in or not.
+> Realistically, and Alex is right on this, we shoot ourselves in the
+> foot by not supporting offloads that exist in hardware now even if
+> they are not generic.
 >
-> As we don't want to add any useless #ifdef here, this uses an
-> IS_ENABLED() check to drop the mlx5_devlink_ops structure when we don't
-> need it, and to skip the register/unregister step.
+It was the interface that was rejected not any particular hardware
+offload. We pointed out that n-tuple filtering is a much better
+interface anyway allowing address binding and implementing offload for
+new protocols without needed to change common header files. Besides,
+if it's really just about VXLAN-GPE and that is the last of the
+protocols in the three year HW pipeline then we can add another ndo
+function specific for that.
+
+Personally, I think the question of protocol specific offloads is moot
+anyway. In the past six months the world since this issue came up the
+world has moved forward. We have a lot better support for generic
+offloads (Alex's patches on that), GRO for UDP is based on socket
+lookup instead alternate lookup destination port, LCO has been
+integrated, real support for ipxip6, extension headers being developed
+that are going to be deployed, ILA allows virtualization without
+encapsulation (no HW support needed), more IPv6 deployment in general,
+MPLS/UDP is now an Internet standard, GRE/UDP will go to WGLC in IETF
+soon, even more encapsulation protocols like IP/UDP have been
+proposed, QUIC is being deployed and probably going to be a WG, first
+TOU patches will soon be upstream, FD.io and DPDK are still making a
+big fuss to bypass the kernel-- XDP is proving the kernel is not
+problem, we now have first instances of truly programmable NICs using
+BPF which is the path to truly generic offloads. This is really quite
+an impressive list for sure! I don't see that protocol specific
+offloads figure into much of this.
+
+Tom
+
+> So I would encourage Alex to keep working on his patch set and to
+> keep working on the feedback he is given.
 >
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: f7856daf57b9 ("net/mlx5: Add devlink interface")
-
-Hi Arnd,
-
-We already took care of those issues, they only apply to Leon's tree
-https://git.kernel.org/cgit/linux/kernel/git/leon/linux-rdma.git/,
-this tree is meant to maintain MLX5 Shared code between netdev and
-linux-rdma trees prior to submission to both trees.
-
-This patch is a non-shared code and it only exists in
-https://git.kernel.org/cgit/linux/kernel/git/leon/linux-rdma.git/log/?h=topic/net-next-mlx5.
-It is yet to be submitted to Dave's net/net-next tree. later on, this
-patch and all the others will go through the normal submission
-process.
-
-For the future I don't see any reason to CC the whole netdev, rdma and
-kernel folks.
-Unless you, Dave and Doug think otherwise.
-
-Thanks
-Saeed.
+> Thanks.
