@@ -1,8 +1,8 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 08/17] sfc: Make EF10 filter management helper
- functions VLAN-aware
-Date: Wed, 15 Jun 2016 17:47:36 +0100
-Message-ID: <a7d9aa98-a863-3ac3-52fa-9e0e7e90c0e5@solarflare.com>
+Subject: [PATCH net-next 11/17] sfc: Take mac_lock before calling
+ efx_ef10_filter_table_probe
+Date: Wed, 15 Jun 2016 17:48:49 +0100
+Message-ID: <e49ae0e2-abe5-73f5-93e7-1f2b6386ded2@solarflare.com>
 References: <4daf4ef4-7a8b-4a16-c640-04275298abad@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,217 +10,117 @@ Content-Transfer-Encoding: 7bit
 To: <linux-net-drivers@solarflare.com>, <netdev@vger.kernel.org>,
 	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:43040 "EHLO
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:59201 "EHLO
 	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753237AbcFOQue (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 12:50:34 -0400
+	by vger.kernel.org with ESMTP id S1753256AbcFOQug (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 12:50:36 -0400
 In-Reply-To: <4daf4ef4-7a8b-4a16-c640-04275298abad@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Rybchenko <Andrew.Rybchenko@oktetlabs.ru>
+From: Martin Habets <mhabets@solarflare.com>
 
-It is a step to support VLAN filtering in HW.
+When trying to enslave an SFC interface to a bond the following BUG_ON was
+hit:
+
+ kernel BUG [in ef10.c]!
+ CPU: 0 PID: 4383 Comm: ifenslave Tainted: G
+...
+ Call Trace:
+  efx_ef10_filter_add_vlan+0x121/0x180 [sfc]
+  efx_ef10_filter_table_probe+0x2a2/0x4f0 [sfc]
+  efx_ef10_set_mac_address+0x370/0x6d0 [sfc]
+  efx_set_mac_address+0x7d/0x120 [sfc]
+  dev_set_mac_address+0x43/0xa0
+  bond_enslave+0x337/0xea0 [bonding]
+This comes from function efx_ef10_filter_vlan_sync_rx_mode.
+
+To solve the bug we ensure the mac_lock is taken before calling
+efx_ef10_filter_add_vlan. But to avoid a priority inversion mac_lock must
+be taken before filter_sem.
+To satisfy these requirements we end up taking mac_lock in
+efx_ef10_vport_set_mac_address, efx_ef10_set_mac_address,
+efx_ef10_sriov_set_vf_vlan and efx_probe_filters.
 
 Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c | 70 ++++++++++++++++++++++++-----------------
- 1 file changed, 41 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/sfc/ef10.c       | 4 ++++
+ drivers/net/ethernet/sfc/ef10_sriov.c | 7 +++++--
+ drivers/net/ethernet/sfc/efx.c        | 2 ++
+ 3 files changed, 11 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index a2a10dc..d1bc0dc 100644
+index a3c00ff..add9f46 100644
 --- a/drivers/net/ethernet/sfc/ef10.c
 +++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -56,6 +56,7 @@ enum {
+@@ -4666,6 +4666,8 @@ static int efx_ef10_set_mac_address(struct efx_nic *efx)
  
- /* Per-VLAN filters information */
- struct efx_ef10_filter_vlan {
-+	u16 vid;
- 	u16 uc[EFX_EF10_FILTER_DEV_UC_MAX];
- 	u16 mc[EFX_EF10_FILTER_DEV_MC_MAX];
- 	u16 ucdef;
-@@ -3795,6 +3796,7 @@ static int efx_ef10_filter_table_probe(struct efx_nic *efx)
- 	}
+ 	efx_device_detach_sync(efx);
+ 	efx_net_stop(efx->net_dev);
++
++	mutex_lock(&efx->mac_lock);
+ 	down_write(&efx->filter_sem);
+ 	efx_ef10_filter_table_remove(efx);
  
- 	vlan = &table->vlan;
-+	vlan->vid = EFX_FILTER_VID_UNSPEC;
- 	for (i = 0; i < ARRAY_SIZE(vlan->uc); i++)
- 		vlan->uc[i] = EFX_EF10_FILTER_ID_INVALID;
- 	for (i = 0; i < ARRAY_SIZE(vlan->mc); i++)
-@@ -3929,17 +3931,13 @@ static void efx_ef10_filter_mark_one_old(struct efx_nic *efx, uint16_t *id)
- 	}
- }
+@@ -4678,6 +4680,8 @@ static int efx_ef10_set_mac_address(struct efx_nic *efx)
  
--static void efx_ef10_filter_mark_old(struct efx_nic *efx)
-+/* Mark old per-VLAN filters that may need to be removed */
-+static void _efx_ef10_filter_vlan_mark_old(struct efx_nic *efx,
-+					   struct efx_ef10_filter_vlan *vlan)
- {
- 	struct efx_ef10_filter_table *table = efx->filter_state;
--	struct efx_ef10_filter_vlan *vlan = &table->vlan;
- 	unsigned int i;
+ 	efx_ef10_filter_table_probe(efx);
+ 	up_write(&efx->filter_sem);
++	mutex_unlock(&efx->mac_lock);
++
+ 	if (was_enabled)
+ 		efx_net_open(efx->net_dev);
+ 	netif_device_attach(efx->net_dev);
+diff --git a/drivers/net/ethernet/sfc/ef10_sriov.c b/drivers/net/ethernet/sfc/ef10_sriov.c
+index 3c17f27..a76610a 100644
+--- a/drivers/net/ethernet/sfc/ef10_sriov.c
++++ b/drivers/net/ethernet/sfc/ef10_sriov.c
+@@ -554,6 +554,7 @@ int efx_ef10_sriov_set_vf_vlan(struct efx_nic *efx, int vf_i, u16 vlan,
+ 		efx_device_detach_sync(vf->efx);
+ 		efx_net_stop(vf->efx->net_dev);
  
--	if (!table)
--		return;
++		mutex_lock(&vf->efx->mac_lock);
+ 		down_write(&vf->efx->filter_sem);
+ 		vf->efx->type->filter_table_remove(vf->efx);
+ 
+@@ -630,6 +631,7 @@ restore_filters:
+ 			goto reset_nic_up_write;
+ 
+ 		up_write(&vf->efx->filter_sem);
++		mutex_unlock(&vf->efx->mac_lock);
+ 
+ 		up_write(&vf->efx->filter_sem);
+ 
+@@ -642,9 +644,10 @@ restore_filters:
+ 	return rc;
+ 
+ reset_nic_up_write:
+-	if (vf->efx)
++	if (vf->efx) {
+ 		up_write(&vf->efx->filter_sem);
 -
--	/* Mark old filters that may need to be removed */
--	spin_lock_bh(&efx->filter_lock);
- 	for (i = 0; i < table->dev_uc_count; i++)
- 		efx_ef10_filter_mark_one_old(efx, &vlan->uc[i]);
- 	for (i = 0; i < table->dev_mc_count; i++)
-@@ -3947,6 +3945,15 @@ static void efx_ef10_filter_mark_old(struct efx_nic *efx)
- 	efx_ef10_filter_mark_one_old(efx, &vlan->ucdef);
- 	efx_ef10_filter_mark_one_old(efx, &vlan->bcast);
- 	efx_ef10_filter_mark_one_old(efx, &vlan->mcdef);
-+}
-+
-+/* Mark old filters that may need to be removed */
-+static void efx_ef10_filter_mark_old(struct efx_nic *efx)
-+{
-+	struct efx_ef10_filter_table *table = efx->filter_state;
-+
-+	spin_lock_bh(&efx->filter_lock);
-+	_efx_ef10_filter_vlan_mark_old(efx, &table->vlan);
- 	spin_unlock_bh(&efx->filter_lock);
++		mutex_unlock(&vf->efx->mac_lock);
++	}
+ reset_nic:
+ 	if (vf->efx) {
+ 		netif_err(efx, drv, efx->net_dev,
+diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
+index 902bcf2..130ee17 100644
+--- a/drivers/net/ethernet/sfc/efx.c
++++ b/drivers/net/ethernet/sfc/efx.c
+@@ -1729,6 +1729,7 @@ static int efx_probe_filters(struct efx_nic *efx)
+ 
+ 	spin_lock_init(&efx->filter_lock);
+ 	init_rwsem(&efx->filter_sem);
++	mutex_lock(&efx->mac_lock);
+ 	down_write(&efx->filter_sem);
+ 	rc = efx->type->filter_table_probe(efx);
+ 	if (rc)
+@@ -1767,6 +1768,7 @@ static int efx_probe_filters(struct efx_nic *efx)
+ #endif
+ out_unlock:
+ 	up_write(&efx->filter_sem);
++	mutex_unlock(&efx->mac_lock);
+ 	return rc;
  }
- 
-@@ -3997,10 +4004,10 @@ static void efx_ef10_filter_mc_addr_list(struct efx_nic *efx)
- }
- 
- static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
--					     bool multicast, bool rollback)
-+					    struct efx_ef10_filter_vlan *vlan,
-+					    bool multicast, bool rollback)
- {
- 	struct efx_ef10_filter_table *table = efx->filter_state;
--	struct efx_ef10_filter_vlan *vlan = &table->vlan;
- 	struct efx_ef10_dev_addr *addr_list;
- 	enum efx_filter_flags filter_flags;
- 	struct efx_filter_spec spec;
-@@ -4025,8 +4032,7 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
- 	/* Insert/renew filters */
- 	for (i = 0; i < addr_count; i++) {
- 		efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO, filter_flags, 0);
--		efx_filter_set_eth_local(&spec, EFX_FILTER_VID_UNSPEC,
--					 addr_list[i].addr);
-+		efx_filter_set_eth_local(&spec, vlan->vid, addr_list[i].addr);
- 		rc = efx_ef10_filter_insert(efx, &spec, true);
- 		if (rc < 0) {
- 			if (rollback) {
-@@ -4055,7 +4061,7 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
- 		/* Also need an Ethernet broadcast filter */
- 		efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO, filter_flags, 0);
- 		eth_broadcast_addr(baddr);
--		efx_filter_set_eth_local(&spec, EFX_FILTER_VID_UNSPEC, baddr);
-+		efx_filter_set_eth_local(&spec, vlan->vid, baddr);
- 		rc = efx_ef10_filter_insert(efx, &spec, true);
- 		if (rc < 0) {
- 			netif_warn(efx, drv, efx->net_dev,
-@@ -4080,12 +4086,11 @@ static int efx_ef10_filter_insert_addr_list(struct efx_nic *efx,
- 	return 0;
- }
- 
--static int efx_ef10_filter_insert_def(struct efx_nic *efx, bool multicast,
--				      bool rollback)
-+static int efx_ef10_filter_insert_def(struct efx_nic *efx,
-+				      struct efx_ef10_filter_vlan *vlan,
-+				      bool multicast, bool rollback)
- {
--	struct efx_ef10_filter_table *table = efx->filter_state;
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
--	struct efx_ef10_filter_vlan *vlan = &table->vlan;
- 	enum efx_filter_flags filter_flags;
- 	struct efx_filter_spec spec;
- 	u8 baddr[ETH_ALEN];
-@@ -4100,6 +4105,9 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx, bool multicast,
- 	else
- 		efx_filter_set_uc_def(&spec);
- 
-+	if (vlan->vid != EFX_FILTER_VID_UNSPEC)
-+		efx_filter_set_eth_local(&spec, vlan->vid, NULL);
-+
- 	rc = efx_ef10_filter_insert(efx, &spec, true);
- 	if (rc < 0) {
- 		netif_printk(efx, drv, rc == -EPERM ? KERN_DEBUG : KERN_WARNING,
-@@ -4114,8 +4122,7 @@ static int efx_ef10_filter_insert_def(struct efx_nic *efx, bool multicast,
- 			efx_filter_init_rx(&spec, EFX_FILTER_PRI_AUTO,
- 					   filter_flags, 0);
- 			eth_broadcast_addr(baddr);
--			efx_filter_set_eth_local(&spec, EFX_FILTER_VID_UNSPEC,
--						 baddr);
-+			efx_filter_set_eth_local(&spec, vlan->vid, baddr);
- 			rc = efx_ef10_filter_insert(efx, &spec, true);
- 			if (rc < 0) {
- 				netif_warn(efx, drv, efx->net_dev,
-@@ -4252,6 +4259,7 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
- 	struct efx_ef10_filter_table *table = efx->filter_state;
- 	struct efx_ef10_nic_data *nic_data = efx->nic_data;
- 	struct net_device *net_dev = efx->net_dev;
-+	struct efx_ef10_filter_vlan *vlan;
- 
- 	if (!efx_dev_registered(efx))
- 		return;
-@@ -4269,17 +4277,19 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
- 	efx_ef10_filter_mc_addr_list(efx);
- 	netif_addr_unlock_bh(net_dev);
- 
-+	vlan = &table->vlan;
-+
- 	/* Insert/renew unicast filters */
- 	if (table->uc_promisc) {
--		efx_ef10_filter_insert_def(efx, false, false);
--		efx_ef10_filter_insert_addr_list(efx, false, false);
-+		efx_ef10_filter_insert_def(efx, vlan, false, false);
-+		efx_ef10_filter_insert_addr_list(efx, vlan, false, false);
- 	} else {
- 		/* If any of the filters failed to insert, fall back to
- 		 * promiscuous mode - add in the uc_def filter.  But keep
- 		 * our individual unicast filters.
- 		 */
--		if (efx_ef10_filter_insert_addr_list(efx, false, false))
--			efx_ef10_filter_insert_def(efx, false, false);
-+		if (efx_ef10_filter_insert_addr_list(efx, vlan, false, false))
-+			efx_ef10_filter_insert_def(efx, vlan, false, false);
- 	}
- 
- 	/* Insert/renew multicast filters */
-@@ -4294,17 +4304,18 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
- 			/* If we failed to insert promiscuous filters, rollback
- 			 * and fall back to individual multicast filters
- 			 */
--			if (efx_ef10_filter_insert_def(efx, true, true)) {
-+			if (efx_ef10_filter_insert_def(efx, vlan, true, true)) {
- 				/* Changing promisc state, so remove old filters */
- 				efx_ef10_filter_remove_old(efx);
--				efx_ef10_filter_insert_addr_list(efx, true, false);
-+				efx_ef10_filter_insert_addr_list(efx, vlan,
-+								 true, false);
- 			}
- 		} else {
- 			/* If we failed to insert promiscuous filters, don't
- 			 * rollback.  Regardless, also insert the mc_list
- 			 */
--			efx_ef10_filter_insert_def(efx, true, false);
--			efx_ef10_filter_insert_addr_list(efx, true, false);
-+			efx_ef10_filter_insert_def(efx, vlan, true, false);
-+			efx_ef10_filter_insert_addr_list(efx, vlan, true, false);
- 		}
- 	} else {
- 		/* If any filters failed to insert, rollback and fall back to
-@@ -4312,12 +4323,13 @@ static void efx_ef10_filter_sync_rx_mode(struct efx_nic *efx)
- 		 * that fails, roll back again and insert as many of our
- 		 * individual multicast filters as we can.
- 		 */
--		if (efx_ef10_filter_insert_addr_list(efx, true, true)) {
-+		if (efx_ef10_filter_insert_addr_list(efx, vlan, true, true)) {
- 			/* Changing promisc state, so remove old filters */
- 			if (nic_data->workaround_26807)
- 				efx_ef10_filter_remove_old(efx);
--			if (efx_ef10_filter_insert_def(efx, true, true))
--				efx_ef10_filter_insert_addr_list(efx, true, false);
-+			if (efx_ef10_filter_insert_def(efx, vlan, true, true))
-+				efx_ef10_filter_insert_addr_list(efx, vlan,
-+								 true, false);
- 		}
- 	}
  
