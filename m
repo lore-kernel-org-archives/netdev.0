@@ -1,69 +1,69 @@
-From: Vincent Palatin <vpalatin@chromium.org>
-Subject: Re: net: stmmac: dwmac-rk: fixes for Wake-on-Lan on RK3288
-Date: Wed, 15 Jun 2016 10:04:06 -0700
-Message-ID: <CAP_ceTwbrx0vO8ufMO_SiwXFAxv5OUuQaYYS27gNqPTR6kRXyQ@mail.gmail.com>
-References: <bd302fc6-feae-b99a-4632-a0ff9ead0123@st.com> <1465606839-7722-1-git-send-email-vpalatin@chromium.org>
- <3d278dd6-0b61-f618-b723-52f9c302c999@st.com>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH 4/5] netdev: implement infrastructure for threadable napi irq
+Date: Wed, 15 Jun 2016 10:04:39 -0700
+Message-ID: <CANn89iJKxctv5Yzn2ecBLAjh2RtGpjNC6M3dqKXieqaORZaGsw@mail.gmail.com>
+References: <cover.1465996447.git.pabeni@redhat.com> <f5e431e8336f80d0e6f6b4c40c81a373db6d6052.1465996447.git.pabeni@redhat.com>
+ <CANn89i+EJMHeMN8=e12hoT1Jv8cCBDXeexTBdsd9hU2G=HpGZA@mail.gmail.com> <1466008955.24431.35.camel@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Douglas Anderson <dianders@chromium.org>,
-	=?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko@sntech.de>,
-	Shunqian Zheng <zhengsq@rock-chips.com>,
-	David Miller <davem@davemloft.net>
-To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f174.google.com ([209.85.223.174]:34312 "EHLO
-	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751765AbcFORE2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 13:04:28 -0400
-Received: by mail-io0-f174.google.com with SMTP id 5so26683633ioy.1
-        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 10:04:28 -0700 (PDT)
-In-Reply-To: <3d278dd6-0b61-f618-b723-52f9c302c999@st.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: LKML <linux-kernel@vger.kernel.org>,
+	Thomas Gleixner <tglx@linutronix.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Steven Rostedt <rostedt@goodmis.org>,
+	"Peter Zijlstra (Intel)" <peterz@infradead.org>,
+	Ingo Molnar <mingo@kernel.org>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	netdev <netdev@vger.kernel.org>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466008955.24431.35.camel@redhat.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 12, 2016 at 11:46 PM, Giuseppe CAVALLARO
-<peppe.cavallaro@st.com> wrote:
-> On 6/11/2016 3:00 AM, Vincent Palatin wrote:
+On Wed, Jun 15, 2016 at 9:42 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> On Wed, 2016-06-15 at 07:17 -0700, Eric Dumazet wrote:
+
 >>
->> In order to support Wake-On-Lan when using the RK3288 integrated MAC
->> (with an external RGMII PHY), we need to avoid shutting down the regulator
->> of the external PHY when the MAC is suspended as it's currently done in
->> the MAC
->> platform code.
->> As a first step, create independant callbacks for suspend/resume rather
->> than
->> re-using exit/init callbacks. So the dwmac platform driver can behave
->> differently
->> on suspend where it might skip shutting the PHY and at module unloading.
->> Then update the dwmac-rk driver to switch off the PHY regulator only if we
->> are
->> not planning to wake up from the LAN.
->> Finally add the PMT interrupt to the MAC device tree configuration, so we
->> can
->> wake up the core from it when the PHY has received the magic packet.
+>> I really appreciate the effort, but as I already said this is not going to work.
+>>
+>> Many NIC have 2 NAPI contexts per queue, one for TX, one for RX.
+>>
+>> Relying on CFS to switch from the two 'threads' you need in the one
+>> vCPU case will add latencies that your 'pure throughput UDP flood' is
+>> not able to detect.
 >
+> We have done TCP_RR tests with similar results: when the throughput is
+> (guest) cpu bounded and multiple flows are used, there is measurable
+> gain.
+
+TCP_RR hardly triggers the problem I am mentioning.
+
+You need a combination of different competing works. Both bulk and rpc like.
+
+The important factor for RPC is P99 latency.
+
+Look, the simple fact that mlx4 driver can dequeue 256 skb per TX napi poll
+and only 64 skbs in RX poll is problematic in some workloads, since
+this allows a queue to build up on RX rings.
+
 >
-> IMO these could be sent for net-next and also other glue logic
-> files should be reworked in order to use the new API for coherence.
+>> I was waiting a fix from Andy Lutomirski to be merged before sending
+>> my ksoftirqd fix, which will work and wont bring kernel bloat.
+>
+> We experimented that patch in this scenario, but it don't give
+> measurable gain, since the ksoftirqd threads still prevent the qemu
+> process from using 100% of any hypervisor's cores.
 
-Given they will have the same set of functions for exit/init and
-suspend/resume, you mean duplicating the callbacks like this :
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
-@@ -359,6 +359,8 @@ static int sti_dwmac_probe(struct platform_device *pdev)
-        plat_dat->bsp_priv = dwmac;
-        plat_dat->init = sti_dwmac_init;
-        plat_dat->exit = sti_dwmac_exit;
-+       plat_dat->suspend = sti_dwmac_exit;
-+       plat_dat->resume = sti_dwmac_init;
-        plat_dat->fix_mac_speed = data->fix_retime_src;
+Not sure what you measured, but in my experiment, the user thread
+could finally get a fair share of the core, instead of 0%
 
-        ret = sti_dwmac_init(pdev, plat_dat->bsp_priv);
+Improvement was 100000 % or so.
 
-Is this anyhow useful ?
+How are you making sure your thread uses say 1% of the core, and let
+99% to the 'qemu' process exactly ?
 
--- 
-Vincent
+How the typical user will enable all this stuff exactly ?
+
+All I am saying is that you add a complex infra, that will need a lot
+of tweaks and considerable maintenance burden,
+instead of fixing the existing one _first_.
