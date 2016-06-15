@@ -1,66 +1,34 @@
-From: Daniel Metz <dmetz@mytum.de>
-Subject: Re: [PATCH net-next v2] tcp: use RFC6298 compliant TCP RTO
- calculation
-Date: Wed, 15 Jun 2016 22:34:00 +0200
-Message-ID: <16f7fad2-e8e3-44b7-af09-43467840bd00@mytum.de>
-References: <CAK6E8=dWLF+gRprxEbHRLnkRNHmf5sbedtv2Dt1jOqKPh7fmjA@mail.gmail.com>
- <20160614191841.21496-1-dmetz@mytum.de>
- <CAK6E8=eeso8OEN_0-znqkuEyVTqzP1mTvwktk4QOsrLJXmuj9Q@mail.gmail.com>
- <20160615174114.GA16217@virgo.localdomain>
- <CAK6E8=fgQitOiXwjjn0gq93w7m5DQ2OHr_wvq-oGeAF2fhE-uA@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Daniel Metz <daniel.metz@rohde-schwarz.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Yuchung Cheng <ycheng@google.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 0/3] bpf: improve fd array release
+Date: Wed, 15 Jun 2016 22:47:11 +0200
+Message-ID: <cover.1466021686.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.lrz.de ([129.187.255.135]:56016 "EHLO mailout1.lrz.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752819AbcFOUkQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 15 Jun 2016 16:40:16 -0400
-In-Reply-To: <CAK6E8=fgQitOiXwjjn0gq93w7m5DQ2OHr_wvq-oGeAF2fhE-uA@mail.gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:42930 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753569AbcFOUr2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 16:47:28 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Yuchung Cheng | 2016-06-15 20:02:
- > Let me explain in a different way:
- >
- > * RFC6298 applies a lower bound of 1 second to RTO (section 2.4)
- >
- > * Linux currently applies a lower bound of 200ms (min_rto) to
- > K*RTTVAR, but /not/ RTO itself.
- >
- > * This patch applies the lower bound of 200ms to RTO, similar to RFC6298
- >
- >
- > Let's say the SRTT is 100ms and RTT variations is 10ms. The variation
- > is low because we've been sending large chunks, and RTT is fairly
- > stable, and we sample on every ACK. The RTOs produced are
- >
- > RFC6298: RTO=1s
- > Linux: RTO=300ms
- > This patch: RTO=200ms
- >
- > Then we send 1 packet out. The receiver delays the ACK up to 200ms.
- > The actual RTT can be longer because other network components further
- > delay the data or the ACK. This patch would surely fire the RTO
- > spuriously.
- >
- > so we can either implement RFC6298 faithfully, or apply the
- > lower-bound as-is, or something in between. But the current patch
- > as-is is more aggressive. Did I miss something?
+This set improves BPF perf fd array map release wrt to purging
+entries, first two extend the API as needed. Please see individual
+patches for more details.
 
-Thank you for the clarification. The fundamental thought of this patch 
-was to decrease Linux RTO overestimation. This also involved not 
-clinging to the RFC 6298 MinRTO of 1 second ((2.4) "[...] at the same 
-time acknowledging that at some future point, research may show that a 
-smaller minimum RTO is acceptable or superior."). A more aggressive RTO 
-will of course increase the amount of Spurious Retransmission. The 
-question is, if the benefit is higher than the sacrifice. The tests we 
-conducted did not show significant negative impact so far. However, for 
-sender-limited TCP flows the results were promising.
+Thanks!
 
-Daniel
+Daniel Borkmann (3):
+  bpf, maps: add release callback
+  bpf, maps: extend map_fd_get_ptr arguments
+  bpf, maps: flush own entries on perf map release
+
+ include/linux/bpf.h      |  24 ++++++++--
+ kernel/bpf/arraymap.c    | 116 +++++++++++++++++++++++++++++++++--------------
+ kernel/bpf/syscall.c     |  13 +++++-
+ kernel/trace/bpf_trace.c |  18 ++++----
+ 4 files changed, 122 insertions(+), 49 deletions(-)
+
+-- 
+1.9.3
