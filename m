@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH 01/15] drivers: net: cpsw: fix suspend when all ethX devices are down
-Date: Wed, 15 Jun 2016 14:55:49 +0300
-Message-ID: <20160615115603.4897-2-grygorii.strashko@ti.com>
+Subject: [PATCH 12/15] net: davinci_mdio: document missed "ti,am4372-mdio" compat string
+Date: Wed, 15 Jun 2016 14:56:00 +0300
+Message-ID: <20160615115603.4897-13-grygorii.strashko@ti.com>
 References: <20160615115603.4897-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,45 +17,27 @@ In-Reply-To: <20160615115603.4897-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The cpsw_suspend() could trigger L3 error and CPSW will stop
-functioning if System enters suspend when all ethX net-devices are
-down - in this case CPSW could be already suspended by PM runtime, but
-cpsw_suspend() will try to call soft_reset_slave() unconditionally
-and access CPSW registers.
-
-Hence, fix it by moving soft_reset_slave() from cpsw_suspend() to
-cpsw_slave_stop(). This way slave ports will be reset when CPSW is
-active and will be in proper state during Suspend.
+Document missed "ti,am4372-mdio" compat string used for TI am437x SoC
+(am4372.dtsi).
 
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ Documentation/devicetree/bindings/net/davinci-mdio.txt | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index e6bb0ec..736c77a 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1244,6 +1244,7 @@ static void cpsw_slave_stop(struct cpsw_slave *slave, struct cpsw_priv *priv)
- 	slave->phy = NULL;
- 	cpsw_ale_control_set(priv->ale, slave_port,
- 			     ALE_PORT_STATE, ALE_PORT_STATE_DISABLE);
-+	soft_reset_slave(slave);
- }
+diff --git a/Documentation/devicetree/bindings/net/davinci-mdio.txt b/Documentation/devicetree/bindings/net/davinci-mdio.txt
+index 0369e25..f2bba50 100644
+--- a/Documentation/devicetree/bindings/net/davinci-mdio.txt
++++ b/Documentation/devicetree/bindings/net/davinci-mdio.txt
+@@ -2,7 +2,8 @@ TI SoC Davinci/Keystone2 MDIO Controller Device Tree Bindings
+ ---------------------------------------------------
  
- static int cpsw_ndo_open(struct net_device *ndev)
-@@ -2558,12 +2559,10 @@ static int cpsw_suspend(struct device *dev)
- 		for (i = 0; i < priv->data.slaves; i++) {
- 			if (netif_running(priv->slaves[i].ndev))
- 				cpsw_ndo_stop(priv->slaves[i].ndev);
--			soft_reset_slave(priv->slaves + i);
- 		}
- 	} else {
- 		if (netif_running(ndev))
- 			cpsw_ndo_stop(ndev);
--		for_each_slave(priv, soft_reset_slave);
- 	}
- 
- 	pm_runtime_put_sync(&pdev->dev);
+ Required properties:
+-- compatible		: Should be "ti,davinci_mdio" or "ti,keystone_mdio"
++- compatible		: Should be "ti,davinci_mdio", "ti,keystone_mdio",
++			  "ti,am4372-mdio"
+ - reg			: physical base address and size of the davinci mdio
+ 			  registers map
+ - bus_freq		: Mdio Bus frequency
 -- 
 2.8.4
