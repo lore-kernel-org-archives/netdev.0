@@ -1,8 +1,8 @@
 From: Edward Cree <ecree@solarflare.com>
-Subject: [PATCH net-next 11/17] sfc: Take mac_lock before calling
- efx_ef10_filter_table_probe
-Date: Wed, 15 Jun 2016 17:48:49 +0100
-Message-ID: <e49ae0e2-abe5-73f5-93e7-1f2b6386ded2@solarflare.com>
+Subject: [PATCH net-next 03/17] sfc: Add efx_nic member with fixed netdev
+ features
+Date: Wed, 15 Jun 2016 17:43:20 +0100
+Message-ID: <df02d496-ce4f-33f2-e4b9-6a6bdd7481ad@solarflare.com>
 References: <4daf4ef4-7a8b-4a16-c640-04275298abad@solarflare.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,117 +10,92 @@ Content-Transfer-Encoding: 7bit
 To: <linux-net-drivers@solarflare.com>, <netdev@vger.kernel.org>,
 	<davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:59201 "EHLO
-	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753256AbcFOQug (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 12:50:36 -0400
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:30509 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752760AbcFOQu2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 12:50:28 -0400
 In-Reply-To: <4daf4ef4-7a8b-4a16-c640-04275298abad@solarflare.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Martin Habets <mhabets@solarflare.com>
+From: Andrew Rybchenko <Andrew.Rybchenko@oktetlabs.ru>
 
-When trying to enslave an SFC interface to a bond the following BUG_ON was
-hit:
-
- kernel BUG [in ef10.c]!
- CPU: 0 PID: 4383 Comm: ifenslave Tainted: G
-...
- Call Trace:
-  efx_ef10_filter_add_vlan+0x121/0x180 [sfc]
-  efx_ef10_filter_table_probe+0x2a2/0x4f0 [sfc]
-  efx_ef10_set_mac_address+0x370/0x6d0 [sfc]
-  efx_set_mac_address+0x7d/0x120 [sfc]
-  dev_set_mac_address+0x43/0xa0
-  bond_enslave+0x337/0xea0 [bonding]
-This comes from function efx_ef10_filter_vlan_sync_rx_mode.
-
-To solve the bug we ensure the mac_lock is taken before calling
-efx_ef10_filter_add_vlan. But to avoid a priority inversion mac_lock must
-be taken before filter_sem.
-To satisfy these requirements we end up taking mac_lock in
-efx_ef10_vport_set_mac_address, efx_ef10_set_mac_address,
-efx_ef10_sriov_set_vf_vlan and efx_probe_filters.
+It allows to change set of fixed features on datapath reset.
 
 Signed-off-by: Edward Cree <ecree@solarflare.com>
 ---
- drivers/net/ethernet/sfc/ef10.c       | 4 ++++
- drivers/net/ethernet/sfc/ef10_sriov.c | 7 +++++--
- drivers/net/ethernet/sfc/efx.c        | 2 ++
- 3 files changed, 11 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/sfc/efx.c        | 18 ++++++++++++++----
+ drivers/net/ethernet/sfc/net_driver.h |  3 +++
+ 2 files changed, 17 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/sfc/ef10.c b/drivers/net/ethernet/sfc/ef10.c
-index a3c00ff..add9f46 100644
---- a/drivers/net/ethernet/sfc/ef10.c
-+++ b/drivers/net/ethernet/sfc/ef10.c
-@@ -4666,6 +4666,8 @@ static int efx_ef10_set_mac_address(struct efx_nic *efx)
- 
- 	efx_device_detach_sync(efx);
- 	efx_net_stop(efx->net_dev);
-+
-+	mutex_lock(&efx->mac_lock);
- 	down_write(&efx->filter_sem);
- 	efx_ef10_filter_table_remove(efx);
- 
-@@ -4678,6 +4680,8 @@ static int efx_ef10_set_mac_address(struct efx_nic *efx)
- 
- 	efx_ef10_filter_table_probe(efx);
- 	up_write(&efx->filter_sem);
-+	mutex_unlock(&efx->mac_lock);
-+
- 	if (was_enabled)
- 		efx_net_open(efx->net_dev);
- 	netif_device_attach(efx->net_dev);
-diff --git a/drivers/net/ethernet/sfc/ef10_sriov.c b/drivers/net/ethernet/sfc/ef10_sriov.c
-index 3c17f27..a76610a 100644
---- a/drivers/net/ethernet/sfc/ef10_sriov.c
-+++ b/drivers/net/ethernet/sfc/ef10_sriov.c
-@@ -554,6 +554,7 @@ int efx_ef10_sriov_set_vf_vlan(struct efx_nic *efx, int vf_i, u16 vlan,
- 		efx_device_detach_sync(vf->efx);
- 		efx_net_stop(vf->efx->net_dev);
- 
-+		mutex_lock(&vf->efx->mac_lock);
- 		down_write(&vf->efx->filter_sem);
- 		vf->efx->type->filter_table_remove(vf->efx);
- 
-@@ -630,6 +631,7 @@ restore_filters:
- 			goto reset_nic_up_write;
- 
- 		up_write(&vf->efx->filter_sem);
-+		mutex_unlock(&vf->efx->mac_lock);
- 
- 		up_write(&vf->efx->filter_sem);
- 
-@@ -642,9 +644,10 @@ restore_filters:
- 	return rc;
- 
- reset_nic_up_write:
--	if (vf->efx)
-+	if (vf->efx) {
- 		up_write(&vf->efx->filter_sem);
--
-+		mutex_unlock(&vf->efx->mac_lock);
-+	}
- reset_nic:
- 	if (vf->efx) {
- 		netif_err(efx, drv, efx->net_dev,
 diff --git a/drivers/net/ethernet/sfc/efx.c b/drivers/net/ethernet/sfc/efx.c
-index 902bcf2..130ee17 100644
+index 097f363..2eecd28 100644
 --- a/drivers/net/ethernet/sfc/efx.c
 +++ b/drivers/net/ethernet/sfc/efx.c
-@@ -1729,6 +1729,7 @@ static int efx_probe_filters(struct efx_nic *efx)
+@@ -600,6 +600,7 @@ fail:
+  */
+ static void efx_start_datapath(struct efx_nic *efx)
+ {
++	netdev_features_t old_features = efx->net_dev->features;
+ 	bool old_rx_scatter = efx->rx_scatter;
+ 	struct efx_tx_queue *tx_queue;
+ 	struct efx_rx_queue *rx_queue;
+@@ -644,6 +645,15 @@ static void efx_start_datapath(struct efx_nic *efx)
+ 			  efx->rx_dma_len, efx->rx_page_buf_step,
+ 			  efx->rx_bufs_per_page, efx->rx_pages_per_batch);
  
- 	spin_lock_init(&efx->filter_lock);
- 	init_rwsem(&efx->filter_sem);
-+	mutex_lock(&efx->mac_lock);
- 	down_write(&efx->filter_sem);
- 	rc = efx->type->filter_table_probe(efx);
- 	if (rc)
-@@ -1767,6 +1768,7 @@ static int efx_probe_filters(struct efx_nic *efx)
- #endif
- out_unlock:
- 	up_write(&efx->filter_sem);
-+	mutex_unlock(&efx->mac_lock);
- 	return rc;
- }
++	/* Restore previously fixed features in hw_features and remove
++	 * features which are fixed now
++	 */
++	efx->net_dev->hw_features |= efx->net_dev->features;
++	efx->net_dev->hw_features &= ~efx->fixed_features;
++	efx->net_dev->features |= efx->fixed_features;
++	if (efx->net_dev->features != old_features)
++		netdev_features_change(efx->net_dev);
++
+ 	/* RX filters may also have scatter-enabled flags */
+ 	if (efx->rx_scatter != old_rx_scatter)
+ 		efx->type->filter_update_rx_scatter(efx);
+@@ -3147,17 +3157,17 @@ static int efx_pci_probe(struct pci_dev *pci_dev,
+ 		return -ENOMEM;
+ 	efx = netdev_priv(net_dev);
+ 	efx->type = (const struct efx_nic_type *) entry->driver_data;
++	efx->fixed_features |= NETIF_F_HIGHDMA;
+ 	net_dev->features |= (efx->type->offload_features | NETIF_F_SG |
+-			      NETIF_F_HIGHDMA | NETIF_F_TSO |
+-			      NETIF_F_RXCSUM);
++			      NETIF_F_TSO | NETIF_F_RXCSUM);
+ 	if (efx->type->offload_features & (NETIF_F_IPV6_CSUM | NETIF_F_HW_CSUM))
+ 		net_dev->features |= NETIF_F_TSO6;
+ 	/* Mask for features that also apply to VLAN devices */
+ 	net_dev->vlan_features |= (NETIF_F_HW_CSUM | NETIF_F_SG |
+ 				   NETIF_F_HIGHDMA | NETIF_F_ALL_TSO |
+ 				   NETIF_F_RXCSUM);
+-	/* All offloads can be toggled */
+-	net_dev->hw_features = net_dev->features & ~NETIF_F_HIGHDMA;
++	net_dev->features |= efx->fixed_features;
++	net_dev->hw_features = net_dev->features & ~efx->fixed_features;
+ 	pci_set_drvdata(pci_dev, efx);
+ 	SET_NETDEV_DEV(net_dev, &pci_dev->dev);
+ 	rc = efx_init_struct(efx, pci_dev, net_dev);
+diff --git a/drivers/net/ethernet/sfc/net_driver.h b/drivers/net/ethernet/sfc/net_driver.h
+index 77cd23c..26abb5c 100644
+--- a/drivers/net/ethernet/sfc/net_driver.h
++++ b/drivers/net/ethernet/sfc/net_driver.h
+@@ -868,6 +868,7 @@ struct vfdi_status;
+  *	be held to modify it.
+  * @port_initialized: Port initialized?
+  * @net_dev: Operating system network device. Consider holding the rtnl lock
++ * @fixed_features: Features which cannot be turned off
+  * @stats_buffer: DMA buffer for statistics
+  * @phy_type: PHY type
+  * @phy_op: PHY interface
+@@ -1007,6 +1008,8 @@ struct efx_nic {
+ 	bool port_initialized;
+ 	struct net_device *net_dev;
  
++	netdev_features_t fixed_features;
++
+ 	struct efx_buffer stats_buffer;
+ 	u64 rx_nodesc_drops_total;
+ 	u64 rx_nodesc_drops_while_down;
