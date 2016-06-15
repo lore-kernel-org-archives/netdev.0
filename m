@@ -1,141 +1,63 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 04/15] drivers: net: cpsw: ethtool: fix accessing to
- suspended device
-Date: Wed, 15 Jun 2016 09:14:07 -0700
-Message-ID: <57617ECF.2010902@gmail.com>
-References: <20160615115603.4897-1-grygorii.strashko@ti.com>
- <20160615115603.4897-5-grygorii.strashko@ti.com>
+From: Venkatesh Srinivas <venkateshs@google.com>
+Subject: Re: [PATCH net] ixgbe: napi_poll must return the work done
+Date: Wed, 15 Jun 2016 09:34:49 -0700
+Message-ID: <CAHdzE-8V8o9sg9xmiJ9J0G3u=k6K-fHQssb5v09TPJvN2N=a1Q@mail.gmail.com>
+References: <37ccedd746ed932b9d73eff592f324f2a3fc6c6f.1465995724.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
-	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>, devicetree@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Sekhar Nori <nsekhar@ti.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160615115603.4897-5-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	intel-wired-lan@lists.osuosl.org,
+	"David S. Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@redhat.com>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f169.google.com ([209.85.220.169]:36567 "EHLO
+	mail-qk0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751907AbcFOQeu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 12:34:50 -0400
+Received: by mail-qk0-f169.google.com with SMTP id p10so26339391qke.3
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 09:34:50 -0700 (PDT)
+In-Reply-To: <37ccedd746ed932b9d73eff592f324f2a3fc6c6f.1465995724.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/15/2016 04:55 AM, Grygorii Strashko wrote:
-> The CPSW might be suspended by RPM if all ethX interfaces are down,
-> but it still could be accesible through ethtool interfce. In this case
-> ethtool operations, requiring registers access, will cause L3 errors and
-> CPSW crash.
-> 
-> Hence, fix it by adding RPM get/put calls in ethtool callbcaks which
-> can access CPSW registers: .set_coalesce(), .get_ethtool_stats(),
-> .set_pauseparam(), .get_regs()
-
-Provided that you implement an ethtool_ops::begin, it will be called
-before each ethtool operation runs, so that could allow you to eliminate
-some of the duplication here. Conversely ethtool_ops::end terminates
-each operation and can be used for that purpose.
-
-> 
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+On Wed, Jun 15, 2016 at 6:37 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> Currently the function ixgbe_poll() returns 0 when it clean completely
+> the rx rings, but this foul budget accounting in core code.
+> Fix this returning the actual work done, capped to weight - 1, since
+> the core doesn't allow to return the full budget when the driver modifies
+> the napi status
+>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 > ---
->  drivers/net/ethernet/ti/cpsw.c | 36 +++++++++++++++++++++++++++++++++++-
->  1 file changed, 35 insertions(+), 1 deletion(-)
-> 
-> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-> index ba81d4e..1ba0c09 100644
-> --- a/drivers/net/ethernet/ti/cpsw.c
-> +++ b/drivers/net/ethernet/ti/cpsw.c
-> @@ -931,6 +931,13 @@ static int cpsw_set_coalesce(struct net_device *ndev,
->  	u32 prescale = 0;
->  	u32 addnl_dvdr = 1;
->  	u32 coal_intvl = 0;
-> +	int ret;
-> +
-> +	ret = pm_runtime_get_sync(&priv->pdev->dev);
-> +	if (ret < 0) {
-> +		pm_runtime_put_noidle(&priv->pdev->dev);
-> +		return ret;
-> +	}
->  
->  	coal_intvl = coal->rx_coalesce_usecs;
->  
-> @@ -985,6 +992,8 @@ update_return:
->  		priv->coal_intvl = coal_intvl;
->  	}
->  
-> +	pm_runtime_put(&priv->pdev->dev);
-> +
->  	return 0;
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index 088c47c..8bebd86 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -2887,7 +2887,7 @@ int ixgbe_poll(struct napi_struct *napi, int budget)
+>         if (!test_bit(__IXGBE_DOWN, &adapter->state))
+>                 ixgbe_irq_enable_queues(adapter, BIT_ULL(q_vector->v_idx));
+>
+> -       return 0;
+> +       return min(work_done, budget - 1);
 >  }
->  
-> @@ -1022,7 +1031,13 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
->  	struct cpdma_chan_stats tx_stats;
->  	u32 val;
->  	u8 *p;
-> -	int i;
-> +	int i, ret;
-> +
-> +	ret = pm_runtime_get_sync(&priv->pdev->dev);
-> +	if (ret < 0) {
-> +		pm_runtime_put_noidle(&priv->pdev->dev);
-> +		return;
-> +	}
->  
->  	/* Collect Davinci CPDMA stats for Rx and Tx Channel */
->  	cpdma_chan_get_stats(priv->rxch, &rx_stats);
-> @@ -1049,6 +1064,8 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
->  			break;
->  		}
->  	}
-> +
-> +	pm_runtime_put(&priv->pdev->dev);
->  }
->  
->  static int cpsw_common_res_usage_state(struct cpsw_priv *priv)
-> @@ -1780,11 +1797,20 @@ static void cpsw_get_regs(struct net_device *ndev,
->  {
->  	struct cpsw_priv *priv = netdev_priv(ndev);
->  	u32 *reg = p;
-> +	int ret;
-> +
-> +	ret = pm_runtime_get_sync(&priv->pdev->dev);
-> +	if (ret < 0) {
-> +		pm_runtime_put_noidle(&priv->pdev->dev);
-> +		return;
-> +	}
->  
->  	/* update CPSW IP version */
->  	regs->version = priv->version;
->  
->  	cpsw_ale_dump(priv->ale, reg);
-> +
-> +	pm_runtime_put(&priv->pdev->dev);
->  }
->  
->  static void cpsw_get_drvinfo(struct net_device *ndev,
-> @@ -1902,12 +1928,20 @@ static int cpsw_set_pauseparam(struct net_device *ndev,
->  {
->  	struct cpsw_priv *priv = netdev_priv(ndev);
->  	bool link;
-> +	int ret;
-> +
-> +	ret = pm_runtime_get_sync(&priv->pdev->dev);
-> +	if (ret < 0) {
-> +		pm_runtime_put_noidle(&priv->pdev->dev);
-> +		return ret;
-> +	}
->  
->  	priv->rx_pause = pause->rx_pause ? true : false;
->  	priv->tx_pause = pause->tx_pause ? true : false;
->  
->  	for_each_slave(priv, _cpsw_adjust_link, priv, &link);
->  
-> +	pm_runtime_put(&priv->pdev->dev);
->  	return 0;
->  }
->  
-> 
+>
+>  /**
 
+Reviewed-by: Venkatesh Srinivas <venkateshs@google.com>
 
--- 
-Florian
+The same bit of code appears in fm10k and i40e/i40evf. ixgb appears to
+correctly return work_done.
+
+ixgbe_poll also appears to return an (minor) incorrect work_done in
+another case, BTW. It divides its
+budget between Rx rings associated with a vector. If any ring exceeds
+its share of the budget, ixgbe_poll
+claims to have consumed the full budget, even if a full budget of
+frames was not received in a single
+pass.
+
+-- vs;
