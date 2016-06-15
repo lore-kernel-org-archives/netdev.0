@@ -1,45 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: ena: Add a driver for Amazon Elastic
- Network Adapters (ENA)
-Date: Tue, 14 Jun 2016 22:25:16 -0700 (PDT)
-Message-ID: <20160614.222516.1192717052949905017.davem@davemloft.net>
-References: <1465807573-11293-1-git-send-email-netanel@annapurnalabs.com>
+Subject: Re: [PATCH] net: hns: update the dependency
+Date: Tue, 14 Jun 2016 22:26:13 -0700 (PDT)
+Message-ID: <20160614.222613.1939489970427406792.davem@davemloft.net>
+References: <1465818987-218513-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davm@davemeloft.net,
-	linux-kernel@vger.kernel.org, zorik@annapurnalabs.com,
-	saeed@annapurnalabs.com, alex@annapurnalabs.com, msw@amazon.com,
-	aligouri@amazon.com, antoine.tenart@free-electrons.com
-To: netanel@annapurnalabs.com
+Cc: arnd@arndb.de, charles.chenxin@huawei.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linuxarm@huawei.com
+To: Yisen.Zhuang@huawei.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465807573-11293-1-git-send-email-netanel@annapurnalabs.com>
+In-Reply-To: <1465818987-218513-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Netanel Belgazal <netanel@annapurnalabs.com>
-Date: Mon, 13 Jun 2016 11:46:13 +0300
+From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+Date: Mon, 13 Jun 2016 19:56:27 +0800
 
-> +#define ena_trc_dbg(format, arg...) \
-> +	pr_debug("[ENA_COM: %s] " format, __func__, ##arg)
-> +#define ena_trc_info(format, arg...) \
-> +	pr_info("[ENA_COM: %s] " format, __func__, ##arg)
-> +#define ena_trc_warn(format, arg...) \
-> +	pr_warn("[ENA_COM: %s] " format, __func__, ##arg)
-> +#define ena_trc_err(format, arg...) \
-> +	pr_err("[ENA_COM: %s] " format, __func__, ##arg)
+> From: Kejian Yan <yankejian@huawei.com>
+> 
+> After the patchset about adding support of ACPI (commit id is 6343488)
+> being applied, HNS does not depend on OF. It depends on OF or ACPI, so
+> the Kconfig file needs to be updated.
+> 
+> Signed-off-by: Kejian Yan <yankejian@huawei.com>
+> Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 
-These custom tracing macros are quite inappropriate.
-
-We have the function tracer in the kernel when that is needed.  So spitting
-out __func__ all over the place is not something that should be found in
-drivers these days.
-
-And one can modify pr_fmt do make pr_debug et al. have whatever prefix
-one wants.
-
-I suspect there will be several rounds of review to weed out things
-like this.  You can preempt a lot of that by removing as much in your
-driver that the kernel has existing facilities for.
-
-Thanks.
+Why did you submit this same exact patch 3 times?
