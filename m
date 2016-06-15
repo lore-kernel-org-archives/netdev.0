@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH 13/15] net: davinci_mdio: introduce "ti,cpsw-mdio" compat string
-Date: Wed, 15 Jun 2016 14:56:01 +0300
-Message-ID: <20160615115603.4897-14-grygorii.strashko@ti.com>
+Subject: [PATCH 15/15] ARM: dts: am335x/am437x/dra7: use new "ti,cpsw-mdio" compat string
+Date: Wed, 15 Jun 2016 14:56:03 +0300
+Message-ID: <20160615115603.4897-16-grygorii.strashko@ti.com>
 References: <20160615115603.4897-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,28 +17,55 @@ In-Reply-To: <20160615115603.4897-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Introduce "ti,cpsw-mdio" compatible string for Davinci MDIO, because
-it's required to distinguish the case when MDIO is part of TI CPSW to
-enable features supported by TI CPSW (for example, enable PM
-management).
+Add "ti,cpsw-mdio" for am335x/am437x/dra7 SoCs where MDIO is
+implemented as part of TI CPSW and, this way, enable PM runtime auto
+suspend for Davinci MDIO driver on these paltforms.
 
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- Documentation/devicetree/bindings/net/davinci-mdio.txt | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ arch/arm/boot/dts/am33xx.dtsi | 2 +-
+ arch/arm/boot/dts/am4372.dtsi | 2 +-
+ arch/arm/boot/dts/dra7.dtsi   | 2 +-
+ 3 files changed, 3 insertions(+), 3 deletions(-)
 
-diff --git a/Documentation/devicetree/bindings/net/davinci-mdio.txt b/Documentation/devicetree/bindings/net/davinci-mdio.txt
-index f2bba50..a3d6d4b 100644
---- a/Documentation/devicetree/bindings/net/davinci-mdio.txt
-+++ b/Documentation/devicetree/bindings/net/davinci-mdio.txt
-@@ -3,7 +3,7 @@ TI SoC Davinci/Keystone2 MDIO Controller Device Tree Bindings
+diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
+index 52be48b..7fa9a1d 100644
+--- a/arch/arm/boot/dts/am33xx.dtsi
++++ b/arch/arm/boot/dts/am33xx.dtsi
+@@ -789,7 +789,7 @@
+ 			status = "disabled";
  
- Required properties:
- - compatible		: Should be "ti,davinci_mdio", "ti,keystone_mdio",
--			  "ti,am4372-mdio"
-+			  "ti,am4372-mdio", "ti,cpsw-mdio"
- - reg			: physical base address and size of the davinci mdio
- 			  registers map
- - bus_freq		: Mdio Bus frequency
+ 			davinci_mdio: mdio@4a101000 {
+-				compatible = "ti,davinci_mdio";
++				compatible = "ti,cpsw-mdio","ti,davinci_mdio";
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
+ 				ti,hwmods = "davinci_mdio";
+diff --git a/arch/arm/boot/dts/am4372.dtsi b/arch/arm/boot/dts/am4372.dtsi
+index 12fcde4..ea76fa7 100644
+--- a/arch/arm/boot/dts/am4372.dtsi
++++ b/arch/arm/boot/dts/am4372.dtsi
+@@ -636,7 +636,7 @@
+ 			syscon = <&scm_conf>;
+ 
+ 			davinci_mdio: mdio@4a101000 {
+-				compatible = "ti,am4372-mdio","ti,davinci_mdio";
++				compatible = "ti,am4372-mdio","ti,cpsw-mdio","ti,davinci_mdio";
+ 				reg = <0x4a101000 0x100>;
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
+diff --git a/arch/arm/boot/dts/dra7.dtsi b/arch/arm/boot/dts/dra7.dtsi
+index e007401..911ef85 100644
+--- a/arch/arm/boot/dts/dra7.dtsi
++++ b/arch/arm/boot/dts/dra7.dtsi
+@@ -1661,7 +1661,7 @@
+ 			status = "disabled";
+ 
+ 			davinci_mdio: mdio@48485000 {
+-				compatible = "ti,davinci_mdio";
++				compatible = "ti,cpsw-mdio","ti,davinci_mdio";
+ 				#address-cells = <1>;
+ 				#size-cells = <0>;
+ 				ti,hwmods = "davinci_mdio";
 -- 
 2.8.4
