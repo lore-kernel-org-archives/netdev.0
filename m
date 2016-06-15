@@ -1,45 +1,44 @@
-From: Alexander Aring <aar@pengutronix.de>
-Subject: [PATCHv4 net-next 03/12] 6lowpan: remove ipv6 module request
-Date: Wed, 15 Jun 2016 21:20:18 +0200
-Message-ID: <20160615192027.4064-4-aar@pengutronix.de>
-References: <20160615192027.4064-1-aar@pengutronix.de>
-Cc: kernel@pengutronix.de, marcel@holtmann.org,
-	jukka.rissanen@linux.intel.com, hannes@stressinduktion.org,
-	stefan@osg.samsung.com, mcr@sandelman.ca, werner@almesberger.net,
-	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
-	Alexander Aring <aar@pengutronix.de>
-To: linux-wpan@vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v2 net] net_sched: prio: insure proper transactional
+ behavior
+Date: Wed, 15 Jun 2016 12:30:43 -0700 (PDT)
+Message-ID: <20160615.123043.1799077853807122411.davem@davemloft.net>
+References: <1465838004.7945.167.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1465838879.7945.168.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1465842812.7945.175.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:35786 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932951AbcFOTVN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 15:21:13 -0400
-In-Reply-To: <20160615192027.4064-1-aar@pengutronix.de>
+Received: from shards.monkeyblade.net ([149.20.54.216]:33451 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932321AbcFOTao (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 15:30:44 -0400
+In-Reply-To: <1465842812.7945.175.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since we use exported function from ipv6 kernel module we don't need to
-request the module anymore to have ipv6 functionality.
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 13 Jun 2016 11:33:32 -0700
 
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Reviewed-by: Stefan Schmidt <stefan@osg.samsung.com>
-Signed-off-by: Alexander Aring <aar@pengutronix.de>
----
- net/6lowpan/core.c | 2 --
- 1 file changed, 2 deletions(-)
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Now prio_init() can return -ENOMEM, it also has to make sure
+> any allocated qdiscs are freed, since the caller (qdisc_create()) wont
+> call ->destroy() handler for us.
+> 
+> More generally, we want a transactional behavior for "tc qdisc
+> change ...", so prio_tune() should not make modifications if
+> any error is returned.
+> 
+> It means that we must validate parameters and allocate missing qdisc(s)
+> before taking root qdisc lock exactly once, to not leave the prio qdisc
+> in an intermediate state.
+> 
+> Fixes: cbdf45116478 ("net_sched: prio: properly report out of memory errors")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Cong Wang <xiyou.wangcong@gmail.com>
 
-diff --git a/net/6lowpan/core.c b/net/6lowpan/core.c
-index 801404c..1c7a42b 100644
---- a/net/6lowpan/core.c
-+++ b/net/6lowpan/core.c
-@@ -158,8 +158,6 @@ static int __init lowpan_module_init(void)
- 		return ret;
- 	}
- 
--	request_module_nowait("ipv6");
--
- 	request_module_nowait("nhc_dest");
- 	request_module_nowait("nhc_fragment");
- 	request_module_nowait("nhc_hop");
--- 
-2.8.3
+Applied.
