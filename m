@@ -1,7 +1,8 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH 00/15] drivers: net: cpsw: improve runtime pm
-Date: Wed, 15 Jun 2016 14:55:48 +0300
-Message-ID: <20160615115603.4897-1-grygorii.strashko@ti.com>
+Subject: [PATCH 04/15] drivers: net: cpsw: ethtool: fix accessing to suspended device
+Date: Wed, 15 Jun 2016 14:55:52 +0300
+Message-ID: <20160615115603.4897-5-grygorii.strashko@ti.com>
+References: <20160615115603.4897-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <linux-kernel@vger.kernel.org>, <linux-omap@vger.kernel.org>,
@@ -12,65 +13,116 @@ To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	Sekhar Nori <nsekhar@ti.com>,
 	Mugunthan V N <mugunthanvnm@ti.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160615115603.4897-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This series intended to improve runtime PM and allow CPSW to be
-RPM suspended when all ethX netdevices are down.
+The CPSW might be suspended by RPM if all ethX interfaces are down,
+but it still could be accesible through ethtool interfce. In this case
+ethtool operations, requiring registers access, will cause L3 errors and
+CPSW crash.
 
-To achieve above goal it is required to relax runtime PM constraints for
-Davinci MDIO which blocks CPSW runtime PM now, because Davinci MDIO is always
-powered on during probe and powered off only when it's going to be removed.
-- Patches 6-11 implement PM runtime autosuspend for Davinci MDIO, but keep it
-disabled by default, because Davinci MDIO is integrated in big set of TI devices
-and not all of them verified to work correctly with RPM autosuspend enabled:
- expected to work on SoCs where MDIO is defined as part of CPSW in DT
- (cpsw.c DRA7/am57x, am437x, am335x)
-The CPSW need to be fixed before RPM suspended can be allowed:
- - Patches 1-5 ensure that CPSW will not cause L3 errors while it is in RPM
-   suspended state.
+Hence, fix it by adding RPM get/put calls in ethtool callbcaks which
+can access CPSW registers: .set_coalesce(), .get_ethtool_stats(),
+.set_pauseparam(), .get_regs()
 
-Davinci MDIO RPM autosuspend can be enabled through sysfs:
- echo 100 > /sys/devices/../48484000.ethernet/48485000.mdio/power/autosuspend_delay_ms
+Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+---
+ drivers/net/ethernet/ti/cpsw.c | 36 +++++++++++++++++++++++++++++++++++-
+ 1 file changed, 35 insertions(+), 1 deletion(-)
 
-Patches 12 - 15: introduce new compatible string "ti,cpsw-mdio" which is used
-then to enable RPM for am335x/am437x/dra7 SoCs.
-
-Tested on am335x, am437x, am572x and k2g (on k2g with RPM disabled for Davinci MDIO)
-These changes should not affect on errata i877 implementation on DRA7.
-
-Power measurement on am335x GP EVM:
- Without this series:  547.60 mW total SoC power
- With this series + "ifconfig eth0 down": 477.32 mW Total Soc Power 
-
-Grygorii Strashko (15):
-  drivers: net: cpsw: fix suspend when all ethX devices are down
-  drivers: net: cpsw: check return code from pm runtime calls
-  drivers: net: cpsw: remove pm runtime calls from suspend callbacks
-  drivers: net: cpsw: ethtool: fix accessing to suspended device
-  drivers: net: cpsw: ndev: fix accessing to suspended device
-  drivers: net: davinci_mdio: do pm runtime initialization later in
-    probe
-  drivers: net: davinci_mdio: remove pm runtime calls from suspend
-    callbacks
-  drivers: net: davinci_mdio: drop suspended and lock fields from
-    mdio_data
-  drivers: net: davinci_mdio: split reset function on init_clk and
-    enable
-  drivers: net: davinci_mdio: add pm runtime callbacks
-  drivers: net: davinci_mdio: implement pm runtime auto mode
-  net: davinci_mdio: document missed "ti,am4372-mdio" compat string
-  net: davinci_mdio: introduce "ti,cpsw-mdio" compat string
-  drivers: net: davinci_mdio: enable pm runtime auto for ti cpsw-mdio
-  ARM: dts: am335x/am437x/dra7: use new "ti,cpsw-mdio" compat string
-
- .../devicetree/bindings/net/davinci-mdio.txt       |   3 +-
- arch/arm/boot/dts/am33xx.dtsi                      |   2 +-
- arch/arm/boot/dts/am4372.dtsi                      |   2 +-
- arch/arm/boot/dts/dra7.dtsi                        |   2 +-
- drivers/net/ethernet/ti/cpsw.c                     |  88 +++++++++--
- drivers/net/ethernet/ti/davinci_mdio.c             | 169 +++++++++++++--------
- 6 files changed, 189 insertions(+), 77 deletions(-)
-
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index ba81d4e..1ba0c09 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -931,6 +931,13 @@ static int cpsw_set_coalesce(struct net_device *ndev,
+ 	u32 prescale = 0;
+ 	u32 addnl_dvdr = 1;
+ 	u32 coal_intvl = 0;
++	int ret;
++
++	ret = pm_runtime_get_sync(&priv->pdev->dev);
++	if (ret < 0) {
++		pm_runtime_put_noidle(&priv->pdev->dev);
++		return ret;
++	}
+ 
+ 	coal_intvl = coal->rx_coalesce_usecs;
+ 
+@@ -985,6 +992,8 @@ update_return:
+ 		priv->coal_intvl = coal_intvl;
+ 	}
+ 
++	pm_runtime_put(&priv->pdev->dev);
++
+ 	return 0;
+ }
+ 
+@@ -1022,7 +1031,13 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
+ 	struct cpdma_chan_stats tx_stats;
+ 	u32 val;
+ 	u8 *p;
+-	int i;
++	int i, ret;
++
++	ret = pm_runtime_get_sync(&priv->pdev->dev);
++	if (ret < 0) {
++		pm_runtime_put_noidle(&priv->pdev->dev);
++		return;
++	}
+ 
+ 	/* Collect Davinci CPDMA stats for Rx and Tx Channel */
+ 	cpdma_chan_get_stats(priv->rxch, &rx_stats);
+@@ -1049,6 +1064,8 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
+ 			break;
+ 		}
+ 	}
++
++	pm_runtime_put(&priv->pdev->dev);
+ }
+ 
+ static int cpsw_common_res_usage_state(struct cpsw_priv *priv)
+@@ -1780,11 +1797,20 @@ static void cpsw_get_regs(struct net_device *ndev,
+ {
+ 	struct cpsw_priv *priv = netdev_priv(ndev);
+ 	u32 *reg = p;
++	int ret;
++
++	ret = pm_runtime_get_sync(&priv->pdev->dev);
++	if (ret < 0) {
++		pm_runtime_put_noidle(&priv->pdev->dev);
++		return;
++	}
+ 
+ 	/* update CPSW IP version */
+ 	regs->version = priv->version;
+ 
+ 	cpsw_ale_dump(priv->ale, reg);
++
++	pm_runtime_put(&priv->pdev->dev);
+ }
+ 
+ static void cpsw_get_drvinfo(struct net_device *ndev,
+@@ -1902,12 +1928,20 @@ static int cpsw_set_pauseparam(struct net_device *ndev,
+ {
+ 	struct cpsw_priv *priv = netdev_priv(ndev);
+ 	bool link;
++	int ret;
++
++	ret = pm_runtime_get_sync(&priv->pdev->dev);
++	if (ret < 0) {
++		pm_runtime_put_noidle(&priv->pdev->dev);
++		return ret;
++	}
+ 
+ 	priv->rx_pause = pause->rx_pause ? true : false;
+ 	priv->tx_pause = pause->tx_pause ? true : false;
+ 
+ 	for_each_slave(priv, _cpsw_adjust_link, priv, &link);
+ 
++	pm_runtime_put(&priv->pdev->dev);
+ 	return 0;
+ }
+ 
 -- 
 2.8.4
