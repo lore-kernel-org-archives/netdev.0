@@ -1,7 +1,7 @@
 From: Vincent Palatin <vpalatin@chromium.org>
-Subject: [PATCH v2 1/3] net: stmmac: allow to split suspend/resume from init/exit callbacks
-Date: Wed, 15 Jun 2016 11:32:21 -0700
-Message-ID: <a61d39032b6d31ca936b6a3bfe92c93246a5c833.1466015458.git.vpalatin@chromium.org>
+Subject: [PATCH v2 2/3] net: stmmac: dwmac-rk: keep the PHY up for WoL
+Date: Wed, 15 Jun 2016 11:32:22 -0700
+Message-ID: <ddca4f2f83c02f15722121aa4c0d00d8ee82eee1.1466015458.git.vpalatin@chromium.org>
 References: <CAP_ceTxFuCsqRQJ_9GMc5PSKqczA8Qwaa0jX22wQ2Dq=+GZUuQ@mail.gmail.com>
  <cover.1466015458.git.vpalatin@chromium.org>
 Cc: linux-kernel@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
@@ -12,71 +12,116 @@ Cc: linux-kernel@vger.kernel.org, Andrew Lunn <andrew@lunn.ch>,
 	Vincent Palatin <vpalatin@chromium.org>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:32968 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753728AbcFOScs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 14:32:48 -0400
-Received: by mail-pf0-f172.google.com with SMTP id i123so7471502pfg.0
-        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 11:32:48 -0700 (PDT)
+Received: from mail-pf0-f171.google.com ([209.85.192.171]:32976 "EHLO
+	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933066AbcFOSc5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 14:32:57 -0400
+Received: by mail-pf0-f171.google.com with SMTP id i123so7471915pfg.0
+        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 11:32:56 -0700 (PDT)
 In-Reply-To: <cover.1466015458.git.vpalatin@chromium.org>
 In-Reply-To: <cover.1466015458.git.vpalatin@chromium.org>
 References: <cover.1466015458.git.vpalatin@chromium.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Let the stmmac platform drivers provide dedicated suspend and resume
-callbacks rather than always re-using the init and exits callbacks.
-If the driver does not provide the suspend or resume callback, we fall
-back to the old behavior trying to use exit or init.
-
-This allows a specific platform to perform only a partial power-down on
-suspend if Wake-on-Lan is enabled but always perform the full shutdown
-sequence if the module is unloaded.
+When suspending the machine, do not shutdown the external PHY by cutting
+its regulator in the mac platform driver suspend code if Wake-on-Lan is enabled,
+else it cannot wake us up.
+In order to do this, split the suspend/resume callbacks from the
+init/exit callbacks, so we can condition the power-down on the lack of
+need to wake-up from the LAN but do it unconditionally when unloading the
+module.
 
 Signed-off-by: Vincent Palatin <vpalatin@chromium.org>
 ---
- drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c | 8 ++++++--
- include/linux/stmmac.h                                | 2 ++
- 2 files changed, 8 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c | 48 +++++++++++++++++++++++---
+ 1 file changed, 43 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-index 409db91..a96714d 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
-@@ -411,7 +411,9 @@ static int stmmac_pltfr_suspend(struct device *dev)
- 	struct platform_device *pdev = to_platform_device(dev);
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+index 0cd3ecf..63c2e4f 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+@@ -46,6 +46,7 @@ struct rk_priv_data {
+ 	struct platform_device *pdev;
+ 	int phy_iface;
+ 	struct regulator *regulator;
++	bool suspended;
+ 	const struct rk_gmac_ops *ops;
  
- 	ret = stmmac_suspend(dev);
--	if (priv->plat->exit)
-+	if (priv->plat->suspend)
-+		priv->plat->suspend(pdev, priv->plat->bsp_priv);
-+	else if (priv->plat->exit)
- 		priv->plat->exit(pdev, priv->plat->bsp_priv);
+ 	bool clk_enabled;
+@@ -529,9 +530,8 @@ static struct rk_priv_data *rk_gmac_setup(struct platform_device *pdev,
+ 	return bsp_priv;
+ }
  
- 	return ret;
-@@ -430,7 +432,9 @@ static int stmmac_pltfr_resume(struct device *dev)
- 	struct stmmac_priv *priv = netdev_priv(ndev);
- 	struct platform_device *pdev = to_platform_device(dev);
+-static int rk_gmac_init(struct platform_device *pdev, void *priv)
++static int rk_gmac_powerup(struct rk_priv_data *bsp_priv)
+ {
+-	struct rk_priv_data *bsp_priv = priv;
+ 	int ret;
  
--	if (priv->plat->init)
-+	if (priv->plat->resume)
-+		priv->plat->resume(pdev, priv->plat->bsp_priv);
-+	else if (priv->plat->init)
- 		priv->plat->init(pdev, priv->plat->bsp_priv);
+ 	ret = phy_power_on(bsp_priv, true);
+@@ -545,14 +545,50 @@ static int rk_gmac_init(struct platform_device *pdev, void *priv)
+ 	return 0;
+ }
  
- 	return stmmac_resume(dev);
-diff --git a/include/linux/stmmac.h b/include/linux/stmmac.h
-index ffdaca9..0507dbf 100644
---- a/include/linux/stmmac.h
-+++ b/include/linux/stmmac.h
-@@ -135,6 +135,8 @@ struct plat_stmmacenet_data {
- 	void (*bus_setup)(void __iomem *ioaddr);
- 	int (*init)(struct platform_device *pdev, void *priv);
- 	void (*exit)(struct platform_device *pdev, void *priv);
-+	void (*suspend)(struct platform_device *pdev, void *priv);
-+	void (*resume)(struct platform_device *pdev, void *priv);
- 	void *bsp_priv;
- 	struct stmmac_axi *axi;
- 	int has_gmac4;
+-static void rk_gmac_exit(struct platform_device *pdev, void *priv)
++static void rk_gmac_powerdown(struct rk_priv_data *gmac)
+ {
+-	struct rk_priv_data *gmac = priv;
+-
+ 	phy_power_on(gmac, false);
+ 	gmac_clk_enable(gmac, false);
+ }
+ 
++static int rk_gmac_init(struct platform_device *pdev, void *priv)
++{
++	struct rk_priv_data *bsp_priv = priv;
++
++	return rk_gmac_powerup(bsp_priv);
++}
++
++static void rk_gmac_exit(struct platform_device *pdev, void *priv)
++{
++	struct rk_priv_data *bsp_priv = priv;
++
++	rk_gmac_powerdown(bsp_priv);
++}
++
++static void rk_gmac_suspend(struct platform_device *pdev, void *priv)
++{
++	struct rk_priv_data *bsp_priv = priv;
++
++	/* Keep the PHY up if we use Wake-on-Lan. */
++	if (device_may_wakeup(&pdev->dev))
++		return;
++
++	rk_gmac_powerdown(bsp_priv);
++	bsp_priv->suspended = true;
++}
++
++static void rk_gmac_resume(struct platform_device *pdev, void *priv)
++{
++	struct rk_priv_data *bsp_priv = priv;
++
++	/* The PHY was up for Wake-on-Lan. */
++	if (!bsp_priv->suspended)
++		return;
++
++	rk_gmac_powerup(bsp_priv);
++	bsp_priv->suspended = false;
++}
++
+ static void rk_fix_speed(void *priv, unsigned int speed)
+ {
+ 	struct rk_priv_data *bsp_priv = priv;
+@@ -591,6 +627,8 @@ static int rk_gmac_probe(struct platform_device *pdev)
+ 	plat_dat->init = rk_gmac_init;
+ 	plat_dat->exit = rk_gmac_exit;
+ 	plat_dat->fix_mac_speed = rk_fix_speed;
++	plat_dat->suspend = rk_gmac_suspend;
++	plat_dat->resume = rk_gmac_resume;
+ 
+ 	plat_dat->bsp_priv = rk_gmac_setup(pdev, data);
+ 	if (IS_ERR(plat_dat->bsp_priv))
 -- 
 2.8.0.rc3.226.g39d4020
