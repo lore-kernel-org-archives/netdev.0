@@ -1,30 +1,40 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net-next] net_sched: remove internal use of TC_POLICE_*
-Date: Wed, 15 Jun 2016 00:06:38 -0700 (PDT)
-Message-ID: <20160615.000638.1479592639489365076.davem@davemloft.net>
-References: <1465840064-7650-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [very-RFC 0/8] TSN driver for the kernel
+Date: Wed, 15 Jun 2016 09:11:53 +0200
+Message-ID: <20160615071153.GC2919@netboy>
+References: <1465686096-22156-1-git-send-email-henrik@austad.us>
+ <20160613114713.GA9544@localhost.localdomain>
+ <20160613130059.GA20320@sisyphus.home.austad.us>
+ <20160613193208.GA2441@netboy>
+ <20160614093000.GB21689@sisyphus.home.austad.us>
+ <20160614182615.GA2741@netboy>
+ <20160614203810.GC21689@sisyphus.home.austad.us>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com
-To: xiyou.wangcong@gmail.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linux-media@vger.kernel.org,
+	alsa-devel@vger.kernel.org, netdev@vger.kernel.org,
+	Arnd Bergmann <arnd@linaro.org>
+To: Henrik Austad <henrik@austad.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55013 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750841AbcFOHGk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 03:06:40 -0400
-In-Reply-To: <1465840064-7650-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35915 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752574AbcFOHL6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 03:11:58 -0400
+Content-Disposition: inline
+In-Reply-To: <20160614203810.GC21689@sisyphus.home.austad.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Mon, 13 Jun 2016 10:47:43 -0700
+On Tue, Jun 14, 2016 at 10:38:10PM +0200, Henrik Austad wrote:
+> Where is your media-application in this?
 
-> These should be gone when we removed CONFIG_NET_CLS_POLICE.
-> We can not totally remove them since they are exposed
-> to userspace.
-> 
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Um, that *is* a media application.  It plays music on the sound card.
 
-Applied.
+> You only loop the audio from 
+> network to the dsp, is the media-application attached to the dsp-device?
+
+Sorry, I thought the old OSS API would be familiar and easy to
+understand.  The /dev/dsp is the sound card.
+
+Thanks,
+Richard
