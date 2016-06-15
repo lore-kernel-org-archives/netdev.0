@@ -1,69 +1,44 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH 4/5] netdev: implement infrastructure for threadable napi irq
-Date: Wed, 15 Jun 2016 10:04:39 -0700
-Message-ID: <CANn89iJKxctv5Yzn2ecBLAjh2RtGpjNC6M3dqKXieqaORZaGsw@mail.gmail.com>
-References: <cover.1465996447.git.pabeni@redhat.com> <f5e431e8336f80d0e6f6b4c40c81a373db6d6052.1465996447.git.pabeni@redhat.com>
- <CANn89i+EJMHeMN8=e12hoT1Jv8cCBDXeexTBdsd9hU2G=HpGZA@mail.gmail.com> <1466008955.24431.35.camel@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	"Peter Zijlstra (Intel)" <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev <netdev@vger.kernel.org>
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1466008955.24431.35.camel@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Xin Long <lucien.xin@gmail.com>
+Subject: [PATCH net-next] sctp: change sk state to CLOSED instead of CLOSING in sctp_sock_migrate
+Date: Thu, 16 Jun 2016 01:15:06 +0800
+Message-ID: <9229f8aa0f4324831fc31b5334cde9a258404b62.1466010906.git.lucien.xin@gmail.com>
+Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	xiaolong.ye@intel.com, davem@davemloft.net, eric.dumazet@gmail.com
+To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:34556 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751765AbcFORPN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 15 Jun 2016 13:15:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 15, 2016 at 9:42 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> On Wed, 2016-06-15 at 07:17 -0700, Eric Dumazet wrote:
+Commit d46e416c11c8 ("sctp: sctp should change socket state when
+shutdown is received") may set sk_state CLOSING in sctp_sock_migrate,
+but inet_accept doesn't allow the sk_state other than ESTABLISHED/
+CLOSED for sctp. So we will change sk_state to CLOSED, instead of
+CLOSING, as actually sk is closed already there.
 
->>
->> I really appreciate the effort, but as I already said this is not going to work.
->>
->> Many NIC have 2 NAPI contexts per queue, one for TX, one for RX.
->>
->> Relying on CFS to switch from the two 'threads' you need in the one
->> vCPU case will add latencies that your 'pure throughput UDP flood' is
->> not able to detect.
->
-> We have done TCP_RR tests with similar results: when the throughput is
-> (guest) cpu bounded and multiple flows are used, there is measurable
-> gain.
+Fixes: commit d46e416c11c8 ("sctp: sctp should change socket state when shutdown is received")
+Reported-by: Ye Xiaolong <xiaolong.ye@intel.com>
+Signed-off-by: Xin Long <lucien.xin@gmail.com>
+---
+ net/sctp/socket.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-TCP_RR hardly triggers the problem I am mentioning.
-
-You need a combination of different competing works. Both bulk and rpc like.
-
-The important factor for RPC is P99 latency.
-
-Look, the simple fact that mlx4 driver can dequeue 256 skb per TX napi poll
-and only 64 skbs in RX poll is problematic in some workloads, since
-this allows a queue to build up on RX rings.
-
->
->> I was waiting a fix from Andy Lutomirski to be merged before sending
->> my ksoftirqd fix, which will work and wont bring kernel bloat.
->
-> We experimented that patch in this scenario, but it don't give
-> measurable gain, since the ksoftirqd threads still prevent the qemu
-> process from using 100% of any hypervisor's cores.
-
-Not sure what you measured, but in my experiment, the user thread
-could finally get a fair share of the core, instead of 0%
-
-Improvement was 100000 % or so.
-
-How are you making sure your thread uses say 1% of the core, and let
-99% to the 'qemu' process exactly ?
-
-How the typical user will enable all this stuff exactly ?
-
-All I am saying is that you add a complex infra, that will need a lot
-of tweaks and considerable maintenance burden,
-instead of fixing the existing one _first_.
+diff --git a/net/sctp/socket.c b/net/sctp/socket.c
+index 6cae4c6..cdabbd8 100644
+--- a/net/sctp/socket.c
++++ b/net/sctp/socket.c
+@@ -7568,7 +7568,7 @@ static void sctp_sock_migrate(struct sock *oldsk, struct sock *newsk,
+ 	 * is called, set RCV_SHUTDOWN flag.
+ 	 */
+ 	if (sctp_state(assoc, CLOSED) && sctp_style(newsk, TCP)) {
+-		newsk->sk_state = SCTP_SS_CLOSING;
++		newsk->sk_state = SCTP_SS_CLOSED;
+ 		newsk->sk_shutdown |= RCV_SHUTDOWN;
+ 	} else {
+ 		newsk->sk_state = SCTP_SS_ESTABLISHED;
+-- 
+2.1.0
