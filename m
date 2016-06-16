@@ -1,68 +1,90 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: GMII2RGMII Converter support in macb driver
-Date: Thu, 16 Jun 2016 07:18:19 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5B6C9F@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <C246CAC1457055469EF09E3A7AC4E11A4A57592E@XAP-PVEXMBX01.xlnx.xilinx.com>
- <570CF663.4000908@atmel.com> <570CFA1A.80702@electromag.com.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
-	Harini Katakam <harinik@xilinx.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	Michal Simek <michals@xilinx.com>
-To: Phil Reid <preid@electromag.com.au>,
-	Nicolas Ferre <nicolas.ferre@atmel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0059.outbound.protection.outlook.com ([104.47.36.59]:26229
-	"EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751276AbcFPIxT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 04:53:19 -0400
-In-Reply-To: <570CFA1A.80702@electromag.com.au>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] dsa: b53: fix big-endian register access
+Date: Thu, 16 Jun 2016 11:00:05 +0200
+Message-ID: <20160616090017.912604-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Thanks Phil Reid and Nicolas for your suggestions.
+The b53 dsa register access confusingly uses __raw register accessors
+when both the CPU and the device are big-endian, but it uses little-
+endian accessors when the same device is used from a little-endian
+CPU, which makes no sense.
 
-> >>
-> >>
-> >>
-> >> But doing above changes making driver looks odd.
-> >>
-> >> could you please suggest any better option to add support for this IP
-> >> in the macb driver?
-> >
-> > Appana,
-> >
-> > I certainly can't prototype the solution based on your datasheet and
-> > the code sent... do a sensible proposal, then we can evaluate.
-> >
-> > As the IP is separated from the Eth controller, make it a separate
-> > driver (an emulated phy one for instance... even if I don't know if it
-> > makes sense).
-> >
-> > I don't know if others have already made such an adaptation layer
-> > between GMII to RGMII but I'm pretty sure it can't be inserted into
-> > the macb driver.
-> >
-> > Bye,
-> >
-> This sounds very similar to the altera emac-splitter.
-> See stmmac driver for how they handled this.
+This uses normal accessors in device-endianess all the time, which
+will work in all four combinations of register and CPU endianess,
+and it will have the same barrier semantics in all cases.
 
-I went through the flow of the stmmac driver but seems to me
-It won't suit for my requirement as soc-fpga itself emulates as MAC.
-But for gmii2rgmii converter it is not the case I am looking for a solution
-Where it can be worked as an emulated PHY driver which doesn't have any
-Vendor/Device ID's.
+This also seems to take care of a (false positive) warning I'm getting:
 
-I saw this thread http://lists.openwall.net/netdev/2013/03/05/50 
-But seems to be there are no further discussions.
+drivers/net/dsa/b53/b53_mmap.c: In function 'b53_mmap_read64':
+drivers/net/dsa/b53/b53_mmap.c:109:10: error: 'hi' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+  *val = ((u64)hi << 32) | lo;
 
-Please let me know if you have any suggestions...
+I originally planned to submit another patch for that warning
+and did this one as a preparation cleanup, but it does seem to be
+sufficient by itself.
 
-Regards,
-Kedar.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/dsa/b53/b53_mmap.c | 20 ++++++++------------
+ 1 file changed, 8 insertions(+), 12 deletions(-)
+
+diff --git a/drivers/net/dsa/b53/b53_mmap.c b/drivers/net/dsa/b53/b53_mmap.c
+index f115ee25c0e8..b70daf9174d4 100644
+--- a/drivers/net/dsa/b53/b53_mmap.c
++++ b/drivers/net/dsa/b53/b53_mmap.c
+@@ -45,9 +45,8 @@ static int b53_mmap_read16(struct b53_device *dev, u8 page, u8 reg, u16 *val)
+ 	if (WARN_ON(reg % 2))
+ 		return -EINVAL;
+ 
+-	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN) && dev->pdata &&
+-	    dev->pdata->big_endian)
+-		*val = __raw_readw(regs + (page << 8) + reg);
++	if (dev->pdata && dev->pdata->big_endian)
++		*val = ioread16be(regs + (page << 8) + reg);
+ 	else
+ 		*val = readw(regs + (page << 8) + reg);
+ 
+@@ -61,9 +60,8 @@ static int b53_mmap_read32(struct b53_device *dev, u8 page, u8 reg, u32 *val)
+ 	if (WARN_ON(reg % 4))
+ 		return -EINVAL;
+ 
+-	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN) && dev->pdata &&
+-	    dev->pdata->big_endian)
+-		*val = __raw_readl(regs + (page << 8) + reg);
++	if (dev->pdata && dev->pdata->big_endian)
++		*val = ioread32be(regs + (page << 8) + reg);
+ 	else
+ 		*val = readl(regs + (page << 8) + reg);
+ 
+@@ -128,9 +126,8 @@ static int b53_mmap_write16(struct b53_device *dev, u8 page, u8 reg,
+ 	if (WARN_ON(reg % 2))
+ 		return -EINVAL;
+ 
+-	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN) && dev->pdata &&
+-	    dev->pdata->big_endian)
+-		__raw_writew(value, regs + (page << 8) + reg);
++	if (dev->pdata && dev->pdata->big_endian)
++		iowrite16be(value, regs + (page << 8) + reg);
+ 	else
+ 		writew(value, regs + (page << 8) + reg);
+ 
+@@ -145,9 +142,8 @@ static int b53_mmap_write32(struct b53_device *dev, u8 page, u8 reg,
+ 	if (WARN_ON(reg % 4))
+ 		return -EINVAL;
+ 
+-	if (IS_ENABLED(CONFIG_CPU_BIG_ENDIAN) && dev->pdata &&
+-	    dev->pdata->big_endian)
+-		__raw_writel(value, regs + (page << 8) + reg);
++	if (dev->pdata && dev->pdata->big_endian)
++		iowrite32be(value, regs + (page << 8) + reg);
+ 	else
+ 		writel(value, regs + (page << 8) + reg);
+ 
+-- 
+2.9.0
