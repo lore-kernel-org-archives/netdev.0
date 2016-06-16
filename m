@@ -1,53 +1,55 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 1/2] net: smsc911x: Fix bug where PHY interrupts are
- overwritten by 0
-Date: Thu, 16 Jun 2016 22:53:18 +0300
-Message-ID: <30e23b70-d1d5-444a-ac7c-255ae3a03e1e@cogentembedded.com>
-References: <1466092470-20958-1-git-send-email-jeremy.linton@arm.com>
- <9f09e570-11e5-e89f-4aa9-b4f198833636@cogentembedded.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 1/8] net: Change SKB_GSO_DODGY to be a tx_flag
+Date: Thu, 16 Jun 2016 13:18:03 -0700
+Message-ID: <CALx6S35sirk9983WBuVtR0qz=FgDLK-h=hSAGMkgrjH_7oDPWw@mail.gmail.com>
+References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
+	<1466099522-690741-2-git-send-email-tom@herbertland.com>
+	<CAKgT0Ud-QEtTTdzGzKkxnextMu63RZL9f2Hp=4VGxiUbeMcUkQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: steve.glendinning@shawell.net, andrew@lunn.ch
-To: Jeremy Linton <jeremy.linton@arm.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f41.google.com ([209.85.215.41]:34787 "EHLO
-	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754034AbcFPTxW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 15:53:22 -0400
-Received: by mail-lf0-f41.google.com with SMTP id j7so47360815lfg.1
-        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 12:53:21 -0700 (PDT)
-In-Reply-To: <9f09e570-11e5-e89f-4aa9-b4f198833636@cogentembedded.com>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:35342 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753919AbcFPUSF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 16:18:05 -0400
+Received: by mail-io0-f173.google.com with SMTP id f30so52258778ioj.2
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 13:18:03 -0700 (PDT)
+In-Reply-To: <CAKgT0Ud-QEtTTdzGzKkxnextMu63RZL9f2Hp=4VGxiUbeMcUkQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/16/2016 09:55 PM, Sergei Shtylyov wrote:
-
->> By default, mdiobus_alloc() sets the PHY's to polling mode, but a
->
->    Rather "PHYs".
->
->> pointer size memcpy means that couple IRQs (depending
->
->    Could be more words on this line, it's broken too early, I think.
->
->> on 32-bit or 64-bit kernels) end up being overwritten with
->> a value of 0. This means that PHY_POLL is disabled and results
->> in unpredictable behavior depending on the PHYs location on the mdio
->
->    Contrariwise, "PHY's" here. And it's MDIO.
->
->> bus. Remove that memcpy and the now unused phy_irq member to force
->> SMSC911x PHY's into polling mode 100% of the time.
+On Thu, Jun 16, 2016 at 11:58 AM, Alexander Duyck
+<alexander.duyck@gmail.com> wrote:
+> On Thu, Jun 16, 2016 at 10:51 AM, Tom Herbert <tom@herbertland.com> wrote:
+>> This replaces gso_type SKB_GSO_DODGY with a new tx_flag named
+>> SKBTX_UNTRUSTED_SOURCE. This more generically desrcibes the skb
+>> being created from a untrusted source as a characteristic of and skbuff.
+>> This also frees up one gso_type flag bit.
 >>
->> Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+>> Signed-off-by: Tom Herbert <tom@herbertland.com>
 >
-> Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+> Instead of leaving this bit in the shared_info why not look at moving
+> it into the sk_buff itself?  It seems like this might be a better
+> candidate for something like that as a large part of what the dodgy
+> bit represents is that the header offsets are likely not set correctly
+> and need to be parsed out and updated.  It might make more sense to
+> place this in the slot just after remcsum_offload.  That way once all
+> the header offsets have been updated you could just update this one
+> bit to indicate that the header offsets stored in this sk_buff are
+> valid.
+>
+> I also don't see where these changes address any changes needed to
+> skb_gso_ok in order to actually trigger the partial walk though the
+> GSO code.  You probably need to look at adding a statement there to do
+> a check for your untrusted source bit versus the GSO_ROBUST feature.
+> It probably doesn't need to be much, just something like tacking on a
+> "&& (!skb_is_untrustued(skb) || (features & NETIF_F_GSO_ROBUST)" to
+> the conditional statement.
+>
+All the places where SKB_GSO_DODGY was being checked should have been
+replaced with SKBTX_UNTRUSTED_SOURCE.
 
-    I was going to add the following too but just forgot:
-
-Fixes: e7f4dc3536a4 ("mdio: Move allocation of interrupts into core")
-
-> [...]
-
-MBR, Sergei
+> - Alex
