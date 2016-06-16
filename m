@@ -1,70 +1,74 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH 04/15] drivers: net: cpsw: ethtool: fix accessing to
- suspended device
-Date: Thu, 16 Jun 2016 16:32:27 +0300
-Message-ID: <5762AA6B.9060003@linaro.org>
-References: <20160615115603.4897-1-grygorii.strashko@ti.com>
- <20160615115603.4897-5-grygorii.strashko@ti.com> <57617ECF.2010902@gmail.com>
- <5761860C.2020502@ti.com> <5762A010.2070201@linaro.org>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: net: stmmac: dwmac-rk: fixes for Wake-on-Lan on RK3288
+Date: Thu, 16 Jun 2016 15:37:32 +0200
+Message-ID: <1a9e4f56-37b0-892f-97b5-b61106e6d40b@st.com>
+References: <bd302fc6-feae-b99a-4632-a0ff9ead0123@st.com>
+ <1465606839-7722-1-git-send-email-vpalatin@chromium.org>
+ <3d278dd6-0b61-f618-b723-52f9c302c999@st.com>
+ <CAP_ceTwbrx0vO8ufMO_SiwXFAxv5OUuQaYYS27gNqPTR6kRXyQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
-	Rob Herring <robh+dt@kernel.org>, devicetree@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Sekhar Nori <nsekhar@ti.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f46.google.com ([209.85.215.46]:35682 "EHLO
-	mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754199AbcFPNcc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 09:32:32 -0400
-Received: by mail-lf0-f46.google.com with SMTP id l188so38253290lfe.2
-        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 06:32:31 -0700 (PDT)
-In-Reply-To: <5762A010.2070201@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Douglas Anderson <dianders@chromium.org>,
+	=?UTF-8?Q?Heiko_St=c3=bcbner?= <heiko@sntech.de>,
+	Shunqian Zheng <zhengsq@rock-chips.com>,
+	David Miller <davem@davemloft.net>
+To: Vincent Palatin <vpalatin@chromium.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAP_ceTwbrx0vO8ufMO_SiwXFAxv5OUuQaYYS27gNqPTR6kRXyQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Hi Vincent
 
-
-On 16.06.16 15:48, Ivan Khoronzhuk wrote:
->
->
-> On 15.06.16 19:45, Grygorii Strashko wrote:
->> On 06/15/2016 07:14 PM, Florian Fainelli wrote:
->>> On 06/15/2016 04:55 AM, Grygorii Strashko wrote:
->>>> The CPSW might be suspended by RPM if all ethX interfaces are down,
->>>> but it still could be accesible through ethtool interfce. In this case
->>>> ethtool operations, requiring registers access, will cause L3 errors and
->>>> CPSW crash.
->>>>
->>>> Hence, fix it by adding RPM get/put calls in ethtool callbcaks which
->>>> can access CPSW registers: .set_coalesce(), .get_ethtool_stats(),
->>>> .set_pauseparam(), .get_regs()
+On 6/15/2016 7:04 PM, Vincent Palatin wrote:
+> On Sun, Jun 12, 2016 at 11:46 PM, Giuseppe CAVALLARO
+> <peppe.cavallaro@st.com> wrote:
+>> On 6/11/2016 3:00 AM, Vincent Palatin wrote:
 >>>
->>> Provided that you implement an ethtool_ops::begin, it will be called
->>> before each ethtool operation runs, so that could allow you to eliminate
->>> some of the duplication here. Conversely ethtool_ops::end terminates
->>> each operation and can be used for that purpose.
+>>> In order to support Wake-On-Lan when using the RK3288 integrated MAC
+>>> (with an external RGMII PHY), we need to avoid shutting down the regulator
+>>> of the external PHY when the MAC is suspended as it's currently done in
+>>> the MAC
+>>> platform code.
+>>> As a first step, create independant callbacks for suspend/resume rather
+>>> than
+>>> re-using exit/init callbacks. So the dwmac platform driver can behave
+>>> differently
+>>> on suspend where it might skip shutting the PHY and at module unloading.
+>>> Then update the dwmac-rk driver to switch off the PHY regulator only if we
+>>> are
+>>> not planning to wake up from the LAN.
+>>> Finally add the PMT interrupt to the MAC device tree configuration, so we
+>>> can
+>>> wake up the core from it when the PHY has received the magic packet.
 >>
->> Ah. Thanks for the advice. (assume you've meant .complete())
+>>
+>> IMO these could be sent for net-next and also other glue logic
+>> files should be reworked in order to use the new API for coherence.
 >
-> Maybe better leave as is, I'm going to add two additional ehttool ops
-> containing RPM sensitive part and not, better to split code on those,
-> if possible...and hiding put/get in begin op can call rpm when it's not
-> needed at all..
-
-But it's not a big deal, ethtool operations are rarelly anyway, and have
-impact only when interface is down that makes it even more rarely.
-
+> Given they will have the same set of functions for exit/init and
+> suspend/resume, you mean duplicating the callbacks like this :
+> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+> @@ -359,6 +359,8 @@ static int sti_dwmac_probe(struct platform_device *pdev)
+>         plat_dat->bsp_priv = dwmac;
+>         plat_dat->init = sti_dwmac_init;
+>         plat_dat->exit = sti_dwmac_exit;
+> +       plat_dat->suspend = sti_dwmac_exit;
+> +       plat_dat->resume = sti_dwmac_init;
+>         plat_dat->fix_mac_speed = data->fix_retime_src;
 >
->>
->>
->>
+>         ret = sti_dwmac_init(pdev, plat_dat->bsp_priv);
 >
+> Is this anyhow useful ?
 
--- 
-Regards,
-Ivan Khoronzhuk
+I think this is mandatory otherwise you are not guaranteeing the PM
+stuff working on the rest of the glue-logics (not only sti); because
+init/exit calls won't be called anymore. So I kindly ask you to
+propagate the fix and send the V3.  The implementation above is ok for
+me.
+
+peppe
