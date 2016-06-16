@@ -1,10 +1,10 @@
 From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCHv4 net-next 04/12] ndisc: add __ndisc_opt_addr_space
+Subject: Re: [PATCHv4 net-next 05/12] ndisc: add __ndisc_opt_addr_data
  function
-Date: Thu, 16 Jun 2016 12:44:09 +0200
-Message-ID: <797c4085-3bc2-1f62-ba9a-4582de01cec9@stressinduktion.org>
+Date: Thu, 16 Jun 2016 12:44:32 +0200
+Message-ID: <99766fd7-dd4e-9dbb-e706-ef38209109cc@stressinduktion.org>
 References: <20160615192027.4064-1-aar@pengutronix.de>
- <20160615192027.4064-5-aar@pengutronix.de>
+ <20160615192027.4064-6-aar@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
@@ -19,13 +19,13 @@ Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPm
 	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
 To: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160615192027.4064-5-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+In-Reply-To: <20160615192027.4064-6-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 On 15.06.2016 21:20, Alexander Aring wrote:
-> This patch adds __ndisc_opt_addr_space as low-level function for
-> ndisc_opt_addr_space which doesn't depend on net_device parameter.
+> This patch adds __ndisc_opt_addr_data as low-level function for
+> ndisc_opt_addr_data which doesn't depend on net_device parameter.
 > 
 > Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
 > Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
@@ -37,8 +37,3 @@ On 15.06.2016 21:20, Alexander Aring wrote:
 > Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
 
 Acked-by: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-
-[note, patchworks picks up the acks automatically, you don't need to repost]
-
-Thanks,
-Hannes
