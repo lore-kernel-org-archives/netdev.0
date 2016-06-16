@@ -1,95 +1,51 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net 2/3] r8152: reset the bmu
-Date: Thu, 16 Jun 2016 10:55:18 +0800
-Message-ID: <1394712342-15778-181-Taiwan-albertk@realtek.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net 1/3] r8152: disable MAC clock speed down
+Date: Thu, 16 Jun 2016 10:55:17 +0800
+Message-ID: <1394712342-15778-180-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-179-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394712342-15778-179-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-179-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Reset the BMU to clear the rx/tx fifo. This avoids that the unexpected
-data remains in the hw.
+Disable MAC clock speed down. It may casue the first control
+transfer to contain the wrong data, when the power state change
+from U1 to U0.
 
-Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 19 +++++++++++++++++++
- 1 file changed, 19 insertions(+)
+ drivers/net/usb/r8152.c | 14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 89dc752..f5bc351 100644
+index 3f9f6ed..89dc752 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -116,6 +116,7 @@
- #define USB_TX_DMA		0xd434
- #define USB_TOLERANCE		0xd490
- #define USB_LPM_CTRL		0xd41a
-+#define USB_BMU_RESET		0xd4b0
- #define USB_UPS_CTRL		0xd800
- #define USB_MISC_0		0xd81a
- #define USB_POWER_CUT		0xd80a
-@@ -338,6 +339,10 @@
- #define TEST_MODE_DISABLE	0x00000001
- #define TX_SIZE_ADJUST1		0x00000100
+@@ -3382,15 +3382,11 @@ static void r8153_init(struct r8152 *tp)
+ 	r8153_power_cut_en(tp, false);
+ 	r8153_u1u2en(tp, true);
  
-+/* USB_BMU_RESET */
-+#define BMU_RESET_EP_IN		0x01
-+#define BMU_RESET_EP_OUT	0x02
-+
- /* USB_UPS_CTRL */
- #define POWER_CUT		0x0100
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL, ALDPS_SPDWN_RATIO);
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL2, EEE_SPDWN_RATIO);
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL3,
+-		       PKT_AVAIL_SPDWN_EN | SUSPEND_SPDWN_EN |
+-		       U1U2_SPDWN_EN | L1_SPDWN_EN);
+-	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL4,
+-		       PWRSAVE_SPDWN_EN | RXDV_SPDWN_EN | TX10MIDLE_EN |
+-		       TP100_SPDWN_EN | TP500_SPDWN_EN | TP1000_SPDWN_EN |
+-		       EEE_SPDWN_EN);
++	/* MAC clock speed down */
++	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL, 0);
++	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL2, 0);
++	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL3, 0);
++	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL4, 0);
  
-@@ -2456,6 +2461,17 @@ static void r8153_teredo_off(struct r8152 *tp)
- 	ocp_write_dword(tp, MCU_TYPE_PLA, PLA_TEREDO_TIMER, 0);
- }
- 
-+static void rtl_reset_bmu(struct r8152 *tp)
-+{
-+	u32 ocp_data;
-+
-+	ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_BMU_RESET);
-+	ocp_data &= ~(BMU_RESET_EP_IN | BMU_RESET_EP_OUT);
-+	ocp_write_byte(tp, MCU_TYPE_USB, USB_BMU_RESET, ocp_data);
-+	ocp_data |= BMU_RESET_EP_IN | BMU_RESET_EP_OUT;
-+	ocp_write_byte(tp, MCU_TYPE_USB, USB_BMU_RESET, ocp_data);
-+}
-+
- static void r8152_aldps_en(struct r8152 *tp, bool enable)
- {
- 	if (enable) {
-@@ -2681,6 +2697,7 @@ static void r8153_first_init(struct r8152 *tp)
- 	r8153_hw_phy_cfg(tp);
- 
- 	rtl8152_nic_reset(tp);
-+	rtl_reset_bmu(tp);
- 
- 	ocp_data = ocp_read_byte(tp, MCU_TYPE_PLA, PLA_OOB_CTRL);
- 	ocp_data &= ~NOW_IS_OOB;
-@@ -2742,6 +2759,7 @@ static void r8153_enter_oob(struct r8152 *tp)
- 	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_OOB_CTRL, ocp_data);
- 
- 	rtl_disable(tp);
-+	rtl_reset_bmu(tp);
- 
- 	for (i = 0; i < 1000; i++) {
- 		ocp_data = ocp_read_byte(tp, MCU_TYPE_PLA, PLA_OOB_CTRL);
-@@ -2803,6 +2821,7 @@ static void rtl8153_disable(struct r8152 *tp)
- {
- 	r8153_aldps_en(tp, false);
- 	rtl_disable(tp);
-+	rtl_reset_bmu(tp);
+ 	r8153_enable_eee(tp);
  	r8153_aldps_en(tp, true);
- 	usb_enable_lpm(tp->udev);
- }
 -- 
 2.4.11
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
