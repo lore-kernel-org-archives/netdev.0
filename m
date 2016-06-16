@@ -1,46 +1,31 @@
-From: Michael Chan <michael.chan@broadcom.com>
-Subject: Re: [net-next PATCH v2 05/17] bnxt: Update drivers to support unified
- UDP encapsulation offload functions
-Date: Wed, 15 Jun 2016 21:23:30 -0700
-Message-ID: <CACKFLimVri8=L8XrgTgW_eieEwEygf4CTDZtr+wD1fE6qnrqRw@mail.gmail.com>
-References: <20160615220449.15575.17031.stgit@localhost.localdomain>
-	<20160615220747.15575.31433.stgit@localhost.localdomain>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [for-next 0/1] [pull request] Mellanox ConnectX-4 Shared Code
+Date: Wed, 15 Jun 2016 21:37:24 -0700 (PDT)
+Message-ID: <20160615.213724.761419504231088993.davem@davemloft.net>
+References: <1465900152-32049-1-git-send-email-leonro@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Hannes Frederic Sowa <hannes@redhat.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Dept-GELinuxNICDev@qlogic.com, David Miller <davem@davemloft.net>
-To: Alexander Duyck <aduyck@mirantis.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org
+To: leonro@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:33597 "EHLO
-	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750895AbcFPEXb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 00:23:31 -0400
-Received: by mail-oi0-f53.google.com with SMTP id u201so51614402oie.0
-        for <netdev@vger.kernel.org>; Wed, 15 Jun 2016 21:23:31 -0700 (PDT)
-In-Reply-To: <20160615220747.15575.31433.stgit@localhost.localdomain>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36465 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750898AbcFPEh1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 00:37:27 -0400
+In-Reply-To: <1465900152-32049-1-git-send-email-leonro@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 15, 2016 at 3:07 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
-> This patch ends up doing several things.  First it updates the driver to
-> make use of the new unified UDP tunnel offload notifier functions.  In
-> addition I updated the code so that we can work around the bits that were
-> checking for if VXLAN was enabled since we are now using a notifier based
-> setup.  Finally I moved the hard-coded GENEVE port over to using the
-> notifier based setup so that we can update it if needed.
->
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+From: Leon Romanovsky <leonro@mellanox.com>
+Date: Tue, 14 Jun 2016 13:29:11 +0300
 
-Looks good, except that the last item in the description above is
-actually done in the next patch.
+> are available in the git repository at:
+> 
+>   git@gitolite.kernel.org:pub/scm/linux/kernel/git/leon/linux-rdma tags/shared
 
-Acked-by: Michael Chan <michael.chan@broadcom.com>
+You need to learn how to publish a public URL of your tree.  That's your
+private one that only you can access.
+
+Anyways, I pulled the correct URL into net-next.
