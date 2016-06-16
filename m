@@ -1,57 +1,62 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [1/8] mwifiex: only call mwifiex_sdio_probe_of() if dev has an OF
- node
-Date: Thu, 16 Jun 2016 15:05:31 +0000 (UTC)
-Message-ID: <20160616150531.8368261418@smtp.codeaurora.org>
-References: <1464358702-19083-2-git-send-email-javier@osg.samsung.com>
+Subject: Re: wl3501_cs: avoid bogus gcc-6 warning
+Date: Thu, 16 Jun 2016 15:06:54 +0000 (UTC)
+Message-ID: <20160616150654.83BA46141C@smtp.codeaurora.org>
+References: <4731273.LDpWBaOjNT@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Xinming Hu <huxm@marvell.com>,
-	Javier Martinez Canillas <javier@osg.samsung.com>,
-	Amitkumar Karwar <akarwar@marvell.com>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	Nishant Sarmukadam <nishants@marvell.com>
-To: Javier Martinez Canillas <javier@osg.samsung.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arnaldo Carvalho de Melo <acme@kernel.org>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Arnd Bergmann <arnd@arndb.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:56798 "EHLO
+Received: from smtp.codeaurora.org ([198.145.29.96]:57016 "EHLO
 	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753900AbcFPPFh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 11:05:37 -0400
-In-Reply-To: <1464358702-19083-2-git-send-email-javier@osg.samsung.com>
+	with ESMTP id S1754047AbcFPPGz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 11:06:55 -0400
+In-Reply-To: <4731273.LDpWBaOjNT@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Javier Martinez Canillas <javier@osg.samsung.com> wrote:
-> SDIO is an auto enumerable bus so the SDIO devices are matched using the
-> sdio_device_id table and not using compatible strings from a OF id table.
-> 
-> However, commit ce4f6f0c353b ("mwifiex: add platform specific wakeup
-> interrupt support") allowed to match nodes defined as child of the SDIO
-> host controller in the probe function using a compatible string to setup
-> platform specific parameters in the DT.
-> 
-> The problem is that the OF parse function is always called regardless if
-> the SDIO dev has an OF node associated or not, and prints an error if it
-> is not found. So, on a platform that doesn't have a node for a SDIO dev,
-> the following misleading error message will be printed:
-> 
-> [  12.480042] mwifiex_sdio mmc2:0001:1: sdio platform data not available
-> 
-> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
-> Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+Arnd Bergmann <arnd@arndb.de> wrote:
+> gcc-6 on x86 started warning about wl3501_get_encode when building
+> with -O2:
+>=20
+> drivers/net/wireless/wl3501_cs.c: In function =E2=80=98wl3501_get_enc=
+ode=E2=80=99:
+> drivers/net/wireless/wl3501_cs.c:1769:5: warning: =E2=80=98implemente=
+d=E2=80=99 may be used uninitialized in this function
+> drivers/net/wireless/wl3501_cs.c:1686:19: warning: =E2=80=98threshold=
+=E2=80=99 may be used uninitialized in this function
+> drivers/net/wireless/wl3501_cs.c:1702:20: warning: =E2=80=98threshold=
+=E2=80=99 may be used uninitialized in this function
+> drivers/net/wireless/wl3501_cs.c:1719:23: warning: =E2=80=98txpow=E2=80=
+=99 may be used uninitialized in this function
+> drivers/net/wireless/wl3501_cs.c:1752:20: warning: =E2=80=98retry=E2=80=
+=99 may be used uninitialized in this function
+> drivers/net/wireless/wl3501_cs.c:1806:25: warning: =E2=80=98pwr_state=
+=E2=80=99 may be used uninitialized in this function
+> drivers/net/wireless/wl3501_cs.c:1383:24: warning: =E2=80=98value=E2=80=
+=99 may be used uninitialized in this function
+>=20
+> I could not figure out what exactly confuses gcc here, but splitting =
+the
+> wl3501_get_mib_value function into two helps the compiler to figure o=
+ut
+> that the variables are not actually used uninitialized, and makes it
+> slightly clearer to a human reader what the function actually does an=
+d
+> which parts of it are under the spinlock.
+>=20
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Thanks, 8 patches applied to wireless-drivers-next.git:
+Thanks, 1 patch applied to wireless-drivers-next.git:
 
-6f49208fec85 mwifiex: only call mwifiex_sdio_probe_of() if dev has an OF node
-cc524d1706b7 mwifiex: propagate sdio_enable_func() errno code in mwifiex_sdio_probe()
-032e0f546c7e mwifiex: propagate mwifiex_add_card() errno code in mwifiex_sdio_probe()
-a82f65aae143 mwifiex: consolidate mwifiex_sdio_probe() error paths
-d3f04ece53a4 mwifiex: use dev_err() instead of pr_err() in mwifiex_sdio_probe()
-213d9421c165 mwifiex: check if mwifiex_sdio_probe_of() fails and return error
-806dd220340d mwifiex: don't print an error if an optional DT property is missing
-5e94913f676a mwifiex: use better message and error code when OF node doesn't match
+2683f7dd9aad wl3501_cs: avoid bogus gcc-6 warning
 
--- 
+--=20
 Sent by pwcli
-https://patchwork.kernel.org/patch/9138513/
+https://patchwork.kernel.org/patch/9138643/
