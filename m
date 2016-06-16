@@ -1,62 +1,61 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: wl3501_cs: avoid bogus gcc-6 warning
-Date: Thu, 16 Jun 2016 15:06:54 +0000 (UTC)
-Message-ID: <20160616150654.83BA46141C@smtp.codeaurora.org>
-References: <4731273.LDpWBaOjNT@wuerfel>
+Subject: Re: [V2] brcmfmac: fix setting AP channel with new firmwares
+Date: Thu, 16 Jun 2016 15:07:33 +0000 (UTC)
+Message-ID: <20160616150733.8C8546141F@smtp.codeaurora.org>
+References: <1464376045-8220-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arnaldo Carvalho de Melo <acme@kernel.org>,
-	Johannes Berg <johannes.berg@intel.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:57016 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754047AbcFPPGz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 11:06:55 -0400
-In-Reply-To: <4731273.LDpWBaOjNT@wuerfel>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	brcm80211-dev-list@broadcom.com (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464376045-8220-1-git-send-email-zajec5@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann <arnd@arndb.de> wrote:
-> gcc-6 on x86 started warning about wl3501_get_encode when building
-> with -O2:
+Rafa=C5=82 Mi=C5=82ecki wrote:
+> Firmware for new chipsets is based on a new major version of code
+> internally maintained at Broadcom. E.g. brcmfmac4366b-pcie.bin (used =
+for
+> BCM4366B1) is based on 10.10.69.3309 while brcmfmac43602-pcie.ap.bin =
+was
+> based on 7.35.177.56.
 >=20
-> drivers/net/wireless/wl3501_cs.c: In function =E2=80=98wl3501_get_enc=
-ode=E2=80=99:
-> drivers/net/wireless/wl3501_cs.c:1769:5: warning: =E2=80=98implemente=
-d=E2=80=99 may be used uninitialized in this function
-> drivers/net/wireless/wl3501_cs.c:1686:19: warning: =E2=80=98threshold=
-=E2=80=99 may be used uninitialized in this function
-> drivers/net/wireless/wl3501_cs.c:1702:20: warning: =E2=80=98threshold=
-=E2=80=99 may be used uninitialized in this function
-> drivers/net/wireless/wl3501_cs.c:1719:23: warning: =E2=80=98txpow=E2=80=
-=99 may be used uninitialized in this function
-> drivers/net/wireless/wl3501_cs.c:1752:20: warning: =E2=80=98retry=E2=80=
-=99 may be used uninitialized in this function
-> drivers/net/wireless/wl3501_cs.c:1806:25: warning: =E2=80=98pwr_state=
-=E2=80=99 may be used uninitialized in this function
-> drivers/net/wireless/wl3501_cs.c:1383:24: warning: =E2=80=98value=E2=80=
-=99 may be used uninitialized in this function
+> Currently setting AP 5 GHz channel doesn't work reliably with BCM4366=
+B1.
+> When setting e.g. 36 control channel with VHT80 (center channel 42)
+> firmware may randomly pick one of:
+> 1) 52 control channel with 58 as center one
+> 2) 100 control channel with 106 as center one
+> 3) 116 control channel with 122 as center one
+> 4) 149 control channel with 155 as center one
 >=20
-> I could not figure out what exactly confuses gcc here, but splitting =
-the
-> wl3501_get_mib_value function into two helps the compiler to figure o=
-ut
-> that the variables are not actually used uninitialized, and makes it
-> slightly clearer to a human reader what the function actually does an=
-d
-> which parts of it are under the spinlock.
+> It seems new firmwares require setting AP mode (BRCMF_C_SET_AP) befor=
+e
+> specifying a channel. Changing an order of firmware calls fixes the
+> problem. This requirement resulted in two separated "chanspec" calls,
+> one in AP code path and one in P2P path.
 >=20
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> This fix was verified with BCM4366B1 and tested for regressions on
+> BCM43602.
+>=20
+> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 
 Thanks, 1 patch applied to wireless-drivers-next.git:
 
-2683f7dd9aad wl3501_cs: avoid bogus gcc-6 warning
+8707e08dbc1f brcmfmac: fix setting AP channel with new firmwares
 
 --=20
 Sent by pwcli
-https://patchwork.kernel.org/patch/9138643/
+https://patchwork.kernel.org/patch/9138883/
