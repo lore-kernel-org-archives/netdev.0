@@ -1,99 +1,90 @@
-From: zyjzyj2000@gmail.com
-Subject: [PATCH net-next v2 1/1] ixgbe: add fiber tranceiver plug/unplug notifier
-Date: Fri, 17 Jun 2016 00:04:24 +0800
-Message-ID: <1466093064-14027-2-git-send-email-zyjzyj2000@gmail.com>
-References: <1466093064-14027-1-git-send-email-zyjzyj2000@gmail.com>
-Cc: Zhu Yanjun <zyjzyj2000@gmail.com>
-To: e1000-devel@lists.sourceforge.net, netdev@vger.kernel.org,
-	donald.c.skidmore@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [111.193.78.174] ([111.193.78.174]:33310 "EHLO mail.zhuyj.com"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753962AbcFPQE3 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jun 2016 12:04:29 -0400
-In-Reply-To: <1466093064-14027-1-git-send-email-zyjzyj2000@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Michael =?UTF-8?B?QsO8c2No?= <m@bues.ch>
+Subject: Re: [v3,1/2] b43: Remove unused phy_a code
+Date: Thu, 16 Jun 2016 18:05:58 +0200
+Message-ID: <20160616180558.1d682d9e@wiggum>
+References: <1465052053-26740-1-git-send-email-linux@roeck-us.net>
+	<20160616152337.63AB261421@smtp.codeaurora.org>
+	<20160616174813.595440bb@wiggum>
+	<87y465unz5.fsf@kamboji.qca.qualcomm.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha256;
+ boundary="Sig_/lu_T2eW5nuWK50zDeG3Eeer"; protocol="application/pgp-signature"
+Cc: Guenter Roeck <linux@roeck-us.net>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org,
+	b43-dev@lists.infradead.org
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87y465unz5.fsf@kamboji.qca.qualcomm.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Zhu Yanjun <zyjzyj2000@gmail.com>
+--Sig_/lu_T2eW5nuWK50zDeG3Eeer
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
 
-When the fiber tranceiver is plugged/unplugged, a netdev notifier is
-sent. The userspace tools or kernel can receive this notifier.
+On Thu, 16 Jun 2016 18:56:14 +0300
+Kalle Valo <kvalo@codeaurora.org> wrote:
 
-Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe.h      |    2 ++
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   24 +++++++++++++++++++++++-
- include/linux/netdevice.h                     |    2 ++
- 3 files changed, 27 insertions(+), 1 deletion(-)
+> Michael B=C3=BCsch <m@bues.ch> writes:
+>=20
+> > On Thu, 16 Jun 2016 15:23:37 +0000 (UTC)
+> > Kalle Valo <kvalo@codeaurora.org> wrote:
+> > =20
+> >> Guenter Roeck <linux@roeck-us.net> wrote: =20
+> >> > gcc-6 reports the following error with -Werror=3Dunused-const-variab=
+le.
+> >> >=20
+> >> > drivers/net/wireless/broadcom/b43/phy_a.c:576:40: error:
+> >> > 	'b43_phyops_a' defined but not used
+> >> >=20
+> >> > Per Michael B=C3=BCsch: "All a-phy code is usused", so remove it all,
+> >> > and move the remaining Type-G initialization code into phy_g.c.
+> >> >=20
+> >> > Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
+> >> > Cc: Michael B=C3=BCsch <m@bues.ch>
+> >> > Signed-off-by: Guenter Roeck <linux@roeck-us.net>   =20
+> >>=20
+> >> Thanks, 2 patches applied to wireless-drivers-next.git:
+> >>=20
+> >> 9791333a840f b43: Remove unused phy_a code
+> >> afdfdc481ea9 b43: Completely remove support for phy_a =20
+> >
+> > Did anybody test this on any hardware? I think this should be tested
+> > on some G-PHY hardware, before it goes to Linus. =20
+>=20
+> Larry tested these:
+>=20
+> "These two patches have been tested on a BCM4318."
+>=20
+> https://patchwork.kernel.org/patch/9154719/
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe.h b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-index 9f2db18..b3fe5d8 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe.h
-@@ -806,6 +806,8 @@ struct ixgbe_adapter {
- 	u32 rss_key[IXGBE_RSS_KEY_SIZE / sizeof(u32)];
- 
- 	bool need_crosstalk_fix;
-+	s32  last_tranceiver_status;
-+	unsigned long tranceiver_polltime;
- };
- 
- static inline u8 ixgbe_max_rss_indices(struct ixgbe_adapter *adapter)
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 088c47c..488adf1 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -5635,6 +5635,8 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- 	hw->revision_id = pdev->revision;
- 	hw->subsystem_vendor_id = pdev->subsystem_vendor;
- 	hw->subsystem_device_id = pdev->subsystem_device;
-+	adapter->last_tranceiver_status = IXGBE_NOT_IMPLEMENTED;
-+	adapter->tranceiver_polltime = 0;
- 
- 	/* Set common capability flags and settings */
- 	rss = min_t(int, ixgbe_max_rss_indices(adapter), num_online_cpus());
-@@ -7067,7 +7069,27 @@ static void ixgbe_watchdog_subtask(struct ixgbe_adapter *adapter)
- static void ixgbe_sfp_detection_subtask(struct ixgbe_adapter *adapter)
- {
- 	struct ixgbe_hw *hw = &adapter->hw;
--	s32 err;
-+	s32 err, status;
-+
-+	if ((hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
-+	    time_after(jiffies, adapter->tranceiver_polltime)) {
-+		status = IXGBE_READ_REG(hw, IXGBE_ESDP) & IXGBE_ESDP_SDP2;
-+		if (status != adapter->last_tranceiver_status) {
-+			unsigned long val;
-+
-+			if (!status) {
-+				hw->phy.sfp_type = ixgbe_sfp_type_not_present;
-+				val = NETDEV_FIBER_TRANCEIVER_UNPLUG;
-+			} else {
-+				val = NETDEV_FIBER_TRANCEIVER_PLUG;
-+			}
-+			rtnl_lock();
-+			call_netdevice_notifiers(val, adapter->netdev);
-+			rtnl_unlock();
-+		}
-+		adapter->last_tranceiver_status = status;
-+		adapter->tranceiver_polltime = jiffies + 3 * HZ;
-+	}
- 
- 	/* If crosstalk fix enabled verify the SFP+ cage is full */
- 	if (adapter->need_crosstalk_fix) {
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index d101e4d..693ba92 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -2253,6 +2253,8 @@ struct netdev_lag_lower_state_info {
- #define NETDEV_CHANGELOWERSTATE	0x001B
- #define NETDEV_OFFLOAD_PUSH_VXLAN	0x001C
- #define NETDEV_OFFLOAD_PUSH_GENEVE	0x001D
-+#define NETDEV_FIBER_TRANCEIVER_PLUG	0x001E
-+#define NETDEV_FIBER_TRANCEIVER_UNPLUG	0x001F
- 
- int register_netdevice_notifier(struct notifier_block *nb);
- int unregister_netdevice_notifier(struct notifier_block *nb);
--- 
-1.7.9.5
+
+Ah OK. I forgot.
+Everything is fine then.
+
+--=20
+Michael
+
+--Sig_/lu_T2eW5nuWK50zDeG3Eeer
+Content-Type: application/pgp-signature
+Content-Description: OpenPGP digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAEBCAAGBQJXYs5mAAoJEPUyvh2QjYsOoR8P/AteuEOom+iy/iatxHEJx/im
+Yx1Bq4pomneAAfvoeok1zJNevrQgGkAW6NzLiM2iYL7qtjvhYbokwbU67tgprZh6
+huWGfTEC0g0XP05IXyoN1xUv7wLXHUMuzreOkxOI1Zo/FIFRBC/dg8rj25qCc4Nq
+K8ktu5bmiToUoR02fGy9ZbWUQAtTbZJ9EJXegKNtGfBaucdrHxUNEAIUeJexVwk1
+Kgf1pHgbT+zfr2gOaNotAlMx4mhPLVFldm/WubcEtfDbz2c/Ex658JQ/RLO7aliC
++LZit9/iAxN+qFXBh5vt5OxkKjgGjErgu0l9MEdVOqGoOi2yL1f32geqvMidBRyO
+nIeOy/6MTq2mNmNntdoKbFIo9QM7ocoQ328rQcuK86Y33TnYvrA07cqWaQ+HwvIL
+6PmY6+5Ga3y90Ga2L3SiTLXf3pNi0EEcM5HM+mIWT8HX32R9WZFA5Ku6KcY8NB8y
+HphDVk2JHtOreCKa+pfeZtuFY97ApclXzF79FYVIb2qboeFgfodAnPwH2NCOKS0N
+QpiEA8ZTbEvDStvmE2ZtwFLpLGGGHhoCL+uf6/x+PFUNqCTH/3T2HwtohChSZhKI
+X91hzQ8wCiVLyPSdNrjK3RH/Q96kMa1u6fG9cCrkQZs8v9hr7dZ6AuKoSfzeSmZv
+cm9IPF+xs1DfEQHdsw0/
+=JWKQ
+-----END PGP SIGNATURE-----
+
+--Sig_/lu_T2eW5nuWK50zDeG3Eeer--
