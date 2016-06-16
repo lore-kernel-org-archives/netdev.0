@@ -1,92 +1,68 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v4 2/4] rtnetlink: add HW/SW stats distinction in rtnl_fill_stats
-Date: Thu, 16 Jun 2016 10:37:15 +0200
-Message-ID: <1466066237-7719-3-git-send-email-jiri@resnulli.us>
-References: <1466066237-7719-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
-	f.fainelli@gmail.com
-To: netdev@vger.kernel.org
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: GMII2RGMII Converter support in macb driver
+Date: Thu, 16 Jun 2016 07:18:19 +0000
+Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5B6C9F@XAP-PVEXMBX01.xlnx.xilinx.com>
+References: <C246CAC1457055469EF09E3A7AC4E11A4A57592E@XAP-PVEXMBX01.xlnx.xilinx.com>
+ <570CF663.4000908@atmel.com> <570CFA1A.80702@electromag.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
+	Harini Katakam <harinik@xilinx.com>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	Michal Simek <michals@xilinx.com>
+To: Phil Reid <preid@electromag.com.au>,
+	Nicolas Ferre <nicolas.ferre@atmel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:35736 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753850AbcFPIh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 04:37:27 -0400
-Received: by mail-wm0-f65.google.com with SMTP id k184so9580575wme.2
-        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 01:37:26 -0700 (PDT)
-In-Reply-To: <1466066237-7719-1-git-send-email-jiri@resnulli.us>
+Received: from mail-sn1nam02on0059.outbound.protection.outlook.com ([104.47.36.59]:26229
+	"EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751276AbcFPIxT convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 04:53:19 -0400
+In-Reply-To: <570CFA1A.80702@electromag.com.au>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nogah Frankel <nogahf@mellanox.com>
+Thanks Phil Reid and Nicolas for your suggestions.
 
-Since hardware stats are now returned by default, add a way to
-query only software stats.
-They are saved in IFLA_SW_STATS64.
-(This option is valid only if the driver returns HW stats in the
-default ndo stats)
+> >>
+> >>
+> >>
+> >> But doing above changes making driver looks odd.
+> >>
+> >> could you please suggest any better option to add support for this IP
+> >> in the macb driver?
+> >
+> > Appana,
+> >
+> > I certainly can't prototype the solution based on your datasheet and
+> > the code sent... do a sensible proposal, then we can evaluate.
+> >
+> > As the IP is separated from the Eth controller, make it a separate
+> > driver (an emulated phy one for instance... even if I don't know if it
+> > makes sense).
+> >
+> > I don't know if others have already made such an adaptation layer
+> > between GMII to RGMII but I'm pretty sure it can't be inserted into
+> > the macb driver.
+> >
+> > Bye,
+> >
+> This sounds very similar to the altera emac-splitter.
+> See stmmac driver for how they handled this.
 
-Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- include/uapi/linux/if_link.h |  1 +
- net/core/rtnetlink.c         | 13 ++++++++++++-
- 2 files changed, 13 insertions(+), 1 deletion(-)
+I went through the flow of the stmmac driver but seems to me
+It won't suit for my requirement as soc-fpga itself emulates as MAC.
+But for gmii2rgmii converter it is not the case I am looking for a solution
+Where it can be worked as an emulated PHY driver which doesn't have any
+Vendor/Device ID's.
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index bb36bd5..98175e7 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -156,6 +156,7 @@ enum {
- 	IFLA_GSO_MAX_SEGS,
- 	IFLA_GSO_MAX_SIZE,
- 	IFLA_PAD,
-+	IFLA_SW_STATS64,
- 	__IFLA_MAX
- };
- 
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index eb49ca2..7958cde 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -901,6 +901,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + nla_total_size_64bit(sizeof(struct rtnl_link_ifmap))
- 	       + nla_total_size(sizeof(struct rtnl_link_stats))
- 	       + nla_total_size_64bit(sizeof(struct rtnl_link_stats64))
-+	       + nla_total_size_64bit(sizeof(struct rtnl_link_stats64)) /* IFLA_SW_STATS64 */
- 	       + nla_total_size(MAX_ADDR_LEN) /* IFLA_ADDRESS */
- 	       + nla_total_size(MAX_ADDR_LEN) /* IFLA_BROADCAST */
- 	       + nla_total_size(4) /* IFLA_TXQLEN */
-@@ -928,7 +929,6 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
- 	       + nla_total_size(IFNAMSIZ) /* IFLA_PHYS_PORT_NAME */
- 	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
--
- }
- 
- static int rtnl_vf_ports_fill(struct sk_buff *skb, struct net_device *dev)
-@@ -1082,6 +1082,17 @@ static noinline_for_stack int rtnl_fill_stats(struct sk_buff *skb,
- 	sp = nla_data(attr);
- 	dev_get_stats(dev, sp);
- 
-+	if (dev_have_sw_stats(dev)) {
-+		attr = nla_reserve_64bit(skb, IFLA_SW_STATS64,
-+					 sizeof(struct rtnl_link_stats64),
-+					 IFLA_PAD);
-+		if (!attr)
-+			return -EMSGSIZE;
-+
-+		sp = nla_data(attr);
-+		dev_get_sw_stats(dev, sp);
-+	}
-+
- 	attr = nla_reserve(skb, IFLA_STATS,
- 			   sizeof(struct rtnl_link_stats));
- 	if (!attr)
--- 
-2.5.5
+I saw this thread http://lists.openwall.net/netdev/2013/03/05/50 
+But seems to be there are no further discussions.
+
+Please let me know if you have any suggestions...
+
+Regards,
+Kedar.
