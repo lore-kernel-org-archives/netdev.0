@@ -1,68 +1,100 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
-Date: Fri, 17 Jun 2016 01:15:41 +0200
-Message-ID: <1202f4bd-ef27-8143-8067-2bba56b7355c@stressinduktion.org>
-References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next 1/3] net: ipv6: Move ip6_route_get_saddr to inline
+Date: Thu, 16 Jun 2016 16:24:24 -0700
+Message-ID: <1466119466-3144-2-git-send-email-dsa@cumulusnetworks.com>
+References: <1466119466-3144-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:40140 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751711AbcFPXPp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 19:15:45 -0400
-In-Reply-To: <1466099522-690741-1-git-send-email-tom@herbertland.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34451 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752063AbcFPXYf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 19:24:35 -0400
+Received: by mail-pa0-f51.google.com with SMTP id bz2so22338773pad.1
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 16:24:34 -0700 (PDT)
+In-Reply-To: <1466119466-3144-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16.06.2016 19:51, Tom Herbert wrote:
-> Transports over UDP is intended to encapsulate TCP and other transport
-> protocols directly and securely in UDP.
-> 
-> The goal of this work is twofold:
-> 
-> 1) Allow applications to run their own transport layer stack (i.e.from
->    userspace). This eliminates dependencies on the OS (e.g. solves a
->    major dependency issue for Facebook on clients).
-> 
-> 2) Make transport layer headers (all of L4) invisible to the network
->    so that they can't do intrusive actions at L4. This will be enforced
->    with DTLS in use.
-> 
-> Note that #1 is really about running a transport stack in userspace
-> applications in clients, not necessarily servers. For servers we
-> intend to modified the kernel stack in order to leverage existing
-> implementation for building scalable serves (hence these patches).
-> 
-> This is described in more detail in the Internet Draft:
-> https://tools.ietf.org/html/draft-herbert-transports-over-udp-00
-> 
-> In Part I we implement a straightforward encapsulation of TCP in GUE.
-> The implements the basic mechanics of TOU encapsulation for TCP,
-> however does not yet implement the IP addressing interactions so
-> therefore so this is not robust to use in the presence of NAT.
-> TOU is enabled per socket with a new socket option. This
-> implementation includes GSO, GRO, and RCO support.
-> 
-> These patches also establish the baseline performance of TOU
-> and isolate the performance cost of UDP encapsulation. Performance
-> results are below.
-> 
-> Tested: Various cases of TOU with IPv4, IPv6 using TCP_STREAM and
-> TCP_RR. Also, tested IPIP for comparing TOU encapsulation to IP
-> tunneling.
+VRF driver needs access to ip6_route_get_saddr code. Since it does
+little beyond ipv6_dev_get_saddr and ipv6_dev_get_saddr is already
+exported for modules move ip6_route_get_saddr to the header as an
+inline.
 
-Thinking about middleboxes again:
+Code move only; no functional change.
 
-E.g. https://tools.ietf.org/html/rfc6347#section-4.2.3 states that DTLS
-packets are not allowed to be fragmented. Because of this and
-furthermore because of the impossibility of clamp-mss-to-pmtu to work
-anymore, do you have any idea on how reliable this can work?
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ include/net/ip6_route.h | 21 ++++++++++++++++++---
+ net/ipv6/route.c        | 17 -----------------
+ 2 files changed, 18 insertions(+), 20 deletions(-)
 
-Or is your plan to use a smaller MSS on all paths by default?
-
-Thanks,
-Hannes
+diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
+index f55bf3d294aa..d97305d0e71f 100644
+--- a/include/net/ip6_route.h
++++ b/include/net/ip6_route.h
+@@ -18,6 +18,7 @@ struct route_info {
+ 	__u8			prefix[0];	/* 0,8 or 16 */
+ };
+ 
++#include <net/addrconf.h>
+ #include <net/flow.h>
+ #include <net/ip6_fib.h>
+ #include <net/sock.h>
+@@ -88,9 +89,23 @@ int ip6_route_add(struct fib6_config *cfg);
+ int ip6_ins_rt(struct rt6_info *);
+ int ip6_del_rt(struct rt6_info *);
+ 
+-int ip6_route_get_saddr(struct net *net, struct rt6_info *rt,
+-			const struct in6_addr *daddr, unsigned int prefs,
+-			struct in6_addr *saddr);
++static inline int ip6_route_get_saddr(struct net *net, struct rt6_info *rt,
++				      const struct in6_addr *daddr,
++				      unsigned int prefs,
++				      struct in6_addr *saddr)
++{
++	struct inet6_dev *idev =
++			rt ? ip6_dst_idev((struct dst_entry *)rt) : NULL;
++	int err = 0;
++
++	if (rt && rt->rt6i_prefsrc.plen)
++		*saddr = rt->rt6i_prefsrc.addr;
++	else
++		err = ipv6_dev_get_saddr(net, idev ? idev->dev : NULL,
++					 daddr, prefs, saddr);
++
++	return err;
++}
+ 
+ struct rt6_info *rt6_lookup(struct net *net, const struct in6_addr *daddr,
+ 			    const struct in6_addr *saddr, int oif, int flags);
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 9e1516785dac..08b77f421268 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -2586,23 +2586,6 @@ struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
+ 	return rt;
+ }
+ 
+-int ip6_route_get_saddr(struct net *net,
+-			struct rt6_info *rt,
+-			const struct in6_addr *daddr,
+-			unsigned int prefs,
+-			struct in6_addr *saddr)
+-{
+-	struct inet6_dev *idev =
+-		rt ? ip6_dst_idev((struct dst_entry *)rt) : NULL;
+-	int err = 0;
+-	if (rt && rt->rt6i_prefsrc.plen)
+-		*saddr = rt->rt6i_prefsrc.addr;
+-	else
+-		err = ipv6_dev_get_saddr(net, idev ? idev->dev : NULL,
+-					 daddr, prefs, saddr);
+-	return err;
+-}
+-
+ /* remove deleted ip from prefsrc entries */
+ struct arg_dev_net_ip {
+ 	struct net_device *dev;
+-- 
+2.1.4
