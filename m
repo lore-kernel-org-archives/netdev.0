@@ -1,56 +1,65 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: libertas: Remove create_workqueue
-Date: Thu, 16 Jun 2016 15:22:46 +0000 (UTC)
-Message-ID: <20160616152246.B3B6E61457@smtp.codeaurora.org>
-References: <20160604135901.GA29897@Karyakshetra>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH v2 02/17] net: Combine GENEVE and VXLAN port
+ notifiers into single functions
+Date: Thu, 16 Jun 2016 08:23:01 -0700
+Message-ID: <CAKgT0Ues0jX2u8+2pf4Sc0+7=ES5OhLg_=to6Nr_X4+Vt9OnBA@mail.gmail.com>
+References: <20160615220449.15575.17031.stgit@localhost.localdomain>
+ <20160615220728.15575.62132.stgit@localhost.localdomain> <CAEh+42i8y70XsuuXs1+LYVxRomvJZUEWg6KhonoxvNqaYe9dtQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Andreas Kemnade <andreas@kemnade.info>,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	Bhaktipriya Shridhar <bhaktipriya96@gmail.com>,
-	"Andrew F. Davis" <afd@ti.com>,
-	Jonathan Cameron <jic23@kernel.org>,
-	Mark Brown <broonie@kernel.org>, Tejun Heo <tj@kernel.org>,
-	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160604135901.GA29897@Karyakshetra>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Hannes Frederic Sowa <hannes@redhat.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Michael Chan <michael.chan@broadcom.com>,
+	Dept-GELinuxNICDev@qlogic.com, David Miller <davem@davemloft.net>
+To: Jesse Gross <jesse@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f194.google.com ([209.85.223.194]:33029 "EHLO
+	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932162AbcFPPXD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 11:23:03 -0400
+Received: by mail-io0-f194.google.com with SMTP id 5so7208079ioy.0
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 08:23:02 -0700 (PDT)
+In-Reply-To: <CAEh+42i8y70XsuuXs1+LYVxRomvJZUEWg6KhonoxvNqaYe9dtQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bhaktipriya Shridhar <bhaktipriya96@gmail.com> wrote:
-> alloc_workqueue replaces deprecated create_workqueue().
-> 
-> In if_sdio.c, the workqueue card->workqueue has workitem
-> &card->packet_worker, which is mapped to if_sdio_host_to_card_worker.
-> The workitem is involved in sending packets to firmware.
-> Forward progress under memory pressure is a requirement here.
-> 
-> In if_spi.c, the workqueue card->workqueue has workitem
-> &card->packet_worker, which is mapped to if_spi_host_to_card_worker.
-> The workitem is involved in sending command packets from the host.
-> Forward progress under memory pressure is a requirement here.
-> 
-> Dedicated workqueues have been used in both cases since the workitems
-> on the workqueues are involved in normal device operation with
-> WQ_MEM_RECLAIM set to gurantee forward progress under memory pressure.
-> Since there are only a fixed number of work items, explicit concurrency
-> limit is unnecessary.
-> 
-> flush_workqueue is unnecessary since destroy_workqueue() itself calls
-> drain_workqueue() which flushes repeatedly till the workqueue
-> becomes empty. Hence the calls to flush_workqueue() before
-> destroy_workqueue() have been dropped.
-> 
-> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
-> Acked-by: Tejun Heo <tj@kernel.org>
+On Wed, Jun 15, 2016 at 4:50 PM, Jesse Gross <jesse@kernel.org> wrote:
+> On Wed, Jun 15, 2016 at 3:07 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
+>> diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+>> index e5e33cd01082..d12ee3a92fb5 100644
+>> --- a/drivers/net/geneve.c
+>> +++ b/drivers/net/geneve.c
+>>  static void geneve_notify_del_rx_port(struct geneve_sock *gs)
+>>  {
+>> -       struct net_device *dev;
+>> -       struct sock *sk = gs->sock->sk;
+>> -       struct net *net = sock_net(sk);
+>> -       sa_family_t sa_family = geneve_get_sk_family(gs);
+>> -       __be16 port = inet_sk(sk)->inet_sport;
+>> -
+>> -       rcu_read_lock();
+>> -       for_each_netdev_rcu(net, dev) {
+>> -               if (dev->netdev_ops->ndo_del_geneve_port)
+>> -                       dev->netdev_ops->ndo_del_geneve_port(dev, sa_family,
+>> -                                                            port);
+>> -       }
+>> -
+>> -       rcu_read_unlock();
+>> +       udp_tunnel_notify_add_rx_port(gs->sock, UDP_TUNNEL_TYPE_GENEVE);
+>>  }
+>
+> Looks like a typo here - calling add instead of delete.
 
-Thanks, 1 patch applied to wireless-drivers-next.git:
+Yeah.  I had a few other spots that occurred.  I thought I had caught
+them all before submitting but I guess not.  I will fix that for v3.
 
-f9f905b00b87 libertas: Remove create_workqueue
+Thanks.
 
--- 
-Sent by pwcli
-https://patchwork.kernel.org/patch/9154703/
+- Alex
