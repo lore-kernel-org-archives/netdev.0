@@ -1,34 +1,61 @@
-From: Tariq Toukan <ttoukan.linux@gmail.com>
-Subject: Re: [net PATCH] mlx4e: Do not attempt to offload VXLAN ports that are
- unrecognized
-Date: Thu, 16 Jun 2016 18:09:15 +0300
-Message-ID: <b19ffd94-1fd1-68ab-0708-7d2b53510d15@gmail.com>
-References: <20160615214105.14734.93787.stgit@localhost.localdomain>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 4.7 FIX] brcmfmac: fix lockup when removing P2P interface after event timeout
+Date: Thu, 16 Jun 2016 18:10:35 +0300
+Message-ID: <877fdpw4no.fsf@kamboji.qca.qualcomm.com>
+References: <1464378815-23282-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, alexander.duyck@gmail.com
-To: Alexander Duyck <aduyck@mirantis.com>, eugenia@mellanox.com,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34342 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754388AbcFPPJT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 11:09:19 -0400
-Received: by mail-wm0-f67.google.com with SMTP id 187so10232440wmz.1
-        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 08:09:19 -0700 (PDT)
-In-Reply-To: <20160615214105.14734.93787.stgit@localhost.localdomain>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky \(Zhenhui\) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1464378815-23282-1-git-send-email-zajec5@gmail.com>
+ (=?utf-8?Q?=22Rafa=C5=82=09Mi=C5=82ecki=22's?= message of "Fri, 27 May 2016
+ 21:53:14 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
 
-> The mlx4e driver does not support more than one port for VXLAN offload.  As
-> such expecting the hardware to offload other ports is invalid since it
-> appears the parsing logic is used to perform Tx checksum and segmentation
-> offloads.  Use the vxlan_port number to determine in which cases we can
-> apply the offload and in which cases we can not.
+> Removing P2P interface is handled by sending a proper request to the
+> firmware. On success firmware triggers an event and driver's handler
+> removes a matching interface.
 >
-> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
+> However on event timeout we remove interface directly from the cfg802=
+11
+> callback. Current code doesn't handle this case correctly as it alway=
+s
+> assumes rtnl to be unlocked.
+>
+> Fix it by adding an extra rtnl_locked parameter to functions and call=
+ing
+> unregister_netdevice when needed.
+>
+> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 
-Looks good to me. Thanks Alex!
+=46ailed to apply, please rebase:
+
+Applying: brcmfmac: fix lockup when removing P2P interface after event =
+timeout
+Using index info to reconstruct a base tree...
+=46alling back to patching base and 3-way merge...
+Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.h
+CONFLICT (content): Merge conflict in drivers/net/wireless/broadcom/brc=
+m80211/brcmfmac/core.h
+Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.=
+c
+=46ailed to merge in the changes.
+Patch failed at 0001 brcmfmac: fix lockup when removing P2P interface a=
+fter event timeout
+
+--=20
+Kalle Valo
