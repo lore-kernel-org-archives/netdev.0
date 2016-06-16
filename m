@@ -1,52 +1,48 @@
-From: Joe Perches <joe@perches.com>
-Subject: rfc: netfilter: Unhide FWINV macro arguments ?
-Date: Thu, 16 Jun 2016 11:20:59 -0700
-Message-ID: <1466101259.19647.51.camel@perches.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/2] net: smsc911x: Fix bug where PHY interrupts are
+ overwritten by 0
+Date: Thu, 16 Jun 2016 21:55:23 +0300
+Message-ID: <9f09e570-11e5-e89f-4aa9-b4f198833636@cogentembedded.com>
+References: <1466092470-20958-1-git-send-email-jeremy.linton@arm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
+Cc: steve.glendinning@shawell.net, andrew@lunn.ch
+To: Jeremy Linton <jeremy.linton@arm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0124.hostedemail.com ([216.40.44.124]:60624 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1753256AbcFPSVE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 14:21:04 -0400
+Received: from mail-lf0-f51.google.com ([209.85.215.51]:35430 "EHLO
+	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753796AbcFPSz1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 14:55:27 -0400
+Received: by mail-lf0-f51.google.com with SMTP id l188so43988164lfe.2
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 11:55:26 -0700 (PDT)
+In-Reply-To: <1466092470-20958-1-git-send-email-jeremy.linton@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are several FWINV #defines with identical form
-that hide a specific structure variable and dereference
-it with a invflags member.
+On 06/16/2016 06:54 PM, Jeremy Linton wrote:
 
-$ git grep "define FWINV"
-include/linux/netfilter_bridge/ebtables.h:#define FWINV(bool,invflg) ((bool) ^ !!(info->invflags & invflg))
-net/bridge/netfilter/ebtables.c:#define FWINV2(bool, invflg) ((bool) ^ !!(e->invflags & invflg))
-net/ipv4/netfilter/arp_tables.c:#define FWINV(bool, invflg) ((bool) ^ !!(arpinfo->invflags & (invflg)))
-net/ipv4/netfilter/ip_tables.c:#define FWINV(bool, invflg) ((bool) ^ !!(ipinfo->invflags & (invflg)))
-net/ipv6/netfilter/ip6_tables.c:#define FWINV(bool, invflg) ((bool) ^ !!(ip6info->invflags & (invflg)))
-net/netfilter/xt_tcpudp.c:#define FWINVTCP(bool, invflg) ((bool) ^ !!(tcpinfo->invflags & (invflg)))
+> By default, mdiobus_alloc() sets the PHY's to polling mode, but a
 
-It might make sense to use a new macro like:
+    Rather "PHYs".
 
-#define INVFLAG(var, test, invflag)			\
-	((test) ^ !!((var)->invflags & (invflag)))
+> pointer size memcpy means that couple IRQs (depending
 
-and convert all the various FWINV style uses
+    Could be more words on this line, it's broken too early, I think.
 
-$ git grep --name-only "\bFWINV"
-include/linux/netfilter_bridge/ebtables.h
-net/bridge/netfilter/ebt_802_3.c
-net/bridge/netfilter/ebt_arp.c
-net/bridge/netfilter/ebt_ip.c
-net/bridge/netfilter/ebt_ip6.c
-net/bridge/netfilter/ebt_stp.c
-net/bridge/netfilter/ebtables.c
-net/ipv4/netfilter/arp_tables.c
-net/ipv4/netfilter/ip_tables.c
-net/ipv6/netfilter/ip6_tables.c
-net/netfilter/xt_tcpudp.c
+> on 32-bit or 64-bit kernels) end up being overwritten with
+> a value of 0. This means that PHY_POLL is disabled and results
+> in unpredictable behavior depending on the PHYs location on the mdio
 
-$ git grep "\bFWINV" | grep -v "#" | wc -l
-65
+    Contrariwise, "PHY's" here. And it's MDIO.
+
+> bus. Remove that memcpy and the now unused phy_irq member to force
+> SMSC911x PHY's into polling mode 100% of the time.
+>
+> Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+
+[...]
+
+MBR, Sergei
