@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v3 07/17] benet: Replace ndo_add/del_vxlan_port
+Subject: [net-next PATCH v3 08/17] fm10k: Replace ndo_add/del_vxlan_port
  with ndo_add/del_udp_enc_port
-Date: Thu, 16 Jun 2016 12:21:43 -0700
-Message-ID: <20160616192143.20872.17047.stgit@localhost.localdomain>
+Date: Thu, 16 Jun 2016 12:21:57 -0700
+Message-ID: <20160616192157.20872.6800.stgit@localhost.localdomain>
 References: <20160616191851.20872.67154.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,12 +14,12 @@ Cc: hannes@redhat.com, jesse@kernel.org, eugenia@mellanox.com,
 	davem@davemloft.net
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:32914 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754196AbcFPTVx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 15:21:53 -0400
-Received: by mail-pf0-f178.google.com with SMTP id i123so18929177pfg.0
-        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 12:21:52 -0700 (PDT)
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:36325 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754559AbcFPTWC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 15:22:02 -0400
+Received: by mail-pa0-f49.google.com with SMTP id b5so20741082pas.3
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 12:22:01 -0700 (PDT)
 In-Reply-To: <20160616191851.20872.67154.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -30,137 +30,143 @@ any UDP offload port but provide a type.  As such by just adding a line to
 verify that the offload type if VXLAN we can maintain the same
 functionality.
 
-I have also gone though and removed the BE2NET_VXLAN config option since it
-no longer relies on the VXLAN code anyway.
-
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/ethernet/emulex/benet/Kconfig   |    8 -------
- drivers/net/ethernet/emulex/benet/be_main.c |   32 +++++++++++++--------------
- 2 files changed, 15 insertions(+), 25 deletions(-)
+ drivers/net/ethernet/intel/Kconfig              |   11 -------
+ drivers/net/ethernet/intel/fm10k/fm10k_netdev.c |   36 +++++++++++++----------
+ 2 files changed, 20 insertions(+), 27 deletions(-)
 
-diff --git a/drivers/net/ethernet/emulex/benet/Kconfig b/drivers/net/ethernet/emulex/benet/Kconfig
-index 7108563260ae..b4853ec9de8d 100644
---- a/drivers/net/ethernet/emulex/benet/Kconfig
-+++ b/drivers/net/ethernet/emulex/benet/Kconfig
-@@ -13,11 +13,3 @@ config BE2NET_HWMON
- 	---help---
- 	  Say Y here if you want to expose thermal sensor data on
- 	  be2net network adapter.
+diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
+index 714bd1014ddb..11fc5e8ea968 100644
+--- a/drivers/net/ethernet/intel/Kconfig
++++ b/drivers/net/ethernet/intel/Kconfig
+@@ -307,15 +307,4 @@ config FM10K
+ 	  To compile this driver as a module, choose M here. The module
+ 	  will be called fm10k.  MSI-X interrupt support is required
+ 
+-config FM10K_VXLAN
+-	bool "Virtual eXtensible Local Area Network Support"
+-	default n
+-	depends on FM10K && VXLAN && !(FM10K=y && VXLAN=m)
+-	---help---
+-	  This allows one to create VXLAN virtual interfaces that provide
+-	  Layer 2 Networks over Layer 3 Networks. VXLAN is often used
+-	  to tunnel virtual network infrastructure in virtualized environments.
+-	  Say Y here if you want to use Virtual eXtensible Local Area Network
+-	  (VXLAN) in the driver.
 -
--config BE2NET_VXLAN
--        bool "VXLAN offload support on be2net driver"
--        default y
--        depends on BE2NET && VXLAN && !(BE2NET=y && VXLAN=m)
--        ---help---
--	  Say Y here if you want to enable VXLAN offload support on
--	  be2net driver.
-diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
-index 2451a47e88ab..3d947897bb6a 100644
---- a/drivers/net/ethernet/emulex/benet/be_main.c
-+++ b/drivers/net/ethernet/emulex/benet/be_main.c
-@@ -3625,10 +3625,8 @@ static int be_open(struct net_device *netdev)
- 		be_link_status_update(adapter, link_status);
+ endif # NET_VENDOR_INTEL
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+index 2a08d3f5b6df..d00cb193da9a 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_netdev.c
+@@ -20,9 +20,7 @@
  
- 	netif_tx_start_all_queues(netdev);
--#ifdef CONFIG_BE2NET_VXLAN
- 	if (skyhawk_chip(adapter))
--		vxlan_get_rx_port(netdev);
--#endif
-+		udp_tunnel_get_rx_info(netdev);
+ #include "fm10k.h"
+ #include <linux/vmalloc.h>
+-#ifdef CONFIG_FM10K_VXLAN
+-#include <net/vxlan.h>
+-#endif /* CONFIG_FM10K_VXLAN */
++#include <net/udp_tunnel.h>
  
- 	return 0;
- err:
-@@ -3755,7 +3753,6 @@ static void be_cancel_err_detection(struct be_adapter *adapter)
- 	}
- }
- 
--#ifdef CONFIG_BE2NET_VXLAN
- static void be_disable_vxlan_offloads(struct be_adapter *adapter)
- {
- 	struct net_device *netdev = adapter->netdev;
-@@ -3774,7 +3771,6 @@ static void be_disable_vxlan_offloads(struct be_adapter *adapter)
- 	netdev->hw_features &= ~(NETIF_F_GSO_UDP_TUNNEL);
- 	netdev->features &= ~(NETIF_F_GSO_UDP_TUNNEL);
- }
--#endif
- 
- static void be_calculate_vf_res(struct be_adapter *adapter, u16 num_vfs,
- 				struct be_resources *vft_res)
-@@ -3875,9 +3871,7 @@ static int be_clear(struct be_adapter *adapter)
- 					&vft_res);
- 	}
- 
--#ifdef CONFIG_BE2NET_VXLAN
- 	be_disable_vxlan_offloads(adapter);
--#endif
- 	kfree(adapter->pmac_id);
- 	adapter->pmac_id = NULL;
- 
-@@ -4705,7 +4699,6 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
- 				       0, 0, nlflags, filter_mask, NULL);
- }
- 
--#ifdef CONFIG_BE2NET_VXLAN
- /* VxLAN offload Notes:
+ /**
+  * fm10k_setup_tx_resources - allocate Tx resources (Descriptors)
+@@ -436,6 +434,7 @@ static void fm10k_restore_vxlan_port(struct fm10k_intfc *interface)
+  * @netdev: network interface device structure
+  * @sa_family: Address family of new port
+  * @port: port number used for VXLAN
++ * @type: Enumerated value specifying udp encapsulation type
   *
-  * The stack defines tunnel offload flags (hw_enc_features) for IP and doesn't
-@@ -4720,13 +4713,17 @@ static int be_ndo_bridge_getlink(struct sk_buff *skb, u32 pid, u32 seq,
-  * adds more than one port, disable offloads and don't re-enable them again
-  * until after all the tunnels are removed.
-  */
--static void be_add_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
--			      __be16 port)
-+static void be_add_vxlan_port(struct net_device *netdev,
-+			      struct udp_tunnel_info *ti)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
- 	struct device *dev = &adapter->pdev->dev;
-+	__be16 port = ti->port;
- 	int status;
+  * This function is called when a new VXLAN interface has added a new port
+  * number to the range that is currently in use for VXLAN.  The new port
+@@ -444,18 +443,21 @@ static void fm10k_restore_vxlan_port(struct fm10k_intfc *interface)
+  * is always used as the VXLAN port number for offloads.
+  **/
+ static void fm10k_add_vxlan_port(struct net_device *dev,
+-				 sa_family_t sa_family, __be16 port) {
++				 struct udp_tunnel_info *ti)
++{
+ 	struct fm10k_intfc *interface = netdev_priv(dev);
+ 	struct fm10k_vxlan_port *vxlan_port;
  
 +	if (ti->type != UDP_TUNNEL_TYPE_VXLAN)
 +		return;
-+
- 	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
+ 	/* only the PF supports configuring tunnels */
+ 	if (interface->hw.mac.type != fm10k_mac_pf)
  		return;
  
-@@ -4774,10 +4771,14 @@ err:
- 	be_disable_vxlan_offloads(adapter);
- }
+ 	/* existing ports are pulled out so our new entry is always last */
+ 	fm10k_vxlan_port_for_each(vxlan_port, interface) {
+-		if ((vxlan_port->port == port) &&
+-		    (vxlan_port->sa_family == sa_family)) {
++		if ((vxlan_port->port == ti->port) &&
++		    (vxlan_port->sa_family == ti->sa_family)) {
+ 			list_del(&vxlan_port->list);
+ 			goto insert_tail;
+ 		}
+@@ -465,8 +467,8 @@ static void fm10k_add_vxlan_port(struct net_device *dev,
+ 	vxlan_port = kmalloc(sizeof(*vxlan_port), GFP_ATOMIC);
+ 	if (!vxlan_port)
+ 		return;
+-	vxlan_port->port = port;
+-	vxlan_port->sa_family = sa_family;
++	vxlan_port->port = ti->port;
++	vxlan_port->sa_family = ti->sa_family;
  
--static void be_del_vxlan_port(struct net_device *netdev, sa_family_t sa_family,
--			      __be16 port)
-+static void be_del_vxlan_port(struct net_device *netdev,
-+			      struct udp_tunnel_info *ti)
- {
- 	struct be_adapter *adapter = netdev_priv(netdev);
-+	__be16 port = ti->port;
-+
+ insert_tail:
+ 	/* add new port value to list */
+@@ -480,6 +482,7 @@ insert_tail:
+  * @netdev: network interface device structure
+  * @sa_family: Address family of freed port
+  * @port: port number used for VXLAN
++ * @type: Enumerated value specifying udp encapsulation type
+  *
+  * This function is called when a new VXLAN interface has freed a port
+  * number from the range that is currently in use for VXLAN.  The freed
+@@ -487,17 +490,20 @@ insert_tail:
+  * the port number for offloads.
+  **/
+ static void fm10k_del_vxlan_port(struct net_device *dev,
+-				 sa_family_t sa_family, __be16 port) {
++				 struct udp_tunnel_info *ti)
++{
+ 	struct fm10k_intfc *interface = netdev_priv(dev);
+ 	struct fm10k_vxlan_port *vxlan_port;
+ 
 +	if (ti->type != UDP_TUNNEL_TYPE_VXLAN)
 +		return;
- 
- 	if (lancer_chip(adapter) || BEx_chip(adapter) || be_is_mc(adapter))
+ 	if (interface->hw.mac.type != fm10k_mac_pf)
  		return;
-@@ -4839,7 +4840,6 @@ static netdev_features_t be_features_check(struct sk_buff *skb,
  
- 	return features;
- }
+ 	/* find the port in the list and free it */
+ 	fm10k_vxlan_port_for_each(vxlan_port, interface) {
+-		if ((vxlan_port->port == port) &&
+-		    (vxlan_port->sa_family == sa_family)) {
++		if ((vxlan_port->port == ti->port) &&
++		    (vxlan_port->sa_family == ti->sa_family)) {
+ 			list_del(&vxlan_port->list);
+ 			kfree(vxlan_port);
+ 			break;
+@@ -553,10 +559,8 @@ int fm10k_open(struct net_device *netdev)
+ 	if (err)
+ 		goto err_set_queues;
+ 
+-#ifdef CONFIG_FM10K_VXLAN
+ 	/* update VXLAN port configuration */
+-	vxlan_get_rx_port(netdev);
 -#endif
++	udp_tunnel_get_rx_info(netdev);
  
- static int be_get_phys_port_id(struct net_device *dev,
- 			       struct netdev_phys_item_id *ppid)
-@@ -4887,11 +4887,9 @@ static const struct net_device_ops be_netdev_ops = {
- #ifdef CONFIG_NET_RX_BUSY_POLL
- 	.ndo_busy_poll		= be_busy_poll,
- #endif
--#ifdef CONFIG_BE2NET_VXLAN
--	.ndo_add_vxlan_port	= be_add_vxlan_port,
--	.ndo_del_vxlan_port	= be_del_vxlan_port,
-+	.ndo_udp_tunnel_add	= be_add_vxlan_port,
-+	.ndo_udp_tunnel_del	= be_del_vxlan_port,
- 	.ndo_features_check	= be_features_check,
--#endif
- 	.ndo_get_phys_port_id   = be_get_phys_port_id,
- };
+ 	fm10k_up(interface);
  
+@@ -1375,8 +1379,8 @@ static const struct net_device_ops fm10k_netdev_ops = {
+ 	.ndo_set_vf_vlan	= fm10k_ndo_set_vf_vlan,
+ 	.ndo_set_vf_rate	= fm10k_ndo_set_vf_bw,
+ 	.ndo_get_vf_config	= fm10k_ndo_get_vf_config,
+-	.ndo_add_vxlan_port	= fm10k_add_vxlan_port,
+-	.ndo_del_vxlan_port	= fm10k_del_vxlan_port,
++	.ndo_udp_tunnel_add	= fm10k_add_vxlan_port,
++	.ndo_udp_tunnel_del	= fm10k_del_vxlan_port,
+ 	.ndo_dfwd_add_station	= fm10k_dfwd_add_station,
+ 	.ndo_dfwd_del_station	= fm10k_dfwd_del_station,
+ #ifdef CONFIG_NET_POLL_CONTROLLER
