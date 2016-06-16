@@ -1,34 +1,37 @@
-From: Otto Sabart <osabart@redhat.com>
-Subject: Performance drop on SFC interface (around 30%)
-Date: Thu, 16 Jun 2016 15:23:29 +0200
-Message-ID: <20160616132329.GA27108@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jirka Hladky <jhladky@redhat.com>,
-	Adam Okuliar <aokuliar@redhat.com>,
-	Solarflare linux maintainers <linux-net-drivers@solarflare.com>,
-	Edward Cree <ecree@solarflare.com>,
-	Bert Kenward <bkenward@solarflare.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:60716 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752339AbcFPNXc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jun 2016 09:23:32 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wei Tang <tangwei@cmss.chinamobile.com>
+Subject: [PATCH] net: do not initialise statics to 0
+Date: Thu, 16 Jun 2016 21:17:49 +0800
+Message-ID: <1466083069-9603-1-git-send-email-tangwei@cmss.chinamobile.com>
+Cc: ast@plumgrid.com, tom@herbertland.com, daniel@iogearbox.net,
+	ja@ssi.bg, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Wei Tang <tangwei@cmss.chinamobile.com>
+To: davem@davemloft.net, edumazet@google.com, aduyck@mirantis.com,
+	jiri@mellanox.com, jarod@redhat.com, nikolay@cumulusnetworks.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+This patch fixes the checkpatch.pl error to dev.c:
 
-Hello netdev,
-we see a performance drop (about ~30%) on sfc driver (SFC9020) when
-performing netperf TCP maerts test. It seems it started from 4.7-rc0.
+ERROR: do not initialise statics to 0
 
-Which commit/change could cause this regression? Any hints?
+Signed-off-by: Wei Tang <tangwei@cmss.chinamobile.com>
+---
+ net/core/dev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I opened a bugzilla [0] where you can find images with results.
-
-[0] https://bugzilla.kernel.org/show_bug.cgi?id=120461
-
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 904ff43..7a3fe58 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -2420,7 +2420,7 @@ EXPORT_SYMBOL(__skb_tx_hash);
+ 
+ static void skb_warn_bad_offload(const struct sk_buff *skb)
+ {
+-	static const netdev_features_t null_features = 0;
++	static const netdev_features_t null_features;
+ 	struct net_device *dev = skb->dev;
+ 	const char *name = "";
+ 
 -- 
-Ota
+1.9.1
