@@ -1,100 +1,65 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 7/8] net: xfrm: fix old-style declaration
-Date: Thu, 16 Jun 2016 15:59:25 +0200
-Message-ID: <12896147.Nph51CCL66@wuerfel>
-References: <20160616135020.3154461-1-arnd@arndb.de>
+From: Rajesh Borundia <rajesh.borundia@qlogic.com>
+Subject: RE: [PATCH 1/5] net: qlcnic: don't set unused function argument
+Date: Thu, 16 Jun 2016 13:26:46 +0000
+Message-ID: <BN3PR11MB02732854F64F5C128D8BF72C8B560@BN3PR11MB0273.namprd11.prod.outlook.com>
+References: <20160616113831.4108439-1-arnd@arndb.de>
+ <20160616113831.4108439-2-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-To: netdev@vger.kernel.org,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	linux-kernel@vger.kernel.org
+Content-Transfer-Encoding: 8BIT
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+To: Arnd Bergmann <arnd@arndb.de>,
+	Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160616135020.3154461-1-arnd@arndb.de>
+In-Reply-To: <20160616113831.4108439-2-arnd@arndb.de>
+Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Modern C standards expect the '__inline__' keyword to come before the return
-type in a declaration, and we get a couple of warnings for this with "make W=1"
-in the xfrm{4,6}_policy.c files:
+>-----Original Message-----
+>From: Arnd Bergmann [mailto:arnd@arndb.de]
+>Sent: Thursday, June 16, 2016 5:08 PM
+>To: Dept-GE Linux NIC Dev <Dept-GELinuxNICDev@qlogic.com>
+>Cc: Arnd Bergmann <arnd@arndb.de>; David Miller
+><davem@davemloft.net>; Rajesh Borundia <rajesh.borundia@qlogic.com>;
+>netdev <netdev@vger.kernel.org>; linux-kernel <linux-
+>kernel@vger.kernel.org>
+>Subject: [PATCH 1/5] net: qlcnic: don't set unused function argument
+>
+>We get a warning for qlcnic_83xx_get_mac_address when building with
+>"make W=1":
+>
+>drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c: In function
+>'qlcnic_83xx_get_mac_address':
+>drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c:2156:8: error:
+>parameter 'function' set but not used [-Werror=unused-but-set-parameter]
+>
+>Clearly this is harmless, but there is also no point for setting the variable, so
+>we can simply remove the assignment.
+>
+>Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>---
+> drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c | 1 -
+> 1 file changed, 1 deletion(-)
+>
+>diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+>b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+>index f9640d5ce6ba..bdbcd2b088a0 100644
+>--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+>+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c
+>@@ -2159,7 +2159,6 @@ int qlcnic_83xx_get_mac_address(struct
+>qlcnic_adapter *adapter, u8 *mac,
+> 	struct qlcnic_cmd_args cmd;
+> 	u32 mac_low, mac_high;
+>
+>-	function = 0;
+> 	err = qlcnic_alloc_mbx_args(&cmd, adapter,
+>QLCNIC_CMD_MAC_ADDRESS);
+> 	if (err)
+> 		return err;
+>--
+>2.9.0
 
-net/ipv6/xfrm6_policy.c:369:1: error: 'inline' is not at beginning of declaration [-Werror=old-style-declaration]
- static int inline xfrm6_net_sysctl_init(struct net *net)
-net/ipv6/xfrm6_policy.c:374:1: error: 'inline' is not at beginning of declaration [-Werror=old-style-declaration]
- static void inline xfrm6_net_sysctl_exit(struct net *net)
-net/ipv4/xfrm4_policy.c:339:1: error: 'inline' is not at beginning of declaration [-Werror=old-style-declaration]
- static int inline xfrm4_net_sysctl_init(struct net *net)
-net/ipv4/xfrm4_policy.c:344:1: error: 'inline' is not at beginning of declaration [-Werror=old-style-declaration]
- static void inline xfrm4_net_sysctl_exit(struct net *net)
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- net/ipv4/xfrm4_policy.c | 8 ++++----
- net/ipv6/xfrm6_policy.c | 4 ++--
- 2 files changed, 6 insertions(+), 6 deletions(-)
-
-diff --git a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
-index 7b0edb37a115..b644a23c3db0 100644
---- a/net/ipv4/xfrm4_policy.c
-+++ b/net/ipv4/xfrm4_policy.c
-@@ -295,7 +295,7 @@ static struct ctl_table xfrm4_policy_table[] = {
- 	{ }
- };
- 
--static int __net_init xfrm4_net_sysctl_init(struct net *net)
-+static __net_init int xfrm4_net_sysctl_init(struct net *net)
- {
- 	struct ctl_table *table;
- 	struct ctl_table_header *hdr;
-@@ -323,7 +323,7 @@ err_alloc:
- 	return -ENOMEM;
- }
- 
--static void __net_exit xfrm4_net_sysctl_exit(struct net *net)
-+static __net_exit void xfrm4_net_sysctl_exit(struct net *net)
- {
- 	struct ctl_table *table;
- 
-@@ -336,12 +336,12 @@ static void __net_exit xfrm4_net_sysctl_exit(struct net *net)
- 		kfree(table);
- }
- #else /* CONFIG_SYSCTL */
--static int inline xfrm4_net_sysctl_init(struct net *net)
-+static inline int xfrm4_net_sysctl_init(struct net *net)
- {
- 	return 0;
- }
- 
--static void inline xfrm4_net_sysctl_exit(struct net *net)
-+static inline void xfrm4_net_sysctl_exit(struct net *net)
- {
- }
- #endif
-diff --git a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
-index c074771a10f7..6cc97003e4a9 100644
---- a/net/ipv6/xfrm6_policy.c
-+++ b/net/ipv6/xfrm6_policy.c
-@@ -366,12 +366,12 @@ static void __net_exit xfrm6_net_sysctl_exit(struct net *net)
- 		kfree(table);
- }
- #else /* CONFIG_SYSCTL */
--static int inline xfrm6_net_sysctl_init(struct net *net)
-+static inline int xfrm6_net_sysctl_init(struct net *net)
- {
- 	return 0;
- }
- 
--static void inline xfrm6_net_sysctl_exit(struct net *net)
-+static inline void xfrm6_net_sysctl_exit(struct net *net)
- {
- }
- #endif
--- 
-2.9.0
+Acked-by: Rajesh Borundia <rajesh.borundia@qlogic.com>
