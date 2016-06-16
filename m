@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net 1/3] r8152: disable MAC clock speed down
-Date: Thu, 16 Jun 2016 10:55:17 +0800
-Message-ID: <1394712342-15778-180-Taiwan-albertk@realtek.com>
+Subject: [PATCH net 3/3] r8152: correct the rx early size
+Date: Thu, 16 Jun 2016 10:55:19 +0800
+Message-ID: <1394712342-15778-182-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-179-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,39 +13,36 @@ In-Reply-To: <1394712342-15778-179-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Disable MAC clock speed down. It may casue the first control
-transfer to contain the wrong data, when the power state change
-from U1 to U0.
+The rx early size should be
+
+	(agg_buf_sz - packet size) / 8
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 14 +++++---------
- 1 file changed, 5 insertions(+), 9 deletions(-)
+ drivers/net/usb/r8152.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 3f9f6ed..89dc752 100644
+index f5bc351..4e257b8 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -3382,15 +3382,11 @@ static void r8153_init(struct r8152 *tp)
- 	r8153_power_cut_en(tp, false);
- 	r8153_u1u2en(tp, true);
+@@ -31,7 +31,7 @@
+ #define NETNEXT_VERSION		"08"
  
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL, ALDPS_SPDWN_RATIO);
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL2, EEE_SPDWN_RATIO);
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL3,
--		       PKT_AVAIL_SPDWN_EN | SUSPEND_SPDWN_EN |
--		       U1U2_SPDWN_EN | L1_SPDWN_EN);
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL4,
--		       PWRSAVE_SPDWN_EN | RXDV_SPDWN_EN | TX10MIDLE_EN |
--		       TP100_SPDWN_EN | TP500_SPDWN_EN | TP1000_SPDWN_EN |
--		       EEE_SPDWN_EN);
-+	/* MAC clock speed down */
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL, 0);
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL2, 0);
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL3, 0);
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL4, 0);
+ /* Information for net */
+-#define NET_VERSION		"3"
++#define NET_VERSION		"4"
  
- 	r8153_enable_eee(tp);
- 	r8153_aldps_en(tp, true);
+ #define DRIVER_VERSION		"v1." NETNEXT_VERSION "." NET_VERSION
+ #define DRIVER_AUTHOR "Realtek linux nic maintainers <nic_swsd@realtek.com>"
+@@ -2174,7 +2174,7 @@ static void r8153_set_rx_early_timeout(struct r8152 *tp)
+ static void r8153_set_rx_early_size(struct r8152 *tp)
+ {
+ 	u32 mtu = tp->netdev->mtu;
+-	u32 ocp_data = (agg_buf_sz - mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
++	u32 ocp_data = (agg_buf_sz - mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 8;
+ 
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_SIZE, ocp_data);
+ }
 -- 
 2.4.11
