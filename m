@@ -1,39 +1,41 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [v3,1/2] b43: Remove unused phy_a code
-Date: Thu, 16 Jun 2016 15:23:37 +0000 (UTC)
-Message-ID: <20160616152337.3C1BE61418@smtp.codeaurora.org>
-References: <1465052053-26740-1-git-send-email-linux@roeck-us.net>
+Subject: Re: brcmfmac: drop unused pm_block vif attribute
+Date: Thu, 16 Jun 2016 15:24:05 +0000 (UTC)
+Message-ID: <20160616152405.42FED61372@smtp.codeaurora.org>
+References: <1465247047-19412-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-kernel@vger.kernel.org, linux-wireless@vger.kernel.org,
-	b43-dev@lists.infradead.org, netdev@vger.kernel.org, m@bues.ch,
-	Guenter Roeck <linux@roeck-us.net>
-To: Guenter Roeck <linux@roeck-us.net>
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	brcm80211-dev-list@broadcom.com (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1465052053-26740-1-git-send-email-linux@roeck-us.net>
+In-Reply-To: <1465247047-19412-1-git-send-email-zajec5@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Guenter Roeck <linux@roeck-us.net> wrote:
-> gcc-6 reports the following error with -Werror=3Dunused-const-variabl=
-e.
+Rafa=C5=82 Mi=C5=82ecki wrote:
+> This attribute was added 3 years ago by
+> commit 3eacf866559c ("brcmfmac: introduce brcmf_cfg80211_vif structur=
+e")
+> but it remains unused since then. It seems we can safely drop it.
 >=20
-> drivers/net/wireless/broadcom/b43/phy_a.c:576:40: error:
-> 	'b43_phyops_a' defined but not used
->=20
-> Per Michael B=C3=BCsch: "All a-phy code is usused", so remove it all,
-> and move the remaining Type-G initialization code into phy_g.c.
->=20
-> Reported-by: Fengguang Wu <fengguang.wu@intel.com> [0-day test robot]
-> Cc: Michael B=C3=BCsch <m@bues.ch>
-> Signed-off-by: Guenter Roeck <linux@roeck-us.net>
+> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 
-Thanks, 2 patches applied to wireless-drivers-next.git:
+Thanks, 1 patch applied to wireless-drivers-next.git:
 
-9791333a840f b43: Remove unused phy_a code
-afdfdc481ea9 b43: Completely remove support for phy_a
+26072330df2e brcmfmac: drop unused pm_block vif attribute
 
 --=20
 Sent by pwcli
-https://patchwork.kernel.org/patch/9154719/
+https://patchwork.kernel.org/patch/9159139/
