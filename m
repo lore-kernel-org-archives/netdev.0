@@ -1,35 +1,57 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] [v5] net: emac: emac gigabit ethernet controller driver
-Date: Wed, 15 Jun 2016 21:41:42 -0700 (PDT)
-Message-ID: <20160615.214142.1092705919839921659.davem@davemloft.net>
-References: <1465942955-22988-1-git-send-email-timur@codeaurora.org>
+Subject: Re: [PATCH net-next] ila: Fix checksum neutral mapping
+Date: Wed, 15 Jun 2016 21:44:02 -0700 (PDT)
+Message-ID: <20160615.214402.1975081304384066829.davem@davemloft.net>
+References: <1465946955-3088294-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	shankerd@codeaurora.org, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
-	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
-	jcm@redhat.com, agross@codeaurora.org, f.fainelli@gmail.com
-To: timur@codeaurora.org
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <1465942955-22988-1-git-send-email-timur@codeaurora.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel-team@fb.com, haoxuany@fb.com
+To: tom@herbertland.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:36512 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750895AbcFPEoE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 00:44:04 -0400
+In-Reply-To: <1465946955-3088294-1-git-send-email-tom@herbertland.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Timur Tabi <timur@codeaurora.org>
-Date: Tue, 14 Jun 2016 17:22:35 -0500
+From: Tom Herbert <tom@herbertland.com>
+Date: Tue, 14 Jun 2016 16:29:15 -0700
 
-> +/* Free all descriptors of given receive queue */
-> +static void emac_rx_q_free_descs(struct emac_adapter *adpt)
-> +{
-> +	struct emac_rx_queue *rx_q = &adpt->rx_q;
-> +	struct device *dev = adpt->netdev->dev.parent;
-> +	size_t size;
-> +	int i;
+> The algorithm for checksum neutral mapping is incorrect. This problem
+> was being hidden since we were previously always performing checksum
+> offload on the translated addresses and only with IPv6 HW csum.
+> Enabling an ILA router shows the issue.
+> 
+> Corrected algorithm:
+> 
+> old_loc is the original locator in the packet, new_loc is the value
+> to overwrite with and is found in the lookup table. old_flag is
+> the old flag value (zero of CSUM_NEUTRAL_FLAG) and new_flag is
+> then (old_flag ^ CSUM_NEUTRAL_FLAG) & CSUM_NEUTRAL_FLAG.
+> 
+> Need SUM(new_id + new_flag + diff) == SUM(old_id + old_flag) for
+> checksum neutral translation.
+> 
+> Solving for diff gives:
+> 
+> diff = (old_id - new_id) + (old_flag - new_flag)
+> 
+> compute_csum_diff8(new_id, old_id) gives old_id - new_id
+> 
+> If old_flag is set
+>    old_flag - new_flag = old_flag = CSUM_NEUTRAL_FLAG
+> Else
+>    old_flag - new_flag = -new_flag = ~CSUM_NEUTRAL_FLAG
+> 
+> Tested:
+>   - Implemented a user space program that creates random addresses
+>     and random locators to overwrite. Compares the checksum over
+>     the address before and after translation (must always be equal)
+>   - Enabled ILA router and showed proper operation.
+> 
+> Signed-off-by: Tom Herbert <tom@herbertland.com>
 
-Please always order local variable declarations from longest to shortest
-line.
-
-Audit your entire driver for this issue, thanks.
+Applied.
