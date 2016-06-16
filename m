@@ -1,70 +1,60 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH 4/5] netdev: implement infrastructure for threadable napi irq
-Date: Thu, 16 Jun 2016 09:55:27 -0700
-Message-ID: <CANn89i+Fh8n=Vre=5h=UzJtoixF=ayxJU+RKW80GibFAG1f0yQ@mail.gmail.com>
-References: <cover.1465996447.git.pabeni@redhat.com> <f5e431e8336f80d0e6f6b4c40c81a373db6d6052.1465996447.git.pabeni@redhat.com>
- <CANn89i+EJMHeMN8=e12hoT1Jv8cCBDXeexTBdsd9hU2G=HpGZA@mail.gmail.com>
- <1466008955.24431.35.camel@redhat.com> <CANn89iJKxctv5Yzn2ecBLAjh2RtGpjNC6M3dqKXieqaORZaGsw@mail.gmail.com>
- <1466073593.4691.47.camel@redhat.com> <CANn89iL2WpZAOLDWEoJmJ3Hiv3x59c45nCQpLm66j29D0HXfcw@mail.gmail.com>
- <1466078635.4691.56.camel@redhat.com>
+From: "Keller, Jacob E" <jacob.e.keller@intel.com>
+Subject: Re: [PATCH net] ixgbe: napi_poll must return the work done
+Date: Thu, 16 Jun 2016 17:10:06 +0000
+Message-ID: <1466097006.17117.7.camel@intel.com>
+References: <37ccedd746ed932b9d73eff592f324f2a3fc6c6f.1465995724.git.pabeni@redhat.com>
+	 <CAHdzE-8V8o9sg9xmiJ9J0G3u=k6K-fHQssb5v09TPJvN2N=a1Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	"Peter Zijlstra (Intel)" <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev <netdev@vger.kernel.org>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "hannes@redhat.com" <hannes@redhat.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	"intel-wired-lan@lists.osuosl.org" <intel-wired-lan@lists.osuosl.org>,
+	"davem@davemloft.net" <davem@davemloft.net>
+To: "venkateshs@google.com" <venkateshs@google.com>,
+	"pabeni@redhat.com" <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f169.google.com ([209.85.161.169]:34074 "EHLO
-	mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752655AbcFPQz2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 12:55:28 -0400
-Received: by mail-yw0-f169.google.com with SMTP id c72so48265908ywb.1
-        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 09:55:28 -0700 (PDT)
-In-Reply-To: <1466078635.4691.56.camel@redhat.com>
+Received: from mga02.intel.com ([134.134.136.20]:57005 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754771AbcFPRLf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jun 2016 13:11:35 -0400
+In-Reply-To: <CAHdzE-8V8o9sg9xmiJ9J0G3u=k6K-fHQssb5v09TPJvN2N=a1Q@mail.gmail.com>
+Content-Language: en-US
+Content-ID: <5556763A07235548B75F17B081956A71@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->
-> I guess you means 'consumer' here. The scheduler doesn't fail to migrate
-> it: the consumer is actually migrated a lot of times, but on each cpu a
-> competing and running ksoftirqd thread is found.
->
-> The general problem is that under significant network load (not
-> necessary udp flood, similar behavior is observed even with TCP_RR
-> tests), with enough rx queue available and enough flows running, no
-> single thread/process can use 100% of any cpu, even if the overall
-> capacity would allow it.
->
-
-Looks like a general process scheduler issue ?
-
-Really, allowing the RX processing to be migrated among cpus is
-problematic for TCP,
-as it will increase reorders.
-
-RFS for example has a very specific logic to avoid these problems as
-much as possible.
-
-                /*
-                 * If the desired CPU (where last recvmsg was done) is
-                 * different from current CPU (one in the rx-queue flow
-                 * table entry), switch if one of the following holds:
-                 *   - Current CPU is unset (>= nr_cpu_ids).
-                 *   - Current CPU is offline.
-                 *   - The current CPU's queue tail has advanced beyond the
-                 *     last packet that was enqueued using this table entry.
-                 *     This guarantees that all previous packets for the flow
-                 *     have been dequeued, thus preserving in order delivery.
-                 */
-                if (unlikely(tcpu != next_cpu) &&
-                    (tcpu >= nr_cpu_ids || !cpu_online(tcpu) ||
-                     ((int)(per_cpu(softnet_data, tcpu).input_queue_head -
-                      rflow->last_qtail)) >= 0)) {
-                        tcpu = next_cpu;
-                        rflow = set_rps_cpu(dev, skb, rflow, next_cpu);
-                }
+T24gV2VkLCAyMDE2LTA2LTE1IGF0IDA5OjM0IC0wNzAwLCBWZW5rYXRlc2ggU3Jpbml2YXMgd3Jv
+dGU6DQo+IE9uIFdlZCwgSnVuIDE1LCAyMDE2IGF0IDY6MzcgQU0sIFBhb2xvIEFiZW5pIDxwYWJl
+bmlAcmVkaGF0LmNvbT4NCj4gd3JvdGU6DQo+ID4gDQo+ID4gQ3VycmVudGx5IHRoZSBmdW5jdGlv
+biBpeGdiZV9wb2xsKCkgcmV0dXJucyAwIHdoZW4gaXQgY2xlYW4NCj4gPiBjb21wbGV0ZWx5DQo+
+ID4gdGhlIHJ4IHJpbmdzLCBidXQgdGhpcyBmb3VsIGJ1ZGdldCBhY2NvdW50aW5nIGluIGNvcmUg
+Y29kZS4NCj4gPiBGaXggdGhpcyByZXR1cm5pbmcgdGhlIGFjdHVhbCB3b3JrIGRvbmUsIGNhcHBl
+ZCB0byB3ZWlnaHQgLSAxLA0KPiA+IHNpbmNlDQo+ID4gdGhlIGNvcmUgZG9lc24ndCBhbGxvdyB0
+byByZXR1cm4gdGhlIGZ1bGwgYnVkZ2V0IHdoZW4gdGhlIGRyaXZlcg0KPiA+IG1vZGlmaWVzDQo+
+ID4gdGhlIG5hcGkgc3RhdHVzDQo+ID4gDQo+ID4gU2lnbmVkLW9mZi1ieTogUGFvbG8gQWJlbmkg
+PHBhYmVuaUByZWRoYXQuY29tPg0KPiA+IC0tLQ0KPiA+IMKgZHJpdmVycy9uZXQvZXRoZXJuZXQv
+aW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jIHwgMiArLQ0KPiA+IMKgMSBmaWxlIGNoYW5nZWQsIDEg
+aW5zZXJ0aW9uKCspLCAxIGRlbGV0aW9uKC0pDQo+ID4gDQo+ID4gZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYw0KPiA+IGIvZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jDQo+ID4gaW5kZXggMDg4YzQ3Yy4u
+OGJlYmQ4NiAxMDA2NDQNCj4gPiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdi
+ZS9peGdiZV9tYWluLmMNCj4gPiArKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRlbC9peGdi
+ZS9peGdiZV9tYWluLmMNCj4gPiBAQCAtMjg4Nyw3ICsyODg3LDcgQEAgaW50IGl4Z2JlX3BvbGwo
+c3RydWN0IG5hcGlfc3RydWN0ICpuYXBpLCBpbnQNCj4gPiBidWRnZXQpDQo+ID4gwqDCoMKgwqDC
+oMKgwqDCoGlmICghdGVzdF9iaXQoX19JWEdCRV9ET1dOLCAmYWRhcHRlci0+c3RhdGUpKQ0KPiA+
+IMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgaXhnYmVfaXJxX2VuYWJsZV9xdWV1ZXMo
+YWRhcHRlciwgQklUX1VMTChxX3ZlY3Rvci0NCj4gPiA+dl9pZHgpKTsNCj4gPiANCj4gPiAtwqDC
+oMKgwqDCoMKgwqByZXR1cm4gMDsNCj4gPiArwqDCoMKgwqDCoMKgwqByZXR1cm4gbWluKHdvcmtf
+ZG9uZSwgYnVkZ2V0IC0gMSk7DQo+ID4gwqB9DQo+ID4gDQo+ID4gwqAvKioNCj4gUmV2aWV3ZWQt
+Ynk6IFZlbmthdGVzaCBTcmluaXZhcyA8dmVua2F0ZXNoc0Bnb29nbGUuY29tPg0KPiANCj4gVGhl
+IHNhbWUgYml0IG9mIGNvZGUgYXBwZWFycyBpbiBmbTEwayBhbmQgaTQwZS9pNDBldmYuIGl4Z2Ig
+YXBwZWFycw0KPiB0bw0KPiBjb3JyZWN0bHkgcmV0dXJuIHdvcmtfZG9uZS4NCj4gDQo+IGl4Z2Jl
+X3BvbGwgYWxzbyBhcHBlYXJzIHRvIHJldHVybiBhbiAobWlub3IpIGluY29ycmVjdCB3b3JrX2Rv
+bmUgaW4NCj4gYW5vdGhlciBjYXNlLCBCVFcuIEl0IGRpdmlkZXMgaXRzDQo+IGJ1ZGdldCBiZXR3
+ZWVuIFJ4IHJpbmdzIGFzc29jaWF0ZWQgd2l0aCBhIHZlY3Rvci4gSWYgYW55IHJpbmcgZXhjZWVk
+cw0KPiBpdHMgc2hhcmUgb2YgdGhlIGJ1ZGdldCwgaXhnYmVfcG9sbA0KPiBjbGFpbXMgdG8gaGF2
+ZSBjb25zdW1lZCB0aGUgZnVsbCBidWRnZXQsIGV2ZW4gaWYgYSBmdWxsIGJ1ZGdldCBvZg0KPiBm
+cmFtZXMgd2FzIG5vdCByZWNlaXZlZCBpbiBhIHNpbmdsZQ0KPiBwYXNzLg0KPiANCj4gLS0gdnM7
+DQoNCkkgY2FuIHN1Ym1pdCBhIHBhdGNoIGZvciBmbTEway4NCg0KVGhhbmtzLA0KSmFrZQ==
