@@ -1,112 +1,52 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] mwifiex: fix link error against sdio
-Date: Thu, 16 Jun 2016 11:01:10 +0200
-Message-ID: <20160616090206.932870-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Wei-Ning Huang <wnhuang@chromium.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Amitkumar Karwar <akarwar@marvell.com>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	Kalle Valo <kvalo@codeaurora.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Hagen Paul Pfeifer <hagen@jauu.net>
+Subject: Re: [PATCH net-next v2] tcp: use RFC6298 compliant TCP RTO
+ calculation
+Date: Thu, 16 Jun 2016 11:03:58 +0200 (CEST)
+Message-ID: <1688164699.25825.1466067838281@office.mailbox.org>
+References: <CAK6E8=dWLF+gRprxEbHRLnkRNHmf5sbedtv2Dt1jOqKPh7fmjA@mail.gmail.com>
+ <20160614191841.21496-1-dmetz@mytum.de>
+ <CAK6E8=eeso8OEN_0-znqkuEyVTqzP1mTvwktk4QOsrLJXmuj9Q@mail.gmail.com>
+ <20160615174114.GA16217@virgo.localdomain>
+ <CAK6E8=fgQitOiXwjjn0gq93w7m5DQ2OHr_wvq-oGeAF2fhE-uA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Daniel Metz <dmetz@mytum.de>, netdev <netdev@vger.kernel.org>,
+	Daniel Metz <daniel.metz@rohde-schwarz.com>,
+	Eric Dumazet <edumazet@google.com>
+To: Yuchung Cheng <ycheng@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx2.mailbox.org ([80.241.60.215]:45698 "EHLO mx2.mailbox.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751683AbcFPJEI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jun 2016 05:04:08 -0400
+In-Reply-To: <CAK6E8=fgQitOiXwjjn0gq93w7m5DQ2OHr_wvq-oGeAF2fhE-uA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Calling sdio_claim_host() from the interface independent part of
-the mwifiex driver is not only a layering violation, but also causes
-a link error if MMC support is disabled, or if CONFIG_MMC=m
-and CONFIG_MWIFIEX=y:
+> On June 15, 2016 at 8:02 PM Yuchung Cheng <ycheng@google.com> wrote:
+> 
+> Let's say the SRTT is 100ms and RTT variations is 10ms. The variation
+> is low because we've been sending large chunks, and RTT is fairly
+> stable, and we sample on every ACK. The RTOs produced are
+> 
+> RFC6298: RTO=1s
+> Linux: RTO=300ms
+> This patch: RTO=200ms
+> 
+> Then we send 1 packet out. The receiver delays the ACK up to 200ms.
+> The actual RTT can be longer because other network components further
+> delay the data or the ACK. This patch would surely fire the RTO
+> spuriously.
+> 
+> so we can either implement RFC6298 faithfully, or apply the
+> lower-bound as-is, or something in between. But the current patch
+> as-is is more aggressive. Did I miss something?
 
-drivers/net/built-in.o: In function `mwifiex_fw_dpc':
-:(.text+0xff138): undefined reference to `sdio_claim_host'
-:(.text+0xff158): undefined reference to `sdio_release_host'
+We analyzed the impact for a wide variety of network characteristics. Starting from bulk data till chatty, sender-limited transmissions from low RTTs to high RTTs, small and large variances as well as different queue characteristics. For a group of tests we measured advantages of a RFC 6298 compliant implementation: sender-limited flows. For bulk data we did not measured any difference compared to standard Linux. As a result we concluded that the RFC conform implementation - mapped to real world protocols - if beneficial.
 
-The right way to do this is to have the sdio specific code in the
-sdio driver front-end, and we already have a callback pointer that
-we can use for this after exporting the generic fw download
-function from the core driver.
+For the mentioned use case, yes the new implementation is a little bit more aggressive: when delayed ack kicks in, a spurious retransmission can be triggerd, yes. We asked ourself if this is a real world scenario or more an theoretical issue. Furthermore, if a real world problem, if the retransmission is negligible compared to the advantages?
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 65c71efe1c59 ("mwifiex: fix racing condition when downloading firmware")
----
- drivers/net/wireless/marvell/mwifiex/init.c |  1 +
- drivers/net/wireless/marvell/mwifiex/main.c |  6 ------
- drivers/net/wireless/marvell/mwifiex/sdio.c | 14 ++++++++++++++
- 3 files changed, 15 insertions(+), 6 deletions(-)
+Yuchung, can you test the patch and see if the patch have any downsides? And thank you for the comments!
 
-diff --git a/drivers/net/wireless/marvell/mwifiex/init.c b/drivers/net/wireless/marvell/mwifiex/init.c
-index 78c532f0d286..a6d86d4ccd22 100644
---- a/drivers/net/wireless/marvell/mwifiex/init.c
-+++ b/drivers/net/wireless/marvell/mwifiex/init.c
-@@ -788,3 +788,4 @@ poll_fw:
- 
- 	return ret;
- }
-+EXPORT_SYMBOL_GPL(mwifiex_dnld_fw);
-diff --git a/drivers/net/wireless/marvell/mwifiex/main.c b/drivers/net/wireless/marvell/mwifiex/main.c
-index 2b65334235ca..0e280f879b58 100644
---- a/drivers/net/wireless/marvell/mwifiex/main.c
-+++ b/drivers/net/wireless/marvell/mwifiex/main.c
-@@ -21,7 +21,6 @@
- #include "wmm.h"
- #include "cfg80211.h"
- #include "11n.h"
--#include "sdio.h"
- 
- #define VERSION	"1.0"
- 
-@@ -515,7 +514,6 @@ static void mwifiex_fw_dpc(const struct firmware *firmware, void *context)
- 	struct semaphore *sem = adapter->card_sem;
- 	bool init_failed = false;
- 	struct wireless_dev *wdev;
--	struct sdio_mmc_card *card = adapter->card;
- 
- 	if (!firmware) {
- 		mwifiex_dbg(adapter, ERROR,
-@@ -531,11 +529,7 @@ static void mwifiex_fw_dpc(const struct firmware *firmware, void *context)
- 	if (adapter->if_ops.dnld_fw) {
- 		ret = adapter->if_ops.dnld_fw(adapter, &fw);
- 	} else {
--		if (adapter->iface_type == MWIFIEX_SDIO)
--			sdio_claim_host(card->func);
- 		ret = mwifiex_dnld_fw(adapter, &fw);
--		if (adapter->iface_type == MWIFIEX_SDIO)
--			sdio_release_host(card->func);
- 	}
- 
- 	if (ret == -1)
-diff --git a/drivers/net/wireless/marvell/mwifiex/sdio.c b/drivers/net/wireless/marvell/mwifiex/sdio.c
-index 674465e0d837..5f8a07e38d64 100644
---- a/drivers/net/wireless/marvell/mwifiex/sdio.c
-+++ b/drivers/net/wireless/marvell/mwifiex/sdio.c
-@@ -544,6 +544,19 @@ static int mwifiex_pm_wakeup_card_complete(struct mwifiex_adapter *adapter)
- 	return mwifiex_write_reg(adapter, CONFIGURATION_REG, 0);
- }
- 
-+static int mwifiex_sdio_dnld_fw(struct mwifiex_adapter *adapter,
-+			struct mwifiex_fw_image *fw)
-+{
-+	struct sdio_mmc_card *card = adapter->card;
-+	int ret;
-+
-+	sdio_claim_host(card->func);
-+	ret = mwifiex_dnld_fw(adapter, fw);
-+	sdio_release_host(card->func);
-+
-+	return ret;
-+}
-+
- /*
-  * This function is used to initialize IO ports for the
-  * chipsets supporting SDIO new mode eg SD8897.
-@@ -2732,6 +2745,7 @@ static struct mwifiex_if_ops sdio_ops = {
- 	.cleanup_mpa_buf = mwifiex_cleanup_mpa_buf,
- 	.cmdrsp_complete = mwifiex_sdio_cmdrsp_complete,
- 	.event_complete = mwifiex_sdio_event_complete,
-+	.dnld_fw = mwifiex_sdio_dnld_fw,
- 	.card_reset = mwifiex_sdio_card_reset,
- 	.reg_dump = mwifiex_sdio_reg_dump,
- 	.device_dump = mwifiex_sdio_device_dump,
--- 
-2.9.0
+Hagen
