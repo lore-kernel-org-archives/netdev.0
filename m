@@ -1,39 +1,48 @@
-From: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
-Subject: Re: [PATCHv4 net-next 06/12] ndisc: add __ndisc_fill_addr_option
- function
-Date: Thu, 16 Jun 2016 12:44:55 +0200
-Message-ID: <acceee9f-b1bf-8ac4-425f-b53f67651c75@stressinduktion.org>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCHv4 net-next 07/12] addrconf: put prefix address add in an
+ own function
+Date: Thu, 16 Jun 2016 12:51:06 +0200
+Message-ID: <0909dcd8-cf31-4a68-6e84-8a8fcf1906c1@stressinduktion.org>
 References: <20160615192027.4064-1-aar@pengutronix.de>
- <20160615192027.4064-7-aar@pengutronix.de>
+ <20160615192027.4064-8-aar@pengutronix.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: kernel-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org, marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org,
-	jukka.rissanen-VuQAYsv1563Yd54FQh9/CA@public.gmane.org, stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org,
-	mcr-SWp7JaYWvAQV+D8aMU/kSg@public.gmane.org, werner-SEdMjqphH88wryQfseakQg@public.gmane.org,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>,
-	James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>,
-	Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>,
-	Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-To: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>, linux-wpan-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160615192027.4064-7-aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: kernel@pengutronix.de, marcel@holtmann.org,
+	jukka.rissanen@linux.intel.com, stefan@osg.samsung.com,
+	mcr@sandelman.ca, werner@almesberger.net,
+	linux-bluetooth@vger.kernel.org, netdev@vger.kernel.org,
+	"David S . Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Alexander Aring <aar@pengutronix.de>, linux-wpan@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:33581 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751683AbcFPKvK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 06:51:10 -0400
+In-Reply-To: <20160615192027.4064-8-aar@pengutronix.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On 15.06.2016 21:20, Alexander Aring wrote:
-> This patch adds __ndisc_fill_addr_option as low-level function for
-> ndisc_fill_addr_option which doesn't depend on net_device parameter.
+> This patch moves the functionality to add a RA PIO prefix generated
+> address in an own function. This move prepares to add a hook for
+> adding a second address for a second link-layer address. E.g. short
+> address for 802.15.4 6LoWPAN.
 > 
-> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: Alexey Kuznetsov <kuznet-v/Mj1YrvjDBInbfyfbPRSQ@public.gmane.org>
-> Cc: James Morris <jmorris-gx6/JNMH7DfYtjvyW6yDsg@public.gmane.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-> Cc: Patrick McHardy <kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org>
-> Acked-by: YOSHIFUJI Hideaki <yoshfuji-VfPWfsRibaP+Ru+s062T9g@public.gmane.org>
-> Reviewed-by: Stefan Schmidt <stefan-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-> Signed-off-by: Alexander Aring <aar-bIcnvbaLZ9MEGnE8C9+IrQ@public.gmane.org>
+> Cc: David S. Miller <davem@davemloft.net>
+> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+> Cc: James Morris <jmorris@namei.org>
+> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> Cc: Patrick McHardy <kaber@trash.net>
+> Reviewed-by: Stefan Schmidt <stefan@osg.samsung.com>
+> Acked-by: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
+> Signed-off-by: Alexander Aring <aar@pengutronix.de>
 
-Acked-by: Hannes Frederic Sowa <hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org>
+Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Ah, I noticed I am too late for the Acks but go through the rest of the
+series anyway. :)
