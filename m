@@ -1,339 +1,308 @@
-From: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: [PATCH v10 03/22] IB/hns: Add initial main frame driver and get cfg info
-Date: Thu, 16 Jun 2016 22:35:11 +0800
-Message-ID: <1466087730-54856-4-git-send-email-oulijun@huawei.com>
+From: Lijun Ou <oulijun@huawei.com>
+Subject: [PATCH v10 13/22] IB/hns: Add interface of the protocol stack registration
+Date: Thu, 16 Jun 2016 22:35:21 +0800
+Message-ID: <1466087730-54856-14-git-send-email-oulijun@huawei.com>
 References: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1466087730-54856-1-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
+	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
+	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
+	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
+	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
+To: <dledford@redhat.com>, <sean.hefty@intel.com>,
+	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
+	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
+	<ogerlitz@mellanox.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This patch mainly added the initial bare main driver. It
-could get the relative configure information of net node.
+This patch mainly added the function module which netif notify
+registered the protocol stack. It includes interface functions
+as follows:
+    1. The executive called interface of RoCE when the netlink
+       event that registered protocol stack was generated
+    2. The executive called interface of RoCE when ip address
+       that registered protocol stack was changed.
+In addition that, it will free the relative resource when RoCE
+is removed.
 
-Signed-off-by: Wei Hu <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Signed-off-by: Nenglong Zhao <zhaonenglong-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
+Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
+Signed-off-by: Lijun Ou <oulijun@huawei.com>
 ---
-PATCH v9:
-This fixes comments given by Leon Romanovsky over the PATCH v8:
-  Link: https://lkml.org/lkml/2016/6/9/56
-
-PATCH v8/v7/v6:
+PATCH v9/v8/v7/v6:
 - No change over the PATCH v5
 
-PATCH v5:
+ PATCH v5:
 - The initial patch which was redesigned based on the second patch
   in PATCH v4
 ---
 ---
- drivers/infiniband/hw/hns/hns_roce_device.h |  73 ++++++++++
- drivers/infiniband/hw/hns/hns_roce_main.c   | 200 ++++++++++++++++++++++++++++
- 2 files changed, 273 insertions(+)
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_device.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_main.c
+ drivers/infiniband/hw/hns/hns_roce_device.h |   3 +
+ drivers/infiniband/hw/hns/hns_roce_main.c   | 209 ++++++++++++++++++++++++++++
+ 2 files changed, 212 insertions(+)
 
 diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
-new file mode 100644
-index 0000000..946b470
---- /dev/null
+index b7c1773..14ee941 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_device.h
 +++ b/drivers/infiniband/hw/hns/hns_roce_device.h
-@@ -0,0 +1,73 @@
-+/*
-+ * Copyright (c) 2016 Hisilicon Limited.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#ifndef _HNS_ROCE_DEVICE_H
-+#define _HNS_ROCE_DEVICE_H
-+
-+#include <linux/platform_device.h>
-+#include <linux/radix-tree.h>
-+#include <linux/semaphore.h>
-+#include <rdma/ib_addr.h>
-+#include <rdma/ib_smi.h>
-+#include <rdma/ib_umem.h>
-+#include <rdma/ib_user_verbs.h>
-+#include <rdma/ib_verbs.h>
-+
-+#define DRV_NAME "hns_roce"
-+
-+#define HNS_ROCE_MAX_IRQ_NUM			34
-+#define HNS_ROCE_MAX_PORTS			6
-+
-+struct hns_roce_ib_iboe {
-+	struct net_device      *netdevs[HNS_ROCE_MAX_PORTS];
-+	u8			phy_port[HNS_ROCE_MAX_PORTS];
-+};
-+
-+struct hns_roce_caps {
-+	u8			num_ports;
-+};
-+
-+struct hns_roce_dev {
-+	struct ib_device	ib_dev;
-+	struct platform_device  *pdev;
-+	const char		*irq_names;
-+	struct hns_roce_ib_iboe iboe;
-+
-+	int			irq[HNS_ROCE_MAX_IRQ_NUM];
-+	u8 __iomem		*reg_base;
-+	struct hns_roce_caps	caps;
-+
-+	int			cmd_mod;
-+	int			loop_idc;
-+};
-+
-+#endif /* _HNS_ROCE_DEVICE_H */
+@@ -256,7 +256,10 @@ struct hns_roce_qp {
+ };
+ 
+ struct hns_roce_ib_iboe {
++	spinlock_t		lock;
+ 	struct net_device      *netdevs[HNS_ROCE_MAX_PORTS];
++	struct notifier_block	nb;
++	struct notifier_block	nb_inet;
+ 	/* 16 GID is shared by 6 port in v1 engine. */
+ 	union ib_gid		gid_table[HNS_ROCE_MAX_GID_NUM];
+ 	u8			phy_port[HNS_ROCE_MAX_PORTS];
 diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
-new file mode 100644
-index 0000000..8924ce3
---- /dev/null
+index 6c13f6d..33173e8 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_main.c
 +++ b/drivers/infiniband/hw/hns/hns_roce_main.c
-@@ -0,0 +1,200 @@
-+/*
-+ * Copyright (c) 2016 Hisilicon Limited.
-+ * Copyright (c) 2007, 2008 Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
+@@ -62,6 +62,46 @@
+ #include "hns_roce_icm.h"
+ 
+ /**
++ * hns_roce_addrconf_ifid_eui48 - Get default gid.
++ * @eui: eui.
++ * @vlan_id:  gid
++ * @dev:  net device
++ * Description:
++ *    MAC convert to GID
++ *        gid[0..7] = fe80 0000 0000 0000
++ *        gid[8] = mac[0] ^ 2
++ *        gid[9] = mac[1]
++ *        gid[10] = mac[2]
++ *        gid[11] = ff        (VLAN ID high byte (4 MS bits))
++ *        gid[12] = fe        (VLAN ID low byte)
++ *        gid[13] = mac[3]
++ *        gid[14] = mac[4]
++ *        gid[15] = mac[5]
 + */
-+
-+#include <linux/cdev.h>
-+#include <linux/delay.h>
-+#include <linux/device.h>
-+#include <linux/dma-mapping.h>
-+#include <linux/ethtool.h>
-+#include <linux/etherdevice.h>
-+#include <linux/fs.h>
-+#include <linux/init.h>
-+#include <linux/interrupt.h>
-+#include <linux/kernel.h>
-+#include <linux/list.h>
-+#include <linux/module.h>
-+#include <linux/netdevice.h>
-+#include <linux/of.h>
-+#include <linux/of_address.h>
-+#include <linux/of_net.h>
-+#include <linux/of_platform.h>
-+#include <linux/platform_device.h>
-+#include <linux/slab.h>
-+#include <net/ipv6.h>
-+#include <net/addrconf.h>
-+#include <rdma/ib_addr.h>
-+#include <rdma/ib_smi.h>
-+#include <rdma/ib_umem.h>
-+#include <rdma/ib_user_verbs.h>
-+#include <rdma/ib_verbs.h>
-+#include "hns_roce_device.h"
-+
-+static int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
++static void hns_roce_addrconf_ifid_eui48(u8 *eui, u16 vlan_id,
++					 struct net_device *dev)
 +{
-+	int i;
-+	u8 phy_port;
-+	int port_cnt = 0;
-+	struct device *dev = &hr_dev->pdev->dev;
-+	struct device_node *np = dev->of_node;
-+	struct device_node *net_node;
-+	struct net_device *netdev = NULL;
-+	struct platform_device *pdev = NULL;
-+	struct resource *res;
-+
-+	if (!of_device_is_compatible(np, "hisilicon,hns-roce-v1")) {
-+		dev_err(dev, "device no compatible!\n");
-+		return -EINVAL;
++	memcpy(eui, dev->dev_addr, 3);
++	memcpy(eui + 5, dev->dev_addr + 3, 3);
++	if (vlan_id < 0x1000) {
++		eui[3] = vlan_id >> 8;
++		eui[4] = vlan_id & 0xff;
++	} else {
++		eui[3] = 0xff;
++		eui[4] = 0xfe;
 +	}
++	eui[0] ^= 2;
++}
 +
-+	res = platform_get_resource(hr_dev->pdev, IORESOURCE_MEM, 0);
-+	hr_dev->reg_base = devm_ioremap_resource(dev, res);
-+	if (!hr_dev->reg_base)
-+		return -ENOMEM;
-+
-+	for (i = 0; i < HNS_ROCE_MAX_PORTS; i++) {
-+		net_node = of_parse_phandle(np, "eth-handle", i);
-+		if (net_node) {
-+			pdev = of_find_device_by_node(net_node);
-+			netdev = platform_get_drvdata(pdev);
-+			phy_port = (u8)i;
-+			if (netdev) {
-+				hr_dev->iboe.netdevs[port_cnt] = netdev;
-+				hr_dev->iboe.phy_port[port_cnt] = phy_port;
-+			} else {
-+				return -ENODEV;
-+			}
-+			port_cnt++;
-+		}
-+	}
-+
-+	hr_dev->caps.num_ports = port_cnt;
-+
-+	/* Cmd issue mode: 0 is poll, 1 is event */
-+	hr_dev->cmd_mod = 1;
-+	hr_dev->loop_idc = 0;
-+
-+	for (i = 0; i < HNS_ROCE_MAX_IRQ_NUM; i++) {
-+		hr_dev->irq[i] = platform_get_irq(hr_dev->pdev, i);
-+		if (hr_dev->irq[i] <= 0) {
-+			dev_err(dev, "Get No.%d irq resource failed!\n", i);
-+			return -EINVAL;
-+		}
-+
-+		if (of_property_read_string_index(np, "interrupt-names", i,
-+						  &hr_dev->irq_names))
-+			return -EINVAL;
-+	}
-+
-+	return 0;
++static void hns_roce_make_default_gid(struct net_device *dev, union ib_gid *gid)
++{
++	memset(gid, 0, sizeof(*gid));
++	gid->raw[0] = 0xFE;
++	gid->raw[1] = 0x80;
++	hns_roce_addrconf_ifid_eui48(&gid->raw[8], 0xffff, dev);
 +}
 +
 +/**
-+* hns_roce_probe - RoCE driver entrance
-+* @pdev: pointer to platform device
-+* Return : int
-+*
-+*/
-+static int hns_roce_probe(struct platform_device *pdev)
+  * hns_get_gid_index - Get gid index.
+  * @hr_dev: pointer to structure hns_roce_dev.
+  * @port:  port, value range: 0 ~ MAX
+@@ -139,6 +179,152 @@ static void hns_roce_update_gids(struct hns_roce_dev *hr_dev, int port)
+ 	ib_dispatch_event(&event);
+ }
+ 
++static int handle_en_event(struct hns_roce_dev *hr_dev, u8 port,
++			   unsigned long event)
 +{
-+	int ret;
-+	struct hns_roce_dev *hr_dev;
-+	struct device *dev = &pdev->dev;
++	struct device *dev = &hr_dev->pdev->dev;
++	struct net_device *netdev;
++	unsigned long flags;
++	union ib_gid gid;
++	int ret = 0;
 +
-+	hr_dev = (struct hns_roce_dev *)ib_alloc_device(sizeof(*hr_dev));
-+	if (!hr_dev)
-+		return -ENOMEM;
-+
-+	memset((u8 *)hr_dev + sizeof(struct ib_device), 0,
-+		sizeof(struct hns_roce_dev) - sizeof(struct ib_device));
-+
-+	hr_dev->pdev = pdev;
-+	platform_set_drvdata(pdev, hr_dev);
-+
-+	if (!dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64ULL)))
-+		dev_info(dev, "set mask to 64bit\n");
-+	else if (!dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32ULL)))
-+		dev_info(dev, "set mask to 32bit\n");
-+	else {
-+		dev_err(dev, "No usable DMA addressing mode\n");
-+		ret = -EIO;
-+		goto error_failed_get_cfg;
++	netdev = hr_dev->iboe.netdevs[port];
++	if (!netdev) {
++		dev_err(dev, "port(%d) can't find netdev\n", port);
++		return -ENODEV;
 +	}
 +
-+	ret = hns_roce_get_cfg(hr_dev);
-+	if (ret) {
-+		dev_err(dev, "Get Configuration failed!\n");
-+		goto error_failed_get_cfg;
++	spin_lock_irqsave(&hr_dev->iboe.lock, flags);
++
++	switch (event) {
++	case NETDEV_UP:
++	case NETDEV_CHANGE:
++	case NETDEV_REGISTER:
++	case NETDEV_CHANGEADDR:
++		hns_roce_set_mac(hr_dev, port, netdev->dev_addr);
++		hns_roce_make_default_gid(netdev, &gid);
++		ret = hns_roce_set_gid(hr_dev, port, 0, &gid);
++		if (!ret)
++			hns_roce_update_gids(hr_dev, port);
++		break;
++	case NETDEV_DOWN:
++		/*
++		* In v1 engine, only support all ports closed together.
++		*/
++		break;
++	default:
++		dev_dbg(dev, "NETDEV event = 0x%x!\n", (u32)(event));
++		break;
 +	}
 +
-+error_failed_get_cfg:
-+	ib_dealloc_device(&hr_dev->ib_dev);
-+
++	spin_unlock_irqrestore(&hr_dev->iboe.lock, flags);
 +	return ret;
 +}
 +
-+/**
-+* hns_roce_remove - remove roce device
-+* @pdev: pointer to platform device
-+*/
-+static int hns_roce_remove(struct platform_device *pdev)
++static int hns_roce_netdev_event(struct notifier_block *self,
++				 unsigned long event, void *ptr)
 +{
-+	struct hns_roce_dev *hr_dev = platform_get_drvdata(pdev);
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct hns_roce_ib_iboe *iboe = NULL;
++	struct hns_roce_dev *hr_dev = NULL;
++	u8 port = 0;
++	int ret = 0;
 +
-+	ib_dealloc_device(&hr_dev->ib_dev);
++	hr_dev = container_of(self, struct hns_roce_dev, iboe.nb);
++	iboe = &hr_dev->iboe;
 +
-+	return 0;
++	for (port = 0; port < hr_dev->caps.num_ports; port++) {
++		if (dev == iboe->netdevs[port]) {
++			ret = handle_en_event(hr_dev, port, event);
++			if (ret)
++				return NOTIFY_DONE;
++			break;
++		}
++	}
++
++	return NOTIFY_DONE;
 +}
 +
-+static const struct of_device_id hns_roce_of_match[] = {
-+	{ .compatible = "hisilicon,hns-roce-v1",},
-+	{},
-+};
-+MODULE_DEVICE_TABLE(of, hns_roce_of_match);
++static void hns_roce_addr_event(int event, struct net_device *event_netdev,
++				struct hns_roce_dev *hr_dev, union ib_gid *gid)
++{
++	struct hns_roce_ib_iboe *iboe = NULL;
++	int gid_table_len = 0;
++	unsigned long flags;
++	union ib_gid zgid;
++	u8 gid_idx = 0;
++	u8 port = 0;
++	int i = 0;
++	int free;
++	struct net_device *real_dev = rdma_vlan_dev_real_dev(event_netdev) ?
++				      rdma_vlan_dev_real_dev(event_netdev) :
++				      event_netdev;
 +
-+static struct platform_driver hns_roce_driver = {
-+	.probe = hns_roce_probe,
-+	.remove = hns_roce_remove,
-+	.driver = {
-+		.name = DRV_NAME,
-+		.of_match_table = hns_roce_of_match,
-+	},
-+};
++	if (event != NETDEV_UP && event != NETDEV_DOWN)
++		return;
 +
-+module_platform_driver(hns_roce_driver);
++	iboe = &hr_dev->iboe;
++	while (port < hr_dev->caps.num_ports) {
++		if (real_dev == iboe->netdevs[port])
++			break;
++		port++;
++	}
 +
-+MODULE_LICENSE("GPL v2");
-+MODULE_AUTHOR("Wei Hu <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>");
-+MODULE_AUTHOR("Nenglong Zhao <zhaonenglong-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>");
-+MODULE_AUTHOR("Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>");
-+MODULE_DESCRIPTION("HISILICON RoCE driver");
-+MODULE_ALIAS("platform:" DRV_NAME);
++	if (port >= hr_dev->caps.num_ports) {
++		dev_dbg(&hr_dev->pdev->dev, "can't find netdev\n");
++		return;
++	}
++
++	memset(zgid.raw, 0, sizeof(zgid.raw));
++	free = -1;
++	gid_table_len = hr_dev->caps.gid_table_len[port];
++
++	spin_lock_irqsave(&hr_dev->iboe.lock, flags);
++
++	for (i = 0; i < gid_table_len; i++) {
++		gid_idx = hns_get_gid_index(hr_dev, port, i);
++		if (!memcmp(gid->raw, iboe->gid_table[gid_idx].raw,
++			    sizeof(gid->raw)))
++			break;
++		if (free < 0 && !memcmp(zgid.raw,
++			iboe->gid_table[gid_idx].raw, sizeof(zgid.raw)))
++			free = i;
++	}
++
++	if (i >= gid_table_len) {
++		if (free < 0) {
++			spin_unlock_irqrestore(&hr_dev->iboe.lock, flags);
++			dev_dbg(&hr_dev->pdev->dev,
++				"gid_index overflow, port(%d)\n", port);
++			return;
++		}
++		if (!hns_roce_set_gid(hr_dev, port, free, gid))
++			hns_roce_update_gids(hr_dev, port);
++	} else if (event == NETDEV_DOWN) {
++		if (!hns_roce_set_gid(hr_dev, port, i, &zgid))
++			hns_roce_update_gids(hr_dev, port);
++	}
++
++	spin_unlock_irqrestore(&hr_dev->iboe.lock, flags);
++}
++
++static int hns_roce_inet_event(struct notifier_block *self, unsigned long event,
++			       void *ptr)
++{
++	struct in_ifaddr *ifa = ptr;
++	struct hns_roce_dev *hr_dev;
++	struct net_device *dev = ifa->ifa_dev->dev;
++	union ib_gid gid;
++
++	ipv6_addr_set_v4mapped(ifa->ifa_address, (struct in6_addr *)&gid);
++
++	hr_dev = container_of(self, struct hns_roce_dev, iboe.nb_inet);
++
++	hns_roce_addr_event(event, dev, hr_dev, &gid);
++
++	return NOTIFY_DONE;
++}
++
+ static int hns_roce_setup_mtu_gids(struct hns_roce_dev  *hr_dev)
+ {
+ 	struct in_ifaddr *ifa_list = NULL;
+@@ -175,6 +361,10 @@ static int hns_roce_setup_mtu_gids(struct hns_roce_dev  *hr_dev)
+ 
+ static void hns_roce_unregister_device(struct hns_roce_dev *hr_dev)
+ {
++	struct hns_roce_ib_iboe *iboe = &hr_dev->iboe;
++
++	unregister_inetaddr_notifier(&iboe->nb_inet);
++	unregister_netdevice_notifier(&iboe->nb);
+ 	ib_unregister_device(&hr_dev->ib_dev);
+ }
+ 
+@@ -211,8 +401,27 @@ static int hns_roce_register_device(struct hns_roce_dev *hr_dev)
+ 		goto error_failed_setup_mtu_gids;
+ 	}
+ 
++	spin_lock_init(&iboe->lock);
++
++	iboe->nb.notifier_call = hns_roce_netdev_event;
++	ret = register_netdevice_notifier(&iboe->nb);
++	if (ret) {
++		dev_err(dev, "register_netdevice_notifier failed!\n");
++		goto error_failed_setup_mtu_gids;
++	}
++
++	iboe->nb_inet.notifier_call = hns_roce_inet_event;
++	ret = register_inetaddr_notifier(&iboe->nb_inet);
++	if (ret) {
++		dev_err(dev, "register inet addr notifier failed!\n");
++		goto error_failed_register_inetaddr_notifier;
++	}
++
+ 	return 0;
+ 
++error_failed_register_inetaddr_notifier:
++	unregister_netdevice_notifier(&iboe->nb);
++
+ error_failed_setup_mtu_gids:
+ 	ib_unregister_device(ib_dev);
+ 
 -- 
 1.9.1
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
