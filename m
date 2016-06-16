@@ -1,31 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [for-next 0/1] [pull request] Mellanox ConnectX-4 Shared Code
-Date: Wed, 15 Jun 2016 21:37:24 -0700 (PDT)
-Message-ID: <20160615.213724.761419504231088993.davem@davemloft.net>
-References: <1465900152-32049-1-git-send-email-leonro@mellanox.com>
+Subject: Re: [PATCH net-next] net: vrf: Switch dst dev to loopback on
+ device delete
+Date: Wed, 15 Jun 2016 21:40:15 -0700 (PDT)
+Message-ID: <20160615.214015.227616106030915305.davem@davemloft.net>
+References: <1465929441-19163-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dledford@redhat.com, linux-rdma@vger.kernel.org,
-	netdev@vger.kernel.org
-To: leonro@mellanox.com
+Cc: netdev@vger.kernel.org
+To: dsa@cumulusnetworks.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36465 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36491 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750898AbcFPEh1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 00:37:27 -0400
-In-Reply-To: <1465900152-32049-1-git-send-email-leonro@mellanox.com>
+	with ESMTP id S1750928AbcFPEkR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 00:40:17 -0400
+In-Reply-To: <1465929441-19163-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Leon Romanovsky <leonro@mellanox.com>
-Date: Tue, 14 Jun 2016 13:29:11 +0300
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Tue, 14 Jun 2016 11:37:21 -0700
 
-> are available in the git repository at:
+> Attempting to delete a VRF device with a socket bound to it can stall:
 > 
->   git@gitolite.kernel.org:pub/scm/linux/kernel/git/leon/linux-rdma tags/shared
+>   unregister_netdevice: waiting for red to become free. Usage count = 1
+> 
+> The unregister is waiting for the dst to be released and with it
+> references to the vrf device. Similar to dst_ifdown switch the dst
+> dev to loopback on delete for all of the dst's for the vrf device
+> and release the references to the vrf device.
+> 
+> Fixes: 193125dbd8eb2 ("net: Introduce VRF device driver")
+> Fixes: 35402e3136634 ("net: Add IPv6 support to VRF device")
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
-You need to learn how to publish a public URL of your tree.  That's your
-private one that only you can access.
-
-Anyways, I pulled the correct URL into net-next.
+Applied.
