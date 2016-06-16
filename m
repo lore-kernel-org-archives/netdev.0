@@ -1,71 +1,66 @@
-From: "Eggert, Lars" <lars@netapp.com>
-Subject: Re: [CRIU] TCP_REPAIR MSS issue
-Date: Thu, 16 Jun 2016 07:51:22 +0000
-Message-ID: <5A6E3EFB-2B69-4C3C-BC67-CAFEC5B2DB2C@netapp.com>
-References: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
- <575FEA4B.2000603@virtuozzo.com>
- <3758708E-B5DE-4D8B-A8CC-37346F994B32@netapp.com>
- <20160614171528.GA14276@outlook.office365.com>
- <EE75D5F9-7243-4DE0-94FE-F6279939C231@netapp.com>
- <20160614205741.GB20722@outlook.office365.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-	boundary="Apple-Mail=_D01E96D8-714C-42AA-93A1-C4740EC31081";
-	protocol="application/pgp-signature"; micalg=pgp-sha256
-Cc: Pavel Emelyanov <xemul@virtuozzo.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"criu@openvz.org" <criu@openvz.org>,
-	"Honda, Michio" <michio@netapp.com>
-To: Andrey Vagin <avagin@virtuozzo.com>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH] sit: correct IP protocol used in ipip6_err
+Date: Thu, 16 Jun 2016 17:06:19 +0900
+Message-ID: <1466064379-32355-1-git-send-email-simon.horman@netronome.com>
+Cc: netdev@vger.kernel.org, Simon Horman <simon.horman@netronome.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx144.netapp.com ([216.240.21.25]:14525 "EHLO mx144.netapp.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751300AbcFPHvZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jun 2016 03:51:25 -0400
-In-Reply-To: <20160614205741.GB20722@outlook.office365.com>
-Content-Language: en-US
+Received: from mail-pa0-f41.google.com ([209.85.220.41]:36305 "EHLO
+	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751275AbcFPIGa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 04:06:30 -0400
+Received: by mail-pa0-f41.google.com with SMTP id b5so15924596pas.3
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 01:06:29 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Apple-Mail=_D01E96D8-714C-42AA-93A1-C4740EC31081
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain;
-	charset=us-ascii
+Since 32b8a8e59c9c ("sit: add IPv4 over IPv4 support")
+ipip6_err() may be called for packets whose IP protocol is
+IPPROTO_IPIP as well as those whose IP protocol is IPPROTO_IPV6.
 
-Hi,
+In the case of IPPROTO_IPIP packets the correct protocol value is not
+passed to ipv4_update_pmtu() or ipv4_redirect().
 
-On 2016-06-14, at 23:21, Andrey Vagin <avagin@virtuozzo.com> wrote:
-> On my host, I see that dst is set in tcp_v4_connect() -> =
-sk_setup_caps()
+This patch resolves this problem by using the IP protocol of the packet
+rather than a hard-coded value. This appears to be consistent
+with the usage of the protocol of a packet by icmp_socket_deliver()
+the caller of ipip6_err().
 
-sorry, are you saying that you don't see the issue with =
-TCP_MSS_DEFAULT-sized segments after TCP_REPAIR on your kernel? Or are =
-you saying my quick attempt at analyzing the cause was wrong?
+I was able to exercise the redirect case by using a setup where an ICMP
+redirect was received for the destination of the encapsulated packet.
+However, it appears that although incorrect the protocol field is not used
+in this case and thus no problem manifests.  On inspection it does not
+appear that a problem will manifest in the fragmentation needed/update pmtu
+case either.
 
-Thanks,
-Lars
+In short I believe this is a cosmetic fix. None the less, the use of
+IPPROTO_IPV6 seems wrong and confusing.
 
---Apple-Mail=_D01E96D8-714C-42AA-93A1-C4740EC31081
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="signature.asc"
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Message signed with OpenPGP using GPGMail
+Reviewed-by: Dinan Gunawardena <dinan.gunawardena@netronome.com>
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+---
+ net/ipv6/sit.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
------BEGIN PGP SIGNATURE-----
-
-iQIcBAEBCAAGBQJXYlp7AAoJEFS1wwm/cMFXpFMP/0irPUuBKogHIXX02LP88epP
-9QLI+onx61fmNoFJNyKt2v31iTtYd93AnPWhgxLz5BsmAjSk5PXqipa66Q/6QVeg
-leIpUhLwTABf3GONMCsC5y4wsfgw3Lnh32vm4ijw+CSBtTF07Rao6j1jQa0GLGYj
-EcvB2CHW8sfwDldmwG/E4XabqDUcwFqqvRdY3S+A5Gm382L+zWVBuBZyk+HUGJ+1
-dDz/ewvxizyKbGfinbW5D+1ldfKX/EBRPo8bnNbPAbiPdNL8HRHzPxJByqfdhZ24
-KiUyC1f9U5lSLzPVbgKcsHdUxAPgQQ+/4Kv4UVclFJVOyqG4aGPvx4UYOjMM7tpn
-H7pLq9IOcm9ZZsj1vglXXjxuBsYRD0zfkTffSfTKbqzCbBJxb+OKOZfJORF2H1on
-UgZE1Ho1lQMs4yiV7GR1PuwarbSFJ1sL60ND/ic0XC8U03Rl66886gnR4pLgsbKe
-aVnJRwd/4oxdeuZWJV9sGNxuWbAufKoLHeGNbZiBRKiB4dxfcUd0JRCiR0M12iMp
-UN2uLbG3oKTAnG5i1z25/1cRWMkSGU+7upRt6r4E0gf8njKhK1rDNYPGgyZFPlU2
-zBTmMFpB3Lj9GYYshd47HM6dYetkHfKEuLvVgl2ncjzPykhv9ijfqW6wXmBhOn1f
-s5TIpDW+sVX4XjZzsFhf
-=9/Kb
------END PGP SIGNATURE-----
-
---Apple-Mail=_D01E96D8-714C-42AA-93A1-C4740EC31081--
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index d9f2bd6ef72d..f4356bb13f4b 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -560,13 +560,13 @@ static int ipip6_err(struct sk_buff *skb, u32 info)
+ 
+ 	if (type == ICMP_DEST_UNREACH && code == ICMP_FRAG_NEEDED) {
+ 		ipv4_update_pmtu(skb, dev_net(skb->dev), info,
+-				 t->parms.link, 0, IPPROTO_IPV6, 0);
++				 t->parms.link, 0, iph->protocol, 0);
+ 		err = 0;
+ 		goto out;
+ 	}
+ 	if (type == ICMP_REDIRECT) {
+ 		ipv4_redirect(skb, dev_net(skb->dev), t->parms.link, 0,
+-			      IPPROTO_IPV6, 0);
++			      iph->protocol, 0);
+ 		err = 0;
+ 		goto out;
+ 	}
+-- 
+2.1.4
