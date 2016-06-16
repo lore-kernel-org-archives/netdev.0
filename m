@@ -1,22 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/3] r8152: fix known issues
-Date: Wed, 15 Jun 2016 23:39:31 -0700 (PDT)
-Message-ID: <20160615.233931.2076444803497333303.davem@davemloft.net>
-References: <1394712342-15778-179-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH net-next 0/3] bpf: improve fd array release
+Date: Wed, 15 Jun 2016 23:43:12 -0700 (PDT)
+Message-ID: <20160615.234312.1730174536154901684.davem@davemloft.net>
+References: <cover.1466021686.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-179-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37117 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751275AbcFPGnN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 02:43:13 -0400
+In-Reply-To: <cover.1466021686.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Thu, 16 Jun 2016 10:55:16 +0800
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Wed, 15 Jun 2016 22:47:11 +0200
 
-> These patches fix some known issues.
+> This set improves BPF perf fd array map release wrt to purging
+> entries, first two extend the API as needed. Please see individual
+> patches for more details.
 
-Series applied, thanks.
+Series applied, thanks Daniel.
