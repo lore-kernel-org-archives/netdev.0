@@ -1,52 +1,67 @@
 From: Hagen Paul Pfeifer <hagen@jauu.net>
 Subject: Re: [PATCH net-next v2] tcp: use RFC6298 compliant TCP RTO
  calculation
-Date: Thu, 16 Jun 2016 11:03:58 +0200 (CEST)
-Message-ID: <1688164699.25825.1466067838281@office.mailbox.org>
+Date: Thu, 16 Jun 2016 11:07:35 +0200 (CEST)
+Message-ID: <1771240333.25844.1466068055580@office.mailbox.org>
 References: <CAK6E8=dWLF+gRprxEbHRLnkRNHmf5sbedtv2Dt1jOqKPh7fmjA@mail.gmail.com>
  <20160614191841.21496-1-dmetz@mytum.de>
  <CAK6E8=eeso8OEN_0-znqkuEyVTqzP1mTvwktk4QOsrLJXmuj9Q@mail.gmail.com>
  <20160615174114.GA16217@virgo.localdomain>
  <CAK6E8=fgQitOiXwjjn0gq93w7m5DQ2OHr_wvq-oGeAF2fhE-uA@mail.gmail.com>
+ <16f7fad2-e8e3-44b7-af09-43467840bd00@mytum.de>
+ <CANn89iLY27dQLXEmk9GMtACjjE0CWxqSK2FdM-Zo5HM5iA82XQ@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Metz <dmetz@mytum.de>, netdev <netdev@vger.kernel.org>,
-	Daniel Metz <daniel.metz@rohde-schwarz.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Yuchung Cheng <ycheng@google.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>,
+	Daniel Metz <daniel.metz@rohde-schwarz.com>
+To: Daniel Metz <dmetz@mytum.de>, Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mailbox.org ([80.241.60.215]:45698 "EHLO mx2.mailbox.org"
+Received: from mx2.mailbox.org ([80.241.60.215]:47395 "EHLO mx2.mailbox.org"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751683AbcFPJEI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jun 2016 05:04:08 -0400
-In-Reply-To: <CAK6E8=fgQitOiXwjjn0gq93w7m5DQ2OHr_wvq-oGeAF2fhE-uA@mail.gmail.com>
+	id S1751323AbcFPJHr convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 05:07:47 -0400
+In-Reply-To: <CANn89iLY27dQLXEmk9GMtACjjE0CWxqSK2FdM-Zo5HM5iA82XQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On June 15, 2016 at 8:02 PM Yuchung Cheng <ycheng@google.com> wrote:
-> 
-> Let's say the SRTT is 100ms and RTT variations is 10ms. The variation
-> is low because we've been sending large chunks, and RTT is fairly
-> stable, and we sample on every ACK. The RTOs produced are
-> 
-> RFC6298: RTO=1s
-> Linux: RTO=300ms
-> This patch: RTO=200ms
-> 
-> Then we send 1 packet out. The receiver delays the ACK up to 200ms.
-> The actual RTT can be longer because other network components further
-> delay the data or the ACK. This patch would surely fire the RTO
-> spuriously.
-> 
-> so we can either implement RFC6298 faithfully, or apply the
-> lower-bound as-is, or something in between. But the current patch
-> as-is is more aggressive. Did I miss something?
+> On June 15, 2016 at 10:38 PM Eric Dumazet <edumazet@google.com> wrote=
+:
+>
+> I guess the problem is that some folks use smaller rto than
+> RTAX_RTO_MIN , look at tcp_rto_min()
 
-We analyzed the impact for a wide variety of network characteristics. Starting from bulk data till chatty, sender-limited transmissions from low RTTs to high RTTs, small and large variances as well as different queue characteristics. For a group of tests we measured advantages of a RFC 6298 compliant implementation: sender-limited flows. For bulk data we did not measured any difference compared to standard Linux. As a result we concluded that the RFC conform implementation - mapped to real world protocols - if beneficial.
+Due to the nature of the Linux calculation, this is probably more of a =
+reason to use the RFC 6298 calculation. When a smaller MinRTO as 200ms =
+is used, the Linux =E2=80=9Cadvantage=E2=80=9D to account for Delayed A=
+CKs up to 200ms is decreased. Assuming a MinRTO of 0ms, the Linux abili=
+ty and the RFC ability to account for sudden Delayed ACKs is pretty equ=
+al: zero.=20
 
-For the mentioned use case, yes the new implementation is a little bit more aggressive: when delayed ack kicks in, a spurious retransmission can be triggerd, yes. We asked ourself if this is a real world scenario or more an theoretical issue. Furthermore, if a real world problem, if the retransmission is negligible compared to the advantages?
+To illustrate this: RTT: 50ms, RTTVAR: 0ms, MinRTO: 50ms, Delayed ACKs:=
+ 200ms.=20
 
-Yuchung, can you test the patch and see if the patch have any downsides? And thank you for the comments!
+Before any ACK is delayed:
+
+Linux RTO ~ 100+ms (tested)=20
+RFC 6298 RTO ~ 50+ms (tested)=20
+
+RTT of first delayed ACK if it is not shortened due to another data pac=
+ket: ~250ms=20
+
+This is not tied to the RTT:
+RTT 1000ms, RTTVAR: 0ms, MinRTO: 50ms, Delayed ACKs: 200ms=20
+
+Before any ACK is delayed:
+
+Linux RTO ~ 1050+ms (tested)=20
+RFC 6298 RTO ~ 1000+ms (tested)
+
+RTT of first delayed ACK if it is not shortened due to another data pac=
+ket: ~1200ms=20
+
+A RFC 6298 problem we run in so far was with extremely steady RTTs and =
+sender limited data. A Spurious Retransmission occurred from time to ti=
+me in this case.
 
 Hagen
