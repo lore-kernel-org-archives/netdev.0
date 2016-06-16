@@ -1,134 +1,134 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 2/2] iplink: Check address length via netlink
-Date: Thu, 16 Jun 2016 16:19:40 +0200
-Message-ID: <1466086780-5613-3-git-send-email-phil@nwl.cc>
-References: <1466086780-5613-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net-next 07/13] qeth: introduce linearization fail count to stats
+Date: Thu, 16 Jun 2016 16:18:57 +0200
+Message-ID: <1466086743-55484-8-git-send-email-ubraun@linux.vnet.ibm.com>
+References: <1466086743-55484-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	utz.bacher@de.ibm.com
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:36168 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754763AbcFPOUA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jun 2016 10:20:00 -0400
-In-Reply-To: <1466086780-5613-1-git-send-email-phil@nwl.cc>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:59167 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1754501AbcFPOTr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 10:19:47 -0400
+Received: from pps.filterd (m0098416.ppops.net [127.0.0.1])
+	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u5GEIxHp071345
+	for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 10:19:32 -0400
+Received: from e06smtp10.uk.ibm.com (e06smtp10.uk.ibm.com [195.75.94.106])
+	by mx0b-001b2d01.pphosted.com with ESMTP id 23kqtgf80k-1
+	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 10:19:32 -0400
+Received: from localhost
+	by e06smtp10.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
+	Thu, 16 Jun 2016 15:19:30 +0100
+In-Reply-To: <1466086743-55484-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is a feature which was lost during the conversion to netlink
-interface: If the device exists and a user tries to change the link
-layer address, query the kernel for the old address first and reject the
-new one if sizes differ.
+From: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
 
-This patch adds the same check when setting VF address by assuming same
-length as PF device.
+When skb data touches too many pages, skb_linearize() is called
+opportunistically in the hope that less pages will be required
+for a big linear buffer than for multiple fragments. This patch
+intoduces a separate counter in ethtool statistics structure
+representing _failed_ linearization attempts.
 
-Note that at least for VFs the check can't be done in kernel space since
-struct ifla_vf_mac lacks a length field and due to netlink padding the
-exact size can't be communicated to the kernel.
-
-Signed-off-by: Phil Sutter <phil@nwl.cc>
+Signed-off-by: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
+Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Reviewed-by: Lakhvich Dmitriy <ldmitriy@ru.ibm.com>
+Reviewed-by: Thomas Richter <tmricht@de.ibm.com>
 ---
- ip/iplink.c | 52 ++++++++++++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 50 insertions(+), 2 deletions(-)
+ drivers/s390/net/qeth_core.h      |  1 +
+ drivers/s390/net/qeth_core_main.c |  6 ++++--
+ drivers/s390/net/qeth_l2_main.c   | 12 +++++++++---
+ drivers/s390/net/qeth_l3_main.c   | 12 +++++++++---
+ 4 files changed, 23 insertions(+), 8 deletions(-)
 
-diff --git a/ip/iplink.c b/ip/iplink.c
-index 4cb9bab66b916..68e5faea3581d 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -237,6 +237,36 @@ struct iplink_req {
- 	char			buf[1024];
+diff --git a/drivers/s390/net/qeth_core.h b/drivers/s390/net/qeth_core.h
+index c3ab956..b4f14e4 100644
+--- a/drivers/s390/net/qeth_core.h
++++ b/drivers/s390/net/qeth_core.h
+@@ -145,6 +145,7 @@ struct qeth_perf_stats {
+ 	unsigned int sg_alloc_page_rx;
+ 	unsigned int tx_csum;
+ 	unsigned int tx_lin;
++	unsigned int tx_linfail;
  };
  
-+static int nl_get_ll_addr_len(unsigned int dev_index)
-+{
-+	int len;
-+	struct iplink_req req = {
-+		.n = {
-+			.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
-+			.nlmsg_type = RTM_GETLINK,
-+			.nlmsg_flags = NLM_F_REQUEST
-+		},
-+		.i = {
-+			.ifi_family = preferred_family,
-+			.ifi_index = dev_index,
+ /* Routing stuff */
+diff --git a/drivers/s390/net/qeth_core_main.c b/drivers/s390/net/qeth_core_main.c
+index a91a31d..9806ee0 100644
+--- a/drivers/s390/net/qeth_core_main.c
++++ b/drivers/s390/net/qeth_core_main.c
+@@ -5801,6 +5801,7 @@ static struct {
+ 	{"tx do_QDIO count"},
+ 	{"tx csum"},
+ 	{"tx lin"},
++	{"tx linfail"},
+ 	{"cq handler count"},
+ 	{"cq handler time"}
+ };
+@@ -5861,8 +5862,9 @@ void qeth_core_get_ethtool_stats(struct net_device *dev,
+ 	data[32] = card->perf_stats.outbound_do_qdio_cnt;
+ 	data[33] = card->perf_stats.tx_csum;
+ 	data[34] = card->perf_stats.tx_lin;
+-	data[35] = card->perf_stats.cq_cnt;
+-	data[36] = card->perf_stats.cq_time;
++	data[35] = card->perf_stats.tx_linfail;
++	data[36] = card->perf_stats.cq_cnt;
++	data[37] = card->perf_stats.cq_time;
+ }
+ EXPORT_SYMBOL_GPL(qeth_core_get_ethtool_stats);
+ 
+diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
+index e24627f..08b5fa9 100644
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -898,10 +898,16 @@ static int qeth_l2_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	 */
+ 	if ((card->info.type != QETH_CARD_TYPE_IQD) &&
+ 	    !qeth_get_elements_no(card, new_skb, 0)) {
+-		if (skb_linearize(new_skb))
++		int lin_rc = skb_linearize(new_skb);
++
++		if (card->options.performance_stats) {
++			if (lin_rc)
++				card->perf_stats.tx_linfail++;
++			else
++				card->perf_stats.tx_lin++;
 +		}
-+	};
-+	struct rtattr *tb[IFLA_MAX+1];
-+
-+	if (rtnl_talk(&rth, &req.n, &req.n, sizeof(req)) < 0)
-+		return -1;
-+
-+	len = req.n.nlmsg_len - NLMSG_LENGTH(sizeof(req.i));
-+	if (len < 0)
-+		return -1;
-+
-+	parse_rtattr_flags(tb, IFLA_MAX, IFLA_RTA(&req.i), len, NLA_F_NESTED);
-+	if (!tb[IFLA_ADDRESS])
-+		return -1;
-+
-+	return RTA_PAYLOAD(tb[IFLA_ADDRESS]);
-+}
-+
- static int iplink_parse_vf(int vf, int *argcp, char ***argvp,
- 			   struct iplink_req *req, int dev_index)
- {
-@@ -274,12 +304,19 @@ static int iplink_parse_vf(int vf, int *argcp, char ***argvp,
- 		NEXT_ARG();
- 		if (matches(*argv, "mac") == 0) {
- 			struct ifla_vf_mac ivm = { 0 };
-+			int halen = nl_get_ll_addr_len(dev_index);
- 
- 			NEXT_ARG();
- 			ivm.vf = vf;
- 			len = ll_addr_a2n((char *)ivm.mac, 32, *argv);
- 			if (len < 0)
- 				return -1;
-+			if (halen > 0 && len != halen) {
-+				fprintf(stderr,
-+					"Invalid address length %d - must be %d bytes\n",
-+					len, halen);
-+				return -1;
-+			}
- 			addattr_l(&req->n, sizeof(*req), IFLA_VF_MAC, &ivm, sizeof(ivm));
- 		} else if (matches(*argv, "vlan") == 0) {
- 			struct ifla_vf_vlan ivv;
-@@ -428,6 +465,7 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 	int numrxqueues = -1;
- 	int dev_index = 0;
- 	int link_netnsid = -1;
-+	int addr_len = 0;
- 
- 	*group = -1;
- 	ret = argc;
-@@ -452,10 +490,10 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 			*link = *argv;
- 		} else if (matches(*argv, "address") == 0) {
- 			NEXT_ARG();
--			len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
-+			addr_len = ll_addr_a2n(abuf, sizeof(abuf), *argv);
- 			if (len < 0)
- 				return -1;
--			addattr_l(&req->n, sizeof(*req), IFLA_ADDRESS, abuf, len);
-+			addattr_l(&req->n, sizeof(*req), IFLA_ADDRESS, abuf, addr_len);
- 		} else if (matches(*argv, "broadcast") == 0 ||
- 			   strcmp(*argv, "brd") == 0) {
- 			NEXT_ARG();
-@@ -677,6 +715,16 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 		argc--; argv++;
++		if (lin_rc)
+ 			goto tx_drop;
+-		if (card->options.performance_stats)
+-			card->perf_stats.tx_lin++;
  	}
  
-+	if (dev_index && addr_len) {
-+		int halen = nl_get_ll_addr_len(dev_index);
-+		if (halen >= 0 && halen != addr_len) {
-+			fprintf(stderr,
-+			        "Invalid address length %d - must be %d bytes\n",
-+			        addr_len, halen);
-+			return -1;
-+		}
-+	}
+ 	if (card->info.type == QETH_CARD_TYPE_OSN)
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+index 0afdb14..51077fb 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -2918,10 +2918,16 @@ static int qeth_l3_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	if ((card->info.type != QETH_CARD_TYPE_IQD) &&
+ 	    ((use_tso && !qeth_l3_get_elements_no_tso(card, new_skb, 1)) ||
+ 	     (!use_tso && !qeth_get_elements_no(card, new_skb, 0)))) {
+-		if (skb_linearize(new_skb))
++		int lin_rc = skb_linearize(new_skb);
 +
- 	return ret - argc;
- }
++		if (card->options.performance_stats) {
++			if (lin_rc)
++				card->perf_stats.tx_linfail++;
++			else
++				card->perf_stats.tx_lin++;
++		}
++		if (lin_rc)
+ 			goto tx_drop;
+-		if (card->options.performance_stats)
+-			card->perf_stats.tx_lin++;
+ 	}
  
+ 	if (use_tso) {
 -- 
-2.8.2
+2.6.6
