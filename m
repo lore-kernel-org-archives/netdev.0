@@ -1,76 +1,49 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [V2,
- next] brcmfmac: don't remove interface on link down firmware event
-Date: Thu, 16 Jun 2016 15:12:52 +0000 (UTC)
-Message-ID: <20160616151252.30C226141A@smtp.codeaurora.org>
-References: <1464583269-30255-1-git-send-email-zajec5@gmail.com>
+Subject: Re: rtlwifi: fix error handling in *_read_adapter_info()
+Date: Thu, 16 Jun 2016 15:13:51 +0000 (UTC)
+Message-ID: <20160616151351.4AD026141C@smtp.codeaurora.org>
+References: <1464622792-1749047-1-git-send-email-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
-	Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
-	IEEE802.11n WIRELESS DRIVER),
-	brcm80211-dev-list@broadcom.com (open list:BROADCOM BRCM80211
-	IEEE802.11n WIRELESS DRIVER),
-	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-	linux-kernel@vger.kernel.org (open list)
-To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Larry Finger <Larry.Finger@lwfinger.net>,
+	Arnd Bergmann <arnd@arndb.de>,
+	Chaoming Li <chaoming_li@realsil.com.cn>,
+	Taehee Yoo <ap420073@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1464583269-30255-1-git-send-email-zajec5@gmail.com>
+In-Reply-To: <1464622792-1749047-1-git-send-email-arnd@arndb.de>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rafa=C5=82 Mi=C5=82ecki wrote:
-> There are two firmware events we handle similarly in brcmfmac:
-> BRCMF_E_LINK and BRCMF_E_IF. The difference from firmware point of vi=
-ew
-> is that the first one means BSS remains present in the firmware. Tryi=
-ng
-> to (re)create it (e.g. when adding new virtual interface) will result=
- in
-> an error.
->=20
-> Current code treats both events in a similar way. It removes Linux
-> interface for each of them. It works OK with e.g. BCM43602. Its firmw=
-are
-> generates both events for each interface. It means we get BRCMF_E_LIN=
-K
-> and remove interface. That is soon followed by BRCMF_E_IF which means
-> BSS was also removed in a firmware. The only downside of this is a
-> harmless error like:
-> [  208.643180] brcmfmac: brcmf_fweh_call_event_handler: no interface =
-object
->=20
-> Unfortunately BCM4366 firmware doesn't automatically remove BSS and s=
-o
-> it doesn't generate BRCMF_E_IF. In such case we incorrectly remove Li=
-nux
-> interface on BRCMF_E_LINK as BSS is still present in the firmware. It
-> results in an error when trying to re-create virtual interface, e.g.:
-> > iw phy phy1 interface add wlan1-1 type __ap
-> [ 3602.929199] brcmfmac: brcmf_ap_add_vif: timeout occurred
-> command failed: I/O error (-5)
->=20
-> With this patch we don't remove Linux interface while firmware keeps
-> BSS. Thanks to this we keep a consistent states of host driver and
-> device firmware.
->=20
-> Further improvement should be to mark BSS as disabled and remove
-> interface on BRCMF_E_LINK. Then we should add support for reusing
-> BSS-es.
->=20
-> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+Arnd Bergmann <arnd@arndb.de> wrote:
+> There are nine copies of the _rtl88ee_read_adapter_info() function,
+> and most but not all of them cause a build warning in some configurations:
+> 
+> rtl8192de/hw.c: In function '_rtl92de_read_adapter_info':
+> rtl8192de/hw.c:1767:12: error: 'hwinfo' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> rtl8723ae/hw.c: In function '_rtl8723e_read_adapter_info.constprop':
+> rtlwifi/rtl8723ae/hw.c:1654:12: error: 'hwinfo' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> 
+> The problem is that when rtlefuse->epromtype is something other than
+> EEPROM_BOOT_EFUSE, the rest of the function uses undefined data, resulting
+> in random behavior later.
+> 
+> Apparently, in some drivers, the problem was already found and fixed
+> but the fix did not make it into the others.
+> 
+> This picks one approach to deal with the problem and applies identical
+> code to all 9 files, to simplify the later consolidation of those.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
 
 Thanks, 1 patch applied to wireless-drivers-next.git:
 
-fd3667a8d1cb brcmfmac: don't remove interface on link down firmware eve=
-nt
+5345ea6a4bfb rtlwifi: fix error handling in *_read_adapter_info()
 
---=20
+-- 
 Sent by pwcli
-https://patchwork.kernel.org/patch/9140237/
+https://patchwork.kernel.org/patch/9141721/
