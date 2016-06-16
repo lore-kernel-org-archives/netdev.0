@@ -1,49 +1,124 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [Bug 120441] af_packet no longer uses symmetric hashing
-Date: Thu, 16 Jun 2016 16:50:02 +0200
-Message-ID: <40238392-1c86-53ce-7722-51dd5c2dc294@stressinduktion.org>
-References: <511F6A17-BD35-4846-A717-1463B74D7F2A@gmail.com>
- <5762B9C0.9010902@iogearbox.net>
+From: Vincent Palatin <vpalatin@chromium.org>
+Subject: Re: net: stmmac: dwmac-rk: fixes for Wake-on-Lan on RK3288
+Date: Thu, 16 Jun 2016 07:51:01 -0700
+Message-ID: <CAP_ceTweCVNsLONayu6woxyK7p1975w-t0LU4VUjwkqp+1G13A@mail.gmail.com>
+References: <bd302fc6-feae-b99a-4632-a0ff9ead0123@st.com> <1465606839-7722-1-git-send-email-vpalatin@chromium.org>
+ <3d278dd6-0b61-f618-b723-52f9c302c999@st.com> <CAP_ceTwbrx0vO8ufMO_SiwXFAxv5OUuQaYYS27gNqPTR6kRXyQ@mail.gmail.com>
+ <1a9e4f56-37b0-892f-97b5-b61106e6d40b@st.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com, jiri@resnulli.us,
-	willemb@google.com, eric@regit.org
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Derek Ditch <derek.ditch@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:57366 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754245AbcFPOuH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 10:50:07 -0400
-In-Reply-To: <5762B9C0.9010902@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, LKML <linux-kernel@vger.kernel.org>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Douglas Anderson <dianders@chromium.org>,
+	=?UTF-8?Q?Heiko_St=C3=BCbner?= <heiko@sntech.de>,
+	Shunqian Zheng <zhengsq@rock-chips.com>,
+	David Miller <davem@davemloft.net>
+To: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1a9e4f56-37b0-892f-97b5-b61106e6d40b@st.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16.06.2016 16:37, Daniel Borkmann wrote:
-> On 06/16/2016 03:57 PM, Derek Ditch wrote:
-> [...]
->>> Begin forwarded message:
+Hi Giuseppe,
+
+On Thu, Jun 16, 2016 at 6:37 AM, Giuseppe CAVALLARO
+<peppe.cavallaro@st.com> wrote:
+>
+> Hi Vincent
+>
+>
+> On 6/15/2016 7:04 PM, Vincent Palatin wrote:
+>>
+>> On Sun, Jun 12, 2016 at 11:46 PM, Giuseppe CAVALLARO
+>> <peppe.cavallaro@st.com> wrote:
 >>>
->>> From: bugzilla-daemon@bugzilla.kernel.org
->>> Subject: [Bug 120441] af_packet no longer uses symmetric hashing
->>> Date: June 16, 2016 at 07:35:54 -0500
->>> To: derek.ditch@gmail.com
+>>> On 6/11/2016 3:00 AM, Vincent Palatin wrote:
+>>>>
+>>>>
+>>>> In order to support Wake-On-Lan when using the RK3288 integrated MAC
+>>>> (with an external RGMII PHY), we need to avoid shutting down the regulator
+>>>> of the external PHY when the MAC is suspended as it's currently done in
+>>>> the MAC
+>>>> platform code.
+>>>> As a first step, create independant callbacks for suspend/resume rather
+>>>> than
+>>>> re-using exit/init callbacks. So the dwmac platform driver can behave
+>>>> differently
+>>>> on suspend where it might skip shutting the PHY and at module unloading.
+>>>> Then update the dwmac-rk driver to switch off the PHY regulator only if we
+>>>> are
+>>>> not planning to wake up from the LAN.
+>>>> Finally add the PMT interrupt to the MAC device tree configuration, so we
+>>>> can
+>>>> wake up the core from it when the PHY has received the magic packet.
 >>>
->>> https://bugzilla.kernel.org/show_bug.cgi?id=120441
-> 
-> Just thinking out loud, perhaps one way would be to implement your own
-> fanout
-> hashing via eBPF demuxer, f.e. in case CPU selection etc wouldn't work.
-> Another
-> option could be to have a (2nd) customizable hash demux that would
-> enforce to
-> always go through the flow-dissector and where you would have a socket
-> option
-> to control keys for it, but I presume that seems rather less desirable.
+>>>
+>>>
+>>> IMO these could be sent for net-next and also other glue logic
+>>> files should be reworked in order to use the new API for coherence.
+>>
+>>
+>> Given they will have the same set of functions for exit/init and
+>> suspend/resume, you mean duplicating the callbacks like this :
+>> --- a/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+>> +++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-sti.c
+>> @@ -359,6 +359,8 @@ static int sti_dwmac_probe(struct platform_device *pdev)
+>>         plat_dat->bsp_priv = dwmac;
+>>         plat_dat->init = sti_dwmac_init;
+>>         plat_dat->exit = sti_dwmac_exit;
+>> +       plat_dat->suspend = sti_dwmac_exit;
+>> +       plat_dat->resume = sti_dwmac_init;
+>>         plat_dat->fix_mac_speed = data->fix_retime_src;
+>>
+>>         ret = sti_dwmac_init(pdev, plat_dat->bsp_priv);
+>>
+>> Is this anyhow useful ?
+>
+>
+> I think this is mandatory otherwise you are not guaranteeing the PM
+> stuff working on the rest of the glue-logics (not only sti); because
+> init/exit calls won't be called anymore.
 
-Isn't a symmetric hashing for af-packet something very fundamental?
-Looks much more like a bug to me.
 
-Bye,
-Hannes
+As mentioned in the PATCH 1/3 description: "If the driver does not
+provide the suspend or resume callback, we fall
+back to the old behavior trying to use exit or init. [...]"
+ie.
+--- a/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
++++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_platform.c
+@@ -411,7 +411,9 @@ static int stmmac_pltfr_suspend(struct device *dev)
+        struct platform_device *pdev = to_platform_device(dev);
+
+        ret = stmmac_suspend(dev);
+-       if (priv->plat->exit)
++       if (priv->plat->suspend)
++               priv->plat->suspend(pdev, priv->plat->bsp_priv);
++       else if (priv->plat->exit)
+                priv->plat->exit(pdev, priv->plat->bsp_priv);
+
+        return ret;
+@@ -430,7 +432,9 @@ static int stmmac_pltfr_resume(struct device *dev)
+        struct stmmac_priv *priv = netdev_priv(ndev);
+        struct platform_device *pdev = to_platform_device(dev);
+
+-       if (priv->plat->init)
++       if (priv->plat->resume)
++               priv->plat->resume(pdev, priv->plat->bsp_priv);
++       else if (priv->plat->init)
+                priv->plat->init(pdev, priv->plat->bsp_priv);
+
+        return stmmac_resume(dev);
+
+So I was under the impression that everything should continue working
+as before for drivers only providing init/exit,
+by falling back on calling ->exit() if there is no suspend() callback
+initialized for the PM calls.
+You think that won't work ?
+
+>
+> So I kindly ask you to
+> propagate the fix and send the V3.  The implementation above is ok for
+> me.
+>
+> peppe
+>
