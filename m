@@ -1,37 +1,70 @@
-From: Wei Tang <tangwei@cmss.chinamobile.com>
-Subject: [PATCH] net: do not initialise statics to 0
-Date: Thu, 16 Jun 2016 21:17:49 +0800
-Message-ID: <1466083069-9603-1-git-send-email-tangwei@cmss.chinamobile.com>
-Cc: ast@plumgrid.com, tom@herbertland.com, daniel@iogearbox.net,
-	ja@ssi.bg, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Wei Tang <tangwei@cmss.chinamobile.com>
-To: davem@davemloft.net, edumazet@google.com, aduyck@mirantis.com,
-	jiri@mellanox.com, jarod@redhat.com, nikolay@cumulusnetworks.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Subject: Re: [PATCH 04/15] drivers: net: cpsw: ethtool: fix accessing to
+ suspended device
+Date: Thu, 16 Jun 2016 16:32:27 +0300
+Message-ID: <5762AA6B.9060003@linaro.org>
+References: <20160615115603.4897-1-grygorii.strashko@ti.com>
+ <20160615115603.4897-5-grygorii.strashko@ti.com> <57617ECF.2010902@gmail.com>
+ <5761860C.2020502@ti.com> <5762A010.2070201@linaro.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
+	Rob Herring <robh+dt@kernel.org>, devicetree@vger.kernel.org
+To: Grygorii Strashko <grygorii.strashko@ti.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Sekhar Nori <nsekhar@ti.com>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f46.google.com ([209.85.215.46]:35682 "EHLO
+	mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754199AbcFPNcc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 09:32:32 -0400
+Received: by mail-lf0-f46.google.com with SMTP id l188so38253290lfe.2
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 06:32:31 -0700 (PDT)
+In-Reply-To: <5762A010.2070201@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the checkpatch.pl error to dev.c:
 
-ERROR: do not initialise statics to 0
 
-Signed-off-by: Wei Tang <tangwei@cmss.chinamobile.com>
----
- net/core/dev.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On 16.06.16 15:48, Ivan Khoronzhuk wrote:
+>
+>
+> On 15.06.16 19:45, Grygorii Strashko wrote:
+>> On 06/15/2016 07:14 PM, Florian Fainelli wrote:
+>>> On 06/15/2016 04:55 AM, Grygorii Strashko wrote:
+>>>> The CPSW might be suspended by RPM if all ethX interfaces are down,
+>>>> but it still could be accesible through ethtool interfce. In this case
+>>>> ethtool operations, requiring registers access, will cause L3 errors and
+>>>> CPSW crash.
+>>>>
+>>>> Hence, fix it by adding RPM get/put calls in ethtool callbcaks which
+>>>> can access CPSW registers: .set_coalesce(), .get_ethtool_stats(),
+>>>> .set_pauseparam(), .get_regs()
+>>>
+>>> Provided that you implement an ethtool_ops::begin, it will be called
+>>> before each ethtool operation runs, so that could allow you to eliminate
+>>> some of the duplication here. Conversely ethtool_ops::end terminates
+>>> each operation and can be used for that purpose.
+>>
+>> Ah. Thanks for the advice. (assume you've meant .complete())
+>
+> Maybe better leave as is, I'm going to add two additional ehttool ops
+> containing RPM sensitive part and not, better to split code on those,
+> if possible...and hiding put/get in begin op can call rpm when it's not
+> needed at all..
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 904ff43..7a3fe58 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -2420,7 +2420,7 @@ EXPORT_SYMBOL(__skb_tx_hash);
- 
- static void skb_warn_bad_offload(const struct sk_buff *skb)
- {
--	static const netdev_features_t null_features = 0;
-+	static const netdev_features_t null_features;
- 	struct net_device *dev = skb->dev;
- 	const char *name = "";
- 
+But it's not a big deal, ethtool operations are rarelly anyway, and have
+impact only when interface is down that makes it even more rarely.
+
+>
+>>
+>>
+>>
+>
+
 -- 
-1.9.1
+Regards,
+Ivan Khoronzhuk
