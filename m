@@ -1,40 +1,40 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [net-next PATCH v3 01/17] vxlan/geneve: Include udp_tunnel.h in
- vxlan/geneve.h and fixup includes
-Date: Fri, 17 Jun 2016 01:06:04 +0200
-Message-ID: <4dd0dfc3-bd95-6559-ab53-1cf462d3c914@stressinduktion.org>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: [net-next PATCH v3 06/17] bnxt: Move GENEVE support from
+ hard-coded port to using port notifier
+Date: Thu, 16 Jun 2016 16:12:02 -0700
+Message-ID: <CACKFLinup=5BsJrSiePpVGFdsRDq6wSxt_XnkiDG4LmujXZ0Cg@mail.gmail.com>
 References: <20160616191851.20872.67154.stgit@localhost.localdomain>
- <20160616192044.20872.17936.stgit@localhost.localdomain>
+	<20160616192136.20872.49824.stgit@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: jesse@kernel.org, eugenia@mellanox.com, jbenc@redhat.com,
-	alexander.duyck@gmail.com, saeedm@mellanox.com,
-	ariel.elior@qlogic.com, tom@herbertland.com,
-	michael.chan@broadcom.com, Dept-GELinuxNICDev@qlogic.com,
-	davem@davemloft.net
-To: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Hannes Frederic Sowa <hannes@redhat.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Dept-GELinuxNICDev@qlogic.com, David Miller <davem@davemloft.net>
+To: Alexander Duyck <aduyck@mirantis.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:45687 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751711AbcFPXGK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 19:06:10 -0400
-In-Reply-To: <20160616192044.20872.17936.stgit@localhost.localdomain>
+Received: from mail-oi0-f47.google.com ([209.85.218.47]:36715 "EHLO
+	mail-oi0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751711AbcFPXMD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 19:12:03 -0400
+Received: by mail-oi0-f47.google.com with SMTP id p204so93011072oih.3
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 16:12:03 -0700 (PDT)
+In-Reply-To: <20160616192136.20872.49824.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16.06.2016 21:20, Alexander Duyck wrote:
-> This patch makes it so that we add udp_tunnel.h to vxlan.h and geneve.h
-> header files.  This is useful as I plan to move the generic handlers for
-> the port offloads into the udp_tunnel header file and leave the vxlan and
-> geneve headers to be a bit more protocol specific.
-> 
-> I also went through and cleaned out a number of redundant includes that
-> where in the .h and .c files for these drivers.
-> 
+On Thu, Jun 16, 2016 at 12:21 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
+> The port number for GENEVE is hard coded into the bnxt driver.  This is the
+> kind of thing we want to avoid going forward.  For now I will integrate
+> this back into the port notifier so that we can change the GENEVE port
+> number if we need to in the future.
+>
 > Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
-
-Also,
-
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Acked-by: Michael Chan <michael.chan@broadcom.com>
