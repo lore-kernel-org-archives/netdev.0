@@ -1,179 +1,396 @@
-From: Lijun Ou <oulijun@huawei.com>
-Subject: [PATCH v10 00/22] Add HiSilicon RoCE driver
-Date: Thu, 16 Jun 2016 22:35:08 +0800
-Message-ID: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
+From: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v10 12/22] IB/hns: Set mtu and gid support
+Date: Thu, 16 Jun 2016 22:35:20 +0800
+Message-ID: <1466087730-54856-13-git-send-email-oulijun@huawei.com>
+References: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
-	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
-	<oulijun@huawei.com>, <haifeng.wei@huawei.com>,
-	<yisen.zhuang@huawei.com>, <yankejian@huawei.com>,
-	<charles.chenxin@huawei.com>, <linuxarm@huawei.com>
-To: <dledford@redhat.com>, <sean.hefty@intel.com>,
-	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
-	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
-	<ogerlitz@mellanox.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1466087730-54856-1-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-The HiSilicon Network Substem is a long term evolution IP which is
-supposed to be used in HiSilicon ICT SoCs. HNS (HiSilicon Network
-Sybsystem) also has a hardware support of performing RDMA with
-RoCEE.
-The driver for HiSilicon RoCEE(RoCE Engine) is a platform driver and
-will support mulitple versions of SOCs in future. This version of driver
-is meant to support Hip06 SoC(which confirms to RoCEv1 hardware
-specifications).
+This patch mainly set mtu and gid resource. These resource
+will be used to set up network transmission in nodes.
 
-Changes v9 -> v10:
-1. delete redundant lines which it is netdevice.h in hns_roce_main.c
-2. adjust the indentation for HNS_ROCE_V1_NUM_ASYNC_EQE
-3. simplify the lines in hns_roce_init_qp_table function
-4. add static type for hns_roce_unregister_device
-5. move the call with hns_roce_unregister_device from the tenth patch to
-   the eleventh patch in hns_roce_remove function
-6. readjuest the alphabetic order in MAINTAINERS
-7. redesigned the way for getting irq names
-8. avoid the memory leakage because mr->pbl is not free in
-   hns_roce_mr function
-9. avoid the memory leakage because not kfree table->icm when exception
-10. add the link from LKML as well whose comment in all
+Signed-off-by: Wei Hu <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Nenglong Zhao <zhaonenglong-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+---
+PATCH v9/v8/v7/v6:
+- No change over the PATCH v5
 
-Changes v8 -> v9:
-1. delete the definition of ADDR_SHIFT_n, use literal 12, 32 and 44 and
-   add comments
-2. use roce_read/roce_write/readl/write instead of roce_readl/roce_writel
-3. delete the print error/debug messages for memory allocation errors
-4. use exit instead of uninit, for example hw->uninit -> hw->exit
-5. use roce_raw_write instead of _raw_writel in eq_set_cons_index
-6. modify the label with underscore
-7. adjust the indentation for the macro definitions in hns_roce_hw_v1.c
-8. simplify some lines in few functions and structures
-9. adjust the alphabetic order in MAINTAINERS
+PATCH v5:
+- The initial patch which was redesigned based on the second patch
+  in PATCH v4
+---
+---
+ drivers/infiniband/hw/hns/hns_roce_common.h |  16 ++++
+ drivers/infiniband/hw/hns/hns_roce_device.h |  14 ++++
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.c  |  68 ++++++++++++++-
+ drivers/infiniband/hw/hns/hns_roce_hw_v1.h  |   7 +-
+ drivers/infiniband/hw/hns/hns_roce_main.c   | 123 ++++++++++++++++++++++++++++
+ 5 files changed, 223 insertions(+), 5 deletions(-)
 
-Changes v7 -> v8:
-1. add a verbs operation named get_port_immutable. It is an 
-   independent patch
-2. add a comment for the definition of ADDR_SHIFT_n, n are 12,32
-   and 44
-3. restructures the code to align with naming convention of the Linux
-   according to the review of Doug Ledford
-4. modify the state for all .c and .h files
-
-Changes v6 -> v7:
-1. modify some type of parameter, use bool replace the original type
-2. add the Signed-off-by signatures in the first patch
-3. delete the improper print sentence in hns_roce_create_eq.
-
-Changes v5 -> v6:
-1. modify the type of obj for unsigned long according the reviews, and
-   modify the same questions in RoCE module
-2. fix the spelling error
-3. fix the Signed-off-by signatures
-
-Changes v4 -> v5:
-1. redesign the patchset for RoCE modules in order to split the huge
-   patch into small patches
-2. fix the directory path for RoCE module. Delete the hisilicon level.
-3. modify the name of roce_v1_hw into roce_hw_v1
-
-Changes v3 -> v4:
-1. modify roce.o into hns-roce.o in Makefile and Kconfig file
-
-Changes v2 -> v3:
-1. modify the formats of RoCE driver code base v2 by the experts 
-   reviewing. also, it used kmalloc_array instead of kmalloc, kcalloc
-   instead of kzalloc, when refer to memory allocation for array
-2. remove some functions without use and unconnected macros
-3. modify the binding document with RoCE DT base v2 which added
-   interrupt-names
-4. redesign the port_map and si_map in hns_dsaf_roce_reset
-5. add HiSilicon RoCE driver maintainers introduction in MAINTAINERS
-   document
-
-Changes v1 -> v2:
-1. modify the formats of roce driver code by the experts reviewing
-2. modify the bindings file with roce dts. add the attribute named 
-   interrput-names.
-3. modify the way of defining port mode in hns_dsaf_main.c
-4. move the Kconfig file into the hns directory and send it with roce
-
-Lijun Ou (22):
-  net: hns: Add reset function support for RoCE driver
-  devicetree: bindings: IB: Add binding document for HiSilicon RoCE
-  IB/hns: Add initial main frame driver and get cfg info
-  IB/hns: Add RoCE engine reset function
-  IB/hns: Add initial profile resource
-  IB/hns: Add initial cmd operation
-  IB/hns: Add event queue support
-  IB/hns: Add icm support
-  IB/hns: Add hca support
-  IB/hns: Add process flow to init RoCE engine
-  IB/hns: Add IB device registration
-  IB/hns: Set mtu and gid support
-  IB/hns: Add interface of the protocol stack registration
-  IB/hns: Add operations support for IB device and port
-  IB/hns: Add PD operations support
-  IB/hns: Add ah operations support
-  IB/hns: Add QP operations support
-  IB/hns: Add CQ operations support
-  IB/hns: Add memory region operations support
-  IB/hns: Add operation for getting immutable port
-  IB/hns: Kconfig and Makefile for RoCE module
-  MAINTAINERS: Add maintainers for HiSilicon RoCE driver
-
- .../bindings/infiniband/hisilicon-hns-roce.txt     |  107 +
- MAINTAINERS                                        |    8 +
- drivers/infiniband/Kconfig                         |    1 +
- drivers/infiniband/hw/Makefile                     |    1 +
- drivers/infiniband/hw/hns/Kconfig                  |   10 +
- drivers/infiniband/hw/hns/Makefile                 |    8 +
- drivers/infiniband/hw/hns/hns_roce_ah.c            |  132 +
- drivers/infiniband/hw/hns/hns_roce_alloc.c         |  262 ++
- drivers/infiniband/hw/hns/hns_roce_cmd.c           |  388 +++
- drivers/infiniband/hw/hns/hns_roce_cmd.h           |   84 +
- drivers/infiniband/hw/hns/hns_roce_common.h        |  325 +++
- drivers/infiniband/hw/hns/hns_roce_cq.c            |  451 ++++
- drivers/infiniband/hw/hns/hns_roce_device.h        |  746 ++++++
- drivers/infiniband/hw/hns/hns_roce_eq.c            |  750 ++++++
- drivers/infiniband/hw/hns/hns_roce_eq.h            |  130 +
- drivers/infiniband/hw/hns/hns_roce_hw_v1.c         | 2785 ++++++++++++++++++++
- drivers/infiniband/hw/hns/hns_roce_hw_v1.h         |  981 +++++++
- drivers/infiniband/hw/hns/hns_roce_icm.c           |  604 +++++
- drivers/infiniband/hw/hns/hns_roce_icm.h           |  136 +
- drivers/infiniband/hw/hns/hns_roce_main.c          | 1108 ++++++++
- drivers/infiniband/hw/hns/hns_roce_mr.c            |  625 +++++
- drivers/infiniband/hw/hns/hns_roce_pd.c            |  150 ++
- drivers/infiniband/hw/hns/hns_roce_qp.c            |  858 ++++++
- drivers/infiniband/hw/hns/hns_roce_user.h          |   53 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |   84 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |   30 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |   36 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   14 +-
- 28 files changed, 10866 insertions(+), 1 deletion(-)
- create mode 100644 Documentation/devicetree/bindings/infiniband/hisilicon-hns-roce.txt
- create mode 100644 drivers/infiniband/hw/hns/Kconfig
- create mode 100644 drivers/infiniband/hw/hns/Makefile
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_ah.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_alloc.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_cmd.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_cmd.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_common.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_cq.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_device.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_eq.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_eq.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_hw_v1.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_hw_v1.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_icm.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_icm.h
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_main.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_mr.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_pd.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_qp.c
- create mode 100644 drivers/infiniband/hw/hns/hns_roce_user.h
-
+diff --git a/drivers/infiniband/hw/hns/hns_roce_common.h b/drivers/infiniband/hw/hns/hns_roce_common.h
+index 776286c..b66e96f 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_common.h
++++ b/drivers/infiniband/hw/hns/hns_roce_common.h
+@@ -156,6 +156,14 @@
+ 
+ #define ROCEE_BT_CMD_H_ROCEE_BT_CMD_HW_SYNS_S 31
+ 
++#define ROCEE_SMAC_H_ROCEE_SMAC_H_S 0
++#define ROCEE_SMAC_H_ROCEE_SMAC_H_M   \
++	(((1UL << 16) - 1) << ROCEE_SMAC_H_ROCEE_SMAC_H_S)
++
++#define ROCEE_SMAC_H_ROCEE_PORT_MTU_S 16
++#define ROCEE_SMAC_H_ROCEE_PORT_MTU_M   \
++	(((1UL << 4) - 1) << ROCEE_SMAC_H_ROCEE_PORT_MTU_S)
++
+ #define ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_S 0
+ #define ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_M   \
+ 	(((1UL << 2) - 1) << ROCEE_CAEP_AEQC_AEQE_SHIFT_CAEP_AEQC_STATE_S)
+@@ -196,8 +204,16 @@
+ #define ROCEE_SYS_IMAGE_GUID_L_REG		0xC
+ #define ROCEE_SYS_IMAGE_GUID_H_REG		0x10
+ 
++#define ROCEE_PORT_GID_L_0_REG			0x50
++#define ROCEE_PORT_GID_ML_0_REG			0x54
++#define ROCEE_PORT_GID_MH_0_REG			0x58
++#define ROCEE_PORT_GID_H_0_REG			0x5C
++
+ #define ROCEE_BT_CMD_H_REG			0x204
+ 
++#define ROCEE_SMAC_L_0_REG			0x240
++#define ROCEE_SMAC_H_0_REG			0x244
++
+ #define ROCEE_CAEP_AEQE_CONS_IDX_REG		0x3AC
+ #define ROCEE_CAEP_CEQC_CONS_IDX_0_REG		0x3BC
+ 
+diff --git a/drivers/infiniband/hw/hns/hns_roce_device.h b/drivers/infiniband/hw/hns/hns_roce_device.h
+index 727e136..b7c1773 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_device.h
++++ b/drivers/infiniband/hw/hns/hns_roce_device.h
+@@ -44,6 +44,8 @@
+ 
+ #define DRV_NAME "hns_roce"
+ 
++#define MAC_ADDR_OCTET_NUM			6
++
+ #define HNS_ROCE_BA_SIZE			(32 * 4096)
+ 
+ #define HNS_ROCE_MAX_IRQ_NUM			34
+@@ -54,6 +56,9 @@
+ #define HNS_ROCE_AEQE_OF_VEC_NUM		1
+ 
+ #define HNS_ROCE_MAX_PORTS			6
++#define HNS_ROCE_MAX_GID_NUM			16
++
++#define PAGES_SHIFT_16				16
+ 
+ enum hns_roce_event {
+ 	HNS_ROCE_EVENT_TYPE_PATH_MIG                  = 0x01,
+@@ -252,6 +257,8 @@ struct hns_roce_qp {
+ 
+ struct hns_roce_ib_iboe {
+ 	struct net_device      *netdevs[HNS_ROCE_MAX_PORTS];
++	/* 16 GID is shared by 6 port in v1 engine. */
++	union ib_gid		gid_table[HNS_ROCE_MAX_GID_NUM];
+ 	u8			phy_port[HNS_ROCE_MAX_PORTS];
+ };
+ 
+@@ -325,6 +332,11 @@ struct hns_roce_hw {
+ 	void (*hw_profile)(struct hns_roce_dev *hr_dev);
+ 	int (*hw_init)(struct hns_roce_dev *hr_dev);
+ 	void (*hw_exit)(struct hns_roce_dev *hr_dev);
++	void (*set_gid)(struct hns_roce_dev *hr_dev, u8 port, int gid_index,
++			union ib_gid *gid);
++	void (*set_mac)(struct hns_roce_dev *hr_dev, u8 phy_port, u8 *addr);
++	void (*set_mtu)(struct hns_roce_dev *hr_dev, u8 phy_port,
++			enum ib_mtu mtu);
+ 	void	*priv;
+ };
+ 
+@@ -343,6 +355,7 @@ struct hns_roce_dev {
+ 	struct hns_roce_caps	caps;
+ 	struct radix_tree_root  qp_table_tree;
+ 
++	unsigned char	dev_addr[HNS_ROCE_MAX_PORTS][MAC_ADDR_OCTET_NUM];
+ 	u64                     fw_ver;
+ 	u64			sys_image_guid;
+ 	u32                     vendor_id;
+@@ -412,6 +425,7 @@ void hns_roce_bitmap_free_range(struct hns_roce_bitmap *bitmap,
+ void hns_roce_cq_completion(struct hns_roce_dev *hr_dev, u32 cqn);
+ void hns_roce_cq_event(struct hns_roce_dev *hr_dev, u32 cqn, int event_type);
+ void hns_roce_qp_event(struct hns_roce_dev *hr_dev, u32 qpn, int event_type);
++int hns_get_gid_index(struct hns_roce_dev *hr_dev, u8 port, int gid_index);
+ 
+ extern struct hns_roce_hw hns_roce_hw_v1;
+ 
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+index d8069fb..7bdd7ab 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
++++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.c
+@@ -39,8 +39,8 @@
+ #include "hns_roce_device.h"
+ #include "hns_roce_hw_v1.h"
+ 
+-void hns_roce_set_db_event_mode(struct hns_roce_dev *hr_dev, int sdb_mode,
+-				int odb_mode)
++static void hns_roce_set_db_event_mode(struct hns_roce_dev *hr_dev,
++				       int sdb_mode, int odb_mode)
+ {
+ 	u32 val;
+ 
+@@ -582,9 +582,73 @@ void hns_roce_v1_exit(struct hns_roce_dev *hr_dev)
+ 	hns_roce_db_free(hr_dev);
+ }
+ 
++void hns_roce_v1_set_gid(struct hns_roce_dev *hr_dev, u8 port, int gid_index,
++			 union ib_gid *gid)
++{
++	u32 *p = NULL;
++	u8 gid_idx = 0;
++
++	gid_idx = hns_get_gid_index(hr_dev, port, gid_index);
++
++	p = (u32 *)&gid->raw[0];
++	roce_raw_write(*p, hr_dev->reg_base + ROCEE_PORT_GID_L_0_REG +
++		       (HNS_ROCE_V1_GID_NUM * gid_idx));
++
++	p = (u32 *)&gid->raw[4];
++	roce_raw_write(*p, hr_dev->reg_base + ROCEE_PORT_GID_ML_0_REG +
++		       (HNS_ROCE_V1_GID_NUM * gid_idx));
++
++	p = (u32 *)&gid->raw[8];
++	roce_raw_write(*p, hr_dev->reg_base + ROCEE_PORT_GID_MH_0_REG +
++		       (HNS_ROCE_V1_GID_NUM * gid_idx));
++
++	p = (u32 *)&gid->raw[0xc];
++	roce_raw_write(*p, hr_dev->reg_base + ROCEE_PORT_GID_H_0_REG +
++		       (HNS_ROCE_V1_GID_NUM * gid_idx));
++}
++
++void hns_roce_v1_set_mac(struct hns_roce_dev *hr_dev, u8 phy_port, u8 *addr)
++{
++	u32 reg_smac_l;
++	u16 reg_smac_h;
++	u16 *p_h;
++	u32 *p;
++	u32 val;
++
++	p = (u32 *)(&addr[0]);
++	reg_smac_l = *p;
++	roce_raw_write(reg_smac_l, hr_dev->reg_base + ROCEE_SMAC_L_0_REG +
++		       PHY_PORT_OFFSET * phy_port);
++
++	val = roce_read(hr_dev,
++			ROCEE_SMAC_H_0_REG + phy_port * PHY_PORT_OFFSET);
++	p_h = (u16 *)(&addr[4]);
++	reg_smac_h  = *p_h;
++	roce_set_field(val, ROCEE_SMAC_H_ROCEE_SMAC_H_M,
++		       ROCEE_SMAC_H_ROCEE_SMAC_H_S, reg_smac_h);
++	roce_write(hr_dev, ROCEE_SMAC_H_0_REG + phy_port * PHY_PORT_OFFSET,
++		   val);
++}
++
++void hns_roce_v1_set_mtu(struct hns_roce_dev *hr_dev, u8 phy_port,
++			 enum ib_mtu mtu)
++{
++	u32 val;
++
++	val = roce_read(hr_dev,
++			ROCEE_SMAC_H_0_REG + phy_port * PHY_PORT_OFFSET);
++	roce_set_field(val, ROCEE_SMAC_H_ROCEE_PORT_MTU_M,
++		       ROCEE_SMAC_H_ROCEE_PORT_MTU_S, mtu);
++	roce_write(hr_dev, ROCEE_SMAC_H_0_REG + phy_port * PHY_PORT_OFFSET,
++		   val);
++}
++
+ struct hns_roce_hw hns_roce_hw_v1 = {
+ 	.reset = hns_roce_v1_reset,
+ 	.hw_profile = hns_roce_v1_profile,
+ 	.hw_init = hns_roce_v1_init,
+ 	.hw_exit = hns_roce_v1_exit,
++	.set_gid = hns_roce_v1_set_gid,
++	.set_mac = hns_roce_v1_set_mac,
++	.set_mtu = hns_roce_v1_set_mtu,
+ };
+diff --git a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+index b9486bb..e7592a1 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
++++ b/drivers/infiniband/hw/hns/hns_roce_hw_v1.h
+@@ -107,9 +107,10 @@
+ 
+ #define HNS_ROCE_ODB_EXTEND_MODE			1
+ 
+-#define ALL_PORT_VAL_OPEN				0x3f
+-#define POL_TIME_INTERVAL_VAL				0x80
+-#define SLEEP_TIME_INTERVAL				20
++#define PHY_PORT_OFFSET				0x8
++#define ALL_PORT_VAL_OPEN			0x3f
++#define POL_TIME_INTERVAL_VAL			0x80
++#define SLEEP_TIME_INTERVAL			20
+ 
+ struct hns_roce_ext_db {
+ 	int esdb_dep;
+diff --git a/drivers/infiniband/hw/hns/hns_roce_main.c b/drivers/infiniband/hw/hns/hns_roce_main.c
+index 24572ec..6c13f6d 100644
+--- a/drivers/infiniband/hw/hns/hns_roce_main.c
++++ b/drivers/infiniband/hw/hns/hns_roce_main.c
+@@ -61,6 +61,118 @@
+ #include "hns_roce_device.h"
+ #include "hns_roce_icm.h"
+ 
++/**
++ * hns_get_gid_index - Get gid index.
++ * @hr_dev: pointer to structure hns_roce_dev.
++ * @port:  port, value range: 0 ~ MAX
++ * @gid_index:  gid_index, value range: 0 ~ MAX
++ * Description:
++ *    N ports shared gids, allocation method as follow:
++ *		GID[0][0], GID[1][0],.....GID[N - 1][0],
++ *		GID[0][0], GID[1][0],.....GID[N - 1][0],
++ *		And so on
++ */
++int hns_get_gid_index(struct hns_roce_dev *hr_dev, u8 port, int gid_index)
++{
++	return gid_index * hr_dev->caps.num_ports + port;
++}
++
++static int hns_roce_set_gid(struct hns_roce_dev *hr_dev, u8 port, int gid_index,
++		     union ib_gid *gid)
++{
++	struct device *dev = &hr_dev->pdev->dev;
++	u8 gid_idx = 0;
++
++	if (gid_index >= hr_dev->caps.gid_table_len[port]) {
++		dev_err(dev, "gid_index %d illegal, port %d gid range: 0~%d\n",
++			gid_index, port, hr_dev->caps.gid_table_len[port] - 1);
++		return -EINVAL;
++	}
++
++	gid_idx = hns_get_gid_index(hr_dev, port, gid_index);
++
++	if (!memcmp(gid, &hr_dev->iboe.gid_table[gid_idx], sizeof(*gid)))
++		return -EINVAL;
++
++	memcpy(&hr_dev->iboe.gid_table[gid_idx], gid, sizeof(*gid));
++
++	hr_dev->hw->set_gid(hr_dev, port, gid_index, gid);
++
++	return 0;
++}
++
++static void hns_roce_set_mac(struct hns_roce_dev *hr_dev, u8 port, u8 *addr)
++{
++	u8 phy_port;
++	u32 i = 0;
++
++	if (!memcmp(hr_dev->dev_addr[port], addr, MAC_ADDR_OCTET_NUM))
++		return;
++
++	for (i = 0; i < MAC_ADDR_OCTET_NUM; i++)
++		hr_dev->dev_addr[port][i] = addr[i];
++
++	phy_port = hr_dev->iboe.phy_port[port];
++	hr_dev->hw->set_mac(hr_dev, phy_port, addr);
++}
++
++static void hns_roce_set_mtu(struct hns_roce_dev *hr_dev, u8 port, int mtu)
++{
++	u8 phy_port = hr_dev->iboe.phy_port[port];
++	enum ib_mtu tmp;
++
++	tmp = iboe_get_mtu(mtu);
++	if (!tmp)
++		tmp = IB_MTU_256;
++
++	hr_dev->hw->set_mtu(hr_dev, phy_port, tmp);
++}
++
++static void hns_roce_update_gids(struct hns_roce_dev *hr_dev, int port)
++{
++	struct ib_event event;
++
++	/* Refresh gid in ib_cache */
++	event.device = &hr_dev->ib_dev;
++	event.element.port_num = port + 1;
++	event.event = IB_EVENT_GID_CHANGE;
++	ib_dispatch_event(&event);
++}
++
++static int hns_roce_setup_mtu_gids(struct hns_roce_dev  *hr_dev)
++{
++	struct in_ifaddr *ifa_list = NULL;
++	union ib_gid gid = {{0} };
++	u32 ipaddr = 0;
++	int index = 0;
++	int ret = 0;
++	u8 i = 0;
++
++	for (i = 0; i < hr_dev->caps.num_ports; i++) {
++		hns_roce_set_mtu(hr_dev, i,
++				 ib_mtu_enum_to_int(hr_dev->caps.max_mtu));
++		hns_roce_set_mac(hr_dev, i, hr_dev->iboe.netdevs[i]->dev_addr);
++
++		if (hr_dev->iboe.netdevs[i]->ip_ptr) {
++			ifa_list = hr_dev->iboe.netdevs[i]->ip_ptr->ifa_list;
++			index = 1;
++			while (ifa_list) {
++				ipaddr = ifa_list->ifa_address;
++				ipv6_addr_set_v4mapped(ipaddr,
++						       (struct in6_addr *)&gid);
++				ret = hns_roce_set_gid(hr_dev, i, index, &gid);
++				if (ret)
++					break;
++				index++;
++				ifa_list = ifa_list->ifa_next;
++			}
++			hns_roce_update_gids(hr_dev, i);
++		}
++	}
++
++	return ret;
++}
++
+ static void hns_roce_unregister_device(struct hns_roce_dev *hr_dev)
+ {
+ 	ib_unregister_device(&hr_dev->ib_dev);
+@@ -93,7 +205,18 @@ static int hns_roce_register_device(struct hns_roce_dev *hr_dev)
+ 		return ret;
+ 	}
+ 
++	ret = hns_roce_setup_mtu_gids(hr_dev);
++	if (ret) {
++		dev_err(dev, "roce_setup_mtu_gids failed!\n");
++		goto error_failed_setup_mtu_gids;
++	}
++
+ 	return 0;
++
++error_failed_setup_mtu_gids:
++	ib_unregister_device(ib_dev);
++
++	return ret;
+ }
+ 
+ static int hns_roce_get_cfg(struct hns_roce_dev *hr_dev)
 -- 
 1.9.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
