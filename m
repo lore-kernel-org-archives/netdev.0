@@ -1,33 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] net-next: mediatek: IRQ cleanups, fixes and
- grouping
-Date: Wed, 15 Jun 2016 22:20:50 -0700 (PDT)
-Message-ID: <20160615.222050.2210130284846212716.davem@davemloft.net>
-References: <1466002730-58476-1-git-send-email-john@phrozen.org>
+Subject: Re: [PATCH net-next 0/8] rxrpc: Rework endpoint record handling
+Date: Wed, 15 Jun 2016 22:25:44 -0700 (PDT)
+Message-ID: <20160615.222544.2267833888306477526.davem@davemloft.net>
+References: <146600889842.18270.2306896489831492957.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nbd@nbd.name, keyhaede@gmail.com, netdev@vger.kernel.org,
-	linux-mediatek@lists.infradead.org, linux-kernel@vger.kernel.org
-To: john@phrozen.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36752 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750930AbcFPFUv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 01:20:51 -0400
-In-Reply-To: <1466002730-58476-1-git-send-email-john@phrozen.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <146600889842.18270.2306896489831492957.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: John Crispin <john@phrozen.org>
-Date: Wed, 15 Jun 2016 16:58:46 +0200
+From: David Howells <dhowells@redhat.com>
+Date: Wed, 15 Jun 2016 17:41:38 +0100
 
-> This series contains 2 small code cleanups that are leftovers from the
-> MIPS support. There is also a small fix that adds proper locking to the
-> code accessing the IRQ registers. Without this fix we saw deadlocks caused
-> by the last patch of the series, which adds IRQ grouping. The grouping
-> feature allows us to use different IRQs for TX and RX. By doing so we can
-> use affinity to let the SoC handle the IRQs on different cores.
+> Here's the next part of the AF_RXRPC rewrite.  In this set I rework
+> endpoint record handling.  There are two types of endpoint record, local
+> and peer.  The local endpoint record is used as an anchor for the transport
+> socket that AF_RXRPC uses (at the moment a UDP socket).  Local endpoints
+> can be shared between AF_RXRPC sockets under certain restricted
+> circumstances.
+> 
+> The peer endpoint is a record of the remote end.  It is (or will be) used
+> to keep track MTU and RTT values and, with these changes, is used to find
+> the call(s) to abort when a network error occurs.
+> 
+> The following significant changes are made:
+ ...
+> The patches can be found here also:
+> 
+> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+> 
+> Tagged thusly:
+> 
+> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+> 	rxrpc-rewrite-20160615
 
-This patch series doesn't apply cleanly to the net-next tree, I get rejects
-on patch #4.
+Pulled, thanks David.
