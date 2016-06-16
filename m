@@ -1,43 +1,55 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Don't forget pr_fmt on net_dbg_ratelimited for
- CONFIG_DYNAMIC_DEBUG
-Date: Wed, 15 Jun 2016 22:08:20 -0700 (PDT)
-Message-ID: <20160615.220820.479300229365061457.davem@davemloft.net>
-References: <20160615091453.29609-1-Jason@zx2c4.com>
+Subject: Re: [PATCH v2 net] gre: fix error handler
+Date: Wed, 15 Jun 2016 22:15:33 -0700 (PDT)
+Message-ID: <20160615.221533.906327416634459889.davem@davemloft.net>
+References: <1465967701.7945.200.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1465969537.7945.201.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1465997040.7945.207.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	tbingham@akamai.com
-To: Jason@zx2c4.com
+Cc: jbenc@redhat.com, netdev@vger.kernel.org, tom@herbertland.com,
+	maze@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36646 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:36709 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751157AbcFPFIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 01:08:21 -0400
-In-Reply-To: <20160615091453.29609-1-Jason@zx2c4.com>
+	with ESMTP id S1750991AbcFPFPe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 01:15:34 -0400
+In-Reply-To: <1465997040.7945.207.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Jason A. Donenfeld" <Jason@zx2c4.com>
-Date: Wed, 15 Jun 2016 11:14:53 +0200
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Wed, 15 Jun 2016 06:24:00 -0700
 
-> The implementation of net_dbg_ratelimited in the CONFIG_DYNAMIC_DEBUG
-> case was added with 2c94b5373 ("net: Implement net_dbg_ratelimited() for
-> CONFIG_DYNAMIC_DEBUG case"). The implementation strategy was to take the
-> usual definition of the dynamic_pr_debug macro, but alter it by adding a
-> call to "net_ratelimit()" in the if statement. This is, in fact, the
-> correct approach.
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> However, while doing this, the author of the commit forgot to surround
-> fmt by pr_fmt, resulting in unprefixed log messages appearing in the
-> console. So, this commit adds back the pr_fmt(fmt) invocation, making
-> net_dbg_ratelimited properly consistent across DEBUG, no DEBUG, and
-> DYNAMIC_DEBUG cases, and bringing parity with the behavior of
-> dynamic_pr_debug as well.
+> 1) gre_parse_header() can be called from gre_err()
 > 
-> Fixes: 2c94b5373 ("net: Implement net_dbg_ratelimited() for CONFIG_DYNAMIC_DEBUG case")
-> Signed-off-by: Jason A. Donenfeld <Jason@zx2c4.com>
-> Cc: Tim Bingham <tbingham@akamai.com>
+>    At this point transport header points to ICMP header, not the inner
+> header.
+> 
+> 2) We can not really change transport header as ipgre_err() will later
+> assume transport header still points to ICMP header (using icmp_hdr())
+> 
+> 3) pskb_may_pull() logic in gre_parse_header() really works
+>   if we are interested at zone pointed by skb->data
+> 
+> 4) As Jiri explained in commit b7f8fe251e46 ("gre: do not pull header in
+> ICMP error processing") we should not pull headers in error handler.
+> 
+> So this fix :
+> 
+> A) changes gre_parse_header() to use skb->data instead of
+> skb_transport_header()
+> 
+> B) Adds a nhs parameter to gre_parse_header() so that we can skip the
+> not pulled IP header from error path.
+>   This offset is 0 for normal receive path.
+> 
+> C) remove obsolete IPV6 includes
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
 
-Looks good, applied, thanks.
+Applied, thanks Eric.
