@@ -1,8 +1,8 @@
 From: Alexander Duyck <aduyck@mirantis.com>
-Subject: [net-next PATCH v3 10/17] ixgbe: Replace ndo_add/del_vxlan_port
+Subject: [net-next PATCH v3 11/17] mlx4_en: Replace ndo_add/del_vxlan_port
  with ndo_add/del_udp_enc_port
-Date: Thu, 16 Jun 2016 12:22:19 -0700
-Message-ID: <20160616192219.20872.90375.stgit@localhost.localdomain>
+Date: Thu, 16 Jun 2016 12:22:30 -0700
+Message-ID: <20160616192230.20872.32549.stgit@localhost.localdomain>
 References: <20160616191851.20872.67154.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,12 +14,12 @@ Cc: hannes@redhat.com, jesse@kernel.org, eugenia@mellanox.com,
 	davem@davemloft.net
 To: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:34026 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754130AbcFPTW0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 15:22:26 -0400
-Received: by mail-pa0-f52.google.com with SMTP id bz2so20783629pad.1
-        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 12:22:25 -0700 (PDT)
+Received: from mail-pf0-f169.google.com ([209.85.192.169]:33001 "EHLO
+	mail-pf0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754089AbcFPTWe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 15:22:34 -0400
+Received: by mail-pf0-f169.google.com with SMTP id i123so18933530pfg.0
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 12:22:34 -0700 (PDT)
 In-Reply-To: <20160616191851.20872.67154.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -35,144 +35,68 @@ excluding IPv6 we instead abort of type is not IPv4.  This makes much more
 sense as we should only be supporting IPv4 outer addresses on this
 hardware.
 
-The last change is that I pulled the rtnl_lock/unlock into the conditional
-statement for IXGBE_FLAG2_VXLAN_REREG_NEEDED.  The motivation behind this
-is to avoid unneeded bouncing of the mutex which will just slow down the
-handling of this call anyway.
-
 Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 ---
- drivers/net/ethernet/intel/Kconfig            |   11 -----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   57 +++++++++++--------------
- 2 files changed, 26 insertions(+), 42 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/Kconfig     |    7 ----
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c |   41 ++++++++++++------------
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |    2 -
+ 3 files changed, 20 insertions(+), 30 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/Kconfig b/drivers/net/ethernet/intel/Kconfig
-index 1fbf9088a4d7..c0e17433f623 100644
---- a/drivers/net/ethernet/intel/Kconfig
-+++ b/drivers/net/ethernet/intel/Kconfig
-@@ -167,17 +167,6 @@ config IXGBE
- 	  To compile this driver as a module, choose M here. The module
- 	  will be called ixgbe.
+diff --git a/drivers/net/ethernet/mellanox/mlx4/Kconfig b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+index 9ca3734ebb6b..5098e7f21987 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/Kconfig
++++ b/drivers/net/ethernet/mellanox/mlx4/Kconfig
+@@ -24,13 +24,6 @@ config MLX4_EN_DCB
  
--config IXGBE_VXLAN
--	bool "Virtual eXtensible Local Area Network Support"
--	default n
--	depends on IXGBE && VXLAN && !(IXGBE=y && VXLAN=m)
+ 	  If unsure, set to Y
+ 
+-config MLX4_EN_VXLAN
+-	bool "VXLAN offloads Support"
+-	default y
+-	depends on MLX4_EN && VXLAN && !(MLX4_EN=y && VXLAN=m)
 -	---help---
--	  This allows one to create VXLAN virtual interfaces that provide
--	  Layer 2 Networks over Layer 3 Networks. VXLAN is often used
--	  to tunnel virtual network infrastructure in virtualized environments.
--	  Say Y here if you want to use Virtual eXtensible Local Area Network
--	  (VXLAN) in the driver.
+-	  Say Y here if you want to use VXLAN offloads in the driver.
 -
- config IXGBE_HWMON
- 	bool "Intel(R) 10GbE PCI Express adapters HWMON support"
- 	default y
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index b488b52974f7..fd5a761c68f3 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -50,7 +50,7 @@
- #include <linux/if_bridge.h>
- #include <linux/prefetch.h>
- #include <scsi/fc/fc_fcoe.h>
--#include <net/vxlan.h>
-+#include <net/udp_tunnel.h>
- #include <net/pkt_cls.h>
- #include <net/tc_act/tc_gact.h>
- #include <net/tc_act/tc_mirred.h>
-@@ -5722,9 +5722,7 @@ static int ixgbe_sw_init(struct ixgbe_adapter *adapter)
- #ifdef CONFIG_IXGBE_DCA
- 		adapter->flags &= ~IXGBE_FLAG_DCA_CAPABLE;
- #endif
--#ifdef CONFIG_IXGBE_VXLAN
- 		adapter->flags |= IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE;
+ config MLX4_CORE
+ 	tristate
+ 	depends on PCI
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 2221403b65e4..17e3349b99f2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -1692,10 +1692,9 @@ int mlx4_en_start_port(struct net_device *dev)
+ 	/* Schedule multicast task to populate multicast list */
+ 	queue_work(mdev->workqueue, &priv->rx_mode_task);
+ 
+-#ifdef CONFIG_MLX4_EN_VXLAN
+ 	if (priv->mdev->dev->caps.tunnel_offload_mode == MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
+-		vxlan_get_rx_port(dev);
 -#endif
- 		break;
- 	default:
- 		break;
-@@ -6158,9 +6156,7 @@ int ixgbe_open(struct net_device *netdev)
- 	ixgbe_up_complete(adapter);
- 
- 	ixgbe_clear_vxlan_port(adapter);
--#ifdef CONFIG_IXGBE_VXLAN
--	vxlan_get_rx_port(netdev);
--#endif
-+	udp_tunnel_get_rx_info(netdev);
- 
- 	return 0;
- 
-@@ -7262,14 +7258,12 @@ static void ixgbe_service_task(struct work_struct *work)
- 		ixgbe_service_event_complete(adapter);
- 		return;
- 	}
--#ifdef CONFIG_IXGBE_VXLAN
--	rtnl_lock();
- 	if (adapter->flags2 & IXGBE_FLAG2_VXLAN_REREG_NEEDED) {
-+		rtnl_lock();
- 		adapter->flags2 &= ~IXGBE_FLAG2_VXLAN_REREG_NEEDED;
--		vxlan_get_rx_port(adapter->netdev);
-+		udp_tunnel_get_rx_info(adapter->netdev);
-+		rtnl_unlock();
- 	}
--	rtnl_unlock();
--#endif /* CONFIG_IXGBE_VXLAN */
- 	ixgbe_reset_subtask(adapter);
- 	ixgbe_phy_interrupt_subtask(adapter);
- 	ixgbe_sfp_detection_subtask(adapter);
-@@ -7697,7 +7691,6 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
- 	/* snag network header to get L4 type and address */
- 	skb = first->skb;
- 	hdr.network = skb_network_header(skb);
--#ifdef CONFIG_IXGBE_VXLAN
- 	if (skb->encapsulation &&
- 	    first->protocol == htons(ETH_P_IP) &&
- 	    hdr.ipv4->protocol != IPPROTO_UDP) {
-@@ -7708,7 +7701,6 @@ static void ixgbe_atr(struct ixgbe_ring *ring,
- 		    udp_hdr(skb)->dest == adapter->vxlan_port)
- 			hdr.network = skb_inner_network_header(skb);
- 	}
--#endif /* CONFIG_IXGBE_VXLAN */
- 
- 	/* Currently only IPv4/IPv6 with TCP is supported */
- 	switch (hdr.ipv4->version) {
-@@ -8840,14 +8832,12 @@ static int ixgbe_set_features(struct net_device *netdev,
- 
- 	netdev->features = features;
- 
--#ifdef CONFIG_IXGBE_VXLAN
- 	if ((adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE)) {
- 		if (features & NETIF_F_RXCSUM)
- 			adapter->flags2 |= IXGBE_FLAG2_VXLAN_REREG_NEEDED;
- 		else
- 			ixgbe_clear_vxlan_port(adapter);
- 	}
--#endif /* CONFIG_IXGBE_VXLAN */
- 
- 	if (need_reset)
- 		ixgbe_do_reset(netdev);
-@@ -8858,23 +8848,27 @@ static int ixgbe_set_features(struct net_device *netdev,
++		udp_tunnel_get_rx_info(dev);
++
+ 	priv->port_up = true;
+ 	netif_tx_start_all_queues(dev);
+ 	netif_device_attach(dev);
+@@ -2342,7 +2341,6 @@ static int mlx4_en_get_phys_port_id(struct net_device *dev,
  	return 0;
  }
  
--#ifdef CONFIG_IXGBE_VXLAN
- /**
-  * ixgbe_add_vxlan_port - Get notifications about VXLAN ports that come up
-  * @dev: The port's netdev
-  * @sa_family: Socket Family that VXLAN is notifiying us about
-  * @port: New UDP port number that VXLAN started listening to
-+ * @type: Enumerated type specifying UDP tunnel type
-  **/
--static void ixgbe_add_vxlan_port(struct net_device *dev, sa_family_t sa_family,
--				 __be16 port)
-+static void ixgbe_add_vxlan_port(struct net_device *dev,
-+				 struct udp_tunnel_info *ti)
+-#ifdef CONFIG_MLX4_EN_VXLAN
+ static void mlx4_en_add_vxlan_offloads(struct work_struct *work)
  {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 	struct ixgbe_hw *hw = &adapter->hw;
+ 	int ret;
+@@ -2392,15 +2390,19 @@ static void mlx4_en_del_vxlan_offloads(struct work_struct *work)
+ }
+ 
+ static void mlx4_en_add_vxlan_port(struct  net_device *dev,
+-				   sa_family_t sa_family, __be16 port)
++				   struct udp_tunnel_info *ti)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
 +	__be16 port = ti->port;
+ 	__be16 current_port;
  
--	if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
+-	if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
 +	if (ti->type != UDP_TUNNEL_TYPE_VXLAN)
  		return;
  
@@ -180,59 +104,92 @@ index b488b52974f7..fd5a761c68f3 100644
 +	if (ti->sa_family != AF_INET)
 +		return;
 +
-+	if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
++	if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
  		return;
  
- 	if (adapter->vxlan_port == port)
-@@ -8896,28 +8890,31 @@ static void ixgbe_add_vxlan_port(struct net_device *dev, sa_family_t sa_family,
-  * @dev: The port's netdev
-  * @sa_family: Socket Family that VXLAN is notifying us about
-  * @port: UDP port number that VXLAN stopped listening to
-+ * @type: Enumerated type specifying UDP tunnel type
-  **/
--static void ixgbe_del_vxlan_port(struct net_device *dev, sa_family_t sa_family,
--				 __be16 port)
-+static void ixgbe_del_vxlan_port(struct net_device *dev,
-+				 struct udp_tunnel_info *ti)
- {
- 	struct ixgbe_adapter *adapter = netdev_priv(dev);
- 
--	if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
-+	if (ti->type != UDP_TUNNEL_TYPE_VXLAN)
- 		return;
- 
--	if (sa_family == AF_INET6)
-+	if (ti->sa_family != AF_INET)
- 		return;
- 
--	if (adapter->vxlan_port != port) {
-+	if (!(adapter->flags & IXGBE_FLAG_VXLAN_OFFLOAD_CAPABLE))
-+		return;
-+
-+	if (adapter->vxlan_port != ti->port) {
- 		netdev_info(dev, "Port %d was not found, not deleting\n",
--			    ntohs(port));
-+			    ntohs(ti->port));
- 		return;
- 	}
- 
- 	ixgbe_clear_vxlan_port(adapter);
- 	adapter->flags2 |= IXGBE_FLAG2_VXLAN_REREG_NEEDED;
+ 	current_port = priv->vxlan_port;
+@@ -2415,15 +2417,19 @@ static void mlx4_en_add_vxlan_port(struct  net_device *dev,
  }
--#endif /* CONFIG_IXGBE_VXLAN */
  
- static int ixgbe_ndo_fdb_add(struct ndmsg *ndm, struct nlattr *tb[],
- 			     struct net_device *dev,
-@@ -9230,10 +9227,8 @@ static const struct net_device_ops ixgbe_netdev_ops = {
- 	.ndo_bridge_getlink	= ixgbe_ndo_bridge_getlink,
- 	.ndo_dfwd_add_station	= ixgbe_fwd_add,
- 	.ndo_dfwd_del_station	= ixgbe_fwd_del,
--#ifdef CONFIG_IXGBE_VXLAN
--	.ndo_add_vxlan_port	= ixgbe_add_vxlan_port,
--	.ndo_del_vxlan_port	= ixgbe_del_vxlan_port,
--#endif /* CONFIG_IXGBE_VXLAN */
-+	.ndo_udp_tunnel_add	= ixgbe_add_vxlan_port,
-+	.ndo_udp_tunnel_del	= ixgbe_del_vxlan_port,
- 	.ndo_features_check	= ixgbe_features_check,
+ static void mlx4_en_del_vxlan_port(struct  net_device *dev,
+-				   sa_family_t sa_family, __be16 port)
++				   struct udp_tunnel_info *ti)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
++	__be16 port = ti->port;
+ 	__be16 current_port;
+ 
+-	if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
++	if (ti->type != UDP_TUNNEL_TYPE_VXLAN)
+ 		return;
+ 
+-	if (sa_family == AF_INET6)
++	if (ti->sa_family != AF_INET)
++		return;
++
++	if (priv->mdev->dev->caps.tunnel_offload_mode != MLX4_TUNNEL_OFFLOAD_MODE_VXLAN)
+ 		return;
+ 
+ 	current_port = priv->vxlan_port;
+@@ -2458,7 +2464,6 @@ static netdev_features_t mlx4_en_features_check(struct sk_buff *skb,
+ 
+ 	return features;
+ }
+-#endif
+ 
+ static int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 maxrate)
+ {
+@@ -2511,11 +2516,9 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
+ #endif
+ 	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
+-#ifdef CONFIG_MLX4_EN_VXLAN
+-	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
+-	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
++	.ndo_udp_tunnel_add	= mlx4_en_add_vxlan_port,
++	.ndo_udp_tunnel_del	= mlx4_en_del_vxlan_port,
+ 	.ndo_features_check	= mlx4_en_features_check,
+-#endif
+ 	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
  };
  
+@@ -2549,11 +2552,9 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
+ 	.ndo_rx_flow_steer	= mlx4_en_filter_rfs,
+ #endif
+ 	.ndo_get_phys_port_id	= mlx4_en_get_phys_port_id,
+-#ifdef CONFIG_MLX4_EN_VXLAN
+-	.ndo_add_vxlan_port	= mlx4_en_add_vxlan_port,
+-	.ndo_del_vxlan_port	= mlx4_en_del_vxlan_port,
++	.ndo_udp_tunnel_add	= mlx4_en_add_vxlan_port,
++	.ndo_udp_tunnel_del	= mlx4_en_del_vxlan_port,
+ 	.ndo_features_check	= mlx4_en_features_check,
+-#endif
+ 	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
+ };
+ 
+@@ -2844,10 +2845,8 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+ 	INIT_WORK(&priv->linkstate_task, mlx4_en_linkstate);
+ 	INIT_DELAYED_WORK(&priv->stats_task, mlx4_en_do_get_stats);
+ 	INIT_DELAYED_WORK(&priv->service_task, mlx4_en_service_task);
+-#ifdef CONFIG_MLX4_EN_VXLAN
+ 	INIT_WORK(&priv->vxlan_add_task, mlx4_en_add_vxlan_offloads);
+ 	INIT_WORK(&priv->vxlan_del_task, mlx4_en_del_vxlan_offloads);
+-#endif
+ #ifdef CONFIG_RFS_ACCEL
+ 	INIT_LIST_HEAD(&priv->filters);
+ 	spin_lock_init(&priv->filters_lock);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index 467d47ed2c39..6b3b0fefabad 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -545,10 +545,8 @@ struct mlx4_en_priv {
+ 	struct work_struct linkstate_task;
+ 	struct delayed_work stats_task;
+ 	struct delayed_work service_task;
+-#ifdef CONFIG_MLX4_EN_VXLAN
+ 	struct work_struct vxlan_add_task;
+ 	struct work_struct vxlan_del_task;
+-#endif
+ 	struct mlx4_en_perf_stats pstats;
+ 	struct mlx4_en_pkt_stats pkstats;
+ 	struct mlx4_en_counter_stats pf_stats;
