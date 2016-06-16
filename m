@@ -1,42 +1,70 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 2/5] net: tlan: don't set unused function argument
-Date: Thu, 16 Jun 2016 13:38:23 +0200
-Message-ID: <20160616113831.4108439-3-arnd@arndb.de>
-References: <20160616113831.4108439-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Samuel Chessman <chessman@tux.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160616113831.4108439-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Subject: [PATCH 0/5] treewide: fix unused-but-set warnings
+Date: Thu, 16 Jun 2016 13:38:21 +0200
+Message-ID: <20160616113831.4108439-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Felipe Balbi <balbi@kernel.org>, linux-fbdev@vger.kernel.org,
+ Arnd Bergmann <arnd@arndb.de>, Dave Jones <davej@codemonkey.org.uk>,
+ netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+ Sudeep Dutt <sudeep.dutt@intel.com>, Ashutosh Dixit <ashutosh.dixit@intel.com>,
+ Tomi Valkeinen <tomi.valkeinen@ti.com>, Samuel Chessman <chessman@tux.org>,
+ Dept-GELinuxNICDev@qlogic.com, linux-arm-kernel@lists.infradead.org
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-We get a warning for tlan_handle_tx_eoc when building with "make W=1"
+I did some test-builds with W=1 and the -Wunused-but-set-variable
+warnings appeared to be all fairly easy to address. In tons of
+randconfig builds, I only found five instances.
 
-drivers/net/ethernet/ti/tlan.c: In function 'tlan_handle_tx_eoc':
-drivers/net/ethernet/ti/tlan.c:1647:59: error: parameter 'host_int' set but not used [-Werror=unused-but-set-parameter]
- static u32 tlan_handle_tx_eoc(struct net_device *dev, u16 host_int)
+The warning was originally disabled by Dave Jones when we hit
+more instances with gcc-4.6, but apparently most of those have
+gotten addressed anyway.
 
-This is harmless, but removing the unused assignment lets us avoid
-the warning with no downside.
+All five patches can be applied independently, and in each case,
+the original code is not wrong, but the assignments are also useless,
+so I'd consider this warning marginally useful.
 
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/ethernet/ti/tlan.c | 1 -
- 1 file changed, 1 deletion(-)
+I have a few other patch series for W=1 issues, and we can
+consider turning those on by default once all the patches are
+merged.
 
-diff --git a/drivers/net/ethernet/ti/tlan.c b/drivers/net/ethernet/ti/tlan.c
-index 561703317312..ece0ea0f6b38 100644
---- a/drivers/net/ethernet/ti/tlan.c
-+++ b/drivers/net/ethernet/ti/tlan.c
-@@ -1651,7 +1651,6 @@ static u32 tlan_handle_tx_eoc(struct net_device *dev, u16 host_int)
- 	dma_addr_t		head_list_phys;
- 	u32			ack = 1;
- 
--	host_int = 0;
- 	if (priv->tlan_rev < 0x30) {
- 		TLAN_DBG(TLAN_DEBUG_TX,
- 			 "TRANSMIT:  handling TX EOC (Head=%d Tail=%d) -- IRQ\n",
+	Arnd
+
+Arnd Bergmann (5):
+  net: qlcnic: don't set unused function argument
+  net: tlan: don't set unused function argument
+  mic: remove unused function arg
+  usb: pxa27x_udc: remove unused function argument
+  fbmon: remove unused function argument
+
+ drivers/misc/mic/scif/scif_dma.c                    | 6 ++----
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_83xx_hw.c | 1 -
+ drivers/net/ethernet/ti/tlan.c                      | 1 -
+ drivers/usb/gadget/udc/pxa27x_udc.c                 | 9 +++------
+ drivers/video/fbdev/core/fbmon.c                    | 1 -
+ 5 files changed, 5 insertions(+), 13 deletions(-)
+
 -- 
 2.9.0
+Cc: Sudeep Dutt <sudeep.dutt@intel.com>
+Cc: Ashutosh Dixit <ashutosh.dixit@intel.com>
+Cc: Dept-GELinuxNICDev@qlogic.com
+Cc: Samuel Chessman <chessman@tux.org>
+Cc: Felipe Balbi <balbi@kernel.org>
+Cc: Tomi Valkeinen <tomi.valkeinen@ti.com>
+Cc: netdev@vger.kernel.org
+Cc: linux-arm-kernel@lists.infradead.org
+Cc: linux-usb@vger.kernel.org
+Cc: linux-fbdev@vger.kernel.org
+Cc: Dave Jones <davej@codemonkey.org.uk>
