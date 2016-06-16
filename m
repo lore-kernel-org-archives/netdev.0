@@ -1,27 +1,73 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/3] bpf: improve fd array release
-Date: Wed, 15 Jun 2016 23:43:12 -0700 (PDT)
-Message-ID: <20160615.234312.1730174536154901684.davem@davemloft.net>
-References: <cover.1466021686.git.daniel@iogearbox.net>
+From: Abdelrhman Ahmed <ab@abahmed.com>
+Subject: [PATCH] net: Fix skb_network_offset in neigh_resolve_output and
+ neigh_connected_output
+Date: Thu, 16 Jun 2016 08:50:21 +0200
+Message-ID: <57624C2D.8020906@abahmed.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: alexei.starovoitov@gmail.com, netdev@vger.kernel.org
-To: daniel@iogearbox.net
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37117 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751275AbcFPGnN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 02:43:13 -0400
-In-Reply-To: <cover.1466021686.git.daniel@iogearbox.net>
+Received: from sender163-mail.zoho.com ([74.201.84.163]:24505 "EHLO
+	sender163-mail.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751300AbcFPGub (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 02:50:31 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Wed, 15 Jun 2016 22:47:11 +0200
+Commit e1f165032c8bade3a6bdf546f8faf61fda4dd01c ("net: Fix 
+skb_under_panic oops in neigh_resolve_output") resets the skb to 
+network_header, but this will discard header or data which is inserted 
+by netfilter hooks (e.g. POSTROUTING) between network layer and hardware 
+header only for the first packet(s) before using cached hardware header 
+and this will lead to inconsistent behavior for outgoing packets.
+The fix is to reset with reference to skb's data pointer before loop 
+instead of network header.
 
-> This set improves BPF perf fd array map release wrt to purging
-> entries, first two extend the API as needed. Please see individual
-> patches for more details.
+Signed-off-by: Abdelrhman Ahmed <ab@abahmed.com>
+--- net/core/neighbour.c.orig    2016-06-16 05:52:26.521301488 +0200
++++ net/core/neighbour.c    2016-06-16 08:09:54.577222828 +0200
+@@ -1293,15 +1293,19 @@ int neigh_resolve_output(struct neighbou
+      int rc = 0;
 
-Series applied, thanks Daniel.
+      if (!neigh_event_send(neigh, skb)) {
+-        int err;
++        int err, offset;
+          struct net_device *dev = neigh->dev;
++        unsigned char *data;
+          unsigned int seq;
+
+          if (dev->header_ops->cache && !neigh->hh.hh_len)
+              neigh_hh_init(neigh);
+
++        data = skb->data;
++
+          do {
+-            __skb_pull(skb, skb_network_offset(skb));
++            offset = data - skb->data;
++            __skb_pull(skb, offset);
+              seq = read_seqbegin(&neigh->ha_lock);
+              err = dev_hard_header(skb, dev, ntohs(skb->protocol),
+                            neigh->ha, NULL, skb->len);
+@@ -1326,11 +1330,15 @@ EXPORT_SYMBOL(neigh_resolve_output);
+  int neigh_connected_output(struct neighbour *neigh, struct sk_buff *skb)
+  {
+      struct net_device *dev = neigh->dev;
++    unsigned char *data;
+      unsigned int seq;
+-    int err;
++    int err, offset;
++
++    data = skb->data;
+
+      do {
+-        __skb_pull(skb, skb_network_offset(skb));
++        offset = data - skb->data;
++        __skb_pull(skb, offset);
+          seq = read_seqbegin(&neigh->ha_lock);
+          err = dev_hard_header(skb, dev, ntohs(skb->protocol),
+                        neigh->ha, NULL, skb->len);
+
+-- 
+Regards,
+Abdelrhman
