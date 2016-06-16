@@ -1,28 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tipc: eliminate uninitialized variable warning
-Date: Wed, 15 Jun 2016 21:47:53 -0700 (PDT)
-Message-ID: <20160615.214753.1495067872315615538.davem@davemloft.net>
-References: <1465971091-16695-1-git-send-email-ying.xue@windriver.com>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [v5] net: emac: emac gigabit ethernet controller driver
+Date: Thu, 16 Jun 2016 00:05:45 -0500
+Message-ID: <576233A9.7060807@codeaurora.org>
+References: <1465942955-22988-1-git-send-email-timur@codeaurora.org>
+ <20160615.214142.1092705919839921659.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-7
-Content-Transfer-Encoding: base64
-Cc: jon.maloy@ericsson.com, erik.hugne@gmail.com,
-	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net
-To: ying.xue@windriver.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	shankerd@codeaurora.org, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
+	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
+	jcm@redhat.com, agross@codeaurora.org, f.fainelli@gmail.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:36548 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751588AbcFPEry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 00:47:54 -0400
-In-Reply-To: <1465971091-16695-1-git-send-email-ying.xue@windriver.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:33539 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750982AbcFPFFu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 01:05:50 -0400
+In-Reply-To: <20160615.214142.1092705919839921659.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogWWluZyBYdWUgPHlpbmcueHVlQHdpbmRyaXZlci5jb20+DQpEYXRlOiBXZWQsIDE1IEp1
-biAyMDE2IDE0OjExOjMxICswODAwDQoNCj4gbmV0L3RpcGMvbGluay5jOiBJbiBmdW5jdGlvbiCh
-dGlwY19saW5rX3RpbWVvdXSiOg0KPiBuZXQvdGlwYy9saW5rLmM6NzQ0OjI4OiB3YXJuaW5nOiCh
-bXR5cKIgbWF5IGJlIHVzZWQgdW5pbml0aWFsaXplZCBpbiB0aGlzIGZ1bmN0aW9uIFstV3VuaW5p
-dGlhbGl6ZWRdDQo+IA0KPiBGaXhlczogNDJiMThmNjA1ZmVhICgidGlwYzogcmVmYWN0b3IgZnVu
-Y3Rpb24gdGlwY19saW5rX3RpbWVvdXQoKSIpDQo+IEFja2VkLWJ5OiBKb24gTWFsb3kgPGpvbi5t
-YWxveUBlcmljc3Nvbi5jb20+DQo+IFNpZ25lZC1vZmYtYnk6IFlpbmcgWHVlIDx5aW5nLnh1ZUB3
-aW5kcml2ZXIuY29tPg0KDQpBcHBsaWVkLg0K
+David Miller wrote:
+> Please always order local variable declarations from longest to shortest
+> line.
+>
+> Audit your entire driver for this issue, thanks.
+
+I will fix this in v6.
+
+-- 
+Sent by an employee of the Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the
+Code Aurora Forum, hosted by The Linux Foundation.
