@@ -1,73 +1,87 @@
-From: Abdelrhman Ahmed <ab@abahmed.com>
-Subject: [PATCH] net: Fix skb_network_offset in neigh_resolve_output and
- neigh_connected_output
-Date: Thu, 16 Jun 2016 08:50:21 +0200
-Message-ID: <57624C2D.8020906@abahmed.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from sender163-mail.zoho.com ([74.201.84.163]:24505 "EHLO
-	sender163-mail.zoho.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751300AbcFPGub (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 02:50:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Quentin Armitage <quentin@armitage.org.uk>
+Subject: [PATCH v4 net] ipvs: fix bind to link-local mcast IPv6 address in backup
+Date: Thu, 16 Jun 2016 08:00:14 +0100
+Message-ID: <1466060414-12944-1-git-send-email-quentin@armitage.org.uk>
+References: <Message-id: <alpine.LFD.2.11.1606160912380.2490@ja.home.ssi.bg>
+Cc: Quentin Armitage <quentin@armitage.org.uk>
+To: Wensong Zhang <wensong@linux-vs.org>,
+	Simon Horman <horms@verge.net.au>,
+	Julian Anastasov <ja@ssi.bg>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <Message-id: <alpine.LFD.2.11.1606160912380.2490@ja.home.ssi.bg>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Commit e1f165032c8bade3a6bdf546f8faf61fda4dd01c ("net: Fix 
-skb_under_panic oops in neigh_resolve_output") resets the skb to 
-network_header, but this will discard header or data which is inserted 
-by netfilter hooks (e.g. POSTROUTING) between network layer and hardware 
-header only for the first packet(s) before using cached hardware header 
-and this will lead to inconsistent behavior for outgoing packets.
-The fix is to reset with reference to skb's data pointer before loop 
-instead of network header.
+When using HEAD from
+https://git.kernel.org/cgit/utils/kernel/ipvsadm/ipvsadm.git/,
+the command:
+ipvsadm --start-daemon backup --mcast-interface eth0.60 \
+    --mcast-group ff02::1:81
+fails with the error message:
+Argument list too long
 
-Signed-off-by: Abdelrhman Ahmed <ab@abahmed.com>
---- net/core/neighbour.c.orig    2016-06-16 05:52:26.521301488 +0200
-+++ net/core/neighbour.c    2016-06-16 08:09:54.577222828 +0200
-@@ -1293,15 +1293,19 @@ int neigh_resolve_output(struct neighbou
-      int rc = 0;
+whereas both:
+ipvsadm --start-daemon master --mcast-interface eth0.60 \
+    --mcast-group ff02::1:81
+and:
+ipvsadm --start-daemon backup --mcast-interface eth0.60 \
+    --mcast-group 224.0.0.81
+are successful.
 
-      if (!neigh_event_send(neigh, skb)) {
--        int err;
-+        int err, offset;
-          struct net_device *dev = neigh->dev;
-+        unsigned char *data;
-          unsigned int seq;
+The error message "Argument list too long" isn't helpful. The error occurs
+because an IPv6 address is given in backup mode.
 
-          if (dev->header_ops->cache && !neigh->hh.hh_len)
-              neigh_hh_init(neigh);
+The error is in make_receive_sock() in net/netfilter/ipvs/ip_vs_sync.c,
+since it fails to set the interface on the address or the socket before
+calling inet6_bind() (via sock->ops->bind), where the test
+'if (!sk->sk_bound_dev_if)' failed.
 
-+        data = skb->data;
-+
-          do {
--            __skb_pull(skb, skb_network_offset(skb));
-+            offset = data - skb->data;
-+            __skb_pull(skb, offset);
-              seq = read_seqbegin(&neigh->ha_lock);
-              err = dev_hard_header(skb, dev, ntohs(skb->protocol),
-                            neigh->ha, NULL, skb->len);
-@@ -1326,11 +1330,15 @@ EXPORT_SYMBOL(neigh_resolve_output);
-  int neigh_connected_output(struct neighbour *neigh, struct sk_buff *skb)
-  {
-      struct net_device *dev = neigh->dev;
-+    unsigned char *data;
-      unsigned int seq;
--    int err;
-+    int err, offset;
-+
-+    data = skb->data;
+Setting sock->sk->sk_bound_dev_if on the socket before calling
+inet6_bind() resolves the issue.
 
-      do {
--        __skb_pull(skb, skb_network_offset(skb));
-+        offset = data - skb->data;
-+        __skb_pull(skb, offset);
-          seq = read_seqbegin(&neigh->ha_lock);
-          err = dev_hard_header(skb, dev, ntohs(skb->protocol),
-                        neigh->ha, NULL, skb->len);
+Fixes: d33288172e72 ("ipvs: add more mcast parameters for the sync daemon")
+Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
+---
+ net/netfilter/ipvs/ip_vs_sync.c |    6 ++++--
+ 1 files changed, 4 insertions(+), 2 deletions(-)
 
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index 803001a..1b07578 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -1545,7 +1545,8 @@ error:
+ /*
+  *      Set up receiving multicast socket over UDP
+  */
+-static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id)
++static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id,
++					int ifindex)
+ {
+ 	/* multicast addr */
+ 	union ipvs_sockaddr mcast_addr;
+@@ -1566,6 +1567,7 @@ static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id)
+ 		set_sock_size(sock->sk, 0, result);
+ 
+ 	get_mcast_sockaddr(&mcast_addr, &salen, &ipvs->bcfg, id);
++	sock->sk->sk_bound_dev_if = ifindex;
+ 	result = sock->ops->bind(sock, (struct sockaddr *)&mcast_addr, salen);
+ 	if (result < 0) {
+ 		pr_err("Error binding to the multicast addr\n");
+@@ -1868,7 +1870,7 @@ int start_sync_thread(struct netns_ipvs *ipvs, struct ipvs_sync_daemon_cfg *c,
+ 		if (state == IP_VS_STATE_MASTER)
+ 			sock = make_send_sock(ipvs, id);
+ 		else
+-			sock = make_receive_sock(ipvs, id);
++			sock = make_receive_sock(ipvs, id, dev->ifindex);
+ 		if (IS_ERR(sock)) {
+ 			result = PTR_ERR(sock);
+ 			goto outtinfo;
 -- 
-Regards,
-Abdelrhman
+1.7.7.6
+
