@@ -1,41 +1,54 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [v3,1/2] b43: Remove unused phy_a code
-Date: Thu, 16 Jun 2016 15:23:37 +0000 (UTC)
-Message-ID: <20160616152337.63AB261421@smtp.codeaurora.org>
-References: <1465052053-26740-1-git-send-email-linux@roeck-us.net>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: brcmfmac: include required headers in cfg80211.h
+Date: Thu, 16 Jun 2016 15:26:52 +0000 (UTC)
+Message-ID: <20160616152652.ED17F61418@smtp.codeaurora.org>
+References: <1465280428-5782-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, m@bues.ch,
- Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
-To: Guenter Roeck <linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
-Return-path: <b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1465052053-26740-1-git-send-email-linux-0h96xk9xTtrk1uMJSBkQmQ@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/b43-dev/>
-List-Post: <mailto:b43-dev-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/b43-dev>,
- <mailto:b43-dev-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "b43-dev" <b43-dev-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: b43-dev-bounces+gldbd-bcm43xx-dev=gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	brcm80211-dev-list@broadcom.com (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465280428-5782-1-git-send-email-zajec5@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-R3VlbnRlciBSb2VjayA8bGludXhAcm9lY2stdXMubmV0PiB3cm90ZToKPiBnY2MtNiByZXBvcnRz
-IHRoZSBmb2xsb3dpbmcgZXJyb3Igd2l0aCAtV2Vycm9yPXVudXNlZC1jb25zdC12YXJpYWJsZS4K
-PiAKPiBkcml2ZXJzL25ldC93aXJlbGVzcy9icm9hZGNvbS9iNDMvcGh5X2EuYzo1NzY6NDA6IGVy
-cm9yOgo+IAknYjQzX3BoeW9wc19hJyBkZWZpbmVkIGJ1dCBub3QgdXNlZAo+IAo+IFBlciBNaWNo
-YWVsIELDvHNjaDogIkFsbCBhLXBoeSBjb2RlIGlzIHVzdXNlZCIsIHNvIHJlbW92ZSBpdCBhbGws
-Cj4gYW5kIG1vdmUgdGhlIHJlbWFpbmluZyBUeXBlLUcgaW5pdGlhbGl6YXRpb24gY29kZSBpbnRv
-IHBoeV9nLmMuCj4gCj4gUmVwb3J0ZWQtYnk6IEZlbmdndWFuZyBXdSA8ZmVuZ2d1YW5nLnd1QGlu
-dGVsLmNvbT4gWzAtZGF5IHRlc3Qgcm9ib3RdCj4gQ2M6IE1pY2hhZWwgQsO8c2NoIDxtQGJ1ZXMu
-Y2g+Cj4gU2lnbmVkLW9mZi1ieTogR3VlbnRlciBSb2VjayA8bGludXhAcm9lY2stdXMubmV0PgoK
-VGhhbmtzLCAyIHBhdGNoZXMgYXBwbGllZCB0byB3aXJlbGVzcy1kcml2ZXJzLW5leHQuZ2l0OgoK
-OTc5MTMzM2E4NDBmIGI0MzogUmVtb3ZlIHVudXNlZCBwaHlfYSBjb2RlCmFmZGZkYzQ4MWVhOSBi
-NDM6IENvbXBsZXRlbHkgcmVtb3ZlIHN1cHBvcnQgZm9yIHBoeV9hCgotLSAKU2VudCBieSBwd2Ns
-aQpodHRwczovL3BhdGNod29yay5rZXJuZWwub3JnL3BhdGNoLzkxNTQ3MTkvCgoKX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KYjQzLWRldiBtYWlsaW5nIGxp
-c3QKYjQzLWRldkBsaXN0cy5pbmZyYWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3Jn
-L21haWxtYW4vbGlzdGluZm8vYjQzLWRldgo=
+Rafa=C5=82 Mi=C5=82ecki wrote:
+> Without this including cfg80211.h in a wrong order could result in:
+>=20
+> drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h:122:24: e=
+rror: array type has incomplete element type
+>   struct brcmf_wsec_key key[BRCMF_MAX_DEFAULT_KEYS];
+>                         ^
+> drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h:291:24: e=
+rror: field =E2=80=98p2p=E2=80=99 has incomplete type
+>   struct brcmf_p2p_info p2p;
+>                         ^
+> drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h:297:27: e=
+rror: field =E2=80=98pmk_list=E2=80=99 has incomplete type
+>   struct brcmf_pmk_list_le pmk_list;
+>                            ^
+> drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h:317:28: e=
+rror: field =E2=80=98assoclist=E2=80=99 has incomplete type
+>   struct brcmf_assoclist_le assoclist;
+>=20
+> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+
+Thanks, 1 patch applied to wireless-drivers-next.git:
+
+29477269a27d brcmfmac: include required headers in cfg80211.h
+
+--=20
+Sent by pwcli
+https://patchwork.kernel.org/patch/9159889/
