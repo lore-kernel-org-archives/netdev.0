@@ -1,39 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 0/3] net: stmmac: dwmac-rk: fixes for Wake-on-Lan on
- RK3288
-Date: Thu, 16 Jun 2016 14:15:14 -0700 (PDT)
-Message-ID: <20160616.141514.2135278107149916159.davem@davemloft.net>
-References: <CAP_ceTxFuCsqRQJ_9GMc5PSKqczA8Qwaa0jX22wQ2Dq=+GZUuQ@mail.gmail.com>
-	<cover.1466015458.git.vpalatin@chromium.org>
+Subject: Re: [PATCH RFC 1/3] ipv4: make flow functions more grepable by
+ removing flowi4_init_output
+Date: Thu, 16 Jun 2016 14:18:05 -0700 (PDT)
+Message-ID: <20160616.141805.201276959937562482.davem@davemloft.net>
+References: <6b8ad88f-db0b-3a88-197d-ed7278783bfc@cumulusnetworks.com>
+	<20160615.124800.889153492414820174.davem@davemloft.net>
+	<2c081044-0861-8a84-f4ae-88c60c4ddc67@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	andrew@lunn.ch, dianders@chromium.org, peppe.cavallaro@st.com,
-	heiko@sntech.de, zhengsq@rock-chips.com
-To: vpalatin@chromium.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1466015458.git.vpalatin@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: hannes@stressinduktion.org, netdev@vger.kernel.org, ja@ssi.bg
+To: dsa@cumulusnetworks.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43198 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754421AbcFPVSH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 17:18:07 -0400
+In-Reply-To: <2c081044-0861-8a84-f4ae-88c60c4ddc67@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Vincent Palatin <vpalatin@chromium.org>
-Date: Wed, 15 Jun 2016 11:32:20 -0700
+From: David Ahern <dsa@cumulusnetworks.com>
+Date: Wed, 15 Jun 2016 14:29:28 -0600
 
-> In order to support Wake-On-Lan when using the RK3288 integrated MAC
-> (with an external RGMII PHY), we need to avoid shutting down the regulator
-> of the external PHY when the MAC is suspended as it's currently done in the MAC
-> platform code.
-> As a first step, create independant callbacks for suspend/resume rather than
-> re-using exit/init callbacks. So the dwmac platform driver can behave differently
-> on suspend where it might skip shutting the PHY and at module unloading.
-> Then update the dwmac-rk driver to switch off the PHY regulator only if we are
-> not planning to wake up from the LAN.
-> Finally add the PMT interrupt to the MAC device tree configuration, so we can
-> wake up the core from it when the PHY has received the magic packet.
+> On 6/15/16 1:48 PM, David Miller wrote:
+>> But if people don't use the helpers, and initialize flow structures
+>> on their own, yeah that defeats the whole mechanism and things will
+>> seem harder and "unhelpful".
 > 
-> Changes since v1:
->   * rename 'powered_down' variable into 'suspended'.
->   * fix the logic recording the PHY suspended state according to Heiko comments.
+> That's my point -- the flow struct does not have a consistent
+> initializer. There have been a number of bug patches over the past
+> year like 4cfc86f3dae6 to handle uninitialized elements. My suggestion
+> here is the same as 4cfc86f3dae6 which is to initialize the flow when
+> it is declared.
+> 
+> Consider the recent change from Hannes for 38b7097b55b6. fl6 can be
+> initialized when it is declared with a bit of straightforward
+> refactoring -- icmp6_send has an easy split into 2.
+> 
+> Seems like that is a more robust long term solution considering the
+> various init use cases.
 
-Series applied to net-next, thanks.
+The danger with initializers is it puts the burdon all over the tree.
+
+So now there are many places that need to be audited when a new
+element is added.
+
+So from my perspective, the bug is that the code in question did
+things by hand rather than using the helper function.
+
+If everyone used the flow initializer helpers, the compiler would
+tell us every place that needs to be fixed up.
+
+By doing initializers inline, this process of discovery is more
+difficult and error prone.
