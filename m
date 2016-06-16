@@ -1,57 +1,38 @@
-From: Ursula Braun <ubraun@linux.vnet.ibm.com>
-Subject: [PATCH net-next 04/13] qeth: fill netdevice->gso_* attributes accurately
-Date: Thu, 16 Jun 2016 16:18:54 +0200
-Message-ID: <1466086743-55484-5-git-send-email-ubraun@linux.vnet.ibm.com>
-References: <1466086743-55484-1-git-send-email-ubraun@linux.vnet.ibm.com>
-Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
-	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
-	utz.bacher@de.ibm.com
-To: davem@davemloft.net
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH 0/2] Check MAC address length when changing it
+Date: Thu, 16 Jun 2016 16:19:38 +0200
+Message-ID: <1466086780-5613-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:30623 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754379AbcFPOTa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 10:19:30 -0400
-Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
-	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u5GEIwpi105622
-	for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 10:19:29 -0400
-Received: from e06smtp09.uk.ibm.com (e06smtp09.uk.ibm.com [195.75.94.105])
-	by mx0a-001b2d01.pphosted.com with ESMTP id 23kqt276w0-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 10:19:29 -0400
-Received: from localhost
-	by e06smtp09.uk.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <ubraun@linux.vnet.ibm.com>;
-	Thu, 16 Jun 2016 15:19:28 +0100
-In-Reply-To: <1466086743-55484-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:54726 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754575AbcFPOTy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jun 2016 10:19:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
+Due to minimal checking in kernel space, MAC address setting was
+problematic in multiple ways:
 
-Use QETH_MAX_BUFFER_ELEMENTS(card) instead of constant 16.
-Also fill gso_max_segs and gso_min_segs.
+- Setting an overly long MAC address was accepted and the extra parts
+  simply ignored.
 
-Signed-off-by: Eugene Crosser <Eugene.Crosser@ru.ibm.com>
-Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
----
- drivers/s390/net/qeth_l3_main.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+- Setting an overly short MAC address for VFs was accepted and the
+  missing part filled with random garbage.
 
-diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
-index 86b3bc2..76ddd18 100644
---- a/drivers/s390/net/qeth_l3_main.c
-+++ b/drivers/s390/net/qeth_l3_main.c
-@@ -3217,7 +3217,9 @@ static int qeth_l3_setup_netdev(struct qeth_card *card)
- 				NETIF_F_HW_VLAN_CTAG_RX |
- 				NETIF_F_HW_VLAN_CTAG_FILTER;
- 	netif_keep_dst(card->dev);
--	card->dev->gso_max_size = 15 * PAGE_SIZE;
-+	card->dev->gso_max_size = (QETH_MAX_BUFFER_ELEMENTS(card) - 1) *
-+				  PAGE_SIZE;
-+	card->dev->gso_max_segs = (QETH_MAX_BUFFER_ELEMENTS(card) - 1);
- 
- 	SET_NETDEV_DEV(card->dev, &card->gdev->dev);
- 	netif_napi_add(card->dev, &card->napi, qeth_l3_poll, QETH_NAPI_WEIGHT);
+While patch 1 makes sure that in the second case above missing parts are
+padded with zero, patch 2 implements a real solution for both by
+comparing new and old address lengths prior to accepting the input. For
+VFs it is simply assumed that the length must match that of the PF's
+address.
+
+Phil Sutter (2):
+  iplink: Add missing variable initialization
+  iplink: Check address length via netlink
+
+ ip/iplink.c | 54 +++++++++++++++++++++++++++++++++++++++++++++++++++---
+ 1 file changed, 51 insertions(+), 3 deletions(-)
+
 -- 
-2.6.6
+2.8.2
