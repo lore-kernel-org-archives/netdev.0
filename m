@@ -1,60 +1,47 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
-Date: Thu, 16 Jun 2016 11:10:23 -0700
-Message-ID: <5762EB8F.60801@hpe.com>
-References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH 6/8] net: gianfar: fix old-style declaration
+Date: Thu, 16 Jun 2016 11:11:45 -0700
+Message-ID: <1466100705.19647.47.camel@perches.com>
+References: <20160616135020.3154461-1-arnd@arndb.de>
+	 <20160616135245.3198419-1-arnd@arndb.de>
+	 <20160616135245.3198419-6-arnd@arndb.de>
+	 <0d9320db-ae2c-03a2-eb20-e527a69c356b@cogentembedded.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: kernel-team@fb.com
-To: Tom Herbert <tom@herbertland.com>, davem@davemloft.net,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t1613g.houston.hpe.com ([15.241.32.99]:51162 "EHLO
-	g9t1613g.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753992AbcFPSK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 14:10:27 -0400
-Received: from g2t2354.austin.hpe.com (g2t2354.austin.hpe.com [15.233.44.27])
-	(using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by g9t1613g.houston.hpe.com (Postfix) with ESMTPS id 132FF62CEC
-	for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 18:10:26 +0000 (UTC)
-In-Reply-To: <1466099522-690741-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Yangbo Lu <yangbo.lu@nxp.com>, linux-kernel@vger.kernel.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Arnd Bergmann <arnd@arndb.de>, netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <0d9320db-ae2c-03a2-eb20-e527a69c356b@cogentembedded.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/16/2016 10:51 AM, Tom Herbert wrote:
+On Thu, 2016-06-16 at 21:02 +0300, Sergei Shtylyov wrote:
+> On 06/16/2016 04:52 PM, Arnd Bergmann wrote:
+> > Modern C standards expect the '__inline__' keyword to come before t=
+he return
+> > type in a declaration, and we get a warning for this with "make W=3D=
+1":
+[]
+> > diff --git a/drivers/net/ethernet/freescale/gianfar.c b/drivers/net=
+/ethernet/freescale/gianfar.c
+[]
+> > @@ -2275,7 +2275,7 @@ static inline void gfar_tx_checksum(struct sk=
+_buff *skb, struct txfcb *fcb,
+> > =A0	fcb->flags =3D flags;
+> > =A0}
+> >=20
+> > -void inline gfar_tx_vlan(struct sk_buff *skb, struct txfcb *fcb)
+> > +static inline void gfar_tx_vlan(struct sk_buff *skb, struct txfcb =
+*fcb)
+> =A0=A0=A0=A0You don't mention making it *static*. Though the function=
+ can be *static*=A0
+> indeed... the current policy also forbids *inline* in the *.c files, =
+leaving=A0
+> the judgement to gcc.
 
-> Note that #1 is really about running a transport stack in userspace
-> applications in clients, not necessarily servers. For servers we
-> intend to modified the kernel stack in order to leverage existing
-> implementation for building scalable serves (hence these patches).
-
-Only if there is a v2 for other reasons...  I assume that was meant to 
-be "scalable servers."
-
-
-> Tested: Various cases of TOU with IPv4, IPv6 using TCP_STREAM and
-> TCP_RR. Also, tested IPIP for comparing TOU encapsulation to IP
-> tunneling.
->
->      - IPv6 native
->        1 TCP_STREAM
-> 	8394 tps
-
-TPS for TCP_STREAM?  Is that Mbit/s?
-
->        200 TCP_RR
-> 	1726825 tps
-> 	100/177/361 90/95/99% latencies
-
-To enhance the already good comprehensiveness of the numbers, a 1 TCP_RR 
-showing the effect on latency rather than aggregate PPS would be 
-goodness, as would a comparison of the service demands of the different 
-single-stream results.
-
-CPU and NIC models would provide excellent context for the numbers.
-
-happy benchmarking,
-
-rick jones
+While mostly true, (__always_inline vs inline vs nothing),
+there are many inline uses in this file that could be removed
+in a separate patch rather than removing just this one.
