@@ -1,67 +1,71 @@
-From: Jiri Benc <jbenc@redhat.com>
-Subject: Re: [PATCH v2 net] gre: fix error handler
-Date: Thu, 16 Jun 2016 09:40:58 +0200
-Message-ID: <20160616094059.6ce42eb6@griffin>
-References: <1465967701.7945.200.camel@edumazet-glaptop3.roam.corp.google.com>
-	<1465969537.7945.201.camel@edumazet-glaptop3.roam.corp.google.com>
-	<1465997040.7945.207.camel@edumazet-glaptop3.roam.corp.google.com>
+From: "Eggert, Lars" <lars@netapp.com>
+Subject: Re: [CRIU] TCP_REPAIR MSS issue
+Date: Thu, 16 Jun 2016 07:51:22 +0000
+Message-ID: <5A6E3EFB-2B69-4C3C-BC67-CAFEC5B2DB2C@netapp.com>
+References: <C6D17923-7965-4483-8604-C654BFF1E0FF@netapp.com>
+ <575FEA4B.2000603@virtuozzo.com>
+ <3758708E-B5DE-4D8B-A8CC-37346F994B32@netapp.com>
+ <20160614171528.GA14276@outlook.office365.com>
+ <EE75D5F9-7243-4DE0-94FE-F6279939C231@netapp.com>
+ <20160614205741.GB20722@outlook.office365.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>,
-	Maciej =?UTF-8?B?xbtlbmN6eWtvd3NraQ==?= <maze@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: multipart/signed;
+	boundary="Apple-Mail=_D01E96D8-714C-42AA-93A1-C4740EC31081";
+	protocol="application/pgp-signature"; micalg=pgp-sha256
+Cc: Pavel Emelyanov <xemul@virtuozzo.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"criu@openvz.org" <criu@openvz.org>,
+	"Honda, Michio" <michio@netapp.com>
+To: Andrey Vagin <avagin@virtuozzo.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:57080 "EHLO mx1.redhat.com"
+Received: from mx144.netapp.com ([216.240.21.25]:14525 "EHLO mx144.netapp.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751252AbcFPHlD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 03:41:03 -0400
-In-Reply-To: <1465997040.7945.207.camel@edumazet-glaptop3.roam.corp.google.com>
+	id S1751300AbcFPHvZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 16 Jun 2016 03:51:25 -0400
+In-Reply-To: <20160614205741.GB20722@outlook.office365.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 15 Jun 2016 06:24:00 -0700, Eric Dumazet wrote:
-> From: Eric Dumazet <edumazet@google.com>
->=20
-> 1) gre_parse_header() can be called from gre_err()
->=20
->    At this point transport header points to ICMP header, not the inne=
-r
-> header.
->=20
-> 2) We can not really change transport header as ipgre_err() will late=
-r
-> assume transport header still points to ICMP header (using icmp_hdr()=
-)
->=20
-> 3) pskb_may_pull() logic in gre_parse_header() really works
->   if we are interested at zone pointed by skb->data
->=20
-> 4) As Jiri explained in commit b7f8fe251e46 ("gre: do not pull header=
- in
-> ICMP error processing") we should not pull headers in error handler.
->=20
-> So this fix :
->=20
-> A) changes gre_parse_header() to use skb->data instead of
-> skb_transport_header()
->=20
-> B) Adds a nhs parameter to gre_parse_header() so that we can skip the
-> not pulled IP header from error path.
->   This offset is 0 for normal receive path.
->=20
-> C) remove obsolete IPV6 includes
->=20
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: Tom Herbert <tom@herbertland.com>
-> Cc: Maciej =C5=BBenczykowski <maze@google.com>
-> Cc: Jiri Benc <jbenc@redhat.com>
+--Apple-Mail=_D01E96D8-714C-42AA-93A1-C4740EC31081
+Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain;
+	charset=us-ascii
 
-Reviewed-by: Jiri Benc <jbenc@redhat.com>
+Hi,
 
-I know this has already been applied. Didn't get to it earlier, sorry.
-The patch looks good. Thanks!
+On 2016-06-14, at 23:21, Andrey Vagin <avagin@virtuozzo.com> wrote:
+> On my host, I see that dst is set in tcp_v4_connect() -> =
+sk_setup_caps()
 
- Jiri
+sorry, are you saying that you don't see the issue with =
+TCP_MSS_DEFAULT-sized segments after TCP_REPAIR on your kernel? Or are =
+you saying my quick attempt at analyzing the cause was wrong?
+
+Thanks,
+Lars
+
+--Apple-Mail=_D01E96D8-714C-42AA-93A1-C4740EC31081
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="signature.asc"
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Message signed with OpenPGP using GPGMail
+
+-----BEGIN PGP SIGNATURE-----
+
+iQIcBAEBCAAGBQJXYlp7AAoJEFS1wwm/cMFXpFMP/0irPUuBKogHIXX02LP88epP
+9QLI+onx61fmNoFJNyKt2v31iTtYd93AnPWhgxLz5BsmAjSk5PXqipa66Q/6QVeg
+leIpUhLwTABf3GONMCsC5y4wsfgw3Lnh32vm4ijw+CSBtTF07Rao6j1jQa0GLGYj
+EcvB2CHW8sfwDldmwG/E4XabqDUcwFqqvRdY3S+A5Gm382L+zWVBuBZyk+HUGJ+1
+dDz/ewvxizyKbGfinbW5D+1ldfKX/EBRPo8bnNbPAbiPdNL8HRHzPxJByqfdhZ24
+KiUyC1f9U5lSLzPVbgKcsHdUxAPgQQ+/4Kv4UVclFJVOyqG4aGPvx4UYOjMM7tpn
+H7pLq9IOcm9ZZsj1vglXXjxuBsYRD0zfkTffSfTKbqzCbBJxb+OKOZfJORF2H1on
+UgZE1Ho1lQMs4yiV7GR1PuwarbSFJ1sL60ND/ic0XC8U03Rl66886gnR4pLgsbKe
+aVnJRwd/4oxdeuZWJV9sGNxuWbAufKoLHeGNbZiBRKiB4dxfcUd0JRCiR0M12iMp
+UN2uLbG3oKTAnG5i1z25/1cRWMkSGU+7upRt6r4E0gf8njKhK1rDNYPGgyZFPlU2
+zBTmMFpB3Lj9GYYshd47HM6dYetkHfKEuLvVgl2ncjzPykhv9ijfqW6wXmBhOn1f
+s5TIpDW+sVX4XjZzsFhf
+=9/Kb
+-----END PGP SIGNATURE-----
+
+--Apple-Mail=_D01E96D8-714C-42AA-93A1-C4740EC31081--
