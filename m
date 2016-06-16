@@ -1,64 +1,43 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 4/8] hamradio: baycom: fix old-style declaration
-Date: Thu, 16 Jun 2016 15:52:11 +0200
-Message-ID: <20160616135245.3198419-4-arnd@arndb.de>
+Subject: [PATCH 3/8] wireless: ipw2200: fix old-style declaration
+Date: Thu, 16 Jun 2016 15:52:10 +0200
+Message-ID: <20160616135245.3198419-3-arnd@arndb.de>
 References: <20160616135020.3154461-1-arnd@arndb.de>
  <20160616135245.3198419-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, linux-hams@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: netdev@vger.kernel.org, Thomas Sailer <t.sailer@alumni.ethz.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.17.10]:51968 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754751AbcFPNwN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 09:52:13 -0400
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Johannes Berg <johannes.berg@intel.com>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <20160616135245.3198419-1-arnd@arndb.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Modern C standards expect the '__inline__' keyword to come before the return
+Modern C standards expect the 'inline' keyword to come before the return
 type in a declaration, and we get a warning for this with "make W=1":
 
-drivers/net/hamradio/baycom_par.c:159:1: error: '__inline__' is not at beginning of declaration [-Werror=old-style-declaration]
-
-For consistency with other drivers, I'm changing '__inline__' to 'inline'
-at the same time.
+drivers/net/wireless/intel/ipw2x00/ipw2200.c:4096:1: error: 'inline' is not at beginning of declaration [-Werror=old-style-declaration]
 
 Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 ---
- drivers/net/hamradio/baycom_par.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/wireless/intel/ipw2x00/ipw2200.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/hamradio/baycom_par.c b/drivers/net/hamradio/baycom_par.c
-index acb636963e90..072cddce9264 100644
---- a/drivers/net/hamradio/baycom_par.c
-+++ b/drivers/net/hamradio/baycom_par.c
-@@ -156,7 +156,7 @@ struct baycom_state {
+diff --git a/drivers/net/wireless/intel/ipw2x00/ipw2200.c b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+index 5adb7cefb2fe..bfd68612a535 100644
+--- a/drivers/net/wireless/intel/ipw2x00/ipw2200.c
++++ b/drivers/net/wireless/intel/ipw2x00/ipw2200.c
+@@ -4093,7 +4093,7 @@ static const char *ipw_get_status_code(u16 status)
+ 	return "Unknown status value.";
+ }
  
- /* --------------------------------------------------------------------- */
- 
--static void __inline__ baycom_int_freq(struct baycom_state *bc)
-+static inline void baycom_int_freq(struct baycom_state *bc)
+-static void inline average_init(struct average *avg)
++static inline void average_init(struct average *avg)
  {
- #ifdef BAYCOM_DEBUG
- 	unsigned long cur_jiffies = jiffies;
-@@ -192,7 +192,7 @@ static void __inline__ baycom_int_freq(struct baycom_state *bc)
- 
- /* --------------------------------------------------------------------- */
- 
--static __inline__ void par96_tx(struct net_device *dev, struct baycom_state *bc)
-+static inline void par96_tx(struct net_device *dev, struct baycom_state *bc)
- {
- 	int i;
- 	unsigned int data = hdlcdrv_getbits(&bc->hdrv);
-@@ -216,7 +216,7 @@ static __inline__ void par96_tx(struct net_device *dev, struct baycom_state *bc)
- 
- /* --------------------------------------------------------------------- */
- 
--static __inline__ void par96_rx(struct net_device *dev, struct baycom_state *bc)
-+static inline void par96_rx(struct net_device *dev, struct baycom_state *bc)
- {
- 	int i;
- 	unsigned int data, mask, mask2, descx;
+ 	memset(avg, 0, sizeof(*avg));
+ }
 -- 
 2.9.0
