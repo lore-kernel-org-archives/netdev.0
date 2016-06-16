@@ -1,62 +1,70 @@
 From: Shrikrishna Khare <skhare@vmware.com>
-Subject: [PATCH net-next v5 7/7] vmxnet3: update to version 3
-Date: Thu, 16 Jun 2016 10:51:59 -0700
-Message-ID: <1466099519-39322-8-git-send-email-skhare@vmware.com>
+Subject: [PATCH net-next v5 6/7] vmxnet3: introduce command to register memory region
+Date: Thu, 16 Jun 2016 10:51:58 -0700
+Message-ID: <1466099519-39322-7-git-send-email-skhare@vmware.com>
 References: <1466099519-39322-1-git-send-email-skhare@vmware.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Shrikrishna Khare <skhare@vmware.com>
-To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<pv-drivers@vmware.com>
+Cc: Shrikrishna Khare <skhare@vmware.com>,
+	Guolin Yang <gyang@vmware.com>
+To: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1466099519-39322-1-git-send-email-skhare@vmware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-With all vmxnet3 version 3 changes incorporated in the vmxnet3 driver,
-the driver can configure emulation to run at vmxnet3 version 3, provided
-the emulation advertises support for version 3.
+In vmxnet3 version 3, the emulation added support for the vmxnet3 driver
+to communicate information about the memory regions the driver will use
+for rx/tx buffers. The driver can also indicate which rx/tx queue the
+memory region is applicable for. If this information is communicated
+to the emulation, the emulation will always keep these memory regions
+mapped, thereby avoiding the mapping/unmapping overhead for every packet.
 
+Currently, Linux vmxnet3 driver does not leverage this capability. The
+feasibility of using this approach for the Linux vmxnet3 driver will be
+investigated independently and if possible, will be part of a different
+patch. This patch only exposes the emulation capability to the driver
+(vmxnet3_defs.h is identical between the driver and the emulation).
+
+Signed-off-by: Guolin Yang <gyang@vmware.com>
 Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
 ---
- drivers/net/vmxnet3/vmxnet3_drv.c | 7 ++++++-
- drivers/net/vmxnet3/vmxnet3_int.h | 4 ++--
- 2 files changed, 8 insertions(+), 3 deletions(-)
+ drivers/net/vmxnet3/vmxnet3_defs.h | 17 +++++++++++++++++
+ 1 file changed, 17 insertions(+)
 
-diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
-index d0bcc1d9..c68fe49 100644
---- a/drivers/net/vmxnet3/vmxnet3_drv.c
-+++ b/drivers/net/vmxnet3/vmxnet3_drv.c
-@@ -3345,7 +3345,12 @@ vmxnet3_probe_device(struct pci_dev *pdev,
- 		goto err_alloc_pci;
+diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
+index 274e145..c3a3164 100644
+--- a/drivers/net/vmxnet3/vmxnet3_defs.h
++++ b/drivers/net/vmxnet3/vmxnet3_defs.h
+@@ -81,6 +81,7 @@ enum {
+ 	VMXNET3_CMD_RESERVED2,
+ 	VMXNET3_CMD_RESERVED3,
+ 	VMXNET3_CMD_SET_COALESCE,
++	VMXNET3_CMD_REGISTER_MEMREGS,
  
- 	ver = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_VRRS);
--	if (ver & (1 << VMXNET3_REV_2)) {
-+	if (ver & (1 << VMXNET3_REV_3)) {
-+		VMXNET3_WRITE_BAR1_REG(adapter,
-+				       VMXNET3_REG_VRRS,
-+				       1 << VMXNET3_REV_3);
-+		adapter->version = VMXNET3_REV_3 + 1;
-+	} else if (ver & (1 << VMXNET3_REV_2)) {
- 		VMXNET3_WRITE_BAR1_REG(adapter,
- 				       VMXNET3_REG_VRRS,
- 				       1 << VMXNET3_REV_2);
-diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
-index 63df4f2..74fc030 100644
---- a/drivers/net/vmxnet3/vmxnet3_int.h
-+++ b/drivers/net/vmxnet3/vmxnet3_int.h
-@@ -69,10 +69,10 @@
- /*
-  * Version numbers
+ 	VMXNET3_CMD_FIRST_GET = 0xF00D0000,
+ 	VMXNET3_CMD_GET_QUEUE_STATUS = VMXNET3_CMD_FIRST_GET,
+@@ -668,6 +669,22 @@ struct Vmxnet3_CoalesceScheme {
+ 	} coalPara;
+ };
+ 
++struct Vmxnet3_MemoryRegion {
++	__le64					startPA;
++	__le32					length;
++	__le16					txQueueBits;
++	__le16					rxQueueBits;
++};
++
++#define MAX_MEMORY_REGION_PER_QUEUE 16
++#define MAX_MEMORY_REGION_PER_DEVICE 256
++
++struct Vmxnet3_MemRegs {
++	__le16					numRegs;
++	__le16					pad[3];
++	struct Vmxnet3_MemoryRegion		memRegs[1];
++};
++
+ /* If the command data <= 16 bytes, use the shared memory directly.
+  * otherwise, use variable length configuration descriptor.
   */
--#define VMXNET3_DRIVER_VERSION_STRING   "1.4.8.0-k"
-+#define VMXNET3_DRIVER_VERSION_STRING   "1.4.9.0-k"
- 
- /* a 32-bit int, each byte encode a verion number in VMXNET3_DRIVER_VERSION */
--#define VMXNET3_DRIVER_VERSION_NUM      0x01040800
-+#define VMXNET3_DRIVER_VERSION_NUM      0x01040900
- 
- #if defined(CONFIG_PCI_MSI)
- 	/* RSS only makes sense if MSI-X is supported. */
 -- 
 2.8.2
