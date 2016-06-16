@@ -1,67 +1,40 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH net-next v2] tcp: use RFC6298 compliant TCP RTO
- calculation
-Date: Thu, 16 Jun 2016 11:07:35 +0200 (CEST)
-Message-ID: <1771240333.25844.1466068055580@office.mailbox.org>
-References: <CAK6E8=dWLF+gRprxEbHRLnkRNHmf5sbedtv2Dt1jOqKPh7fmjA@mail.gmail.com>
- <20160614191841.21496-1-dmetz@mytum.de>
- <CAK6E8=eeso8OEN_0-znqkuEyVTqzP1mTvwktk4QOsrLJXmuj9Q@mail.gmail.com>
- <20160615174114.GA16217@virgo.localdomain>
- <CAK6E8=fgQitOiXwjjn0gq93w7m5DQ2OHr_wvq-oGeAF2fhE-uA@mail.gmail.com>
- <16f7fad2-e8e3-44b7-af09-43467840bd00@mytum.de>
- <CANn89iLY27dQLXEmk9GMtACjjE0CWxqSK2FdM-Zo5HM5iA82XQ@mail.gmail.com>
+From: John Crispin <john@phrozen.org>
+Subject: Re: [PATCH 0/4] net-next: mediatek: IRQ cleanups, fixes and grouping
+Date: Thu, 16 Jun 2016 11:44:44 +0200
+Message-ID: <5dbb935d-2d9a-48fe-79c7-8e8f57b27678@phrozen.org>
+References: <1466002730-58476-1-git-send-email-john@phrozen.org>
+ <20160615.222050.2210130284846212716.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Yuchung Cheng <ycheng@google.com>, netdev <netdev@vger.kernel.org>,
-	Daniel Metz <daniel.metz@rohde-schwarz.com>
-To: Daniel Metz <dmetz@mytum.de>, Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.mailbox.org ([80.241.60.215]:47395 "EHLO mx2.mailbox.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751323AbcFPJHr convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 05:07:47 -0400
-In-Reply-To: <CANn89iLY27dQLXEmk9GMtACjjE0CWxqSK2FdM-Zo5HM5iA82XQ@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
+	keyhaede@gmail.com, linux-kernel@vger.kernel.org, nbd@nbd.name
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160615.222050.2210130284846212716.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> On June 15, 2016 at 10:38 PM Eric Dumazet <edumazet@google.com> wrote=
-:
->
-> I guess the problem is that some folks use smaller rto than
-> RTAX_RTO_MIN , look at tcp_rto_min()
 
-Due to the nature of the Linux calculation, this is probably more of a =
-reason to use the RFC 6298 calculation. When a smaller MinRTO as 200ms =
-is used, the Linux =E2=80=9Cadvantage=E2=80=9D to account for Delayed A=
-CKs up to 200ms is decreased. Assuming a MinRTO of 0ms, the Linux abili=
-ty and the RFC ability to account for sudden Delayed ACKs is pretty equ=
-al: zero.=20
 
-To illustrate this: RTT: 50ms, RTTVAR: 0ms, MinRTO: 50ms, Delayed ACKs:=
- 200ms.=20
+On 16/06/2016 07:20, David Miller wrote:
+> From: John Crispin <john@phrozen.org>
+> Date: Wed, 15 Jun 2016 16:58:46 +0200
+> 
+>> This series contains 2 small code cleanups that are leftovers from the
+>> MIPS support. There is also a small fix that adds proper locking to the
+>> code accessing the IRQ registers. Without this fix we saw deadlocks caused
+>> by the last patch of the series, which adds IRQ grouping. The grouping
+>> feature allows us to use different IRQs for TX and RX. By doing so we can
+>> use affinity to let the SoC handle the IRQs on different cores.
+> 
+> This patch series doesn't apply cleanly to the net-next tree, I get rejects
+> on patch #4.
+> 
 
-Before any ACK is delayed:
+it depends on the series with the 11 fixes that i sent last week which
+is however in the net tree and not the next tree (i also still had the
+DQL hack in my tree). if i resend this at the start of the next rc1
+would you merge it into the net tree so that it becomes part of v4.8 ?
 
-Linux RTO ~ 100+ms (tested)=20
-RFC 6298 RTO ~ 50+ms (tested)=20
-
-RTT of first delayed ACK if it is not shortened due to another data pac=
-ket: ~250ms=20
-
-This is not tied to the RTT:
-RTT 1000ms, RTTVAR: 0ms, MinRTO: 50ms, Delayed ACKs: 200ms=20
-
-Before any ACK is delayed:
-
-Linux RTO ~ 1050+ms (tested)=20
-RFC 6298 RTO ~ 1000+ms (tested)
-
-RTT of first delayed ACK if it is not shortened due to another data pac=
-ket: ~1200ms=20
-
-A RFC 6298 problem we run in so far was with extremely steady RTTs and =
-sender limited data. A Spurious Retransmission occurred from time to ti=
-me in this case.
-
-Hagen
+	John
