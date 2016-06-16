@@ -1,81 +1,74 @@
-From: Wei Tang <tangwei@cmss.chinamobile.com>
-Subject: [PATCH] net: the space is required after ','
-Date: Thu, 16 Jun 2016 21:30:12 +0800
-Message-ID: <1466083812-9793-1-git-send-email-tangwei@cmss.chinamobile.com>
-Cc: ast@plumgrid.com, tom@herbertland.com, daniel@iogearbox.net,
-	ja@ssi.bg, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Wei Tang <tangwei@cmss.chinamobile.com>
-To: davem@davemloft.net, edumazet@google.com, aduyck@mirantis.com,
-	jiri@mellanox.com, jarod@redhat.com, nikolay@cumulusnetworks.com
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH 0/8] net: fix old-style declarations
+Date: Thu, 16 Jun 2016 15:50:05 +0200
+Message-ID: <20160616135020.3154461-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>, Armin Schindler <mac@melware.de>,
+	Karsten Keil <isdn@linux-pingi.de>,
+	Claudiu Manoil <claudiu.manoil@freescale.com>,
+	Thomas Sailer <t.sailer@alumni.ethz.ch>,
+	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
+	Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	"David S. Miller" <davem@davemloft.net>,
+	Trond Myklebust <trond.myklebust@primarydata.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	"J. Bruce Fields" <bfields@fieldses.org>,
+	linux-kernel@vger.kernel.org, linux-hams@vger.kernel.org,
+	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
+	linux-nfs@vger.kernel.org
+To: netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The space is missing after ',', and this will introduce much more
-noise when checking patch around.
+"make W=1" enables -Wold-style-declaration, which is generally useful
+to warn about pre-C89 code in the kernel, but it also warns about
+some harmless variations (sometimes many of them from a single
+file).
 
-Signed-off-by: Wei Tang <tangwei@cmss.chinamobile.com>
----
- net/core/dev.c | 12 ++++++------
- 1 file changed, 6 insertions(+), 6 deletions(-)
+This fixes up the 8 instances I found in the networking code, there
+is another series of 12 patches for the rest of the kernel.
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 7a3fe58..a01511b 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5919,7 +5919,7 @@ static void netdev_adjacent_add_links(struct net_device *dev)
- 	struct net *net = dev_net(dev);
- 
- 	list_for_each_entry(iter, &dev->adj_list.upper, list) {
--		if (!net_eq(net,dev_net(iter->dev)))
-+		if (!net_eq(net, dev_net(iter->dev)))
- 			continue;
- 		netdev_adjacent_sysfs_add(iter->dev, dev,
- 					  &iter->dev->adj_list.lower);
-@@ -5928,7 +5928,7 @@ static void netdev_adjacent_add_links(struct net_device *dev)
- 	}
- 
- 	list_for_each_entry(iter, &dev->adj_list.lower, list) {
--		if (!net_eq(net,dev_net(iter->dev)))
-+		if (!net_eq(net, dev_net(iter->dev)))
- 			continue;
- 		netdev_adjacent_sysfs_add(iter->dev, dev,
- 					  &iter->dev->adj_list.upper);
-@@ -5944,7 +5944,7 @@ static void netdev_adjacent_del_links(struct net_device *dev)
- 	struct net *net = dev_net(dev);
- 
- 	list_for_each_entry(iter, &dev->adj_list.upper, list) {
--		if (!net_eq(net,dev_net(iter->dev)))
-+		if (!net_eq(net, dev_net(iter->dev)))
- 			continue;
- 		netdev_adjacent_sysfs_del(iter->dev, dev->name,
- 					  &iter->dev->adj_list.lower);
-@@ -5953,7 +5953,7 @@ static void netdev_adjacent_del_links(struct net_device *dev)
- 	}
- 
- 	list_for_each_entry(iter, &dev->adj_list.lower, list) {
--		if (!net_eq(net,dev_net(iter->dev)))
-+		if (!net_eq(net, dev_net(iter->dev)))
- 			continue;
- 		netdev_adjacent_sysfs_del(iter->dev, dev->name,
- 					  &iter->dev->adj_list.upper);
-@@ -5969,7 +5969,7 @@ void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
- 	struct net *net = dev_net(dev);
- 
- 	list_for_each_entry(iter, &dev->adj_list.upper, list) {
--		if (!net_eq(net,dev_net(iter->dev)))
-+		if (!net_eq(net, dev_net(iter->dev)))
- 			continue;
- 		netdev_adjacent_sysfs_del(iter->dev, oldname,
- 					  &iter->dev->adj_list.lower);
-@@ -5978,7 +5978,7 @@ void netdev_adjacent_rename_links(struct net_device *dev, char *oldname)
- 	}
- 
- 	list_for_each_entry(iter, &dev->adj_list.lower, list) {
--		if (!net_eq(net,dev_net(iter->dev)))
-+		if (!net_eq(net, dev_net(iter->dev)))
- 			continue;
- 		netdev_adjacent_sysfs_del(iter->dev, oldname,
- 					  &iter->dev->adj_list.upper);
+Arnd Bergmann (8):
+  wireless: airo: rename 'register' variable
+  wireless: brcmsmac: fix old-style declaration
+  wireless: ipw2200: fix old-style declaration
+  hamradio: baycom: fix old-style declaration
+  isdn: eicon: fix old-style declarations
+  net: gianfar: fix old-style declaration
+  net: xfrm: fix old-style declaration
+  sunrpc: fix old-style declaration
+
+ drivers/isdn/hardware/eicon/divasmain.c                 | 12 ++++++------
+ drivers/isdn/hardware/eicon/platform.h                  |  6 +++---
+ drivers/net/ethernet/freescale/gianfar.c                |  2 +-
+ drivers/net/hamradio/baycom_par.c                       |  6 +++---
+ drivers/net/wireless/broadcom/brcm80211/brcmsmac/main.c |  4 ++--
+ drivers/net/wireless/cisco/airo.c                       |  4 ++--
+ drivers/net/wireless/intel/ipw2x00/ipw2200.c            |  2 +-
+ net/ipv4/xfrm4_policy.c                                 |  8 ++++----
+ net/ipv6/xfrm6_policy.c                                 |  4 ++--
+ net/sunrpc/clnt.c                                       |  2 +-
+ 10 files changed, 25 insertions(+), 25 deletions(-)
+
 -- 
-1.9.1
+2.9.0
+
+Cc: Armin Schindler <mac@melware.de>
+Cc: Karsten Keil <isdn@linux-pingi.de>
+Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
+Cc: Thomas Sailer <t.sailer@alumni.ethz.ch>
+Cc: Stanislav Yakovlev <stas.yakovlev@gmail.com>
+Cc: Steffen Klassert <steffen.klassert@secunet.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Trond Myklebust <trond.myklebust@primarydata.com>
+Cc: Anna Schumaker <anna.schumaker@netapp.com>
+Cc: "J. Bruce Fields" <bfields@fieldses.org>
+Cc: Arnd Bergmann <arnd@arndb.de>
+Cc: netdev@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
+Cc: linux-hams@vger.kernel.org
+Cc: linux-wireless@vger.kernel.org
+Cc: brcm80211-dev-list@broadcom.com
+Cc: linux-nfs@vger.kernel.org
