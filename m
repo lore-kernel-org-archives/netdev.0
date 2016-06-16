@@ -1,218 +1,188 @@
 From: Tom Herbert <tom@herbertland.com>
-Subject: [PATCH net-next 2/8] fou: Change ip_tunnel_encap to take net argument
-Date: Thu, 16 Jun 2016 10:51:56 -0700
-Message-ID: <1466099522-690741-3-git-send-email-tom@herbertland.com>
+Subject: [PATCH net-next 4/8] ipv4: Support TOU
+Date: Thu, 16 Jun 2016 10:51:58 -0700
+Message-ID: <1466099522-690741-5-git-send-email-tom@herbertland.com>
 References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <kernel-team@fb.com>
 To: <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:56087 "EHLO
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:59223 "EHLO
 	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752587AbcFPRwZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 13:52:25 -0400
+	by vger.kernel.org with ESMTP id S1754220AbcFPRw1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 13:52:27 -0400
 Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u5GHpiUX005853
-	for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 10:52:24 -0700
+	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u5GHpxqV006325
+	for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 10:52:26 -0700
 Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 23kyrn8bfq-1
+	by mx0a-00082601.pphosted.com with ESMTP id 23kyrn8bft-1
 	(version=TLSv1 cipher=AES128-SHA bits=128 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 10:52:24 -0700
+	for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 10:52:26 -0700
 Received: from devbig284.prn2.facebook.com (10.35.15.32)	by
  mx-out.facebook.com (10.103.99.99) with ESMTP	id
- 1476131033eb11e6b7aa0002c9dfb610-84cc2e0 for <netdev@vger.kernel.org>;	Thu,
- 16 Jun 2016 10:52:23 -0700
+ 15c97b1233eb11e6b7aa0002c9dfb610-84cc2e0 for <netdev@vger.kernel.org>;	Thu,
+ 16 Jun 2016 10:52:25 -0700
 In-Reply-To: <1466099522-690741-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a struct net argument to ip_tunnel_encap function and pass into
-backend build_header functions. This give build_header function the
-correct netns and so they don't have to fish for it in the skbuff.
+Add tou_encap structure to inet_sock. In transmit path (ip_queue_xmit)
+check if encapsulation is enabled and call the build header op
+if it is. Add IP_TOU_ENCAP setsockopt for IPv4 sockets.
 
 Signed-off-by: Tom Herbert <tom@herbertland.com>
 ---
- include/net/fou.h        |  4 ++--
- include/net/ip6_tunnel.h |  5 +++--
- include/net/ip_tunnels.h |  5 +++--
- net/ipv4/fou.c           | 18 ++++++++----------
- net/ipv6/fou6.c          |  8 ++++----
- 5 files changed, 20 insertions(+), 20 deletions(-)
+ include/uapi/linux/in.h |  1 +
+ net/ipv4/ip_output.c    | 42 ++++++++++++++++++++++++++++++++++++------
+ net/ipv4/ip_sockglue.c  |  7 +++++++
+ net/ipv4/tou.c          |  2 +-
+ 4 files changed, 45 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/fou.h b/include/net/fou.h
-index f5cc691..172995e 100644
---- a/include/net/fou.h
-+++ b/include/net/fou.h
-@@ -12,8 +12,8 @@ size_t fou_encap_hlen(struct ip_tunnel_encap *e);
- size_t gue_encap_hlen(struct ip_tunnel_encap *e);
+diff --git a/include/uapi/linux/in.h b/include/uapi/linux/in.h
+index eaf9491..9827bff 100644
+--- a/include/uapi/linux/in.h
++++ b/include/uapi/linux/in.h
+@@ -152,6 +152,7 @@ struct in_addr {
+ #define MCAST_MSFILTER			48
+ #define IP_MULTICAST_ALL		49
+ #define IP_UNICAST_IF			50
++#define IP_TOU_ENCAP			51
  
- int __fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
--		       u8 *protocol, __be16 *sport, int type);
-+		       u8 *protocol, __be16 *sport, int type, struct net *net);
- int __gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
--		       u8 *protocol, __be16 *sport, int type);
-+		       u8 *protocol, __be16 *sport, int type, struct net *net);
+ #define MCAST_EXCLUDE	0
+ #define MCAST_INCLUDE	1
+diff --git a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+index cbac493..11cf4de 100644
+--- a/net/ipv4/ip_output.c
++++ b/net/ipv4/ip_output.c
+@@ -78,6 +78,7 @@
+ #include <linux/netfilter_bridge.h>
+ #include <linux/netlink.h>
+ #include <linux/tcp.h>
++#include <net/ip_tunnels.h>
  
+ static int
+ ip_fragment(struct net *net, struct sock *sk, struct sk_buff *skb,
+@@ -382,11 +383,38 @@ int ip_queue_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl)
+ 	struct rtable *rt;
+ 	struct iphdr *iph;
+ 	int res;
++	__be16 dport, sport;
++	u8 protocol = sk->sk_protocol;
++	struct ip_tunnel_encap *e;
+ 
+ 	/* Skip all of this if the packet is already routed,
+ 	 * f.e. by something like SCTP.
+ 	 */
+ 	rcu_read_lock();
++
++	e = rcu_dereference(inet->tou_encap);
++	if (e) {
++		const struct ip_tunnel_encap_ops *ops;
++
++		/* Transport layer protocol over UDP enapsulation */
++		dport = e->dport;
++		sport = e->sport;
++		ops = rcu_dereference(iptun_encaps[e->type]);
++		if (likely(ops && ops->build_header)) {
++			res = ops->build_header(skb, e, &protocol,
++						(struct flowi4 *)fl,
++						sock_net(sk));
++			if (res < 0)
++				goto fail;
++		} else {
++			res = -EINVAL;
++			goto fail;
++		}
++	} else {
++		dport = inet->inet_dport;
++		sport = inet->inet_sport;
++	}
++
+ 	inet_opt = rcu_dereference(inet->inet_opt);
+ 	fl4 = &fl->u.ip4;
+ 	rt = skb_rtable(skb);
+@@ -409,9 +437,9 @@ int ip_queue_xmit(struct sock *sk, struct sk_buff *skb, struct flowi *fl)
+ 		 */
+ 		rt = ip_route_output_ports(net, fl4, sk,
+ 					   daddr, inet->inet_saddr,
+-					   inet->inet_dport,
+-					   inet->inet_sport,
+-					   sk->sk_protocol,
++					   dport,
++					   sport,
++					   protocol,
+ 					   RT_CONN_FLAGS(sk),
+ 					   sk->sk_bound_dev_if);
+ 		if (IS_ERR(rt))
+@@ -434,7 +462,7 @@ packet_routed:
+ 	else
+ 		iph->frag_off = 0;
+ 	iph->ttl      = ip_select_ttl(inet, &rt->dst);
+-	iph->protocol = sk->sk_protocol;
++	iph->protocol = protocol;
+ 	ip_copy_addrs(iph, fl4);
+ 
+ 	/* Transport layer set skb->h.foo itself. */
+@@ -456,10 +484,12 @@ packet_routed:
+ 	return res;
+ 
+ no_route:
+-	rcu_read_unlock();
+ 	IP_INC_STATS(net, IPSTATS_MIB_OUTNOROUTES);
++	res = -EHOSTUNREACH;
++fail:
++	rcu_read_unlock();
+ 	kfree_skb(skb);
+-	return -EHOSTUNREACH;
++	return res;
+ }
+ EXPORT_SYMBOL(ip_queue_xmit);
+ 
+diff --git a/net/ipv4/ip_sockglue.c b/net/ipv4/ip_sockglue.c
+index 71a52f4d..0c9d3f0 100644
+--- a/net/ipv4/ip_sockglue.c
++++ b/net/ipv4/ip_sockglue.c
+@@ -42,6 +42,7 @@
+ #include <net/transp_v6.h>
  #endif
-diff --git a/include/net/ip6_tunnel.h b/include/net/ip6_tunnel.h
-index 43a5a0e..4d2a39a 100644
---- a/include/net/ip6_tunnel.h
-+++ b/include/net/ip6_tunnel.h
-@@ -60,7 +60,7 @@ struct ip6_tnl {
- struct ip6_tnl_encap_ops {
- 	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
- 	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
--			    u8 *protocol, struct flowi6 *fl6);
-+			    u8 *protocol, struct flowi6 *fl6, struct net *net);
- };
+ #include <net/ip_fib.h>
++#include <net/tou.h>
  
- #ifdef CONFIG_INET
-@@ -110,7 +110,8 @@ static inline int ip6_tnl_encap(struct sk_buff *skb, struct ip6_tnl *t,
- 	rcu_read_lock();
- 	ops = rcu_dereference(ip6tun_encaps[t->encap.type]);
- 	if (likely(ops && ops->build_header))
--		ret = ops->build_header(skb, &t->encap, protocol, fl6);
-+		ret = ops->build_header(skb, &t->encap, protocol, fl6,
-+					dev_net(t->dev));
- 	rcu_read_unlock();
+ #include <linux/errqueue.h>
+ #include <asm/uaccess.h>
+@@ -1162,6 +1163,10 @@ mc_msf_out:
+ 		inet->min_ttl = val;
+ 		break;
  
- 	return ret;
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 9222678..7594132 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -258,7 +258,7 @@ void ip_tunnel_setup(struct net_device *dev, int net_id);
- struct ip_tunnel_encap_ops {
- 	size_t (*encap_hlen)(struct ip_tunnel_encap *e);
- 	int (*build_header)(struct sk_buff *skb, struct ip_tunnel_encap *e,
--			    u8 *protocol, struct flowi4 *fl4);
-+			    u8 *protocol, struct flowi4 *fl4, struct net *net);
- };
++	case IP_TOU_ENCAP:
++		err = tou_encap_setsockopt(sk, optval, optlen, false);
++		break;
++
+ 	default:
+ 		err = -ENOPROTOOPT;
+ 		break;
+@@ -1493,6 +1498,8 @@ static int do_ip_getsockopt(struct sock *sk, int level, int optname,
+ 	case IP_MINTTL:
+ 		val = inet->min_ttl;
+ 		break;
++	case IPV6_TOU_ENCAP:
++		return tou_encap_getsockopt(sk, optval, len, optlen, false);
+ 	default:
+ 		release_sock(sk);
+ 		return -ENOPROTOOPT;
+diff --git a/net/ipv4/tou.c b/net/ipv4/tou.c
+index ef9999f..d3069a8 100644
+--- a/net/ipv4/tou.c
++++ b/net/ipv4/tou.c
+@@ -69,7 +69,7 @@ int tou_encap_setsockopt(struct sock *sk, char __user *optval, int optlen,
+ 	encap.dport = te.dport;
+ 	encap.flags = te.flags;
  
- #define MAX_IPTUN_ENCAP_OPS 8
-@@ -309,7 +309,8 @@ static inline int ip_tunnel_encap(struct sk_buff *skb, struct ip_tunnel *t,
- 	rcu_read_lock();
- 	ops = rcu_dereference(iptun_encaps[t->encap.type]);
- 	if (likely(ops && ops->build_header))
--		ret = ops->build_header(skb, &t->encap, protocol, fl4);
-+		ret = ops->build_header(skb, &t->encap, protocol, fl4,
-+					dev_net(t->dev));
- 	rcu_read_unlock();
- 
- 	return ret;
-diff --git a/net/ipv4/fou.c b/net/ipv4/fou.c
-index 321d57f..9cd9168 100644
---- a/net/ipv4/fou.c
-+++ b/net/ipv4/fou.c
-@@ -875,7 +875,7 @@ static void fou_build_udp(struct sk_buff *skb, struct ip_tunnel_encap *e,
- }
- 
- int __fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
--		       u8 *protocol, __be16 *sport, int type)
-+		       u8 *protocol, __be16 *sport, int type, struct net *net)
- {
- 	int err;
- 
-@@ -883,22 +883,21 @@ int __fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
- 	if (err)
- 		return err;
- 
--	*sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
--						skb, 0, 0, false);
-+	*sport = e->sport ? : udp_flow_src_port(net, skb, 0, 0, false);
- 
- 	return 0;
- }
- EXPORT_SYMBOL(__fou_build_header);
- 
- int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
--		     u8 *protocol, struct flowi4 *fl4)
-+		     u8 *protocol, struct flowi4 *fl4, struct net *net)
- {
- 	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM ? SKB_GSO_UDP_TUNNEL_CSUM :
- 						       SKB_GSO_UDP_TUNNEL;
- 	__be16 sport;
- 	int err;
- 
--	err = __fou_build_header(skb, e, protocol, &sport, type);
-+	err = __fou_build_header(skb, e, protocol, &sport, type, net);
- 	if (err)
- 		return err;
- 
-@@ -909,7 +908,7 @@ int fou_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
- EXPORT_SYMBOL(fou_build_header);
- 
- int __gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
--		       u8 *protocol, __be16 *sport, int type)
-+		       u8 *protocol, __be16 *sport, int type, struct net *net)
- {
- 	struct guehdr *guehdr;
- 	size_t hdrlen, optlen = 0;
-@@ -931,8 +930,7 @@ int __gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
- 		return err;
- 
- 	/* Get source port (based on flow hash) before skb_push */
--	*sport = e->sport ? : udp_flow_src_port(dev_net(skb->dev),
--						skb, 0, 0, false);
-+	*sport = e->sport ? : udp_flow_src_port(net, skb, 0, 0, false);
- 
- 	hdrlen = sizeof(struct guehdr) + optlen;
- 
-@@ -982,14 +980,14 @@ int __gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
- EXPORT_SYMBOL(__gue_build_header);
- 
- int gue_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
--		     u8 *protocol, struct flowi4 *fl4)
-+		     u8 *protocol, struct flowi4 *fl4, struct net *net)
- {
- 	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM ? SKB_GSO_UDP_TUNNEL_CSUM :
- 						       SKB_GSO_UDP_TUNNEL;
- 	__be16 sport;
- 	int err;
- 
--	err = __gue_build_header(skb, e, protocol, &sport, type);
-+	err = __gue_build_header(skb, e, protocol, &sport, type, net);
- 	if (err)
- 		return err;
- 
-diff --git a/net/ipv6/fou6.c b/net/ipv6/fou6.c
-index 9ea249b..e38a7b1 100644
---- a/net/ipv6/fou6.c
-+++ b/net/ipv6/fou6.c
-@@ -34,14 +34,14 @@ static void fou6_build_udp(struct sk_buff *skb, struct ip_tunnel_encap *e,
- }
- 
- int fou6_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
--		      u8 *protocol, struct flowi6 *fl6)
-+		      u8 *protocol, struct flowi6 *fl6, struct net *net)
- {
- 	__be16 sport;
- 	int err;
- 	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM6 ?
- 		SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
- 
--	err = __fou_build_header(skb, e, protocol, &sport, type);
-+	err = __fou_build_header(skb, e, protocol, &sport, type, net);
- 	if (err)
- 		return err;
- 
-@@ -52,14 +52,14 @@ int fou6_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
- EXPORT_SYMBOL(fou6_build_header);
- 
- int gue6_build_header(struct sk_buff *skb, struct ip_tunnel_encap *e,
--		      u8 *protocol, struct flowi6 *fl6)
-+		      u8 *protocol, struct flowi6 *fl6, struct net *net)
- {
- 	__be16 sport;
- 	int err;
- 	int type = e->flags & TUNNEL_ENCAP_FLAG_CSUM6 ?
- 		SKB_GSO_UDP_TUNNEL_CSUM : SKB_GSO_UDP_TUNNEL;
- 
--	err = __gue_build_header(skb, e, protocol, &sport, type);
-+	err = __gue_build_header(skb, e, protocol, &sport, type, net);
- 	if (err)
- 		return err;
+-	hlen = is_ipv6 ? ip6_encap_hlen(e) : ip_encap_hlen(e);
++	hlen = is_ipv6 ? ip6_encap_hlen(&encap) : ip_encap_hlen(&encap);
+ 	if (hlen < 0)
+ 		return hlen;
  
 -- 
 2.8.0.rc2
