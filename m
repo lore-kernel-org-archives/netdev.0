@@ -1,110 +1,144 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH 4/5] netdev: implement infrastructure for threadable
- napi irq
-Date: Thu, 16 Jun 2016 12:39:53 +0200
-Message-ID: <1466073593.4691.47.camel@redhat.com>
-References: <cover.1465996447.git.pabeni@redhat.com>
-	 <f5e431e8336f80d0e6f6b4c40c81a373db6d6052.1465996447.git.pabeni@redhat.com>
-	 <CANn89i+EJMHeMN8=e12hoT1Jv8cCBDXeexTBdsd9hU2G=HpGZA@mail.gmail.com>
-	 <1466008955.24431.35.camel@redhat.com>
-	 <CANn89iJKxctv5Yzn2ecBLAjh2RtGpjNC6M3dqKXieqaORZaGsw@mail.gmail.com>
+From: zhuyj <zyjzyj2000@gmail.com>
+Subject: Re: [PATCH 1/1] ixgbe: add fiber tranceiver
+	plug/unplug notifier
+Date: Thu, 16 Jun 2016 18:43:22 +0800
+Message-ID: <CAD=hENffbs-mWH7yTN2B7vimO+UNa7jYg0raK1NYoaVp42L+-w@mail.gmail.com>
+References: <F6FB0E698C9B3143BDF729DF2228664696AC171C@ORSMSX116.amr.corp.intel.com>
+	<1465997798-3261-1-git-send-email-zyjzyj2000@gmail.com>
+	<1465997798-3261-2-git-send-email-zyjzyj2000@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: multipart/mixed; boundary="===============1256517615092987371=="
+To: "e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>,
+	netdev <netdev@vger.kernel.org>,
+	"Skidmore, Donald C" <donald.c.skidmore@intel.com>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <1465997798-3261-2-git-send-email-zyjzyj2000@gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
+
+--===============1256517615092987371==
+Content-Type: multipart/alternative; boundary=94eb2c046b1c3b1972053562e894
+
+--94eb2c046b1c3b1972053562e894
+Content-Type: text/plain; charset=UTF-8
+
+Sorry, Maybe last_tranceiver_status and tranceiver_polltime should not be
+in ixgbe_hw struct. It is better in ixgbe struct. I will change it soon.
+
+Zhu Yanjun
+
+On Wed, Jun 15, 2016 at 9:36 PM, <zyjzyj2000@gmail.com> wrote:
+
+> From: Zhu Yanjun <zyjzyj2000@gmail.com>
+>
+> When the fiber tranceiver is plugged/unplugged, a netdev notifier is
+>  sent. The userspace tools or kernel can receive this notifier.
+>
+> Signed-off-by: Zhu Yanjun <zyjzyj2000@gmail.com>
+> ---
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |   24
+> +++++++++++++++++++++++-
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_type.h |    2 ++
+>  2 files changed, 25 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> index 088c47c..1d8c1ff 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+> @@ -5635,6 +5635,8 @@ static int ixgbe_sw_init(struct ixgbe_adapter
+> *adapter)
+>         hw->revision_id = pdev->revision;
+>         hw->subsystem_vendor_id = pdev->subsystem_vendor;
+>         hw->subsystem_device_id = pdev->subsystem_device;
+> +       hw->last_tranceiver_status = IXGBE_NOT_IMPLEMENTED;
+> +       hw->tranceiver_polltime = 0;
+>
+>         /* Set common capability flags and settings */
+>         rss = min_t(int, ixgbe_max_rss_indices(adapter),
+> num_online_cpus());
+> @@ -7067,7 +7069,27 @@ static void ixgbe_watchdog_subtask(struct
+> ixgbe_adapter *adapter)
+>  static void ixgbe_sfp_detection_subtask(struct ixgbe_adapter *adapter)
+>  {
+>         struct ixgbe_hw *hw = &adapter->hw;
+> -       s32 err;
+> +       s32 err, status;
+> +
+> +       if ((hw->mac.ops.get_media_type(hw) == ixgbe_media_type_fiber) &&
+> +           time_after(jiffies, hw->tranceiver_polltime)) {
+> +               status = IXGBE_READ_REG(hw, IXGBE_ESDP) & IXGBE_ESDP_SDP2;
+> +               if (status != hw->last_tranceiver_status) {
+> +                       unsigned long val;
+> +
+> +                       if (!status) {
+> +                               hw->phy.sfp_type =
+> ixgbe_sfp_type_not_present;
+> +                               val = NETDEV_FIBER_TRANCEIVER_UNPLUG;
+> +                       } else {
+> +                               val = NETDEV_FIBER_TRANCEIVER_PLUG;
+> +                       }
+> +                       rtnl_lock();
+> +                       call_netdevice_notifiers(val, adapter->netdev);
+> +                       rtnl_unlock();
+> +               }
+> +               hw->last_tranceiver_status = status;
+> +               hw->tranceiver_polltime = jiffies + 3 * HZ;
+> +       }
+>
+>         /* If crosstalk fix enabled verify the SFP+ cage is full */
+>         if (adapter->need_crosstalk_fix) {
+> diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+> b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+> index da3d835..fe19899 100644
+> --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+> +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_type.h
+> @@ -3525,6 +3525,8 @@ struct ixgbe_hw {
+>         bool                            force_full_reset;
+>         bool                            allow_unsupported_sfp;
+>         bool                            wol_enabled;
+> +       s32                             last_tranceiver_status;
+> +       unsigned long                   tranceiver_polltime;
+>  };
+>
+>  struct ixgbe_info {
+> --
+> 1.7.9.5
+>
+>
+
+--94eb2c046b1c3b1972053562e894--
+
+
+--===============1256517615092987371==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>,
-	Thomas Gleixner <tglx@linutronix.de>,
-	"David S. Miller" <davem@davemloft.net>,
-	Steven Rostedt <rostedt@goodmis.org>,
-	"Peter Zijlstra (Intel)" <peterz@infradead.org>,
-	Ingo Molnar <mingo@kernel.org>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <edumazet@google.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46118 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752665AbcFPKj5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jun 2016 06:39:57 -0400
-In-Reply-To: <CANn89iJKxctv5Yzn2ecBLAjh2RtGpjNC6M3dqKXieqaORZaGsw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-On Wed, 2016-06-15 at 10:04 -0700, Eric Dumazet wrote:
-> On Wed, Jun 15, 2016 at 9:42 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> > On Wed, 2016-06-15 at 07:17 -0700, Eric Dumazet wrote:
-> 
-> >>
-> >> I really appreciate the effort, but as I already said this is not going to work.
-> >>
-> >> Many NIC have 2 NAPI contexts per queue, one for TX, one for RX.
-> >>
-> >> Relying on CFS to switch from the two 'threads' you need in the one
-> >> vCPU case will add latencies that your 'pure throughput UDP flood' is
-> >> not able to detect.
-> >
-> > We have done TCP_RR tests with similar results: when the throughput is
-> > (guest) cpu bounded and multiple flows are used, there is measurable
-> > gain.
-> 
-> TCP_RR hardly triggers the problem I am mentioning.
-> 
-> You need a combination of different competing works. Both bulk and rpc like.
-> 
-> The important factor for RPC is P99 latency.
-> 
-> Look, the simple fact that mlx4 driver can dequeue 256 skb per TX napi poll
-> and only 64 skbs in RX poll is problematic in some workloads, since
-> this allows a queue to build up on RX rings.
-> 
-> >
-> >> I was waiting a fix from Andy Lutomirski to be merged before sending
-> >> my ksoftirqd fix, which will work and wont bring kernel bloat.
-> >
-> > We experimented that patch in this scenario, but it don't give
-> > measurable gain, since the ksoftirqd threads still prevent the qemu
-> > process from using 100% of any hypervisor's cores.
-> 
-> Not sure what you measured, but in my experiment, the user thread
-> could finally get a fair share of the core, instead of 0%
-> 
-> Improvement was 100000 % or so.
+------------------------------------------------------------------------------
+What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
+patterns at an interface-level. Reveals which users, apps, and protocols are 
+consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
+J-Flow, sFlow and other flows. Make informed decisions using capacity planning
+reports. http://pubads.g.doubleclick.net/gampad/clk?id=1444514421&iu=/41014381
+--===============1256517615092987371==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-We used a different setup to explicitly avoid the (guest) userspace
-starvation issue. Using a guest with 2vCPUs (or more) and a single queue
-avoids the starvation issue, because the scheduler moves the user space
-processes on a different vCPU in respect to the ksoftirqd thread.
+_______________________________________________
+E1000-devel mailing list
+E1000-devel@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/e1000-devel
+To learn more about Intel&#174; Ethernet, visit http://communities.intel.com/community/wired
 
-In the hypervisor, with a vanilla kernel, the qemu process receives a
-fair share of the cpu time, but considerably less 100%, and his
-performances are bounded to a considerable lower throughput than the
-theoretical one.
-
-We tested your patch in both the guest and/or the hypervisor with the
-above scenario and it doesn't change the throughput numbers much. But it
-fixes nicely the starvation issue on single core host and we are
-definitely in favor of it and waiting to get it included.
-
-> How are you making sure your thread uses say 1% of the core, and let
-> 99% to the 'qemu' process exactly ?
-
-We allow the irq thread to be migrated. The scheduler can move it on a
-different (hypervisor) core according to the workload, and qemu can
-avoid completely competing with other processes for a cpu.
-
-We are not using the threaded irqs in the guest, only into the
-hypervisor.
-
-> How the typical user will enable all this stuff exactly ?
-
-A desktop host or a bare-metal server don't probably need/want it. An
-hypervisor or an (small) router would probably enable irq threading on
-all supported NICs. That could be managed by the tuned daemon or the
-like with an appropriate profile.
-Advanced users, also real time sensitive users, can simply use the
-procfs now.
-
-kernel without IRQ_FORCED_THREADING are unaffected, kernel with
-IRQ_FORCED_THREADING can already change the packet reception (and more)
-in a significant way with the forcedirq parameter.
-
-Paolo
+--===============1256517615092987371==--
