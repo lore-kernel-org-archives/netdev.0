@@ -1,74 +1,50 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH 0/8] net: fix old-style declarations
-Date: Thu, 16 Jun 2016 15:50:05 +0200
-Message-ID: <20160616135020.3154461-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>, Armin Schindler <mac@melware.de>,
-	Karsten Keil <isdn@linux-pingi.de>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	Thomas Sailer <t.sailer@alumni.ethz.ch>,
-	Stanislav Yakovlev <stas.yakovlev@gmail.com>,
-	Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	"David S. Miller" <davem@davemloft.net>,
-	Trond Myklebust <trond.myklebust@primarydata.com>,
-	Anna Schumaker <anna.schumaker@netapp.com>,
-	"J. Bruce Fields" <bfields@fieldses.org>,
-	linux-kernel@vger.kernel.org, linux-hams@vger.kernel.org,
-	linux-wireless@vger.kernel.org, brcm80211-dev-list@broadcom.com,
-	linux-nfs@vger.kernel.org
+Subject: [PATCH 1/8] wireless: airo: rename 'register' variable
+Date: Thu, 16 Jun 2016 15:52:08 +0200
+Message-ID: <20160616135245.3198419-1-arnd@arndb.de>
+References: <20160616135020.3154461-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>, Kalle Valo <kvalo@codeaurora.org>,
+	Ondrej Zary <linux@rainbow-software.org>,
+	Johannes Berg <johannes.berg@intel.com>,
+	linux-wireless@vger.kernel.org, linux-kernel@vger.kernel.org
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.17.24]:54106 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754407AbcFPNvP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 09:51:15 -0400
+In-Reply-To: <20160616135020.3154461-1-arnd@arndb.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-"make W=1" enables -Wold-style-declaration, which is generally useful
-to warn about pre-C89 code in the kernel, but it also warns about
-some harmless variations (sometimes many of them from a single
-file).
+'register' is a keyword in C and cannot be used in place of a
+variable name, as shown by this -Wextra warning:
 
-This fixes up the 8 instances I found in the networking code, there
-is another series of 12 patches for the rest of the kernel.
+drivers/net/wireless/cisco/airo.c:1105:29: error: 'register' is not at beginning of declaration [-Werror=old-style-declaration]
 
-Arnd Bergmann (8):
-  wireless: airo: rename 'register' variable
-  wireless: brcmsmac: fix old-style declaration
-  wireless: ipw2200: fix old-style declaration
-  hamradio: baycom: fix old-style declaration
-  isdn: eicon: fix old-style declarations
-  net: gianfar: fix old-style declaration
-  net: xfrm: fix old-style declaration
-  sunrpc: fix old-style declaration
+This replaces the 'register' keyword with a 'reg' identifier in
+the declaration, which matches the definition and has the intended
+meaning.
 
- drivers/isdn/hardware/eicon/divasmain.c                 | 12 ++++++------
- drivers/isdn/hardware/eicon/platform.h                  |  6 +++---
- drivers/net/ethernet/freescale/gianfar.c                |  2 +-
- drivers/net/hamradio/baycom_par.c                       |  6 +++---
- drivers/net/wireless/broadcom/brcm80211/brcmsmac/main.c |  4 ++--
- drivers/net/wireless/cisco/airo.c                       |  4 ++--
- drivers/net/wireless/intel/ipw2x00/ipw2200.c            |  2 +-
- net/ipv4/xfrm4_policy.c                                 |  8 ++++----
- net/ipv6/xfrm6_policy.c                                 |  4 ++--
- net/sunrpc/clnt.c                                       |  2 +-
- 10 files changed, 25 insertions(+), 25 deletions(-)
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+---
+ drivers/net/wireless/cisco/airo.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
+diff --git a/drivers/net/wireless/cisco/airo.c b/drivers/net/wireless/cisco/airo.c
+index b6c9d5feef1f..6bdb6f6bdfe8 100644
+--- a/drivers/net/wireless/cisco/airo.c
++++ b/drivers/net/wireless/cisco/airo.c
+@@ -1102,8 +1102,8 @@ static const char version[] = "airo.c 0.6 (Ben Reed & Javier Achirica)";
+ struct airo_info;
+ 
+ static int get_dec_u16( char *buffer, int *start, int limit );
+-static void OUT4500( struct airo_info *, u16 register, u16 value );
+-static unsigned short IN4500( struct airo_info *, u16 register );
++static void OUT4500( struct airo_info *, u16 reg, u16 value );
++static unsigned short IN4500( struct airo_info *, u16 reg );
+ static u16 setup_card(struct airo_info*, u8 *mac, int lock);
+ static int enable_MAC(struct airo_info *ai, int lock);
+ static void disable_MAC(struct airo_info *ai, int lock);
 -- 
 2.9.0
-
-Cc: Armin Schindler <mac@melware.de>
-Cc: Karsten Keil <isdn@linux-pingi.de>
-Cc: Claudiu Manoil <claudiu.manoil@freescale.com>
-Cc: Thomas Sailer <t.sailer@alumni.ethz.ch>
-Cc: Stanislav Yakovlev <stas.yakovlev@gmail.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Cc: Herbert Xu <herbert@gondor.apana.org.au>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Trond Myklebust <trond.myklebust@primarydata.com>
-Cc: Anna Schumaker <anna.schumaker@netapp.com>
-Cc: "J. Bruce Fields" <bfields@fieldses.org>
-Cc: Arnd Bergmann <arnd@arndb.de>
-Cc: netdev@vger.kernel.org
-Cc: linux-kernel@vger.kernel.org
-Cc: linux-hams@vger.kernel.org
-Cc: linux-wireless@vger.kernel.org
-Cc: brcm80211-dev-list@broadcom.com
-Cc: linux-nfs@vger.kernel.org
