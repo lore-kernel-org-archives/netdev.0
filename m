@@ -1,58 +1,52 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [Bug 120441] af_packet no longer uses symmetric hashing
-Date: Thu, 16 Jun 2016 17:18:20 +0200
-Message-ID: <5762C33C.7030404@iogearbox.net>
-References: <511F6A17-BD35-4846-A717-1463B74D7F2A@gmail.com> <5762B9C0.9010902@iogearbox.net> <40238392-1c86-53ce-7722-51dd5c2dc294@stressinduktion.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [net-next PATCH v2 05/17] bnxt: Update drivers to support unified
+ UDP encapsulation offload functions
+Date: Thu, 16 Jun 2016 08:19:18 -0700
+Message-ID: <CAKgT0UeLF3SkHTPZ7aZKUfjB9v2DCKhAsMyvtgbgH8KoWV1qXQ@mail.gmail.com>
+References: <20160615220449.15575.17031.stgit@localhost.localdomain>
+ <20160615220747.15575.31433.stgit@localhost.localdomain> <CACKFLimVri8=L8XrgTgW_eieEwEygf4CTDZtr+wD1fE6qnrqRw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, tom@herbertland.com, jiri@resnulli.us,
-	willemb@google.com, eric@regit.org
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Derek Ditch <derek.ditch@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Alexander Duyck <aduyck@mirantis.com>,
+	Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Hannes Frederic Sowa <hannes@redhat.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Dept-GELinuxNICDev@qlogic.com, David Miller <davem@davemloft.net>
+To: Michael Chan <michael.chan@broadcom.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:60174 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754447AbcFPPSW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 11:18:22 -0400
-In-Reply-To: <40238392-1c86-53ce-7722-51dd5c2dc294@stressinduktion.org>
+Received: from mail-it0-f49.google.com ([209.85.214.49]:36113 "EHLO
+	mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754400AbcFPPTT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 11:19:19 -0400
+Received: by mail-it0-f49.google.com with SMTP id a5so137543682ita.1
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 08:19:19 -0700 (PDT)
+In-Reply-To: <CACKFLimVri8=L8XrgTgW_eieEwEygf4CTDZtr+wD1fE6qnrqRw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/16/2016 04:50 PM, Hannes Frederic Sowa wrote:
-> On 16.06.2016 16:37, Daniel Borkmann wrote:
->> On 06/16/2016 03:57 PM, Derek Ditch wrote:
->> [...]
->>>> Begin forwarded message:
->>>>
->>>> From: bugzilla-daemon@bugzilla.kernel.org
->>>> Subject: [Bug 120441] af_packet no longer uses symmetric hashing
->>>> Date: June 16, 2016 at 07:35:54 -0500
->>>> To: derek.ditch@gmail.com
->>>>
->>>> https://bugzilla.kernel.org/show_bug.cgi?id=120441
+On Wed, Jun 15, 2016 at 9:23 PM, Michael Chan <michael.chan@broadcom.com> wrote:
+> On Wed, Jun 15, 2016 at 3:07 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
+>> This patch ends up doing several things.  First it updates the driver to
+>> make use of the new unified UDP tunnel offload notifier functions.  In
+>> addition I updated the code so that we can work around the bits that were
+>> checking for if VXLAN was enabled since we are now using a notifier based
+>> setup.  Finally I moved the hard-coded GENEVE port over to using the
+>> notifier based setup so that we can update it if needed.
 >>
->> Just thinking out loud, perhaps one way would be to implement your own
->> fanout
->> hashing via eBPF demuxer, f.e. in case CPU selection etc wouldn't work.
->> Another
->> option could be to have a (2nd) customizable hash demux that would
->> enforce to
->> always go through the flow-dissector and where you would have a socket
->> option
->> to control keys for it, but I presume that seems rather less desirable.
+>> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
 >
-> Isn't a symmetric hashing for af-packet something very fundamental?
-> Looks much more like a bug to me.
-
-I agree it would be useful resp. fundamental. I'm not quite sure whether
-PACKET_FANOUT_HASH always had this guarantee since the initial implementation
-f.e. depending on whether the skb got fanout demuxed from RX or TX paths,
-you would either use a hw hash or it would have gone through the kernel's
-(predecessor) flow dissector (and therefore potentially to different packet
-sockets eventually). It might be the case that this got noticed due to the
-flow dissector nowadays collecting more input for building its hash, hmm.
-
-> Bye,
-> Hannes
+> Looks good, except that the last item in the description above is
+> actually done in the next patch.
 >
+> Acked-by: Michael Chan <michael.chan@broadcom.com>
+
+Thanks for reviewing this.  I'll drop that line from the patch
+description and add your Acked-by.
+
+- Alex
