@@ -1,52 +1,56 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH v2 05/17] bnxt: Update drivers to support unified
- UDP encapsulation offload functions
-Date: Thu, 16 Jun 2016 08:19:18 -0700
-Message-ID: <CAKgT0UeLF3SkHTPZ7aZKUfjB9v2DCKhAsMyvtgbgH8KoWV1qXQ@mail.gmail.com>
-References: <20160615220449.15575.17031.stgit@localhost.localdomain>
- <20160615220747.15575.31433.stgit@localhost.localdomain> <CACKFLimVri8=L8XrgTgW_eieEwEygf4CTDZtr+wD1fE6qnrqRw@mail.gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: libertas: Remove create_workqueue
+Date: Thu, 16 Jun 2016 15:22:46 +0000 (UTC)
+Message-ID: <20160616152246.B3B6E61457@smtp.codeaurora.org>
+References: <20160604135901.GA29897@Karyakshetra>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <aduyck@mirantis.com>,
-	Netdev <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Hannes Frederic Sowa <hannes@redhat.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Dept-GELinuxNICDev@qlogic.com, David Miller <davem@davemloft.net>
-To: Michael Chan <michael.chan@broadcom.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f49.google.com ([209.85.214.49]:36113 "EHLO
-	mail-it0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754400AbcFPPTT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 11:19:19 -0400
-Received: by mail-it0-f49.google.com with SMTP id a5so137543682ita.1
-        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 08:19:19 -0700 (PDT)
-In-Reply-To: <CACKFLimVri8=L8XrgTgW_eieEwEygf4CTDZtr+wD1fE6qnrqRw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Andreas Kemnade <andreas@kemnade.info>,
+	Dan Carpenter <dan.carpenter@oracle.com>,
+	Bhaktipriya Shridhar <bhaktipriya96@gmail.com>,
+	"Andrew F. Davis" <afd@ti.com>,
+	Jonathan Cameron <jic23@kernel.org>,
+	Mark Brown <broonie@kernel.org>, Tejun Heo <tj@kernel.org>,
+	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160604135901.GA29897@Karyakshetra>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 15, 2016 at 9:23 PM, Michael Chan <michael.chan@broadcom.com> wrote:
-> On Wed, Jun 15, 2016 at 3:07 PM, Alexander Duyck <aduyck@mirantis.com> wrote:
->> This patch ends up doing several things.  First it updates the driver to
->> make use of the new unified UDP tunnel offload notifier functions.  In
->> addition I updated the code so that we can work around the bits that were
->> checking for if VXLAN was enabled since we are now using a notifier based
->> setup.  Finally I moved the hard-coded GENEVE port over to using the
->> notifier based setup so that we can update it if needed.
->>
->> Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->
-> Looks good, except that the last item in the description above is
-> actually done in the next patch.
->
-> Acked-by: Michael Chan <michael.chan@broadcom.com>
+Bhaktipriya Shridhar <bhaktipriya96@gmail.com> wrote:
+> alloc_workqueue replaces deprecated create_workqueue().
+> 
+> In if_sdio.c, the workqueue card->workqueue has workitem
+> &card->packet_worker, which is mapped to if_sdio_host_to_card_worker.
+> The workitem is involved in sending packets to firmware.
+> Forward progress under memory pressure is a requirement here.
+> 
+> In if_spi.c, the workqueue card->workqueue has workitem
+> &card->packet_worker, which is mapped to if_spi_host_to_card_worker.
+> The workitem is involved in sending command packets from the host.
+> Forward progress under memory pressure is a requirement here.
+> 
+> Dedicated workqueues have been used in both cases since the workitems
+> on the workqueues are involved in normal device operation with
+> WQ_MEM_RECLAIM set to gurantee forward progress under memory pressure.
+> Since there are only a fixed number of work items, explicit concurrency
+> limit is unnecessary.
+> 
+> flush_workqueue is unnecessary since destroy_workqueue() itself calls
+> drain_workqueue() which flushes repeatedly till the workqueue
+> becomes empty. Hence the calls to flush_workqueue() before
+> destroy_workqueue() have been dropped.
+> 
+> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
+> Acked-by: Tejun Heo <tj@kernel.org>
 
-Thanks for reviewing this.  I'll drop that line from the patch
-description and add your Acked-by.
+Thanks, 1 patch applied to wireless-drivers-next.git:
 
-- Alex
+f9f905b00b87 libertas: Remove create_workqueue
+
+-- 
+Sent by pwcli
+https://patchwork.kernel.org/patch/9154703/
