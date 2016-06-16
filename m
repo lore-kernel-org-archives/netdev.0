@@ -1,107 +1,241 @@
-From: "Skidmore, Donald C" <donald.c.skidmore@intel.com>
-Subject: RE: [PATCH 1/1] ixgbe: add fiber tranceiver plug/unplug notifier
-Date: Thu, 16 Jun 2016 17:46:36 +0000
-Message-ID: <F6FB0E698C9B3143BDF729DF2228664696AC35F5@ORSMSX116.amr.corp.intel.com>
-References: <F6FB0E698C9B3143BDF729DF2228664696AC171C@ORSMSX116.amr.corp.intel.com>
- <1465997798-3261-1-git-send-email-zyjzyj2000@gmail.com>
- <1465997798-3261-2-git-send-email-zyjzyj2000@gmail.com>
- <CAD=hENffbs-mWH7yTN2B7vimO+UNa7jYg0raK1NYoaVp42L+-w@mail.gmail.com>
+From: Shrikrishna Khare <skhare@vmware.com>
+Subject: [PATCH net-next v5 1/7] vmxnet3: prepare for version 3 changes
+Date: Thu, 16 Jun 2016 10:51:53 -0700
+Message-ID: <1466099519-39322-2-git-send-email-skhare@vmware.com>
+References: <1466099519-39322-1-git-send-email-skhare@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-To: zhuyj <zyjzyj2000@gmail.com>,
-	"e1000-devel@lists.sourceforge.net"
-	<e1000-devel@lists.sourceforge.net>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:23870 "EHLO mga11.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751397AbcFPRqr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 16 Jun 2016 13:46:47 -0400
-In-Reply-To: <CAD=hENffbs-mWH7yTN2B7vimO+UNa7jYg0raK1NYoaVp42L+-w@mail.gmail.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Shrikrishna Khare <skhare@vmware.com>
+To: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<pv-drivers@vmware.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466099519-39322-1-git-send-email-skhare@vmware.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-DQoNCkZyb206IHpodXlqIFttYWlsdG86enlqenlqMjAwMEBnbWFpbC5jb21dIA0KU2VudDogVGh1
-cnNkYXksIEp1bmUgMTYsIDIwMTYgMzo0MyBBTQ0KVG86IGUxMDAwLWRldmVsQGxpc3RzLnNvdXJj
-ZWZvcmdlLm5ldDsgbmV0ZGV2IDxuZXRkZXZAdmdlci5rZXJuZWwub3JnPjsgU2tpZG1vcmUsIERv
-bmFsZCBDIDxkb25hbGQuYy5za2lkbW9yZUBpbnRlbC5jb20+DQpDYzogWmh1IFlhbmp1biA8enlq
-enlqMjAwMEBnbWFpbC5jb20+DQpTdWJqZWN0OiBSZTogW1BBVENIIDEvMV0gaXhnYmU6IGFkZCBm
-aWJlciB0cmFuY2VpdmVyIHBsdWcvdW5wbHVnIG5vdGlmaWVyDQoNClNvcnJ5LCBNYXliZSBsYXN0
-X3RyYW5jZWl2ZXJfc3RhdHVzIGFuZCB0cmFuY2VpdmVyX3BvbGx0aW1lIHNob3VsZCBub3QgYmUg
-aW4gaXhnYmVfaHcgc3RydWN0LiBJdCBpcyBiZXR0ZXIgaW4gaXhnYmUgc3RydWN0LiBJIHdpbGwg
-Y2hhbmdlIGl0IHNvb24uDQoNClpodSBZYW5qdW4NCg0KT24gV2VkLCBKdW4gMTUsIDIwMTYgYXQg
-OTozNiBQTSwgPHp5anp5ajIwMDBAZ21haWwuY29tPiB3cm90ZToNCkZyb206IFpodSBZYW5qdW4g
-PHp5anp5ajIwMDBAZ21haWwuY29tPg0KDQpXaGVuIHRoZSBmaWJlciB0cmFuY2VpdmVyIGlzIHBs
-dWdnZWQvdW5wbHVnZ2VkLCBhIG5ldGRldiBub3RpZmllciBpcw0KwqBzZW50LiBUaGUgdXNlcnNw
-YWNlIHRvb2xzIG9yIGtlcm5lbCBjYW4gcmVjZWl2ZSB0aGlzIG5vdGlmaWVyLg0KDQpTaWduZWQt
-b2ZmLWJ5OiBaaHUgWWFuanVuIDx6eWp6eWoyMDAwQGdtYWlsLmNvbT4NCi0tLQ0KwqBkcml2ZXJz
-L25ldC9ldGhlcm5ldC9pbnRlbC9peGdiZS9peGdiZV9tYWluLmMgfMKgIMKgMjQgKysrKysrKysr
-KysrKysrKysrKysrKystDQrCoGRyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2Jl
-X3R5cGUuaCB8wqAgwqAgMiArKw0KwqAyIGZpbGVzIGNoYW5nZWQsIDI1IGluc2VydGlvbnMoKyks
-IDEgZGVsZXRpb24oLSkNCg0KZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVs
-L2l4Z2JlL2l4Z2JlX21haW4uYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4
-Z2JlX21haW4uYw0KaW5kZXggMDg4YzQ3Yy4uMWQ4YzFmZiAxMDA2NDQNCi0tLSBhL2RyaXZlcnMv
-bmV0L2V0aGVybmV0L2ludGVsL2l4Z2JlL2l4Z2JlX21haW4uYw0KKysrIGIvZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfbWFpbi5jDQpAQCAtNTYzNSw2ICs1NjM1LDggQEAg
-c3RhdGljIGludCBpeGdiZV9zd19pbml0KHN0cnVjdCBpeGdiZV9hZGFwdGVyICphZGFwdGVyKQ0K
-wqAgwqAgwqAgwqAgaHctPnJldmlzaW9uX2lkID0gcGRldi0+cmV2aXNpb247DQrCoCDCoCDCoCDC
-oCBody0+c3Vic3lzdGVtX3ZlbmRvcl9pZCA9IHBkZXYtPnN1YnN5c3RlbV92ZW5kb3I7DQrCoCDC
-oCDCoCDCoCBody0+c3Vic3lzdGVtX2RldmljZV9pZCA9IHBkZXYtPnN1YnN5c3RlbV9kZXZpY2U7
-DQorwqAgwqAgwqAgwqBody0+bGFzdF90cmFuY2VpdmVyX3N0YXR1cyA9IElYR0JFX05PVF9JTVBM
-RU1FTlRFRDsNCivCoCDCoCDCoCDCoGh3LT50cmFuY2VpdmVyX3BvbGx0aW1lID0gMDsNCg0KwqAg
-wqAgwqAgwqAgLyogU2V0IGNvbW1vbiBjYXBhYmlsaXR5IGZsYWdzIGFuZCBzZXR0aW5ncyAqLw0K
-wqAgwqAgwqAgwqAgcnNzID0gbWluX3QoaW50LCBpeGdiZV9tYXhfcnNzX2luZGljZXMoYWRhcHRl
-ciksIG51bV9vbmxpbmVfY3B1cygpKTsNCkBAIC03MDY3LDcgKzcwNjksMjcgQEAgc3RhdGljIHZv
-aWQgaXhnYmVfd2F0Y2hkb2dfc3VidGFzayhzdHJ1Y3QgaXhnYmVfYWRhcHRlciAqYWRhcHRlcikN
-CsKgc3RhdGljIHZvaWQgaXhnYmVfc2ZwX2RldGVjdGlvbl9zdWJ0YXNrKHN0cnVjdCBpeGdiZV9h
-ZGFwdGVyICphZGFwdGVyKQ0KwqB7DQrCoCDCoCDCoCDCoCBzdHJ1Y3QgaXhnYmVfaHcgKmh3ID0g
-JmFkYXB0ZXItPmh3Ow0KLcKgIMKgIMKgIMKgczMyIGVycjsNCivCoCDCoCDCoCDCoHMzMiBlcnIs
-IHN0YXR1czsNCisNCivCoCDCoCDCoCDCoGlmICgoaHctPm1hYy5vcHMuZ2V0X21lZGlhX3R5cGUo
-aHcpID09IGl4Z2JlX21lZGlhX3R5cGVfZmliZXIpICYmDQorwqAgwqAgwqAgwqAgwqAgwqB0aW1l
-X2FmdGVyKGppZmZpZXMsIGh3LT50cmFuY2VpdmVyX3BvbGx0aW1lKSkgew0KK8KgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgc3RhdHVzID0gSVhHQkVfUkVBRF9SRUcoaHcsIElYR0JFX0VTRFApICYgSVhH
-QkVfRVNEUF9TRFAyOw0KK8KgIMKgIMKgIMKgIMKgIMKgIMKgIMKgaWYgKHN0YXR1cyAhPSBody0+
-bGFzdF90cmFuY2VpdmVyX3N0YXR1cykgew0KK8KgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgdW5zaWduZWQgbG9uZyB2YWw7DQorDQorwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqBpZiAoIXN0YXR1cykgew0KK8KgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgaHctPnBoeS5zZnBfdHlwZSA9IGl4Z2JlX3NmcF90eXBlX25vdF9wcmVz
-ZW50Ow0KK8KgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgdmFs
-ID0gTkVUREVWX0ZJQkVSX1RSQU5DRUlWRVJfVU5QTFVHOw0KK8KgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIMKgIMKgIMKgfSBlbHNlIHsNCivCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoCDCoCDCoCDCoHZhbCA9IE5FVERFVl9GSUJFUl9UUkFOQ0VJVkVSX1BMVUc7DQorwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqB9DQorwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqBydG5sX2xvY2soKTsNCivCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDCoCDC
-oCDCoCDCoGNhbGxfbmV0ZGV2aWNlX25vdGlmaWVycyh2YWwsIGFkYXB0ZXItPm5ldGRldik7DQor
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBydG5sX3VubG9jaygpOw0KK8KgIMKg
-IMKgIMKgIMKgIMKgIMKgIMKgfQ0KK8KgIMKgIMKgIMKgIMKgIMKgIMKgIMKgaHctPmxhc3RfdHJh
-bmNlaXZlcl9zdGF0dXMgPSBzdGF0dXM7DQorwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqBody0+dHJh
-bmNlaXZlcl9wb2xsdGltZSA9IGppZmZpZXMgKyAzICogSFo7DQorwqAgwqAgwqAgwqB9DQoNCsKg
-IMKgIMKgIMKgIC8qIElmIGNyb3NzdGFsayBmaXggZW5hYmxlZCB2ZXJpZnkgdGhlIFNGUCsgY2Fn
-ZSBpcyBmdWxsICovDQrCoCDCoCDCoCDCoCBpZiAoYWRhcHRlci0+bmVlZF9jcm9zc3RhbGtfZml4
-KSB7DQpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVf
-dHlwZS5oIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaW50ZWwvaXhnYmUvaXhnYmVfdHlwZS5oDQpp
-bmRleCBkYTNkODM1Li5mZTE5ODk5IDEwMDY0NA0KLS0tIGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
-aW50ZWwvaXhnYmUvaXhnYmVfdHlwZS5oDQorKysgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pbnRl
-bC9peGdiZS9peGdiZV90eXBlLmgNCkBAIC0zNTI1LDYgKzM1MjUsOCBAQCBzdHJ1Y3QgaXhnYmVf
-aHcgew0KwqAgwqAgwqAgwqAgYm9vbMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKg
-IMKgIMKgIGZvcmNlX2Z1bGxfcmVzZXQ7DQrCoCDCoCDCoCDCoCBib29swqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgYWxsb3dfdW5zdXBwb3J0ZWRfc2ZwOw0KwqAgwqAg
-wqAgwqAgYm9vbMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIHdvbF9l
-bmFibGVkOw0KK8KgIMKgIMKgIMKgczMywqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAgwqAg
-wqAgwqAgwqAgwqBsYXN0X3RyYW5jZWl2ZXJfc3RhdHVzOw0KK8KgIMKgIMKgIMKgdW5zaWduZWQg
-bG9uZ8KgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgIMKgdHJhbmNlaXZlcl9wb2xsdGltZTsNCsKg
-fTsNCg0KwqBzdHJ1Y3QgaXhnYmVfaW5mbyB7DQotLQ0KMS43LjkuNQ0KDQoNCldoYXQgZXhhY3Rs
-eSBpcyB0aGlzIGluZm9ybWF0aW9uIChhcnJpdmFsL3JlbW92YWwgb2YgYSBTRlArIG1vZHVsZSkg
-bmVlZGVkIGZvcj8gIEkgY2FuJ3QgdGhpbmsgb2YgYW55IHVzZSB0aGUga2VybmVsIHdvdWxkIGhh
-dmUsIG91dHNpZGUgdGhlIGRyaXZlci4gIFNvIEkgbXVzdCBhc3N1bWUgYSB1c2Vyc3BhY2UgYXBw
-bGljYXRpb24sIGlmIHNvIHdoYXQgaXMgaXQ/DQoNClRvcCB0aGF0IG9mZiB0aGlzIG5vdGlmaWNh
-dGlvbiB3b3VsZCBvbmx5IGJlIGFjdHVhdGUgd2hpbGUgdGhlIHBvcnQgd2FzIHVwLCB3aGljaCBs
-aW1pdHMgaXRzIHZhbHVlIGV2ZW4gZnVydGhlci4gIFRoZSBkcml2ZXIganVzdCBkb2Vzbid0IGJv
-dGhlciBrZWVwaW5nIHRoaXMgaW5mb3JtYXRpb24gdW5sZXNzIGl0IGlzIG5lZWRlZC4gICBXaXRo
-IHRoZXNlIGxpbWl0YXRpb25zIEknbSBub3Qgc2VlaW5nIHRoZSBhZHZhbnRhZ2Ugb2YgYWRkaW5n
-IHRoaXMuDQoNCkFsc28gd2hhdCBhIGdpdmVuIFNEUCBpcyBjb25uZWN0ZWQgdG8gZGlmZmVyZW50
-IGZvciBkaWZmZXJlbnQgSFcgdHlwZXMgc28gYXNzdW1wdGlvbnMgbWFkZSBpbiB0aGUgcGF0Y2gg
-YWJvdmUgd291bGQgYmUgaW5jb3JyZWN0IG9uIHZhcmlvdXMgcGxhdGZvcm1zLg0KDQotRG9uIFNr
-aWRtb3JlIDxkb25hbGQuYy5za2lkbW9yZUBpbnRlbC5jb20+DQoNCg0KDQoNCg0KDQoNCg0KDQo=
+vmxnet3 is currently at version 2, but some command definitions from
+previous vmxnet3 versions are missing. Add those definitions before
+moving to version 3.
+
+Also, introduce utility macros for vmxnet3 version comparison and update
+Copyright information and Maintained by.
+
+Signed-off-by: Shrikrishna Khare <skhare@vmware.com>
+---
+ drivers/net/vmxnet3/Makefile          |  4 ++--
+ drivers/net/vmxnet3/upt1_defs.h       |  4 ++--
+ drivers/net/vmxnet3/vmxnet3_defs.h    |  9 ++++++---
+ drivers/net/vmxnet3/vmxnet3_drv.c     | 22 +++++++++++++---------
+ drivers/net/vmxnet3/vmxnet3_ethtool.c |  4 ++--
+ drivers/net/vmxnet3/vmxnet3_int.h     | 13 +++++++++++--
+ 6 files changed, 36 insertions(+), 20 deletions(-)
+
+diff --git a/drivers/net/vmxnet3/Makefile b/drivers/net/vmxnet3/Makefile
+index 880f509..8cdbb63 100644
+--- a/drivers/net/vmxnet3/Makefile
++++ b/drivers/net/vmxnet3/Makefile
+@@ -2,7 +2,7 @@
+ #
+ # Linux driver for VMware's vmxnet3 ethernet NIC.
+ #
+-# Copyright (C) 2007-2009, VMware, Inc. All Rights Reserved.
++# Copyright (C) 2007-2016, VMware, Inc. All Rights Reserved.
+ #
+ # This program is free software; you can redistribute it and/or modify it
+ # under the terms of the GNU General Public License as published by the
+@@ -21,7 +21,7 @@
+ # The full GNU General Public License is included in this distribution in
+ # the file called "COPYING".
+ #
+-# Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++# Maintained by: pv-drivers@vmware.com
+ #
+ #
+ ################################################################################
+diff --git a/drivers/net/vmxnet3/upt1_defs.h b/drivers/net/vmxnet3/upt1_defs.h
+index 969c751..db9f1fd 100644
+--- a/drivers/net/vmxnet3/upt1_defs.h
++++ b/drivers/net/vmxnet3/upt1_defs.h
+@@ -1,7 +1,7 @@
+ /*
+  * Linux driver for VMware's vmxnet3 ethernet NIC.
+  *
+- * Copyright (C) 2008-2009, VMware, Inc. All Rights Reserved.
++ * Copyright (C) 2008-2016, VMware, Inc. All Rights Reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License as published by the
+@@ -20,7 +20,7 @@
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+  *
+- * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ * Maintained by: pv-drivers@vmware.com
+  *
+  */
+ 
+diff --git a/drivers/net/vmxnet3/vmxnet3_defs.h b/drivers/net/vmxnet3/vmxnet3_defs.h
+index 72ba8ae..8345e0c 100644
+--- a/drivers/net/vmxnet3/vmxnet3_defs.h
++++ b/drivers/net/vmxnet3/vmxnet3_defs.h
+@@ -1,7 +1,7 @@
+ /*
+  * Linux driver for VMware's vmxnet3 ethernet NIC.
+  *
+- * Copyright (C) 2008-2015, VMware, Inc. All Rights Reserved.
++ * Copyright (C) 2008-2016, VMware, Inc. All Rights Reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License as published by the
+@@ -20,7 +20,7 @@
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+  *
+- * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ * Maintained by: pv-drivers@vmware.com
+  *
+  */
+ 
+@@ -76,7 +76,9 @@ enum {
+ 	VMXNET3_CMD_UPDATE_IML,
+ 	VMXNET3_CMD_UPDATE_PMCFG,
+ 	VMXNET3_CMD_UPDATE_FEATURE,
++	VMXNET3_CMD_RESERVED1,
+ 	VMXNET3_CMD_LOAD_PLUGIN,
++	VMXNET3_CMD_RESERVED2,
+ 
+ 	VMXNET3_CMD_FIRST_GET = 0xF00D0000,
+ 	VMXNET3_CMD_GET_QUEUE_STATUS = VMXNET3_CMD_FIRST_GET,
+@@ -87,7 +89,8 @@ enum {
+ 	VMXNET3_CMD_GET_DID_LO,
+ 	VMXNET3_CMD_GET_DID_HI,
+ 	VMXNET3_CMD_GET_DEV_EXTRA_INFO,
+-	VMXNET3_CMD_GET_CONF_INTR
++	VMXNET3_CMD_GET_CONF_INTR,
++	VMXNET3_CMD_GET_RESERVED1,
+ };
+ 
+ /*
+diff --git a/drivers/net/vmxnet3/vmxnet3_drv.c b/drivers/net/vmxnet3/vmxnet3_drv.c
+index 08885bc..507c53d 100644
+--- a/drivers/net/vmxnet3/vmxnet3_drv.c
++++ b/drivers/net/vmxnet3/vmxnet3_drv.c
+@@ -1,7 +1,7 @@
+ /*
+  * Linux driver for VMware's vmxnet3 ethernet NIC.
+  *
+- * Copyright (C) 2008-2009, VMware, Inc. All Rights Reserved.
++ * Copyright (C) 2008-2016, VMware, Inc. All Rights Reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License as published by the
+@@ -20,7 +20,7 @@
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+  *
+- * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ * Maintained by: pv-drivers@vmware.com
+  *
+  */
+ 
+@@ -1363,7 +1363,7 @@ vmxnet3_rq_rx_complete(struct vmxnet3_rx_queue *rq,
+ 			rbi->dma_addr = new_dma_addr;
+ 			rxd->addr = cpu_to_le64(rbi->dma_addr);
+ 			rxd->len = rbi->len;
+-			if (adapter->version == 2 &&
++			if (VMXNET3_VERSION_GE_2(adapter) &&
+ 			    rcd->type == VMXNET3_CDTYPE_RXCOMP_LRO) {
+ 				struct Vmxnet3_RxCompDescExt *rcdlro;
+ 				rcdlro = (struct Vmxnet3_RxCompDescExt *)rcd;
+@@ -3200,12 +3200,16 @@ vmxnet3_probe_device(struct pci_dev *pdev,
+ 		goto err_alloc_pci;
+ 
+ 	ver = VMXNET3_READ_BAR1_REG(adapter, VMXNET3_REG_VRRS);
+-	if (ver & 2) {
+-		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_VRRS, 2);
+-		adapter->version = 2;
+-	} else if (ver & 1) {
+-		VMXNET3_WRITE_BAR1_REG(adapter, VMXNET3_REG_VRRS, 1);
+-		adapter->version = 1;
++	if (ver & (1 << VMXNET3_REV_2)) {
++		VMXNET3_WRITE_BAR1_REG(adapter,
++				       VMXNET3_REG_VRRS,
++				       1 << VMXNET3_REV_2);
++		adapter->version = VMXNET3_REV_2 + 1;
++	} else if (ver & (1 << VMXNET3_REV_1)) {
++		VMXNET3_WRITE_BAR1_REG(adapter,
++				       VMXNET3_REG_VRRS,
++				       1 << VMXNET3_REV_1);
++		adapter->version = VMXNET3_REV_1 + 1;
+ 	} else {
+ 		dev_err(&pdev->dev,
+ 			"Incompatible h/w version (0x%x) for adapter\n", ver);
+diff --git a/drivers/net/vmxnet3/vmxnet3_ethtool.c b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+index 9ba11d7..163e99c 100644
+--- a/drivers/net/vmxnet3/vmxnet3_ethtool.c
++++ b/drivers/net/vmxnet3/vmxnet3_ethtool.c
+@@ -1,7 +1,7 @@
+ /*
+  * Linux driver for VMware's vmxnet3 ethernet NIC.
+  *
+- * Copyright (C) 2008-2009, VMware, Inc. All Rights Reserved.
++ * Copyright (C) 2008-2016, VMware, Inc. All Rights Reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License as published by the
+@@ -20,7 +20,7 @@
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+  *
+- * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ * Maintained by: pv-drivers@vmware.com
+  *
+  */
+ 
+diff --git a/drivers/net/vmxnet3/vmxnet3_int.h b/drivers/net/vmxnet3/vmxnet3_int.h
+index 3d2b64e..de068e9 100644
+--- a/drivers/net/vmxnet3/vmxnet3_int.h
++++ b/drivers/net/vmxnet3/vmxnet3_int.h
+@@ -1,7 +1,7 @@
+ /*
+  * Linux driver for VMware's vmxnet3 ethernet NIC.
+  *
+- * Copyright (C) 2008-2009, VMware, Inc. All Rights Reserved.
++ * Copyright (C) 2008-2016, VMware, Inc. All Rights Reserved.
+  *
+  * This program is free software; you can redistribute it and/or modify it
+  * under the terms of the GNU General Public License as published by the
+@@ -20,7 +20,7 @@
+  * The full GNU General Public License is included in this distribution in
+  * the file called "COPYING".
+  *
+- * Maintained by: Shreyas Bhatewara <pv-drivers@vmware.com>
++ * Maintained by: pv-drivers@vmware.com
+  *
+  */
+ 
+@@ -79,6 +79,10 @@
+ 	#define VMXNET3_RSS
+ #endif
+ 
++#define VMXNET3_REV_3		2	/* Vmxnet3 Rev. 3 */
++#define VMXNET3_REV_2		1	/* Vmxnet3 Rev. 2 */
++#define VMXNET3_REV_1		0	/* Vmxnet3 Rev. 1 */
++
+ /*
+  * Capabilities
+  */
+@@ -387,6 +391,11 @@ struct vmxnet3_adapter {
+ #define VMXNET3_GET_ADDR_LO(dma)   ((u32)(dma))
+ #define VMXNET3_GET_ADDR_HI(dma)   ((u32)(((u64)(dma)) >> 32))
+ 
++#define VMXNET3_VERSION_GE_2(adapter) \
++	(adapter->version >= VMXNET3_REV_2 + 1)
++#define VMXNET3_VERSION_GE_3(adapter) \
++	(adapter->version >= VMXNET3_REV_3 + 1)
++
+ /* must be a multiple of VMXNET3_RING_SIZE_ALIGN */
+ #define VMXNET3_DEF_TX_RING_SIZE    512
+ #define VMXNET3_DEF_RX_RING_SIZE    256
+-- 
+2.8.2
