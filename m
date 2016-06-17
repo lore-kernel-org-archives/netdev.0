@@ -1,50 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] mpls: allow routes on ipgre devices
-Date: Thu, 16 Jun 2016 17:14:11 -0700 (PDT)
-Message-ID: <20160616.171411.1102610413053475579.davem@davemloft.net>
-References: <1466064549-32647-1-git-send-email-simon.horman@netronome.com>
+Subject: Re: [PATCH] dsa: b53: fix big-endian register access
+Date: Thu, 16 Jun 2016 17:15:52 -0700 (PDT)
+Message-ID: <20160616.171552.314643580473023970.davem@davemloft.net>
+References: <20160616090017.912604-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rshearma@brocade.com,
-	roopa@cumulusnetworks.com
-To: simon.horman@netronome.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44468 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753830AbcFQAON (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 20:14:13 -0400
-In-Reply-To: <1466064549-32647-1-git-send-email-simon.horman@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160616090017.912604-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Simon Horman <simon.horman@netronome.com>
-Date: Thu, 16 Jun 2016 17:09:09 +0900
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Thu, 16 Jun 2016 11:00:05 +0200
 
-> This appears to be necessary and sufficient to provide
-> MPLS in GRE (RFC4023) support.
+> The b53 dsa register access confusingly uses __raw register accessors
+> when both the CPU and the device are big-endian, but it uses little-
+> endian accessors when the same device is used from a little-endian
+> CPU, which makes no sense.
 > 
-> This can be used by establishing an ipgre tunnel device
-> and then routing MPLS over it.
+> This uses normal accessors in device-endianess all the time, which
+> will work in all four combinations of register and CPU endianess,
+> and it will have the same barrier semantics in all cases.
 > 
-> The following example will forward MPLS frames received with an outermost
-> MPLS label 100 over tun1, a GRE tunnel. The forwarded packet will have the
-> outermost MPLS LSE removed and two new LSEs added with labels 200
-> (outermost) and 300 (next).
+> This also seems to take care of a (false positive) warning I'm getting:
 > 
-> ip link add name tun1 type gre remote 10.0.99.193 local 10.0.99.192 ttl 225
-> ip link set up dev tun1
-> ip addr add 10.0.98.192/24 dev tun1
-> ip route sh
+> drivers/net/dsa/b53/b53_mmap.c: In function 'b53_mmap_read64':
+> drivers/net/dsa/b53/b53_mmap.c:109:10: error: 'hi' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+>   *val = ((u64)hi << 32) | lo;
 > 
-> echo 1 > /proc/sys/net/mpls/conf/eth0/input
-> echo 101 > /proc/sys/net/mpls/platform_labels
-> ip -f mpls route add 100 as 200/300 via inet 10.0.98.193
-> ip -f mpls route sh
+> I originally planned to submit another patch for that warning
+> and did this one as a preparation cleanup, but it does seem to be
+> sufficient by itself.
 > 
-> Also remove unnecessary braces.
-> 
-> Reviewed-by: Dinan Gunawardena <dinan.gunawardena@netronome.com>
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
 
-Applied, thanks Simon.
+Applied.
