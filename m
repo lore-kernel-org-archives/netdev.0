@@ -1,47 +1,120 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] rxrpc: fix uninitialized variable use
-Date: Fri, 17 Jun 2016 11:55:22 +0200
-Message-ID: <20160617095555.1696781-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
+From: Leon Romanovsky <leon@kernel.org>
+Subject: Re: [PATCH v10 08/22] IB/hns: Add icm support
+Date: Fri, 17 Jun 2016 12:58:34 +0300
+Message-ID: <20160617095834.GA5408@leon.nu>
+References: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
+ <1466087730-54856-9-git-send-email-oulijun@huawei.com>
+Reply-To: leon@kernel.org
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="VmlJMtejgecKmNHY"
+Cc: dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, davem@davemloft.net,
+	jeffrey.t.kirsher@intel.com, jiri@mellanox.com,
+	ogerlitz@mellanox.com, linux-rdma@vger.kernel.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	gongyangming@huawei.com, xiaokun@huawei.com,
+	tangchaofei@huawei.com, haifeng.wei@huawei.com,
+	yisen.zhuang@huawei.com, yankejian@huawei.com,
+	charles.chenxin@huawei.com, linuxarm@huawei.com
+To: Lijun Ou <oulijun@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1466087730-54856-9-git-send-email-oulijun@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hashing the peer key was introduced for AF_INET, but gcc
-warns about the rxrpc_peer_hash_key function returning uninitialized
-data for any other value of srx->transport.family:
 
-net/rxrpc/peer_object.c: In function 'rxrpc_peer_hash_key':
-net/rxrpc/peer_object.c:57:15: error: 'p' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+--VmlJMtejgecKmNHY
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Assuming that nothing else can be set here, this changes the
-function to just return zero in case of an unknown address
-family.
+On Thu, Jun 16, 2016 at 10:35:16PM +0800, Lijun Ou wrote:
+> This patch mainly added icm support for RoCE. It initializes icm
+> which managers the relative memory blocks for RoCE. The data
+> structures of RoCE will be located in it. For example, CQ table,
+> QP table and MTPT table so on.
+>=20
+> Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
+> Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
+> Signed-off-by: Lijun Ou <oulijun@huawei.com>
+> ---
 
-Fixes: be6e6707f6ee ("rxrpc: Rework peer object handling to use hash table and RCU")
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
-This showed up today in linux-next, no idea if my patch is the
-right solution for the problem, so please review carefully.
+<...>
 
- net/rxrpc/peer_object.c | 2 ++
- 1 file changed, 2 insertions(+)
+> +
+> +static int hns_roce_alloc_icm_pages(struct scatterlist *mem, int order,
+> +				    gfp_t gfp_mask)
+> +{
+> +	struct page *page;
+> +
+> +	page =3D alloc_pages(gfp_mask, order);
+> +	if (!page)
+> +		return -ENOMEM;
+> +
+> +	sg_set_page(mem, page, PAGE_SIZE << order, 0);
+> +
+> +	return 0;
+> +}
+> +
+> +static int hns_roce_alloc_icm_coherent(struct device *dev,
+> +				       struct scatterlist *mem, int order,
+> +				       gfp_t gfp_mask)
+> +{
+> +	void *buf =3D dma_alloc_coherent(dev, PAGE_SIZE << order,
+> +				       &sg_dma_address(mem), gfp_mask);
+> +	if (!buf)
+> +		return -ENOMEM;
+> +
+> +	sg_set_buf(mem, buf, PAGE_SIZE << order);
+> +	WARN_ON(mem->offset);
+> +	sg_dma_len(mem) =3D PAGE_SIZE << order;
+> +	return 0;
+> +}
+> +
 
-diff --git a/net/rxrpc/peer_object.c b/net/rxrpc/peer_object.c
-index faf222c21698..5ab89295c36c 100644
---- a/net/rxrpc/peer_object.c
-+++ b/net/rxrpc/peer_object.c
-@@ -50,6 +50,8 @@ static unsigned long rxrpc_peer_hash_key(struct rxrpc_local *local,
- 		size = sizeof(srx->transport.sin.sin_addr);
- 		p = (u16 *)&srx->transport.sin.sin_addr;
- 		break;
-+	default:
-+		return 0;
- 	}
- 
- 	/* Step through the peer address in 16-bit portions for speed */
--- 
-2.9.0
+<...>
+
+> +
+> +static void hns_roce_free_icm_pages(struct hns_roce_dev *hr_dev,
+> +				    struct hns_roce_icm_chunk *chunk)
+> +{
+> +	int i;
+> +
+> +	if (chunk->nsg > 0)
+> +		dma_unmap_sg(&hr_dev->pdev->dev, chunk->mem, chunk->npages,
+> +			     DMA_BIDIRECTIONAL);
+> +
+> +	for (i =3D 0; i < chunk->npages; ++i)
+> +		__free_pages(sg_page(&chunk->mem[i]),
+> +			     get_order(chunk->mem[i].length));
+
+You used alloc_pages for this allocation, so why are you using
+__free_pages instead of free_pages?
+
+
+
+--VmlJMtejgecKmNHY
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXY8nKAAoJEORje4g2clinTrYP/1D9P0PVZOKdEzZAhaDZF81C
+E3i3x/LsVKjNejab7ny5uOfX5DOL495+2gs3/dwpypajfywqSlbdUyedWvD8WY2N
+lTml1ETBME41VHLgnJ9VVUOebrpk/FQMOH3WPYFzJoSCs1afgbl9sP9tLdbTqZak
+CL7pEOcUZWwSZVvZ3hZfdsuWUWdZwQj2Z+f5kYirvsCRqeR7gyD4UYreEnR7b3KD
+ODVPkgJnidrAnvB4Fyau/kuOi2vXZRO7sPiNkvhscalAKvt2b10oLEbZf62AxbvV
+qJ1stHYvRPVlFR21hl1MJAfKdVzIyHxsmQV6Xd0d7AnIXPyMoTfy6w+/7lgzRFVq
+0CGoQsjeBtTAEteQNJvA+y6tBfQX+giHqLuZch+H9ledAz8tqjeZ9JsDZlArOcy1
+/e93S2GayTZaT4exWyIlTcmT/181cAPkKF73HgltP3LBoRJ+db0rUgikUfVRLE9+
+viIpHCvGFI6uhE1B9JJh+V+pvAbLzbnHg2q0lrEdvjSMUTHkqfkFMQepcSZEdUFT
+Zld/wMHMjVvGAw90FbkIbg16IjPrDSvUpnnyztHBZxdLlIT0ZD+6iU0z0QGpHmTw
+VljKY2WkkLOC1hV3V5aeUyoAzhUJSnLoG/zqrao9Dq+EVUM3eb5a8jZJanwMJKam
+IhcbyRm3rBlwQWtwbiVK
+=4teu
+-----END PGP SIGNATURE-----
+
+--VmlJMtejgecKmNHY--
