@@ -1,48 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sit: correct IP protocol used in ipip6_err
-Date: Thu, 16 Jun 2016 17:11:17 -0700 (PDT)
-Message-ID: <20160616.171117.1343979574932922705.davem@davemloft.net>
-References: <1466064379-32355-1-git-send-email-simon.horman@netronome.com>
+Subject: Re: [PATCH net-next] mpls: allow routes on ipgre devices
+Date: Thu, 16 Jun 2016 17:14:11 -0700 (PDT)
+Message-ID: <20160616.171411.1102610413053475579.davem@davemloft.net>
+References: <1466064549-32647-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org, rshearma@brocade.com,
+	roopa@cumulusnetworks.com
 To: simon.horman@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44457 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44468 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753996AbcFQALS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 20:11:18 -0400
-In-Reply-To: <1466064379-32355-1-git-send-email-simon.horman@netronome.com>
+	with ESMTP id S1753830AbcFQAON (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 20:14:13 -0400
+In-Reply-To: <1466064549-32647-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Simon Horman <simon.horman@netronome.com>
-Date: Thu, 16 Jun 2016 17:06:19 +0900
+Date: Thu, 16 Jun 2016 17:09:09 +0900
 
-> Since 32b8a8e59c9c ("sit: add IPv4 over IPv4 support")
-> ipip6_err() may be called for packets whose IP protocol is
-> IPPROTO_IPIP as well as those whose IP protocol is IPPROTO_IPV6.
+> This appears to be necessary and sufficient to provide
+> MPLS in GRE (RFC4023) support.
 > 
-> In the case of IPPROTO_IPIP packets the correct protocol value is not
-> passed to ipv4_update_pmtu() or ipv4_redirect().
+> This can be used by establishing an ipgre tunnel device
+> and then routing MPLS over it.
 > 
-> This patch resolves this problem by using the IP protocol of the packet
-> rather than a hard-coded value. This appears to be consistent
-> with the usage of the protocol of a packet by icmp_socket_deliver()
-> the caller of ipip6_err().
+> The following example will forward MPLS frames received with an outermost
+> MPLS label 100 over tun1, a GRE tunnel. The forwarded packet will have the
+> outermost MPLS LSE removed and two new LSEs added with labels 200
+> (outermost) and 300 (next).
 > 
-> I was able to exercise the redirect case by using a setup where an ICMP
-> redirect was received for the destination of the encapsulated packet.
-> However, it appears that although incorrect the protocol field is not used
-> in this case and thus no problem manifests.  On inspection it does not
-> appear that a problem will manifest in the fragmentation needed/update pmtu
-> case either.
+> ip link add name tun1 type gre remote 10.0.99.193 local 10.0.99.192 ttl 225
+> ip link set up dev tun1
+> ip addr add 10.0.98.192/24 dev tun1
+> ip route sh
 > 
-> In short I believe this is a cosmetic fix. None the less, the use of
-> IPPROTO_IPV6 seems wrong and confusing.
+> echo 1 > /proc/sys/net/mpls/conf/eth0/input
+> echo 101 > /proc/sys/net/mpls/platform_labels
+> ip -f mpls route add 100 as 200/300 via inet 10.0.98.193
+> ip -f mpls route sh
+> 
+> Also remove unnecessary braces.
 > 
 > Reviewed-by: Dinan Gunawardena <dinan.gunawardena@netronome.com>
 > Signed-off-by: Simon Horman <simon.horman@netronome.com>
 
-Applied to 'net' and queued up for -stable, thanks Simon.
+Applied, thanks Simon.
