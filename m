@@ -1,66 +1,31 @@
-From: Oliver Graute <oliver.graute@gmail.com>
-Subject: Micrel Phy KSZ8031 clock select setting in dts
-Date: Fri, 17 Jun 2016 15:04:38 +0200
-Message-ID: <20160617130438.GB6604@graute-opti>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: f.fainelli@gmail.com, johan@kernel.org, bth@kamstrup.dk,
-	s.hauer@pengutronix.de
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net 0/2] mlxsw: couple of fixes
+Date: Fri, 17 Jun 2016 15:09:04 +0200
+Message-ID: <1466168946-14658-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:36323 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751309AbcFQNFF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 09:05:05 -0400
-Received: by mail-wm0-f46.google.com with SMTP id f126so88338786wma.1
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 06:05:04 -0700 (PDT)
-Content-Disposition: inline
+Received: from mail-wm0-f53.google.com ([74.125.82.53]:33922 "EHLO
+	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932553AbcFQNJK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 09:09:10 -0400
+Received: by mail-wm0-f53.google.com with SMTP id k184so37653330wme.1
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 06:09:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+From: Jiri Pirko <jiri@mellanox.com>
 
-I try to enable a Micrel KSZ8031 in my imx6ul board device tree. But i'am
-struggeling with the setting for KSZPHY_RMII_REF_CLK_SEL BIT(7). In my
-revision of this Micrel KSZ8031 Phy the Bit(7) has to be true. The 0x1f
-register must be 0x8180.
+Couple of slowpath tx stats fixes for Spectrum and SwitchX-2.
 
-How can I configure this register setting into my DTS?
+Nogah Frankel (2):
+  mlxsw: spectrum: Don't count internal TX header bytes to stats
+  mlxsw: switchx2: Don't count internal TX header bytes to stats
 
-I already checked Documentation/devicetree/bindings/net/micrel.txt
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 6 +++++-
+ drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 5 ++++-
+ 2 files changed, 9 insertions(+), 2 deletions(-)
 
-but i'am not sure if this still up to date. There where some reworks
-after git commit 86dc1342
-
-some other commits related to this Phy clock setting I checked
-
-commit 1fadee0c3
-commit b838b4aced
-
-my non working device tree blob for the phy is:
-
-&fec1 {
-	pinctrl-names = "default";
-	pinctrl-0 = <&pinctrl_enet1>;
-	phy-mode = "rmii";
-	rmmi-ref-clk-sel = <1>;
-	phy-handle = <&ethphy0>;
-	status = "okay";
-
-	mdio {
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		ethphy0: ethernet-phy@0 {
-			compatible = "micrel,ksz8031";
-			reg = <0>;
-		};
-	};
-};
-
-
-some clue how to configure this phy register setting correctly?
-
-Best regards,
-
-Oliver
+-- 
+2.5.5
