@@ -1,48 +1,63 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 0/4] net-next: mediatek: IRQ cleanups, fixes and
- grouping
-Date: Thu, 16 Jun 2016 17:27:26 -0700 (PDT)
-Message-ID: <20160616.172726.2001945071088559824.davem@davemloft.net>
-References: <1466002730-58476-1-git-send-email-john@phrozen.org>
-	<20160615.222050.2210130284846212716.davem@davemloft.net>
-	<5dbb935d-2d9a-48fe-79c7-8e8f57b27678@phrozen.org>
+Subject: Re: [patch net-next v4 0/4] return offloaded stats as default and
+ expose original sw stats
+Date: Thu, 16 Jun 2016 17:26:32 -0700 (PDT)
+Message-ID: <20160616.172632.1759391103978744570.davem@davemloft.net>
+References: <1466066237-7719-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-mediatek@lists.infradead.org,
-	keyhaede@gmail.com, linux-kernel@vger.kernel.org, nbd@nbd.name
-To: john@phrozen.org
+Cc: netdev@vger.kernel.org, nogahf@mellanox.com, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
+	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
+	f.fainelli@gmail.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44574 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44566 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753818AbcFQA11 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 20:27:27 -0400
-In-Reply-To: <5dbb935d-2d9a-48fe-79c7-8e8f57b27678@phrozen.org>
+	with ESMTP id S1753818AbcFQA0e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 20:26:34 -0400
+In-Reply-To: <1466066237-7719-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: John Crispin <john@phrozen.org>
-Date: Thu, 16 Jun 2016 11:44:44 +0200
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Thu, 16 Jun 2016 10:37:13 +0200
 
+> Until now we had stats functions return SW statistics. However, it makes
+> a lot of sense to return HW stats as default. The existing apps count with
+> having the defaults stats complete, but that is not true now as the offloaded
+> forward traffic is not visible there.
 > 
-> 
-> On 16/06/2016 07:20, David Miller wrote:
->> From: John Crispin <john@phrozen.org>
->> Date: Wed, 15 Jun 2016 16:58:46 +0200
->> 
->>> This series contains 2 small code cleanups that are leftovers from the
->>> MIPS support. There is also a small fix that adds proper locking to the
->>> code accessing the IRQ registers. Without this fix we saw deadlocks caused
->>> by the last patch of the series, which adds IRQ grouping. The grouping
->>> feature allows us to use different IRQs for TX and RX. By doing so we can
->>> use affinity to let the SoC handle the IRQs on different cores.
->> 
->> This patch series doesn't apply cleanly to the net-next tree, I get rejects
->> on patch #4.
->> 
-> 
-> it depends on the series with the 11 fixes that i sent last week which
-> is however in the net tree and not the next tree (i also still had the
-> DQL hack in my tree).
+> If user wants to know real SW stats, this patchset provides way to get
+> it as well.
 
-Then you need to tell me about such dependencies in your submission.
+I think we haven't been very good about defining good rules nor
+guidelines for how to handle HW vs SW stats, and I'm talking
+strictly about what we publish via rtnl_link_stats64.
+
+However, if I were working from scratch on a new driver what I would
+be inclined to do is use HW stats for everything that the chip
+provides direct and accurate support for, and fill in the gaps with SW
+stats.
+
+Because to me, stats are stats, the user wants to know (for example)
+how many broadcast packets have gone through the port and doesn't care
+how you obtain that number.
+
+If the problem being addressed is that drivers aren't reporting
+information on all the packets going through the device, then that's a
+bug.
+
+But it seems to me like mlxsw is already maintaining the software
+statistic counters, so I can't see a performance reason for not
+properly providing all of the statistics using HW vs. SW as is
+appropriate for each and every value to fix this problem.  Why
+create an entire new facility just for that?  It doesn't seem to
+be needed.
+
+Maybe you just need to describe things a bit more completely in this
+header posting.
