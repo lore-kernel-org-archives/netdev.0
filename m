@@ -1,40 +1,64 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: act_mirred: remove spinlock in fast path
-Date: Fri, 17 Jun 2016 15:03:54 -0700
-Message-ID: <CANn89iK3DLjJ6y34y1=pnUmH0RKBwwQWj4ZzizVmm98BXxGxYA@mail.gmail.com>
-References: <CAM_iQpU42hydN_akrr8EGuN8OGifyjM3j+W44hjOvRxxM52HbA@mail.gmail.com>
- <CANn89iJj6aqqm0AwQnFR6NJSADje4FS64dzF2-Ac8hSpECG=sQ@mail.gmail.com>
- <CAM_iQpXJ9Kq=Ff3jZPJYjotXpYOMhTRSZe3Gu4bZ_fLPyKTyWg@mail.gmail.com>
- <CANn89iJiPnNj1nBHn5v0DQ7fB5n8h1=_h-Ev0UhcYmJE4PehDw@mail.gmail.com> <CAM_iQpU57HebOQSYXqoa6xuW4cuSdCqZwQkE_JSu7abHFAuaHw@mail.gmail.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 12/18] IB/mlx5: Add kernel offload flow-tag
+Date: Sat, 18 Jun 2016 01:31:26 +0300
+Message-ID: <CALzJLG-uoMKjZCC312JjfqnQaUW_-31eqeg0bQd+r3qp4Fa1ag@mail.gmail.com>
+References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
+ <1466174639-14576-13-git-send-email-saeedm@mellanox.com> <20160617160007.GA52082@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Doug Ledford <dledford@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Maor Gottlieb <maorg@mellanox.com>,
+	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f169.google.com ([209.85.161.169]:36675 "EHLO
-	mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752644AbcFQWD4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 18:03:56 -0400
-Received: by mail-yw0-f169.google.com with SMTP id d137so7617319ywe.3
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 15:03:55 -0700 (PDT)
-In-Reply-To: <CAM_iQpU57HebOQSYXqoa6xuW4cuSdCqZwQkE_JSu7abHFAuaHw@mail.gmail.com>
+Received: from mail-yw0-f171.google.com ([209.85.161.171]:36302 "EHLO
+	mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750840AbcFQWbq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 18:31:46 -0400
+Received: by mail-yw0-f171.google.com with SMTP id d137so8072515ywe.3
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 15:31:45 -0700 (PDT)
+In-Reply-To: <20160617160007.GA52082@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 17, 2016 at 2:59 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-
-> Generally speaking I worry about we change multiple fields in a struct
-> meanwhile we could still read them any time in the middle, we may
-> get them correct for some easy case, but it is hard to insure the
-> correctness when the struct becomes large.
+On Fri, Jun 17, 2016 at 7:00 PM, Alexei Starovoitov
+<alexei.starovoitov@gmail.com> wrote:
+> On Fri, Jun 17, 2016 at 05:43:53PM +0300, Saeed Mahameed wrote:
+>> From: Maor Gottlieb <maorg@mellanox.com>
+>>
+>> Add kernel offload flow tag for packets that will bypass the kernel
+>> stack, e.g (RoCE/RDMA/RAW ETH (DPDK), etc ..).
 >
-> I am thinking to make more tc actions lockless, so this problem
-> comes up immediately for other complex cases than mirred.
+> so the whole series is an elaborate way to enable dpdk? how nice.
 
-I certainly wont object to a patch.
+NO, God forbids! the whole series has nothing to do with dpdk!
+Please read the cover letter.
 
-Also note that instead of RCU with a pointer and the usual kfree_rcu() stuff,
-we now can use seqcount_latch infra which might allow to not increase
-memory foot print.
+Quoting my own words from the cover letter:
+"This patch set introduces mlx5 RoCE/RDMA packet sniffer, it allows
+mlx5e netdevice to receive RoCE/RDMA or RAW ETH traffic which isn't
+supposed to be passed to the kernel stack, for sniffing and diagnostics
+purposes."
+
+We simply want to selectively be able to see RoCE/RDMA ETH standard
+traffic in tcpdump, for diagnostic purposes.
+so in order to not overwhelm the kernel TCP/IP stack with this
+traffic, this patch in particular
+configures ConnectX4 hardware to tag those packets, so in downstream
+patches mlx5 netdevice will mark the SKBs of those packets
+to skip the TCP/IP stack and go only to tcpdump.
+
+DPDK is not enabled/disabled or even slightly affected in this series.
+It was just given as an example in this patch commit message for
+traffic that can be sniffed in standard tools such as tcpdump.
+
+Today there are some bad usages and abuse to skb->protocol where some
+device drivers set skb->protocol = 0xffffff to skip the kernel TCP/IP
+processing for the same diagnostic purposes.
+In this series we are just trying to do the right thing.
