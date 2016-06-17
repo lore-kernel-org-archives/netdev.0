@@ -1,31 +1,58 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH RFC 1/3] ipv4: make flow functions more grepable by
- removing flowi4_init_output
-Date: Thu, 16 Jun 2016 16:59:30 -0700 (PDT)
-Message-ID: <20160616.165930.1926303970829996171.davem@davemloft.net>
-References: <2c081044-0861-8a84-f4ae-88c60c4ddc67@cumulusnetworks.com>
-	<20160616.141805.201276959937562482.davem@davemloft.net>
-	<0f3516fc-9108-58a3-88fa-49a80a829acc@stressinduktion.org>
+Subject: Re: [PATCH net-next V2] tun: introduce tx skb ring
+Date: Thu, 16 Jun 2016 17:01:31 -0700 (PDT)
+Message-ID: <20160616.170131.1753206993488742551.davem@davemloft.net>
+References: <1465979897-4445-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: dsa@cumulusnetworks.com, netdev@vger.kernel.org, ja@ssi.bg
-To: hannes@stressinduktion.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44364 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754561AbcFPX7d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 19:59:33 -0400
-In-Reply-To: <0f3516fc-9108-58a3-88fa-49a80a829acc@stressinduktion.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: kvm@vger.kernel.org, eric.dumazet@gmail.com, mst@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, brouer@redhat.com
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1465979897-4445-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Date: Thu, 16 Jun 2016 23:39:12 +0200
+From: Jason Wang <jasowang@redhat.com>
+Date: Wed, 15 Jun 2016 16:38:17 +0800
 
-> Most of the time a new attribute that gets added to flow4i only
-> decreases the scope of the actual lookup, thus a missing attribute
-> doesn't necessarily indicate a bug.
+> We used to queue tx packets in sk_receive_queue, this is less
+> efficient since it requires spinlocks to synchronize between producer
+> and consumer.
+> 
+> This patch tries to address this by:
+> 
+> - introduce a new mode which will be only enabled with IFF_TX_ARRAY
+>   set and switch from sk_receive_queue to a fixed size of skb
+>   array with 256 entries in this mode.
+> - introduce a new proto_ops peek_len which was used for peeking the
+>   skb length.
+> - implement a tun version of peek_len for vhost_net to use and convert
+>   vhost_net to use peek_len if possible.
+> 
+> Pktgen test shows about 18% improvement on guest receiving pps for small
+> buffers:
+> 
+> Before: ~1220000pps
+> After : ~1440000pps
+> 
+> The reason why I stick to new mode is because:
+> 
+> - though resize is supported by skb array, in multiqueue mode, it's
+>   not easy to recover from a partial success of queue resizing.
+> - tx_queue_len is a user visible feature.
+> 
+> Signed-off-by: Jason Wang <jasowang@redhat.com>
 
-That's true, and it works well so long as the value zero provides
-the behavior that existed before the new flow key was added.
+Michael, can you please review this, especially as this is the first
+user of your new infrastructure :-)
