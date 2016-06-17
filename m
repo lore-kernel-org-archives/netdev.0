@@ -1,84 +1,54 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
-Date: Fri, 17 Jun 2016 09:51:17 -0700
-Message-ID: <CALx6S34gNYs4ajDZv8My5auE9xyOpVKAT6qSf3-tc5EZdson0w@mail.gmail.com>
-References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
-	<1202f4bd-ef27-8143-8067-2bba56b7355c@stressinduktion.org>
+From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Subject: Re: [iproute PATCH 1/3] Use C99 style initializers everywhere
+Date: Fri, 17 Jun 2016 18:58:14 +0200
+Message-ID: <57642C26.6060105@6wind.com>
+References: <1466178968-27439-1-git-send-email-phil@nwl.cc>
+ <1466178968-27439-2-git-send-email-phil@nwl.cc>
+ <ddef688e6e3f4a1a895880de1f9f069d@HQ1WP-EXMB11.corp.brocade.com>
+ <20160617093401.24ae66b1@xeon-e3> <5764295E.7070103@iogearbox.net>
+Reply-To: nicolas.dichtel@6wind.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Phil Sutter <phil@nwl.cc>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	julien.floret@6wind.com
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:35473 "EHLO
-	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751873AbcFQQvT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 12:51:19 -0400
-Received: by mail-io0-f170.google.com with SMTP id f30so73965195ioj.2
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 09:51:18 -0700 (PDT)
-In-Reply-To: <1202f4bd-ef27-8143-8067-2bba56b7355c@stressinduktion.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:38455 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750751AbcFQQ6S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 12:58:18 -0400
+Received: by mail-wm0-f48.google.com with SMTP id m124so7565287wme.1
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 09:58:17 -0700 (PDT)
+In-Reply-To: <5764295E.7070103@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 16, 2016 at 4:15 PM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On 16.06.2016 19:51, Tom Herbert wrote:
->> Transports over UDP is intended to encapsulate TCP and other transport
->> protocols directly and securely in UDP.
+Le 17/06/2016 18:46, Daniel Borkmann a =E9crit :
+> On 06/17/2016 06:34 PM, Stephen Hemminger wrote:
+>> On Fri, 17 Jun 2016 16:09:20 +0000
+>> Daniel Borkmann <daniel@iogearbox.net> wrote:
 >>
->> The goal of this work is twofold:
+>>> Please have a look at commit 8f80d450c3cb ("tc: fix compilation wit=
+h old gcc
+>>> (< 4.6)") ...
+>>>
+>>> Your changes effectively revert them again. Here, and some other pa=
+rts of the
+>>> bpf frontend
+>>> code bits.
 >>
->> 1) Allow applications to run their own transport layer stack (i.e.from
->>    userspace). This eliminates dependencies on the OS (e.g. solves a
->>    major dependency issue for Facebook on clients).
->>
->> 2) Make transport layer headers (all of L4) invisible to the network
->>    so that they can't do intrusive actions at L4. This will be enforced
->>    with DTLS in use.
->>
->> Note that #1 is really about running a transport stack in userspace
->> applications in clients, not necessarily servers. For servers we
->> intend to modified the kernel stack in order to leverage existing
->> implementation for building scalable serves (hence these patches).
->>
->> This is described in more detail in the Internet Draft:
->> https://tools.ietf.org/html/draft-herbert-transports-over-udp-00
->>
->> In Part I we implement a straightforward encapsulation of TCP in GUE.
->> The implements the basic mechanics of TOU encapsulation for TCP,
->> however does not yet implement the IP addressing interactions so
->> therefore so this is not robust to use in the presence of NAT.
->> TOU is enabled per socket with a new socket option. This
->> implementation includes GSO, GRO, and RCO support.
->>
->> These patches also establish the baseline performance of TOU
->> and isolate the performance cost of UDP encapsulation. Performance
->> results are below.
->>
->> Tested: Various cases of TOU with IPv4, IPv6 using TCP_STREAM and
->> TCP_RR. Also, tested IPIP for comparing TOU encapsulation to IP
->> tunneling.
->
-> Thinking about middleboxes again:
->
-> E.g. https://tools.ietf.org/html/rfc6347#section-4.2.3 states that DTLS
-> packets are not allowed to be fragmented. Because of this and
-> furthermore because of the impossibility of clamp-mss-to-pmtu to work
-> anymore, do you have any idea on how reliable this can work?
->
-> Or is your plan to use a smaller MSS on all paths by default?
->
-Normal PMTU discovery mechanisms are applicable to prevent
-fragmentation. The overhead is accounted for in the MSS (similar to
-overhead of TCP options of IPv6 extension headers). Besides that,
-RFC6347 describes how fragmentation should be avoided, it does not
-explicitly forbid fragmentation, no IP protocol can outright forbid
-it. At most they could try to require DF bit is always set but that
-won't always be obeyed like when packets are tunneled in the network.
+>> GCC 4.6 is 3 years old. So perhaps it is time to move on.
+>> Maybe add a GCC version check in the makefile, to fail cleanly.
+>=20
+> Well, you don't have to ask me but rather the patch submitters (Cc).
+>=20
+> I haven't used RHEL in quite a while, but I could imagine it might
+> be related to built it there perhaps.
+Yes. For some specific arch, we have only old toolchains.
 
-Tom
-
-> Thanks,
-> Hannes
->
+The rule was always to be backward compatible with old kernels. It impl=
+ies to
+also support the compilation with old toolchains ;-)
