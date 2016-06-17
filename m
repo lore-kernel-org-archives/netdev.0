@@ -1,70 +1,56 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 2/2] mlx5: fix 64-bit division on times
-Date: Fri, 17 Jun 2016 17:24:40 +0200
-Message-ID: <7479054.ALBOnYT4q2@wuerfel>
-References: <20160615152816.2800830-1-arnd@arndb.de> <20160615152816.2800830-2-arnd@arndb.de> <CALzJLG9S_Q37ErepBm-7rm7vVdEZH-1gXbay+zpveHSYhpPi5A@mail.gmail.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [patch net-next v4 0/4] return offloaded stats as default and
+ expose original sw stats
+Date: Fri, 17 Jun 2016 09:35:53 -0600
+Message-ID: <9f8e85ac-3e96-257e-cf7f-e7e793d41cf4@cumulusnetworks.com>
+References: <1466066237-7719-1-git-send-email-jiri@resnulli.us>
+ <20160616.172632.1759391103978744570.davem@davemloft.net>
+ <20160617082411.GA1981@nanopsycho.orion>
+ <f720df39-75c4-9be1-245d-df63bd40d610@cumulusnetworks.com>
+ <20160617140512.GB1981@nanopsycho.orion> <57640F2A.7090003@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Matan Barak <matanb@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Huy Nguyen <huyn@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	nogahf@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
+	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
+	f.fainelli@gmail.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:57755 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754470AbcFQPXB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 11:23:01 -0400
-In-Reply-To: <CALzJLG9S_Q37ErepBm-7rm7vVdEZH-1gXbay+zpveHSYhpPi5A@mail.gmail.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:33344 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753305AbcFQPgD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 11:36:03 -0400
+Received: by mail-pa0-f45.google.com with SMTP id b13so29557609pat.0
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 08:36:02 -0700 (PDT)
+In-Reply-To: <57640F2A.7090003@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Friday, June 17, 2016 6:09:00 PM CEST Saeed Mahameed wrote:
-> On Wed, Jun 15, 2016 at 6:27 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> > The mlx5 driver fails to build on 32-bit architectures after some
-> > references to 64-bit divisions got added:
-> >
-> > drivers/net/built-in.o: In function `mlx5e_rx_am':
-> > :(.text+0xf88ac): undefined reference to `__aeabi_ldivmod'
-> >
-> > The driver even performs three division here, and it uses the
-> > obsolete 'struct timespec' that we want to get rid of.
-> >
-> > Using ktime_t and ktime_us_delta() replaces one of the divisions
-> > and is mildly more efficient, aside from working across 'settimeofday'
-> > calls and being the right type for the y2038 conversion.
-> >
-> > Using a u32 instead of s64 to store the number of microseconds
-> > limits the maximum time to about 71 minutes, but if we exceed that
-> > time, we probably don't care about the result any more for the
-> > purpose of rx coalescing.
-> >
-> > For the number of packets, we are taking the difference between
-> > two 'unsigned int', so the result won't ever be greater than that
-> > either.
-> >
-> > After those changes, the other two divisions are done as 32-bit
-> > arithmetic operations, which are much faster.
-> 
-> Nice catch Arnd,  we originally fixed this with div_u64, but your
-> solution looks wiser.
-> does ktime_t gives time in a resolution same as timespec ?
+On 6/17/16 8:54 AM, Jamal Hadi Salim wrote:
+> On 16-06-17 10:05 AM, Jiri Pirko wrote:
+>> Fri, Jun 17, 2016 at 03:48:35PM CEST, dsa@cumulusnetworks.com wrote:
+>>> On 6/17/16 2:24 AM, Jiri Pirko wrote:
+>>>>
+>
+>>
+>> That is problematic. Existing apps depend on rtnetlink stats. But if we
+>> don't count offloaded forwarded packets, the apps don't see anything.
+>> Therefore I believe that this patchset approach is better. The existing
+>> apps continue to work and future apps can use newly introduces sw_stats
+>> to query slowpath traffic. Makes sense to me.
+>>
+>
+> I agree with Jiri. It is a bad idea to depend on ethtool for any of
+> this stuff. Is there a way we can tag netlink stats instead
+> to indicate they are hardware or software?
 
-ktime_t is a 64-bit nanosecond counter, so the resolution is the same
-as ktime_get_ts64(), which is the "monotonic" equivalent of
-getnstimeofday().
+Right, old API but the key here is that low level h/w stats are returned 
+by a different API.
 
-There are also variants that have the same resolution but are
-less accurate and don't set the exact lower bits in order to
-get a faster reading, but the above are all as accurate as the machine
-allows.
-
-	Arnd
+By default ip, ifconfig, snmpd, etc all continue to get traditional S/W 
+stats - counters as seen by the CPU.
