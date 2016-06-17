@@ -1,38 +1,86 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 7/8] net: xfrm: fix old-style declaration
-Date: Thu, 16 Jun 2016 22:06:59 -0700 (PDT)
-Message-ID: <20160616.220659.502030637416542450.davem@davemloft.net>
-References: <20160616135020.3154461-1-arnd@arndb.de>
-	<12896147.Nph51CCL66@wuerfel>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH 4.7 FIX] brcmfmac: fix lockup when removing P2P interface after event timeout
+Date: Fri, 17 Jun 2016 08:13:17 +0300
+Message-ID: <87lh24v1n6.fsf@kamboji.qca.qualcomm.com>
+References: <1464378815-23282-1-git-send-email-zajec5@gmail.com>
+	<877fdpw4no.fsf@kamboji.qca.qualcomm.com>
+	<CACna6rzXzj4DJNA6855Qy6QnxETnYEPmqtw3Bcx8WWCtYwYvuw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, steffen.klassert@secunet.com,
-	herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net,
-	dsa@cumulusnetworks.com, linux-kernel@vger.kernel.org
-To: arnd@arndb.de
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky \(Zhenhui\) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	"linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	brcm80211 development <brcm80211-dev-list@broadcom.com>,
+	Network Development <netdev@vger.kernel.org>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+To: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <12896147.Nph51CCL66@wuerfel>
+In-Reply-To: <CACna6rzXzj4DJNA6855Qy6QnxETnYEPmqtw3Bcx8WWCtYwYvuw@mail.gmail.com>
+	(=?utf-8?Q?=22Rafa=C5=82_Mi=C5=82ecki=22's?= message of "Fri, 17 Jun 2016
+ 06:59:42 +0200")
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Thu, 16 Jun 2016 15:59:25 +0200
+Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
 
-> Modern C standards expect the '__inline__' keyword to come before the return
-> type in a declaration, and we get a couple of warnings for this with "make W=1"
-> in the xfrm{4,6}_policy.c files:
-> 
-> net/ipv6/xfrm6_policy.c:369:1: error: 'inline' is not at beginning of declaration [-Werror=old-style-declaration]
->  static int inline xfrm6_net_sysctl_init(struct net *net)
-> net/ipv6/xfrm6_policy.c:374:1: error: 'inline' is not at beginning of declaration [-Werror=old-style-declaration]
->  static void inline xfrm6_net_sysctl_exit(struct net *net)
-> net/ipv4/xfrm4_policy.c:339:1: error: 'inline' is not at beginning of declaration [-Werror=old-style-declaration]
->  static int inline xfrm4_net_sysctl_init(struct net *net)
-> net/ipv4/xfrm4_policy.c:344:1: error: 'inline' is not at beginning of declaration [-Werror=old-style-declaration]
->  static void inline xfrm4_net_sysctl_exit(struct net *net)
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> On 16 June 2016 at 17:10, Kalle Valo <kvalo@codeaurora.org> wrote:
+>> Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
+>>
+>>> Removing P2P interface is handled by sending a proper request to th=
+e
+>>> firmware. On success firmware triggers an event and driver's handle=
+r
+>>> removes a matching interface.
+>>>
+>>> However on event timeout we remove interface directly from the cfg8=
+0211
+>>> callback. Current code doesn't handle this case correctly as it alw=
+ays
+>>> assumes rtnl to be unlocked.
+>>>
+>>> Fix it by adding an extra rtnl_locked parameter to functions and ca=
+lling
+>>> unregister_netdevice when needed.
+>>>
+>>> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+>>
+>> Failed to apply, please rebase:
+>>
+>> Applying: brcmfmac: fix lockup when removing P2P interface after eve=
+nt timeout
+>> Using index info to reconstruct a base tree...
+>> Falling back to patching base and 3-way merge...
+>> Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+>> Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.h
+>> CONFLICT (content): Merge conflict in drivers/net/wireless/broadcom/=
+brcm80211/brcmfmac/core.h
+>> Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+>> Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg802=
+11.c
+>> Failed to merge in the changes.
+>> Patch failed at 0001 brcmfmac: fix lockup when removing P2P interfac=
+e after event timeout
+>
+> What tree did you try it on?
+>
+> I just went into a dir where I have cloned:
+> git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.=
+git
+>
+> My HEAD commit is:
+> 034fdd4 Merge ath-current from ath.git
+>
+> And I can apply this patch cleanly doing:
+> curl https://patchwork.kernel.org/patch/9138925/mbox/ | git am
 
-Applied.
+I was trying to apply this to wireless-drivers-next. I didn't get a
+confirmation from Arend and I didn't consider the fix important enough
+for 4.7. But of course I can reconsider if needed.
+
+--=20
+Kalle Valo
