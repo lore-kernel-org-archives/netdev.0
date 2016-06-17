@@ -1,99 +1,56 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 13/18] net: Add offload kernel net stack packet type
-Date: Fri, 17 Jun 2016 17:43:54 +0300
-Message-ID: <1466174639-14576-14-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 15/18] net/mlx5: Introduce sniffer steering hardware capabilities
+Date: Fri, 17 Jun 2016 17:43:56 +0300
+Message-ID: <1466174639-14576-16-git-send-email-saeedm@mellanox.com>
 References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Maor Gottlieb <maorg@mellanox.com>,
 	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:57532 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:57706 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1161131AbcFQOsK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2016 10:48:10 -0400
+	id S1752776AbcFQOtS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2016 10:49:18 -0400
 In-Reply-To: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Maor Gottlieb <maorg@mellanox.com>
 
-Add new packet type to skip kernel specific protocol handlers.
-
-This is needed so device drivers can pass packets up to user space
-(af_packet/tcpdump, etc..) without the need for them to go through
-the whole kernel data path.
+Define needed hardware capabilities needed for sniffer
+RX and TX flow tables.
 
 Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
-CC: David S. Miller <davem@davemloft.net>
-CC: Patrick McHardy <kaber@trash.net>
-CC: Eric Dumazet <edumazet@google.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- include/linux/skbuff.h         | 6 +++---
- include/uapi/linux/if_packet.h | 1 +
- net/core/dev.c                 | 4 ++++
- 3 files changed, 8 insertions(+), 3 deletions(-)
+ include/linux/mlx5/device.h | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index dc0fca7..359724e 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -694,14 +694,14 @@ struct sk_buff {
+diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
+index a90f85b..c286cf1 100644
+--- a/include/linux/mlx5/device.h
++++ b/include/linux/mlx5/device.h
+@@ -1378,6 +1378,18 @@ enum mlx5_cap_type {
+ #define MLX5_CAP_FLOWTABLE_NIC_RX_MAX(mdev, cap) \
+ 	MLX5_CAP_FLOWTABLE_MAX(mdev, flow_table_properties_nic_receive.cap)
  
- /* if you move pkt_type around you also must adapt those constants */
- #ifdef __BIG_ENDIAN_BITFIELD
--#define PKT_TYPE_MAX	(7 << 5)
-+#define PKT_TYPE_MAX	(8 << 5)
- #else
--#define PKT_TYPE_MAX	7
-+#define PKT_TYPE_MAX	8
- #endif
- #define PKT_TYPE_OFFSET()	offsetof(struct sk_buff, __pkt_type_offset)
- 
- 	__u8			__pkt_type_offset[0];
--	__u8			pkt_type:3;
-+	__u8			pkt_type:4;
- 	__u8			pfmemalloc:1;
- 	__u8			ignore_df:1;
- 	__u8			nfctinfo:3;
-diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-index 9e7edfd..93a9f13 100644
---- a/include/uapi/linux/if_packet.h
-+++ b/include/uapi/linux/if_packet.h
-@@ -29,6 +29,7 @@ struct sockaddr_ll {
- #define PACKET_LOOPBACK		5		/* MC/BRD frame looped back */
- #define PACKET_USER		6		/* To user space	*/
- #define PACKET_KERNEL		7		/* To kernel space	*/
-+#define PACKET_OFFLOAD_KERNEL	8		/* Offload NET stack	*/
- /* Unused, PACKET_FASTROUTE and PACKET_LOOPBACK are invisible to user space */
- #define PACKET_FASTROUTE	6		/* Fastrouted frame	*/
- 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index d40593b..f300f1a 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4113,6 +4113,9 @@ another_round:
- 		pt_prev = ptype;
- 	}
- 
-+	if (unlikely(skb->pkt_type == PACKET_OFFLOAD_KERNEL))
-+		goto done;
++#define MLX5_CAP_FLOWTABLE_SNIFFER_RX(mdev, cap) \
++	MLX5_CAP_FLOWTABLE(mdev, flow_table_properties_nic_receive_sniffer.cap)
 +
- skip_taps:
- #ifdef CONFIG_NET_INGRESS
- 	if (static_key_false(&ingress_needed)) {
-@@ -4190,6 +4193,7 @@ ncls:
- 				       &skb->dev->ptype_specific);
- 	}
- 
-+done:
- 	if (pt_prev) {
- 		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
- 			goto drop;
++#define MLX5_CAP_FLOWTABLE_SNIFFER_RX_MAX(mdev, cap) \
++	MLX5_CAP_FLOWTABLE_MAX(mdev, flow_table_properties_nic_receive_sniffer.cap)
++
++#define MLX5_CAP_FLOWTABLE_SNIFFER_TX(mdev, cap) \
++	MLX5_CAP_FLOWTABLE(mdev, flow_table_properties_nic_transmit_sniffer.cap)
++
++#define MLX5_CAP_FLOWTABLE_SNIFFER_TX_MAX(mdev, cap) \
++	MLX5_CAP_FLOWTABLE_MAX(mdev, flow_table_properties_nic_transmit_sniffer.cap)
++
+ #define MLX5_CAP_ESW_FLOWTABLE(mdev, cap) \
+ 	MLX5_GET(flow_table_eswitch_cap, \
+ 		 mdev->hca_caps_cur[MLX5_CAP_ESWITCH_FLOW_TABLE], cap)
 -- 
 2.8.0
