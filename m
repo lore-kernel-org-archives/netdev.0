@@ -1,49 +1,43 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 1/2] mlx5: only register devlink when ethernet is available
-Date: Fri, 17 Jun 2016 17:02:33 +0200
-Message-ID: <51058521.f6SstSCt2o@wuerfel>
-References: <20160615152816.2800830-1-arnd@arndb.de> <6330398.ySWGKSmLdn@wuerfel> <CALzJLG8BEivMg4h+=FcQ_7QFrZTRhRNsPgEH68WPKfmkguvNqA@mail.gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH v3 0/2] net: ethernet: ti: cpsw: delete rx_descs property
+Date: Fri, 17 Jun 2016 20:38:50 +0530
+Message-ID: <57641282.9070002@ti.com>
+References: <1466159140-3329-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Matan Barak <matanb@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Eli Cohen <eli@mellanox.com>, Majd Dibbiny <majd@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Fengguang Wu <fengguang.wu@intel.com>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <grygorii.strashko@ti.com>, <linux-omap@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <robh+dt@kernel.org>,
+	<pawel.moll@arm.com>, <mark.rutland@arm.com>,
+	<ijc+devicetree@hellion.org.uk>, <galak@codeaurora.org>,
+	<bcousson@baylibre.com>, <tony@atomide.com>,
+	<devicetree@vger.kernel.org>
+To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
+	<linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CALzJLG8BEivMg4h+=FcQ_7QFrZTRhRNsPgEH68WPKfmkguvNqA@mail.gmail.com>
+In-Reply-To: <1466159140-3329-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, June 17, 2016 5:50:14 PM CEST Saeed Mahameed wrote:
-> On Wed, Jun 15, 2016 at 11:50 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> > On Wednesday, June 15, 2016 7:04:54 PM CEST Saeed Mahameed wrote:
-> > Ok, I see. It would be nice if the process had a way to avoid build regressions
-> > in linux-next, in particular if you already have a fix by the time a patch
-> > that introduces a problem gets added.
-> >
+On Friday 17 June 2016 03:55 PM, Ivan Khoronzhuk wrote:
+> There is no reason in rx_descs property because davinici_cpdma
+> driver splits pool of descriptors equally between tx and rx channels.
+> So, this patch series makes driver to use available number of
+> descriptors for rx channels.
 > 
-> The reason we added this tree is to get 0-day testing but currently it
-> makes some unwanted noise
-> so we will remove it until we figure it out.
-
-I think you can simply ask Fengguang Wu to add your git tree to the list
-of trees he pulls from for the 0-day test bot.
-
-> > Can you check if the fix for the second problem correctly removes the
-> > unnecessary 64-bit division (as opposed to adding a call to div_s64()
-> > or do_div()), and if it removes all traces of 'struct timespec' again?
-> >
+> Based on
+> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+> master
 > 
-> Yes, same thing, already fixed, will reply to that thread.
+> Since v2:
+> - add declaration of buf_num in correct order
+> 
+> Since v1:
+> - separate device tree and driver patches
+> - return number of rx buffers from cpdma driver
+> 
 
-Ok, thanks for the confirmation!
+Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-	Arnd
+Regards
+Mugunthan V N
