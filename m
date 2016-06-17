@@ -1,57 +1,44 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH 2/2] mlx5: fix 64-bit division on times
-Date: Fri, 17 Jun 2016 18:09:00 +0300
-Message-ID: <CALzJLG9S_Q37ErepBm-7rm7vVdEZH-1gXbay+zpveHSYhpPi5A@mail.gmail.com>
-References: <20160615152816.2800830-1-arnd@arndb.de> <20160615152816.2800830-2-arnd@arndb.de>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [PATCH net-next 13/18] net: Add offload kernel net stack packet type
+Date: Fri, 17 Jun 2016 08:12:04 -0700
+Message-ID: <CANn89i+6gf_KcC1rwDYZLUVVCUzqyz+wDOGzCMpM5_pRRs0-HQ@mail.gmail.com>
+References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com> <1466174639-14576-14-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Matan Barak <matanb@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Achiad Shochat <achiad@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>,
+Cc: "David S. Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Doug Ledford <dledford@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
 	Maor Gottlieb <maorg@mellanox.com>,
-	Huy Nguyen <huyn@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160615152816.2800830-2-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Patrick McHardy <kaber@trash.net>
+To: Saeed Mahameed <saeedm@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f177.google.com ([209.85.161.177]:36401 "EHLO
+	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933580AbcFQPMQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 11:12:16 -0400
+Received: by mail-yw0-f177.google.com with SMTP id v78so10150631ywa.3
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 08:12:15 -0700 (PDT)
+In-Reply-To: <1466174639-14576-14-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 15, 2016 at 6:27 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> The mlx5 driver fails to build on 32-bit architectures after some
-> references to 64-bit divisions got added:
+On Fri, Jun 17, 2016 at 7:43 AM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+> From: Maor Gottlieb <maorg@mellanox.com>
 >
-> drivers/net/built-in.o: In function `mlx5e_rx_am':
-> :(.text+0xf88ac): undefined reference to `__aeabi_ldivmod'
+> Add new packet type to skip kernel specific protocol handlers.
 >
-> The driver even performs three division here, and it uses the
-> obsolete 'struct timespec' that we want to get rid of.
+> This is needed so device drivers can pass packets up to user space
+> (af_packet/tcpdump, etc..) without the need for them to go through
+> the whole kernel data path.
 >
-> Using ktime_t and ktime_us_delta() replaces one of the divisions
-> and is mildly more efficient, aside from working across 'settimeofday'
-> calls and being the right type for the y2038 conversion.
->
-> Using a u32 instead of s64 to store the number of microseconds
-> limits the maximum time to about 71 minutes, but if we exceed that
-> time, we probably don't care about the result any more for the
-> purpose of rx coalescing.
->
-> For the number of packets, we are taking the difference between
-> two 'unsigned int', so the result won't ever be greater than that
-> either.
->
-> After those changes, the other two divisions are done as 32-bit
-> arithmetic operations, which are much faster.
+> Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+> CC: David S. Miller <davem@davemloft.net>
+> CC: Patrick McHardy <kaber@trash.net>
+> CC: Eric Dumazet <edumazet@google.com>
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 
-Nice catch Arnd,  we originally fixed this with div_u64, but your
-solution looks wiser.
-does ktime_t gives time in a resolution same as timespec ?
+This breaks BPF quite badly.
 
-As discussed before this patch can't be applied on net-next as
-the original patch which it meant to fix is yet to be submitted,
-I will CC you once we submit the fixed patch.
+git grep SKF_AD_PKTTYPE
