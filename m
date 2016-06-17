@@ -1,50 +1,73 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net 2/2] mlxsw: switchx2: Don't count internal TX header bytes to stats
-Date: Fri, 17 Jun 2016 15:09:06 +0200
-Message-ID: <1466168946-14658-3-git-send-email-jiri@resnulli.us>
-References: <1466168946-14658-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, nogahf@mellanox.com, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: Micrel Phy KSZ8031 clock select setting in dts
+Date: Fri, 17 Jun 2016 16:48:05 +0300
+Message-ID: <bda2a612-37fd-9b73-5aad-6bc62ac2f520@cogentembedded.com>
+References: <20160617130438.GB6604@graute-opti>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, johan@kernel.org, bth@kamstrup.dk,
+	s.hauer@pengutronix.de
+To: Oliver Graute <oliver.graute@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34204 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932553AbcFQNJN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 09:09:13 -0400
-Received: by mail-wm0-f68.google.com with SMTP id 187so16624090wmz.1
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 06:09:12 -0700 (PDT)
-In-Reply-To: <1466168946-14658-1-git-send-email-jiri@resnulli.us>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:35563 "EHLO
+	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753233AbcFQNsK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 09:48:10 -0400
+Received: by mail-lf0-f48.google.com with SMTP id l188so58306656lfe.2
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 06:48:09 -0700 (PDT)
+In-Reply-To: <20160617130438.GB6604@graute-opti>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Nogah Frankel <nogahf@mellanox.com>
+On 06/17/2016 04:04 PM, Oliver Graute wrote:
 
-Stop the SW TX counter from counting the TX header bytes
-since they are not being sent out.
+> I try to enable a Micrel KSZ8031 in my imx6ul board device tree. But i'am
+> struggeling with the setting for KSZPHY_RMII_REF_CLK_SEL BIT(7). In my
+> revision of this Micrel KSZ8031 Phy the Bit(7) has to be true. The 0x1f
+> register must be 0x8180.
+>
+> How can I configure this register setting into my DTS?
+>
+> I already checked Documentation/devicetree/bindings/net/micrel.txt
+>
+> but i'am not sure if this still up to date. There where some reworks
+> after git commit 86dc1342
+>
+> some other commits related to this Phy clock setting I checked
+>
+> commit 1fadee0c3
+> commit b838b4aced
+>
+> my non working device tree blob for the phy is:
+>
+> &fec1 {
+> 	pinctrl-names = "default";
+> 	pinctrl-0 = <&pinctrl_enet1>;
+> 	phy-mode = "rmii";
+> 	rmmi-ref-clk-sel = <1>;
+> 	phy-handle = <&ethphy0>;
+> 	status = "okay";
+>
+> 	mdio {
+> 		#address-cells = <1>;
+> 		#size-cells = <0>;
+>
+> 		ethphy0: ethernet-phy@0 {
+> 			compatible = "micrel,ksz8031";
+> 			reg = <0>;
+> 		};
+> 	};
+> };
+>
+>
+> some clue how to configure this phy register setting correctly?
 
-Fixes: e577516b9db3 ("mlxsw: Fix use-after-free bug in mlxsw_sx_port_xmit")
-Signed-off-by: Nogah Frankel <nogahf@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/switchx2.c | 5 ++++-
- 1 file changed, 4 insertions(+), 1 deletion(-)
+    Tried specifying "micrel,rmii-reference-clock-select-25-mhz" property in 
+the PHY node?
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-index 3842eab..25f658b 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/switchx2.c
-@@ -316,7 +316,10 @@ static netdev_tx_t mlxsw_sx_port_xmit(struct sk_buff *skb,
- 		}
- 	}
- 	mlxsw_sx_txhdr_construct(skb, &tx_info);
--	len = skb->len;
-+	/* TX header is consumed by HW on the way so we shouldn't count its
-+	 * bytes as being sent.
-+	 */
-+	len = skb->len - MLXSW_TXHDR_LEN;
- 	/* Due to a race we might fail here because of a full queue. In that
- 	 * unlikely case we simply drop the packet.
- 	 */
--- 
-2.5.5
+> Best regards,
+>
+> Oliver
+
+MBR, Sergei
