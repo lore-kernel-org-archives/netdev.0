@@ -1,121 +1,70 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 13/18] net: Add offload kernel net stack packet
- type
-Date: Fri, 17 Jun 2016 17:15:10 +0200
-Message-ID: <576413FE.3010703@iogearbox.net>
-References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com> <1466174639-14576-14-git-send-email-saeedm@mellanox.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 2/2] mlx5: fix 64-bit division on times
+Date: Fri, 17 Jun 2016 17:24:40 +0200
+Message-ID: <7479054.ALBOnYT4q2@wuerfel>
+References: <20160615152816.2800830-1-arnd@arndb.de> <20160615152816.2800830-2-arnd@arndb.de> <CALzJLG9S_Q37ErepBm-7rm7vVdEZH-1gXbay+zpveHSYhpPi5A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: Matan Barak <matanb@mellanox.com>,
+	Leon Romanovsky <leonro@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Gal Pressman <galp@mellanox.com>,
 	Maor Gottlieb <maorg@mellanox.com>,
-	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Eric Dumazet <edumazet@google.com>, ast@fb.com
-To: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>
+	Huy Nguyen <huyn@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:53708 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932486AbcFQPPR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 11:15:17 -0400
-In-Reply-To: <1466174639-14576-14-git-send-email-saeedm@mellanox.com>
+Received: from mout.kundenserver.de ([212.227.126.131]:57755 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754470AbcFQPXB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 11:23:01 -0400
+In-Reply-To: <CALzJLG9S_Q37ErepBm-7rm7vVdEZH-1gXbay+zpveHSYhpPi5A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/17/2016 04:43 PM, Saeed Mahameed wrote:
-> From: Maor Gottlieb <maorg@mellanox.com>
->
-> Add new packet type to skip kernel specific protocol handlers.
->
-> This is needed so device drivers can pass packets up to user space
-> (af_packet/tcpdump, etc..) without the need for them to go through
-> the whole kernel data path.
->
-> Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
-> CC: David S. Miller <davem@davemloft.net>
-> CC: Patrick McHardy <kaber@trash.net>
-> CC: Eric Dumazet <edumazet@google.com>
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-> ---
->   include/linux/skbuff.h         | 6 +++---
->   include/uapi/linux/if_packet.h | 1 +
->   net/core/dev.c                 | 4 ++++
->   3 files changed, 8 insertions(+), 3 deletions(-)
->
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index dc0fca7..359724e 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -694,14 +694,14 @@ struct sk_buff {
->
->   /* if you move pkt_type around you also must adapt those constants */
->   #ifdef __BIG_ENDIAN_BITFIELD
-> -#define PKT_TYPE_MAX	(7 << 5)
-> +#define PKT_TYPE_MAX	(8 << 5)
->   #else
-> -#define PKT_TYPE_MAX	7
-> +#define PKT_TYPE_MAX	8
->   #endif
+On Friday, June 17, 2016 6:09:00 PM CEST Saeed Mahameed wrote:
+> On Wed, Jun 15, 2016 at 6:27 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> > The mlx5 driver fails to build on 32-bit architectures after some
+> > references to 64-bit divisions got added:
+> >
+> > drivers/net/built-in.o: In function `mlx5e_rx_am':
+> > :(.text+0xf88ac): undefined reference to `__aeabi_ldivmod'
+> >
+> > The driver even performs three division here, and it uses the
+> > obsolete 'struct timespec' that we want to get rid of.
+> >
+> > Using ktime_t and ktime_us_delta() replaces one of the divisions
+> > and is mildly more efficient, aside from working across 'settimeofday'
+> > calls and being the right type for the y2038 conversion.
+> >
+> > Using a u32 instead of s64 to store the number of microseconds
+> > limits the maximum time to about 71 minutes, but if we exceed that
+> > time, we probably don't care about the result any more for the
+> > purpose of rx coalescing.
+> >
+> > For the number of packets, we are taking the difference between
+> > two 'unsigned int', so the result won't ever be greater than that
+> > either.
+> >
+> > After those changes, the other two divisions are done as 32-bit
+> > arithmetic operations, which are much faster.
+> 
+> Nice catch Arnd,  we originally fixed this with div_u64, but your
+> solution looks wiser.
+> does ktime_t gives time in a resolution same as timespec ?
 
-Aehm ... did you actually test this with BPF ?!
+ktime_t is a 64-bit nanosecond counter, so the resolution is the same
+as ktime_get_ts64(), which is the "monotonic" equivalent of
+getnstimeofday().
 
-PKT_TYPE_MAX is a mask (naming could be better no doubt), see also function
-convert_skb_access():
+There are also variants that have the same resolution but are
+less accurate and don't set the exact lower bits in order to
+get a faster reading, but the above are all as accurate as the machine
+allows.
 
-[...]
-	case SKF_AD_PKTTYPE:
-		*insn++ = BPF_LDX_MEM(BPF_B, dst_reg, src_reg, PKT_TYPE_OFFSET());
-		*insn++ = BPF_ALU32_IMM(BPF_AND, dst_reg, PKT_TYPE_MAX);
-#ifdef __BIG_ENDIAN_BITFIELD
-		*insn++ = BPF_ALU32_IMM(BPF_RSH, dst_reg, 5);
-#endif
-		break;
-[...]
-
-Also, dunno if it's worth burning a skb bit for one driver.
-
->   #define PKT_TYPE_OFFSET()	offsetof(struct sk_buff, __pkt_type_offset)
->
->   	__u8			__pkt_type_offset[0];
-> -	__u8			pkt_type:3;
-> +	__u8			pkt_type:4;
->   	__u8			pfmemalloc:1;
->   	__u8			ignore_df:1;
->   	__u8			nfctinfo:3;
-> diff --git a/include/uapi/linux/if_packet.h b/include/uapi/linux/if_packet.h
-> index 9e7edfd..93a9f13 100644
-> --- a/include/uapi/linux/if_packet.h
-> +++ b/include/uapi/linux/if_packet.h
-> @@ -29,6 +29,7 @@ struct sockaddr_ll {
->   #define PACKET_LOOPBACK		5		/* MC/BRD frame looped back */
->   #define PACKET_USER		6		/* To user space	*/
->   #define PACKET_KERNEL		7		/* To kernel space	*/
-> +#define PACKET_OFFLOAD_KERNEL	8		/* Offload NET stack	*/
->   /* Unused, PACKET_FASTROUTE and PACKET_LOOPBACK are invisible to user space */
->   #define PACKET_FASTROUTE	6		/* Fastrouted frame	*/
->
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index d40593b..f300f1a 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -4113,6 +4113,9 @@ another_round:
->   		pt_prev = ptype;
->   	}
->
-> +	if (unlikely(skb->pkt_type == PACKET_OFFLOAD_KERNEL))
-> +		goto done;
-> +
->   skip_taps:
->   #ifdef CONFIG_NET_INGRESS
->   	if (static_key_false(&ingress_needed)) {
-> @@ -4190,6 +4193,7 @@ ncls:
->   				       &skb->dev->ptype_specific);
->   	}
->
-> +done:
->   	if (pt_prev) {
->   		if (unlikely(skb_orphan_frags(skb, GFP_ATOMIC)))
->   			goto drop;
->
+	Arnd
