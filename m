@@ -1,39 +1,90 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [PATCH] net: tilegx: use correct timespec64 type
-Date: Fri, 17 Jun 2016 21:10:11 +0200
-Message-ID: <20160617191011.GA10171@localhost.localdomain>
-References: <20160617161540.1362545-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: y2038@lists.linaro.org, netdev@vger.kernel.org,
- Chris Metcalf <cmetcalf@mellanox.com>, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <y2038-bounces@lists.linaro.org>
-Content-Disposition: inline
-In-Reply-To: <20160617161540.1362545-1-arnd@arndb.de>
-List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
-List-Archive: <http://lists.linaro.org/pipermail/y2038/>
-List-Post: <mailto:y2038@lists.linaro.org>
-List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
-List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
- <mailto:y2038-request@lists.linaro.org?subject=subscribe>
-Errors-To: y2038-bounces@lists.linaro.org
-Sender: "Y2038" <y2038-bounces@lists.linaro.org>
-List-Id: netdev.vger.kernel.org
+From: William Tu <u9012063@gmail.com>
+Subject: [net-next,v3] openvswitch: Add packet len info to upcall.
+Date: Fri, 17 Jun 2016 12:52:57 -0700
+Message-ID: <1466193177-7656-1-git-send-email-u9012063@gmail.com>
+Cc: Pravin Shelar <pshelar@nicira.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:36820 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S964820AbcFQTxF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 15:53:05 -0400
+Received: by mail-pf0-f195.google.com with SMTP id i123so3753908pfg.3
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 12:53:05 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gRnJpLCBKdW4gMTcsIDIwMTYgYXQgMDY6MTU6MzBQTSArMDIwMCwgQXJuZCBCZXJnbWFubiB3
-cm90ZToKPiBUaGUgY29udmVyc2lvbiB0byB0aGUgNjQtYml0IHRpbWUgYmFzZWQgcHRwIG1ldGhv
-ZHMgbGVmdCB0d28gaW5zdGFuY2VzCj4gb2YgJ3N0cnVjdCB0aW1lc3BlYycgaW4gcGxhY2UuIFRo
-aXMgaXMgaGFybWxlc3MgYmVjYXVzZSA2NC1iaXQKPiBhcmNoaXRlY3R1cmVzIGRlZmluZSB0aW1l
-c3BlYzY0IGFzIHRpbWVzcGVjLCBhbmQgdGhpcyBkcml2ZXIgaXMKPiBub3QgdXNlZCBvbiAzMi1i
-aXQgbWFjaGluZXMuCj4gCj4gSG93ZXZlciwgdXNpbmcgJ3N0cnVjdCB0aW1lc3BlYzY0JyBkaXJl
-Y3RseSBpcyBvYnZpb3VzbHkgdGhlIHJpZ2h0Cj4gdGhpbmcgdG8gZG8sIGFuZCB3aWxsIGhlbHAg
-dXMgcmVtb3ZlICdzdHJ1Y3QgdGltZXNwZWMnIGluIHRoZSBmdXR1cmUuCj4gCj4gU2lnbmVkLW9m
-Zi1ieTogQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4KPiBGaXhlczogYjlhY2YyNGY3Nzlj
-ICgicHRwOiB0aWxlZ3g6IGNvbnZlcnQgdG8gdGhlIDY0IGJpdCBnZXQvc2V0IHRpbWUgbWV0aG9k
-cy4iKQoKQWNrZWQtYnk6IFJpY2hhcmQgQ29jaHJhbiA8cmljaGFyZGNvY2hyYW5AZ21haWwuY29t
-PgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpZMjAzOCBt
-YWlsaW5nIGxpc3QKWTIwMzhAbGlzdHMubGluYXJvLm9yZwpodHRwczovL2xpc3RzLmxpbmFyby5v
-cmcvbWFpbG1hbi9saXN0aW5mby95MjAzOAo=
+The commit f2a4d086ed4c ("openvswitch: Add packet truncation support.")
+introduces packet truncation before sending to userspace upcall receiver.
+This patch passes up the skb->len before truncation so that the upcall
+receiver knows the original packet size. Potentially this will be used
+by sFlow, where OVS translates sFlow config header=N to a sample action,
+truncating packet to N byte in kernel datapath. Thus, only N bytes instead
+of full-packet size is copied from kernel to userspace, saving the
+kernel-to-userspace bandwidth.
+
+Signed-off-by: William Tu <u9012063@gmail.com>
+Cc: Pravin Shelar <pshelar@nicira.com>
+---
+v2->v3:
+- remove platform specific name.
+- fix issue when receiving GSO packet
+- remove skblen in struct dp_upcall_info
+v1->v2:
+- pass skb->len to userspace instead of cutlen
+---
+ include/uapi/linux/openvswitch.h |  2 ++
+ net/openvswitch/datapath.c       | 11 ++++++++++-
+ 2 files changed, 12 insertions(+), 1 deletion(-)
+
+diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
+index 8274675..d95a301 100644
+--- a/include/uapi/linux/openvswitch.h
++++ b/include/uapi/linux/openvswitch.h
+@@ -166,6 +166,7 @@ enum ovs_packet_cmd {
+  * output port is actually a tunnel port. Contains the output tunnel key
+  * extracted from the packet as nested %OVS_TUNNEL_KEY_ATTR_* attributes.
+  * @OVS_PACKET_ATTR_MRU: Present for an %OVS_PACKET_CMD_ACTION and
++ * @OVS_PACKET_ATTR_LEN: Packet size before truncation.
+  * %OVS_PACKET_ATTR_USERSPACE action specify the Maximum received fragment
+  * size.
+  *
+@@ -185,6 +186,7 @@ enum ovs_packet_attr {
+ 	OVS_PACKET_ATTR_PROBE,      /* Packet operation is a feature probe,
+ 				       error logging should be suppressed. */
+ 	OVS_PACKET_ATTR_MRU,	    /* Maximum received IP fragment size. */
++	OVS_PACKET_ATTR_LEN,		/* Packet size before truncation. */
+ 	__OVS_PACKET_ATTR_MAX
+ };
+ 
+diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+index 6739342..623fc04 100644
+--- a/net/openvswitch/datapath.c
++++ b/net/openvswitch/datapath.c
+@@ -387,7 +387,8 @@ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
+ {
+ 	size_t size = NLMSG_ALIGN(sizeof(struct ovs_header))
+ 		+ nla_total_size(hdrlen) /* OVS_PACKET_ATTR_PACKET */
+-		+ nla_total_size(ovs_key_attr_size()); /* OVS_PACKET_ATTR_KEY */
++		+ nla_total_size(ovs_key_attr_size()) /* OVS_PACKET_ATTR_KEY */
++		+ nla_total_size(sizeof(unsigned int)); /* OVS_PACKET_ATTR_LEN */
+ 
+ 	/* OVS_PACKET_ATTR_USERDATA */
+ 	if (upcall_info->userdata)
+@@ -514,6 +515,14 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+ 		pad_packet(dp, user_skb);
+ 	}
+ 
++	/* Add OVS_PACKET_ATTR_LEN */
++	if (nla_put_u32(user_skb, OVS_PACKET_ATTR_LEN,
++			skb->len)) {
++		err = -ENOBUFS;
++		goto out;
++	}
++	pad_packet(dp, user_skb);
++
+ 	/* Only reserve room for attribute header, packet data is added
+ 	 * in skb_zerocopy() */
+ 	if (!(nla = nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, 0))) {
+-- 
+2.5.0
