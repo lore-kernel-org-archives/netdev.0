@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 03/18] net/mlx5: Properly remove all steering objects
-Date: Fri, 17 Jun 2016 17:43:44 +0300
-Message-ID: <1466174639-14576-4-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 04/18] net/mlx5: Add hold/put rules refcount API
+Date: Fri, 17 Jun 2016 17:43:45 +0300
+Message-ID: <1466174639-14576-5-git-send-email-saeedm@mellanox.com>
 References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -10,179 +10,240 @@ Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:57398 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:57414 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754076AbcFQOrR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2016 10:47:17 -0400
+	id S1755365AbcFQOrV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2016 10:47:21 -0400
 In-Reply-To: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Maor Gottlieb <maorg@mellanox.com>
 
-Instead of explicitly cleaning up the well known parts of the steering
-tree, we use the generic tree structure to traverse for cleanup.
-No functional changes.
+Steering consumers (e.g. sniffer) will need to hold a refcount
+on flow rules which weren't created by them until the work on
+the rule will be finished.
+
+For that we reveal here an API to hold/put a refcount on a rule and
+add a completion mechanism so the rule will not be cleared until
+the ref holder will release it.
 
 Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 120 +++-------------------
- 1 file changed, 15 insertions(+), 105 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 105 +++++++++++++++-------
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |   2 +
+ include/linux/mlx5/fs.h                           |   3 +
+ 3 files changed, 76 insertions(+), 34 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index dcd3082..ea90b66 100644
+index ea90b66..06f94bf 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -1650,115 +1650,24 @@ cleanup:
- 	return -ENOMEM;
+@@ -141,6 +141,7 @@ static void tree_init_node(struct fs_node *node,
+ 	INIT_LIST_HEAD(&node->list);
+ 	INIT_LIST_HEAD(&node->children);
+ 	mutex_init(&node->lock);
++	init_completion(&node->complete);
+ 	node->remove_func = remove_func;
  }
  
--static void cleanup_single_prio_root_ns(struct mlx5_flow_steering *steering,
--					struct mlx5_flow_root_namespace *root_ns)
-+static void clean_tree(struct fs_node *node)
+@@ -190,6 +191,7 @@ static void unlock_ref_node(struct fs_node *node)
+ static void tree_put_node(struct fs_node *node)
  {
--	struct fs_node *prio;
--
--	if (!root_ns)
--		return;
-+	if (node) {
-+		struct fs_node *iter;
-+		struct fs_node *temp;
+ 	struct fs_node *parent_node = node->parent;
++	bool node_deleted = false;
  
--	if (!list_empty(&root_ns->ns.node.children)) {
--		prio = list_first_entry(&root_ns->ns.node.children,
--					struct fs_node,
--				 list);
--		if (tree_remove_node(prio))
--			mlx5_core_warn(steering->dev,
--				       "Flow steering priority wasn't destroyed, refcount > 1\n");
-+		list_for_each_entry_safe(iter, temp, &node->children, list)
-+			clean_tree(iter);
-+		tree_remove_node(node);
+ 	lock_ref_node(parent_node);
+ 	if (atomic_dec_and_test(&node->refcount)) {
+@@ -197,21 +199,68 @@ static void tree_put_node(struct fs_node *node)
+ 			list_del_init(&node->list);
+ 		if (node->remove_func)
+ 			node->remove_func(node);
+-		kfree(node);
+-		node = NULL;
++		complete(&node->complete);
++		node_deleted = true;
  	}
--	if (tree_remove_node(&root_ns->ns.node))
--		mlx5_core_warn(steering->dev,
--			       "Flow steering namespace wasn't destroyed, refcount > 1\n");
--	root_ns = NULL;
+ 	unlock_ref_node(parent_node);
+-	if (!node && parent_node)
++	if (node_deleted && parent_node)
+ 		tree_put_node(parent_node);
+ }
+ 
+-static int tree_remove_node(struct fs_node *node)
++static struct mlx5_flow_root_namespace *find_root(struct fs_node *node)
+ {
+-	if (atomic_read(&node->refcount) > 1) {
+-		atomic_dec(&node->refcount);
+-		return -EEXIST;
++	struct fs_node *root;
++	struct mlx5_flow_namespace *ns;
++
++	root = node->root;
++
++	if (WARN_ON(root->type != FS_TYPE_NAMESPACE)) {
++		pr_warn("mlx5: flow steering node is not in tree or garbaged\n");
++		return NULL;
+ 	}
++
++	ns = container_of(root, struct mlx5_flow_namespace, node);
++	return container_of(ns, struct mlx5_flow_root_namespace, ns);
++}
++
++static inline struct mlx5_core_dev *get_dev(struct fs_node *node)
++{
++	struct mlx5_flow_root_namespace *root = find_root(node);
++
++	if (root)
++		return root->dev;
++	return NULL;
++}
++
++#define MLX5_FS_TIMEOUT_MSEC 1000
++static int tree_remove_node(struct fs_node *node)
++{
++	unsigned long timeout = msecs_to_jiffies(MLX5_FS_TIMEOUT_MSEC);
++	struct mlx5_core_dev *dev = get_dev(node);
++
+ 	tree_put_node(node);
++	if (!wait_for_completion_timeout(&node->complete, timeout)) {
++		mlx5_core_warn(dev, "Timeout waiting for removing steering object\n");
++		return -ETIMEDOUT;
++	}
++	kfree(node);
++	node = NULL;
++
++	return 0;
++}
++
++static int tree_force_remove_node(struct fs_node *node)
++{
++	struct fs_node *parent_node = node->parent;
++
++	lock_ref_node(parent_node);
++	list_del_init(&node->list);
++	if (node->remove_func)
++		node->remove_func(node);
++	kfree(node);
++	node = NULL;
++	unlock_ref_node(parent_node);
++
+ 	return 0;
+ }
+ 
+@@ -295,31 +344,6 @@ static bool compare_match_criteria(u8 match_criteria_enable1,
+ 		!memcmp(mask1, mask2, MLX5_ST_SZ_BYTES(fte_match_param));
+ }
+ 
+-static struct mlx5_flow_root_namespace *find_root(struct fs_node *node)
+-{
+-	struct fs_node *root;
+-	struct mlx5_flow_namespace *ns;
+-
+-	root = node->root;
+-
+-	if (WARN_ON(root->type != FS_TYPE_NAMESPACE)) {
+-		pr_warn("mlx5: flow steering node is not in tree or garbaged\n");
+-		return NULL;
+-	}
+-
+-	ns = container_of(root, struct mlx5_flow_namespace, node);
+-	return container_of(ns, struct mlx5_flow_root_namespace, ns);
 -}
 -
--static void destroy_flow_tables(struct fs_prio *prio)
+-static inline struct mlx5_core_dev *get_dev(struct fs_node *node)
 -{
--	struct mlx5_flow_table *iter;
--	struct mlx5_flow_table *tmp;
+-	struct mlx5_flow_root_namespace *root = find_root(node);
 -
--	fs_for_each_ft_safe(iter, tmp, prio)
--		mlx5_destroy_flow_table(iter);
- }
- 
--static void cleanup_root_ns(struct mlx5_flow_steering *steering)
-+static void cleanup_root_ns(struct mlx5_flow_root_namespace *root_ns)
+-	if (root)
+-		return root->dev;
+-	return NULL;
+-}
+-
+ static void del_flow_table(struct fs_node *node)
  {
--	struct mlx5_flow_root_namespace *root_ns = steering->root_ns;
--	struct fs_prio *iter_prio;
--
--	if (!MLX5_CAP_GEN(steering->dev, nic_flow_table))
--		return;
--
- 	if (!root_ns)
- 		return;
+ 	struct mlx5_flow_table *ft;
+@@ -870,6 +894,7 @@ static struct mlx5_flow_rule *alloc_rule(struct mlx5_flow_destination *dest)
+ 		return NULL;
  
--	/* stage 1 */
--	fs_for_each_prio(iter_prio, &root_ns->ns) {
--		struct fs_node *node;
--		struct mlx5_flow_namespace *iter_ns;
--
--		fs_for_each_ns_or_ft(node, iter_prio) {
--			if (node->type == FS_TYPE_FLOW_TABLE)
--				continue;
--			fs_get_obj(iter_ns, node);
--			while (!list_empty(&iter_ns->node.children)) {
--				struct fs_prio *obj_iter_prio2;
--				struct fs_node *iter_prio2 =
--					list_first_entry(&iter_ns->node.children,
--							 struct fs_node,
--							 list);
--
--				fs_get_obj(obj_iter_prio2, iter_prio2);
--				destroy_flow_tables(obj_iter_prio2);
--				if (tree_remove_node(iter_prio2)) {
--					mlx5_core_warn(steering->dev,
--						       "Priority %d wasn't destroyed, refcount > 1\n",
--						       obj_iter_prio2->prio);
--					return;
--				}
--			}
--		}
--	}
--
--	/* stage 2 */
--	fs_for_each_prio(iter_prio, &root_ns->ns) {
--		while (!list_empty(&iter_prio->node.children)) {
--			struct fs_node *iter_ns =
--				list_first_entry(&iter_prio->node.children,
--						 struct fs_node,
--						 list);
--			if (tree_remove_node(iter_ns)) {
--				mlx5_core_warn(steering->dev,
--					       "Namespace wasn't destroyed, refcount > 1\n");
--				return;
--			}
--		}
--	}
--
--	/* stage 3 */
--	while (!list_empty(&root_ns->ns.node.children)) {
--		struct fs_prio *obj_prio_node;
--		struct fs_node *prio_node =
--			list_first_entry(&root_ns->ns.node.children,
--					 struct fs_node,
--					 list);
--
--		fs_get_obj(obj_prio_node, prio_node);
--		if (tree_remove_node(prio_node)) {
--			mlx5_core_warn(steering->dev,
--				       "Priority %d wasn't destroyed, refcount > 1\n",
--				       obj_prio_node->prio);
--			return;
--		}
--	}
--
--	if (tree_remove_node(&root_ns->ns.node)) {
--		mlx5_core_warn(steering->dev,
--			       "root namespace wasn't destroyed, refcount > 1\n");
--		return;
--	}
--
--	steering->root_ns = NULL;
-+	clean_tree(&root_ns->ns.node);
+ 	INIT_LIST_HEAD(&rule->next_ft);
++	atomic_set(&rule->refcount, 1);
+ 	rule->node.type = FS_TYPE_FLOW_DEST;
+ 	if (dest)
+ 		memcpy(&rule->dest_attr, dest, sizeof(*dest));
+@@ -1063,7 +1088,7 @@ static struct mlx5_flow_rule *add_rule_fg(struct mlx5_flow_group *fg,
+ 		    action == fte->action && flow_tag == fte->flow_tag) {
+ 			rule = find_flow_rule(fte, dest);
+ 			if (rule) {
+-				atomic_inc(&rule->node.refcount);
++				atomic_inc(&rule->refcount);
+ 				unlock_ref_node(&fte->node);
+ 				unlock_ref_node(&fg->node);
+ 				return rule;
+@@ -1251,6 +1276,8 @@ EXPORT_SYMBOL(mlx5_add_flow_rule);
+ 
+ void mlx5_del_flow_rule(struct mlx5_flow_rule *rule)
+ {
++	if (!atomic_dec_and_test(&rule->refcount))
++		return;
+ 	tree_remove_node(&rule->node);
+ }
+ EXPORT_SYMBOL(mlx5_del_flow_rule);
+@@ -1658,7 +1685,7 @@ static void clean_tree(struct fs_node *node)
+ 
+ 		list_for_each_entry_safe(iter, temp, &node->children, list)
+ 			clean_tree(iter);
+-		tree_remove_node(node);
++		tree_force_remove_node(node);
+ 	}
  }
  
- void mlx5_cleanup_fs(struct mlx5_core_dev *dev)
-@@ -1768,10 +1677,10 @@ void mlx5_cleanup_fs(struct mlx5_core_dev *dev)
- 	if (MLX5_CAP_GEN(dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
- 		return;
- 
--	cleanup_root_ns(steering);
--	cleanup_single_prio_root_ns(steering, steering->esw_egress_root_ns);
--	cleanup_single_prio_root_ns(steering, steering->esw_ingress_root_ns);
--	cleanup_single_prio_root_ns(steering, steering->fdb_root_ns);
-+	cleanup_root_ns(steering->root_ns);
-+	cleanup_root_ns(steering->esw_egress_root_ns);
-+	cleanup_root_ns(steering->esw_ingress_root_ns);
-+	cleanup_root_ns(steering->fdb_root_ns);
- 	mlx5_cleanup_fc_stats(dev);
- 	kfree(steering);
+@@ -1786,3 +1813,13 @@ err:
+ 	mlx5_cleanup_fs(dev);
+ 	return err;
  }
-@@ -1787,7 +1696,8 @@ static int init_fdb_root_ns(struct mlx5_flow_steering *steering)
- 	/* Create single prio */
- 	prio = fs_create_prio(&steering->fdb_root_ns->ns, 0, 1);
- 	if (IS_ERR(prio)) {
--		cleanup_single_prio_root_ns(steering, steering->fdb_root_ns);
-+		cleanup_root_ns(steering->fdb_root_ns);
-+		steering->fdb_root_ns = NULL;
- 		return PTR_ERR(prio);
- 	} else {
- 		return 0;
++
++void mlx5_get_flow_rule(struct mlx5_flow_rule *rule)
++{
++	tree_get_node(&rule->node);
++}
++
++void mlx5_put_flow_rule(struct mlx5_flow_rule *rule)
++{
++	tree_put_node(&rule->node);
++}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+index d7ba91a..29dd9e0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+@@ -71,6 +71,7 @@ struct fs_node {
+ 	struct fs_node		*root;
+ 	/* lock the node for writing and traversing */
+ 	struct mutex		lock;
++	struct completion	complete;
+ 	atomic_t		refcount;
+ 	void			(*remove_func)(struct fs_node *);
+ };
+@@ -83,6 +84,7 @@ struct mlx5_flow_rule {
+ 	 */
+ 	struct list_head			next_ft;
+ 	u32					sw_action;
++	atomic_t				refcount;
+ };
+ 
+ /* Type of children is mlx5_flow_group */
+diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
+index b300d43..37e13a1 100644
+--- a/include/linux/mlx5/fs.h
++++ b/include/linux/mlx5/fs.h
+@@ -149,4 +149,7 @@ void mlx5_fc_destroy(struct mlx5_core_dev *dev, struct mlx5_fc *counter);
+ void mlx5_fc_query_cached(struct mlx5_fc *counter,
+ 			  u64 *bytes, u64 *packets, u64 *lastuse);
+ 
++void mlx5_get_flow_rule(struct mlx5_flow_rule *rule);
++void mlx5_put_flow_rule(struct mlx5_flow_rule *rule);
++
+ #endif
 -- 
 2.8.0
