@@ -1,56 +1,47 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 15/18] net/mlx5: Introduce sniffer steering hardware capabilities
-Date: Fri, 17 Jun 2016 17:43:56 +0300
-Message-ID: <1466174639-14576-16-git-send-email-saeedm@mellanox.com>
-References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH 1/2] mlx5: only register devlink when ethernet is available
+Date: Fri, 17 Jun 2016 17:50:14 +0300
+Message-ID: <CALzJLG8BEivMg4h+=FcQ_7QFrZTRhRNsPgEH68WPKfmkguvNqA@mail.gmail.com>
+References: <20160615152816.2800830-1-arnd@arndb.de> <CALzJLG_CkvbrCehMjMht5KfMK6r-FbvPzzYUEhpA40YHymsh+Q@mail.gmail.com>
+ <6330398.ySWGKSmLdn@wuerfel>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Matan Barak <matanb@mellanox.com>,
+	Leon Romanovsky <leonro@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Saeed Mahameed <saeedm@mellanox.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+	Doug Ledford <dledford@redhat.com>,
+	Eli Cohen <eli@mellanox.com>, Majd Dibbiny <majd@mellanox.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:57706 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752776AbcFQOtS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2016 10:49:18 -0400
-In-Reply-To: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
+Received: from mail-yw0-f194.google.com ([209.85.161.194]:33350 "EHLO
+	mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751386AbcFQOue (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 10:50:34 -0400
+Received: by mail-yw0-f194.google.com with SMTP id d137so3183893ywe.0
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 07:50:34 -0700 (PDT)
+In-Reply-To: <6330398.ySWGKSmLdn@wuerfel>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Maor Gottlieb <maorg@mellanox.com>
+On Wed, Jun 15, 2016 at 11:50 PM, Arnd Bergmann <arnd@arndb.de> wrote:
+> On Wednesday, June 15, 2016 7:04:54 PM CEST Saeed Mahameed wrote:
+> Ok, I see. It would be nice if the process had a way to avoid build regressions
+> in linux-next, in particular if you already have a fix by the time a patch
+> that introduces a problem gets added.
+>
 
-Define needed hardware capabilities needed for sniffer
-RX and TX flow tables.
+The reason we added this tree is to get 0-day testing but currently it
+makes some unwanted noise
+so we will remove it until we figure it out.
 
-Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- include/linux/mlx5/device.h | 12 ++++++++++++
- 1 file changed, 12 insertions(+)
+>
+> Can you check if the fix for the second problem correctly removes the
+> unnecessary 64-bit division (as opposed to adding a call to div_s64()
+> or do_div()), and if it removes all traces of 'struct timespec' again?
+>
 
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index a90f85b..c286cf1 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -1378,6 +1378,18 @@ enum mlx5_cap_type {
- #define MLX5_CAP_FLOWTABLE_NIC_RX_MAX(mdev, cap) \
- 	MLX5_CAP_FLOWTABLE_MAX(mdev, flow_table_properties_nic_receive.cap)
- 
-+#define MLX5_CAP_FLOWTABLE_SNIFFER_RX(mdev, cap) \
-+	MLX5_CAP_FLOWTABLE(mdev, flow_table_properties_nic_receive_sniffer.cap)
-+
-+#define MLX5_CAP_FLOWTABLE_SNIFFER_RX_MAX(mdev, cap) \
-+	MLX5_CAP_FLOWTABLE_MAX(mdev, flow_table_properties_nic_receive_sniffer.cap)
-+
-+#define MLX5_CAP_FLOWTABLE_SNIFFER_TX(mdev, cap) \
-+	MLX5_CAP_FLOWTABLE(mdev, flow_table_properties_nic_transmit_sniffer.cap)
-+
-+#define MLX5_CAP_FLOWTABLE_SNIFFER_TX_MAX(mdev, cap) \
-+	MLX5_CAP_FLOWTABLE_MAX(mdev, flow_table_properties_nic_transmit_sniffer.cap)
-+
- #define MLX5_CAP_ESW_FLOWTABLE(mdev, cap) \
- 	MLX5_GET(flow_table_eswitch_cap, \
- 		 mdev->hca_caps_cur[MLX5_CAP_ESWITCH_FLOW_TABLE], cap)
--- 
-2.8.0
+Yes, same thing, already fixed, will reply to that thread.
