@@ -1,49 +1,47 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [BUG] act_ife: sleeping functions called in atomic context
-Date: Fri, 17 Jun 2016 07:07:34 -0400
-Message-ID: <5763D9F6.6020305@mojatatu.com>
-References: <1466110219-4825-1-git-send-email-khoroshilov@ispras.ru>
- <CAM_iQpWyfmUnQkQPz8dfO1NPmbdmW3AB9yWrJk6TqXyTo_DCow@mail.gmail.com>
- <57634687.3050107@mojatatu.com>
- <CAM_iQpVkFvgbYQsVB0hFKa5zVa1KCPAz=cQ7sAXdJwNM=8hpzQ@mail.gmail.com>
- <CAM_iQpXokKbXS8TiOgYqEZgLMY-01X8ebJQ-b6VrnM2x6=GFhg@mail.gmail.com>
+Subject: Fwd: Re: [PATCH v2 net-next 0/3] net sched action timestamp
+ improvements
+Date: Fri, 17 Jun 2016 07:15:27 -0400
+Message-ID: <5763DBCF.9080203@mojatatu.com>
+References: <20160607.155405.778592531194331404.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, ldv-project@linuxtesting.org
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpXokKbXS8TiOgYqEZgLMY-01X8ebJQ-b6VrnM2x6=GFhg@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f181.google.com ([209.85.223.181]:33998 "EHLO
+	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751301AbcFQLP3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 07:15:29 -0400
+Received: by mail-io0-f181.google.com with SMTP id 5so74762964ioy.1
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 04:15:29 -0700 (PDT)
+In-Reply-To: <20160607.155405.778592531194331404.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16-06-17 01:38 AM, Cong Wang wrote:
-> On Thu, Jun 16, 2016 at 7:14 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->>
->> I think we can just remove that tcf_lock, I am testing a patch now.
->
-> Please try the attached patch, I will do more tests tomorrow.
->
-> Thanks!
->
 
-Cong, What tree are you using? I dont see the time aggregation patches
-that I sent (and Dave took in) in your changes.
-
-Comments:
-Is GFP_ATOMIC really necessary? Thats user->kernel interface. GFP_KERNEL 
-should be sufficient.
-Also, it would be nice to kill the lock - but this feels like two
-patches in one. 1) to fix the alloc not to be under the lock 2) to
-kill said lock. Maybe split it as such for easier review.
-I am using this action extensively so will be happy to test.
-I think my patch is a good beginning to #1 - if you fix the forgotten
-unlock and ensure we lock around updating ife fields when it exists
-already (you said it in your earlier email and I thought about
-that afterwards).
+Ok, mystery solved. Dave, this patch series is missing from current
+net-next.
 
 cheers,
 jamal
+-------- Forwarded Message --------
+Subject: Re: [PATCH v2 net-next 0/3] net sched action timestamp improvements
+Date: Tue, 07 Jun 2016 15:54:05 -0700 (PDT)
+From: David Miller <davem@davemloft.net>
+To: jhs@mojatatu.com
+CC: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, daniel@iogearbox.net
+
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Date: Mon,  6 Jun 2016 06:32:52 -0400
+
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>
+> Various aggregations of duplicated code, fixes and introduction of firstused
+> timestamp
+>
+> v2: add const for source time info per suggestion from Cong
+
+Series applied.
