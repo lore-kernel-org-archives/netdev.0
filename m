@@ -1,101 +1,82 @@
-From: peter enderborg <peter.enderborg@sonymobile.com>
-Subject: [PATCH resend] net: sock: Add option for memory optimized hints.
-Date: Fri, 17 Jun 2016 15:58:28 +0200
-Message-ID: <57640204.9070300@sonymobile.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v4 0/4] return offloaded stats as default and
+ expose original sw stats
+Date: Fri, 17 Jun 2016 16:05:13 +0200
+Message-ID: <20160617140512.GB1981@nanopsycho.orion>
+References: <1466066237-7719-1-git-send-email-jiri@resnulli.us>
+ <20160616.172632.1759391103978744570.davem@davemloft.net>
+ <20160617082411.GA1981@nanopsycho.orion>
+ <f720df39-75c4-9be1-245d-df63bd40d610@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-To: "open list:PTP HARDWARE CLOCK SUPPORT" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	nogahf@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
+	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
+	f.fainelli@gmail.com
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from seldsegrel01.sonyericsson.com ([37.139.156.29]:17966 "EHLO
-	SELDSEGREL01.sonyericsson.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751309AbcFQN6b (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 09:58:31 -0400
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36092 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752094AbcFQOFQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 10:05:16 -0400
+Received: by mail-wm0-f66.google.com with SMTP id m124so46669wme.3
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 07:05:15 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <f720df39-75c4-9be1-245d-df63bd40d610@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Peter Enderborg <peter.enderborg@sonymobile.com>
+Fri, Jun 17, 2016 at 03:48:35PM CEST, dsa@cumulusnetworks.com wrote:
+>On 6/17/16 2:24 AM, Jiri Pirko wrote:
+>>
+>>The problem we try to handle is different, it's about offloaded
+>>forwarded packets which are not seen by kernel. Let me try to draw it :)
+>>
+>>    port1                       port2 (HW stats are counted here)
+>>      \                          /
+>>       \                        /
+>>        \                      /
+>>         --(A)---- ASIC --(B)--
+>>                    |
+>>                   (C)
+>>                    |
+>>                   CPU (SW stats are counted here)
+>>
+>>
+>>Now we have couple of flows for TX and RX (direction does not matter here):
+>>
+>>1) port1->A->ASIC->C->CPU
+>>
+>>   For this flow, HW and SW stats are equal.
+>>
+>>2) port1->A->ASIC->C->CPU->C->ASIC->B->port2
+>>
+>>   For this flow, HW and SW stats are equal.
+>>
+>>3) port1->A->ASIC->B->port2
+>>
+>>   For this flow, SW stats are 0.
+>>
+>>The purpose of this patchset is to provide facility for user to
+>>find out the difference between flows 1+2 and 3. In other words, user
+>>will be able to see the statistics for his slow-path (through kernel).
+>>
+>>Also, as a default the accumulated stats (HW) will be exposed to user
+>>so the userspace apps can react properly.
+>>
+>
+>You no longer agree with this discussion?
+>  http://comments.gmane.org/gmane.linux.network/346740
+>
+>Essentially netdevice stats show counters for packets punted to the cpu and
+>ethool -S shows h/w stats. This patch set seems to invert that.
 
-When sending data the socket allocates memory for
-payload on a cache or a page alloc. The page alloc
-then might trigger compation that takes long time.
-This can be avoided with smaller chunks. But
-userspace can not know what is the right size for
-the smaller sends. For this we add a SIZEHINT
-getsocketopt where the userspace can get the size
-for send that will fit into one page (order 0) or
-the max for a slab cache allocation.
-
-Signed-off-by: Peter Enderborg <peter.enderborg@sonymobile.com>
----
-  include/uapi/asm-generic/socket.h |  2 ++
-  include/uapi/linux/socket.h       |  9 +++++++++
-  net/core/sock.c                   | 17 +++++++++++++++++
-  3 files changed, 28 insertions(+)
-
-diff --git a/include/uapi/asm-generic/socket.h b/include/uapi/asm-generic/socket.h
-index 67d632f..f6a4921 100644
---- a/include/uapi/asm-generic/socket.h
-+++ b/include/uapi/asm-generic/socket.h
-@@ -92,4 +92,6 @@
-
-  #define SO_CNX_ADVICE          53
-
-+#define SO_SIZEHINT            54
-+
-  #endif /* __ASM_GENERIC_SOCKET_H */
-diff --git a/include/uapi/linux/socket.h b/include/uapi/linux/socket.h
-index 76ab0c6..16db7e8 100644
---- a/include/uapi/linux/socket.h
-+++ b/include/uapi/linux/socket.h
-@@ -1,6 +1,8 @@
-  #ifndef _UAPI_LINUX_SOCKET_H
-  #define _UAPI_LINUX_SOCKET_H
-
-+#include <linux/types.h>
-+
-  /*
-   * Desired design of maximum size and alignment (see RFC2553)
-   */
-@@ -18,4 +20,11 @@ struct __kernel_sockaddr_storage {
-                                 /* _SS_MAXSIZE value minus size of ss_family */
-  } __attribute__ ((aligned(_K_SS_ALIGNSIZE)));  /* force desired alignment */
-
-+struct sock_sizehint {
-+       __u32   order_zero_size;
-+               /* max payload size that can fit into one page in kernel */
-+       __u32   cache_size;
-+               /* max payload size that can fit in socket slab cache */
-+};
-+
-  #endif /* _UAPI_LINUX_SOCKET_H */
-diff --git a/net/core/sock.c b/net/core/sock.c
-index 7e73c26..4c9cd92 100644
---- a/net/core/sock.c
-+++ b/net/core/sock.c
-@@ -1254,6 +1254,23 @@ int sock_getsockopt(struct socket *sock, int level, int optname,
-                 v.val = sk->sk_incoming_cpu;
-                 break;
-
-+       case SO_SIZEHINT:
-+       {
-+               struct sock_sizehint hint;
-+
-+               if (len > sizeof(hint))
-+                       len = sizeof(hint);
-+
-+               hint.order_zero_size = PAGE_SIZE -
-+                       SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+               hint.cache_size =  KMALLOC_MAX_CACHE_SIZE -
-+                       SKB_DATA_ALIGN(sizeof(struct skb_shared_info));
-+
-+               if (copy_to_user(optval, &hint, len))
-+                       return -EFAULT;
-+               goto lenout;
-+       }
-+
-         default:
-                 /* We implement the SO_SNDLOWAT etc to not be settable
-                  * (1003.1g 7).
--- 
-2.4.2
+That is problematic. Existing apps depend on rtnetlink stats. But if we
+don't count offloaded forwarded packets, the apps don't see anything.
+Therefore I believe that this patchset approach is better. The existing
+apps continue to work and future apps can use newly introduces sw_stats
+to query slowpath traffic. Makes sense to me.
