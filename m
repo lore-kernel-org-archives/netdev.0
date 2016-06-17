@@ -1,10 +1,8 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 00/18] mlx5 RoCE/RDMA packet sniffer
-Date: Fri, 17 Jun 2016 17:43:41 +0300
-Message-ID: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 8bit
+Subject: [PATCH net-next 16/18] net/mlx5e: Sniffer support for kernel offload (RoCE) traffic
+Date: Fri, 17 Jun 2016 17:43:57 +0300
+Message-ID: <1466174639-14576-17-git-send-email-saeedm@mellanox.com>
+References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
 	Maor Gottlieb <maorg@mellanox.com>,
@@ -12,103 +10,701 @@ Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:57386 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:57433 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1754070AbcFQOrL (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2016 10:47:11 -0400
+	id S932930AbcFQOrc (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2016 10:47:32 -0400
+In-Reply-To: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Huy Nguyen <huyn@mellanox.com>
 
-This patch set introduces mlx5 RoCE/RDMA packet sniffer, it allows
-mlx5e netdevice to receive RoCE/RDMA or RAW ETH traffic which isn't
-supposed to be passed to the kernel stack, for sniffing and diagnostics
-purposes.  This traffic is still not supposed to go through the whole 
-network stack processing and should only go to the non-protocol specific 
-handlers (ptype_all). e.g: tcpdump, etc ..
+Create sniffer RX and TX flow tables, flow group, flow rules,
+and tirs.
 
-In order to achieve this, when RoCE/RDMA sniffer is enabled, all RoCE/RDMA
-steering rules which are forwarded to user space QPs will be duplicated
-and marked with "OFFLOAD" flow tag, then forwarded to mlx5e netdevice receive path.
-mlx5e receive path will detect sniffer packets by looking at the receive
-completion flow tag, and in case it matches the "OFFLOAD" tag, skb->pkt_type is
-set to (PACKET_OFFLOAD_KERNEL) so it will go to non-protocol specific handlers
-(ptype_all) only.
+TIRs:
+  Create three TIRs, one for rx traffic, one for tx traffic and
+  one for sniffer rules in the leftovers flow table
 
-To duplicate specific steering rules, a new notification mechanism is added.
-It allows a consumer to request add/del rule notification on specific steering
-namespaces.  Once a consumer registers, it will be notified on all existing rules.
-Asynchronously, notifications on a dynamically added/deleted rules will be generated.
+Flow rules:
+  Register call back notifier from steering interface to
+  dynamic add/remove RoCE/kernel offload rules.
 
-To achieve RoCE/RDMA sniffer, a new steering namespace is introduced (SNIFFER_NAMESPACE),
-which will host all the duplicated steering rules to be forwarded to mlx5e netdevice
-receive path.
-
-RoCE sniffer module:
-RoCE sniffer module will register to (RoCE/RDMA) user space traffic steering namespaces add/del
-rules notification.
-    - On rule add it will generated an identical rule and inject it into the SNIFFER_NAMESPACE 
-	flow table with flow tag = "OFFLOAD" and destination = "mlx5e netdevice"
-    - On rule delete it will remove the duplicated corresponding sniffer rule.
-
-Thanks,
-Saeed.
-
-Huy Nguyen (3):
-  net/mlx5e: Set sniffer skbs packet type to offload kernel
-  net/mlx5e: Sniffer support for kernel offload (RoCE) traffic
-  net/mlx5e: Add netdev hw feature flag offload-sniffer
-
-Maor Gottlieb (15):
-  net/mlx5: Refactor mlx5_add_flow_rule
-  net/mlx5: Introduce mlx5_flow_steering structure
-  net/mlx5: Properly remove all steering objects
-  net/mlx5: Add hold/put rules refcount API
-  net/mlx5: Add support to add/del flow rule notifiers
-  net/mlx5: Introduce table of function pointer steering commands
-  net/mlx5: Introduce nop steering commands
-  if_ether.h: Add RoCE Ethertype
-  IB/mlx5: Create RoCE root namespace
-  net/mlx5: Introduce get flow rule match API
-  net/mlx5: Add sniffer namespaces
-  IB/mlx5: Add kernel offload flow-tag
-  net: Add offload kernel net stack packet type
-  net/mlx5: Introduce sniffer steering hardware capabilities
-  net/mlx5e: Lock device state in set features
-
- drivers/infiniband/hw/mlx4/qp.c                    |   6 +-
- drivers/infiniband/hw/mlx5/main.c                  | 143 +++-
- drivers/infiniband/hw/mlx5/mlx5_ib.h               |  15 +-
- drivers/infiniband/hw/ocrdma/ocrdma_ah.c           |   4 +-
- drivers/infiniband/hw/ocrdma/ocrdma_hw.c           |   2 +-
- drivers/infiniband/hw/ocrdma/ocrdma_sli.h          |   4 -
- drivers/infiniband/hw/usnic/usnic_common_pkt_hdr.h |   1 -
- drivers/infiniband/hw/usnic/usnic_fwd.h            |   2 +-
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Huy Nguyen <huyn@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
  drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   3 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  10 +
- drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c  |  26 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  28 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  44 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |   4 +
- .../net/ethernet/mellanox/mlx5/core/en_sniffer.c   | 574 ++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |   8 +-
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  51 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.c   | 161 ++++-
- drivers/net/ethernet/mellanox/mlx5/core/fs_cmd.h   |  71 +-
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  | 746 ++++++++++++++-------
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |  31 +
- include/linux/mlx5/device.h                        |  17 +
- include/linux/mlx5/driver.h                        |   6 +-
- include/linux/mlx5/fs.h                            |  62 +-
- include/linux/netdev_features.h                    |   2 +
- include/linux/skbuff.h                             |   6 +-
- include/uapi/linux/if_ether.h                      |   1 +
- include/uapi/linux/if_packet.h                     |   1 +
- net/core/dev.c                                     |   4 +
- net/core/ethtool.c                                 |   1 +
- 30 files changed, 1626 insertions(+), 408 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   9 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   4 +-
+ .../net/ethernet/mellanox/mlx5/core/en_sniffer.c   | 574 +++++++++++++++++++++
+ include/linux/mlx5/fs.h                            |   3 +
+ 5 files changed, 590 insertions(+), 3 deletions(-)
  create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_sniffer.c
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index 9ea7b58..111d0f5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -6,6 +6,7 @@ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ 
+ mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o \
+ 		en_main.o en_fs.o en_ethtool.o en_tx.o en_rx.o \
+-		en_txrx.o en_clock.o vxlan.o en_tc.o en_arfs.o
++		en_txrx.o en_clock.o vxlan.o en_tc.o en_arfs.o \
++		en_sniffer.o
+ 
+ mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 05ee644..9a73ac2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -492,6 +492,8 @@ enum {
+ 	MLX5E_ARFS_FT_LEVEL
+ };
+ 
++struct mlx5e_sniffer;
++
+ struct mlx5e_flow_steering {
+ 	struct mlx5_flow_namespace      *ns;
+ 	struct mlx5e_tc_table           tc;
+@@ -499,6 +501,7 @@ struct mlx5e_flow_steering {
+ 	struct mlx5e_l2_table           l2;
+ 	struct mlx5e_ttc_table          ttc;
+ 	struct mlx5e_arfs_tables        arfs;
++	struct mlx5e_sniffer            *sniffer;
+ };
+ 
+ struct mlx5e_direct_tir {
+@@ -580,6 +583,9 @@ enum mlx5e_link_mode {
+ 
+ #define MLX5E_PROT_MASK(link_mode) (1 << link_mode)
+ 
++int mlx5e_sniffer_start(struct mlx5e_priv *priv);
++int mlx5e_sniffer_stop(struct mlx5e_priv *priv);
++
+ void mlx5e_send_nop(struct mlx5e_sq *sq, bool notify_hw);
+ u16 mlx5e_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 		       void *accel_priv, select_queue_fallback_t fallback);
+@@ -646,6 +652,9 @@ int mlx5e_close_locked(struct net_device *netdev);
+ void mlx5e_build_default_indir_rqt(struct mlx5_core_dev *mdev,
+ 				   u32 *indirection_rqt, int len,
+ 				   int num_channels);
++void mlx5e_build_direct_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
++				u32 rqtn);
++
+ int mlx5e_get_max_linkspeed(struct mlx5_core_dev *mdev, u32 *speed);
+ 
+ static inline void mlx5e_tx_notify_hw(struct mlx5e_sq *sq,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index f5c8d5d..982f852 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2017,8 +2017,8 @@ static void mlx5e_build_indir_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
+ 	}
+ }
+ 
+-static void mlx5e_build_direct_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
+-				       u32 rqtn)
++void mlx5e_build_direct_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
++				u32 rqtn)
+ {
+ 	MLX5_SET(tirc, tirc, transport_domain, priv->tdn);
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_sniffer.c b/drivers/net/ethernet/mellanox/mlx5/core/en_sniffer.c
+new file mode 100644
+index 0000000..ff462c8
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_sniffer.c
+@@ -0,0 +1,574 @@
++/*
++ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/mlx5/fs.h>
++#include "en.h"
++
++enum sniffer_types {
++	SNIFFER_TX,
++	SNIFFER_RX,
++	SNIFFER_LEFTOVERS,
++	SNIFFER_NUM_TYPES,
++};
++
++struct mlx5_sniffer_rule_info {
++	struct mlx5_flow_rule   *rule;
++	struct mlx5_flow_table  *ft;
++	enum sniffer_types      type;
++};
++
++struct sniffer_work {
++	struct work_struct             work;
++	struct mlx5_sniffer_rule_info  rule_info;
++	struct mlx5e_sniffer           *sniffer;
++	struct notifier_block          *nb;
++};
++
++struct sniffer_evt_ctx {
++	struct mlx5e_sniffer    *sniffer;
++	struct notifier_block   nb;
++};
++
++struct sniffer_rule {
++	struct mlx5_flow_rule   *rule;
++	struct list_head        list;
++};
++
++struct mlx5e_sniffer {
++	struct mlx5e_priv	*priv;
++	struct workqueue_struct *sniffer_wq;
++	struct mlx5_flow_table  *rx_ft;
++	struct mlx5_flow_table  *tx_ft;
++	struct sniffer_evt_ctx  bypass_ctx;
++	struct sniffer_evt_ctx  roce_ctx;
++	struct sniffer_evt_ctx  leftovers_ctx;
++	struct list_head        rules;
++	struct list_head        leftover_rules;
++	u32                     tirn[SNIFFER_NUM_TYPES];
++};
++
++static bool sniffer_rule_in_leftovers(struct mlx5e_sniffer *sniffer,
++				      struct mlx5_flow_rule *rule)
++{
++	struct sniffer_rule *sniffer_flow;
++
++	list_for_each_entry(sniffer_flow, &sniffer->leftover_rules, list) {
++		if (sniffer_flow->rule == rule)
++			return true;
++	}
++	return false;
++}
++
++static int mlx5e_sniffer_create_tx_rule(struct mlx5e_sniffer *sniffer)
++{
++	struct mlx5e_priv *priv = sniffer->priv;
++	int match_len = MLX5_ST_SZ_BYTES(fte_match_param);
++	struct sniffer_rule *sniffer_flow;
++	struct mlx5_flow_destination dest;
++	struct mlx5_flow_attr flow_attr;
++	u32 *match_criteria_value;
++	int err = 0;
++
++	/* Create no filter rule */
++	match_criteria_value = mlx5_vzalloc(match_len);
++	if (!match_criteria_value)
++		return -ENOMEM;
++
++	sniffer_flow = kzalloc(sizeof(*sniffer_flow), GFP_KERNEL);
++	if (!sniffer_flow) {
++		err = -ENOMEM;
++		netdev_err(priv->netdev, "failed to alloc sniifer_flow");
++		goto out;
++	}
++	dest.tir_num = sniffer->tirn[SNIFFER_TX];
++	dest.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
++	MLX5_RULE_ATTR(flow_attr, 0, match_criteria_value, match_criteria_value,
++		       MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
++		       MLX5_FS_OFFLOAD_FLOW_TAG, &dest);
++	sniffer_flow->rule =
++		mlx5_add_flow_rule(sniffer->tx_ft, &flow_attr);
++	if (IS_ERR(sniffer_flow->rule)) {
++		err = PTR_ERR(sniffer_flow->rule);
++		kfree(sniffer_flow);
++		goto out;
++	}
++	list_add(&sniffer_flow->list, &sniffer->rules);
++out:
++	kvfree(match_criteria_value);
++	return err;
++}
++
++static void sniffer_del_rule_handler(struct work_struct *_work)
++{
++	struct mlx5_sniffer_rule_info *rule_info;
++	struct sniffer_rule *sniffer_rule;
++	struct sniffer_work *work;
++
++	work = container_of(_work, struct sniffer_work, work);
++	rule_info = &work->rule_info;
++	sniffer_rule = (struct sniffer_rule *)
++		mlx5_get_rule_private_data(rule_info->rule, work->nb);
++
++	if (!sniffer_rule)
++		goto out;
++
++	mlx5_del_flow_rule(sniffer_rule->rule);
++	list_del(&sniffer_rule->list);
++	kfree(sniffer_rule);
++
++out:
++	mlx5_release_rule_private_data(rule_info->rule, work->nb);
++	mlx5_put_flow_rule(work->rule_info.rule);
++	kfree(work);
++}
++
++static int sniffer_add_flow_rule(struct mlx5e_sniffer *sniffer,
++				 struct sniffer_rule *sniffer_flow,
++				 struct mlx5_sniffer_rule_info *rule_info)
++{
++	struct mlx5e_priv *priv = sniffer->priv;
++	struct mlx5_flow_destination  dest;
++	struct mlx5_flow_match flow_match;
++	struct mlx5_flow_attr flow_attr;
++	struct mlx5_flow_table *ft;
++	int err = 0;
++
++	mlx5_get_rule_flow_match(&flow_match, rule_info->rule);
++	dest.tir_num = priv->direct_tir[rule_info->type].tirn;
++	dest.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
++	MLX5_RULE_ATTR(flow_attr, flow_match.match_criteria_enable,
++		       flow_match.match_criteria,
++		       flow_match.match_value,
++		       MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
++		       MLX5_FS_OFFLOAD_FLOW_TAG, &dest);
++
++	ft = (rule_info->type == SNIFFER_LEFTOVERS) ? rule_info->ft :
++		sniffer->rx_ft;
++	sniffer_flow->rule =
++		mlx5_add_flow_rule(ft, &flow_attr);
++	if (IS_ERR(sniffer_flow->rule)) {
++		err = PTR_ERR(sniffer_flow->rule);
++		sniffer_flow->rule = NULL;
++	}
++
++	return err;
++}
++
++static void sniffer_add_rule_handler(struct work_struct *work)
++{
++	struct mlx5_sniffer_rule_info *rule_info;
++	struct sniffer_rule *sniffer_flow;
++	struct sniffer_work *sniffer_work;
++	struct mlx5e_sniffer *sniffer;
++	struct notifier_block *nb;
++	struct mlx5e_priv *priv;
++	int err;
++
++	sniffer_work = container_of(work, struct sniffer_work, work);
++	rule_info = &sniffer_work->rule_info;
++	sniffer = sniffer_work->sniffer;
++	nb = sniffer_work->nb;
++	priv = sniffer->priv;
++
++	if (sniffer_rule_in_leftovers(sniffer,
++				      rule_info->rule))
++		goto out;
++
++	sniffer_flow = kzalloc(sizeof(*sniffer_flow), GFP_KERNEL);
++	if (!sniffer_flow)
++		goto out;
++
++	err = sniffer_add_flow_rule(sniffer, sniffer_flow, rule_info);
++	if (err) {
++		netdev_err(priv->netdev, "%s: Failed to add sniffer rule, err=%d\n",
++			   __func__, err);
++		kfree(sniffer_flow);
++		goto out;
++	}
++
++	err = mlx5_set_rule_private_data(rule_info->rule, nb, sniffer_flow);
++	if (err) {
++		netdev_err(priv->netdev, "%s: mlx5_set_rule_private_data failed\n",
++			   __func__);
++		mlx5_del_flow_rule(sniffer_flow->rule);
++	}
++	if (rule_info->type == SNIFFER_LEFTOVERS)
++		list_add(&sniffer_flow->list, &sniffer->leftover_rules);
++	else
++		list_add(&sniffer_flow->list, &sniffer->rules);
++
++out:
++	mlx5_put_flow_rule(rule_info->rule);
++	kfree(sniffer_work);
++}
++
++static int sniffer_flow_rule_event_fn(struct notifier_block *nb,
++				      unsigned long event, void *data)
++{
++	struct mlx5_event_data *event_data;
++	struct sniffer_evt_ctx *event_ctx;
++	struct mlx5e_sniffer *sniffer;
++	struct sniffer_work *work;
++	enum sniffer_types type;
++
++	event_ctx = container_of(nb, struct sniffer_evt_ctx, nb);
++	sniffer = event_ctx->sniffer;
++
++	event_data = (struct mlx5_event_data *)data;
++	type = (event_ctx == &sniffer->leftovers_ctx) ? SNIFFER_LEFTOVERS :
++		SNIFFER_RX;
++
++	if ((type == SNIFFER_LEFTOVERS) && (event == MLX5_RULE_EVENT_DEL) &&
++	    sniffer_rule_in_leftovers(sniffer, event_data->rule)) {
++		return 0;
++	}
++
++	work = kzalloc(sizeof(*work), GFP_KERNEL);
++	if (!work)
++		return -ENOMEM;
++
++	work->rule_info.rule = event_data->rule;
++	work->rule_info.ft = event_data->ft;
++	work->rule_info.type = type;
++	work->sniffer = sniffer;
++	work->nb = nb;
++
++	mlx5_get_flow_rule(event_data->rule);
++
++	if (event == MLX5_RULE_EVENT_ADD)
++		INIT_WORK(&work->work, sniffer_add_rule_handler);
++	else
++		INIT_WORK(&work->work, sniffer_del_rule_handler);
++
++	queue_work(sniffer->sniffer_wq, &work->work);
++
++	return 0;
++}
++
++static struct sniffer_evt_ctx *sniffer_get_event_ctx(struct mlx5e_sniffer *sniffer,
++						     enum mlx5_flow_namespace_type type)
++{
++	switch (type) {
++	case MLX5_FLOW_NAMESPACE_BYPASS:
++		return &sniffer->bypass_ctx;
++	case MLX5_FLOW_NAMESPACE_ROCE:
++		return &sniffer->roce_ctx;
++	case MLX5_FLOW_NAMESPACE_LEFTOVERS:
++		return &sniffer->leftovers_ctx;
++	default:
++		return NULL;
++	}
++}
++
++static void sniffer_destroy_tirs(struct mlx5e_sniffer *sniffer)
++{
++	struct mlx5e_priv *priv = sniffer->priv;
++	int i;
++
++	for (i = 0; i < SNIFFER_NUM_TYPES; i++)
++		mlx5_core_destroy_tir(priv->mdev, sniffer->tirn[i]);
++}
++
++static void sniffer_cleanup_resources(struct mlx5e_sniffer *sniffer)
++{
++	struct sniffer_rule *sniffer_flow;
++	struct sniffer_rule *tmp;
++
++	if (sniffer->sniffer_wq)
++		destroy_workqueue(sniffer->sniffer_wq);
++
++	list_for_each_entry_safe(sniffer_flow, tmp, &sniffer->rules, list) {
++		mlx5_del_flow_rule(sniffer_flow->rule);
++		list_del(&sniffer_flow->list);
++		kfree(sniffer_flow);
++	}
++
++	list_for_each_entry_safe(sniffer_flow, tmp, &sniffer->leftover_rules, list) {
++		mlx5_del_flow_rule(sniffer_flow->rule);
++		list_del(&sniffer_flow->list);
++		kfree(sniffer_flow);
++	}
++
++	if (sniffer->rx_ft)
++		mlx5_destroy_flow_table(sniffer->rx_ft);
++
++	if (sniffer->tx_ft)
++		mlx5_destroy_flow_table(sniffer->tx_ft);
++
++	sniffer_destroy_tirs(sniffer);
++}
++
++static void sniffer_unregister_ns_rules_handlers(struct mlx5e_sniffer *sniffer,
++						 enum mlx5_flow_namespace_type ns_type)
++{
++	struct mlx5e_priv *priv = sniffer->priv;
++	struct sniffer_evt_ctx *evt_ctx;
++	struct mlx5_flow_namespace *ns;
++
++	ns = mlx5_get_flow_namespace(priv->mdev, ns_type);
++	if (!ns)
++		return;
++
++	evt_ctx = sniffer_get_event_ctx(sniffer, ns_type);
++	mlx5_unregister_rule_notifier(ns, &evt_ctx->nb);
++}
++
++static void sniffer_unregister_rules_handlers(struct mlx5e_sniffer *sniffer)
++{
++	sniffer_unregister_ns_rules_handlers(sniffer,
++					     MLX5_FLOW_NAMESPACE_BYPASS);
++	sniffer_unregister_ns_rules_handlers(sniffer,
++					     MLX5_FLOW_NAMESPACE_ROCE);
++	sniffer_unregister_ns_rules_handlers(sniffer,
++					     MLX5_FLOW_NAMESPACE_LEFTOVERS);
++}
++
++int mlx5e_sniffer_stop(struct mlx5e_priv *priv)
++{
++	struct mlx5e_sniffer *sniffer = priv->fs.sniffer;
++
++	if (!sniffer)
++		return 0;
++
++	sniffer_unregister_rules_handlers(sniffer);
++	sniffer_cleanup_resources(sniffer);
++	kfree(sniffer);
++
++	return 0;
++}
++
++static int sniffer_register_ns_rules_handlers(struct mlx5e_sniffer *sniffer,
++					      enum mlx5_flow_namespace_type ns_type)
++{
++	struct mlx5e_priv *priv = sniffer->priv;
++	struct sniffer_evt_ctx *evt_ctx;
++	struct mlx5_flow_namespace *ns;
++	int err;
++
++	ns = mlx5_get_flow_namespace(priv->mdev, ns_type);
++	if (!ns)
++		return -ENOENT;
++
++	evt_ctx = sniffer_get_event_ctx(sniffer, ns_type);
++	if (!evt_ctx)
++		return -ENOENT;
++
++	evt_ctx->nb.notifier_call = sniffer_flow_rule_event_fn;
++	evt_ctx->sniffer  = sniffer;
++	err = mlx5_register_rule_notifier(ns, &evt_ctx->nb);
++	if (err) {
++		netdev_err(priv->netdev,
++			   "%s: mlx5_register_rule_notifier failed\n", __func__);
++		return err;
++	}
++
++	return 0;
++}
++
++static int sniffer_register_rules_handlers(struct mlx5e_sniffer *sniffer)
++{
++	struct mlx5e_priv *priv = sniffer->priv;
++	int err;
++
++	err = sniffer_register_ns_rules_handlers(sniffer,
++						 MLX5_FLOW_NAMESPACE_BYPASS);
++	if (err)
++		netdev_err(priv->netdev,
++			   "%s: Failed to register for bypass namesapce\n",
++			   __func__);
++
++	err = sniffer_register_ns_rules_handlers(sniffer,
++						 MLX5_FLOW_NAMESPACE_ROCE);
++	if (err)
++		netdev_err(priv->netdev,
++			   "%s: Failed to register for roce namesapce\n",
++			   __func__);
++
++	err = sniffer_register_ns_rules_handlers(sniffer,
++						 MLX5_FLOW_NAMESPACE_LEFTOVERS);
++	if (err)
++		netdev_err(priv->netdev,
++			   "%s: Failed to register for leftovers namesapce\n",
++			   __func__);
++
++	return err;
++}
++
++static int sniffer_create_tirs(struct mlx5e_sniffer *sniffer)
++{
++	struct mlx5e_priv *priv = sniffer->priv;
++	void *tirc;
++	int inlen;
++	u32 *tirn;
++	u32 rqtn;
++	int err;
++	u32 *in;
++	int tt;
++
++	inlen = MLX5_ST_SZ_BYTES(create_tir_in);
++	in = mlx5_vzalloc(inlen);
++	if (!in)
++		return -ENOMEM;
++
++	for (tt = 0; tt < SNIFFER_NUM_TYPES; tt++) {
++		tirn = &sniffer->tirn[tt];
++		tirc = MLX5_ADDR_OF(create_tir_in, in, ctx);
++		rqtn = priv->direct_tir[tt % priv->params.num_channels].rqtn;
++		mlx5e_build_direct_tir_ctx(priv, tirc, rqtn);
++		err = mlx5_core_create_tir(priv->mdev, in, inlen, tirn);
++		if (err)
++			goto err_destroy_ch_tirs;
++		memset(in, 0, inlen);
++	}
++
++	kvfree(in);
++
++	return 0;
++
++err_destroy_ch_tirs:
++	for (tt--; tt >= 0; tt--)
++		mlx5_core_destroy_tir(priv->mdev, sniffer->tirn[tt]);
++	kvfree(in);
++
++	return err;
++}
++
++#define SNIFFER_RX_MAX_FTES min_t(u32, (MLX5_BY_PASS_NUM_REGULAR_PRIOS *\
++					FS_MAX_ENTRIES), BIT(20))
++#define SNIFFER_RX_MAX_NUM_GROUPS (MLX5_BY_PASS_NUM_REGULAR_PRIOS *\
++				   FS_MAX_TYPES)
++
++#define SNIFFER_TX_MAX_FTES 1
++#define SNIFFER_TX_MAX_NUM_GROUPS 1
++
++static int sniffer_init_resources(struct mlx5e_sniffer *sniffer)
++{
++	struct mlx5e_priv *priv = sniffer->priv;
++	struct mlx5_core_dev *mdev = priv->mdev;
++	struct mlx5_flow_namespace *p_sniffer_rx_ns;
++	struct mlx5_flow_namespace *p_sniffer_tx_ns;
++	int table_size;
++	int err;
++
++	INIT_LIST_HEAD(&sniffer->rules);
++	INIT_LIST_HEAD(&sniffer->leftover_rules);
++
++	p_sniffer_rx_ns =
++		mlx5_get_flow_namespace(mdev, MLX5_FLOW_NAMESPACE_SNIFFER_RX);
++	if (!p_sniffer_rx_ns)
++		return -ENOENT;
++
++	p_sniffer_tx_ns =
++		mlx5_get_flow_namespace(mdev, MLX5_FLOW_NAMESPACE_SNIFFER_TX);
++	if (!p_sniffer_tx_ns)
++		return -ENOENT;
++
++	err = sniffer_create_tirs(sniffer);
++	if (err) {
++		netdev_err(priv->netdev, "%s: Create tirs failed, err=%d\n",
++			   __func__, err);
++		return err;
++	}
++
++	sniffer->sniffer_wq = create_singlethread_workqueue("mlx5e_sniffer");
++	if (!sniffer->sniffer_wq)
++		goto error;
++
++	/* Create "medium" size flow table */
++	table_size = min_t(u32,
++			   BIT(MLX5_CAP_FLOWTABLE_SNIFFER_RX(mdev,
++							     log_max_ft_size)),
++			   SNIFFER_RX_MAX_FTES);
++	sniffer->rx_ft =
++		mlx5_create_auto_grouped_flow_table(p_sniffer_rx_ns, 0,
++						    table_size,
++						    SNIFFER_RX_MAX_NUM_GROUPS,
++						    0);
++	if (IS_ERR(sniffer->rx_ft)) {
++		err = PTR_ERR(sniffer->rx_ft);
++		sniffer->rx_ft = NULL;
++		goto error;
++	}
++
++	sniffer->tx_ft =
++		mlx5_create_auto_grouped_flow_table(p_sniffer_tx_ns, 0,
++						    SNIFFER_TX_MAX_FTES,
++						    SNIFFER_TX_MAX_NUM_GROUPS,
++						    0);
++	if (IS_ERR(sniffer->tx_ft)) {
++		err = PTR_ERR(sniffer->tx_ft);
++		sniffer->tx_ft = NULL;
++		goto error;
++	}
++
++	err = mlx5e_sniffer_create_tx_rule(sniffer);
++	if (err)
++		goto error;
++
++	return 0;
++error:
++	sniffer_cleanup_resources(sniffer);
++	return err;
++}
++
++int mlx5e_sniffer_start(struct mlx5e_priv *priv)
++{
++	struct mlx5e_sniffer *sniffer;
++	int err;
++
++	sniffer = kzalloc(sizeof(*sniffer), GFP_KERNEL);
++	if (!sniffer)
++		return -ENOMEM;
++
++	sniffer->priv = priv;
++	err = sniffer_init_resources(sniffer);
++	if (err) {
++		netdev_err(priv->netdev, "%s: Failed to init sniffer resources\n",
++			   __func__);
++		goto err_out;
++	}
++
++	err = sniffer_register_rules_handlers(sniffer);
++	if (err) {
++		netdev_err(priv->netdev, "%s: Failed to register rules handlers\n",
++			   __func__);
++		goto err_cleanup_resources;
++	}
++	priv->fs.sniffer = sniffer;
++	return 0;
++
++err_cleanup_resources:
++	sniffer_cleanup_resources(sniffer);
++err_out:
++	kfree(sniffer);
++	return err;
++}
+diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
+index 123b901..5463be6 100644
+--- a/include/linux/mlx5/fs.h
++++ b/include/linux/mlx5/fs.h
+@@ -43,6 +43,9 @@ enum {
+ 	MLX5_FLOW_CONTEXT_ACTION_FWD_NEXT_PRIO	= 1 << 16,
+ };
+ 
++#define FS_MAX_TYPES             10
++#define FS_MAX_ENTRIES           32000U
++
+ #define LEFTOVERS_RULE_NUM	 2
+ static inline void build_leftovers_ft_param(int *priority,
+ 					    int *n_ent,
 -- 
 2.8.0
