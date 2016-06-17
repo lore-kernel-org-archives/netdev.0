@@ -1,68 +1,54 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next V2] tun: introduce tx skb ring
-Date: Fri, 17 Jun 2016 15:22:27 +0800
-Message-ID: <5763A533.8030206@redhat.com>
-References: <1465979897-4445-1-git-send-email-jasowang@redhat.com>
- <20160617033218-mutt-send-email-mst@redhat.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v4 3/4] net: core: add SW stats to if_stats_msg
+Date: Fri, 17 Jun 2016 09:32:49 +0200
+Message-ID: <20160617073249.GC2001@nanopsycho.orion>
+References: <1466066237-7719-1-git-send-email-jiri@resnulli.us>
+ <1466066237-7719-4-git-send-email-jiri@resnulli.us>
+ <20160616.172048.1390765203474702977.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
-	davem@davemloft.net, eric.dumazet@gmail.com, brouer@redhat.com
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160617033218-mutt-send-email-mst@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, nogahf@mellanox.com, idosch@mellanox.com,
+	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
+	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
+	f.fainelli@gmail.com
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35776 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754191AbcFQHcw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 03:32:52 -0400
+Received: by mail-wm0-f66.google.com with SMTP id k184so16497045wme.2
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 00:32:51 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160616.172048.1390765203474702977.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-
-
-On 2016=E5=B9=B406=E6=9C=8817=E6=97=A5 08:41, Michael S. Tsirkin wrote:
-> On Wed, Jun 15, 2016 at 04:38:17PM +0800, Jason Wang wrote:
->> >We used to queue tx packets in sk_receive_queue, this is less
->> >efficient since it requires spinlocks to synchronize between produc=
-er
->> >and consumer.
->> >
->> >This patch tries to address this by:
->> >
->> >- introduce a new mode which will be only enabled with IFF_TX_ARRAY
->> >   set and switch from sk_receive_queue to a fixed size of skb
->> >   array with 256 entries in this mode.
->> >- introduce a new proto_ops peek_len which was used for peeking the
->> >   skb length.
->> >- implement a tun version of peek_len for vhost_net to use and conv=
-ert
->> >   vhost_net to use peek_len if possible.
->> >
->> >Pktgen test shows about 18% improvement on guest receiving pps for =
-small
->> >buffers:
->> >
->> >Before: ~1220000pps
->> >After : ~1440000pps
->> >
->> >The reason why I stick to new mode is because:
->> >
->> >- though resize is supported by skb array, in multiqueue mode, it's
->> >   not easy to recover from a partial success of queue resizing.
->> >- tx_queue_len is a user visible feature.
->> >
->> >Signed-off-by: Jason Wang<jasowang@redhat.com>
-> I still think it's wrong to add a new feature for this.
-> For example, why 256 entries?
-
-It's the value of virtqueue size supported by qemu.
-
-> Queue len is user visible but it's there precisely for this
-> reason so people can tune queue for workload.
-
-Right.
-
+Fri, Jun 17, 2016 at 02:20:48AM CEST, davem@davemloft.net wrote:
+>From: Jiri Pirko <jiri@resnulli.us>
+>Date: Thu, 16 Jun 2016 10:37:16 +0200
 >
-> Would it help to have ptr_ring_resize that gets an array of
-> rings and resizes them both to same length?
+>> @@ -1068,6 +1068,11 @@ static int rtnl_phys_switch_id_fill(struct sk_buff *skb, struct net_device *dev)
+>>  	return 0;
+>>  }
+>>  
+>> +static void copy_rtnl_link_stats64(void *v, const struct rtnl_link_stats64 *b)
+>> +{
+>> +	memcpy(v, b, sizeof(*b));
+>> +}
+> ...
+>> +	struct rtnl_link_stats64 *stats64_sp = NULL;
+>> +	struct rtnl_link_stats64 *sp;
+> ...
+>> +				copy_rtnl_link_stats64(sp, stats64_sp);
+>
+>I don't see any reason why copy_rtnl_link_stats64's first argument should be
+>"void *".  Please make it "struct rtnl_link_stats64 *".
+>
+>In fact just doing a straight memcpy() inline is probably the best, there are
+>no special typing nor casting requirements here.
 
-Yes, that would be very helpful.
+Will do. Thanks.
