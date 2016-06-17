@@ -1,114 +1,51 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH RFC] brcmfmac: support deleting MBSS AP interfaces
-Date: Fri, 17 Jun 2016 22:44:55 +0200
-Message-ID: <CACna6ryebj3iv=TJs2cXgR2uDRrTaBzbvvhx8MSLKy2A8yBQTA@mail.gmail.com>
-References: <1464791845-23944-1-git-send-email-zajec5@gmail.com>
- <574F30D8.5000300@broadcom.com> <CACna6rzcfYu=3qoMsTCShHUWbpz-0-uWgogVLWJwiNv228PhPQ@mail.gmail.com>
- <576448C0.4080102@broadcom.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [iproute PATCH 1/3] Use C99 style initializers everywhere
+Date: Fri, 17 Jun 2016 14:47:51 -0600
+Message-ID: <41801a15-fd99-6916-211c-705b4445023d@cumulusnetworks.com>
+References: <1466178968-27439-1-git-send-email-phil@nwl.cc>
+ <1466178968-27439-2-git-send-email-phil@nwl.cc>
+ <ddef688e6e3f4a1a895880de1f9f069d@HQ1WP-EXMB11.corp.brocade.com>
+ <20160617093401.24ae66b1@xeon-e3> <5764295E.7070103@iogearbox.net>
+ <9e1c05c7b4894137a80bdb3d2a361bbc@HQ1WP-EXMB11.corp.brocade.com>
+ <20160617115753.6205562d@xeon-e3>
+ <d122479b-f5cb-2dce-b0ba-d28f3254db32@cumulusnetworks.com>
+ <57645F37.5010100@iogearbox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	Franky Lin <franky.lin@broadcom.com>,
-	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-	<brcm80211-dev-list@broadcom.com>,
-	"open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: Arend van Spriel <arend.vanspriel@broadcom.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <576448C0.4080102@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Phil Sutter <phil@nwl.cc>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"julien.floret@6wind.com" <julien.floret@6wind.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Stephen Hemminger <shemming@brocade.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34913 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750840AbcFQUry (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 16:47:54 -0400
+Received: by mail-pa0-f48.google.com with SMTP id hl6so31496381pac.2
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 13:47:53 -0700 (PDT)
+In-Reply-To: <57645F37.5010100@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 17 June 2016 at 21:00, Arend van Spriel <arend.vanspriel@broadcom.co=
-m> wrote:
-> On 17-06-16 14:30, Rafa=C5=82 Mi=C5=82ecki wrote:
->> On 1 June 2016 at 21:00, Arend van Spriel <arend.vanspriel@broadcom.=
-com> wrote:
->>> On 01-06-16 16:36, Rafa=C5=82 Mi=C5=82ecki wrote:
->>>> We already support adding extra (AP) interfaces so it also makes a=
-n
->>>> obvious sense to allow deleting them.
->>>>
->>>> Adding a new interface is implemented by sending request to firmwa=
-re for
->>>> creating a new BSS and waiting for a proper event. Ideally deletin=
-g
->>>> interface should be handled in a similar way. There should be a re=
-quest
->>>> to firmware for deleting BSS and firmware should respond with an e=
-vent.
->>>>
->>>> Unfortunately it doesn't seem to work with recent firmwares. They =
-never
->>>> seem to delete BSS and never send BRCMF_E_IF_DEL. As a workaround =
-this
->>>> patch deletes Linux interface while keeping a track of BSSes prese=
-nt in
->>>> a firmware. If there is request for adding a new interface this co=
-de is
->>>> capable of reusing existing BSS-es.
->>>
->>> It is not so much an issue of recent firmware. Actually, on recent
->>> firmware 7.x.y.z and higher there are other command to create *and*
->>> delete additional interfaces. On the other hand we aim to support a
->>> large number of devices going back to bcm4329 so we have to come up=
- with
->>> a scheme to use the new commands or fallback to old api. Let's hope=
- we
->>> can reuse much of this effort you put in.
->>
->> You gave me a complex puzzle there :D It took me a while to find out
->> what API you meant.
+On 6/17/16 2:36 PM, Daniel Borkmann wrote:
 >
-> Actually, the puzzle was supposed to be for me, but I like your
-> curiosity and persistence in digging up the (partial) info.
+> Once again, you have to ask Nicolas or Julien for their RHEL version,
+> not me ... please have a look at 8f80d450c3cb. ;)
+
+I did, just ran right over the Author ;-)
+
 >
->> Finally I found an interesting wlioctl.h in SDK 9.10.178.27 that gav=
-e
->> me some clue. I got this SDK from ASUS RT-AC1200G+ open souce tarbal=
-l.
->> There are 2 interesting structs:
->>
->> typedef struct wl_interface_create {
->>         uint16 ver; /* version of this struct */
->>         uint32  flags; /* flags that defines the operation */
->>         struct ether_addr   mac_addr; /* Optional Mac address */
->>         uint32  wlc_index; /* Optional wlc index */
->> } wl_interface_create_t;
->>
->> typedef struct wl_interface_info {
->>         uint16 ver; /* version of this struct */
->>         struct ether_addr    mac_addr; /* MAC address of the interfa=
-ce */
->>         char ifname[BCM_MSG_IFNAME_MAX]; /* name of interface */
->>         uint8 bsscfgidx; /* source bsscfg index */
->> } wl_interface_info_t;
->>
->> I couldn't find any corresponding WLC_* in wlioctl_defs.h, so I gues=
-s
->> I should use WLC_SET_VAR (or WLC_SET_VAR as you prefer) with some
->
-> (huh)? anyway the api indeed uses what we call an iovar, ie.
-> string-based ioctl.
+> I just pointed to the fact that this would basically undo their changes
+> that they've submitted some time ago to the BPF frontend, reintroducing
+> the issue for them. Unfortunately, the anonymous struct cannot be named
+> due to uapi reasons. It should have been named from the very beginning,
+> but unfortunately too late now. So I would suggest to just leave those
+> affected parts as is.
 
-That's what I meant, sorry for wrong naming :)
-
-
->> string. Any tip what would it be? Something like
->> "wl_interface_create"? Can you reveal such a small secret?
->
-> It is "interface_create" and "interface_remove".
-
-It (almost) works, thanks! I just hit some bug in brcmfmac in handling
-events. It can be exposed by deleting 2 interfaces quickly, one by
-one, it seems. I'll debug this.
-
---=20
-Rafa=C5=82
+I was referring to Phil's patch. All of the struct {} req; 
+initializations should be fine if you name the structs, but then need to 
+run it through whatever compiler version the 6wind folks care about to 
+verify that is true.
