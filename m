@@ -1,32 +1,52 @@
-From: Santosh Shilimkar <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH net] RDS: TCP: rds_tcp_accept_one() should transition
- socket from RESETTING to UP
-Date: Fri, 17 Jun 2016 13:51:30 -0700
-Message-ID: <6b8c05a3-bf6c-c2c2-70ef-91faa868ee60@oracle.com>
-References: <20160617201212.GC29044@oracle.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: act_mirred: remove spinlock in fast path
+Date: Fri, 17 Jun 2016 14:03:41 -0700
+Message-ID: <CAM_iQpU42hydN_akrr8EGuN8OGifyjM3j+W44hjOvRxxM52HbA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net
-To: Sowmini Varadhan <sowmini.varadhan@oracle.com>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:17505 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755156AbcFQUvu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 16:51:50 -0400
-In-Reply-To: <20160617201212.GC29044@oracle.com>
+Received: from mail-yw0-f193.google.com ([209.85.161.193]:34838 "EHLO
+	mail-yw0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753995AbcFQVEC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 17:04:02 -0400
+Received: by mail-yw0-f193.google.com with SMTP id g20so782567ywb.2
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 14:04:01 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/17/2016 1:12 PM, Sowmini Varadhan wrote:
-> The state of the rds_connection after rds_tcp_reset_callbacks() would
-> be RDS_CONN_RESETTING and this is the value that should be passed
-> by rds_tcp_accept_one()  to rds_connect_path_complete() to transition
-> the socket to RDS_CONN_UP.
->
-> Fixes: b5c21c0947c1 ("RDS: TCP: fix race windows in send-path quiescence
-> by rds_tcp_accept_one()")
-> Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-> ---
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+Hi, Eric
+
+During code review, I notice we might have some problem after we go
+lockless for the fast path in act_mirred.
+
+That is, what prevents us from the following possible race condition?
+
+change a standalone action with tcf_mirred_init():
+  // search for an existing action in hash
+  // found it and got struct tcf_common
+  m = to_mirred(a);
+  m->tcf_action = parm->action;
+  // Interrupted by BH
+
+tcf_mirred() jumps in:
+  rcu_read_lock()
+  retval = READ_ONCE(m->tcf_action);
+  if (m->tcfm_eaction != TCA_EGRESS_MIRROR)
+  ....
+  rcu_unread_lock()
+
+now go back to tcf_mirred_init():
+  m->tcfm_eaction = parm->eaction;
+  ....
+
+IOW, the fast path could read a partially written change which could
+be a problem? We need to allocate a new copy and then replace the old
+one with it via RCU, don't we?
+
+I can work on some patches, I want to make sure I don't miss anything here.
+
+Thanks!
