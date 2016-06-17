@@ -1,63 +1,71 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: et131x: use phy_ethtool_{get|set}_link_ksettings
-Date: Fri, 17 Jun 2016 23:32:15 +0200
-Message-ID: <1466199135-13459-2-git-send-email-tremyfr@gmail.com>
-References: <1466199135-13459-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Philippe Reynes <tremyfr@gmail.com>
-To: mark.einon@gmail.com, davem@davemloft.net, andrew@lunn.ch,
-	mugunthanvnm@ti.com, felipe.balbi@linux.intel.com,
-	f.fainelli@gmail.com, fw@strlen.de, wuninsu@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1466199135-13459-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH net-next v6] tcp: Add RFC4898 tcpEStatsPerfDataSegsOut/In
+Date: Fri, 17 Jun 2016 14:34:17 -0700
+Message-ID: <20160617213417.GA16126@kafai-mba.local>
+References: <1457977935-2018863-1-git-send-email-kafai@fb.com>
+ <1466137828.7945.211.camel@edumazet-glaptop3.roam.corp.google.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>,
+	Chris Rapier <rapier@psc.edu>,
+	Eric Dumazet <edumazet@google.com>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:47167 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750986AbcFQVef (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 17:34:35 -0400
+Content-Disposition: inline
+In-Reply-To: <1466137828.7945.211.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-so we can use them instead of defining the same code in the driver.
+On Thu, Jun 16, 2016 at 09:30:28PM -0700, Eric Dumazet wrote:
+> On Mon, 2016-03-14 at 10:52 -0700, Martin KaFai Lau wrote:
+> > Per RFC4898, they count segments sent/received
+> > containing a positive length data segment (that includes
+> > retransmission segments carrying data).  Unlike
+> > tcpi_segs_out/in, tcpi_data_segs_out/in excludes segments
+> > carrying no data (e.g. pure ack).
+> >
+> > The patch also updates the segs_in in tcp_fastopen_add_skb()
+> > so that segs_in >= data_segs_in property is kept.
+> >
+> > Together with retransmission data, tcpi_data_segs_out
+> > gives a better signal on the rxmit rate.
+> >
+> > v6: Rebase on the latest net-next
+> >
+> > v5: Eric pointed out that checking skb->len is still needed in
+> > tcp_fastopen_add_skb() because skb can carry a FIN without data.
+> > Hence, instead of open coding segs_in and data_segs_in, tcp_segs_in()
+> > helper is used.  Comment is added to the fastopen case to explain why
+> > segs_in has to be reset and tcp_segs_in() has to be called before
+> > __skb_pull().
+> >
+> > v4: Add comment to the changes in tcp_fastopen_add_skb()
+> > and also add remark on this case in the commit message.
+> >
+> > v3: Add const modifier to the skb parameter in tcp_segs_in()
+> >
+> > v2: Rework based on recent fix by Eric:
+> > commit a9d99ce28ed3 ("tcp: fix tcpi_segs_in after connection establishment")
+> >
+> > Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> > Cc: Chris Rapier <rapier@psc.edu>
+> > Cc: Eric Dumazet <edumazet@google.com>
+> > Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> > Cc: Neal Cardwell <ncardwell@google.com>
+> > Cc: Yuchung Cheng <ycheng@google.com>
+> > Acked-by: Eric Dumazet <edumazet@google.com>
+> > ---
+>
+> Hi Martin
+>
+> Have you sent the iproute2 ss corresponding patch ?
+Sorry, I did not.  I will work on it shortly.
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/agere/et131x.c |   16 ++--------------
- 1 files changed, 2 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/ethernet/agere/et131x.c b/drivers/net/ethernet/agere/et131x.c
-index d194992..cd7e2e5 100644
---- a/drivers/net/ethernet/agere/et131x.c
-+++ b/drivers/net/ethernet/agere/et131x.c
-@@ -2790,18 +2790,6 @@ static void et131x_handle_send_pkts(struct et131x_adapter *adapter)
- 	spin_unlock_irqrestore(&adapter->tcb_send_qlock, flags);
- }
- 
--static int et131x_get_settings(struct net_device *netdev,
--			       struct ethtool_cmd *cmd)
--{
--	return phy_ethtool_gset(netdev->phydev, cmd);
--}
--
--static int et131x_set_settings(struct net_device *netdev,
--			       struct ethtool_cmd *cmd)
--{
--	return phy_ethtool_sset(netdev->phydev, cmd);
--}
--
- static int et131x_get_regs_len(struct net_device *netdev)
- {
- #define ET131X_REGS_LEN 256
-@@ -2974,12 +2962,12 @@ static void et131x_get_drvinfo(struct net_device *netdev,
- }
- 
- static struct ethtool_ops et131x_ethtool_ops = {
--	.get_settings	= et131x_get_settings,
--	.set_settings	= et131x_set_settings,
- 	.get_drvinfo	= et131x_get_drvinfo,
- 	.get_regs_len	= et131x_get_regs_len,
- 	.get_regs	= et131x_get_regs,
- 	.get_link	= ethtool_op_get_link,
-+	.get_link_ksettings = phy_ethtool_get_link_ksettings,
-+	.set_link_ksettings = phy_ethtool_set_link_ksettings,
- };
- 
- /* et131x_hwaddr_init - set up the MAC Address */
--- 
-1.7.4.4
+Thanks for bringing it up!
