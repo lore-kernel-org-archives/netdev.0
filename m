@@ -1,103 +1,92 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v4 0/4] return offloaded stats as default and
- expose original sw stats
-Date: Fri, 17 Jun 2016 10:24:11 +0200
-Message-ID: <20160617082411.GA1981@nanopsycho.orion>
-References: <1466066237-7719-1-git-send-email-jiri@resnulli.us>
- <20160616.172632.1759391103978744570.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, nogahf@mellanox.com, idosch@mellanox.com,
-	eladr@mellanox.com, yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org,
-	f.fainelli@gmail.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33337 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752337AbcFQIYO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 04:24:14 -0400
-Received: by mail-wm0-f67.google.com with SMTP id r201so2645562wme.0
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 01:24:14 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160616.172632.1759391103978744570.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+Subject: [[RESEND]PATCH v7 0/2] Add CAN FD driver support to r8a7795 SoC
+Date: Fri, 17 Jun 2016 09:20:54 +0100
+Message-ID: <1466151656-51147-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+References: <1465888372-38319-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+Cc: mkl@pengutronix.de, wg@grandegger.com, socketcan@hartkopp.net,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-renesas-soc@vger.kernel.org, horms@verge.net.au,
+	magnus.damm@gmail.com, chris.paterson2@renesas.com,
+	Ramesh Shanmugasundaram <ramesh.shanmugasundaram@bp.renesas.com>
+To: davem@davemloft.net
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1465888372-38319-1-git-send-email-ramesh.shanmugasundaram@bp.renesas.com>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Jun 17, 2016 at 02:26:32AM CEST, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Thu, 16 Jun 2016 10:37:13 +0200
->
->> Until now we had stats functions return SW statistics. However, it makes
->> a lot of sense to return HW stats as default. The existing apps count with
->> having the defaults stats complete, but that is not true now as the offloaded
->> forward traffic is not visible there.
->> 
->> If user wants to know real SW stats, this patchset provides way to get
->> it as well.
->
->I think we haven't been very good about defining good rules nor
->guidelines for how to handle HW vs SW stats, and I'm talking
->strictly about what we publish via rtnl_link_stats64.
->
->However, if I were working from scratch on a new driver what I would
->be inclined to do is use HW stats for everything that the chip
->provides direct and accurate support for, and fill in the gaps with SW
->stats.
->
->Because to me, stats are stats, the user wants to know (for example)
->how many broadcast packets have gone through the port and doesn't care
->how you obtain that number.
->
->If the problem being addressed is that drivers aren't reporting
->information on all the packets going through the device, then that's a
->bug.
->
->But it seems to me like mlxsw is already maintaining the software
->statistic counters, so I can't see a performance reason for not
->properly providing all of the statistics using HW vs. SW as is
->appropriate for each and every value to fix this problem.  Why
->create an entire new facility just for that?  It doesn't seem to
->be needed.
->
->Maybe you just need to describe things a bit more completely in this
->header posting.
+--------------
+Hello David M,
 
+   Would it be possible for you to consider this patch please?
 
-The problem we try to handle is different, it's about offloaded
-forwarded packets which are not seen by kernel. Let me try to draw it :)
+   This patch set has undergone multiple reviews as in the change history
+   below. We would be grateful if you could consider accepting this patch as
+   Marc K appears to be inactive and we haven't heard from him since March.
 
-    port1                       port2 (HW stats are counted here)
-      \                          /
-       \                        /
-        \                      /
-         --(A)---- ASIC --(B)--
-                    |
-                   (C)
-                    |
-                   CPU (SW stats are counted here)
+Thanks,
+Ramesh
+--------------
+
+Hi All,
+
+   This patch is based on can-next latest tag "linux-can-next-for-4.7-20160509"
+
+Changes since v6:
+	* Corrected two register definitions as pointed out by Ulrich
+	* Added Ulrich's Reviewed-by: tag
+
+Changes since v5:
+	* Addressed Ulrich's concerns on register, bits naming convention
+	* Rebased to latest tag (linux-can-next-for-4.7-20160509)
+
+Changes since v4:
+	* Rebased to latest can-next/testing branch
+	* Addressed Marc K review comments on v2 patch
+	* Use clk_get_rate() to find ext clock availability. Refer thread
+	(https://lkml.org/lkml/2016/4/8/203)
+
+Changes since v3:
+	* Split v3 patch into two (Marc K)
+	  (1) Introduce rcar_canfd.c driver in drivers/net/can/rcar dir
+	  (2) Move rcar_can.c driver to new drivers/net/can/rcar dir
+	* Added Acked-by Rob H for the bindings
+	* Added comments on CAN FD only mode in driver & Kconfig (Oliver H)
+
+Changes since v2:
+	* Rebased to latest tag (linux-can-next-for-4.6-20160310)
+	* Cleaned up leftover debugfs code (Thanks Oliver H)
+	* Revised devicetree documentation text (as suggested by Rob H)
+	  (https://www.mail-archive.com/linux-renesas-soc@vger.kernel.org/msg01597.html)
+	* Used new can subsystem api to set static configuration & removed check in rcar_canfd_start (as suggested by Oliver H)
+	  (Refer: http://comments.gmane.org/gmane.linux.can/9126 &
+	   https://www.mail-archive.com/linux-renesas-soc@vger.kernel.org/msg01867.html)
+	* Clubbed Renesas controller drivers to driver/net/can/rcar dir (as suggested by Oliver H)
+	* Updated commit message
+
+Changes since v1:
+	* Removed testmodes & debugfs code (suggested by Oliver H)
+	* Fixed tx path race issue by introducing lock (suggested by Marc K)
+	* Removed __maybe_unused attribute of rcar_canfd_of_table
 
 
-Now we have couple of flows for TX and RX (direction does not matter here):
+Ramesh Shanmugasundaram (2):
+  can: rcar_canfd: Add Renesas R-Car CAN FD driver
+  can: rcar_can: Move Renesas CAN driver to rcar dir
 
-1) port1->A->ASIC->C->CPU
+ .../devicetree/bindings/net/can/rcar_canfd.txt     |   89 +
+ drivers/net/can/Kconfig                            |   11 +-
+ drivers/net/can/Makefile                           |    2 +-
+ drivers/net/can/rcar/Kconfig                       |   21 +
+ drivers/net/can/rcar/Makefile                      |    6 +
+ drivers/net/can/{ => rcar}/rcar_can.c              |    0
+ drivers/net/can/rcar/rcar_canfd.c                  | 1695 ++++++++++++++++++++
+ 7 files changed, 1813 insertions(+), 11 deletions(-)
+ create mode 100644 Documentation/devicetree/bindings/net/can/rcar_canfd.txt
+ create mode 100644 drivers/net/can/rcar/Kconfig
+ create mode 100644 drivers/net/can/rcar/Makefile
+ rename drivers/net/can/{ => rcar}/rcar_can.c (100%)
+ create mode 100644 drivers/net/can/rcar/rcar_canfd.c
 
-   For this flow, HW and SW stats are equal.
+-- 
+1.9.1
 
-2) port1->A->ASIC->C->CPU->C->ASIC->B->port2
-
-   For this flow, HW and SW stats are equal.
-
-3) port1->A->ASIC->B->port2
-
-   For this flow, SW stats are 0.
-
-The purpose of this patchset is to provide facility for user to
-find out the difference between flows 1+2 and 3. In other words, user
-will be able to see the statistics for his slow-path (through kernel).
-
-Also, as a default the accumulated stats (HW) will be exposed to user
-so the userspace apps can react properly.
