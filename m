@@ -1,47 +1,91 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH 1/2] mlx5: only register devlink when ethernet is available
-Date: Fri, 17 Jun 2016 17:50:14 +0300
-Message-ID: <CALzJLG8BEivMg4h+=FcQ_7QFrZTRhRNsPgEH68WPKfmkguvNqA@mail.gmail.com>
-References: <20160615152816.2800830-1-arnd@arndb.de> <CALzJLG_CkvbrCehMjMht5KfMK6r-FbvPzzYUEhpA40YHymsh+Q@mail.gmail.com>
- <6330398.ySWGKSmLdn@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Matan Barak <matanb@mellanox.com>,
-	Leon Romanovsky <leonro@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Saeed Mahameed <saeedm@mellanox.com>,
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next 17/18] net/mlx5e: Lock device state in set features
+Date: Fri, 17 Jun 2016 17:43:58 +0300
+Message-ID: <1466174639-14576-18-git-send-email-saeedm@mellanox.com>
+References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
-	Doug Ledford <dledford@redhat.com>,
-	Eli Cohen <eli@mellanox.com>, Majd Dibbiny <majd@mellanox.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+	Maor Gottlieb <maorg@mellanox.com>,
+	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f194.google.com ([209.85.161.194]:33350 "EHLO
-	mail-yw0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751386AbcFQOue (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 10:50:34 -0400
-Received: by mail-yw0-f194.google.com with SMTP id d137so3183893ywe.0
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 07:50:34 -0700 (PDT)
-In-Reply-To: <6330398.ySWGKSmLdn@wuerfel>
+Received: from [193.47.165.129] ([193.47.165.129]:57716 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752776AbcFQOtV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2016 10:49:21 -0400
+In-Reply-To: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 15, 2016 at 11:50 PM, Arnd Bergmann <arnd@arndb.de> wrote:
-> On Wednesday, June 15, 2016 7:04:54 PM CEST Saeed Mahameed wrote:
-> Ok, I see. It would be nice if the process had a way to avoid build regressions
-> in linux-next, in particular if you already have a fix by the time a patch
-> that introduces a problem gets added.
->
+From: Maor Gottlieb <maorg@mellanox.com>
 
-The reason we added this tree is to get 0-day testing but currently it
-makes some unwanted noise
-so we will remove it until we figure it out.
+Lock device state in mlx5e_set_features, rather than make each set
+feature handler lock it itself.
 
->
-> Can you check if the fix for the second problem correctly removes the
-> unnecessary 64-bit division (as opposed to adding a call to div_s64()
-> or do_div()), and if it removes all traces of 'struct timespec' again?
->
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
 
-Yes, same thing, already fixed, will reply to that thread.
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 982f852..94d6f60 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2247,7 +2247,6 @@ static int set_feature_lro(struct net_device *netdev, bool enable)
+ 	bool was_opened = test_bit(MLX5E_STATE_OPENED, &priv->state);
+ 	int err;
+ 
+-	mutex_lock(&priv->state_lock);
+ 
+ 	if (was_opened && (priv->params.rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST))
+ 		mlx5e_close_locked(priv->netdev);
+@@ -2262,8 +2261,6 @@ static int set_feature_lro(struct net_device *netdev, bool enable)
+ 	if (was_opened && (priv->params.rq_wq_type == MLX5_WQ_TYPE_LINKED_LIST))
+ 		mlx5e_open_locked(priv->netdev);
+ 
+-	mutex_unlock(&priv->state_lock);
+-
+ 	return err;
+ }
+ 
+@@ -2305,15 +2302,11 @@ static int set_feature_rx_vlan(struct net_device *netdev, bool enable)
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 	int err;
+ 
+-	mutex_lock(&priv->state_lock);
+-
+ 	priv->params.vlan_strip_disable = !enable;
+ 	err = mlx5e_modify_rqs_vsd(priv, !enable);
+ 	if (err)
+ 		priv->params.vlan_strip_disable = enable;
+ 
+-	mutex_unlock(&priv->state_lock);
+-
+ 	return err;
+ }
+ 
+@@ -2358,8 +2351,11 @@ static int mlx5e_handle_feature(struct net_device *netdev,
+ static int mlx5e_set_features(struct net_device *netdev,
+ 			      netdev_features_t features)
+ {
++	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 	int err;
+ 
++	mutex_lock(&priv->state_lock);
++
+ 	err  = mlx5e_handle_feature(netdev, features, NETIF_F_LRO,
+ 				    set_feature_lro);
+ 	err |= mlx5e_handle_feature(netdev, features,
+@@ -2376,6 +2372,8 @@ static int mlx5e_set_features(struct net_device *netdev,
+ 				    set_feature_arfs);
+ #endif
+ 
++	mutex_unlock(&priv->state_lock);
++
+ 	return err ? -EINVAL : 0;
+ }
+ 
+-- 
+2.8.0
