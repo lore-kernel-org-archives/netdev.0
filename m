@@ -1,62 +1,48 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [iproute PATCH 1/3] Use C99 style initializers everywhere
-Date: Fri, 17 Jun 2016 11:57:53 -0700
-Message-ID: <20160617115753.6205562d@xeon-e3>
-References: <1466178968-27439-1-git-send-email-phil@nwl.cc>
-	<1466178968-27439-2-git-send-email-phil@nwl.cc>
-	<ddef688e6e3f4a1a895880de1f9f069d@HQ1WP-EXMB11.corp.brocade.com>
-	<20160617093401.24ae66b1@xeon-e3>
-	<5764295E.7070103@iogearbox.net>
-	<9e1c05c7b4894137a80bdb3d2a361bbc@HQ1WP-EXMB11.corp.brocade.com>
+From: Jean He <jhe@uber.com>
+Subject: Re: [RFC PATCH 1/1] net/ipv4: Enable flow-based ECMP
+Date: Fri, 17 Jun 2016 18:52:38 +0000 (UTC)
+Message-ID: <loom.20160617T204804-722@post.gmane.org>
+References: <55B6E8AC.4060600@alliedtelesis.co.nz> <CALx6S361R1UeEECQn9vFDCS-wi_StoV6mekqgSK-0t-0NPvWEA@mail.gmail.com> <55B7F202.5050503@alliedtelesis.co.nz> <20150729061148.GB18456@unicorn.suse.cz> <CALx6S36NeeBeLj_UDMMm1-ub-cPy5n7OZhqGag2rN7bcQo9kWQ@mail.gmail.com> <55B97CAC.3010004@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniel Borkmann <daniel@iogearbox.net>, Phil Sutter <phil@nwl.cc>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"julien.floret@6wind.com" <julien.floret@6wind.com>
-To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:30234 "EHLO
-	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1753466AbcFQS6B convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2016 14:58:01 -0400
-In-Reply-To: <9e1c05c7b4894137a80bdb3d2a361bbc@HQ1WP-EXMB11.corp.brocade.com>
+Received: from plane.gmane.org ([80.91.229.3]:42197 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753481AbcFQS50 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2016 14:57:26 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1bDyv6-0003r1-E6
+	for netdev@vger.kernel.org; Fri, 17 Jun 2016 20:55:08 +0200
+Received: from 207.231.170.7 ([207.231.170.7])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 20:55:03 +0200
+Received: from jhe by 207.231.170.7 with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 20:55:03 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 17 Jun 2016 16:58:14 +0000
-Nicolas Dichtel <nicolas.dichtel@6wind.com> wrote:
+Richard Laing <Richard.Laing <at> alliedtelesis.co.nz> writes:
 
-> Le 17/06/2016 18:46, Daniel Borkmann a =C3=A9crit :
-> > On 06/17/2016 06:34 PM, Stephen Hemminger wrote:
-> >> On Fri, 17 Jun 2016 16:09:20 +0000
-> >> Daniel Borkmann <daniel@iogearbox.net> wrote:
-> >>
-> >>> Please have a look at commit 8f80d450c3cb ("tc: fix compilation w=
-ith old gcc
-> >>> (< 4.6)") ...
-> >>>
-> >>> Your changes effectively revert them again. Here, and some other =
-parts of the
-> >>> bpf frontend
-> >>> code bits.
-> >>
-> >> GCC 4.6 is 3 years old. So perhaps it is time to move on.
-> >> Maybe add a GCC version check in the makefile, to fail cleanly.
-> >=20
-> > Well, you don't have to ask me but rather the patch submitters (Cc)=
-=2E
-> >=20
-> > I haven't used RHEL in quite a while, but I could imagine it might
-> > be related to built it there perhaps.
-> Yes. For some specific arch, we have only old toolchains.
->=20
-> The rule was always to be backward compatible with old kernels. It im=
-plies to
-> also support the compilation with old toolchains ;-)
+> >>> Fair enough, I will look at making it a sysctl option. I guess the
+> >>> default can be the current behaviour.
 
-It makes sense that if you can build a kernel with old toolchain, that
-iproute2 needs to be buildable as well.
+> Cheers
+> Richard
+> 
 
-The current kernels are documented to require 3.2 or later.
+
+Hi Richard,
+
+Could you please share if this new patch for per-flow IPv4 ECMP has landed?
+
+If so, which version should I use? 
+
+And is there a sysctl option that we can just use to enable per-flow hashing?
+
+Many thanks!
+Jean
