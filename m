@@ -1,76 +1,49 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [patch net-next v4 0/4] return offloaded stats as default and
- expose original sw stats
-Date: Fri, 17 Jun 2016 10:12:22 -0700
-Message-ID: <57642F76.6090403@gmail.com>
-References: <1466066237-7719-1-git-send-email-jiri@resnulli.us>
- <20160616.172632.1759391103978744570.davem@davemloft.net>
- <20160617082411.GA1981@nanopsycho.orion>
- <f720df39-75c4-9be1-245d-df63bd40d610@cumulusnetworks.com>
- <20160617140512.GB1981@nanopsycho.orion> <57640F2A.7090003@mojatatu.com>
- <9f8e85ac-3e96-257e-cf7f-e7e793d41cf4@cumulusnetworks.com>
- <20160617154243.GD1981@nanopsycho.orion>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [BUG] act_ife: sleeping functions called in atomic context
+Date: Fri, 17 Jun 2016 10:16:44 -0700
+Message-ID: <CAM_iQpUV1OaHCNkXWwGpkAPkSMzk5Rdw0ptijt4QFk9xa0FkxQ@mail.gmail.com>
+References: <1466110219-4825-1-git-send-email-khoroshilov@ispras.ru>
+ <CAM_iQpWyfmUnQkQPz8dfO1NPmbdmW3AB9yWrJk6TqXyTo_DCow@mail.gmail.com>
+ <57634687.3050107@mojatatu.com> <CAM_iQpVkFvgbYQsVB0hFKa5zVa1KCPAz=cQ7sAXdJwNM=8hpzQ@mail.gmail.com>
+ <CAM_iQpXokKbXS8TiOgYqEZgLMY-01X8ebJQ-b6VrnM2x6=GFhg@mail.gmail.com> <5763D970.3030504@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8
 Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	nogahf@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
-To: Jiri Pirko <jiri@resnulli.us>,
-	David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:34656 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751690AbcFQRMZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 13:12:25 -0400
-Received: by mail-pf0-f196.google.com with SMTP id 66so6581647pfy.1
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 10:12:25 -0700 (PDT)
-In-Reply-To: <20160617154243.GD1981@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>, ldv-project@linuxtesting.org
+To: Alexey Khoroshilov <khoroshilov@ispras.ru>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5763D970.3030504@ispras.ru>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/17/2016 08:42 AM, Jiri Pirko wrote:
-> Fri, Jun 17, 2016 at 05:35:53PM CEST, dsa@cumulusnetworks.com wrote:
->> On 6/17/16 8:54 AM, Jamal Hadi Salim wrote:
->>> On 16-06-17 10:05 AM, Jiri Pirko wrote:
->>>> Fri, Jun 17, 2016 at 03:48:35PM CEST, dsa@cumulusnetworks.com wrote:
->>>>> On 6/17/16 2:24 AM, Jiri Pirko wrote:
->>>>>>
+On Fri, Jun 17, 2016 at 4:05 AM, Alexey Khoroshilov
+<khoroshilov@ispras.ru> wrote:
+> On 17.06.2016 08:38, Cong Wang wrote:
+>> On Thu, Jun 16, 2016 at 7:14 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
 >>>
->>>>
->>>> That is problematic. Existing apps depend on rtnetlink stats. But if we
->>>> don't count offloaded forwarded packets, the apps don't see anything.
->>>> Therefore I believe that this patchset approach is better. The existing
->>>> apps continue to work and future apps can use newly introduces sw_stats
->>>> to query slowpath traffic. Makes sense to me.
->>>>
->>>
->>> I agree with Jiri. It is a bad idea to depend on ethtool for any of
->>> this stuff. Is there a way we can tag netlink stats instead
->>> to indicate they are hardware or software?
+>>> I think we can just remove that tcf_lock, I am testing a patch now.
 >>
->> Right, old API but the key here is that low level h/w stats are returned by a
->> different API.
+>> Please try the attached patch, I will do more tests tomorrow.
 >>
->> By default ip, ifconfig, snmpd, etc all continue to get traditional S/W stats
->> - counters as seen by the CPU.
-> 
-> Yep. And I believe that for offloaded forwarding, this tools should see
-> hw counters, as they show what is going on in real.
+>> Thanks!
+>>
+>
+> Looks good with two notes:
+> 1. add_metainfo() still contains
+> ret = ops->alloc(mi, metaval);
+> that allocates memory with GFP_KERNEL.
+> So, I would add gfpflag argument to alloc() operation.
 
-If your NIC is offloading packets today, these tools typically won't see
-these stats, but ethtool -S likely will report what is going on under
-the hood.
+I thought about this too, but we just allocate 32+ bytes here,
+not sure if it is really worth to pass a gfp flag.
 
-Do we actually need to tell apart SW maintained from HW maintained
-stats, or at the end all that matters is just, as DaveM pointed out,
-getting the information, and in the case of an Ethernet switch, return
-HW stats by default and supplement with SW stats whenever we have them,
-all in the same namespace?
--- 
-Florian
+>
+> 2. It makes sense to mention ife_mod_lock in the comment before
+> add_metainfo(), because ife_mod_lock is the reason to use GFP_ATOMIC there.
+
+Don't worry, it is in a separated patch, I will explain this
+in the changelog. (I sent a combined patch just for review/tests.)
+
+Thanks!
