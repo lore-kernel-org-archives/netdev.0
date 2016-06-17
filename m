@@ -1,107 +1,170 @@
-From: Arend van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH RFC] brcmfmac: support deleting MBSS AP interfaces
-Date: Fri, 17 Jun 2016 21:00:16 +0200
-Message-ID: <576448C0.4080102@broadcom.com>
-References: <1464791845-23944-1-git-send-email-zajec5@gmail.com>
- <574F30D8.5000300@broadcom.com>
- <CACna6rzcfYu=3qoMsTCShHUWbpz-0-uWgogVLWJwiNv228PhPQ@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 net-next 3/5] bridge: add json support for
+ bridge fdb show
+Date: Fri, 17 Jun 2016 12:04:27 -0700
+Message-ID: <20160617120427.1e8ba9a3@xeon-e3>
+References: <1464410236-65044-4-git-send-email-roopa@cumulusnetworks.com>
+	<20160531115955.4a45ff67@xeon-e3>
+	<CACcJQnT6i-zcJrVeow4TWRU7q5pLeo+JBo38LK9Ptjj=G7O3Mw@mail.gmail.com>
+	<CACcJQnTqkOXpuhRGM1tpJH-sEdMxS3Voux46tphi+pdydTU_4w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	Franky Lin <franky.lin@broadcom.com>,
-	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-	<brcm80211-dev-list@broadcom.com>,
-	"open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	Julien Fortin <julien@cumulusnetworks.com>
+To: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:37939 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752337AbcFQTAU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 15:00:20 -0400
-Received: by mail-wm0-f53.google.com with SMTP id m124so538949wme.1
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 12:00:19 -0700 (PDT)
-In-Reply-To: <CACna6rzcfYu=3qoMsTCShHUWbpz-0-uWgogVLWJwiNv228PhPQ@mail.gmail.com>
+Received: from mail-pa0-f47.google.com ([209.85.220.47]:35258 "EHLO
+	mail-pa0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751097AbcFQTET convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 15:04:19 -0400
+Received: by mail-pa0-f47.google.com with SMTP id hl6so30874878pac.2
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 12:04:18 -0700 (PDT)
+In-Reply-To: <CACcJQnTqkOXpuhRGM1tpJH-sEdMxS3Voux46tphi+pdydTU_4w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17-06-16 14:30, Rafa=C5=82 Mi=C5=82ecki wrote:
-> On 1 June 2016 at 21:00, Arend van Spriel <arend.vanspriel@broadcom.c=
-om> wrote:
->> On 01-06-16 16:36, Rafa=C5=82 Mi=C5=82ecki wrote:
->>> We already support adding extra (AP) interfaces so it also makes an
->>> obvious sense to allow deleting them.
->>>
->>> Adding a new interface is implemented by sending request to firmwar=
-e for
->>> creating a new BSS and waiting for a proper event. Ideally deleting
->>> interface should be handled in a similar way. There should be a req=
-uest
->>> to firmware for deleting BSS and firmware should respond with an ev=
-ent.
->>>
->>> Unfortunately it doesn't seem to work with recent firmwares. They n=
-ever
->>> seem to delete BSS and never send BRCMF_E_IF_DEL. As a workaround t=
-his
->>> patch deletes Linux interface while keeping a track of BSSes presen=
-t in
->>> a firmware. If there is request for adding a new interface this cod=
-e is
->>> capable of reusing existing BSS-es.
->>
->> It is not so much an issue of recent firmware. Actually, on recent
->> firmware 7.x.y.z and higher there are other command to create *and*
->> delete additional interfaces. On the other hand we aim to support a
->> large number of devices going back to bcm4329 so we have to come up =
-with
->> a scheme to use the new commands or fallback to old api. Let's hope =
-we
->> can reuse much of this effort you put in.
+On Fri, 17 Jun 2016 11:04:54 -0700
+Anuradha Karuppiah <anuradhak@cumulusnetworks.com> wrote:
+
+> On Tue, May 31, 2016 at 12:22 PM, Anuradha Karuppiah
+> <anuradhak@cumulusnetworks.com> wrote:
+> > On Tue, May 31, 2016 at 11:59 AM, Stephen Hemminger
+> > <stephen@networkplumber.org> wrote:
+> >> On Fri, 27 May 2016 21:37:14 -0700
+> >> Roopa Prabhu <roopa@cumulusnetworks.com> wrote:
+> >>
+> >>> Sample output:
+> >>> $bridge -j fdb show
+> >>> [{
+> >>>         "mac": "44:38:39:00:69:88",
+> >>>         "dev": "swp2s0",
+> >>>         "vlan": 2,
+> >>>         "master": "br0",
+> >>>         "state": "permanent"
+> >>>     },{
+> >>>         "mac": "00:02:00:00:00:01",
+> >>>         "dev": "swp2s0",
+> >>>         "vlan": 2,
+> >>>         "master": "br0"
+> >>>     },{
+> >>>         "mac": "00:02:00:00:00:02",
+> >>>         "dev": "swp2s1",
+> >>>         "vlan": 2,
+> >>>         "master": "br0"
+> >>>     },{
+> >>>         "mac": "44:38:39:00:69:89",
+> >>>         "dev": "swp2s1",
+> >>>         "master": "br0",
+> >>>         "state": "permanent"
+> >>>     },{
+> >>>         "mac": "44:38:39:00:69:89",
+> >>>         "dev": "swp2s1",
+> >>>         "vlan": 2,
+> >>>         "master": "br0",
+> >>>         "state": "permanent"
+> >>>     },{
+> >>>         "mac": "44:38:39:00:69:88",
+> >>>         "dev": "br0",
+> >>>         "master": "br0",
+> >>>         "state": "permanent"
+> >>>     }
+> >>>     ]
+> >>
+> >> In most JSON I have seen, the output would be:
+> >>
+> >> {
+> >>   "fdb" : [
+> >>      {
+> >>          "mac": "44:38:39:00:69:88",
+> >>          "dev": "swp2s0",
+> >>          "vlan": 2,
+> >>          "master": "br0",
+> >>          "state": "permanent"
+> >>      },
+> >> ...
+> >>    ]
+> >> }
+> >>
+> >> I.e never a bare array.
+> >>
+> > Yes Stephen, Adding an extra level would be one way to force the
+> > format to json-object. And that would definitely be the way to do i=
+t
+> > if we ever added a top level json dump - something like - "bridge -=
+j
+> > show".
+> >
+> > But in the case of "bridge -j fdb show" that level is redundant. To=
+ be
+> > consistent we would have to add that extra level to all json dumps
+> > (even if they were already objects; such as the "bridge -j vlan
+> > show").The google json style guide recommends against adding hierar=
+chy
+> > unless needed. And it is not that uncommon in java to have a
+> > json-array of objects for e.g. http://json-schema.org/example1.html
+> > talks about a schema that is an "array of products".
+> >
+> > What do you recommend?
 >=20
-> You gave me a complex puzzle there :D It took me a while to find out
-> what API you meant.
-
-Actually, the puzzle was supposed to be for me, but I like your
-curiosity and persistence in digging up the (partial) info.
-
-> Finally I found an interesting wlioctl.h in SDK 9.10.178.27 that gave
-> me some clue. I got this SDK from ASUS RT-AC1200G+ open souce tarball=
-=2E
-> There are 2 interesting structs:
+> Hi Stephen,
+> We did a bit more digging around and found that other folks use json
+> output with top level array as well. Here=E2=80=99s a docker networks=
+ json
+> output sample -
 >=20
-> typedef struct wl_interface_create {
->         uint16 ver; /* version of this struct */
->         uint32  flags; /* flags that defines the operation */
->         struct ether_addr   mac_addr; /* Optional Mac address */
->         uint32  wlc_index; /* Optional wlc index */
-> } wl_interface_create_t;
+> vagrant@host-21 ~ $ docker network inspect red
+> [
+>     {
+>         "Name": "red",
+>         "Id": "d2fff9bafd7564c4012aa49f322fcd8f5743cc5ceb465dc218af5b=
+a22c920981",
+>         "Scope": "global",
+>         "Driver": "overlay",
+>         "EnableIPv6": false,
+>         "IPAM": {
+>             "Driver": "default",
+>             "Options": {},
+>             "Config": [
+>                 {
+>                     "Subnet": "10.252.20.0/24"
+>                 }
+>             ]
+>         },
+>         "Internal": false,
+>         "Containers": {
+>             "c92084c1ebfb4f0a601537298c273078862207e3b564787ddd6ef564=
+efbaca47":
+> {
+>                 "Name": "ctr21",
+>                 "EndpointID":
+> "e7468a70f13f1ea7b15445ab555374892ac41f71ea9023af1d9ede668bfd8742",
+>                 "MacAddress": "02:42:0a:fc:14:03",
+>                 "IPv4Address": "10.252.20.3/24",
+>                 "IPv6Address": ""
+>             },
+>             "ep-9bfc004b4046512f0f0104fe022d3686f5237ae08475741f8d520=
+552cbb63d45":
+> {
+>                 "Name": "ctr22",
+>                 "EndpointID":
+> "9bfc004b4046512f0f0104fe022d3686f5237ae08475741f8d520552cbb63d45",
+>                 "MacAddress": "02:42:0a:fc:14:02",
+>                 "IPv4Address": "10.252.20.2/24",
+>                 "IPv6Address": ""
+>             }
+>         },
+>         "Options": {},
+>         "Labels": {}
+>     }
+> ]
 >=20
-> typedef struct wl_interface_info {
->         uint16 ver; /* version of this struct */
->         struct ether_addr    mac_addr; /* MAC address of the interfac=
-e */
->         char ifname[BCM_MSG_IFNAME_MAX]; /* name of interface */
->         uint8 bsscfgidx; /* source bsscfg index */
-> } wl_interface_info_t;
->=20
-> I couldn't find any corresponding WLC_* in wlioctl_defs.h, so I guess
-> I should use WLC_SET_VAR (or WLC_SET_VAR as you prefer) with some
+> Adding an additional namespace to all the json outputs (just to avoid
+> a top-level json-array for some) seems redundant. If a namespace is
+> needed for other reasons we can definitely add it. So we think it
+> would be better to just go with the top-level json-array for a
+> list/set-of-objects outputs.
 
-(huh)? anyway the api indeed uses what we call an iovar, ie.
-string-based ioctl.
-
-> string. Any tip what would it be? Something like
-> "wl_interface_create"? Can you reveal such a small secret?
-
-It is "interface_create" and "interface_remove".
-
-Regards,
-Arend
+Ok, resubmit. I never claimed to be a JSON expert :=3D)
