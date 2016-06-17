@@ -1,109 +1,64 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [PATCH v4 net] ipvs: fix bind to link-local mcast IPv6 address
- in backup
-Date: Fri, 17 Jun 2016 09:42:49 +0300 (EEST)
-Message-ID: <alpine.LFD.2.11.1606170935230.11309@ja.home.ssi.bg>
-References: <Message-id: <alpine.LFD.2.11.1606160912380.2490@ja.home.ssi.bg> <1466060414-12944-1-git-send-email-quentin@armitage.org.uk>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: Re: [PATCH net-next v10 4/5] openvswitch: add layer 3 flow/port
+ support
+Date: Fri, 17 Jun 2016 15:53:40 +0900
+Message-ID: <20160617065337.GB24833@vergenet.net>
+References: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
+ <1464848686-7656-5-git-send-email-simon.horman@netronome.com>
+ <CAOrHB_Cy-Gtt3OJSpAdZu3M07xNWv5dYNAbYbD6ei3H-r66vyA@mail.gmail.com>
+ <20160607024609.GC31696@vergenet.net>
+ <CAOrHB_DvRmXwm19yWg9f+4sX_bK8Je_qWEFPHs9tS1QE1AiTqg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-	Simon Horman <horms@verge.net.au>,
-	Pablo Neira Ayuso <pablo@netfilter.org>,
-	Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org
-To: Quentin Armitage <quentin@armitage.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>
+To: pravin shelar <pshelar@ovn.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:33189 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753425AbcFQGna (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2016 02:43:30 -0400
-In-Reply-To: <1466060414-12944-1-git-send-email-quentin@armitage.org.uk>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34709 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752665AbcFQGxt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 02:53:49 -0400
+Received: by mail-pa0-f44.google.com with SMTP id bz2so25800418pad.1
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 23:53:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAOrHB_DvRmXwm19yWg9f+4sX_bK8Je_qWEFPHs9tS1QE1AiTqg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Tue, Jun 07, 2016 at 03:45:58PM -0700, pravin shelar wrote:
+> On Mon, Jun 6, 2016 at 7:46 PM, Simon Horman <simon.horman@netronome.com> wrote:
+> > On Thu, Jun 02, 2016 at 03:02:18PM -0700, pravin shelar wrote:
+> >> On Wed, Jun 1, 2016 at 11:24 PM, Simon Horman
+> >> <simon.horman@netronome.com> wrote:
 
-	Hello,
+[...]
 
-On Thu, 16 Jun 2016, Quentin Armitage wrote:
-
-> When using HEAD from
-> https://git.kernel.org/cgit/utils/kernel/ipvsadm/ipvsadm.git/,
-> the command:
-> ipvsadm --start-daemon backup --mcast-interface eth0.60 \
->     --mcast-group ff02::1:81
-> fails with the error message:
-> Argument list too long
+> >> > diff --git a/net/openvswitch/flow_netlink.c b/net/openvswitch/flow_netlink.c
+> >> > index 0bb650f4f219..1e1392c3c0ed 100644
+> >> > --- a/net/openvswitch/flow_netlink.c
+> >> > +++ b/net/openvswitch/flow_netlink.c
+> >
+> > [...]
+> >
+> >> > @@ -355,6 +359,7 @@ static const struct ovs_len_tbl ovs_key_lens[OVS_KEY_ATTR_MAX + 1] = {
+> >> >         [OVS_KEY_ATTR_CT_ZONE]   = { .len = sizeof(u16) },
+> >> >         [OVS_KEY_ATTR_CT_MARK]   = { .len = sizeof(u32) },
+> >> >         [OVS_KEY_ATTR_CT_LABELS] = { .len = sizeof(struct ovs_key_ct_labels) },
+> >> > +       [OVS_KEY_ATTR_PACKET_ETHERTYPE] = { .len = sizeof(__be16) },
+> >> >  };
+> >> >
+> >> I do not see need for OVS_KEY_ATTR_PACKET_ETHERTYPE, we can use
+> >> existing OVS_KEY_ATTR_ETHERTYPE to serialize the flow key. If there is
+> >> no OVS_KEY_ATTR_ETHERNET attribute then its l3 packet.
+> >
+> > The idea of OVS_KEY_ATTR_PACKET_ETHERTYPE is to allow communication of
+> > the L2 type of the packet which is not present in an L3 packet. In terms
+> > of GRE (non-TEB) this correlates to the Protocol Type field in the GRE
+> > header.
 > 
-> whereas both:
-> ipvsadm --start-daemon master --mcast-interface eth0.60 \
->     --mcast-group ff02::1:81
-> and:
-> ipvsadm --start-daemon backup --mcast-interface eth0.60 \
->     --mcast-group 224.0.0.81
-> are successful.
-> 
-> The error message "Argument list too long" isn't helpful. The error occurs
-> because an IPv6 address is given in backup mode.
-> 
-> The error is in make_receive_sock() in net/netfilter/ipvs/ip_vs_sync.c,
-> since it fails to set the interface on the address or the socket before
-> calling inet6_bind() (via sock->ops->bind), where the test
-> 'if (!sk->sk_bound_dev_if)' failed.
-> 
-> Setting sock->sk->sk_bound_dev_if on the socket before calling
-> inet6_bind() resolves the issue.
-> 
-> Fixes: d33288172e72 ("ipvs: add more mcast parameters for the sync daemon")
-> Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
+> How about using OVS_KEY_ATTR_ETHERTYPE to communicate the protocol type?
 
-	Looks good to me, thanks!
-
-Acked-by: Julian Anastasov <ja@ssi.bg>
-
-	Simon, please apply to ipvs tree. Patch compiles
-also on stable 4.4.13, 4.5.7 and 4.6.2, so no need for
-special versions. The ack is also for the other 3 patches
-from v4 (for ipvs-next) but they depend on this patch.
-
-> ---
->  net/netfilter/ipvs/ip_vs_sync.c |    6 ++++--
->  1 files changed, 4 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-> index 803001a..1b07578 100644
-> --- a/net/netfilter/ipvs/ip_vs_sync.c
-> +++ b/net/netfilter/ipvs/ip_vs_sync.c
-> @@ -1545,7 +1545,8 @@ error:
->  /*
->   *      Set up receiving multicast socket over UDP
->   */
-> -static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id)
-> +static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id,
-> +					int ifindex)
->  {
->  	/* multicast addr */
->  	union ipvs_sockaddr mcast_addr;
-> @@ -1566,6 +1567,7 @@ static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id)
->  		set_sock_size(sock->sk, 0, result);
->  
->  	get_mcast_sockaddr(&mcast_addr, &salen, &ipvs->bcfg, id);
-> +	sock->sk->sk_bound_dev_if = ifindex;
->  	result = sock->ops->bind(sock, (struct sockaddr *)&mcast_addr, salen);
->  	if (result < 0) {
->  		pr_err("Error binding to the multicast addr\n");
-> @@ -1868,7 +1870,7 @@ int start_sync_thread(struct netns_ipvs *ipvs, struct ipvs_sync_daemon_cfg *c,
->  		if (state == IP_VS_STATE_MASTER)
->  			sock = make_send_sock(ipvs, id);
->  		else
-> -			sock = make_receive_sock(ipvs, id);
-> +			sock = make_receive_sock(ipvs, id, dev->ifindex);
->  		if (IS_ERR(sock)) {
->  			result = PTR_ERR(sock);
->  			goto outtinfo;
-> -- 
-> 1.7.7.6
-
-Regards
+Yes, I believe that I now have that working locally. The assumption that
+I am now working with is that OVS_KEY_ATTR_ETHERTYPE provides the type
+metadata for Layer 3 packets if OVS_KEY_ATTR_ETHERNET (the Mac addresses)
+is absent.
