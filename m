@@ -1,90 +1,46 @@
-From: William Tu <u9012063@gmail.com>
-Subject: [net-next,v3] openvswitch: Add packet len info to upcall.
-Date: Fri, 17 Jun 2016 12:52:57 -0700
-Message-ID: <1466193177-7656-1-git-send-email-u9012063@gmail.com>
-Cc: Pravin Shelar <pshelar@nicira.com>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: [PATCH net] RDS: TCP: rds_tcp_accept_one() should transition socket
+ from RESETTING to UP
+Date: Fri, 17 Jun 2016 16:12:12 -0400
+Message-ID: <20160617201212.GC29044@oracle.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: sowmini.varadhan@oracle.com, davem@davemloft.net,
+	santosh.shilimkar@oracle.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:36820 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S964820AbcFQTxF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 15:53:05 -0400
-Received: by mail-pf0-f195.google.com with SMTP id i123so3753908pfg.3
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 12:53:05 -0700 (PDT)
+Received: from aserp1040.oracle.com ([141.146.126.69]:21675 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933478AbcFQUMR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 16:12:17 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The commit f2a4d086ed4c ("openvswitch: Add packet truncation support.")
-introduces packet truncation before sending to userspace upcall receiver.
-This patch passes up the skb->len before truncation so that the upcall
-receiver knows the original packet size. Potentially this will be used
-by sFlow, where OVS translates sFlow config header=N to a sample action,
-truncating packet to N byte in kernel datapath. Thus, only N bytes instead
-of full-packet size is copied from kernel to userspace, saving the
-kernel-to-userspace bandwidth.
+The state of the rds_connection after rds_tcp_reset_callbacks() would
+be RDS_CONN_RESETTING and this is the value that should be passed
+by rds_tcp_accept_one()  to rds_connect_path_complete() to transition
+the socket to RDS_CONN_UP.
 
-Signed-off-by: William Tu <u9012063@gmail.com>
-Cc: Pravin Shelar <pshelar@nicira.com>
+Fixes: b5c21c0947c1 ("RDS: TCP: fix race windows in send-path quiescence
+by rds_tcp_accept_one()")
+Signed-off-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
 ---
-v2->v3:
-- remove platform specific name.
-- fix issue when receiving GSO packet
-- remove skblen in struct dp_upcall_info
-v1->v2:
-- pass skb->len to userspace instead of cutlen
----
- include/uapi/linux/openvswitch.h |  2 ++
- net/openvswitch/datapath.c       | 11 ++++++++++-
- 2 files changed, 12 insertions(+), 1 deletion(-)
+ net/rds/tcp_listen.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-index 8274675..d95a301 100644
---- a/include/uapi/linux/openvswitch.h
-+++ b/include/uapi/linux/openvswitch.h
-@@ -166,6 +166,7 @@ enum ovs_packet_cmd {
-  * output port is actually a tunnel port. Contains the output tunnel key
-  * extracted from the packet as nested %OVS_TUNNEL_KEY_ATTR_* attributes.
-  * @OVS_PACKET_ATTR_MRU: Present for an %OVS_PACKET_CMD_ACTION and
-+ * @OVS_PACKET_ATTR_LEN: Packet size before truncation.
-  * %OVS_PACKET_ATTR_USERSPACE action specify the Maximum received fragment
-  * size.
-  *
-@@ -185,6 +186,7 @@ enum ovs_packet_attr {
- 	OVS_PACKET_ATTR_PROBE,      /* Packet operation is a feature probe,
- 				       error logging should be suppressed. */
- 	OVS_PACKET_ATTR_MRU,	    /* Maximum received IP fragment size. */
-+	OVS_PACKET_ATTR_LEN,		/* Packet size before truncation. */
- 	__OVS_PACKET_ATTR_MAX
- };
- 
-diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-index 6739342..623fc04 100644
---- a/net/openvswitch/datapath.c
-+++ b/net/openvswitch/datapath.c
-@@ -387,7 +387,8 @@ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
- {
- 	size_t size = NLMSG_ALIGN(sizeof(struct ovs_header))
- 		+ nla_total_size(hdrlen) /* OVS_PACKET_ATTR_PACKET */
--		+ nla_total_size(ovs_key_attr_size()); /* OVS_PACKET_ATTR_KEY */
-+		+ nla_total_size(ovs_key_attr_size()) /* OVS_PACKET_ATTR_KEY */
-+		+ nla_total_size(sizeof(unsigned int)); /* OVS_PACKET_ATTR_LEN */
- 
- 	/* OVS_PACKET_ATTR_USERDATA */
- 	if (upcall_info->userdata)
-@@ -514,6 +515,14 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
- 		pad_packet(dp, user_skb);
- 	}
- 
-+	/* Add OVS_PACKET_ATTR_LEN */
-+	if (nla_put_u32(user_skb, OVS_PACKET_ATTR_LEN,
-+			skb->len)) {
-+		err = -ENOBUFS;
-+		goto out;
-+	}
-+	pad_packet(dp, user_skb);
-+
- 	/* Only reserve room for attribute header, packet data is added
- 	 * in skb_zerocopy() */
- 	if (!(nla = nla_reserve(user_skb, OVS_PACKET_ATTR_PACKET, 0))) {
+diff --git a/net/rds/tcp_listen.c b/net/rds/tcp_listen.c
+index 686b1d0..245542c 100644
+--- a/net/rds/tcp_listen.c
++++ b/net/rds/tcp_listen.c
+@@ -138,7 +138,7 @@ int rds_tcp_accept_one(struct socket *sock)
+ 			rds_tcp_reset_callbacks(new_sock, conn);
+ 			conn->c_outgoing = 0;
+ 			/* rds_connect_path_complete() marks RDS_CONN_UP */
+-			rds_connect_path_complete(conn, RDS_CONN_DISCONNECTING);
++			rds_connect_path_complete(conn, RDS_CONN_RESETTING);
+ 		}
+ 	} else {
+ 		rds_tcp_set_callbacks(new_sock, conn);
 -- 
-2.5.0
+1.7.1
