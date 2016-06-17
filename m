@@ -1,88 +1,54 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH 1/2] mlx5: only register devlink when ethernet is
- available
-Date: Fri, 17 Jun 2016 18:40:42 +0300
-Message-ID: <20160617154042.GB5408@leon.nu>
-References: <20160615152816.2800830-1-arnd@arndb.de>
- <6330398.ySWGKSmLdn@wuerfel>
- <CALzJLG8BEivMg4h+=FcQ_7QFrZTRhRNsPgEH68WPKfmkguvNqA@mail.gmail.com>
- <51058521.f6SstSCt2o@wuerfel>
-Reply-To: leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] net: tilegx: use correct timespec64 type
+Date: Fri, 17 Jun 2016 18:15:30 +0200
+Message-ID: <20160617161540.1362545-1-arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="2vfFyZRy2guiefOI"
-Cc: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>,
-	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Eli Cohen <eli-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Majd Dibbiny <majd-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Fengguang Wu <fengguang.wu-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <51058521.f6SstSCt2o@wuerfel>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: y2038@lists.linaro.org, netdev@vger.kernel.org,
+ Richard Cochran <richardcochran@gmail.com>, linux-kernel@vger.kernel.org,
+ Arnd Bergmann <arnd@arndb.de>
+To: Chris Metcalf <cmetcalf@mellanox.com>
+Return-path: <y2038-bounces@lists.linaro.org>
+List-Unsubscribe: <https://lists.linaro.org/mailman/options/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=unsubscribe>
+List-Archive: <http://lists.linaro.org/pipermail/y2038/>
+List-Post: <mailto:y2038@lists.linaro.org>
+List-Help: <mailto:y2038-request@lists.linaro.org?subject=help>
+List-Subscribe: <https://lists.linaro.org/mailman/listinfo/y2038>,
+ <mailto:y2038-request@lists.linaro.org?subject=subscribe>
+Errors-To: y2038-bounces@lists.linaro.org
+Sender: "Y2038" <y2038-bounces@lists.linaro.org>
 List-Id: netdev.vger.kernel.org
 
-
---2vfFyZRy2guiefOI
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, Jun 17, 2016 at 05:02:33PM +0200, Arnd Bergmann wrote:
-> On Friday, June 17, 2016 5:50:14 PM CEST Saeed Mahameed wrote:
-> > On Wed, Jun 15, 2016 at 11:50 PM, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
-> > > On Wednesday, June 15, 2016 7:04:54 PM CEST Saeed Mahameed wrote:
-> > > Ok, I see. It would be nice if the process had a way to avoid build r=
-egressions
-> > > in linux-next, in particular if you already have a fix by the time a =
-patch
-> > > that introduces a problem gets added.
-> > >
-> >=20
-> > The reason we added this tree is to get 0-day testing but currently it
-> > makes some unwanted noise
-> > so we will remove it until we figure it out.
->=20
-> I think you can simply ask Fengguang Wu to add your git tree to the list
-> of trees he pulls from for the 0-day test bot.
-
-It is not 0-day only, but linux-next too. It works flawlessly for RDMA
-topics and Doug receives cleaned and fully tested patches. Sadly enough,
-it didn't work well for mlx5 net part.
-
-Till further notice, I removed mlx5 net part (submission queue) from my
-tree and from linux-next.
-
---2vfFyZRy2guiefOI
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJXZBn6AAoJEORje4g2clinXfYQAMGF80nVGPxbqFcwCIFBwwJk
-OOQ7U4Qary0BE3X3aYhiloxDtZQoschtUyutoARpW9o3uqqPgkn9WnCeGx4i4Ny6
-I7RkzxCfBgWh0QGCdqog9+O8chj0No7MXrsZoDXHv4HSNQakTMpMu7B+TKFKQeUv
-cg7BAcqPAdgBEmvd2scm59CJC+ncHxDuJNZxpADyS4t5YqhhTPxHUVcnbaqYCFZx
-ONU/FJZkmc/I2esGnJJ2nmfmrOxwjYFFJMFTzAA/+KPoT/DE88CQ0Ac1MjJdJZC3
-ZzP58SkReJQJDBLgIdHB9vx8LAuS2e371M/dSXnhcpDbt0pG48WreKc/JXnM9RhW
-yJuUDt17SffyJhhbWmQcwww0G+wQuToHqiEB7ZsdD3+NKOb0sQVL638eAJhdoLAB
-oRj1y286d5npoZahMZq+Qahi5tsFQx6vU875C2P5/xDc3z/NjJb49V2pfTaRL6CK
-6qpeh12JmBdGYsqUdiDDjHQ5G1lKhN0lRcsHdoiUtA8lO6XU+vEggHF88VDr173B
-fcTW4zUGt28HiEqhaBklyFDcY2OiDGQVtDbZltUJqHXp0XGw3/4T93CadIeAbKyk
-BCXyquG2Slt/I7cmIP39CYNgKaXGuxECHRT7bap3uAuLgbg1L70gX0q/OMkv0wkf
-NiqraMyWtroGCa1lmfqA
-=I/DH
------END PGP SIGNATURE-----
-
---2vfFyZRy2guiefOI--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+VGhlIGNvbnZlcnNpb24gdG8gdGhlIDY0LWJpdCB0aW1lIGJhc2VkIHB0cCBtZXRob2RzIGxlZnQg
+dHdvIGluc3RhbmNlcwpvZiAnc3RydWN0IHRpbWVzcGVjJyBpbiBwbGFjZS4gVGhpcyBpcyBoYXJt
+bGVzcyBiZWNhdXNlIDY0LWJpdAphcmNoaXRlY3R1cmVzIGRlZmluZSB0aW1lc3BlYzY0IGFzIHRp
+bWVzcGVjLCBhbmQgdGhpcyBkcml2ZXIgaXMKbm90IHVzZWQgb24gMzItYml0IG1hY2hpbmVzLgoK
+SG93ZXZlciwgdXNpbmcgJ3N0cnVjdCB0aW1lc3BlYzY0JyBkaXJlY3RseSBpcyBvYnZpb3VzbHkg
+dGhlIHJpZ2h0CnRoaW5nIHRvIGRvLCBhbmQgd2lsbCBoZWxwIHVzIHJlbW92ZSAnc3RydWN0IHRp
+bWVzcGVjJyBpbiB0aGUgZnV0dXJlLgoKU2lnbmVkLW9mZi1ieTogQXJuZCBCZXJnbWFubiA8YXJu
+ZEBhcm5kYi5kZT4KRml4ZXM6IGI5YWNmMjRmNzc5YyAoInB0cDogdGlsZWd4OiBjb252ZXJ0IHRv
+IHRoZSA2NCBiaXQgZ2V0L3NldCB0aW1lIG1ldGhvZHMuIikKLS0tCiBkcml2ZXJzL25ldC9ldGhl
+cm5ldC90aWxlL3RpbGVneC5jIHwgNiArKystLS0KIDEgZmlsZSBjaGFuZ2VkLCAzIGluc2VydGlv
+bnMoKyksIDMgZGVsZXRpb25zKC0pCgpkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQv
+dGlsZS90aWxlZ3guYyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L3RpbGUvdGlsZWd4LmMKaW5kZXgg
+MGExNWFjYzA3NWIzLi4xMTIxM2EzOGM3OTUgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L3RpbGUvdGlsZWd4LmMKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvdGlsZS90aWxlZ3gu
+YwpAQCAtNDYyLDcgKzQ2Miw3IEBAIHN0YXRpYyB2b2lkIHRpbGVfdHhfdGltZXN0YW1wKHN0cnVj
+dCBza19idWZmICpza2IsIGludCBpbnN0YW5jZSkKIAlpZiAodW5saWtlbHkoKHNodHgtPnR4X2Zs
+YWdzICYgU0tCVFhfSFdfVFNUQU1QKSAhPSAwKSkgewogCQlzdHJ1Y3QgbXBpcGVfZGF0YSAqbWQg
+PSAmbXBpcGVfZGF0YVtpbnN0YW5jZV07CiAJCXN0cnVjdCBza2Jfc2hhcmVkX2h3dHN0YW1wcyBz
+aGh3dHN0YW1wczsKLQkJc3RydWN0IHRpbWVzcGVjIHRzOworCQlzdHJ1Y3QgdGltZXNwZWM2NCB0
+czsKIAogCQlzaHR4LT50eF9mbGFncyB8PSBTS0JUWF9JTl9QUk9HUkVTUzsKIAkJZ3hpb19tcGlw
+ZV9nZXRfdGltZXN0YW1wKCZtZC0+Y29udGV4dCwgJnRzKTsKQEAgLTg4Niw5ICs4ODYsOSBAQCBz
+dGF0aWMgc3RydWN0IHB0cF9jbG9ja19pbmZvIHB0cF9tcGlwZV9jYXBzID0gewogLyogU3luYyBt
+UElQRSdzIHRpbWVzdGFtcCB1cCB3aXRoIExpbnV4IHN5c3RlbSB0aW1lIGFuZCByZWdpc3RlciBQ
+VFAgY2xvY2suICovCiBzdGF0aWMgdm9pZCByZWdpc3Rlcl9wdHBfY2xvY2soc3RydWN0IG5ldF9k
+ZXZpY2UgKmRldiwgc3RydWN0IG1waXBlX2RhdGEgKm1kKQogewotCXN0cnVjdCB0aW1lc3BlYyB0
+czsKKwlzdHJ1Y3QgdGltZXNwZWM2NCB0czsKIAotCWdldG5zdGltZW9mZGF5KCZ0cyk7CisJa3Rp
+bWVfZ2V0X3RzNjQoJnRzKTsKIAlneGlvX21waXBlX3NldF90aW1lc3RhbXAoJm1kLT5jb250ZXh0
+LCAmdHMpOwogCiAJbXV0ZXhfaW5pdCgmbWQtPnB0cF9sb2NrKTsKLS0gCjIuOS4wCgpfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpZMjAzOCBtYWlsaW5nIGxp
+c3QKWTIwMzhAbGlzdHMubGluYXJvLm9yZwpodHRwczovL2xpc3RzLmxpbmFyby5vcmcvbWFpbG1h
+bi9saXN0aW5mby95MjAzOAo=
