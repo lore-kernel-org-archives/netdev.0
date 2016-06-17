@@ -1,72 +1,72 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] netfilter/nflog: nflog-range does not truncate packets
-Date: Fri, 17 Jun 2016 13:22:19 +0200
-Message-ID: <20160617112219.GA3395@salvia>
-References: <20160602002354.GG1644@akamai.com>
- <20160606223106.GA1621@salvia>
- <57575367.4010604@akamai.com>
- <20160608121625.GA4097@salvia>
- <5759AE1B.2080500@akamai.com>
- <575E2B49.7090809@akamai.com>
- <20160615123945.GA3594@salvia>
- <57616C49.7090403@akamai.com>
- <c7780b528f80417bbac319767a2ecf65@usma1ex-dag1mb5.msg.corp.akamai.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] brcmfmac: use const char * for interface name in
+ brcmf_add_if
+Date: Fri, 17 Jun 2016 04:23:14 -0700
+Message-ID: <1466162594.19647.107.camel@perches.com>
+References: <1464378815-23282-1-git-send-email-zajec5@gmail.com>
+	 <1466160530-32626-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Pai, Vishwanath" <vpai@akamai.com>,
-	"kaber@trash.net" <kaber@trash.net>,
-	"kadlec@blackhole.kfki.hu" <kadlec@blackhole.kfki.hu>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"coreteam@netfilter.org" <coreteam@netfilter.org>,
-	"Hunt, Joshua" <johunt@akamai.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"pai.vishwain@gmail.com" <pai.vishwain@gmail.com>
-To: "Lubashev, Igor" <ilubashe@akamai.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <c7780b528f80417bbac319767a2ecf65@usma1ex-dag1mb5.msg.corp.akamai.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Arend van Spriel <arend.vanspriel@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	Hante Meuleman <hante.meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+	<linux-wireless@vger.kernel.org>,
+	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+	<brcm80211-dev-list.pdl@broadcom.com>,
+	"open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: =?UTF-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466160530-32626-1-git-send-email-zajec5@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 15, 2016 at 03:13:15PM +0000, Lubashev, Igor wrote:
-> Vish, Pablo,
-> 
-> I wonder about the value of sending more data than a client is
-> willing to consume (setting aside the important fact that the client
-> code crashes due to the extra data).
-> 
-> It seems that we should either drop the nflog-range parameter from
-> nflog altogether (and just use the len from the client) or allow
-> nflog-range to further *restrict* the number of bytes sent to the
-> client.
-> 
-> The "further restrict" logic would make it easier to build iptables
-> rules that vary nflog-range based on some match conditions, so a
-> single client would get different packet length depending on what
-> rules matched.
+On Fri, 2016-06-17 at 12:48 +0200, Rafa=C5=82 Mi=C5=82ecki wrote:
+> This function can work just fine with const pointer, it only calls
+> alloc_netdev which take const as well. Moreover it makes this functio=
+n
+> more flexible as some cfg80211 callback may provide const char * as
+> well, e.g. add_virtual_intf. This will be needed for more advanced
+> interface management.
+[]
+> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c =
+b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
+[]
+> @@ -638,7 +638,7 @@ fail:
+> =C2=A0}
+> =C2=A0
+> =C2=A0struct brcmf_if *brcmf_add_if(struct brcmf_pub *drvr, s32 bsscf=
+gidx, s32 ifidx,
+> -			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0bool is_p2pdev, char *name, u=
+8 *mac_addr)
+> +			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0bool is_p2pdev, const char *n=
+ame, u8 *mac_addr)
 
-Now I understand your usecase. Restricting the size based on match
-conditions sound reasonable to me.
+Looks like mac_addr should be const too
 
-Why don't you add a new userspace option, eg. --nflog-size, that
-specifies this "further restrict" logic?
-
-What I'm proposing is:
-
-1) If --nflog-range is used, print a message telling: "--nflog-range
-   has never worked, ignoring this option."
-
-2) If --nflog-size is used, set the size in the structure that is
-   passed to the kernel, and apply this "further restrict" logic.
-
-3) Add the flag to the kernel that I suggested. This flag is only set
-   via --nflog-size.
-
-Just to clarify: What I'm trying to avoid is breaking the thing for
-users that are using this --nflog-range (even if it doesn't work) and
-then change the behaviour for them.
-
-With the new option, we really validate that the user is exactly
-asking for this "further restrict" logic that you need.
-
-let me know, thanks.
+> =C2=A0{
+> =C2=A0	struct brcmf_if *ifp;
+> =C2=A0	struct net_device *ndev;
+> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.h =
+b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.h
+[]
+> @@ -215,7 +215,7 @@ char *brcmf_ifname(struct brcmf_if *ifp);
+> =C2=A0struct brcmf_if *brcmf_get_ifp(struct brcmf_pub *drvr, int ifid=
+x);
+> =C2=A0int brcmf_net_attach(struct brcmf_if *ifp, bool rtnl_locked);
+> =C2=A0struct brcmf_if *brcmf_add_if(struct brcmf_pub *drvr, s32 bsscf=
+gidx, s32 ifidx,
+> -			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0bool is_p2pdev, char *name, u=
+8 *mac_addr);
+> +			=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0bool is_p2pdev, const char *n=
+ame, u8 *mac_addr);
+> =C2=A0void brcmf_remove_interface(struct brcmf_if *ifp, bool rtnl_loc=
+ked);
+> =C2=A0void brcmf_txflowblock_if(struct brcmf_if *ifp,
+> =C2=A0			=C2=A0=C2=A0enum brcmf_netif_stop_reason reason, bool state)=
+;
