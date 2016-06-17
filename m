@@ -1,67 +1,89 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: Re: [patch -next] tipc: potential shift wrapping
-	bug in map_set()
-Date: Fri, 17 Jun 2016 12:01:22 +0000
-Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D224A9483@eusaamb103.ericsson.se>
-References: <20160617092226.GD25609@mwanda>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Subject: Re: [PATCH RFC] brcmfmac: support deleting MBSS AP interfaces
+Date: Fri, 17 Jun 2016 14:30:47 +0200
+Message-ID: <CACna6rzcfYu=3qoMsTCShHUWbpz-0-uWgogVLWJwiNv228PhPQ@mail.gmail.com>
+References: <1464791845-23944-1-git-send-email-zajec5@gmail.com> <574F30D8.5000300@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
-	"tipc-discussion@lists.sourceforge.net"
-	<tipc-discussion@lists.sourceforge.net>,
-	"David S. Miller" <davem@davemloft.net>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <20160617092226.GD25609@mwanda>
-Content-Language: en-US
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+	<brcm80211-dev-list@broadcom.com>,
+	"open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
+	open list <linux-kernel@vger.kernel.org>
+To: Arend van Spriel <arend.vanspriel@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <574F30D8.5000300@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Acked.  This will only be relevant in clusters > 1000 nodes, which I must admit I haven't tested yet.
+On 1 June 2016 at 21:00, Arend van Spriel <arend.vanspriel@broadcom.com=
+> wrote:
+> On 01-06-16 16:36, Rafa=C5=82 Mi=C5=82ecki wrote:
+>> We already support adding extra (AP) interfaces so it also makes an
+>> obvious sense to allow deleting them.
+>>
+>> Adding a new interface is implemented by sending request to firmware=
+ for
+>> creating a new BSS and waiting for a proper event. Ideally deleting
+>> interface should be handled in a similar way. There should be a requ=
+est
+>> to firmware for deleting BSS and firmware should respond with an eve=
+nt.
+>>
+>> Unfortunately it doesn't seem to work with recent firmwares. They ne=
+ver
+>> seem to delete BSS and never send BRCMF_E_IF_DEL. As a workaround th=
+is
+>> patch deletes Linux interface while keeping a track of BSSes present=
+ in
+>> a firmware. If there is request for adding a new interface this code=
+ is
+>> capable of reusing existing BSS-es.
+>
+> It is not so much an issue of recent firmware. Actually, on recent
+> firmware 7.x.y.z and higher there are other command to create *and*
+> delete additional interfaces. On the other hand we aim to support a
+> large number of devices going back to bcm4329 so we have to come up w=
+ith
+> a scheme to use the new commands or fallback to old api. Let's hope w=
+e
+> can reuse much of this effort you put in.
 
-///jon
+You gave me a complex puzzle there :D It took me a while to find out
+what API you meant.
 
-> -----Original Message-----
-> From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
-> Sent: Friday, 17 June, 2016 05:22
-> To: Jon Maloy
-> Cc: Ying Xue; David S. Miller; netdev@vger.kernel.org; tipc-
-> discussion@lists.sourceforge.net; kernel-janitors@vger.kernel.org
-> Subject: [patch -next] tipc: potential shift wrapping bug in map_set()
-> 
-> "up_map" is a u64 type but we're not using the high 32 bits.
-> 
-> Fixes: 35c55c9877f8 ('tipc: add neighbor monitoring framework')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-> 
-> diff --git a/net/tipc/monitor.c b/net/tipc/monitor.c
-> index 87d4efe..0d489e8 100644
-> --- a/net/tipc/monitor.c
-> +++ b/net/tipc/monitor.c
-> @@ -122,8 +122,8 @@ static int dom_size(int peers)
-> 
->  static void map_set(u64 *up_map, int i, unsigned int v)
->  {
-> -	*up_map &= ~(1 << i);
-> -	*up_map |= (v << i);
-> +	*up_map &= ~(1ULL << i);
-> +	*up_map |= ((u64)v << i);
->  }
-> 
->  static int map_get(u64 up_map, int i)
+=46inally I found an interesting wlioctl.h in SDK 9.10.178.27 that gave
+me some clue. I got this SDK from ASUS RT-AC1200G+ open souce tarball.
+There are 2 interesting structs:
 
-------------------------------------------------------------------------------
-What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
-patterns at an interface-level. Reveals which users, apps, and protocols are 
-consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
-J-Flow, sFlow and other flows. Make informed decisions using capacity planning
-reports. http://sdm.link/zohomanageengine
+typedef struct wl_interface_create {
+        uint16 ver; /* version of this struct */
+        uint32  flags; /* flags that defines the operation */
+        struct ether_addr   mac_addr; /* Optional Mac address */
+        uint32  wlc_index; /* Optional wlc index */
+} wl_interface_create_t;
+
+typedef struct wl_interface_info {
+        uint16 ver; /* version of this struct */
+        struct ether_addr    mac_addr; /* MAC address of the interface =
+*/
+        char ifname[BCM_MSG_IFNAME_MAX]; /* name of interface */
+        uint8 bsscfgidx; /* source bsscfg index */
+} wl_interface_info_t;
+
+I couldn't find any corresponding WLC_* in wlioctl_defs.h, so I guess
+I should use WLC_SET_VAR (or WLC_SET_VAR as you prefer) with some
+string. Any tip what would it be? Something like
+"wl_interface_create"? Can you reveal such a small secret?
+
+Also can you share any tip on removing interface? I don't see any
+struct for that. Is that handled by some special value in
+"wl_interface_create_t" or by separated string used with WLC_SET_VAR?
