@@ -1,55 +1,67 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: rfc: netfilter: Unhide FWINV macro arguments ?
-Date: Fri, 17 Jun 2016 13:59:32 +0200
-Message-ID: <20160617115932.GA5482@salvia>
-References: <1466101259.19647.51.camel@perches.com>
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: Re: [patch -next] tipc: potential shift wrapping
+	bug in map_set()
+Date: Fri, 17 Jun 2016 12:01:22 +0000
+Message-ID: <A2BAEFC30C8FD34388F02C9B3121859D224A9483@eusaamb103.ericsson.se>
+References: <20160617092226.GD25609@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel <netfilter-devel@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1466101259.19647.51.camel@perches.com>
-Sender: netfilter-devel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kernel-janitors@vger.kernel.org" <kernel-janitors@vger.kernel.org>,
+	"tipc-discussion@lists.sourceforge.net"
+	<tipc-discussion@lists.sourceforge.net>,
+	"David S. Miller" <davem@davemloft.net>
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20160617092226.GD25609@mwanda>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 16, 2016 at 11:20:59AM -0700, Joe Perches wrote:
-> There are several FWINV #defines with identical form
-> that hide a specific structure variable and dereference
-> it with a invflags member.
+Acked.  This will only be relevant in clusters > 1000 nodes, which I must admit I haven't tested yet.
 
-Right, this macro is obscure indeed.
+///jon
 
-> $ git grep "define FWINV"
-> include/linux/netfilter_bridge/ebtables.h:#define FWINV(bool,invflg) ((bool) ^ !!(info->invflags & invflg))
-> net/bridge/netfilter/ebtables.c:#define FWINV2(bool, invflg) ((bool) ^ !!(e->invflags & invflg))
-> net/ipv4/netfilter/arp_tables.c:#define FWINV(bool, invflg) ((bool) ^ !!(arpinfo->invflags & (invflg)))
-> net/ipv4/netfilter/ip_tables.c:#define FWINV(bool, invflg) ((bool) ^ !!(ipinfo->invflags & (invflg)))
-> net/ipv6/netfilter/ip6_tables.c:#define FWINV(bool, invflg) ((bool) ^ !!(ip6info->invflags & (invflg)))
-> net/netfilter/xt_tcpudp.c:#define FWINVTCP(bool, invflg) ((bool) ^ !!(tcpinfo->invflags & (invflg)))
+> -----Original Message-----
+> From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
+> Sent: Friday, 17 June, 2016 05:22
+> To: Jon Maloy
+> Cc: Ying Xue; David S. Miller; netdev@vger.kernel.org; tipc-
+> discussion@lists.sourceforge.net; kernel-janitors@vger.kernel.org
+> Subject: [patch -next] tipc: potential shift wrapping bug in map_set()
 > 
-> It might make sense to use a new macro like:
+> "up_map" is a u64 type but we're not using the high 32 bits.
 > 
-> #define INVFLAG(var, test, invflag)			\
-> 	((test) ^ !!((var)->invflags & (invflag)))
+> Fixes: 35c55c9877f8 ('tipc: add neighbor monitoring framework')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 > 
-> and convert all the various FWINV style uses
+> diff --git a/net/tipc/monitor.c b/net/tipc/monitor.c
+> index 87d4efe..0d489e8 100644
+> --- a/net/tipc/monitor.c
+> +++ b/net/tipc/monitor.c
+> @@ -122,8 +122,8 @@ static int dom_size(int peers)
 > 
-> $ git grep --name-only "\bFWINV"
-> include/linux/netfilter_bridge/ebtables.h
-> net/bridge/netfilter/ebt_802_3.c
-> net/bridge/netfilter/ebt_arp.c
-> net/bridge/netfilter/ebt_ip.c
-> net/bridge/netfilter/ebt_ip6.c
-> net/bridge/netfilter/ebt_stp.c
-> net/bridge/netfilter/ebtables.c
-> net/ipv4/netfilter/arp_tables.c
-> net/ipv4/netfilter/ip_tables.c
-> net/ipv6/netfilter/ip6_tables.c
-> net/netfilter/xt_tcpudp.c
+>  static void map_set(u64 *up_map, int i, unsigned int v)
+>  {
+> -	*up_map &= ~(1 << i);
+> -	*up_map |= (v << i);
+> +	*up_map &= ~(1ULL << i);
+> +	*up_map |= ((u64)v << i);
+>  }
 > 
-> $ git grep "\bFWINV" | grep -v "#" | wc -l
-> 65
+>  static int map_get(u64 up_map, int i)
 
-I'll be taking a patch to sort out this. Thanks.
+------------------------------------------------------------------------------
+What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
+patterns at an interface-level. Reveals which users, apps, and protocols are 
+consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
+J-Flow, sFlow and other flows. Make informed decisions using capacity planning
+reports. http://sdm.link/zohomanageengine
