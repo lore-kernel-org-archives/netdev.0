@@ -1,94 +1,72 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: [PATCH v3 2/2] Documentation: DT: cpsw: remove rx_descs property
-Date: Fri, 17 Jun 2016 13:25:40 +0300
-Message-ID: <1466159140-3329-3-git-send-email-ivan.khoronzhuk@linaro.org>
-References: <1466159140-3329-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Cc: grygorii.strashko@ti.com, linux-omap@vger.kernel.org,
-	netdev@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
-	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
-	galak@codeaurora.org, bcousson@baylibre.com, tony@atomide.com,
-	devicetree@vger.kernel.org,
-	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-To: mugunthanvnm@ti.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1466159140-3329-1-git-send-email-ivan.khoronzhuk@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Subject: Re: [PATCH] can: tscan1: Utilize the module_isa_driver macro
+Date: Fri, 17 Jun 2016 12:29:25 +0200
+Message-ID: <d45a5da1-c791-0e93-1830-4ee05d0f6234@pengutronix.de>
+References: <20160601125951.GA31041@sophia>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha512;
+ protocol="application/pgp-signature";
+ boundary="HFa5CnFqlO5JivnBdgo3AlwqgXSQMTAaU"
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: William Breathitt Gray <vilhelm.gray@gmail.com>, wg@grandegger.com
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <20160601125951.GA31041@sophia>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-There is no reason to hold s/w dependent parameter in device tree.
-Even more, there is no reason in this parameter because davinici_cpdma
-driver splits pool of descriptors equally between tx and rx channels
-anyway.
+This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
+--HFa5CnFqlO5JivnBdgo3AlwqgXSQMTAaU
+Content-Type: multipart/mixed; boundary="E4MkcnmcqbkU3OQUJ3X3Iip96SucL4D5k"
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+To: William Breathitt Gray <vilhelm.gray@gmail.com>, wg@grandegger.com
+Cc: linux-can@vger.kernel.org, netdev@vger.kernel.org,
+ linux-kernel@vger.kernel.org
+Message-ID: <d45a5da1-c791-0e93-1830-4ee05d0f6234@pengutronix.de>
+Subject: Re: [PATCH] can: tscan1: Utilize the module_isa_driver macro
+References: <20160601125951.GA31041@sophia>
+In-Reply-To: <20160601125951.GA31041@sophia>
 
-Acked-by: Rob Herring <robh@kernel.org>
-Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
----
- Documentation/devicetree/bindings/net/cpsw.txt | 1 -
- arch/arm/boot/dts/am33xx.dtsi                  | 1 -
- arch/arm/boot/dts/am4372.dtsi                  | 1 -
- arch/arm/boot/dts/dm814x.dtsi                  | 1 -
- arch/arm/boot/dts/dra7.dtsi                    | 1 -
- 5 files changed, 5 deletions(-)
+--E4MkcnmcqbkU3OQUJ3X3Iip96SucL4D5k
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
 
-diff --git a/Documentation/devicetree/bindings/net/cpsw.txt b/Documentation/devicetree/bindings/net/cpsw.txt
-index 0ae0649..5ad439f 100644
---- a/Documentation/devicetree/bindings/net/cpsw.txt
-+++ b/Documentation/devicetree/bindings/net/cpsw.txt
-@@ -15,7 +15,6 @@ Required properties:
- - cpdma_channels 	: Specifies number of channels in CPDMA
- - ale_entries		: Specifies No of entries ALE can hold
- - bd_ram_size		: Specifies internal descriptor RAM size
--- rx_descs		: Specifies number of Rx descriptors
- - mac_control		: Specifies Default MAC control register content
- 			  for the specific platform
- - slaves		: Specifies number for slaves
-diff --git a/arch/arm/boot/dts/am33xx.dtsi b/arch/arm/boot/dts/am33xx.dtsi
-index 52be48b..702126f 100644
---- a/arch/arm/boot/dts/am33xx.dtsi
-+++ b/arch/arm/boot/dts/am33xx.dtsi
-@@ -766,7 +766,6 @@
- 			ale_entries = <1024>;
- 			bd_ram_size = <0x2000>;
- 			no_bd_ram = <0>;
--			rx_descs = <64>;
- 			mac_control = <0x20>;
- 			slaves = <2>;
- 			active_slave = <0>;
-diff --git a/arch/arm/boot/dts/am4372.dtsi b/arch/arm/boot/dts/am4372.dtsi
-index 12fcde4..a10fa7f 100644
---- a/arch/arm/boot/dts/am4372.dtsi
-+++ b/arch/arm/boot/dts/am4372.dtsi
-@@ -626,7 +626,6 @@
- 			ale_entries = <1024>;
- 			bd_ram_size = <0x2000>;
- 			no_bd_ram = <0>;
--			rx_descs = <64>;
- 			mac_control = <0x20>;
- 			slaves = <2>;
- 			active_slave = <0>;
-diff --git a/arch/arm/boot/dts/dm814x.dtsi b/arch/arm/boot/dts/dm814x.dtsi
-index d4537dc..f23cae0c 100644
---- a/arch/arm/boot/dts/dm814x.dtsi
-+++ b/arch/arm/boot/dts/dm814x.dtsi
-@@ -509,7 +509,6 @@
- 			ale_entries = <1024>;
- 			bd_ram_size = <0x2000>;
- 			no_bd_ram = <0>;
--			rx_descs = <64>;
- 			mac_control = <0x20>;
- 			slaves = <2>;
- 			active_slave = <0>;
-diff --git a/arch/arm/boot/dts/dra7.dtsi b/arch/arm/boot/dts/dra7.dtsi
-index e007401..b7ddc64 100644
---- a/arch/arm/boot/dts/dra7.dtsi
-+++ b/arch/arm/boot/dts/dra7.dtsi
-@@ -1626,7 +1626,6 @@
- 			ale_entries = <1024>;
- 			bd_ram_size = <0x2000>;
- 			no_bd_ram = <0>;
--			rx_descs = <64>;
- 			mac_control = <0x20>;
- 			slaves = <2>;
- 			active_slave = <0>;
--- 
-1.9.1
+On 06/01/2016 02:59 PM, William Breathitt Gray wrote:
+> This driver does not do anything special in module init/exit. This patc=
+h
+> eliminates the module init/exit boilerplate code by utilizing the
+> module_isa_driver macro.
+>=20
+> Signed-off-by: William Breathitt Gray <vilhelm.gray@gmail.com>
+
+Applied to can-next.
+
+Tnx,
+Marc
+
+--=20
+Pengutronix e.K.                  | Marc Kleine-Budde           |
+Industrial Linux Solutions        | Phone: +49-231-2826-924     |
+Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
+Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
+
+
+--E4MkcnmcqbkU3OQUJ3X3Iip96SucL4D5k--
+
+--HFa5CnFqlO5JivnBdgo3AlwqgXSQMTAaU
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+
+iQEcBAEBCgAGBQJXY9EFAAoJED07qiWsqSVqQJcIAIKaWTYJ8n7d+RnIdOWh61A9
+m/MoasAAuArPsfsSdAj+JvCF87GGpckmlEs39evhoMOvL5D4S/dcVTRHrn1XrOPa
+oXOlFlMvO1uNR+HBirVhtwR5tYjcpDjnyWvce2F6DT34VHXVGS0oi/AlDd8v3J/Q
+0qXO4bkVamTIuqfhg34IWPNDqa8zgjXGmlNsiJ5B/Txca3X+nTSAoWBxBwzGkJhf
+nu+gxjGIkEJj4h1RTHwGsYy8LzyJlDS4KejVth4s+mJE3SOoZLas04LcH7b68y1r
+7jWKS4D7M/cKTh42dYrneSPCAACmY2Uh6/wDo7L+zdiOOGF606tvsuylaGKrqt4=
+=1fVy
+-----END PGP SIGNATURE-----
+
+--HFa5CnFqlO5JivnBdgo3AlwqgXSQMTAaU--
