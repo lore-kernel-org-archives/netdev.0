@@ -1,86 +1,41 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH 4.7 FIX] brcmfmac: fix lockup when removing P2P interface after event timeout
-Date: Fri, 17 Jun 2016 08:13:17 +0300
-Message-ID: <87lh24v1n6.fsf@kamboji.qca.qualcomm.com>
-References: <1464378815-23282-1-git-send-email-zajec5@gmail.com>
-	<877fdpw4no.fsf@kamboji.qca.qualcomm.com>
-	<CACna6rzXzj4DJNA6855Qy6QnxETnYEPmqtw3Bcx8WWCtYwYvuw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/13] s390: qeth patches
+Date: Thu, 16 Jun 2016 22:16:30 -0700 (PDT)
+Message-ID: <20160616.221630.1823607686769158919.davem@davemloft.net>
+References: <1466086743-55484-1-git-send-email-ubraun@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky \(Zhenhui\) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	Franky Lin <franky.lin@broadcom.com>,
-	"linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	brcm80211 development <brcm80211-dev-list@broadcom.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: =?utf-8?Q?Rafa=C5=82_Mi=C5=82ecki?= <zajec5@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CACna6rzXzj4DJNA6855Qy6QnxETnYEPmqtw3Bcx8WWCtYwYvuw@mail.gmail.com>
-	(=?utf-8?Q?=22Rafa=C5=82_Mi=C5=82ecki=22's?= message of "Fri, 17 Jun 2016
- 06:59:42 +0200")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	schwidefsky@de.ibm.com, heiko.carstens@de.ibm.com,
+	utz.bacher@de.ibm.com
+To: ubraun@linux.vnet.ibm.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:46405 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750774AbcFQFQc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 01:16:32 -0400
+In-Reply-To: <1466086743-55484-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Date: Thu, 16 Jun 2016 16:18:50 +0200
 
-> On 16 June 2016 at 17:10, Kalle Valo <kvalo@codeaurora.org> wrote:
->> Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
->>
->>> Removing P2P interface is handled by sending a proper request to th=
-e
->>> firmware. On success firmware triggers an event and driver's handle=
-r
->>> removes a matching interface.
->>>
->>> However on event timeout we remove interface directly from the cfg8=
-0211
->>> callback. Current code doesn't handle this case correctly as it alw=
-ays
->>> assumes rtnl to be unlocked.
->>>
->>> Fix it by adding an extra rtnl_locked parameter to functions and ca=
-lling
->>> unregister_netdevice when needed.
->>>
->>> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
->>
->> Failed to apply, please rebase:
->>
->> Applying: brcmfmac: fix lockup when removing P2P interface after eve=
-nt timeout
->> Using index info to reconstruct a base tree...
->> Falling back to patching base and 3-way merge...
->> Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
->> Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.h
->> CONFLICT (content): Merge conflict in drivers/net/wireless/broadcom/=
-brcm80211/brcmfmac/core.h
->> Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.c
->> Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg802=
-11.c
->> Failed to merge in the changes.
->> Patch failed at 0001 brcmfmac: fix lockup when removing P2P interfac=
-e after event timeout
->
-> What tree did you try it on?
->
-> I just went into a dir where I have cloned:
-> git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.=
-git
->
-> My HEAD commit is:
-> 034fdd4 Merge ath-current from ath.git
->
-> And I can apply this patch cleanly doing:
-> curl https://patchwork.kernel.org/patch/9138925/mbox/ | git am
+> here are patches for the s390 qeth driver for net-next:
+> 
+> Patch 01 is a minor improvement for the bridgeport code in qeth.
+> 
+> Patches 02-07 take care about scatter/gather handling in qeth.
+> 
+> Patch 08 improves handling of multicast IP addresses in the qeth layer3
+> discipline.
+> 
+> Patches 09-11 improve netdev features related functions in qeth.
+> 
+> Patch 12 implements an outbound queue restriction for HiperSockets.
+> 
+> Patch 13 fixes a wrong indentation in qeth_l3_main.c causing a warning
+> with gcc-6.
 
-I was trying to apply this to wireless-drivers-next. I didn't get a
-confirmation from Arend and I didn't consider the fix important enough
-for 4.7. But of course I can reconsider if needed.
-
---=20
-Kalle Valo
+Series applied, thanks.
