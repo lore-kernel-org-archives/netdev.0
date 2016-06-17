@@ -1,96 +1,37 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
-Subject: Re: [PATCH 4.7 FIX] brcmfmac: fix lockup when removing P2P interface
- after event timeout
-Date: Fri, 17 Jun 2016 07:33:20 +0200
-Message-ID: <CACna6rym3y0sqAUptgnt-mUiBidFGzVAzw4XcYr95q6MD2r5yw@mail.gmail.com>
-References: <1464378815-23282-1-git-send-email-zajec5@gmail.com>
- <877fdpw4no.fsf@kamboji.qca.qualcomm.com> <CACna6rzXzj4DJNA6855Qy6QnxETnYEPmqtw3Bcx8WWCtYwYvuw@mail.gmail.com>
- <87lh24v1n6.fsf@kamboji.qca.qualcomm.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next v5 0/7] vmxnet3: upgrade to version 3
+Date: Thu, 16 Jun 2016 22:37:27 -0700 (PDT)
+Message-ID: <20160616.223727.1715535480635369736.davem@davemloft.net>
+References: <1466099519-39322-1-git-send-email-skhare@vmware.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Brett Rudley <brudley@broadcom.com>,
-	Arend van Spriel <arend@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	Hante Meuleman <meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	Franky Lin <franky.lin@broadcom.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	brcm80211 development <brcm80211-dev-list@broadcom.com>,
-	Network Development <netdev@vger.kernel.org>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-To: Kalle Valo <kvalo@codeaurora.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	pv-drivers@vmware.com
+To: skhare@vmware.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <87lh24v1n6.fsf@kamboji.qca.qualcomm.com>
+In-Reply-To: <1466099519-39322-1-git-send-email-skhare@vmware.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 17 June 2016 at 07:13, Kalle Valo <kvalo@codeaurora.org> wrote:
-> Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
->
->> On 16 June 2016 at 17:10, Kalle Valo <kvalo@codeaurora.org> wrote:
->>> Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com> writes:
->>>
->>>> Removing P2P interface is handled by sending a proper request to t=
-he
->>>> firmware. On success firmware triggers an event and driver's handl=
-er
->>>> removes a matching interface.
->>>>
->>>> However on event timeout we remove interface directly from the cfg=
-80211
->>>> callback. Current code doesn't handle this case correctly as it al=
-ways
->>>> assumes rtnl to be unlocked.
->>>>
->>>> Fix it by adding an extra rtnl_locked parameter to functions and c=
-alling
->>>> unregister_netdevice when needed.
->>>>
->>>> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
->>>
->>> Failed to apply, please rebase:
->>>
->>> Applying: brcmfmac: fix lockup when removing P2P interface after ev=
-ent timeout
->>> Using index info to reconstruct a base tree...
->>> Falling back to patching base and 3-way merge...
->>> Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
->>> Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.=
-h
->>> CONFLICT (content): Merge conflict in drivers/net/wireless/broadcom=
-/brcm80211/brcmfmac/core.h
->>> Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/core.=
-c
->>> Auto-merging drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80=
-211.c
->>> Failed to merge in the changes.
->>> Patch failed at 0001 brcmfmac: fix lockup when removing P2P interfa=
-ce after event timeout
->>
->> What tree did you try it on?
->>
->> I just went into a dir where I have cloned:
->> git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers=
-=2Egit
->>
->> My HEAD commit is:
->> 034fdd4 Merge ath-current from ath.git
->>
->> And I can apply this patch cleanly doing:
->> curl https://patchwork.kernel.org/patch/9138925/mbox/ | git am
->
-> I was trying to apply this to wireless-drivers-next. I didn't get a
-> confirmation from Arend and I didn't consider the fix important enoug=
-h
-> for 4.7. But of course I can reconsider if needed.
+From: Shrikrishna Khare <skhare@vmware.com>
+Date: Thu, 16 Jun 2016 10:51:52 -0700
 
-I think I agree it won't hurt to get it into -next. Noone earlier
-reported this bug and it seems to be there for a long time. Also
-applying it to -next will allow avoiding merge conflicts and immediate
-development work on -next.
+> vmxnet3 emulation has recently added several new features which includes
+> support for new commands the driver can issue to emulation, change in
+> descriptor fields etc. This patch series extends the vmxnet3 driver to
+> leverage these new features.
+> 
+> Compatibility is maintained using existing vmxnet3 versioning mechanism as
+> follows:
+>  - new features added to vmxnet3 emulation are associated with new vmxnet3
+>    version viz. vmxnet3 version 3.
+>  - emulation advertises all the versions it supports to the driver.
+>  - during initialization, vmxnet3 driver picks the highest version number
+>  supported by both the emulation and the driver and configures emulation
+>  to run at that version.
+> 
+> In particular, following changes are introduced:
+ ... 
 
-I'll resend this patch rebased on -next soon.
-
---=20
-Rafa=C5=82
+Series applied, thanks.
