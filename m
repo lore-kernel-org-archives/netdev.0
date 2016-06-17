@@ -1,59 +1,93 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 1/8] net: Change SKB_GSO_DODGY to be a tx_flag
-Date: Fri, 17 Jun 2016 15:33:15 -0700
-Message-ID: <CALx6S37skO4uRbaSaGfjM=PEV9wW-kQrHmpWERmvySpVUXKPZA@mail.gmail.com>
-References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
-	<1466099522-690741-2-git-send-email-tom@herbertland.com>
-	<CAKgT0Ud-QEtTTdzGzKkxnextMu63RZL9f2Hp=4VGxiUbeMcUkQ@mail.gmail.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH net-next 13/18] net: Add offload kernel net stack packet type
+Date: Sat, 18 Jun 2016 01:54:46 +0300
+Message-ID: <CALzJLG9=07D_VySJ8TCLXSbhjmzKy--utmu9RHE2bqrE7hkCVg@mail.gmail.com>
+References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
+ <1466174639-14576-14-git-send-email-saeedm@mellanox.com> <576413FE.3010703@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>, Kernel Team <kernel-team@fb.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Doug Ledford <dledford@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Maor Gottlieb <maorg@mellanox.com>,
+	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Patrick McHardy <kaber@trash.net>,
+	Eric Dumazet <edumazet@google.com>, ast@fb.com
+To: Daniel Borkmann <daniel@iogearbox.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f66.google.com ([209.85.214.66]:33696 "EHLO
-	mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750986AbcFQWdQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 18:33:16 -0400
-Received: by mail-it0-f66.google.com with SMTP id y82so589498itf.0
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 15:33:16 -0700 (PDT)
-In-Reply-To: <CAKgT0Ud-QEtTTdzGzKkxnextMu63RZL9f2Hp=4VGxiUbeMcUkQ@mail.gmail.com>
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:34750 "EHLO
+	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751095AbcFQWzH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 18:55:07 -0400
+Received: by mail-yw0-f195.google.com with SMTP id b75so10350906ywe.1
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 15:55:06 -0700 (PDT)
+In-Reply-To: <576413FE.3010703@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 16, 2016 at 11:58 AM, Alexander Duyck
-<alexander.duyck@gmail.com> wrote:
-> On Thu, Jun 16, 2016 at 10:51 AM, Tom Herbert <tom@herbertland.com> wrote:
->> This replaces gso_type SKB_GSO_DODGY with a new tx_flag named
->> SKBTX_UNTRUSTED_SOURCE. This more generically desrcibes the skb
->> being created from a untrusted source as a characteristic of and skbuff.
->> This also frees up one gso_type flag bit.
+On Fri, Jun 17, 2016 at 6:15 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+> On 06/17/2016 04:43 PM, Saeed Mahameed wrote:
 >>
->> Signed-off-by: Tom Herbert <tom@herbertland.com>
+>> From: Maor Gottlieb <maorg@mellanox.com>
+>>
+>> Add new packet type to skip kernel specific protocol handlers.
+>>
+>> This is needed so device drivers can pass packets up to user space
+>> (af_packet/tcpdump, etc..) without the need for them to go through
+>> the whole kernel data path.
+>>
+>> Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
+>> CC: David S. Miller <davem@davemloft.net>
+>> CC: Patrick McHardy <kaber@trash.net>
+>> CC: Eric Dumazet <edumazet@google.com>
+>> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+>> ---
+>>   include/linux/skbuff.h         | 6 +++---
+>>   include/uapi/linux/if_packet.h | 1 +
+>>   net/core/dev.c                 | 4 ++++
+>>   3 files changed, 8 insertions(+), 3 deletions(-)
+>>
+>> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+>> index dc0fca7..359724e 100644
+>> --- a/include/linux/skbuff.h
+>> +++ b/include/linux/skbuff.h
+>> @@ -694,14 +694,14 @@ struct sk_buff {
+>>
+>>   /* if you move pkt_type around you also must adapt those constants */
+>>   #ifdef __BIG_ENDIAN_BITFIELD
+>> -#define PKT_TYPE_MAX   (7 << 5)
+>> +#define PKT_TYPE_MAX   (8 << 5)
+>>   #else
+>> -#define PKT_TYPE_MAX   7
+>> +#define PKT_TYPE_MAX   8
+>>   #endif
 >
-> Instead of leaving this bit in the shared_info why not look at moving
-> it into the sk_buff itself?  It seems like this might be a better
-> candidate for something like that as a large part of what the dodgy
-> bit represents is that the header offsets are likely not set correctly
-> and need to be parsed out and updated.  It might make more sense to
-> place this in the slot just after remcsum_offload.  That way once all
-> the header offsets have been updated you could just update this one
-> bit to indicate that the header offsets stored in this sk_buff are
-> valid.
 >
-I don't really understand what the point of SKB_GSO_DODGY is. Seems
-like we should be verifying the correct values are set up front in the
-vnet, not relying on the core stack to have to worry about this narrow
-use case. Fields in the skbuff should be set correctly all the time in
-the stack as an invariant I think, if there not correct it is the
-fault of the code setting the fields.
+> Aehm ... did you actually test this with BPF ?!
+>
+> PKT_TYPE_MAX is a mask (naming could be better no doubt), see also function
+> convert_skb_access():
+>
+> [...]
+>         case SKF_AD_PKTTYPE:
+>                 *insn++ = BPF_LDX_MEM(BPF_B, dst_reg, src_reg,
+> PKT_TYPE_OFFSET());
+>                 *insn++ = BPF_ALU32_IMM(BPF_AND, dst_reg, PKT_TYPE_MAX);
+> #ifdef __BIG_ENDIAN_BITFIELD
+>                 *insn++ = BPF_ALU32_IMM(BPF_RSH, dst_reg, 5);
+> #endif
+>                 break;
+> [...]
+>
+> Also, dunno if it's worth burning a skb bit for one driver.
+>
 
-> I also don't see where these changes address any changes needed to
-> skb_gso_ok in order to actually trigger the partial walk though the
-> GSO code.  You probably need to look at adding a statement there to do
-> a check for your untrusted source bit versus the GSO_ROBUST feature.
-> It probably doesn't need to be much, just something like tacking on a
-> "&& (!skb_is_untrustued(skb) || (features & NETIF_F_GSO_ROBUST)" to
-> the conditional statement.
->
-> - Alex
+oops! it didn't occur to me that it was used as a mask!
+does this mean we are out of PKT_TYPE flags ?
+Maybe we can use skb->mark instead ? any ideas ?
+
+Also i am not sure it is a one driver thing, i know about other
+examples where some device drivers set skb->protocol to 0xffff to
+achieve the same ! which i didn't like.
