@@ -1,50 +1,70 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [BUG] act_ife: sleeping functions called in atomic context
-Date: Thu, 16 Jun 2016 19:14:36 -0700
-Message-ID: <CAM_iQpVkFvgbYQsVB0hFKa5zVa1KCPAz=cQ7sAXdJwNM=8hpzQ@mail.gmail.com>
-References: <1466110219-4825-1-git-send-email-khoroshilov@ispras.ru>
- <CAM_iQpWyfmUnQkQPz8dfO1NPmbdmW3AB9yWrJk6TqXyTo_DCow@mail.gmail.com> <57634687.3050107@mojatatu.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next v6] tcp: Add RFC4898 tcpEStatsPerfDataSegsOut/In
+Date: Thu, 16 Jun 2016 21:30:28 -0700
+Message-ID: <1466137828.7945.211.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1457977935-2018863-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexey Khoroshilov <khoroshilov@ispras.ru>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>, ldv-project@linuxtesting.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Kernel Team <kernel-team@fb.com>,
+	Chris Rapier <rapier@psc.edu>,
+	Eric Dumazet <edumazet@google.com>,
+	Marcelo Ricardo Leitner <mleitner@redhat.com>,
+	Neal Cardwell <ncardwell@google.com>,
+	Yuchung Cheng <ycheng@google.com>
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f195.google.com ([209.85.161.195]:34297 "EHLO
-	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754811AbcFQCO4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 16 Jun 2016 22:14:56 -0400
-In-Reply-To: <57634687.3050107@mojatatu.com>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:35593 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753425AbcFQEac (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 00:30:32 -0400
+Received: by mail-pa0-f44.google.com with SMTP id hl6so24508332pac.2
+        for <netdev@vger.kernel.org>; Thu, 16 Jun 2016 21:30:32 -0700 (PDT)
+In-Reply-To: <1457977935-2018863-1-git-send-email-kafai@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 16, 2016 at 5:38 PM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 16-06-16 05:43 PM, Cong Wang wrote:
->>
->> On Thu, Jun 16, 2016 at 1:50 PM, Alexey Khoroshilov
->> <khoroshilov@ispras.ru> wrote:
->>>
->>> tcf_ife_init() contains a big chunk of code executed with
->>> ife->tcf_lock spinlock held. But that code contains several calls
->>> to sleeping functions:
->>>    populate_metalist() and use_all_metadata()
->>>      -> add_metainfo()
->>>        -> find_ife_oplist(metaid)
->>>          -> read_lock()
->>>          -> try_module_get(o->owner)
->>>        -> kzalloc(sizeof(*mi), GFP_KERNEL);
->>
->>
->> Hmm, we don't need to hold that spinlock when we create a new ife action,
->> since we haven't inserted it yet. We do need it when we modify an existing
->> one. So I am thinking if we can refactor that code to avoid spinlock
->> whenever possible.
->>
->
-> Does attached (compile tested) patch help?
+On Mon, 2016-03-14 at 10:52 -0700, Martin KaFai Lau wrote:
+> Per RFC4898, they count segments sent/received
+> containing a positive length data segment (that includes
+> retransmission segments carrying data).  Unlike
+> tcpi_segs_out/in, tcpi_data_segs_out/in excludes segments
+> carrying no data (e.g. pure ack).
+> 
+> The patch also updates the segs_in in tcp_fastopen_add_skb()
+> so that segs_in >= data_segs_in property is kept.
+> 
+> Together with retransmission data, tcpi_data_segs_out
+> gives a better signal on the rxmit rate.
+> 
+> v6: Rebase on the latest net-next
+> 
+> v5: Eric pointed out that checking skb->len is still needed in
+> tcp_fastopen_add_skb() because skb can carry a FIN without data.
+> Hence, instead of open coding segs_in and data_segs_in, tcp_segs_in()
+> helper is used.  Comment is added to the fastopen case to explain why
+> segs_in has to be reset and tcp_segs_in() has to be called before
+> __skb_pull().
+> 
+> v4: Add comment to the changes in tcp_fastopen_add_skb()
+> and also add remark on this case in the commit message.
+> 
+> v3: Add const modifier to the skb parameter in tcp_segs_in()
+> 
+> v2: Rework based on recent fix by Eric:
+> commit a9d99ce28ed3 ("tcp: fix tcpi_segs_in after connection establishment")
+> 
+> Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> Cc: Chris Rapier <rapier@psc.edu>
+> Cc: Eric Dumazet <edumazet@google.com>
+> Cc: Marcelo Ricardo Leitner <mleitner@redhat.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Acked-by: Eric Dumazet <edumazet@google.com>
+> ---
 
-You at least miss the unlock in load_metaops_and_vet()?
+Hi Martin
 
-I think we can just remove that tcf_lock, I am testing a patch now.
+Have you sent the iproute2 ss corresponding patch ?
+
+Thanks !
