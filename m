@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 08/18] if_ether.h: Add RoCE Ethertype
-Date: Fri, 17 Jun 2016 17:43:49 +0300
-Message-ID: <1466174639-14576-9-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 11/18] net/mlx5: Add sniffer namespaces
+Date: Fri, 17 Jun 2016 17:43:52 +0300
+Message-ID: <1466174639-14576-12-git-send-email-saeedm@mellanox.com>
 References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Or Gerlitz <ogerlitz@mellanox.com>,
@@ -10,143 +10,150 @@ Cc: netdev@vger.kernel.org, Doug Ledford <dledford@redhat.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:57472 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:57503 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S933457AbcFQOrk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2016 10:47:40 -0400
+	id S1161131AbcFQOr7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2016 10:47:59 -0400
 In-Reply-To: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Maor Gottlieb <maorg@mellanox.com>
 
-Add the Ethertype for RoCE - RDMA over Converged Ethernet.
-Refactor vendors' implementation to use this define.
-
-RoCE was standartized by IBTA in InfiniBand Architecture Annex A16.
+Sniffer RX namespace: used for catching RoCE and
+bypass traffic.
+Sniffer TX namespace: used for catching all the TX traffic.
 
 Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/infiniband/hw/mlx4/qp.c                    | 6 +-----
- drivers/infiniband/hw/ocrdma/ocrdma_ah.c           | 4 ++--
- drivers/infiniband/hw/ocrdma/ocrdma_hw.c           | 2 +-
- drivers/infiniband/hw/ocrdma/ocrdma_sli.h          | 4 ----
- drivers/infiniband/hw/usnic/usnic_common_pkt_hdr.h | 1 -
- drivers/infiniband/hw/usnic/usnic_fwd.h            | 2 +-
- include/uapi/linux/if_ether.h                      | 1 +
- 7 files changed, 6 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 56 +++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |  4 ++
+ include/linux/mlx5/fs.h                           |  2 +
+ 3 files changed, 62 insertions(+)
 
-diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
-index 81b0e1f..fd03cef 100644
---- a/drivers/infiniband/hw/mlx4/qp.c
-+++ b/drivers/infiniband/hw/mlx4/qp.c
-@@ -76,10 +76,6 @@ enum {
- 	MLX4_IB_LSO_HEADER_SPARE	= 128,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index b7ddcd2..e52da43 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -1502,6 +1502,16 @@ struct mlx5_flow_namespace *mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
+ 			return &steering->esw_ingress_root_ns->ns;
+ 		else
+ 			return NULL;
++	case MLX5_FLOW_NAMESPACE_SNIFFER_RX:
++		if (steering->sniffer_rx_root_ns)
++			return &steering->sniffer_rx_root_ns->ns;
++		else
++			return NULL;
++	case MLX5_FLOW_NAMESPACE_SNIFFER_TX:
++		if (steering->sniffer_tx_root_ns)
++			return &steering->sniffer_tx_root_ns->ns;
++		else
++			return NULL;
+ 	case MLX5_FLOW_NAMESPACE_ROCE:
+ 		if (steering->roce_root_ns)
+ 			return &steering->roce_root_ns->ns;
+@@ -1812,6 +1822,8 @@ void mlx5_cleanup_fs(struct mlx5_core_dev *dev)
+ 	cleanup_root_ns(steering->esw_ingress_root_ns);
+ 	cleanup_root_ns(steering->fdb_root_ns);
+ 	cleanup_root_ns(steering->roce_root_ns);
++	cleanup_root_ns(steering->sniffer_rx_root_ns);
++	cleanup_root_ns(steering->sniffer_tx_root_ns);
+ 	mlx5_cleanup_fc_stats(dev);
+ 	kfree(steering);
+ }
+@@ -1836,6 +1848,44 @@ static int init_roce_root_ns(struct mlx5_flow_steering *steering)
+ 	return 0;
+ }
+ 
++static int init_sniffer_rx_root_ns(struct mlx5_flow_steering *steering)
++{
++	struct fs_prio *prio;
++
++	steering->sniffer_rx_root_ns = create_root_ns(steering, FS_FT_SNIFFER_RX,
++						      mlx5_get_phys_fs_cmds());
++	if (!steering->sniffer_rx_root_ns)
++		return -ENOMEM;
++
++	/* Create single prio */
++	prio = fs_create_prio(&steering->sniffer_rx_root_ns->ns, 0, 1);
++	if (IS_ERR(prio)) {
++		cleanup_root_ns(steering->sniffer_rx_root_ns);
++		steering->sniffer_rx_root_ns = NULL;
++		return PTR_ERR(prio);
++	}
++	return 0;
++}
++
++static int init_sniffer_tx_root_ns(struct mlx5_flow_steering *steering)
++{
++	struct fs_prio *prio;
++
++	steering->sniffer_tx_root_ns = create_root_ns(steering, FS_FT_SNIFFER_TX,
++						      mlx5_get_phys_fs_cmds());
++	if (!steering->sniffer_tx_root_ns)
++		return -ENOMEM;
++
++	/* Create single prio */
++	prio = fs_create_prio(&steering->sniffer_tx_root_ns->ns, 0, 1);
++	if (IS_ERR(prio)) {
++		cleanup_root_ns(steering->sniffer_tx_root_ns);
++		steering->sniffer_tx_root_ns = NULL;
++		return PTR_ERR(prio);
++	}
++	return 0;
++}
++
+ static int init_fdb_root_ns(struct mlx5_flow_steering *steering)
+ {
+ 	struct fs_prio *prio;
+@@ -1915,6 +1965,12 @@ int mlx5_init_fs(struct mlx5_core_dev *dev)
+ 		err = init_root_ns(steering);
+ 		if (err)
+ 			goto err;
++		err = init_sniffer_tx_root_ns(steering);
++		if (err)
++			goto err;
++		err = init_sniffer_rx_root_ns(steering);
++		if (err)
++			goto err;
+ 	}
+ 
+ 	if (MLX5_CAP_GEN(dev, eswitch_flow_table)) {
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+index f758b1e..a869302 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
+@@ -49,6 +49,8 @@ enum fs_flow_table_type {
+ 	FS_FT_ESW_EGRESS_ACL  = 0x2,
+ 	FS_FT_ESW_INGRESS_ACL = 0x3,
+ 	FS_FT_FDB             = 0X4,
++	FS_FT_SNIFFER_RX	= 0X5,
++	FS_FT_SNIFFER_TX	= 0X6,
  };
  
--enum {
--	MLX4_IB_IBOE_ETHERTYPE		= 0x8915
--};
--
- struct mlx4_ib_sqp {
- 	struct mlx4_ib_qp	qp;
- 	int			pkey_index;
-@@ -2563,7 +2559,7 @@ static int build_mlx_header(struct mlx4_ib_sqp *sqp, struct ib_ud_wr *wr,
- 		u16 ether_type;
- 		u16 pcp = (be32_to_cpu(ah->av.ib.sl_tclass_flowlabel) >> 29) << 13;
- 
--		ether_type = (!is_udp) ? MLX4_IB_IBOE_ETHERTYPE :
-+		ether_type = (!is_udp) ? ETH_P_ROCE :
- 			(ip_version == 4 ? ETH_P_IP : ETH_P_IPV6);
- 
- 		mlx->sched_prio = cpu_to_be16(pcp);
-diff --git a/drivers/infiniband/hw/ocrdma/ocrdma_ah.c b/drivers/infiniband/hw/ocrdma/ocrdma_ah.c
-index 797362a..3d5d841 100644
---- a/drivers/infiniband/hw/ocrdma/ocrdma_ah.c
-+++ b/drivers/infiniband/hw/ocrdma/ocrdma_ah.c
-@@ -59,7 +59,7 @@ static u16 ocrdma_hdr_type_to_proto_num(int devid, u8 hdr_type)
- {
- 	switch (hdr_type) {
- 	case OCRDMA_L3_TYPE_IB_GRH:
--		return (u16)0x8915;
-+		return (u16)ETH_P_ROCE;
- 	case OCRDMA_L3_TYPE_IPV4:
- 		return (u16)0x0800;
- 	case OCRDMA_L3_TYPE_IPV6:
-@@ -94,7 +94,7 @@ static inline int set_av_attr(struct ocrdma_dev *dev, struct ocrdma_ah *ah,
- 	proto_num = ocrdma_hdr_type_to_proto_num(dev->id, ah->hdr_type);
- 	if (!proto_num)
- 		return -EINVAL;
--	nxthdr = (proto_num == 0x8915) ? 0x1b : 0x11;
-+	nxthdr = (proto_num == ETH_P_ROCE) ? 0x1b : 0x11;
- 	/* VLAN */
- 	if (!vlan_tag || (vlan_tag > 0xFFF))
- 		vlan_tag = dev->pvid;
-diff --git a/drivers/infiniband/hw/ocrdma/ocrdma_hw.c b/drivers/infiniband/hw/ocrdma/ocrdma_hw.c
-index 16740dc..d45d1b4 100644
---- a/drivers/infiniband/hw/ocrdma/ocrdma_hw.c
-+++ b/drivers/infiniband/hw/ocrdma/ocrdma_hw.c
-@@ -2985,7 +2985,7 @@ static int ocrdma_parse_dcbxcfg_rsp(struct ocrdma_dev *dev, int ptype,
- 				OCRDMA_APP_PARAM_APP_PROTO_MASK;
- 
- 		if (
--			valid && proto == OCRDMA_APP_PROTO_ROCE &&
-+			valid && proto == ETH_P_ROCE &&
- 			proto_sel == OCRDMA_PROTO_SELECT_L2) {
- 			for (slindx = 0; slindx <
- 				OCRDMA_MAX_SERVICE_LEVEL_INDEX; slindx++) {
-diff --git a/drivers/infiniband/hw/ocrdma/ocrdma_sli.h b/drivers/infiniband/hw/ocrdma/ocrdma_sli.h
-index 0efc966..1751a96 100644
---- a/drivers/infiniband/hw/ocrdma/ocrdma_sli.h
-+++ b/drivers/infiniband/hw/ocrdma/ocrdma_sli.h
-@@ -2175,10 +2175,6 @@ enum OCRDMA_DCBX_PARAM_TYPE {
- 	OCRDMA_PARAMETER_TYPE_PEER	= 0x02
+ enum fs_fte_status {
+@@ -62,6 +64,8 @@ struct mlx5_flow_steering {
+ 	struct mlx5_flow_root_namespace *esw_egress_root_ns;
+ 	struct mlx5_flow_root_namespace *esw_ingress_root_ns;
+ 	struct mlx5_flow_root_namespace *roce_root_ns;
++	struct mlx5_flow_root_namespace	*sniffer_tx_root_ns;
++	struct mlx5_flow_root_namespace	*sniffer_rx_root_ns;
  };
  
--enum OCRDMA_DCBX_APP_PROTO {
--	OCRDMA_APP_PROTO_ROCE	= 0x8915
--};
--
- enum OCRDMA_DCBX_PROTO {
- 	OCRDMA_PROTO_SELECT_L2	= 0x00,
- 	OCRDMA_PROTO_SELECT_L4	= 0x01
-diff --git a/drivers/infiniband/hw/usnic/usnic_common_pkt_hdr.h b/drivers/infiniband/hw/usnic/usnic_common_pkt_hdr.h
-index 596e0ed..bf7d197 100644
---- a/drivers/infiniband/hw/usnic/usnic_common_pkt_hdr.h
-+++ b/drivers/infiniband/hw/usnic/usnic_common_pkt_hdr.h
-@@ -34,7 +34,6 @@
- #ifndef USNIC_CMN_PKT_HDR_H
- #define USNIC_CMN_PKT_HDR_H
+ struct fs_node {
+diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
+index db1f06e..f3715eb 100644
+--- a/include/linux/mlx5/fs.h
++++ b/include/linux/mlx5/fs.h
+@@ -60,6 +60,8 @@ enum mlx5_flow_namespace_type {
+ 	MLX5_FLOW_NAMESPACE_FDB,
+ 	MLX5_FLOW_NAMESPACE_ESW_EGRESS,
+ 	MLX5_FLOW_NAMESPACE_ESW_INGRESS,
++	MLX5_FLOW_NAMESPACE_SNIFFER_RX,
++	MLX5_FLOW_NAMESPACE_SNIFFER_TX,
+ 	MLX5_FLOW_NAMESPACE_ROCE,
+ };
  
--#define USNIC_ROCE_ETHERTYPE		(0x8915)
- #define USNIC_ROCE_GRH_VER              (8)
- #define USNIC_PROTO_VER                 (1)
- #define USNIC_ROCE_GRH_VER_SHIFT        (4)
-diff --git a/drivers/infiniband/hw/usnic/usnic_fwd.h b/drivers/infiniband/hw/usnic/usnic_fwd.h
-index 3a8add9..0f7baae 100644
---- a/drivers/infiniband/hw/usnic/usnic_fwd.h
-+++ b/drivers/infiniband/hw/usnic/usnic_fwd.h
-@@ -97,7 +97,7 @@ static inline void usnic_fwd_init_usnic_filter(struct filter *filter,
- 						uint32_t usnic_id)
- {
- 	filter->type = FILTER_USNIC_ID;
--	filter->u.usnic.ethtype = USNIC_ROCE_ETHERTYPE;
-+	filter->u.usnic.ethtype = ETH_P_ROCE;
- 	filter->u.usnic.flags = FILTER_FIELD_USNIC_ETHTYPE |
- 				FILTER_FIELD_USNIC_ID |
- 				FILTER_FIELD_USNIC_PROTO;
-diff --git a/include/uapi/linux/if_ether.h b/include/uapi/linux/if_ether.h
-index cec849a..8e69375 100644
---- a/include/uapi/linux/if_ether.h
-+++ b/include/uapi/linux/if_ether.h
-@@ -91,6 +91,7 @@
- #define ETH_P_FCOE	0x8906		/* Fibre Channel over Ethernet  */
- #define ETH_P_TDLS	0x890D          /* TDLS */
- #define ETH_P_FIP	0x8914		/* FCoE Initialization Protocol */
-+#define ETH_P_ROCE	0x8915		/* RDMA over Converged Ethernet */
- #define ETH_P_80221	0x8917		/* IEEE 802.21 Media Independent Handover Protocol */
- #define ETH_P_HSR	0x892F		/* IEC 62439-3 HSRv1	*/
- #define ETH_P_LOOPBACK	0x9000		/* Ethernet loopback packet, per IEEE 802.3 */
 -- 
 2.8.0
