@@ -1,7 +1,7 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch 1/3 -next] liquidio: a couple indenting tweaks
-Date: Sat, 18 Jun 2016 11:49:20 +0300
-Message-ID: <20160618084920.GD21713@mwanda>
+Subject: [patch 2/3] liquidio: remove an unused variable
+Date: Sat, 18 Jun 2016 11:49:45 +0300
+Message-ID: <20160618084945.GE21713@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Satanand Burla <satananda.burla@caviumnetworks.com>,
@@ -10,44 +10,36 @@ Cc: Satanand Burla <satananda.burla@caviumnetworks.com>,
 	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
 To: Derek Chickles <derek.chickles@caviumnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:29284 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750879AbcFRIte (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 04:49:34 -0400
+Received: from aserp1040.oracle.com ([141.146.126.69]:48071 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751131AbcFRIuC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 04:50:02 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Remove a stray space character and fix an if statement that wasn't
-indented.
+We don't use "i" in this function.
 
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-Speaking of style issues, this whole file follows return 1 on error
-and 0 on success.  It was confusing for me.  It's not too late to change
-it to use correct error codes.  ;)
 
 diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index d0ab97c..715ddfa 100644
+index 715ddfa..1126422 100644
 --- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
 +++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -365,7 +365,7 @@ static int wait_for_pending_requests(struct octeon_device *oct)
- 				[OCTEON_ORDERED_SC_LIST].pending_req_count);
- 		if (pcount)
- 			schedule_timeout_uninterruptible(HZ / 10);
--		 else
-+		else
- 			break;
- 	}
+@@ -2354,7 +2354,7 @@ static void liquidio_set_mcast_list(struct net_device *netdev)
+ 	struct octnic_ctrl_pkt nctrl;
+ 	struct netdev_hw_addr *ha;
+ 	u64 *mc;
+-	int ret, i;
++	int ret;
+ 	int mc_count = min(netdev_mc_count(netdev), MAX_OCTEON_MULTICAST_ADDR);
  
-@@ -3351,8 +3351,8 @@ static int setup_nic_devices(struct octeon_device *octeon_dev)
- 		liquidio_set_ethtool_ops(netdev);
+ 	memset(&nctrl, 0, sizeof(struct octnic_ctrl_pkt));
+@@ -2370,7 +2370,6 @@ static void liquidio_set_mcast_list(struct net_device *netdev)
+ 	nctrl.cb_fn = liquidio_link_ctrl_cmd_completion;
  
- 		if (netdev->features & NETIF_F_LRO)
--		liquidio_set_feature(netdev, OCTNET_CMD_LRO_ENABLE,
--				     OCTNIC_LROIPV4 | OCTNIC_LROIPV6);
-+			liquidio_set_feature(netdev, OCTNET_CMD_LRO_ENABLE,
-+					     OCTNIC_LROIPV4 | OCTNIC_LROIPV6);
- 
- 		if ((debug != -1) && (debug & NETIF_MSG_HW))
- 			liquidio_set_feature(netdev, OCTNET_CMD_VERBOSE_ENABLE,
+ 	/* copy all the addresses into the udd */
+-	i = 0;
+ 	mc = &nctrl.udd[0];
+ 	netdev_for_each_mc_addr(ha, netdev) {
+ 		*mc = 0;
