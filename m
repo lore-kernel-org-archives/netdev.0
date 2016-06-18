@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v3 net-next v3 07/14] net: dsa: mv88e6xxx: remove table args in info lookup
-Date: Fri, 17 Jun 2016 20:07:29 -0400
-Message-ID: <20160618000736.5598-8-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v3 net-next v3 10/14] net: dsa: mv88e6xxx: add SMI init helper
+Date: Fri, 17 Jun 2016 20:07:32 -0400
+Message-ID: <20160618000736.5598-11-vivien.didelot@savoirfairelinux.com>
 References: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -16,57 +16,76 @@ In-Reply-To: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The mv88e6xxx_table array and the mv88e6xxx_lookup_info function are
-static, so remove the table and size arguments from the lookup function.
+Add an helper function to isolate SMI specific assignations and checks.
+
+This function will later help choosing the different SMI accesses based
+of the compatible info.
+
+Since the chip structure is already allocated in the legacy probe, use
+the mv88e6xxx_reg_read access routine instead of __mv88e6xxx_reg_read.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 16 ++++++----------
- 1 file changed, 6 insertions(+), 10 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 26 +++++++++++++++++++++-----
+ 1 file changed, 21 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index ec28465..75e5408 100644
+index 113092a..4e24ac5 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3590,15 +3590,13 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
- 	},
- };
- 
--static const struct mv88e6xxx_info *
--mv88e6xxx_lookup_info(unsigned int prod_num, const struct mv88e6xxx_info *table,
--		      unsigned int num)
-+static const struct mv88e6xxx_info *mv88e6xxx_lookup_info(unsigned int prod_num)
- {
- 	int i;
- 
--	for (i = 0; i < num; ++i)
--		if (table[i].prod_num == prod_num)
--			return &table[i];
-+	for (i = 0; i < ARRAY_SIZE(mv88e6xxx_table); ++i)
-+		if (mv88e6xxx_table[i].prod_num == prod_num)
-+			return &mv88e6xxx_table[i];
- 
- 	return NULL;
+@@ -3616,6 +3616,19 @@ static struct mv88e6xxx_priv_state *mv88e6xxx_alloc_chip(struct device *dev)
+ 	return ps;
  }
-@@ -3625,8 +3623,7 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
- 	prod_num = (id & 0xfff0) >> 4;
- 	rev = id & 0x000f;
  
--	info = mv88e6xxx_lookup_info(prod_num, mv88e6xxx_table,
--				     ARRAY_SIZE(mv88e6xxx_table));
-+	info = mv88e6xxx_lookup_info(prod_num);
- 	if (!info)
++static int mv88e6xxx_smi_init(struct mv88e6xxx_priv_state *ps,
++			      struct mii_bus *bus, int sw_addr)
++{
++	/* ADDR[0] pin is unavailable externally and considered zero */
++	if (sw_addr & 0x1)
++		return -EINVAL;
++
++	ps->bus = bus;
++	ps->sw_addr = sw_addr;
++
++	return 0;
++}
++
+ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
+ 				       struct device *host_dev, int sw_addr,
+ 				       void **priv)
+@@ -3635,7 +3648,11 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
+ 	if (!ps)
  		return NULL;
  
-@@ -3739,8 +3736,7 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	prod_num = (id & 0xfff0) >> 4;
- 	rev = id & 0x000f;
+-	id = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), PORT_SWITCH_ID);
++	err = mv88e6xxx_smi_init(ps, bus, sw_addr);
++	if (err)
++		goto free;
++
++	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
+ 	if (id < 0)
+ 		goto free;
  
--	ps->info = mv88e6xxx_lookup_info(prod_num, mv88e6xxx_table,
--					 ARRAY_SIZE(mv88e6xxx_table));
-+	ps->info = mv88e6xxx_lookup_info(prod_num);
- 	if (!ps->info)
- 		return -ENODEV;
+@@ -3648,8 +3665,6 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
  
+ 	name = info->name;
+ 
+-	ps->bus = bus;
+-	ps->sw_addr = sw_addr;
+ 	ps->info = info;
+ 
+ 	err = mv88e6xxx_mdio_register(ps, NULL);
+@@ -3741,8 +3756,9 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 	if (!ps)
+ 		return -ENOMEM;
+ 
+-	ps->bus = mdiodev->bus;
+-	ps->sw_addr = mdiodev->addr;
++	err = mv88e6xxx_smi_init(ps, mdiodev->bus, mdiodev->addr);
++	if (err)
++		return err;
+ 
+ 	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
+ 	if (id < 0)
 -- 
 2.8.3
