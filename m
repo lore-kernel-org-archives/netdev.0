@@ -1,56 +1,52 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 1/1] tipc: fix socket timer
-	deadlock
-Date: Fri, 17 Jun 2016 21:55:30 -0700 (PDT)
-Message-ID: <20160617.215530.401735252835970579.davem@davemloft.net>
-References: <1466159757-12095-1-git-send-email-jon.maloy@ericsson.com>
+From: mpe <mpe@ellerman.id.au>
+Subject: Re: [PATCH 0/6] eBPF JIT for PPC64
+Date: Sat, 18 Jun 2016 14:57:28 +1000
+Message-ID: <be3047c2d5e669d3e070f69b28566609@ozlabs.org>
+References: <cover.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
+ <20160610.224755.1614979708956751311.davem@davemloft.net>
+ <20160613054055.GV18654@naverao1-tp.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
-	tipc-discussion@lists.sourceforge.net
-To: jon.maloy@ericsson.com
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-In-Reply-To: <1466159757-12095-1-git-send-email-jon.maloy@ericsson.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Cc: David Miller <davem@davemloft.net>, linux-kernel@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org,
+	matt@ozlabs.org, kda@linux-powerpc.org, paulus@samba.org,
+	ast@fb.com, daniel@iogearbox.net, ananth@in.ibm.com
+To: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160613054055.GV18654@naverao1-tp.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jon Maloy <jon.maloy@ericsson.com>
-Date: Fri, 17 Jun 2016 06:35:57 -0400
-
-> We sometimes observe a 'deadly embrace' type deadlock occurring
-> between mutually connected sockets on the same node. This happens
-> when the one-hour peer supervision timers happen to expire
-> simultaneously in both sockets.
+On 2016-06-13 15:40, Naveen N. Rao wrote:
+> On 2016/06/10 10:47PM, David Miller wrote:
+>> From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+>> Date: Tue,  7 Jun 2016 19:02:17 +0530
+>> 
+>> > Please note that patch [2] is a pre-requisite for this patchset, and is
+>> > not yet upstream.
+>>  ...
+>> > [1] http://thread.gmane.org/gmane.linux.kernel/2188694
+>> > [2] http://thread.gmane.org/gmane.linux.ports.ppc.embedded/96514
+>> 
+>> Because of #2 I don't think I can take this directly into the 
+>> networking
+>> tree, right?
+>> 
+>> Therefore, how would you like this to be merged?
 > 
-> The scenario is as follows:
- ...
-> Further analysis reveals that there are three different locations in the
-> socket code where tipc_sk_respond() is called within the context of the
-> socket lock, with ensuing risk of similar deadlocks.
+> Hi David,
+> Thanks for asking. Yes, I think it is better to take this through the
+> powerpc tree as all the changes are contained within arch/powerpc,
+> unless Michael Ellerman feels differently.
 > 
-> We now solve this by passing a buffer queue along with all upcalls where
-> sk_lock.slock may potentially be held. Response or rejected message
-> buffers are accumulated into this queue instead of being sent out
-> directly, and only sent once we know we are safely outside the slock
-> context.
-> 
-> Reported-by: GUNA <gbalasun@gmail.com>
-> Acked-by: Ying Xue <ying.xue@windriver.com>
-> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
+> Michael?
 
-Applied, thanks Jon.
+Yeah I was planning to take it.
 
-------------------------------------------------------------------------------
-What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
-patterns at an interface-level. Reveals which users, apps, and protocols are 
-consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
-J-Flow, sFlow and other flows. Make informed decisions using capacity planning
-reports. http://sdm.link/zohomanageengine
+I put it in my test tree last night but it broke the build for some 
+configs.
+Once that is fixed I'll take it via powerpc#next.
+
+cheers
