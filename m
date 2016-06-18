@@ -1,36 +1,32 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can-next 2016-06-17,pull-request: can-next
- 2016-06-17
-Date: Fri, 17 Jun 2016 22:22:54 -0700 (PDT)
-Message-ID: <20160617.222254.1310334864131214346.davem@davemloft.net>
-References: <7075a8b3-562d-3de2-80f7-b593c665adef@pengutronix.de>
+Subject: Re: [PATCH] net: tilegx: use correct timespec64 type
+Date: Fri, 17 Jun 2016 22:27:48 -0700 (PDT)
+Message-ID: <20160617.222748.1590468596344698496.davem@davemloft.net>
+References: <20160617161540.1362545-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
-	linux-can@vger.kernel.org
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <7075a8b3-562d-3de2-80f7-b593c665adef@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
+Cc: cmetcalf@mellanox.com, y2038@lists.linaro.org,
+	richardcochran@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160617161540.1362545-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Fri, 17 Jun 2016 16:31:46 +0200
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 17 Jun 2016 18:15:30 +0200
 
-> this is a pull request of 14 patches for net-next/master.
+> The conversion to the 64-bit time based ptp methods left two instances
+> of 'struct timespec' in place. This is harmless because 64-bit
+> architectures define timespec64 as timespec, and this driver is
+> not used on 32-bit machines.
 > 
-> Geert Uytterhoeven contributes a patch that adds a file patterns for
-> CAN device tree bindings to MAINTAINERS. A patch by Alexander Aring
-> fixes warnings when building without proc support. A patch by me 
-> improves the sample point calculation. Marek Vasut's patch converts
-> the slcan driver to use CAN_MTU. A patch by William Breathitt Gray
-> converts the tscan1 driver to use module_isa_driver.
+> However, using 'struct timespec64' directly is obviously the right
+> thing to do, and will help us remove 'struct timespec' in the future.
 > 
-> Two patches by Maximilian Schneider for the gs_usb driver fix coding
-> style and add support for set_phys_id callback. 5 patches by Oliver
-> Hartkopp add support for CANFD to the bcm. And finally two patches
-> by Ramesh Shanmugasundaram, which add support for the rcar_canfd
-> driver.
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: b9acf24f779c ("ptp: tilegx: convert to the 64 bit get/set time methods.")
 
-Pulled, thanks Marc.
+Applied, thanks.
