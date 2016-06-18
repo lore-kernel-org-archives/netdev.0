@@ -1,44 +1,63 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch 3/3 -mainline] liquidio: off by one in
- liquidio_set_mcast_list()
-Date: Sat, 18 Jun 2016 11:50:39 +0300
-Message-ID: <20160618085038.GF21713@mwanda>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Satanand Burla <satananda.burla@caviumnetworks.com>,
-	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Derek Chickles <derek.chickles@caviumnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:29726 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750864AbcFRIuv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 04:50:51 -0400
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 2/2] net: ethernet: sun4i-emac: use phy_ethtool_{get|set}_link_ksettings
+Date: Sat, 18 Jun 2016 15:15:40 +0200
+Message-ID: <1466255740-20999-2-git-send-email-tremyfr@gmail.com>
+References: <1466255740-20999-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
+To: maxime.ripard@free-electrons.com, wens@csie.org,
+	davem@davemloft.net, hdegoede@redhat.com, mugunthanvnm@ti.com,
+	a@unstable.cc, fw@strlen.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466255740-20999-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The nctrl.udd[] array has 32 elements of size u64.
+There are two generics functions phy_ethtool_{get|set}_link_ksettings,
+so we can use them instead of defining the same code in the driver.
 
-Imagine that netdev_mc_count() returns more than 32.  That means
-"mc_count" is 32.  On the last iteration through the loop we have
-mc == &nctrl.udd[32] so we're writing one element beyond the end
-of the array.
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/allwinner/sun4i-emac.c |   24 ++----------------------
+ 1 files changed, 2 insertions(+), 22 deletions(-)
 
-Fixes: f21fb3ed364b ('Add support of Cavium Liquidio ethernet adapters')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index 1126422..41ee8bd 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -2376,7 +2376,7 @@ static void liquidio_set_mcast_list(struct net_device *netdev)
- 		memcpy(((u8 *)mc) + 2, ha->addr, ETH_ALEN);
- 		/* no need to swap bytes */
+diff --git a/drivers/net/ethernet/allwinner/sun4i-emac.c b/drivers/net/ethernet/allwinner/sun4i-emac.c
+index 6e31cb6..6ffdff6 100644
+--- a/drivers/net/ethernet/allwinner/sun4i-emac.c
++++ b/drivers/net/ethernet/allwinner/sun4i-emac.c
+@@ -225,31 +225,11 @@ static void emac_get_drvinfo(struct net_device *dev,
+ 	strlcpy(info->bus_info, dev_name(&dev->dev), sizeof(info->bus_info));
+ }
  
--		if (++mc > &nctrl.udd[mc_count])
-+		if (++mc >= &nctrl.udd[mc_count])
- 			break;
- 	}
+-static int emac_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	struct phy_device *phydev = dev->phydev;
+-
+-	if (!phydev)
+-		return -ENODEV;
+-
+-	return phy_ethtool_gset(phydev, cmd);
+-}
+-
+-static int emac_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	struct phy_device *phydev = dev->phydev;
+-
+-	if (!phydev)
+-		return -ENODEV;
+-
+-	return phy_ethtool_sset(phydev, cmd);
+-}
+-
+ static const struct ethtool_ops emac_ethtool_ops = {
+ 	.get_drvinfo	= emac_get_drvinfo,
+-	.get_settings	= emac_get_settings,
+-	.set_settings	= emac_set_settings,
+ 	.get_link	= ethtool_op_get_link,
++	.get_link_ksettings = phy_ethtool_get_link_ksettings,
++	.set_link_ksettings = phy_ethtool_set_link_ksettings,
+ };
  
+ static unsigned int emac_setup(struct net_device *ndev)
+-- 
+1.7.4.4
