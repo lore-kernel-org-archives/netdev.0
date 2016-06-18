@@ -1,64 +1,71 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH v3 00/17] Future-proof tunnel offload handlers
-Date: Fri, 17 Jun 2016 20:26:41 -0700 (PDT)
-Message-ID: <20160617.202641.1821023739498595024.davem@davemloft.net>
-References: <20160616191851.20872.67154.stgit@localhost.localdomain>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
+Date: Fri, 17 Jun 2016 20:52:55 -0700
+Message-ID: <CALx6S37GuppbknFiGsGxyP8jAX-t8c1=mWxCToKQVA8r8UPeOA@mail.gmail.com>
+References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
+	<20160617.200947.2078656051211641868.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
-	hannes@redhat.com, jesse@kernel.org, eugenia@mellanox.com,
-	jbenc@redhat.com, alexander.duyck@gmail.com, saeedm@mellanox.com,
-	ariel.elior@qlogic.com, tom@herbertland.com,
-	michael.chan@broadcom.com, Dept-GELinuxNICDev@qlogic.com
-To: aduyck@mirantis.com
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56346 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751103AbcFRD0o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 23:26:44 -0400
-In-Reply-To: <20160616191851.20872.67154.stgit@localhost.localdomain>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:35543 "EHLO
+	mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750760AbcFRDw4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 23:52:56 -0400
+Received: by mail-it0-f67.google.com with SMTP id r66so503641itg.2
+        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 20:52:56 -0700 (PDT)
+In-Reply-To: <20160617.200947.2078656051211641868.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alexander Duyck <aduyck@mirantis.com>
-Date: Thu, 16 Jun 2016 12:20:35 -0700
+> We also now have to debug against every single userland TCP
+> implementation someone can come up with, the barrier to entry is
+> insanely low with TOU.  Maybe this sounds great to you, but to me
+> it is quite terrifying
+>
+No, it doesn't sound great, but the major problem we have is that
+Android and to some extent iOS & Windows take a long time to update
+the kernel, and it can take an _extremely_ long time if we need them
+to actively enable features that are needed by applications. For
+instance, TFO was put in the Linux several years ago, but it still
+hasn't been enabled in Android and only fairly recently enabled in
+iOS. If we (e.g. Facebook) implement a userspace stack in clients and
+control the stack in our servers we can roll out a feature like that
+in a couple of months. I don't see anyway to fix other than trying to
+take control of our own destiny.  It seems like it's either this or
+use something like QUIC which bypasses the kernel completely and
+discards TCP-- we have far too much invested to commit to that
+alternative at this point.
 
-> s patch is meant to address two things.  First we are currently using
-> the ndo_add/del_vxlan_port calls with VXLAN-GPE tunnels and we cannot
-> really support that as it is likely to cause more harm than good since
-> VXLAN-GPE can support tunnels without a MAC address on the inner header.
-> 
-> As such we need to add a new offload to advertise this, but in doing so it
-> would mean introducing 3 new functions for the driver to request the ports,
-> and then for the tunnel to push the changes to add and delete the ports to
-> the device.  However instead of taking that approach I think it would be
-> much better if we just made one common function for fetching the ports, and
-> provided a generic means to push the tunnels to the device.  So in order to
-> make this work this patch set does several things.
- ...
+> This sounds really great on paper, however I find it hard to believe
+> that makers of middleware boxes are just going to throw their hands in
+> the air and say "oh well, we lose."
+>
+Happy Eyeballs is implied. There's pretty good data that the majority
+(>90%) of the Internet will pass UDP without issue, QUIC is already
+seeing good deployment and there are several UDP based protocols
+productively deployed. There is also an effort in IETF, PLUS,  to
+define a substrate layer that makes UDP based transport protocol
+palatable to middleboxes with some sort of signaling.
 
-Series applied, thanks Alexander.
+> Rather, I think people are going to start adding rules to block TOU
+> tunnels entirely because they cannot inspect nor conditionally
+> filter/rewrite the contents.  This is even more likely if Joe Random
+> and so easily can do their own userland TCP stack over TOU.
+>
+Unfortunately, encryption is the only proven solution to protocol
+ossification. If the network doesn't see it, it can't ossify it.
 
-Tom, I've heard your arguments, but I think your fears are unfounded.
-Look at what Alexander's patches are actually doing.
+> BTW, I have a question about the pseudo header checksum.  If the outer
+> IP addresses can change, due to NAT or whatever, and therefore the
+> session key is used for connection demuxing instead of the addresses,
+> why don't we also have to use the session key instead of the IP
+> addresses for the pseudo header used in checksum calculations?
 
-First, he's fixing a bug.  Hardware that supports VXLAN offloading
-doesn't support VXLAN-GPE, yet we were sending such things to the
-VXLAN offload paths.
+Yes, the inner checksum will need to be handled differently in case of
+NAT. Need to update draft to take that into account.
 
-Second, he's eliminating a metric ton of Kconfig garbage, as drivers
-had to have all kinds of contrived dependencies to support UDP tunnel
-offloads.
-
-Third, he's consolidating several driver NDO methods into just two.
-
-And finally, he added a big comment explaining that new tunnel types
-should not be added to the tunnel type list, and those that exist
-should only be used for RX.
-
-Therefore, this isn't openning the door for new random offloads, quite
-the contrary.  Instead, if it making clearer what the existing
-facilitites support, and putting an explicit cap on them.
-
-Thanks.
+Thanks,
+Tom
