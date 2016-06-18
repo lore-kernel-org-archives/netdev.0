@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v3 net-next v3 11/14] net: dsa: mv88e6xxx: add detection helper
-Date: Fri, 17 Jun 2016 20:07:33 -0400
-Message-ID: <20160618000736.5598-12-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v3 net-next v3 13/14] net: dsa: mv88e6xxx: add addressing mode to info
+Date: Fri, 17 Jun 2016 20:07:35 -0400
+Message-ID: <20160618000736.5598-14-vivien.didelot@savoirfairelinux.com>
 References: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -16,133 +16,346 @@ In-Reply-To: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Extract the common detection code which assigns the info structure to
-the chip given the read switch ID.
+When the SMI address of the switch chip is zero, the chip assumes to be
+the only one on the SMI master bus and thus responds to all its known
+SMI devices addresses (port registers, Global2, etc.)
+
+When its SMI address is not zero, some chips (e.g. 88E6352) use an
+indirect access through two SMI Command and Data registers.
+
+Other models (e.g. 88E6060) using less than 16 internal SMI addresses
+always use a direct access.
+
+Add a capability flag to describe chips supporting the (indirect)
+Multi-chip Addressing Mode, and a low-level API to access the registers
+via SMI.
+
+Other accesses (like Ethernet management frames) may be added later.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 64 +++++++++++++++++++++------------------------
- 1 file changed, 30 insertions(+), 34 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 135 ++++++++++++++++++++++++++++++++++----------
+ drivers/net/dsa/mv88e6xxx.h |  19 ++++++-
+ 2 files changed, 123 insertions(+), 31 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 4e24ac5..de92add 100644
+index cadd1e3..4d32f5a 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3601,6 +3601,30 @@ static const struct mv88e6xxx_info *mv88e6xxx_lookup_info(unsigned int prod_num)
- 	return NULL;
+@@ -38,15 +38,75 @@ static void assert_reg_lock(struct mv88e6xxx_priv_state *ps)
+ 	}
  }
  
-+static int mv88e6xxx_detect(struct mv88e6xxx_priv_state *ps)
+-/* If the switch's ADDR[4:0] strap pins are strapped to zero, it will
+- * use all 32 SMI bus addresses on its SMI bus, and all switch registers
+- * will be directly accessible on some {device address,register address}
+- * pair.  If the ADDR[4:0] pins are not strapped to zero, the switch
+- * will only respond to SMI transactions to that specific address, and
+- * an indirect addressing mechanism needs to be used to access its
+- * registers.
++/* The switch ADDR[4:1] configuration pins define the chip SMI device address
++ * (ADDR[0] is always zero, thus only even SMI addresses can be strapped).
++ *
++ * When ADDR is all zero, the chip uses Single-chip Addressing Mode, assuming it
++ * is the only device connected to the SMI master. In this mode it responds to
++ * all 32 possible SMI addresses, and thus maps directly the internal devices.
++ *
++ * When ADDR is non-zero, the chip uses Multi-chip Addressing Mode, allowing
++ * multiple devices to share the SMI interface. In this mode it responds to only
++ * 2 registers, used to indirectly access the internal SMI devices.
+  */
+-static int mv88e6xxx_reg_wait_ready(struct mii_bus *bus, int sw_addr)
++
++struct mv88e6xxx_smi_ops {
++	int (*read)(struct mii_bus *bus, int sw_addr,
++		    int addr, int reg, u16 *val);
++	int (*write)(struct mii_bus *bus, int sw_addr,
++		     int addr, int reg, u16 val);
++};
++
++static int mv88e6xxx_smi_read(struct mv88e6xxx_priv_state *ps,
++			      int addr, int reg, u16 *val)
 +{
-+	const struct mv88e6xxx_info *info;
-+	int id, prod_num, rev;
++	if (!ps->smi_ops)
++		return -EOPNOTSUPP;
 +
-+	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
-+	if (id < 0)
-+		return id;
++	return ps->smi_ops->read(ps->bus, ps->sw_addr, addr, reg, val);
++}
 +
-+	prod_num = (id & 0xfff0) >> 4;
-+	rev = id & 0x000f;
++static int mv88e6xxx_smi_write(struct mv88e6xxx_priv_state *ps,
++			       int addr, int reg, u16 val)
++{
++	if (!ps->smi_ops)
++		return -EOPNOTSUPP;
 +
-+	info = mv88e6xxx_lookup_info(prod_num);
-+	if (!info)
-+		return -ENODEV;
++	return ps->smi_ops->write(ps->bus, ps->sw_addr, addr, reg, val);
++}
 +
-+	ps->info = info;
++static int mv88e6xxx_smi_single_chip_read(struct mii_bus *bus, int sw_addr,
++					  int addr, int reg, u16 *val)
++{
++	int ret;
 +
-+	dev_info(ps->dev, "switch 0x%x detected: %s, revision %u\n",
-+		 ps->info->prod_num, ps->info->name, rev);
++	ret = mdiobus_read_nested(bus, addr, reg);
++	if (ret < 0)
++		return ret;
++
++	*val = ret & 0xffff;
 +
 +	return 0;
 +}
 +
- static struct mv88e6xxx_priv_state *mv88e6xxx_alloc_chip(struct device *dev)
++static int mv88e6xxx_smi_single_chip_write(struct mii_bus *bus, int sw_addr,
++					   int addr, int reg, u16 val)
++{
++	int ret;
++
++	ret = mdiobus_write_nested(bus, addr, reg, val);
++	if (ret < 0)
++		return ret;
++
++	return 0;
++}
++
++static const struct mv88e6xxx_smi_ops mv88e6xxx_smi_single_chip_ops = {
++	.read = mv88e6xxx_smi_single_chip_read,
++	.write = mv88e6xxx_smi_single_chip_write,
++};
++
++static int mv88e6xxx_smi_multi_chip_wait(struct mii_bus *bus, int sw_addr)
  {
- 	struct mv88e6xxx_priv_state *ps;
-@@ -3633,11 +3657,8 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
- 				       struct device *host_dev, int sw_addr,
- 				       void **priv)
+ 	int ret;
+ 	int i;
+@@ -63,16 +123,13 @@ static int mv88e6xxx_reg_wait_ready(struct mii_bus *bus, int sw_addr)
+ 	return -ETIMEDOUT;
+ }
+ 
+-static int __mv88e6xxx_reg_read(struct mii_bus *bus, int sw_addr, int addr,
+-				int reg)
++static int mv88e6xxx_smi_multi_chip_read(struct mii_bus *bus, int sw_addr,
++					 int addr, int reg, u16 *val)
  {
--	const struct mv88e6xxx_info *info;
- 	struct mv88e6xxx_priv_state *ps;
- 	struct mii_bus *bus;
--	const char *name;
--	int id, prod_num, rev;
- 	int err;
+ 	int ret;
  
- 	bus = dsa_host_dev_to_mii_bus(host_dev);
-@@ -3652,31 +3673,17 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
- 	if (err)
- 		goto free;
- 
--	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
--	if (id < 0)
--		goto free;
+-	if (sw_addr == 0)
+-		return mdiobus_read_nested(bus, addr, reg);
 -
--	prod_num = (id & 0xfff0) >> 4;
--	rev = id & 0x000f;
--
--	info = mv88e6xxx_lookup_info(prod_num);
--	if (!info)
-+	err = mv88e6xxx_detect(ps);
-+	if (err)
- 		goto free;
+ 	/* Wait for the bus to become free. */
+-	ret = mv88e6xxx_reg_wait_ready(bus, sw_addr);
++	ret = mv88e6xxx_smi_multi_chip_wait(bus, sw_addr);
+ 	if (ret < 0)
+ 		return ret;
  
--	name = info->name;
--
--	ps->info = info;
--
- 	err = mv88e6xxx_mdio_register(ps, NULL);
- 	if (err)
- 		goto free;
+@@ -83,7 +140,7 @@ static int __mv88e6xxx_reg_read(struct mii_bus *bus, int sw_addr, int addr,
+ 		return ret;
  
- 	*priv = ps;
+ 	/* Wait for the read command to complete. */
+-	ret = mv88e6xxx_reg_wait_ready(bus, sw_addr);
++	ret = mv88e6xxx_smi_multi_chip_wait(bus, sw_addr);
+ 	if (ret < 0)
+ 		return ret;
  
--	dev_info(&ps->bus->dev, "switch 0x%x probed: %s, revision %u\n",
--		 prod_num, name, rev);
--
--	return name;
-+	return ps->info->name;
- free:
- 	devm_kfree(dsa_dev, ps);
+@@ -92,24 +149,27 @@ static int __mv88e6xxx_reg_read(struct mii_bus *bus, int sw_addr, int addr,
+ 	if (ret < 0)
+ 		return ret;
  
-@@ -3748,7 +3755,6 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	struct device *dev = &mdiodev->dev;
- 	struct device_node *np = dev->of_node;
- 	struct mv88e6xxx_priv_state *ps;
--	int id, prod_num, rev;
- 	u32 eeprom_len;
- 	int err;
+-	return ret & 0xffff;
++	*val = ret & 0xffff;
++
++	return 0;
+ }
  
-@@ -3760,16 +3766,9 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	if (err)
- 		return err;
+ static int _mv88e6xxx_reg_read(struct mv88e6xxx_priv_state *ps,
+ 			       int addr, int reg)
+ {
+-	int ret;
++	u16 val;
++	int err;
  
--	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
--	if (id < 0)
--		return id;
--
--	prod_num = (id & 0xfff0) >> 4;
--	rev = id & 0x000f;
--
--	ps->info = mv88e6xxx_lookup_info(prod_num);
--	if (!ps->info)
--		return -ENODEV;
-+	err = mv88e6xxx_detect(ps);
+ 	assert_reg_lock(ps);
+ 
+-	ret = __mv88e6xxx_reg_read(ps->bus, ps->sw_addr, addr, reg);
+-	if (ret < 0)
+-		return ret;
++	err = mv88e6xxx_smi_read(ps, addr, reg, &val);
 +	if (err)
 +		return err;
  
- 	ps->reset = devm_gpiod_get_optional(dev, "reset", GPIOD_ASIS);
- 	if (IS_ERR(ps->reset))
-@@ -3789,9 +3788,6 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 		return err;
- 	}
+ 	dev_dbg(ps->dev, "<- addr: 0x%.2x reg: 0x%.2x val: 0x%.4x\n",
+-		addr, reg, ret);
++		addr, reg, val);
  
--	dev_info(dev, "switch 0x%x probed: %s, revision %u\n",
--		 prod_num, ps->info->name, rev);
+-	return ret;
++	return val;
+ }
+ 
+ static int mv88e6xxx_reg_read(struct mv88e6xxx_priv_state *ps, int addr,
+@@ -124,16 +184,13 @@ static int mv88e6xxx_reg_read(struct mv88e6xxx_priv_state *ps, int addr,
+ 	return ret;
+ }
+ 
+-static int __mv88e6xxx_reg_write(struct mii_bus *bus, int sw_addr, int addr,
+-				 int reg, u16 val)
++static int mv88e6xxx_smi_multi_chip_write(struct mii_bus *bus, int sw_addr,
++					  int addr, int reg, u16 val)
+ {
+ 	int ret;
+ 
+-	if (sw_addr == 0)
+-		return mdiobus_write_nested(bus, addr, reg, val);
 -
+ 	/* Wait for the bus to become free. */
+-	ret = mv88e6xxx_reg_wait_ready(bus, sw_addr);
++	ret = mv88e6xxx_smi_multi_chip_wait(bus, sw_addr);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -149,22 +206,33 @@ static int __mv88e6xxx_reg_write(struct mii_bus *bus, int sw_addr, int addr,
+ 		return ret;
+ 
+ 	/* Wait for the write command to complete. */
+-	ret = mv88e6xxx_reg_wait_ready(bus, sw_addr);
++	ret = mv88e6xxx_smi_multi_chip_wait(bus, sw_addr);
+ 	if (ret < 0)
+ 		return ret;
+ 
  	return 0;
  }
+ 
++static const struct mv88e6xxx_smi_ops mv88e6xxx_smi_multi_chip_ops = {
++	.read = mv88e6xxx_smi_multi_chip_read,
++	.write = mv88e6xxx_smi_multi_chip_write,
++};
++
+ static int _mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
+ 				int reg, u16 val)
+ {
++	int err;
++
+ 	assert_reg_lock(ps);
+ 
++	err = mv88e6xxx_smi_write(ps, addr, reg, val);
++	if (err)
++		return err;
++
+ 	dev_dbg(ps->dev, "-> addr: 0x%.2x reg: 0x%.2x val: 0x%.4x\n",
+ 		addr, reg, val);
+ 
+-	return __mv88e6xxx_reg_write(ps->bus, ps->sw_addr, addr, reg, val);
++	return 0;
+ }
+ 
+ static int mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
+@@ -3649,6 +3717,13 @@ static int mv88e6xxx_smi_init(struct mv88e6xxx_priv_state *ps,
+ 	if (sw_addr & 0x1)
+ 		return -EINVAL;
+ 
++	if (sw_addr == 0)
++		ps->smi_ops = &mv88e6xxx_smi_single_chip_ops;
++	else if (mv88e6xxx_has(ps, MV88E6XXX_FLAG_MULTI_CHIP))
++		ps->smi_ops = &mv88e6xxx_smi_multi_chip_ops;
++	else
++		return -EINVAL;
++
+ 	ps->bus = bus;
+ 	ps->sw_addr = sw_addr;
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index b279f8c..c82bd18 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -387,6 +387,12 @@ enum mv88e6xxx_cap {
+ 	 */
+ 	MV88E6XXX_CAP_EEPROM,
+ 
++	/* Multi-chip Addressing Mode.
++	 * Some chips require an indirect SMI access when their SMI device
++	 * address is not zero. See SMI_CMD and SMI_DATA.
++	 */
++	MV88E6XXX_CAP_MULTI_CHIP,
++
+ 	/* Port State Filtering for 802.1D Spanning Tree.
+ 	 * See PORT_CONTROL_STATE_* values in the PORT_CONTROL register.
+ 	 */
+@@ -439,6 +445,7 @@ enum mv88e6xxx_cap {
+ #define MV88E6XXX_FLAG_ATU		BIT(MV88E6XXX_CAP_ATU)
+ #define MV88E6XXX_FLAG_EEE		BIT(MV88E6XXX_CAP_EEE)
+ #define MV88E6XXX_FLAG_EEPROM		BIT(MV88E6XXX_CAP_EEPROM)
++#define MV88E6XXX_FLAG_MULTI_CHIP	BIT(MV88E6XXX_CAP_MULTI_CHIP)
+ #define MV88E6XXX_FLAG_PORTSTATE	BIT(MV88E6XXX_CAP_PORTSTATE)
+ #define MV88E6XXX_FLAG_PPU		BIT(MV88E6XXX_CAP_PPU)
+ #define MV88E6XXX_FLAG_PPU_ACTIVE	BIT(MV88E6XXX_CAP_PPU_ACTIVE)
+@@ -452,25 +459,29 @@ enum mv88e6xxx_cap {
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6095	\
+ 	(MV88E6XXX_FLAG_ATU |		\
++	 MV88E6XXX_FLAG_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAG_PPU |		\
+ 	 MV88E6XXX_FLAG_VLANTABLE |	\
+ 	 MV88E6XXX_FLAG_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6097	\
+ 	(MV88E6XXX_FLAG_ATU |		\
++	 MV88E6XXX_FLAG_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAG_PPU |		\
+ 	 MV88E6XXX_FLAG_STU |		\
+ 	 MV88E6XXX_FLAG_VLANTABLE |	\
+ 	 MV88E6XXX_FLAG_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6165	\
+-	(MV88E6XXX_FLAG_STU |		\
++	(MV88E6XXX_FLAG_MULTI_CHIP |	\
++	 MV88E6XXX_FLAG_STU |		\
+ 	 MV88E6XXX_FLAG_SWITCH_MAC |	\
+ 	 MV88E6XXX_FLAG_TEMP |		\
+ 	 MV88E6XXX_FLAG_VTU)
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6185	\
+ 	(MV88E6XXX_FLAG_ATU |		\
++	 MV88E6XXX_FLAG_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAG_PPU |		\
+ 	 MV88E6XXX_FLAG_VLANTABLE |	\
+ 	 MV88E6XXX_FLAG_VTU)
+@@ -479,6 +490,7 @@ enum mv88e6xxx_cap {
+ 	(MV88E6XXX_FLAG_ATU |		\
+ 	 MV88E6XXX_FLAG_EEE |		\
+ 	 MV88E6XXX_FLAG_EEPROM |	\
++	 MV88E6XXX_FLAG_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAG_PORTSTATE |	\
+ 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
+@@ -490,6 +502,7 @@ enum mv88e6xxx_cap {
+ 
+ #define MV88E6XXX_FLAGS_FAMILY_6351	\
+ 	(MV88E6XXX_FLAG_ATU |		\
++	 MV88E6XXX_FLAG_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAG_PORTSTATE |	\
+ 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
+@@ -503,6 +516,7 @@ enum mv88e6xxx_cap {
+ 	(MV88E6XXX_FLAG_ATU |		\
+ 	 MV88E6XXX_FLAG_EEE |		\
+ 	 MV88E6XXX_FLAG_EEPROM |	\
++	 MV88E6XXX_FLAG_MULTI_CHIP |	\
+ 	 MV88E6XXX_FLAG_PORTSTATE |	\
+ 	 MV88E6XXX_FLAG_PPU_ACTIVE |	\
+ 	 MV88E6XXX_FLAG_SMI_PHY |	\
+@@ -541,6 +555,8 @@ struct mv88e6xxx_vtu_stu_entry {
+ 	u8	data[DSA_MAX_PORTS];
+ };
+ 
++struct mv88e6xxx_smi_ops;
++
+ struct mv88e6xxx_priv_port {
+ 	struct net_device *bridge_dev;
+ };
+@@ -560,6 +576,7 @@ struct mv88e6xxx_priv_state {
+ 	/* The MII bus and the address on the bus that is used to
+ 	 * communication with the switch
+ 	 */
++	const struct mv88e6xxx_smi_ops *smi_ops;
+ 	struct mii_bus *bus;
+ 	int sw_addr;
  
 -- 
 2.8.3
