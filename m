@@ -1,10 +1,10 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 net-next v3 12/14] net: dsa: mv88e6xxx: pass
- compatible info
-Date: Sat, 18 Jun 2016 22:28:44 +0200
-Message-ID: <20160618202844.GG7172@lunn.ch>
+Subject: Re: [PATCH v3 net-next v3 13/14] net: dsa: mv88e6xxx: add addressing
+ mode to info
+Date: Sat, 18 Jun 2016 22:36:39 +0200
+Message-ID: <20160618203639.GH7172@lunn.ch>
 References: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
- <20160618000736.5598-13-vivien.didelot@savoirfairelinux.com>
+ <20160618000736.5598-14-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -16,21 +16,25 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160618000736.5598-13-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20160618000736.5598-14-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 17, 2016 at 08:07:34PM -0400, Vivien Didelot wrote:
-> After allocating the chip structure, pass it a compatible info pointer.
-> 
-> The compatible info structure will be used later to describe how to
-> access the switch registers and where to read the switch ID.
-> 
-> For the standard MDIO probe, get it from the device node data. For the
-> legacy DSA driver probing, pass it the 88E6085 info.
-> 
-> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> +struct mv88e6xxx_smi_ops {
+> +	int (*read)(struct mii_bus *bus, int sw_addr,
+> +		    int addr, int reg, u16 *val);
+> +	int (*write)(struct mii_bus *bus, int sw_addr,
+> +		     int addr, int reg, u16 val);
+> +};
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Hi Vivien
 
-    Andrew
+I still think this API should be based on ps.
+
+With the way you have restructured probe, this now also works, there
+is no longer a read without PS in order to get the device ID.
+
+Also, think about the case of reading/writing registers via Ethernet
+frames. Such functions would need ps, bus and sw_addr is not useful.
+
+	Andrew
