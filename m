@@ -1,75 +1,51 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 4/5] gre: better support for ICMP messages for gre+ipv6
-Date: Sat, 18 Jun 2016 16:26:39 -0700
-Message-ID: <1466292400-3638-5-git-send-email-edumazet@google.com>
-References: <1466292400-3638-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Oussama Ghorbel <ghorbel@pivasoftware.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Shanker Wang <shanker@tuna.tsinghua.edu.cn>
+Subject: [PATCH] net:ppp: replace too strict capability restriction on opening  /dev/ppp
+Date: Sun, 19 Jun 2016 01:38:55 +0200
+Message-ID: <44A9BDB8-754B-4402-BD09-6381229C07C5@tuna.tsinghua.edu.cn>
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8BIT
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Richard Weinberger <richard.weinberger@gmail.com>,
+	Guillaume Nault <g.nault@alphalink.fr>,
+	Miao Wang <shankerwangmiao@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f175.google.com ([209.85.192.175]:34124 "EHLO
-	mail-pf0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751270AbcFRX1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 19:27:20 -0400
-Received: by mail-pf0-f175.google.com with SMTP id h14so26629985pfe.1
-        for <netdev@vger.kernel.org>; Sat, 18 Jun 2016 16:27:20 -0700 (PDT)
-In-Reply-To: <1466292400-3638-1-git-send-email-edumazet@google.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34393 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751114AbcFRXkv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 19:40:51 -0400
+Received: by mail-wm0-f68.google.com with SMTP id 187so5843296wmz.1
+        for <netdev@vger.kernel.org>; Sat, 18 Jun 2016 16:40:50 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipgre_err() can call ip6_err_gen_icmpv6_unreach() for proper
-support of ipv4+gre+icmp+ipv6+... frames, used for example
-by traceroute/mtr.
+This patch removes the check for CAP_NET_ADMIN in the initial namespace
+when opening /dev/open. Instead, CAP_NET_ADMIN is checked in the user
+namespace the net namespace was created so that /dev/ppp cat get opened
+in a unprivileged container.
 
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Cc: Richard Weinberger <richard.weinberger@gmail.com>
+Cc: Guillaume Nault <g.nault@alphalink.fr>
+Cc: Miao Wang <shankerwangmiao@gmail.com>
+Signed-off-by: Miao Wang <shanker@tuna.tsinghua.edu.cn>
 ---
- include/net/ip_tunnels.h | 1 +
- net/ipv4/gre_demux.c     | 1 +
- net/ipv4/ip_gre.c        | 6 ++++++
- 3 files changed, 8 insertions(+)
+ drivers/net/ppp/ppp_generic.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 9222678426a1..a5e7035fb93f 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -157,6 +157,7 @@ struct tnl_ptk_info {
- 	__be16 proto;
- 	__be32 key;
- 	__be32 seq;
-+	int hdr_len;
- };
- 
- #define PACKET_RCVD	0
-diff --git a/net/ipv4/gre_demux.c b/net/ipv4/gre_demux.c
-index de1d119a4497..b798862b6be5 100644
---- a/net/ipv4/gre_demux.c
-+++ b/net/ipv4/gre_demux.c
-@@ -117,6 +117,7 @@ int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
- 		if ((*(u8 *)options & 0xF0) != 0x40)
- 			hdr_len += 4;
- 	}
-+	tpi->hdr_len = hdr_len;
- 	return hdr_len;
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index f572b31..4b3b2b5 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -380,7 +380,7 @@ static int ppp_open(struct inode *inode, struct file *file)
+ 	/*
+ 	 * This could (should?) be enforced by the permissions on /dev/ppp.
+ 	 */
+-	if (!capable(CAP_NET_ADMIN))
++	if (!ns_capable(current->nsproxy->net_ns->user_ns, CAP_NET_ADMIN))
+ 		return -EPERM;
+ 	return 0;
  }
- EXPORT_SYMBOL(gre_parse_header);
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 48eccc4e4cc5..b199a3c85dfc 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -181,6 +181,12 @@ static void ipgre_err(struct sk_buff *skb, u32 info,
- 	if (!t)
- 		return;
- 
-+#if IS_ENABLED(CONFIG_IPV6)
-+       if (tpi->proto == htons(ETH_P_IPV6) &&
-+           !ip6_err_gen_icmpv6_unreach(skb, iph->ihl * 4 + tpi->hdr_len, type))
-+               return;
-+#endif
-+
- 	if (t->parms.iph.daddr == 0 ||
- 	    ipv4_is_multicast(t->parms.iph.daddr))
- 		return;
 -- 
-2.8.0.rc3.226.g39d4020
+2.5.2
