@@ -1,148 +1,58 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH net-next 2/2] net sched actions: skbedit add support for mod-ing skb pkt_type
-Date: Sat, 18 Jun 2016 11:12:05 -0400
-Message-ID: <1466262725-30289-2-git-send-email-jhs@emojatatu.com>
-References: <1466262725-30289-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-	xiyou.wangcong@gmail.com, fw@strlen.de,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: act_mirred: remove spinlock in fast path
+Date: Sat, 18 Jun 2016 08:16:06 -0700
+Message-ID: <1466262966.6850.2.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CAM_iQpU42hydN_akrr8EGuN8OGifyjM3j+W44hjOvRxxM52HbA@mail.gmail.com>
+	 <CANn89iJj6aqqm0AwQnFR6NJSADje4FS64dzF2-Ac8hSpECG=sQ@mail.gmail.com>
+	 <CAM_iQpXJ9Kq=Ff3jZPJYjotXpYOMhTRSZe3Gu4bZ_fLPyKTyWg@mail.gmail.com>
+	 <CANn89iJiPnNj1nBHn5v0DQ7fB5n8h1=_h-Ev0UhcYmJE4PehDw@mail.gmail.com>
+	 <CAM_iQpU57HebOQSYXqoa6xuW4cuSdCqZwQkE_JSu7abHFAuaHw@mail.gmail.com>
+	 <CANn89iK3DLjJ6y34y1=pnUmH0RKBwwQWj4ZzizVmm98BXxGxYA@mail.gmail.com>
+	 <57655062.1080407@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: Eric Dumazet <edumazet@google.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f193.google.com ([209.85.223.193]:33799 "EHLO
-	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751821AbcFRPMS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 11:12:18 -0400
-Received: by mail-io0-f193.google.com with SMTP id 100so12619319ioh.1
-        for <netdev@vger.kernel.org>; Sat, 18 Jun 2016 08:12:17 -0700 (PDT)
-In-Reply-To: <1466262725-30289-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33877 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751263AbcFRPQI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 11:16:08 -0400
+Received: by mail-pa0-f49.google.com with SMTP id bz2so37175612pad.1
+        for <netdev@vger.kernel.org>; Sat, 18 Jun 2016 08:16:08 -0700 (PDT)
+In-Reply-To: <57655062.1080407@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Sat, 2016-06-18 at 09:45 -0400, Jamal Hadi Salim wrote:
+> On 16-06-17 06:03 PM, Eric Dumazet wrote:
+> > On Fri, Jun 17, 2016 at 2:59 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> >
+> >> Generally speaking I worry about we change multiple fields in a struct
+> >> meanwhile we could still read them any time in the middle, we may
+> >> get them correct for some easy case, but it is hard to insure the
+> >> correctness when the struct becomes large.
+> >>
+> >> I am thinking to make more tc actions lockless, so this problem
+> >> comes up immediately for other complex cases than mirred.
+> >
+> > I certainly wont object to a patch.
+> >
+> > Also note that instead of RCU with a pointer and the usual kfree_rcu() stuff,
+> > we now can use seqcount_latch infra which might allow to not increase
+> > memory foot print.
+> >
+> 
+> Given an update/replace of an action is such a rare occassion, what
+> is wrong with init doing a spin lock on existing action?
+> Sure, there is performance impact on fast path at that point - but:
+> as established update/replace is _a rare occassion_ ;->
 
-Extremely useful for setting packet type to host so i dont
-have to modify the dst mac address using pedit (which requires
-that i know the mac address)
+The potential 'problem' is not the write side, but the read side.
 
-Example usage:
-tc filter add dev eth0 parent ffff: protocol ip pref 9 u32 \
-match ip src 5.5.5.5/32 \
-flowid 1:5 action skbedit ptype host
-
-This will tag all packets incoming from 5.5.5.5 with type
-PACKET_HOST
-
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
----
- include/net/tc_act/tc_skbedit.h        | 10 +++++-----
- include/uapi/linux/tc_act/tc_skbedit.h |  2 ++
- net/sched/act_skbedit.c                | 18 +++++++++++++++++-
- 3 files changed, 24 insertions(+), 6 deletions(-)
-
-diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
-index b496d5a..d01a5d4 100644
---- a/include/net/tc_act/tc_skbedit.h
-+++ b/include/net/tc_act/tc_skbedit.h
-@@ -24,11 +24,11 @@
- 
- struct tcf_skbedit {
- 	struct tcf_common	common;
--	u32			flags;
--	u32     		priority;
--	u32     		mark;
--	u16			queue_mapping;
--	/* XXX: 16-bit pad here? */
-+	u32		flags;
-+	u32		priority;
-+	u32		mark;
-+	u16		queue_mapping;
-+	u16		ptype;
- };
- #define to_skbedit(a) \
- 	container_of(a->priv, struct tcf_skbedit, common)
-diff --git a/include/uapi/linux/tc_act/tc_skbedit.h b/include/uapi/linux/tc_act/tc_skbedit.h
-index fecb5cc..a4d00c6 100644
---- a/include/uapi/linux/tc_act/tc_skbedit.h
-+++ b/include/uapi/linux/tc_act/tc_skbedit.h
-@@ -27,6 +27,7 @@
- #define SKBEDIT_F_PRIORITY		0x1
- #define SKBEDIT_F_QUEUE_MAPPING		0x2
- #define SKBEDIT_F_MARK			0x4
-+#define SKBEDIT_F_PTYPE			0x8
- 
- struct tc_skbedit {
- 	tc_gen;
-@@ -40,6 +41,7 @@ enum {
- 	TCA_SKBEDIT_QUEUE_MAPPING,
- 	TCA_SKBEDIT_MARK,
- 	TCA_SKBEDIT_PAD,
-+	TCA_SKBEDIT_PTYPE,
- 	__TCA_SKBEDIT_MAX
- };
- #define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-index 53d1486..1c4c924 100644
---- a/net/sched/act_skbedit.c
-+++ b/net/sched/act_skbedit.c
-@@ -47,6 +47,8 @@ static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
- 		skb_set_queue_mapping(skb, d->queue_mapping);
- 	if (d->flags & SKBEDIT_F_MARK)
- 		skb->mark = d->mark;
-+	if (d->flags & SKBEDIT_F_PTYPE)
-+		skb->pkt_type = d->ptype;
- 
- 	spin_unlock(&d->tcf_lock);
- 	return d->tcf_action;
-@@ -57,6 +59,7 @@ static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
- 	[TCA_SKBEDIT_PRIORITY]		= { .len = sizeof(u32) },
- 	[TCA_SKBEDIT_QUEUE_MAPPING]	= { .len = sizeof(u16) },
- 	[TCA_SKBEDIT_MARK]		= { .len = sizeof(u32) },
-+	[TCA_SKBEDIT_PTYPE]		= { .len = sizeof(u16) },
- };
- 
- static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
-@@ -68,7 +71,7 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
- 	struct tc_skbedit *parm;
- 	struct tcf_skbedit *d;
- 	u32 flags = 0, *priority = NULL, *mark = NULL;
--	u16 *queue_mapping = NULL;
-+	u16 *queue_mapping = NULL, *ptype = NULL;
- 	bool exists = false;
- 	int ret = 0, err;
- 
-@@ -92,6 +95,13 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
- 		queue_mapping = nla_data(tb[TCA_SKBEDIT_QUEUE_MAPPING]);
- 	}
- 
-+	if (tb[TCA_SKBEDIT_PTYPE] != NULL) {
-+		ptype = nla_data(tb[TCA_SKBEDIT_PTYPE]);
-+		if (!skb_pkt_type_ok(*ptype))
-+			return -EINVAL;
-+		flags |= SKBEDIT_F_PTYPE;
-+	}
-+
- 	if (tb[TCA_SKBEDIT_MARK] != NULL) {
- 		flags |= SKBEDIT_F_MARK;
- 		mark = nla_data(tb[TCA_SKBEDIT_MARK]);
-@@ -132,6 +142,8 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
- 		d->queue_mapping = *queue_mapping;
- 	if (flags & SKBEDIT_F_MARK)
- 		d->mark = *mark;
-+	if (flags & SKBEDIT_F_PTYPE)
-+		d->ptype = *ptype;
- 
- 	d->tcf_action = parm->action;
- 
-@@ -169,6 +181,10 @@ static int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
- 	    nla_put(skb, TCA_SKBEDIT_MARK, sizeof(d->mark),
- 		    &d->mark))
- 		goto nla_put_failure;
-+	if ((d->flags & SKBEDIT_F_PTYPE) &&
-+	    nla_put(skb, TCA_SKBEDIT_PTYPE, sizeof(d->ptype),
-+		    &d->ptype))
-+		goto nla_put_failure;
- 
- 	tcf_tm_dump(&t, &d->tcf_tm);
- 	if (nla_put_64bit(skb, TCA_SKBEDIT_TM, sizeof(t), &t, TCA_SKBEDIT_PAD))
--- 
-1.9.1
+If you read say 3 values <A, B, C>  you might want to read them in a
+consistent way, instead of <new_A, old_B, old_C>
