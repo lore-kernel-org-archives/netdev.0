@@ -1,122 +1,31 @@
-From: Arend van Spriel <arend.vanspriel@broadcom.com>
-Subject: Re: [PATCH RFC 2/2] brcmfmac: support removing AP interfaces with
- "interface_remove"
-Date: Sat, 18 Jun 2016 21:32:27 +0200
-Message-ID: <5765A1CB.9060700@broadcom.com>
-References: <1466273932-11554-1-git-send-email-zajec5@gmail.com>
- <1466273932-11554-2-git-send-email-zajec5@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3 net-next v3 06/14] net: dsa: mv88e6xxx: use gpio get
+ optional variant
+Date: Sat, 18 Jun 2016 22:17:39 +0200
+Message-ID: <20160618201739.GA7172@lunn.ch>
+References: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
+ <20160618000736.5598-7-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Franky Lin <franky.lin@broadcom.com>,
-	Hante Meuleman <hante.meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-	<linux-wireless@vger.kernel.org>,
-	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-	<brcm80211-dev-list.pdl@broadcom.com>,
-	"open list:NETWORKING DRIVERS" <netdev@vger.kernel.org>,
-	open list <linux-kernel@vger.kernel.org>
-To: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	Kalle Valo <kvalo@codeaurora.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Ben Dooks <ben.dooks@codethink.co.uk>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1466273932-11554-2-git-send-email-zajec5@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <20160618000736.5598-7-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 18-06-16 20:18, Rafa=C5=82 Mi=C5=82ecki wrote:
-> New firmwares (e.g. 10.10.69.36 for BCM4366) support "interface_remov=
-e"
-> for removing interfaces. Try to use this method on cfg80211 request. =
-In
-> case of older firmwares (e.g. 7.35.177.56 for BCM43602 as I tested) t=
-his
-> will just result in firmware rejecting command and this won't change =
-any
-> behavior.
->=20
-> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
-> ---
->  .../broadcom/brcm80211/brcmfmac/cfg80211.c         | 37 ++++++++++++=
-+++++++++-
->  1 file changed, 36 insertions(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg8021=
-1.c b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-> index 502b0a0..aff76c2 100644
-> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c
-> @@ -785,12 +785,46 @@ s32 brcmf_notify_escan_complete(struct brcmf_cf=
-g80211_info *cfg,
->  	return err;
->  }
-> =20
-> +static int brcmf_cfg80211_del_ap_iface(struct wiphy *wiphy,
-> +				       struct wireless_dev *wdev)
-> +{
-> +	struct brcmf_cfg80211_info *cfg =3D wiphy_priv(wiphy);
-> +	struct net_device *ndev =3D wdev->netdev;
-> +	struct brcmf_if *ifp =3D netdev_priv(ndev);
-> +	int ret;
-> +	int err;
-> +
-> +	brcmf_cfg80211_arm_vif_event(cfg, ifp->vif);
-> +
-> +	err =3D brcmf_fil_bsscfg_data_set(ifp, "interface_remove", NULL, 0)=
-;
-> +	if (err) {
-> +		brcmf_err("interface_remove failed %d\n", err);
-> +		goto err_unarm;
-> +	}
-> +
-> +	/* wait for firmware event */
-> +	ret =3D brcmf_cfg80211_wait_vif_event(cfg, BRCMF_E_IF_DEL,
-> +					    BRCMF_VIF_EVENT_TIMEOUT);
-> +	if (!ret) {
-> +		brcmf_err("timeout occurred\n");
-> +		err =3D -EIO;
-> +		goto err_unarm;
-> +	}
-> +
-> +err_unarm:
-> +	brcmf_cfg80211_arm_vif_event(cfg, NULL);
-> +	return err;
-> +}
-> +
->  static
->  int brcmf_cfg80211_del_iface(struct wiphy *wiphy, struct wireless_de=
-v *wdev)
->  {
->  	struct brcmf_cfg80211_info *cfg =3D wiphy_priv(wiphy);
->  	struct net_device *ndev =3D wdev->netdev;
-> =20
-> +	if (ndev =3D=3D cfg_to_ndev(cfg))
+On Fri, Jun 17, 2016 at 08:07:28PM -0400, Vivien Didelot wrote:
+> Use the optional variant to get the reset GPIO line, instead of checking
+> for the -ENOENT error.
+> 
+> Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-ndev can be NULL, ie. for IFTYPE_P2P_DEVICE.
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-Regards,
-Arend
-
-> +		return -ENOTSUPP;
-> +
->  	/* vif event pending in firmware */
->  	if (brcmf_cfg80211_vif_event_armed(cfg))
->  		return -EBUSY;
-> @@ -807,12 +841,13 @@ int brcmf_cfg80211_del_iface(struct wiphy *wiph=
-y, struct wireless_dev *wdev)
->  	switch (wdev->iftype) {
->  	case NL80211_IFTYPE_ADHOC:
->  	case NL80211_IFTYPE_STATION:
-> -	case NL80211_IFTYPE_AP:
->  	case NL80211_IFTYPE_AP_VLAN:
->  	case NL80211_IFTYPE_WDS:
->  	case NL80211_IFTYPE_MONITOR:
->  	case NL80211_IFTYPE_MESH_POINT:
->  		return -EOPNOTSUPP;
-> +	case NL80211_IFTYPE_AP:
-> +		return brcmf_cfg80211_del_ap_iface(wiphy, wdev);
->  	case NL80211_IFTYPE_P2P_CLIENT:
->  	case NL80211_IFTYPE_P2P_GO:
->  	case NL80211_IFTYPE_P2P_DEVICE:
->=20
+    Andrew
