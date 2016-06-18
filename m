@@ -1,72 +1,117 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [patch net-next v4 0/4] return offloaded stats as default and
- expose original sw stats
-Date: Sat, 18 Jun 2016 09:58:56 -0400
-Message-ID: <576553A0.2060504@mojatatu.com>
-References: <1466066237-7719-1-git-send-email-jiri@resnulli.us>
- <20160616.172632.1759391103978744570.davem@davemloft.net>
- <20160617082411.GA1981@nanopsycho.orion>
- <f720df39-75c4-9be1-245d-df63bd40d610@cumulusnetworks.com>
- <20160617140512.GB1981@nanopsycho.orion> <57640F2A.7090003@mojatatu.com>
- <9f8e85ac-3e96-257e-cf7f-e7e793d41cf4@cumulusnetworks.com>
- <20160617154243.GD1981@nanopsycho.orion> <57642F76.6090403@gmail.com>
- <20160618080000.GA1989@nanopsycho.orion>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	nogahf@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
-To: Jiri Pirko <jiri@resnulli.us>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f196.google.com ([209.85.223.196]:34850 "EHLO
-	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751228AbcFRN7A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 09:59:00 -0400
-Received: by mail-io0-f196.google.com with SMTP id n127so13508076iof.2
-        for <netdev@vger.kernel.org>; Sat, 18 Jun 2016 06:58:59 -0700 (PDT)
-In-Reply-To: <20160618080000.GA1989@nanopsycho.orion>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 1/2] net: ethernet: altera_tse: use phydev from struct net_device
+Date: Sat, 18 Jun 2016 16:37:20 +0200
+Message-ID: <1466260641-22506-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, nios2-dev@lists.rocketboards.org,
+	linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
+To: vbridger@opensource.altera.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 16-06-18 04:00 AM, Jiri Pirko wrote:
-> Fri, Jun 17, 2016 at 07:12:22PM CEST, f.fainelli@gmail.com wrote:
+The private structure contain a pointer to phydev, but the structure
+net_device already contain such pointer. So we can remove the pointer
+phydev in the private structure, and update the driver to use the
+one contained in struct net_device.
 
->>> Yep. And I believe that for offloaded forwarding, this tools should see
->>> hw counters, as they show what is going on in real.
->>
->> If your NIC is offloading packets today, these tools typically won't see
->> these stats, but ethtool -S likely will report what is going on under
->> the hood.
->>
->> Do we actually need to tell apart SW maintained from HW maintained
->> stats, or at the end all that matters is just, as DaveM pointed out,
->> getting the information, and in the case of an Ethernet switch, return
->> HW stats by default and supplement with SW stats whenever we have them,
->> all in the same namespace?
->
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/altera/altera_tse.h         |    1 -
+ drivers/net/ethernet/altera/altera_tse_ethtool.c |    6 ++----
+ drivers/net/ethernet/altera/altera_tse_main.c    |   16 +++++++---------
+ 3 files changed, 9 insertions(+), 14 deletions(-)
 
-In general it is extremely useful for debugging to be able to see them
-separately. One API to unify them (and that API being netlink) is
-the way to go. I dont know if you can ever obsolete ethtool if lots
-of other utils are using it - but would be nice.
-It is also useful to just get the sum of them - but user space can
-take care of that. David A., whatever user space tools that depended
-on ethtool should now be able to retrieve them via netlink, no?
-
-> I believe it is valuable for user to know stats for slow path
-> (non-forwarded by ASIC). Also, it's just another rtnl attr. Easy.
->
-
-So Jiri, I see:
-IFLA_SW_STATS64 should that be: IFLA_HW_STATS_LINK_64?
-I think IFLA_STATS_LINK_64 should continue to send s/ware stats.
-
-cheers,
-jamal
+diff --git a/drivers/net/ethernet/altera/altera_tse.h b/drivers/net/ethernet/altera/altera_tse.h
+index 103c30d..e005200 100644
+--- a/drivers/net/ethernet/altera/altera_tse.h
++++ b/drivers/net/ethernet/altera/altera_tse.h
+@@ -473,7 +473,6 @@ struct altera_tse_private {
+ 	int phy_addr;		/* PHY's MDIO address, -1 for autodetection */
+ 	phy_interface_t phy_iface;
+ 	struct mii_bus *mdio;
+-	struct phy_device *phydev;
+ 	int oldspeed;
+ 	int oldduplex;
+ 	int oldlink;
+diff --git a/drivers/net/ethernet/altera/altera_tse_ethtool.c b/drivers/net/ethernet/altera/altera_tse_ethtool.c
+index be72e1e..c1b5608 100644
+--- a/drivers/net/ethernet/altera/altera_tse_ethtool.c
++++ b/drivers/net/ethernet/altera/altera_tse_ethtool.c
+@@ -235,8 +235,7 @@ static void tse_get_regs(struct net_device *dev, struct ethtool_regs *regs,
+ 
+ static int tse_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+-	struct altera_tse_private *priv = netdev_priv(dev);
+-	struct phy_device *phydev = priv->phydev;
++	struct phy_device *phydev = dev->phydev;
+ 
+ 	if (phydev == NULL)
+ 		return -ENODEV;
+@@ -246,8 +245,7 @@ static int tse_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ 
+ static int tse_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+ {
+-	struct altera_tse_private *priv = netdev_priv(dev);
+-	struct phy_device *phydev = priv->phydev;
++	struct phy_device *phydev = dev->phydev;
+ 
+ 	if (phydev == NULL)
+ 		return -ENODEV;
+diff --git a/drivers/net/ethernet/altera/altera_tse_main.c b/drivers/net/ethernet/altera/altera_tse_main.c
+index f749e4d..49025e9 100644
+--- a/drivers/net/ethernet/altera/altera_tse_main.c
++++ b/drivers/net/ethernet/altera/altera_tse_main.c
+@@ -625,7 +625,7 @@ out:
+ static void altera_tse_adjust_link(struct net_device *dev)
+ {
+ 	struct altera_tse_private *priv = netdev_priv(dev);
+-	struct phy_device *phydev = priv->phydev;
++	struct phy_device *phydev = dev->phydev;
+ 	int new_state = 0;
+ 
+ 	/* only change config if there is a link */
+@@ -845,7 +845,6 @@ static int init_phy(struct net_device *dev)
+ 	netdev_dbg(dev, "attached to PHY %d UID 0x%08x Link = %d\n",
+ 		   phydev->mdio.addr, phydev->phy_id, phydev->link);
+ 
+-	priv->phydev = phydev;
+ 	return 0;
+ }
+ 
+@@ -1172,8 +1171,8 @@ static int tse_open(struct net_device *dev)
+ 
+ 	spin_unlock_irqrestore(&priv->rxdma_irq_lock, flags);
+ 
+-	if (priv->phydev)
+-		phy_start(priv->phydev);
++	if (dev->phydev)
++		phy_start(dev->phydev);
+ 
+ 	napi_enable(&priv->napi);
+ 	netif_start_queue(dev);
+@@ -1205,8 +1204,8 @@ static int tse_shutdown(struct net_device *dev)
+ 	unsigned long int flags;
+ 
+ 	/* Stop the PHY */
+-	if (priv->phydev)
+-		phy_stop(priv->phydev);
++	if (dev->phydev)
++		phy_stop(dev->phydev);
+ 
+ 	netif_stop_queue(dev);
+ 	napi_disable(&priv->napi);
+@@ -1545,10 +1544,9 @@ err_free_netdev:
+ static int altera_tse_remove(struct platform_device *pdev)
+ {
+ 	struct net_device *ndev = platform_get_drvdata(pdev);
+-	struct altera_tse_private *priv = netdev_priv(ndev);
+ 
+-	if (priv->phydev)
+-		phy_disconnect(priv->phydev);
++	if (ndev->phydev)
++		phy_disconnect(ndev->phydev);
+ 
+ 	platform_set_drvdata(pdev, NULL);
+ 	altera_tse_mdio_destroy(ndev);
+-- 
+1.7.4.4
