@@ -1,10 +1,10 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v3 net-next v3 13/14] net: dsa: mv88e6xxx: add addressing
- mode to info
-Date: Sat, 18 Jun 2016 22:36:39 +0200
-Message-ID: <20160618203639.GH7172@lunn.ch>
+Subject: Re: [PATCH v3 net-next v3 14/14] net: dsa: mv88e6xxx: add port base
+ address to info
+Date: Sat, 18 Jun 2016 22:38:03 +0200
+Message-ID: <20160618203803.GI7172@lunn.ch>
 References: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
- <20160618000736.5598-14-vivien.didelot@savoirfairelinux.com>
+ <20160618000736.5598-15-vivien.didelot@savoirfairelinux.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
@@ -16,25 +16,18 @@ Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20160618000736.5598-14-vivien.didelot@savoirfairelinux.com>
+In-Reply-To: <20160618000736.5598-15-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> +struct mv88e6xxx_smi_ops {
-> +	int (*read)(struct mii_bus *bus, int sw_addr,
-> +		    int addr, int reg, u16 *val);
-> +	int (*write)(struct mii_bus *bus, int sw_addr,
-> +		     int addr, int reg, u16 val);
-> +};
+On Fri, Jun 17, 2016 at 08:07:36PM -0400, Vivien Didelot wrote:
+> The switch ID is located at address 0x3 of every Port Registers bank.
+> 
+> But not all Marvell switches have their Port Registers SMI Addresses
+> starting at 0x10. 88E6060 starts at 0x8 and 88E6390 starts at 0x0.
+> 
+> Add this data in the info structure and use it in the detection code.
 
-Hi Vivien
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 
-I still think this API should be based on ps.
-
-With the way you have restructured probe, this now also works, there
-is no longer a read without PS in order to get the device ID.
-
-Also, think about the case of reading/writing registers via Ethernet
-frames. Such functions would need ps, bus and sw_addr is not useful.
-
-	Andrew
+    Andrew
