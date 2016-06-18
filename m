@@ -1,76 +1,85 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net-next 12/18] IB/mlx5: Add kernel offload flow-tag
-Date: Fri, 17 Jun 2016 16:34:17 -0700
-Message-ID: <CANn89iLytk1fefd5kwUYHk8UXg_-LE_NOz6xxqMRSHRGkzDrZA@mail.gmail.com>
-References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
- <1466174639-14576-13-git-send-email-saeedm@mellanox.com> <20160617160007.GA52082@ast-mbp.thefacebook.com>
- <CALzJLG-uoMKjZCC312JjfqnQaUW_-31eqeg0bQd+r3qp4Fa1ag@mail.gmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH 1/3] Use C99 style initializers everywhere
+Date: Sat, 18 Jun 2016 02:02:21 +0200
+Message-ID: <20160618000221.GA10428@orbyte.nwl.cc>
+References: <41801a15-fd99-6916-211c-705b4445023d@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Doug Ledford <dledford@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	"julien.floret@6wind.com" <julien.floret@6wind.com>
+To: Daniel Borkmann <daniel@iogearbox.net>,
+	Stephen Hemminger <shemming@brocade.com>,
+	David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f173.google.com ([209.85.161.173]:33436 "EHLO
-	mail-yw0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752024AbcFQXeT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 19:34:19 -0400
-Received: by mail-yw0-f173.google.com with SMTP id g20so84815307ywb.0
-        for <netdev@vger.kernel.org>; Fri, 17 Jun 2016 16:34:19 -0700 (PDT)
-In-Reply-To: <CALzJLG-uoMKjZCC312JjfqnQaUW_-31eqeg0bQd+r3qp4Fa1ag@mail.gmail.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:38113 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751095AbcFRACZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 17 Jun 2016 20:02:25 -0400
+Content-Disposition: inline
+In-Reply-To: <41801a15-fd99-6916-211c-705b4445023d@cumulusnetworks.com>
+ <20160617115753.6205562d@xeon-e3>
+ <576420B0.3050203@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 17, 2016 at 3:31 PM, Saeed Mahameed
-<saeedm@dev.mellanox.co.il> wrote:
-> On Fri, Jun 17, 2016 at 7:00 PM, Alexei Starovoitov
-> <alexei.starovoitov@gmail.com> wrote:
->> On Fri, Jun 17, 2016 at 05:43:53PM +0300, Saeed Mahameed wrote:
->>> From: Maor Gottlieb <maorg@mellanox.com>
->>>
->>> Add kernel offload flow tag for packets that will bypass the kernel
->>> stack, e.g (RoCE/RDMA/RAW ETH (DPDK), etc ..).
->>
->> so the whole series is an elaborate way to enable dpdk? how nice.
->
-> NO, God forbids! the whole series has nothing to do with dpdk!
-> Please read the cover letter.
->
-> Quoting my own words from the cover letter:
-> "This patch set introduces mlx5 RoCE/RDMA packet sniffer, it allows
-> mlx5e netdevice to receive RoCE/RDMA or RAW ETH traffic which isn't
-> supposed to be passed to the kernel stack, for sniffing and diagnostics
-> purposes."
->
-> We simply want to selectively be able to see RoCE/RDMA ETH standard
-> traffic in tcpdump, for diagnostic purposes.
-> so in order to not overwhelm the kernel TCP/IP stack with this
-> traffic, this patch in particular
-> configures ConnectX4 hardware to tag those packets, so in downstream
-> patches mlx5 netdevice will mark the SKBs of those packets
-> to skip the TCP/IP stack and go only to tcpdump.
->
-> DPDK is not enabled/disabled or even slightly affected in this series.
-> It was just given as an example in this patch commit message for
-> traffic that can be sniffed in standard tools such as tcpdump.
->
-> Today there are some bad usages and abuse to skb->protocol where some
-> device drivers set skb->protocol = 0xffffff to skip the kernel TCP/IP
-> processing for the same diagnostic purposes.
-> In this series we are just trying to do the right thing.
+Hi,
 
-Well, your patch adds an extra test in kernel fast path, just to ease
-the life of people using kernel bypass,
-but willing to use tcpdump because they can not figure to do this in
-user space properly.
+[Replying to multiple mails at once due to laziness.]
 
-Please find a way  _not_ adding a single instruction in kernel fast path.
+On Fri, Jun 17, 2016 at 06:09:20PM +0200, Daniel Borkmann wrote:
+> Hmm, seems like a lot of stuff ...
 
-Thanks.
+It is. At some point I thought about maybe hack something in cocci
+instead, but that would probably have taken longer given the code
+diversity. :/
+
+I know this is crap to review, but splitting it up into a 100 patches
+doesn't make much sense, either.
+
+> Please have a look at commit 8f80d450c3cb ("tc: fix compilation with old gcc (< 4.6)") ...
+> 
+> Your changes effectively revert them again. Here, and some other parts of the bpf frontend
+> code bits.
+
+Oh, good catch! Thanks a lot for pointing this out. It definitely needs
+to be sorted prior to applying my mess.
+
+
+On Fri, Jun 17, 2016 at 11:57:53AM -0700, Stephen Hemminger wrote:
+> It makes sense that if you can build a kernel with old toolchain, that
+> iproute2 needs to be buildable as well.
+> 
+> The current kernels are documented to require 3.2 or later.
+
+So in your opinion we should stay compatible to gcc-3.2? Clarifying
+requirements like this one would make sense in order to know what to
+check against.
+
+
+On Fri, Jun 17, 2016 at 02:47:51PM -0600, David Ahern wrote:
+> On 6/17/16 2:36 PM, Daniel Borkmann wrote:
+[...]
+> > I just pointed to the fact that this would basically undo their changes
+> > that they've submitted some time ago to the BPF frontend, reintroducing
+> > the issue for them. Unfortunately, the anonymous struct cannot be named
+> > due to uapi reasons. It should have been named from the very beginning,
+> > but unfortunately too late now. So I would suggest to just leave those
+> > affected parts as is.
+> 
+> I was referring to Phil's patch. All of the struct {} req; 
+> initializations should be fine if you name the structs, but then need to 
+> run it through whatever compiler version the 6wind folks care about to 
+> verify that is true.
+
+I'm not so sure about that. What I did regarding the anonymous struct
+req is not new in iproute2 code base: There is the GENL_REQUEST macro
+which expands to an identical construct and it's there since end of
+2012.
+
+Commit 8f80d450c3cb changes only the initializers of union bpf_attr, so
+maybe the problem is limited to anonymous structs in unions? Anyway, I
+guess defining which minimum gcc version to depend on and testing
+against it is the only real solution here.
+
+Thanks, Phil
