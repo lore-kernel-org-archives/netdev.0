@@ -1,30 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -next] tipc: potential shift wrapping bug in map_set()
-Date: Fri, 17 Jun 2016 21:27:19 -0700 (PDT)
-Message-ID: <20160617.212719.1901762351352671976.davem@davemloft.net>
-References: <20160617092226.GD25609@mwanda>
+Subject: Re: [PATCH v3 0/2] net: ethernet: ti: cpsw: delete rx_descs
+ property
+Date: Fri, 17 Jun 2016 21:28:11 -0700 (PDT)
+Message-ID: <20160617.212811.1535969626992239666.davem@davemloft.net>
+References: <1466159140-3329-1-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jon.maloy@ericsson.com, ying.xue@windriver.com,
-	netdev@vger.kernel.org, tipc-discussion@lists.sourceforge.net,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56734 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750949AbcFRE1U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 00:27:20 -0400
-In-Reply-To: <20160617092226.GD25609@mwanda>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mugunthanvnm@ti.com, linux-kernel@vger.kernel.org,
+	grygorii.strashko@ti.com, linux-omap@vger.kernel.org,
+	netdev@vger.kernel.org, robh+dt@kernel.org, pawel.moll@arm.com,
+	mark.rutland@arm.com, ijc+devicetree@hellion.org.uk,
+	galak@codeaurora.org, bcousson@baylibre.com, tony@atomide.com,
+	devicetree@vger.kernel.org
+To: ivan.khoronzhuk@linaro.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466159140-3329-1-git-send-email-ivan.khoronzhuk@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Fri, 17 Jun 2016 12:22:26 +0300
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Date: Fri, 17 Jun 2016 13:25:38 +0300
 
-> "up_map" is a u64 type but we're not using the high 32 bits.
+> There is no reason in rx_descs property because davinici_cpdma
+> driver splits pool of descriptors equally between tx and rx channels.
+> So, this patch series makes driver to use available number of
+> descriptors for rx channels.
 > 
-> Fixes: 35c55c9877f8 ('tipc: add neighbor monitoring framework')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> Based on
+> git://git.kernel.org/pub/scm/linux/kernel/git/davem/net-next.git
+> master
+> 
+> Since v2:
+> - add declaration of buf_num in correct order
 
-Applied.
+Series applied, thanks.
