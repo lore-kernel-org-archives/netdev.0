@@ -1,33 +1,64 @@
-From: "santosh.shilimkar@oracle.com" <santosh.shilimkar@oracle.com>
-Subject: Re: [PATCH] net: rds: fix coding style issues
-Date: Sat, 18 Jun 2016 09:22:49 -0700
-Message-ID: <9f390845-b330-3556-c172-20f764628e3b@oracle.com>
-References: <1550219.0fqfakIZNR@arch>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH] brcmfmac: include also core.h header in cfg80211.h
+Date: Sat, 18 Jun 2016 18:49:38 +0200
+Message-ID: <1466268596-12178-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com
-To: Joshua Houghton <josh@awful.name>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1550219.0fqfakIZNR@arch>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Arend van Spriel <arend.vanspriel@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	Hante Meuleman <hante.meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	brcm80211-dev-list.pdl@broadcom.com (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: Kalle Valo <kvalo@codeaurora.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:34604 "EHLO
+	mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751343AbcFRQuN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 12:50:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 6/18/16 8:46 AM, Joshua Houghton wrote:
-> Fix coding style issues in the following files:
->
-> ib_cm.c:      add space
-> loop.c:       convert spaces to tabs
-> sysctl.c:     add space
-> tcp.h:        convert spaces to tabs
-> tcp_connect.c:remove extra indentation in switch statement
-> tcp_recv.c:   convert spaces to tabs
-> tcp_send.c:   convert spaces to tabs
-> transport.c:  move brace up one line on for statement
->
-> Signed-off-by: Joshua Houghton <josh@awful.name>
-> ---
-Thanks for doing it.
-Acked-by: Santosh Shilimkar <santosh.shilimkar@oracle.com>
+This header provides two inline functions using struct brcmf_if so we
+need core.h to avoid:
+
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h: In functio=
+n =E2=80=98ndev_to_prof=E2=80=99:
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h:368:13: err=
+or: dereferencing pointer to incomplete type
+  return &ifp->vif->profile;
+             ^
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h: In functio=
+n =E2=80=98ndev_to_vif=E2=80=99:
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h:374:12: err=
+or: dereferencing pointer to incomplete type
+  return ifp->vif;
+            ^
+
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+---
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.=
+h b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h
+index 04bfc7e..7d77f86 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h
+@@ -20,6 +20,7 @@
+ /* for brcmu_d11inf */
+ #include <brcmu_d11.h>
+=20
++#include "core.h"
+ #include "fwil_types.h"
+ #include "p2p.h"
+=20
+--=20
+1.8.4.5
