@@ -1,49 +1,53 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: mwifiex: fix link error against sdio
-Date: Sat, 18 Jun 2016 13:36:52 +0000 (UTC)
-Message-ID: <20160618133652.BF4046144A@smtp.codeaurora.org>
-References: <20160616090206.932870-1-arnd@arndb.de>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: act_mirred: remove spinlock in fast path
+Date: Sat, 18 Jun 2016 09:45:06 -0400
+Message-ID: <57655062.1080407@mojatatu.com>
+References: <CAM_iQpU42hydN_akrr8EGuN8OGifyjM3j+W44hjOvRxxM52HbA@mail.gmail.com>
+ <CANn89iJj6aqqm0AwQnFR6NJSADje4FS64dzF2-Ac8hSpECG=sQ@mail.gmail.com>
+ <CAM_iQpXJ9Kq=Ff3jZPJYjotXpYOMhTRSZe3Gu4bZ_fLPyKTyWg@mail.gmail.com>
+ <CANn89iJiPnNj1nBHn5v0DQ7fB5n8h1=_h-Ev0UhcYmJE4PehDw@mail.gmail.com>
+ <CAM_iQpU57HebOQSYXqoa6xuW4cuSdCqZwQkE_JSu7abHFAuaHw@mail.gmail.com>
+ <CANn89iK3DLjJ6y34y1=pnUmH0RKBwwQWj4ZzizVmm98BXxGxYA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Wei-Ning Huang <wnhuang@chromium.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Eric Dumazet <edumazet@google.com>,
+	Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:47774 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751228AbcFRNgx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 09:36:53 -0400
-In-Reply-To: <20160616090206.932870-1-arnd@arndb.de>
+Received: from mail-io0-f174.google.com ([209.85.223.174]:32934 "EHLO
+	mail-io0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751254AbcFRNpI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 09:45:08 -0400
+Received: by mail-io0-f174.google.com with SMTP id t74so90717724ioi.0
+        for <netdev@vger.kernel.org>; Sat, 18 Jun 2016 06:45:08 -0700 (PDT)
+In-Reply-To: <CANn89iK3DLjJ6y34y1=pnUmH0RKBwwQWj4ZzizVmm98BXxGxYA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd@arndb.de> wrote:
-> Calling sdio_claim_host() from the interface independent part of
-> the mwifiex driver is not only a layering violation, but also causes
-> a link error if MMC support is disabled, or if CONFIG_MMC=m
-> and CONFIG_MWIFIEX=y:
-> 
-> drivers/net/built-in.o: In function `mwifiex_fw_dpc':
-> :(.text+0xff138): undefined reference to `sdio_claim_host'
-> :(.text+0xff158): undefined reference to `sdio_release_host'
-> 
-> The right way to do this is to have the sdio specific code in the
-> sdio driver front-end, and we already have a callback pointer that
-> we can use for this after exporting the generic fw download
-> function from the core driver.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 65c71efe1c59 ("mwifiex: fix racing condition when downloading firmware")
+On 16-06-17 06:03 PM, Eric Dumazet wrote:
+> On Fri, Jun 17, 2016 at 2:59 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>
+>> Generally speaking I worry about we change multiple fields in a struct
+>> meanwhile we could still read them any time in the middle, we may
+>> get them correct for some easy case, but it is hard to insure the
+>> correctness when the struct becomes large.
+>>
+>> I am thinking to make more tc actions lockless, so this problem
+>> comes up immediately for other complex cases than mirred.
+>
+> I certainly wont object to a patch.
+>
+> Also note that instead of RCU with a pointer and the usual kfree_rcu() stuff,
+> we now can use seqcount_latch infra which might allow to not increase
+> memory foot print.
+>
 
-Thanks, 1 patch applied to wireless-drivers-next.git:
+Given an update/replace of an action is such a rare occassion, what
+is wrong with init doing a spin lock on existing action?
+Sure, there is performance impact on fast path at that point - but:
+as established update/replace is _a rare occassion_ ;->
 
-2095b1426c9c mwifiex: fix link error against sdio
-
--- 
-Sent by pwcli
-https://patchwork.kernel.org/patch/9180095/
+cheers,
+jamal
