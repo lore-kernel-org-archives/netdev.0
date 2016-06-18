@@ -1,52 +1,98 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH v3 net-next v3 13/14] net: dsa: mv88e6xxx: add addressing mode to info
-Date: Sat, 18 Jun 2016 17:18:24 -0400
-Message-ID: <8737oa42n3.fsf@ketchup.mtl.sfl>
-References: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com> <20160618000736.5598-14-vivien.didelot@savoirfairelinux.com> <20160618203639.GH7172@lunn.ch>
+From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [PATCH RFC 1/2] brcmfmac: remove interface before notifying listener
+Date: Sat, 18 Jun 2016 23:58:50 +0200
+Message-ID: <CACna6rydCmKhyxsyOPrCsT_KbQLQPAg2doCcovVdvedBcRT+=w@mail.gmail.com>
+References: <1466273932-11554-1-git-send-email-zajec5@gmail.com> <5765A06C.3040005@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Ben Dooks <ben.dooks@codethink.co.uk>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160618203639.GH7172@lunn.ch>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	Pieter-Paul Giesberts <pieter-paul.giesberts-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
+	<brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
+	"open list:NETWORKING DRIVERS" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	open list <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5765A06C.3040005-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andrew,
-
-Andrew Lunn <andrew@lunn.ch> writes:
-
->> +struct mv88e6xxx_smi_ops {
->> +	int (*read)(struct mii_bus *bus, int sw_addr,
->> +		    int addr, int reg, u16 *val);
->> +	int (*write)(struct mii_bus *bus, int sw_addr,
->> +		     int addr, int reg, u16 val);
->> +};
+On 18 June 2016 at 21:26, Arend van Spriel <arend.vanspriel-dY08KVG/lbrQFizaE/u3fw@public.gmane.org=
+m> wrote:
+> On 18-06-16 20:18, Rafa=C5=82 Mi=C5=82ecki wrote:
+>> So far when receiving event about in-firmware-interface removal we w=
+ere
+>> notifying our listener and afterwards we were removing Linux interfa=
+ce.
+>>
 >
-> Hi Vivien
+> [snip]
 >
-> I still think this API should be based on ps.
+>>
+>> diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fweh.c=
+ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fweh.c
+>> index 9da7a4c..5fd1886 100644
+>> --- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fweh.c
+>> +++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fweh.c
+>> @@ -18,6 +18,7 @@
+>>  #include "brcmu_wifi.h"
+>>  #include "brcmu_utils.h"
+>>
+>> +#include "cfg80211.h"
+>>  #include "core.h"
+>>  #include "debug.h"
+>>  #include "tracepoint.h"
+>> @@ -180,10 +181,16 @@ static void brcmf_fweh_handle_if_event(struct =
+brcmf_pub *drvr,
+>>       if (ifp && ifevent->action =3D=3D BRCMF_E_IF_CHANGE)
+>>               brcmf_fws_reset_interface(ifp);
+>>
+>> -     err =3D brcmf_fweh_call_event_handler(ifp, emsg->event_code, e=
+msg, data);
 >
-> With the way you have restructured probe, this now also works, there
-> is no longer a read without PS in order to get the device ID.
+> The reason for doing this first is because we are passing the ifp, wh=
+ich
+> is netdev_priv(ifp->ndev). In brcmf_remove_interface() we only
+> unregister the netdev, which will end up (after scheduling) in
+> brcmf_free_netdev() thus freeing the ifp. By moving the event handler
+> function ifp may be stale already.
+
+Good catch. What about making brcmf_fweh_call_event_handler work
+without ifp? Would that be OK then?
+
+
+>> +     if (ifp && ifevent->action =3D=3D BRCMF_E_IF_DEL) {
+>> +             bool rtnl_locked =3D brcmf_cfg80211_vif_event_armed(dr=
+vr->config);
+>> +
+>> +             brcmf_remove_interface(ifp, rtnl_locked);
 >
-> Also, think about the case of reading/writing registers via Ethernet
-> frames. Such functions would need ps, bus and sw_addr is not useful.
+> I guess rtnl_locked here means "rtnl_is_locked() by brcmfmac". It
+> actually does not matter who is holding the rtnl_lock. At least when =
+it
+> is brcmfmac it is still a different task, ie. hostapd, iw, etc. Also
+> when brcmf_cfg80211_vif_event_armed() return false there may still be
+> some task holding the rtnl_lock.
 
-Yes, I do RMU in mind, that was one motivation behind isolating
-SMI-specific pieces of code.
+It does matter who holds the lock.
 
-I considered mv88e6xxx_smi_ops private to the SMI (MDIO) access, needing
-an additional abstraction for regs access operations.
+If it's e.g. some other driver (ath, intel, ralink, whatever) we still
+should call unregister_netdevice. It'll just wait until rtnl lock gets
+released.
 
-But I can indeed rename mv88e6xxx_smi_ops to mv88e6xxx_ops and make them
-use a ps before one day, implementing an optional ps->rmu_ops.
+If it's brcmfmac holding the lock, we can't expect it to be released
+as brcmfmac waits for completion event.
 
-Thanks,
-
-        Vivien
+--=20
+Rafa=C5=82
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
