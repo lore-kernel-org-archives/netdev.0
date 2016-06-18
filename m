@@ -1,66 +1,67 @@
-From: weiyj_lk@163.com
-Subject: [PATCH] ibmvnic: fix to use list_for_each_safe() when delete items
-Date: Sat, 18 Jun 2016 02:53:28 +0000
-Message-ID: <1466218408-20940-1-git-send-email-weiyj_lk@163.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
+Date: Fri, 17 Jun 2016 20:09:47 -0700 (PDT)
+Message-ID: <20160617.200947.2078656051211641868.davem@davemloft.net>
+References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org
-To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
-	John Allen <jallen@linux.vnet.ibm.com>,
-	Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Michael Ellerman <mpe@ellerman.id.au>
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-16.163.com ([220.181.12.16]:55318 "EHLO m12-16.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750774AbcFRCyS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2016 22:54:18 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:56237 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751103AbcFRDJt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 23:09:49 -0400
+In-Reply-To: <1466099522-690741-1-git-send-email-tom@herbertland.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+From: Tom Herbert <tom@herbertland.com>
+Date: Thu, 16 Jun 2016 10:51:54 -0700
 
-Since we will remove items off the list using list_del() we need
-to use a safe version of the list_for_each() macro aptly named
-list_for_each_safe().
+> The goal of this work is twofold:
+> 
+> 1) Allow applications to run their own transport layer stack (i.e.from
+>    userspace). This eliminates dependencies on the OS (e.g. solves a
+>    major dependency issue for Facebook on clients).
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/ethernet/ibm/ibmvnic.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
+Clients need to support TOU in their kernels, it's a similar kind of
+dependency, but of course you only need to propagate it once rather
+than once per desired stack change.
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 864cb21..0b6a922 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -3141,14 +3141,14 @@ static void handle_request_ras_comp_num_rsp(union ibmvnic_crq *crq,
- 
- static void ibmvnic_free_inflight(struct ibmvnic_adapter *adapter)
- {
--	struct ibmvnic_inflight_cmd *inflight_cmd;
-+	struct ibmvnic_inflight_cmd *inflight_cmd, *tmp1;
- 	struct device *dev = &adapter->vdev->dev;
--	struct ibmvnic_error_buff *error_buff;
-+	struct ibmvnic_error_buff *error_buff, *tmp2;
- 	unsigned long flags;
- 	unsigned long flags2;
- 
- 	spin_lock_irqsave(&adapter->inflight_lock, flags);
--	list_for_each_entry(inflight_cmd, &adapter->inflight, list) {
-+	list_for_each_entry_safe(inflight_cmd, tmp1, &adapter->inflight, list) {
- 		switch (inflight_cmd->crq.generic.cmd) {
- 		case LOGIN:
- 			dma_unmap_single(dev, adapter->login_buf_token,
-@@ -3165,8 +3165,8 @@ static void ibmvnic_free_inflight(struct ibmvnic_adapter *adapter)
- 			break;
- 		case REQUEST_ERROR_INFO:
- 			spin_lock_irqsave(&adapter->error_list_lock, flags2);
--			list_for_each_entry(error_buff, &adapter->errors,
--					    list) {
-+			list_for_each_entry_safe(error_buff, tmp2,
-+						 &adapter->errors, list) {
- 				dma_unmap_single(dev, error_buff->dma,
- 						 error_buff->len,
- 						 DMA_FROM_DEVICE);
+We also now have to debug against every single userland TCP
+implementation someone can come up with, the barrier to entry is
+insanely low with TOU.  Maybe this sounds great to you, but to me
+it is quite terrifying
+
+This has a monumental impact upon maintainence of our TCP stack.
+
+I suspect a lot of bug reports will go straight to /dev/null once it
+is clear that it is a TOU TCP connection.
+
+For TCP the tight integration into the kernel is a benefit, because it
+limits the number of variables at stake when trying to analyze
+problems.
+
+> 2) Make transport layer headers (all of L4) invisible to the network
+>    so that they can't do intrusive actions at L4. This will be enforced
+>    with DTLS in use.
+
+This achievement is only met when DTLS is enabled, and it isn't enabled
+by default.
+
+This sounds really great on paper, however I find it hard to believe
+that makers of middleware boxes are just going to throw their hands in
+the air and say "oh well, we lose."
+
+Rather, I think people are going to start adding rules to block TOU
+tunnels entirely because they cannot inspect nor conditionally
+filter/rewrite the contents.  This is even more likely if Joe Random
+and so easily can do their own userland TCP stack over TOU.
+
+BTW, I have a question about the pseudo header checksum.  If the outer
+IP addresses can change, due to NAT or whatever, and therefore the
+session key is used for connection demuxing instead of the addresses,
+why don't we also have to use the session key instead of the IP
+addresses for the pseudo header used in checksum calculations?
