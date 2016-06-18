@@ -1,67 +1,64 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
-Date: Fri, 17 Jun 2016 20:09:47 -0700 (PDT)
-Message-ID: <20160617.200947.2078656051211641868.davem@davemloft.net>
-References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
+Subject: Re: [net-next PATCH v3 00/17] Future-proof tunnel offload handlers
+Date: Fri, 17 Jun 2016 20:26:41 -0700 (PDT)
+Message-ID: <20160617.202641.1821023739498595024.davem@davemloft.net>
+References: <20160616191851.20872.67154.stgit@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: tom@herbertland.com
+Cc: netdev@vger.kernel.org, intel-wired-lan@lists.osuosl.org,
+	hannes@redhat.com, jesse@kernel.org, eugenia@mellanox.com,
+	jbenc@redhat.com, alexander.duyck@gmail.com, saeedm@mellanox.com,
+	ariel.elior@qlogic.com, tom@herbertland.com,
+	michael.chan@broadcom.com, Dept-GELinuxNICDev@qlogic.com
+To: aduyck@mirantis.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56237 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:56346 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751103AbcFRDJt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 23:09:49 -0400
-In-Reply-To: <1466099522-690741-1-git-send-email-tom@herbertland.com>
+	with ESMTP id S1751103AbcFRD0o (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 23:26:44 -0400
+In-Reply-To: <20160616191851.20872.67154.stgit@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Thu, 16 Jun 2016 10:51:54 -0700
+From: Alexander Duyck <aduyck@mirantis.com>
+Date: Thu, 16 Jun 2016 12:20:35 -0700
 
-> The goal of this work is twofold:
+> s patch is meant to address two things.  First we are currently using
+> the ndo_add/del_vxlan_port calls with VXLAN-GPE tunnels and we cannot
+> really support that as it is likely to cause more harm than good since
+> VXLAN-GPE can support tunnels without a MAC address on the inner header.
 > 
-> 1) Allow applications to run their own transport layer stack (i.e.from
->    userspace). This eliminates dependencies on the OS (e.g. solves a
->    major dependency issue for Facebook on clients).
+> As such we need to add a new offload to advertise this, but in doing so it
+> would mean introducing 3 new functions for the driver to request the ports,
+> and then for the tunnel to push the changes to add and delete the ports to
+> the device.  However instead of taking that approach I think it would be
+> much better if we just made one common function for fetching the ports, and
+> provided a generic means to push the tunnels to the device.  So in order to
+> make this work this patch set does several things.
+ ...
 
-Clients need to support TOU in their kernels, it's a similar kind of
-dependency, but of course you only need to propagate it once rather
-than once per desired stack change.
+Series applied, thanks Alexander.
 
-We also now have to debug against every single userland TCP
-implementation someone can come up with, the barrier to entry is
-insanely low with TOU.  Maybe this sounds great to you, but to me
-it is quite terrifying
+Tom, I've heard your arguments, but I think your fears are unfounded.
+Look at what Alexander's patches are actually doing.
 
-This has a monumental impact upon maintainence of our TCP stack.
+First, he's fixing a bug.  Hardware that supports VXLAN offloading
+doesn't support VXLAN-GPE, yet we were sending such things to the
+VXLAN offload paths.
 
-I suspect a lot of bug reports will go straight to /dev/null once it
-is clear that it is a TOU TCP connection.
+Second, he's eliminating a metric ton of Kconfig garbage, as drivers
+had to have all kinds of contrived dependencies to support UDP tunnel
+offloads.
 
-For TCP the tight integration into the kernel is a benefit, because it
-limits the number of variables at stake when trying to analyze
-problems.
+Third, he's consolidating several driver NDO methods into just two.
 
-> 2) Make transport layer headers (all of L4) invisible to the network
->    so that they can't do intrusive actions at L4. This will be enforced
->    with DTLS in use.
+And finally, he added a big comment explaining that new tunnel types
+should not be added to the tunnel type list, and those that exist
+should only be used for RX.
 
-This achievement is only met when DTLS is enabled, and it isn't enabled
-by default.
+Therefore, this isn't openning the door for new random offloads, quite
+the contrary.  Instead, if it making clearer what the existing
+facilitites support, and putting an explicit cap on them.
 
-This sounds really great on paper, however I find it hard to believe
-that makers of middleware boxes are just going to throw their hands in
-the air and say "oh well, we lose."
-
-Rather, I think people are going to start adding rules to block TOU
-tunnels entirely because they cannot inspect nor conditionally
-filter/rewrite the contents.  This is even more likely if Joe Random
-and so easily can do their own userland TCP stack over TOU.
-
-BTW, I have a question about the pseudo header checksum.  If the outer
-IP addresses can change, due to NAT or whatever, and therefore the
-session key is used for connection demuxing instead of the addresses,
-why don't we also have to use the session key instead of the IP
-addresses for the pseudo header used in checksum calculations?
+Thanks.
