@@ -1,38 +1,56 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 0/3] net sched action timestamp improvements
-Date: Fri, 17 Jun 2016 21:31:24 -0700 (PDT)
-Message-ID: <20160617.213124.1063789508502408050.davem@davemloft.net>
-References: <20160607.155405.778592531194331404.davem@davemloft.net>
-	<5763DBCF.9080203@mojatatu.com>
+Subject: Re: [PATCH net 1/1] tipc: fix socket timer
+	deadlock
+Date: Fri, 17 Jun 2016 21:55:30 -0700 (PDT)
+Message-ID: <20160617.215530.401735252835970579.davem@davemloft.net>
+References: <1466159757-12095-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: xiyou.wangcong@gmail.com, netdev@vger.kernel.org
-To: jhs@mojatatu.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:56780 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750752AbcFREb0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 00:31:26 -0400
-In-Reply-To: <5763DBCF.9080203@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <1466159757-12095-1-git-send-email-jon.maloy@ericsson.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Fri, 17 Jun 2016 07:15:27 -0400
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Fri, 17 Jun 2016 06:35:57 -0400
 
-> Ok, mystery solved. Dave, this patch series is missing from current
-> net-next.
+> We sometimes observe a 'deadly embrace' type deadlock occurring
+> between mutually connected sockets on the same node. This happens
+> when the one-hour peer supervision timers happen to expire
+> simultaneously in both sockets.
+> 
+> The scenario is as follows:
+ ...
+> Further analysis reveals that there are three different locations in the
+> socket code where tipc_sk_respond() is called within the context of the
+> socket lock, with ensuing risk of similar deadlocks.
+> 
+> We now solve this by passing a buffer queue along with all upcalls where
+> sk_lock.slock may potentially be held. Response or rejected message
+> buffers are accumulated into this queue instead of being sent out
+> directly, and only sent once we know we are safely outside the slock
+> context.
+> 
+> Reported-by: GUNA <gbalasun@gmail.com>
+> Acked-by: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-Then what is:
+Applied, thanks Jon.
 
-commit 53eb440f4ada034ea43b295891feec3df0fa7a29
-Author: Jamal Hadi Salim <jhs@mojatatu.com>
-Date:   Mon Jun 6 06:32:54 2016 -0400
-
-    net sched actions: introduce timestamp for firsttime use
-    
-    Useful to know when the action was first used for accounting
-    (and debugging)
-    
-    Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+------------------------------------------------------------------------------
+What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
+patterns at an interface-level. Reveals which users, apps, and protocols are 
+consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
+J-Flow, sFlow and other flows. Make informed decisions using capacity planning
+reports. http://sdm.link/zohomanageengine
