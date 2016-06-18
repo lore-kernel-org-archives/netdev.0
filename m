@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v3 net-next v3 03/14] net: dsa: mv88e6xxx: use already declared variables
-Date: Fri, 17 Jun 2016 20:07:25 -0400
-Message-ID: <20160618000736.5598-4-vivien.didelot@savoirfairelinux.com>
-References: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v3 net-next v3 00/14] net: dsa: mv88e6xxx: probe compatible
+Date: Fri, 17 Jun 2016 20:07:22 -0400
+Message-ID: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
@@ -11,48 +10,66 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:39159 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753625AbcFRAIN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 17 Jun 2016 20:08:13 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-In the MDIO probing function, dev is already assigned to &mdiodev->dev
-and np is already assigned to mdiodev->dev.of_node, so use them.
+This patchset factorizes the legacy DSA probing and the new MDIO probing
+functions with a few helpers.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/dsa/mv88e6xxx.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+This will allow us to use a compatible chip info to describe how to access the
+SMI device and its switch ID register at probe time.
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 673283a..b3170ea 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3728,7 +3728,7 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	if (!ps->info)
- 		return -ENODEV;
- 
--	ps->reset = devm_gpiod_get(&mdiodev->dev, "reset", GPIOD_ASIS);
-+	ps->reset = devm_gpiod_get(dev, "reset", GPIOD_ASIS);
- 	if (IS_ERR(ps->reset)) {
- 		err = PTR_ERR(ps->reset);
- 		if (err == -ENOENT) {
-@@ -3743,13 +3743,13 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	    !of_property_read_u32(np, "eeprom-length", &eeprom_len))
- 		ps->eeprom_len = eeprom_len;
- 
--	err = mv88e6xxx_mdio_register(ps, mdiodev->dev.of_node);
-+	err = mv88e6xxx_mdio_register(ps, np);
- 	if (err)
- 		return err;
- 
- 	dev_set_drvdata(dev, ds);
- 
--	err = dsa_register_switch(ds, mdiodev->dev.of_node);
-+	err = dsa_register_switch(ds, np);
- 	if (err) {
- 		mv88e6xxx_mdio_unregister(ps);
- 		return err;
+For the legacy probe, we fix the compatible info to 88E6085. For the MDIO
+probe, we will use the compatible info from the device node data.
+
+The first 5 patches are already reviewed.
+The next 3 patches are cosmetics, with no functional changes.
+The next 4 patches add probe helpers and pass the compatible info.
+The last 2 patches extend the info structure to store the SMI access mode and
+the location of the switch ID register.
+
+Changes since v2 [2]:
+
+  - do not guess compatible model in legacy probe
+  - add low level SMI API using a chip structure
+  - allocate before probe and detection
+  - add 3 cosmetic patches
+
+Changes since v1 [1]:
+
+  - merge style fix from Ben Dooks
+  - add Acked-by/Reviewed-by tags
+  - drop one compatible string per model
+  - detect the SMI device based on the compatible info
+  - add an SMI ops structure
+
+[1] https://lkml.org/lkml/2016/6/8/1201
+[2] https://lkml.org/lkml/2016/6/14/671
+
+Vivien Didelot (14):
+  net: dsa: mv88e6xxx: fix style issues
+  net: dsa: mv88e6xxx: remove redundant assignments
+  net: dsa: mv88e6xxx: use already declared variables
+  net: dsa: mv88e6xxx: do not increment bus refcount
+  net: dsa: mv88e6xxx: add switch register helpers
+  net: dsa: mv88e6xxx: use gpio get optional variant
+  net: dsa: mv88e6xxx: remove table args in info lookup
+  net: dsa: mv88e6xxx: rename smi_mutex to reg_lock
+  net: dsa: mv88e6xxx: add chip allocation helper
+  net: dsa: mv88e6xxx: add SMI init helper
+  net: dsa: mv88e6xxx: add detection helper
+  net: dsa: mv88e6xxx: pass compatible info
+  net: dsa: mv88e6xxx: add addressing mode to info
+  net: dsa: mv88e6xxx: add port base address to info
+
+ drivers/net/dsa/mv88e6xxx.c | 508 ++++++++++++++++++++++++++++----------------
+ drivers/net/dsa/mv88e6xxx.h |  27 ++-
+ 2 files changed, 343 insertions(+), 192 deletions(-)
+
 -- 
 2.8.3
