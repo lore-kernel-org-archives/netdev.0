@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v3 net-next v3 10/14] net: dsa: mv88e6xxx: add SMI init helper
-Date: Fri, 17 Jun 2016 20:07:32 -0400
-Message-ID: <20160618000736.5598-11-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v3 net-next v3 14/14] net: dsa: mv88e6xxx: add port base address to info
+Date: Fri, 17 Jun 2016 20:07:36 -0400
+Message-ID: <20160618000736.5598-15-vivien.didelot@savoirfairelinux.com>
 References: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -16,76 +16,179 @@ In-Reply-To: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add an helper function to isolate SMI specific assignations and checks.
+The switch ID is located at address 0x3 of every Port Registers bank.
 
-This function will later help choosing the different SMI accesses based
-of the compatible info.
+But not all Marvell switches have their Port Registers SMI Addresses
+starting at 0x10. 88E6060 starts at 0x8 and 88E6390 starts at 0x0.
 
-Since the chip structure is already allocated in the legacy probe, use
-the mv88e6xxx_reg_read access routine instead of __mv88e6xxx_reg_read.
+Add this data in the info structure and use it in the detection code.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx.c | 26 +++++++++++++++++++++-----
- 1 file changed, 21 insertions(+), 5 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 19 ++++++++++++++++++-
+ drivers/net/dsa/mv88e6xxx.h |  1 +
+ 2 files changed, 19 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 113092a..4e24ac5 100644
+index 4d32f5a..aeb96db 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3616,6 +3616,19 @@ static struct mv88e6xxx_priv_state *mv88e6xxx_alloc_chip(struct device *dev)
- 	return ps;
- }
+@@ -3511,6 +3511,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6085",
+ 		.num_databases = 4096,
+ 		.num_ports = 10,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6097,
+ 	},
  
-+static int mv88e6xxx_smi_init(struct mv88e6xxx_priv_state *ps,
-+			      struct mii_bus *bus, int sw_addr)
-+{
-+	/* ADDR[0] pin is unavailable externally and considered zero */
-+	if (sw_addr & 0x1)
-+		return -EINVAL;
-+
-+	ps->bus = bus;
-+	ps->sw_addr = sw_addr;
-+
-+	return 0;
-+}
-+
- static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
- 				       struct device *host_dev, int sw_addr,
- 				       void **priv)
-@@ -3635,7 +3648,11 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
- 	if (!ps)
- 		return NULL;
+@@ -3520,6 +3521,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6095/88E6095F",
+ 		.num_databases = 256,
+ 		.num_ports = 11,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6095,
+ 	},
  
--	id = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), PORT_SWITCH_ID);
-+	err = mv88e6xxx_smi_init(ps, bus, sw_addr);
-+	if (err)
-+		goto free;
-+
-+	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
+@@ -3529,6 +3531,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6123",
+ 		.num_databases = 4096,
+ 		.num_ports = 3,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
+ 	},
+ 
+@@ -3538,6 +3541,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6131",
+ 		.num_databases = 256,
+ 		.num_ports = 8,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6185,
+ 	},
+ 
+@@ -3547,6 +3551,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6161",
+ 		.num_databases = 4096,
+ 		.num_ports = 6,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
+ 	},
+ 
+@@ -3556,6 +3561,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6165",
+ 		.num_databases = 4096,
+ 		.num_ports = 6,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6165,
+ 	},
+ 
+@@ -3565,6 +3571,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6171",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
+ 	},
+ 
+@@ -3574,6 +3581,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6172",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
+ 	},
+ 
+@@ -3583,6 +3591,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6175",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
+ 	},
+ 
+@@ -3592,6 +3601,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6176",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
+ 	},
+ 
+@@ -3601,6 +3611,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6185",
+ 		.num_databases = 256,
+ 		.num_ports = 10,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6185,
+ 	},
+ 
+@@ -3610,6 +3621,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6240",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
+ 	},
+ 
+@@ -3619,6 +3631,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6320",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6320,
+ 	},
+ 
+@@ -3628,6 +3641,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6321",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6320,
+ 	},
+ 
+@@ -3637,6 +3651,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6350",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
+ 	},
+ 
+@@ -3646,6 +3661,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6351",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6351,
+ 	},
+ 
+@@ -3655,6 +3671,7 @@ static const struct mv88e6xxx_info mv88e6xxx_table[] = {
+ 		.name = "Marvell 88E6352",
+ 		.num_databases = 4096,
+ 		.num_ports = 7,
++		.port_base_addr = 0x10,
+ 		.flags = MV88E6XXX_FLAGS_FAMILY_6352,
+ 	},
+ };
+@@ -3675,7 +3692,7 @@ static int mv88e6xxx_detect(struct mv88e6xxx_priv_state *ps)
+ 	const struct mv88e6xxx_info *info;
+ 	int id, prod_num, rev;
+ 
+-	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
++	id = mv88e6xxx_reg_read(ps, ps->info->port_base_addr, PORT_SWITCH_ID);
  	if (id < 0)
- 		goto free;
+ 		return id;
  
-@@ -3648,8 +3665,6 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx.h
+index c82bd18..b0b5a84 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx.h
+@@ -533,6 +533,7 @@ struct mv88e6xxx_info {
+ 	const char *name;
+ 	unsigned int num_databases;
+ 	unsigned int num_ports;
++	unsigned int port_base_addr;
+ 	unsigned long flags;
+ };
  
- 	name = info->name;
- 
--	ps->bus = bus;
--	ps->sw_addr = sw_addr;
- 	ps->info = info;
- 
- 	err = mv88e6xxx_mdio_register(ps, NULL);
-@@ -3741,8 +3756,9 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	if (!ps)
- 		return -ENOMEM;
- 
--	ps->bus = mdiodev->bus;
--	ps->sw_addr = mdiodev->addr;
-+	err = mv88e6xxx_smi_init(ps, mdiodev->bus, mdiodev->addr);
-+	if (err)
-+		return err;
- 
- 	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
- 	if (id < 0)
 -- 
 2.8.3
