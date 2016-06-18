@@ -1,92 +1,148 @@
 From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH net-next 1/2] net: simplify and make pkt_type_ok() available for other users
-Date: Sat, 18 Jun 2016 11:12:04 -0400
-Message-ID: <1466262725-30289-1-git-send-email-jhs@emojatatu.com>
+Subject: [PATCH net-next 2/2] net sched actions: skbedit add support for mod-ing skb pkt_type
+Date: Sat, 18 Jun 2016 11:12:05 -0400
+Message-ID: <1466262725-30289-2-git-send-email-jhs@emojatatu.com>
+References: <1466262725-30289-1-git-send-email-jhs@emojatatu.com>
 Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
 	xiyou.wangcong@gmail.com, fw@strlen.de,
 	Jamal Hadi Salim <jhs@mojatatu.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:36566 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751433AbcFRPMQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 11:12:16 -0400
-Received: by mail-io0-f194.google.com with SMTP id s63so12496798ioi.3
-        for <netdev@vger.kernel.org>; Sat, 18 Jun 2016 08:12:16 -0700 (PDT)
+Received: from mail-io0-f193.google.com ([209.85.223.193]:33799 "EHLO
+	mail-io0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751821AbcFRPMS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 11:12:18 -0400
+Received: by mail-io0-f193.google.com with SMTP id 100so12619319ioh.1
+        for <netdev@vger.kernel.org>; Sat, 18 Jun 2016 08:12:17 -0700 (PDT)
+In-Reply-To: <1466262725-30289-1-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jamal Hadi Salim <jhs@mojatatu.com>
 
-Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
+Extremely useful for setting packet type to host so i dont
+have to modify the dst mac address using pedit (which requires
+that i know the mac address)
+
+Example usage:
+tc filter add dev eth0 parent ffff: protocol ip pref 9 u32 \
+match ip src 5.5.5.5/32 \
+flowid 1:5 action skbedit ptype host
+
+This will tag all packets incoming from 5.5.5.5 with type
+PACKET_HOST
+
 Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 ---
- include/linux/skbuff.h   | 11 +++++++++++
- net/netfilter/nft_meta.c |  9 +--------
- 2 files changed, 12 insertions(+), 8 deletions(-)
+ include/net/tc_act/tc_skbedit.h        | 10 +++++-----
+ include/uapi/linux/tc_act/tc_skbedit.h |  2 ++
+ net/sched/act_skbedit.c                | 18 +++++++++++++++++-
+ 3 files changed, 24 insertions(+), 6 deletions(-)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index dc0fca7..0b794de 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -37,6 +37,7 @@
- #include <net/flow_dissector.h>
- #include <linux/splice.h>
- #include <linux/in6.h>
-+#include <linux/if_packet.h>
- #include <net/flow.h>
+diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
+index b496d5a..d01a5d4 100644
+--- a/include/net/tc_act/tc_skbedit.h
++++ b/include/net/tc_act/tc_skbedit.h
+@@ -24,11 +24,11 @@
  
- /* The interface for checksum offload between the stack and networking drivers
-@@ -797,6 +798,7 @@ struct sk_buff {
- 	atomic_t		users;
+ struct tcf_skbedit {
+ 	struct tcf_common	common;
+-	u32			flags;
+-	u32     		priority;
+-	u32     		mark;
+-	u16			queue_mapping;
+-	/* XXX: 16-bit pad here? */
++	u32		flags;
++	u32		priority;
++	u32		mark;
++	u16		queue_mapping;
++	u16		ptype;
+ };
+ #define to_skbedit(a) \
+ 	container_of(a->priv, struct tcf_skbedit, common)
+diff --git a/include/uapi/linux/tc_act/tc_skbedit.h b/include/uapi/linux/tc_act/tc_skbedit.h
+index fecb5cc..a4d00c6 100644
+--- a/include/uapi/linux/tc_act/tc_skbedit.h
++++ b/include/uapi/linux/tc_act/tc_skbedit.h
+@@ -27,6 +27,7 @@
+ #define SKBEDIT_F_PRIORITY		0x1
+ #define SKBEDIT_F_QUEUE_MAPPING		0x2
+ #define SKBEDIT_F_MARK			0x4
++#define SKBEDIT_F_PTYPE			0x8
+ 
+ struct tc_skbedit {
+ 	tc_gen;
+@@ -40,6 +41,7 @@ enum {
+ 	TCA_SKBEDIT_QUEUE_MAPPING,
+ 	TCA_SKBEDIT_MARK,
+ 	TCA_SKBEDIT_PAD,
++	TCA_SKBEDIT_PTYPE,
+ 	__TCA_SKBEDIT_MAX
+ };
+ #define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
+diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
+index 53d1486..1c4c924 100644
+--- a/net/sched/act_skbedit.c
++++ b/net/sched/act_skbedit.c
+@@ -47,6 +47,8 @@ static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
+ 		skb_set_queue_mapping(skb, d->queue_mapping);
+ 	if (d->flags & SKBEDIT_F_MARK)
+ 		skb->mark = d->mark;
++	if (d->flags & SKBEDIT_F_PTYPE)
++		skb->pkt_type = d->ptype;
+ 
+ 	spin_unlock(&d->tcf_lock);
+ 	return d->tcf_action;
+@@ -57,6 +59,7 @@ static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
+ 	[TCA_SKBEDIT_PRIORITY]		= { .len = sizeof(u32) },
+ 	[TCA_SKBEDIT_QUEUE_MAPPING]	= { .len = sizeof(u16) },
+ 	[TCA_SKBEDIT_MARK]		= { .len = sizeof(u32) },
++	[TCA_SKBEDIT_PTYPE]		= { .len = sizeof(u16) },
  };
  
-+
- #ifdef __KERNEL__
- /*
-  *	Handling routines are only of interest to the kernel
-@@ -881,6 +883,15 @@ static inline struct rtable *skb_rtable(const struct sk_buff *skb)
- 	return (struct rtable *)skb_dst(skb);
- }
+ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+@@ -68,7 +71,7 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 	struct tc_skbedit *parm;
+ 	struct tcf_skbedit *d;
+ 	u32 flags = 0, *priority = NULL, *mark = NULL;
+-	u16 *queue_mapping = NULL;
++	u16 *queue_mapping = NULL, *ptype = NULL;
+ 	bool exists = false;
+ 	int ret = 0, err;
  
-+/* For mangling skb->pkt_type from user space side from applications
-+ * such as nft, tc, etc, we only allow a conservative subset of
-+ * possible pkt_types to be set.
-+*/
-+static inline bool skb_pkt_type_ok(u32 p)
-+{
-+	return p <= PACKET_OTHERHOST;
-+}
-+
- void kfree_skb(struct sk_buff *skb);
- void kfree_skb_list(struct sk_buff *segs);
- void skb_tx_error(struct sk_buff *skb);
-diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
-index 16c50b0..03e5e33 100644
---- a/net/netfilter/nft_meta.c
-+++ b/net/netfilter/nft_meta.c
-@@ -199,13 +199,6 @@ err:
- }
- EXPORT_SYMBOL_GPL(nft_meta_get_eval);
+@@ -92,6 +95,13 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 		queue_mapping = nla_data(tb[TCA_SKBEDIT_QUEUE_MAPPING]);
+ 	}
  
--/* don't change or set _LOOPBACK, _USER, etc. */
--static bool pkt_type_ok(u32 p)
--{
--	return p == PACKET_HOST || p == PACKET_BROADCAST ||
--	       p == PACKET_MULTICAST || p == PACKET_OTHERHOST;
--}
--
- void nft_meta_set_eval(const struct nft_expr *expr,
- 		       struct nft_regs *regs,
- 		       const struct nft_pktinfo *pkt)
-@@ -223,7 +216,7 @@ void nft_meta_set_eval(const struct nft_expr *expr,
- 		break;
- 	case NFT_META_PKTTYPE:
- 		if (skb->pkt_type != value &&
--		    pkt_type_ok(value) && pkt_type_ok(skb->pkt_type))
-+		    skb_pkt_type_ok(value) && skb_pkt_type_ok(skb->pkt_type))
- 			skb->pkt_type = value;
- 		break;
- 	case NFT_META_NFTRACE:
++	if (tb[TCA_SKBEDIT_PTYPE] != NULL) {
++		ptype = nla_data(tb[TCA_SKBEDIT_PTYPE]);
++		if (!skb_pkt_type_ok(*ptype))
++			return -EINVAL;
++		flags |= SKBEDIT_F_PTYPE;
++	}
++
+ 	if (tb[TCA_SKBEDIT_MARK] != NULL) {
+ 		flags |= SKBEDIT_F_MARK;
+ 		mark = nla_data(tb[TCA_SKBEDIT_MARK]);
+@@ -132,6 +142,8 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+ 		d->queue_mapping = *queue_mapping;
+ 	if (flags & SKBEDIT_F_MARK)
+ 		d->mark = *mark;
++	if (flags & SKBEDIT_F_PTYPE)
++		d->ptype = *ptype;
+ 
+ 	d->tcf_action = parm->action;
+ 
+@@ -169,6 +181,10 @@ static int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
+ 	    nla_put(skb, TCA_SKBEDIT_MARK, sizeof(d->mark),
+ 		    &d->mark))
+ 		goto nla_put_failure;
++	if ((d->flags & SKBEDIT_F_PTYPE) &&
++	    nla_put(skb, TCA_SKBEDIT_PTYPE, sizeof(d->ptype),
++		    &d->ptype))
++		goto nla_put_failure;
+ 
+ 	tcf_tm_dump(&t, &d->tcf_tm);
+ 	if (nla_put_64bit(skb, TCA_SKBEDIT_TM, sizeof(t), &t, TCA_SKBEDIT_PAD))
 -- 
 1.9.1
