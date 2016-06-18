@@ -1,85 +1,58 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute PATCH 1/3] Use C99 style initializers everywhere
-Date: Sat, 18 Jun 2016 02:02:21 +0200
-Message-ID: <20160618000221.GA10428@orbyte.nwl.cc>
-References: <41801a15-fd99-6916-211c-705b4445023d@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"julien.floret@6wind.com" <julien.floret@6wind.com>
-To: Daniel Borkmann <daniel@iogearbox.net>,
-	Stephen Hemminger <shemming@brocade.com>,
-	David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:38113 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751095AbcFRACZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 17 Jun 2016 20:02:25 -0400
-Content-Disposition: inline
-In-Reply-To: <41801a15-fd99-6916-211c-705b4445023d@cumulusnetworks.com>
- <20160617115753.6205562d@xeon-e3>
- <576420B0.3050203@iogearbox.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v3 net-next v3 03/14] net: dsa: mv88e6xxx: use already declared variables
+Date: Fri, 17 Jun 2016 20:07:25 -0400
+Message-ID: <20160618000736.5598-4-vivien.didelot@savoirfairelinux.com>
+References: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Ben Dooks <ben.dooks@codethink.co.uk>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160618000736.5598-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+In the MDIO probing function, dev is already assigned to &mdiodev->dev
+and np is already assigned to mdiodev->dev.of_node, so use them.
 
-[Replying to multiple mails at once due to laziness.]
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+---
+ drivers/net/dsa/mv88e6xxx.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-On Fri, Jun 17, 2016 at 06:09:20PM +0200, Daniel Borkmann wrote:
-> Hmm, seems like a lot of stuff ...
-
-It is. At some point I thought about maybe hack something in cocci
-instead, but that would probably have taken longer given the code
-diversity. :/
-
-I know this is crap to review, but splitting it up into a 100 patches
-doesn't make much sense, either.
-
-> Please have a look at commit 8f80d450c3cb ("tc: fix compilation with old gcc (< 4.6)") ...
-> 
-> Your changes effectively revert them again. Here, and some other parts of the bpf frontend
-> code bits.
-
-Oh, good catch! Thanks a lot for pointing this out. It definitely needs
-to be sorted prior to applying my mess.
-
-
-On Fri, Jun 17, 2016 at 11:57:53AM -0700, Stephen Hemminger wrote:
-> It makes sense that if you can build a kernel with old toolchain, that
-> iproute2 needs to be buildable as well.
-> 
-> The current kernels are documented to require 3.2 or later.
-
-So in your opinion we should stay compatible to gcc-3.2? Clarifying
-requirements like this one would make sense in order to know what to
-check against.
-
-
-On Fri, Jun 17, 2016 at 02:47:51PM -0600, David Ahern wrote:
-> On 6/17/16 2:36 PM, Daniel Borkmann wrote:
-[...]
-> > I just pointed to the fact that this would basically undo their changes
-> > that they've submitted some time ago to the BPF frontend, reintroducing
-> > the issue for them. Unfortunately, the anonymous struct cannot be named
-> > due to uapi reasons. It should have been named from the very beginning,
-> > but unfortunately too late now. So I would suggest to just leave those
-> > affected parts as is.
-> 
-> I was referring to Phil's patch. All of the struct {} req; 
-> initializations should be fine if you name the structs, but then need to 
-> run it through whatever compiler version the 6wind folks care about to 
-> verify that is true.
-
-I'm not so sure about that. What I did regarding the anonymous struct
-req is not new in iproute2 code base: There is the GENL_REQUEST macro
-which expands to an identical construct and it's there since end of
-2012.
-
-Commit 8f80d450c3cb changes only the initializers of union bpf_attr, so
-maybe the problem is limited to anonymous structs in unions? Anyway, I
-guess defining which minimum gcc version to depend on and testing
-against it is the only real solution here.
-
-Thanks, Phil
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 673283a..b3170ea 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -3728,7 +3728,7 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 	if (!ps->info)
+ 		return -ENODEV;
+ 
+-	ps->reset = devm_gpiod_get(&mdiodev->dev, "reset", GPIOD_ASIS);
++	ps->reset = devm_gpiod_get(dev, "reset", GPIOD_ASIS);
+ 	if (IS_ERR(ps->reset)) {
+ 		err = PTR_ERR(ps->reset);
+ 		if (err == -ENOENT) {
+@@ -3743,13 +3743,13 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 	    !of_property_read_u32(np, "eeprom-length", &eeprom_len))
+ 		ps->eeprom_len = eeprom_len;
+ 
+-	err = mv88e6xxx_mdio_register(ps, mdiodev->dev.of_node);
++	err = mv88e6xxx_mdio_register(ps, np);
+ 	if (err)
+ 		return err;
+ 
+ 	dev_set_drvdata(dev, ds);
+ 
+-	err = dsa_register_switch(ds, mdiodev->dev.of_node);
++	err = dsa_register_switch(ds, np);
+ 	if (err) {
+ 		mv88e6xxx_mdio_unregister(ps);
+ 		return err;
+-- 
+2.8.3
