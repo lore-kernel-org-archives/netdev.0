@@ -1,202 +1,150 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: esp: Fix ESN generation under UDP encapsulation
-Date: Sat, 18 Jun 2016 13:03:36 +0800
-Message-ID: <20160618050336.GA12205@gondor.apana.org.au>
-References: <20160612234814.15460-1-blair.steven@alliedtelesis.co.nz>
- <20160613102024.GX7698@gauss.secunet.com>
- <5760A501.3070504@alliedtelesis.co.nz>
- <20160617102429.GH7698@gauss.secunet.com>
+From: Takashi Sakamoto <o-takashi@sakamocchi.jp>
+Subject: Re: [very-RFC 0/8] TSN driver for the kernel
+Date: Sat, 18 Jun 2016 14:22:13 +0900
+Message-ID: <5764DA85.3050801@sakamocchi.jp>
+References: <1465686096-22156-1-git-send-email-henrik@austad.us>
+ <20160613114713.GA9544@localhost.localdomain> <20160613195136.GC2441@netboy>
+ <20160614121844.54a125a5@lxorguk.ukuu.org.uk> <5760C84C.40408@sakamocchi.jp>
+ <20160615080602.GA13555@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Blair Steven <Blair.Steven@alliedtelesis.co.nz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Steffen Klassert <steffen.klassert@secunet.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:35842 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750738AbcFRFDt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 01:03:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20160617102429.GH7698@gauss.secunet.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Henrik Austad <henrik@austad.us>,
+ linux-media@vger.kernel.org, linux-kernel@vger.kernel.org,
+ Arnd Bergmann <arnd@linaro.org>
+To: Richard Cochran <richardcochran@gmail.com>, alsa-devel@alsa-project.org
+Return-path: <alsa-devel-bounces@alsa-project.org>
+In-Reply-To: <20160615080602.GA13555@localhost.localdomain>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 17, 2016 at 12:24:29PM +0200, Steffen Klassert wrote:
-> On Wed, Jun 15, 2016 at 12:44:54AM +0000, Blair Steven wrote:
-> > The restoration is happening - but being actioned on the wrong location.
-> > 
-> > The destination IP address is being saved and restored, and the SPI 
-> > being written directly after the destination IP address. From my 
-> > understanding though, the ESN shuffling should have saved and restored 
-> > the UDP source / dest ports + SPI.
+Hi,
+
+Sorry to be late. In this weekday, I have little time for this thread
+because working for alsa-lib[1]. Besides, I'm not full-time developer
+for this kind of work. In short, I use my limited private time for this
+discussion.
+
+On Jun 15 2016 17:06, Richard Cochran wrote:
+> On Wed, Jun 15, 2016 at 12:15:24PM +0900, Takashi Sakamoto wrote:
+>>> On Mon, Jun 13, 2016 at 01:47:13PM +0200, Richard Cochran wrote:
+>>>> I have seen audio PLL/multiplier chips that will take, for example, a
+>>>> 10 kHz input and produce your 48 kHz media clock.  With the right HW
+>>>> design, you can tell your PTP Hardware Clock to produce a 10000 PPS,
+>>>> and you will have a synchronized AVB endpoint.  The software is all
+>>>> there already.  Somebody should tell the ALSA guys about it.
+>>
+>> Just from my curiosity, could I ask you more explanation for it in ALSA
+>> side?
 > 
-> Yes, looks like we copy with a wrong offset if udp encapsulation
-> is used, skb_transport_header() does not point to the esp header
-> in this case. Ccing Herbert, he changed this part when switching
-> to the new AEAD interface with
-> commit 7021b2e1cddd ("esp4: Switch to new AEAD interface").
+> (Disclaimer: I really don't know too much about ALSA, expect that is
+> fairly big and complex ;)
 
-Thanks for catching this!
+In this morning, I read IEEE 1722:2011 and realized that it quite
+roughly refers to IEC 61883-1/6 and includes much ambiguities to end
+applications.
 
-I think rather than changing the transport header (which isn't
-quite right because UDP still is the transport protocol), we can
-just save the offset locally.  Something like this:
+(In my opinion, the author just focuses on packet with timestamps,
+without enough considering about how to implement endpoint applications
+which perform semi-real sampling, fetching and queueing and so on, so as
+you. They're satisfied just by handling packet with timestamp, without
+enough consideration about actual hardware/software applications.)
 
----8<---
-Blair Steven noticed that ESN in conjunction with UDP encapsulation
-is broken because we set the temporary ESP header to the wrong spot.
+> Here is what I think ALSA should provide:
+> 
+> - The DA and AD clocks should appear as attributes of the HW device.
+> 
+> - There should be a method for measuring the DA/AD clock rate with
+>   respect to both the system time and the PTP Hardware Clock (PHC)
+>   time.
+> 
+> - There should be a method for adjusting the DA/AD clock rate if
+>   possible.  If not, then ALSA should fall back to sample rate
+>   conversion.
+> 
+> - There should be a method to determine the time delay from the point
+>   when the audio data are enqueued into ALSA until they pass through
+>   the D/A converter.  If this cannot be known precisely, then the
+>   library should provide an estimate with an error bound.
+> 
+> - I think some AVB use cases will need to know the time delay from A/D
+>   until the data are available to the local application.  (Distributed
+>   microphones?  I'm not too sure about that.)
+> 
+> - If the DA/AD clocks are connected to other clock devices in HW,
+>   there should be a way to find this out in SW.  For example, if SW
+>   can see the PTP-PHC-PLL-DA relationship from the above example, then
+>   it knows how to synchronize the DA clock using the network.
+> 
+>   [ Implementing this point involves other subsystems beyond ALSA.  It
+>     isn't really necessary for people designing AVB systems, since
+>     they know their designs, but it would be nice to have for writing
+>     generic applications that can deal with any kind of HW setup. ]
 
-This patch fixes this by first of all using the right spot, i.e.,
-4 bytes off the real ESP header, and then saving this information
-so that after encryption we can restore it properly.
+Depends on which subsystem decides "AVTP presentation time"[3]. This
+value is dominant to the number of events included in an IEC 61883-1
+packet. If this TSN subsystem decides it, most of these items don't need
+to be in ALSA.
 
-Fixes: 7021b2e1cddd ("esp4: Switch to new AEAD interface")
-Reported-by: Blair Steven <Blair.Steven@alliedtelesis.co.nz>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+As long as I know, the number of AVTPDU per second seems not to be
+fixed. So each application is not allowed to calculate the timestamp by
+its own way unless TSN implementation gives the information to each
+applications.
 
-diff --git a/net/ipv4/esp4.c b/net/ipv4/esp4.c
-index 4779374..d95631d 100644
---- a/net/ipv4/esp4.c
-+++ b/net/ipv4/esp4.c
-@@ -23,6 +23,11 @@ struct esp_skb_cb {
- 	void *tmp;
- };
- 
-+struct esp_output_extra {
-+	__be32 seqhi;
-+	u32 esphoff;
-+};
-+
- #define ESP_SKB_CB(__skb) ((struct esp_skb_cb *)&((__skb)->cb[0]))
- 
- static u32 esp4_get_mtu(struct xfrm_state *x, int mtu);
-@@ -35,11 +40,11 @@ static u32 esp4_get_mtu(struct xfrm_state *x, int mtu);
-  *
-  * TODO: Use spare space in skb for this where possible.
-  */
--static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqhilen)
-+static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int extralen)
- {
- 	unsigned int len;
- 
--	len = seqhilen;
-+	len = extralen;
- 
- 	len += crypto_aead_ivsize(aead);
- 
-@@ -57,15 +62,16 @@ static void *esp_alloc_tmp(struct crypto_aead *aead, int nfrags, int seqhilen)
- 	return kmalloc(len, GFP_ATOMIC);
- }
- 
--static inline __be32 *esp_tmp_seqhi(void *tmp)
-+static inline void *esp_tmp_extra(void *tmp)
- {
--	return PTR_ALIGN((__be32 *)tmp, __alignof__(__be32));
-+	return PTR_ALIGN(tmp, __alignof__(struct esp_output_extra));
- }
--static inline u8 *esp_tmp_iv(struct crypto_aead *aead, void *tmp, int seqhilen)
-+
-+static inline u8 *esp_tmp_iv(struct crypto_aead *aead, void *tmp, int extralen)
- {
- 	return crypto_aead_ivsize(aead) ?
--	       PTR_ALIGN((u8 *)tmp + seqhilen,
--			 crypto_aead_alignmask(aead) + 1) : tmp + seqhilen;
-+	       PTR_ALIGN((u8 *)tmp + extralen,
-+			 crypto_aead_alignmask(aead) + 1) : tmp + extralen;
- }
- 
- static inline struct aead_request *esp_tmp_req(struct crypto_aead *aead, u8 *iv)
-@@ -99,7 +105,7 @@ static void esp_restore_header(struct sk_buff *skb, unsigned int offset)
- {
- 	struct ip_esp_hdr *esph = (void *)(skb->data + offset);
- 	void *tmp = ESP_SKB_CB(skb)->tmp;
--	__be32 *seqhi = esp_tmp_seqhi(tmp);
-+	__be32 *seqhi = esp_tmp_extra(tmp);
- 
- 	esph->seq_no = esph->spi;
- 	esph->spi = *seqhi;
-@@ -107,7 +113,11 @@ static void esp_restore_header(struct sk_buff *skb, unsigned int offset)
- 
- static void esp_output_restore_header(struct sk_buff *skb)
- {
--	esp_restore_header(skb, skb_transport_offset(skb) - sizeof(__be32));
-+	void *tmp = ESP_SKB_CB(skb)->tmp;
-+	struct esp_output_extra *extra = esp_tmp_extra(tmp);
-+
-+	esp_restore_header(skb, skb_transport_offset(skb) + extra->esphoff -
-+				sizeof(__be32));
- }
- 
- static void esp_output_done_esn(struct crypto_async_request *base, int err)
-@@ -121,6 +131,7 @@ static void esp_output_done_esn(struct crypto_async_request *base, int err)
- static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- {
- 	int err;
-+	struct esp_output_extra *extra;
- 	struct ip_esp_hdr *esph;
- 	struct crypto_aead *aead;
- 	struct aead_request *req;
-@@ -137,8 +148,7 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 	int tfclen;
- 	int nfrags;
- 	int assoclen;
--	int seqhilen;
--	__be32 *seqhi;
-+	int extralen;
- 	__be64 seqno;
- 
- 	/* skb is pure payload to encrypt */
-@@ -166,21 +176,21 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 	nfrags = err;
- 
- 	assoclen = sizeof(*esph);
--	seqhilen = 0;
-+	extralen = 0;
- 
- 	if (x->props.flags & XFRM_STATE_ESN) {
--		seqhilen += sizeof(__be32);
--		assoclen += seqhilen;
-+		extralen += sizeof(*extra);
-+		assoclen += sizeof(__be32);
- 	}
- 
--	tmp = esp_alloc_tmp(aead, nfrags, seqhilen);
-+	tmp = esp_alloc_tmp(aead, nfrags, extralen);
- 	if (!tmp) {
- 		err = -ENOMEM;
- 		goto error;
- 	}
- 
--	seqhi = esp_tmp_seqhi(tmp);
--	iv = esp_tmp_iv(aead, tmp, seqhilen);
-+	extra = esp_tmp_extra(tmp);
-+	iv = esp_tmp_iv(aead, tmp, extralen);
- 	req = esp_tmp_req(aead, iv);
- 	sg = esp_req_sg(aead, req);
- 
-@@ -247,8 +257,10 @@ static int esp_output(struct xfrm_state *x, struct sk_buff *skb)
- 	 * encryption.
- 	 */
- 	if ((x->props.flags & XFRM_STATE_ESN)) {
--		esph = (void *)(skb_transport_header(skb) - sizeof(__be32));
--		*seqhi = esph->spi;
-+		extra->esphoff = (unsigned char *)esph -
-+				 skb_transport_header(skb);
-+		esph = (struct ip_esp_hdr *)((unsigned char *)esph - 4);
-+		extra->seqhi = esph->spi;
- 		esph->seq_no = htonl(XFRM_SKB_CB(skb)->seq.output.hi);
- 		aead_request_set_callback(req, 0, esp_output_done_esn, skb);
- 	}
-@@ -445,7 +457,7 @@ static int esp_input(struct xfrm_state *x, struct sk_buff *skb)
- 		goto out;
- 
- 	ESP_SKB_CB(skb)->tmp = tmp;
--	seqhi = esp_tmp_seqhi(tmp);
-+	seqhi = esp_tmp_extra(tmp);
- 	iv = esp_tmp_iv(aead, tmp, seqhilen);
- 	req = esp_tmp_req(aead, iv);
- 	sg = esp_req_sg(aead, req);
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+For your information, in current ALSA implementation of IEC 61883-1/6 on
+IEEE 1394 bus, the presentation timestamp is decided in ALSA side. The
+number of isochronous packet transmitted per second is fixed by 8,000 in
+IEEE 1394, and the number of data blocks in an IEC 61883-1 packet is
+deterministic according to 'sampling transfer frequency' in IEC 61883-6
+and isochronous cycle count passed from Linux FireWire subsystem.
+
+In the TSN subsystem, like FireWire subsystem, callback for filling
+payload should have information of 'when the packet is scheduled to be
+transmitted'. With the information, each application can calculate the
+number of event in the packet and presentation timestamp. Of cource,
+this timestamp should be handled as 'avtp_timestamp' in packet queueing.
+
+>> In ALSA, sampling rate conversion should be in userspace, not in kernel
+>> land. In alsa-lib, sampling rate conversion is implemented in shared object.
+>> When userspace applications start playbacking/capturing, depending on PCM
+>> node to access, these applications load the shared object and convert PCM
+>> frames from buffer in userspace to mmapped DMA-buffer, then commit them.
+> 
+> The AVB use case places an additional requirement on the rate
+> conversion.  You will need to adjust the frequency on the fly, as the
+> stream is playing.  I would guess that ALSA doesn't have that option?
+
+In ALSA kernel/userspace interfaces , the specification cannot be
+supported, at all.
+
+Please explain about this requirement, where it comes from, which
+specification and clause describe it (802.1AS or 802.1Q?). As long as I
+read IEEE 1722, I cannot find such a requirement.
+
+(When considering about actual hardware codecs, on-board serial bus such
+as Inter-IC Sound, corresponding controller, immediate change of
+sampling rate is something imaginary for semi-realtime applications. And
+the idea has no meaning for typical playback/capture softwares.)
+
+
+[1] [alsa-lib][PATCH 0/9 v3] ctl: add APIs for control element set
+http://mailman.alsa-project.org/pipermail/alsa-devel/2016-June/109274.html
+[2] IEEE 1722-2011
+http://ieeexplore.ieee.org/servlet/opac?punumber=5764873
+[3] 5.5 Timing and Synchronization
+op. cit.
+[4] 1394 Open Host Controller Interface Specification
+http://download.microsoft.com/download/1/6/1/161ba512-40e2-4cc9-843a-923143f3456c/ohci_11.pdf
+
+
+Regards
+
+Takashi Sakamoto
