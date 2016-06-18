@@ -1,33 +1,36 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net:liquidio: remove unused including <linux/version.h>
-Date: Fri, 17 Jun 2016 22:29:14 -0700 (PDT)
-Message-ID: <20160617.222914.1597870511563199373.davem@davemloft.net>
-References: <1466185773-17644-1-git-send-email-weiyj_lk@163.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH -next] RDS: TCP: Fix non static symbol warnings
+Date: Fri, 17 Jun 2016 22:29:20 -0700 (PDT)
+Message-ID: <20160617.222920.1477357000540287734.davem@davemloft.net>
+References: <1466187166-2549-1-git-send-email-weiyj_lk@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: derek.chickles@caviumnetworks.com,
-	satananda.burla@caviumnetworks.com,
-	felix.manlunas@caviumnetworks.com,
-	raghu.vatsavayi@caviumnetworks.com, yongjun_wei@trendmicro.com.cn,
-	netdev@vger.kernel.org
-To: weiyj_lk@163.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:57160 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751062AbcFRF3P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 01:29:15 -0400
-In-Reply-To: <1466185773-17644-1-git-send-email-weiyj_lk@163.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org
+To: weiyj_lk-9Onoh4P/yGk@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1466187166-2549-1-git-send-email-weiyj_lk-9Onoh4P/yGk@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: weiyj_lk@163.com
-Date: Fri, 17 Jun 2016 17:49:33 +0000
+From: weiyj_lk-9Onoh4P/yGk@public.gmane.org
+Date: Fri, 17 Jun 2016 18:12:46 +0000
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 > 
-> Remove including <linux/version.h> that don't need it.
+> Fixes the following sparse warnings:
 > 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> net/rds/tcp.c:59:5: warning:
+>  symbol 'rds_tcp_min_sndbuf' was not declared. Should it be static?
+> net/rds/tcp.c:60:5: warning:
+>  symbol 'rds_tcp_min_rcvbuf' was not declared. Should it be static?
+> 
+> Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 
 Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
