@@ -1,56 +1,42 @@
-From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
-Subject: [PATCH] brcmfmac: add missing break when deleting P2P_DEVICE
-Date: Sun, 19 Jun 2016 01:55:57 +0200
-Message-ID: <1466294168-8890-1-git-send-email-zajec5@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
-	Arend van Spriel <arend.vanspriel@broadcom.com>,
-	Franky Lin <franky.lin@broadcom.com>,
-	Hante Meuleman <hante.meuleman@broadcom.com>,
-	Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
-	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
-	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
-	IEEE802.11n WIRELESS DRIVER),
-	brcm80211-dev-list.pdl@broadcom.com (open list:BROADCOM BRCM80211
-	IEEE802.11n WIRELESS DRIVER),
-	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
-	linux-kernel@vger.kernel.org (open list)
-To: Kalle Valo <kvalo@codeaurora.org>
+From: Babu Moger <babu.moger@oracle.com>
+Subject: [PATCH] ixgbe: Fix minor typo while freeing irq
+Date: Sat, 18 Jun 2016 17:40:47 -0700
+Message-ID: <1466296847-82299-1-git-send-email-babu.moger@oracle.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	babu.moger@oracle.com
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	intel-wired-lan@lists.osuosl.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f65.google.com ([209.85.215.65]:33452 "EHLO
-	mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751154AbcFRX5H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 19:57:07 -0400
+Received: from userp1040.oracle.com ([156.151.31.81]:31354 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751107AbcFSAlA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 20:41:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We obviously don't want to fall through in that switch. With this chang=
-e
-1) We wait for event (triggered by p2p_disc) as expected
-2) We remove interface manually on timeout
-3) We return 0 on success instead of -ENOTSUPP
+The array subscript increments after the execution of the statement.
+So there is no issue here. However it helps to read the code better.
 
-Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+Signed-off-by: Babu Moger <babu.moger@oracle.com>
 ---
- drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c | 2 ++
- 1 file changed, 2 insertions(+)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
 
-diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c b/d=
-rivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
-index 426ff05..f6241fd 100644
---- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
-+++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
-@@ -2261,6 +2261,8 @@ int brcmf_p2p_del_vif(struct wiphy *wiphy, struct=
- wireless_dev *wdev)
- 			return 0;
- 		brcmf_p2p_cancel_remain_on_channel(vif->ifp);
- 		brcmf_p2p_deinit_discovery(p2p);
-+		break;
-+
- 	default:
- 		return -ENOTSUPP;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 569cb07..6f4fe66 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -3016,7 +3016,7 @@ static void ixgbe_free_irq(struct ixgbe_adapter *adapter)
+ 		free_irq(entry->vector, q_vector);
  	}
---=20
-1.8.4.5
+ 
+-	free_irq(adapter->msix_entries[vector++].vector, adapter);
++	free_irq(adapter->msix_entries[vector].vector, adapter);
+ }
+ 
+ /**
+-- 
+1.7.1
