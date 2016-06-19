@@ -1,7 +1,7 @@
 From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH v2 net-next 4/5] gre: better support for ICMP messages for gre+ipv6
-Date: Sat, 18 Jun 2016 21:52:05 -0700
-Message-ID: <1466311926-27167-5-git-send-email-edumazet@google.com>
+Subject: [PATCH v2 net-next 1/5] ipv6: icmp: add a force_saddr param to icmp6_send()
+Date: Sat, 18 Jun 2016 21:52:02 -0700
+Message-ID: <1466311926-27167-2-git-send-email-edumazet@google.com>
 References: <1466311926-27167-1-git-send-email-edumazet@google.com>
 Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <edumazet@google.com>,
@@ -9,67 +9,87 @@ Cc: netdev <netdev@vger.kernel.org>,
 	Eric Dumazet <eric.dumazet@gmail.com>
 To: "David S . Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34127 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751434AbcFSEw0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 00:52:26 -0400
-Received: by mail-pf0-f177.google.com with SMTP id h14so28037255pfe.1
-        for <netdev@vger.kernel.org>; Sat, 18 Jun 2016 21:52:26 -0700 (PDT)
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36637 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751316AbcFSEwS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 00:52:18 -0400
+Received: by mail-pa0-f51.google.com with SMTP id wo6so4050113pac.3
+        for <netdev@vger.kernel.org>; Sat, 18 Jun 2016 21:52:18 -0700 (PDT)
 In-Reply-To: <1466311926-27167-1-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-ipgre_err() can call ip6_err_gen_icmpv6_unreach() for proper
-support of ipv4+gre+icmp+ipv6+... frames, used for example
-by traceroute/mtr.
+SIT or GRE tunnels might want to translate an IPV4 address
+into a v4mapped one when translating ICMP to ICMPv6.
+
+This patch adds the parameter to icmp6_send() but
+does not change icmpv6_send() signature.
 
 Signed-off-by: Eric Dumazet <edumazet@google.com>
 ---
- include/net/ip_tunnels.h | 1 +
- net/ipv4/gre_demux.c     | 1 +
- net/ipv4/ip_gre.c        | 6 ++++++
- 3 files changed, 8 insertions(+)
+ include/linux/icmpv6.h | 3 ++-
+ net/ipv6/icmp.c        | 7 +++++--
+ net/ipv6/ip6_icmp.c    | 2 +-
+ 3 files changed, 8 insertions(+), 4 deletions(-)
 
-diff --git a/include/net/ip_tunnels.h b/include/net/ip_tunnels.h
-index 9222678426a1..a5e7035fb93f 100644
---- a/include/net/ip_tunnels.h
-+++ b/include/net/ip_tunnels.h
-@@ -157,6 +157,7 @@ struct tnl_ptk_info {
- 	__be16 proto;
- 	__be32 key;
- 	__be32 seq;
-+	int hdr_len;
- };
+diff --git a/include/linux/icmpv6.h b/include/linux/icmpv6.h
+index 630f45335c73..432611a297fb 100644
+--- a/include/linux/icmpv6.h
++++ b/include/linux/icmpv6.h
+@@ -14,7 +14,8 @@ static inline struct icmp6hdr *icmp6_hdr(const struct sk_buff *skb)
+ #if IS_ENABLED(CONFIG_IPV6)
+ extern void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info);
  
- #define PACKET_RCVD	0
-diff --git a/net/ipv4/gre_demux.c b/net/ipv4/gre_demux.c
-index de1d119a4497..b798862b6be5 100644
---- a/net/ipv4/gre_demux.c
-+++ b/net/ipv4/gre_demux.c
-@@ -117,6 +117,7 @@ int gre_parse_header(struct sk_buff *skb, struct tnl_ptk_info *tpi,
- 		if ((*(u8 *)options & 0xF0) != 0x40)
- 			hdr_len += 4;
- 	}
-+	tpi->hdr_len = hdr_len;
- 	return hdr_len;
+-typedef void ip6_icmp_send_t(struct sk_buff *skb, u8 type, u8 code, __u32 info);
++typedef void ip6_icmp_send_t(struct sk_buff *skb, u8 type, u8 code, __u32 info,
++			     const struct in6_addr *force_saddr);
+ extern int inet6_register_icmp_sender(ip6_icmp_send_t *fn);
+ extern int inet6_unregister_icmp_sender(ip6_icmp_send_t *fn);
+ 
+diff --git a/net/ipv6/icmp.c b/net/ipv6/icmp.c
+index e32a72fb9982..6c57e6e90301 100644
+--- a/net/ipv6/icmp.c
++++ b/net/ipv6/icmp.c
+@@ -388,7 +388,8 @@ relookup_failed:
+ /*
+  *	Send an ICMP message in response to a packet in error
+  */
+-static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
++static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info,
++		       const struct in6_addr *force_saddr)
+ {
+ 	struct net *net = dev_net(skb->dev);
+ 	struct inet6_dev *idev = NULL;
+@@ -475,6 +476,8 @@ static void icmp6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 	memset(&fl6, 0, sizeof(fl6));
+ 	fl6.flowi6_proto = IPPROTO_ICMPV6;
+ 	fl6.daddr = hdr->saddr;
++	if (force_saddr)
++		saddr = force_saddr;
+ 	if (saddr)
+ 		fl6.saddr = *saddr;
+ 	fl6.flowi6_mark = mark;
+@@ -551,7 +554,7 @@ out:
+  */
+ void icmpv6_param_prob(struct sk_buff *skb, u8 code, int pos)
+ {
+-	icmp6_send(skb, ICMPV6_PARAMPROB, code, pos);
++	icmp6_send(skb, ICMPV6_PARAMPROB, code, pos, NULL);
+ 	kfree_skb(skb);
  }
- EXPORT_SYMBOL(gre_parse_header);
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 48eccc4e4cc5..b199a3c85dfc 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -181,6 +181,12 @@ static void ipgre_err(struct sk_buff *skb, u32 info,
- 	if (!t)
- 		return;
  
-+#if IS_ENABLED(CONFIG_IPV6)
-+       if (tpi->proto == htons(ETH_P_IPV6) &&
-+           !ip6_err_gen_icmpv6_unreach(skb, iph->ihl * 4 + tpi->hdr_len, type))
-+               return;
-+#endif
-+
- 	if (t->parms.iph.daddr == 0 ||
- 	    ipv4_is_multicast(t->parms.iph.daddr))
- 		return;
+diff --git a/net/ipv6/ip6_icmp.c b/net/ipv6/ip6_icmp.c
+index 14dacc544c3e..713676f14a0e 100644
+--- a/net/ipv6/ip6_icmp.c
++++ b/net/ipv6/ip6_icmp.c
+@@ -39,7 +39,7 @@ void icmpv6_send(struct sk_buff *skb, u8 type, u8 code, __u32 info)
+ 
+ 	if (!send)
+ 		goto out;
+-	send(skb, type, code, info);
++	send(skb, type, code, info, NULL);
+ out:
+ 	rcu_read_unlock();
+ }
 -- 
 2.8.0.rc3.226.g39d4020
