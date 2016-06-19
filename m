@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 5/5] ipv6: RFC 4884 partial support for
- SIT/GRE tunnels
-Date: Sat, 18 Jun 2016 20:54:48 -0700 (PDT)
-Message-ID: <20160618.205448.2083694904305197335.davem@davemloft.net>
-References: <1466292400-3638-1-git-send-email-edumazet@google.com>
-	<1466292400-3638-6-git-send-email-edumazet@google.com>
+Subject: Re: PATCH 1/1] AX.25: Close socket connection on session completion
+Date: Sat, 18 Jun 2016 20:55:45 -0700 (PDT)
+Message-ID: <20160618.205545.1211200211643065140.davem@davemloft.net>
+References: <20160616094230.1d023d0b@brox.localnet>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ghorbel@pivasoftware.com,
-	eric.dumazet@gmail.com
-To: edumazet@google.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37999 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751601AbcFSDyw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 18 Jun 2016 23:54:52 -0400
-In-Reply-To: <1466292400-3638-6-git-send-email-edumazet@google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jreuter@yaina.de, ralf@linux-mips.org, linux-hams@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: basil@pacabunga.com
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20160616094230.1d023d0b@brox.localnet>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
-Date: Sat, 18 Jun 2016 16:26:40 -0700
+From: Basil Gunn <basil@pacabunga.com>
+Date: Thu, 16 Jun 2016 09:42:30 -0700
 
-> @@ -588,12 +594,26 @@ int ip6_err_gen_icmpv6_unreach(struct sk_buff *skb, int nhs, int type)
->  		skb2->dev = rt->dst.dev;
->  
->  	ipv6_addr_set_v4mapped(ip_hdr(skb)->saddr, &temp_saddr);
-> +
-> +	if (data_len) {
-> +		/* RFC 4884 (partial) support :
-> +		 * insert 0 padding at the end, before the extensions
-> +		 */
-> +		__skb_push(skb2, nhs);
-> +		skb_reset_network_header(skb2);
-> +		memcpy(skb2->data, skb2->data + nhs, data_len - nhs);
+> A socket connection made in ax.25 is not closed when session is
+> completed.  The heartbeat timer is stopped prematurely and this is
+> where the socket gets closed. Allow heatbeat timer to run to close
+> socket. Symptom occurs in kernels >= 4.2.0
+> 
+> Originally sent 6/15/2016. Resend with distribution list matching
+> scripts/maintainer.pl output.
+> 
+> Signed-off-by: Basil Gunn <basil@pacabunga.com>
 
-Since this is overlapping, it really need to use memmove() instead of
-memcpy().
+Applied.
