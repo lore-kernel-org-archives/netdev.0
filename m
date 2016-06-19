@@ -1,102 +1,87 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 1/2] net: simplify and make pkt_type_ok() available
- for other users
-Date: Sun, 19 Jun 2016 20:06:05 +0200
-Message-ID: <5766DF0D.7080001@iogearbox.net>
-References: <1466262725-30289-1-git-send-email-jhs@emojatatu.com>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [net-next,v3] openvswitch: Add packet len info to upcall.
+Date: Sun, 19 Jun 2016 11:08:51 -0700
+Message-ID: <CAOrHB_ASYp9b_ibzAfg+3dorOer12j0MbB9eYTExVmOLzC3q_g@mail.gmail.com>
+References: <1466193177-7656-1-git-send-email-u9012063@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, fw@strlen.de
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Pravin Shelar <pshelar@nicira.com>
+To: William Tu <u9012063@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:58461 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751292AbcFSSG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 14:06:57 -0400
-In-Reply-To: <1466262725-30289-1-git-send-email-jhs@emojatatu.com>
+Received: from relay4-d.mail.gandi.net ([217.70.183.196]:45263 "EHLO
+	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750768AbcFSSKX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 14:10:23 -0400
+Received: from mfilter13-d.gandi.net (mfilter13-d.gandi.net [217.70.178.141])
+	by relay4-d.mail.gandi.net (Postfix) with ESMTP id C56CD1720A9
+	for <netdev@vger.kernel.org>; Sun, 19 Jun 2016 20:08:54 +0200 (CEST)
+Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
+	by mfilter13-d.gandi.net (mfilter13-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id F07-xaHxYzJm for <netdev@vger.kernel.org>;
+	Sun, 19 Jun 2016 20:08:53 +0200 (CEST)
+Received: from mail-it0-f53.google.com (mail-it0-f53.google.com [209.85.214.53])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 2EF99172097
+	for <netdev@vger.kernel.org>; Sun, 19 Jun 2016 20:08:53 +0200 (CEST)
+Received: by mail-it0-f53.google.com with SMTP id a5so30771399ita.1
+        for <netdev@vger.kernel.org>; Sun, 19 Jun 2016 11:08:53 -0700 (PDT)
+In-Reply-To: <1466193177-7656-1-git-send-email-u9012063@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Jamal,
-
-On 06/18/2016 05:12 PM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
+On Fri, Jun 17, 2016 at 12:52 PM, William Tu <u9012063@gmail.com> wrote:
+> The commit f2a4d086ed4c ("openvswitch: Add packet truncation support.")
+> introduces packet truncation before sending to userspace upcall receiver.
+> This patch passes up the skb->len before truncation so that the upcall
+> receiver knows the original packet size. Potentially this will be used
+> by sFlow, where OVS translates sFlow config header=N to a sample action,
+> truncating packet to N byte in kernel datapath. Thus, only N bytes instead
+> of full-packet size is copied from kernel to userspace, saving the
+> kernel-to-userspace bandwidth.
 >
-> Suggested-by: Daniel Borkmann <daniel@iogearbox.net>
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Signed-off-by: William Tu <u9012063@gmail.com>
+> Cc: Pravin Shelar <pshelar@nicira.com>
 > ---
->   include/linux/skbuff.h   | 11 +++++++++++
->   net/netfilter/nft_meta.c |  9 +--------
->   2 files changed, 12 insertions(+), 8 deletions(-)
+> v2->v3:
+> - remove platform specific name.
+> - fix issue when receiving GSO packet
+> - remove skblen in struct dp_upcall_info
+> v1->v2:
+> - pass skb->len to userspace instead of cutlen
+> ---
+>  include/uapi/linux/openvswitch.h |  2 ++
+>  net/openvswitch/datapath.c       | 11 ++++++++++-
+>  2 files changed, 12 insertions(+), 1 deletion(-)
 >
-> diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-> index dc0fca7..0b794de 100644
-> --- a/include/linux/skbuff.h
-> +++ b/include/linux/skbuff.h
-> @@ -37,6 +37,7 @@
->   #include <net/flow_dissector.h>
->   #include <linux/splice.h>
->   #include <linux/in6.h>
-> +#include <linux/if_packet.h>
->   #include <net/flow.h>
+
+Patch looks good, I just have one minor comment.
+
+> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
+> index 6739342..623fc04 100644
+> --- a/net/openvswitch/datapath.c
+> +++ b/net/openvswitch/datapath.c
+> @@ -387,7 +387,8 @@ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
+>  {
+>         size_t size = NLMSG_ALIGN(sizeof(struct ovs_header))
+>                 + nla_total_size(hdrlen) /* OVS_PACKET_ATTR_PACKET */
+> -               + nla_total_size(ovs_key_attr_size()); /* OVS_PACKET_ATTR_KEY */
+> +               + nla_total_size(ovs_key_attr_size()) /* OVS_PACKET_ATTR_KEY */
+> +               + nla_total_size(sizeof(unsigned int)); /* OVS_PACKET_ATTR_LEN */
 >
->   /* The interface for checksum offload between the stack and networking drivers
-> @@ -797,6 +798,7 @@ struct sk_buff {
->   	atomic_t		users;
->   };
+>         /* OVS_PACKET_ATTR_USERDATA */
+>         if (upcall_info->userdata)
+> @@ -514,6 +515,14 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
+>                 pad_packet(dp, user_skb);
+>         }
 >
+> +       /* Add OVS_PACKET_ATTR_LEN */
+> +       if (nla_put_u32(user_skb, OVS_PACKET_ATTR_LEN,
+> +                       skb->len)) {
+> +               err = -ENOBUFS;
+> +               goto out;
+> +       }
+> +       pad_packet(dp, user_skb);
 > +
-
-Why the extra newline here (the rest looks good)?
-
->   #ifdef __KERNEL__
->   /*
->    *	Handling routines are only of interest to the kernel
-> @@ -881,6 +883,15 @@ static inline struct rtable *skb_rtable(const struct sk_buff *skb)
->   	return (struct rtable *)skb_dst(skb);
->   }
->
-> +/* For mangling skb->pkt_type from user space side from applications
-> + * such as nft, tc, etc, we only allow a conservative subset of
-> + * possible pkt_types to be set.
-> +*/
-> +static inline bool skb_pkt_type_ok(u32 p)
-> +{
-> +	return p <= PACKET_OTHERHOST;
-
-Just a small nit: I would probably rename 'p' into 'type'.
-
-> +}
-> +
->   void kfree_skb(struct sk_buff *skb);
->   void kfree_skb_list(struct sk_buff *segs);
->   void skb_tx_error(struct sk_buff *skb);
-> diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
-> index 16c50b0..03e5e33 100644
-> --- a/net/netfilter/nft_meta.c
-> +++ b/net/netfilter/nft_meta.c
-> @@ -199,13 +199,6 @@ err:
->   }
->   EXPORT_SYMBOL_GPL(nft_meta_get_eval);
->
-> -/* don't change or set _LOOPBACK, _USER, etc. */
-> -static bool pkt_type_ok(u32 p)
-> -{
-> -	return p == PACKET_HOST || p == PACKET_BROADCAST ||
-> -	       p == PACKET_MULTICAST || p == PACKET_OTHERHOST;
-> -}
-> -
->   void nft_meta_set_eval(const struct nft_expr *expr,
->   		       struct nft_regs *regs,
->   		       const struct nft_pktinfo *pkt)
-> @@ -223,7 +216,7 @@ void nft_meta_set_eval(const struct nft_expr *expr,
->   		break;
->   	case NFT_META_PKTTYPE:
->   		if (skb->pkt_type != value &&
-> -		    pkt_type_ok(value) && pkt_type_ok(skb->pkt_type))
-> +		    skb_pkt_type_ok(value) && skb_pkt_type_ok(skb->pkt_type))
->   			skb->pkt_type = value;
->   		break;
->   	case NFT_META_NFTRACE:
->
+We should only send packet length in case of truncated packet. This
+would avoid sending this extra attribute in miss flow handling case.
