@@ -1,54 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 5/5] ipv6: RFC 4884 partial support for
- SIT/GRE tunnels
-Date: Sat, 18 Jun 2016 21:26:54 -0700 (PDT)
-Message-ID: <20160618.212654.1904707788416158933.davem@davemloft.net>
-References: <1466292400-3638-6-git-send-email-edumazet@google.com>
-	<20160618.205448.2083694904305197335.davem@davemloft.net>
-	<1466309009.6850.10.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] net: rds: fix coding style issues
+Date: Sat, 18 Jun 2016 21:34:21 -0700 (PDT)
+Message-ID: <20160618.213421.1134720453519139587.davem@davemloft.net>
+References: <1550219.0fqfakIZNR@arch>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: edumazet@google.com, netdev@vger.kernel.org,
-	ghorbel@pivasoftware.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:38177 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750793AbcFSE05 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 00:26:57 -0400
-In-Reply-To: <1466309009.6850.10.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org
+To: josh-JsTGS6celw1BDLzU/O5InQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1550219.0fqfakIZNR@arch>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Sat, 18 Jun 2016 21:03:29 -0700
+From: Joshua Houghton <josh-JsTGS6celw1BDLzU/O5InQ@public.gmane.org>
+Date: Sat, 18 Jun 2016 15:46:31 +0000
 
-> On Sat, 2016-06-18 at 20:54 -0700, David Miller wrote:
->> From: Eric Dumazet <edumazet@google.com>
->> Date: Sat, 18 Jun 2016 16:26:40 -0700
->> 
->> > @@ -588,12 +594,26 @@ int ip6_err_gen_icmpv6_unreach(struct sk_buff *skb, int nhs, int type)
->> >  		skb2->dev = rt->dst.dev;
->> >  
->> >  	ipv6_addr_set_v4mapped(ip_hdr(skb)->saddr, &temp_saddr);
->> > +
->> > +	if (data_len) {
->> > +		/* RFC 4884 (partial) support :
->> > +		 * insert 0 padding at the end, before the extensions
->> > +		 */
->> > +		__skb_push(skb2, nhs);
->> > +		skb_reset_network_header(skb2);
->> > +		memcpy(skb2->data, skb2->data + nhs, data_len - nhs);
->> 
->> Since this is overlapping, it really need to use memmove() instead of
->> memcpy().
+> Fix coding style issues in the following files:
 > 
+> ib_cm.c:      add space
+> loop.c:       convert spaces to tabs
+> sysctl.c:     add space
+> tcp.h:        convert spaces to tabs
+> tcp_connect.c:remove extra indentation in switch statement
+> tcp_recv.c:   convert spaces to tabs
+> tcp_send.c:   convert spaces to tabs
+> transport.c:  move brace up one line on for statement
 > 
-> Interesting, I always thought memcpy(dest, src, xxx) was ok if src >
-> dest
+> Signed-off-by: Joshua Houghton <josh-JsTGS6celw1BDLzU/O5InQ@public.gmane.org>
 
-The golden rule is: "the memory areas must not overlap"
-
-If it can be optimized into calling a memcpy, the memmove
-implementation will do so.
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
