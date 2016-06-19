@@ -1,77 +1,77 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] net:ppp: replace too strict capability restriction on
- opening /dev/ppp
-Date: Sun, 19 Jun 2016 12:40:49 +0200
-Message-ID: <576676B1.8010206@nod.at>
-References: <15AED149-BC4D-4B8F-B173-3F652A46FA35@tuna.tsinghua.edu.cn>
- <5766704C.6060309@nod.at>
- <C708B373-7946-458A-A4C2-BB63A2413FB6@tuna.tsinghua.edu.cn>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v4 0/4] return offloaded stats as default and
+ expose original sw stats
+Date: Sun, 19 Jun 2016 12:57:22 +0200
+Message-ID: <20160619105722.GA2022@nanopsycho.orion>
+References: <20160616.172632.1759391103978744570.davem@davemloft.net>
+ <20160617082411.GA1981@nanopsycho.orion>
+ <f720df39-75c4-9be1-245d-df63bd40d610@cumulusnetworks.com>
+ <20160617140512.GB1981@nanopsycho.orion>
+ <57640F2A.7090003@mojatatu.com>
+ <9f8e85ac-3e96-257e-cf7f-e7e793d41cf4@cumulusnetworks.com>
+ <20160617154243.GD1981@nanopsycho.orion>
+ <57642F76.6090403@gmail.com>
+ <20160618080000.GA1989@nanopsycho.orion>
+ <576553A0.2060504@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gbk
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Guillaume Nault <g.nault@alphalink.fr>
-To: Shanker Wang <miao.wang@tuna.tsinghua.edu.cn>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	nogahf@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, ogerlitz@mellanox.com,
+	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
+	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
+	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from b.ns.miles-group.at ([95.130.255.144]:44723 "EHLO radon.swed.at"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751565AbcFSKkx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 19 Jun 2016 06:40:53 -0400
-In-Reply-To: <C708B373-7946-458A-A4C2-BB63A2413FB6@tuna.tsinghua.edu.cn>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34131 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751512AbcFSK50 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 06:57:26 -0400
+Received: by mail-wm0-f67.google.com with SMTP id 187so7533150wmz.1
+        for <netdev@vger.kernel.org>; Sun, 19 Jun 2016 03:57:25 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <576553A0.2060504@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 19.06.2016 um 12:36 schrieb Shanker Wang:
->=20
->> =D4=DA 2016=C4=EA6=D4=C219=C8=D5=A3=AC12:13=A3=ACRichard Weinberger =
-<richard@nod.at> =D0=B4=B5=C0=A3=BA
->>
->> Am 19.06.2016 um 07:21 schrieb Shanker Wang:
->>> This patch removes the check for CAP_NET_ADMIN in the initial names=
-pace
->>> when opening /dev/open. Instead, CAP_NET_ADMIN is checked in the us=
-er
->>> namespace the net namespace was created so that /dev/ppp cat get op=
-ened
->>> in a unprivileged container.
+Sat, Jun 18, 2016 at 03:58:56PM CEST, jhs@mojatatu.com wrote:
+>On 16-06-18 04:00 AM, Jiri Pirko wrote:
+>>Fri, Jun 17, 2016 at 07:12:22PM CEST, f.fainelli@gmail.com wrote:
+>
+>>>>Yep. And I believe that for offloaded forwarding, this tools should see
+>>>>hw counters, as they show what is going on in real.
 >>>
->>> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
->>> Cc: Richard Weinberger <richard.weinberger@gmail.com>
->>> Cc: Guillaume Nault <g.nault@alphalink.fr>
->>> Cc: Miao Wang <shankerwangmiao@gmail.com>
->>> Signed-off-by: Miao Wang <miao.wang@tuna.tsinghua.edu.cn>
->>> ---
->>> drivers/net/ppp/ppp_generic.c | 2 +-
->>> 1 file changed, 1 insertion(+), 1 deletion(-)
+>>>If your NIC is offloading packets today, these tools typically won't see
+>>>these stats, but ethtool -S likely will report what is going on under
+>>>the hood.
 >>>
->>> diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_ge=
-neric.c
->>> index f572b31..4b3b2b5 100644
->>> --- a/drivers/net/ppp/ppp_generic.c
->>> +++ b/drivers/net/ppp/ppp_generic.c
->>> @@ -380,7 +380,7 @@ static int ppp_open(struct inode *inode, struct=
- file *file)
->>> 	/*
->>> 	 * This could (should?) be enforced by the permissions on /dev/ppp=
-=2E
->>> 	 */
->>> -	if (!capable(CAP_NET_ADMIN))
->>> +	if (!ns_capable(current->nsproxy->net_ns->user_ns, CAP_NET_ADMIN)=
-)
->>> 		return -EPERM;
+>>>Do we actually need to tell apart SW maintained from HW maintained
+>>>stats, or at the end all that matters is just, as DaveM pointed out,
+>>>getting the information, and in the case of an Ethernet switch, return
+>>>HW stats by default and supplement with SW stats whenever we have them,
+>>>all in the same namespace?
 >>
->> Shouldn't this be a ns_capable(net->user_ns, =A1=AD?
->> Otherwise an user can create a new user_ns followed by a new net_ns =
-and has
->> CAP_NET_ADMIN. We need to check whether he is allowed in the user_ns=
- of the
->> net_ns which belongs to the ppp net device which you want to open.
-> You are totally right. However, I wonder how can i get the =A1=B0net=A1=
-=B1 struct when=20
-> opening /dev/ppp
+>
+>In general it is extremely useful for debugging to be able to see them
+>separately. One API to unify them (and that API being netlink) is
+>the way to go. I dont know if you can ever obsolete ethtool if lots
+>of other utils are using it - but would be nice.
+>It is also useful to just get the sum of them - but user space can
+>take care of that. David A., whatever user space tools that depended
+>on ethtool should now be able to retrieve them via netlink, no?
+>
+>>I believe it is valuable for user to know stats for slow path
+>>(non-forwarded by ASIC). Also, it's just another rtnl attr. Easy.
+>>
+>
+>So Jiri, I see:
+>IFLA_SW_STATS64 should that be: IFLA_HW_STATS_LINK_64?
+>I think IFLA_STATS_LINK_64 should continue to send s/ware stats.
 
-I'm sure you can get it somehow via file->private_data.
-
-Thanks,
-//richard
+Well, we spent a lot of time to think about this. The problem with your
+approach is that existing apps don't see "real-stats" - hw stats. For
+example snmp daemon takes IFLA_STATS_LINK_64i, so it has to see HW stats
+there. In order to not break existing apps, we expose HW stats as default.
