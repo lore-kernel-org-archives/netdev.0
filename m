@@ -1,77 +1,242 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v4 0/4] return offloaded stats as default and
- expose original sw stats
-Date: Sun, 19 Jun 2016 12:57:22 +0200
-Message-ID: <20160619105722.GA2022@nanopsycho.orion>
-References: <20160616.172632.1759391103978744570.davem@davemloft.net>
- <20160617082411.GA1981@nanopsycho.orion>
- <f720df39-75c4-9be1-245d-df63bd40d610@cumulusnetworks.com>
- <20160617140512.GB1981@nanopsycho.orion>
- <57640F2A.7090003@mojatatu.com>
- <9f8e85ac-3e96-257e-cf7f-e7e793d41cf4@cumulusnetworks.com>
- <20160617154243.GD1981@nanopsycho.orion>
- <57642F76.6090403@gmail.com>
- <20160618080000.GA1989@nanopsycho.orion>
- <576553A0.2060504@mojatatu.com>
+From: =?iso-8859-1?Q?M=E5ns_Rullg=E5rd?= <mans@mansr.com>
+Subject: Re: [PATCH 1/2] net: ethernet: nb8800: use phydev from struct net_device
+Date: Sun, 19 Jun 2016 12:31:32 +0100
+Message-ID: <yw1xoa6xwh2j.fsf@unicorn.mansr.com>
+References: <1466284615-7045-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	nogahf@mellanox.com, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, ogerlitz@mellanox.com,
-	roopa@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	linville@tuxdriver.com, tgraf@suug.ch, gospo@cumulusnetworks.com,
-	sfeldma@gmail.com, sd@queasysnail.net, eranbe@mellanox.com,
-	ast@plumgrid.com, edumazet@google.com, hannes@stressinduktion.org
-To: Jamal Hadi Salim <jhs@mojatatu.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34131 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751512AbcFSK50 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 06:57:26 -0400
-Received: by mail-wm0-f67.google.com with SMTP id 187so7533150wmz.1
-        for <netdev@vger.kernel.org>; Sun, 19 Jun 2016 03:57:25 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <576553A0.2060504@mojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: davem@davemloft.net, sf84@laposte.net, arnd@arndb.de,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Philippe Reynes <tremyfr@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466284615-7045-1-git-send-email-tremyfr@gmail.com> (Philippe
+	Reynes's message of "Sat, 18 Jun 2016 23:16:54 +0200")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sat, Jun 18, 2016 at 03:58:56PM CEST, jhs@mojatatu.com wrote:
->On 16-06-18 04:00 AM, Jiri Pirko wrote:
->>Fri, Jun 17, 2016 at 07:12:22PM CEST, f.fainelli@gmail.com wrote:
->
->>>>Yep. And I believe that for offloaded forwarding, this tools should see
->>>>hw counters, as they show what is going on in real.
->>>
->>>If your NIC is offloading packets today, these tools typically won't see
->>>these stats, but ethtool -S likely will report what is going on under
->>>the hood.
->>>
->>>Do we actually need to tell apart SW maintained from HW maintained
->>>stats, or at the end all that matters is just, as DaveM pointed out,
->>>getting the information, and in the case of an Ethernet switch, return
->>>HW stats by default and supplement with SW stats whenever we have them,
->>>all in the same namespace?
->>
->
->In general it is extremely useful for debugging to be able to see them
->separately. One API to unify them (and that API being netlink) is
->the way to go. I dont know if you can ever obsolete ethtool if lots
->of other utils are using it - but would be nice.
->It is also useful to just get the sum of them - but user space can
->take care of that. David A., whatever user space tools that depended
->on ethtool should now be able to retrieve them via netlink, no?
->
->>I believe it is valuable for user to know stats for slow path
->>(non-forwarded by ASIC). Also, it's just another rtnl attr. Easy.
->>
->
->So Jiri, I see:
->IFLA_SW_STATS64 should that be: IFLA_HW_STATS_LINK_64?
->I think IFLA_STATS_LINK_64 should continue to send s/ware stats.
+Philippe Reynes <tremyfr@gmail.com> writes:
 
-Well, we spent a lot of time to think about this. The problem with your
-approach is that existing apps don't see "real-stats" - hw stats. For
-example snmp daemon takes IFLA_STATS_LINK_64i, so it has to see HW stats
-there. In order to not break existing apps, we expose HW stats as default.
+> The private structure contain a pointer to phydev, but the structure
+> net_device already contain such pointer. So we can remove the pointer
+> phydev in the private structure, and update the driver to use the
+> one contained in struct net_device.
+>
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+
+Acked-by: Mans Rullgard <mans@mansr.com>
+
+> ---
+>  drivers/net/ethernet/aurora/nb8800.c |   57 +++++++++++++++++-------=
+---------
+>  drivers/net/ethernet/aurora/nb8800.h |    1 -
+>  2 files changed, 29 insertions(+), 29 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/aurora/nb8800.c b/drivers/net/ether=
+net/aurora/nb8800.c
+> index 08a23e6..4989d31 100644
+> --- a/drivers/net/ethernet/aurora/nb8800.c
+> +++ b/drivers/net/ethernet/aurora/nb8800.c
+> @@ -631,7 +631,7 @@ static void nb8800_mac_config(struct net_device *=
+dev)
+>  static void nb8800_pause_config(struct net_device *dev)
+>  {
+>  	struct nb8800_priv *priv =3D netdev_priv(dev);
+> -	struct phy_device *phydev =3D priv->phydev;
+> +	struct phy_device *phydev =3D dev->phydev;
+>  	u32 rxcr;
+>
+>  	if (priv->pause_aneg) {
+> @@ -664,7 +664,7 @@ static void nb8800_pause_config(struct net_device=
+ *dev)
+>  static void nb8800_link_reconfigure(struct net_device *dev)
+>  {
+>  	struct nb8800_priv *priv =3D netdev_priv(dev);
+> -	struct phy_device *phydev =3D priv->phydev;
+> +	struct phy_device *phydev =3D dev->phydev;
+>  	int change =3D 0;
+>
+>  	if (phydev->link) {
+> @@ -690,7 +690,7 @@ static void nb8800_link_reconfigure(struct net_de=
+vice *dev)
+>  	}
+>
+>  	if (change)
+> -		phy_print_status(priv->phydev);
+> +		phy_print_status(phydev);
+>  }
+>
+>  static void nb8800_update_mac_addr(struct net_device *dev)
+> @@ -935,9 +935,10 @@ static int nb8800_dma_stop(struct net_device *de=
+v)
+>  static void nb8800_pause_adv(struct net_device *dev)
+>  {
+>  	struct nb8800_priv *priv =3D netdev_priv(dev);
+> +	struct phy_device *phydev =3D dev->phydev;
+>  	u32 adv =3D 0;
+>
+> -	if (!priv->phydev)
+> +	if (!phydev)
+>  		return;
+>
+>  	if (priv->pause_rx)
+> @@ -945,13 +946,14 @@ static void nb8800_pause_adv(struct net_device =
+*dev)
+>  	if (priv->pause_tx)
+>  		adv ^=3D ADVERTISED_Asym_Pause;
+>
+> -	priv->phydev->supported |=3D adv;
+> -	priv->phydev->advertising |=3D adv;
+> +	phydev->supported |=3D adv;
+> +	phydev->advertising |=3D adv;
+>  }
+>
+>  static int nb8800_open(struct net_device *dev)
+>  {
+>  	struct nb8800_priv *priv =3D netdev_priv(dev);
+> +	struct phy_device *phydev;
+>  	int err;
+>
+>  	/* clear any pending interrupts */
+> @@ -969,10 +971,10 @@ static int nb8800_open(struct net_device *dev)
+>  	nb8800_mac_rx(dev, true);
+>  	nb8800_mac_tx(dev, true);
+>
+> -	priv->phydev =3D of_phy_connect(dev, priv->phy_node,
+> -				      nb8800_link_reconfigure, 0,
+> -				      priv->phy_mode);
+> -	if (!priv->phydev)
+> +	phydev =3D of_phy_connect(dev, priv->phy_node,
+> +				nb8800_link_reconfigure, 0,
+> +				priv->phy_mode);
+> +	if (!phydev)
+>  		goto err_free_irq;
+>
+>  	nb8800_pause_adv(dev);
+> @@ -982,7 +984,7 @@ static int nb8800_open(struct net_device *dev)
+>  	netif_start_queue(dev);
+>
+>  	nb8800_start_rx(dev);
+> -	phy_start(priv->phydev);
+> +	phy_start(phydev);
+>
+>  	return 0;
+>
+> @@ -997,8 +999,9 @@ err_free_dma:
+>  static int nb8800_stop(struct net_device *dev)
+>  {
+>  	struct nb8800_priv *priv =3D netdev_priv(dev);
+> +	struct phy_device *phydev =3D dev->phydev;
+>
+> -	phy_stop(priv->phydev);
+> +	phy_stop(phydev);
+>
+>  	netif_stop_queue(dev);
+>  	napi_disable(&priv->napi);
+> @@ -1007,8 +1010,7 @@ static int nb8800_stop(struct net_device *dev)
+>  	nb8800_mac_rx(dev, false);
+>  	nb8800_mac_tx(dev, false);
+>
+> -	phy_disconnect(priv->phydev);
+> -	priv->phydev =3D NULL;
+> +	phy_disconnect(phydev);
+>
+>  	free_irq(dev->irq, dev);
+>
+> @@ -1019,9 +1021,7 @@ static int nb8800_stop(struct net_device *dev)
+>
+>  static int nb8800_ioctl(struct net_device *dev, struct ifreq *rq, in=
+t cmd)
+>  {
+> -	struct nb8800_priv *priv =3D netdev_priv(dev);
+> -
+> -	return phy_mii_ioctl(priv->phydev, rq, cmd);
+> +	return phy_mii_ioctl(dev->phydev, rq, cmd);
+>  }
+>
+>  static const struct net_device_ops nb8800_netdev_ops =3D {
+> @@ -1037,32 +1037,32 @@ static const struct net_device_ops nb8800_net=
+dev_ops =3D {
+>
+>  static int nb8800_get_settings(struct net_device *dev, struct ethtoo=
+l_cmd *cmd)
+>  {
+> -	struct nb8800_priv *priv =3D netdev_priv(dev);
+> +	struct phy_device *phydev =3D dev->phydev;
+>
+> -	if (!priv->phydev)
+> +	if (!phydev)
+>  		return -ENODEV;
+>
+> -	return phy_ethtool_gset(priv->phydev, cmd);
+> +	return phy_ethtool_gset(phydev, cmd);
+>  }
+>
+>  static int nb8800_set_settings(struct net_device *dev, struct ethtoo=
+l_cmd *cmd)
+>  {
+> -	struct nb8800_priv *priv =3D netdev_priv(dev);
+> +	struct phy_device *phydev =3D dev->phydev;
+>
+> -	if (!priv->phydev)
+> +	if (!phydev)
+>  		return -ENODEV;
+>
+> -	return phy_ethtool_sset(priv->phydev, cmd);
+> +	return phy_ethtool_sset(phydev, cmd);
+>  }
+>
+>  static int nb8800_nway_reset(struct net_device *dev)
+>  {
+> -	struct nb8800_priv *priv =3D netdev_priv(dev);
+> +	struct phy_device *phydev =3D dev->phydev;
+>
+> -	if (!priv->phydev)
+> +	if (!phydev)
+>  		return -ENODEV;
+>
+> -	return genphy_restart_aneg(priv->phydev);
+> +	return genphy_restart_aneg(phydev);
+>  }
+>
+>  static void nb8800_get_pauseparam(struct net_device *dev,
+> @@ -1079,6 +1079,7 @@ static int nb8800_set_pauseparam(struct net_dev=
+ice *dev,
+>  				 struct ethtool_pauseparam *pp)
+>  {
+>  	struct nb8800_priv *priv =3D netdev_priv(dev);
+> +	struct phy_device *phydev =3D dev->phydev;
+>
+>  	priv->pause_aneg =3D pp->autoneg;
+>  	priv->pause_rx =3D pp->rx_pause;
+> @@ -1088,8 +1089,8 @@ static int nb8800_set_pauseparam(struct net_dev=
+ice *dev,
+>
+>  	if (!priv->pause_aneg)
+>  		nb8800_pause_config(dev);
+> -	else if (priv->phydev)
+> -		phy_start_aneg(priv->phydev);
+> +	else if (phydev)
+> +		phy_start_aneg(phydev);
+>
+>  	return 0;
+>  }
+> diff --git a/drivers/net/ethernet/aurora/nb8800.h b/drivers/net/ether=
+net/aurora/nb8800.h
+> index e5adbc2..6ec4a95 100644
+> --- a/drivers/net/ethernet/aurora/nb8800.h
+> +++ b/drivers/net/ethernet/aurora/nb8800.h
+> @@ -284,7 +284,6 @@ struct nb8800_priv {
+>
+>  	struct mii_bus			*mii_bus;
+>  	struct device_node		*phy_node;
+> -	struct phy_device		*phydev;
+>
+>  	/* PHY connection type from DT */
+>  	int				phy_mode;
+> --=20
+> 1.7.4.4
+>
+
+--=20
+M=E5ns Rullg=E5rd
