@@ -1,87 +1,153 @@
-From: pravin shelar <pshelar@ovn.org>
-Subject: Re: [net-next,v3] openvswitch: Add packet len info to upcall.
-Date: Sun, 19 Jun 2016 11:08:51 -0700
-Message-ID: <CAOrHB_ASYp9b_ibzAfg+3dorOer12j0MbB9eYTExVmOLzC3q_g@mail.gmail.com>
-References: <1466193177-7656-1-git-send-email-u9012063@gmail.com>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next 2/2] net sched actions: skbedit add support for
+ mod-ing skb pkt_type
+Date: Sun, 19 Jun 2016 20:09:11 +0200
+Message-ID: <5766DFC7.80603@iogearbox.net>
+References: <1466262725-30289-1-git-send-email-jhs@emojatatu.com> <1466262725-30289-2-git-send-email-jhs@emojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Pravin Shelar <pshelar@nicira.com>
-To: William Tu <u9012063@gmail.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, fw@strlen.de
+To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay4-d.mail.gandi.net ([217.70.183.196]:45263 "EHLO
-	relay4-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750768AbcFSSKX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 14:10:23 -0400
-Received: from mfilter13-d.gandi.net (mfilter13-d.gandi.net [217.70.178.141])
-	by relay4-d.mail.gandi.net (Postfix) with ESMTP id C56CD1720A9
-	for <netdev@vger.kernel.org>; Sun, 19 Jun 2016 20:08:54 +0200 (CEST)
-Received: from relay4-d.mail.gandi.net ([IPv6:::ffff:217.70.183.196])
-	by mfilter13-d.gandi.net (mfilter13-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id F07-xaHxYzJm for <netdev@vger.kernel.org>;
-	Sun, 19 Jun 2016 20:08:53 +0200 (CEST)
-Received: from mail-it0-f53.google.com (mail-it0-f53.google.com [209.85.214.53])
-	(Authenticated sender: pshelar@ovn.org)
-	by relay4-d.mail.gandi.net (Postfix) with ESMTPSA id 2EF99172097
-	for <netdev@vger.kernel.org>; Sun, 19 Jun 2016 20:08:53 +0200 (CEST)
-Received: by mail-it0-f53.google.com with SMTP id a5so30771399ita.1
-        for <netdev@vger.kernel.org>; Sun, 19 Jun 2016 11:08:53 -0700 (PDT)
-In-Reply-To: <1466193177-7656-1-git-send-email-u9012063@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:58827 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751386AbcFSSLP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 14:11:15 -0400
+In-Reply-To: <1466262725-30289-2-git-send-email-jhs@emojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 17, 2016 at 12:52 PM, William Tu <u9012063@gmail.com> wrote:
-> The commit f2a4d086ed4c ("openvswitch: Add packet truncation support.")
-> introduces packet truncation before sending to userspace upcall receiver.
-> This patch passes up the skb->len before truncation so that the upcall
-> receiver knows the original packet size. Potentially this will be used
-> by sFlow, where OVS translates sFlow config header=N to a sample action,
-> truncating packet to N byte in kernel datapath. Thus, only N bytes instead
-> of full-packet size is copied from kernel to userspace, saving the
-> kernel-to-userspace bandwidth.
+On 06/18/2016 05:12 PM, Jamal Hadi Salim wrote:
+> From: Jamal Hadi Salim <jhs@mojatatu.com>
 >
-> Signed-off-by: William Tu <u9012063@gmail.com>
-> Cc: Pravin Shelar <pshelar@nicira.com>
+> Extremely useful for setting packet type to host so i dont
+> have to modify the dst mac address using pedit (which requires
+> that i know the mac address)
+>
+> Example usage:
+> tc filter add dev eth0 parent ffff: protocol ip pref 9 u32 \
+> match ip src 5.5.5.5/32 \
+> flowid 1:5 action skbedit ptype host
+>
+> This will tag all packets incoming from 5.5.5.5 with type
+> PACKET_HOST
+>
+> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
 > ---
-> v2->v3:
-> - remove platform specific name.
-> - fix issue when receiving GSO packet
-> - remove skblen in struct dp_upcall_info
-> v1->v2:
-> - pass skb->len to userspace instead of cutlen
-> ---
->  include/uapi/linux/openvswitch.h |  2 ++
->  net/openvswitch/datapath.c       | 11 ++++++++++-
->  2 files changed, 12 insertions(+), 1 deletion(-)
+>   include/net/tc_act/tc_skbedit.h        | 10 +++++-----
+>   include/uapi/linux/tc_act/tc_skbedit.h |  2 ++
+>   net/sched/act_skbedit.c                | 18 +++++++++++++++++-
+>   3 files changed, 24 insertions(+), 6 deletions(-)
 >
-
-Patch looks good, I just have one minor comment.
-
-> diff --git a/net/openvswitch/datapath.c b/net/openvswitch/datapath.c
-> index 6739342..623fc04 100644
-> --- a/net/openvswitch/datapath.c
-> +++ b/net/openvswitch/datapath.c
-> @@ -387,7 +387,8 @@ static size_t upcall_msg_size(const struct dp_upcall_info *upcall_info,
->  {
->         size_t size = NLMSG_ALIGN(sizeof(struct ovs_header))
->                 + nla_total_size(hdrlen) /* OVS_PACKET_ATTR_PACKET */
-> -               + nla_total_size(ovs_key_attr_size()); /* OVS_PACKET_ATTR_KEY */
-> +               + nla_total_size(ovs_key_attr_size()) /* OVS_PACKET_ATTR_KEY */
-> +               + nla_total_size(sizeof(unsigned int)); /* OVS_PACKET_ATTR_LEN */
+> diff --git a/include/net/tc_act/tc_skbedit.h b/include/net/tc_act/tc_skbedit.h
+> index b496d5a..d01a5d4 100644
+> --- a/include/net/tc_act/tc_skbedit.h
+> +++ b/include/net/tc_act/tc_skbedit.h
+> @@ -24,11 +24,11 @@
 >
->         /* OVS_PACKET_ATTR_USERDATA */
->         if (upcall_info->userdata)
-> @@ -514,6 +515,14 @@ static int queue_userspace_packet(struct datapath *dp, struct sk_buff *skb,
->                 pad_packet(dp, user_skb);
->         }
+>   struct tcf_skbedit {
+>   	struct tcf_common	common;
+> -	u32			flags;
+> -	u32     		priority;
+> -	u32     		mark;
+> -	u16			queue_mapping;
+> -	/* XXX: 16-bit pad here? */
+> +	u32		flags;
+> +	u32		priority;
+> +	u32		mark;
+> +	u16		queue_mapping;
+> +	u16		ptype;
+>   };
+>   #define to_skbedit(a) \
+>   	container_of(a->priv, struct tcf_skbedit, common)
+> diff --git a/include/uapi/linux/tc_act/tc_skbedit.h b/include/uapi/linux/tc_act/tc_skbedit.h
+> index fecb5cc..a4d00c6 100644
+> --- a/include/uapi/linux/tc_act/tc_skbedit.h
+> +++ b/include/uapi/linux/tc_act/tc_skbedit.h
+> @@ -27,6 +27,7 @@
+>   #define SKBEDIT_F_PRIORITY		0x1
+>   #define SKBEDIT_F_QUEUE_MAPPING		0x2
+>   #define SKBEDIT_F_MARK			0x4
+> +#define SKBEDIT_F_PTYPE			0x8
 >
-> +       /* Add OVS_PACKET_ATTR_LEN */
-> +       if (nla_put_u32(user_skb, OVS_PACKET_ATTR_LEN,
-> +                       skb->len)) {
-> +               err = -ENOBUFS;
-> +               goto out;
-> +       }
-> +       pad_packet(dp, user_skb);
+>   struct tc_skbedit {
+>   	tc_gen;
+> @@ -40,6 +41,7 @@ enum {
+>   	TCA_SKBEDIT_QUEUE_MAPPING,
+>   	TCA_SKBEDIT_MARK,
+>   	TCA_SKBEDIT_PAD,
+> +	TCA_SKBEDIT_PTYPE,
+>   	__TCA_SKBEDIT_MAX
+>   };
+>   #define TCA_SKBEDIT_MAX (__TCA_SKBEDIT_MAX - 1)
+> diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
+> index 53d1486..1c4c924 100644
+> --- a/net/sched/act_skbedit.c
+> +++ b/net/sched/act_skbedit.c
+> @@ -47,6 +47,8 @@ static int tcf_skbedit(struct sk_buff *skb, const struct tc_action *a,
+>   		skb_set_queue_mapping(skb, d->queue_mapping);
+>   	if (d->flags & SKBEDIT_F_MARK)
+>   		skb->mark = d->mark;
+> +	if (d->flags & SKBEDIT_F_PTYPE)
+> +		skb->pkt_type = d->ptype;
+>
+>   	spin_unlock(&d->tcf_lock);
+>   	return d->tcf_action;
+> @@ -57,6 +59,7 @@ static const struct nla_policy skbedit_policy[TCA_SKBEDIT_MAX + 1] = {
+>   	[TCA_SKBEDIT_PRIORITY]		= { .len = sizeof(u32) },
+>   	[TCA_SKBEDIT_QUEUE_MAPPING]	= { .len = sizeof(u16) },
+>   	[TCA_SKBEDIT_MARK]		= { .len = sizeof(u32) },
+> +	[TCA_SKBEDIT_PTYPE]		= { .len = sizeof(u16) },
+>   };
+>
+>   static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+> @@ -68,7 +71,7 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+>   	struct tc_skbedit *parm;
+>   	struct tcf_skbedit *d;
+>   	u32 flags = 0, *priority = NULL, *mark = NULL;
+> -	u16 *queue_mapping = NULL;
+> +	u16 *queue_mapping = NULL, *ptype = NULL;
+>   	bool exists = false;
+>   	int ret = 0, err;
+>
+> @@ -92,6 +95,13 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+>   		queue_mapping = nla_data(tb[TCA_SKBEDIT_QUEUE_MAPPING]);
+>   	}
+>
+> +	if (tb[TCA_SKBEDIT_PTYPE] != NULL) {
+> +		ptype = nla_data(tb[TCA_SKBEDIT_PTYPE]);
+> +		if (!skb_pkt_type_ok(*ptype))
+> +			return -EINVAL;
+> +		flags |= SKBEDIT_F_PTYPE;
+> +	}
 > +
-We should only send packet length in case of truncated packet. This
-would avoid sending this extra attribute in miss flow handling case.
+>   	if (tb[TCA_SKBEDIT_MARK] != NULL) {
+>   		flags |= SKBEDIT_F_MARK;
+>   		mark = nla_data(tb[TCA_SKBEDIT_MARK]);
+> @@ -132,6 +142,8 @@ static int tcf_skbedit_init(struct net *net, struct nlattr *nla,
+>   		d->queue_mapping = *queue_mapping;
+>   	if (flags & SKBEDIT_F_MARK)
+>   		d->mark = *mark;
+> +	if (flags & SKBEDIT_F_PTYPE)
+> +		d->ptype = *ptype;
+>
+>   	d->tcf_action = parm->action;
+>
+> @@ -169,6 +181,10 @@ static int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
+>   	    nla_put(skb, TCA_SKBEDIT_MARK, sizeof(d->mark),
+>   		    &d->mark))
+>   		goto nla_put_failure;
+> +	if ((d->flags & SKBEDIT_F_PTYPE) &&
+> +	    nla_put(skb, TCA_SKBEDIT_PTYPE, sizeof(d->ptype),
+> +		    &d->ptype))
+
+We already have things like nla_put_u16() etc, would be good to use them here,
+doesn't have to be in this set, though, but rather as follow-up since it's used
+like this also for other attributes.
+
+> +		goto nla_put_failure;
+>
+>   	tcf_tm_dump(&t, &d->tcf_tm);
+>   	if (nla_put_64bit(skb, TCA_SKBEDIT_TM, sizeof(t), &t, TCA_SKBEDIT_PAD))
+>
