@@ -1,57 +1,53 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 12/15] net: davinci_mdio: document missed
- "ti,am4372-mdio" compat string
-Date: Sun, 19 Jun 2016 09:35:43 -0500
-Message-ID: <20160619143543.GA14844@rob-hp-laptop>
-References: <20160615115603.4897-1-grygorii.strashko@ti.com>
- <20160615115603.4897-13-grygorii.strashko@ti.com>
+From: Takashi Sakamoto <o-takashi@sakamocchi.jp>
+Subject: Re: [very-RFC 0/8] TSN driver for the kernel
+Date: Sun, 19 Jun 2016 23:45:47 +0900
+Message-ID: <5766B01B.9070903@sakamocchi.jp>
+References: <1465686096-22156-1-git-send-email-henrik@austad.us>
+ <20160613114713.GA9544@localhost.localdomain> <20160613195136.GC2441@netboy>
+ <20160614121844.54a125a5@lxorguk.ukuu.org.uk> <5760C84C.40408@sakamocchi.jp>
+ <20160615080602.GA13555@localhost.localdomain>
+ <5764DA85.3050801@sakamocchi.jp>
+ <20160618224549.GF32724@icarus.home.austad.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Sekhar Nori <nsekhar@ti.com>,
-	Mugunthan V N <mugunthanvnm@ti.com>,
-	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
-	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-	devicetree@vger.kernel.org
-To: Grygorii Strashko <grygorii.strashko@ti.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Richard Cochran <richardcochran@gmail.com>,
+	alsa-devel@alsa-project.org, netdev@vger.kernel.org,
+	Arnd Bergmann <arnd@linaro.org>, linux-media@vger.kernel.org
+To: Henrik Austad <henrik@austad.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f67.google.com ([209.85.218.67]:34996 "EHLO
-	mail-oi0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750842AbcFSOft (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 10:35:49 -0400
-Content-Disposition: inline
-In-Reply-To: <20160615115603.4897-13-grygorii.strashko@ti.com>
+Received: from smtp-proxy001.phy.lolipop.jp ([157.7.104.42]:36367 "EHLO
+	smtp-proxy001.phy.lolipop.jp" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751513AbcFSOpx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 10:45:53 -0400
+In-Reply-To: <20160618224549.GF32724@icarus.home.austad.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 15, 2016 at 02:56:00PM +0300, Grygorii Strashko wrote:
-> Document missed "ti,am4372-mdio" compat string used for TI am437x SoC
-> (am4372.dtsi).
-> 
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
-> ---
->  Documentation/devicetree/bindings/net/davinci-mdio.txt | 3 ++-
->  1 file changed, 2 insertions(+), 1 deletion(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/davinci-mdio.txt b/Documentation/devicetree/bindings/net/davinci-mdio.txt
-> index 0369e25..f2bba50 100644
-> --- a/Documentation/devicetree/bindings/net/davinci-mdio.txt
-> +++ b/Documentation/devicetree/bindings/net/davinci-mdio.txt
-> @@ -2,7 +2,8 @@ TI SoC Davinci/Keystone2 MDIO Controller Device Tree Bindings
->  ---------------------------------------------------
->  
->  Required properties:
-> -- compatible		: Should be "ti,davinci_mdio" or "ti,keystone_mdio"
-> +- compatible		: Should be "ti,davinci_mdio", "ti,keystone_mdio",
-> +			  "ti,am4372-mdio"
+(remove C.C. to lkml. This is not so major feature.)
 
-This is still an OR relationship?
+On Jun 19 2916 07:45, Henrik Austad wrote:
+> snip
+>
+> 802.1Q gives you low latency through the network, but more importantly, no
+> dropped frames. gPTP gives you a central reference to time.
 
-It's preferred to list one per line.
+When such a long message is required, it means that we don't have enough 
+premises for this discussion.
 
->  - reg			: physical base address and size of the davinci mdio
->  			  registers map
->  - bus_freq		: Mdio Bus frequency
-> -- 
-> 2.8.4
-> 
+You have just interests in gPTP and transferring AVTPDUs, while no 
+interests in the others such as "what the basic ideas of TSN come from" 
+and "the reason that IEEE 1722 refers to IEC 61883 series which is 
+originally designed for IEEE 1394 bus" and "the reason that I was 
+motivated to join in this discussion even though not a netdev developer".
+
+Here, could I ask you a question? Do you know a role of cycle start 
+packet of IEEE Std 1394?
+
+If you think it's not related to this discussion, please tell it to me. 
+Then I'll drop out from this thread.
+
+
+History Repeats itself.
+
+Takashi Sakamoto
