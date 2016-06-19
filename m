@@ -1,55 +1,58 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [very-RFC 0/8] TSN driver for the kernel
-Date: Sun, 19 Jun 2016 11:46:29 +0200
-Message-ID: <20160619094629.GC5853@netboy>
-References: <1465686096-22156-1-git-send-email-henrik@austad.us>
- <20160613114713.GA9544@localhost.localdomain>
- <20160613195136.GC2441@netboy>
- <20160614121844.54a125a5@lxorguk.ukuu.org.uk>
- <5760C84C.40408@sakamocchi.jp>
- <20160615080602.GA13555@localhost.localdomain>
- <5764DA85.3050801@sakamocchi.jp>
- <20160618224549.GF32724@icarus.home.austad.us>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [PATCH] net:ppp: replace too strict capability restriction on
+ opening /dev/ppp
+Date: Sun, 19 Jun 2016 12:13:32 +0200
+Message-ID: <5766704C.6060309@nod.at>
+References: <15AED149-BC4D-4B8F-B173-3F652A46FA35@tuna.tsinghua.edu.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Takashi Sakamoto <o-takashi@sakamocchi.jp>,
-	alsa-devel@alsa-project.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@linaro.org>,
-	linux-media@vger.kernel.org
-To: Henrik Austad <henrik@austad.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160618224549.GF32724@icarus.home.austad.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Richard Weinberger <richard.weinberger@gmail.com>,
+	Guillaume Nault <g.nault@alphalink.fr>,
+	=?UTF-8?B?546L6YKI?= <shankerwangmiao@gmail.com>
+To: Shanker Wang <miao.wang@tuna.tsinghua.edu.cn>,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from b.ns.miles-group.at ([95.130.255.144]:44723 "EHLO radon.swed.at"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751768AbcFSKUS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Jun 2016 06:20:18 -0400
+In-Reply-To: <15AED149-BC4D-4B8F-B173-3F652A46FA35@tuna.tsinghua.edu.cn>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 19, 2016 at 12:45:50AM +0200, Henrik Austad wrote:
-> edit: this turned out to be a somewhat lengthy answer. I have tried to 
-> shorten it down somewhere. it is getting late and I'm getting increasingly 
-> incoherent (Richard probably knows what I'm talking about ;) so I'll stop 
-> for now.
+Am 19.06.2016 um 07:21 schrieb Shanker Wang:
+> This patch removes the check for CAP_NET_ADMIN in the initial namespace
+> when opening /dev/open. Instead, CAP_NET_ADMIN is checked in the user
+> namespace the net namespace was created so that /dev/ppp cat get opened
+> in a unprivileged container.
+> 
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: Richard Weinberger <richard.weinberger@gmail.com>
+> Cc: Guillaume Nault <g.nault@alphalink.fr>
+> Cc: Miao Wang <shankerwangmiao@gmail.com>
+> Signed-off-by: Miao Wang <miao.wang@tuna.tsinghua.edu.cn>
+> ---
+> drivers/net/ppp/ppp_generic.c | 2 +-
+> 1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+> index f572b31..4b3b2b5 100644
+> --- a/drivers/net/ppp/ppp_generic.c
+> +++ b/drivers/net/ppp/ppp_generic.c
+> @@ -380,7 +380,7 @@ static int ppp_open(struct inode *inode, struct file *file)
+> 	/*
+> 	 * This could (should?) be enforced by the permissions on /dev/ppp.
+> 	 */
+> -	if (!capable(CAP_NET_ADMIN))
+> +	if (!ns_capable(current->nsproxy->net_ns->user_ns, CAP_NET_ADMIN))
+> 		return -EPERM;
 
-Thanks for your responses, Henrik.  I think your explanations are on spot.
-
-> note that an adjustable sample-clock is not a *requirement* but in general 
-> you'd want to avoid resampling in software.
-
-Yes, but..
-
-Adjusting the local clock rate to match the AVB network rate is
-essential.  You must be able to *continuously* adjust the rate in
-order to compensate drift.  Again, there are exactly two ways to do
-it, namely in hardware (think VCO) or in software (dynamic
-resampling).
-
-What you cannot do is simply buffer the AV data and play it out
-blindly at the local clock rate.
-
-Regarding the media clock, if I understand correctly, there the talker
-has two possibilities.  Either the talker samples the stream at the
-gPTP rate, or the talker must tell the listeners the relationship
-(phase offset and frequency ratio) between the media clock and the
-gPTP time.  Please correct me if I got the wrong impression...
+Shouldn't this be a ns_capable(net->user_ns, ...?
+Otherwise an user can create a new user_ns followed by a new net_ns and has
+CAP_NET_ADMIN. We need to check whether he is allowed in the user_ns of the
+net_ns which belongs to the ppp net device which you want to open.
 
 Thanks,
-Richard
+//richard
