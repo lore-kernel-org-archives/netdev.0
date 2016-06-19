@@ -1,50 +1,103 @@
-From: David Ranch <linux-hams@trinnet.net>
-Subject: Re: PATCH 1/1] AX.25: Close socket connection on session completion
-Date: Sat, 18 Jun 2016 18:44:32 -0600
-Message-ID: <1823727F-73BC-4E1C-8F3E-23C4FA547BB7@trinnet.net>
-References: <20160616094230.1d023d0b@brox.localnet> <20160617.113319.2120711643214980498.davem@davemloft.net>
+From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v10 2/5] openvswitch: set skb
+ protocol and mac_len when receiving on internal device
+Date: Sat, 18 Jun 2016 18:38:54 -0700
+Message-ID: <CAOrHB_BWfLk8yba2XkF43Hm-czGUZnVWQQ=HW3-vvpFEH7GNpA@mail.gmail.com>
+References: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
+ <1464848686-7656-3-git-send-email-simon.horman@netronome.com>
+ <CAOrHB_Aqdkr-26GxGh=W0AsojOMzDXYf5zif=kaFbWBty5uHKA@mail.gmail.com>
+ <20160607030809.GE31696@vergenet.net>
+ <CAOrHB_Cp4bw1beQb8tCk+cR9k2Nv5kBMVD-a8SYRVkOeeQYJvA@mail.gmail.com>
+ <20160617055331.GA24833@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: jreuter@yaina.de, ralf@linux-mips.org, linux-hams@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>, basil@pacabunga.com
-Return-path: <linux-hams-owner@vger.kernel.org>
-In-Reply-To: <20160617.113319.2120711643214980498.davem@davemloft.net>
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <20160617055331.GA24833-IxS8c3vjKQDk1uMJSBkQmQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hello David,
-
-I don't have a specific commit # for you at the moment but there have been a few serious regressions since 4.1.x.  When new code gets commited, are there any systems to run regession tests on?  I'd be willing to build up a pair of VMs that can be run with scripts to verify say basic sanity for kissattach, ax.25, netrom, rose, etc.
-
-Btw, once I get back, I hope to pursue some additional negative case fixes:  (pulling a usb-to-serial adapter when used with kiss-attach will panic the kernel, ifconfig rose0 down will take the kernel to 100%, and a data corruption issue for large transfers (2MB+).
-
-Thanks for your help!
-
---David
-KI6ZHD
---David
-
-On June 17, 2016 12:33:19 PM CST, David Miller <davem@davemloft.net> wrote:
->From: Basil Gunn <basil@pacabunga.com>
->Date: Thu, 16 Jun 2016 09:42:30 -0700
->
->> A socket connection made in ax.25 is not closed when session is
->> completed.  The heartbeat timer is stopped prematurely and this is
->> where the socket gets closed. Allow heatbeat timer to run to close
->> socket. Symptom occurs in kernels >= 4.2.0
->> 
->> Originally sent 6/15/2016. Resend with distribution list matching
->> scripts/maintainer.pl output.
->> 
->> Signed-off-by: Basil Gunn <basil@pacabunga.com>
->
->What changed in 4.2.x that broke this?
->--
->To unsubscribe from this list: send the line "unsubscribe linux-hams"
->in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
+T24gVGh1LCBKdW4gMTYsIDIwMTYgYXQgMTA6NTMgUE0sIFNpbW9uIEhvcm1hbgo8c2ltb24uaG9y
+bWFuQG5ldHJvbm9tZS5jb20+IHdyb3RlOgo+IE9uIFR1ZSwgSnVuIDA3LCAyMDE2IGF0IDAzOjQ1
+OjI3UE0gLTA3MDAsIHByYXZpbiBzaGVsYXIgd3JvdGU6Cj4+IE9uIE1vbiwgSnVuIDYsIDIwMTYg
+YXQgODowOCBQTSwgU2ltb24gSG9ybWFuIDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4gd3Jv
+dGU6Cj4+ID4gT24gVGh1LCBKdW4gMDIsIDIwMTYgYXQgMDM6MDE6NDdQTSAtMDcwMCwgcHJhdmlu
+IHNoZWxhciB3cm90ZToKPj4gPj4gT24gV2VkLCBKdW4gMSwgMjAxNiBhdCAxMToyNCBQTSwgU2lt
+b24gSG9ybWFuCj4+ID4+IDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4+ID4+
+ID4gKiBTZXQgc2tiIHByb3RvY29sIGJhc2VkIG9uIGNvbnRlbnRzIG9mIHBhY2tldC4gSSBoYXZl
+IG9ic2VydmVkIHRoaXMgaXMKPj4gPj4gPiAgIG5lY2Vzc2FyeSB0byBnZXQgYWN0dWFsIHByb3Rv
+Y29sIG9mIGEgcGFja2V0IHdoZW4gaXQgaXMgaW5qZWN0ZWQgaW50byBhbgo+PiA+PiA+ICAgaW50
+ZXJuYWwgZGV2aWNlIGUuZy4gYnkgbGlibmV0IGluIHdoaWNoIGNhc2Ugc2tiIHByb3RvY29sIHdp
+bGwgYmUgc2V0IHRvCj4+ID4+ID4gICBFVEhfQUxMLgouLi4uCi4uLi4KPj4gPiAgICAgICAgIGV0
+aF90eXBlID0gZXRoX3R5cGVfdHJhbnMoc2tiLCBza2ItPmRldik7Cj4+ID4gICAgICAgICBza2It
+Pm1hY19sZW4gPSBza2ItPmRhdGEgLSBza2JfbWFjX2hlYWRlcihza2IpOwo+PiA+ICAgICAgICAg
+X19za2JfcHVzaChza2IsIHNrYi0+bWFjX2xlbik7Cj4+ID4KPj4gPiAgICAgICAgIGlmIChldGhf
+dHlwZSA9PSBodG9ucyhFVEhfUF84MDIxUSkpCj4+ID4gICAgICAgICAgICAgICAgIHNrYi0+bWFj
+X2xlbiArPSBWTEFOX0hMRU47Cj4+ID4KPj4gPiBQZXJoYXBzIHRoYXQgbG9naWMgb3VnaHQgdG8g
+YmUgaW4gYSBoZWxwZXIgdXNlZCBieSBib3RoIGludGVybmFsX2Rldl94bWl0KCkKPj4gPiBhbmQg
+bmV0ZGV2X3BvcnRfcmVjZWl2ZSgpLiBPciBzb21laG93IGNlbnRyYWxpc2VkIGluIG92c192cG9y
+dF9yZWNlaXZlKCkuCj4+Cj4+IFRoaXMgZG9lcyBsb29rcyBiaXQgY29tcGxleC4gQ2FuIHdlIHVz
+ZSBvdGhlciBza2IgbWV0YWRhdGEgbGlrZQo+PiBza2JfbWFjX2hlYWRlcl93YXNfc2V0KCk/Cj4K
+PiBZZXMsIEkgdGhpbmsgdGhhdCBjYW4gYmUgbWFkZSB0byB3b3JrIGlmIHNrYi0+bWFjX2hlYWRl
+ciBpcyB1bnNldAo+IGZvciBsMyBwYWNrZXRzIGluIG5ldGRldl9wb3J0X3JlY2VpdmUoKS4gVGhl
+IGZvbGxvd2luZyBpcyBhbiBpbmNyZW1lbnRhbAo+IHBhdGNoIG9uIHRoZSBlbnRpcmUgc2VyaWVz
+LiBJcyB0aGlzIHRoZSBraW5kIG9mIHRoaW5nIHlvdSBoYWQgaW4gbWluZD8KPgo+IGRpZmYgLS1n
+aXQgYS9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jIGIvbmV0L29wZW52c3dpdGNoL2Zsb3cuYwo+IGlu
+ZGV4IDg2ZjJjZmIxOWRlMy4uNDI1ODdkNWJmODk0IDEwMDY0NAo+IC0tLSBhL25ldC9vcGVudnN3
+aXRjaC9mbG93LmMKPiArKysgYi9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jCj4gQEAgLTcyOSw3ICs3
+MjksNyBAQCBpbnQgb3ZzX2Zsb3dfa2V5X2V4dHJhY3QoY29uc3Qgc3RydWN0IGlwX3R1bm5lbF9p
+bmZvICp0dW5faW5mbywKPiAgICAgICAgIGtleS0+cGh5LnNrYl9tYXJrID0gc2tiLT5tYXJrOwo+
+ICAgICAgICAgb3ZzX2N0X2ZpbGxfa2V5KHNrYiwga2V5KTsKPiAgICAgICAgIGtleS0+b3ZzX2Zs
+b3dfaGFzaCA9IDA7Cj4gLSAgICAgICBrZXktPnBoeS5pc19sYXllcjMgPSBza2ItPm1hY19sZW4g
+PT0gMDsKPiArICAgICAgIGtleS0+cGh5LmlzX2xheWVyMyA9IHNrYl9tYWNfaGVhZGVyX3dhc19z
+ZXQoc2tiKSA9PSAwOwo+ICAgICAgICAga2V5LT5yZWNpcmNfaWQgPSAwOwo+Cj4gICAgICAgICBl
+cnIgPSBrZXlfZXh0cmFjdChza2IsIGtleSk7Cj4gZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRj
+aC92cG9ydC1pbnRlcm5hbF9kZXYuYyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC1pbnRlcm5hbF9k
+ZXYuYwo+IGluZGV4IDQ4NGJhNTI5YzY4Mi4uODk3M2Q0ZGI1MDliIDEwMDY0NAo+IC0tLSBhL25l
+dC9vcGVudnN3aXRjaC92cG9ydC1pbnRlcm5hbF9kZXYuYwo+ICsrKyBiL25ldC9vcGVudnN3aXRj
+aC92cG9ydC1pbnRlcm5hbF9kZXYuYwo+IEBAIC01MCw3ICs1MCw2IEBAIHN0YXRpYyBpbnQgaW50
+ZXJuYWxfZGV2X3htaXQoc3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKm5l
+dGRldikKPgo+ICAgICAgICAgc2tiLT5wcm90b2NvbCA9IGV0aF90eXBlX3RyYW5zKHNrYiwgbmV0
+ZGV2KTsKPiAgICAgICAgIHNrYl9wdXNoKHNrYiwgRVRIX0hMRU4pOwo+IC0gICAgICAgc2tiX3Jl
+c2V0X21hY19sZW4oc2tiKTsKPgo+ICAgICAgICAgbGVuID0gc2tiLT5sZW47Cj4gICAgICAgICBy
+Y3VfcmVhZF9sb2NrKCk7Cj4gZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC92cG9ydC1uZXRk
+ZXYuYyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC1uZXRkZXYuYwo+IGluZGV4IDNkZjM2ZGY2MmVl
+OS4uNGNmM2YxMmZmYzk5IDEwMDY0NAo+IC0tLSBhL25ldC9vcGVudnN3aXRjaC92cG9ydC1uZXRk
+ZXYuYwo+ICsrKyBiL25ldC9vcGVudnN3aXRjaC92cG9ydC1uZXRkZXYuYwo+IEBAIC02MCwyMiAr
+NjAsOSBAQCBzdGF0aWMgdm9pZCBuZXRkZXZfcG9ydF9yZWNlaXZlKHN0cnVjdCBza19idWZmICpz
+a2IpCj4gICAgICAgICBpZiAodnBvcnQtPmRldi0+dHlwZSA9PSBBUlBIUkRfRVRIRVIpIHsKPiAg
+ICAgICAgICAgICAgICAgc2tiX3B1c2goc2tiLCBFVEhfSExFTik7Cj4gICAgICAgICAgICAgICAg
+IHNrYl9wb3N0cHVzaF9yY3N1bShza2IsIHNrYi0+ZGF0YSwgRVRIX0hMRU4pOwo+IC0gICAgICAg
+fSBlbHNlIGlmICh2cG9ydC0+ZGV2LT50eXBlID09IEFSUEhSRF9OT05FKSB7Cj4gLSAgICAgICAg
+ICAgICAgIGlmIChza2ItPnByb3RvY29sID09IGh0b25zKEVUSF9QX1RFQikpIHsKPiAtICAgICAg
+ICAgICAgICAgICAgICAgICBfX2JlMTYgZXRoX3R5cGU7Cj4gLQo+IC0gICAgICAgICAgICAgICAg
+ICAgICAgIGlmICh1bmxpa2VseShza2ItPmxlbiA8IEVUSF9ITEVOKSkKPiAtICAgICAgICAgICAg
+ICAgICAgICAgICAgICAgICAgIGdvdG8gZXJyb3I7Cj4gLQo+IC0gICAgICAgICAgICAgICAgICAg
+ICAgIGV0aF90eXBlID0gZXRoX3R5cGVfdHJhbnMoc2tiLCBza2ItPmRldik7Cj4gLSAgICAgICAg
+ICAgICAgICAgICAgICAgc2tiLT5tYWNfbGVuID0gc2tiLT5kYXRhIC0gc2tiX21hY19oZWFkZXIo
+c2tiKTsKPiAtICAgICAgICAgICAgICAgICAgICAgICBfX3NrYl9wdXNoKHNrYiwgc2tiLT5tYWNf
+bGVuKTsKPiAtCj4gLSAgICAgICAgICAgICAgICAgICAgICAgaWYgKGV0aF90eXBlID09IGh0b25z
+KEVUSF9QXzgwMjFRKSkKPiAtICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHNrYi0+bWFj
+X2xlbiArPSBWTEFOX0hMRU47Cj4gLSAgICAgICAgICAgICAgIH0gZWxzZSB7Cj4gLSAgICAgICAg
+ICAgICAgICAgICAgICAgc2tiLT5tYWNfbGVuID0gMDsKPiAtICAgICAgICAgICAgICAgfQo+ICsg
+ICAgICAgfSBlbHNlIGlmICh2cG9ydC0+ZGV2LT50eXBlID09IEFSUEhSRF9OT05FICYmCj4gKyAg
+ICAgICAgICAgICAgICAgIHNrYi0+cHJvdG9jb2wgIT0gaHRvbnMoRVRIX1BfVEVCKSkgewo+ICsg
+ICAgICAgICAgICAgICBza2ItPm1hY19oZWFkZXIgPSAodHlwZW9mKHNrYi0+bWFjX2hlYWRlcikp
+fjBVOwo+ICAgICAgICAgfQo+Cj4gICAgICAgICBvdnNfdnBvcnRfcmVjZWl2ZSh2cG9ydCwgc2ti
+LCBza2JfdHVubmVsX2luZm8oc2tiKSk7CgpUaGlzIGNlcnRhaW5seSBsb29rcyBiZXR0ZXIuIEkg
+d2FzIHdvbmRlcmluZyBpZiB3ZSBjYW4gdW5zZXQgdGhlIG1hYwpoZWFkZXIgb2Zmc2V0IGluIEwz
+IHR1bm5lbCBkZXZpY2VzIGl0c2VsZi4gU28gdGhlcmUgaXMgbm8gbmVlZCB0byBoYXZlCnRoaXMg
+Y2hlY2sgaGVyZS4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRj
+aC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
