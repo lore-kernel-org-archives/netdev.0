@@ -1,31 +1,32 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 2/2] net: ethernet: bcmsysport: use
- phy_ethtool_{get|set}_link_ksettings
-Date: Sun, 19 Jun 2016 13:56:44 -0700
-Message-ID: <5767070C.5040203@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH 1/2] net: ethernet: bcmsysport: use phydev from struct
+ net_device
+Date: Sun, 19 Jun 2016 16:20:18 -0700 (PDT)
+Message-ID: <20160619.162018.1268748599335071745.davem@davemloft.net>
 References: <1466361549-6291-1-git-send-email-tremyfr@gmail.com>
- <1466361549-6291-2-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>, davem@davemloft.net
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: tremyfr@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f176.google.com ([209.85.214.176]:34402 "EHLO
-	mail-ob0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751416AbcFSVFE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 17:05:04 -0400
-In-Reply-To: <1466361549-6291-2-git-send-email-tremyfr@gmail.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45732 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751358AbcFSXUW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 19:20:22 -0400
+In-Reply-To: <1466361549-6291-1-git-send-email-tremyfr@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 19/06/2016 11:39, Philippe Reynes a =C3=A9crit :
-> There are two generics functions phy_ethtool_{get|set}_link_ksettings=
-,
-> so we can use them instead of defining the same code in the driver.
->=20
+From: Philippe Reynes <tremyfr@gmail.com>
+Date: Sun, 19 Jun 2016 20:39:08 +0200
+
+> The private structure contain a pointer to phydev, but the structure
+> net_device already contain such pointer. So we can remove the pointer
+> phydev in the private structure, and update the driver to use the
+> one contained in struct net_device.
+> 
 > Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
-Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
---=20
-=46lorian
+Applied.
