@@ -1,102 +1,52 @@
-From: Yisen Zhuang <Yisen.zhuang@huawei.com>
-Subject: Re: [patch net-next] net: hns: add skb_reset_mac_header() after skb
- being alloc
-Date: Mon, 20 Jun 2016 15:12:34 +0800
-Message-ID: <57679762.4060608@huawei.com>
-References: <1465821682-223053-1-git-send-email-Yisen.Zhuang@huawei.com>
- <20160614.224134.743787632695474309.davem@davemloft.net>
- <57612E38.6020301@huawei.com>
+From: oulijun <oulijun@huawei.com>
+Subject: Re: [RESEND PATCH v9 00/22] Add HiSilicon RoCE driver
+Date: Mon, 20 Jun 2016 15:29:40 +0800
+Message-ID: <57679B64.1060203@huawei.com>
+References: <1465368297-82118-1-git-send-email-oulijun@huawei.com>
+ <7860e33e-42a0-b98e-116d-45fd32d8acdd@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <charles.chenxin@huawei.com>, <linuxarm@huawei.com>,
-	<linux-kernel@vger.kernel.org>, <arnd@arndb.de>,
-	<netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
+	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
+	<haifeng.wei@huawei.com>, <yisen.zhuang@huawei.com>,
+	<yankejian@huawei.com>, <charles.chenxin@huawei.com>,
+	<linuxarm@huawei.com>
+To: Doug Ledford <dledford@redhat.com>, <sean.hefty@intel.com>,
+	<hal.rosenstock@gmail.com>, <davem@davemloft.net>,
+	<jeffrey.t.kirsher@intel.com>, <jiri@mellanox.com>,
+	<ogerlitz@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:24294 "EHLO
+Received: from szxga03-in.huawei.com ([119.145.14.66]:42534 "EHLO
 	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752737AbcFTHNG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 03:13:06 -0400
-In-Reply-To: <57612E38.6020301@huawei.com>
+	with ESMTP id S1751139AbcFTHaj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 03:30:39 -0400
+In-Reply-To: <7860e33e-42a0-b98e-116d-45fd32d8acdd@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 2016/6/8 19:55, Doug Ledford wrote:
+> On 6/8/2016 2:44 AM, Lijun Ou wrote:
+>> The HiSilicon Network Substem is a long term evolution IP which is
+>> supposed to be used in HiSilicon ICT SoCs. HNS (HiSilicon Network
+>> Sybsystem) also has a hardware support of performing RDMA with
+>> RoCEE.
+>> The driver for HiSilicon RoCEE(RoCE Engine) is a platform driver and
+>> will support mulitple versions of SOCs in future. This version of driver
+>> is meant to support Hip06 SoC(which confirms to RoCEEv1 hardware
+>> specifications).
+> 
+> Please don't resend unless you think the patch has gotten lost.  This is
+> a large patchset and takes a considerable deal of time to process.
+> 
+> That said, I pulled the v9 patchset into my repo in a branch called hns
+> yesterday and am doing final review before I accept it into my for-next
+> area.
+> 
+Hi, Doug
+  I see. Please forgive my impatience.
+  Now, I have sent v10 according to Leon Romanovsky's reviews.
 
-
-=E5=9C=A8 2016/6/15 18:30, Yisen Zhuang =E5=86=99=E9=81=93:
-> Hi David,
->=20
-> Thanks for your suggestions.
->=20
-> Please see my comments below.
->=20
-> Thanks,
->=20
-> Yisen
->=20
-> =E5=9C=A8 2016/6/15 13:41, David Miller =E5=86=99=E9=81=93:
->> From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
->> Date: Mon, 13 Jun 2016 20:41:22 +0800
->>
->>> From: Kejian Yan <yankejian@huawei.com>
->>>
->>> HNS receives a packet without doing anything, but it should call
->>> skb_reset_mac_header() to initialize the header before using
->>> eth_hdr().
->>>
->>> Fixes: 0d6b425a3773c3445b0f51b2f333821beaacb619
->>> Signed-off-by: Kejian Yan <yankejian@huawei.com>
->>> Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
->>
->> Well, this patch made me look at this function.
->>
->> You really shouldn't be filtering packets looped back, that is
->> the stack's job.  It shouldn't be happening in the driver.
->=20
-> If we use ping6 to test if it is connected to network, CPUs would sen=
-d out the NS packets
-> and these packets will be looped back to CPUs. If driver does not dro=
-p these packets,
-> they will be sent to protocol stack and protocol stack consider that =
-there is a device
-> with the same address and it is not available address. It will show u=
-s the log like
-> "connect: Cannot assign requested address". Then it can not connect t=
-o the network enviroment.
-> Thus, we drop these packets looped back in HNS driver.
->=20
-
-Hi David,
-
-What is the opinion about this issue? We need this patch to resolve the=
- issue.
-
-Hoping for your suggestions.
-
-Many thanks,
-
-Yisen
-
->>
->> And once you remove that code, this patch here is no longer
->> necessary.
->>
->> Second of all, unless you card supports every protocol that
->> exists in the past, present, and _future_ you cannot set
->> skb->ip_summed to CHECKSUM_UNNECSSARY unconditionally like
->> that.
->>
->> You can only set that for protocols your chip actually supports.
->=20
-> Thanks for your suggestions. I will prepare a new patch to fix it.
->=20
->>
->> .
->>
->=20
-> _______________________________________________
-> linuxarm mailing list
-> linuxarm@huawei.com
-> http://rnd-openeuler.huawei.com/mailman/listinfo/linuxarm
->=20
+Thanks
+Lijun Ou
