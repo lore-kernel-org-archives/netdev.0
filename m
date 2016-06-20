@@ -1,42 +1,58 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [RFC PATCH] net: macb: Add gmii2rgmii converter support
-Date: Sun, 19 Jun 2016 23:06:25 -0700
-Message-ID: <1466402785.19647.138.camel@perches.com>
+From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
+Subject: RE: [RFC PATCH] net: macb: Add gmii2rgmii converter support
+Date: Mon, 20 Jun 2016 06:15:32 +0000
+Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5B78D3@XAP-PVEXMBX01.xlnx.xilinx.com>
 References: <1466400437-21277-1-git-send-email-appanad@xilinx.com>
+ <5F581884-194F-46BD-98E4-A3DAE17A2A7C@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	nicolas.ferre@atmel.com, punnaia@xilinx.com, harinik@xilinx.com,
-	anirudh@xilinx.com, michals@xilinx.com, appanad@xilinx.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0230.hostedemail.com ([216.40.44.230]:54685 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751660AbcFTGH6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 02:07:58 -0400
-In-Reply-To: <1466400437-21277-1-git-send-email-appanad@xilinx.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Andrew Lunn <andrew@lunn.ch>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
+	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
+	Harini Katakam <harinik@xilinx.com>,
+	Anirudha Sarangi <anirudh@xilinx.com>,
+	Michal Simek <michals@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5F581884-194F-46BD-98E4-A3DAE17A2A7C@gmail.com>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-06-20 at 10:57 +0530, Kedareswara rao Appana wrote:
-> This patch adds support for gmii2rgmii converter
-> in the macb driver.
-[]
-> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
-et/cadence/macb.c
-[]
-> @@ -376,6 +389,20 @@ static int macb_mii_probe(struct net_device *dev=
-)
-> =A0	int phy_irq;
-> =A0	int ret;
-> =A0
-> +	if (bp->gmii2rgmii_phy_node) {
-> +		phydev =3D of_phy_attach(bp->dev,
-> +				=A0=A0=A0=A0=A0=A0=A0bp->gmii2rgmii_phy_node,
-> +				=A0=A0=A0=A0=A0=A0=A00, 0);
-> +		if (!phydev) {
-> +			dev_err(&bp->pdev->dev, "%s: no gmii_to_rgmii found\n",
-> +				dev->name);
-
-why use dev_err(&bp->pdev->dev, ...) and not netdev_err(dev, ...) ?
+SGkgRmxvcmlhbiwNCg0KCVRoYW5rcyBmb3IgdGhlIHF1aWNrIHJlc3BvbnNlLi4uDQoNCj4gDQo+
+IE9uIEp1bmUgMTksIDIwMTYgMTA6Mjc6MTcgUE0gTVNULCBLZWRhcmVzd2FyYSByYW8gQXBwYW5h
+DQo+IDxhcHBhbmEuZHVyZ2EucmFvQHhpbGlueC5jb20+IHdyb3RlOg0KPiA+VGhpcyBwYXRjaCBh
+ZGRzIHN1cHBvcnQgZm9yIGdtaWkycmdtaWkgY29udmVydGVyIGluIHRoZSBtYWNiIGRyaXZlci4N
+Cj4gPg0KPiA+VGhlIEdNSUkgdG8gUkdNSUkgSVAgY29yZSBwcm92aWRlcyB0aGUNCj4gPlJlZHVj
+ZWQgR2lnYWJpdCBNZWRpYSBJbmRlcGVuZGVudCBJbnRlcmZhY2UNCj4gPihSR01JSSkgYmV0d2Vl
+biBFdGhlcm5ldCBwaHlzaWNhbCBtZWRpYSBkZXZpY2VzIEFuZCB0aGUgR2lnYWJpdA0KPiA+RXRo
+ZXJuZXQgY29udHJvbGxlci4NCj4gPlRoaXMgY29yZSBjYW4gc3dpdGNoIGR5bmFtaWNhbGx5IGJl
+dHdlZW4gdGhlIFRocmVlIGRpZmZlcmVudCBzcGVlZA0KPiA+bW9kZXMgb2Ygb3BlcmF0aW9uICgx
+MC8xMDAvMTAwMCBNYi9zKS4NCj4gPk1ESU8gaW50ZXJmYWNlIGlzIHVzZWQgdG8gc2V0IG9wZXJh
+dGluZyBzcGVlZCBvZiBFdGhlcm5ldCBNQUMuDQo+ID4NCj4gPlNpZ25lZC1vZmYtYnk6IEtlZGFy
+ZXN3YXJhIHJhbyBBcHBhbmEgPGFwcGFuYWRAeGlsaW54LmNvbT4NCj4gPi0tLQ0KPiA+LS0+IFRy
+aWVkIHRvIGluY2x1ZGUgdGhpcyBDb3ZlcnRlciBzdXBwb3J0IGluIHRoZQ0KPiA+UEhZIGxheWVy
+IGJ1dCBpdCB3b24ndCBmaXQgaW50byB0aGUgUEhZIGZyYW1ld29yayBhcyB0aGUgY292ZXJ0ZXIg
+d29uJ3QNCj4gPmhhdmUgdmFpbGQgdmVuZG9yL0RldmljZSBpZCByZWdpc3RlcnMuDQo+ID4tLT4g
+VGhlIENvbnZlcnRlciBoYXMgb25seSBvbmUgcmVnaXN0ZXIgKDE2KSB0aGF0IG5lZWQncw0KPiA+
+dG8gYmUgcHJvZ3JhbW1lZCB3aXRoIHRoZSBleHRlcm5hbCBwaHkgbmVnb3RpYXRlZCBzcGVlZC4N
+Cj4gPi0tPiBUaGUgY29udmVydGVyIHdvbid0IGZvbGxvdyB0aGUgU3RhbmRhcmQgTUlJKGllZWUg
+ODAyLjMgY2xhdXNlIDIyKS4NCj4gPi0tPiBXaWxsIGFwcHJlY2lhdGUgaWYgc29tZW9uZSBjYW4g
+aGVscCBvbiBhZGRpbmcgdGhpcyBjb3ZlcnRlciBzdXBwb3J0DQo+IA0KPiBXaXRoIHRoZSBmaXhl
+ZCBQSFkgZW11bGF0ZWQgUEhZIGFuZCByZWdpc3RlcmluZyBhIGxpbmtfdXBkYXRlIGNhbGxiYWNr
+IChzZWUNCj4gZHJpdmVycy9uZXQvZHNhL2JjbV9zZjIuYyBmb3IgYW4gZXhhbXBsZSksIHlvdSBj
+b3VsZCByZWFkIHNwZWNpZmljIHJlZ2lzdGVycw0KPiB3aGljaCBpbmRpY2F0ZXMgbGluayBwYXJh
+bWV0ZXJzIGFuZCB1cGRhdGUgdGhlIFBIWSBkZXZpY2Ugd2l0aCB0aGVzZS4NCg0KVGhhbmtzIHdp
+bGwgY2hlY2sgYW5kIGdldCBiYWNrLi4uDQoNCj4gDQo+IEhvdyBleGFjdGx5IGlzIHRoaXMgY29u
+dmVydGVyIHdvcmtpbmc/DQoNClRoaXMgY29udmVydGVyIGRvZXMgR01JSSB0byBSR01JSSBjb252
+ZXJzaW9uLiANCkl0IHByb3ZpZGVzIG9ubHkgb25lIHJlZ2lzdGVyIGZvciBwcm9ncmFtaW5nIHRo
+ZSBkZXNpcmVkIHNwZWVkIGFuZCBNRElPIGlzIEludGVyZmFjZSB0byBwcm9ncmFtIHRoaXMgcmVn
+aXN0ZXIuDQpJdCBzaXRzIGJldHdlZW4gdGhlIG1hYyBhbmQgZXh0ZXJuYWwgcGh5LiBTbywgb25j
+ZSB0aGUgcGh5IG5lZ290aWF0aW9uIGNvbXBsZXRlcyBhbmQgbGluayBpcyB1cCwNClRoZSBuZWdv
+dGlhdGVkIHNwZWVkIHNob3VsZCBiZSBwcm9ncmFtbWVkIGluIHRoZSBjb252ZXJ0ZXIuDQoNCkNv
+bnZlcnRlciBkYXRhIHNoZWV0Og0KaHR0cDovL3d3dy54aWxpbnguY29tL3N1cHBvcnQvZG9jdW1l
+bnRhdGlvbi9pcF9kb2N1bWVudGF0aW9uL2dtaWlfdG9fcmdtaWkvdjNfMC9wZzE2MC1nbWlpLXRv
+LXJnbWlpLnBkZg0KDQpSZWdhcmRzLA0KS2VkYXIuDQoNCj4gDQo+IC0tDQo+IEZsb3JpYW4NCg==
