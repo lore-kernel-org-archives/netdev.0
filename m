@@ -1,35 +1,110 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net 0/2] mlx4_en fixes for 4.7-rc
-Date: Mon, 20 Jun 2016 17:35:07 +0300
-Message-ID: <1466433309-16288-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net 2/2] net/mlx4_en: Avoid unregister_netdev at shutdown flow
+Date: Mon, 20 Jun 2016 17:35:09 +0300
+Message-ID: <1466433309-16288-3-git-send-email-tariqt@mellanox.com>
+References: <1466433309-16288-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:51071 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:51088 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752196AbcFVOAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 10:00:09 -0400
+	id S1752351AbcFVOAS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2016 10:00:18 -0400
+In-Reply-To: <1466433309-16288-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Eran Ben Elisha <eranbe@mellanox.com>
 
-This small patchset includes two small fixes for mlx4_en driver.
+This allows a clean shutdown, even if some netdev clients do not
+release their reference from this netdev. It is enough to release
+the HW resources only as the kernel is shutting down.
 
-One allows a clean shutdown even when clients do not release their
-netdev reference.
-The other adds error return values to the VLAN VID add/kill functions.
-
-Eran Ben Elisha (1):
-  net/mlx4_en: Avoid unregister_netdev at shutdown flow
-
-Kamal Heib (1):
-  net/mlx4_en: Fix the return value of a failure in VLAN VID add/kill
-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 35 +++++++++++++++++++-------
- drivers/net/ethernet/mellanox/mlx4/main.c      |  5 +++-
+Fixes: 2ba5fbd62b25 ('net/mlx4_core: Handle AER flow properly')
+Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 17 +++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx4/main.c      |  5 ++++-
  include/linux/mlx4/device.h                    |  1 +
- 3 files changed, 31 insertions(+), 10 deletions(-)
+ 3 files changed, 20 insertions(+), 3 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 43f505e..0c0dfd6 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2036,11 +2036,20 @@ err:
+ 	return -ENOMEM;
+ }
+ 
++static void mlx4_en_shutdown(struct net_device *dev)
++{
++	rtnl_lock();
++	netif_device_detach(dev);
++	mlx4_en_close(dev);
++	rtnl_unlock();
++}
+ 
+ void mlx4_en_destroy_netdev(struct net_device *dev)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
++	bool shutdown = mdev->dev->persist->interface_state &
++					    MLX4_INTERFACE_STATE_SHUTDOWN;
+ 
+ 	en_dbg(DRV, priv, "Destroying netdev on port:%d\n", priv->port);
+ 
+@@ -2048,7 +2057,10 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
+ 	if (priv->registered) {
+ 		devlink_port_type_clear(mlx4_get_devlink_port(mdev->dev,
+ 							      priv->port));
+-		unregister_netdev(dev);
++		if (shutdown)
++			mlx4_en_shutdown(dev);
++		else
++			unregister_netdev(dev);
+ 	}
+ 
+ 	if (priv->allocated)
+@@ -2073,7 +2085,8 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
+ 	kfree(priv->tx_ring);
+ 	kfree(priv->tx_cq);
+ 
+-	free_netdev(dev);
++	if (!shutdown)
++		free_netdev(dev);
+ }
+ 
+ static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
+diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
+index 372ebfa..546fab0 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/main.c
++++ b/drivers/net/ethernet/mellanox/mlx4/main.c
+@@ -4135,8 +4135,11 @@ static void mlx4_shutdown(struct pci_dev *pdev)
+ 
+ 	mlx4_info(persist->dev, "mlx4_shutdown was called\n");
+ 	mutex_lock(&persist->interface_state_mutex);
+-	if (persist->interface_state & MLX4_INTERFACE_STATE_UP)
++	if (persist->interface_state & MLX4_INTERFACE_STATE_UP) {
++		/* Notify mlx4 clients that the kernel is being shut down */
++		persist->interface_state |= MLX4_INTERFACE_STATE_SHUTDOWN;
+ 		mlx4_unload_one(pdev);
++	}
+ 	mutex_unlock(&persist->interface_state_mutex);
+ }
+ 
+diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
+index 80dec87..d46a0e7 100644
+--- a/include/linux/mlx4/device.h
++++ b/include/linux/mlx4/device.h
+@@ -466,6 +466,7 @@ enum {
+ enum {
+ 	MLX4_INTERFACE_STATE_UP		= 1 << 0,
+ 	MLX4_INTERFACE_STATE_DELETION	= 1 << 1,
++	MLX4_INTERFACE_STATE_SHUTDOWN	= 1 << 2,
+ };
+ 
+ #define MSTR_SM_CHANGE_MASK (MLX4_EQ_PORT_INFO_MSTR_SM_SL_CHANGE_MASK | \
 -- 
 1.8.3.1
