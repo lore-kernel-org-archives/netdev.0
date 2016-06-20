@@ -1,67 +1,101 @@
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: Re: [PATCH] ibmvnic: fix to use list_for_each_safe() when delete items
-Date: Mon, 20 Jun 2016 10:50:26 -0500
-Message-ID: <576810C2.6080208@linux.vnet.ibm.com>
-References: <1466218408-20940-1-git-send-email-weiyj_lk@163.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
- linuxppc-dev@lists.ozlabs.org
-To: weiyj_lk@163.com, John Allen <jallen@linux.vnet.ibm.com>,
- Benjamin Herrenschmidt <benh@kernel.crashing.org>,
- Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <1466218408-20940-1-git-send-email-weiyj_lk@163.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] can: only call can_stat_update with procfs
+Date: Mon, 20 Jun 2016 17:51:52 +0200
+Message-ID: <20160620155234.2414971-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Oliver Hartkopp <socketcan@hartkopp.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexander Aring <aar@pengutronix.de>,
+	linux-can@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Marc Kleine-Budde <mkl@pengutronix.de>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMDYvMTcvMjAxNiAwOTo1MyBQTSwgd2VpeWpfbGtAMTYzLmNvbSB3cm90ZToKPiBGcm9tOiBX
-ZWkgWW9uZ2p1biA8eW9uZ2p1bl93ZWlAdHJlbmRtaWNyby5jb20uY24+Cj4KPiBTaW5jZSB3ZSB3
-aWxsIHJlbW92ZSBpdGVtcyBvZmYgdGhlIGxpc3QgdXNpbmcgbGlzdF9kZWwoKSB3ZSBuZWVkCj4g
-dG8gdXNlIGEgc2FmZSB2ZXJzaW9uIG9mIHRoZSBsaXN0X2Zvcl9lYWNoKCkgbWFjcm8gYXB0bHkg
-bmFtZWQKPiBsaXN0X2Zvcl9lYWNoX3NhZmUoKS4KPgo+IFNpZ25lZC1vZmYtYnk6IFdlaSBZb25n
-anVuIDx5b25nanVuX3dlaUB0cmVuZG1pY3JvLmNvbS5jbj4KPiAtLS0KPiAgZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvaWJtL2libXZuaWMuYyB8IDEwICsrKysrLS0tLS0KPiAgMSBmaWxlIGNoYW5nZWQs
-IDUgaW5zZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkKPgo+IGRpZmYgLS1naXQgYS9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9pYm0vaWJtdm5pYy5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaWJtL2li
-bXZuaWMuYwo+IGluZGV4IDg2NGNiMjEuLjBiNmE5MjIgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9u
-ZXQvZXRoZXJuZXQvaWJtL2libXZuaWMuYwo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2li
-bS9pYm12bmljLmMKPiBAQCAtMzE0MSwxNCArMzE0MSwxNCBAQCBzdGF0aWMgdm9pZCBoYW5kbGVf
-cmVxdWVzdF9yYXNfY29tcF9udW1fcnNwKHVuaW9uIGlibXZuaWNfY3JxICpjcnEsCj4gIAo+ICBz
-dGF0aWMgdm9pZCBpYm12bmljX2ZyZWVfaW5mbGlnaHQoc3RydWN0IGlibXZuaWNfYWRhcHRlciAq
-YWRhcHRlcikKPiAgewo+IC0Jc3RydWN0IGlibXZuaWNfaW5mbGlnaHRfY21kICppbmZsaWdodF9j
-bWQ7Cj4gKwlzdHJ1Y3QgaWJtdm5pY19pbmZsaWdodF9jbWQgKmluZmxpZ2h0X2NtZCwgKnRtcDE7
-Cj4gIAlzdHJ1Y3QgZGV2aWNlICpkZXYgPSAmYWRhcHRlci0+dmRldi0+ZGV2Owo+IC0Jc3RydWN0
-IGlibXZuaWNfZXJyb3JfYnVmZiAqZXJyb3JfYnVmZjsKPiArCXN0cnVjdCBpYm12bmljX2Vycm9y
-X2J1ZmYgKmVycm9yX2J1ZmYsICp0bXAyOwo+ICAJdW5zaWduZWQgbG9uZyBmbGFnczsKPiAgCXVu
-c2lnbmVkIGxvbmcgZmxhZ3MyOwo+ICAKPiAgCXNwaW5fbG9ja19pcnFzYXZlKCZhZGFwdGVyLT5p
-bmZsaWdodF9sb2NrLCBmbGFncyk7Cj4gLQlsaXN0X2Zvcl9lYWNoX2VudHJ5KGluZmxpZ2h0X2Nt
-ZCwgJmFkYXB0ZXItPmluZmxpZ2h0LCBsaXN0KSB7Cj4gKwlsaXN0X2Zvcl9lYWNoX2VudHJ5X3Nh
-ZmUoaW5mbGlnaHRfY21kLCB0bXAxLCAmYWRhcHRlci0+aW5mbGlnaHQsIGxpc3QpIHsKPiAgCQlz
-d2l0Y2ggKGluZmxpZ2h0X2NtZC0+Y3JxLmdlbmVyaWMuY21kKSB7Cj4gIAkJY2FzZSBMT0dJTjoK
-PiAgCQkJZG1hX3VubWFwX3NpbmdsZShkZXYsIGFkYXB0ZXItPmxvZ2luX2J1Zl90b2tlbiwKPiBA
-QCAtMzE2NSw4ICszMTY1LDggQEAgc3RhdGljIHZvaWQgaWJtdm5pY19mcmVlX2luZmxpZ2h0KHN0
-cnVjdCBpYm12bmljX2FkYXB0ZXIgKmFkYXB0ZXIpCj4gIAkJCWJyZWFrOwo+ICAJCWNhc2UgUkVR
-VUVTVF9FUlJPUl9JTkZPOgo+ICAJCQlzcGluX2xvY2tfaXJxc2F2ZSgmYWRhcHRlci0+ZXJyb3Jf
-bGlzdF9sb2NrLCBmbGFnczIpOwo+IC0JCQlsaXN0X2Zvcl9lYWNoX2VudHJ5KGVycm9yX2J1ZmYs
-ICZhZGFwdGVyLT5lcnJvcnMsCj4gLQkJCQkJICAgIGxpc3QpIHsKPiArCQkJbGlzdF9mb3JfZWFj
-aF9lbnRyeV9zYWZlKGVycm9yX2J1ZmYsIHRtcDIsCj4gKwkJCQkJCSAmYWRhcHRlci0+ZXJyb3Jz
-LCBsaXN0KSB7Cj4gIAkJCQlkbWFfdW5tYXBfc2luZ2xlKGRldiwgZXJyb3JfYnVmZi0+ZG1hLAo+
-ICAJCQkJCQkgZXJyb3JfYnVmZi0+bGVuLAo+ICAJCQkJCQkgRE1BX0ZST01fREVWSUNFKTsKPgpU
-aGFua3MhCgpBY2tlZC1ieTogVGhvbWFzIEZhbGNvbiA8dGxmYWxjb25AbGludXgudm5ldC5pYm0u
-Y29tPgo+Cj4KPgo+IF9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fCj4gTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdAo+IExpbnV4cHBjLWRldkBsaXN0cy5vemxh
-YnMub3JnCj4gaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldgoK
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
-ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
-c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+The change to leave out procfs support in CAN when CONFIG_PROC_FS
+is not set was incomplete and leads to a build error:
+
+net/built-in.o: In function `can_init':
+:(.init.text+0x9858): undefined reference to `can_stat_update'
+ERROR: "can_stat_update" [net/can/can.ko] undefined!
+
+This tries a better approach, encapsulating all of the calls
+within IS_ENABLED(), so we also leave out the timer function
+from the object file.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: a20fadf85312 ("can: build proc support only if CONFIG_PROC_FS is activated")
+---
+ net/can/af_can.c | 22 ++++++++++++----------
+ net/can/af_can.h | 11 -----------
+ 2 files changed, 12 insertions(+), 21 deletions(-)
+
+diff --git a/net/can/af_can.c b/net/can/af_can.c
+index 166d436196c1..1108079d934f 100644
+--- a/net/can/af_can.c
++++ b/net/can/af_can.c
+@@ -911,14 +911,14 @@ static __init int can_init(void)
+ 	if (!rcv_cache)
+ 		return -ENOMEM;
+ 
+-	if (stats_timer) {
++	if (IS_ENABLED(CONFIG_PROC_FS)) {
++		if (stats_timer) {
+ 		/* the statistics are updated every second (timer triggered) */
+-		setup_timer(&can_stattimer, can_stat_update, 0);
+-		mod_timer(&can_stattimer, round_jiffies(jiffies + HZ));
+-	} else
+-		can_stattimer.function = NULL;
+-
+-	can_init_proc();
++			setup_timer(&can_stattimer, can_stat_update, 0);
++			mod_timer(&can_stattimer, round_jiffies(jiffies + HZ));
++		}
++		can_init_proc();
++	}
+ 
+ 	/* protocol register */
+ 	sock_register(&can_family_ops);
+@@ -933,10 +933,12 @@ static __exit void can_exit(void)
+ {
+ 	struct net_device *dev;
+ 
+-	if (stats_timer)
+-		del_timer_sync(&can_stattimer);
++	if (IS_ENABLED(CONFIG_PROC_FS)) {
++		if (stats_timer)
++			del_timer_sync(&can_stattimer);
+ 
+-	can_remove_proc();
++		can_remove_proc();
++	}
+ 
+ 	/* protocol unregister */
+ 	dev_remove_pack(&canfd_packet);
+diff --git a/net/can/af_can.h b/net/can/af_can.h
+index 38a79ff20022..fca0fe9fc45a 100644
+--- a/net/can/af_can.h
++++ b/net/can/af_can.h
+@@ -113,19 +113,8 @@ struct s_pstats {
+ extern struct dev_rcv_lists can_rx_alldev_list;
+ 
+ /* function prototypes for the CAN networklayer procfs (proc.c) */
+-#ifdef CONFIG_PROC_FS
+ void can_init_proc(void);
+ void can_remove_proc(void);
+-#else
+-static inline void can_init_proc(void)
+-{
+-	pr_info("can: Can't create /proc/net/can. CONFIG_PROC_FS missing!\n");
+-}
+-
+-static inline void can_remove_proc(void)
+-{
+-}
+-#endif
+ void can_stat_update(unsigned long data);
+ 
+ /* structures and variables from af_can.c needed in proc.c for reading */
+-- 
+2.9.0
