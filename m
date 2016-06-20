@@ -1,55 +1,39 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v5 net-next v5 04/14] net: dsa: mv88e6xxx: do not increment bus refcount
-Date: Mon, 20 Jun 2016 13:14:01 -0400
-Message-ID: <20160620171411.13746-5-vivien.didelot@savoirfairelinux.com>
-References: <20160620171411.13746-1-vivien.didelot@savoirfairelinux.com>
-Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	Ben Dooks <ben.dooks@codethink.co.uk>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:48970 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754151AbcFTRWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 13:22:31 -0400
-In-Reply-To: <20160620171411.13746-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Timur Tabi <timur@codeaurora.org>
+Subject: Re: [PATCH] [v5] net: emac: emac gigabit ethernet controller driver
+Date: Mon, 20 Jun 2016 12:41:23 -0500
+Message-ID: <57682AC3.4040003@codeaurora.org>
+References: <1465942955-22988-1-git-send-email-timur@codeaurora.org>
+ <20160619141757.GA4249@rob-hp-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	shankerd@codeaurora.org, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org, andrew@lunn.ch,
+	bjorn.andersson@linaro.org, mlangsdo@redhat.com, jcm@redhat.com,
+	agross@codeaurora.org, davem@davemloft.net, f.fainelli@gmail.com
+To: Rob Herring <robh@kernel.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <20160619141757.GA4249@rob-hp-laptop>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The MDIO device probe and remove functions are respectively incrementing
-and decrementing the bus refcount themselves. Since these bus level
-actions are out of the device scope, remove them.
+Rob Herring wrote:
+>> >+		dma-ranges = <0 0 0xffffffff>;
+> I believe dma-ranges is supposed to be in the bus (parent) node.
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Acked-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/dsa/mv88e6xxx.c | 3 ---
- 1 file changed, 3 deletions(-)
+Maybe I'm just going to be perpetually confused by dma-ranges, but how 
+can I specify that the emac has a different DMA range from another SOC 
+device, if dma-ranges is in the parent node?
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index b3170ea..4b4bffc 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3712,8 +3712,6 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	ps->sw_addr = mdiodev->addr;
- 	mutex_init(&ps->smi_mutex);
- 
--	get_device(&ps->bus->dev);
--
- 	ds->drv = &mv88e6xxx_switch_driver;
- 
- 	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
-@@ -3767,7 +3765,6 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
- 	dsa_unregister_switch(ds);
--	put_device(&ps->bus->dev);
- 
- 	mv88e6xxx_mdio_unregister(ps);
- }
+The EMAC itself is capable of 64-bit DMA internally (I should have 
+included a dma_set_mask call with DMA_BIT_MASK(64) in the driver). 
+However, the platform typically limits this range.  On FSM9900 and 
+QDF2432, it's 32 bits.  On the next server chip, it'll be the full 64 
+bits.  I need some way to handle that.
+
 -- 
-2.9.0
+Qualcomm Innovation Center, Inc.
+The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
+Forum, a Linux Foundation collaborative project.
