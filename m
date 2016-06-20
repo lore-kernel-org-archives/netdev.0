@@ -1,62 +1,64 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: esp: Fix ESN generation under UDP encapsulation
-Date: Mon, 20 Jun 2016 12:59:34 +0200
-Message-ID: <20160620105934.GL7698@gauss.secunet.com>
-References: <20160612234814.15460-1-blair.steven@alliedtelesis.co.nz>
- <20160613102024.GX7698@gauss.secunet.com>
- <5760A501.3070504@alliedtelesis.co.nz>
- <20160617102429.GH7698@gauss.secunet.com>
- <20160618050336.GA12205@gondor.apana.org.au>
+From: Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>
+Subject: Re: [very-RFC 0/8] TSN driver for the kernel
+Date: Mon, 20 Jun 2016 13:08:27 +0200
+Message-ID: <9a5abd48-4da3-945d-53c9-b6d37010ab0d@linux.intel.com>
+References: <1465686096-22156-1-git-send-email-henrik@austad.us>
+ <20160613114713.GA9544@localhost.localdomain> <20160613195136.GC2441@netboy>
+ <20160614121844.54a125a5@lxorguk.ukuu.org.uk> <5760C84C.40408@sakamocchi.jp>
+ <20160615080602.GA13555@localhost.localdomain>
+ <5764DA85.3050801@sakamocchi.jp>
+ <20160618224549.GF32724@icarus.home.austad.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Blair Steven <Blair.Steven@alliedtelesis.co.nz>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:33697 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754567AbcFTK7i (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jun 2016 06:59:38 -0400
-Content-Disposition: inline
-In-Reply-To: <20160618050336.GA12205@gondor.apana.org.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: alsa-devel@alsa-project.org, netdev@vger.kernel.org,
+ Richard Cochran <richardcochran@gmail.com>, linux-kernel@vger.kernel.org,
+ Arnd Bergmann <arnd@linaro.org>, linux-media@vger.kernel.org
+To: Henrik Austad <henrik@austad.us>,
+ Takashi Sakamoto <o-takashi@sakamocchi.jp>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+In-Reply-To: <20160618224549.GF32724@icarus.home.austad.us>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 18, 2016 at 01:03:36PM +0800, Herbert Xu wrote:
-> On Fri, Jun 17, 2016 at 12:24:29PM +0200, Steffen Klassert wrote:
-> > On Wed, Jun 15, 2016 at 12:44:54AM +0000, Blair Steven wrote:
-> > > The restoration is happening - but being actioned on the wrong location.
-> > > 
-> > > The destination IP address is being saved and restored, and the SPI 
-> > > being written directly after the destination IP address. From my 
-> > > understanding though, the ESN shuffling should have saved and restored 
-> > > the UDP source / dest ports + SPI.
-> > 
-> > Yes, looks like we copy with a wrong offset if udp encapsulation
-> > is used, skb_transport_header() does not point to the esp header
-> > in this case. Ccing Herbert, he changed this part when switching
-> > to the new AEAD interface with
-> > commit 7021b2e1cddd ("esp4: Switch to new AEAD interface").
-> 
-> Thanks for catching this!
-> 
-> I think rather than changing the transport header (which isn't
-> quite right because UDP still is the transport protocol), we can
-> just save the offset locally.  Something like this:
-> 
-> ---8<---
-> Blair Steven noticed that ESN in conjunction with UDP encapsulation
-> is broken because we set the temporary ESP header to the wrong spot.
-> 
-> This patch fixes this by first of all using the right spot, i.e.,
-> 4 bytes off the real ESP header, and then saving this information
-> so that after encryption we can restore it properly.
-> 
-> Fixes: 7021b2e1cddd ("esp4: Switch to new AEAD interface")
-> Reported-by: Blair Steven <Blair.Steven@alliedtelesis.co.nz>
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Looks good.
-Blair could you please test this?
+> Presentation time is either set by
+> a) Local sound card performing capture (in which case it will be 'capture
+>    time')
+> b) Local media application sending a stream accross the network
+>    (time when the sample should be played out remotely)
+> c) Remote media application streaming data *to* host, in which case it will
+>    be local presentation time on local  soundcard
+>
+>> This value is dominant to the number of events included in an IEC 61883-1
+>> packet. If this TSN subsystem decides it, most of these items don't need
+>> to be in ALSA.
+>
+> Not sure if I understand this correctly.
+>
+> TSN should have a reference to the timing-domain of each *local*
+> sound-device (for local capture or playback) as well as the shared
+> time-reference provided by gPTP.
+>
+> Unless an End-station acts as GrandMaster for the gPTP-domain, time set
+> forth by gPTP is inmutable and cannot be adjusted. It follows that the
+> sample-frequency of the local audio-devices must be adjusted, or the
+> audio-streams to/from said devices must be resampled.
 
-Thanks!
+The ALSA API provides support for 'audio' timestamps (playback/capture 
+rate defined by audio subsystem) and 'system' timestamps (typically 
+linked to TSC/ART) with one option to take synchronized timestamps 
+should the hardware support them.
+The intent was that the 'audio' timestamps are translated to a shared 
+time reference managed in userspace by gPTP, which in turn would define 
+if (adaptive) audio sample rate conversion is needed. There is no 
+support at the moment for a 'play_at' function in ALSA, only means to 
+control a feedback loop.
