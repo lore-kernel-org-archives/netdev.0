@@ -1,118 +1,67 @@
-From: Netanel Belgazal <netanel@annapurnalabs.com>
-Subject: Re: [PATCH net-next] net: ena: Add a driver for Amazon Elastic
- Network Adapters (ENA)
-Date: Mon, 20 Jun 2016 18:42:32 +0300
-Message-ID: <7f753555-eb8d-b902-ade8-efee286fe81b@annapurnalabs.com>
-References: <1465807573-11293-1-git-send-email-netanel@annapurnalabs.com>
- <9B0331B6EBBD0E4684FBFAEDA55776F92CD6858D@HASMSX110.ger.corp.intel.com>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCH] ibmvnic: fix to use list_for_each_safe() when delete items
+Date: Mon, 20 Jun 2016 10:50:26 -0500
+Message-ID: <576810C2.6080208@linux.vnet.ibm.com>
+References: <1466218408-20940-1-git-send-email-weiyj_lk@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: "zorik@annapurnalabs.com" <zorik@annapurnalabs.com>,
-	"saeed@annapurnalabs.com" <saeed@annapurnalabs.com>,
-	"alex@annapurnalabs.com" <alex@annapurnalabs.com>,
-	"msw@amazon.com" <msw@amazon.com>,
-	"aligouri@amazon.com" <aliguori@amazon.com>,
-	"antoine.tenart@free-electrons.com"
-	<antoine.tenart@free-electrons.com>
-To: "Rosen, Rami" <rami.rosen@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:34888 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753012AbcFTPms (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 11:42:48 -0400
-Received: by mail-wm0-f48.google.com with SMTP id v199so74555005wmv.0
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 08:42:40 -0700 (PDT)
-In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F92CD6858D@HASMSX110.ger.corp.intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+ linuxppc-dev@lists.ozlabs.org
+To: weiyj_lk@163.com, John Allen <jallen@linux.vnet.ibm.com>,
+ Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+ Paul Mackerras <paulus@samba.org>, Michael Ellerman <mpe@ellerman.id.au>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <1466218408-20940-1-git-send-email-weiyj_lk@163.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-
-
-On 06/20/2016 08:20 AM, Rosen, Rami wrote:
-> Hi all, 
->
-> A very limited review below.
->
-> +
-> +	/* get capabilities of particular feature */
-> +	ENA_ADMIN_GET_FEATURE = 8,
->
-> Instead /* get capabilities  SHOULD BE:  /* set capabilities .....
-> +
-> +	/* get capabilities of particular feature */
-> +	ENA_ADMIN_SET_FEATURE = 9,
-> +
-> ..
->
->
-> +int ena_com_set_hash_ctrl(struct ena_com_dev *ena_dev)
-> +{
-> +	struct ena_com_admin_queue *admin_queue = &ena_dev->admin_queue;
-> ...
->
-> You set ret=-EINVAL, but you do not use this ret as you immediately return 0 in the next line, which is the end of the method. Either return ret or return -EINVAL.
-> +	if (unlikely(ret)) {
-> +		ena_trc_err("Failed to set hash input. error: %d\n", ret);
-> +		ret = -EINVAL;
-> +	}
-> +
-> +	return 0;
-> +}
-> +
-I will return ret.
->
->
-> +
-> +/* ena_com_set_mmio_read_mode - Enable/disable the mmio reg read mechanism
-> + * @ena_dev: ENA communication layer struct
->
->
-> Instead realess_supported: SHOULD BE: readless_supported
-ack
->
-> + * @realess_supported: readless mode (enable/disable)
-> + */
-> +void ena_com_set_mmio_read_mode(struct ena_com_dev *ena_dev,
-> +				bool readless_supported);
-> +
->
->
->
-> +
-> +/* ena_com_create_io_queue - Create io queue.
-> + * @ena_dev: ENA communication layer struct
->
-> Instead ena_com_create_io_ctx SHOULD BE: @ena_com_create_io_ctx
-ack
->
-> + * ena_com_create_io_ctx - create context structure
-> + *
-> + * Create the submission and the completion queues.
-> + *
-> + * @return - 0 on success, negative value on failure.
-> + */
-> +int ena_com_create_io_queue(struct ena_com_dev *ena_dev,
-> +			    struct ena_com_create_io_ctx *ctx);
-> +
->
->
->
->
-> +/* ena_com_admin_destroy - Destroy IO queue with the queue id - qid.
-> + * @ena_dev: ENA communication layer struct
->
-> Missing: @qid
-ack
->
-> + */
-> +void ena_com_destroy_io_queue(struct ena_com_dev *ena_dev, u16 qid);
-> +
->
-> Regards,
-> Rami Rosen
-> Intel Corporation
-Thanks for the review
+T24gMDYvMTcvMjAxNiAwOTo1MyBQTSwgd2VpeWpfbGtAMTYzLmNvbSB3cm90ZToKPiBGcm9tOiBX
+ZWkgWW9uZ2p1biA8eW9uZ2p1bl93ZWlAdHJlbmRtaWNyby5jb20uY24+Cj4KPiBTaW5jZSB3ZSB3
+aWxsIHJlbW92ZSBpdGVtcyBvZmYgdGhlIGxpc3QgdXNpbmcgbGlzdF9kZWwoKSB3ZSBuZWVkCj4g
+dG8gdXNlIGEgc2FmZSB2ZXJzaW9uIG9mIHRoZSBsaXN0X2Zvcl9lYWNoKCkgbWFjcm8gYXB0bHkg
+bmFtZWQKPiBsaXN0X2Zvcl9lYWNoX3NhZmUoKS4KPgo+IFNpZ25lZC1vZmYtYnk6IFdlaSBZb25n
+anVuIDx5b25nanVuX3dlaUB0cmVuZG1pY3JvLmNvbS5jbj4KPiAtLS0KPiAgZHJpdmVycy9uZXQv
+ZXRoZXJuZXQvaWJtL2libXZuaWMuYyB8IDEwICsrKysrLS0tLS0KPiAgMSBmaWxlIGNoYW5nZWQs
+IDUgaW5zZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkKPgo+IGRpZmYgLS1naXQgYS9kcml2ZXJz
+L25ldC9ldGhlcm5ldC9pYm0vaWJtdm5pYy5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaWJtL2li
+bXZuaWMuYwo+IGluZGV4IDg2NGNiMjEuLjBiNmE5MjIgMTAwNjQ0Cj4gLS0tIGEvZHJpdmVycy9u
+ZXQvZXRoZXJuZXQvaWJtL2libXZuaWMuYwo+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2li
+bS9pYm12bmljLmMKPiBAQCAtMzE0MSwxNCArMzE0MSwxNCBAQCBzdGF0aWMgdm9pZCBoYW5kbGVf
+cmVxdWVzdF9yYXNfY29tcF9udW1fcnNwKHVuaW9uIGlibXZuaWNfY3JxICpjcnEsCj4gIAo+ICBz
+dGF0aWMgdm9pZCBpYm12bmljX2ZyZWVfaW5mbGlnaHQoc3RydWN0IGlibXZuaWNfYWRhcHRlciAq
+YWRhcHRlcikKPiAgewo+IC0Jc3RydWN0IGlibXZuaWNfaW5mbGlnaHRfY21kICppbmZsaWdodF9j
+bWQ7Cj4gKwlzdHJ1Y3QgaWJtdm5pY19pbmZsaWdodF9jbWQgKmluZmxpZ2h0X2NtZCwgKnRtcDE7
+Cj4gIAlzdHJ1Y3QgZGV2aWNlICpkZXYgPSAmYWRhcHRlci0+dmRldi0+ZGV2Owo+IC0Jc3RydWN0
+IGlibXZuaWNfZXJyb3JfYnVmZiAqZXJyb3JfYnVmZjsKPiArCXN0cnVjdCBpYm12bmljX2Vycm9y
+X2J1ZmYgKmVycm9yX2J1ZmYsICp0bXAyOwo+ICAJdW5zaWduZWQgbG9uZyBmbGFnczsKPiAgCXVu
+c2lnbmVkIGxvbmcgZmxhZ3MyOwo+ICAKPiAgCXNwaW5fbG9ja19pcnFzYXZlKCZhZGFwdGVyLT5p
+bmZsaWdodF9sb2NrLCBmbGFncyk7Cj4gLQlsaXN0X2Zvcl9lYWNoX2VudHJ5KGluZmxpZ2h0X2Nt
+ZCwgJmFkYXB0ZXItPmluZmxpZ2h0LCBsaXN0KSB7Cj4gKwlsaXN0X2Zvcl9lYWNoX2VudHJ5X3Nh
+ZmUoaW5mbGlnaHRfY21kLCB0bXAxLCAmYWRhcHRlci0+aW5mbGlnaHQsIGxpc3QpIHsKPiAgCQlz
+d2l0Y2ggKGluZmxpZ2h0X2NtZC0+Y3JxLmdlbmVyaWMuY21kKSB7Cj4gIAkJY2FzZSBMT0dJTjoK
+PiAgCQkJZG1hX3VubWFwX3NpbmdsZShkZXYsIGFkYXB0ZXItPmxvZ2luX2J1Zl90b2tlbiwKPiBA
+QCAtMzE2NSw4ICszMTY1LDggQEAgc3RhdGljIHZvaWQgaWJtdm5pY19mcmVlX2luZmxpZ2h0KHN0
+cnVjdCBpYm12bmljX2FkYXB0ZXIgKmFkYXB0ZXIpCj4gIAkJCWJyZWFrOwo+ICAJCWNhc2UgUkVR
+VUVTVF9FUlJPUl9JTkZPOgo+ICAJCQlzcGluX2xvY2tfaXJxc2F2ZSgmYWRhcHRlci0+ZXJyb3Jf
+bGlzdF9sb2NrLCBmbGFnczIpOwo+IC0JCQlsaXN0X2Zvcl9lYWNoX2VudHJ5KGVycm9yX2J1ZmYs
+ICZhZGFwdGVyLT5lcnJvcnMsCj4gLQkJCQkJICAgIGxpc3QpIHsKPiArCQkJbGlzdF9mb3JfZWFj
+aF9lbnRyeV9zYWZlKGVycm9yX2J1ZmYsIHRtcDIsCj4gKwkJCQkJCSAmYWRhcHRlci0+ZXJyb3Jz
+LCBsaXN0KSB7Cj4gIAkJCQlkbWFfdW5tYXBfc2luZ2xlKGRldiwgZXJyb3JfYnVmZi0+ZG1hLAo+
+ICAJCQkJCQkgZXJyb3JfYnVmZi0+bGVuLAo+ICAJCQkJCQkgRE1BX0ZST01fREVWSUNFKTsKPgpU
+aGFua3MhCgpBY2tlZC1ieTogVGhvbWFzIEZhbGNvbiA8dGxmYWxjb25AbGludXgudm5ldC5pYm0u
+Y29tPgo+Cj4KPgo+IF9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fCj4gTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdAo+IExpbnV4cHBjLWRldkBsaXN0cy5vemxh
+YnMub3JnCj4gaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldgoK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
+ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
+c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
