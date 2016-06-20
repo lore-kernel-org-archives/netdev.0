@@ -1,89 +1,118 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH net-next 1/3] net: ipv6: Move ip6_route_get_saddr to
- inline
-Date: Mon, 20 Jun 2016 15:29:54 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4E0170@AcuExch.aculab.com>
-References: <1466119466-3144-1-git-send-email-dsa@cumulusnetworks.com>
- <1466119466-3144-2-git-send-email-dsa@cumulusnetworks.com>
+From: Netanel Belgazal <netanel@annapurnalabs.com>
+Subject: Re: [PATCH net-next] net: ena: Add a driver for Amazon Elastic
+ Network Adapters (ENA)
+Date: Mon, 20 Jun 2016 18:42:32 +0300
+Message-ID: <7f753555-eb8d-b902-ade8-efee286fe81b@annapurnalabs.com>
+References: <1465807573-11293-1-git-send-email-netanel@annapurnalabs.com>
+ <9B0331B6EBBD0E4684FBFAEDA55776F92CD6858D@HASMSX110.ger.corp.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-To: 'David Ahern' <dsa@cumulusnetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: "zorik@annapurnalabs.com" <zorik@annapurnalabs.com>,
+	"saeed@annapurnalabs.com" <saeed@annapurnalabs.com>,
+	"alex@annapurnalabs.com" <alex@annapurnalabs.com>,
+	"msw@amazon.com" <msw@amazon.com>,
+	"aligouri@amazon.com" <aliguori@amazon.com>,
+	"antoine.tenart@free-electrons.com"
+	<antoine.tenart@free-electrons.com>
+To: "Rosen, Rami" <rami.rosen@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out4.electric.net ([192.162.216.195]:63237 "EHLO
-	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754574AbcFTPfF convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 11:35:05 -0400
-In-Reply-To: <1466119466-3144-2-git-send-email-dsa@cumulusnetworks.com>
-Content-Language: en-US
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:34888 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753012AbcFTPms (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 11:42:48 -0400
+Received: by mail-wm0-f48.google.com with SMTP id v199so74555005wmv.0
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 08:42:40 -0700 (PDT)
+In-Reply-To: <9B0331B6EBBD0E4684FBFAEDA55776F92CD6858D@HASMSX110.ger.corp.intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Behalf Of David Ahern
-> Sent: 17 June 2016 00:24
-> VRF driver needs access to ip6_route_get_saddr code. Since it does
-> little beyond ipv6_dev_get_saddr and ipv6_dev_get_saddr is already
-> exported for modules move ip6_route_get_saddr to the header as an
-> inline.
-> 
-> Code move only; no functional change.
 
-Look a bit large for an inline.
 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  include/net/ip6_route.h | 21 ++++++++++++++++++---
->  net/ipv6/route.c        | 17 -----------------
->  2 files changed, 18 insertions(+), 20 deletions(-)
-> 
-> diff --git a/include/net/ip6_route.h b/include/net/ip6_route.h
-> index f55bf3d294aa..d97305d0e71f 100644
-> --- a/include/net/ip6_route.h
-> +++ b/include/net/ip6_route.h
-> @@ -18,6 +18,7 @@ struct route_info {
->  	__u8			prefix[0];	/* 0,8 or 16 */
->  };
-> 
-> +#include <net/addrconf.h>
->  #include <net/flow.h>
->  #include <net/ip6_fib.h>
->  #include <net/sock.h>
-> @@ -88,9 +89,23 @@ int ip6_route_add(struct fib6_config *cfg);
->  int ip6_ins_rt(struct rt6_info *);
->  int ip6_del_rt(struct rt6_info *);
-> 
-> -int ip6_route_get_saddr(struct net *net, struct rt6_info *rt,
-> -			const struct in6_addr *daddr, unsigned int prefs,
-> -			struct in6_addr *saddr);
-> +static inline int ip6_route_get_saddr(struct net *net, struct rt6_info *rt,
-> +				      const struct in6_addr *daddr,
-> +				      unsigned int prefs,
-> +				      struct in6_addr *saddr)
+On 06/20/2016 08:20 AM, Rosen, Rami wrote:
+> Hi all, 
+>
+> A very limited review below.
+>
+> +
+> +	/* get capabilities of particular feature */
+> +	ENA_ADMIN_GET_FEATURE = 8,
+>
+> Instead /* get capabilities  SHOULD BE:  /* set capabilities .....
+> +
+> +	/* get capabilities of particular feature */
+> +	ENA_ADMIN_SET_FEATURE = 9,
+> +
+> ..
+>
+>
+> +int ena_com_set_hash_ctrl(struct ena_com_dev *ena_dev)
 > +{
-> +	struct inet6_dev *idev =
-> +			rt ? ip6_dst_idev((struct dst_entry *)rt) : NULL;
-> +	int err = 0;
+> +	struct ena_com_admin_queue *admin_queue = &ena_dev->admin_queue;
+> ...
+>
+> You set ret=-EINVAL, but you do not use this ret as you immediately return 0 in the next line, which is the end of the method. Either return ret or return -EINVAL.
+> +	if (unlikely(ret)) {
+> +		ena_trc_err("Failed to set hash input. error: %d\n", ret);
+> +		ret = -EINVAL;
+> +	}
 > +
-> +	if (rt && rt->rt6i_prefsrc.plen)
-> +		*saddr = rt->rt6i_prefsrc.addr;
-> +	else
-> +		err = ipv6_dev_get_saddr(net, idev ? idev->dev : NULL,
-> +					 daddr, prefs, saddr);
-> +
-> +	return err;
+> +	return 0;
 > +}
-...
-
-The above looks as though it might be:
-	if (!rt)
-		return ipv6_dev_get_saddr(net, NULL, dattr, prefs, saddr);
-	if (!rt->rt6i_prefsrc.plen)
-		return ipv6_dev_get_saddr(net, ip6_dst_idev((struct dst_entry *)rt)->dev, dattr, prefs, saddr);
-	*saddr = rt->rt6i_prefsrc.addr;
-	return 0;
-
-which could inline to better code.
-Alternatively just inline the fast path.
-
-	David
+> +
+I will return ret.
+>
+>
+> +
+> +/* ena_com_set_mmio_read_mode - Enable/disable the mmio reg read mechanism
+> + * @ena_dev: ENA communication layer struct
+>
+>
+> Instead realess_supported: SHOULD BE: readless_supported
+ack
+>
+> + * @realess_supported: readless mode (enable/disable)
+> + */
+> +void ena_com_set_mmio_read_mode(struct ena_com_dev *ena_dev,
+> +				bool readless_supported);
+> +
+>
+>
+>
+> +
+> +/* ena_com_create_io_queue - Create io queue.
+> + * @ena_dev: ENA communication layer struct
+>
+> Instead ena_com_create_io_ctx SHOULD BE: @ena_com_create_io_ctx
+ack
+>
+> + * ena_com_create_io_ctx - create context structure
+> + *
+> + * Create the submission and the completion queues.
+> + *
+> + * @return - 0 on success, negative value on failure.
+> + */
+> +int ena_com_create_io_queue(struct ena_com_dev *ena_dev,
+> +			    struct ena_com_create_io_ctx *ctx);
+> +
+>
+>
+>
+>
+> +/* ena_com_admin_destroy - Destroy IO queue with the queue id - qid.
+> + * @ena_dev: ENA communication layer struct
+>
+> Missing: @qid
+ack
+>
+> + */
+> +void ena_com_destroy_io_queue(struct ena_com_dev *ena_dev, u16 qid);
+> +
+>
+> Regards,
+> Rami Rosen
+> Intel Corporation
+Thanks for the review
