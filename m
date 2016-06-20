@@ -1,89 +1,77 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net 2/2] act_ife: acquire ife_mod_lock before reading ifeoplist
-Date: Mon, 20 Jun 2016 13:37:19 -0700
-Message-ID: <1466455039-23268-3-git-send-email-xiyou.wangcong@gmail.com>
-References: <1466455039-23268-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: khoroshilov@ispras.ru, Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: netdev@vger.kernel.org
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [net-next PATCH v3 00/17] Future-proof tunnel offload handlers
+Date: Mon, 20 Jun 2016 14:45:33 -0700
+Message-ID: <CALx6S372pDG8r6Aj4hEyxZr_J7Q8iwqKZ3YZGN9MiaEwzKw7kQ@mail.gmail.com>
+References: <20160616191851.20872.67154.stgit@localhost.localdomain>
+	<20160617.202641.1821023739498595024.davem@davemloft.net>
+	<CALx6S34Y3Qq6nMHuMcC2LC5duLBO3KVN3+A+0qmPrNvFfY7gJg@mail.gmail.com>
+	<34f19f9c-221b-78f0-3989-9384e0d22e54@redhat.com>
+	<CALx6S35C=QnD3WtK52Wc7FLXt77e80OWG1-5qjS5nMVm-nwkCA@mail.gmail.com>
+	<35446ac3-94e1-1949-396e-26764df9e6f6@stressinduktion.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Hannes Frederic Sowa <hannes@redhat.com>,
+	David Miller <davem@davemloft.net>,
+	Alex Duyck <aduyck@mirantis.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Jesse Gross <jesse@kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	michael.chan@broadcom.com, Dept-GELinuxNICDev@qlogic.com
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33218 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752662AbcFTVih (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 17:38:37 -0400
-Received: by mail-pa0-f66.google.com with SMTP id ts6so11698126pac.0
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 14:38:37 -0700 (PDT)
-In-Reply-To: <1466455039-23268-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mail-it0-f53.google.com ([209.85.214.53]:36412 "EHLO
+	mail-it0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751628AbcFTVqd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 17:46:33 -0400
+Received: by mail-it0-f53.google.com with SMTP id a5so58623876ita.1
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 14:45:38 -0700 (PDT)
+In-Reply-To: <35446ac3-94e1-1949-396e-26764df9e6f6@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
----
- net/sched/act_ife.c | 14 ++++++++------
- 1 file changed, 8 insertions(+), 6 deletions(-)
+On Mon, Jun 20, 2016 at 2:36 PM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On 20.06.2016 12:27, Tom Herbert wrote:
+>>> Do we?
+>>>
+>>> We look up the socket in a proper way, inclusive the namespace belonging
+>>> to the device we received the packet on. That said, I don't see a
+>>> problem with that right now. But maybe I miss something?
+>>>
+>> When we so the socket lookup in udp_rcv this is done after IP layer
+>> and packet has been determined to be loacally addressed. The packet is
+>> for the host, and if a UDP socket is matched, even if just based on
+>> destination port, the socket is matched and received functions are
+>> called. There is no ambiguity.
+>>
+>> When the lookup is performed in GRO this is before we processed IP and
+>> determined that the packet is local. So a packet with any address
+>> (local or not) will match a listener socket with the same UDP port.
+>> The GRO can be performed an packet is subsequently forwarded maybe
+>> having been modified. If this packet turns out to not be the protocol
+>> we thought it was (e.g. VXLAN) then we have now potentially silently
+>> corrupted someone else's packets. Grant it, there's probably a lot of
+>> things that are required to make corruption happen, but it does allow
+>> the possibly of systematic data corruption and we haven't discounted
+>> this to become a security vulnerability.
+>
+> Agreed.
+>
+> Maybe we must switch to always use connected sockets for unicast+UDP+GRO?
+>
+No, I don't think we need to go that far. We should be able to enable
+GRO on pretty much any sort of UDP socket--the other reason to move
+GRO into udp_rcv is this will be a more suitable environment for user
+programmable GRO which seems to be on the horizon now.
 
-diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
-index e407659..ea4a2fe 100644
---- a/net/sched/act_ife.c
-+++ b/net/sched/act_ife.c
-@@ -277,7 +277,7 @@ static int load_metaops_and_vet(struct tcf_ife_info *ife, u32 metaid,
-  * under ife->tcf_lock for existing action
- */
- static int add_metainfo(struct tcf_ife_info *ife, u32 metaid, void *metaval,
--			int len, bool exists)
-+			int len, bool atomic)
- {
- 	struct tcf_meta_info *mi = NULL;
- 	struct tcf_meta_ops *ops = find_ife_oplist(metaid);
-@@ -286,7 +286,7 @@ static int add_metainfo(struct tcf_ife_info *ife, u32 metaid, void *metaval,
- 	if (!ops)
- 		return -ENOENT;
- 
--	mi = kzalloc(sizeof(*mi), exists ? GFP_ATOMIC : GFP_KERNEL);
-+	mi = kzalloc(sizeof(*mi), atomic ? GFP_ATOMIC : GFP_KERNEL);
- 	if (!mi) {
- 		/*put back what find_ife_oplist took */
- 		module_put(ops->owner);
-@@ -296,7 +296,7 @@ static int add_metainfo(struct tcf_ife_info *ife, u32 metaid, void *metaval,
- 	mi->metaid = metaid;
- 	mi->ops = ops;
- 	if (len > 0) {
--		ret = ops->alloc(mi, metaval, exists ? GFP_ATOMIC : GFP_KERNEL);
-+		ret = ops->alloc(mi, metaval, atomic ? GFP_ATOMIC : GFP_KERNEL);
- 		if (ret != 0) {
- 			kfree(mi);
- 			module_put(ops->owner);
-@@ -309,17 +309,19 @@ static int add_metainfo(struct tcf_ife_info *ife, u32 metaid, void *metaval,
- 	return ret;
- }
- 
--static int use_all_metadata(struct tcf_ife_info *ife, bool exists)
-+static int use_all_metadata(struct tcf_ife_info *ife)
- {
- 	struct tcf_meta_ops *o;
- 	int rc = 0;
- 	int installed = 0;
- 
-+	read_lock(&ife_mod_lock);
- 	list_for_each_entry(o, &ifeoplist, list) {
--		rc = add_metainfo(ife, o->metaid, NULL, 0, exists);
-+		rc = add_metainfo(ife, o->metaid, NULL, 0, true);
- 		if (rc == 0)
- 			installed += 1;
- 	}
-+	read_unlock(&ife_mod_lock);
- 
- 	if (installed)
- 		return 0;
-@@ -523,7 +525,7 @@ static int tcf_ife_init(struct net *net, struct nlattr *nla,
- 		 * as we can. You better have at least one else we are
- 		 * going to bail out
- 		 */
--		err = use_all_metadata(ife, exists);
-+		err = use_all_metadata(ife);
- 		if (err) {
- 			if (ret == ACT_P_CREATED)
- 				_tcf_ife_cleanup(a, bind);
--- 
-2.1.0
+Tom
+
+> Bye,
+> Hannes
+>
+>
