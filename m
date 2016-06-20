@@ -1,319 +1,176 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 21/23] mlxsw: spectrum: Refactor FDB flushing logic
-Date: Mon, 20 Jun 2016 23:04:19 +0200
-Message-ID: <1466456661-5260-22-git-send-email-jiri@resnulli.us>
-References: <1466456661-5260-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: netdev@vger.kernel.org
+From: Jason Baron <jbaron@akamai.com>
+Subject: [PATCH net-next] tcp: reduce cpu usage when SO_SNDBUF is set
+Date: Mon, 20 Jun 2016 17:23:01 -0400
+Message-ID: <1466457781-24123-1-git-send-email-jbaron@akamai.com>
+Cc: netdev@vger.kernel.org
+To: eric.dumazet@gmail.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f193.google.com ([209.85.217.193]:35811 "EHLO
-	mail-lb0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753184AbcFTVWG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 17:22:06 -0400
-Received: by mail-lb0-f193.google.com with SMTP id td3so252379lbb.2
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 14:20:44 -0700 (PDT)
-In-Reply-To: <1466456661-5260-1-git-send-email-jiri@resnulli.us>
+Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:15245 "EHLO
+	prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752937AbcFTV0y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 17:26:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Jason Baron <jbaron@akamai.com>
 
-FDB entries are learned using {Port / LAG ID, FID} and therefore should
-be flushed whenever a port (vPort) leaves its FID (vFID).
+When SO_SNDBUF is set and we are under tcp memory pressure, the effective
+write buffer space can be much lower than what was set using SO_SNDBUF. For
+example, we may have set the buffer to 100kb, but we may only be able to
+write 10kb. In this scenario poll()/select()/epoll(), are going to
+continuously return POLLOUT, followed by -EAGAIN from write(), and thus
+result in a tight loop. Note that epoll in edge-triggered does not have
+this issue since it only triggers once data has been ack'd. There is no
+issue here when SO_SNDBUF is not set, since the tcp layer will auto tune
+the sk->sndbuf.
 
-However, when the bridge port is a LAG device (or a VLAN device on top),
-then FDB flushing is conditional. Ports removed from such LAG
-configurations must not trigger flushing, as other ports might still be
-members in the LAG and therefore the bridge port is still active.
+Introduce a new socket flag, SOCK_SHORT_WRITE, such that we can mark the
+socket when we have a short write due to memory pressure. By then testing
+for SOCK_SHORT_WRITE in tcp_poll(), we hold off the POLLOUT until a
+non-zero amount of data has been ack'd. In a previous approach:
+http://marc.info/?l=linux-netdev&m=143930393211782&w=2, I had introduced a
+new field in 'struct sock' to solve this issue, but its undesirable to add
+bloat to 'struct sock'. We also could address this issue, by waiting for
+the buffer to become completely empty, but that may reduce throughput since
+the write buffer would be empty while waiting for subsequent writes. This
+change brings us in line with the current epoll edge-trigger behavior for
+the poll()/select() and epoll level-trigger.
 
-The decision whether to flush or not was previously computed in the
-netdevice notification block, but in order to flush the entries when a
-port leaves its FID this decision should be computed there.
+We guarantee that SOCK_SHORT_WRITE will eventually clear, since when we set
+SOCK_SHORT_WRITE, we make sure that sk_wmem_queued is non-zero and
+SOCK_NOSPACE is set as well (in sk_stream_wait_memory()).
 
-Strip the notification block from this logic and instead move it to one
-FDB flushing function that is invoked from both the FID / vFID leave
-functions.
+I tested this patch using 10,000 sockets, and setting SO_SNDBUF on the
+server side, to induce tcp memory pressure. A single server thread reduced
+its cpu usage from 100% to 19%, while maintaining the same level of
+throughput.
 
-When port isn't member in LAG, FDB flushing should always occur.
-Otherwise, it should occur only when the last port (vPort) member in the
-LAG leaves the FID (vFID).
-
-This will allow us - in the next patch - to simplify the cleanup code
-paths that are hit whenever the topology above the port netdevs changes.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Jason Baron <jbaron@akamai.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 133 +++++++--------------
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   1 +
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |   2 +
- 3 files changed, 47 insertions(+), 89 deletions(-)
+ include/net/sock.h |  6 ++++++
+ net/core/stream.c  |  1 +
+ net/ipv4/tcp.c     | 26 +++++++++++++++++++-------
+ 3 files changed, 26 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 0c42515..2b1748d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2535,16 +2535,37 @@ static struct mlxsw_driver mlxsw_sp_driver = {
- 	.profile			= &mlxsw_sp_config_profile,
+diff --git a/include/net/sock.h b/include/net/sock.h
+index 649d2a8c17fc..616e8e1a5d5d 100644
+--- a/include/net/sock.h
++++ b/include/net/sock.h
+@@ -741,6 +741,7 @@ enum sock_flags {
+ 	SOCK_FILTER_LOCKED, /* Filter cannot be changed anymore */
+ 	SOCK_SELECT_ERR_QUEUE, /* Wake select on error queue */
+ 	SOCK_RCU_FREE, /* wait rcu grace period in sk_destruct() */
++	SOCK_SHORT_WRITE, /* Couldn't fill sndbuf due to memory pressure */
  };
  
--static int
--mlxsw_sp_port_fdb_flush_by_port(const struct mlxsw_sp_port *mlxsw_sp_port)
-+static bool mlxsw_sp_lag_port_fid_member(struct mlxsw_sp_port *lag_port,
-+					 u16 fid)
+ #define SK_FLAGS_TIMESTAMP ((1UL << SOCK_TIMESTAMP) | (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE))
+@@ -1114,6 +1115,11 @@ static inline bool sk_stream_is_writeable(const struct sock *sk)
+ 	       sk_stream_memory_free(sk);
+ }
+ 
++static inline void sk_set_short_write(struct sock *sk)
 +{
-+	if (mlxsw_sp_fid_is_vfid(fid))
-+		return mlxsw_sp_port_vport_find_by_fid(lag_port, fid);
-+	else
-+		return test_bit(fid, lag_port->active_vlans);
++	if (sk->sk_wmem_queued > 0 && sk_stream_is_writeable(sk))
++		sock_set_flag(sk, SOCK_SHORT_WRITE);
 +}
-+
-+static bool mlxsw_sp_port_fdb_should_flush(struct mlxsw_sp_port *mlxsw_sp_port,
-+					   u16 fid)
+ 
+ static inline bool sk_has_memory_pressure(const struct sock *sk)
  {
- 	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
--	char sfdf_pl[MLXSW_REG_SFDF_LEN];
-+	u8 local_port = mlxsw_sp_port->local_port;
-+	u16 lag_id = mlxsw_sp_port->lag_id;
-+	int i, count = 0;
+diff --git a/net/core/stream.c b/net/core/stream.c
+index 159516a11b7e..ead768b1e95d 100644
+--- a/net/core/stream.c
++++ b/net/core/stream.c
+@@ -32,6 +32,7 @@ void sk_stream_write_space(struct sock *sk)
  
--	mlxsw_reg_sfdf_pack(sfdf_pl, MLXSW_REG_SFDF_FLUSH_PER_PORT);
--	mlxsw_reg_sfdf_system_port_set(sfdf_pl, mlxsw_sp_port->local_port);
-+	if (!mlxsw_sp_port->lagged)
-+		return true;
+ 	if (sk_stream_is_writeable(sk) && sock) {
+ 		clear_bit(SOCK_NOSPACE, &sock->flags);
++		sock_reset_flag(sk, SOCK_SHORT_WRITE);
  
--	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfdf), sfdf_pl);
-+	for (i = 0; i < MLXSW_SP_PORT_PER_LAG_MAX; i++) {
-+		struct mlxsw_sp_port *lag_port;
-+
-+		lag_port = mlxsw_sp_port_lagged_get(mlxsw_sp, lag_id, i);
-+		if (!lag_port || lag_port->local_port == local_port)
-+			continue;
-+		if (mlxsw_sp_lag_port_fid_member(lag_port, fid))
-+			count++;
-+	}
-+
-+	return !count;
- }
+ 		rcu_read_lock();
+ 		wq = rcu_dereference(sk->sk_wq);
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 5c7ed147449c..254c7bb6d3d5 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -517,7 +517,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 			mask |= POLLIN | POLLRDNORM;
  
- static int
-@@ -2563,18 +2584,6 @@ mlxsw_sp_port_fdb_flush_by_port_fid(const struct mlxsw_sp_port *mlxsw_sp_port,
- }
+ 		if (!(sk->sk_shutdown & SEND_SHUTDOWN)) {
+-			if (sk_stream_is_writeable(sk)) {
++			if (!sock_flag(sk, SOCK_SHORT_WRITE) &&
++			    sk_stream_is_writeable(sk)) {
+ 				mask |= POLLOUT | POLLWRNORM;
+ 			} else {  /* send SIGIO later */
+ 				sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
+@@ -529,7 +530,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 				 * pairs with the input side.
+ 				 */
+ 				smp_mb__after_atomic();
+-				if (sk_stream_is_writeable(sk))
++				if (!sock_flag(sk, SOCK_SHORT_WRITE) &&
++				    sk_stream_is_writeable(sk))
+ 					mask |= POLLOUT | POLLWRNORM;
+ 			}
+ 		} else
+@@ -917,8 +919,10 @@ new_segment:
  
- static int
--mlxsw_sp_port_fdb_flush_by_lag_id(const struct mlxsw_sp_port *mlxsw_sp_port)
--{
--	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
--	char sfdf_pl[MLXSW_REG_SFDF_LEN];
--
--	mlxsw_reg_sfdf_pack(sfdf_pl, MLXSW_REG_SFDF_FLUSH_PER_LAG);
--	mlxsw_reg_sfdf_lag_id_set(sfdf_pl, mlxsw_sp_port->lag_id);
--
--	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfdf), sfdf_pl);
--}
--
--static int
- mlxsw_sp_port_fdb_flush_by_lag_id_fid(const struct mlxsw_sp_port *mlxsw_sp_port,
- 				      u16 fid)
- {
-@@ -2588,59 +2597,16 @@ mlxsw_sp_port_fdb_flush_by_lag_id_fid(const struct mlxsw_sp_port *mlxsw_sp_port,
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfdf), sfdf_pl);
- }
+ 			skb = sk_stream_alloc_skb(sk, 0, sk->sk_allocation,
+ 						  skb_queue_empty(&sk->sk_write_queue));
+-			if (!skb)
++			if (!skb) {
++				sk_set_short_write(sk);
+ 				goto wait_for_memory;
++			}
  
--static int
--__mlxsw_sp_port_fdb_flush(const struct mlxsw_sp_port *mlxsw_sp_port)
--{
--	int err, last_err = 0;
--	u16 vid;
--
--	for (vid = 1; vid < VLAN_N_VID - 1; vid++) {
--		err = mlxsw_sp_port_fdb_flush_by_port_fid(mlxsw_sp_port, vid);
--		if (err)
--			last_err = err;
--	}
--
--	return last_err;
--}
--
--static int
--__mlxsw_sp_port_fdb_flush_lagged(const struct mlxsw_sp_port *mlxsw_sp_port)
-+int mlxsw_sp_port_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_port, u16 fid)
- {
--	int err, last_err = 0;
--	u16 vid;
--
--	for (vid = 1; vid < VLAN_N_VID - 1; vid++) {
--		err = mlxsw_sp_port_fdb_flush_by_lag_id_fid(mlxsw_sp_port, vid);
--		if (err)
--			last_err = err;
--	}
--
--	return last_err;
--}
--
--static int mlxsw_sp_port_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_port)
--{
--	if (!list_empty(&mlxsw_sp_port->vports_list))
--		if (mlxsw_sp_port->lagged)
--			return __mlxsw_sp_port_fdb_flush_lagged(mlxsw_sp_port);
--		else
--			return __mlxsw_sp_port_fdb_flush(mlxsw_sp_port);
--	else
--		if (mlxsw_sp_port->lagged)
--			return mlxsw_sp_port_fdb_flush_by_lag_id(mlxsw_sp_port);
--		else
--			return mlxsw_sp_port_fdb_flush_by_port(mlxsw_sp_port);
--}
-+	if (!mlxsw_sp_port_fdb_should_flush(mlxsw_sp_port, fid))
-+		return 0;
- 
--static int mlxsw_sp_vport_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_vport,
--				    u16 fid)
--{
--	if (mlxsw_sp_vport->lagged)
--		return mlxsw_sp_port_fdb_flush_by_lag_id_fid(mlxsw_sp_vport,
-+	if (mlxsw_sp_port->lagged)
-+		return mlxsw_sp_port_fdb_flush_by_lag_id_fid(mlxsw_sp_port,
- 							     fid);
- 	else
--		return mlxsw_sp_port_fdb_flush_by_port_fid(mlxsw_sp_vport,
--							   fid);
-+		return mlxsw_sp_port_fdb_flush_by_port_fid(mlxsw_sp_port, fid);
- }
- 
- static bool mlxsw_sp_port_dev_check(const struct net_device *dev)
-@@ -2693,14 +2659,10 @@ static int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port,
- 	return 0;
- }
- 
--static void mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port,
--				       bool flush_fdb)
-+static void mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port)
- {
- 	struct net_device *dev = mlxsw_sp_port->dev;
- 
--	if (flush_fdb && mlxsw_sp_port_fdb_flush(mlxsw_sp_port))
--		netdev_err(mlxsw_sp_port->dev, "Failed to flush FDB\n");
--
- 	mlxsw_sp_port_pvid_set(mlxsw_sp_port, 1);
- 
- 	mlxsw_sp_master_bridge_dec(mlxsw_sp_port->mlxsw_sp);
-@@ -2874,8 +2836,7 @@ err_col_port_add:
- 	return err;
- }
- 
--static void mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport,
--					bool flush_fdb);
-+static void mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport);
- 
- static void mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
- 				    struct net_device *lag_dev)
-@@ -2905,19 +2866,16 @@ static void mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
- 			continue;
- 
- 		br_dev = mlxsw_sp_vport_br_get(mlxsw_sp_vport);
--		mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport, false);
-+		mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport);
- 	}
- 
- 	if (mlxsw_sp_port->bridged) {
- 		mlxsw_sp_port_active_vlans_del(mlxsw_sp_port);
--		mlxsw_sp_port_bridge_leave(mlxsw_sp_port, false);
-+		mlxsw_sp_port_bridge_leave(mlxsw_sp_port);
- 	}
- 
--	if (lag->ref_count == 1) {
--		if (mlxsw_sp_port_fdb_flush_by_lag_id(mlxsw_sp_port))
--			netdev_err(mlxsw_sp_port->dev, "Failed to flush FDB\n");
-+	if (lag->ref_count == 1)
- 		mlxsw_sp_lag_destroy(mlxsw_sp, lag_id);
--	}
- 
- 	mlxsw_core_lag_mapping_clear(mlxsw_sp->core, lag_id,
- 				     mlxsw_sp_port->local_port);
-@@ -2997,7 +2955,7 @@ static void mlxsw_sp_port_vlan_unlink(struct mlxsw_sp_port *mlxsw_sp_port,
- 		struct net_device *br_dev;
- 
- 		br_dev = mlxsw_sp_vport_br_get(mlxsw_sp_vport);
--		mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport, true);
-+		mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport);
- 	}
- 
- 	mlxsw_sp_vport->dev = mlxsw_sp_port->dev;
-@@ -3053,7 +3011,7 @@ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
- 				err = mlxsw_sp_port_bridge_join(mlxsw_sp_port,
- 								upper_dev);
- 			else
--				mlxsw_sp_port_bridge_leave(mlxsw_sp_port, true);
-+				mlxsw_sp_port_bridge_leave(mlxsw_sp_port);
- 		} else if (netif_is_lag_master(upper_dev)) {
- 			if (info->linking)
- 				err = mlxsw_sp_port_lag_join(mlxsw_sp_port,
-@@ -3251,6 +3209,8 @@ static void mlxsw_sp_vport_br_vfid_leave(struct mlxsw_sp_port *mlxsw_sp_vport)
- 
- 	mlxsw_sp_vport_flood_set(mlxsw_sp_vport, f->fid, false);
- 
-+	mlxsw_sp_port_fdb_flush(mlxsw_sp_vport, f->fid);
-+
- 	mlxsw_sp_vport_fid_set(mlxsw_sp_vport, NULL);
- 	if (--f->ref_count == 0)
- 		mlxsw_sp_br_vfid_destroy(mlxsw_sp_vport->mlxsw_sp, f);
-@@ -3291,10 +3251,8 @@ err_vport_br_vfid_join:
- 	return err;
- }
- 
--static void mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport,
--					bool flush_fdb)
-+static void mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport)
- {
--	u16 fid = mlxsw_sp_vport_fid_get(mlxsw_sp_vport)->fid;
- 	u16 vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
- 
- 	mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, false);
-@@ -3306,9 +3264,6 @@ static void mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport,
- 	mlxsw_sp_port_stp_state_set(mlxsw_sp_vport, vid,
- 				    MLXSW_REG_SPMS_STATE_FORWARDING);
- 
--	if (flush_fdb)
--		mlxsw_sp_vport_fdb_flush(mlxsw_sp_vport, fid);
--
- 	mlxsw_sp_vport->learning = 0;
- 	mlxsw_sp_vport->learning_sync = 0;
- 	mlxsw_sp_vport->uc_flood = 0;
-@@ -3372,7 +3327,7 @@ static int mlxsw_sp_netdevice_vport_event(struct net_device *dev,
- 			 */
- 			if (!mlxsw_sp_vport)
- 				return 0;
--			mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport, true);
-+			mlxsw_sp_vport_bridge_leave(mlxsw_sp_vport);
+ 			skb_entail(sk, skb);
+ 			copy = size_goal;
+@@ -933,8 +937,10 @@ new_segment:
+ 			tcp_mark_push(tp, skb);
+ 			goto new_segment;
  		}
- 	}
+-		if (!sk_wmem_schedule(sk, copy))
++		if (!sk_wmem_schedule(sk, copy)) {
++			sk_set_short_write(sk);
+ 			goto wait_for_memory;
++		}
  
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index f419535..9122abb 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -382,6 +382,7 @@ int mlxsw_sp_vport_flood_set(struct mlxsw_sp_port *mlxsw_sp_vport, u16 fid,
- 			     bool set);
- void mlxsw_sp_port_active_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port);
- int mlxsw_sp_port_pvid_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid);
-+int mlxsw_sp_port_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_port, u16 fid);
- int mlxsw_sp_port_ets_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 			  enum mlxsw_reg_qeec_hr hr, u8 index, u8 next_index,
- 			  bool dwrr, u8 dwrr_weight);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index fc34c46..7c2b0f8 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -500,6 +500,8 @@ static void __mlxsw_sp_port_fid_leave(struct mlxsw_sp_port *mlxsw_sp_port,
- 	if (WARN_ON(!f))
- 		return;
+ 		if (can_coalesce) {
+ 			skb_frag_size_add(&skb_shinfo(skb)->frags[i - 1], copy);
+@@ -1176,8 +1182,10 @@ new_segment:
+ 						  select_size(sk, sg),
+ 						  sk->sk_allocation,
+ 						  skb_queue_empty(&sk->sk_write_queue));
+-			if (!skb)
++			if (!skb) {
++				sk_set_short_write(sk);
+ 				goto wait_for_memory;
++			}
  
-+	mlxsw_sp_port_fdb_flush(mlxsw_sp_port, fid);
-+
- 	if (--f->ref_count == 0)
- 		mlxsw_sp_fid_destroy(mlxsw_sp_port->mlxsw_sp, f);
- }
+ 			process_backlog = true;
+ 			/*
+@@ -1214,8 +1222,10 @@ new_segment:
+ 			int i = skb_shinfo(skb)->nr_frags;
+ 			struct page_frag *pfrag = sk_page_frag(sk);
+ 
+-			if (!sk_page_frag_refill(sk, pfrag))
++			if (!sk_page_frag_refill(sk, pfrag)) {
++				sk_set_short_write(sk);
+ 				goto wait_for_memory;
++			}
+ 
+ 			if (!skb_can_coalesce(skb, i, pfrag->page,
+ 					      pfrag->offset)) {
+@@ -1228,8 +1238,10 @@ new_segment:
+ 
+ 			copy = min_t(int, copy, pfrag->size - pfrag->offset);
+ 
+-			if (!sk_wmem_schedule(sk, copy))
++			if (!sk_wmem_schedule(sk, copy)) {
++				sk_set_short_write(sk);
+ 				goto wait_for_memory;
++			}
+ 
+ 			err = skb_copy_to_page_nocache(sk, &msg->msg_iter, skb,
+ 						       pfrag->page,
 -- 
-2.5.5
+2.6.1
