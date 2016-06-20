@@ -1,58 +1,82 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [RFC PATCH] net: macb: Add gmii2rgmii converter support
-Date: Mon, 20 Jun 2016 06:15:32 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5B78D3@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <1466400437-21277-1-git-send-email-appanad@xilinx.com>
- <5F581884-194F-46BD-98E4-A3DAE17A2A7C@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
-	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
-	Harini Katakam <harinik@xilinx.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	Michal Simek <michals@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5F581884-194F-46BD-98E4-A3DAE17A2A7C@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH 1/6] wcn36xx: Fold indication payload into message header
+Date: Sun, 19 Jun 2016 23:19:43 -0700
+Message-ID: <1466403588-7041-1-git-send-email-bjorn.andersson@linaro.org>
+Cc: wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org,
+	Bjorn Andersson <bjorn.andersson@sonymobile.com>
+To: Eugene Krasnikov <k.eugene.e@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgRmxvcmlhbiwNCg0KCVRoYW5rcyBmb3IgdGhlIHF1aWNrIHJlc3BvbnNlLi4uDQoNCj4gDQo+
-IE9uIEp1bmUgMTksIDIwMTYgMTA6Mjc6MTcgUE0gTVNULCBLZWRhcmVzd2FyYSByYW8gQXBwYW5h
-DQo+IDxhcHBhbmEuZHVyZ2EucmFvQHhpbGlueC5jb20+IHdyb3RlOg0KPiA+VGhpcyBwYXRjaCBh
-ZGRzIHN1cHBvcnQgZm9yIGdtaWkycmdtaWkgY29udmVydGVyIGluIHRoZSBtYWNiIGRyaXZlci4N
-Cj4gPg0KPiA+VGhlIEdNSUkgdG8gUkdNSUkgSVAgY29yZSBwcm92aWRlcyB0aGUNCj4gPlJlZHVj
-ZWQgR2lnYWJpdCBNZWRpYSBJbmRlcGVuZGVudCBJbnRlcmZhY2UNCj4gPihSR01JSSkgYmV0d2Vl
-biBFdGhlcm5ldCBwaHlzaWNhbCBtZWRpYSBkZXZpY2VzIEFuZCB0aGUgR2lnYWJpdA0KPiA+RXRo
-ZXJuZXQgY29udHJvbGxlci4NCj4gPlRoaXMgY29yZSBjYW4gc3dpdGNoIGR5bmFtaWNhbGx5IGJl
-dHdlZW4gdGhlIFRocmVlIGRpZmZlcmVudCBzcGVlZA0KPiA+bW9kZXMgb2Ygb3BlcmF0aW9uICgx
-MC8xMDAvMTAwMCBNYi9zKS4NCj4gPk1ESU8gaW50ZXJmYWNlIGlzIHVzZWQgdG8gc2V0IG9wZXJh
-dGluZyBzcGVlZCBvZiBFdGhlcm5ldCBNQUMuDQo+ID4NCj4gPlNpZ25lZC1vZmYtYnk6IEtlZGFy
-ZXN3YXJhIHJhbyBBcHBhbmEgPGFwcGFuYWRAeGlsaW54LmNvbT4NCj4gPi0tLQ0KPiA+LS0+IFRy
-aWVkIHRvIGluY2x1ZGUgdGhpcyBDb3ZlcnRlciBzdXBwb3J0IGluIHRoZQ0KPiA+UEhZIGxheWVy
-IGJ1dCBpdCB3b24ndCBmaXQgaW50byB0aGUgUEhZIGZyYW1ld29yayBhcyB0aGUgY292ZXJ0ZXIg
-d29uJ3QNCj4gPmhhdmUgdmFpbGQgdmVuZG9yL0RldmljZSBpZCByZWdpc3RlcnMuDQo+ID4tLT4g
-VGhlIENvbnZlcnRlciBoYXMgb25seSBvbmUgcmVnaXN0ZXIgKDE2KSB0aGF0IG5lZWQncw0KPiA+
-dG8gYmUgcHJvZ3JhbW1lZCB3aXRoIHRoZSBleHRlcm5hbCBwaHkgbmVnb3RpYXRlZCBzcGVlZC4N
-Cj4gPi0tPiBUaGUgY29udmVydGVyIHdvbid0IGZvbGxvdyB0aGUgU3RhbmRhcmQgTUlJKGllZWUg
-ODAyLjMgY2xhdXNlIDIyKS4NCj4gPi0tPiBXaWxsIGFwcHJlY2lhdGUgaWYgc29tZW9uZSBjYW4g
-aGVscCBvbiBhZGRpbmcgdGhpcyBjb3ZlcnRlciBzdXBwb3J0DQo+IA0KPiBXaXRoIHRoZSBmaXhl
-ZCBQSFkgZW11bGF0ZWQgUEhZIGFuZCByZWdpc3RlcmluZyBhIGxpbmtfdXBkYXRlIGNhbGxiYWNr
-IChzZWUNCj4gZHJpdmVycy9uZXQvZHNhL2JjbV9zZjIuYyBmb3IgYW4gZXhhbXBsZSksIHlvdSBj
-b3VsZCByZWFkIHNwZWNpZmljIHJlZ2lzdGVycw0KPiB3aGljaCBpbmRpY2F0ZXMgbGluayBwYXJh
-bWV0ZXJzIGFuZCB1cGRhdGUgdGhlIFBIWSBkZXZpY2Ugd2l0aCB0aGVzZS4NCg0KVGhhbmtzIHdp
-bGwgY2hlY2sgYW5kIGdldCBiYWNrLi4uDQoNCj4gDQo+IEhvdyBleGFjdGx5IGlzIHRoaXMgY29u
-dmVydGVyIHdvcmtpbmc/DQoNClRoaXMgY29udmVydGVyIGRvZXMgR01JSSB0byBSR01JSSBjb252
-ZXJzaW9uLiANCkl0IHByb3ZpZGVzIG9ubHkgb25lIHJlZ2lzdGVyIGZvciBwcm9ncmFtaW5nIHRo
-ZSBkZXNpcmVkIHNwZWVkIGFuZCBNRElPIGlzIEludGVyZmFjZSB0byBwcm9ncmFtIHRoaXMgcmVn
-aXN0ZXIuDQpJdCBzaXRzIGJldHdlZW4gdGhlIG1hYyBhbmQgZXh0ZXJuYWwgcGh5LiBTbywgb25j
-ZSB0aGUgcGh5IG5lZ290aWF0aW9uIGNvbXBsZXRlcyBhbmQgbGluayBpcyB1cCwNClRoZSBuZWdv
-dGlhdGVkIHNwZWVkIHNob3VsZCBiZSBwcm9ncmFtbWVkIGluIHRoZSBjb252ZXJ0ZXIuDQoNCkNv
-bnZlcnRlciBkYXRhIHNoZWV0Og0KaHR0cDovL3d3dy54aWxpbnguY29tL3N1cHBvcnQvZG9jdW1l
-bnRhdGlvbi9pcF9kb2N1bWVudGF0aW9uL2dtaWlfdG9fcmdtaWkvdjNfMC9wZzE2MC1nbWlpLXRv
-LXJnbWlpLnBkZg0KDQpSZWdhcmRzLA0KS2VkYXIuDQoNCj4gDQo+IC0tDQo+IEZsb3JpYW4NCg==
+From: Bjorn Andersson <bjorn.andersson@sonymobile.com>
+
+Merge the two allocation instead of separately allocating room for the
+indication payload.
+
+Signed-off-by: Bjorn Andersson <bjorn.andersson@sonymobile.com>
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+---
+ drivers/net/wireless/ath/wcn36xx/smd.c | 15 ++++++---------
+ drivers/net/wireless/ath/wcn36xx/smd.h |  2 +-
+ 2 files changed, 7 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
+index e8b630c4f11e..1a9580d72077 100644
+--- a/drivers/net/wireless/ath/wcn36xx/smd.c
++++ b/drivers/net/wireless/ath/wcn36xx/smd.c
+@@ -2229,14 +2229,8 @@ static void wcn36xx_smd_rsp_process(struct wcn36xx *wcn, void *buf, size_t len)
+ 	case WCN36XX_HAL_OTA_TX_COMPL_IND:
+ 	case WCN36XX_HAL_MISSED_BEACON_IND:
+ 	case WCN36XX_HAL_DELETE_STA_CONTEXT_IND:
+-		msg_ind = kmalloc(sizeof(*msg_ind), GFP_KERNEL);
+-		if (!msg_ind)
+-			goto nomem;
+-		msg_ind->msg_len = len;
+-		msg_ind->msg = kmemdup(buf, len, GFP_KERNEL);
+-		if (!msg_ind->msg) {
+-			kfree(msg_ind);
+-nomem:
++		msg_ind = kmalloc(sizeof(*msg_ind) + len, GFP_KERNEL);
++		if (!msg_ind) {
+ 			/*
+ 			 * FIXME: Do something smarter then just
+ 			 * printing an error.
+@@ -2245,6 +2239,10 @@ nomem:
+ 				    msg_header->msg_type);
+ 			break;
+ 		}
++
++		msg_ind->msg_len = len;
++		memcpy(msg_ind->msg, buf, len);
++
+ 		mutex_lock(&wcn->hal_ind_mutex);
+ 		list_add_tail(&msg_ind->list, &wcn->hal_ind_queue);
+ 		queue_work(wcn->hal_ind_wq, &wcn->hal_ind_work);
+@@ -2295,7 +2293,6 @@ static void wcn36xx_ind_smd_work(struct work_struct *work)
+ 			      msg_header->msg_type);
+ 	}
+ 	list_del(wcn->hal_ind_queue.next);
+-	kfree(hal_ind_msg->msg);
+ 	kfree(hal_ind_msg);
+ 	mutex_unlock(&wcn->hal_ind_mutex);
+ }
+diff --git a/drivers/net/wireless/ath/wcn36xx/smd.h b/drivers/net/wireless/ath/wcn36xx/smd.h
+index d93e3fd73831..c4375ce1019a 100644
+--- a/drivers/net/wireless/ath/wcn36xx/smd.h
++++ b/drivers/net/wireless/ath/wcn36xx/smd.h
+@@ -46,8 +46,8 @@ struct wcn36xx_fw_msg_status_rsp {
+ 
+ struct wcn36xx_hal_ind_msg {
+ 	struct list_head list;
+-	u8 *msg;
+ 	size_t msg_len;
++	u8 msg[];
+ };
+ 
+ struct wcn36xx;
+-- 
+2.5.0
