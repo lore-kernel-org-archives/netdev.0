@@ -1,176 +1,89 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: [PATCH net-next] tcp: reduce cpu usage when SO_SNDBUF is set
-Date: Mon, 20 Jun 2016 17:23:01 -0400
-Message-ID: <1466457781-24123-1-git-send-email-jbaron@akamai.com>
-Cc: netdev@vger.kernel.org
-To: eric.dumazet@gmail.com, davem@davemloft.net
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net 2/2] act_ife: acquire ife_mod_lock before reading ifeoplist
+Date: Mon, 20 Jun 2016 13:37:19 -0700
+Message-ID: <1466455039-23268-3-git-send-email-xiyou.wangcong@gmail.com>
+References: <1466455039-23268-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: khoroshilov@ispras.ru, Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:15245 "EHLO
-	prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752937AbcFTV0y (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 17:26:54 -0400
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33218 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752662AbcFTVih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 17:38:37 -0400
+Received: by mail-pa0-f66.google.com with SMTP id ts6so11698126pac.0
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 14:38:37 -0700 (PDT)
+In-Reply-To: <1466455039-23268-1-git-send-email-xiyou.wangcong@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Baron <jbaron@akamai.com>
-
-When SO_SNDBUF is set and we are under tcp memory pressure, the effective
-write buffer space can be much lower than what was set using SO_SNDBUF. For
-example, we may have set the buffer to 100kb, but we may only be able to
-write 10kb. In this scenario poll()/select()/epoll(), are going to
-continuously return POLLOUT, followed by -EAGAIN from write(), and thus
-result in a tight loop. Note that epoll in edge-triggered does not have
-this issue since it only triggers once data has been ack'd. There is no
-issue here when SO_SNDBUF is not set, since the tcp layer will auto tune
-the sk->sndbuf.
-
-Introduce a new socket flag, SOCK_SHORT_WRITE, such that we can mark the
-socket when we have a short write due to memory pressure. By then testing
-for SOCK_SHORT_WRITE in tcp_poll(), we hold off the POLLOUT until a
-non-zero amount of data has been ack'd. In a previous approach:
-http://marc.info/?l=linux-netdev&m=143930393211782&w=2, I had introduced a
-new field in 'struct sock' to solve this issue, but its undesirable to add
-bloat to 'struct sock'. We also could address this issue, by waiting for
-the buffer to become completely empty, but that may reduce throughput since
-the write buffer would be empty while waiting for subsequent writes. This
-change brings us in line with the current epoll edge-trigger behavior for
-the poll()/select() and epoll level-trigger.
-
-We guarantee that SOCK_SHORT_WRITE will eventually clear, since when we set
-SOCK_SHORT_WRITE, we make sure that sk_wmem_queued is non-zero and
-SOCK_NOSPACE is set as well (in sk_stream_wait_memory()).
-
-I tested this patch using 10,000 sockets, and setting SO_SNDBUF on the
-server side, to induce tcp memory pressure. A single server thread reduced
-its cpu usage from 100% to 19%, while maintaining the same level of
-throughput.
-
-Signed-off-by: Jason Baron <jbaron@akamai.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- include/net/sock.h |  6 ++++++
- net/core/stream.c  |  1 +
- net/ipv4/tcp.c     | 26 +++++++++++++++++++-------
- 3 files changed, 26 insertions(+), 7 deletions(-)
+ net/sched/act_ife.c | 14 ++++++++------
+ 1 file changed, 8 insertions(+), 6 deletions(-)
 
-diff --git a/include/net/sock.h b/include/net/sock.h
-index 649d2a8c17fc..616e8e1a5d5d 100644
---- a/include/net/sock.h
-+++ b/include/net/sock.h
-@@ -741,6 +741,7 @@ enum sock_flags {
- 	SOCK_FILTER_LOCKED, /* Filter cannot be changed anymore */
- 	SOCK_SELECT_ERR_QUEUE, /* Wake select on error queue */
- 	SOCK_RCU_FREE, /* wait rcu grace period in sk_destruct() */
-+	SOCK_SHORT_WRITE, /* Couldn't fill sndbuf due to memory pressure */
- };
+diff --git a/net/sched/act_ife.c b/net/sched/act_ife.c
+index e407659..ea4a2fe 100644
+--- a/net/sched/act_ife.c
++++ b/net/sched/act_ife.c
+@@ -277,7 +277,7 @@ static int load_metaops_and_vet(struct tcf_ife_info *ife, u32 metaid,
+  * under ife->tcf_lock for existing action
+ */
+ static int add_metainfo(struct tcf_ife_info *ife, u32 metaid, void *metaval,
+-			int len, bool exists)
++			int len, bool atomic)
+ {
+ 	struct tcf_meta_info *mi = NULL;
+ 	struct tcf_meta_ops *ops = find_ife_oplist(metaid);
+@@ -286,7 +286,7 @@ static int add_metainfo(struct tcf_ife_info *ife, u32 metaid, void *metaval,
+ 	if (!ops)
+ 		return -ENOENT;
  
- #define SK_FLAGS_TIMESTAMP ((1UL << SOCK_TIMESTAMP) | (1UL << SOCK_TIMESTAMPING_RX_SOFTWARE))
-@@ -1114,6 +1115,11 @@ static inline bool sk_stream_is_writeable(const struct sock *sk)
- 	       sk_stream_memory_free(sk);
+-	mi = kzalloc(sizeof(*mi), exists ? GFP_ATOMIC : GFP_KERNEL);
++	mi = kzalloc(sizeof(*mi), atomic ? GFP_ATOMIC : GFP_KERNEL);
+ 	if (!mi) {
+ 		/*put back what find_ife_oplist took */
+ 		module_put(ops->owner);
+@@ -296,7 +296,7 @@ static int add_metainfo(struct tcf_ife_info *ife, u32 metaid, void *metaval,
+ 	mi->metaid = metaid;
+ 	mi->ops = ops;
+ 	if (len > 0) {
+-		ret = ops->alloc(mi, metaval, exists ? GFP_ATOMIC : GFP_KERNEL);
++		ret = ops->alloc(mi, metaval, atomic ? GFP_ATOMIC : GFP_KERNEL);
+ 		if (ret != 0) {
+ 			kfree(mi);
+ 			module_put(ops->owner);
+@@ -309,17 +309,19 @@ static int add_metainfo(struct tcf_ife_info *ife, u32 metaid, void *metaval,
+ 	return ret;
  }
  
-+static inline void sk_set_short_write(struct sock *sk)
-+{
-+	if (sk->sk_wmem_queued > 0 && sk_stream_is_writeable(sk))
-+		sock_set_flag(sk, SOCK_SHORT_WRITE);
-+}
- 
- static inline bool sk_has_memory_pressure(const struct sock *sk)
+-static int use_all_metadata(struct tcf_ife_info *ife, bool exists)
++static int use_all_metadata(struct tcf_ife_info *ife)
  {
-diff --git a/net/core/stream.c b/net/core/stream.c
-index 159516a11b7e..ead768b1e95d 100644
---- a/net/core/stream.c
-+++ b/net/core/stream.c
-@@ -32,6 +32,7 @@ void sk_stream_write_space(struct sock *sk)
+ 	struct tcf_meta_ops *o;
+ 	int rc = 0;
+ 	int installed = 0;
  
- 	if (sk_stream_is_writeable(sk) && sock) {
- 		clear_bit(SOCK_NOSPACE, &sock->flags);
-+		sock_reset_flag(sk, SOCK_SHORT_WRITE);
++	read_lock(&ife_mod_lock);
+ 	list_for_each_entry(o, &ifeoplist, list) {
+-		rc = add_metainfo(ife, o->metaid, NULL, 0, exists);
++		rc = add_metainfo(ife, o->metaid, NULL, 0, true);
+ 		if (rc == 0)
+ 			installed += 1;
+ 	}
++	read_unlock(&ife_mod_lock);
  
- 		rcu_read_lock();
- 		wq = rcu_dereference(sk->sk_wq);
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 5c7ed147449c..254c7bb6d3d5 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -517,7 +517,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 			mask |= POLLIN | POLLRDNORM;
- 
- 		if (!(sk->sk_shutdown & SEND_SHUTDOWN)) {
--			if (sk_stream_is_writeable(sk)) {
-+			if (!sock_flag(sk, SOCK_SHORT_WRITE) &&
-+			    sk_stream_is_writeable(sk)) {
- 				mask |= POLLOUT | POLLWRNORM;
- 			} else {  /* send SIGIO later */
- 				sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
-@@ -529,7 +530,8 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 				 * pairs with the input side.
- 				 */
- 				smp_mb__after_atomic();
--				if (sk_stream_is_writeable(sk))
-+				if (!sock_flag(sk, SOCK_SHORT_WRITE) &&
-+				    sk_stream_is_writeable(sk))
- 					mask |= POLLOUT | POLLWRNORM;
- 			}
- 		} else
-@@ -917,8 +919,10 @@ new_segment:
- 
- 			skb = sk_stream_alloc_skb(sk, 0, sk->sk_allocation,
- 						  skb_queue_empty(&sk->sk_write_queue));
--			if (!skb)
-+			if (!skb) {
-+				sk_set_short_write(sk);
- 				goto wait_for_memory;
-+			}
- 
- 			skb_entail(sk, skb);
- 			copy = size_goal;
-@@ -933,8 +937,10 @@ new_segment:
- 			tcp_mark_push(tp, skb);
- 			goto new_segment;
- 		}
--		if (!sk_wmem_schedule(sk, copy))
-+		if (!sk_wmem_schedule(sk, copy)) {
-+			sk_set_short_write(sk);
- 			goto wait_for_memory;
-+		}
- 
- 		if (can_coalesce) {
- 			skb_frag_size_add(&skb_shinfo(skb)->frags[i - 1], copy);
-@@ -1176,8 +1182,10 @@ new_segment:
- 						  select_size(sk, sg),
- 						  sk->sk_allocation,
- 						  skb_queue_empty(&sk->sk_write_queue));
--			if (!skb)
-+			if (!skb) {
-+				sk_set_short_write(sk);
- 				goto wait_for_memory;
-+			}
- 
- 			process_backlog = true;
- 			/*
-@@ -1214,8 +1222,10 @@ new_segment:
- 			int i = skb_shinfo(skb)->nr_frags;
- 			struct page_frag *pfrag = sk_page_frag(sk);
- 
--			if (!sk_page_frag_refill(sk, pfrag))
-+			if (!sk_page_frag_refill(sk, pfrag)) {
-+				sk_set_short_write(sk);
- 				goto wait_for_memory;
-+			}
- 
- 			if (!skb_can_coalesce(skb, i, pfrag->page,
- 					      pfrag->offset)) {
-@@ -1228,8 +1238,10 @@ new_segment:
- 
- 			copy = min_t(int, copy, pfrag->size - pfrag->offset);
- 
--			if (!sk_wmem_schedule(sk, copy))
-+			if (!sk_wmem_schedule(sk, copy)) {
-+				sk_set_short_write(sk);
- 				goto wait_for_memory;
-+			}
- 
- 			err = skb_copy_to_page_nocache(sk, &msg->msg_iter, skb,
- 						       pfrag->page,
+ 	if (installed)
+ 		return 0;
+@@ -523,7 +525,7 @@ static int tcf_ife_init(struct net *net, struct nlattr *nla,
+ 		 * as we can. You better have at least one else we are
+ 		 * going to bail out
+ 		 */
+-		err = use_all_metadata(ife, exists);
++		err = use_all_metadata(ife);
+ 		if (err) {
+ 			if (ret == ACT_P_CREATED)
+ 				_tcf_ife_cleanup(a, bind);
 -- 
-2.6.1
+2.1.0
