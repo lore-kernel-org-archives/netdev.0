@@ -1,55 +1,77 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: [PATCH iproute2 net-next v4 5/5] bridge: update man page
-Date: Wed, 22 Jun 2016 06:45:55 -0700
-Message-ID: <1466603155-53768-6-git-send-email-roopa@cumulusnetworks.com>
-References: <1466603155-53768-1-git-send-email-roopa@cumulusnetworks.com>
-Cc: anuradhak@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	julien@cumulusnetworks.com
-To: stephen@networkplumber.org, netdev@vger.kernel.org
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net 1/2] net/mlx4_en: Fix the return value of a failure in VLAN VID add/kill
+Date: Mon, 20 Jun 2016 17:35:08 +0300
+Message-ID: <1466433309-16288-2-git-send-email-tariqt@mellanox.com>
+References: <1466433309-16288-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Kamal Heib <kamalh@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:32964 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752155AbcFVNyk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 09:54:40 -0400
-Received: by mail-pa0-f52.google.com with SMTP id b13so17264868pat.0
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 06:54:17 -0700 (PDT)
-In-Reply-To: <1466603155-53768-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from [193.47.165.129] ([193.47.165.129]:51072 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752184AbcFVOAJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2016 10:00:09 -0400
+In-Reply-To: <1466433309-16288-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
+From: Kamal Heib <kamalh@mellanox.com>
 
-Signed-off-by: Roopa Prabhu <roopa@cumulusnetworks.com>
+Modify mlx4_en_vlan_rx_[add/kill]_vid to return error value in case of
+failure.
+
+Fixes: 8e586137e6b6 ('net: make vlan ndo_vlan_rx_[add/kill]_vid return error value')
+Signed-off-by: Kamal Heib <kamalh@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- man/man8/bridge.8 | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 18 +++++++++++-------
+ 1 file changed, 11 insertions(+), 7 deletions(-)
 
-diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
-index 08e8a5b..abaee63 100644
---- a/man/man8/bridge.8
-+++ b/man/man8/bridge.8
-@@ -20,8 +20,9 @@ bridge \- show / manipulate bridge addresses and devices
- .IR OPTIONS " := { "
- \fB\-V\fR[\fIersion\fR] |
- \fB\-s\fR[\fItatistics\fR] |
--\fB\-n\fR[\fIetns\fR] name }
--\fB\-b\fR[\fIatch\fR] filename }
-+\fB\-n\fR[\fIetns\fR] name |
-+\fB\-b\fR[\fIatch\fR] filename |
-+\fB\-j\fR[\fIson\fR] }
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index a2c2536..43f505e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -406,14 +406,18 @@ static int mlx4_en_vlan_rx_add_vid(struct net_device *dev,
+ 	mutex_lock(&mdev->state_lock);
+ 	if (mdev->device_up && priv->port_up) {
+ 		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
+-		if (err)
++		if (err) {
+ 			en_err(priv, "Failed configuring VLAN filter\n");
++			goto out;
++		}
+ 	}
+-	if (mlx4_register_vlan(mdev->dev, priv->port, vid, &idx))
+-		en_dbg(HW, priv, "failed adding vlan %d\n", vid);
+-	mutex_unlock(&mdev->state_lock);
++	err = mlx4_register_vlan(mdev->dev, priv->port, vid, &idx);
++	if (err)
++		en_dbg(HW, priv, "Failed adding vlan %d\n", vid);
  
- .ti -8
- .BR "bridge link set"
-@@ -153,6 +154,10 @@ Don't terminate bridge command on errors in batch mode.
- If there were any errors during execution of the commands, the application
- return code will be non zero.
+-	return 0;
++out:
++	mutex_unlock(&mdev->state_lock);
++	return err;
+ }
  
-+.TP
-+.BR "\-json"
-+Display results in JSON format. Currently available for vlan and fdb.
-+
- .SH BRIDGE - COMMAND SYNTAX
+ static int mlx4_en_vlan_rx_kill_vid(struct net_device *dev,
+@@ -421,7 +425,7 @@ static int mlx4_en_vlan_rx_kill_vid(struct net_device *dev,
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+-	int err;
++	int err = 0;
  
- .SS
+ 	en_dbg(HW, priv, "Killing VID:%d\n", vid);
+ 
+@@ -438,7 +442,7 @@ static int mlx4_en_vlan_rx_kill_vid(struct net_device *dev,
+ 	}
+ 	mutex_unlock(&mdev->state_lock);
+ 
+-	return 0;
++	return err;
+ }
+ 
+ static void mlx4_en_u64_to_mac(unsigned char dst_mac[ETH_ALEN + 2], u64 src_mac)
 -- 
-1.9.1
+1.8.3.1
