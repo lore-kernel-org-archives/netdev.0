@@ -1,8 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v5 net-next v5 01/14] net: dsa: mv88e6xxx: fix style issues
-Date: Mon, 20 Jun 2016 13:13:58 -0400
-Message-ID: <20160620171411.13746-2-vivien.didelot@savoirfairelinux.com>
-References: <20160620171411.13746-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v5 net-next v5 00/14] net: dsa: mv88e6xxx: probe compatible
+Date: Mon, 20 Jun 2016 13:13:57 -0400
+Message-ID: <20160620171411.13746-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
@@ -11,202 +10,68 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:48969 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754262AbcFTRWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 13:22:31 -0400
-In-Reply-To: <20160620171411.13746-1-vivien.didelot@savoirfairelinux.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch fixes 5 style problems reported by checkpatch:
+This patchset factorizes the legacy and new SMI probing and abstracts
+the switch register accesses. This simplifies adding support for new
+chips or alternative register accesses.
 
-    WARNING: suspect code indent for conditional statements (8, 24)
-    #492: FILE: drivers/net/dsa/mv88e6xxx.c:492:
-    +	if (phydev->link)
-    +			reg |= PORT_PCS_CTRL_LINK_UP;
+This will allow us to use a compatible chip info to describe how to
+access the SMI device and its switch ID register at probe time.
 
-    CHECK: Logical continuations should be on the previous line
-    #1318: FILE: drivers/net/dsa/mv88e6xxx.c:1318:
-    +		     oldstate == PORT_CONTROL_STATE_FORWARDING)
-    +		    && (state == PORT_CONTROL_STATE_DISABLED ||
+For the legacy probe, we fix the compatible info to 88E6085. For the
+MDIO probe, we will use the compatible info from the device node data.
 
-    CHECK: multiple assignments should be avoided
-    #1662: FILE: drivers/net/dsa/mv88e6xxx.c:1662:
-    +		vlan->vid_begin = vlan->vid_end = next.vid;
+All patches are reviewed.
 
-    WARNING: line over 80 characters
-    #2097: FILE: drivers/net/dsa/mv88e6xxx.c:2097:
-    +				       const struct switchdev_obj_port_vlan *vlan,
+Changes since v4:
 
-    WARNING: suspect code indent for conditional statements (16, 32)
-    #2734: FILE: drivers/net/dsa/mv88e6xxx.c:2734:
-    +		if (mv88e6xxx_6352_family(ps) || mv88e6xxx_6351_family(ps) ||
-    [...]
-    +				reg |= PORT_CONTROL_EGRESS_ADD_TAG;
+  - fix debug printing (was 'val' instead of '*val')
 
-    total: 0 errors, 3 warnings, 2 checks, 3805 lines checked
+Changes since v3 [3]:
 
-It also rebases and integrates changes sent by Ben Dooks [1]:
+  - better register access abstraction using the chip structure
 
-    The driver has a number of functions that are not exported or
-    declared elsewhere, so make them static to avoid the following
-    warnings from sparse:
+Changes since v2 [2]:
 
-    drivers/net/dsa/mv88e6xxx.c:113:5: warning: symbol 'mv88e6xxx_reg_read' was not declared. Should it be static?
-    drivers/net/dsa/mv88e6xxx.c:167:5: warning: symbol 'mv88e6xxx_reg_write' was not declared. Should it be static?
-    drivers/net/dsa/mv88e6xxx.c:231:5: warning: symbol 'mv88e6xxx_set_addr' was not declared. Should it be static?
-    drivers/net/dsa/mv88e6xxx.c:367:6: warning: symbol 'mv88e6xxx_ppu_state_init' was not declared. Should it be static?
-    drivers/net/dsa/mv88e6xxx.c:3157:5: warning: symbol 'mv88e6xxx_phy_page_read' was not declared. Should it be static?
-    drivers/net/dsa/mv88e6xxx.c:3169:5: warning: symbol 'mv88e6xxx_phy_page_write' was not declared. Should it be static?
-    drivers/net/dsa/mv88e6xxx.c:3583:26: warning: symbol 'mv88e6xxx_switch_driver' was not declared. Should it be static?
-    drivers/net/dsa/mv88e6xxx.c:3621:5: warning: symbol 'mv88e6xxx_probe' was not declared. Should it be static?
+  - do not guess compatible model in legacy probe
+  - add low level SMI API using a chip structure
+  - allocate before probe and detection
+  - add 3 cosmetic patches
 
-[1] http://patchwork.ozlabs.org/patch/632708/
+Changes since v1 [1]:
 
-Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
----
- drivers/net/dsa/mv88e6xxx.c | 42 +++++++++++++++++++++++-------------------
- 1 file changed, 23 insertions(+), 19 deletions(-)
+  - merge style fix from Ben Dooks
+  - add Acked-by/Reviewed-by tags
+  - drop one compatible string per model
+  - detect the SMI device based on the compatible info
+  - add an SMI ops structure
 
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index ee06055..1972ec5 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -111,7 +111,8 @@ static int _mv88e6xxx_reg_read(struct mv88e6xxx_priv_state *ps,
- 	return ret;
- }
- 
--int mv88e6xxx_reg_read(struct mv88e6xxx_priv_state *ps, int addr, int reg)
-+static int mv88e6xxx_reg_read(struct mv88e6xxx_priv_state *ps, int addr,
-+			      int reg)
- {
- 	int ret;
- 
-@@ -165,8 +166,8 @@ static int _mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
- 	return __mv88e6xxx_reg_write(ps->bus, ps->sw_addr, addr, reg, val);
- }
- 
--int mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
--			int reg, u16 val)
-+static int mv88e6xxx_reg_write(struct mv88e6xxx_priv_state *ps, int addr,
-+			       int reg, u16 val)
- {
- 	int ret;
- 
-@@ -229,7 +230,7 @@ static int mv88e6xxx_set_addr_indirect(struct dsa_switch *ds, u8 *addr)
- 	return 0;
- }
- 
--int mv88e6xxx_set_addr(struct dsa_switch *ds, u8 *addr)
-+static int mv88e6xxx_set_addr(struct dsa_switch *ds, u8 *addr)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 
-@@ -370,7 +371,7 @@ static void mv88e6xxx_ppu_access_put(struct mv88e6xxx_priv_state *ps)
- 	mutex_unlock(&ps->ppu_mutex);
- }
- 
--void mv88e6xxx_ppu_state_init(struct mv88e6xxx_priv_state *ps)
-+static void mv88e6xxx_ppu_state_init(struct mv88e6xxx_priv_state *ps)
- {
- 	mutex_init(&ps->ppu_mutex);
- 	INIT_WORK(&ps->ppu_work, mv88e6xxx_ppu_reenable_work);
-@@ -490,7 +491,7 @@ static void mv88e6xxx_adjust_link(struct dsa_switch *ds, int port,
- 
- 	reg |= PORT_PCS_CTRL_FORCE_LINK;
- 	if (phydev->link)
--			reg |= PORT_PCS_CTRL_LINK_UP;
-+		reg |= PORT_PCS_CTRL_LINK_UP;
- 
- 	if (mv88e6xxx_6065_family(ps) && phydev->speed > SPEED_100)
- 		goto out;
-@@ -1314,9 +1315,9 @@ static int _mv88e6xxx_port_state(struct mv88e6xxx_priv_state *ps, int port,
- 		 * Blocking or Listening state.
- 		 */
- 		if ((oldstate == PORT_CONTROL_STATE_LEARNING ||
--		     oldstate == PORT_CONTROL_STATE_FORWARDING)
--		    && (state == PORT_CONTROL_STATE_DISABLED ||
--			state == PORT_CONTROL_STATE_BLOCKING)) {
-+		     oldstate == PORT_CONTROL_STATE_FORWARDING) &&
-+		    (state == PORT_CONTROL_STATE_DISABLED ||
-+		     state == PORT_CONTROL_STATE_BLOCKING)) {
- 			ret = _mv88e6xxx_atu_remove(ps, 0, port, false);
- 			if (ret)
- 				return ret;
-@@ -1659,7 +1660,8 @@ static int mv88e6xxx_port_vlan_dump(struct dsa_switch *ds, int port,
- 			continue;
- 
- 		/* reinit and dump this VLAN obj */
--		vlan->vid_begin = vlan->vid_end = next.vid;
-+		vlan->vid_begin = next.vid;
-+		vlan->vid_end = next.vid;
- 		vlan->flags = 0;
- 
- 		if (next.data[port] == GLOBAL_VTU_DATA_MEMBER_TAG_UNTAGGED)
-@@ -2093,9 +2095,10 @@ unlock:
- 	return ret;
- }
- 
--static int mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
--				       const struct switchdev_obj_port_vlan *vlan,
--				       struct switchdev_trans *trans)
-+static int
-+mv88e6xxx_port_vlan_prepare(struct dsa_switch *ds, int port,
-+			    const struct switchdev_obj_port_vlan *vlan,
-+			    struct switchdev_trans *trans)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int err;
-@@ -2735,7 +2738,7 @@ static int mv88e6xxx_setup_port(struct mv88e6xxx_priv_state *ps, int port)
- 		    mv88e6xxx_6165_family(ps) || mv88e6xxx_6097_family(ps) ||
- 		    mv88e6xxx_6095_family(ps) || mv88e6xxx_6065_family(ps) ||
- 		    mv88e6xxx_6185_family(ps) || mv88e6xxx_6320_family(ps)) {
--				reg |= PORT_CONTROL_EGRESS_ADD_TAG;
-+			reg |= PORT_CONTROL_EGRESS_ADD_TAG;
- 		}
- 	}
- 	if (dsa_is_dsa_port(ds, port)) {
-@@ -3158,7 +3161,8 @@ unlock:
- 	return err;
- }
- 
--int mv88e6xxx_mdio_page_read(struct dsa_switch *ds, int port, int page, int reg)
-+static int mv88e6xxx_mdio_page_read(struct dsa_switch *ds, int port, int page,
-+				    int reg)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
-@@ -3170,8 +3174,8 @@ int mv88e6xxx_mdio_page_read(struct dsa_switch *ds, int port, int page, int reg)
- 	return ret;
- }
- 
--int mv88e6xxx_mdio_page_write(struct dsa_switch *ds, int port, int page,
--			      int reg, int val)
-+static int mv88e6xxx_mdio_page_write(struct dsa_switch *ds, int port, int page,
-+				     int reg, int val)
- {
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
- 	int ret;
-@@ -3650,7 +3654,7 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
- 	return name;
- }
- 
--struct dsa_switch_driver mv88e6xxx_switch_driver = {
-+static struct dsa_switch_driver mv88e6xxx_switch_driver = {
- 	.tag_protocol		= DSA_TAG_PROTO_EDSA,
- 	.probe			= mv88e6xxx_drv_probe,
- 	.setup			= mv88e6xxx_setup,
-@@ -3686,7 +3690,7 @@ struct dsa_switch_driver mv88e6xxx_switch_driver = {
- 	.port_fdb_dump          = mv88e6xxx_port_fdb_dump,
- };
- 
--int mv88e6xxx_probe(struct mdio_device *mdiodev)
-+static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- {
- 	struct device *dev = &mdiodev->dev;
- 	struct device_node *np = dev->of_node;
+[1] https://lkml.org/lkml/2016/6/8/1201
+[2] https://lkml.org/lkml/2016/6/14/671
+[3] https://lkml.org/lkml/2016/6/17/995
+
+Vivien Didelot (14):
+  net: dsa: mv88e6xxx: fix style issues
+  net: dsa: mv88e6xxx: remove redundant assignments
+  net: dsa: mv88e6xxx: use already declared variables
+  net: dsa: mv88e6xxx: do not increment bus refcount
+  net: dsa: mv88e6xxx: add switch register helpers
+  net: dsa: mv88e6xxx: use gpio get optional variant
+  net: dsa: mv88e6xxx: remove table args in info lookup
+  net: dsa: mv88e6xxx: rename smi_mutex to reg_lock
+  net: dsa: mv88e6xxx: add chip allocation helper
+  net: dsa: mv88e6xxx: add SMI init helper
+  net: dsa: mv88e6xxx: add detection helper
+  net: dsa: mv88e6xxx: pass compatible info
+  net: dsa: mv88e6xxx: add port base address to info
+  net: dsa: mv88e6xxx: abstract switch registers accesses
+
+ drivers/net/dsa/mv88e6xxx.c | 567 ++++++++++++++++++++++++++++----------------
+ drivers/net/dsa/mv88e6xxx.h |  34 ++-
+ 2 files changed, 385 insertions(+), 216 deletions(-)
+
 -- 
 2.9.0
