@@ -1,50 +1,102 @@
-From: Richard Weinberger <richard@nod.at>
-Subject: Re: [PATCH] net:ppp: replace too strict capability restriction on
- opening /dev/ppp
-Date: Mon, 20 Jun 2016 08:47:12 +0200
-Message-ID: <57679170.5030406@nod.at>
-References: <44A9BDB8-754B-4402-BD09-6381229C07C5@tuna.tsinghua.edu.cn>
- <87wplkihbp.fsf@tassilo.jf.intel.com>
+From: Yisen Zhuang <Yisen.zhuang@huawei.com>
+Subject: Re: [patch net-next] net: hns: add skb_reset_mac_header() after skb
+ being alloc
+Date: Mon, 20 Jun 2016 15:12:34 +0800
+Message-ID: <57679762.4060608@huawei.com>
+References: <1465821682-223053-1-git-send-email-Yisen.Zhuang@huawei.com>
+ <20160614.224134.743787632695474309.davem@davemloft.net>
+ <57612E38.6020301@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Richard Weinberger <richard.weinberger@gmail.com>,
-	Guillaume Nault <g.nault@alphalink.fr>,
-	Miao Wang <shankerwangmiao@gmail.com>
-To: Andi Kleen <andi@firstfloor.org>,
-	Shanker Wang <shanker@tuna.tsinghua.edu.cn>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <charles.chenxin@huawei.com>, <linuxarm@huawei.com>,
+	<linux-kernel@vger.kernel.org>, <arnd@arndb.de>,
+	<netdev@vger.kernel.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from b.ns.miles-group.at ([95.130.255.144]:44723 "EHLO radon.swed.at"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752192AbcFTGsI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jun 2016 02:48:08 -0400
-In-Reply-To: <87wplkihbp.fsf@tassilo.jf.intel.com>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:24294 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752737AbcFTHNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 03:13:06 -0400
+In-Reply-To: <57612E38.6020301@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Am 20.06.2016 um 07:02 schrieb Andi Kleen:
-> Shanker Wang <shanker@tuna.tsinghua.edu.cn> writes:
-> 
->> This patch removes the check for CAP_NET_ADMIN in the initial namespace
->> when opening /dev/open. Instead, CAP_NET_ADMIN is checked in the user
->> namespace the net namespace was created so that /dev/ppp cat get opened
->> in a unprivileged container.
-> 
-> Seems dangerous. From a quick look at the PPP ioctl there is no limit
-> how many PPP devices this can create. So a container having access to
-> this would be able to fill all kernel memory. Probably needs more
-> auditing and hardening first.
-> 
-> In general there seems to be a lot of attack surface for root
-> in PPP.
 
-You are right.
-Shanker Wang, I had also another at the open function, it is more complicated
-than I thought. Please see how ppp_unattached_ioctl() is called.
-Before we give containers access to it the use of nsproxy has to be removed.
-Not sure how easy this will be, especially since you cannot break existing users.
 
-Thanks,
-//richard
+=E5=9C=A8 2016/6/15 18:30, Yisen Zhuang =E5=86=99=E9=81=93:
+> Hi David,
+>=20
+> Thanks for your suggestions.
+>=20
+> Please see my comments below.
+>=20
+> Thanks,
+>=20
+> Yisen
+>=20
+> =E5=9C=A8 2016/6/15 13:41, David Miller =E5=86=99=E9=81=93:
+>> From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+>> Date: Mon, 13 Jun 2016 20:41:22 +0800
+>>
+>>> From: Kejian Yan <yankejian@huawei.com>
+>>>
+>>> HNS receives a packet without doing anything, but it should call
+>>> skb_reset_mac_header() to initialize the header before using
+>>> eth_hdr().
+>>>
+>>> Fixes: 0d6b425a3773c3445b0f51b2f333821beaacb619
+>>> Signed-off-by: Kejian Yan <yankejian@huawei.com>
+>>> Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+>>
+>> Well, this patch made me look at this function.
+>>
+>> You really shouldn't be filtering packets looped back, that is
+>> the stack's job.  It shouldn't be happening in the driver.
+>=20
+> If we use ping6 to test if it is connected to network, CPUs would sen=
+d out the NS packets
+> and these packets will be looped back to CPUs. If driver does not dro=
+p these packets,
+> they will be sent to protocol stack and protocol stack consider that =
+there is a device
+> with the same address and it is not available address. It will show u=
+s the log like
+> "connect: Cannot assign requested address". Then it can not connect t=
+o the network enviroment.
+> Thus, we drop these packets looped back in HNS driver.
+>=20
+
+Hi David,
+
+What is the opinion about this issue? We need this patch to resolve the=
+ issue.
+
+Hoping for your suggestions.
+
+Many thanks,
+
+Yisen
+
+>>
+>> And once you remove that code, this patch here is no longer
+>> necessary.
+>>
+>> Second of all, unless you card supports every protocol that
+>> exists in the past, present, and _future_ you cannot set
+>> skb->ip_summed to CHECKSUM_UNNECSSARY unconditionally like
+>> that.
+>>
+>> You can only set that for protocols your chip actually supports.
+>=20
+> Thanks for your suggestions. I will prepare a new patch to fix it.
+>=20
+>>
+>> .
+>>
+>=20
+> _______________________________________________
+> linuxarm mailing list
+> linuxarm@huawei.com
+> http://rnd-openeuler.huawei.com/mailman/listinfo/linuxarm
+>=20
