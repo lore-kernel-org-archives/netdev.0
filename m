@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v4 net-next v4 10/14] net: dsa: mv88e6xxx: add SMI init helper
-Date: Mon, 20 Jun 2016 12:03:33 -0400
-Message-ID: <20160620160337.2934-11-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v4 net-next v4 05/14] net: dsa: mv88e6xxx: add switch register helpers
+Date: Mon, 20 Jun 2016 12:03:28 -0400
+Message-ID: <20160620160337.2934-6-vivien.didelot@savoirfairelinux.com>
 References: <20160620160337.2934-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -11,82 +11,111 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:46002 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752888AbcFTQOt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 12:14:49 -0400
 In-Reply-To: <20160620160337.2934-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add an helper function to isolate SMI specific assignments and checks.
+The mixed assignments, allocations and registrations in the probe code
+make it hard to follow the logic and figure out what is DSA or chip
+specific.
 
-This function will later help choosing the different SMI accesses based
-of the compatible info.
+Extract the struct dsa_switch related code in a simple
+mv88e6xxx_register_switch helper function.
 
-Since the chip structure is already allocated in the legacy probe, use
-the mv88e6xxx_reg_read access routine instead of __mv88e6xxx_reg_read.
+For symmetry in the code, add a mv88e6xxx_unregister_switch function.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx.c | 26 +++++++++++++++++++++-----
- 1 file changed, 21 insertions(+), 5 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 41 ++++++++++++++++++++++++++++-------------
+ 1 file changed, 28 insertions(+), 13 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 113092a..4e24ac5 100644
+index 4b4bffc..ad7735d 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3616,6 +3616,19 @@ static struct mv88e6xxx_priv_state *mv88e6xxx_alloc_chip(struct device *dev)
- 	return ps;
- }
+@@ -3690,30 +3690,48 @@ static struct dsa_switch_driver mv88e6xxx_switch_driver = {
+ 	.port_fdb_dump          = mv88e6xxx_port_fdb_dump,
+ };
  
-+static int mv88e6xxx_smi_init(struct mv88e6xxx_priv_state *ps,
-+			      struct mii_bus *bus, int sw_addr)
++static int mv88e6xxx_register_switch(struct mv88e6xxx_priv_state *ps,
++				     struct device_node *np)
 +{
-+	/* ADDR[0] pin is unavailable externally and considered zero */
-+	if (sw_addr & 0x1)
-+		return -EINVAL;
++	struct device *dev = ps->dev;
++	struct dsa_switch *ds;
 +
-+	ps->bus = bus;
-+	ps->sw_addr = sw_addr;
++	ds = devm_kzalloc(dev, sizeof(*ds), GFP_KERNEL);
++	if (!ds)
++		return -ENOMEM;
 +
-+	return 0;
++	ds->dev = dev;
++	ds->priv = ps;
++	ds->drv = &mv88e6xxx_switch_driver;
++
++	dev_set_drvdata(dev, ds);
++
++	return dsa_register_switch(ds, np);
 +}
 +
- static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
- 				       struct device *host_dev, int sw_addr,
- 				       void **priv)
-@@ -3635,7 +3648,11 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
- 	if (!ps)
- 		return NULL;
- 
--	id = __mv88e6xxx_reg_read(bus, sw_addr, REG_PORT(0), PORT_SWITCH_ID);
-+	err = mv88e6xxx_smi_init(ps, bus, sw_addr);
-+	if (err)
-+		goto free;
++static void mv88e6xxx_unregister_switch(struct mv88e6xxx_priv_state *ps)
++{
++	dsa_unregister_switch(ps->ds);
++}
 +
-+	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
- 	if (id < 0)
- 		goto free;
+ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ {
+ 	struct device *dev = &mdiodev->dev;
+ 	struct device_node *np = dev->of_node;
+ 	struct mv88e6xxx_priv_state *ps;
+ 	int id, prod_num, rev;
+-	struct dsa_switch *ds;
+ 	u32 eeprom_len;
+ 	int err;
  
-@@ -3648,8 +3665,6 @@ static const char *mv88e6xxx_drv_probe(struct device *dsa_dev,
- 
- 	name = info->name;
- 
--	ps->bus = bus;
--	ps->sw_addr = sw_addr;
- 	ps->info = info;
- 
- 	err = mv88e6xxx_mdio_register(ps, NULL);
-@@ -3741,8 +3756,9 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	if (!ps)
+-	ds = devm_kzalloc(dev, sizeof(*ds) + sizeof(*ps), GFP_KERNEL);
+-	if (!ds)
++	ps = devm_kzalloc(dev, sizeof(*ps), GFP_KERNEL);
++	if (!ps)
  		return -ENOMEM;
  
--	ps->bus = mdiodev->bus;
--	ps->sw_addr = mdiodev->addr;
-+	err = mv88e6xxx_smi_init(ps, mdiodev->bus, mdiodev->addr);
-+	if (err)
-+		return err;
+-	ps = (struct mv88e6xxx_priv_state *)(ds + 1);
+-	ds->priv = ps;
+-	ds->dev = dev;
+ 	ps->dev = dev;
+ 	ps->bus = mdiodev->bus;
+ 	ps->sw_addr = mdiodev->addr;
+ 	mutex_init(&ps->smi_mutex);
  
+-	ds->drv = &mv88e6xxx_switch_driver;
+-
  	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
  	if (id < 0)
+ 		return id;
+@@ -3745,9 +3763,7 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 	if (err)
+ 		return err;
+ 
+-	dev_set_drvdata(dev, ds);
+-
+-	err = dsa_register_switch(ds, np);
++	err = mv88e6xxx_register_switch(ps, np);
+ 	if (err) {
+ 		mv88e6xxx_mdio_unregister(ps);
+ 		return err;
+@@ -3764,8 +3780,7 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
+ 	struct dsa_switch *ds = dev_get_drvdata(&mdiodev->dev);
+ 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+ 
+-	dsa_unregister_switch(ds);
+-
++	mv88e6xxx_unregister_switch(ps);
+ 	mv88e6xxx_mdio_unregister(ps);
+ }
+ 
 -- 
 2.9.0
