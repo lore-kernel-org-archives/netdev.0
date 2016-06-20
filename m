@@ -1,7 +1,7 @@
 From: Huw Davies <huw@codeweavers.com>
-Subject: [PATCH v4 14/19] ipv6: constify the skb pointer of ipv6_find_tlv().
-Date: Mon, 20 Jun 2016 14:36:54 +0100
-Message-ID: <1466429819-12707-15-git-send-email-huw@codeweavers.com>
+Subject: [PATCH v4 08/19] ipv6: Add ipv6_renew_options_kern() that accepts a kernel mem pointer.
+Date: Mon, 20 Jun 2016 14:36:48 +0100
+Message-ID: <1466429819-12707-9-git-send-email-huw@codeweavers.com>
 Cc: Paul Moore <pmoore@redhat.com>
 To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
 	selinux@tycho.nsa.gov
@@ -9,38 +9,103 @@ Return-path: <linux-security-module-owner@vger.kernel.org>
 Sender: owner-linux-security-module@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+The functionality is equivalent to ipv6_renew_options() except
+that the newopt pointer is in kernel, not user, memory
+
+The kernel memory implementation will be used by the CALIPSO network
+labelling engine, which needs to be able to set IPv6 hop-by-hop
+options.
+
 Signed-off-by: Huw Davies <huw@codeweavers.com>
 ---
- include/net/ipv6.h      | 2 +-
- net/ipv6/exthdrs_core.c | 2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ include/net/ipv6.h |  6 ++++++
+ net/ipv6/exthdrs.c | 49 +++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 55 insertions(+)
 
 diff --git a/include/net/ipv6.h b/include/net/ipv6.h
-index 22c7a37..3e59785 100644
+index 1be050a..917036f 100644
 --- a/include/net/ipv6.h
 +++ b/include/net/ipv6.h
-@@ -945,7 +945,7 @@ enum {
- int ipv6_find_hdr(const struct sk_buff *skb, unsigned int *offset, int target,
- 		  unsigned short *fragoff, int *fragflg);
+@@ -308,6 +308,12 @@ struct ipv6_txoptions *ipv6_renew_options(struct sock *sk,
+ 					  int newtype,
+ 					  struct ipv6_opt_hdr __user *newopt,
+ 					  int newoptlen);
++struct ipv6_txoptions *
++ipv6_renew_options_kern(struct sock *sk,
++			struct ipv6_txoptions *opt,
++			int newtype,
++			struct ipv6_opt_hdr *newopt,
++			int newoptlen);
+ struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
+ 					  struct ipv6_txoptions *opt);
  
--int ipv6_find_tlv(struct sk_buff *skb, int offset, int type);
-+int ipv6_find_tlv(const struct sk_buff *skb, int offset, int type);
- 
- struct in6_addr *fl6_update_dst(struct flowi6 *fl6,
- 				const struct ipv6_txoptions *opt,
-diff --git a/net/ipv6/exthdrs_core.c b/net/ipv6/exthdrs_core.c
-index 9508a20..305e2ed 100644
---- a/net/ipv6/exthdrs_core.c
-+++ b/net/ipv6/exthdrs_core.c
-@@ -112,7 +112,7 @@ int ipv6_skip_exthdr(const struct sk_buff *skb, int start, u8 *nexthdrp,
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index ea7c4d6..d5fd3e7 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -758,6 +758,27 @@ static int ipv6_renew_option(void *ohdr,
+ 	return 0;
  }
- EXPORT_SYMBOL(ipv6_skip_exthdr);
  
--int ipv6_find_tlv(struct sk_buff *skb, int offset, int type)
-+int ipv6_find_tlv(const struct sk_buff *skb, int offset, int type)
++/**
++ * ipv6_renew_options - replace a specific ext hdr with a new one.
++ *
++ * @sk: sock from which to allocate memory
++ * @opt: original options
++ * @newtype: option type to replace in @opt
++ * @newopt: new option of type @newtype to replace (user-mem)
++ * @newoptlen: length of @newopt
++ *
++ * Returns a new set of options which is a copy of @opt with the
++ * option type @newtype replaced with @newopt.
++ *
++ * @opt may be NULL, in which case a new set of options is returned
++ * containing just @newopt.
++ *
++ * @newopt may be NULL, in which case the specified option type is
++ * not copied into the new set of options.
++ *
++ * The new set of options is allocated from the socket option memory
++ * buffer of @sk.
++ */
+ struct ipv6_txoptions *
+ ipv6_renew_options(struct sock *sk, struct ipv6_txoptions *opt,
+ 		   int newtype,
+@@ -830,6 +851,34 @@ out:
+ 	return ERR_PTR(err);
+ }
+ 
++/**
++ * ipv6_renew_options_kern - replace a specific ext hdr with a new one.
++ *
++ * @sk: sock from which to allocate memory
++ * @opt: original options
++ * @newtype: option type to replace in @opt
++ * @newopt: new option of type @newtype to replace (kernel-mem)
++ * @newoptlen: length of @newopt
++ *
++ * See ipv6_renew_options().  The difference is that @newopt is
++ * kernel memory, rather than user memory.
++ */
++struct ipv6_txoptions *
++ipv6_renew_options_kern(struct sock *sk, struct ipv6_txoptions *opt,
++			int newtype, struct ipv6_opt_hdr *newopt,
++			int newoptlen)
++{
++	struct ipv6_txoptions *ret_val;
++	const mm_segment_t old_fs = get_fs();
++
++	set_fs(KERNEL_DS);
++	ret_val = ipv6_renew_options(sk, opt, newtype,
++				     (struct ipv6_opt_hdr __user *)newopt,
++				     newoptlen);
++	set_fs(old_fs);
++	return ret_val;
++}
++
+ struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
+ 					  struct ipv6_txoptions *opt)
  {
- 	const unsigned char *nh = skb_network_header(skb);
- 	int packet_len = skb_tail_pointer(skb) - skb_network_header(skb);
 -- 
 2.7.4
 
