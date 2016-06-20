@@ -1,149 +1,141 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the arm-soc tree
-Date: Tue, 21 Jun 2016 11:18:39 +1000
-Message-ID: <20160621111839.34936836@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Florian Fainelli <f.fainelli@gmail.com>,
- Pramod Kumar <pramod.kumar@broadcom.com>, linux-kernel@vger.kernel.org,
- Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>,
- linux-next@vger.kernel.org, Jon Mason <jon.mason@broadcom.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>, Olof
- Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
- <linux-arm-kernel@lists.infradead.org>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 08/23] mlxsw: spectrum: Centralize VLAN-aware bridge ref counting
+Date: Mon, 20 Jun 2016 23:04:06 +0200
+Message-ID: <1466456661-5260-9-git-send-email-jiri@resnulli.us>
+References: <1466456661-5260-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f196.google.com ([209.85.217.196]:36559 "EHLO
+	mail-lb0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752691AbcFUBWY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 21:22:24 -0400
+Received: by mail-lb0-f196.google.com with SMTP id ur4so122602lbc.3
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 18:22:01 -0700 (PDT)
+In-Reply-To: <1466456661-5260-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+From: Ido Schimmel <idosch@mellanox.com>
 
-Today's linux-next merge of the net-next tree got conflicts in:
+We hold a reference count on the number of ports member in the
+VLAN-aware bridge, as we only support one.
 
-  arch/arm64/boot/dts/broadcom/ns2-svk.dts
-  arch/arm64/boot/dts/broadcom/ns2.dtsi
+Instead of always incrementing / decrementing the reference count after
+joining / leaving the bridge, simply do this accounting in the join /
+leave functions.
 
-between commits:
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 58 +++++++++++++-------------
+ 1 file changed, 30 insertions(+), 28 deletions(-)
 
-  97b1504a30b3 ("arm64: dts: enable pinctrl for Broadcom NS2 SoC")
-  5dcc9c7618df ("arm64: dts: NS2: Add CCI-400 PMU support")
-
-from the arm-soc tree and commit:
-
-  5f1a067bfa0a ("dt: mdio-mux: Add mdio multiplexer driver node")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index cd85316..b999802 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2651,7 +2651,28 @@ static bool mlxsw_sp_port_dev_check(const struct net_device *dev)
+ 	return dev->netdev_ops == &mlxsw_sp_port_netdev_ops;
+ }
+ 
+-static int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port)
++static bool mlxsw_sp_master_bridge_check(struct mlxsw_sp *mlxsw_sp,
++					 struct net_device *br_dev)
++{
++	return !mlxsw_sp->master_bridge.dev ||
++	       mlxsw_sp->master_bridge.dev == br_dev;
++}
++
++static void mlxsw_sp_master_bridge_inc(struct mlxsw_sp *mlxsw_sp,
++				       struct net_device *br_dev)
++{
++	mlxsw_sp->master_bridge.dev = br_dev;
++	mlxsw_sp->master_bridge.ref_count++;
++}
++
++static void mlxsw_sp_master_bridge_dec(struct mlxsw_sp *mlxsw_sp)
++{
++	if (--mlxsw_sp->master_bridge.ref_count == 0)
++		mlxsw_sp->master_bridge.dev = NULL;
++}
++
++static int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port,
++				     struct net_device *br_dev)
+ {
+ 	struct net_device *dev = mlxsw_sp_port->dev;
+ 	int err;
+@@ -2665,6 +2686,8 @@ static int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port)
+ 	if (err)
+ 		return err;
+ 
++	mlxsw_sp_master_bridge_inc(mlxsw_sp_port->mlxsw_sp, br_dev);
++
+ 	mlxsw_sp_port->learning = 1;
+ 	mlxsw_sp_port->learning_sync = 1;
+ 	mlxsw_sp_port->uc_flood = 1;
+@@ -2683,6 +2706,8 @@ static void mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port,
+ 
+ 	mlxsw_sp_port_pvid_set(mlxsw_sp_port, 1);
+ 
++	mlxsw_sp_master_bridge_dec(mlxsw_sp_port->mlxsw_sp);
++
+ 	mlxsw_sp_port->learning = 0;
+ 	mlxsw_sp_port->learning_sync = 0;
+ 	mlxsw_sp_port->uc_flood = 0;
+@@ -2694,26 +2719,6 @@ static void mlxsw_sp_port_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	mlxsw_sp_port_add_vid(dev, 0, 1);
+ }
+ 
+-static bool mlxsw_sp_master_bridge_check(struct mlxsw_sp *mlxsw_sp,
+-					 struct net_device *br_dev)
+-{
+-	return !mlxsw_sp->master_bridge.dev ||
+-	       mlxsw_sp->master_bridge.dev == br_dev;
+-}
+-
+-static void mlxsw_sp_master_bridge_inc(struct mlxsw_sp *mlxsw_sp,
+-				       struct net_device *br_dev)
+-{
+-	mlxsw_sp->master_bridge.dev = br_dev;
+-	mlxsw_sp->master_bridge.ref_count++;
+-}
+-
+-static void mlxsw_sp_master_bridge_dec(struct mlxsw_sp *mlxsw_sp)
+-{
+-	if (--mlxsw_sp->master_bridge.ref_count == 0)
+-		mlxsw_sp->master_bridge.dev = NULL;
+-}
+-
+ static int mlxsw_sp_lag_create(struct mlxsw_sp *mlxsw_sp, u16 lag_id)
+ {
+ 	char sldr_pl[MLXSW_REG_SLDR_LEN];
+@@ -2910,7 +2915,6 @@ static void mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	if (mlxsw_sp_port->bridged) {
+ 		mlxsw_sp_port_active_vlans_del(mlxsw_sp_port);
+ 		mlxsw_sp_port_bridge_leave(mlxsw_sp_port, false);
+-		mlxsw_sp_master_bridge_dec(mlxsw_sp);
+ 	}
+ 
+ 	if (lag->ref_count == 1) {
+@@ -3049,13 +3053,11 @@ static int mlxsw_sp_netdevice_port_upper_event(struct net_device *dev,
+ 				 mlxsw_sp_port_vlan_unlink(mlxsw_sp_port,
+ 							   upper_dev);
+ 		} else if (netif_is_bridge_master(upper_dev)) {
+-			if (info->linking) {
+-				err = mlxsw_sp_port_bridge_join(mlxsw_sp_port);
+-				mlxsw_sp_master_bridge_inc(mlxsw_sp, upper_dev);
+-			} else {
++			if (info->linking)
++				err = mlxsw_sp_port_bridge_join(mlxsw_sp_port,
++								upper_dev);
++			else
+ 				mlxsw_sp_port_bridge_leave(mlxsw_sp_port, true);
+-				mlxsw_sp_master_bridge_dec(mlxsw_sp);
+-			}
+ 		} else if (netif_is_lag_master(upper_dev)) {
+ 			if (info->linking)
+ 				err = mlxsw_sp_port_lag_join(mlxsw_sp_port,
 -- 
-Cheers,
-Stephen Rothwell
-
-diff --cc arch/arm64/boot/dts/broadcom/ns2-svk.dts
-index b062a44a39c7,ea5603fd106a..000000000000
---- a/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-+++ b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
-@@@ -161,11 -141,10 +169,19 @@@
-  	};
-  };
-  
- +&pinctrl {
- +	pinctrl-names = "default";
- +	pinctrl-0 = <&nand_sel>;
- +	nand_sel: nand_sel {
- +		function = "nand";
- +		groups = "nand_grp";
- +	};
- +};
-++
-+ &mdio_mux_iproc {
-+ 	mdio@10 {
-+ 		gphy0: eth-phy@10 {
-+ 			reg = <0x10>;
-+ 		};
-+ 	};
-+ };
-diff --cc arch/arm64/boot/dts/broadcom/ns2.dtsi
-index d1dc812daaab,46b78fa89f4c..000000000000
---- a/arch/arm64/boot/dts/broadcom/ns2.dtsi
-+++ b/arch/arm64/boot/dts/broadcom/ns2.dtsi
-@@@ -279,26 -263,45 +279,65 @@@
-  				      IRQ_TYPE_LEVEL_HIGH)>;
-  		};
-  
- +		cci@65590000 {
- +			compatible = "arm,cci-400";
- +			#address-cells = <1>;
- +			#size-cells = <1>;
- +			reg = <0x65590000 0x1000>;
- +			ranges = <0 0x65590000 0x10000>;
- +
- +			pmu@9000 {
- +				compatible = "arm,cci-400-pmu,r1",
- +					     "arm,cci-400-pmu";
- +				reg = <0x9000 0x4000>;
- +				interrupts = <GIC_SPI 344 IRQ_TYPE_LEVEL_HIGH>,
- +					     <GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH>,
- +					     <GIC_SPI 346 IRQ_TYPE_LEVEL_HIGH>,
- +					     <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>,
- +					     <GIC_SPI 348 IRQ_TYPE_LEVEL_HIGH>,
- +					     <GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>;
- +			};
- +		};
- +
-+ 		mdio_mux_iproc: mdio-mux@6602023c {
-+ 			compatible = "brcm,mdio-mux-iproc";
-+ 			reg = <0x6602023c 0x14>;
-+ 			#address-cells = <1>;
-+ 			#size-cells = <0>;
-+ 
-+ 			mdio@0 {
-+ 				reg = <0x0>;
-+ 				#address-cells = <1>;
-+ 				#size-cells = <0>;
-+ 
-+ 				pci_phy0: pci-phy@0 {
-+ 					compatible = "brcm,ns2-pcie-phy";
-+ 					reg = <0x0>;
-+ 					#phy-cells = <0>;
-+ 					status = "disabled";
-+ 				};
-+ 			};
-+ 
-+ 			mdio@7 {
-+ 				reg = <0x7>;
-+ 				#address-cells = <1>;
-+ 				#size-cells = <0>;
-+ 
-+ 				pci_phy1: pci-phy@0 {
-+ 					compatible = "brcm,ns2-pcie-phy";
-+ 					reg = <0x0>;
-+ 					#phy-cells = <0>;
-+ 					status = "disabled";
-+ 				};
-+ 			};
-+ 
-+ 			mdio@10 {
-+ 				reg = <0x10>;
-+ 				#address-cells = <1>;
-+ 				#size-cells = <0>;
-+ 			};
-+ 		};
-+ 
-  		timer0: timer@66030000 {
-  			compatible = "arm,sp804", "arm,primecell";
-  			reg = <0x66030000 0x1000>;
+2.5.5
