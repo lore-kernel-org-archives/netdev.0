@@ -1,7 +1,7 @@
 From: Henrik Austad <henrik@austad.us>
 Subject: Re: [very-RFC 0/8] TSN driver for the kernel
-Date: Mon, 20 Jun 2016 10:05:09 +0200
-Message-ID: <20160620080509.GA8011@sisyphus.home.austad.us>
+Date: Mon, 20 Jun 2016 11:06:56 +0200
+Message-ID: <20160620090656.GB8011@sisyphus.home.austad.us>
 References: <1465686096-22156-1-git-send-email-henrik@austad.us>
  <20160613114713.GA9544@localhost.localdomain>
  <20160613195136.GC2441@netboy>
@@ -10,15 +10,15 @@ References: <1465686096-22156-1-git-send-email-henrik@austad.us>
  <20160615080602.GA13555@localhost.localdomain>
  <5764DA85.3050801@sakamocchi.jp>
  <20160618224549.GF32724@icarus.home.austad.us>
- <20160619094629.GC5853@netboy>
+ <5766B01B.9070903@sakamocchi.jp>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3373967012640375113=="
-Cc: alsa-devel@alsa-project.org, netdev@vger.kernel.org,
- linux-kernel@vger.kernel.org, Takashi Sakamoto <o-takashi@sakamocchi.jp>,
- Arnd Bergmann <arnd@linaro.org>, linux-media@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
+Content-Type: multipart/mixed; boundary="===============6674882102356082472=="
+Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
+ linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
+ Arnd Bergmann <arnd@linaro.org>
+To: Takashi Sakamoto <o-takashi@sakamocchi.jp>
 Return-path: <alsa-devel-bounces@alsa-project.org>
-In-Reply-To: <20160619094629.GC5853@netboy>
+In-Reply-To: <5766B01B.9070903@sakamocchi.jp>
 List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
  <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
 List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
@@ -31,92 +31,117 @@ Sender: alsa-devel-bounces@alsa-project.org
 List-Id: netdev.vger.kernel.org
 
 
---===============3373967012640375113==
+--===============6674882102356082472==
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="3MwIy2ne0vdjdPXF"
+	protocol="application/pgp-signature"; boundary="tsOsTdHNUZQcU9Ye"
 Content-Disposition: inline
 
 
---3MwIy2ne0vdjdPXF
+--tsOsTdHNUZQcU9Ye
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Sun, Jun 19, 2016 at 11:46:29AM +0200, Richard Cochran wrote:
-> On Sun, Jun 19, 2016 at 12:45:50AM +0200, Henrik Austad wrote:
-> > edit: this turned out to be a somewhat lengthy answer. I have tried to=
+On Sun, Jun 19, 2016 at 11:45:47PM +0900, Takashi Sakamoto wrote:
+> (remove C.C. to lkml. This is not so major feature.)
+>=20
+> On Jun 19 2916 07:45, Henrik Austad wrote:
+> >snip
+> >
+> >802.1Q gives you low latency through the network, but more importantly, =
+no
+> >dropped frames. gPTP gives you a central reference to time.
+>=20
+> When such a long message is required, it means that we don't have
+> enough premises for this discussion.
+
+Isn't a discussion part of how information is conveyed and finding parts=20
+that require more knowledge?
+
+> You have just interests in gPTP and transferring AVTPDUs, while no
+> interests in the others such as "what the basic ideas of TSN come
+> from" and "the reason that IEEE 1722 refers to IEC 61883 series
+> which is originally designed for IEEE 1394 bus" and "the reason that
+> I was motivated to join in this discussion even though not a netdev
+> developer".
+
+I'm sorry, I'm not sure I follow you here. What do you mean I don't have=20
+any interest in where TSN comes from? or the reason why 1722 use IEC 61883?=
 =20
-> > shorten it down somewhere. it is getting late and I'm getting increasin=
-gly=20
-> > incoherent (Richard probably knows what I'm talking about ;) so I'll st=
-op=20
-> > for now.
->=20
-> Thanks for your responses, Henrik.  I think your explanations are on spot.
->=20
-> > note that an adjustable sample-clock is not a *requirement* but in gene=
-ral=20
-> > you'd want to avoid resampling in software.
->=20
-> Yes, but..
->=20
-> Adjusting the local clock rate to match the AVB network rate is
-> essential.  You must be able to *continuously* adjust the rate in
-> order to compensate drift.  Again, there are exactly two ways to do
-> it, namely in hardware (think VCO) or in software (dynamic
-> resampling).
+What about "they picked 61883 because it made sense?"
 
-Don't get me wrong, having an adjustable clock for the sampling is=20
-essential -but it si not -required-.
+gPTP itself is *not* about transffering audio-data, it is about agreeing on=
+=20
+a common time so that when you *do* transfer audio-data, the samplerate=20
+actually means something.
 
-> What you cannot do is simply buffer the AV data and play it out
-> blindly at the local clock rate.
+Let me ask you this; if you have 2 sound-cards in your computer and you=20
+want to attach a mic to one and speakers to the other, how do you solve=20
+streaming of audio from the mic to the speaker If you answer does not=20
+contain something akin to "different timing-domain issues", I'd be very=20
+surprised.
 
-No, that you cannot do that, that would not be pretty :)
+If you are interested in TSN for transferring *anything*, _including_=20
+audio, you *have* to take gPTP into consideration. Just as you have to=20
+think about stream reservation, compliant hardware and all the different=20
+subsystems you are going to run into, either via kernel or via userspace.
 
-> Regarding the media clock, if I understand correctly, there the talker
-> has two possibilities.  Either the talker samples the stream at the
-> gPTP rate, or the talker must tell the listeners the relationship
-> (phase offset and frequency ratio) between the media clock and the
-> gPTP time.  Please correct me if I got the wrong impression...
+> Here, could I ask you a question? Do you know a role of cycle start
+> packet of IEEE Std 1394?
 
-Last first; AFAIK, there is no way for the Talker to tell a Listener the=20
-phase offset/freq ratio other than how each end-station/bridge in the=20
-gPTP-domain calculates this on psync_update event messages. I could be=20
-wrong though, and different encoding formats can probably convey such=20
-information. I have not seen any such mechanisms in the underlying 1722=20
-format though.
+No, I do not.
 
-So a Talker should send a stream sampled as if the gPTP time drove the=20
-AD/DA sample frequency directly. Whether the local sampling is driven by=20
-gPTP or resampled to match gPTP-time prior to transmit is left as an=20
-implementation detail for the end-station.
+I have only passing knowledge of the firewire standard, I've looked at the=
+=20
+encoding described in 1722 and added that to the alsa shim as an example of=
+=20
+how to use TSN. As I stated, this was a *very* early version and I would=20
+like to use TSN for audio - and more work is needed.
 
-Did all that make sense?
+> If you think it's not related to this discussion, please tell it to
+> me. Then I'll drop out from this thread.
 
-Thanks!
+There are tons of details left and right, and as I said, I'm not  all to=20
+familiar with firewire. I know that one of the authors behind the firewire=
+=20
+standard happened to be part of 1722 standard.
+
+I am currently working my way through the firewire-stak paper you've=20
+written, and I have gotten a lot of pointers to other areas I need to dig=
+=20
+into so I should be busy for a while.
+
+That being said, Richard's point about a way to find sample-rate of a=20
+hardware device and ways to influence that, is important for AVB/TSN.
+
+> History Repeats itself.
+
+?
+
+> Takashi Sakamoto
+
 --=20
 Henrik Austad
 
---3MwIy2ne0vdjdPXF
+--tsOsTdHNUZQcU9Ye
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iEYEARECAAYFAldno7UACgkQ6k5VT6v45llOgACgk72paNK2UKfkh92hcQYFyjif
-qlwAn27DMOWmCGKj1eyajMDKnCmGmRUv
-=QN1y
+iEYEARECAAYFAldnsjAACgkQ6k5VT6v45lmoigCeIIaItq1VgOUztudYjepQYaJf
+Fa8Anjte/cQzdBzNC5bW02x2AK+rx96S
+=CK9G
 -----END PGP SIGNATURE-----
 
---3MwIy2ne0vdjdPXF--
+--tsOsTdHNUZQcU9Ye--
 
---===============3373967012640375113==
+--===============6674882102356082472==
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
 
---===============3373967012640375113==--
+--===============6674882102356082472==--
