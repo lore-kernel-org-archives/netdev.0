@@ -1,52 +1,68 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: Micrel Phy KSZ8031 clock select setting in dts
-Date: Mon, 20 Jun 2016 15:56:10 +0300
-Message-ID: <8917af7a-82b1-5304-0c35-0efa1f598ba7@cogentembedded.com>
-References: <20160617130438.GB6604@graute-opti>
- <bda2a612-37fd-9b73-5aad-6bc62ac2f520@cogentembedded.com>
- <5766f2a8.8f1d1c0a.10cf8.1751@mx.google.com>
- <20160620062101.GL9677@pengutronix.de> <20160620120821.GA19639@graute-opti>
+From: Maxim Altshul <maxim.altshul-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH 0/3] *** Mesh Path Selection Metric Calculation ***
+Date: Mon, 20 Jun 2016 16:00:19 +0300
+Message-ID: <1466427622-5953-1-git-send-email-maxim.altshul@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: Sascha Hauer <s.hauer@pengutronix.de>, netdev@vger.kernel.org,
-	f.fainelli@gmail.com, johan@kernel.org, bth@kamstrup.dk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f51.google.com ([209.85.215.51]:35420 "EHLO
-	mail-lf0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752994AbcFTM4X (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 08:56:23 -0400
-Received: by mail-lf0-f51.google.com with SMTP id l188so37061185lfe.2
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 05:56:12 -0700 (PDT)
-In-Reply-To: <20160620120821.GA19639@graute-opti>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <eliad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>, <yanivma-l0cyMroinI0@public.gmane.org>, <guym-l0cyMroinI0@public.gmane.org>,
+	<arik-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>, <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Maxim Altshul <maxim.altshul-l0cyMroinI0@public.gmane.org>
+To: <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>, <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi All,
+This patch series focuses on metric calculation that
+occurs during the path selection phase of a mesh network.
 
-On 6/20/2016 3:08 PM, Oliver Graute wrote:
+During the path selection phase, the mesh hwmp module
+performs metric calculations, that take as parameters
+the last TX rate that was used for a specific link,
+and the packet error rate.
 
-> thx you both for confirming that. Can you tell me also if the clock
-> statement s fine in my dts?
->
-> &fec1 {
-> 	pinctrl-names = "default";
-> 	pinctrl-0 = <&pinctrl_enet1>;
-> 	phy-mode = "rmii";
-> 	micrel,rmii-reference-clock-select-25-mhz;
-> 	clocks,rmii-ref;
+These parameters should be reported by the FW to the driver
+constantly for the mechanism to work properly.
 
-    You need:
+In case that a vendor offloads the rate control mechanism
+to the FW, these parameters will be rarely updated,
+or updated incorrectly.
 
-	clocks = <&your_clock>;
-	clock-names = "rmii-ref";
+This situation causes the mesh hwmp module to calculate incorrect
+metrics and as a consequence, not to choose the best paths possible.
 
-in the PHY node (not the MAC node as you did).
 
-[...]
+This patch series is divided to three patches and does the following:
 
-> Best regards,
->
-> Oliver
+1. Modifies mesh hwmp module and allows vendors that offload the
+rate control mechanism to their FW, to report last TX rates and PER
+to the mesh hwmp module by using an existing op called
+get_expected_throughput.
+In case that a vendor does not implement the op, all previous
+functionality still applies.
 
-MBR, Sergei
+2. Implements the opcode and the mechanism that reports the rates
+in TI driver.
+
+Maxim Altshul (3):
+  wlcore/wl18xx: Add functionality to accept TX rate per link
+  wlcore: Add support for get_expected_throughput opcode
+  mac80211: mesh: Add support for HW RC implementation
+
+ drivers/net/wireless/ti/wl18xx/main.c     |  4 ++++
+ drivers/net/wireless/ti/wl18xx/tx.c       | 22 ++++++++++++++++++----
+ drivers/net/wireless/ti/wl18xx/wl18xx.h   |  6 +++++-
+ drivers/net/wireless/ti/wlcore/main.c     | 16 ++++++++++++++++
+ drivers/net/wireless/ti/wlcore/rx.c       |  7 +++++++
+ drivers/net/wireless/ti/wlcore/wlcore_i.h | 13 +++++++++++++
+ net/mac80211/mesh_hwmp.c                  | 23 +++++++++++++++--------
+ 7 files changed, 78 insertions(+), 13 deletions(-)
+
+-- 
+2.7.2
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
