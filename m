@@ -1,35 +1,58 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: rcu locking issue in mpls output code?
-Date: Mon, 20 Jun 2016 12:37:41 -0700
-Message-ID: <20160620123741.71401da7@xeon-e3>
-References: <20160620004546.GP20238@wantstofly.org>
-	<8d325ab7-bc46-dd69-288a-571d56efc545@cumulusnetworks.com>
-	<20160620063055.GR20238@wantstofly.org>
-	<7d7097bc-ce10-d8e1-4a90-36045c7d2041@cumulusnetworks.com>
-	<CAJieiUi8WX1=Yri_b8aZpP2sEkQ6CqARcX29M94Qdf4gczFDjg@mail.gmail.com>
-	<20160620163317.GS20238@wantstofly.org>
-	<e84c7422-c688-faec-54ac-e0a5607d6c3d@cumulusnetworks.com>
-	<20160620174408.GT20238@wantstofly.org>
+From: pravin shelar <pshelar@ovn.org>
+Subject: Re: [net-next,v4] openvswitch: Add packet len info to upcall.
+Date: Mon, 20 Jun 2016 12:44:54 -0700
+Message-ID: <CAOrHB_BVo=UHFByGqE9oPKRm0t-FaAT3vNxNSjzJzRL+VADgoA@mail.gmail.com>
+References: <1466432777-30305-1-git-send-email-u9012063@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: David Ahern <dsa@cumulusnetworks.com>,
-	Roopa Prabhu <roopa@cumulusnetworks.com>,
-	Robert Shearman <rshearma@brocade.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Pravin Shelar <pshelar@nicira.com>
+To: William Tu <u9012063@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:32972 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754021AbcFTThw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 15:37:52 -0400
-Received: by mail-pf0-f172.google.com with SMTP id i123so53238228pfg.0
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 12:37:27 -0700 (PDT)
-In-Reply-To: <20160620174408.GT20238@wantstofly.org>
+Received: from relay5-d.mail.gandi.net ([217.70.183.197]:45462 "EHLO
+	relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754475AbcFTTpA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 15:45:00 -0400
+Received: from mfilter44-d.gandi.net (mfilter44-d.gandi.net [217.70.178.175])
+	by relay5-d.mail.gandi.net (Postfix) with ESMTP id AB78C41C07F
+	for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 21:44:57 +0200 (CEST)
+Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
+	by mfilter44-d.gandi.net (mfilter44-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
+	with ESMTP id 2bYvX85JetZa for <netdev@vger.kernel.org>;
+	Mon, 20 Jun 2016 21:44:56 +0200 (CEST)
+Received: from mail-it0-f51.google.com (mail-it0-f51.google.com [209.85.214.51])
+	(Authenticated sender: pshelar@ovn.org)
+	by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id 22D5A41C089
+	for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 21:44:56 +0200 (CEST)
+Received: by mail-it0-f51.google.com with SMTP id a5so55929608ita.1
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 12:44:55 -0700 (PDT)
+In-Reply-To: <1466432777-30305-1-git-send-email-u9012063@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Mon, Jun 20, 2016 at 7:26 AM, William Tu <u9012063@gmail.com> wrote:
+> The commit f2a4d086ed4c ("openvswitch: Add packet truncation support.")
+> introduces packet truncation before sending to userspace upcall receiver.
+> This patch passes up the skb->len before truncation so that the upcall
+> receiver knows the original packet size. Potentially this will be used
+> by sFlow, where OVS translates sFlow config header=N to a sample action,
+> truncating packet to N byte in kernel datapath. Thus, only N bytes instead
+> of full-packet size is copied from kernel to userspace, saving the
+> kernel-to-userspace bandwidth.
+>
+> Signed-off-by: William Tu <u9012063@gmail.com>
+> Cc: Pravin Shelar <pshelar@nicira.com>
+> ---
+> v3->v4:
+> - Add OVS_PACKET_ATTR_LEN only when packet is truncated,
+>   This avoid sending extra attribute in the case of miss flow.
+> v2->v3:
+> - Remove platform specific name.
+> - Fix issue when receiving GSO packet
+> - Remove skblen in struct dp_upcall_info
+> v1->v2:
+> - Pass skb->len to userspace instead of cutlen
+> ---
+Acked-by: Pravin B Shelar <pshelar@ovn.org>
 
-> ifconfig tons 172.16.20.20 netmask 255.255.255.0
-
-Really, still using ifconfig?
+Thanks.
