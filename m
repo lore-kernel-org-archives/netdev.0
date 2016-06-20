@@ -1,151 +1,165 @@
-From: Huw Davies <huw@codeweavers.com>
-Subject: [PATCH v4 12/19] ipv6: Allow request socks to contain IPv6 options.
-Date: Mon, 20 Jun 2016 14:36:52 +0100
-Message-ID: <1466429819-12707-13-git-send-email-huw@codeweavers.com>
-Cc: Paul Moore <pmoore@redhat.com>
-To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.codeweavers.com ([216.251.189.131]:49027 "EHLO
-	mail.codeweavers.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753282AbcFTNxx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 09:53:53 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
+Subject: [PATCH v4 17/19] calipso: Add validation of CALIPSO option.
+Date: Mon, 20 Jun 2016 14:36:57 +0100
+Message-ID: <1466429819-12707-18-git-send-email-huw@codeweavers.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+        selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
+Return-path: <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+List-Post: <mailto:selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+List-Help: <mailto:selinux-request-+05T5uksL2qpZYMLLGbcSA@public.gmane.org?subject=help>
+Errors-To: selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
+Sender: "Selinux" <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-If set, these will take precedence over the parent's options during
-both sending and child creation.  If they're not set, the parent's
-options (if any) will be used.
+Lengths, checksum and the DOI are checked.  Checking of the
+level and categories are left for the socket layer.
 
-This is to allow the security_inet_conn_request() hook to modify the
-IPv6 options in just the same way that it already may do for IPv4.
+CRC validation is performed in the calipso module to avoid
+unconditionally linking crc_ccitt() into ipv6.
 
-Signed-off-by: Huw Davies <huw@codeweavers.com>
+Signed-off-by: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
 ---
- include/net/inet_sock.h |  7 ++++++-
- net/dccp/ipv6.c         | 12 +++++++++---
- net/ipv4/tcp_input.c    |  3 +++
- net/ipv6/tcp_ipv6.c     | 12 +++++++++---
- 4 files changed, 27 insertions(+), 7 deletions(-)
+ include/net/calipso.h |  6 ++++++
+ net/ipv6/calipso.c    | 41 +++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/exthdrs.c    | 27 +++++++++++++++++++++++++++
+ 3 files changed, 74 insertions(+)
 
-diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
-index 012b1f9..236a810 100644
---- a/include/net/inet_sock.h
-+++ b/include/net/inet_sock.h
-@@ -97,7 +97,12 @@ struct inet_request_sock {
- 	u32                     ir_mark;
- 	union {
- 		struct ip_options_rcu	*opt;
--		struct sk_buff		*pktopts;
-+#if IS_ENABLED(CONFIG_IPV6)
-+		struct {
-+			struct ipv6_txoptions	*ipv6_opt;
-+			struct sk_buff		*pktopts;
-+		};
-+#endif
- 	};
+diff --git a/include/net/calipso.h b/include/net/calipso.h
+index 38dbb47..85404e2 100644
+--- a/include/net/calipso.h
++++ b/include/net/calipso.h
+@@ -65,6 +65,7 @@ struct calipso_doi {
+ #ifdef CONFIG_NETLABEL
+ int __init calipso_init(void);
+ void calipso_exit(void);
++bool calipso_validate(const struct sk_buff *skb, const unsigned char *option);
+ #else
+ static inline int __init calipso_init(void)
+ {
+@@ -74,6 +75,11 @@ static inline int __init calipso_init(void)
+ static inline void calipso_exit(void)
+ {
+ }
++static inline bool calipso_validate(const struct sk_buff *skb,
++				    const unsigned char *option)
++{
++	return true;
++}
+ #endif /* CONFIG_NETLABEL */
+ 
+ #endif /* _CALIPSO_H */
+diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
+index fa371a8..ea80450 100644
+--- a/net/ipv6/calipso.c
++++ b/net/ipv6/calipso.c
+@@ -321,6 +321,47 @@ doi_walk_return:
+ }
+ 
+ /**
++ * calipso_validate - Validate a CALIPSO option
++ * @skb: the packet
++ * @option: the start of the option
++ *
++ * Description:
++ * This routine is called to validate a CALIPSO option.
++ * If the option is valid then %true is returned, otherwise
++ * %false is returned.
++ *
++ * The caller should have already checked that the length of the
++ * option (including the TLV header) is >= 10 and that the catmap
++ * length is consistent with the option length.
++ *
++ * We leave checks on the level and categories to the socket layer.
++ */
++bool calipso_validate(const struct sk_buff *skb, const unsigned char *option)
++{
++	struct calipso_doi *doi_def;
++	bool ret_val;
++	u16 crc, len = option[1] + 2;
++	static const u8 zero[2];
++
++	/* The original CRC runs over the option including the TLV header
++	 * with the CRC-16 field (at offset 8) zeroed out. */
++	crc = crc_ccitt(0xffff, option, 8);
++	crc = crc_ccitt(crc, zero, sizeof(zero));
++	if (len > 10)
++		crc = crc_ccitt(crc, option + 10, len - 10);
++	crc = ~crc;
++	if (option[8] != (crc & 0xff) || option[9] != ((crc >> 8) & 0xff))
++		return false;
++
++	rcu_read_lock();
++	doi_def = calipso_doi_search(get_unaligned_be32(option + 2));
++	ret_val = !!doi_def;
++	rcu_read_unlock();
++
++	return ret_val;
++}
++
++/**
+  * calipso_map_cat_hton - Perform a category mapping from host to network
+  * @doi_def: the DOI definition
+  * @secattr: the security attributes
+diff --git a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
+index d5fd3e7..0f69cab 100644
+--- a/net/ipv6/exthdrs.c
++++ b/net/ipv6/exthdrs.c
+@@ -43,6 +43,7 @@
+ #include <net/ndisc.h>
+ #include <net/ip6_route.h>
+ #include <net/addrconf.h>
++#include <net/calipso.h>
+ #if IS_ENABLED(CONFIG_IPV6_MIP6)
+ #include <net/xfrm.h>
+ #endif
+@@ -603,6 +604,28 @@ drop:
+ 	return false;
+ }
+ 
++/* CALIPSO RFC 5570 */
++
++static bool ipv6_hop_calipso(struct sk_buff *skb, int optoff)
++{
++	const unsigned char *nh = skb_network_header(skb);
++
++	if (nh[optoff + 1] < 8)
++		goto drop;
++
++	if (nh[optoff + 6] * 4 + 8 > nh[optoff + 1])
++		goto drop;
++
++	if (!calipso_validate(skb, nh + optoff))
++		goto drop;
++
++	return true;
++
++drop:
++	kfree_skb(skb);
++	return false;
++}
++
+ static const struct tlvtype_proc tlvprochopopt_lst[] = {
+ 	{
+ 		.type	= IPV6_TLV_ROUTERALERT,
+@@ -612,6 +635,10 @@ static const struct tlvtype_proc tlvprochopopt_lst[] = {
+ 		.type	= IPV6_TLV_JUMBO,
+ 		.func	= ipv6_hop_jumbo,
+ 	},
++	{
++		.type	= IPV6_TLV_CALIPSO,
++		.func	= ipv6_hop_calipso,
++	},
+ 	{ -1, }
  };
  
-diff --git a/net/dccp/ipv6.c b/net/dccp/ipv6.c
-index 4663a01..3381748 100644
---- a/net/dccp/ipv6.c
-+++ b/net/dccp/ipv6.c
-@@ -216,14 +216,17 @@ static int dccp_v6_send_response(const struct sock *sk, struct request_sock *req
- 	skb = dccp_make_response(sk, dst, req);
- 	if (skb != NULL) {
- 		struct dccp_hdr *dh = dccp_hdr(skb);
-+		struct ipv6_txoptions *opt;
- 
- 		dh->dccph_checksum = dccp_v6_csum_finish(skb,
- 							 &ireq->ir_v6_loc_addr,
- 							 &ireq->ir_v6_rmt_addr);
- 		fl6.daddr = ireq->ir_v6_rmt_addr;
- 		rcu_read_lock();
--		err = ip6_xmit(sk, skb, &fl6, rcu_dereference(np->opt),
--			       np->tclass);
-+		opt = ireq->ipv6_opt;
-+		if (!opt)
-+			opt = rcu_dereference(np->opt);
-+		err = ip6_xmit(sk, skb, &fl6, opt, np->tclass);
- 		rcu_read_unlock();
- 		err = net_xmit_eval(err);
- 	}
-@@ -236,6 +239,7 @@ done:
- static void dccp_v6_reqsk_destructor(struct request_sock *req)
- {
- 	dccp_feat_list_purge(&dccp_rsk(req)->dreq_featneg);
-+	kfree(inet_rsk(req)->ipv6_opt);
- 	kfree_skb(inet_rsk(req)->pktopts);
- }
- 
-@@ -494,7 +498,9 @@ static struct sock *dccp_v6_request_recv_sock(const struct sock *sk,
- 	 * Yes, keeping reference count would be much more clever, but we make
- 	 * one more one thing there: reattach optmem to newsk.
- 	 */
--	opt = rcu_dereference(np->opt);
-+	opt = ireq->ipv6_opt;
-+	if (!opt)
-+		opt = rcu_dereference(np->opt);
- 	if (opt) {
- 		opt = ipv6_dup_options(newsk, opt);
- 		RCU_INIT_POINTER(newnp->opt, opt);
-diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-index c124c3c..f76b4ae 100644
---- a/net/ipv4/tcp_input.c
-+++ b/net/ipv4/tcp_input.c
-@@ -6148,6 +6148,9 @@ struct request_sock *inet_reqsk_alloc(const struct request_sock_ops *ops,
- 
- 		kmemcheck_annotate_bitfield(ireq, flags);
- 		ireq->opt = NULL;
-+#if IS_ENABLED(CONFIG_IPV6)
-+		ireq->pktopts = NULL;
-+#endif
- 		atomic64_set(&ireq->ir_cookie, 0);
- 		ireq->ireq_state = TCP_NEW_SYN_RECV;
- 		write_pnet(&ireq->ireq_net, sock_net(sk_listener));
-diff --git a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
-index f443c6b..cb7407f 100644
---- a/net/ipv6/tcp_ipv6.c
-+++ b/net/ipv6/tcp_ipv6.c
-@@ -443,6 +443,7 @@ static int tcp_v6_send_synack(const struct sock *sk, struct dst_entry *dst,
- {
- 	struct inet_request_sock *ireq = inet_rsk(req);
- 	struct ipv6_pinfo *np = inet6_sk(sk);
-+	struct ipv6_txoptions *opt;
- 	struct flowi6 *fl6 = &fl->u.ip6;
- 	struct sk_buff *skb;
- 	int err = -ENOMEM;
-@@ -463,8 +464,10 @@ static int tcp_v6_send_synack(const struct sock *sk, struct dst_entry *dst,
- 			fl6->flowlabel = ip6_flowlabel(ipv6_hdr(ireq->pktopts));
- 
- 		rcu_read_lock();
--		err = ip6_xmit(sk, skb, fl6, rcu_dereference(np->opt),
--			       np->tclass);
-+		opt = ireq->ipv6_opt;
-+		if (!opt)
-+			opt = rcu_dereference(np->opt);
-+		err = ip6_xmit(sk, skb, fl6, opt, np->tclass);
- 		rcu_read_unlock();
- 		err = net_xmit_eval(err);
- 	}
-@@ -476,6 +479,7 @@ done:
- 
- static void tcp_v6_reqsk_destructor(struct request_sock *req)
- {
-+	kfree(inet_rsk(req)->ipv6_opt);
- 	kfree_skb(inet_rsk(req)->pktopts);
- }
- 
-@@ -1112,7 +1116,9 @@ static struct sock *tcp_v6_syn_recv_sock(const struct sock *sk, struct sk_buff *
- 	   but we make one more one thing there: reattach optmem
- 	   to newsk.
- 	 */
--	opt = rcu_dereference(np->opt);
-+	opt = ireq->ipv6_opt;
-+	if (!opt)
-+		opt = rcu_dereference(np->opt);
- 	if (opt) {
- 		opt = ipv6_dup_options(newsk, opt);
- 		RCU_INIT_POINTER(newnp->opt, opt);
 -- 
 2.7.4
+
+_______________________________________________
+Selinux mailing list
+Selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
+To unsubscribe, send email to Selinux-leave-+05T5uksL2pAGbPMOrvdOA@public.gmane.org
+To get help, send an email containing "help" to Selinux-request-+05T5uksL2pAGbPMOrvdOA@public.gmane.org
