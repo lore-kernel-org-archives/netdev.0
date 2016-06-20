@@ -1,273 +1,294 @@
 From: Huw Davies <huw@codeweavers.com>
-Subject: [PATCH v4 05/19] netlabel: Add support for enumerating the CALIPSO DOI list.
-Date: Mon, 20 Jun 2016 14:36:45 +0100
-Message-ID: <1466429819-12707-6-git-send-email-huw@codeweavers.com>
+Subject: [PATCH v4 06/19] netlabel: Add support for creating a CALIPSO protocol domain mapping.
+Date: Mon, 20 Jun 2016 14:36:46 +0100
+Message-ID: <1466429819-12707-7-git-send-email-huw@codeweavers.com>
 Cc: Paul Moore <pmoore@redhat.com>
 To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
 	selinux@tycho.nsa.gov
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.codeweavers.com ([216.251.189.131]:49034 "EHLO
+Received: from mail.codeweavers.com ([216.251.189.131]:49031 "EHLO
 	mail.codeweavers.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932212AbcFTNyG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 09:54:06 -0400
+	with ESMTP id S1754749AbcFTNyE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 09:54:04 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Enumerate the DOI list through the NLBL_CALIPSO_C_LISTALL command.
-It takes no attributes.
+This extends the NLBL_MGMT_C_ADD and NLBL_MGMT_C_ADDDEF commands
+to accept CALIPSO protocol DOIs.
 
 Signed-off-by: Huw Davies <huw@codeweavers.com>
 ---
- include/net/netlabel.h          |   4 ++
- net/ipv6/calipso.c              |  41 ++++++++++++++++
- net/netlabel/netlabel_calipso.c | 106 ++++++++++++++++++++++++++++++++++++++++
- net/netlabel/netlabel_calipso.h |  14 ++++++
- 4 files changed, 165 insertions(+)
+ net/netlabel/netlabel_domainhash.c | 43 +++++++++++++++++++++++++++++++---
+ net/netlabel/netlabel_domainhash.h |  1 +
+ net/netlabel/netlabel_mgmt.c       | 47 ++++++++++++++++++++++++++++++++++++--
+ net/netlabel/netlabel_mgmt.h       |  3 +++
+ 4 files changed, 89 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-index 0f05b83..2653d3a 100644
---- a/include/net/netlabel.h
-+++ b/include/net/netlabel.h
-@@ -225,6 +225,7 @@ struct netlbl_lsm_secattr {
-  * @doi_free: free a CALIPSO DOI
-  * @doi_getdef: returns a reference to a DOI
-  * @doi_putdef: releases a reference of a DOI
-+ * @doi_walk: enumerate the DOI list
-  *
-  * Description:
-  * This structure is filled out by the CALIPSO engine and passed
-@@ -238,6 +239,9 @@ struct netlbl_calipso_ops {
- 	void (*doi_free)(struct calipso_doi *doi_def);
- 	struct calipso_doi *(*doi_getdef)(u32 doi);
- 	void (*doi_putdef)(struct calipso_doi *doi_def);
-+	int (*doi_walk)(u32 *skip_cnt,
-+			int (*callback)(struct calipso_doi *doi_def, void *arg),
-+			void *cb_arg);
+diff --git a/net/netlabel/netlabel_domainhash.c b/net/netlabel/netlabel_domainhash.c
+index 3b3b304..f1dee0d 100644
+--- a/net/netlabel/netlabel_domainhash.c
++++ b/net/netlabel/netlabel_domainhash.c
+@@ -37,10 +37,12 @@
+ #include <linux/slab.h>
+ #include <net/netlabel.h>
+ #include <net/cipso_ipv4.h>
++#include <net/calipso.h>
+ #include <asm/bug.h>
+ 
+ #include "netlabel_mgmt.h"
+ #include "netlabel_addrlist.h"
++#include "netlabel_calipso.h"
+ #include "netlabel_domainhash.h"
+ #include "netlabel_user.h"
+ 
+@@ -223,6 +225,7 @@ static void netlbl_domhsh_audit_add(struct netlbl_dom_map *entry,
+ {
+ 	struct audit_buffer *audit_buf;
+ 	struct cipso_v4_doi *cipsov4 = NULL;
++	struct calipso_doi *calipso = NULL;
+ 	u32 type;
+ 
+ 	audit_buf = netlbl_audit_start_common(AUDIT_MAC_MAP_ADD, audit_info);
+@@ -241,12 +244,14 @@ static void netlbl_domhsh_audit_add(struct netlbl_dom_map *entry,
+ 			struct netlbl_domaddr6_map *map6;
+ 			map6 = netlbl_domhsh_addr6_entry(addr6);
+ 			type = map6->def.type;
++			calipso = map6->def.calipso;
+ 			netlbl_af6list_audit_addr(audit_buf, 0, NULL,
+ 						  &addr6->addr, &addr6->mask);
+ #endif /* IPv6 */
+ 		} else {
+ 			type = entry->def.type;
+ 			cipsov4 = entry->def.cipso;
++			calipso = entry->def.calipso;
+ 		}
+ 		switch (type) {
+ 		case NETLBL_NLTYPE_UNLABELED:
+@@ -258,6 +263,12 @@ static void netlbl_domhsh_audit_add(struct netlbl_dom_map *entry,
+ 					 " nlbl_protocol=cipsov4 cipso_doi=%u",
+ 					 cipsov4->doi);
+ 			break;
++		case NETLBL_NLTYPE_CALIPSO:
++			BUG_ON(calipso == NULL);
++			audit_log_format(audit_buf,
++					 " nlbl_protocol=calipso calipso_doi=%u",
++					 calipso->doi);
++			break;
+ 		}
+ 		audit_log_format(audit_buf, " res=%u", result == 0 ? 1 : 0);
+ 		audit_log_end(audit_buf);
+@@ -291,7 +302,8 @@ static int netlbl_domhsh_validate(const struct netlbl_dom_map *entry)
+ 
+ 	switch (entry->def.type) {
+ 	case NETLBL_NLTYPE_UNLABELED:
+-		if (entry->def.cipso != NULL || entry->def.addrsel != NULL)
++		if (entry->def.cipso != NULL || entry->def.calipso != NULL ||
++		    entry->def.addrsel != NULL)
+ 			return -EINVAL;
+ 		break;
+ 	case NETLBL_NLTYPE_CIPSOV4:
+@@ -299,6 +311,11 @@ static int netlbl_domhsh_validate(const struct netlbl_dom_map *entry)
+ 		    entry->def.cipso == NULL)
+ 			return -EINVAL;
+ 		break;
++	case NETLBL_NLTYPE_CALIPSO:
++		if (entry->family != AF_INET6 ||
++		    entry->def.calipso == NULL)
++			return -EINVAL;
++		break;
+ 	case NETLBL_NLTYPE_ADDRSELECT:
+ 		netlbl_af4list_foreach(iter4, &entry->def.addrsel->list4) {
+ 			map4 = netlbl_domhsh_addr4_entry(iter4);
+@@ -320,6 +337,12 @@ static int netlbl_domhsh_validate(const struct netlbl_dom_map *entry)
+ 			map6 = netlbl_domhsh_addr6_entry(iter6);
+ 			switch (map6->def.type) {
+ 			case NETLBL_NLTYPE_UNLABELED:
++				if (map6->def.calipso != NULL)
++					return -EINVAL;
++				break;
++			case NETLBL_NLTYPE_CALIPSO:
++				if (map6->def.calipso == NULL)
++					return -EINVAL;
+ 				break;
+ 			default:
+ 				return -EINVAL;
+@@ -599,6 +622,10 @@ int netlbl_domhsh_remove_entry(struct netlbl_dom_map *entry,
+ 	if (ret_val == 0) {
+ 		struct netlbl_af4list *iter4;
+ 		struct netlbl_domaddr4_map *map4;
++#if IS_ENABLED(CONFIG_IPV6)
++		struct netlbl_af6list *iter6;
++		struct netlbl_domaddr6_map *map6;
++#endif /* IPv6 */
+ 
+ 		switch (entry->def.type) {
+ 		case NETLBL_NLTYPE_ADDRSELECT:
+@@ -607,12 +634,22 @@ int netlbl_domhsh_remove_entry(struct netlbl_dom_map *entry,
+ 				map4 = netlbl_domhsh_addr4_entry(iter4);
+ 				cipso_v4_doi_putdef(map4->def.cipso);
+ 			}
+-			/* no need to check the IPv6 list since we currently
+-			 * support only unlabeled protocols for IPv6 */
++#if IS_ENABLED(CONFIG_IPV6)
++			netlbl_af6list_foreach_rcu(iter6,
++					     &entry->def.addrsel->list6) {
++				map6 = netlbl_domhsh_addr6_entry(iter6);
++				calipso_doi_putdef(map6->def.calipso);
++			}
++#endif /* IPv6 */
+ 			break;
+ 		case NETLBL_NLTYPE_CIPSOV4:
+ 			cipso_v4_doi_putdef(entry->def.cipso);
+ 			break;
++#if IS_ENABLED(CONFIG_IPV6)
++		case NETLBL_NLTYPE_CALIPSO:
++			calipso_doi_putdef(entry->def.calipso);
++			break;
++#endif /* IPv6 */
+ 		}
+ 		call_rcu(&entry->rcu, netlbl_domhsh_free_entry);
+ 	}
+diff --git a/net/netlabel/netlabel_domainhash.h b/net/netlabel/netlabel_domainhash.h
+index 56e45ae..b7ddb6e 100644
+--- a/net/netlabel/netlabel_domainhash.h
++++ b/net/netlabel/netlabel_domainhash.h
+@@ -51,6 +51,7 @@ struct netlbl_dommap_def {
+ 	union {
+ 		struct netlbl_domaddr_map *addrsel;
+ 		struct cipso_v4_doi *cipso;
++		struct calipso_doi *calipso;
+ 	};
+ };
+ #define netlbl_domhsh_addr4_entry(iter) \
+diff --git a/net/netlabel/netlabel_mgmt.c b/net/netlabel/netlabel_mgmt.c
+index 975b1e9..f85d0e0 100644
+--- a/net/netlabel/netlabel_mgmt.c
++++ b/net/netlabel/netlabel_mgmt.c
+@@ -41,8 +41,10 @@
+ #include <net/ipv6.h>
+ #include <net/netlabel.h>
+ #include <net/cipso_ipv4.h>
++#include <net/calipso.h>
+ #include <linux/atomic.h>
+ 
++#include "netlabel_calipso.h"
+ #include "netlabel_domainhash.h"
+ #include "netlabel_user.h"
+ #include "netlabel_mgmt.h"
+@@ -73,6 +75,7 @@ static const struct nla_policy netlbl_mgmt_genl_policy[NLBL_MGMT_A_MAX + 1] = {
+ 	[NLBL_MGMT_A_VERSION] = { .type = NLA_U32 },
+ 	[NLBL_MGMT_A_CV4DOI] = { .type = NLA_U32 },
+ 	[NLBL_MGMT_A_FAMILY] = { .type = NLA_U16 },
++	[NLBL_MGMT_A_CLPDOI] = { .type = NLA_U32 },
  };
  
  /*
-diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
-index 128cc69..fa17c7a 100644
---- a/net/ipv6/calipso.c
-+++ b/net/ipv6/calipso.c
-@@ -210,11 +210,52 @@ static void calipso_doi_putdef(struct calipso_doi *doi_def)
- 	call_rcu(&doi_def->rcu, calipso_doi_free_rcu);
- }
+@@ -96,6 +99,9 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 	int ret_val = -EINVAL;
+ 	struct netlbl_domaddr_map *addrmap = NULL;
+ 	struct cipso_v4_doi *cipsov4 = NULL;
++#if IS_ENABLED(CONFIG_IPV6)
++	struct calipso_doi *calipso = NULL;
++#endif
+ 	u32 tmp_val;
+ 	struct netlbl_dom_map *entry = kzalloc(sizeof(*entry), GFP_KERNEL);
  
-+/**
-+ * calipso_doi_walk - Iterate through the DOI definitions
-+ * @skip_cnt: skip past this number of DOI definitions, updated
-+ * @callback: callback for each DOI definition
-+ * @cb_arg: argument for the callback function
-+ *
-+ * Description:
-+ * Iterate over the DOI definition list, skipping the first @skip_cnt entries.
-+ * For each entry call @callback, if @callback returns a negative value stop
-+ * 'walking' through the list and return.  Updates the value in @skip_cnt upon
-+ * return.  Returns zero on success, negative values on failure.
-+ *
-+ */
-+static int calipso_doi_walk(u32 *skip_cnt,
-+			    int (*callback)(struct calipso_doi *doi_def,
-+					    void *arg),
-+			    void *cb_arg)
-+{
-+	int ret_val = -ENOENT;
-+	u32 doi_cnt = 0;
-+	struct calipso_doi *iter_doi;
+@@ -137,6 +143,19 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 		entry->family = AF_INET;
+ 		entry->def.cipso = cipsov4;
+ 		break;
++#if IS_ENABLED(CONFIG_IPV6)
++	case NETLBL_NLTYPE_CALIPSO:
++		if (!info->attrs[NLBL_MGMT_A_CLPDOI])
++			goto add_free_domain;
 +
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(iter_doi, &calipso_doi_list, list)
-+		if (atomic_read(&iter_doi->refcount) > 0) {
-+			if (doi_cnt++ < *skip_cnt)
-+				continue;
-+			ret_val = callback(iter_doi, cb_arg);
-+			if (ret_val < 0) {
-+				doi_cnt--;
-+				goto doi_walk_return;
++		tmp_val = nla_get_u32(info->attrs[NLBL_MGMT_A_CLPDOI]);
++		calipso = calipso_doi_getdef(tmp_val);
++		if (calipso == NULL)
++			goto add_free_domain;
++		entry->family = AF_INET6;
++		entry->def.calipso = calipso;
++		break;
++#endif /* IPv6 */
+ 	default:
+ 		goto add_free_domain;
+ 	}
+@@ -232,6 +251,8 @@ static int netlbl_mgmt_add_common(struct genl_info *info,
+ 		map->list.mask = *mask;
+ 		map->list.valid = 1;
+ 		map->def.type = entry->def.type;
++		if (calipso)
++			map->def.calipso = calipso;
+ 
+ 		ret_val = netlbl_af6list_add(&map->list, &addrmap->list6);
+ 		if (ret_val != 0) {
+@@ -255,6 +276,9 @@ add_free_addrmap:
+ 	kfree(addrmap);
+ add_doi_put_def:
+ 	cipso_v4_doi_putdef(cipsov4);
++#if IS_ENABLED(CONFIG_IPV6)
++	calipso_doi_putdef(calipso);
++#endif
+ add_free_domain:
+ 	kfree(entry->domain);
+ add_free_entry:
+@@ -357,6 +381,15 @@ static int netlbl_mgmt_listentry(struct sk_buff *skb,
+ 			if (ret_val != 0)
+ 				return ret_val;
+ 
++			switch (map6->def.type) {
++			case NETLBL_NLTYPE_CALIPSO:
++				ret_val = nla_put_u32(skb, NLBL_MGMT_A_CLPDOI,
++						      map6->def.calipso->doi);
++				if (ret_val != 0)
++					return ret_val;
++				break;
 +			}
-+		}
 +
-+doi_walk_return:
-+	rcu_read_unlock();
-+	*skip_cnt = doi_cnt;
-+	return ret_val;
-+}
-+
- static const struct netlbl_calipso_ops ops = {
- 	.doi_add          = calipso_doi_add,
- 	.doi_free         = calipso_doi_free,
- 	.doi_getdef       = calipso_doi_getdef,
- 	.doi_putdef       = calipso_doi_putdef,
-+	.doi_walk         = calipso_doi_walk,
- };
+ 			nla_nest_end(skb, nla_b);
+ 		}
+ #endif /* IPv6 */
+@@ -364,15 +397,25 @@ static int netlbl_mgmt_listentry(struct sk_buff *skb,
+ 		nla_nest_end(skb, nla_a);
+ 		break;
+ 	case NETLBL_NLTYPE_UNLABELED:
+-		ret_val = nla_put_u32(skb,NLBL_MGMT_A_PROTOCOL,entry->def.type);
++		ret_val = nla_put_u32(skb, NLBL_MGMT_A_PROTOCOL,
++				      entry->def.type);
+ 		break;
+ 	case NETLBL_NLTYPE_CIPSOV4:
+-		ret_val = nla_put_u32(skb,NLBL_MGMT_A_PROTOCOL,entry->def.type);
++		ret_val = nla_put_u32(skb, NLBL_MGMT_A_PROTOCOL,
++				      entry->def.type);
+ 		if (ret_val != 0)
+ 			return ret_val;
+ 		ret_val = nla_put_u32(skb, NLBL_MGMT_A_CV4DOI,
+ 				      entry->def.cipso->doi);
+ 		break;
++	case NETLBL_NLTYPE_CALIPSO:
++		ret_val = nla_put_u32(skb, NLBL_MGMT_A_PROTOCOL,
++				      entry->def.type);
++		if (ret_val != 0)
++			return ret_val;
++		ret_val = nla_put_u32(skb, NLBL_MGMT_A_CLPDOI,
++				      entry->def.calipso->doi);
++		break;
+ 	}
  
- /**
-diff --git a/net/netlabel/netlabel_calipso.c b/net/netlabel/netlabel_calipso.c
-index 6161170..2141145 100644
---- a/net/netlabel/netlabel_calipso.c
-+++ b/net/netlabel/netlabel_calipso.c
-@@ -46,6 +46,13 @@
- #include "netlabel_mgmt.h"
- #include "netlabel_domainhash.h"
- 
-+/* Argument struct for calipso_doi_walk() */
-+struct netlbl_calipso_doiwalk_arg {
-+	struct netlink_callback *nl_cb;
-+	struct sk_buff *skb;
-+	u32 seq;
-+};
-+
- /* NetLabel Generic NETLINK CALIPSO family */
- static struct genl_family netlbl_calipso_gnl_family = {
- 	.id = GENL_ID_GENERATE,
-@@ -183,6 +190,73 @@ list_failure:
  	return ret_val;
- }
- 
-+/**
-+ * netlbl_calipso_listall_cb - calipso_doi_walk() callback for LISTALL
-+ * @doi_def: the CALIPSO DOI definition
-+ * @arg: the netlbl_calipso_doiwalk_arg structure
-+ *
-+ * Description:
-+ * This function is designed to be used as a callback to the
-+ * calipso_doi_walk() function for use in generating a response for a LISTALL
-+ * message.  Returns the size of the message on success, negative values on
-+ * failure.
-+ *
-+ */
-+static int netlbl_calipso_listall_cb(struct calipso_doi *doi_def, void *arg)
-+{
-+	int ret_val = -ENOMEM;
-+	struct netlbl_calipso_doiwalk_arg *cb_arg = arg;
-+	void *data;
-+
-+	data = genlmsg_put(cb_arg->skb, NETLINK_CB(cb_arg->nl_cb->skb).portid,
-+			   cb_arg->seq, &netlbl_calipso_gnl_family,
-+			   NLM_F_MULTI, NLBL_CALIPSO_C_LISTALL);
-+	if (!data)
-+		goto listall_cb_failure;
-+
-+	ret_val = nla_put_u32(cb_arg->skb, NLBL_CALIPSO_A_DOI, doi_def->doi);
-+	if (ret_val != 0)
-+		goto listall_cb_failure;
-+	ret_val = nla_put_u32(cb_arg->skb,
-+			      NLBL_CALIPSO_A_MTYPE,
-+			      doi_def->type);
-+	if (ret_val != 0)
-+		goto listall_cb_failure;
-+
-+	genlmsg_end(cb_arg->skb, data);
-+	return 0;
-+
-+listall_cb_failure:
-+	genlmsg_cancel(cb_arg->skb, data);
-+	return ret_val;
-+}
-+
-+/**
-+ * netlbl_calipso_listall - Handle a LISTALL message
-+ * @skb: the NETLINK buffer
-+ * @cb: the NETLINK callback
-+ *
-+ * Description:
-+ * Process a user generated LISTALL message and respond accordingly.  Returns
-+ * zero on success and negative values on error.
-+ *
-+ */
-+static int netlbl_calipso_listall(struct sk_buff *skb,
-+				  struct netlink_callback *cb)
-+{
-+	struct netlbl_calipso_doiwalk_arg cb_arg;
-+	u32 doi_skip = cb->args[0];
-+
-+	cb_arg.nl_cb = cb;
-+	cb_arg.skb = skb;
-+	cb_arg.seq = cb->nlh->nlmsg_seq;
-+
-+	calipso_doi_walk(&doi_skip, netlbl_calipso_listall_cb, &cb_arg);
-+
-+	cb->args[0] = doi_skip;
-+	return skb->len;
-+}
-+
- /* NetLabel Generic NETLINK Command Definitions
-  */
- 
-@@ -201,6 +275,13 @@ static const struct genl_ops netlbl_calipso_ops[] = {
- 	.doit = netlbl_calipso_list,
- 	.dumpit = NULL,
- 	},
-+	{
-+	.cmd = NLBL_CALIPSO_C_LISTALL,
-+	.flags = 0,
-+	.policy = calipso_genl_policy,
-+	.doit = NULL,
-+	.dumpit = netlbl_calipso_listall,
-+	},
+diff --git a/net/netlabel/netlabel_mgmt.h b/net/netlabel/netlabel_mgmt.h
+index f368dc0..ea01e42 100644
+--- a/net/netlabel/netlabel_mgmt.h
++++ b/net/netlabel/netlabel_mgmt.h
+@@ -223,6 +223,9 @@ enum {
+ 	NLBL_MGMT_A_FAMILY,
+ 	/* (NLA_U16)
+ 	 * The address family */
++	NLBL_MGMT_A_CLPDOI,
++	/* (NLA_U32)
++	 * the CALIPSO DOI value */
+ 	__NLBL_MGMT_A_MAX,
  };
- 
- /* NetLabel Generic NETLINK Protocol Functions
-@@ -316,3 +397,28 @@ void calipso_doi_putdef(struct calipso_doi *doi_def)
- 	if (ops)
- 		ops->doi_putdef(doi_def);
- }
-+
-+/**
-+ * calipso_doi_walk - Iterate through the DOI definitions
-+ * @skip_cnt: skip past this number of DOI definitions, updated
-+ * @callback: callback for each DOI definition
-+ * @cb_arg: argument for the callback function
-+ *
-+ * Description:
-+ * Iterate over the DOI definition list, skipping the first @skip_cnt entries.
-+ * For each entry call @callback, if @callback returns a negative value stop
-+ * 'walking' through the list and return.  Updates the value in @skip_cnt upon
-+ * return.  Returns zero on success, negative values on failure.
-+ *
-+ */
-+int calipso_doi_walk(u32 *skip_cnt,
-+		     int (*callback)(struct calipso_doi *doi_def, void *arg),
-+		     void *cb_arg)
-+{
-+	int ret_val = -ENOMSG;
-+	const struct netlbl_calipso_ops *ops = netlbl_calipso_ops_get();
-+
-+	if (ops)
-+		ret_val = ops->doi_walk(skip_cnt, callback, cb_arg);
-+	return ret_val;
-+}
-diff --git a/net/netlabel/netlabel_calipso.h b/net/netlabel/netlabel_calipso.h
-index 6da737a..1f24174 100644
---- a/net/netlabel/netlabel_calipso.h
-+++ b/net/netlabel/netlabel_calipso.h
-@@ -63,6 +63,17 @@
-  *
-  *   If using CALIPSO_MAP_PASS no additional attributes are required.
-  *
-+ * o LISTALL:
-+ *   This message is sent by an application to list the valid DOIs on the
-+ *   system.  When sent by an application there is no payload and the
-+ *   NLM_F_DUMP flag should be set.  The kernel should respond with a series of
-+ *   the following messages.
-+ *
-+ *   Required attributes:
-+ *
-+ *    NLBL_CALIPSO_A_DOI
-+ *    NLBL_CALIPSO_A_MTYPE
-+ *
-  */
- 
- /* NetLabel CALIPSO commands */
-@@ -105,5 +116,8 @@ int calipso_doi_add(struct calipso_doi *doi_def,
- void calipso_doi_free(struct calipso_doi *doi_def);
- struct calipso_doi *calipso_doi_getdef(u32 doi);
- void calipso_doi_putdef(struct calipso_doi *doi_def);
-+int calipso_doi_walk(u32 *skip_cnt,
-+		     int (*callback)(struct calipso_doi *doi_def, void *arg),
-+		     void *cb_arg);
- 
- #endif
+ #define NLBL_MGMT_A_MAX (__NLBL_MGMT_A_MAX - 1)
 -- 
 2.7.4
