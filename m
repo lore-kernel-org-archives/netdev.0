@@ -1,37 +1,42 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [iproute PATCH 1/3] Use C99 style initializers everywhere
-Date: Sun, 19 Jun 2016 21:39:41 -0600
-Message-ID: <0e6807da-0046-d2b9-a0e1-7f0c88a2a1a3@cumulusnetworks.com>
-References: <576420B0.3050203@iogearbox.net>
- <20160618000221.GA10428@orbyte.nwl.cc> <20160617172126.1d26262e@xeon-e3>
+From: Andi Kleen <andi@firstfloor.org>
+Subject: Re: [PATCH] net:ppp: replace too strict capability restriction on opening  /dev/ppp
+Date: Sun, 19 Jun 2016 22:02:02 -0700
+Message-ID: <87wplkihbp.fsf@tassilo.jf.intel.com>
+References: <44A9BDB8-754B-4402-BD09-6381229C07C5@tuna.tsinghua.edu.cn>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	David Ahern <dsa@cumulusnetworks.com>, netdev@vger.kernel.org,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"julien.floret@6wind.com" <julien.floret@6wind.com>
-To: Stephen Hemminger <shemming@brocade.com>, Phil Sutter <phil@nwl.cc>
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Richard Weinberger <richard.weinberger@gmail.com>,
+	Guillaume Nault <g.nault@alphalink.fr>,
+	Miao Wang <shankerwangmiao@gmail.com>
+To: Shanker Wang <shanker@tuna.tsinghua.edu.cn>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:33429 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751450AbcFTDjo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 23:39:44 -0400
-Received: by mail-pa0-f50.google.com with SMTP id b13so46352637pat.0
-        for <netdev@vger.kernel.org>; Sun, 19 Jun 2016 20:39:43 -0700 (PDT)
-In-Reply-To: <20160617172126.1d26262e@xeon-e3>
+Received: from mga02.intel.com ([134.134.136.20]:38220 "EHLO mga02.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751701AbcFTFCG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jun 2016 01:02:06 -0400
+In-Reply-To: <44A9BDB8-754B-4402-BD09-6381229C07C5@tuna.tsinghua.edu.cn>
+	(Shanker Wang's message of "Sun, 19 Jun 2016 01:38:55 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/17/16 6:21 PM, Stephen Hemminger wrote:
-> I want to have the least user complaints possible.
-> Since the main reason people build new iproute2 utilities is to work with features
-> of newer kernels. It makes sense to keep the requirements the same. Not sure if kernel
-> still builds with gcc-3.2, has anyone tried.
+Shanker Wang <shanker@tuna.tsinghua.edu.cn> writes:
 
-That seems excessive.
+> This patch removes the check for CAP_NET_ADMIN in the initial namespace
+> when opening /dev/open. Instead, CAP_NET_ADMIN is checked in the user
+> namespace the net namespace was created so that /dev/ppp cat get opened
+> in a unprivileged container.
 
-Looking at the ftp sites RHEL4 started with gcc-3.4 in May 2005 -- 11 
-years ago.
+Seems dangerous. From a quick look at the PPP ioctl there is no limit
+how many PPP devices this can create. So a container having access to
+this would be able to fill all kernel memory. Probably needs more
+auditing and hardening first.
 
-RHEL5 uses gcc-4.1 and it is now 9 years old.
+In general there seems to be a lot of attack surface for root
+in PPP.
+
+-Andi
+
+-- 
+ak@linux.intel.com -- Speaking for myself only
