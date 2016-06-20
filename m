@@ -1,64 +1,37 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [net-next PATCH v3 00/17] Future-proof tunnel offload handlers
-Date: Mon, 20 Jun 2016 14:36:49 -0700
-Message-ID: <35446ac3-94e1-1949-396e-26764df9e6f6@stressinduktion.org>
-References: <20160616191851.20872.67154.stgit@localhost.localdomain>
- <20160617.202641.1821023739498595024.davem@davemloft.net>
- <CALx6S34Y3Qq6nMHuMcC2LC5duLBO3KVN3+A+0qmPrNvFfY7gJg@mail.gmail.com>
- <34f19f9c-221b-78f0-3989-9384e0d22e54@redhat.com>
- <CALx6S35C=QnD3WtK52Wc7FLXt77e80OWG1-5qjS5nMVm-nwkCA@mail.gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] netem: fix a use after free
+Date: Mon, 20 Jun 2016 14:59:40 -0700
+Message-ID: <1466459980.6850.20.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Jesse Gross <jesse@kernel.org>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	michael.chan@broadcom.com, Dept-GELinuxNICDev@qlogic.com
-To: Tom Herbert <tom@herbertland.com>,
-	Hannes Frederic Sowa <hannes@redhat.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	WANG Cong <xiyou.wangcong@gmail.com>,
+	Stephen Hemminger <stephen@networkplumber.org>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:36219 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751646AbcFTVtO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 17:49:14 -0400
-In-Reply-To: <CALx6S35C=QnD3WtK52Wc7FLXt77e80OWG1-5qjS5nMVm-nwkCA@mail.gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33022 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754578AbcFTV7s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 17:59:48 -0400
+Received: by mail-pf0-f193.google.com with SMTP id c74so12413626pfb.0
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 14:59:48 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 20.06.2016 12:27, Tom Herbert wrote:
->> Do we?
->>
->> We look up the socket in a proper way, inclusive the namespace belonging
->> to the device we received the packet on. That said, I don't see a
->> problem with that right now. But maybe I miss something?
->>
-> When we so the socket lookup in udp_rcv this is done after IP layer
-> and packet has been determined to be loacally addressed. The packet is
-> for the host, and if a UDP socket is matched, even if just based on
-> destination port, the socket is matched and received functions are
-> called. There is no ambiguity.
-> 
-> When the lookup is performed in GRO this is before we processed IP and
-> determined that the packet is local. So a packet with any address
-> (local or not) will match a listener socket with the same UDP port.
-> The GRO can be performed an packet is subsequently forwarded maybe
-> having been modified. If this packet turns out to not be the protocol
-> we thought it was (e.g. VXLAN) then we have now potentially silently
-> corrupted someone else's packets. Grant it, there's probably a lot of
-> things that are required to make corruption happen, but it does allow
-> the possibly of systematic data corruption and we haven't discounted
-> this to become a security vulnerability.
+From: Eric Dumazet <edumazet@google.com>
 
-Agreed.
+If the packet was dropped by lower qdisc, then we must not
+access it later.
 
-Maybe we must switch to always use connected sockets for unicast+UDP+GRO?
+Save qdisc_pkt_len(skb) in a temp variable.
 
-Bye,
-Hannes
+Fixes: 2ccccf5fb43f ("net_sched: update hierarchical backlog too")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: WANG Cong <xiyou.wangcong@gmail.com>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Stephen Hemminger <stephen@networkplumber.org>
+---
+ net/sched/sch_netem.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
