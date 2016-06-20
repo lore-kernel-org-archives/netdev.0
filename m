@@ -1,281 +1,527 @@
 From: Huw Davies <huw@codeweavers.com>
-Subject: [PATCH v4 15/19] calipso: Allow the lsm to label the skbuff directly.
-Date: Mon, 20 Jun 2016 14:36:55 +0100
-Message-ID: <1466429819-12707-16-git-send-email-huw@codeweavers.com>
+Subject: [PATCH v4 10/19] calipso: Set the calipso socket label to match the secattr.
+Date: Mon, 20 Jun 2016 14:36:50 +0100
+Message-ID: <1466429819-12707-11-git-send-email-huw@codeweavers.com>
 Cc: Paul Moore <pmoore@redhat.com>
 To: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
 	selinux@tycho.nsa.gov
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.codeweavers.com ([216.251.189.131]:49037 "EHLO
-	mail.codeweavers.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932617AbcFTNyR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 09:54:17 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-security-module-owner@vger.kernel.org>
+Sender: owner-linux-security-module@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-In some cases, the lsm needs to add the label to the skbuff directly.
-A NF_INET_LOCAL_OUT IPv6 hook is added to selinux to match the IPv4
-behaviour.  This allows selinux to label the skbuffs that it requires.
+CALIPSO is a hop-by-hop IPv6 option.  A lot of this patch is based on
+the equivalent CISPO code.  The main difference is due to manipulating
+the options in the hop-by-hop header.
 
 Signed-off-by: Huw Davies <huw@codeweavers.com>
 ---
- include/net/netlabel.h          |  11 +++
- net/ipv6/calipso.c              | 165 ++++++++++++++++++++++++++++++++++++++++
- net/netlabel/netlabel_calipso.c |  82 ++++++++++++++++++++
- net/netlabel/netlabel_calipso.h |   7 ++
- net/netlabel/netlabel_kapi.c    |  32 +++++++-
- security/selinux/hooks.c        |  15 ++++
- 6 files changed, 308 insertions(+), 4 deletions(-)
+ include/net/ipv6.h              |   2 +
+ include/net/netlabel.h          |   9 +
+ include/uapi/linux/in6.h        |   1 +
+ net/ipv6/calipso.c              | 595 ++++++++++++++++++++++++++++++++++++++++
+ net/ipv6/ipv6_sockglue.c        |   1 -
+ net/netlabel/Kconfig            |   1 +
+ net/netlabel/netlabel_calipso.c |  64 +++++
+ net/netlabel/netlabel_calipso.h |   5 +
+ net/netlabel/netlabel_kapi.c    |  64 ++++-
+ security/selinux/netlabel.c     |   2 +-
+ 10 files changed, 733 insertions(+), 11 deletions(-)
 
+diff --git a/include/net/ipv6.h b/include/net/ipv6.h
+index 917036f..22c7a37 100644
+--- a/include/net/ipv6.h
++++ b/include/net/ipv6.h
+@@ -319,6 +319,8 @@ struct ipv6_txoptions *ipv6_fixup_options(struct ipv6_txoptions *opt_space,
+ 
+ bool ipv6_opt_accepted(const struct sock *sk, const struct sk_buff *skb,
+ 		       const struct inet6_skb_parm *opt);
++struct ipv6_txoptions *ipv6_update_options(struct sock *sk,
++					   struct ipv6_txoptions *opt);
+ 
+ static inline bool ipv6_accept_ra(struct inet6_dev *idev)
+ {
 diff --git a/include/net/netlabel.h b/include/net/netlabel.h
-index a2408c3..e0e4ce8 100644
+index 9fc2cab..918a604 100644
 --- a/include/net/netlabel.h
 +++ b/include/net/netlabel.h
-@@ -231,6 +231,10 @@ struct netlbl_lsm_secattr {
-  * @sock_delattr: remove the socket's attr
-  * @req_setattr: set the req socket's attr
-  * @req_delattr: remove the req socket's attr
-+ * @opt_getattr: retrieve attr from memory block
-+ * @skbuff_optptr: find option in packet
-+ * @skbuff_setattr: set the skbuff's attr
-+ * @skbuff_delattr: remove the skbuff's attr
+@@ -226,6 +226,9 @@ struct netlbl_lsm_secattr {
+  * @doi_getdef: returns a reference to a DOI
+  * @doi_putdef: releases a reference of a DOI
+  * @doi_walk: enumerate the DOI list
++ * @sock_getattr: retrieve the socket's attr
++ * @sock_setattr: set the socket's attr
++ * @sock_delattr: remove the socket's attr
   *
   * Description:
   * This structure is filled out by the CALIPSO engine and passed
-@@ -258,6 +262,13 @@ struct netlbl_calipso_ops {
- 			   const struct calipso_doi *doi_def,
- 			   const struct netlbl_lsm_secattr *secattr);
- 	void (*req_delattr)(struct request_sock *req);
-+	int (*opt_getattr)(const unsigned char *calipso,
-+			   struct netlbl_lsm_secattr *secattr);
-+	unsigned char *(*skbuff_optptr)(const struct sk_buff *skb);
-+	int (*skbuff_setattr)(struct sk_buff *skb,
-+			      const struct calipso_doi *doi_def,
-+			      const struct netlbl_lsm_secattr *secattr);
-+	int (*skbuff_delattr)(struct sk_buff *skb);
+@@ -243,6 +246,12 @@ struct netlbl_calipso_ops {
+ 	int (*doi_walk)(u32 *skip_cnt,
+ 			int (*callback)(struct calipso_doi *doi_def, void *arg),
+ 			void *cb_arg);
++	int (*sock_getattr)(struct sock *sk,
++			    struct netlbl_lsm_secattr *secattr);
++	int (*sock_setattr)(struct sock *sk,
++			    const struct calipso_doi *doi_def,
++			    const struct netlbl_lsm_secattr *secattr);
++	void (*sock_delattr)(struct sock *sk);
  };
  
  /*
+diff --git a/include/uapi/linux/in6.h b/include/uapi/linux/in6.h
+index 318a482..b39ea4f 100644
+--- a/include/uapi/linux/in6.h
++++ b/include/uapi/linux/in6.h
+@@ -143,6 +143,7 @@ struct in6_flowlabel_req {
+ #define IPV6_TLV_PAD1		0
+ #define IPV6_TLV_PADN		1
+ #define IPV6_TLV_ROUTERALERT	5
++#define IPV6_TLV_CALIPSO	7	/* RFC 5570 */
+ #define IPV6_TLV_JUMBO		194
+ #define IPV6_TLV_HAO		201	/* home address option */
+ 
 diff --git a/net/ipv6/calipso.c b/net/ipv6/calipso.c
-index 067a564..fa371a8 100644
+index d7df7a4..959db52 100644
 --- a/net/ipv6/calipso.c
 +++ b/net/ipv6/calipso.c
-@@ -62,6 +62,11 @@
-  */
- #define CALIPSO_OPT_LEN_MAX_WITH_PAD (3 + CALIPSO_OPT_LEN_MAX + 7)
- 
-+ /* Maximium size of u32 aligned buffer required to hold calipso
-+  * option.  Max of 3 initial pad bytes starting from buffer + 3.
-+  * i.e. the worst case is when the previous tlv finishes on 4n + 3.
-+  */
-+#define CALIPSO_MAX_BUFFER (6 + CALIPSO_OPT_LEN_MAX)
+@@ -44,6 +44,24 @@
+ #include <linux/atomic.h>
+ #include <linux/bug.h>
+ #include <asm/unaligned.h>
++#include <linux/crc-ccitt.h>
++
++/* Maximium size of the calipso option including
++ * the two-byte TLV header.
++ */
++#define CALIPSO_OPT_LEN_MAX (2 + 252)
++
++/* Size of the minimum calipso option including
++ * the two-byte TLV header.
++ */
++#define CALIPSO_HDR_LEN (2 + 8)
++
++/* Maximium size of the calipso option including
++ * the two-byte TLV header and upto 3 bytes of
++ * leading pad and 7 bytes of trailing pad.
++ */
++#define CALIPSO_OPT_LEN_MAX_WITH_PAD (3 + CALIPSO_OPT_LEN_MAX + 7)
++
  
  /* List of available DOI definitions */
  static DEFINE_SPINLOCK(calipso_doi_list_lock);
-@@ -973,6 +978,162 @@ static void calipso_req_delattr(struct request_sock *req)
- 	kfree(new);
+@@ -297,6 +315,580 @@ doi_walk_return:
+ 	return ret_val;
  }
  
-+/* skbuff functions.
-+ */
-+
 +/**
-+ * calipso_skbuff_optptr - Find the CALIPSO option in the packet
-+ * @skb: the packet
++ * calipso_map_cat_hton - Perform a category mapping from host to network
++ * @doi_def: the DOI definition
++ * @secattr: the security attributes
++ * @net_cat: the zero'd out category bitmap in network/CALIPSO format
++ * @net_cat_len: the length of the CALIPSO bitmap in bytes
 + *
 + * Description:
-+ * Parse the packet's IP header looking for a CALIPSO option.  Returns a pointer
-+ * to the start of the CALIPSO option on success, NULL if one if not found.
++ * Perform a label mapping to translate a local MLS category bitmap to the
++ * correct CALIPSO bitmap using the given DOI definition.  Returns the minimum
++ * size in bytes of the network bitmap on success, negative values otherwise.
 + *
 + */
-+static unsigned char *calipso_skbuff_optptr(const struct sk_buff *skb)
++static int calipso_map_cat_hton(const struct calipso_doi *doi_def,
++				const struct netlbl_lsm_secattr *secattr,
++				unsigned char *net_cat,
++				u32 net_cat_len)
 +{
-+	const struct ipv6hdr *ip6_hdr = ipv6_hdr(skb);
-+	int offset;
++	int spot = -1;
++	u32 net_spot_max = 0;
++	u32 net_clen_bits = net_cat_len * 8;
 +
-+	if (ip6_hdr->nexthdr != NEXTHDR_HOP)
-+		return NULL;
++	for (;;) {
++		spot = netlbl_catmap_walk(secattr->attr.mls.cat,
++					  spot + 1);
++		if (spot < 0)
++			break;
++		if (spot >= net_clen_bits)
++			return -ENOSPC;
++		netlbl_bitmap_setbit(net_cat, spot, 1);
 +
-+	offset = ipv6_find_tlv(skb, sizeof(*ip6_hdr), IPV6_TLV_CALIPSO);
-+	if (offset >= 0)
-+		return (unsigned char *)ip6_hdr + offset;
++		if (spot > net_spot_max)
++			net_spot_max = spot;
++	}
 +
-+	return NULL;
++	return (net_spot_max / 32 + 1) * 4;
 +}
 +
 +/**
-+ * calipso_skbuff_setattr - Set the CALIPSO option on a packet
-+ * @skb: the packet
++ * calipso_map_cat_ntoh - Perform a category mapping from network to host
++ * @doi_def: the DOI definition
++ * @net_cat: the category bitmap in network/CALIPSO format
++ * @net_cat_len: the length of the CALIPSO bitmap in bytes
++ * @secattr: the security attributes
++ *
++ * Description:
++ * Perform a label mapping to translate a CALIPSO bitmap to the correct local
++ * MLS category bitmap using the given DOI definition.  Returns zero on
++ * success, negative values on failure.
++ *
++ */
++static int calipso_map_cat_ntoh(const struct calipso_doi *doi_def,
++				const unsigned char *net_cat,
++				u32 net_cat_len,
++				struct netlbl_lsm_secattr *secattr)
++{
++	int ret_val;
++	int spot = -1;
++	u32 net_clen_bits = net_cat_len * 8;
++
++	for (;;) {
++		spot = netlbl_bitmap_walk(net_cat,
++					  net_clen_bits,
++					  spot + 1,
++					  1);
++		if (spot < 0) {
++			if (spot == -2)
++				return -EFAULT;
++			return 0;
++		}
++
++		ret_val = netlbl_catmap_setbit(&secattr->attr.mls.cat,
++					       spot,
++					       GFP_ATOMIC);
++		if (ret_val != 0)
++			return ret_val;
++	}
++
++	return -EINVAL;
++}
++
++/**
++ * calipso_pad_write - Writes pad bytes in TLV format
++ * @buf: the buffer
++ * @offset: offset from start of buffer to write padding
++ * @count: number of pad bytes to write
++ *
++ * Description:
++ * Write @count bytes of TLV padding into @buffer starting at offset @offset.
++ * @count should be less than 8 - see RFC 4942.
++ *
++ */
++static int calipso_pad_write(unsigned char *buf, unsigned int offset,
++			     unsigned int count)
++{
++	if (WARN_ON_ONCE(count >= 8))
++		return -EINVAL;
++
++	switch (count) {
++	case 0:
++		break;
++	case 1:
++		buf[offset] = IPV6_TLV_PAD1;
++		break;
++	default:
++		buf[offset] = IPV6_TLV_PADN;
++		buf[offset + 1] = count - 2;
++		if (count > 2)
++			memset(buf + offset + 2, 0, count - 2);
++		break;
++	}
++	return 0;
++}
++
++/**
++ * calipso_genopt - Generate a CALIPSO option
++ * @buf: the option buffer
++ * @start: offset from which to write
++ * @buf_len: the size of opt_buf
 + * @doi_def: the CALIPSO DOI to use
 + * @secattr: the security attributes
 + *
 + * Description:
-+ * Set the CALIPSO option on the given packet based on the security attributes.
-+ * Returns a pointer to the IP header on success and NULL on failure.
-+ *
++ * Generate a CALIPSO option using the DOI definition and security attributes
++ * passed to the function. This also generates upto three bytes of leading
++ * padding that ensures that the option is 4n + 2 aligned.  It returns the
++ * number of bytes written (including any initial padding).
 + */
-+static int calipso_skbuff_setattr(struct sk_buff *skb,
-+				  const struct calipso_doi *doi_def,
-+				  const struct netlbl_lsm_secattr *secattr)
++static int calipso_genopt(unsigned char *buf, u32 start, u32 buf_len,
++			  const struct calipso_doi *doi_def,
++			  const struct netlbl_lsm_secattr *secattr)
 +{
 +	int ret_val;
-+	struct ipv6hdr *ip6_hdr;
-+	struct ipv6_opt_hdr *hop;
-+	unsigned char buf[CALIPSO_MAX_BUFFER];
-+	int len_delta, new_end, pad;
-+	unsigned int start, end;
++	u32 len, pad;
++	u16 crc;
++	static const unsigned char padding[4] = {2, 1, 0, 3};
++	unsigned char *calipso;
 +
-+	ip6_hdr = ipv6_hdr(skb);
-+	if (ip6_hdr->nexthdr == NEXTHDR_HOP) {
-+		hop = (struct ipv6_opt_hdr *)(ip6_hdr + 1);
-+		ret_val = calipso_opt_find(hop, &start, &end);
-+		if (ret_val && ret_val != -ENOENT)
++	/* CALIPSO has 4n + 2 alignment */
++	pad = padding[start & 3];
++	if (buf_len <= start + pad + CALIPSO_HDR_LEN)
++		return -ENOSPC;
++
++	if ((secattr->flags & NETLBL_SECATTR_MLS_LVL) == 0)
++		return -EPERM;
++
++	len = CALIPSO_HDR_LEN;
++
++	if (secattr->flags & NETLBL_SECATTR_MLS_CAT) {
++		ret_val = calipso_map_cat_hton(doi_def,
++					       secattr,
++					       buf + start + pad + len,
++					       buf_len - start - pad - len);
++		if (ret_val < 0)
 +			return ret_val;
-+	} else {
-+		start = 0;
-+		end = 0;
++		len += ret_val;
 +	}
 +
-+	memset(buf, 0, sizeof(buf));
-+	ret_val = calipso_genopt(buf, start & 3, sizeof(buf), doi_def, secattr);
-+	if (ret_val < 0)
-+		return ret_val;
++	calipso_pad_write(buf, start, pad);
++	calipso = buf + start + pad;
 +
-+	new_end = start + ret_val;
-+	/* At this point new_end aligns to 4n, so (new_end & 4) pads to 8n */
-+	pad = ((new_end & 4) + (end & 7)) & 7;
-+	len_delta = new_end - (int)end + pad;
-+	ret_val = skb_cow(skb, skb_headroom(skb) + len_delta);
-+	if (ret_val < 0)
-+		return ret_val;
++	calipso[0] = IPV6_TLV_CALIPSO;
++	calipso[1] = len - 2;
++	*(__be32 *)(calipso + 2) = htonl(doi_def->doi);
++	calipso[6] = (len - CALIPSO_HDR_LEN) / 4;
++	calipso[7] = secattr->attr.mls.lvl,
++	crc = ~crc_ccitt(0xffff, calipso, len);
++	calipso[8] = crc & 0xff;
++	calipso[9] = (crc >> 8) & 0xff;
++	return pad + len;
++}
 +
-+	if (len_delta) {
-+		if (len_delta > 0)
-+			skb_push(skb, len_delta);
-+		else
-+			skb_pull(skb, -len_delta);
-+		memmove((char *)ip6_hdr - len_delta, ip6_hdr,
-+			sizeof(*ip6_hdr) + start);
-+		skb_reset_network_header(skb);
-+		ip6_hdr = ipv6_hdr(skb);
++/* Hop-by-hop hdr helper functions
++ */
++
++/**
++ * calipso_opt_update - Replaces socket's hop options with a new set
++ * @sk: the socket
++ * @hop: new hop options
++ *
++ * Description:
++ * Replaces @sk's hop options with @hop.  @hop may be NULL to leave
++ * the socket with no hop options.
++ *
++ */
++static int calipso_opt_update(struct sock *sk, struct ipv6_opt_hdr *hop)
++{
++	struct ipv6_txoptions *old = txopt_get(inet6_sk(sk)), *txopts;
++
++	txopts = ipv6_renew_options_kern(sk, old, IPV6_HOPOPTS,
++					 hop, hop ? ipv6_optlen(hop) : 0);
++	txopt_put(old);
++	if (IS_ERR(txopts))
++		return PTR_ERR(txopts);
++
++	txopts = ipv6_update_options(sk, txopts);
++	if (txopts) {
++		atomic_sub(txopts->tot_len, &sk->sk_omem_alloc);
++		txopt_put(txopts);
 +	}
-+
-+	hop = (struct ipv6_opt_hdr *)(ip6_hdr + 1);
-+	if (start == 0) {
-+		struct ipv6_opt_hdr *new_hop = (struct ipv6_opt_hdr *)buf;
-+
-+		new_hop->nexthdr = ip6_hdr->nexthdr;
-+		new_hop->hdrlen = len_delta / 8 - 1;
-+		ip6_hdr->nexthdr = NEXTHDR_HOP;
-+	} else {
-+		hop->hdrlen += len_delta / 8;
-+	}
-+	memcpy((char *)hop + start, buf + (start & 3), new_end - start);
-+	calipso_pad_write((unsigned char *)hop, new_end, pad);
 +
 +	return 0;
 +}
 +
 +/**
-+ * calipso_skbuff_delattr - Delete any CALIPSO options from a packet
-+ * @skb: the packet
++ * calipso_tlv_len - Returns the length of the TLV
++ * @opt: the option header
++ * @offset: offset of the TLV within the header
 + *
 + * Description:
-+ * Removes any and all CALIPSO options from the given packet.  Returns zero on
-+ * success, negative values on failure.
-+ *
++ * Returns the length of the TLV option at offset @offset within
++ * the option header @opt.  Checks that the entire TLV fits inside
++ * the option header, returns a negative value if this is not the case.
 + */
-+static int calipso_skbuff_delattr(struct sk_buff *skb)
++static int calipso_tlv_len(struct ipv6_opt_hdr *opt, unsigned int offset)
 +{
-+	int ret_val;
-+	struct ipv6hdr *ip6_hdr;
-+	struct ipv6_opt_hdr *old_hop;
-+	u32 old_hop_len, start = 0, end = 0, delta, size, pad;
++	unsigned char *tlv = (unsigned char *)opt;
++	unsigned int opt_len = ipv6_optlen(opt), tlv_len;
 +
-+	if (!calipso_skbuff_optptr(skb))
-+		return 0;
-+
-+	/* since we are changing the packet we should make a copy */
-+	ret_val = skb_cow(skb, skb_headroom(skb));
-+	if (ret_val < 0)
-+		return ret_val;
-+
-+	ip6_hdr = ipv6_hdr(skb);
-+	old_hop = (struct ipv6_opt_hdr *)(ip6_hdr + 1);
-+	old_hop_len = ipv6_optlen(old_hop);
-+
-+	ret_val = calipso_opt_find(old_hop, &start, &end);
-+	if (ret_val)
-+		return ret_val;
-+
-+	if (start == sizeof(*old_hop) && end == old_hop_len) {
-+		/* There's no other option in the header so we delete
-+		 * the whole thing. */
-+		delta = old_hop_len;
-+		size = sizeof(*ip6_hdr);
-+		ip6_hdr->nexthdr = old_hop->nexthdr;
-+	} else {
-+		delta = (end - start) & ~7;
-+		if (delta)
-+			old_hop->hdrlen -= delta / 8;
-+		pad = (end - start) & 7;
-+		size = sizeof(*ip6_hdr) + start + pad;
-+		calipso_pad_write((unsigned char *)old_hop, start, pad);
-+	}
-+
-+	if (delta) {
-+		skb_pull(skb, delta);
-+		memmove((char *)ip6_hdr + delta, ip6_hdr, size);
-+		skb_reset_network_header(skb);
-+	}
-+
-+	return 0;
++	if (offset < sizeof(*opt) || offset >= opt_len)
++		return -EINVAL;
++	if (tlv[offset] == IPV6_TLV_PAD1)
++		return 1;
++	if (offset + 1 >= opt_len)
++		return -EINVAL;
++	tlv_len = tlv[offset + 1] + 2;
++	if (offset + tlv_len > opt_len)
++		return -EINVAL;
++	return tlv_len;
 +}
 +
- static const struct netlbl_calipso_ops ops = {
- 	.doi_add          = calipso_doi_add,
- 	.doi_free         = calipso_doi_free,
-@@ -985,6 +1146,10 @@ static const struct netlbl_calipso_ops ops = {
- 	.sock_delattr     = calipso_sock_delattr,
- 	.req_setattr      = calipso_req_setattr,
- 	.req_delattr      = calipso_req_delattr,
-+	.opt_getattr      = calipso_opt_getattr,
-+	.skbuff_optptr    = calipso_skbuff_optptr,
-+	.skbuff_setattr   = calipso_skbuff_setattr,
-+	.skbuff_delattr   = calipso_skbuff_delattr,
- };
- 
- /**
-diff --git a/net/netlabel/netlabel_calipso.c b/net/netlabel/netlabel_calipso.c
-index 79519e3..0d02c26 100644
---- a/net/netlabel/netlabel_calipso.c
-+++ b/net/netlabel/netlabel_calipso.c
-@@ -618,3 +618,85 @@ void calipso_req_delattr(struct request_sock *req)
- 	if (ops)
- 		ops->req_delattr(req);
- }
-+
 +/**
-+ * calipso_optptr - Find the CALIPSO option in the packet
-+ * @skb: the packet
++ * calipso_opt_find - Finds the CALIPSO option in an IPv6 hop options header
++ * @hop: the hop options header
++ * @start: on return holds the offset of any leading padding
++ * @end: on return holds the offset of the first non-pad TLV after CALIPSO
 + *
 + * Description:
-+ * Parse the packet's IP header looking for a CALIPSO option.  Returns a pointer
-+ * to the start of the CALIPSO option on success, NULL if one if not found.
++ * Finds the space occupied by a CALIPSO option (including any leading and
++ * trailing padding).
 + *
++ * If a CALIPSO option exists set @start and @end to the
++ * offsets within @hop of the start of padding before the first
++ * CALIPSO option and the end of padding after the first CALIPSO
++ * option.  In this case the function returns 0.
++ *
++ * In the absence of a CALIPSO option, @start and @end will be
++ * set to the start and end of any trailing padding in the header.
++ * This is useful when appending a new option, as the caller may want
++ * to overwrite some of this padding.  In this case the function will
++ * return -ENOENT.
 + */
-+unsigned char *calipso_optptr(const struct sk_buff *skb)
++static int calipso_opt_find(struct ipv6_opt_hdr *hop, unsigned int *start,
++			    unsigned int *end)
 +{
-+	unsigned char *ret_val = NULL;
-+	const struct netlbl_calipso_ops *ops = netlbl_calipso_ops_get();
++	int ret_val = -ENOENT, tlv_len;
++	unsigned int opt_len, offset, offset_s = 0, offset_e = 0;
++	unsigned char *opt = (unsigned char *)hop;
 +
-+	if (ops)
-+		ret_val = ops->skbuff_optptr(skb);
++	opt_len = ipv6_optlen(hop);
++	offset = sizeof(*hop);
++
++	while (offset < opt_len) {
++		tlv_len = calipso_tlv_len(hop, offset);
++		if (tlv_len < 0)
++			return tlv_len;
++
++		switch (opt[offset]) {
++		case IPV6_TLV_PAD1:
++		case IPV6_TLV_PADN:
++			if (offset_e)
++				offset_e = offset;
++			break;
++		case IPV6_TLV_CALIPSO:
++			ret_val = 0;
++			offset_e = offset;
++			break;
++		default:
++			if (offset_e == 0)
++				offset_s = offset;
++			else
++				goto out;
++		}
++		offset += tlv_len;
++	}
++
++out:
++	if (offset_s)
++		*start = offset_s + calipso_tlv_len(hop, offset_s);
++	else
++		*start = sizeof(*hop);
++	if (offset_e)
++		*end = offset_e + calipso_tlv_len(hop, offset_e);
++	else
++		*end = opt_len;
++
 +	return ret_val;
 +}
 +
 +/**
-+ * calipso_getattr - Get the security attributes from a memory block.
++ * calipso_opt_insert - Inserts a CALIPSO option into an IPv6 hop opt hdr
++ * @hop: the original hop options header
++ * @doi_def: the CALIPSO DOI to use
++ * @secattr: the specific security attributes of the socket
++ *
++ * Description:
++ * Creates a new hop options header based on @hop with a
++ * CALIPSO option added to it.  If @hop already contains a CALIPSO
++ * option this is overwritten, otherwise the new option is appended
++ * after any existing options.  If @hop is NULL then the new header
++ * will contain just the CALIPSO option and any needed padding.
++ *
++ */
++static struct ipv6_opt_hdr *
++calipso_opt_insert(struct ipv6_opt_hdr *hop,
++		   const struct calipso_doi *doi_def,
++		   const struct netlbl_lsm_secattr *secattr)
++{
++	unsigned int start, end, buf_len, pad, hop_len;
++	struct ipv6_opt_hdr *new;
++	int ret_val;
++
++	if (hop) {
++		hop_len = ipv6_optlen(hop);
++		ret_val = calipso_opt_find(hop, &start, &end);
++		if (ret_val && ret_val != -ENOENT)
++			return ERR_PTR(ret_val);
++	} else {
++		hop_len = 0;
++		start = sizeof(*hop);
++		end = 0;
++	}
++
++	buf_len = hop_len + start - end + CALIPSO_OPT_LEN_MAX_WITH_PAD;
++	new = kzalloc(buf_len, GFP_ATOMIC);
++	if (!new)
++		return ERR_PTR(-ENOMEM);
++
++	if (start > sizeof(*hop))
++		memcpy(new, hop, start);
++	ret_val = calipso_genopt((unsigned char *)new, start, buf_len, doi_def,
++				 secattr);
++	if (ret_val < 0)
++		return ERR_PTR(ret_val);
++
++	buf_len = start + ret_val;
++	/* At this point buf_len aligns to 4n, so (buf_len & 4) pads to 8n */
++	pad = ((buf_len & 4) + (end & 7)) & 7;
++	calipso_pad_write((unsigned char *)new, buf_len, pad);
++	buf_len += pad;
++
++	if (end != hop_len) {
++		memcpy((char *)new + buf_len, (char *)hop + end, hop_len - end);
++		buf_len += hop_len - end;
++	}
++	new->nexthdr = 0;
++	new->hdrlen = buf_len / 8 - 1;
++
++	return new;
++}
++
++/**
++ * calipso_opt_del - Removes the CALIPSO option from an option header
++ * @hop: the original header
++ * @new: the new header
++ *
++ * Description:
++ * Creates a new header based on @hop without any CALIPSO option.  If @hop
++ * doesn't contain a CALIPSO option it returns -ENOENT.  If @hop contains
++ * no other non-padding options, it returns zero with @new set to NULL.
++ * Otherwise it returns zero, creates a new header without the CALIPSO
++ * option (and removing as much padding as possible) and returns with
++ * @new set to that header.
++ *
++ */
++static int calipso_opt_del(struct ipv6_opt_hdr *hop,
++			   struct ipv6_opt_hdr **new)
++{
++	int ret_val;
++	unsigned int start, end, delta, pad, hop_len;
++
++	ret_val = calipso_opt_find(hop, &start, &end);
++	if (ret_val)
++		return ret_val;
++
++	hop_len = ipv6_optlen(hop);
++	if (start == sizeof(*hop) && end == hop_len) {
++		/* There's no other option in the header so return NULL */
++		*new = NULL;
++		return 0;
++	}
++
++	delta = (end - start) & ~7;
++	*new = kzalloc(hop_len - delta, GFP_ATOMIC);
++	if (!*new)
++		return -ENOMEM;
++
++	memcpy(*new, hop, start);
++	(*new)->hdrlen -= delta / 8;
++	pad = (end - start) & 7;
++	calipso_pad_write((unsigned char *)*new, start, pad);
++	if (end != hop_len)
++		memcpy((char *)*new + start + pad, (char *)hop + end,
++		       hop_len - end);
++
++	return 0;
++}
++
++/**
++ * calipso_opt_getattr - Get the security attributes from a memory block
 + * @calipso: the CALIPSO option
 + * @secattr: the security attributes
 + *
@@ -284,121 +530,339 @@ index 79519e3..0d02c26 100644
 + * Returns zero on success and negative values on failure.
 + *
 + */
-+int calipso_getattr(const unsigned char *calipso,
-+		    struct netlbl_lsm_secattr *secattr)
++static int calipso_opt_getattr(const unsigned char *calipso,
++			       struct netlbl_lsm_secattr *secattr)
 +{
 +	int ret_val = -ENOMSG;
-+	const struct netlbl_calipso_ops *ops = netlbl_calipso_ops_get();
++	u32 doi, len = calipso[1], cat_len = calipso[6] * 4;
++	struct calipso_doi *doi_def;
 +
-+	if (ops)
-+		ret_val = ops->opt_getattr(calipso, secattr);
++	if (cat_len + 8 > len)
++		return -EINVAL;
++
++	doi = get_unaligned_be32(calipso + 2);
++	rcu_read_lock();
++	doi_def = calipso_doi_search(doi);
++	if (!doi_def)
++		goto getattr_return;
++
++	secattr->attr.mls.lvl = calipso[7];
++	secattr->flags |= NETLBL_SECATTR_MLS_LVL;
++
++	if (cat_len) {
++		ret_val = calipso_map_cat_ntoh(doi_def,
++					       calipso + 10,
++					       cat_len,
++					       secattr);
++		if (ret_val != 0) {
++			netlbl_catmap_free(secattr->attr.mls.cat);
++			goto getattr_return;
++		}
++
++		secattr->flags |= NETLBL_SECATTR_MLS_CAT;
++	}
++
++	secattr->type = NETLBL_NLTYPE_CALIPSO;
++
++getattr_return:
++	rcu_read_unlock();
 +	return ret_val;
 +}
 +
++/* sock functions.
++ */
++
 +/**
-+ * calipso_skbuff_setattr - Set the CALIPSO option on a packet
-+ * @skb: the packet
-+ * @doi_def: the CALIPSO DOI to use
++ * calipso_sock_getattr - Get the security attributes from a sock
++ * @sk: the sock
 + * @secattr: the security attributes
 + *
 + * Description:
-+ * Set the CALIPSO option on the given packet based on the security attributes.
-+ * Returns a pointer to the IP header on success and NULL on failure.
++ * Query @sk to see if there is a CALIPSO option attached to the sock and if
++ * there is return the CALIPSO security attributes in @secattr.  This function
++ * requires that @sk be locked, or privately held, but it does not do any
++ * locking itself.  Returns zero on success and negative values on failure.
 + *
 + */
-+int calipso_skbuff_setattr(struct sk_buff *skb,
-+			   const struct calipso_doi *doi_def,
-+			   const struct netlbl_lsm_secattr *secattr)
++static int calipso_sock_getattr(struct sock *sk,
++				struct netlbl_lsm_secattr *secattr)
 +{
-+	int ret_val = -ENOMSG;
-+	const struct netlbl_calipso_ops *ops = netlbl_calipso_ops_get();
++	struct ipv6_opt_hdr *hop;
++	int opt_len, len, ret_val = -ENOMSG, offset;
++	unsigned char *opt;
++	struct ipv6_txoptions *txopts = txopt_get(inet6_sk(sk));
 +
-+	if (ops)
-+		ret_val = ops->skbuff_setattr(skb, doi_def, secattr);
++	if (!txopts || !txopts->hopopt)
++		goto done;
++
++	hop = txopts->hopopt;
++	opt = (unsigned char *)hop;
++	opt_len = ipv6_optlen(hop);
++	offset = sizeof(*hop);
++	while (offset < opt_len) {
++		len = calipso_tlv_len(hop, offset);
++		if (len < 0) {
++			ret_val = len;
++			goto done;
++		}
++		switch (opt[offset]) {
++		case IPV6_TLV_CALIPSO:
++			if (len < CALIPSO_HDR_LEN)
++				ret_val = -EINVAL;
++			else
++				ret_val = calipso_opt_getattr(&opt[offset],
++							      secattr);
++			goto done;
++		default:
++			offset += len;
++			break;
++		}
++	}
++done:
++	txopt_put(txopts);
 +	return ret_val;
 +}
 +
 +/**
-+ * calipso_skbuff_delattr - Delete any CALIPSO options from a packet
-+ * @skb: the packet
++ * calipso_sock_setattr - Add a CALIPSO option to a socket
++ * @sk: the socket
++ * @doi_def: the CALIPSO DOI to use
++ * @secattr: the specific security attributes of the socket
 + *
 + * Description:
-+ * Removes any and all CALIPSO options from the given packet.  Returns zero on
-+ * success, negative values on failure.
++ * Set the CALIPSO option on the given socket using the DOI definition and
++ * security attributes passed to the function.  This function requires
++ * exclusive access to @sk, which means it either needs to be in the
++ * process of being created or locked.  Returns zero on success and negative
++ * values on failure.
 + *
 + */
-+int calipso_skbuff_delattr(struct sk_buff *skb)
++static int calipso_sock_setattr(struct sock *sk,
++				const struct calipso_doi *doi_def,
++				const struct netlbl_lsm_secattr *secattr)
++{
++	int ret_val;
++	struct ipv6_opt_hdr *old, *new;
++	struct ipv6_txoptions *txopts = txopt_get(inet6_sk(sk));
++
++	old = NULL;
++	if (txopts)
++		old = txopts->hopopt;
++
++	new = calipso_opt_insert(old, doi_def, secattr);
++	txopt_put(txopts);
++	if (IS_ERR(new))
++		return PTR_ERR(new);
++
++	ret_val = calipso_opt_update(sk, new);
++
++	kfree(new);
++	return ret_val;
++}
++
++/**
++ * calipso_sock_delattr - Delete the CALIPSO option from a socket
++ * @sk: the socket
++ *
++ * Description:
++ * Removes the CALIPSO option from a socket, if present.
++ *
++ */
++static void calipso_sock_delattr(struct sock *sk)
++{
++	struct ipv6_opt_hdr *new_hop;
++	struct ipv6_txoptions *txopts = txopt_get(inet6_sk(sk));
++
++	if (!txopts || !txopts->hopopt)
++		goto done;
++
++	if (calipso_opt_del(txopts->hopopt, &new_hop))
++		goto done;
++
++	calipso_opt_update(sk, new_hop);
++	kfree(new_hop);
++
++done:
++	txopt_put(txopts);
++}
++
+ static const struct netlbl_calipso_ops ops = {
+ 	.doi_add          = calipso_doi_add,
+ 	.doi_free         = calipso_doi_free,
+@@ -304,6 +896,9 @@ static const struct netlbl_calipso_ops ops = {
+ 	.doi_getdef       = calipso_doi_getdef,
+ 	.doi_putdef       = calipso_doi_putdef,
+ 	.doi_walk         = calipso_doi_walk,
++	.sock_getattr     = calipso_sock_getattr,
++	.sock_setattr     = calipso_sock_setattr,
++	.sock_delattr     = calipso_sock_delattr,
+ };
+ 
+ /**
+diff --git a/net/ipv6/ipv6_sockglue.c b/net/ipv6/ipv6_sockglue.c
+index 4449ad1..8a80d59 100644
+--- a/net/ipv6/ipv6_sockglue.c
++++ b/net/ipv6/ipv6_sockglue.c
+@@ -98,7 +98,6 @@ int ip6_ra_control(struct sock *sk, int sel)
+ 	return 0;
+ }
+ 
+-static
+ struct ipv6_txoptions *ipv6_update_options(struct sock *sk,
+ 					   struct ipv6_txoptions *opt)
+ {
+diff --git a/net/netlabel/Kconfig b/net/netlabel/Kconfig
+index 56958c8..d9eaa30 100644
+--- a/net/netlabel/Kconfig
++++ b/net/netlabel/Kconfig
+@@ -5,6 +5,7 @@
+ config NETLABEL
+ 	bool "NetLabel subsystem support"
+ 	depends on SECURITY
++	select CRC_CCITT if IPV6
+ 	default n
+ 	---help---
+ 	  NetLabel provides support for explicit network packet labeling
+diff --git a/net/netlabel/netlabel_calipso.c b/net/netlabel/netlabel_calipso.c
+index 2857673..6f9c658 100644
+--- a/net/netlabel/netlabel_calipso.c
++++ b/net/netlabel/netlabel_calipso.c
+@@ -514,3 +514,67 @@ int calipso_doi_walk(u32 *skip_cnt,
+ 		ret_val = ops->doi_walk(skip_cnt, callback, cb_arg);
+ 	return ret_val;
+ }
++
++/**
++ * calipso_sock_getattr - Get the security attributes from a sock
++ * @sk: the sock
++ * @secattr: the security attributes
++ *
++ * Description:
++ * Query @sk to see if there is a CALIPSO option attached to the sock and if
++ * there is return the CALIPSO security attributes in @secattr.  This function
++ * requires that @sk be locked, or privately held, but it does not do any
++ * locking itself.  Returns zero on success and negative values on failure.
++ *
++ */
++int calipso_sock_getattr(struct sock *sk, struct netlbl_lsm_secattr *secattr)
 +{
 +	int ret_val = -ENOMSG;
 +	const struct netlbl_calipso_ops *ops = netlbl_calipso_ops_get();
 +
 +	if (ops)
-+		ret_val = ops->skbuff_delattr(skb);
++		ret_val = ops->sock_getattr(sk, secattr);
 +	return ret_val;
 +}
++
++/**
++ * calipso_sock_setattr - Add a CALIPSO option to a socket
++ * @sk: the socket
++ * @doi_def: the CALIPSO DOI to use
++ * @secattr: the specific security attributes of the socket
++ *
++ * Description:
++ * Set the CALIPSO option on the given socket using the DOI definition and
++ * security attributes passed to the function.  This function requires
++ * exclusive access to @sk, which means it either needs to be in the
++ * process of being created or locked.  Returns zero on success and negative
++ * values on failure.
++ *
++ */
++int calipso_sock_setattr(struct sock *sk,
++			 const struct calipso_doi *doi_def,
++			 const struct netlbl_lsm_secattr *secattr)
++{
++	int ret_val = -ENOMSG;
++	const struct netlbl_calipso_ops *ops = netlbl_calipso_ops_get();
++
++	if (ops)
++		ret_val = ops->sock_setattr(sk, doi_def, secattr);
++	return ret_val;
++}
++
++/**
++ * calipso_sock_delattr - Delete the CALIPSO option from a socket
++ * @sk: the socket
++ *
++ * Description:
++ * Removes the CALIPSO option from a socket, if present.
++ *
++ */
++void calipso_sock_delattr(struct sock *sk)
++{
++	const struct netlbl_calipso_ops *ops = netlbl_calipso_ops_get();
++
++	if (ops)
++		ops->sock_delattr(sk);
++}
 diff --git a/net/netlabel/netlabel_calipso.h b/net/netlabel/netlabel_calipso.h
-index 1372fdd..66ba92e 100644
+index ed78554..49bc116 100644
 --- a/net/netlabel/netlabel_calipso.h
 +++ b/net/netlabel/netlabel_calipso.h
-@@ -137,5 +137,12 @@ int calipso_req_setattr(struct request_sock *req,
- 			const struct calipso_doi *doi_def,
- 			const struct netlbl_lsm_secattr *secattr);
- void calipso_req_delattr(struct request_sock *req);
-+unsigned char *calipso_optptr(const struct sk_buff *skb);
-+int calipso_getattr(const unsigned char *calipso,
-+		    struct netlbl_lsm_secattr *secattr);
-+int calipso_skbuff_setattr(struct sk_buff *skb,
-+			   const struct calipso_doi *doi_def,
-+			   const struct netlbl_lsm_secattr *secattr);
-+int calipso_skbuff_delattr(struct sk_buff *skb);
+@@ -128,5 +128,10 @@ void calipso_doi_putdef(struct calipso_doi *doi_def);
+ int calipso_doi_walk(u32 *skip_cnt,
+ 		     int (*callback)(struct calipso_doi *doi_def, void *arg),
+ 		     void *cb_arg);
++int calipso_sock_getattr(struct sock *sk, struct netlbl_lsm_secattr *secattr);
++int calipso_sock_setattr(struct sock *sk,
++			 const struct calipso_doi *doi_def,
++			 const struct netlbl_lsm_secattr *secattr);
++void calipso_sock_delattr(struct sock *sk);
  
  #endif
 diff --git a/net/netlabel/netlabel_kapi.c b/net/netlabel/netlabel_kapi.c
-index 71ebef0..bace474 100644
+index 609c853..ed35ad9 100644
 --- a/net/netlabel/netlabel_kapi.c
 +++ b/net/netlabel/netlabel_kapi.c
-@@ -1148,13 +1148,17 @@ int netlbl_skbuff_setattr(struct sk_buff *skb,
- {
- 	int ret_val;
- 	struct iphdr *hdr4;
-+#if IS_ENABLED(CONFIG_IPV6)
-+	struct ipv6hdr *hdr6;
-+#endif
- 	struct netlbl_dommap_def *entry;
+@@ -37,12 +37,14 @@
+ #include <net/ipv6.h>
+ #include <net/netlabel.h>
+ #include <net/cipso_ipv4.h>
++#include <net/calipso.h>
+ #include <asm/bug.h>
+ #include <linux/atomic.h>
  
- 	rcu_read_lock();
- 	switch (family) {
- 	case AF_INET:
- 		hdr4 = ip_hdr(skb);
--		entry = netlbl_domhsh_getentry_af4(secattr->domain,hdr4->daddr);
-+		entry = netlbl_domhsh_getentry_af4(secattr->domain,
-+						   hdr4->daddr);
- 		if (entry == NULL) {
- 			ret_val = -ENOENT;
- 			goto skbuff_setattr_return;
-@@ -1175,9 +1179,26 @@ int netlbl_skbuff_setattr(struct sk_buff *skb,
+ #include "netlabel_domainhash.h"
+ #include "netlabel_unlabeled.h"
+ #include "netlabel_cipso_v4.h"
++#include "netlabel_calipso.h"
+ #include "netlabel_user.h"
+ #include "netlabel_mgmt.h"
+ #include "netlabel_addrlist.h"
+@@ -521,6 +523,7 @@ int netlbl_catmap_walk(struct netlbl_lsm_catmap *catmap, u32 offset)
+ 
+ 	return -ENOENT;
+ }
++EXPORT_SYMBOL(netlbl_catmap_walk);
+ 
+ /**
+  * netlbl_catmap_walkrng - Find the end of a string of set bits
+@@ -657,6 +660,7 @@ int netlbl_catmap_setbit(struct netlbl_lsm_catmap **catmap,
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL(netlbl_catmap_setbit);
+ 
+ /**
+  * netlbl_catmap_setrng - Set a range of bits in a LSM secattr catmap
+@@ -871,9 +875,21 @@ int netlbl_sock_setattr(struct sock *sk,
  		break;
  #if IS_ENABLED(CONFIG_IPV6)
  	case AF_INET6:
 -		/* since we don't support any IPv6 labeling protocols right
 -		 * now we can optimize everything away until we do */
 -		ret_val = 0;
-+		hdr6 = ipv6_hdr(skb);
-+		entry = netlbl_domhsh_getentry_af6(secattr->domain,
-+						   &hdr6->daddr);
-+		if (entry == NULL) {
-+			ret_val = -ENOENT;
-+			goto skbuff_setattr_return;
-+		}
-+		switch (entry->type) {
++		switch (dom_entry->def.type) {
++		case NETLBL_NLTYPE_ADDRSELECT:
++			ret_val = -EDESTADDRREQ;
++			break;
 +		case NETLBL_NLTYPE_CALIPSO:
-+			ret_val = calipso_skbuff_setattr(skb, entry->calipso,
-+							 secattr);
++			ret_val = calipso_sock_setattr(sk,
++						       dom_entry->def.calipso,
++						       secattr);
 +			break;
 +		case NETLBL_NLTYPE_UNLABELED:
-+			/* just delete the protocols we support for right now
-+			 * but we could remove other protocols if needed */
-+			ret_val = calipso_skbuff_delattr(skb);
++			ret_val = 0;
 +			break;
 +		default:
 +			ret_val = -ENOENT;
@@ -406,48 +870,96 @@ index 71ebef0..bace474 100644
  		break;
  #endif /* IPv6 */
  	default:
-@@ -1216,6 +1237,9 @@ int netlbl_skbuff_getattr(const struct sk_buff *skb,
+@@ -896,7 +912,16 @@ socket_setattr_return:
+  */
+ void netlbl_sock_delattr(struct sock *sk)
+ {
+-	cipso_v4_sock_delattr(sk);
++	switch (sk->sk_family) {
++	case AF_INET:
++		cipso_v4_sock_delattr(sk);
++		break;
++#if IS_ENABLED(CONFIG_IPV6)
++	case AF_INET6:
++		calipso_sock_delattr(sk);
++		break;
++#endif /* IPv6 */
++	}
+ }
+ 
+ /**
+@@ -922,7 +947,7 @@ int netlbl_sock_getattr(struct sock *sk,
  		break;
  #if IS_ENABLED(CONFIG_IPV6)
  	case AF_INET6:
-+		ptr = calipso_optptr(skb);
-+		if (ptr && calipso_getattr(ptr, secattr) == 0)
-+			return 0;
+-		ret_val = -ENOMSG;
++		ret_val = calipso_sock_getattr(sk, secattr);
  		break;
  #endif /* IPv6 */
- 	}
-diff --git a/security/selinux/hooks.c b/security/selinux/hooks.c
-index 912deee..93eed8f 100644
---- a/security/selinux/hooks.c
-+++ b/security/selinux/hooks.c
-@@ -4997,6 +4997,15 @@ static unsigned int selinux_ipv4_output(void *priv,
- 	return selinux_ip_output(skb, PF_INET);
- }
+ 	default:
+@@ -950,6 +975,9 @@ int netlbl_conn_setattr(struct sock *sk,
+ {
+ 	int ret_val;
+ 	struct sockaddr_in *addr4;
++#if IS_ENABLED(CONFIG_IPV6)
++	struct sockaddr_in6 *addr6;
++#endif
+ 	struct netlbl_dommap_def *entry;
  
-+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
-+static unsigned int selinux_ipv6_output(void *priv,
-+					struct sk_buff *skb,
-+					const struct nf_hook_state *state)
-+{
-+	return selinux_ip_output(skb, PF_INET6);
-+}
-+#endif	/* IPV6 */
-+
- static unsigned int selinux_ip_postroute_compat(struct sk_buff *skb,
- 						int ifindex,
- 						u16 family)
-@@ -6237,6 +6246,12 @@ static struct nf_hook_ops selinux_nf_ops[] = {
- 		.hooknum =	NF_INET_FORWARD,
- 		.priority =	NF_IP6_PRI_SELINUX_FIRST,
- 	},
-+	{
-+		.hook =		selinux_ipv6_output,
-+		.pf =		NFPROTO_IPV6,
-+		.hooknum =	NF_INET_LOCAL_OUT,
-+		.priority =	NF_IP6_PRI_SELINUX_FIRST,
-+	},
- #endif	/* IPV6 */
- };
+ 	rcu_read_lock();
+@@ -970,7 +998,7 @@ int netlbl_conn_setattr(struct sock *sk,
+ 		case NETLBL_NLTYPE_UNLABELED:
+ 			/* just delete the protocols we support for right now
+ 			 * but we could remove other protocols if needed */
+-			cipso_v4_sock_delattr(sk);
++			netlbl_sock_delattr(sk);
+ 			ret_val = 0;
+ 			break;
+ 		default:
+@@ -979,9 +1007,27 @@ int netlbl_conn_setattr(struct sock *sk,
+ 		break;
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	case AF_INET6:
+-		/* since we don't support any IPv6 labeling protocols right
+-		 * now we can optimize everything away until we do */
+-		ret_val = 0;
++		addr6 = (struct sockaddr_in6 *)addr;
++		entry = netlbl_domhsh_getentry_af6(secattr->domain,
++						   &addr6->sin6_addr);
++		if (entry == NULL) {
++			ret_val = -ENOENT;
++			goto conn_setattr_return;
++		}
++		switch (entry->type) {
++		case NETLBL_NLTYPE_CALIPSO:
++			ret_val = calipso_sock_setattr(sk,
++						       entry->calipso, secattr);
++			break;
++		case NETLBL_NLTYPE_UNLABELED:
++			/* just delete the protocols we support for right now
++			 * but we could remove other protocols if needed */
++			netlbl_sock_delattr(sk);
++			ret_val = 0;
++			break;
++		default:
++			ret_val = -ENOENT;
++		}
+ 		break;
+ #endif /* IPv6 */
+ 	default:
+diff --git a/security/selinux/netlabel.c b/security/selinux/netlabel.c
+index 1f989a5..5470f32 100644
+--- a/security/selinux/netlabel.c
++++ b/security/selinux/netlabel.c
+@@ -333,7 +333,7 @@ int selinux_netlbl_socket_post_create(struct sock *sk, u16 family)
+ 	struct sk_security_struct *sksec = sk->sk_security;
+ 	struct netlbl_lsm_secattr *secattr;
  
+-	if (family != PF_INET)
++	if (family != PF_INET && family != PF_INET6)
+ 		return 0;
+ 
+ 	secattr = selinux_netlbl_sock_genattr(sk);
 -- 
 2.7.4
+
