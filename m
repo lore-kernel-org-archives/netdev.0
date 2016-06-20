@@ -1,63 +1,85 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: [PATCH net] team: Fix possible deadlock during team enslave
-Date: Mon, 20 Jun 2016 11:53:20 +0300
-Message-ID: <1466412800-18400-1-git-send-email-idosch@mellanox.com>
+From: "Wei Hu (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v10 08/22] IB/hns: Add icm support
+Date: Mon, 20 Jun 2016 17:48:15 +0800
+Message-ID: <5767BBDF.6010309@huawei.com>
+References: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
+ <1466087730-54856-9-git-send-email-oulijun@huawei.com>
+ <20160617095834.GA5408@leon.nu> <57677314.70909@huawei.com>
+ <20160620060614.GC1172@leon.nu> <5767A004.4060808@huawei.com>
+ <20160620092719.GE1172@leon.nu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <davem@davemloft.net>, <jiri@mellanox.com>, <eladr@mellanox.com>,
-	<yotamg@mellanox.com>, <nogahf@mellanox.com>,
-	<ogerlitz@mellanox.com>, <lucien.xin@gmail.com>,
-	Ido Schimmel <idosch@mellanox.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0055.outbound.protection.outlook.com ([157.55.234.55]:10019
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752770AbcFTI4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jun 2016 04:56:25 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	<sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	<davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160620092719.GE1172-2ukJVAZIZ/Y@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Both dev_uc_sync_multiple() and dev_mc_sync_multiple() require the
-source device to be locked by netif_addr_lock_bh(), but this is missing
-in team's enslave function, so add it.
 
-This fixes the following lockdep warning:
 
-Possible interrupt unsafe locking scenario:
+On 2016/6/20 17:27, Leon Romanovsky wrote:
+> On Mon, Jun 20, 2016 at 03:49:24PM +0800, Wei Hu (Xavier) wrote:
+>>
+>> On 2016/6/20 14:06, Leon Romanovsky wrote:
+>>> On Mon, Jun 20, 2016 at 12:37:40PM +0800, Wei Hu (Xavier) wrote:
+>>>> On 2016/6/17 17:58, Leon Romanovsky wrote:
+>>>>> On Thu, Jun 16, 2016 at 10:35:16PM +0800, Lijun Ou wrote:
+>>>>>> This patch mainly added icm support for RoCE. It initializes icm
+>>>>>> which managers the relative memory blocks for RoCE. The data
+>>>>>> structures of RoCE will be located in it. For example, CQ table,
+>>>>>> QP table and MTPT table so on.
+>>>>>>
+>>>>>> Signed-off-by: Wei Hu <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>>>>>> Signed-off-by: Nenglong Zhao <zhaonenglong-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+>>>>>> Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+>>>>>> ---
+>>>>> <...>
+>>>>>
+>>>>>> +
+>>> Another question which you didn't answer [1].
+>>>
+>>> "I wonder if you have the same needs for ICM as it is in mlx4 device.
+>>> Do you have firmware?"
+>>>
+>>> [1] http://marc.info/?l=linux-rdma&m=146545553104913&w=2
+>> Hi, Leon
+>>      Now we haven't firmware.
+>>      But hardware still need memory for QPC\CQC\MTPT\mtt etc.
+> ICM stands for InfiniHost (Interconnect) Context Memory is a specific
+> memory place to share between host <-> FW and host <-> HW if HW is
+> aware of specific structures.
+>
+> I assume that in your case, it is enough to allocate memory region and
+> supply it to HW. Am I right?
+For Our hardware,
+1. ICM has a memory management method, It's very good for 
+QPC\CQC\MTPT\mtt etc. we need it.
+2. The meomry for QPC\CQC\MTPT\mtt only used for RoCE hardware and 
+driver, we don't want use MR.
+3. Now we haven't firmware, maybe we need it next version.
 
-        CPU0                    CPU1
-        ----                    ----
-   lock(_xmit_ETHER/1);
-                                local_irq_disable();
-                                lock(&(&mc->mca_lock)->rlock);
-                                lock(&team_netdev_addr_lock_key);
-   <Interrupt>
-     lock(&(&mc->mca_lock)->rlock);
+Thanks
+Wei Hu.
+>> Thanks
+>> Wei Hu
+>>>> Regards
+>>>> Wei Hu
+>>>>
+>>
 
-  *** DEADLOCK ***
 
-Fixes: cb41c997d444 ("team: team should sync the port's uc/mc addrs when add a port")
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
----
- drivers/net/team/team.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-index 2ace126..fdee772 100644
---- a/drivers/net/team/team.c
-+++ b/drivers/net/team/team.c
-@@ -1203,8 +1203,10 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
- 		goto err_dev_open;
- 	}
- 
-+	netif_addr_lock_bh(dev);
- 	dev_uc_sync_multiple(port_dev, dev);
- 	dev_mc_sync_multiple(port_dev, dev);
-+	netif_addr_unlock_bh(dev);
- 
- 	err = vlan_vids_add_by_dev(port_dev, dev);
- 	if (err) {
--- 
-2.8.2
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
