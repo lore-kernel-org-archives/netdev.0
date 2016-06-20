@@ -1,121 +1,87 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v10 08/22] IB/hns: Add icm support
-Date: Mon, 20 Jun 2016 16:04:22 +0300
-Message-ID: <20160620130422.GA4526@leon.nu>
-References: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
- <1466087730-54856-9-git-send-email-oulijun@huawei.com>
- <20160617095834.GA5408@leon.nu>
- <57677314.70909@huawei.com>
- <20160620060614.GC1172@leon.nu>
- <5767A004.4060808@huawei.com>
- <20160620092719.GE1172@leon.nu>
- <5767BBDF.6010309@huawei.com>
-Reply-To: leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v4 0/4] return offloaded stats as default and
+ expose original sw stats
+Date: Mon, 20 Jun 2016 15:09:43 +0200
+Message-ID: <20160620130943.GC2043@nanopsycho.orion>
+References: <20160616.172632.1759391103978744570.davem@davemloft.net>
+ <20160617082411.GA1981@nanopsycho.orion>
+ <f720df39-75c4-9be1-245d-df63bd40d610@cumulusnetworks.com>
+ <20160617140512.GB1981@nanopsycho.orion>
+ <57640F2A.7090003@mojatatu.com>
+ <9f8e85ac-3e96-257e-cf7f-e7e793d41cf4@cumulusnetworks.com>
+ <20160617154243.GD1981@nanopsycho.orion>
+ <57642F76.6090403@gmail.com>
+ <CAJieiUhFRp6wE_gt-0q9KYQTYdEyg5yFUYa89K+ovaQr7QE5Zg@mail.gmail.com>
+ <5767E16F.2040902@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="M9NhX3UHpAaciwkO"
-Cc: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: "Wei Hu (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <5767BBDF.6010309-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
-
---M9NhX3UHpAaciwkO
 Content-Type: text/plain; charset=us-ascii
+Cc: Roopa Prabhu <roopa@cumulusnetworks.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Nogah Frankel <nogahf@mellanox.com>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Yotam Gigi <yotamg@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>, sd@queasysnail.net,
+	eranbe@mellanox.com, Alexei Starovoitov <ast@plumgrid.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"hannes@stressinduktion.org" <hannes@stressinduktion.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33430 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754503AbcFTNJv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 09:09:51 -0400
+Received: by mail-wm0-f67.google.com with SMTP id r201so13977773wme.0
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 06:09:51 -0700 (PDT)
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+In-Reply-To: <5767E16F.2040902@mojatatu.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 20, 2016 at 05:48:15PM +0800, Wei Hu (Xavier) wrote:
->=20
->=20
-> On 2016/6/20 17:27, Leon Romanovsky wrote:
-> >On Mon, Jun 20, 2016 at 03:49:24PM +0800, Wei Hu (Xavier) wrote:
-> >>
-> >>On 2016/6/20 14:06, Leon Romanovsky wrote:
-> >>>On Mon, Jun 20, 2016 at 12:37:40PM +0800, Wei Hu (Xavier) wrote:
-> >>>>On 2016/6/17 17:58, Leon Romanovsky wrote:
-> >>>>>On Thu, Jun 16, 2016 at 10:35:16PM +0800, Lijun Ou wrote:
-> >>>>>>This patch mainly added icm support for RoCE. It initializes icm
-> >>>>>>which managers the relative memory blocks for RoCE. The data
-> >>>>>>structures of RoCE will be located in it. For example, CQ table,
-> >>>>>>QP table and MTPT table so on.
-> >>>>>>
-> >>>>>>Signed-off-by: Wei Hu <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> >>>>>>Signed-off-by: Nenglong Zhao <zhaonenglong-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-> >>>>>>Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-> >>>>>>---
-> >>>>><...>
-> >>>>>
-> >>>>>>+
-> >>>Another question which you didn't answer [1].
-> >>>
-> >>>"I wonder if you have the same needs for ICM as it is in mlx4 device.
-> >>>Do you have firmware?"
-> >>>
-> >>>[1] http://marc.info/?l=3Dlinux-rdma&m=3D146545553104913&w=3D2
-> >>Hi, Leon
-> >>     Now we haven't firmware.
-> >>     But hardware still need memory for QPC\CQC\MTPT\mtt etc.
-> >ICM stands for InfiniHost (Interconnect) Context Memory is a specific
-> >memory place to share between host <-> FW and host <-> HW if HW is
-> >aware of specific structures.
-> >
-> >I assume that in your case, it is enough to allocate memory region and
-> >supply it to HW. Am I right?
-> For Our hardware,
-> 1. ICM has a memory management method, It's very good for QPC\CQC\MTPT\mtt
-> etc. we need it.
+Mon, Jun 20, 2016 at 02:28:31PM CEST, jhs@mojatatu.com wrote:
+>On 16-06-19 11:14 PM, Roopa Prabhu wrote:
+>>On Fri, Jun 17, 2016 at 10:12 AM, Florian Fainelli <f.fainelli@gmail.com> wrote:
+>
+>
+>>
+>>I have also mentioned this before, the default api must provide
+>>accumulated (hw and sw) stats...,
+>>because this is the api that the user queries on an interface.
+>
+>Sorry - I missed those discussions.
+>What is current practise? Do people request for one via ip link
+>stats and the other via ethtool?
 
-You need special HW to leverage its. AFAIK it is Mellanox specific.
+Yes.
 
-> 2. The meomry for QPC\CQC\MTPT\mtt only used for RoCE hardware and driver,
-> we don't want use MR.
 
-I didn't mean Infiniband MR, but memory region returned from standard
-allocation functions (kmalloc, ...).
+>What do you guys do in your implementation?
 
-> 3. Now we haven't firmware, maybe we need it next version.
+Currently we do what you described. This patchset changes it.
 
-You are always invited to add support once it will be needed, no need to
-add it in advance.
 
-Thanks
+>Yes, it would be more accurate to provide aggregated stats but
+>it may break backward compat if expectation is both are read
+>separately today.
+>Maybe it makes sense to have a brand new TLV for these aggregated
+>stats as Jiri was suggesting.That means two new TLVs not one.
+>1) TLV for aggregated stats - which cant be current one
+>2) TLV for h/w stats
+>
+>The existing stat implies s/ware only.
 
---M9NhX3UHpAaciwkO
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+What is "aggregated"? if hw counts it, sw counts it as well.
+HW stats are in fact aggregated. It includes all.
 
-iQIcBAEBAgAGBQJXZ+nWAAoJEORje4g2clinS94P/0GGhGBG/WNmJyPJSDgPQF5X
-jz3r+CYHMi/6LZdSx2cqejzNdNuc2Z8xb4jn1XRl/WxMQEUIQZbFDLS+12Sv+HBT
-Z34fpyeyEeqSi/tU/FwcZn83hKluROboOlnbD1nvOjxbrzPICuOi0+EYvJnb2GVo
-dia8Gp6i2H1KWLCSD92z+aksbGYQ/5f2nimMX/J07/tXDzs1arcc1YOoJdMkL3yd
-JGsGd8IOVu2+TkQBdLlsKl3OMJz5lFaLjfH4xHZKjmLm9WXC3QCPAyOGZHoSDurY
-5G6eOxRcj/IHIRt0B+JqxCCyV8ojkqey2hjX7V3xhRNyKQEiLVxaacMpGqF80X14
-Qza1q7OiOkU5NqJ1hyB5MriSkgydYRhXyo+S66kP1JMmmcGKYQWfJ0wVKDpumJt3
-9uivy6wSTN16GvIlxeMOj7TgbPOdKLhLV5/GAGLcwm5mgR/p5CqUfTZtfoiH8T3A
-EjI1dVmJunnPwHqzkWKiZq0PjJknVDIET8/U3sdhJvMVBXzyF53Y+VQNG/YHG5NJ
-aEb4ktGc12wjDxpIfWWtnN0OWWctfoNdiW2u3Uzk36WLZA1HGZGVmlGn6K2dzm+y
-0++w+//yXJ2FKrMg1xALIefEbo5RcZ98ElZmiVMXHgnTQdyeTXEmzXmHQdeB+Qbh
-KdS53oyC86E6Sa2bl4zp
-=KFG/
------END PGP SIGNATURE-----
-
---M9NhX3UHpAaciwkO--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Apps should see HW stats as they don't care if the forwarding is
+offloaded to HW or not. And if someone is aware there is a forward
+offload, he can query sw-only stats via iface proposed by this patchset.
