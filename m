@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH v4 net-next v4 04/14] net: dsa: mv88e6xxx: do not increment bus refcount
-Date: Mon, 20 Jun 2016 12:03:27 -0400
-Message-ID: <20160620160337.2934-5-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH v4 net-next v4 03/14] net: dsa: mv88e6xxx: use already declared variables
+Date: Mon, 20 Jun 2016 12:03:26 -0400
+Message-ID: <20160620160337.2934-4-vivien.didelot@savoirfairelinux.com>
 References: <20160620160337.2934-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -12,44 +12,51 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:46000 "EHLO
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:45999 "EHLO
 	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753879AbcFTQOt (ORCPT
+	with ESMTP id S1751842AbcFTQOt (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 12:14:49 -0400
 In-Reply-To: <20160620160337.2934-1-vivien.didelot@savoirfairelinux.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The MDIO device probe and remove functions are respectively incrementing
-and decrementing the bus refcount themselves. Since these bus level
-actions are out of the device scope, remove them.
+In the MDIO probing function, dev is already assigned to &mdiodev->dev
+and np is already assigned to mdiodev->dev.of_node, so use them.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Acked-by: Andrew Lunn <andrew@lunn.ch>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
 ---
- drivers/net/dsa/mv88e6xxx.c | 3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/dsa/mv88e6xxx.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index b3170ea..4b4bffc 100644
+index 673283a..b3170ea 100644
 --- a/drivers/net/dsa/mv88e6xxx.c
 +++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3712,8 +3712,6 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	ps->sw_addr = mdiodev->addr;
- 	mutex_init(&ps->smi_mutex);
+@@ -3728,7 +3728,7 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 	if (!ps->info)
+ 		return -ENODEV;
  
--	get_device(&ps->bus->dev);
--
- 	ds->drv = &mv88e6xxx_switch_driver;
+-	ps->reset = devm_gpiod_get(&mdiodev->dev, "reset", GPIOD_ASIS);
++	ps->reset = devm_gpiod_get(dev, "reset", GPIOD_ASIS);
+ 	if (IS_ERR(ps->reset)) {
+ 		err = PTR_ERR(ps->reset);
+ 		if (err == -ENOENT) {
+@@ -3743,13 +3743,13 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 	    !of_property_read_u32(np, "eeprom-length", &eeprom_len))
+ 		ps->eeprom_len = eeprom_len;
  
- 	id = mv88e6xxx_reg_read(ps, REG_PORT(0), PORT_SWITCH_ID);
-@@ -3767,7 +3765,6 @@ static void mv88e6xxx_remove(struct mdio_device *mdiodev)
- 	struct mv88e6xxx_priv_state *ps = ds_to_priv(ds);
+-	err = mv88e6xxx_mdio_register(ps, mdiodev->dev.of_node);
++	err = mv88e6xxx_mdio_register(ps, np);
+ 	if (err)
+ 		return err;
  
- 	dsa_unregister_switch(ds);
--	put_device(&ps->bus->dev);
+ 	dev_set_drvdata(dev, ds);
  
- 	mv88e6xxx_mdio_unregister(ps);
- }
+-	err = dsa_register_switch(ds, mdiodev->dev.of_node);
++	err = dsa_register_switch(ds, np);
+ 	if (err) {
+ 		mv88e6xxx_mdio_unregister(ps);
+ 		return err;
 -- 
 2.9.0
