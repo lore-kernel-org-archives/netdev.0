@@ -1,102 +1,99 @@
-From: Jon Maloy <jon.maloy@ericsson.com>
-Subject: [PATCH net 1/1] tipc: unclone unbundled buffers
-	before forwarding
-Date: Mon, 20 Jun 2016 09:20:46 -0400
-Message-ID: <1466428846-12334-1-git-send-email-jon.maloy@ericsson.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v10 06/22] IB/hns: Add initial cmd operation
+Date: Mon, 20 Jun 2016 16:33:10 +0300
+Message-ID: <20160620133310.GB4526@leon.nu>
+References: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
+ <1466087730-54856-7-git-send-email-oulijun@huawei.com>
+Reply-To: leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jon Maloy <jon.maloy@ericsson.com>, netdev@vger.kernel.org,
-	Paul Gortmaker <paul.gortmaker@windriver.com>,
-	tipc-discussion@lists.sourceforge.net
-To: davem@davemloft.net
-Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
-List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
-List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
-	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="CdrF4e02JqNVZeln"
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1466087730-54856-7-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-When extracting an individual message from a received "bundle" buffer,
-we just create a clone of the base buffer, and adjust it to point into
-the right position of the linearized data area of the latter. This works
-well for regular message reception, but during periods of extremely high
-load it may happen that an extracted buffer, e.g, a connection probe, is
-reversed and forwarded through an external interface while the preceding
-extracted message is still unhandled. When this happens, the header or
-data area of the preceding message will be partially overwritten by a
-MAC header, leading to unpredicatable consequences, such as a link
-reset.
 
-We now fix this by ensuring that the msg_reverse() function never
-returns a cloned buffer, and that the returned buffer always contains
-sufficient valid head and tail room to be forwarded.
+--CdrF4e02JqNVZeln
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Reported-by: Erik Hugne <erik.hugne@gmail.com>
-Acked-by: Ying Xue <ying.xue@windriver.com>
-Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
----
- net/tipc/msg.c |  6 ++++++
- net/tipc/msg.h | 11 -----------
- 2 files changed, 6 insertions(+), 11 deletions(-)
+On Thu, Jun 16, 2016 at 10:35:14PM +0800, Lijun Ou wrote:
+> This patch added the operation for cmd, and added some functions
+> for initializing eq table and selecting cmd mode.
+>=20
+> Signed-off-by: Wei Hu <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> Signed-off-by: Nenglong Zhao <zhaonenglong-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+> Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> ---
+> PATCH v9/v8/v7/v6:
+> - No change over the PATCH v5
+>=20
+> PATCH v5:
+> - The initial patch which was redesigned based on the second patch
+>   in PATCH v4
+> ---
 
-diff --git a/net/tipc/msg.c b/net/tipc/msg.c
-index 8740930..17201aa 100644
---- a/net/tipc/msg.c
-+++ b/net/tipc/msg.c
-@@ -41,6 +41,8 @@
- #include "name_table.h"
- 
- #define MAX_FORWARD_SIZE 1024
-+#define BUF_HEADROOM (LL_MAX_HEADER + 48)
-+#define BUF_TAILROOM 16
- 
- static unsigned int align(unsigned int i)
- {
-@@ -505,6 +507,10 @@ bool tipc_msg_reverse(u32 own_node,  struct sk_buff **skb, int err)
- 		msg_set_hdr_sz(hdr, BASIC_H_SIZE);
- 	}
- 
-+	if (skb_cloned(_skb) &&
-+	    pskb_expand_head(_skb, BUF_HEADROOM, BUF_TAILROOM, GFP_KERNEL))
-+		goto exit;
-+
- 	/* Now reverse the concerned fields */
- 	msg_set_errcode(hdr, err);
- 	msg_set_origport(hdr, msg_destport(&ohdr));
-diff --git a/net/tipc/msg.h b/net/tipc/msg.h
-index 024da8a..7cf52fb 100644
---- a/net/tipc/msg.h
-+++ b/net/tipc/msg.h
-@@ -94,17 +94,6 @@ struct plist;
- 
- #define TIPC_MEDIA_INFO_OFFSET	5
- 
--/**
-- * TIPC message buffer code
-- *
-- * TIPC message buffer headroom reserves space for the worst-case
-- * link-level device header (in case the message is sent off-node).
-- *
-- * Note: Headroom should be a multiple of 4 to ensure the TIPC header fields
-- *       are word aligned for quicker access
-- */
--#define BUF_HEADROOM (LL_MAX_HEADER + 48)
--
- struct tipc_skb_cb {
- 	void *handle;
- 	struct sk_buff *tail;
--- 
-1.9.1
+<...>
 
+> +#define CMD_MAX_NUM		32
+> +
+> +int hns_roce_cmd_init(struct hns_roce_dev *hr_dev)
+> +{
+> +	struct device *dev =3D &hr_dev->pdev->dev;
+> +
+> +	mutex_init(&hr_dev->cmd.hcr_mutex);
+> +	sema_init(&hr_dev->cmd.poll_sem, 1);
+> +	hr_dev->cmd.use_events =3D 0;
+> +	hr_dev->cmd.toggle =3D 1;
+> +	hr_dev->cmd.max_cmds =3D CMD_MAX_NUM;
 
-------------------------------------------------------------------------------
-What NetFlow Analyzer can do for you? Monitors network bandwidth and traffic
-patterns at an interface-level. Reveals which users, apps, and protocols are 
-consuming the most bandwidth. Provides multi-vendor support for NetFlow, 
-J-Flow, sFlow and other flows. Make informed decisions using capacity planning
-reports. http://sdm.link/zohomanageengine
+<...>
+
+> +	for (hr_cmd->token_mask =3D 1; hr_cmd->token_mask < hr_cmd->max_cmds;
+> +	     hr_cmd->token_mask <<=3D 1)
+> +		;
+> +	--hr_cmd->token_mask;
+
+It doesn't look that you dynamically change max_cmds supported.
+Why do you need to calculate token_mask dynamically?
+
+--CdrF4e02JqNVZeln
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXZ/CWAAoJEORje4g2clin6fYP/3irrJtA/mvfhiD+6U3rDRoN
+9p5rvft5GKojFbqPNLaG7XrlKDpTgRhVVuyzjlxWSk0/P+XmdXBiRaUPESfeRf5d
+fPaqJQ5LP1tyo1i24c9lla7ZIUFPvdd7kKWZrP2CdqlJAgqJ2ZNuuqoP3k2gq8OT
+VE8zMH5INdwBoq3av5iUdJKGLSlV0YlOFOdJALjjkYelCIsy9WWVA7rJ6YXqzscG
+3V/D5T6JmHP4EoD7kbaExF7SknE9kOzESjMWH1BpG00hCl0yicaPy4Ftk3vu0IU+
+pyYf+moyhExcBwlNpXWejuXzfFtgygTs5+vbXu20bvHY9xhjOa3GI+Qbotk7GdHV
+3KNfjsjttsoFozd8jKV6RqvywnY2f6iT1E9xNtiDJZ2g00EWrm+CdAYbz8jzbSpm
+UsLkzZ/5Lqv2NzW4fcP1PQNadjefowcZV6DL5mmsfSKt1if9SKIE6K9n/hUr8iy3
+vC+hV7iNSSr5skDrzQ++6+OOKA28xse8cV6eeuv0uxgh1xeF1c8ZHp175AC636fW
+Ti0C2AFZA6c/j2oSLz+2s13t5PVTZOPh3Z3voGQRDnzD95u9AEVb2VasGD0Ko95E
+sb6yoqSpE3PNiNA7Ga7gK72b3JUG/Bc2jhT0zaN46Bbmaue0a52Zq2dmvbPSi6OK
+lYd6HEGV4qjptp4UP3kI
+=yDFm
+-----END PGP SIGNATURE-----
+
+--CdrF4e02JqNVZeln--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
