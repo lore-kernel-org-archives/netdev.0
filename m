@@ -1,80 +1,45 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next v4 0/4] return offloaded stats as default and
- expose original sw stats
-Date: Sun, 19 Jun 2016 20:06:46 -0700
-Message-ID: <CAJieiUh77JaUHE90Qrcp_kqeCOrnXJ9ouAH5X2=cR71DAQJgyA@mail.gmail.com>
-References: <1466066237-7719-1-git-send-email-jiri@resnulli.us>
-	<20160616.172632.1759391103978744570.davem@davemloft.net>
-	<20160617082411.GA1981@nanopsycho.orion>
-	<f720df39-75c4-9be1-245d-df63bd40d610@cumulusnetworks.com>
-	<20160617140512.GB1981@nanopsycho.orion>
-	<57640F2A.7090003@mojatatu.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
+Date: Sun, 19 Jun 2016 20:07:41 -0700 (PDT)
+Message-ID: <20160619.200741.1114304127682357737.davem@davemloft.net>
+References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
+	<20160617.200947.2078656051211641868.davem@davemloft.net>
+	<CALx6S37GuppbknFiGsGxyP8jAX-t8c1=mWxCToKQVA8r8UPeOA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jiri Pirko <jiri@resnulli.us>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	David Miller <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Nogah Frankel <nogahf@mellanox.com>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>,
-	Yotam Gigi <yotamg@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>, sd@queasysnail.net,
-	eranbe@mellanox.com, Alexei Starovoitov <ast@plumgrid.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kernel-team@fb.com
+To: tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f41.google.com ([209.85.213.41]:35545 "EHLO
-	mail-vk0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751559AbcFTDGs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 23:06:48 -0400
-Received: by mail-vk0-f41.google.com with SMTP id j2so179865435vkg.2
-        for <netdev@vger.kernel.org>; Sun, 19 Jun 2016 20:06:47 -0700 (PDT)
-In-Reply-To: <57640F2A.7090003@mojatatu.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:47319 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752068AbcFTDPY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 19 Jun 2016 23:15:24 -0400
+In-Reply-To: <CALx6S37GuppbknFiGsGxyP8jAX-t8c1=mWxCToKQVA8r8UPeOA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 17, 2016 at 7:54 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> On 16-06-17 10:05 AM, Jiri Pirko wrote:
->>
->> Fri, Jun 17, 2016 at 03:48:35PM CEST, dsa@cumulusnetworks.com wrote:
->>>
->>> On 6/17/16 2:24 AM, Jiri Pirko wrote:
->>>>
->>>>
->
->>
->> That is problematic. Existing apps depend on rtnetlink stats. But if we
->> don't count offloaded forwarded packets, the apps don't see anything.
->> Therefore I believe that this patchset approach is better. The existing
->> apps continue to work and future apps can use newly introduces sw_stats
->> to query slowpath traffic. Makes sense to me.
->>
->
-> I agree with Jiri. It is a bad idea to depend on ethtool for any of
-> this stuff.
+From: Tom Herbert <tom@herbertland.com>
+Date: Fri, 17 Jun 2016 20:52:55 -0700
 
-The concern should not be that it is an ethtool api.
-In all previous discussions on this patchset and also my
-stats api patches, i have indicated that we have to move all stats
-in one place, so naturally, ethtool stats should move eventually to the
-stats api as a new nested netlink attribute. I think i called it
-IFLA_STATS_LINK_HW  (or something like that)...
-and this nested attribute should provide the flexibility and extensibility
-of the current ethtool stats api.
+> For instance, TFO was put in the Linux several years ago, but it
+> still hasn't been enabled in Android and only fairly recently
+> enabled in iOS.
 
+"Android decided to get locked into a really old kernel for 6+ years"
+is not really a good argument, sorry.
 
-> Is there a way we can tag netlink stats instead
-> to indicate they are hardware or software?
-> We already have a use case with the tc where someone could get/set
-> hardware and/or software.
->
-> cheers,
-> jamal
+We've already been hurt badly by the poor decisions the Android folks
+have made wrt. the handling of their kernel.
+
+Let's not make it worse by also making userland TCP stacks ubiquitous
+as a side effect.
+
+I've been assured several times that the Android situation will at
+the very least improve.
+
+And if it does improve and features do propagate more quickly, we'll
+have all of this risk and gambling unnecessarily.
+
+Let's not route around the Android problem, but rather get them to
+address it properly.
