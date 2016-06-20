@@ -1,40 +1,36 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [alsa-devel] [very-RFC 0/8] TSN driver for the kernel
-Date: Mon, 20 Jun 2016 14:31:48 +0200
-Message-ID: <20160620123148.GA5846@localhost.localdomain>
-References: <1465686096-22156-1-git-send-email-henrik@austad.us>
- <20160613114713.GA9544@localhost.localdomain>
- <20160613195136.GC2441@netboy>
- <20160614121844.54a125a5@lxorguk.ukuu.org.uk>
- <5760C84C.40408@sakamocchi.jp>
- <20160615080602.GA13555@localhost.localdomain>
- <5764DA85.3050801@sakamocchi.jp>
- <20160618224549.GF32724@icarus.home.austad.us>
- <9a5abd48-4da3-945d-53c9-b6d37010ab0d@linux.intel.com>
- <20160620121838.GA5257@localhost.localdomain>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: Micrel Phy KSZ8031 clock select setting in dts
+Date: Mon, 20 Jun 2016 14:45:39 +0200
+Message-ID: <20160620124539.GB20362@lunn.ch>
+References: <20160617130438.GB6604@graute-opti>
+ <bda2a612-37fd-9b73-5aad-6bc62ac2f520@cogentembedded.com>
+ <5766f2a8.8f1d1c0a.10cf8.1751@mx.google.com>
+ <20160620062101.GL9677@pengutronix.de>
+ <20160620120821.GA19639@graute-opti>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Henrik Austad <henrik@austad.us>,
-	Takashi Sakamoto <o-takashi@sakamocchi.jp>,
-	alsa-devel@alsa-project.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@linaro.org>,
-	linux-media@vger.kernel.org
-To: Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>
-Return-path: <linux-media-owner@vger.kernel.org>
+To: Sascha Hauer <s.hauer@pengutronix.de>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, f.fainelli@gmail.com, johan@kernel.org,
+	bth@kamstrup.dk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from vps0.lunn.ch ([178.209.37.122]:52576 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754556AbcFTMpo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jun 2016 08:45:44 -0400
 Content-Disposition: inline
-In-Reply-To: <20160620121838.GA5257@localhost.localdomain>
-Sender: linux-media-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+In-Reply-To: <20160620120821.GA19639@graute-opti>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 20, 2016 at 02:18:38PM +0200, Richard Cochran wrote:
-> Documentation/sound/alsa/timestamping.txt says:
+> &fec1 {
+> 	pinctrl-names = "default";
+> 	pinctrl-0 = <&pinctrl_enet1>;
+> 	phy-mode = "rmii";
+> 	micrel,rmii-reference-clock-select-25-mhz;
+> 	clocks,rmii-ref;
 
-   Examples of typestamping with HDaudio:
+You are adding phy properties, not MAC properties. Please put them in
+the phy node.
 
-   1. DMA timestamp, no compensation for DMA+analog delay
-   $ ./audio_time  -p --ts_type=1
-
-Where is this "audio_time" program of which you speak?
-
-Thanks,
-Richard
+    Andrew
