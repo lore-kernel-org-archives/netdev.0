@@ -1,27 +1,30 @@
 From: Stephen Rothwell <sfr@canb.auug.org.au>
 Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 20 Jun 2016 11:25:01 +1000
-Message-ID: <20160620112501.3365a03b@canb.auug.org.au>
+Date: Mon, 20 Jun 2016 11:28:07 +1000
+Message-ID: <20160620112807.3665143f@canb.auug.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Joshua Houghton <josh@awful.name>,
 	Sowmini Varadhan <sowmini.varadhan@oracle.com>
 To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([103.22.144.67]:44328 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752080AbcFTB2X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 19 Jun 2016 21:28:23 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 Hi all,
 
 Today's linux-next merge of the net-next tree got a conflict in:
 
-  net/rds/tcp_connect.c
+  net/rds/tcp_listen.c
 
 between commit:
 
-  5c3da57d70f1 ("net: rds: fix coding style issues")
+  3bb549ae4c51 ("RDS: TCP: rds_tcp_accept_one() should transition socket from RESETTING to UP")
 
 from the net tree and commit:
 
@@ -40,43 +43,21 @@ complex conflicts.
 Cheers,
 Stephen Rothwell
 
-diff --cc net/rds/tcp_connect.c
-index f6e95d60db54,ba9ec67f4e41..000000000000
---- a/net/rds/tcp_connect.c
-+++ b/net/rds/tcp_connect.c
-@@@ -54,19 -55,20 +55,20 @@@ void rds_tcp_state_change(struct sock *
-  
-  	rdsdebug("sock %p state_change to %d\n", tc->t_sock, sk->sk_state);
-  
- -	switch(sk->sk_state) {
- -		/* ignore connecting sockets as they make progress */
- -		case TCP_SYN_SENT:
- -		case TCP_SYN_RECV:
- -			break;
- -		case TCP_ESTABLISHED:
- -			rds_connect_path_complete(&conn->c_path[0],
- -						  RDS_CONN_CONNECTING);
- -			break;
- -		case TCP_CLOSE_WAIT:
- -		case TCP_CLOSE:
- -			rds_conn_drop(conn);
- -		default:
- -			break;
- +	switch (sk->sk_state) {
- +	/* ignore connecting sockets as they make progress */
- +	case TCP_SYN_SENT:
- +	case TCP_SYN_RECV:
- +		break;
- +	case TCP_ESTABLISHED:
-- 		rds_connect_path_complete(conn, RDS_CONN_CONNECTING);
-++		rds_connect_path_complete(&conn->c_path[0],
-++					  RDS_CONN_CONNECTING);
- +		break;
- +	case TCP_CLOSE_WAIT:
- +	case TCP_CLOSE:
- +		rds_conn_drop(conn);
- +	default:
- +		break;
-  	}
-  out:
-  	read_unlock_bh(&sk->sk_callback_lock);
+diff --cc net/rds/tcp_listen.c
+index 245542ca4718,22d9bb15f731..000000000000
+--- a/net/rds/tcp_listen.c
++++ b/net/rds/tcp_listen.c
+@@@ -136,9 -137,10 +137,10 @@@ int rds_tcp_accept_one(struct socket *s
+  			goto rst_nsk;
+  		} else {
+  			rds_tcp_reset_callbacks(new_sock, conn);
+- 			conn->c_outgoing = 0;
++ 			conn->c_path[0].cp_outgoing = 0;
+  			/* rds_connect_path_complete() marks RDS_CONN_UP */
+- 			rds_connect_path_complete(conn, RDS_CONN_RESETTING);
++ 			rds_connect_path_complete(&conn->c_path[0],
+ -						  RDS_CONN_DISCONNECTING);
+++						  RDS_CONN_RESETTING);
+  		}
+  	} else {
+  		rds_tcp_set_callbacks(new_sock, conn);
