@@ -1,74 +1,61 @@
-From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-Subject: Re: [PATCH] ppc: Fix BPF JIT for ABIv2
-Date: Mon, 20 Jun 2016 15:56:21 -0300
-Message-ID: <20160620185620.GD3516@indiana.gru.redhat.com>
-References: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
- <3rWKtT2tSrz9t2G@ozlabs.org>
- <20160617130042.GO3516@indiana.gru.redhat.com>
- <20160619174914.GC8886@naverao1-tp.localdomain>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [net-next PATCH v3 00/17] Future-proof tunnel offload handlers
+Date: Mon, 20 Jun 2016 12:27:32 -0700
+Message-ID: <CALx6S35C=QnD3WtK52Wc7FLXt77e80OWG1-5qjS5nMVm-nwkCA@mail.gmail.com>
+References: <20160616191851.20872.67154.stgit@localhost.localdomain>
+	<20160617.202641.1821023739498595024.davem@davemloft.net>
+	<CALx6S34Y3Qq6nMHuMcC2LC5duLBO3KVN3+A+0qmPrNvFfY7gJg@mail.gmail.com>
+	<34f19f9c-221b-78f0-3989-9384e0d22e54@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Matt Evans <matt@ozlabs.org>, Daniel Borkmann <daniel@iogearbox.net>,
- Alexei Starovoitov <ast@fb.com>, Denis Kirjanov <kda@linux-powerpc.org>,
- linux-kernel@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
- netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
- "David S. Miller" <davem@davemloft.net>,
- Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-To: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <20160619174914.GC8886@naverao1-tp.localdomain>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Alex Duyck <aduyck@mirantis.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Jesse Gross <jesse@kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	michael.chan@broadcom.com, Dept-GELinuxNICDev@qlogic.com
+To: Hannes Frederic Sowa <hannes@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f48.google.com ([209.85.214.48]:38658 "EHLO
+	mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752821AbcFTTfy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 15:35:54 -0400
+Received: by mail-it0-f48.google.com with SMTP id h190so46109261ith.1
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 12:35:54 -0700 (PDT)
+In-Reply-To: <34f19f9c-221b-78f0-3989-9384e0d22e54@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gU3VuLCBKdW4gMTksIDIwMTYgYXQgMTE6MTk6MTRQTSArMDUzMCwgTmF2ZWVuIE4uIFJhbyB3
-cm90ZToKPiBPbiAyMDE2LzA2LzE3IDEwOjAwQU0sIFRoYWRldSBMaW1hIGRlIFNvdXphIENhc2Nh
-cmRvIHdyb3RlOgo+ID4gT24gRnJpLCBKdW4gMTcsIDIwMTYgYXQgMTA6NTM6MjFQTSArMTAwMCwg
-TWljaGFlbCBFbGxlcm1hbiB3cm90ZToKPiA+ID4gT24gVHVlLCAyMDE2LTA3LTA2IGF0IDEzOjMy
-OjIzIFVUQywgIk5hdmVlbiBOLiBSYW8iIHdyb3RlOgo+ID4gPiA+IGRpZmYgLS1naXQgYS9hcmNo
-L3Bvd2VycGMvbmV0L2JwZl9qaXRfY29tcDY0LmMgYi9hcmNoL3Bvd2VycGMvbmV0L2JwZl9qaXRf
-Y29tcDY0LmMKPiA+ID4gPiBuZXcgZmlsZSBtb2RlIDEwMDY0NAo+ID4gPiA+IGluZGV4IDAwMDAw
-MDAuLjk1NGZmNTMKPiA+ID4gPiAtLS0gL2Rldi9udWxsCj4gPiA+ID4gKysrIGIvYXJjaC9wb3dl
-cnBjL25ldC9icGZfaml0X2NvbXA2NC5jCj4gPiA+ID4gQEAgLTAsMCArMSw5NTYgQEAKPiA+ID4g
-Li4uCj4gPiA+ID4gKwo+ID4gPiA+ICtzdGF0aWMgdm9pZCBicGZfaml0X2ZpbGxfaWxsX2luc25z
-KHZvaWQgKmFyZWEsIHVuc2lnbmVkIGludCBzaXplKQo+ID4gPiA+ICt7Cj4gPiA+ID4gKwlpbnQg
-KnAgPSBhcmVhOwo+ID4gPiA+ICsKPiA+ID4gPiArCS8qIEZpbGwgd2hvbGUgc3BhY2Ugd2l0aCB0
-cmFwIGluc3RydWN0aW9ucyAqLwo+ID4gPiA+ICsJd2hpbGUgKHAgPCAoaW50ICopKChjaGFyICop
-YXJlYSArIHNpemUpKQo+ID4gPiA+ICsJCSpwKysgPSBCUkVBS1BPSU5UX0lOU1RSVUNUSU9OOwo+
-ID4gPiA+ICt9Cj4gPiA+IAo+ID4gPiBUaGlzIGJyZWFrcyB0aGUgYnVpbGQgZm9yIHNvbWUgY29u
-ZmlncywgcHJlc3VtYWJseSB5b3UncmUgbWlzc2luZyBhIGhlYWRlcjoKPiA+ID4gCj4gPiA+ICAg
-YXJjaC9wb3dlcnBjL25ldC9icGZfaml0X2NvbXA2NC5jOjMwOjEwOiBlcnJvcjogJ0JSRUFLUE9J
-TlRfSU5TVFJVQ1RJT04nIHVuZGVjbGFyZWQgKGZpcnN0IHVzZSBpbiB0aGlzIGZ1bmN0aW9uKQo+
-ID4gPiAKPiA+ID4gaHR0cDovL2tpc3NrYi5lbGxlcm1hbi5pZC5hdS9raXNza2IvYnVpbGRyZXN1
-bHQvMTI3MjA2MTEvCj4gPiA+IAo+ID4gPiBjaGVlcnMKPiA+IAo+ID4gSGksIE1pY2hhZWwgYW5k
-IE5hdmVlbi4KPiA+IAo+ID4gSSBub3RpY2VkIGluZGVwZW5kZW50bHkgdGhhdCB0aGVyZSBpcyBh
-IHByb2JsZW0gd2l0aCBCUEYgSklUIGFuZCBBQkl2MiwgYW5kCj4gPiB3b3JrZWQgb3V0IHRoZSBw
-YXRjaCBiZWxvdyBiZWZvcmUgSSBub3RpY2VkIE5hdmVlbidzIHBhdGNoc2V0IGFuZCB0aGUgbGF0
-ZXN0Cj4gPiBjaGFuZ2VzIGluIHBwYyB0cmVlIGZvciBhIGJldHRlciB3YXkgdG8gY2hlY2sgZm9y
-IEFCSSB2ZXJzaW9ucy4KPiA+IAo+ID4gSG93ZXZlciwgc2luY2UgdGhlIGlzc3VlIGRlc2NyaWJl
-ZCBiZWxvdyBhZmZlY3QgbWFpbmxpbmUgYW5kIHN0YWJsZSBrZXJuZWxzLAo+ID4gd291bGQgeW91
-IGNvbnNpZGVyIGFwcGx5aW5nIGl0IGJlZm9yZSBtZXJnaW5nIHlvdXIgdHdvIHBhdGNoc2V0cywg
-c28gdGhhdCB3ZSBjYW4KPiA+IG1vcmUgZWFzaWx5IGJhY2twb3J0IHRoZSBmaXg/Cj4gCj4gSGkg
-Q2FzY2FyZG8sCj4gR2l2ZW4gdGhhdCB0aGlzIGhhcyBiZWVuIGJyb2tlbiBvbiBBQkl2MiBzaW5j
-ZSBmb3JldmVyLCBJIGRpZG4ndCBib3RoZXIgCj4gZml4aW5nIGl0LiBCdXQsIEkgY2FuIHNlZSB3
-aHkgdGhpcyB3b3VsZCBiZSBhIGdvb2QgdGhpbmcgdG8gaGF2ZSBmb3IgCj4gLXN0YWJsZSBhbmQg
-ZXhpc3RpbmcgZGlzdHJvcy4gSG93ZXZlciwgd2hpbGUgeW91ciBwYXRjaCBiZWxvdyBtYXkgZml4
-IAo+IHRoZSBjcmFzaCB5b3UncmUgc2VlaW5nIG9uIHBwYzY0bGUsIGl0IGlzIG5vdCBzdWZmaWNp
-ZW50IC0tIHlvdSdsbCBuZWVkIAo+IGNoYW5nZXMgaW4gYnBmX2ppdF9hc20uUyBhcyB3ZWxsLgoK
-SGksIE5hdmVlbi4KCkFueSB0aXBzIG9uIGhvdyB0byBleGVyY2lzZSBwb3NzaWJsZSBpc3N1ZXMg
-dGhlcmU/IE9yIHdoYXQgY2hhbmdlcyB5b3UgdGhpbmsKd291bGQgYmUgc3VmZmljaWVudD8KCkkg
-d2lsbCBzZWUgd2hhdCBJIGNhbiBmaW5kIGJ5IG15c2VsZiwgYnV0IHdvdWxkIGFwcHJlY2lhdGUg
-YW55IGhlbHAuCgpSZWdhcmRzLgpDYXNjYXJkby4KCj4gCj4gUmVnYXJkcywKPiBOYXZlZW4KPiAK
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
-ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
-c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+> Do we?
+>
+> We look up the socket in a proper way, inclusive the namespace belonging
+> to the device we received the packet on. That said, I don't see a
+> problem with that right now. But maybe I miss something?
+>
+When we so the socket lookup in udp_rcv this is done after IP layer
+and packet has been determined to be loacally addressed. The packet is
+for the host, and if a UDP socket is matched, even if just based on
+destination port, the socket is matched and received functions are
+called. There is no ambiguity.
+
+When the lookup is performed in GRO this is before we processed IP and
+determined that the packet is local. So a packet with any address
+(local or not) will match a listener socket with the same UDP port.
+The GRO can be performed an packet is subsequently forwarded maybe
+having been modified. If this packet turns out to not be the protocol
+we thought it was (e.g. VXLAN) then we have now potentially silently
+corrupted someone else's packets. Grant it, there's probably a lot of
+things that are required to make corruption happen, but it does allow
+the possibly of systematic data corruption and we haven't discounted
+this to become a security vulnerability.
+
+Tom
+
+> Thanks,
+> Hannes
+>
