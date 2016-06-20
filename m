@@ -1,37 +1,74 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH] [v5] net: emac: emac gigabit ethernet controller driver
-Date: Mon, 20 Jun 2016 13:49:10 -0500
-Message-ID: <57683AA6.7020302@codeaurora.org>
-References: <1465942955-22988-1-git-send-email-timur@codeaurora.org>
- <20160619141757.GA4249@rob-hp-laptop>
+From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Subject: Re: [PATCH] ppc: Fix BPF JIT for ABIv2
+Date: Mon, 20 Jun 2016 15:56:21 -0300
+Message-ID: <20160620185620.GD3516@indiana.gru.redhat.com>
+References: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
+ <3rWKtT2tSrz9t2G@ozlabs.org>
+ <20160617130042.GO3516@indiana.gru.redhat.com>
+ <20160619174914.GC8886@naverao1-tp.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	shankerd@codeaurora.org, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org, andrew@lunn.ch,
-	bjorn.andersson@linaro.org, mlangsdo@redhat.com, jcm@redhat.com,
-	agross@codeaurora.org, davem@davemloft.net, f.fainelli@gmail.com
-To: Rob Herring <robh@kernel.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <20160619141757.GA4249@rob-hp-laptop>
-Sender: linux-arm-msm-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Matt Evans <matt@ozlabs.org>, Daniel Borkmann <daniel@iogearbox.net>,
+ Alexei Starovoitov <ast@fb.com>, Denis Kirjanov <kda@linux-powerpc.org>,
+ linux-kernel@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
+ netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+ "David S. Miller" <davem@davemloft.net>,
+ Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+To: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <20160619174914.GC8886@naverao1-tp.localdomain>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Rob Herring wrote:
->> >+		interrupt-parent = <&emac0>;
->> >+		#interrupt-cells = <1>;
->> >+		interrupts = <0 1>;
->> >+		interrupt-map-mask = <0xffffffff>;
->> >+		interrupt-map = <0 &intc 0 76 0
->> >+				 1 &intc 0 80 0>;
-> Why? This looks unnecessary.
-
-It may have made sense with an earlier version of the driver that had 
-more complex interrupts.  I'll fix it in v6.
-
--- 
-Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
-Forum, a Linux Foundation collaborative project.
+T24gU3VuLCBKdW4gMTksIDIwMTYgYXQgMTE6MTk6MTRQTSArMDUzMCwgTmF2ZWVuIE4uIFJhbyB3
+cm90ZToKPiBPbiAyMDE2LzA2LzE3IDEwOjAwQU0sIFRoYWRldSBMaW1hIGRlIFNvdXphIENhc2Nh
+cmRvIHdyb3RlOgo+ID4gT24gRnJpLCBKdW4gMTcsIDIwMTYgYXQgMTA6NTM6MjFQTSArMTAwMCwg
+TWljaGFlbCBFbGxlcm1hbiB3cm90ZToKPiA+ID4gT24gVHVlLCAyMDE2LTA3LTA2IGF0IDEzOjMy
+OjIzIFVUQywgIk5hdmVlbiBOLiBSYW8iIHdyb3RlOgo+ID4gPiA+IGRpZmYgLS1naXQgYS9hcmNo
+L3Bvd2VycGMvbmV0L2JwZl9qaXRfY29tcDY0LmMgYi9hcmNoL3Bvd2VycGMvbmV0L2JwZl9qaXRf
+Y29tcDY0LmMKPiA+ID4gPiBuZXcgZmlsZSBtb2RlIDEwMDY0NAo+ID4gPiA+IGluZGV4IDAwMDAw
+MDAuLjk1NGZmNTMKPiA+ID4gPiAtLS0gL2Rldi9udWxsCj4gPiA+ID4gKysrIGIvYXJjaC9wb3dl
+cnBjL25ldC9icGZfaml0X2NvbXA2NC5jCj4gPiA+ID4gQEAgLTAsMCArMSw5NTYgQEAKPiA+ID4g
+Li4uCj4gPiA+ID4gKwo+ID4gPiA+ICtzdGF0aWMgdm9pZCBicGZfaml0X2ZpbGxfaWxsX2luc25z
+KHZvaWQgKmFyZWEsIHVuc2lnbmVkIGludCBzaXplKQo+ID4gPiA+ICt7Cj4gPiA+ID4gKwlpbnQg
+KnAgPSBhcmVhOwo+ID4gPiA+ICsKPiA+ID4gPiArCS8qIEZpbGwgd2hvbGUgc3BhY2Ugd2l0aCB0
+cmFwIGluc3RydWN0aW9ucyAqLwo+ID4gPiA+ICsJd2hpbGUgKHAgPCAoaW50ICopKChjaGFyICop
+YXJlYSArIHNpemUpKQo+ID4gPiA+ICsJCSpwKysgPSBCUkVBS1BPSU5UX0lOU1RSVUNUSU9OOwo+
+ID4gPiA+ICt9Cj4gPiA+IAo+ID4gPiBUaGlzIGJyZWFrcyB0aGUgYnVpbGQgZm9yIHNvbWUgY29u
+ZmlncywgcHJlc3VtYWJseSB5b3UncmUgbWlzc2luZyBhIGhlYWRlcjoKPiA+ID4gCj4gPiA+ICAg
+YXJjaC9wb3dlcnBjL25ldC9icGZfaml0X2NvbXA2NC5jOjMwOjEwOiBlcnJvcjogJ0JSRUFLUE9J
+TlRfSU5TVFJVQ1RJT04nIHVuZGVjbGFyZWQgKGZpcnN0IHVzZSBpbiB0aGlzIGZ1bmN0aW9uKQo+
+ID4gPiAKPiA+ID4gaHR0cDovL2tpc3NrYi5lbGxlcm1hbi5pZC5hdS9raXNza2IvYnVpbGRyZXN1
+bHQvMTI3MjA2MTEvCj4gPiA+IAo+ID4gPiBjaGVlcnMKPiA+IAo+ID4gSGksIE1pY2hhZWwgYW5k
+IE5hdmVlbi4KPiA+IAo+ID4gSSBub3RpY2VkIGluZGVwZW5kZW50bHkgdGhhdCB0aGVyZSBpcyBh
+IHByb2JsZW0gd2l0aCBCUEYgSklUIGFuZCBBQkl2MiwgYW5kCj4gPiB3b3JrZWQgb3V0IHRoZSBw
+YXRjaCBiZWxvdyBiZWZvcmUgSSBub3RpY2VkIE5hdmVlbidzIHBhdGNoc2V0IGFuZCB0aGUgbGF0
+ZXN0Cj4gPiBjaGFuZ2VzIGluIHBwYyB0cmVlIGZvciBhIGJldHRlciB3YXkgdG8gY2hlY2sgZm9y
+IEFCSSB2ZXJzaW9ucy4KPiA+IAo+ID4gSG93ZXZlciwgc2luY2UgdGhlIGlzc3VlIGRlc2NyaWJl
+ZCBiZWxvdyBhZmZlY3QgbWFpbmxpbmUgYW5kIHN0YWJsZSBrZXJuZWxzLAo+ID4gd291bGQgeW91
+IGNvbnNpZGVyIGFwcGx5aW5nIGl0IGJlZm9yZSBtZXJnaW5nIHlvdXIgdHdvIHBhdGNoc2V0cywg
+c28gdGhhdCB3ZSBjYW4KPiA+IG1vcmUgZWFzaWx5IGJhY2twb3J0IHRoZSBmaXg/Cj4gCj4gSGkg
+Q2FzY2FyZG8sCj4gR2l2ZW4gdGhhdCB0aGlzIGhhcyBiZWVuIGJyb2tlbiBvbiBBQkl2MiBzaW5j
+ZSBmb3JldmVyLCBJIGRpZG4ndCBib3RoZXIgCj4gZml4aW5nIGl0LiBCdXQsIEkgY2FuIHNlZSB3
+aHkgdGhpcyB3b3VsZCBiZSBhIGdvb2QgdGhpbmcgdG8gaGF2ZSBmb3IgCj4gLXN0YWJsZSBhbmQg
+ZXhpc3RpbmcgZGlzdHJvcy4gSG93ZXZlciwgd2hpbGUgeW91ciBwYXRjaCBiZWxvdyBtYXkgZml4
+IAo+IHRoZSBjcmFzaCB5b3UncmUgc2VlaW5nIG9uIHBwYzY0bGUsIGl0IGlzIG5vdCBzdWZmaWNp
+ZW50IC0tIHlvdSdsbCBuZWVkIAo+IGNoYW5nZXMgaW4gYnBmX2ppdF9hc20uUyBhcyB3ZWxsLgoK
+SGksIE5hdmVlbi4KCkFueSB0aXBzIG9uIGhvdyB0byBleGVyY2lzZSBwb3NzaWJsZSBpc3N1ZXMg
+dGhlcmU/IE9yIHdoYXQgY2hhbmdlcyB5b3UgdGhpbmsKd291bGQgYmUgc3VmZmljaWVudD8KCkkg
+d2lsbCBzZWUgd2hhdCBJIGNhbiBmaW5kIGJ5IG15c2VsZiwgYnV0IHdvdWxkIGFwcHJlY2lhdGUg
+YW55IGhlbHAuCgpSZWdhcmRzLgpDYXNjYXJkby4KCj4gCj4gUmVnYXJkcywKPiBOYXZlZW4KPiAK
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
+ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
+c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
