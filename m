@@ -1,105 +1,63 @@
-From: Leon Romanovsky <leon@kernel.org>
-Subject: Re: [PATCH v10 08/22] IB/hns: Add icm support
-Date: Mon, 20 Jun 2016 12:27:19 +0300
-Message-ID: <20160620092719.GE1172@leon.nu>
-References: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
- <1466087730-54856-9-git-send-email-oulijun@huawei.com>
- <20160617095834.GA5408@leon.nu>
- <57677314.70909@huawei.com>
- <20160620060614.GC1172@leon.nu>
- <5767A004.4060808@huawei.com>
-Reply-To: leon@kernel.org
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: [PATCH net] team: Fix possible deadlock during team enslave
+Date: Mon, 20 Jun 2016 11:53:20 +0300
+Message-ID: <1466412800-18400-1-git-send-email-idosch@mellanox.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="6e7ZaeXHKrTJCxdu"
-Cc: Lijun Ou <oulijun@huawei.com>, dledford@redhat.com,
-	sean.hefty@intel.com, hal.rosenstock@gmail.com,
-	davem@davemloft.net, jeffrey.t.kirsher@intel.com,
-	jiri@mellanox.com, ogerlitz@mellanox.com,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, gongyangming@huawei.com,
-	xiaokun@huawei.com, tangchaofei@huawei.com, haifeng.wei@huawei.com,
-	yisen.zhuang@huawei.com, yankejian@huawei.com,
-	charles.chenxin@huawei.com, linuxarm@huawei.com
-To: "Wei Hu (Xavier)" <xavier.huwei@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5767A004.4060808@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <davem@davemloft.net>, <jiri@mellanox.com>, <eladr@mellanox.com>,
+	<yotamg@mellanox.com>, <nogahf@mellanox.com>,
+	<ogerlitz@mellanox.com>, <lucien.xin@gmail.com>,
+	Ido Schimmel <idosch@mellanox.com>
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db3on0055.outbound.protection.outlook.com ([157.55.234.55]:10019
+	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752770AbcFTI4Z (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jun 2016 04:56:25 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+Both dev_uc_sync_multiple() and dev_mc_sync_multiple() require the
+source device to be locked by netif_addr_lock_bh(), but this is missing
+in team's enslave function, so add it.
 
---6e7ZaeXHKrTJCxdu
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This fixes the following lockdep warning:
 
-On Mon, Jun 20, 2016 at 03:49:24PM +0800, Wei Hu (Xavier) wrote:
->=20
->=20
-> On 2016/6/20 14:06, Leon Romanovsky wrote:
-> >On Mon, Jun 20, 2016 at 12:37:40PM +0800, Wei Hu (Xavier) wrote:
-> >>
-> >>On 2016/6/17 17:58, Leon Romanovsky wrote:
-> >>>On Thu, Jun 16, 2016 at 10:35:16PM +0800, Lijun Ou wrote:
-> >>>>This patch mainly added icm support for RoCE. It initializes icm
-> >>>>which managers the relative memory blocks for RoCE. The data
-> >>>>structures of RoCE will be located in it. For example, CQ table,
-> >>>>QP table and MTPT table so on.
-> >>>>
-> >>>>Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
-> >>>>Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
-> >>>>Signed-off-by: Lijun Ou <oulijun@huawei.com>
-> >>>>---
-> >>><...>
-> >>>
-> >>>>+
-> >Another question which you didn't answer [1].
-> >
-> >"I wonder if you have the same needs for ICM as it is in mlx4 device.
-> >Do you have firmware?"
-> >
-> >[1] http://marc.info/?l=3Dlinux-rdma&m=3D146545553104913&w=3D2
-> Hi, Leon
->     Now we haven't firmware.
->     But hardware still need memory for QPC\CQC\MTPT\mtt etc.
+Possible interrupt unsafe locking scenario:
 
-ICM stands for InfiniHost (Interconnect) Context Memory is a specific
-memory place to share between host <-> FW and host <-> HW if HW is
-aware of specific structures.
+        CPU0                    CPU1
+        ----                    ----
+   lock(_xmit_ETHER/1);
+                                local_irq_disable();
+                                lock(&(&mc->mca_lock)->rlock);
+                                lock(&team_netdev_addr_lock_key);
+   <Interrupt>
+     lock(&(&mc->mca_lock)->rlock);
 
-I assume that in your case, it is enough to allocate memory region and
-supply it to HW. Am I right?
+  *** DEADLOCK ***
 
->=20
-> Thanks
-> Wei Hu
-> >>Regards
-> >>Wei Hu
-> >>
->=20
->=20
+Fixes: cb41c997d444 ("team: team should sync the port's uc/mc addrs when add a port")
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+---
+ drivers/net/team/team.c | 2 ++
+ 1 file changed, 2 insertions(+)
 
---6e7ZaeXHKrTJCxdu
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJXZ7b3AAoJEORje4g2clincEoQAI+ddKVx36/HBsHieA0QGvIR
-dyscLKRyeqn6i6NQ5I2KrOEWizX/d2euYLeTlBo/O+PWqN48t40G6WwZq6uwENo9
-boufluvoO8ppSGaah/d4SN8+q+h7mmrgQMIQFEYY7HCSUsrnrQjV3OjY7T9Dkx/+
-ZA60s9asATlDG3dKjnkAlrWV+psh9F9UgqTjystyoun/VFyx4ZzMegkaslLt+R+q
-LIpXv/FhJxMP4CVmi3PsTT2FYmPd1G4pLNnwYGAVXlRo5Exkavjk19I72JClE+IQ
-8rNZLfBxENkjAWqz6TDzy0MPWI+xj+3tKsZC5G3vZGe2LXQo3jSqjoWSZCw72Mbk
-CQvWky8PF3sP6EyHwsbtoRHXUAfJ50V4FlrAbHkE5oHvBU0VWJIWGLUfO0KdWj0w
-gKPA2gg5lDKhFfxg8gF+Bvc4zoPEekMsFP+fMYkrAIK9nSMQkbtzIFI/Piijsb94
-/wi3rWwvw5ecffZPVchLpyYgjxadckKYOfnOuCgpQq819t4KjIEJ37U8uUuKMxxP
-2Pn/FCGIrzYB6/0znvFzJaL8s/IaTC6ftTJDgMM5+zReQvzKs7atYFcXL7x84Qe4
-DMrzV7GSlHFQeRjGDG5yZSTFeRQdy67uhpfS2cdVV4Sk9T7iDBrec0wNT9CQnr6q
-R4J1VcFmKmhyyWoD0FWS
-=UXpm
------END PGP SIGNATURE-----
-
---6e7ZaeXHKrTJCxdu--
+diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+index 2ace126..fdee772 100644
+--- a/drivers/net/team/team.c
++++ b/drivers/net/team/team.c
+@@ -1203,8 +1203,10 @@ static int team_port_add(struct team *team, struct net_device *port_dev)
+ 		goto err_dev_open;
+ 	}
+ 
++	netif_addr_lock_bh(dev);
+ 	dev_uc_sync_multiple(port_dev, dev);
+ 	dev_mc_sync_multiple(port_dev, dev);
++	netif_addr_unlock_bh(dev);
+ 
+ 	err = vlan_vids_add_by_dev(port_dev, dev);
+ 	if (err) {
+-- 
+2.8.2
