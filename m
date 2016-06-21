@@ -1,41 +1,49 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: [PATCH net] MAINTAINERS: Update Mellanox's mlx4 Eth NIC driver entry
-Date: Tue, 21 Jun 2016 16:36:06 +0300
-Message-ID: <1466516166-25936-1-git-send-email-ogerlitz@mellanox.com>
-Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:43682 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751059AbcFUNhi (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2016 09:37:38 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH 1/2] ath10k: remove unused <linux/semaphore.h>
+Date: Tue, 21 Jun 2016 16:46:00 +0300
+Message-ID: <bf7b2008-b333-2d79-a952-fda895da8479@cogentembedded.com>
+References: <20160621114539.15313-1-chaehyun.lim@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org,
+ ath10k@lists.infradead.org
+To: Chaehyun Lim <chaehyun.lim@gmail.com>, kvalo@qca.qualcomm.com
+Return-path: <ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org>
+In-Reply-To: <20160621114539.15313-1-chaehyun.lim@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/ath10k>,
+ <mailto:ath10k-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/ath10k/>
+List-Post: <mailto:ath10k@lists.infradead.org>
+List-Help: <mailto:ath10k-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/ath10k>,
+ <mailto:ath10k-request@lists.infradead.org?subject=subscribe>
+Sender: "ath10k" <ath10k-bounces@lists.infradead.org>
+Errors-To: ath10k-bounces+gldad-ath10k=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Tariq Toukan is replacing Eugenia (Jenny) Emantayev as the mlx4
-Ethernet driver maintainer, thanks to Jenny and good luck to him.
+Hello.
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
----
- MAINTAINERS | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+On 6/21/2016 2:45 PM, Chaehyun Lim wrote:
 
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 2ebe195..8cffceb 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -7406,7 +7406,7 @@ F:	drivers/scsi/megaraid.*
- F:	drivers/scsi/megaraid/
- 
- MELLANOX ETHERNET DRIVER (mlx4_en)
--M: 	Eugenia Emantayev <eugenia@mellanox.com>
-+M:	Tariq Toukan <tariqt@mellanox.com>
- L:	netdev@vger.kernel.org
- S:	Supported
- W:	http://www.mellanox.com
--- 
-2.3.7
+> <linux/semaphore.h> is not used anymore, so just remove it.
+
+    s/it/#include/?
+
+> Signed-off-by: Chaehyun Lim <chaehyun.lim@gmail.com>
+[...]
+
+> diff --git a/drivers/net/wireless/ath/ath10k/htc.h b/drivers/net/wireless/ath/ath10k/htc.h
+> index cc82718..0c55cd9 100644
+> --- a/drivers/net/wireless/ath/ath10k/htc.h
+> +++ b/drivers/net/wireless/ath/ath10k/htc.h
+> @@ -22,7 +22,6 @@
+>  #include <linux/list.h>
+>  #include <linux/bug.h>
+>  #include <linux/skbuff.h>
+> -#include <linux/semaphore.h>
+>  #include <linux/timer.h>
+>
+>  struct ath10k;
+
+MBR, Sergei
