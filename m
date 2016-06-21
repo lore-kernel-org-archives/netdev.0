@@ -1,37 +1,40 @@
-From: Heiko =?ISO-8859-1?Q?St=FCbner?= <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
-Subject: Re: [PATCH v2] net: stmmac: dwmac-rk: add rk3228-specific data
-Date: Tue, 21 Jun 2016 16:51:51 +0200
-Message-ID: <2585964.YhYKyZXPJu@diego>
-References: <1466512409-18855-1-git-send-email-zhengxing@rock-chips.com>
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+Subject: [PATCH net-next 0/2] qed*: coalesce parameters config support.
+Date: Tue, 21 Jun 2016 09:36:20 -0400
+Message-ID: <1466516182-24442-1-git-send-email-sudarsana.kalluru@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
- Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
- Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1466512409-18855-1-git-send-email-zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
+	<sudarsana.kalluru@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:28355 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751579AbcFUPII (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 11:08:08 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Am Dienstag, 21. Juni 2016, 20:33:28 schrieb Xing Zheng:
-> Add constants and callback functions for the dwmac on rk3228/rk3229 socs.
-> As can be seen, the base structure is the same, only registers and the
-> bits in them moved slightly.
-> 
-> Signed-off-by: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+The patch series adds the support for config/read of the adapter coalesce
+parameters. Patch (1) adds the qed infrastructure/APIs for the support and
+patch (2) adds the driver support for following ethtool commands:
+	ethtool -c|--show-coalesce ethX
+	ethtool -C|--coalesce ethX [rx-usecs N] [tx-usecs N]
 
-Reviewed-by: Heiko Stuebner <heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org>
+Sudarsana Reddy Kalluru (2):
+  qed: Add support for coalescing config read/update.
+  qede: Add support for coalescing config read/update.
+
+ drivers/net/ethernet/qlogic/qed/qed_dev.c       | 104 ++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_dev_api.h   |  47 +++++++++++
+ drivers/net/ethernet/qlogic/qed/qed_hw.c        |  23 ++++++
+ drivers/net/ethernet/qlogic/qed/qed_int.c       |  75 +++++++++++++++--
+ drivers/net/ethernet/qlogic/qed/qed_int.h       |   3 +
+ drivers/net/ethernet/qlogic/qed/qed_main.c      |  34 ++++++++
+ drivers/net/ethernet/qlogic/qed/qed_reg_addr.h  |   2 +
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c |  53 ++++++++++++
+ include/linux/qed/qed_if.h                      |  24 ++++++
+ 9 files changed, 360 insertions(+), 5 deletions(-)
+
+-- 
+1.8.3.1
