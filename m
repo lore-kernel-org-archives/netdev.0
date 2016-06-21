@@ -1,36 +1,47 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH net-next] net: dsa: b53: Fix statistics readings
-Date: Tue, 21 Jun 2016 04:01:07 +0200
-Message-ID: <20160621020107.GE20362@lunn.ch>
-References: <1466472413-25824-1-git-send-email-f.fainelli@gmail.com>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH net-next 12/18] IB/mlx5: Add kernel offload flow-tag
+Date: Mon, 20 Jun 2016 19:18:38 -0700
+Message-ID: <20160621021836.GA81638@ast-mbp.thefacebook.com>
+References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
+ <1466174639-14576-13-git-send-email-saeedm@mellanox.com>
+ <20160617160007.GA52082@ast-mbp.thefacebook.com>
+ <CALzJLG-uoMKjZCC312JjfqnQaUW_-31eqeg0bQd+r3qp4Fa1ag@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	vivien.didelot@savoirfairelinux.com, jogo@openwrt.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Doug Ledford <dledford@redhat.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Maor Gottlieb <maorg@mellanox.com>,
+	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:53253 "EHLO vps0.lunn.ch"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751719AbcFUCBr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 20 Jun 2016 22:01:47 -0400
+Received: from mail-pf0-f196.google.com ([209.85.192.196]:36043 "EHLO
+	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754109AbcFUCSo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 22:18:44 -0400
+Received: by mail-pf0-f196.google.com with SMTP id i123so206058pfg.3
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 19:18:44 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <1466472413-25824-1-git-send-email-f.fainelli@gmail.com>
+In-Reply-To: <CALzJLG-uoMKjZCC312JjfqnQaUW_-31eqeg0bQd+r3qp4Fa1ag@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 20, 2016 at 06:26:53PM -0700, Florian Fainelli wrote:
-> Due to a typo we would always be using the MIB counter width of the
-> first element of the counter array instead of the current element, and
-> we would always be accessing the register statistics with a 64-bits
-> read, while some could be 32-bits. This got unnoticed in testing with
-> MDIO and SRAB which tolerate doing this, but testing with the SPI bus
-> revealed bogus values being returned. Fix this by using the proper
-> iterator here.
+On Sat, Jun 18, 2016 at 01:31:26AM +0300, Saeed Mahameed wrote:
 > 
-> Fixes: 967dd82ffc52 ("net: dsa: b53: Add support for Broadcom RoboSwitch")
-> Reported-by: Jonas Gorski <jogo@openwrt.org>
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> We simply want to selectively be able to see RoCE/RDMA ETH standard
+> traffic in tcpdump, for diagnostic purposes.
+> so in order to not overwhelm the kernel TCP/IP stack with this
+> traffic, this patch in particular
+> configures ConnectX4 hardware to tag those packets, so in downstream
+> patches mlx5 netdevice will mark the SKBs of those packets
+> to skip the TCP/IP stack and go only to tcpdump.
 
-Reviewed-by: Andrew Lunn <andrew@lunn.ch>
-
-    Andrew
+such 'feature' doesn't make sense to me.
+'not overwhelming' kernel, but to 'overwhelm' userspace tcpdump?
+Kernel can drop packets way faster than userspace, so such bypass
+scheme has no prartical usage other than building a first step towards
+complete dpdk-like bypass.
