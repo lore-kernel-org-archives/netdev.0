@@ -1,72 +1,87 @@
-From: Bjorn Helgaas <helgaas@kernel.org>
-Subject: Re: [PATCH v3 0/6] Introduce pci_(request|release)_(mem|io)_regions
-Date: Tue, 21 Jun 2016 17:28:30 -0500
-Message-ID: <20160621222830.GF7603@localhost>
-References: <cover.1465200424.git.jthumshirn@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Christoph Hellwig <hch@infradead.org>,
-	Keith Busch <keith.busch@intel.com>, Jens Axboe <axboe@fb.com>,
-	linux-nvme@lists.infradead.org,
-	James Smart <james.smart@avagotech.com>,
-	Dick Kennedy <dick.kennedy@avagotech.com>,
-	"James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
-	"Martin K. Petersen" <martin.petersen@oracle.com>,
-	linux-scsi@vger.kernel.org,
-	Frank Haverkamp <haver@linux.vnet.ibm.com>,
-	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	Jay Cliburn <jcliburn@gmail.com>,
-	Chris Snook <chris.snook@gmail.com>,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	intel-wired-lan@lists.osuosl.org
-To: Johannes Thumshirn <jthumshirn@suse.de>
-Return-path: <linux-pci-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <cover.1465200424.git.jthumshirn@suse.de>
-Sender: linux-pci-owner@vger.kernel.org
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 2/2] net: ethernet: macb: use phy_ethtool_{get|set}_link_ksettings
+Date: Wed, 22 Jun 2016 00:32:36 +0200
+Message-ID: <1466548356-19166-2-git-send-email-tremyfr@gmail.com>
+References: <1466548356-19166-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Philippe Reynes <tremyfr@gmail.com>
+To: nicolas.ferre@atmel.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466548356-19166-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 07, 2016 at 09:44:00AM +0200, Johannes Thumshirn wrote:
-> The first patch in this series introduces the following 4 helper functions to
-> the PCI core:
-> 
-> * pci_request_mem_regions()
-> * pci_request_io_regions()
-> * pci_release_mem_regions()
-> * pci_release_io_regions()
-> 
-> which encapsulate the request and release of a PCI device's memory or I/O
-> bars.
-> 
-> The subsequent patches convert the drivers, which use the
-> pci_request_selected_regions(pdev, 
-> 	pci_select_bars(pdev, IORESOURCE_MEM), name); 
-> and similar pattern to use the new interface.
-> 
-> This was suggested by Christoph Hellwig in
-> http://lists.infradead.org/pipermail/linux-nvme/2016-May/004570.html and
-> tested on kernel v4.6 with NVMe.
+There are two generics functions phy_ethtool_{get|set}_link_ksettings,
+so we can use them instead of defining the same code in the driver.
 
-I applied all six of these to pci/resources for v4.8, thanks, Johannes.
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/cadence/macb.c |   30 ++++--------------------------
+ 1 files changed, 4 insertions(+), 26 deletions(-)
 
-> Johannes Thumshirn (6):
->   PCI: Add helpers to request/release memory and I/O regions
->   NVMe: Use pci_(request|release)_mem_regions
->   lpfc: Use pci_(request|release)_mem_regions
->   GenWQE: Use pci_(request|release)_mem_regions
->   ethernet/intel: Use pci_(request|release)_mem_regions
->   alx: Use pci_(request|release)_mem_regions
-> 
->  drivers/misc/genwqe/card_base.c               | 13 +++++--------
->  drivers/net/ethernet/atheros/alx/main.c       | 12 +++++-------
->  drivers/net/ethernet/intel/e1000e/netdev.c    |  6 ++----
->  drivers/net/ethernet/intel/fm10k/fm10k_pci.c  | 11 +++--------
->  drivers/net/ethernet/intel/i40e/i40e_main.c   |  9 +++------
->  drivers/net/ethernet/intel/igb/igb_main.c     | 10 +++-------
->  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  9 +++------
->  drivers/nvme/host/pci.c                       | 10 +++-------
->  drivers/scsi/lpfc/lpfc_init.c                 | 15 ++++----------
->  include/linux/pci.h                           | 28 +++++++++++++++++++++++++++
+diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
+index 090463f..89c0cfa 100644
+--- a/drivers/net/ethernet/cadence/macb.c
++++ b/drivers/net/ethernet/cadence/macb.c
+@@ -2091,28 +2091,6 @@ static struct net_device_stats *macb_get_stats(struct net_device *dev)
+ 	return nstat;
+ }
+ 
+-static int macb_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	struct macb *bp = netdev_priv(dev);
+-	struct phy_device *phydev = dev->phydev;
+-
+-	if (!phydev)
+-		return -ENODEV;
+-
+-	return phy_ethtool_gset(phydev, cmd);
+-}
+-
+-static int macb_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	struct macb *bp = netdev_priv(dev);
+-	struct phy_device *phydev = dev->phydev;
+-
+-	if (!phydev)
+-		return -ENODEV;
+-
+-	return phy_ethtool_sset(phydev, cmd);
+-}
+-
+ static int macb_get_regs_len(struct net_device *netdev)
+ {
+ 	return MACB_GREGS_NBR * sizeof(u32);
+@@ -2185,19 +2163,17 @@ static int macb_set_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
+ }
+ 
+ static const struct ethtool_ops macb_ethtool_ops = {
+-	.get_settings		= macb_get_settings,
+-	.set_settings		= macb_set_settings,
+ 	.get_regs_len		= macb_get_regs_len,
+ 	.get_regs		= macb_get_regs,
+ 	.get_link		= ethtool_op_get_link,
+ 	.get_ts_info		= ethtool_op_get_ts_info,
+ 	.get_wol		= macb_get_wol,
+ 	.set_wol		= macb_set_wol,
++	.get_link_ksettings     = phy_ethtool_get_link_ksettings,
++	.set_link_ksettings     = phy_ethtool_set_link_ksettings,
+ };
+ 
+ static const struct ethtool_ops gem_ethtool_ops = {
+-	.get_settings		= macb_get_settings,
+-	.set_settings		= macb_set_settings,
+ 	.get_regs_len		= macb_get_regs_len,
+ 	.get_regs		= macb_get_regs,
+ 	.get_link		= ethtool_op_get_link,
+@@ -2205,6 +2181,8 @@ static const struct ethtool_ops gem_ethtool_ops = {
+ 	.get_ethtool_stats	= gem_get_ethtool_stats,
+ 	.get_strings		= gem_get_ethtool_strings,
+ 	.get_sset_count		= gem_get_sset_count,
++	.get_link_ksettings     = phy_ethtool_get_link_ksettings,
++	.set_link_ksettings     = phy_ethtool_set_link_ksettings,
+ };
+ 
+ static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+-- 
+1.7.4.4
