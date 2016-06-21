@@ -1,47 +1,89 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH net-next 12/18] IB/mlx5: Add kernel offload flow-tag
-Date: Mon, 20 Jun 2016 19:18:38 -0700
-Message-ID: <20160621021836.GA81638@ast-mbp.thefacebook.com>
-References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
- <1466174639-14576-13-git-send-email-saeedm@mellanox.com>
- <20160617160007.GA52082@ast-mbp.thefacebook.com>
- <CALzJLG-uoMKjZCC312JjfqnQaUW_-31eqeg0bQd+r3qp4Fa1ag@mail.gmail.com>
+From: Takashi Sakamoto <o-takashi@sakamocchi.jp>
+Subject: Re: [very-RFC 0/8] TSN driver for the kernel
+Date: Tue, 21 Jun 2016 11:22:18 +0900
+Message-ID: <5768A4DA.1030809@sakamocchi.jp>
+References: <1465686096-22156-1-git-send-email-henrik@austad.us>
+ <20160613114713.GA9544@localhost.localdomain> <20160613195136.GC2441@netboy>
+ <20160614121844.54a125a5@lxorguk.ukuu.org.uk> <5760C84C.40408@sakamocchi.jp>
+ <20160615080602.GA13555@localhost.localdomain>
+ <5764DA85.3050801@sakamocchi.jp>
+ <20160618224549.GF32724@icarus.home.austad.us>
+ <5766B01B.9070903@sakamocchi.jp>
+ <20160620090656.GB8011@sisyphus.home.austad.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Doug Ledford <dledford@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36043 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754109AbcFUCSo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 22:18:44 -0400
-Received: by mail-pf0-f196.google.com with SMTP id i123so206058pfg.3
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 19:18:44 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CALzJLG-uoMKjZCC312JjfqnQaUW_-31eqeg0bQd+r3qp4Fa1ag@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: netdev@vger.kernel.org, Richard Cochran <richardcochran@gmail.com>,
+ linux-media@vger.kernel.org, alsa-devel@alsa-project.org,
+ Arnd Bergmann <arnd@linaro.org>
+To: Henrik Austad <henrik@austad.us>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+In-Reply-To: <20160620090656.GB8011@sisyphus.home.austad.us>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-On Sat, Jun 18, 2016 at 01:31:26AM +0300, Saeed Mahameed wrote:
-> 
-> We simply want to selectively be able to see RoCE/RDMA ETH standard
-> traffic in tcpdump, for diagnostic purposes.
-> so in order to not overwhelm the kernel TCP/IP stack with this
-> traffic, this patch in particular
-> configures ConnectX4 hardware to tag those packets, so in downstream
-> patches mlx5 netdevice will mark the SKBs of those packets
-> to skip the TCP/IP stack and go only to tcpdump.
-
-such 'feature' doesn't make sense to me.
-'not overwhelming' kernel, but to 'overwhelm' userspace tcpdump?
-Kernel can drop packets way faster than userspace, so such bypass
-scheme has no prartical usage other than building a first step towards
-complete dpdk-like bypass.
+T24gMjAxNuW5tDA25pyIMjDml6UgMTg6MDYsIEhlbnJpayBBdXN0YWQgd3JvdGU6Cj4gT24gU3Vu
+LCBKdW4gMTksIDIwMTYgYXQgMTE6NDU6NDdQTSArMDkwMCwgVGFrYXNoaSBTYWthbW90byB3cm90
+ZToKPj4gKHJlbW92ZSBDLkMuIHRvIGxrbWwuIFRoaXMgaXMgbm90IHNvIG1ham9yIGZlYXR1cmUu
+KQo+Pgo+PiBPbiBKdW4gMTkgMjkxNiAwNzo0NSwgSGVucmlrIEF1c3RhZCB3cm90ZToKPj4+IHNu
+aXAKPj4+Cj4+PiA4MDIuMVEgZ2l2ZXMgeW91IGxvdyBsYXRlbmN5IHRocm91Z2ggdGhlIG5ldHdv
+cmssIGJ1dCBtb3JlIGltcG9ydGFudGx5LCBubwo+Pj4gZHJvcHBlZCBmcmFtZXMuIGdQVFAgZ2l2
+ZXMgeW91IGEgY2VudHJhbCByZWZlcmVuY2UgdG8gdGltZS4KPj4KPj4gV2hlbiBzdWNoIGEgbG9u
+ZyBtZXNzYWdlIGlzIHJlcXVpcmVkLCBpdCBtZWFucyB0aGF0IHdlIGRvbid0IGhhdmUKPj4gZW5v
+dWdoIHByZW1pc2VzIGZvciB0aGlzIGRpc2N1c3Npb24uCj4KPiBJc24ndCBhIGRpc2N1c3Npb24g
+cGFydCBvZiBob3cgaW5mb3JtYXRpb24gaXMgY29udmV5ZWQgYW5kIGZpbmRpbmcgcGFydHMKPiB0
+aGF0IHJlcXVpcmUgbW9yZSBrbm93bGVkZ2U/Cj4KPj4gWW91IGhhdmUganVzdCBpbnRlcmVzdHMg
+aW4gZ1BUUCBhbmQgdHJhbnNmZXJyaW5nIEFWVFBEVXMsIHdoaWxlIG5vCj4+IGludGVyZXN0cyBp
+biB0aGUgb3RoZXJzIHN1Y2ggYXMgIndoYXQgdGhlIGJhc2ljIGlkZWFzIG9mIFRTTiBjb21lCj4+
+IGZyb20iIGFuZCAidGhlIHJlYXNvbiB0aGF0IElFRUUgMTcyMiByZWZlcnMgdG8gSUVDIDYxODgz
+IHNlcmllcwo+PiB3aGljaCBpcyBvcmlnaW5hbGx5IGRlc2lnbmVkIGZvciBJRUVFIDEzOTQgYnVz
+IiBhbmQgInRoZSByZWFzb24gdGhhdAo+PiBJIHdhcyBtb3RpdmF0ZWQgdG8gam9pbiBpbiB0aGlz
+IGRpc2N1c3Npb24gZXZlbiB0aG91Z2ggbm90IGEgbmV0ZGV2Cj4+IGRldmVsb3BlciIuCj4KPiBJ
+J20gc29ycnksIEknbSBub3Qgc3VyZSBJIGZvbGxvdyB5b3UgaGVyZS4gV2hhdCBkbyB5b3UgbWVh
+biBJIGRvbid0IGhhdmUKPiBhbnkgaW50ZXJlc3QgaW4gd2hlcmUgVFNOIGNvbWVzIGZyb20/IG9y
+IHRoZSByZWFzb24gd2h5IDE3MjIgdXNlIElFQyA2MTg4Mz8KPiBXaGF0IGFib3V0ICJ0aGV5IHBp
+Y2tlZCA2MTg4MyBiZWNhdXNlIGl0IG1hZGUgc2Vuc2U/Igo+Cj4gZ1BUUCBpdHNlbGYgaXMgKm5v
+dCogYWJvdXQgdHJhbnNmZmVyaW5nIGF1ZGlvLWRhdGEsIGl0IGlzIGFib3V0IGFncmVlaW5nIG9u
+Cj4gYSBjb21tb24gdGltZSBzbyB0aGF0IHdoZW4geW91ICpkbyogdHJhbnNmZXIgYXVkaW8tZGF0
+YSwgdGhlIHNhbXBsZXJhdGUKPiBhY3R1YWxseSBtZWFucyBzb21ldGhpbmcuCj4KPiBMZXQgbWUg
+YXNrIHlvdSB0aGlzOyBpZiB5b3UgaGF2ZSAyIHNvdW5kLWNhcmRzIGluIHlvdXIgY29tcHV0ZXIg
+YW5kIHlvdQo+IHdhbnQgdG8gYXR0YWNoIGEgbWljIHRvIG9uZSBhbmQgc3BlYWtlcnMgdG8gdGhl
+IG90aGVyLCBob3cgZG8geW91IHNvbHZlCj4gc3RyZWFtaW5nIG9mIGF1ZGlvIGZyb20gdGhlIG1p
+YyB0byB0aGUgc3BlYWtlciBJZiB5b3UgYW5zd2VyIGRvZXMgbm90Cj4gY29udGFpbiBzb21ldGhp
+bmcgYWtpbiB0byAiZGlmZmVyZW50IHRpbWluZy1kb21haW4gaXNzdWVzIiwgSSdkIGJlIHZlcnkK
+PiBzdXJwcmlzZWQuCj4KPiBJZiB5b3UgYXJlIGludGVyZXN0ZWQgaW4gVFNOIGZvciB0cmFuc2Zl
+cnJpbmcgKmFueXRoaW5nKiwgX2luY2x1ZGluZ18KPiBhdWRpbywgeW91ICpoYXZlKiB0byB0YWtl
+IGdQVFAgaW50byBjb25zaWRlcmF0aW9uLiBKdXN0IGFzIHlvdSBoYXZlIHRvCj4gdGhpbmsgYWJv
+dXQgc3RyZWFtIHJlc2VydmF0aW9uLCBjb21wbGlhbnQgaGFyZHdhcmUgYW5kIGFsbCB0aGUgZGlm
+ZmVyZW50Cj4gc3Vic3lzdGVtcyB5b3UgYXJlIGdvaW5nIHRvIHJ1biBpbnRvLCBlaXRoZXIgdmlh
+IGtlcm5lbCBvciB2aWEgdXNlcnNwYWNlLgo+Cj4+IEhlcmUsIGNvdWxkIEkgYXNrIHlvdSBhIHF1
+ZXN0aW9uPyBEbyB5b3Uga25vdyBhIHJvbGUgb2YgY3ljbGUgc3RhcnQKPj4gcGFja2V0IG9mIElF
+RUUgU3RkIDEzOTQ/Cj4KPiBObywgSSBkbyBub3QuCj4KPiBJIGhhdmUgb25seSBwYXNzaW5nIGtu
+b3dsZWRnZSBvZiB0aGUgZmlyZXdpcmUgc3RhbmRhcmQsIEkndmUgbG9va2VkIGF0IHRoZQo+IGVu
+Y29kaW5nIGRlc2NyaWJlZCBpbiAxNzIyIGFuZCBhZGRlZCB0aGF0IHRvIHRoZSBhbHNhIHNoaW0g
+YXMgYW4gZXhhbXBsZSBvZgo+IGhvdyB0byB1c2UgVFNOLiBBcyBJIHN0YXRlZCwgdGhpcyB3YXMg
+YSAqdmVyeSogZWFybHkgdmVyc2lvbiBhbmQgSSB3b3VsZAo+IGxpa2UgdG8gdXNlIFRTTiBmb3Ig
+YXVkaW8gLSBhbmQgbW9yZSB3b3JrIGlzIG5lZWRlZC4KPgo+PiBJZiB5b3UgdGhpbmsgaXQncyBu
+b3QgcmVsYXRlZCB0byB0aGlzIGRpc2N1c3Npb24sIHBsZWFzZSB0ZWxsIGl0IHRvCj4+IG1lLiBU
+aGVuIEknbGwgZHJvcCBvdXQgZnJvbSB0aGlzIHRocmVhZC4KPgo+IFRoZXJlIGFyZSB0b25zIG9m
+IGRldGFpbHMgbGVmdCBhbmQgcmlnaHQsIGFuZCBhcyBJIHNhaWQsIEknbSBub3QgIGFsbCB0bwo+
+IGZhbWlsaWFyIHdpdGggZmlyZXdpcmUuIEkga25vdyB0aGF0IG9uZSBvZiB0aGUgYXV0aG9ycyBi
+ZWhpbmQgdGhlIGZpcmV3aXJlCj4gc3RhbmRhcmQgaGFwcGVuZWQgdG8gYmUgcGFydCBvZiAxNzIy
+IHN0YW5kYXJkLgo+Cj4gSSBhbSBjdXJyZW50bHkgd29ya2luZyBteSB3YXkgdGhyb3VnaCB0aGUg
+ZmlyZXdpcmUtc3RhayBwYXBlciB5b3UndmUKPiB3cml0dGVuLCBhbmQgSSBoYXZlIGdvdHRlbiBh
+IGxvdCBvZiBwb2ludGVycyB0byBvdGhlciBhcmVhcyBJIG5lZWQgdG8gZGlnCj4gaW50byBzbyBJ
+IHNob3VsZCBiZSBidXN5IGZvciBhIHdoaWxlLgo+Cj4gVGhhdCBiZWluZyBzYWlkLCBSaWNoYXJk
+J3MgcG9pbnQgYWJvdXQgYSB3YXkgdG8gZmluZCBzYW1wbGUtcmF0ZSBvZiBhCj4gaGFyZHdhcmUg
+ZGV2aWNlIGFuZCB3YXlzIHRvIGluZmx1ZW5jZSB0aGF0LCBpcyBpbXBvcnRhbnQgZm9yIEFWQi9U
+U04uCj4KPj4gSGlzdG9yeSBSZXBlYXRzIGl0c2VsZi4KPgo+ID8KCk9LLiBCeWUuCgoKVGFrYXNo
+aSBTYWthbW90bwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+XwpBbHNhLWRldmVsIG1haWxpbmcgbGlzdApBbHNhLWRldmVsQGFsc2EtcHJvamVjdC5vcmcKaHR0
+cDovL21haWxtYW4uYWxzYS1wcm9qZWN0Lm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Fsc2EtZGV2ZWwK
