@@ -1,73 +1,32 @@
-From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: Re: [PATCH] ppc: Fix BPF JIT for ABIv2
-Date: Tue, 21 Jun 2016 14:28:07 +0530
-Message-ID: <20160621085807.GE8886@naverao1-tp.localdomain>
-References: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
- <3rWKtT2tSrz9t2G@ozlabs.org>
- <20160617130042.GO3516@indiana.gru.redhat.com>
- <20160619174914.GC8886@naverao1-tp.localdomain>
- <20160620185620.GD3516@indiana.gru.redhat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 00/23] mlxsw: Preparation for IPv4 router
+Date: Tue, 21 Jun 2016 05:03:27 -0400 (EDT)
+Message-ID: <20160621.050327.318949467448519910.davem@davemloft.net>
+References: <1466456661-5260-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Matt Evans <matt@ozlabs.org>, Daniel Borkmann <daniel@iogearbox.net>,
- Alexei Starovoitov <ast@fb.com>, netdev@vger.kernel.org,
- Denis Kirjanov <kda@linux-powerpc.org>, linux-kernel@vger.kernel.org,
- Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org,
- "David S. Miller" <davem@davemloft.net>,
- Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-To: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
- Michael Ellerman <mpe@ellerman.id.au>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-Content-Disposition: inline
-In-Reply-To: <20160620185620.GD3516@indiana.gru.redhat.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
+To: jiri@resnulli.us
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34863 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751002AbcFUJO6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 05:14:58 -0400
+In-Reply-To: <1466456661-5260-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gMjAxNi8wNi8yMCAwMzo1NlBNLCBUaGFkZXUgTGltYSBkZSBTb3V6YSBDYXNjYXJkbyB3cm90
-ZToKPiBPbiBTdW4sIEp1biAxOSwgMjAxNiBhdCAxMToxOToxNFBNICswNTMwLCBOYXZlZW4gTi4g
-UmFvIHdyb3RlOgo+ID4gT24gMjAxNi8wNi8xNyAxMDowMEFNLCBUaGFkZXUgTGltYSBkZSBTb3V6
-YSBDYXNjYXJkbyB3cm90ZToKPiA+ID4gCj4gPiA+IEhpLCBNaWNoYWVsIGFuZCBOYXZlZW4uCj4g
-PiA+IAo+ID4gPiBJIG5vdGljZWQgaW5kZXBlbmRlbnRseSB0aGF0IHRoZXJlIGlzIGEgcHJvYmxl
-bSB3aXRoIEJQRiBKSVQgYW5kIEFCSXYyLCBhbmQKPiA+ID4gd29ya2VkIG91dCB0aGUgcGF0Y2gg
-YmVsb3cgYmVmb3JlIEkgbm90aWNlZCBOYXZlZW4ncyBwYXRjaHNldCBhbmQgdGhlIGxhdGVzdAo+
-ID4gPiBjaGFuZ2VzIGluIHBwYyB0cmVlIGZvciBhIGJldHRlciB3YXkgdG8gY2hlY2sgZm9yIEFC
-SSB2ZXJzaW9ucy4KPiA+ID4gCj4gPiA+IEhvd2V2ZXIsIHNpbmNlIHRoZSBpc3N1ZSBkZXNjcmli
-ZWQgYmVsb3cgYWZmZWN0IG1haW5saW5lIGFuZCBzdGFibGUga2VybmVscywKPiA+ID4gd291bGQg
-eW91IGNvbnNpZGVyIGFwcGx5aW5nIGl0IGJlZm9yZSBtZXJnaW5nIHlvdXIgdHdvIHBhdGNoc2V0
-cywgc28gdGhhdCB3ZSBjYW4KPiA+ID4gbW9yZSBlYXNpbHkgYmFja3BvcnQgdGhlIGZpeD8KPiA+
-IAo+ID4gSGkgQ2FzY2FyZG8sCj4gPiBHaXZlbiB0aGF0IHRoaXMgaGFzIGJlZW4gYnJva2VuIG9u
-IEFCSXYyIHNpbmNlIGZvcmV2ZXIsIEkgZGlkbid0IGJvdGhlciAKPiA+IGZpeGluZyBpdC4gQnV0
-LCBJIGNhbiBzZWUgd2h5IHRoaXMgd291bGQgYmUgYSBnb29kIHRoaW5nIHRvIGhhdmUgZm9yIAo+
-ID4gLXN0YWJsZSBhbmQgZXhpc3RpbmcgZGlzdHJvcy4gSG93ZXZlciwgd2hpbGUgeW91ciBwYXRj
-aCBiZWxvdyBtYXkgZml4IAo+ID4gdGhlIGNyYXNoIHlvdSdyZSBzZWVpbmcgb24gcHBjNjRsZSwg
-aXQgaXMgbm90IHN1ZmZpY2llbnQgLS0geW91J2xsIG5lZWQgCj4gPiBjaGFuZ2VzIGluIGJwZl9q
-aXRfYXNtLlMgYXMgd2VsbC4KPiAKPiBIaSwgTmF2ZWVuLgo+IAo+IEFueSB0aXBzIG9uIGhvdyB0
-byBleGVyY2lzZSBwb3NzaWJsZSBpc3N1ZXMgdGhlcmU/IE9yIHdoYXQgY2hhbmdlcyB5b3UgdGhp
-bmsKPiB3b3VsZCBiZSBzdWZmaWNpZW50PwoKVGhlIGNhbGxpbmcgY29udmVudGlvbiBpcyBkaWZm
-ZXJlbnQgd2l0aCBBQkl2MiBhbmQgc28gd2UnbGwgbmVlZCBjaGFuZ2VzIAppbiBicGZfc2xvd19w
-YXRoX2NvbW1vbigpIGFuZCBza19uZWdhdGl2ZV9jb21tb24oKS4KCkhvd2V2ZXIsIHJhdGhlciB0
-aGFuIGVuYWJsaW5nIGNsYXNzaWMgSklUIGZvciBwcGM2NGxlLCBhcmUgd2UgYmV0dGVyIG9mZiAK
-anVzdCBkaXNhYmxpbmcgaXQ/CgotLS0gYS9hcmNoL3Bvd2VycGMvS2NvbmZpZworKysgYi9hcmNo
-L3Bvd2VycGMvS2NvbmZpZwpAQCAtMTI4LDcgKzEyOCw3IEBAIGNvbmZpZyBQUEMKICAgICAgICBz
-ZWxlY3QgSVJRX0ZPUkNFRF9USFJFQURJTkcKICAgICAgICBzZWxlY3QgSEFWRV9SQ1VfVEFCTEVf
-RlJFRSBpZiBTTVAKICAgICAgICBzZWxlY3QgSEFWRV9TWVNDQUxMX1RSQUNFUE9JTlRTCi0gICAg
-ICAgc2VsZWN0IEhBVkVfQ0JQRl9KSVQKKyAgICAgICBzZWxlY3QgSEFWRV9DQlBGX0pJVCBpZiBD
-UFVfQklHX0VORElBTgogICAgICAgIHNlbGVjdCBIQVZFX0FSQ0hfSlVNUF9MQUJFTAogICAgICAg
-IHNlbGVjdCBBUkNIX0hBVkVfTk1JX1NBRkVfQ01QWENIRwogICAgICAgIHNlbGVjdCBBUkNIX0hB
-U19HQ09WX1BST0ZJTEVfQUxMCgoKTWljaGFlbCwKTGV0IG1lIGtub3cgeW91ciB0aG91Z2h0cyBv
-biB3aGV0aGVyIHlvdSBpbnRlbmQgdG8gdGFrZSB0aGlzIHBhdGNoIG9yIApDYXNjYXJkbydzIHBh
-dGNoIGZvciAtc3RhYmxlIGJlZm9yZSB0aGUgZUJQRiBwYXRjaGVzLiBJIGNhbiByZWRvIG15IApw
-YXRjaGVzIGFjY29yZGluZ2x5LgoKCi0gTmF2ZWVuCgpfX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBj
-LWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9s
-aW51eHBwYy1kZXY=
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon, 20 Jun 2016 23:03:58 +0200
+
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Ido says:
+> 
+> This series prepares the driver for IPv4 router support. The router follow-up
+> patches are available at: https://github.com/jpirko/linux_mlxsw/tree/net-next_queue
+ ...
+
+Looks good, series applied, thanks.
