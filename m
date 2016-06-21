@@ -1,55 +1,92 @@
-From: Ben Hutchings <ben.hutchings@codethink.co.uk>
-Subject: [PATCH net-next] of_mdio: Enable fixed PHY support if driver is a
- module
-Date: Tue, 21 Jun 2016 01:17:17 +0100
-Message-ID: <1466468237.26723.20.camel@codethink.co.uk>
+From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Subject: [PATCH net-next] openvswitch: Only set mark and labels
+	when commiting a connection.
+Date: Mon, 20 Jun 2016 17:19:38 -0700
+Message-ID: <1466468378-32235-1-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: CT kernel <linux-kernel@lists.codethink.co.uk>,
-	netdev@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ducie-dc1.codethink.co.uk ([185.25.241.215]:56317 "EHLO
-	ducie-dc1.codethink.co.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932943AbcFUARc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 20:17:32 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-The fixed_phy driver doesn't have to be built-in, and it's
-important that of_mdio supports it even if it's a module.
-
-Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
----
-Re-sending with the proper subject prefix.
-
-Ben.
-
---- a/drivers/of/of_mdio.c
-+++ b/drivers/of/of_mdio.c
-@@ -274,7 +274,7 @@ struct phy_device *of_phy_attach(struct
- }
- EXPORT_SYMBOL(of_phy_attach);
- 
--#if defined(CONFIG_FIXED_PHY)
-+#if IS_ENABLED(CONFIG_FIXED_PHY)
- /*
-  * of_phy_is_fixed_link() and of_phy_register_fixed_link() must
-  * support two DT bindings:
---- a/include/linux/of_mdio.h
-+++ b/include/linux/of_mdio.h
-@@ -69,7 +69,7 @@ static inline int of_mdio_parse_addr(str
- }
- #endif /* CONFIG_OF */
- 
--#if defined(CONFIG_OF) && defined(CONFIG_FIXED_PHY)
-+#if defined(CONFIG_OF) && IS_ENABLED(CONFIG_FIXED_PHY)
- extern int of_phy_register_fixed_link(struct device_node *np);
- extern bool of_phy_is_fixed_link(struct device_node *np);
- #else
-
-
--- 
-Ben Hutchings
-Software Developer, Codethink Ltd.
+T25seSBhbGxvdyBzZXR0aW5nIGNvbm50cmFjayBtYXJrIG9yIGxhYmVscyB3aGVuIHRoZSBjb21t
+aXQgZmxhZyBpcwpzcGVjaWZpZWQuICBUaGlzIG1ha2VzIHN1cmUgd2UgY2FuIG5vdCBzZXQgdGhl
+bSBiZWZvcmUgdGhlIGNvbm5lY3Rpb24KaGFzIGJlZW4gcGVyc2lzdGVkLCBhcyBpbiB0aGF0IGNh
+c2UgdGhlIG1hcmsgYW5kIGxhYmVscyB3b3VsZCBiZSBsb3N0CmluIGFuIGV2ZW50IG9mIGFuIHVz
+ZXJzcGFjZSB1cGNhbGwuCgpPVlMgdXNlcnNwYWNlIGFscmVhZHkgcmVxdWlyZXMgdGhlIGNvbW1p
+dCBmbGFnIHRvIGFjY2VwdCBzZXR0aW5nCmN0X21hcmsgYW5kL29yIGN0X2xhYmVscy4gIFZhbGlk
+YXRlIGZvciB0aGlzIG9uIHRoZSBrZXJuZWwgQVBJLgoKRmluYWxseSwgc2V0IGNvbm50cmFjayBt
+YXJrIGFuZCBsYWJlbHMgcmlnaHQgYmVmb3JlIGNvbW1pdHRpbmcgc28gdGhhdAp0aGUgaW5pdGlh
+bCBjb25udHJhY2sgTkVXIGV2ZW50IGhhcyB0aGUgbWFyayBhbmQgbGFiZWxzLgoKU2lnbmVkLW9m
+Zi1ieTogSmFybm8gUmFqYWhhbG1lIDxqYXJub0Bvdm4ub3JnPgotLS0KIG5ldC9vcGVudnN3aXRj
+aC9jb25udHJhY2suYyB8IDcyICsrKysrKysrKysrKysrKysrKysrKysrKysrKysrKy0tLS0tLS0t
+LS0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDQ4IGluc2VydGlvbnMoKyksIDI0IGRlbGV0aW9ucygt
+KQoKZGlmZiAtLWdpdCBhL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYyBiL25ldC9vcGVudnN3
+aXRjaC9jb25udHJhY2suYwppbmRleCAzZDVmZWVkLi5mMTYxMmY1IDEwMDY0NAotLS0gYS9uZXQv
+b3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKKysrIGIvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5j
+CkBAIC04MjQsNiArODI0LDE3IEBAIHN0YXRpYyBpbnQgb3ZzX2N0X2xvb2t1cChzdHJ1Y3QgbmV0
+ICpuZXQsIHN0cnVjdCBzd19mbG93X2tleSAqa2V5LAogCXJldHVybiAwOwogfQogCitzdGF0aWMg
+Ym9vbCBsYWJlbHNfbm9uemVybyhjb25zdCBzdHJ1Y3Qgb3ZzX2tleV9jdF9sYWJlbHMgKmxhYmVs
+cykKK3sKKwlzaXplX3QgaTsKKworCWZvciAoaSA9IDA7IGkgPCBzaXplb2YoKmxhYmVscyk7IGkr
+KykKKwkJaWYgKGxhYmVscy0+Y3RfbGFiZWxzW2ldKQorCQkJcmV0dXJuIHRydWU7CisKKwlyZXR1
+cm4gZmFsc2U7Cit9CisKIC8qIExvb2t1cCBjb25uZWN0aW9uIGFuZCBjb25maXJtIGlmIHVuY29u
+ZmlybWVkLiAqLwogc3RhdGljIGludCBvdnNfY3RfY29tbWl0KHN0cnVjdCBuZXQgKm5ldCwgc3Ry
+dWN0IHN3X2Zsb3dfa2V5ICprZXksCiAJCQkgY29uc3Qgc3RydWN0IG92c19jb25udHJhY2tfaW5m
+byAqaW5mbywKQEAgLTgzNCwyNCArODQ1LDM1IEBAIHN0YXRpYyBpbnQgb3ZzX2N0X2NvbW1pdChz
+dHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBzd19mbG93X2tleSAqa2V5LAogCWVyciA9IF9fb3ZzX2N0
+X2xvb2t1cChuZXQsIGtleSwgaW5mbywgc2tiKTsKIAlpZiAoZXJyKQogCQlyZXR1cm4gZXJyOwot
+CS8qIFRoaXMgaXMgYSBuby1vcCBpZiB0aGUgY29ubmVjdGlvbiBoYXMgYWxyZWFkeSBiZWVuIGNv
+bmZpcm1lZC4gKi8KKworCS8qIEFzIGFueSBjaGFuZ2VzIHRvIGFuIHVuY29uZmlybWVkIGNvbm5l
+Y3Rpb24gbWF5IGJlIGxvc3QgZHVlCisJICogdG8gYW4gdXBjYWxsLCB3ZSByZXF1aXJlIHRoZSBw
+cmVzZW5jZSBvZiB0aGUgJ2NvbW1pdCcgZmxhZworCSAqIGZvciBzZXR0aW5nIG1hc2sgYW5kL29y
+IGxhYmVscy4gIFBlcmZvcm0gdGhlIGNoYW5nZXMgYmVmb3JlCisJICogY29uZmlybWluZyB0aGUg
+Y29ubmVjdGlvbiBzbyB0aGF0IHRoZSBpbml0aWFsIG1hcmsgYW5kIGxhYmVsCisJICogdmFsdWVz
+IGFyZSBwcmVzZW50IGluIHRoZSBpbml0aWFsIENUIE5FVyBuZXRsaW5rIGV2ZW50LgorCSAqLwor
+CWlmIChpbmZvLT5tYXJrLm1hc2spIHsKKwkJZXJyID0gb3ZzX2N0X3NldF9tYXJrKHNrYiwga2V5
+LCBpbmZvLT5tYXJrLnZhbHVlLAorCQkJCSAgICAgIGluZm8tPm1hcmsubWFzayk7CisJCWlmIChl
+cnIpCisJCQlyZXR1cm4gZXJyOworCX0KKwlpZiAobGFiZWxzX25vbnplcm8oJmluZm8tPmxhYmVs
+cy5tYXNrKSkgeworCQllcnIgPSBvdnNfY3Rfc2V0X2xhYmVscyhza2IsIGtleSwgJmluZm8tPmxh
+YmVscy52YWx1ZSwKKwkJCQkJJmluZm8tPmxhYmVscy5tYXNrKTsKKwkJaWYgKGVycikKKwkJCXJl
+dHVybiBlcnI7CisJfQorCisJLyogV2lsbCB0YWtlIGNhcmUgb2Ygc2VuZGluZyBxdWV1ZWQgZXZl
+bnRzIGV2ZW4gaWYgdGhlIGNvbm5lY3Rpb24gaXMKKwkgKiBhbHJlYWR5IGNvbmZpcm1lZC4KKwkg
+Ki8KIAlpZiAobmZfY29ubnRyYWNrX2NvbmZpcm0oc2tiKSAhPSBORl9BQ0NFUFQpCiAJCXJldHVy
+biAtRUlOVkFMOwogCiAJcmV0dXJuIDA7CiB9CiAKLXN0YXRpYyBib29sIGxhYmVsc19ub256ZXJv
+KGNvbnN0IHN0cnVjdCBvdnNfa2V5X2N0X2xhYmVscyAqbGFiZWxzKQotewotCXNpemVfdCBpOwot
+Ci0JZm9yIChpID0gMDsgaSA8IHNpemVvZigqbGFiZWxzKTsgaSsrKQotCQlpZiAobGFiZWxzLT5j
+dF9sYWJlbHNbaV0pCi0JCQlyZXR1cm4gdHJ1ZTsKLQotCXJldHVybiBmYWxzZTsKLX0KLQogLyog
+UmV0dXJucyAwIG9uIHN1Y2Nlc3MsIC1FSU5QUk9HUkVTUyBpZiAnc2tiJyBpcyBzdG9sZW4sIG9y
+IG90aGVyIG5vbnplcm8KICAqIHZhbHVlIGlmICdza2InIGlzIGZyZWVkLgogICovCkBAIC04NzYs
+MTkgKzg5OCw3IEBAIGludCBvdnNfY3RfZXhlY3V0ZShzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBz
+a19idWZmICpza2IsCiAJCWVyciA9IG92c19jdF9jb21taXQobmV0LCBrZXksIGluZm8sIHNrYik7
+CiAJZWxzZQogCQllcnIgPSBvdnNfY3RfbG9va3VwKG5ldCwga2V5LCBpbmZvLCBza2IpOwotCWlm
+IChlcnIpCi0JCWdvdG8gZXJyOwogCi0JaWYgKGluZm8tPm1hcmsubWFzaykgewotCQllcnIgPSBv
+dnNfY3Rfc2V0X21hcmsoc2tiLCBrZXksIGluZm8tPm1hcmsudmFsdWUsCi0JCQkJICAgICAgaW5m
+by0+bWFyay5tYXNrKTsKLQkJaWYgKGVycikKLQkJCWdvdG8gZXJyOwotCX0KLQlpZiAobGFiZWxz
+X25vbnplcm8oJmluZm8tPmxhYmVscy5tYXNrKSkKLQkJZXJyID0gb3ZzX2N0X3NldF9sYWJlbHMo
+c2tiLCBrZXksICZpbmZvLT5sYWJlbHMudmFsdWUsCi0JCQkJCSZpbmZvLT5sYWJlbHMubWFzayk7
+Ci1lcnI6CiAJc2tiX3B1c2goc2tiLCBuaF9vZnMpOwogCWlmIChlcnIpCiAJCWtmcmVlX3NrYihz
+a2IpOwpAQCAtMTE0NSw2ICsxMTU1LDIwIEBAIHN0YXRpYyBpbnQgcGFyc2VfY3QoY29uc3Qgc3Ry
+dWN0IG5sYXR0ciAqYXR0ciwgc3RydWN0IG92c19jb25udHJhY2tfaW5mbyAqaW5mbywKIAkJfQog
+CX0KIAorI2lmZGVmIENPTkZJR19ORl9DT05OVFJBQ0tfTUFSSworCWlmICghaW5mby0+Y29tbWl0
+ICYmIGluZm8tPm1hcmsubWFzaykgeworCQlPVlNfTkxFUlIobG9nLAorCQkJICAiU2V0dGluZyBj
+b25udHJhY2sgbWFyayByZXF1aXJlcyAnY29tbWl0JyBmbGFnLiIpOworCQlyZXR1cm4gLUVJTlZB
+TDsKKwl9CisjZW5kaWYKKyNpZmRlZiBDT05GSUdfTkZfQ09OTlRSQUNLX0xBQkVMUworCWlmICgh
+aW5mby0+Y29tbWl0ICYmIGxhYmVsc19ub256ZXJvKCZpbmZvLT5sYWJlbHMubWFzaykpIHsKKwkJ
+T1ZTX05MRVJSKGxvZywKKwkJCSAgIlNldHRpbmcgY29ubnRyYWNrIGxhYmVscyByZXF1aXJlcyAn
+Y29tbWl0JyBmbGFnLiIpOworCQlyZXR1cm4gLUVJTlZBTDsKKwl9CisjZW5kaWYKIAlpZiAocmVt
+ID4gMCkgewogCQlPVlNfTkxFUlIobG9nLCAiQ29ubnRyYWNrIGF0dHIgaGFzICVkIHVua25vd24g
+Ynl0ZXMiLCByZW0pOwogCQlyZXR1cm4gLUVJTlZBTDsKLS0gCjIuMS40CgpfX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBv
+cGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rl
+dgo=
