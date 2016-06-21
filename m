@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net-next 11/19] net: hns: add spin lock for tcam table operation
-Date: Tue, 21 Jun 2016 11:56:31 +0800
-Message-ID: <1466481399-70080-12-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net-next 09/19] net: hns: fix the wrong speed for bond
+Date: Tue, 21 Jun 2016 11:56:29 +0800
+Message-ID: <1466481399-70080-10-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,156 +13,110 @@ Cc: <liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
 	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
 	<salil.mehta@huawei.com>, <yankejian@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:42933 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752024AbcFUDiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 23:38:19 -0400
 In-Reply-To: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daode Huang <huangdaode@hisilicon.com>
+From: Qianqian Xie <xieqianqian@huawei.com>
 
-This patch adds spin lock for tcam table operation,
-there maybe a race condition happens when more than
-one thread try to change the tcam talbe entries.
+For debug-ports,there are two non-synchronized processes:
+Speed-Auto-Negotiation and Link-Update-Status. The two
+processes are towed by two different state machines.
+Bond reads the speed when link up, but the speed maybe
+not update the right value at that time.That make for bond's
+wrong speed. Thus only one state machine should be used and
+if phy_state_machine is used, it does not need to do
+hns_nic_update_link_status().
 
-Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
+Signed-off-by: Qianqian Xie <xieqianqian@huawei.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 25 ++++++++++++++++++++++
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  2 ++
- 2 files changed, 27 insertions(+)
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c    | 43 +++++++++++++-----------
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c |  2 +-
+ 2 files changed, 25 insertions(+), 20 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 0edea9c..0958ceb 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -860,6 +860,8 @@ static void hns_dsaf_single_line_tbl_cfg(
- 	struct dsaf_device *dsaf_dev,
- 	u32 address, struct dsaf_tbl_line_cfg *ptbl_line)
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index 00e529f..cef9d12 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -991,8 +991,26 @@ static void hns_nic_adjust_link(struct net_device *ndev)
  {
-+	spin_lock_bh(&dsaf_dev->tcam_lock);
+ 	struct hns_nic_priv *priv = netdev_priv(ndev);
+ 	struct hnae_handle *h = priv->ae_handle;
++	int state = 1;
 +
- 	/*Write Addr*/
- 	hns_dsaf_tbl_line_addr_cfg(dsaf_dev, address);
++	if (priv->phy) {
++		h->dev->ops->adjust_link(h, ndev->phydev->speed,
++					 ndev->phydev->duplex);
++		state = priv->phy->link;
++	}
++	state = state && h->dev->ops->get_status(h);
  
-@@ -868,6 +870,8 @@ static void hns_dsaf_single_line_tbl_cfg(
- 
- 	/*Write Plus*/
- 	hns_dsaf_tbl_line_pul(dsaf_dev);
-+
-+	spin_unlock_bh(&dsaf_dev->tcam_lock);
+-	h->dev->ops->adjust_link(h, ndev->phydev->speed, ndev->phydev->duplex);
++	if (state != priv->link) {
++		if (state) {
++			netif_carrier_on(ndev);
++			netif_tx_wake_all_queues(ndev);
++			netdev_info(ndev, "link up\n");
++		} else {
++			netif_carrier_off(ndev);
++			netdev_info(ndev, "link down\n");
++		}
++		priv->link = state;
++	}
  }
  
  /**
-@@ -881,6 +885,8 @@ static void hns_dsaf_tcam_uc_cfg(
- 	struct dsaf_tbl_tcam_data *ptbl_tcam_data,
- 	struct dsaf_tbl_tcam_ucast_cfg *ptbl_tcam_ucast)
- {
-+	spin_lock_bh(&dsaf_dev->tcam_lock);
-+
- 	/*Write Addr*/
- 	hns_dsaf_tbl_tcam_addr_cfg(dsaf_dev, address);
- 	/*Write Tcam Data*/
-@@ -889,6 +895,8 @@ static void hns_dsaf_tcam_uc_cfg(
- 	hns_dsaf_tbl_tcam_ucast_cfg(dsaf_dev, ptbl_tcam_ucast);
- 	/*Write Plus*/
- 	hns_dsaf_tbl_tcam_data_ucast_pul(dsaf_dev);
-+
-+	spin_unlock_bh(&dsaf_dev->tcam_lock);
+@@ -1577,27 +1595,14 @@ static void hns_nic_update_link_status(struct net_device *netdev)
+ 	struct hns_nic_priv *priv = netdev_priv(netdev);
+ 
+ 	struct hnae_handle *h = priv->ae_handle;
+-	int state = 1;
+ 
+-	if (priv->phy) {
+-		if (!genphy_update_link(priv->phy))
+-			state = priv->phy->link;
+-		else
+-			state = 0;
+-	}
+-	state = state && h->dev->ops->get_status(h);
++	if (h->phy_dev) {
++		if (h->phy_if != PHY_INTERFACE_MODE_XGMII)
++			return;
+ 
+-	if (state != priv->link) {
+-		if (state) {
+-			netif_carrier_on(netdev);
+-			netif_tx_wake_all_queues(netdev);
+-			netdev_info(netdev, "link up\n");
+-		} else {
+-			netif_carrier_off(netdev);
+-			netdev_info(netdev, "link down\n");
+-		}
+-		priv->link = state;
++		(void)genphy_read_status(h->phy_dev);
+ 	}
++	hns_nic_adjust_link(netdev);
  }
  
- /**
-@@ -903,6 +911,8 @@ static void hns_dsaf_tcam_mc_cfg(
- 	struct dsaf_tbl_tcam_data *ptbl_tcam_data,
- 	struct dsaf_tbl_tcam_mcast_cfg *ptbl_tcam_mcast)
- {
-+	spin_lock_bh(&dsaf_dev->tcam_lock);
-+
- 	/*Write Addr*/
- 	hns_dsaf_tbl_tcam_addr_cfg(dsaf_dev, address);
- 	/*Write Tcam Data*/
-@@ -911,6 +921,8 @@ static void hns_dsaf_tcam_mc_cfg(
- 	hns_dsaf_tbl_tcam_mcast_cfg(dsaf_dev, ptbl_tcam_mcast);
- 	/*Write Plus*/
- 	hns_dsaf_tbl_tcam_data_mcast_pul(dsaf_dev);
-+
-+	spin_unlock_bh(&dsaf_dev->tcam_lock);
- }
+ /* for dumping key regs*/
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index 5b3dccb..564ae1e 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -49,7 +49,7 @@ static u32 hns_nic_get_link(struct net_device *net_dev)
+ 	h = priv->ae_handle;
  
- /**
-@@ -920,6 +932,8 @@ static void hns_dsaf_tcam_mc_cfg(
-  */
- static void hns_dsaf_tcam_mc_invld(struct dsaf_device *dsaf_dev, u32 address)
- {
-+	spin_lock_bh(&dsaf_dev->tcam_lock);
-+
- 	/*Write Addr*/
- 	hns_dsaf_tbl_tcam_addr_cfg(dsaf_dev, address);
- 
-@@ -932,6 +946,8 @@ static void hns_dsaf_tcam_mc_invld(struct dsaf_device *dsaf_dev, u32 address)
- 
- 	/*Write Plus*/
- 	hns_dsaf_tbl_tcam_mcast_pul(dsaf_dev);
-+
-+	spin_unlock_bh(&dsaf_dev->tcam_lock);
- }
- 
- /**
-@@ -949,6 +965,8 @@ static void hns_dsaf_tcam_uc_get(
- 	u32 tcam_read_data0;
- 	u32 tcam_read_data4;
- 
-+	spin_lock_bh(&dsaf_dev->tcam_lock);
-+
- 	/*Write Addr*/
- 	hns_dsaf_tbl_tcam_addr_cfg(dsaf_dev, address);
- 
-@@ -981,6 +999,8 @@ static void hns_dsaf_tcam_uc_get(
- 				 DSAF_TBL_UCAST_CFG1_OUT_PORT_S);
- 	ptbl_tcam_ucast->tbl_ucast_dvc
- 		= dsaf_get_bit(tcam_read_data0, DSAF_TBL_UCAST_CFG1_DVC_S);
-+
-+	spin_unlock_bh(&dsaf_dev->tcam_lock);
- }
- 
- /**
-@@ -997,6 +1017,8 @@ static void hns_dsaf_tcam_mc_get(
- {
- 	u32 data_tmp;
- 
-+	spin_lock_bh(&dsaf_dev->tcam_lock);
-+
- 	/*Write Addr*/
- 	hns_dsaf_tbl_tcam_addr_cfg(dsaf_dev, address);
- 
-@@ -1027,6 +1049,8 @@ static void hns_dsaf_tcam_mc_get(
- 	ptbl_tcam_mcast->tbl_mcast_port_msk[4] =
- 		dsaf_get_field(data_tmp, DSAF_TBL_MCAST_CFG4_VM128_112_M,
- 			       DSAF_TBL_MCAST_CFG4_VM128_112_S);
-+
-+	spin_unlock_bh(&dsaf_dev->tcam_lock);
- }
- 
- /**
-@@ -1351,6 +1375,7 @@ static int hns_dsaf_init(struct dsaf_device *dsaf_dev)
- 	if (HNS_DSAF_IS_DEBUG(dsaf_dev))
- 		return 0;
- 
-+	spin_lock_init(&dsaf_dev->tcam_lock);
- 	ret = hns_dsaf_init_hw(dsaf_dev);
- 	if (ret)
- 		return ret;
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-index 00a13de..1daf018 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h
-@@ -322,6 +322,8 @@ struct dsaf_device {
- 
- 	struct dsaf_hw_stats hw_stats[DSAF_NODE_NUM];
- 	struct dsaf_int_stat int_stat;
-+	/* make sure tcam table config spinlock */
-+	spinlock_t tcam_lock;
- };
- 
- static inline void *hns_dsaf_dev_priv(const struct dsaf_device *dsaf_dev)
+ 	if (priv->phy) {
+-		if (!genphy_update_link(priv->phy))
++		if (!genphy_read_status(priv->phy))
+ 			link_stat = priv->phy->link;
+ 		else
+ 			link_stat = 0;
 -- 
 1.9.1
