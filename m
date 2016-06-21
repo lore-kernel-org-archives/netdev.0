@@ -1,50 +1,91 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next 12/18] IB/mlx5: Add kernel offload flow-tag
-Date: Tue, 21 Jun 2016 18:41:34 +0300
-Message-ID: <9dfdfcfd-3252-2c38-6c07-ae2d6eaa299a@mellanox.com>
-References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
- <1466174639-14576-13-git-send-email-saeedm@mellanox.com>
- <20160617160007.GA52082@ast-mbp.thefacebook.com>
- <CALzJLG-uoMKjZCC312JjfqnQaUW_-31eqeg0bQd+r3qp4Fa1ag@mail.gmail.com>
- <20160621021836.GA81638@ast-mbp.thefacebook.com>
- <CALzJLG8+xhJDO9FaGF+9OiBq1s1LD_cb3y-ybUkFD7DJG=SRaQ@mail.gmail.com>
- <CANn89iJbaOR5HpoaQLHoBGhariTACf-OLKRWqP3KBacvOUgGdg@mail.gmail.com>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCH] ibmvnic: fix to use list_for_each_safe() when delete items
+Date: Tue, 21 Jun 2016 11:01:19 -0500
+Message-ID: <576964CF.3040804@linux.vnet.ibm.com>
+References: <1466218408-20940-1-git-send-email-weiyj_lk@163.com>
+ <576810C2.6080208@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	"Linux Netdev List" <netdev@vger.kernel.org>,
-	Doug Ledford <dledford@redhat.com>,
-	"Maor Gottlieb" <maorg@mellanox.com>,
-	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Eric Dumazet <edumazet@google.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0070.outbound.protection.outlook.com ([157.56.112.70]:5773
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750731AbcFUP5t (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2016 11:57:49 -0400
-In-Reply-To: <CANn89iJbaOR5HpoaQLHoBGhariTACf-OLKRWqP3KBacvOUgGdg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: John Allen <jallen@linux.vnet.ibm.com>,
+ Wei Yongjun <yongjun_wei@trendmicro.com.cn>, linuxppc-dev@lists.ozlabs.org,
+ netdev@vger.kernel.org
+To: weiyj_lk@163.com
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <576810C2.6080208@linux.vnet.ibm.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On 6/21/2016 6:18 PM, Eric Dumazet wrote:
-> One solution would be to setup a special netdev used only for sniffers
-> (No IP address on it)
->
-> -> Only changes would happen in the driver, to set skb->dev to this
-> 'debug' device.
-
-Eric,
-
-Yep, that was an option too, but when we realized that libpcap has the 
-means to add plug-in for non-netdevices (e.g usb, can devices and now we 
-are thinking to add one for uverbs),  it means we can avoid adding tons 
-of pretty complex code into the kernel driver and happily have simpler 
-code is user-space, so... why not? will try that 1st.
-
-Or.
+T24gMDYvMjAvMjAxNiAxMDo1MCBBTSwgVGhvbWFzIEZhbGNvbiB3cm90ZToKPiBPbiAwNi8xNy8y
+MDE2IDA5OjUzIFBNLCB3ZWl5al9sa0AxNjMuY29tIHdyb3RlOgo+PiBGcm9tOiBXZWkgWW9uZ2p1
+biA8eW9uZ2p1bl93ZWlAdHJlbmRtaWNyby5jb20uY24+Cj4+Cj4+IFNpbmNlIHdlIHdpbGwgcmVt
+b3ZlIGl0ZW1zIG9mZiB0aGUgbGlzdCB1c2luZyBsaXN0X2RlbCgpIHdlIG5lZWQKPj4gdG8gdXNl
+IGEgc2FmZSB2ZXJzaW9uIG9mIHRoZSBsaXN0X2Zvcl9lYWNoKCkgbWFjcm8gYXB0bHkgbmFtZWQK
+Pj4gbGlzdF9mb3JfZWFjaF9zYWZlKCkuCj4+Cj4+IFNpZ25lZC1vZmYtYnk6IFdlaSBZb25nanVu
+IDx5b25nanVuX3dlaUB0cmVuZG1pY3JvLmNvbS5jbj4KPj4gLS0tCj4+ICBkcml2ZXJzL25ldC9l
+dGhlcm5ldC9pYm0vaWJtdm5pYy5jIHwgMTAgKysrKystLS0tLQo+PiAgMSBmaWxlIGNoYW5nZWQs
+IDUgaW5zZXJ0aW9ucygrKSwgNSBkZWxldGlvbnMoLSkKPj4KPj4gZGlmZiAtLWdpdCBhL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L2libS9pYm12bmljLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pYm0v
+aWJtdm5pYy5jCj4+IGluZGV4IDg2NGNiMjEuLjBiNmE5MjIgMTAwNjQ0Cj4+IC0tLSBhL2RyaXZl
+cnMvbmV0L2V0aGVybmV0L2libS9pYm12bmljLmMKPj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJu
+ZXQvaWJtL2libXZuaWMuYwo+PiBAQCAtMzE0MSwxNCArMzE0MSwxNCBAQCBzdGF0aWMgdm9pZCBo
+YW5kbGVfcmVxdWVzdF9yYXNfY29tcF9udW1fcnNwKHVuaW9uIGlibXZuaWNfY3JxICpjcnEsCj4+
+ICAKPj4gIHN0YXRpYyB2b2lkIGlibXZuaWNfZnJlZV9pbmZsaWdodChzdHJ1Y3QgaWJtdm5pY19h
+ZGFwdGVyICphZGFwdGVyKQo+PiAgewo+PiAtCXN0cnVjdCBpYm12bmljX2luZmxpZ2h0X2NtZCAq
+aW5mbGlnaHRfY21kOwo+PiArCXN0cnVjdCBpYm12bmljX2luZmxpZ2h0X2NtZCAqaW5mbGlnaHRf
+Y21kLCAqdG1wMTsKPj4gIAlzdHJ1Y3QgZGV2aWNlICpkZXYgPSAmYWRhcHRlci0+dmRldi0+ZGV2
+Owo+PiAtCXN0cnVjdCBpYm12bmljX2Vycm9yX2J1ZmYgKmVycm9yX2J1ZmY7Cj4+ICsJc3RydWN0
+IGlibXZuaWNfZXJyb3JfYnVmZiAqZXJyb3JfYnVmZiwgKnRtcDI7Cj4+ICAJdW5zaWduZWQgbG9u
+ZyBmbGFnczsKPj4gIAl1bnNpZ25lZCBsb25nIGZsYWdzMjsKPj4gIAo+PiAgCXNwaW5fbG9ja19p
+cnFzYXZlKCZhZGFwdGVyLT5pbmZsaWdodF9sb2NrLCBmbGFncyk7Cj4+IC0JbGlzdF9mb3JfZWFj
+aF9lbnRyeShpbmZsaWdodF9jbWQsICZhZGFwdGVyLT5pbmZsaWdodCwgbGlzdCkgewo+PiArCWxp
+c3RfZm9yX2VhY2hfZW50cnlfc2FmZShpbmZsaWdodF9jbWQsIHRtcDEsICZhZGFwdGVyLT5pbmZs
+aWdodCwgbGlzdCkgewo+PiAgCQlzd2l0Y2ggKGluZmxpZ2h0X2NtZC0+Y3JxLmdlbmVyaWMuY21k
+KSB7Cj4+ICAJCWNhc2UgTE9HSU46Cj4+ICAJCQlkbWFfdW5tYXBfc2luZ2xlKGRldiwgYWRhcHRl
+ci0+bG9naW5fYnVmX3Rva2VuLAo+PiBAQCAtMzE2NSw4ICszMTY1LDggQEAgc3RhdGljIHZvaWQg
+aWJtdm5pY19mcmVlX2luZmxpZ2h0KHN0cnVjdCBpYm12bmljX2FkYXB0ZXIgKmFkYXB0ZXIpCj4+
+ICAJCQlicmVhazsKPj4gIAkJY2FzZSBSRVFVRVNUX0VSUk9SX0lORk86Cj4+ICAJCQlzcGluX2xv
+Y2tfaXJxc2F2ZSgmYWRhcHRlci0+ZXJyb3JfbGlzdF9sb2NrLCBmbGFnczIpOwo+PiAtCQkJbGlz
+dF9mb3JfZWFjaF9lbnRyeShlcnJvcl9idWZmLCAmYWRhcHRlci0+ZXJyb3JzLAo+PiAtCQkJCQkg
+ICAgbGlzdCkgewo+PiArCQkJbGlzdF9mb3JfZWFjaF9lbnRyeV9zYWZlKGVycm9yX2J1ZmYsIHRt
+cDIsCj4+ICsJCQkJCQkgJmFkYXB0ZXItPmVycm9ycywgbGlzdCkgewo+PiAgCQkJCWRtYV91bm1h
+cF9zaW5nbGUoZGV2LCBlcnJvcl9idWZmLT5kbWEsCj4+ICAJCQkJCQkgZXJyb3JfYnVmZi0+bGVu
+LAo+PiAgCQkJCQkJIERNQV9GUk9NX0RFVklDRSk7Cj4+Cj4gVGhhbmtzIQo+Cj4gQWNrZWQtYnk6
+IFRob21hcyBGYWxjb24gPHRsZmFsY29uQGxpbnV4LnZuZXQuaWJtLmNvbT4KCkhlbGxvLCBJIGFw
+b2xvZ2l6ZSBmb3IgcHJlbWF0dXJlbHkgYWNrJ2luZyB0aGlzLiAgVGhlcmUgaXMgYW5vdGhlciBz
+aXR1YXRpb24gd2hlcmUgeW91IGNvdWxkIHVzZSBsaXN0X2Zvcl9lYWNoX2VudHJ5X3NhZmUgaW4g
+dGhlIGZ1bmN0aW9uIGhhbmRsZV9lcnJvcl9pbmZvX3JzcC4gIENvdWxkIHlvdSBpbmNsdWRlIHRo
+aXMgaW4geW91ciBwYXRjaCwgcGxlYXNlPwoKZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVy
+bmV0L2libS9pYm12bmljLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9pYm0vaWJtdm5pYy5jCmlu
+ZGV4IDg2NGNiMjEuLmU5OTY4ZDkgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2li
+bS9pYm12bmljLmMKKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaWJtL2libXZuaWMuYwpAQCAt
+MjEyMSw3ICsyMTIxLDcgQEAgc3RhdGljIHZvaWQgaGFuZGxlX2Vycm9yX2luZm9fcnNwKHVuaW9u
+IGlibXZuaWNfY3JxICpjcnEsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICBzdHJ1
+Y3QgaWJtdm5pY19hZGFwdGVyICphZGFwdGVyKQogewogICAgICAgIHN0cnVjdCBkZXZpY2UgKmRl
+diA9ICZhZGFwdGVyLT52ZGV2LT5kZXY7Ci0gICAgICAgc3RydWN0IGlibXZuaWNfZXJyb3JfYnVm
+ZiAqZXJyb3JfYnVmZjsKKyAgICAgICBzdHJ1Y3QgaWJtdm5pY19lcnJvcl9idWZmICplcnJvcl9i
+dWZmLCAqdG1wOwogICAgICAgIHVuc2lnbmVkIGxvbmcgZmxhZ3M7CiAgICAgICAgYm9vbCBmb3Vu
+ZCA9IGZhbHNlOwogICAgICAgIGludCBpOwpAQCAtMjEzMyw3ICsyMTMzLDcgQEAgc3RhdGljIHZv
+aWQgaGFuZGxlX2Vycm9yX2luZm9fcnNwKHVuaW9uIGlibXZuaWNfY3JxICpjcnEsCiAgICAgICAg
+fQogCiAgICAgICAgc3Bpbl9sb2NrX2lycXNhdmUoJmFkYXB0ZXItPmVycm9yX2xpc3RfbG9jaywg
+ZmxhZ3MpOwotICAgICAgIGxpc3RfZm9yX2VhY2hfZW50cnkoZXJyb3JfYnVmZiwgJmFkYXB0ZXIt
+PmVycm9ycywgbGlzdCkKKyAgICAgICBsaXN0X2Zvcl9lYWNoX2VudHJ5X3NhZmUoZXJyb3JfYnVm
+ZiwgdG1wLCAmYWRhcHRlci0+ZXJyb3JzLCBsaXN0KQogICAgICAgICAgICAgICAgaWYgKGVycm9y
+X2J1ZmYtPmVycm9yX2lkID09IGNycS0+cmVxdWVzdF9lcnJvcl9yc3AuZXJyb3JfaWQpIHsKICAg
+ICAgICAgICAgICAgICAgICAgICAgZm91bmQgPSB0cnVlOwogICAgICAgICAgICAgICAgICAgICAg
+ICBsaXN0X2RlbCgmZXJyb3JfYnVmZi0+bGlzdCk7Cgo+Pgo+Pgo+PiBfX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwo+PiBMaW51eHBwYy1kZXYgbWFpbGluZyBs
+aXN0Cj4+IExpbnV4cHBjLWRldkBsaXN0cy5vemxhYnMub3JnCj4+IGh0dHBzOi8vbGlzdHMub3ps
+YWJzLm9yZy9saXN0aW5mby9saW51eHBwYy1kZXYKCl9fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMt
+ZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xp
+bnV4cHBjLWRldg==
