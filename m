@@ -1,107 +1,46 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 net-next] bridge: vlan: add support to display
- per-vlan statistics
-Date: Tue, 21 Jun 2016 18:10:49 +0200
-Message-ID: <57696709.7010506@cumulusnetworks.com>
-References: <1466417599-12940-1-git-send-email-nikolay@cumulusnetworks.com>
- <20160621090141.0c13d12d@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
-To: Stephen Hemminger <stephen@networkplumber.org>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v2 5/7] Makefile: Allow to override CC
+Date: Tue, 21 Jun 2016 18:18:39 +0200
+Message-ID: <1466525921-15738-6-git-send-email-phil@nwl.cc>
+References: <1466525921-15738-1-git-send-email-phil@nwl.cc>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Julien Floret <julien.floret@6wind.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lb0-f180.google.com ([209.85.217.180]:35627 "EHLO
-	mail-lb0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750707AbcFUQU0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 12:20:26 -0400
-Received: by mail-lb0-f180.google.com with SMTP id o4so14508068lbp.2
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 09:18:47 -0700 (PDT)
-In-Reply-To: <20160621090141.0c13d12d@xeon-e3>
+Received: from orbyte.nwl.cc ([151.80.46.58]:33886 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750978AbcFUQVQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2016 12:21:16 -0400
+In-Reply-To: <1466525921-15738-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21/06/16 18:01, Stephen Hemminger wrote:
-> On Mon, 20 Jun 2016 12:13:19 +0200
-> Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
-> 
->> This patch adds support for the -statistics (-s) argument to the bridge
->> vlan show command which will display the per-vlan statistics and the bridge
->> device each vlan belongs to. The show command filtering options are both
->> supported, also the man page is updated to explain the new option.
->> This patch uses the new RTM_GETSTATS interface with a filter_mask to dump
->> only the bridge vlans. Later we can add support for using the per-device
->> dump and filter it in the kernel instead.
->>
->> Example:
->> $ bridge -s vlan
->> port	vlan id	stats
->> br0	 1	 RX: 33724730 bytes 492075 packets TX: 67409922 bytes 984029 packets
->> 	 100	 RX: 0 bytes 0 packets TX: 0 bytes 0 packets
->> 	 200	 RX: 0 bytes 0 packets TX: 0 bytes 0 packets
->> 	 300	 RX: 0 bytes 0 packets TX: 0 bytes 0 packets
->> 	 301	 RX: 169562135 bytes 790877 packets TX: 169550926 bytes 790824 packets
->> br1	 1	 RX: 0 bytes 0 packets TX: 0 bytes 0 packets
->>
->> Note that it will print the per-vlan statistics for all vlans in a bridge
->> even if the vlan is only added to ports. Later when we add per-port
->> per-vlan statistics support, we'll be able to print the exact ports each
->> vlan belongs to, not only the bridge.
->>
->> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-> 
-> Thanks, this is a useful tool, but I think the formatting of output may need to be
-> reworked.  The bridge tool works similar to ip command. And in the ip command the
-> -s flag causes additional lines, but does not change the output format.
+This makes it easier to build iproute2 with a custom compiler.
 
-Indeed, I agree that it needs refinement.
+While at it, make HOSTCC default to the value of CC if not explicitly
+set elsewhere.
 
-> 
-> There is also double line spacing in current output, which scrolls off when
-> managing in little VM windows. Plush the port name is too narrow a field width
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ Makefile | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-The port name width is the same as vlan show - 1 tab and a space.
-
-> 
-> Why not something like:
-> 
-> $ bridge vlan
-> port	   vlan ids
-> virbr1	   1 PVID Egress Untagged
-> virbr4	   1 PVID Egress Untagged
-> virbr0	   1 PVID Egress Untagged
-> 
-> $ bridge -s vlan
-> virbr1	   1 PVID Egress Untagged
->              RX: 33724730 bytes 492075 packets
->              TX: 67409922 bytes 984029 packets
-> virbr0	   1 PVID Egress Untagged
->              RX: 169562135 bytes 790877 packets 
->              TX: 169550926 bytes 790824 packets
-> 
-> The -d detail flag would also be useful to implement
-> 
-
-Yep, this was one of the formats I tested. The only thing that we currently
-cannot implement is the flags printing as they're not exported via the stats
-utility and really can't be because some of these entries may not exist on
-the bridge device itself and it will get too confusing.
-I left a few padding fields and I can export the flags if the entry exists
-on the bridge device, then some will have the flags while others
-will not, but it still sounds confusing to me. I'd prefer to just leave the
-flags to the normal vlan show. What do you think ?
-
-With your example:
- $ bridge -s vlan
- virbr1	   	1 
-              RX: 33724730 bytes 492075 packets
-              TX: 67409922 bytes 984029 packets
-
-This way we can later add more fields like broadcast packets or multicast if
-we ever start counting them.
-
-I'll later add the "-brief" flag and print them on one line since with
-thousands of vlans it comes in handy.
-
-Cheers,
- Nik
+diff --git a/Makefile b/Makefile
+index 15c81ecfdca3a..fa200ddb76679 100644
+--- a/Makefile
++++ b/Makefile
+@@ -34,8 +34,8 @@ ADDLIB+=ipx_ntop.o ipx_pton.o
+ #options for mpls
+ ADDLIB+=mpls_ntop.o mpls_pton.o
+ 
+-CC = gcc
+-HOSTCC = gcc
++CC := gcc
++HOSTCC ?= $(CC)
+ DEFINES += -D_GNU_SOURCE
+ # Turn on transparent support for LFS
+ DEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+-- 
+2.8.2
