@@ -1,117 +1,57 @@
-From: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: Re: [PATCH net-next v10 2/5] openvswitch: set skb
- protocol and mac_len when receiving on internal device
-Date: Tue, 21 Jun 2016 11:25:01 +0900
-Message-ID: <20160621022458.GA28358@vergenet.net>
-References: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
- <1464848686-7656-3-git-send-email-simon.horman@netronome.com>
- <CAOrHB_Aqdkr-26GxGh=W0AsojOMzDXYf5zif=kaFbWBty5uHKA@mail.gmail.com>
- <20160607030809.GE31696@vergenet.net>
- <CAOrHB_Cp4bw1beQb8tCk+cR9k2Nv5kBMVD-a8SYRVkOeeQYJvA@mail.gmail.com>
- <20160617055331.GA24833@vergenet.net>
- <CAOrHB_BWfLk8yba2XkF43Hm-czGUZnVWQQ=HW3-vvpFEH7GNpA@mail.gmail.com>
+From: Shawn Guo <shawnguo@kernel.org>
+Subject: Re: [PATCH 1/2] ARM: imx6: disable deeper idle states when FEC is
+ active w/o HW workaround
+Date: Tue, 21 Jun 2016 10:40:18 +0800
+Message-ID: <20160621024018.GA21364@tiger>
+References: <1464794983-31484-1-git-send-email-l.stach@pengutronix.de>
+ <1464794983-31484-2-git-send-email-l.stach@pengutronix.de>
+ <4916175.LqH9s7UaP8@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
- Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
- Jiri Benc <jbenc-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-To: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: devicetree@vger.kernel.org, Fugang Duan <fugang.duan@nxp.com>,
+ netdev@vger.kernel.org, patchwork-lst@pengutronix.de, kernel@pengutronix.de,
+ linux-arm-kernel@lists.infradead.org, Lucas Stach <l.stach@pengutronix.de>
+To: Arnd Bergmann <arnd@arndb.de>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 Content-Disposition: inline
-In-Reply-To: <CAOrHB_BWfLk8yba2XkF43Hm-czGUZnVWQQ=HW3-vvpFEH7GNpA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <4916175.LqH9s7UaP8@wuerfel>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-W0NjIEppcmkgQmVuY10KCk9uIFNhdCwgSnVuIDE4LCAyMDE2IGF0IDA2OjM4OjU0UE0gLTA3MDAs
-IHByYXZpbiBzaGVsYXIgd3JvdGU6Cj4gT24gVGh1LCBKdW4gMTYsIDIwMTYgYXQgMTA6NTMgUE0s
-IFNpbW9uIEhvcm1hbgo+IDxzaW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gPiBP
-biBUdWUsIEp1biAwNywgMjAxNiBhdCAwMzo0NToyN1BNIC0wNzAwLCBwcmF2aW4gc2hlbGFyIHdy
-b3RlOgo+ID4+IE9uIE1vbiwgSnVuIDYsIDIwMTYgYXQgODowOCBQTSwgU2ltb24gSG9ybWFuIDxz
-aW1vbi5ob3JtYW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gPj4gPiBPbiBUaHUsIEp1biAwMiwg
-MjAxNiBhdCAwMzowMTo0N1BNIC0wNzAwLCBwcmF2aW4gc2hlbGFyIHdyb3RlOgo+ID4+ID4+IE9u
-IFdlZCwgSnVuIDEsIDIwMTYgYXQgMTE6MjQgUE0sIFNpbW9uIEhvcm1hbgo+ID4+ID4+IDxzaW1v
-bi5ob3JtYW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gPj4gPj4gPiAqIFNldCBza2IgcHJvdG9j
-b2wgYmFzZWQgb24gY29udGVudHMgb2YgcGFja2V0LiBJIGhhdmUgb2JzZXJ2ZWQgdGhpcyBpcwo+
-ID4+ID4+ID4gICBuZWNlc3NhcnkgdG8gZ2V0IGFjdHVhbCBwcm90b2NvbCBvZiBhIHBhY2tldCB3
-aGVuIGl0IGlzIGluamVjdGVkIGludG8gYW4KPiA+PiA+PiA+ICAgaW50ZXJuYWwgZGV2aWNlIGUu
-Zy4gYnkgbGlibmV0IGluIHdoaWNoIGNhc2Ugc2tiIHByb3RvY29sIHdpbGwgYmUgc2V0IHRvCj4g
-Pj4gPj4gPiAgIEVUSF9BTEwuCj4gLi4uLgo+IC4uLi4KPiA+PiA+ICAgICAgICAgZXRoX3R5cGUg
-PSBldGhfdHlwZV90cmFucyhza2IsIHNrYi0+ZGV2KTsKPiA+PiA+ICAgICAgICAgc2tiLT5tYWNf
-bGVuID0gc2tiLT5kYXRhIC0gc2tiX21hY19oZWFkZXIoc2tiKTsKPiA+PiA+ICAgICAgICAgX19z
-a2JfcHVzaChza2IsIHNrYi0+bWFjX2xlbik7Cj4gPj4gPgo+ID4+ID4gICAgICAgICBpZiAoZXRo
-X3R5cGUgPT0gaHRvbnMoRVRIX1BfODAyMVEpKQo+ID4+ID4gICAgICAgICAgICAgICAgIHNrYi0+
-bWFjX2xlbiArPSBWTEFOX0hMRU47Cj4gPj4gPgo+ID4+ID4gUGVyaGFwcyB0aGF0IGxvZ2ljIG91
-Z2h0IHRvIGJlIGluIGEgaGVscGVyIHVzZWQgYnkgYm90aCBpbnRlcm5hbF9kZXZfeG1pdCgpCj4g
-Pj4gPiBhbmQgbmV0ZGV2X3BvcnRfcmVjZWl2ZSgpLiBPciBzb21laG93IGNlbnRyYWxpc2VkIGlu
-IG92c192cG9ydF9yZWNlaXZlKCkuCj4gPj4KPiA+PiBUaGlzIGRvZXMgbG9va3MgYml0IGNvbXBs
-ZXguIENhbiB3ZSB1c2Ugb3RoZXIgc2tiIG1ldGFkYXRhIGxpa2UKPiA+PiBza2JfbWFjX2hlYWRl
-cl93YXNfc2V0KCk/Cj4gPgo+ID4gWWVzLCBJIHRoaW5rIHRoYXQgY2FuIGJlIG1hZGUgdG8gd29y
-ayBpZiBza2ItPm1hY19oZWFkZXIgaXMgdW5zZXQKPiA+IGZvciBsMyBwYWNrZXRzIGluIG5ldGRl
-dl9wb3J0X3JlY2VpdmUoKS4gVGhlIGZvbGxvd2luZyBpcyBhbiBpbmNyZW1lbnRhbAo+ID4gcGF0
-Y2ggb24gdGhlIGVudGlyZSBzZXJpZXMuIElzIHRoaXMgdGhlIGtpbmQgb2YgdGhpbmcgeW91IGhh
-ZCBpbiBtaW5kPwo+ID4KPiA+IGRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jIGIv
-bmV0L29wZW52c3dpdGNoL2Zsb3cuYwo+ID4gaW5kZXggODZmMmNmYjE5ZGUzLi40MjU4N2Q1YmY4
-OTQgMTAwNjQ0Cj4gPiAtLS0gYS9uZXQvb3BlbnZzd2l0Y2gvZmxvdy5jCj4gPiArKysgYi9uZXQv
-b3BlbnZzd2l0Y2gvZmxvdy5jCj4gPiBAQCAtNzI5LDcgKzcyOSw3IEBAIGludCBvdnNfZmxvd19r
-ZXlfZXh0cmFjdChjb25zdCBzdHJ1Y3QgaXBfdHVubmVsX2luZm8gKnR1bl9pbmZvLAo+ID4gICAg
-ICAgICBrZXktPnBoeS5za2JfbWFyayA9IHNrYi0+bWFyazsKPiA+ICAgICAgICAgb3ZzX2N0X2Zp
-bGxfa2V5KHNrYiwga2V5KTsKPiA+ICAgICAgICAga2V5LT5vdnNfZmxvd19oYXNoID0gMDsKPiA+
-IC0gICAgICAga2V5LT5waHkuaXNfbGF5ZXIzID0gc2tiLT5tYWNfbGVuID09IDA7Cj4gPiArICAg
-ICAgIGtleS0+cGh5LmlzX2xheWVyMyA9IHNrYl9tYWNfaGVhZGVyX3dhc19zZXQoc2tiKSA9PSAw
-Owo+ID4gICAgICAgICBrZXktPnJlY2lyY19pZCA9IDA7Cj4gPgo+ID4gICAgICAgICBlcnIgPSBr
-ZXlfZXh0cmFjdChza2IsIGtleSk7Cj4gPiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL3Zw
-b3J0LWludGVybmFsX2Rldi5jIGIvbmV0L29wZW52c3dpdGNoL3Zwb3J0LWludGVybmFsX2Rldi5j
-Cj4gPiBpbmRleCA0ODRiYTUyOWM2ODIuLjg5NzNkNGRiNTA5YiAxMDA2NDQKPiA+IC0tLSBhL25l
-dC9vcGVudnN3aXRjaC92cG9ydC1pbnRlcm5hbF9kZXYuYwo+ID4gKysrIGIvbmV0L29wZW52c3dp
-dGNoL3Zwb3J0LWludGVybmFsX2Rldi5jCj4gPiBAQCAtNTAsNyArNTAsNiBAQCBzdGF0aWMgaW50
-IGludGVybmFsX2Rldl94bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZXRfZGV2aWNl
-ICpuZXRkZXYpCj4gPgo+ID4gICAgICAgICBza2ItPnByb3RvY29sID0gZXRoX3R5cGVfdHJhbnMo
-c2tiLCBuZXRkZXYpOwo+ID4gICAgICAgICBza2JfcHVzaChza2IsIEVUSF9ITEVOKTsKPiA+IC0g
-ICAgICAgc2tiX3Jlc2V0X21hY19sZW4oc2tiKTsKPiA+Cj4gPiAgICAgICAgIGxlbiA9IHNrYi0+
-bGVuOwo+ID4gICAgICAgICByY3VfcmVhZF9sb2NrKCk7Cj4gPiBkaWZmIC0tZ2l0IGEvbmV0L29w
-ZW52c3dpdGNoL3Zwb3J0LW5ldGRldi5jIGIvbmV0L29wZW52c3dpdGNoL3Zwb3J0LW5ldGRldi5j
-Cj4gPiBpbmRleCAzZGYzNmRmNjJlZTkuLjRjZjNmMTJmZmM5OSAxMDA2NDQKPiA+IC0tLSBhL25l
-dC9vcGVudnN3aXRjaC92cG9ydC1uZXRkZXYuYwo+ID4gKysrIGIvbmV0L29wZW52c3dpdGNoL3Zw
-b3J0LW5ldGRldi5jCj4gPiBAQCAtNjAsMjIgKzYwLDkgQEAgc3RhdGljIHZvaWQgbmV0ZGV2X3Bv
-cnRfcmVjZWl2ZShzdHJ1Y3Qgc2tfYnVmZiAqc2tiKQo+ID4gICAgICAgICBpZiAodnBvcnQtPmRl
-di0+dHlwZSA9PSBBUlBIUkRfRVRIRVIpIHsKPiA+ICAgICAgICAgICAgICAgICBza2JfcHVzaChz
-a2IsIEVUSF9ITEVOKTsKPiA+ICAgICAgICAgICAgICAgICBza2JfcG9zdHB1c2hfcmNzdW0oc2ti
-LCBza2ItPmRhdGEsIEVUSF9ITEVOKTsKPiA+IC0gICAgICAgfSBlbHNlIGlmICh2cG9ydC0+ZGV2
-LT50eXBlID09IEFSUEhSRF9OT05FKSB7Cj4gPiAtICAgICAgICAgICAgICAgaWYgKHNrYi0+cHJv
-dG9jb2wgPT0gaHRvbnMoRVRIX1BfVEVCKSkgewo+ID4gLSAgICAgICAgICAgICAgICAgICAgICAg
-X19iZTE2IGV0aF90eXBlOwo+ID4gLQo+ID4gLSAgICAgICAgICAgICAgICAgICAgICAgaWYgKHVu
-bGlrZWx5KHNrYi0+bGVuIDwgRVRIX0hMRU4pKQo+ID4gLSAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAgICBnb3RvIGVycm9yOwo+ID4gLQo+ID4gLSAgICAgICAgICAgICAgICAgICAgICAgZXRo
-X3R5cGUgPSBldGhfdHlwZV90cmFucyhza2IsIHNrYi0+ZGV2KTsKPiA+IC0gICAgICAgICAgICAg
-ICAgICAgICAgIHNrYi0+bWFjX2xlbiA9IHNrYi0+ZGF0YSAtIHNrYl9tYWNfaGVhZGVyKHNrYik7
-Cj4gPiAtICAgICAgICAgICAgICAgICAgICAgICBfX3NrYl9wdXNoKHNrYiwgc2tiLT5tYWNfbGVu
-KTsKPiA+IC0KPiA+IC0gICAgICAgICAgICAgICAgICAgICAgIGlmIChldGhfdHlwZSA9PSBodG9u
-cyhFVEhfUF84MDIxUSkpCj4gPiAtICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIHNrYi0+
-bWFjX2xlbiArPSBWTEFOX0hMRU47Cj4gPiAtICAgICAgICAgICAgICAgfSBlbHNlIHsKPiA+IC0g
-ICAgICAgICAgICAgICAgICAgICAgIHNrYi0+bWFjX2xlbiA9IDA7Cj4gPiAtICAgICAgICAgICAg
-ICAgfQo+ID4gKyAgICAgICB9IGVsc2UgaWYgKHZwb3J0LT5kZXYtPnR5cGUgPT0gQVJQSFJEX05P
-TkUgJiYKPiA+ICsgICAgICAgICAgICAgICAgICBza2ItPnByb3RvY29sICE9IGh0b25zKEVUSF9Q
-X1RFQikpIHsKPiA+ICsgICAgICAgICAgICAgICBza2ItPm1hY19oZWFkZXIgPSAodHlwZW9mKHNr
-Yi0+bWFjX2hlYWRlcikpfjBVOwo+ID4gICAgICAgICB9Cj4gPgo+ID4gICAgICAgICBvdnNfdnBv
-cnRfcmVjZWl2ZSh2cG9ydCwgc2tiLCBza2JfdHVubmVsX2luZm8oc2tiKSk7Cj4gCj4gVGhpcyBj
-ZXJ0YWlubHkgbG9va3MgYmV0dGVyLiBJIHdhcyB3b25kZXJpbmcgaWYgd2UgY2FuIHVuc2V0IHRo
-ZSBtYWMKPiBoZWFkZXIgb2Zmc2V0IGluIEwzIHR1bm5lbCBkZXZpY2VzIGl0c2VsZi4gU28gdGhl
-cmUgaXMgbm8gbmVlZCB0byBoYXZlCj4gdGhpcyBjaGVjayBoZXJlLgoKSSB0aGluayB0aGF0IG1p
-Z2h0IGJlIHBvc3NpYmxlIGZvciBHUkUgYnkgbW9kaWZ5aW5nIHRoZSBmb2xsb3dpbmcgaW4KX19p
-cGdyZV9yY3YoKS4KCiAgICAgICAgICAgICAgICBpZiAodHVubmVsLT5kZXYtPnR5cGUgIT0gQVJQ
-SFJEX05PTkUpCiAgICAgICAgICAgICAgICAgICAgICAgIHNrYl9wb3BfbWFjX2hlYWRlcihza2Ip
-OwogICAgICAgICAgICAgICAgZWxzZQogICAgICAgICAgICAgICAgICAgICAgICBza2JfcmVzZXRf
-bWFjX2hlYWRlcihza2IpOwoKQnV0IEkgYW0gdW5zdXJlIHdoYXQgc2lkZSBlZmZlY3RzIHRoaXMg
-bWlnaHQgaGF2ZSBvbiBvdGhlciB1c2VycyBvZiB0aGUKY29kZS4KCkppcmksIGRvIHlvdSBoYXZl
-IGFueSB0aG91Z2h0cyBvbiB0aGlzPwpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDov
-L29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+On Thu, Jun 16, 2016 at 05:47:26PM +0200, Arnd Bergmann wrote:
+> On Wednesday, June 1, 2016 5:29:42 PM CEST Lucas Stach wrote:
+> > +/*
+> > + * i.MX6 Q/DL has an erratum (ERR006687) that prevents the FEC from waking the
+> > + * CPUs when they are in wait(unclocked) state. As the hardware workaround isn't
+> > + * applicable to all boards, disable the deeper idle state when the workaround
+> > + * isn't present and the FEC is in use.
+> > + */
+> > +void imx6q_cpuidle_fec_irqs_used(void)
+> > +{
+> > +       imx6q_cpuidle_driver.states[1].disabled = true;
+> > +}
+> > +
+> > +void imx6q_cpuidle_fec_irqs_unused(void)
+> > +{
+> > +       imx6q_cpuidle_driver.states[1].disabled = false;
+> > +}
+> > +
+> 
+> These functions need to be exported, I just saw a build error in
+> an allmodconfig test:
+> 
+> ERROR: "imx6q_cpuidle_fec_irqs_unused" [drivers/net/ethernet/freescale/fec.ko] undefined!
+> ERROR: "imx6q_cpuidle_fec_irqs_used" [drivers/net/ethernet/freescale/fec.ko] undefined!
+
+Thanks for the report, Arnd.  Just sent a fix for it.
+
+Shawn
