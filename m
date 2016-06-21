@@ -1,49 +1,52 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
-Date: Tue, 21 Jun 2016 10:11:30 -0700
-Message-ID: <4d1666f1-e52f-c7f6-9b9c-fec38b9ff028@stressinduktion.org>
-References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
- <20160617.200947.2078656051211641868.davem@davemloft.net>
- <CALx6S37GuppbknFiGsGxyP8jAX-t8c1=mWxCToKQVA8r8UPeOA@mail.gmail.com>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [iproute PATCH v2 7/7] ip/tcp_metrics: Simplify process_msg a
+ bit
+Date: Tue, 21 Jun 2016 09:53:43 -0700
+Message-ID: <20160621095343.0936eefc@xeon-e3>
+References: <1466525921-15738-1-git-send-email-phil@nwl.cc>
+	<1466525921-15738-8-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="US-ASCII"
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>,
-	David Miller <davem@davemloft.net>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Julien Floret <julien.floret@6wind.com>,
+	<netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:33091 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751983AbcFURMk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 13:12:40 -0400
-In-Reply-To: <CALx6S37GuppbknFiGsGxyP8jAX-t8c1=mWxCToKQVA8r8UPeOA@mail.gmail.com>
+Received: from mx0b-000f0801.pphosted.com ([67.231.152.113]:3826 "EHLO
+	mx0b-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752351AbcFURRr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 13:17:47 -0400
+In-Reply-To: <1466525921-15738-8-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 17.06.2016 20:52, Tom Herbert wrote:
+On Tue, 21 Jun 2016 18:18:41 +0200
+Phil Sutter <phil@nwl.cc> wrote:
+
+> By combining the attribute extraction and check for existence, the
+> additional indentation level in the 'else' clause can be avoided.
 > 
->> > Rather, I think people are going to start adding rules to block TOU
->> > tunnels entirely because they cannot inspect nor conditionally
->> > filter/rewrite the contents.  This is even more likely if Joe Random
->> > and so easily can do their own userland TCP stack over TOU.
->> >
-> Unfortunately, encryption is the only proven solution to protocol
-> ossification. If the network doesn't see it, it can't ossify it.
+> In addition to that, common actions for 'daddr' are combined since the
+> function returns if neither of the branches are taken.
+> 
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
+>  ip/tcp_metrics.c | 45 ++++++++++++++++++---------------------------
+>  1 file changed, 18 insertions(+), 27 deletions(-)
+> 
+> diff --git a/ip/tcp_metrics.c b/ip/tcp_metrics.c
+> index f82604f458ada..899830c127bcb 100644
+> --- a/ip/tcp_metrics.c
+> +++ b/ip/tcp_metrics.c
+> @@ -112,47 +112,38 @@ static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
+>  	parse_rtattr(attrs, TCP_METRICS_ATTR_MAX, (void *) ghdr + GENL_HDRLEN,
+>  		     len);
+>  
+> -	a = attrs[TCP_METRICS_ATTR_ADDR_IPV4];
+> -	if (a) {
+> +	if ((a = attrs[TCP_METRICS_ATTR_ADDR_IPV4])) {
 
-DTLS carries still a lot of information, both in its handshake, as well
-as in the actual framing. The protocol is basically only TLS on top of
-datagrams and as such implements connection establishment and tear down
-of connections, which middle boxes can certainly track. It will just be
-a matter of time until middle boxes and security appliances will be able
-to track those connections, maybe not being able to inspect the content
-but at least see the certificates in clear-text and as such also have
-the common names and other addressing information at hand. The meta-data
-might certainly be track able.
-
-Because of reply protection you actually can infer the number of bytes
-transferred and someone can end up building congestion control on a
-middle box based on that, infer retransmissions etc.
-
-Bye,
-Hannes
+NAK, plus it fails checkpatch
