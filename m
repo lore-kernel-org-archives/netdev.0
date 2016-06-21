@@ -1,44 +1,39 @@
 From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] rxrpc: fix uninitialized variable use
-Date: Tue, 21 Jun 2016 11:28:53 +0200
-Message-ID: <6563611.x9M4D6kWiH@wuerfel>
-References: <20160617095555.1696781-1-arnd@arndb.de> <3356.1466498932@warthog.procyon.org.uk>
+Subject: Re: [PATCH V4 1/1] net: ethernet: Add TSE PCS support to dwmac-socfpga
+Date: Tue, 21 Jun 2016 11:34:49 +0200
+Message-ID: <3759495.N5GR8CgQvA@wuerfel>
+References: <1466498771-18971-1-git-send-email-thloh@altera.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7Bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.187]:62772 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750905AbcFUJ1g (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 05:27:36 -0400
-In-Reply-To: <3356.1466498932@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, peppe.cavallaro@st.com,
+	alexandre.torgue@st.com, davem@davemloft.net,
+	preid@electromag.com.au, dinguyen@opensource.altera.com,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org, thloh85@gmail.com, cnphoon@altera.com
+To: thloh@altera.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466498771-18971-1-git-send-email-thloh@altera.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tuesday, June 21, 2016 9:48:52 AM CEST David Howells wrote:
-> Arnd Bergmann <arnd@arndb.de> wrote:
-> 
-> > Hashing the peer key was introduced for AF_INET, but gcc
-> > warns about the rxrpc_peer_hash_key function returning uninitialized
-> > data for any other value of srx->transport.family:
-> > 
-> > net/rxrpc/peer_object.c: In function 'rxrpc_peer_hash_key':
-> > net/rxrpc/peer_object.c:57:15: error: 'p' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> > 
-> > Assuming that nothing else can be set here, this changes the
-> > function to just return zero in case of an unknown address
-> > family.
-> 
-> I'm actually more tempted to put a BUG() in there because if any new family
-> support (say AF_INET6) is added, I want to make sure I catch all the places.
+On Tuesday, June 21, 2016 1:46:11 AM CEST thloh@altera.com wrote:
+> diff --git a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
+> index 72d82d6..dd10f2f 100644
+> --- a/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
+> +++ b/Documentation/devicetree/bindings/net/socfpga-dwmac.txt
+> @@ -17,9 +17,26 @@ Required properties:
+>  Optional properties:
+>  altr,emac-splitter: Should be the phandle to the emac splitter soft IP node if
+>  		DWMAC controller is connected emac splitter.
+> +phy-mode: The phy mode the ethernet operates in
+> +altr,sgmii_to_sgmii_converter: phandle to the TSE SGMII converter
+> +
 
-Makes sense. Do you want to do the patch yourself, or should I send
-a new one doing that?
+Please use '-' instead of '_' in the property names.
 
-Maybe WARN() would be better than BUG()? That would still get the attention
-it needs but not kill the process.
+Can you explain in the patch description why you can't reference
+the converter using the normal "phy-handle" property and implement
+the converter as a phy driver?
 
 	Arnd
