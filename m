@@ -1,38 +1,67 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [alsa-devel] [very-RFC 0/8] TSN driver for the kernel
-Date: Tue, 21 Jun 2016 21:40:01 +0200
-Message-ID: <20160621194001.GB2489@netboy>
-References: <20160613114713.GA9544@localhost.localdomain>
- <20160613195136.GC2441@netboy>
- <20160614121844.54a125a5@lxorguk.ukuu.org.uk>
- <5760C84C.40408@sakamocchi.jp>
- <20160615080602.GA13555@localhost.localdomain>
- <5764DA85.3050801@sakamocchi.jp>
- <20160618224549.GF32724@icarus.home.austad.us>
- <9a5abd48-4da3-945d-53c9-b6d37010ab0d@linux.intel.com>
- <20160620121838.GA5257@localhost.localdomain>
- <07283da9-f6d1-c3b1-7989-a6fce7ca0ee6@linux.intel.com>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: [net-next PATCH v3 00/17] Future-proof tunnel offload handlers
+Date: Tue, 21 Jun 2016 14:34:35 -0700
+Message-ID: <e0bf4896-d394-b1d0-1a0d-4affc3b0df4a@redhat.com>
+References: <20160616191851.20872.67154.stgit@localhost.localdomain>
+ <20160617.202641.1821023739498595024.davem@davemloft.net>
+ <CALx6S34Y3Qq6nMHuMcC2LC5duLBO3KVN3+A+0qmPrNvFfY7gJg@mail.gmail.com>
+ <20160621.042211.945844554759834352.davem@davemloft.net>
+ <CAKgT0Ucze-+PYdvoHhDSLuaTLrn+Ene+CnfJaKO7AEHGHBsKzg@mail.gmail.com>
+ <18b4d172-2cf5-8246-9cac-ce92adf65bc8@solarflare.com>
+ <234d6a2f-6971-7029-0645-f98e51236c4f@redhat.com>
+ <CAKgT0UdsYo84J087KUTiiwuHGUaykPvpQTVxCdvE9k21tM5hsQ@mail.gmail.com>
+ <CALx6S34EXpxA5fs+HDUczMHaAD5q_yQMRVvwhCbSJCBO8_PRuQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alsa-devel@alsa-project.org, netdev@vger.kernel.org,
-	Henrik Austad <henrik@austad.us>, linux-kernel@vger.kernel.org,
-	Takashi Sakamoto <o-takashi@sakamocchi.jp>,
-	Arnd Bergmann <arnd@linaro.org>, linux-media@vger.kernel.org
-To: Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <07283da9-f6d1-c3b1-7989-a6fce7ca0ee6@linux.intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Edward Cree <ecree@solarflare.com>,
+	David Miller <davem@davemloft.net>,
+	Alex Duyck <aduyck@mirantis.com>,
+	Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Jesse Gross <jesse@kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Ariel Elior <ariel.elior@qlogic.com>,
+	Michael Chan <michael.chan@broadcom.com>,
+	Dept-GELinuxNICDev@qlogic.com
+To: Tom Herbert <tom@herbertland.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56182 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751549AbcFUVen (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2016 17:34:43 -0400
+In-Reply-To: <CALx6S34EXpxA5fs+HDUczMHaAD5q_yQMRVvwhCbSJCBO8_PRuQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 21, 2016 at 10:45:18AM -0700, Pierre-Louis Bossart wrote:
-> You can experiment with the 'dma' and 'link' timestamps today on any
-> HDaudio-based device. Like I said the synchronized part has not been
-> upstreamed yet (delays + dependency on ART-to-TSC conversions that made it
-> in the kernel recently)
+On 21.06.2016 11:42, Tom Herbert wrote:
+>> > There is also some argument to be had for theory versus application.
+>> > Arguably it is the customers that are leading to some of the dirty
+>> > hacks as I think vendors are building NICs based on customer use cases
+>> > versus following any specifications.  In most data centers the tunnel
+>> > underlays will be deployed throughout the network and UDP will likely
+>> > be blocked for anything that isn't being used explicitly for
+>> > tunneling.  As such we seem to be seeing a lot of NICs that are only
+>> > supporting one port for things like this instead of designing them to
+>> > handle whatever we can throw at them.
+>> >
+> Actually, I don't believe that's true. It is not typical to deploy
+> firewalls within a data center fabric, and nor do we restrict
+> applications from binding to any UDP ports and they can pretty much
+> transmit to any port on any host without cost using an unconnected UDP
+> socket. I think it's more likely that NIC (and switch vendors) simply
+> assumed that port numbers can be treated as global values. That's
+> expedient and at small scale we can probably get away with it, but at
+> large scale this will eventually bite someone.
 
-Can you point me to any open source apps using the dma/link
-timestamps?
+I do have access to relatively normal expensive switches that can
+basically be used to realize a scenario like the one Alex described. No
+firewalls necessary. If you can guarantee that your customers never have
+access to your hypervisors or container management namespace, this is
+actually a pretty solid assumption.
 
-Thanks,
-Richard
+Bye,
+Hannes
