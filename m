@@ -1,63 +1,28 @@
-From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net-next 16/19] net: hns: fix bug that alloc skb fail lead to port unavailable
-Date: Tue, 21 Jun 2016 11:56:36 +0800
-Message-ID: <1466481399-70080-17-git-send-email-Yisen.Zhuang@huawei.com>
-References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH] net: vrf: replace hard tab with space in assignment
+Date: Mon, 20 Jun 2016 21:49:45 -0600
+Message-ID: <d1817037-2d4c-3c57-df2f-22262fdcb006@cumulusnetworks.com>
+References: <20160621033943.21947-1-chris.packham@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
-	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
-	<geliangtang@163.com>, <ivecera@redhat.com>,
-	<fengguang.wu@intel.com>, <charles.chenxin@huawei.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
-	<salil.mehta@huawei.com>, <yankejian@huawei.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, shm@cumulusnetworks.com
+To: Chris Packham <chris.packham@alliedtelesis.co.nz>,
+	netdev@vger.kernel.org
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
+In-Reply-To: <20160621033943.21947-1-chris.packham@alliedtelesis.co.nz>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Jun He <hjat2005@huawei.com>
+On 6/20/16 9:39 PM, Chris Packham wrote:
+> The assignment of rth->dst.output in vrf_rt6_create() and
+> vrf_rtable_create() used a hard tab before the '='. The neighboring
+> assignments did not. Make the assignment of rth->dst.output consistent
+> with the surrounding code.
+>
+> Signed-off-by: Chris Packham <chris.packham@alliedtelesis.co.nz>
+> ---
+>  drivers/net/vrf.c | 4 ++--
+>  1 file changed, 2 insertions(+), 2 deletions(-)
 
-When hns_nic_poll_rx_skb alloc skb fail, it will break receive cycle and
-read new fbd_num to start new receive cycle. It recomputes cycle num is
-fbd_num minus clean_count, actually this cycle num is too big because
-it drop out receive cycle. It brings about the port unavailable.
-
-So we will goto out when alloc skb fail to fix this bug.
-
-Signed-off-by: Jun He <hjat2005@huawei.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 5 +++--
- 1 file changed, 3 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index f49246d..c0ce37b 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -768,10 +768,10 @@ recv:
- 			clean_count = 0;
- 		}
- 
--		/* poll one pkg*/
-+		/* poll one pkt*/
- 		err = hns_nic_poll_rx_skb(ring_data, &skb, &bnum);
- 		if (unlikely(!skb)) /* this fault cannot be repaired */
--			break;
-+			goto out;
- 
- 		recv_bds += bnum;
- 		clean_count += bnum;
-@@ -797,6 +797,7 @@ recv:
- 		}
- 	}
- 
-+out:
- 	/* make all data has been write before submit */
- 	if (clean_count > 0)
- 		hns_nic_alloc_rx_buffers(ring_data, clean_count);
--- 
-1.9.1
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
