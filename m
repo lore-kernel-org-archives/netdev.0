@@ -1,50 +1,36 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH] geneve: fix tx_errors statistics
-Date: Tue, 21 Jun 2016 16:26:49 +0800
-Message-ID: <1466497609-14468-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Tom Herbert <tom@herbertland.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH v3 00/17] Future-proof tunnel offload handlers
+Date: Tue, 21 Jun 2016 04:34:31 -0400 (EDT)
+Message-ID: <20160621.043431.177352816188322653.davem@davemloft.net>
+References: <20160617.202641.1821023739498595024.davem@davemloft.net>
+	<CALx6S34Y3Qq6nMHuMcC2LC5duLBO3KVN3+A+0qmPrNvFfY7gJg@mail.gmail.com>
+	<34f19f9c-221b-78f0-3989-9384e0d22e54@redhat.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: tom@herbertland.com, aduyck@mirantis.com, netdev@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, jesse@kernel.org,
+	eugenia@mellanox.com, jbenc@redhat.com, alexander.duyck@gmail.com,
+	saeedm@mellanox.com, ariel.elior@qlogic.com,
+	michael.chan@broadcom.com, Dept-GELinuxNICDev@qlogic.com
+To: hannes@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:34473 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751946AbcFUIgL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 04:36:11 -0400
+In-Reply-To: <34f19f9c-221b-78f0-3989-9384e0d22e54@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Tx errors present summation of errors encountered while transmitting
-packets.
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Date: Mon, 20 Jun 2016 11:11:32 -0700
 
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
----
- drivers/net/geneve.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+> I am not sure if this is necessary. The devices actually having the
+> ndo-ops, used to configure offloading, should only be visible inside one
+> namespace. If those ndo-ops actually have side effects on other
+> namespaces, they violate the contract and should be removed from the
+> driver. :/
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index aa61708..72b2f1c 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -922,8 +922,8 @@ tx_error:
- 		dev->stats.collisions++;
- 	else if (err == -ENETUNREACH)
- 		dev->stats.tx_carrier_errors++;
--	else
--		dev->stats.tx_errors++;
-+
-+	dev->stats.tx_errors++;
- 	return NETDEV_TX_OK;
- }
- 
-@@ -1012,8 +1012,8 @@ tx_error:
- 		dev->stats.collisions++;
- 	else if (err == -ENETUNREACH)
- 		dev->stats.tx_carrier_errors++;
--	else
--		dev->stats.tx_errors++;
-+
-+	dev->stats.tx_errors++;
- 	return NETDEV_TX_OK;
- }
- #endif
--- 
-1.8.3.1
+This is most if not all drivers right now, to the best of my
+understanding.
