@@ -1,32 +1,36 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next] of_mdio: Enable fixed PHY support if driver is a
- module
-Date: Mon, 20 Jun 2016 18:52:42 -0700
-Message-ID: <57689DEA.3070005@gmail.com>
-References: <1466468237.26723.20.camel@codethink.co.uk>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next] net: dsa: b53: Fix statistics readings
+Date: Tue, 21 Jun 2016 04:01:07 +0200
+Message-ID: <20160621020107.GE20362@lunn.ch>
+References: <1466472413-25824-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: CT kernel <linux-kernel@lists.codethink.co.uk>,
-	netdev@vger.kernel.org
-To: Ben Hutchings <ben.hutchings@codethink.co.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com, jogo@openwrt.org
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f173.google.com ([209.85.214.173]:36176 "EHLO
-	mail-ob0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751225AbcFUB7Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 21:59:25 -0400
-Received: by mail-ob0-f173.google.com with SMTP id mu6so2896290obc.3
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 18:59:25 -0700 (PDT)
-In-Reply-To: <1466468237.26723.20.camel@codethink.co.uk>
+Received: from vps0.lunn.ch ([178.209.37.122]:53253 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751719AbcFUCBr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 20 Jun 2016 22:01:47 -0400
+Content-Disposition: inline
+In-Reply-To: <1466472413-25824-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Le 20/06/2016 17:17, Ben Hutchings a =C3=A9crit :
-> The fixed_phy driver doesn't have to be built-in, and it's
-> important that of_mdio supports it even if it's a module.
->=20
-> Signed-off-by: Ben Hutchings <ben.hutchings@codethink.co.uk>
+On Mon, Jun 20, 2016 at 06:26:53PM -0700, Florian Fainelli wrote:
+> Due to a typo we would always be using the MIB counter width of the
+> first element of the counter array instead of the current element, and
+> we would always be accessing the register statistics with a 64-bits
+> read, while some could be 32-bits. This got unnoticed in testing with
+> MDIO and SRAB which tolerate doing this, but testing with the SPI bus
+> revealed bogus values being returned. Fix this by using the proper
+> iterator here.
+> 
+> Fixes: 967dd82ffc52 ("net: dsa: b53: Add support for Broadcom RoboSwitch")
+> Reported-by: Jonas Gorski <jogo@openwrt.org>
+> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Acked-by: Florian Fainelli <f.fainelli@gmail.com>
---=20
-=46lorian
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+
+    Andrew
