@@ -1,190 +1,91 @@
-From: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [PATCH] net: stmmac: dwmac-rk: add rk322x-specific data
-Date: Tue, 21 Jun 2016 15:13:55 +0800
-Message-ID: <1466493235-17789-1-git-send-email-zhengxing@rock-chips.com>
+From: Sascha Hauer <s.hauer@pengutronix.de>
+Subject: Re: Micrel Phy KSZ8031 clock select setting in dts
+Date: Tue, 21 Jun 2016 08:16:03 +0200
+Message-ID: <20160621061603.GV9677@pengutronix.de>
+References: <20160617130438.GB6604@graute-opti>
+ <bda2a612-37fd-9b73-5aad-6bc62ac2f520@cogentembedded.com>
+ <5766f2a8.8f1d1c0a.10cf8.1751@mx.google.com>
+ <20160620062101.GL9677@pengutronix.de>
+ <20160620120821.GA19639@graute-opti>
+ <20160620124539.GB20362@lunn.ch>
+ <20160620171406.GA4455@graute-opti>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
- Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
- Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
-To: heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: Andrew Lunn <andrew@lunn.ch>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	netdev@vger.kernel.org, f.fainelli@gmail.com, johan@kernel.org,
+	bth@kamstrup.dk
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:55988 "EHLO
+	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751961AbcFUHdQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 03:33:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20160620171406.GA4455@graute-opti>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add constants and callback functions for the dwmac on rk322x socs.
-As can be seen, the base structure is the same, only registers and
-the bits in them moved slightly.
+On Mon, Jun 20, 2016 at 07:14:06PM +0200, Oliver Graute wrote:
+> On 20/06/16, Andrew Lunn wrote:
+> > > &fec1 {
+> > > 	pinctrl-names = "default";
+> > > 	pinctrl-0 = <&pinctrl_enet1>;
+> > > 	phy-mode = "rmii";
+> > > 	micrel,rmii-reference-clock-select-25-mhz;
+> > > 	clocks,rmii-ref;
+> > 
+> > You are adding phy properties, not MAC properties. Please put them in
+> > the phy node.
+> 
+> yes, you are right. I fixed this and added the clock like sascha and
+> sergei proposed. (thx to you all)
+> 
+> my dts node now looks like this:
+> 
+> &fec1 {
+> 	pinctrl-names = "default";
+> 	pinctrl-0 = <&pinctrl_enet1>;
+> 	phy-mode = "rmii";
+> 	status = "okay";
+> 
+> 	mdio {
+> 		#address-cells = <1>;
+> 		#size-cells = <0>;
+> 
+> 		ethphy0: ethernet-phy@0 {
+> 			compatible = "micrel,ksz8031";
+> 			micrel,rmii-reference-clock-select-25-mhz;
+> 			clocks = <&mdc>;
+> 			clock-names = "rmii-ref";
+> 			phy-handle = <&ethphy0>;
+> 			reg = <0>;
+> 		};
+> 
+> 	};
+> 
+> 	mdc: rmii-ref {
+> 		#clock-cells = <0>;
+> 		compatible ="fixed-clock";
+> 		clock-frequency = <50000000>;
+> 	};
+> };
 
-Signed-off-by: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
----
+To make that clear: Which phy do you have: KSZ8031RNL or KSZ8031RNLI?
+The former has 25MHz default input clock whereas the latter has 50MHz
+default input clock.
 
- .../devicetree/bindings/net/rockchip-dwmac.txt     |    3 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     |  117 ++++++++++++++++++++
- 2 files changed, 119 insertions(+), 1 deletion(-)
+I assume you have the KSZ8031RNL and use it with 50MHz (so the non
+default case), hence you have to set the KSZPHY_RMII_REF_CLK_SEL bit.
+The "micrel,rmii-reference-clock-select-25-mhz" means "Setting the bit
+selects 25MHz" which is not the case here, so you have to remove the
+property.
+Could it be that your initial setting just did not work because of other
+mistakes, like no correct clock?
 
-diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-index 93eac7c..5040ed4 100644
---- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-+++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-@@ -3,7 +3,8 @@ Rockchip SoC RK3288 10/100/1000 Ethernet driver(GMAC)
- The device node has following properties.
- 
- Required properties:
-- - compatible: Can be one of "rockchip,rk3288-gmac", "rockchip,rk3368-gmac"
-+ - compatible: Can be one of "rockchip,rk322x-gmac", "rockchip,rk3288-gmac",
-+                             "rockchip,rk3368-gmac"
-  - reg: addresses and length of the register sets for the device.
-  - interrupts: Should contain the GMAC interrupts.
-  - interrupt-names: Should contain the interrupt names "macirq".
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index 0cd3ecf..7f045db 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -72,6 +72,122 @@ struct rk_priv_data {
- #define GRF_BIT(nr)	(BIT(nr) | BIT(nr+16))
- #define GRF_CLR_BIT(nr)	(BIT(nr+16))
- 
-+#define RK322X_GRF_MAC_CON0	0x0900
-+#define RK322X_GRF_MAC_CON1	0x0904
-+
-+/* RK322X_GRF_MAC_CON0 */
-+#define RK322X_GMAC_CLK_RX_DL_CFG(val)	HIWORD_UPDATE(val, 0x7F, 7)
-+#define RK322X_GMAC_CLK_TX_DL_CFG(val)	HIWORD_UPDATE(val, 0x7F, 0)
-+
-+/* RK322X_GRF_MAC_CON1 */
-+#define RK322X_GMAC_PHY_INTF_SEL_RGMII	\
-+		(GRF_BIT(4) | GRF_CLR_BIT(5) | GRF_CLR_BIT(6))
-+#define RK322X_GMAC_PHY_INTF_SEL_RMII	\
-+		(GRF_CLR_BIT(4) | GRF_CLR_BIT(5) | GRF_BIT(6))
-+#define RK322X_GMAC_FLOW_CTRL		GRF_BIT(3)
-+#define RK322X_GMAC_FLOW_CTRL_CLR	GRF_CLR_BIT(3)
-+#define RK322X_GMAC_SPEED_10M		GRF_CLR_BIT(2)
-+#define RK322X_GMAC_SPEED_100M		GRF_BIT(2)
-+#define RK322X_GMAC_RMII_CLK_25M	GRF_BIT(7)
-+#define RK322X_GMAC_RMII_CLK_2_5M	GRF_CLR_BIT(7)
-+#define RK322X_GMAC_CLK_125M		(GRF_CLR_BIT(8) | GRF_CLR_BIT(9))
-+#define RK322X_GMAC_CLK_25M		(GRF_BIT(8) | GRF_BIT(9))
-+#define RK322X_GMAC_CLK_2_5M		(GRF_CLR_BIT(8) | GRF_BIT(9))
-+#define RK322X_GMAC_RMII_MODE		GRF_BIT(10)
-+#define RK322X_GMAC_RMII_MODE_CLR	GRF_CLR_BIT(10)
-+#define RK322X_GMAC_TXCLK_DLY_ENABLE	GRF_BIT(0)
-+#define RK322X_GMAC_TXCLK_DLY_DISABLE	GRF_CLR_BIT(0)
-+#define RK322X_GMAC_RXCLK_DLY_ENABLE	GRF_BIT(1)
-+#define RK322X_GMAC_RXCLK_DLY_DISABLE	GRF_CLR_BIT(1)
-+
-+static void rk322x_set_to_rgmii(struct rk_priv_data *bsp_priv,
-+				int tx_delay, int rx_delay)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "Missing rockchip,grf property\n");
-+		return;
-+	}
-+
-+	regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
-+		     RK322X_GMAC_PHY_INTF_SEL_RGMII |
-+		     RK322X_GMAC_RMII_MODE_CLR |
-+		     RK322X_GMAC_RXCLK_DLY_ENABLE |
-+		     RK322X_GMAC_TXCLK_DLY_ENABLE);
-+
-+	regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON0,
-+		     RK322X_GMAC_CLK_RX_DL_CFG(rx_delay) |
-+		     RK322X_GMAC_CLK_TX_DL_CFG(tx_delay));
-+}
-+
-+static void rk322x_set_to_rmii(struct rk_priv_data *bsp_priv)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "Missing rockchip,grf property\n");
-+		return;
-+	}
-+
-+	regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
-+		     RK322X_GMAC_PHY_INTF_SEL_RMII |
-+		     RK322X_GMAC_RMII_MODE);
-+
-+	/* set MAC to RMII mode */
-+	regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1, GRF_BIT(11));
-+}
-+
-+static void rk322x_set_rgmii_speed(struct rk_priv_data *bsp_priv, int speed)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "Missing rockchip,grf property\n");
-+		return;
-+	}
-+
-+	if (speed == 10)
-+		regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
-+			     RK322X_GMAC_CLK_2_5M);
-+	else if (speed == 100)
-+		regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
-+			     RK322X_GMAC_CLK_25M);
-+	else if (speed == 1000)
-+		regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
-+			     RK322X_GMAC_CLK_125M);
-+	else
-+		dev_err(dev, "unknown speed value for RGMII! speed=%d", speed);
-+}
-+
-+static void rk322x_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "Missing rockchip,grf property\n");
-+		return;
-+	}
-+
-+	if (speed == 10)
-+		regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
-+			     RK322X_GMAC_RMII_CLK_2_5M |
-+			     RK322X_GMAC_SPEED_10M);
-+	else if (speed == 100)
-+		regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
-+			     RK322X_GMAC_RMII_CLK_25M |
-+			     RK322X_GMAC_SPEED_100M);
-+	else
-+		dev_err(dev, "unknown speed value for RMII! speed=%d", speed);
-+}
-+
-+static const struct rk_gmac_ops rk322x_ops = {
-+	.set_to_rgmii = rk322x_set_to_rgmii,
-+	.set_to_rmii = rk322x_set_to_rmii,
-+	.set_rgmii_speed = rk322x_set_rgmii_speed,
-+	.set_rmii_speed = rk322x_set_rmii_speed,
-+};
-+
- #define RK3288_GRF_SOC_CON1	0x0248
- #define RK3288_GRF_SOC_CON3	0x0250
- 
-@@ -604,6 +720,7 @@ static int rk_gmac_probe(struct platform_device *pdev)
- }
- 
- static const struct of_device_id rk_gmac_dwmac_match[] = {
-+	{ .compatible = "rockchip,rk322x-gmac", .data = &rk322x_ops },
- 	{ .compatible = "rockchip,rk3288-gmac", .data = &rk3288_ops },
- 	{ .compatible = "rockchip,rk3368-gmac", .data = &rk3368_ops },
- 	{ }
+Sascha
+
 -- 
-1.7.9.5
+Pengutronix e.K.                           |                             |
+Industrial Linux Solutions                 | http://www.pengutronix.de/  |
+Peiner Str. 6-8, 31137 Hildesheim, Germany | Phone: +49-5121-206917-0    |
+Amtsgericht Hildesheim, HRA 2686           | Fax:   +49-5121-206917-5555 |
