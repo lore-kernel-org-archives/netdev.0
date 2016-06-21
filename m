@@ -1,81 +1,72 @@
-From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next] openvswitch: Only set mark and
-	labels when commiting a connection.
-Date: Tue, 21 Jun 2016 15:02:34 -0700
-Message-ID: <03B14ADF-5E25-4E63-923A-32DF73D9FFFC@ovn.org>
-References: <1466468378-32235-1-git-send-email-jarno@ovn.org>
- <CAPWQB7GsGtwo=5PUQdbTY3vybd7rq1P4x-L4BwX-QduqCnoqMg@mail.gmail.com>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <CAPWQB7GsGtwo=5PUQdbTY3vybd7rq1P4x-L4BwX-QduqCnoqMg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+From: Bjorn Helgaas <helgaas@kernel.org>
+Subject: Re: [PATCH v3 0/6] Introduce pci_(request|release)_(mem|io)_regions
+Date: Tue, 21 Jun 2016 17:28:30 -0500
+Message-ID: <20160621222830.GF7603@localhost>
+References: <cover.1465200424.git.jthumshirn@suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Bjorn Helgaas <bhelgaas@google.com>, linux-pci@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Christoph Hellwig <hch@infradead.org>,
+	Keith Busch <keith.busch@intel.com>, Jens Axboe <axboe@fb.com>,
+	linux-nvme@lists.infradead.org,
+	James Smart <james.smart@avagotech.com>,
+	Dick Kennedy <dick.kennedy@avagotech.com>,
+	"James E.J. Bottomley" <jejb@linux.vnet.ibm.com>,
+	"Martin K. Petersen" <martin.petersen@oracle.com>,
+	linux-scsi@vger.kernel.org,
+	Frank Haverkamp <haver@linux.vnet.ibm.com>,
+	Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
+	Jay Cliburn <jcliburn@gmail.com>,
+	Chris Snook <chris.snook@gmail.com>,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org
+To: Johannes Thumshirn <jthumshirn@suse.de>
+Return-path: <linux-pci-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <cover.1465200424.git.jthumshirn@suse.de>
+Sender: linux-pci-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-VGhhbmtzIGZvciB0aGUgcmV2aWV3IQoKPiBPbiBKdW4gMjEsIDIwMTYsIGF0IDE6NTcgUE0sIEpv
-ZSBTdHJpbmdlciA8am9lQG92bi5vcmc+IHdyb3RlOgo+IAo+IE9uIDIwIEp1bmUgMjAxNiBhdCAx
-NzoxOSwgSmFybm8gUmFqYWhhbG1lIDxqYXJub0Bvdm4ub3JnPiB3cm90ZToKPj4gT25seSBhbGxv
-dyBzZXR0aW5nIGNvbm50cmFjayBtYXJrIG9yIGxhYmVscyB3aGVuIHRoZSBjb21taXQgZmxhZyBp
-cwo+PiBzcGVjaWZpZWQuICBUaGlzIG1ha2VzIHN1cmUgd2UgY2FuIG5vdCBzZXQgdGhlbSBiZWZv
-cmUgdGhlIGNvbm5lY3Rpb24KPj4gaGFzIGJlZW4gcGVyc2lzdGVkLCBhcyBpbiB0aGF0IGNhc2Ug
-dGhlIG1hcmsgYW5kIGxhYmVscyB3b3VsZCBiZSBsb3N0Cj4+IGluIGFuIGV2ZW50IG9mIGFuIHVz
-ZXJzcGFjZSB1cGNhbGwuCj4+IAo+PiBPVlMgdXNlcnNwYWNlIGFscmVhZHkgcmVxdWlyZXMgdGhl
-IGNvbW1pdCBmbGFnIHRvIGFjY2VwdCBzZXR0aW5nCj4+IGN0X21hcmsgYW5kL29yIGN0X2xhYmVs
-cy4gIFZhbGlkYXRlIGZvciB0aGlzIG9uIHRoZSBrZXJuZWwgQVBJLgo+PiAKPj4gRmluYWxseSwg
-c2V0IGNvbm50cmFjayBtYXJrIGFuZCBsYWJlbHMgcmlnaHQgYmVmb3JlIGNvbW1pdHRpbmcgc28g
-dGhhdAo+PiB0aGUgaW5pdGlhbCBjb25udHJhY2sgTkVXIGV2ZW50IGhhcyB0aGUgbWFyayBhbmQg
-bGFiZWxzLgo+PiAKPj4gU2lnbmVkLW9mZi1ieTogSmFybm8gUmFqYWhhbG1lIDxqYXJub0Bvdm4u
-b3JnPgo+IAo+IFRoZSBzdHJ1Y3R1cmUgb2YgdGhpcyBjb21taXQgbWVzc2FnZSBzdWdnZXN0cyB0
-aGVyZSBhcmUgbXVsdGlwbGUKPiBjaGFuZ2VzIHRyeWluZyB0byBiZSBhZGRyZXNzZWQgaW4gb25l
-IHBhdGNoLiBJIHN1Z2dlc3Qgc3BsaXR0aW5nIHRoZW0KPiBvdXQuCj4gCgpEb25lIGZvciB2MiBJ
-IGp1c3Qgc2VudCBmb3IgbmV0LgoKPiBJbiB0ZXJtcyBvZiBhcHBseWluZyB0aGUgbWFyayBhbmQg
-bGFiZWxzIGJlZm9yZSBjb21taXR0aW5nIHRoZQo+IGNvbm5lY3Rpb24sIHRoYXQncyBhY3R1YWxs
-eSB0aGUgYmVoYXZpb3VyIEkgd291bGQgZXhwZWN0IGlmIHlvdSB3ZXJlCj4gdG8gZXhlY3V0ZSBj
-dChtYXJrPWZvbyxjb21taXQpLiBUaGUgTkVXIGV2ZW50IHNob3VsZCBpbmNsdWRlIHRoZXNlCj4g
-cGllY2VzLCBhbmQgc2hvdWxkIGhhdmUgYWxsIGFsb25nLgoKUmlnaHQsIHRoZSB2MiBwYXRjaCAx
-LzIgZG9lcyB0aGlzLgoKPiAKPj4gQEAgLTExNDUsNiArMTE1NSwyMCBAQCBzdGF0aWMgaW50IHBh
-cnNlX2N0KGNvbnN0IHN0cnVjdCBubGF0dHIgKmF0dHIsIHN0cnVjdCBvdnNfY29ubnRyYWNrX2lu
-Zm8gKmluZm8sCj4+ICAgICAgICAgICAgICAgIH0KPj4gICAgICAgIH0KPj4gCj4+ICsjaWZkZWYg
-Q09ORklHX05GX0NPTk5UUkFDS19NQVJLCj4+ICsgICAgICAgaWYgKCFpbmZvLT5jb21taXQgJiYg
-aW5mby0+bWFyay5tYXNrKSB7Cj4+ICsgICAgICAgICAgICAgICBPVlNfTkxFUlIobG9nLAo+PiAr
-ICAgICAgICAgICAgICAgICAgICAgICAgICJTZXR0aW5nIGNvbm50cmFjayBtYXJrIHJlcXVpcmVz
-ICdjb21taXQnIGZsYWcuIik7Cj4+ICsgICAgICAgICAgICAgICByZXR1cm4gLUVJTlZBTDsKPj4g
-KyAgICAgICB9Cj4+ICsjZW5kaWYKPj4gKyNpZmRlZiBDT05GSUdfTkZfQ09OTlRSQUNLX0xBQkVM
-Uwo+PiArICAgICAgIGlmICghaW5mby0+Y29tbWl0ICYmIGxhYmVsc19ub256ZXJvKCZpbmZvLT5s
-YWJlbHMubWFzaykpIHsKPj4gKyAgICAgICAgICAgICAgIE9WU19OTEVSUihsb2csCj4+ICsgICAg
-ICAgICAgICAgICAgICAgICAgICAgIlNldHRpbmcgY29ubnRyYWNrIGxhYmVscyByZXF1aXJlcyAn
-Y29tbWl0JyBmbGFnLiIpOwo+PiArICAgICAgICAgICAgICAgcmV0dXJuIC1FSU5WQUw7Cj4+ICsg
-ICAgICAgfQo+PiArI2VuZGlmCj4gCj4gSSdtIG9mIG1peGVkIG1pbmRzIGFib3V0IHRoaXMsIGJ1
-dCBJIGxlYW4gdG93YXJkcyBhZ3JlZWluZyB3aXRoIGl0LiBPbgo+IG9uZSBoYW5kLCBpdCdzIGFw
-cGx5aW5nIG1vcmUgcmVzdHJpY3Rpb25zIG9uIGFuIG90aGVyd2lzZSBmYWlybHkgbG9vc2UKPiBp
-bnRlcmZhY2UgYW5kIGlmIGFueW9uZSBpcyByZWx5aW5nIG9uIHRoaXMgYmVoYXZpb3VyIHRoZW4g
-aXQgd291bGQgYmUKPiBzdXJwcmlzaW5nIHRvIGhhdmUgdGhpcyByZXN0cmljdGlvbiBpbnRyb2R1
-Y2VkLiBPbiB0aGUgb3RoZXIgaGFuZCwgaXQKPiBkb2Vzbid0IG1ha2UgYSBsb3Qgb2Ygc2Vuc2Ug
-dG8gc2V0IGEgbGFiZWwvbWFyayBidXQgbm90IHRvIGNvbW1pdCB0aGUKPiBjb25uZWN0aW9uLiBB
-cyB5b3Ugc2F5LCB0aGUgYmVoYXZpb3VyIGlzbid0IGV4YWN0bHkgY29uc2lzdGVudCBpbiB0aGF0
-Cj4gY2FzZSB0b2RheSBhbnl3YXk6IElmIHRoZXJlIHdhcyBhIGZsb3cgd2l0aAo+IGFjdGlvbnM9
-Y3QobWFyaz1mb28pLHJlY2lyYygpIGZvbGxvd2VkIGJ5IGEgdXNlcnNwYWNlIHVwY2FsbCwgdGhl
-biB0aGUKPiBtYXJrIHdvdWxkIGJlIHJlZmxlY3RlZCBpbiB0aGUgZmxvdyBrZXkgYnV0IG5vdCBz
-YXZlZCB0byBhbnkgcGVyc2lzdGVkCj4gY29ubmVjdGlvbi4gQSBzdWJzZXF1ZW50IGN0KGNvbW1p
-dCkgYWZ0ZXIgdXBjYWxsIHdvdWxkbid0IHBlcnNpc3QgaXQsCj4gZWl0aGVyLiBIb3dldmVyIGlm
-IHRoZXJlIHdlcmUgdHdvIGZsb3dzIGFscmVhZHkgaW4gdGhlIGRhdGFwYXRoIHRvIGRvCj4gdGhp
-cywgdGhlbiBpdCAvd291bGQvIGJlIHBlcnNpc3RlZC4gUmVzdHJpY3RpbmcgdGhlIG1hcmsvbGFi
-ZWxzCj4gbW9kaWZpY2F0aW9uIHRvIG9ubHkgaWYgeW91IGhhdmUgdGhlICJjb21taXQiIGZsYWcg
-d291bGQgYWRkcmVzcyB0aGF0Cj4gY29uc2lzdGVuY3kgaXNzdWUuIFRoZSBPVlMgdXNlcnNwYWNl
-IGVuZm9yY2luZyB0aGlzIGNvbnN0cmFpbnQgYWxzbwo+IGhpbnRzIHRoYXQgdGhpcyB3YXMgYW4g
-dW5pbnRlbnRpb25hbCBvbWlzc2lvbiBmcm9tIGtlcm5lbCB2YWxpZGF0aW9uLgoKSSBzZXBhcmF0
-ZWQgdGhpcyBvdXQgdG8gdGhlIHYyIHBhdGNoIDIvMi4KCiAgSmFybm8KCl9fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9w
-ZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2
-Cg==
+On Tue, Jun 07, 2016 at 09:44:00AM +0200, Johannes Thumshirn wrote:
+> The first patch in this series introduces the following 4 helper functions to
+> the PCI core:
+> 
+> * pci_request_mem_regions()
+> * pci_request_io_regions()
+> * pci_release_mem_regions()
+> * pci_release_io_regions()
+> 
+> which encapsulate the request and release of a PCI device's memory or I/O
+> bars.
+> 
+> The subsequent patches convert the drivers, which use the
+> pci_request_selected_regions(pdev, 
+> 	pci_select_bars(pdev, IORESOURCE_MEM), name); 
+> and similar pattern to use the new interface.
+> 
+> This was suggested by Christoph Hellwig in
+> http://lists.infradead.org/pipermail/linux-nvme/2016-May/004570.html and
+> tested on kernel v4.6 with NVMe.
+
+I applied all six of these to pci/resources for v4.8, thanks, Johannes.
+
+> Johannes Thumshirn (6):
+>   PCI: Add helpers to request/release memory and I/O regions
+>   NVMe: Use pci_(request|release)_mem_regions
+>   lpfc: Use pci_(request|release)_mem_regions
+>   GenWQE: Use pci_(request|release)_mem_regions
+>   ethernet/intel: Use pci_(request|release)_mem_regions
+>   alx: Use pci_(request|release)_mem_regions
+> 
+>  drivers/misc/genwqe/card_base.c               | 13 +++++--------
+>  drivers/net/ethernet/atheros/alx/main.c       | 12 +++++-------
+>  drivers/net/ethernet/intel/e1000e/netdev.c    |  6 ++----
+>  drivers/net/ethernet/intel/fm10k/fm10k_pci.c  | 11 +++--------
+>  drivers/net/ethernet/intel/i40e/i40e_main.c   |  9 +++------
+>  drivers/net/ethernet/intel/igb/igb_main.c     | 10 +++-------
+>  drivers/net/ethernet/intel/ixgbe/ixgbe_main.c |  9 +++------
+>  drivers/nvme/host/pci.c                       | 10 +++-------
+>  drivers/scsi/lpfc/lpfc_init.c                 | 15 ++++----------
+>  include/linux/pci.h                           | 28 +++++++++++++++++++++++++++
