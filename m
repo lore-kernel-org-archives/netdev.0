@@ -1,85 +1,95 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [RFC PATCH V3 0/3] basic device IOTLB support
-Date: Tue, 21 Jun 2016 19:44:49 +0300
-Message-ID: <20160621164449.GC30949@redhat.com>
-References: <1464082585-13049-1-git-send-email-jasowang@redhat.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
+Date: Tue, 21 Jun 2016 09:56:57 -0700
+Message-ID: <7d9a419a-2a35-7567-19f8-ca0ba4a08c06@stressinduktion.org>
+References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
+ <1202f4bd-ef27-8143-8067-2bba56b7355c@stressinduktion.org>
+ <CALx6S34gNYs4ajDZv8My5auE9xyOpVKAT6qSf3-tc5EZdson0w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	peterx@redhat.com, virtualization@lists.linux-foundation.org,
-	wexu@redhat.com, vkaplans@redhat.com
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1464082585-13049-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out3-smtp.messagingengine.com ([66.111.4.27]:56990 "EHLO
+	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751922AbcFUQ5j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 12:57:39 -0400
+In-Reply-To: <CALx6S34gNYs4ajDZv8My5auE9xyOpVKAT6qSf3-tc5EZdson0w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, May 24, 2016 at 05:36:22PM +0800, Jason Wang wrote:
-> This patch tries to implement an device IOTLB for vhost. This could be
-> used with for co-operation with userspace IOMMU implementation (qemu)
-> for a secure DMA environment (DMAR) in guest.
-> 
-> The idea is simple. When vhost meets an IOTLB miss, it will request
-> the assistance of userspace to do the translation, this is done
-> through:
-> 
-> - when there's a IOTLB miss, it will notify userspace through
->   vhost_net fd and then userspace read the fault address, size and
->   access from vhost fd.
-> - userspace write the translation result back to vhost fd, vhost can
->   then update its IOTLB.
-> 
-> The codes were optimized for fixed mapping users e.g dpdk in guest. It
-> will be slow if dynamic mappings were used in guest. We could do
-> optimizations on top.
-> 
-> The codes were designed to be architecture independent. It should be
-> easily ported to any architecture.
-> 
-> Stress tested with l2fwd/vfio in guest with 4K/2M/1G page size. On 1G
-> hugepage case, 100% TLB hit rate were noticed.
-> 
-> Changes from V2:
-> - introduce memory accessors for vhost
-> - switch from ioctls to oridinary file read/write for iotlb miss and
->   updating
-> - do not assume virtqueue were virtually mapped contiguously, all
->   virtqueue access were done throug IOTLB
-> - verify memory access during IOTLB update and fail early
-> - introduce a module parameter for the size of IOTLB
-> 
-> Changes from V1:
-> - support any size/range of updating and invalidation through
->   introducing the interval tree.
-> - convert from per device iotlb request to per virtqueue iotlb
->   request, this solves the possible deadlock in V1.
-> - read/write permission check support.
-> 
-> Please review.
+On 17.06.2016 09:51, Tom Herbert wrote:
+> On Thu, Jun 16, 2016 at 4:15 PM, Hannes Frederic Sowa
+> <hannes@stressinduktion.org> wrote:
+>> On 16.06.2016 19:51, Tom Herbert wrote:
+>>> Transports over UDP is intended to encapsulate TCP and other transport
+>>> protocols directly and securely in UDP.
+>>>
+>>> The goal of this work is twofold:
+>>>
+>>> 1) Allow applications to run their own transport layer stack (i.e.from
+>>>    userspace). This eliminates dependencies on the OS (e.g. solves a
+>>>    major dependency issue for Facebook on clients).
+>>>
+>>> 2) Make transport layer headers (all of L4) invisible to the network
+>>>    so that they can't do intrusive actions at L4. This will be enforced
+>>>    with DTLS in use.
+>>>
+>>> Note that #1 is really about running a transport stack in userspace
+>>> applications in clients, not necessarily servers. For servers we
+>>> intend to modified the kernel stack in order to leverage existing
+>>> implementation for building scalable serves (hence these patches).
+>>>
+>>> This is described in more detail in the Internet Draft:
+>>> https://tools.ietf.org/html/draft-herbert-transports-over-udp-00
+>>>
+>>> In Part I we implement a straightforward encapsulation of TCP in GUE.
+>>> The implements the basic mechanics of TOU encapsulation for TCP,
+>>> however does not yet implement the IP addressing interactions so
+>>> therefore so this is not robust to use in the presence of NAT.
+>>> TOU is enabled per socket with a new socket option. This
+>>> implementation includes GSO, GRO, and RCO support.
+>>>
+>>> These patches also establish the baseline performance of TOU
+>>> and isolate the performance cost of UDP encapsulation. Performance
+>>> results are below.
+>>>
+>>> Tested: Various cases of TOU with IPv4, IPv6 using TCP_STREAM and
+>>> TCP_RR. Also, tested IPIP for comparing TOU encapsulation to IP
+>>> tunneling.
+>>
+>> Thinking about middleboxes again:
+>>
+>> E.g. https://tools.ietf.org/html/rfc6347#section-4.2.3 states that DTLS
+>> packets are not allowed to be fragmented. Because of this and
+>> furthermore because of the impossibility of clamp-mss-to-pmtu to work
+>> anymore, do you have any idea on how reliable this can work?
+>>
+>> Or is your plan to use a smaller MSS on all paths by default?
+>>
+> Normal PMTU discovery mechanisms are applicable to prevent
+> fragmentation. The overhead is accounted for in the MSS (similar to
+> overhead of TCP options of IPv6 extension headers). Besides that,
+> RFC6347 describes how fragmentation should be avoided, it does not
+> explicitly forbid fragmentation, no IP protocol can outright forbid
+> it. At most they could try to require DF bit is always set but that
+> won't always be obeyed like when packets are tunneled in the network.
 
-Nice, this looks good to me. Can you post a non-rfc please?
+I agree, the specification is a bit unclear of what to do, but in terms
+of not causing fragmentation it seems pretty clear to me:
 
+"
+   Each DTLS record MUST fit within a single datagram.  In order to
+   avoid IP fragmentation, clients of the DTLS record layer SHOULD
+   attempt to size records so that they fit within any PMTU estimates
+   obtained from the record layer.
+"
 
-> Jason Wang (3):
->   vhost: introduce vhost memory accessors
->   vhost: convert pre sorted vhost memory array to interval tree
->   vhost: device IOTLB API
-> 
->  drivers/vhost/net.c        |  63 +++-
->  drivers/vhost/vhost.c      | 760 ++++++++++++++++++++++++++++++++++++++-------
->  drivers/vhost/vhost.h      |  60 +++-
->  include/uapi/linux/vhost.h |  28 ++
->  4 files changed, 790 insertions(+), 121 deletions(-)
-> 
-> -- 
-> 2.7.4
+DTLS has invented its own fragmentation just to make sure that the
+handshake actually doesn't depend on IP layer fragmentation.
+
+Bye,
+Hannes
