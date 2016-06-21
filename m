@@ -1,62 +1,96 @@
-From: Javier Martinez Canillas <javier@osg.samsung.com>
-Subject: Re: [PATCH v2 2/3] mwifiex: move .get_tx_power logic to station ioctl
- file
-Date: Tue, 21 Jun 2016 10:47:01 -0400
-Message-ID: <aeeb25f2-3253-0931-1e84-edc4590208b3@osg.samsung.com>
-References: <1465232558-31678-1-git-send-email-javier@osg.samsung.com>
- <1465232558-31678-3-git-send-email-javier@osg.samsung.com>
- <87wplxdsln.fsf@kamboji.qca.qualcomm.com>
- <12ccd90e-e3eb-ecac-b23f-8124b0db32ad@osg.samsung.com>
- <2b5e5833ecc74a2b9cd822e8455cd0af@SC-EXCH04.marvell.com>
- <8dc6e64a-3429-4bed-e5c9-da6880eb9505@osg.samsung.com>
- <87shwkes65.fsf@kamboji.qca.qualcomm.com>
+From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Subject: Re: [PATCH] ppc: Fix BPF JIT for ABIv2
+Date: Tue, 21 Jun 2016 11:47:26 -0300
+Message-ID: <20160621144725.GH3516@indiana.gru.redhat.com>
+References: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
+ <3rWKtT2tSrz9t2G@ozlabs.org>
+ <20160617130042.GO3516@indiana.gru.redhat.com>
+ <20160619174914.GC8886@naverao1-tp.localdomain>
+ <20160620185620.GD3516@indiana.gru.redhat.com>
+ <20160621085807.GE8886@naverao1-tp.localdomain>
+ <1466507748.18876.3.camel@ellerman.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Julian Calaby <julian.calaby@gmail.com>,
-	Shengzhen Li <szli@marvell.com>,
-	Enric Balletbo i Serra <enric.balletbo@collabora.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	Nishant Sarmukadam <nishants@marvell.com>
-To: Kalle Valo <kvalo@codeaurora.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from lists.s-osg.org ([54.187.51.154]:32842 "EHLO lists.s-osg.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752488AbcFUOrK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2016 10:47:10 -0400
-In-Reply-To: <87shwkes65.fsf@kamboji.qca.qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Matt Evans <matt@ozlabs.org>, Daniel Borkmann <daniel@iogearbox.net>,
+ Alexei Starovoitov <ast@fb.com>, netdev@vger.kernel.org,
+ Denis Kirjanov <kda@linux-powerpc.org>, linux-kernel@vger.kernel.org,
+ Paul Mackerras <paulus@samba.org>,
+ "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>,
+ linuxppc-dev@lists.ozlabs.org, "David S. Miller" <davem@davemloft.net>,
+ Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+To: Michael Ellerman <mpe@ellerman.id.au>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <1466507748.18876.3.camel@ellerman.id.au>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-Hello Kalle,
-
-On 06/10/2016 03:54 PM, Kalle Valo wrote:
-> Javier Martinez Canillas <javier@osg.samsung.com> writes:
-> 
->>> This patch (2/3) is only for code rearrangement and adds an
->>> unnecessary wrapper function. We can simply drop the patch.
->>
->> Agreed.
->>
->> Kalle,
->>
->> Patch 3/3 applies cleanly even after dropping patch 2/3.
->> Is that Ok for you or do you want me to re-resend a v3
->> with only patches 1/3 and 3/3?
-> 
-> I can drop patch 2, no need to resend. Thanks.
-> 
-
-I saw that you sent your pull request for v4.8 but the
-patches from this series were not included:
-
-https://lkml.org/lkml/2016/6/21/400
-
-Best regards,
--- 
-Javier Martinez Canillas
-Open Source Group
-Samsung Research America
+T24gVHVlLCBKdW4gMjEsIDIwMTYgYXQgMDk6MTU6NDhQTSArMTAwMCwgTWljaGFlbCBFbGxlcm1h
+biB3cm90ZToKPiBPbiBUdWUsIDIwMTYtMDYtMjEgYXQgMTQ6MjggKzA1MzAsIE5hdmVlbiBOLiBS
+YW8gd3JvdGU6Cj4gPiBPbiAyMDE2LzA2LzIwIDAzOjU2UE0sIFRoYWRldSBMaW1hIGRlIFNvdXph
+IENhc2NhcmRvIHdyb3RlOgo+ID4gPiBPbiBTdW4sIEp1biAxOSwgMjAxNiBhdCAxMToxOToxNFBN
+ICswNTMwLCBOYXZlZW4gTi4gUmFvIHdyb3RlOgo+ID4gPiA+IE9uIDIwMTYvMDYvMTcgMTA6MDBB
+TSwgVGhhZGV1IExpbWEgZGUgU291emEgQ2FzY2FyZG8gd3JvdGU6Cj4gPiA+ID4gPiAKPiA+ID4g
+PiA+IEhpLCBNaWNoYWVsIGFuZCBOYXZlZW4uCj4gPiA+ID4gPiAKPiA+ID4gPiA+IEkgbm90aWNl
+ZCBpbmRlcGVuZGVudGx5IHRoYXQgdGhlcmUgaXMgYSBwcm9ibGVtIHdpdGggQlBGIEpJVCBhbmQg
+QUJJdjIsIGFuZAo+ID4gPiA+ID4gd29ya2VkIG91dCB0aGUgcGF0Y2ggYmVsb3cgYmVmb3JlIEkg
+bm90aWNlZCBOYXZlZW4ncyBwYXRjaHNldCBhbmQgdGhlIGxhdGVzdAo+ID4gPiA+ID4gY2hhbmdl
+cyBpbiBwcGMgdHJlZSBmb3IgYSBiZXR0ZXIgd2F5IHRvIGNoZWNrIGZvciBBQkkgdmVyc2lvbnMu
+Cj4gPiA+ID4gPiAKPiA+ID4gPiA+IEhvd2V2ZXIsIHNpbmNlIHRoZSBpc3N1ZSBkZXNjcmliZWQg
+YmVsb3cgYWZmZWN0IG1haW5saW5lIGFuZCBzdGFibGUga2VybmVscywKPiA+ID4gPiA+IHdvdWxk
+IHlvdSBjb25zaWRlciBhcHBseWluZyBpdCBiZWZvcmUgbWVyZ2luZyB5b3VyIHR3byBwYXRjaHNl
+dHMsIHNvIHRoYXQgd2UgY2FuCj4gPiA+ID4gPiBtb3JlIGVhc2lseSBiYWNrcG9ydCB0aGUgZml4
+Pwo+ID4gPiA+IAo+ID4gPiA+IEhpIENhc2NhcmRvLAo+ID4gPiA+IEdpdmVuIHRoYXQgdGhpcyBo
+YXMgYmVlbiBicm9rZW4gb24gQUJJdjIgc2luY2UgZm9yZXZlciwgSSBkaWRuJ3QgYm90aGVyIAo+
+ID4gPiA+IGZpeGluZyBpdC4gQnV0LCBJIGNhbiBzZWUgd2h5IHRoaXMgd291bGQgYmUgYSBnb29k
+IHRoaW5nIHRvIGhhdmUgZm9yIAo+ID4gPiA+IC1zdGFibGUgYW5kIGV4aXN0aW5nIGRpc3Ryb3Mu
+IEhvd2V2ZXIsIHdoaWxlIHlvdXIgcGF0Y2ggYmVsb3cgbWF5IGZpeCAKPiA+ID4gPiB0aGUgY3Jh
+c2ggeW91J3JlIHNlZWluZyBvbiBwcGM2NGxlLCBpdCBpcyBub3Qgc3VmZmljaWVudCAtLSB5b3Un
+bGwgbmVlZCAKPiA+ID4gPiBjaGFuZ2VzIGluIGJwZl9qaXRfYXNtLlMgYXMgd2VsbC4KPiA+ID4g
+Cj4gPiA+IEhpLCBOYXZlZW4uCj4gPiA+IAo+ID4gPiBBbnkgdGlwcyBvbiBob3cgdG8gZXhlcmNp
+c2UgcG9zc2libGUgaXNzdWVzIHRoZXJlPyBPciB3aGF0IGNoYW5nZXMgeW91IHRoaW5rCj4gPiA+
+IHdvdWxkIGJlIHN1ZmZpY2llbnQ/Cj4gPiAKPiA+IFRoZSBjYWxsaW5nIGNvbnZlbnRpb24gaXMg
+ZGlmZmVyZW50IHdpdGggQUJJdjIgYW5kIHNvIHdlJ2xsIG5lZWQgY2hhbmdlcyAKPiA+IGluIGJw
+Zl9zbG93X3BhdGhfY29tbW9uKCkgYW5kIHNrX25lZ2F0aXZlX2NvbW1vbigpLgo+IAo+IEhvdyBi
+aWcgd291bGQgdGhvc2UgY2hhbmdlcyBiZT8gRG8gd2Uga25vdz8KPiAKPiBIb3cgY29tZSBubyBv
+bmUgcmVwb3J0ZWQgdGhpcyB3YXMgYnJva2VuIHByZXZpb3VzbHk/IFRoaXMgaXMgdGhlIGZpcnN0
+IEkndmUKPiBoZWFyZCBvZiBpdCBiZWluZyBicm9rZW4uCj4gCgpJIGp1c3QgaGVhcmQgb2YgaXQg
+bGVzcyB0aGFuIHR3byB3ZWVrcyBhZ28sIGFuZCBvbmx5IGNvdWxkIGludmVzdGlnYXRlIGl0IGxh
+c3QKd2Vlaywgd2hlbiBJIHJlYWxpemVkIG1haW5saW5lIHdhcyBhbHNvIGFmZmVjdGVkLgoKSXQg
+bG9va3MgbGlrZSB0aGUgbGl0dGxlLWVuZGlhbiBzdXBwb3J0IGZvciBjbGFzc2ljIEpJVCB3ZXJl
+IGRvbmUgYmVmb3JlIHRoZQpjb252ZXJzaW9uIHRvIEFCSXYyLiBBbmQgYXMgSklUIGlzIGRpc2Fi
+bGVkIGJ5IGRlZmF1bHQsIG5vIG9uZSBzZWVtcyB0byBoYXZlCmV4ZXJjaXNlZCBpdC4KCj4gPiBI
+b3dldmVyLCByYXRoZXIgdGhhbiBlbmFibGluZyBjbGFzc2ljIEpJVCBmb3IgcHBjNjRsZSwgYXJl
+IHdlIGJldHRlciBvZmYgCj4gPiBqdXN0IGRpc2FibGluZyBpdD8KPiA+IAo+ID4gLS0tIGEvYXJj
+aC9wb3dlcnBjL0tjb25maWcKPiA+ICsrKyBiL2FyY2gvcG93ZXJwYy9LY29uZmlnCj4gPiBAQCAt
+MTI4LDcgKzEyOCw3IEBAIGNvbmZpZyBQUEMKPiA+ICAgICAgICAgc2VsZWN0IElSUV9GT1JDRURf
+VEhSRUFESU5HCj4gPiAgICAgICAgIHNlbGVjdCBIQVZFX1JDVV9UQUJMRV9GUkVFIGlmIFNNUAo+
+ID4gICAgICAgICBzZWxlY3QgSEFWRV9TWVNDQUxMX1RSQUNFUE9JTlRTCj4gPiAtICAgICAgIHNl
+bGVjdCBIQVZFX0NCUEZfSklUCj4gPiArICAgICAgIHNlbGVjdCBIQVZFX0NCUEZfSklUIGlmIENQ
+VV9CSUdfRU5ESUFOCj4gPiAgICAgICAgIHNlbGVjdCBIQVZFX0FSQ0hfSlVNUF9MQUJFTAo+ID4g
+ICAgICAgICBzZWxlY3QgQVJDSF9IQVZFX05NSV9TQUZFX0NNUFhDSEcKPiA+ICAgICAgICAgc2Vs
+ZWN0IEFSQ0hfSEFTX0dDT1ZfUFJPRklMRV9BTEwKPiA+IAo+ID4gCj4gPiBNaWNoYWVsLAo+ID4g
+TGV0IG1lIGtub3cgeW91ciB0aG91Z2h0cyBvbiB3aGV0aGVyIHlvdSBpbnRlbmQgdG8gdGFrZSB0
+aGlzIHBhdGNoIG9yIAo+ID4gQ2FzY2FyZG8ncyBwYXRjaCBmb3IgLXN0YWJsZSBiZWZvcmUgdGhl
+IGVCUEYgcGF0Y2hlcy4gSSBjYW4gcmVkbyBteSAKPiA+IHBhdGNoZXMgYWNjb3JkaW5nbHkuCj4g
+Cj4gVGhpcyBwYXRjaCBzb3VuZHMgbGlrZSB0aGUgYmVzdCBvcHRpb24gYXQgdGhlIG1vbWVudCBm
+b3Igc29tZXRoaW5nIHdlIGNhbgo+IGJhY2twb3J0LiBVbmxlc3MgdGhlIGNoYW5nZXMgdG8gZml4
+IGl0IGFyZSBtaW5pbWFsLgo+IAo+IGNoZWVycwo+IAoKV2l0aCBteSBwYXRjaCBvbmx5LCBJIGNh
+biBydW4gYSBtaW5pbWFsIHRjcGR1bXAgdGNwIHBvcnQgMjIgd2l0aCBzdWNjZXNzLiBJdApjb3Jy
+ZWN0bHkgZmlsdGVyIHBhY2tldHMuIEJ1dCBhcyBwb2ludGVkIG91dCwgc2xvdyBwYXRocyBtYXkg
+bm90IGJlIHRha2VuLgoKSSBkb24ndCBoYXZlIHN0cm9uZyBvcGluaW9ucyBvbiB3aGF0IHRvIGFw
+cGx5IHRvIHN0YWJsZSwganVzdCB0aGF0IGl0IHdvdWxkIGJlCm5pY2UgdG8gaGF2ZSBzb21ldGhp
+bmcgZm9yIHRoZSBjcmFzaCBiZWZvcmUgYXBwbHlpbmcgYWxsIHRoZSBuaWNlIGNoYW5nZXMgYnkK
+TmF2ZWVuLgoKQ2FzY2FyZG8uCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96
+bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
