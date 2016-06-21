@@ -1,72 +1,73 @@
 From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: Re: [PATCH net-next 10/19] net: hns: bugfix about pfc pause frame
- statistics
-Date: Tue, 21 Jun 2016 13:32:58 +0300
-Message-ID: <1466505178.30123.201.camel@linux.intel.com>
+Subject: Re: [PATCH net-next 01/19] net: hns: bug fix of ge reset sequence
+Date: Tue, 21 Jun 2016 13:35:06 +0300
+Message-ID: <1466505306.30123.203.camel@linux.intel.com>
 References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
- <1466481399-70080-11-git-send-email-Yisen.Zhuang@huawei.com>
+	 <1466481399-70080-2-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ivecera@redhat.com, andrew@lunn.ch, liguozhu@huawei.com, arnd@arndb.de,
- charles.chenxin@huawei.com, linux-kernel@vger.kernel.org, linuxarm@huawei.com,
- geliangtang@163.com, huangdaode@hisilicon.com, netdev@vger.kernel.org,
- fengguang.wu@intel.com, linux-arm-kernel@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: liguozhu@huawei.com, huangdaode@hisilicon.com, arnd@arndb.de,
+	andrew@lunn.ch, geliangtang@163.com, ivecera@redhat.com,
+	fengguang.wu@intel.com, charles.chenxin@huawei.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linuxarm@huawei.com
 To: Yisen Zhuang <Yisen.Zhuang@huawei.com>, davem@davemloft.net,
- salil.mehta@huawei.com, yankejian@huawei.com
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1466481399-70080-11-git-send-email-Yisen.Zhuang@huawei.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+	salil.mehta@huawei.com, yankejian@huawei.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga03.intel.com ([134.134.136.65]:19000 "EHLO mga03.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751756AbcFUKgC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2016 06:36:02 -0400
+In-Reply-To: <1466481399-70080-2-git-send-email-Yisen.Zhuang@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE2LTA2LTIxIGF0IDExOjU2ICswODAwLCBZaXNlbiBaaHVhbmcgd3JvdGU6Cj4g
-RnJvbTogRGFvZGUgSHVhbmcgPGh1YW5nZGFvZGVAaGlzaWxpY29uLmNvbT4KPiAKPiBGb3IgU29D
-IGhpcDA2LCBQRkMgcGF1c2UgaGFuZGxlZCBpbiBkc2FmLCB3aGlsZSBoaXAwNSBpbiBYR01BQywK
-PiBzbyBjaGFuZ2UgdGhlIHN0YXRpc3RpY3Mgb2YgcGZjIHBhdXNlIGluIGRzYWYgYW5kIHJlbW92
-ZSB0aGUgb2xkCj4gcGZjIHBhdXNlIGZyYW1lIHN0YXRpc3RpY3MuCj4gCgoKPiArc3RhdGljIGNo
-YXIgKmhuc19kc2FmX2dldF9ub2RlX3N0YXRzX3N0cmluZ3MoY2hhciAqZGF0YSwgaW50IG5vZGUs
-Cj4gKwkJCQkJwqDCoMKgwqDCoHN0cnVjdCBkc2FmX2RldmljZQo+ICpkc2FmX2RldikKPiDCoHsK
-PiDCoAljaGFyICpidWZmID0gZGF0YTsKPiArCWludCBpOwo+ICsJYm9vbCBpc192ZXIxID0gQUVf
-SVNfVkVSMShkc2FmX2Rldi0+ZHNhZl92ZXIpOwo+IMKgCj4gwqAJc25wcmludGYoYnVmZiwgRVRI
-X0dTVFJJTkdfTEVOLCAiaW5ub2QlZF9wYWRfZHJvcF9wa3RzIiwKPiBub2RlKTsKPiDCoAlidWZm
-ID0gYnVmZiArIEVUSF9HU1RSSU5HX0xFTjsKPiBAQCAtMjUwMiw2ICsyNTMwLDE4IEBAIHN0YXRp
-YyBjaGFyCj4gKmhuc19kc2FmX2dldF9ub2RlX3N0YXRzX3N0cmluZ3MoY2hhciAqZGF0YSwgaW50
-IG5vZGUpCj4gwqAJYnVmZiA9IGJ1ZmYgKyBFVEhfR1NUUklOR19MRU47Cj4gwqAJc25wcmludGYo
-YnVmZiwgRVRIX0dTVFJJTkdfTEVOLCAiaW5ub2QlZF9zdHBfZHJvcF9wa3RzIiwKPiBub2RlKTsK
-PiDCoAlidWZmID0gYnVmZiArIEVUSF9HU1RSSU5HX0xFTjsKPiArCWlmICgobm9kZSA8IERTQUZf
-U0VSVklDRV9OV19OVU0pICYmICghaXNfdmVyMSkpIHsKClJlZHVuZGFudCBwYXJlbnMuCgo+ICsJ
-CWZvciAoaSA9IDA7IGkgPCBEU0FGX1BSSU9fTlI7IGkrKykgewo+ICsJCQlzbnByaW50ZihidWZm
-LCBFVEhfR1NUUklOR19MRU4sCj4gKwkJCQnCoCJpbm9kJWRfcGZjX3ByaW8lZF9wa3RzIiwgbm9k
-ZSwgaSk7Cj4gKwkJCWJ1ZmYgPSBidWZmICsgRVRIX0dTVFJJTkdfTEVOOwoKYnVmZiArPSAuLi4K
-Cj4gKwkJfQo+ICsJCWZvciAoaSA9IDA7IGkgPCBEU0FGX1BSSU9fTlI7IGkrKykgewo+ICsJCQlz
-bnByaW50ZihidWZmLCBFVEhfR1NUUklOR19MRU4sCj4gKwkJCQnCoCJvbm9kJWRfcGZjX3ByaW8l
-ZF9wa3RzIiwgbm9kZSwgaSk7Cj4gKwkJCWJ1ZmYgPSBidWZmICsgRVRIX0dTVFJJTkdfTEVOOwoK
-RGl0dG8uCgo+IMKgewo+IMKgCXU2NCAqcCA9IGRhdGE7Cj4gKwlpbnQgaTsKPiDCoAlzdHJ1Y3Qg
-ZHNhZl9od19zdGF0cyAqaHdfc3RhdHMgPSAmZGRldi0+aHdfc3RhdHNbbm9kZV9udW1dOwo+ICsJ
-Ym9vbCBpc192ZXIxID0gQUVfSVNfVkVSMShkZGV2LT5kc2FmX3Zlcik7Cj4gwqAKPiDCoAlwWzBd
-ID0gaHdfc3RhdHMtPnBhZF9kcm9wOwo+IMKgCXBbMV0gPSBod19zdGF0cy0+bWFuX3BrdHM7Cj4g
-QEAgLTI1MjcsOCArMjU2OSwxNiBAQCBzdGF0aWMgdTY0ICpobnNfZHNhZl9nZXRfbm9kZV9zdGF0
-cyhzdHJ1Y3QKPiBkc2FmX2RldmljZSAqZGRldiwgdTY0ICpkYXRhLAo+IMKgCXBbMTBdID0gaHdf
-c3RhdHMtPmxvY2FsX2FkZHJfZmFsc2U7Cj4gwqAJcFsxMV0gPSBod19zdGF0cy0+dmxhbl9kcm9w
-Owo+IMKgCXBbMTJdID0gaHdfc3RhdHMtPnN0cF9kcm9wOwo+IC0JcFsxM10gPSBod19zdGF0cy0+
-dHhfcGt0czsKPiArCWlmICgobm9kZV9udW0gPCBEU0FGX1NFUlZJQ0VfTldfTlVNKSAmJiAoIWlz
-X3ZlcjEpKSB7Cj4gKwkJZm9yIChpID0gMDsgaSA8IERTQUZfUFJJT19OUjsgaSsrKSB7Cj4gKwkJ
-CXBbMTMgKyBpXSA9IGh3X3N0YXRzLT5yeF9wZmNbaV07Cj4gKwkJCXBbMTMgKyBpICsgRFNBRl9Q
-UklPX05SXSA9IGh3X3N0YXRzLQo+ID50eF9wZmNbaV07Cj4gKwkJfQoKVHdvIGRpZmZlcmVudCBh
-cHByb2FjaGVzIGhvdyB0byBhc3NpZ24gZGF0YS4gQWJvdmUgdXNlcyAyIGZvci1sb29wcywKaGVy
-ZSB5b3UgcHV0IGV2ZXJ5dGhpbmcgdG8gb25lLgoKPiArCQlwWzI5XSA9IGh3X3N0YXRzLT50eF9w
-a3RzOwo+ICsJCXJldHVybiAmcFszMF07Cj4gKwl9Cj4gwqAKPiArCXBbMTNdID0gaHdfc3RhdHMt
-PnR4X3BrdHM7Cj4gwqAJcmV0dXJuICZwWzE0XTsKPiDCoH0KCi0tIAoKQW5keSBTaGV2Y2hlbmtv
-IDxhbmRyaXkuc2hldmNoZW5rb0BsaW51eC5pbnRlbC5jb20+CkludGVsIEZpbmxhbmQgT3kKCl9f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmxpbnV4LWFybS1r
-ZXJuZWwgbWFpbGluZyBsaXN0CmxpbnV4LWFybS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwpo
-dHRwOi8vbGlzdHMuaW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4LWFybS1rZXJu
-ZWwK
+On Tue, 2016-06-21 at 11:56 +0800, Yisen Zhuang wrote:
+> From: Qianqian Xie <xieqianqian@huawei.com>
+>=20
+> The bit fileds of PPE reset register are different between HNS v1 and
+> HNS v2, but the current procedure just only match HNS v1. Here is a
+> patch to fix it.
+>=20
+> Signed-off-by: Kejian Yan <yankejian@huawei.com>
+> Signed-off-by: Qianqian Xie <xieqianqian@huawei.com>
+> Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+> ---
+> =C2=A0drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 6 +++++-
+> =C2=A01 file changed, 5 insertions(+), 1 deletion(-)
+>=20
+> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+> index 96cb628..09e60d6 100644
+> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+> @@ -271,7 +271,11 @@ static void hns_dsaf_ge_srst_by_port(struct
+> dsaf_device *dsaf_dev, u32 port,
+> =C2=A0		}
+> =C2=A0	} else {
+> =C2=A0		reg_val_1 =3D 0x15540 << dsaf_dev->reset_offset;
+> -		reg_val_2 =3D 0x100 << dsaf_dev->reset_offset;
+> +
+> +		if (AE_IS_VER1(dsaf_dev->dsaf_ver))
+> +			reg_val_2 =3D 0x100 << dsaf_dev->reset_offset;
+> +		else
+> +			reg_val_2 =3D 0x40 << dsaf_dev->reset_offset;
+
+reg_val_1 =3D 0x15540;
+reg_val_2 =3D=C2=A0AE_IS_VER1(dsaf_dev->dsaf_ver) ? 0x100 : 0x40;
+
+reg_val_1 <<=3D=C2=A0dsaf_dev->reset_offset;
+reg_val_2 <<=3D=C2=A0dsaf_dev-
+>reset_offset;
+
+
+> =C2=A0
+> =C2=A0		if (!dereset) {
+> =C2=A0			dsaf_write_sub(dsaf_dev,
+> DSAF_SUB_SC_GE_RESET_REQ1_REG,
+
+--=20
+
+Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Intel Finland Oy
