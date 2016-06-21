@@ -1,84 +1,71 @@
-From: Hannes Frederic Sowa <hannes@redhat.com>
-Subject: Re: [net-next PATCH v3 00/17] Future-proof tunnel offload handlers
-Date: Tue, 21 Jun 2016 10:40:32 -0700
-Message-ID: <234d6a2f-6971-7029-0645-f98e51236c4f@redhat.com>
-References: <20160616191851.20872.67154.stgit@localhost.localdomain>
- <20160617.202641.1821023739498595024.davem@davemloft.net>
- <CALx6S34Y3Qq6nMHuMcC2LC5duLBO3KVN3+A+0qmPrNvFfY7gJg@mail.gmail.com>
- <20160621.042211.945844554759834352.davem@davemloft.net>
- <CAKgT0Ucze-+PYdvoHhDSLuaTLrn+Ene+CnfJaKO7AEHGHBsKzg@mail.gmail.com>
- <18b4d172-2cf5-8246-9cac-ce92adf65bc8@solarflare.com>
+From: Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>
+Subject: Re: [alsa-devel] [very-RFC 0/8] TSN driver for the kernel
+Date: Tue, 21 Jun 2016 10:45:18 -0700
+Message-ID: <07283da9-f6d1-c3b1-7989-a6fce7ca0ee6@linux.intel.com>
+References: <1465686096-22156-1-git-send-email-henrik@austad.us>
+ <20160613114713.GA9544@localhost.localdomain> <20160613195136.GC2441@netboy>
+ <20160614121844.54a125a5@lxorguk.ukuu.org.uk> <5760C84C.40408@sakamocchi.jp>
+ <20160615080602.GA13555@localhost.localdomain>
+ <5764DA85.3050801@sakamocchi.jp>
+ <20160618224549.GF32724@icarus.home.austad.us>
+ <9a5abd48-4da3-945d-53c9-b6d37010ab0d@linux.intel.com>
+ <20160620121838.GA5257@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Netdev <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Jesse Gross <jesse@kernel.org>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Michael Chan <michael.chan@broadcom.com>,
-	Dept-GELinuxNICDev@qlogic.com
-To: Edward Cree <ecree@solarflare.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	David Miller <davem@davemloft.net>
+Cc: alsa-devel@alsa-project.org, netdev@vger.kernel.org,
+	Henrik Austad <henrik@austad.us>, linux-kernel@vger.kernel.org,
+	Takashi Sakamoto <o-takashi@sakamocchi.jp>,
+	Arnd Bergmann <arnd@linaro.org>, linux-media@vger.kernel.org
+To: Richard Cochran <richardcochran@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:49421 "EHLO mx1.redhat.com"
+Received: from mga04.intel.com ([192.55.52.120]:17707 "EHLO mga04.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752076AbcFURkk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2016 13:40:40 -0400
-In-Reply-To: <18b4d172-2cf5-8246-9cac-ce92adf65bc8@solarflare.com>
+	id S1751606AbcFURtf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2016 13:49:35 -0400
+In-Reply-To: <20160620121838.GA5257@localhost.localdomain>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 21.06.2016 10:27, Edward Cree wrote:
-> On 21/06/16 18:05, Alexander Duyck wrote:
->> On Tue, Jun 21, 2016 at 1:22 AM, David Miller <davem@davemloft.net> wrote:
->>> But anyways, the vastness of the key is why we want to keep "sockets"
->>> out of network cards, because proper support of "sockets" requires
->>> access to information the card simply does not and should not have.
->> Right.  Really what I would like to see for most of these devices is a
->> 2 tuple filter where you specify the UDP port number, and the PF/VF ID
->> that the traffic is received on.
-> But that doesn't make sense - the traffic is received on a physical network
-> port, and it's the headers (i.e. flow) at that point that determine whether
-> the traffic is encap or not.  After all, those headers are all that can
-> determine which PF or VF it's sent to; and if it's multicast and goes to
-> more than one of them, it seems odd for one to treat it as encap and the
-> other to treat it as normal UDP - one of them must be misinterpreting it
-> (unless the UDP is going to a userspace tunnel endpoint, but I'm ignoring
-> that complication for now).
+On 6/20/16 5:18 AM, Richard Cochran wrote:
+> On Mon, Jun 20, 2016 at 01:08:27PM +0200, Pierre-Louis Bossart wrote:
+>> The ALSA API provides support for 'audio' timestamps (playback/capture rate
+>> defined by audio subsystem) and 'system' timestamps (typically linked to
+>> TSC/ART) with one option to take synchronized timestamps should the hardware
+>> support them.
+>
+> Thanks for the info.  I just skimmed Documentation/sound/alsa/timestamping.txt.
+>
+> That is fairly new, only since v4.1.  Are then any apps in the wild
+> that I can look at?  AFAICT, OpenAVB, gstreamer, etc, don't use the
+> new API.
 
-Disabling offloading of packets is never going to cause data corruptions
-or misinterpretations. In some cases we can hint the network card to do
-even more (RSS+checksumming). We always have a safe choice, namely not
-doing hw offloading.
+The ALSA API supports a generic .get_time_info callback, its 
+implementation is for now limited to a regular 'DMA' or 'link' timestamp 
+for HDaudio - the difference being which counters are used and how close 
+they are to the link serializer. The synchronized part is still WIP but 
+should come 'soon'
 
-Multicast is often scoped, in some cases we have different multicast
-scopes but the same addresses. In case of scoped traffic, we must verify
-the device as well and can't install the same flow on every NIC.
+>
+>> The intent was that the 'audio' timestamps are translated to a shared time
+>> reference managed in userspace by gPTP, which in turn would define if
+>> (adaptive) audio sample rate conversion is needed. There is no support at
+>> the moment for a 'play_at' function in ALSA, only means to control a
+>> feedback loop.
+>
+> Documentation/sound/alsa/timestamping.txt says:
+>
+>   If supported in hardware, the absolute link time could also be used
+>   to define a precise start time (patches WIP)
+>
+> Two questions:
+>
+> 1. Where are the patches?  (If some are coming, I would appreciate
+>    being on CC!)
+>
+> 2. Can you mention specific HW that would support this?
 
-> At a given physical point in the network, a given UDP flow either is or is
-> not carrying encapsulated traffic, and if it tries to be both then things
-> are certain to break, just as much as if two different applications try to
-> use the same UDP flow for two different application protocols.
-
-I think the example Tom was hinting at initially is like that:
-
-A net namespace acts as a router and has a vxlan endpoint active. The
-vxlan endpoint enables vxlan offloading on all net_devices in the same
-namespace. Because we only identify the tunnel endpoint by UDP port
-number, traffic which should actually just be forwarded and should never
-be processed locally suddenly can become processed by the offloading hw
-units. Because UDP ports only form a contract between the end points and
-not with the router in between it would be illegal to treat those not
-locally designated packets as vxlan by the router.
-
-Also multicast traffic is always scoped, so the flow has to include the
-ifindex at least to allow differentiation between different scopes.
-
-Bye,
-Hannes
+You can experiment with the 'dma' and 'link' timestamps today on any 
+HDaudio-based device. Like I said the synchronized part has not been 
+upstreamed yet (delays + dependency on ART-to-TSC conversions that made 
+it in the kernel recently)
