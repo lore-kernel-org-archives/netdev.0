@@ -1,62 +1,83 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net-next 12/19] net: hns: fix bug of getting the wrong tcam data
-Date: Tue, 21 Jun 2016 11:56:32 +0800
-Message-ID: <1466481399-70080-13-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net-next 15/19] net: hns: bug fix about led control logic when
+ link down
+Date: Tue, 21 Jun 2016 11:56:35 +0800
+Message-ID: <1466481399-70080-16-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
-	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
-	<geliangtang@163.com>, <ivecera@redhat.com>,
-	<fengguang.wu@intel.com>, <charles.chenxin@huawei.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
-	<salil.mehta@huawei.com>, <yankejian@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ivecera@redhat.com, andrew@lunn.ch, fengguang.wu@intel.com,
+ liguozhu@huawei.com, arnd@arndb.de, charles.chenxin@huawei.com,
+ linux-kernel@vger.kernel.org, linuxarm@huawei.com, geliangtang@163.com,
+ huangdaode@hisilicon.com, netdev@vger.kernel.org,
+ andriy.shevchenko@linux.intel.com, linux-arm-kernel@lists.infradead.org
+To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
+ <yankejian@huawei.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
 In-Reply-To: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
 From: Daode Huang <huangdaode@hisilicon.com>
 
-The current driver stores the high bit value of tcam data register
-to the tcam data low element, stores the low bit value of tcam data
-register to tcam data high element, this patch fixes this bug.
+The default driver sets anchor led bit to 0 when link down,
+actually, the anchor bit should be set to 1, so fixes it when
+link status is down.
+Secondly, change the return value of cpld_set_led_id to 0, which
+means leave the cpld to control led blink frequece other than the
+driver itself.
 
 Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 8 ++++----
- 1 file changed, 4 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 12 +++++++-----
+ 1 file changed, 7 insertions(+), 5 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 0958ceb..7f5c248 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -975,9 +975,9 @@ static void hns_dsaf_tcam_uc_get(
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+index aff9d77..8473287 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+@@ -86,9 +86,10 @@ static void hns_cpld_set_led(struct hns_mac_cb *mac_cb, int link_status,
+ 			mac_cb->cpld_led_value = value;
+ 		}
+ 	} else {
+-		dsaf_write_syscon(mac_cb->cpld_ctrl, mac_cb->cpld_ctrl_reg,
+-				  CPLD_LED_DEFAULT_VALUE);
+-		mac_cb->cpld_led_value = CPLD_LED_DEFAULT_VALUE;
++		value = (mac_cb->cpld_led_value) & (0x1 << DSAF_LED_ANCHOR_B);
++		dsaf_write_syscon(mac_cb->cpld_ctrl,
++				  mac_cb->cpld_ctrl_reg, value);
++		mac_cb->cpld_led_value = value;
+ 	}
+ }
  
- 	/*read tcam data*/
- 	ptbl_tcam_data->tbl_tcam_data_high
--		= dsaf_read_dev(dsaf_dev, DSAF_TBL_TCAM_RDATA_LOW_0_REG);
--	ptbl_tcam_data->tbl_tcam_data_low
- 		= dsaf_read_dev(dsaf_dev, DSAF_TBL_TCAM_RDATA_HIGH_0_REG);
-+	ptbl_tcam_data->tbl_tcam_data_low
-+		= dsaf_read_dev(dsaf_dev, DSAF_TBL_TCAM_RDATA_LOW_0_REG);
+@@ -114,7 +115,7 @@ static int cpld_set_led_id(struct hns_mac_cb *mac_cb,
+ 			     CPLD_LED_ON_VALUE);
+ 		dsaf_write_syscon(mac_cb->cpld_ctrl, mac_cb->cpld_ctrl_reg,
+ 				  mac_cb->cpld_led_value);
+-		return 2;
++		break;
+ 	case HNAE_LED_INACTIVE:
+ 		dsaf_set_bit(mac_cb->cpld_led_value, DSAF_LED_ANCHOR_B,
+ 			     CPLD_LED_DEFAULT_VALUE);
+@@ -122,7 +123,8 @@ static int cpld_set_led_id(struct hns_mac_cb *mac_cb,
+ 				  mac_cb->cpld_led_value);
+ 		break;
+ 	default:
+-		break;
++		dev_err(mac_cb->dev, "invalid led state: %d!", status);
++		return -EINVAL;
+ 	}
  
- 	/*read tcam mcast*/
- 	tcam_read_data0 = dsaf_read_dev(dsaf_dev,
-@@ -1027,9 +1027,9 @@ static void hns_dsaf_tcam_mc_get(
- 
- 	/*read tcam data*/
- 	ptbl_tcam_data->tbl_tcam_data_high =
--		dsaf_read_dev(dsaf_dev, DSAF_TBL_TCAM_RDATA_LOW_0_REG);
--	ptbl_tcam_data->tbl_tcam_data_low =
- 		dsaf_read_dev(dsaf_dev, DSAF_TBL_TCAM_RDATA_HIGH_0_REG);
-+	ptbl_tcam_data->tbl_tcam_data_low =
-+		dsaf_read_dev(dsaf_dev, DSAF_TBL_TCAM_RDATA_LOW_0_REG);
- 
- 	/*read tcam mcast*/
- 	ptbl_tcam_mcast->tbl_mcast_port_msk[0] =
+ 	return 0;
 -- 
 1.9.1
