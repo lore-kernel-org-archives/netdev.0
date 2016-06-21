@@ -1,53 +1,85 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [iproute PATCH v2 7/7] ip/tcp_metrics: Simplify process_msg a
- bit
-Date: Tue, 21 Jun 2016 16:29:33 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4E17FB@AcuExch.aculab.com>
-References: <1466525921-15738-1-git-send-email-phil@nwl.cc>
- <1466525921-15738-8-git-send-email-phil@nwl.cc>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [RFC PATCH V3 0/3] basic device IOTLB support
+Date: Tue, 21 Jun 2016 19:44:49 +0300
+Message-ID: <20160621164449.GC30949@redhat.com>
+References: <1464082585-13049-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Julien Floret <julien.floret@6wind.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Phil Sutter' <phil@nwl.cc>,
-	Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.186]:63612 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752337AbcFUQbk convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 12:31:40 -0400
-In-Reply-To: <1466525921-15738-8-git-send-email-phil@nwl.cc>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	peterx@redhat.com, virtualization@lists.linux-foundation.org,
+	wexu@redhat.com, vkaplans@redhat.com
+To: Jason Wang <jasowang@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1464082585-13049-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-From: Of Phil Sutter
-> Sent: 21 June 2016 17:19
-> By combining the attribute extraction and check for existence, the
-> additional indentation level in the 'else' clause can be avoided.
+On Tue, May 24, 2016 at 05:36:22PM +0800, Jason Wang wrote:
+> This patch tries to implement an device IOTLB for vhost. This could be
+> used with for co-operation with userspace IOMMU implementation (qemu)
+> for a secure DMA environment (DMAR) in guest.
 > 
-> In addition to that, common actions for 'daddr' are combined since the
-> function returns if neither of the branches are taken.
+> The idea is simple. When vhost meets an IOTLB miss, it will request
+> the assistance of userspace to do the translation, this is done
+> through:
 > 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
->  ip/tcp_metrics.c | 45 ++++++++++++++++++---------------------------
->  1 file changed, 18 insertions(+), 27 deletions(-)
+> - when there's a IOTLB miss, it will notify userspace through
+>   vhost_net fd and then userspace read the fault address, size and
+>   access from vhost fd.
+> - userspace write the translation result back to vhost fd, vhost can
+>   then update its IOTLB.
 > 
-> diff --git a/ip/tcp_metrics.c b/ip/tcp_metrics.c
-> index f82604f458ada..899830c127bcb 100644
-> --- a/ip/tcp_metrics.c
-> +++ b/ip/tcp_metrics.c
-> @@ -112,47 +112,38 @@ static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
->  	parse_rtattr(attrs, TCP_METRICS_ATTR_MAX, (void *) ghdr + GENL_HDRLEN,
->  		     len);
+> The codes were optimized for fixed mapping users e.g dpdk in guest. It
+> will be slow if dynamic mappings were used in guest. We could do
+> optimizations on top.
 > 
-> -	a = attrs[TCP_METRICS_ATTR_ADDR_IPV4];
-> -	if (a) {
-> +	if ((a = attrs[TCP_METRICS_ATTR_ADDR_IPV4])) {
+> The codes were designed to be architecture independent. It should be
+> easily ported to any architecture.
+> 
+> Stress tested with l2fwd/vfio in guest with 4K/2M/1G page size. On 1G
+> hugepage case, 100% TLB hit rate were noticed.
+> 
+> Changes from V2:
+> - introduce memory accessors for vhost
+> - switch from ioctls to oridinary file read/write for iotlb miss and
+>   updating
+> - do not assume virtqueue were virtually mapped contiguously, all
+>   virtqueue access were done throug IOTLB
+> - verify memory access during IOTLB update and fail early
+> - introduce a module parameter for the size of IOTLB
+> 
+> Changes from V1:
+> - support any size/range of updating and invalidation through
+>   introducing the interval tree.
+> - convert from per device iotlb request to per virtqueue iotlb
+>   request, this solves the possible deadlock in V1.
+> - read/write permission check support.
+> 
+> Please review.
 
-horrid
+Nice, this looks good to me. Can you post a non-rfc please?
+
+
+> Jason Wang (3):
+>   vhost: introduce vhost memory accessors
+>   vhost: convert pre sorted vhost memory array to interval tree
+>   vhost: device IOTLB API
+> 
+>  drivers/vhost/net.c        |  63 +++-
+>  drivers/vhost/vhost.c      | 760 ++++++++++++++++++++++++++++++++++++++-------
+>  drivers/vhost/vhost.h      |  60 +++-
+>  include/uapi/linux/vhost.h |  28 ++
+>  4 files changed, 790 insertions(+), 121 deletions(-)
+> 
+> -- 
+> 2.7.4
