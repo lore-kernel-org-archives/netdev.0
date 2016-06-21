@@ -1,74 +1,38 @@
-From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next] openvswitch: Only set mark and
- labels when commiting a connection.
-Date: Tue, 21 Jun 2016 13:57:53 -0700
-Message-ID: <CAPWQB7GsGtwo=5PUQdbTY3vybd7rq1P4x-L4BwX-QduqCnoqMg@mail.gmail.com>
-References: <1466468378-32235-1-git-send-email-jarno@ovn.org>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [alsa-devel] [very-RFC 0/8] TSN driver for the kernel
+Date: Tue, 21 Jun 2016 21:40:01 +0200
+Message-ID: <20160621194001.GB2489@netboy>
+References: <20160613114713.GA9544@localhost.localdomain>
+ <20160613195136.GC2441@netboy>
+ <20160614121844.54a125a5@lxorguk.ukuu.org.uk>
+ <5760C84C.40408@sakamocchi.jp>
+ <20160615080602.GA13555@localhost.localdomain>
+ <5764DA85.3050801@sakamocchi.jp>
+ <20160618224549.GF32724@icarus.home.austad.us>
+ <9a5abd48-4da3-945d-53c9-b6d37010ab0d@linux.intel.com>
+ <20160620121838.GA5257@localhost.localdomain>
+ <07283da9-f6d1-c3b1-7989-a6fce7ca0ee6@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1466468378-32235-1-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: alsa-devel@alsa-project.org, netdev@vger.kernel.org,
+	Henrik Austad <henrik@austad.us>, linux-kernel@vger.kernel.org,
+	Takashi Sakamoto <o-takashi@sakamocchi.jp>,
+	Arnd Bergmann <arnd@linaro.org>, linux-media@vger.kernel.org
+To: Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <07283da9-f6d1-c3b1-7989-a6fce7ca0ee6@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMjAgSnVuZSAyMDE2IGF0IDE3OjE5LCBKYXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+
-IHdyb3RlOgo+IE9ubHkgYWxsb3cgc2V0dGluZyBjb25udHJhY2sgbWFyayBvciBsYWJlbHMgd2hl
-biB0aGUgY29tbWl0IGZsYWcgaXMKPiBzcGVjaWZpZWQuICBUaGlzIG1ha2VzIHN1cmUgd2UgY2Fu
-IG5vdCBzZXQgdGhlbSBiZWZvcmUgdGhlIGNvbm5lY3Rpb24KPiBoYXMgYmVlbiBwZXJzaXN0ZWQs
-IGFzIGluIHRoYXQgY2FzZSB0aGUgbWFyayBhbmQgbGFiZWxzIHdvdWxkIGJlIGxvc3QKPiBpbiBh
-biBldmVudCBvZiBhbiB1c2Vyc3BhY2UgdXBjYWxsLgo+Cj4gT1ZTIHVzZXJzcGFjZSBhbHJlYWR5
-IHJlcXVpcmVzIHRoZSBjb21taXQgZmxhZyB0byBhY2NlcHQgc2V0dGluZwo+IGN0X21hcmsgYW5k
-L29yIGN0X2xhYmVscy4gIFZhbGlkYXRlIGZvciB0aGlzIG9uIHRoZSBrZXJuZWwgQVBJLgo+Cj4g
-RmluYWxseSwgc2V0IGNvbm50cmFjayBtYXJrIGFuZCBsYWJlbHMgcmlnaHQgYmVmb3JlIGNvbW1p
-dHRpbmcgc28gdGhhdAo+IHRoZSBpbml0aWFsIGNvbm50cmFjayBORVcgZXZlbnQgaGFzIHRoZSBt
-YXJrIGFuZCBsYWJlbHMuCj4KPiBTaWduZWQtb2ZmLWJ5OiBKYXJubyBSYWphaGFsbWUgPGphcm5v
-QG92bi5vcmc+CgpUaGUgc3RydWN0dXJlIG9mIHRoaXMgY29tbWl0IG1lc3NhZ2Ugc3VnZ2VzdHMg
-dGhlcmUgYXJlIG11bHRpcGxlCmNoYW5nZXMgdHJ5aW5nIHRvIGJlIGFkZHJlc3NlZCBpbiBvbmUg
-cGF0Y2guIEkgc3VnZ2VzdCBzcGxpdHRpbmcgdGhlbQpvdXQuCgpJbiB0ZXJtcyBvZiBhcHBseWlu
-ZyB0aGUgbWFyayBhbmQgbGFiZWxzIGJlZm9yZSBjb21taXR0aW5nIHRoZQpjb25uZWN0aW9uLCB0
-aGF0J3MgYWN0dWFsbHkgdGhlIGJlaGF2aW91ciBJIHdvdWxkIGV4cGVjdCBpZiB5b3Ugd2VyZQp0
-byBleGVjdXRlIGN0KG1hcms9Zm9vLGNvbW1pdCkuIFRoZSBORVcgZXZlbnQgc2hvdWxkIGluY2x1
-ZGUgdGhlc2UKcGllY2VzLCBhbmQgc2hvdWxkIGhhdmUgYWxsIGFsb25nLgoKPiBAQCAtMTE0NSw2
-ICsxMTU1LDIwIEBAIHN0YXRpYyBpbnQgcGFyc2VfY3QoY29uc3Qgc3RydWN0IG5sYXR0ciAqYXR0
-ciwgc3RydWN0IG92c19jb25udHJhY2tfaW5mbyAqaW5mbywKPiAgICAgICAgICAgICAgICAgfQo+
-ICAgICAgICAgfQo+Cj4gKyNpZmRlZiBDT05GSUdfTkZfQ09OTlRSQUNLX01BUksKPiArICAgICAg
-IGlmICghaW5mby0+Y29tbWl0ICYmIGluZm8tPm1hcmsubWFzaykgewo+ICsgICAgICAgICAgICAg
-ICBPVlNfTkxFUlIobG9nLAo+ICsgICAgICAgICAgICAgICAgICAgICAgICAgIlNldHRpbmcgY29u
-bnRyYWNrIG1hcmsgcmVxdWlyZXMgJ2NvbW1pdCcgZmxhZy4iKTsKPiArICAgICAgICAgICAgICAg
-cmV0dXJuIC1FSU5WQUw7Cj4gKyAgICAgICB9Cj4gKyNlbmRpZgo+ICsjaWZkZWYgQ09ORklHX05G
-X0NPTk5UUkFDS19MQUJFTFMKPiArICAgICAgIGlmICghaW5mby0+Y29tbWl0ICYmIGxhYmVsc19u
-b256ZXJvKCZpbmZvLT5sYWJlbHMubWFzaykpIHsKPiArICAgICAgICAgICAgICAgT1ZTX05MRVJS
-KGxvZywKPiArICAgICAgICAgICAgICAgICAgICAgICAgICJTZXR0aW5nIGNvbm50cmFjayBsYWJl
-bHMgcmVxdWlyZXMgJ2NvbW1pdCcgZmxhZy4iKTsKPiArICAgICAgICAgICAgICAgcmV0dXJuIC1F
-SU5WQUw7Cj4gKyAgICAgICB9Cj4gKyNlbmRpZgoKSSdtIG9mIG1peGVkIG1pbmRzIGFib3V0IHRo
-aXMsIGJ1dCBJIGxlYW4gdG93YXJkcyBhZ3JlZWluZyB3aXRoIGl0LiBPbgpvbmUgaGFuZCwgaXQn
-cyBhcHBseWluZyBtb3JlIHJlc3RyaWN0aW9ucyBvbiBhbiBvdGhlcndpc2UgZmFpcmx5IGxvb3Nl
-CmludGVyZmFjZSBhbmQgaWYgYW55b25lIGlzIHJlbHlpbmcgb24gdGhpcyBiZWhhdmlvdXIgdGhl
-biBpdCB3b3VsZCBiZQpzdXJwcmlzaW5nIHRvIGhhdmUgdGhpcyByZXN0cmljdGlvbiBpbnRyb2R1
-Y2VkLiBPbiB0aGUgb3RoZXIgaGFuZCwgaXQKZG9lc24ndCBtYWtlIGEgbG90IG9mIHNlbnNlIHRv
-IHNldCBhIGxhYmVsL21hcmsgYnV0IG5vdCB0byBjb21taXQgdGhlCmNvbm5lY3Rpb24uIEFzIHlv
-dSBzYXksIHRoZSBiZWhhdmlvdXIgaXNuJ3QgZXhhY3RseSBjb25zaXN0ZW50IGluIHRoYXQKY2Fz
-ZSB0b2RheSBhbnl3YXk6IElmIHRoZXJlIHdhcyBhIGZsb3cgd2l0aAphY3Rpb25zPWN0KG1hcms9
-Zm9vKSxyZWNpcmMoKSBmb2xsb3dlZCBieSBhIHVzZXJzcGFjZSB1cGNhbGwsIHRoZW4gdGhlCm1h
-cmsgd291bGQgYmUgcmVmbGVjdGVkIGluIHRoZSBmbG93IGtleSBidXQgbm90IHNhdmVkIHRvIGFu
-eSBwZXJzaXN0ZWQKY29ubmVjdGlvbi4gQSBzdWJzZXF1ZW50IGN0KGNvbW1pdCkgYWZ0ZXIgdXBj
-YWxsIHdvdWxkbid0IHBlcnNpc3QgaXQsCmVpdGhlci4gSG93ZXZlciBpZiB0aGVyZSB3ZXJlIHR3
-byBmbG93cyBhbHJlYWR5IGluIHRoZSBkYXRhcGF0aCB0byBkbwp0aGlzLCB0aGVuIGl0IC93b3Vs
-ZC8gYmUgcGVyc2lzdGVkLiBSZXN0cmljdGluZyB0aGUgbWFyay9sYWJlbHMKbW9kaWZpY2F0aW9u
-IHRvIG9ubHkgaWYgeW91IGhhdmUgdGhlICJjb21taXQiIGZsYWcgd291bGQgYWRkcmVzcyB0aGF0
-CmNvbnNpc3RlbmN5IGlzc3VlLiBUaGUgT1ZTIHVzZXJzcGFjZSBlbmZvcmNpbmcgdGhpcyBjb25z
-dHJhaW50IGFsc28KaGludHMgdGhhdCB0aGlzIHdhcyBhbiB1bmludGVudGlvbmFsIG9taXNzaW9u
-IGZyb20ga2VybmVsIHZhbGlkYXRpb24uCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRw
-Oi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
+On Tue, Jun 21, 2016 at 10:45:18AM -0700, Pierre-Louis Bossart wrote:
+> You can experiment with the 'dma' and 'link' timestamps today on any
+> HDaudio-based device. Like I said the synchronized part has not been
+> upstreamed yet (delays + dependency on ART-to-TSC conversions that made it
+> in the kernel recently)
+
+Can you point me to any open source apps using the dma/link
+timestamps?
+
+Thanks,
+Richard
