@@ -1,34 +1,73 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH] rxrpc: fix uninitialized variable use
-Date: Tue, 21 Jun 2016 09:48:52 +0100
-Message-ID: <3356.1466498932@warthog.procyon.org.uk>
-References: <20160617095555.1696781-1-arnd@arndb.de>
+From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Subject: Re: [PATCH] ppc: Fix BPF JIT for ABIv2
+Date: Tue, 21 Jun 2016 14:28:07 +0530
+Message-ID: <20160621085807.GE8886@naverao1-tp.localdomain>
+References: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
+ <3rWKtT2tSrz9t2G@ozlabs.org>
+ <20160617130042.GO3516@indiana.gru.redhat.com>
+ <20160619174914.GC8886@naverao1-tp.localdomain>
+ <20160620185620.GD3516@indiana.gru.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: dhowells@redhat.com, "David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160617095555.1696781-1-arnd@arndb.de>
-Content-ID: <3355.1466498932.1@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Matt Evans <matt@ozlabs.org>, Daniel Borkmann <daniel@iogearbox.net>,
+ Alexei Starovoitov <ast@fb.com>, netdev@vger.kernel.org,
+ Denis Kirjanov <kda@linux-powerpc.org>, linux-kernel@vger.kernel.org,
+ Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org,
+ "David S. Miller" <davem@davemloft.net>,
+ Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+To: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
+ Michael Ellerman <mpe@ellerman.id.au>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+Content-Disposition: inline
+In-Reply-To: <20160620185620.GD3516@indiana.gru.redhat.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
 List-Id: netdev.vger.kernel.org
 
-Arnd Bergmann <arnd@arndb.de> wrote:
-
-> Hashing the peer key was introduced for AF_INET, but gcc
-> warns about the rxrpc_peer_hash_key function returning uninitialized
-> data for any other value of srx->transport.family:
-> 
-> net/rxrpc/peer_object.c: In function 'rxrpc_peer_hash_key':
-> net/rxrpc/peer_object.c:57:15: error: 'p' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-> 
-> Assuming that nothing else can be set here, this changes the
-> function to just return zero in case of an unknown address
-> family.
-
-I'm actually more tempted to put a BUG() in there because if any new family
-support (say AF_INET6) is added, I want to make sure I catch all the places.
-
-David
+T24gMjAxNi8wNi8yMCAwMzo1NlBNLCBUaGFkZXUgTGltYSBkZSBTb3V6YSBDYXNjYXJkbyB3cm90
+ZToKPiBPbiBTdW4sIEp1biAxOSwgMjAxNiBhdCAxMToxOToxNFBNICswNTMwLCBOYXZlZW4gTi4g
+UmFvIHdyb3RlOgo+ID4gT24gMjAxNi8wNi8xNyAxMDowMEFNLCBUaGFkZXUgTGltYSBkZSBTb3V6
+YSBDYXNjYXJkbyB3cm90ZToKPiA+ID4gCj4gPiA+IEhpLCBNaWNoYWVsIGFuZCBOYXZlZW4uCj4g
+PiA+IAo+ID4gPiBJIG5vdGljZWQgaW5kZXBlbmRlbnRseSB0aGF0IHRoZXJlIGlzIGEgcHJvYmxl
+bSB3aXRoIEJQRiBKSVQgYW5kIEFCSXYyLCBhbmQKPiA+ID4gd29ya2VkIG91dCB0aGUgcGF0Y2gg
+YmVsb3cgYmVmb3JlIEkgbm90aWNlZCBOYXZlZW4ncyBwYXRjaHNldCBhbmQgdGhlIGxhdGVzdAo+
+ID4gPiBjaGFuZ2VzIGluIHBwYyB0cmVlIGZvciBhIGJldHRlciB3YXkgdG8gY2hlY2sgZm9yIEFC
+SSB2ZXJzaW9ucy4KPiA+ID4gCj4gPiA+IEhvd2V2ZXIsIHNpbmNlIHRoZSBpc3N1ZSBkZXNjcmli
+ZWQgYmVsb3cgYWZmZWN0IG1haW5saW5lIGFuZCBzdGFibGUga2VybmVscywKPiA+ID4gd291bGQg
+eW91IGNvbnNpZGVyIGFwcGx5aW5nIGl0IGJlZm9yZSBtZXJnaW5nIHlvdXIgdHdvIHBhdGNoc2V0
+cywgc28gdGhhdCB3ZSBjYW4KPiA+ID4gbW9yZSBlYXNpbHkgYmFja3BvcnQgdGhlIGZpeD8KPiA+
+IAo+ID4gSGkgQ2FzY2FyZG8sCj4gPiBHaXZlbiB0aGF0IHRoaXMgaGFzIGJlZW4gYnJva2VuIG9u
+IEFCSXYyIHNpbmNlIGZvcmV2ZXIsIEkgZGlkbid0IGJvdGhlciAKPiA+IGZpeGluZyBpdC4gQnV0
+LCBJIGNhbiBzZWUgd2h5IHRoaXMgd291bGQgYmUgYSBnb29kIHRoaW5nIHRvIGhhdmUgZm9yIAo+
+ID4gLXN0YWJsZSBhbmQgZXhpc3RpbmcgZGlzdHJvcy4gSG93ZXZlciwgd2hpbGUgeW91ciBwYXRj
+aCBiZWxvdyBtYXkgZml4IAo+ID4gdGhlIGNyYXNoIHlvdSdyZSBzZWVpbmcgb24gcHBjNjRsZSwg
+aXQgaXMgbm90IHN1ZmZpY2llbnQgLS0geW91J2xsIG5lZWQgCj4gPiBjaGFuZ2VzIGluIGJwZl9q
+aXRfYXNtLlMgYXMgd2VsbC4KPiAKPiBIaSwgTmF2ZWVuLgo+IAo+IEFueSB0aXBzIG9uIGhvdyB0
+byBleGVyY2lzZSBwb3NzaWJsZSBpc3N1ZXMgdGhlcmU/IE9yIHdoYXQgY2hhbmdlcyB5b3UgdGhp
+bmsKPiB3b3VsZCBiZSBzdWZmaWNpZW50PwoKVGhlIGNhbGxpbmcgY29udmVudGlvbiBpcyBkaWZm
+ZXJlbnQgd2l0aCBBQkl2MiBhbmQgc28gd2UnbGwgbmVlZCBjaGFuZ2VzIAppbiBicGZfc2xvd19w
+YXRoX2NvbW1vbigpIGFuZCBza19uZWdhdGl2ZV9jb21tb24oKS4KCkhvd2V2ZXIsIHJhdGhlciB0
+aGFuIGVuYWJsaW5nIGNsYXNzaWMgSklUIGZvciBwcGM2NGxlLCBhcmUgd2UgYmV0dGVyIG9mZiAK
+anVzdCBkaXNhYmxpbmcgaXQ/CgotLS0gYS9hcmNoL3Bvd2VycGMvS2NvbmZpZworKysgYi9hcmNo
+L3Bvd2VycGMvS2NvbmZpZwpAQCAtMTI4LDcgKzEyOCw3IEBAIGNvbmZpZyBQUEMKICAgICAgICBz
+ZWxlY3QgSVJRX0ZPUkNFRF9USFJFQURJTkcKICAgICAgICBzZWxlY3QgSEFWRV9SQ1VfVEFCTEVf
+RlJFRSBpZiBTTVAKICAgICAgICBzZWxlY3QgSEFWRV9TWVNDQUxMX1RSQUNFUE9JTlRTCi0gICAg
+ICAgc2VsZWN0IEhBVkVfQ0JQRl9KSVQKKyAgICAgICBzZWxlY3QgSEFWRV9DQlBGX0pJVCBpZiBD
+UFVfQklHX0VORElBTgogICAgICAgIHNlbGVjdCBIQVZFX0FSQ0hfSlVNUF9MQUJFTAogICAgICAg
+IHNlbGVjdCBBUkNIX0hBVkVfTk1JX1NBRkVfQ01QWENIRwogICAgICAgIHNlbGVjdCBBUkNIX0hB
+U19HQ09WX1BST0ZJTEVfQUxMCgoKTWljaGFlbCwKTGV0IG1lIGtub3cgeW91ciB0aG91Z2h0cyBv
+biB3aGV0aGVyIHlvdSBpbnRlbmQgdG8gdGFrZSB0aGlzIHBhdGNoIG9yIApDYXNjYXJkbydzIHBh
+dGNoIGZvciAtc3RhYmxlIGJlZm9yZSB0aGUgZUJQRiBwYXRjaGVzLiBJIGNhbiByZWRvIG15IApw
+YXRjaGVzIGFjY29yZGluZ2x5LgoKCi0gTmF2ZWVuCgpfX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBj
+LWRldkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9s
+aW51eHBwYy1kZXY=
