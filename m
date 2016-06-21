@@ -1,46 +1,68 @@
-From: Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>
-Subject: Re: [very-RFC 0/8] TSN driver for the kernel
-Date: Tue, 21 Jun 2016 10:18:30 -0700
-Message-ID: <8a0e9fad-846a-5924-3e6b-348c2d6c2aec@linux.intel.com>
-References: <1465686096-22156-1-git-send-email-henrik@austad.us>
- <20160613114713.GA9544@localhost.localdomain> <20160613195136.GC2441@netboy>
- <20160614121844.54a125a5@lxorguk.ukuu.org.uk> <5760C84C.40408@sakamocchi.jp>
- <20160615080602.GA13555@localhost.localdomain>
- <5764DA85.3050801@sakamocchi.jp>
- <20160618224549.GF32724@icarus.home.austad.us>
- <9a5abd48-4da3-945d-53c9-b6d37010ab0d@linux.intel.com>
- <20160620121838.GA5257@localhost.localdomain>
- <20160620123148.GA5846@localhost.localdomain>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
+Date: Tue, 21 Jun 2016 10:23:25 -0700
+Message-ID: <CALx6S36kbGZBhxR-m-5jaxzzg53wrHAoi8XknnByZawApFKT8g@mail.gmail.com>
+References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
+	<20160617.200947.2078656051211641868.davem@davemloft.net>
+	<CALx6S37GuppbknFiGsGxyP8jAX-t8c1=mWxCToKQVA8r8UPeOA@mail.gmail.com>
+	<4d1666f1-e52f-c7f6-9b9c-fec38b9ff028@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: alsa-devel@alsa-project.org, netdev@vger.kernel.org,
- Henrik Austad <henrik@austad.us>, linux-kernel@vger.kernel.org,
- Takashi Sakamoto <o-takashi@sakamocchi.jp>, Arnd Bergmann <arnd@linaro.org>,
- linux-media@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <alsa-devel-bounces@alsa-project.org>
-In-Reply-To: <20160620123148.GA5846@localhost.localdomain>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f42.google.com ([209.85.214.42]:37495 "EHLO
+	mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751704AbcFURX1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 13:23:27 -0400
+Received: by mail-it0-f42.google.com with SMTP id f6so19549199ith.0
+        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 10:23:27 -0700 (PDT)
+In-Reply-To: <4d1666f1-e52f-c7f6-9b9c-fec38b9ff028@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 6/20/16 5:31 AM, Richard Cochran wrote:
-> On Mon, Jun 20, 2016 at 02:18:38PM +0200, Richard Cochran wrote:
->> Documentation/sound/alsa/timestamping.txt says:
+On Tue, Jun 21, 2016 at 10:11 AM, Hannes Frederic Sowa
+<hannes@stressinduktion.org> wrote:
+> On 17.06.2016 20:52, Tom Herbert wrote:
+>>
+>>> > Rather, I think people are going to start adding rules to block TOU
+>>> > tunnels entirely because they cannot inspect nor conditionally
+>>> > filter/rewrite the contents.  This is even more likely if Joe Random
+>>> > and so easily can do their own userland TCP stack over TOU.
+>>> >
+>> Unfortunately, encryption is the only proven solution to protocol
+>> ossification. If the network doesn't see it, it can't ossify it.
 >
->    Examples of typestamping with HDaudio:
+> DTLS carries still a lot of information, both in its handshake, as well
+> as in the actual framing. The protocol is basically only TLS on top of
+> datagrams and as such implements connection establishment and tear down
+> of connections, which middle boxes can certainly track. It will just be
+> a matter of time until middle boxes and security appliances will be able
+> to track those connections, maybe not being able to inspect the content
+> but at least see the certificates in clear-text and as such also have
+> the common names and other addressing information at hand. The meta-data
+> might certainly be track able.
 >
->    1. DMA timestamp, no compensation for DMA+analog delay
->    $ ./audio_time  -p --ts_type=1
+> Because of reply protection you actually can infer the number of bytes
+> transferred and someone can end up building congestion control on a
+> middle box based on that, infer retransmissions etc.
 >
-> Where is this "audio_time" program of which you speak?
+Right, it's probably impossible to completely eliminate track-ability.
+But hopefully we can keep the plain text information to the absolute
+minimum needed to send the packet over the network and decrypt it at
+the receiver.
 
-alsa-lib/test
+One interesting characteristic of disassociated location is that we
+could purposely try to manipulate ECMP so that every packet for a flow
+take different paths so no single device (assuming multi-path) can
+reconstruct the whole communication (kind of like spread spectrum for
+the Internet). I imagine there are some might be some environments
+where paranoids might want to do this.
+
+Tom
+
+> Bye,
+> Hannes
+>
