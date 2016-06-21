@@ -1,73 +1,104 @@
-From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Subject: Re: [PATCH net-next 01/19] net: hns: bug fix of ge reset sequence
-Date: Tue, 21 Jun 2016 13:35:06 +0300
-Message-ID: <1466505306.30123.203.camel@linux.intel.com>
-References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
-	 <1466481399-70080-2-git-send-email-Yisen.Zhuang@huawei.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: pull-request: wireless-drivers 2016-06-21
+Date: Tue, 21 Jun 2016 13:27:16 +0300
+Message-ID: <87eg7qn8fv.fsf@kamboji.qca.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: liguozhu@huawei.com, huangdaode@hisilicon.com, arnd@arndb.de,
-	andrew@lunn.ch, geliangtang@163.com, ivecera@redhat.com,
-	fengguang.wu@intel.com, charles.chenxin@huawei.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org, linuxarm@huawei.com
-To: Yisen Zhuang <Yisen.Zhuang@huawei.com>, davem@davemloft.net,
-	salil.mehta@huawei.com, yankejian@huawei.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga03.intel.com ([134.134.136.65]:19000 "EHLO mga03.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751756AbcFUKgC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2016 06:36:02 -0400
-In-Reply-To: <1466481399-70080-2-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-06-21 at 11:56 +0800, Yisen Zhuang wrote:
-> From: Qianqian Xie <xieqianqian@huawei.com>
->=20
-> The bit fileds of PPE reset register are different between HNS v1 and
-> HNS v2, but the current procedure just only match HNS v1. Here is a
-> patch to fix it.
->=20
-> Signed-off-by: Kejian Yan <yankejian@huawei.com>
-> Signed-off-by: Qianqian Xie <xieqianqian@huawei.com>
-> Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-> ---
-> =C2=A0drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 6 +++++-
-> =C2=A01 file changed, 5 insertions(+), 1 deletion(-)
->=20
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-> index 96cb628..09e60d6 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-> @@ -271,7 +271,11 @@ static void hns_dsaf_ge_srst_by_port(struct
-> dsaf_device *dsaf_dev, u32 port,
-> =C2=A0		}
-> =C2=A0	} else {
-> =C2=A0		reg_val_1 =3D 0x15540 << dsaf_dev->reset_offset;
-> -		reg_val_2 =3D 0x100 << dsaf_dev->reset_offset;
-> +
-> +		if (AE_IS_VER1(dsaf_dev->dsaf_ver))
-> +			reg_val_2 =3D 0x100 << dsaf_dev->reset_offset;
-> +		else
-> +			reg_val_2 =3D 0x40 << dsaf_dev->reset_offset;
+Hi Dave,
 
-reg_val_1 =3D 0x15540;
-reg_val_2 =3D=C2=A0AE_IS_VER1(dsaf_dev->dsaf_ver) ? 0x100 : 0x40;
+here is a pull request for 4.7, really small fixes this time, some of
+them fix important regressions. Please let me know if there are any
+problems.
 
-reg_val_1 <<=3D=C2=A0dsaf_dev->reset_offset;
-reg_val_2 <<=3D=C2=A0dsaf_dev-
->reset_offset;
+Kalle
 
+The following changes since commit 182fd9eecb287e696c82b30d06c6150d80a49c5b:
 
-> =C2=A0
-> =C2=A0		if (!dereset) {
-> =C2=A0			dsaf_write_sub(dsaf_dev,
-> DSAF_SUB_SC_GE_RESET_REQ1_REG,
+  MAINTAINERS: Add file patterns for wireless device tree bindings (2016-06-04 17:24:02 +0300)
 
---=20
+are available in the git repository at:
 
-Andy Shevchenko <andriy.shevchenko@linux.intel.com>
-Intel Finland Oy
+  git://git.kernel.org/pub/scm/linux/kernel/git/kvalo/wireless-drivers.git tags/wireless-drivers-for-davem-2016-06-21
+
+for you to fetch changes up to 034fdd4a17ff089c2428ece18efa65c5396810d2:
+
+  Merge ath-current from ath.git (2016-06-16 17:55:19 +0300)
+
+----------------------------------------------------------------
+
+wireless-drivers fixes for 4.7
+
+iwlwifi
+
+* fix the scan timeout for long scans
+* fix an RCU splat caused when updating the TKIP key
+* fix a potential NULL-derefence introduced recently
+* fix a IGTK key bug that has existed since the MVM driver was introduced
+* fix some fw capabilities checks that got accidentally inverted
+
+rtl8xxxu
+
+* fix typo on variable name
+
+ath10k
+
+* fix deadlock when peer cannot be created
+* fix crash related to printing features
+* fix deadlock while processing rx_in_ord_ind
+
+ath9k
+
+* fix GPIO mask regression for AR9462 and AR9565
+
+----------------------------------------------------------------
+Ayala Beker (1):
+      iwlwifi: mvm: set the encryption type of an IGTK key
+
+Ben Greear (2):
+      ath10k: fix deadlock when peer cannot be created
+      ath10k: fix crash related to printing features
+
+Colin Ian King (1):
+      rtl8xxxu: fix typo on variable name, compare against correct variable
+
+Emmanuel Grumbach (1):
+      iwlwifi: mvm: fix RCU splat in TKIP's update_key
+
+Johannes Berg (1):
+      iwlwifi: mvm: fix a few firmware capability checks
+
+Kalle Valo (2):
+      Merge tag 'iwlwifi-for-kalle-2016-06-10' of git://git.kernel.org/.../iwlwifi/iwlwifi-fixes
+      Merge ath-current from ath.git
+
+Luca Coelho (2):
+      iwlwifi: mvm: increase scan timeout to 20 seconds
+      iwlwifi: mvm: fix potential NULL-dereference in iwl_mvm_reorder()
+
+Miaoqing Pan (1):
+      ath9k: fix GPIO mask for AR9462 and AR9565
+
+Rajkumar Manoharan (1):
+      ath10k: fix deadlock while processing rx_in_ord_ind
+
+ drivers/net/wireless/ath/ath10k/core.c             |    2 +-
+ drivers/net/wireless/ath/ath10k/htt_rx.c           |    1 -
+ drivers/net/wireless/ath/ath10k/mac.c              |    2 +-
+ drivers/net/wireless/ath/ath9k/reg.h               |    8 ++++----
+ drivers/net/wireless/intel/iwlwifi/mvm/mac80211.c  |    8 ++++----
+ drivers/net/wireless/intel/iwlwifi/mvm/rxmq.c      |    4 +++-
+ drivers/net/wireless/intel/iwlwifi/mvm/scan.c      |    2 +-
+ drivers/net/wireless/intel/iwlwifi/mvm/sta.c       |   16 +++++++++++++++-
+ .../net/wireless/realtek/rtl8xxxu/rtl8xxxu_8192e.c |    2 +-
+ 9 files changed, 30 insertions(+), 15 deletions(-)
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
