@@ -1,65 +1,62 @@
-From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v2] net: stmmac: dwmac-rk: add rk3228-specific data
-Date: Tue, 21 Jun 2016 16:58:42 -0500
-Message-ID: <20160621215842.GA16151@rob-hp-laptop>
-References: <1466512409-18855-1-git-send-email-zhengxing@rock-chips.com>
+From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Subject: [PATCH net v2 1/2] openvswitch: Set mark and labels
+	before confirming.
+Date: Tue, 21 Jun 2016 14:59:37 -0700
+Message-ID: <1466546378-59604-1-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
- Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org, Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
- Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
- "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
-To: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1466512409-18855-1-git-send-email-zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 21, 2016 at 08:33:28PM +0800, Xing Zheng wrote:
-> Add constants and callback functions for the dwmac on rk3228/rk3229 socs.
-> As can be seen, the base structure is the same, only registers and the
-> bits in them moved slightly.
-> 
-> Signed-off-by: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-> ---
-> 
-> Changes in v2:
-> - the "rk322x" is not clear to SoC decription, rename it to "rk3228"
-> 
->  .../devicetree/bindings/net/rockchip-dwmac.txt     |    3 +-
->  drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     |  117 ++++++++++++++++++++
->  2 files changed, 119 insertions(+), 1 deletion(-)
-> 
-> diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-> index 93eac7c..cccd945 100644
-> --- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-> +++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-> @@ -3,7 +3,8 @@ Rockchip SoC RK3288 10/100/1000 Ethernet driver(GMAC)
->  The device node has following properties.
->  
->  Required properties:
-> - - compatible: Can be one of "rockchip,rk3288-gmac", "rockchip,rk3368-gmac"
-> + - compatible: Can be one of "rockchip,rk3228-gmac", "rockchip,rk3288-gmac",
-> +                             "rockchip,rk3368-gmac"
-
-Not worth reposting just for this, but 1 per line is preferred.
-
-Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-
->   - reg: addresses and length of the register sets for the device.
->   - interrupts: Should contain the GMAC interrupts.
->   - interrupt-names: Should contain the interrupt names "macirq".
+U2V0IGNvbm50cmFjayBtYXJrIGFuZCBsYWJlbHMgcmlnaHQgYmVmb3JlIGNvbW1pdHRpbmcgc28g
+dGhhdAp0aGUgaW5pdGlhbCBjb25udHJhY2sgTkVXIGV2ZW50IGhhcyB0aGUgbWFyayBhbmQgbGFi
+ZWxzLgoKU2lnbmVkLW9mZi1ieTogSmFybm8gUmFqYWhhbG1lIDxqYXJub0Bvdm4ub3JnPgotLS0K
+djI6IFNlcGFyYXRlIEtlcm5lbCBBUEkgY2hhbmdlIHRvIGFuIFJGQyBwYXRjaCAoMi8yKS4KCiBu
+ZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgfCAzMyArKysrKysrKysrKysrKy0tLS0tLS0tLS0t
+LS0tLS0tLS0KIDEgZmlsZSBjaGFuZ2VkLCAxNCBpbnNlcnRpb25zKCspLCAxOSBkZWxldGlvbnMo
+LSkKCmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgYi9uZXQvb3BlbnZz
+d2l0Y2gvY29ubnRyYWNrLmMKaW5kZXggM2Q1ZmVlZC4uMjNmZDRmYiAxMDA2NDQKLS0tIGEvbmV0
+L29wZW52c3dpdGNoL2Nvbm50cmFjay5jCisrKyBiL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2su
+YwpAQCAtODI0LDIzICs4MjQsNiBAQCBzdGF0aWMgaW50IG92c19jdF9sb29rdXAoc3RydWN0IG5l
+dCAqbmV0LCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSwKIAlyZXR1cm4gMDsKIH0KIAotLyogTG9v
+a3VwIGNvbm5lY3Rpb24gYW5kIGNvbmZpcm0gaWYgdW5jb25maXJtZWQuICovCi1zdGF0aWMgaW50
+IG92c19jdF9jb21taXQoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSwK
+LQkJCSBjb25zdCBzdHJ1Y3Qgb3ZzX2Nvbm50cmFja19pbmZvICppbmZvLAotCQkJIHN0cnVjdCBz
+a19idWZmICpza2IpCi17Ci0JaW50IGVycjsKLQotCWVyciA9IF9fb3ZzX2N0X2xvb2t1cChuZXQs
+IGtleSwgaW5mbywgc2tiKTsKLQlpZiAoZXJyKQotCQlyZXR1cm4gZXJyOwotCS8qIFRoaXMgaXMg
+YSBuby1vcCBpZiB0aGUgY29ubmVjdGlvbiBoYXMgYWxyZWFkeSBiZWVuIGNvbmZpcm1lZC4gKi8K
+LQlpZiAobmZfY29ubnRyYWNrX2NvbmZpcm0oc2tiKSAhPSBORl9BQ0NFUFQpCi0JCXJldHVybiAt
+RUlOVkFMOwotCi0JcmV0dXJuIDA7Ci19Ci0KIHN0YXRpYyBib29sIGxhYmVsc19ub256ZXJvKGNv
+bnN0IHN0cnVjdCBvdnNfa2V5X2N0X2xhYmVscyAqbGFiZWxzKQogewogCXNpemVfdCBpOwpAQCAt
+ODczLDIxICs4NTYsMzMgQEAgaW50IG92c19jdF9leGVjdXRlKHN0cnVjdCBuZXQgKm5ldCwgc3Ry
+dWN0IHNrX2J1ZmYgKnNrYiwKIAl9CiAKIAlpZiAoaW5mby0+Y29tbWl0KQotCQllcnIgPSBvdnNf
+Y3RfY29tbWl0KG5ldCwga2V5LCBpbmZvLCBza2IpOworCQllcnIgPSBfX292c19jdF9sb29rdXAo
+bmV0LCBrZXksIGluZm8sIHNrYik7CiAJZWxzZQogCQllcnIgPSBvdnNfY3RfbG9va3VwKG5ldCwg
+a2V5LCBpbmZvLCBza2IpOwogCWlmIChlcnIpCiAJCWdvdG8gZXJyOwogCisJLyogQXBwbHkgY2hh
+bmdlcyBiZWZvcmUgY29uZmlybWluZyB0aGUgY29ubmVjdGlvbiBzbyB0aGF0IHRoZSBpbml0aWFs
+CisJICogY29ubnRyYWNrIE5FVyBuZXRsaW5rIGV2ZW50IGNhcnJpZXMgdGhlIHZhbHVlcyBnaXZl
+biBpbiB0aGUgQ1QKKwkgKiBhY3Rpb24uCisJICovCiAJaWYgKGluZm8tPm1hcmsubWFzaykgewog
+CQllcnIgPSBvdnNfY3Rfc2V0X21hcmsoc2tiLCBrZXksIGluZm8tPm1hcmsudmFsdWUsCiAJCQkJ
+ICAgICAgaW5mby0+bWFyay5tYXNrKTsKIAkJaWYgKGVycikKIAkJCWdvdG8gZXJyOwogCX0KLQlp
+ZiAobGFiZWxzX25vbnplcm8oJmluZm8tPmxhYmVscy5tYXNrKSkKKwlpZiAobGFiZWxzX25vbnpl
+cm8oJmluZm8tPmxhYmVscy5tYXNrKSkgewogCQllcnIgPSBvdnNfY3Rfc2V0X2xhYmVscyhza2Is
+IGtleSwgJmluZm8tPmxhYmVscy52YWx1ZSwKIAkJCQkJJmluZm8tPmxhYmVscy5tYXNrKTsKKwkJ
+aWYgKGVycikKKwkJCWdvdG8gZXJyOworCX0KKwkvKiBUaGlzIHdpbGwgdGFrZSBjYXJlIG9mIHNl
+bmRpbmcgcXVldWVkIGV2ZW50cyBldmVuIGlmIHRoZSBjb25uZWN0aW9uCisJICogaXMgYWxyZWFk
+eSBjb25maXJtZWQuCisJICovCisJaWYgKGluZm8tPmNvbW1pdCAmJiBuZl9jb25udHJhY2tfY29u
+ZmlybShza2IpICE9IE5GX0FDQ0VQVCkKKwkJZXJyID0gLUVJTlZBTDsKIGVycjoKIAlza2JfcHVz
+aChza2IsIG5oX29mcyk7CiAJaWYgKGVycikKLS0gCjIuMS40CgpfX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3
+aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
