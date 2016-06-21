@@ -1,156 +1,193 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 1/2] net: ethernet: macb: use phydev from struct net_device
-Date: Wed, 22 Jun 2016 00:32:35 +0200
-Message-ID: <1466548356-19166-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Philippe Reynes <tremyfr@gmail.com>
-To: nicolas.ferre@atmel.com, davem@davemloft.net
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169 regression: UDP packets dropped intermittantly
+Date: Wed, 22 Jun 2016 01:09:57 +0200
+Message-ID: <20160621230957.GA19674@electric-eye.fr.zoreil.com>
+References: <20151122225039.GE2957@marvin.atrad.com.au>
+ <20151122230244.GA12249@electric-eye.fr.zoreil.com>
+ <20151130064255.GL5537@marvin.atrad.com.au>
+ <20151201235852.GA16429@electric-eye.fr.zoreil.com>
+ <20160208023318.GJ9174@marvin.atrad.com.au>
+ <20160407024417.GE17921@marvin.atrad.com.au>
+ <20160517065231.GO30050@marvin.atrad.com.au>
+ <20160518065137.GJ27564@marvin.atrad.com.au>
+ <20160601003123.GE3384@marvin.atrad.com.au>
+ <20160621032133.GC19735@marvin.atrad.com.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org
+To: Jonathan Woithe <jwoithe@atrad.com.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:35430 "EHLO
-	mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751537AbcFUWdV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 18:33:21 -0400
+Received: from violet.fr.zoreil.com ([92.243.8.30]:41867 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751506AbcFUXKj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 19:10:39 -0400
+Content-Disposition: inline
+In-Reply-To: <20160621032133.GC19735@marvin.atrad.com.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The private structure contain a pointer to phydev, but the structure
-net_device already contain such pointer. So we can remove the pointer
-phydev in the private structure, and update the driver to use the
-one contained in struct net_device.
+Jonathan Woithe <jwoithe@atrad.com.au> :
+[...]
+> Is there any chance that this regression can be resolved?  It's been 6
+> months since the last contact was received from the list in relation to this
+> issue.  If the r8169 driver is to remain broken with respect to UDP traffic
+> then we will have no choice but to factor in a change in our standard
+> hardware for future systems.  Unfortunately this also means that dozens of
+> systems in the field cannot be upgraded to recent kernels since doing so
+> will trigger the regression.[1]
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/cadence/macb.c |   28 +++++++++++++---------------
- drivers/net/ethernet/cadence/macb.h |    1 -
- 2 files changed, 13 insertions(+), 16 deletions(-)
+If I understood correctly (2015/11/21) you had a working system with a stock
+4.2 or 4.3 kernel and the r8169.c from 1e874e041fc7c222cbd85b20c4406070be1f687a
+(i.e. da78dbff2e05630921c551dbbc70a4b7981a8fff "r8169: remove work from irq
+handler." parent) patched with the snippet below, right ?
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index cb07d95..090463f 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -304,7 +304,7 @@ static void macb_set_tx_clk(struct clk *clk, int speed, struct net_device *dev)
- static void macb_handle_link_change(struct net_device *dev)
+If so, while not perfect, it should at least mitigate the "can't upgrade
+kernel" part.
+
+--- r8169.c	2015-11-21 23:02:10.435275753 +0100
++++ r8169.c	2015-11-21 23:21:49.429554012 +0100
+@@ -29,7 +29,6 @@
+ #include <linux/pci-aspm.h>
+ #include <linux/prefetch.h>
+ 
+-#include <asm/system.h>
+ #include <asm/io.h>
+ #include <asm/irq.h>
+ 
+@@ -1616,7 +1615,7 @@ static int rtl8169_set_features(struct n
+ 	else
+ 		tp->cp_cmd &= ~RxChkSum;
+ 
+-	if (dev->features & NETIF_F_HW_VLAN_RX)
++	if (dev->features & NETIF_F_HW_VLAN_CTAG_RX)
+ 		tp->cp_cmd |= RxVlan;
+ 	else
+ 		tp->cp_cmd &= ~RxVlan;
+@@ -1632,8 +1631,8 @@ static int rtl8169_set_features(struct n
+ static inline u32 rtl8169_tx_vlan_tag(struct rtl8169_private *tp,
+ 				      struct sk_buff *skb)
  {
- 	struct macb *bp = netdev_priv(dev);
--	struct phy_device *phydev = bp->phy_dev;
-+	struct phy_device *phydev = dev->phydev;
- 	unsigned long flags;
- 	int status_change = 0;
- 
-@@ -414,7 +414,6 @@ static int macb_mii_probe(struct net_device *dev)
- 	bp->link = 0;
- 	bp->speed = 0;
- 	bp->duplex = -1;
--	bp->phy_dev = phydev;
- 
- 	return 0;
+-	return (vlan_tx_tag_present(skb)) ?
+-		TxVlanTag | swab16(vlan_tx_tag_get(skb)) : 0x00;
++	return (skb_vlan_tag_present(skb)) ?
++		TxVlanTag | swab16(skb_vlan_tag_get(skb)) : 0x00;
  }
-@@ -1886,7 +1885,7 @@ static int macb_open(struct net_device *dev)
- 	netif_carrier_off(dev);
  
- 	/* if the phy is not yet register, retry later*/
--	if (!bp->phy_dev)
-+	if (!dev->phydev)
- 		return -EAGAIN;
+ static void rtl8169_rx_vlan_tag(struct RxDesc *desc, struct sk_buff *skb)
+@@ -1641,7 +1640,7 @@ static void rtl8169_rx_vlan_tag(struct R
+ 	u32 opts2 = le32_to_cpu(desc->opts2);
  
- 	/* RX buffers initialization */
-@@ -1905,7 +1904,7 @@ static int macb_open(struct net_device *dev)
- 	macb_init_hw(bp);
+ 	if (opts2 & RxVlanTag)
+-		__vlan_hwaccel_put_tag(skb, swab16(opts2 & 0xffff));
++		__vlan_hwaccel_put_tag(skb, htons(ETH_P_8021Q), swab16(opts2 & 0xffff));
  
- 	/* schedule a link state check */
--	phy_start(bp->phy_dev);
-+	phy_start(dev->phydev);
+ 	desc->opts2 = 0;
+ }
+@@ -3508,7 +3507,7 @@ static const struct net_device_ops rtl81
  
- 	netif_tx_start_all_queues(dev);
+ };
  
-@@ -1920,8 +1919,8 @@ static int macb_close(struct net_device *dev)
- 	netif_tx_stop_all_queues(dev);
- 	napi_disable(&bp->napi);
- 
--	if (bp->phy_dev)
--		phy_stop(bp->phy_dev);
-+	if (dev->phydev)
-+		phy_stop(dev->phydev);
- 
- 	spin_lock_irqsave(&bp->lock, flags);
- 	macb_reset_hw(bp);
-@@ -2095,7 +2094,7 @@ static struct net_device_stats *macb_get_stats(struct net_device *dev)
- static int macb_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-static void __devinit rtl_init_mdio_ops(struct rtl8169_private *tp)
++static void rtl_init_mdio_ops(struct rtl8169_private *tp)
  {
- 	struct macb *bp = netdev_priv(dev);
--	struct phy_device *phydev = bp->phy_dev;
-+	struct phy_device *phydev = dev->phydev;
+ 	struct mdio_ops *ops = &tp->mdio_ops;
  
- 	if (!phydev)
- 		return -ENODEV;
-@@ -2106,7 +2105,7 @@ static int macb_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- static int macb_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+@@ -3725,7 +3724,7 @@ static void rtl_pll_power_up(struct rtl8
+ 	rtl_generic_op(tp, tp->pll_power_ops.up);
+ }
+ 
+-static void __devinit rtl_init_pll_power_ops(struct rtl8169_private *tp)
++static void rtl_init_pll_power_ops(struct rtl8169_private *tp)
  {
- 	struct macb *bp = netdev_priv(dev);
--	struct phy_device *phydev = bp->phy_dev;
-+	struct phy_device *phydev = dev->phydev;
+ 	struct pll_power_ops *ops = &tp->pll_power_ops;
  
- 	if (!phydev)
- 		return -ENODEV;
-@@ -2210,8 +2209,7 @@ static const struct ethtool_ops gem_ethtool_ops = {
+@@ -3905,7 +3904,7 @@ static void r8168b_1_hw_jumbo_disable(st
+ 	RTL_W8(Config4, RTL_R8(Config4) & ~(1 << 0));
+ }
  
- static int macb_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
+-static void __devinit rtl_init_jumbo_ops(struct rtl8169_private *tp)
++static void rtl_init_jumbo_ops(struct rtl8169_private *tp)
  {
--	struct macb *bp = netdev_priv(dev);
--	struct phy_device *phydev = bp->phy_dev;
-+	struct phy_device *phydev = dev->phydev;
+ 	struct jumbo_ops *ops = &tp->jumbo_ops;
  
- 	if (!netif_running(dev))
- 		return -EINVAL;
-@@ -2570,7 +2568,7 @@ static int at91ether_open(struct net_device *dev)
- 			     MACB_BIT(HRESP));
+@@ -3971,7 +3970,7 @@ static void rtl_hw_reset(struct rtl8169_
+ 	}
+ }
  
- 	/* schedule a link state check */
--	phy_start(lp->phy_dev);
-+	phy_start(dev->phydev);
+-static int __devinit
++static int
+ rtl8169_init_one(struct pci_dev *pdev, const struct pci_device_id *ent)
+ {
+ 	const struct rtl_cfg_info *cfg = rtl_cfg_infos + ent->driver_data;
+@@ -4137,7 +4136,7 @@ rtl8169_init_one(struct pci_dev *pdev, c
+ 		dev->dev_addr[i] = RTL_R8(MAC0 + i);
+ 	memcpy(dev->perm_addr, dev->dev_addr, dev->addr_len);
  
- 	netif_start_queue(dev);
+-	SET_ETHTOOL_OPS(dev, &rtl8169_ethtool_ops);
++	dev->ethtool_ops = &rtl8169_ethtool_ops;
+ 	dev->watchdog_timeo = RTL8169_TX_TIMEOUT;
+ 	dev->irq = pdev->irq;
+ 	dev->base_addr = (unsigned long) ioaddr;
+@@ -4147,16 +4146,16 @@ rtl8169_init_one(struct pci_dev *pdev, c
+ 	/* don't enable SG, IP_CSUM and TSO by default - it might not work
+ 	 * properly for all devices */
+ 	dev->features |= NETIF_F_RXCSUM |
+-		NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
++		NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
  
-@@ -3010,7 +3008,7 @@ static int macb_probe(struct platform_device *pdev)
- 	if (err)
- 		goto err_out_free_netdev;
+ 	dev->hw_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
+-		NETIF_F_RXCSUM | NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
++		NETIF_F_RXCSUM | NETIF_F_HW_VLAN_CTAG_TX | NETIF_F_HW_VLAN_CTAG_RX;
+ 	dev->vlan_features = NETIF_F_SG | NETIF_F_IP_CSUM | NETIF_F_TSO |
+ 		NETIF_F_HIGHDMA;
  
--	phydev = bp->phy_dev;
-+	phydev = dev->phydev;
+ 	if (tp->mac_version == RTL_GIGA_MAC_VER_05)
+ 		/* 8110SCd requires hardware Rx VLAN - disallow toggling */
+-		dev->hw_features &= ~NETIF_F_HW_VLAN_RX;
++		dev->hw_features &= ~NETIF_F_HW_VLAN_CTAG_RX;
  
- 	netif_carrier_off(dev);
+ 	tp->intr_mask = 0xffff;
+ 	tp->hw_start = cfg->hw_start;
+@@ -4217,7 +4216,7 @@ err_out_free_dev_1:
+ 	goto out;
+ }
  
-@@ -3029,7 +3027,7 @@ static int macb_probe(struct platform_device *pdev)
- 	return 0;
+-static void __devexit rtl8169_remove_one(struct pci_dev *pdev)
++static void rtl8169_remove_one(struct pci_dev *pdev)
+ {
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+@@ -6218,20 +6217,9 @@ static struct pci_driver rtl8169_pci_dri
+ 	.name		= MODULENAME,
+ 	.id_table	= rtl8169_pci_tbl,
+ 	.probe		= rtl8169_init_one,
+-	.remove		= __devexit_p(rtl8169_remove_one),
++	.remove		= rtl8169_remove_one,
+ 	.shutdown	= rtl_shutdown,
+ 	.driver.pm	= RTL8169_PM_OPS,
+ };
  
- err_out_unregister_mdio:
--	phy_disconnect(bp->phy_dev);
-+	phy_disconnect(dev->phydev);
- 	mdiobus_unregister(bp->mii_bus);
- 	mdiobus_free(bp->mii_bus);
- 
-@@ -3057,8 +3055,8 @@ static int macb_remove(struct platform_device *pdev)
- 
- 	if (dev) {
- 		bp = netdev_priv(dev);
--		if (bp->phy_dev)
--			phy_disconnect(bp->phy_dev);
-+		if (dev->phydev)
-+			phy_disconnect(dev->phydev);
- 		mdiobus_unregister(bp->mii_bus);
- 		mdiobus_free(bp->mii_bus);
- 
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 8a13824..36893d8 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -823,7 +823,6 @@ struct macb {
- 	struct macb_or_gem_ops	macbgem_ops;
- 
- 	struct mii_bus		*mii_bus;
--	struct phy_device	*phy_dev;
- 	int 			link;
- 	int 			speed;
- 	int 			duplex;
+-static int __init rtl8169_init_module(void)
+-{
+-	return pci_register_driver(&rtl8169_pci_driver);
+-}
+-
+-static void __exit rtl8169_cleanup_module(void)
+-{
+-	pci_unregister_driver(&rtl8169_pci_driver);
+-}
+-
+-module_init(rtl8169_init_module);
+-module_exit(rtl8169_cleanup_module);
++module_pci_driver(rtl8169_pci_driver);
+
 -- 
-1.7.4.4
+
+[...]
+> If the decision has been made to leave the regression unfixed, please let me
+> know.
+
+No such decision that I know of.
+
+-- 
+Ueimor
