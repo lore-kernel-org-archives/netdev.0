@@ -1,113 +1,72 @@
-From: Thomas Rowland <trowland2000@gmail.com>
-Subject: [PATCH] include: net: cfg802154: rename ieee802154_llsec_device.hwaddr to extended_addr
-Date: Tue, 21 Jun 2016 03:22:28 -0700
-Message-ID: <1466504548-2958-1-git-send-email-trowland2000@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Thomas Rowland <trowland2000@gmail.com>
-To: aar@pengutronix.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:33302 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751648AbcFUKXz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 06:23:55 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH net-next 10/19] net: hns: bugfix about pfc pause frame
+ statistics
+Date: Tue, 21 Jun 2016 13:32:58 +0300
+Message-ID: <1466505178.30123.201.camel@linux.intel.com>
+References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
+ <1466481399-70080-11-git-send-email-Yisen.Zhuang@huawei.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ivecera@redhat.com, andrew@lunn.ch, liguozhu@huawei.com, arnd@arndb.de,
+ charles.chenxin@huawei.com, linux-kernel@vger.kernel.org, linuxarm@huawei.com,
+ geliangtang@163.com, huangdaode@hisilicon.com, netdev@vger.kernel.org,
+ fengguang.wu@intel.com, linux-arm-kernel@lists.infradead.org
+To: Yisen Zhuang <Yisen.Zhuang@huawei.com>, davem@davemloft.net,
+ salil.mehta@huawei.com, yankejian@huawei.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1466481399-70080-11-git-send-email-Yisen.Zhuang@huawei.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Renamed the ieee802154_llsec_device member 'hwaddr' to 'extended_addr'
-
-Signed-off-by: Thomas Rowland <trowland2000@gmail.com>
----
- include/net/cfg802154.h   |  2 +-
- net/ieee802154/nl802154.c | 15 +++++----------
- net/mac802154/llsec.c     |  4 ++--
- 3 files changed, 8 insertions(+), 13 deletions(-)
-
-diff --git a/include/net/cfg802154.h b/include/net/cfg802154.h
-index 171cd76..1b5bb10 100644
---- a/include/net/cfg802154.h
-+++ b/include/net/cfg802154.h
-@@ -292,7 +292,7 @@ struct ieee802154_llsec_device {
- 
- 	__le16 pan_id;
- 	__le16 short_addr;
--	__le64 hwaddr;
-+	__le64 extended_addr;
- 	u32 frame_counter;
- 	bool seclevel_exempt;
- 
-diff --git a/net/ieee802154/nl802154.c b/net/ieee802154/nl802154.c
-index 116187b..f0cb080 100644
---- a/net/ieee802154/nl802154.c
-+++ b/net/ieee802154/nl802154.c
-@@ -1628,7 +1628,7 @@ static int nl802154_send_device(struct sk_buff *msg, u32 cmd, u32 portid,
- 	    nla_put_le16(msg, NL802154_DEV_ATTR_SHORT_ADDR,
- 			 dev_desc->short_addr) ||
- 	    nla_put_le64(msg, NL802154_DEV_ATTR_EXTENDED_ADDR,
--			 dev_desc->hwaddr, NL802154_DEV_ATTR_PAD) ||
-+			 dev_desc->extended_addr, NL802154_DEV_ATTR_PAD) ||
- 	    nla_put_u8(msg, NL802154_DEV_ATTR_SECLEVEL_EXEMPT,
- 		       dev_desc->seclevel_exempt) ||
- 	    nla_put_u32(msg, NL802154_DEV_ATTR_KEY_MODE, dev_desc->key_mode))
-@@ -1725,8 +1725,7 @@ ieee802154_llsec_parse_device(struct nlattr *nla,
- 	dev->frame_counter = nla_get_u32(attrs[NL802154_DEV_ATTR_FRAME_COUNTER]);
- 	dev->pan_id = nla_get_le16(attrs[NL802154_DEV_ATTR_PAN_ID]);
- 	dev->short_addr = nla_get_le16(attrs[NL802154_DEV_ATTR_SHORT_ADDR]);
--	/* TODO rename hwaddr to extended_addr */
--	dev->hwaddr = nla_get_le64(attrs[NL802154_DEV_ATTR_EXTENDED_ADDR]);
-+	dev->extended_addr = nla_get_le64(attrs[NL802154_DEV_ATTR_EXTENDED_ADDR]);
- 	dev->seclevel_exempt = nla_get_u8(attrs[NL802154_DEV_ATTR_SECLEVEL_EXEMPT]);
- 	dev->key_mode = nla_get_u32(attrs[NL802154_DEV_ATTR_KEY_MODE]);
- 
-@@ -1850,7 +1849,7 @@ nl802154_dump_llsec_devkey(struct sk_buff *skb, struct netlink_callback *cb)
- 						 cb->nlh->nlmsg_seq,
- 						 NLM_F_MULTI, rdev,
- 						 wpan_dev->netdev,
--						 dpos->hwaddr,
-+						 dpos->extended_addr,
- 						 kpos) < 0) {
- 				/* TODO */
- 				err = -EIO;
-@@ -1903,9 +1902,7 @@ static int nl802154_add_llsec_devkey(struct sk_buff *skb, struct genl_info *info
- 
- 	/* TODO be32 */
- 	key.frame_counter = nla_get_u32(attrs[NL802154_DEVKEY_ATTR_FRAME_COUNTER]);
--	/* TODO change naming hwaddr -> extended_addr
--	 * check unique identifier short+pan OR extended_addr
--	 */
-+	/* TODO check unique identifier short+pan OR extended_addr */
- 	extended_addr = nla_get_le64(attrs[NL802154_DEVKEY_ATTR_EXTENDED_ADDR]);
- 	return rdev_add_devkey(rdev, wpan_dev, extended_addr, &key);
- }
-@@ -1932,9 +1929,7 @@ static int nl802154_del_llsec_devkey(struct sk_buff *skb, struct genl_info *info
- 					  &key.key_id) < 0)
- 		return -ENOBUFS;
- 
--	/* TODO change naming hwaddr -> extended_addr
--	 * check unique identifier short+pan OR extended_addr
--	 */
-+	/* TODO check unique identifier short+pan OR extended_addr */
- 	extended_addr = nla_get_le64(attrs[NL802154_DEVKEY_ATTR_EXTENDED_ADDR]);
- 	return rdev_del_devkey(rdev, wpan_dev, extended_addr, &key);
- }
-diff --git a/net/mac802154/llsec.c b/net/mac802154/llsec.c
-index 6a3e1c2..e8a1f76 100644
---- a/net/mac802154/llsec.c
-+++ b/net/mac802154/llsec.c
-@@ -358,13 +358,13 @@ int mac802154_llsec_dev_add(struct mac802154_llsec *sec,
- {
- 	struct mac802154_llsec_device *entry;
- 	u32 skey = llsec_dev_hash_short(dev->short_addr, dev->pan_id);
--	u64 hwkey = llsec_dev_hash_long(dev->hwaddr);
-+	u64 hwkey = llsec_dev_hash_long(dev->extended_addr);
- 
- 	BUILD_BUG_ON(sizeof(hwkey) != IEEE802154_ADDR_LEN);
- 
- 	if ((llsec_dev_use_shortaddr(dev->short_addr) &&
- 	     llsec_dev_find_short(sec, dev->short_addr, dev->pan_id)) ||
--	     llsec_dev_find_long(sec, dev->hwaddr))
-+	     llsec_dev_find_long(sec, dev->extended_addr))
- 		return -EEXIST;
- 
- 	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
--- 
-2.1.4
+T24gVHVlLCAyMDE2LTA2LTIxIGF0IDExOjU2ICswODAwLCBZaXNlbiBaaHVhbmcgd3JvdGU6Cj4g
+RnJvbTogRGFvZGUgSHVhbmcgPGh1YW5nZGFvZGVAaGlzaWxpY29uLmNvbT4KPiAKPiBGb3IgU29D
+IGhpcDA2LCBQRkMgcGF1c2UgaGFuZGxlZCBpbiBkc2FmLCB3aGlsZSBoaXAwNSBpbiBYR01BQywK
+PiBzbyBjaGFuZ2UgdGhlIHN0YXRpc3RpY3Mgb2YgcGZjIHBhdXNlIGluIGRzYWYgYW5kIHJlbW92
+ZSB0aGUgb2xkCj4gcGZjIHBhdXNlIGZyYW1lIHN0YXRpc3RpY3MuCj4gCgoKPiArc3RhdGljIGNo
+YXIgKmhuc19kc2FmX2dldF9ub2RlX3N0YXRzX3N0cmluZ3MoY2hhciAqZGF0YSwgaW50IG5vZGUs
+Cj4gKwkJCQkJwqDCoMKgwqDCoHN0cnVjdCBkc2FmX2RldmljZQo+ICpkc2FmX2RldikKPiDCoHsK
+PiDCoAljaGFyICpidWZmID0gZGF0YTsKPiArCWludCBpOwo+ICsJYm9vbCBpc192ZXIxID0gQUVf
+SVNfVkVSMShkc2FmX2Rldi0+ZHNhZl92ZXIpOwo+IMKgCj4gwqAJc25wcmludGYoYnVmZiwgRVRI
+X0dTVFJJTkdfTEVOLCAiaW5ub2QlZF9wYWRfZHJvcF9wa3RzIiwKPiBub2RlKTsKPiDCoAlidWZm
+ID0gYnVmZiArIEVUSF9HU1RSSU5HX0xFTjsKPiBAQCAtMjUwMiw2ICsyNTMwLDE4IEBAIHN0YXRp
+YyBjaGFyCj4gKmhuc19kc2FmX2dldF9ub2RlX3N0YXRzX3N0cmluZ3MoY2hhciAqZGF0YSwgaW50
+IG5vZGUpCj4gwqAJYnVmZiA9IGJ1ZmYgKyBFVEhfR1NUUklOR19MRU47Cj4gwqAJc25wcmludGYo
+YnVmZiwgRVRIX0dTVFJJTkdfTEVOLCAiaW5ub2QlZF9zdHBfZHJvcF9wa3RzIiwKPiBub2RlKTsK
+PiDCoAlidWZmID0gYnVmZiArIEVUSF9HU1RSSU5HX0xFTjsKPiArCWlmICgobm9kZSA8IERTQUZf
+U0VSVklDRV9OV19OVU0pICYmICghaXNfdmVyMSkpIHsKClJlZHVuZGFudCBwYXJlbnMuCgo+ICsJ
+CWZvciAoaSA9IDA7IGkgPCBEU0FGX1BSSU9fTlI7IGkrKykgewo+ICsJCQlzbnByaW50ZihidWZm
+LCBFVEhfR1NUUklOR19MRU4sCj4gKwkJCQnCoCJpbm9kJWRfcGZjX3ByaW8lZF9wa3RzIiwgbm9k
+ZSwgaSk7Cj4gKwkJCWJ1ZmYgPSBidWZmICsgRVRIX0dTVFJJTkdfTEVOOwoKYnVmZiArPSAuLi4K
+Cj4gKwkJfQo+ICsJCWZvciAoaSA9IDA7IGkgPCBEU0FGX1BSSU9fTlI7IGkrKykgewo+ICsJCQlz
+bnByaW50ZihidWZmLCBFVEhfR1NUUklOR19MRU4sCj4gKwkJCQnCoCJvbm9kJWRfcGZjX3ByaW8l
+ZF9wa3RzIiwgbm9kZSwgaSk7Cj4gKwkJCWJ1ZmYgPSBidWZmICsgRVRIX0dTVFJJTkdfTEVOOwoK
+RGl0dG8uCgo+IMKgewo+IMKgCXU2NCAqcCA9IGRhdGE7Cj4gKwlpbnQgaTsKPiDCoAlzdHJ1Y3Qg
+ZHNhZl9od19zdGF0cyAqaHdfc3RhdHMgPSAmZGRldi0+aHdfc3RhdHNbbm9kZV9udW1dOwo+ICsJ
+Ym9vbCBpc192ZXIxID0gQUVfSVNfVkVSMShkZGV2LT5kc2FmX3Zlcik7Cj4gwqAKPiDCoAlwWzBd
+ID0gaHdfc3RhdHMtPnBhZF9kcm9wOwo+IMKgCXBbMV0gPSBod19zdGF0cy0+bWFuX3BrdHM7Cj4g
+QEAgLTI1MjcsOCArMjU2OSwxNiBAQCBzdGF0aWMgdTY0ICpobnNfZHNhZl9nZXRfbm9kZV9zdGF0
+cyhzdHJ1Y3QKPiBkc2FmX2RldmljZSAqZGRldiwgdTY0ICpkYXRhLAo+IMKgCXBbMTBdID0gaHdf
+c3RhdHMtPmxvY2FsX2FkZHJfZmFsc2U7Cj4gwqAJcFsxMV0gPSBod19zdGF0cy0+dmxhbl9kcm9w
+Owo+IMKgCXBbMTJdID0gaHdfc3RhdHMtPnN0cF9kcm9wOwo+IC0JcFsxM10gPSBod19zdGF0cy0+
+dHhfcGt0czsKPiArCWlmICgobm9kZV9udW0gPCBEU0FGX1NFUlZJQ0VfTldfTlVNKSAmJiAoIWlz
+X3ZlcjEpKSB7Cj4gKwkJZm9yIChpID0gMDsgaSA8IERTQUZfUFJJT19OUjsgaSsrKSB7Cj4gKwkJ
+CXBbMTMgKyBpXSA9IGh3X3N0YXRzLT5yeF9wZmNbaV07Cj4gKwkJCXBbMTMgKyBpICsgRFNBRl9Q
+UklPX05SXSA9IGh3X3N0YXRzLQo+ID50eF9wZmNbaV07Cj4gKwkJfQoKVHdvIGRpZmZlcmVudCBh
+cHByb2FjaGVzIGhvdyB0byBhc3NpZ24gZGF0YS4gQWJvdmUgdXNlcyAyIGZvci1sb29wcywKaGVy
+ZSB5b3UgcHV0IGV2ZXJ5dGhpbmcgdG8gb25lLgoKPiArCQlwWzI5XSA9IGh3X3N0YXRzLT50eF9w
+a3RzOwo+ICsJCXJldHVybiAmcFszMF07Cj4gKwl9Cj4gwqAKPiArCXBbMTNdID0gaHdfc3RhdHMt
+PnR4X3BrdHM7Cj4gwqAJcmV0dXJuICZwWzE0XTsKPiDCoH0KCi0tIAoKQW5keSBTaGV2Y2hlbmtv
+IDxhbmRyaXkuc2hldmNoZW5rb0BsaW51eC5pbnRlbC5jb20+CkludGVsIEZpbmxhbmQgT3kKCl9f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmxpbnV4LWFybS1r
+ZXJuZWwgbWFpbGluZyBsaXN0CmxpbnV4LWFybS1rZXJuZWxAbGlzdHMuaW5mcmFkZWFkLm9yZwpo
+dHRwOi8vbGlzdHMuaW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2xpbnV4LWFybS1rZXJu
+ZWwK
