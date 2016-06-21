@@ -1,53 +1,51 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [very-RFC 0/8] TSN driver for the kernel
-Date: Tue, 21 Jun 2016 08:38:57 +0200
-Message-ID: <20160621063856.GA1828@netboy>
-References: <20160614121844.54a125a5@lxorguk.ukuu.org.uk>
- <5760C84C.40408@sakamocchi.jp>
- <20160615080602.GA13555@localhost.localdomain>
- <5764DA85.3050801@sakamocchi.jp>
- <20160618224549.GF32724@icarus.home.austad.us>
- <9a5abd48-4da3-945d-53c9-b6d37010ab0d@linux.intel.com>
- <20160620121838.GA5257@localhost.localdomain>
- <20160620123148.GA5846@localhost.localdomain>
- <20160620152126.GA12638@localhost.localdomain>
- <s5hoa6vxf1j.wl-tiwai@suse.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: alsa-devel@alsa-project.org, netdev@vger.kernel.org,
- Henrik Austad <henrik@austad.us>,
- Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>,
- Takashi Sakamoto <o-takashi@sakamocchi.jp>, Arnd Bergmann <arnd@linaro.org>,
- linux-kernel@vger.kernel.org, linux-media@vger.kernel.org
-To: Takashi Iwai <tiwai@suse.de>
-Return-path: <alsa-devel-bounces@alsa-project.org>
-Content-Disposition: inline
-In-Reply-To: <s5hoa6vxf1j.wl-tiwai@suse.de>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
-List-Id: netdev.vger.kernel.org
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: [PATCH iproute2 net-next v3 0/5] bridge: json support for fdb and vlan show
+Date: Mon, 20 Jun 2016 23:39:42 -0700
+Message-ID: <1466491187-8536-1-git-send-email-roopa@cumulusnetworks.com>
+Cc: anuradhak@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	julien@cumulusnetworks.com
+To: stephen@networkplumber.org, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:36253 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754017AbcFUGjw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 02:39:52 -0400
+Received: by mail-pa0-f51.google.com with SMTP id wo6so3290377pac.3
+        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 23:39:51 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 21, 2016 at 07:54:32AM +0200, Takashi Iwai wrote:
-> > I still would appreciate an answer to my other questions, though...
-> 
-> Currently HD-audio (both ASoC and legacy ones) are the only drivers
-> providing the link timestamp.  In the recent code, it's PCM
-> get_time_info ops, so you can easily grep it.
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
 
-Yes, I found that myself, thanks.
- 
-> HTH,
+This patch series adds json support for a few bridge show commands.
+We plan to follow up with json support for additional commands soon.
 
-No it doesn't help me, because I asked three questions, and none were
-about the link timestamp.
+Anuradha Karuppiah (3):
+  json_writer: allow base json data type to be array or object
+  bridge: add json support for bridge fdb show
+  bridge: add json schema for bridge fdb show
 
-Thanks,
-Richard
+Roopa Prabhu (2):
+  bridge: add json support for bridge vlan show
+  bridge: update man page
+
+v2 - change vlan flags to an array as suggested by toshiaki
+
+v3 - no change. resubmitting as requested by stephen
+
+ bridge/br_common.h            |   1 +
+ bridge/bridge.c               |   3 +
+ bridge/fdb.c                  | 201 +++++++++++++++++++++++++++++++++---------
+ bridge/vlan.c                 |  93 ++++++++++++++++++-
+ include/json_writer.h         |   5 +-
+ lib/json_writer.c             |  39 +++++++-
+ man/man8/bridge.8             |   9 +-
+ misc/ifstat.c                 |   6 +-
+ misc/lnstat.c                 |   2 +-
+ misc/nstat.c                  |   4 +-
+ schema/bridge_fdb_schema.json |  62 +++++++++++++
+ 11 files changed, 365 insertions(+), 60 deletions(-)
+ create mode 100644 schema/bridge_fdb_schema.json
+
+-- 
+1.9.1
