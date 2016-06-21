@@ -1,56 +1,53 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [6/6] ppc: ebpf/jit: Implement JIT compiler for extended BPF
-Date: Tue, 21 Jun 2016 21:04:03 +1000
-Message-ID: <1466507043.18876.1.camel@ellerman.id.au>
-References: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
- <3rWKtT2tSrz9t2G@ozlabs.org>
- <20160619173642.GB8886@naverao1-tp.localdomain>
- <1466465899.437.0.camel@ellerman.id.au>
- <20160621065847.GD8886@naverao1-tp.localdomain>
+From: Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>
+Subject: Re: 802.3ad bonding aggregator reselection
+Date: Tue, 21 Jun 2016 13:50:53 +0300
+Message-ID: <CAKdSkDXPYPvHh=AOyysAPWpR0eoMf-wobCTdi35GsF3FYbLxag@mail.gmail.com>
+References: <CAKdSkDUb94mR7cDiZbxsc6fgm_8O5wagjUec4g-t5DF7R_GFDw@mail.gmail.com>
+ <CAKdSkDUfat0bM=WBv-Numnaa0MVKu2V6Rcx8eUeTZjcuDiYLpw@mail.gmail.com> <CAD=hENdGOFY5027964=f3xk_qeNmVccHYvr2rvTJtpFmaeFG2w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Matt Evans <matt@ozlabs.org>, Daniel Borkmann <daniel@iogearbox.net>,
- Alexei Starovoitov <ast@fb.com>, netdev@vger.kernel.org,
- Denis Kirjanov <kda@linux-powerpc.org>, linux-kernel@vger.kernel.org,
- Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, "David S.
- Miller" <davem@davemloft.net>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-To: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20160621065847.GD8886@naverao1-tp.localdomain>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>, Jay Vosburgh <fubar@us.ibm.com>,
+	Andy Gospodarek <andy@greyhouse.net>
+To: zhuyj <zyjzyj2000@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ob0-f172.google.com ([209.85.214.172]:33572 "EHLO
+	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751599AbcFULNF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 07:13:05 -0400
+Received: by mail-ob0-f172.google.com with SMTP id xn17so17165153obc.0
+        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 04:12:53 -0700 (PDT)
+In-Reply-To: <CAD=hENdGOFY5027964=f3xk_qeNmVccHYvr2rvTJtpFmaeFG2w@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE2LTA2LTIxIGF0IDEyOjI4ICswNTMwLCBOYXZlZW4gTi4gUmFvIHdyb3RlOgo+
-IE9uIDIwMTYvMDYvMjEgMDk6MzhBTSwgTWljaGFlbCBFbGxlcm1hbiB3cm90ZToKPiA+IE9uIFN1
-biwgMjAxNi0wNi0xOSBhdCAyMzowNiArMDUzMCwgTmF2ZWVuIE4uIFJhbyB3cm90ZToKPiA+ID4g
-Cj4gPiA+ICNpbmNsdWRlIDxhc20va3Byb2Jlcy5oPgo+ID4gPiAKPiA+ID4gaW4gYnBmX2ppdF9j
-b21wNjQuYwo+ID4gPiAKPiA+ID4gQ2FuIHlvdSBwbGVhc2UgY2hlY2sgaWYgaXQgcmVzb2x2ZXMg
-dGhlIGJ1aWxkIGVycm9yPwo+ID4gCj4gPiBDYW4geW91PyA6RAo+IAo+IDopCj4gU29ycnksIEkg
-c2hvdWxkIGhhdmUgZXhwbGFpbmVkIG15c2VsZiBiZXR0ZXIuIEkgZGlkIGFjdHVhbGx5IHRyeSB5
-b3VyIAo+IGNvbmZpZyBhbmQgSSB3YXMgYWJsZSB0byByZXByb2R1Y2UgdGhlIGJ1aWxkIGVycm9y
-LiBBZnRlciB0aGUgYWJvdmUgCj4gI2luY2x1ZGUsIHRoYXQgZXJyb3Igd2VudCBhd2F5LCBidXQg
-SSBzYXcgc29tZSB2ZHNvIHJlbGF0ZWQgZXJyb3JzLiBJIAo+IHRob3VnaHQgSSB3YXMgZG9pbmcg
-c29tZXRoaW5nIHdyb25nIGFuZCBuZWVkZWQgYSBkaWZmZXJlbnQgc2V0dXAgZm9yIAo+IHRoYXQg
-cGFydGljdWxhciBrZXJuZWwgY29uZmlnLCB3aGljaCBpcyB3aHkgSSByZXF1ZXN0ZWQgeW91ciBo
-ZWxwIGluIHRoZSAKPiBtYXR0ZXIuIEkganVzdCBkaWRuJ3QgZG8gYSBnb29kIGpvYiBvZiBwdXR0
-aW5nIGFjcm9zcyB0aGF0IG1lc3NhZ2UuLi4KIApBaCBPSy4gTm90IHN1cmUgd2h5IHlvdSdyZSBz
-ZWVpbmcgVkRTTyBlcnJvcnM/Cgo+IE5vdGUgdG8gc2VsZjogcmFuZGNvbmZpZyBidWlsZHMgKmFu
-ZCogbW9yZSB0aW1lIGRyYWZ0aW5nIGVtYWlscyA6KQoKTm8gc3RyZXNzLiBZb3UgZG9uJ3QgbmVl
-ZCB0byBkbyByYW5kY29uZmlnIGJ1aWxkcywgb3IgZXZlbiBidWlsZCBhbGwgdGhlCmFyY2gvcG93
-ZXJwYy8gY29uZmlncywganVzdCB0cnkgdG8gZG8gYSByZWFzb25hYmxlIHNldCwgc29tZXRoaW5n
-IGxpa2UgLSBwcGM2NCwKcG93ZXJudiwgcHNlcmllcywgcG1hYzMyLCBwcGM2NGUuCgpJJ20gaGFw
-cHkgdG8gY2F0Y2ggdGhlIGVzb3RlcmljIGJ1aWxkIGZhaWx1cmVzLgoKPiBEbyB5b3Ugd2FudCBt
-ZSB0byByZXNwaW4gdGhlIHBhdGNoZXM/CgpObyB0aGF0J3MgZmluZSwgSSdsbCBmaXggaXQgdXAg
-aGVyZS4KCmNoZWVycwoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX18KTGludXhwcGMtZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJz
-Lm9yZwpodHRwczovL2xpc3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+2016-06-20 17:11 GMT+03:00 zhuyj <zyjzyj2000@gmail.com>:
+> 5. Switch Configuration
+> =======================
+>
+>         For this section, "switch" refers to whatever system the
+> bonded devices are directly connected to (i.e., where the other end of
+> the cable plugs into).  This may be an actual dedicated switch device,
+> or it may be another regular system (e.g., another computer running
+> Linux),
+>
+>         The active-backup, balance-tlb and balance-alb modes do not
+> require any specific configuration of the switch.
+>
+>         The 802.3ad mode requires that the switch have the appropriate
+> ports configured as an 802.3ad aggregation.  The precise method used
+> to configure this varies from switch to switch, but, for example, a
+> Cisco 3550 series switch requires that the appropriate ports first be
+> grouped together in a single etherchannel instance, then that
+> etherchannel is set to mode "lacp" to enable 802.3ad (instead of
+> standard EtherChannel).
+
+The ports are configured in switch settings (HP Procurve 2530-48G) in
+same trunk group (TrkX) and trunk group type is set as LACP.
+/proc/net/bonding/bond0 also shows that the three ports belong to same
+aggregator and bandwidth tests also support this. In my understanding
+Procurve's trunk group is pretty much the same as etherchannel in
+Cisco's terminology. The bonded link comes always up properly, but
+handling of links going down is the problem. Are there known
+differences between different vendors there?
+
+Veli-Matti
