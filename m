@@ -1,52 +1,50 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: Re: [PATCH] ppc: Fix BPF JIT for ABIv2
-Date: Tue, 21 Jun 2016 08:45:59 -0700
-Message-ID: <57696137.5020408@fb.com>
-References: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
- <3rWKtT2tSrz9t2G@ozlabs.org> <20160617130042.GO3516@indiana.gru.redhat.com>
- <20160619174914.GC8886@naverao1-tp.localdomain>
- <20160620185620.GD3516@indiana.gru.redhat.com>
- <20160621085807.GE8886@naverao1-tp.localdomain>
- <1466507748.18876.3.camel@ellerman.id.au>
- <20160621144725.GH3516@indiana.gru.redhat.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: Re: [PATCH net-next 12/18] IB/mlx5: Add kernel offload flow-tag
+Date: Tue, 21 Jun 2016 18:41:34 +0300
+Message-ID: <9dfdfcfd-3252-2c38-6c07-ae2d6eaa299a@mellanox.com>
+References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
+ <1466174639-14576-13-git-send-email-saeedm@mellanox.com>
+ <20160617160007.GA52082@ast-mbp.thefacebook.com>
+ <CALzJLG-uoMKjZCC312JjfqnQaUW_-31eqeg0bQd+r3qp4Fa1ag@mail.gmail.com>
+ <20160621021836.GA81638@ast-mbp.thefacebook.com>
+ <CALzJLG8+xhJDO9FaGF+9OiBq1s1LD_cb3y-ybUkFD7DJG=SRaQ@mail.gmail.com>
+ <CANn89iJbaOR5HpoaQLHoBGhariTACf-OLKRWqP3KBacvOUgGdg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Type: text/plain; charset="utf-8"; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>,
-	<linux-kernel@vger.kernel.org>, <linuxppc-dev@lists.ozlabs.org>,
-	<netdev@vger.kernel.org>, Matt Evans <matt@ozlabs.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Denis Kirjanov <kda@linux-powerpc.org>,
-	"Paul Mackerras" <paulus@samba.org>,
+Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	"Ananth N Mavinakayanahalli" <ananth@in.ibm.com>
-To: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
-	Michael Ellerman <mpe@ellerman.id.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160621144725.GH3516@indiana.gru.redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	"Linux Netdev List" <netdev@vger.kernel.org>,
+	Doug Ledford <dledford@redhat.com>,
+	"Maor Gottlieb" <maorg@mellanox.com>,
+	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Eric Dumazet <edumazet@google.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-am1on0070.outbound.protection.outlook.com ([157.56.112.70]:5773
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750731AbcFUP5t (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2016 11:57:49 -0400
+In-Reply-To: <CANn89iJbaOR5HpoaQLHoBGhariTACf-OLKRWqP3KBacvOUgGdg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 6/21/16 7:47 AM, Thadeu Lima de Souza Cascardo wrote:
->>>
->>> The calling convention is different with ABIv2 and so we'll need changes
->>> in bpf_slow_path_common() and sk_negative_common().
->>
->> How big would those changes be? Do we know?
->>
->> How come no one reported this was broken previously? This is the first I've
->> heard of it being broken.
->>
+On 6/21/2016 6:18 PM, Eric Dumazet wrote:
+> One solution would be to setup a special netdev used only for sniffers
+> (No IP address on it)
 >
-> I just heard of it less than two weeks ago, and only could investigate it last
-> week, when I realized mainline was also affected.
->
-> It looks like the little-endian support for classic JIT were done before the
-> conversion to ABIv2. And as JIT is disabled by default, no one seems to have
-> exercised it.
+> -> Only changes would happen in the driver, to set skb->dev to this
+> 'debug' device.
 
-it's not a surprise unfortunately. The JITs that were written before
-test_bpf.ko was developed were missing corner cases. Typical tcpdump
-would be fine, but fragmented packets, negative offsets and
-out-out-bounds wouldn't be handled correctly.
-I'd suggest to validate the stable backport with test_bpf as well.
+Eric,
+
+Yep, that was an option too, but when we realized that libpcap has the 
+means to add plug-in for non-netdevices (e.g usb, can devices and now we 
+are thinking to add one for uverbs),  it means we can avoid adding tons 
+of pretty complex code into the kernel driver and happily have simpler 
+code is user-space, so... why not? will try that 1st.
+
+Or.
