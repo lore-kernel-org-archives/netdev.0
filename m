@@ -1,94 +1,74 @@
-From: Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>
-Subject: Re: 802.3ad bonding aggregator reselection
-Date: Tue, 21 Jun 2016 23:48:05 +0300
-Message-ID: <CAKdSkDWo-fwEMkZGQn2gkL+wT2yWEv1k-t+vVanZ-Cxzi=PcXQ@mail.gmail.com>
-References: <CAKdSkDUb94mR7cDiZbxsc6fgm_8O5wagjUec4g-t5DF7R_GFDw@mail.gmail.com>
- <CAKdSkDUfat0bM=WBv-Numnaa0MVKu2V6Rcx8eUeTZjcuDiYLpw@mail.gmail.com>
- <CAD=hENdGOFY5027964=f3xk_qeNmVccHYvr2rvTJtpFmaeFG2w@mail.gmail.com>
- <CAKdSkDXPYPvHh=AOyysAPWpR0eoMf-wobCTdi35GsF3FYbLxag@mail.gmail.com> <13338.1466523960@famine>
+From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next] openvswitch: Only set mark and
+ labels when commiting a connection.
+Date: Tue, 21 Jun 2016 13:57:53 -0700
+Message-ID: <CAPWQB7GsGtwo=5PUQdbTY3vybd7rq1P4x-L4BwX-QduqCnoqMg@mail.gmail.com>
+References: <1466468378-32235-1-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: zhuyj <zyjzyj2000@gmail.com>, netdev <netdev@vger.kernel.org>,
-	Andy Gospodarek <andy@greyhouse.net>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:36079 "EHLO
-	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750978AbcFUUtz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 16:49:55 -0400
-Received: by mail-oi0-f43.google.com with SMTP id f189so3158706oig.3
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 13:48:06 -0700 (PDT)
-In-Reply-To: <13338.1466523960@famine>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1466468378-32235-1-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-2016-06-21 18:46 GMT+03:00 Jay Vosburgh <jay.vosburgh@canonical.com>:
-> Veli-Matti Lintu <veli-matti.lintu@opinsys.fi> wrote:
->
->>2016-06-20 17:11 GMT+03:00 zhuyj <zyjzyj2000@gmail.com>:
->>> 5. Switch Configuration
->>> =======================
->>>
->>>         For this section, "switch" refers to whatever system the
->>> bonded devices are directly connected to (i.e., where the other end of
->>> the cable plugs into).  This may be an actual dedicated switch device,
->>> or it may be another regular system (e.g., another computer running
->>> Linux),
->>>
->>>         The active-backup, balance-tlb and balance-alb modes do not
->>> require any specific configuration of the switch.
->>>
->>>         The 802.3ad mode requires that the switch have the appropriate
->>> ports configured as an 802.3ad aggregation.  The precise method used
->>> to configure this varies from switch to switch, but, for example, a
->>> Cisco 3550 series switch requires that the appropriate ports first be
->>> grouped together in a single etherchannel instance, then that
->>> etherchannel is set to mode "lacp" to enable 802.3ad (instead of
->>> standard EtherChannel).
->>
->>The ports are configured in switch settings (HP Procurve 2530-48G) in
->>same trunk group (TrkX) and trunk group type is set as LACP.
->>/proc/net/bonding/bond0 also shows that the three ports belong to same
->>aggregator and bandwidth tests also support this. In my understanding
->>Procurve's trunk group is pretty much the same as etherchannel in
->>Cisco's terminology. The bonded link comes always up properly, but
->>handling of links going down is the problem. Are there known
->>differences between different vendors there?
->
->         I did the original LACP reselection testing on a Cisco switch,
-> but I have an HP 2530 now; I'll test it later today or tomorrow and see
-> if it behaves properly, and whether your proposed patch is needed.
-
-Thanks for taking a look at this. Here are some more details about the
-setup as Zhu Yanjun also requested.
-
-The server in question has two internal 10Gbps ports (using ixgbe) and
-two Intel I350 T2 dual-1Gbps PCIe-cards (using igb). All ports are
-using 1Gbps connections.
-
-05:00.0 Ethernet controller: Intel Corporation Ethernet Controller
-10-Gigabit X540-AT2 (rev 01)
-05:00.1 Ethernet controller: Intel Corporation Ethernet Controller
-10-Gigabit X540-AT2 (rev 01)
-81:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network
-Connection (rev 01)
-81:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network
-Connection (rev 01)
-82:00.0 Ethernet controller: Intel Corporation I350 Gigabit Network
-Connection (rev 01)
-82:00.1 Ethernet controller: Intel Corporation I350 Gigabit Network
-Connection (rev 01)
-
-In the test setup the bonds are setup as:
-
-05:00.0 + 81:00.0 + 82:00.0 and
-05:00.1 + 81:00.1 + 82:00.1
-
-So each bond uses one port using ixgbe and two ports using igbe.
-
-When testing, I have disabled the port in the switch configuration
-that brings down the link and also miimon sees the link going down on
-the server. This should be the same as unplugging the cable, so
-there's nothing coming through the wire to the server.
-
-Veli-Matti
+T24gMjAgSnVuZSAyMDE2IGF0IDE3OjE5LCBKYXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+
+IHdyb3RlOgo+IE9ubHkgYWxsb3cgc2V0dGluZyBjb25udHJhY2sgbWFyayBvciBsYWJlbHMgd2hl
+biB0aGUgY29tbWl0IGZsYWcgaXMKPiBzcGVjaWZpZWQuICBUaGlzIG1ha2VzIHN1cmUgd2UgY2Fu
+IG5vdCBzZXQgdGhlbSBiZWZvcmUgdGhlIGNvbm5lY3Rpb24KPiBoYXMgYmVlbiBwZXJzaXN0ZWQs
+IGFzIGluIHRoYXQgY2FzZSB0aGUgbWFyayBhbmQgbGFiZWxzIHdvdWxkIGJlIGxvc3QKPiBpbiBh
+biBldmVudCBvZiBhbiB1c2Vyc3BhY2UgdXBjYWxsLgo+Cj4gT1ZTIHVzZXJzcGFjZSBhbHJlYWR5
+IHJlcXVpcmVzIHRoZSBjb21taXQgZmxhZyB0byBhY2NlcHQgc2V0dGluZwo+IGN0X21hcmsgYW5k
+L29yIGN0X2xhYmVscy4gIFZhbGlkYXRlIGZvciB0aGlzIG9uIHRoZSBrZXJuZWwgQVBJLgo+Cj4g
+RmluYWxseSwgc2V0IGNvbm50cmFjayBtYXJrIGFuZCBsYWJlbHMgcmlnaHQgYmVmb3JlIGNvbW1p
+dHRpbmcgc28gdGhhdAo+IHRoZSBpbml0aWFsIGNvbm50cmFjayBORVcgZXZlbnQgaGFzIHRoZSBt
+YXJrIGFuZCBsYWJlbHMuCj4KPiBTaWduZWQtb2ZmLWJ5OiBKYXJubyBSYWphaGFsbWUgPGphcm5v
+QG92bi5vcmc+CgpUaGUgc3RydWN0dXJlIG9mIHRoaXMgY29tbWl0IG1lc3NhZ2Ugc3VnZ2VzdHMg
+dGhlcmUgYXJlIG11bHRpcGxlCmNoYW5nZXMgdHJ5aW5nIHRvIGJlIGFkZHJlc3NlZCBpbiBvbmUg
+cGF0Y2guIEkgc3VnZ2VzdCBzcGxpdHRpbmcgdGhlbQpvdXQuCgpJbiB0ZXJtcyBvZiBhcHBseWlu
+ZyB0aGUgbWFyayBhbmQgbGFiZWxzIGJlZm9yZSBjb21taXR0aW5nIHRoZQpjb25uZWN0aW9uLCB0
+aGF0J3MgYWN0dWFsbHkgdGhlIGJlaGF2aW91ciBJIHdvdWxkIGV4cGVjdCBpZiB5b3Ugd2VyZQp0
+byBleGVjdXRlIGN0KG1hcms9Zm9vLGNvbW1pdCkuIFRoZSBORVcgZXZlbnQgc2hvdWxkIGluY2x1
+ZGUgdGhlc2UKcGllY2VzLCBhbmQgc2hvdWxkIGhhdmUgYWxsIGFsb25nLgoKPiBAQCAtMTE0NSw2
+ICsxMTU1LDIwIEBAIHN0YXRpYyBpbnQgcGFyc2VfY3QoY29uc3Qgc3RydWN0IG5sYXR0ciAqYXR0
+ciwgc3RydWN0IG92c19jb25udHJhY2tfaW5mbyAqaW5mbywKPiAgICAgICAgICAgICAgICAgfQo+
+ICAgICAgICAgfQo+Cj4gKyNpZmRlZiBDT05GSUdfTkZfQ09OTlRSQUNLX01BUksKPiArICAgICAg
+IGlmICghaW5mby0+Y29tbWl0ICYmIGluZm8tPm1hcmsubWFzaykgewo+ICsgICAgICAgICAgICAg
+ICBPVlNfTkxFUlIobG9nLAo+ICsgICAgICAgICAgICAgICAgICAgICAgICAgIlNldHRpbmcgY29u
+bnRyYWNrIG1hcmsgcmVxdWlyZXMgJ2NvbW1pdCcgZmxhZy4iKTsKPiArICAgICAgICAgICAgICAg
+cmV0dXJuIC1FSU5WQUw7Cj4gKyAgICAgICB9Cj4gKyNlbmRpZgo+ICsjaWZkZWYgQ09ORklHX05G
+X0NPTk5UUkFDS19MQUJFTFMKPiArICAgICAgIGlmICghaW5mby0+Y29tbWl0ICYmIGxhYmVsc19u
+b256ZXJvKCZpbmZvLT5sYWJlbHMubWFzaykpIHsKPiArICAgICAgICAgICAgICAgT1ZTX05MRVJS
+KGxvZywKPiArICAgICAgICAgICAgICAgICAgICAgICAgICJTZXR0aW5nIGNvbm50cmFjayBsYWJl
+bHMgcmVxdWlyZXMgJ2NvbW1pdCcgZmxhZy4iKTsKPiArICAgICAgICAgICAgICAgcmV0dXJuIC1F
+SU5WQUw7Cj4gKyAgICAgICB9Cj4gKyNlbmRpZgoKSSdtIG9mIG1peGVkIG1pbmRzIGFib3V0IHRo
+aXMsIGJ1dCBJIGxlYW4gdG93YXJkcyBhZ3JlZWluZyB3aXRoIGl0LiBPbgpvbmUgaGFuZCwgaXQn
+cyBhcHBseWluZyBtb3JlIHJlc3RyaWN0aW9ucyBvbiBhbiBvdGhlcndpc2UgZmFpcmx5IGxvb3Nl
+CmludGVyZmFjZSBhbmQgaWYgYW55b25lIGlzIHJlbHlpbmcgb24gdGhpcyBiZWhhdmlvdXIgdGhl
+biBpdCB3b3VsZCBiZQpzdXJwcmlzaW5nIHRvIGhhdmUgdGhpcyByZXN0cmljdGlvbiBpbnRyb2R1
+Y2VkLiBPbiB0aGUgb3RoZXIgaGFuZCwgaXQKZG9lc24ndCBtYWtlIGEgbG90IG9mIHNlbnNlIHRv
+IHNldCBhIGxhYmVsL21hcmsgYnV0IG5vdCB0byBjb21taXQgdGhlCmNvbm5lY3Rpb24uIEFzIHlv
+dSBzYXksIHRoZSBiZWhhdmlvdXIgaXNuJ3QgZXhhY3RseSBjb25zaXN0ZW50IGluIHRoYXQKY2Fz
+ZSB0b2RheSBhbnl3YXk6IElmIHRoZXJlIHdhcyBhIGZsb3cgd2l0aAphY3Rpb25zPWN0KG1hcms9
+Zm9vKSxyZWNpcmMoKSBmb2xsb3dlZCBieSBhIHVzZXJzcGFjZSB1cGNhbGwsIHRoZW4gdGhlCm1h
+cmsgd291bGQgYmUgcmVmbGVjdGVkIGluIHRoZSBmbG93IGtleSBidXQgbm90IHNhdmVkIHRvIGFu
+eSBwZXJzaXN0ZWQKY29ubmVjdGlvbi4gQSBzdWJzZXF1ZW50IGN0KGNvbW1pdCkgYWZ0ZXIgdXBj
+YWxsIHdvdWxkbid0IHBlcnNpc3QgaXQsCmVpdGhlci4gSG93ZXZlciBpZiB0aGVyZSB3ZXJlIHR3
+byBmbG93cyBhbHJlYWR5IGluIHRoZSBkYXRhcGF0aCB0byBkbwp0aGlzLCB0aGVuIGl0IC93b3Vs
+ZC8gYmUgcGVyc2lzdGVkLiBSZXN0cmljdGluZyB0aGUgbWFyay9sYWJlbHMKbW9kaWZpY2F0aW9u
+IHRvIG9ubHkgaWYgeW91IGhhdmUgdGhlICJjb21taXQiIGZsYWcgd291bGQgYWRkcmVzcyB0aGF0
+CmNvbnNpc3RlbmN5IGlzc3VlLiBUaGUgT1ZTIHVzZXJzcGFjZSBlbmZvcmNpbmcgdGhpcyBjb25z
+dHJhaW50IGFsc28KaGludHMgdGhhdCB0aGlzIHdhcyBhbiB1bmludGVudGlvbmFsIG9taXNzaW9u
+IGZyb20ga2VybmVsIHZhbGlkYXRpb24uCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRw
+Oi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGluZm8vZGV2Cg==
