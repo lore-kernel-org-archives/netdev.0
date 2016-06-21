@@ -1,78 +1,77 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCH] ppc: Fix BPF JIT for ABIv2
-Date: Tue, 21 Jun 2016 21:15:48 +1000
-Message-ID: <1466507748.18876.3.camel@ellerman.id.au>
-References: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
- <3rWKtT2tSrz9t2G@ozlabs.org> <20160617130042.GO3516@indiana.gru.redhat.com>
- <20160619174914.GC8886@naverao1-tp.localdomain>
- <20160620185620.GD3516@indiana.gru.redhat.com>
- <20160621085807.GE8886@naverao1-tp.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Matt Evans <matt@ozlabs.org>, Daniel Borkmann <daniel@iogearbox.net>,
- Alexei Starovoitov <ast@fb.com>, netdev@vger.kernel.org,
- Denis Kirjanov <kda@linux-powerpc.org>, linux-kernel@vger.kernel.org,
- Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, "David S.
- Miller" <davem@davemloft.net>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-To: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>, Thadeu Lima de
- Souza Cascardo <cascardo@redhat.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20160621085807.GE8886@naverao1-tp.localdomain>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: [PATCH net 1/2] net/mlx4_en: Fix the return value of a failure in VLAN VID add/kill
+Date: Tue, 21 Jun 2016 14:20:02 +0300
+Message-ID: <1466508003-13835-2-git-send-email-tariqt@mellanox.com>
+References: <1466508003-13835-1-git-send-email-tariqt@mellanox.com>
+Cc: netdev@vger.kernel.org, Kamal Heib <kamalh@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:56925 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750744AbcFULWq (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2016 07:22:46 -0400
+In-Reply-To: <1466508003-13835-1-git-send-email-tariqt@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE2LTA2LTIxIGF0IDE0OjI4ICswNTMwLCBOYXZlZW4gTi4gUmFvIHdyb3RlOgo+
-IE9uIDIwMTYvMDYvMjAgMDM6NTZQTSwgVGhhZGV1IExpbWEgZGUgU291emEgQ2FzY2FyZG8gd3Jv
-dGU6Cj4gPiBPbiBTdW4sIEp1biAxOSwgMjAxNiBhdCAxMToxOToxNFBNICswNTMwLCBOYXZlZW4g
-Ti4gUmFvIHdyb3RlOgo+ID4gPiBPbiAyMDE2LzA2LzE3IDEwOjAwQU0sIFRoYWRldSBMaW1hIGRl
-IFNvdXphIENhc2NhcmRvIHdyb3RlOgo+ID4gPiA+IAo+ID4gPiA+IEhpLCBNaWNoYWVsIGFuZCBO
-YXZlZW4uCj4gPiA+ID4gCj4gPiA+ID4gSSBub3RpY2VkIGluZGVwZW5kZW50bHkgdGhhdCB0aGVy
-ZSBpcyBhIHByb2JsZW0gd2l0aCBCUEYgSklUIGFuZCBBQkl2MiwgYW5kCj4gPiA+ID4gd29ya2Vk
-IG91dCB0aGUgcGF0Y2ggYmVsb3cgYmVmb3JlIEkgbm90aWNlZCBOYXZlZW4ncyBwYXRjaHNldCBh
-bmQgdGhlIGxhdGVzdAo+ID4gPiA+IGNoYW5nZXMgaW4gcHBjIHRyZWUgZm9yIGEgYmV0dGVyIHdh
-eSB0byBjaGVjayBmb3IgQUJJIHZlcnNpb25zLgo+ID4gPiA+IAo+ID4gPiA+IEhvd2V2ZXIsIHNp
-bmNlIHRoZSBpc3N1ZSBkZXNjcmliZWQgYmVsb3cgYWZmZWN0IG1haW5saW5lIGFuZCBzdGFibGUg
-a2VybmVscywKPiA+ID4gPiB3b3VsZCB5b3UgY29uc2lkZXIgYXBwbHlpbmcgaXQgYmVmb3JlIG1l
-cmdpbmcgeW91ciB0d28gcGF0Y2hzZXRzLCBzbyB0aGF0IHdlIGNhbgo+ID4gPiA+IG1vcmUgZWFz
-aWx5IGJhY2twb3J0IHRoZSBmaXg/Cj4gPiA+IAo+ID4gPiBIaSBDYXNjYXJkbywKPiA+ID4gR2l2
-ZW4gdGhhdCB0aGlzIGhhcyBiZWVuIGJyb2tlbiBvbiBBQkl2MiBzaW5jZSBmb3JldmVyLCBJIGRp
-ZG4ndCBib3RoZXIgCj4gPiA+IGZpeGluZyBpdC4gQnV0LCBJIGNhbiBzZWUgd2h5IHRoaXMgd291
-bGQgYmUgYSBnb29kIHRoaW5nIHRvIGhhdmUgZm9yIAo+ID4gPiAtc3RhYmxlIGFuZCBleGlzdGlu
-ZyBkaXN0cm9zLiBIb3dldmVyLCB3aGlsZSB5b3VyIHBhdGNoIGJlbG93IG1heSBmaXggCj4gPiA+
-IHRoZSBjcmFzaCB5b3UncmUgc2VlaW5nIG9uIHBwYzY0bGUsIGl0IGlzIG5vdCBzdWZmaWNpZW50
-IC0tIHlvdSdsbCBuZWVkIAo+ID4gPiBjaGFuZ2VzIGluIGJwZl9qaXRfYXNtLlMgYXMgd2VsbC4K
-PiA+IAo+ID4gSGksIE5hdmVlbi4KPiA+IAo+ID4gQW55IHRpcHMgb24gaG93IHRvIGV4ZXJjaXNl
-IHBvc3NpYmxlIGlzc3VlcyB0aGVyZT8gT3Igd2hhdCBjaGFuZ2VzIHlvdSB0aGluawo+ID4gd291
-bGQgYmUgc3VmZmljaWVudD8KPiAKPiBUaGUgY2FsbGluZyBjb252ZW50aW9uIGlzIGRpZmZlcmVu
-dCB3aXRoIEFCSXYyIGFuZCBzbyB3ZSdsbCBuZWVkIGNoYW5nZXMgCj4gaW4gYnBmX3Nsb3dfcGF0
-aF9jb21tb24oKSBhbmQgc2tfbmVnYXRpdmVfY29tbW9uKCkuCgpIb3cgYmlnIHdvdWxkIHRob3Nl
-IGNoYW5nZXMgYmU/IERvIHdlIGtub3c/CgpIb3cgY29tZSBubyBvbmUgcmVwb3J0ZWQgdGhpcyB3
-YXMgYnJva2VuIHByZXZpb3VzbHk/IFRoaXMgaXMgdGhlIGZpcnN0IEkndmUKaGVhcmQgb2YgaXQg
-YmVpbmcgYnJva2VuLgoKPiBIb3dldmVyLCByYXRoZXIgdGhhbiBlbmFibGluZyBjbGFzc2ljIEpJ
-VCBmb3IgcHBjNjRsZSwgYXJlIHdlIGJldHRlciBvZmYgCj4ganVzdCBkaXNhYmxpbmcgaXQ/Cj4g
-Cj4gLS0tIGEvYXJjaC9wb3dlcnBjL0tjb25maWcKPiArKysgYi9hcmNoL3Bvd2VycGMvS2NvbmZp
-Zwo+IEBAIC0xMjgsNyArMTI4LDcgQEAgY29uZmlnIFBQQwo+ICAgICAgICAgc2VsZWN0IElSUV9G
-T1JDRURfVEhSRUFESU5HCj4gICAgICAgICBzZWxlY3QgSEFWRV9SQ1VfVEFCTEVfRlJFRSBpZiBT
-TVAKPiAgICAgICAgIHNlbGVjdCBIQVZFX1NZU0NBTExfVFJBQ0VQT0lOVFMKPiAtICAgICAgIHNl
-bGVjdCBIQVZFX0NCUEZfSklUCj4gKyAgICAgICBzZWxlY3QgSEFWRV9DQlBGX0pJVCBpZiBDUFVf
-QklHX0VORElBTgo+ICAgICAgICAgc2VsZWN0IEhBVkVfQVJDSF9KVU1QX0xBQkVMCj4gICAgICAg
-ICBzZWxlY3QgQVJDSF9IQVZFX05NSV9TQUZFX0NNUFhDSEcKPiAgICAgICAgIHNlbGVjdCBBUkNI
-X0hBU19HQ09WX1BST0ZJTEVfQUxMCj4gCj4gCj4gTWljaGFlbCwKPiBMZXQgbWUga25vdyB5b3Vy
-IHRob3VnaHRzIG9uIHdoZXRoZXIgeW91IGludGVuZCB0byB0YWtlIHRoaXMgcGF0Y2ggb3IgCj4g
-Q2FzY2FyZG8ncyBwYXRjaCBmb3IgLXN0YWJsZSBiZWZvcmUgdGhlIGVCUEYgcGF0Y2hlcy4gSSBj
-YW4gcmVkbyBteSAKPiBwYXRjaGVzIGFjY29yZGluZ2x5LgoKVGhpcyBwYXRjaCBzb3VuZHMgbGlr
-ZSB0aGUgYmVzdCBvcHRpb24gYXQgdGhlIG1vbWVudCBmb3Igc29tZXRoaW5nIHdlIGNhbgpiYWNr
-cG9ydC4gVW5sZXNzIHRoZSBjaGFuZ2VzIHRvIGZpeCBpdCBhcmUgbWluaW1hbC4KCmNoZWVycwoK
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMt
-ZGV2IG1haWxpbmcgbGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xp
-c3RzLm96bGFicy5vcmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+From: Kamal Heib <kamalh@mellanox.com>
+
+Modify mlx4_en_vlan_rx_[add/kill]_vid to return error value in case of
+failure.
+
+Fixes: 8e586137e6b6 ('net: make vlan ndo_vlan_rx_[add/kill]_vid return error value')
+Signed-off-by: Kamal Heib <kamalh@mellanox.com>
+Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 18 +++++++++++-------
+ 1 file changed, 11 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index a2c2536..43f505e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -406,14 +406,18 @@ static int mlx4_en_vlan_rx_add_vid(struct net_device *dev,
+ 	mutex_lock(&mdev->state_lock);
+ 	if (mdev->device_up && priv->port_up) {
+ 		err = mlx4_SET_VLAN_FLTR(mdev->dev, priv);
+-		if (err)
++		if (err) {
+ 			en_err(priv, "Failed configuring VLAN filter\n");
++			goto out;
++		}
+ 	}
+-	if (mlx4_register_vlan(mdev->dev, priv->port, vid, &idx))
+-		en_dbg(HW, priv, "failed adding vlan %d\n", vid);
+-	mutex_unlock(&mdev->state_lock);
++	err = mlx4_register_vlan(mdev->dev, priv->port, vid, &idx);
++	if (err)
++		en_dbg(HW, priv, "Failed adding vlan %d\n", vid);
+ 
+-	return 0;
++out:
++	mutex_unlock(&mdev->state_lock);
++	return err;
+ }
+ 
+ static int mlx4_en_vlan_rx_kill_vid(struct net_device *dev,
+@@ -421,7 +425,7 @@ static int mlx4_en_vlan_rx_kill_vid(struct net_device *dev,
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = priv->mdev;
+-	int err;
++	int err = 0;
+ 
+ 	en_dbg(HW, priv, "Killing VID:%d\n", vid);
+ 
+@@ -438,7 +442,7 @@ static int mlx4_en_vlan_rx_kill_vid(struct net_device *dev,
+ 	}
+ 	mutex_unlock(&mdev->state_lock);
+ 
+-	return 0;
++	return err;
+ }
+ 
+ static void mlx4_en_u64_to_mac(unsigned char dst_mac[ETH_ALEN + 2], u64 src_mac)
+-- 
+1.8.3.1
