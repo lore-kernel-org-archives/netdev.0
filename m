@@ -1,8 +1,8 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net-next 05/19] net: hns: Remove unnecessary device resource
- free
-Date: Tue, 21 Jun 2016 11:56:25 +0800
-Message-ID: <1466481399-70080-6-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net-next 19/19] net: hns: bug fix about TSO on|off when there
+ is traffic
+Date: Tue, 21 Jun 2016 11:56:39 +0800
+Message-ID: <1466481399-70080-20-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -27,109 +27,58 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Qianqian Xie <xieqianqian@huawei.com>
+From: Daode Huang <huangdaode@hisilicon.com>
 
-The driver uses devm_ioremap_resource, it will unmap the map
-automatically, remove the unnecessary the resource free.
+When enable/disable tso, the driver tries to access the hardware register,
+but this operation will cause the port unavalible when there is traffic.
+This patch tries to enable TSO when initialize, then control tso through
+TSE bit in transmit descriptor.
 
-Signed-off-by: Qianqian Xie <xieqianqian@huawei.com>
-Reported-by: Kefeng Wang <wangkefeng.wang@huawei.com>
+Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 39 +++-------------------
- 1 file changed, 4 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 422f97d..b8b2ff9 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -176,7 +176,7 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 	    desc_num > HNS_DSAF_MAX_DESC_CNT) {
- 		dev_err(dsaf_dev->dev, "get desc-num(%d) fail, ret=%d!\n",
- 			desc_num, ret);
--		goto unmap_base_addr;
-+		return -EINVAL;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index c0ce37b..d5297ec 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -1441,7 +1441,6 @@ static int hns_nic_set_features(struct net_device *netdev,
+ 				netdev_features_t features)
+ {
+ 	struct hns_nic_priv *priv = netdev_priv(netdev);
+-	struct hnae_handle *h = priv->ae_handle;
+ 
+ 	switch (priv->enet_ver) {
+ 	case AE_VERSION_1:
+@@ -1454,11 +1453,9 @@ static int hns_nic_set_features(struct net_device *netdev,
+ 			priv->ops.maybe_stop_tx = hns_nic_maybe_stop_tso;
+ 			/* The chip only support 7*4096 */
+ 			netif_set_gso_max_size(netdev, 7 * 4096);
+-			h->dev->ops->set_tso_stats(h, 1);
+ 		} else {
+ 			priv->ops.fill_desc = fill_v2_desc;
+ 			priv->ops.maybe_stop_tx = hns_nic_maybe_stop_tx;
+-			h->dev->ops->set_tso_stats(h, 0);
+ 		}
+ 		break;
  	}
- 	dsaf_dev->desc_num = desc_num;
- 
-@@ -192,7 +192,7 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 	if (ret < 0) {
- 		dev_err(dsaf_dev->dev,
- 			"get buf-size fail, ret=%d!\r\n", ret);
--		goto unmap_base_addr;
-+		return ret;
+@@ -1804,11 +1801,14 @@ static void hns_nic_set_priv_ops(struct net_device *netdev)
+ 			priv->ops.maybe_stop_tx = hns_nic_maybe_stop_tso;
+ 			/* This chip only support 7*4096 */
+ 			netif_set_gso_max_size(netdev, 7 * 4096);
+-			h->dev->ops->set_tso_stats(h, 1);
+ 		} else {
+ 			priv->ops.fill_desc = fill_v2_desc;
+ 			priv->ops.maybe_stop_tx = hns_nic_maybe_stop_tx;
+ 		}
++		/* enable tso when init
++		 * control tso on/off through TSE bit in bd
++		 */
++		h->dev->ops->set_tso_stats(h, 1);
  	}
- 	dsaf_dev->buf_size = buf_size;
- 
-@@ -200,7 +200,7 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 	if (dsaf_dev->buf_size_type < 0) {
- 		dev_err(dsaf_dev->dev,
- 			"buf_size(%d) is wrong!\n", buf_size);
--		goto unmap_base_addr;
-+		return -EINVAL;
- 	}
- 
- 	dsaf_dev->misc_op = hns_misc_op_get(dsaf_dev);
-@@ -213,32 +213,6 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
- 		dev_err(dsaf_dev->dev, "set mask to 64bit fail!\n");
- 
- 	return 0;
--
--unmap_base_addr:
--	if (dsaf_dev->io_base)
--		iounmap(dsaf_dev->io_base);
--	if (dsaf_dev->ppe_base)
--		iounmap(dsaf_dev->ppe_base);
--	if (dsaf_dev->sds_base)
--		iounmap(dsaf_dev->sds_base);
--	if (dsaf_dev->sc_base)
--		iounmap(dsaf_dev->sc_base);
--	return ret;
--}
--
--static void hns_dsaf_free_cfg(struct dsaf_device *dsaf_dev)
--{
--	if (dsaf_dev->io_base)
--		iounmap(dsaf_dev->io_base);
--
--	if (dsaf_dev->ppe_base)
--		iounmap(dsaf_dev->ppe_base);
--
--	if (dsaf_dev->sds_base)
--		iounmap(dsaf_dev->sds_base);
--
--	if (dsaf_dev->sc_base)
--		iounmap(dsaf_dev->sc_base);
  }
  
- /**
-@@ -2645,7 +2619,7 @@ static int hns_dsaf_probe(struct platform_device *pdev)
- 
- 	ret = hns_dsaf_init(dsaf_dev);
- 	if (ret)
--		goto free_cfg;
-+		goto free_dev;
- 
- 	ret = hns_mac_init(dsaf_dev);
- 	if (ret)
-@@ -2670,9 +2644,6 @@ uninit_mac:
- uninit_dsaf:
- 	hns_dsaf_free(dsaf_dev);
- 
--free_cfg:
--	hns_dsaf_free_cfg(dsaf_dev);
--
- free_dev:
- 	hns_dsaf_free_dev(dsaf_dev);
- 
-@@ -2695,8 +2666,6 @@ static int hns_dsaf_remove(struct platform_device *pdev)
- 
- 	hns_dsaf_free(dsaf_dev);
- 
--	hns_dsaf_free_cfg(dsaf_dev);
--
- 	hns_dsaf_free_dev(dsaf_dev);
- 
- 	return 0;
 -- 
 1.9.1
