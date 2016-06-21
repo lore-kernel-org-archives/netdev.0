@@ -1,35 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
-Date: Tue, 21 Jun 2016 04:29:18 -0400 (EDT)
-Message-ID: <20160621.042918.1782717212289281861.davem@davemloft.net>
-References: <CALx6S37GuppbknFiGsGxyP8jAX-t8c1=mWxCToKQVA8r8UPeOA@mail.gmail.com>
-	<20160619.200741.1114304127682357737.davem@davemloft.net>
-	<CALx6S37+o2=Lqzxu_U4QiSvqnq8CjEq5uSpbKVfFfo8r5qD+6g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kernel-team@fb.com
-To: tom@herbertland.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34400 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752111AbcFUI3m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 04:29:42 -0400
-In-Reply-To: <CALx6S37+o2=Lqzxu_U4QiSvqnq8CjEq5uSpbKVfFfo8r5qD+6g@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH] geneve: fix tx_errors statistics
+Date: Tue, 21 Jun 2016 16:26:49 +0800
+Message-ID: <1466497609-14468-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Tom Herbert <tom@herbertland.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Tom Herbert <tom@herbertland.com>
-Date: Mon, 20 Jun 2016 08:13:48 -0700
+Tx errors present summation of errors encountered while transmitting
+packets.
 
-> Routing around the problem is already being done.
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+---
+ drivers/net/geneve.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
 
-QUIC, a new protocol used for specific purposes and implemented in
-userspace from the start is significantly different from making the
-kernel's _TCP_ implementation bypassed into a userspace one just by
-UDP encapsulating it.
-
-That is a major and conscious change in our mentality.
-
-The consequences are far and wide, and I'm having a very hard time
-seeing the benefits you cite being larger than the negatives here.
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index aa61708..72b2f1c 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -922,8 +922,8 @@ tx_error:
+ 		dev->stats.collisions++;
+ 	else if (err == -ENETUNREACH)
+ 		dev->stats.tx_carrier_errors++;
+-	else
+-		dev->stats.tx_errors++;
++
++	dev->stats.tx_errors++;
+ 	return NETDEV_TX_OK;
+ }
+ 
+@@ -1012,8 +1012,8 @@ tx_error:
+ 		dev->stats.collisions++;
+ 	else if (err == -ENETUNREACH)
+ 		dev->stats.tx_carrier_errors++;
+-	else
+-		dev->stats.tx_errors++;
++
++	dev->stats.tx_errors++;
+ 	return NETDEV_TX_OK;
+ }
+ #endif
+-- 
+1.8.3.1
