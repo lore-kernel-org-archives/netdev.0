@@ -1,50 +1,59 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [PATCH net-next 12/18] IB/mlx5: Add kernel offload flow-tag
-Date: Tue, 21 Jun 2016 08:18:49 -0700
-Message-ID: <CANn89iJbaOR5HpoaQLHoBGhariTACf-OLKRWqP3KBacvOUgGdg@mail.gmail.com>
-References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
- <1466174639-14576-13-git-send-email-saeedm@mellanox.com> <20160617160007.GA52082@ast-mbp.thefacebook.com>
- <CALzJLG-uoMKjZCC312JjfqnQaUW_-31eqeg0bQd+r3qp4Fa1ag@mail.gmail.com>
- <20160621021836.GA81638@ast-mbp.thefacebook.com> <CALzJLG8+xhJDO9FaGF+9OiBq1s1LD_cb3y-ybUkFD7DJG=SRaQ@mail.gmail.com>
+From: Hannes Frederic Sowa <hannes@redhat.com>
+Subject: Re: [net-next PATCH v3 00/17] Future-proof tunnel offload handlers
+Date: Tue, 21 Jun 2016 08:23:50 -0700
+Message-ID: <4420aeb6-23c0-4f9b-d1c2-e7adf9d17f2c@redhat.com>
+References: <20160616191851.20872.67154.stgit@localhost.localdomain>
+ <20160617.202641.1821023739498595024.davem@davemloft.net>
+ <CALx6S34Y3Qq6nMHuMcC2LC5duLBO3KVN3+A+0qmPrNvFfY7gJg@mail.gmail.com>
+ <20160621.042211.945844554759834352.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Doug Ledford <dledford@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: aduyck@mirantis.com, netdev@vger.kernel.org,
+	intel-wired-lan@lists.osuosl.org, jesse@kernel.org,
+	eugenia@mellanox.com, jbenc@redhat.com, alexander.duyck@gmail.com,
+	saeedm@mellanox.com, ariel.elior@qlogic.com,
+	michael.chan@broadcom.com, Dept-GELinuxNICDev@qlogic.com
+To: David Miller <davem@davemloft.net>, tom@herbertland.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f177.google.com ([209.85.161.177]:34632 "EHLO
-	mail-yw0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751672AbcFUPTU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 11:19:20 -0400
-Received: by mail-yw0-f177.google.com with SMTP id i12so16400829ywa.1
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 08:18:51 -0700 (PDT)
-In-Reply-To: <CALzJLG8+xhJDO9FaGF+9OiBq1s1LD_cb3y-ybUkFD7DJG=SRaQ@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:46181 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751755AbcFUPYB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2016 11:24:01 -0400
+In-Reply-To: <20160621.042211.945844554759834352.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 21, 2016 at 6:04 AM, Saeed Mahameed
-<saeedm@dev.mellanox.co.il> wrote:
+On 21.06.2016 01:22, David Miller wrote:
+> From: Tom Herbert <tom@herbertland.com>
+> Date: Mon, 20 Jun 2016 10:05:01 -0700
+> 
+>> Generally, this means it needs to at least match by local addresses
+>> and port for an unconnected/unbound socket, the source address for
+>> an unconnected/bound socket, a the full 4-tuple for a connected
+>> socket.
+> 
+> These lookup keys are all insufficient.
+> 
+> At the very least the network namespace must be in the lookup key as
+> well if you want to match "sockets".  And this is just the tip of the
+> iceberg in my opinion.
+> 
+> The namespace bypassing to me is the biggest flaw in the UDP tunnel
+> offloads.  That is creating real dangers right now.
+> 
+> But anyways, the vastness of the key is why we want to keep "sockets"
+> out of network cards, because proper support of "sockets" requires
+> access to information the card simply does not and should not have.
 
->
-> Alexei , I don't understand your concern.
-> We already have a full/complete working dpdk bypass solution in
-> userspace nothing extra is required from the kernel.
->
-> We just want to see this traffic and any other rdma traffic in tcpdump
-> or other standard sniffing tools.
->
-> Anyway we brainstormed this internally today and we don't like the
-> "skb->protocol = 0xffff" solution,
+We can't look up UDP sockets without having the namespace. We inherit
+the namespace from the device the packet showed up on. So I think in
+regards to namespaces this looks more or less fine.
 
-One solution would be to setup a special netdev used only for sniffers
-(No IP address on it)
+Not being able to match on the destination ip or even not considering
+the routing infrastructure is kind of dangerous (e.g. we might want to
+make the socket not reachable from an interface via ip rules or
+blackhole routes, but they wouldn't be considered, too).
 
--> Only changes would happen in the driver, to set skb->dev to this
-'debug' device.
+Bye,
+Hannes
