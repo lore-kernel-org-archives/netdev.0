@@ -1,93 +1,190 @@
-From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: Re: [6/6] ppc: ebpf/jit: Implement JIT compiler for extended BPF
-Date: Tue, 21 Jun 2016 12:28:47 +0530
-Message-ID: <20160621065847.GD8886@naverao1-tp.localdomain>
-References: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
- <3rWKtT2tSrz9t2G@ozlabs.org>
- <20160619173642.GB8886@naverao1-tp.localdomain>
- <1466465899.437.0.camel@ellerman.id.au>
+From: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+Subject: [PATCH] net: stmmac: dwmac-rk: add rk322x-specific data
+Date: Tue, 21 Jun 2016 15:13:55 +0800
+Message-ID: <1466493235-17789-1-git-send-email-zhengxing@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, Matt Evans <matt@ozlabs.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@fb.com>,
-	Denis Kirjanov <kda@linux-powerpc.org>,
-	Paul Mackerras <paulus@samba.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-To: Michael Ellerman <mpe@ellerman.id.au>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:15743 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1754021AbcFUHAI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 03:00:08 -0400
-Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
-	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u5L6xfmQ114982
-	for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 03:00:07 -0400
-Received: from e23smtp04.au.ibm.com (e23smtp04.au.ibm.com [202.81.31.146])
-	by mx0b-001b2d01.pphosted.com with ESMTP id 23n2ekf2ug-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 03:00:07 -0400
-Received: from localhost
-	by e23smtp04.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <naveen.n.rao@linux.vnet.ibm.com>;
-	Tue, 21 Jun 2016 17:00:04 +1000
-Content-Disposition: inline
-In-Reply-To: <1466465899.437.0.camel@ellerman.id.au>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
+ Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
+ Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>,
+ "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ Alexandre Torgue <alexandre.torgue-qxv4g6HH51o@public.gmane.org>
+To: heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 2016/06/21 09:38AM, Michael Ellerman wrote:
-> On Sun, 2016-06-19 at 23:06 +0530, Naveen N. Rao wrote:
-> > On 2016/06/17 10:53PM, Michael Ellerman wrote:
-> > > On Tue, 2016-07-06 at 13:32:23 UTC, "Naveen N. Rao" wrote:
-> > > > diff --git a/arch/powerpc/net/bpf_jit_comp64.c b/arch/powerpc/net/bpf_jit_comp64.c
-> > > > new file mode 100644
-> > > > index 0000000..954ff53
-> > > > --- /dev/null
-> > > > +++ b/arch/powerpc/net/bpf_jit_comp64.c
-> > > > @@ -0,0 +1,956 @@
-> > > ...
-> 
-> > > > +
-> > > > +static void bpf_jit_fill_ill_insns(void *area, unsigned int size)
-> > > > +{
-> > > > +	int *p = area;
-> > > > +
-> > > > +	/* Fill whole space with trap instructions */
-> > > > +	while (p < (int *)((char *)area + size))
-> > > > +		*p++ = BREAKPOINT_INSTRUCTION;
-> > > > +}
-> > > 
-> > > This breaks the build for some configs, presumably you're missing a header:
-> > > 
-> > >   arch/powerpc/net/bpf_jit_comp64.c:30:10: error: 'BREAKPOINT_INSTRUCTION' undeclared (first use in this function)
-> > > 
-> > > http://kisskb.ellerman.id.au/kisskb/buildresult/12720611/
-> > 
-> > Oops. Yes, I should have caught that. I need to add:
-> > 
-> > #include <asm/kprobes.h>
-> > 
-> > in bpf_jit_comp64.c
-> > 
-> > Can you please check if it resolves the build error?
-> 
-> Can you? :D
+Add constants and callback functions for the dwmac on rk322x socs.
+As can be seen, the base structure is the same, only registers and
+the bits in them moved slightly.
 
-:)
-Sorry, I should have explained myself better. I did actually try your 
-config and I was able to reproduce the build error. After the above 
-#include, that error went away, but I saw some vdso related errors. I 
-thought I was doing something wrong and needed a different setup for 
-that particular kernel config, which is why I requested your help in the 
-matter. I just didn't do a good job of putting across that message...
+Signed-off-by: Xing Zheng <zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+---
 
-Note to self: randconfig builds *and* more time drafting emails :)
+ .../devicetree/bindings/net/rockchip-dwmac.txt     |    3 +-
+ drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     |  117 ++++++++++++++++++++
+ 2 files changed, 119 insertions(+), 1 deletion(-)
 
-Do you want me to respin the patches?
-
-
-Thanks,
-Naveen
+diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+index 93eac7c..5040ed4 100644
+--- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
++++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
+@@ -3,7 +3,8 @@ Rockchip SoC RK3288 10/100/1000 Ethernet driver(GMAC)
+ The device node has following properties.
+ 
+ Required properties:
+- - compatible: Can be one of "rockchip,rk3288-gmac", "rockchip,rk3368-gmac"
++ - compatible: Can be one of "rockchip,rk322x-gmac", "rockchip,rk3288-gmac",
++                             "rockchip,rk3368-gmac"
+  - reg: addresses and length of the register sets for the device.
+  - interrupts: Should contain the GMAC interrupts.
+  - interrupt-names: Should contain the interrupt names "macirq".
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+index 0cd3ecf..7f045db 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
+@@ -72,6 +72,122 @@ struct rk_priv_data {
+ #define GRF_BIT(nr)	(BIT(nr) | BIT(nr+16))
+ #define GRF_CLR_BIT(nr)	(BIT(nr+16))
+ 
++#define RK322X_GRF_MAC_CON0	0x0900
++#define RK322X_GRF_MAC_CON1	0x0904
++
++/* RK322X_GRF_MAC_CON0 */
++#define RK322X_GMAC_CLK_RX_DL_CFG(val)	HIWORD_UPDATE(val, 0x7F, 7)
++#define RK322X_GMAC_CLK_TX_DL_CFG(val)	HIWORD_UPDATE(val, 0x7F, 0)
++
++/* RK322X_GRF_MAC_CON1 */
++#define RK322X_GMAC_PHY_INTF_SEL_RGMII	\
++		(GRF_BIT(4) | GRF_CLR_BIT(5) | GRF_CLR_BIT(6))
++#define RK322X_GMAC_PHY_INTF_SEL_RMII	\
++		(GRF_CLR_BIT(4) | GRF_CLR_BIT(5) | GRF_BIT(6))
++#define RK322X_GMAC_FLOW_CTRL		GRF_BIT(3)
++#define RK322X_GMAC_FLOW_CTRL_CLR	GRF_CLR_BIT(3)
++#define RK322X_GMAC_SPEED_10M		GRF_CLR_BIT(2)
++#define RK322X_GMAC_SPEED_100M		GRF_BIT(2)
++#define RK322X_GMAC_RMII_CLK_25M	GRF_BIT(7)
++#define RK322X_GMAC_RMII_CLK_2_5M	GRF_CLR_BIT(7)
++#define RK322X_GMAC_CLK_125M		(GRF_CLR_BIT(8) | GRF_CLR_BIT(9))
++#define RK322X_GMAC_CLK_25M		(GRF_BIT(8) | GRF_BIT(9))
++#define RK322X_GMAC_CLK_2_5M		(GRF_CLR_BIT(8) | GRF_BIT(9))
++#define RK322X_GMAC_RMII_MODE		GRF_BIT(10)
++#define RK322X_GMAC_RMII_MODE_CLR	GRF_CLR_BIT(10)
++#define RK322X_GMAC_TXCLK_DLY_ENABLE	GRF_BIT(0)
++#define RK322X_GMAC_TXCLK_DLY_DISABLE	GRF_CLR_BIT(0)
++#define RK322X_GMAC_RXCLK_DLY_ENABLE	GRF_BIT(1)
++#define RK322X_GMAC_RXCLK_DLY_DISABLE	GRF_CLR_BIT(1)
++
++static void rk322x_set_to_rgmii(struct rk_priv_data *bsp_priv,
++				int tx_delay, int rx_delay)
++{
++	struct device *dev = &bsp_priv->pdev->dev;
++
++	if (IS_ERR(bsp_priv->grf)) {
++		dev_err(dev, "Missing rockchip,grf property\n");
++		return;
++	}
++
++	regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
++		     RK322X_GMAC_PHY_INTF_SEL_RGMII |
++		     RK322X_GMAC_RMII_MODE_CLR |
++		     RK322X_GMAC_RXCLK_DLY_ENABLE |
++		     RK322X_GMAC_TXCLK_DLY_ENABLE);
++
++	regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON0,
++		     RK322X_GMAC_CLK_RX_DL_CFG(rx_delay) |
++		     RK322X_GMAC_CLK_TX_DL_CFG(tx_delay));
++}
++
++static void rk322x_set_to_rmii(struct rk_priv_data *bsp_priv)
++{
++	struct device *dev = &bsp_priv->pdev->dev;
++
++	if (IS_ERR(bsp_priv->grf)) {
++		dev_err(dev, "Missing rockchip,grf property\n");
++		return;
++	}
++
++	regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
++		     RK322X_GMAC_PHY_INTF_SEL_RMII |
++		     RK322X_GMAC_RMII_MODE);
++
++	/* set MAC to RMII mode */
++	regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1, GRF_BIT(11));
++}
++
++static void rk322x_set_rgmii_speed(struct rk_priv_data *bsp_priv, int speed)
++{
++	struct device *dev = &bsp_priv->pdev->dev;
++
++	if (IS_ERR(bsp_priv->grf)) {
++		dev_err(dev, "Missing rockchip,grf property\n");
++		return;
++	}
++
++	if (speed == 10)
++		regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
++			     RK322X_GMAC_CLK_2_5M);
++	else if (speed == 100)
++		regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
++			     RK322X_GMAC_CLK_25M);
++	else if (speed == 1000)
++		regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
++			     RK322X_GMAC_CLK_125M);
++	else
++		dev_err(dev, "unknown speed value for RGMII! speed=%d", speed);
++}
++
++static void rk322x_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
++{
++	struct device *dev = &bsp_priv->pdev->dev;
++
++	if (IS_ERR(bsp_priv->grf)) {
++		dev_err(dev, "Missing rockchip,grf property\n");
++		return;
++	}
++
++	if (speed == 10)
++		regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
++			     RK322X_GMAC_RMII_CLK_2_5M |
++			     RK322X_GMAC_SPEED_10M);
++	else if (speed == 100)
++		regmap_write(bsp_priv->grf, RK322X_GRF_MAC_CON1,
++			     RK322X_GMAC_RMII_CLK_25M |
++			     RK322X_GMAC_SPEED_100M);
++	else
++		dev_err(dev, "unknown speed value for RMII! speed=%d", speed);
++}
++
++static const struct rk_gmac_ops rk322x_ops = {
++	.set_to_rgmii = rk322x_set_to_rgmii,
++	.set_to_rmii = rk322x_set_to_rmii,
++	.set_rgmii_speed = rk322x_set_rgmii_speed,
++	.set_rmii_speed = rk322x_set_rmii_speed,
++};
++
+ #define RK3288_GRF_SOC_CON1	0x0248
+ #define RK3288_GRF_SOC_CON3	0x0250
+ 
+@@ -604,6 +720,7 @@ static int rk_gmac_probe(struct platform_device *pdev)
+ }
+ 
+ static const struct of_device_id rk_gmac_dwmac_match[] = {
++	{ .compatible = "rockchip,rk322x-gmac", .data = &rk322x_ops },
+ 	{ .compatible = "rockchip,rk3288-gmac", .data = &rk3288_ops },
+ 	{ .compatible = "rockchip,rk3368-gmac", .data = &rk3368_ops },
+ 	{ }
+-- 
+1.7.9.5
