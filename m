@@ -1,65 +1,57 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH v3 00/17] Future-proof tunnel offload handlers
-Date: Tue, 21 Jun 2016 10:05:08 -0700
-Message-ID: <CAKgT0Ucze-+PYdvoHhDSLuaTLrn+Ene+CnfJaKO7AEHGHBsKzg@mail.gmail.com>
-References: <20160616191851.20872.67154.stgit@localhost.localdomain>
- <20160617.202641.1821023739498595024.davem@davemloft.net> <CALx6S34Y3Qq6nMHuMcC2LC5duLBO3KVN3+A+0qmPrNvFfY7gJg@mail.gmail.com>
- <20160621.042211.945844554759834352.davem@davemloft.net>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH v2 7/7] ip/tcp_metrics: Simplify process_msg a bit
+Date: Tue, 21 Jun 2016 19:07:14 +0200
+Message-ID: <20160621170714.GE19797@orbyte.nwl.cc>
+References: <1466525921-15738-1-git-send-email-phil@nwl.cc>
+ <1466525921-15738-8-git-send-email-phil@nwl.cc>
+ <20160621095343.0936eefc@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <tom@herbertland.com>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Netdev <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Hannes Frederic Sowa <hannes@redhat.com>,
-	Jesse Gross <jesse@kernel.org>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Michael Chan <michael.chan@broadcom.com>,
-	Dept-GELinuxNICDev@qlogic.com
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Julien Floret <julien.floret@6wind.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f173.google.com ([209.85.223.173]:34591 "EHLO
-	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752488AbcFURFK (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 13:05:10 -0400
-Received: by mail-io0-f173.google.com with SMTP id g13so15170022ioj.1
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 10:05:10 -0700 (PDT)
-In-Reply-To: <20160621.042211.945844554759834352.davem@davemloft.net>
+Received: from orbyte.nwl.cc ([151.80.46.58]:42487 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752288AbcFURHQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2016 13:07:16 -0400
+Content-Disposition: inline
+In-Reply-To: <20160621095343.0936eefc@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 21, 2016 at 1:22 AM, David Miller <davem@davemloft.net> wrote:
-> From: Tom Herbert <tom@herbertland.com>
-> Date: Mon, 20 Jun 2016 10:05:01 -0700
->
->> Generally, this means it needs to at least match by local addresses
->> and port for an unconnected/unbound socket, the source address for
->> an unconnected/bound socket, a the full 4-tuple for a connected
->> socket.
->
-> These lookup keys are all insufficient.
->
-> At the very least the network namespace must be in the lookup key as
-> well if you want to match "sockets".  And this is just the tip of the
-> iceberg in my opinion.
->
-> The namespace bypassing to me is the biggest flaw in the UDP tunnel
-> offloads.  That is creating real dangers right now.
+On Tue, Jun 21, 2016 at 09:53:43AM -0700, Stephen Hemminger wrote:
+> On Tue, 21 Jun 2016 18:18:41 +0200
+> Phil Sutter <phil@nwl.cc> wrote:
+> 
+> > By combining the attribute extraction and check for existence, the
+> > additional indentation level in the 'else' clause can be avoided.
+> > 
+> > In addition to that, common actions for 'daddr' are combined since the
+> > function returns if neither of the branches are taken.
+> > 
+> > Signed-off-by: Phil Sutter <phil@nwl.cc>
+> > ---
+> >  ip/tcp_metrics.c | 45 ++++++++++++++++++---------------------------
+> >  1 file changed, 18 insertions(+), 27 deletions(-)
+> > 
+> > diff --git a/ip/tcp_metrics.c b/ip/tcp_metrics.c
+> > index f82604f458ada..899830c127bcb 100644
+> > --- a/ip/tcp_metrics.c
+> > +++ b/ip/tcp_metrics.c
+> > @@ -112,47 +112,38 @@ static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
+> >  	parse_rtattr(attrs, TCP_METRICS_ATTR_MAX, (void *) ghdr + GENL_HDRLEN,
+> >  		     len);
+> >  
+> > -	a = attrs[TCP_METRICS_ATTR_ADDR_IPV4];
+> > -	if (a) {
+> > +	if ((a = attrs[TCP_METRICS_ATTR_ADDR_IPV4])) {
+> 
+> NAK, plus it fails checkpatch
 
-I agree.  Fortunately this only really becomes an issue if SR-IOV is
-enabled.  Otherwise the port based offloads only affect the PF as long
-as no VFs are present.
+Oh well, I'll drop it then and get rid of the remaining checkpatch
+warnings before resending.
 
-> But anyways, the vastness of the key is why we want to keep "sockets"
-> out of network cards, because proper support of "sockets" requires
-> access to information the card simply does not and should not have.
-
-Right.  Really what I would like to see for most of these devices is a
-2 tuple filter where you specify the UDP port number, and the PF/VF ID
-that the traffic is received on.  In order to get that we wouldn't
-need any additional information from the API.  Then we at least have
-indirect namespace isolation, and if someone really wanted to they
-could do offloads on the VFs for different traffic.
+Thanks, Phil
