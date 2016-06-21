@@ -1,65 +1,41 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 16/19] net: hns: fix bug that alloc skb fail lead
- to port unavailable
-Date: Tue, 21 Jun 2016 16:25:14 +0300
-Message-ID: <097b1147-3587-9579-0f94-f42be130773c@cogentembedded.com>
-References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
- <1466481399-70080-17-git-send-email-Yisen.Zhuang@huawei.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: liguozhu@huawei.com, huangdaode@hisilicon.com, arnd@arndb.de,
-	andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
-	geliangtang@163.com, ivecera@redhat.com, fengguang.wu@intel.com,
-	charles.chenxin@huawei.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxarm@huawei.com
-To: Yisen Zhuang <Yisen.Zhuang@huawei.com>, davem@davemloft.net,
-	salil.mehta@huawei.com, yankejian@huawei.com
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH net] MAINTAINERS: Update Mellanox's mlx4 Eth NIC driver entry
+Date: Tue, 21 Jun 2016 16:36:06 +0300
+Message-ID: <1466516166-25936-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Tariq Toukan <tariqt@mellanox.com>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f53.google.com ([209.85.215.53]:34581 "EHLO
-	mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827AbcFUNZT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 09:25:19 -0400
-Received: by mail-lf0-f53.google.com with SMTP id h129so23911450lfh.1
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 06:25:18 -0700 (PDT)
-In-Reply-To: <1466481399-70080-17-git-send-email-Yisen.Zhuang@huawei.com>
+Received: from [193.47.165.129] ([193.47.165.129]:43682 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751059AbcFUNhi (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2016 09:37:38 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello.
+Tariq Toukan is replacing Eugenia (Jenny) Emantayev as the mlx4
+Ethernet driver maintainer, thanks to Jenny and good luck to him.
 
-On 6/21/2016 6:56 AM, Yisen Zhuang wrote:
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+---
+ MAINTAINERS | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-> From: Jun He <hjat2005@huawei.com>
->
-> When hns_nic_poll_rx_skb alloc skb fail, it will break receive cycle and
-> read new fbd_num to start new receive cycle. It recomputes cycle num is
-> fbd_num minus clean_count, actually this cycle num is too big because
-> it drop out receive cycle. It brings about the port unavailable.
->
-> So we will goto out when alloc skb fail to fix this bug.
->
-> Signed-off-by: Jun He <hjat2005@huawei.com>
-> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
-> Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-> ---
->  drivers/net/ethernet/hisilicon/hns/hns_enet.c | 5 +++--
->  1 file changed, 3 insertions(+), 2 deletions(-)
->
-> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> index f49246d..c0ce37b 100644
-> --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-> @@ -768,10 +768,10 @@ recv:
->  			clean_count = 0;
->  		}
->
-> -		/* poll one pkg*/
-> +		/* poll one pkt*/
-
-    How about adding a space before */?
-
-[...]
-
-MBR, Sergei
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 2ebe195..8cffceb 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -7406,7 +7406,7 @@ F:	drivers/scsi/megaraid.*
+ F:	drivers/scsi/megaraid/
+ 
+ MELLANOX ETHERNET DRIVER (mlx4_en)
+-M: 	Eugenia Emantayev <eugenia@mellanox.com>
++M:	Tariq Toukan <tariqt@mellanox.com>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+ W:	http://www.mellanox.com
+-- 
+2.3.7
