@@ -1,7 +1,7 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 6/7] misc/ifstat: simplify unsigned value comparison
-Date: Tue, 21 Jun 2016 18:18:40 +0200
-Message-ID: <1466525921-15738-7-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v2 1/7] tc: m_action: Improve conversion to C99 style initializers
+Date: Tue, 21 Jun 2016 18:18:35 +0200
+Message-ID: <1466525921-15738-2-git-send-email-phil@nwl.cc>
 References: <1466525921-15738-1-git-send-email-phil@nwl.cc>
 Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	David Ahern <dsa@cumulusnetworks.com>,
@@ -9,40 +9,80 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	Julien Floret <julien.floret@6wind.com>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:53773 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:37745 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752203AbcFUQ1j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2016 12:27:39 -0400
+	id S1752413AbcFUQ1l (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 21 Jun 2016 12:27:41 -0400
 In-Reply-To: <1466525921-15738-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-By directly comparing the value of both unsigned variables, casting to
-signed becomes unnecessary.
+This improves my initial change in the following points:
 
-This also fixes for compiling with older versions of gcc (at least
-<=3.4.6) which emit the following warning:
+- Drop superfluous comma after last expression in block.
+- No need to initialize variables to zero as the key feature of C99
+  initializers is to do this implicitly.
+- By relocating the declaration of struct rtattr *tail, it can be
+  initialized at the same time.
 
-| ifstat.c: In function `update_db':
-| ifstat.c:542: warning: comparison is always false due to limited range of data type
-
+Fixes: a0a73b298a579 ("tc: m_action: Use C99 style initializers for struct req")
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- misc/ifstat.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ tc/m_action.c | 17 ++++++-----------
+ 1 file changed, 6 insertions(+), 11 deletions(-)
 
-diff --git a/misc/ifstat.c b/misc/ifstat.c
-index abbb4e732fcef..9a44da487599e 100644
---- a/misc/ifstat.c
-+++ b/misc/ifstat.c
-@@ -539,7 +539,7 @@ static void update_db(int interval)
- 				int i;
+diff --git a/tc/m_action.c b/tc/m_action.c
+index ea16817aefd4f..ce399d2e43ccc 100644
+--- a/tc/m_action.c
++++ b/tc/m_action.c
+@@ -398,10 +398,9 @@ static int tc_action_gd(int cmd, unsigned int flags, int *argc_p, char ***argv_p
+ 		.n = {
+ 			.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg)),
+ 			.nlmsg_flags = NLM_F_REQUEST | flags,
+-			.nlmsg_type = cmd,
++			.nlmsg_type = cmd
+ 		},
+-		.t.tca_family = AF_UNSPEC,
+-		.buf = { 0 }
++		.t.tca_family = AF_UNSPEC
+ 	};
  
- 				for (i = 0; i < MAXS; i++) {
--					if ((long)(h1->ival[i] - n->ival[i]) < 0) {
-+					if (h1->ival[i] < n->ival[i]) {
- 						memset(n->ival, 0, sizeof(n->ival));
- 						break;
- 					}
+ 	argc -= 1;
+@@ -491,8 +490,6 @@ static int tc_action_modify(int cmd, unsigned int flags, int *argc_p, char ***ar
+ 	int argc = *argc_p;
+ 	char **argv = *argv_p;
+ 	int ret = 0;
+-
+-	struct rtattr *tail;
+ 	struct {
+ 		struct nlmsghdr         n;
+ 		struct tcamsg           t;
+@@ -501,13 +498,12 @@ static int tc_action_modify(int cmd, unsigned int flags, int *argc_p, char ***ar
+ 		.n = {
+ 			.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg)),
+ 			.nlmsg_flags = NLM_F_REQUEST | flags,
+-			.nlmsg_type = cmd,
++			.nlmsg_type = cmd
+ 		},
+-		.t.tca_family = AF_UNSPEC,
+-		.buf = { 0 }
++		.t.tca_family = AF_UNSPEC
+ 	};
++	struct rtattr *tail = NLMSG_TAIL(&req.n);
+ 
+-	tail = NLMSG_TAIL(&req.n);
+ 	argc -= 1;
+ 	argv += 1;
+ 	if (parse_action(&argc, &argv, TCA_ACT_TAB, &req.n)) {
+@@ -539,8 +535,7 @@ static int tc_act_list_or_flush(int argc, char **argv, int event)
+ 		char                    buf[MAX_MSG];
+ 	} req = {
+ 		.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg)),
+-		.t.tca_family = AF_UNSPEC,
+-		.buf = { 0 }
++		.t.tca_family = AF_UNSPEC
+ 	};
+ 
+ 	tail = NLMSG_TAIL(&req.n);
 -- 
 2.8.2
