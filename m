@@ -1,92 +1,56 @@
-From: Jonathan Woithe <jwoithe@atrad.com.au>
-Subject: Re: r8169 regression: UDP packets dropped intermittantly
-Date: Tue, 21 Jun 2016 12:51:33 +0930
-Message-ID: <20160621032133.GC19735@marvin.atrad.com.au>
-References: <20151121223627.GA3493@electric-eye.fr.zoreil.com>
- <20151122225039.GE2957@marvin.atrad.com.au>
- <20151122230244.GA12249@electric-eye.fr.zoreil.com>
- <20151130064255.GL5537@marvin.atrad.com.au>
- <20151201235852.GA16429@electric-eye.fr.zoreil.com>
- <20160208023318.GJ9174@marvin.atrad.com.au>
- <20160407024417.GE17921@marvin.atrad.com.au>
- <20160517065231.GO30050@marvin.atrad.com.au>
- <20160518065137.GJ27564@marvin.atrad.com.au>
- <20160601003123.GE3384@marvin.atrad.com.au>
+From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+Subject: [PATCH net-next 02/19] net: hns: fix hns dsaf v1 dont support tx_pause close
+Date: Tue, 21 Jun 2016 11:56:22 +0800
+Message-ID: <1466481399-70080-3-git-send-email-Yisen.Zhuang@huawei.com>
+References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+Content-Type: text/plain
+Cc: <liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
+	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
+	<geliangtang@163.com>, <ivecera@redhat.com>,
+	<fengguang.wu@intel.com>, <charles.chenxin@huawei.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
+	<salil.mehta@huawei.com>, <yankejian@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from server.atrad.com.au ([150.101.241.2]:51933 "EHLO
-	server.atrad.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752546AbcFUDVi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 23:21:38 -0400
-Received: from marvin.atrad.com.au (IDENT:1008@marvin.atrad.com.au [192.168.0.2])
-	by server.atrad.com.au (8.14.9/8.14.9) with ESMTP id u5L3LXLn016621
-	(version=TLSv1/SSLv3 cipher=DHE-RSA-AES256-GCM-SHA384 bits=256 verify=NO)
-	for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 12:51:35 +0930
-Content-Disposition: inline
-In-Reply-To: <20160601003123.GE3384@marvin.atrad.com.au>
+Received: from szxga02-in.huawei.com ([119.145.14.65]:42931 "EHLO
+	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752054AbcFUDiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 23:38:19 -0400
+In-Reply-To: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi all
+From: Qianqian Xie <xieqiaqian@huawei.com>
 
-On Wed, Jun 01, 2016 at 10:01:23AM +0930, Jonathan Woithe wrote:
-> On Wed, May 18, 2016 at 04:21:37PM +0930, Jonathan Woithe wrote:
-> > On Thu, Apr 07, 2016 at 12:14:18PM +0930, Jonathan Woithe wrote:
-> > > On Mon, Feb 08, 2016 at 01:03:19PM +1030, Jonathan Woithe wrote:
-> > > > On Wed, Dec 02, 2015 at 12:58:52AM +0100, Francois Romieu wrote:
-> > > > > Jonathan Woithe <jwoithe@atrad.com.au> :
-> > > > > [...]
-> > > > > > Any thoughts or progress at this stage?  Are there further tests you need me
-> > > > > > to do ?
-> > > > > 
-> > > > > Yes but you should expect two more days without signal.
-> > > > 
-> > > > FYI I am now back from annual leave and linux.conf.au.  This means I am in
-> > > > a position to test possible solutions to this problem once you are able to
-> > > > make them available.
-> > > 
-> > > Has there been any further progress on this problem?  I still have access to
-> > > the hardware and systems if further tests are required.
-> > 
-> > To assist in picking up this issue I thought I'd summarise where things are
-> > at from my perspective.
-> > 
-> > The problem is that small low-speed UDP packets are being dropped by the
-> > r8169-based network card in our systems.  Git bisect showed that the
-> > regression started with commit da78dbff2e05630921c551dbbc70a4b7981a8fff.
-> > :
-> 
-> FYI I have just tested the kernel.org 4.6 kernel and unsurprisingly it still
-> exhibits the regression.
+For service port, hns dsaf v1 support to close tx_pause.
+However, the port will be invalid when it run command
+ethtool to close tx_pause. This patch will fix it.
 
-Is there any chance that this regression can be resolved?  It's been 6
-months since the last contact was received from the list in relation to this
-issue.  If the r8169 driver is to remain broken with respect to UDP traffic
-then we will have no choice but to factor in a change in our standard
-hardware for future systems.  Unfortunately this also means that dozens of
-systems in the field cannot be upgraded to recent kernels since doing so
-will trigger the regression.[1]
+Signed-off-by: Qianqian Xie <xieqiaqian@huawei.com>
+Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
 
-I would very much like to see the r8169 regression fixed and remain ready to
-run more tests as needed.  I still have the test rig in place to recreate
-the situation which triggers it, although it's likely the hardware will be
-redeployed in the next few months.
-
-If the decision has been made to leave the regression unfixed, please let me
-know.  A least we will then understand the situation and we will stop waiting
-for a solution which will never appear and start looking at changing our
-standard hardware build.  For various reasons this is a significant
-undertaking which we would rather not do and it has implications for ongoing
-support of existing systems.  Obviously though if there's a bug in the r8169
-kernel driver which will never be fixed then this is the approach we will
-regrettably have to take.
-
-Regards
-  jonathan
-
-[1] Exchanging network cards in existing systems just to avoid a kernel
-regression is not a viable option because there are commercial software
-licences node locked to the existing cards.  Finding a non-r8169 PCI card
-for these systems may also prove to be a challenge.
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index ac03c4a..422f97d 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -1114,10 +1114,10 @@ int hns_dsaf_set_rx_mac_pause_en(struct dsaf_device *dsaf_dev, int mac_id,
+ 				 u32 en)
+ {
+ 	if (AE_IS_VER1(dsaf_dev->dsaf_ver)) {
+-		if (!en)
++		if (!en) {
+ 			dev_err(dsaf_dev->dev, "dsafv1 can't close rx_pause!\n");
+-
+-		return -EINVAL;
++			return -EINVAL;
++		}
+ 	}
+ 
+ 	dsaf_set_dev_bit(dsaf_dev, DSAF_PAUSE_CFG_REG + mac_id * 4,
+-- 
+1.9.1
