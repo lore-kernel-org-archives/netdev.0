@@ -1,38 +1,44 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH 3/3] mac80211: mesh: Add support for HW RC implementation
-Date: Tue, 21 Jun 2016 11:18:19 +0200
-Message-ID: <1466500699.3170.7.camel@sipsolutions.net>
-References: <1466427622-5953-1-git-send-email-maxim.altshul@ti.com>
- <1466427622-5953-2-git-send-email-maxim.altshul@ti.com>
- <1466427622-5953-3-git-send-email-maxim.altshul@ti.com>
-	 <1466427622-5953-4-git-send-email-maxim.altshul@ti.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] rxrpc: fix uninitialized variable use
+Date: Tue, 21 Jun 2016 11:28:53 +0200
+Message-ID: <6563611.x9M4D6kWiH@wuerfel>
+References: <20160617095555.1696781-1-arnd@arndb.de> <3356.1466498932@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: eliad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org, yanivma-l0cyMroinI0@public.gmane.org, guym-l0cyMroinI0@public.gmane.org, arik-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Maxim Altshul <maxim.altshul-l0cyMroinI0@public.gmane.org>, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1466427622-5953-4-git-send-email-maxim.altshul-l0cyMroinI0@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mout.kundenserver.de ([212.227.126.187]:62772 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750905AbcFUJ1g (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 05:27:36 -0400
+In-Reply-To: <3356.1466498932@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> -	if (sta->mesh->fail_avg >=3D 100)
-> -		return MAX_METRIC;
-> +	/* try to get rate based on HW RC algorithm */
-> +	rate =3D drv_get_expected_throughput(local, &sta->sta);
+On Tuesday, June 21, 2016 9:48:52 AM CEST David Howells wrote:
+> Arnd Bergmann <arnd@arndb.de> wrote:
+> 
+> > Hashing the peer key was introduced for AF_INET, but gcc
+> > warns about the rxrpc_peer_hash_key function returning uninitialized
+> > data for any other value of srx->transport.family:
+> > 
+> > net/rxrpc/peer_object.c: In function 'rxrpc_peer_hash_key':
+> > net/rxrpc/peer_object.c:57:15: error: 'p' may be used uninitialized in this function [-Werror=maybe-uninitialized]
+> > 
+> > Assuming that nothing else can be set here, this changes the
+> > function to just return zero in case of an unknown address
+> > family.
+> 
+> I'm actually more tempted to put a BUG() in there because if any new family
+> support (say AF_INET6) is added, I want to make sure I catch all the places.
 
-This doesn't look correct, since you should use the rate control op if
-available, to get data from rate control algorithms.
+Makes sense. Do you want to do the patch yourself, or should I send
+a new one doing that?
 
-You should call=C2=A0sta_set_sinfo(), but that's far too much, so more
-likely you should factor out the last few lines of that into a new
-function and call that new function in both places.
+Maybe WARN() would be better than BUG()? That would still get the attention
+it needs but not kill the process.
 
-johannes
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+	Arnd
