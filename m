@@ -1,74 +1,135 @@
 From: Vishwanath Pai <vpai@akamai.com>
-Subject: [PATCH v2 1/2] netfilter/nflog: nflog-range does not truncate packets
-Date: Tue, 21 Jun 2016 14:58:46 -0400
-Message-ID: <20160621185846.GA6646@akamai.com>
+Subject: [PATCH v2 2/2] netfilter/nflog: nflog-range does not truncate
+ packets (userspace)
+Date: Tue, 21 Jun 2016 15:02:16 -0400
+Message-ID: <20160621190216.GB6646@akamai.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: kaber@trash.net, kadlec@blackhole.kfki.hu, johunt@akamai.com,
-	daviem@davemloft.net, netfilter-devel@vger.kernel.org,
+	davem@davemloft.net, netfilter-devel@vger.kernel.org,
 	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
 	netdev@vger.kernel.org, pai.vishwain@gmail.com,
 	ilubashe@akamai.com, jdollard@akamai.com
 To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:60343 "EHLO
-	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752128AbcFUS6s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 14:58:48 -0400
+Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:46731 "EHLO
+	prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751336AbcFUTCS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 15:02:18 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 netfilter/nflog: nflog-range does not truncate packets
 
-li->u.ulog.copy_len is currently ignored by the kernel, we should truncate
-the packet to either li->u.ulog.copy_len (if set) or copy_range before
-sending it to userspace. 0 is a valid input for copy_len, so add a new
-flag to indicate whether this was option was specified by the user or not.
+The option --nflog-range has never worked, but we cannot just fix this
+because users might be using this feature option and their behavior would
+change. Instead add a new option --nflog-size. This option works the same
+way nflog-range should have, and both of them are mutually exclusive. When
+someone uses --nflog-range we print a warning message informing them that
+this feature has no effect.
 
-Add two flags to indicate whether nflog-size/copy_len was set or not.
-XT_NFLOG_F_COPY_LEN is for XT_NFLOG and NFLOG_F_COPY_LEN for nfnetlink_log
+To indicate the kernel that the user has set --nflog-size we have to pass a
+new flag XT_NFLOG_F_COPY_LEN.
 
-On the userspace side, this was initially represented by the option
-nflog-range, this will be replaced by --nflog-size now. --nflog-range would
-still exist but does not do anything.
+Also updated the man page to reflect this.
 
 Reported-by: Joe Dollard <jdollard@akamai.com>
 Reviewed-by: Josh Hunt <johunt@akamai.com>
 Signed-off-by: Vishwanath Pai <vpai@akamai.com>
 
-diff --git a/include/net/netfilter/nf_log.h b/include/net/netfilter/nf_log.h
-index 57639fc..83d855b 100644
---- a/include/net/netfilter/nf_log.h
-+++ b/include/net/netfilter/nf_log.h
-@@ -12,6 +12,9 @@
- #define NF_LOG_UID		0x08	/* Log UID owning local socket */
- #define NF_LOG_MASK		0x0f
+diff --git a/extensions/libxt_NFLOG.c b/extensions/libxt_NFLOG.c
+index f611631..8c564a2 100644
+--- a/extensions/libxt_NFLOG.c
++++ b/extensions/libxt_NFLOG.c
+@@ -12,7 +12,10 @@ enum {
+ 	O_GROUP = 0,
+ 	O_PREFIX,
+ 	O_RANGE,
++	O_SIZE,
+ 	O_THRESHOLD,
++	F_RANGE = 1 << O_RANGE,
++	F_SIZE = 1 << O_SIZE,
+ };
  
-+/* This flag indicates that copy_len field in nf_loginfo is set */
-+#define NF_LOG_F_COPY_LEN	0x1
+ #define s struct xt_nflog_info
+@@ -22,7 +25,9 @@ static const struct xt_option_entry NFLOG_opts[] = {
+ 	{.name = "nflog-prefix", .id = O_PREFIX, .type = XTTYPE_STRING,
+ 	 .min = 1, .flags = XTOPT_PUT, XTOPT_POINTER(s, prefix)},
+ 	{.name = "nflog-range", .id = O_RANGE, .type = XTTYPE_UINT32,
+-	 .flags = XTOPT_PUT, XTOPT_POINTER(s, len)},
++	 .excl = F_SIZE, .flags = XTOPT_PUT, XTOPT_POINTER(s, len)},
++	{.name = "nflog-size", .id = O_SIZE, .type = XTTYPE_UINT32,
++	 .excl = F_RANGE, .flags = XTOPT_PUT, XTOPT_POINTER(s, len)},
+ 	{.name = "nflog-threshold", .id = O_THRESHOLD, .type = XTTYPE_UINT16,
+ 	 .flags = XTOPT_PUT, XTOPT_POINTER(s, threshold)},
+ 	XTOPT_TABLEEND,
+@@ -33,7 +38,8 @@ static void NFLOG_help(void)
+ {
+ 	printf("NFLOG target options:\n"
+ 	       " --nflog-group NUM		NETLINK group used for logging\n"
+-	       " --nflog-range NUM		Number of byte to copy\n"
++	       " --nflog-range NUM		This option has no effect, use --nflog-size\n"
++	       " --nflog-size NUM		Number of bytes to copy\n"
+ 	       " --nflog-threshold NUM		Message threshold of in-kernel queue\n"
+ 	       " --nflog-prefix STRING		Prefix string for log messages\n");
+ }
+@@ -57,6 +63,18 @@ static void NFLOG_parse(struct xt_option_call *cb)
+ 	}
+ }
+ 
++static void NFLOG_check(struct xt_fcheck_call *cb)
++{
++	struct xt_nflog_info *info = cb->data;
 +
- enum nf_log_type {
- 	NF_LOG_TYPE_LOG		= 0,
- 	NF_LOG_TYPE_ULOG,
-@@ -22,9 +25,13 @@ struct nf_loginfo {
- 	u_int8_t type;
- 	union {
- 		struct {
-+			/* copy_len will be used iff you set
-+			 * NF_LOG_F_COPY_LEN in flags
-+			 */
- 			u_int32_t copy_len;
- 			u_int16_t group;
- 			u_int16_t qthreshold;
-+			u_int16_t flags;
- 		} ulog;
- 		struct {
- 			u_int8_t level;
-diff --git a/include/uapi/linux/netfilter/xt_NFLOG.h b/include/uapi/linux/netfilter/xt_NFLOG.h
++	if (cb->xflags & F_RANGE)
++		fprintf(stderr, "warn: --nflog-range has never worked and is no"
++			" longer supported, please use --nflog-size insted\n");
++
++	if (cb->xflags & F_SIZE)
++		info->flags |= XT_NFLOG_F_COPY_LEN;
++}
++
+ static void nflog_print(const struct xt_nflog_info *info, char *prefix)
+ {
+ 	if (info->prefix[0] != '\0') {
+@@ -65,7 +83,9 @@ static void nflog_print(const struct xt_nflog_info *info, char *prefix)
+ 	}
+ 	if (info->group)
+ 		printf(" %snflog-group %u", prefix, info->group);
+-	if (info->len)
++	if (info->len && info->flags & XT_NFLOG_F_COPY_LEN)
++		printf(" %snflog-size %u", prefix, info->len);
++	else if (info->len)
+ 		printf(" %snflog-range %u", prefix, info->len);
+ 	if (info->threshold != XT_NFLOG_DEFAULT_THRESHOLD)
+ 		printf(" %snflog-threshold %u", prefix, info->threshold);
+@@ -117,6 +137,7 @@ static struct xtables_target nflog_target = {
+ 	.userspacesize	= XT_ALIGN(sizeof(struct xt_nflog_info)),
+ 	.help		= NFLOG_help,
+ 	.init		= NFLOG_init,
++	.x6_fcheck	= NFLOG_check,
+ 	.x6_parse	= NFLOG_parse,
+ 	.print		= NFLOG_print,
+ 	.save		= NFLOG_save,
+diff --git a/extensions/libxt_NFLOG.man b/extensions/libxt_NFLOG.man
+index 1b6dbf1..318e630 100644
+--- a/extensions/libxt_NFLOG.man
++++ b/extensions/libxt_NFLOG.man
+@@ -17,6 +17,9 @@ A prefix string to include in the log message, up to 64 characters
+ long, useful for distinguishing messages in the logs.
+ .TP
+ \fB\-\-nflog\-range\fP \fIsize\fP
++This option has never worked, use --nflog-size instead
++.TP
++\fB\-\-nflog\-size\fP \fIsize\fP
+ The number of bytes to be copied to userspace (only applicable for
+ nfnetlink_log). nfnetlink_log instances may specify their own
+ range, this option overrides it.
+diff --git a/include/linux/netfilter/xt_NFLOG.h b/include/linux/netfilter/xt_NFLOG.h
 index 87b5831..f330707 100644
---- a/include/uapi/linux/netfilter/xt_NFLOG.h
-+++ b/include/uapi/linux/netfilter/xt_NFLOG.h
+--- a/include/linux/netfilter/xt_NFLOG.h
++++ b/include/linux/netfilter/xt_NFLOG.h
 @@ -6,9 +6,13 @@
  #define XT_NFLOG_DEFAULT_GROUP		0x1
  #define XT_NFLOG_DEFAULT_THRESHOLD	0
@@ -84,38 +145,3 @@ index 87b5831..f330707 100644
  	__u32	len;
  	__u16	group;
  	__u16	threshold;
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 11f81c8..cbcfdfb 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -700,10 +700,13 @@ nfulnl_log_packet(struct net *net,
- 		break;
- 
- 	case NFULNL_COPY_PACKET:
--		if (inst->copy_range > skb->len)
-+		data_len = inst->copy_range;
-+		if ((li->u.ulog.flags & NF_LOG_F_COPY_LEN) &&
-+		    (li->u.ulog.copy_len < data_len))
-+			data_len = li->u.ulog.copy_len;
-+
-+		if (data_len > skb->len)
- 			data_len = skb->len;
--		else
--			data_len = inst->copy_range;
- 
- 		size += nla_total_size(data_len);
- 		break;
-diff --git a/net/netfilter/xt_NFLOG.c b/net/netfilter/xt_NFLOG.c
-index a1fa2c8..018eed7 100644
---- a/net/netfilter/xt_NFLOG.c
-+++ b/net/netfilter/xt_NFLOG.c
-@@ -33,6 +33,9 @@ nflog_tg(struct sk_buff *skb, const struct xt_action_param *par)
- 	li.u.ulog.group	     = info->group;
- 	li.u.ulog.qthreshold = info->threshold;
- 
-+	if (info->flags & XT_NFLOG_F_COPY_LEN)
-+		li.u.ulog.flags |= NF_LOG_F_COPY_LEN;
-+
- 	nfulnl_log_packet(net, par->family, par->hooknum, skb, par->in,
- 			  par->out, &li, info->prefix);
- 	return XT_CONTINUE;
