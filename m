@@ -1,46 +1,60 @@
-From: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
-Subject: Re: [PATCH v4 00/19] CALIPSO Implementation
-Date: Tue, 21 Jun 2016 10:55:48 +0100
-Message-ID: <20160621095548.GA19213@merlot.physics.ox.ac.uk>
-References: <1466429819-12707-1-git-send-email-huw@codeweavers.com>
- <20160621.053928.1340819307282355897.davem@davemloft.net>
+From: Netanel Belgazal <netanel@annapurnalabs.com>
+Subject: Re: [PATCH net-next] net: ena: Add a driver for Amazon Elastic
+ Network Adapters (ENA)
+Date: Tue, 21 Jun 2016 13:02:24 +0300
+Message-ID: <0ab8380b-e9f1-7137-586c-9a4ab7f39da1@annapurnalabs.com>
+References: <1465807573-11293-1-git-send-email-netanel@annapurnalabs.com>
+ <20160617211118.GA14822@electric-eye.fr.zoreil.com>
+ <ff2fbee5-46c1-15a8-d283-4320e122934a@annapurnalabs.com>
+ <20160620224316.GA11834@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-security-module-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-        selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <20160621.053928.1340819307282355897.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-List-Post: <mailto:selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-List-Help: <mailto:selinux-request-+05T5uksL2qpZYMLLGbcSA@public.gmane.org?subject=help>
-Errors-To: selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
-Sender: "Selinux" <selinux-bounces-+05T5uksL2qpZYMLLGbcSA@public.gmane.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org, zorik@annapurnalabs.com,
+	saeed@annapurnalabs.com, alex@annapurnalabs.com, msw@amazon.com,
+	aligouri@amazon.com, antoine.tenart@free-electrons.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lb0-f182.google.com ([209.85.217.182]:36186 "EHLO
+	mail-lb0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751590AbcFUKC3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 06:02:29 -0400
+Received: by mail-lb0-f182.google.com with SMTP id ak10so7284560lbc.3
+        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 03:02:28 -0700 (PDT)
+In-Reply-To: <20160620224316.GA11834@electric-eye.fr.zoreil.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 21, 2016 at 05:39:28AM -0400, David Miller wrote:
-> From: Huw Davies <huw-PJ7GQ4yptbsswetKESUqMA@public.gmane.org>
-> Date: Mon, 20 Jun 2016 14:36:40 +0100
-> 
-> > This patch series implements RFC 5570 - Common Architecture Label IPv6
-> > Security Option (CALIPSO).  Its goal is to set MLS sensitivity labels
-> > on IPv6 packets using a hop-by-hop option.  CALIPSO is very similar to
-> > its IPv4 cousin CIPSO and much of this series is based on that code.
-> 
-> What tree do you expect to integrate this?
 
-My understanding is that Paul Moore is happy to take them
-in via the SELinux tree.  However, these patches do touch
-some core networking code, such as the IPv6 option handling
-code (in a similar manner to the way CIPSO touched the IPv4
-option code), so if you have any comments on those aspects
-that would be good to hear.
 
-Thanks,
-Huw.
-_______________________________________________
-Selinux mailing list
-Selinux-+05T5uksL2qpZYMLLGbcSA@public.gmane.org
-To unsubscribe, send email to Selinux-leave-+05T5uksL2pAGbPMOrvdOA@public.gmane.org
-To get help, send an email containing "help" to Selinux-request-+05T5uksL2pAGbPMOrvdOA@public.gmane.org
+On 06/21/2016 01:43 AM, Francois Romieu wrote:
+> Netanel Belgazal <netanel@annapurnalabs.com> :
+> [...]
+>>> diff --git a/drivers/net/ethernet/amazon/ena/ena_com.h b/drivers/net/ethernet/amazon/ena/ena_com.h
+>>> new file mode 100644
+>>> index 0000000..e49ba43
+>>> --- /dev/null
+>>> [...]
+>>> +static inline void ena_com_update_intr_reg(struct ena_eth_io_intr_reg *intr_reg,
+>>> +					   u32 rx_delay_interval,
+>>> +					   u32 tx_delay_interval,
+>>> +					   bool unmask)
+>>> +{
+>>> +	intr_reg->intr_control = 0;
+>>> +	intr_reg->intr_control |= rx_delay_interval &
+>>> +		ENA_ETH_IO_INTR_REG_RX_INTR_DELAY_MASK;
+>>> +
+>>> +	intr_reg->intr_control |=
+>>> +		(tx_delay_interval << ENA_ETH_IO_INTR_REG_TX_INTR_DELAY_SHIFT)
+>>> +		& ENA_ETH_IO_INTR_REG_RX_INTR_DELAY_MASK;
+>>>                                       ^^ TX ?
+>>>
+>>> Extra: you should not return NETDEV_TX_BUSY in the xmit handler while
+>>> queueing is still enabled. Please drop packet and return NETDEV_TX_OK.
+>> Ack.
+>>
+>> Thanks for your review.
+> Ack/nack regarding use of ..._RX_INTR_DELAY_MASK with ..._TX_INTR_DELAY_SHIFT ?
+You are right, it should have been TX_INTR_DELAY_SHIFT.
+I'll fix that.
