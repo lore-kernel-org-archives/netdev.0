@@ -1,82 +1,55 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net-next 00/19] net: hns: fix some bugs in hns driver
-Date: Tue, 21 Jun 2016 11:56:20 +0800
-Message-ID: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net-next 06/19] net: hns: fix the error info when
+ dma_set_mask_and_coherent fail
+Date: Tue, 21 Jun 2016 11:56:26 +0800
+Message-ID: <1466481399-70080-7-git-send-email-Yisen.Zhuang@huawei.com>
+References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
-	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
-	<geliangtang@163.com>, <ivecera@redhat.com>,
-	<fengguang.wu@intel.com>, <charles.chenxin@huawei.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
-	<salil.mehta@huawei.com>, <yankejian@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:42932 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754034AbcFUDiX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 20 Jun 2016 23:38:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ivecera@redhat.com, andrew@lunn.ch, fengguang.wu@intel.com,
+ liguozhu@huawei.com, arnd@arndb.de, charles.chenxin@huawei.com,
+ linux-kernel@vger.kernel.org, linuxarm@huawei.com, geliangtang@163.com,
+ huangdaode@hisilicon.com, netdev@vger.kernel.org,
+ andriy.shevchenko@linux.intel.com, linux-arm-kernel@lists.infradead.org
+To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
+ <yankejian@huawei.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-This series includes some bugs fixed. All these patches needs to be
-applied after the patchset about ACPI support, so this series is 
-floated to net-next list.
+From: Qianqian Xie <xieqianqian@huawei.com>
 
-The patches are:
- > from Daode, fixes about pfc pause frame, getting coaslesce, led 
-control logic, TSO on|off and tcam table configuration.
+The error info should be printed as "set mask to 64bit fail!" instead of
+"set mask to 32bit fail!" in dma_set_mask_and_coherent().
 
- > from Jun He, fix the potential leak to port unavailable
+Signed-off-by: Qianqian Xie <xieqianqian@huawei.com>
+Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
- > from Kejian, fix bug of loopback and failing to test ping6
-
- > from Qianqian, fix the several typo in hns driver
-
-For more details, please see individual patches.
-
-MBR.
-
-Daode Huang (9):
-  net: hns: bugfix about pfc pause frame statistics
-  net: hns: add spin lock for tcam table operation
-  net: hns: fix bug of getting the wrong tcam data
-  net: hns: add get_coalesce_range api for hns
-  net: hns: delete redundancy ring enable operations
-  net: hns: bug fix about led control logic when link down
-  net: hns: fix sbm default parameters config error
-  net: hns: change the default coalesce usecs
-  net: hns: bug fix about TSO on|off when there is traffic
-
-Jun He (1):
-  net: hns: fix bug that alloc skb fail lead to port unavailable
-
-Kejian Yan (3):
-  net: hns: add skb_reset_mac_header() after skb being alloc
-  net: hns: select Hilink before serdes loopback for HNS V2
-  net: hns: fix ethtool loopback fail bug
-
-Qianqian Xie (6):
-  net: hns: bug fix of ge reset sequence
-  net: hns: fix hns dsaf v1 dont support tx_pause close
-  net: hns: typo fix of annotation info for hns_nic_reset_subtask()
-  net: hns: Remove unnecessary device resource free
-  net: hns: fix the error info when dma_set_mask_and_coherent fail
-  net: hns: fix the wrong speed for bond
-
- drivers/net/ethernet/hisilicon/hns/hnae.c          |   1 -
- drivers/net/ethernet/hisilicon/hns/hnae.h          |   6 +-
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |  53 ++++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 190 ++++++++++++++-------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |  12 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |  44 +++--
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.c  |   2 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_rcb.h  |   2 +-
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |  21 ++-
- drivers/net/ethernet/hisilicon/hns/hns_enet.c      |  68 ++++----
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   |  47 ++---
- 11 files changed, 291 insertions(+), 155 deletions(-)
-
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index b978db4..00e529f 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -1972,7 +1972,7 @@ static int hns_nic_dev_probe(struct platform_device *pdev)
+ 	if (!dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64)))
+ 		dev_dbg(dev, "set mask to 64bit\n");
+ 	else
+-		dev_err(dev, "set mask to 32bit fail!\n");
++		dev_err(dev, "set mask to 64bit fail!\n");
+ 
+ 	/* carrier off reporting is important to ethtool even BEFORE open */
+ 	netif_carrier_off(ndev);
 -- 
 1.9.1
