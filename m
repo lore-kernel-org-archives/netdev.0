@@ -1,32 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 00/23] mlxsw: Preparation for IPv4 router
-Date: Tue, 21 Jun 2016 05:03:27 -0400 (EDT)
-Message-ID: <20160621.050327.318949467448519910.davem@davemloft.net>
-References: <1466456661-5260-1-git-send-email-jiri@resnulli.us>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH 3/3] mac80211: mesh: Add support for HW RC implementation
+Date: Tue, 21 Jun 2016 11:18:19 +0200
+Message-ID: <1466500699.3170.7.camel@sipsolutions.net>
+References: <1466427622-5953-1-git-send-email-maxim.altshul@ti.com>
+ <1466427622-5953-2-git-send-email-maxim.altshul@ti.com>
+ <1466427622-5953-3-git-send-email-maxim.altshul@ti.com>
+	 <1466427622-5953-4-git-send-email-maxim.altshul@ti.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:34863 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751002AbcFUJO6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 05:14:58 -0400
-In-Reply-To: <1466456661-5260-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eliad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org, yanivma-l0cyMroinI0@public.gmane.org, guym-l0cyMroinI0@public.gmane.org, arik-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+To: Maxim Altshul <maxim.altshul-l0cyMroinI0@public.gmane.org>, kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1466427622-5953-4-git-send-email-maxim.altshul-l0cyMroinI0@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 20 Jun 2016 23:03:58 +0200
+> -	if (sta->mesh->fail_avg >=3D 100)
+> -		return MAX_METRIC;
+> +	/* try to get rate based on HW RC algorithm */
+> +	rate =3D drv_get_expected_throughput(local, &sta->sta);
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Ido says:
-> 
-> This series prepares the driver for IPv4 router support. The router follow-up
-> patches are available at: https://github.com/jpirko/linux_mlxsw/tree/net-next_queue
- ...
+This doesn't look correct, since you should use the rate control op if
+available, to get data from rate control algorithms.
 
-Looks good, series applied, thanks.
+You should call=C2=A0sta_set_sinfo(), but that's far too much, so more
+likely you should factor out the last few lines of that into a new
+function and call that new function in both places.
+
+johannes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
