@@ -1,262 +1,157 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2 3/7] Replace malloc && memset by calloc
-Date: Tue, 21 Jun 2016 18:18:37 +0200
-Message-ID: <1466525921-15738-4-git-send-email-phil@nwl.cc>
-References: <1466525921-15738-1-git-send-email-phil@nwl.cc>
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Julien Floret <julien.floret@6wind.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:54097 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752076AbcFUQ1j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 21 Jun 2016 12:27:39 -0400
-In-Reply-To: <1466525921-15738-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 1/2] net: dsa: mv88e6xxx: move driver in its own folder
+Date: Tue, 21 Jun 2016 12:28:19 -0400
+Message-ID: <20160621162820.11603-1-vivien.didelot@savoirfairelinux.com>
+Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
+	"David S. Miller" <davem@davemloft.net>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Guenter Roeck <linux@roeck-us.net>
+To: netdev@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This only replaces occurrences where the newly allocated memory is
-cleared completely afterwards, as in other cases it is a theoretical
-performance hit although code would be cleaner this way.
+With the upcoming support for cross-chip operations and other mv88e6xxx
+enhancements, new files will be added.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
+Similarly to mlxsw or b53, move mv88e6xxx files into their own folder.
+
+In the meantime, update the MAINTAINERS entry to please checkpatch.pl,
+by replacing the invalid 88E6352 entry with 88E6XXX, maintained by
+Andrew and myself.
+
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- genl/genl.c        |  3 +--
- lib/names.c        |  7 ++-----
- misc/lnstat.c      |  6 ++----
- misc/lnstat_util.c |  4 +---
- tc/em_canid.c      |  3 +--
- tc/m_action.c      |  3 +--
- tc/m_ipt.c         | 13 ++++---------
- tc/m_pedit.c       |  3 +--
- tc/tc.c            |  9 +++------
- tc/tc_bpf.c        |  4 +---
- tc/tc_class.c      |  3 +--
- tc/tc_exec.c       |  3 +--
- 12 files changed, 19 insertions(+), 42 deletions(-)
+ MAINTAINERS                                 | 11 ++++++-----
+ drivers/net/dsa/Kconfig                     | 10 ++--------
+ drivers/net/dsa/Makefile                    |  2 +-
+ drivers/net/dsa/mv88e6xxx/Kconfig           |  7 +++++++
+ drivers/net/dsa/mv88e6xxx/Makefile          |  1 +
+ drivers/net/dsa/{ => mv88e6xxx}/mv88e6xxx.c |  3 ++-
+ drivers/net/dsa/{ => mv88e6xxx}/mv88e6xxx.h |  3 ++-
+ 7 files changed, 21 insertions(+), 16 deletions(-)
+ create mode 100644 drivers/net/dsa/mv88e6xxx/Kconfig
+ create mode 100644 drivers/net/dsa/mv88e6xxx/Makefile
+ rename drivers/net/dsa/{ => mv88e6xxx}/mv88e6xxx.c (99%)
+ rename drivers/net/dsa/{ => mv88e6xxx}/mv88e6xxx.h (99%)
 
-diff --git a/genl/genl.c b/genl/genl.c
-index e33fafdf2f524..747074b029a7b 100644
---- a/genl/genl.c
-+++ b/genl/genl.c
-@@ -86,9 +86,8 @@ reg:
- 	return f;
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 50f69ba7..2b27168 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -7172,6 +7172,12 @@ W:	http://www.kernel.org/doc/man-pages
+ L:	linux-man@vger.kernel.org
+ S:	Maintained
  
- noexist:
--	f = malloc(sizeof(*f));
-+	f = calloc(1, sizeof(*f));
- 	if (f) {
--		memset(f, 0, sizeof(*f));
- 		strncpy(f->name, str, 15);
- 		f->parse_genlopt = parse_nofopt;
- 		f->print_genlopt = print_nofopt;
-diff --git a/lib/names.c b/lib/names.c
-index 3b5b0b1e1201a..fbd6503f22d42 100644
---- a/lib/names.c
-+++ b/lib/names.c
-@@ -54,15 +54,12 @@ struct db_names *db_names_alloc(void)
- {
- 	struct db_names *db;
++MARVELL 88E6XXX ETHERNET SWITCH FABRIC DRIVER
++M:	Andrew Lunn <andrew@lunn.ch>
++M:	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
++S:	Maintained
++F:	drivers/net/dsa/mv88e6xxx/
++
+ MARVELL ARMADA DRM SUPPORT
+ M:	Russell King <rmk+kernel@armlinux.org.uk>
+ S:	Maintained
+@@ -7179,11 +7185,6 @@ F:	drivers/gpu/drm/armada/
+ F:	include/uapi/drm/armada_drm.h
+ F:	Documentation/devicetree/bindings/display/armada/
  
--	db = malloc(sizeof(*db));
-+	db = calloc(1, sizeof(*db));
- 	if (!db)
- 		return NULL;
- 
--	memset(db, 0, sizeof(*db));
+-MARVELL 88E6352 DSA support
+-M:	Guenter Roeck <linux@roeck-us.net>
+-S:	Maintained
+-F:	drivers/net/dsa/mv88e6352.c
 -
- 	db->size = MAX_ENTRIES;
--	db->hash = malloc(sizeof(struct db_entry *) * db->size);
--	memset(db->hash, 0, sizeof(struct db_entry *) * db->size);
-+	db->hash = calloc(db->size, sizeof(struct db_entry *));
+ MARVELL CRYPTO DRIVER
+ M:	Boris Brezillon <boris.brezillon@free-electrons.com>
+ M:	Arnaud Ebalard <arno@natisbad.org>
+diff --git a/drivers/net/dsa/Kconfig b/drivers/net/dsa/Kconfig
+index be481e1..8f45443 100644
+--- a/drivers/net/dsa/Kconfig
++++ b/drivers/net/dsa/Kconfig
+@@ -9,14 +9,6 @@ config NET_DSA_MV88E6060
+ 	  This enables support for the Marvell 88E6060 ethernet switch
+ 	  chip.
  
- 	return db;
- }
-diff --git a/misc/lnstat.c b/misc/lnstat.c
-index 659a01bd69931..863fd4d9f03f2 100644
---- a/misc/lnstat.c
-+++ b/misc/lnstat.c
-@@ -182,10 +182,8 @@ static struct table_hdr *build_hdr_string(struct lnstat_file *lnstat_files,
- 	static struct table_hdr th;
- 	int ofs = 0;
- 
--	for (i = 0; i < HDR_LINES; i++) {
--		th.hdr[i] = malloc(HDR_LINE_LENGTH);
--		memset(th.hdr[i], 0, HDR_LINE_LENGTH);
--	}
-+	for (i = 0; i < HDR_LINES; i++)
-+		th.hdr[i] = calloc(1, HDR_LINE_LENGTH);
- 
- 	for (i = 0; i < fps->num; i++) {
- 		char *cname, *fname = fps->params[i].lf->name;
-diff --git a/misc/lnstat_util.c b/misc/lnstat_util.c
-index d918151282f55..cc54598fe1bef 100644
---- a/misc/lnstat_util.c
-+++ b/misc/lnstat_util.c
-@@ -173,15 +173,13 @@ static struct lnstat_file *alloc_and_open(const char *path, const char *file)
- 	struct lnstat_file *lf;
- 
- 	/* allocate */
--	lf = malloc(sizeof(*lf));
-+	lf = calloc(1, sizeof(*lf));
- 	if (!lf) {
- 		fprintf(stderr, "out of memory\n");
- 		return NULL;
- 	}
- 
- 	/* initialize */
--	memset(lf, 0, sizeof(*lf));
+-config NET_DSA_MV88E6XXX
+-	tristate "Marvell 88E6xxx Ethernet switch chip support"
+-	depends on NET_DSA
+-	select NET_DSA_TAG_EDSA
+-	---help---
+-	  This enables support for most of the Marvell 88E6xxx models of
+-	  Ethernet switch chips, except 88E6060.
 -
- 	/* de->d_name is guaranteed to be <= NAME_MAX */
- 	strcpy(lf->basename, file);
- 	strcpy(lf->path, path);
-diff --git a/tc/em_canid.c b/tc/em_canid.c
-index 16f6ed5c0b7a4..11e7c515b2aac 100644
---- a/tc/em_canid.c
-+++ b/tc/em_canid.c
-@@ -106,8 +106,7 @@ static int canid_parse_eopt(struct nlmsghdr *n, struct tcf_ematch_hdr *hdr,
- 	if (args == NULL)
- 		return PARSE_ERR(args, "canid: missing arguments");
+ config NET_DSA_BCM_SF2
+ 	tristate "Broadcom Starfighter 2 Ethernet switch support"
+ 	depends on HAS_IOMEM && NET_DSA
+@@ -30,4 +22,6 @@ config NET_DSA_BCM_SF2
  
--	rules.rules_raw = malloc(sizeof(struct can_filter) * rules.rules_capacity);
--	memset(rules.rules_raw, 0, sizeof(struct can_filter) * rules.rules_capacity);
-+	rules.rules_raw = calloc(rules.rules_capacity, sizeof(struct can_filter));
+ source "drivers/net/dsa/b53/Kconfig"
  
- 	do {
- 		if (!bstrcmp(args, "sff")) {
-diff --git a/tc/m_action.c b/tc/m_action.c
-index ce399d2e43ccc..2cc671f3a7e08 100644
---- a/tc/m_action.c
-+++ b/tc/m_action.c
-@@ -126,9 +126,8 @@ noexist:
- 		goto restart_s;
- 	}
- #endif
--	a = malloc(sizeof(*a));
-+	a = calloc(1, sizeof(*a));
- 	if (a) {
--		memset(a, 0, sizeof(*a));
- 		strncpy(a->id, "noact", 15);
- 		a->parse_aopt = parse_noaopt;
- 		a->print_aopt = print_noaopt;
-diff --git a/tc/m_ipt.c b/tc/m_ipt.c
-index 098f610f9439a..d6f62bd6b32c9 100644
---- a/tc/m_ipt.c
-+++ b/tc/m_ipt.c
-@@ -164,16 +164,11 @@ get_target_name(const char *name)
- 	return NULL;
- #endif
++source "drivers/net/dsa/mv88e6xxx/Kconfig"
++
+ endmenu
+diff --git a/drivers/net/dsa/Makefile b/drivers/net/dsa/Makefile
+index 97bc70a..ca1e71b 100644
+--- a/drivers/net/dsa/Makefile
++++ b/drivers/net/dsa/Makefile
+@@ -1,5 +1,5 @@
+ obj-$(CONFIG_NET_DSA_MV88E6060) += mv88e6060.o
+-obj-$(CONFIG_NET_DSA_MV88E6XXX) += mv88e6xxx.o
+ obj-$(CONFIG_NET_DSA_BCM_SF2)	+= bcm_sf2.o
  
--	new_name = malloc(strlen(name) + 1);
--	lname = malloc(strlen(name) + 1);
--	if (new_name)
--		memset(new_name, '\0', strlen(name) + 1);
--	else
-+	new_name = calloc(1, strlen(name) + 1);
-+	lname = calloc(1, strlen(name) + 1);
-+	if (!new_name)
- 		exit_error(PARAMETER_PROBLEM, "get_target_name");
--
--	if (lname)
--		memset(lname, '\0', strlen(name) + 1);
--	else
-+	if (!lname)
- 		exit_error(PARAMETER_PROBLEM, "get_target_name");
- 
- 	strcpy(new_name, name);
-diff --git a/tc/m_pedit.c b/tc/m_pedit.c
-index c8f6d7c8e5ad7..3ae2e37b9c025 100644
---- a/tc/m_pedit.c
-+++ b/tc/m_pedit.c
-@@ -107,9 +107,8 @@ reg:
- 	return p;
- 
- noexist:
--	p = malloc(sizeof(*p));
-+	p = calloc(1, sizeof(*p));
- 	if (p) {
--		memset(p, 0, sizeof(*p));
- 		strncpy(p->id, str, sizeof(p->id) - 1);
- 		p->parse_peopt = pedit_parse_nopopt;
- 		goto reg;
-diff --git a/tc/tc.c b/tc/tc.c
-index d0ddb939d4737..8e64a82b4271c 100644
---- a/tc/tc.c
-+++ b/tc/tc.c
-@@ -133,11 +133,9 @@ reg:
- 	return q;
- 
- noexist:
--	q = malloc(sizeof(*q));
-+	q = calloc(1, sizeof(*q));
- 	if (q) {
--
--		memset(q, 0, sizeof(*q));
--		q->id = strcpy(malloc(strlen(str)+1), str);
-+		q->id = strdup(str);
- 		q->parse_qopt = parse_noqopt;
- 		q->print_qopt = print_noqopt;
- 		goto reg;
-@@ -177,9 +175,8 @@ reg:
- 	filter_list = q;
- 	return q;
- noexist:
--	q = malloc(sizeof(*q));
-+	q = calloc(1, sizeof(*q));
- 	if (q) {
--		memset(q, 0, sizeof(*q));
- 		strncpy(q->id, str, 15);
- 		q->parse_fopt = parse_nofopt;
- 		q->print_fopt = print_nofopt;
-diff --git a/tc/tc_bpf.c b/tc/tc_bpf.c
-index 172adb2fed372..d35550b05fc9c 100644
---- a/tc/tc_bpf.c
-+++ b/tc/tc_bpf.c
-@@ -109,12 +109,10 @@ static int bpf_parse_string(char *arg, bool from_file, __u16 *bpf_len,
- 		FILE *fp;
- 
- 		tmp_len = sizeof("4096,") + BPF_MAXINSNS * op_len;
--		tmp_string = malloc(tmp_len);
-+		tmp_string = calloc(1, tmp_len);
- 		if (tmp_string == NULL)
- 			return -ENOMEM;
- 
--		memset(tmp_string, 0, tmp_len);
--
- 		fp = fopen(arg, "r");
- 		if (fp == NULL) {
- 			perror("Cannot fopen");
-diff --git a/tc/tc_class.c b/tc/tc_class.c
-index fb932b4e3782e..523fafb35dd44 100644
---- a/tc/tc_class.c
-+++ b/tc/tc_class.c
-@@ -165,9 +165,8 @@ __u32 filter_classid;
- static void graph_node_add(__u32 parent_id, __u32 id, void *data,
- 		int len)
- {
--	struct graph_node *node = malloc(sizeof(struct graph_node));
-+	struct graph_node *node = calloc(1, sizeof(struct graph_node));
- 
--	memset(node, 0, sizeof(*node));
- 	node->id         = id;
- 	node->parent_id  = parent_id;
- 
-diff --git a/tc/tc_exec.c b/tc/tc_exec.c
-index 3e5fd392f5916..8079fc35a0047 100644
---- a/tc/tc_exec.c
-+++ b/tc/tc_exec.c
-@@ -71,9 +71,8 @@ reg:
- 
- 	return eu;
- noexist:
--	eu = malloc(sizeof(*eu));
-+	eu = calloc(1, sizeof(*eu));
- 	if (eu) {
--		memset(eu, 0, sizeof(*eu));
- 		strncpy(eu->id, name, sizeof(eu->id) - 1);
- 		eu->parse_eopt = parse_noeopt;
- 		goto reg;
+ obj-y				+= b53/
++obj-y				+= mv88e6xxx/
+diff --git a/drivers/net/dsa/mv88e6xxx/Kconfig b/drivers/net/dsa/mv88e6xxx/Kconfig
+new file mode 100644
+index 0000000..490bc06
+--- /dev/null
++++ b/drivers/net/dsa/mv88e6xxx/Kconfig
+@@ -0,0 +1,7 @@
++config NET_DSA_MV88E6XXX
++	tristate "Marvell 88E6xxx Ethernet switch fabric support"
++	depends on NET_DSA
++	select NET_DSA_TAG_EDSA
++	help
++	  This driver adds support for most of the Marvell 88E6xxx models of
++	  Ethernet switch chips, except 88E6060.
+diff --git a/drivers/net/dsa/mv88e6xxx/Makefile b/drivers/net/dsa/mv88e6xxx/Makefile
+new file mode 100644
+index 0000000..1128fc7
+--- /dev/null
++++ b/drivers/net/dsa/mv88e6xxx/Makefile
+@@ -0,0 +1 @@
++obj-$(CONFIG_NET_DSA_MV88E6XXX) += mv88e6xxx.o
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.c
+similarity index 99%
+rename from drivers/net/dsa/mv88e6xxx.c
+rename to drivers/net/dsa/mv88e6xxx/mv88e6xxx.c
+index 9b116d8..2073f7b 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.c
+@@ -1,5 +1,6 @@
+ /*
+- * net/dsa/mv88e6xxx.c - Marvell 88e6xxx switch chip support
++ * Marvell 88e6xxx Ethernet switch single-chip support
++ *
+  * Copyright (c) 2008 Marvell Semiconductor
+  *
+  * Copyright (c) 2015 CMC Electronics, Inc.
+diff --git a/drivers/net/dsa/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+similarity index 99%
+rename from drivers/net/dsa/mv88e6xxx.h
+rename to drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index a94acd8..856c6e5 100644
+--- a/drivers/net/dsa/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -1,5 +1,6 @@
+ /*
+- * net/dsa/mv88e6xxx.h - Marvell 88e6xxx switch chip support
++ * Marvell 88e6xxx common definitions
++ *
+  * Copyright (c) 2008 Marvell Semiconductor
+  *
+  * This program is free software; you can redistribute it and/or modify
 -- 
-2.8.2
+2.9.0
