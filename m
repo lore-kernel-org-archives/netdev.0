@@ -1,190 +1,120 @@
-From: Xing Zheng <zhengxing@rock-chips.com>
-Subject: [PATCH v2] net: stmmac: dwmac-rk: add rk3228-specific data
-Date: Tue, 21 Jun 2016 20:33:28 +0800
-Message-ID: <1466512409-18855-1-git-send-email-zhengxing@rock-chips.com>
-Cc: linux-rockchip@lists.infradead.org, roger.chen@rock-chips.com,
-	Xing Zheng <zhengxing@rock-chips.com>,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>,
-	Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Alexandre Torgue <alexandre.torgue@st.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	devicetree@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: heiko@sntech.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from regular1.263xmail.com ([211.150.99.134]:43637 "EHLO
-	regular1.263xmail.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750907AbcFUMdw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 08:33:52 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Wei Hu (Xavier)" <xavier.huwei@huawei.com>
+Subject: Re: [PATCH v10 06/22] IB/hns: Add initial cmd operation
+Date: Tue, 21 Jun 2016 21:01:57 +0800
+Message-ID: <57693AC4.1070306@huawei.com>
+References: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
+ <1466087730-54856-7-git-send-email-oulijun@huawei.com>
+ <20160620133310.GB4526@leon.nu> <57691C0B.8090509@huawei.com>
+ <20160621112808.GA9762@leon.nu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Lijun Ou <oulijun@huawei.com>, <dledford@redhat.com>,
+	<sean.hefty@intel.com>, <hal.rosenstock@gmail.com>,
+	<davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
+	<jiri@mellanox.com>, <ogerlitz@mellanox.com>,
+	<linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
+	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
+	<haifeng.wei@huawei.com>, <yisen.zhuang@huawei.com>,
+	<yankejian@huawei.com>, <charles.chenxin@huawei.com>,
+	<linuxarm@huawei.com>
+To: <leon@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160621112808.GA9762@leon.nu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add constants and callback functions for the dwmac on rk3228/rk3229 socs.
-As can be seen, the base structure is the same, only registers and the
-bits in them moved slightly.
 
-Signed-off-by: Xing Zheng <zhengxing@rock-chips.com>
----
 
-Changes in v2:
-- the "rk322x" is not clear to SoC decription, rename it to "rk3228"
+On 2016/6/21 19:28, Leon Romanovsky wrote:
+> On Tue, Jun 21, 2016 at 06:50:51PM +0800, Wei Hu (Xavier) wrote:
+>>
+>> On 2016/6/20 21:33, Leon Romanovsky wrote:
+>>> On Thu, Jun 16, 2016 at 10:35:14PM +0800, Lijun Ou wrote:
+>>>> This patch added the operation for cmd, and added some functions
+>>>> for initializing eq table and selecting cmd mode.
+>>>>
+>>>> Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
+>>>> Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
+>>>> Signed-off-by: Lijun Ou <oulijun@huawei.com>
+>>>> ---
+>>>> PATCH v9/v8/v7/v6:
+>>>> - No change over the PATCH v5
+>>>>
+>>>> PATCH v5:
+>>>> - The initial patch which was redesigned based on the second patch
+>>>>    in PATCH v4
+>>>> ---
+>>> <...>
+>>>
+>>>> +#define CMD_MAX_NUM		32
+>>>> +
+>>>> +int hns_roce_cmd_init(struct hns_roce_dev *hr_dev)
+>>>> +{
+>>>> +	struct device *dev = &hr_dev->pdev->dev;
+>>>> +
+>>>> +	mutex_init(&hr_dev->cmd.hcr_mutex);
+>>>> +	sema_init(&hr_dev->cmd.poll_sem, 1);
+>>>> +	hr_dev->cmd.use_events = 0;
+>>>> +	hr_dev->cmd.toggle = 1;
+>>>> +	hr_dev->cmd.max_cmds = CMD_MAX_NUM;
+>>> <...>
+>>>
+>>>> +	for (hr_cmd->token_mask = 1; hr_cmd->token_mask < hr_cmd->max_cmds;
+>>>> +	     hr_cmd->token_mask <<= 1)
+>>>> +		;
+>>>> +	--hr_cmd->token_mask;
+>>> It doesn't look that you dynamically change max_cmds supported.
+>>> Why do you need to calculate token_mask dynamically?
+>> Hi, Leon
+>>
+>>      1. The four lines above are in the function named
+>> hns_roce_cmd_use_events.
+>>           and now this function is only called once in hns_roce_probe.
+>>      2. In hns_roce_cmd_use_events,
+>>          we use these 4 lines to achieve the value of hr_cmd->token_mask
+>> according to hr_cmd->max_cmds dynamically,
+>>          then we only define one marco for hr_cmd->max_cmds as below:
+>>
+>> 	#define CMD_MAX_NUM		32
+>>
+>>         And it looks more flexible.
+> It is called over engineering.
+> I would recommend to you to remove it.
+>
+> We don't need over complicated code which is executed
+> once with need to maintain with zero benefit.
+>
+> The other places need such simplification too.
+Hi, Leon
 
- .../devicetree/bindings/net/rockchip-dwmac.txt     |    3 +-
- drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c     |  117 ++++++++++++++++++++
- 2 files changed, 119 insertions(+), 1 deletion(-)
+         We will modify this place as below:
+         In hns_roce_hw_v1.c(for hip06 soc) file:
 
-diff --git a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-index 93eac7c..cccd945 100644
---- a/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-+++ b/Documentation/devicetree/bindings/net/rockchip-dwmac.txt
-@@ -3,7 +3,8 @@ Rockchip SoC RK3288 10/100/1000 Ethernet driver(GMAC)
- The device node has following properties.
- 
- Required properties:
-- - compatible: Can be one of "rockchip,rk3288-gmac", "rockchip,rk3368-gmac"
-+ - compatible: Can be one of "rockchip,rk3228-gmac", "rockchip,rk3288-gmac",
-+                             "rockchip,rk3368-gmac"
-  - reg: addresses and length of the register sets for the device.
-  - interrupts: Should contain the GMAC interrupts.
-  - interrupt-names: Should contain the interrupt names "macirq".
-diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-index 0cd3ecf..25eb797 100644
---- a/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c
-@@ -72,6 +72,122 @@ struct rk_priv_data {
- #define GRF_BIT(nr)	(BIT(nr) | BIT(nr+16))
- #define GRF_CLR_BIT(nr)	(BIT(nr+16))
- 
-+#define RK3228_GRF_MAC_CON0	0x0900
-+#define RK3228_GRF_MAC_CON1	0x0904
-+
-+/* RK3228_GRF_MAC_CON0 */
-+#define RK3228_GMAC_CLK_RX_DL_CFG(val)	HIWORD_UPDATE(val, 0x7F, 7)
-+#define RK3228_GMAC_CLK_TX_DL_CFG(val)	HIWORD_UPDATE(val, 0x7F, 0)
-+
-+/* RK3228_GRF_MAC_CON1 */
-+#define RK3228_GMAC_PHY_INTF_SEL_RGMII	\
-+		(GRF_BIT(4) | GRF_CLR_BIT(5) | GRF_CLR_BIT(6))
-+#define RK3228_GMAC_PHY_INTF_SEL_RMII	\
-+		(GRF_CLR_BIT(4) | GRF_CLR_BIT(5) | GRF_BIT(6))
-+#define RK3228_GMAC_FLOW_CTRL		GRF_BIT(3)
-+#define RK3228_GMAC_FLOW_CTRL_CLR	GRF_CLR_BIT(3)
-+#define RK3228_GMAC_SPEED_10M		GRF_CLR_BIT(2)
-+#define RK3228_GMAC_SPEED_100M		GRF_BIT(2)
-+#define RK3228_GMAC_RMII_CLK_25M	GRF_BIT(7)
-+#define RK3228_GMAC_RMII_CLK_2_5M	GRF_CLR_BIT(7)
-+#define RK3228_GMAC_CLK_125M		(GRF_CLR_BIT(8) | GRF_CLR_BIT(9))
-+#define RK3228_GMAC_CLK_25M		(GRF_BIT(8) | GRF_BIT(9))
-+#define RK3228_GMAC_CLK_2_5M		(GRF_CLR_BIT(8) | GRF_BIT(9))
-+#define RK3228_GMAC_RMII_MODE		GRF_BIT(10)
-+#define RK3228_GMAC_RMII_MODE_CLR	GRF_CLR_BIT(10)
-+#define RK3228_GMAC_TXCLK_DLY_ENABLE	GRF_BIT(0)
-+#define RK3228_GMAC_TXCLK_DLY_DISABLE	GRF_CLR_BIT(0)
-+#define RK3228_GMAC_RXCLK_DLY_ENABLE	GRF_BIT(1)
-+#define RK3228_GMAC_RXCLK_DLY_DISABLE	GRF_CLR_BIT(1)
-+
-+static void rk3228_set_to_rgmii(struct rk_priv_data *bsp_priv,
-+				int tx_delay, int rx_delay)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "Missing rockchip,grf property\n");
-+		return;
-+	}
-+
-+	regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON1,
-+		     RK3228_GMAC_PHY_INTF_SEL_RGMII |
-+		     RK3228_GMAC_RMII_MODE_CLR |
-+		     RK3228_GMAC_RXCLK_DLY_ENABLE |
-+		     RK3228_GMAC_TXCLK_DLY_ENABLE);
-+
-+	regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON0,
-+		     RK3228_GMAC_CLK_RX_DL_CFG(rx_delay) |
-+		     RK3228_GMAC_CLK_TX_DL_CFG(tx_delay));
-+}
-+
-+static void rk3228_set_to_rmii(struct rk_priv_data *bsp_priv)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "Missing rockchip,grf property\n");
-+		return;
-+	}
-+
-+	regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON1,
-+		     RK3228_GMAC_PHY_INTF_SEL_RMII |
-+		     RK3228_GMAC_RMII_MODE);
-+
-+	/* set MAC to RMII mode */
-+	regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON1, GRF_BIT(11));
-+}
-+
-+static void rk3228_set_rgmii_speed(struct rk_priv_data *bsp_priv, int speed)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "Missing rockchip,grf property\n");
-+		return;
-+	}
-+
-+	if (speed == 10)
-+		regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON1,
-+			     RK3228_GMAC_CLK_2_5M);
-+	else if (speed == 100)
-+		regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON1,
-+			     RK3228_GMAC_CLK_25M);
-+	else if (speed == 1000)
-+		regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON1,
-+			     RK3228_GMAC_CLK_125M);
-+	else
-+		dev_err(dev, "unknown speed value for RGMII! speed=%d", speed);
-+}
-+
-+static void rk3228_set_rmii_speed(struct rk_priv_data *bsp_priv, int speed)
-+{
-+	struct device *dev = &bsp_priv->pdev->dev;
-+
-+	if (IS_ERR(bsp_priv->grf)) {
-+		dev_err(dev, "Missing rockchip,grf property\n");
-+		return;
-+	}
-+
-+	if (speed == 10)
-+		regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON1,
-+			     RK3228_GMAC_RMII_CLK_2_5M |
-+			     RK3228_GMAC_SPEED_10M);
-+	else if (speed == 100)
-+		regmap_write(bsp_priv->grf, RK3228_GRF_MAC_CON1,
-+			     RK3228_GMAC_RMII_CLK_25M |
-+			     RK3228_GMAC_SPEED_100M);
-+	else
-+		dev_err(dev, "unknown speed value for RMII! speed=%d", speed);
-+}
-+
-+static const struct rk_gmac_ops rk3228_ops = {
-+	.set_to_rgmii = rk3228_set_to_rgmii,
-+	.set_to_rmii = rk3228_set_to_rmii,
-+	.set_rgmii_speed = rk3228_set_rgmii_speed,
-+	.set_rmii_speed = rk3228_set_rmii_speed,
-+};
-+
- #define RK3288_GRF_SOC_CON1	0x0248
- #define RK3288_GRF_SOC_CON3	0x0250
- 
-@@ -604,6 +720,7 @@ static int rk_gmac_probe(struct platform_device *pdev)
- }
- 
- static const struct of_device_id rk_gmac_dwmac_match[] = {
-+	{ .compatible = "rockchip,rk3228-gmac", .data = &rk3228_ops },
- 	{ .compatible = "rockchip,rk3288-gmac", .data = &rk3288_ops },
- 	{ .compatible = "rockchip,rk3368-gmac", .data = &rk3368_ops },
- 	{ }
--- 
-1.7.9.5
+             void hns_roce_v1_profile(struct hns_roce_dev *hr_dev)
+             {
+                 <snip>
+                 caps->max_cmds = 32;
+                 <snip>
+             }
+
+         In hns_roce_cmd.c file:
+
+   	  int hns_roce_cmd_init(struct hns_roce_dev *hr_dev)
+	  {
+	     <snip>
+	     hr_dev->cmd.max_cmds = hr_dev->caps->max_cmds;
+      		<snip>
+           }
+
+        Can you give more suggestions?
+
+
+Regards
+Wei Hu
+>> Regards
+>> Wei Hu
+>>
+>>
+>>
