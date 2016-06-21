@@ -1,68 +1,57 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
-Date: Tue, 21 Jun 2016 10:23:25 -0700
-Message-ID: <CALx6S36kbGZBhxR-m-5jaxzzg53wrHAoi8XknnByZawApFKT8g@mail.gmail.com>
-References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
-	<20160617.200947.2078656051211641868.davem@davemloft.net>
-	<CALx6S37GuppbknFiGsGxyP8jAX-t8c1=mWxCToKQVA8r8UPeOA@mail.gmail.com>
-	<4d1666f1-e52f-c7f6-9b9c-fec38b9ff028@stressinduktion.org>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [net-next PATCH v3 00/17] Future-proof tunnel offload handlers
+Date: Tue, 21 Jun 2016 18:27:00 +0100
+Message-ID: <18b4d172-2cf5-8246-9cac-ce92adf65bc8@solarflare.com>
+References: <20160616191851.20872.67154.stgit@localhost.localdomain>
+ <20160617.202641.1821023739498595024.davem@davemloft.net>
+ <CALx6S34Y3Qq6nMHuMcC2LC5duLBO3KVN3+A+0qmPrNvFfY7gJg@mail.gmail.com>
+ <20160621.042211.945844554759834352.davem@davemloft.net>
+ <CAKgT0Ucze-+PYdvoHhDSLuaTLrn+Ene+CnfJaKO7AEHGHBsKzg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Tom Herbert <tom@herbertland.com>,
+	Alex Duyck <aduyck@mirantis.com>,
+	Netdev <netdev@vger.kernel.org>,
+	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
+	Hannes Frederic Sowa <hannes@redhat.com>,
+	Jesse Gross <jesse@kernel.org>,
+	Eugenia Emantayev <eugenia@mellanox.com>,
+	Jiri Benc <jbenc@redhat.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	"Ariel Elior" <ariel.elior@qlogic.com>,
+	Michael Chan <michael.chan@broadcom.com>,
+	<Dept-GELinuxNICDev@qlogic.com>
+To: Alexander Duyck <alexander.duyck@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f42.google.com ([209.85.214.42]:37495 "EHLO
-	mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751704AbcFURX1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 13:23:27 -0400
-Received: by mail-it0-f42.google.com with SMTP id f6so19549199ith.0
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 10:23:27 -0700 (PDT)
-In-Reply-To: <4d1666f1-e52f-c7f6-9b9c-fec38b9ff028@stressinduktion.org>
+Received: from nbfkord-smmo04.seg.att.com ([209.65.160.86]:44372 "EHLO
+	nbfkord-smmo04.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752871AbcFURdo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 13:33:44 -0400
+In-Reply-To: <CAKgT0Ucze-+PYdvoHhDSLuaTLrn+Ene+CnfJaKO7AEHGHBsKzg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 21, 2016 at 10:11 AM, Hannes Frederic Sowa
-<hannes@stressinduktion.org> wrote:
-> On 17.06.2016 20:52, Tom Herbert wrote:
->>
->>> > Rather, I think people are going to start adding rules to block TOU
->>> > tunnels entirely because they cannot inspect nor conditionally
->>> > filter/rewrite the contents.  This is even more likely if Joe Random
->>> > and so easily can do their own userland TCP stack over TOU.
->>> >
->> Unfortunately, encryption is the only proven solution to protocol
->> ossification. If the network doesn't see it, it can't ossify it.
->
-> DTLS carries still a lot of information, both in its handshake, as well
-> as in the actual framing. The protocol is basically only TLS on top of
-> datagrams and as such implements connection establishment and tear down
-> of connections, which middle boxes can certainly track. It will just be
-> a matter of time until middle boxes and security appliances will be able
-> to track those connections, maybe not being able to inspect the content
-> but at least see the certificates in clear-text and as such also have
-> the common names and other addressing information at hand. The meta-data
-> might certainly be track able.
->
-> Because of reply protection you actually can infer the number of bytes
-> transferred and someone can end up building congestion control on a
-> middle box based on that, infer retransmissions etc.
->
-Right, it's probably impossible to completely eliminate track-ability.
-But hopefully we can keep the plain text information to the absolute
-minimum needed to send the packet over the network and decrypt it at
-the receiver.
+On 21/06/16 18:05, Alexander Duyck wrote:
+> On Tue, Jun 21, 2016 at 1:22 AM, David Miller <davem@davemloft.net> wrote:
+>> But anyways, the vastness of the key is why we want to keep "sockets"
+>> out of network cards, because proper support of "sockets" requires
+>> access to information the card simply does not and should not have.
+> Right.  Really what I would like to see for most of these devices is a
+> 2 tuple filter where you specify the UDP port number, and the PF/VF ID
+> that the traffic is received on.
+But that doesn't make sense - the traffic is received on a physical network
+port, and it's the headers (i.e. flow) at that point that determine whether
+the traffic is encap or not.  After all, those headers are all that can
+determine which PF or VF it's sent to; and if it's multicast and goes to
+more than one of them, it seems odd for one to treat it as encap and the
+other to treat it as normal UDP - one of them must be misinterpreting it
+(unless the UDP is going to a userspace tunnel endpoint, but I'm ignoring
+that complication for now).
+At a given physical point in the network, a given UDP flow either is or is
+not carrying encapsulated traffic, and if it tries to be both then things
+are certain to break, just as much as if two different applications try to
+use the same UDP flow for two different application protocols.
 
-One interesting characteristic of disassociated location is that we
-could purposely try to manipulate ECMP so that every packet for a flow
-take different paths so no single device (assuming multi-path) can
-reconstruct the whole communication (kind of like spread spectrum for
-the Internet). I imagine there are some might be some environments
-where paranoids might want to do this.
-
-Tom
-
-> Bye,
-> Hannes
->
+-Ed
