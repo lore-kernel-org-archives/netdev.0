@@ -1,49 +1,65 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next 00/18] mlx5 RoCE/RDMA packet sniffer
-Date: Tue, 21 Jun 2016 16:10:26 +0300
-Message-ID: <CALzJLG-_m_+-fKWjuuEbi4z-vO+jQmumqV+BoOxKPQ2wgkveaQ@mail.gmail.com>
-References: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 16/19] net: hns: fix bug that alloc skb fail lead
+ to port unavailable
+Date: Tue, 21 Jun 2016 16:25:14 +0300
+Message-ID: <097b1147-3587-9579-0f94-f42be130773c@cogentembedded.com>
+References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
+ <1466481399-70080-17-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Doug Ledford <dledford@redhat.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Maor Gottlieb <maorg@mellanox.com>,
-	Huy Nguyen <huyn@mellanox.com>, Tal Alon <talal@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: liguozhu@huawei.com, huangdaode@hisilicon.com, arnd@arndb.de,
+	andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
+	geliangtang@163.com, ivecera@redhat.com, fengguang.wu@intel.com,
+	charles.chenxin@huawei.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxarm@huawei.com
+To: Yisen Zhuang <Yisen.Zhuang@huawei.com>, davem@davemloft.net,
+	salil.mehta@huawei.com, yankejian@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f169.google.com ([209.85.161.169]:34177 "EHLO
-	mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751609AbcFUNKq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 09:10:46 -0400
-Received: by mail-yw0-f169.google.com with SMTP id i12so12872761ywa.1
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 06:10:46 -0700 (PDT)
-In-Reply-To: <1466174639-14576-1-git-send-email-saeedm@mellanox.com>
+Received: from mail-lf0-f53.google.com ([209.85.215.53]:34581 "EHLO
+	mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751827AbcFUNZT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 09:25:19 -0400
+Received: by mail-lf0-f53.google.com with SMTP id h129so23911450lfh.1
+        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 06:25:18 -0700 (PDT)
+In-Reply-To: <1466481399-70080-17-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 17, 2016 at 5:43 PM, Saeed Mahameed <saeedm@mellanox.com> wrote:
-> Hi Dave,
+Hello.
+
+On 6/21/2016 6:56 AM, Yisen Zhuang wrote:
+
+> From: Jun He <hjat2005@huawei.com>
 >
-> This patch set introduces mlx5 RoCE/RDMA packet sniffer, it allows
-> mlx5e netdevice to receive RoCE/RDMA or RAW ETH traffic which isn't
-> supposed to be passed to the kernel stack, for sniffing and diagnostics
-> purposes.  This traffic is still not supposed to go through the whole
-> network stack processing and should only go to the non-protocol specific
-> handlers (ptype_all). e.g: tcpdump, etc ..
+> When hns_nic_poll_rx_skb alloc skb fail, it will break receive cycle and
+> read new fbd_num to start new receive cycle. It recomputes cycle num is
+> fbd_num minus clean_count, actually this cycle num is too big because
+> it drop out receive cycle. It brings about the port unavailable.
+>
+> So we will goto out when alloc skb fail to fix this bug.
+>
+> Signed-off-by: Jun He <hjat2005@huawei.com>
+> Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+> Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+> ---
+>  drivers/net/ethernet/hisilicon/hns/hns_enet.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
+>
+> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+> index f49246d..c0ce37b 100644
+> --- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+> +++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+> @@ -768,10 +768,10 @@ recv:
+>  			clean_count = 0;
+>  		}
+>
+> -		/* poll one pkg*/
+> +		/* poll one pkt*/
 
-Dave,
+    How about adding a space before */?
 
-I would like to drop this series, we did some evaluation and there is
-no straightforward way to tell the kernel to not process traffic that
-should only go to tcpdump or (ptype_all).
+[...]
 
-We are evaluating a semi-pure userspace solution to sniff user space
-traffic directly form userspace into libpcap. (verbs/rdma
-plugin/extension for libpcap)
-
-Sorry for any inconvenience,
-
-Thanks,
-Saeed.
+MBR, Sergei
