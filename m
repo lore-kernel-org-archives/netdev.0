@@ -1,120 +1,121 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [net-next PATCH v3 00/17] Future-proof tunnel offload handlers
-Date: Tue, 21 Jun 2016 11:17:58 -0700
-Message-ID: <CAKgT0UdsYo84J087KUTiiwuHGUaykPvpQTVxCdvE9k21tM5hsQ@mail.gmail.com>
-References: <20160616191851.20872.67154.stgit@localhost.localdomain>
- <20160617.202641.1821023739498595024.davem@davemloft.net> <CALx6S34Y3Qq6nMHuMcC2LC5duLBO3KVN3+A+0qmPrNvFfY7gJg@mail.gmail.com>
- <20160621.042211.945844554759834352.davem@davemloft.net> <CAKgT0Ucze-+PYdvoHhDSLuaTLrn+Ene+CnfJaKO7AEHGHBsKzg@mail.gmail.com>
- <18b4d172-2cf5-8246-9cac-ce92adf65bc8@solarflare.com> <234d6a2f-6971-7029-0645-f98e51236c4f@redhat.com>
+From: Vishwanath Pai <vpai@akamai.com>
+Subject: [PATCH v2 1/2] netfilter/nflog: nflog-range does not truncate packets
+Date: Tue, 21 Jun 2016 14:58:46 -0400
+Message-ID: <20160621185846.GA6646@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Edward Cree <ecree@solarflare.com>,
-	David Miller <davem@davemloft.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Alex Duyck <aduyck@mirantis.com>,
-	Netdev <netdev@vger.kernel.org>,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>,
-	Jesse Gross <jesse@kernel.org>,
-	Eugenia Emantayev <eugenia@mellanox.com>,
-	Jiri Benc <jbenc@redhat.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	Ariel Elior <ariel.elior@qlogic.com>,
-	Michael Chan <michael.chan@broadcom.com>,
-	Dept-GELinuxNICDev@qlogic.com
-To: Hannes Frederic Sowa <hannes@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, kadlec@blackhole.kfki.hu, johunt@akamai.com,
+	daviem@davemloft.net, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, pai.vishwain@gmail.com,
+	ilubashe@akamai.com, jdollard@akamai.com
+To: pablo@netfilter.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f182.google.com ([209.85.223.182]:35482 "EHLO
-	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752327AbcFUSl2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 14:41:28 -0400
-Received: by mail-io0-f182.google.com with SMTP id f30so24246865ioj.2
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 11:41:16 -0700 (PDT)
-In-Reply-To: <234d6a2f-6971-7029-0645-f98e51236c4f@redhat.com>
+Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:60343 "EHLO
+	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752128AbcFUS6s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 14:58:48 -0400
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 21, 2016 at 10:40 AM, Hannes Frederic Sowa
-<hannes@redhat.com> wrote:
-> On 21.06.2016 10:27, Edward Cree wrote:
->> On 21/06/16 18:05, Alexander Duyck wrote:
->>> On Tue, Jun 21, 2016 at 1:22 AM, David Miller <davem@davemloft.net> wrote:
->>>> But anyways, the vastness of the key is why we want to keep "sockets"
->>>> out of network cards, because proper support of "sockets" requires
->>>> access to information the card simply does not and should not have.
->>> Right.  Really what I would like to see for most of these devices is a
->>> 2 tuple filter where you specify the UDP port number, and the PF/VF ID
->>> that the traffic is received on.
->> But that doesn't make sense - the traffic is received on a physical network
->> port, and it's the headers (i.e. flow) at that point that determine whether
->> the traffic is encap or not.  After all, those headers are all that can
->> determine which PF or VF it's sent to; and if it's multicast and goes to
->> more than one of them, it seems odd for one to treat it as encap and the
->> other to treat it as normal UDP - one of them must be misinterpreting it
->> (unless the UDP is going to a userspace tunnel endpoint, but I'm ignoring
->> that complication for now).
->
-> Disabling offloading of packets is never going to cause data corruptions
-> or misinterpretations. In some cases we can hint the network card to do
-> even more (RSS+checksumming). We always have a safe choice, namely not
-> doing hw offloading.
+netfilter/nflog: nflog-range does not truncate packets
 
-Agreed.  Also we need to keep in mind that in many cases things like
-RSS and checksumming can be very easily made port specific since what
-we are talking about is just what is reported in the Rx descriptor and
-not any sort of change to the packet data.
+li->u.ulog.copy_len is currently ignored by the kernel, we should truncate
+the packet to either li->u.ulog.copy_len (if set) or copy_range before
+sending it to userspace. 0 is a valid input for copy_len, so add a new
+flag to indicate whether this was option was specified by the user or not.
 
-> Multicast is often scoped, in some cases we have different multicast
-> scopes but the same addresses. In case of scoped traffic, we must verify
-> the device as well and can't install the same flow on every NIC.
+Add two flags to indicate whether nflog-size/copy_len was set or not.
+XT_NFLOG_F_COPY_LEN is for XT_NFLOG and NFLOG_F_COPY_LEN for nfnetlink_log
 
-Right.  Hopefully the NIC vendors are thinking ahead and testing to
-validate such cases where multicast or broadcast traffic doesn't do
-anything weird to their NICs in terms of offloads.
+On the userspace side, this was initially represented by the option
+nflog-range, this will be replaced by --nflog-size now. --nflog-range would
+still exist but does not do anything.
 
->> At a given physical point in the network, a given UDP flow either is or is
->> not carrying encapsulated traffic, and if it tries to be both then things
->> are certain to break, just as much as if two different applications try to
->> use the same UDP flow for two different application protocols.
->
-> I think the example Tom was hinting at initially is like that:
->
-> A net namespace acts as a router and has a vxlan endpoint active. The
-> vxlan endpoint enables vxlan offloading on all net_devices in the same
-> namespace. Because we only identify the tunnel endpoint by UDP port
-> number, traffic which should actually just be forwarded and should never
-> be processed locally suddenly can become processed by the offloading hw
-> units. Because UDP ports only form a contract between the end points and
-> not with the router in between it would be illegal to treat those not
-> locally designated packets as vxlan by the router.
+Reported-by: Joe Dollard <jdollard@akamai.com>
+Reviewed-by: Josh Hunt <johunt@akamai.com>
+Signed-off-by: Vishwanath Pai <vpai@akamai.com>
 
-Yes.  The problem is I am sure there are some vendors out there
-wanting to tout their product as being excellent at routing VXLAN
-traffic so they are probably exploiting this to try and claim
-performance gains.
-
-There is also some argument to be had for theory versus application.
-Arguably it is the customers that are leading to some of the dirty
-hacks as I think vendors are building NICs based on customer use cases
-versus following any specifications.  In most data centers the tunnel
-underlays will be deployed throughout the network and UDP will likely
-be blocked for anything that isn't being used explicitly for
-tunneling.  As such we seem to be seeing a lot of NICs that are only
-supporting one port for things like this instead of designing them to
-handle whatever we can throw at them.
-
-I really think it may be a few more years before we hit the point
-where the vendors start to catch a clue about the fact that they need
-to have a generic approach that works in all cases versus what we have
-now were they are supporting whatever the buzzword of the day is and
-not looking much further down the road than that.  The fact is in a
-few years time we might even have to start dealing with
-tunnel-in-tunnel type workloads to address the use of containers
-inside of KVM guests.  I'm pretty sure we don't have support for
-recursive tunnel offloads in hardware and likely never will.  To that
-end all I would really need is support for CHECKSUM_COMPLETE or outer
-Rx checksums enabled, RSS based on the outer source port assuming the
-destination port is recognized as a tunnel, the ability to have DF bit
-set for any of the inner tunnel headers, and GSO partial extended to
-support tunnel-in-tunnel scenarios.
-
-- Alex
+diff --git a/include/net/netfilter/nf_log.h b/include/net/netfilter/nf_log.h
+index 57639fc..83d855b 100644
+--- a/include/net/netfilter/nf_log.h
++++ b/include/net/netfilter/nf_log.h
+@@ -12,6 +12,9 @@
+ #define NF_LOG_UID		0x08	/* Log UID owning local socket */
+ #define NF_LOG_MASK		0x0f
+ 
++/* This flag indicates that copy_len field in nf_loginfo is set */
++#define NF_LOG_F_COPY_LEN	0x1
++
+ enum nf_log_type {
+ 	NF_LOG_TYPE_LOG		= 0,
+ 	NF_LOG_TYPE_ULOG,
+@@ -22,9 +25,13 @@ struct nf_loginfo {
+ 	u_int8_t type;
+ 	union {
+ 		struct {
++			/* copy_len will be used iff you set
++			 * NF_LOG_F_COPY_LEN in flags
++			 */
+ 			u_int32_t copy_len;
+ 			u_int16_t group;
+ 			u_int16_t qthreshold;
++			u_int16_t flags;
+ 		} ulog;
+ 		struct {
+ 			u_int8_t level;
+diff --git a/include/uapi/linux/netfilter/xt_NFLOG.h b/include/uapi/linux/netfilter/xt_NFLOG.h
+index 87b5831..f330707 100644
+--- a/include/uapi/linux/netfilter/xt_NFLOG.h
++++ b/include/uapi/linux/netfilter/xt_NFLOG.h
+@@ -6,9 +6,13 @@
+ #define XT_NFLOG_DEFAULT_GROUP		0x1
+ #define XT_NFLOG_DEFAULT_THRESHOLD	0
+ 
+-#define XT_NFLOG_MASK			0x0
++#define XT_NFLOG_MASK			0x1
++
++/* This flag indicates that 'len' field in xt_nflog_info is set*/
++#define XT_NFLOG_F_COPY_LEN		0x1
+ 
+ struct xt_nflog_info {
++	/* 'len' will be used iff you set XT_NFLOG_F_COPY_LEN in flags */
+ 	__u32	len;
+ 	__u16	group;
+ 	__u16	threshold;
+diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
+index 11f81c8..cbcfdfb 100644
+--- a/net/netfilter/nfnetlink_log.c
++++ b/net/netfilter/nfnetlink_log.c
+@@ -700,10 +700,13 @@ nfulnl_log_packet(struct net *net,
+ 		break;
+ 
+ 	case NFULNL_COPY_PACKET:
+-		if (inst->copy_range > skb->len)
++		data_len = inst->copy_range;
++		if ((li->u.ulog.flags & NF_LOG_F_COPY_LEN) &&
++		    (li->u.ulog.copy_len < data_len))
++			data_len = li->u.ulog.copy_len;
++
++		if (data_len > skb->len)
+ 			data_len = skb->len;
+-		else
+-			data_len = inst->copy_range;
+ 
+ 		size += nla_total_size(data_len);
+ 		break;
+diff --git a/net/netfilter/xt_NFLOG.c b/net/netfilter/xt_NFLOG.c
+index a1fa2c8..018eed7 100644
+--- a/net/netfilter/xt_NFLOG.c
++++ b/net/netfilter/xt_NFLOG.c
+@@ -33,6 +33,9 @@ nflog_tg(struct sk_buff *skb, const struct xt_action_param *par)
+ 	li.u.ulog.group	     = info->group;
+ 	li.u.ulog.qthreshold = info->threshold;
+ 
++	if (info->flags & XT_NFLOG_F_COPY_LEN)
++		li.u.ulog.flags |= NF_LOG_F_COPY_LEN;
++
+ 	nfulnl_log_packet(net, par->family, par->hooknum, skb, par->in,
+ 			  par->out, &li, info->prefix);
+ 	return XT_CONTINUE;
