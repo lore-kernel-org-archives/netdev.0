@@ -1,28 +1,29 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [patch net-next] rxrpc: checking for IS_ERR() instead of NULL
-Date: Tue, 21 Jun 2016 09:47:18 +0100
-Message-ID: <3260.1466498838@warthog.procyon.org.uk>
-References: <20160618084403.GC21713@mwanda>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 00/19] net: hns: fix some bugs in hns driver
+Date: Tue, 21 Jun 2016 04:54:30 -0400 (EDT)
+Message-ID: <20160621.045430.89527380163991526.davem@davemloft.net>
+References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: dhowells@redhat.com, "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>,
-	Willem de Bruijn <willemb@google.com>,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20160618084403.GC21713@mwanda>
-Content-ID: <3259.1466498838.1@warthog.procyon.org.uk>
-Sender: kernel-janitors-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: salil.mehta@huawei.com, yankejian@huawei.com, liguozhu@huawei.com,
+	huangdaode@hisilicon.com, arnd@arndb.de,
+	andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
+	geliangtang@163.com, ivecera@redhat.com, fengguang.wu@intel.com,
+	charles.chenxin@huawei.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxarm@huawei.com
+To: Yisen.Zhuang@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dan Carpenter <dan.carpenter@oracle.com> wrote:
+From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+Date: Tue, 21 Jun 2016 11:56:20 +0800
 
-> rxrpc_lookup_peer_rcu() returns NULL on error, it never returns error
-> pointers.
-> 
-> Fixes: be6e6707f6ee ('rxrpc: Rework peer object handling to use hash table and RCU')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> This series includes some bugs fixed. All these patches needs to be
+> applied after the patchset about ACPI support, so this series is 
+> floated to net-next list.
 
-Applied.
+Series applied, thanks.
