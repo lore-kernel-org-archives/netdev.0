@@ -1,103 +1,149 @@
-From: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
-Subject: Re: [PATCH net-next] openvswitch: Only set mark and
-	labels when commiting a connection.
-Date: Mon, 20 Jun 2016 17:24:05 -0700
-Message-ID: <E5FA6787-E964-4878-B11C-E0461F555E37@ovn.org>
-References: <1466468378-32235-1-git-send-email-jarno@ovn.org>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-To: Netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-In-Reply-To: <1466468378-32235-1-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
-List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://openvswitch.org/pipermail/dev>
-List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
-List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
-List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
- <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
-Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
-Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the arm-soc tree
+Date: Tue, 21 Jun 2016 11:18:39 +1000
+Message-ID: <20160621111839.34936836@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+ Pramod Kumar <pramod.kumar@broadcom.com>, linux-kernel@vger.kernel.org,
+ Yendapally Reddy Dhananjaya Reddy <yendapally.reddy@broadcom.com>,
+ linux-next@vger.kernel.org, Jon Mason <jon.mason@broadcom.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>, Olof
+ Johansson <olof@lixom.net>, Arnd Bergmann <arnd@arndb.de>,
+ <linux-arm-kernel@lists.infradead.org>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-VGhlIHRpdGxlIHNob3VsZCBoYXZlIGJlZW46CgpvcGVudnN3aXRjaDogT25seSBzZXQgbWFyayBh
-bmQgbGFiZWxzIHdpdGggYSBjb21taXQgZmxhZy4KClRoaXMgcmVmbGVjdHMgdGhlIGZhY3QgdGhh
-dCBtb2RpZnlpbmcgdGhlIG1hcmsgYW5kL29yIGxhYmVscyBvZiBhbiBleGlzdGluZyBjb25uZWN0
-aW9uIGlzIGFsbG93ZWQuIFRoZSBjb21taXQgZmxhZyBpcyBzdGlsbCByZXF1aXJlZCB0byBkbyB0
-aGF0LCB0aG91Z2guCgogIEphcm5vCgo+IE9uIEp1biAyMCwgMjAxNiwgYXQgNToxOSBQTSwgSmFy
-bm8gUmFqYWhhbG1lIDxqYXJub0Bvdm4ub3JnPiB3cm90ZToKPiAKPiBPbmx5IGFsbG93IHNldHRp
-bmcgY29ubnRyYWNrIG1hcmsgb3IgbGFiZWxzIHdoZW4gdGhlIGNvbW1pdCBmbGFnIGlzCj4gc3Bl
-Y2lmaWVkLiAgVGhpcyBtYWtlcyBzdXJlIHdlIGNhbiBub3Qgc2V0IHRoZW0gYmVmb3JlIHRoZSBj
-b25uZWN0aW9uCj4gaGFzIGJlZW4gcGVyc2lzdGVkLCBhcyBpbiB0aGF0IGNhc2UgdGhlIG1hcmsg
-YW5kIGxhYmVscyB3b3VsZCBiZSBsb3N0Cj4gaW4gYW4gZXZlbnQgb2YgYW4gdXNlcnNwYWNlIHVw
-Y2FsbC4KPiAKPiBPVlMgdXNlcnNwYWNlIGFscmVhZHkgcmVxdWlyZXMgdGhlIGNvbW1pdCBmbGFn
-IHRvIGFjY2VwdCBzZXR0aW5nCj4gY3RfbWFyayBhbmQvb3IgY3RfbGFiZWxzLiAgVmFsaWRhdGUg
-Zm9yIHRoaXMgb24gdGhlIGtlcm5lbCBBUEkuCj4gCj4gRmluYWxseSwgc2V0IGNvbm50cmFjayBt
-YXJrIGFuZCBsYWJlbHMgcmlnaHQgYmVmb3JlIGNvbW1pdHRpbmcgc28gdGhhdAo+IHRoZSBpbml0
-aWFsIGNvbm50cmFjayBORVcgZXZlbnQgaGFzIHRoZSBtYXJrIGFuZCBsYWJlbHMuCj4gCj4gU2ln
-bmVkLW9mZi1ieTogSmFybm8gUmFqYWhhbG1lIDxqYXJub0Bvdm4ub3JnPgo+IC0tLQo+IG5ldC9v
-cGVudnN3aXRjaC9jb25udHJhY2suYyB8IDcyICsrKysrKysrKysrKysrKysrKysrKysrKysrKysr
-Ky0tLS0tLS0tLS0tLS0tLQo+IDEgZmlsZSBjaGFuZ2VkLCA0OCBpbnNlcnRpb25zKCspLCAyNCBk
-ZWxldGlvbnMoLSkKPiAKPiBkaWZmIC0tZ2l0IGEvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5j
-IGIvbmV0L29wZW52c3dpdGNoL2Nvbm50cmFjay5jCj4gaW5kZXggM2Q1ZmVlZC4uZjE2MTJmNSAx
-MDA2NDQKPiAtLS0gYS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKPiArKysgYi9uZXQvb3Bl
-bnZzd2l0Y2gvY29ubnRyYWNrLmMKPiBAQCAtODI0LDYgKzgyNCwxNyBAQCBzdGF0aWMgaW50IG92
-c19jdF9sb29rdXAoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSwKPiAJ
-cmV0dXJuIDA7Cj4gfQo+IAo+ICtzdGF0aWMgYm9vbCBsYWJlbHNfbm9uemVybyhjb25zdCBzdHJ1
-Y3Qgb3ZzX2tleV9jdF9sYWJlbHMgKmxhYmVscykKPiArewo+ICsJc2l6ZV90IGk7Cj4gKwo+ICsJ
-Zm9yIChpID0gMDsgaSA8IHNpemVvZigqbGFiZWxzKTsgaSsrKQo+ICsJCWlmIChsYWJlbHMtPmN0
-X2xhYmVsc1tpXSkKPiArCQkJcmV0dXJuIHRydWU7Cj4gKwo+ICsJcmV0dXJuIGZhbHNlOwo+ICt9
-Cj4gKwo+IC8qIExvb2t1cCBjb25uZWN0aW9uIGFuZCBjb25maXJtIGlmIHVuY29uZmlybWVkLiAq
-Lwo+IHN0YXRpYyBpbnQgb3ZzX2N0X2NvbW1pdChzdHJ1Y3QgbmV0ICpuZXQsIHN0cnVjdCBzd19m
-bG93X2tleSAqa2V5LAo+IAkJCSBjb25zdCBzdHJ1Y3Qgb3ZzX2Nvbm50cmFja19pbmZvICppbmZv
-LAo+IEBAIC04MzQsMjQgKzg0NSwzNSBAQCBzdGF0aWMgaW50IG92c19jdF9jb21taXQoc3RydWN0
-IG5ldCAqbmV0LCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSwKPiAJZXJyID0gX19vdnNfY3RfbG9v
-a3VwKG5ldCwga2V5LCBpbmZvLCBza2IpOwo+IAlpZiAoZXJyKQo+IAkJcmV0dXJuIGVycjsKPiAt
-CS8qIFRoaXMgaXMgYSBuby1vcCBpZiB0aGUgY29ubmVjdGlvbiBoYXMgYWxyZWFkeSBiZWVuIGNv
-bmZpcm1lZC4gKi8KPiArCj4gKwkvKiBBcyBhbnkgY2hhbmdlcyB0byBhbiB1bmNvbmZpcm1lZCBj
-b25uZWN0aW9uIG1heSBiZSBsb3N0IGR1ZQo+ICsJICogdG8gYW4gdXBjYWxsLCB3ZSByZXF1aXJl
-IHRoZSBwcmVzZW5jZSBvZiB0aGUgJ2NvbW1pdCcgZmxhZwo+ICsJICogZm9yIHNldHRpbmcgbWFz
-ayBhbmQvb3IgbGFiZWxzLiAgUGVyZm9ybSB0aGUgY2hhbmdlcyBiZWZvcmUKPiArCSAqIGNvbmZp
-cm1pbmcgdGhlIGNvbm5lY3Rpb24gc28gdGhhdCB0aGUgaW5pdGlhbCBtYXJrIGFuZCBsYWJlbAo+
-ICsJICogdmFsdWVzIGFyZSBwcmVzZW50IGluIHRoZSBpbml0aWFsIENUIE5FVyBuZXRsaW5rIGV2
-ZW50Lgo+ICsJICovCj4gKwlpZiAoaW5mby0+bWFyay5tYXNrKSB7Cj4gKwkJZXJyID0gb3ZzX2N0
-X3NldF9tYXJrKHNrYiwga2V5LCBpbmZvLT5tYXJrLnZhbHVlLAo+ICsJCQkJICAgICAgaW5mby0+
-bWFyay5tYXNrKTsKPiArCQlpZiAoZXJyKQo+ICsJCQlyZXR1cm4gZXJyOwo+ICsJfQo+ICsJaWYg
-KGxhYmVsc19ub256ZXJvKCZpbmZvLT5sYWJlbHMubWFzaykpIHsKPiArCQllcnIgPSBvdnNfY3Rf
-c2V0X2xhYmVscyhza2IsIGtleSwgJmluZm8tPmxhYmVscy52YWx1ZSwKPiArCQkJCQkmaW5mby0+
-bGFiZWxzLm1hc2spOwo+ICsJCWlmIChlcnIpCj4gKwkJCXJldHVybiBlcnI7Cj4gKwl9Cj4gKwo+
-ICsJLyogV2lsbCB0YWtlIGNhcmUgb2Ygc2VuZGluZyBxdWV1ZWQgZXZlbnRzIGV2ZW4gaWYgdGhl
-IGNvbm5lY3Rpb24gaXMKPiArCSAqIGFscmVhZHkgY29uZmlybWVkLgo+ICsJICovCj4gCWlmIChu
-Zl9jb25udHJhY2tfY29uZmlybShza2IpICE9IE5GX0FDQ0VQVCkKPiAJCXJldHVybiAtRUlOVkFM
-Owo+IAo+IAlyZXR1cm4gMDsKPiB9Cj4gCj4gLXN0YXRpYyBib29sIGxhYmVsc19ub256ZXJvKGNv
-bnN0IHN0cnVjdCBvdnNfa2V5X2N0X2xhYmVscyAqbGFiZWxzKQo+IC17Cj4gLQlzaXplX3QgaTsK
-PiAtCj4gLQlmb3IgKGkgPSAwOyBpIDwgc2l6ZW9mKCpsYWJlbHMpOyBpKyspCj4gLQkJaWYgKGxh
-YmVscy0+Y3RfbGFiZWxzW2ldKQo+IC0JCQlyZXR1cm4gdHJ1ZTsKPiAtCj4gLQlyZXR1cm4gZmFs
-c2U7Cj4gLX0KPiAtCj4gLyogUmV0dXJucyAwIG9uIHN1Y2Nlc3MsIC1FSU5QUk9HUkVTUyBpZiAn
-c2tiJyBpcyBzdG9sZW4sIG9yIG90aGVyIG5vbnplcm8KPiAgKiB2YWx1ZSBpZiAnc2tiJyBpcyBm
-cmVlZC4KPiAgKi8KPiBAQCAtODc2LDE5ICs4OTgsNyBAQCBpbnQgb3ZzX2N0X2V4ZWN1dGUoc3Ry
-dWN0IG5ldCAqbmV0LCBzdHJ1Y3Qgc2tfYnVmZiAqc2tiLAo+IAkJZXJyID0gb3ZzX2N0X2NvbW1p
-dChuZXQsIGtleSwgaW5mbywgc2tiKTsKPiAJZWxzZQo+IAkJZXJyID0gb3ZzX2N0X2xvb2t1cChu
-ZXQsIGtleSwgaW5mbywgc2tiKTsKPiAtCWlmIChlcnIpCj4gLQkJZ290byBlcnI7Cj4gCj4gLQlp
-ZiAoaW5mby0+bWFyay5tYXNrKSB7Cj4gLQkJZXJyID0gb3ZzX2N0X3NldF9tYXJrKHNrYiwga2V5
-LCBpbmZvLT5tYXJrLnZhbHVlLAo+IC0JCQkJICAgICAgaW5mby0+bWFyay5tYXNrKTsKPiAtCQlp
-ZiAoZXJyKQo+IC0JCQlnb3RvIGVycjsKPiAtCX0KPiAtCWlmIChsYWJlbHNfbm9uemVybygmaW5m
-by0+bGFiZWxzLm1hc2spKQo+IC0JCWVyciA9IG92c19jdF9zZXRfbGFiZWxzKHNrYiwga2V5LCAm
-aW5mby0+bGFiZWxzLnZhbHVlLAo+IC0JCQkJCSZpbmZvLT5sYWJlbHMubWFzayk7Cj4gLWVycjoK
-PiAJc2tiX3B1c2goc2tiLCBuaF9vZnMpOwo+IAlpZiAoZXJyKQo+IAkJa2ZyZWVfc2tiKHNrYik7
-Cj4gQEAgLTExNDUsNiArMTE1NSwyMCBAQCBzdGF0aWMgaW50IHBhcnNlX2N0KGNvbnN0IHN0cnVj
-dCBubGF0dHIgKmF0dHIsIHN0cnVjdCBvdnNfY29ubnRyYWNrX2luZm8gKmluZm8sCj4gCQl9Cj4g
-CX0KPiAKPiArI2lmZGVmIENPTkZJR19ORl9DT05OVFJBQ0tfTUFSSwo+ICsJaWYgKCFpbmZvLT5j
-b21taXQgJiYgaW5mby0+bWFyay5tYXNrKSB7Cj4gKwkJT1ZTX05MRVJSKGxvZywKPiArCQkJICAi
-U2V0dGluZyBjb25udHJhY2sgbWFyayByZXF1aXJlcyAnY29tbWl0JyBmbGFnLiIpOwo+ICsJCXJl
-dHVybiAtRUlOVkFMOwo+ICsJfQo+ICsjZW5kaWYKPiArI2lmZGVmIENPTkZJR19ORl9DT05OVFJB
-Q0tfTEFCRUxTCj4gKwlpZiAoIWluZm8tPmNvbW1pdCAmJiBsYWJlbHNfbm9uemVybygmaW5mby0+
-bGFiZWxzLm1hc2spKSB7Cj4gKwkJT1ZTX05MRVJSKGxvZywKPiArCQkJICAiU2V0dGluZyBjb25u
-dHJhY2sgbGFiZWxzIHJlcXVpcmVzICdjb21taXQnIGZsYWcuIik7Cj4gKwkJcmV0dXJuIC1FSU5W
-QUw7Cj4gKwl9Cj4gKyNlbmRpZgo+IAlpZiAocmVtID4gMCkgewo+IAkJT1ZTX05MRVJSKGxvZywg
-IkNvbm50cmFjayBhdHRyIGhhcyAlZCB1bmtub3duIGJ5dGVzIiwgcmVtKTsKPiAJCXJldHVybiAt
-RUlOVkFMOwo+IC0tIAo+IDIuMS40Cj4gCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fXwpkZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0
-cDovL29wZW52c3dpdGNoLm9yZy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
+Hi all,
+
+Today's linux-next merge of the net-next tree got conflicts in:
+
+  arch/arm64/boot/dts/broadcom/ns2-svk.dts
+  arch/arm64/boot/dts/broadcom/ns2.dtsi
+
+between commits:
+
+  97b1504a30b3 ("arm64: dts: enable pinctrl for Broadcom NS2 SoC")
+  5dcc9c7618df ("arm64: dts: NS2: Add CCI-400 PMU support")
+
+from the arm-soc tree and commit:
+
+  5f1a067bfa0a ("dt: mdio-mux: Add mdio multiplexer driver node")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc arch/arm64/boot/dts/broadcom/ns2-svk.dts
+index b062a44a39c7,ea5603fd106a..000000000000
+--- a/arch/arm64/boot/dts/broadcom/ns2-svk.dts
++++ b/arch/arm64/boot/dts/broadcom/ns2-svk.dts
+@@@ -161,11 -141,10 +169,19 @@@
+  	};
+  };
+  
+ +&pinctrl {
+ +	pinctrl-names = "default";
+ +	pinctrl-0 = <&nand_sel>;
+ +	nand_sel: nand_sel {
+ +		function = "nand";
+ +		groups = "nand_grp";
+ +	};
+ +};
+++
++ &mdio_mux_iproc {
++ 	mdio@10 {
++ 		gphy0: eth-phy@10 {
++ 			reg = <0x10>;
++ 		};
++ 	};
++ };
+diff --cc arch/arm64/boot/dts/broadcom/ns2.dtsi
+index d1dc812daaab,46b78fa89f4c..000000000000
+--- a/arch/arm64/boot/dts/broadcom/ns2.dtsi
++++ b/arch/arm64/boot/dts/broadcom/ns2.dtsi
+@@@ -279,26 -263,45 +279,65 @@@
+  				      IRQ_TYPE_LEVEL_HIGH)>;
+  		};
+  
+ +		cci@65590000 {
+ +			compatible = "arm,cci-400";
+ +			#address-cells = <1>;
+ +			#size-cells = <1>;
+ +			reg = <0x65590000 0x1000>;
+ +			ranges = <0 0x65590000 0x10000>;
+ +
+ +			pmu@9000 {
+ +				compatible = "arm,cci-400-pmu,r1",
+ +					     "arm,cci-400-pmu";
+ +				reg = <0x9000 0x4000>;
+ +				interrupts = <GIC_SPI 344 IRQ_TYPE_LEVEL_HIGH>,
+ +					     <GIC_SPI 345 IRQ_TYPE_LEVEL_HIGH>,
+ +					     <GIC_SPI 346 IRQ_TYPE_LEVEL_HIGH>,
+ +					     <GIC_SPI 347 IRQ_TYPE_LEVEL_HIGH>,
+ +					     <GIC_SPI 348 IRQ_TYPE_LEVEL_HIGH>,
+ +					     <GIC_SPI 349 IRQ_TYPE_LEVEL_HIGH>;
+ +			};
+ +		};
+ +
++ 		mdio_mux_iproc: mdio-mux@6602023c {
++ 			compatible = "brcm,mdio-mux-iproc";
++ 			reg = <0x6602023c 0x14>;
++ 			#address-cells = <1>;
++ 			#size-cells = <0>;
++ 
++ 			mdio@0 {
++ 				reg = <0x0>;
++ 				#address-cells = <1>;
++ 				#size-cells = <0>;
++ 
++ 				pci_phy0: pci-phy@0 {
++ 					compatible = "brcm,ns2-pcie-phy";
++ 					reg = <0x0>;
++ 					#phy-cells = <0>;
++ 					status = "disabled";
++ 				};
++ 			};
++ 
++ 			mdio@7 {
++ 				reg = <0x7>;
++ 				#address-cells = <1>;
++ 				#size-cells = <0>;
++ 
++ 				pci_phy1: pci-phy@0 {
++ 					compatible = "brcm,ns2-pcie-phy";
++ 					reg = <0x0>;
++ 					#phy-cells = <0>;
++ 					status = "disabled";
++ 				};
++ 			};
++ 
++ 			mdio@10 {
++ 				reg = <0x10>;
++ 				#address-cells = <1>;
++ 				#size-cells = <0>;
++ 			};
++ 		};
++ 
+  		timer0: timer@66030000 {
+  			compatible = "arm,sp804", "arm,primecell";
+  			reg = <0x66030000 0x1000>;
