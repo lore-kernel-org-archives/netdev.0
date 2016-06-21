@@ -1,30 +1,53 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: more fallout from sch locking changes?
-Date: Mon, 20 Jun 2016 23:23:01 -0700
-Message-ID: <1466490181.6850.30.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <6bf6df76-4871-9408-a856-74410bdf7505@cumulusnetworks.com>
+From: Richard Cochran <richardcochran@gmail.com>
+Subject: Re: [very-RFC 0/8] TSN driver for the kernel
+Date: Tue, 21 Jun 2016 08:38:57 +0200
+Message-ID: <20160621063856.GA1828@netboy>
+References: <20160614121844.54a125a5@lxorguk.ukuu.org.uk>
+ <5760C84C.40408@sakamocchi.jp>
+ <20160615080602.GA13555@localhost.localdomain>
+ <5764DA85.3050801@sakamocchi.jp>
+ <20160618224549.GF32724@icarus.home.austad.us>
+ <9a5abd48-4da3-945d-53c9-b6d37010ab0d@linux.intel.com>
+ <20160620121838.GA5257@localhost.localdomain>
+ <20160620123148.GA5846@localhost.localdomain>
+ <20160620152126.GA12638@localhost.localdomain>
+ <s5hoa6vxf1j.wl-tiwai@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f179.google.com ([209.85.192.179]:34739 "EHLO
-	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750726AbcFUGXF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 02:23:05 -0400
-Received: by mail-pf0-f179.google.com with SMTP id h14so3308977pfe.1
-        for <netdev@vger.kernel.org>; Mon, 20 Jun 2016 23:23:04 -0700 (PDT)
-In-Reply-To: <6bf6df76-4871-9408-a856-74410bdf7505@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: alsa-devel@alsa-project.org, netdev@vger.kernel.org,
+ Henrik Austad <henrik@austad.us>,
+ Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>,
+ Takashi Sakamoto <o-takashi@sakamocchi.jp>, Arnd Bergmann <arnd@linaro.org>,
+ linux-kernel@vger.kernel.org, linux-media@vger.kernel.org
+To: Takashi Iwai <tiwai@suse.de>
+Return-path: <alsa-devel-bounces@alsa-project.org>
+Content-Disposition: inline
+In-Reply-To: <s5hoa6vxf1j.wl-tiwai@suse.de>
+List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
+List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
+List-Post: <mailto:alsa-devel@alsa-project.org>
+List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
+List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
+ <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
+Errors-To: alsa-devel-bounces@alsa-project.org
+Sender: alsa-devel-bounces@alsa-project.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 2016-06-20 at 22:02 -0600, David Ahern wrote:
-> I just updated to top of next-net tree (697666eac66) and still seeing an 
-> occasional lockdep splat. It is not reliable to the point I would 
-> attempt a git bisect. 2 splats -- 1 for ipv4 (first login to VM after 
-> boot) and ipv6 (second login to VM after boot). Perhaps it is more 
-> fallout of the packet scheduling changes you have been making this 
-> iteration. Just a guess based on sch_direct_xmit in both traces.
+On Tue, Jun 21, 2016 at 07:54:32AM +0200, Takashi Iwai wrote:
+> > I still would appreciate an answer to my other questions, though...
+> 
+> Currently HD-audio (both ASoC and legacy ones) are the only drivers
+> providing the link timestamp.  In the recent code, it's PCM
+> get_time_info ops, so you can easily grep it.
 
-Seems to be a lockdep hash chain collision, please report to lkml.
+Yes, I found that myself, thanks.
+ 
+> HTH,
+
+No it doesn't help me, because I asked three questions, and none were
+about the link timestamp.
+
+Thanks,
+Richard
