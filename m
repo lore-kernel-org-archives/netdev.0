@@ -1,7 +1,7 @@
 From: ggarcia@abra.uab.cat
-Subject: [RFC v2 1/3] vsockmon: Add tap functions
-Date: Wed, 22 Jun 2016 18:11:00 +0200
-Message-ID: <20160622161102.8250-2-ggarcia@deic.uab.cat>
+Subject: [RFC v2 2/3] vsockmon: Add vsockmon device
+Date: Wed, 22 Jun 2016 18:11:01 +0200
+Message-ID: <20160622161102.8250-3-ggarcia@deic.uab.cat>
 References: <20160622161102.8250-1-ggarcia@deic.uab.cat>
 Content-Transfer-Encoding: 7BIT
 Cc: jhansen@vmware.com, stefanha@redhat.com,
@@ -10,16 +10,16 @@ To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
 Received: from damascus.uab.es ([158.109.168.135]:53228 "EHLO damascus.uab.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752443AbcFVQMO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 12:12:14 -0400
+	id S1753088AbcFVQMQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2016 12:12:16 -0400
 Received: from damascus.uab.es ([127.0.0.1])
  by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0O9600AO6L0CST10@damascus.uab.es> for
- netdev@vger.kernel.org; Wed, 22 Jun 2016 18:12:12 +0200 (CEST)
+ Jan  6 2005)) with ESMTP id <0O9600ANSL0DT010@damascus.uab.es> for
+ netdev@vger.kernel.org; Wed, 22 Jun 2016 18:12:13 +0200 (CEST)
 Received: from abra.uab.es ([158.109.79.4])
  by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0O9600B23L0CI200@damascus.uab.es> for
- netdev@vger.kernel.org; Wed, 22 Jun 2016 18:12:12 +0200 (CEST)
+ Jan  6 2005)) with ESMTP id <0O9600B1ML0DIT00@damascus.uab.es> for
+ netdev@vger.kernel.org; Wed, 22 Jun 2016 18:12:13 +0200 (CEST)
 In-reply-to: <20160622161102.8250-1-ggarcia@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -28,177 +28,271 @@ From: Gerard Garcia <ggarcia@deic.uab.cat>
 
 Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
 ---
- include/net/af_vsock.h       |  13 +++++
- include/uapi/linux/if_arp.h  |   1 +
- net/vmw_vsock/Makefile       |   2 +-
- net/vmw_vsock/af_vsock_tap.c | 112 +++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 127 insertions(+), 1 deletion(-)
- create mode 100644 net/vmw_vsock/af_vsock_tap.c
+ drivers/net/Kconfig           |   8 ++
+ drivers/net/Makefile          |   1 +
+ drivers/net/vsockmon.c        | 167 ++++++++++++++++++++++++++++++++++++++++++
+ include/uapi/linux/Kbuild     |   1 +
+ include/uapi/linux/vsockmon.h |  35 +++++++++
+ 5 files changed, 212 insertions(+)
+ create mode 100644 drivers/net/vsockmon.c
+ create mode 100644 include/uapi/linux/vsockmon.h
 
-diff --git a/include/net/af_vsock.h b/include/net/af_vsock.h
-index 15694c9..5bd7487 100644
---- a/include/net/af_vsock.h
-+++ b/include/net/af_vsock.h
-@@ -187,4 +187,17 @@ struct sock *vsock_find_connected_socket(struct sockaddr_vm *src,
- 					 struct sockaddr_vm *dst);
- void vsock_for_each_connected_socket(void (*fn)(struct sock *sk));
+diff --git a/drivers/net/Kconfig b/drivers/net/Kconfig
+index 0c5415b..42c43b6 100644
+--- a/drivers/net/Kconfig
++++ b/drivers/net/Kconfig
+@@ -330,6 +330,14 @@ config NET_VRF
+ 	  This option enables the support for mapping interfaces into VRF's. The
+ 	  support enables VRF devices.
  
-+/**** TAP ****/
++config VSOCKMON
++    tristate "Virtual vsock monitoring device"
++    depends on VHOST_VSOCK
++    ---help---
++     This option enables a monitoring net device for vsock sockets. It is
++     mostly intended for developers or support to debug vsock issues. If
++     unsure, say N.
 +
-+struct vsock_tap {
-+	struct net_device *dev;
-+	struct module *module;
-+	struct list_head list;
+ endif # NET_CORE
+ 
+ config SUNGEM_PHY
+diff --git a/drivers/net/Makefile b/drivers/net/Makefile
+index 7336cbd..e2188d4 100644
+--- a/drivers/net/Makefile
++++ b/drivers/net/Makefile
+@@ -28,6 +28,7 @@ obj-$(CONFIG_GENEVE) += geneve.o
+ obj-$(CONFIG_GTP) += gtp.o
+ obj-$(CONFIG_NLMON) += nlmon.o
+ obj-$(CONFIG_NET_VRF) += vrf.o
++obj-$(CONFIG_VSOCKMON) += vsockmon.o
+ 
+ #
+ # Networking Drivers
+diff --git a/drivers/net/vsockmon.c b/drivers/net/vsockmon.c
+new file mode 100644
+index 0000000..7deeba0
+--- /dev/null
++++ b/drivers/net/vsockmon.c
+@@ -0,0 +1,167 @@
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/if_arp.h>
++#include <net/rtnetlink.h>
++#include <net/sock.h>
++#include <net/af_vsock.h>
++#include <uapi/linux/vsockmon.h>
++
++/* Virtio transport max packet size plus header */
++#define DEFAULT_MTU 1024 * 64 + sizeof(struct af_vsockmon_hdr);
++
++struct pcpu_lstats {
++	u64 rx_packets;
++	u64 rx_bytes;
++	struct u64_stats_sync syncp;
 +};
 +
-+int vsock_init_tap(void);
-+int vsock_add_tap(struct vsock_tap *vt);
-+int vsock_remove_tap(struct vsock_tap *vt);
-+void vsock_deliver_tap(struct sk_buff *skb);
++static int vsockmon_dev_init(struct net_device *dev)
++{
++	dev->lstats = netdev_alloc_pcpu_stats(struct pcpu_lstats);
++	return dev->lstats == NULL ? -ENOMEM : 0;
++}
 +
- #endif /* __AF_VSOCK_H__ */
-diff --git a/include/uapi/linux/if_arp.h b/include/uapi/linux/if_arp.h
-index 4d024d7..cf73510 100644
---- a/include/uapi/linux/if_arp.h
-+++ b/include/uapi/linux/if_arp.h
-@@ -95,6 +95,7 @@
- #define ARPHRD_IP6GRE	823		/* GRE over IPv6		*/
- #define ARPHRD_NETLINK	824		/* Netlink header		*/
- #define ARPHRD_6LOWPAN	825		/* IPv6 over LoWPAN             */
-+#define ARPHRD_VSOCKMON	826		/* Vsock monitor header		*/
- 
- #define ARPHRD_VOID	  0xFFFF	/* Void type, nothing is known */
- #define ARPHRD_NONE	  0xFFFE	/* zero header length */
-diff --git a/net/vmw_vsock/Makefile b/net/vmw_vsock/Makefile
-index cf4c294..4dc3094 100644
---- a/net/vmw_vsock/Makefile
-+++ b/net/vmw_vsock/Makefile
-@@ -3,7 +3,7 @@ obj-$(CONFIG_VMWARE_VMCI_VSOCKETS) += vmw_vsock_vmci_transport.o
- obj-$(CONFIG_VIRTIO_VSOCKETS) += virtio_transport.o
- obj-$(CONFIG_VIRTIO_VSOCKETS_COMMON) += virtio_transport_common.o
- 
--vsock-y += af_vsock.o vsock_addr.o
-+vsock-y += af_vsock.o af_vsock_tap.o vsock_addr.o
- 
- vmw_vsock_vmci_transport-y += vmci_transport.o vmci_transport_notify.o \
- 	vmci_transport_notify_qstate.o
-diff --git a/net/vmw_vsock/af_vsock_tap.c b/net/vmw_vsock/af_vsock_tap.c
-new file mode 100644
-index 0000000..a92aaff
---- /dev/null
-+++ b/net/vmw_vsock/af_vsock_tap.c
-@@ -0,0 +1,112 @@
-+/*
-+ * Tap functions for AF_VSOCK sockets.
-+ *
-+ * Code based on net/netlink/af_netlink.c tap functions.
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the License, or (at your option) any later version.
-+ */
++static void vsockmon_dev_uninit(struct net_device *dev)
++{
++	free_percpu(dev->lstats);
++}
 +
-+#include <net/af_vsock.h>
++struct vsockmon {
++	struct vsock_tap vt;
++};
 +
-+static DEFINE_SPINLOCK(vsock_tap_lock);
-+static struct list_head vsock_tap_all __read_mostly =
-+				LIST_HEAD_INIT(vsock_tap_all);
++static int vsockmon_open(struct net_device *dev)
++{
++	struct vsockmon *vsockmon = netdev_priv(dev);
 +
-+int vsock_add_tap(struct vsock_tap *vt) {
-+	if (unlikely(vt->dev->type != ARPHRD_VSOCKMON))
++	vsockmon->vt.dev = dev;
++	vsockmon->vt.module = THIS_MODULE;
++	return vsock_add_tap(&vsockmon->vt);
++}
++
++static int vsockmon_close(struct net_device *dev) {
++	struct vsockmon *vsockmon = netdev_priv(dev);
++
++	return vsock_remove_tap(&vsockmon->vt);
++}
++
++static netdev_tx_t vsockmon_xmit(struct sk_buff *skb, struct net_device *dev)
++{
++	int len = skb->len;
++	struct pcpu_lstats *stats = this_cpu_ptr(dev->lstats);
++
++	u64_stats_update_begin(&stats->syncp);
++	stats->rx_bytes += len;
++	stats->rx_packets++;
++	u64_stats_update_end(&stats->syncp);
++
++	dev_kfree_skb(skb);
++
++	return NETDEV_TX_OK;
++}
++
++static struct rtnl_link_stats64 *
++vsockmon_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
++{
++	int i;
++	u64 bytes = 0, packets = 0;
++
++	for_each_possible_cpu(i) {
++		const struct pcpu_lstats *vstats;
++		u64 tbytes, tpackets;
++		unsigned int start;
++
++		vstats = per_cpu_ptr(dev->lstats, i);
++
++		do {
++			start = u64_stats_fetch_begin_irq(&vstats->syncp);
++			tbytes = vstats->rx_bytes;
++			tpackets = vstats->rx_packets;
++		} while (u64_stats_fetch_retry_irq(&vstats->syncp, start));
++
++		packets += tpackets;
++		bytes += tbytes;
++	}
++
++	stats->rx_packets = packets;
++	stats->tx_packets = 0;
++
++	stats->rx_bytes = bytes;
++	stats->tx_bytes = 0;
++
++	return stats;
++}
++
++static int vsockmon_is_valid_mtu(int new_mtu)
++{
++	return new_mtu >= (int) sizeof(struct af_vsockmon_hdr);
++}
++
++static int vsockmon_change_mtu(struct net_device *dev, int new_mtu)
++{
++	if (!vsockmon_is_valid_mtu(new_mtu))
 +		return -EINVAL;
 +
-+	__module_get(vt->module);
-+
-+	spin_lock(&vsock_tap_lock);
-+	list_add_rcu(&vt->list, &vsock_tap_all);
-+	spin_unlock(&vsock_tap_lock);
-+
-+
++	dev->mtu = new_mtu;
 +	return 0;
 +}
-+EXPORT_SYMBOL_GPL(vsock_add_tap);
 +
-+int __vsock_remove_tap(struct vsock_tap *vt) {
-+	bool found = false;
-+	struct vsock_tap *tmp;
++static const struct net_device_ops vsockmon_ops = {
++	.ndo_init = vsockmon_dev_init,
++	.ndo_uninit = vsockmon_dev_uninit,
++	.ndo_open = vsockmon_open,
++	.ndo_stop = vsockmon_close,
++	.ndo_start_xmit = vsockmon_xmit,
++	.ndo_get_stats64 = vsockmon_get_stats64,
++	.ndo_change_mtu = vsockmon_change_mtu,
++};
 +
-+	spin_lock(&vsock_tap_lock);
-+
-+	list_for_each_entry(tmp, &vsock_tap_all, list) {
-+		if (vt == tmp) {
-+			list_del_rcu(&vt->list);
-+			found = true;
-+			goto out;
-+		}
-+	}
-+
-+	pr_warn("__vsock_remove_tap: %p not found\n", vt);
-+out:
-+	spin_unlock(&vsock_tap_lock);
-+
-+	if (found)
-+		module_put(vt->module);
-+
-+	return found ? 0 : -ENODEV;
-+}
-+
-+int vsock_remove_tap(struct vsock_tap *vt)
++static u32 always_on(struct net_device *dev)
 +{
-+	int ret;
-+
-+	ret = __vsock_remove_tap(vt);
-+	synchronize_net();
-+
-+	return ret;
++	return 1;
 +}
-+EXPORT_SYMBOL_GPL(vsock_remove_tap);
 +
-+static int __vsock_deliver_tap_skb(struct sk_buff *skb,
-+				     struct net_device *dev)
++static const struct ethtool_ops vsockmon_ethtool_ops = {
++	.get_link = always_on,
++};
++
++static void vsockmon_setup(struct net_device *dev)
 +{
-+	int ret = 0;
++	dev->type = ARPHRD_VSOCKMON;
++	dev->priv_flags |= IFF_NO_QUEUE;
 +
-+	if (skb) {
-+		dev_hold(dev);
-+		/* Take skb ownership so it is not consumed in dev_queue_xmit.
-+		 * dev_queue_xmit will drop a reference so the reference count
-+		 * will reset.
-+		 */
-+		skb_get(skb);
-+		skb->dev = dev;
-+		ret = dev_queue_xmit(skb);
-+		if (unlikely(ret > 0))
-+			ret = net_xmit_errno(ret);
++	dev->netdev_ops	= &vsockmon_ops;
++	dev->ethtool_ops = &vsockmon_ethtool_ops;
++	dev->destructor	= free_netdev;
 +
-+		dev_put(dev);
-+	}
++	dev->features = NETIF_F_SG | NETIF_F_FRAGLIST |
++			NETIF_F_HIGHDMA | NETIF_F_LLTX;
 +
-+	return ret;
++	dev->flags = IFF_NOARP;
++
++	dev->mtu = DEFAULT_MTU;
 +}
 +
-+static void __vsock_deliver_tap(struct sk_buff *skb)
++static struct rtnl_link_ops vsockmon_link_ops __read_mostly = {
++	.kind			= "vsockmon",
++	.priv_size		= sizeof(struct vsockmon),
++	.setup			= vsockmon_setup,
++};
++
++static __init int vsockmon_register(void)
 +{
-+	int ret;
-+	struct vsock_tap *tmp;
-+
-+	list_for_each_entry_rcu(tmp, &vsock_tap_all, list) {
-+		ret = __vsock_deliver_tap_skb(skb, tmp->dev);
-+		if (unlikely(ret))
-+			break;
-+	}
++	return rtnl_link_register(&vsockmon_link_ops);
 +}
 +
-+void vsock_deliver_tap(struct sk_buff *skb)
++static __exit void vsockmon_unregister(void)
 +{
-+	rcu_read_lock();
-+
-+	if (unlikely(!list_empty(&vsock_tap_all)))
-+		__vsock_deliver_tap(skb);
-+
-+	rcu_read_unlock();
++	rtnl_link_unregister(&vsockmon_link_ops);
 +}
-+EXPORT_SYMBOL_GPL(vsock_deliver_tap);
++
++module_init(vsockmon_register);
++module_exit(vsockmon_unregister);
++
++MODULE_LICENSE("GPL v2");
++MODULE_AUTHOR("Gerard Garcia <ggarcia@deic.uab.cat>");
++MODULE_DESCRIPTION("Vsock monitoring device. Based on nlmon device.");
++MODULE_ALIAS_RTNL_LINK("vsockmon");
+diff --git a/include/uapi/linux/Kbuild b/include/uapi/linux/Kbuild
+index 5f047d2..b1836cc 100644
+--- a/include/uapi/linux/Kbuild
++++ b/include/uapi/linux/Kbuild
+@@ -454,6 +454,7 @@ header-y += virtio_scsi.h
+ header-y += virtio_types.h
+ header-y += virtio_vsock.h
+ header-y += vm_sockets.h
++header-y += vsockmon.h
+ header-y += vt.h
+ header-y += wait.h
+ header-y += wanrouter.h
+diff --git a/include/uapi/linux/vsockmon.h b/include/uapi/linux/vsockmon.h
+new file mode 100644
+index 0000000..29a761c
+--- /dev/null
++++ b/include/uapi/linux/vsockmon.h
+@@ -0,0 +1,35 @@
++#ifndef _UAPI_VSOCKMON_H
++#define _UAPI_VSOCKMON_H
++
++#include <linux/virtio_vsock.h>
++
++/* Structure of packets received trought the vsockmon device.
++ */
++
++struct af_vsockmon_hdr {
++	__le64 src_cid;
++	__le32 src_port;
++	__le64 dst_cid;
++	__le32 dst_port;
++	__le16 op;			/* enum af_vsockmon_op */
++	__le16 t;			/* enum af_vosckmon_t */
++	union {
++		struct virtio_vsock_hdr virtio_hdr;
++	} t_hdr;
++};
++
++enum af_vsockmon_op {
++	AF_VSOCK_OP_UNKNOWN = 0,
++	AF_VSOCK_OP_CONNECT = 1,
++	AF_VSOCK_OP_DISCONNECT = 2,
++	AF_VSOCK_OP_CONTROL = 3,
++	AF_VSOCK_OP_PAYLOAD = 4,
++};
++
++enum af_vsockmon_t {
++	AF_VSOCK_T_UNKNOWN = 0,
++	AF_VSOCK_T_NO_INFO = 1,		/* No transport information */
++	AF_VSOCK_T_VIRTIO = 2,		/* Virtio transport header */
++};
++
++#endif
 -- 
 2.9.0
