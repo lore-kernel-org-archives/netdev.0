@@ -1,34 +1,80 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
-Date: Tue, 21 Jun 2016 22:06:01 -0600
-Message-ID: <0dff6f22-3e43-f658-65ee-1c429823cc1f@cumulusnetworks.com>
-References: <CALx6S37GuppbknFiGsGxyP8jAX-t8c1=mWxCToKQVA8r8UPeOA@mail.gmail.com>
- <20160619.200741.1114304127682357737.davem@davemloft.net>
- <CALx6S37+o2=Lqzxu_U4QiSvqnq8CjEq5uSpbKVfFfo8r5qD+6g@mail.gmail.com>
- <20160621.042918.1782717212289281861.davem@davemloft.net>
- <CAPshTCgCVs5i1QyLeNPzw2W3X5+r_=5Hw1HOnD+cBsBQBRN35g@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Tom Herbert <tom@herbertland.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	kernel-team@fb.com
-To: Jerry Chu <hkchu@google.com>, David Miller <davem@davemloft.net>
+From: William Tu <u9012063@gmail.com>
+Subject: [net-next] samples/bpf: set max locked memory to ulimited
+Date: Tue, 21 Jun 2016 21:05:58 -0700
+Message-ID: <1466568358-37217-1-git-send-email-u9012063@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f46.google.com ([209.85.214.46]:38227 "EHLO
-	mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750957AbcFVEGD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 00:06:03 -0400
-Received: by mail-it0-f46.google.com with SMTP id h190so30691275ith.1
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 21:06:03 -0700 (PDT)
-In-Reply-To: <CAPshTCgCVs5i1QyLeNPzw2W3X5+r_=5Hw1HOnD+cBsBQBRN35g@mail.gmail.com>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:33297 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751013AbcFVEGL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 00:06:11 -0400
+Received: by mail-pa0-f65.google.com with SMTP id ts6so2820490pac.0
+        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 21:06:11 -0700 (PDT)
+Received: from vm-dev.localdomain ([73.93.143.25])
+        by smtp.gmail.com with ESMTPSA id tj10sm8180753pab.21.2016.06.21.21.06.04
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
+        Tue, 21 Jun 2016 21:06:05 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/21/16 9:42 PM, Jerry Chu wrote:
-> Yes TOU may lower the bar for random hacks by Joe Random. But I'd argue
-> no large organization would serious consider or dare deploy TCP stack
-> with random hacks.
+Signed-off-by: William Tu <u9012063@gmail.com>
+---
+ samples/bpf/sockex2_user.c | 3 +++
+ samples/bpf/sockex3_user.c | 3 +++
+ 2 files changed, 6 insertions(+)
 
-There are userspace network stacks that have been around for years and 
-widely deployed on devices that basically use Linux as the boot OS.
+diff --git a/samples/bpf/sockex2_user.c b/samples/bpf/sockex2_user.c
+index 29a276d..8a4085c 100644
+--- a/samples/bpf/sockex2_user.c
++++ b/samples/bpf/sockex2_user.c
+@@ -5,6 +5,7 @@
+ #include "bpf_load.h"
+ #include <unistd.h>
+ #include <arpa/inet.h>
++#include <sys/resource.h>
+ 
+ struct pair {
+ 	__u64 packets;
+@@ -13,11 +14,13 @@ struct pair {
+ 
+ int main(int ac, char **argv)
+ {
++	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
+ 	char filename[256];
+ 	FILE *f;
+ 	int i, sock;
+ 
+ 	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++	setrlimit(RLIMIT_MEMLOCK, &r);
+ 
+ 	if (load_bpf_file(filename)) {
+ 		printf("%s", bpf_log_buf);
+diff --git a/samples/bpf/sockex3_user.c b/samples/bpf/sockex3_user.c
+index 2617772..d4184ab 100644
+--- a/samples/bpf/sockex3_user.c
++++ b/samples/bpf/sockex3_user.c
+@@ -5,6 +5,7 @@
+ #include "bpf_load.h"
+ #include <unistd.h>
+ #include <arpa/inet.h>
++#include <sys/resource.h>
+ 
+ struct flow_keys {
+ 	__be32 src;
+@@ -23,11 +24,13 @@ struct pair {
+ 
+ int main(int argc, char **argv)
+ {
++	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
+ 	char filename[256];
+ 	FILE *f;
+ 	int i, sock;
+ 
+ 	snprintf(filename, sizeof(filename), "%s_kern.o", argv[0]);
++	setrlimit(RLIMIT_MEMLOCK, &r);
+ 
+ 	if (load_bpf_file(filename)) {
+ 		printf("%s", bpf_log_buf);
+-- 
+2.5.0
