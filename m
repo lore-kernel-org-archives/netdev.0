@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 08/14] rxrpc: Use IDR to allocate client conn IDs
- on a machine-wide basis [ver #2]
-Date: Wed, 22 Jun 2016 17:03:49 +0100
-Message-ID: <146661142946.15011.10573323953528498262.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 14/14] rxrpc: Kill off the rxrpc_transport struct
+ [ver #2]
+Date: Wed, 22 Jun 2016 17:04:32 +0100
+Message-ID: <146661147245.15011.16813688533062355393.stgit@warthog.procyon.org.uk>
 References: <146661137134.15011.10133465789054712595.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,575 +10,721 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, netdev@vger.kernel.org,
 	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:40196 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753141AbcFVQFP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2016 12:05:15 -0400
 In-Reply-To: <146661137134.15011.10133465789054712595.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use the IDR facility to allocate client connection IDs on a machine-wide
-basis so that each client connection has a unique identifier.  When the
-connection ID space wraps, we advance the epoch by 1, thereby effectively
-having a 62-bit ID space.  The IDR facility is then used to look up client
-connections during incoming packet routing instead of using an rbtree
-rooted on the transport.
+The rxrpc_transport struct is now redundant, given that the rxrpc_peer
+struct is now per peer port rather than per peer host, so get rid of it.
 
-This change allows for the removal of the transport in the future and also
-means that client connections can be looked up directly in the data-ready
-handler by connection ID.
-
-The ID management code is placed in a new file, conn-client.c, to which all
-the client connection-specific code will eventually move.
-
-Note that the IDR tree gets very expensive on memory if the connection IDs
-are widely scattered throughout the number space, so we shall need to
-retire connections that have, say, an ID more than four times the maximum
-number of client conns away from the current allocation point to try and
-keep the IDs concentrated.  We will also need to retire connections from an
-old epoch.
-
-Also note that, for the moment, a pointer to the transport has to be passed
-through into the ID allocation function so that we can take a BH lock to
-prevent a locking issue against in-BH lookup of client connections.  This
-will go away later when RCU is used for server connections also.
+Service connection lists are transferred to the rxrpc_peer struct, as is
+the conn_lock.  Previous patches moved the client connection handling out
+of the rxrpc_transport struct and discarded the connection bundling code.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/Makefile      |    1 
- net/rxrpc/af_rxrpc.c    |    2 
- net/rxrpc/ar-internal.h |   13 ++-
- net/rxrpc/conn_client.c |   99 ++++++++++++++++++++
- net/rxrpc/conn_object.c |  231 +++++++++++++++++------------------------------
- net/rxrpc/transport.c   |    2 
- 6 files changed, 196 insertions(+), 152 deletions(-)
- create mode 100644 net/rxrpc/conn_client.c
+ net/rxrpc/Makefile      |    1 -
+ net/rxrpc/af_rxrpc.c    |   46 +---------------------------
+ net/rxrpc/ar-internal.h |   57 ++++++----------------------------
+ net/rxrpc/call_accept.c |   11 +------
+ net/rxrpc/call_object.c |   16 ++++------
+ net/rxrpc/conn_object.c |   78 ++++++++++++++++++++++++++---------------------
+ net/rxrpc/input.c       |    8 +----
+ net/rxrpc/output.c      |   24 +-------------
+ net/rxrpc/peer_object.c |    2 +
+ net/rxrpc/sysctl.c      |    8 -----
+ net/rxrpc/transport.c   |    0 
+ 11 files changed, 65 insertions(+), 186 deletions(-)
+ delete mode 100644 net/rxrpc/transport.c
 
 diff --git a/net/rxrpc/Makefile b/net/rxrpc/Makefile
-index b005027f80cf..cfa221536f33 100644
+index cfa221536f33..6522e50fb750 100644
 --- a/net/rxrpc/Makefile
 +++ b/net/rxrpc/Makefile
-@@ -7,6 +7,7 @@ af-rxrpc-y := \
- 	call_accept.o \
- 	call_event.o \
- 	call_object.o \
-+	conn_client.o \
- 	conn_event.o \
- 	conn_object.o \
- 	input.o \
+@@ -22,7 +22,6 @@ af-rxrpc-y := \
+ 	recvmsg.o \
+ 	security.o \
+ 	skbuff.o \
+-	transport.o \
+ 	utils.o
+ 
+ af-rxrpc-$(CONFIG_PROC_FS) += proc.o
 diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
-index 73f5c553eef4..408bd024125b 100644
+index f3b6ed8196c3..5d3e795a7c48 100644
 --- a/net/rxrpc/af_rxrpc.c
 +++ b/net/rxrpc/af_rxrpc.c
-@@ -858,6 +858,8 @@ static void __exit af_rxrpc_exit(void)
- 	_debug("synchronise RCU");
- 	rcu_barrier();
- 	_debug("destroy locals");
-+	ASSERT(idr_is_empty(&rxrpc_client_conn_ids));
-+	idr_destroy(&rxrpc_client_conn_ids);
- 	rxrpc_destroy_all_locals();
+@@ -224,37 +224,6 @@ static int rxrpc_listen(struct socket *sock, int backlog)
+ 	return ret;
+ }
  
- 	remove_proc_entry("rxrpc_conns", init_net.proc_net);
+-/*
+- * find a transport by address
+- */
+-struct rxrpc_transport *
+-rxrpc_name_to_transport(struct rxrpc_conn_parameters *cp,
+-			struct sockaddr *addr,
+-			int addr_len,
+-			gfp_t gfp)
+-{
+-	struct sockaddr_rxrpc *srx = (struct sockaddr_rxrpc *) addr;
+-	struct rxrpc_transport *trans;
+-
+-	_enter("%p,%d", addr, addr_len);
+-
+-	if (cp->local->srx.transport_type != srx->transport_type)
+-		return ERR_PTR(-ESOCKTNOSUPPORT);
+-	if (cp->local->srx.transport.family != srx->transport.family)
+-		return ERR_PTR(-EAFNOSUPPORT);
+-
+-	/* find a remote transport endpoint from the local one */
+-	cp->peer = rxrpc_lookup_peer(cp->local, srx, gfp);
+-	if (!cp->peer)
+-		return ERR_PTR(-ENOMEM);
+-
+-	/* find a transport */
+-	trans = rxrpc_get_transport(cp->local, cp->peer, gfp);
+-	rxrpc_put_peer(cp->peer);
+-	_leave(" = %p", trans);
+-	return trans;
+-}
+-
+ /**
+  * rxrpc_kernel_begin_call - Allow a kernel service to begin a call
+  * @sock: The socket on which to make the call
+@@ -276,7 +245,6 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *sock,
+ 					   gfp_t gfp)
+ {
+ 	struct rxrpc_conn_parameters cp;
+-	struct rxrpc_transport *trans;
+ 	struct rxrpc_call *call;
+ 	struct rxrpc_sock *rx = rxrpc_sk(sock->sk);
+ 	int ret;
+@@ -300,19 +268,8 @@ struct rxrpc_call *rxrpc_kernel_begin_call(struct socket *sock,
+ 	cp.security_level	= 0;
+ 	cp.exclusive		= false;
+ 	cp.service_id		= srx->srx_service;
++	call = rxrpc_new_client_call(rx, &cp, srx, user_call_ID, gfp);
+ 
+-	trans = rxrpc_name_to_transport(&cp, (struct sockaddr *)srx,
+-					sizeof(*srx), gfp);
+-	if (IS_ERR(trans)) {
+-		call = ERR_CAST(trans);
+-		trans = NULL;
+-		goto out_notrans;
+-	}
+-	cp.peer = trans->peer;
+-
+-	call = rxrpc_new_client_call(rx, &cp, trans, srx, user_call_ID, gfp);
+-	rxrpc_put_transport(trans);
+-out_notrans:
+ 	release_sock(&rx->sk);
+ 	_leave(" = %p", call);
+ 	return call;
+@@ -831,7 +788,6 @@ static void __exit af_rxrpc_exit(void)
+ 	proto_unregister(&rxrpc_proto);
+ 	rxrpc_destroy_all_calls();
+ 	rxrpc_destroy_all_connections();
+-	rxrpc_destroy_all_transports();
+ 
+ 	ASSERTCMP(atomic_read(&rxrpc_n_skbs), ==, 0);
+ 
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 60ba22f56957..89966508b26c 100644
+index 26fe137d62bb..702db72196fb 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -233,7 +233,6 @@ struct rxrpc_transport {
- 	struct rxrpc_local	*local;		/* local transport endpoint */
- 	struct rxrpc_peer	*peer;		/* remote transport endpoint */
- 	struct rb_root		bundles;	/* client connection bundles on this transport */
--	struct rb_root		client_conns;	/* client connections on this transport */
- 	struct rb_root		server_conns;	/* server connections on this transport */
- 	struct list_head	link;		/* link in master session list */
- 	unsigned long		put_time;	/* time at which to reap */
-@@ -241,7 +240,6 @@ struct rxrpc_transport {
- 	rwlock_t		conn_lock;	/* lock for active/dead connections */
- 	atomic_t		usage;
- 	int			debug_id;	/* debug ID for printks */
--	unsigned int		conn_idcounter;	/* connection ID counter (client) */
+@@ -207,6 +207,8 @@ struct rxrpc_peer {
+ 	struct rxrpc_local	*local;
+ 	struct hlist_head	error_targets;	/* targets for net error distribution */
+ 	struct work_struct	error_distributor;
++	struct rb_root		service_conns;	/* Service connections */
++	rwlock_t		conn_lock;
+ 	spinlock_t		lock;		/* access lock */
+ 	unsigned int		if_mtu;		/* interface MTU for this peer */
+ 	unsigned int		mtu;		/* network MTU for this peer */
+@@ -226,22 +228,6 @@ struct rxrpc_peer {
  };
  
  /*
-@@ -312,6 +310,8 @@ struct rxrpc_connection {
- 	struct key		*server_key;	/* security for this service */
- 	struct crypto_skcipher	*cipher;	/* encryption handle */
- 	struct rxrpc_crypt	csum_iv;	/* packet checksum base */
-+	unsigned long		flags;
-+#define RXRPC_CONN_HAS_IDR	0		/* - Has a client conn ID assigned */
- 	unsigned long		events;
- #define RXRPC_CONN_CHALLENGE	0		/* send challenge packet */
- 	unsigned long		put_time;	/* time at which to reap */
-@@ -551,6 +551,15 @@ void __rxrpc_put_call(struct rxrpc_call *);
- void __exit rxrpc_destroy_all_calls(void);
- 
- /*
-+ * conn_client.c
-+ */
-+extern struct idr rxrpc_client_conn_ids;
-+
-+int rxrpc_get_client_connection_id(struct rxrpc_connection *,
-+				   struct rxrpc_transport *, gfp_t);
-+void rxrpc_put_client_connection_id(struct rxrpc_connection *);
-+
-+/*
-  * conn_event.c
-  */
- void rxrpc_process_connection(struct work_struct *);
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-new file mode 100644
-index 000000000000..2cccb4be289d
---- /dev/null
-+++ b/net/rxrpc/conn_client.c
-@@ -0,0 +1,99 @@
-+/* Client connection-specific management code.
-+ *
-+ * Copyright (C) 2016 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public Licence
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the Licence, or (at your option) any later version.
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/slab.h>
-+#include <linux/idr.h>
-+#include <linux/timer.h>
-+#include "ar-internal.h"
-+
-+/*
-+ * We use machine-unique IDs for our client connections.
-+ */
-+DEFINE_IDR(rxrpc_client_conn_ids);
-+static DEFINE_SPINLOCK(rxrpc_conn_id_lock);
-+
-+/*
-+ * Get a connection ID and epoch for a client connection from the global pool.
-+ * The connection struct pointer is then recorded in the idr radix tree.  The
-+ * epoch is changed if this wraps.
-+ *
-+ * TODO: The IDR tree gets very expensive on memory if the connection IDs are
-+ * widely scattered throughout the number space, so we shall need to retire
-+ * connections that have, say, an ID more than four times the maximum number of
-+ * client conns away from the current allocation point to try and keep the IDs
-+ * concentrated.  We will also need to retire connections from an old epoch.
-+ */
-+int rxrpc_get_client_connection_id(struct rxrpc_connection *conn,
-+				   struct rxrpc_transport *trans,
-+				   gfp_t gfp)
-+{
-+	u32 epoch;
-+	int id;
-+
-+	_enter("");
-+
-+	idr_preload(gfp);
-+	write_lock_bh(&trans->conn_lock);
-+	spin_lock(&rxrpc_conn_id_lock);
-+
-+	epoch = rxrpc_epoch;
-+
-+	/* We could use idr_alloc_cyclic() here, but we really need to know
-+	 * when the thing wraps so that we can advance the epoch.
-+	 */
-+	if (rxrpc_client_conn_ids.cur == 0)
-+		rxrpc_client_conn_ids.cur = 1;
-+	id = idr_alloc(&rxrpc_client_conn_ids, conn,
-+		       rxrpc_client_conn_ids.cur, 0x40000000, GFP_NOWAIT);
-+	if (id < 0) {
-+		if (id != -ENOSPC)
-+			goto error;
-+		id = idr_alloc(&rxrpc_client_conn_ids, conn,
-+			       1, 0x40000000, GFP_NOWAIT);
-+		if (id < 0)
-+			goto error;
-+		epoch++;
-+		rxrpc_epoch = epoch;
-+	}
-+	rxrpc_client_conn_ids.cur = id + 1;
-+
-+	spin_unlock(&rxrpc_conn_id_lock);
-+	write_unlock_bh(&trans->conn_lock);
-+	idr_preload_end();
-+
-+	conn->proto.epoch = epoch;
-+	conn->proto.cid = id << RXRPC_CIDSHIFT;
-+	set_bit(RXRPC_CONN_HAS_IDR, &conn->flags);
-+	_leave(" [CID %x:%x]", epoch, conn->proto.cid);
-+	return 0;
-+
-+error:
-+	spin_unlock(&rxrpc_conn_id_lock);
-+	write_unlock_bh(&trans->conn_lock);
-+	idr_preload_end();
-+	_leave(" = %d", id);
-+	return id;
-+}
-+
-+/*
-+ * Release a connection ID for a client connection from the global pool.
-+ */
-+void rxrpc_put_client_connection_id(struct rxrpc_connection *conn)
-+{
-+	if (test_bit(RXRPC_CONN_HAS_IDR, &conn->flags)) {
-+		spin_lock(&rxrpc_conn_id_lock);
-+		idr_remove(&rxrpc_client_conn_ids,
-+			   conn->proto.cid >> RXRPC_CIDSHIFT);
-+		spin_unlock(&rxrpc_conn_id_lock);
-+	}
-+}
-diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
-index cab2f6dbc5a1..312b75091d29 100644
---- a/net/rxrpc/conn_object.c
-+++ b/net/rxrpc/conn_object.c
-@@ -207,81 +207,6 @@ static struct rxrpc_connection *rxrpc_alloc_connection(gfp_t gfp)
- }
- 
- /*
-- * assign a connection ID to a connection and add it to the transport's
-- * connection lookup tree
-- * - called with transport client lock held
+- * RxRPC point-to-point transport / connection manager definition
+- * - handles a bundle of connections between two endpoints
+- * - matched by { local, peer }
 - */
--static void rxrpc_assign_connection_id(struct rxrpc_connection *conn)
--{
--	struct rxrpc_connection *xconn;
--	struct rb_node *parent, **p;
--	__be32 epoch;
--	u32 cid;
--
--	_enter("");
--
--	epoch = conn->proto.epoch;
--
--	write_lock_bh(&conn->trans->conn_lock);
--
--	conn->trans->conn_idcounter += RXRPC_CID_INC;
--	if (conn->trans->conn_idcounter < RXRPC_CID_INC)
--		conn->trans->conn_idcounter = RXRPC_CID_INC;
--	cid = conn->trans->conn_idcounter;
--
--attempt_insertion:
--	parent = NULL;
--	p = &conn->trans->client_conns.rb_node;
--
--	while (*p) {
--		parent = *p;
--		xconn = rb_entry(parent, struct rxrpc_connection, node);
--
--		if (epoch < xconn->proto.epoch)
--			p = &(*p)->rb_left;
--		else if (epoch > xconn->proto.epoch)
--			p = &(*p)->rb_right;
--		else if (cid < xconn->proto.cid)
--			p = &(*p)->rb_left;
--		else if (cid > xconn->proto.cid)
--			p = &(*p)->rb_right;
--		else
--			goto id_exists;
--	}
--
--	/* we've found a suitable hole - arrange for this connection to occupy
--	 * it */
--	rb_link_node(&conn->node, parent, p);
--	rb_insert_color(&conn->node, &conn->trans->client_conns);
--
--	conn->proto.cid = cid;
--	write_unlock_bh(&conn->trans->conn_lock);
--	_leave(" [CID %x]", cid);
--	return;
--
--	/* we found a connection with the proposed ID - walk the tree from that
--	 * point looking for the next unused ID */
--id_exists:
--	for (;;) {
--		cid += RXRPC_CID_INC;
--		if (cid < RXRPC_CID_INC) {
--			cid = RXRPC_CID_INC;
--			conn->trans->conn_idcounter = cid;
--			goto attempt_insertion;
--		}
--
--		parent = rb_next(parent);
--		if (!parent)
--			goto attempt_insertion;
--
--		xconn = rb_entry(parent, struct rxrpc_connection, node);
--		if (epoch < xconn->proto.epoch ||
--		    cid < xconn->proto.cid)
--			goto attempt_insertion;
--	}
--}
+-struct rxrpc_transport {
+-	struct rxrpc_local	*local;		/* local transport endpoint */
+-	struct rxrpc_peer	*peer;		/* remote transport endpoint */
+-	struct rb_root		server_conns;	/* server connections on this transport */
+-	struct list_head	link;		/* link in master session list */
+-	unsigned long		put_time;	/* time at which to reap */
+-	rwlock_t		conn_lock;	/* lock for active/dead connections */
+-	atomic_t		usage;
+-	int			debug_id;	/* debug ID for printks */
+-};
 -
 -/*
-  * add a call to a connection's call-by-ID tree
+  * Keys for matching a connection.
   */
- static void rxrpc_add_call_ID_to_conn(struct rxrpc_connection *conn,
-@@ -315,27 +240,24 @@ static void rxrpc_add_call_ID_to_conn(struct rxrpc_connection *conn,
- }
+ struct rxrpc_conn_proto {
+@@ -271,11 +257,10 @@ struct rxrpc_conn_parameters {
  
  /*
-- * connect a call on an exclusive connection
-+ * Allocate a client connection.
+  * RxRPC connection definition
+- * - matched by { transport, service_id, conn_id, direction, key }
++ * - matched by { local, peer, epoch, conn_id, direction }
+  * - each connection can only handle four simultaneous calls
   */
--static int rxrpc_connect_exclusive(struct rxrpc_sock *rx,
--				   struct rxrpc_conn_parameters *cp,
--				   struct rxrpc_transport *trans,
--				   struct rxrpc_call *call,
--				   gfp_t gfp)
-+static struct rxrpc_connection *
-+rxrpc_alloc_client_connection(struct rxrpc_conn_parameters *cp,
-+			      struct rxrpc_transport *trans,
-+			      gfp_t gfp)
+ struct rxrpc_connection {
+-	struct rxrpc_transport	*trans;		/* transport session */
+ 	struct rxrpc_conn_proto	proto;
+ 	struct rxrpc_conn_parameters params;
+ 
+@@ -286,7 +271,7 @@ struct rxrpc_connection {
+ 	struct work_struct	processor;	/* connection event processor */
+ 	union {
+ 		struct rb_node	client_node;	/* Node in local->client_conns */
+-		struct rb_node	service_node;	/* Node in trans->server_conns */
++		struct rb_node	service_node;	/* Node in peer->service_conns */
+ 	};
+ 	struct list_head	link;		/* link in master connection list */
+ 	struct rb_root		calls;		/* calls on this connection */
+@@ -494,10 +479,6 @@ extern u32 rxrpc_epoch;
+ extern atomic_t rxrpc_debug_id;
+ extern struct workqueue_struct *rxrpc_workqueue;
+ 
+-extern struct rxrpc_transport *rxrpc_name_to_transport(struct rxrpc_conn_parameters *,
+-						       struct sockaddr *,
+-						       int, gfp_t);
+-
+ /*
+  * call_accept.c
+  */
+@@ -526,7 +507,6 @@ struct rxrpc_call *rxrpc_find_call_hash(struct rxrpc_host_header *,
+ struct rxrpc_call *rxrpc_find_call_by_user_ID(struct rxrpc_sock *, unsigned long);
+ struct rxrpc_call *rxrpc_new_client_call(struct rxrpc_sock *,
+ 					 struct rxrpc_conn_parameters *,
+-					 struct rxrpc_transport *,
+ 					 struct sockaddr_rxrpc *,
+ 					 unsigned long, gfp_t);
+ struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *,
+@@ -560,15 +540,16 @@ extern struct list_head rxrpc_connections;
+ extern rwlock_t rxrpc_connection_lock;
+ 
+ int rxrpc_connect_call(struct rxrpc_call *, struct rxrpc_conn_parameters *,
+-		       struct rxrpc_transport *,
+ 		       struct sockaddr_rxrpc *, gfp_t);
++struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_local *,
++					       struct rxrpc_peer *,
++					       struct sk_buff *);
+ void rxrpc_disconnect_call(struct rxrpc_call *);
+ void rxrpc_put_connection(struct rxrpc_connection *);
+ void __exit rxrpc_destroy_all_connections(void);
+-struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *,
+-					       struct sk_buff *);
+-extern struct rxrpc_connection *
+-rxrpc_incoming_connection(struct rxrpc_transport *, struct sk_buff *);
++struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *,
++						   struct rxrpc_peer *,
++						   struct sk_buff *);
+ 
+ static inline bool rxrpc_conn_is_client(const struct rxrpc_connection *conn)
+ {
+@@ -585,12 +566,6 @@ static inline void rxrpc_get_connection(struct rxrpc_connection *conn)
+ 	atomic_inc(&conn->usage);
+ }
+ 
+-static inline
+-struct rxrpc_connection *rxrpc_get_connection_maybe(struct rxrpc_connection *conn)
+-{
+-	return atomic_inc_not_zero(&conn->usage) ? conn : NULL;
+-}
+-
+ /*
+  * input.c
+  */
+@@ -745,18 +720,6 @@ static inline void rxrpc_sysctl_exit(void) {}
+ #endif
+ 
+ /*
+- * transport.c
+- */
+-extern unsigned int rxrpc_transport_expiry;
+-
+-struct rxrpc_transport *rxrpc_get_transport(struct rxrpc_local *,
+-					    struct rxrpc_peer *, gfp_t);
+-void rxrpc_put_transport(struct rxrpc_transport *);
+-void __exit rxrpc_destroy_all_transports(void);
+-struct rxrpc_transport *rxrpc_find_transport(struct rxrpc_local *,
+-					     struct rxrpc_peer *);
+-
+-/*
+  * utils.c
+  */
+ void rxrpc_get_addr_from_skb(struct rxrpc_local *, const struct sk_buff *,
+diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
+index 833ad0622b61..202e053a3c6d 100644
+--- a/net/rxrpc/call_accept.c
++++ b/net/rxrpc/call_accept.c
+@@ -74,7 +74,6 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
+ 				      struct sockaddr_rxrpc *srx)
  {
  	struct rxrpc_connection *conn;
--	int chan, ret;
-+	int ret;
- 
- 	_enter("");
- 
- 	conn = rxrpc_alloc_connection(gfp);
- 	if (!conn) {
- 		_leave(" = -ENOMEM");
--		return -ENOMEM;
-+		return ERR_PTR(-ENOMEM);
+-	struct rxrpc_transport *trans;
+ 	struct rxrpc_skb_priv *sp, *nsp;
+ 	struct rxrpc_peer *peer;
+ 	struct rxrpc_call *call;
+@@ -102,16 +101,8 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
+ 		goto error;
  	}
  
--	conn->trans		= trans;
--	conn->bundle		= NULL;
- 	conn->params		= *cp;
- 	conn->proto.local	= cp->local;
- 	conn->proto.epoch	= rxrpc_epoch;
-@@ -344,35 +266,75 @@ static int rxrpc_connect_exclusive(struct rxrpc_sock *rx,
- 	conn->proto.family	= cp->peer->srx.transport.family;
- 	conn->out_clientflag	= RXRPC_CLIENT_INITIATED;
- 	conn->state		= RXRPC_CONN_CLIENT;
--	conn->avail_calls	= RXRPC_MAXCALLS - 1;
- 
--	key_get(conn->params.key);
-+	switch (conn->proto.family) {
-+	case AF_INET:
-+		conn->proto.addr_size = sizeof(conn->proto.ipv4_addr);
-+		conn->proto.ipv4_addr = cp->peer->srx.transport.sin.sin_addr;
-+		conn->proto.port = cp->peer->srx.transport.sin.sin_port;
-+		break;
-+	}
-+
-+	ret = rxrpc_get_client_connection_id(conn, trans, gfp);
-+	if (ret < 0)
-+		goto error_0;
- 
- 	ret = rxrpc_init_client_conn_security(conn);
--	if (ret < 0) {
--		key_put(conn->params.key);
--		kfree(conn);
--		_leave(" = %d [key]", ret);
--		return ret;
+-	trans = rxrpc_get_transport(local, peer, GFP_NOIO);
++	conn = rxrpc_incoming_connection(local, peer, skb);
+ 	rxrpc_put_peer(peer);
+-	if (IS_ERR(trans)) {
+-		_debug("no trans");
+-		ret = -EBUSY;
+-		goto error;
 -	}
-+	if (ret < 0)
-+		goto error_1;
-+
-+	conn->security->prime_packet_security(conn);
+-
+-	conn = rxrpc_incoming_connection(trans, skb);
+-	rxrpc_put_transport(trans);
+ 	if (IS_ERR(conn)) {
+ 		_debug("no conn");
+ 		ret = PTR_ERR(conn);
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index 9b3b48abe12f..ad933daae13b 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -286,11 +286,9 @@ static struct rxrpc_call *rxrpc_alloc_call(gfp_t gfp)
+ /*
+  * Allocate a new client call.
+  */
+-static struct rxrpc_call *rxrpc_alloc_client_call(
+-	struct rxrpc_sock *rx,
+-	struct rxrpc_conn_parameters *cp,
+-	struct sockaddr_rxrpc *srx,
+-	gfp_t gfp)
++static struct rxrpc_call *rxrpc_alloc_client_call(struct rxrpc_sock *rx,
++						  struct sockaddr_rxrpc *srx,
++						  gfp_t gfp)
+ {
+ 	struct rxrpc_call *call;
  
- 	write_lock(&rxrpc_connection_lock);
+@@ -333,7 +331,6 @@ static struct rxrpc_call *rxrpc_alloc_client_call(
+  */
+ static int rxrpc_begin_client_call(struct rxrpc_call *call,
+ 				   struct rxrpc_conn_parameters *cp,
+-				   struct rxrpc_transport *trans,
+ 				   struct sockaddr_rxrpc *srx,
+ 				   gfp_t gfp)
+ {
+@@ -342,7 +339,7 @@ static int rxrpc_begin_client_call(struct rxrpc_call *call,
+ 	/* Set up or get a connection record and set the protocol parameters,
+ 	 * including channel number and call ID.
+ 	 */
+-	ret = rxrpc_connect_call(call, cp, trans, srx, gfp);
++	ret = rxrpc_connect_call(call, cp, srx, gfp);
+ 	if (ret < 0)
+ 		return ret;
+ 
+@@ -366,7 +363,6 @@ static int rxrpc_begin_client_call(struct rxrpc_call *call,
+  */
+ struct rxrpc_call *rxrpc_new_client_call(struct rxrpc_sock *rx,
+ 					 struct rxrpc_conn_parameters *cp,
+-					 struct rxrpc_transport *trans,
+ 					 struct sockaddr_rxrpc *srx,
+ 					 unsigned long user_call_ID,
+ 					 gfp_t gfp)
+@@ -377,7 +373,7 @@ struct rxrpc_call *rxrpc_new_client_call(struct rxrpc_sock *rx,
+ 
+ 	_enter("%p,%lx", rx, user_call_ID);
+ 
+-	call = rxrpc_alloc_client_call(rx, cp, srx, gfp);
++	call = rxrpc_alloc_client_call(rx, srx, gfp);
+ 	if (IS_ERR(call)) {
+ 		_leave(" = %ld", PTR_ERR(call));
+ 		return call;
+@@ -413,7 +409,7 @@ struct rxrpc_call *rxrpc_new_client_call(struct rxrpc_sock *rx,
+ 	list_add_tail(&call->link, &rxrpc_calls);
+ 	write_unlock_bh(&rxrpc_call_lock);
+ 
+-	ret = rxrpc_begin_client_call(call, cp, trans, srx, gfp);
++	ret = rxrpc_begin_client_call(call, cp, srx, gfp);
+ 	if (ret < 0)
+ 		goto error;
+ 
+diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
+index 276ff505394f..4bfad7cf96cb 100644
+--- a/net/rxrpc/conn_object.c
++++ b/net/rxrpc/conn_object.c
+@@ -100,9 +100,7 @@ static void rxrpc_add_call_ID_to_conn(struct rxrpc_connection *conn,
+  * padding bytes in *cp.
+  */
+ static struct rxrpc_connection *
+-rxrpc_alloc_client_connection(struct rxrpc_conn_parameters *cp,
+-			      struct rxrpc_transport *trans,
+-			      gfp_t gfp)
++rxrpc_alloc_client_connection(struct rxrpc_conn_parameters *cp, gfp_t gfp)
+ {
+ 	struct rxrpc_connection *conn;
+ 	int ret;
+@@ -146,9 +144,10 @@ rxrpc_alloc_client_connection(struct rxrpc_conn_parameters *cp,
  	list_add_tail(&conn->link, &rxrpc_connections);
  	write_unlock(&rxrpc_connection_lock);
  
--	spin_lock(&trans->client_lock);
-+	key_get(conn->params.key);
-+
-+	_leave(" = %p", conn);
-+	return conn;
-+
-+error_1:
-+	rxrpc_put_client_connection_id(conn);
-+error_0:
-+	kfree(conn);
-+	_leave(" = %d", ret);
-+	return ERR_PTR(ret);
-+}
-+
-+/*
-+ * connect a call on an exclusive connection
-+ */
-+static int rxrpc_connect_exclusive(struct rxrpc_sock *rx,
-+				   struct rxrpc_conn_parameters *cp,
-+				   struct rxrpc_transport *trans,
-+				   struct rxrpc_call *call,
-+				   gfp_t gfp)
-+{
-+	struct rxrpc_connection *conn;
-+	int chan;
-+
-+	_enter("");
-+
-+	conn = rxrpc_alloc_client_connection(cp, trans, gfp);
-+	if (IS_ERR(conn)) {
-+		_leave(" = %ld", PTR_ERR(conn));
-+		return PTR_ERR(conn);
-+	}
-+
- 	atomic_inc(&trans->usage);
-+	conn->trans = trans;
-+	conn->bundle = NULL;
++	/* We steal the caller's peer ref. */
++	cp->peer = NULL;
++	rxrpc_get_local(conn->params.local);
+ 	key_get(conn->params.key);
+-	conn->trans = trans;
+-	atomic_inc(&trans->usage);
  
- 	_net("CONNECT EXCL new %d on TRANS %d",
- 	     conn->debug_id, conn->trans->debug_id);
- 
--	rxrpc_assign_connection_id(conn);
--
- 	/* Since no one else can use the connection, we just use the first
- 	 * channel.
- 	 */
- 	chan = 0;
- 	atomic_inc(&conn->usage);
-+	conn->avail_calls = RXRPC_MAXCALLS - 1;
- 	conn->channels[chan] = call;
- 	conn->call_counter = 1;
- 	call->conn = conn;
-@@ -383,8 +345,6 @@ static int rxrpc_connect_exclusive(struct rxrpc_sock *rx,
- 	_net("CONNECT client on conn %d chan %d as call %x",
- 	     conn->debug_id, chan, call->call_id);
- 
--	spin_unlock(&trans->client_lock);
--
- 	rxrpc_add_call_ID_to_conn(conn, call);
- 	_leave(" = 0");
- 	return 0;
-@@ -402,7 +362,7 @@ int rxrpc_connect_call(struct rxrpc_sock *rx,
+ 	_leave(" = %p", conn);
+ 	return conn;
+@@ -167,7 +166,6 @@ error_0:
+  */
+ int rxrpc_connect_call(struct rxrpc_call *call,
+ 		       struct rxrpc_conn_parameters *cp,
+-		       struct rxrpc_transport *trans,
+ 		       struct sockaddr_rxrpc *srx,
  		       gfp_t gfp)
  {
- 	struct rxrpc_connection *conn, *candidate;
--	int chan, ret;
-+	int chan;
+@@ -181,8 +179,9 @@ int rxrpc_connect_call(struct rxrpc_call *call,
  
- 	DECLARE_WAITQUEUE(myself, current);
+ 	_enter("{%d,%lx},", call->debug_id, call->user_call_ID);
  
-@@ -492,51 +452,25 @@ int rxrpc_connect_call(struct rxrpc_sock *rx,
+-	cp->peer = trans->peer;
+-	rxrpc_get_peer(cp->peer);
++	cp->peer = rxrpc_lookup_peer(cp->local, srx, gfp);
++	if (!cp->peer)
++		return -ENOMEM;
  
- 		/* not yet present - create a candidate for a new connection and then
- 		 * redo the check */
--		candidate = rxrpc_alloc_connection(gfp);
-+		candidate = rxrpc_alloc_client_connection(cp, trans, gfp);
- 		if (!candidate) {
- 			_leave(" = -ENOMEM");
- 			return -ENOMEM;
- 		}
+ 	if (!cp->exclusive) {
+ 		/* Search for a existing client connection unless this is going
+@@ -210,7 +209,7 @@ int rxrpc_connect_call(struct rxrpc_call *call,
  
-+		atomic_inc(&bundle->usage);
-+		atomic_inc(&trans->usage);
- 		candidate->trans = trans;
- 		candidate->bundle = bundle;
--		candidate->params = *cp;
--		candidate->proto.local = cp->local;
--		candidate->proto.epoch = rxrpc_epoch;
--		candidate->proto.cid = 0;
--		candidate->proto.in_clientflag = 0;
--		candidate->proto.family = cp->peer->srx.transport.family;
--		candidate->out_clientflag = RXRPC_CLIENT_INITIATED;
--		candidate->state = RXRPC_CONN_CLIENT;
--		candidate->avail_calls = RXRPC_MAXCALLS;
--
--		key_get(candidate->params.key);
--
--		ret = rxrpc_init_client_conn_security(candidate);
--		if (ret < 0) {
--			key_put(candidate->params.key);
--			kfree(candidate);
--			_leave(" = %d [key]", ret);
--			return ret;
--		}
--
--		write_lock_bh(&rxrpc_connection_lock);
--		list_add_tail(&candidate->link, &rxrpc_connections);
--		write_unlock_bh(&rxrpc_connection_lock);
+ 	/* We didn't find a connection or we want an exclusive one. */
+ 	_debug("get new conn");
+-	candidate = rxrpc_alloc_client_connection(cp, trans, gfp);
++	candidate = rxrpc_alloc_client_connection(cp, gfp);
+ 	if (!candidate) {
+ 		_leave(" = -ENOMEM");
+ 		return -ENOMEM;
+@@ -281,6 +280,8 @@ found_channel:
  
- 		spin_lock(&trans->client_lock);
+ 	rxrpc_add_call_ID_to_conn(conn, call);
+ 	spin_unlock(&conn->channel_lock);
++	rxrpc_put_peer(cp->peer);
++	cp->peer = NULL;
+ 	_leave(" = %p {u=%d}", conn, atomic_read(&conn->usage));
+ 	return 0;
  
- 		list_add(&candidate->bundle_link, &bundle->unused_conns);
- 		bundle->num_conns++;
--		atomic_inc(&bundle->usage);
--		atomic_inc(&trans->usage);
+@@ -329,6 +330,8 @@ interrupted:
+ 	remove_wait_queue(&conn->channel_wq, &myself);
+ 	__set_current_state(TASK_RUNNING);
+ 	rxrpc_put_connection(conn);
++	rxrpc_put_peer(cp->peer);
++	cp->peer = NULL;
+ 	_leave(" = -ERESTARTSYS");
+ 	return -ERESTARTSYS;
+ }
+@@ -336,7 +339,8 @@ interrupted:
+ /*
+  * get a record of an incoming connection
+  */
+-struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_transport *trans,
++struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
++						   struct rxrpc_peer *peer,
+ 						   struct sk_buff *skb)
+ {
+ 	struct rxrpc_connection *conn, *candidate = NULL;
+@@ -354,9 +358,9 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_transport *trans
+ 	cid = sp->hdr.cid & RXRPC_CIDMASK;
  
- 		_net("CONNECT new %d on TRANS %d",
- 		     candidate->debug_id, candidate->trans->debug_id);
+ 	/* search the connection list first */
+-	read_lock_bh(&trans->conn_lock);
++	read_lock_bh(&peer->conn_lock);
  
--		rxrpc_assign_connection_id(candidate);
--		candidate->security->prime_packet_security(candidate);
--
- 		/* leave the candidate lurking in zombie mode attached to the
- 		 * bundle until we're ready for it */
- 		rxrpc_put_connection(candidate);
-@@ -735,25 +669,27 @@ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *trans,
+-	p = trans->server_conns.rb_node;
++	p = peer->service_conns.rb_node;
+ 	while (p) {
+ 		conn = rb_entry(p, struct rxrpc_connection, service_node);
+ 
+@@ -373,7 +377,7 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_transport *trans
+ 		else
+ 			goto found_extant_connection;
+ 	}
+-	read_unlock_bh(&trans->conn_lock);
++	read_unlock_bh(&peer->conn_lock);
+ 
+ 	/* not yet present - create a candidate for a new record and then
+ 	 * redo the search */
+@@ -383,13 +387,12 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_transport *trans
+ 		return ERR_PTR(-ENOMEM);
+ 	}
+ 
+-	candidate->trans		= trans;
+-	candidate->proto.local		= trans->local;
++	candidate->proto.local		= local;
+ 	candidate->proto.epoch		= sp->hdr.epoch;
+ 	candidate->proto.cid		= sp->hdr.cid & RXRPC_CIDMASK;
+ 	candidate->proto.in_clientflag	= RXRPC_CLIENT_INITIATED;
+-	candidate->params.local		= trans->local;
+-	candidate->params.peer		= trans->peer;
++	candidate->params.local		= local;
++	candidate->params.peer		= peer;
+ 	candidate->params.service_id	= sp->hdr.serviceId;
+ 	candidate->security_ix		= sp->hdr.securityIndex;
+ 	candidate->out_clientflag	= 0;
+@@ -397,9 +400,9 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_transport *trans
+ 	if (candidate->params.service_id)
+ 		candidate->state	= RXRPC_CONN_SERVER_UNSECURED;
+ 
+-	write_lock_bh(&trans->conn_lock);
++	write_lock_bh(&peer->conn_lock);
+ 
+-	pp = &trans->server_conns.rb_node;
++	pp = &peer->service_conns.rb_node;
+ 	p = NULL;
+ 	while (*pp) {
+ 		p = *pp;
+@@ -421,10 +424,11 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_transport *trans
+ 	conn = candidate;
+ 	candidate = NULL;
+ 	rb_link_node(&conn->service_node, p, pp);
+-	rb_insert_color(&conn->service_node, &trans->server_conns);
+-	atomic_inc(&conn->trans->usage);
++	rb_insert_color(&conn->service_node, &peer->service_conns);
++	rxrpc_get_peer(peer);
++	rxrpc_get_local(local);
+ 
+-	write_unlock_bh(&trans->conn_lock);
++	write_unlock_bh(&peer->conn_lock);
+ 
+ 	write_lock(&rxrpc_connection_lock);
+ 	list_add_tail(&conn->link, &rxrpc_connections);
+@@ -441,21 +445,21 @@ success:
+ 	/* we found the connection in the list immediately */
+ found_extant_connection:
+ 	if (sp->hdr.securityIndex != conn->security_ix) {
+-		read_unlock_bh(&trans->conn_lock);
++		read_unlock_bh(&peer->conn_lock);
+ 		goto security_mismatch;
+ 	}
+ 	rxrpc_get_connection(conn);
+-	read_unlock_bh(&trans->conn_lock);
++	read_unlock_bh(&peer->conn_lock);
+ 	goto success;
+ 
+ 	/* we found the connection on the second time through the list */
+ found_extant_second:
+ 	if (sp->hdr.securityIndex != conn->security_ix) {
+-		write_unlock_bh(&trans->conn_lock);
++		write_unlock_bh(&peer->conn_lock);
+ 		goto security_mismatch;
+ 	}
+ 	rxrpc_get_connection(conn);
+-	write_unlock_bh(&trans->conn_lock);
++	write_unlock_bh(&peer->conn_lock);
+ 	kfree(candidate);
+ 	goto success;
+ 
+@@ -469,7 +473,8 @@ security_mismatch:
+  * find a connection based on transport and RxRPC connection ID for an incoming
+  * packet
+  */
+-struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *trans,
++struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_local *local,
++					       struct rxrpc_peer *peer,
+ 					       struct sk_buff *skb)
+ {
+ 	struct rxrpc_connection *conn;
+@@ -479,13 +484,13 @@ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *trans,
+ 
+ 	_enter(",{%x,%x}", sp->hdr.cid, sp->hdr.flags);
+ 
+-	read_lock_bh(&trans->conn_lock);
++	read_lock_bh(&peer->conn_lock);
+ 
  	cid	= sp->hdr.cid & RXRPC_CIDMASK;
  	epoch	= sp->hdr.epoch;
  
--	if (sp->hdr.flags & RXRPC_CLIENT_INITIATED)
-+	if (sp->hdr.flags & RXRPC_CLIENT_INITIATED) {
- 		p = trans->server_conns.rb_node;
--	else
--		p = trans->client_conns.rb_node;
--
--	while (p) {
--		conn = rb_entry(p, struct rxrpc_connection, node);
--
--		_debug("maybe %x", conn->proto.cid);
--
--		if (epoch < conn->proto.epoch)
--			p = p->rb_left;
--		else if (epoch > conn->proto.epoch)
--			p = p->rb_right;
--		else if (cid < conn->proto.cid)
--			p = p->rb_left;
--		else if (cid > conn->proto.cid)
--			p = p->rb_right;
--		else
-+		while (p) {
-+			conn = rb_entry(p, struct rxrpc_connection, node);
-+
-+			_debug("maybe %x", conn->proto.cid);
-+
-+			if (epoch < conn->proto.epoch)
-+				p = p->rb_left;
-+			else if (epoch > conn->proto.epoch)
-+				p = p->rb_right;
-+			else if (cid < conn->proto.cid)
-+				p = p->rb_left;
-+			else if (cid > conn->proto.cid)
-+				p = p->rb_right;
-+			else
-+				goto found;
-+		}
-+	} else {
-+		conn = idr_find(&rxrpc_client_conn_ids, cid >> RXRPC_CIDSHIFT);
-+		if (conn && conn->proto.epoch == epoch)
+ 	if (sp->hdr.flags & RXRPC_CLIENT_INITIATED) {
+-		p = trans->server_conns.rb_node;
++		p = peer->service_conns.rb_node;
+ 		while (p) {
+ 			conn = rb_entry(p, struct rxrpc_connection, service_node);
+ 
+@@ -508,13 +513,13 @@ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *trans,
  			goto found;
  	}
  
-@@ -846,8 +782,7 @@ static void rxrpc_connection_reaper(struct work_struct *work)
- 		} else if (reap_time <= now) {
- 			list_move_tail(&conn->link, &graveyard);
- 			if (conn->out_clientflag)
--				rb_erase(&conn->node,
--					 &conn->trans->client_conns);
-+				rxrpc_put_client_connection_id(conn);
- 			else
- 				rb_erase(&conn->node,
- 					 &conn->trans->server_conns);
-diff --git a/net/rxrpc/transport.c b/net/rxrpc/transport.c
-index 24c71218a6f8..140628d94bb0 100644
---- a/net/rxrpc/transport.c
-+++ b/net/rxrpc/transport.c
-@@ -47,12 +47,10 @@ static struct rxrpc_transport *rxrpc_alloc_transport(struct rxrpc_local *local,
- 		trans->peer = peer;
- 		INIT_LIST_HEAD(&trans->link);
- 		trans->bundles = RB_ROOT;
--		trans->client_conns = RB_ROOT;
- 		trans->server_conns = RB_ROOT;
- 		spin_lock_init(&trans->client_lock);
- 		rwlock_init(&trans->conn_lock);
- 		atomic_set(&trans->usage, 1);
--		trans->conn_idcounter = peer->srx.srx_service << 16;
- 		trans->debug_id = atomic_inc_return(&rxrpc_debug_id);
- 	}
+-	read_unlock_bh(&trans->conn_lock);
++	read_unlock_bh(&peer->conn_lock);
+ 	_leave(" = NULL");
+ 	return NULL;
  
+ found:
+ 	rxrpc_get_connection(conn);
+-	read_unlock_bh(&trans->conn_lock);
++	read_unlock_bh(&peer->conn_lock);
+ 	_leave(" = %p", conn);
+ 	return conn;
+ }
+@@ -576,8 +581,9 @@ static void rxrpc_destroy_connection(struct rxrpc_connection *conn)
+ 	conn->security->clear(conn);
+ 	key_put(conn->params.key);
+ 	key_put(conn->server_key);
++	rxrpc_put_peer(conn->params.peer);
++	rxrpc_put_local(conn->params.local);
+ 
+-	rxrpc_put_transport(conn->trans);
+ 	kfree(conn);
+ 	_leave("");
+ }
+@@ -588,6 +594,7 @@ static void rxrpc_destroy_connection(struct rxrpc_connection *conn)
+ static void rxrpc_connection_reaper(struct work_struct *work)
+ {
+ 	struct rxrpc_connection *conn, *_p;
++	struct rxrpc_peer *peer;
+ 	unsigned long now, earliest, reap_time;
+ 
+ 	LIST_HEAD(graveyard);
+@@ -624,7 +631,8 @@ static void rxrpc_connection_reaper(struct work_struct *work)
+ 
+ 			spin_unlock(&local->client_conns_lock);
+ 		} else {
+-			write_lock_bh(&conn->trans->conn_lock);
++			peer = conn->params.peer;
++			write_lock_bh(&peer->conn_lock);
+ 			reap_time = conn->put_time + rxrpc_connection_expiry;
+ 
+ 			if (atomic_read(&conn->usage) > 0) {
+@@ -632,12 +640,12 @@ static void rxrpc_connection_reaper(struct work_struct *work)
+ 			} else if (reap_time <= now) {
+ 				list_move_tail(&conn->link, &graveyard);
+ 				rb_erase(&conn->service_node,
+-					 &conn->trans->server_conns);
++					 &peer->service_conns);
+ 			} else if (reap_time < earliest) {
+ 				earliest = reap_time;
+ 			}
+ 
+-			write_unlock_bh(&conn->trans->conn_lock);
++			write_unlock_bh(&peer->conn_lock);
+ 		}
+ 	}
+ 	write_unlock(&rxrpc_connection_lock);
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index 799aec18aa7b..f4bd57b77b93 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -631,7 +631,6 @@ static struct rxrpc_connection *rxrpc_conn_from_local(struct rxrpc_local *local,
+ 						      struct sk_buff *skb)
+ {
+ 	struct rxrpc_peer *peer;
+-	struct rxrpc_transport *trans;
+ 	struct rxrpc_connection *conn;
+ 	struct sockaddr_rxrpc srx;
+ 
+@@ -641,13 +640,8 @@ static struct rxrpc_connection *rxrpc_conn_from_local(struct rxrpc_local *local,
+ 	if (!peer)
+ 		goto cant_find_peer;
+ 
+-	trans = rxrpc_find_transport(local, peer);
++	conn = rxrpc_find_connection(local, peer, skb);
+ 	rcu_read_unlock();
+-	if (!trans)
+-		goto cant_find_conn;
+-
+-	conn = rxrpc_find_connection(trans, skb);
+-	rxrpc_put_transport(trans);
+ 	if (!conn)
+ 		goto cant_find_conn;
+ 
+diff --git a/net/rxrpc/output.c b/net/rxrpc/output.c
+index 8e24939aeac8..f4bda06b7d2d 100644
+--- a/net/rxrpc/output.c
++++ b/net/rxrpc/output.c
+@@ -140,10 +140,8 @@ rxrpc_new_client_call_for_sendmsg(struct rxrpc_sock *rx, struct msghdr *msg,
+ 				  unsigned long user_call_ID, bool exclusive)
+ {
+ 	struct rxrpc_conn_parameters cp;
+-	struct rxrpc_transport *trans;
+ 	struct rxrpc_call *call;
+ 	struct key *key;
+-	long ret;
+ 
+ 	DECLARE_SOCKADDR(struct sockaddr_rxrpc *, srx, msg->msg_name);
+ 
+@@ -162,30 +160,10 @@ rxrpc_new_client_call_for_sendmsg(struct rxrpc_sock *rx, struct msghdr *msg,
+ 	cp.security_level	= rx->min_sec_level;
+ 	cp.exclusive		= rx->exclusive | exclusive;
+ 	cp.service_id		= srx->srx_service;
+-	trans = rxrpc_name_to_transport(&cp, msg->msg_name, msg->msg_namelen,
+-					GFP_KERNEL);
+-	if (IS_ERR(trans)) {
+-		ret = PTR_ERR(trans);
+-		goto out;
+-	}
+-	cp.peer = trans->peer;
+-
+-	call = rxrpc_new_client_call(rx, &cp, trans, srx, user_call_ID,
+-				     GFP_KERNEL);
+-	rxrpc_put_transport(trans);
+-	if (IS_ERR(call)) {
+-		ret = PTR_ERR(call);
+-		goto out_trans;
+-	}
++	call = rxrpc_new_client_call(rx, &cp, srx, user_call_ID, GFP_KERNEL);
+ 
+ 	_leave(" = %p\n", call);
+ 	return call;
+-
+-out_trans:
+-	rxrpc_put_transport(trans);
+-out:
+-	_leave(" = %ld", ret);
+-	return ERR_PTR(ret);
+ }
+ 
+ /*
+diff --git a/net/rxrpc/peer_object.c b/net/rxrpc/peer_object.c
+index 6baad708f3b1..01d4930a11f7 100644
+--- a/net/rxrpc/peer_object.c
++++ b/net/rxrpc/peer_object.c
+@@ -188,6 +188,8 @@ struct rxrpc_peer *rxrpc_alloc_peer(struct rxrpc_local *local, gfp_t gfp)
+ 		INIT_HLIST_HEAD(&peer->error_targets);
+ 		INIT_WORK(&peer->error_distributor,
+ 			  &rxrpc_peer_error_distributor);
++		peer->service_conns = RB_ROOT;
++		rwlock_init(&peer->conn_lock);
+ 		spin_lock_init(&peer->lock);
+ 		peer->debug_id = atomic_inc_return(&rxrpc_debug_id);
+ 	}
+diff --git a/net/rxrpc/sysctl.c b/net/rxrpc/sysctl.c
+index a99690a8a3da..03ad08774d4e 100644
+--- a/net/rxrpc/sysctl.c
++++ b/net/rxrpc/sysctl.c
+@@ -90,14 +90,6 @@ static struct ctl_table rxrpc_sysctl_table[] = {
+ 		.proc_handler	= proc_dointvec_minmax,
+ 		.extra1		= (void *)&one,
+ 	},
+-	{
+-		.procname	= "transport_expiry",
+-		.data		= &rxrpc_transport_expiry,
+-		.maxlen		= sizeof(unsigned int),
+-		.mode		= 0644,
+-		.proc_handler	= proc_dointvec_minmax,
+-		.extra1		= (void *)&one,
+-	},
+ 
+ 	/* Non-time values */
+ 	{
+diff --git a/net/rxrpc/transport.c b/net/rxrpc/transport.c
+deleted file mode 100644
+index 71947402d071..000000000000
