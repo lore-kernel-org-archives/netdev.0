@@ -1,97 +1,111 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net-next v2 1/4] cgroup: Add cgroup_get_from_fd
-Date: Wed, 22 Jun 2016 14:17:29 -0700
-Message-ID: <1466630252-3822277-2-git-send-email-kafai@fb.com>
+From: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
+Subject: [PATCH net-next v2 2/4] cgroup: bpf: Add BPF_MAP_TYPE_CGROUP_ARRAY
+Date: Wed, 22 Jun 2016 14:17:30 -0700
+Message-ID: <1466630252-3822277-3-git-send-email-kafai@fb.com>
 References: <1466630252-3822277-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Alexei Starovoitov <ast@fb.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tejun Heo <tj@kernel.org>, <kernel-team@fb.com>
-To: <cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1466630252-3822277-1-git-send-email-kafai@fb.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <kernel-team-b10kYP2dOMg@public.gmane.org>
+To: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1466630252-3822277-1-git-send-email-kafai-b10kYP2dOMg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Add a helper function to get a cgroup2 from a fd.  It will be
-stored in a bpf array (BPF_MAP_TYPE_CGROUP_ARRAY) which will
-be introduced in the later patch.
+Add a BPF_MAP_TYPE_CGROUP_ARRAY and its bpf_map_ops's implementations.
+To update an element, the caller is expected to obtain a cgroup2 backed
+fd by open(cgroup2_dir) and then update the array with that fd.
 
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Tejun Heo <tj@kernel.org>
+Signed-off-by: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
+Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Acked-by: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
- include/linux/cgroup.h |  1 +
- kernel/cgroup.c        | 35 +++++++++++++++++++++++++++++++++++
- 2 files changed, 36 insertions(+)
+ include/uapi/linux/bpf.h |  1 +
+ kernel/bpf/arraymap.c    | 43 +++++++++++++++++++++++++++++++++++++++++++
+ kernel/bpf/syscall.c     |  3 ++-
+ 3 files changed, 46 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
-index a20320c..984f73b 100644
---- a/include/linux/cgroup.h
-+++ b/include/linux/cgroup.h
-@@ -87,6 +87,7 @@ struct cgroup_subsys_state *css_tryget_online_from_dir(struct dentry *dentry,
- 						       struct cgroup_subsys *ss);
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 406459b..ef4e386 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -84,6 +84,7 @@ enum bpf_map_type {
+ 	BPF_MAP_TYPE_PERCPU_HASH,
+ 	BPF_MAP_TYPE_PERCPU_ARRAY,
+ 	BPF_MAP_TYPE_STACK_TRACE,
++	BPF_MAP_TYPE_CGROUP_ARRAY,
+ };
  
- struct cgroup *cgroup_get_from_path(const char *path);
-+struct cgroup *cgroup_get_from_fd(int fd);
- 
- int cgroup_attach_task_all(struct task_struct *from, struct task_struct *);
- int cgroup_transfer_tasks(struct cgroup *to, struct cgroup *from);
-diff --git a/kernel/cgroup.c b/kernel/cgroup.c
-index 86cb5c6..14617968 100644
---- a/kernel/cgroup.c
-+++ b/kernel/cgroup.c
-@@ -62,6 +62,7 @@
- #include <linux/proc_ns.h>
- #include <linux/nsproxy.h>
- #include <linux/proc_ns.h>
-+#include <linux/file.h>
- #include <net/sock.h>
- 
- /*
-@@ -6205,6 +6206,40 @@ struct cgroup *cgroup_get_from_path(const char *path)
+ enum bpf_prog_type {
+diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
+index 5af3073..aacd40b 100644
+--- a/kernel/bpf/arraymap.c
++++ b/kernel/bpf/arraymap.c
+@@ -539,3 +539,46 @@ static int __init register_perf_event_array_map(void)
+ 	return 0;
  }
- EXPORT_SYMBOL_GPL(cgroup_get_from_path);
- 
-+/**
-+ * cgroup_get_from_fd - get a cgroup pointer from a fd
-+ * @fd: fd obtained by open(cgroup2_dir)
-+ *
-+ * Find the cgroup from a fd which should be obtained
-+ * by opening a cgroup directory.  Returns a pointer to the
-+ * cgroup on success. ERR_PTR is returned if the cgroup
-+ * cannot be found.
-+ */
-+struct cgroup *cgroup_get_from_fd(int fd)
+ late_initcall(register_perf_event_array_map);
++
++#ifdef CONFIG_CGROUPS
++static void *cgroup_fd_array_get_ptr(struct bpf_map *map,
++				     struct file *map_file /* not used */,
++				     int fd)
 +{
-+	struct cgroup_subsys_state *css;
-+	struct cgroup *cgrp;
-+	struct file *f;
-+
-+	f = fget_raw(fd);
-+	if (!f)
-+		return ERR_PTR(-EBADF);
-+
-+	css = css_tryget_online_from_dir(f->f_path.dentry, NULL);
-+	fput(f);
-+	if (IS_ERR(css))
-+		return ERR_CAST(css);
-+
-+	cgrp = css->cgroup;
-+	if (!cgroup_on_dfl(cgrp)) {
-+		cgroup_put(cgrp);
-+		return ERR_PTR(-EBADF);
-+	}
-+
-+	return cgrp;
++	return cgroup_get_from_fd(fd);
 +}
-+EXPORT_SYMBOL_GPL(cgroup_get_from_fd);
 +
- /*
-  * sock->sk_cgrp_data handling.  For more info, see sock_cgroup_data
-  * definition in cgroup-defs.h.
++static void cgroup_fd_array_put_ptr(void *ptr)
++{
++	/* cgroup_put free cgrp after a rcu grace period */
++	cgroup_put(ptr);
++}
++
++static void cgroup_fd_array_free(struct bpf_map *map)
++{
++	bpf_fd_array_map_clear(map);
++	fd_array_map_free(map);
++}
++
++static const struct bpf_map_ops cgroup_array_ops = {
++	.map_alloc = fd_array_map_alloc,
++	.map_free = cgroup_fd_array_free,
++	.map_get_next_key = array_map_get_next_key,
++	.map_lookup_elem = fd_array_map_lookup_elem,
++	.map_delete_elem = fd_array_map_delete_elem,
++	.map_fd_get_ptr = cgroup_fd_array_get_ptr,
++	.map_fd_put_ptr = cgroup_fd_array_put_ptr,
++};
++
++static struct bpf_map_type_list cgroup_array_type __read_mostly = {
++	.ops = &cgroup_array_ops,
++	.type = BPF_MAP_TYPE_CGROUP_ARRAY,
++};
++
++static int __init register_cgroup_array_map(void)
++{
++	bpf_register_map_type(&cgroup_array_type);
++	return 0;
++}
++late_initcall(register_cgroup_array_map);
++#endif
+diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+index c23a4e93..cac13f1 100644
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -393,7 +393,8 @@ static int map_update_elem(union bpf_attr *attr)
+ 	} else if (map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY) {
+ 		err = bpf_percpu_array_update(map, key, value, attr->flags);
+ 	} else if (map->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY ||
+-		   map->map_type == BPF_MAP_TYPE_PROG_ARRAY) {
++		   map->map_type == BPF_MAP_TYPE_PROG_ARRAY ||
++		   map->map_type == BPF_MAP_TYPE_CGROUP_ARRAY) {
+ 		rcu_read_lock();
+ 		err = bpf_fd_array_map_update_elem(map, f.file, key, value,
+ 						   attr->flags);
 -- 
 2.5.1
