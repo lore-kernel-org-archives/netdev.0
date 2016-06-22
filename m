@@ -1,73 +1,157 @@
-From: Wei Yongjun <weiyj_lk@163.com>
-Subject: [PATCH v2] ibmvnic: fix to use list_for_each_safe() when delete items
-Date: Wed, 22 Jun 2016 10:51:46 +0800
-Message-ID: <2db3a1f8-cafd-8fde-6223-2b2e3787d615@163.com>
-References: <1466218408-20940-1-git-send-email-weiyj_lk@163.com>
- <576810C2.6080208@linux.vnet.ibm.com> <576964CF.3040804@linux.vnet.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: John Allen <jallen@linux.vnet.ibm.com>,
- Wei Yongjun <yongjun_wei@trendmicro.com.cn>, linuxppc-dev@lists.ozlabs.org,
- netdev@vger.kernel.org
-To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <576964CF.3040804@linux.vnet.ibm.com>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2 2/3] ss: Allow ssfilter_bytecompile to return 0
+Date: Tue, 21 Jun 2016 20:38:25 -0700
+Message-ID: <1466566706-1511-3-git-send-email-dsa@cumulusnetworks.com>
+References: <1466566706-1511-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: stephen@networkplumber.org, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:36793 "EHLO
+	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751523AbcFVDii (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 23:38:38 -0400
+Received: by mail-pf0-f173.google.com with SMTP id t190so12997633pfb.3
+        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 20:38:36 -0700 (PDT)
+In-Reply-To: <1466566706-1511-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-U2luY2Ugd2Ugd2lsbCByZW1vdmUgaXRlbXMgb2ZmIHRoZSBsaXN0IHVzaW5nIGxpc3RfZGVsKCkg
-d2UgbmVlZAp0byB1c2UgYSBzYWZlIHZlcnNpb24gb2YgdGhlIGxpc3RfZm9yX2VhY2goKSBtYWNy
-byBhcHRseSBuYW1lZApsaXN0X2Zvcl9lYWNoX3NhZmUoKS4KClNpZ25lZC1vZmYtYnk6IFdlaSBZ
-b25nanVuIDx5b25nanVuX3dlaUB0cmVuZG1pY3JvLmNvbS5jbj4KLS0tCiAgZHJpdmVycy9uZXQv
-ZXRoZXJuZXQvaWJtL2libXZuaWMuYyB8IDE0ICsrKysrKystLS0tLS0tCiAgMSBmaWxlIGNoYW5n
-ZWQsIDcgaW5zZXJ0aW9ucygrKSwgNyBkZWxldGlvbnMoLSkKCmRpZmYgLS1naXQgYS9kcml2ZXJz
-L25ldC9ldGhlcm5ldC9pYm0vaWJtdm5pYy5jIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaWJtL2li
-bXZuaWMuYwppbmRleCA4NjRjYjIxLi5lY2RiNjg1IDEwMDY0NAotLS0gYS9kcml2ZXJzL25ldC9l
-dGhlcm5ldC9pYm0vaWJtdm5pYy5jCisrKyBiL2RyaXZlcnMvbmV0L2V0aGVybmV0L2libS9pYm12
-bmljLmMKQEAgLTIxMjEsNyArMjEyMSw3IEBAIHN0YXRpYyB2b2lkIGhhbmRsZV9lcnJvcl9pbmZv
-X3JzcCh1bmlvbiBpYm12bmljX2NycSAqY3JxLAogIAkJCQkgIHN0cnVjdCBpYm12bmljX2FkYXB0
-ZXIgKmFkYXB0ZXIpCiAgewogIAlzdHJ1Y3QgZGV2aWNlICpkZXYgPSAmYWRhcHRlci0+dmRldi0+
-ZGV2OwotCXN0cnVjdCBpYm12bmljX2Vycm9yX2J1ZmYgKmVycm9yX2J1ZmY7CisJc3RydWN0IGli
-bXZuaWNfZXJyb3JfYnVmZiAqZXJyb3JfYnVmZiwgKnRtcDsKICAJdW5zaWduZWQgbG9uZyBmbGFn
-czsKICAJYm9vbCBmb3VuZCA9IGZhbHNlOwogIAlpbnQgaTsKQEAgLTIxMzMsNyArMjEzMyw3IEBA
-IHN0YXRpYyB2b2lkIGhhbmRsZV9lcnJvcl9pbmZvX3JzcCh1bmlvbiBpYm12bmljX2NycSAqY3Jx
-LAogIAl9CiAgCiAgCXNwaW5fbG9ja19pcnFzYXZlKCZhZGFwdGVyLT5lcnJvcl9saXN0X2xvY2ss
-IGZsYWdzKTsKLQlsaXN0X2Zvcl9lYWNoX2VudHJ5KGVycm9yX2J1ZmYsICZhZGFwdGVyLT5lcnJv
-cnMsIGxpc3QpCisJbGlzdF9mb3JfZWFjaF9lbnRyeV9zYWZlKGVycm9yX2J1ZmYsIHRtcCwgJmFk
-YXB0ZXItPmVycm9ycywgbGlzdCkKICAJCWlmIChlcnJvcl9idWZmLT5lcnJvcl9pZCA9PSBjcnEt
-PnJlcXVlc3RfZXJyb3JfcnNwLmVycm9yX2lkKSB7CiAgCQkJZm91bmQgPSB0cnVlOwogIAkJCWxp
-c3RfZGVsKCZlcnJvcl9idWZmLT5saXN0KTsKQEAgLTMxNDEsMTQgKzMxNDEsMTQgQEAgc3RhdGlj
-IHZvaWQgaGFuZGxlX3JlcXVlc3RfcmFzX2NvbXBfbnVtX3JzcCh1bmlvbiBpYm12bmljX2NycSAq
-Y3JxLAogIAogIHN0YXRpYyB2b2lkIGlibXZuaWNfZnJlZV9pbmZsaWdodChzdHJ1Y3QgaWJtdm5p
-Y19hZGFwdGVyICphZGFwdGVyKQogIHsKLQlzdHJ1Y3QgaWJtdm5pY19pbmZsaWdodF9jbWQgKmlu
-ZmxpZ2h0X2NtZDsKKwlzdHJ1Y3QgaWJtdm5pY19pbmZsaWdodF9jbWQgKmluZmxpZ2h0X2NtZCwg
-KnRtcDE7CiAgCXN0cnVjdCBkZXZpY2UgKmRldiA9ICZhZGFwdGVyLT52ZGV2LT5kZXY7Ci0Jc3Ry
-dWN0IGlibXZuaWNfZXJyb3JfYnVmZiAqZXJyb3JfYnVmZjsKKwlzdHJ1Y3QgaWJtdm5pY19lcnJv
-cl9idWZmICplcnJvcl9idWZmLCAqdG1wMjsKICAJdW5zaWduZWQgbG9uZyBmbGFnczsKICAJdW5z
-aWduZWQgbG9uZyBmbGFnczI7CiAgCiAgCXNwaW5fbG9ja19pcnFzYXZlKCZhZGFwdGVyLT5pbmZs
-aWdodF9sb2NrLCBmbGFncyk7Ci0JbGlzdF9mb3JfZWFjaF9lbnRyeShpbmZsaWdodF9jbWQsICZh
-ZGFwdGVyLT5pbmZsaWdodCwgbGlzdCkgeworCWxpc3RfZm9yX2VhY2hfZW50cnlfc2FmZShpbmZs
-aWdodF9jbWQsIHRtcDEsICZhZGFwdGVyLT5pbmZsaWdodCwgbGlzdCkgewogIAkJc3dpdGNoIChp
-bmZsaWdodF9jbWQtPmNycS5nZW5lcmljLmNtZCkgewogIAkJY2FzZSBMT0dJTjoKICAJCQlkbWFf
-dW5tYXBfc2luZ2xlKGRldiwgYWRhcHRlci0+bG9naW5fYnVmX3Rva2VuLApAQCAtMzE2NSw4ICsz
-MTY1LDggQEAgc3RhdGljIHZvaWQgaWJtdm5pY19mcmVlX2luZmxpZ2h0KHN0cnVjdCBpYm12bmlj
-X2FkYXB0ZXIgKmFkYXB0ZXIpCiAgCQkJYnJlYWs7CiAgCQljYXNlIFJFUVVFU1RfRVJST1JfSU5G
-TzoKICAJCQlzcGluX2xvY2tfaXJxc2F2ZSgmYWRhcHRlci0+ZXJyb3JfbGlzdF9sb2NrLCBmbGFn
-czIpOwotCQkJbGlzdF9mb3JfZWFjaF9lbnRyeShlcnJvcl9idWZmLCAmYWRhcHRlci0+ZXJyb3Jz
-LAotCQkJCQkgICAgbGlzdCkgeworCQkJbGlzdF9mb3JfZWFjaF9lbnRyeV9zYWZlKGVycm9yX2J1
-ZmYsIHRtcDIsCisJCQkJCQkgJmFkYXB0ZXItPmVycm9ycywgbGlzdCkgewogIAkJCQlkbWFfdW5t
-YXBfc2luZ2xlKGRldiwgZXJyb3JfYnVmZi0+ZG1hLAogIAkJCQkJCSBlcnJvcl9idWZmLT5sZW4s
-CiAgCQkJCQkJIERNQV9GUk9NX0RFVklDRSk7CgoKCl9fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMt
-ZGV2QGxpc3RzLm96bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xp
-bnV4cHBjLWRldg==
+Allow ssfilter_bytecompile to return 0 for filter ops the kernel
+does not support. If such an op is in the filter string then all
+filtering is done in userspace.
+
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ misc/ss.c | 52 +++++++++++++++++++++++++++++++++++++---------------
+ 1 file changed, 37 insertions(+), 15 deletions(-)
+
+diff --git a/misc/ss.c b/misc/ss.c
+index a22cfebadfa2..3419a88c33be 100644
+--- a/misc/ss.c
++++ b/misc/ss.c
+@@ -1273,11 +1273,16 @@ static int ssfilter_bytecompile(struct ssfilter *f, char **bytecode)
+ 
+ 		case SSF_AND:
+ 	{
+-		char *a1, *a2, *a;
++		char *a1 = NULL, *a2 = NULL, *a;
+ 		int l1, l2;
+ 
+ 		l1 = ssfilter_bytecompile(f->pred, &a1);
+ 		l2 = ssfilter_bytecompile(f->post, &a2);
++		if (!l1 || !l2) {
++			free(a1);
++			free(a2);
++			return 0;
++		}
+ 		if (!(a = malloc(l1+l2))) abort();
+ 		memcpy(a, a1, l1);
+ 		memcpy(a+l1, a2, l2);
+@@ -1288,11 +1293,16 @@ static int ssfilter_bytecompile(struct ssfilter *f, char **bytecode)
+ 	}
+ 		case SSF_OR:
+ 	{
+-		char *a1, *a2, *a;
++		char *a1 = NULL, *a2 = NULL, *a;
+ 		int l1, l2;
+ 
+ 		l1 = ssfilter_bytecompile(f->pred, &a1);
+ 		l2 = ssfilter_bytecompile(f->post, &a2);
++		if (!l1 || !l2) {
++			free(a1);
++			free(a2);
++			return 0;
++		}
+ 		if (!(a = malloc(l1+l2+4))) abort();
+ 		memcpy(a, a1, l1);
+ 		memcpy(a+l1+4, a2, l2);
+@@ -1303,10 +1313,14 @@ static int ssfilter_bytecompile(struct ssfilter *f, char **bytecode)
+ 	}
+ 		case SSF_NOT:
+ 	{
+-		char *a1, *a;
++		char *a1 = NULL, *a;
+ 		int l1;
+ 
+ 		l1 = ssfilter_bytecompile(f->pred, &a1);
++		if (!l1) {
++			free(a1);
++			return 0;
++		}
+ 		if (!(a = malloc(l1+4))) abort();
+ 		memcpy(a, a1, l1);
+ 		free(a1);
+@@ -2126,6 +2140,7 @@ static int tcpdiag_send(int fd, int protocol, struct filter *f)
+ 	struct msghdr msg;
+ 	struct rtattr rta;
+ 	struct iovec iov[3];
++	int iovlen = 1;
+ 
+ 	if (protocol == IPPROTO_UDP)
+ 		return -1;
+@@ -2161,18 +2176,21 @@ static int tcpdiag_send(int fd, int protocol, struct filter *f)
+ 	};
+ 	if (f->f) {
+ 		bclen = ssfilter_bytecompile(f->f, &bc);
+-		rta.rta_type = INET_DIAG_REQ_BYTECODE;
+-		rta.rta_len = RTA_LENGTH(bclen);
+-		iov[1] = (struct iovec){ &rta, sizeof(rta) };
+-		iov[2] = (struct iovec){ bc, bclen };
+-		req.nlh.nlmsg_len += RTA_LENGTH(bclen);
++		if (bclen) {
++			rta.rta_type = INET_DIAG_REQ_BYTECODE;
++			rta.rta_len = RTA_LENGTH(bclen);
++			iov[1] = (struct iovec){ &rta, sizeof(rta) };
++			iov[2] = (struct iovec){ bc, bclen };
++			req.nlh.nlmsg_len += RTA_LENGTH(bclen);
++			iovlen = 3;
++		}
+ 	}
+ 
+ 	msg = (struct msghdr) {
+ 		.msg_name = (void *)&nladdr,
+ 		.msg_namelen = sizeof(nladdr),
+ 		.msg_iov = iov,
+-		.msg_iovlen = f->f ? 3 : 1,
++		.msg_iovlen = iovlen,
+ 	};
+ 
+ 	if (sendmsg(fd, &msg, 0) < 0) {
+@@ -2193,6 +2211,7 @@ static int sockdiag_send(int family, int fd, int protocol, struct filter *f)
+ 	struct msghdr msg;
+ 	struct rtattr rta;
+ 	struct iovec iov[3];
++	int iovlen = 1;
+ 
+ 	if (family == PF_UNSPEC)
+ 		return tcpdiag_send(fd, protocol, f);
+@@ -2221,18 +2240,21 @@ static int sockdiag_send(int family, int fd, int protocol, struct filter *f)
+ 	};
+ 	if (f->f) {
+ 		bclen = ssfilter_bytecompile(f->f, &bc);
+-		rta.rta_type = INET_DIAG_REQ_BYTECODE;
+-		rta.rta_len = RTA_LENGTH(bclen);
+-		iov[1] = (struct iovec){ &rta, sizeof(rta) };
+-		iov[2] = (struct iovec){ bc, bclen };
+-		req.nlh.nlmsg_len += RTA_LENGTH(bclen);
++		if (bclen) {
++			rta.rta_type = INET_DIAG_REQ_BYTECODE;
++			rta.rta_len = RTA_LENGTH(bclen);
++			iov[1] = (struct iovec){ &rta, sizeof(rta) };
++			iov[2] = (struct iovec){ bc, bclen };
++			req.nlh.nlmsg_len += RTA_LENGTH(bclen);
++			iovlen = 3;
++		}
+ 	}
+ 
+ 	msg = (struct msghdr) {
+ 		.msg_name = (void *)&nladdr,
+ 		.msg_namelen = sizeof(nladdr),
+ 		.msg_iov = iov,
+-		.msg_iovlen = f->f ? 3 : 1,
++		.msg_iovlen = iovlen,
+ 	};
+ 
+ 	if (sendmsg(fd, &msg, 0) < 0) {
+-- 
+2.1.4
