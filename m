@@ -1,72 +1,73 @@
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next 11/13] liquidio: ptp info
-Date: Tue, 21 Jun 2016 22:53:13 -0700
-Message-ID: <1466574795-4306-12-git-send-email-rvatsavayi@caviumnetworks.com>
-References: <1466574795-4306-1-git-send-email-rvatsavayi@caviumnetworks.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: Re: [PATCH -next 3/4] cgroup: bpf: Add bpf_skb_in_cgroup_proto
+Date: Tue, 21 Jun 2016 23:19:26 -0700
+Message-ID: <20160622061926.GA70510@kafai-mba.local>
+References: <1466555002-1316296-1-git-send-email-kafai@fb.com>
+ <1466555002-1316296-4-git-send-email-kafai@fb.com>
+ <20160622011511.GA97149@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-	Derek Chickles <derek.chickles@caviumnetworks.com>,
-	Satanand Burla <satananda.burla@caviumnetworks.com>,
-	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-To: <davem@davemloft.net>
+Content-Type: text/plain; charset="us-ascii"
+Cc: <cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tejun Heo <tj@kernel.org>, <kernel-team@fb.com>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0091.outbound.protection.outlook.com ([65.55.169.91]:52906
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750718AbcFVGL1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 02:11:27 -0400
-In-Reply-To: <1466574795-4306-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:35694 "EHLO
+	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1750896AbcFVGTx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 02:19:53 -0400
+Content-Disposition: inline
+In-Reply-To: <20160622011511.GA97149@ast-mbp.thefacebook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch has minor changes for proper ptp info retreival.
+On Tue, Jun 21, 2016 at 06:15:13PM -0700, Alexei Starovoitov wrote:
+> On Tue, Jun 21, 2016 at 05:23:21PM -0700, Martin KaFai Lau wrote:
+> > Adds a bpf helper, bpf_skb_in_cgroup, to decide if a skb->sk
+> > belongs to a descendant of a cgroup2.  It is similar to the
+> > feature added in netfilter:
+> > commit c38c4597e4bf ("netfilter: implement xt_cgroup cgroup2 path match")
+> >
+> > The user is expected to populate a BPF_MAP_TYPE_CGROUP_ARRAY
+> > which will be used by the bpf_skb_in_cgroup.
+> >
+> > Modifications to the bpf verifier is to ensure BPF_MAP_TYPE_CGROUP_ARRAY
+> > and bpf_skb_in_cgroup() are always used together.
+> >
+> > Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+> > Cc: Alexei Starovoitov <ast@fb.com>
+> > Cc: Daniel Borkmann <daniel@iogearbox.net>
+> > Cc: Tejun Heo <tj@kernel.org>
+> > ---
+> >  include/uapi/linux/bpf.h |  1 +
+> >  kernel/bpf/verifier.c    |  8 ++++++++
+> >  net/core/filter.c        | 36 ++++++++++++++++++++++++++++++++++++
+> >  3 files changed, 45 insertions(+)
+> >
+> > diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> > index ef4e386..a91714bd 100644
+> > --- a/include/uapi/linux/bpf.h
+> > +++ b/include/uapi/linux/bpf.h
+> > @@ -314,6 +314,7 @@ enum bpf_func_id {
+> >  	 */
+> >  	BPF_FUNC_skb_get_tunnel_opt,
+> >  	BPF_FUNC_skb_set_tunnel_opt,
+> > +	BPF_FUNC_skb_in_cgroup,
+> ...
+> > +static u64 bpf_skb_in_cgroup(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+> > +{
+> ...
+> > +	if (unlikely(!cgrp))
+> > +		return -ENOENT;
+> > +
+> > +	return cgroup_is_descendant(sock_cgroup_ptr(&sk->sk_cgrp_data), cgrp);
+>
+> if you'd need to respin the patch for other reasons please add kdoc
+> to bpf.h for this new helper similar to other helpers.
+> To say that 0 or 1 return values is indication of cg2 descendant relation
+> and < 0 in case of error.
+Will do.
 
-Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
-Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-Signed-off-by: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
----
- drivers/net/ethernet/cavium/liquidio/lio_ethtool.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-index 88994c5..85f5d17 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_ethtool.c
-@@ -1416,23 +1416,28 @@ static int lio_get_ts_info(struct net_device *netdev,
- 	struct lio *lio = GET_LIO(netdev);
- 
- 	info->so_timestamping =
-+#ifdef PTP_HARDWARE_TIMESTAMPING
- 		SOF_TIMESTAMPING_TX_HARDWARE |
--		SOF_TIMESTAMPING_TX_SOFTWARE |
- 		SOF_TIMESTAMPING_RX_HARDWARE |
-+		SOF_TIMESTAMPING_RAW_HARDWARE |
-+		SOF_TIMESTAMPING_TX_SOFTWARE |
-+#endif
- 		SOF_TIMESTAMPING_RX_SOFTWARE |
--		SOF_TIMESTAMPING_SOFTWARE | SOF_TIMESTAMPING_RAW_HARDWARE;
-+		SOF_TIMESTAMPING_SOFTWARE;
- 
- 	if (lio->ptp_clock)
- 		info->phc_index = ptp_clock_index(lio->ptp_clock);
- 	else
- 		info->phc_index = -1;
- 
-+#ifdef PTP_HARDWARE_TIMESTAMPING
- 	info->tx_types = (1 << HWTSTAMP_TX_OFF) | (1 << HWTSTAMP_TX_ON);
- 
- 	info->rx_filters = (1 << HWTSTAMP_FILTER_NONE) |
- 			   (1 << HWTSTAMP_FILTER_PTP_V1_L4_EVENT) |
- 			   (1 << HWTSTAMP_FILTER_PTP_V2_L2_EVENT) |
- 			   (1 << HWTSTAMP_FILTER_PTP_V2_L4_EVENT);
-+#endif
- 
- 	return 0;
- }
--- 
-1.8.3.1
+I will also address the '#ifndef CONFIG_CGROUPS' case in v2, as reported
+by the kbuild test.
