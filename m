@@ -1,242 +1,162 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 2/9] net/mlx5e: Add TXQ set max rate support
-Date: Wed, 22 Jun 2016 19:33:10 +0300
-Message-ID: <1466613197-28726-3-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 3/9] net/mlx5e: Introduce net device priv flags infrastructure
+Date: Wed, 22 Jun 2016 19:33:11 +0300
+Message-ID: <1466613197-28726-4-git-send-email-saeedm@mellanox.com>
 References: <1466613197-28726-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Gal Pressman <galp@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:39064 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:39082 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751080AbcFVQeB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 12:34:01 -0400
+	id S1751768AbcFVQeD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2016 12:34:03 -0400
 In-Reply-To: <1466613197-28726-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+From: Gal Pressman <galp@mellanox.com>
 
-Implement set_maxrate ndo.
-Use the rate index from the hardware table to attach to channel SQ/TXQ.
-In case of failure to configure new rate, the queue remains with
-unlimited rate.
+Introduce an infrastructure for getting/setting private net device
+flags.
 
-We save the configuration on priv structure and apply it each time
-Send Queues are being reinitialized (after open/close) operations.
+Currently a 'nop' priv flag is added, following patches will override
+the flag will actual feature specific flags.
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |   3 +
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 102 +++++++++++++++++++++-
- 2 files changed, 102 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       | 17 +++++++
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 59 ++++++++++++++++++++++
+ 2 files changed, 76 insertions(+)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index e8a6c33..017e047 100644
+index 017e047..02fa4da 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -88,6 +88,7 @@
- #define MLX5E_LOG_INDIR_RQT_SIZE       0x7
- #define MLX5E_INDIR_RQT_SIZE           BIT(MLX5E_LOG_INDIR_RQT_SIZE)
- #define MLX5E_MAX_NUM_CHANNELS         (MLX5E_INDIR_RQT_SIZE >> 1)
-+#define MLX5E_MAX_NUM_SQS              (MLX5E_MAX_NUM_CHANNELS * MLX5E_MAX_NUM_TC)
- #define MLX5E_TX_CQ_POLL_BUDGET        128
- #define MLX5E_UPDATE_STATS_INTERVAL    200 /* msecs */
- #define MLX5E_SQ_BF_BUDGET             16
-@@ -354,6 +355,7 @@ struct mlx5e_sq {
- 	struct mlx5e_channel      *channel;
- 	int                        tc;
- 	struct mlx5e_ico_wqe_info *ico_wqe_info;
-+	u32                        rate_limit;
- } ____cacheline_aligned_in_smp;
+@@ -144,6 +144,22 @@ struct mlx5e_umr_wqe {
+ 	struct mlx5_wqe_data_seg       data;
+ };
  
- static inline bool mlx5e_sq_has_room_for(struct mlx5e_sq *sq, u16 n)
-@@ -530,6 +532,7 @@ struct mlx5e_priv {
- 	u32                        indir_rqtn;
- 	u32                        indir_tirn[MLX5E_NUM_INDIR_TIRS];
- 	struct mlx5e_direct_tir    direct_tir[MLX5E_MAX_NUM_CHANNELS];
-+	u32                        tx_rates[MLX5E_MAX_NUM_SQS];
++static const char mlx5e_priv_flags[][ETH_GSTRING_LEN] = {
++	"nop",
++};
++
++enum mlx5e_priv_flag {
++	MLX5E_PFLAG_NOP = (1 << 0),
++};
++
++#define MLX5E_SET_PRIV_FLAG(priv, pflag, enable)    \
++	do {                                        \
++		if (enable)                         \
++			priv->pflags |= pflag;      \
++		else                                \
++			priv->pflags &= ~pflag;     \
++	} while (0)
++
+ #ifdef CONFIG_MLX5_CORE_EN_DCB
+ #define MLX5E_MAX_BW_ALLOC 100 /* Max percentage of BW allocation */
+ #define MLX5E_MIN_BW_ALLOC 1   /* Min percentage of BW allocation */
+@@ -543,6 +559,7 @@ struct mlx5e_priv {
+ 	struct work_struct         set_rx_mode_work;
+ 	struct delayed_work        update_stats_work;
  
- 	struct mlx5e_flow_steering fs;
- 	struct mlx5e_vxlan_db      vxlan;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 8b7c6f3..e5a2cef 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -702,7 +702,8 @@ static int mlx5e_enable_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param)
- 	return err;
- }
- 
--static int mlx5e_modify_sq(struct mlx5e_sq *sq, int curr_state, int next_state)
-+static int mlx5e_modify_sq(struct mlx5e_sq *sq, int curr_state,
-+			   int next_state, bool update_rl, int rl_index)
++	u32                        pflags;
+ 	struct mlx5_core_dev      *mdev;
+ 	struct net_device         *netdev;
+ 	struct mlx5e_stats         stats;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index fc7dcc0..f8bbc2b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -198,6 +198,8 @@ static int mlx5e_get_sset_count(struct net_device *dev, int sset)
+ 		       MLX5E_NUM_RQ_STATS(priv) +
+ 		       MLX5E_NUM_SQ_STATS(priv) +
+ 		       MLX5E_NUM_PFC_COUNTERS(priv);
++	case ETH_SS_PRIV_FLAGS:
++		return ARRAY_SIZE(mlx5e_priv_flags);
+ 	/* fallthrough */
+ 	default:
+ 		return -EOPNOTSUPP;
+@@ -272,9 +274,12 @@ static void mlx5e_get_strings(struct net_device *dev,
+ 			      uint32_t stringset, uint8_t *data)
  {
- 	struct mlx5e_channel *c = sq->channel;
- 	struct mlx5e_priv *priv = c->priv;
-@@ -722,6 +723,10 @@ static int mlx5e_modify_sq(struct mlx5e_sq *sq, int curr_state, int next_state)
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
++	int i;
  
- 	MLX5_SET(modify_sq_in, in, sq_state, curr_state);
- 	MLX5_SET(sqc, sqc, state, next_state);
-+	if (update_rl && next_state == MLX5_SQC_STATE_RDY) {
-+		MLX5_SET64(modify_sq_in, in, modify_bitmask, 1);
-+		MLX5_SET(sqc,  sqc, packet_pacing_rate_limit_index, rl_index);
-+	}
+ 	switch (stringset) {
+ 	case ETH_SS_PRIV_FLAGS:
++		for (i = 0; i < ARRAY_SIZE(mlx5e_priv_flags); i++)
++			strcpy(data + i * ETH_GSTRING_LEN, mlx5e_priv_flags[i]);
+ 		break;
  
- 	err = mlx5_core_modify_sq(mdev, sq->sqn, in, inlen);
- 
-@@ -737,6 +742,8 @@ static void mlx5e_disable_sq(struct mlx5e_sq *sq)
- 	struct mlx5_core_dev *mdev = priv->mdev;
- 
- 	mlx5_core_destroy_sq(mdev, sq->sqn);
-+	if (sq->rate_limit)
-+		mlx5_rl_remove_rate(mdev, sq->rate_limit);
+ 	case ETH_SS_TEST:
+@@ -1272,6 +1277,58 @@ static int mlx5e_get_module_eeprom(struct net_device *netdev,
+ 	return 0;
  }
  
- static int mlx5e_open_sq(struct mlx5e_channel *c,
-@@ -754,7 +761,8 @@ static int mlx5e_open_sq(struct mlx5e_channel *c,
- 	if (err)
- 		goto err_destroy_sq;
- 
--	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RST, MLX5_SQC_STATE_RDY);
-+	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RST, MLX5_SQC_STATE_RDY,
-+			      false, 0);
- 	if (err)
- 		goto err_disable_sq;
- 
-@@ -793,7 +801,8 @@ static void mlx5e_close_sq(struct mlx5e_sq *sq)
- 		if (mlx5e_sq_has_room_for(sq, 1))
- 			mlx5e_send_nop(sq, true);
- 
--		mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY, MLX5_SQC_STATE_ERR);
-+		mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY, MLX5_SQC_STATE_ERR,
-+				false, 0);
- 	}
- 
- 	while (sq->cc != sq->pc) /* wait till sq is empty */
-@@ -1024,6 +1033,79 @@ static void mlx5e_build_channeltc_to_txq_map(struct mlx5e_priv *priv, int ix)
- 			ix + i * priv->params.num_channels;
- }
- 
-+static int mlx5e_set_sq_maxrate(struct net_device *dev,
-+				struct mlx5e_sq *sq, u32 rate)
++typedef int (*mlx5e_pflag_handler)(struct net_device *netdev, bool enable);
++
++static int set_pflag_nop(struct net_device *netdev, bool enable)
 +{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	u16 rl_index = 0;
-+	int err;
-+
-+	if (rate == sq->rate_limit)
-+		/* nothing to do */
-+		return 0;
-+
-+	if (sq->rate_limit)
-+		/* remove current rl index to free space to next ones */
-+		mlx5_rl_remove_rate(mdev, sq->rate_limit);
-+
-+	sq->rate_limit = 0;
-+
-+	if (rate) {
-+		err = mlx5_rl_add_rate(mdev, rate, &rl_index);
-+		if (err) {
-+			netdev_err(dev, "Failed configuring rate %u: %d\n",
-+				   rate, err);
-+			return err;
-+		}
-+	}
-+
-+	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY,
-+			      MLX5_SQC_STATE_RDY, true, rl_index);
-+	if (err) {
-+		netdev_err(dev, "Failed configuring rate %u: %d\n",
-+			   rate, err);
-+		/* remove the rate from the table */
-+		if (rate)
-+			mlx5_rl_remove_rate(mdev, rate);
-+		return err;
-+	}
-+
-+	sq->rate_limit = rate;
 +	return 0;
 +}
 +
-+static int mlx5e_set_tx_maxrate(struct net_device *dev, int index, u32 rate)
++static int mlx5e_handle_pflag(struct net_device *netdev,
++			      u32 wanted_flags,
++			      enum mlx5e_priv_flag flag,
++			      mlx5e_pflag_handler pflag_handler)
 +{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	struct mlx5e_sq *sq = priv->txq_to_sq_map[index];
-+	int err = 0;
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++	bool enable = !!(wanted_flags & flag);
++	u32 changes = wanted_flags ^ priv->pflags;
++	int err;
 +
-+	if (!mlx5_rl_is_supported(mdev)) {
-+		netdev_err(dev, "Rate limiting is not supported on this device\n");
-+		return -EINVAL;
++	if (!(changes & flag))
++		return 0;
++
++	err = pflag_handler(netdev, enable);
++	if (err) {
++		netdev_err(netdev, "%s private flag 0x%x failed err %d\n",
++			   enable ? "Enable" : "Disable", flag, err);
++		return err;
 +	}
 +
-+	/* rate is given in Mb/sec, HW config is in Kb/sec */
-+	rate = rate << 10;
-+
-+	/* Check whether rate in valid range, 0 is always valid */
-+	if (rate && !mlx5_rl_is_in_range(mdev, rate)) {
-+		netdev_err(dev, "TX rate %u, is not in range\n", rate);
-+		return -ERANGE;
-+	}
-+
-+	mutex_lock(&priv->state_lock);
-+	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
-+		err = mlx5e_set_sq_maxrate(dev, sq, rate);
-+	if (!err)
-+		priv->tx_rates[index] = rate;
-+	mutex_unlock(&priv->state_lock);
-+
-+	return err;
++	MLX5E_SET_PRIV_FLAG(priv, flag, enable);
++	return 0;
 +}
 +
- static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 			      struct mlx5e_channel_param *cparam,
- 			      struct mlx5e_channel **cp)
-@@ -1031,7 +1113,9 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 	struct net_device *netdev = priv->netdev;
- 	int cpu = mlx5e_get_cpu(priv, ix);
- 	struct mlx5e_channel *c;
-+	struct mlx5e_sq *sq;
- 	int err;
-+	int i;
- 
- 	c = kzalloc_node(sizeof(*c), GFP_KERNEL, cpu_to_node(cpu));
- 	if (!c)
-@@ -1073,6 +1157,16 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 	if (err)
- 		goto err_close_icosq;
- 
-+	for (i = 0; i < priv->params.num_tc; i++) {
-+		u32 txq_ix = priv->channeltc_to_txq_map[ix][i];
++static int mlx5e_set_priv_flags(struct net_device *netdev, u32 pflags)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++	int err;
 +
-+		if (priv->tx_rates[txq_ix]) {
-+			sq = priv->txq_to_sq_map[txq_ix];
-+			mlx5e_set_sq_maxrate(priv->netdev, sq,
-+					     priv->tx_rates[txq_ix]);
-+		}
-+	}
++	mutex_lock(&priv->state_lock);
 +
- 	err = mlx5e_open_rq(c, &cparam->rq, &c->rq);
- 	if (err)
- 		goto err_close_sqs;
-@@ -2611,6 +2705,7 @@ static const struct net_device_ops mlx5e_netdev_ops_basic = {
- 	.ndo_set_features        = mlx5e_set_features,
- 	.ndo_change_mtu          = mlx5e_change_mtu,
- 	.ndo_do_ioctl            = mlx5e_ioctl,
-+	.ndo_set_tx_maxrate      = mlx5e_set_tx_maxrate,
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
- #endif
-@@ -2632,6 +2727,7 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
- 	.ndo_do_ioctl            = mlx5e_ioctl,
- 	.ndo_udp_tunnel_add	 = mlx5e_add_vxlan_port,
- 	.ndo_udp_tunnel_del	 = mlx5e_del_vxlan_port,
-+	.ndo_set_tx_maxrate      = mlx5e_set_tx_maxrate,
- 	.ndo_features_check      = mlx5e_features_check,
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
++	err = mlx5e_handle_pflag(netdev, pflags, MLX5E_PFLAG_NOP,
++				 set_pflag_nop);
++
++	mutex_unlock(&priv->state_lock);
++	return err ? -EINVAL : 0;
++}
++
++static u32 mlx5e_get_priv_flags(struct net_device *netdev)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++
++	return priv->pflags;
++}
++
+ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.get_drvinfo       = mlx5e_get_drvinfo,
+ 	.get_link          = ethtool_op_get_link,
+@@ -1301,4 +1358,6 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.set_wol	   = mlx5e_set_wol,
+ 	.get_module_info   = mlx5e_get_module_info,
+ 	.get_module_eeprom = mlx5e_get_module_eeprom,
++	.get_priv_flags    = mlx5e_get_priv_flags,
++	.set_priv_flags    = mlx5e_set_priv_flags
+ };
 -- 
 2.8.0
