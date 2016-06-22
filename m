@@ -1,163 +1,92 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 11/14] rxrpc: Make rxrpc_send_packet() take a
- connection not a transport [ver #2]
-Date: Wed, 22 Jun 2016 17:04:10 +0100
-Message-ID: <146661145065.15011.7115489407328614610.stgit@warthog.procyon.org.uk>
-References: <146661137134.15011.10133465789054712595.stgit@warthog.procyon.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56575 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752472AbcFVQN1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 12:13:27 -0400
-In-Reply-To: <146661137134.15011.10133465789054712595.stgit@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Subject: [PATCHv2 0/7] eBPF JIT for PPC64
+Date: Wed, 22 Jun 2016 21:55:00 +0530
+Message-ID: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
+Cc: "Matt Evans" <matt@ozlabs.org>,
+	Denis Kirjanov <kda@linux-powerpc.org>,
+	"Paul Mackerras" <paulus@samba.org>,
+	"Alexei Starovoitov" <ast@fb.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	"Ananth N Mavinakayanahalli" <ananth@in.ibm.com>,
+	Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+To: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Make rxrpc_send_packet() take a connection not a transport as part of the
-phasing out of the rxrpc_transport struct.
+v2 changes:
+  - Patch 1 is new and is cc'ed -stable
+  - Patch 7 has 3 changes:
+    - Include asm/kprobes.h to resolve a build error reported by Michael
+    Ellerman
+    - Remove check for fp in bpf_int_jit_compile() as suggested by Daniel
+    Borkmann
+    - Fix a crash on Cell processor reported by Michael Ellerman by
+    changing image to be a u8 pointer for proper size calculation.
 
-Whilst we're at it, rename the function to rxrpc_send_data_packet() to
-differentiate it from the other packet sending functions.
 
-Signed-off-by: David Howells <dhowells@redhat.com>
----
+Earlier cover letter:
+Implement extended BPF JIT for ppc64. We retain the classic BPF JIT for
+ppc32 and move ppc64 BE/LE to use the new JIT. Classic BPF filters will
+be converted to extended BPF (see convert_filter()) and JIT'ed with the
+new compiler.
 
- net/rxrpc/ar-internal.h |    2 +-
- net/rxrpc/call_event.c  |    2 +-
- net/rxrpc/output.c      |   51 +++++++++++++++++++++++++++--------------------
- 3 files changed, 31 insertions(+), 24 deletions(-)
+Most of the existing macros are retained and fixed/enhanced where
+appropriate. Patches 1-4 are geared towards this.
 
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 89966508b26c..cfbd028aa551 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -670,7 +670,7 @@ extern const char *rxrpc_acks(u8 reason);
-  */
- extern unsigned int rxrpc_resend_timeout;
- 
--int rxrpc_send_packet(struct rxrpc_transport *, struct sk_buff *);
-+int rxrpc_send_data_packet(struct rxrpc_connection *, struct sk_buff *);
- int rxrpc_do_sendmsg(struct rxrpc_sock *, struct msghdr *, size_t);
- 
- /*
-diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
-index b43faf573ed3..0ba84295f913 100644
---- a/net/rxrpc/call_event.c
-+++ b/net/rxrpc/call_event.c
-@@ -187,7 +187,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
- 
- 			_proto("Tx DATA %%%u { #%d }",
- 			       sp->hdr.serial, sp->hdr.seq);
--			if (rxrpc_send_packet(call->conn->trans, txb) < 0) {
-+			if (rxrpc_send_data_packet(call->conn, txb) < 0) {
- 				stop = true;
- 				sp->resend_at = jiffies + 3;
- 			} else {
-diff --git a/net/rxrpc/output.c b/net/rxrpc/output.c
-index 6f8ab0ef839f..db3933cf6b97 100644
---- a/net/rxrpc/output.c
-+++ b/net/rxrpc/output.c
-@@ -338,7 +338,7 @@ EXPORT_SYMBOL(rxrpc_kernel_abort_call);
- /*
-  * send a packet through the transport endpoint
-  */
--int rxrpc_send_packet(struct rxrpc_transport *trans, struct sk_buff *skb)
-+int rxrpc_send_data_packet(struct rxrpc_connection *conn, struct sk_buff *skb)
- {
- 	struct kvec iov[1];
- 	struct msghdr msg;
-@@ -349,30 +349,30 @@ int rxrpc_send_packet(struct rxrpc_transport *trans, struct sk_buff *skb)
- 	iov[0].iov_base = skb->head;
- 	iov[0].iov_len = skb->len;
- 
--	msg.msg_name = &trans->peer->srx.transport.sin;
--	msg.msg_namelen = sizeof(trans->peer->srx.transport.sin);
-+	msg.msg_name = &conn->params.peer->srx.transport;
-+	msg.msg_namelen = conn->params.peer->srx.transport_len;
- 	msg.msg_control = NULL;
- 	msg.msg_controllen = 0;
- 	msg.msg_flags = 0;
- 
- 	/* send the packet with the don't fragment bit set if we currently
- 	 * think it's small enough */
--	if (skb->len - sizeof(struct rxrpc_wire_header) < trans->peer->maxdata) {
--		down_read(&trans->local->defrag_sem);
-+	if (skb->len - sizeof(struct rxrpc_wire_header) < conn->params.peer->maxdata) {
-+		down_read(&conn->params.local->defrag_sem);
- 		/* send the packet by UDP
- 		 * - returns -EMSGSIZE if UDP would have to fragment the packet
- 		 *   to go out of the interface
- 		 *   - in which case, we'll have processed the ICMP error
- 		 *     message and update the peer record
- 		 */
--		ret = kernel_sendmsg(trans->local->socket, &msg, iov, 1,
-+		ret = kernel_sendmsg(conn->params.local->socket, &msg, iov, 1,
- 				     iov[0].iov_len);
- 
--		up_read(&trans->local->defrag_sem);
-+		up_read(&conn->params.local->defrag_sem);
- 		if (ret == -EMSGSIZE)
- 			goto send_fragmentable;
- 
--		_leave(" = %d [%u]", ret, trans->peer->maxdata);
-+		_leave(" = %d [%u]", ret, conn->params.peer->maxdata);
- 		return ret;
- 	}
- 
-@@ -380,21 +380,28 @@ send_fragmentable:
- 	/* attempt to send this message with fragmentation enabled */
- 	_debug("send fragment");
- 
--	down_write(&trans->local->defrag_sem);
--	opt = IP_PMTUDISC_DONT;
--	ret = kernel_setsockopt(trans->local->socket, SOL_IP, IP_MTU_DISCOVER,
--				(char *) &opt, sizeof(opt));
--	if (ret == 0) {
--		ret = kernel_sendmsg(trans->local->socket, &msg, iov, 1,
--				     iov[0].iov_len);
--
--		opt = IP_PMTUDISC_DO;
--		kernel_setsockopt(trans->local->socket, SOL_IP,
--				  IP_MTU_DISCOVER, (char *) &opt, sizeof(opt));
-+	down_write(&conn->params.local->defrag_sem);
-+
-+	switch (conn->params.local->srx.transport.family) {
-+	case AF_INET:
-+		opt = IP_PMTUDISC_DONT;
-+		ret = kernel_setsockopt(conn->params.local->socket,
-+					SOL_IP, IP_MTU_DISCOVER,
-+					(char *)&opt, sizeof(opt));
-+		if (ret == 0) {
-+			ret = kernel_sendmsg(conn->params.local->socket, &msg, iov, 1,
-+					     iov[0].iov_len);
-+
-+			opt = IP_PMTUDISC_DO;
-+			kernel_setsockopt(conn->params.local->socket, SOL_IP,
-+					  IP_MTU_DISCOVER,
-+					  (char *)&opt, sizeof(opt));
-+		}
-+		break;
- 	}
- 
--	up_write(&trans->local->defrag_sem);
--	_leave(" = %d [frag %u]", ret, trans->peer->maxdata);
-+	up_write(&conn->params.local->defrag_sem);
-+	_leave(" = %d [frag %u]", ret, conn->params.peer->maxdata);
- 	return ret;
- }
- 
-@@ -506,7 +513,7 @@ static void rxrpc_queue_packet(struct rxrpc_call *call, struct sk_buff *skb,
- 	if (try_to_del_timer_sync(&call->ack_timer) >= 0) {
- 		/* the packet may be freed by rxrpc_process_call() before this
- 		 * returns */
--		ret = rxrpc_send_packet(call->conn->trans, skb);
-+		ret = rxrpc_send_data_packet(call->conn, skb);
- 		_net("sent skb %p", skb);
- 	} else {
- 		_debug("failed to delete ACK timer");
+Patch 5 breaks out the classic BPF JIT specifics into a separate
+bpf_jit32.h header file, while retaining all the generic instruction
+macros in bpf_jit.h.
+
+Patch 6 implements eBPF JIT for ppc64.
+
+Since the RFC patchset [1], powerpc JIT has now gained support for skb
+access helpers and now passes all tests in test_bpf.ko. Review comments
+on the RFC patches have been addressed (use of an ABI macro [2] and use
+of bpf_jit_binary_alloc()), along with a few other generic fixes and
+updates.
+
+Prominent TODOs:
+ - implement BPF tail calls
+ - support for BPF constant blinding
+
+Please note that patch [2] is a pre-requisite for this patchset, and is
+not yet upstream.
+
+
+- Naveen
+
+[1] http://thread.gmane.org/gmane.linux.kernel/2188694
+[2] http://thread.gmane.org/gmane.linux.ports.ppc.embedded/96514
+
+
+Naveen N. Rao (7):
+  ppc bpf/jit: Disable classic BPF JIT on ppc64le
+  ppc: bpf/jit: Fix/enhance 32-bit Load Immediate implementation
+  ppc: bpf/jit: Optimize 64-bit Immediate loads
+  ppc: bpf/jit: Introduce rotate immediate instructions
+  ppc: bpf/jit: A few cleanups
+  ppc: bpf/jit: Isolate classic BPF JIT specifics into a separate header
+  ppc: ebpf/jit: Implement JIT compiler for extended BPF
+
+ arch/powerpc/Kconfig                  |   3 +-
+ arch/powerpc/include/asm/asm-compat.h |   2 +
+ arch/powerpc/include/asm/ppc-opcode.h |  22 +-
+ arch/powerpc/net/Makefile             |   4 +
+ arch/powerpc/net/bpf_jit.h            | 235 ++++-----
+ arch/powerpc/net/bpf_jit32.h          | 139 +++++
+ arch/powerpc/net/bpf_jit64.h          | 102 ++++
+ arch/powerpc/net/bpf_jit_asm.S        |   2 +-
+ arch/powerpc/net/bpf_jit_asm64.S      | 180 +++++++
+ arch/powerpc/net/bpf_jit_comp.c       |  10 +-
+ arch/powerpc/net/bpf_jit_comp64.c     | 954 ++++++++++++++++++++++++++++++++++
+ 11 files changed, 1502 insertions(+), 151 deletions(-)
+ create mode 100644 arch/powerpc/net/bpf_jit32.h
+ create mode 100644 arch/powerpc/net/bpf_jit64.h
+ create mode 100644 arch/powerpc/net/bpf_jit_asm64.S
+ create mode 100644 arch/powerpc/net/bpf_jit_comp64.c
+
+-- 
+2.8.2
