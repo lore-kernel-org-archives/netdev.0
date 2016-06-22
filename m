@@ -1,33 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2016-06-20
-Date: Wed, 22 Jun 2016 16:30:02 -0400 (EDT)
-Message-ID: <20160622.163002.416950357869278214.davem@davemloft.net>
-References: <1466409630-6268-1-git-send-email-mkl@pengutronix.de>
+Subject: Re: [PATCH net] team: Fix possible deadlock during team enslave
+Date: Wed, 22 Jun 2016 16:32:55 -0400 (EDT)
+Message-ID: <20160622.163255.468340273801025129.davem@davemloft.net>
+References: <1466412800-18400-1-git-send-email-idosch@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
+Cc: netdev@vger.kernel.org, jiri@mellanox.com, eladr@mellanox.com,
+	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+	lucien.xin@gmail.com
+To: idosch@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51925 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:51944 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752276AbcFVUaH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 16:30:07 -0400
-In-Reply-To: <1466409630-6268-1-git-send-email-mkl@pengutronix.de>
+	with ESMTP id S1752082AbcFVUdC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 16:33:02 -0400
+In-Reply-To: <1466412800-18400-1-git-send-email-idosch@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Mon, 20 Jun 2016 10:00:27 +0200
+From: Ido Schimmel <idosch@mellanox.com>
+Date: Mon, 20 Jun 2016 11:53:20 +0300
 
-> this is a pull request of 3 patches for the upcoming linux-4.7 release.
+> Both dev_uc_sync_multiple() and dev_mc_sync_multiple() require the
+> source device to be locked by netif_addr_lock_bh(), but this is missing
+> in team's enslave function, so add it.
 > 
-> The first patch is by Thor Thayer for the c_can/d_can driver. It fixes the
-> registar access on Altera Cyclone devices, which caused CAN frames to have 0x0
-> in the first two bytes incorrectly. Wolfgang Grandegger's patch for the at91
-> driver fixes a hanging driver under high bus load situations. A patch for the
-> gs_usb driver by Maximilian Schneider adds support for the bytewerk.org
-> candleLight interface.
+> This fixes the following lockdep warning:
+> 
+> Possible interrupt unsafe locking scenario:
+> 
+>         CPU0                    CPU1
+>         ----                    ----
+>    lock(_xmit_ETHER/1);
+>                                 local_irq_disable();
+>                                 lock(&(&mc->mca_lock)->rlock);
+>                                 lock(&team_netdev_addr_lock_key);
+>    <Interrupt>
+>      lock(&(&mc->mca_lock)->rlock);
+> 
+>   *** DEADLOCK ***
+> 
+> Fixes: cb41c997d444 ("team: team should sync the port's uc/mc addrs when add a port")
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 
-Pulled, thanks.
+Applied.
