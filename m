@@ -1,86 +1,64 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH net-next 3/5] qede: Add support to handle GENEVE hardware GRO packets
-Date: Wed, 22 Jun 2016 04:25:24 -0400
-Message-ID: <1466583926-27762-4-git-send-email-manish.chopra@qlogic.com>
-References: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: Re: [iproute PATCH v2 2/7] Use C99 style initializers everywhere
+Date: Wed, 22 Jun 2016 11:12:14 +0200
+Message-ID: <87mvmdmvtd.fsf@frog.home>
+References: <1466525921-15738-1-git-send-email-phil@nwl.cc> <1466525921-15738-3-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
-	<Yuval.Mintz@qlogic.com>
-To: <davem@davemloft.net>
+Cc: Stephen Hemminger <shemming@brocade.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Julien Floret <julien.floret@6wind.com>, netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:43049 "EHLO
-	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750957AbcFVJJi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 05:09:38 -0400
-In-Reply-To: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
+Received: from mail-qk0-f175.google.com ([209.85.220.175]:34469 "EHLO
+	mail-qk0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752016AbcFVJMc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 05:12:32 -0400
+Received: by mail-qk0-f175.google.com with SMTP id t127so56187087qkf.1
+        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 02:12:22 -0700 (PDT)
+In-reply-to: <1466525921-15738-3-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch adds support to do necessary processing
-for hardware assisted GENEVE tunnel GRO packets before
-driver delivers them upto the stack.
+Hi Phil,
 
-Signed-off-by: Manish Chopra <manish.chopra@qlogic.com>
-Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
----
- drivers/net/ethernet/qlogic/qede/qede_main.c | 30 ++++++++++++++++++++++++++++
- 1 file changed, 30 insertions(+)
+On Tue, Jun 21, 2016 at 06:18 PM CEST, Phil Sutter <phil@nwl.cc> wrote:
+> This big patch was compiled by vimgrepping for memset calls and changing
+> to C99 initializer if applicable. One notable exception is the
+> initialization of union bpf_attr in tc/tc_bpf.c: changing it would break
+> for older gcc versions (at least <=3.4.6).
+>
+> Calls to memset for struct rtattr pointer fields for parse_rtattr*()
+> were just dropped since they are not needed.
+>
+> The changes here allowed the compiler to discover some unused variables,
+> so get rid of them, too.
+>
+> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> ---
 
-diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index f94ea16..a4b445f 100644
---- a/drivers/net/ethernet/qlogic/qede/qede_main.c
-+++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -37,6 +37,7 @@
- #include <net/ip6_checksum.h>
- #include <linux/bitops.h>
- #include <net/vxlan.h>
-+#include <net/geneve.h>
- 
- #include "qede.h"
- 
-@@ -1205,6 +1206,32 @@ static void qede_handle_vxlan_tunnel_gro(struct sk_buff *skb)
- 	}
- }
- 
-+static inline struct genevehdr *
-+qede_geneve_hdr(struct sk_buff *skb, int off) {
-+	return (struct genevehdr *)(skb->data + off + sizeof(struct udphdr));
-+}
-+
-+static void qede_handle_geneve_tunnel_gro(struct sk_buff *skb)
-+{
-+	struct genevehdr *gh;
-+
-+	switch (skb->protocol) {
-+	case htons(ETH_P_IP):
-+		gh = qede_geneve_hdr(skb, sizeof(struct iphdr));
-+		qede_set_nh_th_offset(skb, VXLAN_HEADROOM + (gh->opt_len * 4));
-+		udp4_gro_complete(skb, sizeof(struct iphdr));
-+		break;
-+	case htons(ETH_P_IPV6):
-+		gh = qede_geneve_hdr(skb, sizeof(struct ipv6hdr));
-+		qede_set_nh_th_offset(skb, VXLAN6_HEADROOM + (gh->opt_len * 4));
-+		udp6_gro_complete(skb, sizeof(struct ipv6hdr));
-+		break;
-+	default:
-+		WARN_ONCE(1, "Unsupported GENEVE tunnel GRO proto=0x%x\n",
-+			  skb->protocol);
-+	}
-+}
-+
- static void qede_handle_tunnel_gro(struct qede_dev *edev,
- 				   struct sk_buff *skb, u8 tunnel_type)
- {
-@@ -1212,6 +1239,9 @@ static void qede_handle_tunnel_gro(struct qede_dev *edev,
- 	case ETH_RX_TUNN_VXLAN:
- 		qede_handle_vxlan_tunnel_gro(skb);
- 		break;
-+	case ETH_RX_TUNN_GENEVE:
-+		qede_handle_geneve_tunnel_gro(skb);
-+		break;
- 	default:
- 		WARN_ONCE(1, "Unsupported tunnel GRO, tunnel type=0x%x\n",
- 			  tunnel_type);
--- 
-2.7.2
+[...]
+
+> diff --git a/bridge/fdb.c b/bridge/fdb.c
+> index be849f980a802..a59d6a9c13018 100644
+> --- a/bridge/fdb.c
+> +++ b/bridge/fdb.c
+> @@ -177,16 +177,15 @@ static int fdb_show(int argc, char **argv)
+>  		struct nlmsghdr	n;
+>  		struct ifinfomsg	ifm;
+>  		char			buf[256];
+> -	} req;
+> +	} req = {
+> +		.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
+> +		.ifm.ifi_family = PF_BRIDGE
+> +	};
+>  
+
+A comma is allowed after a list of initializers (IOW, after the last
+initializer). Having it would make for smaller/cleaner diffs in the
+future if new structure members get added and need to be initialized.
+
+Thanks,
+Jakub
