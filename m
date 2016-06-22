@@ -1,99 +1,80 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 3/4] net_sched: sch_htb: export class backlog in dumps
-Date: Tue, 21 Jun 2016 23:16:51 -0700
-Message-ID: <1466576212-15012-4-git-send-email-edumazet@google.com>
-References: <1466576212-15012-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next 13/13] liquidio: ddr timeout
+Date: Tue, 21 Jun 2016 22:53:15 -0700
+Message-ID: <1466574795-4306-14-git-send-email-rvatsavayi@caviumnetworks.com>
+References: <1466574795-4306-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
+	Derek Chickles <derek.chickles@caviumnetworks.com>,
+	Satanand Burla <satananda.burla@caviumnetworks.com>,
+	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
+	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:36251 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750896AbcFVHUY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 03:20:24 -0400
-Received: by mail-pf0-f178.google.com with SMTP id t190so14984150pfb.3
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 00:20:23 -0700 (PDT)
-In-Reply-To: <1466576212-15012-1-git-send-email-edumazet@google.com>
+Received: from mail-bn1on0061.outbound.protection.outlook.com ([157.56.110.61]:4394
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750957AbcFVHeZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2016 03:34:25 -0400
+In-Reply-To: <1466574795-4306-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We already get child qdisc qlen, we also can get its backlog
-so that class dumps can report it.
+Adds support for ddr_timeout during device init.
 
-Also replace qstats by a single drop counter, but move it in
-a separate cache line so that drops do not dirty useful cache lines.
-
-Tested:
-
-$ tc -s cl sh dev eth0
-class htb 1:1 root leaf 3: prio 0 rate 1Gbit ceil 1Gbit burst 500000b cburst 500000b
- Sent 2183346912 bytes 9021815 pkt (dropped 2340774, overlimits 0 requeues 0)
- rate 1001Mbit 517543pps backlog 120758b 499p requeues 0
- lended: 9021770 borrowed: 0 giants: 0
- tokens: 9 ctokens: 9
-
-Signed-off-by: Eric Dumazet <edumazet@google.com>
+Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
+Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
+Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
+Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
+Signed-off-by: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
 ---
- net/sched/sch_htb.c | 14 ++++++++++----
- 1 file changed, 10 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/cavium/liquidio/lio_main.c      | 13 +++++++++----
+ drivers/net/ethernet/cavium/liquidio/octeon_device.c |  3 ---
+ 2 files changed, 9 insertions(+), 7 deletions(-)
 
-diff --git a/net/sched/sch_htb.c b/net/sched/sch_htb.c
-index f3882259c385..ba098f2654b4 100644
---- a/net/sched/sch_htb.c
-+++ b/net/sched/sch_htb.c
-@@ -117,7 +117,6 @@ struct htb_class {
- 	 * Written often fields
- 	 */
- 	struct gnet_stats_basic_packed bstats;
--	struct gnet_stats_queue	qstats;
- 	struct tc_htb_xstats	xstats;	/* our special stats */
+diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+index a8328f2..1a584eb 100644
+--- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
++++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
+@@ -3805,14 +3805,19 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
  
- 	/* token bucket parameters */
-@@ -140,6 +139,8 @@ struct htb_class {
- 	enum htb_cmode		cmode;		/* current mode of the class */
- 	struct rb_node		pq_node;	/* node for event queue */
- 	struct rb_node		node[TC_HTB_NUMPRIO];	/* node for self or feed tree */
-+
-+	unsigned int drops ____cacheline_aligned_in_smp;
- };
+ 	dev_dbg(&octeon_dev->pci_dev->dev, "Waiting for DDR initialization...\n");
  
- struct htb_level {
-@@ -595,7 +596,7 @@ static int htb_enqueue(struct sk_buff *skb, struct Qdisc *sch,
- 					to_free)) != NET_XMIT_SUCCESS) {
- 		if (net_xmit_drop_count(ret)) {
- 			qdisc_qstats_drop(sch);
--			cl->qstats.drops++;
-+			cl->drops++;
- 		}
- 		return ret;
- 	} else {
-@@ -1110,17 +1111,22 @@ static int
- htb_dump_class_stats(struct Qdisc *sch, unsigned long arg, struct gnet_dump *d)
- {
- 	struct htb_class *cl = (struct htb_class *)arg;
-+	struct gnet_stats_queue qs = {
-+		.drops = cl->drops,
-+	};
- 	__u32 qlen = 0;
+-	if (ddr_timeout == 0) {
+-		dev_info(&octeon_dev->pci_dev->dev,
+-			 "WAITING. Set ddr_timeout to non-zero value to proceed with initialization.\n");
+-	}
++	if (ddr_timeout == 0)
++		dev_info(&octeon_dev->pci_dev->dev, "WAITING. Set ddr_timeout to non-zero value to proceed with initialization.\n");
  
--	if (!cl->level && cl->un.leaf.q)
-+	if (!cl->level && cl->un.leaf.q) {
- 		qlen = cl->un.leaf.q->q.qlen;
-+		qs.backlog = cl->un.leaf.q->qstats.backlog;
+ 	schedule_timeout_uninterruptible(HZ * LIO_RESET_SECS);
+ 
+ 	/* Wait for the octeon to initialize DDR after the soft-reset. */
++	while (ddr_timeout == 0) {
++		set_current_state(TASK_INTERRUPTIBLE);
++		if (schedule_timeout(HZ / 10)) {
++			/* user probably pressed Control-C */
++			return 1;
++		}
 +	}
- 	cl->xstats.tokens = PSCHED_NS2TICKS(cl->tokens);
- 	cl->xstats.ctokens = PSCHED_NS2TICKS(cl->ctokens);
+ 	ret = octeon_wait_for_ddr_init(octeon_dev, &ddr_timeout);
+ 	if (ret) {
+ 		dev_err(&octeon_dev->pci_dev->dev,
+diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+index bc4d6af..3372207 100644
+--- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
++++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
+@@ -1284,9 +1284,6 @@ int octeon_wait_for_ddr_init(struct octeon_device *oct, u32 *timeout)
+ 	if (!timeout)
+ 		return ret;
  
- 	if (gnet_stats_copy_basic(qdisc_root_sleeping_running(sch),
- 				  d, NULL, &cl->bstats) < 0 ||
- 	    gnet_stats_copy_rate_est(d, NULL, &cl->rate_est) < 0 ||
--	    gnet_stats_copy_queue(d, NULL, &cl->qstats, qlen) < 0)
-+	    gnet_stats_copy_queue(d, NULL, &qs, qlen) < 0)
- 		return -1;
- 
- 	return gnet_stats_copy_app(d, &cl->xstats, sizeof(cl->xstats));
+-	while (*timeout == 0)
+-		schedule_timeout_uninterruptible(HZ / 10);
+-
+ 	for (ms = 0; (ret != 0) && ((*timeout == 0) || (ms <= *timeout));
+ 	     ms += HZ / 10) {
+ 		ret = octeon_mem_access_ok(oct);
 -- 
-2.8.0.rc3.226.g39d4020
+1.8.3.1
