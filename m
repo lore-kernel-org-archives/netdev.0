@@ -1,415 +1,226 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 1/9] net/mlx5: Rate limit tables support
-Date: Wed, 22 Jun 2016 19:33:09 +0300
-Message-ID: <1466613197-28726-2-git-send-email-saeedm@mellanox.com>
-References: <1466613197-28726-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:39068 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751374AbcFVQeC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 12:34:02 -0400
-In-Reply-To: <1466613197-28726-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: It's back! (Re: [REGRESSION] NFS is creating a hidden port (left
+ over from xs_bind() ))
+Date: Wed, 22 Jun 2016 12:41:40 -0400
+Message-ID: <20160622124140.59de5e03@gandalf.local.home>
+References: <20150611234929.7b48d314@gandalf.local.home>
+	<CAHQdGtSyHtMfyVxT=hFY4m6XvM=3mxnZ=ajVJWYNXvYqE0+3zA@mail.gmail.com>
+	<1434120035.27504.77.camel@edumazet-glaptop2.roam.corp.google.com>
+	<20150612113420.5c114183@gandalf.local.home>
+	<20150612115038.44e20ccd@gandalf.local.home>
+	<20150617230819.0a11e47a@grimm.local.home>
+	<CAHQdGtQfF8sgfj6B2H=Sg+mn6ghPD+4UuZMSMFjj3XCVee60pw@mail.gmail.com>
+	<20150618154914.57424225@gandalf.local.home>
+	<20150618185051.2b2828c3@tlielax.poochiereds.net>
+	<20150618210843.4b09c31c@grimm.local.home>
+	<20150618213702.33f64b20@synchrony.poochiereds.net>
+	<20150619122553.43d2d86c@gandalf.local.home>
+	<20150619131759.7b38d9de@gandalf.local.home>
+	<CAHQdGtRCYoeToxyDHjnd+6f40J8SrScmQKKOW5O8AzJo3NefAA@mail.gmail.com>
+	<20150619155226.7c5d6637@synchrony.poochiereds.net>
+	<1434745818.8838.1.camel@primarydata.com>
+	<20150619181440.22f54e6a@gandalf.local.home>
+	<1434756359.8498.2.camel@primarydata.com>
+	<20150619212706.2f13a44e@gandalf.local.home>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="MP_/mrjkPp/yhul_Dj_5_1sjGk7"
+Cc: Jeff Layton <jlayton@poochiereds.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Anna Schumaker <anna.schumaker@netapp.com>,
+	Linux NFS Mailing List <linux-nfs@vger.kernel.org>,
+	Linux Network Devel Mailing List <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@linux-foundation.org>,
+	Bruce James Fields <bfields@fieldses.org>
+To: Trond Myklebust <trond.myklebust@primarydata.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20150619212706.2f13a44e@gandalf.local.home>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+--MP_/mrjkPp/yhul_Dj_5_1sjGk7
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Configuring and managing HW rate limit tables.
-The HW holds a table of rate limits, each rate is
-associated with an index in that table.
-Later a Send Queue uses this index to set the rate limit.
-Multiple Send Queues can have the same rate limit, which is
-represented by a single entry in this table.
-Even though a rate can be shared, each queue is being rate
-limited independently of others.
+I've hit this again. Not sure when it started, but I applied my old
+debug trace_printk() patch (attached) and rebooted (4.5.7). I just
+tested the latest kernel from Linus's tree (from last nights pull), and
+it still gives me the problem.
 
-The SW shadow of this table holds the rate itself,
-the index in the HW table and the refcount (number of queues)
-working with this rate.
+Here's the trace I have:
 
-The exported functions are mlx5_rl_add_rate and mlx5_rl_remove_rate.
-Number of different rates and their values are derived
-from HW capabilities.
+    kworker/3:1H-134   [003] ..s.    61.036129: inet_csk_get_port: snum 805
+    kworker/3:1H-134   [003] ..s.    61.036135: <stack trace>
+ =3D> sched_clock
+ =3D> inet_addr_type_table
+ =3D> security_capable
+ =3D> inet_bind
+ =3D> xs_bind
+ =3D> release_sock
+ =3D> sock_setsockopt
+ =3D> __sock_create
+ =3D> xs_create_sock.isra.19
+ =3D> xs_tcp_setup_socket
+ =3D> process_one_work
+ =3D> worker_thread
+ =3D> worker_thread
+ =3D> kthread
+ =3D> ret_from_fork
+ =3D> kthread
+    kworker/3:1H-134   [003] ..s.    61.036136: inet_bind_hash: add 805
+    kworker/3:1H-134   [003] ..s.    61.036138: <stack trace>
+ =3D> inet_csk_get_port
+ =3D> sched_clock
+ =3D> inet_addr_type_table
+ =3D> security_capable
+ =3D> inet_bind
+ =3D> xs_bind
+ =3D> release_sock
+ =3D> sock_setsockopt
+ =3D> __sock_create
+ =3D> xs_create_sock.isra.19
+ =3D> xs_tcp_setup_socket
+ =3D> process_one_work
+ =3D> worker_thread
+ =3D> worker_thread
+ =3D> kthread
+ =3D> ret_from_fork
+ =3D> kthread
+    kworker/3:1H-134   [003] ....    61.036139: xs_bind: RPC:       xs_bind=
+ 4.136.255.255:805: ok (0)
+    kworker/3:1H-134   [003] ....    61.036140: xs_tcp_setup_socket: RPC:  =
+     worker connecting xprt ffff880407eca800 via tcp to 192.168.23.22 (port=
+ 43651)
+    kworker/3:1H-134   [003] ....    61.036162: xs_tcp_setup_socket: RPC:  =
+     ffff880407eca800 connect status 115 connected 0 sock state 2
+          <idle>-0     [001] ..s.    61.036450: xs_tcp_state_change: RPC:  =
+     xs_tcp_state_change client ffff880407eca800...
+          <idle>-0     [001] ..s.    61.036452: xs_tcp_state_change: RPC:  =
+     state 1 conn 0 dead 0 zapped 1 sk_shutdown 0
+    kworker/1:1H-136   [001] ....    61.036476: xprt_connect_status: RPC:  =
+  43 xprt_connect_status: retrying
+    kworker/1:1H-136   [001] ....    61.036478: xprt_prepare_transmit: RPC:=
+    43 xprt_prepare_transmit
+    kworker/1:1H-136   [001] ....    61.036479: xprt_transmit: RPC:    43 x=
+prt_transmit(72)
+    kworker/1:1H-136   [001] ....    61.036486: xs_tcp_send_request: RPC:  =
+     xs_tcp_send_request(72) =3D 0
+    kworker/1:1H-136   [001] ....    61.036487: xprt_transmit: RPC:    43 x=
+mit complete
+          <idle>-0     [001] ..s.    61.036789: xs_tcp_data_ready: RPC:    =
+   xs_tcp_data_ready...
+    kworker/1:1H-136   [001] ....    61.036798: xs_tcp_data_recv: RPC:     =
+  xs_tcp_data_recv started
+    kworker/1:1H-136   [001] ....    61.036799: xs_tcp_data_recv: RPC:     =
+  reading TCP record fragment of length 24
+    kworker/1:1H-136   [001] ....    61.036799: xs_tcp_data_recv: RPC:     =
+  reading XID (4 bytes)
+    kworker/1:1H-136   [001] ....    61.036800: xs_tcp_data_recv: RPC:     =
+  reading request with XID 2f4c3f88
+    kworker/1:1H-136   [001] ....    61.036800: xs_tcp_data_recv: RPC:     =
+  reading CALL/REPLY flag (4 bytes)
+    kworker/1:1H-136   [001] ....    61.036801: xs_tcp_data_recv: RPC:     =
+  read reply XID 2f4c3f88
+    kworker/1:1H-136   [001] ..s.    61.036801: xs_tcp_data_recv: RPC:     =
+  XID 2f4c3f88 read 16 bytes
+    kworker/1:1H-136   [001] ..s.    61.036802: xs_tcp_data_recv: RPC:     =
+  xprt =3D ffff880407eca800, tcp_copied =3D 24, tcp_offset =3D 24, tcp_recl=
+en =3D 24
+    kworker/1:1H-136   [001] ..s.    61.036802: xprt_complete_rqst: RPC:   =
+ 43 xid 2f4c3f88 complete (24 bytes received)
+    kworker/1:1H-136   [001] ....    61.036803: xs_tcp_data_recv: RPC:     =
+  xs_tcp_data_recv done
+    kworker/1:1H-136   [001] ....    61.036812: xprt_release: RPC:    43 re=
+lease request ffff88040b270800
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+
+# unhide-tcp=20
+Unhide-tcp 20130526
+Copyright =C2=A9 2013 Yago Jesus & Patrick Gouin
+License GPLv3+ : GNU GPL version 3 or later
+http://www.unhide-forensics.info
+Used options:=20
+[*]Starting TCP checking
+
+Found Hidden port that not appears in ss: 805
+
+-- Steve
+
+--MP_/mrjkPp/yhul_Dj_5_1sjGk7
+Content-Type: text/x-patch
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename=debug-hidden-port-4.7.patch
+
 ---
- drivers/net/ethernet/mellanox/mlx5/core/Makefile |   5 +-
- drivers/net/ethernet/mellanox/mlx5/core/fw.c     |   6 +
- drivers/net/ethernet/mellanox/mlx5/core/main.c   |  10 ++
- drivers/net/ethernet/mellanox/mlx5/core/rl.c     | 209 +++++++++++++++++++++++
- include/linux/mlx5/device.h                      |   4 +
- include/linux/mlx5/driver.h                      |  27 +++
- 6 files changed, 259 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/rl.c
+ net/ipv4/inet_connection_sock.c |    4 ++++
+ net/ipv4/inet_hashtables.c      |    5 +++++
+ net/sunrpc/xprt.c               |    5 +++++
+ net/sunrpc/xprtsock.c           |    5 +++++
+ 5 files changed, 22 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index 9ea7b58..0c8a7dc 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -1,8 +1,9 @@
- obj-$(CONFIG_MLX5_CORE)		+= mlx5_core.o
- 
- mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
--		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o   \
--		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o fs_counters.o
-+		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o \
-+		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o \
-+		fs_counters.o rl.o
- 
- mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o \
- 		en_main.o en_fs.o en_ethtool.o en_tx.o en_rx.o \
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-index 75c7ae6..77fc1aa 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-@@ -151,6 +151,12 @@ int mlx5_query_hca_caps(struct mlx5_core_dev *dev)
- 			return err;
+Index: linux-build.git/net/ipv4/inet_connection_sock.c
+===================================================================
+--- linux-build.git.orig/net/ipv4/inet_connection_sock.c	2016-06-22 11:55:05.952267493 -0400
++++ linux-build.git/net/ipv4/inet_connection_sock.c	2016-06-22 11:56:20.002662092 -0400
+@@ -232,6 +232,10 @@ tb_found:
+ 		}
  	}
- 
-+	if (MLX5_CAP_GEN(dev, qos)) {
-+		err = mlx5_core_get_caps(dev, MLX5_CAP_QOS);
-+		if (err)
-+			return err;
+ success:
++	if (!current->mm) {
++		trace_printk("snum %d\n", snum);
++		trace_dump_stack(1);
 +	}
-+
- 	return 0;
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index a19b593..08cae34 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1144,6 +1144,13 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 		dev_err(&pdev->dev, "Failed to init flow steering\n");
- 		goto err_fs;
- 	}
-+
-+	err = mlx5_init_rl_table(dev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to init rate limiting\n");
-+		goto err_rl;
-+	}
-+
- #ifdef CONFIG_MLX5_CORE_EN
- 	err = mlx5_eswitch_init(dev);
- 	if (err) {
-@@ -1183,6 +1190,8 @@ err_sriov:
- 	mlx5_eswitch_cleanup(dev->priv.eswitch);
- #endif
- err_reg_dev:
-+	mlx5_cleanup_rl_table(dev);
-+err_rl:
- 	mlx5_cleanup_fs(dev);
- err_fs:
- 	mlx5_cleanup_mkey_table(dev);
-@@ -1253,6 +1262,7 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 	mlx5_eswitch_cleanup(dev->priv.eswitch);
- #endif
- 
-+	mlx5_cleanup_rl_table(dev);
- 	mlx5_cleanup_fs(dev);
- 	mlx5_cleanup_mkey_table(dev);
- 	mlx5_cleanup_srq_table(dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/rl.c b/drivers/net/ethernet/mellanox/mlx5/core/rl.c
-new file mode 100644
-index 0000000..c07c28b
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/rl.c
-@@ -0,0 +1,209 @@
-+/*
-+ * Copyright (c) 2013-2016, Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/mlx5/driver.h>
-+#include <linux/mlx5/cmd.h>
-+#include "mlx5_core.h"
-+
-+/* Finds an entry where we can register the given rate
-+ * If the rate already exists, return the entry where it is registered,
-+ * otherwise return the first available entry.
-+ * If the table is full, return NULL
-+ */
-+static struct mlx5_rl_entry *find_rl_entry(struct mlx5_rl_table *table,
-+					   u32 rate)
-+{
-+	struct mlx5_rl_entry *ret_entry = NULL;
-+	bool empty_found = false;
-+	int i;
-+
-+	for (i = 0; i < table->max_size; i++) {
-+		if (table->rl_entry[i].rate == rate)
-+			return &table->rl_entry[i];
-+		if (!empty_found && !table->rl_entry[i].rate) {
-+			empty_found = true;
-+			ret_entry = &table->rl_entry[i];
-+		}
-+	}
-+
-+	return ret_entry;
-+}
-+
-+static int mlx5_set_rate_limit_cmd(struct mlx5_core_dev *dev,
-+				   u32 rate, u16 index)
-+{
-+	u32 in[MLX5_ST_SZ_DW(set_rate_limit_in)];
-+	u32 out[MLX5_ST_SZ_DW(set_rate_limit_out)];
-+
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+	MLX5_SET(set_rate_limit_in, in, opcode,
-+		 MLX5_CMD_OP_SET_RATE_LIMIT);
-+	MLX5_SET(set_rate_limit_in, in, rate_limit_index, index);
-+	MLX5_SET(set_rate_limit_in, in, rate_limit, rate);
-+
-+	return mlx5_cmd_exec_check_status(dev, in, sizeof(in),
-+					  out, sizeof(out));
-+}
-+
-+bool mlx5_rl_is_in_range(struct mlx5_core_dev *dev, u32 rate)
-+{
-+	struct mlx5_rl_table *table = &dev->priv.rl_table;
-+
-+	return (rate <= table->max_rate && rate >= table->min_rate);
-+}
-+EXPORT_SYMBOL(mlx5_rl_is_in_range);
-+
-+int mlx5_rl_add_rate(struct mlx5_core_dev *dev, u32 rate, u16 *index)
-+{
-+	struct mlx5_rl_table *table = &dev->priv.rl_table;
-+	struct mlx5_rl_entry *entry;
-+	int err = 0;
-+
-+	mutex_lock(&table->rl_lock);
-+
-+	if (!rate || !mlx5_rl_is_in_range(dev, rate)) {
-+		mlx5_core_err(dev, "Invalid rate: %u, should be %u to %u\n",
-+			      rate, table->min_rate, table->max_rate);
-+		err = -EINVAL;
-+		goto out;
-+	}
-+
-+	entry = find_rl_entry(table, rate);
-+	if (!entry) {
-+		mlx5_core_err(dev, "Max number of %u rates reached\n",
-+			      table->max_size);
-+		err = -ENOSPC;
-+		goto out;
-+	}
-+	if (entry->refcount) {
-+		/* rate already configured */
-+		entry->refcount++;
-+	} else {
-+		/* new rate limit */
-+		err = mlx5_set_rate_limit_cmd(dev, rate, entry->index);
-+		if (err) {
-+			mlx5_core_err(dev, "Failed configuring rate: %u (%d)\n",
-+				      rate, err);
-+			goto out;
-+		}
-+		entry->rate = rate;
-+		entry->refcount = 1;
-+	}
-+	*index = entry->index;
-+
-+out:
-+	mutex_unlock(&table->rl_lock);
-+	return err;
-+}
-+EXPORT_SYMBOL(mlx5_rl_add_rate);
-+
-+void mlx5_rl_remove_rate(struct mlx5_core_dev *dev, u32 rate)
-+{
-+	struct mlx5_rl_table *table = &dev->priv.rl_table;
-+	struct mlx5_rl_entry *entry = NULL;
-+
-+	/* 0 is a reserved value for unlimited rate */
-+	if (rate == 0)
-+		return;
-+
-+	mutex_lock(&table->rl_lock);
-+	entry = find_rl_entry(table, rate);
-+	if (!entry || !entry->refcount) {
-+		mlx5_core_warn(dev, "Rate %u is not configured\n", rate);
-+		goto out;
-+	}
-+
-+	entry->refcount--;
-+	if (!entry->refcount) {
-+		/* need to remove rate */
-+		mlx5_set_rate_limit_cmd(dev, 0, entry->index);
-+		entry->rate = 0;
-+	}
-+
-+out:
-+	mutex_unlock(&table->rl_lock);
-+}
-+EXPORT_SYMBOL(mlx5_rl_remove_rate);
-+
-+int mlx5_init_rl_table(struct mlx5_core_dev *dev)
-+{
-+	struct mlx5_rl_table *table = &dev->priv.rl_table;
-+	int i;
-+
-+	mutex_init(&table->rl_lock);
-+	if (!MLX5_CAP_GEN(dev, qos) || !MLX5_CAP_QOS(dev, packet_pacing)) {
-+		table->max_size = 0;
-+		return 0;
-+	}
-+
-+	/* First entry is reserved for unlimited rate */
-+	table->max_size = MLX5_CAP_QOS(dev, packet_pacing_rate_table_size) - 1;
-+	table->max_rate = MLX5_CAP_QOS(dev, packet_pacing_max_rate);
-+	table->min_rate = MLX5_CAP_QOS(dev, packet_pacing_min_rate);
-+
-+	table->rl_entry = kcalloc(table->max_size, sizeof(struct mlx5_rl_entry),
-+				  GFP_KERNEL);
-+	if (!table->rl_entry)
-+		return -ENOMEM;
-+
-+	/* The index represents the index in HW rate limit table
-+	 * Index 0 is reserved for unlimited rate
-+	 */
-+	for (i = 0; i < table->max_size; i++)
-+		table->rl_entry[i].index = i + 1;
-+
-+	/* Index 0 is reserved */
-+	mlx5_core_info(dev, "Rate limit: %u rates are supported, range: %uMbps to %uMbps\n",
-+		       table->max_size,
-+		       table->min_rate >> 10,
-+		       table->max_rate >> 10);
-+
-+	return 0;
-+}
-+
-+void mlx5_cleanup_rl_table(struct mlx5_core_dev *dev)
-+{
-+	struct mlx5_rl_table *table = &dev->priv.rl_table;
-+	int i;
-+
-+	/* Clear all configured rates */
-+	for (i = 0; i < table->max_size; i++)
-+		if (table->rl_entry[i].rate)
-+			mlx5_set_rate_limit_cmd(dev, 0,
-+						table->rl_entry[i].index);
-+
-+	kfree(dev->priv.rl_table.rl_entry);
-+}
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 73a4847..e0a3ed7 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -1330,6 +1330,7 @@ enum mlx5_cap_type {
- 	MLX5_CAP_ESWITCH,
- 	MLX5_CAP_RESERVED,
- 	MLX5_CAP_VECTOR_CALC,
-+	MLX5_CAP_QOS,
- 	/* NUM OF CAP Types */
- 	MLX5_CAP_NUM
- };
-@@ -1414,6 +1415,9 @@ enum mlx5_cap_type {
- 	MLX5_GET(vector_calc_cap, \
- 		 mdev->hca_caps_cur[MLX5_CAP_VECTOR_CALC], cap)
- 
-+#define MLX5_CAP_QOS(mdev, cap)\
-+	MLX5_GET(qos_cap, mdev->hca_caps_cur[MLX5_CAP_QOS], cap)
-+
- enum {
- 	MLX5_CMD_STAT_OK			= 0x0,
- 	MLX5_CMD_STAT_INT_ERR			= 0x1,
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 80776d0..46260fd 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -481,6 +481,21 @@ struct mlx5_fc_stats {
- 
- struct mlx5_eswitch;
- 
-+struct mlx5_rl_entry {
-+	u32                     rate;
-+	u16                     index;
-+	u16                     refcount;
-+};
-+
-+struct mlx5_rl_table {
-+	/* protect rate limit table */
-+	struct mutex            rl_lock;
-+	u16                     max_size;
-+	u32                     max_rate;
-+	u32                     min_rate;
-+	struct mlx5_rl_entry   *rl_entry;
-+};
-+
- struct mlx5_priv {
- 	char			name[MLX5_MAX_NAME_LEN];
- 	struct mlx5_eq_table	eq_table;
-@@ -544,6 +559,7 @@ struct mlx5_priv {
- 	struct mlx5_flow_root_namespace *esw_ingress_root_ns;
- 
- 	struct mlx5_fc_stats		fc_stats;
-+	struct mlx5_rl_table            rl_table;
- };
- 
- enum mlx5_device_state {
-@@ -861,6 +877,12 @@ int mlx5_query_odp_caps(struct mlx5_core_dev *dev,
- int mlx5_core_query_ib_ppcnt(struct mlx5_core_dev *dev,
- 			     u8 port_num, void *out, size_t sz);
- 
-+int mlx5_init_rl_table(struct mlx5_core_dev *dev);
-+void mlx5_cleanup_rl_table(struct mlx5_core_dev *dev);
-+int mlx5_rl_add_rate(struct mlx5_core_dev *dev, u32 rate, u16 *index);
-+void mlx5_rl_remove_rate(struct mlx5_core_dev *dev, u32 rate);
-+bool mlx5_rl_is_in_range(struct mlx5_core_dev *dev, u32 rate);
-+
- static inline int fw_initializing(struct mlx5_core_dev *dev)
+ 	if (!inet_csk(sk)->icsk_bind_hash)
+ 		inet_bind_hash(sk, tb, port);
+ 	WARN_ON(inet_csk(sk)->icsk_bind_hash != tb);
+Index: linux-build.git/net/ipv4/inet_hashtables.c
+===================================================================
+--- linux-build.git.orig/net/ipv4/inet_hashtables.c	2016-06-22 11:55:05.952267493 -0400
++++ linux-build.git/net/ipv4/inet_hashtables.c	2016-06-22 11:55:05.948267360 -0400
+@@ -93,6 +93,11 @@ void inet_bind_bucket_destroy(struct kme
+ void inet_bind_hash(struct sock *sk, struct inet_bind_bucket *tb,
+ 		    const unsigned short snum)
  {
- 	return ioread32be(&dev->iseg->initializing) >> 31;
-@@ -938,6 +960,11 @@ static inline int mlx5_get_gid_table_len(u16 param)
- 	return 8 * (1 << param);
- }
- 
-+static inline bool mlx5_rl_is_supported(struct mlx5_core_dev *dev)
-+{
-+	return !!(dev->priv.rl_table.max_size);
-+}
++	if (!current->mm) {
++		trace_printk("add %d\n", snum);
++		trace_dump_stack(1);
++	}
 +
- enum {
- 	MLX5_TRIGGERED_CMD_COMP = (u64)1 << 32,
- };
--- 
-2.8.0
+ 	inet_sk(sk)->inet_num = snum;
+ 	sk_add_bind_node(sk, &tb->owners);
+ 	tb->num_owners++;
+Index: linux-build.git/net/sunrpc/xprt.c
+===================================================================
+--- linux-build.git.orig/net/sunrpc/xprt.c	2016-06-22 11:55:05.952267493 -0400
++++ linux-build.git/net/sunrpc/xprt.c	2016-06-22 11:55:05.948267360 -0400
+@@ -54,6 +54,11 @@
+ 
+ #include "sunrpc.h"
+ 
++#undef dprintk
++#undef dprintk_rcu
++#define dprintk(args...)	trace_printk(args)
++#define dprintk_rcu(args...)	trace_printk(args)
++
+ /*
+  * Local variables
+  */
+Index: linux-build.git/net/sunrpc/xprtsock.c
+===================================================================
+--- linux-build.git.orig/net/sunrpc/xprtsock.c	2016-06-22 11:55:05.952267493 -0400
++++ linux-build.git/net/sunrpc/xprtsock.c	2016-06-22 11:55:05.948267360 -0400
+@@ -51,6 +51,11 @@
+ 
+ #include "sunrpc.h"
+ 
++#undef dprintk
++#undef dprintk_rcu
++#define dprintk(args...)	trace_printk(args)
++#define dprintk_rcu(args...)	trace_printk(args)
++
+ static void xs_close(struct rpc_xprt *xprt);
+ 
+ /*
+
+--MP_/mrjkPp/yhul_Dj_5_1sjGk7--
