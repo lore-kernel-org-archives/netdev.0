@@ -1,65 +1,105 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH iproute2 net-next v4 0/5] bridge: json support for fdb
- and vlan show
-Date: Wed, 22 Jun 2016 16:53:44 +0200
-Message-ID: <20160622145344.GE2068@nanopsycho.orion>
-References: <1466603155-53768-1-git-send-email-roopa@cumulusnetworks.com>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next 1/4] net_sched: drop packets after root qdisc
+ lock is released
+Date: Wed, 22 Jun 2016 17:14:37 +0200
+Message-ID: <20160622171437.3f52d3a4@redhat.com>
+References: <1466576212-15012-1-git-send-email-edumazet@google.com>
+	<1466576212-15012-2-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
-	anuradhak@cumulusnetworks.com, nikolay@cumulusnetworks.com,
-	julien@cumulusnetworks.com
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>, brouer@redhat.com
+To: Eric Dumazet <edumazet@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35862 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750910AbcFVPHo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 11:07:44 -0400
-Received: by mail-wm0-f66.google.com with SMTP id c82so2087448wme.3
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 08:07:43 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1466603155-53768-1-git-send-email-roopa@cumulusnetworks.com>
+Received: from mx1.redhat.com ([209.132.183.28]:56100 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750957AbcFVPOm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2016 11:14:42 -0400
+In-Reply-To: <1466576212-15012-2-git-send-email-edumazet@google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Jun 22, 2016 at 03:45:50PM CEST, roopa@cumulusnetworks.com wrote:
->From: Roopa Prabhu <roopa@cumulusnetworks.com>
->
->This patch series adds json support for a few bridge show commands.
->We plan to follow up with json support for additional commands soon.
+On Tue, 21 Jun 2016 23:16:49 -0700
+Eric Dumazet <edumazet@google.com> wrote:
 
-I'm just curious, what is you use case for this? Apps can use rtnetlink
-socket directly.
+> Qdisc performance suffers when packets are dropped at enqueue()
+> time because drops (kfree_skb()) are done while qdisc lock is held,
+> delaying a dequeue() draining the queue.
+> 
+> Nominal throughput can be reduced by 50 % when this happens,
+> at a time we would like the dequeue() to proceed as fast as possible.
+> 
+> Even FQ is vulnerable to this problem, while one of FQ goals was
+> to provide some flow isolation.
+> 
+> This patch adds a 'struct sk_buff **to_free' parameter to all
+> qdisc->enqueue(), and in qdisc_drop() helper.
+> 
+> I measured a performance increase of up to 12 %, but this patch
+> is a prereq so that future batches in enqueue() can fly.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> ---
+[...]
+> +/* Instead of calling kfree_skb() while root qdisc lock is held,
+> + * queue the skb for future freeing at end of __dev_xmit_skb()
+> + */
+> +static inline void __qdisc_drop(struct sk_buff *skb, struct sk_buff **to_free)
+> +{
+> +	skb->next = *to_free;
+> +	*to_free = skb;
+> +}
+> +
+[...]
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index d40593b3b9fb..aba10d2a8bc3 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -3070,6 +3070,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+>  				 struct netdev_queue *txq)
+>  {
+>  	spinlock_t *root_lock = qdisc_lock(q);
+> +	struct sk_buff *to_free = NULL;
+>  	bool contended;
+>  	int rc;
+>  
+> @@ -3086,7 +3087,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+>  
+>  	spin_lock(root_lock);
+>  	if (unlikely(test_bit(__QDISC_STATE_DEACTIVATED, &q->state))) {
+> -		kfree_skb(skb);
+> +		__qdisc_drop(skb, &to_free);
+>  		rc = NET_XMIT_DROP;
+>  	} else if ((q->flags & TCQ_F_CAN_BYPASS) && !qdisc_qlen(q) &&
+>  		   qdisc_run_begin(q)) {
+> @@ -3109,7 +3110,7 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+>  
+>  		rc = NET_XMIT_SUCCESS;
+>  	} else {
+> -		rc = q->enqueue(skb, q) & NET_XMIT_MASK;
+> +		rc = q->enqueue(skb, q, &to_free) & NET_XMIT_MASK;
+>  		if (qdisc_run_begin(q)) {
+>  			if (unlikely(contended)) {
+>  				spin_unlock(&q->busylock);
+> @@ -3119,6 +3120,8 @@ static inline int __dev_xmit_skb(struct sk_buff *skb, struct Qdisc *q,
+>  		}
+>  	}
+>  	spin_unlock(root_lock);
+> +	if (unlikely(to_free))
+> +		kfree_skb_list(to_free);
 
+Great, now there is a good argument for implementing kmem_cache bulk
+freeing inside kfree_skb_list().  I did a ugly PoC implementation
+once, but there was no use-case that really needed the performance
+boost.
 
->
->Anuradha Karuppiah (3):
->  json_writer: Removed automatic json-object type from the constructor
->  bridge: add json support for bridge fdb show
->  bridge: add json schema for bridge fdb show
->
->Roopa Prabhu (2):
->  bridge: add json support for bridge vlan show
->  bridge: update man page
->
->v2 - change vlan flags to an array as suggested by toshiaki
->
->v3 - no change. resubmitting as requested by stephen
->
->v4 - removed json type from constructor as recommended by stephen
->
-> bridge/br_common.h            |   1 +
-> bridge/bridge.c               |   5 +-
-> bridge/fdb.c                  | 210 +++++++++++++++++++++++++++++++++---------
-> bridge/vlan.c                 | 109 +++++++++++++++++++---
-> lib/json_writer.c             |   6 +-
-> man/man8/bridge.8             |   9 +-
-> misc/ifstat.c                 |   7 ++
-> misc/nstat.c                  |   6 ++
-> schema/bridge_fdb_schema.json |  62 +++++++++++++
-> 9 files changed, 352 insertions(+), 63 deletions(-)
-> create mode 100644 schema/bridge_fdb_schema.json
->
->-- 
->1.9.1
->
+Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
