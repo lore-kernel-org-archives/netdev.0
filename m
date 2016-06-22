@@ -1,126 +1,70 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 0/4] net_sched: bulk dequeue and deferred drops
-Date: Wed, 22 Jun 2016 09:49:48 -0700
-Message-ID: <1466614188.6850.57.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1466576212-15012-1-git-send-email-edumazet@google.com>
-	 <20160622164736.0ab98e6b@redhat.com>
-	 <1466607343.6850.37.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160622174441.559023b9@redhat.com>
+From: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Subject: Re: [PATCHv2 1/7] ppc bpf/jit: Disable classic BPF JIT on ppc64le
+Date: Wed, 22 Jun 2016 13:50:48 -0300
+Message-ID: <20160622165048.GB8660@indiana.gru.redhat.com>
+References: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
+ <24a2db8c1ed97008426e8093bc83165a6a237d1c.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Luigi Rizzo <rizzo@iet.unipi.it>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>,
+	stable@vger.kernel.org, Matt Evans <matt@ozlabs.org>,
+	Denis Kirjanov <kda@linux-powerpc.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Alexei Starovoitov <ast@fb.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+To: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:36531 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751768AbcFVQtv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 12:49:51 -0400
-Received: by mail-pf0-f180.google.com with SMTP id t190so19317485pfb.3
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 09:49:50 -0700 (PDT)
-In-Reply-To: <20160622174441.559023b9@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:59431 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751524AbcFVQu4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2016 12:50:56 -0400
+Content-Disposition: inline
+In-Reply-To: <24a2db8c1ed97008426e8093bc83165a6a237d1c.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-06-22 at 17:44 +0200, Jesper Dangaard Brouer wrote:
-> On Wed, 22 Jun 2016 07:55:43 -0700
-> Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> 
-> > On Wed, 2016-06-22 at 16:47 +0200, Jesper Dangaard Brouer wrote:
-> > > On Tue, 21 Jun 2016 23:16:48 -0700
-> > > Eric Dumazet <edumazet@google.com> wrote:
-> > >   
-> > > > First patch adds an additional parameter to ->enqueue() qdisc method
-> > > > so that drops can be done outside of critical section
-> > > > (after locks are released).
-> > > > 
-> > > > Then fq_codel can have a small optimization to reduce number of cache
-> > > > lines misses during a drop event
-> > > > (possibly accumulating hundreds of packets to be freed).
-> > > > 
-> > > > A small htb change exports the backlog in class dumps.
-> > > > 
-> > > > Final patch adds bulk dequeue to qdiscs that were lacking this feature.
-> > > > 
-> > > > This series brings a nice qdisc performance increase (more than 80 %
-> > > > in some cases).  
-> > > 
-> > > Thanks for working on this Eric! this is great work! :-)  
-> > 
-> > Thanks Jesper
-> > 
-> > I worked yesterday on bulk enqueues, but initial results are not that
-> > great.
-> 
-> Hi Eric,
-> 
-> This is interesting work! But I think you should read Luigi Rizzo's
-> (Cc'ed) paper on title "A Fast and Practical Software Packet Scheduling
-> Architecture"[1]
-> 
-> [1] http://info.iet.unipi.it/~luigi/papers/20160511-mysched-preprint.pdf
-> 
-> Luigi will be at Netfilter Workshop next week, and will actually
-> present on topic/paper.... you two should talk ;-)
-> 
-> The article is not a 100% match for what we need, but there is some
-> good ideas.  The article also have a sort of "prequeue" that
-> enqueue'ing CPUs will place packets into.
-> 
-> My understanding of the article:
-> 
-> 1. transmitters submit packets to an intermediate queue
->    (replace q->enqueue call) lockless submit as queue per CPU
->    (runs in parallel)
-> 
-> 2. like we only have _one_ qdisc dequeue process, this process (called
->    arbiter) empty the intermediate queues, and then invoke q->enqueue()
->    and q->dequeue(). (in a locked session/region)
-> 
-> 3. Packets returned from q->dequeue() is placed on an outgoing
->    intermediate queue.
-> 
-> 4. the transmitter then looks to see there are any packets to drain()
->    from the outgoing queue.  This can run in parallel.
-> 
-> If the transmitter submitting a packet, detect no arbiter is running,
-> it can become the arbiter itself.  Like we do with qdisc_run_begin()
-> setting state __QDISC___STATE_RUNNING.
-> 
-> The problem with this scheme is push-back from qdisc->enqueue
-> (NET_XMIT_CN) does not "reach" us.  And push-back in-form of processes
-> blocking on qdisc root lock, but that could be handled by either
-> blocking in article's submit() or returning some congestion return code
-> from submit(). 
+On Wed, Jun 22, 2016 at 09:55:01PM +0530, Naveen N. Rao wrote:
+> Classic BPF JIT was never ported completely to work on little endian
+> powerpc. However, it can be enabled and will crash the system when used.
+> As such, disable use of BPF JIT on ppc64le.
 
-Okay, I see that you prepare upcoming conference in Amsterdam,
-but please keep this thread about existing kernel code, not the one that
-eventually reach a new operating system in 5 years ;)
+Thanks, Naveen.
 
-1) We _want_ the result of the sends, obviously.
+Acked-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
 
-2) We also want back pressure, without adding complex callbacks and
-ref-counting.
-
-3) We do not want to burn a cpu per TX queue (at least one per NUMA
-node ???) only to send few packets per second,
-Our model is still interrupt based, plus NAPI for interrupt mitigation.
-
-4) I do not want to lock an innocent cpu to send packets from other
-threads/cpu without a tight control.
-
-In the patch I sent, I basically replaced a locked operation
-(spin_lock(&q->busylock)) with another one (xchg()) , but I did not add
-yet another queue before the qdisc ones, bufferbloat forbids.
-
-The virtual queue here is one packet per cpu, which basically is the
-same than before this patch, since each cpu spinning on busylock has one
-skb to send anyway.
-
-This is basically a simple extension of MCS locks, where the cpu at the
-head of the queue can queue up to 16 packets, instead of queueing its
-own packet only and give queue owner ship to the following cpu.
+> 
+> Cc: stable@vger.kernel.org
+> Cc: Matt Evans <matt@ozlabs.org>
+> Cc: Denis Kirjanov <kda@linux-powerpc.org>
+> Cc: Michael Ellerman <mpe@ellerman.id.au>
+> Cc: Paul Mackerras <paulus@samba.org>
+> Cc: Alexei Starovoitov <ast@fb.com>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+> Cc: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+> Reported-by: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+> Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
+> ---
+>  arch/powerpc/Kconfig | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+> 
+> diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+> index 01f7464..0a9d439 100644
+> --- a/arch/powerpc/Kconfig
+> +++ b/arch/powerpc/Kconfig
+> @@ -128,7 +128,7 @@ config PPC
+>  	select IRQ_FORCED_THREADING
+>  	select HAVE_RCU_TABLE_FREE if SMP
+>  	select HAVE_SYSCALL_TRACEPOINTS
+> -	select HAVE_CBPF_JIT
+> +	select HAVE_CBPF_JIT if CPU_BIG_ENDIAN
+>  	select HAVE_ARCH_JUMP_LABEL
+>  	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+>  	select ARCH_HAS_GCOV_PROFILE_ALL
+> -- 
+> 2.8.2
+> 
