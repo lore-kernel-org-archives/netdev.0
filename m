@@ -1,65 +1,77 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net] net: avoid vlan ptype specific match to be leaked on real device
-Date: Wed, 22 Jun 2016 12:25:15 +0200
-Message-ID: <3d191a3c51bd564da8b0c3ffe1e9c90fa7bd4d7b.1466590952.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42149 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751721AbcFVKd1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 06:33:27 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Subject: Re: [PATCH 12/15] net: davinci_mdio: document missed "ti,am4372-mdio"
+ compat string
+Date: Wed, 22 Jun 2016 13:26:45 +0300
+Message-ID: <576A67E5.5050106@ti.com>
+References: <20160615115603.4897-1-grygorii.strashko@ti.com>
+ <20160615115603.4897-13-grygorii.strashko@ti.com>
+ <20160619143543.GA14844@rob-hp-laptop>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>,
+	Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Ivan Khoronzhuk <ivan.khoronzhuk-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160619143543.GA14844@rob-hp-laptop>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Before the commit 0dfe17823945 ("net: vlan: goto another_round
-instead of calling __netif_receive_skb"), on tagged skb ingress,
-ptype specific protocol matches were delivered only to the
-related vlan device, if any.
-After said commit, jumping back to the 'another_round' label, allows
-the later ptype specific check to match both orig_dev and skb->dev,
-delivering the skb to both the vlan device and the underlying
-device.
-This cause i.e. packet sockets bound to a specific protocol type on
-one of said devices to receive also frames really targeting the
-other device.
-This commit resets orig_dev before performing another round due to
-vlan processing, allowing the skb to be delivered once again only
-to the vlan specific ptypes.
+On 06/19/2016 05:35 PM, Rob Herring wrote:
+> On Wed, Jun 15, 2016 at 02:56:00PM +0300, Grygorii Strashko wrote:
+>> Document missed "ti,am4372-mdio" compat string used for TI am437x SoC
+>> (am4372.dtsi).
+>>
+>> Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+>> ---
+>>   Documentation/devicetree/bindings/net/davinci-mdio.txt | 3 ++-
+>>   1 file changed, 2 insertions(+), 1 deletion(-)
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/davinci-mdio.txt b/Documentation/devicetree/bindings/net/davinci-mdio.txt
+>> index 0369e25..f2bba50 100644
+>> --- a/Documentation/devicetree/bindings/net/davinci-mdio.txt
+>> +++ b/Documentation/devicetree/bindings/net/davinci-mdio.txt
+>> @@ -2,7 +2,8 @@ TI SoC Davinci/Keystone2 MDIO Controller Device Tree Bindings
+>>   ---------------------------------------------------
+>>   
+>>   Required properties:
+>> -- compatible		: Should be "ti,davinci_mdio" or "ti,keystone_mdio"
+>> +- compatible		: Should be "ti,davinci_mdio", "ti,keystone_mdio",
+>> +			  "ti,am4372-mdio"
+> 
+> This is still an OR relationship?
 
-Fixes: 0dfe17823945 ("net: vlan: goto another_round instead of calling __netif_receive_skb")
-Reported-by: Ryan Liu <Ryan.Liu@alcatel-lucent.com>
-Reported-by: Cliff Chen <Cliff.Chen@alcatel-lucent.com>
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
----
- net/core/dev.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+I think it's AND relation. It should be smth. like this:
+ [SoC,][IP family,] "ti,davinci_mdio"
+where "ti,davinci_mdio" is mandatory always
+ [IP family] - mandatory for IP/SOC family and can be "ti,keystone_mdio" or "ti,cpsw-mdio" (last one is added by subsequent patch)
+ [SoC] - mandatory for SoC. now can be "ti,am4372-mdio"
 
-diff --git a/net/core/dev.c b/net/core/dev.c
-index 904ff43..9d08dd6 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4144,10 +4144,15 @@ ncls:
- 			ret = deliver_skb(skb, pt_prev, orig_dev);
- 			pt_prev = NULL;
- 		}
--		if (vlan_do_receive(&skb))
-+		if (vlan_do_receive(&skb)) {
-+			/* avoid delivering to ptype registered on
-+			 * vlan's underlying device only
-+			 */
-+			orig_dev = skb->dev;
- 			goto another_round;
--		else if (unlikely(!skb))
-+		} else if (unlikely(!skb)) {
- 			goto out;
-+		}
- 	}
- 
- 	rx_handler = rcu_dereference(skb->dev->rx_handler);
+I can update it as below:
+- compatible		: Should be "ti,davinci_mdio"  
+			  and "ti,keystone_mdio" for Keystone 2 SoCs
+ 			  and "ti,am4372-mdio" for am472x SoC
+and in subsequent patch
+			 and "ti,cpsw-mdio" for am335x, am472x, am57xx/dra7, dm814x SoCs
+			 and "ti,am4372-mdio" for am472x SoC
+
+
+
+> 
+> It's preferred to list one per line.
+
+ok
+
+
+
 -- 
-1.8.3.1
+regards,
+-grygorii
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
