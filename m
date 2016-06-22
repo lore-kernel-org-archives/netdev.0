@@ -1,7 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 12/14] rxrpc: Provide more refcount helper functions
-Date: Wed, 22 Jun 2016 10:51:08 +0100
-Message-ID: <146658906822.4550.357909325292999521.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 11/14] rxrpc: Make rxrpc_send_packet() take a
+ connection not a transport
+Date: Wed, 22 Jun 2016 10:51:01 +0100
+Message-ID: <146658906115.4550.5817699692913997220.stgit@warthog.procyon.org.uk>
 References: <146658898230.4550.7226255613607733759.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,203 +15,145 @@ In-Reply-To: <146658898230.4550.7226255613607733759.stgit@warthog.procyon.org.uk
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Provide refcount helper functions for connections so that the code doesn't
-touch local or connection usage counts directly.
+Make rxrpc_send_packet() take a connection not a transport as part of the
+phasing out of the rxrpc_transport struct.
 
-Also make it such that local and peer put functions can take a NULL
-pointer.
+Whilst we're at it, rename the function to rxrpc_send_data_packet() to
+differentiate it from the other packet sending functions.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/af_rxrpc.c     |    7 ++-----
- net/rxrpc/ar-internal.h  |   15 +++++++++++++--
- net/rxrpc/call_accept.c  |    2 +-
- net/rxrpc/call_object.c  |    2 +-
- net/rxrpc/conn_event.c   |    2 +-
- net/rxrpc/conn_object.c  |   12 ++++++------
- net/rxrpc/input.c        |    2 +-
- net/rxrpc/local_object.c |    2 +-
- 8 files changed, 26 insertions(+), 18 deletions(-)
+ net/rxrpc/ar-internal.h |    2 +-
+ net/rxrpc/call_event.c  |    2 +-
+ net/rxrpc/output.c      |   51 +++++++++++++++++++++++++++--------------------
+ 3 files changed, 31 insertions(+), 24 deletions(-)
 
-diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
-index b29bb50af5de..57dcbfc061e4 100644
---- a/net/rxrpc/af_rxrpc.c
-+++ b/net/rxrpc/af_rxrpc.c
-@@ -674,11 +674,8 @@ static int rxrpc_release_sock(struct sock *sk)
- 	flush_workqueue(rxrpc_workqueue);
- 	rxrpc_purge_queue(&sk->sk_receive_queue);
- 
--	if (rx->local) {
--		rxrpc_put_local(rx->local);
--		rx->local = NULL;
--	}
--
-+	rxrpc_put_local(rx->local);
-+	rx->local = NULL;
- 	key_put(rx->key);
- 	rx->key = NULL;
- 	key_put(rx->securities);
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index cfbd028aa551..c0ed5e7f22ef 100644
+index 89966508b26c..cfbd028aa551 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -597,6 +597,17 @@ static inline bool rxrpc_conn_is_service(const struct rxrpc_connection *conn)
- 	return conn->proto.in_clientflag;
- }
- 
-+static inline void rxrpc_get_connection(struct rxrpc_connection *conn)
-+{
-+	atomic_inc(&conn->usage);
-+}
-+
-+static inline
-+struct rxrpc_connection *rxrpc_get_connection_maybe(struct rxrpc_connection *conn)
-+{
-+	return atomic_inc_not_zero(&conn->usage) ? conn : NULL;
-+}
-+
- /*
-  * input.c
+@@ -670,7 +670,7 @@ extern const char *rxrpc_acks(u8 reason);
   */
-@@ -645,7 +656,7 @@ struct rxrpc_local *rxrpc_get_local_maybe(struct rxrpc_local *local)
+ extern unsigned int rxrpc_resend_timeout;
  
- static inline void rxrpc_put_local(struct rxrpc_local *local)
+-int rxrpc_send_packet(struct rxrpc_transport *, struct sk_buff *);
++int rxrpc_send_data_packet(struct rxrpc_connection *, struct sk_buff *);
+ int rxrpc_do_sendmsg(struct rxrpc_sock *, struct msghdr *, size_t);
+ 
+ /*
+diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
+index b43faf573ed3..0ba84295f913 100644
+--- a/net/rxrpc/call_event.c
++++ b/net/rxrpc/call_event.c
+@@ -187,7 +187,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
+ 
+ 			_proto("Tx DATA %%%u { #%d }",
+ 			       sp->hdr.serial, sp->hdr.seq);
+-			if (rxrpc_send_packet(call->conn->trans, txb) < 0) {
++			if (rxrpc_send_data_packet(call->conn, txb) < 0) {
+ 				stop = true;
+ 				sp->resend_at = jiffies + 3;
+ 			} else {
+diff --git a/net/rxrpc/output.c b/net/rxrpc/output.c
+index 6f8ab0ef839f..db3933cf6b97 100644
+--- a/net/rxrpc/output.c
++++ b/net/rxrpc/output.c
+@@ -338,7 +338,7 @@ EXPORT_SYMBOL(rxrpc_kernel_abort_call);
+ /*
+  * send a packet through the transport endpoint
+  */
+-int rxrpc_send_packet(struct rxrpc_transport *trans, struct sk_buff *skb)
++int rxrpc_send_data_packet(struct rxrpc_connection *conn, struct sk_buff *skb)
  {
--	if (atomic_dec_and_test(&local->usage))
-+	if (local && atomic_dec_and_test(&local->usage))
- 		__rxrpc_put_local(local);
- }
+ 	struct kvec iov[1];
+ 	struct msghdr msg;
+@@ -349,30 +349,30 @@ int rxrpc_send_packet(struct rxrpc_transport *trans, struct sk_buff *skb)
+ 	iov[0].iov_base = skb->head;
+ 	iov[0].iov_len = skb->len;
  
-@@ -702,7 +713,7 @@ struct rxrpc_peer *rxrpc_get_peer_maybe(struct rxrpc_peer *peer)
- extern void __rxrpc_put_peer(struct rxrpc_peer *peer);
- static inline void rxrpc_put_peer(struct rxrpc_peer *peer)
- {
--	if (atomic_dec_and_test(&peer->usage))
-+	if (peer && atomic_dec_and_test(&peer->usage))
- 		__rxrpc_put_peer(peer);
- }
+-	msg.msg_name = &trans->peer->srx.transport.sin;
+-	msg.msg_namelen = sizeof(trans->peer->srx.transport.sin);
++	msg.msg_name = &conn->params.peer->srx.transport;
++	msg.msg_namelen = conn->params.peer->srx.transport_len;
+ 	msg.msg_control = NULL;
+ 	msg.msg_controllen = 0;
+ 	msg.msg_flags = 0;
  
-diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
-index 5a70dc4e28c6..833ad0622b61 100644
---- a/net/rxrpc/call_accept.c
-+++ b/net/rxrpc/call_accept.c
-@@ -141,7 +141,7 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
- 			_debug("await conn sec");
- 			list_add_tail(&call->accept_link, &rx->secureq);
- 			call->conn->state = RXRPC_CONN_SERVER_CHALLENGING;
--			atomic_inc(&call->conn->usage);
-+			rxrpc_get_connection(call->conn);
- 			set_bit(RXRPC_CONN_CHALLENGE, &call->conn->events);
- 			rxrpc_queue_conn(call->conn);
- 		} else {
-diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
-index d83f2cbb80a9..45849a66bc56 100644
---- a/net/rxrpc/call_object.c
-+++ b/net/rxrpc/call_object.c
-@@ -515,7 +515,7 @@ struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *rx,
- 	rb_insert_color(&call->conn_node, &conn->calls);
- 	conn->channels[call->channel] = call;
- 	sock_hold(&rx->sk);
--	atomic_inc(&conn->usage);
-+	rxrpc_get_connection(conn);
- 	write_unlock_bh(&conn->lock);
- 
- 	spin_lock(&conn->params.peer->lock);
-diff --git a/net/rxrpc/conn_event.c b/net/rxrpc/conn_event.c
-index a022439f6f5a..bf6971555eac 100644
---- a/net/rxrpc/conn_event.c
-+++ b/net/rxrpc/conn_event.c
-@@ -263,7 +263,7 @@ void rxrpc_process_connection(struct work_struct *work)
- 
- 	_enter("{%d}", conn->debug_id);
- 
--	atomic_inc(&conn->usage);
-+	rxrpc_get_connection(conn);
- 
- 	if (test_and_clear_bit(RXRPC_CONN_CHALLENGE, &conn->events)) {
- 		rxrpc_secure_connection(conn);
-diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
-index 312b75091d29..1754f2e2e16b 100644
---- a/net/rxrpc/conn_object.c
-+++ b/net/rxrpc/conn_object.c
-@@ -333,7 +333,7 @@ static int rxrpc_connect_exclusive(struct rxrpc_sock *rx,
- 	 * channel.
- 	 */
- 	chan = 0;
--	atomic_inc(&conn->usage);
-+	rxrpc_get_connection(conn);
- 	conn->avail_calls = RXRPC_MAXCALLS - 1;
- 	conn->channels[chan] = call;
- 	conn->call_counter = 1;
-@@ -392,7 +392,7 @@ int rxrpc_connect_call(struct rxrpc_sock *rx,
- 			       conn->channels[1] == NULL ||
- 			       conn->channels[2] == NULL ||
- 			       conn->channels[3] == NULL);
--			atomic_inc(&conn->usage);
-+			rxrpc_get_connection(conn);
- 			break;
- 		}
- 
-@@ -412,7 +412,7 @@ int rxrpc_connect_call(struct rxrpc_sock *rx,
- 			       conn->channels[1] == NULL &&
- 			       conn->channels[2] == NULL &&
- 			       conn->channels[3] == NULL);
--			atomic_inc(&conn->usage);
-+			rxrpc_get_connection(conn);
- 			list_move(&conn->bundle_link, &bundle->avail_conns);
- 			break;
- 		}
-@@ -629,7 +629,7 @@ found_extant_connection:
- 		read_unlock_bh(&trans->conn_lock);
- 		goto security_mismatch;
- 	}
--	atomic_inc(&conn->usage);
-+	rxrpc_get_connection(conn);
- 	read_unlock_bh(&trans->conn_lock);
- 	goto success;
- 
-@@ -639,7 +639,7 @@ found_extant_second:
- 		write_unlock_bh(&trans->conn_lock);
- 		goto security_mismatch;
- 	}
--	atomic_inc(&conn->usage);
-+	rxrpc_get_connection(conn);
- 	write_unlock_bh(&trans->conn_lock);
- 	kfree(candidate);
- 	goto success;
-@@ -698,7 +698,7 @@ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *trans,
- 	return NULL;
- 
- found:
--	atomic_inc(&conn->usage);
-+	rxrpc_get_connection(conn);
- 	read_unlock_bh(&trans->conn_lock);
- 	_leave(" = %p", conn);
- 	return conn;
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index cf540efa9c17..799aec18aa7b 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -580,7 +580,7 @@ static void rxrpc_post_packet_to_conn(struct rxrpc_connection *conn,
- {
- 	_enter("%p,%p", conn, skb);
- 
--	atomic_inc(&conn->usage);
-+	rxrpc_get_connection(conn);
- 	skb_queue_tail(&conn->rx_queue, skb);
- 	rxrpc_queue_conn(conn);
- }
-diff --git a/net/rxrpc/local_object.c b/net/rxrpc/local_object.c
-index 009b321712bc..5703b0d18ed4 100644
---- a/net/rxrpc/local_object.c
-+++ b/net/rxrpc/local_object.c
-@@ -209,7 +209,7 @@ struct rxrpc_local *rxrpc_lookup_local(const struct sockaddr_rxrpc *srx)
- 		 * bind the transport socket may still fail if we're attempting
- 		 * to use a local address that the dying object is still using.
+ 	/* send the packet with the don't fragment bit set if we currently
+ 	 * think it's small enough */
+-	if (skb->len - sizeof(struct rxrpc_wire_header) < trans->peer->maxdata) {
+-		down_read(&trans->local->defrag_sem);
++	if (skb->len - sizeof(struct rxrpc_wire_header) < conn->params.peer->maxdata) {
++		down_read(&conn->params.local->defrag_sem);
+ 		/* send the packet by UDP
+ 		 * - returns -EMSGSIZE if UDP would have to fragment the packet
+ 		 *   to go out of the interface
+ 		 *   - in which case, we'll have processed the ICMP error
+ 		 *     message and update the peer record
  		 */
--		if (!atomic_inc_not_zero(&local->usage)) {
-+		if (!rxrpc_get_local_maybe(local)) {
- 			cursor = cursor->next;
- 			list_del_init(&local->link);
- 			break;
+-		ret = kernel_sendmsg(trans->local->socket, &msg, iov, 1,
++		ret = kernel_sendmsg(conn->params.local->socket, &msg, iov, 1,
+ 				     iov[0].iov_len);
+ 
+-		up_read(&trans->local->defrag_sem);
++		up_read(&conn->params.local->defrag_sem);
+ 		if (ret == -EMSGSIZE)
+ 			goto send_fragmentable;
+ 
+-		_leave(" = %d [%u]", ret, trans->peer->maxdata);
++		_leave(" = %d [%u]", ret, conn->params.peer->maxdata);
+ 		return ret;
+ 	}
+ 
+@@ -380,21 +380,28 @@ send_fragmentable:
+ 	/* attempt to send this message with fragmentation enabled */
+ 	_debug("send fragment");
+ 
+-	down_write(&trans->local->defrag_sem);
+-	opt = IP_PMTUDISC_DONT;
+-	ret = kernel_setsockopt(trans->local->socket, SOL_IP, IP_MTU_DISCOVER,
+-				(char *) &opt, sizeof(opt));
+-	if (ret == 0) {
+-		ret = kernel_sendmsg(trans->local->socket, &msg, iov, 1,
+-				     iov[0].iov_len);
+-
+-		opt = IP_PMTUDISC_DO;
+-		kernel_setsockopt(trans->local->socket, SOL_IP,
+-				  IP_MTU_DISCOVER, (char *) &opt, sizeof(opt));
++	down_write(&conn->params.local->defrag_sem);
++
++	switch (conn->params.local->srx.transport.family) {
++	case AF_INET:
++		opt = IP_PMTUDISC_DONT;
++		ret = kernel_setsockopt(conn->params.local->socket,
++					SOL_IP, IP_MTU_DISCOVER,
++					(char *)&opt, sizeof(opt));
++		if (ret == 0) {
++			ret = kernel_sendmsg(conn->params.local->socket, &msg, iov, 1,
++					     iov[0].iov_len);
++
++			opt = IP_PMTUDISC_DO;
++			kernel_setsockopt(conn->params.local->socket, SOL_IP,
++					  IP_MTU_DISCOVER,
++					  (char *)&opt, sizeof(opt));
++		}
++		break;
+ 	}
+ 
+-	up_write(&trans->local->defrag_sem);
+-	_leave(" = %d [frag %u]", ret, trans->peer->maxdata);
++	up_write(&conn->params.local->defrag_sem);
++	_leave(" = %d [frag %u]", ret, conn->params.peer->maxdata);
+ 	return ret;
+ }
+ 
+@@ -506,7 +513,7 @@ static void rxrpc_queue_packet(struct rxrpc_call *call, struct sk_buff *skb,
+ 	if (try_to_del_timer_sync(&call->ack_timer) >= 0) {
+ 		/* the packet may be freed by rxrpc_process_call() before this
+ 		 * returns */
+-		ret = rxrpc_send_packet(call->conn->trans, skb);
++		ret = rxrpc_send_data_packet(call->conn, skb);
+ 		_net("sent skb %p", skb);
+ 	} else {
+ 		_debug("failed to delete ACK timer");
