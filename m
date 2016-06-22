@@ -1,123 +1,132 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH -next 2/4] cgroup: bpf: Add BPF_MAP_TYPE_CGROUP_ARRAY
-Date: Tue, 21 Jun 2016 17:23:20 -0700
-Message-ID: <1466555002-1316296-3-git-send-email-kafai@fb.com>
+From: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
+Subject: [PATCH -next 3/4] cgroup: bpf: Add bpf_skb_in_cgroup_proto
+Date: Tue, 21 Jun 2016 17:23:21 -0700
+Message-ID: <1466555002-1316296-4-git-send-email-kafai@fb.com>
 References: <1466555002-1316296-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Alexei Starovoitov <ast@fb.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tejun Heo <tj@kernel.org>, <kernel-team@fb.com>
-To: <cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-00082601.pphosted.com ([67.231.153.30]:58315 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751880AbcFVAXf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 20:23:35 -0400
-Received: from pps.filterd (m0001255.ppops.net [127.0.0.1])
-	by mx0b-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u5M0IobI011316
-	for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 17:23:34 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0b-00082601.pphosted.com with ESMTP id 23qb3ja3f6-2
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 17:23:34 -0700
-Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
- mx-out.facebook.com (10.212.232.59) with ESMTP	id
- 8d125676380f11e6b75d0002c991e86a-a64f3af0 for <netdev@vger.kernel.org>;	Tue,
- 21 Jun 2016 17:23:32 -0700
-In-Reply-To: <1466555002-1316296-1-git-send-email-kafai@fb.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <kernel-team-b10kYP2dOMg@public.gmane.org>
+To: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1466555002-1316296-1-git-send-email-kafai-b10kYP2dOMg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Add a BPF_MAP_TYPE_CGROUP_ARRAY and its bpf_map_ops's implementations.
-To update an element, the caller is expected to obtain a cgroup2 backed
-fd by open(cgroup2_dir) and then update the array with that fd.
+Adds a bpf helper, bpf_skb_in_cgroup, to decide if a skb->sk
+belongs to a descendant of a cgroup2.  It is similar to the
+feature added in netfilter:
+commit c38c4597e4bf ("netfilter: implement xt_cgroup cgroup2 path match")
 
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: Tejun Heo <tj@kernel.org>
+The user is expected to populate a BPF_MAP_TYPE_CGROUP_ARRAY
+which will be used by the bpf_skb_in_cgroup.
+
+Modifications to the bpf verifier is to ensure BPF_MAP_TYPE_CGROUP_ARRAY
+and bpf_skb_in_cgroup() are always used together.
+
+Signed-off-by: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
+Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 ---
  include/uapi/linux/bpf.h |  1 +
- kernel/bpf/arraymap.c    | 41 +++++++++++++++++++++++++++++++++++++++++
- kernel/bpf/syscall.c     |  3 ++-
- 3 files changed, 44 insertions(+), 1 deletion(-)
+ kernel/bpf/verifier.c    |  8 ++++++++
+ net/core/filter.c        | 36 ++++++++++++++++++++++++++++++++++++
+ 3 files changed, 45 insertions(+)
 
 diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 406459b..ef4e386 100644
+index ef4e386..a91714bd 100644
 --- a/include/uapi/linux/bpf.h
 +++ b/include/uapi/linux/bpf.h
-@@ -84,6 +84,7 @@ enum bpf_map_type {
- 	BPF_MAP_TYPE_PERCPU_HASH,
- 	BPF_MAP_TYPE_PERCPU_ARRAY,
- 	BPF_MAP_TYPE_STACK_TRACE,
-+	BPF_MAP_TYPE_CGROUP_ARRAY,
+@@ -314,6 +314,7 @@ enum bpf_func_id {
+ 	 */
+ 	BPF_FUNC_skb_get_tunnel_opt,
+ 	BPF_FUNC_skb_set_tunnel_opt,
++	BPF_FUNC_skb_in_cgroup,
+ 	__BPF_FUNC_MAX_ID,
  };
  
- enum bpf_prog_type {
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index 5af3073..5e279ec 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -539,3 +539,44 @@ static int __init register_perf_event_array_map(void)
- 	return 0;
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 668e079..68753e0 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1062,6 +1062,10 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
+ 		if (func_id != BPF_FUNC_get_stackid)
+ 			goto error;
+ 		break;
++	case BPF_MAP_TYPE_CGROUP_ARRAY:
++		if (func_id != BPF_FUNC_skb_in_cgroup)
++			goto error;
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -1081,6 +1085,10 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
+ 		if (map->map_type != BPF_MAP_TYPE_STACK_TRACE)
+ 			goto error;
+ 		break;
++	case BPF_FUNC_skb_in_cgroup:
++		if (map->map_type != BPF_MAP_TYPE_CGROUP_ARRAY)
++			goto error;
++		break;
+ 	default:
+ 		break;
+ 	}
+diff --git a/net/core/filter.c b/net/core/filter.c
+index df6860c..410da89 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2024,6 +2024,40 @@ bpf_get_skb_set_tunnel_proto(enum bpf_func_id which)
+ 	}
  }
- late_initcall(register_perf_event_array_map);
-+
-+static void *cgroup_fd_array_get_ptr(struct bpf_map *map,
-+				     struct file *map_file /* not used */,
-+				     int fd)
+ 
++static u64 bpf_skb_in_cgroup(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
 +{
-+	return cgroup_get_from_fd(fd);
++	struct sk_buff *skb = (struct sk_buff *)(long)r1;
++	struct bpf_map *map = (struct bpf_map *)(long)r2;
++	struct bpf_array *array = container_of(map, struct bpf_array, map);
++	u32 i = (u32)r3;
++	struct cgroup *cgrp;
++	struct sock *sk;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	sk = skb->sk;
++	if (!sk || !sk_fullsock(sk))
++		return -ENOENT;
++
++	if (unlikely(i >= array->map.max_entries))
++		return -E2BIG;
++
++	cgrp = READ_ONCE(array->ptrs[i]);
++	if (unlikely(!cgrp))
++		return -ENOENT;
++
++	return cgroup_is_descendant(sock_cgroup_ptr(&sk->sk_cgrp_data), cgrp);
 +}
 +
-+static void cgroup_fd_array_put_ptr(void *ptr)
-+{
-+	/* cgroup_put free cgrp after a rcu grace period */
-+	cgroup_put(ptr);
-+}
-+
-+static void cgroup_fd_array_free(struct bpf_map *map)
-+{
-+	bpf_fd_array_map_clear(map);
-+	fd_array_map_free(map);
-+}
-+
-+static const struct bpf_map_ops cgroup_array_ops = {
-+	.map_alloc = fd_array_map_alloc,
-+	.map_free = cgroup_fd_array_free,
-+	.map_get_next_key = array_map_get_next_key,
-+	.map_lookup_elem = fd_array_map_lookup_elem,
-+	.map_delete_elem = fd_array_map_delete_elem,
-+	.map_fd_get_ptr = cgroup_fd_array_get_ptr,
-+	.map_fd_put_ptr = cgroup_fd_array_put_ptr,
++static const struct bpf_func_proto bpf_skb_in_cgroup_proto = {
++	.func		= bpf_skb_in_cgroup,
++	.gpl_only	= false,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_CTX,
++	.arg2_type	= ARG_CONST_MAP_PTR,
++	.arg3_type	= ARG_ANYTHING,
 +};
 +
-+static struct bpf_map_type_list cgroup_array_type __read_mostly = {
-+	.ops = &cgroup_array_ops,
-+	.type = BPF_MAP_TYPE_CGROUP_ARRAY,
-+};
-+
-+static int __init register_cgroup_array_map(void)
-+{
-+	bpf_register_map_type(&cgroup_array_type);
-+	return 0;
-+}
-+late_initcall(register_cgroup_array_map);
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index c23a4e93..cac13f1 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -393,7 +393,8 @@ static int map_update_elem(union bpf_attr *attr)
- 	} else if (map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY) {
- 		err = bpf_percpu_array_update(map, key, value, attr->flags);
- 	} else if (map->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY ||
--		   map->map_type == BPF_MAP_TYPE_PROG_ARRAY) {
-+		   map->map_type == BPF_MAP_TYPE_PROG_ARRAY ||
-+		   map->map_type == BPF_MAP_TYPE_CGROUP_ARRAY) {
- 		rcu_read_lock();
- 		err = bpf_fd_array_map_update_elem(map, f.file, key, value,
- 						   attr->flags);
+ static const struct bpf_func_proto *
+ sk_filter_func_proto(enum bpf_func_id func_id)
+ {
+@@ -2086,6 +2120,8 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_get_route_realm_proto;
+ 	case BPF_FUNC_perf_event_output:
+ 		return bpf_get_event_output_proto();
++	case BPF_FUNC_skb_in_cgroup:
++		return &bpf_skb_in_cgroup_proto;
+ 	default:
+ 		return sk_filter_func_proto(func_id);
+ 	}
 -- 
 2.5.1
