@@ -1,61 +1,54 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH net-next 0/5] qed/qede: Tunnel hardware GRO support
-Date: Wed, 22 Jun 2016 14:52:34 -0700
-Message-ID: <576B08A2.8080603@hpe.com>
-References: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
- <CAKgT0Ue6_cPb88wfTtMMetJzBSJnGDNWj8YVHWC=9WdztCxOuQ@mail.gmail.com>
- <CO2PR11MB008891D4ECFF86F32B1C32CC972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAKgT0UdDt6H8ix6U7n_uPjodkXYuxviZjSKWQRaXu2_qWWEL+A@mail.gmail.com>
- <CO2PR11MB0088C4DEAFEE71B0D865DB33972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Randy Dunlap <rdunlap@infradead.org>
+Subject: Re: Regarding VRF support in Linux Kernel
+Date: Wed, 22 Jun 2016 15:03:23 -0700
+Message-ID: <576B0B2B.1070509@infradead.org>
+References: <CADAe=++ATxxEeKiUC6MUSCmXiauvB=6ZFCuuwd2h6ZOQU99p5w@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: Manish Chopra <manish.chopra@qlogic.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Hannes Frederic Sowa <hannes@redhat.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>
+To: Ajith Adapa <adapa.ajith@gmail.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g9t1613g.houston.hpe.com ([15.241.32.99]:2361 "EHLO
-	g9t1613g.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750718AbcFVVwh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 17:52:37 -0400
-Received: from g2t2353.austin.hpe.com (g2t2353.austin.hpe.com [15.233.44.26])
-	(using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by g9t1613g.houston.hpe.com (Postfix) with ESMTPS id 5AEB7614C2
-	for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 21:52:36 +0000 (UTC)
-In-Reply-To: <CO2PR11MB0088C4DEAFEE71B0D865DB33972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
+Received: from merlin.infradead.org ([205.233.59.134]:48125 "EHLO
+	merlin.infradead.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750866AbcFVWD0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 18:03:26 -0400
+In-Reply-To: <CADAe=++ATxxEeKiUC6MUSCmXiauvB=6ZFCuuwd2h6ZOQU99p5w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/22/2016 11:22 AM, Yuval Mintz wrote:
-> But seriously, this isn't really anything new but rather a step forward in
-> the direction we've already taken - bnx2x/qede are already performing
-> the same for non-encapsulated TCP.
+On 06/22/16 14:05, Ajith Adapa wrote:
+> Hi,
+> 
+> I am following the steps present in
+> (https://www.kernel.org/doc/Documentation/networking/vrf.txt) and
+> trying to create IPv4 VRF in latest Fedora 24 distribution with 4.5
+> Linux kernel.
+> 
+> [root@localhost ip]# uname -a
+> Linux localhost.localdomain 4.5.5-300.fc24.x86_64 #1 SMP Thu May 19
+> 13:05:32 UTC 2016 x86_64 x86_64 x86_64 GNU/Linux
+> 
+> I am getting operation not supported error as shown below
+> 
+> # ip link add vrf-blue type vrf table 10
+> RTNETLINK answers: Operation not supported
+> 
+> Is there any CONFIG option to enable VRF in Linux kernel ?
 
-Since you mention bnx2x...   I would argue that the NIC firmware on 
-those NICs driven by bnx2x is doing it badly.  Not so much from a 
-functional standpoint I suppose, but from a performance one.  The 
-NIC-firmware GRO done there has this rather unfortunate assumption about 
-"all MSSes will be directly driven by my own physical MTU" and when it 
-sees segments of a size other than would be suggested by the physical 
-MTU, will coalesce only two segments together.  They then do not get 
-further coalesced in the stack.
+Yes, in drivers/net/Kconfig:
 
-Suffice it to say this does not do well from a performance standpoint.
+config NET_VRF
+	tristate "Virtual Routing and Forwarding (Lite)"
+	depends on IP_MULTIPLE_TABLES
+	depends on NET_L3_MASTER_DEV
+	depends on IPV6 || IPV6=n
+	depends on IPV6_MULTIPLE_TABLES || IPV6=n
+	---help---
+	  This option enables the support for mapping interfaces into VRF's. The
+	  support enables VRF devices.
 
-One can disable LRO via ethtool for these NICs, but what that does is 
-disable old-school LRO, not GRO-in-the-NIC.  To get that disabled, one 
-must also get the bnx2x module loaded with "disable-tpa=1" so the Linux 
-stack GRO gets used instead.
 
-Had the bnx2x-driven NICs' firmware not had that rather unfortunate 
-assumption about MSSes I probably would never have noticed.
 
-happy benchmarking,
 
-rick jones
+-- 
+~Randy
