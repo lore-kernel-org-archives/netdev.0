@@ -1,73 +1,78 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] net: tc35815: fix spelling mistake on "descriptors"
-Date: Wed, 22 Jun 2016 17:42:21 +0100
-Message-ID: <1466613741-23607-1-git-send-email-colin.king@canonical.com>
-Cc: linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Guenter Roeck <linux@roeck-us.net>,
-	Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Decotigny <decot@googlers.com>
+Subject: Re: [PATCH net-next 7/9] net/mlx5e: Add 50G missing link mode to
+ ethtool and mlx5 driver
+Date: Wed, 22 Jun 2016 09:47:40 -0700
+Message-ID: <CAG88wWZW3xgYyP9z4=T7WnPy8wCdHZwxNYGw78QR-n8d7ujaHQ@mail.gmail.com>
+References: <1466613197-28726-1-git-send-email-saeedm@mellanox.com> <1466613197-28726-8-git-send-email-saeedm@mellanox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Gal Pressman <galp@mellanox.com>,
+	Ben Hutchings <bwh@kernel.org>
+To: Saeed Mahameed <saeedm@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:35814 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752722AbcFVQsW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 12:48:22 -0400
+Received: by mail-wm0-f44.google.com with SMTP id v199so95064323wmv.0
+        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 09:48:21 -0700 (PDT)
+In-Reply-To: <1466613197-28726-8-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Colin Ian King <colin.king@canonical.com>
+maybe split this into 2 separate patches?
 
-trivial fixes to spelling mistakes of the word "descriptors"
-
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
----
- drivers/net/ethernet/toshiba/tc35815.c | 10 +++++-----
- 1 file changed, 5 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/ethernet/toshiba/tc35815.c b/drivers/net/ethernet/toshiba/tc35815.c
-index 5487478..74e6719 100644
---- a/drivers/net/ethernet/toshiba/tc35815.c
-+++ b/drivers/net/ethernet/toshiba/tc35815.c
-@@ -280,7 +280,7 @@ struct tc35815_regs {
-  * Descriptors
-  */
- 
--/* Frame descripter */
-+/* Frame descriptor */
- struct FDesc {
- 	volatile __u32 FDNext;
- 	volatile __u32 FDSystem;
-@@ -288,7 +288,7 @@ struct FDesc {
- 	volatile __u32 FDCtl;
- };
- 
--/* Buffer descripter */
-+/* Buffer descriptor */
- struct BDesc {
- 	volatile __u32 BuffData;
- 	volatile __u32 BDCtl;
-@@ -296,7 +296,7 @@ struct BDesc {
- 
- #define FD_ALIGN	16
- 
--/* Frame Descripter bit assign ---------------------------------------------- */
-+/* Frame Descriptor bit assign ---------------------------------------------- */
- #define FD_FDLength_MASK       0x0000FFFF /* Length MASK		     */
- #define FD_BDCnt_MASK	       0x001F0000 /* BD count MASK in FD	     */
- #define FD_FrmOpt_MASK	       0x7C000000 /* Frame option MASK		     */
-@@ -309,7 +309,7 @@ struct BDesc {
- #define FD_Next_EOL	       0x00000001 /* FD EOL indicator		     */
- #define FD_BDCnt_SHIFT	       16
- 
--/* Buffer Descripter bit assign --------------------------------------------- */
-+/* Buffer Descriptor bit assign --------------------------------------------- */
- #define BD_BuffLength_MASK     0x0000FFFF /* Receive Data Size		     */
- #define BD_RxBDID_MASK	       0x00FF0000 /* BD ID Number MASK		     */
- #define BD_RxBDSeqN_MASK       0x7F000000 /* Rx BD Sequence Number	     */
-@@ -1387,7 +1387,7 @@ static int tc35815_do_interrupt(struct net_device *dev, u32 status, int limit)
- 	if (status & Int_IntExBD) {
- 		if (netif_msg_rx_err(lp))
- 			dev_warn(&dev->dev,
--				 "Excessive Buffer Descriptiors (%#x).\n",
-+				 "Excessive Buffer Descriptors (%#x).\n",
- 				 status);
- 		dev->stats.rx_length_errors++;
- 		ret = 0;
--- 
-2.8.1
+On Wed, Jun 22, 2016 at 9:33 AM, Saeed Mahameed <saeedm@mellanox.com> wrote:
+> From: Gal Pressman <galp@mellanox.com>
+>
+> Add ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT and MLX5E_50GBASE_SR2
+> bits.
+>
+> Signed-off-by: Gal Pressman <galp@mellanox.com>
+> CC: Ben Hutchings <bwh@kernel.org>
+> CC: David Decotigny <decot@googlers.com>
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx5/core/en.h | 1 +
+>  include/uapi/linux/ethtool.h                 | 3 ++-
+>  2 files changed, 3 insertions(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+> index aa36a3a..b8732e6 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+> @@ -616,6 +616,7 @@ enum mlx5e_link_mode {
+>         MLX5E_10GBASE_ER         = 14,
+>         MLX5E_40GBASE_SR4        = 15,
+>         MLX5E_40GBASE_LR4        = 16,
+> +       MLX5E_50GBASE_SR2        = 18,
+>         MLX5E_100GBASE_CR4       = 20,
+>         MLX5E_100GBASE_SR4       = 21,
+>         MLX5E_100GBASE_KR4       = 22,
+> diff --git a/include/uapi/linux/ethtool.h b/include/uapi/linux/ethtool.h
+> index 5f030b4..b8f38e8 100644
+> --- a/include/uapi/linux/ethtool.h
+> +++ b/include/uapi/linux/ethtool.h
+> @@ -1362,6 +1362,7 @@ enum ethtool_link_mode_bit_indices {
+>         ETHTOOL_LINK_MODE_100000baseSR4_Full_BIT        = 37,
+>         ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT        = 38,
+>         ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full_BIT    = 39,
+> +       ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT         = 40,
+>
+>         /* Last allowed bit for __ETHTOOL_LINK_MODE_LEGACY_MASK is bit
+>          * 31. Please do NOT define any SUPPORTED_* or ADVERTISED_*
+> @@ -1370,7 +1371,7 @@ enum ethtool_link_mode_bit_indices {
+>          */
+>
+>         __ETHTOOL_LINK_MODE_LAST
+> -         = ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full_BIT,
+> +         = ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT,
+>  };
+>
+>  #define __ETHTOOL_LINK_MODE_LEGACY_MASK(base_name)     \
+> --
+> 2.8.0
+>
