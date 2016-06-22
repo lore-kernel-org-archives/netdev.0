@@ -1,58 +1,116 @@
 From: Yisen Zhuang <Yisen.zhuang@huawei.com>
-Subject: Re: [PATCH net-next 16/19] net: hns: fix bug that alloc skb fail lead
- to port unavailable
-Date: Wed, 22 Jun 2016 09:41:43 +0800
-Message-ID: <5769ECD7.8080303@huawei.com>
+Subject: Re: [PATCH net-next 10/19] net: hns: bugfix about pfc pause frame
+ statistics
+Date: Wed, 22 Jun 2016 09:43:49 +0800
+Message-ID: <5769ED55.3000408@huawei.com>
 References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
- <1466481399-70080-17-git-send-email-Yisen.Zhuang@huawei.com>
- <097b1147-3587-9579-0f94-f42be130773c@cogentembedded.com>
+ <1466481399-70080-11-git-send-email-Yisen.Zhuang@huawei.com>
+ <1466505178.30123.201.camel@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: ivecera@redhat.com, andrew@lunn.ch, fengguang.wu@intel.com,
- liguozhu@huawei.com, arnd@arndb.de, charles.chenxin@huawei.com,
- linux-kernel@vger.kernel.org, linuxarm@huawei.com, geliangtang@163.com,
- huangdaode@hisilicon.com, netdev@vger.kernel.org,
- andriy.shevchenko@linux.intel.com, linux-arm-kernel@lists.infradead.org
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
- <davem@davemloft.net>, <salil.mehta@huawei.com>, <yankejian@huawei.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <097b1147-3587-9579-0f94-f42be130773c@cogentembedded.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
+	<andrew@lunn.ch>, <geliangtang@163.com>, <ivecera@redhat.com>,
+	<fengguang.wu@intel.com>, <charles.chenxin@huawei.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	<davem@davemloft.net>, <salil.mehta@huawei.com>,
+	<yankejian@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466505178.30123.201.camel@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CgrlnKggMjAxNi82LzIxIDIxOjI1LCBTZXJnZWkgU2h0eWx5b3Yg5YaZ6YGTOgo+IEhlbGxvLgo+
-IAo+IE9uIDYvMjEvMjAxNiA2OjU2IEFNLCBZaXNlbiBaaHVhbmcgd3JvdGU6Cj4gCj4+IEZyb206
-IEp1biBIZSA8aGphdDIwMDVAaHVhd2VpLmNvbT4KPj4KPj4gV2hlbiBobnNfbmljX3BvbGxfcnhf
-c2tiIGFsbG9jIHNrYiBmYWlsLCBpdCB3aWxsIGJyZWFrIHJlY2VpdmUgY3ljbGUgYW5kCj4+IHJl
-YWQgbmV3IGZiZF9udW0gdG8gc3RhcnQgbmV3IHJlY2VpdmUgY3ljbGUuIEl0IHJlY29tcHV0ZXMg
-Y3ljbGUgbnVtIGlzCj4+IGZiZF9udW0gbWludXMgY2xlYW5fY291bnQsIGFjdHVhbGx5IHRoaXMg
-Y3ljbGUgbnVtIGlzIHRvbyBiaWcgYmVjYXVzZQo+PiBpdCBkcm9wIG91dCByZWNlaXZlIGN5Y2xl
-LiBJdCBicmluZ3MgYWJvdXQgdGhlIHBvcnQgdW5hdmFpbGFibGUuCj4+Cj4+IFNvIHdlIHdpbGwg
-Z290byBvdXQgd2hlbiBhbGxvYyBza2IgZmFpbCB0byBmaXggdGhpcyBidWcuCj4+Cj4+IFNpZ25l
-ZC1vZmYtYnk6IEp1biBIZSA8aGphdDIwMDVAaHVhd2VpLmNvbT4KPj4gU2lnbmVkLW9mZi1ieTog
-RGluZyBUaWFuaG9uZyA8ZGluZ3RpYW5ob25nQGh1YXdlaS5jb20+Cj4+IFNpZ25lZC1vZmYtYnk6
-IFlpc2VuIFpodWFuZyA8WWlzZW4uWmh1YW5nQGh1YXdlaS5jb20+Cj4+IC0tLQo+PiAgZHJpdmVy
-cy9uZXQvZXRoZXJuZXQvaGlzaWxpY29uL2hucy9obnNfZW5ldC5jIHwgNSArKystLQo+PiAgMSBm
-aWxlIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkKPj4KPj4gZGlmZiAt
-LWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9obnMvaG5zX2VuZXQuYyBiL2Ry
-aXZlcnMvbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9obnMvaG5zX2VuZXQuYwo+PiBpbmRleCBmNDky
-NDZkLi5jMGNlMzdiIDEwMDY0NAo+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9oaXNpbGlj
-b24vaG5zL2huc19lbmV0LmMKPj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaGlzaWxpY29u
-L2hucy9obnNfZW5ldC5jCj4+IEBAIC03NjgsMTAgKzc2OCwxMCBAQCByZWN2Ogo+PiAgICAgICAg
-ICAgICAgY2xlYW5fY291bnQgPSAwOwo+PiAgICAgICAgICB9Cj4+Cj4+IC0gICAgICAgIC8qIHBv
-bGwgb25lIHBrZyovCj4+ICsgICAgICAgIC8qIHBvbGwgb25lIHBrdCovCgpJIHdpbGwgZml4IGl0
-IHdpdGggYSBuZXcgcGF0Y2guCgpUaGFua3MsCgpZaXNlbgoKPiAKPiAgICBIb3cgYWJvdXQgYWRk
-aW5nIGEgc3BhY2UgYmVmb3JlICovPwo+IAo+IFsuLi5dCj4gCj4gTUJSLCBTZXJnZWkKPiAKPiAK
-PiAuCj4gCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
-bGludXgtYXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZy
-YWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGlu
-dXgtYXJtLWtlcm5lbAo=
+
+
+=E5=9C=A8 2016/6/21 18:32, Andy Shevchenko =E5=86=99=E9=81=93:
+> On Tue, 2016-06-21 at 11:56 +0800, Yisen Zhuang wrote:
+>> From: Daode Huang <huangdaode@hisilicon.com>
+>>
+>> For SoC hip06, PFC pause handled in dsaf, while hip05 in XGMAC,
+>> so change the statistics of pfc pause in dsaf and remove the old
+>> pfc pause frame statistics.
+>>
+>=20
+>=20
+>> +static char *hns_dsaf_get_node_stats_strings(char *data, int node,
+>> +					     struct dsaf_device
+>> *dsaf_dev)
+>>  {
+>>  	char *buff =3D data;
+>> +	int i;
+>> +	bool is_ver1 =3D AE_IS_VER1(dsaf_dev->dsaf_ver);
+>> =20
+>>  	snprintf(buff, ETH_GSTRING_LEN, "innod%d_pad_drop_pkts",
+>> node);
+>>  	buff =3D buff + ETH_GSTRING_LEN;
+>> @@ -2502,6 +2530,18 @@ static char
+>> *hns_dsaf_get_node_stats_strings(char *data, int node)
+>>  	buff =3D buff + ETH_GSTRING_LEN;
+>>  	snprintf(buff, ETH_GSTRING_LEN, "innod%d_stp_drop_pkts",
+>> node);
+>>  	buff =3D buff + ETH_GSTRING_LEN;
+>> +	if ((node < DSAF_SERVICE_NW_NUM) && (!is_ver1)) {
+>=20
+> Redundant parens.
+>=20
+>> +		for (i =3D 0; i < DSAF_PRIO_NR; i++) {
+>> +			snprintf(buff, ETH_GSTRING_LEN,
+>> +				 "inod%d_pfc_prio%d_pkts", node, i);
+>> +			buff =3D buff + ETH_GSTRING_LEN;
+>=20
+> buff +=3D ...
+>=20
+>> +		}
+>> +		for (i =3D 0; i < DSAF_PRIO_NR; i++) {
+>> +			snprintf(buff, ETH_GSTRING_LEN,
+>> +				 "onod%d_pfc_prio%d_pkts", node, i);
+>> +			buff =3D buff + ETH_GSTRING_LEN;
+>=20
+> Ditto.
+>=20
+>>  {
+>>  	u64 *p =3D data;
+>> +	int i;
+>>  	struct dsaf_hw_stats *hw_stats =3D &ddev->hw_stats[node_num];
+>> +	bool is_ver1 =3D AE_IS_VER1(ddev->dsaf_ver);
+>> =20
+>>  	p[0] =3D hw_stats->pad_drop;
+>>  	p[1] =3D hw_stats->man_pkts;
+>> @@ -2527,8 +2569,16 @@ static u64 *hns_dsaf_get_node_stats(struct
+>> dsaf_device *ddev, u64 *data,
+>>  	p[10] =3D hw_stats->local_addr_false;
+>>  	p[11] =3D hw_stats->vlan_drop;
+>>  	p[12] =3D hw_stats->stp_drop;
+>> -	p[13] =3D hw_stats->tx_pkts;
+>> +	if ((node_num < DSAF_SERVICE_NW_NUM) && (!is_ver1)) {
+>> +		for (i =3D 0; i < DSAF_PRIO_NR; i++) {
+>> +			p[13 + i] =3D hw_stats->rx_pfc[i];
+>> +			p[13 + i + DSAF_PRIO_NR] =3D hw_stats-
+>>> tx_pfc[i];
+>> +		}
+>=20
+> Two different approaches how to assign data. Above uses 2 for-loops,
+> here you put everything to one.
+
+Above cann't be merged to 1 for-loop, because lenght of the string is u=
+nknowable.
+
+And here we put everything to one to reduce codes.
+
+I will generate a new patch to fix other comments.
+
+Thanks,
+
+Yisen
+
+>=20
+>> +		p[29] =3D hw_stats->tx_pkts;
+>> +		return &p[30];
+>> +	}
+>> =20
+>> +	p[13] =3D hw_stats->tx_pkts;
+>>  	return &p[14];
+>>  }
+>=20
