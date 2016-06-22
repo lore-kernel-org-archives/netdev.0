@@ -1,142 +1,77 @@
-From: ggarcia@abra.uab.cat
-Subject: [RFC v2 3/3] vsockmon: Add vsock hooks
-Date: Wed, 22 Jun 2016 18:11:02 +0200
-Message-ID: <20160622161102.8250-4-ggarcia@deic.uab.cat>
-References: <20160622161102.8250-1-ggarcia@deic.uab.cat>
-Content-Transfer-Encoding: 7BIT
-Cc: jhansen@vmware.com, stefanha@redhat.com,
-	Gerard Garcia <ggarcia@abra.uab.cat>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from damascus.uab.es ([158.109.168.135]:53228 "EHLO damascus.uab.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753094AbcFVQMS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 12:12:18 -0400
-Received: from damascus.uab.es ([127.0.0.1])
- by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0O9600AQ3L0ESX10@damascus.uab.es> for
- netdev@vger.kernel.org; Wed, 22 Jun 2016 18:12:14 +0200 (CEST)
-Received: from abra.uab.es ([158.109.79.4])
- by damascus.uab.es (Sun Java System Messaging Server 6.1 HotFix 0.10 (built
- Jan  6 2005)) with ESMTP id <0O9600B26L0EHY00@damascus.uab.es> for
- netdev@vger.kernel.org; Wed, 22 Jun 2016 18:12:14 +0200 (CEST)
-In-reply-to: <20160622161102.8250-1-ggarcia@deic.uab.cat>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 10/14] rxrpc: Calls displayed in /proc may in
+ future lack a connection [ver #2]
+Date: Wed, 22 Jun 2016 17:04:03 +0100
+Message-ID: <146661144374.15011.1174994794577410748.stgit@warthog.procyon.org.uk>
+References: <146661137134.15011.10133465789054712595.stgit@warthog.procyon.org.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <146661137134.15011.10133465789054712595.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Gerard Garcia <ggarcia@deic.uab.cat>
+Allocated rxrpc calls displayed in /proc/net/rxrpc_calls may in future be
+on the proc list before they're connected or after they've been
+disconnected - in which case they may not have a pointer to a connection
+struct that can be used to get data from there.
 
-Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
+Deal with this by using stuff from the call struct in preference where
+possible and printing "no_connection" rather than a peer address if no
+connection is assigned.
+
+This change also has the added bonus that the service ID is now taken from
+the call rather the connection which will allow per-call service upgrades
+to be shown - something required for AuriStor server compatibility.
+
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
- drivers/vhost/vsock.c | 73 +++++++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 73 insertions(+)
 
-diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
-index 17bfe4e..e8621cc 100644
---- a/drivers/vhost/vsock.c
-+++ b/drivers/vhost/vsock.c
-@@ -14,8 +14,10 @@
- #include <net/sock.h>
- #include <linux/virtio_vsock.h>
- #include <linux/vhost.h>
-+#include <linux/skbuff.h>
- 
- #include <net/af_vsock.h>
-+#include <uapi/linux/vsockmon.h>
- #include "vhost.h"
- 
- #define VHOST_VSOCK_DEFAULT_HOST_CID	2
-@@ -45,6 +47,69 @@ struct vhost_vsock {
- 	u32 guest_cid;
- };
- 
-+static struct sk_buff *
-+virtio_vsock_pkt_to_skb(struct virtio_vsock_pkt *pkt)
-+{
-+	struct sk_buff *skb;
-+	struct af_vsockmon_hdr *hdr;
-+	void *payload;
-+
-+	u32 skb_len = sizeof(struct af_vsockmon_hdr) + pkt->len;
-+
-+	skb = alloc_skb(skb_len, GFP_ATOMIC);
-+	if (!skb)
-+		return NULL;
-+
-+	skb_reserve(skb, sizeof(struct af_vsockmon_hdr));
-+
-+	if (pkt->len) {
-+		payload = skb_put(skb, pkt->len);
-+		memcpy(payload, pkt->buf, pkt->len);
-+	}
-+
-+	hdr = (struct af_vsockmon_hdr *) skb_push(skb, sizeof(*hdr));
-+
-+	hdr->src_cid = pkt->hdr.src_cid;
-+	hdr->src_port = pkt->hdr.src_port;
-+	hdr->dst_cid = pkt->hdr.dst_cid;
-+	hdr->dst_port = pkt->hdr.dst_port;
-+	hdr->t = AF_VSOCK_T_VIRTIO;
-+
-+	switch(pkt->hdr.op) {
-+		case VIRTIO_VSOCK_OP_REQUEST:
-+		case VIRTIO_VSOCK_OP_RESPONSE:
-+			hdr->op = AF_VSOCK_OP_CONNECT;
-+			break;
-+		case VIRTIO_VSOCK_OP_RST:
-+		case VIRTIO_VSOCK_OP_SHUTDOWN:
-+			hdr->op = AF_VSOCK_OP_DISCONNECT;
-+			break;
-+		case VIRTIO_VSOCK_OP_RW:
-+			hdr->op = AF_VSOCK_OP_PAYLOAD;
-+			break;
-+		case VIRTIO_VSOCK_OP_CREDIT_UPDATE:
-+		case VIRTIO_VSOCK_OP_CREDIT_REQUEST:
-+			hdr->op = AF_VSOCK_OP_CONTROL;
-+			break;
-+		default:
-+			hdr->op = AF_VSOCK_OP_UNKNOWN;
-+			break;
-+	}
-+
-+	hdr->t_hdr.virtio_hdr = pkt->hdr;
-+
-+	return skb;
-+}
-+
-+static void vsock_deliver_tap_pkt(struct virtio_vsock_pkt *pkt)
-+{
-+	struct sk_buff *skb = virtio_vsock_pkt_to_skb(pkt);
-+	if (skb) {
-+		vsock_deliver_tap(skb);
-+		kfree_skb(skb);
-+	}
-+}
-+
- static u32 vhost_transport_get_local_cid(void)
- {
- 	return VHOST_VSOCK_DEFAULT_HOST_CID;
-@@ -147,6 +212,11 @@ vhost_transport_do_send_pkt(struct vhost_vsock *vsock,
- 
- 		vsock->total_tx_buf -= pkt->len;
- 
-+		/* Deliver to monitoring devices all correctly transmitted
-+		 * packets.
-+		 */
-+		vsock_deliver_tap_pkt(pkt);
-+
- 		virtio_transport_free_pkt(pkt);
+ net/rxrpc/proc.c |   19 +++++++++++--------
+ 1 file changed, 11 insertions(+), 8 deletions(-)
+
+diff --git a/net/rxrpc/proc.c b/net/rxrpc/proc.c
+index 9863270691d7..500cdcdc843c 100644
+--- a/net/rxrpc/proc.c
++++ b/net/rxrpc/proc.c
+@@ -59,25 +59,28 @@ static int rxrpc_call_seq_show(struct seq_file *seq, void *v)
  	}
- 	if (added)
-@@ -367,6 +437,9 @@ static void vhost_vsock_handle_tx_kick(struct vhost_work *work)
- 			continue;
- 		}
  
-+		/* Deliver to monitoring devices all received packets */
-+		vsock_deliver_tap_pkt(pkt);
-+
- 		/* Only accept correctly addressed packets */
- 		if (le64_to_cpu(pkt->hdr.src_cid) == vsock->guest_cid)
- 			virtio_transport_recv_pkt(pkt);
--- 
-2.9.0
+ 	call = list_entry(v, struct rxrpc_call, link);
+-	conn = call->conn;
+ 
+ 	sprintf(lbuff, "%pI4:%u",
+-		&conn->params.local->srx.transport.sin.sin_addr,
+-		ntohs(conn->params.local->srx.transport.sin.sin_port));
++		&call->local->srx.transport.sin.sin_addr,
++		ntohs(call->local->srx.transport.sin.sin_port));
+ 
+-	sprintf(rbuff, "%pI4:%u",
+-		&conn->params.peer->srx.transport.sin.sin_addr,
+-		ntohs(conn->params.peer->srx.transport.sin.sin_port));
++	conn = call->conn;
++	if (conn)
++		sprintf(rbuff, "%pI4:%u",
++			&conn->params.peer->srx.transport.sin.sin_addr,
++			ntohs(conn->params.peer->srx.transport.sin.sin_port));
++	else
++		strcpy(rbuff, "no_connection");
+ 
+ 	seq_printf(seq,
+ 		   "UDP   %-22.22s %-22.22s %4x %08x %08x %s %3u"
+ 		   " %-8.8s %08x %lx\n",
+ 		   lbuff,
+ 		   rbuff,
+-		   call->conn->params.service_id,
++		   call->service_id,
+ 		   call->cid,
+ 		   call->call_id,
+-		   rxrpc_conn_is_service(call->conn) ? "Svc" : "Clt",
++		   call->in_clientflag ? "Svc" : "Clt",
+ 		   atomic_read(&call->usage),
+ 		   rxrpc_call_states[call->state],
+ 		   call->remote_abort ?: call->local_abort,
