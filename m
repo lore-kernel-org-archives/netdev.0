@@ -1,132 +1,39 @@
-From: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
-Subject: [PATCH -next 3/4] cgroup: bpf: Add bpf_skb_in_cgroup_proto
-Date: Tue, 21 Jun 2016 17:23:21 -0700
-Message-ID: <1466555002-1316296-4-git-send-email-kafai@fb.com>
-References: <1466555002-1316296-1-git-send-email-kafai@fb.com>
+From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [RFC PATCH net v2 2/2] openvswitch: Only set mark and
+ labels with a commit flag.
+Date: Tue, 21 Jun 2016 17:25:28 -0700
+Message-ID: <CAPWQB7GorwL3dWQxLv6ZkJKPA6Vy6aKucR_Er9CjF9vvH5ZPZg@mail.gmail.com>
+References: <1466546378-59604-1-git-send-email-jarno@ovn.org>
+ <1466546378-59604-2-git-send-email-jarno@ovn.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <kernel-team-b10kYP2dOMg@public.gmane.org>
-To: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1466555002-1316296-1-git-send-email-kafai-b10kYP2dOMg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jarno Rajahalme <jarno-LZ6Gd1LRuIk@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1466546378-59604-2-git-send-email-jarno-LZ6Gd1LRuIk@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Adds a bpf helper, bpf_skb_in_cgroup, to decide if a skb->sk
-belongs to a descendant of a cgroup2.  It is similar to the
-feature added in netfilter:
-commit c38c4597e4bf ("netfilter: implement xt_cgroup cgroup2 path match")
-
-The user is expected to populate a BPF_MAP_TYPE_CGROUP_ARRAY
-which will be used by the bpf_skb_in_cgroup.
-
-Modifications to the bpf verifier is to ensure BPF_MAP_TYPE_CGROUP_ARRAY
-and bpf_skb_in_cgroup() are always used together.
-
-Signed-off-by: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
-Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
----
- include/uapi/linux/bpf.h |  1 +
- kernel/bpf/verifier.c    |  8 ++++++++
- net/core/filter.c        | 36 ++++++++++++++++++++++++++++++++++++
- 3 files changed, 45 insertions(+)
-
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index ef4e386..a91714bd 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -314,6 +314,7 @@ enum bpf_func_id {
- 	 */
- 	BPF_FUNC_skb_get_tunnel_opt,
- 	BPF_FUNC_skb_set_tunnel_opt,
-+	BPF_FUNC_skb_in_cgroup,
- 	__BPF_FUNC_MAX_ID,
- };
- 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 668e079..68753e0 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -1062,6 +1062,10 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
- 		if (func_id != BPF_FUNC_get_stackid)
- 			goto error;
- 		break;
-+	case BPF_MAP_TYPE_CGROUP_ARRAY:
-+		if (func_id != BPF_FUNC_skb_in_cgroup)
-+			goto error;
-+		break;
- 	default:
- 		break;
- 	}
-@@ -1081,6 +1085,10 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
- 		if (map->map_type != BPF_MAP_TYPE_STACK_TRACE)
- 			goto error;
- 		break;
-+	case BPF_FUNC_skb_in_cgroup:
-+		if (map->map_type != BPF_MAP_TYPE_CGROUP_ARRAY)
-+			goto error;
-+		break;
- 	default:
- 		break;
- 	}
-diff --git a/net/core/filter.c b/net/core/filter.c
-index df6860c..410da89 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2024,6 +2024,40 @@ bpf_get_skb_set_tunnel_proto(enum bpf_func_id which)
- 	}
- }
- 
-+static u64 bpf_skb_in_cgroup(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-+{
-+	struct sk_buff *skb = (struct sk_buff *)(long)r1;
-+	struct bpf_map *map = (struct bpf_map *)(long)r2;
-+	struct bpf_array *array = container_of(map, struct bpf_array, map);
-+	u32 i = (u32)r3;
-+	struct cgroup *cgrp;
-+	struct sock *sk;
-+
-+	WARN_ON_ONCE(!rcu_read_lock_held());
-+
-+	sk = skb->sk;
-+	if (!sk || !sk_fullsock(sk))
-+		return -ENOENT;
-+
-+	if (unlikely(i >= array->map.max_entries))
-+		return -E2BIG;
-+
-+	cgrp = READ_ONCE(array->ptrs[i]);
-+	if (unlikely(!cgrp))
-+		return -ENOENT;
-+
-+	return cgroup_is_descendant(sock_cgroup_ptr(&sk->sk_cgrp_data), cgrp);
-+}
-+
-+static const struct bpf_func_proto bpf_skb_in_cgroup_proto = {
-+	.func		= bpf_skb_in_cgroup,
-+	.gpl_only	= false,
-+	.ret_type	= RET_INTEGER,
-+	.arg1_type	= ARG_PTR_TO_CTX,
-+	.arg2_type	= ARG_CONST_MAP_PTR,
-+	.arg3_type	= ARG_ANYTHING,
-+};
-+
- static const struct bpf_func_proto *
- sk_filter_func_proto(enum bpf_func_id func_id)
- {
-@@ -2086,6 +2120,8 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
- 		return &bpf_get_route_realm_proto;
- 	case BPF_FUNC_perf_event_output:
- 		return bpf_get_event_output_proto();
-+	case BPF_FUNC_skb_in_cgroup:
-+		return &bpf_skb_in_cgroup_proto;
- 	default:
- 		return sk_filter_func_proto(func_id);
- 	}
--- 
-2.5.1
+T24gMjEgSnVuZSAyMDE2IGF0IDE0OjU5LCBKYXJubyBSYWphaGFsbWUgPGphcm5vQG92bi5vcmc+
+IHdyb3RlOgo+IE9ubHkgc2V0IGNvbm50cmFjayBtYXJrIG9yIGxhYmVscyB3aGVuIHRoZSBjb21t
+aXQgZmxhZyBpcyBzcGVjaWZpZWQuCj4gVGhpcyBtYWtlcyBzdXJlIHdlIGNhbiBub3Qgc2V0IHRo
+ZW0gYmVmb3JlIHRoZSBjb25uZWN0aW9uIGhhcyBiZWVuCj4gcGVyc2lzdGVkLCBhcyBpbiB0aGF0
+IGNhc2UgdGhlIG1hcmsgYW5kIGxhYmVscyB3b3VsZCBiZSBsb3N0IGluIGFuCj4gZXZlbnQgb2Yg
+YW4gdXNlcnNwYWNlIHVwY2FsbC4KPgo+IE9WUyB1c2Vyc3BhY2UgYWxyZWFkeSByZXF1aXJlcyB0
+aGUgY29tbWl0IGZsYWcgdG8gYWNjZXB0IHNldHRpbmcKPiBjdF9tYXJrIGFuZC9vciBjdF9sYWJl
+bHMuICBWYWxpZGF0ZSBmb3IgdGhpcyBpbiB0aGUga2VybmVsIEFQSS4KPgo+IFNpZ25lZC1vZmYt
+Ynk6IEphcm5vIFJhamFoYWxtZSA8amFybm9Ab3ZuLm9yZz4KCkFzIHRoaXMgaXMgd2FsbGluZyBv
+ZmYgYW4gaW5jb25zaXN0ZW50IGNvcm5lciBvZiB0aGUgY3QgYWN0aW9uLCBhbmQKT1ZTIHVzZXJz
+cGFjZSBhbHJlYWR5IGVuZm9yY2VzIHRoaXMgY29uc3RyYWludCwgdGhpcyBsb29rcyBPSyB0byBt
+ZS4KX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1h
+aWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFp
+bG1hbi9saXN0aW5mby9kZXYK
