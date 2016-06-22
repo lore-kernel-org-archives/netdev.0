@@ -1,159 +1,71 @@
-From: "Wei Hu (Xavier)" <xavier.huwei@huawei.com>
-Subject: Re: [PATCH v10 06/22] IB/hns: Add initial cmd operation
-Date: Wed, 22 Jun 2016 14:50:23 +0800
-Message-ID: <576A352F.8000700@huawei.com>
-References: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
- <1466087730-54856-7-git-send-email-oulijun@huawei.com>
- <20160620133310.GB4526@leon.nu> <57691C0B.8090509@huawei.com>
- <20160621112808.GA9762@leon.nu> <57693AC4.1070306@huawei.com>
- <20160622045450.GC9762@leon.nu>
+From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
+Subject: Re: [6/6] ppc: ebpf/jit: Implement JIT compiler for extended BPF
+Date: Wed, 22 Jun 2016 12:36:30 +0530
+Message-ID: <20160622070630.GI8886@naverao1-tp.localdomain>
+References: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
+ <3rWKtT2tSrz9t2G@ozlabs.org>
+ <20160619173642.GB8886@naverao1-tp.localdomain>
+ <1466465899.437.0.camel@ellerman.id.au>
+ <20160621065847.GD8886@naverao1-tp.localdomain>
+ <1466507043.18876.1.camel@ellerman.id.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Lijun Ou <oulijun@huawei.com>, <dledford@redhat.com>,
-	<sean.hefty@intel.com>, <hal.rosenstock@gmail.com>,
-	<davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
-	<jiri@mellanox.com>, <ogerlitz@mellanox.com>,
-	<linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
-	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
-	<haifeng.wei@huawei.com>, <yisen.zhuang@huawei.com>,
-	<yankejian@huawei.com>, <charles.chenxin@huawei.com>,
-	<linuxarm@huawei.com>
-To: <leon@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org, Matt Evans <matt@ozlabs.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@fb.com>,
+	Denis Kirjanov <kda@linux-powerpc.org>,
+	Paul Mackerras <paulus@samba.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+To: Michael Ellerman <mpe@ellerman.id.au>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160622045450.GC9762@leon.nu>
+Content-Disposition: inline
+In-Reply-To: <1466507043.18876.1.camel@ellerman.id.au>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On 2016/06/21 09:04PM, Michael Ellerman wrote:
+> On Tue, 2016-06-21 at 12:28 +0530, Naveen N. Rao wrote:
+> > On 2016/06/21 09:38AM, Michael Ellerman wrote:
+> > > On Sun, 2016-06-19 at 23:06 +0530, Naveen N. Rao wrote:
+> > > > 
+> > > > #include <asm/kprobes.h>
+> > > > 
+> > > > in bpf_jit_comp64.c
+> > > > 
+> > > > Can you please check if it resolves the build error?
+> > > 
+> > > Can you? :D
+> > 
+> > :)
+> > Sorry, I should have explained myself better. I did actually try your 
+> > config and I was able to reproduce the build error. After the above 
+> > #include, that error went away, but I saw some vdso related errors. I 
+> > thought I was doing something wrong and needed a different setup for 
+> > that particular kernel config, which is why I requested your help in the 
+> > matter. I just didn't do a good job of putting across that message...
+> 
+> Ah OK. Not sure why you're seeing VDSO errors?
 
+'Cause I wasn't paying attention. I tried your .config on a LE machine.  
+It works fine on BE, as it should.
 
-On 2016/6/22 12:54, Leon Romanovsky wrote:
-> On Tue, Jun 21, 2016 at 09:01:57PM +0800, Wei Hu (Xavier) wrote:
->>
->> On 2016/6/21 19:28, Leon Romanovsky wrote:
->>> On Tue, Jun 21, 2016 at 06:50:51PM +0800, Wei Hu (Xavier) wrote:
->>>> On 2016/6/20 21:33, Leon Romanovsky wrote:
->>>>> On Thu, Jun 16, 2016 at 10:35:14PM +0800, Lijun Ou wrote:
->>>>>> This patch added the operation for cmd, and added some functions
->>>>>> for initializing eq table and selecting cmd mode.
->>>>>>
->>>>>> Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
->>>>>> Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
->>>>>> Signed-off-by: Lijun Ou <oulijun@huawei.com>
->>>>>> ---
->>>>>> PATCH v9/v8/v7/v6:
->>>>>> - No change over the PATCH v5
->>>>>>
->>>>>> PATCH v5:
->>>>>> - The initial patch which was redesigned based on the second pat=
-ch
->>>>>>    in PATCH v4
->>>>>> ---
->>>>> <...>
->>>>>
->>>>>> +#define CMD_MAX_NUM		32
->>>>>> +
->>>>>> +int hns_roce_cmd_init(struct hns_roce_dev *hr_dev)
->>>>>> +{
->>>>>> +	struct device *dev =3D &hr_dev->pdev->dev;
->>>>>> +
->>>>>> +	mutex_init(&hr_dev->cmd.hcr_mutex);
->>>>>> +	sema_init(&hr_dev->cmd.poll_sem, 1);
->>>>>> +	hr_dev->cmd.use_events =3D 0;
->>>>>> +	hr_dev->cmd.toggle =3D 1;
->>>>>> +	hr_dev->cmd.max_cmds =3D CMD_MAX_NUM;
->>>>> <...>
->>>>>
->>>>>> +	for (hr_cmd->token_mask =3D 1; hr_cmd->token_mask < hr_cmd->ma=
-x_cmds;
->>>>>> +	     hr_cmd->token_mask <<=3D 1)
->>>>>> +		;
->>>>>> +	--hr_cmd->token_mask;
->>>>> It doesn't look that you dynamically change max_cmds supported.
->>>>> Why do you need to calculate token_mask dynamically?
->>>> Hi, Leon
->>>>
->>>>      1. The four lines above are in the function named
->>>> hns_roce_cmd_use_events.
->>>>           and now this function is only called once in hns_roce_pr=
-obe.
->>>>      2. In hns_roce_cmd_use_events,
->>>>          we use these 4 lines to achieve the value of hr_cmd->toke=
-n_mask
->>>> according to hr_cmd->max_cmds dynamically,
->>>>          then we only define one marco for hr_cmd->max_cmds as bel=
-ow:
->>>>
->>>> 	#define CMD_MAX_NUM		32
->>>>
->>>>         And it looks more flexible.
->>> It is called over engineering.
->>> I would recommend to you to remove it.
->>>
->>> We don't need over complicated code which is executed
->>> once with need to maintain with zero benefit.
->>>
->>> The other places need such simplification too.
->> Hi, Leon
->>
->>          We will modify this place as below:
->>          In hns_roce_hw_v1.c(for hip06 soc) file:
->>
->>              void hns_roce_v1_profile(struct hns_roce_dev *hr_dev)
->>              {
->>                  <snip>
->>                  caps->max_cmds =3D 32;
->>                  <snip>
->>              }
->>
->>          In hns_roce_cmd.c file:
->>
->>    	  int hns_roce_cmd_init(struct hns_roce_dev *hr_dev)
->> 	  {
->> 	     <snip>
->> 	     hr_dev->cmd.max_cmds =3D hr_dev->caps->max_cmds;
->>       		<snip>
->>            }
->>
->>         Can you give more suggestions?
-> I would be happy to do it if I had enough time to review this code.
->
-> General suggestion will be to ask yourself, if value is going to be
-> changed during the runtime. In case the answer is no, there is no roo=
-m
-> to additional logic which translate constant to different value which
-> will be other constant.
->
-> You should do it across all the patchset.
->
-> So, in this specific case, the proposed change is not enough, you are
-> not solving an issue, but hiding it.
->
-> Thanks
-We will modify this place as below=EF=BC=9A
+> 
+> > Note to self: randconfig builds *and* more time drafting emails :)
+> 
+> No stress. You don't need to do randconfig builds, or even build all the
+> arch/powerpc/ configs, just try to do a reasonable set, something like - ppc64,
+> powernv, pseries, pmac32, ppc64e.
 
-     #define CMD_TOKEN_MASK      0x1f
+Ok, will do.
 
-    hr_cmd->token_mask =3D CMD_TOKEN_MASK;
+> 
+> I'm happy to catch the esoteric build failures.
+> 
+> > Do you want me to respin the patches?
+> 
+> No that's fine, I'll fix it up here.
 
-    delete these four lines:
-
-	for (hr_cmd->token_mask =3D 1; hr_cmd->token_mask < hr_cmd->max_cmds;
-	     hr_cmd->token_mask <<=3D 1)
-		;
-	--hr_cmd->token_mask;
-
-  =09
-Thanks
-
->>
->> Regards
->> Wei Hu
->>>> Regards
->>>> Wei Hu
->>>>
->>>>
->>>>
->>
+Thanks,
+Naveen
