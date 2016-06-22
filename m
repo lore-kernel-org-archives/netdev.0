@@ -1,55 +1,72 @@
-From: Jakub Sitnicki <jkbs@redhat.com>
-Subject: Re: [PATCH iproute2] Enable use of extra debugging information
-Date: Wed, 22 Jun 2016 10:36:39 +0200
-Message-ID: <87oa6tmxgo.fsf@frog.home>
-References: <1466551629-7921-1-git-send-email-dsa@cumulusnetworks.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net] net: avoid vlan ptype specific match to be leaked on
+ real device
+Date: Wed, 22 Jun 2016 14:40:50 +0200
+Message-ID: <20160622124050.GD2068@nanopsycho.orion>
+References: <3d191a3c51bd564da8b0c3ffe1e9c90fa7bd4d7b.1466590952.git.pabeni@redhat.com>
+ <20160622105544.GC2068@nanopsycho.orion>
+ <1466598089.4707.31.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f176.google.com ([209.85.220.176]:36453 "EHLO
-	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751543AbcFVMhi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 08:37:38 -0400
-Received: by mail-qk0-f176.google.com with SMTP id p10so62077648qke.3
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 05:37:09 -0700 (PDT)
-In-reply-to: <1466551629-7921-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-wm0-f54.google.com ([74.125.82.54]:37753 "EHLO
+	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751434AbcFVMrA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 08:47:00 -0400
+Received: by mail-wm0-f54.google.com with SMTP id a66so4430655wme.0
+        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 05:46:17 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1466598089.4707.31.camel@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi David,
-
-On Wed, Jun 22, 2016 at 01:27 AM CEST, David Ahern <dsa@cumulusnetworks.com> wrote:
-> Add -g flag to builds if DEBUG parameter is set. Improves
-> debugging with gdb.
+Wed, Jun 22, 2016 at 02:21:29PM CEST, pabeni@redhat.com wrote:
+>On Wed, 2016-06-22 at 12:55 +0200, Jiri Pirko wrote:
+>> Wed, Jun 22, 2016 at 12:25:15PM CEST, pabeni@redhat.com wrote:
+>> >Before the commit 0dfe17823945 ("net: vlan: goto another_round
+>> >instead of calling __netif_receive_skb"), on tagged skb ingress,
+>> >ptype specific protocol matches were delivered only to the
+>> >related vlan device, if any.
+>> >After said commit, jumping back to the 'another_round' label, allows
+>> >the later ptype specific check to match both orig_dev and skb->dev,
+>> >delivering the skb to both the vlan device and the underlying
+>> >device.
+>> >This cause i.e. packet sockets bound to a specific protocol type on
+>> >one of said devices to receive also frames really targeting the
+>> >other device.
+>> >This commit resets orig_dev before performing another round due to
+>> >vlan processing, allowing the skb to be delivered once again only
+>> >to the vlan specific ptypes.
+>> 
+>> I don't get why vlan should behave differently in this comparing to
+>> other stacked devices like bond/team/br etc.
+>> 
+>> Could you please explain?
 >
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
-> ---
->  Makefile | 4 ++++
->  1 file changed, 4 insertions(+)
+>vlan behavior has changed with the commit 0dfe17823945 (which is old,
+>but still...), this patch is trying to restore the old one.
 >
-> diff --git a/Makefile b/Makefile
-> index 15c81ecfdca3..8e006759079d 100644
-> --- a/Makefile
-> +++ b/Makefile
-> @@ -39,7 +39,11 @@ HOSTCC = gcc
->  DEFINES += -D_GNU_SOURCE
->  # Turn on transparent support for LFS
->  DEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
-> +ifdef DEBUG
-> +CCOPTS = -g
-> +else
->  CCOPTS = -O2
-> +endif
->  WFLAGS := -Wall -Wstrict-prototypes  -Wmissing-prototypes
->  WFLAGS += -Wmissing-declarations -Wold-style-definition -Wformat=2
+>The new behavior fouls existing applications which where expecting ptype
+>specific match to be delivered only on the relevant device. 
 
-This implies a change of optimization level to -O0 when building with
-DEBUG set, doesn't it? Was it intentional?
+The patch only unified the behaviour so everyone know what to expect
+regardless of the device type.
 
-Perhaps it would be less surprising to explicitly set -O0, if that was
-your intention. Just a thought.
 
-Thanks,
-Jakub
+>
+>AFAIC jumping back to the 'another_round' is possible for team, bond,
+>macvlan, macsec and ipvlan device, beyond vlan devices. I think the
+>latter should be treated differently, beyond history reasons, because
+>the vlan device processing, stripping the vlan tag, actually changes the
+>ethernet type present into the ethernet header in respect to the wire
+>packet layout; strict match on that value should give different results
+>before and after vlan stripping.
+
+The vlan header stripping happens before all of this, either in HW or
+skb_vlan_untag, so you can never match on that.
