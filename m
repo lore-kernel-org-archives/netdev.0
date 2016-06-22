@@ -1,75 +1,96 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCH] ppc: Fix BPF JIT for ABIv2
-Date: Wed, 22 Jun 2016 15:20:31 +1000
-Message-ID: <1466572831.19785.5.camel@ellerman.id.au>
-References: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
- <3rWKtT2tSrz9t2G@ozlabs.org> <20160617130042.GO3516@indiana.gru.redhat.com>
- <20160619174914.GC8886@naverao1-tp.localdomain>
- <20160620185620.GD3516@indiana.gru.redhat.com>
- <20160621085807.GE8886@naverao1-tp.localdomain>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH net-next v3] tcp: use RFC6298 compliant TCP RTO calculation
+Date: Tue, 21 Jun 2016 22:53:38 -0700
+Message-ID: <CAK6E8=cyrog=2UmVpwP3jzCtFAR9LxxtS+g01R42H9jk=_cZ2A@mail.gmail.com>
+References: <CAK6E8=eeso8OEN_0-znqkuEyVTqzP1mTvwktk4QOsrLJXmuj9Q@mail.gmail.com>
+ <20160615180003.28970-1-dmetz@mytum.de> <20160617.113235.1099766688971255047.davem@davemloft.net>
+ <CAK6E8=eQNkSyAujuqF9hiE1iFk03O4T6op_-g=y87+UQUrS4=Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Matt Evans <matt@ozlabs.org>, Daniel Borkmann <daniel@iogearbox.net>,
- Alexei Starovoitov <ast@fb.com>, netdev@vger.kernel.org,
- Denis Kirjanov <kda@linux-powerpc.org>, linux-kernel@vger.kernel.org,
- Paul Mackerras <paulus@samba.org>, linuxppc-dev@lists.ozlabs.org, "David S.
- Miller" <davem@davemloft.net>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-To: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>, Thadeu Lima de
- Souza Cascardo <cascardo@redhat.com>
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <20160621085807.GE8886@naverao1-tp.localdomain>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Daniel Metz <dmetz@mytum.de>, netdev <netdev@vger.kernel.org>,
+	Daniel Metz <Daniel.Metz@rohde-schwarz.com>,
+	Hagen Paul Pfeifer <hagen@jauu.net>,
+	Eric Dumazet <edumazet@google.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f176.google.com ([209.85.223.176]:35764 "EHLO
+	mail-io0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751298AbcFVFzU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 01:55:20 -0400
+Received: by mail-io0-f176.google.com with SMTP id f30so35409069ioj.2
+        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 22:54:18 -0700 (PDT)
+In-Reply-To: <CAK6E8=eQNkSyAujuqF9hiE1iFk03O4T6op_-g=y87+UQUrS4=Q@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gVHVlLCAyMDE2LTA2LTIxIGF0IDE0OjI4ICswNTMwLCBOYXZlZW4gTi4gUmFvIHdyb3RlOgo+
-IE9uIDIwMTYvMDYvMjAgMDM6NTZQTSwgVGhhZGV1IExpbWEgZGUgU291emEgQ2FzY2FyZG8gd3Jv
-dGU6Cj4gPiBPbiBTdW4sIEp1biAxOSwgMjAxNiBhdCAxMToxOToxNFBNICswNTMwLCBOYXZlZW4g
-Ti4gUmFvIHdyb3RlOgo+ID4gPiBPbiAyMDE2LzA2LzE3IDEwOjAwQU0sIFRoYWRldSBMaW1hIGRl
-IFNvdXphIENhc2NhcmRvIHdyb3RlOgo+ID4gPiA+IAo+ID4gPiA+IEhpLCBNaWNoYWVsIGFuZCBO
-YXZlZW4uCj4gPiA+ID4gCj4gPiA+ID4gSSBub3RpY2VkIGluZGVwZW5kZW50bHkgdGhhdCB0aGVy
-ZSBpcyBhIHByb2JsZW0gd2l0aCBCUEYgSklUIGFuZCBBQkl2MiwgYW5kCj4gPiA+ID4gd29ya2Vk
-IG91dCB0aGUgcGF0Y2ggYmVsb3cgYmVmb3JlIEkgbm90aWNlZCBOYXZlZW4ncyBwYXRjaHNldCBh
-bmQgdGhlIGxhdGVzdAo+ID4gPiA+IGNoYW5nZXMgaW4gcHBjIHRyZWUgZm9yIGEgYmV0dGVyIHdh
-eSB0byBjaGVjayBmb3IgQUJJIHZlcnNpb25zLgo+ID4gPiA+IAo+ID4gPiA+IEhvd2V2ZXIsIHNp
-bmNlIHRoZSBpc3N1ZSBkZXNjcmliZWQgYmVsb3cgYWZmZWN0IG1haW5saW5lIGFuZCBzdGFibGUg
-a2VybmVscywKPiA+ID4gPiB3b3VsZCB5b3UgY29uc2lkZXIgYXBwbHlpbmcgaXQgYmVmb3JlIG1l
-cmdpbmcgeW91ciB0d28gcGF0Y2hzZXRzLCBzbyB0aGF0IHdlIGNhbgo+ID4gPiA+IG1vcmUgZWFz
-aWx5IGJhY2twb3J0IHRoZSBmaXg/Cj4gPiA+IAo+ID4gPiBIaSBDYXNjYXJkbywKPiA+ID4gR2l2
-ZW4gdGhhdCB0aGlzIGhhcyBiZWVuIGJyb2tlbiBvbiBBQkl2MiBzaW5jZSBmb3JldmVyLCBJIGRp
-ZG4ndCBib3RoZXIgCj4gPiA+IGZpeGluZyBpdC4gQnV0LCBJIGNhbiBzZWUgd2h5IHRoaXMgd291
-bGQgYmUgYSBnb29kIHRoaW5nIHRvIGhhdmUgZm9yIAo+ID4gPiAtc3RhYmxlIGFuZCBleGlzdGlu
-ZyBkaXN0cm9zLiBIb3dldmVyLCB3aGlsZSB5b3VyIHBhdGNoIGJlbG93IG1heSBmaXggCj4gPiA+
-IHRoZSBjcmFzaCB5b3UncmUgc2VlaW5nIG9uIHBwYzY0bGUsIGl0IGlzIG5vdCBzdWZmaWNpZW50
-IC0tIHlvdSdsbCBuZWVkIAo+ID4gPiBjaGFuZ2VzIGluIGJwZl9qaXRfYXNtLlMgYXMgd2VsbC4K
-PiA+IAo+ID4gSGksIE5hdmVlbi4KPiA+IAo+ID4gQW55IHRpcHMgb24gaG93IHRvIGV4ZXJjaXNl
-IHBvc3NpYmxlIGlzc3VlcyB0aGVyZT8gT3Igd2hhdCBjaGFuZ2VzIHlvdSB0aGluawo+ID4gd291
-bGQgYmUgc3VmZmljaWVudD8KPiAKPiBUaGUgY2FsbGluZyBjb252ZW50aW9uIGlzIGRpZmZlcmVu
-dCB3aXRoIEFCSXYyIGFuZCBzbyB3ZSdsbCBuZWVkIGNoYW5nZXMgCj4gaW4gYnBmX3Nsb3dfcGF0
-aF9jb21tb24oKSBhbmQgc2tfbmVnYXRpdmVfY29tbW9uKCkuCj4gCj4gSG93ZXZlciwgcmF0aGVy
-IHRoYW4gZW5hYmxpbmcgY2xhc3NpYyBKSVQgZm9yIHBwYzY0bGUsIGFyZSB3ZSBiZXR0ZXIgb2Zm
-IAo+IGp1c3QgZGlzYWJsaW5nIGl0Pwo+IAo+IC0tLSBhL2FyY2gvcG93ZXJwYy9LY29uZmlnCj4g
-KysrIGIvYXJjaC9wb3dlcnBjL0tjb25maWcKPiBAQCAtMTI4LDcgKzEyOCw3IEBAIGNvbmZpZyBQ
-UEMKPiAgICAgICAgIHNlbGVjdCBJUlFfRk9SQ0VEX1RIUkVBRElORwo+ICAgICAgICAgc2VsZWN0
-IEhBVkVfUkNVX1RBQkxFX0ZSRUUgaWYgU01QCj4gICAgICAgICBzZWxlY3QgSEFWRV9TWVNDQUxM
-X1RSQUNFUE9JTlRTCj4gLSAgICAgICBzZWxlY3QgSEFWRV9DQlBGX0pJVAo+ICsgICAgICAgc2Vs
-ZWN0IEhBVkVfQ0JQRl9KSVQgaWYgQ1BVX0JJR19FTkRJQU4KPiAgICAgICAgIHNlbGVjdCBIQVZF
-X0FSQ0hfSlVNUF9MQUJFTAo+ICAgICAgICAgc2VsZWN0IEFSQ0hfSEFWRV9OTUlfU0FGRV9DTVBY
-Q0hHCj4gICAgICAgICBzZWxlY3QgQVJDSF9IQVNfR0NPVl9QUk9GSUxFX0FMTAo+IAo+IAo+IE1p
-Y2hhZWwsCj4gTGV0IG1lIGtub3cgeW91ciB0aG91Z2h0cyBvbiB3aGV0aGVyIHlvdSBpbnRlbmQg
-dG8gdGFrZSB0aGlzIHBhdGNoIG9yIAo+IENhc2NhcmRvJ3MgcGF0Y2ggZm9yIC1zdGFibGUgYmVm
-b3JlIHRoZSBlQlBGIHBhdGNoZXMuIEkgY2FuIHJlZG8gbXkgCj4gcGF0Y2hlcyBhY2NvcmRpbmds
-eS4KCkNhbiBvbmUgb2YgeW91IHNlbmQgbWUgYSBwcm9wZXIgdmVyc2lvbiBvZiB0aGlzIHBhdGNo
-LCB3aXRoIGNoYW5nZSBsb2cgYW5kCnNpZ24tb2ZmIGV0Yy4KCmNoZWVycwoKX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KTGludXhwcGMtZGV2IG1haWxpbmcg
-bGlzdApMaW51eHBwYy1kZXZAbGlzdHMub3psYWJzLm9yZwpodHRwczovL2xpc3RzLm96bGFicy5v
-cmcvbGlzdGluZm8vbGludXhwcGMtZGV2
+On Fri, Jun 17, 2016 at 11:56 AM, Yuchung Cheng <ycheng@google.com> wrote:
+>
+> On Fri, Jun 17, 2016 at 11:32 AM, David Miller <davem@davemloft.net> wrote:
+> >
+> > From: Daniel Metz <dmetz@mytum.de>
+> > Date: Wed, 15 Jun 2016 20:00:03 +0200
+> >
+> > > This patch adjusts Linux RTO calculation to be RFC6298 Standard
+> > > compliant. MinRTO is no longer added to the computed RTO, RTO damping
+> > > and overestimation are decreased.
+> >  ...
+> >
+> > Yuchung, I assume I am waiting for you to do the testing you said
+> > you would do for this patch, right?
+> Yes I spent the last two days resolving some unrelated glitches to
+> start my testing on Web servers. I should be able to get some results
+> over the weekend.
+>
+> I will test
+> 0) current Linux
+> 1) this patch
+> 2) RFC6298 with min_RTO=1sec
+> 3) RFC6298 with minimum RTTVAR of 200ms (so it is more like current
+> Linux style of min RTO which only applies to RTTVAR)
+>
+> and collect the TCP latency (how long to send an HTTP response) and
+> (spurious) timeout & retransmission stats.
+>
+Thanks for the patience. I've collected data from some Google Web
+servers. They serve both a mix of US and SouthAm users using
+HTTP1 and HTTP2. The traffic is Web browsing (e.g., search, maps,
+gmails, etc but not Youtube videos). The mean RTT is about 100ms.
+
+The user connections were split into 4 groups of different TCP RTO
+configs. Each group has many millions of connections but the
+size variation among groups is well under 1%.
+
+B: baseline Linux
+D: this patch
+R: change RTTYAR averaging as in D, but bound RTO to 1sec per RFC6298
+Y: change RTTVAR averaging as in D, but bound RTTVAR to 200ms instead (like B)
+
+For mean TCP latency of HTTP responses (first byte sent to last byte
+acked), B < R < Y < D. But the differences are so insignificant (<1%).
+The median, 95pctl, and 99pctl has similar indifference. In summary
+there's hardly visible impact on latency. I also look at only response
+less than 4KB but do not see a different picture.
+
+The main difference is the retransmission rate where R =~ Y < B =~D.
+R and Y are ~20% lower than B and D. Parsing the SNMP stats reveal
+more interesting details. The table shows the deltas in percentage to
+the baseline B.
+
+                D      R     Y
+------------------------------
+Timeout      +12%   -16%  -16%
+TailLossProb +28%    -7%   -7%
+DSACK_rcvd   +37%    -7%   -7%
+Cwnd-undo    +16%   -29%  -29%
+
+RTO change affects TLP because TLP will use the min of RTO and TLP
+timer value to arm the probe timer.
+
+The stats indicate that the main culprit of spurious timeouts / rtx is
+the RTO lower-bound. But they also show the RFC RTTVAR averaging is as
+good as current Linux approach.
+
+Given that I would recommend we revise this patch to use the RFC
+averaging but keep existing lower-bound (of RTTVAR to 200ms). We can
+further experiment the lower-bound and change that in a separate
+patch.
