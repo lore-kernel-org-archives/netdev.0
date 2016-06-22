@@ -1,51 +1,38 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2] Enable use of extra debugging information
-Date: Wed, 22 Jun 2016 10:55:34 -0600
-Message-ID: <f7d1368f-c71e-d2fe-bf79-caa631f4ecc9@cumulusnetworks.com>
-References: <1466551629-7921-1-git-send-email-dsa@cumulusnetworks.com>
- <87oa6tmxgo.fsf@frog.home>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH RFC] sched: split classification and enqueue
+Date: Wed, 22 Jun 2016 10:05:09 -0700
+Message-ID: <CAM_iQpXGX=jPO7q=W32o3X2_4ce5PbY2PuTMhkmhtGP6PXuH4Q@mail.gmail.com>
+References: <1466589835-18521-1-git-send-email-fw@strlen.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, stephen@networkplumber.org
-To: Jakub Sitnicki <jkbs@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f51.google.com ([209.85.214.51]:35566 "EHLO
-	mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751080AbcFVQzi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 12:55:38 -0400
-Received: by mail-it0-f51.google.com with SMTP id g127so49101004ith.0
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 09:55:37 -0700 (PDT)
-In-Reply-To: <87oa6tmxgo.fsf@frog.home>
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:34262 "EHLO
+	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753089AbcFVRFf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 13:05:35 -0400
+Received: by mail-yw0-f195.google.com with SMTP id l125so7043765ywb.1
+        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 10:05:35 -0700 (PDT)
+In-Reply-To: <1466589835-18521-1-git-send-email-fw@strlen.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/22/16 2:36 AM, Jakub Sitnicki wrote:
->> diff --git a/Makefile b/Makefile
->> index 15c81ecfdca3..8e006759079d 100644
->> --- a/Makefile
->> +++ b/Makefile
->> @@ -39,7 +39,11 @@ HOSTCC = gcc
->>  DEFINES += -D_GNU_SOURCE
->>  # Turn on transparent support for LFS
->>  DEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
->> +ifdef DEBUG
->> +CCOPTS = -g
->> +else
->>  CCOPTS = -O2
->> +endif
->>  WFLAGS := -Wall -Wstrict-prototypes  -Wmissing-prototypes
->>  WFLAGS += -Wmissing-declarations -Wold-style-definition -Wformat=2
+On Wed, Jun 22, 2016 at 3:03 AM, Florian Westphal <fw@strlen.de> wrote:
 >
-> This implies a change of optimization level to -O0 when building with
-> DEBUG set, doesn't it? Was it intentional?
-
-yes it is intentional.
+> This (unfinished!) hack splits classification and enqueue into
+> two steps.
+>
+> Before enqueueing the packet and *before* acquiring the root qdisc lock,
+> the new qdisc ->classify() function is invoked.
+>
+> This function -- much like enqueue in the current scheme -- looks up
+> a child class and/or determines the next qdisc where the packet needs
+> to be handled via the classifier action subsystem.
+> Then it invokes the new ->classify() hook of the child, which can repeat
+> until the leaf qdisc is reached.
 
 
-> Perhaps it would be less surprising to explicitly set -O0, if that was
-> your intention. Just a thought.
->
-> Thanks,
-> Jakub
->
+Then how is the atomicity guaranteed? One of the important
+purposes of the qdisc lock is to guarantee the atomicity of any
+change of in the whole hierarchy, i.e., qdisc/class/filter/action.
