@@ -1,71 +1,62 @@
-From: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Subject: Re: [PATCH] mellanox: mlx5: Use logging functions to reduce text
- ~10k/5%
-Date: Wed, 22 Jun 2016 15:20:43 -0700
-Message-ID: <1466634043.13093.15.camel@perches.com>
-References: <1466619839.13093.4.camel@perches.com>
-	 <20160622204056.GB20838@obsidianresearch.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: Regarding VRF support in Linux Kernel
+Date: Wed, 22 Jun 2016 16:12:57 -0600
+Message-ID: <9f564111-ae64-fc3b-2854-63ba87b0f4df@cumulusnetworks.com>
+References: <CADAe=++ATxxEeKiUC6MUSCmXiauvB=6ZFCuuwd2h6ZOQU99p5w@mail.gmail.com>
+ <576B0B2B.1070509@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160622204056.GB20838-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Randy Dunlap <rdunlap@infradead.org>,
+	Ajith Adapa <adapa.ajith@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:36225 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751547AbcFVWVG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 18:21:06 -0400
+Received: by mail-pa0-f44.google.com with SMTP id wo6so20626436pac.3
+        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 15:21:05 -0700 (PDT)
+In-Reply-To: <576B0B2B.1070509@infradead.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-06-22 at 14:40 -0600, Jason Gunthorpe wrote:
-> On Wed, Jun 22, 2016 at 11:23:59AM -0700, Joe Perches wrote:
-> > The output changes now do not include line #, but do include the
-> > function offset.
-> I've been using a technique like this in some code with good results:
->=20
-> struct source_location
-> {
-> =A0=A0=A0const char *file;
-> =A0=A0=A0const char *func;
-> =A0=A0=A0const char *format;
-> =A0=A0=A0uint16_t line;
-> };
-> #define _LOCATION(format) ({static const source_location __location__
-> =3D {\
-> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0__FILE__,__PRETTY_FUNCTION__,f=
-ormat,__LINE__};\
-> 	=A0=A0=A0=A0=A0&__location__;})
->=20
-> void _mlx5_core_err(const struct source_location *loc,struct
-> mlx5_core_dev *dev, ...);
-> #define mlx5_core_err(dev,format,...)
-> _mlx_core_err(_LOCATION(format),dev,__VA_ARGS__)
->=20
-> The call site .text overhead is the about same as what you have, but
-> this still retains the function and line number information in
-> .rodata.
+On 6/22/16 4:03 PM, Randy Dunlap wrote:
+> On 06/22/16 14:05, Ajith Adapa wrote:
+>> Hi,
+>>
+>> I am following the steps present in
+>> (https://www.kernel.org/doc/Documentation/networking/vrf.txt) and
+>> trying to create IPv4 VRF in latest Fedora 24 distribution with 4.5
+>> Linux kernel.
+>>
+>> [root@localhost ip]# uname -a
+>> Linux localhost.localdomain 4.5.5-300.fc24.x86_64 #1 SMP Thu May 19
+>> 13:05:32 UTC 2016 x86_64 x86_64 x86_64 GNU/Linux
+>>
+>> I am getting operation not supported error as shown below
+>>
+>> # ip link add vrf-blue type vrf table 10
+>> RTNETLINK answers: Operation not supported
 
-Hello Jason.
+VRF is not enabled in Fedora 24
 
-As far as I know, no kernel code currently uses a _LOCATION
-like macro.
+David
 
-I think your proposal is nearly identical code size to the
-existing call. =A0Also, compiler format/argument checking is
-eliminated and I think that is a significant negative.
-
-Using the kernel vsprintf %pS or %ps extension is pretty common.
-
-Using printk("%pS", __builtin_return_address(0)); in the called
-function is no overhead at all and returns almost exactly
-the same information.
-
-Using more expressive messages is generally better than using
-printk("%d", __LINE__);
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>>
+>> Is there any CONFIG option to enable VRF in Linux kernel ?
+>
+> Yes, in drivers/net/Kconfig:
+>
+> config NET_VRF
+> 	tristate "Virtual Routing and Forwarding (Lite)"
+> 	depends on IP_MULTIPLE_TABLES
+> 	depends on NET_L3_MASTER_DEV
+> 	depends on IPV6 || IPV6=n
+> 	depends on IPV6_MULTIPLE_TABLES || IPV6=n
+> 	---help---
+> 	  This option enables the support for mapping interfaces into VRF's. The
+> 	  support enables VRF devices.
+>
+>
+>
+>
