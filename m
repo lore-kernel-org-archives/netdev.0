@@ -1,20 +1,17 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
 Subject: Re: [PATCH net-next 0/5] qed/qede: Tunnel hardware GRO support
-Date: Wed, 22 Jun 2016 16:31:32 -0700
-Message-ID: <1466638292.6850.94.camel@edumazet-glaptop3.roam.corp.google.com>
+Date: Wed, 22 Jun 2016 16:42:55 -0700
+Message-ID: <1466638975.6850.102.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
 	 <CAKgT0Ue6_cPb88wfTtMMetJzBSJnGDNWj8YVHWC=9WdztCxOuQ@mail.gmail.com>
 	 <CO2PR11MB008891D4ECFF86F32B1C32CC972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
 	 <CAKgT0UdDt6H8ix6U7n_uPjodkXYuxviZjSKWQRaXu2_qWWEL+A@mail.gmail.com>
 	 <CO2PR11MB0088C4DEAFEE71B0D865DB33972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
-	 <576B08A2.8080603@hpe.com>
-	 <1466635664.6850.90.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAKgT0UdbPVqpSVLs0JW7zFU7mNtJn5BM+fMjsr1tLm4kHRcW9A@mail.gmail.com>
+	 <CAKgT0UeBZYP-Ax-iv-++9ODmf_F3Z3x1A_AGHgcuhEK21HsqPg@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Rick Jones <rick.jones2@hpe.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>,
+Cc: Yuval Mintz <Yuval.Mintz@qlogic.com>,
 	Manish Chopra <manish.chopra@qlogic.com>,
 	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
@@ -23,34 +20,47 @@ Cc: Rick Jones <rick.jones2@hpe.com>,
 	Hannes Frederic Sowa <hannes@redhat.com>
 To: Alexander Duyck <alexander.duyck@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f50.google.com ([209.85.220.50]:36796 "EHLO
-	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750777AbcFVXbe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 19:31:34 -0400
-Received: by mail-pa0-f50.google.com with SMTP id wo6so21093019pac.3
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 16:31:34 -0700 (PDT)
-In-Reply-To: <CAKgT0UdbPVqpSVLs0JW7zFU7mNtJn5BM+fMjsr1tLm4kHRcW9A@mail.gmail.com>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:35258 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750862AbcFVXm5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 19:42:57 -0400
+Received: by mail-pf0-f181.google.com with SMTP id c2so22184511pfa.2
+        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 16:42:57 -0700 (PDT)
+In-Reply-To: <CAKgT0UeBZYP-Ax-iv-++9ODmf_F3Z3x1A_AGHgcuhEK21HsqPg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-06-22 at 15:56 -0700, Alexander Duyck wrote:
+On Wed, 2016-06-22 at 14:32 -0700, Alexander Duyck wrote:
+	
+> The idea behind GRO was to make it so that we had a generic way to
+> handle this in software.  For the most part drivers doing LRO in
+> software were doing the same thing that the GRO was doing.  The only
+> reason it was deprecated is because GRO was capable of doing more than
+> LRO could since we add one parser and suddenly all devices saw the
+> benefit instead of just one specific device.  It is best to keep those
+> two distinct solutions and then let the user sort out if they want to
+> have the aggregation done by the device or the kernel.
 
-> It could be that you and Rick are running different firmware. I
-> believe you can expose that via "ethtool -i".  This is the ugly bit
-> about all this.  We are offloading GRO into the firmware of these
-> devices with no idea how any of it works and by linking GRO to LRO on
-> the same device you are stuck having to accept either the firmware
-> offload or nothing at all.  That is kind of the point Rick was trying
-> to get at.
+Presumably we could add features flags to selectively enable part of LRO
+(really simply GRO offloading) for NIC that partially match GRO
+requirements.
 
+Patch 5/5 seems to enable the hardware feature(s) :
 
-Well, we offload TSO to the NIC. Or checksums as much as we can.
++               p_ramrod->tpa_param.tpa_ipv4_tunn_en_flg = 1;
++               p_ramrod->tpa_param.tpa_ipv6_tunn_en_flg = 1;
 
-At one point we have to trust the NIC we plug in our hosts, right ?
+So this NIC seems to have a way to control its LRO engine.
 
-Why RX is so different than TX exactly ?
+If some horrible bug happens for GRE+IPv6+TCP, you could disable LRO
+coping with GRE encapsulation, instead of disabling whole LRO
 
-Yes, LRO is hard to implement properly compared to TSO,
-but not something that is _fundamentally_ broken.
+We have software fallback. Nice, with quite heavy cpu cost.
 
-Claiming that hardware assist GRO is not possible is a plain mantra.
+If we can use offload without breaking rules, use it.
+
+Some NIC have terrible LRO performance (I wont give details here),
+but others are ok.
+
+Some NIC have terrible TSO performance for small number of segments.
+(gso_segs < 4)
