@@ -1,74 +1,43 @@
-From: Jason Baron <jbaron@akamai.com>
-Subject: Re: [PATCH v2 net-next 2/2] tcp: reduce cpu usage when SO_SNDBUF is
- set
-Date: Wed, 22 Jun 2016 15:20:23 -0400
-Message-ID: <576AE4F7.4060204@akamai.com>
-References: <cover.1466608332.git.jbaron@akamai.com>
- <c873de17bfcf341eafda5ee7762c3f2c26579ff1.1466608332.git.jbaron@akamai.com>
- <1466616854.6850.69.camel@edumazet-glaptop3.roam.corp.google.com>
- <576AD666.7050809@akamai.com>
- <1466621021.6850.71.camel@edumazet-glaptop3.roam.corp.google.com>
- <1466621479.6850.75.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
+Date: Wed, 22 Jun 2016 15:23:07 -0400 (EDT)
+Message-ID: <20160622.152307.631430680793264716.davem@davemloft.net>
+References: <CALx6S37+o2=Lqzxu_U4QiSvqnq8CjEq5uSpbKVfFfo8r5qD+6g@mail.gmail.com>
+	<20160621.042918.1782717212289281861.davem@davemloft.net>
+	<CAPshTCgCVs5i1QyLeNPzw2W3X5+r_=5Hw1HOnD+cBsBQBRN35g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jason Baron <jbaron@akamai.com>
+Cc: tom@herbertland.com, netdev@vger.kernel.org, kernel-team@fb.com
+To: hkchu@google.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay05.akamai.com ([23.79.238.179]:40382 "EHLO
-	prod-mail-xrelay05.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751726AbcFVTUt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 15:20:49 -0400
-In-Reply-To: <1466621479.6850.75.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51398 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752930AbcFVTXN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 15:23:13 -0400
+In-Reply-To: <CAPshTCgCVs5i1QyLeNPzw2W3X5+r_=5Hw1HOnD+cBsBQBRN35g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+From: Jerry Chu <hkchu@google.com>
+Date: Tue, 21 Jun 2016 20:42:19 -0700
 
+> I don't believe TOU will lead to a proliferation of TCP
+> implementations in the userland - getting a solid TCP implementation
+> is hard.
 
-On 06/22/2016 02:51 PM, Eric Dumazet wrote:
-> On Wed, 2016-06-22 at 11:43 -0700, Eric Dumazet wrote:
->> On Wed, 2016-06-22 at 14:18 -0400, Jason Baron wrote:
->>> For 1/2, the getting the correct memory barrier, should I re-submit
->>> that as a separate patch?
->> Are you sure a full memory barrier (smp_mb() is needed ?
->>
->> Maybe smp_wmb() would be enough ?
->>
->> (And smp_rmb() in tcp_poll() ?)
-> Well, in tcp_poll() smp_mb__after_atomic() is fine as it follows
-> set_bit(SOCK_NOSPACE, &sk->sk_socket->flags);
->
-> (although we might add a comment why we should keep
-> sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk) before the set_bit() !)
->
-> But presumably smp_wmb() would be enough in tcp_check_space()
->
->
->
->
+The fear isn't doing legitimate things.
 
-hmm, I think we need the smp_mb() there. From
-tcp_poll() we have:
+It's making TCP stacks that do evil stuff on purpose.
 
-1) set_bit(SOCK_NOSPACE, ...)  (write)
-2) smp_mb__after_atomic();
-3) if (sk_stream_is_writeable(sk)) (read)
+Also, making proprietary TCP stacks that override the kernel one.
 
-while in tcp_check_space() its:
+And finally, here's the best part, all of the above can be done as a
+new, huge, potential attack vector for hackers.
 
-1) the state that sk_stream_is_writeable() cares about (write)
-2) smp_mb();
-3) if (sk->sk_socket && test_bit(SOCK_NOSPACE,...) (read)
+All they need is to get this evil TCP stack working once, then it's
+in every root kit out there.  If you can take over the TCP stack of
+a several hundred thousand machine strong botnet, imagine what you
+could do.
 
-So if we can show that there are sufficient barriers
-for #1 (directly above), maybe it can be down-graded or
-eliminated. But it would still seem somewhat fragile.
-
-Note I didn't observe any missing wakeups here, but I
-just wanted to make sure we didn't miss any, since they
-can be quite hard to debug.
-
-Thanks,
-
--Jason
+And the TOU facility... facilitates this.
