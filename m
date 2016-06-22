@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 08/14] rxrpc: Use IDR to allocate client conn IDs
- on a machine-wide basis
-Date: Wed, 22 Jun 2016 10:50:39 +0100
-Message-ID: <146658903989.4550.2323352852577247752.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 06/14] rxrpc: Pass sk_buff * rather than
+ rxrpc_host_header * to functions
+Date: Wed, 22 Jun 2016 10:50:25 +0100
+Message-ID: <146658902576.4550.14786494164737343480.stgit@warthog.procyon.org.uk>
 References: <146658898230.4550.7226255613607733759.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,570 +15,258 @@ In-Reply-To: <146658898230.4550.7226255613607733759.stgit@warthog.procyon.org.uk
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Use the IDR facility to allocate client connection IDs on a machine-wide
-basis so that each client connection has a unique identifier.  When the
-connection ID space wraps, we advance the epoch by 1, thereby effectively
-having a 62-bit ID space.  The IDR facility is then used to look up client
-connections during incoming packet routing instead of using an rbtree
-rooted on the transport.
-
-This change allows for the removal of the transport in the future and also
-means that client connections can be looked up directly in the data-ready
-handler by connection ID.
-
-The ID management code is placed in a new file, conn-client.c, to which all
-the client connection-specific code will eventually move.
-
-Note that the IDR tree gets very expensive on memory if the connection IDs
-are widely scattered throughout the number space, so we shall need to
-retire connections that have, say, an ID more than four times the maximum
-number of client conns away from the current allocation point to try and
-keep the IDs concentrated.  We will also need to retire connections from an
-old epoch.
-
-Also note that, for the moment, a pointer to the transport has to be passed
-through into the ID allocation function so that we can take a BH lock to
-prevent a locking issue against in-BH lookup of client connections.  This
-will go away later when RCU is used for server connections also.
+Pass a pointer to struct sk_buff rather than struct rxrpc_host_header to
+functions so that they can in the future get at transport protocol parameters
+rather than just RxRPC parameters.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/Makefile      |    1 
- net/rxrpc/af_rxrpc.c    |    2 
- net/rxrpc/ar-internal.h |   13 ++-
- net/rxrpc/conn_client.c |   99 ++++++++++++++++++++
- net/rxrpc/conn_object.c |  231 +++++++++++++++++------------------------------
- net/rxrpc/transport.c   |    2 
- 6 files changed, 196 insertions(+), 152 deletions(-)
- create mode 100644 net/rxrpc/conn_client.c
+ net/rxrpc/ar-internal.h |    6 +++---
+ net/rxrpc/call_accept.c |    4 ++--
+ net/rxrpc/call_object.c |   21 +++++++++++---------
+ net/rxrpc/conn_object.c |   49 ++++++++++++++++++++++++-----------------------
+ net/rxrpc/input.c       |    7 +++----
+ 5 files changed, 44 insertions(+), 43 deletions(-)
 
-diff --git a/net/rxrpc/Makefile b/net/rxrpc/Makefile
-index b005027f80cf..cfa221536f33 100644
---- a/net/rxrpc/Makefile
-+++ b/net/rxrpc/Makefile
-@@ -7,6 +7,7 @@ af-rxrpc-y := \
- 	call_accept.o \
- 	call_event.o \
- 	call_object.o \
-+	conn_client.o \
- 	conn_event.o \
- 	conn_object.o \
- 	input.o \
-diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
-index 73f5c553eef4..408bd024125b 100644
---- a/net/rxrpc/af_rxrpc.c
-+++ b/net/rxrpc/af_rxrpc.c
-@@ -858,6 +858,8 @@ static void __exit af_rxrpc_exit(void)
- 	_debug("synchronise RCU");
- 	rcu_barrier();
- 	_debug("destroy locals");
-+	ASSERT(idr_is_empty(&rxrpc_client_conn_ids));
-+	idr_destroy(&rxrpc_client_conn_ids);
- 	rxrpc_destroy_all_locals();
- 
- 	remove_proc_entry("rxrpc_conns", init_net.proc_net);
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 60ba22f56957..89966508b26c 100644
+index 4ca99445e0b7..60ba22f56957 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -233,7 +233,6 @@ struct rxrpc_transport {
- 	struct rxrpc_local	*local;		/* local transport endpoint */
- 	struct rxrpc_peer	*peer;		/* remote transport endpoint */
- 	struct rb_root		bundles;	/* client connection bundles on this transport */
--	struct rb_root		client_conns;	/* client connections on this transport */
- 	struct rb_root		server_conns;	/* server connections on this transport */
- 	struct list_head	link;		/* link in master session list */
- 	unsigned long		put_time;	/* time at which to reap */
-@@ -241,7 +240,6 @@ struct rxrpc_transport {
- 	rwlock_t		conn_lock;	/* lock for active/dead connections */
- 	atomic_t		usage;
- 	int			debug_id;	/* debug ID for printks */
--	unsigned int		conn_idcounter;	/* connection ID counter (client) */
- };
+@@ -544,7 +544,7 @@ struct rxrpc_call *rxrpc_new_client_call(struct rxrpc_sock *,
+ 					 unsigned long, gfp_t);
+ struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *,
+ 				       struct rxrpc_connection *,
+-				       struct rxrpc_host_header *);
++				       struct sk_buff *);
+ void rxrpc_release_call(struct rxrpc_call *);
+ void rxrpc_release_calls_on_socket(struct rxrpc_sock *);
+ void __rxrpc_put_call(struct rxrpc_call *);
+@@ -574,9 +574,9 @@ int rxrpc_connect_call(struct rxrpc_sock *, struct rxrpc_conn_parameters *,
+ void rxrpc_put_connection(struct rxrpc_connection *);
+ void __exit rxrpc_destroy_all_connections(void);
+ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *,
+-					       struct rxrpc_host_header *);
++					       struct sk_buff *);
+ extern struct rxrpc_connection *
+-rxrpc_incoming_connection(struct rxrpc_transport *, struct rxrpc_host_header *);
++rxrpc_incoming_connection(struct rxrpc_transport *, struct sk_buff *);
  
- /*
-@@ -312,6 +310,8 @@ struct rxrpc_connection {
- 	struct key		*server_key;	/* security for this service */
- 	struct crypto_skcipher	*cipher;	/* encryption handle */
- 	struct rxrpc_crypt	csum_iv;	/* packet checksum base */
-+	unsigned long		flags;
-+#define RXRPC_CONN_HAS_IDR	0		/* - Has a client conn ID assigned */
- 	unsigned long		events;
- #define RXRPC_CONN_CHALLENGE	0		/* send challenge packet */
- 	unsigned long		put_time;	/* time at which to reap */
-@@ -551,6 +551,15 @@ void __rxrpc_put_call(struct rxrpc_call *);
- void __exit rxrpc_destroy_all_calls(void);
+ static inline bool rxrpc_conn_is_client(const struct rxrpc_connection *conn)
+ {
+diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
+index 553b67c144e5..5a70dc4e28c6 100644
+--- a/net/rxrpc/call_accept.c
++++ b/net/rxrpc/call_accept.c
+@@ -110,7 +110,7 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
+ 		goto error;
+ 	}
  
- /*
-+ * conn_client.c
-+ */
-+extern struct idr rxrpc_client_conn_ids;
-+
-+int rxrpc_get_client_connection_id(struct rxrpc_connection *,
-+				   struct rxrpc_transport *, gfp_t);
-+void rxrpc_put_client_connection_id(struct rxrpc_connection *);
-+
-+/*
-  * conn_event.c
+-	conn = rxrpc_incoming_connection(trans, &sp->hdr);
++	conn = rxrpc_incoming_connection(trans, skb);
+ 	rxrpc_put_transport(trans);
+ 	if (IS_ERR(conn)) {
+ 		_debug("no conn");
+@@ -118,7 +118,7 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
+ 		goto error;
+ 	}
+ 
+-	call = rxrpc_incoming_call(rx, conn, &sp->hdr);
++	call = rxrpc_incoming_call(rx, conn, skb);
+ 	rxrpc_put_connection(conn);
+ 	if (IS_ERR(call)) {
+ 		_debug("no call");
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index 5c2dceaf6a9c..d83f2cbb80a9 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -421,8 +421,9 @@ found_user_ID_now_present:
   */
- void rxrpc_process_connection(struct work_struct *);
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-new file mode 100644
-index 000000000000..2cccb4be289d
---- /dev/null
-+++ b/net/rxrpc/conn_client.c
-@@ -0,0 +1,99 @@
-+/* Client connection-specific management code.
-+ *
-+ * Copyright (C) 2016 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public Licence
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the Licence, or (at your option) any later version.
-+ */
-+
-+#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-+
-+#include <linux/slab.h>
-+#include <linux/idr.h>
-+#include <linux/timer.h>
-+#include "ar-internal.h"
-+
-+/*
-+ * We use machine-unique IDs for our client connections.
-+ */
-+DEFINE_IDR(rxrpc_client_conn_ids);
-+static DEFINE_SPINLOCK(rxrpc_conn_id_lock);
-+
-+/*
-+ * Get a connection ID and epoch for a client connection from the global pool.
-+ * The connection struct pointer is then recorded in the idr radix tree.  The
-+ * epoch is changed if this wraps.
-+ *
-+ * TODO: The IDR tree gets very expensive on memory if the connection IDs are
-+ * widely scattered throughout the number space, so we shall need to retire
-+ * connections that have, say, an ID more than four times the maximum number of
-+ * client conns away from the current allocation point to try and keep the IDs
-+ * concentrated.  We will also need to retire connections from an old epoch.
-+ */
-+int rxrpc_get_client_connection_id(struct rxrpc_connection *conn,
-+				   struct rxrpc_transport *trans,
-+				   gfp_t gfp)
-+{
-+	u32 epoch;
-+	int id;
-+
-+	_enter("");
-+
-+	idr_preload(gfp);
-+	write_lock_bh(&trans->conn_lock);
-+	spin_lock(&rxrpc_conn_id_lock);
-+
-+	epoch = rxrpc_epoch;
-+
-+	/* We could use idr_alloc_cyclic() here, but we really need to know
-+	 * when the thing wraps so that we can advance the epoch.
-+	 */
-+	if (rxrpc_client_conn_ids.cur == 0)
-+		rxrpc_client_conn_ids.cur = 1;
-+	id = idr_alloc(&rxrpc_client_conn_ids, conn,
-+		       rxrpc_client_conn_ids.cur, 0x40000000, GFP_NOWAIT);
-+	if (id < 0) {
-+		if (id != -ENOSPC)
-+			goto error;
-+		id = idr_alloc(&rxrpc_client_conn_ids, conn,
-+			       1, 0x40000000, GFP_NOWAIT);
-+		if (id < 0)
-+			goto error;
-+		epoch++;
-+		rxrpc_epoch = epoch;
-+	}
-+	rxrpc_client_conn_ids.cur = id + 1;
-+
-+	spin_unlock(&rxrpc_conn_id_lock);
-+	write_unlock_bh(&trans->conn_lock);
-+	idr_preload_end();
-+
-+	conn->proto.epoch = epoch;
-+	conn->proto.cid = id << RXRPC_CIDSHIFT;
-+	set_bit(RXRPC_CONN_HAS_IDR, &conn->flags);
-+	_leave(" [CID %x:%x]", epoch, conn->proto.cid);
-+	return 0;
-+
-+error:
-+	spin_unlock(&rxrpc_conn_id_lock);
-+	write_unlock_bh(&trans->conn_lock);
-+	idr_preload_end();
-+	_leave(" = %d", id);
-+	return id;
-+}
-+
-+/*
-+ * Release a connection ID for a client connection from the global pool.
-+ */
-+void rxrpc_put_client_connection_id(struct rxrpc_connection *conn)
-+{
-+	if (test_bit(RXRPC_CONN_HAS_IDR, &conn->flags)) {
-+		spin_lock(&rxrpc_conn_id_lock);
-+		idr_remove(&rxrpc_client_conn_ids,
-+			   conn->proto.cid >> RXRPC_CIDSHIFT);
-+		spin_unlock(&rxrpc_conn_id_lock);
-+	}
-+}
+ struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *rx,
+ 				       struct rxrpc_connection *conn,
+-				       struct rxrpc_host_header *hdr)
++				       struct sk_buff *skb)
+ {
++	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
+ 	struct rxrpc_call *call, *candidate;
+ 	struct rb_node **p, *parent;
+ 	u32 call_id;
+@@ -435,13 +436,13 @@ struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *rx,
+ 	if (!candidate)
+ 		return ERR_PTR(-EBUSY);
+ 
+-	candidate->socket = rx;
+-	candidate->conn = conn;
+-	candidate->cid = hdr->cid;
+-	candidate->call_id = hdr->callNumber;
+-	candidate->channel = hdr->cid & RXRPC_CHANNELMASK;
+-	candidate->rx_data_post = 0;
+-	candidate->state = RXRPC_CALL_SERVER_ACCEPTING;
++	candidate->socket	= rx;
++	candidate->conn		= conn;
++	candidate->cid		= sp->hdr.cid;
++	candidate->call_id	= sp->hdr.callNumber;
++	candidate->channel	= sp->hdr.cid & RXRPC_CHANNELMASK;
++	candidate->rx_data_post	= 0;
++	candidate->state	= RXRPC_CALL_SERVER_ACCEPTING;
+ 	if (conn->security_ix > 0)
+ 		candidate->state = RXRPC_CALL_SERVER_SECURING;
+ 
+@@ -450,7 +451,7 @@ struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *rx,
+ 	/* set the channel for this call */
+ 	call = conn->channels[candidate->channel];
+ 	_debug("channel[%u] is %p", candidate->channel, call);
+-	if (call && call->call_id == hdr->callNumber) {
++	if (call && call->call_id == sp->hdr.callNumber) {
+ 		/* already set; must've been a duplicate packet */
+ 		_debug("extant call [%d]", call->state);
+ 		ASSERTCMP(call->conn, ==, conn);
+@@ -488,7 +489,7 @@ struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *rx,
+ 
+ 	/* check the call number isn't duplicate */
+ 	_debug("check dup");
+-	call_id = hdr->callNumber;
++	call_id = sp->hdr.callNumber;
+ 	p = &conn->calls.rb_node;
+ 	parent = NULL;
+ 	while (*p) {
 diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
-index cab2f6dbc5a1..312b75091d29 100644
+index 6164373d6ce3..3b42fc4f4fe3 100644
 --- a/net/rxrpc/conn_object.c
 +++ b/net/rxrpc/conn_object.c
-@@ -207,81 +207,6 @@ static struct rxrpc_connection *rxrpc_alloc_connection(gfp_t gfp)
- }
- 
- /*
-- * assign a connection ID to a connection and add it to the transport's
-- * connection lookup tree
-- * - called with transport client lock held
-- */
--static void rxrpc_assign_connection_id(struct rxrpc_connection *conn)
--{
--	struct rxrpc_connection *xconn;
--	struct rb_node *parent, **p;
--	__be32 epoch;
--	u32 cid;
--
--	_enter("");
--
--	epoch = conn->proto.epoch;
--
--	write_lock_bh(&conn->trans->conn_lock);
--
--	conn->trans->conn_idcounter += RXRPC_CID_INC;
--	if (conn->trans->conn_idcounter < RXRPC_CID_INC)
--		conn->trans->conn_idcounter = RXRPC_CID_INC;
--	cid = conn->trans->conn_idcounter;
--
--attempt_insertion:
--	parent = NULL;
--	p = &conn->trans->client_conns.rb_node;
--
--	while (*p) {
--		parent = *p;
--		xconn = rb_entry(parent, struct rxrpc_connection, node);
--
--		if (epoch < xconn->proto.epoch)
--			p = &(*p)->rb_left;
--		else if (epoch > xconn->proto.epoch)
--			p = &(*p)->rb_right;
--		else if (cid < xconn->proto.cid)
--			p = &(*p)->rb_left;
--		else if (cid > xconn->proto.cid)
--			p = &(*p)->rb_right;
--		else
--			goto id_exists;
--	}
--
--	/* we've found a suitable hole - arrange for this connection to occupy
--	 * it */
--	rb_link_node(&conn->node, parent, p);
--	rb_insert_color(&conn->node, &conn->trans->client_conns);
--
--	conn->proto.cid = cid;
--	write_unlock_bh(&conn->trans->conn_lock);
--	_leave(" [CID %x]", cid);
--	return;
--
--	/* we found a connection with the proposed ID - walk the tree from that
--	 * point looking for the next unused ID */
--id_exists:
--	for (;;) {
--		cid += RXRPC_CID_INC;
--		if (cid < RXRPC_CID_INC) {
--			cid = RXRPC_CID_INC;
--			conn->trans->conn_idcounter = cid;
--			goto attempt_insertion;
--		}
--
--		parent = rb_next(parent);
--		if (!parent)
--			goto attempt_insertion;
--
--		xconn = rb_entry(parent, struct rxrpc_connection, node);
--		if (epoch < xconn->proto.epoch ||
--		    cid < xconn->proto.cid)
--			goto attempt_insertion;
--	}
--}
--
--/*
-  * add a call to a connection's call-by-ID tree
+@@ -588,10 +588,10 @@ interrupted:
+  * get a record of an incoming connection
   */
- static void rxrpc_add_call_ID_to_conn(struct rxrpc_connection *conn,
-@@ -315,27 +240,24 @@ static void rxrpc_add_call_ID_to_conn(struct rxrpc_connection *conn,
- }
- 
- /*
-- * connect a call on an exclusive connection
-+ * Allocate a client connection.
-  */
--static int rxrpc_connect_exclusive(struct rxrpc_sock *rx,
--				   struct rxrpc_conn_parameters *cp,
--				   struct rxrpc_transport *trans,
--				   struct rxrpc_call *call,
--				   gfp_t gfp)
-+static struct rxrpc_connection *
-+rxrpc_alloc_client_connection(struct rxrpc_conn_parameters *cp,
-+			      struct rxrpc_transport *trans,
-+			      gfp_t gfp)
+ struct rxrpc_connection *
+-rxrpc_incoming_connection(struct rxrpc_transport *trans,
+-			  struct rxrpc_host_header *hdr)
++rxrpc_incoming_connection(struct rxrpc_transport *trans, struct sk_buff *skb)
  {
- 	struct rxrpc_connection *conn;
--	int chan, ret;
-+	int ret;
+ 	struct rxrpc_connection *conn, *candidate = NULL;
++	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
+ 	struct rb_node *p, **pp;
+ 	const char *new = "old";
+ 	__be32 epoch;
+@@ -599,10 +599,10 @@ rxrpc_incoming_connection(struct rxrpc_transport *trans,
  
  	_enter("");
  
- 	conn = rxrpc_alloc_connection(gfp);
- 	if (!conn) {
- 		_leave(" = -ENOMEM");
--		return -ENOMEM;
-+		return ERR_PTR(-ENOMEM);
+-	ASSERT(hdr->flags & RXRPC_CLIENT_INITIATED);
++	ASSERT(sp->hdr.flags & RXRPC_CLIENT_INITIATED);
+ 
+-	epoch = hdr->epoch;
+-	cid = hdr->cid & RXRPC_CIDMASK;
++	epoch = sp->hdr.epoch;
++	cid = sp->hdr.cid & RXRPC_CIDMASK;
+ 
+ 	/* search the connection list first */
+ 	read_lock_bh(&trans->conn_lock);
+@@ -634,19 +634,19 @@ rxrpc_incoming_connection(struct rxrpc_transport *trans,
+ 		return ERR_PTR(-ENOMEM);
  	}
  
--	conn->trans		= trans;
--	conn->bundle		= NULL;
- 	conn->params		= *cp;
- 	conn->proto.local	= cp->local;
- 	conn->proto.epoch	= rxrpc_epoch;
-@@ -344,35 +266,75 @@ static int rxrpc_connect_exclusive(struct rxrpc_sock *rx,
- 	conn->proto.family	= cp->peer->srx.transport.family;
- 	conn->out_clientflag	= RXRPC_CLIENT_INITIATED;
- 	conn->state		= RXRPC_CONN_CLIENT;
--	conn->avail_calls	= RXRPC_MAXCALLS - 1;
+-	candidate->trans = trans;
+-	candidate->proto.local = trans->local;
+-	candidate->proto.epoch = hdr->epoch;
+-	candidate->proto.cid = hdr->cid & RXRPC_CIDMASK;
+-	candidate->proto.in_clientflag = RXRPC_CLIENT_INITIATED;
+-	candidate->params.local = trans->local;
+-	candidate->params.peer = trans->peer;
+-	candidate->params.service_id = hdr->serviceId;
+-	candidate->security_ix = hdr->securityIndex;
+-	candidate->out_clientflag = 0;
+-	candidate->state = RXRPC_CONN_SERVER;
++	candidate->trans		= trans;
++	candidate->proto.local		= trans->local;
++	candidate->proto.epoch		= sp->hdr.epoch;
++	candidate->proto.cid		= sp->hdr.cid & RXRPC_CIDMASK;
++	candidate->proto.in_clientflag	= RXRPC_CLIENT_INITIATED;
++	candidate->params.local		= trans->local;
++	candidate->params.peer		= trans->peer;
++	candidate->params.service_id	= sp->hdr.serviceId;
++	candidate->security_ix		= sp->hdr.securityIndex;
++	candidate->out_clientflag	= 0;
++	candidate->state		= RXRPC_CONN_SERVER;
+ 	if (candidate->params.service_id)
+-		candidate->state = RXRPC_CONN_SERVER_UNSECURED;
++		candidate->state	= RXRPC_CONN_SERVER_UNSECURED;
  
--	key_get(conn->params.key);
-+	switch (conn->proto.family) {
-+	case AF_INET:
-+		conn->proto.addr_size = sizeof(conn->proto.ipv4_addr);
-+		conn->proto.ipv4_addr = cp->peer->srx.transport.sin.sin_addr;
-+		conn->proto.port = cp->peer->srx.transport.sin.sin_port;
-+		break;
-+	}
-+
-+	ret = rxrpc_get_client_connection_id(conn, trans, gfp);
-+	if (ret < 0)
-+		goto error_0;
+ 	write_lock_bh(&trans->conn_lock);
  
- 	ret = rxrpc_init_client_conn_security(conn);
--	if (ret < 0) {
--		key_put(conn->params.key);
--		kfree(conn);
--		_leave(" = %d [key]", ret);
--		return ret;
--	}
-+	if (ret < 0)
-+		goto error_1;
-+
-+	conn->security->prime_packet_security(conn);
+@@ -691,7 +691,7 @@ success:
  
- 	write_lock(&rxrpc_connection_lock);
- 	list_add_tail(&conn->link, &rxrpc_connections);
- 	write_unlock(&rxrpc_connection_lock);
+ 	/* we found the connection in the list immediately */
+ found_extant_connection:
+-	if (hdr->securityIndex != conn->security_ix) {
++	if (sp->hdr.securityIndex != conn->security_ix) {
+ 		read_unlock_bh(&trans->conn_lock);
+ 		goto security_mismatch;
+ 	}
+@@ -701,7 +701,7 @@ found_extant_connection:
  
--	spin_lock(&trans->client_lock);
-+	key_get(conn->params.key);
-+
-+	_leave(" = %p", conn);
-+	return conn;
-+
-+error_1:
-+	rxrpc_put_client_connection_id(conn);
-+error_0:
-+	kfree(conn);
-+	_leave(" = %d", ret);
-+	return ERR_PTR(ret);
-+}
-+
-+/*
-+ * connect a call on an exclusive connection
-+ */
-+static int rxrpc_connect_exclusive(struct rxrpc_sock *rx,
-+				   struct rxrpc_conn_parameters *cp,
-+				   struct rxrpc_transport *trans,
-+				   struct rxrpc_call *call,
-+				   gfp_t gfp)
-+{
-+	struct rxrpc_connection *conn;
-+	int chan;
-+
-+	_enter("");
-+
-+	conn = rxrpc_alloc_client_connection(cp, trans, gfp);
-+	if (IS_ERR(conn)) {
-+		_leave(" = %ld", PTR_ERR(conn));
-+		return PTR_ERR(conn);
-+	}
-+
- 	atomic_inc(&trans->usage);
-+	conn->trans = trans;
-+	conn->bundle = NULL;
- 
- 	_net("CONNECT EXCL new %d on TRANS %d",
- 	     conn->debug_id, conn->trans->debug_id);
- 
--	rxrpc_assign_connection_id(conn);
--
- 	/* Since no one else can use the connection, we just use the first
- 	 * channel.
- 	 */
- 	chan = 0;
- 	atomic_inc(&conn->usage);
-+	conn->avail_calls = RXRPC_MAXCALLS - 1;
- 	conn->channels[chan] = call;
- 	conn->call_counter = 1;
- 	call->conn = conn;
-@@ -383,8 +345,6 @@ static int rxrpc_connect_exclusive(struct rxrpc_sock *rx,
- 	_net("CONNECT client on conn %d chan %d as call %x",
- 	     conn->debug_id, chan, call->call_id);
- 
--	spin_unlock(&trans->client_lock);
--
- 	rxrpc_add_call_ID_to_conn(conn, call);
- 	_leave(" = 0");
- 	return 0;
-@@ -402,7 +362,7 @@ int rxrpc_connect_call(struct rxrpc_sock *rx,
- 		       gfp_t gfp)
+ 	/* we found the connection on the second time through the list */
+ found_extant_second:
+-	if (hdr->securityIndex != conn->security_ix) {
++	if (sp->hdr.securityIndex != conn->security_ix) {
+ 		write_unlock_bh(&trans->conn_lock);
+ 		goto security_mismatch;
+ 	}
+@@ -721,20 +721,21 @@ security_mismatch:
+  * packet
+  */
+ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *trans,
+-					       struct rxrpc_host_header *hdr)
++					       struct sk_buff *skb)
  {
- 	struct rxrpc_connection *conn, *candidate;
--	int chan, ret;
-+	int chan;
+ 	struct rxrpc_connection *conn;
++	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
+ 	struct rb_node *p;
+ 	u32 epoch, cid;
  
- 	DECLARE_WAITQUEUE(myself, current);
+-	_enter(",{%x,%x}", hdr->cid, hdr->flags);
++	_enter(",{%x,%x}", sp->hdr.cid, sp->hdr.flags);
  
-@@ -492,51 +452,25 @@ int rxrpc_connect_call(struct rxrpc_sock *rx,
+ 	read_lock_bh(&trans->conn_lock);
  
- 		/* not yet present - create a candidate for a new connection and then
- 		 * redo the check */
--		candidate = rxrpc_alloc_connection(gfp);
-+		candidate = rxrpc_alloc_client_connection(cp, trans, gfp);
- 		if (!candidate) {
- 			_leave(" = -ENOMEM");
- 			return -ENOMEM;
- 		}
+-	cid = hdr->cid & RXRPC_CIDMASK;
+-	epoch = hdr->epoch;
++	cid	= sp->hdr.cid & RXRPC_CIDMASK;
++	epoch	= sp->hdr.epoch;
  
-+		atomic_inc(&bundle->usage);
-+		atomic_inc(&trans->usage);
- 		candidate->trans = trans;
- 		candidate->bundle = bundle;
--		candidate->params = *cp;
--		candidate->proto.local = cp->local;
--		candidate->proto.epoch = rxrpc_epoch;
--		candidate->proto.cid = 0;
--		candidate->proto.in_clientflag = 0;
--		candidate->proto.family = cp->peer->srx.transport.family;
--		candidate->out_clientflag = RXRPC_CLIENT_INITIATED;
--		candidate->state = RXRPC_CONN_CLIENT;
--		candidate->avail_calls = RXRPC_MAXCALLS;
--
--		key_get(candidate->params.key);
--
--		ret = rxrpc_init_client_conn_security(candidate);
--		if (ret < 0) {
--			key_put(candidate->params.key);
--			kfree(candidate);
--			_leave(" = %d [key]", ret);
--			return ret;
--		}
--
--		write_lock_bh(&rxrpc_connection_lock);
--		list_add_tail(&candidate->link, &rxrpc_connections);
--		write_unlock_bh(&rxrpc_connection_lock);
- 
- 		spin_lock(&trans->client_lock);
- 
- 		list_add(&candidate->bundle_link, &bundle->unused_conns);
- 		bundle->num_conns++;
--		atomic_inc(&bundle->usage);
--		atomic_inc(&trans->usage);
- 
- 		_net("CONNECT new %d on TRANS %d",
- 		     candidate->debug_id, candidate->trans->debug_id);
- 
--		rxrpc_assign_connection_id(candidate);
--		candidate->security->prime_packet_security(candidate);
--
- 		/* leave the candidate lurking in zombie mode attached to the
- 		 * bundle until we're ready for it */
- 		rxrpc_put_connection(candidate);
-@@ -735,25 +669,27 @@ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_transport *trans,
- 	cid	= sp->hdr.cid & RXRPC_CIDMASK;
- 	epoch	= sp->hdr.epoch;
- 
--	if (sp->hdr.flags & RXRPC_CLIENT_INITIATED)
-+	if (sp->hdr.flags & RXRPC_CLIENT_INITIATED) {
+-	if (hdr->flags & RXRPC_CLIENT_INITIATED)
++	if (sp->hdr.flags & RXRPC_CLIENT_INITIATED)
  		p = trans->server_conns.rb_node;
--	else
--		p = trans->client_conns.rb_node;
--
--	while (p) {
--		conn = rb_entry(p, struct rxrpc_connection, node);
--
--		_debug("maybe %x", conn->proto.cid);
--
--		if (epoch < conn->proto.epoch)
--			p = p->rb_left;
--		else if (epoch > conn->proto.epoch)
--			p = p->rb_right;
--		else if (cid < conn->proto.cid)
--			p = p->rb_left;
--		else if (cid > conn->proto.cid)
--			p = p->rb_right;
--		else
-+		while (p) {
-+			conn = rb_entry(p, struct rxrpc_connection, node);
-+
-+			_debug("maybe %x", conn->proto.cid);
-+
-+			if (epoch < conn->proto.epoch)
-+				p = p->rb_left;
-+			else if (epoch > conn->proto.epoch)
-+				p = p->rb_right;
-+			else if (cid < conn->proto.cid)
-+				p = p->rb_left;
-+			else if (cid > conn->proto.cid)
-+				p = p->rb_right;
-+			else
-+				goto found;
-+		}
-+	} else {
-+		conn = idr_find(&rxrpc_client_conn_ids, cid >> RXRPC_CIDSHIFT);
-+		if (conn && conn->proto.epoch == epoch)
- 			goto found;
- 	}
+ 	else
+ 		p = trans->client_conns.rb_node;
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index 6af7f40c5030..cf540efa9c17 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -628,8 +628,7 @@ int rxrpc_extract_header(struct rxrpc_skb_priv *sp, struct sk_buff *skb)
+ }
  
-@@ -846,8 +782,7 @@ static void rxrpc_connection_reaper(struct work_struct *work)
- 		} else if (reap_time <= now) {
- 			list_move_tail(&conn->link, &graveyard);
- 			if (conn->out_clientflag)
--				rb_erase(&conn->node,
--					 &conn->trans->client_conns);
-+				rxrpc_put_client_connection_id(conn);
- 			else
- 				rb_erase(&conn->node,
- 					 &conn->trans->server_conns);
-diff --git a/net/rxrpc/transport.c b/net/rxrpc/transport.c
-index 24c71218a6f8..140628d94bb0 100644
---- a/net/rxrpc/transport.c
-+++ b/net/rxrpc/transport.c
-@@ -47,12 +47,10 @@ static struct rxrpc_transport *rxrpc_alloc_transport(struct rxrpc_local *local,
- 		trans->peer = peer;
- 		INIT_LIST_HEAD(&trans->link);
- 		trans->bundles = RB_ROOT;
--		trans->client_conns = RB_ROOT;
- 		trans->server_conns = RB_ROOT;
- 		spin_lock_init(&trans->client_lock);
- 		rwlock_init(&trans->conn_lock);
- 		atomic_set(&trans->usage, 1);
--		trans->conn_idcounter = peer->srx.srx_service << 16;
- 		trans->debug_id = atomic_inc_return(&rxrpc_debug_id);
- 	}
+ static struct rxrpc_connection *rxrpc_conn_from_local(struct rxrpc_local *local,
+-					       struct sk_buff *skb,
+-					       struct rxrpc_skb_priv *sp)
++						      struct sk_buff *skb)
+ {
+ 	struct rxrpc_peer *peer;
+ 	struct rxrpc_transport *trans;
+@@ -647,7 +646,7 @@ static struct rxrpc_connection *rxrpc_conn_from_local(struct rxrpc_local *local,
+ 	if (!trans)
+ 		goto cant_find_conn;
+ 
+-	conn = rxrpc_find_connection(trans, &sp->hdr);
++	conn = rxrpc_find_connection(trans, skb);
+ 	rxrpc_put_transport(trans);
+ 	if (!conn)
+ 		goto cant_find_conn;
+@@ -739,7 +738,7 @@ void rxrpc_data_ready(struct sock *sk)
+ 		 * old-fashioned way doesn't really hurt */
+ 		struct rxrpc_connection *conn;
+ 
+-		conn = rxrpc_conn_from_local(local, skb, sp);
++		conn = rxrpc_conn_from_local(local, skb);
+ 		if (!conn)
+ 			goto cant_route_call;
  
