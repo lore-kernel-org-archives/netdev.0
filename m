@@ -1,21 +1,23 @@
 From: Yisen Zhuang <Yisen.zhuang@huawei.com>
-Subject: Re: [PATCH net-next 01/19] net: hns: bug fix of ge reset sequence
-Date: Wed, 22 Jun 2016 09:33:24 +0800
-Message-ID: <5769EAE4.2010507@huawei.com>
+Subject: Re: [PATCH net-next 16/19] net: hns: fix bug that alloc skb fail lead
+ to port unavailable
+Date: Wed, 22 Jun 2016 09:41:43 +0800
+Message-ID: <5769ECD7.8080303@huawei.com>
 References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
- <1466481399-70080-2-git-send-email-Yisen.Zhuang@huawei.com>
- <1466505306.30123.203.camel@linux.intel.com>
+ <1466481399-70080-17-git-send-email-Yisen.Zhuang@huawei.com>
+ <097b1147-3587-9579-0f94-f42be130773c@cogentembedded.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: ivecera@redhat.com, andrew@lunn.ch, liguozhu@huawei.com, arnd@arndb.de,
- charles.chenxin@huawei.com, linux-kernel@vger.kernel.org, linuxarm@huawei.com,
- geliangtang@163.com, huangdaode@hisilicon.com, netdev@vger.kernel.org,
- fengguang.wu@intel.com, linux-arm-kernel@lists.infradead.org
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>, <davem@davemloft.net>,
- <salil.mehta@huawei.com>, <yankejian@huawei.com>
+Cc: ivecera@redhat.com, andrew@lunn.ch, fengguang.wu@intel.com,
+ liguozhu@huawei.com, arnd@arndb.de, charles.chenxin@huawei.com,
+ linux-kernel@vger.kernel.org, linuxarm@huawei.com, geliangtang@163.com,
+ huangdaode@hisilicon.com, netdev@vger.kernel.org,
+ andriy.shevchenko@linux.intel.com, linux-arm-kernel@lists.infradead.org
+To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+ <davem@davemloft.net>, <salil.mehta@huawei.com>, <yankejian@huawei.com>
 Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1466505306.30123.203.camel@linux.intel.com>
+In-Reply-To: <097b1147-3587-9579-0f94-f42be130773c@cogentembedded.com>
 List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
  <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
 List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
@@ -27,35 +29,30 @@ Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
 Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-CgrlnKggMjAxNi82LzIxIDE4OjM1LCBBbmR5IFNoZXZjaGVua28g5YaZ6YGTOgo+IE9uIFR1ZSwg
-MjAxNi0wNi0yMSBhdCAxMTo1NiArMDgwMCwgWWlzZW4gWmh1YW5nIHdyb3RlOgo+PiBGcm9tOiBR
-aWFucWlhbiBYaWUgPHhpZXFpYW5xaWFuQGh1YXdlaS5jb20+Cj4+Cj4+IFRoZSBiaXQgZmlsZWRz
-IG9mIFBQRSByZXNldCByZWdpc3RlciBhcmUgZGlmZmVyZW50IGJldHdlZW4gSE5TIHYxIGFuZAo+
-PiBITlMgdjIsIGJ1dCB0aGUgY3VycmVudCBwcm9jZWR1cmUganVzdCBvbmx5IG1hdGNoIEhOUyB2
-MS4gSGVyZSBpcyBhCj4+IHBhdGNoIHRvIGZpeCBpdC4KPj4KPj4gU2lnbmVkLW9mZi1ieTogS2Vq
-aWFuIFlhbiA8eWFua2VqaWFuQGh1YXdlaS5jb20+Cj4+IFNpZ25lZC1vZmYtYnk6IFFpYW5xaWFu
-IFhpZSA8eGllcWlhbnFpYW5AaHVhd2VpLmNvbT4KPj4gU2lnbmVkLW9mZi1ieTogWWlzZW4gWmh1
-YW5nIDxZaXNlbi5aaHVhbmdAaHVhd2VpLmNvbT4KPj4gLS0tCj4+ICBkcml2ZXJzL25ldC9ldGhl
-cm5ldC9oaXNpbGljb24vaG5zL2huc19kc2FmX21pc2MuYyB8IDYgKysrKystCj4+ICAxIGZpbGUg
-Y2hhbmdlZCwgNSBpbnNlcnRpb25zKCspLCAxIGRlbGV0aW9uKC0pCj4+Cj4+IGRpZmYgLS1naXQg
-YS9kcml2ZXJzL25ldC9ldGhlcm5ldC9oaXNpbGljb24vaG5zL2huc19kc2FmX21pc2MuYwo+PiBi
-L2RyaXZlcnMvbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9obnMvaG5zX2RzYWZfbWlzYy5jCj4+IGlu
-ZGV4IDk2Y2I2MjguLjA5ZTYwZDYgMTAwNjQ0Cj4+IC0tLSBhL2RyaXZlcnMvbmV0L2V0aGVybmV0
-L2hpc2lsaWNvbi9obnMvaG5zX2RzYWZfbWlzYy5jCj4+ICsrKyBiL2RyaXZlcnMvbmV0L2V0aGVy
-bmV0L2hpc2lsaWNvbi9obnMvaG5zX2RzYWZfbWlzYy5jCj4+IEBAIC0yNzEsNyArMjcxLDExIEBA
-IHN0YXRpYyB2b2lkIGhuc19kc2FmX2dlX3Nyc3RfYnlfcG9ydChzdHJ1Y3QKPj4gZHNhZl9kZXZp
-Y2UgKmRzYWZfZGV2LCB1MzIgcG9ydCwKPj4gIAkJfQo+PiAgCX0gZWxzZSB7Cj4+ICAJCXJlZ192
-YWxfMSA9IDB4MTU1NDAgPDwgZHNhZl9kZXYtPnJlc2V0X29mZnNldDsKPj4gLQkJcmVnX3ZhbF8y
-ID0gMHgxMDAgPDwgZHNhZl9kZXYtPnJlc2V0X29mZnNldDsKPj4gKwo+PiArCQlpZiAoQUVfSVNf
-VkVSMShkc2FmX2Rldi0+ZHNhZl92ZXIpKQo+PiArCQkJcmVnX3ZhbF8yID0gMHgxMDAgPDwgZHNh
-Zl9kZXYtPnJlc2V0X29mZnNldDsKPj4gKwkJZWxzZQo+PiArCQkJcmVnX3ZhbF8yID0gMHg0MCA8
-PCBkc2FmX2Rldi0+cmVzZXRfb2Zmc2V0Owo+IAo+IHJlZ192YWxfMSA9IDB4MTU1NDA7Cj4gcmVn
-X3ZhbF8yID0gQUVfSVNfVkVSMShkc2FmX2Rldi0+ZHNhZl92ZXIpID8gMHgxMDAgOiAweDQwOwo+
-IAo+IHJlZ192YWxfMSA8PD0gZHNhZl9kZXYtPnJlc2V0X29mZnNldDsKPiByZWdfdmFsXzIgPDw9
-IGRzYWZfZGV2LQoKSSB3aWxsIGZpeCBpdCB3aXRoIGEgbmV3IHBhdGNoLgoKVGhhbmtzLAoKWWlz
-ZW4KCj4+IHJlc2V0X29mZnNldDsKPiAKPiAKPj4gIAo+PiAgCQlpZiAoIWRlcmVzZXQpIHsKPj4g
-IAkJCWRzYWZfd3JpdGVfc3ViKGRzYWZfZGV2LAo+PiBEU0FGX1NVQl9TQ19HRV9SRVNFVF9SRVEx
-X1JFRywKPiAKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-XwpsaW51eC1hcm0ta2VybmVsIG1haWxpbmcgbGlzdApsaW51eC1hcm0ta2VybmVsQGxpc3RzLmlu
-ZnJhZGVhZC5vcmcKaHR0cDovL2xpc3RzLmluZnJhZGVhZC5vcmcvbWFpbG1hbi9saXN0aW5mby9s
-aW51eC1hcm0ta2VybmVsCg==
+CgrlnKggMjAxNi82LzIxIDIxOjI1LCBTZXJnZWkgU2h0eWx5b3Yg5YaZ6YGTOgo+IEhlbGxvLgo+
+IAo+IE9uIDYvMjEvMjAxNiA2OjU2IEFNLCBZaXNlbiBaaHVhbmcgd3JvdGU6Cj4gCj4+IEZyb206
+IEp1biBIZSA8aGphdDIwMDVAaHVhd2VpLmNvbT4KPj4KPj4gV2hlbiBobnNfbmljX3BvbGxfcnhf
+c2tiIGFsbG9jIHNrYiBmYWlsLCBpdCB3aWxsIGJyZWFrIHJlY2VpdmUgY3ljbGUgYW5kCj4+IHJl
+YWQgbmV3IGZiZF9udW0gdG8gc3RhcnQgbmV3IHJlY2VpdmUgY3ljbGUuIEl0IHJlY29tcHV0ZXMg
+Y3ljbGUgbnVtIGlzCj4+IGZiZF9udW0gbWludXMgY2xlYW5fY291bnQsIGFjdHVhbGx5IHRoaXMg
+Y3ljbGUgbnVtIGlzIHRvbyBiaWcgYmVjYXVzZQo+PiBpdCBkcm9wIG91dCByZWNlaXZlIGN5Y2xl
+LiBJdCBicmluZ3MgYWJvdXQgdGhlIHBvcnQgdW5hdmFpbGFibGUuCj4+Cj4+IFNvIHdlIHdpbGwg
+Z290byBvdXQgd2hlbiBhbGxvYyBza2IgZmFpbCB0byBmaXggdGhpcyBidWcuCj4+Cj4+IFNpZ25l
+ZC1vZmYtYnk6IEp1biBIZSA8aGphdDIwMDVAaHVhd2VpLmNvbT4KPj4gU2lnbmVkLW9mZi1ieTog
+RGluZyBUaWFuaG9uZyA8ZGluZ3RpYW5ob25nQGh1YXdlaS5jb20+Cj4+IFNpZ25lZC1vZmYtYnk6
+IFlpc2VuIFpodWFuZyA8WWlzZW4uWmh1YW5nQGh1YXdlaS5jb20+Cj4+IC0tLQo+PiAgZHJpdmVy
+cy9uZXQvZXRoZXJuZXQvaGlzaWxpY29uL2hucy9obnNfZW5ldC5jIHwgNSArKystLQo+PiAgMSBm
+aWxlIGNoYW5nZWQsIDMgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkKPj4KPj4gZGlmZiAt
+LWdpdCBhL2RyaXZlcnMvbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9obnMvaG5zX2VuZXQuYyBiL2Ry
+aXZlcnMvbmV0L2V0aGVybmV0L2hpc2lsaWNvbi9obnMvaG5zX2VuZXQuYwo+PiBpbmRleCBmNDky
+NDZkLi5jMGNlMzdiIDEwMDY0NAo+PiAtLS0gYS9kcml2ZXJzL25ldC9ldGhlcm5ldC9oaXNpbGlj
+b24vaG5zL2huc19lbmV0LmMKPj4gKysrIGIvZHJpdmVycy9uZXQvZXRoZXJuZXQvaGlzaWxpY29u
+L2hucy9obnNfZW5ldC5jCj4+IEBAIC03NjgsMTAgKzc2OCwxMCBAQCByZWN2Ogo+PiAgICAgICAg
+ICAgICAgY2xlYW5fY291bnQgPSAwOwo+PiAgICAgICAgICB9Cj4+Cj4+IC0gICAgICAgIC8qIHBv
+bGwgb25lIHBrZyovCj4+ICsgICAgICAgIC8qIHBvbGwgb25lIHBrdCovCgpJIHdpbGwgZml4IGl0
+IHdpdGggYSBuZXcgcGF0Y2guCgpUaGFua3MsCgpZaXNlbgoKPiAKPiAgICBIb3cgYWJvdXQgYWRk
+aW5nIGEgc3BhY2UgYmVmb3JlICovPwo+IAo+IFsuLi5dCj4gCj4gTUJSLCBTZXJnZWkKPiAKPiAK
+PiAuCj4gCgoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18K
+bGludXgtYXJtLWtlcm5lbCBtYWlsaW5nIGxpc3QKbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZy
+YWRlYWQub3JnCmh0dHA6Ly9saXN0cy5pbmZyYWRlYWQub3JnL21haWxtYW4vbGlzdGluZm8vbGlu
+dXgtYXJtLWtlcm5lbAo=
