@@ -1,72 +1,51 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net] net: avoid vlan ptype specific match to be leaked on
- real device
-Date: Wed, 22 Jun 2016 14:40:50 +0200
-Message-ID: <20160622124050.GD2068@nanopsycho.orion>
-References: <3d191a3c51bd564da8b0c3ffe1e9c90fa7bd4d7b.1466590952.git.pabeni@redhat.com>
- <20160622105544.GC2068@nanopsycho.orion>
- <1466598089.4707.31.camel@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Paolo Abeni <pabeni@redhat.com>
+From: Sathya Perla <sathya.perla@broadcom.com>
+Subject: [net-next PATCH 0/5] be2net: patch set
+Date: Wed, 22 Jun 2016 08:54:52 -0400
+Message-ID: <1466600097-1641-1-git-send-email-sathya.perla@broadcom.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:37753 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751434AbcFVMrA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 08:47:00 -0400
-Received: by mail-wm0-f54.google.com with SMTP id a66so4430655wme.0
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 05:46:17 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1466598089.4707.31.camel@redhat.com>
+Received: from [192.19.245.250] ([192.19.245.250]:62538 "EHLO
+	CMRELAYP1.ad.emulex.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751745AbcFVMzR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 08:55:17 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Wed, Jun 22, 2016 at 02:21:29PM CEST, pabeni@redhat.com wrote:
->On Wed, 2016-06-22 at 12:55 +0200, Jiri Pirko wrote:
->> Wed, Jun 22, 2016 at 12:25:15PM CEST, pabeni@redhat.com wrote:
->> >Before the commit 0dfe17823945 ("net: vlan: goto another_round
->> >instead of calling __netif_receive_skb"), on tagged skb ingress,
->> >ptype specific protocol matches were delivered only to the
->> >related vlan device, if any.
->> >After said commit, jumping back to the 'another_round' label, allows
->> >the later ptype specific check to match both orig_dev and skb->dev,
->> >delivering the skb to both the vlan device and the underlying
->> >device.
->> >This cause i.e. packet sockets bound to a specific protocol type on
->> >one of said devices to receive also frames really targeting the
->> >other device.
->> >This commit resets orig_dev before performing another round due to
->> >vlan processing, allowing the skb to be delivered once again only
->> >to the vlan specific ptypes.
->> 
->> I don't get why vlan should behave differently in this comparing to
->> other stacked devices like bond/team/br etc.
->> 
->> Could you please explain?
->
->vlan behavior has changed with the commit 0dfe17823945 (which is old,
->but still...), this patch is trying to restore the old one.
->
->The new behavior fouls existing applications which where expecting ptype
->specific match to be delivered only on the relevant device. 
+Hi Dave, pls consider commiting the following patches to the net-next tree.
+Thanks!
 
-The patch only unified the behaviour so everyone know what to expect
-regardless of the device type.
+Patch 1 replaces the be_max_eqs() macro with two new macros called
+be_max_nic_eqs() and be_max_func_eqs() to clear confusion in that part
+of the code.
 
+Patch 2 adds support to configure asymmetric number of rx/tx queues via
+ethtool set-channels option.
 
->
->AFAIC jumping back to the 'another_round' is possible for team, bond,
->macvlan, macsec and ipvlan device, beyond vlan devices. I think the
->latter should be treated differently, beyond history reasons, because
->the vlan device processing, stripping the vlan tag, actually changes the
->ethernet type present into the ethernet header in respect to the wire
->packet layout; strict match on that value should give different results
->before and after vlan stripping.
+Patch 3 disables EVB when VFs are not enabled on a BE3 SR-IOV config to
+avoid the broadcast echo problem.
 
-The vlan header stripping happens before all of this, either in HW or
-skb_vlan_untag, so you can never match on that.
+Patch 4 updates copyright markings in be2net src files
+
+Patch 5 updates the be2net maintainers' list
+
+Sathya Perla (3):
+  be2net: fix definition of be_max_eqs()
+  be2net: support asymmetric rx/tx queue counts
+  be2net: update be2net maintainers list
+
+Somnath Kotur (2):
+  be2net: Fix broadcast echoes from EVB in BE3
+  be2net: Change copyright markings in source files
+
+ MAINTAINERS                                    |  3 +-
+ drivers/net/ethernet/emulex/benet/be.h         | 36 +++++++++--
+ drivers/net/ethernet/emulex/benet/be_cmds.c    | 13 +++-
+ drivers/net/ethernet/emulex/benet/be_cmds.h    |  2 +-
+ drivers/net/ethernet/emulex/benet/be_ethtool.c | 31 +++++++--
+ drivers/net/ethernet/emulex/benet/be_main.c    | 89 +++++++++++++++++---------
+ drivers/net/ethernet/emulex/benet/be_roce.c    |  2 +-
+ drivers/net/ethernet/emulex/benet/be_roce.h    |  2 +-
+ 8 files changed, 128 insertions(+), 50 deletions(-)
+
+-- 
+2.4.1
