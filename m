@@ -1,119 +1,73 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net-next 2/2] tcp: reduce cpu usage when SO_SNDBUF is
- set
-Date: Wed, 22 Jun 2016 10:34:14 -0700
-Message-ID: <1466616854.6850.69.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1466608332.git.jbaron@akamai.com>
-	 <c873de17bfcf341eafda5ee7762c3f2c26579ff1.1466608332.git.jbaron@akamai.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
+Date: Wed, 22 Jun 2016 10:40:11 -0700
+Message-ID: <CALx6S35zDzLPnP0iAayRKFGg4b6OcWFQ2iAu3CFMsVLd2uG2Gg@mail.gmail.com>
+References: <CALx6S37GuppbknFiGsGxyP8jAX-t8c1=mWxCToKQVA8r8UPeOA@mail.gmail.com>
+ <20160619.200741.1114304127682357737.davem@davemloft.net> <CALx6S37+o2=Lqzxu_U4QiSvqnq8CjEq5uSpbKVfFfo8r5qD+6g@mail.gmail.com>
+ <20160621.042918.1782717212289281861.davem@davemloft.net> <CAPshTCgCVs5i1QyLeNPzw2W3X5+r_=5Hw1HOnD+cBsBQBRN35g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Jason Baron <jbaron@akamai.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Jerry Chu <hkchu@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33862 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751415AbcFVReR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 13:34:17 -0400
-Received: by mail-pa0-f66.google.com with SMTP id us13so4424791pab.1
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 10:34:16 -0700 (PDT)
-In-Reply-To: <c873de17bfcf341eafda5ee7762c3f2c26579ff1.1466608332.git.jbaron@akamai.com>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:34088 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751415AbcFVRkS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 13:40:18 -0400
+Received: by mail-io0-f177.google.com with SMTP id g13so43632161ioj.1
+        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 10:40:12 -0700 (PDT)
+In-Reply-To: <CAPshTCgCVs5i1QyLeNPzw2W3X5+r_=5Hw1HOnD+cBsBQBRN35g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-06-22 at 11:32 -0400, Jason Baron wrote:
-> From: Jason Baron <jbaron@akamai.com>
-> 
-> When SO_SNDBUF is set and we are under tcp memory pressure, the effective
-> write buffer space can be much lower than what was set using SO_SNDBUF. For
-> example, we may have set the buffer to 100kb, but we may only be able to
-> write 10kb. In this scenario poll()/select()/epoll(), are going to
-> continuously return POLLOUT, followed by -EAGAIN from write(), and thus
-> result in a tight loop. Note that epoll in edge-triggered does not have
-> this issue since it only triggers once data has been ack'd. There is no
-> issue here when SO_SNDBUF is not set, since the tcp layer will auto tune
-> the sk->sndbuf.
+On Tue, Jun 21, 2016 at 8:42 PM, Jerry Chu <hkchu@google.com> wrote:
+> On Tue, Jun 21, 2016 at 1:29 AM, David Miller <davem@davemloft.net> wrote:
+>> From: Tom Herbert <tom@herbertland.com>
+>> Date: Mon, 20 Jun 2016 08:13:48 -0700
+>>
+>>> Routing around the problem is already being done.
+>>
+>> QUIC, a new protocol used for specific purposes and implemented in
+>> userspace from the start is significantly different from making the
+>> kernel's _TCP_ implementation bypassed into a userspace one just by
+>> UDP encapsulating it.
+>>
+>> That is a major and conscious change in our mentality.
+>>
+>> The consequences are far and wide, and I'm having a very hard time
+>> seeing the benefits you cite being larger than the negatives here.
+>
+> I don't believe TOU will lead to a proliferation of TCP implementations in
+> the userland - getting a solid TCP implementation is hard. Yes any smart CS
+> student in the networking field can write one over a weekend, to get 3WHS
+> to work, and may even include graceful shutdown. But creating one from
+> scratch that is both high quality, compliant, highly inter-operable, and highly
+> performing is really hard. Just look at how much work folks on the list have
+> to continue to pour in to maintain the Linux TCP stack as the best on the
+> planet.
+>
+> Yes TOU may lower the bar for random hacks by Joe Random. But I'd argue
+> no large organization would serious consider or dare deploy TCP stack
+> with random hacks. I know we have a very high bar to pass at Google. This
+> should limit the impact of bad TCP stacks on the Internet. If we continue
+> to keep up and make timely improvements to the Linux TCP stack, and
+> better yet, to continue to improve technology like UML and LKL to make it
+> easy for folks to access great technologies in the Linux kernel stack and
+> deploy them in the userland, it will probably take away all the motivations
+> for people to do their own random hacks.
+>
++1
 
+A major point of TOU is precisely that we want to continue leveraging
+the Linux stack to build scalable, flexible, robust servers. We are
+only considering userspace based transport protocol for end clients
+which are already "Joe Random" devices as far as servers are
+concerned. The difference between TOU and "traditional" OS bypass
+networking is that we are implementing only the transport layer
+protocol in userspace (i.e. TCP, SCTP, DCCP, etc.), not anything
+related to L2 and L3 which makes the solution feasible to deploy on
+existing client OSes.
 
-Still, generating one POLLOUT event per incoming ACK will not please
-epoll() users in edge-trigger mode.
-
-Host is under global memory pressure, so we probably want to drain
-socket queues _and_ reduce cpu pressure.
-
-Strategy to insure all sockets converge to small amounts ASAP is simply
-the best answer.
-
-Letting big SO_SNDBUF offenders hog memory while their queue is big
-is not going to help sockets who can not get ACK
-(elephants get more ACK than mice, so they have more chance to succeed
-their new allocations)
-
-Your patch adds lot of complexity logic in tcp_sendmsg() and
-tcp_sendpage().
-
-
-I would prefer a simpler patch like :
-
-
- net/ipv4/tcp.c |   26 +++++++++++++++++++++++---
- 1 file changed, 23 insertions(+), 3 deletions(-)
-
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 5c7ed147449c..68bf035180d5 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -370,6 +370,26 @@ static int retrans_to_secs(u8 retrans, int timeout, int rto_max)
- 	return period;
- }
- 
-+static bool tcp_throttle_writes(const struct sock *sk)
-+{
-+	return unlikely(tcp_memory_pressure &&
-+			sk->sk_wmem_queued >= sysctl_tcp_wmem[0]);
-+}
-+
-+static bool tcp_is_writeable(const struct sock *sk)
-+{
-+	if (tcp_throttle_writes(sk))
-+		return false;
-+	return sk_stream_is_writeable(sk);
-+}
-+
-+static void tcp_write_space(struct sock *sk)
-+{
-+	if (tcp_throttle_writes(sk))
-+		return;
-+	sk_stream_write_space(sk);
-+}
-+
- /* Address-family independent initialization for a tcp_sock.
-  *
-  * NOTE: A lot of things set to zero explicitly by call to
-@@ -412,7 +432,7 @@ void tcp_init_sock(struct sock *sk)
- 
- 	sk->sk_state = TCP_CLOSE;
- 
--	sk->sk_write_space = sk_stream_write_space;
-+	sk->sk_write_space = tcp_write_space;
- 	sock_set_flag(sk, SOCK_USE_WRITE_QUEUE);
- 
- 	icsk->icsk_sync_mss = tcp_sync_mss;
-@@ -517,7 +537,7 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 			mask |= POLLIN | POLLRDNORM;
- 
- 		if (!(sk->sk_shutdown & SEND_SHUTDOWN)) {
--			if (sk_stream_is_writeable(sk)) {
-+			if (tcp_is_writeable(sk)) {
- 				mask |= POLLOUT | POLLWRNORM;
- 			} else {  /* send SIGIO later */
- 				sk_set_bit(SOCKWQ_ASYNC_NOSPACE, sk);
-@@ -529,7 +549,7 @@ unsigned int tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
- 				 * pairs with the input side.
- 				 */
- 				smp_mb__after_atomic();
--				if (sk_stream_is_writeable(sk))
-+				if (tcp_is_writeable(sk))
- 					mask |= POLLOUT | POLLWRNORM;
- 			}
- 		} else
+Tom
