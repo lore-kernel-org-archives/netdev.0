@@ -1,48 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] team: Fix possible deadlock during team enslave
-Date: Wed, 22 Jun 2016 16:32:55 -0400 (EDT)
-Message-ID: <20160622.163255.468340273801025129.davem@davemloft.net>
-References: <1466412800-18400-1-git-send-email-idosch@mellanox.com>
+Subject: Re: [PATCH] kcm: fix /proc memory leak
+Date: Wed, 22 Jun 2016 16:33:06 -0400 (EDT)
+Message-ID: <20160622.163306.696779857682895662.davem@davemloft.net>
+References: <20160620093628.2784-1-jslaby@suse.cz>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jiri@mellanox.com, eladr@mellanox.com,
-	yotamg@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-	lucien.xin@gmail.com
-To: idosch@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:51944 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752082AbcFVUdC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 16:33:02 -0400
-In-Reply-To: <1466412800-18400-1-git-send-email-idosch@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org, tom@herbertland.com,
+	netdev@vger.kernel.org
+To: jslaby@suse.cz
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160620093628.2784-1-jslaby@suse.cz>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ido Schimmel <idosch@mellanox.com>
-Date: Mon, 20 Jun 2016 11:53:20 +0300
+From: Jiri Slaby <jslaby@suse.cz>
+Date: Mon, 20 Jun 2016 11:36:28 +0200
 
-> Both dev_uc_sync_multiple() and dev_mc_sync_multiple() require the
-> source device to be locked by netif_addr_lock_bh(), but this is missing
-> in team's enslave function, so add it.
+> Every open of /proc/net/kcm leaks 16 bytes of memory as is reported by
+> kmemleak:
+> unreferenced object 0xffff88059c0e3458 (size 192):
+>   comm "cat", pid 1401, jiffies 4294935742 (age 310.720s)
+>   hex dump (first 32 bytes):
+>     28 45 71 96 05 88 ff ff 00 10 00 00 00 00 00 00  (Eq.............
+>     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
+>   backtrace:
+>     [<ffffffff8156a2de>] kmem_cache_alloc_trace+0x16e/0x230
+>     [<ffffffff8162a479>] seq_open+0x79/0x1d0
+>     [<ffffffffa0578510>] kcm_seq_open+0x0/0x30 [kcm]
+>     [<ffffffff8162a479>] seq_open+0x79/0x1d0
+>     [<ffffffff8162a8cf>] __seq_open_private+0x2f/0xa0
+>     [<ffffffff81712548>] seq_open_net+0x38/0xa0
+> ...
 > 
-> This fixes the following lockdep warning:
+> It is caused by a missing free in the ->release path. So fix it by
+> providing seq_release_net as the ->release method.
 > 
-> Possible interrupt unsafe locking scenario:
-> 
->         CPU0                    CPU1
->         ----                    ----
->    lock(_xmit_ETHER/1);
->                                 local_irq_disable();
->                                 lock(&(&mc->mca_lock)->rlock);
->                                 lock(&team_netdev_addr_lock_key);
->    <Interrupt>
->      lock(&(&mc->mca_lock)->rlock);
-> 
->   *** DEADLOCK ***
-> 
-> Fixes: cb41c997d444 ("team: team should sync the port's uc/mc addrs when add a port")
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
+> Fixes: cd6e111bf5 (kcm: Add statistics and proc interfaces)
 
-Applied.
+Applied and queued up for -stable, thanks.
