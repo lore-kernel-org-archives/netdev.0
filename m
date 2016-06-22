@@ -1,130 +1,62 @@
-From: Jakub Sitnicki <jkbs@redhat.com>
-Subject: Re: [iproute PATCH v2 7/7] ip/tcp_metrics: Simplify process_msg a bit
-Date: Wed, 22 Jun 2016 13:34:13 +0200
-Message-ID: <87k2hhmp8q.fsf@frog.home>
-References: <1466525921-15738-1-git-send-email-phil@nwl.cc> <1466525921-15738-8-git-send-email-phil@nwl.cc>
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: Re: [PATCH net] net: avoid vlan ptype specific match to be leaked
+ on real device
+Date: Wed, 22 Jun 2016 14:21:29 +0200
+Message-ID: <1466598089.4707.31.camel@redhat.com>
+References: <3d191a3c51bd564da8b0c3ffe1e9c90fa7bd4d7b.1466590952.git.pabeni@redhat.com>
+	 <20160622105544.GC2068@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Stephen Hemminger <shemming@brocade.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Julien Floret <julien.floret@6wind.com>, netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f176.google.com ([209.85.220.176]:33917 "EHLO
-	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752546AbcFVMEN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 08:04:13 -0400
-Received: by mail-qk0-f176.google.com with SMTP id t127so60839682qkf.1
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 05:02:41 -0700 (PDT)
-In-reply-to: <1466525921-15738-8-git-send-email-phil@nwl.cc>
+Received: from mx1.redhat.com ([209.132.183.28]:53875 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752182AbcFVMWU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2016 08:22:20 -0400
+In-Reply-To: <20160622105544.GC2068@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 21, 2016 at 06:18 PM CEST, Phil Sutter <phil@nwl.cc> wrote:
-> By combining the attribute extraction and check for existence, the
-> additional indentation level in the 'else' clause can be avoided.
->
-> In addition to that, common actions for 'daddr' are combined since the
-> function returns if neither of the branches are taken.
->
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
->  ip/tcp_metrics.c | 45 ++++++++++++++++++---------------------------
->  1 file changed, 18 insertions(+), 27 deletions(-)
->
-> diff --git a/ip/tcp_metrics.c b/ip/tcp_metrics.c
-> index f82604f458ada..899830c127bcb 100644
-> --- a/ip/tcp_metrics.c
-> +++ b/ip/tcp_metrics.c
-> @@ -112,47 +112,38 @@ static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
->  	parse_rtattr(attrs, TCP_METRICS_ATTR_MAX, (void *) ghdr + GENL_HDRLEN,
->  		     len);
->  
-> -	a = attrs[TCP_METRICS_ATTR_ADDR_IPV4];
-> -	if (a) {
-> +	if ((a = attrs[TCP_METRICS_ATTR_ADDR_IPV4])) {
+On Wed, 2016-06-22 at 12:55 +0200, Jiri Pirko wrote:
+> Wed, Jun 22, 2016 at 12:25:15PM CEST, pabeni@redhat.com wrote:
+> >Before the commit 0dfe17823945 ("net: vlan: goto another_round
+> >instead of calling __netif_receive_skb"), on tagged skb ingress,
+> >ptype specific protocol matches were delivered only to the
+> >related vlan device, if any.
+> >After said commit, jumping back to the 'another_round' label, allows
+> >the later ptype specific check to match both orig_dev and skb->dev,
+> >delivering the skb to both the vlan device and the underlying
+> >device.
+> >This cause i.e. packet sockets bound to a specific protocol type on
+> >one of said devices to receive also frames really targeting the
+> >other device.
+> >This commit resets orig_dev before performing another round due to
+> >vlan processing, allowing the skb to be delivered once again only
+> >to the vlan specific ptypes.
+> 
+> I don't get why vlan should behave differently in this comparing to
+> other stacked devices like bond/team/br etc.
+> 
+> Could you please explain?
 
-Copy the pointer inside the branch?
+vlan behavior has changed with the commit 0dfe17823945 (which is old,
+but still...), this patch is trying to restore the old one.
 
-Same gain on indentation while keeping checkpatch happy.
+The new behavior fouls existing applications which where expecting ptype
+specific match to be delivered only on the relevant device. 
 
-I only compile-tested the patch below.
+AFAIC jumping back to the 'another_round' is possible for team, bond,
+macvlan, macsec and ipvlan device, beyond vlan devices. I think the
+latter should be treated differently, beyond history reasons, because
+the vlan device processing, stripping the vlan tag, actually changes the
+ethernet type present into the ethernet header in respect to the wire
+packet layout; strict match on that value should give different results
+before and after vlan stripping.
 
-Thanks,
-Jakub
-
-diff --git a/ip/tcp_metrics.c b/ip/tcp_metrics.c
-index f82604f..ac2613a 100644
---- a/ip/tcp_metrics.c
-+++ b/ip/tcp_metrics.c
-@@ -112,47 +112,44 @@ static int process_msg(const struct sockaddr_nl *who, struct nlmsghdr *n,
- 	parse_rtattr(attrs, TCP_METRICS_ATTR_MAX, (void *) ghdr + GENL_HDRLEN,
- 		     len);
- 
--	a = attrs[TCP_METRICS_ATTR_ADDR_IPV4];
--	if (a) {
-+	if (attrs[TCP_METRICS_ATTR_ADDR_IPV4]) {
- 		if (f.daddr.family && f.daddr.family != AF_INET)
- 			return 0;
-+		a = attrs[TCP_METRICS_ATTR_ADDR_IPV4];
- 		memcpy(&daddr.data, RTA_DATA(a), 4);
- 		daddr.bytelen = 4;
- 		family = AF_INET;
- 		atype = TCP_METRICS_ATTR_ADDR_IPV4;
- 		dlen = RTA_PAYLOAD(a);
--	} else {
--		a = attrs[TCP_METRICS_ATTR_ADDR_IPV6];
--		if (a) {
--			if (f.daddr.family && f.daddr.family != AF_INET6)
--				return 0;
--			memcpy(&daddr.data, RTA_DATA(a), 16);
--			daddr.bytelen = 16;
--			family = AF_INET6;
--			atype = TCP_METRICS_ATTR_ADDR_IPV6;
--			dlen = RTA_PAYLOAD(a);
--		} else
-+	} else if (attrs[TCP_METRICS_ATTR_ADDR_IPV6]) {
-+		if (f.daddr.family && f.daddr.family != AF_INET6)
- 			return 0;
-+		a = attrs[TCP_METRICS_ATTR_ADDR_IPV6];
-+		memcpy(&daddr.data, RTA_DATA(a), 16);
-+		daddr.bytelen = 16;
-+		family = AF_INET6;
-+		atype = TCP_METRICS_ATTR_ADDR_IPV6;
-+		dlen = RTA_PAYLOAD(a);
-+	} else {
-+		return 0;
- 	}
- 
--	a = attrs[TCP_METRICS_ATTR_SADDR_IPV4];
--	if (a) {
-+	if (attrs[TCP_METRICS_ATTR_SADDR_IPV4]) {
- 		if (f.saddr.family && f.saddr.family != AF_INET)
- 			return 0;
-+		a = attrs[TCP_METRICS_ATTR_SADDR_IPV4];
- 		memcpy(&saddr.data, RTA_DATA(a), 4);
- 		saddr.bytelen = 4;
- 		stype = TCP_METRICS_ATTR_SADDR_IPV4;
- 		slen = RTA_PAYLOAD(a);
--	} else {
-+	} else if (attrs[TCP_METRICS_ATTR_SADDR_IPV6]) {
-+		if (f.saddr.family && f.saddr.family != AF_INET6)
-+			return 0;
- 		a = attrs[TCP_METRICS_ATTR_SADDR_IPV6];
--		if (a) {
--			if (f.saddr.family && f.saddr.family != AF_INET6)
--				return 0;
--			memcpy(&saddr.data, RTA_DATA(a), 16);
--			saddr.bytelen = 16;
--			stype = TCP_METRICS_ATTR_SADDR_IPV6;
--			slen = RTA_PAYLOAD(a);
--		}
-+		memcpy(&saddr.data, RTA_DATA(a), 16);
-+		saddr.bytelen = 16;
-+		stype = TCP_METRICS_ATTR_SADDR_IPV6;
-+		slen = RTA_PAYLOAD(a);
- 	}
- 
- 	if (f.daddr.family && f.daddr.bitlen >= 0 &&
+Paolo
