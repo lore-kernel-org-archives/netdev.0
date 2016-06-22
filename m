@@ -1,80 +1,84 @@
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next 13/13] liquidio: ddr timeout
-Date: Tue, 21 Jun 2016 22:53:15 -0700
-Message-ID: <1466574795-4306-14-git-send-email-rvatsavayi@caviumnetworks.com>
-References: <1466574795-4306-1-git-send-email-rvatsavayi@caviumnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>,
-	Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>,
-	Derek Chickles <derek.chickles@caviumnetworks.com>,
-	Satanand Burla <satananda.burla@caviumnetworks.com>,
-	Felix Manlunas <felix.manlunas@caviumnetworks.com>,
-	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-To: <davem@davemloft.net>
+From: Wang Sheng-Hui <shhuiw@foxmail.com>
+Subject: [PATCH] net/mlx5: use mlx5_buf_alloc_node insteaf of mlx5_buf_alloc in mlx5_wq_ll_create
+Date: Wed, 22 Jun 2016 16:06:38 +0800
+Message-ID: <1466582798-41187-1-git-send-email-shhuiw@foxmail.com>
+Cc: matanb@mellanox.com, leonro@mellanox.com, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org
+To: saeedm@mellanox.com, amirv@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0061.outbound.protection.outlook.com ([157.56.110.61]:4394
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750957AbcFVHeZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 03:34:25 -0400
-In-Reply-To: <1466574795-4306-1-git-send-email-rvatsavayi@caviumnetworks.com>
+Received: from smtpbguseast2.qq.com ([54.204.34.130]:59385 "EHLO
+	smtpbguseast2.qq.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751109AbcFVIHF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 04:07:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Adds support for ddr_timeout during device init.
+This patch introduces 2 changes:
+	* use mlx5_buf_alloc_node() insteaf of mlx5_buf_alloc() in
+	  mlx5_wq_ll_create
+	* Update the failure warn messages with _node postfix for mlx5_*_alloc
+          function names
 
-Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
-Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
-Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
-Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
-Signed-off-by: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Signed-off-by: Wang Sheng-Hui <shhuiw@foxmail.com>
 ---
- drivers/net/ethernet/cavium/liquidio/lio_main.c      | 13 +++++++++----
- drivers/net/ethernet/cavium/liquidio/octeon_device.c |  3 ---
- 2 files changed, 9 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/wq.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index a8328f2..1a584eb 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -3805,14 +3805,19 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/wq.c b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
+index ce21ee5..821a087 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/wq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
+@@ -75,14 +75,14 @@ int mlx5_wq_cyc_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
  
- 	dev_dbg(&octeon_dev->pci_dev->dev, "Waiting for DDR initialization...\n");
+ 	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
+ 	if (err) {
+-		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
++		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
+ 		return err;
+ 	}
  
--	if (ddr_timeout == 0) {
--		dev_info(&octeon_dev->pci_dev->dev,
--			 "WAITING. Set ddr_timeout to non-zero value to proceed with initialization.\n");
--	}
-+	if (ddr_timeout == 0)
-+		dev_info(&octeon_dev->pci_dev->dev, "WAITING. Set ddr_timeout to non-zero value to proceed with initialization.\n");
+ 	err = mlx5_buf_alloc_node(mdev, mlx5_wq_cyc_get_byte_size(wq),
+ 				  &wq_ctrl->buf, param->buf_numa_node);
+ 	if (err) {
+-		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
++		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
+ 		goto err_db_free;
+ 	}
  
- 	schedule_timeout_uninterruptible(HZ * LIO_RESET_SECS);
+@@ -111,14 +111,14 @@ int mlx5_cqwq_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
  
- 	/* Wait for the octeon to initialize DDR after the soft-reset. */
-+	while (ddr_timeout == 0) {
-+		set_current_state(TASK_INTERRUPTIBLE);
-+		if (schedule_timeout(HZ / 10)) {
-+			/* user probably pressed Control-C */
-+			return 1;
-+		}
-+	}
- 	ret = octeon_wait_for_ddr_init(octeon_dev, &ddr_timeout);
- 	if (ret) {
- 		dev_err(&octeon_dev->pci_dev->dev,
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index bc4d6af..3372207 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -1284,9 +1284,6 @@ int octeon_wait_for_ddr_init(struct octeon_device *oct, u32 *timeout)
- 	if (!timeout)
- 		return ret;
+ 	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
+ 	if (err) {
+-		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
++		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
+ 		return err;
+ 	}
  
--	while (*timeout == 0)
--		schedule_timeout_uninterruptible(HZ / 10);
--
- 	for (ms = 0; (ret != 0) && ((*timeout == 0) || (ms <= *timeout));
- 	     ms += HZ / 10) {
- 		ret = octeon_mem_access_ok(oct);
+ 	err = mlx5_buf_alloc_node(mdev, mlx5_cqwq_get_byte_size(wq),
+ 				  &wq_ctrl->buf, param->buf_numa_node);
+ 	if (err) {
+-		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
++		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
+ 		goto err_db_free;
+ 	}
+ 
+@@ -148,13 +148,14 @@ int mlx5_wq_ll_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
+ 
+ 	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
+ 	if (err) {
+-		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
++		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
+ 		return err;
+ 	}
+ 
+-	err = mlx5_buf_alloc(mdev, mlx5_wq_ll_get_byte_size(wq), &wq_ctrl->buf);
++	err = mlx5_buf_alloc_node(mdev, mlx5_wq_ll_get_byte_size(wq),
++				  &wq_ctrl->buf, param->buf_numa_node);
+ 	if (err) {
+-		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
++		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
+ 		goto err_db_free;
+ 	}
+ 
 -- 
-1.8.3.1
+2.7.4
