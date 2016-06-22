@@ -1,77 +1,123 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 01/14] rxrpc: checking for IS_ERR() instead of NULL
- [ver #2]
-Date: Wed, 22 Jun 2016 17:02:58 +0100
-Message-ID: <146661137885.15011.9259809291817631304.stgit@warthog.procyon.org.uk>
-References: <146661137134.15011.10133465789054712595.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 00/14] rxrpc: Get rid of conn bundle and transport
+ structs [ver #2]
+Date: Wed, 22 Jun 2016 17:02:51 +0100
+Message-ID: <146661137134.15011.10133465789054712595.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-	linux-afs@lists.infradead.org,
-	Dan Carpenter <dan.carpenter@oracle.com>,
-	linux-kernel@vger.kernel.org
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <146661137134.15011.10133465789054712595.stgit@warthog.procyon.org.uk>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
 
-rxrpc_lookup_peer_rcu() and rxrpc_lookup_peer() return NULL on error, never
-error pointers, so IS_ERR() can't be used.
 
-Fix three callers of those functions.
+Here's the next part of the AF_RXRPC rewrite.  The primary purpose of this
+set is to get rid of the rxrpc_conn_bundle and rxrpc_transport structs.
+This simplifies things for future development of the connection handling.
 
-Fixes: be6e6707f6ee ('rxrpc: Rework peer object handling to use hash table and RCU')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-Signed-off-by: David Howells <dhowells@redhat.com>
+To this end, the following significant changes are made:
+
+ (1) The rxrpc_connection struct is given pointers to the local and peer
+     endpoints, inside the rxrpc_conn_parameters struct.  Pointers to the
+     transport's copy of these pointers are then redirected to the
+     connection struct.
+
+ (2) Exclusive connection handling is fixed.  Exclusive connections should
+     do just one call and then be retired.  They are used in security
+     negotiations and, I believe, the idea is to avoid reuse of negotiated
+     security contexts.
+
+     The current code is doing a single connection per socket and doing all
+     the calls over that.  With this change it gets a new connection for
+     each call made.
+
+ (3) A new sendmsg() control message marker is added to make individual
+     calls operate over exclusive connections.  This should be used in
+     future in preference to the sockopt that marks a socket as "exclusive
+     connection".
+
+ (4) IDs for client connections initiated by a machine are now allocated
+     from a global pool using the IDR facility and are unique across all
+     client connections, no matter their destination.  The IDR facility is
+     then used to look up a connection on the connection ID alone.  Other
+     parameters are then verified afterwards.
+
+     Note that the IDR facility may use a lot of memory if the IDs it holds
+     are widely scattered.  Given this, in a future commit, client
+     connections will be retired if they are more than a certain distance
+     from the last ID allocated.
+
+     The client epoch is advanced by 1 each time the client ID counter
+     wraps.  Connections outside the current epoch will also be retired in
+     a future commit.
+
+ (5) The connection bundle concept is removed and the client connection
+     tree is moved into the local endpoint.  The queue for waiting for a
+     call channel is moved to the rxrpc_connection struct as there can only
+     be one connection for any particular key going to any particular peer
+     now.
+
+ (6) The rxrpc_transport struct is removed and the service connection tree
+     is moved into the peer struct.
+
+The patches can be found here also:
+
+	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+
+Tagged thusly:
+
+	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+	rxrpc-rewrite-20160622
+
+
+David
 ---
+Arnd Bergmann (1):
+      rxrpc: fix uninitialized variable use
 
- net/rxrpc/af_rxrpc.c    |    4 ++--
- net/rxrpc/call_accept.c |    2 +-
- net/rxrpc/input.c       |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+Dan Carpenter (1):
+      rxrpc: checking for IS_ERR() instead of NULL
 
-diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
-index c83c3c75d665..9dd160bb16d2 100644
---- a/net/rxrpc/af_rxrpc.c
-+++ b/net/rxrpc/af_rxrpc.c
-@@ -247,8 +247,8 @@ struct rxrpc_transport *rxrpc_name_to_transport(struct rxrpc_sock *rx,
- 
- 	/* find a remote transport endpoint from the local one */
- 	peer = rxrpc_lookup_peer(rx->local, srx, gfp);
--	if (IS_ERR(peer))
--		return ERR_CAST(peer);
-+	if (!peer)
-+		return ERR_PTR(-ENOMEM);
- 
- 	/* find a transport */
- 	trans = rxrpc_get_transport(rx->local, peer, gfp);
-diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
-index 50136c76ebd1..553b67c144e5 100644
---- a/net/rxrpc/call_accept.c
-+++ b/net/rxrpc/call_accept.c
-@@ -96,7 +96,7 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
- 	notification->mark = RXRPC_SKB_MARK_NEW_CALL;
- 
- 	peer = rxrpc_lookup_peer(local, srx, GFP_NOIO);
--	if (IS_ERR(peer)) {
-+	if (!peer) {
- 		_debug("no peer");
- 		ret = -EBUSY;
- 		goto error;
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index 47fb167af3e4..e11e4d785127 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -639,7 +639,7 @@ static struct rxrpc_connection *rxrpc_conn_from_local(struct rxrpc_local *local,
- 	rxrpc_get_addr_from_skb(local, skb, &srx);
- 	rcu_read_lock();
- 	peer = rxrpc_lookup_peer_rcu(local, &srx);
--	if (IS_ERR(peer))
-+	if (!peer)
- 		goto cant_find_peer;
- 
- 	trans = rxrpc_find_transport(local, peer);
+David Howells (12):
+      rxrpc: Use structs to hold connection params and protocol info
+      rxrpc: Replace conn->trans->{local,peer} with conn->params.{local,peer}
+      rxrpc: Fix exclusive connection handling
+      rxrpc: Pass sk_buff * rather than rxrpc_host_header * to functions
+      rxrpc: rxrpc_connection_lock shouldn't be a BH lock, but conn_lock is
+      rxrpc: Use IDR to allocate client conn IDs on a machine-wide basis
+      rxrpc: Validate the net address given to rxrpc_kernel_begin_call()
+      rxrpc: Calls displayed in /proc may in future lack a connection
+      rxrpc: Make rxrpc_send_packet() take a connection not a transport
+      rxrpc: Provide more refcount helper functions
+      rxrpc: Kill the client connection bundle concept
+      rxrpc: Kill off the rxrpc_transport struct
+
+
+ include/linux/rxrpc.h    |    3 
+ net/rxrpc/Makefile       |    2 
+ net/rxrpc/af_rxrpc.c     |   87 +---
+ net/rxrpc/ar-internal.h  |  172 +++++----
+ net/rxrpc/call_accept.c  |   17 -
+ net/rxrpc/call_event.c   |   20 +
+ net/rxrpc/call_object.c  |  207 +++++------
+ net/rxrpc/conn_client.c  |   94 +++++
+ net/rxrpc/conn_event.c   |   16 -
+ net/rxrpc/conn_object.c  |  890 +++++++++++++++++-----------------------------
+ net/rxrpc/input.c        |   23 -
+ net/rxrpc/key.c          |    2 
+ net/rxrpc/local_object.c |    6 
+ net/rxrpc/output.c       |  109 +++---
+ net/rxrpc/peer_object.c  |    5 
+ net/rxrpc/proc.c         |   39 +-
+ net/rxrpc/recvmsg.c      |    6 
+ net/rxrpc/rxkad.c        |   74 ++--
+ net/rxrpc/security.c     |    8 
+ net/rxrpc/sysctl.c       |    8 
+ net/rxrpc/transport.c    |    0 
+ 21 files changed, 799 insertions(+), 989 deletions(-)
+ create mode 100644 net/rxrpc/conn_client.c
+ delete mode 100644 net/rxrpc/transport.c
