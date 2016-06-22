@@ -1,38 +1,61 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: Re: [RFC nf-next 1/3] netfilter: bridge: add and use br_nf_hook_thresh
-Date: Wed, 22 Jun 2016 17:43:11 -0400
-Message-ID: <f7t1t3ozyq8.fsf@redhat.com>
-References: <1466631271-10737-1-git-send-email-aconole@bytheb.org>
-	<1466631271-10737-2-git-send-email-aconole@bytheb.org>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [PATCH net-next 0/5] qed/qede: Tunnel hardware GRO support
+Date: Wed, 22 Jun 2016 14:52:34 -0700
+Message-ID: <576B08A2.8080603@hpe.com>
+References: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
+ <CAKgT0Ue6_cPb88wfTtMMetJzBSJnGDNWj8YVHWC=9WdztCxOuQ@mail.gmail.com>
+ <CO2PR11MB008891D4ECFF86F32B1C32CC972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <CAKgT0UdDt6H8ix6U7n_uPjodkXYuxviZjSKWQRaXu2_qWWEL+A@mail.gmail.com>
+ <CO2PR11MB0088C4DEAFEE71B0D865DB33972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netfilter-devel@vger.kernel.org
-To: netdev@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1466631271-10737-2-git-send-email-aconole@bytheb.org> (Aaron
-	Conole's message of "Wed, 22 Jun 2016 17:34:29 -0400")
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Manish Chopra <manish.chopra@qlogic.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Hannes Frederic Sowa <hannes@redhat.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Alexander Duyck <alexander.duyck@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g9t1613g.houston.hpe.com ([15.241.32.99]:2361 "EHLO
+	g9t1613g.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750718AbcFVVwh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 17:52:37 -0400
+Received: from g2t2353.austin.hpe.com (g2t2353.austin.hpe.com [15.233.44.26])
+	(using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by g9t1613g.houston.hpe.com (Postfix) with ESMTPS id 5AEB7614C2
+	for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 21:52:36 +0000 (UTC)
+In-Reply-To: <CO2PR11MB0088C4DEAFEE71B0D865DB33972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Aaron Conole <aconole@bytheb.org> writes:
+On 06/22/2016 11:22 AM, Yuval Mintz wrote:
+> But seriously, this isn't really anything new but rather a step forward in
+> the direction we've already taken - bnx2x/qede are already performing
+> the same for non-encapsulated TCP.
 
-> From: Florian Westphal <fw@strlen.de>
->
-> This replaces the last uses of NF_HOOK_THRESH().
-> Followup patch will remove it and rename nf_hook_thresh.
->
-> The reason is that inet (non-bridge) netfilter no longer invokes the
-> hooks from hooks, so we do no longer need the thresh value to skip hooks
-> with a lower priority.
->
-> The bridge netfilter however may need to do this. br_nf_hook_thresh is a
-> wrapper that is supposed to do this, i.e. only call hooks with a
-> priority that exceeds NF_BR_PRI_BRNF.
->
-> It's used only in the recursion cases of br_netfilter.
->
-> Signed-off-by: Florian Westphal <fw@strlen.de>
-> Signed-off-by: Aaron Conole <aconole@redhat.com>
-> ---
+Since you mention bnx2x...   I would argue that the NIC firmware on 
+those NICs driven by bnx2x is doing it badly.  Not so much from a 
+functional standpoint I suppose, but from a performance one.  The 
+NIC-firmware GRO done there has this rather unfortunate assumption about 
+"all MSSes will be directly driven by my own physical MTU" and when it 
+sees segments of a size other than would be suggested by the physical 
+MTU, will coalesce only two segments together.  They then do not get 
+further coalesced in the stack.
 
-I will make sure to fix the address in this patch.  Apologies.
+Suffice it to say this does not do well from a performance standpoint.
+
+One can disable LRO via ethtool for these NICs, but what that does is 
+disable old-school LRO, not GRO-in-the-NIC.  To get that disabled, one 
+must also get the bnx2x module loaded with "disable-tpa=1" so the Linux 
+stack GRO gets used instead.
+
+Had the bnx2x-driven NICs' firmware not had that rather unfortunate 
+assumption about MSSes I probably would never have noticed.
+
+happy benchmarking,
+
+rick jones
