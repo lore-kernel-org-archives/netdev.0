@@ -1,43 +1,51 @@
-From: Colin King <colin.king@canonical.com>
-Subject: [PATCH] ethernet: xircom: fix spelling mistakes on "excessive collisions"
-Date: Wed, 22 Jun 2016 18:35:05 +0100
-Message-ID: <1466616905-24424-1-git-send-email-colin.king@canonical.com>
-Cc: linux-kernel@vger.kernel.org
-To: "David S . Miller" <davem@davemloft.net>,
-	Antonio Quartulli <a@unstable.cc>,
-	Felipe Balbi <felipe.balbi@linux.intel.com>,
-	Florian Westphal <fw@strlen.de>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from youngberry.canonical.com ([91.189.89.112]:46711 "EHLO
-	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751242AbcFVRfU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 13:35:20 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jeremy Linton <jeremy.linton@arm.com>
+Subject: [PATCH v3] net: smsc911x: Fix bug where PHY interrupts are overwritten by 0
+Date: Wed, 22 Jun 2016 12:40:50 -0500
+Message-ID: <1466617250-27317-1-git-send-email-jeremy.linton@arm.com>
+Cc: steve.glendinning@shawell.net, andrew@lunn.ch,
+	sergei.shtylyov@cogentembedded.com, linux-kernel@vger.kernel.org,
+	stable@vger.kernel.org, pbrobinson@gmail.com,
+	mlangsdorf@redhat.com, steve.capper@arm.com
+To: netdev@vger.kernel.org
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Colin Ian King <colin.king@canonical.com>
+By default, mdiobus_alloc() sets the PHYs to polling mode, but a
+pointer size memcpy means that a couple IRQs end up being overwritten
+with a value of 0. This means that PHY_POLL is disabled and results
+in unpredictable behavior depending on the PHY's location on the
+MDIO bus. Remove that memcpy and the now unused phy_irq member to
+force the SMSC911x PHYs into polling mode 100% of the time.
 
-trivial fixes to spelling mistakes of the words "excessive collisions"
+Fixes: e7f4dc3536a4 ("mdio: Move allocation of interrupts into core")
 
-Signed-off-by: Colin Ian King <colin.king@canonical.com>
+Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+Reviewed-by: Andrew Lunn <andrew@lunn.ch>
+Acked-by: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
 ---
- drivers/net/ethernet/xircom/xirc2ps_cs.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/smsc/smsc911x.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/xircom/xirc2ps_cs.c b/drivers/net/ethernet/xircom/xirc2ps_cs.c
-index 7b44968..ddced28 100644
---- a/drivers/net/ethernet/xircom/xirc2ps_cs.c
-+++ b/drivers/net/ethernet/xircom/xirc2ps_cs.c
-@@ -1144,8 +1144,8 @@ xirc2ps_interrupt(int irq, void *dev_id)
- 	    dev->stats.tx_packets += lp->last_ptr_value - n;
- 	netif_wake_queue(dev);
-     }
--    if (tx_status & 0x0002) {	/* Execessive collissions */
--	pr_debug("tx restarted due to execssive collissions\n");
-+    if (tx_status & 0x0002) {	/* Excessive collisions */
-+	pr_debug("tx restarted due to excessive collisions\n");
- 	PutByte(XIRCREG_CR, RestartTx);  /* restart transmitter process */
-     }
-     if (tx_status & 0x0040)
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 8af2556..b5ab5e1 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -116,7 +116,6 @@ struct smsc911x_data {
+ 
+ 	struct phy_device *phy_dev;
+ 	struct mii_bus *mii_bus;
+-	int phy_irq[PHY_MAX_ADDR];
+ 	unsigned int using_extphy;
+ 	int last_duplex;
+ 	int last_carrier;
+@@ -1073,7 +1072,6 @@ static int smsc911x_mii_init(struct platform_device *pdev,
+ 	pdata->mii_bus->priv = pdata;
+ 	pdata->mii_bus->read = smsc911x_mii_read;
+ 	pdata->mii_bus->write = smsc911x_mii_write;
+-	memcpy(pdata->mii_bus->irq, pdata->phy_irq, sizeof(pdata->mii_bus));
+ 
+ 	pdata->mii_bus->parent = &pdev->dev;
+ 
 -- 
-2.8.1
+2.5.5
