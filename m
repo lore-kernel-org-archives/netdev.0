@@ -1,68 +1,136 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute PATCH v2 2/7] Use C99 style initializers everywhere
-Date: Wed, 22 Jun 2016 11:29:58 +0200
-Message-ID: <20160622092958.GA15980@orbyte.nwl.cc>
-References: <1466525921-15738-1-git-send-email-phil@nwl.cc>
- <1466525921-15738-3-git-send-email-phil@nwl.cc>
- <87mvmdmvtd.fsf@frog.home>
+From: Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Subject: Re: [PATCH net-next 10/19] net: hns: bugfix about pfc pause frame
+ statistics
+Date: Wed, 22 Jun 2016 12:41:38 +0300
+Message-ID: <1466588498.30123.235.camel@linux.intel.com>
+References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
+ <1466481399-70080-11-git-send-email-Yisen.Zhuang@huawei.com>
+ <1466505178.30123.201.camel@linux.intel.com>
+	 <5769ED55.3000408@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemming@brocade.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Julien Floret <julien.floret@6wind.com>, netdev@vger.kernel.org
-To: Jakub Sitnicki <jkbs@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:36453 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750770AbcFVJaA (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 05:30:00 -0400
-Content-Disposition: inline
-In-Reply-To: <87mvmdmvtd.fsf@frog.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: liguozhu@huawei.com, huangdaode@hisilicon.com, arnd@arndb.de,
+	andrew@lunn.ch, geliangtang@163.com, ivecera@redhat.com,
+	fengguang.wu@intel.com, charles.chenxin@huawei.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org, linuxarm@huawei.com
+To: Yisen Zhuang <Yisen.zhuang@huawei.com>, davem@davemloft.net,
+	salil.mehta@huawei.com, yankejian@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5769ED55.3000408@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Jakub,
+On Wed, 2016-06-22 at 09:43 +0800, Yisen Zhuang wrote:
+>=20
+> =E5=9C=A8 2016/6/21 18:32, Andy Shevchenko =E5=86=99=E9=81=93:
+> > On Tue, 2016-06-21 at 11:56 +0800, Yisen Zhuang wrote:
+> > > From: Daode Huang <huangdaode@hisilicon.com>
+> > >=20
+> > > For SoC hip06, PFC pause handled in dsaf, while hip05 in XGMAC,
+> > > so change the statistics of pfc pause in dsaf and remove the old
+> > > pfc pause frame statistics.
+> > >=20
+> >=C2=A0
+> >=20
+> > > +static char *hns_dsaf_get_node_stats_strings(char *data, int
+> > > node,
+> > > +					=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0struct dsaf_device
+> > > *dsaf_dev)
+> > > =C2=A0{
+> > > =C2=A0	char *buff =3D data;
+> > > +	int i;
+> > > +	bool is_ver1 =3D AE_IS_VER1(dsaf_dev->dsaf_ver);
+> > > =C2=A0
+> > > =C2=A0	snprintf(buff, ETH_GSTRING_LEN, "innod%d_pad_drop_pkts",
+> > > node);
+> > > =C2=A0	buff =3D buff + ETH_GSTRING_LEN;
+> > > @@ -2502,6 +2530,18 @@ static char
+> > > *hns_dsaf_get_node_stats_strings(char *data, int node)
+> > > =C2=A0	buff =3D buff + ETH_GSTRING_LEN;
+> > > =C2=A0	snprintf(buff, ETH_GSTRING_LEN, "innod%d_stp_drop_pkts",
+> > > node);
+> > > =C2=A0	buff =3D buff + ETH_GSTRING_LEN;
+> > > +	if ((node < DSAF_SERVICE_NW_NUM) && (!is_ver1)) {
+> >=20
+> > Redundant parens.
+> >=20
+> > > +		for (i =3D 0; i < DSAF_PRIO_NR; i++) {
+> > > +			snprintf(buff, ETH_GSTRING_LEN,
+> > > +				=C2=A0"inod%d_pfc_prio%d_pkts", node,
+> > > i);
+> > > +			buff =3D buff + ETH_GSTRING_LEN;
+> >=20
+> > buff +=3D ...
+> >=20
+> > > +		}
+> > > +		for (i =3D 0; i < DSAF_PRIO_NR; i++) {
+> > > +			snprintf(buff, ETH_GSTRING_LEN,
+> > > +				=C2=A0"onod%d_pfc_prio%d_pkts", node,
+> > > i);
+> > > +			buff =3D buff + ETH_GSTRING_LEN;
+> >=20
+> > Ditto.
+> >=20
+> > > =C2=A0{
+> > > =C2=A0	u64 *p =3D data;
+> > > +	int i;
+> > > =C2=A0	struct dsaf_hw_stats *hw_stats =3D &ddev-
+> > > >hw_stats[node_num];
+> > > +	bool is_ver1 =3D AE_IS_VER1(ddev->dsaf_ver);
+> > > =C2=A0
+> > > =C2=A0	p[0] =3D hw_stats->pad_drop;
+> > > =C2=A0	p[1] =3D hw_stats->man_pkts;
+> > > @@ -2527,8 +2569,16 @@ static u64 *hns_dsaf_get_node_stats(struct
+> > > dsaf_device *ddev, u64 *data,
+> > > =C2=A0	p[10] =3D hw_stats->local_addr_false;
+> > > =C2=A0	p[11] =3D hw_stats->vlan_drop;
+> > > =C2=A0	p[12] =3D hw_stats->stp_drop;
+> > > -	p[13] =3D hw_stats->tx_pkts;
+> > > +	if ((node_num < DSAF_SERVICE_NW_NUM) && (!is_ver1)) {
+> > > +		for (i =3D 0; i < DSAF_PRIO_NR; i++) {
+> > > +			p[13 + i] =3D hw_stats->rx_pfc[i];
+> > > +			p[13 + i + DSAF_PRIO_NR] =3D hw_stats-
+> > > > tx_pfc[i];
+> > > +		}
+> >=20
+> > Two different approaches how to assign data. Above uses 2 for-loops=
+,
+> > here you put everything to one.
+>=20
+> Above cann't be merged to 1 for-loop, because lenght of the string is
+> unknowable.
 
-On Wed, Jun 22, 2016 at 11:12:14AM +0200, Jakub Sitnicki wrote:
-> On Tue, Jun 21, 2016 at 06:18 PM CEST, Phil Sutter <phil@nwl.cc> wrote:
-> > This big patch was compiled by vimgrepping for memset calls and changing
-> > to C99 initializer if applicable. One notable exception is the
-> > initialization of union bpf_attr in tc/tc_bpf.c: changing it would break
-> > for older gcc versions (at least <=3.4.6).
-> >
-> > Calls to memset for struct rtattr pointer fields for parse_rtattr*()
-> > were just dropped since they are not needed.
-> >
-> > The changes here allowed the compiler to discover some unused variables,
-> > so get rid of them, too.
-> >
-> > Signed-off-by: Phil Sutter <phil@nwl.cc>
-> > ---
-> 
-> [...]
-> 
-> > diff --git a/bridge/fdb.c b/bridge/fdb.c
-> > index be849f980a802..a59d6a9c13018 100644
-> > --- a/bridge/fdb.c
-> > +++ b/bridge/fdb.c
-> > @@ -177,16 +177,15 @@ static int fdb_show(int argc, char **argv)
-> >  		struct nlmsghdr	n;
-> >  		struct ifinfomsg	ifm;
-> >  		char			buf[256];
-> > -	} req;
-> > +	} req = {
-> > +		.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
-> > +		.ifm.ifi_family = PF_BRIDGE
-> > +	};
-> >  
-> 
-> A comma is allowed after a list of initializers (IOW, after the last
-> initializer). Having it would make for smaller/cleaner diffs in the
-> future if new structure members get added and need to be initialized.
+It doesn't matter since you are incrementing start position by
+constant.=C2=A0
 
-Good point! I knew about that already, but that's good reasoning why one
-would actually want to do that intentionally.
+snprintf(buff, ETH_GSTRING_LEN, "inod%d_pfc_prio%d_pkts", node, i);
+snprintf(buff, ETH_GSTRING_LEN, "onod%d_pfc_prio%d_pkts", node, i);
 
-Thanks, Phil
+Same approach as below can be used
+
+snprintf(buff + 0 * ETH_GSTRING_LEN * DSAF_PRIO_NR, ETH_GSTRING_LEN, ..=
+=2E
+snprintf(buff + 1 * ETH_GSTRING_LEN * DSAF_PRIO_NR, ETH_GSTRING_LEN, ..=
+=2E
+
+Of course to make it less verbose you may add new definition(s) and/ or
+variable(s).
+
+>=20
+> And here we put everything to one to reduce codes.
+>=20
+
+I would suggest to use following pattern for such lines
+p[13 + i + 0 * DSAF_PRIO_NR] =3D hw_stats->rx_pfc[i];
+p[13 + i + 1 * DSAF_PRIO_NR] =3D hw_stats->tx_pfc[i];
+
+That's allow reader to see what are you doing here.
+
+P.S. This is for the future patches since current is already applied.
+
+--=20
+
+Andy Shevchenko <andriy.shevchenko@linux.intel.com>
+Intel Finland Oy
