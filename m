@@ -1,7 +1,7 @@
 From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: [PATCHv2 2/7] ppc: bpf/jit: Fix/enhance 32-bit Load Immediate implementation
-Date: Wed, 22 Jun 2016 21:55:02 +0530
-Message-ID: <d584015e9fb33ed526d693c5ab3c228d385f3c74.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
+Subject: [PATCHv2 4/7] ppc: bpf/jit: Introduce rotate immediate instructions
+Date: Wed, 22 Jun 2016 21:55:04 +0530
+Message-ID: <8264e2692c8d0b2a019827e052cdda29c4ec2fbc.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
 References: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
 Cc: Matt Evans <matt@ozlabs.org>,
 	Denis Kirjanov <kda@linux-powerpc.org>,
@@ -20,20 +20,10 @@ References: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The existing LI32() macro can sometimes result in a sign-extended 32-bit
-load that does not clear the top 32-bits properly. As an example,
-loading 0x7fffffff results in the register containing
-0xffffffff7fffffff. While this does not impact classic BPF JIT
-implementation (since that only uses the lower word for all operations),
-we would like to share this macro between classic BPF JIT and extended
-BPF JIT, wherein the entire 64-bit value in the register matters. Fix
-this by first doing a shifted LI followed by ORI.
-
-An additional optimization is with loading values between -32768 to -1,
-where we now only need a single LI.
-
-The new implementation now generates the same or less number of
-instructions.
+Since we will be using the rotate immediate instructions for extended
+BPF JIT, let's introduce macros for the same. And since the shift
+immediate operations use the rotate immediate instructions, let's redo
+those macros to use the newly introduced instructions.
 
 Cc: Matt Evans <matt@ozlabs.org>
 Cc: Denis Kirjanov <kda@linux-powerpc.org>
@@ -47,33 +37,56 @@ Cc: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
 ---
- arch/powerpc/net/bpf_jit.h | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+ arch/powerpc/include/asm/ppc-opcode.h |  2 ++
+ arch/powerpc/net/bpf_jit.h            | 20 +++++++++++---------
+ 2 files changed, 13 insertions(+), 9 deletions(-)
 
+diff --git a/arch/powerpc/include/asm/ppc-opcode.h b/arch/powerpc/include/asm/ppc-opcode.h
+index 1d035c1..fd8d640 100644
+--- a/arch/powerpc/include/asm/ppc-opcode.h
++++ b/arch/powerpc/include/asm/ppc-opcode.h
+@@ -272,6 +272,8 @@
+ #define __PPC_SH(s)	__PPC_WS(s)
+ #define __PPC_MB(s)	(((s) & 0x1f) << 6)
+ #define __PPC_ME(s)	(((s) & 0x1f) << 1)
++#define __PPC_MB64(s)	(__PPC_MB(s) | ((s) & 0x20))
++#define __PPC_ME64(s)	__PPC_MB64(s)
+ #define __PPC_BI(s)	(((s) & 0x1f) << 16)
+ #define __PPC_CT(t)	(((t) & 0x0f) << 21)
+ 
 diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
-index 889fd19..a9882db 100644
+index 4c1e055..95d0e38 100644
 --- a/arch/powerpc/net/bpf_jit.h
 +++ b/arch/powerpc/net/bpf_jit.h
-@@ -232,10 +232,17 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
- 					     (((cond) & 0x3ff) << 16) |	      \
- 					     (((dest) - (ctx->idx * 4)) &     \
- 					      0xfffc))
--#define PPC_LI32(d, i)		do { PPC_LI(d, IMM_L(i));		      \
--		if ((u32)(uintptr_t)(i) >= 32768) {			      \
--			PPC_ADDIS(d, d, IMM_HA(i));			      \
-+/* Sign-extended 32-bit immediate load */
-+#define PPC_LI32(d, i)		do {					      \
-+		if ((int)(uintptr_t)(i) >= -32768 &&			      \
-+				(int)(uintptr_t)(i) < 32768)		      \
-+			PPC_LI(d, i);					      \
-+		else {							      \
-+			PPC_LIS(d, IMM_H(i));				      \
-+			if (IMM_L(i))					      \
-+				PPC_ORI(d, d, IMM_L(i));		      \
- 		} } while(0)
+@@ -210,18 +210,20 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
+ 				     ___PPC_RS(a) | ___PPC_RB(s))
+ #define PPC_SRW(d, a, s)	EMIT(PPC_INST_SRW | ___PPC_RA(d) |	      \
+ 				     ___PPC_RS(a) | ___PPC_RB(s))
++#define PPC_RLWINM(d, a, i, mb, me)	EMIT(PPC_INST_RLWINM | ___PPC_RA(d) | \
++					___PPC_RS(a) | __PPC_SH(i) |	      \
++					__PPC_MB(mb) | __PPC_ME(me))
++#define PPC_RLDICR(d, a, i, me)		EMIT(PPC_INST_RLDICR | ___PPC_RA(d) | \
++					___PPC_RS(a) | __PPC_SH(i) |	      \
++					__PPC_ME64(me) | (((i) & 0x20) >> 4))
 +
- #define PPC_LI64(d, i)		do {					      \
- 		if (!((uintptr_t)(i) & 0xffffffff00000000ULL))		      \
- 			PPC_LI32(d, i);					      \
+ /* slwi = rlwinm Rx, Ry, n, 0, 31-n */
+-#define PPC_SLWI(d, a, i)	EMIT(PPC_INST_RLWINM | ___PPC_RA(d) |	      \
+-				     ___PPC_RS(a) | __PPC_SH(i) |	      \
+-				     __PPC_MB(0) | __PPC_ME(31-(i)))
++#define PPC_SLWI(d, a, i)	PPC_RLWINM(d, a, i, 0, 31-(i))
+ /* srwi = rlwinm Rx, Ry, 32-n, n, 31 */
+-#define PPC_SRWI(d, a, i)	EMIT(PPC_INST_RLWINM | ___PPC_RA(d) |	      \
+-				     ___PPC_RS(a) | __PPC_SH(32-(i)) |	      \
+-				     __PPC_MB(i) | __PPC_ME(31))
++#define PPC_SRWI(d, a, i)	PPC_RLWINM(d, a, 32-(i), i, 31)
+ /* sldi = rldicr Rx, Ry, n, 63-n */
+-#define PPC_SLDI(d, a, i)	EMIT(PPC_INST_RLDICR | ___PPC_RA(d) |	      \
+-				     ___PPC_RS(a) | __PPC_SH(i) |	      \
+-				     __PPC_MB(63-(i)) | (((i) & 0x20) >> 4))
++#define PPC_SLDI(d, a, i)	PPC_RLDICR(d, a, i, 63-(i))
++
+ #define PPC_NEG(d, a)		EMIT(PPC_INST_NEG | ___PPC_RT(d) | ___PPC_RA(a))
+ 
+ /* Long jump; (unconditional 'branch') */
 -- 
 2.8.2
