@@ -1,77 +1,181 @@
-From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
-Subject: Re: [PATCH 12/15] net: davinci_mdio: document missed "ti,am4372-mdio"
- compat string
-Date: Wed, 22 Jun 2016 13:26:45 +0300
-Message-ID: <576A67E5.5050106@ti.com>
-References: <20160615115603.4897-1-grygorii.strashko@ti.com>
- <20160615115603.4897-13-grygorii.strashko@ti.com>
- <20160619143543.GA14844@rob-hp-laptop>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: [PATCH 6/6] ppc: ebpf/jit: Implement JIT compiler for extended
+ BPF
+Date: Wed, 22 Jun 2016 20:37:43 +1000
+Message-ID: <1466591863.29871.1.camel@ellerman.id.au>
+References: <cover.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
+	 <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>,
-	Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Ivan Khoronzhuk <ivan.khoronzhuk-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
-	<devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160619143543.GA14844@rob-hp-laptop>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Matt Evans <matt@ozlabs.org>,
+	Denis Kirjanov <kda@linux-powerpc.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Alexei Starovoitov <ast@fb.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+To: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([103.22.144.67]:47796 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752156AbcFVKhw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2016 06:37:52 -0400
+In-Reply-To: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/19/2016 05:35 PM, Rob Herring wrote:
-> On Wed, Jun 15, 2016 at 02:56:00PM +0300, Grygorii Strashko wrote:
->> Document missed "ti,am4372-mdio" compat string used for TI am437x SoC
->> (am4372.dtsi).
->>
->> Signed-off-by: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
->> ---
->>   Documentation/devicetree/bindings/net/davinci-mdio.txt | 3 ++-
->>   1 file changed, 2 insertions(+), 1 deletion(-)
->>
->> diff --git a/Documentation/devicetree/bindings/net/davinci-mdio.txt b/Documentation/devicetree/bindings/net/davinci-mdio.txt
->> index 0369e25..f2bba50 100644
->> --- a/Documentation/devicetree/bindings/net/davinci-mdio.txt
->> +++ b/Documentation/devicetree/bindings/net/davinci-mdio.txt
->> @@ -2,7 +2,8 @@ TI SoC Davinci/Keystone2 MDIO Controller Device Tree Bindings
->>   ---------------------------------------------------
->>   
->>   Required properties:
->> -- compatible		: Should be "ti,davinci_mdio" or "ti,keystone_mdio"
->> +- compatible		: Should be "ti,davinci_mdio", "ti,keystone_mdio",
->> +			  "ti,am4372-mdio"
+On Tue, 2016-06-07 at 19:02 +0530, Naveen N. Rao wrote:
+
+> PPC64 eBPF JIT compiler.
 > 
-> This is still an OR relationship?
-
-I think it's AND relation. It should be smth. like this:
- [SoC,][IP family,] "ti,davinci_mdio"
-where "ti,davinci_mdio" is mandatory always
- [IP family] - mandatory for IP/SOC family and can be "ti,keystone_mdio" or "ti,cpsw-mdio" (last one is added by subsequent patch)
- [SoC] - mandatory for SoC. now can be "ti,am4372-mdio"
-
-I can update it as below:
-- compatible		: Should be "ti,davinci_mdio"  
-			  and "ti,keystone_mdio" for Keystone 2 SoCs
- 			  and "ti,am4372-mdio" for am472x SoC
-and in subsequent patch
-			 and "ti,cpsw-mdio" for am335x, am472x, am57xx/dra7, dm814x SoCs
-			 and "ti,am4372-mdio" for am472x SoC
-
-
-
+> Enable with:
+> echo 1 > /proc/sys/net/core/bpf_jit_enable
+> or
+> echo 2 > /proc/sys/net/core/bpf_jit_enable
 > 
-> It's preferred to list one per line.
+> ... to see the generated JIT code. This can further be processed with
+> tools/net/bpf_jit_disasm.
+> 
+> With CONFIG_TEST_BPF=m and 'modprobe test_bpf':
+> test_bpf: Summary: 305 PASSED, 0 FAILED, [297/297 JIT'ed]
+> 
+> ... on both ppc64 BE and LE.
+> 
+> The details of the approach are documented through various comments in
+> the code.
 
-ok
+This is crashing for me on a Cell machine, not sure why at a glance:
+
+
+test_bpf: #250 JMP_JSET_X: if (0x3 & 0xffffffff) return 1 jited:1 14 PASS
+test_bpf: #251 JMP_JA: Jump, gap, jump, ... jited:1 15 PASS
+test_bpf: #252 BPF_MAXINSNS: Maximum possible literals 
+Unable to handle kernel paging request for data at address 0xd000000007b20000
+Faulting instruction address: 0xc000000000667b6c
+cpu 0x0: Vector: 300 (Data Access) at [c0000007f83bf3a0]
+    pc: c000000000667b6c: .flush_icache_range+0x3c/0x84
+    lr: c000000000082354: .bpf_int_jit_compile+0x1fc/0x2c8
+    sp: c0000007f83bf620
+   msr: 900000000200b032
+   dar: d000000007b20000
+ dsisr: 40000000
+  current = 0xc0000007f8249580
+  paca    = 0xc00000000fff0000	 softe: 0	 irq_happened: 0x01
+    pid   = 1822, comm = insmod
+Linux version 4.7.0-rc3-00061-g007c99b9d8c1 (michael@ka3.ozlabs.ibm.com) (gcc version 6.1.0 (GCC) ) #3 SMP Wed Jun 22 19:22:23 AEST 2016
+enter ? for help
+[link register   ] c000000000082354 .bpf_int_jit_compile+0x1fc/0x2c8
+[c0000007f83bf620] c0000000000822fc .bpf_int_jit_compile+0x1a4/0x2c8 (unreliable)
+[c0000007f83bf700] c00000000013cda4 .bpf_prog_select_runtime+0x24/0x108
+[c0000007f83bf780] c000000000548918 .bpf_prepare_filter+0x9b0/0x9e8
+[c0000007f83bf830] c0000000005489d4 .bpf_prog_create+0x84/0xd0
+[c0000007f83bf8c0] d000000003b21158 .test_bpf_init+0x28c/0x83c [test_bpf]
+[c0000007f83bfa00] c00000000000a7b4 .do_one_initcall+0x5c/0x1c0
+[c0000007f83bfae0] c000000000669058 .do_init_module+0x80/0x21c
+[c0000007f83bfb80] c00000000011e3a0 .load_module+0x2028/0x23a8
+[c0000007f83bfd20] c00000000011e898 .SyS_init_module+0x178/0x1b0
+[c0000007f83bfe30] c000000000009220 system_call+0x38/0x110
+--- Exception: c01 (System Call) at 000000000ff5e0c4
+SP (ffde0960) is in userspace
+0:mon> r
+R00 = 000000000000c01c   R16 = 0000000000000000
+R01 = c0000007f83bf620   R17 = 00000000024000c0
+R02 = c00000000094ce00   R18 = 0000000000000000
+R03 = d000000007b10000   R19 = d000000003c32df0
+R04 = d000000007b40338   R20 = c00000000072b488
+R05 = 000000000000007f   R21 = d000000007b10000
+R06 = d000000007b20000   R22 = c00000000098184c
+R07 = 0000000000000080   R23 = 0000000000000000
+R08 = 0000000000000607   R24 = 00000000000300e0
+R09 = 0000000000000007   R25 = 000000000000c020
+R10 = c000000000861ee0   R26 = d000000007b10270
+R11 = c0000000006755f8   R27 = c0000007fe0e0000
+R12 = d000000007b10270   R28 = 0000000000002003
+R13 = c00000000fff0000   R29 = c0000007f83bf690
+R14 = d000000003c32d61   R30 = 0000000000000003
+R15 = 0000000000000000   R31 = d000000007ae0000
+pc  = c000000000667b6c .flush_icache_range+0x3c/0x84
+lr  = c000000000082354 .bpf_int_jit_compile+0x1fc/0x2c8
+msr = 900000000200b032   cr  = 44000248
+ctr = 0000000000000407   xer = 0000000020000000   trap =  300
+dar = d000000007b20000   dsisr = 40000000
+0:mon> S
+msr  = 9000000000001032  sprg0= 0000000000008001
+pvr  = 0000000000703000  sprg1= c00000000fff0000
+dec  = 000000009f2d8ba4  sprg2= c00000000fff0000
+sp   = c0000007f83bed30  sprg3= 0000000000000000
+toc  = c00000000094ce00  dar  = d000000007b20000
+0:mon> u
+SLB contents of cpu 0x0
+00 c000000008000000 0000af32f5079500 256M ESID=c00000000  VSID=    af32f5079 LLP:100 
+01 d000000008000000 0000836935091510 256M ESID=d00000000  VSID=    836935091 LLP:110 
+02 c0000007f8000000 0000b52186c20500 256M ESID=c0000007f  VSID=    b52186c20 LLP:100 
+03 c0000003f0000000 0000b224435e0500
+04 c0000007f0000000 0000b52186c20500
+05 c0000003f0000000 0000b224435e0500
+06 c0000007f0000000 0000b52186c20500
+07 c0000003f0000000 0000b224435e0500
+08 c0000007f0000000 0000b52186c20500
+09 c0000003f0000000 0000b224435e0500
+10 c0000007f0000000 0000b52186c20500
+11 c0000003f0000000 0000b224435e0500
+12 c0000007f0000000 0000b52186c20500
+13 c0000003f0000000 0000b224435e0500
+14 c0000007f0000000 0000b52186c20500
+15 c0000003f0000000 0000b224435e0500
+16 c0000007f0000000 0000b52186c20500
+17 c000000078000000 0000af86a8668500 256M ESID=c00000007  VSID=    af86a8668 LLP:100 
+18 c0000003f0000000 0000b224435e0500
+19 c0000007f0000000 0000b52186c20500
+20 c0000003f0000000 0000b224435e0500
+21 c0000007f0000000 0000b52186c20500
+22 c0000003f0000000 0000b224435e0500
+23 c0000007f0000000 0000b52186c20500
+24 c0000003f0000000 0000b224435e0500
+25 c0000007f0000000 0000b52186c20500
+26 c0000003f0000000 0000b224435e0500
+27 c0000007f0000000 0000b52186c20500
+28 c0000003f0000000 0000b224435e0500
+29 c0000007f0000000 0000b52186c20500
+30 c0000003f0000000 0000b224435e0500
+31 c0000007f0000000 0000b52186c20500
+32 c0000003f0000000 0000b224435e0500
+33 c0000007f0000000 0000b52186c20500
+34 c0000003f0000000 0000b224435e0500
+35 c0000007f0000000 0000b52186c20500
+36 c0000003f0000000 0000b224435e0500
+37 c0000007f0000000 0000b52186c20500
+38 c0000003f0000000 0000b224435e0500
+39 c0000007f0000000 0000b52186c20500
+40 c0000003f0000000 0000b224435e0500
+41 c0000007f0000000 0000b52186c20500
+42 c0000003f0000000 0000b224435e0500
+43 c0000007f0000000 0000b52186c20500
+44 c0000003f0000000 0000b224435e0500
+45 c0000007f0000000 0000b52186c20500
+46 c0000003f0000000 0000b224435e0500
+47 c0000007f0000000 0000b52186c20500
+48 c0000003f0000000 0000b224435e0500
+49 d000080088000000 00007e4fa575c510 256M ESID=d00008008  VSID=    7e4fa575c LLP:110 
+50 c0000007f0000000 0000b52186c20500
+51 c0000003f0000000 0000b224435e0500
+52 c0000007f0000000 0000b52186c20500
+53 c0000003f0000000 0000b224435e0500
+54 c0000007f0000000 0000b52186c20500
+55 c0000003f0000000 0000b224435e0500
+56 c0000007f0000000 0000b52186c20500
+57 c0000003f8000000 0000b224435e0500 256M ESID=c0000003f  VSID=    b224435e0 LLP:100 
+58 f000000008000000 00002bd5b50c1500 256M ESID=f00000000  VSID=    2bd5b50c1 LLP:100 
+59 c0000007f0000000 0000b52186c20500
+60 c0000003f0000000 0000b224435e0500
+61 c0000007f0000000 0000b52186c20500
+62 c0000003f0000000 0000b224435e0500
+63 c0000007f0000000 0000b52186c20500
+0:mon> 
 
 
 
--- 
-regards,
--grygorii
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+cheers
