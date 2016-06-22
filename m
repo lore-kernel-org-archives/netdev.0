@@ -1,58 +1,74 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCH v2 2/3] mwifiex: move .get_tx_power logic to station ioctl file
-Date: Wed, 22 Jun 2016 09:17:13 +0300
-Message-ID: <87vb11iw7q.fsf@purkki.adurom.net>
-References: <1465232558-31678-1-git-send-email-javier@osg.samsung.com>
-	<1465232558-31678-3-git-send-email-javier@osg.samsung.com>
-	<87wplxdsln.fsf@kamboji.qca.qualcomm.com>
-	<12ccd90e-e3eb-ecac-b23f-8124b0db32ad@osg.samsung.com>
-	<2b5e5833ecc74a2b9cd822e8455cd0af@SC-EXCH04.marvell.com>
-	<8dc6e64a-3429-4bed-e5c9-da6880eb9505@osg.samsung.com>
-	<87shwkes65.fsf@kamboji.qca.qualcomm.com>
-	<aeeb25f2-3253-0931-1e84-edc4590208b3@osg.samsung.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Amitkumar Karwar <akarwar-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Julian Calaby <julian.calaby-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Shengzhen Li <szli-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>,
-	Enric Balletbo i Serra <enric.balletbo-ZGY8ohtN/8qB+jHODAdFcQ@public.gmane.org>,
-	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"linux-wireless\@vger.kernel.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Nishant Sarmukadam <nishants-eYqpPyKDWXRBDgjK7y7TUQ@public.gmane.org>
-To: Javier Martinez Canillas <javier-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <aeeb25f2-3253-0931-1e84-edc4590208b3-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org> (Javier
-	Martinez Canillas's message of "Tue, 21 Jun 2016 10:47:01 -0400")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Eric Dumazet <edumazet@google.com>
+Subject: [PATCH net-next 0/4] net_sched: bulk dequeue and deferred drops
+Date: Tue, 21 Jun 2016 23:16:48 -0700
+Message-ID: <1466576212-15012-1-git-send-email-edumazet@google.com>
+Cc: netdev <netdev@vger.kernel.org>,
+	Eric Dumazet <edumazet@google.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+To: "David S . Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:34930 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751317AbcFVGlS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 02:41:18 -0400
+Received: by mail-pf0-f181.google.com with SMTP id c2so14646562pfa.2
+        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 23:40:43 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Javier Martinez Canillas <javier-JPH+aEBZ4P+UEJcrhfAQsw@public.gmane.org> writes:
+First patch adds an additional parameter to ->enqueue() qdisc method
+so that drops can be done outside of critical section
+(after locks are released).
 
->>> Patch 3/3 applies cleanly even after dropping patch 2/3.
->>> Is that Ok for you or do you want me to re-resend a v3
->>> with only patches 1/3 and 3/3?
->> 
->> I can drop patch 2, no need to resend. Thanks.
->> 
->
-> I saw that you sent your pull request for v4.8 but the
-> patches from this series were not included:
->
-> https://lkml.org/lkml/2016/6/21/400
+Then fq_codel can have a small optimization to reduce number of cache
+lines misses during a drop event
+(possibly accumulating hundreds of packets to be freed).
 
-I had forgotten to change the state of patches 1 and 3 from 'Changes
-Requested' back to 'New' and that's why I missed them. I did that now so
-they are back in my queue:
+A small htb change exports the backlog in class dumps.
 
-https://patchwork.kernel.org/patch/9158855/
-https://patchwork.kernel.org/patch/9158851/
+Final patch adds bulk dequeue to qdiscs that were lacking this feature.
 
-Thanks for checking.
+This series brings a nice qdisc performance increase (more than 80 %
+in some cases).
+
+Eric Dumazet (4):
+  net_sched: drop packets after root qdisc lock is released
+  net_sched: fq_codel: cache skb->truesize into skb->cb
+  net_sched: sch_htb: export class backlog in dumps
+  net_sched: generalize bulk dequeue
+
+ include/net/codel_qdisc.h |  1 +
+ include/net/sch_generic.h | 48 ++++++++++++++++++++---------
+ net/core/dev.c            |  7 +++--
+ net/sched/sch_atm.c       |  9 +++---
+ net/sched/sch_blackhole.c |  5 +--
+ net/sched/sch_cbq.c       |  7 +++--
+ net/sched/sch_choke.c     | 16 +++++-----
+ net/sched/sch_codel.c     |  8 +++--
+ net/sched/sch_drr.c       |  7 +++--
+ net/sched/sch_dsmark.c    |  9 +++---
+ net/sched/sch_fifo.c      | 15 +++++----
+ net/sched/sch_fq.c        |  7 +++--
+ net/sched/sch_fq_codel.c  | 22 +++++++------
+ net/sched/sch_generic.c   | 78 ++++++++++++++++++++++++++++++++++++++---------
+ net/sched/sch_gred.c      |  7 +++--
+ net/sched/sch_hfsc.c      |  6 ++--
+ net/sched/sch_hhf.c       | 10 +++---
+ net/sched/sch_htb.c       | 24 ++++++++++-----
+ net/sched/sch_multiq.c    |  7 +++--
+ net/sched/sch_netem.c     | 25 +++++++++------
+ net/sched/sch_pie.c       |  5 +--
+ net/sched/sch_plug.c      |  5 +--
+ net/sched/sch_prio.c      |  4 +--
+ net/sched/sch_qfq.c       |  7 +++--
+ net/sched/sch_red.c       |  7 +++--
+ net/sched/sch_sfb.c       |  7 +++--
+ net/sched/sch_sfq.c       |  8 ++---
+ net/sched/sch_tbf.c       | 16 +++++-----
+ net/sched/sch_teql.c      |  4 +--
+ 29 files changed, 247 insertions(+), 134 deletions(-)
 
 -- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.8.0.rc3.226.g39d4020
