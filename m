@@ -1,37 +1,148 @@
-From: Ajith Adapa <adapa.ajith@gmail.com>
-Subject: Regarding VRF support in Linux Kernel
-Date: Wed, 22 Jun 2016 14:05:10 -0700
-Message-ID: <CADAe=++ATxxEeKiUC6MUSCmXiauvB=6ZFCuuwd2h6ZOQU99p5w@mail.gmail.com>
+From: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
+Subject: [PATCH net-next v2 3/4] cgroup: bpf: Add bpf_skb_in_cgroup_proto
+Date: Wed, 22 Jun 2016 14:17:31 -0700
+Message-ID: <1466630252-3822277-4-git-send-email-kafai@fb.com>
+References: <1466630252-3822277-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f47.google.com ([209.85.213.47]:34325 "EHLO
-	mail-vk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751059AbcFVVFv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 17:05:51 -0400
-Received: by mail-vk0-f47.google.com with SMTP id c2so48785328vkg.1
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 14:05:51 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
+	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
+	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <kernel-team-b10kYP2dOMg@public.gmane.org>
+To: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1466630252-3822277-1-git-send-email-kafai-b10kYP2dOMg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Adds a bpf helper, bpf_skb_in_cgroup, to decide if a skb->sk
+belongs to a descendant of a cgroup2.  It is similar to the
+feature added in netfilter:
+commit c38c4597e4bf ("netfilter: implement xt_cgroup cgroup2 path match")
 
-I am following the steps present in
-(https://www.kernel.org/doc/Documentation/networking/vrf.txt) and
-trying to create IPv4 VRF in latest Fedora 24 distribution with 4.5
-Linux kernel.
+The user is expected to populate a BPF_MAP_TYPE_CGROUP_ARRAY
+which will be used by the bpf_skb_in_cgroup.
 
-[root@localhost ip]# uname -a
-Linux localhost.localdomain 4.5.5-300.fc24.x86_64 #1 SMP Thu May 19
-13:05:32 UTC 2016 x86_64 x86_64 x86_64 GNU/Linux
+Modifications to the bpf verifier is to ensure BPF_MAP_TYPE_CGROUP_ARRAY
+and bpf_skb_in_cgroup() are always used together.
 
-I am getting operation not supported error as shown below
+Signed-off-by: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
+Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Acked-by: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+---
+ include/uapi/linux/bpf.h | 12 ++++++++++++
+ kernel/bpf/verifier.c    |  8 ++++++++
+ net/core/filter.c        | 40 ++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 60 insertions(+)
 
-# ip link add vrf-blue type vrf table 10
-RTNETLINK answers: Operation not supported
-
-Is there any CONFIG option to enable VRF in Linux kernel ?
-
-Regards,
-Ajith
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index ef4e386..bad309f 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -314,6 +314,18 @@ enum bpf_func_id {
+ 	 */
+ 	BPF_FUNC_skb_get_tunnel_opt,
+ 	BPF_FUNC_skb_set_tunnel_opt,
++
++	/**
++	 * bpf_skb_in_cgroup(skb, map, index) - Check cgroup2 membership of skb
++	 * @skb: pointer to skb
++	 * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
++	 * @index: index of the cgroup in the bpf_map
++	 * Return:
++	 *   == 0 skb failed the cgroup2 descendant test
++	 *   == 1 skb succeeded the cgroup2 descendant test
++	 *    < 0 error
++	 */
++	BPF_FUNC_skb_in_cgroup,
+ 	__BPF_FUNC_MAX_ID,
+ };
+ 
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 668e079..68753e0 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -1062,6 +1062,10 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
+ 		if (func_id != BPF_FUNC_get_stackid)
+ 			goto error;
+ 		break;
++	case BPF_MAP_TYPE_CGROUP_ARRAY:
++		if (func_id != BPF_FUNC_skb_in_cgroup)
++			goto error;
++		break;
+ 	default:
+ 		break;
+ 	}
+@@ -1081,6 +1085,10 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
+ 		if (map->map_type != BPF_MAP_TYPE_STACK_TRACE)
+ 			goto error;
+ 		break;
++	case BPF_FUNC_skb_in_cgroup:
++		if (map->map_type != BPF_MAP_TYPE_CGROUP_ARRAY)
++			goto error;
++		break;
+ 	default:
+ 		break;
+ 	}
+diff --git a/net/core/filter.c b/net/core/filter.c
+index df6860c..a16f7d2 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2024,6 +2024,42 @@ bpf_get_skb_set_tunnel_proto(enum bpf_func_id which)
+ 	}
+ }
+ 
++#ifdef CONFIG_CGROUPS
++static u64 bpf_skb_in_cgroup(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++{
++	struct sk_buff *skb = (struct sk_buff *)(long)r1;
++	struct bpf_map *map = (struct bpf_map *)(long)r2;
++	struct bpf_array *array = container_of(map, struct bpf_array, map);
++	struct cgroup *cgrp;
++	struct sock *sk;
++	u32 i = (u32)r3;
++
++	WARN_ON_ONCE(!rcu_read_lock_held());
++
++	sk = skb->sk;
++	if (!sk || !sk_fullsock(sk))
++		return -ENOENT;
++
++	if (unlikely(i >= array->map.max_entries))
++		return -E2BIG;
++
++	cgrp = READ_ONCE(array->ptrs[i]);
++	if (unlikely(!cgrp))
++		return -ENOENT;
++
++	return cgroup_is_descendant(sock_cgroup_ptr(&sk->sk_cgrp_data), cgrp);
++}
++
++static const struct bpf_func_proto bpf_skb_in_cgroup_proto = {
++	.func		= bpf_skb_in_cgroup,
++	.gpl_only	= false,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_PTR_TO_CTX,
++	.arg2_type	= ARG_CONST_MAP_PTR,
++	.arg3_type	= ARG_ANYTHING,
++};
++#endif
++
+ static const struct bpf_func_proto *
+ sk_filter_func_proto(enum bpf_func_id func_id)
+ {
+@@ -2086,6 +2122,10 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_get_route_realm_proto;
+ 	case BPF_FUNC_perf_event_output:
+ 		return bpf_get_event_output_proto();
++#ifdef CONFIG_CGROUPS
++	case BPF_FUNC_skb_in_cgroup:
++		return &bpf_skb_in_cgroup_proto;
++#endif
+ 	default:
+ 		return sk_filter_func_proto(func_id);
+ 	}
+-- 
+2.5.1
