@@ -1,148 +1,97 @@
-From: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
-Subject: [PATCH net-next v2 3/4] cgroup: bpf: Add bpf_skb_in_cgroup_proto
-Date: Wed, 22 Jun 2016 14:17:31 -0700
-Message-ID: <1466630252-3822277-4-git-send-email-kafai@fb.com>
+From: Martin KaFai Lau <kafai@fb.com>
+Subject: [PATCH net-next v2 1/4] cgroup: Add cgroup_get_from_fd
+Date: Wed, 22 Jun 2016 14:17:29 -0700
+Message-ID: <1466630252-3822277-2-git-send-email-kafai@fb.com>
 References: <1466630252-3822277-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <kernel-team-b10kYP2dOMg@public.gmane.org>
-To: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1466630252-3822277-1-git-send-email-kafai-b10kYP2dOMg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: Alexei Starovoitov <ast@fb.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tejun Heo <tj@kernel.org>, <kernel-team@fb.com>
+To: <cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466630252-3822277-1-git-send-email-kafai@fb.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adds a bpf helper, bpf_skb_in_cgroup, to decide if a skb->sk
-belongs to a descendant of a cgroup2.  It is similar to the
-feature added in netfilter:
-commit c38c4597e4bf ("netfilter: implement xt_cgroup cgroup2 path match")
+Add a helper function to get a cgroup2 from a fd.  It will be
+stored in a bpf array (BPF_MAP_TYPE_CGROUP_ARRAY) which will
+be introduced in the later patch.
 
-The user is expected to populate a BPF_MAP_TYPE_CGROUP_ARRAY
-which will be used by the bpf_skb_in_cgroup.
-
-Modifications to the bpf verifier is to ensure BPF_MAP_TYPE_CGROUP_ARRAY
-and bpf_skb_in_cgroup() are always used together.
-
-Signed-off-by: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
-Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Acked-by: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Signed-off-by: Martin KaFai Lau <kafai@fb.com>
+Cc: Alexei Starovoitov <ast@fb.com>
+Cc: Daniel Borkmann <daniel@iogearbox.net>
+Cc: Tejun Heo <tj@kernel.org>
 ---
- include/uapi/linux/bpf.h | 12 ++++++++++++
- kernel/bpf/verifier.c    |  8 ++++++++
- net/core/filter.c        | 40 ++++++++++++++++++++++++++++++++++++++++
- 3 files changed, 60 insertions(+)
+ include/linux/cgroup.h |  1 +
+ kernel/cgroup.c        | 35 +++++++++++++++++++++++++++++++++++
+ 2 files changed, 36 insertions(+)
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index ef4e386..bad309f 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -314,6 +314,18 @@ enum bpf_func_id {
- 	 */
- 	BPF_FUNC_skb_get_tunnel_opt,
- 	BPF_FUNC_skb_set_tunnel_opt,
-+
-+	/**
-+	 * bpf_skb_in_cgroup(skb, map, index) - Check cgroup2 membership of skb
-+	 * @skb: pointer to skb
-+	 * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
-+	 * @index: index of the cgroup in the bpf_map
-+	 * Return:
-+	 *   == 0 skb failed the cgroup2 descendant test
-+	 *   == 1 skb succeeded the cgroup2 descendant test
-+	 *    < 0 error
-+	 */
-+	BPF_FUNC_skb_in_cgroup,
- 	__BPF_FUNC_MAX_ID,
- };
+diff --git a/include/linux/cgroup.h b/include/linux/cgroup.h
+index a20320c..984f73b 100644
+--- a/include/linux/cgroup.h
++++ b/include/linux/cgroup.h
+@@ -87,6 +87,7 @@ struct cgroup_subsys_state *css_tryget_online_from_dir(struct dentry *dentry,
+ 						       struct cgroup_subsys *ss);
  
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 668e079..68753e0 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -1062,6 +1062,10 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
- 		if (func_id != BPF_FUNC_get_stackid)
- 			goto error;
- 		break;
-+	case BPF_MAP_TYPE_CGROUP_ARRAY:
-+		if (func_id != BPF_FUNC_skb_in_cgroup)
-+			goto error;
-+		break;
- 	default:
- 		break;
- 	}
-@@ -1081,6 +1085,10 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
- 		if (map->map_type != BPF_MAP_TYPE_STACK_TRACE)
- 			goto error;
- 		break;
-+	case BPF_FUNC_skb_in_cgroup:
-+		if (map->map_type != BPF_MAP_TYPE_CGROUP_ARRAY)
-+			goto error;
-+		break;
- 	default:
- 		break;
- 	}
-diff --git a/net/core/filter.c b/net/core/filter.c
-index df6860c..a16f7d2 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2024,6 +2024,42 @@ bpf_get_skb_set_tunnel_proto(enum bpf_func_id which)
- 	}
+ struct cgroup *cgroup_get_from_path(const char *path);
++struct cgroup *cgroup_get_from_fd(int fd);
+ 
+ int cgroup_attach_task_all(struct task_struct *from, struct task_struct *);
+ int cgroup_transfer_tasks(struct cgroup *to, struct cgroup *from);
+diff --git a/kernel/cgroup.c b/kernel/cgroup.c
+index 86cb5c6..14617968 100644
+--- a/kernel/cgroup.c
++++ b/kernel/cgroup.c
+@@ -62,6 +62,7 @@
+ #include <linux/proc_ns.h>
+ #include <linux/nsproxy.h>
+ #include <linux/proc_ns.h>
++#include <linux/file.h>
+ #include <net/sock.h>
+ 
+ /*
+@@ -6205,6 +6206,40 @@ struct cgroup *cgroup_get_from_path(const char *path)
  }
+ EXPORT_SYMBOL_GPL(cgroup_get_from_path);
  
-+#ifdef CONFIG_CGROUPS
-+static u64 bpf_skb_in_cgroup(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
++/**
++ * cgroup_get_from_fd - get a cgroup pointer from a fd
++ * @fd: fd obtained by open(cgroup2_dir)
++ *
++ * Find the cgroup from a fd which should be obtained
++ * by opening a cgroup directory.  Returns a pointer to the
++ * cgroup on success. ERR_PTR is returned if the cgroup
++ * cannot be found.
++ */
++struct cgroup *cgroup_get_from_fd(int fd)
 +{
-+	struct sk_buff *skb = (struct sk_buff *)(long)r1;
-+	struct bpf_map *map = (struct bpf_map *)(long)r2;
-+	struct bpf_array *array = container_of(map, struct bpf_array, map);
++	struct cgroup_subsys_state *css;
 +	struct cgroup *cgrp;
-+	struct sock *sk;
-+	u32 i = (u32)r3;
++	struct file *f;
 +
-+	WARN_ON_ONCE(!rcu_read_lock_held());
++	f = fget_raw(fd);
++	if (!f)
++		return ERR_PTR(-EBADF);
 +
-+	sk = skb->sk;
-+	if (!sk || !sk_fullsock(sk))
-+		return -ENOENT;
++	css = css_tryget_online_from_dir(f->f_path.dentry, NULL);
++	fput(f);
++	if (IS_ERR(css))
++		return ERR_CAST(css);
 +
-+	if (unlikely(i >= array->map.max_entries))
-+		return -E2BIG;
++	cgrp = css->cgroup;
++	if (!cgroup_on_dfl(cgrp)) {
++		cgroup_put(cgrp);
++		return ERR_PTR(-EBADF);
++	}
 +
-+	cgrp = READ_ONCE(array->ptrs[i]);
-+	if (unlikely(!cgrp))
-+		return -ENOENT;
-+
-+	return cgroup_is_descendant(sock_cgroup_ptr(&sk->sk_cgrp_data), cgrp);
++	return cgrp;
 +}
++EXPORT_SYMBOL_GPL(cgroup_get_from_fd);
 +
-+static const struct bpf_func_proto bpf_skb_in_cgroup_proto = {
-+	.func		= bpf_skb_in_cgroup,
-+	.gpl_only	= false,
-+	.ret_type	= RET_INTEGER,
-+	.arg1_type	= ARG_PTR_TO_CTX,
-+	.arg2_type	= ARG_CONST_MAP_PTR,
-+	.arg3_type	= ARG_ANYTHING,
-+};
-+#endif
-+
- static const struct bpf_func_proto *
- sk_filter_func_proto(enum bpf_func_id func_id)
- {
-@@ -2086,6 +2122,10 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
- 		return &bpf_get_route_realm_proto;
- 	case BPF_FUNC_perf_event_output:
- 		return bpf_get_event_output_proto();
-+#ifdef CONFIG_CGROUPS
-+	case BPF_FUNC_skb_in_cgroup:
-+		return &bpf_skb_in_cgroup_proto;
-+#endif
- 	default:
- 		return sk_filter_func_proto(func_id);
- 	}
+ /*
+  * sock->sk_cgrp_data handling.  For more info, see sock_cgroup_data
+  * definition in cgroup-defs.h.
 -- 
 2.5.1
