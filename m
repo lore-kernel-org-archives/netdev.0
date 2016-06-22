@@ -1,42 +1,46 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] kcm: fix /proc memory leak
-Date: Wed, 22 Jun 2016 16:33:06 -0400 (EDT)
-Message-ID: <20160622.163306.696779857682895662.davem@davemloft.net>
-References: <20160620093628.2784-1-jslaby@suse.cz>
+Subject: Re: [PATCH net 1/1] tipc: unclone unbundled buffers before
+ forwarding
+Date: Wed, 22 Jun 2016 16:34:07 -0400 (EDT)
+Message-ID: <20160622.163407.1179660044612083904.davem@davemloft.net>
+References: <1466428846-12334-1-git-send-email-jon.maloy@ericsson.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, tom@herbertland.com,
-	netdev@vger.kernel.org
-To: jslaby@suse.cz
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160620093628.2784-1-jslaby@suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, paul.gortmaker@windriver.com,
+	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
+	ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net
+To: jon.maloy@ericsson.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:51962 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752775AbcFVUeN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 16:34:13 -0400
+In-Reply-To: <1466428846-12334-1-git-send-email-jon.maloy@ericsson.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Slaby <jslaby@suse.cz>
-Date: Mon, 20 Jun 2016 11:36:28 +0200
+From: Jon Maloy <jon.maloy@ericsson.com>
+Date: Mon, 20 Jun 2016 09:20:46 -0400
 
-> Every open of /proc/net/kcm leaks 16 bytes of memory as is reported by
-> kmemleak:
-> unreferenced object 0xffff88059c0e3458 (size 192):
->   comm "cat", pid 1401, jiffies 4294935742 (age 310.720s)
->   hex dump (first 32 bytes):
->     28 45 71 96 05 88 ff ff 00 10 00 00 00 00 00 00  (Eq.............
->     00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
->   backtrace:
->     [<ffffffff8156a2de>] kmem_cache_alloc_trace+0x16e/0x230
->     [<ffffffff8162a479>] seq_open+0x79/0x1d0
->     [<ffffffffa0578510>] kcm_seq_open+0x0/0x30 [kcm]
->     [<ffffffff8162a479>] seq_open+0x79/0x1d0
->     [<ffffffff8162a8cf>] __seq_open_private+0x2f/0xa0
->     [<ffffffff81712548>] seq_open_net+0x38/0xa0
-> ...
+> When extracting an individual message from a received "bundle" buffer,
+> we just create a clone of the base buffer, and adjust it to point into
+> the right position of the linearized data area of the latter. This works
+> well for regular message reception, but during periods of extremely high
+> load it may happen that an extracted buffer, e.g, a connection probe, is
+> reversed and forwarded through an external interface while the preceding
+> extracted message is still unhandled. When this happens, the header or
+> data area of the preceding message will be partially overwritten by a
+> MAC header, leading to unpredicatable consequences, such as a link
+> reset.
 > 
-> It is caused by a missing free in the ->release path. So fix it by
-> providing seq_release_net as the ->release method.
+> We now fix this by ensuring that the msg_reverse() function never
+> returns a cloned buffer, and that the returned buffer always contains
+> sufficient valid head and tail room to be forwarded.
 > 
-> Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-> Fixes: cd6e111bf5 (kcm: Add statistics and proc interfaces)
+> Reported-by: Erik Hugne <erik.hugne@gmail.com>
+> Acked-by: Ying Xue <ying.xue@windriver.com>
+> Signed-off-by: Jon Maloy <jon.maloy@ericsson.com>
 
-Applied and queued up for -stable, thanks.
+Applied.
