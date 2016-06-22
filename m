@@ -1,27 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: ethernet: altera_tse: use phydev from struct
- net_device
-Date: Wed, 22 Jun 2016 16:26:02 -0400 (EDT)
-Message-ID: <20160622.162602.223286576700913883.davem@davemloft.net>
-References: <1466260641-22506-1-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH 2/2] net: ethernet: bgmac: use
+ phy_ethtool_{get|set}_link_ksettings
+Date: Wed, 22 Jun 2016 16:26:27 -0400 (EDT)
+Message-ID: <20160622.162627.1288079059620028758.davem@davemloft.net>
+References: <1466368626-28985-1-git-send-email-tremyfr@gmail.com>
+	<1466368626-28985-2-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: vbridger@opensource.altera.com, netdev@vger.kernel.org,
-	nios2-dev@lists.rocketboards.org, linux-kernel@vger.kernel.org
+Cc: f.fainelli@gmail.com, zajec5@gmail.com,
+	fabio.estevam@freescale.com, jkosina@suse.cz, andrew@lunn.ch,
+	nbd@openwrt.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
 To: tremyfr@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1466260641-22506-1-git-send-email-tremyfr@gmail.com>
+In-Reply-To: <1466368626-28985-2-git-send-email-tremyfr@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sat, 18 Jun 2016 16:37:20 +0200
+Date: Sun, 19 Jun 2016 22:37:06 +0200
 
-> The private structure contain a pointer to phydev, but the structure
-> net_device already contain such pointer. So we can remove the pointer
-> phydev in the private structure, and update the driver to use the
-> one contained in struct net_device.
+> There are two generics functions phy_ethtool_{get|set}_link_ksettings,
+> so we can use them instead of defining the same code in the driver.
 > 
 > Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
