@@ -1,82 +1,82 @@
-From: Hagen Paul Pfeifer <hagen@jauu.net>
-Subject: Re: [PATCH net-next v3] tcp: use RFC6298 compliant TCP RTO
- calculation
-Date: Wed, 22 Jun 2016 13:21:20 +0200 (CEST)
-Message-ID: <2052282810.48692.1466594480806@office.mailbox.org>
-References: <CAK6E8=eeso8OEN_0-znqkuEyVTqzP1mTvwktk4QOsrLJXmuj9Q@mail.gmail.com>
- <20160615180003.28970-1-dmetz@mytum.de>
- <20160617.113235.1099766688971255047.davem@davemloft.net>
- <CAK6E8=eQNkSyAujuqF9hiE1iFk03O4T6op_-g=y87+UQUrS4=Q@mail.gmail.com>
- <CAK6E8=cyrog=2UmVpwP3jzCtFAR9LxxtS+g01R42H9jk=_cZ2A@mail.gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net] net: avoid vlan ptype specific match to be leaked on
+ real device
+Date: Wed, 22 Jun 2016 12:55:44 +0200
+Message-ID: <20160622105544.GC2068@nanopsycho.orion>
+References: <3d191a3c51bd564da8b0c3ffe1e9c90fa7bd4d7b.1466590952.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Daniel Metz <dmetz@mytum.de>, netdev <netdev@vger.kernel.org>,
-	Daniel Metz <Daniel.Metz@rohde-schwarz.com>,
-	Eric Dumazet <edumazet@google.com>
-To: Yuchung Cheng <ycheng@google.com>,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Alexander Duyck <aduyck@mirantis.com>,
+	Eric Dumazet <edumazet@google.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.mailbox.org ([80.241.60.212]:51663 "EHLO mx1.mailbox.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752373AbcFVLaq (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 07:30:46 -0400
-In-Reply-To: <CAK6E8=cyrog=2UmVpwP3jzCtFAR9LxxtS+g01R42H9jk=_cZ2A@mail.gmail.com>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:34957 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752564AbcFVMBA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 08:01:00 -0400
+Received: by mail-wm0-f52.google.com with SMTP id v199so84448666wmv.0
+        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 05:00:59 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <3d191a3c51bd564da8b0c3ffe1e9c90fa7bd4d7b.1466590952.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> On June 22, 2016 at 7:53 AM Yuchung Cheng <ycheng@google.com> wrote:
-> 
-> Thanks for the patience. I've collected data from some Google Web
-> servers. They serve both a mix of US and SouthAm users using
-> HTTP1 and HTTP2. The traffic is Web browsing (e.g., search, maps,
-> gmails, etc but not Youtube videos). The mean RTT is about 100ms.
-> 
-> The user connections were split into 4 groups of different TCP RTO
-> configs. Each group has many millions of connections but the
-> size variation among groups is well under 1%.
-> 
-> B: baseline Linux
-> D: this patch
-> R: change RTTYAR averaging as in D, but bound RTO to 1sec per RFC6298
-> Y: change RTTVAR averaging as in D, but bound RTTVAR to 200ms instead (like B)
-> 
-> For mean TCP latency of HTTP responses (first byte sent to last byte
-> acked), B < R < Y < D. But the differences are so insignificant (<1%).
-> The median, 95pctl, and 99pctl has similar indifference. In summary
-> there's hardly visible impact on latency. I also look at only response
-> less than 4KB but do not see a different picture.
-> 
-> The main difference is the retransmission rate where R =~ Y < B =~D.
-> R and Y are ~20% lower than B and D. Parsing the SNMP stats reveal
-> more interesting details. The table shows the deltas in percentage to
-> the baseline B.
-> 
->                 D      R     Y
-> ------------------------------
-> Timeout      +12%   -16%  -16%
-> TailLossProb +28%    -7%   -7%
-> DSACK_rcvd   +37%    -7%   -7%
-> Cwnd-undo    +16%   -29%  -29%
-> 
-> RTO change affects TLP because TLP will use the min of RTO and TLP
-> timer value to arm the probe timer.
-> 
-> The stats indicate that the main culprit of spurious timeouts / rtx is
-> the RTO lower-bound. But they also show the RFC RTTVAR averaging is as
-> good as current Linux approach.
-> 
-> Given that I would recommend we revise this patch to use the RFC
-> averaging but keep existing lower-bound (of RTTVAR to 200ms). We can
-> further experiment the lower-bound and change that in a separate
-> patch.
+Wed, Jun 22, 2016 at 12:25:15PM CEST, pabeni@redhat.com wrote:
+>Before the commit 0dfe17823945 ("net: vlan: goto another_round
+>instead of calling __netif_receive_skb"), on tagged skb ingress,
+>ptype specific protocol matches were delivered only to the
+>related vlan device, if any.
+>After said commit, jumping back to the 'another_round' label, allows
+>the later ptype specific check to match both orig_dev and skb->dev,
+>delivering the skb to both the vlan device and the underlying
+>device.
+>This cause i.e. packet sockets bound to a specific protocol type on
+>one of said devices to receive also frames really targeting the
+>other device.
+>This commit resets orig_dev before performing another round due to
+>vlan processing, allowing the skb to be delivered once again only
+>to the vlan specific ptypes.
 
-Great news Yuchung!
+I don't get why vlan should behave differently in this comparing to
+other stacked devices like bond/team/br etc.
 
-Then Daniel will prepare v4 with a min-rto lower bound:
+Could you please explain?
 
-    max(RTTVAR, tcp_rto_min_us(struct sock))
 
-Any further suggestions Yuchung, Eric? We will also feed this v4 in our test environment to check the behavior for sender limited, non-continuous flows.
-
-Hagen
+>
+>Fixes: 0dfe17823945 ("net: vlan: goto another_round instead of calling __netif_receive_skb")
+>Reported-by: Ryan Liu <Ryan.Liu@alcatel-lucent.com>
+>Reported-by: Cliff Chen <Cliff.Chen@alcatel-lucent.com>
+>Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+>---
+> net/core/dev.c | 9 +++++++--
+> 1 file changed, 7 insertions(+), 2 deletions(-)
+>
+>diff --git a/net/core/dev.c b/net/core/dev.c
+>index 904ff43..9d08dd6 100644
+>--- a/net/core/dev.c
+>+++ b/net/core/dev.c
+>@@ -4144,10 +4144,15 @@ ncls:
+> 			ret = deliver_skb(skb, pt_prev, orig_dev);
+> 			pt_prev = NULL;
+> 		}
+>-		if (vlan_do_receive(&skb))
+>+		if (vlan_do_receive(&skb)) {
+>+			/* avoid delivering to ptype registered on
+>+			 * vlan's underlying device only
+>+			 */
+>+			orig_dev = skb->dev;
+> 			goto another_round;
+>-		else if (unlikely(!skb))
+>+		} else if (unlikely(!skb)) {
+> 			goto out;
+>+		}
+> 	}
+> 
+> 	rx_handler = rcu_dereference(skb->dev->rx_handler);
+>-- 
+>1.8.3.1
+>
