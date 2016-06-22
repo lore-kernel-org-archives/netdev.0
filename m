@@ -1,173 +1,161 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH iproute2 3/3] ss: Add support to filter on device
-Date: Tue, 21 Jun 2016 20:38:26 -0700
-Message-ID: <1466566706-1511-4-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2 1/3] ss: Refactor inet_show_sock
+Date: Tue, 21 Jun 2016 20:38:24 -0700
+Message-ID: <1466566706-1511-2-git-send-email-dsa@cumulusnetworks.com>
 References: <1466566706-1511-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: stephen@networkplumber.org, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33421 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751601AbcFVDij (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 23:38:39 -0400
-Received: by mail-pf0-f176.google.com with SMTP id i123so13017530pfg.0
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 20:38:37 -0700 (PDT)
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34311 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751505AbcFVDip (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 21 Jun 2016 23:38:45 -0400
+Received: by mail-pa0-f53.google.com with SMTP id bz2so12402758pad.1
+        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 20:38:40 -0700 (PDT)
 In-Reply-To: <1466566706-1511-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add support for device names in the filter. Example:
-
-    root@kenny:~# ss -t  'sport == :22 && dev == red'
-    State      Recv-Q Send-Q     Local Address:Port      Peer Address:Port
-    ESTAB      0      0          10.100.1.2%red:ssh      10.100.1.254:47814
-    ESTAB      0      0           2100:1::2%red:ssh        2100:1::64:49406
-
-Since kernel does not support iface in the filter specifying a
-device name means all filtering is done in userspace.
+Extract parsing of sockstat and filter from inet_show_sock.
+While moving run_ssfilter into callers of inet_show_sock enable
+userspace filtering before the kill.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- misc/ss.c       | 32 ++++++++++++++++++++++++++++++++
- misc/ssfilter.h |  2 ++
- misc/ssfilter.y | 22 +++++++++++++++++++++-
- 3 files changed, 55 insertions(+), 1 deletion(-)
+ misc/ss.c | 68 ++++++++++++++++++++++++++++++++++++++++-----------------------
+ 1 file changed, 43 insertions(+), 25 deletions(-)
 
 diff --git a/misc/ss.c b/misc/ss.c
-index 3419a88c33be..6f0ad0295918 100644
+index 02be7e7407df..a22cfebadfa2 100644
 --- a/misc/ss.c
 +++ b/misc/ss.c
-@@ -1043,6 +1043,7 @@ static void inet_addr_print(const inet_prefix *a, int port, unsigned int ifindex
- struct aafilter {
- 	inet_prefix	addr;
- 	int		port;
-+	unsigned int	iface;
- 	struct aafilter *next;
- };
- 
-@@ -1157,7 +1158,12 @@ static int run_ssfilter(struct ssfilter *f, struct sockstat *s)
- 
- 		return s->lport <= a->port;
+@@ -2038,42 +2038,47 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
  	}
-+		case SSF_DEVCOND:
-+	{
-+		struct aafilter *a = (void *)f->pred;
- 
-+		return s->iface == a->iface;
-+	}
- 		/* Yup. It is recursion. Sorry. */
- 		case SSF_AND:
- 		return run_ssfilter(f->pred, s) && run_ssfilter(f->post, s);
-@@ -1328,6 +1334,11 @@ static int ssfilter_bytecompile(struct ssfilter *f, char **bytecode)
- 		*bytecode = a;
- 		return l1+4;
- 	}
-+               case SSF_DEVCOND:
-+	{
-+		/* bytecompile for SSF_DEVCOND not supported yet */
-+                return 0;
-+	}
- 		default:
- 		abort();
- 	}
-@@ -1416,6 +1427,27 @@ static int xll_name_to_index(const char *dev)
- 	return ll_name_to_index(dev);
  }
  
-+void *parse_devcond(char *name)
-+{
-+	struct aafilter a = { .iface = 0 };
-+	struct aafilter *res;
-+
-+	a.iface = xll_name_to_index(name);
-+	if (a.iface == 0) {
-+		char *end;
-+		unsigned long res;
-+
-+		res = strtoul(name, &end, 0);
-+		if (!end || end == name || *end || res > UINT_MAX)
-+			return NULL;
-+	}
-+
-+	res = malloc(sizeof(*res));
-+	*res = a;
-+
-+	return res;
-+}
-+
- void *parse_hostcond(char *addr, bool is_port)
+-static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
++static void parse_diag_msg(struct nlmsghdr *nlh, struct sockstat *s)
  {
- 	char *port = NULL;
-diff --git a/misc/ssfilter.h b/misc/ssfilter.h
-index 53922a844457..c7db8eee9578 100644
---- a/misc/ssfilter.h
-+++ b/misc/ssfilter.h
-@@ -8,6 +8,7 @@
- #define SSF_S_GE  7
- #define SSF_S_LE  8
- #define SSF_S_AUTO  9
-+#define SSF_DEVCOND 10
+ 	struct rtattr *tb[INET_DIAG_MAX+1];
+ 	struct inet_diag_msg *r = NLMSG_DATA(nlh);
+-	struct sockstat s = {};
  
- #include <stdbool.h>
+ 	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr *)(r+1),
+ 		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
  
-@@ -20,3 +21,4 @@ struct ssfilter
- 
- int ssfilter_parse(struct ssfilter **f, int argc, char **argv, FILE *fp);
- void *parse_hostcond(char *addr, bool is_port);
-+void *parse_devcond(char *name);
-diff --git a/misc/ssfilter.y b/misc/ssfilter.y
-index a258d04b85d7..14bf9817f2c3 100644
---- a/misc/ssfilter.y
-+++ b/misc/ssfilter.y
-@@ -36,7 +36,7 @@ static void yyerror(char *s)
- 
- %}
- 
--%token HOSTCOND DCOND SCOND DPORT SPORT LEQ GEQ NEQ AUTOBOUND
-+%token HOSTCOND DCOND SCOND DPORT SPORT LEQ GEQ NEQ AUTOBOUND DEVCOND DEVNAME
- %left '|'
- %left '&'
- %nonassoc '!'
-@@ -108,6 +108,14 @@ expr:	DCOND HOSTCOND
-         {
- 		$$ = alloc_node(SSF_NOT, alloc_node(SSF_SCOND, $3));
-         }
-+        | DEVNAME '=' DEVCOND
-+        {
-+		$$ = alloc_node(SSF_DEVCOND, $3);
-+        }
-+        | DEVNAME NEQ DEVCOND
-+        {
-+		$$ = alloc_node(SSF_NOT, alloc_node(SSF_DEVCOND, $3));
-+        }
- 
-         | AUTOBOUND
-         {
-@@ -237,6 +245,10 @@ int yylex(void)
- 		tok_type = SPORT;
- 		return SPORT;
+-	s.state		= r->idiag_state;
+-	s.local.family  = s.remote.family = r->idiag_family;
+-	s.lport		= ntohs(r->id.idiag_sport);
+-	s.rport		= ntohs(r->id.idiag_dport);
+-	s.wq		= r->idiag_wqueue;
+-	s.rq		= r->idiag_rqueue;
+-	s.ino		= r->idiag_inode;
+-	s.uid		= r->idiag_uid;
+-	s.iface		= r->id.idiag_if;
+-	s.sk		= cookie_sk_get(&r->id.idiag_cookie[0]);
+-
+-	if (s.local.family == AF_INET) {
+-		s.local.bytelen = s.remote.bytelen = 4;
++	s->state	= r->idiag_state;
++	s->local.family	= s->remote.family = r->idiag_family;
++	s->lport	= ntohs(r->id.idiag_sport);
++	s->rport	= ntohs(r->id.idiag_dport);
++	s->wq		= r->idiag_wqueue;
++	s->rq		= r->idiag_rqueue;
++	s->ino		= r->idiag_inode;
++	s->uid		= r->idiag_uid;
++	s->iface	= r->id.idiag_if;
++	s->sk		= cookie_sk_get(&r->id.idiag_cookie[0]);
++
++	if (s->local.family == AF_INET) {
++		s->local.bytelen = s->remote.bytelen = 4;
+ 	} else {
+-		s.local.bytelen = s.remote.bytelen = 16;
++		s->local.bytelen = s->remote.bytelen = 16;
  	}
-+	if (strcmp(curtok, "dev") == 0) {
-+		tok_type = DEVNAME;
-+		return DEVNAME;
-+	}
- 	if (strcmp(curtok, ">=") == 0 ||
- 	    strcmp(curtok, "ge") == 0 ||
- 	    strcmp(curtok, "geq") == 0)
-@@ -263,6 +275,14 @@ int yylex(void)
- 		tok_type = AUTOBOUND;
- 		return AUTOBOUND;
+ 
+-	memcpy(s.local.data, r->id.idiag_src, s.local.bytelen);
+-	memcpy(s.remote.data, r->id.idiag_dst, s.local.bytelen);
++	memcpy(s->local.data, r->id.idiag_src, s->local.bytelen);
++	memcpy(s->remote.data, r->id.idiag_dst, s->local.bytelen);
++}
+ 
+-	if (f && f->f && run_ssfilter(f->f, &s) == 0)
+-		return 0;
++static int inet_show_sock(struct nlmsghdr *nlh, struct sockstat *s, int protocol)
++{
++	struct rtattr *tb[INET_DIAG_MAX+1];
++	struct inet_diag_msg *r = NLMSG_DATA(nlh);
++
++	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr *)(r+1),
++		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
+ 
+ 	if (tb[INET_DIAG_PROTOCOL])
+ 		protocol = *(__u8 *)RTA_DATA(tb[INET_DIAG_PROTOCOL]);
+ 
+-	inet_stats_print(&s, protocol);
++	inet_stats_print(s, protocol);
+ 
+ 	if (show_options) {
+ 		struct tcpstat t = {};
+@@ -2085,8 +2090,8 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
  	}
-+	if (tok_type == DEVNAME) {
-+		yylval = (void*)parse_devcond(curtok);
-+		if (yylval == NULL) {
-+			fprintf(stderr, "Cannot parse device.\n");
-+			exit(1);
-+		}
-+		return DEVCOND;
-+	}
- 	yylval = (void*)parse_hostcond(curtok, tok_type == SPORT || tok_type == DPORT);
- 	if (yylval == NULL) {
- 		fprintf(stderr, "Cannot parse dst/src address.\n");
+ 
+ 	if (show_details) {
+-		sock_details_print(&s);
+-		if (s.local.family == AF_INET6 && tb[INET_DIAG_SKV6ONLY]) {
++		sock_details_print(s);
++		if (s->local.family == AF_INET6 && tb[INET_DIAG_SKV6ONLY]) {
+ 			unsigned char v6only;
+ 
+ 			v6only = *(__u8 *)RTA_DATA(tb[INET_DIAG_SKV6ONLY]);
+@@ -2268,9 +2273,16 @@ static int show_one_inet_sock(const struct sockaddr_nl *addr,
+ 	int err;
+ 	struct inet_diag_arg *diag_arg = arg;
+ 	struct inet_diag_msg *r = NLMSG_DATA(h);
++	struct sockstat s = {};
+ 
+ 	if (!(diag_arg->f->families & (1 << r->idiag_family)))
+ 		return 0;
++
++	parse_diag_msg(h, &s);
++
++	if (diag_arg->f->f && run_ssfilter(diag_arg->f->f, &s) == 0)
++		return 0;
++
+ 	if (diag_arg->f->kill && kill_inet_sock(h, arg) != 0) {
+ 		if (errno == EOPNOTSUPP || errno == ENOENT) {
+ 			/* Socket can't be closed, or is already closed. */
+@@ -2280,7 +2292,7 @@ static int show_one_inet_sock(const struct sockaddr_nl *addr,
+ 			return -1;
+ 		}
+ 	}
+-	if ((err = inet_show_sock(h, diag_arg->f, diag_arg->protocol)) < 0)
++	if ((err = inet_show_sock(h, &s, diag_arg->protocol)) < 0)
+ 		return err;
+ 
+ 	return 0;
+@@ -2345,6 +2357,7 @@ static int tcp_show_netlink_file(struct filter *f)
+ 	while (1) {
+ 		int status, err;
+ 		struct nlmsghdr *h = (struct nlmsghdr *)buf;
++		struct sockstat s = {};
+ 
+ 		status = fread(buf, 1, sizeof(*h), fp);
+ 		if (status < 0) {
+@@ -2383,7 +2396,12 @@ static int tcp_show_netlink_file(struct filter *f)
+ 			return -1;
+ 		}
+ 
+-		err = inet_show_sock(h, f, IPPROTO_TCP);
++		parse_diag_msg(h, &s);
++
++		if (f && f->f && run_ssfilter(f->f, &s) == 0)
++			continue;
++
++		err = inet_show_sock(h, &s, IPPROTO_TCP);
+ 		if (err < 0)
+ 			return err;
+ 	}
 -- 
 2.1.4
