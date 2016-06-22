@@ -1,110 +1,104 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net 2/2] net/mlx4_en: Avoid unregister_netdev at shutdown flow
-Date: Mon, 20 Jun 2016 17:35:09 +0300
-Message-ID: <1466433309-16288-3-git-send-email-tariqt@mellanox.com>
-References: <1466433309-16288-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v4 0/4] return offloaded stats as default and
+ expose original sw stats
+Date: Wed, 22 Jun 2016 07:30:57 -0700
+Message-ID: <CAJieiUjK1vyoxTxvrKUdrNwX09NqDEZD0jxx8YxgKAKvdqPiyg@mail.gmail.com>
+References: <1466066237-7719-1-git-send-email-jiri@resnulli.us>
+ <20160616.172632.1759391103978744570.davem@davemloft.net> <20160617082411.GA1981@nanopsycho.orion>
+ <f720df39-75c4-9be1-245d-df63bd40d610@cumulusnetworks.com>
+ <20160617140512.GB1981@nanopsycho.orion> <57640F2A.7090003@mojatatu.com>
+ <9f8e85ac-3e96-257e-cf7f-e7e793d41cf4@cumulusnetworks.com>
+ <20160617154243.GD1981@nanopsycho.orion> <57642F76.6090403@gmail.com>
+ <CAJieiUhFRp6wE_gt-0q9KYQTYdEyg5yFUYa89K+ovaQr7QE5Zg@mail.gmail.com> <5767E16F.2040902@mojatatu.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	Jiri Pirko <jiri@resnulli.us>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	David Miller <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Nogah Frankel <nogahf@mellanox.com>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Yotam Gigi <yotamg@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>, sd@queasysnail.net,
+	eranbe@mellanox.com, Alexei Starovoitov <ast@plumgrid.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"hannes@stressinduktion.org" <hannes@stressinduktion.org>
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:51088 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752351AbcFVOAS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 10:00:18 -0400
-In-Reply-To: <1466433309-16288-1-git-send-email-tariqt@mellanox.com>
+Received: from mail-vk0-f52.google.com ([209.85.213.52]:34401 "EHLO
+	mail-vk0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752731AbcFVOiY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 10:38:24 -0400
+Received: by mail-vk0-f52.google.com with SMTP id c2so34260028vkg.1
+        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 07:37:21 -0700 (PDT)
+In-Reply-To: <5767E16F.2040902@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eran Ben Elisha <eranbe@mellanox.com>
+On Mon, Jun 20, 2016 at 5:28 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+> On 16-06-19 11:14 PM, Roopa Prabhu wrote:
+>>
+>> On Fri, Jun 17, 2016 at 10:12 AM, Florian Fainelli <f.fainelli@gmail.com>
+>> wrote:
+>
+>
+>
+>>
+>> I have also mentioned this before, the default api must provide
+>> accumulated (hw and sw) stats...,
+>> because this is the api that the user queries on an interface.
+>
+>
+> Sorry - I missed those discussions.
+> What is current practise? Do people request for one via ip link
+> stats and the other via ethtool?
+> What do you guys do in your implementation?
 
-This allows a clean shutdown, even if some netdev clients do not
-release their reference from this netdev. It is enough to release
-the HW resources only as the kernel is shutting down.
+for us the standard netlink api that returns netdev stats includes all
+stats hw and sw.
+When i say hw and sw, I mean some of the error counters can also include errors
+counted by sw.
 
-Fixes: 2ba5fbd62b25 ('net/mlx4_core: Handle AER flow properly')
-Signed-off-by: Eran Ben Elisha <eranbe@mellanox.com>
-Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 17 +++++++++++++++--
- drivers/net/ethernet/mellanox/mlx4/main.c      |  5 ++++-
- include/linux/mlx4/device.h                    |  1 +
- 3 files changed, 20 insertions(+), 3 deletions(-)
+ethtool stats has always provided drivers/users with additional stats
+that the hw or driver
+can expose.
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 43f505e..0c0dfd6 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2036,11 +2036,20 @@ err:
- 	return -ENOMEM;
- }
- 
-+static void mlx4_en_shutdown(struct net_device *dev)
-+{
-+	rtnl_lock();
-+	netif_device_detach(dev);
-+	mlx4_en_close(dev);
-+	rtnl_unlock();
-+}
- 
- void mlx4_en_destroy_netdev(struct net_device *dev)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	struct mlx4_en_dev *mdev = priv->mdev;
-+	bool shutdown = mdev->dev->persist->interface_state &
-+					    MLX4_INTERFACE_STATE_SHUTDOWN;
- 
- 	en_dbg(DRV, priv, "Destroying netdev on port:%d\n", priv->port);
- 
-@@ -2048,7 +2057,10 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
- 	if (priv->registered) {
- 		devlink_port_type_clear(mlx4_get_devlink_port(mdev->dev,
- 							      priv->port));
--		unregister_netdev(dev);
-+		if (shutdown)
-+			mlx4_en_shutdown(dev);
-+		else
-+			unregister_netdev(dev);
- 	}
- 
- 	if (priv->allocated)
-@@ -2073,7 +2085,8 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
- 	kfree(priv->tx_ring);
- 	kfree(priv->tx_cq);
- 
--	free_netdev(dev);
-+	if (!shutdown)
-+		free_netdev(dev);
- }
- 
- static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index 372ebfa..546fab0 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -4135,8 +4135,11 @@ static void mlx4_shutdown(struct pci_dev *pdev)
- 
- 	mlx4_info(persist->dev, "mlx4_shutdown was called\n");
- 	mutex_lock(&persist->interface_state_mutex);
--	if (persist->interface_state & MLX4_INTERFACE_STATE_UP)
-+	if (persist->interface_state & MLX4_INTERFACE_STATE_UP) {
-+		/* Notify mlx4 clients that the kernel is being shut down */
-+		persist->interface_state |= MLX4_INTERFACE_STATE_SHUTDOWN;
- 		mlx4_unload_one(pdev);
-+	}
- 	mutex_unlock(&persist->interface_state_mutex);
- }
- 
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index 80dec87..d46a0e7 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -466,6 +466,7 @@ enum {
- enum {
- 	MLX4_INTERFACE_STATE_UP		= 1 << 0,
- 	MLX4_INTERFACE_STATE_DELETION	= 1 << 1,
-+	MLX4_INTERFACE_STATE_SHUTDOWN	= 1 << 2,
- };
- 
- #define MSTR_SM_CHANGE_MASK (MLX4_EQ_PORT_INFO_MSTR_SM_SL_CHANGE_MASK | \
--- 
-1.8.3.1
+
+> Yes, it would be more accurate to provide aggregated stats but
+> it may break backward compat if expectation is both are read
+> separately today.
+
+I don't think people see netdev stats as sw and ethtool as hw stats.
+The latter just provides more granularity for debugging.
+Thats the way i have looked at it forever.
+
+
+> Maybe it makes sense to have a brand new TLV for these aggregated
+> stats as Jiri was suggesting.That means two new TLVs not one.
+> 1) TLV for aggregated stats - which cant be current one
+> 2) TLV for h/w stats
+>
+> The existing stat implies s/ware only.
+>
+
+I don't think existing stat implies s/ware stats only. so, I think we
+should be careful
+about changing the meaning of existing stats.
+
+logical devices like bridge stats have always been software only...but
+with switchdev
+the way we see these or implement these is to also include hardware stats when
+they are hw offloaded. For us bridge vlan stats, vxlan stats and so on
+will follow the
+same model. You cannot introduce separate sw and hw stats for these.
+All stats will have to follow a consistent model.
+
+Thanks,
+Roopa
