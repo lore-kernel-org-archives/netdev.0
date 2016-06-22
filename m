@@ -1,159 +1,75 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 11/14] rxrpc: Make rxrpc_send_packet() take a
- connection not a transport
-Date: Wed, 22 Jun 2016 10:51:01 +0100
-Message-ID: <146658906115.4550.5817699692913997220.stgit@warthog.procyon.org.uk>
-References: <146658898230.4550.7226255613607733759.stgit@warthog.procyon.org.uk>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [RFC PATCH V3 0/3] basic device IOTLB support
+Date: Wed, 22 Jun 2016 17:53:39 +0800
+Message-ID: <576A6023.1090308@redhat.com>
+References: <1464082585-13049-1-git-send-email-jasowang@redhat.com>
+	<20160621164449.GC30949@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <146658898230.4550.7226255613607733759.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: kvm@vger.kernel.org, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	peterx@redhat.com, virtualization@lists.linux-foundation.org,
+	wexu@redhat.com, vkaplans@redhat.com
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160621164449.GC30949@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Make rxrpc_send_packet() take a connection not a transport as part of the
-phasing out of the rxrpc_transport struct.
-
-Whilst we're at it, rename the function to rxrpc_send_data_packet() to
-differentiate it from the other packet sending functions.
-
-Signed-off-by: David Howells <dhowells@redhat.com>
----
-
- net/rxrpc/ar-internal.h |    2 +-
- net/rxrpc/call_event.c  |    2 +-
- net/rxrpc/output.c      |   51 +++++++++++++++++++++++++++--------------------
- 3 files changed, 31 insertions(+), 24 deletions(-)
-
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 89966508b26c..cfbd028aa551 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -670,7 +670,7 @@ extern const char *rxrpc_acks(u8 reason);
-  */
- extern unsigned int rxrpc_resend_timeout;
- 
--int rxrpc_send_packet(struct rxrpc_transport *, struct sk_buff *);
-+int rxrpc_send_data_packet(struct rxrpc_connection *, struct sk_buff *);
- int rxrpc_do_sendmsg(struct rxrpc_sock *, struct msghdr *, size_t);
- 
- /*
-diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
-index b43faf573ed3..0ba84295f913 100644
---- a/net/rxrpc/call_event.c
-+++ b/net/rxrpc/call_event.c
-@@ -187,7 +187,7 @@ static void rxrpc_resend(struct rxrpc_call *call)
- 
- 			_proto("Tx DATA %%%u { #%d }",
- 			       sp->hdr.serial, sp->hdr.seq);
--			if (rxrpc_send_packet(call->conn->trans, txb) < 0) {
-+			if (rxrpc_send_data_packet(call->conn, txb) < 0) {
- 				stop = true;
- 				sp->resend_at = jiffies + 3;
- 			} else {
-diff --git a/net/rxrpc/output.c b/net/rxrpc/output.c
-index 6f8ab0ef839f..db3933cf6b97 100644
---- a/net/rxrpc/output.c
-+++ b/net/rxrpc/output.c
-@@ -338,7 +338,7 @@ EXPORT_SYMBOL(rxrpc_kernel_abort_call);
- /*
-  * send a packet through the transport endpoint
-  */
--int rxrpc_send_packet(struct rxrpc_transport *trans, struct sk_buff *skb)
-+int rxrpc_send_data_packet(struct rxrpc_connection *conn, struct sk_buff *skb)
- {
- 	struct kvec iov[1];
- 	struct msghdr msg;
-@@ -349,30 +349,30 @@ int rxrpc_send_packet(struct rxrpc_transport *trans, struct sk_buff *skb)
- 	iov[0].iov_base = skb->head;
- 	iov[0].iov_len = skb->len;
- 
--	msg.msg_name = &trans->peer->srx.transport.sin;
--	msg.msg_namelen = sizeof(trans->peer->srx.transport.sin);
-+	msg.msg_name = &conn->params.peer->srx.transport;
-+	msg.msg_namelen = conn->params.peer->srx.transport_len;
- 	msg.msg_control = NULL;
- 	msg.msg_controllen = 0;
- 	msg.msg_flags = 0;
- 
- 	/* send the packet with the don't fragment bit set if we currently
- 	 * think it's small enough */
--	if (skb->len - sizeof(struct rxrpc_wire_header) < trans->peer->maxdata) {
--		down_read(&trans->local->defrag_sem);
-+	if (skb->len - sizeof(struct rxrpc_wire_header) < conn->params.peer->maxdata) {
-+		down_read(&conn->params.local->defrag_sem);
- 		/* send the packet by UDP
- 		 * - returns -EMSGSIZE if UDP would have to fragment the packet
- 		 *   to go out of the interface
- 		 *   - in which case, we'll have processed the ICMP error
- 		 *     message and update the peer record
- 		 */
--		ret = kernel_sendmsg(trans->local->socket, &msg, iov, 1,
-+		ret = kernel_sendmsg(conn->params.local->socket, &msg, iov, 1,
- 				     iov[0].iov_len);
- 
--		up_read(&trans->local->defrag_sem);
-+		up_read(&conn->params.local->defrag_sem);
- 		if (ret == -EMSGSIZE)
- 			goto send_fragmentable;
- 
--		_leave(" = %d [%u]", ret, trans->peer->maxdata);
-+		_leave(" = %d [%u]", ret, conn->params.peer->maxdata);
- 		return ret;
- 	}
- 
-@@ -380,21 +380,28 @@ send_fragmentable:
- 	/* attempt to send this message with fragmentation enabled */
- 	_debug("send fragment");
- 
--	down_write(&trans->local->defrag_sem);
--	opt = IP_PMTUDISC_DONT;
--	ret = kernel_setsockopt(trans->local->socket, SOL_IP, IP_MTU_DISCOVER,
--				(char *) &opt, sizeof(opt));
--	if (ret == 0) {
--		ret = kernel_sendmsg(trans->local->socket, &msg, iov, 1,
--				     iov[0].iov_len);
--
--		opt = IP_PMTUDISC_DO;
--		kernel_setsockopt(trans->local->socket, SOL_IP,
--				  IP_MTU_DISCOVER, (char *) &opt, sizeof(opt));
-+	down_write(&conn->params.local->defrag_sem);
-+
-+	switch (conn->params.local->srx.transport.family) {
-+	case AF_INET:
-+		opt = IP_PMTUDISC_DONT;
-+		ret = kernel_setsockopt(conn->params.local->socket,
-+					SOL_IP, IP_MTU_DISCOVER,
-+					(char *)&opt, sizeof(opt));
-+		if (ret == 0) {
-+			ret = kernel_sendmsg(conn->params.local->socket, &msg, iov, 1,
-+					     iov[0].iov_len);
-+
-+			opt = IP_PMTUDISC_DO;
-+			kernel_setsockopt(conn->params.local->socket, SOL_IP,
-+					  IP_MTU_DISCOVER,
-+					  (char *)&opt, sizeof(opt));
-+		}
-+		break;
- 	}
- 
--	up_write(&trans->local->defrag_sem);
--	_leave(" = %d [frag %u]", ret, trans->peer->maxdata);
-+	up_write(&conn->params.local->defrag_sem);
-+	_leave(" = %d [frag %u]", ret, conn->params.peer->maxdata);
- 	return ret;
- }
- 
-@@ -506,7 +513,7 @@ static void rxrpc_queue_packet(struct rxrpc_call *call, struct sk_buff *skb,
- 	if (try_to_del_timer_sync(&call->ack_timer) >= 0) {
- 		/* the packet may be freed by rxrpc_process_call() before this
- 		 * returns */
--		ret = rxrpc_send_packet(call->conn->trans, skb);
-+		ret = rxrpc_send_data_packet(call->conn, skb);
- 		_net("sent skb %p", skb);
- 	} else {
- 		_debug("failed to delete ACK timer");
+CgpPbiAyMDE25bm0MDbmnIgyMuaXpSAwMDo0NCwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFR1ZSwgTWF5IDI0LCAyMDE2IGF0IDA1OjM2OjIyUE0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+IFRoaXMgcGF0Y2ggdHJpZXMgdG8gaW1wbGVtZW50IGFuIGRldmljZSBJT1RMQiBmb3Ig
+dmhvc3QuIFRoaXMgY291bGQgYmUKPj4gdXNlZCB3aXRoIGZvciBjby1vcGVyYXRpb24gd2l0aCB1
+c2Vyc3BhY2UgSU9NTVUgaW1wbGVtZW50YXRpb24gKHFlbXUpCj4+IGZvciBhIHNlY3VyZSBETUEg
+ZW52aXJvbm1lbnQgKERNQVIpIGluIGd1ZXN0Lgo+Pgo+PiBUaGUgaWRlYSBpcyBzaW1wbGUuIFdo
+ZW4gdmhvc3QgbWVldHMgYW4gSU9UTEIgbWlzcywgaXQgd2lsbCByZXF1ZXN0Cj4+IHRoZSBhc3Np
+c3RhbmNlIG9mIHVzZXJzcGFjZSB0byBkbyB0aGUgdHJhbnNsYXRpb24sIHRoaXMgaXMgZG9uZQo+
+PiB0aHJvdWdoOgo+Pgo+PiAtIHdoZW4gdGhlcmUncyBhIElPVExCIG1pc3MsIGl0IHdpbGwgbm90
+aWZ5IHVzZXJzcGFjZSB0aHJvdWdoCj4+ICAgIHZob3N0X25ldCBmZCBhbmQgdGhlbiB1c2Vyc3Bh
+Y2UgcmVhZCB0aGUgZmF1bHQgYWRkcmVzcywgc2l6ZSBhbmQKPj4gICAgYWNjZXNzIGZyb20gdmhv
+c3QgZmQuCj4+IC0gdXNlcnNwYWNlIHdyaXRlIHRoZSB0cmFuc2xhdGlvbiByZXN1bHQgYmFjayB0
+byB2aG9zdCBmZCwgdmhvc3QgY2FuCj4+ICAgIHRoZW4gdXBkYXRlIGl0cyBJT1RMQi4KPj4KPj4g
+VGhlIGNvZGVzIHdlcmUgb3B0aW1pemVkIGZvciBmaXhlZCBtYXBwaW5nIHVzZXJzIGUuZyBkcGRr
+IGluIGd1ZXN0LiBJdAo+PiB3aWxsIGJlIHNsb3cgaWYgZHluYW1pYyBtYXBwaW5ncyB3ZXJlIHVz
+ZWQgaW4gZ3Vlc3QuIFdlIGNvdWxkIGRvCj4+IG9wdGltaXphdGlvbnMgb24gdG9wLgo+Pgo+PiBU
+aGUgY29kZXMgd2VyZSBkZXNpZ25lZCB0byBiZSBhcmNoaXRlY3R1cmUgaW5kZXBlbmRlbnQuIEl0
+IHNob3VsZCBiZQo+PiBlYXNpbHkgcG9ydGVkIHRvIGFueSBhcmNoaXRlY3R1cmUuCj4+Cj4+IFN0
+cmVzcyB0ZXN0ZWQgd2l0aCBsMmZ3ZC92ZmlvIGluIGd1ZXN0IHdpdGggNEsvMk0vMUcgcGFnZSBz
+aXplLiBPbiAxRwo+PiBodWdlcGFnZSBjYXNlLCAxMDAlIFRMQiBoaXQgcmF0ZSB3ZXJlIG5vdGlj
+ZWQuCj4+Cj4+IENoYW5nZXMgZnJvbSBWMjoKPj4gLSBpbnRyb2R1Y2UgbWVtb3J5IGFjY2Vzc29y
+cyBmb3Igdmhvc3QKPj4gLSBzd2l0Y2ggZnJvbSBpb2N0bHMgdG8gb3JpZGluYXJ5IGZpbGUgcmVh
+ZC93cml0ZSBmb3IgaW90bGIgbWlzcyBhbmQKPj4gICAgdXBkYXRpbmcKPj4gLSBkbyBub3QgYXNz
+dW1lIHZpcnRxdWV1ZSB3ZXJlIHZpcnR1YWxseSBtYXBwZWQgY29udGlndW91c2x5LCBhbGwKPj4g
+ICAgdmlydHF1ZXVlIGFjY2VzcyB3ZXJlIGRvbmUgdGhyb3VnIElPVExCCj4+IC0gdmVyaWZ5IG1l
+bW9yeSBhY2Nlc3MgZHVyaW5nIElPVExCIHVwZGF0ZSBhbmQgZmFpbCBlYXJseQo+PiAtIGludHJv
+ZHVjZSBhIG1vZHVsZSBwYXJhbWV0ZXIgZm9yIHRoZSBzaXplIG9mIElPVExCCj4+Cj4+IENoYW5n
+ZXMgZnJvbSBWMToKPj4gLSBzdXBwb3J0IGFueSBzaXplL3JhbmdlIG9mIHVwZGF0aW5nIGFuZCBp
+bnZhbGlkYXRpb24gdGhyb3VnaAo+PiAgICBpbnRyb2R1Y2luZyB0aGUgaW50ZXJ2YWwgdHJlZS4K
+Pj4gLSBjb252ZXJ0IGZyb20gcGVyIGRldmljZSBpb3RsYiByZXF1ZXN0IHRvIHBlciB2aXJ0cXVl
+dWUgaW90bGIKPj4gICAgcmVxdWVzdCwgdGhpcyBzb2x2ZXMgdGhlIHBvc3NpYmxlIGRlYWRsb2Nr
+IGluIFYxLgo+PiAtIHJlYWQvd3JpdGUgcGVybWlzc2lvbiBjaGVjayBzdXBwb3J0Lgo+Pgo+PiBQ
+bGVhc2UgcmV2aWV3Lgo+IE5pY2UsIHRoaXMgbG9va3MgZ29vZCB0byBtZS4gQ2FuIHlvdSBwb3N0
+IGEgbm9uLXJmYyBwbGVhc2U/Cj4KPgoKUG9zdGVkLCB0aGFua3MuCgo+PiBKYXNvbiBXYW5nICgz
+KToKPj4gICAgdmhvc3Q6IGludHJvZHVjZSB2aG9zdCBtZW1vcnkgYWNjZXNzb3JzCj4+ICAgIHZo
+b3N0OiBjb252ZXJ0IHByZSBzb3J0ZWQgdmhvc3QgbWVtb3J5IGFycmF5IHRvIGludGVydmFsIHRy
+ZWUKPj4gICAgdmhvc3Q6IGRldmljZSBJT1RMQiBBUEkKPj4KPj4gICBkcml2ZXJzL3Zob3N0L25l
+dC5jICAgICAgICB8ICA2MyArKystCj4+ICAgZHJpdmVycy92aG9zdC92aG9zdC5jICAgICAgfCA3
+NjAgKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKysrKystLS0tLS0tCj4+ICAgZHJp
+dmVycy92aG9zdC92aG9zdC5oICAgICAgfCAgNjAgKysrLQo+PiAgIGluY2x1ZGUvdWFwaS9saW51
+eC92aG9zdC5oIHwgIDI4ICsrCj4+ICAgNCBmaWxlcyBjaGFuZ2VkLCA3OTAgaW5zZXJ0aW9ucygr
+KSwgMTIxIGRlbGV0aW9ucygtKQo+Pgo+PiAtLSAKPj4gMi43LjQKPiAtLQo+IFRvIHVuc3Vic2Ny
+aWJlIGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBrdm0iIGluCj4g
+dGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2Z2VyLmtlcm5lbC5vcmcKPiBNb3Jl
+IG1ham9yZG9tbyBpbmZvIGF0ICBodHRwOi8vdmdlci5rZXJuZWwub3JnL21ham9yZG9tby1pbmZv
+Lmh0bWwKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fClZp
+cnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3Vu
+ZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0
+aW5mby92aXJ0dWFsaXphdGlvbg==
