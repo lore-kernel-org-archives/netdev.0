@@ -1,7 +1,7 @@
 From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: [PATCHv2 4/7] ppc: bpf/jit: Introduce rotate immediate instructions
-Date: Wed, 22 Jun 2016 21:55:04 +0530
-Message-ID: <8264e2692c8d0b2a019827e052cdda29c4ec2fbc.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
+Subject: [PATCHv2 7/7] ppc: ebpf/jit: Implement JIT compiler for extended BPF
+Date: Wed, 22 Jun 2016 21:55:07 +0530
+Message-ID: <d651ed66824f1fc480906730fbb609fdc7b8aa59.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
 References: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
 Cc: Matt Evans <matt@ozlabs.org>,
 	Denis Kirjanov <kda@linux-powerpc.org>,
@@ -13,17 +13,45 @@ Cc: Matt Evans <matt@ozlabs.org>,
 	Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
 To: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:39688 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932242AbcFVQ10 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 12:27:26 -0400
+Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
+	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u5MGOevf059222
+	for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 12:27:25 -0400
+Received: from e28smtp08.in.ibm.com (e28smtp08.in.ibm.com [125.16.236.8])
+	by mx0a-001b2d01.pphosted.com with ESMTP id 23q6qn7tns-1
+	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 12:27:25 -0400
+Received: from localhost
+	by e28smtp08.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <naveen.n.rao@linux.vnet.ibm.com>;
+	Wed, 22 Jun 2016 21:57:21 +0530
 In-Reply-To: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
 In-Reply-To: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
 References: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Since we will be using the rotate immediate instructions for extended
-BPF JIT, let's introduce macros for the same. And since the shift
-immediate operations use the rotate immediate instructions, let's redo
-those macros to use the newly introduced instructions.
+PPC64 eBPF JIT compiler.
+
+Enable with:
+echo 1 > /proc/sys/net/core/bpf_jit_enable
+or
+echo 2 > /proc/sys/net/core/bpf_jit_enable
+
+... to see the generated JIT code. This can further be processed with
+tools/net/bpf_jit_disasm.
+
+With CONFIG_TEST_BPF=m and 'modprobe test_bpf':
+test_bpf: Summary: 305 PASSED, 0 FAILED, [297/297 JIT'ed]
+
+... on both ppc64 BE and LE.
+
+The details of the approach are documented through various comments in
+the code.
 
 Cc: Matt Evans <matt@ozlabs.org>
 Cc: Denis Kirjanov <kda@linux-powerpc.org>
@@ -37,56 +65,1524 @@ Cc: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
 ---
- arch/powerpc/include/asm/ppc-opcode.h |  2 ++
- arch/powerpc/net/bpf_jit.h            | 20 +++++++++++---------
- 2 files changed, 13 insertions(+), 9 deletions(-)
+ arch/powerpc/Kconfig                  |   3 +-
+ arch/powerpc/include/asm/asm-compat.h |   2 +
+ arch/powerpc/include/asm/ppc-opcode.h |  20 +-
+ arch/powerpc/net/Makefile             |   4 +
+ arch/powerpc/net/bpf_jit.h            |  53 +-
+ arch/powerpc/net/bpf_jit64.h          | 102 ++++
+ arch/powerpc/net/bpf_jit_asm64.S      | 180 +++++++
+ arch/powerpc/net/bpf_jit_comp64.c     | 954 ++++++++++++++++++++++++++++++++++
+ 8 files changed, 1315 insertions(+), 3 deletions(-)
+ create mode 100644 arch/powerpc/net/bpf_jit64.h
+ create mode 100644 arch/powerpc/net/bpf_jit_asm64.S
+ create mode 100644 arch/powerpc/net/bpf_jit_comp64.c
 
+diff --git a/arch/powerpc/Kconfig b/arch/powerpc/Kconfig
+index 0a9d439..ee82f9a 100644
+--- a/arch/powerpc/Kconfig
++++ b/arch/powerpc/Kconfig
+@@ -128,7 +128,8 @@ config PPC
+ 	select IRQ_FORCED_THREADING
+ 	select HAVE_RCU_TABLE_FREE if SMP
+ 	select HAVE_SYSCALL_TRACEPOINTS
+-	select HAVE_CBPF_JIT if CPU_BIG_ENDIAN
++	select HAVE_CBPF_JIT if !PPC64
++	select HAVE_EBPF_JIT if PPC64
+ 	select HAVE_ARCH_JUMP_LABEL
+ 	select ARCH_HAVE_NMI_SAFE_CMPXCHG
+ 	select ARCH_HAS_GCOV_PROFILE_ALL
+diff --git a/arch/powerpc/include/asm/asm-compat.h b/arch/powerpc/include/asm/asm-compat.h
+index dc85dcb..cee3aa0 100644
+--- a/arch/powerpc/include/asm/asm-compat.h
++++ b/arch/powerpc/include/asm/asm-compat.h
+@@ -36,11 +36,13 @@
+ #define PPC_MIN_STKFRM	112
+ 
+ #ifdef __BIG_ENDIAN__
++#define LHZX_BE	stringify_in_c(lhzx)
+ #define LWZX_BE	stringify_in_c(lwzx)
+ #define LDX_BE	stringify_in_c(ldx)
+ #define STWX_BE	stringify_in_c(stwx)
+ #define STDX_BE	stringify_in_c(stdx)
+ #else
++#define LHZX_BE	stringify_in_c(lhbrx)
+ #define LWZX_BE	stringify_in_c(lwbrx)
+ #define LDX_BE	stringify_in_c(ldbrx)
+ #define STWX_BE	stringify_in_c(stwbrx)
 diff --git a/arch/powerpc/include/asm/ppc-opcode.h b/arch/powerpc/include/asm/ppc-opcode.h
-index 1d035c1..fd8d640 100644
+index fd8d640..6a77d130 100644
 --- a/arch/powerpc/include/asm/ppc-opcode.h
 +++ b/arch/powerpc/include/asm/ppc-opcode.h
-@@ -272,6 +272,8 @@
- #define __PPC_SH(s)	__PPC_WS(s)
- #define __PPC_MB(s)	(((s) & 0x1f) << 6)
- #define __PPC_ME(s)	(((s) & 0x1f) << 1)
-+#define __PPC_MB64(s)	(__PPC_MB(s) | ((s) & 0x20))
-+#define __PPC_ME64(s)	__PPC_MB64(s)
- #define __PPC_BI(s)	(((s) & 0x1f) << 16)
- #define __PPC_CT(t)	(((t) & 0x0f) << 21)
- 
+@@ -142,9 +142,11 @@
+ #define PPC_INST_ISEL			0x7c00001e
+ #define PPC_INST_ISEL_MASK		0xfc00003e
+ #define PPC_INST_LDARX			0x7c0000a8
++#define PPC_INST_STDCX			0x7c0001ad
+ #define PPC_INST_LSWI			0x7c0004aa
+ #define PPC_INST_LSWX			0x7c00042a
+ #define PPC_INST_LWARX			0x7c000028
++#define PPC_INST_STWCX			0x7c00012d
+ #define PPC_INST_LWSYNC			0x7c2004ac
+ #define PPC_INST_SYNC			0x7c0004ac
+ #define PPC_INST_SYNC_MASK		0xfc0007fe
+@@ -211,8 +213,11 @@
+ #define PPC_INST_LBZ			0x88000000
+ #define PPC_INST_LD			0xe8000000
+ #define PPC_INST_LHZ			0xa0000000
+-#define PPC_INST_LHBRX			0x7c00062c
+ #define PPC_INST_LWZ			0x80000000
++#define PPC_INST_LHBRX			0x7c00062c
++#define PPC_INST_LDBRX			0x7c000428
++#define PPC_INST_STB			0x98000000
++#define PPC_INST_STH			0xb0000000
+ #define PPC_INST_STD			0xf8000000
+ #define PPC_INST_STDU			0xf8000001
+ #define PPC_INST_STW			0x90000000
+@@ -221,22 +226,34 @@
+ #define PPC_INST_MTLR			0x7c0803a6
+ #define PPC_INST_CMPWI			0x2c000000
+ #define PPC_INST_CMPDI			0x2c200000
++#define PPC_INST_CMPW			0x7c000000
++#define PPC_INST_CMPD			0x7c200000
+ #define PPC_INST_CMPLW			0x7c000040
++#define PPC_INST_CMPLD			0x7c200040
+ #define PPC_INST_CMPLWI			0x28000000
++#define PPC_INST_CMPLDI			0x28200000
+ #define PPC_INST_ADDI			0x38000000
+ #define PPC_INST_ADDIS			0x3c000000
+ #define PPC_INST_ADD			0x7c000214
+ #define PPC_INST_SUB			0x7c000050
+ #define PPC_INST_BLR			0x4e800020
+ #define PPC_INST_BLRL			0x4e800021
++#define PPC_INST_MULLD			0x7c0001d2
+ #define PPC_INST_MULLW			0x7c0001d6
+ #define PPC_INST_MULHWU			0x7c000016
+ #define PPC_INST_MULLI			0x1c000000
+ #define PPC_INST_DIVWU			0x7c000396
++#define PPC_INST_DIVD			0x7c0003d2
+ #define PPC_INST_RLWINM			0x54000000
++#define PPC_INST_RLWIMI			0x50000000
++#define PPC_INST_RLDICL			0x78000000
+ #define PPC_INST_RLDICR			0x78000004
+ #define PPC_INST_SLW			0x7c000030
++#define PPC_INST_SLD			0x7c000036
+ #define PPC_INST_SRW			0x7c000430
++#define PPC_INST_SRD			0x7c000436
++#define PPC_INST_SRAD			0x7c000634
++#define PPC_INST_SRADI			0x7c000674
+ #define PPC_INST_AND			0x7c000038
+ #define PPC_INST_ANDDOT			0x7c000039
+ #define PPC_INST_OR			0x7c000378
+@@ -247,6 +264,7 @@
+ #define PPC_INST_XORI			0x68000000
+ #define PPC_INST_XORIS			0x6c000000
+ #define PPC_INST_NEG			0x7c0000d0
++#define PPC_INST_EXTSW			0x7c0007b4
+ #define PPC_INST_BRANCH			0x48000000
+ #define PPC_INST_BRANCH_COND		0x40800000
+ #define PPC_INST_LBZCIX			0x7c0006aa
+diff --git a/arch/powerpc/net/Makefile b/arch/powerpc/net/Makefile
+index 1306a58..c1ff16a 100644
+--- a/arch/powerpc/net/Makefile
++++ b/arch/powerpc/net/Makefile
+@@ -1,4 +1,8 @@
+ #
+ # Arch-specific network modules
+ #
++ifeq ($(CONFIG_PPC64),y)
++obj-$(CONFIG_BPF_JIT) += bpf_jit_asm64.o bpf_jit_comp64.o
++else
+ obj-$(CONFIG_BPF_JIT) += bpf_jit_asm.o bpf_jit_comp.o
++endif
 diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
-index 4c1e055..95d0e38 100644
+index 313cfaf..d5301b6 100644
 --- a/arch/powerpc/net/bpf_jit.h
 +++ b/arch/powerpc/net/bpf_jit.h
-@@ -210,18 +210,20 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
+@@ -2,6 +2,7 @@
+  * bpf_jit.h: BPF JIT compiler for PPC
+  *
+  * Copyright 2011 Matt Evans <matt@ozlabs.org>, IBM Corporation
++ * 	     2016 Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
+  *
+  * This program is free software; you can redistribute it and/or
+  * modify it under the terms of the GNU General Public License
+@@ -13,7 +14,9 @@
+ 
+ #ifndef __ASSEMBLY__
+ 
+-#ifdef CONFIG_PPC64
++#include <asm/types.h>
++
++#ifdef PPC64_ELF_ABI_v1
+ #define FUNCTION_DESCR_SIZE	24
+ #else
+ #define FUNCTION_DESCR_SIZE	0
+@@ -52,6 +55,10 @@
+ 				     ___PPC_RA(base) | IMM_L(i))
+ #define PPC_STWU(r, base, i)	EMIT(PPC_INST_STWU | ___PPC_RS(r) |	      \
+ 				     ___PPC_RA(base) | IMM_L(i))
++#define PPC_STH(r, base, i)	EMIT(PPC_INST_STH | ___PPC_RS(r) |	      \
++				     ___PPC_RA(base) | IMM_L(i))
++#define PPC_STB(r, base, i)	EMIT(PPC_INST_STB | ___PPC_RS(r) |	      \
++				     ___PPC_RA(base) | IMM_L(i))
+ 
+ #define PPC_LBZ(r, base, i)	EMIT(PPC_INST_LBZ | ___PPC_RT(r) |	      \
+ 				     ___PPC_RA(base) | IMM_L(i))
+@@ -63,6 +70,19 @@
+ 				     ___PPC_RA(base) | IMM_L(i))
+ #define PPC_LHBRX(r, base, b)	EMIT(PPC_INST_LHBRX | ___PPC_RT(r) |	      \
+ 				     ___PPC_RA(base) | ___PPC_RB(b))
++#define PPC_LDBRX(r, base, b)	EMIT(PPC_INST_LDBRX | ___PPC_RT(r) |	      \
++				     ___PPC_RA(base) | ___PPC_RB(b))
++
++#define PPC_BPF_LDARX(t, a, b, eh) EMIT(PPC_INST_LDARX | ___PPC_RT(t) |	      \
++					___PPC_RA(a) | ___PPC_RB(b) |	      \
++					__PPC_EH(eh))
++#define PPC_BPF_LWARX(t, a, b, eh) EMIT(PPC_INST_LWARX | ___PPC_RT(t) |	      \
++					___PPC_RA(a) | ___PPC_RB(b) |	      \
++					__PPC_EH(eh))
++#define PPC_BPF_STWCX(s, a, b)	EMIT(PPC_INST_STWCX | ___PPC_RS(s) |	      \
++					___PPC_RA(a) | ___PPC_RB(b))
++#define PPC_BPF_STDCX(s, a, b)	EMIT(PPC_INST_STDCX | ___PPC_RS(s) |	      \
++					___PPC_RA(a) | ___PPC_RB(b))
+ 
+ #ifdef CONFIG_PPC64
+ #define PPC_BPF_LL(r, base, i) do { PPC_LD(r, base, i); } while(0)
+@@ -76,14 +96,23 @@
+ 
+ #define PPC_CMPWI(a, i)		EMIT(PPC_INST_CMPWI | ___PPC_RA(a) | IMM_L(i))
+ #define PPC_CMPDI(a, i)		EMIT(PPC_INST_CMPDI | ___PPC_RA(a) | IMM_L(i))
++#define PPC_CMPW(a, b)		EMIT(PPC_INST_CMPW | ___PPC_RA(a) |	      \
++					___PPC_RB(b))
++#define PPC_CMPD(a, b)		EMIT(PPC_INST_CMPD | ___PPC_RA(a) |	      \
++					___PPC_RB(b))
+ #define PPC_CMPLWI(a, i)	EMIT(PPC_INST_CMPLWI | ___PPC_RA(a) | IMM_L(i))
++#define PPC_CMPLDI(a, i)	EMIT(PPC_INST_CMPLDI | ___PPC_RA(a) | IMM_L(i))
+ #define PPC_CMPLW(a, b)		EMIT(PPC_INST_CMPLW | ___PPC_RA(a) |	      \
+ 					___PPC_RB(b))
++#define PPC_CMPLD(a, b)		EMIT(PPC_INST_CMPLD | ___PPC_RA(a) |	      \
++					___PPC_RB(b))
+ 
+ #define PPC_SUB(d, a, b)	EMIT(PPC_INST_SUB | ___PPC_RT(d) |	      \
+ 				     ___PPC_RB(a) | ___PPC_RA(b))
+ #define PPC_ADD(d, a, b)	EMIT(PPC_INST_ADD | ___PPC_RT(d) |	      \
+ 				     ___PPC_RA(a) | ___PPC_RB(b))
++#define PPC_MULD(d, a, b)	EMIT(PPC_INST_MULLD | ___PPC_RT(d) |	      \
++				     ___PPC_RA(a) | ___PPC_RB(b))
+ #define PPC_MULW(d, a, b)	EMIT(PPC_INST_MULLW | ___PPC_RT(d) |	      \
+ 				     ___PPC_RA(a) | ___PPC_RB(b))
+ #define PPC_MULHWU(d, a, b)	EMIT(PPC_INST_MULHWU | ___PPC_RT(d) |	      \
+@@ -92,6 +121,8 @@
+ 				     ___PPC_RA(a) | IMM_L(i))
+ #define PPC_DIVWU(d, a, b)	EMIT(PPC_INST_DIVWU | ___PPC_RT(d) |	      \
+ 				     ___PPC_RA(a) | ___PPC_RB(b))
++#define PPC_DIVD(d, a, b)	EMIT(PPC_INST_DIVD | ___PPC_RT(d) |	      \
++				     ___PPC_RA(a) | ___PPC_RB(b))
+ #define PPC_AND(d, a, b)	EMIT(PPC_INST_AND | ___PPC_RA(d) |	      \
+ 				     ___PPC_RS(a) | ___PPC_RB(b))
+ #define PPC_ANDI(d, a, i)	EMIT(PPC_INST_ANDI | ___PPC_RA(d) |	      \
+@@ -100,6 +131,7 @@
+ 				     ___PPC_RS(a) | ___PPC_RB(b))
+ #define PPC_OR(d, a, b)		EMIT(PPC_INST_OR | ___PPC_RA(d) |	      \
+ 				     ___PPC_RS(a) | ___PPC_RB(b))
++#define PPC_MR(d, a)		PPC_OR(d, a, a)
+ #define PPC_ORI(d, a, i)	EMIT(PPC_INST_ORI | ___PPC_RA(d) |	      \
+ 				     ___PPC_RS(a) | IMM_L(i))
+ #define PPC_ORIS(d, a, i)	EMIT(PPC_INST_ORIS | ___PPC_RA(d) |	      \
+@@ -110,13 +142,30 @@
+ 				     ___PPC_RS(a) | IMM_L(i))
+ #define PPC_XORIS(d, a, i)	EMIT(PPC_INST_XORIS | ___PPC_RA(d) |	      \
+ 				     ___PPC_RS(a) | IMM_L(i))
++#define PPC_EXTSW(d, a)		EMIT(PPC_INST_EXTSW | ___PPC_RA(d) |	      \
++				     ___PPC_RS(a))
+ #define PPC_SLW(d, a, s)	EMIT(PPC_INST_SLW | ___PPC_RA(d) |	      \
  				     ___PPC_RS(a) | ___PPC_RB(s))
++#define PPC_SLD(d, a, s)	EMIT(PPC_INST_SLD | ___PPC_RA(d) |	      \
++				     ___PPC_RS(a) | ___PPC_RB(s))
  #define PPC_SRW(d, a, s)	EMIT(PPC_INST_SRW | ___PPC_RA(d) |	      \
  				     ___PPC_RS(a) | ___PPC_RB(s))
-+#define PPC_RLWINM(d, a, i, mb, me)	EMIT(PPC_INST_RLWINM | ___PPC_RA(d) | \
++#define PPC_SRD(d, a, s)	EMIT(PPC_INST_SRD | ___PPC_RA(d) |	      \
++				     ___PPC_RS(a) | ___PPC_RB(s))
++#define PPC_SRAD(d, a, s)	EMIT(PPC_INST_SRAD | ___PPC_RA(d) |	      \
++				     ___PPC_RS(a) | ___PPC_RB(s))
++#define PPC_SRADI(d, a, i)	EMIT(PPC_INST_SRADI | ___PPC_RA(d) |	      \
++				     ___PPC_RS(a) | __PPC_SH(i) |             \
++				     (((i) & 0x20) >> 4))
+ #define PPC_RLWINM(d, a, i, mb, me)	EMIT(PPC_INST_RLWINM | ___PPC_RA(d) | \
+ 					___PPC_RS(a) | __PPC_SH(i) |	      \
+ 					__PPC_MB(mb) | __PPC_ME(me))
++#define PPC_RLWIMI(d, a, i, mb, me)	EMIT(PPC_INST_RLWIMI | ___PPC_RA(d) | \
 +					___PPC_RS(a) | __PPC_SH(i) |	      \
 +					__PPC_MB(mb) | __PPC_ME(me))
-+#define PPC_RLDICR(d, a, i, me)		EMIT(PPC_INST_RLDICR | ___PPC_RA(d) | \
++#define PPC_RLDICL(d, a, i, mb)		EMIT(PPC_INST_RLDICL | ___PPC_RA(d) | \
 +					___PPC_RS(a) | __PPC_SH(i) |	      \
-+					__PPC_ME64(me) | (((i) & 0x20) >> 4))
-+
- /* slwi = rlwinm Rx, Ry, n, 0, 31-n */
--#define PPC_SLWI(d, a, i)	EMIT(PPC_INST_RLWINM | ___PPC_RA(d) |	      \
--				     ___PPC_RS(a) | __PPC_SH(i) |	      \
--				     __PPC_MB(0) | __PPC_ME(31-(i)))
-+#define PPC_SLWI(d, a, i)	PPC_RLWINM(d, a, i, 0, 31-(i))
- /* srwi = rlwinm Rx, Ry, 32-n, n, 31 */
--#define PPC_SRWI(d, a, i)	EMIT(PPC_INST_RLWINM | ___PPC_RA(d) |	      \
--				     ___PPC_RS(a) | __PPC_SH(32-(i)) |	      \
--				     __PPC_MB(i) | __PPC_ME(31))
-+#define PPC_SRWI(d, a, i)	PPC_RLWINM(d, a, 32-(i), i, 31)
++					__PPC_MB64(mb) | (((i) & 0x20) >> 4))
+ #define PPC_RLDICR(d, a, i, me)		EMIT(PPC_INST_RLDICR | ___PPC_RA(d) | \
+ 					___PPC_RS(a) | __PPC_SH(i) |	      \
+ 					__PPC_ME64(me) | (((i) & 0x20) >> 4))
+@@ -127,6 +176,8 @@
+ #define PPC_SRWI(d, a, i)	PPC_RLWINM(d, a, 32-(i), i, 31)
  /* sldi = rldicr Rx, Ry, n, 63-n */
--#define PPC_SLDI(d, a, i)	EMIT(PPC_INST_RLDICR | ___PPC_RA(d) |	      \
--				     ___PPC_RS(a) | __PPC_SH(i) |	      \
--				     __PPC_MB(63-(i)) | (((i) & 0x20) >> 4))
-+#define PPC_SLDI(d, a, i)	PPC_RLDICR(d, a, i, 63-(i))
-+
+ #define PPC_SLDI(d, a, i)	PPC_RLDICR(d, a, i, 63-(i))
++/* sldi = rldicl Rx, Ry, 64-n, n */
++#define PPC_SRDI(d, a, i)	PPC_RLDICL(d, a, 64-(i), i)
+ 
  #define PPC_NEG(d, a)		EMIT(PPC_INST_NEG | ___PPC_RT(d) | ___PPC_RA(a))
  
- /* Long jump; (unconditional 'branch') */
+diff --git a/arch/powerpc/net/bpf_jit64.h b/arch/powerpc/net/bpf_jit64.h
+new file mode 100644
+index 0000000..5046d6f
+--- /dev/null
++++ b/arch/powerpc/net/bpf_jit64.h
+@@ -0,0 +1,102 @@
++/*
++ * bpf_jit64.h: BPF JIT compiler for PPC64
++ *
++ * Copyright 2016 Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
++ *		  IBM Corporation
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; version 2
++ * of the License.
++ */
++#ifndef _BPF_JIT64_H
++#define _BPF_JIT64_H
++
++#include "bpf_jit.h"
++
++/*
++ * Stack layout:
++ *
++ *		[	prev sp		] <-------------
++ *		[   nv gpr save area	] 8*8		|
++ * fp (r31) -->	[   ebpf stack space	] 512		|
++ *		[  local/tmp var space	] 16		|
++ *		[     frame header	] 32/112	|
++ * sp (r1) --->	[    stack pointer	] --------------
++ */
++
++/* for bpf JIT code internal usage */
++#define BPF_PPC_STACK_LOCALS	16
++/* for gpr non volatile registers BPG_REG_6 to 10, plus skb cache registers */
++#define BPF_PPC_STACK_SAVE	(8*8)
++/* Ensure this is quadword aligned */
++#define BPF_PPC_STACKFRAME	(STACK_FRAME_MIN_SIZE + BPF_PPC_STACK_LOCALS + \
++				 MAX_BPF_STACK + BPF_PPC_STACK_SAVE)
++
++#ifndef __ASSEMBLY__
++
++/* BPF register usage */
++#define SKB_HLEN_REG	(MAX_BPF_REG + 0)
++#define SKB_DATA_REG	(MAX_BPF_REG + 1)
++#define TMP_REG_1	(MAX_BPF_REG + 2)
++#define TMP_REG_2	(MAX_BPF_REG + 3)
++
++/* BPF to ppc register mappings */
++static const int b2p[] = {
++	/* function return value */
++	[BPF_REG_0] = 8,
++	/* function arguments */
++	[BPF_REG_1] = 3,
++	[BPF_REG_2] = 4,
++	[BPF_REG_3] = 5,
++	[BPF_REG_4] = 6,
++	[BPF_REG_5] = 7,
++	/* non volatile registers */
++	[BPF_REG_6] = 27,
++	[BPF_REG_7] = 28,
++	[BPF_REG_8] = 29,
++	[BPF_REG_9] = 30,
++	/* frame pointer aka BPF_REG_10 */
++	[BPF_REG_FP] = 31,
++	/* eBPF jit internal registers */
++	[SKB_HLEN_REG] = 25,
++	[SKB_DATA_REG] = 26,
++	[TMP_REG_1] = 9,
++	[TMP_REG_2] = 10
++};
++
++/* Assembly helpers */
++#define DECLARE_LOAD_FUNC(func)	u64 func(u64 r3, u64 r4);			\
++				u64 func##_negative_offset(u64 r3, u64 r4);	\
++				u64 func##_positive_offset(u64 r3, u64 r4);
++
++DECLARE_LOAD_FUNC(sk_load_word);
++DECLARE_LOAD_FUNC(sk_load_half);
++DECLARE_LOAD_FUNC(sk_load_byte);
++
++#define CHOOSE_LOAD_FUNC(imm, func)						\
++			(imm < 0 ?						\
++			(imm >= SKF_LL_OFF ? func##_negative_offset : func) :	\
++			func##_positive_offset)
++
++#define SEEN_FUNC	0x1000 /* might call external helpers */
++#define SEEN_STACK	0x2000 /* uses BPF stack */
++#define SEEN_SKB	0x4000 /* uses sk_buff */
++
++struct codegen_context {
++	/*
++	 * This is used to track register usage as well
++	 * as calls to external helpers.
++	 * - register usage is tracked with corresponding
++	 *   bits (r3-r10 and r25-r31)
++	 * - rest of the bits can be used to track other
++	 *   things -- for now, we use bits 16 to 23
++	 *   encoded in SEEN_* macros above
++	 */
++	unsigned int seen;
++	unsigned int idx;
++};
++
++#endif /* !__ASSEMBLY__ */
++
++#endif
+diff --git a/arch/powerpc/net/bpf_jit_asm64.S b/arch/powerpc/net/bpf_jit_asm64.S
+new file mode 100644
+index 0000000..7e4c514
+--- /dev/null
++++ b/arch/powerpc/net/bpf_jit_asm64.S
+@@ -0,0 +1,180 @@
++/*
++ * bpf_jit_asm64.S: Packet/header access helper functions
++ * for PPC64 BPF compiler.
++ *
++ * Copyright 2016, Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
++ * 		   IBM Corporation
++ *
++ * Based on bpf_jit_asm.S by Matt Evans
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; version 2
++ * of the License.
++ */
++
++#include <asm/ppc_asm.h>
++#include <asm/ptrace.h>
++#include "bpf_jit64.h"
++
++/*
++ * All of these routines are called directly from generated code,
++ * with the below register usage:
++ * r27		skb pointer (ctx)
++ * r25		skb header length
++ * r26		skb->data pointer
++ * r4		offset
++ *
++ * Result is passed back in:
++ * r8		data read in host endian format (accumulator)
++ *
++ * r9 is used as a temporary register
++ */
++
++#define r_skb	r27
++#define r_hlen	r25
++#define r_data	r26
++#define r_off	r4
++#define r_val	r8
++#define r_tmp	r9
++
++_GLOBAL_TOC(sk_load_word)
++	cmpdi	r_off, 0
++	blt	bpf_slow_path_word_neg
++	b	sk_load_word_positive_offset
++
++_GLOBAL_TOC(sk_load_word_positive_offset)
++	/* Are we accessing past headlen? */
++	subi	r_tmp, r_hlen, 4
++	cmpd	r_tmp, r_off
++	blt	bpf_slow_path_word
++	/* Nope, just hitting the header.  cr0 here is eq or gt! */
++	LWZX_BE	r_val, r_data, r_off
++	blr	/* Return success, cr0 != LT */
++
++_GLOBAL_TOC(sk_load_half)
++	cmpdi	r_off, 0
++	blt	bpf_slow_path_half_neg
++	b	sk_load_half_positive_offset
++
++_GLOBAL_TOC(sk_load_half_positive_offset)
++	subi	r_tmp, r_hlen, 2
++	cmpd	r_tmp, r_off
++	blt	bpf_slow_path_half
++	LHZX_BE	r_val, r_data, r_off
++	blr
++
++_GLOBAL_TOC(sk_load_byte)
++	cmpdi	r_off, 0
++	blt	bpf_slow_path_byte_neg
++	b	sk_load_byte_positive_offset
++
++_GLOBAL_TOC(sk_load_byte_positive_offset)
++	cmpd	r_hlen, r_off
++	ble	bpf_slow_path_byte
++	lbzx	r_val, r_data, r_off
++	blr
++
++/*
++ * Call out to skb_copy_bits:
++ * Allocate a new stack frame here to remain ABI-compliant in
++ * stashing LR.
++ */
++#define bpf_slow_path_common(SIZE)					\
++	mflr	r0;							\
++	std	r0, PPC_LR_STKOFF(r1);					\
++	stdu	r1, -(STACK_FRAME_MIN_SIZE + BPF_PPC_STACK_LOCALS)(r1);	\
++	mr	r3, r_skb;						\
++	/* r4 = r_off as passed */					\
++	addi	r5, r1, STACK_FRAME_MIN_SIZE;				\
++	li	r6, SIZE;						\
++	bl	skb_copy_bits;						\
++	nop;								\
++	/* save r5 */							\
++	addi	r5, r1, STACK_FRAME_MIN_SIZE;				\
++	/* r3 = 0 on success */						\
++	addi	r1, r1, STACK_FRAME_MIN_SIZE + BPF_PPC_STACK_LOCALS;	\
++	ld	r0, PPC_LR_STKOFF(r1);					\
++	mtlr	r0;							\
++	cmpdi	r3, 0;							\
++	blt	bpf_error;	/* cr0 = LT */
++
++bpf_slow_path_word:
++	bpf_slow_path_common(4)
++	/* Data value is on stack, and cr0 != LT */
++	LWZX_BE	r_val, 0, r5
++	blr
++
++bpf_slow_path_half:
++	bpf_slow_path_common(2)
++	LHZX_BE	r_val, 0, r5
++	blr
++
++bpf_slow_path_byte:
++	bpf_slow_path_common(1)
++	lbzx	r_val, 0, r5
++	blr
++
++/*
++ * Call out to bpf_internal_load_pointer_neg_helper
++ */
++#define sk_negative_common(SIZE)				\
++	mflr	r0;						\
++	std	r0, PPC_LR_STKOFF(r1);				\
++	stdu	r1, -STACK_FRAME_MIN_SIZE(r1);			\
++	mr	r3, r_skb;					\
++	/* r4 = r_off, as passed */				\
++	li	r5, SIZE;					\
++	bl	bpf_internal_load_pointer_neg_helper;		\
++	nop;							\
++	addi	r1, r1, STACK_FRAME_MIN_SIZE;			\
++	ld	r0, PPC_LR_STKOFF(r1);				\
++	mtlr	r0;						\
++	/* R3 != 0 on success */				\
++	cmpldi	r3, 0;						\
++	beq	bpf_error_slow;	/* cr0 = EQ */
++
++bpf_slow_path_word_neg:
++	lis     r_tmp, -32	/* SKF_LL_OFF */
++	cmpd	r_off, r_tmp	/* addr < SKF_* */
++	blt	bpf_error	/* cr0 = LT */
++	b	sk_load_word_negative_offset
++
++_GLOBAL_TOC(sk_load_word_negative_offset)
++	sk_negative_common(4)
++	LWZX_BE	r_val, 0, r3
++	blr
++
++bpf_slow_path_half_neg:
++	lis     r_tmp, -32	/* SKF_LL_OFF */
++	cmpd	r_off, r_tmp	/* addr < SKF_* */
++	blt	bpf_error	/* cr0 = LT */
++	b	sk_load_half_negative_offset
++
++_GLOBAL_TOC(sk_load_half_negative_offset)
++	sk_negative_common(2)
++	LHZX_BE	r_val, 0, r3
++	blr
++
++bpf_slow_path_byte_neg:
++	lis     r_tmp, -32	/* SKF_LL_OFF */
++	cmpd	r_off, r_tmp	/* addr < SKF_* */
++	blt	bpf_error	/* cr0 = LT */
++	b	sk_load_byte_negative_offset
++
++_GLOBAL_TOC(sk_load_byte_negative_offset)
++	sk_negative_common(1)
++	lbzx	r_val, 0, r3
++	blr
++
++bpf_error_slow:
++	/* fabricate a cr0 = lt */
++	li	r_tmp, -1
++	cmpdi	r_tmp, 0
++bpf_error:
++	/*
++	 * Entered with cr0 = lt
++	 * Generated code will 'blt epilogue', returning 0.
++	 */
++	li	r_val, 0
++	blr
+diff --git a/arch/powerpc/net/bpf_jit_comp64.c b/arch/powerpc/net/bpf_jit_comp64.c
+new file mode 100644
+index 0000000..6073b78
+--- /dev/null
++++ b/arch/powerpc/net/bpf_jit_comp64.c
+@@ -0,0 +1,954 @@
++/*
++ * bpf_jit_comp64.c: eBPF JIT compiler
++ *
++ * Copyright 2016 Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
++ *		  IBM Corporation
++ *
++ * Based on the powerpc classic BPF JIT compiler by Matt Evans
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public License
++ * as published by the Free Software Foundation; version 2
++ * of the License.
++ */
++#include <linux/moduleloader.h>
++#include <asm/cacheflush.h>
++#include <linux/netdevice.h>
++#include <linux/filter.h>
++#include <linux/if_vlan.h>
++#include <asm/kprobes.h>
++
++#include "bpf_jit64.h"
++
++int bpf_jit_enable __read_mostly;
++
++static void bpf_jit_fill_ill_insns(void *area, unsigned int size)
++{
++	int *p = area;
++
++	/* Fill whole space with trap instructions */
++	while (p < (int *)((char *)area + size))
++		*p++ = BREAKPOINT_INSTRUCTION;
++}
++
++static inline void bpf_flush_icache(void *start, void *end)
++{
++	smp_wmb();
++	flush_icache_range((unsigned long)start, (unsigned long)end);
++}
++
++static inline bool bpf_is_seen_register(struct codegen_context *ctx, int i)
++{
++	return (ctx->seen & (1 << (31 - b2p[i])));
++}
++
++static inline void bpf_set_seen_register(struct codegen_context *ctx, int i)
++{
++	ctx->seen |= (1 << (31 - b2p[i]));
++}
++
++static inline bool bpf_has_stack_frame(struct codegen_context *ctx)
++{
++	/*
++	 * We only need a stack frame if:
++	 * - we call other functions (kernel helpers), or
++	 * - the bpf program uses its stack area
++	 * The latter condition is deduced from the usage of BPF_REG_FP
++	 */
++	return ctx->seen & SEEN_FUNC || bpf_is_seen_register(ctx, BPF_REG_FP);
++}
++
++static void bpf_jit_emit_skb_loads(u32 *image, struct codegen_context *ctx)
++{
++	/*
++	 * Load skb->len and skb->data_len
++	 * r3 points to skb
++	 */
++	PPC_LWZ(b2p[SKB_HLEN_REG], 3, offsetof(struct sk_buff, len));
++	PPC_LWZ(b2p[TMP_REG_1], 3, offsetof(struct sk_buff, data_len));
++	/* header_len = len - data_len */
++	PPC_SUB(b2p[SKB_HLEN_REG], b2p[SKB_HLEN_REG], b2p[TMP_REG_1]);
++
++	/* skb->data pointer */
++	PPC_BPF_LL(b2p[SKB_DATA_REG], 3, offsetof(struct sk_buff, data));
++}
++
++static void bpf_jit_emit_func_call(u32 *image, struct codegen_context *ctx, u64 func)
++{
++#ifdef PPC64_ELF_ABI_v1
++	/* func points to the function descriptor */
++	PPC_LI64(b2p[TMP_REG_2], func);
++	/* Load actual entry point from function descriptor */
++	PPC_BPF_LL(b2p[TMP_REG_1], b2p[TMP_REG_2], 0);
++	/* ... and move it to LR */
++	PPC_MTLR(b2p[TMP_REG_1]);
++	/*
++	 * Load TOC from function descriptor at offset 8.
++	 * We can clobber r2 since we get called through a
++	 * function pointer (so caller will save/restore r2)
++	 * and since we don't use a TOC ourself.
++	 */
++	PPC_BPF_LL(2, b2p[TMP_REG_2], 8);
++#else
++	/* We can clobber r12 */
++	PPC_FUNC_ADDR(12, func);
++	PPC_MTLR(12);
++#endif
++	PPC_BLRL();
++}
++
++static void bpf_jit_build_prologue(u32 *image, struct codegen_context *ctx)
++{
++	int i;
++	bool new_stack_frame = bpf_has_stack_frame(ctx);
++
++	if (new_stack_frame) {
++		/*
++		 * We need a stack frame, but we don't necessarily need to
++		 * save/restore LR unless we call other functions
++		 */
++		if (ctx->seen & SEEN_FUNC) {
++			EMIT(PPC_INST_MFLR | __PPC_RT(R0));
++			PPC_BPF_STL(0, 1, PPC_LR_STKOFF);
++		}
++
++		PPC_BPF_STLU(1, 1, -BPF_PPC_STACKFRAME);
++	}
++
++	/*
++	 * Back up non-volatile regs -- BPF registers 6-10
++	 * If we haven't created our own stack frame, we save these
++	 * in the protected zone below the previous stack frame
++	 */
++	for (i = BPF_REG_6; i <= BPF_REG_10; i++)
++		if (bpf_is_seen_register(ctx, i))
++			PPC_BPF_STL(b2p[i], 1,
++				(new_stack_frame ? BPF_PPC_STACKFRAME : 0) -
++					(8 * (32 - b2p[i])));
++
++	/*
++	 * Save additional non-volatile regs if we cache skb
++	 * Also, setup skb data
++	 */
++	if (ctx->seen & SEEN_SKB) {
++		PPC_BPF_STL(b2p[SKB_HLEN_REG], 1,
++			BPF_PPC_STACKFRAME - (8 * (32 - b2p[SKB_HLEN_REG])));
++		PPC_BPF_STL(b2p[SKB_DATA_REG], 1,
++			BPF_PPC_STACKFRAME - (8 * (32 - b2p[SKB_DATA_REG])));
++		bpf_jit_emit_skb_loads(image, ctx);
++	}
++
++	/* Setup frame pointer to point to the bpf stack area */
++	if (bpf_is_seen_register(ctx, BPF_REG_FP))
++		PPC_ADDI(b2p[BPF_REG_FP], 1,
++				BPF_PPC_STACKFRAME - BPF_PPC_STACK_SAVE);
++}
++
++static void bpf_jit_build_epilogue(u32 *image, struct codegen_context *ctx)
++{
++	int i;
++	bool new_stack_frame = bpf_has_stack_frame(ctx);
++
++	/* Move result to r3 */
++	PPC_MR(3, b2p[BPF_REG_0]);
++
++	/* Restore NVRs */
++	for (i = BPF_REG_6; i <= BPF_REG_10; i++)
++		if (bpf_is_seen_register(ctx, i))
++			PPC_BPF_LL(b2p[i], 1,
++				(new_stack_frame ? BPF_PPC_STACKFRAME : 0) -
++					(8 * (32 - b2p[i])));
++
++	/* Restore non-volatile registers used for skb cache */
++	if (ctx->seen & SEEN_SKB) {
++		PPC_BPF_LL(b2p[SKB_HLEN_REG], 1,
++			BPF_PPC_STACKFRAME - (8 * (32 - b2p[SKB_HLEN_REG])));
++		PPC_BPF_LL(b2p[SKB_DATA_REG], 1,
++			BPF_PPC_STACKFRAME - (8 * (32 - b2p[SKB_DATA_REG])));
++	}
++
++	/* Tear down our stack frame */
++	if (new_stack_frame) {
++		PPC_ADDI(1, 1, BPF_PPC_STACKFRAME);
++		if (ctx->seen & SEEN_FUNC) {
++			PPC_BPF_LL(0, 1, PPC_LR_STKOFF);
++			PPC_MTLR(0);
++		}
++	}
++
++	PPC_BLR();
++}
++
++/* Assemble the body code between the prologue & epilogue */
++static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
++			      struct codegen_context *ctx,
++			      u32 *addrs)
++{
++	const struct bpf_insn *insn = fp->insnsi;
++	int flen = fp->len;
++	int i;
++
++	/* Start of epilogue code - will only be valid 2nd pass onwards */
++	u32 exit_addr = addrs[flen];
++
++	for (i = 0; i < flen; i++) {
++		u32 code = insn[i].code;
++		u32 dst_reg = b2p[insn[i].dst_reg];
++		u32 src_reg = b2p[insn[i].src_reg];
++		s16 off = insn[i].off;
++		s32 imm = insn[i].imm;
++		u64 imm64;
++		u8 *func;
++		u32 true_cond;
++		int stack_local_off;
++
++		/*
++		 * addrs[] maps a BPF bytecode address into a real offset from
++		 * the start of the body code.
++		 */
++		addrs[i] = ctx->idx * 4;
++
++		/*
++		 * As an optimization, we note down which non-volatile registers
++		 * are used so that we can only save/restore those in our
++		 * prologue and epilogue. We do this here regardless of whether
++		 * the actual BPF instruction uses src/dst registers or not
++		 * (for instance, BPF_CALL does not use them). The expectation
++		 * is that those instructions will have src_reg/dst_reg set to
++		 * 0. Even otherwise, we just lose some prologue/epilogue
++		 * optimization but everything else should work without
++		 * any issues.
++		 */
++		if (dst_reg >= 24 && dst_reg <= 31)
++			bpf_set_seen_register(ctx, insn[i].dst_reg);
++		if (src_reg >= 24 && src_reg <= 31)
++			bpf_set_seen_register(ctx, insn[i].src_reg);
++
++		switch (code) {
++		/*
++		 * Arithmetic operations: ADD/SUB/MUL/DIV/MOD/NEG
++		 */
++		case BPF_ALU | BPF_ADD | BPF_X: /* (u32) dst += (u32) src */
++		case BPF_ALU64 | BPF_ADD | BPF_X: /* dst += src */
++			PPC_ADD(dst_reg, dst_reg, src_reg);
++			goto bpf_alu32_trunc;
++		case BPF_ALU | BPF_SUB | BPF_X: /* (u32) dst -= (u32) src */
++		case BPF_ALU64 | BPF_SUB | BPF_X: /* dst -= src */
++			PPC_SUB(dst_reg, dst_reg, src_reg);
++			goto bpf_alu32_trunc;
++		case BPF_ALU | BPF_ADD | BPF_K: /* (u32) dst += (u32) imm */
++		case BPF_ALU | BPF_SUB | BPF_K: /* (u32) dst -= (u32) imm */
++		case BPF_ALU64 | BPF_ADD | BPF_K: /* dst += imm */
++		case BPF_ALU64 | BPF_SUB | BPF_K: /* dst -= imm */
++			if (BPF_OP(code) == BPF_SUB)
++				imm = -imm;
++			if (imm) {
++				if (imm >= -32768 && imm < 32768)
++					PPC_ADDI(dst_reg, dst_reg, IMM_L(imm));
++				else {
++					PPC_LI32(b2p[TMP_REG_1], imm);
++					PPC_ADD(dst_reg, dst_reg, b2p[TMP_REG_1]);
++				}
++			}
++			goto bpf_alu32_trunc;
++		case BPF_ALU | BPF_MUL | BPF_X: /* (u32) dst *= (u32) src */
++		case BPF_ALU64 | BPF_MUL | BPF_X: /* dst *= src */
++			if (BPF_CLASS(code) == BPF_ALU)
++				PPC_MULW(dst_reg, dst_reg, src_reg);
++			else
++				PPC_MULD(dst_reg, dst_reg, src_reg);
++			goto bpf_alu32_trunc;
++		case BPF_ALU | BPF_MUL | BPF_K: /* (u32) dst *= (u32) imm */
++		case BPF_ALU64 | BPF_MUL | BPF_K: /* dst *= imm */
++			if (imm >= -32768 && imm < 32768)
++				PPC_MULI(dst_reg, dst_reg, IMM_L(imm));
++			else {
++				PPC_LI32(b2p[TMP_REG_1], imm);
++				if (BPF_CLASS(code) == BPF_ALU)
++					PPC_MULW(dst_reg, dst_reg,
++							b2p[TMP_REG_1]);
++				else
++					PPC_MULD(dst_reg, dst_reg,
++							b2p[TMP_REG_1]);
++			}
++			goto bpf_alu32_trunc;
++		case BPF_ALU | BPF_DIV | BPF_X: /* (u32) dst /= (u32) src */
++		case BPF_ALU | BPF_MOD | BPF_X: /* (u32) dst %= (u32) src */
++			PPC_CMPWI(src_reg, 0);
++			PPC_BCC_SHORT(COND_NE, (ctx->idx * 4) + 12);
++			PPC_LI(b2p[BPF_REG_0], 0);
++			PPC_JMP(exit_addr);
++			if (BPF_OP(code) == BPF_MOD) {
++				PPC_DIVWU(b2p[TMP_REG_1], dst_reg, src_reg);
++				PPC_MULW(b2p[TMP_REG_1], src_reg,
++						b2p[TMP_REG_1]);
++				PPC_SUB(dst_reg, dst_reg, b2p[TMP_REG_1]);
++			} else
++				PPC_DIVWU(dst_reg, dst_reg, src_reg);
++			goto bpf_alu32_trunc;
++		case BPF_ALU64 | BPF_DIV | BPF_X: /* dst /= src */
++		case BPF_ALU64 | BPF_MOD | BPF_X: /* dst %= src */
++			PPC_CMPDI(src_reg, 0);
++			PPC_BCC_SHORT(COND_NE, (ctx->idx * 4) + 12);
++			PPC_LI(b2p[BPF_REG_0], 0);
++			PPC_JMP(exit_addr);
++			if (BPF_OP(code) == BPF_MOD) {
++				PPC_DIVD(b2p[TMP_REG_1], dst_reg, src_reg);
++				PPC_MULD(b2p[TMP_REG_1], src_reg,
++						b2p[TMP_REG_1]);
++				PPC_SUB(dst_reg, dst_reg, b2p[TMP_REG_1]);
++			} else
++				PPC_DIVD(dst_reg, dst_reg, src_reg);
++			break;
++		case BPF_ALU | BPF_MOD | BPF_K: /* (u32) dst %= (u32) imm */
++		case BPF_ALU | BPF_DIV | BPF_K: /* (u32) dst /= (u32) imm */
++		case BPF_ALU64 | BPF_MOD | BPF_K: /* dst %= imm */
++		case BPF_ALU64 | BPF_DIV | BPF_K: /* dst /= imm */
++			if (imm == 0)
++				return -EINVAL;
++			else if (imm == 1)
++				goto bpf_alu32_trunc;
++
++			PPC_LI32(b2p[TMP_REG_1], imm);
++			switch (BPF_CLASS(code)) {
++			case BPF_ALU:
++				if (BPF_OP(code) == BPF_MOD) {
++					PPC_DIVWU(b2p[TMP_REG_2], dst_reg,
++							b2p[TMP_REG_1]);
++					PPC_MULW(b2p[TMP_REG_1],
++							b2p[TMP_REG_1],
++							b2p[TMP_REG_2]);
++					PPC_SUB(dst_reg, dst_reg,
++							b2p[TMP_REG_1]);
++				} else
++					PPC_DIVWU(dst_reg, dst_reg,
++							b2p[TMP_REG_1]);
++				break;
++			case BPF_ALU64:
++				if (BPF_OP(code) == BPF_MOD) {
++					PPC_DIVD(b2p[TMP_REG_2], dst_reg,
++							b2p[TMP_REG_1]);
++					PPC_MULD(b2p[TMP_REG_1],
++							b2p[TMP_REG_1],
++							b2p[TMP_REG_2]);
++					PPC_SUB(dst_reg, dst_reg,
++							b2p[TMP_REG_1]);
++				} else
++					PPC_DIVD(dst_reg, dst_reg,
++							b2p[TMP_REG_1]);
++				break;
++			}
++			goto bpf_alu32_trunc;
++		case BPF_ALU | BPF_NEG: /* (u32) dst = -dst */
++		case BPF_ALU64 | BPF_NEG: /* dst = -dst */
++			PPC_NEG(dst_reg, dst_reg);
++			goto bpf_alu32_trunc;
++
++		/*
++		 * Logical operations: AND/OR/XOR/[A]LSH/[A]RSH
++		 */
++		case BPF_ALU | BPF_AND | BPF_X: /* (u32) dst = dst & src */
++		case BPF_ALU64 | BPF_AND | BPF_X: /* dst = dst & src */
++			PPC_AND(dst_reg, dst_reg, src_reg);
++			goto bpf_alu32_trunc;
++		case BPF_ALU | BPF_AND | BPF_K: /* (u32) dst = dst & imm */
++		case BPF_ALU64 | BPF_AND | BPF_K: /* dst = dst & imm */
++			if (!IMM_H(imm))
++				PPC_ANDI(dst_reg, dst_reg, IMM_L(imm));
++			else {
++				/* Sign-extended */
++				PPC_LI32(b2p[TMP_REG_1], imm);
++				PPC_AND(dst_reg, dst_reg, b2p[TMP_REG_1]);
++			}
++			goto bpf_alu32_trunc;
++		case BPF_ALU | BPF_OR | BPF_X: /* dst = (u32) dst | (u32) src */
++		case BPF_ALU64 | BPF_OR | BPF_X: /* dst = dst | src */
++			PPC_OR(dst_reg, dst_reg, src_reg);
++			goto bpf_alu32_trunc;
++		case BPF_ALU | BPF_OR | BPF_K:/* dst = (u32) dst | (u32) imm */
++		case BPF_ALU64 | BPF_OR | BPF_K:/* dst = dst | imm */
++			if (imm < 0 && BPF_CLASS(code) == BPF_ALU64) {
++				/* Sign-extended */
++				PPC_LI32(b2p[TMP_REG_1], imm);
++				PPC_OR(dst_reg, dst_reg, b2p[TMP_REG_1]);
++			} else {
++				if (IMM_L(imm))
++					PPC_ORI(dst_reg, dst_reg, IMM_L(imm));
++				if (IMM_H(imm))
++					PPC_ORIS(dst_reg, dst_reg, IMM_H(imm));
++			}
++			goto bpf_alu32_trunc;
++		case BPF_ALU | BPF_XOR | BPF_X: /* (u32) dst ^= src */
++		case BPF_ALU64 | BPF_XOR | BPF_X: /* dst ^= src */
++			PPC_XOR(dst_reg, dst_reg, src_reg);
++			goto bpf_alu32_trunc;
++		case BPF_ALU | BPF_XOR | BPF_K: /* (u32) dst ^= (u32) imm */
++		case BPF_ALU64 | BPF_XOR | BPF_K: /* dst ^= imm */
++			if (imm < 0 && BPF_CLASS(code) == BPF_ALU64) {
++				/* Sign-extended */
++				PPC_LI32(b2p[TMP_REG_1], imm);
++				PPC_XOR(dst_reg, dst_reg, b2p[TMP_REG_1]);
++			} else {
++				if (IMM_L(imm))
++					PPC_XORI(dst_reg, dst_reg, IMM_L(imm));
++				if (IMM_H(imm))
++					PPC_XORIS(dst_reg, dst_reg, IMM_H(imm));
++			}
++			goto bpf_alu32_trunc;
++		case BPF_ALU | BPF_LSH | BPF_X: /* (u32) dst <<= (u32) src */
++			/* slw clears top 32 bits */
++			PPC_SLW(dst_reg, dst_reg, src_reg);
++			break;
++		case BPF_ALU64 | BPF_LSH | BPF_X: /* dst <<= src; */
++			PPC_SLD(dst_reg, dst_reg, src_reg);
++			break;
++		case BPF_ALU | BPF_LSH | BPF_K: /* (u32) dst <<== (u32) imm */
++			/* with imm 0, we still need to clear top 32 bits */
++			PPC_SLWI(dst_reg, dst_reg, imm);
++			break;
++		case BPF_ALU64 | BPF_LSH | BPF_K: /* dst <<== imm */
++			if (imm != 0)
++				PPC_SLDI(dst_reg, dst_reg, imm);
++			break;
++		case BPF_ALU | BPF_RSH | BPF_X: /* (u32) dst >>= (u32) src */
++			PPC_SRW(dst_reg, dst_reg, src_reg);
++			break;
++		case BPF_ALU64 | BPF_RSH | BPF_X: /* dst >>= src */
++			PPC_SRD(dst_reg, dst_reg, src_reg);
++			break;
++		case BPF_ALU | BPF_RSH | BPF_K: /* (u32) dst >>= (u32) imm */
++			PPC_SRWI(dst_reg, dst_reg, imm);
++			break;
++		case BPF_ALU64 | BPF_RSH | BPF_K: /* dst >>= imm */
++			if (imm != 0)
++				PPC_SRDI(dst_reg, dst_reg, imm);
++			break;
++		case BPF_ALU64 | BPF_ARSH | BPF_X: /* (s64) dst >>= src */
++			PPC_SRAD(dst_reg, dst_reg, src_reg);
++			break;
++		case BPF_ALU64 | BPF_ARSH | BPF_K: /* (s64) dst >>= imm */
++			if (imm != 0)
++				PPC_SRADI(dst_reg, dst_reg, imm);
++			break;
++
++		/*
++		 * MOV
++		 */
++		case BPF_ALU | BPF_MOV | BPF_X: /* (u32) dst = src */
++		case BPF_ALU64 | BPF_MOV | BPF_X: /* dst = src */
++			PPC_MR(dst_reg, src_reg);
++			goto bpf_alu32_trunc;
++		case BPF_ALU | BPF_MOV | BPF_K: /* (u32) dst = imm */
++		case BPF_ALU64 | BPF_MOV | BPF_K: /* dst = (s64) imm */
++			PPC_LI32(dst_reg, imm);
++			if (imm < 0)
++				goto bpf_alu32_trunc;
++			break;
++
++bpf_alu32_trunc:
++		/* Truncate to 32-bits */
++		if (BPF_CLASS(code) == BPF_ALU)
++			PPC_RLWINM(dst_reg, dst_reg, 0, 0, 31);
++		break;
++
++		/*
++		 * BPF_FROM_BE/LE
++		 */
++		case BPF_ALU | BPF_END | BPF_FROM_LE:
++		case BPF_ALU | BPF_END | BPF_FROM_BE:
++#ifdef __BIG_ENDIAN__
++			if (BPF_SRC(code) == BPF_FROM_BE)
++				goto emit_clear;
++#else /* !__BIG_ENDIAN__ */
++			if (BPF_SRC(code) == BPF_FROM_LE)
++				goto emit_clear;
++#endif
++			switch (imm) {
++			case 16:
++				/* Rotate 8 bits left & mask with 0x0000ff00 */
++				PPC_RLWINM(b2p[TMP_REG_1], dst_reg, 8, 16, 23);
++				/* Rotate 8 bits right & insert LSB to reg */
++				PPC_RLWIMI(b2p[TMP_REG_1], dst_reg, 24, 24, 31);
++				/* Move result back to dst_reg */
++				PPC_MR(dst_reg, b2p[TMP_REG_1]);
++				break;
++			case 32:
++				/*
++				 * Rotate word left by 8 bits:
++				 * 2 bytes are already in their final position
++				 * -- byte 2 and 4 (of bytes 1, 2, 3 and 4)
++				 */
++				PPC_RLWINM(b2p[TMP_REG_1], dst_reg, 8, 0, 31);
++				/* Rotate 24 bits and insert byte 1 */
++				PPC_RLWIMI(b2p[TMP_REG_1], dst_reg, 24, 0, 7);
++				/* Rotate 24 bits and insert byte 3 */
++				PPC_RLWIMI(b2p[TMP_REG_1], dst_reg, 24, 16, 23);
++				PPC_MR(dst_reg, b2p[TMP_REG_1]);
++				break;
++			case 64:
++				/*
++				 * Way easier and faster(?) to store the value
++				 * into stack and then use ldbrx
++				 *
++				 * First, determine where in stack we can store
++				 * this:
++				 * - if we have allotted a stack frame, then we
++				 *   will utilize the area set aside by
++				 *   BPF_PPC_STACK_LOCALS
++				 * - else, we use the area beneath the NV GPR
++				 *   save area
++				 *
++				 * ctx->seen will be reliable in pass2, but
++				 * the instructions generated will remain the
++				 * same across all passes
++				 */
++				if (bpf_has_stack_frame(ctx))
++					stack_local_off = STACK_FRAME_MIN_SIZE;
++				else
++					stack_local_off = -(BPF_PPC_STACK_SAVE + 8);
++
++				PPC_STD(dst_reg, 1, stack_local_off);
++				PPC_ADDI(b2p[TMP_REG_1], 1, stack_local_off);
++				PPC_LDBRX(dst_reg, 0, b2p[TMP_REG_1]);
++				break;
++			}
++			break;
++
++emit_clear:
++			switch (imm) {
++			case 16:
++				/* zero-extend 16 bits into 64 bits */
++				PPC_RLDICL(dst_reg, dst_reg, 0, 48);
++				break;
++			case 32:
++				/* zero-extend 32 bits into 64 bits */
++				PPC_RLDICL(dst_reg, dst_reg, 0, 32);
++				break;
++			case 64:
++				/* nop */
++				break;
++			}
++			break;
++
++		/*
++		 * BPF_ST(X)
++		 */
++		case BPF_STX | BPF_MEM | BPF_B: /* *(u8 *)(dst + off) = src */
++		case BPF_ST | BPF_MEM | BPF_B: /* *(u8 *)(dst + off) = imm */
++			if (BPF_CLASS(code) == BPF_ST) {
++				PPC_LI(b2p[TMP_REG_1], imm);
++				src_reg = b2p[TMP_REG_1];
++			}
++			PPC_STB(src_reg, dst_reg, off);
++			break;
++		case BPF_STX | BPF_MEM | BPF_H: /* (u16 *)(dst + off) = src */
++		case BPF_ST | BPF_MEM | BPF_H: /* (u16 *)(dst + off) = imm */
++			if (BPF_CLASS(code) == BPF_ST) {
++				PPC_LI(b2p[TMP_REG_1], imm);
++				src_reg = b2p[TMP_REG_1];
++			}
++			PPC_STH(src_reg, dst_reg, off);
++			break;
++		case BPF_STX | BPF_MEM | BPF_W: /* *(u32 *)(dst + off) = src */
++		case BPF_ST | BPF_MEM | BPF_W: /* *(u32 *)(dst + off) = imm */
++			if (BPF_CLASS(code) == BPF_ST) {
++				PPC_LI32(b2p[TMP_REG_1], imm);
++				src_reg = b2p[TMP_REG_1];
++			}
++			PPC_STW(src_reg, dst_reg, off);
++			break;
++		case BPF_STX | BPF_MEM | BPF_DW: /* (u64 *)(dst + off) = src */
++		case BPF_ST | BPF_MEM | BPF_DW: /* *(u64 *)(dst + off) = imm */
++			if (BPF_CLASS(code) == BPF_ST) {
++				PPC_LI32(b2p[TMP_REG_1], imm);
++				src_reg = b2p[TMP_REG_1];
++			}
++			PPC_STD(src_reg, dst_reg, off);
++			break;
++
++		/*
++		 * BPF_STX XADD (atomic_add)
++		 */
++		/* *(u32 *)(dst + off) += src */
++		case BPF_STX | BPF_XADD | BPF_W:
++			/* Get EA into TMP_REG_1 */
++			PPC_ADDI(b2p[TMP_REG_1], dst_reg, off);
++			/* error if EA is not word-aligned */
++			PPC_ANDI(b2p[TMP_REG_2], b2p[TMP_REG_1], 0x03);
++			PPC_BCC_SHORT(COND_EQ, (ctx->idx * 4) + 12);
++			PPC_LI(b2p[BPF_REG_0], 0);
++			PPC_JMP(exit_addr);
++			/* load value from memory into TMP_REG_2 */
++			PPC_BPF_LWARX(b2p[TMP_REG_2], 0, b2p[TMP_REG_1], 0);
++			/* add value from src_reg into this */
++			PPC_ADD(b2p[TMP_REG_2], b2p[TMP_REG_2], src_reg);
++			/* store result back */
++			PPC_BPF_STWCX(b2p[TMP_REG_2], 0, b2p[TMP_REG_1]);
++			/* we're done if this succeeded */
++			PPC_BCC_SHORT(COND_EQ, (ctx->idx * 4) + (7*4));
++			/* otherwise, let's try once more */
++			PPC_BPF_LWARX(b2p[TMP_REG_2], 0, b2p[TMP_REG_1], 0);
++			PPC_ADD(b2p[TMP_REG_2], b2p[TMP_REG_2], src_reg);
++			PPC_BPF_STWCX(b2p[TMP_REG_2], 0, b2p[TMP_REG_1]);
++			/* exit if the store was not successful */
++			PPC_LI(b2p[BPF_REG_0], 0);
++			PPC_BCC(COND_NE, exit_addr);
++			break;
++		/* *(u64 *)(dst + off) += src */
++		case BPF_STX | BPF_XADD | BPF_DW:
++			PPC_ADDI(b2p[TMP_REG_1], dst_reg, off);
++			/* error if EA is not doubleword-aligned */
++			PPC_ANDI(b2p[TMP_REG_2], b2p[TMP_REG_1], 0x07);
++			PPC_BCC_SHORT(COND_EQ, (ctx->idx * 4) + (3*4));
++			PPC_LI(b2p[BPF_REG_0], 0);
++			PPC_JMP(exit_addr);
++			PPC_BPF_LDARX(b2p[TMP_REG_2], 0, b2p[TMP_REG_1], 0);
++			PPC_ADD(b2p[TMP_REG_2], b2p[TMP_REG_2], src_reg);
++			PPC_BPF_STDCX(b2p[TMP_REG_2], 0, b2p[TMP_REG_1]);
++			PPC_BCC_SHORT(COND_EQ, (ctx->idx * 4) + (7*4));
++			PPC_BPF_LDARX(b2p[TMP_REG_2], 0, b2p[TMP_REG_1], 0);
++			PPC_ADD(b2p[TMP_REG_2], b2p[TMP_REG_2], src_reg);
++			PPC_BPF_STDCX(b2p[TMP_REG_2], 0, b2p[TMP_REG_1]);
++			PPC_LI(b2p[BPF_REG_0], 0);
++			PPC_BCC(COND_NE, exit_addr);
++			break;
++
++		/*
++		 * BPF_LDX
++		 */
++		/* dst = *(u8 *)(ul) (src + off) */
++		case BPF_LDX | BPF_MEM | BPF_B:
++			PPC_LBZ(dst_reg, src_reg, off);
++			break;
++		/* dst = *(u16 *)(ul) (src + off) */
++		case BPF_LDX | BPF_MEM | BPF_H:
++			PPC_LHZ(dst_reg, src_reg, off);
++			break;
++		/* dst = *(u32 *)(ul) (src + off) */
++		case BPF_LDX | BPF_MEM | BPF_W:
++			PPC_LWZ(dst_reg, src_reg, off);
++			break;
++		/* dst = *(u64 *)(ul) (src + off) */
++		case BPF_LDX | BPF_MEM | BPF_DW:
++			PPC_LD(dst_reg, src_reg, off);
++			break;
++
++		/*
++		 * Doubleword load
++		 * 16 byte instruction that uses two 'struct bpf_insn'
++		 */
++		case BPF_LD | BPF_IMM | BPF_DW: /* dst = (u64) imm */
++			imm64 = ((u64)(u32) insn[i].imm) |
++				    (((u64)(u32) insn[i+1].imm) << 32);
++			/* Adjust for two bpf instructions */
++			addrs[++i] = ctx->idx * 4;
++			PPC_LI64(dst_reg, imm64);
++			break;
++
++		/*
++		 * Return/Exit
++		 */
++		case BPF_JMP | BPF_EXIT:
++			/*
++			 * If this isn't the very last instruction, branch to
++			 * the epilogue. If we _are_ the last instruction,
++			 * we'll just fall through to the epilogue.
++			 */
++			if (i != flen - 1)
++				PPC_JMP(exit_addr);
++			/* else fall through to the epilogue */
++			break;
++
++		/*
++		 * Call kernel helper
++		 */
++		case BPF_JMP | BPF_CALL:
++			ctx->seen |= SEEN_FUNC;
++			func = (u8 *) __bpf_call_base + imm;
++
++			/* Save skb pointer if we need to re-cache skb data */
++			if (bpf_helper_changes_skb_data(func))
++				PPC_BPF_STL(3, 1, STACK_FRAME_MIN_SIZE);
++
++			bpf_jit_emit_func_call(image, ctx, (u64)func);
++
++			/* move return value from r3 to BPF_REG_0 */
++			PPC_MR(b2p[BPF_REG_0], 3);
++
++			/* refresh skb cache */
++			if (bpf_helper_changes_skb_data(func)) {
++				/* reload skb pointer to r3 */
++				PPC_BPF_LL(3, 1, STACK_FRAME_MIN_SIZE);
++				bpf_jit_emit_skb_loads(image, ctx);
++			}
++			break;
++
++		/*
++		 * Jumps and branches
++		 */
++		case BPF_JMP | BPF_JA:
++			PPC_JMP(addrs[i + 1 + off]);
++			break;
++
++		case BPF_JMP | BPF_JGT | BPF_K:
++		case BPF_JMP | BPF_JGT | BPF_X:
++		case BPF_JMP | BPF_JSGT | BPF_K:
++		case BPF_JMP | BPF_JSGT | BPF_X:
++			true_cond = COND_GT;
++			goto cond_branch;
++		case BPF_JMP | BPF_JGE | BPF_K:
++		case BPF_JMP | BPF_JGE | BPF_X:
++		case BPF_JMP | BPF_JSGE | BPF_K:
++		case BPF_JMP | BPF_JSGE | BPF_X:
++			true_cond = COND_GE;
++			goto cond_branch;
++		case BPF_JMP | BPF_JEQ | BPF_K:
++		case BPF_JMP | BPF_JEQ | BPF_X:
++			true_cond = COND_EQ;
++			goto cond_branch;
++		case BPF_JMP | BPF_JNE | BPF_K:
++		case BPF_JMP | BPF_JNE | BPF_X:
++			true_cond = COND_NE;
++			goto cond_branch;
++		case BPF_JMP | BPF_JSET | BPF_K:
++		case BPF_JMP | BPF_JSET | BPF_X:
++			true_cond = COND_NE;
++			/* Fall through */
++
++cond_branch:
++			switch (code) {
++			case BPF_JMP | BPF_JGT | BPF_X:
++			case BPF_JMP | BPF_JGE | BPF_X:
++			case BPF_JMP | BPF_JEQ | BPF_X:
++			case BPF_JMP | BPF_JNE | BPF_X:
++				/* unsigned comparison */
++				PPC_CMPLD(dst_reg, src_reg);
++				break;
++			case BPF_JMP | BPF_JSGT | BPF_X:
++			case BPF_JMP | BPF_JSGE | BPF_X:
++				/* signed comparison */
++				PPC_CMPD(dst_reg, src_reg);
++				break;
++			case BPF_JMP | BPF_JSET | BPF_X:
++				PPC_AND_DOT(b2p[TMP_REG_1], dst_reg, src_reg);
++				break;
++			case BPF_JMP | BPF_JNE | BPF_K:
++			case BPF_JMP | BPF_JEQ | BPF_K:
++			case BPF_JMP | BPF_JGT | BPF_K:
++			case BPF_JMP | BPF_JGE | BPF_K:
++				/*
++				 * Need sign-extended load, so only positive
++				 * values can be used as imm in cmpldi
++				 */
++				if (imm >= 0 && imm < 32768)
++					PPC_CMPLDI(dst_reg, imm);
++				else {
++					/* sign-extending load */
++					PPC_LI32(b2p[TMP_REG_1], imm);
++					/* ... but unsigned comparison */
++					PPC_CMPLD(dst_reg, b2p[TMP_REG_1]);
++				}
++				break;
++			case BPF_JMP | BPF_JSGT | BPF_K:
++			case BPF_JMP | BPF_JSGE | BPF_K:
++				/*
++				 * signed comparison, so any 16-bit value
++				 * can be used in cmpdi
++				 */
++				if (imm >= -32768 && imm < 32768)
++					PPC_CMPDI(dst_reg, imm);
++				else {
++					PPC_LI32(b2p[TMP_REG_1], imm);
++					PPC_CMPD(dst_reg, b2p[TMP_REG_1]);
++				}
++				break;
++			case BPF_JMP | BPF_JSET | BPF_K:
++				/* andi does not sign-extend the immediate */
++				if (imm >= 0 && imm < 32768)
++					/* PPC_ANDI is _only/always_ dot-form */
++					PPC_ANDI(b2p[TMP_REG_1], dst_reg, imm);
++				else {
++					PPC_LI32(b2p[TMP_REG_1], imm);
++					PPC_AND_DOT(b2p[TMP_REG_1], dst_reg,
++						    b2p[TMP_REG_1]);
++				}
++				break;
++			}
++			PPC_BCC(true_cond, addrs[i + 1 + off]);
++			break;
++
++		/*
++		 * Loads from packet header/data
++		 * Assume 32-bit input value in imm and X (src_reg)
++		 */
++
++		/* Absolute loads */
++		case BPF_LD | BPF_W | BPF_ABS:
++			func = (u8 *)CHOOSE_LOAD_FUNC(imm, sk_load_word);
++			goto common_load_abs;
++		case BPF_LD | BPF_H | BPF_ABS:
++			func = (u8 *)CHOOSE_LOAD_FUNC(imm, sk_load_half);
++			goto common_load_abs;
++		case BPF_LD | BPF_B | BPF_ABS:
++			func = (u8 *)CHOOSE_LOAD_FUNC(imm, sk_load_byte);
++common_load_abs:
++			/*
++			 * Load from [imm]
++			 * Load into r4, which can just be passed onto
++			 *  skb load helpers as the second parameter
++			 */
++			PPC_LI32(4, imm);
++			goto common_load;
++
++		/* Indirect loads */
++		case BPF_LD | BPF_W | BPF_IND:
++			func = (u8 *)sk_load_word;
++			goto common_load_ind;
++		case BPF_LD | BPF_H | BPF_IND:
++			func = (u8 *)sk_load_half;
++			goto common_load_ind;
++		case BPF_LD | BPF_B | BPF_IND:
++			func = (u8 *)sk_load_byte;
++common_load_ind:
++			/*
++			 * Load from [src_reg + imm]
++			 * Treat src_reg as a 32-bit value
++			 */
++			PPC_EXTSW(4, src_reg);
++			if (imm) {
++				if (imm >= -32768 && imm < 32768)
++					PPC_ADDI(4, 4, IMM_L(imm));
++				else {
++					PPC_LI32(b2p[TMP_REG_1], imm);
++					PPC_ADD(4, 4, b2p[TMP_REG_1]);
++				}
++			}
++
++common_load:
++			ctx->seen |= SEEN_SKB;
++			ctx->seen |= SEEN_FUNC;
++			bpf_jit_emit_func_call(image, ctx, (u64)func);
++
++			/*
++			 * Helper returns 'lt' condition on error, and an
++			 * appropriate return value in BPF_REG_0
++			 */
++			PPC_BCC(COND_LT, exit_addr);
++			break;
++
++		/*
++		 * TODO: Tail call
++		 */
++		case BPF_JMP | BPF_CALL | BPF_X:
++
++		default:
++			/*
++			 * The filter contains something cruel & unusual.
++			 * We don't handle it, but also there shouldn't be
++			 * anything missing from our list.
++			 */
++			pr_err_ratelimited("eBPF filter opcode %04x (@%d) unsupported\n",
++					code, i);
++			return -ENOTSUPP;
++		}
++	}
++
++	/* Set end-of-body-code address for exit. */
++	addrs[i] = ctx->idx * 4;
++
++	return 0;
++}
++
++void bpf_jit_compile(struct bpf_prog *fp) { }
++
++struct bpf_prog *bpf_int_jit_compile(struct bpf_prog *fp)
++{
++	u32 proglen;
++	u32 alloclen;
++	u8 *image = NULL;
++	u32 *code_base;
++	u32 *addrs;
++	struct codegen_context cgctx;
++	int pass;
++	int flen;
++	struct bpf_binary_header *bpf_hdr;
++
++	if (!bpf_jit_enable)
++		return fp;
++
++	flen = fp->len;
++	addrs = kzalloc((flen+1) * sizeof(*addrs), GFP_KERNEL);
++	if (addrs == NULL)
++		return fp;
++
++	cgctx.idx = 0;
++	cgctx.seen = 0;
++	/* Scouting faux-generate pass 0 */
++	if (bpf_jit_build_body(fp, 0, &cgctx, addrs))
++		/* We hit something illegal or unsupported. */
++		goto out;
++
++	/*
++	 * Pretend to build prologue, given the features we've seen.  This will
++	 * update ctgtx.idx as it pretends to output instructions, then we can
++	 * calculate total size from idx.
++	 */
++	bpf_jit_build_prologue(0, &cgctx);
++	bpf_jit_build_epilogue(0, &cgctx);
++
++	proglen = cgctx.idx * 4;
++	alloclen = proglen + FUNCTION_DESCR_SIZE;
++
++	bpf_hdr = bpf_jit_binary_alloc(alloclen, &image, 4,
++			bpf_jit_fill_ill_insns);
++	if (!bpf_hdr)
++		goto out;
++
++	code_base = (u32 *)(image + FUNCTION_DESCR_SIZE);
++
++	/* Code generation passes 1-2 */
++	for (pass = 1; pass < 3; pass++) {
++		/* Now build the prologue, body code & epilogue for real. */
++		cgctx.idx = 0;
++		bpf_jit_build_prologue(code_base, &cgctx);
++		bpf_jit_build_body(fp, code_base, &cgctx, addrs);
++		bpf_jit_build_epilogue(code_base, &cgctx);
++
++		if (bpf_jit_enable > 1)
++			pr_info("Pass %d: shrink = %d, seen = 0x%x\n", pass,
++				proglen - (cgctx.idx * 4), cgctx.seen);
++	}
++
++	if (bpf_jit_enable > 1)
++		/*
++		 * Note that we output the base address of the code_base
++		 * rather than image, since opcodes are in code_base.
++		 */
++		bpf_jit_dump(flen, proglen, pass, code_base);
++
++	if (image) {
++		bpf_flush_icache(bpf_hdr, image + alloclen);
++#ifdef PPC64_ELF_ABI_v1
++		/* Function descriptor nastiness: Address + TOC */
++		((u64 *)image)[0] = (u64)code_base;
++		((u64 *)image)[1] = local_paca->kernel_toc;
++#endif
++		fp->bpf_func = (void *)image;
++		fp->jited = 1;
++	}
++
++out:
++	kfree(addrs);
++	return fp;
++}
++
++void bpf_jit_free(struct bpf_prog *fp)
++{
++	unsigned long addr = (unsigned long)fp->bpf_func & PAGE_MASK;
++	struct bpf_binary_header *bpf_hdr = (void *)addr;
++
++	if (fp->jited)
++		bpf_jit_binary_free(bpf_hdr);
++
++	bpf_prog_unlock_free(fp);
++}
 -- 
 2.8.2
