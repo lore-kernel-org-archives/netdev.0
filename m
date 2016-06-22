@@ -1,80 +1,80 @@
-From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: Re: [PATCH] ppc: Fix BPF JIT for ABIv2
-Date: Wed, 22 Jun 2016 20:27:25 +0530
-Message-ID: <20160622145725.GL8886@naverao1-tp.localdomain>
-References: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
- <3rWKtT2tSrz9t2G@ozlabs.org>
- <20160617130042.GO3516@indiana.gru.redhat.com>
- <20160619174914.GC8886@naverao1-tp.localdomain>
- <20160620185620.GD3516@indiana.gru.redhat.com>
- <20160621085807.GE8886@naverao1-tp.localdomain>
- <1466507748.18876.3.camel@ellerman.id.au>
- <20160621144725.GH3516@indiana.gru.redhat.com>
- <20160622071225.GJ8886@naverao1-tp.localdomain>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH net-next 4/4] net_sched: generalize bulk dequeue
+Date: Wed, 22 Jun 2016 17:03:23 +0200
+Message-ID: <20160622170323.27a24aee@redhat.com>
+References: <1466576212-15012-1-git-send-email-edumazet@google.com>
+	<1466576212-15012-5-git-send-email-edumazet@google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Ellerman <mpe@ellerman.id.au>,
-	Matt Evans <matt@ozlabs.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@fb.com>, netdev@vger.kernel.org,
-	Denis Kirjanov <kda@linux-powerpc.org>,
-	linux-kernel@vger.kernel.org, Paul Mackerras <paulus@samba.org>,
-	linuxppc-dev@lists.ozlabs.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-To: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160622071225.GJ8886@naverao1-tp.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S . Miller" <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Florian Westphal <fw@strlen.de>,
+	Daniel Borkmann <daniel@iogearbox.net>, brouer@redhat.com
+To: Eric Dumazet <edumazet@google.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56863 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752807AbcFVPDa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2016 11:03:30 -0400
+In-Reply-To: <1466576212-15012-5-git-send-email-edumazet@google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016/06/22 12:42PM, Naveen N Rao wrote:
-> On 2016/06/21 11:47AM, Thadeu Lima de Souza Cascardo wrote:
-> > On Tue, Jun 21, 2016 at 09:15:48PM +1000, Michael Ellerman wrote:
-> > > On Tue, 2016-06-21 at 14:28 +0530, Naveen N. Rao wrote:
-> > > > On 2016/06/20 03:56PM, Thadeu Lima de Souza Cascardo wrote:
-> > > > > On Sun, Jun 19, 2016 at 11:19:14PM +0530, Naveen N. Rao wrote:
-> > > > > > On 2016/06/17 10:00AM, Thadeu Lima de Souza Cascardo wrote:
-> > > > > > > 
-> > > > > > > Hi, Michael and Naveen.
-> > > > > > > 
-> > > > > > > I noticed independently that there is a problem with BPF JIT and ABIv2, and
-> > > > > > > worked out the patch below before I noticed Naveen's patchset and the latest
-> > > > > > > changes in ppc tree for a better way to check for ABI versions.
-> > > > > > > 
-> > > > > > > However, since the issue described below affect mainline and stable kernels,
-> > > > > > > would you consider applying it before merging your two patchsets, so that we can
-> > > > > > > more easily backport the fix?
-> > > > > > 
-> > > > > > Hi Cascardo,
-> > > > > > Given that this has been broken on ABIv2 since forever, I didn't bother 
-> > > > > > fixing it. But, I can see why this would be a good thing to have for 
-> > > > > > -stable and existing distros. However, while your patch below may fix 
-> > > > > > the crash you're seeing on ppc64le, it is not sufficient -- you'll need 
-> > > > > > changes in bpf_jit_asm.S as well.
-> > > > > 
-> > > > > Hi, Naveen.
-> > > > > 
-> > > > > Any tips on how to exercise possible issues there? Or what changes you think
-> > > > > would be sufficient?
-> > > > 
-> > > > The calling convention is different with ABIv2 and so we'll need changes 
-> > > > in bpf_slow_path_common() and sk_negative_common().
-> > > 
-> > > How big would those changes be? Do we know?
+On Tue, 21 Jun 2016 23:16:52 -0700
+Eric Dumazet <edumazet@google.com> wrote:
 
-So, this does need quite a few changes:
-- the skb helpers need to emit code to setup TOC and the JIT code needs 
-  to be updated to setup r12.
-- the slow path code needs to be changed to store r3 elsewhere on ABIv2
-- the above also means we need to change the stack macros with the 
-  proper ABIv2 values
-- the little endian support isn't complete as well -- some of the skb 
-  helpers are not using byte swap instructions.
+> When qdisc bulk dequeue was added in linux-3.18 (commit
+> 5772e9a3463b "qdisc: bulk dequeue support for qdiscs
+> with TCQ_F_ONETXQUEUE"), it was constrained to some
+> specific qdiscs.
 
-As such, I think we should just disable classic JIT on ppc64le.
+Thanks for extending this!
 
+> With some extra care, we can extend this to all qdiscs,
+> so that typical traffic shaping solutions can benefit from
+> small batches (8 packets in this patch).
 
-- Naveen
+I'm fine with limiting this to 8 packets (xmit_more), as that seem to
+be the minimum needed TX batch size (according to Luigi's original
+netmap article[1] figure 7) for doing 10G wirespeed.
+
+[1] http://info.iet.unipi.it/~luigi/papers/20120503-netmap-atc12.pdf
  
+
+> For example, HTB is often used on some multi queue device.
+> And bonding/team are multi queue devices...
+> 
+> Idea is to bulk-dequeue packets mapping to the same transmit queue.
+> 
+> This brings between 35 and 80 % performance increase in HTB setup
+> under pressure on a bonding setup :
+> 
+> 1) NUMA node contention :   610,000 pps -> 1,110,000 pps
+> 2) No node contention   : 1,380,000 pps -> 1,930,000 pps
+> 
+> Now we should work to add batches on the enqueue() side ;)
+
+Yes, please! :-))) That will be the next big step!
+
+
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Cc: John Fastabend <john.r.fastabend@intel.com>
+> Cc: Jesper Dangaard Brouer <brouer@redhat.com>
+> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
+> Cc: Florian Westphal <fw@strlen.de>
+> Cc: Daniel Borkmann <daniel@iogearbox.net>
+
+Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
+
+This is great stuff!
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
