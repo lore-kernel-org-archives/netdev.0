@@ -1,80 +1,65 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH net-next 4/4] net_sched: generalize bulk dequeue
-Date: Wed, 22 Jun 2016 17:03:23 +0200
-Message-ID: <20160622170323.27a24aee@redhat.com>
-References: <1466576212-15012-1-git-send-email-edumazet@google.com>
-	<1466576212-15012-5-git-send-email-edumazet@google.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH iproute2 net-next v4 0/5] bridge: json support for fdb
+ and vlan show
+Date: Wed, 22 Jun 2016 16:53:44 +0200
+Message-ID: <20160622145344.GE2068@nanopsycho.orion>
+References: <1466603155-53768-1-git-send-email-roopa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S . Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Florian Westphal <fw@strlen.de>,
-	Daniel Borkmann <daniel@iogearbox.net>, brouer@redhat.com
-To: Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: stephen@networkplumber.org, netdev@vger.kernel.org,
+	anuradhak@cumulusnetworks.com, nikolay@cumulusnetworks.com,
+	julien@cumulusnetworks.com
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56863 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752807AbcFVPDa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 11:03:30 -0400
-In-Reply-To: <1466576212-15012-5-git-send-email-edumazet@google.com>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35862 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750910AbcFVPHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 11:07:44 -0400
+Received: by mail-wm0-f66.google.com with SMTP id c82so2087448wme.3
+        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 08:07:43 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1466603155-53768-1-git-send-email-roopa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 Jun 2016 23:16:52 -0700
-Eric Dumazet <edumazet@google.com> wrote:
+Wed, Jun 22, 2016 at 03:45:50PM CEST, roopa@cumulusnetworks.com wrote:
+>From: Roopa Prabhu <roopa@cumulusnetworks.com>
+>
+>This patch series adds json support for a few bridge show commands.
+>We plan to follow up with json support for additional commands soon.
 
-> When qdisc bulk dequeue was added in linux-3.18 (commit
-> 5772e9a3463b "qdisc: bulk dequeue support for qdiscs
-> with TCQ_F_ONETXQUEUE"), it was constrained to some
-> specific qdiscs.
-
-Thanks for extending this!
-
-> With some extra care, we can extend this to all qdiscs,
-> so that typical traffic shaping solutions can benefit from
-> small batches (8 packets in this patch).
-
-I'm fine with limiting this to 8 packets (xmit_more), as that seem to
-be the minimum needed TX batch size (according to Luigi's original
-netmap article[1] figure 7) for doing 10G wirespeed.
-
-[1] http://info.iet.unipi.it/~luigi/papers/20120503-netmap-atc12.pdf
- 
-
-> For example, HTB is often used on some multi queue device.
-> And bonding/team are multi queue devices...
-> 
-> Idea is to bulk-dequeue packets mapping to the same transmit queue.
-> 
-> This brings between 35 and 80 % performance increase in HTB setup
-> under pressure on a bonding setup :
-> 
-> 1) NUMA node contention :   610,000 pps -> 1,110,000 pps
-> 2) No node contention   : 1,380,000 pps -> 1,930,000 pps
-> 
-> Now we should work to add batches on the enqueue() side ;)
-
-Yes, please! :-))) That will be the next big step!
+I'm just curious, what is you use case for this? Apps can use rtnetlink
+socket directly.
 
 
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Cc: John Fastabend <john.r.fastabend@intel.com>
-> Cc: Jesper Dangaard Brouer <brouer@redhat.com>
-> Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-> Cc: Florian Westphal <fw@strlen.de>
-> Cc: Daniel Borkmann <daniel@iogearbox.net>
-
-Acked-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
-This is great stuff!
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+>
+>Anuradha Karuppiah (3):
+>  json_writer: Removed automatic json-object type from the constructor
+>  bridge: add json support for bridge fdb show
+>  bridge: add json schema for bridge fdb show
+>
+>Roopa Prabhu (2):
+>  bridge: add json support for bridge vlan show
+>  bridge: update man page
+>
+>v2 - change vlan flags to an array as suggested by toshiaki
+>
+>v3 - no change. resubmitting as requested by stephen
+>
+>v4 - removed json type from constructor as recommended by stephen
+>
+> bridge/br_common.h            |   1 +
+> bridge/bridge.c               |   5 +-
+> bridge/fdb.c                  | 210 +++++++++++++++++++++++++++++++++---------
+> bridge/vlan.c                 | 109 +++++++++++++++++++---
+> lib/json_writer.c             |   6 +-
+> man/man8/bridge.8             |   9 +-
+> misc/ifstat.c                 |   7 ++
+> misc/nstat.c                  |   6 ++
+> schema/bridge_fdb_schema.json |  62 +++++++++++++
+> 9 files changed, 352 insertions(+), 63 deletions(-)
+> create mode 100644 schema/bridge_fdb_schema.json
+>
+>-- 
+>1.9.1
+>
