@@ -1,7 +1,7 @@
 From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: [PATCHv2 6/7] ppc: bpf/jit: Isolate classic BPF JIT specifics into a separate header
-Date: Wed, 22 Jun 2016 21:55:06 +0530
-Message-ID: <e25c7b998d36f5c7a66d8f0d187938af254afc81.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
+Subject: [PATCHv2 5/7] ppc: bpf/jit: A few cleanups
+Date: Wed, 22 Jun 2016 21:55:05 +0530
+Message-ID: <ee3c93787702660e4cb6b205ac276d57ce7a339b.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
 References: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
 Cc: Matt Evans <matt@ozlabs.org>,
 	Denis Kirjanov <kda@linux-powerpc.org>,
@@ -13,16 +13,35 @@ Cc: Matt Evans <matt@ozlabs.org>,
 	Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
 To: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	netdev@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:48555 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S932203AbcFVQ1Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 12:27:24 -0400
+Received: from pps.filterd (m0098417.ppops.net [127.0.0.1])
+	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u5MGOcnm117132
+	for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 12:27:23 -0400
+Received: from e28smtp07.in.ibm.com (e28smtp07.in.ibm.com [125.16.236.7])
+	by mx0a-001b2d01.pphosted.com with ESMTP id 23q9nbqxbc-1
+	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 12:27:23 -0400
+Received: from localhost
+	by e28smtp07.in.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <naveen.n.rao@linux.vnet.ibm.com>;
+	Wed, 22 Jun 2016 21:57:19 +0530
 In-Reply-To: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
 In-Reply-To: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
 References: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Break out classic BPF JIT specifics into a separate header in
-preparation for eBPF JIT implementation. Note that ppc32 will still need
-the classic BPF JIT.
+1. Per the ISA, ADDIS actually uses RT, rather than RS. Though
+the result is the same, make the usage clear.
+2. The multiply instruction used is a 32-bit multiply. Rename PPC_MUL()
+to PPC_MULW() to make the same clear.
+3. PPC_STW[U] take the entire 16-bit immediate value and do not require
+word-alignment, per the ISA. Change the macros to use IMM_L().
+4. A few white-space cleanups to satisfy checkpatch.pl.
 
 Cc: Matt Evans <matt@ozlabs.org>
 Cc: Denis Kirjanov <kda@linux-powerpc.org>
@@ -36,342 +55,98 @@ Cc: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
 Acked-by: Alexei Starovoitov <ast@kernel.org>
 Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
 ---
- arch/powerpc/net/bpf_jit.h      | 121 +---------------------------------
- arch/powerpc/net/bpf_jit32.h    | 139 ++++++++++++++++++++++++++++++++++++++++
- arch/powerpc/net/bpf_jit_asm.S  |   2 +-
- arch/powerpc/net/bpf_jit_comp.c |   2 +-
- 4 files changed, 143 insertions(+), 121 deletions(-)
- create mode 100644 arch/powerpc/net/bpf_jit32.h
+ arch/powerpc/net/bpf_jit.h      | 13 +++++++------
+ arch/powerpc/net/bpf_jit_comp.c |  8 ++++----
+ 2 files changed, 11 insertions(+), 10 deletions(-)
 
 diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
-index 9041d3f..313cfaf 100644
+index 95d0e38..9041d3f 100644
 --- a/arch/powerpc/net/bpf_jit.h
 +++ b/arch/powerpc/net/bpf_jit.h
-@@ -1,4 +1,5 @@
--/* bpf_jit.h: BPF JIT compiler for PPC64
-+/*
-+ * bpf_jit.h: BPF JIT compiler for PPC
-  *
-  * Copyright 2011 Matt Evans <matt@ozlabs.org>, IBM Corporation
-  *
-@@ -10,66 +11,8 @@
- #ifndef _BPF_JIT_H
- #define _BPF_JIT_H
+@@ -83,7 +83,7 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
+  */
+ #define IMM_H(i)		((uintptr_t)(i)>>16)
+ #define IMM_HA(i)		(((uintptr_t)(i)>>16) +			      \
+-				 (((uintptr_t)(i) & 0x8000) >> 15))
++					(((uintptr_t)(i) & 0x8000) >> 15))
+ #define IMM_L(i)		((uintptr_t)(i) & 0xffff)
  
--#ifdef CONFIG_PPC64
--#define BPF_PPC_STACK_R3_OFF	48
--#define BPF_PPC_STACK_LOCALS	32
--#define BPF_PPC_STACK_BASIC	(48+64)
--#define BPF_PPC_STACK_SAVE	(18*8)
--#define BPF_PPC_STACKFRAME	(BPF_PPC_STACK_BASIC+BPF_PPC_STACK_LOCALS+ \
--				 BPF_PPC_STACK_SAVE)
--#define BPF_PPC_SLOWPATH_FRAME	(48+64)
--#else
--#define BPF_PPC_STACK_R3_OFF	24
--#define BPF_PPC_STACK_LOCALS	16
--#define BPF_PPC_STACK_BASIC	(24+32)
--#define BPF_PPC_STACK_SAVE	(18*4)
--#define BPF_PPC_STACKFRAME	(BPF_PPC_STACK_BASIC+BPF_PPC_STACK_LOCALS+ \
--				 BPF_PPC_STACK_SAVE)
--#define BPF_PPC_SLOWPATH_FRAME	(24+32)
--#endif
--
--#define REG_SZ         (BITS_PER_LONG/8)
--
--/*
-- * Generated code register usage:
-- *
-- * As normal PPC C ABI (e.g. r1=sp, r2=TOC), with:
-- *
-- * skb		r3	(Entry parameter)
-- * A register	r4
-- * X register	r5
-- * addr param	r6
-- * r7-r10	scratch
-- * skb->data	r14
-- * skb headlen	r15	(skb->len - skb->data_len)
-- * m[0]		r16
-- * m[...]	...
-- * m[15]	r31
-- */
--#define r_skb		3
--#define r_ret		3
--#define r_A		4
--#define r_X		5
--#define r_addr		6
--#define r_scratch1	7
--#define r_scratch2	8
--#define r_D		14
--#define r_HL		15
--#define r_M		16
--
- #ifndef __ASSEMBLY__
+ #define PLANT_INSTR(d, idx, instr)					      \
+@@ -99,16 +99,16 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
+ #define PPC_MR(d, a)		PPC_OR(d, a, a)
+ #define PPC_LI(r, i)		PPC_ADDI(r, 0, i)
+ #define PPC_ADDIS(d, a, i)	EMIT(PPC_INST_ADDIS |			      \
+-				     ___PPC_RS(d) | ___PPC_RA(a) | IMM_L(i))
++				     ___PPC_RT(d) | ___PPC_RA(a) | IMM_L(i))
+ #define PPC_LIS(r, i)		PPC_ADDIS(r, 0, i)
+ #define PPC_STD(r, base, i)	EMIT(PPC_INST_STD | ___PPC_RS(r) |	      \
+ 				     ___PPC_RA(base) | ((i) & 0xfffc))
+ #define PPC_STDU(r, base, i)	EMIT(PPC_INST_STDU | ___PPC_RS(r) |	      \
+ 				     ___PPC_RA(base) | ((i) & 0xfffc))
+ #define PPC_STW(r, base, i)	EMIT(PPC_INST_STW | ___PPC_RS(r) |	      \
+-				     ___PPC_RA(base) | ((i) & 0xfffc))
++				     ___PPC_RA(base) | IMM_L(i))
+ #define PPC_STWU(r, base, i)	EMIT(PPC_INST_STWU | ___PPC_RS(r) |	      \
+-				     ___PPC_RA(base) | ((i) & 0xfffc))
++				     ___PPC_RA(base) | IMM_L(i))
  
--/*
-- * Assembly helpers from arch/powerpc/net/bpf_jit.S:
-- */
--#define DECLARE_LOAD_FUNC(func)	\
--	extern u8 func[], func##_negative_offset[], func##_positive_offset[]
--
--DECLARE_LOAD_FUNC(sk_load_word);
--DECLARE_LOAD_FUNC(sk_load_half);
--DECLARE_LOAD_FUNC(sk_load_byte);
--DECLARE_LOAD_FUNC(sk_load_byte_msh);
--
- #ifdef CONFIG_PPC64
- #define FUNCTION_DESCR_SIZE	24
- #else
-@@ -131,46 +74,6 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
- #define PPC_BPF_STLU(r, base, i) do { PPC_STWU(r, base, i); } while(0)
- #endif
- 
--/* Convenience helpers for the above with 'far' offsets: */
--#define PPC_LBZ_OFFS(r, base, i) do { if ((i) < 32768) PPC_LBZ(r, base, i);   \
--		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
--			PPC_LBZ(r, r, IMM_L(i)); } } while(0)
--
--#define PPC_LD_OFFS(r, base, i) do { if ((i) < 32768) PPC_LD(r, base, i);     \
--		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
--			PPC_LD(r, r, IMM_L(i)); } } while(0)
--
--#define PPC_LWZ_OFFS(r, base, i) do { if ((i) < 32768) PPC_LWZ(r, base, i);   \
--		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
--			PPC_LWZ(r, r, IMM_L(i)); } } while(0)
--
--#define PPC_LHZ_OFFS(r, base, i) do { if ((i) < 32768) PPC_LHZ(r, base, i);   \
--		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
--			PPC_LHZ(r, r, IMM_L(i)); } } while(0)
--
--#ifdef CONFIG_PPC64
--#define PPC_LL_OFFS(r, base, i) do { PPC_LD_OFFS(r, base, i); } while(0)
--#else
--#define PPC_LL_OFFS(r, base, i) do { PPC_LWZ_OFFS(r, base, i); } while(0)
--#endif
--
--#ifdef CONFIG_SMP
--#ifdef CONFIG_PPC64
--#define PPC_BPF_LOAD_CPU(r)		\
--	do { BUILD_BUG_ON(FIELD_SIZEOF(struct paca_struct, paca_index) != 2);	\
--		PPC_LHZ_OFFS(r, 13, offsetof(struct paca_struct, paca_index));		\
--	} while (0)
--#else
--#define PPC_BPF_LOAD_CPU(r)     \
--	do { BUILD_BUG_ON(FIELD_SIZEOF(struct thread_info, cpu) != 4);			\
--		PPC_LHZ_OFFS(r, (1 & ~(THREAD_SIZE - 1)),							\
--				offsetof(struct thread_info, cpu));							\
--	} while(0)
--#endif
--#else
--#define PPC_BPF_LOAD_CPU(r) do { PPC_LI(r, 0); } while(0)
--#endif
--
+ #define PPC_LBZ(r, base, i)	EMIT(PPC_INST_LBZ | ___PPC_RT(r) |	      \
+ 				     ___PPC_RA(base) | IMM_L(i))
+@@ -174,13 +174,14 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
  #define PPC_CMPWI(a, i)		EMIT(PPC_INST_CMPWI | ___PPC_RA(a) | IMM_L(i))
  #define PPC_CMPDI(a, i)		EMIT(PPC_INST_CMPDI | ___PPC_RA(a) | IMM_L(i))
  #define PPC_CMPLWI(a, i)	EMIT(PPC_INST_CMPLWI | ___PPC_RA(a) | IMM_L(i))
-@@ -273,14 +176,6 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
- #define PPC_FUNC_ADDR(d,i) do { PPC_LI32(d, i); } while(0)
- #endif
+-#define PPC_CMPLW(a, b)		EMIT(PPC_INST_CMPLW | ___PPC_RA(a) | ___PPC_RB(b))
++#define PPC_CMPLW(a, b)		EMIT(PPC_INST_CMPLW | ___PPC_RA(a) |	      \
++					___PPC_RB(b))
  
--#define PPC_LHBRX_OFFS(r, base, i) \
--		do { PPC_LI32(r, i); PPC_LHBRX(r, r, base); } while(0)
--#ifdef __LITTLE_ENDIAN__
--#define PPC_NTOHS_OFFS(r, base, i)	PPC_LHBRX_OFFS(r, base, i)
--#else
--#define PPC_NTOHS_OFFS(r, base, i)	PPC_LHZ_OFFS(r, base, i)
--#endif
--
- static inline bool is_nearbranch(int offset)
- {
- 	return (offset < 32768) && (offset >= -32768);
-@@ -317,18 +212,6 @@ static inline bool is_nearbranch(int offset)
- #define COND_NE		(CR0_EQ | COND_CMP_FALSE)
- #define COND_LT		(CR0_LT | COND_CMP_TRUE)
- 
--#define SEEN_DATAREF 0x10000 /* might call external helpers */
--#define SEEN_XREG    0x20000 /* X reg is used */
--#define SEEN_MEM     0x40000 /* SEEN_MEM+(1<<n) = use mem[n] for temporary
--			      * storage */
--#define SEEN_MEM_MSK 0x0ffff
--
--struct codegen_context {
--	unsigned int seen;
--	unsigned int idx;
--	int pc_ret0; /* bpf index of first RET #0 instruction (if any) */
--};
--
- #endif
- 
- #endif
-diff --git a/arch/powerpc/net/bpf_jit32.h b/arch/powerpc/net/bpf_jit32.h
-new file mode 100644
-index 0000000..a8cd7e2
---- /dev/null
-+++ b/arch/powerpc/net/bpf_jit32.h
-@@ -0,0 +1,139 @@
-+/*
-+ * bpf_jit32.h: BPF JIT compiler for PPC
-+ *
-+ * Copyright 2011 Matt Evans <matt@ozlabs.org>, IBM Corporation
-+ *
-+ * Split from bpf_jit.h
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public License
-+ * as published by the Free Software Foundation; version 2
-+ * of the License.
-+ */
-+#ifndef _BPF_JIT32_H
-+#define _BPF_JIT32_H
-+
-+#include "bpf_jit.h"
-+
-+#ifdef CONFIG_PPC64
-+#define BPF_PPC_STACK_R3_OFF	48
-+#define BPF_PPC_STACK_LOCALS	32
-+#define BPF_PPC_STACK_BASIC	(48+64)
-+#define BPF_PPC_STACK_SAVE	(18*8)
-+#define BPF_PPC_STACKFRAME	(BPF_PPC_STACK_BASIC+BPF_PPC_STACK_LOCALS+ \
-+				 BPF_PPC_STACK_SAVE)
-+#define BPF_PPC_SLOWPATH_FRAME	(48+64)
-+#else
-+#define BPF_PPC_STACK_R3_OFF	24
-+#define BPF_PPC_STACK_LOCALS	16
-+#define BPF_PPC_STACK_BASIC	(24+32)
-+#define BPF_PPC_STACK_SAVE	(18*4)
-+#define BPF_PPC_STACKFRAME	(BPF_PPC_STACK_BASIC+BPF_PPC_STACK_LOCALS+ \
-+				 BPF_PPC_STACK_SAVE)
-+#define BPF_PPC_SLOWPATH_FRAME	(24+32)
-+#endif
-+
-+#define REG_SZ         (BITS_PER_LONG/8)
-+
-+/*
-+ * Generated code register usage:
-+ *
-+ * As normal PPC C ABI (e.g. r1=sp, r2=TOC), with:
-+ *
-+ * skb		r3	(Entry parameter)
-+ * A register	r4
-+ * X register	r5
-+ * addr param	r6
-+ * r7-r10	scratch
-+ * skb->data	r14
-+ * skb headlen	r15	(skb->len - skb->data_len)
-+ * m[0]		r16
-+ * m[...]	...
-+ * m[15]	r31
-+ */
-+#define r_skb		3
-+#define r_ret		3
-+#define r_A		4
-+#define r_X		5
-+#define r_addr		6
-+#define r_scratch1	7
-+#define r_scratch2	8
-+#define r_D		14
-+#define r_HL		15
-+#define r_M		16
-+
-+#ifndef __ASSEMBLY__
-+
-+/*
-+ * Assembly helpers from arch/powerpc/net/bpf_jit.S:
-+ */
-+#define DECLARE_LOAD_FUNC(func)	\
-+	extern u8 func[], func##_negative_offset[], func##_positive_offset[]
-+
-+DECLARE_LOAD_FUNC(sk_load_word);
-+DECLARE_LOAD_FUNC(sk_load_half);
-+DECLARE_LOAD_FUNC(sk_load_byte);
-+DECLARE_LOAD_FUNC(sk_load_byte_msh);
-+
-+#define PPC_LBZ_OFFS(r, base, i) do { if ((i) < 32768) PPC_LBZ(r, base, i);   \
-+		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
-+			PPC_LBZ(r, r, IMM_L(i)); } } while(0)
-+
-+#define PPC_LD_OFFS(r, base, i) do { if ((i) < 32768) PPC_LD(r, base, i);     \
-+		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
-+			PPC_LD(r, r, IMM_L(i)); } } while(0)
-+
-+#define PPC_LWZ_OFFS(r, base, i) do { if ((i) < 32768) PPC_LWZ(r, base, i);   \
-+		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
-+			PPC_LWZ(r, r, IMM_L(i)); } } while(0)
-+
-+#define PPC_LHZ_OFFS(r, base, i) do { if ((i) < 32768) PPC_LHZ(r, base, i);   \
-+		else {	PPC_ADDIS(r, base, IMM_HA(i));			      \
-+			PPC_LHZ(r, r, IMM_L(i)); } } while(0)
-+
-+#ifdef CONFIG_PPC64
-+#define PPC_LL_OFFS(r, base, i) do { PPC_LD_OFFS(r, base, i); } while(0)
-+#else
-+#define PPC_LL_OFFS(r, base, i) do { PPC_LWZ_OFFS(r, base, i); } while(0)
-+#endif
-+
-+#ifdef CONFIG_SMP
-+#ifdef CONFIG_PPC64
-+#define PPC_BPF_LOAD_CPU(r)		\
-+	do { BUILD_BUG_ON(FIELD_SIZEOF(struct paca_struct, paca_index) != 2);	\
-+		PPC_LHZ_OFFS(r, 13, offsetof(struct paca_struct, paca_index));	\
-+	} while (0)
-+#else
-+#define PPC_BPF_LOAD_CPU(r)     \
-+	do { BUILD_BUG_ON(FIELD_SIZEOF(struct thread_info, cpu) != 4);		\
-+		PPC_LHZ_OFFS(r, (1 & ~(THREAD_SIZE - 1)),			\
-+				offsetof(struct thread_info, cpu));		\
-+	} while(0)
-+#endif
-+#else
-+#define PPC_BPF_LOAD_CPU(r) do { PPC_LI(r, 0); } while(0)
-+#endif
-+
-+#define PPC_LHBRX_OFFS(r, base, i) \
-+		do { PPC_LI32(r, i); PPC_LHBRX(r, r, base); } while(0)
-+#ifdef __LITTLE_ENDIAN__
-+#define PPC_NTOHS_OFFS(r, base, i)	PPC_LHBRX_OFFS(r, base, i)
-+#else
-+#define PPC_NTOHS_OFFS(r, base, i)	PPC_LHZ_OFFS(r, base, i)
-+#endif
-+
-+#define SEEN_DATAREF 0x10000 /* might call external helpers */
-+#define SEEN_XREG    0x20000 /* X reg is used */
-+#define SEEN_MEM     0x40000 /* SEEN_MEM+(1<<n) = use mem[n] for temporary
-+			      * storage */
-+#define SEEN_MEM_MSK 0x0ffff
-+
-+struct codegen_context {
-+	unsigned int seen;
-+	unsigned int idx;
-+	int pc_ret0; /* bpf index of first RET #0 instruction (if any) */
-+};
-+
-+#endif
-+
-+#endif
-diff --git a/arch/powerpc/net/bpf_jit_asm.S b/arch/powerpc/net/bpf_jit_asm.S
-index 8ff5a3b..3dd9c43 100644
---- a/arch/powerpc/net/bpf_jit_asm.S
-+++ b/arch/powerpc/net/bpf_jit_asm.S
-@@ -10,7 +10,7 @@
-  */
- 
- #include <asm/ppc_asm.h>
--#include "bpf_jit.h"
-+#include "bpf_jit32.h"
- 
- /*
-  * All of these routines are called directly from generated code,
+ #define PPC_SUB(d, a, b)	EMIT(PPC_INST_SUB | ___PPC_RT(d) |	      \
+ 				     ___PPC_RB(a) | ___PPC_RA(b))
+ #define PPC_ADD(d, a, b)	EMIT(PPC_INST_ADD | ___PPC_RT(d) |	      \
+ 				     ___PPC_RA(a) | ___PPC_RB(b))
+-#define PPC_MUL(d, a, b)	EMIT(PPC_INST_MULLW | ___PPC_RT(d) |	      \
++#define PPC_MULW(d, a, b)	EMIT(PPC_INST_MULLW | ___PPC_RT(d) |	      \
+ 				     ___PPC_RA(a) | ___PPC_RB(b))
+ #define PPC_MULHWU(d, a, b)	EMIT(PPC_INST_MULHWU | ___PPC_RT(d) |	      \
+ 				     ___PPC_RA(a) | ___PPC_RB(b))
 diff --git a/arch/powerpc/net/bpf_jit_comp.c b/arch/powerpc/net/bpf_jit_comp.c
-index 6012aac..7e706f3 100644
+index 2d66a84..6012aac 100644
 --- a/arch/powerpc/net/bpf_jit_comp.c
 +++ b/arch/powerpc/net/bpf_jit_comp.c
-@@ -16,7 +16,7 @@
- #include <linux/filter.h>
- #include <linux/if_vlan.h>
- 
--#include "bpf_jit.h"
-+#include "bpf_jit32.h"
- 
- int bpf_jit_enable __read_mostly;
- 
+@@ -161,14 +161,14 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 			break;
+ 		case BPF_ALU | BPF_MUL | BPF_X: /* A *= X; */
+ 			ctx->seen |= SEEN_XREG;
+-			PPC_MUL(r_A, r_A, r_X);
++			PPC_MULW(r_A, r_A, r_X);
+ 			break;
+ 		case BPF_ALU | BPF_MUL | BPF_K: /* A *= K */
+ 			if (K < 32768)
+ 				PPC_MULI(r_A, r_A, K);
+ 			else {
+ 				PPC_LI32(r_scratch1, K);
+-				PPC_MUL(r_A, r_A, r_scratch1);
++				PPC_MULW(r_A, r_A, r_scratch1);
+ 			}
+ 			break;
+ 		case BPF_ALU | BPF_MOD | BPF_X: /* A %= X; */
+@@ -184,7 +184,7 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 			}
+ 			if (code == (BPF_ALU | BPF_MOD | BPF_X)) {
+ 				PPC_DIVWU(r_scratch1, r_A, r_X);
+-				PPC_MUL(r_scratch1, r_X, r_scratch1);
++				PPC_MULW(r_scratch1, r_X, r_scratch1);
+ 				PPC_SUB(r_A, r_A, r_scratch1);
+ 			} else {
+ 				PPC_DIVWU(r_A, r_A, r_X);
+@@ -193,7 +193,7 @@ static int bpf_jit_build_body(struct bpf_prog *fp, u32 *image,
+ 		case BPF_ALU | BPF_MOD | BPF_K: /* A %= K; */
+ 			PPC_LI32(r_scratch2, K);
+ 			PPC_DIVWU(r_scratch1, r_A, r_scratch2);
+-			PPC_MUL(r_scratch1, r_scratch2, r_scratch1);
++			PPC_MULW(r_scratch1, r_scratch2, r_scratch1);
+ 			PPC_SUB(r_A, r_A, r_scratch1);
+ 			break;
+ 		case BPF_ALU | BPF_DIV | BPF_K: /* A /= K */
 -- 
 2.8.2
