@@ -1,52 +1,55 @@
-From: Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>
-Subject: Re: [very-RFC 0/8] TSN driver for the kernel
-Date: Wed, 22 Jun 2016 05:36:42 -0700
-Message-ID: <04675515-ff64-0acc-f0f0-7714e20c1485@linux.intel.com>
-References: <20160613114713.GA9544@localhost.localdomain>
- <20160613195136.GC2441@netboy> <20160614121844.54a125a5@lxorguk.ukuu.org.uk>
- <5760C84C.40408@sakamocchi.jp> <20160615080602.GA13555@localhost.localdomain>
- <5764DA85.3050801@sakamocchi.jp>
- <20160618224549.GF32724@icarus.home.austad.us>
- <9a5abd48-4da3-945d-53c9-b6d37010ab0d@linux.intel.com>
- <20160620121838.GA5257@localhost.localdomain>
- <07283da9-f6d1-c3b1-7989-a6fce7ca0ee6@linux.intel.com>
- <20160621194001.GB2489@netboy>
+From: Jakub Sitnicki <jkbs@redhat.com>
+Subject: Re: [PATCH iproute2] Enable use of extra debugging information
+Date: Wed, 22 Jun 2016 10:36:39 +0200
+Message-ID: <87oa6tmxgo.fsf@frog.home>
+References: <1466551629-7921-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: alsa-devel@alsa-project.org, netdev@vger.kernel.org,
- Henrik Austad <henrik@austad.us>, linux-kernel@vger.kernel.org,
- Takashi Sakamoto <o-takashi@sakamocchi.jp>, Arnd Bergmann <arnd@linaro.org>,
- linux-media@vger.kernel.org
-To: Richard Cochran <richardcochran@gmail.com>
-Return-path: <alsa-devel-bounces@alsa-project.org>
-In-Reply-To: <20160621194001.GB2489@netboy>
-List-Unsubscribe: <http://mailman.alsa-project.org/mailman/options/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=unsubscribe>
-List-Archive: <http://mailman.alsa-project.org/pipermail/alsa-devel/>
-List-Post: <mailto:alsa-devel@alsa-project.org>
-List-Help: <mailto:alsa-devel-request@alsa-project.org?subject=help>
-List-Subscribe: <http://mailman.alsa-project.org/mailman/listinfo/alsa-devel>,
- <mailto:alsa-devel-request@alsa-project.org?subject=subscribe>
-Errors-To: alsa-devel-bounces@alsa-project.org
-Sender: alsa-devel-bounces@alsa-project.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, stephen@networkplumber.org
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f176.google.com ([209.85.220.176]:36453 "EHLO
+	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751543AbcFVMhi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 08:37:38 -0400
+Received: by mail-qk0-f176.google.com with SMTP id p10so62077648qke.3
+        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 05:37:09 -0700 (PDT)
+In-reply-to: <1466551629-7921-1-git-send-email-dsa@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 6/21/16 12:40 PM, Richard Cochran wrote:
-> On Tue, Jun 21, 2016 at 10:45:18AM -0700, Pierre-Louis Bossart wrote:
->> You can experiment with the 'dma' and 'link' timestamps today on any
->> HDaudio-based device. Like I said the synchronized part has not been
->> upstreamed yet (delays + dependency on ART-to-TSC conversions that made it
->> in the kernel recently)
+Hi David,
+
+On Wed, Jun 22, 2016 at 01:27 AM CEST, David Ahern <dsa@cumulusnetworks.com> wrote:
+> Add -g flag to builds if DEBUG parameter is set. Improves
+> debugging with gdb.
 >
-> Can you point me to any open source apps using the dma/link
-> timestamps?
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> ---
+>  Makefile | 4 ++++
+>  1 file changed, 4 insertions(+)
+>
+> diff --git a/Makefile b/Makefile
+> index 15c81ecfdca3..8e006759079d 100644
+> --- a/Makefile
+> +++ b/Makefile
+> @@ -39,7 +39,11 @@ HOSTCC = gcc
+>  DEFINES += -D_GNU_SOURCE
+>  # Turn on transparent support for LFS
+>  DEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+> +ifdef DEBUG
+> +CCOPTS = -g
+> +else
+>  CCOPTS = -O2
+> +endif
+>  WFLAGS := -Wall -Wstrict-prototypes  -Wmissing-prototypes
+>  WFLAGS += -Wmissing-declarations -Wold-style-definition -Wformat=2
 
-Those timestamps are only used in custom applications at the moment, not 
-'mainstream' open source.
-It takes time for new kernel capabilities to trickle into userspace, 
-applications usually align on the lowest hardware common denominator. In 
-addition, most applications don't access the kernel directly but go 
-through an audio server or HAL which needs to be updated as well so it's 
-a two-level dependency. These timestamps can be directly mappped to the 
-Android AudioTrack.getTimeStamp API though.
+This implies a change of optimization level to -O0 when building with
+DEBUG set, doesn't it? Was it intentional?
+
+Perhaps it would be less surprising to explicitly set -O0, if that was
+your intention. Just a thought.
+
+Thanks,
+Jakub
