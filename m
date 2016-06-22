@@ -1,25 +1,86 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next] samples/bpf: set max locked memory to ulimited
-Date: Tue, 21 Jun 2016 21:57:42 -0700
-Message-ID: <20160622045740.GA2830@ast-mbp.thefacebook.com>
-References: <1466568358-37217-1-git-send-email-u9012063@gmail.com>
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: [PATCH] ppc: Fix BPF JIT for ABIv2
+Date: Wed, 22 Jun 2016 15:18:10 +1000
+Message-ID: <1466572690.19785.4.camel@ellerman.id.au>
+References: <908d3552b5eb240b28f70aee7c4c86e2b600aa02.1465304785.git.naveen.n.rao@linux.vnet.ibm.com>
+ <3rWKtT2tSrz9t2G@ozlabs.org> <20160617130042.GO3516@indiana.gru.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: William Tu <u9012063@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f195.google.com ([209.85.192.195]:34353 "EHLO
-	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750809AbcFVE5x (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 00:57:53 -0400
-Received: by mail-pf0-f195.google.com with SMTP id 66so3045797pfy.1
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 21:57:53 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1466568358-37217-1-git-send-email-u9012063@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Matt Evans <matt@ozlabs.org>, Daniel Borkmann <daniel@iogearbox.net>,
+ Alexei Starovoitov <ast@fb.com>, netdev@vger.kernel.org,
+ Denis Kirjanov <kda@linux-powerpc.org>, linux-kernel@vger.kernel.org,
+ Paul Mackerras <paulus@samba.org>,
+ "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>,
+ linuxppc-dev@lists.ozlabs.org, "David S.
+ Miller" <davem@davemloft.net>, Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+To: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
+Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+In-Reply-To: <20160617130042.GO3516@indiana.gru.redhat.com>
+List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
+List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
+List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
+List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
+List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
+ <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
+Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
+Sender: "Linuxppc-dev"
+ <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 21, 2016 at 09:05:58PM -0700, William Tu wrote:
-> Signed-off-by: William Tu <u9012063@gmail.com>
-
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+T24gRnJpLCAyMDE2LTA2LTE3IGF0IDEwOjAwIC0wMzAwLCBUaGFkZXUgTGltYSBkZSBTb3V6YSBD
+YXNjYXJkbyB3cm90ZToKPiBGcm9tIGE5ODRkYzAyYjYzMTdhMWQzYTNjMjMwMjM4NWFkYmE1MjI3
+YmU1YmQgTW9uIFNlcCAxNyAwMDowMDowMCAyMDAxCj4gRnJvbTogVGhhZGV1IExpbWEgZGUgU291
+emEgQ2FzY2FyZG8gPGNhc2NhcmRvQHJlZGhhdC5jb20+Cj4gRGF0ZTogV2VkLCAxNSBKdW4gMjAx
+NiAxMzoyMjoxMiAtMDMwMAo+IFN1YmplY3Q6IFtQQVRDSF0gcHBjOiBGaXggQlBGIEpJVCBmb3Ig
+QUJJdjIKPiAKPiBBQkl2MiB1c2VkIGZvciBwcGM2NGxlIGRvZXMgbm90IHVzZSBmdW5jdGlvbiBk
+ZXNjcmlwdG9ycy4gV2l0aG91dCB0aGlzIHBhdGNoLAo+IHdoZW5ldmVyIEJQRiBKSVQgaXMgZW5h
+YmxlZCwgd2UgZ2V0IGEgY3Jhc2ggYXMgYmVsb3cuCj4gCi4uLgoKPiBkaWZmIC0tZ2l0IGEvYXJj
+aC9wb3dlcnBjL25ldC9icGZfaml0LmggYi9hcmNoL3Bvd2VycGMvbmV0L2JwZl9qaXQuaAo+IGlu
+ZGV4IDg4OWZkMTkuLjI4Yjg5ZWQgMTAwNjQ0Cj4gLS0tIGEvYXJjaC9wb3dlcnBjL25ldC9icGZf
+aml0LmgKPiArKysgYi9hcmNoL3Bvd2VycGMvbmV0L2JwZl9qaXQuaAo+IEBAIC03MCw3ICs3MCw3
+IEBAIERFQ0xBUkVfTE9BRF9GVU5DKHNrX2xvYWRfaGFsZik7Cj4gIERFQ0xBUkVfTE9BRF9GVU5D
+KHNrX2xvYWRfYnl0ZSk7Cj4gIERFQ0xBUkVfTE9BRF9GVU5DKHNrX2xvYWRfYnl0ZV9tc2gpOwo+
+ICAKPiAtI2lmZGVmIENPTkZJR19QUEM2NAo+ICsjaWYgZGVmaW5lZChDT05GSUdfUFBDNjQpICYm
+ICghZGVmaW5lZChfQ0FMTF9FTEYpIHx8IF9DQUxMX0VMRiAhPSAyKQo+ICAjZGVmaW5lIEZVTkNU
+SU9OX0RFU0NSX1NJWkUJMjQKPiAgI2Vsc2UKPiAgI2RlZmluZSBGVU5DVElPTl9ERVNDUl9TSVpF
+CTAKPiBkaWZmIC0tZ2l0IGEvYXJjaC9wb3dlcnBjL25ldC9icGZfaml0X2NvbXAuYyBiL2FyY2gv
+cG93ZXJwYy9uZXQvYnBmX2ppdF9jb21wLmMKPiBpbmRleCAyZDY2YTg0Li4wMzViODg3IDEwMDY0
+NAo+IC0tLSBhL2FyY2gvcG93ZXJwYy9uZXQvYnBmX2ppdF9jb21wLmMKPiArKysgYi9hcmNoL3Bv
+d2VycGMvbmV0L2JwZl9qaXRfY29tcC5jCj4gQEAgLTY2NCw3ICs2NjQsNyBAQCB2b2lkIGJwZl9q
+aXRfY29tcGlsZShzdHJ1Y3QgYnBmX3Byb2cgKmZwKQo+ICAKPiAgCWlmIChpbWFnZSkgewo+ICAJ
+CWJwZl9mbHVzaF9pY2FjaGUoY29kZV9iYXNlLCBjb2RlX2Jhc2UgKyAocHJvZ2xlbi80KSk7Cj4g
+LSNpZmRlZiBDT05GSUdfUFBDNjQKPiArI2lmIGRlZmluZWQoQ09ORklHX1BQQzY0KSAmJiAoIWRl
+ZmluZWQoX0NBTExfRUxGKSB8fCBfQ0FMTF9FTEYgIT0gMikKPiAgCQkvKiBGdW5jdGlvbiBkZXNj
+cmlwdG9yIG5hc3RpbmVzczogQWRkcmVzcyArIFRPQyAqLwo+ICAJCSgodTY0ICopaW1hZ2UpWzBd
+ID0gKHU2NCljb2RlX2Jhc2U7Cj4gIAkJKCh1NjQgKilpbWFnZSlbMV0gPSBsb2NhbF9wYWNhLT5r
+ZXJuZWxfdG9jOwoKCkNvbmZpcm1lZCB0aGF0IGV2ZW4gd2l0aCB0aGlzIHBhdGNoIHdlIHN0aWxs
+IGNyYXNoOgoKICAjIGVjaG8gMSA+IC9wcm9jL3N5cy9uZXQvY29yZS9icGZfaml0X2VuYWJsZQog
+ICMgbW9kcHJvYmUgdGVzdF9icGYKICBCUEYgZmlsdGVyIG9wY29kZSAwMDIwIChAMykgdW5zdXBw
+b3J0ZWQKICBCUEYgZmlsdGVyIG9wY29kZSAwMDIwIChAMikgdW5zdXBwb3J0ZWQKICBCUEYgZmls
+dGVyIG9wY29kZSAwMDIwIChAMCkgdW5zdXBwb3J0ZWQKICBVbmFibGUgdG8gaGFuZGxlIGtlcm5l
+bCBwYWdpbmcgcmVxdWVzdCBmb3IgZGF0YSBhdCBhZGRyZXNzIDB4ZDAwMDAwMDAwNTRmNjVlOAog
+IEZhdWx0aW5nIGluc3RydWN0aW9uIGFkZHJlc3M6IDB4YzAwMDAwMDAwMDg3NjVmOAogIGNwdSAw
+eDA6IFZlY3RvcjogMzAwIChEYXRhIEFjY2VzcykgYXQgW2MwMDAwMDAwMDM0ZjM0ODBdCiAgICAg
+IHBjOiBjMDAwMDAwMDAwODc2NWY4OiBza2JfY29weV9iaXRzKzB4MTU4LzB4MzMwCiAgICAgIGxy
+OiBjMDAwMDAwMDAwMDhmYjdjOiBicGZfc2xvd19wYXRoX2J5dGUrMHgyOC8weDU0CiAgICAgIHNw
+OiBjMDAwMDAwMDAzNGYzNzAwCiAgICAgbXNyOiA4MDAwMDAwMTAyODBiMDMzCiAgICAgZGFyOiBk
+MDAwMDAwMDA1NGY2NWU4CiAgIGRzaXNyOiA0MDAwMDAwMAogICAgY3VycmVudCA9IDB4YzAwMDAw
+MDFmODU3ZDhkMAogICAgcGFjYSAgICA9IDB4YzAwMDAwMDAwN2I4MDAwMAkgc29mdGU6IDAJIGly
+cV9oYXBwZW5lZDogMHgwMQogICAgICBwaWQgICA9IDI5OTMsIGNvbW0gPSBtb2Rwcm9iZQogIExp
+bnV4IHZlcnNpb24gNC43LjAtcmMzLTAwMDU1LWc5NDk3YTFjMWM1YjQtZGlydHkgKG1pY2hhZWxA
+a2EzLm96bGFicy5pYm0uY29tKSAoKSAjMzAgU01QIFdlZCBKdW4gMjIgMTU6MDY6NTggQUVTVCAy
+MDE2CiAgZW50ZXIgPyBmb3IgaGVscAogIFtjMDAwMDAwMDAzNGYzNzcwXSBjMDAwMDAwMDAwMDhm
+YjdjIGJwZl9zbG93X3BhdGhfYnl0ZSsweDI4LzB4NTQKICBbYzAwMDAwMDAwMzRmMzdlMF0gZDAw
+MDAwMDAwN2JiMDA0YwogIFtjMDAwMDAwMDAzNGYzOTAwXSBkMDAwMDAwMDA1MzMxNjY4IHRlc3Rf
+YnBmX2luaXQrMHg1ZmMvMHg3ZjggW3Rlc3RfYnBmXQogIFtjMDAwMDAwMDAzNGYzYTMwXSBjMDAw
+MDAwMDAwMDBiNjI4IGRvX29uZV9pbml0Y2FsbCsweDY4LzB4MWQwCiAgW2MwMDAwMDAwMDM0ZjNh
+ZjBdIGMwMDAwMDAwMDA5YmViMjQgZG9faW5pdF9tb2R1bGUrMHg5MC8weDI0MAogIFtjMDAwMDAw
+MDAzNGYzYjgwXSBjMDAwMDAwMDAwMTY0MmJjIGxvYWRfbW9kdWxlKzB4MjA2Yy8weDIyZjAKICBb
+YzAwMDAwMDAwMzRmM2QzMF0gYzAwMDAwMDAwMDE2NDhiMCBTeVNfZmluaXRfbW9kdWxlKzB4MTIw
+LzB4MTgwCiAgW2MwMDAwMDAwMDM0ZjNlMzBdIGMwMDAwMDAwMDAwMDkyNjAgc3lzdGVtX2NhbGwr
+MHgzOC8weDEwOAogIC0tLSBFeGNlcHRpb246IGMwMSAoU3lzdGVtIENhbGwpIGF0IDAwMDAzZmZm
+N2ZmYTJkYjQKCgpjaGVlcnMKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fCkxpbnV4cHBjLWRldiBtYWlsaW5nIGxpc3QKTGludXhwcGMtZGV2QGxpc3RzLm96
+bGFicy5vcmcKaHR0cHM6Ly9saXN0cy5vemxhYnMub3JnL2xpc3RpbmZvL2xpbnV4cHBjLWRldg==
