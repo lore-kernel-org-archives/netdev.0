@@ -1,74 +1,159 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: [PATCH net-next 0/4] net_sched: bulk dequeue and deferred drops
-Date: Tue, 21 Jun 2016 23:16:48 -0700
-Message-ID: <1466576212-15012-1-git-send-email-edumazet@google.com>
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: "David S . Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f181.google.com ([209.85.192.181]:34930 "EHLO
-	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751317AbcFVGlS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 02:41:18 -0400
-Received: by mail-pf0-f181.google.com with SMTP id c2so14646562pfa.2
-        for <netdev@vger.kernel.org>; Tue, 21 Jun 2016 23:40:43 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Wei Hu (Xavier)" <xavier.huwei@huawei.com>
+Subject: Re: [PATCH v10 06/22] IB/hns: Add initial cmd operation
+Date: Wed, 22 Jun 2016 14:50:23 +0800
+Message-ID: <576A352F.8000700@huawei.com>
+References: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
+ <1466087730-54856-7-git-send-email-oulijun@huawei.com>
+ <20160620133310.GB4526@leon.nu> <57691C0B.8090509@huawei.com>
+ <20160621112808.GA9762@leon.nu> <57693AC4.1070306@huawei.com>
+ <20160622045450.GC9762@leon.nu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Lijun Ou <oulijun@huawei.com>, <dledford@redhat.com>,
+	<sean.hefty@intel.com>, <hal.rosenstock@gmail.com>,
+	<davem@davemloft.net>, <jeffrey.t.kirsher@intel.com>,
+	<jiri@mellanox.com>, <ogerlitz@mellanox.com>,
+	<linux-rdma@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <gongyangming@huawei.com>,
+	<xiaokun@huawei.com>, <tangchaofei@huawei.com>,
+	<haifeng.wei@huawei.com>, <yisen.zhuang@huawei.com>,
+	<yankejian@huawei.com>, <charles.chenxin@huawei.com>,
+	<linuxarm@huawei.com>
+To: <leon@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160622045450.GC9762@leon.nu>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-First patch adds an additional parameter to ->enqueue() qdisc method
-so that drops can be done outside of critical section
-(after locks are released).
 
-Then fq_codel can have a small optimization to reduce number of cache
-lines misses during a drop event
-(possibly accumulating hundreds of packets to be freed).
 
-A small htb change exports the backlog in class dumps.
+On 2016/6/22 12:54, Leon Romanovsky wrote:
+> On Tue, Jun 21, 2016 at 09:01:57PM +0800, Wei Hu (Xavier) wrote:
+>>
+>> On 2016/6/21 19:28, Leon Romanovsky wrote:
+>>> On Tue, Jun 21, 2016 at 06:50:51PM +0800, Wei Hu (Xavier) wrote:
+>>>> On 2016/6/20 21:33, Leon Romanovsky wrote:
+>>>>> On Thu, Jun 16, 2016 at 10:35:14PM +0800, Lijun Ou wrote:
+>>>>>> This patch added the operation for cmd, and added some functions
+>>>>>> for initializing eq table and selecting cmd mode.
+>>>>>>
+>>>>>> Signed-off-by: Wei Hu <xavier.huwei@huawei.com>
+>>>>>> Signed-off-by: Nenglong Zhao <zhaonenglong@hisilicon.com>
+>>>>>> Signed-off-by: Lijun Ou <oulijun@huawei.com>
+>>>>>> ---
+>>>>>> PATCH v9/v8/v7/v6:
+>>>>>> - No change over the PATCH v5
+>>>>>>
+>>>>>> PATCH v5:
+>>>>>> - The initial patch which was redesigned based on the second pat=
+ch
+>>>>>>    in PATCH v4
+>>>>>> ---
+>>>>> <...>
+>>>>>
+>>>>>> +#define CMD_MAX_NUM		32
+>>>>>> +
+>>>>>> +int hns_roce_cmd_init(struct hns_roce_dev *hr_dev)
+>>>>>> +{
+>>>>>> +	struct device *dev =3D &hr_dev->pdev->dev;
+>>>>>> +
+>>>>>> +	mutex_init(&hr_dev->cmd.hcr_mutex);
+>>>>>> +	sema_init(&hr_dev->cmd.poll_sem, 1);
+>>>>>> +	hr_dev->cmd.use_events =3D 0;
+>>>>>> +	hr_dev->cmd.toggle =3D 1;
+>>>>>> +	hr_dev->cmd.max_cmds =3D CMD_MAX_NUM;
+>>>>> <...>
+>>>>>
+>>>>>> +	for (hr_cmd->token_mask =3D 1; hr_cmd->token_mask < hr_cmd->ma=
+x_cmds;
+>>>>>> +	     hr_cmd->token_mask <<=3D 1)
+>>>>>> +		;
+>>>>>> +	--hr_cmd->token_mask;
+>>>>> It doesn't look that you dynamically change max_cmds supported.
+>>>>> Why do you need to calculate token_mask dynamically?
+>>>> Hi, Leon
+>>>>
+>>>>      1. The four lines above are in the function named
+>>>> hns_roce_cmd_use_events.
+>>>>           and now this function is only called once in hns_roce_pr=
+obe.
+>>>>      2. In hns_roce_cmd_use_events,
+>>>>          we use these 4 lines to achieve the value of hr_cmd->toke=
+n_mask
+>>>> according to hr_cmd->max_cmds dynamically,
+>>>>          then we only define one marco for hr_cmd->max_cmds as bel=
+ow:
+>>>>
+>>>> 	#define CMD_MAX_NUM		32
+>>>>
+>>>>         And it looks more flexible.
+>>> It is called over engineering.
+>>> I would recommend to you to remove it.
+>>>
+>>> We don't need over complicated code which is executed
+>>> once with need to maintain with zero benefit.
+>>>
+>>> The other places need such simplification too.
+>> Hi, Leon
+>>
+>>          We will modify this place as below:
+>>          In hns_roce_hw_v1.c(for hip06 soc) file:
+>>
+>>              void hns_roce_v1_profile(struct hns_roce_dev *hr_dev)
+>>              {
+>>                  <snip>
+>>                  caps->max_cmds =3D 32;
+>>                  <snip>
+>>              }
+>>
+>>          In hns_roce_cmd.c file:
+>>
+>>    	  int hns_roce_cmd_init(struct hns_roce_dev *hr_dev)
+>> 	  {
+>> 	     <snip>
+>> 	     hr_dev->cmd.max_cmds =3D hr_dev->caps->max_cmds;
+>>       		<snip>
+>>            }
+>>
+>>         Can you give more suggestions?
+> I would be happy to do it if I had enough time to review this code.
+>
+> General suggestion will be to ask yourself, if value is going to be
+> changed during the runtime. In case the answer is no, there is no roo=
+m
+> to additional logic which translate constant to different value which
+> will be other constant.
+>
+> You should do it across all the patchset.
+>
+> So, in this specific case, the proposed change is not enough, you are
+> not solving an issue, but hiding it.
+>
+> Thanks
+We will modify this place as below=EF=BC=9A
 
-Final patch adds bulk dequeue to qdiscs that were lacking this feature.
+     #define CMD_TOKEN_MASK      0x1f
 
-This series brings a nice qdisc performance increase (more than 80 %
-in some cases).
+    hr_cmd->token_mask =3D CMD_TOKEN_MASK;
 
-Eric Dumazet (4):
-  net_sched: drop packets after root qdisc lock is released
-  net_sched: fq_codel: cache skb->truesize into skb->cb
-  net_sched: sch_htb: export class backlog in dumps
-  net_sched: generalize bulk dequeue
+    delete these four lines:
 
- include/net/codel_qdisc.h |  1 +
- include/net/sch_generic.h | 48 ++++++++++++++++++++---------
- net/core/dev.c            |  7 +++--
- net/sched/sch_atm.c       |  9 +++---
- net/sched/sch_blackhole.c |  5 +--
- net/sched/sch_cbq.c       |  7 +++--
- net/sched/sch_choke.c     | 16 +++++-----
- net/sched/sch_codel.c     |  8 +++--
- net/sched/sch_drr.c       |  7 +++--
- net/sched/sch_dsmark.c    |  9 +++---
- net/sched/sch_fifo.c      | 15 +++++----
- net/sched/sch_fq.c        |  7 +++--
- net/sched/sch_fq_codel.c  | 22 +++++++------
- net/sched/sch_generic.c   | 78 ++++++++++++++++++++++++++++++++++++++---------
- net/sched/sch_gred.c      |  7 +++--
- net/sched/sch_hfsc.c      |  6 ++--
- net/sched/sch_hhf.c       | 10 +++---
- net/sched/sch_htb.c       | 24 ++++++++++-----
- net/sched/sch_multiq.c    |  7 +++--
- net/sched/sch_netem.c     | 25 +++++++++------
- net/sched/sch_pie.c       |  5 +--
- net/sched/sch_plug.c      |  5 +--
- net/sched/sch_prio.c      |  4 +--
- net/sched/sch_qfq.c       |  7 +++--
- net/sched/sch_red.c       |  7 +++--
- net/sched/sch_sfb.c       |  7 +++--
- net/sched/sch_sfq.c       |  8 ++---
- net/sched/sch_tbf.c       | 16 +++++-----
- net/sched/sch_teql.c      |  4 +--
- 29 files changed, 247 insertions(+), 134 deletions(-)
+	for (hr_cmd->token_mask =3D 1; hr_cmd->token_mask < hr_cmd->max_cmds;
+	     hr_cmd->token_mask <<=3D 1)
+		;
+	--hr_cmd->token_mask;
 
--- 
-2.8.0.rc3.226.g39d4020
+  =09
+Thanks
+
+>>
+>> Regards
+>> Wei Hu
+>>>> Regards
+>>>> Wei Hu
+>>>>
+>>>>
+>>>>
+>>
