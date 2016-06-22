@@ -1,79 +1,77 @@
-From: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>
-Subject: [PATCHv2 3/7] ppc: bpf/jit: Optimize 64-bit Immediate loads
-Date: Wed, 22 Jun 2016 21:55:03 +0530
-Message-ID: <ea92fc972da7acb37c33071c96f66ea748724d0c.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
-References: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
-Cc: Matt Evans <matt@ozlabs.org>,
-	Denis Kirjanov <kda@linux-powerpc.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Alexei Starovoitov <ast@fb.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ananth N Mavinakayanahalli <ananth@in.ibm.com>,
-	Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-To: linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org, Michael Ellerman <mpe@ellerman.id.au>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
-In-Reply-To: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
-References: <cover.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next 0/9] Mellanox 100G mlx5e Ethernet extensions
+Date: Wed, 22 Jun 2016 19:33:08 +0300
+Message-ID: <1466613197-28726-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [193.47.165.129] ([193.47.165.129]:39074 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751647AbcFVQeB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2016 12:34:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Similar to the LI32() optimization, if the value can be represented
-in 32-bits, use LI32(). Also handle loading a few specific forms of
-immediate values in an optimum manner.
+Hi Dave,
 
-Cc: Matt Evans <matt@ozlabs.org>
-Cc: Denis Kirjanov <kda@linux-powerpc.org>
-Cc: Michael Ellerman <mpe@ellerman.id.au>
-Cc: Paul Mackerras <paulus@samba.org>
-Cc: Alexei Starovoitov <ast@fb.com>
-Cc: Daniel Borkmann <daniel@iogearbox.net>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-Cc: Thadeu Lima de Souza Cascardo <cascardo@redhat.com>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
-Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
----
- arch/powerpc/net/bpf_jit.h | 17 +++++++++++------
- 1 file changed, 11 insertions(+), 6 deletions(-)
+This series includes multiple features extensions for mlx5 Ethernet netdevice driver.
+Namely, TX Rate limiting, RX interrupt moderation, ethtool settings.
 
-diff --git a/arch/powerpc/net/bpf_jit.h b/arch/powerpc/net/bpf_jit.h
-index a9882db..4c1e055 100644
---- a/arch/powerpc/net/bpf_jit.h
-+++ b/arch/powerpc/net/bpf_jit.h
-@@ -244,20 +244,25 @@ DECLARE_LOAD_FUNC(sk_load_byte_msh);
- 		} } while(0)
- 
- #define PPC_LI64(d, i)		do {					      \
--		if (!((uintptr_t)(i) & 0xffffffff00000000ULL))		      \
-+		if ((long)(i) >= -2147483648 &&				      \
-+				(long)(i) < 2147483648)			      \
- 			PPC_LI32(d, i);					      \
- 		else {							      \
--			PPC_LIS(d, ((uintptr_t)(i) >> 48));		      \
--			if ((uintptr_t)(i) & 0x0000ffff00000000ULL)	      \
--				PPC_ORI(d, d,				      \
--					((uintptr_t)(i) >> 32) & 0xffff);     \
-+			if (!((uintptr_t)(i) & 0xffff800000000000ULL))	      \
-+				PPC_LI(d, ((uintptr_t)(i) >> 32) & 0xffff);   \
-+			else {						      \
-+				PPC_LIS(d, ((uintptr_t)(i) >> 48));	      \
-+				if ((uintptr_t)(i) & 0x0000ffff00000000ULL)   \
-+					PPC_ORI(d, d,			      \
-+					  ((uintptr_t)(i) >> 32) & 0xffff);   \
-+			}						      \
- 			PPC_SLDI(d, d, 32);				      \
- 			if ((uintptr_t)(i) & 0x00000000ffff0000ULL)	      \
- 				PPC_ORIS(d, d,				      \
- 					 ((uintptr_t)(i) >> 16) & 0xffff);    \
- 			if ((uintptr_t)(i) & 0x000000000000ffffULL)	      \
- 				PPC_ORI(d, d, (uintptr_t)(i) & 0xffff);	      \
--		} } while (0);
-+		} } while (0)
- 
- #ifdef CONFIG_PPC64
- #define PPC_FUNC_ADDR(d,i) do { PPC_LI64(d, i); } while(0)
+TX Rate limiting:
+	- ConnectX-4 rate limiting infrastructure
+	- Set max rate NDO support
+
+RX interrupt moderation:
+	- CQE based coalescing option (controlled via priv flags)
+	- Adaptive RX coalescing
+
+ethtool settings:
+	- priv flags callbacks
+	- Support new ksettings API
+	- Add 50G missing link mode
+	- Support auto negotiation on/off
+
+Applied on top: 0e9390ebf1fe ("Merge branch 'mlxsw-next'")
+
+Thanks,
+Saeed.
+
+Gal Pressman (5):
+  net/mlx5e: Introduce net device priv flags infrastructure
+  net/mlx5e: Toggle link only after modifying port parameters
+  net/mlx5e: Add 50G missing link mode to ethtool and mlx5 driver
+  net/mlx5e: Use new ethtool get/set link ksettings API
+  net/mlx5e: Report correct auto negotiation and allow toggling
+
+Gil Rockah (1):
+  net/mlx5e: Support adaptive RX coalescing
+
+Tariq Toukan (1):
+  net/mlx5e: CQE based moderation
+
+Yevgeny Petrilin (2):
+  net/mlx5: Rate limit tables support
+  net/mlx5e: Add TXQ set max rate support
+
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   8 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  73 +++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c |   9 +-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 476 +++++++++++++--------
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 181 +++++++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c | 335 +++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |   5 +
+ drivers/net/ethernet/mellanox/mlx5/core/fw.c       |   6 +
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |  10 +
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     |  48 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/rl.c       | 209 +++++++++
+ include/linux/mlx5/device.h                        |   4 +
+ include/linux/mlx5/driver.h                        |  27 ++
+ include/linux/mlx5/port.h                          |  16 +-
+ include/uapi/linux/ethtool.h                       |   3 +-
+ 15 files changed, 1179 insertions(+), 231 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/rl.c
+
 -- 
-2.8.2
+2.8.0
