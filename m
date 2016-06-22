@@ -1,62 +1,64 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net] net: avoid vlan ptype specific match to be leaked
- on real device
-Date: Wed, 22 Jun 2016 14:21:29 +0200
-Message-ID: <1466598089.4707.31.camel@redhat.com>
-References: <3d191a3c51bd564da8b0c3ffe1e9c90fa7bd4d7b.1466590952.git.pabeni@redhat.com>
-	 <20160622105544.GC2068@nanopsycho.orion>
+From: Andy Duan <fugang.duan@nxp.com>
+Subject: [PATCH net-next 2/2] net: fec: use a more proper compatible string for i.MX6UL type device
+Date: Wed, 22 Jun 2016 18:52:36 +0800
+Message-ID: <1466592756-11239-3-git-send-email-fugang.duan@nxp.com>
+References: <1466592756-11239-1-git-send-email-fugang.duan@nxp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Alexander Duyck <aduyck@mirantis.com>,
-	Eric Dumazet <edumazet@google.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <stephen@networkplumber.org>,
+	<fugang.duan@nxp.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53875 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752182AbcFVMWU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 22 Jun 2016 08:22:20 -0400
-In-Reply-To: <20160622105544.GC2068@nanopsycho.orion>
+Received: from mail-by2on0089.outbound.protection.outlook.com ([207.46.100.89]:19690
+	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751244AbcFVMax (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 22 Jun 2016 08:30:53 -0400
+In-Reply-To: <1466592756-11239-1-git-send-email-fugang.duan@nxp.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 2016-06-22 at 12:55 +0200, Jiri Pirko wrote:
-> Wed, Jun 22, 2016 at 12:25:15PM CEST, pabeni@redhat.com wrote:
-> >Before the commit 0dfe17823945 ("net: vlan: goto another_round
-> >instead of calling __netif_receive_skb"), on tagged skb ingress,
-> >ptype specific protocol matches were delivered only to the
-> >related vlan device, if any.
-> >After said commit, jumping back to the 'another_round' label, allows
-> >the later ptype specific check to match both orig_dev and skb->dev,
-> >delivering the skb to both the vlan device and the underlying
-> >device.
-> >This cause i.e. packet sockets bound to a specific protocol type on
-> >one of said devices to receive also frames really targeting the
-> >other device.
-> >This commit resets orig_dev before performing another round due to
-> >vlan processing, allowing the skb to be delivered once again only
-> >to the vlan specific ptypes.
-> 
-> I don't get why vlan should behave differently in this comparing to
-> other stacked devices like bond/team/br etc.
-> 
-> Could you please explain?
+i.MX6UL is a member in i.MX series family, the SOC FEC inherits from
+i.MX6SX but removes some IP features, lets define a new type for fec
+device.
 
-vlan behavior has changed with the commit 0dfe17823945 (which is old,
-but still...), this patch is trying to restore the old one.
+Signed-off-by: Fugang Duan <fugang.duan@nxp.com>
+---
+ drivers/net/ethernet/freescale/fec_main.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-The new behavior fouls existing applications which where expecting ptype
-specific match to be delivered only on the relevant device. 
-
-AFAIC jumping back to the 'another_round' is possible for team, bond,
-macvlan, macsec and ipvlan device, beyond vlan devices. I think the
-latter should be treated differently, beyond history reasons, because
-the vlan device processing, stripping the vlan tag, actually changes the
-ethernet type present into the ethernet header in respect to the wire
-packet layout; strict match on that value should give different results
-before and after vlan stripping.
-
-Paolo
+diff --git a/drivers/net/ethernet/freescale/fec_main.c b/drivers/net/ethernet/freescale/fec_main.c
+index 8afef20..4040003 100644
+--- a/drivers/net/ethernet/freescale/fec_main.c
++++ b/drivers/net/ethernet/freescale/fec_main.c
+@@ -113,6 +113,12 @@ static struct platform_device_id fec_devtype[] = {
+ 				FEC_QUIRK_ERR007885 | FEC_QUIRK_BUG_CAPTURE |
+ 				FEC_QUIRK_HAS_RACC | FEC_QUIRK_HAS_COALESCE,
+ 	}, {
++		.name = "imx6ul-fec",
++		.driver_data = FEC_QUIRK_ENET_MAC | FEC_QUIRK_HAS_GBIT |
++				FEC_QUIRK_HAS_BUFDESC_EX | FEC_QUIRK_HAS_CSUM |
++				FEC_QUIRK_HAS_VLAN | FEC_QUIRK_BUG_CAPTURE |
++				FEC_QUIRK_HAS_RACC | FEC_QUIRK_HAS_COALESCE,
++	}, {
+ 		/* sentinel */
+ 	}
+ };
+@@ -125,6 +131,7 @@ enum imx_fec_type {
+ 	IMX6Q_FEC,
+ 	MVF600_FEC,
+ 	IMX6SX_FEC,
++	IMX6UL_FEC,
+ };
+ 
+ static const struct of_device_id fec_dt_ids[] = {
+@@ -134,6 +141,7 @@ static const struct of_device_id fec_dt_ids[] = {
+ 	{ .compatible = "fsl,imx6q-fec", .data = &fec_devtype[IMX6Q_FEC], },
+ 	{ .compatible = "fsl,mvf600-fec", .data = &fec_devtype[MVF600_FEC], },
+ 	{ .compatible = "fsl,imx6sx-fec", .data = &fec_devtype[IMX6SX_FEC], },
++	{ .compatible = "fsl,imx6ul-fec", .data = &fec_devtype[IMX6UL_FEC], },
+ 	{ /* sentinel */ }
+ };
+ MODULE_DEVICE_TABLE(of, fec_dt_ids);
+-- 
+1.9.1
