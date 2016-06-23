@@ -1,79 +1,39 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 00/10] Mellanox 100G mlx5e Ethernet extensions
-Date: Thu, 23 Jun 2016 17:02:36 +0300
-Message-ID: <1466690566-14700-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: esp: Fix ESN generation under UDP encapsulation
+Date: Thu, 23 Jun 2016 11:52:45 -0400 (EDT)
+Message-ID: <20160623.115245.451201603985254809.davem@davemloft.net>
+References: <20160620105934.GL7698@gauss.secunet.com>
+	<576B64B1.9030000@alliedtelesis.co.nz>
+	<20160623104007.GO7698@gauss.secunet.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Blair.Steven@alliedtelesis.co.nz, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: steffen.klassert@secunet.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:35370 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751265AbcFWPrF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jun 2016 11:47:05 -0400
+Received: from shards.monkeyblade.net ([149.20.54.216]:33244 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750950AbcFWPwv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 11:52:51 -0400
+In-Reply-To: <20160623104007.GO7698@gauss.secunet.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Dave,
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Date: Thu, 23 Jun 2016 12:40:07 +0200
 
-This series includes multiple features extensions for mlx5 Ethernet netdevice driver.
-Namely, TX Rate limiting, RX interrupt moderation, ethtool settings.
+> On Thu, Jun 23, 2016 at 04:25:21AM +0000, Blair Steven wrote:
+>> This change tests okay in my setup.
+>> 
+>> Thanks very much
+>> -Blair
+> 
+> David, can you please take this patch directly in the net tree?
+> This is a candidate for stable.
+> 
+> Acked-by: Steffen Klassert <steffen.klassert@secunet.com>
 
-TX Rate limiting:
-	- ConnectX-4 rate limiting infrastructure
-	- Set max rate NDO support
+Applied, thanks everyone.
 
-RX interrupt moderation:
-	- CQE based coalescing option (controlled via priv flags)
-	- Adaptive RX coalescing
-
-ethtool settings:
-	- priv flags callbacks
-	- Support new ksettings API
-	- Add 50G missing link mode
-	- Support auto negotiation on/off
-
-Changes since V1:
-	- Split ("net/mlx5e: Add 50G missing link mode to ethtool and mlx5 driver")
-
-Thanks,
-Saeed.
-
-Gal Pressman (6):
-  net/mlx5e: Introduce net device priv flags infrastructure
-  net/mlx5e: Toggle link only after modifying port parameters
-  ethtool: Add 50G baseSR2 link mode
-  net/mlx5e: Add missing 50G baseSR2 link mode
-  net/mlx5e: Use new ethtool get/set link ksettings API
-  net/mlx5e: Report correct auto negotiation and allow toggling
-
-Gil Rockah (1):
-  net/mlx5e: Support adaptive RX coalescing
-
-Tariq Toukan (1):
-  net/mlx5e: CQE based moderation
-
-Yevgeny Petrilin (2):
-  net/mlx5: Rate limit tables support
-  net/mlx5e: Add TXQ set max rate support
-
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   8 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |  73 +++-
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c |   9 +-
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 476 +++++++++++++--------
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 181 +++++++-
- drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c | 335 +++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_txrx.c  |   5 +
- drivers/net/ethernet/mellanox/mlx5/core/fw.c       |   6 +
- drivers/net/ethernet/mellanox/mlx5/core/main.c     |  10 +
- drivers/net/ethernet/mellanox/mlx5/core/port.c     |  48 ++-
- drivers/net/ethernet/mellanox/mlx5/core/rl.c       | 209 +++++++++
- include/linux/mlx5/device.h                        |   4 +
- include/linux/mlx5/driver.h                        |  27 ++
- include/linux/mlx5/port.h                          |  16 +-
- include/uapi/linux/ethtool.h                       |   3 +-
- 15 files changed, 1179 insertions(+), 231 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_rx_am.c
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/rl.c
-
--- 
-2.8.0
+Does the ipv6 side need the same fix?
