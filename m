@@ -1,7 +1,7 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v3 5/6] Makefile: Allow to override CC
-Date: Thu, 23 Jun 2016 19:34:13 +0200
-Message-ID: <1466703254-5174-6-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v3 6/6] misc/ifstat: simplify unsigned value comparison
+Date: Thu, 23 Jun 2016 19:34:14 +0200
+Message-ID: <1466703254-5174-7-git-send-email-phil@nwl.cc>
 References: <1466703254-5174-1-git-send-email-phil@nwl.cc>
 Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	David Ahern <dsa@cumulusnetworks.com>,
@@ -9,38 +9,40 @@ Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	Julien Floret <julien.floret@6wind.com>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:35594 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:44544 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751241AbcFWRfF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jun 2016 13:35:05 -0400
+	id S1751891AbcFWRe7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 13:34:59 -0400
 In-Reply-To: <1466703254-5174-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This makes it easier to build iproute2 with a custom compiler.
+By directly comparing the value of both unsigned variables, casting to
+signed becomes unnecessary.
 
-While at it, make HOSTCC default to the value of CC if not explicitly
-set elsewhere.
+This also fixes for compiling with older versions of gcc (at least
+<=3.4.6) which emit the following warning:
+
+| ifstat.c: In function `update_db':
+| ifstat.c:542: warning: comparison is always false due to limited range of data type
 
 Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- Makefile | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ misc/ifstat.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/Makefile b/Makefile
-index 15c81ecfdca3a..fa200ddb76679 100644
---- a/Makefile
-+++ b/Makefile
-@@ -34,8 +34,8 @@ ADDLIB+=ipx_ntop.o ipx_pton.o
- #options for mpls
- ADDLIB+=mpls_ntop.o mpls_pton.o
+diff --git a/misc/ifstat.c b/misc/ifstat.c
+index abbb4e732fcef..9a44da487599e 100644
+--- a/misc/ifstat.c
++++ b/misc/ifstat.c
+@@ -539,7 +539,7 @@ static void update_db(int interval)
+ 				int i;
  
--CC = gcc
--HOSTCC = gcc
-+CC := gcc
-+HOSTCC ?= $(CC)
- DEFINES += -D_GNU_SOURCE
- # Turn on transparent support for LFS
- DEFINES += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
+ 				for (i = 0; i < MAXS; i++) {
+-					if ((long)(h1->ival[i] - n->ival[i]) < 0) {
++					if (h1->ival[i] < n->ival[i]) {
+ 						memset(n->ival, 0, sizeof(n->ival));
+ 						break;
+ 					}
 -- 
 2.8.2
