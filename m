@@ -1,76 +1,50 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: Re: [PATCH] Bridge: Fix ipv6 mc snooping if it has no ipv6
-	address.
-Date: Thu, 23 Jun 2016 20:42:42 +0200
-Message-ID: <20160623184242.GC5511@otheros>
-References: <4375d883-a95f-d032-c678-ed2fd665c36b@dd-wrt.com>
+From: Soohoon Lee <Soohoon.Lee@f5.com>
+Subject: [ PATCH] usbnet.c mtu change needs to stop RX
+Date: Thu, 23 Jun 2016 18:43:35 +0000
+Message-ID: <0ffe756fb77249c6bcc751c423590827@seaexchmbx01.olympus.F5Net.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Ulrich Weber <ulrich.weber@sophos.com>
-To: daniel <daniel@dd-wrt.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <4375d883-a95f-d032-c678-ed2fd665c36b@dd-wrt.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
-
-Hi Daniel,
-
-Thanks for submitting this patch here :).
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "oneukum@suse.com" <oneukum@suse.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.f5.com ([208.85.209.139]:64827 "EHLO mail.f5.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751832AbcFWSxP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 14:53:15 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-On Thu, Jun 23, 2016 at 11:28:55AM +0200, daniel wrote:
-> The bridge is falsly dropping ipv6 mulitcast packets
-> if there is no ipv6 address assigned on the brigde and no
-> external mld querier is present.
-
-and if the bridge internal querier is enabled (usually disabled
-by default in the bridge code, but enabled by default in OpenWRT
-for instance).
-
-> 
-> When the bridge fails to build mld queries, because it has no
-> ipv6 address, it silently returns, but keeps the local querier enabled.
-> (br_multicast.c:832)
-
-Not sure whether David or others like line numbers in commit messages, as
-they can change over time.
-
-> 
-> Ipv6 multicast snooping can only work if:
->  a) an external querier is present
-
-maybe clarify that this is an OR, not AND?
+When MTU is changed unlink_urbs() flushes RX Q but mean while usbnet_bh() can fill up the Q at the same time.
+Depends on which HCD is down there unlink takes long time then the flush never ends.
 
 
-I think you can add a [PATCH net] tag, as it seems small
-enough for stable kernels and fixes a potential, confusing packet
-loss case.
-
-Also maybe add a:
---
-Fixes: 1d81d4c3dd88 ("bridge: check return value of ipv6_dev_get_saddr()")
---
-
-Regards, Linus
-
-
-PS: Does not seem to apply for me on either David's net branch or
-Torvald's master branch.
-
-"fatal: patch fragment without header at line 7: @@ -599,10
-+612,12 @@ static inline bool"
-
-Try using "git format-patch" and "git send-email" instead. Also
-check ./scripts/get_maintainer.pl for a few more email addresses
-to add.
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 61ba464..e03e3e6 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -708,6 +708,7 @@ static int unlink_urbs (struct usbnet *dev, struct sk_buff_head *q)
+        int                     count = 0;
+ 
+        spin_lock_irqsave (&q->lock, flags);
++       usbnet_pause_rx(dev);
+        while (!skb_queue_empty(q)) {
+                struct skb_data         *entry;
+                struct urb              *urb;
+@@ -742,6 +743,7 @@ found:
+                usb_put_urb(urb);
+                spin_lock_irqsave(&q->lock, flags);
+        }
++       usbnet_resume_rx(dev);
+        spin_unlock_irqrestore (&q->lock, flags);
+        return count;
+ }
+@@ -1509,6 +1511,7 @@ static void usbnet_bh (unsigned long param)
+                   netif_device_present (dev->net) &&
+                   netif_carrier_ok(dev->net) &&
+                   !timer_pending (&dev->delay) &&
++                  !test_bit (EVENT_RX_PAUSED, &dev->flags) &&
+                   !test_bit (EVENT_RX_HALT, &dev->flags)) {
+                int     temp = dev->rxq.qlen;
