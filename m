@@ -1,228 +1,488 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 10/10] net/mlx5e: Report correct auto negotiation and allow toggling
-Date: Thu, 23 Jun 2016 17:02:46 +0300
-Message-ID: <1466690566-14700-11-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 09/10] net/mlx5e: Use new ethtool get/set link ksettings API
+Date: Thu, 23 Jun 2016 17:02:45 +0300
+Message-ID: <1466690566-14700-10-git-send-email-saeedm@mellanox.com>
 References: <1466690566-14700-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Gal Pressman <galp@mellanox.com>,
+	Ben Hutchings <bwh@kernel.org>,
+	David Decotigny <decot@googlers.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:35329 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:35322 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751872AbcFWPqy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jun 2016 11:46:54 -0400
+	id S1751808AbcFWPqx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 11:46:53 -0400
 In-Reply-To: <1466690566-14700-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gal Pressman <galp@mellanox.com>
 
-Previous to this patch auto negotiation was reported off although it was
-on by default in hardware. This patch reports the correct information to
-ethtool and allows the user to toggle it on/off.
-
-Added another parameter to set port proto function in order to pass
-the auto negotiation field to the hardware.
+Use new get/set link ksettings and remove get/set settings legacy
+callbacks.
+This allows us to use bitmasks longer than 32 bit for supported and
+advertised link modes and use modes that were previously not supported.
 
 Signed-off-by: Gal Pressman <galp@mellanox.com>
+CC: Ben Hutchings <bwh@kernel.org>
+CC: David Decotigny <decot@googlers.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 42 ++++++++++++++++++----
- drivers/net/ethernet/mellanox/mlx5/core/port.c     | 36 ++++++++++++++++---
- include/linux/mlx5/port.h                          | 15 ++++++--
- 3 files changed, 80 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   3 +
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 306 ++++++++++-----------
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |   1 +
+ 3 files changed, 143 insertions(+), 167 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index b8732e6..da885c0 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -634,6 +634,9 @@ enum mlx5e_link_mode {
+ 
+ #define MLX5E_PROT_MASK(link_mode) (1 << link_mode)
+ 
++
++void mlx5e_build_ptys2ethtool_map(void);
++
+ void mlx5e_send_nop(struct mlx5e_sq *sq, bool notify_hw);
+ u16 mlx5e_select_queue(struct net_device *dev, struct sk_buff *skb,
+ 		       void *accel_priv, select_queue_fallback_t fallback);
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 4c560e0..39a4d96 100644
+index d0d3dcf..4c560e0 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -702,6 +702,8 @@ static int mlx5e_get_link_ksettings(struct net_device *netdev,
- 	u32 eth_proto_admin;
- 	u32 eth_proto_lp;
- 	u32 eth_proto_oper;
-+	u8 an_disable_admin;
-+	u8 an_status;
- 	int err;
+@@ -48,123 +48,85 @@ static void mlx5e_get_drvinfo(struct net_device *dev,
+ 		sizeof(drvinfo->bus_info));
+ }
  
- 	err = mlx5_query_port_ptys(mdev, out, sizeof(out), MLX5_PTYS_EN, 1);
-@@ -712,10 +714,12 @@ static int mlx5e_get_link_ksettings(struct net_device *netdev,
- 		goto err_query_ptys;
- 	}
+-static const struct {
+-	u32 supported;
+-	u32 advertised;
++struct ptys2ethtool_config {
++	__ETHTOOL_DECLARE_LINK_MODE_MASK(supported);
++	__ETHTOOL_DECLARE_LINK_MODE_MASK(advertised);
+ 	u32 speed;
+-} ptys2ethtool_table[MLX5E_LINK_MODES_NUMBER] = {
+-	[MLX5E_1000BASE_CX_SGMII] = {
+-		.supported  = SUPPORTED_1000baseKX_Full,
+-		.advertised = ADVERTISED_1000baseKX_Full,
+-		.speed      = 1000,
+-	},
+-	[MLX5E_1000BASE_KX] = {
+-		.supported  = SUPPORTED_1000baseKX_Full,
+-		.advertised = ADVERTISED_1000baseKX_Full,
+-		.speed      = 1000,
+-	},
+-	[MLX5E_10GBASE_CX4] = {
+-		.supported  = SUPPORTED_10000baseKX4_Full,
+-		.advertised = ADVERTISED_10000baseKX4_Full,
+-		.speed      = 10000,
+-	},
+-	[MLX5E_10GBASE_KX4] = {
+-		.supported  = SUPPORTED_10000baseKX4_Full,
+-		.advertised = ADVERTISED_10000baseKX4_Full,
+-		.speed      = 10000,
+-	},
+-	[MLX5E_10GBASE_KR] = {
+-		.supported  = SUPPORTED_10000baseKR_Full,
+-		.advertised = ADVERTISED_10000baseKR_Full,
+-		.speed      = 10000,
+-	},
+-	[MLX5E_20GBASE_KR2] = {
+-		.supported  = SUPPORTED_20000baseKR2_Full,
+-		.advertised = ADVERTISED_20000baseKR2_Full,
+-		.speed      = 20000,
+-	},
+-	[MLX5E_40GBASE_CR4] = {
+-		.supported  = SUPPORTED_40000baseCR4_Full,
+-		.advertised = ADVERTISED_40000baseCR4_Full,
+-		.speed      = 40000,
+-	},
+-	[MLX5E_40GBASE_KR4] = {
+-		.supported  = SUPPORTED_40000baseKR4_Full,
+-		.advertised = ADVERTISED_40000baseKR4_Full,
+-		.speed      = 40000,
+-	},
+-	[MLX5E_56GBASE_R4] = {
+-		.supported  = SUPPORTED_56000baseKR4_Full,
+-		.advertised = ADVERTISED_56000baseKR4_Full,
+-		.speed      = 56000,
+-	},
+-	[MLX5E_10GBASE_CR] = {
+-		.supported  = SUPPORTED_10000baseKR_Full,
+-		.advertised = ADVERTISED_10000baseKR_Full,
+-		.speed      = 10000,
+-	},
+-	[MLX5E_10GBASE_SR] = {
+-		.supported  = SUPPORTED_10000baseKR_Full,
+-		.advertised = ADVERTISED_10000baseKR_Full,
+-		.speed      = 10000,
+-	},
+-	[MLX5E_10GBASE_ER] = {
+-		.supported  = SUPPORTED_10000baseKR_Full,
+-		.advertised = ADVERTISED_10000baseKR_Full,
+-		.speed      = 10000,
+-	},
+-	[MLX5E_40GBASE_SR4] = {
+-		.supported  = SUPPORTED_40000baseSR4_Full,
+-		.advertised = ADVERTISED_40000baseSR4_Full,
+-		.speed      = 40000,
+-	},
+-	[MLX5E_40GBASE_LR4] = {
+-		.supported  = SUPPORTED_40000baseLR4_Full,
+-		.advertised = ADVERTISED_40000baseLR4_Full,
+-		.speed      = 40000,
+-	},
+-	[MLX5E_100GBASE_CR4] = {
+-		.speed      = 100000,
+-	},
+-	[MLX5E_100GBASE_SR4] = {
+-		.speed      = 100000,
+-	},
+-	[MLX5E_100GBASE_KR4] = {
+-		.speed      = 100000,
+-	},
+-	[MLX5E_100GBASE_LR4] = {
+-		.speed      = 100000,
+-	},
+-	[MLX5E_100BASE_TX]   = {
+-		.speed      = 100,
+-	},
+-	[MLX5E_1000BASE_T]    = {
+-		.supported  = SUPPORTED_1000baseT_Full,
+-		.advertised = ADVERTISED_1000baseT_Full,
+-		.speed      = 1000,
+-	},
+-	[MLX5E_10GBASE_T]    = {
+-		.supported  = SUPPORTED_10000baseT_Full,
+-		.advertised = ADVERTISED_10000baseT_Full,
+-		.speed      = 1000,
+-	},
+-	[MLX5E_25GBASE_CR]   = {
+-		.speed      = 25000,
+-	},
+-	[MLX5E_25GBASE_KR]   = {
+-		.speed      = 25000,
+-	},
+-	[MLX5E_25GBASE_SR]   = {
+-		.speed      = 25000,
+-	},
+-	[MLX5E_50GBASE_CR2]  = {
+-		.speed      = 50000,
+-	},
+-	[MLX5E_50GBASE_KR2]  = {
+-		.speed      = 50000,
+-	},
+ };
  
--	eth_proto_cap   = MLX5_GET(ptys_reg, out, eth_proto_capability);
--	eth_proto_admin = MLX5_GET(ptys_reg, out, eth_proto_admin);
--	eth_proto_oper  = MLX5_GET(ptys_reg, out, eth_proto_oper);
--	eth_proto_lp    = MLX5_GET(ptys_reg, out, eth_proto_lp_advertise);
-+	eth_proto_cap    = MLX5_GET(ptys_reg, out, eth_proto_capability);
-+	eth_proto_admin  = MLX5_GET(ptys_reg, out, eth_proto_admin);
-+	eth_proto_oper   = MLX5_GET(ptys_reg, out, eth_proto_oper);
-+	eth_proto_lp     = MLX5_GET(ptys_reg, out, eth_proto_lp_advertise);
-+	an_disable_admin = MLX5_GET(ptys_reg, out, an_disable_admin);
-+	an_status        = MLX5_GET(ptys_reg, out, an_status);
- 
- 	ethtool_link_ksettings_zero_link_mode(link_ksettings, supported);
- 	ethtool_link_ksettings_zero_link_mode(link_ksettings, advertising);
-@@ -729,6 +733,18 @@ static int mlx5e_get_link_ksettings(struct net_device *netdev,
- 	link_ksettings->base.port = get_connector_port(eth_proto_oper);
- 	get_lp_advertising(eth_proto_lp, link_ksettings);
- 
-+	if (an_status == MLX5_AN_COMPLETE)
-+		ethtool_link_ksettings_add_link_mode(link_ksettings,
-+						     lp_advertising, Autoneg);
++static struct ptys2ethtool_config ptys2ethtool_table[MLX5E_LINK_MODES_NUMBER];
 +
-+	link_ksettings->base.autoneg = an_disable_admin ? AUTONEG_DISABLE :
-+							  AUTONEG_ENABLE;
-+	ethtool_link_ksettings_add_link_mode(link_ksettings, supported,
-+					     Autoneg);
-+	if (!an_disable_admin)
-+		ethtool_link_ksettings_add_link_mode(link_ksettings,
-+						     advertising, Autoneg);
++#define MLX5_BUILD_PTYS2ETHTOOL_CONFIG(reg_, speed_, ...)               \
++	({                                                              \
++		struct ptys2ethtool_config *cfg;                        \
++		const unsigned int modes[] = { __VA_ARGS__ };           \
++		unsigned int i;                                         \
++		cfg = &ptys2ethtool_table[reg_];                        \
++		cfg->speed = speed_;                                    \
++		bitmap_zero(cfg->supported,                             \
++			    __ETHTOOL_LINK_MODE_MASK_NBITS);            \
++		bitmap_zero(cfg->advertised,                            \
++			    __ETHTOOL_LINK_MODE_MASK_NBITS);            \
++		for (i = 0 ; i < ARRAY_SIZE(modes) ; ++i) {             \
++			__set_bit(modes[i], cfg->supported);            \
++			__set_bit(modes[i], cfg->advertised);           \
++		}                                                       \
++	})
 +
- err_query_ptys:
++void mlx5e_build_ptys2ethtool_map(void)
++{
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_1000BASE_CX_SGMII, SPEED_1000,
++				       ETHTOOL_LINK_MODE_1000baseKX_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_1000BASE_KX, SPEED_1000,
++				       ETHTOOL_LINK_MODE_1000baseKX_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_10GBASE_CX4, SPEED_10000,
++				       ETHTOOL_LINK_MODE_10000baseKX4_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_10GBASE_KX4, SPEED_10000,
++				       ETHTOOL_LINK_MODE_10000baseKX4_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_10GBASE_KR, SPEED_10000,
++				       ETHTOOL_LINK_MODE_10000baseKR_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_20GBASE_KR2, SPEED_20000,
++				       ETHTOOL_LINK_MODE_20000baseKR2_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_40GBASE_CR4, SPEED_40000,
++				       ETHTOOL_LINK_MODE_40000baseCR4_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_40GBASE_KR4, SPEED_40000,
++				       ETHTOOL_LINK_MODE_40000baseKR4_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_56GBASE_R4, SPEED_56000,
++				       ETHTOOL_LINK_MODE_56000baseKR4_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_10GBASE_CR, SPEED_10000,
++				       ETHTOOL_LINK_MODE_10000baseKR_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_10GBASE_SR, SPEED_10000,
++				       ETHTOOL_LINK_MODE_10000baseKR_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_10GBASE_ER, SPEED_10000,
++				       ETHTOOL_LINK_MODE_10000baseKR_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_40GBASE_SR4, SPEED_40000,
++				       ETHTOOL_LINK_MODE_40000baseSR4_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_40GBASE_LR4, SPEED_40000,
++				       ETHTOOL_LINK_MODE_40000baseLR4_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_50GBASE_SR2, SPEED_50000,
++				       ETHTOOL_LINK_MODE_50000baseSR2_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_100GBASE_CR4, SPEED_100000,
++				       ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_100GBASE_SR4, SPEED_100000,
++				       ETHTOOL_LINK_MODE_100000baseSR4_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_100GBASE_KR4, SPEED_100000,
++				       ETHTOOL_LINK_MODE_100000baseKR4_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_100GBASE_LR4, SPEED_100000,
++				       ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_10GBASE_T, SPEED_10000,
++				       ETHTOOL_LINK_MODE_10000baseT_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_25GBASE_CR, SPEED_25000,
++				       ETHTOOL_LINK_MODE_25000baseCR_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_25GBASE_KR, SPEED_25000,
++				       ETHTOOL_LINK_MODE_25000baseKR_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_25GBASE_SR, SPEED_25000,
++				       ETHTOOL_LINK_MODE_25000baseSR_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_50GBASE_CR2, SPEED_50000,
++				       ETHTOOL_LINK_MODE_50000baseCR2_Full_BIT);
++	MLX5_BUILD_PTYS2ETHTOOL_CONFIG(MLX5E_50GBASE_KR2, SPEED_50000,
++				       ETHTOOL_LINK_MODE_50000baseKR2_Full_BIT);
++}
++
+ static unsigned long mlx5e_query_pfc_combined(struct mlx5e_priv *priv)
+ {
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+@@ -588,31 +550,30 @@ out:
  	return err;
  }
-@@ -764,9 +780,14 @@ static int mlx5e_set_link_ksettings(struct net_device *netdev,
+ 
+-static u32 ptys2ethtool_supported_link(u32 eth_proto_cap)
++static void ptys2ethtool_supported_link(unsigned long *supported_modes,
++					u32 eth_proto_cap)
+ {
+-	int i;
+-	u32 supported_modes = 0;
++	int proto;
+ 
+-	for (i = 0; i < MLX5E_LINK_MODES_NUMBER; ++i) {
+-		if (eth_proto_cap & MLX5E_PROT_MASK(i))
+-			supported_modes |= ptys2ethtool_table[i].supported;
+-	}
+-	return supported_modes;
++	for_each_set_bit(proto, (unsigned long *)&eth_proto_cap, MLX5E_LINK_MODES_NUMBER)
++		bitmap_or(supported_modes, supported_modes,
++			  ptys2ethtool_table[proto].supported,
++			  __ETHTOOL_LINK_MODE_MASK_NBITS);
+ }
+ 
+-static u32 ptys2ethtool_adver_link(u32 eth_proto_cap)
++static void ptys2ethtool_adver_link(unsigned long *advertising_modes,
++				    u32 eth_proto_cap)
+ {
+-	int i;
+-	u32 advertising_modes = 0;
++	int proto;
+ 
+-	for (i = 0; i < MLX5E_LINK_MODES_NUMBER; ++i) {
+-		if (eth_proto_cap & MLX5E_PROT_MASK(i))
+-			advertising_modes |= ptys2ethtool_table[i].advertised;
+-	}
+-	return advertising_modes;
++	for_each_set_bit(proto, (unsigned long *)&eth_proto_cap, MLX5E_LINK_MODES_NUMBER)
++		bitmap_or(advertising_modes, advertising_modes,
++			  ptys2ethtool_table[proto].advertised,
++			  __ETHTOOL_LINK_MODE_MASK_NBITS);
+ }
+ 
+-static u32 ptys2ethtool_supported_port(u32 eth_proto_cap)
++static void ptys2ethtool_supported_port(struct ethtool_link_ksettings *link_ksettings,
++					u32 eth_proto_cap)
+ {
+ 	if (eth_proto_cap & (MLX5E_PROT_MASK(MLX5E_10GBASE_CR)
+ 			   | MLX5E_PROT_MASK(MLX5E_10GBASE_SR)
+@@ -620,7 +581,7 @@ static u32 ptys2ethtool_supported_port(u32 eth_proto_cap)
+ 			   | MLX5E_PROT_MASK(MLX5E_40GBASE_SR4)
+ 			   | MLX5E_PROT_MASK(MLX5E_100GBASE_SR4)
+ 			   | MLX5E_PROT_MASK(MLX5E_1000BASE_CX_SGMII))) {
+-		return SUPPORTED_FIBRE;
++		ethtool_link_ksettings_add_link_mode(link_ksettings, supported, FIBRE);
+ 	}
+ 
+ 	if (eth_proto_cap & (MLX5E_PROT_MASK(MLX5E_100GBASE_KR4)
+@@ -628,9 +589,8 @@ static u32 ptys2ethtool_supported_port(u32 eth_proto_cap)
+ 			   | MLX5E_PROT_MASK(MLX5E_10GBASE_KR)
+ 			   | MLX5E_PROT_MASK(MLX5E_10GBASE_KX4)
+ 			   | MLX5E_PROT_MASK(MLX5E_1000BASE_KX))) {
+-		return SUPPORTED_Backplane;
++		ethtool_link_ksettings_add_link_mode(link_ksettings, supported, Backplane);
+ 	}
+-	return 0;
+ }
+ 
+ int mlx5e_get_max_linkspeed(struct mlx5_core_dev *mdev, u32 *speed)
+@@ -654,7 +614,7 @@ int mlx5e_get_max_linkspeed(struct mlx5_core_dev *mdev, u32 *speed)
+ 
+ static void get_speed_duplex(struct net_device *netdev,
+ 			     u32 eth_proto_oper,
+-			     struct ethtool_cmd *cmd)
++			     struct ethtool_link_ksettings *link_ksettings)
+ {
+ 	int i;
+ 	u32 speed = SPEED_UNKNOWN;
+@@ -671,23 +631,32 @@ static void get_speed_duplex(struct net_device *netdev,
+ 		}
+ 	}
+ out:
+-	ethtool_cmd_speed_set(cmd, speed);
+-	cmd->duplex = duplex;
++	link_ksettings->base.speed = speed;
++	link_ksettings->base.duplex = duplex;
+ }
+ 
+-static void get_supported(u32 eth_proto_cap, u32 *supported)
++static void get_supported(u32 eth_proto_cap,
++			  struct ethtool_link_ksettings *link_ksettings)
+ {
+-	*supported |= ptys2ethtool_supported_port(eth_proto_cap);
+-	*supported |= ptys2ethtool_supported_link(eth_proto_cap);
+-	*supported |= SUPPORTED_Pause | SUPPORTED_Asym_Pause;
++	unsigned long *supported = link_ksettings->link_modes.supported;
++
++	ptys2ethtool_supported_port(link_ksettings, eth_proto_cap);
++	ptys2ethtool_supported_link(supported, eth_proto_cap);
++	ethtool_link_ksettings_add_link_mode(link_ksettings, supported, Pause);
++	ethtool_link_ksettings_add_link_mode(link_ksettings, supported, Asym_Pause);
+ }
+ 
+ static void get_advertising(u32 eth_proto_cap, u8 tx_pause,
+-			    u8 rx_pause, u32 *advertising)
++			    u8 rx_pause,
++			    struct ethtool_link_ksettings *link_ksettings)
+ {
+-	*advertising |= ptys2ethtool_adver_link(eth_proto_cap);
+-	*advertising |= tx_pause ? ADVERTISED_Pause : 0;
+-	*advertising |= (tx_pause ^ rx_pause) ? ADVERTISED_Asym_Pause : 0;
++	unsigned long *advertising = link_ksettings->link_modes.advertising;
++
++	ptys2ethtool_adver_link(advertising, eth_proto_cap);
++	if (tx_pause)
++		ethtool_link_ksettings_add_link_mode(link_ksettings, advertising, Pause);
++	if (tx_pause ^ rx_pause)
++		ethtool_link_ksettings_add_link_mode(link_ksettings, advertising, Asym_Pause);
+ }
+ 
+ static u8 get_connector_port(u32 eth_proto)
+@@ -715,13 +684,16 @@ static u8 get_connector_port(u32 eth_proto)
+ 	return PORT_OTHER;
+ }
+ 
+-static void get_lp_advertising(u32 eth_proto_lp, u32 *lp_advertising)
++static void get_lp_advertising(u32 eth_proto_lp,
++			       struct ethtool_link_ksettings *link_ksettings)
+ {
+-	*lp_advertising = ptys2ethtool_adver_link(eth_proto_lp);
++	unsigned long *lp_advertising = link_ksettings->link_modes.lp_advertising;
++
++	ptys2ethtool_adver_link(lp_advertising, eth_proto_lp);
+ }
+ 
+-static int mlx5e_get_settings(struct net_device *netdev,
+-			      struct ethtool_cmd *cmd)
++static int mlx5e_get_link_ksettings(struct net_device *netdev,
++				    struct ethtool_link_ksettings *link_ksettings)
  {
  	struct mlx5e_priv *priv    = netdev_priv(netdev);
  	struct mlx5_core_dev *mdev = priv->mdev;
-+	u32 eth_proto_cap, eth_proto_admin;
-+	bool an_changes = false;
-+	u8 an_disable_admin;
-+	u8 an_disable_cap;
-+	bool an_disable;
- 	u32 link_modes;
-+	u8 an_status;
- 	u32 speed;
--	u32 eth_proto_cap, eth_proto_admin;
- 	int err;
+@@ -745,30 +717,30 @@ static int mlx5e_get_settings(struct net_device *netdev,
+ 	eth_proto_oper  = MLX5_GET(ptys_reg, out, eth_proto_oper);
+ 	eth_proto_lp    = MLX5_GET(ptys_reg, out, eth_proto_lp_advertise);
  
- 	speed = link_ksettings->base.speed;
-@@ -797,10 +818,17 @@ static int mlx5e_set_link_ksettings(struct net_device *netdev,
- 		goto out;
+-	cmd->supported   = 0;
+-	cmd->advertising = 0;
++	ethtool_link_ksettings_zero_link_mode(link_ksettings, supported);
++	ethtool_link_ksettings_zero_link_mode(link_ksettings, advertising);
+ 
+-	get_supported(eth_proto_cap, &cmd->supported);
+-	get_advertising(eth_proto_admin, 0, 0, &cmd->advertising);
+-	get_speed_duplex(netdev, eth_proto_oper, cmd);
++	get_supported(eth_proto_cap, link_ksettings);
++	get_advertising(eth_proto_admin, 0, 0, link_ksettings);
++	get_speed_duplex(netdev, eth_proto_oper, link_ksettings);
+ 
+ 	eth_proto_oper = eth_proto_oper ? eth_proto_oper : eth_proto_cap;
+ 
+-	cmd->port = get_connector_port(eth_proto_oper);
+-	get_lp_advertising(eth_proto_lp, &cmd->lp_advertising);
+-
+-	cmd->transceiver = XCVR_INTERNAL;
++	link_ksettings->base.port = get_connector_port(eth_proto_oper);
++	get_lp_advertising(eth_proto_lp, link_ksettings);
+ 
+ err_query_ptys:
+ 	return err;
+ }
+ 
+-static u32 mlx5e_ethtool2ptys_adver_link(u32 link_modes)
++static u32 mlx5e_ethtool2ptys_adver_link(const unsigned long *link_modes)
+ {
+ 	u32 i, ptys_modes = 0;
+ 
+ 	for (i = 0; i < MLX5E_LINK_MODES_NUMBER; ++i) {
+-		if (ptys2ethtool_table[i].advertised & link_modes)
++		if (bitmap_intersects(ptys2ethtool_table[i].advertised,
++				      link_modes,
++				      __ETHTOOL_LINK_MODE_MASK_NBITS))
+ 			ptys_modes |= MLX5E_PROT_MASK(i);
  	}
  
--	if (link_modes == eth_proto_admin)
-+	mlx5_query_port_autoneg(mdev, MLX5_PTYS_EN, &an_status,
-+				&an_disable_cap, &an_disable_admin);
-+
-+	an_disable = link_ksettings->base.autoneg == AUTONEG_DISABLE;
-+	an_changes = ((!an_disable && an_disable_admin) ||
-+		      (an_disable && !an_disable_admin));
-+
-+	if (!an_changes && link_modes == eth_proto_admin)
- 		goto out;
- 
--	mlx5_set_port_proto(mdev, link_modes, MLX5_PTYS_EN);
-+	mlx5_set_port_ptys(mdev, an_disable, link_modes, MLX5_PTYS_EN);
- 	mlx5_toggle_port_link(mdev);
- 
- out:
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index 1562e73..752c081 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -202,15 +202,24 @@ int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
+@@ -787,8 +759,8 @@ static u32 mlx5e_ethtool2ptys_speed_link(u32 speed)
+ 	return speed_links;
  }
- EXPORT_SYMBOL_GPL(mlx5_query_port_proto_oper);
  
--int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
--			int proto_mask)
-+int mlx5_set_port_ptys(struct mlx5_core_dev *dev, bool an_disable,
-+		       u32 proto_admin, int proto_mask)
+-static int mlx5e_set_settings(struct net_device *netdev,
+-			      struct ethtool_cmd *cmd)
++static int mlx5e_set_link_ksettings(struct net_device *netdev,
++				    const struct ethtool_link_ksettings *link_ksettings)
  {
--	u32 in[MLX5_ST_SZ_DW(ptys_reg)];
- 	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
-+	u32 in[MLX5_ST_SZ_DW(ptys_reg)];
-+	u8 an_disable_admin;
-+	u8 an_disable_cap;
-+	u8 an_status;
-+
-+	mlx5_query_port_autoneg(dev, proto_mask, &an_status,
-+				&an_disable_cap, &an_disable_admin);
-+	if (!an_disable_cap && an_disable)
-+		return -EPERM;
+ 	struct mlx5e_priv *priv    = netdev_priv(netdev);
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+@@ -797,10 +769,10 @@ static int mlx5e_set_settings(struct net_device *netdev,
+ 	u32 eth_proto_cap, eth_proto_admin;
+ 	int err;
  
- 	memset(in, 0, sizeof(in));
+-	speed = ethtool_cmd_speed(cmd);
++	speed = link_ksettings->base.speed;
  
- 	MLX5_SET(ptys_reg, in, local_port, 1);
-+	MLX5_SET(ptys_reg, in, an_disable_admin, an_disable);
- 	MLX5_SET(ptys_reg, in, proto_mask, proto_mask);
- 	if (proto_mask == MLX5_PTYS_EN)
- 		MLX5_SET(ptys_reg, in, eth_proto_admin, proto_admin);
-@@ -220,7 +229,7 @@ int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
- 	return mlx5_core_access_reg(dev, in, sizeof(in), out,
- 				    sizeof(out), MLX5_REG_PTYS, 0, 1);
- }
--EXPORT_SYMBOL_GPL(mlx5_set_port_proto);
-+EXPORT_SYMBOL_GPL(mlx5_set_port_ptys);
+-	link_modes = cmd->autoneg == AUTONEG_ENABLE ?
+-		mlx5e_ethtool2ptys_adver_link(cmd->advertising) :
++	link_modes = link_ksettings->base.autoneg == AUTONEG_ENABLE ?
++		mlx5e_ethtool2ptys_adver_link(link_ksettings->link_modes.advertising) :
+ 		mlx5e_ethtool2ptys_speed_link(speed);
  
- /* This function should be used after setting a port register only */
- void mlx5_toggle_port_link(struct mlx5_core_dev *dev)
-@@ -530,6 +539,25 @@ int mlx5_query_port_pfc(struct mlx5_core_dev *dev, u8 *pfc_en_tx, u8 *pfc_en_rx)
- }
- EXPORT_SYMBOL_GPL(mlx5_query_port_pfc);
+ 	err = mlx5_query_port_proto_cap(mdev, &eth_proto_cap, MLX5_PTYS_EN);
+@@ -1380,8 +1352,8 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.set_channels      = mlx5e_set_channels,
+ 	.get_coalesce      = mlx5e_get_coalesce,
+ 	.set_coalesce      = mlx5e_set_coalesce,
+-	.get_settings      = mlx5e_get_settings,
+-	.set_settings      = mlx5e_set_settings,
++	.get_link_ksettings  = mlx5e_get_link_ksettings,
++	.set_link_ksettings  = mlx5e_set_link_ksettings,
+ 	.get_rxfh_key_size   = mlx5e_get_rxfh_key_size,
+ 	.get_rxfh_indir_size = mlx5e_get_rxfh_indir_size,
+ 	.get_rxfh          = mlx5e_get_rxfh,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 39c0686..02a0f17 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -3380,6 +3380,7 @@ static struct mlx5_interface mlx5e_interface = {
  
-+void mlx5_query_port_autoneg(struct mlx5_core_dev *dev, int proto_mask,
-+			     u8 *an_status,
-+			     u8 *an_disable_cap, u8 *an_disable_admin)
-+{
-+	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
-+
-+	*an_status = 0;
-+	*an_disable_cap = 0;
-+	*an_disable_admin = 0;
-+
-+	if (mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask, 1))
-+		return;
-+
-+	*an_status = MLX5_GET(ptys_reg, out, an_status);
-+	*an_disable_cap = MLX5_GET(ptys_reg, out, an_disable_cap);
-+	*an_disable_admin = MLX5_GET(ptys_reg, out, an_disable_admin);
-+}
-+EXPORT_SYMBOL_GPL(mlx5_query_port_autoneg);
-+
- int mlx5_max_tc(struct mlx5_core_dev *mdev)
+ void mlx5e_init(void)
  {
- 	u8 num_tc = MLX5_CAP_GEN(mdev, max_tc) ? : 8;
-diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
-index 4adfac1..e3012cc 100644
---- a/include/linux/mlx5/port.h
-+++ b/include/linux/mlx5/port.h
-@@ -47,6 +47,14 @@ enum mlx5_module_id {
- 	MLX5_MODULE_ID_QSFP28           = 0x11,
- };
++	mlx5e_build_ptys2ethtool_map();
+ 	mlx5_register_interface(&mlx5e_interface);
+ }
  
-+enum mlx5_an_status {
-+	MLX5_AN_UNAVAILABLE = 0,
-+	MLX5_AN_COMPLETE    = 1,
-+	MLX5_AN_FAILED      = 2,
-+	MLX5_AN_LINK_UP     = 3,
-+	MLX5_AN_LINK_DOWN   = 4,
-+};
-+
- #define MLX5_EEPROM_MAX_BYTES			32
- #define MLX5_EEPROM_IDENTIFIER_BYTE_MASK	0x000000ff
- #define MLX5_I2C_ADDR_LOW		0x50
-@@ -65,14 +73,17 @@ int mlx5_query_port_link_width_oper(struct mlx5_core_dev *dev,
- int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
- 			       u8 *proto_oper, int proto_mask,
- 			       u8 local_port);
--int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
--			int proto_mask);
-+int mlx5_set_port_ptys(struct mlx5_core_dev *dev, bool an_disable,
-+		       u32 proto_admin, int proto_mask);
- void mlx5_toggle_port_link(struct mlx5_core_dev *dev);
- int mlx5_set_port_admin_status(struct mlx5_core_dev *dev,
- 			       enum mlx5_port_status status);
- int mlx5_query_port_admin_status(struct mlx5_core_dev *dev,
- 				 enum mlx5_port_status *status);
- int mlx5_set_port_beacon(struct mlx5_core_dev *dev, u16 beacon_duration);
-+void mlx5_query_port_autoneg(struct mlx5_core_dev *dev, int proto_mask,
-+			     u8 *an_status,
-+			     u8 *an_disable_cap, u8 *an_disable_admin);
- 
- int mlx5_set_port_mtu(struct mlx5_core_dev *dev, u16 mtu, u8 port);
- void mlx5_query_port_max_mtu(struct mlx5_core_dev *dev, u16 *max_mtu, u8 port);
 -- 
 2.8.0
