@@ -1,68 +1,164 @@
-From: Dave Jones <davej@codemonkey.org.uk>
-Subject: [4.6] kernel BUG at net/ipv6/raw.c:592
-Date: Thu, 23 Jun 2016 13:23:15 -0400
-Message-ID: <20160623172315.GA27624@codemonkey.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v3 0/6] Big C99 style initializer rework
+Date: Thu, 23 Jun 2016 19:34:08 +0200
+Message-ID: <1466703254-5174-1-git-send-email-phil@nwl.cc>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Julien Floret <julien.floret@6wind.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from arcturus.aphlor.org ([188.246.204.175]:54512 "EHLO
-	arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750785AbcFWRXR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 13:23:17 -0400
-Received: from c-65-96-118-216.hsd1.ma.comcast.net ([65.96.118.216] helo=wopr.kernelslacker.org)
-	by arcturus.aphlor.org with esmtpsa (TLS1.2:ECDHE_RSA_AES_256_GCM_SHA384:256)
-	(Exim 4.87)
-	(envelope-from <davej@codemonkey.org.uk>)
-	id 1bG8LU-00074z-4z
-	for netdev@vger.kernel.org; Thu, 23 Jun 2016 18:23:16 +0100
-Content-Disposition: inline
+Received: from orbyte.nwl.cc ([151.80.46.58]:59414 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750919AbcFWRe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 13:34:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+This is v3 of my C99-style initializer related patch series. The changes
+since v2 are:
 
-Found this logs after a Trinity run.
+- Flattened embedded struct's initializers:
+  Since the field names are very short, I figured it makes more sense to
+  keep indenting low. Also, the same style is already used in
+  ip/xfrm_policy.c so take that as an example.
 
-kernel BUG at net/ipv6/raw.c:592!
-------------[ cut here ]------------
-invalid opcode: 0000 [#1] SMP 
+- Moved leftover nlmsg_seq initializing into the common place as well:
+  I was unsure whether this is a good idea at first (due to the
+  increment), but again it's done in ip/xfrm_policy.c as well so should
+  be fine.
 
-Modules linked in: udp_diag dccp_ipv6 dccp_ipv4 dccp sctp af_key tcp_diag inet_diag ip6table_filter xt_NFLOG nfnetlink_log xt_comment xt_statistic iptable_filter nfsv3 nfs_acl nfs fscache lockd grace autofs4 i2c_piix4 rpcsec_gss_krb5 auth_rpcgss oid_registry sunrpc loop dummy ipmi_devintf iTCO_wdt iTCO_vendor_support acpi_cpufreq efivars ipmi_si ipmi_msghandler i2c_i801 i2c_core sg lpc_ich mfd_core button
+- Added a comma after the last field initializer as suggested by Jakub.
 
-CPU: 2 PID: 28854 Comm: trinity-c23 Not tainted 4.6.0 #1
-Hardware name: Quanta Leopard-DDR3/Leopard-DDR3, BIOS F06_3A14.DDR3 05/13/2015
-task: ffff880459cab600 ti: ffff880747bc4000 task.ti: ffff880747bc4000
-RIP: 0010:[<ffffffff817515e0>] [<ffffffff817515e0>] rawv6_sendmsg+0xc30/0xc40
-RSP: 0018:ffff880747bc7bf8  EFLAGS: 00010282
-RAX: 00000000fffffff2 RBX: ffff88080c6f2d00 RCX: 0000000000000002
-RDX: ffff880747bc7cd8 RSI: 0000000000000030 RDI: ffff8803de801500
-RBP: ffff880747bc7d90 R08: 000000000000002d R09: 0000000000000009
-R10: ffff8803de801500 R11: 0000000000000009 R12: 0000000000000030
-R13: ffff8803de801500 R14: ffff88086d67e000 R15: ffff88046bdac480
-FS:  00007fe29c566700(0000) GS:ffff88046fa40000(0000) knlGS:0000000000000000
-CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
-CR2: 0000000001f0f2c0 CR3: 000000080b99d000 CR4: 00000000001406e0
-Stack:
- ffffffff00000000 ffff88086d67e000 ffff880747bc7d18 ffff88046bdac480
- ffff880400000000 0000000000000000 ffff880747bc7c68 ffff88086d67e000
- ffff88080000002d ffff880800000009 0000000000000000 0000000000000001
- 
-Call Trace:
- [<ffffffff8177f642>] ? page_fault+0x22/0x30
- [<ffffffff81781f00>] ? bad_to_user+0x6a/0x6fa
- [<ffffffff816fe7b7>] inet_sendmsg+0x67/0xa0
- [<ffffffff816673e8>] sock_sendmsg+0x38/0x50
- [<ffffffff81667478>] sock_write_iter+0x78/0xd0
- [<ffffffff811cc97a>] __vfs_write+0xaa/0xe0
- [<ffffffff811cd7c2>] vfs_write+0xa2/0x1a0
- [<ffffffff811ceb06>] SyS_write+0x46/0xa0 
- [<ffffffff8177da5b>] entry_SYSCALL_64_fastpath+0x13/0x8f
-Code: 23 f7 ff ff f7 d0 41 01 c0 41 83 d0 00 e9 ac fd ff ff 48 8b 44 24 48 48 8b 80 c0 01 00 00 65 48 ff 40 28 8b 51 78 d0 41 01 c0 41 83 d0 00 e9 ac fd ff ff 48 8b 44 24 48 48 8b 80 c0 01 00 00 65 48 ff 40 28 8b 51 78 e9 64 fe ff ff <0f> 0b 66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00 0f 1f 44 00 00 
+- Dropped patch 7 since it was NACKed.
 
-RIP [<ffffffff817515e0>] rawv6_sendmsg+0xc30/0xc40
- RSP <ffff880747bc7bf8>
+- Eliminated checkpatch non-compliance.
 
- 590 
- 591         offset += skb_transport_offset(skb);
- 592         BUG_ON(skb_copy_bits(skb, offset, &csum, 2));
- 593 
+- Second go at union bpf_attr in tc/tc_bpf.c:
+  I figured that while it is not possible to initialize fields, gcc-3.4.6
+  does not complain when setting the whole union to zero using '= {0}'.
+  So I did this and thereby at least got rid of the memset calls.
+
+For reference, here's the v2 changelog:
+
+- Rebased onto current upstream master:
+  My own commit a0a73b298a579 ("tc: m_action: Use C99 style initializers
+  for struct req") contains most of the changes to tc/m_action.c already,
+  so I put the remaining ones into a dedicated patch (the first one here)
+  with a better description.
+
+- Tested against gcc-3.4.6:
+  This is the oldest gcc version I was able to install locally. It indeed
+  does not like the former changes in tc/tc_bpf.c, so I reverted them.
+  Apart from emitting many warnings, it successfully compiles the
+  sources.
+
+In the process of compatibility testing, I made a few more changes which
+make sense to have:
+
+- New patch 5 allows to conveniently override the compiler via command
+  line.
+
+- New patch 6 eliminates a warning with old gcc but looks valid in
+  general.
+
+- A warning made me look at ip/tcp_metrics.c and I found a minor code
+  simplification (patch 7).
+
+Phil Sutter (6):
+  tc: m_action: Improve conversion to C99 style initializers
+  Use C99 style initializers everywhere
+  Replace malloc && memset by calloc
+  No need to initialize rtattr fields before parsing
+  Makefile: Allow to override CC
+  misc/ifstat: simplify unsigned value comparison
+
+ Makefile           |   4 +-
+ bridge/fdb.c       |  25 ++++++------
+ bridge/link.c      |  14 +++----
+ bridge/mdb.c       |  17 ++++-----
+ bridge/vlan.c      |  17 ++++-----
+ genl/ctrl.c        |  44 +++++++++------------
+ genl/genl.c        |   3 +-
+ ip/ip6tunnel.c     |  10 ++---
+ ip/ipaddress.c     |  33 +++++++---------
+ ip/ipaddrlabel.c   |  21 ++++------
+ ip/iplink.c        |  61 ++++++++++++-----------------
+ ip/iplink_can.c    |   4 +-
+ ip/ipmaddr.c       |  25 ++++--------
+ ip/ipmroute.c      |   8 +---
+ ip/ipneigh.c       |  30 ++++++---------
+ ip/ipnetconf.c     |  10 ++---
+ ip/ipnetns.c       |  39 +++++++++----------
+ ip/ipntable.c      |  25 ++++--------
+ ip/iproute.c       |  78 +++++++++++++------------------------
+ ip/iprule.c        |  22 +++++------
+ ip/iptoken.c       |  19 ++++-----
+ ip/iptunnel.c      |  31 +++++----------
+ ip/ipxfrm.c        |  26 ++++---------
+ ip/link_gre.c      |  18 ++++-----
+ ip/link_gre6.c     |  18 ++++-----
+ ip/link_ip6tnl.c   |  25 +++++-------
+ ip/link_iptnl.c    |  22 +++++------
+ ip/link_vti.c      |  18 ++++-----
+ ip/link_vti6.c     |  18 ++++-----
+ ip/xfrm_policy.c   |  99 +++++++++++++++++++----------------------------
+ ip/xfrm_state.c    | 110 ++++++++++++++++++++++-------------------------------
+ lib/libnetlink.c   |  77 ++++++++++++++-----------------------
+ lib/ll_map.c       |   1 -
+ lib/names.c        |   7 +---
+ misc/arpd.c        |  64 ++++++++++++++-----------------
+ misc/ifstat.c      |   2 +-
+ misc/lnstat.c      |   6 +--
+ misc/lnstat_util.c |   4 +-
+ misc/ss.c          |  37 +++++++-----------
+ tc/e_bpf.c         |   7 +---
+ tc/em_canid.c      |   4 +-
+ tc/em_cmp.c        |   4 +-
+ tc/em_ipset.c      |   4 +-
+ tc/em_meta.c       |   4 +-
+ tc/em_nbyte.c      |   4 +-
+ tc/em_u32.c        |   4 +-
+ tc/f_flow.c        |   3 --
+ tc/f_flower.c      |   3 +-
+ tc/f_fw.c          |   6 +--
+ tc/f_route.c       |   3 --
+ tc/f_rsvp.c        |   6 +--
+ tc/f_u32.c         |  12 ++----
+ tc/m_action.c      |  26 ++++---------
+ tc/m_bpf.c         |   5 +--
+ tc/m_csum.c        |   4 +-
+ tc/m_ematch.c      |   4 +-
+ tc/m_gact.c        |   5 +--
+ tc/m_ife.c         |   5 +--
+ tc/m_ipt.c         |  13 ++-----
+ tc/m_mirred.c      |   7 +---
+ tc/m_nat.c         |   4 +-
+ tc/m_pedit.c       |  11 ++----
+ tc/m_police.c      |   5 +--
+ tc/q_atm.c         |   3 +-
+ tc/q_cbq.c         |  22 +++--------
+ tc/q_choke.c       |   4 +-
+ tc/q_codel.c       |   3 +-
+ tc/q_dsmark.c      |   1 -
+ tc/q_fifo.c        |   4 +-
+ tc/q_fq_codel.c    |   3 +-
+ tc/q_hfsc.c        |  13 ++-----
+ tc/q_htb.c         |  15 +++-----
+ tc/q_netem.c       |  16 +++-----
+ tc/q_red.c         |   4 +-
+ tc/q_sfb.c         |  17 ++++-----
+ tc/q_sfq.c         |   4 +-
+ tc/q_tbf.c         |   4 +-
+ tc/tc.c            |   9 ++---
+ tc/tc_bpf.c        |  58 ++++++++++------------------
+ tc/tc_class.c      |  38 +++++++-----------
+ tc/tc_exec.c       |   6 +--
+ tc/tc_filter.c     |  33 ++++++----------
+ tc/tc_qdisc.c      |  33 ++++++----------
+ tc/tc_stab.c       |   4 +-
+ tc/tc_util.c       |   3 +-
+ 85 files changed, 565 insertions(+), 977 deletions(-)
+
+-- 
+2.8.2
