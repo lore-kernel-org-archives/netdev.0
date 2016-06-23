@@ -1,125 +1,162 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 06/10] net/mlx5e: Toggle link only after modifying port parameters
-Date: Thu, 23 Jun 2016 17:02:42 +0300
-Message-ID: <1466690566-14700-7-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 03/10] net/mlx5e: Introduce net device priv flags infrastructure
+Date: Thu, 23 Jun 2016 17:02:39 +0300
+Message-ID: <1466690566-14700-4-git-send-email-saeedm@mellanox.com>
 References: <1466690566-14700-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Gal Pressman <galp@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:35381 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:35354 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751587AbcFWPrJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jun 2016 11:47:09 -0400
+	id S1751808AbcFWPrC (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 11:47:02 -0400
 In-Reply-To: <1466690566-14700-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Gal Pressman <galp@mellanox.com>
 
-Add a dedicated function to toggle port link. It should be called only
-after setting a port register.
-Toggle will set port link to down and bring it back up in case that it's
-admin status was up.
+Introduce an infrastructure for getting/setting private net device
+flags.
+
+Currently a 'nop' priv flag is added, following patches will override
+the flag will actual feature specific flags.
 
 Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c   |  9 +--------
- drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c |  7 +------
- drivers/net/ethernet/mellanox/mlx5/core/port.c       | 12 ++++++++++++
- include/linux/mlx5/port.h                            |  1 +
- 4 files changed, 15 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       | 17 +++++++
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 59 ++++++++++++++++++++++
+ 2 files changed, 76 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-index b2db180..e688313 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c
-@@ -191,7 +191,6 @@ static int mlx5e_dcbnl_ieee_setpfc(struct net_device *dev,
- {
- 	struct mlx5e_priv *priv = netdev_priv(dev);
- 	struct mlx5_core_dev *mdev = priv->mdev;
--	enum mlx5_port_status ps;
- 	u8 curr_pfc_en;
- 	int ret;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 017e047..02fa4da 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -144,6 +144,22 @@ struct mlx5e_umr_wqe {
+ 	struct mlx5_wqe_data_seg       data;
+ };
  
-@@ -200,14 +199,8 @@ static int mlx5e_dcbnl_ieee_setpfc(struct net_device *dev,
- 	if (pfc->pfc_en == curr_pfc_en)
- 		return 0;
++static const char mlx5e_priv_flags[][ETH_GSTRING_LEN] = {
++	"nop",
++};
++
++enum mlx5e_priv_flag {
++	MLX5E_PFLAG_NOP = (1 << 0),
++};
++
++#define MLX5E_SET_PRIV_FLAG(priv, pflag, enable)    \
++	do {                                        \
++		if (enable)                         \
++			priv->pflags |= pflag;      \
++		else                                \
++			priv->pflags &= ~pflag;     \
++	} while (0)
++
+ #ifdef CONFIG_MLX5_CORE_EN_DCB
+ #define MLX5E_MAX_BW_ALLOC 100 /* Max percentage of BW allocation */
+ #define MLX5E_MIN_BW_ALLOC 1   /* Min percentage of BW allocation */
+@@ -543,6 +559,7 @@ struct mlx5e_priv {
+ 	struct work_struct         set_rx_mode_work;
+ 	struct delayed_work        update_stats_work;
  
--	mlx5_query_port_admin_status(mdev, &ps);
--	if (ps == MLX5_PORT_UP)
--		mlx5_set_port_admin_status(mdev, MLX5_PORT_DOWN);
--
- 	ret = mlx5_set_port_pfc(mdev, pfc->pfc_en, pfc->pfc_en);
--
--	if (ps == MLX5_PORT_UP)
--		mlx5_set_port_admin_status(mdev, MLX5_PORT_UP);
-+	mlx5_toggle_port_link(mdev);
- 
- 	return ret;
- }
++	u32                        pflags;
+ 	struct mlx5_core_dev      *mdev;
+ 	struct net_device         *netdev;
+ 	struct mlx5e_stats         stats;
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index c4be394..d0d3dcf 100644
+index fc7dcc0..f8bbc2b 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -795,7 +795,6 @@ static int mlx5e_set_settings(struct net_device *netdev,
- 	u32 link_modes;
- 	u32 speed;
- 	u32 eth_proto_cap, eth_proto_admin;
--	enum mlx5_port_status ps;
- 	int err;
- 
- 	speed = ethtool_cmd_speed(cmd);
-@@ -829,12 +828,8 @@ static int mlx5e_set_settings(struct net_device *netdev,
- 	if (link_modes == eth_proto_admin)
- 		goto out;
- 
--	mlx5_query_port_admin_status(mdev, &ps);
--	if (ps == MLX5_PORT_UP)
--		mlx5_set_port_admin_status(mdev, MLX5_PORT_DOWN);
- 	mlx5_set_port_proto(mdev, link_modes, MLX5_PTYS_EN);
--	if (ps == MLX5_PORT_UP)
--		mlx5_set_port_admin_status(mdev, MLX5_PORT_UP);
-+	mlx5_toggle_port_link(mdev);
- 
- out:
- 	return err;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-index 3e35611..1562e73 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
-@@ -222,6 +222,18 @@ int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
- }
- EXPORT_SYMBOL_GPL(mlx5_set_port_proto);
- 
-+/* This function should be used after setting a port register only */
-+void mlx5_toggle_port_link(struct mlx5_core_dev *dev)
-+{
-+	enum mlx5_port_status ps;
-+
-+	mlx5_query_port_admin_status(dev, &ps);
-+	mlx5_set_port_admin_status(dev, MLX5_PORT_DOWN);
-+	if (ps == MLX5_PORT_UP)
-+		mlx5_set_port_admin_status(dev, MLX5_PORT_UP);
-+}
-+EXPORT_SYMBOL_GPL(mlx5_toggle_port_link);
-+
- int mlx5_set_port_admin_status(struct mlx5_core_dev *dev,
- 			       enum mlx5_port_status status)
+@@ -198,6 +198,8 @@ static int mlx5e_get_sset_count(struct net_device *dev, int sset)
+ 		       MLX5E_NUM_RQ_STATS(priv) +
+ 		       MLX5E_NUM_SQ_STATS(priv) +
+ 		       MLX5E_NUM_PFC_COUNTERS(priv);
++	case ETH_SS_PRIV_FLAGS:
++		return ARRAY_SIZE(mlx5e_priv_flags);
+ 	/* fallthrough */
+ 	default:
+ 		return -EOPNOTSUPP;
+@@ -272,9 +274,12 @@ static void mlx5e_get_strings(struct net_device *dev,
+ 			      uint32_t stringset, uint8_t *data)
  {
-diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
-index 9851862..4adfac1 100644
---- a/include/linux/mlx5/port.h
-+++ b/include/linux/mlx5/port.h
-@@ -67,6 +67,7 @@ int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
- 			       u8 local_port);
- int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
- 			int proto_mask);
-+void mlx5_toggle_port_link(struct mlx5_core_dev *dev);
- int mlx5_set_port_admin_status(struct mlx5_core_dev *dev,
- 			       enum mlx5_port_status status);
- int mlx5_query_port_admin_status(struct mlx5_core_dev *dev,
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
++	int i;
+ 
+ 	switch (stringset) {
+ 	case ETH_SS_PRIV_FLAGS:
++		for (i = 0; i < ARRAY_SIZE(mlx5e_priv_flags); i++)
++			strcpy(data + i * ETH_GSTRING_LEN, mlx5e_priv_flags[i]);
+ 		break;
+ 
+ 	case ETH_SS_TEST:
+@@ -1272,6 +1277,58 @@ static int mlx5e_get_module_eeprom(struct net_device *netdev,
+ 	return 0;
+ }
+ 
++typedef int (*mlx5e_pflag_handler)(struct net_device *netdev, bool enable);
++
++static int set_pflag_nop(struct net_device *netdev, bool enable)
++{
++	return 0;
++}
++
++static int mlx5e_handle_pflag(struct net_device *netdev,
++			      u32 wanted_flags,
++			      enum mlx5e_priv_flag flag,
++			      mlx5e_pflag_handler pflag_handler)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++	bool enable = !!(wanted_flags & flag);
++	u32 changes = wanted_flags ^ priv->pflags;
++	int err;
++
++	if (!(changes & flag))
++		return 0;
++
++	err = pflag_handler(netdev, enable);
++	if (err) {
++		netdev_err(netdev, "%s private flag 0x%x failed err %d\n",
++			   enable ? "Enable" : "Disable", flag, err);
++		return err;
++	}
++
++	MLX5E_SET_PRIV_FLAG(priv, flag, enable);
++	return 0;
++}
++
++static int mlx5e_set_priv_flags(struct net_device *netdev, u32 pflags)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++	int err;
++
++	mutex_lock(&priv->state_lock);
++
++	err = mlx5e_handle_pflag(netdev, pflags, MLX5E_PFLAG_NOP,
++				 set_pflag_nop);
++
++	mutex_unlock(&priv->state_lock);
++	return err ? -EINVAL : 0;
++}
++
++static u32 mlx5e_get_priv_flags(struct net_device *netdev)
++{
++	struct mlx5e_priv *priv = netdev_priv(netdev);
++
++	return priv->pflags;
++}
++
+ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.get_drvinfo       = mlx5e_get_drvinfo,
+ 	.get_link          = ethtool_op_get_link,
+@@ -1301,4 +1358,6 @@ const struct ethtool_ops mlx5e_ethtool_ops = {
+ 	.set_wol	   = mlx5e_set_wol,
+ 	.get_module_info   = mlx5e_get_module_info,
+ 	.get_module_eeprom = mlx5e_get_module_eeprom,
++	.get_priv_flags    = mlx5e_get_priv_flags,
++	.set_priv_flags    = mlx5e_set_priv_flags
+ };
 -- 
 2.8.0
