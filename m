@@ -1,105 +1,68 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 0/5] qed/qede: Tunnel hardware GRO support
-Date: Thu, 23 Jun 2016 10:07:25 -0700
-Message-ID: <CAKgT0Uc7cCu-5SwrB+4Mv6OM+V1jDwefOoG-Wr61C4F1g1BmFA@mail.gmail.com>
-References: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
- <CAKgT0Ue6_cPb88wfTtMMetJzBSJnGDNWj8YVHWC=9WdztCxOuQ@mail.gmail.com>
- <CO2PR11MB008891D4ECFF86F32B1C32CC972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAKgT0UdDt6H8ix6U7n_uPjodkXYuxviZjSKWQRaXu2_qWWEL+A@mail.gmail.com>
- <CO2PR11MB0088C4DEAFEE71B0D865DB33972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <576B08A2.8080603@hpe.com> <1466635664.6850.90.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0UdbPVqpSVLs0JW7zFU7mNtJn5BM+fMjsr1tLm4kHRcW9A@mail.gmail.com>
- <1466638292.6850.94.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0Uex41aBJX84we2gxNGw6M4s5xGEPnDkGehTZkEE+i+Jhw@mail.gmail.com>
- <CO2PR11MB0088B3C577EC110B845C17B3972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CO2PR11MB0088949623FA99ED86D33205972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Dave Jones <davej@codemonkey.org.uk>
+Subject: [4.6] kernel BUG at net/ipv6/raw.c:592
+Date: Thu, 23 Jun 2016 13:23:15 -0400
+Message-ID: <20160623172315.GA27624@codemonkey.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <rick.jones2@hpe.com>,
-	Manish Chopra <manish.chopra@qlogic.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Hannes Frederic Sowa <hannes@redhat.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f43.google.com ([209.85.214.43]:36358 "EHLO
-	mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750809AbcFWRH1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 13:07:27 -0400
-Received: by mail-it0-f43.google.com with SMTP id a5so131957889ita.1
-        for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 10:07:26 -0700 (PDT)
-In-Reply-To: <CO2PR11MB0088949623FA99ED86D33205972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
+Received: from arcturus.aphlor.org ([188.246.204.175]:54512 "EHLO
+	arcturus.aphlor.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750785AbcFWRXR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 13:23:17 -0400
+Received: from c-65-96-118-216.hsd1.ma.comcast.net ([65.96.118.216] helo=wopr.kernelslacker.org)
+	by arcturus.aphlor.org with esmtpsa (TLS1.2:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.87)
+	(envelope-from <davej@codemonkey.org.uk>)
+	id 1bG8LU-00074z-4z
+	for netdev@vger.kernel.org; Thu, 23 Jun 2016 18:23:16 +0100
+Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 22, 2016 at 9:17 PM, Yuval Mintz <Yuval.Mintz@qlogic.com> wrote:
->> Then again, if you're basically saying every HW-assisted offload on
->> receive should be done under LRO flag, what would be the use case
->> where a GRO-assisted offload would help?
->
->> I.e., afaik LRO is superior to GRO in `brute force' -
->> it creates better packed packets and utilizes memory better
->> [with all the obvious cons such as inability for defragmentation].
->> So if you'd have the choice of having an adpater perform 'classic'
->> LRO aggregation or something that resembles a GRO packet,
->> what would be the gain from doing the latter?
 
-LRO and GRO shouldn't really differ in packing or anything like that.
-The big difference between the two is that LRO is destructive while
-GRO is not.  Specifically in the case of GRO you should be able to
-take the resultant frame, feed it through GSO, and get the original
-stream of frames back out.  So you can pack the frames however you
-want the only key is that you must capture all the correct offsets and
-set the gso_size correct for the flow.
+Found this logs after a Trinity run.
 
-> Just to relate to bnx2x/qede differences in current implementation -
-> when this GRO hw-offload was added to bnx2x, it has already
-> supported classical LRO, and due to above statement whenever LRO
-> was set driver aggregated incoming traffic as classic LRO.
-> I agree that in hindsight the lack of distinction between sw/hw GRO
-> was hurting us.
+kernel BUG at net/ipv6/raw.c:592!
+------------[ cut here ]------------
+invalid opcode: 0000 [#1] SMP 
 
-In the case of bnx2x it sounds like you have issues that are
-significantly hurting the performance versus classic software GRO.  If
-that is the case you might want to simply flip the logic for the
-module parameter that Rick mentioned and just disable the hardware
-assisted GRO unless it is specifically requested.
+Modules linked in: udp_diag dccp_ipv6 dccp_ipv4 dccp sctp af_key tcp_diag inet_diag ip6table_filter xt_NFLOG nfnetlink_log xt_comment xt_statistic iptable_filter nfsv3 nfs_acl nfs fscache lockd grace autofs4 i2c_piix4 rpcsec_gss_krb5 auth_rpcgss oid_registry sunrpc loop dummy ipmi_devintf iTCO_wdt iTCO_vendor_support acpi_cpufreq efivars ipmi_si ipmi_msghandler i2c_i801 i2c_core sg lpc_ich mfd_core button
 
-> qede isn't implementing LRO, so we could easily mark this feature
-> under LRO there - but question is, given that the adapter can support
-> LRO, if we're going to suffer from all the shotrages that arise from
-> putting this feature under LRO, why should we bother?
+CPU: 2 PID: 28854 Comm: trinity-c23 Not tainted 4.6.0 #1
+Hardware name: Quanta Leopard-DDR3/Leopard-DDR3, BIOS F06_3A14.DDR3 05/13/2015
+task: ffff880459cab600 ti: ffff880747bc4000 task.ti: ffff880747bc4000
+RIP: 0010:[<ffffffff817515e0>] [<ffffffff817515e0>] rawv6_sendmsg+0xc30/0xc40
+RSP: 0018:ffff880747bc7bf8  EFLAGS: 00010282
+RAX: 00000000fffffff2 RBX: ffff88080c6f2d00 RCX: 0000000000000002
+RDX: ffff880747bc7cd8 RSI: 0000000000000030 RDI: ffff8803de801500
+RBP: ffff880747bc7d90 R08: 000000000000002d R09: 0000000000000009
+R10: ffff8803de801500 R11: 0000000000000009 R12: 0000000000000030
+R13: ffff8803de801500 R14: ffff88086d67e000 R15: ffff88046bdac480
+FS:  00007fe29c566700(0000) GS:ffff88046fa40000(0000) knlGS:0000000000000000
+CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+CR2: 0000000001f0f2c0 CR3: 000000080b99d000 CR4: 00000000001406e0
+Stack:
+ ffffffff00000000 ffff88086d67e000 ffff880747bc7d18 ffff88046bdac480
+ ffff880400000000 0000000000000000 ffff880747bc7c68 ffff88086d67e000
+ ffff88080000002d ffff880800000009 0000000000000000 0000000000000001
+ 
+Call Trace:
+ [<ffffffff8177f642>] ? page_fault+0x22/0x30
+ [<ffffffff81781f00>] ? bad_to_user+0x6a/0x6fa
+ [<ffffffff816fe7b7>] inet_sendmsg+0x67/0xa0
+ [<ffffffff816673e8>] sock_sendmsg+0x38/0x50
+ [<ffffffff81667478>] sock_write_iter+0x78/0xd0
+ [<ffffffff811cc97a>] __vfs_write+0xaa/0xe0
+ [<ffffffff811cd7c2>] vfs_write+0xa2/0x1a0
+ [<ffffffff811ceb06>] SyS_write+0x46/0xa0 
+ [<ffffffff8177da5b>] entry_SYSCALL_64_fastpath+0x13/0x8f
+Code: 23 f7 ff ff f7 d0 41 01 c0 41 83 d0 00 e9 ac fd ff ff 48 8b 44 24 48 48 8b 80 c0 01 00 00 65 48 ff 40 28 8b 51 78 d0 41 01 c0 41 83 d0 00 e9 ac fd ff ff 48 8b 44 24 48 48 8b 80 c0 01 00 00 65 48 ff 40 28 8b 51 78 e9 64 fe ff ff <0f> 0b 66 66 66 66 66 2e 0f 1f 84 00 00 00 00 00 0f 1f 44 00 00 
 
-The idea is to address feature isolation.  The fact is the hardware
-exists outside of kernel control.  If you end up linking an internal
-kernel feature to your device like this you are essentially stripping
-the option of using the kernel feature.
+RIP [<ffffffff817515e0>] rawv6_sendmsg+0xc30/0xc40
+ RSP <ffff880747bc7bf8>
 
-I would prefer to see us extend LRO to support "close enough GRO"
-instead of have us extend GRO to also include LRO.  That way when we
-encounter issues like the FW limitation that Rick encountered he can
-just go in and disable the LRO and have true GRO kick in which would
-be significantly better than having to poke around through
-documentation to find a module parameter that can force the feature
-off.  Really the fact that you have to use a module parameter is
-frowned upon as well as most drivers aren't supposed to be using those
-in the netdev tree.
-
-> You can argue that we might need a new feature bit for control
-> over such a feature; If we don't do that, is there any gain in all of this?
-
-I would argue that yes there are many cases where we will be able to
-show gain.  The fact is there is a strong likelihood of the GRO on
-your parts having some differences either now, or at some point in the
-future as the code evolves.  As I mentioned there was already some
-talk about possibly needing to push the UDP tunnel aggregation out of
-GRO and perhaps handling it sometime after IP look up had verified
-that the destination was in fact a local address in the namespace.  In
-addition it makes the changes to include the tunnel encapsulation much
-more acceptable as LRO is already naturally dropped in the routing and
-bridging cases if I recall correctly.
-
-- Alex
+ 590 
+ 591         offset += skb_transport_offset(skb);
+ 592         BUG_ON(skb_copy_bits(skb, offset, &csum, 2));
+ 593 
