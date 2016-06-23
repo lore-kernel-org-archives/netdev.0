@@ -1,47 +1,51 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH 2/3] netfilter: Create revision 2 of xt_hashlimit to
- support higher pps rates
-Date: Thu, 23 Jun 2016 13:16:30 +0200
-Message-ID: <20160623111630.GA2717@salvia>
-References: <20160602001138.GB1644@akamai.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] wlcore: time sync : add support for 64 bit clock
+Date: Thu, 23 Jun 2016 13:18:00 +0200
+Message-ID: <1466680680.11061.2.camel@sipsolutions.net>
+References: <20160623111332.23326-1-yanivma@ti.com>
+	 (sfid-20160623_131215_419855_E4550AFE)
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, kadlec@blackhole.kfki.hu,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	johunt@akamai.com, netdev@vger.kernel.org, pai.vishwain@gmail.com
-To: Vishwanath Pai <vpai@akamai.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160602001138.GB1644@akamai.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kalle Valo <kvalo@codeaurora.org>, Guy Mishol <guym@ti.com>,
+	Eliad Peller <eliad@wizery.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: Yaniv Machani <yanivma@ti.com>, linux-kernel@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from s3.sipsolutions.net ([5.9.151.49]:42917 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751589AbcFWLSJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 07:18:09 -0400
+In-Reply-To: <20160623111332.23326-1-yanivma@ti.com> (sfid-20160623_131215_419855_E4550AFE)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 01, 2016 at 08:11:38PM -0400, Vishwanath Pai wrote:
-> +static void
-> +cfg_copy(struct hashlimit_cfg2 *to, void *from, int revision)
-> +{
-> +	if (revision == 1) {
-> +		struct hashlimit_cfg1 *cfg = (struct hashlimit_cfg1 *)from;
+On Thu, 2016-06-23 at 14:12 +0300, Yaniv Machani wrote:
+> Changed the configuration to support 64bit instead of 32bit
+> this in order to offload the driver from handling a wraparound.
+
+[...]
+
+Since you Cc'ed me, and presumably want me to review it, I'll say that
+this looks like a terrible idea:
+
+> @@ -74,10 +74,16 @@ struct wl18xx_event_mailbox {
+
+This struct is evidently used for firmware/host communication.
+
+> =C2=A0	__le16 bss_loss_bitmap;
+> =C2=A0
+> =C2=A0	/* bitmap of stations (by HLID) which exceeded max tx
+> retries */
+> -	__le32 tx_retry_exceeded_bitmap;
+> +	__le16 tx_retry_exceeded_bitmap;
 > +
-> +		to->mode = cfg->mode;
-> +		to->avg = cfg->avg;
-> +		to->burst = cfg->burst;
-> +		to->size = cfg->size;
-> +		to->max = cfg->max;
-> +		to->gc_interval = cfg->gc_interval;
-> +		to->expire = cfg->expire;
-> +		to->srcmask = cfg->srcmask;
-> +		to->dstmask = cfg->dstmask;
-> +	} else if (revision == 2) {
-> +		memcpy(to, from, sizeof(struct hashlimit_cfg2));
-> +	} else {
-> +		BUG();
+> +	/* time sync high msb*/
+> +	u16 time_sync_tsf_high_msb;
 
-BUG here is probably too much, this halts the system. I can see we
-only use this somewhere else in this code. Instead, I'd suggest you
-propagate an error back to userspace if this ever happen.
+So first of all, just using u16 instead of __le16 seems wrong.
 
-I would like to see if this spots any problem with our test
-infrastructure under iptables/.
+Additionally, this looks like it changes the firmware API, so that
+older firmware images will no longer work?
 
-Thanks.
+johannes
