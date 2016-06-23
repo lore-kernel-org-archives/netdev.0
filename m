@@ -1,179 +1,233 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH net-next v10 2/5] openvswitch: set skb protocol and
- mac_len when receiving on internal device
-Date: Thu, 23 Jun 2016 11:04:38 +0900
-Message-ID: <20160623020436.GA28594@vergenet.net>
-References: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
- <1464848686-7656-3-git-send-email-simon.horman@netronome.com>
- <CAOrHB_Aqdkr-26GxGh=W0AsojOMzDXYf5zif=kaFbWBty5uHKA@mail.gmail.com>
- <20160607030809.GE31696@vergenet.net>
- <CAOrHB_Cp4bw1beQb8tCk+cR9k2Nv5kBMVD-a8SYRVkOeeQYJvA@mail.gmail.com>
- <20160617055331.GA24833@vergenet.net>
- <CAOrHB_BWfLk8yba2XkF43Hm-czGUZnVWQQ=HW3-vvpFEH7GNpA@mail.gmail.com>
- <20160621022458.GA28358@vergenet.net>
- <CAOrHB_B2mUqUOgwZroRqaYwsHCKd-Vj5nMWMvPxfF=quxhJ2cA@mail.gmail.com>
+From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: RE: [PATCH 2/4] soc: fsl: add GUTS driver for QorIQ platforms
+Date: Thu, 23 Jun 2016 02:46:10 +0000
+Message-ID: <AM2PR04MB0883C91467E26AF0D52DC2C8F82D0@AM2PR04MB0883.eurprd04.prod.outlook.com>
+References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
+	<5339448.D8rpq4ofAC@wuerfel> <1464832042.22191.23.camel@buserror.net>
+	<3435609.s5m1DCsoNb@wuerfel> <1465609853.22191.151.camel@buserror.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	ovs dev <dev@openvswitch.org>, Jiri Benc <jbenc@redhat.com>
-To: pravin shelar <pshelar@ovn.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f174.google.com ([209.85.192.174]:34799 "EHLO
-	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750850AbcFWCEy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 22:04:54 -0400
-Received: by mail-pf0-f174.google.com with SMTP id h14so23288513pfe.1
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 19:04:54 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAOrHB_B2mUqUOgwZroRqaYwsHCKd-Vj5nMWMvPxfF=quxhJ2cA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
+	"iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Claudiu
+	Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>, Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
+	Yang-Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
+	"linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+To: Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	"linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org" <linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <1465609853.22191.151.camel-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 21, 2016 at 09:30:17AM -0700, pravin shelar wrote:
-> On Mon, Jun 20, 2016 at 7:25 PM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> > [Cc Jiri Benc]
-> >
-> > On Sat, Jun 18, 2016 at 06:38:54PM -0700, pravin shelar wrote:
-> >> On Thu, Jun 16, 2016 at 10:53 PM, Simon Horman
-> >> <simon.horman@netronome.com> wrote:
-> >> > On Tue, Jun 07, 2016 at 03:45:27PM -0700, pravin shelar wrote:
-> >> >> On Mon, Jun 6, 2016 at 8:08 PM, Simon Horman <simon.horman@netronome.com> wrote:
-> >> >> > On Thu, Jun 02, 2016 at 03:01:47PM -0700, pravin shelar wrote:
-> >> >> >> On Wed, Jun 1, 2016 at 11:24 PM, Simon Horman
-> >> >> >> <simon.horman@netronome.com> wrote:
-> >> >> >> > * Set skb protocol based on contents of packet. I have observed this is
-> >> >> >> >   necessary to get actual protocol of a packet when it is injected into an
-> >> >> >> >   internal device e.g. by libnet in which case skb protocol will be set to
-> >> >> >> >   ETH_ALL.
-> >> ....
-> >> ....
-> >> >> >         eth_type = eth_type_trans(skb, skb->dev);
-> >> >> >         skb->mac_len = skb->data - skb_mac_header(skb);
-> >> >> >         __skb_push(skb, skb->mac_len);
-> >> >> >
-> >> >> >         if (eth_type == htons(ETH_P_8021Q))
-> >> >> >                 skb->mac_len += VLAN_HLEN;
-> >> >> >
-> >> >> > Perhaps that logic ought to be in a helper used by both internal_dev_xmit()
-> >> >> > and netdev_port_receive(). Or somehow centralised in ovs_vport_receive().
-> >> >>
-> >> >> This does looks bit complex. Can we use other skb metadata like
-> >> >> skb_mac_header_was_set()?
-> >> >
-> >> > Yes, I think that can be made to work if skb->mac_header is unset
-> >> > for l3 packets in netdev_port_receive(). The following is an incremental
-> >> > patch on the entire series. Is this the kind of thing you had in mind?
-> >> >
-> >> > diff --git a/net/openvswitch/flow.c b/net/openvswitch/flow.c
-> >> > index 86f2cfb19de3..42587d5bf894 100644
-> >> > --- a/net/openvswitch/flow.c
-> >> > +++ b/net/openvswitch/flow.c
-> >> > @@ -729,7 +729,7 @@ int ovs_flow_key_extract(const struct ip_tunnel_info *tun_info,
-> >> >         key->phy.skb_mark = skb->mark;
-> >> >         ovs_ct_fill_key(skb, key);
-> >> >         key->ovs_flow_hash = 0;
-> >> > -       key->phy.is_layer3 = skb->mac_len == 0;
-> >> > +       key->phy.is_layer3 = skb_mac_header_was_set(skb) == 0;
-> >> >         key->recirc_id = 0;
-> >> >
-> >> >         err = key_extract(skb, key);
-> >> > diff --git a/net/openvswitch/vport-internal_dev.c b/net/openvswitch/vport-internal_dev.c
-> >> > index 484ba529c682..8973d4db509b 100644
-> >> > --- a/net/openvswitch/vport-internal_dev.c
-> >> > +++ b/net/openvswitch/vport-internal_dev.c
-> >> > @@ -50,7 +50,6 @@ static int internal_dev_xmit(struct sk_buff *skb, struct net_device *netdev)
-> >> >
-> >> >         skb->protocol = eth_type_trans(skb, netdev);
-> >> >         skb_push(skb, ETH_HLEN);
-> >> > -       skb_reset_mac_len(skb);
-> >> >
-> >> >         len = skb->len;
-> >> >         rcu_read_lock();
-> >> > diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-> >> > index 3df36df62ee9..4cf3f12ffc99 100644
-> >> > --- a/net/openvswitch/vport-netdev.c
-> >> > +++ b/net/openvswitch/vport-netdev.c
-> >> > @@ -60,22 +60,9 @@ static void netdev_port_receive(struct sk_buff *skb)
-> >> >         if (vport->dev->type == ARPHRD_ETHER) {
-> >> >                 skb_push(skb, ETH_HLEN);
-> >> >                 skb_postpush_rcsum(skb, skb->data, ETH_HLEN);
-> >> > -       } else if (vport->dev->type == ARPHRD_NONE) {
-> >> > -               if (skb->protocol == htons(ETH_P_TEB)) {
-> >> > -                       __be16 eth_type;
-> >> > -
-> >> > -                       if (unlikely(skb->len < ETH_HLEN))
-> >> > -                               goto error;
-> >> > -
-> >> > -                       eth_type = eth_type_trans(skb, skb->dev);
-> >> > -                       skb->mac_len = skb->data - skb_mac_header(skb);
-> >> > -                       __skb_push(skb, skb->mac_len);
-> >> > -
-> >> > -                       if (eth_type == htons(ETH_P_8021Q))
-> >> > -                               skb->mac_len += VLAN_HLEN;
-> >> > -               } else {
-> >> > -                       skb->mac_len = 0;
-> >> > -               }
-> >> > +       } else if (vport->dev->type == ARPHRD_NONE &&
-> >> > +                  skb->protocol != htons(ETH_P_TEB)) {
-> >> > +               skb->mac_header = (typeof(skb->mac_header))~0U;
-> >> >         }
-> >> >
-> >> >         ovs_vport_receive(vport, skb, skb_tunnel_info(skb));
-> >>
-> >> This certainly looks better. I was wondering if we can unset the mac
-> >> header offset in L3 tunnel devices itself. So there is no need to have
-> >> this check here.
-> >
-> > I think that might be possible for GRE by modifying the following in
-> > __ipgre_rcv().
-> >
-> >                 if (tunnel->dev->type != ARPHRD_NONE)
-> >                         skb_pop_mac_header(skb);
-> >                 else
-> >                         skb_reset_mac_header(skb);
-> >
-> > But I am unsure what side effects this might have on other users of the
-> > code.
-> >
-> I think it is fine with device of type ARPHRD_NONE. metadata tunnel
-> devices would be of this type anyways.
+Hi Arnd,
+
+Could you comment on these?
+Thanks.
+
+
+Best regards,
+Yangbo Lu
+
+
+> -----Original Message-----
+> From: Scott Wood [mailto:oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org]
+> Sent: Saturday, June 11, 2016 9:51 AM
+> To: Arnd Bergmann; linuxppc-dev-uLR06cmDAlY/bJ5BZ2RsiQ@public.gmane.org
+> Cc: Mark Rutland; Ulf Hansson; linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
+> i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Qiang Zhao; Russell King;
+> Bhupesh Sharma; Joerg Roedel; Claudiu Manoil; devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org;
+> Kumar Gala; Rob Herring; Santosh Shilimkar; linux-arm-
+> kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org; netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; linux-
+> mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org; Xiaobo Xie; Yang-Leo Li; iommu-cunTk1MwBs/ROKNJybVBZg@public.gmane.org
+> foundation.org; Yangbo Lu
+> Subject: Re: [PATCH 2/4] soc: fsl: add GUTS driver for QorIQ platforms
 > 
-> > Jiri, do you have any thoughts on this?
-
-I think you are right as IIRC the call to skb_reset_mac_header was
-added for this use-case. Its unfortunate that we can't use it in
-internal_dev_xmit() because of loosing track of MPLS as you mentioned
-earlier. But it does seem that setting mac_header to ~0 works well
-in conjunction with updates to OvS posted earlier in this sub-therad.
-
-I have the following working. Jiri, is the ip_gre portion acceptable to you?
-
-
-diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
-index 58d323289872..e6772b6934a3 100644
---- a/net/ipv4/ip_gre.c
-+++ b/net/ipv4/ip_gre.c
-@@ -279,7 +279,7 @@ static int __ipgre_rcv(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
- 		if (tunnel->dev->type != ARPHRD_NONE)
- 			skb_pop_mac_header(skb);
- 		else
--			skb_reset_mac_header(skb);
-+			skb->mac_header = (typeof(skb->mac_header))~0U;
- 		if (tunnel->collect_md) {
- 			__be16 flags;
- 			__be64 tun_id;
-diff --git a/net/openvswitch/vport-netdev.c b/net/openvswitch/vport-netdev.c
-index 4cf3f12ffc99..82b10802abe6 100644
---- a/net/openvswitch/vport-netdev.c
-+++ b/net/openvswitch/vport-netdev.c
-@@ -60,9 +60,6 @@ static void netdev_port_receive(struct sk_buff *skb)
- 	if (vport->dev->type == ARPHRD_ETHER) {
- 		skb_push(skb, ETH_HLEN);
- 		skb_postpush_rcsum(skb, skb->data, ETH_HLEN);
--	} else if (vport->dev->type == ARPHRD_NONE &&
--		   skb->protocol != htons(ETH_P_TEB)) {
--		skb->mac_header = (typeof(skb->mac_header))~0U;
- 	}
- 
- 	ovs_vport_receive(vport, skb, skb_tunnel_info(skb));
+> On Thu, 2016-06-02 at 10:43 +0200, Arnd Bergmann wrote:
+> > On Wednesday, June 1, 2016 8:47:22 PM CEST Scott Wood wrote:
+> > > On Mon, 2016-05-30 at 15:15 +0200, Arnd Bergmann wrote:
+> > > > diff --git a/drivers/soc/fsl/guts.c b/drivers/soc/fsl/guts.c new
+> > > > file mode 100644 index 000000000000..2f30698f5bcf
+> > > > --- /dev/null
+> > > > +++ b/drivers/soc/fsl/guts.c
+> > > > @@ -0,0 +1,130 @@
+> > > > +/*
+> > > > + * Freescale QorIQ Platforms GUTS Driver
+> > > > + *
+> > > > + * Copyright (C) 2016 Freescale Semiconductor, Inc.
+> > > > + *
+> > > > + * This program is free software; you can redistribute it and/or
+> > > > +modify
+> > > > + * it under the terms of the GNU General Public License as
+> > > > +published by
+> > > > + * the Free Software Foundation; either version 2 of the License,
+> > > > +or
+> > > > + * (at your option) any later version.
+> > > > + */
+> > > > +
+> > > > +#include <linux/io.h>
+> > > > +#include <linux/platform_device.h> #include <linux/module.h>
+> > > > +#include <linux/slab.h> #include <linux/of_address.h> #include
+> > > > +<linux/of_platform.h> #include <linux/sys_soc.h>
+> > > > +
+> > > > +#define GUTS_PVR	0x0a0
+> > > > +#define GUTS_SVR	0x0a4
+> > > > +
+> > > > +struct guts {
+> > > > +	void __iomem *regs;
+> > >
+> > > We already have a struct to define guts.  Why are you not using it?
+> > > Why do you consider using it to be "abuse"?  What if we want to move
+> > > more guts functionality into this driver?
+> >
+> > This structure was in the original patch, I left it in there, only
+> > removed the inclusion of the powerpc header file, which seemed to be
+> > misplaced.
+> 
+> I'm not refering "struct guts".  I'm referring to changing "struct
+> ccsr_guts __iomem *regs" into "void __iomem *regs".
+> 
+> And it's not a powerpc header file.
+> 
+> > > > +/*
+> > > > + * Table for matching compatible strings, for device tree
+> > > > + * guts node, for Freescale QorIQ SOCs.
+> > > > + */
+> > > > +static const struct of_device_id fsl_guts_of_match[] = {
+> > > > +	/* For T4 & B4 Series SOCs */
+> > > > +	{ .compatible = "fsl,qoriq-device-config-1.0", .data = "T4/B4
+> > > > series" },
+> > > [snip]
+> > > > +	{ .compatible = "fsl,qoriq-device-config-2.0", .data = "P
+> > > > series"
+> > >
+> > > As noted in my comment on patch 3/4, these descriptions are reversed.
+> > >
+> > > They're also incomplete.  t2080 has device config 2.0.  t1040 is
+> > > described as
+> > > 2.0 though it should probably be 2.1 (or better, drop the generic
+> > > compatible altogether).
+> >
+> > Ok. Ideally I think we'd even look up the specific SoC names from the
+> > SVC rather than the compatible string. I just didn't have a good list
+> > for those to put in the driver.
+> 
+> The list is in arch/powerpc/include/asm/mpc85xx.h but I don't know why we
+> need to convert it to a string in the first place.
+> 
+> >
+> > > > +	/*
+> > > > +	 * syscon devices default to little-endian, but on powerpc we
+> > > > have
+> > > > +	 * existing device trees with big-endian maps and an absent
+> > > > endianess
+> > > > +	 * "big-property"
+> > > > +	 */
+> > > > +	if (!IS_ENABLED(CONFIG_POWERPC) &&
+> > > > +	    !of_property_read_bool(dev->of_node, "big-endian"))
+> > > > +		guts->little_endian = true;
+> > >
+> > > This is not a syscon device (Yangbo's patch to add a guts node on
+> > > ls2080 is the only guts node that says "syscon", and that was a
+> > > leftover from earlier revisions and should probably be removed).
+> > > Even if it were, where is it documented that syscon defaults to
+> > > little-endian?
+> >
+> > Documentation/devicetree/bindings/regmap/regmap.txt
+> >
+> > We had a little screwup here, basically regmap (and by consequence,
+> > syscon) always defaulted to little-endian way before that was
+> > documented, so it's too late to change it,
+> 
+> What causes a device node to fall under the jurisdiction of regmap.txt?
+>  Again, these nodes do not claim "syscon" compatibility.
+> 
+> > although I agree it would have made sense to document regmap to
+> > default to big-endian on powerpc.
+> 
+> Please don't.  It's enough of a mess as is; no need to start throwing in
+> architecture ifdefs.
+> 
+> > > Documentation/devicetree/bindings/common-properties.txt says that
+> > > the individual binding specifies the default.  The default for this
+> > > node should be big-endian because that's what existed before there
+> > > was a need to describe the endianness.  And we need an update to the
+> > > guts binding to specify that.
+> >
+> > Good point. This proably means that specifying both the "guts" and
+> "syscon"
+> > compatible strings implies having to also specify the endianess
+> > explicitly both ways, because otherwise we break one of the two
+> bindings.
+> 
+> Yes, but the node should only specify "guts".
+> 
+> >
+> > > > +
+> > > > +	guts->regs = devm_ioremap_resource(dev, 0);
+> > > > +	if (!guts->regs) {
+> > > > +		ret = -ENOMEM;
+> > > > +		kfree(guts);
+> > > > +		goto out;
+> > > > +	}
+> > > > +
+> > > > +	fsl_guts_init(dev, guts);
+> > > > +	ret = 0;
+> > > > +out:
+> > > > +	return ret;
+> > > > +}
+> > > > +
+> > > > +static struct platform_driver fsl_soc_guts = {
+> > > > +	.probe = fsl_guts_probe,
+> > > > +	.driver.of_match_table = fsl_guts_of_match, };
+> > > > +
+> > > > +module_platform_driver(fsl_soc_guts);
+> > >
+> > > Again, this means that the information is not available during early
+> > > boot, such as in the clock driver.  Thus we would not be able to
+> > > convert clk -qoriq's direct mfspr(SPRN_SVR) into an
+> > > soc_device_match() (or anything else that makes use of this file),
+> > > nor would we be able to move its access of the guts RCW registers
+> > > into this driver.
+> >
+> > Correct. Do we have a reason to convert the mfspr() though? I don't
+> > really see an improvement over the current state if we do that,
+> 
+> Then should we drop this patchset and put a similar PPC ifdef in
+> drivers/mmc/host/sdhci-of-esdhc.c?
+> 
+> There's also the RCW access.  You said in the patch 4/4 discussion that
+> you di dn't like any random driver ioremapping the registers...
+> 
+> > and for new devices
+> > that might need the erratum workaround, we could add a DT property
+> > that would be preferred to both.
+> 
+> It's unlikely that we would know the erratum exists at the time the
+> device tree is created.  We also generally don't have separate device
+> trees for each revision of a chip (and if we did, we'd have users that
+> use the wrong one).
+> 
+> -Scott
