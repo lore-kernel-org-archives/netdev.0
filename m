@@ -1,41 +1,71 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] wlcore: time sync : add support for 64 bit clock
-Date: Thu, 23 Jun 2016 13:35:39 +0200
-Message-ID: <1466681739.11061.3.camel@sipsolutions.net>
-References: <20160623111332.23326-1-yanivma@ti.com>
-	 (sfid-20160623_131215_419855_E4550AFE)
- <1466680680.11061.2.camel@sipsolutions.net>
-	 <AE1C82FB3D0EC64DB1F752C81CBD1101391CF584@DFRE01.ent.ti.com>
+From: Abdelrhman Ahmed <ab@abahmed.com>
+Subject: [PATCH] net: Fix resetting network_header in neigh_resolve_output
+ and neigh_connected_output
+Date: Thu, 23 Jun 2016 13:39:24 +0200
+Message-ID: <1557d0eb9b5.10e107ce3332041.1418466288700186568@abahmed.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, "Mishol, Guy" <guym-l0cyMroinI0@public.gmane.org>,
-	Eliad Peller <eliad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: "Machani, Yaniv" <yanivma-l0cyMroinI0@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <AE1C82FB3D0EC64DB1F752C81CBD1101391CF584-1tpBd5JUCm6IQmiDNMet8wC/G2K4zDHf@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev" <netdev@vger.kernel.org>,
+	"linux-kernel" <linux-kernel@vger.kernel.org>
+To: "davem" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+neigh_resolve_output and neigh_connected_output resets the skb to network_header because of the retry loop and this reset will pull down the data pointer to the network header in the first iteration then hardware header will be added, but it will overwrite any data which is inserted between network header and hardware header (for example by netfilter hooks) only for the first packet(s) before using cached hardware header as neigh_hh_output (which is called for using cached hardware header) does not reset to the network header.
 
-> > Additionally, this looks like it changes the firmware API, so that=C2=
-=A0
-> > older firmware images will no longer work?
->=20
-> It is backwards compatible,=C2=A0
-> although it changes a API structure, older firmware are using only
-> u16 for the field so there is no impact on that.
->=20
+The fix is to reset with reference to skb's data before loop instead of network header.
 
-Oh, ok. I had also thought that the size changed, but missed that you
-replaced a u32 with two u16. Thanks for checking :)
+Fixes: e1f165032c8b ("net: Fix skb_under_panic oops in neigh_resolve_output")
+Signed-off-by: Abdelrhman Ahmed <ab@abahmed.com>
+---
+ net/core/neighbour.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
-johannes
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 29dd8cc..7aac242 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1293,15 +1293,19 @@ int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb)
+ 	int rc = 0;
+ 
+ 	if (!neigh_event_send(neigh, skb)) {
+-		int err;
++		int err, offset;
+ 		struct net_device *dev = neigh->dev;
++		unsigned char *data;
+ 		unsigned int seq;
+ 
+ 		if (dev->header_ops->cache && !neigh->hh.hh_len)
+ 			neigh_hh_init(neigh);
+ 
++		data = skb->data;
++
+ 		do {
+-			__skb_pull(skb, skb_network_offset(skb));
++			offset = data - skb->data;
++			__skb_pull(skb, offset);
+ 			seq = read_seqbegin(&neigh->ha_lock);
+ 			err = dev_hard_header(skb, dev, ntohs(skb->protocol),
+ 					      neigh->ha, NULL, skb->len);
+@@ -1326,11 +1330,15 @@ EXPORT_SYMBOL(neigh_resolve_output);
+ int neigh_connected_output(struct neighbour *neigh, struct sk_buff *skb)
+ {
+ 	struct net_device *dev = neigh->dev;
++	unsigned char *data;
+ 	unsigned int seq;
+-	int err;
++	int err, offset;
++
++	data = skb->data;
+ 
+ 	do {
+-		__skb_pull(skb, skb_network_offset(skb));
++		offset = data - skb->data;
++		__skb_pull(skb, offset);
+ 		seq = read_seqbegin(&neigh->ha_lock);
+ 		err = dev_hard_header(skb, dev, ntohs(skb->protocol),
+ 				      neigh->ha, NULL, skb->len);
+-- 
+1.9.1
