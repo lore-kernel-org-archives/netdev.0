@@ -1,70 +1,49 @@
 From: Saeed Mahameed <saeedm-LDSdmyG8hGV8YrgS2mwiifqBs+8SCbDb@public.gmane.org>
 Subject: Re: [PATCH] mellanox: mlx5: Use logging functions to reduce text ~10k/5%
-Date: Thu, 23 Jun 2016 11:09:41 +0300
-Message-ID: <CALzJLG-j4Sv+oRZHaWLW6GqBP2P1+nTJJRGhcSdMhedPzGfjZA@mail.gmail.com>
-References: <1466619839.13093.4.camel@perches.com>
+Date: Thu, 23 Jun 2016 11:12:23 +0300
+Message-ID: <CALzJLG-EvhZXZRQNJojUvmR_9KPTsq+pEtsjxhpnTtZ3aho+0w@mail.gmail.com>
+References: <1466619839.13093.4.camel@perches.com> <20160623052701.GB30933@leon.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+Cc: Saeed Mahameed <saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
 	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
 	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
 	linux-kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+To: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
 Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1466619839.13093.4.camel-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+In-Reply-To: <20160623052701.GB30933-2ukJVAZIZ/Y@public.gmane.org>
 Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 22, 2016 at 9:23 PM, Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
-[...]
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-> @@ -1557,3 +1557,37 @@ static void __exit cleanup(void)
+On Thu, Jun 23, 2016 at 8:27 AM, Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org> wrote:
+> On Wed, Jun 22, 2016 at 11:23:59AM -0700, Joe Perches wrote:
+>> The logging macros create a bit of duplicated code/text.
+>>
+>> Use specialized functions to reduce the duplication.
+>>
+>> (defconfig/x86-64)
+>> $ size drivers/net/ethernet/mellanox/mlx5/core/built-in.o*
+>>    text          data     bss     dec     hex filename
+>>  178634          2059      16  180709   2c1e5 drivers/net/ethernet/mellanox/mlx5/core/built-in.o.new
+>>  188679          2059      16  190754   2e922 drivers/net/ethernet/mellanox/mlx5/core/built-in.o.old
+>>
+>> The output changes now do not include line #,
+>> but do include the function offset.
+>>
+>> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 >
->  module_init(init);
->  module_exit(cleanup);
-> +
-> +void mlx5_core_err(struct mlx5_core_dev *dev, const char *fmt, ...)
-> +{
-> +       struct va_format vaf;
-> +       va_list args;
-> +
-> +       va_start(args, fmt);
-> +
-> +       vaf.fmt = fmt;
-> +       vaf.va = &args;
-> +
-> +       dev_err(&dev->pdev->dev, "%s:%pS:(pid %d): %pV",
-> +               dev->priv.name, __builtin_return_address(0), current->pid,
-> +               &vaf);
-> +
-> +       va_end(args);
-> +}
-> +
-> +void mlx5_core_warn(struct mlx5_core_dev *dev, const char *fmt, ...)
-> +{
-> +       struct va_format vaf;
-> +       va_list args;
-> +
-> +       va_start(args, fmt);
-> +
-> +       vaf.fmt = fmt;
-> +       vaf.va = &args;
-> +
-> +       dev_warn(&dev->pdev->dev, "%s:%pS:(pid %d): %pV",
-> +                dev->priv.name, __builtin_return_address(0), current->pid,
-> +                &vaf);
-> +
-> +       va_end(args);
-> +}
+> As far as I see all these functions are used in error paths, so no
+> implication on performance is expected.
+>
+> And I'm fine with function offsets.
+>
+> Saeed,
+> What do you think?
 
-Hi Joe,
-
-I like to keep the file organized in a bottom-up fashion.  Those
-functions need to appear as early as possible in the file, just move
-them up to appear after the MACROs defines and static fields
-declarations.
+Fine with me, need to fix my comment on functions placement, an your
+comment on checkpatch.
 --
 To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
