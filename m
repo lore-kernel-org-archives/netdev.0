@@ -1,110 +1,114 @@
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can-next 2016-06-17
-Date: Thu, 23 Jun 2016 11:30:30 +0200
-Message-ID: <0c371efc-6afa-130a-6752-50c3d5a0694c@pengutronix.de>
+From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Subject: Re: [PATCH net-next v2 2/4] cgroup: bpf: Add BPF_MAP_TYPE_CGROUP_ARRAY
+Date: Thu, 23 Jun 2016 11:42:31 +0200
+Message-ID: <576BAF07.4020302@iogearbox.net>
+References: <1466630252-3822277-1-git-send-email-kafai@fb.com> <1466630252-3822277-3-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
- protocol="application/pgp-signature";
- boundary="wmJsXVQrSjhxX6GdtLuavrM2AGKl9BKr9"
-Cc: David Miller <davem@davemloft.net>,
-	"kernel@pengutronix.de" <kernel@pengutronix.de>,
-	"linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-To: netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-Sender: linux-can-owner@vger.kernel.org
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	kernel-team-b10kYP2dOMg@public.gmane.org
+To: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1466630252-3822277-3-git-send-email-kafai-b10kYP2dOMg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 4880 and 3156)
---wmJsXVQrSjhxX6GdtLuavrM2AGKl9BKr9
-Content-Type: multipart/mixed; boundary="079sod0RbOqEUETPlju00qW1p5Le2DWLU"
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-To: netdev@vger.kernel.org
-Cc: David Miller <davem@davemloft.net>,
- "kernel@pengutronix.de" <kernel@pengutronix.de>,
- "linux-can@vger.kernel.org" <linux-can@vger.kernel.org>
-Message-ID: <0c371efc-6afa-130a-6752-50c3d5a0694c@pengutronix.de>
-Subject: pull-request: can-next 2016-06-17
+Hi Martin,
 
---079sod0RbOqEUETPlju00qW1p5Le2DWLU
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+[ sorry to jump late in here, on pto currently ]
 
-Hello David,
+On 06/22/2016 11:17 PM, Martin KaFai Lau wrote:
+> Add a BPF_MAP_TYPE_CGROUP_ARRAY and its bpf_map_ops's implementations.
+> To update an element, the caller is expected to obtain a cgroup2 backed
+> fd by open(cgroup2_dir) and then update the array with that fd.
+>
+> Signed-off-by: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
+> Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
+> Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+> Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Acked-by: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
-this is a pull request of 4 patches for net-next/master.
+Could you describe a bit more with regards to pinning maps and how this
+should interact with cgroups? The two specialized array maps we have (tail
+calls, perf events) have fairly complicated semantics for when to clean up
+map slots (see commits c9da161c6517ba1, 3b1efb196eee45b2f0c4).
 
-Arnd Bergmann's patch fixes a regresseion in af_can introduced in
-linux-can-next-for-4.8-20160617. There are two patches by Ramesh
-Shanmugasundaram, which add CAN-2.0 support to the rcar_canfd driver.
-And a patch by Ed Spiridonov that adds better error diagnoses messages
-to the Ed Spiridonov driver.
+How is this managed with cgroups? Once a cgroup fd is placed into a map and
+the user removes the cgroup, will this be prevented due to 'being busy', or
+will the cgroup live further as long as a program is running with a cgroup
+map entry (but the cgroup itself is not visible from user space in any way
+anymore)?
 
-regards,
-Marc
+I presume it's a valid use case to pin a cgroup map, put fds into it and
+remove the pinned file expecting to continue to match on it, right? So
+lifetime is really until last prog using a cgroup map somewhere gets removed
+(even if not accessible from user space anymore, meaning no prog has fd and
+pinned file was removed).
 
----
+I assume that using struct file here doesn't make sense (commit e03e7ee34fdd1c3)
+either, right?
 
-The following changes since commit b95e5928fcc76d156352570858abdea7b2628e=
-fd:
+[...]
+> +#ifdef CONFIG_CGROUPS
+> +static void *cgroup_fd_array_get_ptr(struct bpf_map *map,
+> +				     struct file *map_file /* not used */,
+> +				     int fd)
+> +{
+> +	return cgroup_get_from_fd(fd);
+> +}
+> +
+> +static void cgroup_fd_array_put_ptr(void *ptr)
+> +{
+> +	/* cgroup_put free cgrp after a rcu grace period */
+> +	cgroup_put(ptr);
 
-  openvswitch: Add packet len info to upcall. (2016-06-22 16:34:39 -0400)=
+Yeah, as long as this respects freeing after RCU grace period, it's fine
+like this ...
 
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can-next.git ta=
-gs/linux-can-next-for-4.8-20160623
-
-for you to fetch changes up to b63f69d0fc1fa1e25842a2266633862d523c380f:
-
-  can: mcp251x: add message about sucessful/unsuccessful probe (2016-06-2=
-3 11:23:49 +0200)
-
-----------------------------------------------------------------
-linux-can-next-for-4.8-20160623
-
-----------------------------------------------------------------
-Arnd Bergmann (1):
-      can: only call can_stat_update with procfs
-
-Ed Spiridonov (1):
-      can: mcp251x: add message about sucessful/unsuccessful probe
-
-Ramesh Shanmugasundaram (2):
-      can: rcar_canfd: Add Classical CAN only mode support
-      can: rcar_canfd: Add back-to-error-active support
-
- .../devicetree/bindings/net/can/rcar_canfd.txt     |  21 +-
- drivers/net/can/rcar/rcar_canfd.c                  | 429 ++++++++++++++-=
-------
- drivers/net/can/spi/mcp251x.c                      |   7 +-
- net/can/af_can.c                                   |  22 +-
- net/can/af_can.h                                   |  11 -
- 5 files changed, 328 insertions(+), 162 deletions(-)
-
---=20
-Pengutronix e.K.                  | Marc Kleine-Budde           |
-Industrial Linux Solutions        | Phone: +49-231-2826-924     |
-Vertretung West/Dortmund          | Fax:   +49-5121-206917-5555 |
-Amtsgericht Hildesheim, HRA 2686  | http://www.pengutronix.de   |
-
-
---079sod0RbOqEUETPlju00qW1p5Le2DWLU--
-
---wmJsXVQrSjhxX6GdtLuavrM2AGKl9BKr9
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-
-iQEcBAEBCgAGBQJXa6w2AAoJED07qiWsqSVq87oIAKtBeB1B8vRayZ5NN/Gxzz09
-5MGzi372vzlhpEMz9YpyU0o3U8s24ijjuVnL3q6VMXhBkye/1l9i0N+EJ31nZ8mV
-AiIUsQG2/8mMkzD4KJ4uHVfUDCvvifABjDGy0jSS0I6pjGAA5D4eJYXdOMtzxc2e
-R/JfWPxYG4u0bscLO8m4xAjGta9taEBN7MrZcuuO846Mxeh+BAxjbYa1bsuoj2DB
-ZndigAbRJdKggNzteKlGIrnfPYukEE9AdF5eOCih5fq13z34OkSb1dTyPKTiD6JF
-JZgSYzi7eZ0dR9TIR1NVMExfq3VHXwmvfCk4hAQ3XgpDZ1bOYJwAihwvbKZasQ0=
-=+5XK
------END PGP SIGNATURE-----
-
---wmJsXVQrSjhxX6GdtLuavrM2AGKl9BKr9--
+> +}
+> +
+> +static void cgroup_fd_array_free(struct bpf_map *map)
+> +{
+> +	bpf_fd_array_map_clear(map);
+> +	fd_array_map_free(map);
+> +}
+> +
+> +static const struct bpf_map_ops cgroup_array_ops = {
+> +	.map_alloc = fd_array_map_alloc,
+> +	.map_free = cgroup_fd_array_free,
+> +	.map_get_next_key = array_map_get_next_key,
+> +	.map_lookup_elem = fd_array_map_lookup_elem,
+> +	.map_delete_elem = fd_array_map_delete_elem,
+> +	.map_fd_get_ptr = cgroup_fd_array_get_ptr,
+> +	.map_fd_put_ptr = cgroup_fd_array_put_ptr,
+> +};
+> +
+> +static struct bpf_map_type_list cgroup_array_type __read_mostly = {
+> +	.ops = &cgroup_array_ops,
+> +	.type = BPF_MAP_TYPE_CGROUP_ARRAY,
+> +};
+> +
+> +static int __init register_cgroup_array_map(void)
+> +{
+> +	bpf_register_map_type(&cgroup_array_type);
+> +	return 0;
+> +}
+> +late_initcall(register_cgroup_array_map);
+> +#endif
+> diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
+> index c23a4e93..cac13f1 100644
+> --- a/kernel/bpf/syscall.c
+> +++ b/kernel/bpf/syscall.c
+> @@ -393,7 +393,8 @@ static int map_update_elem(union bpf_attr *attr)
+>   	} else if (map->map_type == BPF_MAP_TYPE_PERCPU_ARRAY) {
+>   		err = bpf_percpu_array_update(map, key, value, attr->flags);
+>   	} else if (map->map_type == BPF_MAP_TYPE_PERF_EVENT_ARRAY ||
+> -		   map->map_type == BPF_MAP_TYPE_PROG_ARRAY) {
+> +		   map->map_type == BPF_MAP_TYPE_PROG_ARRAY ||
+> +		   map->map_type == BPF_MAP_TYPE_CGROUP_ARRAY) {
+>   		rcu_read_lock();
+>   		err = bpf_fd_array_map_update_elem(map, f.file, key, value,
+>   						   attr->flags);
+>
