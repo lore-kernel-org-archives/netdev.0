@@ -1,27 +1,25 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: vrf: replace hard tab with space in assignment
-Date: Thu, 23 Jun 2016 15:20:37 -0400 (EDT)
-Message-ID: <20160623.152037.1185109841504362333.davem@davemloft.net>
-References: <20160621033943.21947-1-chris.packham@alliedtelesis.co.nz>
+Subject: Re: [PATCH] geneve: fix tx_errors statistics
+Date: Thu, 23 Jun 2016 15:20:48 -0400 (EDT)
+Message-ID: <20160623.152048.1840209840512907741.davem@davemloft.net>
+References: <1466497609-14468-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	shm@cumulusnetworks.com, dsa@cumulusnetworks.com
-To: chris.packham@alliedtelesis.co.nz
+Cc: jesse@kernel.org, pshelar@nicira.com, tom@herbertland.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: yanhaishuang@cmss.chinamobile.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160621033943.21947-1-chris.packham@alliedtelesis.co.nz>
+In-Reply-To: <1466497609-14468-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Chris Packham <chris.packham@alliedtelesis.co.nz>
-Date: Tue, 21 Jun 2016 15:39:43 +1200
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Date: Tue, 21 Jun 2016 16:26:49 +0800
 
-> The assignment of rth->dst.output in vrf_rt6_create() and
-> vrf_rtable_create() used a hard tab before the '='. The neighboring
-> assignments did not. Make the assignment of rth->dst.output consistent
-> with the surrounding code.
+> Tx errors present summation of errors encountered while transmitting
+> packets.
 > 
-> Signed-off-by: Chris Packham <chris.packham@alliedtelesis.co.nz>
+> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
 
 Applied.
