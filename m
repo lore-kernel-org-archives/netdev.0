@@ -1,8 +1,7 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH net-next 5/5] phy: improve safety of fixed-phy MII register
- reading
-Date: Thu, 23 Jun 2016 14:50:25 +0100
-Message-ID: <E1bG51V-0006lI-Uu@rmk-PC.armlinux.org.uk>
+Subject: [PATCH net-next 4/5] phy: generate swphy registers on the fly
+Date: Thu, 23 Jun 2016 14:50:20 +0100
+Message-ID: <E1bG51Q-0006lC-Ra@rmk-PC.armlinux.org.uk>
 References: <20160623134936.GX1041@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,103 +9,219 @@ Content-Transfer-Encoding: 8bit
 Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:45614 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:45611 "EHLO
 	pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752150AbcFWNu3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 09:50:29 -0400
+	with ESMTP id S1750885AbcFWNuY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 09:50:24 -0400
 In-Reply-To: <20160623134936.GX1041@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There is no prevention of a concurrent call to both fixed_mdio_read()
-and fixed_phy_update_state(), which can result in the state being
-modified while it's being inspected.  Fix this by using a seqcount
-to detect modifications, and memcpy()ing the state.
+Generate software phy registers as and when requested, rather than
+duplicating the state in fixed_phy.  This allows us to eliminate
+the duplicate storage of of the same data, which is only different
+in format.
 
-We remain slightly naughty here, calling link_update() and updating
-the link status within the read-side loop - which would need rework
-of the design to change.
+As fixed_phy_update_regs() no longer updates register state, rename
+it to fixed_phy_update().
 
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/phy/fixed_phy.c | 28 +++++++++++++++++++++-------
- 1 file changed, 21 insertions(+), 7 deletions(-)
+ drivers/net/phy/fixed_phy.c | 31 +++++-------------------------
+ drivers/net/phy/swphy.c     | 47 ++++++++++++++++++++++++++++++++-------------
+ drivers/net/phy/swphy.h     |  2 +-
+ 3 files changed, 40 insertions(+), 40 deletions(-)
 
 diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
-index 0dfed86bdb5a..b376ada83598 100644
+index d84e30c46824..0dfed86bdb5a 100644
 --- a/drivers/net/phy/fixed_phy.c
 +++ b/drivers/net/phy/fixed_phy.c
-@@ -23,6 +23,7 @@
- #include <linux/slab.h>
- #include <linux/of.h>
- #include <linux/gpio.h>
-+#include <linux/seqlock.h>
+@@ -26,8 +26,6 @@
  
  #include "swphy.h"
  
-@@ -34,6 +35,7 @@ struct fixed_mdio_bus {
+-#define MII_REGS_NUM 29
+-
+ struct fixed_mdio_bus {
+ 	struct mii_bus *mii_bus;
+ 	struct list_head phys;
+@@ -35,7 +33,6 @@ struct fixed_mdio_bus {
+ 
  struct fixed_phy {
  	int addr;
+-	u16 regs[MII_REGS_NUM];
  	struct phy_device *phydev;
-+	seqcount_t seqcount;
  	struct fixed_phy_status status;
  	int (*link_update)(struct net_device *, struct fixed_phy_status *);
- 	struct list_head node;
-@@ -58,13 +60,21 @@ static int fixed_mdio_read(struct mii_bus *bus, int phy_addr, int reg_num)
+@@ -48,12 +45,10 @@ static struct fixed_mdio_bus platform_fmb = {
+ 	.phys = LIST_HEAD_INIT(platform_fmb.phys),
+ };
  
+-static void fixed_phy_update_regs(struct fixed_phy *fp)
++static void fixed_phy_update(struct fixed_phy *fp)
+ {
+ 	if (gpio_is_valid(fp->link_gpio))
+ 		fp->status.link = !!gpio_get_value_cansleep(fp->link_gpio);
+-
+-	swphy_update_regs(fp->regs, &fp->status);
+ }
+ 
+ static int fixed_mdio_read(struct mii_bus *bus, int phy_addr, int reg_num)
+@@ -61,29 +56,15 @@ static int fixed_mdio_read(struct mii_bus *bus, int phy_addr, int reg_num)
+ 	struct fixed_mdio_bus *fmb = bus->priv;
+ 	struct fixed_phy *fp;
+ 
+-	if (reg_num >= MII_REGS_NUM)
+-		return -1;
+-
+-	/* We do not support emulating Clause 45 over Clause 22 register reads
+-	 * return an error instead of bogus data.
+-	 */
+-	switch (reg_num) {
+-	case MII_MMD_CTRL:
+-	case MII_MMD_DATA:
+-		return -1;
+-	default:
+-		break;
+-	}
+-
  	list_for_each_entry(fp, &fmb->phys, node) {
  		if (fp->addr == phy_addr) {
--			/* Issue callback if user registered it. */
--			if (fp->link_update) {
--				fp->link_update(fp->phydev->attached_dev,
--						&fp->status);
--				fixed_phy_update(fp);
--			}
--			return swphy_read_reg(reg_num, &fp->status);
-+			struct fixed_phy_status state;
-+			int s;
-+
-+			do {
-+				s = read_seqcount_begin(&fp->seqcount);
-+				/* Issue callback if user registered it. */
-+				if (fp->link_update) {
-+					fp->link_update(fp->phydev->attached_dev,
-+							&fp->status);
-+					fixed_phy_update(fp);
-+				}
-+				state = fp->status;
-+			} while (read_seqcount_retry(&fp->seqcount, s));
-+
-+			return swphy_read_reg(reg_num, &state);
+ 			/* Issue callback if user registered it. */
+ 			if (fp->link_update) {
+ 				fp->link_update(fp->phydev->attached_dev,
+ 						&fp->status);
+-				fixed_phy_update_regs(fp);
++				fixed_phy_update(fp);
+ 			}
+-			return fp->regs[reg_num];
++			return swphy_read_reg(reg_num, &fp->status);
  		}
  	}
  
-@@ -116,6 +126,7 @@ int fixed_phy_update_state(struct phy_device *phydev,
- 
- 	list_for_each_entry(fp, &fmb->phys, node) {
- 		if (fp->addr == phydev->mdio.addr) {
-+			write_seqcount_begin(&fp->seqcount);
- #define _UPD(x) if (changed->x) \
- 	fp->status.x = status->x
- 			_UPD(link);
-@@ -125,6 +136,7 @@ int fixed_phy_update_state(struct phy_device *phydev,
+@@ -143,7 +124,7 @@ int fixed_phy_update_state(struct phy_device *phydev,
+ 			_UPD(pause);
  			_UPD(asym_pause);
  #undef _UPD
- 			fixed_phy_update(fp);
-+			write_seqcount_end(&fp->seqcount);
+-			fixed_phy_update_regs(fp);
++			fixed_phy_update(fp);
  			return 0;
  		}
  	}
-@@ -149,6 +161,8 @@ int fixed_phy_add(unsigned int irq, int phy_addr,
+@@ -168,8 +149,6 @@ int fixed_phy_add(unsigned int irq, int phy_addr,
  	if (!fp)
  		return -ENOMEM;
  
-+	seqcount_init(&fp->seqcount);
-+
+-	memset(fp->regs, 0xFF,  sizeof(fp->regs[0]) * MII_REGS_NUM);
+-
  	if (irq != PHY_POLL)
  		fmb->mii_bus->irq[phy_addr] = irq;
  
+@@ -184,7 +163,7 @@ int fixed_phy_add(unsigned int irq, int phy_addr,
+ 			goto err_regs;
+ 	}
+ 
+-	fixed_phy_update_regs(fp);
++	fixed_phy_update(fp);
+ 
+ 	list_add_tail(&fp->node, &fmb->phys);
+ 
+diff --git a/drivers/net/phy/swphy.c b/drivers/net/phy/swphy.c
+index 21a9bd8a7830..34f58f2349e9 100644
+--- a/drivers/net/phy/swphy.c
++++ b/drivers/net/phy/swphy.c
+@@ -20,6 +20,8 @@
+ 
+ #include "swphy.h"
+ 
++#define MII_REGS_NUM 29
++
+ struct swmii_regs {
+ 	u16 bmcr;
+ 	u16 bmsr;
+@@ -110,14 +112,13 @@ int swphy_validate_state(const struct fixed_phy_status *state)
+ EXPORT_SYMBOL_GPL(swphy_validate_state);
+ 
+ /**
+- * swphy_update_regs - update MII register array with fixed phy state
+- * @regs: array of 32 registers to update
++ * swphy_read_reg - return a MII register from the fixed phy state
++ * @reg: MII register
+  * @state: fixed phy status
+  *
+- * Update the array of MII registers with the fixed phy link, speed,
+- * duplex and pause mode settings.
++ * Return the MII @reg register generated from the fixed phy state @state.
+  */
+-void swphy_update_regs(u16 *regs, const struct fixed_phy_status *state)
++int swphy_read_reg(int reg, const struct fixed_phy_status *state)
+ {
+ 	int speed_index, duplex_index;
+ 	u16 bmsr = BMSR_ANEGCAPABLE;
+@@ -125,9 +126,12 @@ void swphy_update_regs(u16 *regs, const struct fixed_phy_status *state)
+ 	u16 lpagb = 0;
+ 	u16 lpa = 0;
+ 
++	if (reg > MII_REGS_NUM)
++		return -1;
++
+ 	speed_index = swphy_decode_speed(state->speed);
+ 	if (WARN_ON(speed_index < 0))
+-		return;
++		return 0;
+ 
+ 	duplex_index = state->duplex ? SWMII_DUPLEX_FULL : SWMII_DUPLEX_HALF;
+ 
+@@ -147,12 +151,29 @@ void swphy_update_regs(u16 *regs, const struct fixed_phy_status *state)
+ 			lpa |= LPA_PAUSE_ASYM;
+ 	}
+ 
+-	regs[MII_PHYSID1] = 0;
+-	regs[MII_PHYSID2] = 0;
++	switch (reg) {
++	case MII_BMCR:
++		return bmcr;
++	case MII_BMSR:
++		return bmsr;
++	case MII_PHYSID1:
++	case MII_PHYSID2:
++		return 0;
++	case MII_LPA:
++		return lpa;
++	case MII_STAT1000:
++		return lpagb;
++
++	/*
++	 * We do not support emulating Clause 45 over Clause 22 register
++	 * reads.  Return an error instead of bogus data.
++	 */
++	case MII_MMD_CTRL:
++	case MII_MMD_DATA:
++		return -1;
+ 
+-	regs[MII_BMSR] = bmsr;
+-	regs[MII_BMCR] = bmcr;
+-	regs[MII_LPA] = lpa;
+-	regs[MII_STAT1000] = lpagb;
++	default:
++		return 0xffff;
++	}
+ }
+-EXPORT_SYMBOL_GPL(swphy_update_regs);
++EXPORT_SYMBOL_GPL(swphy_read_reg);
+diff --git a/drivers/net/phy/swphy.h b/drivers/net/phy/swphy.h
+index 33d2e061896e..2f09ac324e18 100644
+--- a/drivers/net/phy/swphy.h
++++ b/drivers/net/phy/swphy.h
+@@ -4,6 +4,6 @@
+ struct fixed_phy_status;
+ 
+ int swphy_validate_state(const struct fixed_phy_status *state);
+-void swphy_update_regs(u16 *regs, const struct fixed_phy_status *state);
++int swphy_read_reg(int reg, const struct fixed_phy_status *state);
+ 
+ #endif
 -- 
 2.1.0
