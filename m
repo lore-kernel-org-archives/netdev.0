@@ -1,45 +1,56 @@
-From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Subject: Re: [PATCH net-next v2 3/4] cgroup: bpf: Add bpf_skb_in_cgroup_proto
-Date: Thu, 23 Jun 2016 22:07:27 +0200
-Message-ID: <576C417F.6000301@iogearbox.net>
-References: <1466630252-3822277-1-git-send-email-kafai@fb.com> <1466630252-3822277-4-git-send-email-kafai@fb.com> <576BB1AE.5080605@iogearbox.net> <20160623165449.GC82305@kafai-mba.local>
+From: Tom Goff <thomas.goff@ll.mit.edu>
+Subject: [PATCH] ipmr/ip6mr: Initialize the last assert time of mfc entries.
+Date: Thu, 23 Jun 2016 16:11:57 -0400
+Message-ID: <20160623201157.GA4178@ll.mit.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, kernel-team-b10kYP2dOMg@public.gmane.org
-To: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160623165449.GC82305-ik1955jzaFFGY1KPJGhogQ@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+To: <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from LLMX2.LL.MIT.EDU ([129.55.12.48]:57426 "EHLO llmx2.ll.mit.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750799AbcFWU2R (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 16:28:17 -0400
+Received: from LLE2K10-HUB01.mitll.ad.local (LLE2K10-HUB01.mitll.ad.local) by llmx2.ll.mit.edu (unknown) with ESMTP id u5NK9WYR019160 for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 16:09:32 -0400
+Content-Disposition: inline
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/23/2016 06:54 PM, Martin KaFai Lau wrote:
-> On Thu, Jun 23, 2016 at 11:53:50AM +0200, Daniel Borkmann wrote:
->>> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
->>> index 668e079..68753e0 100644
->>> --- a/kernel/bpf/verifier.c
->>> +++ b/kernel/bpf/verifier.c
->>> @@ -1062,6 +1062,10 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
->>>   		if (func_id != BPF_FUNC_get_stackid)
->>>   			goto error;
->>>   		break;
->>> +	case BPF_MAP_TYPE_CGROUP_ARRAY:
->>> +		if (func_id != BPF_FUNC_skb_in_cgroup)
->>> +			goto error;
->>> +		break;
->>
->> I think the BPF_MAP_TYPE_CGROUP_ARRAY case should have been fist here in
->> patch 2/4, but with unconditional goto error. And this one only adds the
->> 'func_id != BPF_FUNC_skb_in_cgroup' test.
-> I am not sure I understand.  Can you elaborate? I am probably missing
-> something here.
+This fixes wrong-interface signaling on 32-bit platforms for entries
+created when jiffies > 2^31 + MFC_ASSERT_THRESH.
 
-If someone backports patch 2/4 as-is, but for some reason not 3/4, then you
-could craft a program that calls f.e. bpf_map_update_elem() on a cgroup array
-and would thus cause a NULL pointer deref, since verifier doesn't prevent it.
-I'm just trying to say that it would probably make sense to add the above 'case
-BPF_MAP_TYPE_CGROUP_ARRAY:' with an unconditional 'goto error' in patch 2/4
-and extend upon it in patch 3/4 so result looks like here, so that the patches
-are fine/complete each as stand-alone.
+Signed-off-by: Tom Goff <thomas.goff@ll.mit.edu>
+---
+ net/ipv4/ipmr.c  | 4 +++-
+ net/ipv6/ip6mr.c | 1 +
+ 2 files changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 21a38e2..5ad48ec 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -891,8 +891,10 @@ static struct mfc_cache *ipmr_cache_alloc(void)
+ {
+ 	struct mfc_cache *c = kmem_cache_zalloc(mrt_cachep, GFP_KERNEL);
+ 
+-	if (c)
++	if (c) {
++		c->mfc_un.res.last_assert = jiffies - MFC_ASSERT_THRESH - 1;
+ 		c->mfc_un.res.minvif = MAXVIFS;
++	}
+ 	return c;
+ }
+ 
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index f2e2013f8..487ef3b 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -1074,6 +1074,7 @@ static struct mfc6_cache *ip6mr_cache_alloc(void)
+ 	struct mfc6_cache *c = kmem_cache_zalloc(mrt_cachep, GFP_KERNEL);
+ 	if (!c)
+ 		return NULL;
++	c->mfc_un.res.last_assert = jiffies - MFC_ASSERT_THRESH - 1;
+ 	c->mfc_un.res.minvif = MAXMIFS;
+ 	return c;
+ }
+-- 
+1.9.1
