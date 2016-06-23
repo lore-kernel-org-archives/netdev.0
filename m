@@ -1,49 +1,71 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH] dsa: mv88e6xxx: hide unused functions
-Date: Thu, 23 Jun 2016 11:21:27 -0400
-Message-ID: <87fus4x760.fsf@ketchup.mtl.sfl>
-References: <20160623141409.356324-1-arnd@arndb.de>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Arnd Bergmann <arnd@arndb.de>, Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: [PATCH] vsock: make listener child lock ordering explicit
+Date: Thu, 23 Jun 2016 16:28:58 +0100
+Message-ID: <1466695738-2393-1-git-send-email-stefanha@redhat.com>
+Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
+	Jorgen Hansen <jhansen@vmware.com>,
+	Stefan Hajnoczi <stefanha@redhat.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:48267 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750799AbcFWPVc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 11:21:32 -0400
-In-Reply-To: <20160623141409.356324-1-arnd@arndb.de>
+Received: from mx1.redhat.com ([209.132.183.28]:46614 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750950AbcFWP3A (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 11:29:00 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+There are several places where the listener and pending or accept queue
+child sockets are accessed at the same time.  Lockdep is unhappy that
+two locks from the same class are held.
 
-Arnd Bergmann <arnd@arndb.de> writes:
+Tell lockdep that it is safe and document the lock ordering.
 
-> When CONFIG_NET_DSA_HWMON is disabled, we get warnings about two unused
-> functions whose only callers are all inside of an #ifdef:
->
-> drivers/net/dsa/mv88e6xxx.c:3257:12: 'mv88e6xxx_mdio_page_write' defined but not used [-Werror=unused-function]
-> drivers/net/dsa/mv88e6xxx.c:3244:12: 'mv88e6xxx_mdio_page_read' defined but not used [-Werror=unused-function]
->
-> This adds another ifdef around the function definitions. The warnings
-> appeared after the functions were marked 'static', but the problem
-> was already there before that.
->
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 57d3231057e9 ("net: dsa: mv88e6xxx: fix style issues")
+Originally Claudio Imbrenda <imbrenda@linux.vnet.ibm.com> sent a similar
+patch asking whether this is safe.  I have audited the code and also
+covered the vsock_pending_work() function.
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Suggested-by: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
+Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
+---
+ net/vmw_vsock/af_vsock.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
-David, this patch is meant for net-next. It applies cleanly *before* my
-last two submissions:
-
-    1/2 http://patchwork.ozlabs.org/patch/638773/
-    2/2 http://patchwork.ozlabs.org/patch/638772/
-
-Thanks,
-
-        Vivien
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index b5f1221..b96ac91 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -61,6 +61,14 @@
+  * function will also cleanup rejected sockets, those that reach the connected
+  * state but leave it before they have been accepted.
+  *
++ * - Lock ordering for pending or accept queue sockets is:
++ *
++ *     lock_sock(listener);
++ *     lock_sock_nested(pending, SINGLE_DEPTH_NESTING);
++ *
++ * Using explicit nested locking keeps lockdep happy since normally only one
++ * lock of a given class may be taken at a time.
++ *
+  * - Sockets created by user action will be cleaned up when the user process
+  * calls close(2), causing our release implementation to be called. Our release
+  * implementation will perform some cleanup then drop the last reference so our
+@@ -443,7 +451,7 @@ void vsock_pending_work(struct work_struct *work)
+ 	cleanup = true;
+ 
+ 	lock_sock(listener);
+-	lock_sock(sk);
++	lock_sock_nested(sk, SINGLE_DEPTH_NESTING);
+ 
+ 	if (vsock_is_pending(sk)) {
+ 		vsock_remove_pending(listener, sk);
+@@ -1292,7 +1300,7 @@ static int vsock_accept(struct socket *sock, struct socket *newsock, int flags)
+ 	if (connected) {
+ 		listener->sk_ack_backlog--;
+ 
+-		lock_sock(connected);
++		lock_sock_nested(connected, SINGLE_DEPTH_NESTING);
+ 		vconnected = vsock_sk(connected);
+ 
+ 		/* If the listener socket has received an error, then we should
+-- 
+2.7.4
