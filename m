@@ -1,45 +1,52 @@
-From: Phil <pme.neratec@gmx.ch>
-Subject: Re: rstpd implementation
-Date: Thu, 23 Jun 2016 15:56:00 +0200
-Message-ID: <576BEA70.6050207@gmx.ch>
-References: <576A8873.50809@gmx.ch> <874m8lqfsb.fsf@x220.int.ebiederm.org>
- <20160622111212.249aef89@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] dsa: mv88e6xxx: hide unused functions
+Date: Thu, 23 Jun 2016 16:13:22 +0200
+Message-ID: <20160623141409.356324-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Andrew Lunn <andrew@lunn.ch>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160622111212.249aef89@xeon-e3>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/22/2016 08:12 PM, Stephen Hemminger wrote:
-> On Wed, 22 Jun 2016 12:44:52 -0500
-> ebiederm@xmission.com (Eric W. Biederman) wrote:
->
->> Phil <pme.neratec@gmx.ch> writes:
->>
->>> Hi,
->>>
->>> When looking for an RSTP daemon I found Stephen Hemminger's
->>> git://git.kernel.org/pub/scm/linux/kernel/git/shemminger/rstp.git
->>> <https://kernel.googlesource.com/pub/scm/linux/kernel/git/shemminger/rstp#zSoyz>
->>> with it's last commit from October 2011.
->>>
->>> Is this implementation still in good use by anybody - or has it been
->>> replaced/superseded by another implementation?
->> I don't know and when you get into user space daemons they aren't much
->> talked about on the kernel lists.  That said you will likely fair better
->> on the netdev list (cc'd).
->>
->> Eric
-> The current one I recommend is the MSTPd done by Cumulus
->   https://sourceforge.net/p/mstpd/wiki/Home/
-> But like all projects they could use help
->
-Thank's a lot to Eric and Stephen for your answers.
-In the meantime I also found https://github.com/ocedo/mstpd
+When CONFIG_NET_DSA_HWMON is disabled, we get warnings about two unused
+functions whose only callers are all inside of an #ifdef:
 
-Philipp
+drivers/net/dsa/mv88e6xxx.c:3257:12: 'mv88e6xxx_mdio_page_write' defined but not used [-Werror=unused-function]
+drivers/net/dsa/mv88e6xxx.c:3244:12: 'mv88e6xxx_mdio_page_read' defined but not used [-Werror=unused-function]
+
+This adds another ifdef around the function definitions. The warnings
+appeared after the functions were marked 'static', but the problem
+was already there before that.
+
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 57d3231057e9 ("net: dsa: mv88e6xxx: fix style issues")
+---
+ drivers/net/dsa/mv88e6xxx.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
+index 9b116d8d4e23..2a95f2d6cf09 100644
+--- a/drivers/net/dsa/mv88e6xxx.c
++++ b/drivers/net/dsa/mv88e6xxx.c
+@@ -3241,6 +3241,7 @@ unlock:
+ 	return err;
+ }
+ 
++#ifdef CONFIG_NET_DSA_HWMON
+ static int mv88e6xxx_mdio_page_read(struct dsa_switch *ds, int port, int page,
+ 				    int reg)
+ {
+@@ -3266,6 +3267,7 @@ static int mv88e6xxx_mdio_page_write(struct dsa_switch *ds, int port, int page,
+ 
+ 	return ret;
+ }
++#endif
+ 
+ static int mv88e6xxx_port_to_mdio_addr(struct mv88e6xxx_priv_state *ps,
+ 				       int port)
+-- 
+2.9.0
