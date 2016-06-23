@@ -1,415 +1,242 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 01/10] net/mlx5: Rate limit tables support
-Date: Thu, 23 Jun 2016 17:02:37 +0300
-Message-ID: <1466690566-14700-2-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 02/10] net/mlx5e: Add TXQ set max rate support
+Date: Thu, 23 Jun 2016 17:02:38 +0300
+Message-ID: <1466690566-14700-3-git-send-email-saeedm@mellanox.com>
 References: <1466690566-14700-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Yevgeny Petrilin <yevgenyp@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:35263 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:35314 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750799AbcFWPql (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jun 2016 11:46:41 -0400
+	id S1751719AbcFWPqw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 11:46:52 -0400
 In-Reply-To: <1466690566-14700-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yevgeny Petrilin <yevgenyp@mellanox.com>
 
-Configuring and managing HW rate limit tables.
-The HW holds a table of rate limits, each rate is
-associated with an index in that table.
-Later a Send Queue uses this index to set the rate limit.
-Multiple Send Queues can have the same rate limit, which is
-represented by a single entry in this table.
-Even though a rate can be shared, each queue is being rate
-limited independently of others.
+Implement set_maxrate ndo.
+Use the rate index from the hardware table to attach to channel SQ/TXQ.
+In case of failure to configure new rate, the queue remains with
+unlimited rate.
 
-The SW shadow of this table holds the rate itself,
-the index in the HW table and the refcount (number of queues)
-working with this rate.
-
-The exported functions are mlx5_rl_add_rate and mlx5_rl_remove_rate.
-Number of different rates and their values are derived
-from HW capabilities.
+We save the configuration on priv structure and apply it each time
+Send Queues are being reinitialized (after open/close) operations.
 
 Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/Makefile |   5 +-
- drivers/net/ethernet/mellanox/mlx5/core/fw.c     |   6 +
- drivers/net/ethernet/mellanox/mlx5/core/main.c   |  10 ++
- drivers/net/ethernet/mellanox/mlx5/core/rl.c     | 209 +++++++++++++++++++++++
- include/linux/mlx5/device.h                      |   4 +
- include/linux/mlx5/driver.h                      |  27 +++
- 6 files changed, 259 insertions(+), 2 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/rl.c
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      |   3 +
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 102 +++++++++++++++++++++-
+ 2 files changed, 102 insertions(+), 3 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index 9ea7b58..0c8a7dc 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -1,8 +1,9 @@
- obj-$(CONFIG_MLX5_CORE)		+= mlx5_core.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index e8a6c33..017e047 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -88,6 +88,7 @@
+ #define MLX5E_LOG_INDIR_RQT_SIZE       0x7
+ #define MLX5E_INDIR_RQT_SIZE           BIT(MLX5E_LOG_INDIR_RQT_SIZE)
+ #define MLX5E_MAX_NUM_CHANNELS         (MLX5E_INDIR_RQT_SIZE >> 1)
++#define MLX5E_MAX_NUM_SQS              (MLX5E_MAX_NUM_CHANNELS * MLX5E_MAX_NUM_TC)
+ #define MLX5E_TX_CQ_POLL_BUDGET        128
+ #define MLX5E_UPDATE_STATS_INTERVAL    200 /* msecs */
+ #define MLX5E_SQ_BF_BUDGET             16
+@@ -354,6 +355,7 @@ struct mlx5e_sq {
+ 	struct mlx5e_channel      *channel;
+ 	int                        tc;
+ 	struct mlx5e_ico_wqe_info *ico_wqe_info;
++	u32                        rate_limit;
+ } ____cacheline_aligned_in_smp;
  
- mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
--		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o   \
--		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o fs_counters.o
-+		health.o mcg.o cq.o srq.o alloc.o qp.o port.o mr.o pd.o \
-+		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o \
-+		fs_counters.o rl.o
+ static inline bool mlx5e_sq_has_room_for(struct mlx5e_sq *sq, u16 n)
+@@ -530,6 +532,7 @@ struct mlx5e_priv {
+ 	u32                        indir_rqtn;
+ 	u32                        indir_tirn[MLX5E_NUM_INDIR_TIRS];
+ 	struct mlx5e_direct_tir    direct_tir[MLX5E_MAX_NUM_CHANNELS];
++	u32                        tx_rates[MLX5E_MAX_NUM_SQS];
  
- mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o \
- 		en_main.o en_fs.o en_ethtool.o en_tx.o en_rx.o \
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fw.c b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-index 75c7ae6..77fc1aa 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fw.c
-@@ -151,6 +151,12 @@ int mlx5_query_hca_caps(struct mlx5_core_dev *dev)
- 			return err;
- 	}
- 
-+	if (MLX5_CAP_GEN(dev, qos)) {
-+		err = mlx5_core_get_caps(dev, MLX5_CAP_QOS);
-+		if (err)
-+			return err;
-+	}
-+
- 	return 0;
+ 	struct mlx5e_flow_steering fs;
+ 	struct mlx5e_vxlan_db      vxlan;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 8b7c6f3..e5a2cef 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -702,7 +702,8 @@ static int mlx5e_enable_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param)
+ 	return err;
  }
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/main.c b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-index a19b593..08cae34 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/main.c
-@@ -1144,6 +1144,13 @@ static int mlx5_load_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 		dev_err(&pdev->dev, "Failed to init flow steering\n");
- 		goto err_fs;
- 	}
-+
-+	err = mlx5_init_rl_table(dev);
-+	if (err) {
-+		dev_err(&pdev->dev, "Failed to init rate limiting\n");
-+		goto err_rl;
-+	}
-+
- #ifdef CONFIG_MLX5_CORE_EN
- 	err = mlx5_eswitch_init(dev);
- 	if (err) {
-@@ -1183,6 +1190,8 @@ err_sriov:
- 	mlx5_eswitch_cleanup(dev->priv.eswitch);
- #endif
- err_reg_dev:
-+	mlx5_cleanup_rl_table(dev);
-+err_rl:
- 	mlx5_cleanup_fs(dev);
- err_fs:
- 	mlx5_cleanup_mkey_table(dev);
-@@ -1253,6 +1262,7 @@ static int mlx5_unload_one(struct mlx5_core_dev *dev, struct mlx5_priv *priv)
- 	mlx5_eswitch_cleanup(dev->priv.eswitch);
- #endif
+-static int mlx5e_modify_sq(struct mlx5e_sq *sq, int curr_state, int next_state)
++static int mlx5e_modify_sq(struct mlx5e_sq *sq, int curr_state,
++			   int next_state, bool update_rl, int rl_index)
+ {
+ 	struct mlx5e_channel *c = sq->channel;
+ 	struct mlx5e_priv *priv = c->priv;
+@@ -722,6 +723,10 @@ static int mlx5e_modify_sq(struct mlx5e_sq *sq, int curr_state, int next_state)
  
-+	mlx5_cleanup_rl_table(dev);
- 	mlx5_cleanup_fs(dev);
- 	mlx5_cleanup_mkey_table(dev);
- 	mlx5_cleanup_srq_table(dev);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/rl.c b/drivers/net/ethernet/mellanox/mlx5/core/rl.c
-new file mode 100644
-index 0000000..c07c28b
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/rl.c
-@@ -0,0 +1,209 @@
-+/*
-+ * Copyright (c) 2013-2016, Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/module.h>
-+#include <linux/mlx5/driver.h>
-+#include <linux/mlx5/cmd.h>
-+#include "mlx5_core.h"
-+
-+/* Finds an entry where we can register the given rate
-+ * If the rate already exists, return the entry where it is registered,
-+ * otherwise return the first available entry.
-+ * If the table is full, return NULL
-+ */
-+static struct mlx5_rl_entry *find_rl_entry(struct mlx5_rl_table *table,
-+					   u32 rate)
-+{
-+	struct mlx5_rl_entry *ret_entry = NULL;
-+	bool empty_found = false;
-+	int i;
-+
-+	for (i = 0; i < table->max_size; i++) {
-+		if (table->rl_entry[i].rate == rate)
-+			return &table->rl_entry[i];
-+		if (!empty_found && !table->rl_entry[i].rate) {
-+			empty_found = true;
-+			ret_entry = &table->rl_entry[i];
-+		}
+ 	MLX5_SET(modify_sq_in, in, sq_state, curr_state);
+ 	MLX5_SET(sqc, sqc, state, next_state);
++	if (update_rl && next_state == MLX5_SQC_STATE_RDY) {
++		MLX5_SET64(modify_sq_in, in, modify_bitmask, 1);
++		MLX5_SET(sqc,  sqc, packet_pacing_rate_limit_index, rl_index);
 +	}
-+
-+	return ret_entry;
-+}
-+
-+static int mlx5_set_rate_limit_cmd(struct mlx5_core_dev *dev,
-+				   u32 rate, u16 index)
+ 
+ 	err = mlx5_core_modify_sq(mdev, sq->sqn, in, inlen);
+ 
+@@ -737,6 +742,8 @@ static void mlx5e_disable_sq(struct mlx5e_sq *sq)
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 
+ 	mlx5_core_destroy_sq(mdev, sq->sqn);
++	if (sq->rate_limit)
++		mlx5_rl_remove_rate(mdev, sq->rate_limit);
+ }
+ 
+ static int mlx5e_open_sq(struct mlx5e_channel *c,
+@@ -754,7 +761,8 @@ static int mlx5e_open_sq(struct mlx5e_channel *c,
+ 	if (err)
+ 		goto err_destroy_sq;
+ 
+-	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RST, MLX5_SQC_STATE_RDY);
++	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RST, MLX5_SQC_STATE_RDY,
++			      false, 0);
+ 	if (err)
+ 		goto err_disable_sq;
+ 
+@@ -793,7 +801,8 @@ static void mlx5e_close_sq(struct mlx5e_sq *sq)
+ 		if (mlx5e_sq_has_room_for(sq, 1))
+ 			mlx5e_send_nop(sq, true);
+ 
+-		mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY, MLX5_SQC_STATE_ERR);
++		mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY, MLX5_SQC_STATE_ERR,
++				false, 0);
+ 	}
+ 
+ 	while (sq->cc != sq->pc) /* wait till sq is empty */
+@@ -1024,6 +1033,79 @@ static void mlx5e_build_channeltc_to_txq_map(struct mlx5e_priv *priv, int ix)
+ 			ix + i * priv->params.num_channels;
+ }
+ 
++static int mlx5e_set_sq_maxrate(struct net_device *dev,
++				struct mlx5e_sq *sq, u32 rate)
 +{
-+	u32 in[MLX5_ST_SZ_DW(set_rate_limit_in)];
-+	u32 out[MLX5_ST_SZ_DW(set_rate_limit_out)];
++	struct mlx5e_priv *priv = netdev_priv(dev);
++	struct mlx5_core_dev *mdev = priv->mdev;
++	u16 rl_index = 0;
++	int err;
 +
-+	memset(in, 0, sizeof(in));
-+	memset(out, 0, sizeof(out));
-+
-+	MLX5_SET(set_rate_limit_in, in, opcode,
-+		 MLX5_CMD_OP_SET_RATE_LIMIT);
-+	MLX5_SET(set_rate_limit_in, in, rate_limit_index, index);
-+	MLX5_SET(set_rate_limit_in, in, rate_limit, rate);
-+
-+	return mlx5_cmd_exec_check_status(dev, in, sizeof(in),
-+					  out, sizeof(out));
-+}
-+
-+bool mlx5_rl_is_in_range(struct mlx5_core_dev *dev, u32 rate)
-+{
-+	struct mlx5_rl_table *table = &dev->priv.rl_table;
-+
-+	return (rate <= table->max_rate && rate >= table->min_rate);
-+}
-+EXPORT_SYMBOL(mlx5_rl_is_in_range);
-+
-+int mlx5_rl_add_rate(struct mlx5_core_dev *dev, u32 rate, u16 *index)
-+{
-+	struct mlx5_rl_table *table = &dev->priv.rl_table;
-+	struct mlx5_rl_entry *entry;
-+	int err = 0;
-+
-+	mutex_lock(&table->rl_lock);
-+
-+	if (!rate || !mlx5_rl_is_in_range(dev, rate)) {
-+		mlx5_core_err(dev, "Invalid rate: %u, should be %u to %u\n",
-+			      rate, table->min_rate, table->max_rate);
-+		err = -EINVAL;
-+		goto out;
-+	}
-+
-+	entry = find_rl_entry(table, rate);
-+	if (!entry) {
-+		mlx5_core_err(dev, "Max number of %u rates reached\n",
-+			      table->max_size);
-+		err = -ENOSPC;
-+		goto out;
-+	}
-+	if (entry->refcount) {
-+		/* rate already configured */
-+		entry->refcount++;
-+	} else {
-+		/* new rate limit */
-+		err = mlx5_set_rate_limit_cmd(dev, rate, entry->index);
-+		if (err) {
-+			mlx5_core_err(dev, "Failed configuring rate: %u (%d)\n",
-+				      rate, err);
-+			goto out;
-+		}
-+		entry->rate = rate;
-+		entry->refcount = 1;
-+	}
-+	*index = entry->index;
-+
-+out:
-+	mutex_unlock(&table->rl_lock);
-+	return err;
-+}
-+EXPORT_SYMBOL(mlx5_rl_add_rate);
-+
-+void mlx5_rl_remove_rate(struct mlx5_core_dev *dev, u32 rate)
-+{
-+	struct mlx5_rl_table *table = &dev->priv.rl_table;
-+	struct mlx5_rl_entry *entry = NULL;
-+
-+	/* 0 is a reserved value for unlimited rate */
-+	if (rate == 0)
-+		return;
-+
-+	mutex_lock(&table->rl_lock);
-+	entry = find_rl_entry(table, rate);
-+	if (!entry || !entry->refcount) {
-+		mlx5_core_warn(dev, "Rate %u is not configured\n", rate);
-+		goto out;
-+	}
-+
-+	entry->refcount--;
-+	if (!entry->refcount) {
-+		/* need to remove rate */
-+		mlx5_set_rate_limit_cmd(dev, 0, entry->index);
-+		entry->rate = 0;
-+	}
-+
-+out:
-+	mutex_unlock(&table->rl_lock);
-+}
-+EXPORT_SYMBOL(mlx5_rl_remove_rate);
-+
-+int mlx5_init_rl_table(struct mlx5_core_dev *dev)
-+{
-+	struct mlx5_rl_table *table = &dev->priv.rl_table;
-+	int i;
-+
-+	mutex_init(&table->rl_lock);
-+	if (!MLX5_CAP_GEN(dev, qos) || !MLX5_CAP_QOS(dev, packet_pacing)) {
-+		table->max_size = 0;
++	if (rate == sq->rate_limit)
++		/* nothing to do */
 +		return 0;
++
++	if (sq->rate_limit)
++		/* remove current rl index to free space to next ones */
++		mlx5_rl_remove_rate(mdev, sq->rate_limit);
++
++	sq->rate_limit = 0;
++
++	if (rate) {
++		err = mlx5_rl_add_rate(mdev, rate, &rl_index);
++		if (err) {
++			netdev_err(dev, "Failed configuring rate %u: %d\n",
++				   rate, err);
++			return err;
++		}
 +	}
 +
-+	/* First entry is reserved for unlimited rate */
-+	table->max_size = MLX5_CAP_QOS(dev, packet_pacing_rate_table_size) - 1;
-+	table->max_rate = MLX5_CAP_QOS(dev, packet_pacing_max_rate);
-+	table->min_rate = MLX5_CAP_QOS(dev, packet_pacing_min_rate);
++	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY,
++			      MLX5_SQC_STATE_RDY, true, rl_index);
++	if (err) {
++		netdev_err(dev, "Failed configuring rate %u: %d\n",
++			   rate, err);
++		/* remove the rate from the table */
++		if (rate)
++			mlx5_rl_remove_rate(mdev, rate);
++		return err;
++	}
 +
-+	table->rl_entry = kcalloc(table->max_size, sizeof(struct mlx5_rl_entry),
-+				  GFP_KERNEL);
-+	if (!table->rl_entry)
-+		return -ENOMEM;
-+
-+	/* The index represents the index in HW rate limit table
-+	 * Index 0 is reserved for unlimited rate
-+	 */
-+	for (i = 0; i < table->max_size; i++)
-+		table->rl_entry[i].index = i + 1;
-+
-+	/* Index 0 is reserved */
-+	mlx5_core_info(dev, "Rate limit: %u rates are supported, range: %uMbps to %uMbps\n",
-+		       table->max_size,
-+		       table->min_rate >> 10,
-+		       table->max_rate >> 10);
-+
++	sq->rate_limit = rate;
 +	return 0;
 +}
 +
-+void mlx5_cleanup_rl_table(struct mlx5_core_dev *dev)
++static int mlx5e_set_tx_maxrate(struct net_device *dev, int index, u32 rate)
 +{
-+	struct mlx5_rl_table *table = &dev->priv.rl_table;
++	struct mlx5e_priv *priv = netdev_priv(dev);
++	struct mlx5_core_dev *mdev = priv->mdev;
++	struct mlx5e_sq *sq = priv->txq_to_sq_map[index];
++	int err = 0;
++
++	if (!mlx5_rl_is_supported(mdev)) {
++		netdev_err(dev, "Rate limiting is not supported on this device\n");
++		return -EINVAL;
++	}
++
++	/* rate is given in Mb/sec, HW config is in Kb/sec */
++	rate = rate << 10;
++
++	/* Check whether rate in valid range, 0 is always valid */
++	if (rate && !mlx5_rl_is_in_range(mdev, rate)) {
++		netdev_err(dev, "TX rate %u, is not in range\n", rate);
++		return -ERANGE;
++	}
++
++	mutex_lock(&priv->state_lock);
++	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
++		err = mlx5e_set_sq_maxrate(dev, sq, rate);
++	if (!err)
++		priv->tx_rates[index] = rate;
++	mutex_unlock(&priv->state_lock);
++
++	return err;
++}
++
+ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
+ 			      struct mlx5e_channel_param *cparam,
+ 			      struct mlx5e_channel **cp)
+@@ -1031,7 +1113,9 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
+ 	struct net_device *netdev = priv->netdev;
+ 	int cpu = mlx5e_get_cpu(priv, ix);
+ 	struct mlx5e_channel *c;
++	struct mlx5e_sq *sq;
+ 	int err;
 +	int i;
-+
-+	/* Clear all configured rates */
-+	for (i = 0; i < table->max_size; i++)
-+		if (table->rl_entry[i].rate)
-+			mlx5_set_rate_limit_cmd(dev, 0,
-+						table->rl_entry[i].index);
-+
-+	kfree(dev->priv.rl_table.rl_entry);
-+}
-diff --git a/include/linux/mlx5/device.h b/include/linux/mlx5/device.h
-index 73a4847..e0a3ed7 100644
---- a/include/linux/mlx5/device.h
-+++ b/include/linux/mlx5/device.h
-@@ -1330,6 +1330,7 @@ enum mlx5_cap_type {
- 	MLX5_CAP_ESWITCH,
- 	MLX5_CAP_RESERVED,
- 	MLX5_CAP_VECTOR_CALC,
-+	MLX5_CAP_QOS,
- 	/* NUM OF CAP Types */
- 	MLX5_CAP_NUM
- };
-@@ -1414,6 +1415,9 @@ enum mlx5_cap_type {
- 	MLX5_GET(vector_calc_cap, \
- 		 mdev->hca_caps_cur[MLX5_CAP_VECTOR_CALC], cap)
  
-+#define MLX5_CAP_QOS(mdev, cap)\
-+	MLX5_GET(qos_cap, mdev->hca_caps_cur[MLX5_CAP_QOS], cap)
+ 	c = kzalloc_node(sizeof(*c), GFP_KERNEL, cpu_to_node(cpu));
+ 	if (!c)
+@@ -1073,6 +1157,16 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
+ 	if (err)
+ 		goto err_close_icosq;
+ 
++	for (i = 0; i < priv->params.num_tc; i++) {
++		u32 txq_ix = priv->channeltc_to_txq_map[ix][i];
 +
- enum {
- 	MLX5_CMD_STAT_OK			= 0x0,
- 	MLX5_CMD_STAT_INT_ERR			= 0x1,
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 80776d0..46260fd 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -481,6 +481,21 @@ struct mlx5_fc_stats {
- 
- struct mlx5_eswitch;
- 
-+struct mlx5_rl_entry {
-+	u32                     rate;
-+	u16                     index;
-+	u16                     refcount;
-+};
++		if (priv->tx_rates[txq_ix]) {
++			sq = priv->txq_to_sq_map[txq_ix];
++			mlx5e_set_sq_maxrate(priv->netdev, sq,
++					     priv->tx_rates[txq_ix]);
++		}
++	}
 +
-+struct mlx5_rl_table {
-+	/* protect rate limit table */
-+	struct mutex            rl_lock;
-+	u16                     max_size;
-+	u32                     max_rate;
-+	u32                     min_rate;
-+	struct mlx5_rl_entry   *rl_entry;
-+};
-+
- struct mlx5_priv {
- 	char			name[MLX5_MAX_NAME_LEN];
- 	struct mlx5_eq_table	eq_table;
-@@ -544,6 +559,7 @@ struct mlx5_priv {
- 	struct mlx5_flow_root_namespace *esw_ingress_root_ns;
- 
- 	struct mlx5_fc_stats		fc_stats;
-+	struct mlx5_rl_table            rl_table;
- };
- 
- enum mlx5_device_state {
-@@ -861,6 +877,12 @@ int mlx5_query_odp_caps(struct mlx5_core_dev *dev,
- int mlx5_core_query_ib_ppcnt(struct mlx5_core_dev *dev,
- 			     u8 port_num, void *out, size_t sz);
- 
-+int mlx5_init_rl_table(struct mlx5_core_dev *dev);
-+void mlx5_cleanup_rl_table(struct mlx5_core_dev *dev);
-+int mlx5_rl_add_rate(struct mlx5_core_dev *dev, u32 rate, u16 *index);
-+void mlx5_rl_remove_rate(struct mlx5_core_dev *dev, u32 rate);
-+bool mlx5_rl_is_in_range(struct mlx5_core_dev *dev, u32 rate);
-+
- static inline int fw_initializing(struct mlx5_core_dev *dev)
- {
- 	return ioread32be(&dev->iseg->initializing) >> 31;
-@@ -938,6 +960,11 @@ static inline int mlx5_get_gid_table_len(u16 param)
- 	return 8 * (1 << param);
- }
- 
-+static inline bool mlx5_rl_is_supported(struct mlx5_core_dev *dev)
-+{
-+	return !!(dev->priv.rl_table.max_size);
-+}
-+
- enum {
- 	MLX5_TRIGGERED_CMD_COMP = (u64)1 << 32,
- };
+ 	err = mlx5e_open_rq(c, &cparam->rq, &c->rq);
+ 	if (err)
+ 		goto err_close_sqs;
+@@ -2611,6 +2705,7 @@ static const struct net_device_ops mlx5e_netdev_ops_basic = {
+ 	.ndo_set_features        = mlx5e_set_features,
+ 	.ndo_change_mtu          = mlx5e_change_mtu,
+ 	.ndo_do_ioctl            = mlx5e_ioctl,
++	.ndo_set_tx_maxrate      = mlx5e_set_tx_maxrate,
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
+ #endif
+@@ -2632,6 +2727,7 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
+ 	.ndo_do_ioctl            = mlx5e_ioctl,
+ 	.ndo_udp_tunnel_add	 = mlx5e_add_vxlan_port,
+ 	.ndo_udp_tunnel_del	 = mlx5e_del_vxlan_port,
++	.ndo_set_tx_maxrate      = mlx5e_set_tx_maxrate,
+ 	.ndo_features_check      = mlx5e_features_check,
+ #ifdef CONFIG_RFS_ACCEL
+ 	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
 -- 
 2.8.0
