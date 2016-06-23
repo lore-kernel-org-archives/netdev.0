@@ -1,64 +1,75 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 2/3] can: fix oops caused by wrong rtnl dellink usage
-Date: Thu, 23 Jun 2016 11:22:20 +0200
-Message-ID: <1466673741-23115-3-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 3/3] can: kvaser_usb: Add support for more Kvaser Leaf v2 devices
+Date: Thu, 23 Jun 2016 11:22:21 +0200
+Message-ID: <1466673741-23115-4-git-send-email-mkl@pengutronix.de>
 References: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Oliver Hartkopp <socketcan@hartkopp.net>,
-	stable@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>
+	kernel@pengutronix.de, Jimmy Assarsson <jimmyassarsson@gmail.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:43403 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:54938 "EHLO
 	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751454AbcFWJW3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 05:22:29 -0400
+	by vger.kernel.org with ESMTP id S1751185AbcFWJWa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 05:22:30 -0400
 In-Reply-To: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Oliver Hartkopp <socketcan@hartkopp.net>
+From: Jimmy Assarsson <jimmyassarsson@gmail.com>
 
-For 'real' hardware CAN devices the netlink interface is used to set CAN
-specific communication parameters. Real CAN hardware can not be created nor
-removed with the ip tool ...
+This patch adds support for Kvaser Leaf Light HS v2 OEM, Mini PCI
+Express 2xHS and USBcan Light 2xHS.
 
-This patch adds a private dellink function for the CAN device driver interface
-that does just nothing.
-
-It's a follow up to commit 993e6f2fd ("can: fix oops caused by wrong rtnl
-newlink usage") but for dellink.
-
-Reported-by: ajneu <ajneu1@gmail.com>
-Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
-Cc: <stable@vger.kernel.org>
+Signed-off-by: Jimmy Assarsson <jimmyassarsson@gmail.com>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/dev.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+ drivers/net/can/usb/Kconfig      | 2 ++
+ drivers/net/can/usb/kvaser_usb.c | 8 +++++++-
+ 2 files changed, 9 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
-index 348dd5001fa4..ad535a854e5c 100644
---- a/drivers/net/can/dev.c
-+++ b/drivers/net/can/dev.c
-@@ -1011,6 +1011,11 @@ static int can_newlink(struct net *src_net, struct net_device *dev,
- 	return -EOPNOTSUPP;
+diff --git a/drivers/net/can/usb/Kconfig b/drivers/net/can/usb/Kconfig
+index 2ff0df32b3d1..8483a40e7e9e 100644
+--- a/drivers/net/can/usb/Kconfig
++++ b/drivers/net/can/usb/Kconfig
+@@ -47,6 +47,8 @@ config CAN_KVASER_USB
+ 	    - Kvaser USBcan R
+ 	    - Kvaser Leaf Light v2
+ 	    - Kvaser Mini PCI Express HS
++	    - Kvaser Mini PCI Express 2xHS
++	    - Kvaser USBcan Light 2xHS
+ 	    - Kvaser USBcan II HS/HS
+ 	    - Kvaser USBcan II HS/LS
+ 	    - Kvaser USBcan Rugged ("USBcan Rev B")
+diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
+index 022bfa13ebfa..6f1f3b675ff5 100644
+--- a/drivers/net/can/usb/kvaser_usb.c
++++ b/drivers/net/can/usb/kvaser_usb.c
+@@ -59,11 +59,14 @@
+ #define USB_CAN_R_PRODUCT_ID		39
+ #define USB_LEAF_LITE_V2_PRODUCT_ID	288
+ #define USB_MINI_PCIE_HS_PRODUCT_ID	289
++#define USB_LEAF_LIGHT_HS_V2_OEM_PRODUCT_ID 290
++#define USB_USBCAN_LIGHT_2HS_PRODUCT_ID	291
++#define USB_MINI_PCIE_2HS_PRODUCT_ID	292
+ 
+ static inline bool kvaser_is_leaf(const struct usb_device_id *id)
+ {
+ 	return id->idProduct >= USB_LEAF_DEVEL_PRODUCT_ID &&
+-	       id->idProduct <= USB_MINI_PCIE_HS_PRODUCT_ID;
++	       id->idProduct <= USB_MINI_PCIE_2HS_PRODUCT_ID;
  }
  
-+static void can_dellink(struct net_device *dev, struct list_head *head)
-+{
-+	return;
-+}
-+
- static struct rtnl_link_ops can_link_ops __read_mostly = {
- 	.kind		= "can",
- 	.maxtype	= IFLA_CAN_MAX,
-@@ -1019,6 +1024,7 @@ static struct rtnl_link_ops can_link_ops __read_mostly = {
- 	.validate	= can_validate,
- 	.newlink	= can_newlink,
- 	.changelink	= can_changelink,
-+	.dellink	= can_dellink,
- 	.get_size	= can_get_size,
- 	.fill_info	= can_fill_info,
- 	.get_xstats_size = can_get_xstats_size,
+ /* Kvaser USBCan-II devices */
+@@ -537,6 +540,9 @@ static const struct usb_device_id kvaser_usb_table[] = {
+ 		.driver_info = KVASER_HAS_TXRX_ERRORS },
+ 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_LITE_V2_PRODUCT_ID) },
+ 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_MINI_PCIE_HS_PRODUCT_ID) },
++	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_LIGHT_HS_V2_OEM_PRODUCT_ID) },
++	{ USB_DEVICE(KVASER_VENDOR_ID, USB_USBCAN_LIGHT_2HS_PRODUCT_ID) },
++	{ USB_DEVICE(KVASER_VENDOR_ID, USB_MINI_PCIE_2HS_PRODUCT_ID) },
+ 
+ 	/* USBCANII family IDs */
+ 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_USBCAN2_PRODUCT_ID),
 -- 
 2.8.1
