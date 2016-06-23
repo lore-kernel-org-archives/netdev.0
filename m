@@ -1,61 +1,73 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: Re: [PATCH net-next 0/5] qed/qede: Tunnel hardware GRO support
-Date: Thu, 23 Jun 2016 04:17:18 +0000
-Message-ID: <CO2PR11MB0088949623FA99ED86D33205972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
- <CAKgT0Ue6_cPb88wfTtMMetJzBSJnGDNWj8YVHWC=9WdztCxOuQ@mail.gmail.com>
- <CO2PR11MB008891D4ECFF86F32B1C32CC972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAKgT0UdDt6H8ix6U7n_uPjodkXYuxviZjSKWQRaXu2_qWWEL+A@mail.gmail.com>
- <CO2PR11MB0088C4DEAFEE71B0D865DB33972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <576B08A2.8080603@hpe.com>
- <1466635664.6850.90.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0UdbPVqpSVLs0JW7zFU7mNtJn5BM+fMjsr1tLm4kHRcW9A@mail.gmail.com>
- <1466638292.6850.94.camel@edumazet-glaptop3.roam.corp.google.com>,<CAKgT0Uex41aBJX84we2gxNGw6M4s5xGEPnDkGehTZkEE+i+Jhw@mail.gmail.com>,<CO2PR11MB0088B3C577EC110B845C17B3972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Blair Steven <Blair.Steven@alliedtelesis.co.nz>
+Subject: Re: esp: Fix ESN generation under UDP encapsulation
+Date: Thu, 23 Jun 2016 04:25:21 +0000
+Message-ID: <576B64B1.9030000@alliedtelesis.co.nz>
+References: <20160612234814.15460-1-blair.steven@alliedtelesis.co.nz>
+ <20160613102024.GX7698@gauss.secunet.com>
+ <5760A501.3070504@alliedtelesis.co.nz>
+ <20160617102429.GH7698@gauss.secunet.com>
+ <20160618050336.GA12205@gondor.apana.org.au>
+ <20160620105934.GL7698@gauss.secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Rick Jones <rick.jones2@hpe.com>,
-	Manish Chopra <manish.chopra@qlogic.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Hannes Frederic Sowa <hannes@redhat.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1bbn0103.outbound.protection.outlook.com ([157.56.111.103]:41760
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750811AbcFWERj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 00:17:39 -0400
-In-Reply-To: <CO2PR11MB0088B3C577EC110B845C17B3972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:59912 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750785AbcFWEZ1 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 00:25:27 -0400
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(Client did not present a certificate)
+	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id AD9108604B
+	for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 16:25:24 +1200 (NZST)
+In-Reply-To: <20160620105934.GL7698@gauss.secunet.com>
 Content-Language: en-US
+Content-ID: <FFB91A362D2BD74E9F49C0D2FAEF2D14@atlnz.lc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> Then again, if you're basically saying every HW-assisted offload on
-> receive should be done under LRO flag, what would be the use case
-> where a GRO-assisted offload would help?
+This change tests okay in my setup.
 
-> I.e., afaik LRO is superior to GRO in `brute force' -
-> it creates better packed packets and utilizes memory better
-> [with all the obvious cons such as inability for defragmentation].
-> So if you'd have the choice of having an adpater perform 'classic'
-> LRO aggregation or something that resembles a GRO packet,
-> what would be the gain from doing the latter?
+Thanks very much
+-Blair
 
-Just to relate to bnx2x/qede differences in current implementation -
-when this GRO hw-offload was added to bnx2x, it has already
-supported classical LRO, and due to above statement whenever LRO
-was set driver aggregated incoming traffic as classic LRO.
-I agree that in hindsight the lack of distinction between sw/hw GRO
-was hurting us.
-
-qede isn't implementing LRO, so we could easily mark this feature
-under LRO there - but question is, given that the adapter can support
-LRO, if we're going to suffer from all the shotrages that arise from
-putting this feature under LRO, why should we bother?
-
-You can argue that we might need a new feature bit for control
-over such a feature; If we don't do that, is there any gain in all of this?
+On 06/20/2016 10:59 PM, Steffen Klassert wrote:
+> On Sat, Jun 18, 2016 at 01:03:36PM +0800, Herbert Xu wrote:
+>> On Fri, Jun 17, 2016 at 12:24:29PM +0200, Steffen Klassert wrote:
+>>> On Wed, Jun 15, 2016 at 12:44:54AM +0000, Blair Steven wrote:
+>>>> The restoration is happening - but being actioned on the wrong location.
+>>>>
+>>>> The destination IP address is being saved and restored, and the SPI
+>>>> being written directly after the destination IP address. From my
+>>>> understanding though, the ESN shuffling should have saved and restored
+>>>> the UDP source / dest ports + SPI.
+>>> Yes, looks like we copy with a wrong offset if udp encapsulation
+>>> is used, skb_transport_header() does not point to the esp header
+>>> in this case. Ccing Herbert, he changed this part when switching
+>>> to the new AEAD interface with
+>>> commit 7021b2e1cddd ("esp4: Switch to new AEAD interface").
+>> Thanks for catching this!
+>>
+>> I think rather than changing the transport header (which isn't
+>> quite right because UDP still is the transport protocol), we can
+>> just save the offset locally.  Something like this:
+>>
+>> ---8<---
+>> Blair Steven noticed that ESN in conjunction with UDP encapsulation
+>> is broken because we set the temporary ESP header to the wrong spot.
+>>
+>> This patch fixes this by first of all using the right spot, i.e.,
+>> 4 bytes off the real ESP header, and then saving this information
+>> so that after encryption we can restore it properly.
+>>
+>> Fixes: 7021b2e1cddd ("esp4: Switch to new AEAD interface")
+>> Reported-by: Blair Steven <Blair.Steven@alliedtelesis.co.nz>
+>> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Looks good.
+> Blair could you please test this?
+>
+> Thanks!
