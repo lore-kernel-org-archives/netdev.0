@@ -1,129 +1,41 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v5 0/4] return offloaded stats as default and
- expose original sw stats
-Date: Thu, 23 Jun 2016 13:35:08 +0200
-Message-ID: <20160623113508.GE2060@nanopsycho.orion>
-References: <1466522156-4795-1-git-send-email-jiri@resnulli.us>
- <CAJieiUgP3j=W=khq_q-y382eFurHQSCs_Td8Q_KHtru6La22XA@mail.gmail.com>
- <20160623054050.GA2060@nanopsycho.orion>
- <576BC7A7.2000704@cumulusnetworks.com>
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Subject: Re: [PATCH] wlcore: time sync : add support for 64 bit clock
+Date: Thu, 23 Jun 2016 13:35:39 +0200
+Message-ID: <1466681739.11061.3.camel@sipsolutions.net>
+References: <20160623111332.23326-1-yanivma@ti.com>
+	 (sfid-20160623_131215_419855_E4550AFE)
+ <1466680680.11061.2.camel@sipsolutions.net>
+	 <AE1C82FB3D0EC64DB1F752C81CBD1101391CF584@DFRE01.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Nogah Frankel <nogahf@mellanox.com>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>,
-	Yotam Gigi <yotamg@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>, sd@queasysnail.net,
-	eranbe@mellanox.com, Alexei Starovoitov <ast@plumgrid.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:38477 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752227AbcFWLfM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 07:35:12 -0400
-Received: by mail-wm0-f49.google.com with SMTP id r201so45678604wme.1
-        for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 04:35:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <576BC7A7.2000704@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Thu, Jun 23, 2016 at 01:27:35PM CEST, roopa@cumulusnetworks.com wrote:
->On 6/22/16, 10:40 PM, Jiri Pirko wrote:
->> Wed, Jun 22, 2016 at 09:32:25PM CEST, roopa@cumulusnetworks.com wrote:
->>> On Tue, Jun 21, 2016 at 8:15 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>>> From: Jiri Pirko <jiri@mellanox.com>
->>>>
->>>> The problem we try to handle is about offloaded forwarded packets
->>>> which are not seen by kernel. Let me try to draw it:
->>>>
->>>>     port1                       port2 (HW stats are counted here)
->>>>       \                          /
->>>>        \                        /
->>>>         \                      /
->>>>          --(A)---- ASIC --(B)--
->>>>                     |
->>>>                    (C)
->>>>                     |
->>>>                    CPU (SW stats are counted here)
->>>>
->>>>
->>>> Now we have couple of flows for TX and RX (direction does not matter here):
->>>>
->>>> 1) port1->A->ASIC->C->CPU
->>>>
->>>>    For this flow, HW and SW stats are equal.
->>>>
->>>> 2) port1->A->ASIC->C->CPU->C->ASIC->B->port2
->>>>
->>>>    For this flow, HW and SW stats are equal.
->>>>
->>>> 3) port1->A->ASIC->B->port2
->>>>
->>>>    For this flow, SW stats are 0.
->>>>
->>>> The purpose of this patchset is to provide facility for user to
->>>> find out the difference between flows 1+2 and 3. In other words, user
->>>> will be able to see the statistics for the slow-path (through kernel).
->>>>
->>>> Also note that HW stats are what someone calls "accumulated" stats.
->>>> Every packet counted by SW is also counted by HW. Not the other way around.
->>>>
->>>> As a default the accumulated stats (HW) will be exposed to user
->>>> so the userspace apps can react properly.
->>>>
->>>>
->>> curious, how do you plan to handle virtual device counters like vlan
->>> and vxlan stats ?.
->> Yes, that is another problem (1). We have to push stats up to this devices
->> most probably. But that problem is orthogonal to this. To the user, you
->> will still need 2 sets of stats and HW stats being default. So this
->> patchset infra is going to be used as well.
->hmm...But, i don't think we should start adding different tlv's hw and sw for
->every stats variant we add.
->>
->>
->>> we can't separate CPU and HW stats there. In some cases (or ASICs) HW
->>> counters do
->>> not include CPU generated packets....you will have to add CPU
->>> generated pkt counters to the
->>> hw counters for such virtual device stats.
->> Can you please provide and example how that could happen?
->
->example is the bridge vlan stats I mention below. These are usually counted
->by attaching hw virtual counter resources. And CPU generated packets
->in some cases maybe setup to bypass the ASIC pipeline because the CPU
->has already made the required decisions. So, they may not be counted by
->by such hw virtual counters.
-
-Bypass ASIC? How do the packets get on the wire?
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, "Mishol, Guy" <guym-l0cyMroinI0@public.gmane.org>,
+	Eliad Peller <eliad-Ix1uc/W3ht7QT0dZR+AlfA@public.gmane.org>,
+	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: "Machani, Yaniv" <yanivma-l0cyMroinI0@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <AE1C82FB3D0EC64DB1F752C81CBD1101391CF584-1tpBd5JUCm6IQmiDNMet8wC/G2K4zDHf@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 
->
->>
->>
->>> example: In the switchdev model, for bridge vlan stats, when user
->>> queries bridge vlan stats,
->>> you will have to add the hw stats to the bridge driver vlan stats and
->>> return it to the user .
->> Yep, that is (1).
->
->unless i misunderstood, this does not look like (1). In (1) you say hw stats
-> already reflect sw stats. But in this case, hw counter does not include sw stats
->for CPU generated packets.
->>
->>
->>> Having a consistent model for all kinds of stats will help.
->
+> > Additionally, this looks like it changes the firmware API, so that=C2=
+=A0
+> > older firmware images will no longer work?
+>=20
+> It is backwards compatible,=C2=A0
+> although it changes a API structure, older firmware are using only
+> u16 for the field so there is no impact on that.
+>=20
+
+Oh, ok. I had also thought that the size changed, but missed that you
+replaced a u32 with two u16. Thanks for checking :)
+
+johannes
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
