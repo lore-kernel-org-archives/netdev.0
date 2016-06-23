@@ -1,41 +1,39 @@
-From: Richard Cochran <richardcochran@gmail.com>
-Subject: Re: [alsa-devel] [very-RFC 0/8] TSN driver for the kernel
-Date: Thu, 23 Jun 2016 15:28:05 +0200
-Message-ID: <20160623132805.GC7122@localhost.localdomain>
-References: <20160613195136.GC2441@netboy>
- <20160614121844.54a125a5@lxorguk.ukuu.org.uk>
- <5760C84C.40408@sakamocchi.jp>
- <20160615080602.GA13555@localhost.localdomain>
- <5764DA85.3050801@sakamocchi.jp>
- <20160618224549.GF32724@icarus.home.austad.us>
- <9a5abd48-4da3-945d-53c9-b6d37010ab0d@linux.intel.com>
- <20160620121838.GA5257@localhost.localdomain>
- <07283da9-f6d1-c3b1-7989-a6fce7ca0ee6@linux.intel.com>
- <20160623103848.GG32724@icarus.home.austad.us>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: [PATCH net-next 0/5] Initial SFP support patches
+Date: Thu, 23 Jun 2016 14:49:36 +0100
+Message-ID: <20160623134936.GX1041@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pierre-Louis Bossart <pierre-louis.bossart@linux.intel.com>,
-	alsa-devel@alsa-project.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Arnd Bergmann <arnd@linaro.org>,
-	linux-media@vger.kernel.org
-To: Henrik Austad <henrik@austad.us>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:45598 "EHLO
+	pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751705AbcFWNtq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 09:49:46 -0400
 Content-Disposition: inline
-In-Reply-To: <20160623103848.GG32724@icarus.home.austad.us>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 23, 2016 at 12:38:48PM +0200, Henrik Austad wrote:
-> Richard: is it fair to assume that if ptp4l is running and is part of a PTP 
-> domain, ktime_get() will return PTP-adjusted time for the system?
+Hi David,
 
-No.
+Please review and merge this initial patch set, which is part of a
+larger set previously posted adding SFP support to phy and mvneta.
 
-> Or do I also need to run phc2sys in order to sync the system-time
-> to PTP-time?
+This initial set are focused on cleaning up and reorganising the
+fixed-phy code to allow the core software-phy code to be re-used.
 
-Yes, unless you are using SW time stamping, in which case ptp4l will
-steer the system clock directly.
+These are based on net-next.
 
-HTH,
-Richard
+Thanks.
+
+ drivers/net/phy/Kconfig     |   4 +
+ drivers/net/phy/Makefile    |   3 +-
+ drivers/net/phy/fixed_phy.c | 153 +++++++------------------------------
+ drivers/net/phy/swphy.c     | 179 ++++++++++++++++++++++++++++++++++++++++++++
+ drivers/net/phy/swphy.h     |   9 +++
+ 5 files changed, 222 insertions(+), 126 deletions(-)
+
+-- 
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
