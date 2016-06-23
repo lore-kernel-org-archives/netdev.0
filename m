@@ -1,54 +1,69 @@
-From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Subject: Re: [PATCH net-next v2 4/4] cgroup: bpf: Add an example to do cgroup
- checking in BPF
-Date: Thu, 23 Jun 2016 11:58:18 +0200
-Message-ID: <576BB2BA.2070401@iogearbox.net>
-References: <1466630252-3822277-1-git-send-email-kafai@fb.com> <1466630252-3822277-5-git-send-email-kafai@fb.com>
+From: "Arjun V." <arjun@chelsio.com>
+Subject: [REGRESSION, bisect]cxgb4 port failure with TSO traffic after
+ commit 10d3be569243def8("tcp-tso: do not split TSO packets at retransmit
+ time")
+Date: Thu, 23 Jun 2016 10:08:03 +0000
+Message-ID: <6DE8042992C3D3488ACEF3F2607097E3C4A81CA5@nice.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	kernel-team-b10kYP2dOMg@public.gmane.org
-To: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1466630252-3822277-5-git-send-email-kafai-b10kYP2dOMg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "edumazet@google.com" <edumazet@google.com>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	Kumar A S <kumaras@chelsio.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	"Nirranjan Kirubaharan" <nirranjan@chelsio.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"ycheng@google.com" <ycheng@google.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [12.32.117.8] ([12.32.117.8]:1395 "EHLO stargate.chelsio.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1751757AbcFWKIR convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 06:08:17 -0400
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/22/2016 11:17 PM, Martin KaFai Lau wrote:
-> test_cgrp2_array_pin.c:
-> A userland program that creates a bpf_map (BPF_MAP_TYPE_GROUP_ARRAY),
-> pouplates/updates it with a cgroup2's backed fd and pins it to a
-> bpf-fs's file.  The pinned file can be loaded by tc and then used
-> by the bpf prog later.  This program can also update an existing pinned
-> array and it could be useful for debugging/testing purpose.
->
-> test_cgrp2_tc_kern.c:
-> A bpf prog which should be loaded by tc.  It is to demonstrate
-> the usage of bpf_skb_in_cgroup.
->
-> test_cgrp2_tc.sh:
-> A script that glues the test_cgrp2_array_pin.c and
-> test_cgrp2_tc_kern.c together.  The idea is like:
-> 1. Use test_cgrp2_array_pin.c to populate a BPF_MAP_TYPE_CGROUP_ARRAY
->     with a cgroup fd
-> 2. Load the test_cgrp2_tc_kern.o by tc
-> 3. Do a 'ping -6 ff02::1%ve' to ensure the packet has been
->     dropped because of a match on the cgroup
->
-> Most of the lines in test_cgrp2_tc.sh is the boilerplate
-> to setup the cgroup/bpf-fs/net-devices/netns...etc.  It is
-> not bulletproof on errors but should work well enough and
-> give enough debug info if things did not go well.
->
-> Signed-off-by: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
-> Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
-> Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-> Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> Acked-by: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Hi all, 
 
-Btw, when no bpf fs is mounted, tc will already auto-mount it. I noticed in
-your script, you do mount the fs manually. I guess it's okay to leave it like
-this, but I hope users won't wrongly copy it assuming they /have/ to mount it
-themselves.
+The following patch introduced a regression in Chelsio cxgb4 driver, causing port failure when running heavy TSO traffic:
+
+commit 10d3be569243def8d92ac3722395ef5a59c504e6
+Author: Eric Dumazet <edumazet@google.com>
+Date:   Thu Apr 21 10:55:23 2016 -0700
+
+    tcp-tso: do not split TSO packets at retransmit time
+
+    Linux TCP stack painfully segments all TSO/GSO packets before retransmits.
+
+    This was fine back in the days when TSO/GSO were emerging, with their
+    bugs, but we believe the dark age is over.
+
+    Keeping big packets in write queues, but also in stack traversal
+    has a lot of benefits.
+     - Less memory overhead, because write queues have less skbs
+     - Less cpu overhead at ACK processing.
+     - Better SACK processing, as lot of studies mentioned how
+       awful linux was at this ;)
+     - Less cpu overhead to send the rtx packets
+       (IP stack traversal, netfilter traversal, drivers...)
+     - Better latencies in presence of losses.
+     - Smaller spikes in fq like packet schedulers, as retransmits
+       are not constrained by TCP Small Queues.
+
+    1 % packet losses are common today, and at 100Gbit speeds, this
+    translates to ~80,000 losses per second.
+    Losses are often correlated, and we see many retransmit events
+    leading to 1-MSS train of packets, at the time hosts are already
+    under stress.
+
+    Signed-off-by: Eric Dumazet <edumazet@google.com>
+    Acked-by: Yuchung Cheng <ycheng@google.com>
+    Signed-off-by: David S. Miller davem@davemloft.net
+
+When the number of TCP retransmissions are quite high, the packet length coming from stack does not seems to be proper, due to which our TSO module gets stuck. 
+If I change segs back to 1 in __tcp_retransmit_skb(),  traffic is running fine. Please let us know if we are missing something.
+
+Thanks,
+Arjun.
