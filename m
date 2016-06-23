@@ -1,39 +1,51 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next v2 2/4] cgroup: bpf: Add
- BPF_MAP_TYPE_CGROUP_ARRAY
-Date: Thu, 23 Jun 2016 15:10:15 -0700
-Message-ID: <20160623221015.GA93293@kafai-mba.DHCP.thefacebook.com>
-References: <1466630252-3822277-1-git-send-email-kafai@fb.com>
- <1466630252-3822277-3-git-send-email-kafai@fb.com>
- <576BAF07.4020302@iogearbox.net>
- <20160623212616.GA90834@kafai-mba.DHCP.thefacebook.com>
- <576C5990.9000300@iogearbox.net>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: Doing crypto in small stack buffers (bluetooth vs vmalloc-stack
+ crash, etc)
+Date: Thu, 23 Jun 2016 15:11:00 -0700
+Message-ID: <CALCETrWRyai42BbQ213TzmZ9KwQhAD2eEoeCeR+6NPSC4O4BZg@mail.gmail.com>
+References: <CALCETrVJzzKkRsSbgsUmVd_+ArKEgoRSVdG1tVp7CXzFoPyVgA@mail.gmail.com>
+ <20160622004214.GA27134@gondor.apana.org.au> <CALCETrUnzasc+c5Dxmw+g6U07dTNU4RF0ug1bHj8j2en+7Xj1A@mail.gmail.com>
+ <CALCETrUWyNz91WO6O3dNb+YELeZy5q4+oTo6dLRR67P2WvBB8g@mail.gmail.com>
+ <CALCETrXJAvtty-zrjZR0URyT92rMZ4HhiTLtd4r5CzFjZOj=-Q@mail.gmail.com>
+ <20160623034825.GB7819@gondor.apana.org.au> <20160623064137.GA8958@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: <cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
-	Tejun Heo <tj@kernel.org>, <kernel-team@fb.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <576C5990.9000300@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@kernel.org>, linux-bluetooth@vger.kernel.org,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	linux-crypto@vger.kernel.org,
+	"David S. Miller" <davem@davemloft.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Network Development <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <20160623064137.GA8958@gondor.apana.org.au>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 23, 2016 at 11:50:08PM +0200, Daniel Borkmann wrote:
-> On 06/23/2016 11:26 PM, Martin KaFai Lau wrote:
-> >We are still hatching out how to set this up in production. However, the
-> >situation is similar to removing the pinned file.
-s/pinned file/pinned cgroup-array/
+On Wed, Jun 22, 2016 at 11:41 PM, Herbert Xu
+<herbert@gondor.apana.org.au> wrote:
+> On Thu, Jun 23, 2016 at 11:48:25AM +0800, Herbert Xu wrote:
+>>
+>> No we never had such an API in the kernel.  However, I see that
+>> rxkad does some pretty silly things and we should be able to avoid
+>> using the stack in pretty much all cases.  Let me try to come up with
+>> something.
+>
+> Here it is:
+>
+> ---8<---
+> Subject: rxrpc: Avoid using stack memory in SG lists in rxkad
 
-> I presume you mean removing the last BPF program holding a reference on
-> the cgroup array map.
-Yes
+Looks reasonable to me.  Unless anyone tells me otherwise, my plan is
+to queue it in my virtually-mapped stack series and to ask Ingo to
+apply it via -tip.
 
-> (Any user space visibility like struct files given
-> from the anon inode and pinnings are tracked via uref, btw, which is
-> needed to break possible complex dependencies among tail called programs.)
-Yep. Understood on prog_array use case.
+If it went in via the networking tree, that would work as well, but it
+would introduce a bisectability problem.
 
-Thanks,
--- Martin
+Thanks!
+
+--Andy
