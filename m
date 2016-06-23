@@ -1,76 +1,96 @@
-From: Eric Dumazet <edumazet@google.com>
-Subject: Re: [REGRESSION, bisect]cxgb4 port failure with TSO traffic after
- commit 10d3be569243def8("tcp-tso: do not split TSO packets at retransmit time")
-Date: Thu, 23 Jun 2016 04:51:10 -0700
-Message-ID: <CANn89iLpBC5tUqpdSE4jCMKFgUi=mg=2kPZtMaRh-cnBhvauNg@mail.gmail.com>
-References: <6DE8042992C3D3488ACEF3F2607097E3C4A81CA5@nice.asicdesigners.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC v2 3/3] vsockmon: Add vsock hooks
+Date: Thu, 23 Jun 2016 15:09:22 +0300
+Message-ID: <1ba72b1f-c535-3798-cb21-e5d4d1ce622b@cogentembedded.com>
+References: <20160622161102.8250-1-ggarcia@deic.uab.cat>
+ <20160622161102.8250-4-ggarcia@deic.uab.cat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	Kumar A S <kumaras@chelsio.com>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Nirranjan Kirubaharan <nirranjan@chelsio.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"ycheng@google.com" <ycheng@google.com>
-To: "Arjun V." <arjun@chelsio.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: jhansen@vmware.com, stefanha@redhat.com
+To: ggarcia@abra.uab.cat, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f169.google.com ([209.85.161.169]:33233 "EHLO
-	mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750809AbcFWLvM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 07:51:12 -0400
-Received: by mail-yw0-f169.google.com with SMTP id v77so68970231ywg.0
-        for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 04:51:11 -0700 (PDT)
-In-Reply-To: <6DE8042992C3D3488ACEF3F2607097E3C4A81CA5@nice.asicdesigners.com>
+Received: from mail-lf0-f50.google.com ([209.85.215.50]:34974 "EHLO
+	mail-lf0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750953AbcFWMJZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 08:09:25 -0400
+Received: by mail-lf0-f50.google.com with SMTP id l188so93273877lfe.2
+        for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 05:09:25 -0700 (PDT)
+In-Reply-To: <20160622161102.8250-4-ggarcia@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 23, 2016 at 3:08 AM, Arjun V. <arjun@chelsio.com> wrote:
-> Hi all,
->
-> The following patch introduced a regression in Chelsio cxgb4 driver, causing port failure when running heavy TSO traffic:
->
-> commit 10d3be569243def8d92ac3722395ef5a59c504e6
-> Author: Eric Dumazet <edumazet@google.com>
-> Date:   Thu Apr 21 10:55:23 2016 -0700
->
->     tcp-tso: do not split TSO packets at retransmit time
->
->     Linux TCP stack painfully segments all TSO/GSO packets before retransmits.
->
->     This was fine back in the days when TSO/GSO were emerging, with their
->     bugs, but we believe the dark age is over.
->
->     Keeping big packets in write queues, but also in stack traversal
->     has a lot of benefits.
->      - Less memory overhead, because write queues have less skbs
->      - Less cpu overhead at ACK processing.
->      - Better SACK processing, as lot of studies mentioned how
->        awful linux was at this ;)
->      - Less cpu overhead to send the rtx packets
->        (IP stack traversal, netfilter traversal, drivers...)
->      - Better latencies in presence of losses.
->      - Smaller spikes in fq like packet schedulers, as retransmits
->        are not constrained by TCP Small Queues.
->
->     1 % packet losses are common today, and at 100Gbit speeds, this
->     translates to ~80,000 losses per second.
->     Losses are often correlated, and we see many retransmit events
->     leading to 1-MSS train of packets, at the time hosts are already
->     under stress.
->
->     Signed-off-by: Eric Dumazet <edumazet@google.com>
->     Acked-by: Yuchung Cheng <ycheng@google.com>
->     Signed-off-by: David S. Miller davem@davemloft.net
->
-> When the number of TCP retransmissions are quite high, the packet length coming from stack does not seems to be proper, due to which our TSO module gets stuck.
-> If I change segs back to 1 in __tcp_retransmit_skb(),  traffic is running fine. Please let us know if we are missing something.
->
-> Thanks,
-> Arjun.
->
+Hello.
 
-Hmm... I see nothing wrong in TCP stack.
+On 6/22/2016 7:11 PM, ggarcia@abra.uab.cat wrote:
 
-Can you give me more details on the wrong packet length you see ?
+> From: Gerard Garcia <ggarcia@deic.uab.cat>
+>
+> Signed-off-by: Gerard Garcia <ggarcia@deic.uab.cat>
+> ---
+>  drivers/vhost/vsock.c | 73 +++++++++++++++++++++++++++++++++++++++++++++++++++
+>  1 file changed, 73 insertions(+)
+>
+> diff --git a/drivers/vhost/vsock.c b/drivers/vhost/vsock.c
+> index 17bfe4e..e8621cc 100644
+> --- a/drivers/vhost/vsock.c
+> +++ b/drivers/vhost/vsock.c
+[...]
+> @@ -45,6 +47,69 @@ struct vhost_vsock {
+>  	u32 guest_cid;
+>  };
+>
+> +static struct sk_buff *
+> +virtio_vsock_pkt_to_skb(struct virtio_vsock_pkt *pkt)
+> +{
+> +	struct sk_buff *skb;
+> +	struct af_vsockmon_hdr *hdr;
+> +	void *payload;
+> +
+> +	u32 skb_len = sizeof(struct af_vsockmon_hdr) + pkt->len;
+> +
+> +	skb = alloc_skb(skb_len, GFP_ATOMIC);
+> +	if (!skb)
+> +		return NULL;
+> +
+> +	skb_reserve(skb, sizeof(struct af_vsockmon_hdr));
+> +
+> +	if (pkt->len) {
+> +		payload = skb_put(skb, pkt->len);
+> +		memcpy(payload, pkt->buf, pkt->len);
+> +	}
+> +
+> +	hdr = (struct af_vsockmon_hdr *) skb_push(skb, sizeof(*hdr));
+> +
+> +	hdr->src_cid = pkt->hdr.src_cid;
+> +	hdr->src_port = pkt->hdr.src_port;
+> +	hdr->dst_cid = pkt->hdr.dst_cid;
+> +	hdr->dst_port = pkt->hdr.dst_port;
+> +	hdr->t = AF_VSOCK_T_VIRTIO;
+> +
+> +	switch(pkt->hdr.op) {
+> +		case VIRTIO_VSOCK_OP_REQUEST:
+> +		case VIRTIO_VSOCK_OP_RESPONSE:
+> +			hdr->op = AF_VSOCK_OP_CONNECT;
+> +			break;
+> +		case VIRTIO_VSOCK_OP_RST:
+> +		case VIRTIO_VSOCK_OP_SHUTDOWN:
+> +			hdr->op = AF_VSOCK_OP_DISCONNECT;
+> +			break;
+> +		case VIRTIO_VSOCK_OP_RW:
+> +			hdr->op = AF_VSOCK_OP_PAYLOAD;
+> +			break;
+> +		case VIRTIO_VSOCK_OP_CREDIT_UPDATE:
+> +		case VIRTIO_VSOCK_OP_CREDIT_REQUEST:
+> +			hdr->op = AF_VSOCK_OP_CONTROL;
+> +			break;
+> +		default:
+> +			hdr->op = AF_VSOCK_OP_UNKNOWN;
+> +			break;
+> +	}
+
+    CodingStyle: *switch* and *case* should be at the same indentation level.
+
+[...]
+
+MBR, Sergei
