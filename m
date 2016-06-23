@@ -1,55 +1,64 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: pull-request: can 2016-06-23
-Date: Thu, 23 Jun 2016 11:22:18 +0200
-Message-ID: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 2/3] can: fix oops caused by wrong rtnl dellink usage
+Date: Thu, 23 Jun 2016 11:22:20 +0200
+Message-ID: <1466673741-23115-3-git-send-email-mkl@pengutronix.de>
+References: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
+	kernel@pengutronix.de, Oliver Hartkopp <socketcan@hartkopp.net>,
+	stable@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:33054 "EHLO
+Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:43403 "EHLO
 	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751185AbcFWJW1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 05:22:27 -0400
+	by vger.kernel.org with ESMTP id S1751454AbcFWJW3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 05:22:29 -0400
+In-Reply-To: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello David,
+From: Oliver Hartkopp <socketcan@hartkopp.net>
 
-this is a pull request of 3 patches for the upcoming linux-4.7 release.
+For 'real' hardware CAN devices the netlink interface is used to set CAN
+specific communication parameters. Real CAN hardware can not be created nor
+removed with the ip tool ...
 
-The first two patches are by Oliver Hartkopp fixing oopes in the generic CAN
-device netlink handling. Jimmy Assarsson's patch for the kvaser_usb driver adds
-support for more devices by adding their USB product ids.
+This patch adds a private dellink function for the CAN device driver interface
+that does just nothing.
 
-regards,
-Marc
+It's a follow up to commit 993e6f2fd ("can: fix oops caused by wrong rtnl
+newlink usage") but for dellink.
 
+Reported-by: ajneu <ajneu1@gmail.com>
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Cc: <stable@vger.kernel.org>
+Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
+ drivers/net/can/dev.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-The following changes since commit acd43fe85b2d1dbad55ce211b8817e6d6687246f:
-
-  Merge branch 'mlx4-fixes' (2016-06-22 16:38:17 -0400)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/mkl/linux-can.git tags/linux-can-fixes-for-4.7-20160623
-
-for you to fetch changes up to 71873a9b38d1cc6c93e2962149a7bb7272a7cb66:
-
-  can: kvaser_usb: Add support for more Kvaser Leaf v2 devices (2016-06-23 11:16:41 +0200)
-
-----------------------------------------------------------------
-linux-can-fixes-for-4.7-20160623
-
-----------------------------------------------------------------
-Jimmy Assarsson (1):
-      can: kvaser_usb: Add support for more Kvaser Leaf v2 devices
-
-Oliver Hartkopp (2):
-      can: fix handling of unmodifiable configuration options fix
-      can: fix oops caused by wrong rtnl dellink usage
-
- drivers/net/can/dev.c            | 9 +++++++++
- drivers/net/can/usb/Kconfig      | 2 ++
- drivers/net/can/usb/kvaser_usb.c | 8 +++++++-
- 3 files changed, 18 insertions(+), 1 deletion(-)
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index 348dd5001fa4..ad535a854e5c 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -1011,6 +1011,11 @@ static int can_newlink(struct net *src_net, struct net_device *dev,
+ 	return -EOPNOTSUPP;
+ }
+ 
++static void can_dellink(struct net_device *dev, struct list_head *head)
++{
++	return;
++}
++
+ static struct rtnl_link_ops can_link_ops __read_mostly = {
+ 	.kind		= "can",
+ 	.maxtype	= IFLA_CAN_MAX,
+@@ -1019,6 +1024,7 @@ static struct rtnl_link_ops can_link_ops __read_mostly = {
+ 	.validate	= can_validate,
+ 	.newlink	= can_newlink,
+ 	.changelink	= can_changelink,
++	.dellink	= can_dellink,
+ 	.get_size	= can_get_size,
+ 	.fill_info	= can_fill_info,
+ 	.get_xstats_size = can_get_xstats_size,
+-- 
+2.8.1
