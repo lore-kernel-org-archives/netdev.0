@@ -1,8 +1,8 @@
 From: Russell King <rmk+kernel@arm.linux.org.uk>
-Subject: [PATCH net-next 2/5] phy: convert swphy register generation to
- tabular form
-Date: Thu, 23 Jun 2016 14:50:10 +0100
-Message-ID: <E1bG51G-0006kz-I7@rmk-PC.armlinux.org.uk>
+Subject: [PATCH net-next 5/5] phy: improve safety of fixed-phy MII register
+ reading
+Date: Thu, 23 Jun 2016 14:50:25 +0100
+Message-ID: <E1bG51V-0006lI-Uu@rmk-PC.armlinux.org.uk>
 References: <20160623134936.GX1041@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,213 +10,103 @@ Content-Transfer-Encoding: 8bit
 Cc: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from pandora.armlinux.org.uk ([78.32.30.218]:45605 "EHLO
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:45614 "EHLO
 	pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752452AbcFWNuO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 09:50:14 -0400
+	with ESMTP id S1752150AbcFWNu3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 09:50:29 -0400
 In-Reply-To: <20160623134936.GX1041@n2100.armlinux.org.uk>
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Convert the swphy register generation to tabular form which allows us
-to eliminate multiple switch() statements.  This results in a smaller
-object code size, more efficient, and easier to add support for faster
-speeds.
+There is no prevention of a concurrent call to both fixed_mdio_read()
+and fixed_phy_update_state(), which can result in the state being
+modified while it's being inspected.  Fix this by using a seqcount
+to detect modifications, and memcpy()ing the state.
 
-Before:
-
-Idx Name          Size      VMA       LMA       File off  Algn
-  0 .text         00000164  00000000  00000000  00000034  2**2
-
-   text    data     bss     dec     hex filename
-    388       0       0     388     184 swphy.o
-
-After:
-
-Idx Name          Size      VMA       LMA       File off  Algn
-  0 .text         000000fc  00000000  00000000  00000034  2**2
-  5 .rodata       00000028  00000000  00000000  00000138  2**2
-
-   text    data     bss     dec     hex filename
-    324       0       0     324     144 swphy.o
+We remain slightly naughty here, calling link_update() and updating
+the link status within the read-side loop - which would need rework
+of the design to change.
 
 Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
 Signed-off-by: Russell King <rmk+kernel@arm.linux.org.uk>
 ---
- drivers/net/phy/swphy.c | 143 ++++++++++++++++++++++++++----------------------
- 1 file changed, 78 insertions(+), 65 deletions(-)
+ drivers/net/phy/fixed_phy.c | 28 +++++++++++++++++++++-------
+ 1 file changed, 21 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/phy/swphy.c b/drivers/net/phy/swphy.c
-index 0551a79a2454..c88a194b4cb6 100644
---- a/drivers/net/phy/swphy.c
-+++ b/drivers/net/phy/swphy.c
-@@ -20,6 +20,72 @@
+diff --git a/drivers/net/phy/fixed_phy.c b/drivers/net/phy/fixed_phy.c
+index 0dfed86bdb5a..b376ada83598 100644
+--- a/drivers/net/phy/fixed_phy.c
++++ b/drivers/net/phy/fixed_phy.c
+@@ -23,6 +23,7 @@
+ #include <linux/slab.h>
+ #include <linux/of.h>
+ #include <linux/gpio.h>
++#include <linux/seqlock.h>
  
  #include "swphy.h"
  
-+struct swmii_regs {
-+	u16 bmcr;
-+	u16 bmsr;
-+	u16 lpa;
-+	u16 lpagb;
-+};
-+
-+enum {
-+	SWMII_SPEED_10 = 0,
-+	SWMII_SPEED_100,
-+	SWMII_SPEED_1000,
-+	SWMII_DUPLEX_HALF = 0,
-+	SWMII_DUPLEX_FULL,
-+};
-+
-+/*
-+ * These two tables get bitwise-anded together to produce the final result.
-+ * This means the speed table must contain both duplex settings, and the
-+ * duplex table must contain all speed settings.
-+ */
-+static const struct swmii_regs speed[] = {
-+	[SWMII_SPEED_10] = {
-+		.bmcr  = BMCR_FULLDPLX,
-+		.lpa   = LPA_10FULL | LPA_10HALF,
-+	},
-+	[SWMII_SPEED_100] = {
-+		.bmcr  = BMCR_FULLDPLX | BMCR_SPEED100,
-+		.bmsr  = BMSR_100FULL | BMSR_100HALF,
-+		.lpa   = LPA_100FULL | LPA_100HALF,
-+	},
-+	[SWMII_SPEED_1000] = {
-+		.bmcr  = BMCR_FULLDPLX | BMCR_SPEED1000,
-+		.bmsr  = BMSR_ESTATEN,
-+		.lpagb = LPA_1000FULL | LPA_1000HALF,
-+	},
-+};
-+
-+static const struct swmii_regs duplex[] = {
-+	[SWMII_DUPLEX_HALF] = {
-+		.bmcr  = ~BMCR_FULLDPLX,
-+		.bmsr  = BMSR_ESTATEN | BMSR_100HALF,
-+		.lpa   = LPA_10HALF | LPA_100HALF,
-+		.lpagb = LPA_1000HALF,
-+	},
-+	[SWMII_DUPLEX_FULL] = {
-+		.bmcr  = ~0,
-+		.bmsr  = BMSR_ESTATEN | BMSR_100FULL,
-+		.lpa   = LPA_10FULL | LPA_100FULL,
-+		.lpagb = LPA_1000FULL,
-+	},
-+};
-+
-+static int swphy_decode_speed(int speed)
-+{
-+	switch (speed) {
-+	case 1000:
-+		return SWMII_SPEED_1000;
-+	case 100:
-+		return SWMII_SPEED_100;
-+	case 10:
-+		return SWMII_SPEED_10;
-+	default:
-+		return -EINVAL;
-+	}
-+}
-+
- /**
-  * swphy_update_regs - update MII register array with fixed phy state
-  * @regs: array of 32 registers to update
-@@ -30,81 +96,28 @@
-  */
- int swphy_update_regs(u16 *regs, const struct fixed_phy_status *state)
- {
-+	int speed_index, duplex_index;
- 	u16 bmsr = BMSR_ANEGCAPABLE;
- 	u16 bmcr = 0;
- 	u16 lpagb = 0;
- 	u16 lpa = 0;
+@@ -34,6 +35,7 @@ struct fixed_mdio_bus {
+ struct fixed_phy {
+ 	int addr;
+ 	struct phy_device *phydev;
++	seqcount_t seqcount;
+ 	struct fixed_phy_status status;
+ 	int (*link_update)(struct net_device *, struct fixed_phy_status *);
+ 	struct list_head node;
+@@ -58,13 +60,21 @@ static int fixed_mdio_read(struct mii_bus *bus, int phy_addr, int reg_num)
  
--	if (state->duplex) {
--		switch (state->speed) {
--		case 1000:
--			bmsr |= BMSR_ESTATEN;
--			break;
--		case 100:
--			bmsr |= BMSR_100FULL;
--			break;
--		case 10:
--			bmsr |= BMSR_10FULL;
--			break;
--		default:
--			break;
--		}
--	} else {
--		switch (state->speed) {
--		case 1000:
--			bmsr |= BMSR_ESTATEN;
--			break;
--		case 100:
--			bmsr |= BMSR_100HALF;
--			break;
--		case 10:
--			bmsr |= BMSR_10HALF;
--			break;
--		default:
--			break;
--		}
-+	speed_index = swphy_decode_speed(state->speed);
-+	if (speed_index < 0) {
-+		pr_warn("swphy: unknown speed\n");
-+		return -EINVAL;
+ 	list_for_each_entry(fp, &fmb->phys, node) {
+ 		if (fp->addr == phy_addr) {
+-			/* Issue callback if user registered it. */
+-			if (fp->link_update) {
+-				fp->link_update(fp->phydev->attached_dev,
+-						&fp->status);
+-				fixed_phy_update(fp);
+-			}
+-			return swphy_read_reg(reg_num, &fp->status);
++			struct fixed_phy_status state;
++			int s;
++
++			do {
++				s = read_seqcount_begin(&fp->seqcount);
++				/* Issue callback if user registered it. */
++				if (fp->link_update) {
++					fp->link_update(fp->phydev->attached_dev,
++							&fp->status);
++					fixed_phy_update(fp);
++				}
++				state = fp->status;
++			} while (read_seqcount_retry(&fp->seqcount, s));
++
++			return swphy_read_reg(reg_num, &state);
+ 		}
  	}
  
-+	duplex_index = state->duplex ? SWMII_DUPLEX_FULL : SWMII_DUPLEX_HALF;
-+
-+	bmsr |= speed[speed_index].bmsr & duplex[duplex_index].bmsr;
-+
- 	if (state->link) {
- 		bmsr |= BMSR_LSTATUS | BMSR_ANEGCOMPLETE;
+@@ -116,6 +126,7 @@ int fixed_phy_update_state(struct phy_device *phydev,
  
--		if (state->duplex) {
--			bmcr |= BMCR_FULLDPLX;
--
--			switch (state->speed) {
--			case 1000:
--				bmcr |= BMCR_SPEED1000;
--				lpagb |= LPA_1000FULL;
--				break;
--			case 100:
--				bmcr |= BMCR_SPEED100;
--				lpa |= LPA_100FULL;
--				break;
--			case 10:
--				lpa |= LPA_10FULL;
--				break;
--			default:
--				pr_warn("swphy: unknown speed\n");
--				return -EINVAL;
--			}
--		} else {
--			switch (state->speed) {
--			case 1000:
--				bmcr |= BMCR_SPEED1000;
--				lpagb |= LPA_1000HALF;
--				break;
--			case 100:
--				bmcr |= BMCR_SPEED100;
--				lpa |= LPA_100HALF;
--				break;
--			case 10:
--				lpa |= LPA_10HALF;
--				break;
--			default:
--				pr_warn("swphy: unknown speed\n");
--				return -EINVAL;
--			}
--		}
-+		bmcr  |= speed[speed_index].bmcr  & duplex[duplex_index].bmcr;
-+		lpa   |= speed[speed_index].lpa   & duplex[duplex_index].lpa;
-+		lpagb |= speed[speed_index].lpagb & duplex[duplex_index].lpagb;
+ 	list_for_each_entry(fp, &fmb->phys, node) {
+ 		if (fp->addr == phydev->mdio.addr) {
++			write_seqcount_begin(&fp->seqcount);
+ #define _UPD(x) if (changed->x) \
+ 	fp->status.x = status->x
+ 			_UPD(link);
+@@ -125,6 +136,7 @@ int fixed_phy_update_state(struct phy_device *phydev,
+ 			_UPD(asym_pause);
+ #undef _UPD
+ 			fixed_phy_update(fp);
++			write_seqcount_end(&fp->seqcount);
+ 			return 0;
+ 		}
+ 	}
+@@ -149,6 +161,8 @@ int fixed_phy_add(unsigned int irq, int phy_addr,
+ 	if (!fp)
+ 		return -ENOMEM;
  
- 		if (state->pause)
- 			lpa |= LPA_PAUSE_CAP;
++	seqcount_init(&fp->seqcount);
++
+ 	if (irq != PHY_POLL)
+ 		fmb->mii_bus->irq[phy_addr] = irq;
+ 
 -- 
 2.1.0
