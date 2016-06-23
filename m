@@ -1,69 +1,48 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: Re: [PATCH net-next v2 2/4] cgroup: bpf: Add
- BPF_MAP_TYPE_CGROUP_ARRAY
-Date: Thu, 23 Jun 2016 14:26:16 -0700
-Message-ID: <20160623212616.GA90834@kafai-mba.DHCP.thefacebook.com>
-References: <1466630252-3822277-1-git-send-email-kafai@fb.com>
- <1466630252-3822277-3-git-send-email-kafai@fb.com>
- <576BAF07.4020302@iogearbox.net>
+From: Soohoon Lee <Soohoon.Lee@f5.com>
+Subject: [PATCH usbnet v2] mtu change needs to stop RX
+Date: Thu, 23 Jun 2016 21:32:08 +0000
+Message-ID: <8aa35a23da7141bba3549841e66e55db@seaexchmbx01.olympus.F5Net.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Cc: <cgroups@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, Alexei Starovoitov <ast@fb.com>,
-	Tejun Heo <tj@kernel.org>, <kernel-team@fb.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "oneukum@suse.com" <oneukum@suse.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:54975 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752352AbcFWV0f (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 17:26:35 -0400
-Content-Disposition: inline
-In-Reply-To: <576BAF07.4020302@iogearbox.net>
+Received: from mail.f5.com ([208.85.209.139]:22483 "EHLO mail.f5.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751236AbcFWVcP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 17:32:15 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 23, 2016 at 11:42:31AM +0200, Daniel Borkmann wrote:
-> Hi Martin,
->
-> [ sorry to jump late in here, on pto currently ]
-Thanks for reviewing.
 
-> Could you describe a bit more with regards to pinning maps and how this
-> should interact with cgroups? The two specialized array maps we have (tail
-> calls, perf events) have fairly complicated semantics for when to clean up
-> map slots (see commits c9da161c6517ba1, 3b1efb196eee45b2f0c4).
->
-> How is this managed with cgroups? Once a cgroup fd is placed into a map and
-> the user removes the cgroup, will this be prevented due to 'being busy', or
-> will the cgroup live further as long as a program is running with a cgroup
-> map entry (but the cgroup itself is not visible from user space in any way
-> anymore)?
-Having a cgroup ptr stored in the bpf_map will not stop the user from
-removing the cgroup (by rmdir /mnt/cgroup2/tc/test_cgrp).
+When MTU is changed unlink_urbs() flushes RX Q but mean while usbnet_bh() can fill up the Q at the same time.
+Depends on which HCD is down there unlink takes long time then the flush never ends.
 
-The cgroup ptr stored in the bpf_map holds a refcnt which answer the
-second part.
+Reviewed-by: kmurray@f5.com
 
-The situation is similar to the netfilter usecase in
-commit 38c4597e4bf ("netfilter: implement xt_cgroup cgroup2 path match")
-
->
-> I presume it's a valid use case to pin a cgroup map, put fds into it and
-> remove the pinned file expecting to continue to match on it, right? So
-> lifetime is really until last prog using a cgroup map somewhere gets removed
-> (even if not accessible from user space anymore, meaning no prog has fd and
-> pinned file was removed).
-Yes.
-
-We are still hatching out how to set this up in production. However, the
-situation is similar to removing the pinned file.
-We probably will not use tc and pin a bpf_map to do that.  Instead,
-one process will setup eveything (e.g. create the cgroup, pouplate the
-cgroup map, load the bpf to egress) and then go away.
-
-I don't think we need a prog fd to remove the bpf prog.
-
->
-> I assume that using struct file here doesn't make sense (commit e03e7ee34fdd1c3)
-> either, right?
-No. I don't think so. We eventually need a cgroup from the 'struct file'.
+diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
+index 61ba464..ce72dd0 100644
+--- a/drivers/net/usb/usbnet.c
++++ b/drivers/net/usb/usbnet.c
+@@ -395,8 +395,11 @@ int usbnet_change_mtu (struct net_device *net, int new_mtu)
+        dev->hard_mtu = net->mtu + net->hard_header_len;
+        if (dev->rx_urb_size == old_hard_mtu) {
+                dev->rx_urb_size = dev->hard_mtu;
+-               if (dev->rx_urb_size > old_rx_urb_size)
++               if (dev->rx_urb_size > old_rx_urb_size) {
++                       usbnet_pause_rx(dev);
+                        usbnet_unlink_rx_urbs(dev);
++                       usbnet_resume_rx(dev);
++               }
+        }
+ 
+        /* max qlen depend on hard_mtu and rx_urb_size */
+@@ -1509,6 +1512,7 @@ static void usbnet_bh (unsigned long param)
+                   netif_device_present (dev->net) &&
+                   netif_carrier_ok(dev->net) &&
+                   !timer_pending (&dev->delay) &&
++                  !test_bit (EVENT_RX_PAUSED, &dev->flags) &&
+                   !test_bit (EVENT_RX_HALT, &dev->flags)) {
+                int     temp = dev->rxq.qlen;
