@@ -1,164 +1,65 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v3 0/6] Big C99 style initializer rework
-Date: Thu, 23 Jun 2016 19:34:08 +0200
-Message-ID: <1466703254-5174-1-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCH v3 4/6] No need to initialize rtattr fields before parsing
+Date: Thu, 23 Jun 2016 19:34:12 +0200
+Message-ID: <1466703254-5174-5-git-send-email-phil@nwl.cc>
+References: <1466703254-5174-1-git-send-email-phil@nwl.cc>
 Cc: Daniel Borkmann <daniel@iogearbox.net>,
 	David Ahern <dsa@cumulusnetworks.com>,
 	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
 	Julien Floret <julien.floret@6wind.com>, netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:59414 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:44341 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750919AbcFWRe1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jun 2016 13:34:27 -0400
+	id S1750979AbcFWRed (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 13:34:33 -0400
+In-Reply-To: <1466703254-5174-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is v3 of my C99-style initializer related patch series. The changes
-since v2 are:
+Since parse_rtattr_flags() calls memset already, there is no need for
+callers to do so themselves.
 
-- Flattened embedded struct's initializers:
-  Since the field names are very short, I figured it makes more sense to
-  keep indenting low. Also, the same style is already used in
-  ip/xfrm_policy.c so take that as an example.
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ ip/ipaddress.c | 2 +-
+ tc/tc_class.c  | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
 
-- Moved leftover nlmsg_seq initializing into the common place as well:
-  I was unsure whether this is a good idea at first (due to the
-  increment), but again it's done in ip/xfrm_policy.c as well so should
-  be fine.
-
-- Added a comma after the last field initializer as suggested by Jakub.
-
-- Dropped patch 7 since it was NACKed.
-
-- Eliminated checkpatch non-compliance.
-
-- Second go at union bpf_attr in tc/tc_bpf.c:
-  I figured that while it is not possible to initialize fields, gcc-3.4.6
-  does not complain when setting the whole union to zero using '= {0}'.
-  So I did this and thereby at least got rid of the memset calls.
-
-For reference, here's the v2 changelog:
-
-- Rebased onto current upstream master:
-  My own commit a0a73b298a579 ("tc: m_action: Use C99 style initializers
-  for struct req") contains most of the changes to tc/m_action.c already,
-  so I put the remaining ones into a dedicated patch (the first one here)
-  with a better description.
-
-- Tested against gcc-3.4.6:
-  This is the oldest gcc version I was able to install locally. It indeed
-  does not like the former changes in tc/tc_bpf.c, so I reverted them.
-  Apart from emitting many warnings, it successfully compiles the
-  sources.
-
-In the process of compatibility testing, I made a few more changes which
-make sense to have:
-
-- New patch 5 allows to conveniently override the compiler via command
-  line.
-
-- New patch 6 eliminates a warning with old gcc but looks valid in
-  general.
-
-- A warning made me look at ip/tcp_metrics.c and I found a minor code
-  simplification (patch 7).
-
-Phil Sutter (6):
-  tc: m_action: Improve conversion to C99 style initializers
-  Use C99 style initializers everywhere
-  Replace malloc && memset by calloc
-  No need to initialize rtattr fields before parsing
-  Makefile: Allow to override CC
-  misc/ifstat: simplify unsigned value comparison
-
- Makefile           |   4 +-
- bridge/fdb.c       |  25 ++++++------
- bridge/link.c      |  14 +++----
- bridge/mdb.c       |  17 ++++-----
- bridge/vlan.c      |  17 ++++-----
- genl/ctrl.c        |  44 +++++++++------------
- genl/genl.c        |   3 +-
- ip/ip6tunnel.c     |  10 ++---
- ip/ipaddress.c     |  33 +++++++---------
- ip/ipaddrlabel.c   |  21 ++++------
- ip/iplink.c        |  61 ++++++++++++-----------------
- ip/iplink_can.c    |   4 +-
- ip/ipmaddr.c       |  25 ++++--------
- ip/ipmroute.c      |   8 +---
- ip/ipneigh.c       |  30 ++++++---------
- ip/ipnetconf.c     |  10 ++---
- ip/ipnetns.c       |  39 +++++++++----------
- ip/ipntable.c      |  25 ++++--------
- ip/iproute.c       |  78 +++++++++++++------------------------
- ip/iprule.c        |  22 +++++------
- ip/iptoken.c       |  19 ++++-----
- ip/iptunnel.c      |  31 +++++----------
- ip/ipxfrm.c        |  26 ++++---------
- ip/link_gre.c      |  18 ++++-----
- ip/link_gre6.c     |  18 ++++-----
- ip/link_ip6tnl.c   |  25 +++++-------
- ip/link_iptnl.c    |  22 +++++------
- ip/link_vti.c      |  18 ++++-----
- ip/link_vti6.c     |  18 ++++-----
- ip/xfrm_policy.c   |  99 +++++++++++++++++++----------------------------
- ip/xfrm_state.c    | 110 ++++++++++++++++++++++-------------------------------
- lib/libnetlink.c   |  77 ++++++++++++++-----------------------
- lib/ll_map.c       |   1 -
- lib/names.c        |   7 +---
- misc/arpd.c        |  64 ++++++++++++++-----------------
- misc/ifstat.c      |   2 +-
- misc/lnstat.c      |   6 +--
- misc/lnstat_util.c |   4 +-
- misc/ss.c          |  37 +++++++-----------
- tc/e_bpf.c         |   7 +---
- tc/em_canid.c      |   4 +-
- tc/em_cmp.c        |   4 +-
- tc/em_ipset.c      |   4 +-
- tc/em_meta.c       |   4 +-
- tc/em_nbyte.c      |   4 +-
- tc/em_u32.c        |   4 +-
- tc/f_flow.c        |   3 --
- tc/f_flower.c      |   3 +-
- tc/f_fw.c          |   6 +--
- tc/f_route.c       |   3 --
- tc/f_rsvp.c        |   6 +--
- tc/f_u32.c         |  12 ++----
- tc/m_action.c      |  26 ++++---------
- tc/m_bpf.c         |   5 +--
- tc/m_csum.c        |   4 +-
- tc/m_ematch.c      |   4 +-
- tc/m_gact.c        |   5 +--
- tc/m_ife.c         |   5 +--
- tc/m_ipt.c         |  13 ++-----
- tc/m_mirred.c      |   7 +---
- tc/m_nat.c         |   4 +-
- tc/m_pedit.c       |  11 ++----
- tc/m_police.c      |   5 +--
- tc/q_atm.c         |   3 +-
- tc/q_cbq.c         |  22 +++--------
- tc/q_choke.c       |   4 +-
- tc/q_codel.c       |   3 +-
- tc/q_dsmark.c      |   1 -
- tc/q_fifo.c        |   4 +-
- tc/q_fq_codel.c    |   3 +-
- tc/q_hfsc.c        |  13 ++-----
- tc/q_htb.c         |  15 +++-----
- tc/q_netem.c       |  16 +++-----
- tc/q_red.c         |   4 +-
- tc/q_sfb.c         |  17 ++++-----
- tc/q_sfq.c         |   4 +-
- tc/q_tbf.c         |   4 +-
- tc/tc.c            |   9 ++---
- tc/tc_bpf.c        |  58 ++++++++++------------------
- tc/tc_class.c      |  38 +++++++-----------
- tc/tc_exec.c       |   6 +--
- tc/tc_filter.c     |  33 ++++++----------
- tc/tc_qdisc.c      |  33 ++++++----------
- tc/tc_stab.c       |   4 +-
- tc/tc_util.c       |   3 +-
- 85 files changed, 565 insertions(+), 977 deletions(-)
-
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index 62856f2c26eba..703a56b88d257 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -439,7 +439,7 @@ static void print_num(FILE *fp, unsigned int width, uint64_t count)
+ 
+ static void print_vf_stats64(FILE *fp, struct rtattr *vfstats)
+ {
+-	struct rtattr *vf[IFLA_VF_STATS_MAX + 1] = {};
++	struct rtattr *vf[IFLA_VF_STATS_MAX + 1];
+ 
+ 	if (vfstats->rta_type != IFLA_VF_STATS) {
+ 		fprintf(stderr, "BUG: rta type is %d\n", vfstats->rta_type);
+diff --git a/tc/tc_class.c b/tc/tc_class.c
+index 158b4b18506eb..0d6000b91f539 100644
+--- a/tc/tc_class.c
++++ b/tc/tc_class.c
+@@ -219,7 +219,7 @@ static void graph_cls_show(FILE *fp, char *buf, struct hlist_head *root_list,
+ {
+ 	struct hlist_node *n, *tmp_cls;
+ 	char cls_id_str[256] = {};
+-	struct rtattr *tb[TCA_MAX + 1] = {};
++	struct rtattr *tb[TCA_MAX + 1];
+ 	struct qdisc_util *q;
+ 	char str[100] = {};
+ 
+@@ -304,7 +304,7 @@ int print_class(const struct sockaddr_nl *who,
+ 	FILE *fp = (FILE *)arg;
+ 	struct tcmsg *t = NLMSG_DATA(n);
+ 	int len = n->nlmsg_len;
+-	struct rtattr *tb[TCA_MAX + 1] = {};
++	struct rtattr *tb[TCA_MAX + 1];
+ 	struct qdisc_util *q;
+ 	char abuf[256];
+ 
 -- 
 2.8.2
