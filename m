@@ -1,112 +1,147 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next v5 0/4] return offloaded stats as default and
- expose original sw stats
-Date: Thu, 23 Jun 2016 07:40:50 +0200
-Message-ID: <20160623054050.GA2060@nanopsycho.orion>
-References: <1466522156-4795-1-git-send-email-jiri@resnulli.us>
- <CAJieiUgP3j=W=khq_q-y382eFurHQSCs_Td8Q_KHtru6La22XA@mail.gmail.com>
+From: Yisen Zhuang <Yisen.zhuang@huawei.com>
+Subject: Re: [PATCH net-next 10/19] net: hns: bugfix about pfc pause frame
+ statistics
+Date: Thu, 23 Jun 2016 13:42:58 +0800
+Message-ID: <576B76E2.9040402@huawei.com>
+References: <1466481399-70080-1-git-send-email-Yisen.Zhuang@huawei.com>
+ <1466481399-70080-11-git-send-email-Yisen.Zhuang@huawei.com>
+ <1466505178.30123.201.camel@linux.intel.com> <5769ED55.3000408@huawei.com>
+ <1466588498.30123.235.camel@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Nogah Frankel <nogahf@mellanox.com>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>,
-	Yotam Gigi <yotamg@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>, sd@queasysnail.net,
-	eranbe@mellanox.com, Alexei Starovoitov <ast@plumgrid.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	David Ahern <dsa@cumulusnetworks.com>
-To: Roopa Prabhu <roopa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34686 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750821AbcFWFky (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 01:40:54 -0400
-Received: by mail-wm0-f68.google.com with SMTP id 187so7711370wmz.1
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 22:40:53 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJieiUgP3j=W=khq_q-y382eFurHQSCs_Td8Q_KHtru6La22XA@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Wed, Jun 22, 2016 at 09:32:25PM CEST, roopa@cumulusnetworks.com wrote:
->On Tue, Jun 21, 2016 at 8:15 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->> From: Jiri Pirko <jiri@mellanox.com>
->>
->> The problem we try to handle is about offloaded forwarded packets
->> which are not seen by kernel. Let me try to draw it:
->>
->>     port1                       port2 (HW stats are counted here)
->>       \                          /
->>        \                        /
->>         \                      /
->>          --(A)---- ASIC --(B)--
->>                     |
->>                    (C)
->>                     |
->>                    CPU (SW stats are counted here)
->>
->>
->> Now we have couple of flows for TX and RX (direction does not matter here):
->>
->> 1) port1->A->ASIC->C->CPU
->>
->>    For this flow, HW and SW stats are equal.
->>
->> 2) port1->A->ASIC->C->CPU->C->ASIC->B->port2
->>
->>    For this flow, HW and SW stats are equal.
->>
->> 3) port1->A->ASIC->B->port2
->>
->>    For this flow, SW stats are 0.
->>
->> The purpose of this patchset is to provide facility for user to
->> find out the difference between flows 1+2 and 3. In other words, user
->> will be able to see the statistics for the slow-path (through kernel).
->>
->> Also note that HW stats are what someone calls "accumulated" stats.
->> Every packet counted by SW is also counted by HW. Not the other way around.
->>
->> As a default the accumulated stats (HW) will be exposed to user
->> so the userspace apps can react properly.
->>
->>
->
->curious, how do you plan to handle virtual device counters like vlan
->and vxlan stats ?.
-
-Yes, that is another problem (1). We have to push stats up to this devices
-most probably. But that problem is orthogonal to this. To the user, you
-will still need 2 sets of stats and HW stats being default. So this
-patchset infra is going to be used as well.
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
+	<andrew@lunn.ch>, <geliangtang@163.com>, <ivecera@redhat.com>,
+	<fengguang.wu@intel.com>, <charles.chenxin@huawei.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
+To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
+	<davem@davemloft.net>, <salil.mehta@huawei.com>,
+	<yankejian@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466588498.30123.235.camel@linux.intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 
->we can't separate CPU and HW stats there. In some cases (or ASICs) HW
->counters do
->not include CPU generated packets....you will have to add CPU
->generated pkt counters to the
->hw counters for such virtual device stats.
 
-Can you please provide and example how that could happen?
+=E5=9C=A8 2016/6/22 17:41, Andy Shevchenko =E5=86=99=E9=81=93:
+> On Wed, 2016-06-22 at 09:43 +0800, Yisen Zhuang wrote:
+>>
+>> =E5=9C=A8 2016/6/21 18:32, Andy Shevchenko =E5=86=99=E9=81=93:
+>>> On Tue, 2016-06-21 at 11:56 +0800, Yisen Zhuang wrote:
+>>>> From: Daode Huang <huangdaode@hisilicon.com>
+>>>>
+>>>> For SoC hip06, PFC pause handled in dsaf, while hip05 in XGMAC,
+>>>> so change the statistics of pfc pause in dsaf and remove the old
+>>>> pfc pause frame statistics.
+>>>>
+>>> =20
+>>>
+>>>> +static char *hns_dsaf_get_node_stats_strings(char *data, int
+>>>> node,
+>>>> +					     struct dsaf_device
+>>>> *dsaf_dev)
+>>>>  {
+>>>>  	char *buff =3D data;
+>>>> +	int i;
+>>>> +	bool is_ver1 =3D AE_IS_VER1(dsaf_dev->dsaf_ver);
+>>>> =20
+>>>>  	snprintf(buff, ETH_GSTRING_LEN, "innod%d_pad_drop_pkts",
+>>>> node);
+>>>>  	buff =3D buff + ETH_GSTRING_LEN;
+>>>> @@ -2502,6 +2530,18 @@ static char
+>>>> *hns_dsaf_get_node_stats_strings(char *data, int node)
+>>>>  	buff =3D buff + ETH_GSTRING_LEN;
+>>>>  	snprintf(buff, ETH_GSTRING_LEN, "innod%d_stp_drop_pkts",
+>>>> node);
+>>>>  	buff =3D buff + ETH_GSTRING_LEN;
+>>>> +	if ((node < DSAF_SERVICE_NW_NUM) && (!is_ver1)) {
+>>>
+>>> Redundant parens.
+>>>
+>>>> +		for (i =3D 0; i < DSAF_PRIO_NR; i++) {
+>>>> +			snprintf(buff, ETH_GSTRING_LEN,
+>>>> +				 "inod%d_pfc_prio%d_pkts", node,
+>>>> i);
+>>>> +			buff =3D buff + ETH_GSTRING_LEN;
+>>>
+>>> buff +=3D ...
+>>>
+>>>> +		}
+>>>> +		for (i =3D 0; i < DSAF_PRIO_NR; i++) {
+>>>> +			snprintf(buff, ETH_GSTRING_LEN,
+>>>> +				 "onod%d_pfc_prio%d_pkts", node,
+>>>> i);
+>>>> +			buff =3D buff + ETH_GSTRING_LEN;
+>>>
+>>> Ditto.
+>>>
+>>>>  {
+>>>>  	u64 *p =3D data;
+>>>> +	int i;
+>>>>  	struct dsaf_hw_stats *hw_stats =3D &ddev-
+>>>>> hw_stats[node_num];
+>>>> +	bool is_ver1 =3D AE_IS_VER1(ddev->dsaf_ver);
+>>>> =20
+>>>>  	p[0] =3D hw_stats->pad_drop;
+>>>>  	p[1] =3D hw_stats->man_pkts;
+>>>> @@ -2527,8 +2569,16 @@ static u64 *hns_dsaf_get_node_stats(struct
+>>>> dsaf_device *ddev, u64 *data,
+>>>>  	p[10] =3D hw_stats->local_addr_false;
+>>>>  	p[11] =3D hw_stats->vlan_drop;
+>>>>  	p[12] =3D hw_stats->stp_drop;
+>>>> -	p[13] =3D hw_stats->tx_pkts;
+>>>> +	if ((node_num < DSAF_SERVICE_NW_NUM) && (!is_ver1)) {
+>>>> +		for (i =3D 0; i < DSAF_PRIO_NR; i++) {
+>>>> +			p[13 + i] =3D hw_stats->rx_pfc[i];
+>>>> +			p[13 + i + DSAF_PRIO_NR] =3D hw_stats-
+>>>>> tx_pfc[i];
+>>>> +		}
+>>>
+>>> Two different approaches how to assign data. Above uses 2 for-loops=
+,
+>>> here you put everything to one.
+>>
+>> Above cann't be merged to 1 for-loop, because lenght of the string i=
+s
+>> unknowable.
+>=20
+> It doesn't matter since you are incrementing start position by
+> constant.=20
+>=20
+> snprintf(buff, ETH_GSTRING_LEN, "inod%d_pfc_prio%d_pkts", node, i);
+> snprintf(buff, ETH_GSTRING_LEN, "onod%d_pfc_prio%d_pkts", node, i);
+>=20
+> Same approach as below can be used
+>=20
+> snprintf(buff + 0 * ETH_GSTRING_LEN * DSAF_PRIO_NR, ETH_GSTRING_LEN, =
+=2E..
+> snprintf(buff + 1 * ETH_GSTRING_LEN * DSAF_PRIO_NR, ETH_GSTRING_LEN, =
+=2E..
+>=20
+> Of course to make it less verbose you may add new definition(s) and/ =
+or
+> variable(s).
+>=20
+>>
+>> And here we put everything to one to reduce codes.
+>>
+>=20
+> I would suggest to use following pattern for such lines
+> p[13 + i + 0 * DSAF_PRIO_NR] =3D hw_stats->rx_pfc[i];
+> p[13 + i + 1 * DSAF_PRIO_NR] =3D hw_stats->tx_pfc[i];
+>=20
+> That's allow reader to see what are you doing here.
+>=20
+> P.S. This is for the future patches since current is already applied.
 
+Hi Andy,
 
->
->example: In the switchdev model, for bridge vlan stats, when user
->queries bridge vlan stats,
->you will have to add the hw stats to the bridge driver vlan stats and
->return it to the user .
+Many thanks for you suggestions. I will fix it with a new patch.
 
-Yep, that is (1).
+Thanks,
 
+Yisen
 
->
->Having a consistent model for all kinds of stats will help.
+>=20
