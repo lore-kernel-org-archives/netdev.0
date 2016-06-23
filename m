@@ -1,75 +1,47 @@
 From: Marc Kleine-Budde <mkl@pengutronix.de>
-Subject: [PATCH 3/3] can: kvaser_usb: Add support for more Kvaser Leaf v2 devices
-Date: Thu, 23 Jun 2016 11:22:21 +0200
-Message-ID: <1466673741-23115-4-git-send-email-mkl@pengutronix.de>
+Subject: [PATCH 1/3] can: fix handling of unmodifiable configuration options fix
+Date: Thu, 23 Jun 2016 11:22:19 +0200
+Message-ID: <1466673741-23115-2-git-send-email-mkl@pengutronix.de>
 References: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
 Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, Jimmy Assarsson <jimmyassarsson@gmail.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>
+	kernel@pengutronix.de, Oliver Hartkopp <socketcan@hartkopp.net>,
+	stable@vger.kernel.org, Marc Kleine-Budde <mkl@pengutronix.de>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from metis.ext.4.pengutronix.de ([92.198.50.35]:54938 "EHLO
-	metis.ext.4.pengutronix.de" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751185AbcFWJWa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 05:22:30 -0400
+Return-path: <stable-owner@vger.kernel.org>
 In-Reply-To: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jimmy Assarsson <jimmyassarsson@gmail.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
 
-This patch adds support for Kvaser Leaf Light HS v2 OEM, Mini PCI
-Express 2xHS and USBcan Light 2xHS.
+With upstream commit bb208f144cf3f59 (can: fix handling of unmodifiable
+configuration options) a new can_validate() function was introduced.
 
-Signed-off-by: Jimmy Assarsson <jimmyassarsson@gmail.com>
+When invoking 'ip link set can0 type can' without any configuration data
+can_validate() tries to validate the content without taking into account that
+there's totally no content. This patch adds a check for missing content.
+
+Reported-by: ajneu <ajneu1@gmail.com>
+Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
+Cc: <stable@vger.kernel.org>
 Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
 ---
- drivers/net/can/usb/Kconfig      | 2 ++
- drivers/net/can/usb/kvaser_usb.c | 8 +++++++-
- 2 files changed, 9 insertions(+), 1 deletion(-)
+ drivers/net/can/dev.c | 3 +++
+ 1 file changed, 3 insertions(+)
 
-diff --git a/drivers/net/can/usb/Kconfig b/drivers/net/can/usb/Kconfig
-index 2ff0df32b3d1..8483a40e7e9e 100644
---- a/drivers/net/can/usb/Kconfig
-+++ b/drivers/net/can/usb/Kconfig
-@@ -47,6 +47,8 @@ config CAN_KVASER_USB
- 	    - Kvaser USBcan R
- 	    - Kvaser Leaf Light v2
- 	    - Kvaser Mini PCI Express HS
-+	    - Kvaser Mini PCI Express 2xHS
-+	    - Kvaser USBcan Light 2xHS
- 	    - Kvaser USBcan II HS/HS
- 	    - Kvaser USBcan II HS/LS
- 	    - Kvaser USBcan Rugged ("USBcan Rev B")
-diff --git a/drivers/net/can/usb/kvaser_usb.c b/drivers/net/can/usb/kvaser_usb.c
-index 022bfa13ebfa..6f1f3b675ff5 100644
---- a/drivers/net/can/usb/kvaser_usb.c
-+++ b/drivers/net/can/usb/kvaser_usb.c
-@@ -59,11 +59,14 @@
- #define USB_CAN_R_PRODUCT_ID		39
- #define USB_LEAF_LITE_V2_PRODUCT_ID	288
- #define USB_MINI_PCIE_HS_PRODUCT_ID	289
-+#define USB_LEAF_LIGHT_HS_V2_OEM_PRODUCT_ID 290
-+#define USB_USBCAN_LIGHT_2HS_PRODUCT_ID	291
-+#define USB_MINI_PCIE_2HS_PRODUCT_ID	292
+diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
+index 910c12e2638e..348dd5001fa4 100644
+--- a/drivers/net/can/dev.c
++++ b/drivers/net/can/dev.c
+@@ -798,6 +798,9 @@ static int can_validate(struct nlattr *tb[], struct nlattr *data[])
+ 	 * - control mode with CAN_CTRLMODE_FD set
+ 	 */
  
- static inline bool kvaser_is_leaf(const struct usb_device_id *id)
- {
- 	return id->idProduct >= USB_LEAF_DEVEL_PRODUCT_ID &&
--	       id->idProduct <= USB_MINI_PCIE_HS_PRODUCT_ID;
-+	       id->idProduct <= USB_MINI_PCIE_2HS_PRODUCT_ID;
- }
++	if (!data)
++		return 0;
++
+ 	if (data[IFLA_CAN_CTRLMODE]) {
+ 		struct can_ctrlmode *cm = nla_data(data[IFLA_CAN_CTRLMODE]);
  
- /* Kvaser USBCan-II devices */
-@@ -537,6 +540,9 @@ static const struct usb_device_id kvaser_usb_table[] = {
- 		.driver_info = KVASER_HAS_TXRX_ERRORS },
- 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_LITE_V2_PRODUCT_ID) },
- 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_MINI_PCIE_HS_PRODUCT_ID) },
-+	{ USB_DEVICE(KVASER_VENDOR_ID, USB_LEAF_LIGHT_HS_V2_OEM_PRODUCT_ID) },
-+	{ USB_DEVICE(KVASER_VENDOR_ID, USB_USBCAN_LIGHT_2HS_PRODUCT_ID) },
-+	{ USB_DEVICE(KVASER_VENDOR_ID, USB_MINI_PCIE_2HS_PRODUCT_ID) },
- 
- 	/* USBCANII family IDs */
- 	{ USB_DEVICE(KVASER_VENDOR_ID, USB_USBCAN2_PRODUCT_ID),
 -- 
 2.8.1
