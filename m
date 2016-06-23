@@ -1,138 +1,74 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 1/2] net: ethernet: dnet: use phydev from struct net_device
-Date: Thu, 23 Jun 2016 23:48:58 +0200
-Message-ID: <1466718539-6526-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Philippe Reynes <tremyfr@gmail.com>
-To: andrew@lunn.ch, davem@davemloft.net, f.fainelli@gmail.com
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net-next v2 2/4] cgroup: bpf: Add BPF_MAP_TYPE_CGROUP_ARRAY
+Date: Thu, 23 Jun 2016 23:50:08 +0200
+Message-ID: <576C5990.9000300@iogearbox.net>
+References: <1466630252-3822277-1-git-send-email-kafai@fb.com> <1466630252-3822277-3-git-send-email-kafai@fb.com> <576BAF07.4020302@iogearbox.net> <20160623212616.GA90834@kafai-mba.DHCP.thefacebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: cgroups@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, Alexei Starovoitov <ast@fb.com>,
+	Tejun Heo <tj@kernel.org>, kernel-team@fb.com
+To: Martin KaFai Lau <kafai@fb.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160623212616.GA90834@kafai-mba.DHCP.thefacebook.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The private structure contain a pointer to phydev, but the structure
-net_device already contain such pointer. So we can remove the pointer
-phydev in the private structure, and update the driver to use the
-one contained in struct net_device.
+On 06/23/2016 11:26 PM, Martin KaFai Lau wrote:
+> On Thu, Jun 23, 2016 at 11:42:31AM +0200, Daniel Borkmann wrote:
+>> Hi Martin,
+>>
+>> [ sorry to jump late in here, on pto currently ]
+> Thanks for reviewing.
+>
+>> Could you describe a bit more with regards to pinning maps and how this
+>> should interact with cgroups? The two specialized array maps we have (tail
+>> calls, perf events) have fairly complicated semantics for when to clean up
+>> map slots (see commits c9da161c6517ba1, 3b1efb196eee45b2f0c4).
+>>
+>> How is this managed with cgroups? Once a cgroup fd is placed into a map and
+>> the user removes the cgroup, will this be prevented due to 'being busy', or
+>> will the cgroup live further as long as a program is running with a cgroup
+>> map entry (but the cgroup itself is not visible from user space in any way
+>> anymore)?
+> Having a cgroup ptr stored in the bpf_map will not stop the user from
+> removing the cgroup (by rmdir /mnt/cgroup2/tc/test_cgrp).
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/dnet.c |   28 ++++++++++++----------------
- drivers/net/ethernet/dnet.h |    1 -
- 2 files changed, 12 insertions(+), 17 deletions(-)
+Right.
 
-diff --git a/drivers/net/ethernet/dnet.c b/drivers/net/ethernet/dnet.c
-index b69a9ea..9c6955f 100644
---- a/drivers/net/ethernet/dnet.c
-+++ b/drivers/net/ethernet/dnet.c
-@@ -173,7 +173,7 @@ static int dnet_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
- static void dnet_handle_link_change(struct net_device *dev)
- {
- 	struct dnet *bp = netdev_priv(dev);
--	struct phy_device *phydev = bp->phy_dev;
-+	struct phy_device *phydev = dev->phydev;
- 	unsigned long flags;
- 	u32 mode_reg, ctl_reg;
- 
-@@ -295,7 +295,6 @@ static int dnet_mii_probe(struct net_device *dev)
- 	bp->link = 0;
- 	bp->speed = 0;
- 	bp->duplex = -1;
--	bp->phy_dev = phydev;
- 
- 	return 0;
- }
-@@ -629,16 +628,16 @@ static int dnet_open(struct net_device *dev)
- 	struct dnet *bp = netdev_priv(dev);
- 
- 	/* if the phy is not yet register, retry later */
--	if (!bp->phy_dev)
-+	if (!dev->phydev)
- 		return -EAGAIN;
- 
- 	napi_enable(&bp->napi);
- 	dnet_init_hw(bp);
- 
--	phy_start_aneg(bp->phy_dev);
-+	phy_start_aneg(dev->phydev);
- 
- 	/* schedule a link state check */
--	phy_start(bp->phy_dev);
-+	phy_start(dev->phydev);
- 
- 	netif_start_queue(dev);
- 
-@@ -652,8 +651,8 @@ static int dnet_close(struct net_device *dev)
- 	netif_stop_queue(dev);
- 	napi_disable(&bp->napi);
- 
--	if (bp->phy_dev)
--		phy_stop(bp->phy_dev);
-+	if (dev->phydev)
-+		phy_stop(dev->phydev);
- 
- 	dnet_reset_hw(bp);
- 	netif_carrier_off(dev);
-@@ -733,8 +732,7 @@ static struct net_device_stats *dnet_get_stats(struct net_device *dev)
- 
- static int dnet_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
--	struct dnet *bp = netdev_priv(dev);
--	struct phy_device *phydev = bp->phy_dev;
-+	struct phy_device *phydev = dev->phydev;
- 
- 	if (!phydev)
- 		return -ENODEV;
-@@ -744,8 +742,7 @@ static int dnet_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 
- static int dnet_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- {
--	struct dnet *bp = netdev_priv(dev);
--	struct phy_device *phydev = bp->phy_dev;
-+	struct phy_device *phydev = dev->phydev;
- 
- 	if (!phydev)
- 		return -ENODEV;
-@@ -755,8 +752,7 @@ static int dnet_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
- 
- static int dnet_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
--	struct dnet *bp = netdev_priv(dev);
--	struct phy_device *phydev = bp->phy_dev;
-+	struct phy_device *phydev = dev->phydev;
- 
- 	if (!netif_running(dev))
- 		return -EINVAL;
-@@ -875,7 +871,7 @@ static int dnet_probe(struct platform_device *pdev)
- 	       (bp->capabilities & DNET_HAS_IRQ) ? "" : "no ",
- 	       (bp->capabilities & DNET_HAS_GIGABIT) ? "" : "no ",
- 	       (bp->capabilities & DNET_HAS_DMA) ? "" : "no ");
--	phydev = bp->phy_dev;
-+	phydev = dev->phydev;
- 	phy_attached_info(phydev);
- 
- 	return 0;
-@@ -899,8 +895,8 @@ static int dnet_remove(struct platform_device *pdev)
- 
- 	if (dev) {
- 		bp = netdev_priv(dev);
--		if (bp->phy_dev)
--			phy_disconnect(bp->phy_dev);
-+		if (dev->phydev)
-+			phy_disconnect(dev->phydev);
- 		mdiobus_unregister(bp->mii_bus);
- 		mdiobus_free(bp->mii_bus);
- 		unregister_netdev(dev);
-diff --git a/drivers/net/ethernet/dnet.h b/drivers/net/ethernet/dnet.h
-index 37f5b30..d985080 100644
---- a/drivers/net/ethernet/dnet.h
-+++ b/drivers/net/ethernet/dnet.h
-@@ -216,7 +216,6 @@ struct dnet {
- 
- 	/* PHY stuff */
- 	struct mii_bus			*mii_bus;
--	struct phy_device		*phy_dev;
- 	unsigned int			link;
- 	unsigned int			speed;
- 	unsigned int			duplex;
--- 
-1.7.4.4
+> The cgroup ptr stored in the bpf_map holds a refcnt which answer the
+> second part.
+
+Yep, clear.
+
+> The situation is similar to the netfilter usecase in
+> commit 38c4597e4bf ("netfilter: implement xt_cgroup cgroup2 path match")
+>
+>> I presume it's a valid use case to pin a cgroup map, put fds into it and
+>> remove the pinned file expecting to continue to match on it, right? So
+>> lifetime is really until last prog using a cgroup map somewhere gets removed
+>> (even if not accessible from user space anymore, meaning no prog has fd and
+>> pinned file was removed).
+> Yes.
+>
+> We are still hatching out how to set this up in production. However, the
+> situation is similar to removing the pinned file.
+
+I presume you mean removing the last BPF program holding a reference on
+the cgroup array map. (Any user space visibility like struct files given
+from the anon inode and pinnings are tracked via uref, btw, which is
+needed to break possible complex dependencies among tail called programs.)
+But dropping cgroup ref at latest when the last map ref is dropped as you
+currently do seems fine. It makes cgroup array maps effectively no different
+from plain regular array maps.
+
+> We probably will not use tc and pin a bpf_map to do that.  Instead,
+> one process will setup eveything (e.g. create the cgroup, pouplate the
+> cgroup map, load the bpf to egress) and then go away.
+
+Yep, that seems a valid case as well, both use cases (pinned and non-pinned)
+should be fine with your code then.
+
+Thanks,
+Daniel
