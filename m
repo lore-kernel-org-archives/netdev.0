@@ -1,7 +1,7 @@
-From: Tom Herbert <tom@herbertland.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
 Subject: Re: [PATCH net-next 0/5] qed/qede: Tunnel hardware GRO support
-Date: Wed, 22 Jun 2016 16:59:05 -0700
-Message-ID: <CALx6S36jA7JTwm_gS8n5_xt-7vK4jwarOeoC=30S-zwREoo63Q@mail.gmail.com>
+Date: Wed, 22 Jun 2016 17:11:16 -0700
+Message-ID: <CAKgT0Uex41aBJX84we2gxNGw6M4s5xGEPnDkGehTZkEE+i+Jhw@mail.gmail.com>
 References: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
  <CAKgT0Ue6_cPb88wfTtMMetJzBSJnGDNWj8YVHWC=9WdztCxOuQ@mail.gmail.com>
  <CO2PR11MB008891D4ECFF86F32B1C32CC972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
@@ -11,22 +11,22 @@ References: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
  <CAKgT0UdbPVqpSVLs0JW7zFU7mNtJn5BM+fMjsr1tLm4kHRcW9A@mail.gmail.com> <1466638292.6850.94.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	Rick Jones <rick.jones2@hpe.com>,
+Cc: Rick Jones <rick.jones2@hpe.com>,
 	Yuval Mintz <Yuval.Mintz@qlogic.com>,
 	Manish Chopra <manish.chopra@qlogic.com>,
 	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
 	Ariel Elior <Ariel.Elior@qlogic.com>,
+	Tom Herbert <tom@herbertland.com>,
 	Hannes Frederic Sowa <hannes@redhat.com>
 To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f52.google.com ([209.85.214.52]:38756 "EHLO
-	mail-it0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751447AbcFVX7H (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 19:59:07 -0400
-Received: by mail-it0-f52.google.com with SMTP id h190so52578577ith.1
-        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 16:59:07 -0700 (PDT)
+Received: from mail-io0-f179.google.com ([209.85.223.179]:35745 "EHLO
+	mail-io0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751272AbcFWALS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 22 Jun 2016 20:11:18 -0400
+Received: by mail-io0-f179.google.com with SMTP id f30so58182720ioj.2
+        for <netdev@vger.kernel.org>; Wed, 22 Jun 2016 17:11:18 -0700 (PDT)
 In-Reply-To: <1466638292.6850.94.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
@@ -48,24 +48,36 @@ On Wed, Jun 22, 2016 at 4:31 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
 > At one point we have to trust the NIC we plug in our hosts, right ?
 >
 > Why RX is so different than TX exactly ?
->
-LRO requires parsing the packet and hence DPI for things like foo/UDP.
-TSO is much more straightforward and does not rely on parsing (e.g.
-LRO would require NIC to parse EH, TSO doesn't). Also, TSO is
-work-conserving, whereas LRO is not. I don't believe there is any
-standard for how NICs are supposed to determined when to set packets
-to host. All of this makes LRO much less deterministic and means
-there's a lot of variance between NIC implementations. Plus there's
-also the question of whether a vendor is testing IPv6. I do think all
-this can be "fixed" once we have programmable NICs and we can program
-our own implementation of LRO, but until then I think there is
-inherent risk in using it. GRO rocks though!
 
-Tom
+Exactly my point.  The problem I have with the bnx2x and qede drivers
+is that the NIC driver is using the GRO flag to enable LRO on the
+device. It is like arguing that the NIC can do segmentation based on
+the GSO flag instead of the TSO flag.  We should be keeping TSO/LRO as
+the device features while GSO/GRO are kernel features that don't
+directly change any settings on the device.
 
 > Yes, LRO is hard to implement properly compared to TSO,
 > but not something that is _fundamentally_ broken.
->
+
+Yes and no.  More often then not there are issues that pop up as
+protocols change.  I'm not assuming they are fundamentally broken.
+The bit that I consider broken is that I cannot disable the NIC LRO
+functionality without having to disable the stack from doing GRO.  All
+I am asking for is LRO controls all of the NIC aggregation features
+and GRO be kept a software only feature instead of being tied to a
+hardware feature.
+
 > Claiming that hardware assist GRO is not possible is a plain mantra.
->
->
+
+I have no issue claiming hardware assist GRO is possible.  My problem
+is saying that the GRO feature flag can be used to enable it.  I would
+argue that any packet aggregation at the device or driver level is LRO
+regardless of how close it comes to GRO feature wise.  GRO should only
+be occurring in the receive path after calling the appropriate GRO
+function.  Otherwise it becomes really difficult to work around any
+possible issues that the hardware assisted GRO introduces without
+paying a huge penalty.  We need to keep these feature flags separate.
+I thought that was the whole reason why we have the distinction
+between LRO and GRO in the first place.
+
+- Alex
