@@ -1,71 +1,59 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 2/3] can: fix oops caused by wrong rtnl dellink usage
-Date: Thu, 23 Jun 2016 16:09:00 +0300
-Message-ID: <f4b685f9-a2ad-d3cc-1204-f457705467df@cogentembedded.com>
-References: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
- <1466673741-23115-3-git-send-email-mkl@pengutronix.de>
- <e092c3e9-56f3-f765-a9ef-89697ec46e16@cogentembedded.com>
- <0e51107f-a381-6c94-0079-d0ed415d8bcc@hartkopp.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, stable@vger.kernel.org
-To: Oliver Hartkopp <socketcan@hartkopp.net>,
-	Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <0e51107f-a381-6c94-0079-d0ed415d8bcc@hartkopp.net>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Paolo Abeni <pabeni@redhat.com>
+Subject: [PATCH net] ipv6: allows gracefull fallback from table lookup
+Date: Thu, 23 Jun 2016 15:11:51 +0200
+Message-ID: <5c8a767f13a1c929f22b8c9ff098ae00ba12100a.1466687246.git.pabeni@redhat.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Beniamino Galvani <bgalvani@redhat.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:60351 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752078AbcFWNMS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 09:12:18 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 6/23/2016 4:01 PM, Oliver Hartkopp wrote:
+with the commit 8c14586fc320 ("net: ipv6: Use passed in table for
+nexthop lookups"), net hop lookup is first performed on route creation
+in the passed-in table.
+However device match is not enforced in table lookup, so the found
+route can be later discarded due to egress device mismatch and no
+global lookup will be performed.
+This cause the following to fail:
 
->>> From: Oliver Hartkopp <socketcan@hartkopp.net>
->>>
->>> For 'real' hardware CAN devices the netlink interface is used to set CAN
->>> specific communication parameters. Real CAN hardware can not be
->>> created nor
->>> removed with the ip tool ...
->>>
->>> This patch adds a private dellink function for the CAN device driver
->>> interface
->>> that does just nothing.
->>>
->>> It's a follow up to commit 993e6f2fd ("can: fix oops caused by wrong rtnl
->>> newlink usage") but for dellink.
->>>
->>> Reported-by: ajneu <ajneu1@gmail.com>
->>> Signed-off-by: Oliver Hartkopp <socketcan@hartkopp.net>
->>> Cc: <stable@vger.kernel.org>
->>> Signed-off-by: Marc Kleine-Budde <mkl@pengutronix.de>
->>> ---
->>>  drivers/net/can/dev.c | 6 ++++++
->>>  1 file changed, 6 insertions(+)
->>>
->>> diff --git a/drivers/net/can/dev.c b/drivers/net/can/dev.c
->>> index 348dd5001fa4..ad535a854e5c 100644
->>> --- a/drivers/net/can/dev.c
->>> +++ b/drivers/net/can/dev.c
->>> @@ -1011,6 +1011,11 @@ static int can_newlink(struct net *src_net,
->>> struct net_device *dev,
->>>      return -EOPNOTSUPP;
->>>  }
->>>
->>> +static void can_dellink(struct net_device *dev, struct list_head *head)
->>> +{
->>> +    return;
->>
->>    Why?
->>
->
-> http://marc.info/?l=linux-can&m=146651600421205&w=2
->
-> The same reason as for commit 993e6f2fd.
+ip link add dummy1 type dummy
+ip link add dummy2 type dummy
+ip link set dummy1 up
+ip link set dummy2 up
+ip route add 2001:db8:8086::/48 dev dummy1 metric 20
+ip route add 2001:db8:d34d::/64 via 2001:db8:8086::2 dev dummy1 metric 20
+ip route add 2001:db8:8086::/48 dev dummy2 metric 21
+ip route add 2001:db8:d34d::/64 via 2001:db8:8086::2 dev dummy2 metric 21
+RTNETLINK answers: No route to host
 
-    I was asking just about the useless *return* statement...
+This change fixes the issue enforcing device lookup in
+ip6_nh_lookup_table()
 
-> Regards,
-> Oliver
+Fixes: 8c14586fc320 ("net: ipv6: Use passed in table for nexthop lookups")
+Reported-and-tested-by: Beniamino Galvani <bgalvani@redhat.com>
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/ipv6/route.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-MBR, Sergei
-
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 969913d..520b788 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -1782,7 +1782,7 @@ static struct rt6_info *ip6_nh_lookup_table(struct net *net,
+ 	};
+ 	struct fib6_table *table;
+ 	struct rt6_info *rt;
+-	int flags = 0;
++	int flags = RT6_LOOKUP_F_IFACE;
+ 
+ 	table = fib6_get_table(net, cfg->fc_table);
+ 	if (!table)
+-- 
+1.8.3.1
