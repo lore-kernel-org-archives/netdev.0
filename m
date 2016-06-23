@@ -1,49 +1,98 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v2 1/2] netfilter/nflog: nflog-range does not truncate
- packets
-Date: Thu, 23 Jun 2016 19:34:23 +0200
-Message-ID: <20160623173423.GA2284@salvia>
-References: <20160621185846.GA6646@akamai.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, kadlec@blackhole.kfki.hu, johunt@akamai.com,
-	daviem@davemloft.net, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, pai.vishwain@gmail.com,
-	ilubashe@akamai.com, jdollard@akamai.com
-To: Vishwanath Pai <vpai@akamai.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v3 1/6] tc: m_action: Improve conversion to C99 style initializers
+Date: Thu, 23 Jun 2016 19:34:09 +0200
+Message-ID: <1466703254-5174-2-git-send-email-phil@nwl.cc>
+References: <1466703254-5174-1-git-send-email-phil@nwl.cc>
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Julien Floret <julien.floret@6wind.com>, netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:55701 "EHLO mail.us.es"
+Received: from orbyte.nwl.cc ([151.80.46.58]:33016 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750979AbcFWReg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jun 2016 13:34:36 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 11EE78D051C
-	for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 19:34:35 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id DE1B89EBBD
-	for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 19:34:34 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 589219EBB8
-	for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 19:34:32 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <20160621185846.GA6646@akamai.com>
+	id S1751891AbcFWRex (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 13:34:53 -0400
+In-Reply-To: <1466703254-5174-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 21, 2016 at 02:58:46PM -0400, Vishwanath Pai wrote:
-> netfilter/nflog: nflog-range does not truncate packets
-> 
-> li->u.ulog.copy_len is currently ignored by the kernel, we should truncate
-> the packet to either li->u.ulog.copy_len (if set) or copy_range before
-> sending it to userspace. 0 is a valid input for copy_len, so add a new
-> flag to indicate whether this was option was specified by the user or not.
-> 
-> Add two flags to indicate whether nflog-size/copy_len was set or not.
-> XT_NFLOG_F_COPY_LEN is for XT_NFLOG and NFLOG_F_COPY_LEN for nfnetlink_log
-> 
-> On the userspace side, this was initially represented by the option
-> nflog-range, this will be replaced by --nflog-size now. --nflog-range would
-> still exist but does not do anything.
+This improves my initial change in the following points:
 
-Applied, thanks!
+- Flatten embedded struct's initializers.
+- No need to initialize variables to zero as the key feature of C99
+  initializers is to do this implicitly.
+- By relocating the declaration of struct rtattr *tail, it can be
+  initialized at the same time.
+
+Fixes: a0a73b298a579 ("tc: m_action: Use C99 style initializers for struct req")
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+Changes since v2:
+- Don't drop the "superfluous" comma.
+- Flatten initializers.
+Changes since v1:
+- Created this patch.
+---
+ tc/m_action.c | 23 +++++++----------------
+ 1 file changed, 7 insertions(+), 16 deletions(-)
+
+diff --git a/tc/m_action.c b/tc/m_action.c
+index ea16817aefd4f..806fdd197965d 100644
+--- a/tc/m_action.c
++++ b/tc/m_action.c
+@@ -395,13 +395,10 @@ static int tc_action_gd(int cmd, unsigned int flags, int *argc_p, char ***argv_p
+ 		struct tcamsg           t;
+ 		char                    buf[MAX_MSG];
+ 	} req = {
+-		.n = {
+-			.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg)),
+-			.nlmsg_flags = NLM_F_REQUEST | flags,
+-			.nlmsg_type = cmd,
+-		},
++		.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg)),
++		.n.nlmsg_flags = NLM_F_REQUEST | flags,
++		.n.nlmsg_type = cmd,
+ 		.t.tca_family = AF_UNSPEC,
+-		.buf = { 0 }
+ 	};
+ 
+ 	argc -= 1;
+@@ -491,23 +488,18 @@ static int tc_action_modify(int cmd, unsigned int flags, int *argc_p, char ***ar
+ 	int argc = *argc_p;
+ 	char **argv = *argv_p;
+ 	int ret = 0;
+-
+-	struct rtattr *tail;
+ 	struct {
+ 		struct nlmsghdr         n;
+ 		struct tcamsg           t;
+ 		char                    buf[MAX_MSG];
+ 	} req = {
+-		.n = {
+-			.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg)),
+-			.nlmsg_flags = NLM_F_REQUEST | flags,
+-			.nlmsg_type = cmd,
+-		},
++		.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg)),
++		.n.nlmsg_flags = NLM_F_REQUEST | flags,
++		.n.nlmsg_type = cmd,
+ 		.t.tca_family = AF_UNSPEC,
+-		.buf = { 0 }
+ 	};
++	struct rtattr *tail = NLMSG_TAIL(&req.n);
+ 
+-	tail = NLMSG_TAIL(&req.n);
+ 	argc -= 1;
+ 	argv += 1;
+ 	if (parse_action(&argc, &argv, TCA_ACT_TAB, &req.n)) {
+@@ -540,7 +532,6 @@ static int tc_act_list_or_flush(int argc, char **argv, int event)
+ 	} req = {
+ 		.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct tcamsg)),
+ 		.t.tca_family = AF_UNSPEC,
+-		.buf = { 0 }
+ 	};
+ 
+ 	tail = NLMSG_TAIL(&req.n);
+-- 
+2.8.2
