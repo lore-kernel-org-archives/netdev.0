@@ -1,48 +1,34 @@
-From: Soohoon Lee <Soohoon.Lee@f5.com>
-Subject: [PATCH usbnet v2] mtu change needs to stop RX
-Date: Thu, 23 Jun 2016 21:32:08 +0000
-Message-ID: <8aa35a23da7141bba3549841e66e55db@seaexchmbx01.olympus.F5Net.com>
+From: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
+Subject: Re: [PATCH net-next v2 2/4] cgroup: bpf: Add BPF_MAP_TYPE_CGROUP_ARRAY
+Date: Thu, 23 Jun 2016 23:33:52 +0200
+Message-ID: <576C55C0.7040800@iogearbox.net>
+References: <1466630252-3822277-1-git-send-email-kafai@fb.com> <1466630252-3822277-3-git-send-email-kafai@fb.com> <576BAF07.4020302@iogearbox.net> <20160623211326.GK3262@mtj.duckdns.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "oneukum@suse.com" <oneukum@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.f5.com ([208.85.209.139]:22483 "EHLO mail.f5.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751236AbcFWVcP convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 17:32:15 -0400
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>, cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>, kernel-team-b10kYP2dOMg@public.gmane.org
+To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160623211326.GK3262-qYNAdHglDFBN0TnZuCh8vA@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+On 06/23/2016 11:13 PM, Tejun Heo wrote:
+> Hello,
+>
+> On Thu, Jun 23, 2016 at 11:42:31AM +0200, Daniel Borkmann wrote:
+>> I presume it's a valid use case to pin a cgroup map, put fds into it and
+>> remove the pinned file expecting to continue to match on it, right? So
+>> lifetime is really until last prog using a cgroup map somewhere gets removed
+>> (even if not accessible from user space anymore, meaning no prog has fd and
+>> pinned file was removed).
+>
+> Yeap, from what I can see, the cgroup will stay around (even if it
+> gets deleted) as long as the bpf rule using it is around and that's
+> completely fine from cgroup side.
 
-When MTU is changed unlink_urbs() flushes RX Q but mean while usbnet_bh() can fill up the Q at the same time.
-Depends on which HCD is down there unlink takes long time then the flush never ends.
+Ok, thanks for confirming!
 
-Reviewed-by: kmurray@f5.com
-
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 61ba464..ce72dd0 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -395,8 +395,11 @@ int usbnet_change_mtu (struct net_device *net, int new_mtu)
-        dev->hard_mtu = net->mtu + net->hard_header_len;
-        if (dev->rx_urb_size == old_hard_mtu) {
-                dev->rx_urb_size = dev->hard_mtu;
--               if (dev->rx_urb_size > old_rx_urb_size)
-+               if (dev->rx_urb_size > old_rx_urb_size) {
-+                       usbnet_pause_rx(dev);
-                        usbnet_unlink_rx_urbs(dev);
-+                       usbnet_resume_rx(dev);
-+               }
-        }
- 
-        /* max qlen depend on hard_mtu and rx_urb_size */
-@@ -1509,6 +1512,7 @@ static void usbnet_bh (unsigned long param)
-                   netif_device_present (dev->net) &&
-                   netif_carrier_ok(dev->net) &&
-                   !timer_pending (&dev->delay) &&
-+                  !test_bit (EVENT_RX_PAUSED, &dev->flags) &&
-                   !test_bit (EVENT_RX_HALT, &dev->flags)) {
-                int     temp = dev->rxq.qlen;
+> Thanks.
