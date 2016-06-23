@@ -1,65 +1,49 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v3 4/6] No need to initialize rtattr fields before parsing
-Date: Thu, 23 Jun 2016 19:34:12 +0200
-Message-ID: <1466703254-5174-5-git-send-email-phil@nwl.cc>
-References: <1466703254-5174-1-git-send-email-phil@nwl.cc>
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Julien Floret <julien.floret@6wind.com>, netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v2 1/2] netfilter/nflog: nflog-range does not truncate
+ packets
+Date: Thu, 23 Jun 2016 19:34:23 +0200
+Message-ID: <20160623173423.GA2284@salvia>
+References: <20160621185846.GA6646@akamai.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, kadlec@blackhole.kfki.hu, johunt@akamai.com,
+	daviem@davemloft.net, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, pai.vishwain@gmail.com,
+	ilubashe@akamai.com, jdollard@akamai.com
+To: Vishwanath Pai <vpai@akamai.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:44341 "EHLO mail.nwl.cc"
+Received: from mail.us.es ([193.147.175.20]:55701 "EHLO mail.us.es"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750979AbcFWRed (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jun 2016 13:34:33 -0400
-In-Reply-To: <1466703254-5174-1-git-send-email-phil@nwl.cc>
+	id S1750979AbcFWReg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 13:34:36 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 11EE78D051C
+	for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 19:34:35 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id DE1B89EBBD
+	for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 19:34:34 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 589219EBB8
+	for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 19:34:32 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20160621185846.GA6646@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Since parse_rtattr_flags() calls memset already, there is no need for
-callers to do so themselves.
+On Tue, Jun 21, 2016 at 02:58:46PM -0400, Vishwanath Pai wrote:
+> netfilter/nflog: nflog-range does not truncate packets
+> 
+> li->u.ulog.copy_len is currently ignored by the kernel, we should truncate
+> the packet to either li->u.ulog.copy_len (if set) or copy_range before
+> sending it to userspace. 0 is a valid input for copy_len, so add a new
+> flag to indicate whether this was option was specified by the user or not.
+> 
+> Add two flags to indicate whether nflog-size/copy_len was set or not.
+> XT_NFLOG_F_COPY_LEN is for XT_NFLOG and NFLOG_F_COPY_LEN for nfnetlink_log
+> 
+> On the userspace side, this was initially represented by the option
+> nflog-range, this will be replaced by --nflog-size now. --nflog-range would
+> still exist but does not do anything.
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/ipaddress.c | 2 +-
- tc/tc_class.c  | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
-
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index 62856f2c26eba..703a56b88d257 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -439,7 +439,7 @@ static void print_num(FILE *fp, unsigned int width, uint64_t count)
- 
- static void print_vf_stats64(FILE *fp, struct rtattr *vfstats)
- {
--	struct rtattr *vf[IFLA_VF_STATS_MAX + 1] = {};
-+	struct rtattr *vf[IFLA_VF_STATS_MAX + 1];
- 
- 	if (vfstats->rta_type != IFLA_VF_STATS) {
- 		fprintf(stderr, "BUG: rta type is %d\n", vfstats->rta_type);
-diff --git a/tc/tc_class.c b/tc/tc_class.c
-index 158b4b18506eb..0d6000b91f539 100644
---- a/tc/tc_class.c
-+++ b/tc/tc_class.c
-@@ -219,7 +219,7 @@ static void graph_cls_show(FILE *fp, char *buf, struct hlist_head *root_list,
- {
- 	struct hlist_node *n, *tmp_cls;
- 	char cls_id_str[256] = {};
--	struct rtattr *tb[TCA_MAX + 1] = {};
-+	struct rtattr *tb[TCA_MAX + 1];
- 	struct qdisc_util *q;
- 	char str[100] = {};
- 
-@@ -304,7 +304,7 @@ int print_class(const struct sockaddr_nl *who,
- 	FILE *fp = (FILE *)arg;
- 	struct tcmsg *t = NLMSG_DATA(n);
- 	int len = n->nlmsg_len;
--	struct rtattr *tb[TCA_MAX + 1] = {};
-+	struct rtattr *tb[TCA_MAX + 1];
- 	struct qdisc_util *q;
- 	char abuf[256];
- 
--- 
-2.8.2
+Applied, thanks!
