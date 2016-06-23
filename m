@@ -1,242 +1,228 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 02/10] net/mlx5e: Add TXQ set max rate support
-Date: Thu, 23 Jun 2016 17:02:38 +0300
-Message-ID: <1466690566-14700-3-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 10/10] net/mlx5e: Report correct auto negotiation and allow toggling
+Date: Thu, 23 Jun 2016 17:02:46 +0300
+Message-ID: <1466690566-14700-11-git-send-email-saeedm@mellanox.com>
 References: <1466690566-14700-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Yevgeny Petrilin <yevgenyp@mellanox.com>,
+	Gal Pressman <galp@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:35314 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:35329 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751719AbcFWPqw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 23 Jun 2016 11:46:52 -0400
+	id S1751872AbcFWPqy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 11:46:54 -0400
 In-Reply-To: <1466690566-14700-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yevgeny Petrilin <yevgenyp@mellanox.com>
+From: Gal Pressman <galp@mellanox.com>
 
-Implement set_maxrate ndo.
-Use the rate index from the hardware table to attach to channel SQ/TXQ.
-In case of failure to configure new rate, the queue remains with
-unlimited rate.
+Previous to this patch auto negotiation was reported off although it was
+on by default in hardware. This patch reports the correct information to
+ethtool and allows the user to toggle it on/off.
 
-We save the configuration on priv structure and apply it each time
-Send Queues are being reinitialized (after open/close) operations.
+Added another parameter to set port proto function in order to pass
+the auto negotiation field to the hardware.
 
-Signed-off-by: Yevgeny Petrilin <yevgenyp@mellanox.com>
+Signed-off-by: Gal Pressman <galp@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |   3 +
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 102 +++++++++++++++++++++-
- 2 files changed, 102 insertions(+), 3 deletions(-)
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 42 ++++++++++++++++++----
+ drivers/net/ethernet/mellanox/mlx5/core/port.c     | 36 ++++++++++++++++---
+ include/linux/mlx5/port.h                          | 15 ++++++--
+ 3 files changed, 80 insertions(+), 13 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index e8a6c33..017e047 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -88,6 +88,7 @@
- #define MLX5E_LOG_INDIR_RQT_SIZE       0x7
- #define MLX5E_INDIR_RQT_SIZE           BIT(MLX5E_LOG_INDIR_RQT_SIZE)
- #define MLX5E_MAX_NUM_CHANNELS         (MLX5E_INDIR_RQT_SIZE >> 1)
-+#define MLX5E_MAX_NUM_SQS              (MLX5E_MAX_NUM_CHANNELS * MLX5E_MAX_NUM_TC)
- #define MLX5E_TX_CQ_POLL_BUDGET        128
- #define MLX5E_UPDATE_STATS_INTERVAL    200 /* msecs */
- #define MLX5E_SQ_BF_BUDGET             16
-@@ -354,6 +355,7 @@ struct mlx5e_sq {
- 	struct mlx5e_channel      *channel;
- 	int                        tc;
- 	struct mlx5e_ico_wqe_info *ico_wqe_info;
-+	u32                        rate_limit;
- } ____cacheline_aligned_in_smp;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 4c560e0..39a4d96 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -702,6 +702,8 @@ static int mlx5e_get_link_ksettings(struct net_device *netdev,
+ 	u32 eth_proto_admin;
+ 	u32 eth_proto_lp;
+ 	u32 eth_proto_oper;
++	u8 an_disable_admin;
++	u8 an_status;
+ 	int err;
  
- static inline bool mlx5e_sq_has_room_for(struct mlx5e_sq *sq, u16 n)
-@@ -530,6 +532,7 @@ struct mlx5e_priv {
- 	u32                        indir_rqtn;
- 	u32                        indir_tirn[MLX5E_NUM_INDIR_TIRS];
- 	struct mlx5e_direct_tir    direct_tir[MLX5E_MAX_NUM_CHANNELS];
-+	u32                        tx_rates[MLX5E_MAX_NUM_SQS];
- 
- 	struct mlx5e_flow_steering fs;
- 	struct mlx5e_vxlan_db      vxlan;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 8b7c6f3..e5a2cef 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -702,7 +702,8 @@ static int mlx5e_enable_sq(struct mlx5e_sq *sq, struct mlx5e_sq_param *param)
- 	return err;
- }
- 
--static int mlx5e_modify_sq(struct mlx5e_sq *sq, int curr_state, int next_state)
-+static int mlx5e_modify_sq(struct mlx5e_sq *sq, int curr_state,
-+			   int next_state, bool update_rl, int rl_index)
- {
- 	struct mlx5e_channel *c = sq->channel;
- 	struct mlx5e_priv *priv = c->priv;
-@@ -722,6 +723,10 @@ static int mlx5e_modify_sq(struct mlx5e_sq *sq, int curr_state, int next_state)
- 
- 	MLX5_SET(modify_sq_in, in, sq_state, curr_state);
- 	MLX5_SET(sqc, sqc, state, next_state);
-+	if (update_rl && next_state == MLX5_SQC_STATE_RDY) {
-+		MLX5_SET64(modify_sq_in, in, modify_bitmask, 1);
-+		MLX5_SET(sqc,  sqc, packet_pacing_rate_limit_index, rl_index);
-+	}
- 
- 	err = mlx5_core_modify_sq(mdev, sq->sqn, in, inlen);
- 
-@@ -737,6 +742,8 @@ static void mlx5e_disable_sq(struct mlx5e_sq *sq)
- 	struct mlx5_core_dev *mdev = priv->mdev;
- 
- 	mlx5_core_destroy_sq(mdev, sq->sqn);
-+	if (sq->rate_limit)
-+		mlx5_rl_remove_rate(mdev, sq->rate_limit);
- }
- 
- static int mlx5e_open_sq(struct mlx5e_channel *c,
-@@ -754,7 +761,8 @@ static int mlx5e_open_sq(struct mlx5e_channel *c,
- 	if (err)
- 		goto err_destroy_sq;
- 
--	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RST, MLX5_SQC_STATE_RDY);
-+	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RST, MLX5_SQC_STATE_RDY,
-+			      false, 0);
- 	if (err)
- 		goto err_disable_sq;
- 
-@@ -793,7 +801,8 @@ static void mlx5e_close_sq(struct mlx5e_sq *sq)
- 		if (mlx5e_sq_has_room_for(sq, 1))
- 			mlx5e_send_nop(sq, true);
- 
--		mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY, MLX5_SQC_STATE_ERR);
-+		mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY, MLX5_SQC_STATE_ERR,
-+				false, 0);
+ 	err = mlx5_query_port_ptys(mdev, out, sizeof(out), MLX5_PTYS_EN, 1);
+@@ -712,10 +714,12 @@ static int mlx5e_get_link_ksettings(struct net_device *netdev,
+ 		goto err_query_ptys;
  	}
  
- 	while (sq->cc != sq->pc) /* wait till sq is empty */
-@@ -1024,6 +1033,79 @@ static void mlx5e_build_channeltc_to_txq_map(struct mlx5e_priv *priv, int ix)
- 			ix + i * priv->params.num_channels;
+-	eth_proto_cap   = MLX5_GET(ptys_reg, out, eth_proto_capability);
+-	eth_proto_admin = MLX5_GET(ptys_reg, out, eth_proto_admin);
+-	eth_proto_oper  = MLX5_GET(ptys_reg, out, eth_proto_oper);
+-	eth_proto_lp    = MLX5_GET(ptys_reg, out, eth_proto_lp_advertise);
++	eth_proto_cap    = MLX5_GET(ptys_reg, out, eth_proto_capability);
++	eth_proto_admin  = MLX5_GET(ptys_reg, out, eth_proto_admin);
++	eth_proto_oper   = MLX5_GET(ptys_reg, out, eth_proto_oper);
++	eth_proto_lp     = MLX5_GET(ptys_reg, out, eth_proto_lp_advertise);
++	an_disable_admin = MLX5_GET(ptys_reg, out, an_disable_admin);
++	an_status        = MLX5_GET(ptys_reg, out, an_status);
+ 
+ 	ethtool_link_ksettings_zero_link_mode(link_ksettings, supported);
+ 	ethtool_link_ksettings_zero_link_mode(link_ksettings, advertising);
+@@ -729,6 +733,18 @@ static int mlx5e_get_link_ksettings(struct net_device *netdev,
+ 	link_ksettings->base.port = get_connector_port(eth_proto_oper);
+ 	get_lp_advertising(eth_proto_lp, link_ksettings);
+ 
++	if (an_status == MLX5_AN_COMPLETE)
++		ethtool_link_ksettings_add_link_mode(link_ksettings,
++						     lp_advertising, Autoneg);
++
++	link_ksettings->base.autoneg = an_disable_admin ? AUTONEG_DISABLE :
++							  AUTONEG_ENABLE;
++	ethtool_link_ksettings_add_link_mode(link_ksettings, supported,
++					     Autoneg);
++	if (!an_disable_admin)
++		ethtool_link_ksettings_add_link_mode(link_ksettings,
++						     advertising, Autoneg);
++
+ err_query_ptys:
+ 	return err;
  }
- 
-+static int mlx5e_set_sq_maxrate(struct net_device *dev,
-+				struct mlx5e_sq *sq, u32 rate)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	u16 rl_index = 0;
-+	int err;
-+
-+	if (rate == sq->rate_limit)
-+		/* nothing to do */
-+		return 0;
-+
-+	if (sq->rate_limit)
-+		/* remove current rl index to free space to next ones */
-+		mlx5_rl_remove_rate(mdev, sq->rate_limit);
-+
-+	sq->rate_limit = 0;
-+
-+	if (rate) {
-+		err = mlx5_rl_add_rate(mdev, rate, &rl_index);
-+		if (err) {
-+			netdev_err(dev, "Failed configuring rate %u: %d\n",
-+				   rate, err);
-+			return err;
-+		}
-+	}
-+
-+	err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY,
-+			      MLX5_SQC_STATE_RDY, true, rl_index);
-+	if (err) {
-+		netdev_err(dev, "Failed configuring rate %u: %d\n",
-+			   rate, err);
-+		/* remove the rate from the table */
-+		if (rate)
-+			mlx5_rl_remove_rate(mdev, rate);
-+		return err;
-+	}
-+
-+	sq->rate_limit = rate;
-+	return 0;
-+}
-+
-+static int mlx5e_set_tx_maxrate(struct net_device *dev, int index, u32 rate)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	struct mlx5e_sq *sq = priv->txq_to_sq_map[index];
-+	int err = 0;
-+
-+	if (!mlx5_rl_is_supported(mdev)) {
-+		netdev_err(dev, "Rate limiting is not supported on this device\n");
-+		return -EINVAL;
-+	}
-+
-+	/* rate is given in Mb/sec, HW config is in Kb/sec */
-+	rate = rate << 10;
-+
-+	/* Check whether rate in valid range, 0 is always valid */
-+	if (rate && !mlx5_rl_is_in_range(mdev, rate)) {
-+		netdev_err(dev, "TX rate %u, is not in range\n", rate);
-+		return -ERANGE;
-+	}
-+
-+	mutex_lock(&priv->state_lock);
-+	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
-+		err = mlx5e_set_sq_maxrate(dev, sq, rate);
-+	if (!err)
-+		priv->tx_rates[index] = rate;
-+	mutex_unlock(&priv->state_lock);
-+
-+	return err;
-+}
-+
- static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 			      struct mlx5e_channel_param *cparam,
- 			      struct mlx5e_channel **cp)
-@@ -1031,7 +1113,9 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 	struct net_device *netdev = priv->netdev;
- 	int cpu = mlx5e_get_cpu(priv, ix);
- 	struct mlx5e_channel *c;
-+	struct mlx5e_sq *sq;
+@@ -764,9 +780,14 @@ static int mlx5e_set_link_ksettings(struct net_device *netdev,
+ {
+ 	struct mlx5e_priv *priv    = netdev_priv(netdev);
+ 	struct mlx5_core_dev *mdev = priv->mdev;
++	u32 eth_proto_cap, eth_proto_admin;
++	bool an_changes = false;
++	u8 an_disable_admin;
++	u8 an_disable_cap;
++	bool an_disable;
+ 	u32 link_modes;
++	u8 an_status;
+ 	u32 speed;
+-	u32 eth_proto_cap, eth_proto_admin;
  	int err;
-+	int i;
  
- 	c = kzalloc_node(sizeof(*c), GFP_KERNEL, cpu_to_node(cpu));
- 	if (!c)
-@@ -1073,6 +1157,16 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 	if (err)
- 		goto err_close_icosq;
+ 	speed = link_ksettings->base.speed;
+@@ -797,10 +818,17 @@ static int mlx5e_set_link_ksettings(struct net_device *netdev,
+ 		goto out;
+ 	}
  
-+	for (i = 0; i < priv->params.num_tc; i++) {
-+		u32 txq_ix = priv->channeltc_to_txq_map[ix][i];
+-	if (link_modes == eth_proto_admin)
++	mlx5_query_port_autoneg(mdev, MLX5_PTYS_EN, &an_status,
++				&an_disable_cap, &an_disable_admin);
 +
-+		if (priv->tx_rates[txq_ix]) {
-+			sq = priv->txq_to_sq_map[txq_ix];
-+			mlx5e_set_sq_maxrate(priv->netdev, sq,
-+					     priv->tx_rates[txq_ix]);
-+		}
-+	}
++	an_disable = link_ksettings->base.autoneg == AUTONEG_DISABLE;
++	an_changes = ((!an_disable && an_disable_admin) ||
++		      (an_disable && !an_disable_admin));
 +
- 	err = mlx5e_open_rq(c, &cparam->rq, &c->rq);
- 	if (err)
- 		goto err_close_sqs;
-@@ -2611,6 +2705,7 @@ static const struct net_device_ops mlx5e_netdev_ops_basic = {
- 	.ndo_set_features        = mlx5e_set_features,
- 	.ndo_change_mtu          = mlx5e_change_mtu,
- 	.ndo_do_ioctl            = mlx5e_ioctl,
-+	.ndo_set_tx_maxrate      = mlx5e_set_tx_maxrate,
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
- #endif
-@@ -2632,6 +2727,7 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
- 	.ndo_do_ioctl            = mlx5e_ioctl,
- 	.ndo_udp_tunnel_add	 = mlx5e_add_vxlan_port,
- 	.ndo_udp_tunnel_del	 = mlx5e_del_vxlan_port,
-+	.ndo_set_tx_maxrate      = mlx5e_set_tx_maxrate,
- 	.ndo_features_check      = mlx5e_features_check,
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
++	if (!an_changes && link_modes == eth_proto_admin)
+ 		goto out;
+ 
+-	mlx5_set_port_proto(mdev, link_modes, MLX5_PTYS_EN);
++	mlx5_set_port_ptys(mdev, an_disable, link_modes, MLX5_PTYS_EN);
+ 	mlx5_toggle_port_link(mdev);
+ 
+ out:
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/port.c b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+index 1562e73..752c081 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/port.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/port.c
+@@ -202,15 +202,24 @@ int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
+ }
+ EXPORT_SYMBOL_GPL(mlx5_query_port_proto_oper);
+ 
+-int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
+-			int proto_mask)
++int mlx5_set_port_ptys(struct mlx5_core_dev *dev, bool an_disable,
++		       u32 proto_admin, int proto_mask)
+ {
+-	u32 in[MLX5_ST_SZ_DW(ptys_reg)];
+ 	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
++	u32 in[MLX5_ST_SZ_DW(ptys_reg)];
++	u8 an_disable_admin;
++	u8 an_disable_cap;
++	u8 an_status;
++
++	mlx5_query_port_autoneg(dev, proto_mask, &an_status,
++				&an_disable_cap, &an_disable_admin);
++	if (!an_disable_cap && an_disable)
++		return -EPERM;
+ 
+ 	memset(in, 0, sizeof(in));
+ 
+ 	MLX5_SET(ptys_reg, in, local_port, 1);
++	MLX5_SET(ptys_reg, in, an_disable_admin, an_disable);
+ 	MLX5_SET(ptys_reg, in, proto_mask, proto_mask);
+ 	if (proto_mask == MLX5_PTYS_EN)
+ 		MLX5_SET(ptys_reg, in, eth_proto_admin, proto_admin);
+@@ -220,7 +229,7 @@ int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
+ 	return mlx5_core_access_reg(dev, in, sizeof(in), out,
+ 				    sizeof(out), MLX5_REG_PTYS, 0, 1);
+ }
+-EXPORT_SYMBOL_GPL(mlx5_set_port_proto);
++EXPORT_SYMBOL_GPL(mlx5_set_port_ptys);
+ 
+ /* This function should be used after setting a port register only */
+ void mlx5_toggle_port_link(struct mlx5_core_dev *dev)
+@@ -530,6 +539,25 @@ int mlx5_query_port_pfc(struct mlx5_core_dev *dev, u8 *pfc_en_tx, u8 *pfc_en_rx)
+ }
+ EXPORT_SYMBOL_GPL(mlx5_query_port_pfc);
+ 
++void mlx5_query_port_autoneg(struct mlx5_core_dev *dev, int proto_mask,
++			     u8 *an_status,
++			     u8 *an_disable_cap, u8 *an_disable_admin)
++{
++	u32 out[MLX5_ST_SZ_DW(ptys_reg)];
++
++	*an_status = 0;
++	*an_disable_cap = 0;
++	*an_disable_admin = 0;
++
++	if (mlx5_query_port_ptys(dev, out, sizeof(out), proto_mask, 1))
++		return;
++
++	*an_status = MLX5_GET(ptys_reg, out, an_status);
++	*an_disable_cap = MLX5_GET(ptys_reg, out, an_disable_cap);
++	*an_disable_admin = MLX5_GET(ptys_reg, out, an_disable_admin);
++}
++EXPORT_SYMBOL_GPL(mlx5_query_port_autoneg);
++
+ int mlx5_max_tc(struct mlx5_core_dev *mdev)
+ {
+ 	u8 num_tc = MLX5_CAP_GEN(mdev, max_tc) ? : 8;
+diff --git a/include/linux/mlx5/port.h b/include/linux/mlx5/port.h
+index 4adfac1..e3012cc 100644
+--- a/include/linux/mlx5/port.h
++++ b/include/linux/mlx5/port.h
+@@ -47,6 +47,14 @@ enum mlx5_module_id {
+ 	MLX5_MODULE_ID_QSFP28           = 0x11,
+ };
+ 
++enum mlx5_an_status {
++	MLX5_AN_UNAVAILABLE = 0,
++	MLX5_AN_COMPLETE    = 1,
++	MLX5_AN_FAILED      = 2,
++	MLX5_AN_LINK_UP     = 3,
++	MLX5_AN_LINK_DOWN   = 4,
++};
++
+ #define MLX5_EEPROM_MAX_BYTES			32
+ #define MLX5_EEPROM_IDENTIFIER_BYTE_MASK	0x000000ff
+ #define MLX5_I2C_ADDR_LOW		0x50
+@@ -65,14 +73,17 @@ int mlx5_query_port_link_width_oper(struct mlx5_core_dev *dev,
+ int mlx5_query_port_proto_oper(struct mlx5_core_dev *dev,
+ 			       u8 *proto_oper, int proto_mask,
+ 			       u8 local_port);
+-int mlx5_set_port_proto(struct mlx5_core_dev *dev, u32 proto_admin,
+-			int proto_mask);
++int mlx5_set_port_ptys(struct mlx5_core_dev *dev, bool an_disable,
++		       u32 proto_admin, int proto_mask);
+ void mlx5_toggle_port_link(struct mlx5_core_dev *dev);
+ int mlx5_set_port_admin_status(struct mlx5_core_dev *dev,
+ 			       enum mlx5_port_status status);
+ int mlx5_query_port_admin_status(struct mlx5_core_dev *dev,
+ 				 enum mlx5_port_status *status);
+ int mlx5_set_port_beacon(struct mlx5_core_dev *dev, u16 beacon_duration);
++void mlx5_query_port_autoneg(struct mlx5_core_dev *dev, int proto_mask,
++			     u8 *an_status,
++			     u8 *an_disable_cap, u8 *an_disable_admin);
+ 
+ int mlx5_set_port_mtu(struct mlx5_core_dev *dev, u16 mtu, u8 port);
+ void mlx5_query_port_max_mtu(struct mlx5_core_dev *dev, u16 *max_mtu, u8 port);
 -- 
 2.8.0
