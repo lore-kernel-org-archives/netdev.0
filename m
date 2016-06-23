@@ -1,25 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] geneve: fix tx_errors statistics
-Date: Thu, 23 Jun 2016 15:20:48 -0400 (EDT)
-Message-ID: <20160623.152048.1840209840512907741.davem@davemloft.net>
-References: <1466497609-14468-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Subject: Re: [PATCH v4 00/19] CALIPSO Implementation
+Date: Thu, 23 Jun 2016 15:21:12 -0400 (EDT)
+Message-ID: <20160623.152112.1146976941740701983.davem@davemloft.net>
+References: <1466429819-12707-1-git-send-email-huw@codeweavers.com>
+	<20160621.053928.1340819307282355897.davem@davemloft.net>
+	<20160621095548.GA19213@merlot.physics.ox.ac.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jesse@kernel.org, pshelar@nicira.com, tom@herbertland.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: yanhaishuang@cmss.chinamobile.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1466497609-14468-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, pmoore@redhat.com
+To: huw@codeweavers.com
+Return-path: <linux-security-module-owner@vger.kernel.org>
+In-Reply-To: <20160621095548.GA19213@merlot.physics.ox.ac.uk>
+Sender: owner-linux-security-module@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Date: Tue, 21 Jun 2016 16:26:49 +0800
+From: Huw Davies <huw@codeweavers.com>
+Date: Tue, 21 Jun 2016 10:55:48 +0100
 
-> Tx errors present summation of errors encountered while transmitting
-> packets.
+> On Tue, Jun 21, 2016 at 05:39:28AM -0400, David Miller wrote:
+>> From: Huw Davies <huw@codeweavers.com>
+>> Date: Mon, 20 Jun 2016 14:36:40 +0100
+>> 
+>> > This patch series implements RFC 5570 - Common Architecture Label IPv6
+>> > Security Option (CALIPSO).  Its goal is to set MLS sensitivity labels
+>> > on IPv6 packets using a hop-by-hop option.  CALIPSO is very similar to
+>> > its IPv4 cousin CIPSO and much of this series is based on that code.
+>> 
+>> What tree do you expect to integrate this?
 > 
-> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+> My understanding is that Paul Moore is happy to take them
+> in via the SELinux tree.  However, these patches do touch
+> some core networking code, such as the IPv6 option handling
+> code (in a similar manner to the way CIPSO touched the IPv4
+> option code), so if you have any comments on those aspects
+> that would be good to hear.
 
-Applied.
+No objections on my part.
