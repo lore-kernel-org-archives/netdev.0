@@ -1,88 +1,71 @@
-From: Wang Sheng-Hui <shhuiw@foxmail.com>
-Subject: [PATCH v2] net/mlx5: use mlx5_buf_alloc_node instead of mlx5_buf_alloc in mlx5_wq_ll_create
-Date: Thu, 23 Jun 2016 09:04:07 +0800
-Message-ID: <1466643847-42411-1-git-send-email-shhuiw@foxmail.com>
-Cc: matanb@mellanox.com, leonro@mellanox.com, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org, stable@vger.kernel.org
-To: saeedm@mellanox.com, amirv@mellanox.com
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+From: Simon Horman <horms@verge.net.au>
+Subject: Re: [PATCH v4 net] ipvs: fix bind to link-local mcast IPv6 address
+ in backup
+Date: Thu, 23 Jun 2016 10:27:58 +0900
+Message-ID: <20160623012758.GC9412@verge.net.au>
+References: <alpine.LFD.2.11.1606160912380.2490@ja.home.ssi.bg>
+ <1466060414-12944-1-git-send-email-quentin@armitage.org.uk>
+ <alpine.LFD.2.11.1606170935230.11309@ja.home.ssi.bg>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Quentin Armitage <quentin@armitage.org.uk>,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	lvs-devel@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org
+To: Julian Anastasov <ja@ssi.bg>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <alpine.LFD.2.11.1606170935230.11309@ja.home.ssi.bg>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Fixes: 311c7c71c9bb ("net/mlx5e: Allocate DMA coherent memory on
-reader NUMA node")
+On Fri, Jun 17, 2016 at 09:42:49AM +0300, Julian Anastasov wrote:
+> 
+> 	Hello,
+> 
+> On Thu, 16 Jun 2016, Quentin Armitage wrote:
+> 
+> > When using HEAD from
+> > https://git.kernel.org/cgit/utils/kernel/ipvsadm/ipvsadm.git/,
+> > the command:
+> > ipvsadm --start-daemon backup --mcast-interface eth0.60 \
+> >     --mcast-group ff02::1:81
+> > fails with the error message:
+> > Argument list too long
+> > 
+> > whereas both:
+> > ipvsadm --start-daemon master --mcast-interface eth0.60 \
+> >     --mcast-group ff02::1:81
+> > and:
+> > ipvsadm --start-daemon backup --mcast-interface eth0.60 \
+> >     --mcast-group 224.0.0.81
+> > are successful.
+> > 
+> > The error message "Argument list too long" isn't helpful. The error occurs
+> > because an IPv6 address is given in backup mode.
+> > 
+> > The error is in make_receive_sock() in net/netfilter/ipvs/ip_vs_sync.c,
+> > since it fails to set the interface on the address or the socket before
+> > calling inet6_bind() (via sock->ops->bind), where the test
+> > 'if (!sk->sk_bound_dev_if)' failed.
+> > 
+> > Setting sock->sk->sk_bound_dev_if on the socket before calling
+> > inet6_bind() resolves the issue.
+> > 
+> > Fixes: d33288172e72 ("ipvs: add more mcast parameters for the sync daemon")
+> > Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
+> 
+> 	Looks good to me, thanks!
+> 
+> Acked-by: Julian Anastasov <ja@ssi.bg>
+> 
+> 	Simon, please apply to ipvs tree. Patch compiles
+> also on stable 4.4.13, 4.5.7 and 4.6.2, so no need for
+> special versions. The ack is also for the other 3 patches
+> from v4 (for ipvs-next) but they depend on this patch.
 
-Commit 311c7c71c9bb ("net/mlx5e: Allocate DMA coherent memory on
-reader NUMA node") introduced mlx5_*_alloc_node() but missed changing
-some calling and warn messages. This patch introduces 2 changes:
-	* Use mlx5_buf_alloc_node() instead of mlx5_buf_alloc() in
-	  mlx5_wq_ll_create()
-	* Update the failure warn messages with _node postfix for
-	  mlx5_*_alloc function names
-
-Change since V1:
-	* Add Fixes line in commit log
-
-Signed-off-by: Wang Sheng-Hui <shhuiw@foxmail.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/wq.c | 15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/wq.c b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
-index ce21ee5..821a087 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/wq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
-@@ -75,14 +75,14 @@ int mlx5_wq_cyc_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
- 
- 	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
- 	if (err) {
--		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
-+		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
- 		return err;
- 	}
- 
- 	err = mlx5_buf_alloc_node(mdev, mlx5_wq_cyc_get_byte_size(wq),
- 				  &wq_ctrl->buf, param->buf_numa_node);
- 	if (err) {
--		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
-+		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
- 		goto err_db_free;
- 	}
- 
-@@ -111,14 +111,14 @@ int mlx5_cqwq_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
- 
- 	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
- 	if (err) {
--		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
-+		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
- 		return err;
- 	}
- 
- 	err = mlx5_buf_alloc_node(mdev, mlx5_cqwq_get_byte_size(wq),
- 				  &wq_ctrl->buf, param->buf_numa_node);
- 	if (err) {
--		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
-+		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
- 		goto err_db_free;
- 	}
- 
-@@ -148,13 +148,14 @@ int mlx5_wq_ll_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
- 
- 	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
- 	if (err) {
--		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
-+		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
- 		return err;
- 	}
- 
--	err = mlx5_buf_alloc(mdev, mlx5_wq_ll_get_byte_size(wq), &wq_ctrl->buf);
-+	err = mlx5_buf_alloc_node(mdev, mlx5_wq_ll_get_byte_size(wq),
-+				  &wq_ctrl->buf, param->buf_numa_node);
- 	if (err) {
--		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
-+		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
- 		goto err_db_free;
- 	}
- 
--- 
-2.7.4
+Thanks, done.
