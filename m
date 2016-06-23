@@ -1,120 +1,51 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next v5 0/4] return offloaded stats as default and
- expose original sw stats
-Date: Thu, 23 Jun 2016 04:27:35 -0700
-Message-ID: <576BC7A7.2000704@cumulusnetworks.com>
-References: <1466522156-4795-1-git-send-email-jiri@resnulli.us> <CAJieiUgP3j=W=khq_q-y382eFurHQSCs_Td8Q_KHtru6La22XA@mail.gmail.com> <20160623054050.GA2060@nanopsycho.orion>
+From: "Machani, Yaniv" <yanivma@ti.com>
+Subject: RE: [PATCH] wlcore: time sync : add support for 64 bit clock
+Date: Thu, 23 Jun 2016 11:32:37 +0000
+Message-ID: <AE1C82FB3D0EC64DB1F752C81CBD1101391CF584@DFRE01.ent.ti.com>
+References: <20160623111332.23326-1-yanivma@ti.com>
+	 (sfid-20160623_131215_419855_E4550AFE)
+ <1466680680.11061.2.camel@sipsolutions.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Nogah Frankel <nogahf@mellanox.com>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>,
-	Yotam Gigi <yotamg@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>, sd@queasysnail.net,
-	eranbe@mellanox.com, Alexei Starovoitov <ast@plumgrid.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	Anuradha Karuppiah <anuradhak@cumulusnetworks.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Kalle Valo <kvalo@codeaurora.org>, "Mishol, Guy" <guym@ti.com>,
+	"Eliad Peller" <eliad@wizery.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Johannes Berg <johannes@sipsolutions.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:33153 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751349AbcFWL1p (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 07:27:45 -0400
-Received: by mail-pf0-f171.google.com with SMTP id i123so28082085pfg.0
-        for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 04:27:45 -0700 (PDT)
-In-Reply-To: <20160623054050.GA2060@nanopsycho.orion>
+Received: from comal.ext.ti.com ([198.47.26.152]:37709 "EHLO comal.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751491AbcFWLco (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 23 Jun 2016 07:32:44 -0400
+In-Reply-To: <1466680680.11061.2.camel@sipsolutions.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/22/16, 10:40 PM, Jiri Pirko wrote:
-> Wed, Jun 22, 2016 at 09:32:25PM CEST, roopa@cumulusnetworks.com wrote:
->> On Tue, Jun 21, 2016 at 8:15 AM, Jiri Pirko <jiri@resnulli.us> wrote:
->>> From: Jiri Pirko <jiri@mellanox.com>
->>>
->>> The problem we try to handle is about offloaded forwarded packets
->>> which are not seen by kernel. Let me try to draw it:
->>>
->>>     port1                       port2 (HW stats are counted here)
->>>       \                          /
->>>        \                        /
->>>         \                      /
->>>          --(A)---- ASIC --(B)--
->>>                     |
->>>                    (C)
->>>                     |
->>>                    CPU (SW stats are counted here)
->>>
->>>
->>> Now we have couple of flows for TX and RX (direction does not matter here):
->>>
->>> 1) port1->A->ASIC->C->CPU
->>>
->>>    For this flow, HW and SW stats are equal.
->>>
->>> 2) port1->A->ASIC->C->CPU->C->ASIC->B->port2
->>>
->>>    For this flow, HW and SW stats are equal.
->>>
->>> 3) port1->A->ASIC->B->port2
->>>
->>>    For this flow, SW stats are 0.
->>>
->>> The purpose of this patchset is to provide facility for user to
->>> find out the difference between flows 1+2 and 3. In other words, user
->>> will be able to see the statistics for the slow-path (through kernel).
->>>
->>> Also note that HW stats are what someone calls "accumulated" stats.
->>> Every packet counted by SW is also counted by HW. Not the other way around.
->>>
->>> As a default the accumulated stats (HW) will be exposed to user
->>> so the userspace apps can react properly.
->>>
->>>
->> curious, how do you plan to handle virtual device counters like vlan
->> and vxlan stats ?.
-> Yes, that is another problem (1). We have to push stats up to this devices
-> most probably. But that problem is orthogonal to this. To the user, you
-> will still need 2 sets of stats and HW stats being default. So this
-> patchset infra is going to be used as well.
-hmm...But, i don't think we should start adding different tlv's hw and sw for
-every stats variant we add.
->
->
->> we can't separate CPU and HW stats there. In some cases (or ASICs) HW
->> counters do
->> not include CPU generated packets....you will have to add CPU
->> generated pkt counters to the
->> hw counters for such virtual device stats.
-> Can you please provide and example how that could happen?
-
-example is the bridge vlan stats I mention below. These are usually counted
-by attaching hw virtual counter resources. And CPU generated packets
-in some cases maybe setup to bypass the ASIC pipeline because the CPU
-has already made the required decisions. So, they may not be counted by
-by such hw virtual counters.
-
->
->
->> example: In the switchdev model, for bridge vlan stats, when user
->> queries bridge vlan stats,
->> you will have to add the hw stats to the bridge driver vlan stats and
->> return it to the user .
-> Yep, that is (1).
-
-unless i misunderstood, this does not look like (1). In (1) you say hw stats
- already reflect sw stats. But in this case, hw counter does not include sw stats
-for CPU generated packets.
->
->
->> Having a consistent model for all kinds of stats will help.
+T24gVGh1LCBKdW4gMjMsIDIwMTYgYXQgMTQ6MTg6MDAsIEpvaGFubmVzIEJlcmcgd3JvdGU6DQo+
+IGxpbnV4LXdpcmVsZXNzQHZnZXIua2VybmVsLm9yZzsgbmV0ZGV2QHZnZXIua2VybmVsLm9yZw0K
+PiBTdWJqZWN0OiBSZTogW1BBVENIXSB3bGNvcmU6IHRpbWUgc3luYyA6IGFkZCBzdXBwb3J0IGZv
+ciA2NCBiaXQgY2xvY2sNCj4gDQo+IE9uIFRodSwgMjAxNi0wNi0yMyBhdCAxNDoxMiArMDMwMCwg
+WWFuaXYgTWFjaGFuaSB3cm90ZToNCj4gPiBDaGFuZ2VkIHRoZSBjb25maWd1cmF0aW9uIHRvIHN1
+cHBvcnQgNjRiaXQgaW5zdGVhZCBvZiAzMmJpdCB0aGlzIGluIA0KPiA+IG9yZGVyIHRvIG9mZmxv
+YWQgdGhlIGRyaXZlciBmcm9tIGhhbmRsaW5nIGEgd3JhcGFyb3VuZC4NCj4gDQo+IFsuLi5dDQo+
+IA0KPiBTaW5jZSB5b3UgQ2MnZWQgbWUsIGFuZCBwcmVzdW1hYmx5IHdhbnQgbWUgdG8gcmV2aWV3
+IGl0LCBJJ2xsIHNheSB0aGF0IA0KPiB0aGlzIGxvb2tzIGxpa2UgYSB0ZXJyaWJsZSBpZGVhOg0K
+PiANCj4gPiBAQCAtNzQsMTAgKzc0LDE2IEBAIHN0cnVjdCB3bDE4eHhfZXZlbnRfbWFpbGJveCB7
+DQo+IA0KPiBUaGlzIHN0cnVjdCBpcyBldmlkZW50bHkgdXNlZCBmb3IgZmlybXdhcmUvaG9zdCBj
+b21tdW5pY2F0aW9uLg0KPiANCj4gPiDCoAlfX2xlMTYgYnNzX2xvc3NfYml0bWFwOw0KPiA+DQo+
+ID4gwqAJLyogYml0bWFwIG9mIHN0YXRpb25zIChieSBITElEKSB3aGljaCBleGNlZWRlZCBtYXgg
+dHggcmV0cmllcyAqLw0KPiA+IC0JX19sZTMyIHR4X3JldHJ5X2V4Y2VlZGVkX2JpdG1hcDsNCj4g
+PiArCV9fbGUxNiB0eF9yZXRyeV9leGNlZWRlZF9iaXRtYXA7DQo+ID4gKw0KPiA+ICsJLyogdGlt
+ZSBzeW5jIGhpZ2ggbXNiKi8NCj4gPiArCXUxNiB0aW1lX3N5bmNfdHNmX2hpZ2hfbXNiOw0KPiAN
+Cj4gU28gZmlyc3Qgb2YgYWxsLCBqdXN0IHVzaW5nIHUxNiBpbnN0ZWFkIG9mIF9fbGUxNiBzZWVt
+cyB3cm9uZy4NCg0KQWdyZWUsIHNob3VsZCBiZSBjaGFuZ2VkLg0KDQo+IA0KPiBBZGRpdGlvbmFs
+bHksIHRoaXMgbG9va3MgbGlrZSBpdCBjaGFuZ2VzIHRoZSBmaXJtd2FyZSBBUEksIHNvIHRoYXQg
+DQo+IG9sZGVyIGZpcm13YXJlIGltYWdlcyB3aWxsIG5vIGxvbmdlciB3b3JrPw0KDQpJdCBpcyBi
+YWNrd2FyZHMgY29tcGF0aWJsZSwgDQphbHRob3VnaCBpdCBjaGFuZ2VzIGEgQVBJIHN0cnVjdHVy
+ZSwgb2xkZXIgZmlybXdhcmUgYXJlIHVzaW5nIG9ubHkgdTE2IGZvciB0aGUgZmllbGQgc28gdGhl
+cmUgaXMgbm8gaW1wYWN0IG9uIHRoYXQuDQpPZiBjb3Vyc2UgdGhhdCBmb3IgYWN0dWFsbHkgdXNp
+bmcgdGhlIDY0Yml0IGluZm9ybWF0aW9uLCB5b3Ugd2lsbCBoYXZlIHRvIHVwZ3JhZGUgdGhlIGZp
+cm13YXJlLg0KDQpZYW5pdg0KDQo=
