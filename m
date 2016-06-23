@@ -1,47 +1,38 @@
-From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
-Subject: [PATCH] i40e: Remove redundant memset
-Date: Thu, 23 Jun 2016 10:30:55 +0530
-Message-ID: <20160623050055.GA15082@amitoj-Inspiron-3542>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next V2] tun: introduce tx skb ring
+Date: Thu, 23 Jun 2016 13:14:07 +0800
+Message-ID: <576B701F.2020105@redhat.com>
+References: <1465979897-4445-1-git-send-email-jasowang@redhat.com>
+	<20160617033218-mutt-send-email-mst@redhat.com>
+	<20160622211620-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: julia.lawall@lip6.fr
-To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
-	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
-	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
-	john.ronciak@intel.com, mitch.a.williams@intel.com,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: kvm@vger.kernel.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, brouer@redhat.com,
+	davem@davemloft.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160622211620-mutt-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Remove redundant call to memset before a call to memcpy.
-
-The Coccinelle semantic patch used to make this change is as follows:
-@@
-expression e1,e2,e3,e4;
-@@
-
-- memset(e1,e2,e3);
-  memcpy(e1,e4,e3);
-
-Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
----
- drivers/net/ethernet/intel/i40e/i40e_main.c | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index 3449129..45c1671 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -7961,7 +7961,6 @@ static int i40e_config_rss_aq(struct i40e_vsi *vsi, const u8 *seed,
- 	u8 *rss_lut;
- 	int ret, i;
- 
--	memset(&rss_key, 0, sizeof(rss_key));
- 	memcpy(&rss_key, seed, sizeof(rss_key));
- 
- 	rss_lut = kzalloc(pf->rss_table_size, GFP_KERNEL);
--- 
-1.9.1
+CgpPbiAyMDE25bm0MDbmnIgyM+aXpSAwMjoxOCwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIEZyaSwgSnVuIDE3LCAyMDE2IGF0IDAzOjQxOjIwQU0gKzAzMDAsIE1pY2hhZWwgUy4gVHNp
+cmtpbiB3cm90ZToKPj4gPldvdWxkIGl0IGhlbHAgdG8gaGF2ZSBwdHJfcmluZ19yZXNpemUgdGhh
+dCBnZXRzIGFuIGFycmF5IG9mCj4+ID5yaW5ncyBhbmQgcmVzaXplcyB0aGVtIGJvdGggdG8gc2Ft
+ZSBsZW5ndGg/Cj4gT0ssIGhlcmUgaXQgaXMuIFVudGVzdGVkIHNvIGZhciwgYW5kIG5vIHNrYiB3
+cmFwcGVyLgo+IFBscyBsZXQgbWUga25vdyB3aGV0aGVyIHRoaXMgaXMgd2hhdCB5b3UgaGFkIGlu
+IG1pbmQuCgpFeGFjdGx5IHdoYXQgSSB3YW50LgoKVGhhbmtzCl9fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApW
+aXJ0dWFsaXphdGlvbkBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxp
+bnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
