@@ -1,52 +1,70 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] dsa: mv88e6xxx: hide unused functions
-Date: Thu, 23 Jun 2016 16:13:22 +0200
-Message-ID: <20160623141409.356324-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
-	Andrew Lunn <andrew@lunn.ch>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [PATCH net v2] ipv6: enforce egress device match in per table
+ nexthop lookups
+Date: Thu, 23 Jun 2016 08:20:20 -0600
+Message-ID: <786d9687-922f-6e89-c281-ddacae8f83b2@cumulusnetworks.com>
+References: <5257997d95ca10b106fd44bcb754233d18587f63.1466687942.git.pabeni@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Beniamino Galvani <bgalvani@redhat.com>
+To: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f170.google.com ([209.85.223.170]:35593 "EHLO
+	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750876AbcFWOUW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 10:20:22 -0400
+Received: by mail-io0-f170.google.com with SMTP id f30so72678713ioj.2
+        for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 07:20:22 -0700 (PDT)
+In-Reply-To: <5257997d95ca10b106fd44bcb754233d18587f63.1466687942.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When CONFIG_NET_DSA_HWMON is disabled, we get warnings about two unused
-functions whose only callers are all inside of an #ifdef:
+On 6/23/16 7:25 AM, Paolo Abeni wrote:
+> with the commit 8c14586fc320 ("net: ipv6: Use passed in table for
+> nexthop lookups"), net hop lookup is first performed on route creation
+> in the passed-in table.
+> However device match is not enforced in table lookup, so the found
+> route can be later discarded due to egress device mismatch and no
+> global lookup will be performed.
+> This cause the following to fail:
+>
+> ip link add dummy1 type dummy
+> ip link add dummy2 type dummy
+> ip link set dummy1 up
+> ip link set dummy2 up
+> ip route add 2001:db8:8086::/48 dev dummy1 metric 20
+> ip route add 2001:db8:d34d::/64 via 2001:db8:8086::2 dev dummy1 metric 20
+> ip route add 2001:db8:8086::/48 dev dummy2 metric 21
+> ip route add 2001:db8:d34d::/64 via 2001:db8:8086::2 dev dummy2 metric 21
+> RTNETLINK answers: No route to host
+>
+> This change fixes the issue enforcing device lookup in
+> ip6_nh_lookup_table()
+>
+> v1->v2: updated commit message title
+>
+> Fixes: 8c14586fc320 ("net: ipv6: Use passed in table for nexthop lookups")
+> Reported-and-tested-by: Beniamino Galvani <bgalvani@redhat.com>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> ---
+>  net/ipv6/route.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+> index 969913d..520b788 100644
+> --- a/net/ipv6/route.c
+> +++ b/net/ipv6/route.c
+> @@ -1782,7 +1782,7 @@ static struct rt6_info *ip6_nh_lookup_table(struct net *net,
+>  	};
+>  	struct fib6_table *table;
+>  	struct rt6_info *rt;
+> -	int flags = 0;
+> +	int flags = RT6_LOOKUP_F_IFACE;
+>
+>  	table = fib6_get_table(net, cfg->fc_table);
+>  	if (!table)
+>
 
-drivers/net/dsa/mv88e6xxx.c:3257:12: 'mv88e6xxx_mdio_page_write' defined but not used [-Werror=unused-function]
-drivers/net/dsa/mv88e6xxx.c:3244:12: 'mv88e6xxx_mdio_page_read' defined but not used [-Werror=unused-function]
-
-This adds another ifdef around the function definitions. The warnings
-appeared after the functions were marked 'static', but the problem
-was already there before that.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-Fixes: 57d3231057e9 ("net: dsa: mv88e6xxx: fix style issues")
----
- drivers/net/dsa/mv88e6xxx.c | 2 ++
- 1 file changed, 2 insertions(+)
-
-diff --git a/drivers/net/dsa/mv88e6xxx.c b/drivers/net/dsa/mv88e6xxx.c
-index 9b116d8d4e23..2a95f2d6cf09 100644
---- a/drivers/net/dsa/mv88e6xxx.c
-+++ b/drivers/net/dsa/mv88e6xxx.c
-@@ -3241,6 +3241,7 @@ unlock:
- 	return err;
- }
- 
-+#ifdef CONFIG_NET_DSA_HWMON
- static int mv88e6xxx_mdio_page_read(struct dsa_switch *ds, int port, int page,
- 				    int reg)
- {
-@@ -3266,6 +3267,7 @@ static int mv88e6xxx_mdio_page_write(struct dsa_switch *ds, int port, int page,
- 
- 	return ret;
- }
-+#endif
- 
- static int mv88e6xxx_port_to_mdio_addr(struct mv88e6xxx_priv_state *ps,
- 				       int port)
--- 
-2.9.0
+Acked-by: David Ahern <dsa@cumulusnetworks.com>
