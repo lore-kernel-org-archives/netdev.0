@@ -1,69 +1,52 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: [PATCH] net: smc91x: ACPI Enable lan91x adapters
-Date: Fri, 24 Jun 2016 08:16:21 -0500
-Message-ID: <1466774181-24309-1-git-send-email-jeremy.linton@arm.com>
-Cc: nico@fluxnic.net, davem@davemloft.net, robert.jarzmik@free.fr,
-	fw@strlen.de, felipe.balbi@linux.intel.com, arnd@arndb.de,
-	ahs3@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:58660 "EHLO foss.arm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751315AbcFXNQX (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jun 2016 09:16:23 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: Re: [PATCH net] Bridge: Fix ipv6 mc snooping if bridge has
+ no ipv6 address
+Date: Fri, 24 Jun 2016 15:24:41 +0200
+Message-ID: <20160624132441.GJ5511@otheros>
+References: <1466764518-11358-1-git-send-email-daniel@dd-wrt.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+To: Daniel Danzberger <daniel@dd-wrt.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1466764518-11358-1-git-send-email-daniel@dd-wrt.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Enable lan91x adapters in some ARM machines and models
-when booted with an ACPI kernel.
+On Fri, Jun 24, 2016 at 12:35:18PM +0200, Daniel Danzberger wrote:
+> The bridge is falsly dropping ipv6 mulitcast packets if there is:
+>  1. No ipv6 address assigned on the brigde.
+>  2. No external mld querier present.
+>  3. The internal querier enabled.
+>=20
+> When the bridge fails to build mld queries, because it has no
+> ipv6 address, it slilently returns, but keeps the local querier enabled=
+.
+> This specific case causes confusing packet loss.
+>=20
+> Ipv6 multicast snooping can only work if:
+>  a) An external querier is present
+>  OR
+>  b) The bridge has an ipv6 address an is capable of sending own queries
+>=20
+> Otherwise it has to forward/flood the ipv6 multicast traffic,
+> because snooping cannot work.
+>=20
+> This patch fixes the issue by adding a flag to the bridge struct that
+> indicates that there is currently no ipv6 address assinged to the bridg=
+e
+> and returns a false state for the local querier in
+> __br_multicast_querier_exists().
 
-Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
----
- drivers/net/ethernet/smsc/smc91x.c | 11 +++++++++--
- 1 file changed, 9 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
-index 18ac52d..fcf69f9 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -2203,6 +2203,12 @@ static const struct of_device_id smc91x_match[] = {
- };
- MODULE_DEVICE_TABLE(of, smc91x_match);
- 
-+static const struct acpi_device_id smsc91x_acpi_match[] = {
-+	{ "LNRO0003", 0 },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(acpi, smsc91x_acpi_match);
-+
- /**
-  * of_try_set_control_gpio - configure a gpio if it exists
-  */
-@@ -2274,7 +2280,6 @@ static int smc_drv_probe(struct platform_device *pdev)
- #if IS_BUILTIN(CONFIG_OF)
- 	match = of_match_device(of_match_ptr(smc91x_match), &pdev->dev);
- 	if (match) {
--		struct device_node *np = pdev->dev.of_node;
- 		u32 val;
- 
- 		/* Optional pwrdwn GPIO configured? */
-@@ -2300,7 +2305,8 @@ static int smc_drv_probe(struct platform_device *pdev)
- 			usleep_range(750, 1000);
- 
- 		/* Combination of IO widths supported, default to 16-bit */
--		if (!of_property_read_u32(np, "reg-io-width", &val)) {
-+		if (!device_property_read_u32(&pdev->dev, "reg-io-width",
-+					      &val)) {
- 			if (val & 1)
- 				lp->cfg.flags |= SMC91X_USE_8BIT;
- 			if ((val == 0) || (val & 2))
-@@ -2479,6 +2485,7 @@ static struct platform_driver smc_driver = {
- 		.name	= CARDNAME,
- 		.pm	= &smc_drv_pm_ops,
- 		.of_match_table = of_match_ptr(smc91x_match),
-+		.acpi_match_table = smsc91x_acpi_match,
- 	},
- };
- 
--- 
-2.5.5
+Acked-by: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
