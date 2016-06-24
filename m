@@ -1,51 +1,52 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: Re: [PATCH net-next 0/5] qed/qede: Tunnel hardware GRO support
-Date: Fri, 24 Jun 2016 05:20:55 +0000
-Message-ID: <CO2PR11MB0088862F73DF6A1F99DDAA6D972E0@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
- <CAKgT0Ue6_cPb88wfTtMMetJzBSJnGDNWj8YVHWC=9WdztCxOuQ@mail.gmail.com>
- <CO2PR11MB008891D4ECFF86F32B1C32CC972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAKgT0UdDt6H8ix6U7n_uPjodkXYuxviZjSKWQRaXu2_qWWEL+A@mail.gmail.com>
- <CO2PR11MB0088C4DEAFEE71B0D865DB33972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <576B08A2.8080603@hpe.com>
- <1466635664.6850.90.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0UdbPVqpSVLs0JW7zFU7mNtJn5BM+fMjsr1tLm4kHRcW9A@mail.gmail.com>
- <1466638292.6850.94.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0Uex41aBJX84we2gxNGw6M4s5xGEPnDkGehTZkEE+i+Jhw@mail.gmail.com>
- <CO2PR11MB0088B3C577EC110B845C17B3972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CO2PR11MB0088949623FA99ED86D33205972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAKgT0Uc7cCu-5SwrB+4Mv6OM+V1jDwefOoG-Wr61C4F1g1BmFA@mail.gmail.com>
- <CO2PR11MB00884BBC91DE36D3FA78796C972D0@CO2PR11MB0088.namprd11.prod.outlook.com>,<CAKgT0UfPFsv6aH9aQQPD3gZ_0netSS85-mNLnb1bGjvtdyu6fw@mail.gmail.com>
+From: Qiang Zhao <qiang.zhao@nxp.com>
+Subject: RE: [PATCH] Maxim/driver: Add driver for maxim ds26522
+Date: Fri, 24 Jun 2016 02:00:33 +0000
+Message-ID: <AM3PR04MB11854F945F63BFF95C74AE94912E0@AM3PR04MB1185.eurprd04.prod.outlook.com>
+References: <1466644185-6081-1-git-send-email-qiang.zhao@nxp.com>
+ <20160623.105915.1184538161171070695.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <rick.jones2@hpe.com>,
-	Manish Chopra <manish.chopra@qlogic.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	"Tom Herbert" <tom@herbertland.com>,
-	Hannes Frederic Sowa <hannes@redhat.com>
-To: Alexander Duyck <alexander.duyck@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "oss@buserror.net" <oss@buserror.net>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Xiaobo Xie <xiaobo.xie@nxp.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0118.outbound.protection.outlook.com ([207.46.100.118]:55395
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-am1on0099.outbound.protection.outlook.com ([157.56.112.99]:29167
+	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750966AbcFXFU7 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 01:20:59 -0400
-In-Reply-To: <CAKgT0UfPFsv6aH9aQQPD3gZ_0netSS85-mNLnb1bGjvtdyu6fw@mail.gmail.com>
+	id S1750979AbcFXFf0 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 01:35:26 -0400
+In-Reply-To: <20160623.105915.1184538161171070695.davem@davemloft.net>
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->We already know of one firmware bug you guys have which makes 
->it clear that the bnx2x is not doing hardware assisted GRO it is doing 
->something else since it performs much worse than GRO if the MSS is 
->less than what it would be based on the MTU.
+On Thu, 2016-06-23 at 10:59PM, David Miller wrote:
+> -----Original Message-----
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, June 23, 2016 10:59 PM
+> To: Qiang Zhao <qiang.zhao@nxp.com>
+> Cc: oss@buserror.net; linux-kernel@vger.kernel.org; netdev@vger.kernel.org;
+> Xiaobo Xie <xiaobo.xie@nxp.com>
+> Subject: Re: [PATCH] Maxim/driver: Add driver for maxim ds26522
+> 
+> From: Zhao Qiang <qiang.zhao@nxp.com>
+> Date: Thu, 23 Jun 2016 09:09:45 +0800
+> 
+> > +MODULE_DESCRIPTION(DRV_DESC);
+> 
+> There is no definition of DRV_DESC, so this makes it look like you didn't even
+> compile this driver.
 
-It's a bit nitpicky, isn't it? Claiming this flaw means it's not GRO.
-I.e., you obviously wouldn't have claimed it beacme GRO if it
-was fixed.
+I really, really compiled this driver.
+Thank you for your review and comments. I will modify it the next version.
 
-Not saying it makes a lot of difference, though.
+[zhaoqiang@titan:~/upstream/linux]$ll drivers/net/wan/slic_ds26522.o
+-rw-r--r-- 1 zhaoqiang klocwork 153288 Jun 22 15:48 drivers/net/wan/slic_ds26522.o
+[zhaoqiang@titan:~/upstream/linux]$date
+Fri Jun 24 09:42:16 CST 2016
+
+-Zhao Qiang
+BR
