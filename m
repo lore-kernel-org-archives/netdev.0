@@ -1,62 +1,71 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: Re: [PATCH] net: ethernet: ti: cpdma: switch to use genalloc
-Date: Fri, 24 Jun 2016 19:58:32 +0300
-Message-ID: <576D66B8.7040300@ti.com>
-References: <20160623123620.11681-1-grygorii.strashko@ti.com>
- <576BDC64.3030908@linaro.org> <576CCD9B.2050700@ti.com>
- <20160624161541.GA23499@csclub.uwaterloo.ca>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH net-next 0/5] qed/qede: Tunnel hardware GRO support
+Date: Fri, 24 Jun 2016 18:21:53 +0100
+Message-ID: <9834a2dd-33c0-33b1-697e-49a39b1b7554@solarflare.com>
+References: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
+ <CO2PR11MB008891D4ECFF86F32B1C32CC972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <CAKgT0UdDt6H8ix6U7n_uPjodkXYuxviZjSKWQRaXu2_qWWEL+A@mail.gmail.com>
+ <CO2PR11MB0088C4DEAFEE71B0D865DB33972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <576B08A2.8080603@hpe.com>
+ <1466635664.6850.90.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAKgT0UdbPVqpSVLs0JW7zFU7mNtJn5BM+fMjsr1tLm4kHRcW9A@mail.gmail.com>
+ <1466638292.6850.94.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAKgT0Uex41aBJX84we2gxNGw6M4s5xGEPnDkGehTZkEE+i+Jhw@mail.gmail.com>
+ <CO2PR11MB0088B3C577EC110B845C17B3972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <CO2PR11MB0088949623FA99ED86D33205972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <CAKgT0Uc7cCu-5SwrB+4Mv6OM+V1jDwefOoG-Wr61C4F1g1BmFA@mail.gmail.com>
+ <058fd87e-4dbe-f80e-0606-508956f339a7@solarflare.com>
+ <CALx6S341Pb-fq+trudZDOY3SpFzJvyqhrTGQd+7t0hDc3Jr_ig@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>
-To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160624161541.GA23499@csclub.uwaterloo.ca>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	Yuval Mintz <Yuval.Mintz@qlogic.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Rick Jones <rick.jones2@hpe.com>,
+	Manish Chopra <manish.chopra@qlogic.com>,
+	David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Ariel Elior <Ariel.Elior@qlogic.com>,
+	Hannes Frederic Sowa <hannes@redhat.com>,
+	Bert Kenward <bkenward@solarflare.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo03.seg.att.com ([209.65.160.84]:53974 "EHLO
+	nbfkord-smmo03.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751870AbcFXRWO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 13:22:14 -0400
+In-Reply-To: <CALx6S341Pb-fq+trudZDOY3SpFzJvyqhrTGQd+7t0hDc3Jr_ig@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/24/2016 07:15 PM, Lennart Sorensen wrote:
-> On Fri, Jun 24, 2016 at 11:35:15AM +0530, Mugunthan V N wrote:
->>>> +static void cpdma_desc_pool_destroy(struct cpdma_desc_pool *pool)
->>>> +{
->>>> +    if (!pool)
->>>> +        return;
->>>> +
->>>> +    WARN_ON(pool->used_desc);
->>>> +    if (pool->cpumap) {
->>>> +        dma_free_coherent(pool->dev, pool->mem_size, pool->cpumap,
->>>> +                  pool->phys);
->>>> +    } else {
->>>> +        iounmap(pool->iomap);
->>>> +    }
->>>> +}
->>>> +
->>> single if, brackets?
->>
->> if() has multiple line statement, so brackets are must.
-> 
-> It is line wrapped, it is still one statement.  And you can't argue the
-> else being multiple lines, although the style does require using brackets
-> for the else if the if required them.
-> 
-> Style says "Do not unnecessarily use braces where a single statement will do."
-> It says statement, not line.  A multiline wrapped statement is still
-> one statement.
-> 
-> I may personally hate the lack of brackets, but style wise it seems very
-> clear that the linux kernel only uses brakcets when required, which is
-> only when there is more than one statement.  I prefer what you did,
-> but not as much as I prefer consistency.
-> 
+On 24/06/16 17:31, Tom Herbert wrote:
+> Ed,
+> Because you took this OT... ;-)
+>
+> LRO/GRO is the one of the five common offloads that has no generic
+> analogue and requires protocol specific logic. For instance each
+> IP-over-foo encapsulation needs kernel code for GRO, device/driver
+> code for LRO. I think the answer here is to make both GRO and LRO to
+> be user programmable via BPF.
+I agree that the only way to make LRO generic is to go for hardware
+BPF.  However, I think that's likely to cause a _lot_ of headaches to
+implement and my hope is that we can instead get acceptable receive
+performance from GRO, RSS, and maybe things like the skb bundling I
+posted a while back.
+For instance, if your 'source port hack' were to mix in the TNI as
+well as the inner flow fields it already uses, I think that could
+improve hash spreading and thus GRO would perform better.
+Fundamentally I believe that robust, responsive hardware LRO is not
+workable as the hardware would have to decide to hold onto packets in
+the hope of merge candidates arriving soon after.  Whereas in the
+software layer (GRO, bundling...), the packets are already coming in
+bursts thanks to the way napi polling behaves.
+But I'd love to be proved wrong :)  The 'hybrid' approach of using
+bpf in hw to identify flows for sw to gro does seem plausible, maybe
+having bpf to compute the rxhash is the answer?
 
-Oh. nice :( So, seems, I'd need to send v3. Right?
-By the way, this code hasn't been introduced by this patch - I've
-just moved whole function from one place to another.
+-Ed
 
--- 
-regards,
--grygorii
+(disclaimer: definitely not speaking for my employer here, these are
+my personal views only.)
