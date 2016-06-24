@@ -1,61 +1,107 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [iproute PATCH v3 6/6] misc/ifstat: simplify unsigned value
- comparison
-Date: Fri, 24 Jun 2016 09:20:32 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4E3EA0@AcuExch.aculab.com>
-References: <1466703254-5174-1-git-send-email-phil@nwl.cc>
- <1466703254-5174-7-git-send-email-phil@nwl.cc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Julien Floret <julien.floret@6wind.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: 'Phil Sutter' <phil@nwl.cc>,
-	Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.195]:59946 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751355AbcFXJWo convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 05:22:44 -0400
-In-Reply-To: <1466703254-5174-7-git-send-email-phil@nwl.cc>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: [PATCH] of_mdio: select fixed phy support unconditionally
+Date: Fri, 24 Jun 2016 11:24:08 +0200
+Message-ID: <20160624092450.1507991-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+	Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+	Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Phil Sutter
-> Sent: 23 June 2016 18:34
-> 
-> By directly comparing the value of both unsigned variables, casting to
-> signed becomes unnecessary.
-> 
-> This also fixes for compiling with older versions of gcc (at least
-> <=3.4.6) which emit the following warning:
-> 
-> | ifstat.c: In function `update_db':
-> | ifstat.c:542: warning: comparison is always false due to limited range of data type
-> 
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
-> ---
->  misc/ifstat.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff --git a/misc/ifstat.c b/misc/ifstat.c
-> index abbb4e732fcef..9a44da487599e 100644
-> --- a/misc/ifstat.c
-> +++ b/misc/ifstat.c
-> @@ -539,7 +539,7 @@ static void update_db(int interval)
->  				int i;
-> 
->  				for (i = 0; i < MAXS; i++) {
-> -					if ((long)(h1->ival[i] - n->ival[i]) < 0) {
-> +					if (h1->ival[i] < n->ival[i]) {
->  						memset(n->ival, 0, sizeof(n->ival));
->  						break;
+Calling the fixed-phy functions when CONFIG_FIXED_PHY=m as a previous
+change tried cannot work if the caller is in built-in code:
 
-That isn't the same check.
-The original code is using modulo arithmetic.
+drivers/of/built-in.o: In function `of_phy_register_fixed_link':
+of_reserved_mem.c:(.text+0x85e0): undefined reference to `fixed_phy_register'
 
-	David
+Making of_mdio depend on 'FIXED_PHY || !FIXED_PHY' would solve this
+dependency by enforcing that OF_MDIO itself becomes a loadable module
+when FIXED_PHY=y, but that creates a different dependency as it
+breaks any built-in ethernet driver that uses of_mdio.
+
+Making FIXED_PHY a bool option also cannot work, since it depends on
+PHYLIB, which again is tristate.
+
+This version now uses 'select FIXED_PHY' to ensure that the fixed-phy
+portion of of_mdio is not optional. The main downside of this is
+a small increase in code size for cases that do not need fixed phy
+support, but it should avoid all of the link-time problems.
+
+Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Fixes: d1bd330a229f ("of_mdio: Enable fixed PHY support if driver is a module")
+---
+ drivers/of/Kconfig      | 1 +
+ drivers/of/of_mdio.c    | 2 --
+ include/linux/of_mdio.h | 8 ++------
+ 3 files changed, 3 insertions(+), 8 deletions(-)
+
+diff --git a/drivers/of/Kconfig b/drivers/of/Kconfig
+index b3bec3aaa45d..bc07ad30c9bf 100644
+--- a/drivers/of/Kconfig
++++ b/drivers/of/Kconfig
+@@ -74,6 +74,7 @@ config OF_NET
+ config OF_MDIO
+ 	def_tristate PHYLIB
+ 	depends on PHYLIB
++	select FIXED_PHY
+ 	help
+ 	  OpenFirmware MDIO bus (Ethernet PHY) accessors
+ 
+diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+index de68707a99c7..e2b50bc12f23 100644
+--- a/drivers/of/of_mdio.c
++++ b/drivers/of/of_mdio.c
+@@ -361,7 +361,6 @@ struct phy_device *of_phy_attach(struct net_device *dev,
+ }
+ EXPORT_SYMBOL(of_phy_attach);
+ 
+-#if IS_ENABLED(CONFIG_FIXED_PHY)
+ /*
+  * of_phy_is_fixed_link() and of_phy_register_fixed_link() must
+  * support two DT bindings:
+@@ -451,4 +450,3 @@ int of_phy_register_fixed_link(struct device_node *np)
+ 	return -ENODEV;
+ }
+ EXPORT_SYMBOL(of_phy_register_fixed_link);
+-#endif
+diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
+index 6c8cb9aa4c00..4b04587d0441 100644
+--- a/include/linux/of_mdio.h
++++ b/include/linux/of_mdio.h
+@@ -25,6 +25,8 @@ struct phy_device *of_phy_attach(struct net_device *dev,
+ 
+ extern struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np);
+ extern int of_mdio_parse_addr(struct device *dev, const struct device_node *np);
++extern int of_phy_register_fixed_link(struct device_node *np);
++extern bool of_phy_is_fixed_link(struct device_node *np);
+ 
+ #else /* CONFIG_OF */
+ static inline int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+@@ -67,12 +69,6 @@ static inline int of_mdio_parse_addr(struct device *dev,
+ {
+ 	return -ENOSYS;
+ }
+-#endif /* CONFIG_OF */
+-
+-#if defined(CONFIG_OF) && IS_ENABLED(CONFIG_FIXED_PHY)
+-extern int of_phy_register_fixed_link(struct device_node *np);
+-extern bool of_phy_is_fixed_link(struct device_node *np);
+-#else
+ static inline int of_phy_register_fixed_link(struct device_node *np)
+ {
+ 	return -ENOSYS;
+-- 
+2.9.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
