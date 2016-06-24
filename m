@@ -1,51 +1,90 @@
-From: Soohoon Lee <Soohoon.Lee@f5.com>
-Subject: [PATCH usbnet v2.1] mtu change needs to stop RX
-Date: Fri, 24 Jun 2016 00:30:16 +0000
-Message-ID: <1466728213238.68985@f5.com>
-References: <8aa35a23da7141bba3549841e66e55db@seaexchmbx01.olympus.F5Net.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "oneukum@suse.com" <oneukum@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.f5.com ([208.85.209.139]:8615 "EHLO mail.f5.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750866AbcFXAkG convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 20:40:06 -0400
-In-Reply-To: <8aa35a23da7141bba3549841e66e55db@seaexchmbx01.olympus.F5Net.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Wang Sheng-Hui <shhuiw@foxmail.com>
+Subject: [PATCH v3] net/mlx5: use mlx5_buf_alloc_node instead of mlx5_buf_alloc in mlx5_wq_ll_create
+Date: Fri, 24 Jun 2016 08:52:11 +0800
+Message-ID: <1466729531-45481-1-git-send-email-shhuiw@foxmail.com>
+Cc: matanb@mellanox.com, leonro@mellanox.com, netdev@vger.kernel.org,
+	linux-rdma@vger.kernel.org, stable@vger.kernel.org
+To: saeedm@mellanox.com, amirv@mellanox.com
+Return-path: <stable-owner@vger.kernel.org>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+Commit 311c7c71c9bb ("net/mlx5e: Allocate DMA coherent memory on
+reader NUMA node") introduced mlx5_*_alloc_node() but missed changing
+some calling and warn messages. This patch introduces 2 changes:
+	* Use mlx5_buf_alloc_node() instead of mlx5_buf_alloc() in
+	  mlx5_wq_ll_create()
+	* Update the failure warn messages with _node postfix for
+	  mlx5_*_alloc function names
 
-When MTU is changed unlink_urbs() flushes RX Q but mean while usbnet_bh() can fill up the Q at the same time.
-Depends on which HCD is down there unlink takes long time then the flush never ends.
+Fixes: 311c7c71c9bb ("net/mlx5e: Allocate DMA coherent memory on reader NUMA node")
+Signed-off-by: Wang Sheng-Hui <shhuiw@foxmail.com>
+---
 
-Signed-off-by: Soohoon Lee <soohoon.lee@f5.com>
-Reviewed-by: Kimball Murray <kmurray@f5.com>
+Changes since v2:
+	* Reformat the commit log
 
-diff --git a/drivers/net/usb/usbnet.c b/drivers/net/usb/usbnet.c
-index 61ba464..ce72dd0 100644
---- a/drivers/net/usb/usbnet.c
-+++ b/drivers/net/usb/usbnet.c
-@@ -395,8 +395,11 @@ int usbnet_change_mtu (struct net_device *net, int new_mtu)
-        dev->hard_mtu = net->mtu + net->hard_header_len;
-        if (dev->rx_urb_size == old_hard_mtu) {
-                dev->rx_urb_size = dev->hard_mtu;
--               if (dev->rx_urb_size > old_rx_urb_size)
-+               if (dev->rx_urb_size > old_rx_urb_size) {
-+                       usbnet_pause_rx(dev);
-                        usbnet_unlink_rx_urbs(dev);
-+                       usbnet_resume_rx(dev);
-+               }
-        }
+Changes since v1:
+	* Add Fixes line in commit log
 
-        /* max qlen depend on hard_mtu and rx_urb_size */
-@@ -1509,6 +1512,7 @@ static void usbnet_bh (unsigned long param)
-                   netif_device_present (dev->net) &&
-                   netif_carrier_ok(dev->net) &&
-                   !timer_pending (&dev->delay) &&
-+                  !test_bit (EVENT_RX_PAUSED, &dev->flags) &&
-                   !test_bit (EVENT_RX_HALT, &dev->flags)) {
-                int     temp = dev->rxq.qlen;
+ drivers/net/ethernet/mellanox/mlx5/core/wq.c | 15 ++++++++-------
+ 1 file changed, 8 insertions(+), 7 deletions(-)
+
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/wq.c b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
+index ce21ee5..821a087 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/wq.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
+@@ -75,14 +75,14 @@ int mlx5_wq_cyc_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
+ 
+ 	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
+ 	if (err) {
+-		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
++		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
+ 		return err;
+ 	}
+ 
+ 	err = mlx5_buf_alloc_node(mdev, mlx5_wq_cyc_get_byte_size(wq),
+ 				  &wq_ctrl->buf, param->buf_numa_node);
+ 	if (err) {
+-		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
++		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
+ 		goto err_db_free;
+ 	}
+ 
+@@ -111,14 +111,14 @@ int mlx5_cqwq_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
+ 
+ 	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
+ 	if (err) {
+-		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
++		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
+ 		return err;
+ 	}
+ 
+ 	err = mlx5_buf_alloc_node(mdev, mlx5_cqwq_get_byte_size(wq),
+ 				  &wq_ctrl->buf, param->buf_numa_node);
+ 	if (err) {
+-		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
++		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
+ 		goto err_db_free;
+ 	}
+ 
+@@ -148,13 +148,14 @@ int mlx5_wq_ll_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
+ 
+ 	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
+ 	if (err) {
+-		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
++		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
+ 		return err;
+ 	}
+ 
+-	err = mlx5_buf_alloc(mdev, mlx5_wq_ll_get_byte_size(wq), &wq_ctrl->buf);
++	err = mlx5_buf_alloc_node(mdev, mlx5_wq_ll_get_byte_size(wq),
++				  &wq_ctrl->buf, param->buf_numa_node);
+ 	if (err) {
+-		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
++		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
+ 		goto err_db_free;
+ 	}
+ 
+-- 
+2.7.4
