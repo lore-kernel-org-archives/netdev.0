@@ -1,19 +1,54 @@
-From: Prabhat Kumar Ravi <prabhatravi09@gmail.com>
-Subject: (unknown)
-Date: Fri, 24 Jun 2016 12:18:48 +0530
-Message-ID: <CAJ_BOiAaaP2i7XwSm1PBRF_7dHMxBAHVLxnp1hn6vkC2rakS0A@mail.gmail.com>
+From: Johan Hedberg <johan.hedberg@gmail.com>
+Subject: Re: [PATCH v4 01/16] bluetooth: Switch SMP to
+ crypto_cipher_encrypt_one()
+Date: Fri, 24 Jun 2016 10:19:08 +0300
+Message-ID: <20160624071908.GA7040@t440s>
+References: <cover.1466741835.git.luto@kernel.org>
+ <9a1ddd10d96898f8a2c94c3f3d37073c73ba50c9.1466741835.git.luto@kernel.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f171.google.com ([209.85.161.171]:35690 "EHLO
-	mail-yw0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750943AbcFXGst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 02:48:49 -0400
-Received: by mail-yw0-f171.google.com with SMTP id l125so91351797ywb.2
-        for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 23:48:49 -0700 (PDT)
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: x86@kernel.org, linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org, Borislav Petkov <bp@alien8.de>,
+	Nadav Amit <nadav.amit@gmail.com>,
+	Kees Cook <keescook@chromium.org>,
+	Brian Gerst <brgerst@gmail.com>,
+	"kernel-hardening@lists.openwall.com"
+	<kernel-hardening@lists.openwall.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Josh Poimboeuf <jpoimboe@redhat.com>,
+	Jann Horn <jann@thejh.net>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	netdev@vger.kernel.org
+To: Andy Lutomirski <luto@kernel.org>
+Return-path: <linux-arch-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <9a1ddd10d96898f8a2c94c3f3d37073c73ba50c9.1466741835.git.luto@kernel.org>
+Sender: linux-arch-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-subscribe netdev
+On Thu, Jun 23, 2016, Andy Lutomirski wrote:
+> SMP does ECB crypto on stack buffers.  This is complicated and
+> fragile, and it will not work if the stack is virtually allocated.
+> 
+> Switch to the crypto_cipher interface, which is simpler and safer.
+> 
+> Cc: Marcel Holtmann <marcel@holtmann.org>
+> Cc: Gustavo Padovan <gustavo@padovan.org>
+> Cc: Johan Hedberg <johan.hedberg@gmail.com>
+> Cc: "David S. Miller" <davem@davemloft.net>
+> Cc: linux-bluetooth@vger.kernel.org
+> Cc: Herbert Xu <herbert@gondor.apana.org.au>
+> Cc: netdev@vger.kernel.org
+> Signed-off-by: Andy Lutomirski <luto@kernel.org>
+> ---
+>  net/bluetooth/smp.c | 67 ++++++++++++++++++++++-------------------------------
+>  1 file changed, 28 insertions(+), 39 deletions(-)
+
+Acked-and-tested-by: Johan Hedberg <johan.hedberg@intel.com>
+
+Johan
