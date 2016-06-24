@@ -1,65 +1,86 @@
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v2 01/15] drivers: net: cpsw: fix suspend when all ethX devices are down
-Date: Fri, 24 Jun 2016 21:23:41 +0300
-Message-ID: <20160624182355.23515-2-grygorii.strashko@ti.com>
-References: <20160624182355.23515-1-grygorii.strashko@ti.com>
+From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH v2 00/15] drivers: net: cpsw: improve runtime pm
+Date: Fri, 24 Jun 2016 21:23:40 +0300
+Message-ID: <20160624182355.23515-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>,
-	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>, <devicetree@vger.kernel.org>,
-	Grygorii Strashko <grygorii.strashko@ti.com>
-To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from arroyo.ext.ti.com ([198.47.19.12]:45181 "EHLO arroyo.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750959AbcFXSYH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jun 2016 14:24:07 -0400
-In-Reply-To: <20160624182355.23515-1-grygorii.strashko@ti.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sekhar Nori <nsekhar-l0cyMroinI0@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Ivan Khoronzhuk <ivan.khoronzhuk-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Mugunthan V N <mugunthanvnm-l0cyMroinI0@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The cpsw_suspend() could trigger L3 error and CPSW will stop
-functioning if System enters suspend when all ethX net-devices are
-down - in this case CPSW could be already suspended by PM runtime, but
-cpsw_suspend() will try to call soft_reset_slave() unconditionally
-and access CPSW registers.
+This series intended to improve runtime PM and allow CPSW to be
+RPM suspended when all ethX netdevices are down.
 
-Hence, fix it by moving soft_reset_slave() from cpsw_suspend() to
-cpsw_slave_stop(). This way slave ports will be reset when CPSW is
-active and will be in proper state during Suspend.
+To achieve above goal it is required to relax runtime PM constraints for
+Davinci MDIO which blocks CPSW runtime PM now, because Davinci MDIO is always
+powered on during probe and powered off only when it's going to be removed.
+- Patches 6-11 implement PM runtime autosuspend for Davinci MDIO, but keep it
+disabled by default, because Davinci MDIO is integrated in big set of TI devices
+and not all of them verified to work correctly with RPM autosuspend enabled:
+ expected to work on SoCs where MDIO is defined as part of CPSW in DT
+ (cpsw.c DRA7/am57x, am437x, am335x)
+The CPSW need to be fixed before RPM suspended can be allowed:
+ - Patches 1-5 ensure that CPSW will not cause L3 errors while it is in RPM
+   suspended state.
 
-Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
----
- drivers/net/ethernet/ti/cpsw.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+Davinci MDIO RPM autosuspend can be enabled through sysfs:
+ echo 100 > /sys/devices/../48484000.ethernet/48485000.mdio/power/autosuspend_delay_ms
 
-diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index e6bb0ec..736c77a 100644
---- a/drivers/net/ethernet/ti/cpsw.c
-+++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -1244,6 +1244,7 @@ static void cpsw_slave_stop(struct cpsw_slave *slave, struct cpsw_priv *priv)
- 	slave->phy = NULL;
- 	cpsw_ale_control_set(priv->ale, slave_port,
- 			     ALE_PORT_STATE, ALE_PORT_STATE_DISABLE);
-+	soft_reset_slave(slave);
- }
- 
- static int cpsw_ndo_open(struct net_device *ndev)
-@@ -2558,12 +2559,10 @@ static int cpsw_suspend(struct device *dev)
- 		for (i = 0; i < priv->data.slaves; i++) {
- 			if (netif_running(priv->slaves[i].ndev))
- 				cpsw_ndo_stop(priv->slaves[i].ndev);
--			soft_reset_slave(priv->slaves + i);
- 		}
- 	} else {
- 		if (netif_running(ndev))
- 			cpsw_ndo_stop(ndev);
--		for_each_slave(priv, soft_reset_slave);
- 	}
- 
- 	pm_runtime_put_sync(&pdev->dev);
+Patches 12 - 15: introduce new compatible string "ti,cpsw-mdio" which is used
+then to enable RPM for am335x/am437x/dra7 SoCs.
+
+Tested on am335x, am437x, am572x and k2g (on k2g with RPM disabled for Davinci MDIO)
+These changes should not affect on errata i877 implementation on DRA7.
+
+Power measurement on am335x GP EVM:
+ Without this series:  547.60 mW total SoC power
+ With this series + "ifconfig eth0 down": 477.32 mW Total Soc Power
+
+Changes in v2:
+- CPSW ethtool interface updated to use .begin()/.complete() callbacks
+- kbuild failure fixed
+- davinci_mdio DT updated with proper description of allowed compatible strings
+  combinations
+
+Link on v1:
+ https://lkml.org/lkml/2016/6/15/362
+
+Grygorii Strashko (15):
+  drivers: net: cpsw: fix suspend when all ethX devices are down
+  drivers: net: cpsw: check return code from pm runtime calls
+  drivers: net: cpsw: remove pm runtime calls from suspend callbacks
+  drivers: net: cpsw: ethtool: fix accessing to suspended device
+  drivers: net: cpsw: ndev: fix accessing to suspended device
+  drivers: net: davinci_mdio: do pm runtime initialization later in probe
+  drivers: net: davinci_mdio: remove pm runtime calls from suspend callbacks
+  drivers: net: davinci_mdio: drop suspended and lock fields from mdio_data
+  drivers: net: davinci_mdio: split reset function on init_clk and enable
+  drivers: net: davinci_mdio: add pm runtime callbacks
+  drivers: net: davinci_mdio: implement pm runtime auto mode
+  net: davinci_mdio: document missed "ti,am4372-mdio" compat string
+  net: davinci_mdio: introduce "ti,cpsw-mdio" compat string
+  drivers: net: davinci_mdio: enable pm runtime auto for ti cpsw-mdio
+  ARM: dts: am335x/am437x/dra7: use new "ti,cpsw-mdio" compat string
+
+ .../devicetree/bindings/net/davinci-mdio.txt       |   5 +-
+ arch/arm/boot/dts/am33xx.dtsi                      |   2 +-
+ arch/arm/boot/dts/am4372.dtsi                      |   2 +-
+ arch/arm/boot/dts/dra7.dtsi                        |   2 +-
+ drivers/net/ethernet/ti/cpsw.c                     |  79 ++++++++--
+ drivers/net/ethernet/ti/davinci_mdio.c             | 169 +++++++++++++--------
+ 6 files changed, 182 insertions(+), 77 deletions(-)
+
 -- 
 2.9.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
