@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v2 06/15] drivers: net: davinci_mdio: do pm runtime initialization later in probe
-Date: Fri, 24 Jun 2016 21:23:46 +0300
-Message-ID: <20160624182355.23515-7-grygorii.strashko@ti.com>
+Subject: [PATCH v2 04/15] drivers: net: cpsw: ethtool: fix accessing to suspended device
+Date: Fri, 24 Jun 2016 21:23:44 +0300
+Message-ID: <20160624182355.23515-5-grygorii.strashko@ti.com>
 References: <20160624182355.23515-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,49 +17,71 @@ In-Reply-To: <20160624182355.23515-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Do PM runtime initialization later in probe - this allows to simplify
-error handling a bit.
+The CPSW might be suspended by RPM if all ethX interfaces are down,
+but it still could be accesible through ethtool interfce. In this case
+ethtool operations, requiring registers access, will cause L3 errors and
+CPSW crash.
+
+ethtool callbcaks which need to access CPSW registers now:
+.set_coalesce(), .get_ethtool_stats(), .set_pauseparam(), .get_regs()
+
+Hence, fix it by adding .begin()/.complete() ethtool callbacks, which
+will be called before/after each ethtool operation runs, and do CPSW
+RPM handling in these callbacks. That way CPSW will be active while
+handling ethtool requests.
 
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/net/ethernet/ti/davinci_mdio.c | 15 ++++++---------
- 1 file changed, 6 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 27 ++++++++++++++++++++++++++-
+ 1 file changed, 26 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index 4e7c9b9..2e19dd1 100644
---- a/drivers/net/ethernet/ti/davinci_mdio.c
-+++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -356,14 +356,10 @@ static int davinci_mdio_probe(struct platform_device *pdev)
- 	data->bus->parent	= dev;
- 	data->bus->priv		= data;
+diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+index ba81d4e..5fea986 100644
+--- a/drivers/net/ethernet/ti/cpsw.c
++++ b/drivers/net/ethernet/ti/cpsw.c
+@@ -1907,10 +1907,33 @@ static int cpsw_set_pauseparam(struct net_device *ndev,
+ 	priv->tx_pause = pause->tx_pause ? true : false;
  
--	pm_runtime_enable(&pdev->dev);
--	pm_runtime_get_sync(&pdev->dev);
- 	data->clk = devm_clk_get(dev, "fck");
- 	if (IS_ERR(data->clk)) {
- 		dev_err(dev, "failed to get device clock\n");
--		ret = PTR_ERR(data->clk);
--		data->clk = NULL;
--		goto bail_out;
-+		return PTR_ERR(data->clk);
- 	}
+ 	for_each_slave(priv, _cpsw_adjust_link, priv, &link);
+-
+ 	return 0;
+ }
  
- 	dev_set_drvdata(dev, data);
-@@ -372,10 +368,11 @@ static int davinci_mdio_probe(struct platform_device *pdev)
- 
- 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
- 	data->regs = devm_ioremap_resource(dev, res);
--	if (IS_ERR(data->regs)) {
--		ret = PTR_ERR(data->regs);
--		goto bail_out;
--	}
-+	if (IS_ERR(data->regs))
-+		return PTR_ERR(data->regs);
++static int cpsw_ethtool_op_begin(struct net_device *ndev)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++	int ret;
 +
-+	pm_runtime_enable(&pdev->dev);
-+	pm_runtime_get_sync(&pdev->dev);
++	ret = pm_runtime_get_sync(&priv->pdev->dev);
++	if (ret < 0) {
++		cpsw_err(priv, drv, "ethtool begin failed %d\n", ret);
++		pm_runtime_put_noidle(&priv->pdev->dev);
++	}
++
++	return ret;
++}
++
++static void cpsw_ethtool_op_complete(struct net_device *ndev)
++{
++	struct cpsw_priv *priv = netdev_priv(ndev);
++	int ret;
++
++	ret = pm_runtime_put(&priv->pdev->dev);
++	if (ret < 0)
++		cpsw_err(priv, drv, "ethtool complete failed %d\n", ret);
++}
++
+ static const struct ethtool_ops cpsw_ethtool_ops = {
+ 	.get_drvinfo	= cpsw_get_drvinfo,
+ 	.get_msglevel	= cpsw_get_msglevel,
+@@ -1930,6 +1953,8 @@ static const struct ethtool_ops cpsw_ethtool_ops = {
+ 	.set_wol	= cpsw_set_wol,
+ 	.get_regs_len	= cpsw_get_regs_len,
+ 	.get_regs	= cpsw_get_regs,
++	.begin		= cpsw_ethtool_op_begin,
++	.complete	= cpsw_ethtool_op_complete,
+ };
  
- 	/* register the mii bus
- 	 * Create PHYs from DT only in case if PHY child nodes are explicitly
+ static void cpsw_slave_init(struct cpsw_slave *slave, struct cpsw_priv *priv,
 -- 
 2.9.0
