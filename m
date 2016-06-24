@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v2 07/15] drivers: net: davinci_mdio: remove pm runtime calls from suspend callbacks
-Date: Fri, 24 Jun 2016 21:23:47 +0300
-Message-ID: <20160624182355.23515-8-grygorii.strashko@ti.com>
+Subject: [PATCH v2 06/15] drivers: net: davinci_mdio: do pm runtime initialization later in probe
+Date: Fri, 24 Jun 2016 21:23:46 +0300
+Message-ID: <20160624182355.23515-7-grygorii.strashko@ti.com>
 References: <20160624182355.23515-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,35 +17,49 @@ In-Reply-To: <20160624182355.23515-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PM runtime is disabled when Davinci MDIO .suspend_late() and
-.resume_early() callbacks are called. As result, any PM runtime calls here will
-be just a nop and can be removed.
+Do PM runtime initialization later in probe - this allows to simplify
+error handling a bit.
 
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/net/ethernet/ti/davinci_mdio.c | 3 ---
- 1 file changed, 3 deletions(-)
+ drivers/net/ethernet/ti/davinci_mdio.c | 15 ++++++---------
+ 1 file changed, 6 insertions(+), 9 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index 2e19dd1..291c42e 100644
+index 4e7c9b9..2e19dd1 100644
 --- a/drivers/net/ethernet/ti/davinci_mdio.c
 +++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -436,7 +436,6 @@ static int davinci_mdio_suspend(struct device *dev)
+@@ -356,14 +356,10 @@ static int davinci_mdio_probe(struct platform_device *pdev)
+ 	data->bus->parent	= dev;
+ 	data->bus->priv		= data;
  
- 	data->suspended = true;
- 	spin_unlock(&data->lock);
--	pm_runtime_put_sync(data->dev);
+-	pm_runtime_enable(&pdev->dev);
+-	pm_runtime_get_sync(&pdev->dev);
+ 	data->clk = devm_clk_get(dev, "fck");
+ 	if (IS_ERR(data->clk)) {
+ 		dev_err(dev, "failed to get device clock\n");
+-		ret = PTR_ERR(data->clk);
+-		data->clk = NULL;
+-		goto bail_out;
++		return PTR_ERR(data->clk);
+ 	}
  
- 	/* Select sleep pin state */
- 	pinctrl_pm_select_sleep_state(dev);
-@@ -451,8 +450,6 @@ static int davinci_mdio_resume(struct device *dev)
- 	/* Select default pin state */
- 	pinctrl_pm_select_default_state(dev);
+ 	dev_set_drvdata(dev, data);
+@@ -372,10 +368,11 @@ static int davinci_mdio_probe(struct platform_device *pdev)
  
--	pm_runtime_get_sync(data->dev);
--
- 	spin_lock(&data->lock);
- 	/* restart the scan state machine */
- 	__davinci_mdio_reset(data);
+ 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+ 	data->regs = devm_ioremap_resource(dev, res);
+-	if (IS_ERR(data->regs)) {
+-		ret = PTR_ERR(data->regs);
+-		goto bail_out;
+-	}
++	if (IS_ERR(data->regs))
++		return PTR_ERR(data->regs);
++
++	pm_runtime_enable(&pdev->dev);
++	pm_runtime_get_sync(&pdev->dev);
+ 
+ 	/* register the mii bus
+ 	 * Create PHYs from DT only in case if PHY child nodes are explicitly
 -- 
 2.9.0
