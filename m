@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v2 09/15] drivers: net: davinci_mdio: split reset function on init_clk and enable
-Date: Fri, 24 Jun 2016 21:23:49 +0300
-Message-ID: <20160624182355.23515-10-grygorii.strashko@ti.com>
+Subject: [PATCH v2 10/15] drivers: net: davinci_mdio: add pm runtime callbacks
+Date: Fri, 24 Jun 2016 21:23:50 +0300
+Message-ID: <20160624182355.23515-11-grygorii.strashko@ti.com>
 References: <20160624182355.23515-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -12,94 +12,87 @@ Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
 	Grygorii Strashko <grygorii.strashko@ti.com>
 To: "David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
 	Mugunthan V N <mugunthanvnm@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from arroyo.ext.ti.com ([198.47.19.12]:45198 "EHLO arroyo.ext.ti.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751654AbcFXSYS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 24 Jun 2016 14:24:18 -0400
 In-Reply-To: <20160624182355.23515-1-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Davinci MDIO MDIO_CONTROL.CLKDIV can be calculated only once
-during probe, hence split __davinci_mdio_reset() on
-davinci_mdio_init_clk() and davinci_mdio_enable(). Initialize and
-save CLKDIV in .probe(). Then just use saved value.
+Add PM runtime .runtime_suspend()/.runtime_resume() callbacks and
+perform Davinci MDIO enabling/disabling from these callbacks. This
+allows to reuse pm_runtime_force_suspend/resume() APIs during System
+suspend and required for further implementation of PM runtime
+autosuspend.
 
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/net/ethernet/ti/davinci_mdio.c | 21 ++++++++++++++-------
- 1 file changed, 14 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/ti/davinci_mdio.c | 31 +++++++++++++++++++++++++++----
+ 1 file changed, 27 insertions(+), 4 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/davinci_mdio.c b/drivers/net/ethernet/ti/davinci_mdio.c
-index b6d0059..b206fd3 100644
+index b206fd3..13f5080 100644
 --- a/drivers/net/ethernet/ti/davinci_mdio.c
 +++ b/drivers/net/ethernet/ti/davinci_mdio.c
-@@ -98,9 +98,10 @@ struct davinci_mdio_data {
- 	 * if MDIO bus is registered from DT.
- 	 */
- 	bool		skip_scan;
-+	u32		clk_div;
- };
- 
--static void __davinci_mdio_reset(struct davinci_mdio_data *data)
-+static void davinci_mdio_init_clk(struct davinci_mdio_data *data)
- {
- 	u32 mdio_in, div, mdio_out_khz, access_time;
- 
-@@ -109,9 +110,7 @@ static void __davinci_mdio_reset(struct davinci_mdio_data *data)
- 	if (div > CONTROL_MAX_DIV)
- 		div = CONTROL_MAX_DIV;
- 
--	/* set enable and clock divider */
--	__raw_writel(div | CONTROL_ENABLE, &data->regs->control);
--
-+	data->clk_div = div;
- 	/*
- 	 * One mdio transaction consists of:
- 	 *	32 bits of preamble
-@@ -132,12 +131,18 @@ static void __davinci_mdio_reset(struct davinci_mdio_data *data)
- 		data->access_time = 1;
+@@ -406,8 +406,8 @@ static int davinci_mdio_remove(struct platform_device *pdev)
+ 	return 0;
  }
  
-+static void davinci_mdio_enable(struct davinci_mdio_data *data)
-+{
-+	/* set enable and clock divider */
-+	__raw_writel(data->clk_div | CONTROL_ENABLE, &data->regs->control);
+-#ifdef CONFIG_PM_SLEEP
+-static int davinci_mdio_suspend(struct device *dev)
++#ifdef CONFIG_PM
++static int davinci_mdio_runtime_suspend(struct device *dev)
+ {
+ 	struct davinci_mdio_data *data = dev_get_drvdata(dev);
+ 	u32 ctrl;
+@@ -418,6 +418,28 @@ static int davinci_mdio_suspend(struct device *dev)
+ 	__raw_writel(ctrl, &data->regs->control);
+ 	wait_for_idle(data);
+ 
++	return 0;
 +}
 +
- static int davinci_mdio_reset(struct mii_bus *bus)
- {
- 	struct davinci_mdio_data *data = bus->priv;
- 	u32 phy_mask, ver;
- 
--	__davinci_mdio_reset(data);
-+	davinci_mdio_enable(data);
- 
- 	/* wait for scan logic to settle */
- 	msleep(PHY_MAX_ADDR * data->access_time);
-@@ -188,7 +193,7 @@ static inline int wait_for_user_access(struct davinci_mdio_data *data)
- 		 * operation
- 		 */
- 		dev_warn(data->dev, "resetting idled controller\n");
--		__davinci_mdio_reset(data);
-+		davinci_mdio_enable(data);
- 		return -EAGAIN;
- 	}
- 
-@@ -350,6 +355,8 @@ static int davinci_mdio_probe(struct platform_device *pdev)
- 	if (IS_ERR(data->regs))
- 		return PTR_ERR(data->regs);
- 
-+	davinci_mdio_init_clk(data);
++static int davinci_mdio_runtime_resume(struct device *dev)
++{
++	struct davinci_mdio_data *data = dev_get_drvdata(dev);
 +
- 	pm_runtime_enable(&pdev->dev);
- 	pm_runtime_get_sync(&pdev->dev);
++	davinci_mdio_enable(data);
++	return 0;
++}
++#endif
++
++#ifdef CONFIG_PM_SLEEP
++static int davinci_mdio_suspend(struct device *dev)
++{
++	struct davinci_mdio_data *data = dev_get_drvdata(dev);
++	int ret = 0;
++
++	ret = pm_runtime_force_suspend(dev);
++	if (ret < 0)
++		return ret;
++
+ 	/* Select sleep pin state */
+ 	pinctrl_pm_select_sleep_state(dev);
  
-@@ -425,7 +432,7 @@ static int davinci_mdio_resume(struct device *dev)
+@@ -431,14 +453,15 @@ static int davinci_mdio_resume(struct device *dev)
+ 	/* Select default pin state */
  	pinctrl_pm_select_default_state(dev);
  
- 	/* restart the scan state machine */
--	__davinci_mdio_reset(data);
-+	davinci_mdio_enable(data);
+-	/* restart the scan state machine */
+-	davinci_mdio_enable(data);
++	pm_runtime_force_resume(dev);
  
  	return 0;
  }
+ #endif
+ 
+ static const struct dev_pm_ops davinci_mdio_pm_ops = {
++	SET_RUNTIME_PM_OPS(davinci_mdio_runtime_suspend,
++			   davinci_mdio_runtime_resume, NULL)
+ 	SET_LATE_SYSTEM_SLEEP_PM_OPS(davinci_mdio_suspend, davinci_mdio_resume)
+ };
+ 
 -- 
 2.9.0
