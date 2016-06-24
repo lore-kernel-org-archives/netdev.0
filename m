@@ -1,78 +1,56 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
-Date: Fri, 24 Jun 2016 15:06:49 -0700
-Message-ID: <576DAEF9.8080501@hpe.com>
-References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
- <CAFLxGvwmhTv0rTuDpg7r1vZ0GEU93j1QxV12mJ2c2W2qSJGRCQ@mail.gmail.com>
- <20160623.034004.1518087003165708123.davem@davemloft.net>
- <576B94DA.7070804@nod.at>
- <CALx6S35ii7nF0s9n2ocpvNcjo25uDHd+788X+3oTqc4sd1SjOQ@mail.gmail.com>
- <576DA7C4.7040108@hpe.com>
- <CALx6S34Vu_xG7jjTSdFXdbkJOfKt=639ji5DX4gOjObi8Nf+7A@mail.gmail.com>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net] sock_diag: invert socket destroy broadcast check
+Date: Fri, 24 Jun 2016 18:22:50 -0400
+Message-ID: <CAF=yD-Jc7JCJJhJ7kuJQzdgbEgmG8dM3szLKLsTOhhqje8G3Fw@mail.gmail.com>
+References: <1466798630-40553-1-git-send-email-willemdebruijn.kernel@gmail.com>
+ <8737o2721q.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Richard Weinberger <richard@nod.at>,
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
 	David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Kernel Team <kernel-team@fb.com>
-To: Tom Herbert <tom@herbertland.com>
+	Craig Gallek <kraig@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Willem de Bruijn <willemb@google.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t1383g.austin.hpe.com ([15.233.16.89]:47833 "EHLO
-	g2t1383g.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751010AbcFXWGx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 18:06:53 -0400
-Received: from g9t5008.houston.hpe.com (g9t5008.houston.hpe.com [15.241.48.72])
-	(using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
-	(No client certificate requested)
-	by g2t1383g.austin.hpe.com (Postfix) with ESMTPS id 5154C243
-	for <netdev@vger.kernel.org>; Fri, 24 Jun 2016 22:06:52 +0000 (UTC)
-In-Reply-To: <CALx6S34Vu_xG7jjTSdFXdbkJOfKt=639ji5DX4gOjObi8Nf+7A@mail.gmail.com>
+Received: from mail-vk0-f45.google.com ([209.85.213.45]:33467 "EHLO
+	mail-vk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750978AbcFXWXa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 18:23:30 -0400
+Received: by mail-vk0-f45.google.com with SMTP id d185so168423912vkg.0
+        for <netdev@vger.kernel.org>; Fri, 24 Jun 2016 15:23:30 -0700 (PDT)
+In-Reply-To: <8737o2721q.fsf@x220.int.ebiederm.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/24/2016 02:46 PM, Tom Herbert wrote:
-> On Fri, Jun 24, 2016 at 2:36 PM, Rick Jones <rick.jones2@hpe.com> wrote:
->> How would you define "severely?"  Has it actually been more severe than for
->> say ECN?  Or it was for say SACK or PAWS?
+On Fri, Jun 24, 2016 at 4:41 PM, Eric W. Biederman
+<ebiederm@xmission.com> wrote:
+> Willem de Bruijn <willemdebruijn.kernel@gmail.com> writes:
+>
+>> From: Willem de Bruijn <willemb@google.com>
 >>
-> ECN is probably even a bigger disappointment in terms of seeing
-> deployment :-( From http://ecn.ethz.ch/ecn-pam15.pdf:
+>> Socket destruction is only broadcast for a socket sk if a diag
+>> listener is registered and sk is not a kernel socket.
+>>
+>> Invert the test to not even check for listeners for kernel sockets.
+>>
+>> The sock_diag_has_destroy_listeners invocation dereferences
+>> sock_net(sk), which for kernel sockets can be invalid as they do not
+>> take a reference on the network namespace.
 >
-> "Even though ECN was standardized in 2001, and it is widely
-> implemented in end-systems, it is barely deployed. This is due to a
-> history of problems with severely broken middleboxes shortly after
-> standardization, which led to connectivity failure and guidance to
-> leave ECN disabled."
->
-> SACK and PAWS seemed to have faired a little better I believe.
+> No.  That isn't so.  A kernel socket for a network namespace must be
+> destroyed in the network namespace teardown.
 
-The conclusion of that (rather interesting) paper reads:
+The issue would be an skbuff with a reference to that sk and
+sock_wfree as destructor escaping the network namespace with that
+reference intact.
 
-"Our analysis therefore indicates that enabling ECN by default would
-lead to connections to about five websites per thousand to suffer
-additional setup latency with RFC 3168 fallback. This represents an
-order of magnitude fewer than the about forty per thousand which
-experience transient or permanent connection failure due to other
-operational issues"
+Both macvlan and veth scrub packets before passing them between
+namespaces. That alone should prevent this.
 
-Doesn't that then suggest that not enabling ECN is basically a matter of 
-FUD more than remaining assumed broken middleboxes?
+I'll try to reproduce with a short dedicated test on the current net branch.
 
-My main point is that in the past at least, trouble with broken 
-middleboxes didn't lead us to start wrapping all our TCP/transport 
-traffic in UDP to try to hide it from them.  We've managed to get SACK 
-and PAWS universal without having to resort to that, and it would seem 
-we could get ECN universal if we could overcome our FUD.  Why would TFO 
-for instance be any different?
-
-There was an equally interesting second paragraph in the conclusion:
-
-"As not all websites are equally popular, failures on five per thousand
-websites does not by any means imply that five per thousand connection 
-attempts will fail. While estimation of connection attempt rate by rank 
-is out of scope of this work, we note that the highest ranked website 
-exhibiting stable connection failure has rank 596, and only 13 such 
-sites appear in the top 5000"
-
-rick jones
+>> I observed skbs queued on a device queue in another namespace from
+>> a kernel socket in SOCK_DEAD state with dangling sock_net(sk). Socket
+>> refcnt is zero, but sk_wmem_alloc is not. (This was on an older
+>> kernel, have not yet tried to reproduce on net).
