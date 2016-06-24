@@ -1,87 +1,41 @@
-From: "Jorgen S. Hansen" <jhansen@vmware.com>
-Subject: Re: [PATCH] vsock: make listener child lock ordering explicit
-Date: Fri, 24 Jun 2016 13:51:46 +0000
-Message-ID: <8FE6F2FE-EEAE-4804-95D1-F33CAD17C72E@vmware.com>
-References: <1466695738-2393-1-git-send-email-stefanha@redhat.com>
+From: Vaishali Thakkar <vaishali.thakkar@oracle.com>
+Subject: Re: [ldv-project] [net] rtl8188ee: a potential race condition
+Date: Fri, 24 Jun 2016 19:47:21 +0530
+Message-ID: <576D40F1.9040009@oracle.com>
+References: <575A788C.5020509@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
-	"Jorgen S. Hansen" <jhansen@vmware.com>
-To: Stefan Hajnoczi <stefanha@redhat.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
+To: Pavel Andrianov <andrianov@ispras.ru>,
+	Larry Finger <Larry.Finger@lwfinger.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-outbound-1.vmware.com ([208.91.2.12]:35237 "EHLO
-	smtp-outbound-1.vmware.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751476AbcFXNvy convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jun 2016 09:51:54 -0400
-In-Reply-To: <1466695738-2393-1-git-send-email-stefanha@redhat.com>
-Content-Language: en-US
-Content-ID: <4E54DF489389874DA7BDCC24B46A6E71@namprd05.prod.outlook.com>
+Received: from userp1040.oracle.com ([156.151.31.81]:46027 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751540AbcFXOR5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 10:17:57 -0400
+In-Reply-To: <575A788C.5020509@ispras.ru>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
-> On Jun 23, 2016, at 5:28 PM, Stefan Hajnoczi <stefanha@redhat.com> wrote:
-> 
-> There are several places where the listener and pending or accept queue
-> child sockets are accessed at the same time.  Lockdep is unhappy that
-> two locks from the same class are held.
-> 
-> Tell lockdep that it is safe and document the lock ordering.
-> 
-> Originally Claudio Imbrenda <imbrenda@linux.vnet.ibm.com> sent a similar
-> patch asking whether this is safe.  I have audited the code and also
-> covered the vsock_pending_work() function.
-> 
-> Suggested-by: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-> Signed-off-by: Stefan Hajnoczi <stefanha@redhat.com>
-> ---
-> net/vmw_vsock/af_vsock.c | 12 ++++++++++--
-> 1 file changed, 10 insertions(+), 2 deletions(-)
-> 
-> diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-> index b5f1221..b96ac91 100644
-> --- a/net/vmw_vsock/af_vsock.c
-> +++ b/net/vmw_vsock/af_vsock.c
-> @@ -61,6 +61,14 @@
->  * function will also cleanup rejected sockets, those that reach the connected
->  * state but leave it before they have been accepted.
->  *
-> + * - Lock ordering for pending or accept queue sockets is:
-> + *
-> + *     lock_sock(listener);
-> + *     lock_sock_nested(pending, SINGLE_DEPTH_NESTING);
-> + *
-> + * Using explicit nested locking keeps lockdep happy since normally only one
-> + * lock of a given class may be taken at a time.
-> + *
->  * - Sockets created by user action will be cleaned up when the user process
->  * calls close(2), causing our release implementation to be called. Our release
->  * implementation will perform some cleanup then drop the last reference so our
-> @@ -443,7 +451,7 @@ void vsock_pending_work(struct work_struct *work)
-> 	cleanup = true;
-> 
-> 	lock_sock(listener);
-> -	lock_sock(sk);
-> +	lock_sock_nested(sk, SINGLE_DEPTH_NESTING);
-> 
-> 	if (vsock_is_pending(sk)) {
-> 		vsock_remove_pending(listener, sk);
-> @@ -1292,7 +1300,7 @@ static int vsock_accept(struct socket *sock, struct socket *newsock, int flags)
-> 	if (connected) {
-> 		listener->sk_ack_backlog--;
-> 
-> -		lock_sock(connected);
-> +		lock_sock_nested(connected, SINGLE_DEPTH_NESTING);
-> 		vconnected = vsock_sk(connected);
-> 
-> 		/* If the listener socket has received an error, then we should
-> -- 
-> 2.7.4
-> 
 
-Looks good to me - thanks for fixing this!
+On Friday 10 June 2016 01:51 PM, Pavel Andrianov wrote:
+> Hi!
+> 
+> There is a potential data race in drivers/net/wireless/realtek/rtlwifi/rtl8188ee/rtl8188ee.ko.
+> 
+> In the function rtl88ee_gpio_radio_on_off_checking the flag ppsc->rfchange_inprogress is set with a spinlock protection. In the function rtl_ps_set_rf_state the flag is read also under a spinlock. But the function rtl88e_dm_watchdog read it without any locks. As a result rtl88e_dm_watchdog may execute the succeeding code while changing (with the flag rfchange_inprogress == true). I do not exactly determine the consequences, but likely they are not good if there exists such check. Could anybody more confident confirm this?
+> 
+> The function rtl_ps_set_rf_state is always called with its parameter [protect_or_not == false]. Is this flag really necessary, if the value 'true' is never used? The function is also set the flag ppsc->rfchange_inprogress and may affect the rtl88e_dm_watchdog as in the previous case.
 
-/jsh
+I think the patch was sent sometime ago for removing the parameter. But I am not sure why it's not applied.
+May be Larry can have better idea about this.
+
+Here, is link to the patch: http://linux-wireless.vger.kernel.narkive.com/mu4t9xxr/patch-3-4-rtlwifi-rtl8192cu-remove-unused-parameter
+
+-- 
+Vaishali
