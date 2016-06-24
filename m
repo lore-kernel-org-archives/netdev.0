@@ -1,41 +1,51 @@
-From: Vaishali Thakkar <vaishali.thakkar@oracle.com>
-Subject: Re: [ldv-project] [net] rtl8188ee: a potential race condition
-Date: Fri, 24 Jun 2016 19:47:21 +0530
-Message-ID: <576D40F1.9040009@oracle.com>
-References: <575A788C.5020509@ispras.ru>
+From: Eric Dumazet <edumazet@google.com>
+Subject: Re: [REGRESSION, bisect]cxgb4 port failure with TSO traffic after
+ commit 10d3be569243def8("tcp-tso: do not split TSO packets at retransmit time")
+Date: Fri, 24 Jun 2016 07:25:53 -0700
+Message-ID: <CANn89i+ePpSDYPtQeZa=fdN84=4WKdDb88P-dOVyPyY_DMK02g@mail.gmail.com>
+References: <6DE8042992C3D3488ACEF3F2607097E3C4A81CA5@nice.asicdesigners.com>
+ <CANn89iLpBC5tUqpdSE4jCMKFgUi=mg=2kPZtMaRh-cnBhvauNg@mail.gmail.com> <6DE8042992C3D3488ACEF3F2607097E3C4A82805@nice.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: Chaoming Li <chaoming_li@realsil.com.cn>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ldv-project@linuxtesting.org
-To: Pavel Andrianov <andrianov@ispras.ru>,
-	Larry Finger <Larry.Finger@lwfinger.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	Kumar A S <kumaras@chelsio.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	Nirranjan Kirubaharan <nirranjan@chelsio.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"ycheng@google.com" <ycheng@google.com>
+To: "Arjun V." <arjun@chelsio.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:46027 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751540AbcFXOR5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 10:17:57 -0400
-In-Reply-To: <575A788C.5020509@ispras.ru>
+Received: from mail-yw0-f169.google.com ([209.85.161.169]:35930 "EHLO
+	mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750966AbcFXOZz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 10:25:55 -0400
+Received: by mail-yw0-f169.google.com with SMTP id b72so101258364ywa.3
+        for <netdev@vger.kernel.org>; Fri, 24 Jun 2016 07:25:55 -0700 (PDT)
+In-Reply-To: <6DE8042992C3D3488ACEF3F2607097E3C4A82805@nice.asicdesigners.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Please do not top post on netdev mailing list
 
+On Fri, Jun 24, 2016 at 4:38 AM, Arjun V. <arjun@chelsio.com> wrote:
+> Eric,
+> We are seeing skb's with length(skb->len) greater than 65536 coming into our ndo_start_xmit() callback routine.
+> We can add a check in our eth_xmit() routine to skip those packets, but it will be better if you fix this in kernel.
+>
+>
+> I have attached pcap file obtained from tcpdump. In the pcap file there are 2 such packets(I used tcpdump filter to extract out those packets).
+>
+> Let us know if you need anything else.
+>
 
-On Friday 10 June 2016 01:51 PM, Pavel Andrianov wrote:
-> Hi!
-> 
-> There is a potential data race in drivers/net/wireless/realtek/rtlwifi/rtl8188ee/rtl8188ee.ko.
-> 
-> In the function rtl88ee_gpio_radio_on_off_checking the flag ppsc->rfchange_inprogress is set with a spinlock protection. In the function rtl_ps_set_rf_state the flag is read also under a spinlock. But the function rtl88e_dm_watchdog read it without any locks. As a result rtl88e_dm_watchdog may execute the succeeding code while changing (with the flag rfchange_inprogress == true). I do not exactly determine the consequences, but likely they are not good if there exists such check. Could anybody more confident confirm this?
-> 
-> The function rtl_ps_set_rf_state is always called with its parameter [protect_or_not == false]. Is this flag really necessary, if the value 'true' is never used? The function is also set the flag ppsc->rfchange_inprogress and may affect the rtl88e_dm_watchdog as in the previous case.
+Beats me really.
 
-I think the patch was sent sometime ago for removing the parameter. But I am not sure why it's not applied.
-May be Larry can have better idea about this.
+At retransmit time, we only can eventually reduce packet sizes
+(assuming GSO is used, because we might coalesce sub-mss packets in
+tcp_retrans_try_collapse())
 
-Here, is link to the patch: http://linux-wireless.vger.kernel.narkive.com/mu4t9xxr/patch-3-4-rtlwifi-rtl8192cu-remove-unused-parameter
+So why are you seeing too big packets at retransmit, I really have no idea.
 
--- 
-Vaishali
+MIght be some bug related to MSS computation, overflowing somehow ?
