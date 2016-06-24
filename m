@@ -1,80 +1,44 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] bridge: netfilter: spanning tree: Add
- masked_ether_addr_equal and neatening
-Date: Fri, 24 Jun 2016 10:57:52 +0200
-Message-ID: <20160624085752.GB1939@salvia>
-References: <f39576f17e9f5dee35258917917f2d740e820a77.1466024030.git.joe@perches.com>
- <20160623173659.GA3474@salvia>
- <1466708400.1847.15.camel@perches.com>
- <20160624085128.GA1939@salvia>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [iproute PATCH v3 0/6] Big C99 style initializer rework
+Date: Fri, 24 Jun 2016 09:17:07 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4E3E8D@AcuExch.aculab.com>
+References: <1466703254-5174-1-git-send-email-phil@nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	bridge@lists.linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160624085128.GA1939@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Julien Floret <julien.floret@6wind.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: 'Phil Sutter' <phil@nwl.cc>,
+	Stephen Hemminger <shemming@brocade.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.194]:50544 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750996AbcFXJT3 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 05:19:29 -0400
+In-Reply-To: <1466703254-5174-1-git-send-email-phil@nwl.cc>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 24, 2016 at 10:51:28AM +0200, Pablo Neira Ayuso wrote:
-> On Thu, Jun 23, 2016 at 12:00:00PM -0700, Joe Perches wrote:
-> > On Thu, 2016-06-23 at 19:36 +0200, Pablo Neira Ayuso wrote:
-> > > On Wed, Jun 15, 2016 at 01:58:45PM -0700, Joe Perches wrote:
-> > > >=20
-> > > > There is code duplication of a masked ethernet address comparis=
-on here
-> > > > so make it a separate function instead.
-> > > >=20
-> > > > Miscellanea:
-> > > >=20
-> > > > o Neaten alignment of FWINV macro uses to make it clearer for t=
-he reader
-> > > Applied, thanks.
-> > >=20
-> > > >=20
-> > > > Signed-off-by: Joe Perches <joe@perches.com>
-> > > > ---
-> > > >=20
-> > > > This masked_ether_addr_equal function could go into etherdevice=
-=2Eh,
-> > > > but I don't see another use like it in kernel code.=A0=A0Is the=
-re one?
-> > >
-> > > This is specific of iptables, not even nftables would use this. S=
-o I
-> > > would keep this in the iptables tree.
-> >=20
-> > Did you see the other patch that adds a generic
-> > ether_addr_equal_masked() and uses it in a few
-> > more files?
->=20
-> You mean this one:
->=20
->         http://patchwork.ozlabs.org/patch/636208/
->=20
-> OK, so I'll toss the previous and will take this one instead.
->=20
-> As I said my opinion is that ether_addr_equal_masked() is only
-> required by netfilter, but thinking it well I don't really mind in
-> what header this function is placed given that these are our internal
-> headers.
+From: Phil Sutter
+> Sent: 23 June 2016 18:34
+>
+> This is v3 of my C99-style initializer related patch series.
+...
 
-git am reports patch I get from patchwork is corrupt at line 37.
-Tried a couple of tricks to fix it but this didn't work.
+It would be interesting to know how this affect the kernel code size?
 
-Would you mind resubmitting this patch?
+While gcc will generate a memset() call for 'struct foo = {0}' if you
+initialise some members it might generate explicit zeroing instructions
+for all the other words of the structure.
 
-Sorry for the inconvenience.
---
-To unsubscribe from this list: send the line "unsubscribe netfilter-dev=
-el" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I've seen gcc use memset() to zero the end of a structure, it may use
+memset() for large gaps earlier in the structure.
+
+But if you initialise a byte half way down you are very unlikely to
+get a single memset() and then a write to the single location.
+
+	David
