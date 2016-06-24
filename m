@@ -1,114 +1,51 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: switch / linux STP interoperation issues.
-Date: Fri, 24 Jun 2016 21:14:30 +0200
-Message-ID: <47b27017-6cfb-4a5c-8403-120848902173@ziu.info>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] Maxim/driver: Add driver for maxim ds26522
+Date: Fri, 24 Jun 2016 15:46:08 -0400 (EDT)
+Message-ID: <20160624.154608.48260039018744249.davem@davemloft.net>
+References: <1466644185-6081-1-git-send-email-qiang.zhao@nxp.com>
+	<20160623.105915.1184538161171070695.davem@davemloft.net>
+	<AM3PR04MB11854F945F63BFF95C74AE94912E0@AM3PR04MB1185.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-To: Linux Netdev List <netdev@vger.kernel.org>
+Cc: oss@buserror.net, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, xiaobo.xie@nxp.com
+To: qiang.zhao@nxp.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drutsystem.com ([84.10.39.251]:47907 "EHLO drutsystem.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750876AbcFXTVu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jun 2016 15:21:50 -0400
-Received: from [10.0.0.2] (89-65-72-120.dynamic.chello.pl [89.65.72.120])
-	(Authenticated sender: nozo)
-	by drutsystem.com (Postfix) with ESMTPA id 0C17F64139
-	for <netdev@vger.kernel.org>; Fri, 24 Jun 2016 21:14:31 +0200 (CEST)
+Received: from shards.monkeyblade.net ([149.20.54.216]:45980 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751089AbcFXTqO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 15:46:14 -0400
+In-Reply-To: <AM3PR04MB11854F945F63BFF95C74AE94912E0@AM3PR04MB1185.eurprd04.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+From: Qiang Zhao <qiang.zhao@nxp.com>
+Date: Fri, 24 Jun 2016 02:00:33 +0000
 
-In the last week I've been trying to get STP on the linux side (both its 
-builtin STP implementation as well as mstpd userspace daemon). Initially 
-I started with more complex setups (vlan aware bridge, bonds, mst) and 
-gradually (with identical problems on each step) ended with the most 
-basic setup that can be summarized by:
+> On Thu, 2016-06-23 at 10:59PM, David Miller wrote:
+>> -----Original Message-----
+>> From: David Miller [mailto:davem@davemloft.net]
+>> Sent: Thursday, June 23, 2016 10:59 PM
+>> To: Qiang Zhao <qiang.zhao@nxp.com>
+>> Cc: oss@buserror.net; linux-kernel@vger.kernel.org; netdev@vger.kernel.org;
+>> Xiaobo Xie <xiaobo.xie@nxp.com>
+>> Subject: Re: [PATCH] Maxim/driver: Add driver for maxim ds26522
+>> 
+>> From: Zhao Qiang <qiang.zhao@nxp.com>
+>> Date: Thu, 23 Jun 2016 09:09:45 +0800
+>> 
+>> > +MODULE_DESCRIPTION(DRV_DESC);
+>> 
+>> There is no definition of DRV_DESC, so this makes it look like you didn't even
+>> compile this driver.
+> 
+> I really, really compiled this driver.
+> Thank you for your review and comments. I will modify it the next version.
+> 
+> [zhaoqiang@titan:~/upstream/linux]$ll drivers/net/wan/slic_ds26522.o
+> -rw-r--r-- 1 zhaoqiang klocwork 153288 Jun 22 15:48 drivers/net/wan/slic_ds26522.o
+> [zhaoqiang@titan:~/upstream/linux]$date
 
-brctl addbr br0
-brctl addif br0 eno1
-brctl addif br0 eno2
-brctl stp br0 on
-ip li set eno1 up
-ip li set eno2 up
-ip li set br0 up
-
-The same config on switch's side (cisco 2960-x in its most basic 
-incarnation) - in the other words two cables between linux machine and 
-the switch, enabled stp, access ports in vlan1.
-
-The end effect of this setup (and any of the more complex previous ones):
-
-The switch respected BPDUs sent to it (if applicable) - for example it 
-complied properly if it's priority was less (numerically higher) than 
-linux's - showing linux box as root bridge, marking one port as root, 
-the other as alternate/blocking.
-
-The linux box itself was completely deaf to any BPDUs arriving to it 
-(e.g. if it's priority was lower) and just keept pushing its own data 
-units all the time with little care (quickly leading to loops in some 
-scenarios). Whether it was builtin stp implementation, or whether it was 
-mstpd's stp/rstp/mstp - the behaviour was the same.
-
-With the bridge itself happily claiming to be the root (despite lower 
-priority):
-
-br0
-  bridge id              a000.000af77cddc4
-  designated root        a000.000af77cddc4
-  root port                 0
-
-<cut>
-
-enp8s0f0 (3)
-  port id                8003                    state 
-forwarding
-  designated root        a000.000af77cddc4       path cost 
-    4
-  designated bridge      a000.000af77cddc4
-
-<cut>
-(and analogous output from mstpctl tool)
-
-tcpdump looked like:
-
-17:33:28.701425 00:0a:f7:7c:dd:c4 > 01:80:c2:00:00:00, 802.3, length 52: 
-LLC, dsap STP (0x42) Individual, ssap STP (0x42) Command, ctrl 0x03
-: STP 802.1d, Config, Flags [none], bridge-id 
-a000.00:0a:f7:7c:dd:c4.8003, length 35
-         message-age 0.00s, max-age 20.00s, hello-time 2.00s, 
-forwarding-delay 15.00s
-         root-id a000.00:0a:f7:7c:dd:c4, root-pathcost 0
-17:33:29.026185 18:8b:45:6f:38:86 > 01:80:c2:00:00:00, 802.3, length 60: 
-LLC, dsap STP (0x42) Individual, ssap STP (0x42) Command, ctrl 0x03
-: STP 802.1d, Config, Flags [none], bridge-id 
-2001.18:8b:45:6f:38:80.8006, length 43
-         message-age 0.00s, max-age 20.00s, hello-time 2.00s, 
-forwarding-delay 15.00s
-         root-id 2001.18:8b:45:6f:38:80, root-pathcost 0
-
-The first sent by linux box, the second by the switch (the above from 
-basic stp scenario on both sides).
-
-
-The cards in question used:
-Ethernet controller: Broadcom Corporation NetXtreme BCM5719 Gigabit 
-Ethernet PCIe (rev 01) handled by:
-
-driver: tg3
-version: 3.137
-firmware-version: FFV7.10.17 bc 5719-v1.37
-
-
-Linux is fresh stock archlinux (so vanilla 4.6.2 kernel and the most (or 
-almost) recent userland utils - iproute2, etc.), running on relatively 
-recent poweredge dell.
-
-I'm kind of lost at this point - am I missing some basic 
-options/sysctls/sysfs ? Is there some known incompatibility here 
-somewhere between switch/linux/nic/versions/etc. ? Some by-default 
-enabled BPDU filtering maybe ?
-
-
-Any suggestions / hints appreciated.
+Obviously with the driver not configured as a module, and thus explicitly
+not testing the failing statement at all.
