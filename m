@@ -1,77 +1,118 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [PATCH net] sock_diag: invert socket destroy broadcast check
-Date: Fri, 24 Jun 2016 15:41:05 -0500
-Message-ID: <8737o2721q.fsf@x220.int.ebiederm.org>
-References: <1466798630-40553-1-git-send-email-willemdebruijn.kernel@gmail.com>
+From: Elad Raz <e@eladraz.com>
+Subject: Re: switch / linux STP interoperation issues.
+Date: Sat, 25 Jun 2016 00:09:17 +0300
+Message-ID: <CAA1AmC2n1zW5gfZEyCdebQRL0QceovmK8tg5bBBor-ApB2bKYQ@mail.gmail.com>
+References: <47b27017-6cfb-4a5c-8403-120848902173@ziu.info>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, davem@davemloft.net, kraig@google.com,
-	eric.dumazet@gmail.com, Willem de Bruijn <willemb@google.com>
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Jiri Pirko <jiri@mellanox.com>, Florian Westphal <fw@strlen.de>
+To: Michal Soltys <soltys@ziu.info>, Ido Schimmel <idosch@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out03.mta.xmission.com ([166.70.13.233]:41936 "EHLO
-	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751308AbcFXUxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 16:53:17 -0400
-In-Reply-To: <1466798630-40553-1-git-send-email-willemdebruijn.kernel@gmail.com>
-	(Willem de Bruijn's message of "Fri, 24 Jun 2016 16:03:50 -0400")
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:35612 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751109AbcFXVJU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 17:09:20 -0400
+Received: by mail-wm0-f46.google.com with SMTP id v199so35678940wmv.0
+        for <netdev@vger.kernel.org>; Fri, 24 Jun 2016 14:09:19 -0700 (PDT)
+In-Reply-To: <47b27017-6cfb-4a5c-8403-120848902173@ziu.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Willem de Bruijn <willemdebruijn.kernel@gmail.com> writes:
+On Fri, Jun 24, 2016 at 10:14 PM, Michal Soltys <soltys@ziu.info> wrote:
+> Hi,
+>
+> In the last week I've been trying to get STP on the linux side (both its
+> builtin STP implementation as well as mstpd userspace daemon). Initially I
+> started with more complex setups (vlan aware bridge, bonds, mst) and
+> gradually (with identical problems on each step) ended with the most basic
+> setup that can be summarized by:
+>
+> brctl addbr br0
+> brctl addif br0 eno1
+> brctl addif br0 eno2
+> brctl stp br0 on
+> ip li set eno1 up
+> ip li set eno2 up
+> ip li set br0 up
+>
+> The same config on switch's side (cisco 2960-x in its most basic
+> incarnation) - in the other words two cables between linux machine and the
+> switch, enabled stp, access ports in vlan1.
+>
+> The end effect of this setup (and any of the more complex previous ones):
+>
+> The switch respected BPDUs sent to it (if applicable) - for example it
+> complied properly if it's priority was less (numerically higher) than
+> linux's - showing linux box as root bridge, marking one port as root, the
+> other as alternate/blocking.
+>
+> The linux box itself was completely deaf to any BPDUs arriving to it (e.g.
+> if it's priority was lower) and just keept pushing its own data units all
+> the time with little care (quickly leading to loops in some scenarios).
+> Whether it was builtin stp implementation, or whether it was mstpd's
+> stp/rstp/mstp - the behaviour was the same.
+>
+> With the bridge itself happily claiming to be the root (despite lower
+> priority):
+>
+> br0
+>  bridge id              a000.000af77cddc4
+>  designated root        a000.000af77cddc4
+>  root port                 0
+>
+> <cut>
+>
+> enp8s0f0 (3)
+>  port id                8003                    state forwarding
+>  designated root        a000.000af77cddc4       path cost    4
+>  designated bridge      a000.000af77cddc4
+>
+> <cut>
+> (and analogous output from mstpctl tool)
+>
+> tcpdump looked like:
+>
+> 17:33:28.701425 00:0a:f7:7c:dd:c4 > 01:80:c2:00:00:00, 802.3, length 52:
+> LLC, dsap STP (0x42) Individual, ssap STP (0x42) Command, ctrl 0x03
+> : STP 802.1d, Config, Flags [none], bridge-id a000.00:0a:f7:7c:dd:c4.8003,
+> length 35
+>         message-age 0.00s, max-age 20.00s, hello-time 2.00s,
+> forwarding-delay 15.00s
+>         root-id a000.00:0a:f7:7c:dd:c4, root-pathcost 0
+> 17:33:29.026185 18:8b:45:6f:38:86 > 01:80:c2:00:00:00, 802.3, length 60:
+> LLC, dsap STP (0x42) Individual, ssap STP (0x42) Command, ctrl 0x03
+> : STP 802.1d, Config, Flags [none], bridge-id 2001.18:8b:45:6f:38:80.8006,
+> length 43
+>         message-age 0.00s, max-age 20.00s, hello-time 2.00s,
+> forwarding-delay 15.00s
+>         root-id 2001.18:8b:45:6f:38:80, root-pathcost 0
+>
+> The first sent by linux box, the second by the switch (the above from basic
+> stp scenario on both sides).
+>
+>
+> The cards in question used:
+> Ethernet controller: Broadcom Corporation NetXtreme BCM5719 Gigabit Ethernet
+> PCIe (rev 01) handled by:
+>
+> driver: tg3
+> version: 3.137
+> firmware-version: FFV7.10.17 bc 5719-v1.37
+>
+>
+> Linux is fresh stock archlinux (so vanilla 4.6.2 kernel and the most (or
+> almost) recent userland utils - iproute2, etc.), running on relatively
+> recent poweredge dell.
+>
+> I'm kind of lost at this point - am I missing some basic
+> options/sysctls/sysfs ? Is there some known incompatibility here somewhere
+> between switch/linux/nic/versions/etc. ? Some by-default enabled BPDU
+> filtering maybe ?
+>
+>
+> Any suggestions / hints appreciated.
 
-> From: Willem de Bruijn <willemb@google.com>
->
-> Socket destruction is only broadcast for a socket sk if a diag
-> listener is registered and sk is not a kernel socket.
->
-> Invert the test to not even check for listeners for kernel sockets.
->
-> The sock_diag_has_destroy_listeners invocation dereferences
-> sock_net(sk), which for kernel sockets can be invalid as they do not
-> take a reference on the network namespace.
-
-No.  That isn't so.  A kernel socket for a network namespace must be
-destroyed in the network namespace teardown.
-
-Therefore sock_net(sk) should always be valid.  If sock_net(sk) is not
-valid something very broken is going on.
-
-Eric
-
-> Fixes: b922622ec6ef ("sock_diag: don't broadcast kernel sockets")
-> Fixes: 26abe14379f8 ("net: Modify sk_alloc to not reference count the
->                       netns of kernel sockets.")
-> Signed-off-by: Willem de Bruijn <willemb@google.com>
->
-> ---
->
-> This patch fixes this immediate codepath. A broader issue of live
-> kernel sockets pointing to deleted namespaces may persist.
->
-> I observed skbs queued on a device queue in another namespace from
-> a kernel socket in SOCK_DEAD state with dangling sock_net(sk). Socket
-> refcnt is zero, but sk_wmem_alloc is not. (This was on an older
-> kernel, have not yet tried to reproduce on net).
->
-> It seems that we may need to reintroduce namespace reference counting
-> for kernel sockets (with two-stage deletion to avoid the circular
-> reference), scrub packets between namespaces, or reparent kernel
-> sockets to init_net on namespace destruction.
-> ---
->  net/core/sock.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
->
-> diff --git a/net/core/sock.c b/net/core/sock.c
-> index 08bf97e..ba082b4 100644
-> --- a/net/core/sock.c
-> +++ b/net/core/sock.c
-> @@ -1473,7 +1473,7 @@ void sk_destruct(struct sock *sk)
->  
->  static void __sk_free(struct sock *sk)
->  {
-> -	if (unlikely(sock_diag_has_destroy_listeners(sk) && sk->sk_net_refcnt))
-> +	if (unlikely(sk->sk_net_refcnt && sock_diag_has_destroy_listeners(sk)))
->  		sock_diag_broadcast_destroy(sk);
->  	else
->  		sk_destruct(sk);
+Please see Ido Schimmel's fix "[net] bridge: Fix incorrect
+re-injection of STP packets",
+https://patchwork.ozlabs.org/patch/629768/
