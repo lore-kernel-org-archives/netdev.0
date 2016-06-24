@@ -1,67 +1,62 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 0/5] qed/qede: Tunnel hardware GRO support
-Date: Fri, 24 Jun 2016 09:44:24 -0700
-Message-ID: <CAKgT0Ud3RQjLFJZKX-MGphbdNi83c9q5QnaU4dV3X0WHGD-vLA@mail.gmail.com>
-References: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
- <CAKgT0Ue6_cPb88wfTtMMetJzBSJnGDNWj8YVHWC=9WdztCxOuQ@mail.gmail.com>
- <CO2PR11MB008891D4ECFF86F32B1C32CC972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAKgT0UdDt6H8ix6U7n_uPjodkXYuxviZjSKWQRaXu2_qWWEL+A@mail.gmail.com>
- <CO2PR11MB0088C4DEAFEE71B0D865DB33972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <576B08A2.8080603@hpe.com> <1466635664.6850.90.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0UdbPVqpSVLs0JW7zFU7mNtJn5BM+fMjsr1tLm4kHRcW9A@mail.gmail.com>
- <1466638292.6850.94.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAKgT0Uex41aBJX84we2gxNGw6M4s5xGEPnDkGehTZkEE+i+Jhw@mail.gmail.com>
- <CO2PR11MB0088B3C577EC110B845C17B3972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CO2PR11MB0088949623FA99ED86D33205972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAKgT0Uc7cCu-5SwrB+4Mv6OM+V1jDwefOoG-Wr61C4F1g1BmFA@mail.gmail.com>
- <CO2PR11MB00884BBC91DE36D3FA78796C972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAKgT0UfPFsv6aH9aQQPD3gZ_0netSS85-mNLnb1bGjvtdyu6fw@mail.gmail.com> <CO2PR11MB0088862F73DF6A1F99DDAA6D972E0@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH] net: ethernet: ti: cpdma: switch to use genalloc
+Date: Fri, 24 Jun 2016 19:58:32 +0300
+Message-ID: <576D66B8.7040300@ti.com>
+References: <20160623123620.11681-1-grygorii.strashko@ti.com>
+ <576BDC64.3030908@linaro.org> <576CCD9B.2050700@ti.com>
+ <20160624161541.GA23499@csclub.uwaterloo.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Rick Jones <rick.jones2@hpe.com>,
-	Manish Chopra <manish.chopra@qlogic.com>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Ariel Elior <Ariel.Elior@qlogic.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Hannes Frederic Sowa <hannes@redhat.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f43.google.com ([209.85.214.43]:35752 "EHLO
-	mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751452AbcFXQo0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 12:44:26 -0400
-Received: by mail-it0-f43.google.com with SMTP id g127so19398443ith.0
-        for <netdev@vger.kernel.org>; Fri, 24 Jun 2016 09:44:26 -0700 (PDT)
-In-Reply-To: <CO2PR11MB0088862F73DF6A1F99DDAA6D972E0@CO2PR11MB0088.namprd11.prod.outlook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+	<linux-omap@vger.kernel.org>
+To: Lennart Sorensen <lsorense@csclub.uwaterloo.ca>,
+	Mugunthan V N <mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160624161541.GA23499@csclub.uwaterloo.ca>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 23, 2016 at 10:20 PM, Yuval Mintz <Yuval.Mintz@qlogic.com> wrote:
->>We already know of one firmware bug you guys have which makes
->>it clear that the bnx2x is not doing hardware assisted GRO it is doing
->>something else since it performs much worse than GRO if the MSS is
->>less than what it would be based on the MTU.
->
-> It's a bit nitpicky, isn't it? Claiming this flaw means it's not GRO.
-> I.e., you obviously wouldn't have claimed it beacme GRO if it
-> was fixed.
->
-> Not saying it makes a lot of difference, though.
+On 06/24/2016 07:15 PM, Lennart Sorensen wrote:
+> On Fri, Jun 24, 2016 at 11:35:15AM +0530, Mugunthan V N wrote:
+>>>> +static void cpdma_desc_pool_destroy(struct cpdma_desc_pool *pool)
+>>>> +{
+>>>> +    if (!pool)
+>>>> +        return;
+>>>> +
+>>>> +    WARN_ON(pool->used_desc);
+>>>> +    if (pool->cpumap) {
+>>>> +        dma_free_coherent(pool->dev, pool->mem_size, pool->cpumap,
+>>>> +                  pool->phys);
+>>>> +    } else {
+>>>> +        iounmap(pool->iomap);
+>>>> +    }
+>>>> +}
+>>>> +
+>>> single if, brackets?
+>>
+>> if() has multiple line statement, so brackets are must.
+> 
+> It is line wrapped, it is still one statement.  And you can't argue the
+> else being multiple lines, although the style does require using brackets
+> for the else if the if required them.
+> 
+> Style says "Do not unnecessarily use braces where a single statement will do."
+> It says statement, not line.  A multiline wrapped statement is still
+> one statement.
+> 
+> I may personally hate the lack of brackets, but style wise it seems very
+> clear that the linux kernel only uses brakcets when required, which is
+> only when there is more than one statement.  I prefer what you did,
+> but not as much as I prefer consistency.
+> 
 
-The fact is LRO and GRO are two separate things.  Even without the bug
-in the firmware I would still be saying the are two very different
-things.  Your GRO implementation only supports a subset of the
-features that GRO has in the hardware.  The way the kernel has
-implemented things we should keep GRO and GSO symmetric if at all
-possible.  There aren't currently any GSO hardware offloads so there
-probably shouldn't be any GRO hardware offloads.  On the other hand
-devices do support TSO hardware offloads so it would make sense to
-match that up and support LRO as the hardware equivalent of GRO.
+Oh. nice :( So, seems, I'd need to send v3. Right?
+By the way, this code hasn't been introduced by this patch - I've
+just moved whole function from one place to another.
 
-Anyway that is my opinion.  It may be nitpicky but I don't fee that we
-should be re-purposing feature bits that were meant to be software
-features to represent hardware ones.
-
-- Alex
+-- 
+regards,
+-grygorii
