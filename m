@@ -1,99 +1,104 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Fri, 24 Jun 2016 11:24:43 +1000
-Message-ID: <20160624112443.3ab82788@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Chris Packham <chris.packham@alliedtelesis.co.nz>,
-	David Ahern <dsa@cumulusnetworks.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: [PATCH net-next] net: diag: Add support to filter on device index
+Date: Thu, 23 Jun 2016 18:42:51 -0700
+Message-ID: <1466732571-31133-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:32977 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750847AbcFXBnA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 21:43:00 -0400
+Received: by mail-pa0-f49.google.com with SMTP id b13so32485565pat.0
+        for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 18:42:59 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Add support to inet_diag facility to filter sockets based on device
+index. If an interface index is in the filter only sockets bound
+to that index (sk_bound_dev_if) are returned.
 
-Today's linux-next merge of the net-next tree got a conflict in:
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ include/uapi/linux/inet_diag.h |  1 +
+ net/ipv4/inet_diag.c           | 25 +++++++++++++++++++++++++
+ 2 files changed, 26 insertions(+)
 
-  drivers/net/vrf.c
-
-between commit:
-
-  52fe705b493d ("net: vrf: replace hard tab with space in assignment")
-
-from the net tree and commits:
-
-  671cd19ade97 ("net: vrf: ipv4 support for local traffic to local addresses")
-  625b47b50732 ("net: vrf: ipv6 support for local traffic to local addresses")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
+diff --git a/include/uapi/linux/inet_diag.h b/include/uapi/linux/inet_diag.h
+index a16643705669..abbd1dc5d683 100644
+--- a/include/uapi/linux/inet_diag.h
++++ b/include/uapi/linux/inet_diag.h
+@@ -72,6 +72,7 @@ enum {
+ 	INET_DIAG_BC_AUTO,
+ 	INET_DIAG_BC_S_COND,
+ 	INET_DIAG_BC_D_COND,
++	INET_DIAG_BC_DEV_COND,   /* u32 ifindex */
+ };
+ 
+ struct inet_diag_hostcond {
+diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
+index 25af1243649b..38c2c47fe0e8 100644
+--- a/net/ipv4/inet_diag.c
++++ b/net/ipv4/inet_diag.c
+@@ -44,6 +44,7 @@ struct inet_diag_entry {
+ 	u16 dport;
+ 	u16 family;
+ 	u16 userlocks;
++	u32 ifindex;
+ };
+ 
+ static DEFINE_MUTEX(inet_diag_table_mutex);
+@@ -571,6 +572,14 @@ static int inet_diag_bc_run(const struct nlattr *_bc,
+ 			yes = 0;
+ 			break;
+ 		}
++		case INET_DIAG_BC_DEV_COND: {
++			u32 ifindex;
++
++			ifindex = *((const u32 *)(op + 1));
++			if (ifindex != entry->ifindex)
++				yes = 0;
++			break;
++		}
+ 		}
+ 
+ 		if (yes) {
+@@ -613,6 +622,7 @@ int inet_diag_bc_sk(const struct nlattr *bc, struct sock *sk)
+ 	entry_fill_addrs(&entry, sk);
+ 	entry.sport = inet->inet_num;
+ 	entry.dport = ntohs(inet->inet_dport);
++	entry.ifindex = sk->sk_bound_dev_if;
+ 	entry.userlocks = sk_fullsock(sk) ? sk->sk_userlocks : 0;
+ 
+ 	return inet_diag_bc_run(bc, &entry);
+@@ -636,6 +646,17 @@ static int valid_cc(const void *bc, int len, int cc)
+ 	return 0;
+ }
+ 
++/* data is u32 ifindex */
++static bool valid_devcond(const struct inet_diag_bc_op *op, int len,
++			  int *min_len)
++{
++	/* Check ifindex space. */
++	*min_len += sizeof(u32);
++	if (len < *min_len)
++		return false;
++
++	return true;
++}
+ /* Validate an inet_diag_hostcond. */
+ static bool valid_hostcond(const struct inet_diag_bc_op *op, int len,
+ 			   int *min_len)
+@@ -700,6 +721,10 @@ static int inet_diag_bc_audit(const void *bytecode, int bytecode_len)
+ 			if (!valid_hostcond(bc, len, &min_len))
+ 				return -EINVAL;
+ 			break;
++		case INET_DIAG_BC_DEV_COND:
++			if (!valid_devcond(bc, len, &min_len))
++				return -EINVAL;
++			break;
+ 		case INET_DIAG_BC_S_GE:
+ 		case INET_DIAG_BC_S_LE:
+ 		case INET_DIAG_BC_D_GE:
 -- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/net/vrf.c
-index 8bd8c7e1ee87,b3762822b653..000000000000
---- a/drivers/net/vrf.c
-+++ b/drivers/net/vrf.c
-@@@ -304,8 -437,26 +437,26 @@@ static int vrf_rt6_create(struct net_de
-  	dst_hold(&rt6->dst);
-  
-  	rt6->rt6i_table = rt6i_table;
- -	rt6->dst.output	= vrf_output6;
- +	rt6->dst.output = vrf_output6;
-+ 
-+ 	/* create a dst for local routing - packets sent locally
-+ 	 * to local address via the VRF device as a loopback
-+ 	 */
-+ 	rt6_local = ip6_dst_alloc(net, dev, flags);
-+ 	if (!rt6_local) {
-+ 		dst_release(&rt6->dst);
-+ 		goto out;
-+ 	}
-+ 
-+ 	dst_hold(&rt6_local->dst);
-+ 
-+ 	rt6_local->rt6i_idev  = in6_dev_get(dev);
-+ 	rt6_local->rt6i_flags = RTF_UP | RTF_NONEXTHOP | RTF_LOCAL;
-+ 	rt6_local->rt6i_table = rt6i_table;
-+ 	rt6_local->dst.input  = ip6_input;
-+ 
-  	rcu_assign_pointer(vrf->rt6, rt6);
-+ 	rcu_assign_pointer(vrf->rt6_local, rt6_local);
-  
-  	rc = 0;
-  out:
-@@@ -403,10 -576,22 +576,22 @@@ static int vrf_rtable_create(struct net
-  	if (!rth)
-  		return -ENOMEM;
-  
-+ 	/* create a dst for local ingress routing - packets sent locally
-+ 	 * to local address via the VRF device as a loopback
-+ 	 */
-+ 	rth_local = rt_dst_alloc(dev, RTCF_LOCAL, RTN_LOCAL, 1, 1, 0);
-+ 	if (!rth_local) {
-+ 		dst_release(&rth->dst);
-+ 		return -ENOMEM;
-+ 	}
-+ 
- -	rth->dst.output	= vrf_output;
- +	rth->dst.output = vrf_output;
-  	rth->rt_table_id = vrf->tb_id;
-  
-+ 	rth_local->rt_table_id = vrf->tb_id;
-+ 
-  	rcu_assign_pointer(vrf->rth, rth);
-+ 	rcu_assign_pointer(vrf->rth_local, rth_local);
-  
-  	return 0;
-  }
+2.1.4
