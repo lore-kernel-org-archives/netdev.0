@@ -1,90 +1,99 @@
-From: Wang Sheng-Hui <shhuiw@foxmail.com>
-Subject: [PATCH v3] net/mlx5: use mlx5_buf_alloc_node instead of mlx5_buf_alloc in mlx5_wq_ll_create
-Date: Fri, 24 Jun 2016 08:52:11 +0800
-Message-ID: <1466729531-45481-1-git-send-email-shhuiw@foxmail.com>
-Cc: matanb@mellanox.com, leonro@mellanox.com, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org, stable@vger.kernel.org
-To: saeedm@mellanox.com, amirv@mellanox.com
-Return-path: <stable-owner@vger.kernel.org>
-Sender: stable-owner@vger.kernel.org
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Fri, 24 Jun 2016 11:24:43 +1000
+Message-ID: <20160624112443.3ab82788@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Chris Packham <chris.packham@alliedtelesis.co.nz>,
+	David Ahern <dsa@cumulusnetworks.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Commit 311c7c71c9bb ("net/mlx5e: Allocate DMA coherent memory on
-reader NUMA node") introduced mlx5_*_alloc_node() but missed changing
-some calling and warn messages. This patch introduces 2 changes:
-	* Use mlx5_buf_alloc_node() instead of mlx5_buf_alloc() in
-	  mlx5_wq_ll_create()
-	* Update the failure warn messages with _node postfix for
-	  mlx5_*_alloc function names
+Hi all,
 
-Fixes: 311c7c71c9bb ("net/mlx5e: Allocate DMA coherent memory on reader NUMA node")
-Signed-off-by: Wang Sheng-Hui <shhuiw@foxmail.com>
----
+Today's linux-next merge of the net-next tree got a conflict in:
 
-Changes since v2:
-	* Reformat the commit log
+  drivers/net/vrf.c
 
-Changes since v1:
-	* Add Fixes line in commit log
+between commit:
 
- drivers/net/ethernet/mellanox/mlx5/core/wq.c | 15 ++++++++-------
- 1 file changed, 8 insertions(+), 7 deletions(-)
+  52fe705b493d ("net: vrf: replace hard tab with space in assignment")
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/wq.c b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
-index ce21ee5..821a087 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/wq.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/wq.c
-@@ -75,14 +75,14 @@ int mlx5_wq_cyc_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
- 
- 	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
- 	if (err) {
--		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
-+		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
- 		return err;
- 	}
- 
- 	err = mlx5_buf_alloc_node(mdev, mlx5_wq_cyc_get_byte_size(wq),
- 				  &wq_ctrl->buf, param->buf_numa_node);
- 	if (err) {
--		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
-+		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
- 		goto err_db_free;
- 	}
- 
-@@ -111,14 +111,14 @@ int mlx5_cqwq_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
- 
- 	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
- 	if (err) {
--		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
-+		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
- 		return err;
- 	}
- 
- 	err = mlx5_buf_alloc_node(mdev, mlx5_cqwq_get_byte_size(wq),
- 				  &wq_ctrl->buf, param->buf_numa_node);
- 	if (err) {
--		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
-+		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
- 		goto err_db_free;
- 	}
- 
-@@ -148,13 +148,14 @@ int mlx5_wq_ll_create(struct mlx5_core_dev *mdev, struct mlx5_wq_param *param,
- 
- 	err = mlx5_db_alloc_node(mdev, &wq_ctrl->db, param->db_numa_node);
- 	if (err) {
--		mlx5_core_warn(mdev, "mlx5_db_alloc() failed, %d\n", err);
-+		mlx5_core_warn(mdev, "mlx5_db_alloc_node() failed, %d\n", err);
- 		return err;
- 	}
- 
--	err = mlx5_buf_alloc(mdev, mlx5_wq_ll_get_byte_size(wq), &wq_ctrl->buf);
-+	err = mlx5_buf_alloc_node(mdev, mlx5_wq_ll_get_byte_size(wq),
-+				  &wq_ctrl->buf, param->buf_numa_node);
- 	if (err) {
--		mlx5_core_warn(mdev, "mlx5_buf_alloc() failed, %d\n", err);
-+		mlx5_core_warn(mdev, "mlx5_buf_alloc_node() failed, %d\n", err);
- 		goto err_db_free;
- 	}
- 
+from the net tree and commits:
+
+  671cd19ade97 ("net: vrf: ipv4 support for local traffic to local addresses")
+  625b47b50732 ("net: vrf: ipv6 support for local traffic to local addresses")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
 -- 
-2.7.4
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/vrf.c
+index 8bd8c7e1ee87,b3762822b653..000000000000
+--- a/drivers/net/vrf.c
++++ b/drivers/net/vrf.c
+@@@ -304,8 -437,26 +437,26 @@@ static int vrf_rt6_create(struct net_de
+  	dst_hold(&rt6->dst);
+  
+  	rt6->rt6i_table = rt6i_table;
+ -	rt6->dst.output	= vrf_output6;
+ +	rt6->dst.output = vrf_output6;
++ 
++ 	/* create a dst for local routing - packets sent locally
++ 	 * to local address via the VRF device as a loopback
++ 	 */
++ 	rt6_local = ip6_dst_alloc(net, dev, flags);
++ 	if (!rt6_local) {
++ 		dst_release(&rt6->dst);
++ 		goto out;
++ 	}
++ 
++ 	dst_hold(&rt6_local->dst);
++ 
++ 	rt6_local->rt6i_idev  = in6_dev_get(dev);
++ 	rt6_local->rt6i_flags = RTF_UP | RTF_NONEXTHOP | RTF_LOCAL;
++ 	rt6_local->rt6i_table = rt6i_table;
++ 	rt6_local->dst.input  = ip6_input;
++ 
+  	rcu_assign_pointer(vrf->rt6, rt6);
++ 	rcu_assign_pointer(vrf->rt6_local, rt6_local);
+  
+  	rc = 0;
+  out:
+@@@ -403,10 -576,22 +576,22 @@@ static int vrf_rtable_create(struct net
+  	if (!rth)
+  		return -ENOMEM;
+  
++ 	/* create a dst for local ingress routing - packets sent locally
++ 	 * to local address via the VRF device as a loopback
++ 	 */
++ 	rth_local = rt_dst_alloc(dev, RTCF_LOCAL, RTN_LOCAL, 1, 1, 0);
++ 	if (!rth_local) {
++ 		dst_release(&rth->dst);
++ 		return -ENOMEM;
++ 	}
++ 
+ -	rth->dst.output	= vrf_output;
+ +	rth->dst.output = vrf_output;
+  	rth->rt_table_id = vrf->tb_id;
+  
++ 	rth_local->rt_table_id = vrf->tb_id;
++ 
+  	rcu_assign_pointer(vrf->rth, rth);
++ 	rcu_assign_pointer(vrf->rth_local, rth_local);
+  
+  	return 0;
+  }
