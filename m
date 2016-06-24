@@ -1,49 +1,46 @@
-From: William Tu <u9012063@gmail.com>
-Subject: [PATCH] samples/bpf: set resource limit to infinity.
-Date: Fri, 24 Jun 2016 15:55:24 -0700
-Message-ID: <1466808924-6456-1-git-send-email-u9012063@gmail.com>
-To: netdev@vger.kernel.org
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: Re: [PATCH net] net: phy: Decrement phy_fixed_addr during unregister
+Date: Fri, 24 Jun 2016 23:55:27 +0100
+Message-ID: <20160624225527.GA1041@n2100.armlinux.org.uk>
+References: <1466808251-19588-1-git-send-email-f.fainelli@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, andrew@lunn.ch,
+	thomas.petazzoni@free-electrons.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:35506 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750876AbcFXWzf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 18:55:35 -0400
-Received: by mail-pa0-f65.google.com with SMTP id hf6so10025135pac.2
-        for <netdev@vger.kernel.org>; Fri, 24 Jun 2016 15:55:34 -0700 (PDT)
-Received: from vm-dev.localdomain ([208.91.1.34])
-        by smtp.gmail.com with ESMTPSA id g26sm2383107pfj.82.2016.06.24.15.55.33
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Fri, 24 Jun 2016 15:55:33 -0700 (PDT)
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:51379 "EHLO
+	pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750876AbcFXWzh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 18:55:37 -0400
+Content-Disposition: inline
+In-Reply-To: <1466808251-19588-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: William Tu <u9012063@gmail.com>
----
- samples/bpf/test_maps.c | 4 ++++
- 1 file changed, 4 insertions(+)
+On Fri, Jun 24, 2016 at 03:44:11PM -0700, Florian Fainelli wrote:
+> If we have a system which uses fixed PHY devices and calls
+> fixed_phy_register() then fixed_phy_unregister() we can exhaust the
+> number of fixed PHYs available after a while, since we keep incrementing
+> the variable phy_fixed_addr, but we never decrement it.
+> 
+> This patch fixes that by decrementing phy_fixed_addr during
+> fixed_phy_del(), and in order to do that, we need to move the
+> phy_fixed_addr integer and its spinlock above that function.
 
-diff --git a/samples/bpf/test_maps.c b/samples/bpf/test_maps.c
-index 47bf085..d2bc96e 100644
---- a/samples/bpf/test_maps.c
-+++ b/samples/bpf/test_maps.c
-@@ -16,6 +16,7 @@
- #include <assert.h>
- #include <sys/wait.h>
- #include <stdlib.h>
-+#include <sys/resource.h>
- #include "libbpf.h"
- 
- static int map_flags;
-@@ -483,6 +484,9 @@ static void run_all_tests(void)
- 
- int main(void)
- {
-+	struct rlimit r = {RLIM_INFINITY, RLIM_INFINITY};
-+
-+	setrlimit(RLIMIT_MEMLOCK, &r);
- 	map_flags = 0;
- 	run_all_tests();
- 	map_flags = BPF_F_NO_PREALLOC;
+Is this really a good idea?
+
+What if we have two fixed phys register, and the first one is
+unregistered and a new one subsequently registered?
+
+First phy registered, gets address 0, phy_fixed_addr becomes 1.
+Second phy registered, gets address 1, phy_fixed_addr becomes 2.
+First phy is unregistered, phy_fixed_addr becomes 1.
+Third phy registered, gets address 1, conflicts with the second phy.
+
+Obviously not a good outcome.
+
 -- 
-2.5.0
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
