@@ -1,118 +1,64 @@
-From: Elad Raz <e@eladraz.com>
-Subject: Re: switch / linux STP interoperation issues.
-Date: Sat, 25 Jun 2016 00:09:17 +0300
-Message-ID: <CAA1AmC2n1zW5gfZEyCdebQRL0QceovmK8tg5bBBor-ApB2bKYQ@mail.gmail.com>
-References: <47b27017-6cfb-4a5c-8403-120848902173@ziu.info>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
+Date: Fri, 24 Jun 2016 14:12:15 -0700
+Message-ID: <CALx6S35ii7nF0s9n2ocpvNcjo25uDHd+788X+3oTqc4sd1SjOQ@mail.gmail.com>
+References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
+ <CAFLxGvwmhTv0rTuDpg7r1vZ0GEU93j1QxV12mJ2c2W2qSJGRCQ@mail.gmail.com>
+ <20160623.034004.1518087003165708123.davem@davemloft.net> <576B94DA.7070804@nod.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Jiri Pirko <jiri@mellanox.com>, Florian Westphal <fw@strlen.de>
-To: Michal Soltys <soltys@ziu.info>, Ido Schimmel <idosch@mellanox.com>
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Richard Weinberger <richard@nod.at>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:35612 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751109AbcFXVJU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 17:09:20 -0400
-Received: by mail-wm0-f46.google.com with SMTP id v199so35678940wmv.0
-        for <netdev@vger.kernel.org>; Fri, 24 Jun 2016 14:09:19 -0700 (PDT)
-In-Reply-To: <47b27017-6cfb-4a5c-8403-120848902173@ziu.info>
+Received: from mail-it0-f42.google.com ([209.85.214.42]:38582 "EHLO
+	mail-it0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751109AbcFXVMR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 17:12:17 -0400
+Received: by mail-it0-f42.google.com with SMTP id h190so23843668ith.1
+        for <netdev@vger.kernel.org>; Fri, 24 Jun 2016 14:12:17 -0700 (PDT)
+In-Reply-To: <576B94DA.7070804@nod.at>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 24, 2016 at 10:14 PM, Michal Soltys <soltys@ziu.info> wrote:
-> Hi,
+On Thu, Jun 23, 2016 at 12:50 AM, Richard Weinberger <richard@nod.at> wrote:
+> Am 23.06.2016 um 09:40 schrieb David Miller:
+>> From: Richard Weinberger <richard.weinberger@gmail.com>
+>> Date: Thu, 23 Jun 2016 00:15:04 +0200
+>>
+>>> On Thu, Jun 16, 2016 at 7:51 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>>> Transports over UDP is intended to encapsulate TCP and other transport
+>>>> protocols directly and securely in UDP.
+>>>>
+>>>> The goal of this work is twofold:
+>>>>
+>>>> 1) Allow applications to run their own transport layer stack (i.e.from
+>>>>    userspace). This eliminates dependencies on the OS (e.g. solves a
+>>>>    major dependency issue for Facebook on clients).
+>>>
+>>> Facebook on clients would be a Facebook app on mobile devices?
+>>> Does that mean that the Facebook app is so advanced and complicated
+>>> that it needs a special TCP stack?!
+>>
+>> No, the TCP stack in the android/iOS/Windows kernel is so out of date
+>> that in order to get even moderately recent TCP features it is
+>> necessary to do this.
 >
-> In the last week I've been trying to get STP on the linux side (both its
-> builtin STP implementation as well as mstpd userspace daemon). Initially I
-> started with more complex setups (vlan aware bridge, bonds, mst) and
-> gradually (with identical problems on each step) ended with the most basic
-> setup that can be summarized by:
+> I see.
+> So the plan is bringing TOU into almost every kernel out there
+> and then ship Apps with their own TCP stacks since vendors are unable
+> to deliver decent updates.
 >
-> brctl addbr br0
-> brctl addif br0 eno1
-> brctl addif br0 eno2
-> brctl stp br0 on
-> ip li set eno1 up
-> ip li set eno2 up
-> ip li set br0 up
+> I didn't realize that the situation is *that* worse. :(
 >
-> The same config on switch's side (cisco 2960-x in its most basic
-> incarnation) - in the other words two cables between linux machine and the
-> switch, enabled stp, access ports in vlan1.
->
-> The end effect of this setup (and any of the more complex previous ones):
->
-> The switch respected BPDUs sent to it (if applicable) - for example it
-> complied properly if it's priority was less (numerically higher) than
-> linux's - showing linux box as root bridge, marking one port as root, the
-> other as alternate/blocking.
->
-> The linux box itself was completely deaf to any BPDUs arriving to it (e.g.
-> if it's priority was lower) and just keept pushing its own data units all
-> the time with little care (quickly leading to loops in some scenarios).
-> Whether it was builtin stp implementation, or whether it was mstpd's
-> stp/rstp/mstp - the behaviour was the same.
->
-> With the bridge itself happily claiming to be the root (despite lower
-> priority):
->
-> br0
->  bridge id              a000.000af77cddc4
->  designated root        a000.000af77cddc4
->  root port                 0
->
-> <cut>
->
-> enp8s0f0 (3)
->  port id                8003                    state forwarding
->  designated root        a000.000af77cddc4       path cost    4
->  designated bridge      a000.000af77cddc4
->
-> <cut>
-> (and analogous output from mstpctl tool)
->
-> tcpdump looked like:
->
-> 17:33:28.701425 00:0a:f7:7c:dd:c4 > 01:80:c2:00:00:00, 802.3, length 52:
-> LLC, dsap STP (0x42) Individual, ssap STP (0x42) Command, ctrl 0x03
-> : STP 802.1d, Config, Flags [none], bridge-id a000.00:0a:f7:7c:dd:c4.8003,
-> length 35
->         message-age 0.00s, max-age 20.00s, hello-time 2.00s,
-> forwarding-delay 15.00s
->         root-id a000.00:0a:f7:7c:dd:c4, root-pathcost 0
-> 17:33:29.026185 18:8b:45:6f:38:86 > 01:80:c2:00:00:00, 802.3, length 60:
-> LLC, dsap STP (0x42) Individual, ssap STP (0x42) Command, ctrl 0x03
-> : STP 802.1d, Config, Flags [none], bridge-id 2001.18:8b:45:6f:38:80.8006,
-> length 43
->         message-age 0.00s, max-age 20.00s, hello-time 2.00s,
-> forwarding-delay 15.00s
->         root-id 2001.18:8b:45:6f:38:80, root-pathcost 0
->
-> The first sent by linux box, the second by the switch (the above from basic
-> stp scenario on both sides).
->
->
-> The cards in question used:
-> Ethernet controller: Broadcom Corporation NetXtreme BCM5719 Gigabit Ethernet
-> PCIe (rev 01) handled by:
->
-> driver: tg3
-> version: 3.137
-> firmware-version: FFV7.10.17 bc 5719-v1.37
->
->
-> Linux is fresh stock archlinux (so vanilla 4.6.2 kernel and the most (or
-> almost) recent userland utils - iproute2, etc.), running on relatively
-> recent poweredge dell.
->
-> I'm kind of lost at this point - am I missing some basic
-> options/sysctls/sysfs ? Is there some known incompatibility here somewhere
-> between switch/linux/nic/versions/etc. ? Some by-default enabled BPDU
-> filtering maybe ?
->
->
-> Any suggestions / hints appreciated.
+The client OS side is only part of the story. Middlebox intrusion at
+L4 is also a major issue we need to address. The "failure" of TFO is a
+good case study. Both the upgrade issues on clients and the tendency
+for some middleboxes to drop SYN packets with data have together
+severely hindered what otherwise should have been straightforward and
+useful feature to deploy.
 
-Please see Ido Schimmel's fix "[net] bridge: Fix incorrect
-re-injection of STP packets",
-https://patchwork.ozlabs.org/patch/629768/
+Tom
+
+> //richard
