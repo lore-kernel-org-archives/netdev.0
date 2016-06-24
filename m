@@ -1,7 +1,7 @@
-From: Tom Herbert <tom@herbertland.com>
+From: Alexander Duyck <alexander.duyck@gmail.com>
 Subject: Re: [PATCH net-next 0/5] qed/qede: Tunnel hardware GRO support
-Date: Fri, 24 Jun 2016 09:31:12 -0700
-Message-ID: <CALx6S341Pb-fq+trudZDOY3SpFzJvyqhrTGQd+7t0hDc3Jr_ig@mail.gmail.com>
+Date: Fri, 24 Jun 2016 09:44:24 -0700
+Message-ID: <CAKgT0Ud3RQjLFJZKX-MGphbdNi83c9q5QnaU4dV3X0WHGD-vLA@mail.gmail.com>
 References: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
  <CAKgT0Ue6_cPb88wfTtMMetJzBSJnGDNWj8YVHWC=9WdztCxOuQ@mail.gmail.com>
  <CO2PR11MB008891D4ECFF86F32B1C32CC972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
@@ -13,82 +13,55 @@ References: <1466583926-27762-1-git-send-email-manish.chopra@qlogic.com>
  <CAKgT0Uex41aBJX84we2gxNGw6M4s5xGEPnDkGehTZkEE+i+Jhw@mail.gmail.com>
  <CO2PR11MB0088B3C577EC110B845C17B3972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
  <CO2PR11MB0088949623FA99ED86D33205972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
- <CAKgT0Uc7cCu-5SwrB+4Mv6OM+V1jDwefOoG-Wr61C4F1g1BmFA@mail.gmail.com> <058fd87e-4dbe-f80e-0606-508956f339a7@solarflare.com>
+ <CAKgT0Uc7cCu-5SwrB+4Mv6OM+V1jDwefOoG-Wr61C4F1g1BmFA@mail.gmail.com>
+ <CO2PR11MB00884BBC91DE36D3FA78796C972D0@CO2PR11MB0088.namprd11.prod.outlook.com>
+ <CAKgT0UfPFsv6aH9aQQPD3gZ_0netSS85-mNLnb1bGjvtdyu6fw@mail.gmail.com> <CO2PR11MB0088862F73DF6A1F99DDAA6D972E0@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck@gmail.com>,
-	Yuval Mintz <Yuval.Mintz@qlogic.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
 	Rick Jones <rick.jones2@hpe.com>,
 	Manish Chopra <manish.chopra@qlogic.com>,
 	David Miller <davem@davemloft.net>,
 	netdev <netdev@vger.kernel.org>,
 	Ariel Elior <Ariel.Elior@qlogic.com>,
-	Hannes Frederic Sowa <hannes@redhat.com>,
-	Bert Kenward <bkenward@solarflare.com>
-To: Edward Cree <ecree@solarflare.com>
+	Tom Herbert <tom@herbertland.com>,
+	Hannes Frederic Sowa <hannes@redhat.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f54.google.com ([209.85.214.54]:34036 "EHLO
-	mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751081AbcFXQbP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 12:31:15 -0400
-Received: by mail-it0-f54.google.com with SMTP id g127so7871456ith.1
-        for <netdev@vger.kernel.org>; Fri, 24 Jun 2016 09:31:14 -0700 (PDT)
-In-Reply-To: <058fd87e-4dbe-f80e-0606-508956f339a7@solarflare.com>
+Received: from mail-it0-f43.google.com ([209.85.214.43]:35752 "EHLO
+	mail-it0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751452AbcFXQo0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 12:44:26 -0400
+Received: by mail-it0-f43.google.com with SMTP id g127so19398443ith.0
+        for <netdev@vger.kernel.org>; Fri, 24 Jun 2016 09:44:26 -0700 (PDT)
+In-Reply-To: <CO2PR11MB0088862F73DF6A1F99DDAA6D972E0@CO2PR11MB0088.namprd11.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 24, 2016 at 6:09 AM, Edward Cree <ecree@solarflare.com> wrote:
-> On 23/06/16 18:07, Alexander Duyck wrote:
->> I would prefer to see us extend LRO to support "close enough GRO"
->> instead of have us extend GRO to also include LRO.
-> This reminds me of something I've been meaning to bring up (sorry for
-> slightly OT, but it might turn out relevant after all).
-> In sfc we have an (out-of-tree and likely staying that way) LRO that's
-> entirely in software.  The only reason it exists is for users who want
-> the 'permissive' merging behaviour of LRO, i.e. they don't need the
-> guarantees of reversibility and by merging more stuff they can get
-> slightly higher performance.
-> I wonder if it would be a good idea for the GRO implementation to have
-> some knobs to allow setting it to behave in this way.
-> That would imply a scheme to define various GRO/SSR semantics, which
-> then would also be a convenient interface for a driver to report the
-> semantics of its hardware LRO if it has any.
-> And it would make crystal clear that the difference between GRO and
-> LRO is kernel vs hardware, rather than reversible vs not.
+On Thu, Jun 23, 2016 at 10:20 PM, Yuval Mintz <Yuval.Mintz@qlogic.com> wrote:
+>>We already know of one firmware bug you guys have which makes
+>>it clear that the bnx2x is not doing hardware assisted GRO it is doing
+>>something else since it performs much worse than GRO if the MSS is
+>>less than what it would be based on the MTU.
 >
-Ed,
+> It's a bit nitpicky, isn't it? Claiming this flaw means it's not GRO.
+> I.e., you obviously wouldn't have claimed it beacme GRO if it
+> was fixed.
+>
+> Not saying it makes a lot of difference, though.
 
-Because you took this OT... ;-)
+The fact is LRO and GRO are two separate things.  Even without the bug
+in the firmware I would still be saying the are two very different
+things.  Your GRO implementation only supports a subset of the
+features that GRO has in the hardware.  The way the kernel has
+implemented things we should keep GRO and GSO symmetric if at all
+possible.  There aren't currently any GSO hardware offloads so there
+probably shouldn't be any GRO hardware offloads.  On the other hand
+devices do support TSO hardware offloads so it would make sense to
+match that up and support LRO as the hardware equivalent of GRO.
 
-LRO/GRO is the one of the five common offloads that has no generic
-analogue and requires protocol specific logic. For instance each
-IP-over-foo encapsulation needs kernel code for GRO, device/driver
-code for LRO. I think the answer here is to make both GRO and LRO to
-be user programmable via BPF. That is, instead of needing to add code
-or buy a new device to support every new protocol, we really just want
-to write a program for it that runs in any environment. In the case of
-LRO this becomes especially important since it resolves the "black
-box" nature of LRO in devices, so design goals like ensuring LRO is
-"close enough to GRO" become something we (the stack) have some
-control over.
+Anyway that is my opinion.  It may be nitpicky but I don't fee that we
+should be re-purposing feature bits that were meant to be software
+features to represent hardware ones.
 
-We've already moved GRO for to be a attribute of a UDP sockets, it is
-not much of a stretch now to allow applications to define their own
-GRO for their protocols (I'm thinking protocols like QUIC or TOU could
-use this).
-
-For programmable LRO I think the solution is to use XDP. For instance
-protocol specific parsing would done by the BPF program to identify
-the flows, and the infrastructure would provide the backend handling.
-The advantage of XDP for this is that it is not platform specific, so
-programmable LRO could be implemented in the driver (probably
-leveraging existing LRO solution like sfc), or it could be implemented
-implemented in HW using the exact same program (with HW support for
-BPF/XDP). Since such a program allows arbitrary parsing and flow
-lookup, we can match on specific n-tuples as needed to resolve the
-UDP-encapsulation identification problem.
-
-Tom
-
-> -Ed
+- Alex
