@@ -1,7 +1,7 @@
 From: Grygorii Strashko <grygorii.strashko@ti.com>
-Subject: [PATCH v2 03/15] drivers: net: cpsw: remove pm runtime calls from suspend callbacks
-Date: Fri, 24 Jun 2016 21:23:43 +0300
-Message-ID: <20160624182355.23515-4-grygorii.strashko@ti.com>
+Subject: [PATCH v2 02/15] drivers: net: cpsw: check return code from pm runtime calls
+Date: Fri, 24 Jun 2016 21:23:42 +0300
+Message-ID: <20160624182355.23515-3-grygorii.strashko@ti.com>
 References: <20160624182355.23515-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -17,38 +17,42 @@ In-Reply-To: <20160624182355.23515-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-PM runtime is properly handled in cpsw_ndo_open/stop(), as result it
-isn't required to duplicate these calls in .suspend()/.resume()
-callbacks. Moreover, it might cause unnecessary RPM resume of CPSW
-during System suspend in the case it's already suspended because
-all ethX interfaces are down already, before System suspend started.
+Add missed check of return code from PM runtime get() calls.
 
 Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 ---
- drivers/net/ethernet/ti/cpsw.c | 4 ----
- 1 file changed, 4 deletions(-)
+ drivers/net/ethernet/ti/cpsw.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
-index c76f9db..ba81d4e 100644
+index 736c77a..c76f9db 100644
 --- a/drivers/net/ethernet/ti/cpsw.c
 +++ b/drivers/net/ethernet/ti/cpsw.c
-@@ -2573,8 +2573,6 @@ static int cpsw_suspend(struct device *dev)
- 			cpsw_ndo_stop(ndev);
- 	}
+@@ -1253,7 +1253,11 @@ static int cpsw_ndo_open(struct net_device *ndev)
+ 	int i, ret;
+ 	u32 reg;
  
--	pm_runtime_put_sync(&pdev->dev);
--
- 	/* Select sleep pin state */
- 	pinctrl_pm_select_sleep_state(&pdev->dev);
+-	pm_runtime_get_sync(&priv->pdev->dev);
++	ret = pm_runtime_get_sync(&priv->pdev->dev);
++	if (ret < 0) {
++		pm_runtime_put_noidle(&priv->pdev->dev);
++		return ret;
++	}
  
-@@ -2587,8 +2585,6 @@ static int cpsw_resume(struct device *dev)
- 	struct net_device	*ndev = platform_get_drvdata(pdev);
- 	struct cpsw_priv	*priv = netdev_priv(ndev);
- 
+ 	if (!cpsw_common_res_usage_state(priv))
+ 		cpsw_intr_disable(priv);
+@@ -2322,7 +2326,11 @@ static int cpsw_probe(struct platform_device *pdev)
+ 	/* Need to enable clocks with runtime PM api to access module
+ 	 * registers
+ 	 */
 -	pm_runtime_get_sync(&pdev->dev);
--
- 	/* Select default pin state */
- 	pinctrl_pm_select_default_state(&pdev->dev);
++	ret = pm_runtime_get_sync(&pdev->dev);
++	if (ret < 0) {
++		pm_runtime_put_noidle(&pdev->dev);
++		goto clean_runtime_disable_ret;
++	}
+ 	priv->version = readl(&priv->regs->id_ver);
+ 	pm_runtime_put_sync(&pdev->dev);
  
 -- 
 2.9.0
