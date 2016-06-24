@@ -1,58 +1,78 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: Re: switch / linux STP interoperation issues.
-Date: Fri, 24 Jun 2016 23:54:47 +0200
-Message-ID: <9da2c1a2-0e9d-9eb1-0c10-f790d0afc7ec@ziu.info>
-References: <47b27017-6cfb-4a5c-8403-120848902173@ziu.info>
- <CAA1AmC2n1zW5gfZEyCdebQRL0QceovmK8tg5bBBor-ApB2bKYQ@mail.gmail.com>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
+Date: Fri, 24 Jun 2016 15:06:49 -0700
+Message-ID: <576DAEF9.8080501@hpe.com>
+References: <1466099522-690741-1-git-send-email-tom@herbertland.com>
+ <CAFLxGvwmhTv0rTuDpg7r1vZ0GEU93j1QxV12mJ2c2W2qSJGRCQ@mail.gmail.com>
+ <20160623.034004.1518087003165708123.davem@davemloft.net>
+ <576B94DA.7070804@nod.at>
+ <CALx6S35ii7nF0s9n2ocpvNcjo25uDHd+788X+3oTqc4sd1SjOQ@mail.gmail.com>
+ <576DA7C4.7040108@hpe.com>
+ <CALx6S34Vu_xG7jjTSdFXdbkJOfKt=639ji5DX4gOjObi8Nf+7A@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Jiri Pirko <jiri@mellanox.com>, Florian Westphal <fw@strlen.de>
-To: Elad Raz <e@eladraz.com>, Ido Schimmel <idosch@mellanox.com>
+Cc: Richard Weinberger <richard@nod.at>,
+	David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drutsystem.com ([84.10.39.251]:49403 "EHLO drutsystem.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751755AbcFXVyy (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 24 Jun 2016 17:54:54 -0400
-In-Reply-To: <CAA1AmC2n1zW5gfZEyCdebQRL0QceovmK8tg5bBBor-ApB2bKYQ@mail.gmail.com>
+Received: from g2t1383g.austin.hpe.com ([15.233.16.89]:47833 "EHLO
+	g2t1383g.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751010AbcFXWGx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 18:06:53 -0400
+Received: from g9t5008.houston.hpe.com (g9t5008.houston.hpe.com [15.241.48.72])
+	(using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hpe.com (Postfix) with ESMTPS id 5154C243
+	for <netdev@vger.kernel.org>; Fri, 24 Jun 2016 22:06:52 +0000 (UTC)
+In-Reply-To: <CALx6S34Vu_xG7jjTSdFXdbkJOfKt=639ji5DX4gOjObi8Nf+7A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016-06-24 23:09, Elad Raz wrote:
-> On Fri, Jun 24, 2016 at 10:14 PM, Michal Soltys <soltys@ziu.info> wrote:
->> Hi,
->>  <cut ..>
->> The switch respected BPDUs sent to it (if applicable) - for example it
->> complied properly if it's priority was less (numerically higher) than
->> linux's - showing linux box as root bridge, marking one port as root, the
->> other as alternate/blocking.
+On 06/24/2016 02:46 PM, Tom Herbert wrote:
+> On Fri, Jun 24, 2016 at 2:36 PM, Rick Jones <rick.jones2@hpe.com> wrote:
+>> How would you define "severely?"  Has it actually been more severe than for
+>> say ECN?  Or it was for say SACK or PAWS?
 >>
->> The linux box itself was completely deaf to any BPDUs arriving to it (e.g.
->> if it's priority was lower) and just keept pushing its own data units all
->> the time with little care (quickly leading to loops in some scenarios).
->> Whether it was builtin stp implementation, or whether it was mstpd's
->> stp/rstp/mstp - the behaviour was the same.
->>
->>
->>
->> Linux is fresh stock archlinux (so vanilla 4.6.2 kernel and the most (or
->> almost) recent userland utils - iproute2, etc.), running on relatively
->> recent poweredge dell.
->>
->> I'm kind of lost at this point - am I missing some basic
->> options/sysctls/sysfs ? Is there some known incompatibility here somewhere
->> between switch/linux/nic/versions/etc. ? Some by-default enabled BPDU
->> filtering maybe ?
->>  <cut ..>
->>
->> Any suggestions / hints appreciated.
+> ECN is probably even a bigger disappointment in terms of seeing
+> deployment :-( From http://ecn.ethz.ch/ecn-pam15.pdf:
 >
-> Please see Ido Schimmel's fix "[net] bridge: Fix incorrect
-> re-injection of STP packets",
-> https://patchwork.ozlabs.org/patch/629768/
+> "Even though ECN was standardized in 2001, and it is widely
+> implemented in end-systems, it is barely deployed. This is due to a
+> history of problems with severely broken middleboxes shortly after
+> standardization, which led to connectivity failure and guidance to
+> leave ECN disabled."
 >
+> SACK and PAWS seemed to have faired a little better I believe.
 
-Thanks !
+The conclusion of that (rather interesting) paper reads:
 
-Will test it on monday asap.
+"Our analysis therefore indicates that enabling ECN by default would
+lead to connections to about five websites per thousand to suffer
+additional setup latency with RFC 3168 fallback. This represents an
+order of magnitude fewer than the about forty per thousand which
+experience transient or permanent connection failure due to other
+operational issues"
+
+Doesn't that then suggest that not enabling ECN is basically a matter of 
+FUD more than remaining assumed broken middleboxes?
+
+My main point is that in the past at least, trouble with broken 
+middleboxes didn't lead us to start wrapping all our TCP/transport 
+traffic in UDP to try to hide it from them.  We've managed to get SACK 
+and PAWS universal without having to resort to that, and it would seem 
+we could get ECN universal if we could overcome our FUD.  Why would TFO 
+for instance be any different?
+
+There was an equally interesting second paragraph in the conclusion:
+
+"As not all websites are equally popular, failures on five per thousand
+websites does not by any means imply that five per thousand connection 
+attempts will fail. While estimation of connection attempt rate by rank 
+is out of scope of this work, we note that the highest ranked website 
+exhibiting stable connection failure has rank 596, and only 13 such 
+sites appear in the top 5000"
+
+rick jones
