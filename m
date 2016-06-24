@@ -1,49 +1,35 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH iproute2 0/6] Add support for vrf keyword
-Date: Thu, 23 Jun 2016 19:46:02 -0600
-Message-ID: <074b0f4f-7d76-7f03-79b1-c1b1f0a40303@cumulusnetworks.com>
-References: <1465937972-25011-1-git-send-email-dsa@cumulusnetworks.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: esp: Fix ESN generation under UDP encapsulation
+Date: Fri, 24 Jun 2016 09:52:51 +0800
+Message-ID: <20160624015251.GB15308@gondor.apana.org.au>
+References: <20160620105934.GL7698@gauss.secunet.com>
+ <576B64B1.9030000@alliedtelesis.co.nz>
+ <20160623104007.GO7698@gauss.secunet.com>
+ <20160623.115245.451201603985254809.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@vger.kernel.org,
-	Stephen Hemminger <stephen@networkplumber.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: steffen.klassert@secunet.com, Blair.Steven@alliedtelesis.co.nz,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:32852 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750847AbcFXBqG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 21:46:06 -0400
-Received: by mail-pf0-f171.google.com with SMTP id i123so34015567pfg.0
-        for <netdev@vger.kernel.org>; Thu, 23 Jun 2016 18:46:05 -0700 (PDT)
-In-Reply-To: <1465937972-25011-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from helcar.hengli.com.au ([209.40.204.226]:45779 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750847AbcFXBxA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 23 Jun 2016 21:53:00 -0400
+Content-Disposition: inline
+In-Reply-To: <20160623.115245.451201603985254809.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/14/16 2:59 PM, David Ahern wrote:
-> Currently the syntax for VRF related commands is rather kludgy and
-> inconsistent from one subcommand to another. This set adds support
-> for the VRF keyword to the link, address, neigh, and route commands
-> to improve the user experience listing data associated with vrfs,
-> modifying routes or doing a route lookup.
->
-> David Ahern (6):
->   ip vrf: Add name_is_vrf
->   ip link/addr: Add support for vrf keyword
->   ip neigh: Add support for keyword
->   ip route: Change type mask to bitmask
->   ip vrf: Add ipvrf_get_table
->   ip route: Add support for vrf keyword
->
->  ip/ip_common.h  |   3 ++
->  ip/ipaddress.c  |  11 ++++++
->  ip/iplink.c     |  15 ++++++-
->  ip/iplink_vrf.c | 119 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++
->  ip/ipneigh.c    |  14 ++++++-
->  ip/iproute.c    |  43 ++++++++++++++++----
->  6 files changed, 195 insertions(+), 10 deletions(-)
->
+On Thu, Jun 23, 2016 at 11:52:45AM -0400, David Miller wrote:
+> 
+> Does the ipv6 side need the same fix?
 
-Stephen: This patchset is marked 'Changes Requested' in patchworks, yet 
-I have not seen any responses to them. What change was requested?
+Last I checked IPv6 didn't do IPsec UDP-encapsulation so we're
+safe for now.
 
-David
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
