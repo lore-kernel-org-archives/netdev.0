@@ -1,55 +1,77 @@
-From: Jouni Malinen <j@w1.fi>
-Subject: Re: [PATCH] mac80211_hwsim: Added vendor echo command
-Date: Fri, 24 Jun 2016 23:47:59 +0300
-Message-ID: <20160624204759.GA15514@w1.fi>
-References: <1466756034-5485-1-git-send-email-erik.stromdahl@gmail.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [PATCH net] sock_diag: invert socket destroy broadcast check
+Date: Fri, 24 Jun 2016 15:41:05 -0500
+Message-ID: <8737o2721q.fsf@x220.int.ebiederm.org>
+References: <1466798630-40553-1-git-send-email-willemdebruijn.kernel@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Erik Stromdahl <erik.stromdahl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1466756034-5485-1-git-send-email-erik.stromdahl-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: netdev@vger.kernel.org, davem@davemloft.net, kraig@google.com,
+	eric.dumazet@gmail.com, Willem de Bruijn <willemb@google.com>
+To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from out03.mta.xmission.com ([166.70.13.233]:41936 "EHLO
+	out03.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751308AbcFXUxR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 24 Jun 2016 16:53:17 -0400
+In-Reply-To: <1466798630-40553-1-git-send-email-willemdebruijn.kernel@gmail.com>
+	(Willem de Bruijn's message of "Fri, 24 Jun 2016 16:03:50 -0400")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 24, 2016 at 10:13:54AM +0200, Erik Stromdahl wrote:
-> The purpose of the echo command is to provide a test
-> facility for user space programs.
+Willem de Bruijn <willemdebruijn.kernel@gmail.com> writes:
 
-> diff --git a/drivers/net/wireless/mac80211_hwsim.c b/drivers/net/wireless/mac80211_hwsim.c
-> @@ -332,14 +332,16 @@ static const struct ieee80211_rate hwsim_rates[] = {
->  #define QCA_NL80211_SUBCMD_TEST 1
-> +#define QCA_NL80211_SUBCMD_ECHO 2
+> From: Willem de Bruijn <willemb@google.com>
+>
+> Socket destruction is only broadcast for a socket sk if a diag
+> listener is registered and sk is not a kernel socket.
+>
+> Invert the test to not even check for listeners for kernel sockets.
+>
+> The sock_diag_has_destroy_listeners invocation dereferences
+> sock_net(sk), which for kernel sockets can be invalid as they do not
+> take a reference on the network namespace.
 
-NAK. That QCA vendor specific value has not been assigned nor have I
-even seen a request to assign such a value.
+No.  That isn't so.  A kernel socket for a network namespace must be
+destroyed in the network namespace teardown.
 
->  enum qca_nl80211_vendor_subcmds {
->  	QCA_WLAN_VENDOR_ATTR_TEST = 8,
-> -	QCA_WLAN_VENDOR_ATTR_MAX = QCA_WLAN_VENDOR_ATTR_TEST
-> +	QCA_WLAN_VENDOR_ATTR_ECHO,
+Therefore sock_net(sk) should always be valid.  If sock_net(sk) is not
+valid something very broken is going on.
 
-And this vendor attribute value has already been assigned for another
-purpose.
+Eric
 
-It is no acceptable to pick arbitrary values of identifiers without
-proper request to the owner of the OUI that is used to assign the
-values.
-
-As far as the QCA vendor specific identifiers are concerned, their
-assignment process is described here:
-http://w1.fi/cgit/hostap/plain/src/common/qca-vendor.h
-
-Please do not submit kernel changes that use any unassigned vendor
-identifier or even worse, a value that have already been assigned for a
-completely different purpose.
- 
--- 
-Jouni Malinen                                            PGP id EFC895FA
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Fixes: b922622ec6ef ("sock_diag: don't broadcast kernel sockets")
+> Fixes: 26abe14379f8 ("net: Modify sk_alloc to not reference count the
+>                       netns of kernel sockets.")
+> Signed-off-by: Willem de Bruijn <willemb@google.com>
+>
+> ---
+>
+> This patch fixes this immediate codepath. A broader issue of live
+> kernel sockets pointing to deleted namespaces may persist.
+>
+> I observed skbs queued on a device queue in another namespace from
+> a kernel socket in SOCK_DEAD state with dangling sock_net(sk). Socket
+> refcnt is zero, but sk_wmem_alloc is not. (This was on an older
+> kernel, have not yet tried to reproduce on net).
+>
+> It seems that we may need to reintroduce namespace reference counting
+> for kernel sockets (with two-stage deletion to avoid the circular
+> reference), scrub packets between namespaces, or reparent kernel
+> sockets to init_net on namespace destruction.
+> ---
+>  net/core/sock.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/net/core/sock.c b/net/core/sock.c
+> index 08bf97e..ba082b4 100644
+> --- a/net/core/sock.c
+> +++ b/net/core/sock.c
+> @@ -1473,7 +1473,7 @@ void sk_destruct(struct sock *sk)
+>  
+>  static void __sk_free(struct sock *sk)
+>  {
+> -	if (unlikely(sock_diag_has_destroy_listeners(sk) && sk->sk_net_refcnt))
+> +	if (unlikely(sk->sk_net_refcnt && sock_diag_has_destroy_listeners(sk)))
+>  		sock_diag_broadcast_destroy(sk);
+>  	else
+>  		sk_destruct(sk);
