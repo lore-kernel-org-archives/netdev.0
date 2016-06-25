@@ -1,122 +1,37 @@
-From: Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-Subject: Re: [PATCH] of_mdio: select fixed phy support unconditionally
-Date: Sat, 25 Jun 2016 10:55:10 -0700
-Message-ID: <576EC57E.9070203@infradead.org>
-References: <20160624092450.1507991-1-arnd@arndb.de>
+From: Max Filippov <jcmvbkbc@gmail.com>
+Subject: Re: [PATCH 1/2] net: ethernet: ethoc: use phydev from struct
+ net_device
+Date: Sat, 25 Jun 2016 21:31:09 +0300
+Message-ID: <20160625183109.GA10453@octofox.metropolis>
+References: <1466865222-11840-1-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
-	Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
-	Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160624092450.1507991-1-arnd-r2nGTMty4D4@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, andrew@lunn.ch, tklauser@distanz.ch,
+	colin.king@canonical.com, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Philippe Reynes <tremyfr@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f68.google.com ([209.85.215.68]:34589 "EHLO
+	mail-lf0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751349AbcFYSbS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2016 14:31:18 -0400
+Content-Disposition: inline
+In-Reply-To: <1466865222-11840-1-git-send-email-tremyfr@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/24/16 02:24, Arnd Bergmann wrote:
-> Calling the fixed-phy functions when CONFIG_FIXED_PHY=m as a previous
-> change tried cannot work if the caller is in built-in code:
+On Sat, Jun 25, 2016 at 04:33:41PM +0200, Philippe Reynes wrote:
+> The private structure contain a pointer to phydev, but the structure
+> net_device already contain such pointer. So we can remove the pointer
+> phy in the private structure, and update the driver to use the
+> one contained in struct net_device.
 > 
-> drivers/of/built-in.o: In function `of_phy_register_fixed_link':
-> of_reserved_mem.c:(.text+0x85e0): undefined reference to `fixed_phy_register'
-> 
-> Making of_mdio depend on 'FIXED_PHY || !FIXED_PHY' would solve this
-> dependency by enforcing that OF_MDIO itself becomes a loadable module
-> when FIXED_PHY=y, but that creates a different dependency as it
-> breaks any built-in ethernet driver that uses of_mdio.
-> 
-> Making FIXED_PHY a bool option also cannot work, since it depends on
-> PHYLIB, which again is tristate.
-> 
-> This version now uses 'select FIXED_PHY' to ensure that the fixed-phy
-> portion of of_mdio is not optional. The main downside of this is
-> a small increase in code size for cases that do not need fixed phy
-> support, but it should avoid all of the link-time problems.
-> 
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-> Fixes: d1bd330a229f ("of_mdio: Enable fixed PHY support if driver is a module")
-
-Fixes the build errors that I was seeing.  Thanks.
-
-Acked-by: Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
-
-
+> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 > ---
->  drivers/of/Kconfig      | 1 +
->  drivers/of/of_mdio.c    | 2 --
->  include/linux/of_mdio.h | 8 ++------
->  3 files changed, 3 insertions(+), 8 deletions(-)
-> 
-> diff --git a/drivers/of/Kconfig b/drivers/of/Kconfig
-> index b3bec3aaa45d..bc07ad30c9bf 100644
-> --- a/drivers/of/Kconfig
-> +++ b/drivers/of/Kconfig
-> @@ -74,6 +74,7 @@ config OF_NET
->  config OF_MDIO
->  	def_tristate PHYLIB
->  	depends on PHYLIB
-> +	select FIXED_PHY
->  	help
->  	  OpenFirmware MDIO bus (Ethernet PHY) accessors
->  
-> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
-> index de68707a99c7..e2b50bc12f23 100644
-> --- a/drivers/of/of_mdio.c
-> +++ b/drivers/of/of_mdio.c
-> @@ -361,7 +361,6 @@ struct phy_device *of_phy_attach(struct net_device *dev,
->  }
->  EXPORT_SYMBOL(of_phy_attach);
->  
-> -#if IS_ENABLED(CONFIG_FIXED_PHY)
->  /*
->   * of_phy_is_fixed_link() and of_phy_register_fixed_link() must
->   * support two DT bindings:
-> @@ -451,4 +450,3 @@ int of_phy_register_fixed_link(struct device_node *np)
->  	return -ENODEV;
->  }
->  EXPORT_SYMBOL(of_phy_register_fixed_link);
-> -#endif
-> diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
-> index 6c8cb9aa4c00..4b04587d0441 100644
-> --- a/include/linux/of_mdio.h
-> +++ b/include/linux/of_mdio.h
-> @@ -25,6 +25,8 @@ struct phy_device *of_phy_attach(struct net_device *dev,
->  
->  extern struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np);
->  extern int of_mdio_parse_addr(struct device *dev, const struct device_node *np);
-> +extern int of_phy_register_fixed_link(struct device_node *np);
-> +extern bool of_phy_is_fixed_link(struct device_node *np);
->  
->  #else /* CONFIG_OF */
->  static inline int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
-> @@ -67,12 +69,6 @@ static inline int of_mdio_parse_addr(struct device *dev,
->  {
->  	return -ENOSYS;
->  }
-> -#endif /* CONFIG_OF */
-> -
-> -#if defined(CONFIG_OF) && IS_ENABLED(CONFIG_FIXED_PHY)
-> -extern int of_phy_register_fixed_link(struct device_node *np);
-> -extern bool of_phy_is_fixed_link(struct device_node *np);
-> -#else
->  static inline int of_phy_register_fixed_link(struct device_node *np)
->  {
->  	return -ENOSYS;
-> 
 
+Series:
+Tested-by: Max Filippov <jcmvbkbc@gmail.com>
 
 -- 
-~Randy
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Thanks.
+-- Max
