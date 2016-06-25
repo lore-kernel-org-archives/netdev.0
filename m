@@ -1,18 +1,17 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: sxgbe: use phy_ethtool_{get|set}_link_ksettings
-Date: Sat, 25 Jun 2016 22:05:27 +0200
-Message-ID: <1466885127-27794-2-git-send-email-tremyfr@gmail.com>
-References: <1466885127-27794-1-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH 2/2] net: ethernet: dwc_eth_qos: use phy_ethtool_{get|set}_link_ksettings
+Date: Sat, 25 Jun 2016 23:05:16 +0200
+Message-ID: <1466888716-31222-2-git-send-email-tremyfr@gmail.com>
+References: <1466888716-31222-1-git-send-email-tremyfr@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Philippe Reynes <tremyfr@gmail.com>
-To: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
-	davem@davemloft.net
+To: lars.persson@axis.com, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36516 "EHLO
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36088 "EHLO
 	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827AbcFYUFj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2016 16:05:39 -0400
-In-Reply-To: <1466885127-27794-1-git-send-email-tremyfr@gmail.com>
+	with ESMTP id S1751705AbcFYVFd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2016 17:05:33 -0400
+In-Reply-To: <1466888716-31222-1-git-send-email-tremyfr@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
@@ -21,54 +20,59 @@ so we can use them instead of defining the same code in the driver.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c |   21 +------------------
- 1 files changed, 2 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/synopsys/dwc_eth_qos.c |   26 ++------------------------
+ 1 files changed, 2 insertions(+), 24 deletions(-)
 
-diff --git a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-index 72c9108..542b67d 100644
---- a/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-+++ b/drivers/net/ethernet/samsung/sxgbe/sxgbe_ethtool.c
-@@ -182,23 +182,6 @@ static void sxgbe_getdrvinfo(struct net_device *dev,
- 	strlcpy(info->version, DRV_VERSION, sizeof(info->version));
+diff --git a/drivers/net/ethernet/synopsys/dwc_eth_qos.c b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+index 094234f..c14fa91 100644
+--- a/drivers/net/ethernet/synopsys/dwc_eth_qos.c
++++ b/drivers/net/ethernet/synopsys/dwc_eth_qos.c
+@@ -2524,28 +2524,6 @@ dwceqos_get_stats64(struct net_device *ndev, struct rtnl_link_stats64 *s)
+ 	return s;
  }
  
--static int sxgbe_getsettings(struct net_device *dev,
--			     struct ethtool_cmd *cmd)
+-static int
+-dwceqos_get_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
 -{
--	if (dev->phydev)
--		return phy_ethtool_gset(dev->phydev, cmd);
+-	struct phy_device *phydev = ndev->phydev;
 -
--	return -EOPNOTSUPP;
+-	if (!phydev)
+-		return -ENODEV;
+-
+-	return phy_ethtool_gset(phydev, ecmd);
 -}
 -
--static int sxgbe_setsettings(struct net_device *dev, struct ethtool_cmd *cmd)
+-static int
+-dwceqos_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
 -{
--	if (dev->phydev)
--		return phy_ethtool_sset(dev->phydev, cmd);
+-	struct phy_device *phydev = ndev->phydev;
 -
--	return -EOPNOTSUPP;
+-	if (!phydev)
+-		return -ENODEV;
+-
+-	return phy_ethtool_sset(phydev, ecmd);
 -}
 -
- static u32 sxgbe_getmsglevel(struct net_device *dev)
+ static void
+ dwceqos_get_drvinfo(struct net_device *ndev, struct ethtool_drvinfo *ed)
  {
- 	struct sxgbe_priv_data *priv = netdev_priv(dev);
-@@ -495,8 +478,6 @@ static int sxgbe_get_regs_len(struct net_device *dev)
+@@ -2764,8 +2742,6 @@ static void dwceqos_set_msglevel(struct net_device *ndev, u32 msglevel)
+ }
  
- static const struct ethtool_ops sxgbe_ethtool_ops = {
- 	.get_drvinfo = sxgbe_getdrvinfo,
--	.get_settings = sxgbe_getsettings,
--	.set_settings = sxgbe_setsettings,
- 	.get_msglevel = sxgbe_getmsglevel,
- 	.set_msglevel = sxgbe_setmsglevel,
- 	.get_link = ethtool_op_get_link,
-@@ -512,6 +493,8 @@ static const struct ethtool_ops sxgbe_ethtool_ops = {
- 	.get_regs_len = sxgbe_get_regs_len,
- 	.get_eee = sxgbe_get_eee,
- 	.set_eee = sxgbe_set_eee,
+ static struct ethtool_ops dwceqos_ethtool_ops = {
+-	.get_settings   = dwceqos_get_settings,
+-	.set_settings   = dwceqos_set_settings,
+ 	.get_drvinfo    = dwceqos_get_drvinfo,
+ 	.get_link       = ethtool_op_get_link,
+ 	.get_pauseparam = dwceqos_get_pauseparam,
+@@ -2779,6 +2755,8 @@ static struct ethtool_ops dwceqos_ethtool_ops = {
+ 	.set_eee        = dwceqos_set_eee,
+ 	.get_msglevel   = dwceqos_get_msglevel,
+ 	.set_msglevel   = dwceqos_set_msglevel,
 +	.get_link_ksettings = phy_ethtool_get_link_ksettings,
 +	.set_link_ksettings = phy_ethtool_set_link_ksettings,
  };
  
- void sxgbe_set_ethtool_ops(struct net_device *netdev)
+ static struct net_device_ops netdev_ops = {
 -- 
 1.7.4.4
