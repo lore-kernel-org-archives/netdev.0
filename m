@@ -1,136 +1,122 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: [PATCH RFC 3/3] ARM64: dts: meson-gxbb: use the new meson8b DWMAC glue
-Date: Sat, 25 Jun 2016 18:50:13 +0200
-Message-ID: <20160625165013.15917-4-martin.blumenstingl@googlemail.com>
-References: <20160625165013.15917-1-martin.blumenstingl@googlemail.com>
-Cc: carlo@caione.org, khilman@baylibre.com, robh+dt@kernel.org,
-	mark.rutland@arm.com, netdev@vger.kernel.org,
-	peppe.cavallaro@st.com,
-	Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-To: linux-amlogic@lists.infradead.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34464 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751573AbcFYQu0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2016 12:50:26 -0400
-Received: by mail-wm0-f65.google.com with SMTP id 187so13358922wmz.1
-        for <netdev@vger.kernel.org>; Sat, 25 Jun 2016 09:50:25 -0700 (PDT)
-In-Reply-To: <20160625165013.15917-1-martin.blumenstingl@googlemail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
+Subject: Re: [PATCH] of_mdio: select fixed phy support unconditionally
+Date: Sat, 25 Jun 2016 10:55:10 -0700
+Message-ID: <576EC57E.9070203@infradead.org>
+References: <20160624092450.1507991-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Frank Rowand <frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	David Daney <david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>,
+	Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>,
+	Ben Hutchings <ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org>,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160624092450.1507991-1-arnd-r2nGTMty4D4@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-The Amlogic reference driver uses the "mc_val" devicetree property to
-configure the PRG_ETHERNET_ADDR0 register. Unfortunately it uses magic
-values for this configuration.
+On 06/24/16 02:24, Arnd Bergmann wrote:
+> Calling the fixed-phy functions when CONFIG_FIXED_PHY=m as a previous
+> change tried cannot work if the caller is in built-in code:
+> 
+> drivers/of/built-in.o: In function `of_phy_register_fixed_link':
+> of_reserved_mem.c:(.text+0x85e0): undefined reference to `fixed_phy_register'
+> 
+> Making of_mdio depend on 'FIXED_PHY || !FIXED_PHY' would solve this
+> dependency by enforcing that OF_MDIO itself becomes a loadable module
+> when FIXED_PHY=y, but that creates a different dependency as it
+> breaks any built-in ethernet driver that uses of_mdio.
+> 
+> Making FIXED_PHY a bool option also cannot work, since it depends on
+> PHYLIB, which again is tristate.
+> 
+> This version now uses 'select FIXED_PHY' to ensure that the fixed-phy
+> portion of of_mdio is not optional. The main downside of this is
+> a small increase in code size for cases that do not need fixed phy
+> support, but it should avoid all of the link-time problems.
+> 
+> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+> Fixes: d1bd330a229f ("of_mdio: Enable fixed PHY support if driver is a module")
 
-According to the datasheet the PRG_ETHERNET_ADDR0 register is at address
-0xc8834108. However, the reference driver uses 0xc8834540 instead.
-According to my tests, the value from the reference driver is correct.
+Fixes the build errors that I was seeing.  Thanks.
 
-The updated examples are representing 0x1621 from the reference driver's
-mc_val property, which is used when there is an external gbit PHY
-connected.
-For RMII mode PHYs mc_val 0x1800 is used in the reference driver, which
-translates  would translate to "do not set any of the following
-properties" (as the two bits are configured automatically):
-- amlogic,enable-25mhz-phy-clk
-- amlogic,mp2-clock
-- amlogic,tx-delay
+Acked-by: Randy Dunlap <rdunlap-wEGCiKHe2LqWVfeAwA7xHQ@public.gmane.org>
 
-Signed-off-by: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
----
- arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts  |  4 ++++
- arch/arm64/boot/dts/amlogic/meson-gxbb-p20x.dtsi     |  4 ++++
- arch/arm64/boot/dts/amlogic/meson-gxbb-vega-s95.dtsi |  4 ++++
- arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi          | 12 +++++++++---
- 4 files changed, 21 insertions(+), 3 deletions(-)
 
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts b/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
-index b06bf8a..8d540ff 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
-+++ b/arch/arm64/boot/dts/amlogic/meson-gxbb-odroidc2.dts
-@@ -103,6 +103,10 @@
- 	status = "okay";
- 	pinctrl-0 = <&eth_pins>;
- 	pinctrl-names = "default";
-+
-+	amlogic,enable-25mhz-phy-clk;
-+	amlogic,mp2-clock = <MESON8B_DWMAC_MP2_CLOCK_1000MHZ>;
-+	amlogic,tx-delay = <MESON8B_DWMAC_TX_CLK_DELAY_QUARTER_CYCLE>;
- };
- 
- &sd_emmc_b {
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb-p20x.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxbb-p20x.dtsi
-index 5dfd849..4574677 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gxbb-p20x.dtsi
-+++ b/arch/arm64/boot/dts/amlogic/meson-gxbb-p20x.dtsi
-@@ -85,6 +85,10 @@
- 	status = "okay";
- 	pinctrl-0 = <&eth_pins>;
- 	pinctrl-names = "default";
-+
-+	amlogic,enable-25mhz-phy-clk;
-+	amlogic,mp2-clock = <MESON8B_DWMAC_MP2_CLOCK_1000MHZ>;
-+	amlogic,tx-delay = <MESON8B_DWMAC_TX_CLK_DELAY_QUARTER_CYCLE>;
- };
- 
- &sd_emmc_b {
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb-vega-s95.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxbb-vega-s95.dtsi
-index 3a77829..31ae35e 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gxbb-vega-s95.dtsi
-+++ b/arch/arm64/boot/dts/amlogic/meson-gxbb-vega-s95.dtsi
-@@ -83,6 +83,10 @@
- 	status = "okay";
- 	pinctrl-0 = <&eth_pins>;
- 	pinctrl-names = "default";
-+
-+	amlogic,enable-25mhz-phy-clk;
-+	amlogic,mp2-clock = <MESON8B_DWMAC_MP2_CLOCK_1000MHZ>;
-+	amlogic,tx-delay = <MESON8B_DWMAC_TX_CLK_DELAY_QUARTER_CYCLE>;
- };
- 
- &sd_emmc_b {
-diff --git a/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi b/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
-index 6c23965..463c2cd 100644
---- a/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
-+++ b/arch/arm64/boot/dts/amlogic/meson-gxbb.dtsi
-@@ -46,6 +46,7 @@
- #include <dt-bindings/gpio/meson-gxbb-gpio.h>
- #include <dt-bindings/reset/amlogic,meson-gxbb-reset.h>
- #include <dt-bindings/clock/gxbb-clkc.h>
-+#include <dt-bindings/net/amlogic-meson8b-dwmac.h>
- 
- / {
- 	compatible = "amlogic,meson-gxbb";
-@@ -308,6 +309,11 @@
- 					};
- 				};
- 			};
-+
-+			prg_ethernet: prg_ethernet@540 {
-+				compatible = "syscon";
-+				reg = <0x0 0x00540 0x0 0x8>;
-+			};
- 		};
- 
- 		hiubus: hiubus@c883c000 {
-@@ -354,14 +360,14 @@
- 		};
- 
- 		ethmac: ethernet@c9410000 {
--			compatible = "amlogic,meson6-dwmac", "snps,dwmac";
--			reg = <0x0 0xc9410000 0x0 0x10000
--			       0x0 0xc8834540 0x0 0x4>;
-+			compatible = "amlogic,meson8b-dwmac", "snps,dwmac";
-+			reg = <0x0 0xc9410000 0x0 0x10000>;
- 			interrupts = <0 8 1>;
- 			interrupt-names = "macirq";
- 			clocks = <&clkc CLKID_ETH>;
- 			clock-names = "stmmaceth";
- 			phy-mode = "rgmii";
-+			amlogic,prg-ethernet = <&prg_ethernet>;
- 			status = "disabled";
- 		};
- 	};
+> ---
+>  drivers/of/Kconfig      | 1 +
+>  drivers/of/of_mdio.c    | 2 --
+>  include/linux/of_mdio.h | 8 ++------
+>  3 files changed, 3 insertions(+), 8 deletions(-)
+> 
+> diff --git a/drivers/of/Kconfig b/drivers/of/Kconfig
+> index b3bec3aaa45d..bc07ad30c9bf 100644
+> --- a/drivers/of/Kconfig
+> +++ b/drivers/of/Kconfig
+> @@ -74,6 +74,7 @@ config OF_NET
+>  config OF_MDIO
+>  	def_tristate PHYLIB
+>  	depends on PHYLIB
+> +	select FIXED_PHY
+>  	help
+>  	  OpenFirmware MDIO bus (Ethernet PHY) accessors
+>  
+> diff --git a/drivers/of/of_mdio.c b/drivers/of/of_mdio.c
+> index de68707a99c7..e2b50bc12f23 100644
+> --- a/drivers/of/of_mdio.c
+> +++ b/drivers/of/of_mdio.c
+> @@ -361,7 +361,6 @@ struct phy_device *of_phy_attach(struct net_device *dev,
+>  }
+>  EXPORT_SYMBOL(of_phy_attach);
+>  
+> -#if IS_ENABLED(CONFIG_FIXED_PHY)
+>  /*
+>   * of_phy_is_fixed_link() and of_phy_register_fixed_link() must
+>   * support two DT bindings:
+> @@ -451,4 +450,3 @@ int of_phy_register_fixed_link(struct device_node *np)
+>  	return -ENODEV;
+>  }
+>  EXPORT_SYMBOL(of_phy_register_fixed_link);
+> -#endif
+> diff --git a/include/linux/of_mdio.h b/include/linux/of_mdio.h
+> index 6c8cb9aa4c00..4b04587d0441 100644
+> --- a/include/linux/of_mdio.h
+> +++ b/include/linux/of_mdio.h
+> @@ -25,6 +25,8 @@ struct phy_device *of_phy_attach(struct net_device *dev,
+>  
+>  extern struct mii_bus *of_mdio_find_bus(struct device_node *mdio_np);
+>  extern int of_mdio_parse_addr(struct device *dev, const struct device_node *np);
+> +extern int of_phy_register_fixed_link(struct device_node *np);
+> +extern bool of_phy_is_fixed_link(struct device_node *np);
+>  
+>  #else /* CONFIG_OF */
+>  static inline int of_mdiobus_register(struct mii_bus *mdio, struct device_node *np)
+> @@ -67,12 +69,6 @@ static inline int of_mdio_parse_addr(struct device *dev,
+>  {
+>  	return -ENOSYS;
+>  }
+> -#endif /* CONFIG_OF */
+> -
+> -#if defined(CONFIG_OF) && IS_ENABLED(CONFIG_FIXED_PHY)
+> -extern int of_phy_register_fixed_link(struct device_node *np);
+> -extern bool of_phy_is_fixed_link(struct device_node *np);
+> -#else
+>  static inline int of_phy_register_fixed_link(struct device_node *np)
+>  {
+>  	return -ENOSYS;
+> 
+
+
 -- 
-2.9.0
+~Randy
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
