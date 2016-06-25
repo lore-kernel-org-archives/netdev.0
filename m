@@ -1,92 +1,74 @@
-From: Roopa Prabhu <roopa@cumulusnetworks.com>
-Subject: Re: [patch net-next v5 0/4] return offloaded stats as default and
- expose original sw stats
-Date: Sat, 25 Jun 2016 08:50:59 -0700
-Message-ID: <CAJieiUjsMHdTbhGqyo+8ys7S5QZ9KYvTY+LDC-bbo6dRk3FBRw@mail.gmail.com>
-References: <1466522156-4795-1-git-send-email-jiri@resnulli.us>
- <CAJieiUgP3j=W=khq_q-y382eFurHQSCs_Td8Q_KHtru6La22XA@mail.gmail.com>
- <20160623054050.GA2060@nanopsycho.orion> <576BC7A7.2000704@cumulusnetworks.com>
- <20160623113508.GE2060@nanopsycho.orion> <CACcJQnTfr5n75q48aJQ3bwzfCd9oThTCHcR_qWG7R9aV13pOQw@mail.gmail.com>
- <20160623154038.GH2060@nanopsycho.orion>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH net-next 0/8] tou: Transports over UDP - part I
+Date: Sat, 25 Jun 2016 08:56:07 -0700
+Message-ID: <CALx6S37UHUWP-+LFvNtWn=oR_ucB3_EK2Bejr3pDsMOd1K8Qfw@mail.gmail.com>
+References: <CALx6S37+o2=Lqzxu_U4QiSvqnq8CjEq5uSpbKVfFfo8r5qD+6g@mail.gmail.com>
+ <20160621.042918.1782717212289281861.davem@davemloft.net> <CAPshTCgCVs5i1QyLeNPzw2W3X5+r_=5Hw1HOnD+cBsBQBRN35g@mail.gmail.com>
+ <20160622.152307.631430680793264716.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	Nogah Frankel <nogahf@mellanox.com>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Elad Raz <eladr@mellanox.com>,
-	Yotam Gigi <yotamg@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
-	John Linville <linville@tuxdriver.com>,
-	Thomas Graf <tgraf@suug.ch>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>, sd@queasysnail.net,
-	eranbe@mellanox.com, Alexei Starovoitov <ast@plumgrid.com>,
-	Eric Dumazet <edumazet@google.com>,
-	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
-	Florian Fainelli <f.fainelli@gmail.com>,
-	David Ahern <dsa@cumulusnetworks.com>
-To: Jiri Pirko <jiri@resnulli.us>
+Cc: Jerry Chu <hkchu@google.com>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Kernel Team <kernel-team@fb.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f46.google.com ([209.85.213.46]:34546 "EHLO
-	mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751565AbcFYPvC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2016 11:51:02 -0400
-Received: by mail-vk0-f46.google.com with SMTP id c2so155440107vkg.1
-        for <netdev@vger.kernel.org>; Sat, 25 Jun 2016 08:51:01 -0700 (PDT)
-In-Reply-To: <20160623154038.GH2060@nanopsycho.orion>
+Received: from mail-io0-f169.google.com ([209.85.223.169]:33397 "EHLO
+	mail-io0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751541AbcFYP4J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2016 11:56:09 -0400
+Received: by mail-io0-f169.google.com with SMTP id t74so122090680ioi.0
+        for <netdev@vger.kernel.org>; Sat, 25 Jun 2016 08:56:08 -0700 (PDT)
+In-Reply-To: <20160622.152307.631430680793264716.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 23, 2016 at 8:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
-> Thu, Jun 23, 2016 at 05:11:26PM CEST, anuradhak@cumulusnetworks.com wrote:
->>>>>> we can't separate CPU and HW stats there. In some cases (or ASICs) HW
->>>>>> counters do
->>>>>> not include CPU generated packets....you will have to add CPU
->>>>>> generated pkt counters to the
->>>>>> hw counters for such virtual device stats.
->>>>> Can you please provide and example how that could happen?
->>>>
->>>>example is the bridge vlan stats I mention below. These are usually counted
->>>>by attaching hw virtual counter resources. And CPU generated packets
->>>>in some cases maybe setup to bypass the ASIC pipeline because the CPU
->>>>has already made the required decisions. So, they may not be counted by
->>>>by such hw virtual counters.
->>>
->>> Bypass ASIC? How do the packets get on the wire?
->>>
->>
->>Bypass the "forwarding pipeline" in the ASIC that is. Obviously the
->>ASIC ships the CPU generated packet out of the switch/front-panel
->>port. Continuing Roopa's example of vlan netdev stats.... To get the
->>HW stats counters are typically tied to the ingress and egress vlan hw
->>entries. All the incoming packets are subject to the ingress vlan
->>lookup irrespective of whether they get punted to the CPU or whether
->>they are forwarded to another front panel port. In that case the
->>ingress HW stats does represent all packets. However for CPU
->>originated packets egress vlan lookups are bypassed in the ASIC (this
->>is common forwarding option in most ASICs) and the packet shipped as
->>is out of front-panel port specified by the CPU. Which means these
->>packets will NOT be counted against the egress VLAN HW counter; hence
->>the need for summation.
+On Wed, Jun 22, 2016 at 12:23 PM, David Miller <davem@davemloft.net> wrote:
+> From: Jerry Chu <hkchu@google.com>
+> Date: Tue, 21 Jun 2016 20:42:19 -0700
 >
-> Driver will know about this, and will provide the stats accordignly to
-> the core. Who else than driver should resolve this.
+>> I don't believe TOU will lead to a proliferation of TCP
+>> implementations in the userland - getting a solid TCP implementation
+>> is hard.
 >
+> The fear isn't doing legitimate things.
+>
+> It's making TCP stacks that do evil stuff on purpose.
+>
+> Also, making proprietary TCP stacks that override the kernel one.
+>
+There is no "kernel one", there are many client kernels, many
+different stacks on the Internet, many implementations of TCP. Some of
+these are poorly engineered, years behind in technology, and otherwise
+horribly insecure. There are even still people running WIndows95 for
+heaven's sake! There is simply no way we can just implicitly trust
+kernels to be doing the right thing. Neither is there any requirement
+for us to do so, you will not find a requirement in any Internet
+standard that TCP MUST be implemented in the kernel. The same
+characteristics hold for middleboxes and firewalls, there are many
+implementations, many don't follow standards, and the SW/FW upgrade
+issue is potentially catastrophic to the Internet.  We have no
+requirement and can never assume that a robust sufficient firewall is
+the in the path of our packets.
 
-The point was/is that there should be only two categories:
-1) the base default stats: can contain 'only sw', 'only hw' or 'a
-summation of hw and sw' in some cases.
-The user does not care about the breakdown.
+Bottom line: if you're developing a business critical application on
+the Internet, you cannot assume that the OSes or the network provide
+adequate security; you need to take ownership of security for your
+application. TOU is a step in that direction.
 
-2) everything else falls into the second category: driver provided
-breakdown of stats for easier debugging.
-This today is ethtool stats and we can have an equivalent nested
-attribute for this in the new stats api.
-Lets call it IFLA_STATS_LINK_DRIVER or you pick a name. Lets make it
-nested and extensible (like ethtool is) and
-driver can expose any kind of stats there.
-ie lets move the stats you are proposing to this category of stats.....
-instead of introducing a third category 'SW stats'.
+> And finally, here's the best part, all of the above can be done as a
+> new, huge, potential attack vector for hackers.
+>
+I disagree that there is a new attack vector here. Yes, a malicious
+program can open up an unconnected UDP socket and send to any
+destination although they should not be able to spoof source address
+easily. This is well known and attacks against DNS and other current
+uses of UDP already exit. But, a major part of TOU is that the
+transport layer header is encrypted so this makes it impossible to
+inject packets into a TOU connection even if the program is able to
+snoop packets on the wire. TOU is be protected against injection
+attacks unlike TCP since headers are in cleartext. So the worse case
+attack should be a form of SYN attack which we already have to deal
+with for existing transport protocols.
+
+Thanks,
+Tom
