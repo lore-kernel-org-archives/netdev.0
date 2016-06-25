@@ -1,50 +1,72 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: Re: [PATCH net] Bridge: Fix ipv6 mc snooping if bridge has
- no ipv6 address
-Date: Sat, 25 Jun 2016 16:20:28 +0200
-Message-ID: <20160625142028.GF4407@otheros>
-References: <1466764518-11358-1-git-send-email-daniel@dd-wrt.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, Ulrich Weber <ulrich.weber@sophos.com>,
-	Ulrich Weber <uw@ocedo.com>, davem@davemloft.net
-To: Daniel Danzberger <daniel@dd-wrt.com>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1466764518-11358-1-git-send-email-daniel@dd-wrt.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 2/2] net: ethernet: ethoc: use phy_ethtool_{get|set}_link_ksettings
+Date: Sat, 25 Jun 2016 16:33:42 +0200
+Message-ID: <1466865222-11840-2-git-send-email-tremyfr@gmail.com>
+References: <1466865222-11840-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, andrew@lunn.ch, tklauser@distanz.ch,
+	colin.king@canonical.com, f.fainelli@gmail.com, jcmvbkbc@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466865222-11840-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 24, 2016 at 12:35:18PM +0200, Daniel Danzberger wrote:
-> The bridge is falsly dropping ipv6 mulitcast packets if there is:
->  1. No ipv6 address assigned on the brigde.
->  2. No external mld querier present.
->  3. The internal querier enabled.
-> 
-> When the bridge fails to build mld queries, because it has no
-> ipv6 address, it slilently returns, but keeps the local querier enabled.
-> This specific case causes confusing packet loss.
-> 
-> Ipv6 multicast snooping can only work if:
->  a) An external querier is present
->  OR
->  b) The bridge has an ipv6 address an is capable of sending own queries
-> 
-> Otherwise it has to forward/flood the ipv6 multicast traffic,
-> because snooping cannot work.
-> 
-> This patch fixes the issue by adding a flag to the bridge struct that
-> indicates that there is currently no ipv6 address assinged to the bridge
-> and returns a false state for the local querier in
-> __br_multicast_querier_exists().
+There are two generics functions phy_ethtool_{get|set}_link_ksettings,
+so we can use them instead of defining the same code in the driver.
 
-Fixes: 1d81d4c3dd88 ("bridge: check return value of ipv6_dev_get_saddr()")
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/ethoc.c |   24 ++----------------------
+ 1 files changed, 2 insertions(+), 22 deletions(-)
+
+diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
+index fe09021..37fbf51 100644
+--- a/drivers/net/ethernet/ethoc.c
++++ b/drivers/net/ethernet/ethoc.c
+@@ -895,26 +895,6 @@ out:
+ 	return NETDEV_TX_OK;
+ }
+ 
+-static int ethoc_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	struct phy_device *phydev = dev->phydev;
+-
+-	if (!phydev)
+-		return -EOPNOTSUPP;
+-
+-	return phy_ethtool_gset(phydev, cmd);
+-}
+-
+-static int ethoc_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	struct phy_device *phydev = dev->phydev;
+-
+-	if (!phydev)
+-		return -EOPNOTSUPP;
+-
+-	return phy_ethtool_sset(phydev, cmd);
+-}
+-
+ static int ethoc_get_regs_len(struct net_device *netdev)
+ {
+ 	return ETH_END;
+@@ -979,14 +959,14 @@ static int ethoc_set_ringparam(struct net_device *dev,
+ }
+ 
+ const struct ethtool_ops ethoc_ethtool_ops = {
+-	.get_settings = ethoc_get_settings,
+-	.set_settings = ethoc_set_settings,
+ 	.get_regs_len = ethoc_get_regs_len,
+ 	.get_regs = ethoc_get_regs,
+ 	.get_link = ethtool_op_get_link,
+ 	.get_ringparam = ethoc_get_ringparam,
+ 	.set_ringparam = ethoc_set_ringparam,
+ 	.get_ts_info = ethtool_op_get_ts_info,
++	.get_link_ksettings = phy_ethtool_get_link_ksettings,
++	.set_link_ksettings = phy_ethtool_set_link_ksettings,
+ };
+ 
+ static const struct net_device_ops ethoc_netdev_ops = {
+-- 
+1.7.4.4
