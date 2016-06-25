@@ -1,36 +1,50 @@
-From: William Tu <u9012063@gmail.com>
-Subject: Re: [PATCH] samples/bpf: set resource limit to infinity.
-Date: Sat, 25 Jun 2016 07:10:01 -0700
-Message-ID: <CALDO+SZs-nkCSt3dG8kuJqnnP_2eyFU7f+2TE+qGTd7zLddGvg@mail.gmail.com>
-References: <1466808924-6456-1-git-send-email-u9012063@gmail.com> <20160625101421.GA29799@ast-mbp.thefacebook.com>
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: Re: [PATCH net] Bridge: Fix ipv6 mc snooping if bridge has
+ no ipv6 address
+Date: Sat, 25 Jun 2016 16:20:28 +0200
+Message-ID: <20160625142028.GF4407@otheros>
+References: <1466764518-11358-1-git-send-email-daniel@dd-wrt.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:33329 "EHLO
-	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751308AbcFYOKl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2016 10:10:41 -0400
-Received: by mail-io0-f172.google.com with SMTP id t74so120854681ioi.0
-        for <netdev@vger.kernel.org>; Sat, 25 Jun 2016 07:10:41 -0700 (PDT)
-In-Reply-To: <20160625101421.GA29799@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
+	linux-kernel@vger.kernel.org, Ulrich Weber <ulrich.weber@sophos.com>,
+	Ulrich Weber <uw@ocedo.com>, davem@davemloft.net
+To: Daniel Danzberger <daniel@dd-wrt.com>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+Content-Disposition: inline
+In-Reply-To: <1466764518-11358-1-git-send-email-daniel@dd-wrt.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Hi Alexei,
+On Fri, Jun 24, 2016 at 12:35:18PM +0200, Daniel Danzberger wrote:
+> The bridge is falsly dropping ipv6 mulitcast packets if there is:
+>  1. No ipv6 address assigned on the brigde.
+>  2. No external mld querier present.
+>  3. The internal querier enabled.
+> 
+> When the bridge fails to build mld queries, because it has no
+> ipv6 address, it slilently returns, but keeps the local querier enabled.
+> This specific case causes confusing packet loss.
+> 
+> Ipv6 multicast snooping can only work if:
+>  a) An external querier is present
+>  OR
+>  b) The bridge has an ipv6 address an is capable of sending own queries
+> 
+> Otherwise it has to forward/flood the ipv6 multicast traffic,
+> because snooping cannot work.
+> 
+> This patch fixes the issue by adding a flag to the bridge struct that
+> indicates that there is currently no ipv6 address assinged to the bridge
+> and returns a false state for the local querier in
+> __br_multicast_querier_exists().
 
-Thanks. I will do it next time.
-William
-
-On Sat, Jun 25, 2016 at 3:14 AM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Fri, Jun 24, 2016 at 03:55:24PM -0700, William Tu wrote:
->> Signed-off-by: William Tu <u9012063@gmail.com>
->
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
->
-> please provide a proper patch description next time.
-> subj line alone is not enough.
-> Not only explain 'what' the patch does, but 'why' as well.
->
+Fixes: 1d81d4c3dd88 ("bridge: check return value of ipv6_dev_get_saddr()")
