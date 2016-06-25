@@ -1,93 +1,107 @@
-From: Joe Perches <joe@perches.com>
-Subject: [PATCH] rtlwifi: Create _rtl_dbg_trace function to reduce RT_TRACE code size
-Date: Sat, 25 Jun 2016 15:46:45 -0700
-Message-ID: <90cd7c8f12b51571db565fd496a2fcf610e2e484.1466894688.git.joe@perches.com>
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH v2 ethtool 0/2] IPv6 RXNFC
+Date: Sun, 26 Jun 2016 01:18:00 +0200
+Message-ID: <1466896680.2504.20.camel@decadent.org.uk>
+References: <56EB00D6.3060003@solarflare.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-tgXgWZBPeCa8f3HHCiEe"
+Cc: netdev@vger.kernel.org
+To: Edward Cree <ecree@solarflare.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:51480 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751231AbcFYXSL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2016 19:18:11 -0400
+In-Reply-To: <56EB00D6.3060003@solarflare.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This debugging macro can expand to a lot of code.
-Make it a function to reduce code size.
 
-(x86-64 defconfig w/ all rtlwifi drivers and allyesconfig)
-$ size drivers/net/wireless/realtek/rtlwifi/built-in.o*
-   text	   data	    bss	    dec	    hex	filename
- 900083	 200499	   1907	1102489	 10d299	drivers/net/wireless/realtek/rtlwifi/built-in.o.defconfig.new
-1113597	 200499	   1907	1316003	 1414a3	drivers/net/wireless/realtek/rtlwifi/built-in.o.defconfig.old
-1746879	 453503	   8512	2208894	 21b47e	drivers/net/wireless/realtek/rtlwifi/built-in.o.new
-2051965	 503311	   8512	2563788	 271ecc	drivers/net/wireless/realtek/rtlwifi/built-in.o.old
+--=-tgXgWZBPeCa8f3HHCiEe
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Joe Perches <joe@perches.com>
+On Thu, 2016-03-17 at 19:09 +0000, Edward Cree wrote:
+> This series adds support for steering of IPv6 receive flows.
+>=20
+> Changes since v1:
+> * Fixed and simplified IPv6 address and mask parsing
+> * Made help text / man page more consistent
+> * Dropped ethtool-copy.h patch as upstream is now newer
+
+Applied these two, and added the patch below. =C2=A0Thanks for your
+patience.
+
+Ben.
+
 ---
- drivers/net/wireless/realtek/rtlwifi/debug.c | 25 +++++++++++++++++++++++++
- drivers/net/wireless/realtek/rtlwifi/debug.h | 17 +++++++++--------
- 2 files changed, 34 insertions(+), 8 deletions(-)
+Change IP parameter syntax in documentation to just 'ip-address'
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/debug.c b/drivers/net/wireless/realtek/rtlwifi/debug.c
-index fd25aba..33905bb 100644
---- a/drivers/net/wireless/realtek/rtlwifi/debug.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/debug.c
-@@ -48,3 +48,28 @@ void rtl_dbgp_flag_init(struct ieee80211_hw *hw)
- 	/*Init Debug flag enable condition */
- }
- EXPORT_SYMBOL_GPL(rtl_dbgp_flag_init);
-+
-+#ifdef CONFIG_RTLWIFI_DEBUG
-+void _rtl_dbg_trace(struct rtl_priv *rtlpriv, int comp, int level,
-+		    const char *modname, const char *fmt, ...)
-+{
-+	if (unlikely((comp & rtlpriv->dbg.global_debugcomponents) &&
-+		     (level <= rtlpriv->dbg.global_debuglevel))) {
-+		struct va_format vaf;
-+		va_list args;
-+
-+		va_start(args, fmt);
-+
-+		vaf.fmt = fmt;
-+		vaf.va = &args;
-+
-+		printk(KERN_DEBUG "%s:%ps:<%lx-%x> %pV",
-+		       modname, __builtin_return_address(0),
-+		       in_interrupt(), in_atomic(),
-+		       &vaf);
-+
-+		va_end(args);
-+	}
-+}
-+EXPORT_SYMBOL_GPL(_rtl_dbg_trace);
-+#endif
-diff --git a/drivers/net/wireless/realtek/rtlwifi/debug.h b/drivers/net/wireless/realtek/rtlwifi/debug.h
-index fc794b3..6156a79 100644
---- a/drivers/net/wireless/realtek/rtlwifi/debug.h
-+++ b/drivers/net/wireless/realtek/rtlwifi/debug.h
-@@ -174,15 +174,16 @@ do {									\
- 	}								\
- } while (0)
- 
-+
-+struct rtl_priv;
-+
-+__printf(5, 6)
-+void _rtl_dbg_trace(struct rtl_priv *rtlpriv, int comp, int level,
-+		    const char *modname, const char *fmt, ...);
-+
- #define RT_TRACE(rtlpriv, comp, level, fmt, ...)			\
--do {									\
--	if (unlikely(((comp) & rtlpriv->dbg.global_debugcomponents) &&	\
--		     ((level) <= rtlpriv->dbg.global_debuglevel))) {	\
--		printk(KERN_DEBUG KBUILD_MODNAME ":%s():<%lx-%x> " fmt,	\
--		       __func__, in_interrupt(), in_atomic(),		\
--		       ##__VA_ARGS__);					\
--	}								\
--} while (0)
-+	_rtl_dbg_trace(rtlpriv, comp, level,				\
-+		       KBUILD_MODNAME, fmt, ##__VA_ARGS__)
- 
- #define RTPRINT(rtlpriv, dbgtype, dbgflag, fmt, ...)			\
- do {									\
--- 
-2.8.0.rc4.16.g56331f8
+Writing out the IPv4 address syntax repeatedly is not really
+necessary, and extending it to cover IPv6 addresses will just make the
+documentation harder to read.
+
+Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
+---
+ ethtool.8.in | 2 +-
+ ethtool.c    | 4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/ethtool.8.in b/ethtool.8.in
+index 36da10ed6c87..9dc5e252a1dc 100644
+--- a/ethtool.8.in
++++ b/ethtool.8.in
+@@ -54,7 +54,7 @@
+ .\"
+ .\"	\(*PA - IP address
+ .\"
+-.ds PA \fIx\fP\fB.\fP\fIx\fP\fB.\fP\fIx\fP\fB.\fP\fIx\fP
++.ds PA \fIip-address\fP
+ .\"
+ .\"	\(*WO - wol flags
+ .\"
+diff --git a/ethtool.c b/ethtool.c
+index a92137f7f5b1..d04bf9fedafd 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -4163,8 +4163,8 @@ static const struct option {
+ 	  "			[ src %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ]\n"
+ 	  "			[ dst %x:%x:%x:%x:%x:%x [m %x:%x:%x:%x:%x:%x] ]\n"
+ 	  "			[ proto %d [m %x] ]\n"
+-	  "			[ src-ip %d.%d.%d.%d [m %d.%d.%d.%d] ]\n"
+-	  "			[ dst-ip %d.%d.%d.%d [m %d.%d.%d.%d] ]\n"
++	  "			[ src-ip IP-ADDRESS [m IP-ADDRESS] ]\n"
++	  "			[ dst-ip IP-ADDRESS [m IP-ADDRESS] ]\n"
+ 	  "			[ tos %d [m %x] ]\n"
+ 	  "			[ tclass %d [m %x] ]\n"
+ 	  "			[ l4proto %d [m %x] ]\n"
+
+--=20
+
+Ben Hutchings
+compatible: Gracefully accepts erroneous data from any source
+
+--=-tgXgWZBPeCa8f3HHCiEe
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJXbxEoAAoJEOe/yOyVhhEJn30P/jm/8h5tLJadKAHfEC/vP2zw
+cCBCu1c/OFsWFNQAZ4CTyvYeEo4VozFMOUk17HLtc2DvxOa7IanPLlEiNmz+mOXE
+ACYcX7V/SKdiVBsMa65qXIpey02jON0TplHzkr8fQgPJoyW1cjuHUFZ8Z54bEkcV
+RYm8XinMfzs24DmGKYHiGw/pphD9hRalTOWstcFsAuWpWvk4UEuChmh4UN87zmSH
+cW+Vb90iH2XRtJDSq3FBsyD3YP4k+Y1jK3hPe/2nii75htHIaYN8V1EsrxJ8vO83
+tqF5Ld0mnBj+mCubCdfQ98Tvjha9dB5GIRn1sZeEn8+czqVdIeWqfTOl3onaydVe
+96JtKaHoEHQRzXrQIrXsmy2W7QIcFPN0AJXVzYWJxWboyf46s9QDhDqZ9v/RmRcI
+ka5HfbSnF7faqcGtGbYHu+nGDnHx2FD7MkM7uS/U7BBHNZHHE0HvYQ4oW+dJO2Q4
+FxLYYb22+kWKmZ09vD8rYu8ZrF/IIgdKlo6KRCekbgFN9mAg7j3Xh0VOuBbmUZkT
+Y6sz+pSQ9ROw/e6J5beJdfLSF9ooiP8h7lkFAIx6KaTZQQUR9iUc6JdYwxZtlRpG
+FjqiyAtfUqHBx+42PFg9eLHDd3gIyzWg6DKzmz7TPUhtIOJupls9Gjb78PypsZS3
+kl3MEcZmVvF/MySZPCB3
+=1mle
+-----END PGP SIGNATURE-----
+
+--=-tgXgWZBPeCa8f3HHCiEe--
