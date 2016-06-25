@@ -1,27 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: ethernet: macb: use
- phy_ethtool_{get|set}_link_ksettings
-Date: Sat, 25 Jun 2016 11:58:01 -0400 (EDT)
-Message-ID: <20160625.115801.127788695818617375.davem@davemloft.net>
-References: <1466548356-19166-1-git-send-email-tremyfr@gmail.com>
-	<1466548356-19166-2-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH v2] ibmvnic: fix to use list_for_each_safe() when
+ delete items
+Date: Sat, 25 Jun 2016 12:02:41 -0400 (EDT)
+Message-ID: <20160625.120241.1521209512436530662.davem@davemloft.net>
+References: <576810C2.6080208@linux.vnet.ibm.com>
+	<576964CF.3040804@linux.vnet.ibm.com>
+	<2db3a1f8-cafd-8fde-6223-2b2e3787d615@163.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nicolas.ferre@atmel.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1466548356-19166-2-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: tlfalcon@linux.vnet.ibm.com, jallen@linux.vnet.ibm.com,
+	netdev@vger.kernel.org, yongjun_wei@trendmicro.com.cn,
+	linuxppc-dev@lists.ozlabs.org
+To: weiyj_lk@163.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54439 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751541AbcFYQCp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 25 Jun 2016 12:02:45 -0400
+In-Reply-To: <2db3a1f8-cafd-8fde-6223-2b2e3787d615@163.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Wed, 22 Jun 2016 00:32:36 +0200
+From: Wei Yongjun <weiyj_lk@163.com>
+Date: Wed, 22 Jun 2016 10:51:46 +0800
 
-> There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-> so we can use them instead of defining the same code in the driver.
+> Since we will remove items off the list using list_del() we need
+> to use a safe version of the list_for_each() macro aptly named
+> list_for_each_safe().
 > 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Applied.
+Your email client has corrupted the spacing in this patch, making
+it unusable.
