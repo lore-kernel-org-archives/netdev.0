@@ -1,46 +1,37 @@
-From: Matt Corallo <linux@bluematt.me>
-Subject: [PATCH] net: stmmac: Fix null-function call in ISR on stmmac1000
-Date: Sat, 25 Jun 2016 19:35:03 +0000
-Message-ID: <E5152E61-5896-46FD-BF4A-16CDFB3796F6@bluematt.me>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: Re: [PATCH] mac80211_hwsim: Added vendor echo command
+Date: Sat, 25 Jun 2016 21:57:48 +0200
+Message-ID: <1466884668.3492.0.camel@sipsolutions.net>
+References: <1466756034-5485-1-git-send-email-erik.stromdahl@gmail.com>
+ <20160624204759.GA15514@w1.fi>
+ <576EAC61.1050900@gmail.com>
+	 <20160625183209.GA3992@w1.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=UTF-8
-Content-Transfer-Encoding: 8bit
-Cc: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
-	Alexandre Torgue <alexandre.torgue@st.com>,
-	netdev@vger.kernel.org, martin.blumenstingl@googlemail.com
-To: linux-amlogic@lists.infradead.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: kvalo@codeaurora.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Jouni Malinen <j@w1.fi>, Erik Stromdahl <erik.stromdahl@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.bluematt.me ([192.241.179.72]:44382 "EHLO mail.bluematt.me"
+Received: from s3.sipsolutions.net ([5.9.151.49]:59051 "EHLO sipsolutions.net"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751623AbcFYToD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 25 Jun 2016 15:44:03 -0400
+	id S1751623AbcFYT5y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 25 Jun 2016 15:57:54 -0400
+In-Reply-To: <20160625183209.GA3992@w1.fi>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-At least on Meson GXBB, the CORE_IRQ_MTL_RX_OVERFLOW interrupt is thrown
-with the stmmac1000 driver, which does not support set_rx_tail_ptr. With
-this patch and the clock fixes, 1G ethernet works on ODROID-C2.
+On Sat, 2016-06-25 at 21:32 +0300, Jouni Malinen wrote:
+>=C2=A0
+> All you need to do is to prepare a hostap.git contribution that
+> requests a new subcommand/attribute to be assigned and once that gets
+> applied to the hostap.git master branch, the values have been
+> assigned and can be used for whatever purpose they were assigned,
+> e.g., in mac80211_hwsim.
+>=20
 
-Signed-off-by: Matt Corallo <git@bluematt.me>
----
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Assuming, of course, that there's actually a point in the original
+patch. I haven't quite figured out any reason to actually have this
+facility.
 
-diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-index a473c18..e407126 100644
---- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-+++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
-@@ -2804,7 +2804,7 @@ static irqreturn_t stmmac_interrupt(int irq, void
-*dev_id)
- 				priv->tx_path_in_lpi_mode = true;
- 			if (status & CORE_IRQ_TX_PATH_EXIT_LPI_MODE)
- 				priv->tx_path_in_lpi_mode = false;
--			if (status & CORE_IRQ_MTL_RX_OVERFLOW)
-+			if (status & CORE_IRQ_MTL_RX_OVERFLOW && priv->hw->dma->set_rx_tail_ptr)
- 				priv->hw->dma->set_rx_tail_ptr(priv->ioaddr,
- 							priv->rx_tail_addr,
- 							STMMAC_CHAN0);
--- 
-2.1.4
+johannes
