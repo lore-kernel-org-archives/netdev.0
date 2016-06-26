@@ -1,78 +1,84 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH ethtool 1/2] configure.ac: Remove feature test for
- <sys/ioctl.h>
-Date: Sun, 26 Jun 2016 16:47:47 +0100
-Message-ID: <20160626154747.GD7555@decadent.org.uk>
+Subject: [PATCH ethtool 2/2] ethtool.8.in, ethtool.c: Add myself to authors
+ and copyright notices
+Date: Sun, 26 Jun 2016 16:48:28 +0100
+Message-ID: <20160626154828.GE7555@decadent.org.uk>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha512;
-	protocol="application/pgp-signature"; boundary="u3KzC5IXcIj3OgFK"
+	protocol="application/pgp-signature"; boundary="PoUpPrJlcBv0qM6G"
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57912 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57918 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751265AbcFZPru (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2016 11:47:50 -0400
+	by vger.kernel.org with ESMTP id S1751662AbcFZPsa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2016 11:48:30 -0400
 Received: from ben by shadbolt.decadent.org.uk with local (Exim 4.84_2)
 	(envelope-from <ben@decadent.org.uk>)
-	id 1bHCHj-0008D7-H6
-	for netdev@vger.kernel.org; Sun, 26 Jun 2016 16:47:47 +0100
+	id 1bHCIO-0008Df-FV
+	for netdev@vger.kernel.org; Sun, 26 Jun 2016 16:48:29 +0100
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---u3KzC5IXcIj3OgFK
+--PoUpPrJlcBv0qM6G
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-<sys/ioctl.h> has been a hard dependency for as back as git history
-goes (2005, shortly after version 3).
 
 Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 ---
-I spotted this while reviewing David Decotigny's patch to use netlink
-sockets.
+ ethtool.8.in | 3 ++-
+ ethtool.c    | 2 ++
+ 2 files changed, 4 insertions(+), 1 deletion(-)
 
-Ben.
+diff --git a/ethtool.8.in b/ethtool.8.in
+index 9dc5e252a1dc..e08c9a714551 100644
+--- a/ethtool.8.in
++++ b/ethtool.8.in
+@@ -947,7 +947,8 @@ Scott Feldman,
+ Andi Kleen,
+ Alexander Duyck,
+ Sucheta Chakraborty,
+-Jesse Brandeburg.
++Jesse Brandeburg,
++Ben Hutchings.
+ .SH AVAILABILITY
+ .B ethtool
+ is available from
+diff --git a/ethtool.c b/ethtool.c
+index 093adf735793..4aa476264b3a 100644
+--- a/ethtool.c
++++ b/ethtool.c
+@@ -21,6 +21,8 @@
+  * MDI-X set support by Jesse Brandeburg <jesse.brandeburg@intel.com>
+  *	Copyright 2012 Intel Corporation
+  * vmxnet3 support by Shrikrishna Khare <skhare@vmware.com>
++ * Various features by Ben Hutchings <ben@decadent.org.uk>;
++ *	Copyright 2008-2010, 2013-2016 Ben Hutchings
+  *
+  * TODO:
+  *   * show settings for all devices
 
- configure.ac | 1 -
- 1 file changed, 1 deletion(-)
-
-diff --git a/configure.ac b/configure.ac
-index 3105415be026..6ebffedc9f5b 100644
---- a/configure.ac
-+++ b/configure.ac
-@@ -15,7 +15,6 @@ AM_PROG_CC_C_O
- dnl Checks for libraries.
-=20
- dnl Checks for header files.
--AC_CHECK_HEADERS(sys/ioctl.h)
-=20
- dnl Checks for typedefs, structures, and compiler characteristics.
- AC_MSG_CHECKING([whether <linux/types.h> defines big-endian types])
-
-
---u3KzC5IXcIj3OgFK
+--PoUpPrJlcBv0qM6G
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1
 
-iQIVAwUBV2/5I+e/yOyVhhEJAQpYJw//a3rt4WYB/dKFAXpBNuals3s6+2U7VkZk
-pQ0n4dJ7i26YrELmcgOazcBxvLw5CIMvthjaTSRbrsucK84uUjAsM/RsRGp7b4O8
-NY4ai0ELsxllQqUVFHlSGdQJqfsGBjg5e/qvyCkfEKjta8fiUKhp3gu0ayJwIg+a
-puqhw5oAq9L3YDGTPde32RyBPwPcuMgE+MZinOH/XVVZVCnZ+hvqgkkhIGRs+ayS
-/7hyVGpId87SVBB47oUoRT/8tgDULbJnwlzy5Dbd+33QUnNaTnNZ1fYhFBcnpOJZ
-JJcaNAZHso7CVKc/lQo9R12qCS1V7P9Uj58/nQ5mA0N/GGjFLL5bWLIsKpwHzb7n
-ANLMjFSQRNpgClb/GXqP4CCGt1jwg80MLKvngUqd5/vm5K/vlUOOC9FrqGud634+
-x0mHdEVL/yVo/CASLZcHUBwQdiH+MnnTEiARYJfg8bG29YcvJAaP8VGf13Hskq7T
-I9QPM7W/oqeJKKnTyz/H/FciTTlln/o3FKr8P3C4SKp+7iI9QGnSADubb9n0awJK
-rKHR3zKgvxLutDZcxRyge3cvYRS+hJQWW2M/kCDmlwZeT50R/xVYioQ+JSjSFzeN
-LKHh+vEtOI/0LKSGbDjOupOnmle2SxJf3YdxyLfcqaCg5h5ARQ1cwdXQnuPJe114
-All5E4SnMHk=
-=CIpB
+iQIVAwUBV2/5TOe/yOyVhhEJAQqG2w/8CuhxosjXdcICDGMfHpvauLd/olnwxDMZ
+miNF9Of7GQZkYRfQi9W1YPd3YRWYrDcRS9FLm/eyhmKGDoyHg72xQTzQ8U4VeeCD
+wb4phnpPeQILZHCQrYtCAs4fUbBNDLBrVBqVpXXiU1VZIJE3cb25T9EY+LBw8dOz
+3tS4D0kk/BFzPJpU2y25/VeguowWrbkbwi3Nn7OOA1wZx+UizeW4vDgPS7YYdv2/
+4C+OmJJuXDJ5z7Ni1MgIkI9y/3LS47ZZkotDNWH2l8WWIP1Vp2oirXeUF0g3Sk09
+39SVPr9D9punT2lVAnr1paZAgj9aDnaXBQUvHU8J5ivVY6HQqE44ea13s3h/fkhV
+KZjuIDn77SOtXPttv3y/ut7ZUdH2gK2LeDE65TA4kyW3kZx3/EVUFcRJnGi2PUDP
+p7jfZgXnioxabAUoazU/8FdbdXu3+gXaeSDiZTHTH6E+rc7tju86cgttra7zLHXs
+LdYGZIkito2OD8YRidndl+4Tf4ZingLJRvCx+Vmggf4tRdZEcGYTvQo6vBifdFOH
+hCzsg2oMqjiLEZeo3QdG/6VWu6LmB/IQr1JfmPPLzhi7DELzlnbKrZUwVIvZ3n2i
+NZkbuyOihqn+OCylYFyfM4EaTPwUe9CaJG1MveM2oqNfYNjEX0IABrbypCkxbD1u
+JAPIeguLACk=
+=0BWl
 -----END PGP SIGNATURE-----
 
---u3KzC5IXcIj3OgFK--
+--PoUpPrJlcBv0qM6G--
