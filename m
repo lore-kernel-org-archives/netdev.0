@@ -1,84 +1,77 @@
 From: Ben Hutchings <ben@decadent.org.uk>
-Subject: [PATCH ethtool 2/2] ethtool.8.in, ethtool.c: Add myself to authors
- and copyright notices
-Date: Sun, 26 Jun 2016 16:48:28 +0100
-Message-ID: <20160626154828.GE7555@decadent.org.uk>
+Subject: ethtool 4.6 released
+Date: Sun, 26 Jun 2016 17:59:32 +0200
+Message-ID: <1466956772.2551.6.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha512;
-	protocol="application/pgp-signature"; boundary="PoUpPrJlcBv0qM6G"
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-tBUyx/dLOLNcjeHSxpst"
+To: netdev <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57918 "EHLO
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:57989 "EHLO
 	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751662AbcFZPsa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2016 11:48:30 -0400
-Received: from ben by shadbolt.decadent.org.uk with local (Exim 4.84_2)
+	by vger.kernel.org with ESMTP id S1751505AbcFZP7p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2016 11:59:45 -0400
+Received: from [137.158.23.48] (helo=deadeye)
+	by shadbolt.decadent.org.uk with esmtps (TLS1.2:ECDHE_RSA_AES_256_GCM_SHA384:256)
+	(Exim 4.84_2)
 	(envelope-from <ben@decadent.org.uk>)
-	id 1bHCIO-0008Df-FV
-	for netdev@vger.kernel.org; Sun, 26 Jun 2016 16:48:29 +0100
-Content-Disposition: inline
+	id 1bHCTH-0000IN-6Q
+	for netdev@vger.kernel.org; Sun, 26 Jun 2016 16:59:43 +0100
+Received: from ben by deadeye with local (Exim 4.87)
+	(envelope-from <ben@decadent.org.uk>)
+	id 1bHCTF-0006CV-GK
+	for netdev@vger.kernel.org; Sun, 26 Jun 2016 17:59:41 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 
---PoUpPrJlcBv0qM6G
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+--=-tBUyx/dLOLNcjeHSxpst
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
----
- ethtool.8.in | 3 ++-
- ethtool.c    | 2 ++
- 2 files changed, 4 insertions(+), 1 deletion(-)
+ethtool version 4.6 has been released.
 
-diff --git a/ethtool.8.in b/ethtool.8.in
-index 9dc5e252a1dc..e08c9a714551 100644
---- a/ethtool.8.in
-+++ b/ethtool.8.in
-@@ -947,7 +947,8 @@ Scott Feldman,
- Andi Kleen,
- Alexander Duyck,
- Sucheta Chakraborty,
--Jesse Brandeburg.
-+Jesse Brandeburg,
-+Ben Hutchings.
- .SH AVAILABILITY
- .B ethtool
- is available from
-diff --git a/ethtool.c b/ethtool.c
-index 093adf735793..4aa476264b3a 100644
---- a/ethtool.c
-+++ b/ethtool.c
-@@ -21,6 +21,8 @@
-  * MDI-X set support by Jesse Brandeburg <jesse.brandeburg@intel.com>
-  *	Copyright 2012 Intel Corporation
-  * vmxnet3 support by Shrikrishna Khare <skhare@vmware.com>
-+ * Various features by Ben Hutchings <ben@decadent.org.uk>;
-+ *	Copyright 2008-2010, 2013-2016 Ben Hutchings
-  *
-  * TODO:
-  *   * show settings for all devices
+Home page: https://www.kernel.org/pub/software/network/ethtool/
+Download link:
+https://www.kernel.org/pub/software/network/ethtool/ethtool-4.6.tar.xz
 
---PoUpPrJlcBv0qM6G
+Release notes:
+
+	* Feature: Support register dump on Intel X550 NICs (-d option)
+	* Fix: Correct some reported register offsets on Intel 10GbE NICs
+	  (-d option)
+	* Feature: Add IPv6 support to NFC (-n, -N, -u and -U options)
+	* Feature: Add support for ETHTOOL_xLINKSETTINGS ioctls (no option
+	  and -s option)
+	* Feature: Use netlink socket when AF_INET not available
+
+Ben.
+
+--=20
+
+Ben Hutchings
+compatible: Gracefully accepts erroneous data from any source
+
+--=-tBUyx/dLOLNcjeHSxpst
 Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+Version: GnuPG v2
 
-iQIVAwUBV2/5TOe/yOyVhhEJAQqG2w/8CuhxosjXdcICDGMfHpvauLd/olnwxDMZ
-miNF9Of7GQZkYRfQi9W1YPd3YRWYrDcRS9FLm/eyhmKGDoyHg72xQTzQ8U4VeeCD
-wb4phnpPeQILZHCQrYtCAs4fUbBNDLBrVBqVpXXiU1VZIJE3cb25T9EY+LBw8dOz
-3tS4D0kk/BFzPJpU2y25/VeguowWrbkbwi3Nn7OOA1wZx+UizeW4vDgPS7YYdv2/
-4C+OmJJuXDJ5z7Ni1MgIkI9y/3LS47ZZkotDNWH2l8WWIP1Vp2oirXeUF0g3Sk09
-39SVPr9D9punT2lVAnr1paZAgj9aDnaXBQUvHU8J5ivVY6HQqE44ea13s3h/fkhV
-KZjuIDn77SOtXPttv3y/ut7ZUdH2gK2LeDE65TA4kyW3kZx3/EVUFcRJnGi2PUDP
-p7jfZgXnioxabAUoazU/8FdbdXu3+gXaeSDiZTHTH6E+rc7tju86cgttra7zLHXs
-LdYGZIkito2OD8YRidndl+4Tf4ZingLJRvCx+Vmggf4tRdZEcGYTvQo6vBifdFOH
-hCzsg2oMqjiLEZeo3QdG/6VWu6LmB/IQr1JfmPPLzhi7DELzlnbKrZUwVIvZ3n2i
-NZkbuyOihqn+OCylYFyfM4EaTPwUe9CaJG1MveM2oqNfYNjEX0IABrbypCkxbD1u
-JAPIeguLACk=
-=0BWl
+iQIcBAABCgAGBQJXb/vlAAoJEOe/yOyVhhEJIYEQAMQPb9N9yZKVqCgLqeRYpXo2
+cQURvhyGvj5oex6rSsp7ZbaZ1TVuQ2nmMdug7iVQ1XI30A9FXP910ZQWGQ72MX88
+NQhjUmFI+YXuI5GzsOCi65MVUJyVRCmrJkC51yXcY0T8sahlZNskk1Z6Zgc7CJyJ
+U5qd7cqLgWmOo0YbKo+nLMCqJV69MSRE8HFhvviljEXJRU0J9pWt7U4p9r5iZHCB
+imMOEwMi1KhZ05Pv8sYrUJLiyNjFDBEhdtFmtaW5hyJvymJH1SV4H19Usk5s6Mfk
+2NCfyNap+VkSPoOxynK/dco5r5JaotfeK6sTsV2dmvUj+x0+Bagm7dcbKw88I7BF
+slGcQ1NWw0inaW142Ij6RnrtwVyhbwwIVqd24rnMc/LkZ9jNIRxKuuRCoHAI3S51
+0Tu48r10ddFIzeNVO7bDsqSO20Tms2Ly60mNh1BoUzl4N4lBCH+5peP7BAHqzI3G
+3gvo50usI9/TtVZA+ojkC1qJ4sArlR1RHN1I+k+hMLsp47WQs3pNs/B5I7itjma3
+EtrG4l2wJsnhmFEsTMjns84+Zopw7MO/aQoLPJnNwSKJvcL87p4rgHeQtTo54+bu
+BNlCAhbTKvToaOSOZOL7x/AqyPnhAdMVmY8IWIu2IDmiaFTOKFffhtI4yEqSaTJy
+QUrYwcj8vyS8IAMELXE2
+=WutV
 -----END PGP SIGNATURE-----
 
---PoUpPrJlcBv0qM6G--
+--=-tBUyx/dLOLNcjeHSxpst--
