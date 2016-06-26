@@ -1,195 +1,60 @@
 From: Sven Eckelmann <sven@narfation.org>
-Subject: [PATCH net 2/5] batman-adv: Fix use-after-free/double-free of tt_req_node
-Date: Sun, 26 Jun 2016 11:16:10 +0200
-Message-ID: <1466932573-23105-2-git-send-email-sven@narfation.org>
+Subject: [PATCH net 5/5] batman-adv: Clean up untagged vlan when destroying via rtnl-link
+Date: Sun, 26 Jun 2016 11:16:13 +0200
+Message-ID: <1466932573-23105-5-git-send-email-sven@narfation.org>
 References: <10049349.EHEiaYmtBd@sven-edge>
 Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
 	Sven Eckelmann <sven@narfation.org>,
 	Marek Lindner <mareklindner@neomailbox.ch>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from narfation.org ([79.140.41.39]:40192 "EHLO v3-1039.vlinux.de"
+Received: from narfation.org ([79.140.41.39]:40209 "EHLO v3-1039.vlinux.de"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751731AbcFZJQ2 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Jun 2016 05:16:28 -0400
+	id S1752107AbcFZJQg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 26 Jun 2016 05:16:36 -0400
 In-Reply-To: <10049349.EHEiaYmtBd@sven-edge>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The tt_req_node is added and removed from a list inside a spinlock. But the
-locking is sometimes removed even when the object is still referenced and
-will be used later via this reference. For example batadv_send_tt_request
-can create a new tt_req_node (including add to a list) and later
-re-acquires the lock to remove it from the list and to free it. But at this
-time another context could have already removed this tt_req_node from the
-list and freed it.
+The untagged vlan object is only destroyed when the interface is removed
+via the legacy sysfs interface. But it also has to be destroyed when the
+standard rtnl-link interface is used.
 
-CPU#0
-
-    batadv_batman_skb_recv from net_device 0
-    -> batadv_iv_ogm_receive
-      -> batadv_iv_ogm_process
-        -> batadv_iv_ogm_process_per_outif
-          -> batadv_tvlv_ogm_receive
-            -> batadv_tvlv_ogm_receive
-              -> batadv_tvlv_containers_process
-                -> batadv_tvlv_call_handler
-                  -> batadv_tt_tvlv_ogm_handler_v1
-                    -> batadv_tt_update_orig
-                      -> batadv_send_tt_request
-                        -> batadv_tt_req_node_new
-                           spin_lock(...)
-                           allocates new tt_req_node and adds it to list
-                           spin_unlock(...)
-                           return tt_req_node
-
-CPU#1
-
-    batadv_batman_skb_recv from net_device 1
-    -> batadv_recv_unicast_tvlv
-      -> batadv_tvlv_containers_process
-        -> batadv_tvlv_call_handler
-          -> batadv_tt_tvlv_unicast_handler_v1
-            -> batadv_handle_tt_response
-               spin_lock(...)
-               tt_req_node gets removed from list and is freed
-               spin_unlock(...)
-
-CPU#0
-
-                      <- returned to batadv_send_tt_request
-                         spin_lock(...)
-                         tt_req_node gets removed from list and is freed
-                         MEMORY CORRUPTION/SEGFAULT/...
-                         spin_unlock(...)
-
-This can only be solved via reference counting to allow multiple contexts
-to handle the list manipulation while making sure that only the last
-context holding a reference will free the object.
-
-Fixes: a73105b8d4c7 ("batman-adv: improved client announcement mechanism")
+Fixes: 5d2c05b21337 ("batman-adv: add per VLAN interface attribute framework")
 Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Tested-by: Martin Weinelt <martin@darmstadt.freifunk.net>
-Tested-by: Amadeus Alfa <amadeus@chemnitz.freifunk.net>
+Acked-by: Antonio Quartulli <a@unstable.cc>
 Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
 ---
- net/batman-adv/translation-table.c | 43 ++++++++++++++++++++++++++++++++------
- net/batman-adv/types.h             |  2 ++
- 2 files changed, 39 insertions(+), 6 deletions(-)
+ net/batman-adv/soft-interface.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
-diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
-index 72abab7..cfb5ccd 100644
---- a/net/batman-adv/translation-table.c
-+++ b/net/batman-adv/translation-table.c
-@@ -2271,6 +2271,29 @@ static u32 batadv_tt_local_crc(struct batadv_priv *bat_priv,
- 	return crc;
- }
- 
-+/**
-+ * batadv_tt_req_node_release - free tt_req node entry
-+ * @ref: kref pointer of the tt req_node entry
-+ */
-+static void batadv_tt_req_node_release(struct kref *ref)
-+{
-+	struct batadv_tt_req_node *tt_req_node;
-+
-+	tt_req_node = container_of(ref, struct batadv_tt_req_node, refcount);
-+
-+	kfree(tt_req_node);
-+}
-+
-+/**
-+ * batadv_tt_req_node_put - decrement the tt_req_node refcounter and
-+ *  possibly release it
-+ * @tt_req_node: tt_req_node to be free'd
-+ */
-+static void batadv_tt_req_node_put(struct batadv_tt_req_node *tt_req_node)
-+{
-+	kref_put(&tt_req_node->refcount, batadv_tt_req_node_release);
-+}
-+
- static void batadv_tt_req_list_free(struct batadv_priv *bat_priv)
+diff --git a/net/batman-adv/soft-interface.c b/net/batman-adv/soft-interface.c
+index 343d2c9..287a387 100644
+--- a/net/batman-adv/soft-interface.c
++++ b/net/batman-adv/soft-interface.c
+@@ -1033,7 +1033,9 @@ void batadv_softif_destroy_sysfs(struct net_device *soft_iface)
+ static void batadv_softif_destroy_netlink(struct net_device *soft_iface,
+ 					  struct list_head *head)
  {
- 	struct batadv_tt_req_node *node;
-@@ -2280,7 +2303,7 @@ static void batadv_tt_req_list_free(struct batadv_priv *bat_priv)
++	struct batadv_priv *bat_priv = netdev_priv(soft_iface);
+ 	struct batadv_hard_iface *hard_iface;
++	struct batadv_softif_vlan *vlan;
  
- 	hlist_for_each_entry_safe(node, safe, &bat_priv->tt.req_list, list) {
- 		hlist_del_init(&node->list);
--		kfree(node);
-+		batadv_tt_req_node_put(node);
+ 	list_for_each_entry(hard_iface, &batadv_hardif_list, list) {
+ 		if (hard_iface->soft_iface == soft_iface)
+@@ -1041,6 +1043,13 @@ static void batadv_softif_destroy_netlink(struct net_device *soft_iface,
+ 							BATADV_IF_CLEANUP_KEEP);
  	}
  
- 	spin_unlock_bh(&bat_priv->tt.req_list_lock);
-@@ -2317,7 +2340,7 @@ static void batadv_tt_req_purge(struct batadv_priv *bat_priv)
- 		if (batadv_has_timed_out(node->issued_at,
- 					 BATADV_TT_REQUEST_TIMEOUT)) {
- 			hlist_del_init(&node->list);
--			kfree(node);
-+			batadv_tt_req_node_put(node);
- 		}
- 	}
- 	spin_unlock_bh(&bat_priv->tt.req_list_lock);
-@@ -2349,9 +2372,11 @@ batadv_tt_req_node_new(struct batadv_priv *bat_priv,
- 	if (!tt_req_node)
- 		goto unlock;
- 
-+	kref_init(&tt_req_node->refcount);
- 	ether_addr_copy(tt_req_node->addr, orig_node->orig);
- 	tt_req_node->issued_at = jiffies;
- 
-+	kref_get(&tt_req_node->refcount);
- 	hlist_add_head(&tt_req_node->list, &bat_priv->tt.req_list);
- unlock:
- 	spin_unlock_bh(&bat_priv->tt.req_list_lock);
-@@ -2615,13 +2640,19 @@ static bool batadv_send_tt_request(struct batadv_priv *bat_priv,
- out:
- 	if (primary_if)
- 		batadv_hardif_put(primary_if);
++	/* destroy the "untagged" VLAN */
++	vlan = batadv_softif_vlan_get(bat_priv, BATADV_NO_FLAGS);
++	if (vlan) {
++		batadv_softif_destroy_vlan(bat_priv, vlan);
++		batadv_softif_vlan_put(vlan);
++	}
 +
- 	if (ret && tt_req_node) {
- 		spin_lock_bh(&bat_priv->tt.req_list_lock);
--		/* hlist_del_init() verifies tt_req_node still is in the list */
--		hlist_del_init(&tt_req_node->list);
-+		if (!hlist_unhashed(&tt_req_node->list)) {
-+			hlist_del_init(&tt_req_node->list);
-+			batadv_tt_req_node_put(tt_req_node);
-+		}
- 		spin_unlock_bh(&bat_priv->tt.req_list_lock);
--		kfree(tt_req_node);
- 	}
-+
-+	if (tt_req_node)
-+		batadv_tt_req_node_put(tt_req_node);
-+
- 	kfree(tvlv_tt_data);
- 	return ret;
+ 	batadv_sysfs_del_meshif(soft_iface);
+ 	unregister_netdevice_queue(soft_iface, head);
  }
-@@ -3057,7 +3088,7 @@ static void batadv_handle_tt_response(struct batadv_priv *bat_priv,
- 		if (!batadv_compare_eth(node->addr, resp_src))
- 			continue;
- 		hlist_del_init(&node->list);
--		kfree(node);
-+		batadv_tt_req_node_put(node);
- 	}
- 
- 	spin_unlock_bh(&bat_priv->tt.req_list_lock);
-diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
-index 6a577f4..ba846b0 100644
---- a/net/batman-adv/types.h
-+++ b/net/batman-adv/types.h
-@@ -1137,11 +1137,13 @@ struct batadv_tt_change_node {
-  * struct batadv_tt_req_node - data to keep track of the tt requests in flight
-  * @addr: mac address address of the originator this request was sent to
-  * @issued_at: timestamp used for purging stale tt requests
-+ * @refcount: number of contexts the object is used by
-  * @list: list node for batadv_priv_tt::req_list
-  */
- struct batadv_tt_req_node {
- 	u8 addr[ETH_ALEN];
- 	unsigned long issued_at;
-+	struct kref refcount;
- 	struct hlist_node list;
- };
- 
 -- 
 2.8.1
