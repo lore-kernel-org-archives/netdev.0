@@ -1,46 +1,103 @@
-From: Sven Eckelmann <sven@narfation.org>
-Subject: [PATCH net 4/5] batman-adv: Fix ICMP RR ethernet access after skb_linearize
-Date: Sun, 26 Jun 2016 11:16:12 +0200
-Message-ID: <1466932573-23105-4-git-send-email-sven@narfation.org>
-References: <10049349.EHEiaYmtBd@sven-edge>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Sven Eckelmann <sven@narfation.org>,
-	Marek Lindner <mareklindner@neomailbox.ch>
-To: David Miller <davem@davemloft.net>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v5 0/4] return offloaded stats as default and
+ expose original sw stats
+Date: Sun, 26 Jun 2016 11:33:34 +0200
+Message-ID: <20160626093334.GA1984@nanopsycho.orion>
+References: <1466522156-4795-1-git-send-email-jiri@resnulli.us>
+ <CAJieiUgP3j=W=khq_q-y382eFurHQSCs_Td8Q_KHtru6La22XA@mail.gmail.com>
+ <20160623054050.GA2060@nanopsycho.orion>
+ <576BC7A7.2000704@cumulusnetworks.com>
+ <20160623113508.GE2060@nanopsycho.orion>
+ <CACcJQnTfr5n75q48aJQ3bwzfCd9oThTCHcR_qWG7R9aV13pOQw@mail.gmail.com>
+ <20160623154038.GH2060@nanopsycho.orion>
+ <CAJieiUjsMHdTbhGqyo+8ys7S5QZ9KYvTY+LDC-bbo6dRk3FBRw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Nogah Frankel <nogahf@mellanox.com>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Yotam Gigi <yotamg@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>, sd@queasysnail.net,
+	eranbe@mellanox.com, Alexei Starovoitov <ast@plumgrid.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	David Ahern <dsa@cumulusnetworks.com>
+To: Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from narfation.org ([79.140.41.39]:40204 "EHLO v3-1039.vlinux.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752107AbcFZJQd (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 26 Jun 2016 05:16:33 -0400
-In-Reply-To: <10049349.EHEiaYmtBd@sven-edge>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36705 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751979AbcFZJdi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2016 05:33:38 -0400
+Received: by mail-wm0-f68.google.com with SMTP id c82so16860093wme.3
+        for <netdev@vger.kernel.org>; Sun, 26 Jun 2016 02:33:37 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAJieiUjsMHdTbhGqyo+8ys7S5QZ9KYvTY+LDC-bbo6dRk3FBRw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The skb_linearize may reallocate the skb. This makes the calculated pointer
-for ethhdr invalid. But it the pointer is used later to fill in the RR
-field of the batadv_icmp_packet_rr packet.
+Sat, Jun 25, 2016 at 05:50:59PM CEST, roopa@cumulusnetworks.com wrote:
+>On Thu, Jun 23, 2016 at 8:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>> Thu, Jun 23, 2016 at 05:11:26PM CEST, anuradhak@cumulusnetworks.com wrote:
+>>>>>>> we can't separate CPU and HW stats there. In some cases (or ASICs) HW
+>>>>>>> counters do
+>>>>>>> not include CPU generated packets....you will have to add CPU
+>>>>>>> generated pkt counters to the
+>>>>>>> hw counters for such virtual device stats.
+>>>>>> Can you please provide and example how that could happen?
+>>>>>
+>>>>>example is the bridge vlan stats I mention below. These are usually counted
+>>>>>by attaching hw virtual counter resources. And CPU generated packets
+>>>>>in some cases maybe setup to bypass the ASIC pipeline because the CPU
+>>>>>has already made the required decisions. So, they may not be counted by
+>>>>>by such hw virtual counters.
+>>>>
+>>>> Bypass ASIC? How do the packets get on the wire?
+>>>>
+>>>
+>>>Bypass the "forwarding pipeline" in the ASIC that is. Obviously the
+>>>ASIC ships the CPU generated packet out of the switch/front-panel
+>>>port. Continuing Roopa's example of vlan netdev stats.... To get the
+>>>HW stats counters are typically tied to the ingress and egress vlan hw
+>>>entries. All the incoming packets are subject to the ingress vlan
+>>>lookup irrespective of whether they get punted to the CPU or whether
+>>>they are forwarded to another front panel port. In that case the
+>>>ingress HW stats does represent all packets. However for CPU
+>>>originated packets egress vlan lookups are bypassed in the ASIC (this
+>>>is common forwarding option in most ASICs) and the packet shipped as
+>>>is out of front-panel port specified by the CPU. Which means these
+>>>packets will NOT be counted against the egress VLAN HW counter; hence
+>>>the need for summation.
+>>
+>> Driver will know about this, and will provide the stats accordignly to
+>> the core. Who else than driver should resolve this.
+>>
+>
+>The point was/is that there should be only two categories:
+>1) the base default stats: can contain 'only sw', 'only hw' or 'a
+>summation of hw and sw' in some cases.
+>The user does not care about the breakdown.
+>
+>2) everything else falls into the second category: driver provided
+>breakdown of stats for easier debugging.
+>This today is ethtool stats and we can have an equivalent nested
+>attribute for this in the new stats api.
+>Lets call it IFLA_STATS_LINK_DRIVER or you pick a name. Lets make it
+>nested and extensible (like ethtool is) and
+>driver can expose any kind of stats there.
+>ie lets move the stats you are proposing to this category of stats.....
+>instead of introducing a third category 'SW stats'.
 
-Instead re-evaluate eth_hdr after the skb_linearize+skb_cow to fix the
-pointer and avoid the invalid read.
+What you are proposing is essentially what our patchset does. We expose
+2 sets of stats. hw and pure sw. hw includes all, driver will take
+care of it cause he knows what is going on in hw.
 
-Fixes: da6b8c20a5b8 ("batman-adv: generalize batman-adv icmp packet handling")
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
----
- net/batman-adv/routing.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/batman-adv/routing.c b/net/batman-adv/routing.c
-index e3857ed..6c2901a 100644
---- a/net/batman-adv/routing.c
-+++ b/net/batman-adv/routing.c
-@@ -374,6 +374,7 @@ int batadv_recv_icmp_packet(struct sk_buff *skb,
- 		if (skb_cow(skb, ETH_HLEN) < 0)
- 			goto out;
- 
-+		ethhdr = eth_hdr(skb);
- 		icmph = (struct batadv_icmp_header *)skb->data;
- 		icmp_packet_rr = (struct batadv_icmp_packet_rr *)icmph;
- 		if (icmp_packet_rr->rr_cur >= BATADV_RR_LEN)
--- 
-2.8.1
+Btw mirroring random string stats into Netlink is not a good idea IMO.
