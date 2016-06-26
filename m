@@ -1,31 +1,41 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] qed/qede: Tunnel hardware GRO support
-Date: Sun, 26 Jun 2016 15:53:50 -0400 (EDT)
-Message-ID: <20160626.155350.85882752040798916.davem@davemloft.net>
-References: <CAKgT0UdDt6H8ix6U7n_uPjodkXYuxviZjSKWQRaXu2_qWWEL+A@mail.gmail.com>
-	<CO2PR11MB0088C4DEAFEE71B0D865DB33972C0@CO2PR11MB0088.namprd11.prod.outlook.com>
-	<576B08A2.8080603@hpe.com>
+Subject: Re: [PATCH net-next 00/14] rxrpc: Get rid of conn bundle and
+ transport structs [ver #2]
+Date: Sun, 26 Jun 2016 16:02:14 -0400 (EDT)
+Message-ID: <20160626.160214.1225132772554388512.davem@davemloft.net>
+References: <146661137134.15011.10133465789054712595.stgit@warthog.procyon.org.uk>
+	<15528.1466611579@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Yuval.Mintz@qlogic.com, alexander.duyck@gmail.com,
-	manish.chopra@qlogic.com, netdev@vger.kernel.org,
-	Ariel.Elior@qlogic.com, tom@herbertland.com, hannes@redhat.com
-To: rick.jones2@hpe.com
+Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
+	linux-kernel@vger.kernel.org
+To: dhowells@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37327 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37386 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751330AbcFZTxy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2016 15:53:54 -0400
-In-Reply-To: <576B08A2.8080603@hpe.com>
+	with ESMTP id S1751390AbcFZUCR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2016 16:02:17 -0400
+In-Reply-To: <15528.1466611579@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Rick Jones <rick.jones2@hpe.com>
-Date: Wed, 22 Jun 2016 14:52:34 -0700
+From: David Howells <dhowells@redhat.com>
+Date: Wed, 22 Jun 2016 17:06:19 +0100
 
-> To get that disabled, one must also get the bnx2x module loaded with
-> "disable-tpa=1" so the Linux stack GRO gets used instead.
+> David Howells <dhowells@redhat.com> wrote:
+> 
+>> The patches can be found here also:
+>> 
+>> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
+>> 
+>> Tagged thusly:
+>> 
+>> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
+>> 	rxrpc-rewrite-20160622
+> 
+> Oops.  I forgot to update the tag name.  It's now:
+> 
+> 	rxrpc-rewrite-20160622-2
 
-And people wonder why I'm difficult about module parameters in
-drivers....
+Pulled, thanks David.
