@@ -1,41 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 00/14] rxrpc: Get rid of conn bundle and
- transport structs [ver #2]
-Date: Sun, 26 Jun 2016 16:02:14 -0400 (EDT)
-Message-ID: <20160626.160214.1225132772554388512.davem@davemloft.net>
-References: <146661137134.15011.10133465789054712595.stgit@warthog.procyon.org.uk>
-	<15528.1466611579@warthog.procyon.org.uk>
+Subject: Re: [PATCH net] net: avoid vlan ptype specific match to be leaked
+ on real device
+Date: Sun, 26 Jun 2016 16:06:08 -0400 (EDT)
+Message-ID: <20160626.160608.2073563033978522175.davem@davemloft.net>
+References: <20160622105544.GC2068@nanopsycho.orion>
+	<1466598089.4707.31.camel@redhat.com>
+	<20160622124050.GD2068@nanopsycho.orion>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
+Cc: pabeni@redhat.com, netdev@vger.kernel.org, jiri@mellanox.com,
+	aduyck@mirantis.com, edumazet@google.com, daniel@iogearbox.net
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:37386 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:37407 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751390AbcFZUCR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2016 16:02:17 -0400
-In-Reply-To: <15528.1466611579@warthog.procyon.org.uk>
+	with ESMTP id S1751430AbcFZUG7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2016 16:06:59 -0400
+In-Reply-To: <20160622124050.GD2068@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Howells <dhowells@redhat.com>
-Date: Wed, 22 Jun 2016 17:06:19 +0100
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Wed, 22 Jun 2016 14:40:50 +0200
 
-> David Howells <dhowells@redhat.com> wrote:
-> 
->> The patches can be found here also:
->> 
->> 	http://git.kernel.org/cgit/linux/kernel/git/dhowells/linux-fs.git/log/?h=rxrpc-rewrite
->> 
->> Tagged thusly:
->> 
->> 	git://git.kernel.org/pub/scm/linux/kernel/git/dhowells/linux-fs.git
->> 	rxrpc-rewrite-20160622
-> 
-> Oops.  I forgot to update the tag name.  It's now:
-> 
-> 	rxrpc-rewrite-20160622-2
+> The patch only unified the behaviour so everyone know what to expect
+> regardless of the device type.
 
-Pulled, thanks David.
++1
+
+And reverting this behavior back is going to hurt more people than it
+will help, so I am not going to apply this, sorry.
