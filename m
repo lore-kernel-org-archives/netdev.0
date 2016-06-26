@@ -1,931 +1,301 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 5/6] r8152: support RTL8153B
-Date: Mon, 27 Jun 2016 13:07:44 +0800
-Message-ID: <1394712342-15778-189-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-184-Taiwan-albertk@realtek.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from rtits2.realtek.com ([60.250.210.242]:60917 "EHLO
-	rtits2.realtek.com.tw" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751961AbcF0GHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 02:07:08 -0400
-In-Reply-To: <1394712342-15778-184-Taiwan-albertk@realtek.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Andy Lutomirski <luto@kernel.org>
+Subject: [PATCH v4 01/29] bluetooth: Switch SMP to crypto_cipher_encrypt_one()
+Date: Sun, 26 Jun 2016 14:55:23 -0700
+Message-ID: <264af59a3060c2bc2a725cfc66a8fa68219d1c4a.1466974736.git.luto@kernel.org>
+References: <cover.1466974736.git.luto@kernel.org>
+Reply-To: kernel-hardening@lists.openwall.com
+Cc: linux-kernel@vger.kernel.org,
+	linux-arch@vger.kernel.org,
+	Borislav Petkov <bp@alien8.de>,
+	Nadav Amit <nadav.amit@gmail.com>,
+	Kees Cook <keescook@chromium.org>,
+	Brian Gerst <brgerst@gmail.com>,
+	"kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Josh Poimboeuf <jpoimboe@redhat.com>,
+	Jann Horn <jann@thejh.net>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	Andy Lutomirski <luto@kernel.org>,
+	Marcel Holtmann <marcel@holtmann.org>,
+	Gustavo Padovan <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org,
+	netdev@vger.kernel.org
+To: x86@kernel.org
+Return-path: <kernel-hardening-return-3689-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <cover.1466974736.git.luto@kernel.org>
+In-Reply-To: <cover.1466974736.git.luto@kernel.org>
+References: <cover.1466974736.git.luto@kernel.org>
+List-Id: netdev.vger.kernel.org
 
-Support new chip RTL8153B.
+SMP does ECB crypto on stack buffers.  This is complicated and
+fragile, and it will not work if the stack is virtually allocated.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+Switch to the crypto_cipher interface, which is simpler and safer.
+
+Cc: Marcel Holtmann <marcel@holtmann.org>
+Cc: Gustavo Padovan <gustavo@padovan.org>
+Cc: Johan Hedberg <johan.hedberg@gmail.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: linux-bluetooth@vger.kernel.org
+Cc: netdev@vger.kernel.org
+Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+Acked-and-tested-by: Johan Hedberg <johan.hedberg@intel.com>
+Signed-off-by: Andy Lutomirski <luto@kernel.org>
 ---
- drivers/net/usb/r8152.c | 560 +++++++++++++++++++++++++++++++++++++++++++++---
- 1 file changed, 533 insertions(+), 27 deletions(-)
+ net/bluetooth/smp.c | 67 ++++++++++++++++++++++-------------------------------
+ 1 file changed, 28 insertions(+), 39 deletions(-)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 3ccbff0..2fd4944 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -28,7 +28,7 @@
- #include <linux/suspend.h>
+diff --git a/net/bluetooth/smp.c b/net/bluetooth/smp.c
+index 50976a6481f3..4c1a16a96ae5 100644
+--- a/net/bluetooth/smp.c
++++ b/net/bluetooth/smp.c
+@@ -22,9 +22,9 @@
  
- /* Information for net-next */
--#define NETNEXT_VERSION		"08"
-+#define NETNEXT_VERSION		"09"
+ #include <linux/debugfs.h>
+ #include <linux/scatterlist.h>
++#include <linux/crypto.h>
+ #include <crypto/b128ops.h>
+ #include <crypto/hash.h>
+-#include <crypto/skcipher.h>
  
- /* Information for net */
- #define NET_VERSION		"3"
-@@ -50,11 +50,14 @@
- #define PLA_FMC			0xc0b4
- #define PLA_CFG_WOL		0xc0b6
- #define PLA_TEREDO_CFG		0xc0bc
-+#define PLA_TEREDO_WAKE_BASE	0xc0c4
- #define PLA_MAR			0xcd00
- #define PLA_BACKUP		0xd000
- #define PAL_BDC_CR		0xd1a0
- #define PLA_TEREDO_TIMER	0xd2cc
- #define PLA_REALWOW_TIMER	0xd2e8
-+#define PLA_EFUSE_DATA		0xdd00
-+#define PLA_EFUSE_CMD		0xdd02
- #define PLA_LEDSEL		0xdd90
- #define PLA_LED_FEATURE		0xdd92
- #define PLA_PHYAR		0xde00
-@@ -104,7 +107,9 @@
- #define USB_CSR_DUMMY2		0xb466
- #define USB_DEV_STAT		0xb808
- #define USB_CONNECT_TIMER	0xcbf8
-+#define USB_MSC_TIMER		0xcbfc
- #define USB_BURST_SIZE		0xcfc0
-+#define USB_LPM_CONFIG		0xcfd8
- #define USB_USB_CTRL		0xd406
- #define USB_PHY_CTRL		0xd408
- #define USB_TX_AGG		0xd40a
-@@ -112,14 +117,19 @@
- #define USB_USB_TIMER		0xd428
- #define USB_RX_EARLY_TIMEOUT	0xd42c
- #define USB_RX_EARLY_SIZE	0xd42e
--#define USB_PM_CTRL_STATUS	0xd432
-+#define USB_PM_CTRL_STATUS	0xd432	/* RTL8153A */
-+#define USB_RX_EXTRA_AGGR_TMR	0xd432	/* RTL8153B */
- #define USB_TX_DMA		0xd434
-+#define USB_UPT_RXDMA_OWN	0xd437
- #define USB_TOLERANCE		0xd490
- #define USB_LPM_CTRL		0xd41a
-+#define USB_U1U2_TIMER		0xd4da
- #define USB_UPS_CTRL		0xd800
- #define USB_MISC_0		0xd81a
- #define USB_POWER_CUT		0xd80a
- #define USB_AFE_CTRL2		0xd824
-+#define USB_UPS_CFG		0xd842
-+#define USB_UPS_FLAGS		0xd848
- #define USB_WDT11_CTRL		0xe43c
- #define USB_BP_BA		0xfc26
- #define USB_BP_0		0xfc28
-@@ -141,6 +151,7 @@
- #define OCP_EEE_AR		0xa41a
- #define OCP_EEE_DATA		0xa41c
- #define OCP_PHY_STATUS		0xa420
-+#define OCP_NCTL_CFG		0xa42c
- #define OCP_POWER_CFG		0xa430
- #define OCP_EEE_CFG		0xa432
- #define OCP_SRAM_ADDR		0xa436
-@@ -150,9 +161,14 @@
- #define OCP_EEE_ADV		0xa5d0
- #define OCP_EEE_LPABLE		0xa5d2
- #define OCP_PHY_STATE		0xa708		/* nway state for 8153 */
-+#define OCP_PHY_PATCH_STAT	0xb800
-+#define OCP_PHY_PATCH_CMD	0xb820
-+#define OCP_ADC_IOFFSET		0xbcfc
- #define OCP_ADC_CFG		0xbc06
-+#define OCP_SYSCLK_CFG		0xc416
+ #include <net/bluetooth/bluetooth.h>
+ #include <net/bluetooth/hci_core.h>
+@@ -88,7 +88,7 @@ struct smp_dev {
+ 	u8			min_key_size;
+ 	u8			max_key_size;
  
- /* SRAM Register */
-+#define SRAM_GREEN_CFG		0x8011
- #define SRAM_LPF_CFG		0x8012
- #define SRAM_10M_AMP1		0x8080
- #define SRAM_10M_AMP2		0x8082
-@@ -250,6 +266,10 @@
- /* PAL_BDC_CR */
- #define ALDPS_PROXY_MODE	0x0001
- 
-+/* PLA_EFUSE_CMD */
-+#define EFUSE_READ_CMD		BIT(15)
-+#define EFUSE_DATA_BIT16	BIT(7)
-+
- /* PLA_CONFIG34 */
- #define LINK_ON_WAKE_EN		0x0010
- #define LINK_OFF_WAKE_EN	0x0008
-@@ -275,6 +295,7 @@
- 
- /* PLA_MAC_PWR_CTRL2 */
- #define EEE_SPDWN_RATIO		0x8007
-+#define MAC_CLK_SPDWN_EN	BIT(15)
- 
- /* PLA_MAC_PWR_CTRL3 */
- #define PKT_AVAIL_SPDWN_EN	0x0100
-@@ -326,6 +347,9 @@
- #define STAT_SPEED_HIGH		0x0000
- #define STAT_SPEED_FULL		0x0002
- 
-+/* USB_LPM_CONFIG */
-+#define LPM_U1U2_EN		BIT(0)
-+
- /* USB_TX_AGG */
- #define TX_AGG_MAX_THRESHOLD	0x03
- 
-@@ -333,11 +357,16 @@
- #define RX_THR_SUPPER		0x0c350180
- #define RX_THR_HIGH		0x7a120180
- #define RX_THR_SLOW		0xffff0180
-+#define RX_THR_B		0x00010001
- 
- /* USB_TX_DMA */
- #define TEST_MODE_DISABLE	0x00000001
- #define TX_SIZE_ADJUST1		0x00000100
- 
-+/* USB_UPT_RXDMA_OWN */
-+#define OWN_UPDATE		BIT(0)
-+#define OWN_CLEAR		BIT(1)
-+
- /* USB_UPS_CTRL */
- #define POWER_CUT		0x0100
- 
-@@ -354,6 +383,8 @@
- /* USB_POWER_CUT */
- #define PWR_EN			0x0001
- #define PHASE2_EN		0x0008
-+#define UPS_EN			BIT(4)
-+#define USP_PREWAKE		BIT(5)
- 
- /* USB_MISC_0 */
- #define PCUT_STATUS		0x0001
-@@ -380,6 +411,37 @@
- #define SEN_VAL_NORMAL		0xa000
- #define SEL_RXIDLE		0x0100
- 
-+/* USB_UPS_CFG */
-+#define SAW_CNT_1MS_MASK	0x0fff
-+
-+/* USB_UPS_FLAGS */
-+#define UPS_FLAGS_R_TUNE		BIT(0)
-+#define UPS_FLAGS_EN_10M_CKDIV		BIT(1)
-+#define UPS_FLAGS_250M_CKDIV		BIT(2)
-+#define UPS_FLAGS_EN_ALDPS		BIT(3)
-+#define UPS_FLAGS_CTAP_SHORT_DIS	BIT(4)
-+#define UPS_FLAGS_SPEED_MASK		(0xf << 16)
-+#define ups_flags_speed(x)		((x) << 16)
-+#define UPS_FLAGS_EN_EEE		BIT(20)
-+#define UPS_FLAGS_EN_500M_EEE		BIT(21)
-+#define UPS_FLAGS_EN_EEE_CKDIV		BIT(22)
-+#define UPS_FLAGS_EEE_PLLOFF_GIGA	BIT(24)
-+#define UPS_FLAGS_EEE_CMOD_LV_EN	BIT(25)
-+#define UPS_FLAGS_EN_GREEN		BIT(26)
-+#define UPS_FLAGS_EN_FLOW_CTR		BIT(27)
-+
-+enum spd_duplex {
-+	NWAY_10M_HALF = 1,
-+	NWAY_10M_FULL,
-+	NWAY_100M_HALF,
-+	NWAY_100M_FULL,
-+	NWAY_1000M_FULL,
-+	FORCE_10M_HALF,
-+	FORCE_10M_FULL,
-+	FORCE_100M_HALF,
-+	FORCE_100M_FULL,
-+};
-+
- /* OCP_ALDPS_CONFIG */
- #define ENPWRSAVE		0x8000
- #define ENPDNPS			0x0200
-@@ -391,6 +453,9 @@
- #define PHY_STAT_LAN_ON		3
- #define PHY_STAT_PWRDN		5
- 
-+/* OCP_NCTL_CFG */
-+#define PGA_RETURN_EN		BIT(1)
-+
- /* OCP_POWER_CFG */
- #define EEE_CLKDIV_EN		0x8000
- #define EN_ALDPS		0x0004
-@@ -432,17 +497,34 @@
- #define EEE10_EN		0x0010
- 
- /* OCP_DOWN_SPEED */
-+#define EN_EEE_CMODE		BIT(14)
-+#define EN_EEE_1000		BIT(13)
-+#define EN_EEE_100		BIT(12)
-+#define EN_10M_CLKDIV		BIT(11)
- #define EN_10M_BGOFF		0x0080
- 
- /* OCP_PHY_STATE */
- #define TXDIS_STATE		0x01
- #define ABD_STATE		0x02
- 
-+/* OCP_PHY_PATCH_STAT */
-+#define PATCH_READY		BIT(6)
-+
-+/* OCP_PHY_PATCH_CMD */
-+#define PATCH_REQUEST		BIT(4)
-+
- /* OCP_ADC_CFG */
- #define CKADSEL_L		0x0100
- #define ADC_EN			0x0080
- #define EN_EMI_L		0x0040
- 
-+/* OCP_SYSCLK_CFG */
-+#define CLK_DIV_EXPO(x)		(min(x, 5) << 8)
-+
-+/* SRAM_GREEN_CFG */
-+#define GREEN_ETH_EN		BIT(15)
-+#define R_TUNE_EN		BIT(11)
-+
- /* SRAM_LPF_CFG */
- #define LPF_AUTO_TUNE		0x8000
- 
-@@ -647,6 +729,8 @@ enum rtl_version {
- 	RTL_VER_05,
- 	RTL_VER_06,
- 	RTL_VER_07,
-+	RTL_VER_08,
-+	RTL_VER_09,
- 	RTL_VER_MAX
+-	struct crypto_skcipher	*tfm_aes;
++	struct crypto_cipher	*tfm_aes;
+ 	struct crypto_shash	*tfm_cmac;
  };
  
-@@ -977,6 +1061,12 @@ static void sram_write(struct r8152 *tp, u16 addr, u16 data)
- 	ocp_reg_write(tp, OCP_SRAM_DATA, data);
- }
+@@ -127,7 +127,7 @@ struct smp_chan {
+ 	u8			dhkey[32];
+ 	u8			mackey[16];
  
-+static u16 sram_read(struct r8152 *tp, u16 addr)
-+{
-+	ocp_reg_write(tp, OCP_SRAM_ADDR, addr);
-+	return ocp_reg_read(tp, OCP_SRAM_DATA);
-+}
-+
- static int read_mii_word(struct net_device *netdev, int phy_id, int reg)
+-	struct crypto_skcipher	*tfm_aes;
++	struct crypto_cipher	*tfm_aes;
+ 	struct crypto_shash	*tfm_cmac;
+ };
+ 
+@@ -361,10 +361,8 @@ static int smp_h6(struct crypto_shash *tfm_cmac, const u8 w[16],
+  * s1 and ah.
+  */
+ 
+-static int smp_e(struct crypto_skcipher *tfm, const u8 *k, u8 *r)
++static int smp_e(struct crypto_cipher *tfm, const u8 *k, u8 *r)
  {
- 	struct r8152 *tp = netdev_priv(netdev);
-@@ -2167,11 +2257,40 @@ static int rtl8152_enable(struct r8152 *tp)
- 	return rtl_enable(tp);
+-	SKCIPHER_REQUEST_ON_STACK(req, tfm);
+-	struct scatterlist sg;
+ 	uint8_t tmp[16], data[16];
+ 	int err;
+ 
+@@ -378,7 +376,7 @@ static int smp_e(struct crypto_skcipher *tfm, const u8 *k, u8 *r)
+ 	/* The most significant octet of key corresponds to k[0] */
+ 	swap_buf(k, tmp, 16);
+ 
+-	err = crypto_skcipher_setkey(tfm, tmp, 16);
++	err = crypto_cipher_setkey(tfm, tmp, 16);
+ 	if (err) {
+ 		BT_ERR("cipher setkey failed: %d", err);
+ 		return err;
+@@ -387,16 +385,7 @@ static int smp_e(struct crypto_skcipher *tfm, const u8 *k, u8 *r)
+ 	/* Most significant octet of plaintextData corresponds to data[0] */
+ 	swap_buf(r, data, 16);
+ 
+-	sg_init_one(&sg, data, 16);
+-
+-	skcipher_request_set_tfm(req, tfm);
+-	skcipher_request_set_callback(req, 0, NULL, NULL);
+-	skcipher_request_set_crypt(req, &sg, &sg, 16, NULL);
+-
+-	err = crypto_skcipher_encrypt(req);
+-	skcipher_request_zero(req);
+-	if (err)
+-		BT_ERR("Encrypt data error %d", err);
++	crypto_cipher_encrypt_one(tfm, data, data);
+ 
+ 	/* Most significant octet of encryptedData corresponds to data[0] */
+ 	swap_buf(data, r, 16);
+@@ -406,7 +395,7 @@ static int smp_e(struct crypto_skcipher *tfm, const u8 *k, u8 *r)
+ 	return err;
  }
  
-+static inline void r8153b_rx_agg_chg_indicate(struct r8152 *tp)
-+{
-+	ocp_write_byte(tp, MCU_TYPE_USB, USB_UPT_RXDMA_OWN,
-+		       OWN_UPDATE | OWN_CLEAR);
-+}
-+
- static void r8153_set_rx_early_timeout(struct r8152 *tp)
+-static int smp_c1(struct crypto_skcipher *tfm_aes, const u8 k[16],
++static int smp_c1(struct crypto_cipher *tfm_aes, const u8 k[16],
+ 		  const u8 r[16], const u8 preq[7], const u8 pres[7], u8 _iat,
+ 		  const bdaddr_t *ia, u8 _rat, const bdaddr_t *ra, u8 res[16])
  {
- 	u32 ocp_data = tp->coalesce / 8;
- 
--	ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_TIMEOUT, ocp_data);
-+	switch (tp->version) {
-+	case RTL_VER_03:
-+	case RTL_VER_04:
-+	case RTL_VER_05:
-+	case RTL_VER_06:
-+		ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_TIMEOUT,
-+			       ocp_data);
-+		break;
-+
-+	case RTL_VER_08:
-+	case RTL_VER_09:
-+		/* The RTL8153B uses USB_RX_EXTRA_AGGR_TMR for rx timeout
-+		 * primarily. For USB_RX_EARLY_TIMEOUT, we fix it to 128ns.
-+		 */
-+		ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_TIMEOUT,
-+			       128 / 8);
-+		ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EXTRA_AGGR_TMR,
-+			       ocp_data);
-+		r8153b_rx_agg_chg_indicate(tp);
-+		break;
-+
-+	default:
-+		break;
-+	}
+@@ -455,7 +444,7 @@ static int smp_c1(struct crypto_skcipher *tfm_aes, const u8 k[16],
+ 	return err;
  }
  
- static void r8153_set_rx_early_size(struct r8152 *tp)
-@@ -2180,6 +2299,15 @@ static void r8153_set_rx_early_size(struct r8152 *tp)
- 	u32 ocp_data = (agg_buf_sz - mtu - VLAN_ETH_HLEN - VLAN_HLEN) / 4;
- 
- 	ocp_write_word(tp, MCU_TYPE_USB, USB_RX_EARLY_SIZE, ocp_data);
-+
-+	switch (tp->version) {
-+	case RTL_VER_08:
-+	case RTL_VER_09:
-+		r8153b_rx_agg_chg_indicate(tp);
-+		break;
-+	default:
-+		break;
-+	}
- }
- 
- static int rtl8153_enable(struct r8152 *tp)
-@@ -2371,6 +2499,19 @@ static void r8153_u1u2en(struct r8152 *tp, bool enable)
- 	usb_ocp_write(tp, USB_TOLERANCE, BYTE_EN_SIX_BYTES, sizeof(u1u2), u1u2);
- }
- 
-+static void r8153b_u1u2en(struct r8152 *tp, bool enable)
-+{
-+	u32 ocp_data;
-+
-+	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_LPM_CONFIG);
-+	if (enable)
-+		ocp_data |= LPM_U1U2_EN;
-+	else
-+		ocp_data &= ~LPM_U1U2_EN;
-+
-+	ocp_write_word(tp, MCU_TYPE_USB, USB_LPM_CONFIG, ocp_data);
-+}
-+
- static void r8153_u2p3en(struct r8152 *tp, bool enable)
+-static int smp_s1(struct crypto_skcipher *tfm_aes, const u8 k[16],
++static int smp_s1(struct crypto_cipher *tfm_aes, const u8 k[16],
+ 		  const u8 r1[16], const u8 r2[16], u8 _r[16])
  {
- 	u32 ocp_data;
-@@ -2383,15 +2524,52 @@ static void r8153_u2p3en(struct r8152 *tp, bool enable)
- 	ocp_write_word(tp, MCU_TYPE_USB, USB_U2P3_CTRL, ocp_data);
+ 	int err;
+@@ -471,7 +460,7 @@ static int smp_s1(struct crypto_skcipher *tfm_aes, const u8 k[16],
+ 	return err;
  }
  
-+static void r8153b_ups_en(struct r8152 *tp, bool enable)
-+{
-+	u32 ocp_data;
-+
-+	switch (tp->version) {
-+	case RTL_VER_08:
-+	case RTL_VER_09:
-+		break;
-+
-+	case RTL_VER_01:
-+	case RTL_VER_02:
-+	case RTL_VER_03:
-+	case RTL_VER_04:
-+	case RTL_VER_05:
-+	case RTL_VER_06:
-+	case RTL_VER_07:
-+	default:
-+		return;
-+	}
-+
-+	ocp_data = ocp_read_byte(tp, MCU_TYPE_USB, USB_POWER_CUT);
-+	if (enable) {
-+		tp->rtl_ops.power_cut_en(tp, false);
-+		ocp_data |= UPS_EN;
-+		ocp_write_byte(tp, MCU_TYPE_USB, USB_POWER_CUT, ocp_data);
-+	} else {
-+		ocp_data &= ~UPS_EN;
-+		ocp_write_byte(tp, MCU_TYPE_USB, USB_POWER_CUT, ocp_data);
-+
-+		ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_MISC_0);
-+		ocp_data &= ~PCUT_STATUS;
-+		ocp_write_word(tp, MCU_TYPE_USB, USB_MISC_0, ocp_data);
-+	}
-+}
-+
- static void r8153_power_cut_en(struct r8152 *tp, bool enable)
+-static int smp_ah(struct crypto_skcipher *tfm, const u8 irk[16],
++static int smp_ah(struct crypto_cipher *tfm, const u8 irk[16],
+ 		  const u8 r[3], u8 res[3])
  {
- 	u32 ocp_data;
+ 	u8 _res[16];
+@@ -759,7 +748,7 @@ static void smp_chan_destroy(struct l2cap_conn *conn)
+ 	kzfree(smp->slave_csrk);
+ 	kzfree(smp->link_key);
  
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_POWER_CUT);
--	if (enable)
-+	if (enable) {
-+		r8153b_ups_en(tp, false);
- 		ocp_data |= PWR_EN | PHASE2_EN;
--	else
-+	} else {
- 		ocp_data &= ~(PWR_EN | PHASE2_EN);
-+	}
- 	ocp_write_word(tp, MCU_TYPE_USB, USB_POWER_CUT, ocp_data);
- }
+-	crypto_free_skcipher(smp->tfm_aes);
++	crypto_free_cipher(smp->tfm_aes);
+ 	crypto_free_shash(smp->tfm_cmac);
  
-@@ -2430,7 +2608,10 @@ static void rtl_runtime_suspend_enable(struct r8152 *tp, bool enable)
- 		ocp_write_word(tp, MCU_TYPE_PLA, PLA_CONFIG34, ocp_data);
+ 	/* Ensure that we don't leave any debug key around if debug key
+@@ -1359,9 +1348,9 @@ static struct smp_chan *smp_chan_create(struct l2cap_conn *conn)
+ 	if (!smp)
+ 		return NULL;
  
- 		ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR, CRWECR_NORAML);
-+
-+		r8153b_ups_en(tp, true);
- 	} else {
-+		r8153b_ups_en(tp, false);
- 		__rtl_set_wol(tp, tp->saved_wolopts);
- 		r8153_u2p3en(tp, true);
- 		tp->rtl_ops.u1u2_enable(tp, true);
-@@ -2462,9 +2643,31 @@ static void r8153_teredo_off(struct r8152 *tp)
- {
- 	u32 ocp_data;
- 
--	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG);
--	ocp_data &= ~(TEREDO_SEL | TEREDO_RS_EVENT_MASK | OOB_TEREDO_EN);
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG, ocp_data);
-+	switch (tp->version) {
-+	case RTL_VER_01:
-+	case RTL_VER_02:
-+	case RTL_VER_03:
-+	case RTL_VER_04:
-+	case RTL_VER_05:
-+	case RTL_VER_06:
-+	case RTL_VER_07:
-+		ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG);
-+		ocp_data &= ~(TEREDO_SEL | TEREDO_RS_EVENT_MASK |
-+			      OOB_TEREDO_EN);
-+		ocp_write_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG, ocp_data);
-+		break;
-+
-+	case RTL_VER_08:
-+	case RTL_VER_09:
-+		/* The bit 0 ~ 7 are relative with teredo settings. They are
-+		 * W1C (write 1 to clear), so set all 1 to disable it.
-+		 */
-+		ocp_write_byte(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG, 0xff);
-+		break;
-+
-+	default:
-+		break;
-+	}
- 
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_WDT6_CTRL, WDT6_SET_MODE);
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_REALWOW_TIMER, 0);
-@@ -2632,6 +2835,33 @@ static void r8152b_enter_oob(struct r8152 *tp)
- 	ocp_write_dword(tp, MCU_TYPE_PLA, PLA_RCR, ocp_data);
- }
- 
-+static int r8153_patch_request(struct r8152 *tp, bool request)
-+{
-+	u16 data;
-+	int i;
-+
-+	data = ocp_reg_read(tp, OCP_PHY_PATCH_CMD);
-+	if (request)
-+		data |= PATCH_REQUEST;
-+	else
-+		data &= ~PATCH_REQUEST;
-+	ocp_reg_write(tp, OCP_PHY_PATCH_CMD, data);
-+
-+	for (i = 0; request && i < 5000; i++) {
-+		usleep_range(1000, 2000);
-+		if (ocp_reg_read(tp, OCP_PHY_PATCH_STAT) & PATCH_READY)
-+			break;
-+	}
-+
-+	if (request && !(ocp_reg_read(tp, OCP_PHY_PATCH_STAT) & PATCH_READY)) {
-+		netif_err(tp, drv, tp->netdev, "patch request fail\n");
-+		r8153_patch_request(tp, false);
-+		return -ETIME;
-+	} else {
-+		return 0;
-+	}
-+}
-+
- static void r8153_hw_phy_cfg(struct r8152 *tp)
- {
- 	u32 ocp_data;
-@@ -2679,6 +2909,101 @@ static void r8153_hw_phy_cfg(struct r8152 *tp)
- 	set_bit(PHY_RESET, &tp->flags);
- }
- 
-+static void r8153b_ups_flags_w0w1(struct r8152 *tp, u32 set, u32 clear)
-+{
-+	u32 ocp_data;
-+
-+	ocp_data = ocp_read_dword(tp, MCU_TYPE_USB, USB_UPS_FLAGS);
-+	ocp_data &= ~clear;
-+	ocp_data |= set;
-+	ocp_write_dword(tp, MCU_TYPE_USB, USB_UPS_FLAGS, ocp_data);
-+}
-+
-+static u32 r8152_efuse_read(struct r8152 *tp, u8 addr)
-+{
-+	u32 ocp_data;
-+
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_EFUSE_CMD, EFUSE_READ_CMD | addr);
-+	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_EFUSE_CMD);
-+	ocp_data = (ocp_data & EFUSE_DATA_BIT16) << 9;	/* data of bit16 */
-+	ocp_data |= ocp_read_word(tp, MCU_TYPE_PLA, PLA_EFUSE_DATA);
-+
-+	return ocp_data;
-+}
-+
-+static void r8153b_hw_phy_cfg(struct r8152 *tp)
-+{
-+	u32 ocp_data, ups_flags = 0;
-+	u16 data;
-+
-+	data = r8152_mdio_read(tp, MII_BMCR);
-+	if (data & BMCR_PDOWN) {
-+		data &= ~BMCR_PDOWN;
-+		r8152_mdio_write(tp, MII_BMCR, data);
-+	}
-+
-+	data = sram_read(tp, SRAM_GREEN_CFG);
-+	data |= GREEN_ETH_EN | R_TUNE_EN;
-+	sram_write(tp, SRAM_GREEN_CFG, data);
-+	data = ocp_reg_read(tp, OCP_NCTL_CFG);
-+	data |= PGA_RETURN_EN;
-+	ocp_reg_write(tp, OCP_NCTL_CFG, data);
-+	ups_flags |= UPS_FLAGS_EN_GREEN | UPS_FLAGS_R_TUNE;
-+
-+	/* ADC Bias Calibration:
-+	 * read efuse offset 0x7d to get a 17-bit data. Remove the dummy/fake
-+	 * bit (bit3) to rebuild the real 16-bit data. Write the data to the
-+	 * ADC ioffset.
-+	 */
-+	ocp_data = r8152_efuse_read(tp, 0x7d);
-+	data = (u16)(((ocp_data & 0x1fff0) >> 1) | (ocp_data & 0x7));
-+	if (data != 0xffff)
-+		ocp_reg_write(tp, OCP_ADC_IOFFSET, data);
-+
-+	/* ups mode tx-link-pulse timing adjustment:
-+	 * rg_saw_cnt = OCP reg 0xC426 Bit[13:0]
-+	 * swr_cnt_1ms_ini = 16000000 / rg_saw_cnt
-+	 */
-+	ocp_data = ocp_reg_read(tp, 0xc426);
-+	ocp_data &= 0x3fff;
-+	if (ocp_data) {
-+		u32 swr_cnt_1ms_ini;
-+
-+		swr_cnt_1ms_ini = (16000000 / ocp_data) & SAW_CNT_1MS_MASK;
-+		ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_UPS_CFG);
-+		ocp_data = (ocp_data & ~SAW_CNT_1MS_MASK) | swr_cnt_1ms_ini;
-+		ocp_write_word(tp, MCU_TYPE_USB, USB_UPS_CFG, ocp_data);
-+	}
-+
-+	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_PHY_PWR);
-+	ocp_data |= PFM_PWM_SWITCH;
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_PHY_PWR, ocp_data);
-+
-+	/* Advnace EEE */
-+	if (!r8153_patch_request(tp, true)) {
-+		data = ocp_reg_read(tp, OCP_POWER_CFG);
-+		data |= EEE_CLKDIV_EN;
-+		ocp_reg_write(tp, OCP_POWER_CFG, data);
-+
-+		data = ocp_reg_read(tp, OCP_DOWN_SPEED);
-+		data |= EN_EEE_CMODE | EN_EEE_1000 | EN_EEE_100 | EN_10M_CLKDIV;
-+		ocp_reg_write(tp, OCP_DOWN_SPEED, data);
-+
-+		ocp_reg_write(tp, OCP_SYSCLK_CFG, 0);
-+		ocp_reg_write(tp, OCP_SYSCLK_CFG, CLK_DIV_EXPO(5));
-+
-+		ups_flags |= UPS_FLAGS_EN_10M_CKDIV | UPS_FLAGS_250M_CKDIV |
-+			     UPS_FLAGS_EN_EEE_CKDIV | UPS_FLAGS_EEE_CMOD_LV_EN |
-+			     UPS_FLAGS_EEE_PLLOFF_GIGA;
-+
-+		r8153_patch_request(tp, false);
-+	}
-+
-+	r8153b_ups_flags_w0w1(tp, ups_flags, 0);
-+
-+	set_bit(PHY_RESET, &tp->flags);
-+}
-+
- static void r8153_first_init(struct r8152 *tp)
- {
- 	u32 ocp_data;
-@@ -2737,6 +3062,16 @@ static void r8153_first_init(struct r8152 *tp)
- 	/* TX share fifo free credit full threshold */
- 	ocp_write_dword(tp, MCU_TYPE_PLA, PLA_TXFIFO_CTRL, TXFIFO_THR_NORMAL2);
- 
-+	switch (tp->version) {
-+	case RTL_VER_08:
-+	case RTL_VER_09:
-+		ocp_write_dword(tp, MCU_TYPE_USB, USB_RX_BUF_TH, RX_THR_B);
-+		break;
-+
-+	default:
-+		break;
-+	}
-+
- 	/* rx aggregation */
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_USB_CTRL);
- 	ocp_data &= ~(RX_AGG_DISABLE | RX_ZERO_EN);
-@@ -2774,9 +3109,28 @@ static void r8153_enter_oob(struct r8152 *tp)
- 
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_RMS, RTL8153_RMS);
- 
--	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG);
--	ocp_data &= ~TEREDO_WAKE_MASK;
--	ocp_write_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG, ocp_data);
-+	switch (tp->version) {
-+	case RTL_VER_03:
-+	case RTL_VER_04:
-+	case RTL_VER_05:
-+	case RTL_VER_06:
-+		ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG);
-+		ocp_data &= ~TEREDO_WAKE_MASK;
-+		ocp_write_word(tp, MCU_TYPE_PLA, PLA_TEREDO_CFG, ocp_data);
-+		break;
-+
-+	case RTL_VER_08:
-+	case RTL_VER_09:
-+		/* Clear teredo wake event. bit[15:8] is the teredo wakeup
-+		 * type. Set it to zero. bits[7:0] are the W1C bits about
-+		 * the events. Set them to all 1 to clear them.
-+		 */
-+		ocp_write_word(tp, MCU_TYPE_PLA, PLA_TEREDO_WAKE_BASE, 0x00ff);
-+		break;
-+
-+	default:
-+		break;
-+	}
- 
- 	rtl_rx_vlan_en(tp, true);
- 
-@@ -2810,6 +3164,16 @@ static void r8153_aldps_en(struct r8152 *tp, bool enable)
+-	smp->tfm_aes = crypto_alloc_skcipher("ecb(aes)", 0, CRYPTO_ALG_ASYNC);
++	smp->tfm_aes = crypto_alloc_cipher("aes", 0, CRYPTO_ALG_ASYNC);
+ 	if (IS_ERR(smp->tfm_aes)) {
+-		BT_ERR("Unable to create ECB crypto context");
++		BT_ERR("Unable to create AES crypto context");
+ 		kzfree(smp);
+ 		return NULL;
  	}
- }
- 
-+static void r8153b_aldps_en(struct r8152 *tp, bool enable)
-+{
-+	r8153_aldps_en(tp, enable);
-+
-+	if (enable)
-+		r8153b_ups_flags_w0w1(tp, UPS_FLAGS_EN_ALDPS, 0);
-+	else
-+		r8153b_ups_flags_w0w1(tp, 0, UPS_FLAGS_EN_ALDPS);
-+}
-+
- static void rtl8153_disable(struct r8152 *tp)
+@@ -1369,7 +1358,7 @@ static struct smp_chan *smp_chan_create(struct l2cap_conn *conn)
+ 	smp->tfm_cmac = crypto_alloc_shash("cmac(aes)", 0, 0);
+ 	if (IS_ERR(smp->tfm_cmac)) {
+ 		BT_ERR("Unable to create CMAC crypto context");
+-		crypto_free_skcipher(smp->tfm_aes);
++		crypto_free_cipher(smp->tfm_aes);
+ 		kzfree(smp);
+ 		return NULL;
+ 	}
+@@ -3120,7 +3109,7 @@ static struct l2cap_chan *smp_add_cid(struct hci_dev *hdev, u16 cid)
  {
- 	rtl8152_disable(tp);
-@@ -2819,6 +3183,7 @@ static void rtl8153_disable(struct r8152 *tp)
- static int rtl8152_set_speed(struct r8152 *tp, u8 autoneg, u16 speed, u8 duplex)
- {
- 	u16 bmcr, anar, gbcr;
-+	enum spd_duplex speed_duplex;
- 	int ret = 0;
+ 	struct l2cap_chan *chan;
+ 	struct smp_dev *smp;
+-	struct crypto_skcipher *tfm_aes;
++	struct crypto_cipher *tfm_aes;
+ 	struct crypto_shash *tfm_cmac;
  
- 	cancel_delayed_work_sync(&tp->schedule);
-@@ -2836,32 +3201,43 @@ static int rtl8152_set_speed(struct r8152 *tp, u8 autoneg, u16 speed, u8 duplex)
- 		if (speed == SPEED_10) {
- 			bmcr = 0;
- 			anar |= ADVERTISE_10HALF | ADVERTISE_10FULL;
-+			speed_duplex = FORCE_10M_HALF;
- 		} else if (speed == SPEED_100) {
- 			bmcr = BMCR_SPEED100;
- 			anar |= ADVERTISE_100HALF | ADVERTISE_100FULL;
-+			speed_duplex = FORCE_100M_HALF;
- 		} else if (speed == SPEED_1000 && tp->mii.supports_gmii) {
- 			bmcr = BMCR_SPEED1000;
- 			gbcr |= ADVERTISE_1000FULL | ADVERTISE_1000HALF;
-+			speed_duplex = NWAY_1000M_FULL;
- 		} else {
- 			ret = -EINVAL;
- 			goto out;
+ 	if (cid == L2CAP_CID_SMP_BREDR) {
+@@ -3132,9 +3121,9 @@ static struct l2cap_chan *smp_add_cid(struct hci_dev *hdev, u16 cid)
+ 	if (!smp)
+ 		return ERR_PTR(-ENOMEM);
+ 
+-	tfm_aes = crypto_alloc_skcipher("ecb(aes)", 0, CRYPTO_ALG_ASYNC);
++	tfm_aes = crypto_alloc_cipher("aes", 0, CRYPTO_ALG_ASYNC);
+ 	if (IS_ERR(tfm_aes)) {
+-		BT_ERR("Unable to create ECB crypto context");
++		BT_ERR("Unable to create AES crypto context");
+ 		kzfree(smp);
+ 		return ERR_CAST(tfm_aes);
+ 	}
+@@ -3142,7 +3131,7 @@ static struct l2cap_chan *smp_add_cid(struct hci_dev *hdev, u16 cid)
+ 	tfm_cmac = crypto_alloc_shash("cmac(aes)", 0, 0);
+ 	if (IS_ERR(tfm_cmac)) {
+ 		BT_ERR("Unable to create CMAC crypto context");
+-		crypto_free_skcipher(tfm_aes);
++		crypto_free_cipher(tfm_aes);
+ 		kzfree(smp);
+ 		return ERR_CAST(tfm_cmac);
+ 	}
+@@ -3156,7 +3145,7 @@ create_chan:
+ 	chan = l2cap_chan_create();
+ 	if (!chan) {
+ 		if (smp) {
+-			crypto_free_skcipher(smp->tfm_aes);
++			crypto_free_cipher(smp->tfm_aes);
+ 			crypto_free_shash(smp->tfm_cmac);
+ 			kzfree(smp);
  		}
+@@ -3203,7 +3192,7 @@ static void smp_del_chan(struct l2cap_chan *chan)
+ 	smp = chan->data;
+ 	if (smp) {
+ 		chan->data = NULL;
+-		crypto_free_skcipher(smp->tfm_aes);
++		crypto_free_cipher(smp->tfm_aes);
+ 		crypto_free_shash(smp->tfm_cmac);
+ 		kzfree(smp);
+ 	}
+@@ -3440,7 +3429,7 @@ void smp_unregister(struct hci_dev *hdev)
  
--		if (duplex == DUPLEX_FULL)
-+		if (duplex == DUPLEX_FULL) {
- 			bmcr |= BMCR_FULLDPLX;
-+			if (speed != SPEED_1000)
-+				speed_duplex++;
-+		}
- 	} else {
- 		if (speed == SPEED_10) {
--			if (duplex == DUPLEX_FULL)
-+			if (duplex == DUPLEX_FULL) {
- 				anar |= ADVERTISE_10HALF | ADVERTISE_10FULL;
--			else
-+				speed_duplex = NWAY_10M_FULL;
-+			} else {
- 				anar |= ADVERTISE_10HALF;
-+				speed_duplex = NWAY_10M_HALF;
-+			}
- 		} else if (speed == SPEED_100) {
- 			if (duplex == DUPLEX_FULL) {
- 				anar |= ADVERTISE_10HALF | ADVERTISE_10FULL;
- 				anar |= ADVERTISE_100HALF | ADVERTISE_100FULL;
-+				speed_duplex = NWAY_100M_FULL;
- 			} else {
- 				anar |= ADVERTISE_10HALF;
- 				anar |= ADVERTISE_100HALF;
-+				speed_duplex = NWAY_100M_HALF;
- 			}
- 		} else if (speed == SPEED_1000 && tp->mii.supports_gmii) {
- 			if (duplex == DUPLEX_FULL) {
-@@ -2873,6 +3249,7 @@ static int rtl8152_set_speed(struct r8152 *tp, u8 autoneg, u16 speed, u8 duplex)
- 				anar |= ADVERTISE_100HALF;
- 				gbcr |= ADVERTISE_1000HALF;
- 			}
-+			speed_duplex = NWAY_1000M_FULL;
- 		} else {
- 			ret = -EINVAL;
- 			goto out;
-@@ -2890,6 +3267,23 @@ static int rtl8152_set_speed(struct r8152 *tp, u8 autoneg, u16 speed, u8 duplex)
- 	r8152_mdio_write(tp, MII_ADVERTISE, anar);
- 	r8152_mdio_write(tp, MII_BMCR, bmcr);
+ #if IS_ENABLED(CONFIG_BT_SELFTEST_SMP)
  
-+	switch (tp->version) {
-+	case RTL_VER_08:
-+	case RTL_VER_09:
-+		r8153b_ups_flags_w0w1(tp, ups_flags_speed(speed_duplex),
-+				      UPS_FLAGS_SPEED_MASK);
-+		break;
-+	case RTL_VER_01:
-+	case RTL_VER_02:
-+	case RTL_VER_03:
-+	case RTL_VER_04:
-+	case RTL_VER_05:
-+	case RTL_VER_06:
-+	case RTL_VER_07:
-+	default:
-+		break;
-+	}
-+
- 	if (bmcr & BMCR_RESET) {
- 		int i;
- 
-@@ -3260,12 +3654,28 @@ static void r8153_eee_en(struct r8152 *tp, bool enable)
- 	ocp_reg_write(tp, OCP_EEE_CFG, config);
- }
- 
-+static void r8153b_eee_en(struct r8152 *tp, bool enable)
-+{
-+	r8153_eee_en(tp, enable);
-+
-+	if (enable)
-+		r8153b_ups_flags_w0w1(tp, UPS_FLAGS_EN_EEE, 0);
-+	else
-+		r8153b_ups_flags_w0w1(tp, 0, UPS_FLAGS_EN_EEE);
-+}
-+
- static void r8153_enable_eee(struct r8152 *tp)
+-static int __init test_ah(struct crypto_skcipher *tfm_aes)
++static int __init test_ah(struct crypto_cipher *tfm_aes)
  {
- 	r8153_eee_en(tp, true);
- 	ocp_reg_write(tp, OCP_EEE_ADV, MDIO_EEE_1000T | MDIO_EEE_100TX);
- }
- 
-+static void r8153b_enable_eee(struct r8152 *tp)
-+{
-+	r8153b_eee_en(tp, true);
-+	ocp_reg_write(tp, OCP_EEE_ADV, MDIO_EEE_1000T | MDIO_EEE_100TX);
-+}
-+
- static void r8152b_enable_fc(struct r8152 *tp)
- {
- 	u16 anar;
-@@ -3275,6 +3685,12 @@ static void r8152b_enable_fc(struct r8152 *tp)
- 	r8152_mdio_write(tp, MII_ADVERTISE, anar);
- }
- 
-+static void r8153b_enable_fc(struct r8152 *tp)
-+{
-+	r8152b_enable_fc(tp);
-+	r8153b_ups_flags_w0w1(tp, UPS_FLAGS_EN_FLOW_CTR, 0);
-+}
-+
- static void rtl_tally_reset(struct r8152 *tp)
- {
- 	u32 ocp_data;
-@@ -3424,6 +3840,70 @@ static void r8153_init(struct r8152 *tp)
- 	r8152b_enable_fc(tp);
- 	rtl_tally_reset(tp);
- 	r8153_u2p3en(tp, true);
-+
-+	switch (tp->udev->speed) {
-+	case USB_SPEED_SUPER:
-+	case USB_SPEED_SUPER_PLUS:
-+		tp->coalesce = COALESCE_SUPER;
-+		break;
-+	case USB_SPEED_HIGH:
-+		tp->coalesce = COALESCE_HIGH;
-+		break;
-+	default:
-+		tp->coalesce = COALESCE_SLOW;
-+		break;
-+	}
-+}
-+
-+static void r8153b_init(struct r8152 *tp)
-+{
-+	u32 ocp_data;
-+	int i;
-+
-+	if (test_bit(RTL8152_UNPLUG, &tp->flags))
-+		return;
-+
-+	r8153b_aldps_en(tp, false);
-+	r8153b_u1u2en(tp, false);
-+
-+	for (i = 0; i < 500; i++) {
-+		if (ocp_read_word(tp, MCU_TYPE_PLA, PLA_BOOT_CTRL) &
-+		    AUTOLOAD_DONE)
-+			break;
-+		msleep(20);
-+	}
-+
-+	for (i = 0; i < 500; i++) {
-+		ocp_data = ocp_reg_read(tp, OCP_PHY_STATUS) & PHY_STAT_MASK;
-+		if (ocp_data == PHY_STAT_LAN_ON || ocp_data == PHY_STAT_PWRDN)
-+			break;
-+		msleep(20);
-+	}
-+
-+	r8153_u2p3en(tp, false);
-+
-+	/* MSC timer = 0xfff * 8ms = 32760 ms */
-+	ocp_write_word(tp, MCU_TYPE_USB, USB_MSC_TIMER, 0x0fff);
-+
-+	/* U1/U2/L1 idle timer. 500 us */
-+	ocp_write_word(tp, MCU_TYPE_USB, USB_U1U2_TIMER, 500);
-+
-+	r8153_power_cut_en(tp, false);
-+	r8153b_ups_en(tp, false);
-+	r8153b_u1u2en(tp, true);
-+
-+	/* MAC clock speed down */
-+	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL2);
-+	ocp_data |= MAC_CLK_SPDWN_EN;
-+	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL2, ocp_data);
-+
-+	r8153b_enable_eee(tp);
-+	r8153b_aldps_en(tp, true);
-+	r8153b_enable_fc(tp);
-+	rtl_tally_reset(tp);
-+	r8153_u2p3en(tp, true);
-+
-+	tp->coalesce = 15000;	/* 15 us */
- }
- 
- static int rtl8152_pre_reset(struct usb_interface *intf)
-@@ -3846,6 +4326,20 @@ static int r8153_set_eee(struct r8152 *tp, struct ethtool_eee *eee)
+ 	const u8 irk[16] = {
+ 			0x9b, 0x7d, 0x39, 0x0a, 0xa6, 0x10, 0x10, 0x34,
+@@ -3460,7 +3449,7 @@ static int __init test_ah(struct crypto_skcipher *tfm_aes)
  	return 0;
  }
  
-+static int r8153b_set_eee(struct r8152 *tp, struct ethtool_eee *eee)
-+{
-+	u16 val = ethtool_adv_to_mmd_eee_adv_t(eee->advertised);
-+
-+	r8153b_eee_en(tp, eee->eee_enabled);
-+
-+	if (!eee->eee_enabled)
-+		val = 0;
-+
-+	ocp_reg_write(tp, OCP_EEE_ADV, val);
-+
-+	return 0;
-+}
-+
- static int
- rtl_ethtool_get_eee(struct net_device *net, struct ethtool_eee *edata)
+-static int __init test_c1(struct crypto_skcipher *tfm_aes)
++static int __init test_c1(struct crypto_cipher *tfm_aes)
  {
-@@ -4116,6 +4610,14 @@ static void r8152b_get_version(struct r8152 *tp)
- 	case 0x4800:
- 		tp->version = RTL_VER_07;
- 		break;
-+	case 0x6000:
-+		tp->version = RTL_VER_08;
-+		tp->mii.supports_gmii = 1;
-+		break;
-+	case 0x6010:
-+		tp->version = RTL_VER_09;
-+		tp->mii.supports_gmii = 1;
-+		break;
- 	default:
- 		netif_info(tp, probe, tp->netdev,
- 			   "Unknown version 0x%04x\n", version);
-@@ -4183,6 +4685,23 @@ static int rtl_ops_init(struct r8152 *tp)
- 		ops->power_cut_en	= r8153A_power_cut_en;
- 		break;
+ 	const u8 k[16] = {
+ 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+@@ -3490,7 +3479,7 @@ static int __init test_c1(struct crypto_skcipher *tfm_aes)
+ 	return 0;
+ }
  
-+	case RTL_VER_08:
-+	case RTL_VER_09:
-+		ops->init		= r8153b_init;
-+		ops->enable		= rtl8153_enable;
-+		ops->disable		= rtl8153_disable;
-+		ops->up			= rtl8153_up;
-+		ops->down		= rtl8153_down;
-+		ops->unload		= rtl8153_unload;
-+		ops->eee_get		= r8153_get_eee;
-+		ops->eee_set		= r8153b_set_eee;
-+		ops->in_nway		= rtl8153_in_nway;
-+		ops->aldps_enable	= r8153b_aldps_en;
-+		ops->u1u2_enable	= r8153b_u1u2en;
-+		ops->hw_phy_cfg		= r8153b_hw_phy_cfg;
-+		ops->power_cut_en	= r8153_power_cut_en;
-+		break;
-+
- 	default:
- 		ret = -ENODEV;
- 		netif_err(tp, probe, tp->netdev, "Unknown Device\n");
-@@ -4254,19 +4773,6 @@ static int rtl8152_probe(struct usb_interface *intf,
- 	tp->mii.reg_num_mask = 0x1f;
- 	tp->mii.phy_id = R8152_PHY_ID;
+-static int __init test_s1(struct crypto_skcipher *tfm_aes)
++static int __init test_s1(struct crypto_cipher *tfm_aes)
+ {
+ 	const u8 k[16] = {
+ 			0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+@@ -3686,7 +3675,7 @@ static const struct file_operations test_smp_fops = {
+ 	.llseek		= default_llseek,
+ };
  
--	switch (udev->speed) {
--	case USB_SPEED_SUPER:
--	case USB_SPEED_SUPER_PLUS:
--		tp->coalesce = COALESCE_SUPER;
--		break;
--	case USB_SPEED_HIGH:
--		tp->coalesce = COALESCE_HIGH;
--		break;
--	default:
--		tp->coalesce = COALESCE_SLOW;
--		break;
--	}
--
- 	tp->autoneg = AUTONEG_ENABLE;
- 	tp->speed = tp->mii.supports_gmii ? SPEED_1000 : SPEED_100;
- 	tp->duplex = DUPLEX_FULL;
+-static int __init run_selftests(struct crypto_skcipher *tfm_aes,
++static int __init run_selftests(struct crypto_cipher *tfm_aes,
+ 				struct crypto_shash *tfm_cmac)
+ {
+ 	ktime_t calltime, delta, rettime;
+@@ -3764,27 +3753,27 @@ done:
+ 
+ int __init bt_selftest_smp(void)
+ {
+-	struct crypto_skcipher *tfm_aes;
++	struct crypto_cipher *tfm_aes;
+ 	struct crypto_shash *tfm_cmac;
+ 	int err;
+ 
+-	tfm_aes = crypto_alloc_skcipher("ecb(aes)", 0, CRYPTO_ALG_ASYNC);
++	tfm_aes = crypto_alloc_cipher("aes", 0, CRYPTO_ALG_ASYNC);
+ 	if (IS_ERR(tfm_aes)) {
+-		BT_ERR("Unable to create ECB crypto context");
++		BT_ERR("Unable to create AES crypto context");
+ 		return PTR_ERR(tfm_aes);
+ 	}
+ 
+ 	tfm_cmac = crypto_alloc_shash("cmac(aes)", 0, CRYPTO_ALG_ASYNC);
+ 	if (IS_ERR(tfm_cmac)) {
+ 		BT_ERR("Unable to create CMAC crypto context");
+-		crypto_free_skcipher(tfm_aes);
++		crypto_free_cipher(tfm_aes);
+ 		return PTR_ERR(tfm_cmac);
+ 	}
+ 
+ 	err = run_selftests(tfm_aes, tfm_cmac);
+ 
+ 	crypto_free_shash(tfm_cmac);
+-	crypto_free_skcipher(tfm_aes);
++	crypto_free_cipher(tfm_aes);
+ 
+ 	return err;
+ }
 -- 
-2.4.11
+2.7.4
