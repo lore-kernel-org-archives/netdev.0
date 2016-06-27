@@ -1,63 +1,54 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute PATCH v3 0/6] Big C99 style initializer rework
-Date: Mon, 27 Jun 2016 20:23:02 +0200
-Message-ID: <20160627182302.GB13664@orbyte.nwl.cc>
-References: <d6784d8bb2d84ceab6c1719e32e8fa8e@HQ1WP-EXMB11.corp.brocade.com>
- <20160627105912.7961c3f4@xeon-e3>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH v2 net-next] tcp: md5: use kmalloc() backed scratch areas
+Date: Mon, 27 Jun 2016 11:31:01 -0700
+Message-ID: <CAM_iQpU8H-decpeKbFd05Wt9mWsdpb+Yp=VLNrTHv8gPnJCWbQ@mail.gmail.com>
+References: <CALCETrXezCXy4N7wMjYdr+U1A9Avda5bVxTxOQZswinh62gbvw@mail.gmail.com>
+ <1466827910.6850.123.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1466828771.6850.124.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1466829439.6850.126.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1466870975.6850.139.camel@edumazet-glaptop3.roam.corp.google.com> <1467046313.6850.171.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	David Ahern <dsa@cumulusnetworks.com>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Julien Floret <julien.floret@6wind.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Stephen Hemminger <shemming@brocade.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Andy Lutomirski <luto@amacapital.net>,
+	David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Network Development <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:43381 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751638AbcF0SXE (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jun 2016 14:23:04 -0400
-Content-Disposition: inline
-In-Reply-To: <20160627105912.7961c3f4@xeon-e3>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:36019 "EHLO
+	mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751644AbcF0SbW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 14:31:22 -0400
+Received: by mail-qk0-f195.google.com with SMTP id r136so12860721qke.3
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 11:31:21 -0700 (PDT)
+In-Reply-To: <1467046313.6850.171.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Mon, Jun 27, 2016 at 9:51 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+> index 5c7ed147449c1b7ba029b12e033ad779a631460a..fddc0ab799996c1df82cb05dba03271b773e3b2d 100644
+> --- a/net/ipv4/tcp.c
+> +++ b/net/ipv4/tcp.c
+> @@ -2969,8 +2969,18 @@ static void __tcp_alloc_md5sig_pool(void)
+>                 return;
+>
+>         for_each_possible_cpu(cpu) {
+> +               void *scratch = per_cpu(tcp_md5sig_pool, cpu).scratch;
+>                 struct ahash_request *req;
+>
+> +               if (!scratch) {
+> +                       scratch = kmalloc_node(sizeof(union tcp_md5sum_block) +
+> +                                              sizeof(struct tcphdr),
+> +                                              GFP_KERNEL,
+> +                                              cpu_to_node(cpu));
+> +                       if (!scratch)
+> +                               return;
+> +                       per_cpu(tcp_md5sig_pool, cpu).scratch = scratch;
+> +               }
+>                 if (per_cpu(tcp_md5sig_pool, cpu).md5_req)
+>                         continue;
 
-On Mon, Jun 27, 2016 at 10:59:12AM -0700, Stephen Hemminger wrote:
-> On Thu, 23 Jun 2016 17:34:08 +0000
-> Phil Sutter <phil@nwl.cc> wrote:
->=20
-> > This is v3 of my C99-style initializer related patch series. The ch=
-anges
-> > since v2 are:
-[...]
->=20
-> I like the idea and it makes code cleaner. But doing this introduces =
-lots of warnings
-> and that is not acceptable.
-> ip
->     CC       ip.o
->     CC       ipaddress.o
-> ipaddress.c: In function =E2=80=98print_queuelen=E2=80=99:
-> ipaddress.c:175:10: warning: missing braces around initializer [-Wmis=
-sing-braces]
->    struct ifreq ifr =3D { 0 };
->           ^
-
-I saw these too with gcc-3.4.6 but not with 5.3.0. It appears to be a
-gcc bug[1]. One possible workaround is to match the brace level of the
-first field, but it's quite ugly: [2]. Another way might be to
-initialize one of the fields to zero, like so:
-
-| struct ifreq ifr =3D { .ifr_qlen =3D 0 };
-
-What do you think?
-
-Thanks, Phil
-
-[1] https://gcc.gnu.org/bugzilla/show_bug.cgi?id=3D53119
-[2] http://nwl.cc/cgi-bin/git/gitweb.cgi?p=3Diproute2.git;a=3Dcommitdif=
-f;h=3Da1cbf2b63c995b2f633c5b4699248ab308b201d2;hp=3D3809cfec65b03716d1d=
-0360338126df4b4f3fbf6
+Not a problem of your patch, but it seems these allocations never
+get freed once we start using tcp md5. Maybe we should free them
+when the last socket using tcp md5 is gone?
