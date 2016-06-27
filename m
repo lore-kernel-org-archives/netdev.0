@@ -1,161 +1,90 @@
-From: Andrey Vagin <avagin@openvz.org>
-Subject: [PATCH] tcp: add an ability to dump and restore window parameters
-Date: Mon, 27 Jun 2016 15:33:56 -0700
-Message-ID: <1467066836-3817-1-git-send-email-avagin@openvz.org>
-Cc: linux-kernel@vger.kernel.org, criu@openvz.org,
-	Andrey Vagin <avagin@openvz.org>,
-	Pavel Emelyanov <xemul@parallels.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] mlx4: set csum_complete_sw bit when fixing complete csum
+Date: Mon, 27 Jun 2016 15:53:53 -0700
+Message-ID: <CAM_iQpXa7-dHc1-bDr6jp0QdsYP0WtBROQZGv902i2ZwRU1C5A@mail.gmail.com>
+References: <1467051724-8314-1-git-send-email-xiyou.wangcong@gmail.com>
+ <CAJ3xEMjgb6K1QeWZKNLWJWk4Ch++FmcV-PPWp7VJzWLYSHo8YQ@mail.gmail.com>
+ <CAM_iQpUBQqV3oC7=WqyNtu58HmbJbV29yz6_r_ib6XqWpw7VGg@mail.gmail.com>
+ <CALx6S37LNGZEc+zPOu4fnYEYZ36dMKiimsz2XhgFs_rMOyFigg@mail.gmail.com>
+ <CAM_iQpU2RjMi9byMfk-CyaXuRwVVacqQfeOSTa4xmiqhnuZ_Kw@mail.gmail.com> <CALx6S35QzfV8PUFqxF5pMyPbTo-NqgjL=0w9W2wjnmMqtewsDw@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Shani Michaeli <shanim@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Carol L Soto <clsoto@us.ibm.com>
+To: Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f176.google.com ([209.85.220.176]:36232 "EHLO
+	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751882AbcF0WyO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 18:54:14 -0400
+Received: by mail-qk0-f176.google.com with SMTP id p10so231733814qke.3
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 15:54:14 -0700 (PDT)
+In-Reply-To: <CALx6S35QzfV8PUFqxF5pMyPbTo-NqgjL=0w9W2wjnmMqtewsDw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We found that sometimes a restored tcp socket doesn't work.
+On Mon, Jun 27, 2016 at 3:04 PM, Tom Herbert <tom@herbertland.com> wrote:
+> On Mon, Jun 27, 2016 at 2:49 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> On Mon, Jun 27, 2016 at 2:47 PM, Tom Herbert <tom@herbertland.com> wrote:
+>>> On Mon, Jun 27, 2016 at 2:44 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>>> On Mon, Jun 27, 2016 at 2:08 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+>>>>> On Mon, Jun 27, 2016 at 9:22 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>>>>> The stack doesn't trust the complete csum by hardware
+>>>>>> even when it is correct.
+>>>>>
+>>>>> Can you explain that a little further?
+>>>>
+>>>> Sure, here is the code in __skb_checksum_complete():
+>>>>
+>>>>         /* skb->csum holds pseudo checksum */
+>>>>         sum = csum_fold(csum_add(skb->csum, csum));
+>>>>         if (likely(!sum)) {
+>>>>                 if (unlikely(skb->ip_summed == CHECKSUM_COMPLETE) &&
+>>>>                     !skb->csum_complete_sw)
+>>>>                         netdev_rx_csum_fault(skb->dev);
+>>>>         }
+>>>>
+>>>> So when sum == 0, it means the checksum is correct. And
+>>>> we already set ->ip_summed to CHECKSUM_COMPLETE
+>>>> after check_csum(), and ->csum_complete_sw is initialized
+>>>> to 0 when we allocate the skb. This is why we trigger
+>>>> netdev_rx_csum_fault().
+>>>>
+>>> Yes, but this also means that the driver gave the stack a checksum
+>>> complete value that was incorrect. That's an error.
+>>
+>> That is the whole purpose of commit f8c6455bb04b944edb69e,
+>> isn't it?
+>
+> No. Unless you've uncovered some other bug, what is probably happening
+> is that driver receives a packet with a checksum complete value. It
+> records the value in the skbuff and marks it as CHECKSUM_COMPLETE.
+> Subsequently, the stack tries to validate a transport layer checksum,
+> and the validation fails (checksum does not sum to zero). The stack
+> will then call __skb_checksum_complete from
+> __skb_checksum_validate_complete. In this case the stack computes that
+> transport checksum by hand and sees that transport checksum is valid--
+> so that means that the original value in checksum complete was not
+> correct, it is not set to the computed checksum of the whole packet.
+> This is an important error because it catches issues where checksum is
+> not correctly being pulled up.
 
-A reason of this bug is incorrect window parameters and in this case
-tcp_acceptable_seq() returns tcp_wnd_end(tp) instead of tp->snd_nxt. The
-other side drops packets with this seq, because seq is less than
-tp->rcv_nxt ( tcp_sequence() ).
+I see, the comments in mlx4 driver said:
 
-Data from a send queue is sent only if there is enough space in a
-window, so when we restore unacked data, we need to expand a window to
-fit this data.
+/* Although the stack expects checksum which doesn't include the pseudo
+ * header, the HW adds it. To address that, we are subtracting the pseudo
+ * header checksum from the checksum value provided by the HW.
+ */
 
-This was in a first version of this patch:
-"tcp: extend window to fit all restored unacked data in a send queue"
+which seems imply it calculates a correct checksum for the whole
+packet here, but the stack disagrees. Therefore skb->csum is not
+still not what the stack expects.
 
-Then Alexey recommended me to restore window parameters instead of
-adjusted them according with data in a sent queue. This sounds resonable.
-
-rcv_wnd has to be restored, because it was reported to another side
-and the offered window is never shrunk.
-One of reasons why we need to restore snd_wnd was described above.
-
-Cc: Pavel Emelyanov <xemul@parallels.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Cc: James Morris <jmorris@namei.org>
-Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-Cc: Patrick McHardy <kaber@trash.net>
-Signed-off-by: Andrey Vagin <avagin@openvz.org>
----
- include/uapi/linux/tcp.h | 10 +++++++++
- net/ipv4/tcp.c           | 57 ++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 67 insertions(+)
-
-diff --git a/include/uapi/linux/tcp.h b/include/uapi/linux/tcp.h
-index 53e8e3f..482898f 100644
---- a/include/uapi/linux/tcp.h
-+++ b/include/uapi/linux/tcp.h
-@@ -115,12 +115,22 @@ enum {
- #define TCP_CC_INFO		26	/* Get Congestion Control (optional) info */
- #define TCP_SAVE_SYN		27	/* Record SYN headers for new connections */
- #define TCP_SAVED_SYN		28	/* Get SYN headers recorded for connection */
-+#define TCP_REPAIR_WINDOW	29	/* Get/set window parameters */
- 
- struct tcp_repair_opt {
- 	__u32	opt_code;
- 	__u32	opt_val;
- };
- 
-+struct tcp_repair_window {
-+	__u32	snd_wl1;
-+	__u32	snd_wnd;
-+	__u32	max_window;
-+
-+	__u32	rcv_wnd;
-+	__u32	rcv_wup;
-+};
-+
- enum {
- 	TCP_NO_QUEUE,
- 	TCP_RECV_QUEUE,
-diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
-index 5c7ed14..108ef2a 100644
---- a/net/ipv4/tcp.c
-+++ b/net/ipv4/tcp.c
-@@ -2277,6 +2277,38 @@ static inline bool tcp_can_repair_sock(const struct sock *sk)
- 		((1 << sk->sk_state) & (TCPF_CLOSE | TCPF_ESTABLISHED));
- }
- 
-+static int tcp_repair_set_window(struct tcp_sock *tp, char __user *optbuf, int len)
-+{
-+	struct tcp_repair_window opt;
-+
-+	if (!tp->repair)
-+		return -EPERM;
-+
-+	if (len != sizeof(opt))
-+		return -EINVAL;
-+
-+	if (copy_from_user(&opt, optbuf, sizeof(opt)))
-+		return -EFAULT;
-+
-+	if (opt.max_window < opt.snd_wnd)
-+		return -EINVAL;
-+
-+	if (after(opt.snd_wl1, tp->rcv_nxt + opt.rcv_wnd))
-+		return -EINVAL;
-+
-+	if (after(opt.rcv_wup, tp->rcv_nxt))
-+		return -EINVAL;
-+
-+	tp->snd_wl1	= opt.snd_wl1;
-+	tp->snd_wnd	= opt.snd_wnd;
-+	tp->max_window	= opt.max_window;
-+
-+	tp->rcv_wnd	= opt.rcv_wnd;
-+	tp->rcv_wup	= opt.rcv_wup;
-+
-+	return 0;
-+}
-+
- static int tcp_repair_options_est(struct tcp_sock *tp,
- 		struct tcp_repair_opt __user *optbuf, unsigned int len)
- {
-@@ -2604,6 +2636,9 @@ static int do_tcp_setsockopt(struct sock *sk, int level,
- 		else
- 			tp->tsoffset = val - tcp_time_stamp;
- 		break;
-+	case TCP_REPAIR_WINDOW:
-+		err = tcp_repair_set_window(tp, optval, optlen);
-+		break;
- 	case TCP_NOTSENT_LOWAT:
- 		tp->notsent_lowat = val;
- 		sk->sk_write_space(sk);
-@@ -2860,6 +2895,28 @@ static int do_tcp_getsockopt(struct sock *sk, int level,
- 			return -EINVAL;
- 		break;
- 
-+	case TCP_REPAIR_WINDOW: {
-+		struct tcp_repair_window opt;
-+
-+		if (get_user(len, optlen))
-+			return -EFAULT;
-+
-+		if (len != sizeof(opt))
-+			return -EINVAL;
-+
-+		if (!tp->repair)
-+			return -EPERM;
-+
-+		opt.snd_wl1	= tp->snd_wl1;
-+		opt.snd_wnd	= tp->snd_wnd;
-+		opt.max_window	= tp->max_window;
-+		opt.rcv_wnd	= tp->rcv_wnd;
-+		opt.rcv_wup	= tp->rcv_wup;
-+
-+		if (copy_to_user(optval, &opt, len))
-+			return -EFAULT;
-+		return 0;
-+	}
- 	case TCP_QUEUE_SEQ:
- 		if (tp->repair_queue == TCP_SEND_QUEUE)
- 			val = tp->write_seq;
--- 
-2.5.5
+Given skb_checksum_simple_validate() always pass a null pseudo
+header, it looks like either the fix-up for pseudo header is not needed
+at all for ICMP case, OR we need to call skb_checksum_validate()
+for ICMPv4 case. Hmm...
