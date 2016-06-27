@@ -1,55 +1,69 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net] net: avoid vlan ptype specific match to be leaked on
- real device
-Date: Mon, 27 Jun 2016 11:37:36 +0200
-Message-ID: <20160627093736.GD2058@nanopsycho.orion>
-References: <20160622105544.GC2068@nanopsycho.orion>
- <1466598089.4707.31.camel@redhat.com>
- <20160622124050.GD2068@nanopsycho.orion>
- <20160626.160608.2073563033978522175.davem@davemloft.net>
- <1467019712.4606.7.camel@redhat.com>
+From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+Subject: [PATCH net-next 7/9] net: hns: remove redundant hns_mac_dev_to_enet_if()
+Date: Mon, 27 Jun 2016 17:54:13 +0800
+Message-ID: <1467021255-95900-8-git-send-email-Yisen.Zhuang@huawei.com>
+References: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	jiri@mellanox.com, aduyck@mirantis.com, edumazet@google.com,
-	daniel@iogearbox.net
-To: Paolo Abeni <pabeni@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33184 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751827AbcF0Jhj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 05:37:39 -0400
-Received: by mail-wm0-f65.google.com with SMTP id r201so23016765wme.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 02:37:39 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1467019712.4606.7.camel@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
+	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
+	<geliangtang@163.com>, <ivecera@redhat.com>,
+	<fengguang.wu@intel.com>, <charles.chenxin@huawei.com>,
+	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
+	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
+	<salil.mehta@huawei.com>, <yankejian@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Jun 27, 2016 at 11:28:32AM CEST, pabeni@redhat.com wrote:
->On Sun, 2016-06-26 at 16:06 -0400, David Miller wrote:
->> From: Jiri Pirko <jiri@resnulli.us>
->> Date: Wed, 22 Jun 2016 14:40:50 +0200
->> 
->> > The patch only unified the behaviour so everyone know what to expect
->> > regardless of the device type.
->> 
->> +1
->> 
->> And reverting this behavior back is going to hurt more people than it
->> will help, so I am not going to apply this, sorry.
->
->Would a /proc/net/vlan sysctl to control the switch from the new to the
->old behavior (with default to the new) make this acceptable ?
+From: Kejian Yan <yankejian@huawei.com>
 
-Ugh, please don't :(
+The sequence of hns_mac_dev_to_enet_if() is the same as
+hns_get_enet_interface(), and hns_get_enet_interface() is called
+by initialization to get the mac mode. And the mode is not changed
+anywhere. Thus add hns_mac_dev_to_enet_if() function to get the mac
+mode is obviously redundant.
 
->
->Recent users will not be affected, and users of the old behavior could
->manage kernel upgrade without breaking their applications. 
->
->Thank you,
->
->Paolo
->
->
+Reported-by: Jinchuan Tian <tianjinchuan1@huawei.com>
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 15 ---------------
+ 1 file changed, 15 deletions(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+index c526558..d2effcc 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+@@ -56,20 +56,6 @@ static const enum mac_mode g_mac_mode_1000[] = {
+ 	[PHY_INTERFACE_MODE_RTBI]   = MAC_MODE_RTBI_1000
+ };
+ 
+-static enum mac_mode hns_mac_dev_to_enet_if(const struct hns_mac_cb *mac_cb)
+-{
+-	switch (mac_cb->max_speed) {
+-	case MAC_SPEED_100:
+-		return g_mac_mode_100[mac_cb->phy_if];
+-	case MAC_SPEED_1000:
+-		return g_mac_mode_1000[mac_cb->phy_if];
+-	case MAC_SPEED_10000:
+-		return MAC_MODE_XGMII_10000;
+-	default:
+-		return MAC_MODE_MII_100;
+-	}
+-}
+-
+ static enum mac_mode hns_get_enet_interface(const struct hns_mac_cb *mac_cb)
+ {
+ 	switch (mac_cb->max_speed) {
+@@ -134,7 +120,6 @@ void hns_mac_adjust_link(struct hns_mac_cb *mac_cb, int speed, int duplex)
+ 
+ 	mac_cb->speed = speed;
+ 	mac_cb->half_duplex = !duplex;
+-	mac_ctrl_drv->mac_mode = hns_mac_dev_to_enet_if(mac_cb);
+ 
+ 	if (mac_ctrl_drv->adjust_link) {
+ 		ret = mac_ctrl_drv->adjust_link(mac_ctrl_drv,
+-- 
+1.9.1
