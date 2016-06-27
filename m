@@ -1,143 +1,71 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 1/2] net: ethernet: mvpp2: use phydev from struct net_device
-Date: Tue, 28 Jun 2016 00:08:11 +0200
-Message-ID: <1467065292-20996-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, mw@semihalf.com, jszhang@marvell.com,
-	amitoj1606@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: [PATCH v4 01/29] bluetooth: Switch SMP to crypto_cipher_encrypt_one()
+Date: Tue, 28 Jun 2016 00:30:24 +0200
+Message-ID: <2833CC26-7306-4803-A5DB-4CBECCF35C08@holtmann.org>
+References: <cover.1466974736.git.luto@kernel.org> <cover.1466974736.git.luto@kernel.org> <264af59a3060c2bc2a725cfc66a8fa68219d1c4a.1466974736.git.luto@kernel.org> <8C5360E3-94EE-4869-B9B9-AF9D41B5A3AC@holtmann.org> <20160627085403.GA26865@gmail.com>
+Reply-To: kernel-hardening@lists.openwall.com
+Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
+Cc: Andy Lutomirski <luto@kernel.org>,
+ x86@kernel.org,
+ LKML <linux-kernel@vger.kernel.org>,
+ linux-arch@vger.kernel.org,
+ Borislav Petkov <bp@alien8.de>,
+ Nadav Amit <nadav.amit@gmail.com>,
+ Kees Cook <keescook@chromium.org>,
+ Brian Gerst <brgerst@gmail.com>,
+ "kernel-hardening@lists.openwall.com" <kernel-hardening@lists.openwall.com>,
+ Linus Torvalds <torvalds@linux-foundation.org>,
+ Josh Poimboeuf <jpoimboe@redhat.com>,
+ Jann Horn <jann@thejh.net>,
+ Heiko Carstens <heiko.carstens@de.ibm.com>,
+ "Gustavo F. Padovan" <gustavo@padovan.org>,
+ Johan Hedberg <johan.hedberg@gmail.com>,
+ "David S. Miller" <davem@davemloft.net>,
+ linux-bluetooth@vger.kernel.org,
+ netdev@vger.kernel.org
+To: Ingo Molnar <mingo@kernel.org>
+Return-path: <kernel-hardening-return-3741-glkh-kernel-hardening=m.gmane.org@lists.openwall.com>
+List-Post: <mailto:kernel-hardening@lists.openwall.com>
+List-Help: <mailto:kernel-hardening-help@lists.openwall.com>
+List-Unsubscribe: <mailto:kernel-hardening-unsubscribe@lists.openwall.com>
+List-Subscribe: <mailto:kernel-hardening-subscribe@lists.openwall.com>
+In-Reply-To: <20160627085403.GA26865@gmail.com>
 List-Id: netdev.vger.kernel.org
 
-The private structure contain a pointer to phydev, but the structure
-net_device already contain such pointer. So we can remove the pointer
-phydev in the private structure, and update the driver to use the
-one contained in struct net_device.
+Hi Ingo,
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/marvell/mvpp2.c |   34 ++++++++++++++++------------------
- 1 files changed, 16 insertions(+), 18 deletions(-)
+>>> SMP does ECB crypto on stack buffers.  This is complicated and
+>>> fragile, and it will not work if the stack is virtually allocated.
+>>>=20
+>>> Switch to the crypto_cipher interface, which is simpler and safer.
+>>>=20
+>>> Cc: Marcel Holtmann <marcel@holtmann.org>
+>>> Cc: Gustavo Padovan <gustavo@padovan.org>
+>>> Cc: Johan Hedberg <johan.hedberg@gmail.com>
+>>> Cc: "David S. Miller" <davem@davemloft.net>
+>>> Cc: linux-bluetooth@vger.kernel.org
+>>> Cc: netdev@vger.kernel.org
+>>> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+>>> Acked-and-tested-by: Johan Hedberg <johan.hedberg@intel.com>
+>>> Signed-off-by: Andy Lutomirski <luto@kernel.org>
+>>> ---
+>>> net/bluetooth/smp.c | 67 =
+++++++++++++++++++++++-------------------------------
+>>> 1 file changed, 28 insertions(+), 39 deletions(-)
+>>=20
+>> patch has been applied to bluetooth-next tree.
+>=20
+> Sadly carrying this separately will delay the virtual kernel stacks =
+feature by a=20
+> kernel cycle, because it's a must-have prerequisite.
 
-diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 868a957..18477fe 100644
---- a/drivers/net/ethernet/marvell/mvpp2.c
-+++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -699,7 +699,6 @@ struct mvpp2_port {
- 	u16 rx_ring_size;
- 	struct mvpp2_pcpu_stats __percpu *stats;
- 
--	struct phy_device *phy_dev;
- 	phy_interface_t phy_interface;
- 	struct device_node *phy_node;
- 	unsigned int link;
-@@ -4850,7 +4849,7 @@ static irqreturn_t mvpp2_isr(int irq, void *dev_id)
- static void mvpp2_link_event(struct net_device *dev)
- {
- 	struct mvpp2_port *port = netdev_priv(dev);
--	struct phy_device *phydev = port->phy_dev;
-+	struct phy_device *phydev = dev->phydev;
- 	int status_change = 0;
- 	u32 val;
- 
-@@ -5416,6 +5415,8 @@ static int mvpp2_poll(struct napi_struct *napi, int budget)
- /* Set hw internals when starting port */
- static void mvpp2_start_dev(struct mvpp2_port *port)
- {
-+	struct net_device *ndev = port->dev;
-+
- 	mvpp2_gmac_max_rx_size_set(port);
- 	mvpp2_txp_max_tx_size_set(port);
- 
-@@ -5425,13 +5426,15 @@ static void mvpp2_start_dev(struct mvpp2_port *port)
- 	mvpp2_interrupts_enable(port);
- 
- 	mvpp2_port_enable(port);
--	phy_start(port->phy_dev);
-+	phy_start(ndev->phydev);
- 	netif_tx_start_all_queues(port->dev);
- }
- 
- /* Set hw internals when stopping port */
- static void mvpp2_stop_dev(struct mvpp2_port *port)
- {
-+	struct net_device *ndev = port->dev;
-+
- 	/* Stop new packets from arriving to RXQs */
- 	mvpp2_ingress_disable(port);
- 
-@@ -5447,7 +5450,7 @@ static void mvpp2_stop_dev(struct mvpp2_port *port)
- 
- 	mvpp2_egress_disable(port);
- 	mvpp2_port_disable(port);
--	phy_stop(port->phy_dev);
-+	phy_stop(ndev->phydev);
- }
- 
- /* Return positive if MTU is valid */
-@@ -5535,7 +5538,6 @@ static int mvpp2_phy_connect(struct mvpp2_port *port)
- 	phy_dev->supported &= PHY_GBIT_FEATURES;
- 	phy_dev->advertising = phy_dev->supported;
- 
--	port->phy_dev = phy_dev;
- 	port->link    = 0;
- 	port->duplex  = 0;
- 	port->speed   = 0;
-@@ -5545,8 +5547,9 @@ static int mvpp2_phy_connect(struct mvpp2_port *port)
- 
- static void mvpp2_phy_disconnect(struct mvpp2_port *port)
- {
--	phy_disconnect(port->phy_dev);
--	port->phy_dev = NULL;
-+	struct net_device *ndev = port->dev;
-+
-+	phy_disconnect(ndev->phydev);
- }
- 
- static int mvpp2_open(struct net_device *dev)
-@@ -5796,13 +5799,12 @@ mvpp2_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
- 
- static int mvpp2_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- {
--	struct mvpp2_port *port = netdev_priv(dev);
- 	int ret;
- 
--	if (!port->phy_dev)
-+	if (!dev->phydev)
- 		return -ENOTSUPP;
- 
--	ret = phy_mii_ioctl(port->phy_dev, ifr, cmd);
-+	ret = phy_mii_ioctl(dev->phydev, ifr, cmd);
- 	if (!ret)
- 		mvpp2_link_event(dev);
- 
-@@ -5815,22 +5817,18 @@ static int mvpp2_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
- static int mvpp2_ethtool_get_settings(struct net_device *dev,
- 				      struct ethtool_cmd *cmd)
- {
--	struct mvpp2_port *port = netdev_priv(dev);
--
--	if (!port->phy_dev)
-+	if (!dev->phydev)
- 		return -ENODEV;
--	return phy_ethtool_gset(port->phy_dev, cmd);
-+	return phy_ethtool_gset(dev->phydev, cmd);
- }
- 
- /* Set settings (phy address, speed) for ethtools */
- static int mvpp2_ethtool_set_settings(struct net_device *dev,
- 				      struct ethtool_cmd *cmd)
- {
--	struct mvpp2_port *port = netdev_priv(dev);
--
--	if (!port->phy_dev)
-+	if (!dev->phydev)
- 		return -ENODEV;
--	return phy_ethtool_sset(port->phy_dev, cmd);
-+	return phy_ethtool_sset(dev->phydev, cmd);
- }
- 
- /* Set interrupt coalescing for ethtools */
--- 
-1.7.4.4
+I can take it back out, but then I have the fear the the ECDH change to =
+use KPP for SMP might be the one that has to wait a kernel cycle. Either =
+way is fine with me, but I want to avoid nasty merge conflicts in the =
+Bluetooth SMP code.
+
+Regards
+
+Marcel
