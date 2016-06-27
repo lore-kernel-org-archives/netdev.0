@@ -1,40 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH 0/5] be2net: patch set
-Date: Mon, 27 Jun 2016 04:06:50 -0400 (EDT)
-Message-ID: <20160627.040650.167517085618093609.davem@davemloft.net>
-References: <1466600097-1641-1-git-send-email-sathya.perla@broadcom.com>
+Subject: Re: [PATCH net-next 0/9] Mellanox 100G mlx5e Ethernet extensions
+Date: Mon, 27 Jun 2016 04:11:12 -0400 (EDT)
+Message-ID: <20160627.041112.56525486705175397.davem@davemloft.net>
+References: <1466613197-28726-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: sathya.perla@broadcom.com
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com
+To: saeedm@mellanox.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41726 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:41761 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751664AbcF0IHQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 04:07:16 -0400
-In-Reply-To: <1466600097-1641-1-git-send-email-sathya.perla@broadcom.com>
+	with ESMTP id S1751385AbcF0ILj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 04:11:39 -0400
+In-Reply-To: <1466613197-28726-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sathya Perla <sathya.perla@broadcom.com>
-Date: Wed, 22 Jun 2016 08:54:52 -0400
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Wed, 22 Jun 2016 19:33:08 +0300
 
-> Hi Dave, pls consider commiting the following patches to the net-next tree.
-> Thanks!
+> This series includes multiple features extensions for mlx5 Ethernet netdevice driver.
+> Namely, TX Rate limiting, RX interrupt moderation, ethtool settings.
 > 
-> Patch 1 replaces the be_max_eqs() macro with two new macros called
-> be_max_nic_eqs() and be_max_func_eqs() to clear confusion in that part
-> of the code.
+> TX Rate limiting:
+> 	- ConnectX-4 rate limiting infrastructure
+> 	- Set max rate NDO support
 > 
-> Patch 2 adds support to configure asymmetric number of rx/tx queues via
-> ethtool set-channels option.
+> RX interrupt moderation:
+> 	- CQE based coalescing option (controlled via priv flags)
+> 	- Adaptive RX coalescing
 > 
-> Patch 3 disables EVB when VFs are not enabled on a BE3 SR-IOV config to
-> avoid the broadcast echo problem.
+> ethtool settings:
+> 	- priv flags callbacks
+> 	- Support new ksettings API
+> 	- Add 50G missing link mode
+> 	- Support auto negotiation on/off
 > 
-> Patch 4 updates copyright markings in be2net src files
-> 
-> Patch 5 updates the be2net maintainers' list
+> Applied on top: 0e9390ebf1fe ("Merge branch 'mlxsw-next'")
 
 Series applied, thanks.
