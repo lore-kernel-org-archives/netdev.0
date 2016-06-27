@@ -1,73 +1,143 @@
 From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: mvpp2: use phy_ethtool_{get|set}_link_ksettings
-Date: Tue, 28 Jun 2016 00:08:12 +0200
-Message-ID: <1467065292-20996-2-git-send-email-tremyfr@gmail.com>
-References: <1467065292-20996-1-git-send-email-tremyfr@gmail.com>
+Subject: [PATCH 1/2] net: ethernet: mvpp2: use phydev from struct net_device
+Date: Tue, 28 Jun 2016 00:08:11 +0200
+Message-ID: <1467065292-20996-1-git-send-email-tremyfr@gmail.com>
 Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	Philippe Reynes <tremyfr@gmail.com>
 To: davem@davemloft.net, mw@semihalf.com, jszhang@marvell.com,
 	amitoj1606@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36039 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751888AbcF0WIV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 18:08:21 -0400
-In-Reply-To: <1467065292-20996-1-git-send-email-tremyfr@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-so we can use them instead of defining the same code in the driver.
+The private structure contain a pointer to phydev, but the structure
+net_device already contain such pointer. So we can remove the pointer
+phydev in the private structure, and update the driver to use the
+one contained in struct net_device.
 
 Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- drivers/net/ethernet/marvell/mvpp2.c |   22 ++--------------------
- 1 files changed, 2 insertions(+), 20 deletions(-)
+ drivers/net/ethernet/marvell/mvpp2.c |   34 ++++++++++++++++------------------
+ 1 files changed, 16 insertions(+), 18 deletions(-)
 
 diff --git a/drivers/net/ethernet/marvell/mvpp2.c b/drivers/net/ethernet/marvell/mvpp2.c
-index 18477fe..0b04717 100644
+index 868a957..18477fe 100644
 --- a/drivers/net/ethernet/marvell/mvpp2.c
 +++ b/drivers/net/ethernet/marvell/mvpp2.c
-@@ -5813,24 +5813,6 @@ static int mvpp2_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+@@ -699,7 +699,6 @@ struct mvpp2_port {
+ 	u16 rx_ring_size;
+ 	struct mvpp2_pcpu_stats __percpu *stats;
  
- /* Ethtool methods */
+-	struct phy_device *phy_dev;
+ 	phy_interface_t phy_interface;
+ 	struct device_node *phy_node;
+ 	unsigned int link;
+@@ -4850,7 +4849,7 @@ static irqreturn_t mvpp2_isr(int irq, void *dev_id)
+ static void mvpp2_link_event(struct net_device *dev)
+ {
+ 	struct mvpp2_port *port = netdev_priv(dev);
+-	struct phy_device *phydev = port->phy_dev;
++	struct phy_device *phydev = dev->phydev;
+ 	int status_change = 0;
+ 	u32 val;
  
--/* Get settings (phy address, speed) for ethtools */
--static int mvpp2_ethtool_get_settings(struct net_device *dev,
--				      struct ethtool_cmd *cmd)
--{
--	if (!dev->phydev)
--		return -ENODEV;
--	return phy_ethtool_gset(dev->phydev, cmd);
--}
+@@ -5416,6 +5415,8 @@ static int mvpp2_poll(struct napi_struct *napi, int budget)
+ /* Set hw internals when starting port */
+ static void mvpp2_start_dev(struct mvpp2_port *port)
+ {
++	struct net_device *ndev = port->dev;
++
+ 	mvpp2_gmac_max_rx_size_set(port);
+ 	mvpp2_txp_max_tx_size_set(port);
+ 
+@@ -5425,13 +5426,15 @@ static void mvpp2_start_dev(struct mvpp2_port *port)
+ 	mvpp2_interrupts_enable(port);
+ 
+ 	mvpp2_port_enable(port);
+-	phy_start(port->phy_dev);
++	phy_start(ndev->phydev);
+ 	netif_tx_start_all_queues(port->dev);
+ }
+ 
+ /* Set hw internals when stopping port */
+ static void mvpp2_stop_dev(struct mvpp2_port *port)
+ {
++	struct net_device *ndev = port->dev;
++
+ 	/* Stop new packets from arriving to RXQs */
+ 	mvpp2_ingress_disable(port);
+ 
+@@ -5447,7 +5450,7 @@ static void mvpp2_stop_dev(struct mvpp2_port *port)
+ 
+ 	mvpp2_egress_disable(port);
+ 	mvpp2_port_disable(port);
+-	phy_stop(port->phy_dev);
++	phy_stop(ndev->phydev);
+ }
+ 
+ /* Return positive if MTU is valid */
+@@ -5535,7 +5538,6 @@ static int mvpp2_phy_connect(struct mvpp2_port *port)
+ 	phy_dev->supported &= PHY_GBIT_FEATURES;
+ 	phy_dev->advertising = phy_dev->supported;
+ 
+-	port->phy_dev = phy_dev;
+ 	port->link    = 0;
+ 	port->duplex  = 0;
+ 	port->speed   = 0;
+@@ -5545,8 +5547,9 @@ static int mvpp2_phy_connect(struct mvpp2_port *port)
+ 
+ static void mvpp2_phy_disconnect(struct mvpp2_port *port)
+ {
+-	phy_disconnect(port->phy_dev);
+-	port->phy_dev = NULL;
++	struct net_device *ndev = port->dev;
++
++	phy_disconnect(ndev->phydev);
+ }
+ 
+ static int mvpp2_open(struct net_device *dev)
+@@ -5796,13 +5799,12 @@ mvpp2_get_stats64(struct net_device *dev, struct rtnl_link_stats64 *stats)
+ 
+ static int mvpp2_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ {
+-	struct mvpp2_port *port = netdev_priv(dev);
+ 	int ret;
+ 
+-	if (!port->phy_dev)
++	if (!dev->phydev)
+ 		return -ENOTSUPP;
+ 
+-	ret = phy_mii_ioctl(port->phy_dev, ifr, cmd);
++	ret = phy_mii_ioctl(dev->phydev, ifr, cmd);
+ 	if (!ret)
+ 		mvpp2_link_event(dev);
+ 
+@@ -5815,22 +5817,18 @@ static int mvpp2_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+ static int mvpp2_ethtool_get_settings(struct net_device *dev,
+ 				      struct ethtool_cmd *cmd)
+ {
+-	struct mvpp2_port *port = netdev_priv(dev);
 -
--/* Set settings (phy address, speed) for ethtools */
--static int mvpp2_ethtool_set_settings(struct net_device *dev,
--				      struct ethtool_cmd *cmd)
--{
--	if (!dev->phydev)
--		return -ENODEV;
--	return phy_ethtool_sset(dev->phydev, cmd);
--}
+-	if (!port->phy_dev)
++	if (!dev->phydev)
+ 		return -ENODEV;
+-	return phy_ethtool_gset(port->phy_dev, cmd);
++	return phy_ethtool_gset(dev->phydev, cmd);
+ }
+ 
+ /* Set settings (phy address, speed) for ethtools */
+ static int mvpp2_ethtool_set_settings(struct net_device *dev,
+ 				      struct ethtool_cmd *cmd)
+ {
+-	struct mvpp2_port *port = netdev_priv(dev);
 -
+-	if (!port->phy_dev)
++	if (!dev->phydev)
+ 		return -ENODEV;
+-	return phy_ethtool_sset(port->phy_dev, cmd);
++	return phy_ethtool_sset(dev->phydev, cmd);
+ }
+ 
  /* Set interrupt coalescing for ethtools */
- static int mvpp2_ethtool_set_coalesce(struct net_device *dev,
- 				      struct ethtool_coalesce *c)
-@@ -5965,13 +5947,13 @@ static const struct net_device_ops mvpp2_netdev_ops = {
- 
- static const struct ethtool_ops mvpp2_eth_tool_ops = {
- 	.get_link	= ethtool_op_get_link,
--	.get_settings	= mvpp2_ethtool_get_settings,
--	.set_settings	= mvpp2_ethtool_set_settings,
- 	.set_coalesce	= mvpp2_ethtool_set_coalesce,
- 	.get_coalesce	= mvpp2_ethtool_get_coalesce,
- 	.get_drvinfo	= mvpp2_ethtool_get_drvinfo,
- 	.get_ringparam	= mvpp2_ethtool_get_ringparam,
- 	.set_ringparam	= mvpp2_ethtool_set_ringparam,
-+	.get_link_ksettings = phy_ethtool_get_link_ksettings,
-+	.set_link_ksettings = phy_ethtool_set_link_ksettings,
- };
- 
- /* Driver initialization */
 -- 
 1.7.4.4
