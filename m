@@ -1,59 +1,55 @@
-From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net-next 1/9] MAINTAINERS: add maintainers for hns driver
-Date: Mon, 27 Jun 2016 17:54:07 +0800
-Message-ID: <1467021255-95900-2-git-send-email-Yisen.Zhuang@huawei.com>
-References: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [PATCH net] net: avoid vlan ptype specific match to be leaked on
+ real device
+Date: Mon, 27 Jun 2016 11:37:36 +0200
+Message-ID: <20160627093736.GD2058@nanopsycho.orion>
+References: <20160622105544.GC2068@nanopsycho.orion>
+ <1466598089.4707.31.camel@redhat.com>
+ <20160622124050.GD2068@nanopsycho.orion>
+ <20160626.160608.2073563033978522175.davem@davemloft.net>
+ <1467019712.4606.7.camel@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: ivecera@redhat.com, andrew@lunn.ch, fengguang.wu@intel.com,
- liguozhu@huawei.com, arnd@arndb.de, charles.chenxin@huawei.com,
- linux-kernel@vger.kernel.org, linuxarm@huawei.com, geliangtang@163.com,
- huangdaode@hisilicon.com, netdev@vger.kernel.org,
- andriy.shevchenko@linux.intel.com, linux-arm-kernel@lists.infradead.org
-To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
- <yankejian@huawei.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	jiri@mellanox.com, aduyck@mirantis.com, edumazet@google.com,
+	daniel@iogearbox.net
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33184 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751827AbcF0Jhj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 05:37:39 -0400
+Received: by mail-wm0-f65.google.com with SMTP id r201so23016765wme.0
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 02:37:39 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1467019712.4606.7.camel@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daode Huang <huangdaode@hisilicon.com>
+Mon, Jun 27, 2016 at 11:28:32AM CEST, pabeni@redhat.com wrote:
+>On Sun, 2016-06-26 at 16:06 -0400, David Miller wrote:
+>> From: Jiri Pirko <jiri@resnulli.us>
+>> Date: Wed, 22 Jun 2016 14:40:50 +0200
+>> 
+>> > The patch only unified the behaviour so everyone know what to expect
+>> > regardless of the device type.
+>> 
+>> +1
+>> 
+>> And reverting this behavior back is going to hurt more people than it
+>> will help, so I am not going to apply this, sorry.
+>
+>Would a /proc/net/vlan sysctl to control the switch from the new to the
+>old behavior (with default to the new) make this acceptable ?
 
-This patch adds maintainers for hisilicon network subsystem driver
+Ugh, please don't :(
 
-Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
----
- MAINTAINERS | 9 +++++++++
- 1 file changed, 9 insertions(+)
-
-diff --git a/MAINTAINERS b/MAINTAINERS
-index 3a171a9..c819659 100644
---- a/MAINTAINERS
-+++ b/MAINTAINERS
-@@ -5421,6 +5421,15 @@ F:	include/uapi/linux/if_hippi.h
- F:	net/802/hippi.c
- F:	drivers/net/hippi/
- 
-+HISILICON NETWORK SUBSYSTEM DRIVER
-+M:	Yisen Zhuang <yisen.zhuang@huawei.com>
-+M:	Salil Mehta <salil.mehta@huawei.com>
-+L:	netdev@vger.kernel.org
-+W:	http://www.hisilicon.com
-+S:	Maintained
-+F:	drivers/net/ethernet/hisilicon/*
-+F:	Documentation/devicetree/bindings/net/hisilicon*.txt
-+
- HISILICON SAS Controller
- M:	John Garry <john.garry@huawei.com>
- W:	http://www.hisilicon.com
--- 
-1.9.1
+>
+>Recent users will not be affected, and users of the old behavior could
+>manage kernel upgrade without breaking their applications. 
+>
+>Thank you,
+>
+>Paolo
+>
+>
