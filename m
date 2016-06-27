@@ -1,34 +1,19 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] qlcnic: use the correct ring in
- qlcnic_83xx_process_rcv_ring_diag()
-Date: Wed, 29 Jun 2016 05:48:01 -0400 (EDT)
-Message-ID: <20160629.054801.713412217544385924.davem@davemloft.net>
-References: <20160627205029.GA22095@mwanda>
+From: "Fidelity Loans" <507793@lcof.fr>
+Subject: Re:
+Date: Mon, 27 Jun 2016 04:24:48 -0400
+Message-ID: <20160627082515.60B6B55D65__34381.9828973666$1467193845$gmane$org@webmail.lcof.fr>
+Reply-To: dmsjerry@gmail.com
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Dept-GELinuxNICDev@qlogic.com, sony.chacko@qlogic.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <507793@lcof.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39586 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750932AbcF2Jsd (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 05:48:33 -0400
-In-Reply-To: <20160627205029.GA22095@mwanda>
+Received: from webmail.lcof.fr ([109.239.113.9]:52063 "EHLO webmail.lcof.fr"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751141AbcF2Juc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 05:50:32 -0400
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Mon, 27 Jun 2016 23:50:29 +0300
-
-> There is a static checker warning here "warn: mask and shift to zero"
-> and the code sets "ring" to zero every time.  From looking at how
-> QLCNIC_FETCH_RING_ID() is used in qlcnic_83xx_process_rcv_ring() the
-> qlcnic_83xx_hndl() should be removed.
-> 
-> Fixes: 4be41e92f7c6 ('qlcnic: 83xx data path routines')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-Applied.
+Loan Offer at 3%, Feel Free to REPLY back to us for more info
