@@ -1,64 +1,70 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [Patch net] mlx4: set csum_complete_sw bit when fixing complete csum
-Date: Tue, 28 Jun 2016 00:08:30 +0300
-Message-ID: <CAJ3xEMjgb6K1QeWZKNLWJWk4Ch++FmcV-PPWp7VJzWLYSHo8YQ@mail.gmail.com>
-References: <1467051724-8314-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Stephen Hemminger <shemming@brocade.com>
+Subject: Re: [iproute PATCH v3 0/6] Big C99 style initializer rework
+Date: Mon, 27 Jun 2016 14:10:49 -0700
+Message-ID: <20160627141049.356c1eff@xeon-e3>
+References: <d6784d8bb2d84ceab6c1719e32e8fa8e@HQ1WP-EXMB11.corp.brocade.com>
+	<20160627105912.7961c3f4@xeon-e3>
+	<20160627182302.GB13664@orbyte.nwl.cc>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	Shani Michaeli <shanim@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Carol L Soto <clsoto@us.ibm.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>,
-	Tom Herbert <tom@herbertland.com>
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Daniel Borkmann <daniel@iogearbox.net>,
+	David Ahern <dsa@cumulusnetworks.com>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Julien Floret <julien.floret@6wind.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f65.google.com ([209.85.218.65]:33992 "EHLO
-	mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752264AbcF0VIc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 17:08:32 -0400
-Received: by mail-oi0-f65.google.com with SMTP id s17so32910058oih.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 14:08:31 -0700 (PDT)
-In-Reply-To: <1467051724-8314-1-git-send-email-xiyou.wangcong@gmail.com>
+Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:38796 "EHLO
+	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751638AbcF0VK4 convert rfc822-to-8bit
+	(ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2016 17:10:56 -0400
+In-Reply-To: <20160627182302.GB13664@orbyte.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 27, 2016 at 9:22 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> The stack doesn't trust the complete csum by hardware
-> even when it is correct.
+On Mon, 27 Jun 2016 20:23:02 +0200
+Phil Sutter <phil@nwl.cc> wrote:
 
-Can you explain that a little further?
+> Hi,
+>=20
+> On Mon, Jun 27, 2016 at 10:59:12AM -0700, Stephen Hemminger wrote:
+> > On Thu, 23 Jun 2016 17:34:08 +0000
+> > Phil Sutter <phil@nwl.cc> wrote:
+> >=20
+> > > This is v3 of my C99-style initializer related patch series. The =
+changes
+> > > since v2 are:
+> [...]
+> >=20
+> > I like the idea and it makes code cleaner. But doing this introduce=
+s lots of warnings
+> > and that is not acceptable.
+> > ip
+> >     CC       ip.o
+> >     CC       ipaddress.o
+> > ipaddress.c: In function =E2=80=98print_queuelen=E2=80=99:
+> > ipaddress.c:175:10: warning: missing braces around initializer [-Wm=
+issing-braces]
+> >    struct ifreq ifr =3D { 0 };
+> >           ^
+>=20
+> I saw these too with gcc-3.4.6 but not with 5.3.0. It appears to be a
+> gcc bug[1]. One possible workaround is to match the brace level of th=
+e
+> first field, but it's quite ugly: [2]. Another way might be to
+> initialize one of the fields to zero, like so:
+>=20
+> | struct ifreq ifr =3D { .ifr_qlen =3D 0 };
+>=20
+> What do you think?
+>=20
+> Thanks, Phil
+>=20
+> [1] https://gcc.gnu.org/bugzilla/show_bug.cgi?id=3D53119
+> [2] http://nwl.cc/cgi-bin/git/gitweb.cgi?p=3Diproute2.git;a=3Dcommitd=
+iff;h=3Da1cbf2b63c995b2f633c5b4699248ab308b201d2;hp=3D3809cfec65b03716d=
+1d0360338126df4b4f3fbf6
 
-> In the case we fix csum by ourself
-> probably it is safe to just mark it as completed by software.
-
-> This should shut up a kernel warning from netdev_rx_csum_fault()
-> with mlx4 driver for ICMP packets.
-
-can you point/paste the exact warning and how to reproduce that? is
-that as simple as running ping and/or ping6?
-
-> Fixes: f8c6455bb04b ('net/mlx4_en: Extend checksum offloading by CHECKSUM COMPLETE')
-> Cc: Shani Michaeli <shanim@mellanox.com>
-> Cc: Tariq Toukan <tariqt@mellanox.com>
-> Cc: Yishai Hadas <yishaih@mellanox.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c | 1 +
->  1 file changed, 1 insertion(+)
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> index c1b3a9c..b44c434 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-> @@ -732,6 +732,7 @@ static int check_csum(struct mlx4_cqe *cqe, struct sk_buff *skb, void *va,
->                 if (get_fixed_ipv6_csum(hw_checksum, skb, hdr))
->                         return -1;
->  #endif
-> +       skb->csum_complete_sw = 1;
->         return 0;
->  }
->
-> --
-> 2.1.0
->
+I am using gcc on Debian stable which is 5.3.1.
