@@ -1,57 +1,52 @@
-From: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Subject: [PATCH net-next 6/6] r8152: add byte_enable for ocp_read_word function
-Date: Mon, 27 Jun 2016 13:07:45 +0800
-Message-ID: <1394712342-15778-190-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-184-Taiwan-albertk@realtek.com>
+From: Giuseppe CAVALLARO <peppe.cavallaro@st.com>
+Subject: Re: [PATCH] net: stmmac: Fix null-function call in ISR on stmmac1000
+Date: Mon, 27 Jun 2016 07:50:30 +0200
+Message-ID: <a5e5b8ed-9022-7de5-689b-6ea6e8f7a2e4@st.com>
+References: <E5152E61-5896-46FD-BF4A-16CDFB3796F6@bluematt.me>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-To: <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1394712342-15778-184-Taiwan-albertk-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Alexandre Torgue <alexandre.torgue@st.com>,
+	<netdev@vger.kernel.org>, <martin.blumenstingl@googlemail.com>
+To: Matt Corallo <linux@bluematt.me>,
+	<linux-amlogic@lists.infradead.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx07-00178001.pphosted.com ([62.209.51.94]:63298 "EHLO
+	mx07-00178001.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751644AbcF0FvE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 01:51:04 -0400
+In-Reply-To: <E5152E61-5896-46FD-BF4A-16CDFB3796F6@bluematt.me>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add byte_enable for ocp_read_word() to replace reading 4 bytes data
-with reading the desired 2 bytes data.
+Thanks Matt for the fix
 
-This is used to avoid the issue which is described in commit:b4d99def.
-The origin method always reads 4 bytes data, and it may have problem
-when reading the PHY regiters.
+On 6/25/2016 9:35 PM, Matt Corallo wrote:
+> At least on Meson GXBB, the CORE_IRQ_MTL_RX_OVERFLOW interrupt is thrown
+> with the stmmac1000 driver, which does not support set_rx_tail_ptr. With
+> this patch and the clock fixes, 1G ethernet works on ODROID-C2.
+>
+> Signed-off-by: Matt Corallo <git@bluematt.me>
 
-The new method is supported since RTL8152B, but it doesn't influence
-the previous chips. The bits of the byte_enable for the previous chips
-are the reserved bits, and the hw would ignore them.
+Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
 
-Signed-off-by: Hayes Wang <hayeswang-Rasf1IRRPZFBDgjK7y7TUQ@public.gmane.org>
----
- drivers/net/usb/r8152.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
-
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 2fd4944..0bb7c1b 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -945,11 +945,13 @@ static u16 ocp_read_word(struct r8152 *tp, u16 type, u16 index)
- {
- 	u32 data;
- 	__le32 tmp;
-+	u16 byen = BYTE_EN_WORD;
- 	u8 shift = index & 2;
- 
- 	index &= ~3;
-+	byen <<= shift;
- 
--	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type);
-+	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type | byen);
- 
- 	data = __le32_to_cpu(tmp);
- 	data >>= (shift * 8);
--- 
-2.4.11
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> ---
+>  drivers/net/ethernet/stmicro/stmmac/stmmac_main.c | 2 +-
+>  1 file changed, 1 insertion(+), 1 deletion(-)
+>
+> diff --git a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> index a473c18..e407126 100644
+> --- a/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> +++ b/drivers/net/ethernet/stmicro/stmmac/stmmac_main.c
+> @@ -2804,7 +2804,7 @@ static irqreturn_t stmmac_interrupt(int irq, void
+> *dev_id)
+>  				priv->tx_path_in_lpi_mode = true;
+>  			if (status & CORE_IRQ_TX_PATH_EXIT_LPI_MODE)
+>  				priv->tx_path_in_lpi_mode = false;
+> -			if (status & CORE_IRQ_MTL_RX_OVERFLOW)
+> +			if (status & CORE_IRQ_MTL_RX_OVERFLOW && priv->hw->dma->set_rx_tail_ptr)
+>  				priv->hw->dma->set_rx_tail_ptr(priv->ioaddr,
+>  							priv->rx_tail_addr,
+>  							STMMAC_CHAN0);
+>
