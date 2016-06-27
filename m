@@ -1,26 +1,40 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: pull-request: can 2016-06-23
-Date: Mon, 27 Jun 2016 10:08:34 -0400 (EDT)
-Message-ID: <20160627.100834.1279506995546905688.davem@davemloft.net>
-References: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
+Subject: Re: 4.4 stable request for net: macb: fix default configuration
+ for GMAC on AT91
+Date: Mon, 27 Jun 2016 10:09:47 -0400 (EDT)
+Message-ID: <20160627.100947.1346266322935682261.davem@davemloft.net>
+References: <576BAB64.5050104@atmel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
-	kernel@pengutronix.de
-To: mkl@pengutronix.de
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Nicolas.FERRE@atmel.com,
+	romain.henriet@l-acoustics.com
+To: cyrille.pitchen@atmel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:44597 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751696AbcF0OKQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 10:10:16 -0400
+In-Reply-To: <576BAB64.5050104@atmel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Marc Kleine-Budde <mkl@pengutronix.de>
-Date: Thu, 23 Jun 2016 11:22:18 +0200
+From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
+Date: Thu, 23 Jun 2016 11:27:00 +0200
 
-> this is a pull request of 3 patches for the upcoming linux-4.7 release.
+> For 4.4 -stable, can you please consider commit:
 > 
-> The first two patches are by Oliver Hartkopp fixing oopes in the generic CAN
-> device netlink handling. Jimmy Assarsson's patch for the kvaser_usb driver adds
-> support for more devices by adding their USB product ids.
+> commit 6bdaa5e9ed39b3b3328f35d218e8ad5a99cfc4d2
+> Author: Nicolas Ferre <nicolas.ferre@atmel.com>
+> Date:   Thu Mar 10 16:44:32 2016 +0100
+> 
+>     net: macb: fix default configuration for GMAC on AT91
+ ...
+> Without this patch, the macb ethernet controller is always configured to be
+> connected to a RMII phy on sama5dx SoCs. Hence the network doesn't work on
+> boards embedding such SoCs and MII phy.
+> 
+> 
+> A backport to 4.4.13 is below.
 
-Pulled, thanks.
+Queued up, thanks.
