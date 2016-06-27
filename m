@@ -1,47 +1,52 @@
-From: Marc Dionne <marc.c.dionne@gmail.com>
-Subject: Multi-thread udp 4.7 regression, bisected to 71d8c47fc653
-Date: Mon, 27 Jun 2016 10:41:49 -0300
-Message-ID: <CAB9dFduvE0dKzZ8Dm5RVVrUAq1Auvj8t9xXAyARGyO4NmowvYw@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] tipc: Use kmemdup instead of kmalloc
+	and memcpy
+Date: Mon, 27 Jun 2016 09:59:36 -0400 (EDT)
+Message-ID: <20160627.095936.2017216616383106273.davem@davemloft.net>
+References: <20160623044937.GA14109@amitoj-Inspiron-3542>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f45.google.com ([209.85.213.45]:33703 "EHLO
-	mail-vk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750869AbcF0Nl4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 09:41:56 -0400
-Received: by mail-vk0-f45.google.com with SMTP id j3so19480746vkb.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 06:41:55 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: jon.maloy@ericsson.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, julia.lawall@lip6.fr,
+	tipc-discussion@lists.sourceforge.net
+To: amitoj1606@gmail.com
+Return-path: <tipc-discussion-bounces@lists.sourceforge.net>
+In-Reply-To: <20160623044937.GA14109@amitoj-Inspiron-3542>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=tipc-discussion>
+List-Post: <mailto:tipc-discussion@lists.sourceforge.net>
+List-Help: <mailto:tipc-discussion-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/tipc-discussion>,
+	<mailto:tipc-discussion-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: tipc-discussion-bounces@lists.sourceforge.net
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Date: Thu, 23 Jun 2016 10:19:37 +0530
 
-I've been seeing issues with 4.7-rc kernels with some of our
-multi-thread test cases.  I've bisected it down to this commit:
+> Replace calls to kmalloc followed by a memcpy with a direct call to
+> kmemdup.
+> 
+> The Coccinelle semantic patch used to make this change is as follows:
+> @@
+> expression from,to,size,flag;
+> statement S;
+> @@
+> 
+> -  to = \(kmalloc\|kzalloc\)(size,flag);
+> +  to = kmemdup(from,size,flag);
+>    if (to==NULL || ...) S
+> -  memcpy(to, from, size);
+> 
+> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
 
-  commit 71d8c47fc653711c41bc3282e5b0e605b3727956
-  Author: Pablo Neira Ayuso <pablo@netfilter.org>
-  Date:   Sun May 1 00:28:40 2016 +0200
+Applied.
 
-      netfilter: conntrack: introduce clash resolution on insertion race
-
-
-.. and verified that reverting the commit restores the expected behaviour.
-
-The test spins up 30 threads that start communicating simultaneously
-with a server at the same target port, using a UDP based protocol over
-loopback.  This test is known to easily trigger the insertion race
-that the commit is trying to fix - we check for EPERM errors and retry
-in that case.
-
-On my usual test rig the test gets about 700Mb/s.  On current
-mainline, the result alternates between a somewhat normal number,
-something much lower (~150Mb/s), or complete failure following an
-internal timeout.
-
-Any thoughts on what may be going on?
-
-Thanks,
-Marc
+------------------------------------------------------------------------------
+Attend Shape: An AT&T Tech Expo July 15-16. Meet us at AT&T Park in San
+Francisco, CA to explore cutting-edge tech and listen to tech luminaries
+present their vision of the future. This family event has something for
+everyone, including kids. Get more information and register today.
+http://sdm.link/attshape
