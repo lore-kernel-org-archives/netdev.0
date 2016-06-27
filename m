@@ -1,86 +1,176 @@
-From: weiyj_lk@163.com
-Subject: [PATCH v2] ibmvnic: fix to use list_for_each_safe() when delete items
-Date: Mon, 27 Jun 2016 20:48:53 +0800
-Message-ID: <1467031733-13137-1-git-send-email-weiyj_lk@163.com>
-References: <20160625.120241.1521209512436530662.davem@davemloft.net>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v5 0/4] return offloaded stats as default and
+ expose original sw stats
+Date: Mon, 27 Jun 2016 06:02:31 -0700
+Message-ID: <CAJieiUh_2B3y78Fa7Oqwy6oc3WaJrNJk+h95tjT3=ojwXfGccQ@mail.gmail.com>
+References: <20160623054050.GA2060@nanopsycho.orion> <576BC7A7.2000704@cumulusnetworks.com>
+ <20160623113508.GE2060@nanopsycho.orion> <CACcJQnTfr5n75q48aJQ3bwzfCd9oThTCHcR_qWG7R9aV13pOQw@mail.gmail.com>
+ <20160623154038.GH2060@nanopsycho.orion> <CAJieiUjsMHdTbhGqyo+8ys7S5QZ9KYvTY+LDC-bbo6dRk3FBRw@mail.gmail.com>
+ <20160626093334.GA1984@nanopsycho.orion> <577019B0.9080708@cumulusnetworks.com>
+ <20160626181546.GA1938@nanopsycho.orion> <CAJieiUgjfO-J_uUVV6VVS8ar1Fg8wMJwcmaemu==Su3DospLTA@mail.gmail.com>
+ <20160627065102.GC2058@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Paul Mackerras <paulus@samba.org>,
-	Michael Ellerman <mpe@ellerman.id.au>,
-	Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
-	John Allen <jallen@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Nogah Frankel <nogahf@mellanox.com>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Yotam Gigi <yotamg@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>, sd@queasysnail.net,
+	eranbe@mellanox.com, Alexei Starovoitov <ast@plumgrid.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	David Ahern <dsa@cumulusnetworks.com>
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-15.163.com ([220.181.12.15]:40177 "EHLO m12-15.163.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751639AbcF0Mte (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jun 2016 08:49:34 -0400
-In-Reply-To: <20160625.120241.1521209512436530662.davem@davemloft.net>
+Received: from mail-vk0-f46.google.com ([209.85.213.46]:36668 "EHLO
+	mail-vk0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751671AbcF0NCe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 09:02:34 -0400
+Received: by mail-vk0-f46.google.com with SMTP id u64so230809412vkf.3
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 06:02:33 -0700 (PDT)
+In-Reply-To: <20160627065102.GC2058@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+[resending ...my previous reply sent some non-text content]
 
-Since we will remove items off the list using list_del() we need
-to use a safe version of the list_for_each() macro aptly named
-list_for_each_safe().
+On Sun, Jun 26, 2016 at 11:51 PM, Jiri Pirko <jiri@resnulli.us> wrote:
+>
+> Mon, Jun 27, 2016 at 04:53:53AM CEST, roopa@cumulusnetworks.com wrote:
+> >On Sun, Jun 26, 2016 at 11:15 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> >> Sun, Jun 26, 2016 at 08:06:40PM CEST, roopa@cumulusnetworks.com wrote:
+> >>>On 6/26/16, 2:33 AM, Jiri Pirko wrote:
+> >>>> Sat, Jun 25, 2016 at 05:50:59PM CEST, roopa@cumulusnetworks.com wrote:
+> >>>>> On Thu, Jun 23, 2016 at 8:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> >>>>>> Thu, Jun 23, 2016 at 05:11:26PM CEST, anuradhak@cumulusnetworks.com wrote:
+> >>>>>>>>>>> we can't separate CPU and HW stats there. In some cases (or ASICs) HW
+> >>>>>>>>>>> counters do
+> >>>>>>>>>>> not include CPU generated packets....you will have to add CPU
+> >>>>>>>>>>> generated pkt counters to the
+> >>>>>>>>>>> hw counters for such virtual device stats.
+> >>>>>>>>>> Can you please provide and example how that could happen?
+> >>>>>>>>> example is the bridge vlan stats I mention below. These are usually counted
+> >>>>>>>>> by attaching hw virtual counter resources. And CPU generated packets
+> >>>>>>>>> in some cases maybe setup to bypass the ASIC pipeline because the CPU
+> >>>>>>>>> has already made the required decisions. So, they may not be counted by
+> >>>>>>>>> by such hw virtual counters.
+> >>>>>>>> Bypass ASIC? How do the packets get on the wire?
+> >>>>>>>>
+> >>>>>>> Bypass the "forwarding pipeline" in the ASIC that is. Obviously the
+> >>>>>>> ASIC ships the CPU generated packet out of the switch/front-panel
+> >>>>>>> port. Continuing Roopa's example of vlan netdev stats.... To get the
+> >>>>>>> HW stats counters are typically tied to the ingress and egress vlan hw
+> >>>>>>> entries. All the incoming packets are subject to the ingress vlan
+> >>>>>>> lookup irrespective of whether they get punted to the CPU or whether
+> >>>>>>> they are forwarded to another front panel port. In that case the
+> >>>>>>> ingress HW stats does represent all packets. However for CPU
+> >>>>>>> originated packets egress vlan lookups are bypassed in the ASIC (this
+> >>>>>>> is common forwarding option in most ASICs) and the packet shipped as
+> >>>>>>> is out of front-panel port specified by the CPU. Which means these
+> >>>>>>> packets will NOT be counted against the egress VLAN HW counter; hence
+> >>>>>>> the need for summation.
+> >>>>>> Driver will know about this, and will provide the stats accordignly to
+> >>>>>> the core. Who else than driver should resolve this.
+> >>>>>>
+> >>>>> The point was/is that there should be only two categories:
+> >>>>> 1) the base default stats: can contain 'only sw', 'only hw' or 'a
+> >>>>> summation of hw and sw' in some cases.
+> >>>>> The user does not care about the breakdown.
+> >>>>>
+> >>>>> 2) everything else falls into the second category: driver provided
+> >>>>> breakdown of stats for easier debugging.
+> >>>>> This today is ethtool stats and we can have an equivalent nested
+> >>>>> attribute for this in the new stats api.
+> >>>>> Lets call it IFLA_STATS_LINK_DRIVER or you pick a name. Lets make it
+> >>>>> nested and extensible (like ethtool is) and
+> >>>>> driver can expose any kind of stats there.
+> >>>>> ie lets move the stats you are proposing to this category of stats.....
+> >>>>> instead of introducing a third category 'SW stats'.
+> >>>> What you are proposing is essentially what our patchset does. We expose
+> >>>> 2 sets of stats. hw and pure sw. hw includes all, driver will take
+> >>>> care of it cause he knows what is going on in hw.
+> >>>the splitting into hw and sw is causing some confusion with respect
+> >>
+> >> I still don't get why you are talking about split :( I see no split.
+> >>
+> >>
+> >>>to existing stats and will be confusing for future stats. And i am not sure how many
+> >>>users would prefer the split this way.
+> >>>So, instead of doing the split, i think we should at this time introduce
+> >>>driver specific stats (like ethtool) as a nested netlink attribute.
+> >>
+> >> The default netlink stats should be hw (or accumulated as you call it).
+> >> The reason is to avoid confusion for existing apps. Another attribute is
+> >> possible for more break-out stats - that is what this patchset is doing.
+> >>
+> >> Ethtool stats are wrong and useless for apps as they are driver-specific.
+> >
+> >apps only care about overall stats. thats the aggregate stats
+> >provided by the default netlink netdev api to the user...which already exists.
+> >
+> >they don't care about your new breakdown either.
+>
+> Agreed. That is what our patchset is doing.
+>
+>
+> >
+> >breakdown of stats are used for debugging and thats what ethtool stats provide.
+> >
+> >
+> >
+> >>
+> >>
+> >>>>
+> >>>> Btw mirroring random string stats into Netlink is not a good idea IMO.
+> >>>Any reason you say that ?. I am thinking it would be much easier with netlink.
+> >>>keeping it simple, it is a nested attribute with stat-name and value pair.
+> >>>
+> >>>struct stat {
+> >>>    char stats_name[STATS_NAME_LEN];    /* STATS_NAME_LEN = 32 */
+> >>>    __u64 stat;
+> >>>};
+> >>
+> >> No please. This should be well defined generic group of stats.
+> >> Driver-specific names/stats stats are wrong.
+> >>
+> >
+> >they are meant for debugging. are you saying the new stats api should
+> >not contain 'ethtool like' stats ?
+> >
+> >ethtool stats are very valuable today. They are extensible.
+> >They cannot be made generic and they are specific to a hardware or use case.
+> >
+> >We use it for our switch port stats too. Base aggregate stats summed
+> >up and provided as default netdev stats. via ethtool we provide lot
+> >more hardware specific breakdown.
+>
+> Leave it in ethtool then. I really think it is not idea to put random
+> named-stats in netlink.
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/ethernet/ibm/ibmvnic.c | 14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
-index 864cb21..ecdb685 100644
---- a/drivers/net/ethernet/ibm/ibmvnic.c
-+++ b/drivers/net/ethernet/ibm/ibmvnic.c
-@@ -2121,7 +2121,7 @@ static void handle_error_info_rsp(union ibmvnic_crq *crq,
- 				  struct ibmvnic_adapter *adapter)
- {
- 	struct device *dev = &adapter->vdev->dev;
--	struct ibmvnic_error_buff *error_buff;
-+	struct ibmvnic_error_buff *error_buff, *tmp;
- 	unsigned long flags;
- 	bool found = false;
- 	int i;
-@@ -2133,7 +2133,7 @@ static void handle_error_info_rsp(union ibmvnic_crq *crq,
- 	}
- 
- 	spin_lock_irqsave(&adapter->error_list_lock, flags);
--	list_for_each_entry(error_buff, &adapter->errors, list)
-+	list_for_each_entry_safe(error_buff, tmp, &adapter->errors, list)
- 		if (error_buff->error_id == crq->request_error_rsp.error_id) {
- 			found = true;
- 			list_del(&error_buff->list);
-@@ -3141,14 +3141,14 @@ static void handle_request_ras_comp_num_rsp(union ibmvnic_crq *crq,
- 
- static void ibmvnic_free_inflight(struct ibmvnic_adapter *adapter)
- {
--	struct ibmvnic_inflight_cmd *inflight_cmd;
-+	struct ibmvnic_inflight_cmd *inflight_cmd, *tmp1;
- 	struct device *dev = &adapter->vdev->dev;
--	struct ibmvnic_error_buff *error_buff;
-+	struct ibmvnic_error_buff *error_buff, *tmp2;
- 	unsigned long flags;
- 	unsigned long flags2;
- 
- 	spin_lock_irqsave(&adapter->inflight_lock, flags);
--	list_for_each_entry(inflight_cmd, &adapter->inflight, list) {
-+	list_for_each_entry_safe(inflight_cmd, tmp1, &adapter->inflight, list) {
- 		switch (inflight_cmd->crq.generic.cmd) {
- 		case LOGIN:
- 			dma_unmap_single(dev, adapter->login_buf_token,
-@@ -3165,8 +3165,8 @@ static void ibmvnic_free_inflight(struct ibmvnic_adapter *adapter)
- 			break;
- 		case REQUEST_ERROR_INFO:
- 			spin_lock_irqsave(&adapter->error_list_lock, flags2);
--			list_for_each_entry(error_buff, &adapter->errors,
--					    list) {
-+			list_for_each_entry_safe(error_buff, tmp2,
-+						 &adapter->errors, list) {
- 				dma_unmap_single(dev, error_buff->dma,
- 						 error_buff->len,
- 						 DMA_FROM_DEVICE);
+
+The point of the stats api is to bring all stats together.
+ethtool stats are very valuable. so there is no point leaving them out.
+they will be in here sooner or later.
+
+when there is already a discussion of moving ethtool to netlink,..i am not sure
+I understand the hesitation on moving ethtool stats to netlink.
+
+>
+>
+> This patchset uses well defined values for slowpatch(/sw/cpu) stats.
+> That is I believe the only way to do this.
+>
+
+It seems to be your preferred way. I don't think it is the only way to
+do it. It can very well be part of the nested
+breakdown stats i am talking about.
