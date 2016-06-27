@@ -1,72 +1,86 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [REGRESSION, bisect]cxgb4 port failure with TSO traffic after
- commit 10d3be569243def8("tcp-tso: do not split TSO packets at retransmit
- time")
-Date: Mon, 27 Jun 2016 14:46:56 +0200
-Message-ID: <1467031616.6850.150.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <6DE8042992C3D3488ACEF3F2607097E3C4A81CA5@nice.asicdesigners.com>
-	 <CANn89iLpBC5tUqpdSE4jCMKFgUi=mg=2kPZtMaRh-cnBhvauNg@mail.gmail.com>
-	 <6DE8042992C3D3488ACEF3F2607097E3C4A82805@nice.asicdesigners.com>
-	 <CANn89i+ePpSDYPtQeZa=fdN84=4WKdDb88P-dOVyPyY_DMK02g@mail.gmail.com>
-	 <1466785507.6850.105.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160627071750.GA13304@v4.asicdesigners.com>
-	 <1467014782.6850.144.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160627085957.GB13319@v4.asicdesigners.com>
-	 <1467019279.6850.145.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160627095445.GC13319@v4.asicdesigners.com>
-	 <1467024617.6850.148.camel@edumazet-glaptop3.roam.corp.google.com>
+From: weiyj_lk@163.com
+Subject: [PATCH v2] ibmvnic: fix to use list_for_each_safe() when delete items
+Date: Mon, 27 Jun 2016 20:48:53 +0800
+Message-ID: <1467031733-13137-1-git-send-email-weiyj_lk@163.com>
+References: <20160625.120241.1521209512436530662.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	Kumar A S <kumaras@chelsio.com>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Nirranjan Kirubaharan <nirranjan@chelsio.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"ycheng@google.com" <ycheng@google.com>
-To: Arjun V <arjun@chelsio.com>
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
+	linuxppc-dev@lists.ozlabs.org, netdev@vger.kernel.org
+To: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
+	Paul Mackerras <paulus@samba.org>,
+	Michael Ellerman <mpe@ellerman.id.au>,
+	Thomas Falcon <tlfalcon@linux.vnet.ibm.com>,
+	John Allen <jallen@linux.vnet.ibm.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34361 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751385AbcF0MrF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 08:47:05 -0400
-Received: by mail-wm0-f65.google.com with SMTP id 187so24281446wmz.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 05:47:03 -0700 (PDT)
-In-Reply-To: <1467024617.6850.148.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from m12-15.163.com ([220.181.12.15]:40177 "EHLO m12-15.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751639AbcF0Mte (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2016 08:49:34 -0400
+In-Reply-To: <20160625.120241.1521209512436530662.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-06-27 at 12:50 +0200, Eric Dumazet wrote:
-> On Mon, 2016-06-27 at 15:24 +0530, Arjun V wrote:
-> 
-> > Applied your patch.
-> > The above debug print is not getting invoked, when skb->len is greater than 65536.
-> 
-> Interesting.
-> 
-> It looks like we might have a bug in tcp_shift_skb_data() not respecting
-> sk->sk_gso_max_size at all ...
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Note that this also means TCP receiver misbehaves and force us to SACK
-reneging.
+Since we will remove items off the list using list_del() we need
+to use a safe version of the list_for_each() macro aptly named
+list_for_each_safe().
 
-Patch would be :
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/ibm/ibmvnic.c | 14 +++++++-------
+ 1 file changed, 7 insertions(+), 7 deletions(-)
 
-diff --git a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
-index 8bd9911fdd16..3587efe22864 100644
---- a/net/ipv4/tcp_output.c
-+++ b/net/ipv4/tcp_output.c
-@@ -2784,6 +2784,10 @@ void tcp_xmit_retransmit_queue(struct sock *sk)
- 		segs = tp->snd_cwnd - tcp_packets_in_flight(tp);
- 		if (segs <= 0)
- 			return;
-+		/* In case tcp_shift_skb_data() have aggregated large skbs,
-+		 * we need to make sure not sending too big TSO packets.
-+		 */
-+		segs = min_t(int, segs, tp->gso_segs);
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 864cb21..ecdb685 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -2121,7 +2121,7 @@ static void handle_error_info_rsp(union ibmvnic_crq *crq,
+ 				  struct ibmvnic_adapter *adapter)
+ {
+ 	struct device *dev = &adapter->vdev->dev;
+-	struct ibmvnic_error_buff *error_buff;
++	struct ibmvnic_error_buff *error_buff, *tmp;
+ 	unsigned long flags;
+ 	bool found = false;
+ 	int i;
+@@ -2133,7 +2133,7 @@ static void handle_error_info_rsp(union ibmvnic_crq *crq,
+ 	}
  
- 		if (fwd_rexmitting) {
- begin_fwd:
+ 	spin_lock_irqsave(&adapter->error_list_lock, flags);
+-	list_for_each_entry(error_buff, &adapter->errors, list)
++	list_for_each_entry_safe(error_buff, tmp, &adapter->errors, list)
+ 		if (error_buff->error_id == crq->request_error_rsp.error_id) {
+ 			found = true;
+ 			list_del(&error_buff->list);
+@@ -3141,14 +3141,14 @@ static void handle_request_ras_comp_num_rsp(union ibmvnic_crq *crq,
+ 
+ static void ibmvnic_free_inflight(struct ibmvnic_adapter *adapter)
+ {
+-	struct ibmvnic_inflight_cmd *inflight_cmd;
++	struct ibmvnic_inflight_cmd *inflight_cmd, *tmp1;
+ 	struct device *dev = &adapter->vdev->dev;
+-	struct ibmvnic_error_buff *error_buff;
++	struct ibmvnic_error_buff *error_buff, *tmp2;
+ 	unsigned long flags;
+ 	unsigned long flags2;
+ 
+ 	spin_lock_irqsave(&adapter->inflight_lock, flags);
+-	list_for_each_entry(inflight_cmd, &adapter->inflight, list) {
++	list_for_each_entry_safe(inflight_cmd, tmp1, &adapter->inflight, list) {
+ 		switch (inflight_cmd->crq.generic.cmd) {
+ 		case LOGIN:
+ 			dma_unmap_single(dev, adapter->login_buf_token,
+@@ -3165,8 +3165,8 @@ static void ibmvnic_free_inflight(struct ibmvnic_adapter *adapter)
+ 			break;
+ 		case REQUEST_ERROR_INFO:
+ 			spin_lock_irqsave(&adapter->error_list_lock, flags2);
+-			list_for_each_entry(error_buff, &adapter->errors,
+-					    list) {
++			list_for_each_entry_safe(error_buff, tmp2,
++						 &adapter->errors, list) {
+ 				dma_unmap_single(dev, error_buff->dma,
+ 						 error_buff->len,
+ 						 DMA_FROM_DEVICE);
