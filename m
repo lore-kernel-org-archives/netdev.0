@@ -1,112 +1,89 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: [PATCH] dsa: b53: avoid 'maybe-uninitialized' warning
-Date: Mon, 27 Jun 2016 11:19:13 +0200
-Message-ID: <20160627091926.1377587-1-arnd@arndb.de>
-Cc: Arnd Bergmann <arnd@arndb.de>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+From: Mugunthan V N <mugunthanvnm@ti.com>
+Subject: Re: [PATCH v2 00/15] drivers: net: cpsw: improve runtime pm
+Date: Mon, 27 Jun 2016 14:48:11 +0530
+Message-ID: <5770EF53.3090500@ti.com>
+References: <20160624182355.23515-1-grygorii.strashko@ti.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
+	<linux-omap@vger.kernel.org>,
+	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
+	Rob Herring <robh+dt@kernel.org>, <devicetree@vger.kernel.org>
+To: Grygorii Strashko <grygorii.strashko@ti.com>,
+	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160624182355.23515-1-grygorii.strashko@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In some configurations, gcc produces a warning for correct code
-in this driver:
+On Friday 24 June 2016 11:53 PM, Grygorii Strashko wrote:
+> This series intended to improve runtime PM and allow CPSW to be
+> RPM suspended when all ethX netdevices are down.
+> 
+> To achieve above goal it is required to relax runtime PM constraints for
+> Davinci MDIO which blocks CPSW runtime PM now, because Davinci MDIO is always
+> powered on during probe and powered off only when it's going to be removed.
+> - Patches 6-11 implement PM runtime autosuspend for Davinci MDIO, but keep it
+> disabled by default, because Davinci MDIO is integrated in big set of TI devices
+> and not all of them verified to work correctly with RPM autosuspend enabled:
+>  expected to work on SoCs where MDIO is defined as part of CPSW in DT
+>  (cpsw.c DRA7/am57x, am437x, am335x)
+> The CPSW need to be fixed before RPM suspended can be allowed:
+>  - Patches 1-5 ensure that CPSW will not cause L3 errors while it is in RPM
+>    suspended state.
+> 
+> Davinci MDIO RPM autosuspend can be enabled through sysfs:
+>  echo 100 > /sys/devices/../48484000.ethernet/48485000.mdio/power/autosuspend_delay_ms
+> 
+> Patches 12 - 15: introduce new compatible string "ti,cpsw-mdio" which is used
+> then to enable RPM for am335x/am437x/dra7 SoCs.
+> 
+> Tested on am335x, am437x, am572x and k2g (on k2g with RPM disabled for Davinci MDIO)
+> These changes should not affect on errata i877 implementation on DRA7.
+> 
+> Power measurement on am335x GP EVM:
+>  Without this series:  547.60 mW total SoC power
+>  With this series + "ifconfig eth0 down": 477.32 mW Total Soc Power
+> 
+> Changes in v2:
+> - CPSW ethtool interface updated to use .begin()/.complete() callbacks
+> - kbuild failure fixed
+> - davinci_mdio DT updated with proper description of allowed compatible strings
+>   combinations
+> 
+> Link on v1:
+>  https://lkml.org/lkml/2016/6/15/362
 
-drivers/net/dsa/b53/b53_mmap.c: In function 'b53_mmap_read64':
-drivers/net/dsa/b53/b53_mmap.c:107:10: error: 'hi' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-  *val = ((u64)hi << 32) | lo;
-          ^~~~~~~
-drivers/net/dsa/b53/b53_mmap.c: In function 'b53_mmap_read48':
-drivers/net/dsa/b53/b53_mmap.c:91:11: error: 'hi' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-   *val = ((u64)hi << 32) | lo;
-           ^~~~~~~
-drivers/net/dsa/b53/b53_mmap.c:83:11: error: 'hi' may be used uninitialized in this function [-Werror=maybe-uninitialized]
-   *val = ((u64)hi << 16) | lo;
+For the series.
+Reviewed-by: Mugunthan V N <mugunthanvnm@ti.com>
 
-I have seen the warning before and at the time thought I had fixed
-it with 55e7f6abe131 ("dsa: b53: fix big-endian register access"),
-however it now came back in a different randconfig build that happens
-to have different inlining decisions in the compiler.
+Regards
+Mugunthan V N
 
-The mistake that gcc makes here is that it thinks the second call to
-readl() might fail because the address 'reg + 4' is not a multiple
-of four despite having knowing that 'reg' itself is a multiple of four.
-
-By open-coding the two reads without the redundant alignment check,
-we can avoid the warning and produce slightly better object code, but
-get slightly longer source code instead.
-
-Signed-off-by: Arnd Bergmann <arnd@arndb.de>
----
- drivers/net/dsa/b53/b53_mmap.c | 30 ++++++++++++++++++++++++------
- 1 file changed, 24 insertions(+), 6 deletions(-)
-
-diff --git a/drivers/net/dsa/b53/b53_mmap.c b/drivers/net/dsa/b53/b53_mmap.c
-index b70daf9174d4..21f1068b0804 100644
---- a/drivers/net/dsa/b53/b53_mmap.c
-+++ b/drivers/net/dsa/b53/b53_mmap.c
-@@ -70,6 +70,8 @@ static int b53_mmap_read32(struct b53_device *dev, u8 page, u8 reg, u32 *val)
- 
- static int b53_mmap_read48(struct b53_device *dev, u8 page, u8 reg, u64 *val)
- {
-+	u8 __iomem *regs = dev->priv;
-+
- 	if (WARN_ON(reg % 2))
- 		return -EINVAL;
- 
-@@ -77,16 +79,26 @@ static int b53_mmap_read48(struct b53_device *dev, u8 page, u8 reg, u64 *val)
- 		u16 lo;
- 		u32 hi;
- 
--		b53_mmap_read16(dev, page, reg, &lo);
--		b53_mmap_read32(dev, page, reg + 2, &hi);
-+		if (dev->pdata && dev->pdata->big_endian) {
-+			lo = ioread16be(regs + (page << 8) + reg);
-+			hi = ioread32be(regs + (page << 8) + reg + 2);
-+		} else {
-+			lo = readw(regs + (page << 8) + reg);
-+			hi = readl(regs + (page << 8) + reg + 2);
-+		}
- 
- 		*val = ((u64)hi << 16) | lo;
- 	} else {
- 		u32 lo;
- 		u16 hi;
- 
--		b53_mmap_read32(dev, page, reg, &lo);
--		b53_mmap_read16(dev, page, reg + 4, &hi);
-+		if (dev->pdata && dev->pdata->big_endian) {
-+			lo = ioread32be(regs + (page << 8) + reg);
-+			hi = ioread16be(regs + (page << 8) + reg + 4);
-+		} else {
-+			lo = readl(regs + (page << 8) + reg);
-+			hi = readw(regs + (page << 8) + reg + 4);
-+		}
- 
- 		*val = ((u64)hi << 32) | lo;
- 	}
-@@ -96,13 +108,19 @@ static int b53_mmap_read48(struct b53_device *dev, u8 page, u8 reg, u64 *val)
- 
- static int b53_mmap_read64(struct b53_device *dev, u8 page, u8 reg, u64 *val)
- {
-+	u8 __iomem *regs = dev->priv;
- 	u32 hi, lo;
- 
- 	if (WARN_ON(reg % 4))
- 		return -EINVAL;
- 
--	b53_mmap_read32(dev, page, reg, &lo);
--	b53_mmap_read32(dev, page, reg + 4, &hi);
-+	if (dev->pdata && dev->pdata->big_endian) {
-+		lo = ioread32be(regs + (page << 8) + reg);
-+		hi = ioread32be(regs + (page << 8) + reg + 4);
-+	} else {
-+		lo = readl(regs + (page << 8) + reg);
-+		hi = readl(regs + (page << 8) + reg + 4);
-+	}
- 
- 	*val = ((u64)hi << 32) | lo;
- 
--- 
-2.9.0
+> 
+> Grygorii Strashko (15):
+>   drivers: net: cpsw: fix suspend when all ethX devices are down
+>   drivers: net: cpsw: check return code from pm runtime calls
+>   drivers: net: cpsw: remove pm runtime calls from suspend callbacks
+>   drivers: net: cpsw: ethtool: fix accessing to suspended device
+>   drivers: net: cpsw: ndev: fix accessing to suspended device
+>   drivers: net: davinci_mdio: do pm runtime initialization later in probe
+>   drivers: net: davinci_mdio: remove pm runtime calls from suspend callbacks
+>   drivers: net: davinci_mdio: drop suspended and lock fields from mdio_data
+>   drivers: net: davinci_mdio: split reset function on init_clk and enable
+>   drivers: net: davinci_mdio: add pm runtime callbacks
+>   drivers: net: davinci_mdio: implement pm runtime auto mode
+>   net: davinci_mdio: document missed "ti,am4372-mdio" compat string
+>   net: davinci_mdio: introduce "ti,cpsw-mdio" compat string
+>   drivers: net: davinci_mdio: enable pm runtime auto for ti cpsw-mdio
+>   ARM: dts: am335x/am437x/dra7: use new "ti,cpsw-mdio" compat string
+> 
+>  .../devicetree/bindings/net/davinci-mdio.txt       |   5 +-
+>  arch/arm/boot/dts/am33xx.dtsi                      |   2 +-
+>  arch/arm/boot/dts/am4372.dtsi                      |   2 +-
+>  arch/arm/boot/dts/dra7.dtsi                        |   2 +-
+>  drivers/net/ethernet/ti/cpsw.c                     |  79 ++++++++--
+>  drivers/net/ethernet/ti/davinci_mdio.c             | 169 +++++++++++++--------
+>  6 files changed, 182 insertions(+), 77 deletions(-)
+> 
