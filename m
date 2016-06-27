@@ -1,54 +1,38 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 03/16] net/mlx5: E-Switch, Add miss rule for
- offloads mode
-Date: Mon, 27 Jun 2016 23:40:07 +0300
-Message-ID: <CAJ3xEMhuZeRakGubqiZzQRwdhRYLgLzQwOCS6MdxBOujViKXJA@mail.gmail.com>
-References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
- <1467043649-28594-4-git-send-email-saeedm@mellanox.com> <8d994e8f-f4bf-f6b3-c47b-c4c4a94da647@cogentembedded.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Subject: [patch] qlcnic: use the correct ring in
+ qlcnic_83xx_process_rcv_ring_diag()
+Date: Mon, 27 Jun 2016 23:50:29 +0300
+Message-ID: <20160627205029.GA22095@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Hen-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:33108 "EHLO
-	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751874AbcF0UkI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 16:40:08 -0400
-Received: by mail-oi0-f44.google.com with SMTP id u201so216874017oie.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 13:40:08 -0700 (PDT)
-In-Reply-To: <8d994e8f-f4bf-f6b3-c47b-c4c4a94da647@cogentembedded.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: Dept-GELinuxNICDev@qlogic.com, Sony Chacko <sony.chacko@qlogic.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 27, 2016 at 7:53 PM, Sergei Shtylyov
-<sergei.shtylyov@cogentembedded.com> wrote:
+There is a static checker warning here "warn: mask and shift to zero"
+and the code sets "ring" to zero every time.  From looking at how
+QLCNIC_FETCH_RING_ID() is used in qlcnic_83xx_process_rcv_ring() the
+qlcnic_83xx_hndl() should be removed.
 
->> +static int esw_add_fdb_miss_rule(struct mlx5_eswitch *esw)
->> +{
->> +       struct mlx5_flow_destination dest;
->> +       struct mlx5_flow_rule *flow_rule = NULL;
->> +       int match_header = 0;
->
->
->    This variable doesn't appear necessary...
+Fixes: 4be41e92f7c6 ('qlcnic: 83xx data path routines')
+Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+---
+Not tested.
 
-yep
-
->> +       dest.type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
->> +       dest.vport_num = 0;
->> +
->> +       flow_rule = mlx5_add_flow_rule(esw->fdb_table.fdb, match_header,
->> match_c,
->
->
->    Why not just pass 0 instead of 'match_header'?
-
-Correct, will fix that.
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+index 7bd6f25..607bb7d 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
+@@ -2220,7 +2220,7 @@ void qlcnic_83xx_process_rcv_ring_diag(struct qlcnic_host_sds_ring *sds_ring)
+ 	if (!opcode)
+ 		return;
+ 
+-	ring = QLCNIC_FETCH_RING_ID(qlcnic_83xx_hndl(sts_data[0]));
++	ring = QLCNIC_FETCH_RING_ID(sts_data[0]);
+ 	qlcnic_83xx_process_rcv_diag(adapter, ring, sts_data);
+ 	desc = &sds_ring->desc_head[consumer];
+ 	desc->status_desc_data[0] = cpu_to_le64(STATUS_OWNER_PHANTOM);
