@@ -1,44 +1,56 @@
-From: "Vatsavayi, Raghu" <Raghu.Vatsavayi@cavium.com>
-Subject: RE: [PATCH net-next 00/13] liquidio: updates and bug fixes
-Date: Mon, 27 Jun 2016 18:58:17 +0000
-Message-ID: <DM3PR07MB213888375F8ACEF3640C8D1F81210@DM3PR07MB2138.namprd07.prod.outlook.com>
-References: <1466574795-4306-1-git-send-email-rvatsavayi@caviumnetworks.com>
- <20160625.120919.2084430374689807801.davem@davemloft.net>
+From: Paul Moore <paul@paul-moore.com>
+Subject: Re: [PATCH v4 00/19] CALIPSO Implementation
+Date: Mon, 27 Jun 2016 15:29:46 -0400
+Message-ID: <CAHC9VhSPat1Um-bGFBFO2pVh-6XJqih4HjbMs589wA-cS15bUw@mail.gmail.com>
+References: <1466429819-12707-1-git-send-email-huw@codeweavers.com>
+ <20160621.053928.1340819307282355897.davem@davemloft.net> <20160621095548.GA19213@merlot.physics.ox.ac.uk>
+ <20160623.152112.1146976941740701983.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
+	selinux@tycho.nsa.gov, Paul Moore <pmoore@redhat.com>
+To: huw@codeweavers.com, David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn1on0077.outbound.protection.outlook.com ([157.56.110.77]:44110
-	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751639AbcF0TNf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 15:13:35 -0400
-In-Reply-To: <20160625.120919.2084430374689807801.davem@davemloft.net>
-Content-Language: en-US
+Received: from mail-oi0-f50.google.com ([209.85.218.50]:33756 "EHLO
+	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752362AbcF0T3r (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 15:29:47 -0400
+Received: by mail-oi0-f50.google.com with SMTP id u201so214357102oie.0
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 12:29:47 -0700 (PDT)
+In-Reply-To: <20160623.152112.1146976941740701983.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Thanks Dave. Will make sure next time Double-signoffs are not there.
-Raghu.
+On Thu, Jun 23, 2016 at 3:21 PM, David Miller <davem@davemloft.net> wrote:
+> From: Huw Davies <huw@codeweavers.com>
+> Date: Tue, 21 Jun 2016 10:55:48 +0100
+>
+>> On Tue, Jun 21, 2016 at 05:39:28AM -0400, David Miller wrote:
+>>> From: Huw Davies <huw@codeweavers.com>
+>>> Date: Mon, 20 Jun 2016 14:36:40 +0100
+>>>
+>>> > This patch series implements RFC 5570 - Common Architecture Label IPv6
+>>> > Security Option (CALIPSO).  Its goal is to set MLS sensitivity labels
+>>> > on IPv6 packets using a hop-by-hop option.  CALIPSO is very similar to
+>>> > its IPv4 cousin CIPSO and much of this series is based on that code.
+>>>
+>>> What tree do you expect to integrate this?
+>>
+>> My understanding is that Paul Moore is happy to take them
+>> in via the SELinux tree.  However, these patches do touch
+>> some core networking code, such as the IPv6 option handling
+>> code (in a similar manner to the way CIPSO touched the IPv4
+>> option code), so if you have any comments on those aspects
+>> that would be good to hear.
+>
+> No objections on my part.
 
-> -----Original Message-----
-> From: David Miller [mailto:davem@davemloft.net]
-> Sent: Saturday, June 25, 2016 9:09 AM
-> To: Vatsavayi, Raghu
-> Cc: netdev@vger.kernel.org
-> Subject: Re: [PATCH net-next 00/13] liquidio: updates and bug fixes
-> 
-> From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-> Date: Tue, 21 Jun 2016 22:53:02 -0700
-> 
-> > Please consider following patch series for liquidio bug fixes and
-> > updates on top of net-next. Following patches should be applied in the
-> > following order as some of them depend on earlier patches in the
-> > series.
-> 
-> Series applied, thanks.
-> 
-> Please don't put double-signoffs on your patches in future submissions, that
-> is completely unnecessary.
+Okay.
+
+The changes between v3 and v4 were pretty trivial so I've gone ahead
+and merged v4 into the SELinux next branch.  Huw, thanks very much for
+all of this, I know it was a lot of work.
+
+-- 
+paul moore
+www.paul-moore.com
