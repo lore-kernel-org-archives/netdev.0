@@ -1,49 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 27 Jun 2016 06:52:29 +0200
-Message-ID: <1467003149.6850.142.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <20160627114623.2c985be5@canb.auug.org.au>
+From: Alex Chu <ichaquratul.utami@bpjs-kesehatan.go.id>
+Subject: Business Deal!
+Date: Mon, 27 Jun 2016 05:46:22 +0100
+Message-ID: <TY1PR04MB084846A9543710195BA683BE80210@TY1PR04MB0848.apcprd04.prod.outlook.com>
+Reply-To: <alexchu309@yahoo.com.hk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: Stephen Rothwell <sfr@canb.auug.org.au>
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20160627114623.2c985be5@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: Recipients <ichaquratul.utami@bpjs-kesehatan.go.id>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ty1jpn01hn0200.outbound.protection.outlook.com ([104.47.93.200]:22208
+	"EHLO JPN01-TY1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750881AbcF0FB6 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 01:01:58 -0400
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-06-27 at 11:46 +1000, Stephen Rothwell wrote:
-> Hi all,
-> 
-> Today's linux-next merge of the net-next tree got a conflict in:
-> 
->   net/sched/sch_netem.c
-> 
-> between commit:
-> 
->   21de12ee5568 ("netem: fix a use after free")
-> 
-> from the net tree and commit:
-> 
->   520ac30f4551 ("net_sched: drop packets after root qdisc lock is released")
-> 
-> from the net-next tree.
-> 
-> I fixed it up (see below) and can carry the fix as necessary. This
-> is now fixed as far as linux-next is concerned, but any non trivial
-> conflicts should be mentioned to your upstream maintainer when your tree
-> is submitted for merging.  You may also want to consider cooperating
-> with the maintainer of the conflicting tree to minimise any particularly
-> complex conflicts.
-> 
+How are you today?
 
-Looks good, although the 'use after free' does not happen anymore on
-net-next since we defer skb freeing.
+My name is Alex Chu. I work with Nanyang Commercial Bank here in Hong Kong.I have a win-win business proposal of a lifetime that is up to the tune of 17.6m (Seventeen Million, six Hundred Thousand Dollars). Please note that this business transaction is 100% risk free and will only take five working days from start to finish.Please let me know if you are interested so that I can give you details on how to go about the process.
+I await your response.
 
-I spotted the bug in stable tree when cooking the net-next patch
-actually ;)
+Thanks
+Alex Chu
 
-Thanks.
+________________________________
+
+Kartu Indonesia Sehat (KIS) adalah tanda kepesertaan Jaminan Kesehatan Nasional (JKN) untuk memperoleh pelayanan kesehatan yang komprehensif pada fasilitas kesehatan melalui mekanisme sistem rujukan berjenjang dan atas indikasi medis*.
+
+KIS diterbitkan oleh BPJS Kesehatan untuk seluruh peserta jaminan kesehatan termasuk penerima bantuan iuran (PBI).
+
+Kepesertaan KIS ada 2 kelompok:
+
+  1.  Kelompok masyarakat yang wajib mendaftar dan membayar iuran, baik membayar sendiri, ataupun berkontribusi bersama pemberi kerjanya;
+  2.  Kelompok masyarakat miskin dan tidak mampu yang didaftarkan oleh pemerintah dan iurannya dibayari oleh pemerintah
+
+*) Kartu lainnya: Kartu Eks Askes, Eks Jamkesmas, KJS, Kartu JKN BPJS Kesehatan, masih tetap berlaku sesuai ketentuan sepanjang belum diganti dengan Kartu Indonesia Sehat (KIS).
