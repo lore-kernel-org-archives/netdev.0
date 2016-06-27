@@ -1,54 +1,102 @@
-From: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-Subject: Re: [PATCH v4 01/29] bluetooth: Switch SMP to crypto_cipher_encrypt_one()
-Date: Mon, 27 Jun 2016 07:58:33 +0200
-Message-ID: <8C5360E3-94EE-4869-B9B9-AF9D41B5A3AC@holtmann.org>
-References: <cover.1466974736.git.luto@kernel.org> <cover.1466974736.git.luto@kernel.org> <264af59a3060c2bc2a725cfc66a8fa68219d1c4a.1466974736.git.luto@kernel.org>
-Mime-Version: 1.0 (Mac OS X Mail 9.3 \(3124\))
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: x86-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linux-arch-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Borislav Petkov <bp-Gina5bIWoIWzQB+pC5nmwQ@public.gmane.org>,
-	Nadav Amit <nadav.amit-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Kees Cook <keescook-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Brian Gerst <brgerst-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org"
-	<kernel-hardening-ZwoEplunGu1jrUoiu81ncdBPR1lH4CV8@public.gmane.org>,
-	Linus Torvalds <torvalds-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Josh Poimboeuf <jpoimboe-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Jann Horn <jann-XZ1E9jl8jIdeoWH0uzbU5w@public.gmane.org>,
-	Heiko Carstens <heiko.carstens-tA70FqPdS9bQT0dZR+AlfA@public.gmane.org>,
-	"Gustavo F. Padovan" <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>,
-	Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <264af59a3060c2bc2a725cfc66a8fa68219d1c4a.1466974736.git.luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v10 03/22] IB/hns: Add initial main frame driver and get
+ cfg info
+Date: Mon, 27 Jun 2016 10:00:54 +0300
+Message-ID: <20160627070054.GK23995@leon.nu>
+References: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
+ <1466087730-54856-4-git-send-email-oulijun@huawei.com>
+ <20160624114831.GD23995@leon.nu>
+ <576E5D0B.7010003@huawei.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="5mZBmBd1ZkdwT1ny"
+Cc: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: "Wei Hu (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <576E5D0B.7010003-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi Andy,
 
-> SMP does ECB crypto on stack buffers.  This is complicated and
-> fragile, and it will not work if the stack is virtually allocated.
-> 
-> Switch to the crypto_cipher interface, which is simpler and safer.
-> 
-> Cc: Marcel Holtmann <marcel-kz+m5ild9QBg9hUCZPvPmw@public.gmane.org>
-> Cc: Gustavo Padovan <gustavo-THi1TnShQwVAfugRpC6u6w@public.gmane.org>
-> Cc: Johan Hedberg <johan.hedberg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-> Cc: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-> Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-> Acked-by: Herbert Xu <herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-> Acked-and-tested-by: Johan Hedberg <johan.hedberg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-> Signed-off-by: Andy Lutomirski <luto-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-> ---
-> net/bluetooth/smp.c | 67 ++++++++++++++++++++++-------------------------------
-> 1 file changed, 28 insertions(+), 39 deletions(-)
+--5mZBmBd1ZkdwT1ny
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-patch has been applied to bluetooth-next tree.
+On Sat, Jun 25, 2016 at 06:29:31PM +0800, Wei Hu (Xavier) wrote:
+>=20
+>=20
+> On 2016/6/24 19:48, Leon Romanovsky wrote:
+> >On Thu, Jun 16, 2016 at 10:35:11PM +0800, Lijun Ou wrote:
+> >>This patch mainly added the initial bare main driver. It
+> >>could get the relative configure information of net node.
+> >>
+> >>Signed-off-by: Wei Hu <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> >>Signed-off-by: Nenglong Zhao <zhaonenglong-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+> >>Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> >>---
 
-Regards
+=2E..
 
-Marcel
+> >>+		return -ENOMEM;
+> >>+
+> >>+	for (i =3D 0; i < HNS_ROCE_MAX_PORTS; i++) {
+> >>+		net_node =3D of_parse_phandle(np, "eth-handle", i);
+> >>+		if (net_node) {
+> >>+			pdev =3D of_find_device_by_node(net_node);
+> >>+			netdev =3D platform_get_drvdata(pdev);
+> >>+			phy_port =3D (u8)i;
+> >>+			if (netdev) {
+> >>+				hr_dev->iboe.netdevs[port_cnt] =3D netdev;
+> >>+				hr_dev->iboe.phy_port[port_cnt] =3D phy_port;
+> >>+			} else {
+> >>+				return -ENODEV;
+> >>+			}
+> >>+			port_cnt++;
+> >>+		}
+> >>+	}
+> >Do you want to check port_cnt value, before continue?
+> Hi, Leon
+>     Maybe we need not to check port_cnt value.
+>     port_cnt can be ensured smaller than HNS_ROCE_MAX_PORTS.
+
+You can in theory to get port_cnt =3D=3D 0, in such case it is wise to
+return error.
+
+
+--5mZBmBd1ZkdwT1ny
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXcM8mAAoJEORje4g2clino0YP/A9Jw0Hi5NcGGj6XS7oG2OtF
+fFI9wnHfQW8ZAEbfiPDxovxKmT/5BparU/IJk/WX5qVO3iQoVkQx4HsoNnsmtlQB
+lGUpdL/Epd++BXi4jT8FD77GpMO4gzGMK4apiK66lvji40vxnguhD7Dtv8k3RM1C
+jnaHpl5OKj2L/2X935vMasbZQJSQzMtt0yRK/7E4PCnvL1XgMXevf1xfVi85V/Un
+DSSgh3Mep8znezVxWuqTbrBG2pbKGWXUD5wngLoQ2EDHh31jC4sIdEzV2bb726l1
+zHq7Ix+ELgk4/jpX5tCP0MILqIOdcsOKiUYgUP7p44/mefGLMaZtOVrhlkUYhXkD
+f5dyPanVxO9UMbexDO1qdxLUHF/LQqiCotcll44hftm/U3CzSNkAN/npKt6OwaVN
+aiGXgQdh2DfBx/1/jj0jO55UdUCvR321Cv+LxUYDqXDJ8nEk3JgUA0/VK7qW+5cA
+4s+ysQaHsHj0IBF6FiWZp4kYLmhrTdm13iS7DnTnK2QKHcSqmRwQRwRwJOW/D8j+
+/h1oqVsntAhqqnb0WfAaWfUtAgNcN2bg1jg1GPooYkiJxDPDJQZ+evbF6bLqe7qz
+MqWMMeYt88C5CJMyHmUaaAi1BdWIFoomkeJIkF6Iu0mGU7tuoNJH7A87O5Loh0MQ
+OwZNZ/8/pYekxSi0zrU0
+=JQam
+-----END PGP SIGNATURE-----
+
+--5mZBmBd1ZkdwT1ny--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
