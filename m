@@ -1,100 +1,34 @@
-From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net-next 3/9] net: hns: change code style from a = a + x to a += x
-Date: Mon, 27 Jun 2016 17:54:09 +0800
-Message-ID: <1467021255-95900-4-git-send-email-Yisen.Zhuang@huawei.com>
-References: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
+From: Ivan Vecera <ivecera@redhat.com>
+Subject: Re: [PATCH ethtool] ethtool.c: fix memory leaks
+Date: Mon, 27 Jun 2016 11:41:10 +0200
+Message-ID: <9365ac33-5c0d-9afe-bf2a-e83790f11b74@redhat.com>
+References: <1458303855-4976-1-git-send-email-ivecera@redhat.com>
+ <1466931551.2504.29.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
-	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
-	<geliangtang@163.com>, <ivecera@redhat.com>,
-	<fengguang.wu@intel.com>, <charles.chenxin@huawei.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
-	<salil.mehta@huawei.com>, <yankejian@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: bwh@kernel.org
+To: Ben Hutchings <ben@decadent.org.uk>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46391 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750869AbcF0JlN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2016 05:41:13 -0400
+In-Reply-To: <1466931551.2504.29.camel@decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daode Huang <huangdaode@hisilicon.com>
+On 26.6.2016 10:59, Ben Hutchings wrote:
+> On Fri, 2016-03-18 at 13:24 +0100, Ivan Vecera wrote:
+>> Memory allocated at several places is not appropriately freed.
+>
+> Given that ethtool is not a library or a long-running application - why
+> does that matter?
+>
+> Ben.
 
-This patch fixes the code style in hns driver. Change it from
-"buff = buff + xxx" to "buff += xxx". The reveiw comments is
-from andy.
+Because each decently written program should clean up. Sure the kernel 
+will take care about it after exit but we cannot accept the fact that 
+short-running applications can behave like a pig.
 
-Reviewed-by: Andriy Shevchenko <andriy.shevchenko@linux.intel.com>
-Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 32 +++++++++++-----------
- 1 file changed, 16 insertions(+), 16 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 67e8e13..b9d01ea 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -2540,45 +2540,45 @@ static char *hns_dsaf_get_node_stats_strings(char *data, int node,
- 	bool is_ver1 = AE_IS_VER1(dsaf_dev->dsaf_ver);
- 
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_pad_drop_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_manage_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_rx_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_rx_pkt_id", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_rx_pause_frame", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_release_buf_num", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_sbm_drop_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_crc_false_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_bp_drop_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_lookup_rslt_drop_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_local_rslt_fail_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_vlan_drop_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_stp_drop_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	if ((node < DSAF_SERVICE_NW_NUM) && (!is_ver1)) {
- 		for (i = 0; i < DSAF_PRIO_NR; i++) {
- 			snprintf(buff, ETH_GSTRING_LEN,
- 				 "inod%d_pfc_prio%d_pkts", node, i);
--			buff = buff + ETH_GSTRING_LEN;
-+			buff += ETH_GSTRING_LEN;
- 		}
- 		for (i = 0; i < DSAF_PRIO_NR; i++) {
- 			snprintf(buff, ETH_GSTRING_LEN,
- 				 "onod%d_pfc_prio%d_pkts", node, i);
--			buff = buff + ETH_GSTRING_LEN;
-+			buff += ETH_GSTRING_LEN;
- 		}
- 	}
- 	snprintf(buff, ETH_GSTRING_LEN, "onnod%d_tx_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 
- 	return buff;
- }
--- 
-1.9.1
+Ivan
