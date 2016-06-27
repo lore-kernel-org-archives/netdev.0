@@ -1,75 +1,88 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: Multi-thread udp 4.7 regression, bisected to 71d8c47fc653
-Date: Mon, 27 Jun 2016 16:22:38 +0200
-Message-ID: <20160627142238.GA10613@breakpoint.cc>
-References: <CAB9dFduvE0dKzZ8Dm5RVVrUAq1Auvj8t9xXAyARGyO4NmowvYw@mail.gmail.com>
+From: Abdelrhman Ahmed <ab@abahmed.com>
+Subject: Re: [PATCH] net: Fix resetting network_header in
+ neigh_resolve_output and neigh_connected_output
+Date: Mon, 27 Jun 2016 16:28:59 +0200
+Message-ID: <15592436817.c86fc05b10946.6198596471268005484@abahmed.com>
+References: <1557d0eb9b5.10e107ce3332041.1418466288700186568@abahmed.com> <20160627.101032.719251971537230839.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev <netdev@vger.kernel.org>
-To: Marc Dionne <marc.c.dionne@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42268 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751664AbcF0OWo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 10:22:44 -0400
-Content-Disposition: inline
-In-Reply-To: <CAB9dFduvE0dKzZ8Dm5RVVrUAq1Auvj8t9xXAyARGyO4NmowvYw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "" <netdev@vger.kernel.org>, "" <linux-kernel@vger.kernel.org>
+To: "David Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160627.101032.719251971537230839.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Marc Dionne <marc.c.dionne@gmail.com> wrote:
-> Hi,
-> 
-> I've been seeing issues with 4.7-rc kernels with some of our
-> multi-thread test cases.  I've bisected it down to this commit:
-> 
->   commit 71d8c47fc653711c41bc3282e5b0e605b3727956
->   Author: Pablo Neira Ayuso <pablo@netfilter.org>
->   Date:   Sun May 1 00:28:40 2016 +0200
-> 
->       netfilter: conntrack: introduce clash resolution on insertion race
-> 
-> 
-> .. and verified that reverting the commit restores the expected behaviour.
+neigh_resolve_output and neigh_connected_output resets the skb to 
+network_header because of the retry loop and this reset will pull down the
+data pointer to the network header in the first iteration then hardware header
+will be added, but it will overwrite any data which is inserted between network
+header and hardware header (for example by netfilter hooks) only for the first
+packet(s) before using cached hardware header as neigh_hh_output (which is
+called for using cached hardware header) does not reset to the network header.
 
-Does this change help?
+The fix is to reset with reference to skb's data before loop instead of network
+header.
 
-Subject: Restrict clash resolution to original direction
+Fixes: e1f165032c8b ("net: Fix skb_under_panic oops in neigh_resolve_output")
+Signed-off-by: Abdelrhman Ahmed <ab@abahmed.com>
+---
+ net/core/neighbour.c | 16 ++++++++++++----
+ 1 file changed, 12 insertions(+), 4 deletions(-)
 
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -721,13 +721,18 @@ __nf_conntrack_confirm(struct sk_buff *skb)
- 	   not in the hash.  If there is, we lost race. */
- 	hlist_nulls_for_each_entry(h, n, &nf_conntrack_hash[hash], hnnode)
- 		if (nf_ct_key_equal(h, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
--				    zone, net))
--			goto out;
-+				    zone, net)) {
-+			nf_ct_add_to_dying_list(ct);
-+			ret = nf_ct_resolve_clash(net, skb, ctinfo, h);
-+			goto dying;
-+		}
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 29dd8cc..7aac242 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -1293,15 +1293,19 @@ int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb)
+ 	int rc = 0;
  
- 	hlist_nulls_for_each_entry(h, n, &nf_conntrack_hash[reply_hash], hnnode)
- 		if (nf_ct_key_equal(h, &ct->tuplehash[IP_CT_DIR_REPLY].tuple,
--				    zone, net))
--			goto out;
-+				    zone, net)) {
-+			nf_ct_add_to_dying_list(ct);
-+			goto dying;
-+		}
+ 	if (!neigh_event_send(neigh, skb)) {
+-		int err;
++		int err, offset;
+ 		struct net_device *dev = neigh->dev;
++		unsigned char *data;
+ 		unsigned int seq;
  
- 	/* Timer relative to confirmation time, not original
- 	   setting time, otherwise we'd get timer wrap in
-@@ -763,9 +768,6 @@ __nf_conntrack_confirm(struct sk_buff *skb)
- 				 IPCT_RELATED : IPCT_NEW, ct);
- 	return NF_ACCEPT;
+ 		if (dev->header_ops->cache && !neigh->hh.hh_len)
+ 			neigh_hh_init(neigh);
  
--out:
--	nf_ct_add_to_dying_list(ct);
--	ret = nf_ct_resolve_clash(net, skb, ctinfo, h);
- dying:
- 	nf_conntrack_double_unlock(hash, reply_hash);
- 	NF_CT_STAT_INC(net, insert_failed);
++		data = skb->data;
++
+ 		do {
+-			__skb_pull(skb, skb_network_offset(skb));
++			offset = data - skb->data;
++			__skb_pull(skb, offset);
+ 			seq = read_seqbegin(&neigh->ha_lock);
+ 			err = dev_hard_header(skb, dev, ntohs(skb->protocol),
+ 					      neigh->ha, NULL, skb->len);
+@@ -1326,11 +1330,15 @@ EXPORT_SYMBOL(neigh_resolve_output);
+ int neigh_connected_output(struct neighbour *neigh, struct sk_buff *skb)
+ {
+ 	struct net_device *dev = neigh->dev;
++	unsigned char *data;
+ 	unsigned int seq;
+-	int err;
++	int err, offset;
++
++	data = skb->data;
+ 
+ 	do {
+-		__skb_pull(skb, skb_network_offset(skb));
++		offset = data - skb->data;
++		__skb_pull(skb, offset);
+ 		seq = read_seqbegin(&neigh->ha_lock);
+ 		err = dev_hard_header(skb, dev, ntohs(skb->protocol),
+ 				      neigh->ha, NULL, skb->len);
+-- 
+1.9.1
+
+ ---- On Mon, 27 Jun 2016 16:10:32 +0200 David Miller <davem@davemloft.net> wrote ---- 
+ > From: Abdelrhman Ahmed <ab@abahmed.com> 
+ > Date: Thu, 23 Jun 2016 13:39:24 +0200 
+ >  
+ > > neigh_resolve_output and neigh_connected_output resets the skb to network_header because of the retry loop and this reset will pull down the data pointer to the network header in the first iteration then hardware header will be added, but it will overwrite any data which is inserted between network header and hardware header (for example by netfilter hooks) only for the first packet(s) before using cached hardware header as neigh_hh_output (which is called for using cached hardware header) does not reset to the network header. 
+ >  
+ > Please format your text properly into ~80 character long lines. 
+ > 
