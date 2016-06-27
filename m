@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net-next 7/9] net: hns: remove redundant hns_mac_dev_to_enet_if()
-Date: Mon, 27 Jun 2016 17:54:13 +0800
-Message-ID: <1467021255-95900-8-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net-next 3/9] net: hns: change code style from a = a + x to a += x
+Date: Mon, 27 Jun 2016 17:54:09 +0800
+Message-ID: <1467021255-95900-4-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -18,52 +18,83 @@ In-Reply-To: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Kejian Yan <yankejian@huawei.com>
+From: Daode Huang <huangdaode@hisilicon.com>
 
-The sequence of hns_mac_dev_to_enet_if() is the same as
-hns_get_enet_interface(), and hns_get_enet_interface() is called
-by initialization to get the mac mode. And the mode is not changed
-anywhere. Thus add hns_mac_dev_to_enet_if() function to get the mac
-mode is obviously redundant.
+This patch fixes the code style in hns driver. Change it from
+"buff = buff + xxx" to "buff += xxx". The reveiw comments is
+from andy.
 
-Reported-by: Jinchuan Tian <tianjinchuan1@huawei.com>
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Reviewed-by: Andriy Shevchenko <andriy.shevchenko@linux.intel.com>
+Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 15 ---------------
- 1 file changed, 15 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 32 +++++++++++-----------
+ 1 file changed, 16 insertions(+), 16 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index c526558..d2effcc 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -56,20 +56,6 @@ static const enum mac_mode g_mac_mode_1000[] = {
- 	[PHY_INTERFACE_MODE_RTBI]   = MAC_MODE_RTBI_1000
- };
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 67e8e13..b9d01ea 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -2540,45 +2540,45 @@ static char *hns_dsaf_get_node_stats_strings(char *data, int node,
+ 	bool is_ver1 = AE_IS_VER1(dsaf_dev->dsaf_ver);
  
--static enum mac_mode hns_mac_dev_to_enet_if(const struct hns_mac_cb *mac_cb)
--{
--	switch (mac_cb->max_speed) {
--	case MAC_SPEED_100:
--		return g_mac_mode_100[mac_cb->phy_if];
--	case MAC_SPEED_1000:
--		return g_mac_mode_1000[mac_cb->phy_if];
--	case MAC_SPEED_10000:
--		return MAC_MODE_XGMII_10000;
--	default:
--		return MAC_MODE_MII_100;
--	}
--}
--
- static enum mac_mode hns_get_enet_interface(const struct hns_mac_cb *mac_cb)
- {
- 	switch (mac_cb->max_speed) {
-@@ -134,7 +120,6 @@ void hns_mac_adjust_link(struct hns_mac_cb *mac_cb, int speed, int duplex)
+ 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_pad_drop_pkts", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
+ 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_manage_pkts", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
+ 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_rx_pkts", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
+ 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_rx_pkt_id", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
+ 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_rx_pause_frame", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
+ 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_release_buf_num", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
+ 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_sbm_drop_pkts", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
+ 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_crc_false_pkts", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
+ 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_bp_drop_pkts", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
+ 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_lookup_rslt_drop_pkts", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
+ 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_local_rslt_fail_pkts", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
+ 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_vlan_drop_pkts", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
+ 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_stp_drop_pkts", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
+ 	if ((node < DSAF_SERVICE_NW_NUM) && (!is_ver1)) {
+ 		for (i = 0; i < DSAF_PRIO_NR; i++) {
+ 			snprintf(buff, ETH_GSTRING_LEN,
+ 				 "inod%d_pfc_prio%d_pkts", node, i);
+-			buff = buff + ETH_GSTRING_LEN;
++			buff += ETH_GSTRING_LEN;
+ 		}
+ 		for (i = 0; i < DSAF_PRIO_NR; i++) {
+ 			snprintf(buff, ETH_GSTRING_LEN,
+ 				 "onod%d_pfc_prio%d_pkts", node, i);
+-			buff = buff + ETH_GSTRING_LEN;
++			buff += ETH_GSTRING_LEN;
+ 		}
+ 	}
+ 	snprintf(buff, ETH_GSTRING_LEN, "onnod%d_tx_pkts", node);
+-	buff = buff + ETH_GSTRING_LEN;
++	buff += ETH_GSTRING_LEN;
  
- 	mac_cb->speed = speed;
- 	mac_cb->half_duplex = !duplex;
--	mac_ctrl_drv->mac_mode = hns_mac_dev_to_enet_if(mac_cb);
- 
- 	if (mac_ctrl_drv->adjust_link) {
- 		ret = mac_ctrl_drv->adjust_link(mac_ctrl_drv,
+ 	return buff;
+ }
 -- 
 1.9.1
