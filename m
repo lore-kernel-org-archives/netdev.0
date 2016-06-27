@@ -1,73 +1,118 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH iproute2 4/6] ip route: Change type mask to bitmask
-Date: Mon, 27 Jun 2016 11:50:59 -0700
-Message-ID: <1467053461-16147-5-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2 5/6] ip vrf: Add ipvrf_get_table
+Date: Mon, 27 Jun 2016 11:51:00 -0700
+Message-ID: <1467053461-16147-6-git-send-email-dsa@cumulusnetworks.com>
 References: <1467053461-16147-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: stephen@networkplumber.org, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34097 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751644AbcF0SvM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 14:51:12 -0400
-Received: by mail-pa0-f49.google.com with SMTP id bz2so61468270pad.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 11:51:12 -0700 (PDT)
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:35362 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751639AbcF0SvN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 14:51:13 -0400
+Received: by mail-pf0-f176.google.com with SMTP id c2so64458446pfa.2
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 11:51:13 -0700 (PDT)
 In-Reply-To: <1467053461-16147-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Allow option to select multiple route types to show or exlude
-specific route types.
+Add ipvrf_get_table to lookup table id for device name. Returns 0
+on any error or if name is not a VRF device.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- ip/iproute.c | 11 ++++++-----
- 1 file changed, 6 insertions(+), 5 deletions(-)
+ ip/ip_common.h  |  1 +
+ ip/iplink_vrf.c | 66 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 67 insertions(+)
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 8224d7ffa94b..aae693d17be8 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -113,7 +113,7 @@ static struct
- 	int flushe;
- 	int protocol, protocolmask;
- 	int scope, scopemask;
--	int type, typemask;
-+	__u64 typemask;
- 	int tos, tosmask;
- 	int iif, iifmask;
- 	int oif, oifmask;
-@@ -178,7 +178,8 @@ static int filter_nlmsg(struct nlmsghdr *n, struct rtattr **tb, int host_len)
- 		return 0;
- 	if ((filter.scope^r->rtm_scope)&filter.scopemask)
- 		return 0;
--	if ((filter.type^r->rtm_type)&filter.typemask)
+diff --git a/ip/ip_common.h b/ip/ip_common.h
+index 410eb135774a..8fdb7219fc2b 100644
+--- a/ip/ip_common.h
++++ b/ip/ip_common.h
+@@ -90,6 +90,7 @@ struct link_util *get_link_slave_kind(const char *slave_kind);
+ 
+ void br_dump_bridge_id(const struct ifla_bridge_id *id, char *buf, size_t len);
+ 
++__u32 ipvrf_get_table(char *name);
+ bool name_is_vrf(char *name);
+ 
+ #ifndef	INFINITY_LIFE_TIME
+diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
+index abd43c08423e..2eecb4564f7e 100644
+--- a/ip/iplink_vrf.c
++++ b/ip/iplink_vrf.c
+@@ -97,6 +97,72 @@ struct link_util vrf_slave_link_util = {
+ 	.slave          = true,
+ };
+ 
++/* returns table id if name is a VRF device */
++__u32 ipvrf_get_table(char *name)
++{
++	struct {
++		struct nlmsghdr		n;
++		struct ifinfomsg	i;
++		char			buf[1024];
++	} req = {
++		.n = {
++			.nlmsg_len   = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
++			.nlmsg_flags = NLM_F_REQUEST,
++			.nlmsg_type  = RTM_GETLINK,
++		},
++		.i = {
++			.ifi_family  = preferred_family,
++		},
++	};
++	struct {
++		struct nlmsghdr n;
++		char buf[8192];
++	} answer;
++	struct rtattr *tb[IFLA_MAX+1];
++	struct rtattr *li[IFLA_INFO_MAX+1];
++	struct rtattr *vrf_attr[IFLA_VRF_MAX + 1];
++	struct ifinfomsg *ifi;
++	__u32 tb_id = 0;
++	int len;
 +
-+	if (filter.typemask && !(filter.typemask & (1 << r->rtm_type)))
- 		return 0;
- 	if ((filter.tos^r->rtm_tos)&filter.tosmask)
- 		return 0;
-@@ -365,7 +366,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
- 
- 	if (n->nlmsg_type == RTM_DELROUTE)
- 		fprintf(fp, "Deleted ");
--	if ((r->rtm_type != RTN_UNICAST || show_details > 0) && !filter.type)
-+	if ((r->rtm_type != RTN_UNICAST || show_details > 0) &&
-+	    (!filter.typemask || (filter.typemask & (1 << r->rtm_type))))
- 		fprintf(fp, "%s ", rtnl_rtntype_n2a(r->rtm_type, b1, sizeof(b1)));
- 
- 	if (tb[RTA_DST]) {
-@@ -1433,10 +1435,9 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
- 			int type;
- 
- 			NEXT_ARG();
--			filter.typemask = -1;
- 			if (rtnl_rtntype_a2n(&type, *argv))
- 				invarg("node type value is invalid\n", *argv);
--			filter.type = type;
-+			filter.typemask = (1<<type);
- 		} else if (strcmp(*argv, "dev") == 0 ||
- 			   strcmp(*argv, "oif") == 0) {
- 			NEXT_ARG();
++	addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, strlen(name) + 1);
++
++	if (rtnl_talk(&rth, &req.n, &answer.n, sizeof(answer)) < 0)
++		goto err;
++
++	ifi = NLMSG_DATA(&answer.n);
++	len = answer.n.nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
++	if (len < 0) {
++		fprintf(stderr, "BUG: Invalid response to link query.\n");
++		goto err;
++	}
++
++	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
++
++	if (!tb[IFLA_LINKINFO])
++		goto err;
++
++	parse_rtattr_nested(li, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
++
++	if (!li[IFLA_INFO_KIND] || !li[IFLA_INFO_DATA])
++		goto err;
++
++	if (strcmp(RTA_DATA(li[IFLA_INFO_KIND]), "vrf"))
++		goto err;
++
++	parse_rtattr_nested(vrf_attr, IFLA_VRF_MAX, li[IFLA_INFO_DATA]);
++	if (vrf_attr[IFLA_VRF_TABLE])
++		tb_id = rta_getattr_u32(vrf_attr[IFLA_VRF_TABLE]);
++
++	if (!tb_id)
++		fprintf(stderr, "BUG: VRF %s is missing table id\n", name);
++
++	return tb_id;
++
++err:
++	return 0;
++}
++
+ bool name_is_vrf(char *name)
+ {
+ 	struct {
 -- 
 2.1.4
