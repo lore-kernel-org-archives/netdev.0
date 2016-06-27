@@ -1,54 +1,26 @@
-From: Mr hutchnson John <hutchnsonjohn@gmail.com>
-Subject: GOOD NEWS!!
-Date: Mon, 27 Jun 2016 16:01:48 +0200
-Message-ID: <CAFDpKy_c9jYoMSvPby3mLn7ePGqfbmT5Zwz6DTQMjzcTvvHWPg@mail.gmail.com>
-Reply-To: tshidibabara@outlook.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: can 2016-06-23
+Date: Mon, 27 Jun 2016 10:08:34 -0400 (EDT)
+Message-ID: <20160627.100834.1279506995546905688.davem@davemloft.net>
+References: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:36126 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751853AbcF0OBu convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 10:01:50 -0400
-Received: by mail-io0-f194.google.com with SMTP id s63so24413990ioi.3
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 07:01:50 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, linux-can@vger.kernel.org,
+	kernel@pengutronix.de
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hello Dear,
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Thu, 23 Jun 2016 11:22:18 +0200
 
- Hope this mail fined you in an excellent condition of health. I=E2=80=99=
-m
-happy to inform you about my success in getting those funds
-transferred under the co-operation of a new partner from KUWAIT.
-Presently I=E2=80=99m in KUWAIT for oil investment projects with him wi=
-th my
-own share.
+> this is a pull request of 3 patches for the upcoming linux-4.7 release.
+> 
+> The first two patches are by Oliver Hartkopp fixing oopes in the generic CAN
+> device netlink handling. Jimmy Assarsson's patch for the kvaser_usb driver adds
+> support for more devices by adding their USB product ids.
 
-Meanwhile i didn't forget you're past efforts and attempts to assist
-me in transferring those funds despite that it failed us some how. Now
-contact my SECRETARY her name is Miss Tshidi Babara and her email
-address is (tshidibabara@outlook.com) ask her to send you the total
-US$800,000, (Eight Hundred Thousand Dollars) which i kept for your
-compensation for all your past efforts and attempts to assist me in
-this matter. I appreciated your efforts at that time very much .so
-feel free and get in touch with Miss Tshidi Babara, instruct her where
-to send the amount to you. Also send her the below information to
-enable her deliver your bank draft to you.
-
- 1. YOUR FULL NAME:_________________
- 2. YOUR ADDRESS:_____________________
- 3. TELEPHONE NUMBER:___________
- 4. OCCUPATION:_________________
- 5. YOUR COUNTRY:___________
-
-Please do let me know immediately you receive it so that we can share
-the joy after all the sufferings at that time. I'm very busy here in
-Paraguay because of the investment projects which I and the new
-partner are having at hand, finally, remember that I had forwarded
-instruction to my SECRETARY on your behalf.
-Thanks you in anticipation for your past efforts and God bless US.
-Best Regards
-Mr.John Hutchnson
+Pulled, thanks.
