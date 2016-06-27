@@ -1,88 +1,29 @@
-From: Abdelrhman Ahmed <ab@abahmed.com>
-Subject: Re: [PATCH] net: Fix resetting network_header in
- neigh_resolve_output and neigh_connected_output
-Date: Mon, 27 Jun 2016 16:28:59 +0200
-Message-ID: <15592436817.c86fc05b10946.6198596471268005484@abahmed.com>
-References: <1557d0eb9b5.10e107ce3332041.1418466288700186568@abahmed.com> <20160627.101032.719251971537230839.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: pull-request: can-next 2016-06-17,pull-request: can-next
+ 2016-06-17
+Date: Mon, 27 Jun 2016 10:34:52 -0400 (EDT)
+Message-ID: <20160627.103452.275232307829856838.davem@davemloft.net>
+References: <0c371efc-6afa-130a-6752-50c3d5a0694c@pengutronix.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "" <netdev@vger.kernel.org>, "" <linux-kernel@vger.kernel.org>
-To: "David Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160627.101032.719251971537230839.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, kernel@pengutronix.de,
+	linux-can@vger.kernel.org
+To: mkl@pengutronix.de
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <0c371efc-6afa-130a-6752-50c3d5a0694c@pengutronix.de>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-neigh_resolve_output and neigh_connected_output resets the skb to 
-network_header because of the retry loop and this reset will pull down the
-data pointer to the network header in the first iteration then hardware header
-will be added, but it will overwrite any data which is inserted between network
-header and hardware header (for example by netfilter hooks) only for the first
-packet(s) before using cached hardware header as neigh_hh_output (which is
-called for using cached hardware header) does not reset to the network header.
+From: Marc Kleine-Budde <mkl@pengutronix.de>
+Date: Thu, 23 Jun 2016 11:30:30 +0200
 
-The fix is to reset with reference to skb's data before loop instead of network
-header.
+> this is a pull request of 4 patches for net-next/master.
+> 
+> Arnd Bergmann's patch fixes a regresseion in af_can introduced in
+> linux-can-next-for-4.8-20160617. There are two patches by Ramesh
+> Shanmugasundaram, which add CAN-2.0 support to the rcar_canfd driver.
+> And a patch by Ed Spiridonov that adds better error diagnoses messages
+> to the Ed Spiridonov driver.
 
-Fixes: e1f165032c8b ("net: Fix skb_under_panic oops in neigh_resolve_output")
-Signed-off-by: Abdelrhman Ahmed <ab@abahmed.com>
----
- net/core/neighbour.c | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
-
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 29dd8cc..7aac242 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -1293,15 +1293,19 @@ int neigh_resolve_output(struct neighbour *neigh, struct sk_buff *skb)
- 	int rc = 0;
- 
- 	if (!neigh_event_send(neigh, skb)) {
--		int err;
-+		int err, offset;
- 		struct net_device *dev = neigh->dev;
-+		unsigned char *data;
- 		unsigned int seq;
- 
- 		if (dev->header_ops->cache && !neigh->hh.hh_len)
- 			neigh_hh_init(neigh);
- 
-+		data = skb->data;
-+
- 		do {
--			__skb_pull(skb, skb_network_offset(skb));
-+			offset = data - skb->data;
-+			__skb_pull(skb, offset);
- 			seq = read_seqbegin(&neigh->ha_lock);
- 			err = dev_hard_header(skb, dev, ntohs(skb->protocol),
- 					      neigh->ha, NULL, skb->len);
-@@ -1326,11 +1330,15 @@ EXPORT_SYMBOL(neigh_resolve_output);
- int neigh_connected_output(struct neighbour *neigh, struct sk_buff *skb)
- {
- 	struct net_device *dev = neigh->dev;
-+	unsigned char *data;
- 	unsigned int seq;
--	int err;
-+	int err, offset;
-+
-+	data = skb->data;
- 
- 	do {
--		__skb_pull(skb, skb_network_offset(skb));
-+		offset = data - skb->data;
-+		__skb_pull(skb, offset);
- 		seq = read_seqbegin(&neigh->ha_lock);
- 		err = dev_hard_header(skb, dev, ntohs(skb->protocol),
- 				      neigh->ha, NULL, skb->len);
--- 
-1.9.1
-
- ---- On Mon, 27 Jun 2016 16:10:32 +0200 David Miller <davem@davemloft.net> wrote ---- 
- > From: Abdelrhman Ahmed <ab@abahmed.com> 
- > Date: Thu, 23 Jun 2016 13:39:24 +0200 
- >  
- > > neigh_resolve_output and neigh_connected_output resets the skb to network_header because of the retry loop and this reset will pull down the data pointer to the network header in the first iteration then hardware header will be added, but it will overwrite any data which is inserted between network header and hardware header (for example by netfilter hooks) only for the first packet(s) before using cached hardware header as neigh_hh_output (which is called for using cached hardware header) does not reset to the network header. 
- >  
- > Please format your text properly into ~80 character long lines. 
- > 
+Pulled, thanks.
