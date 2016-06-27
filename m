@@ -1,82 +1,51 @@
-From: Marc Dionne <marc.c.dionne@gmail.com>
-Subject: Re: Multi-thread udp 4.7 regression, bisected to 71d8c47fc653
-Date: Mon, 27 Jun 2016 11:46:02 -0300
-Message-ID: <CAB9dFds=qY=Dk++p7qVX7a8aOOH4wn0rtL3m4poO6HMQPuPrnA@mail.gmail.com>
-References: <CAB9dFduvE0dKzZ8Dm5RVVrUAq1Auvj8t9xXAyARGyO4NmowvYw@mail.gmail.com>
- <20160627142238.GA10613@breakpoint.cc>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next] tcp: md5: do not use stack storage in crypto
+ operations
+Date: Mon, 27 Jun 2016 10:51:58 -0400 (EDT)
+Message-ID: <20160627.105158.605041440961301398.davem@davemloft.net>
+References: <1466828771.6850.124.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1466829439.6850.126.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1466870975.6850.139.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netdev <netdev@vger.kernel.org>
-To: Florian Westphal <fw@strlen.de>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: luto@amacapital.net, herbert@gondor.apana.org.au,
+	netdev@vger.kernel.org
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f65.google.com ([209.85.213.65]:34246 "EHLO
-	mail-vk0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751749AbcF0OqI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 10:46:08 -0400
-Received: by mail-vk0-f65.google.com with SMTP id v6so3486207vkb.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 07:46:08 -0700 (PDT)
-In-Reply-To: <20160627142238.GA10613@breakpoint.cc>
+Received: from shards.monkeyblade.net ([149.20.54.216]:45054 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751385AbcF0Ow2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 10:52:28 -0400
+In-Reply-To: <1466870975.6850.139.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 27, 2016 at 11:22 AM, Florian Westphal <fw@strlen.de> wrote:
-> Marc Dionne <marc.c.dionne@gmail.com> wrote:
->> Hi,
->>
->> I've been seeing issues with 4.7-rc kernels with some of our
->> multi-thread test cases.  I've bisected it down to this commit:
->>
->>   commit 71d8c47fc653711c41bc3282e5b0e605b3727956
->>   Author: Pablo Neira Ayuso <pablo@netfilter.org>
->>   Date:   Sun May 1 00:28:40 2016 +0200
->>
->>       netfilter: conntrack: introduce clash resolution on insertion race
->>
->>
->> .. and verified that reverting the commit restores the expected behaviour.
->
-> Does this change help?
->
-> Subject: Restrict clash resolution to original direction
->
-> diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-> --- a/net/netfilter/nf_conntrack_core.c
-> +++ b/net/netfilter/nf_conntrack_core.c
-> @@ -721,13 +721,18 @@ __nf_conntrack_confirm(struct sk_buff *skb)
->            not in the hash.  If there is, we lost race. */
->         hlist_nulls_for_each_entry(h, n, &nf_conntrack_hash[hash], hnnode)
->                 if (nf_ct_key_equal(h, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
-> -                                   zone, net))
-> -                       goto out;
-> +                                   zone, net)) {
-> +                       nf_ct_add_to_dying_list(ct);
-> +                       ret = nf_ct_resolve_clash(net, skb, ctinfo, h);
-> +                       goto dying;
-> +               }
->
->         hlist_nulls_for_each_entry(h, n, &nf_conntrack_hash[reply_hash], hnnode)
->                 if (nf_ct_key_equal(h, &ct->tuplehash[IP_CT_DIR_REPLY].tuple,
-> -                                   zone, net))
-> -                       goto out;
-> +                                   zone, net)) {
-> +                       nf_ct_add_to_dying_list(ct);
-> +                       goto dying;
-> +               }
->
->         /* Timer relative to confirmation time, not original
->            setting time, otherwise we'd get timer wrap in
-> @@ -763,9 +768,6 @@ __nf_conntrack_confirm(struct sk_buff *skb)
->                                  IPCT_RELATED : IPCT_NEW, ct);
->         return NF_ACCEPT;
->
-> -out:
-> -       nf_ct_add_to_dying_list(ct);
-> -       ret = nf_ct_resolve_clash(net, skb, ctinfo, h);
->  dying:
->         nf_conntrack_double_unlock(hash, reply_hash);
->         NF_CT_STAT_INC(net, insert_failed);
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Sat, 25 Jun 2016 18:09:35 +0200
 
-No, that doesn't seem to make any noticeable difference.
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Some arches have virtually mapped kernel stacks, or will soon have.
+> 
+> tcp_md5_hash_header() uses an automatic variable to copy tcp header
+> before mangling th->check and calling crypto function, which might
+> be problematic on such arches.
+> 
+> So use percpu storage as we already do for the pseudo header,
+> and reduce number of crypto functions calls, as these headers
+> are ridiculously small.
+> 
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Andy Lutomirski <luto@amacapital.net>
+> ---
+> I am not sure the md5 crypto functions have a problem with data backed
+> in virtually mapped stacks, but this patch seems to remove the doubt.
 
-Marc
+In a non-SMP build this storage will be in the kernel image itself.
+
+And this violates the crypto layer's requirements.
+
+It has to be memory taken from the page allocator or kmalloc.  So
+before vmalloc'd stacks, the current code is perfectly fine.  And
+with vmalloc'd stacks this patch trades one bug for another.
