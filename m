@@ -1,166 +1,73 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH v2 iproute2 1/3] ss: Refactor inet_show_sock
-Date: Mon, 27 Jun 2016 11:34:23 -0700
-Message-ID: <1467052465-14488-2-git-send-email-dsa@cumulusnetworks.com>
-References: <1467052465-14488-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH iproute2 4/6] ip route: Change type mask to bitmask
+Date: Mon, 27 Jun 2016 11:50:59 -0700
+Message-ID: <1467053461-16147-5-git-send-email-dsa@cumulusnetworks.com>
+References: <1467053461-16147-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: stephen@networkplumber.org, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:33403 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751639AbcF0Sem (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 14:34:42 -0400
-Received: by mail-pa0-f45.google.com with SMTP id b13so61416345pat.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 11:34:41 -0700 (PDT)
-In-Reply-To: <1467052465-14488-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34097 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751644AbcF0SvM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 14:51:12 -0400
+Received: by mail-pa0-f49.google.com with SMTP id bz2so61468270pad.1
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 11:51:12 -0700 (PDT)
+In-Reply-To: <1467053461-16147-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Extract parsing of sockstat and filter from inet_show_sock.
-While moving run_ssfilter into callers of inet_show_sock enable
-userspace filtering before the kill.
+Allow option to select multiple route types to show or exlude
+specific route types.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- misc/ss.c | 75 ++++++++++++++++++++++++++++++++++++++++-----------------------
- 1 file changed, 48 insertions(+), 27 deletions(-)
+ ip/iproute.c | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
 
-diff --git a/misc/ss.c b/misc/ss.c
-index 02be7e7407df..f164ca920308 100644
---- a/misc/ss.c
-+++ b/misc/ss.c
-@@ -2038,42 +2038,48 @@ static void tcp_show_info(const struct nlmsghdr *nlh, struct inet_diag_msg *r,
- 	}
- }
- 
--static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
-+static void parse_diag_msg(struct nlmsghdr *nlh, struct sockstat *s)
- {
- 	struct rtattr *tb[INET_DIAG_MAX+1];
- 	struct inet_diag_msg *r = NLMSG_DATA(nlh);
--	struct sockstat s = {};
- 
- 	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr *)(r+1),
- 		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
- 
--	s.state		= r->idiag_state;
--	s.local.family  = s.remote.family = r->idiag_family;
--	s.lport		= ntohs(r->id.idiag_sport);
--	s.rport		= ntohs(r->id.idiag_dport);
--	s.wq		= r->idiag_wqueue;
--	s.rq		= r->idiag_rqueue;
--	s.ino		= r->idiag_inode;
--	s.uid		= r->idiag_uid;
--	s.iface		= r->id.idiag_if;
--	s.sk		= cookie_sk_get(&r->id.idiag_cookie[0]);
--
--	if (s.local.family == AF_INET) {
--		s.local.bytelen = s.remote.bytelen = 4;
--	} else {
--		s.local.bytelen = s.remote.bytelen = 16;
--	}
-+	s->state	= r->idiag_state;
-+	s->local.family	= s->remote.family = r->idiag_family;
-+	s->lport	= ntohs(r->id.idiag_sport);
-+	s->rport	= ntohs(r->id.idiag_dport);
-+	s->wq		= r->idiag_wqueue;
-+	s->rq		= r->idiag_rqueue;
-+	s->ino		= r->idiag_inode;
-+	s->uid		= r->idiag_uid;
-+	s->iface	= r->id.idiag_if;
-+	s->sk		= cookie_sk_get(&r->id.idiag_cookie[0]);
-+
-+	if (s->local.family == AF_INET)
-+		s->local.bytelen = s->remote.bytelen = 4;
-+	else
-+		s->local.bytelen = s->remote.bytelen = 16;
- 
--	memcpy(s.local.data, r->id.idiag_src, s.local.bytelen);
--	memcpy(s.remote.data, r->id.idiag_dst, s.local.bytelen);
-+	memcpy(s->local.data, r->id.idiag_src, s->local.bytelen);
-+	memcpy(s->remote.data, r->id.idiag_dst, s->local.bytelen);
-+}
- 
--	if (f && f->f && run_ssfilter(f->f, &s) == 0)
--		return 0;
-+static int inet_show_sock(struct nlmsghdr *nlh,
-+			  struct sockstat *s,
-+			  int protocol)
-+{
-+	struct rtattr *tb[INET_DIAG_MAX+1];
-+	struct inet_diag_msg *r = NLMSG_DATA(nlh);
-+
-+	parse_rtattr(tb, INET_DIAG_MAX, (struct rtattr *)(r+1),
-+		     nlh->nlmsg_len - NLMSG_LENGTH(sizeof(*r)));
- 
- 	if (tb[INET_DIAG_PROTOCOL])
- 		protocol = *(__u8 *)RTA_DATA(tb[INET_DIAG_PROTOCOL]);
- 
--	inet_stats_print(&s, protocol);
-+	inet_stats_print(s, protocol);
- 
- 	if (show_options) {
- 		struct tcpstat t = {};
-@@ -2085,8 +2091,8 @@ static int inet_show_sock(struct nlmsghdr *nlh, struct filter *f, int protocol)
- 	}
- 
- 	if (show_details) {
--		sock_details_print(&s);
--		if (s.local.family == AF_INET6 && tb[INET_DIAG_SKV6ONLY]) {
-+		sock_details_print(s);
-+		if (s->local.family == AF_INET6 && tb[INET_DIAG_SKV6ONLY]) {
- 			unsigned char v6only;
- 
- 			v6only = *(__u8 *)RTA_DATA(tb[INET_DIAG_SKV6ONLY]);
-@@ -2268,9 +2274,16 @@ static int show_one_inet_sock(const struct sockaddr_nl *addr,
- 	int err;
- 	struct inet_diag_arg *diag_arg = arg;
- 	struct inet_diag_msg *r = NLMSG_DATA(h);
-+	struct sockstat s = {};
- 
- 	if (!(diag_arg->f->families & (1 << r->idiag_family)))
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 8224d7ffa94b..aae693d17be8 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -113,7 +113,7 @@ static struct
+ 	int flushe;
+ 	int protocol, protocolmask;
+ 	int scope, scopemask;
+-	int type, typemask;
++	__u64 typemask;
+ 	int tos, tosmask;
+ 	int iif, iifmask;
+ 	int oif, oifmask;
+@@ -178,7 +178,8 @@ static int filter_nlmsg(struct nlmsghdr *n, struct rtattr **tb, int host_len)
  		return 0;
+ 	if ((filter.scope^r->rtm_scope)&filter.scopemask)
+ 		return 0;
+-	if ((filter.type^r->rtm_type)&filter.typemask)
 +
-+	parse_diag_msg(h, &s);
-+
-+	if (diag_arg->f->f && run_ssfilter(diag_arg->f->f, &s) == 0)
-+		return 0;
-+
- 	if (diag_arg->f->kill && kill_inet_sock(h, arg) != 0) {
- 		if (errno == EOPNOTSUPP || errno == ENOENT) {
- 			/* Socket can't be closed, or is already closed. */
-@@ -2280,7 +2293,9 @@ static int show_one_inet_sock(const struct sockaddr_nl *addr,
- 			return -1;
- 		}
- 	}
--	if ((err = inet_show_sock(h, diag_arg->f, diag_arg->protocol)) < 0)
-+
-+	err = inet_show_sock(h, &s, diag_arg->protocol);
-+	if (err < 0)
- 		return err;
++	if (filter.typemask && !(filter.typemask & (1 << r->rtm_type)))
+ 		return 0;
+ 	if ((filter.tos^r->rtm_tos)&filter.tosmask)
+ 		return 0;
+@@ -365,7 +366,8 @@ int print_route(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
  
- 	return 0;
-@@ -2345,6 +2360,7 @@ static int tcp_show_netlink_file(struct filter *f)
- 	while (1) {
- 		int status, err;
- 		struct nlmsghdr *h = (struct nlmsghdr *)buf;
-+		struct sockstat s = {};
+ 	if (n->nlmsg_type == RTM_DELROUTE)
+ 		fprintf(fp, "Deleted ");
+-	if ((r->rtm_type != RTN_UNICAST || show_details > 0) && !filter.type)
++	if ((r->rtm_type != RTN_UNICAST || show_details > 0) &&
++	    (!filter.typemask || (filter.typemask & (1 << r->rtm_type))))
+ 		fprintf(fp, "%s ", rtnl_rtntype_n2a(r->rtm_type, b1, sizeof(b1)));
  
- 		status = fread(buf, 1, sizeof(*h), fp);
- 		if (status < 0) {
-@@ -2383,7 +2399,12 @@ static int tcp_show_netlink_file(struct filter *f)
- 			return -1;
- 		}
+ 	if (tb[RTA_DST]) {
+@@ -1433,10 +1435,9 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
+ 			int type;
  
--		err = inet_show_sock(h, f, IPPROTO_TCP);
-+		parse_diag_msg(h, &s);
-+
-+		if (f && f->f && run_ssfilter(f->f, &s) == 0)
-+			continue;
-+
-+		err = inet_show_sock(h, &s, IPPROTO_TCP);
- 		if (err < 0)
- 			return err;
- 	}
+ 			NEXT_ARG();
+-			filter.typemask = -1;
+ 			if (rtnl_rtntype_a2n(&type, *argv))
+ 				invarg("node type value is invalid\n", *argv);
+-			filter.type = type;
++			filter.typemask = (1<<type);
+ 		} else if (strcmp(*argv, "dev") == 0 ||
+ 			   strcmp(*argv, "oif") == 0) {
+ 			NEXT_ARG();
 -- 
 2.1.4
