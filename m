@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 11/16] net/mlx5e: Create NIC global resources only once
-Date: Mon, 27 Jun 2016 19:07:24 +0300
-Message-ID: <1467043649-28594-12-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 13/16] net/mlx5e: Mark enabled RQTs instances explicitly
+Date: Mon, 27 Jun 2016 19:07:26 +0300
+Message-ID: <1467043649-28594-14-git-send-email-saeedm@mellanox.com>
 References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -12,23 +12,27 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:36545 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:36560 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751639AbcF0QKM (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jun 2016 12:10:12 -0400
+	id S1751639AbcF0QKT (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2016 12:10:19 -0400
 In-Reply-To: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hadar Hen Zion <hadarh@mellanox.com>
 
-To allow creating more than one netdev over the same PCI function, we
-change the driver such that global NIC resources are created once and
-later be shared amongst all the mlx5e netdevs running over that port.
+In the current driver implementation two types of receive queue
+tables (RQTs) are in use - direct and indirect.
 
-Move the CQ UAR, PD (pdn), Transport Domain (tdn), MKey resources from
-being kept in the mlx5e priv part to a new resources structure
-(mlx5e_resources) placed under the mlx5_core device.
+Change the driver to mark each new created RQT (direct or indirect)
+as "enabled". This behaviour is needed for introducing new mlx5e
+instances which serve to represent SRIOV VFs.
+
+The VF representors will have only one type of RQTs (direct).
+
+An "enabled" flag is added to each RQT to allow better handling
+and code sharing between the representors and the nic netdevices.
 
 This patch doesn't add any new functionality.
 
@@ -36,459 +40,176 @@ Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
 Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   6 +-
- drivers/net/ethernet/mellanox/mlx5/core/en.h       |   6 +-
- .../net/ethernet/mellanox/mlx5/core/en_common.c    | 112 +++++++++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 124 +++++++--------------
- include/linux/mlx5/driver.h                        |  13 +++
- 5 files changed, 171 insertions(+), 90 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_common.c
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       | 13 +++++--
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 45 +++++++++++++---------
+ 3 files changed, 37 insertions(+), 23 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index 96f1826..9b14dad 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -6,8 +6,8 @@ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
- 		fs_counters.o rl.o
- 
- mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
--		en_main.o en_fs.o en_ethtool.o en_tx.o en_rx.o \
--		en_rx_am.o en_txrx.o en_clock.o vxlan.o en_tc.o \
--		en_arfs.o
-+		en_main.o en_common.o en_fs.o en_ethtool.o en_tx.o \
-+		en_rx.o en_rx_am.o en_txrx.o en_clock.o vxlan.o \
-+		en_tc.o en_arfs.o
- 
- mlx5_core-$(CONFIG_MLX5_CORE_EN_DCB) +=  en_dcbnl.o
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index da885c0..da93bf55 100644
+index ded3f96..1843a4c 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -570,10 +570,6 @@ struct mlx5e_priv {
- 
- 	unsigned long              state;
- 	struct mutex               state_lock; /* Protects Interface state */
--	struct mlx5_uar            cq_uar;
--	u32                        pdn;
--	u32                        tdn;
--	struct mlx5_core_mkey      mkey;
- 	struct mlx5_core_mkey      umr_mkey;
- 	struct mlx5e_rq            drop_rq;
- 
-@@ -788,5 +784,7 @@ int mlx5e_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
- #endif
- 
- u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev);
-+int mlx5e_create_mdev_resources(struct mlx5_core_dev *mdev);
-+void mlx5e_destroy_mdev_resources(struct mlx5_core_dev *mdev);
- 
- #endif /* __MLX5_EN_H__ */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_common.c b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
-new file mode 100644
-index 0000000..33b3732
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
-@@ -0,0 +1,112 @@
-+/*
-+ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include "en.h"
-+
-+/* mlx5e global resources should be placed in this file.
-+ * Global resources are common to all the netdevices crated on the same nic.
-+ */
-+
-+static int mlx5e_create_mkey(struct mlx5_core_dev *mdev, u32 pdn,
-+			     struct mlx5_core_mkey *mkey)
-+{
-+	struct mlx5_create_mkey_mbox_in *in;
-+	int err;
-+
-+	in = mlx5_vzalloc(sizeof(*in));
-+	if (!in)
-+		return -ENOMEM;
-+
-+	in->seg.flags = MLX5_PERM_LOCAL_WRITE |
-+			MLX5_PERM_LOCAL_READ  |
-+			MLX5_ACCESS_MODE_PA;
-+	in->seg.flags_pd = cpu_to_be32(pdn | MLX5_MKEY_LEN64);
-+	in->seg.qpn_mkey7_0 = cpu_to_be32(0xffffff << 8);
-+
-+	err = mlx5_core_create_mkey(mdev, mkey, in, sizeof(*in), NULL, NULL,
-+				    NULL);
-+
-+	kvfree(in);
-+
-+	return err;
-+}
-+
-+int mlx5e_create_mdev_resources(struct mlx5_core_dev *mdev)
-+{
-+	struct mlx5e_resources *res = &mdev->mlx5e_res;
-+	int err;
-+
-+	err = mlx5_alloc_map_uar(mdev, &res->cq_uar, false);
-+	if (err) {
-+		mlx5_core_err(mdev, "alloc_map uar failed, %d\n", err);
-+		return err;
-+	}
-+
-+	err = mlx5_core_alloc_pd(mdev, &res->pdn);
-+	if (err) {
-+		mlx5_core_err(mdev, "alloc pd failed, %d\n", err);
-+		goto err_unmap_free_uar;
-+	}
-+
-+	err = mlx5_core_alloc_transport_domain(mdev, &res->td.tdn);
-+	if (err) {
-+		mlx5_core_err(mdev, "alloc td failed, %d\n", err);
-+		goto err_dealloc_pd;
-+	}
-+
-+	err = mlx5e_create_mkey(mdev, res->pdn, &res->mkey);
-+	if (err) {
-+		mlx5_core_err(mdev, "create mkey failed, %d\n", err);
-+		goto err_dealloc_transport_domain;
-+	}
-+
-+	return 0;
-+
-+err_dealloc_transport_domain:
-+	mlx5_core_dealloc_transport_domain(mdev, res->td.tdn);
-+err_dealloc_pd:
-+	mlx5_core_dealloc_pd(mdev, res->pdn);
-+err_unmap_free_uar:
-+	mlx5_unmap_free_uar(mdev, &res->cq_uar);
-+
-+	return err;
-+}
-+
-+void mlx5e_destroy_mdev_resources(struct mlx5_core_dev *mdev)
-+{
-+	struct mlx5e_resources *res = &mdev->mlx5e_res;
-+
-+	mlx5_core_destroy_mkey(mdev, &res->mkey);
-+	mlx5_core_dealloc_transport_domain(mdev, res->td.tdn);
-+	mlx5_core_dealloc_pd(mdev, res->pdn);
-+	mlx5_unmap_free_uar(mdev, &res->cq_uar);
-+}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 02a0f17..bd3bd61 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -859,7 +859,7 @@ static int mlx5e_create_cq(struct mlx5e_channel *c,
- 	mcq->comp       = mlx5e_completion_event;
- 	mcq->event      = mlx5e_cq_error_event;
- 	mcq->irqn       = irqn;
--	mcq->uar        = &priv->cq_uar;
-+	mcq->uar        = &mdev->mlx5e_res.cq_uar;
- 
- 	for (i = 0; i < mlx5_cqwq_get_size(&cq->wq); i++) {
- 		struct mlx5_cqe64 *cqe = mlx5_cqwq_get_wqe(&cq->wq, i);
-@@ -1137,7 +1137,7 @@ static int mlx5e_open_channel(struct mlx5e_priv *priv, int ix,
- 	c->cpu      = cpu;
- 	c->pdev     = &priv->mdev->pdev->dev;
- 	c->netdev   = priv->netdev;
--	c->mkey_be  = cpu_to_be32(priv->mkey.key);
-+	c->mkey_be  = cpu_to_be32(priv->mdev->mlx5e_res.mkey.key);
- 	c->num_tc   = priv->params.num_tc;
- 
- 	if (priv->params.rx_am_enabled)
-@@ -1253,7 +1253,7 @@ static void mlx5e_build_rq_param(struct mlx5e_priv *priv,
- 	MLX5_SET(wq, wq, end_padding_mode, MLX5_WQ_END_PAD_MODE_ALIGN);
- 	MLX5_SET(wq, wq, log_wq_stride,    ilog2(sizeof(struct mlx5e_rx_wqe)));
- 	MLX5_SET(wq, wq, log_wq_sz,        priv->params.log_rq_size);
--	MLX5_SET(wq, wq, pd,               priv->pdn);
-+	MLX5_SET(wq, wq, pd,               priv->mdev->mlx5e_res.pdn);
- 	MLX5_SET(rqc, rqc, counter_set_id, priv->q_counter);
- 
- 	param->wq.buf_numa_node = dev_to_node(&priv->mdev->pdev->dev);
-@@ -1278,7 +1278,7 @@ static void mlx5e_build_sq_param_common(struct mlx5e_priv *priv,
- 	void *wq = MLX5_ADDR_OF(sqc, sqc, wq);
- 
- 	MLX5_SET(wq, wq, log_wq_stride, ilog2(MLX5_SEND_WQE_BB));
--	MLX5_SET(wq, wq, pd,            priv->pdn);
-+	MLX5_SET(wq, wq, pd,            priv->mdev->mlx5e_res.pdn);
- 
- 	param->wq.buf_numa_node = dev_to_node(&priv->mdev->pdev->dev);
- }
-@@ -1300,7 +1300,7 @@ static void mlx5e_build_common_cq_param(struct mlx5e_priv *priv,
- {
- 	void *cqc = param->cqc;
- 
--	MLX5_SET(cqc, cqc, uar_page, priv->cq_uar.index);
-+	MLX5_SET(cqc, cqc, uar_page, priv->mdev->mlx5e_res.cq_uar.index);
- }
- 
- static void mlx5e_build_rx_cq_param(struct mlx5e_priv *priv,
-@@ -1921,7 +1921,7 @@ static int mlx5e_create_drop_cq(struct mlx5e_priv *priv,
- 	mcq->comp       = mlx5e_completion_event;
- 	mcq->event      = mlx5e_cq_error_event;
- 	mcq->irqn       = irqn;
--	mcq->uar        = &priv->cq_uar;
-+	mcq->uar        = &mdev->mlx5e_res.cq_uar;
- 
- 	cq->priv = priv;
- 
-@@ -1987,7 +1987,7 @@ static int mlx5e_create_tis(struct mlx5e_priv *priv, int tc)
- 	memset(in, 0, sizeof(in));
- 
- 	MLX5_SET(tisc, tisc, prio, tc << 1);
--	MLX5_SET(tisc, tisc, transport_domain, priv->tdn);
-+	MLX5_SET(tisc, tisc, transport_domain, mdev->mlx5e_res.td.tdn);
- 
- 	return mlx5_core_create_tis(mdev, in, sizeof(in), &priv->tisn[tc]);
- }
-@@ -2030,7 +2030,7 @@ static void mlx5e_build_indir_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
- {
- 	void *hfso = MLX5_ADDR_OF(tirc, tirc, rx_hash_field_selector_outer);
- 
--	MLX5_SET(tirc, tirc, transport_domain, priv->tdn);
-+	MLX5_SET(tirc, tirc, transport_domain, priv->mdev->mlx5e_res.td.tdn);
- 
- #define MLX5_HASH_IP            (MLX5_HASH_FIELD_SEL_SRC_IP   |\
- 				 MLX5_HASH_FIELD_SEL_DST_IP)
-@@ -2137,7 +2137,7 @@ static void mlx5e_build_indir_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
- static void mlx5e_build_direct_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
- 				       u32 rqtn)
- {
--	MLX5_SET(tirc, tirc, transport_domain, priv->tdn);
-+	MLX5_SET(tirc, tirc, transport_domain, priv->mdev->mlx5e_res.td.tdn);
- 
- 	mlx5e_build_tir_ctx_lro(tirc, priv);
- 
-@@ -3083,31 +3083,6 @@ static void mlx5e_build_netdev(struct net_device *netdev)
- 	mlx5e_set_netdev_dev_addr(netdev);
- }
- 
--static int mlx5e_create_mkey(struct mlx5e_priv *priv, u32 pdn,
--			     struct mlx5_core_mkey *mkey)
--{
--	struct mlx5_core_dev *mdev = priv->mdev;
--	struct mlx5_create_mkey_mbox_in *in;
--	int err;
--
--	in = mlx5_vzalloc(sizeof(*in));
--	if (!in)
--		return -ENOMEM;
--
--	in->seg.flags = MLX5_PERM_LOCAL_WRITE |
--			MLX5_PERM_LOCAL_READ  |
--			MLX5_ACCESS_MODE_PA;
--	in->seg.flags_pd = cpu_to_be32(pdn | MLX5_MKEY_LEN64);
--	in->seg.qpn_mkey7_0 = cpu_to_be32(0xffffff << 8);
--
--	err = mlx5_core_create_mkey(mdev, mkey, in, sizeof(*in), NULL, NULL,
--				    NULL);
--
--	kvfree(in);
--
--	return err;
--}
--
- static void mlx5e_create_q_counter(struct mlx5e_priv *priv)
- {
- 	struct mlx5_core_dev *mdev = priv->mdev;
-@@ -3150,7 +3125,7 @@ static int mlx5e_create_umr_mkey(struct mlx5e_priv *priv)
- 		     MLX5_ACCESS_MODE_MTT;
- 
- 	mkc->qpn_mkey7_0 = cpu_to_be32(0xffffff << 8);
--	mkc->flags_pd = cpu_to_be32(priv->pdn);
-+	mkc->flags_pd = cpu_to_be32(mdev->mlx5e_res.pdn);
- 	mkc->len = cpu_to_be64(npages << PAGE_SHIFT);
- 	mkc->xlt_oct_size = cpu_to_be32(mlx5e_get_mtt_octw(npages));
- 	mkc->log2_page_size = PAGE_SHIFT;
-@@ -3170,9 +3145,6 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
- 	int nch = mlx5e_get_max_num_channels(mdev);
- 	int err;
- 
--	if (mlx5e_check_required_hca_cap(mdev))
--		return NULL;
--
- 	netdev = alloc_etherdev_mqs(sizeof(struct mlx5e_priv),
- 				    nch * MLX5E_MAX_NUM_TC,
- 				    nch);
-@@ -3192,34 +3164,10 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev)
- 	if (!priv->wq)
- 		goto err_free_netdev;
- 
--	err = mlx5_alloc_map_uar(mdev, &priv->cq_uar, false);
--	if (err) {
--		mlx5_core_err(mdev, "alloc_map uar failed, %d\n", err);
--		goto err_destroy_wq;
--	}
--
--	err = mlx5_core_alloc_pd(mdev, &priv->pdn);
--	if (err) {
--		mlx5_core_err(mdev, "alloc pd failed, %d\n", err);
--		goto err_unmap_free_uar;
--	}
--
--	err = mlx5_core_alloc_transport_domain(mdev, &priv->tdn);
--	if (err) {
--		mlx5_core_err(mdev, "alloc td failed, %d\n", err);
--		goto err_dealloc_pd;
--	}
--
--	err = mlx5e_create_mkey(priv, priv->pdn, &priv->mkey);
--	if (err) {
--		mlx5_core_err(mdev, "create mkey failed, %d\n", err);
--		goto err_dealloc_transport_domain;
--	}
--
- 	err = mlx5e_create_umr_mkey(priv);
- 	if (err) {
- 		mlx5_core_err(mdev, "create umr mkey failed, %d\n", err);
--		goto err_destroy_mkey;
-+		goto err_destroy_wq;
- 	}
- 
- 	err = mlx5e_create_tises(priv);
-@@ -3305,18 +3253,6 @@ err_destroy_tises:
- err_destroy_umr_mkey:
- 	mlx5_core_destroy_mkey(mdev, &priv->umr_mkey);
- 
--err_destroy_mkey:
--	mlx5_core_destroy_mkey(mdev, &priv->mkey);
--
--err_dealloc_transport_domain:
--	mlx5_core_dealloc_transport_domain(mdev, priv->tdn);
--
--err_dealloc_pd:
--	mlx5_core_dealloc_pd(mdev, priv->pdn);
--
--err_unmap_free_uar:
--	mlx5_unmap_free_uar(mdev, &priv->cq_uar);
--
- err_destroy_wq:
- 	destroy_workqueue(priv->wq);
- 
-@@ -3326,9 +3262,27 @@ err_free_netdev:
- 	return NULL;
- }
- 
--static void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, void *vpriv)
-+static void *mlx5e_add(struct mlx5_core_dev *mdev)
-+{
-+	void *ret;
-+
-+	if (mlx5e_check_required_hca_cap(mdev))
-+		return NULL;
-+
-+	if (mlx5e_create_mdev_resources(mdev))
-+		return NULL;
-+
-+	ret = mlx5e_create_netdev(mdev);
-+	if (!ret) {
-+		mlx5e_destroy_mdev_resources(mdev);
-+		return NULL;
-+	}
-+	return ret;
-+}
-+
-+static void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev,
-+				 struct mlx5e_priv *priv)
- {
--	struct mlx5e_priv *priv = vpriv;
- 	struct net_device *netdev = priv->netdev;
- 
- 	set_bit(MLX5E_STATE_DESTROYING, &priv->state);
-@@ -3352,10 +3306,6 @@ static void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, void *vpriv)
- 	mlx5e_close_drop_rq(priv);
- 	mlx5e_destroy_tises(priv);
- 	mlx5_core_destroy_mkey(priv->mdev, &priv->umr_mkey);
--	mlx5_core_destroy_mkey(priv->mdev, &priv->mkey);
--	mlx5_core_dealloc_transport_domain(priv->mdev, priv->tdn);
--	mlx5_core_dealloc_pd(priv->mdev, priv->pdn);
--	mlx5_unmap_free_uar(priv->mdev, &priv->cq_uar);
- 	cancel_delayed_work_sync(&priv->update_stats_work);
- 	destroy_workqueue(priv->wq);
- 
-@@ -3363,6 +3313,14 @@ static void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, void *vpriv)
- 		free_netdev(netdev);
- }
- 
-+static void mlx5e_remove(struct mlx5_core_dev *mdev, void *vpriv)
-+{
-+	struct mlx5e_priv *priv = vpriv;
-+
-+	mlx5e_destroy_netdev(mdev, priv);
-+	mlx5e_destroy_mdev_resources(mdev);
-+}
-+
- static void *mlx5e_get_netdev(void *vpriv)
- {
- 	struct mlx5e_priv *priv = vpriv;
-@@ -3371,8 +3329,8 @@ static void *mlx5e_get_netdev(void *vpriv)
- }
- 
- static struct mlx5_interface mlx5e_interface = {
--	.add       = mlx5e_create_netdev,
--	.remove    = mlx5e_destroy_netdev,
-+	.add       = mlx5e_add,
-+	.remove    = mlx5e_remove,
- 	.event     = mlx5e_async_event,
- 	.protocol  = MLX5_INTERFACE_PROTOCOL_ETH,
- 	.get_dev   = mlx5e_get_netdev,
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 46260fd..e22b345 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -578,6 +578,18 @@ enum mlx5_pci_status {
- 	MLX5_PCI_STATUS_ENABLED,
+@@ -552,10 +552,15 @@ struct mlx5e_flow_steering {
+ 	struct mlx5e_arfs_tables        arfs;
  };
  
-+struct mlx5_td {
-+	struct list_head tirs_list;
-+	u32              tdn;
+-struct mlx5e_tir {
+-	u32              tirn;
++struct mlx5e_rqt {
+ 	u32              rqtn;
+-	struct list_head list;
++	bool		 enabled;
 +};
 +
-+struct mlx5e_resources {
-+	struct mlx5_uar            cq_uar;
-+	u32                        pdn;
-+	struct mlx5_td             td;
-+	struct mlx5_core_mkey      mkey;
-+};
++struct mlx5e_tir {
++	u32		  tirn;
++	struct mlx5e_rqt  rqt;
++	struct list_head  list;
+ };
+ 
+ enum {
+@@ -576,7 +581,7 @@ struct mlx5e_priv {
+ 
+ 	struct mlx5e_channel     **channel;
+ 	u32                        tisn[MLX5E_MAX_NUM_TC];
+-	u32                        indir_rqtn;
++	struct mlx5e_rqt           indir_rqt;
+ 	struct mlx5e_tir           indir_tir[MLX5E_NUM_INDIR_TIRS];
+ 	struct mlx5e_tir           direct_tir[MLX5E_MAX_NUM_CHANNELS];
+ 	u32                        tx_rates[MLX5E_MAX_NUM_SQS];
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 877cf68..7c5c477 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -898,7 +898,7 @@ static int mlx5e_set_rxfh(struct net_device *dev, const u32 *indir,
+ 	mutex_lock(&priv->state_lock);
+ 
+ 	if (indir) {
+-		u32 rqtn = priv->indir_rqtn;
++		u32 rqtn = priv->indir_rqt.rqtn;
+ 
+ 		memcpy(priv->params.indirection_rqt, indir,
+ 		       sizeof(priv->params.indirection_rqt));
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 808dff4..db890b2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1487,7 +1487,8 @@ static void mlx5e_fill_direct_rqt_rqn(struct mlx5e_priv *priv, void *rqtc,
+ 	MLX5_SET(rqtc, rqtc, rq_num[0], rqn);
+ }
+ 
+-static int mlx5e_create_rqt(struct mlx5e_priv *priv, int sz, int ix, u32 *rqtn)
++static int mlx5e_create_rqt(struct mlx5e_priv *priv, int sz,
++			    int ix, struct mlx5e_rqt *rqt)
+ {
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	void *rqtc;
+@@ -1510,34 +1511,37 @@ static int mlx5e_create_rqt(struct mlx5e_priv *priv, int sz, int ix, u32 *rqtn)
+ 	else
+ 		mlx5e_fill_direct_rqt_rqn(priv, rqtc, ix);
+ 
+-	err = mlx5_core_create_rqt(mdev, in, inlen, rqtn);
++	err = mlx5_core_create_rqt(mdev, in, inlen, &rqt->rqtn);
++	if (!err)
++		rqt->enabled = true;
+ 
+ 	kvfree(in);
+ 	return err;
+ }
+ 
+-static void mlx5e_destroy_rqt(struct mlx5e_priv *priv, u32 rqtn)
++static void mlx5e_destroy_rqt(struct mlx5e_priv *priv, struct mlx5e_rqt *rqt)
+ {
+-	mlx5_core_destroy_rqt(priv->mdev, rqtn);
++	rqt->enabled = false;
++	mlx5_core_destroy_rqt(priv->mdev, rqt->rqtn);
+ }
+ 
+ static int mlx5e_create_rqts(struct mlx5e_priv *priv)
+ {
+ 	int nch = mlx5e_get_max_num_channels(priv->mdev);
+-	u32 *rqtn;
++	struct mlx5e_rqt *rqt;
+ 	int err;
+ 	int ix;
+ 
+ 	/* Indirect RQT */
+-	rqtn = &priv->indir_rqtn;
+-	err = mlx5e_create_rqt(priv, MLX5E_INDIR_RQT_SIZE, 0, rqtn);
++	rqt = &priv->indir_rqt;
++	err = mlx5e_create_rqt(priv, MLX5E_INDIR_RQT_SIZE, 0, rqt);
+ 	if (err)
+ 		return err;
+ 
+ 	/* Direct RQTs */
+ 	for (ix = 0; ix < nch; ix++) {
+-		rqtn = &priv->direct_tir[ix].rqtn;
+-		err = mlx5e_create_rqt(priv, 1 /*size */, ix, rqtn);
++		rqt = &priv->direct_tir[ix].rqt;
++		err = mlx5e_create_rqt(priv, 1 /*size */, ix, rqt);
+ 		if (err)
+ 			goto err_destroy_rqts;
+ 	}
+@@ -1546,9 +1550,9 @@ static int mlx5e_create_rqts(struct mlx5e_priv *priv)
+ 
+ err_destroy_rqts:
+ 	for (ix--; ix >= 0; ix--)
+-		mlx5e_destroy_rqt(priv, priv->direct_tir[ix].rqtn);
++		mlx5e_destroy_rqt(priv, &priv->direct_tir[ix].rqt);
+ 
+-	mlx5e_destroy_rqt(priv, priv->indir_rqtn);
++	mlx5e_destroy_rqt(priv, &priv->indir_rqt);
+ 
+ 	return err;
+ }
+@@ -1559,9 +1563,9 @@ static void mlx5e_destroy_rqts(struct mlx5e_priv *priv)
+ 	int i;
+ 
+ 	for (i = 0; i < nch; i++)
+-		mlx5e_destroy_rqt(priv, priv->direct_tir[i].rqtn);
++		mlx5e_destroy_rqt(priv, &priv->direct_tir[i].rqt);
+ 
+-	mlx5e_destroy_rqt(priv, priv->indir_rqtn);
++	mlx5e_destroy_rqt(priv, &priv->indir_rqt);
+ }
+ 
+ int mlx5e_redirect_rqt(struct mlx5e_priv *priv, u32 rqtn, int sz, int ix)
+@@ -1599,10 +1603,15 @@ static void mlx5e_redirect_rqts(struct mlx5e_priv *priv)
+ 	u32 rqtn;
+ 	int ix;
+ 
+-	rqtn = priv->indir_rqtn;
+-	mlx5e_redirect_rqt(priv, rqtn, MLX5E_INDIR_RQT_SIZE, 0);
++	if (priv->indir_rqt.enabled) {
++		rqtn = priv->indir_rqt.rqtn;
++		mlx5e_redirect_rqt(priv, rqtn, MLX5E_INDIR_RQT_SIZE, 0);
++	}
 +
- struct mlx5_core_dev {
- 	struct pci_dev	       *pdev;
- 	/* sync pci state */
-@@ -602,6 +614,7 @@ struct mlx5_core_dev {
- 	struct mlx5_profile	*profile;
- 	atomic_t		num_qps;
- 	u32			issi;
-+	struct mlx5e_resources  mlx5e_res;
- #ifdef CONFIG_RFS_ACCEL
- 	struct cpu_rmap         *rmap;
- #endif
+ 	for (ix = 0; ix < priv->params.num_channels; ix++) {
+-		rqtn = priv->direct_tir[ix].rqtn;
++		if (!priv->direct_tir[ix].rqt.enabled)
++			continue;
++		rqtn = priv->direct_tir[ix].rqt.rqtn;
+ 		mlx5e_redirect_rqt(priv, rqtn, 1, ix);
+ 	}
+ }
+@@ -2013,7 +2022,7 @@ static void mlx5e_build_indir_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
+ 	mlx5e_build_tir_ctx_lro(tirc, priv);
+ 
+ 	MLX5_SET(tirc, tirc, disp_type, MLX5_TIRC_DISP_TYPE_INDIRECT);
+-	MLX5_SET(tirc, tirc, indirect_table, priv->indir_rqtn);
++	MLX5_SET(tirc, tirc, indirect_table, priv->indir_rqt.rqtn);
+ 	mlx5e_build_tir_ctx_hash(tirc, priv);
+ 
+ 	switch (tt) {
+@@ -2145,7 +2154,7 @@ static int mlx5e_create_tirs(struct mlx5e_priv *priv)
+ 		tir = &priv->direct_tir[ix];
+ 		tirc = MLX5_ADDR_OF(create_tir_in, in, ctx);
+ 		mlx5e_build_direct_tir_ctx(priv, tirc,
+-					   priv->direct_tir[ix].rqtn);
++					   priv->direct_tir[ix].rqt.rqtn);
+ 		err = mlx5e_create_tir(priv->mdev, tir, in, inlen);
+ 		if (err)
+ 			goto err_destroy_ch_tirs;
 -- 
 2.8.0
