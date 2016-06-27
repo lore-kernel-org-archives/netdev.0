@@ -1,31 +1,48 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/5] Initial SFP support patches
-Date: Mon, 27 Jun 2016 10:41:20 -0400 (EDT)
-Message-ID: <20160627.104120.1202153855235932703.davem@davemloft.net>
-References: <20160623134936.GX1041@n2100.armlinux.org.uk>
+Subject: Re: [PATCH] dsa: mv88e6xxx: hide unused functions
+Date: Mon, 27 Jun 2016 10:43:36 -0400 (EDT)
+Message-ID: <20160627.104336.460514363808844247.davem@davemloft.net>
+References: <20160623141409.356324-1-arnd@arndb.de>
+	<87fus4x760.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org
-To: linux@armlinux.org.uk
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44941 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751706AbcF0Olu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 10:41:50 -0400
-In-Reply-To: <20160623134936.GX1041@n2100.armlinux.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: arnd@arndb.de, andrew@lunn.ch, f.fainelli@gmail.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: vivien.didelot@savoirfairelinux.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <87fus4x760.fsf@ketchup.mtl.sfl>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Russell King - ARM Linux <linux@armlinux.org.uk>
-Date: Thu, 23 Jun 2016 14:49:36 +0100
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Date: Thu, 23 Jun 2016 11:21:27 -0400
 
-> Please review and merge this initial patch set, which is part of a
-> larger set previously posted adding SFP support to phy and mvneta.
+> Hi,
 > 
-> This initial set are focused on cleaning up and reorganising the
-> fixed-phy code to allow the core software-phy code to be re-used.
+> Arnd Bergmann <arnd@arndb.de> writes:
 > 
-> These are based on net-next.
+>> When CONFIG_NET_DSA_HWMON is disabled, we get warnings about two unused
+>> functions whose only callers are all inside of an #ifdef:
+>>
+>> drivers/net/dsa/mv88e6xxx.c:3257:12: 'mv88e6xxx_mdio_page_write' defined but not used [-Werror=unused-function]
+>> drivers/net/dsa/mv88e6xxx.c:3244:12: 'mv88e6xxx_mdio_page_read' defined but not used [-Werror=unused-function]
+>>
+>> This adds another ifdef around the function definitions. The warnings
+>> appeared after the functions were marked 'static', but the problem
+>> was already there before that.
+>>
+>> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+>> Fixes: 57d3231057e9 ("net: dsa: mv88e6xxx: fix style issues")
+> 
+> Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+> 
+> David, this patch is meant for net-next. It applies cleanly *before* my
+> last two submissions:
+> 
+>     1/2 http://patchwork.ozlabs.org/patch/638773/
+>     2/2 http://patchwork.ozlabs.org/patch/638772/
 
-Series applied, thanks.
+Oops, I applied those already.
+
+Arnd, please respin if necessary.
