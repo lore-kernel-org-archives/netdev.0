@@ -1,40 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: 4.4 stable request for net: macb: fix default configuration
- for GMAC on AT91
-Date: Mon, 27 Jun 2016 10:09:47 -0400 (EDT)
-Message-ID: <20160627.100947.1346266322935682261.davem@davemloft.net>
-References: <576BAB64.5050104@atmel.com>
+Subject: Re: [PATCH] net: Fix resetting network_header in
+ neigh_resolve_output and neigh_connected_output
+Date: Mon, 27 Jun 2016 10:10:32 -0400 (EDT)
+Message-ID: <20160627.101032.719251971537230839.davem@davemloft.net>
+References: <1557d0eb9b5.10e107ce3332041.1418466288700186568@abahmed.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Nicolas.FERRE@atmel.com,
-	romain.henriet@l-acoustics.com
-To: cyrille.pitchen@atmel.com
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: ab@abahmed.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:44597 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:44601 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751696AbcF0OKQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 10:10:16 -0400
-In-Reply-To: <576BAB64.5050104@atmel.com>
+	with ESMTP id S1750869AbcF0OLB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 10:11:01 -0400
+In-Reply-To: <1557d0eb9b5.10e107ce3332041.1418466288700186568@abahmed.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Cyrille Pitchen <cyrille.pitchen@atmel.com>
-Date: Thu, 23 Jun 2016 11:27:00 +0200
+From: Abdelrhman Ahmed <ab@abahmed.com>
+Date: Thu, 23 Jun 2016 13:39:24 +0200
 
-> For 4.4 -stable, can you please consider commit:
-> 
-> commit 6bdaa5e9ed39b3b3328f35d218e8ad5a99cfc4d2
-> Author: Nicolas Ferre <nicolas.ferre@atmel.com>
-> Date:   Thu Mar 10 16:44:32 2016 +0100
-> 
->     net: macb: fix default configuration for GMAC on AT91
- ...
-> Without this patch, the macb ethernet controller is always configured to be
-> connected to a RMII phy on sama5dx SoCs. Hence the network doesn't work on
-> boards embedding such SoCs and MII phy.
-> 
-> 
-> A backport to 4.4.13 is below.
+> neigh_resolve_output and neigh_connected_output resets the skb to network_header because of the retry loop and this reset will pull down the data pointer to the network header in the first iteration then hardware header will be added, but it will overwrite any data which is inserted between network header and hardware header (for example by netfilter hooks) only for the first packet(s) before using cached hardware header as neigh_hh_output (which is called for using cached hardware header) does not reset to the network header.
 
-Queued up, thanks.
+Please format your text properly into ~80 character long lines.
