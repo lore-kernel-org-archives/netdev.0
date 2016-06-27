@@ -1,45 +1,59 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: Re: [PATCH net] net: avoid vlan ptype specific match to be leaked
- on real device
-Date: Mon, 27 Jun 2016 11:28:32 +0200
-Message-ID: <1467019712.4606.7.camel@redhat.com>
-References: <20160622105544.GC2068@nanopsycho.orion>
-	 <1466598089.4707.31.camel@redhat.com>
-	 <20160622124050.GD2068@nanopsycho.orion>
-	 <20160626.160608.2073563033978522175.davem@davemloft.net>
+From: Jiri Benc <jbenc@redhat.com>
+Subject: Re: [PATCH net-next v10 2/5] openvswitch: set skb protocol and
+ mac_len when receiving on internal device
+Date: Mon, 27 Jun 2016 11:35:30 +0200
+Message-ID: <20160627113530.00b6864d@griffin>
+References: <1464848686-7656-1-git-send-email-simon.horman@netronome.com>
+	<1464848686-7656-3-git-send-email-simon.horman@netronome.com>
+	<CAOrHB_Aqdkr-26GxGh=W0AsojOMzDXYf5zif=kaFbWBty5uHKA@mail.gmail.com>
+	<20160607030809.GE31696@vergenet.net>
+	<CAOrHB_Cp4bw1beQb8tCk+cR9k2Nv5kBMVD-a8SYRVkOeeQYJvA@mail.gmail.com>
+	<20160617055331.GA24833@vergenet.net>
+	<CAOrHB_BWfLk8yba2XkF43Hm-czGUZnVWQQ=HW3-vvpFEH7GNpA@mail.gmail.com>
+	<20160621022458.GA28358@vergenet.net>
+	<CAOrHB_B2mUqUOgwZroRqaYwsHCKd-Vj5nMWMvPxfF=quxhJ2cA@mail.gmail.com>
+	<20160623020436.GA28594@vergenet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jiri@resnulli.us, netdev@vger.kernel.org, jiri@mellanox.com,
-	aduyck@mirantis.com, edumazet@google.com, daniel@iogearbox.net
-To: David Miller <davem@davemloft.net>
+Cc: pravin shelar <pshelar@ovn.org>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	ovs dev <dev@openvswitch.org>
+To: Simon Horman <simon.horman@netronome.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:36952 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:54394 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751215AbcF0J2g (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jun 2016 05:28:36 -0400
-In-Reply-To: <20160626.160608.2073563033978522175.davem@davemloft.net>
+	id S1750736AbcF0Jff (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2016 05:35:35 -0400
+In-Reply-To: <20160623020436.GA28594@vergenet.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, 2016-06-26 at 16:06 -0400, David Miller wrote:
-> From: Jiri Pirko <jiri@resnulli.us>
-> Date: Wed, 22 Jun 2016 14:40:50 +0200
+On Thu, 23 Jun 2016 11:04:38 +0900, Simon Horman wrote:
+> I think you are right as IIRC the call to skb_reset_mac_header was
+> added for this use-case. Its unfortunate that we can't use it in
+> internal_dev_xmit() because of loosing track of MPLS as you mentioned
+> earlier. But it does seem that setting mac_header to ~0 works well
+> in conjunction with updates to OvS posted earlier in this sub-therad.
 > 
-> > The patch only unified the behaviour so everyone know what to expect
-> > regardless of the device type.
-> 
-> +1
-> 
-> And reverting this behavior back is going to hurt more people than it
-> will help, so I am not going to apply this, sorry.
+> I have the following working. Jiri, is the ip_gre portion acceptable to you?
 
-Would a /proc/net/vlan sysctl to control the switch from the new to the
-old behavior (with default to the new) make this acceptable ?
+Sorry for the late reply, I was off the last week.
 
-Recent users will not be affected, and users of the old behavior could
-manage kernel upgrade without breaking their applications. 
+> diff --git a/net/ipv4/ip_gre.c b/net/ipv4/ip_gre.c
+> index 58d323289872..e6772b6934a3 100644
+> --- a/net/ipv4/ip_gre.c
+> +++ b/net/ipv4/ip_gre.c
+> @@ -279,7 +279,7 @@ static int __ipgre_rcv(struct sk_buff *skb, const struct tnl_ptk_info *tpi,
+>  		if (tunnel->dev->type != ARPHRD_NONE)
+>  			skb_pop_mac_header(skb);
+>  		else
+> -			skb_reset_mac_header(skb);
+> +			skb->mac_header = (typeof(skb->mac_header))~0U;
 
-Thank you,
+Looks good. We should introduce a helper for this, though
+(skb_unset_mac_header or so).
 
-Paolo
+Thanks!
+
+ Jiri
