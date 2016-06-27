@@ -1,31 +1,46 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] Enable use of extra debugging information
-Date: Mon, 27 Jun 2016 10:52:46 -0700
-Message-ID: <20160627105246.5297368b@xeon-e3>
-References: <1466551629-7921-1-git-send-email-dsa@cumulusnetworks.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH v2 net-next] tcp: md5: use kmalloc() backed scratch areas
+Date: Mon, 27 Jun 2016 10:58:42 -0700
+Message-ID: <CALCETrUSi3T5JXMunEO9RM5ZEz=aA2xtf9encEVYGxJF4mbhKg@mail.gmail.com>
+References: <CALCETrXezCXy4N7wMjYdr+U1A9Avda5bVxTxOQZswinh62gbvw@mail.gmail.com>
+ <1466827910.6850.123.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1466828771.6850.124.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1466829439.6850.126.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1466870975.6850.139.camel@edumazet-glaptop3.roam.corp.google.com> <1467046313.6850.171.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Network Development <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f52.google.com ([209.85.220.52]:35328 "EHLO
-	mail-pa0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751638AbcF0Rwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 13:52:32 -0400
-Received: by mail-pa0-f52.google.com with SMTP id hl6so61019037pac.2
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 10:52:32 -0700 (PDT)
-In-Reply-To: <1466551629-7921-1-git-send-email-dsa@cumulusnetworks.com>
+Received: from mail-vk0-f50.google.com ([209.85.213.50]:34609 "EHLO
+	mail-vk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751639AbcF0R7C (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 13:59:02 -0400
+Received: by mail-vk0-f50.google.com with SMTP id c2so211926561vkg.1
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 10:59:02 -0700 (PDT)
+In-Reply-To: <1467046313.6850.171.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 21 Jun 2016 16:27:09 -0700
-David Ahern <dsa@cumulusnetworks.com> wrote:
+On Mon, Jun 27, 2016 at 9:51 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Some arches have virtually mapped kernel stacks, or will soon have.
+>
+> tcp_md5_hash_header() uses an automatic variable to copy tcp header
+> before mangling th->check and calling crypto function, which might
+> be problematic on such arches.
+>
+> David says that using percpu storage is also problematic on non SMP
+> builds.
+>
+> Just use kmalloc() to allocate scratch areas.
 
-> Add -g flag to builds if DEBUG parameter is set. Improves
-> debugging with gdb.
-> 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+Seems reasonable.
 
-I would rather not put this in the upstream repo.
-Developers are free to modify flags as they see fit when debugging.
+I wonder if it's worth switching from ahash to shash, though.  It
+would probably be simpler and faster.
+
+--Andy
