@@ -1,28 +1,29 @@
-From: Stephen Hemminger <shemming@brocade.com>
-Subject: Re: [iproute PATCH] Fix MAC address length check
-Date: Mon, 27 Jun 2016 11:02:11 -0700
-Message-ID: <20160627110211.004f5705@xeon-e3>
-References: <1466589938-14448-1-git-send-email-phil@nwl.cc>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2] man: ip-link: Add vrf type
+Date: Mon, 27 Jun 2016 11:02:27 -0700
+Message-ID: <20160627110227.1e51605e@xeon-e3>
+References: <1466551741-8090-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>
-To: Phil Sutter <phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-000f0801.pphosted.com ([67.231.144.122]:42524 "EHLO
-	mx0a-000f0801.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751638AbcF0SCC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 14:02:02 -0400
-In-Reply-To: <1466589938-14448-1-git-send-email-phil@nwl.cc>
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:34856 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751639AbcF0SCN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 14:02:13 -0400
+Received: by mail-pf0-f181.google.com with SMTP id c2so64114141pfa.2
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 11:02:12 -0700 (PDT)
+In-Reply-To: <1466551741-8090-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, 22 Jun 2016 12:05:38 +0200
-Phil Sutter <phil@nwl.cc> wrote:
+On Tue, 21 Jun 2016 16:29:01 -0700
+David Ahern <dsa@cumulusnetworks.com> wrote:
 
-> I forgot to change the variable in the conditional, too.
+> Add description for vrf type to ip-link man page.
 > 
-> Fixes: 8fe58d58941f4 ("iplink: Check address length via netlink")
-> Signed-off-by: Phil Sutter <phil@nwl.cc>
+> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 
 Applied
