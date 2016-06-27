@@ -1,38 +1,64 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch] qlcnic: use the correct ring in
- qlcnic_83xx_process_rcv_ring_diag()
-Date: Mon, 27 Jun 2016 23:50:29 +0300
-Message-ID: <20160627205029.GA22095@mwanda>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [Patch net] mlx4: set csum_complete_sw bit when fixing complete csum
+Date: Tue, 28 Jun 2016 00:08:30 +0300
+Message-ID: <CAJ3xEMjgb6K1QeWZKNLWJWk4Ch++FmcV-PPWp7VJzWLYSHo8YQ@mail.gmail.com>
+References: <1467051724-8314-1-git-send-email-xiyou.wangcong@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: Dept-GELinuxNICDev@qlogic.com, Sony Chacko <sony.chacko@qlogic.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Netdev List <netdev@vger.kernel.org>,
+	Shani Michaeli <shanim@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Carol L Soto <clsoto@us.ibm.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:33992 "EHLO
+	mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752264AbcF0VIc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 17:08:32 -0400
+Received: by mail-oi0-f65.google.com with SMTP id s17so32910058oih.1
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 14:08:31 -0700 (PDT)
+In-Reply-To: <1467051724-8314-1-git-send-email-xiyou.wangcong@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There is a static checker warning here "warn: mask and shift to zero"
-and the code sets "ring" to zero every time.  From looking at how
-QLCNIC_FETCH_RING_ID() is used in qlcnic_83xx_process_rcv_ring() the
-qlcnic_83xx_hndl() should be removed.
+On Mon, Jun 27, 2016 at 9:22 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> The stack doesn't trust the complete csum by hardware
+> even when it is correct.
 
-Fixes: 4be41e92f7c6 ('qlcnic: 83xx data path routines')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
----
-Not tested.
+Can you explain that a little further?
 
-diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-index 7bd6f25..607bb7d 100644
---- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-+++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c
-@@ -2220,7 +2220,7 @@ void qlcnic_83xx_process_rcv_ring_diag(struct qlcnic_host_sds_ring *sds_ring)
- 	if (!opcode)
- 		return;
- 
--	ring = QLCNIC_FETCH_RING_ID(qlcnic_83xx_hndl(sts_data[0]));
-+	ring = QLCNIC_FETCH_RING_ID(sts_data[0]);
- 	qlcnic_83xx_process_rcv_diag(adapter, ring, sts_data);
- 	desc = &sds_ring->desc_head[consumer];
- 	desc->status_desc_data[0] = cpu_to_le64(STATUS_OWNER_PHANTOM);
+> In the case we fix csum by ourself
+> probably it is safe to just mark it as completed by software.
+
+> This should shut up a kernel warning from netdev_rx_csum_fault()
+> with mlx4 driver for ICMP packets.
+
+can you point/paste the exact warning and how to reproduce that? is
+that as simple as running ping and/or ping6?
+
+> Fixes: f8c6455bb04b ('net/mlx4_en: Extend checksum offloading by CHECKSUM COMPLETE')
+> Cc: Shani Michaeli <shanim@mellanox.com>
+> Cc: Tariq Toukan <tariqt@mellanox.com>
+> Cc: Yishai Hadas <yishaih@mellanox.com>
+> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_rx.c | 1 +
+>  1 file changed, 1 insertion(+)
+>
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> index c1b3a9c..b44c434 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+> @@ -732,6 +732,7 @@ static int check_csum(struct mlx4_cqe *cqe, struct sk_buff *skb, void *va,
+>                 if (get_fixed_ipv6_csum(hw_checksum, skb, hdr))
+>                         return -1;
+>  #endif
+> +       skb->csum_complete_sw = 1;
+>         return 0;
+>  }
+>
+> --
+> 2.1.0
+>
