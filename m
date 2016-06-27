@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 05/16] net/mlx5: Introduce offloads steering namespace
-Date: Mon, 27 Jun 2016 19:07:18 +0300
-Message-ID: <1467043649-28594-6-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 07/16] net/mlx5: E-Switch, Add API to create vport rx rules
+Date: Mon, 27 Jun 2016 19:07:20 +0300
+Message-ID: <1467043649-28594-8-git-send-email-saeedm@mellanox.com>
 References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -9,93 +9,150 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Andy Gospodarek <gospo@cumulusnetworks.com>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	John Fastabend <john.r.fastabend@intel.com>,
-	Amir Vadai <amir@vadai.me>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:36601 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:36612 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752056AbcF0QKj (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jun 2016 12:10:39 -0400
+	id S1751963AbcF0QKr (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2016 12:10:47 -0400
 In-Reply-To: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Add a new namespace (MLX5_FLOW_NAMESPACE_OFFLOADS) to be populated
-with flow steering rules that deal with rules that have have to
-be executed before the EN NIC steering rules are matched.
+Add the API to create vport rx rules of the form
 
-The namespace is located after the bypass name-space and before the
-kernel name-space. Therefore, it precedes the HW processing done for
-rules set for the kernel NIC name-space.
+	packet meta-data :: vport == $VPORT --> $TIR
 
-Under SRIOV, it would allow us to match on e-switch missed packet
-and forward them to the relevant VF representor TIR.
+where the TIR is opened by this VF representor.
+
+This logic will by used for packets that didn't match any rule in the
+e-switch datapath and should be received into the host OS through the
+netdevice that represents the VF they were sent from.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Amir Vadai <amir@vadai.me>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 11 ++++++++++-
- include/linux/mlx5/fs.h                           |  1 +
- 2 files changed, 11 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  4 +
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 85 ++++++++++++++++++++++
+ 2 files changed, 89 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index e912a3d..b040110 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -83,6 +83,11 @@
- #define ANCHOR_NUM_LEVELS 1
- #define ANCHOR_NUM_PRIOS 1
- #define ANCHOR_MIN_LEVEL (BY_PASS_MIN_LEVEL + 1)
-+
-+#define OFFLOADS_MAX_FT 1
-+#define OFFLOADS_NUM_PRIOS 1
-+#define OFFLOADS_MIN_LEVEL (ANCHOR_MIN_LEVEL + 1)
-+
- struct node_caps {
- 	size_t	arr_sz;
- 	long	*caps;
-@@ -98,7 +103,7 @@ static struct init_tree_node {
- 	int num_levels;
- } root_fs = {
- 	.type = FS_TYPE_NAMESPACE,
--	.ar_size = 4,
-+	.ar_size = 5,
- 	.children = (struct init_tree_node[]) {
- 		ADD_PRIO(0, BY_PASS_MIN_LEVEL, 0,
- 			 FS_REQUIRED_CAPS(FS_CAP(flow_table_properties_nic_receive.flow_modify_en),
-@@ -107,6 +112,9 @@ static struct init_tree_node {
- 					  FS_CAP(flow_table_properties_nic_receive.flow_table_modify)),
- 			 ADD_NS(ADD_MULTIPLE_PRIO(MLX5_BY_PASS_NUM_PRIOS,
- 						  BY_PASS_PRIO_NUM_LEVELS))),
-+		ADD_PRIO(0, OFFLOADS_MIN_LEVEL, 0, {},
-+			 ADD_NS(ADD_MULTIPLE_PRIO(OFFLOADS_NUM_PRIOS, OFFLOADS_MAX_FT))),
-+
- 		ADD_PRIO(0, KERNEL_MIN_LEVEL, 0, {},
- 			 ADD_NS(ADD_MULTIPLE_PRIO(1, 1),
- 				ADD_MULTIPLE_PRIO(KERNEL_NIC_NUM_PRIOS,
-@@ -1369,6 +1377,7 @@ struct mlx5_flow_namespace *mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 32db37a..cf959f7 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -157,6 +157,7 @@ enum {
  
- 	switch (type) {
- 	case MLX5_FLOW_NAMESPACE_BYPASS:
-+	case MLX5_FLOW_NAMESPACE_OFFLOADS:
- 	case MLX5_FLOW_NAMESPACE_KERNEL:
- 	case MLX5_FLOW_NAMESPACE_LEFTOVERS:
- 	case MLX5_FLOW_NAMESPACE_ANCHOR:
-diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
-index 4b7a107..6ad1119 100644
---- a/include/linux/mlx5/fs.h
-+++ b/include/linux/mlx5/fs.h
-@@ -54,6 +54,7 @@ static inline void build_leftovers_ft_param(int *priority,
+ struct mlx5_esw_offload {
+ 	struct mlx5_flow_table *ft_offloads;
++	struct mlx5_flow_group *vport_rx_group;
+ };
  
- enum mlx5_flow_namespace_type {
- 	MLX5_FLOW_NAMESPACE_BYPASS,
-+	MLX5_FLOW_NAMESPACE_OFFLOADS,
- 	MLX5_FLOW_NAMESPACE_KERNEL,
- 	MLX5_FLOW_NAMESPACE_LEFTOVERS,
- 	MLX5_FLOW_NAMESPACE_ANCHOR,
+ struct mlx5_eswitch {
+@@ -201,6 +202,9 @@ int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
+ struct mlx5_flow_rule *
+ mlx5_eswitch_add_send_to_vport_rule(struct mlx5_eswitch *esw, int vport, u32 sqn);
+ 
++struct mlx5_flow_rule *
++mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn);
++
+ #define MLX5_DEBUG_ESWITCH_MASK BIT(3)
+ 
+ #define esw_info(dev, format, ...)				\
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 3ca926b..67ff1e8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -245,3 +245,88 @@ static void esw_destroy_offloads_table(struct mlx5_eswitch *esw)
+ 
+ 	mlx5_destroy_flow_table(offloads->ft_offloads);
+ }
++
++static int esw_create_vport_rx_group(struct mlx5_eswitch *esw)
++{
++	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
++	struct mlx5_flow_group *g;
++	struct mlx5_priv *priv = &esw->dev->priv;
++	u32 *flow_group_in;
++	void *match_criteria, *misc;
++	int err = 0;
++	int nvports = priv->sriov.num_vfs + 2;
++
++	flow_group_in = mlx5_vzalloc(inlen);
++	if (!flow_group_in)
++		return -ENOMEM;
++
++	/* create vport rx group */
++	memset(flow_group_in, 0, inlen);
++	MLX5_SET(create_flow_group_in, flow_group_in, match_criteria_enable,
++		 MLX5_MATCH_MISC_PARAMETERS);
++
++	match_criteria = MLX5_ADDR_OF(create_flow_group_in, flow_group_in, match_criteria);
++	misc = MLX5_ADDR_OF(fte_match_param, match_criteria, misc_parameters);
++	MLX5_SET_TO_ONES(fte_match_set_misc, misc, source_port);
++
++	MLX5_SET(create_flow_group_in, flow_group_in, start_flow_index, 0);
++	MLX5_SET(create_flow_group_in, flow_group_in, end_flow_index, nvports - 1);
++
++	g = mlx5_create_flow_group(esw->offloads.ft_offloads, flow_group_in);
++
++	if (IS_ERR(g)) {
++		err = PTR_ERR(g);
++		mlx5_core_warn(esw->dev, "Failed to create vport rx group err %d\n", err);
++		goto out;
++	}
++
++	esw->offloads.vport_rx_group = g;
++out:
++	kfree(flow_group_in);
++	return err;
++}
++
++static void esw_destroy_vport_rx_group(struct mlx5_eswitch *esw)
++{
++	mlx5_destroy_flow_group(esw->offloads.vport_rx_group);
++}
++
++struct mlx5_flow_rule *
++mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn)
++{
++	struct mlx5_flow_destination dest;
++	struct mlx5_flow_rule *flow_rule;
++	int match_header = MLX5_MATCH_MISC_PARAMETERS;
++	u32 *match_v, *match_c;
++	void *misc;
++
++	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
++	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
++	if (!match_v || !match_c) {
++		esw_warn(esw->dev, "Failed to alloc match parameters\n");
++		flow_rule = ERR_PTR(-ENOMEM);
++		goto out;
++	}
++
++	misc = MLX5_ADDR_OF(fte_match_param, match_v, misc_parameters);
++	MLX5_SET(fte_match_set_misc, misc, source_port, vport);
++
++	misc = MLX5_ADDR_OF(fte_match_param, match_c, misc_parameters);
++	MLX5_SET_TO_ONES(fte_match_set_misc, misc, source_port);
++
++	dest.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
++	dest.tir_num = tirn;
++
++	flow_rule = mlx5_add_flow_rule(esw->offloads.ft_offloads, match_header, match_c,
++				       match_v, MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
++				       0, &dest);
++	if (IS_ERR(flow_rule)) {
++		esw_warn(esw->dev, "fs offloads: Failed to add vport rx rule err %ld\n", PTR_ERR(flow_rule));
++		goto out;
++	}
++
++out:
++	kfree(match_v);
++	kfree(match_c);
++	return flow_rule;
++}
 -- 
 2.8.0
