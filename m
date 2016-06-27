@@ -1,178 +1,63 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net-next 9/9] net: hns: get reset registers from DT
-Date: Mon, 27 Jun 2016 17:54:15 +0800
-Message-ID: <1467021255-95900-10-git-send-email-Yisen.Zhuang@huawei.com>
-References: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net-next 0/9] net: hns: fix the typo of hns
+Date: Mon, 27 Jun 2016 17:54:06 +0800
+Message-ID: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
-	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
-	<geliangtang@163.com>, <ivecera@redhat.com>,
-	<fengguang.wu@intel.com>, <charles.chenxin@huawei.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
-	<salil.mehta@huawei.com>, <yankejian@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: ivecera@redhat.com, andrew@lunn.ch, fengguang.wu@intel.com,
+ liguozhu@huawei.com, arnd@arndb.de, charles.chenxin@huawei.com,
+ linux-kernel@vger.kernel.org, linuxarm@huawei.com, geliangtang@163.com,
+ huangdaode@hisilicon.com, netdev@vger.kernel.org,
+ andriy.shevchenko@linux.intel.com, linux-arm-kernel@lists.infradead.org
+To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>, <salil.mehta@huawei.com>,
+ <yankejian@huawei.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Kejian Yan <yankejian@huawei.com>
+This series includes typo fixes which review by Andy, adding
+the hns maintainer to MAINTAINERS,
 
-Since the registers of subctrl may be different, it is better to
-mv the registers from hns mdio driver routine to device tree node.
+ > adds the maintainer for hns driver from Daode;
 
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns_mdio.c | 80 +++++++++++++++++++++++++------
- 1 file changed, 66 insertions(+), 14 deletions(-)
+ > from Daode: fix the typo of hns reviewed by Andy Shevchenko;
 
-diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
-index 761a32f..988ad69 100644
---- a/drivers/net/ethernet/hisilicon/hns_mdio.c
-+++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
-@@ -37,9 +37,19 @@
- 
- #define MDIO_TIMEOUT			1000000
- 
-+struct hns_mdio_sc_reg {
-+	u16 mdio_clk_en;
-+	u16 mdio_clk_dis;
-+	u16 mdio_reset_req;
-+	u16 mdio_reset_dreq;
-+	u16 mdio_clk_st;
-+	u16 mdio_reset_st;
-+};
-+
- struct hns_mdio_device {
- 	void *vbase;		/* mdio reg base address */
- 	struct regmap *subctrl_vbase;
-+	struct hns_mdio_sc_reg sc_reg;
- };
- 
- /* mdio reg */
-@@ -93,7 +103,6 @@ enum mdio_c45_op_seq {
- #define MDIO_SC_CLK_DIS		0x33C
- #define MDIO_SC_RESET_REQ	0xA38
- #define MDIO_SC_RESET_DREQ	0xA3C
--#define MDIO_SC_CTRL		0x2010
- #define MDIO_SC_CLK_ST		0x531C
- #define MDIO_SC_RESET_ST	0x5A1C
- 
-@@ -353,6 +362,7 @@ static int hns_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
- static int hns_mdio_reset(struct mii_bus *bus)
- {
- 	struct hns_mdio_device *mdio_dev = (struct hns_mdio_device *)bus->priv;
-+	const struct hns_mdio_sc_reg *sc_reg;
- 	int ret;
- 
- 	if (dev_of_node(bus->parent)) {
-@@ -361,9 +371,10 @@ static int hns_mdio_reset(struct mii_bus *bus)
- 			return -ENODEV;
- 		}
- 
-+	sc_reg = &mdio_dev->sc_reg;
- 		/* 1. reset req, and read reset st check */
--		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_REQ, 0x1,
--					    MDIO_SC_RESET_ST, 0x1,
-+	ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_reset_req, 0x1,
-+				    sc_reg->mdio_reset_st, 0x1,
- 					    MDIO_CHECK_SET_ST);
- 		if (ret) {
- 			dev_err(&bus->dev, "MDIO reset fail\n");
-@@ -371,8 +382,8 @@ static int hns_mdio_reset(struct mii_bus *bus)
- 		}
- 
- 		/* 2. dis clk, and read clk st check */
--		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_DIS,
--					    0x1, MDIO_SC_CLK_ST, 0x1,
-+	ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_clk_dis,
-+				    0x1, sc_reg->mdio_clk_st, 0x1,
- 					    MDIO_CHECK_CLR_ST);
- 		if (ret) {
- 			dev_err(&bus->dev, "MDIO dis clk fail\n");
-@@ -380,8 +391,8 @@ static int hns_mdio_reset(struct mii_bus *bus)
- 		}
- 
- 		/* 3. reset dreq, and read reset st check */
--		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_DREQ, 0x1,
--					    MDIO_SC_RESET_ST, 0x1,
-+	ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_reset_dreq, 0x1,
-+				    sc_reg->mdio_reset_st, 0x1,
- 					    MDIO_CHECK_CLR_ST);
- 		if (ret) {
- 			dev_err(&bus->dev, "MDIO dis clk fail\n");
-@@ -389,8 +400,8 @@ static int hns_mdio_reset(struct mii_bus *bus)
- 		}
- 
- 		/* 4. en clk, and read clk st check */
--		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_EN,
--					    0x1, MDIO_SC_CLK_ST, 0x1,
-+	ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_clk_en,
-+				    0x1, sc_reg->mdio_clk_st, 0x1,
- 					    MDIO_CHECK_SET_ST);
- 		if (ret)
- 			dev_err(&bus->dev, "MDIO en clk fail\n");
-@@ -458,13 +469,54 @@ static int hns_mdio_probe(struct platform_device *pdev)
- 	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%s-%s", "Mii",
- 		 dev_name(&pdev->dev));
- 	if (dev_of_node(&pdev->dev)) {
--		mdio_dev->subctrl_vbase = syscon_node_to_regmap(
--			of_parse_phandle(pdev->dev.of_node,
--					 "subctrl-vbase", 0));
--		if (IS_ERR(mdio_dev->subctrl_vbase)) {
--			dev_warn(&pdev->dev, "no syscon hisilicon,peri-c-subctrl\n");
-+		struct of_phandle_args reg_args;
-+
-+		ret = of_parse_phandle_with_fixed_args(pdev->dev.of_node,
-+						       "subctrl-vbase",
-+						       4,
-+						       0,
-+						       &reg_args);
-+		if (!ret) {
-+			mdio_dev->subctrl_vbase =
-+				syscon_node_to_regmap(reg_args.np);
-+			if (IS_ERR(mdio_dev->subctrl_vbase)) {
-+				dev_warn(&pdev->dev, "syscon_node_to_regmap error\n");
-+				mdio_dev->subctrl_vbase = NULL;
-+			} else {
-+				if (reg_args.args_count == 4) {
-+					mdio_dev->sc_reg.mdio_clk_en =
-+						(u16)reg_args.args[0];
-+					mdio_dev->sc_reg.mdio_clk_dis =
-+						(u16)reg_args.args[0] + 4;
-+					mdio_dev->sc_reg.mdio_reset_req =
-+						(u16)reg_args.args[1];
-+					mdio_dev->sc_reg.mdio_reset_dreq =
-+						(u16)reg_args.args[1] + 4;
-+					mdio_dev->sc_reg.mdio_clk_st =
-+						(u16)reg_args.args[2];
-+					mdio_dev->sc_reg.mdio_reset_st =
-+						(u16)reg_args.args[3];
-+				} else {
-+					/* for compatible */
-+					mdio_dev->sc_reg.mdio_clk_en =
-+						MDIO_SC_CLK_EN;
-+					mdio_dev->sc_reg.mdio_clk_dis =
-+						MDIO_SC_CLK_DIS;
-+					mdio_dev->sc_reg.mdio_reset_req =
-+						MDIO_SC_RESET_REQ;
-+					mdio_dev->sc_reg.mdio_reset_dreq =
-+						MDIO_SC_RESET_DREQ;
-+					mdio_dev->sc_reg.mdio_clk_st =
-+						MDIO_SC_CLK_ST;
-+					mdio_dev->sc_reg.mdio_reset_st =
-+						MDIO_SC_RESET_ST;
-+				}
-+			}
-+		} else {
-+			dev_warn(&pdev->dev, "find syscon ret = %#x\n", ret);
- 			mdio_dev->subctrl_vbase = NULL;
- 		}
-+
- 		ret = of_mdiobus_register(new_bus, pdev->dev.of_node);
- 	} else if (is_acpi_node(pdev->dev.fwnode)) {
- 		/* Clear all the IRQ properties */
+ > from Kejian: one remove redundant function and two fix to get 
+configuration from DT.
+
+Daode Huang (6):
+  MAINTAINERS: add maintainers for hns driver
+  net: hns: fix code style about hns driver
+  net: hns: change code style from a = a + x to a += x
+  net: hns: delete redundant parens
+  net: hns: add a space before "*/"
+  net: hns: normalize two different loop
+
+Kejian Yan (3):
+  net: hns: remove redundant hns_mac_dev_to_enet_if()
+  net: hns: add media-type property for hns
+  net: hns: get reset registers from DT
+
+ MAINTAINERS                                        |  9 +++
+ drivers/net/ethernet/hisilicon/hns/hnae.h          |  9 +++
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |  1 +
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 41 +++++++----
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |  1 +
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 52 +++++++-------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 16 ++---
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      |  4 +-
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   | 14 +++-
+ drivers/net/ethernet/hisilicon/hns_mdio.c          | 80 ++++++++++++++++++----
+ 10 files changed, 158 insertions(+), 69 deletions(-)
+
 -- 
 1.9.1
