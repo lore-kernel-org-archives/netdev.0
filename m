@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 06/16] net/mlx5: E-Switch, Add offloads table
-Date: Mon, 27 Jun 2016 19:07:19 +0300
-Message-ID: <1467043649-28594-7-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 05/16] net/mlx5: Introduce offloads steering namespace
+Date: Mon, 27 Jun 2016 19:07:18 +0300
+Message-ID: <1467043649-28594-6-git-send-email-saeedm@mellanox.com>
 References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -9,91 +9,93 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Andy Gospodarek <gospo@cumulusnetworks.com>,
 	Jesse Brandeburg <jesse.brandeburg@intel.com>,
 	John Fastabend <john.r.fastabend@intel.com>,
+	Amir Vadai <amir@vadai.me>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:36583 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:36601 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752056AbcF0QKY (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jun 2016 12:10:24 -0400
+	id S1752056AbcF0QKj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2016 12:10:39 -0400
 In-Reply-To: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Belongs to the NIC offloads name-space, and to be used as part of the
-SRIOV offloads logic to steer packets that hit the e-switch miss rule
-to the TIR of the relevant VF representor.
+Add a new namespace (MLX5_FLOW_NAMESPACE_OFFLOADS) to be populated
+with flow steering rules that deal with rules that have have to
+be executed before the EN NIC steering rules are matched.
+
+The namespace is located after the bypass name-space and before the
+kernel name-space. Therefore, it precedes the HW processing done for
+rules set for the kernel NIC name-space.
+
+Under SRIOV, it would allow us to match on e-switch missed packet
+and forward them to the relevant VF representor TIR.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Amir Vadai <amir@vadai.me>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  5 ++++
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 31 ++++++++++++++++++++++
- 2 files changed, 36 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 11 ++++++++++-
+ include/linux/mlx5/fs.h                           |  1 +
+ 2 files changed, 11 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index b7fabd1..32db37a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -155,6 +155,10 @@ enum {
- 	SRIOV_OFFLOADS
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index e912a3d..b040110 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -83,6 +83,11 @@
+ #define ANCHOR_NUM_LEVELS 1
+ #define ANCHOR_NUM_PRIOS 1
+ #define ANCHOR_MIN_LEVEL (BY_PASS_MIN_LEVEL + 1)
++
++#define OFFLOADS_MAX_FT 1
++#define OFFLOADS_NUM_PRIOS 1
++#define OFFLOADS_MIN_LEVEL (ANCHOR_MIN_LEVEL + 1)
++
+ struct node_caps {
+ 	size_t	arr_sz;
+ 	long	*caps;
+@@ -98,7 +103,7 @@ static struct init_tree_node {
+ 	int num_levels;
+ } root_fs = {
+ 	.type = FS_TYPE_NAMESPACE,
+-	.ar_size = 4,
++	.ar_size = 5,
+ 	.children = (struct init_tree_node[]) {
+ 		ADD_PRIO(0, BY_PASS_MIN_LEVEL, 0,
+ 			 FS_REQUIRED_CAPS(FS_CAP(flow_table_properties_nic_receive.flow_modify_en),
+@@ -107,6 +112,9 @@ static struct init_tree_node {
+ 					  FS_CAP(flow_table_properties_nic_receive.flow_table_modify)),
+ 			 ADD_NS(ADD_MULTIPLE_PRIO(MLX5_BY_PASS_NUM_PRIOS,
+ 						  BY_PASS_PRIO_NUM_LEVELS))),
++		ADD_PRIO(0, OFFLOADS_MIN_LEVEL, 0, {},
++			 ADD_NS(ADD_MULTIPLE_PRIO(OFFLOADS_NUM_PRIOS, OFFLOADS_MAX_FT))),
++
+ 		ADD_PRIO(0, KERNEL_MIN_LEVEL, 0, {},
+ 			 ADD_NS(ADD_MULTIPLE_PRIO(1, 1),
+ 				ADD_MULTIPLE_PRIO(KERNEL_NIC_NUM_PRIOS,
+@@ -1369,6 +1377,7 @@ struct mlx5_flow_namespace *mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
  
-+struct mlx5_esw_offload {
-+	struct mlx5_flow_table *ft_offloads;
-+};
-+
- struct mlx5_eswitch {
- 	struct mlx5_core_dev    *dev;
- 	struct mlx5_l2_table    l2_table;
-@@ -169,6 +173,7 @@ struct mlx5_eswitch {
- 	 */
- 	struct mutex            state_lock;
- 	struct esw_mc_addr      *mc_promisc;
-+	struct mlx5_esw_offload offloads;
- 	int                     mode;
- };
+ 	switch (type) {
+ 	case MLX5_FLOW_NAMESPACE_BYPASS:
++	case MLX5_FLOW_NAMESPACE_OFFLOADS:
+ 	case MLX5_FLOW_NAMESPACE_KERNEL:
+ 	case MLX5_FLOW_NAMESPACE_LEFTOVERS:
+ 	case MLX5_FLOW_NAMESPACE_ANCHOR:
+diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
+index 4b7a107..6ad1119 100644
+--- a/include/linux/mlx5/fs.h
++++ b/include/linux/mlx5/fs.h
+@@ -54,6 +54,7 @@ static inline void build_leftovers_ft_param(int *priority,
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index a8be43d..3ca926b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -214,3 +214,34 @@ void esw_destroy_offloads_fdb_table(struct mlx5_eswitch *esw)
- 
- 	mlx5_destroy_flow_table(esw->fdb_table.fdb);
- }
-+
-+static int esw_create_offloads_table(struct mlx5_eswitch *esw)
-+{
-+	struct mlx5_flow_namespace *ns;
-+	struct mlx5_flow_table *ft_offloads;
-+	struct mlx5_core_dev *dev = esw->dev;
-+	int err = 0;
-+
-+	ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_OFFLOADS);
-+	if (!ns) {
-+		esw_warn(esw->dev, "Failed to get offloads flow namespace\n");
-+		return -ENOMEM;
-+	}
-+
-+	ft_offloads = mlx5_create_flow_table(ns, 0, dev->priv.sriov.num_vfs + 2, 0);
-+	if (IS_ERR(ft_offloads)) {
-+		err = PTR_ERR(ft_offloads);
-+		esw_warn(esw->dev, "Failed to create offloads table, err %d\n", err);
-+		return err;
-+	}
-+
-+	esw->offloads.ft_offloads = ft_offloads;
-+	return 0;
-+}
-+
-+static void esw_destroy_offloads_table(struct mlx5_eswitch *esw)
-+{
-+	struct mlx5_esw_offload *offloads = &esw->offloads;
-+
-+	mlx5_destroy_flow_table(offloads->ft_offloads);
-+}
+ enum mlx5_flow_namespace_type {
+ 	MLX5_FLOW_NAMESPACE_BYPASS,
++	MLX5_FLOW_NAMESPACE_OFFLOADS,
+ 	MLX5_FLOW_NAMESPACE_KERNEL,
+ 	MLX5_FLOW_NAMESPACE_LEFTOVERS,
+ 	MLX5_FLOW_NAMESPACE_ANCHOR,
 -- 
 2.8.0
