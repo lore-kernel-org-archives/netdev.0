@@ -1,60 +1,146 @@
-From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
-Subject: Re: [PATCH] rtlwifi: Add missing newlines to RT_TRACE calls
-Date: Sun, 26 Jun 2016 20:49:01 -0500
-Message-ID: <5770860D.8040607@lwfinger.net>
-References: <5677791872bfb47963780c198c825d882456720f.1466969647.git.joe@perches.com>
- <577070D9.5080503@lwfinger.net> <1466990029.1847.74.camel@perches.com>
- <1466990779.1847.78.camel@perches.com>
+From: Roopa Prabhu <roopa@cumulusnetworks.com>
+Subject: Re: [patch net-next v5 0/4] return offloaded stats as default and
+ expose original sw stats
+Date: Sun, 26 Jun 2016 19:53:53 -0700
+Message-ID: <CAJieiUgjfO-J_uUVV6VVS8ar1Fg8wMJwcmaemu==Su3DospLTA@mail.gmail.com>
+References: <1466522156-4795-1-git-send-email-jiri@resnulli.us>
+ <CAJieiUgP3j=W=khq_q-y382eFurHQSCs_Td8Q_KHtru6La22XA@mail.gmail.com>
+ <20160623054050.GA2060@nanopsycho.orion> <576BC7A7.2000704@cumulusnetworks.com>
+ <20160623113508.GE2060@nanopsycho.orion> <CACcJQnTfr5n75q48aJQ3bwzfCd9oThTCHcR_qWG7R9aV13pOQw@mail.gmail.com>
+ <20160623154038.GH2060@nanopsycho.orion> <CAJieiUjsMHdTbhGqyo+8ys7S5QZ9KYvTY+LDC-bbo6dRk3FBRw@mail.gmail.com>
+ <20160626093334.GA1984@nanopsycho.orion> <577019B0.9080708@cumulusnetworks.com>
+ <20160626181546.GA1938@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
-	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1466990779.1847.78.camel-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Anuradha Karuppiah <anuradhak@cumulusnetworks.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	Nogah Frankel <nogahf@mellanox.com>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Elad Raz <eladr@mellanox.com>,
+	Yotam Gigi <yotamg@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	John Linville <linville@tuxdriver.com>,
+	Thomas Graf <tgraf@suug.ch>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>, sd@queasysnail.net,
+	eranbe@mellanox.com, Alexei Starovoitov <ast@plumgrid.com>,
+	Eric Dumazet <edumazet@google.com>,
+	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	David Ahern <dsa@cumulusnetworks.com>
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f47.google.com ([209.85.213.47]:35652 "EHLO
+	mail-vk0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751634AbcF0Cxz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 26 Jun 2016 22:53:55 -0400
+Received: by mail-vk0-f47.google.com with SMTP id j2so215602927vkg.2
+        for <netdev@vger.kernel.org>; Sun, 26 Jun 2016 19:53:54 -0700 (PDT)
+In-Reply-To: <20160626181546.GA1938@nanopsycho.orion>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/26/2016 08:26 PM, Joe Perches wrote:
-> On Sun, 2016-06-26 at 18:13 -0700, Joe Perches wrote:
->> On Sun, 2016-06-26 at 19:18 -0500, Larry Finger wrote:
+On Sun, Jun 26, 2016 at 11:15 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+> Sun, Jun 26, 2016 at 08:06:40PM CEST, roopa@cumulusnetworks.com wrote:
+>>On 6/26/16, 2:33 AM, Jiri Pirko wrote:
+>>> Sat, Jun 25, 2016 at 05:50:59PM CEST, roopa@cumulusnetworks.com wrote:
+>>>> On Thu, Jun 23, 2016 at 8:40 AM, Jiri Pirko <jiri@resnulli.us> wrote:
+>>>>> Thu, Jun 23, 2016 at 05:11:26PM CEST, anuradhak@cumulusnetworks.com wrote:
+>>>>>>>>>> we can't separate CPU and HW stats there. In some cases (or ASICs) HW
+>>>>>>>>>> counters do
+>>>>>>>>>> not include CPU generated packets....you will have to add CPU
+>>>>>>>>>> generated pkt counters to the
+>>>>>>>>>> hw counters for such virtual device stats.
+>>>>>>>>> Can you please provide and example how that could happen?
+>>>>>>>> example is the bridge vlan stats I mention below. These are usually counted
+>>>>>>>> by attaching hw virtual counter resources. And CPU generated packets
+>>>>>>>> in some cases maybe setup to bypass the ASIC pipeline because the CPU
+>>>>>>>> has already made the required decisions. So, they may not be counted by
+>>>>>>>> by such hw virtual counters.
+>>>>>>> Bypass ASIC? How do the packets get on the wire?
+>>>>>>>
+>>>>>> Bypass the "forwarding pipeline" in the ASIC that is. Obviously the
+>>>>>> ASIC ships the CPU generated packet out of the switch/front-panel
+>>>>>> port. Continuing Roopa's example of vlan netdev stats.... To get the
+>>>>>> HW stats counters are typically tied to the ingress and egress vlan hw
+>>>>>> entries. All the incoming packets are subject to the ingress vlan
+>>>>>> lookup irrespective of whether they get punted to the CPU or whether
+>>>>>> they are forwarded to another front panel port. In that case the
+>>>>>> ingress HW stats does represent all packets. However for CPU
+>>>>>> originated packets egress vlan lookups are bypassed in the ASIC (this
+>>>>>> is common forwarding option in most ASICs) and the packet shipped as
+>>>>>> is out of front-panel port specified by the CPU. Which means these
+>>>>>> packets will NOT be counted against the egress VLAN HW counter; hence
+>>>>>> the need for summation.
+>>>>> Driver will know about this, and will provide the stats accordignly to
+>>>>> the core. Who else than driver should resolve this.
+>>>>>
+>>>> The point was/is that there should be only two categories:
+>>>> 1) the base default stats: can contain 'only sw', 'only hw' or 'a
+>>>> summation of hw and sw' in some cases.
+>>>> The user does not care about the breakdown.
+>>>>
+>>>> 2) everything else falls into the second category: driver provided
+>>>> breakdown of stats for easier debugging.
+>>>> This today is ethtool stats and we can have an equivalent nested
+>>>> attribute for this in the new stats api.
+>>>> Lets call it IFLA_STATS_LINK_DRIVER or you pick a name. Lets make it
+>>>> nested and extensible (like ethtool is) and
+>>>> driver can expose any kind of stats there.
+>>>> ie lets move the stats you are proposing to this category of stats.....
+>>>> instead of introducing a third category 'SW stats'.
+>>> What you are proposing is essentially what our patchset does. We expose
+>>> 2 sets of stats. hw and pure sw. hw includes all, driver will take
+>>> care of it cause he knows what is going on in hw.
+>>the splitting into hw and sw is causing some confusion with respect
+>
+> I still don't get why you are talking about split :( I see no split.
+>
+>
+>>to existing stats and will be confusing for future stats. And i am not sure how many
+>>users would prefer the split this way.
+>>So, instead of doing the split, i think we should at this time introduce
+>>driver specific stats (like ethtool) as a nested netlink attribute.
+>
+> The default netlink stats should be hw (or accumulated as you call it).
+> The reason is to avoid confusion for existing apps. Another attribute is
+> possible for more break-out stats - that is what this patchset is doing.
+>
+> Ethtool stats are wrong and useless for apps as they are driver-specific.
+
+apps only care about overall stats. thats the aggregate stats
+provided by the default netlink netdev api to the user...which already exists.
+
+they don't care about your new breakdown either.
+
+breakdown of stats are used for debugging and thats what ethtool stats provide.
+
+
+
+>
+>
 >>>
->>> On 06/26/2016 02:34 PM, Joe Perches wrote:
->>>>
->>>>
->>>> RT_TRACE does not add a newline to the end of a message and always
->>>> emits at KERN_DEBUG so these are susceptible to message
->>>> interleaving
->>>> from other processes without the newline.
->>>>
->>>> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
->>>> ---
->>> This patch does not apply to the wireless-drivers-next repo. Which
->>> one
->>> did you use?
->> linux-next
+>>> Btw mirroring random string stats into Netlink is not a good idea IMO.
+>>Any reason you say that ?. I am thinking it would be much easier with netlink.
+>>keeping it simple, it is a nested attribute with stat-name and value pair.
+>>
+>>struct stat {
+>>    char stats_name[STATS_NAME_LEN];    /* STATS_NAME_LEN = 32 */
+>>    __u64 stat;
+>>};
 >
-> btw: both patches seem to apply to wireless-drivers-next just fine.
+> No please. This should be well defined generic group of stats.
+> Driver-specific names/stats stats are wrong.
 >
-> $ git rev-parse HEAD
-> 1bb57c8a5e33bcbec031ce0c629968922d5af89d
-> $ git am ../next/0001-rtlwifi-Create-_rtl_dbg_trace-function-to-reduce-RT_.patch
-> Applying: rtlwifi: Create _rtl_dbg_trace function to reduce RT_TRACE code size
-> $ git am ../next/0001-rtlwifi-Add-missing-newlines-to-RT_TRACE-calls.patch
-> Applying: rtlwifi: Add missing newlines to RT_TRACE calls
 
-The conflict is with the set of 10 patches I sent out yesterday. As I have to 
-update them anyway, I will apply yours first, then do mine. That should resolve 
-the problem.
+they are meant for debugging. are you saying the new stats api should
+not contain 'ethtool like' stats ?
 
-Larry
+ethtool stats are very valuable today. They are extensible.
+They cannot be made generic and they are specific to a hardware or use case.
 
-
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+We use it for our switch port stats too. Base aggregate stats summed
+up and provided as default netdev stats. via ethtool we provide lot
+more hardware specific breakdown.
