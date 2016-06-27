@@ -1,39 +1,32 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH ethtool] ethtool.c: fix memory leaks
-Date: Mon, 27 Jun 2016 09:59:00 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4E502E@AcuExch.aculab.com>
-References: <1458303855-4976-1-git-send-email-ivecera@redhat.com>
- <1466931551.2504.29.camel@decadent.org.uk>
- <9365ac33-5c0d-9afe-bf2a-e83790f11b74@redhat.com>
+From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
+Subject: Re: [PATCH RFC 3/3] ARM64: dts: meson-gxbb: use the new meson8b DWMAC glue
+Date: Mon, 27 Jun 2016 12:44:13 +0200
+Message-ID: <CAFBinCB6i2-ZUDupAXUZkQO9y93rtCvguD_avdY=Ze72wxQKpw@mail.gmail.com>
+References: <20160625165013.15917-1-martin.blumenstingl@googlemail.com>
+ <20160625165013.15917-4-martin.blumenstingl@googlemail.com> <20160627092448.GA3275@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "bwh@kernel.org" <bwh@kernel.org>
-To: 'Ivan Vecera' <ivecera@redhat.com>,
-	Ben Hutchings <ben@decadent.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: linux-amlogic@lists.infradead.org, mark.rutland@arm.com,
+	khilman@baylibre.com, robh+dt@kernel.org, netdev@vger.kernel.org,
+	peppe.cavallaro@st.com
+To: Carlo Caione <carlo@caione.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp-out6.electric.net ([192.162.217.181]:56126 "EHLO
-	smtp-out6.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751696AbcF0KB1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 06:01:27 -0400
-In-Reply-To: <9365ac33-5c0d-9afe-bf2a-e83790f11b74@redhat.com>
-Content-Language: en-US
+Received: from mail-wm0-f44.google.com ([74.125.82.44]:38177 "EHLO
+	mail-wm0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750870AbcF0Koe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 06:44:34 -0400
+Received: by mail-wm0-f44.google.com with SMTP id r201so108940093wme.1
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 03:44:33 -0700 (PDT)
+In-Reply-To: <20160627092448.GA3275@localhost>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogSXZhbiBWZWNlcmENCj4gU2VudDogMjcgSnVuZSAyMDE2IDEwOjQxDQo+IE9uIDI2LjYu
-MjAxNiAxMDo1OSwgQmVuIEh1dGNoaW5ncyB3cm90ZToNCj4gPiBPbiBGcmksIDIwMTYtMDMtMTgg
-YXQgMTM6MjQgKzAxMDAsIEl2YW4gVmVjZXJhIHdyb3RlOg0KPiA+PiBNZW1vcnkgYWxsb2NhdGVk
-IGF0IHNldmVyYWwgcGxhY2VzIGlzIG5vdCBhcHByb3ByaWF0ZWx5IGZyZWVkLg0KPiA+DQo+ID4g
-R2l2ZW4gdGhhdCBldGh0b29sIGlzIG5vdCBhIGxpYnJhcnkgb3IgYSBsb25nLXJ1bm5pbmcgYXBw
-bGljYXRpb24gLSB3aHkNCj4gPiBkb2VzIHRoYXQgbWF0dGVyPw0KPiA+DQo+ID4gQmVuLg0KPiAN
-Cj4gQmVjYXVzZSBlYWNoIGRlY2VudGx5IHdyaXR0ZW4gcHJvZ3JhbSBzaG91bGQgY2xlYW4gdXAu
-IFN1cmUgdGhlIGtlcm5lbA0KPiB3aWxsIHRha2UgY2FyZSBhYm91dCBpdCBhZnRlciBleGl0IGJ1
-dCB3ZSBjYW5ub3QgYWNjZXB0IHRoZSBmYWN0IHRoYXQNCj4gc2hvcnQtcnVubmluZyBhcHBsaWNh
-dGlvbnMgY2FuIGJlaGF2ZSBsaWtlIGEgcGlnLg0KDQpJdCByZWFsbHkgZG9lc24ndCBtYXR0ZXIg
-ZXhjZXB0IGZvciBtZW1vcnkgdGhhdCBtaWdodCBiZSBhbGxvY2F0ZWQNCnJlcGVhdGVkbHkuDQpU
-aGUgcmlza3Mgb2YgZ2V0dGluZyBpdCB3cm9uZyBwcm9iYWJseSBvdXR3YXkgYW55IG1pbm9yIGJl
-bmVmaXQuDQoNCmZyZWUoKSBpcyBhbHNvIHVubGlrZWx5IHRvIHJlZHVjZSB0aGUgcHJvZ3JhbSBz
-aXplICh0byBkbyBzbyB3b3VsZCByZXF1aXJlDQphIHN5c3RlbSBjYWxsIGFuZCBUTEIgZmx1c2gg
-b24gdG9wIG9mIGV2ZXJ5dGhpbmcgZWxzZSkuDQoNCglEYXZpZA0K
+On Mon, Jun 27, 2016 at 11:24 AM, Carlo Caione <carlo@caione.org> wrote:
+> A syscon is a region containing a set of miscellaneous registers used
+> for several reasons by several devices [1]. It this case there is really
+> no need to define a new syscon node since those two registers are only
+> used by your driver.
+I can easily change it back if that's the way to go.
+Before I do that: could you please confirm that "mp2_clk_out" (which
+is controlled by PRG_ETH0/offset 0x0 bits 7-9) is not something which
+has to be available through the common clk framework?
