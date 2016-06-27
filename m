@@ -1,89 +1,101 @@
-From: David Decotigny <decot@googlers.com>
-Subject: Re: [ethtool PATCH v2 4/4] ethtool: Enhancing link mode bits to
- support 25G/50G/100G
-Date: Mon, 27 Jun 2016 09:51:36 -0700
-Message-ID: <CAG88wWZS-5hYO_yqYpPGvUdk-QFRpGAVnw=mv+mODpeo4zoV=w@mail.gmail.com>
-References: <1466970307-2411-5-git-send-email-vidya@cumulusnetworks.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 03/16] net/mlx5: E-Switch, Add miss rule for
+ offloads mode
+Date: Mon, 27 Jun 2016 19:53:16 +0300
+Message-ID: <8d994e8f-f4bf-f6b3-c47b-c4c4a94da647@cogentembedded.com>
+References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
+ <1467043649-28594-4-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Ben Hutchings <bwh@kernel.org>,
-	"David S. Miller" <davem@davemloft.net>, bkenward@solarflare.com,
-	daniel@iogearbox.net, Gal Pressman <galp@mellanox.com>,
-	roopa@cumulusnetworks.com, gospo@cumulusnetworks.com,
-	dustin@cumulusnetworks.com
-To: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Hen-Zion <hadarh@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f49.google.com ([74.125.82.49]:37639 "EHLO
-	mail-wm0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751876AbcF0Qwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 12:52:32 -0400
-Received: by mail-wm0-f49.google.com with SMTP id a66so123955260wme.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 09:52:16 -0700 (PDT)
-In-Reply-To: <1466970307-2411-5-git-send-email-vidya@cumulusnetworks.com>
+Received: from mail-lf0-f46.google.com ([209.85.215.46]:33095 "EHLO
+	mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751673AbcF0QxV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 12:53:21 -0400
+Received: by mail-lf0-f46.google.com with SMTP id f6so160079754lfg.0
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 09:53:20 -0700 (PDT)
+In-Reply-To: <1467043649-28594-4-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jun 26, 2016 at 12:45 PM, Vidya Sagar Ravipati
-<vidya@cumulusnetworks.com> wrote:
-> From: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
->
-> Enhancing link mode bits to support 25G/50G/100G
-> for supported and advertised speed mode bits
->
-> Signed-off-by: Vidya Sagar Ravipati <vidya@cumulusnetworks.com>
-> ---
->  ethtool.c | 27 +++++++++++++++++++++++++++
->  1 file changed, 27 insertions(+)
->
-> diff --git a/ethtool.c b/ethtool.c
-> index 1d6564e..5c3c765 100644
-> --- a/ethtool.c
-> +++ b/ethtool.c
-> @@ -512,6 +512,15 @@ static void init_global_link_mode_masks(void)
->                 ETHTOOL_LINK_MODE_56000baseCR4_Full_BIT,
->                 ETHTOOL_LINK_MODE_56000baseSR4_Full_BIT,
->                 ETHTOOL_LINK_MODE_56000baseLR4_Full_BIT,
-> +               ETHTOOL_LINK_MODE_25000baseCR_Full_BIT,
-> +               ETHTOOL_LINK_MODE_25000baseKR_Full_BIT,
-> +               ETHTOOL_LINK_MODE_25000baseSR_Full_BIT,
-> +               ETHTOOL_LINK_MODE_50000baseCR2_Full_BIT,
-> +               ETHTOOL_LINK_MODE_50000baseKR2_Full_BIT,
-> +               ETHTOOL_LINK_MODE_100000baseKR4_Full_BIT,
-> +               ETHTOOL_LINK_MODE_100000baseSR4_Full_BIT,
-> +               ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT,
-> +               ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full_BIT,
->         };
->         static const enum ethtool_link_mode_bit_indices
->                 additional_advertised_flags_bits[] = {
-> @@ -632,6 +641,24 @@ static void dump_link_caps(const char *prefix, const char *an_prefix,
->                   "56000baseSR4/Full" },
->                 { 0, ETHTOOL_LINK_MODE_56000baseLR4_Full_BIT,
->                   "56000baseLR4/Full" },
-> +               { 0, ETHTOOL_LINK_MODE_25000baseCR_Full_BIT,
-> +                 "25000baseCR/Full" },
-> +               { 0, ETHTOOL_LINK_MODE_25000baseKR_Full_BIT,
-> +                 "25000baseKR/Full" },
-> +               { 0, ETHTOOL_LINK_MODE_25000baseSR_Full_BIT,
-> +                 "25000baseSR/Full" },
-> +               { 0, ETHTOOL_LINK_MODE_50000baseCR2_Full_BIT,
-> +                 "50000baseCR2/Full" },
-> +               { 0, ETHTOOL_LINK_MODE_50000baseKR2_Full_BIT,
-> +                 "50000baseKR2/Full" },
-> +               { 0, ETHTOOL_LINK_MODE_100000baseKR4_Full_BIT,
-> +                 "100000baseKR4/Full" },
-> +               { 0, ETHTOOL_LINK_MODE_100000baseSR4_Full_BIT,
-> +                 "100000baseSR4/Full" },
-> +               { 0, ETHTOOL_LINK_MODE_100000baseCR4_Full_BIT,
-> +                 "100000baseCR4/Full" },
-> +               { 0, ETHTOOL_LINK_MODE_100000baseLR4_ER4_Full_BIT,
-> +                 "100000baseLR4_ER4/Full" },
->         };
->         int indent;
->         int did1, new_line_pend, i;
-> --
-> 2.1.4
->
+Hello.
 
-Acked-By: David Decotigny <decot@googlers.com>
+On 06/27/2016 07:07 PM, Saeed Mahameed wrote:
+
+> From: Or Gerlitz <ogerlitz@mellanox.com>
+>
+> In the sriov offloads mode, packets that are not matched by any other
+> rule should be sent towards the e-switch manager for further processing.
+>
+> Add such "miss" rule which matches ANY packet as the last rule in the
+> e-switch FDB and programs the HW to send the packet to vport 0 where
+> the e-switch manager runs.
+>
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+[...]
+
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+> index c6b28df..9310017 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+> @@ -38,6 +38,41 @@
+>  #include "mlx5_core.h"
+>  #include "eswitch.h"
+>
+> +static int esw_add_fdb_miss_rule(struct mlx5_eswitch *esw)
+> +{
+> +	struct mlx5_flow_destination dest;
+> +	struct mlx5_flow_rule *flow_rule = NULL;
+> +	int match_header = 0;
+
+    This variable doesn't apperar necessary...
+
+> +	u32 *match_v, *match_c;
+> +	int err = 0;
+> +
+> +	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+> +	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+> +	if (!match_v || !match_c) {
+> +		esw_warn(esw->dev, "FDB: Failed to alloc match parameters\n");
+> +		err = -ENOMEM;
+> +		goto out;
+> +	}
+> +
+> +	dest.type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
+> +	dest.vport_num = 0;
+> +
+> +	flow_rule = mlx5_add_flow_rule(esw->fdb_table.fdb, match_header, match_c,
+
+    Whu not just pass 0 instead of 'match_header'?
+
+> +				       match_v, MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
+> +				       0, &dest);
+> +	if (IS_ERR(flow_rule)) {
+> +		err = PTR_ERR(flow_rule);
+> +		esw_warn(esw->dev,  "FDB: Failed to add miss flow rule err %d\n", err);
+> +		goto out;
+> +	}
+> +
+> +	esw->fdb_table.offloads.miss_rule = flow_rule;
+> +out:
+> +	kfree(match_v);
+> +	kfree(match_c);
+> +	return err;
+> +}
+> +
+>  #define MAX_PF_SQ 256
+>
+>  int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
+[...]
+
+MBR, Sergei
