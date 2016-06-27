@@ -1,70 +1,60 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the net tree
-Date: Mon, 27 Jun 2016 11:46:23 +1000
-Message-ID: <20160627114623.2c985be5@canb.auug.org.au>
+From: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>
+Subject: Re: [PATCH] rtlwifi: Add missing newlines to RT_TRACE calls
+Date: Sun, 26 Jun 2016 20:49:01 -0500
+Message-ID: <5770860D.8040607@lwfinger.net>
+References: <5677791872bfb47963780c198c825d882456720f.1466969647.git.joe@perches.com>
+ <577070D9.5080503@lwfinger.net> <1466990029.1847.74.camel@perches.com>
+ <1466990779.1847.78.camel@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
+Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>,
+	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1466990779.1847.78.camel-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On 06/26/2016 08:26 PM, Joe Perches wrote:
+> On Sun, 2016-06-26 at 18:13 -0700, Joe Perches wrote:
+>> On Sun, 2016-06-26 at 19:18 -0500, Larry Finger wrote:
+>>>
+>>> On 06/26/2016 02:34 PM, Joe Perches wrote:
+>>>>
+>>>>
+>>>> RT_TRACE does not add a newline to the end of a message and always
+>>>> emits at KERN_DEBUG so these are susceptible to message
+>>>> interleaving
+>>>> from other processes without the newline.
+>>>>
+>>>> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+>>>> ---
+>>> This patch does not apply to the wireless-drivers-next repo. Which
+>>> one
+>>> did you use?
+>> linux-next
+>
+> btw: both patches seem to apply to wireless-drivers-next just fine.
+>
+> $ git rev-parse HEAD
+> 1bb57c8a5e33bcbec031ce0c629968922d5af89d
+> $ git am ../next/0001-rtlwifi-Create-_rtl_dbg_trace-function-to-reduce-RT_.patch
+> Applying: rtlwifi: Create _rtl_dbg_trace function to reduce RT_TRACE code size
+> $ git am ../next/0001-rtlwifi-Add-missing-newlines-to-RT_TRACE-calls.patch
+> Applying: rtlwifi: Add missing newlines to RT_TRACE calls
 
-Today's linux-next merge of the net-next tree got a conflict in:
+The conflict is with the set of 10 patches I sent out yesterday. As I have to 
+update them anyway, I will apply yours first, then do mine. That should resolve 
+the problem.
 
-  net/sched/sch_netem.c
+Larry
 
-between commit:
 
-  21de12ee5568 ("netem: fix a use after free")
 
-from the net tree and commit:
 
-  520ac30f4551 ("net_sched: drop packets after root qdisc lock is released")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc net/sched/sch_netem.c
-index 178f1630a036,ccca8ca4c722..000000000000
---- a/net/sched/sch_netem.c
-+++ b/net/sched/sch_netem.c
-@@@ -650,14 -617,17 +617,17 @@@ deliver
-  #endif
-  
-  			if (q->qdisc) {
- +				unsigned int pkt_len = qdisc_pkt_len(skb);
-- 				int err = qdisc_enqueue(skb, q->qdisc);
-+ 				struct sk_buff *to_free = NULL;
-+ 				int err;
-  
-+ 				err = qdisc_enqueue(skb, q->qdisc, &to_free);
-+ 				kfree_skb_list(to_free);
- -				if (unlikely(err != NET_XMIT_SUCCESS)) {
- -					if (net_xmit_drop_count(err)) {
- -						qdisc_qstats_drop(sch);
- -						qdisc_tree_reduce_backlog(sch, 1,
- -									  qdisc_pkt_len(skb));
- -					}
- +				if (err != NET_XMIT_SUCCESS &&
- +				    net_xmit_drop_count(err)) {
- +					qdisc_qstats_drop(sch);
- +					qdisc_tree_reduce_backlog(sch, 1,
- +								  pkt_len);
-  				}
-  				goto tfifo_dequeue;
-  			}
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
