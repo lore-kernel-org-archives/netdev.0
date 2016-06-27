@@ -1,53 +1,50 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [REGRESSION, bisect]cxgb4 port failure with TSO traffic after
- commit 10d3be569243def8("tcp-tso: do not split TSO packets at retransmit
- time")
-Date: Mon, 27 Jun 2016 12:50:17 +0200
-Message-ID: <1467024617.6850.148.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <6DE8042992C3D3488ACEF3F2607097E3C4A81CA5@nice.asicdesigners.com>
-	 <CANn89iLpBC5tUqpdSE4jCMKFgUi=mg=2kPZtMaRh-cnBhvauNg@mail.gmail.com>
-	 <6DE8042992C3D3488ACEF3F2607097E3C4A82805@nice.asicdesigners.com>
-	 <CANn89i+ePpSDYPtQeZa=fdN84=4WKdDb88P-dOVyPyY_DMK02g@mail.gmail.com>
-	 <1466785507.6850.105.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160627071750.GA13304@v4.asicdesigners.com>
-	 <1467014782.6850.144.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160627085957.GB13319@v4.asicdesigners.com>
-	 <1467019279.6850.145.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160627095445.GC13319@v4.asicdesigners.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH net-next 6/6] r8152: add byte_enable for ocp_read_word
+ function
+Date: Mon, 27 Jun 2016 13:57:22 +0300
+Message-ID: <d350382e-3798-f9c9-1639-45db15fceeca@cogentembedded.com>
+References: <1394712342-15778-184-Taiwan-albertk@realtek.com>
+ <1394712342-15778-190-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <edumazet@google.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Hariprasad S <hariprasad@chelsio.com>,
-	Casey Leedom <leedom@chelsio.com>,
-	Kumar A S <kumaras@chelsio.com>,
-	Santosh Rastapur <santosh@chelsio.com>,
-	Nirranjan Kirubaharan <nirranjan@chelsio.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"ycheng@google.com" <ycheng@google.com>
-To: Arjun V <arjun@chelsio.com>
+Cc: nic_swsd@realtek.com, linux-kernel@vger.kernel.org,
+	linux-usb@vger.kernel.org
+To: Hayes Wang <hayeswang@realtek.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:35161 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751784AbcF0KuY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 06:50:24 -0400
-Received: by mail-wm0-f68.google.com with SMTP id a66so23435561wme.2
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 03:50:24 -0700 (PDT)
-In-Reply-To: <20160627095445.GC13319@v4.asicdesigners.com>
+Received: from mail-lf0-f53.google.com ([209.85.215.53]:33788 "EHLO
+	mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751764AbcF0K5Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 06:57:25 -0400
+Received: by mail-lf0-f53.google.com with SMTP id f6so153300872lfg.0
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 03:57:25 -0700 (PDT)
+In-Reply-To: <1394712342-15778-190-Taiwan-albertk@realtek.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-06-27 at 15:24 +0530, Arjun V wrote:
+Hello.
 
-> Applied your patch.
-> The above debug print is not getting invoked, when skb->len is greater than 65536.
+On 6/27/2016 8:07 AM, Hayes Wang wrote:
 
-Interesting.
+> Add byte_enable for ocp_read_word() to replace reading 4 bytes data
+> with reading the desired 2 bytes data.
+>
+> This is used to avoid the issue which is described in commit:b4d99def.
 
-It looks like we might have a bug in tcp_shift_skb_data() not respecting
-sk->sk_gso_max_size at all ...
+    scripts/checkpatch.pl now enforces certain commit citing style, yours 
+doesn't match.
 
-I will send a patch.
+> The origin method always reads 4 bytes data, and it may have problem
+> when reading the PHY regiters.
 
-Thanks.
+    Registers.
+
+> The new method is supported since RTL8152B, but it doesn't influence
+> the previous chips. The bits of the byte_enable for the previous chips
+> are the reserved bits, and the hw would ignore them.
+>
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+
+[...]
+
+MBR, Sergei
