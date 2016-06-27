@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 12/16] net/mlx5e: TIRs management refactoring
-Date: Mon, 27 Jun 2016 19:07:25 +0300
-Message-ID: <1467043649-28594-13-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 02/16] net/mlx5: E-Switch, Add support for the sriov offloads mode
+Date: Mon, 27 Jun 2016 19:07:15 +0300
+Message-ID: <1467043649-28594-3-git-send-email-saeedm@mellanox.com>
 References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -12,359 +12,315 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:36471 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:36440 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751745AbcF0QJS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jun 2016 12:09:18 -0400
+	id S1751911AbcF0QJK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2016 12:09:10 -0400
 In-Reply-To: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Hadar Hen Zion <hadarh@mellanox.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-The current refresh tirs self loopback mechanism, refreshes all the tirs
-belonging to the same mlx5e instance to prevent self loopback by packets
-sent over any ring of that instance. This mechanism relies on all the
-tirs/tises of an instance to be created with the same transport domain
-number (tdn).
+Unlike the legacy mode, here, forwarding rules are not learned by the
+driver per events on macs set by VFs/VMs into their vports, but rather
+should be programmed by higher-level SW entities.
 
-Change the driver to refresh all the tirs created under the same tdn
-regardless of which mlx5e netdev instance they belong to.
+Saying that, still, in the offloads mode (SRIOV_OFFLOADS), two flow
+groups are created by the driver for management (slow path) purposes:
 
-This behaviour is needed for introducing new mlx5e instances which serve
-to represent SRIOV VFs. The representors and the PF share vport used for
-E-Switch management, and we want to avoid NIC level HW loopback between
-them, e.g when sending broadcast packets. To achieve that, both the
-representors and the PF NIC will share the tdn.
+The first group will be used for sending packets over e-switch vports
+from the host OS where the e-switch management code runs, to be
+received by VFs.
 
-This patch doesn't add any new functionality.
+The second group will be used by a miss rule which forwards packets toward
+the e-switch manager. Further logic will trap these packets such that
+the receiving net-device as seen by the networking stack is the representor
+of the vport that sent the packet over the e-switch data-path.
 
-Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       | 12 +++--
- drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c  | 14 +++---
- .../net/ethernet/mellanox/mlx5/core/en_common.c    | 48 +++++++++++++++++++
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 56 +++++-----------------
- 6 files changed, 77 insertions(+), 57 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  35 +++---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  16 +++
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 135 +++++++++++++++++++++
+ 4 files changed, 168 insertions(+), 20 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index da93bf55..ded3f96 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -552,9 +552,10 @@ struct mlx5e_flow_steering {
- 	struct mlx5e_arfs_tables        arfs;
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+index c4f450f..96f1826 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
++++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
+@@ -5,7 +5,7 @@ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
+ 		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o \
+ 		fs_counters.o rl.o
  
--struct mlx5e_direct_tir {
-+struct mlx5e_tir {
- 	u32              tirn;
- 	u32              rqtn;
-+	struct list_head list;
- };
+-mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o \
++mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
+ 		en_main.o en_fs.o en_ethtool.o en_tx.o en_rx.o \
+ 		en_rx_am.o en_txrx.o en_clock.o vxlan.o en_tc.o \
+ 		en_arfs.o
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 8068dde..1fc4cfd 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -40,17 +40,6 @@
  
+ #define UPLINK_VPORT 0xFFFF
+ 
+-#define MLX5_DEBUG_ESWITCH_MASK BIT(3)
+-
+-#define esw_info(dev, format, ...)				\
+-	pr_info("(%s): E-Switch: " format, (dev)->priv.name, ##__VA_ARGS__)
+-
+-#define esw_warn(dev, format, ...)				\
+-	pr_warn("(%s): E-Switch: " format, (dev)->priv.name, ##__VA_ARGS__)
+-
+-#define esw_debug(dev, format, ...)				\
+-	mlx5_core_dbg_mask(dev, MLX5_DEBUG_ESWITCH_MASK, format, ##__VA_ARGS__)
+-
  enum {
-@@ -576,8 +577,8 @@ struct mlx5e_priv {
- 	struct mlx5e_channel     **channel;
- 	u32                        tisn[MLX5E_MAX_NUM_TC];
- 	u32                        indir_rqtn;
--	u32                        indir_tirn[MLX5E_NUM_INDIR_TIRS];
--	struct mlx5e_direct_tir    direct_tir[MLX5E_MAX_NUM_CHANNELS];
-+	struct mlx5e_tir           indir_tir[MLX5E_NUM_INDIR_TIRS];
-+	struct mlx5e_tir           direct_tir[MLX5E_MAX_NUM_CHANNELS];
- 	u32                        tx_rates[MLX5E_MAX_NUM_SQS];
+ 	MLX5_ACTION_NONE = 0,
+ 	MLX5_ACTION_ADD  = 1,
+@@ -92,6 +81,9 @@ enum {
+ 			    MC_ADDR_CHANGE | \
+ 			    PROMISC_CHANGE)
  
- 	struct mlx5e_flow_steering fs;
-@@ -784,7 +785,12 @@ int mlx5e_rx_flow_steer(struct net_device *dev, const struct sk_buff *skb,
- #endif
- 
- u16 mlx5e_get_max_inline_cap(struct mlx5_core_dev *mdev);
-+int mlx5e_create_tir(struct mlx5_core_dev *mdev,
-+		     struct mlx5e_tir *tir, u32 *in, int inlen);
-+void mlx5e_destroy_tir(struct mlx5_core_dev *mdev,
-+		       struct mlx5e_tir *tir);
- int mlx5e_create_mdev_resources(struct mlx5_core_dev *mdev);
- void mlx5e_destroy_mdev_resources(struct mlx5_core_dev *mdev);
-+int mlx5e_refresh_tirs_self_loopback_enable(struct mlx5_core_dev *mdev);
- 
- #endif /* __MLX5_EN_H__ */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
-index 3515e78..10f18d4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
-@@ -93,14 +93,14 @@ static enum mlx5e_traffic_types arfs_get_tt(enum arfs_type type)
- static int arfs_disable(struct mlx5e_priv *priv)
++int  esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports);
++void esw_destroy_offloads_fdb_table(struct mlx5_eswitch *esw);
++
+ static int arm_vport_context_events_cmd(struct mlx5_core_dev *dev, u16 vport,
+ 					u32 events_mask)
  {
- 	struct mlx5_flow_destination dest;
--	u32 *tirn = priv->indir_tirn;
-+	struct mlx5e_tir *tir = priv->indir_tir;
- 	int err = 0;
- 	int tt;
- 	int i;
+@@ -578,7 +570,8 @@ static int esw_add_uc_addr(struct mlx5_eswitch *esw, struct vport_addr *vaddr)
+ 	if (err)
+ 		goto abort;
  
- 	dest.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
- 	for (i = 0; i < ARFS_NUM_TYPES; i++) {
--		dest.tir_num = tirn[i];
-+		dest.tir_num = tir[i].tirn;
- 		tt = arfs_get_tt(i);
- 		/* Modify ttc rules destination to bypass the aRFS tables*/
- 		err = mlx5_modify_rule_destination(priv->fs.ttc.rules[tt],
-@@ -176,7 +176,7 @@ static int arfs_add_default_rule(struct mlx5e_priv *priv,
- 	struct arfs_table *arfs_t = &priv->fs.arfs.arfs_tables[type];
- 	struct mlx5_flow_destination dest;
- 	u8 match_criteria_enable = 0;
--	u32 *tirn = priv->indir_tirn;
-+	struct mlx5e_tir *tir = priv->indir_tir;
- 	u32 *match_criteria;
- 	u32 *match_value;
- 	int err = 0;
-@@ -192,16 +192,16 @@ static int arfs_add_default_rule(struct mlx5e_priv *priv,
- 	dest.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
- 	switch (type) {
- 	case ARFS_IPV4_TCP:
--		dest.tir_num = tirn[MLX5E_TT_IPV4_TCP];
-+		dest.tir_num = tir[MLX5E_TT_IPV4_TCP].tirn;
- 		break;
- 	case ARFS_IPV4_UDP:
--		dest.tir_num = tirn[MLX5E_TT_IPV4_UDP];
-+		dest.tir_num = tir[MLX5E_TT_IPV4_UDP].tirn;
- 		break;
- 	case ARFS_IPV6_TCP:
--		dest.tir_num = tirn[MLX5E_TT_IPV6_TCP];
-+		dest.tir_num = tir[MLX5E_TT_IPV6_TCP].tirn;
- 		break;
- 	case ARFS_IPV6_UDP:
--		dest.tir_num = tirn[MLX5E_TT_IPV6_UDP];
-+		dest.tir_num = tir[MLX5E_TT_IPV6_UDP].tirn;
- 		break;
- 	default:
- 		err = -EINVAL;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_common.c b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
-index 33b3732..673043c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_common.c
-@@ -36,6 +36,27 @@
-  * Global resources are common to all the netdevices crated on the same nic.
-  */
+-	if (esw->fdb_table.fdb) /* SRIOV is enabled: Forward UC MAC to vport */
++	/* SRIOV is enabled: Forward UC MAC to vport */
++	if (esw->fdb_table.fdb && esw->mode == SRIOV_LEGACY)
+ 		vaddr->flow_rule = esw_fdb_set_vport_rule(esw, mac, vport);
  
-+int mlx5e_create_tir(struct mlx5_core_dev *mdev,
-+		     struct mlx5e_tir *tir, u32 *in, int inlen)
-+{
-+	int err;
-+
-+	err = mlx5_core_create_tir(mdev, in, inlen, &tir->tirn);
-+	if (err)
-+		return err;
-+
-+	list_add(&tir->list, &mdev->mlx5e_res.td.tirs_list);
-+
-+	return 0;
-+}
-+
-+void mlx5e_destroy_tir(struct mlx5_core_dev *mdev,
-+		       struct mlx5e_tir *tir)
-+{
-+	mlx5_core_destroy_tir(mdev, tir->tirn);
-+	list_del(&tir->list);
-+}
-+
- static int mlx5e_create_mkey(struct mlx5_core_dev *mdev, u32 pdn,
- 			     struct mlx5_core_mkey *mkey)
+ 	esw_debug(esw->dev, "\tADDED UC MAC: vport[%d] %pM index:%d fr(%p)\n",
+@@ -1543,7 +1536,7 @@ static void esw_disable_vport(struct mlx5_eswitch *esw, int vport_num)
+ int mlx5_eswitch_enable_sriov(struct mlx5_eswitch *esw, int nvfs, int mode)
  {
-@@ -89,6 +110,8 @@ int mlx5e_create_mdev_resources(struct mlx5_core_dev *mdev)
- 		goto err_dealloc_transport_domain;
- 	}
+ 	int err;
+-	int i;
++	int i, enabled_events;
  
-+	INIT_LIST_HEAD(&mdev->mlx5e_res.td.tirs_list);
-+
- 	return 0;
+ 	if (!esw || !MLX5_CAP_GEN(esw->dev, vport_group_manager) ||
+ 	    MLX5_CAP_GEN(esw->dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
+@@ -1562,18 +1555,19 @@ int mlx5_eswitch_enable_sriov(struct mlx5_eswitch *esw, int nvfs, int mode)
+ 		esw_warn(esw->dev, "E-Switch engress ACL is not supported by FW\n");
  
- err_dealloc_transport_domain:
-@@ -110,3 +133,28 @@ void mlx5e_destroy_mdev_resources(struct mlx5_core_dev *mdev)
- 	mlx5_core_dealloc_pd(mdev, res->pdn);
- 	mlx5_unmap_free_uar(mdev, &res->cq_uar);
- }
+ 	esw_info(esw->dev, "E-Switch enable SRIOV: nvfs(%d) mode (%d)\n", nvfs, mode);
+-	if (mode != SRIOV_LEGACY)
+-		return -EINVAL;
+-
+ 	esw->mode = mode;
+ 	esw_disable_vport(esw, 0);
+ 
+-	err = esw_create_legacy_fdb_table(esw, nvfs + 1);
++	if (mode == SRIOV_LEGACY)
++		err = esw_create_legacy_fdb_table(esw, nvfs + 1);
++	else
++		err = esw_create_offloads_fdb_table(esw, nvfs + 1);
+ 	if (err)
+ 		goto abort;
+ 
++	enabled_events = (mode == SRIOV_LEGACY) ? SRIOV_VPORT_EVENTS : UC_ADDR_CHANGE;
+ 	for (i = 0; i <= nvfs; i++)
+-		esw_enable_vport(esw, i, SRIOV_VPORT_EVENTS);
++		esw_enable_vport(esw, i, enabled_events);
+ 
+ 	esw_info(esw->dev, "SRIOV enabled: active vports(%d)\n",
+ 		 esw->enabled_vports);
+@@ -1604,7 +1598,10 @@ void mlx5_eswitch_disable_sriov(struct mlx5_eswitch *esw)
+ 	if (mc_promisc && mc_promisc->uplink_rule)
+ 		mlx5_del_flow_rule(mc_promisc->uplink_rule);
+ 
+-	esw_destroy_legacy_fdb_table(esw);
++	if (esw->mode == SRIOV_LEGACY)
++		esw_destroy_legacy_fdb_table(esw);
++	else
++		esw_destroy_offloads_fdb_table(esw);
+ 
+ 	esw->mode = SRIOV_NONE;
+ 	/* VPORT 0 (PF) must be enabled back with non-sriov configuration */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 544fbfe..2360180 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -140,6 +140,11 @@ struct mlx5_eswitch_fdb {
+ 			struct mlx5_flow_group *allmulti_grp;
+ 			struct mlx5_flow_group *promisc_grp;
+ 		} legacy;
 +
-+int mlx5e_refresh_tirs_self_loopback_enable(struct mlx5_core_dev *mdev)
++		struct offloads_fdb {
++			struct mlx5_flow_group *send_to_vport_grp;
++			struct mlx5_flow_group *miss_grp;
++		} offloads;
+ 	};
+ };
+ 
+@@ -188,4 +193,15 @@ int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
+ 				 int vport,
+ 				 struct ifla_vf_stats *vf_stats);
+ 
++#define MLX5_DEBUG_ESWITCH_MASK BIT(3)
++
++#define esw_info(dev, format, ...)				\
++	pr_info("(%s): E-Switch: " format, (dev)->priv.name, ##__VA_ARGS__)
++
++#define esw_warn(dev, format, ...)				\
++	pr_warn("(%s): E-Switch: " format, (dev)->priv.name, ##__VA_ARGS__)
++
++#define esw_debug(dev, format, ...)				\
++	mlx5_core_dbg_mask(dev, MLX5_DEBUG_ESWITCH_MASK, format, ##__VA_ARGS__)
++
+ #endif /* __MLX5_ESWITCH_H__ */
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+new file mode 100644
+index 0000000..c6b28df
+--- /dev/null
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -0,0 +1,135 @@
++/*
++ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
++ *
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available from the file
++ * COPYING in the main directory of this source tree, or the
++ * OpenIB.org BSD license below:
++ *
++ *     Redistribution and use in source and binary forms, with or
++ *     without modification, are permitted provided that the following
++ *     conditions are met:
++ *
++ *      - Redistributions of source code must retain the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer.
++ *
++ *      - Redistributions in binary form must reproduce the above
++ *        copyright notice, this list of conditions and the following
++ *        disclaimer in the documentation and/or other materials
++ *        provided with the distribution.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ */
++
++#include <linux/etherdevice.h>
++#include <linux/mlx5/driver.h>
++#include <linux/mlx5/mlx5_ifc.h>
++#include <linux/mlx5/vport.h>
++#include <linux/mlx5/fs.h>
++#include "mlx5_core.h"
++#include "eswitch.h"
++
++#define MAX_PF_SQ 256
++
++int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
 +{
-+	struct mlx5e_tir *tir;
-+	void *in;
-+	int inlen;
-+	int err;
++	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
++	struct mlx5_core_dev *dev = esw->dev;
++	struct mlx5_flow_namespace *root_ns;
++	struct mlx5_flow_table *fdb = NULL;
++	struct mlx5_flow_group *g;
++	u32 *flow_group_in;
++	void *match_criteria;
++	int table_size, ix, err = 0;
 +
-+	inlen = MLX5_ST_SZ_BYTES(modify_tir_in);
-+	in = mlx5_vzalloc(inlen);
-+	if (!in)
++	flow_group_in = mlx5_vzalloc(inlen);
++	if (!flow_group_in)
 +		return -ENOMEM;
 +
-+	MLX5_SET(modify_tir_in, in, bitmask.self_lb_en, 1);
-+
-+	list_for_each_entry(tir, &mdev->mlx5e_res.td.tirs_list, list) {
-+		err = mlx5_core_modify_tir(mdev, tir->tirn, in, inlen);
-+		if (err)
-+			return err;
++	root_ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_FDB);
++	if (!root_ns) {
++		esw_warn(dev, "Failed to get FDB flow namespace\n");
++		goto ns_err;
 +	}
 +
-+	kvfree(in);
++	esw_debug(dev, "Create offloads FDB table, log_max_size(%d)\n",
++		  MLX5_CAP_ESW_FLOWTABLE_FDB(dev, log_max_ft_size));
++
++	table_size = nvports + MAX_PF_SQ + 1;
++	fdb = mlx5_create_flow_table(root_ns, 0, table_size, 0);
++	if (IS_ERR(fdb)) {
++		err = PTR_ERR(fdb);
++		esw_warn(dev, "Failed to create FDB Table err %d\n", err);
++		goto fdb_err;
++	}
++	esw->fdb_table.fdb = fdb;
++
++	/* create send-to-vport group */
++	memset(flow_group_in, 0, inlen);
++	MLX5_SET(create_flow_group_in, flow_group_in, match_criteria_enable,
++		 MLX5_MATCH_MISC_PARAMETERS);
++
++	match_criteria = MLX5_ADDR_OF(create_flow_group_in, flow_group_in, match_criteria);
++
++	MLX5_SET_TO_ONES(fte_match_param, match_criteria, misc_parameters.source_sqn);
++	MLX5_SET_TO_ONES(fte_match_param, match_criteria, misc_parameters.source_port);
++
++	ix = nvports + MAX_PF_SQ;
++	MLX5_SET(create_flow_group_in, flow_group_in, start_flow_index, 0);
++	MLX5_SET(create_flow_group_in, flow_group_in, end_flow_index, ix - 1);
++
++	g = mlx5_create_flow_group(fdb, flow_group_in);
++	if (IS_ERR(g)) {
++		err = PTR_ERR(g);
++		esw_warn(dev, "Failed to create send-to-vport flow group err(%d)\n", err);
++		goto send_vport_err;
++	}
++	esw->fdb_table.offloads.send_to_vport_grp = g;
++
++	/* create miss group */
++	memset(flow_group_in, 0, inlen);
++	MLX5_SET(create_flow_group_in, flow_group_in, match_criteria_enable, 0);
++
++	MLX5_SET(create_flow_group_in, flow_group_in, start_flow_index, ix);
++	MLX5_SET(create_flow_group_in, flow_group_in, end_flow_index, ix + 1);
++
++	g = mlx5_create_flow_group(fdb, flow_group_in);
++	if (IS_ERR(g)) {
++		err = PTR_ERR(g);
++		esw_warn(dev, "Failed to create miss flow group err(%d)\n", err);
++		goto miss_err;
++	}
++	esw->fdb_table.offloads.miss_grp = g;
 +
 +	return 0;
++
++miss_err:
++	mlx5_destroy_flow_group(esw->fdb_table.offloads.send_to_vport_grp);
++send_vport_err:
++	mlx5_destroy_flow_table(fdb);
++fdb_err:
++ns_err:
++	kvfree(flow_group_in);
++	return err;
 +}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 39a4d96..877cf68 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -876,7 +876,7 @@ static void mlx5e_modify_tirs_hash(struct mlx5e_priv *priv, void *in, int inlen)
- 	mlx5e_build_tir_ctx_hash(tirc, priv);
- 
- 	for (i = 0; i < MLX5E_NUM_INDIR_TIRS; i++)
--		mlx5_core_modify_tir(mdev, priv->indir_tirn[i], in, inlen);
-+		mlx5_core_modify_tir(mdev, priv->indir_tir[i].tirn, in, inlen);
- }
- 
- static int mlx5e_set_rxfh(struct net_device *dev, const u32 *indir,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-index b327400..606e69b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
-@@ -655,7 +655,7 @@ static int mlx5e_generate_ttc_table_rules(struct mlx5e_priv *priv)
- 		if (tt == MLX5E_TT_ANY)
- 			dest.tir_num = priv->direct_tir[0].tirn;
- 		else
--			dest.tir_num = priv->indir_tirn[tt];
-+			dest.tir_num = priv->indir_tir[tt].tirn;
- 		rules[tt] = mlx5e_generate_ttc_rule(priv, ft, &dest,
- 						    ttc_rules[tt].etype,
- 						    ttc_rules[tt].proto);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index bd3bd61..808dff4 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1662,7 +1662,7 @@ static int mlx5e_modify_tirs_lro(struct mlx5e_priv *priv)
- 	mlx5e_build_tir_ctx_lro(tirc, priv);
- 
- 	for (tt = 0; tt < MLX5E_NUM_INDIR_TIRS; tt++) {
--		err = mlx5_core_modify_tir(mdev, priv->indir_tirn[tt], in,
-+		err = mlx5_core_modify_tir(mdev, priv->indir_tir[tt].tirn, in,
- 					   inlen);
- 		if (err)
- 			goto free_in;
-@@ -1681,40 +1681,6 @@ free_in:
- 	return err;
- }
- 
--static int mlx5e_refresh_tirs_self_loopback_enable(struct mlx5e_priv *priv)
--{
--	void *in;
--	int inlen;
--	int err;
--	int i;
--
--	inlen = MLX5_ST_SZ_BYTES(modify_tir_in);
--	in = mlx5_vzalloc(inlen);
--	if (!in)
--		return -ENOMEM;
--
--	MLX5_SET(modify_tir_in, in, bitmask.self_lb_en, 1);
--
--	for (i = 0; i < MLX5E_NUM_INDIR_TIRS; i++) {
--		err = mlx5_core_modify_tir(priv->mdev, priv->indir_tirn[i], in,
--					   inlen);
--		if (err)
--			return err;
--	}
--
--	for (i = 0; i < priv->params.num_channels; i++) {
--		err = mlx5_core_modify_tir(priv->mdev,
--					   priv->direct_tir[i].tirn, in,
--					   inlen);
--		if (err)
--			return err;
--	}
--
--	kvfree(in);
--
--	return 0;
--}
--
- static int mlx5e_set_mtu(struct mlx5e_priv *priv, u16 mtu)
- {
- 	struct mlx5_core_dev *mdev = priv->mdev;
-@@ -1805,7 +1771,7 @@ int mlx5e_open_locked(struct net_device *netdev)
- 		goto err_clear_state_opened_flag;
- 	}
- 
--	err = mlx5e_refresh_tirs_self_loopback_enable(priv);
-+	err = mlx5e_refresh_tirs_self_loopback_enable(priv->mdev);
- 	if (err) {
- 		netdev_err(netdev, "%s: mlx5e_refresh_tirs_self_loopback_enable failed, %d\n",
- 			   __func__, err);
-@@ -2149,9 +2115,9 @@ static void mlx5e_build_direct_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
- static int mlx5e_create_tirs(struct mlx5e_priv *priv)
- {
- 	int nch = mlx5e_get_max_num_channels(priv->mdev);
-+	struct mlx5e_tir *tir;
- 	void *tirc;
- 	int inlen;
--	u32 *tirn;
- 	int err;
- 	u32 *in;
- 	int ix;
-@@ -2165,10 +2131,10 @@ static int mlx5e_create_tirs(struct mlx5e_priv *priv)
- 	/* indirect tirs */
- 	for (tt = 0; tt < MLX5E_NUM_INDIR_TIRS; tt++) {
- 		memset(in, 0, inlen);
--		tirn = &priv->indir_tirn[tt];
-+		tir = &priv->indir_tir[tt];
- 		tirc = MLX5_ADDR_OF(create_tir_in, in, ctx);
- 		mlx5e_build_indir_tir_ctx(priv, tirc, tt);
--		err = mlx5_core_create_tir(priv->mdev, in, inlen, tirn);
-+		err = mlx5e_create_tir(priv->mdev, tir, in, inlen);
- 		if (err)
- 			goto err_destroy_tirs;
- 	}
-@@ -2176,11 +2142,11 @@ static int mlx5e_create_tirs(struct mlx5e_priv *priv)
- 	/* direct tirs */
- 	for (ix = 0; ix < nch; ix++) {
- 		memset(in, 0, inlen);
--		tirn = &priv->direct_tir[ix].tirn;
-+		tir = &priv->direct_tir[ix];
- 		tirc = MLX5_ADDR_OF(create_tir_in, in, ctx);
- 		mlx5e_build_direct_tir_ctx(priv, tirc,
- 					   priv->direct_tir[ix].rqtn);
--		err = mlx5_core_create_tir(priv->mdev, in, inlen, tirn);
-+		err = mlx5e_create_tir(priv->mdev, tir, in, inlen);
- 		if (err)
- 			goto err_destroy_ch_tirs;
- 	}
-@@ -2191,11 +2157,11 @@ static int mlx5e_create_tirs(struct mlx5e_priv *priv)
- 
- err_destroy_ch_tirs:
- 	for (ix--; ix >= 0; ix--)
--		mlx5_core_destroy_tir(priv->mdev, priv->direct_tir[ix].tirn);
-+		mlx5e_destroy_tir(priv->mdev, &priv->direct_tir[ix]);
- 
- err_destroy_tirs:
- 	for (tt--; tt >= 0; tt--)
--		mlx5_core_destroy_tir(priv->mdev, priv->indir_tirn[tt]);
-+		mlx5e_destroy_tir(priv->mdev, &priv->indir_tir[tt]);
- 
- 	kvfree(in);
- 
-@@ -2208,10 +2174,10 @@ static void mlx5e_destroy_tirs(struct mlx5e_priv *priv)
- 	int i;
- 
- 	for (i = 0; i < nch; i++)
--		mlx5_core_destroy_tir(priv->mdev, priv->direct_tir[i].tirn);
-+		mlx5e_destroy_tir(priv->mdev, &priv->direct_tir[i]);
- 
- 	for (i = 0; i < MLX5E_NUM_INDIR_TIRS; i++)
--		mlx5_core_destroy_tir(priv->mdev, priv->indir_tirn[i]);
-+		mlx5e_destroy_tir(priv->mdev, &priv->indir_tir[i]);
- }
- 
- int mlx5e_modify_rqs_vsd(struct mlx5e_priv *priv, bool vsd)
++
++void esw_destroy_offloads_fdb_table(struct mlx5_eswitch *esw)
++{
++	if (!esw->fdb_table.fdb)
++		return;
++
++	esw_debug(esw->dev, "Destroy offloads FDB Table\n");
++	mlx5_destroy_flow_group(esw->fdb_table.offloads.send_to_vport_grp);
++	mlx5_destroy_flow_group(esw->fdb_table.offloads.miss_grp);
++
++	mlx5_destroy_flow_table(esw->fdb_table.fdb);
++}
 -- 
 2.8.0
