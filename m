@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next 4/6] r8152: support the new chip 8050
-Date: Mon, 27 Jun 2016 13:07:43 +0800
-Message-ID: <1394712342-15778-188-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next 3/6] r8152: add power_cut_en for rtl_ops
+Date: Mon, 27 Jun 2016 13:07:42 +0800
+Message-ID: <1394712342-15778-187-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-184-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,74 +13,81 @@ In-Reply-To: <1394712342-15778-184-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Support a new chip which has the product ID 0x8050.
+Add power_cut_en() for rtl_ops.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/usb/r8152.c | 16 +++++++++++++---
+ 1 file changed, 13 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index a4f8a01..3ccbff0 100644
+index f51d799..a4f8a01 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -646,6 +646,7 @@ enum rtl_version {
- 	RTL_VER_04,
- 	RTL_VER_05,
- 	RTL_VER_06,
-+	RTL_VER_07,
- 	RTL_VER_MAX
- };
+@@ -622,6 +622,7 @@ struct r8152 {
+ 		void (*aldps_enable)(struct r8152 *tp, bool enable);
+ 		void (*u1u2_enable)(struct r8152 *tp, bool enable);
+ 		void (*hw_phy_cfg)(struct r8152 *);
++		void (*power_cut_en)(struct r8152 *tp, bool enable);
+ 	} rtl_ops;
  
-@@ -3920,6 +3921,7 @@ static int rtl8152_get_coalesce(struct net_device *netdev,
- 	switch (tp->version) {
- 	case RTL_VER_01:
- 	case RTL_VER_02:
-+	case RTL_VER_07:
- 		return -EOPNOTSUPP;
- 	default:
- 		break;
-@@ -3939,6 +3941,7 @@ static int rtl8152_set_coalesce(struct net_device *netdev,
- 	switch (tp->version) {
- 	case RTL_VER_01:
- 	case RTL_VER_02:
-+	case RTL_VER_07:
- 		return -EOPNOTSUPP;
- 	default:
- 		break;
-@@ -4038,6 +4041,7 @@ static int rtl8152_change_mtu(struct net_device *dev, int new_mtu)
- 	switch (tp->version) {
- 	case RTL_VER_01:
- 	case RTL_VER_02:
-+	case RTL_VER_07:
- 		return eth_change_mtu(dev, new_mtu);
- 	default:
- 		break;
-@@ -4109,6 +4113,9 @@ static void r8152b_get_version(struct r8152 *tp)
- 		tp->version = RTL_VER_06;
- 		tp->mii.supports_gmii = 1;
- 		break;
-+	case 0x4800:
-+		tp->version = RTL_VER_07;
-+		break;
- 	default:
- 		netif_info(tp, probe, tp->netdev,
- 			   "Unknown version 0x%04x\n", version);
-@@ -4141,6 +4148,7 @@ static int rtl_ops_init(struct r8152 *tp)
- 	switch (tp->version) {
- 	case RTL_VER_01:
- 	case RTL_VER_02:
-+	case RTL_VER_07:
- 		ops->init		= r8152b_init;
- 		ops->enable		= rtl8152_enable;
- 		ops->disable		= rtl8152_disable;
-@@ -4336,6 +4344,7 @@ static void rtl8152_disconnect(struct usb_interface *intf)
+ 	int intr_interval;
+@@ -2391,6 +2392,13 @@ static void r8153_power_cut_en(struct r8152 *tp, bool enable)
+ 	else
+ 		ocp_data &= ~(PWR_EN | PHASE2_EN);
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_POWER_CUT, ocp_data);
++}
++
++static void r8153A_power_cut_en(struct r8152 *tp, bool enable)
++{
++	u32 ocp_data;
++
++	r8153_power_cut_en(tp, enable);
  
- /* table of devices that work with this driver */
- static struct usb_device_id rtl8152_table[] = {
-+	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8050)},
- 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
- 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
- 	{REALTEK_USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_USB, USB_MISC_0);
+ 	ocp_data &= ~PCUT_STATUS;
+@@ -2941,7 +2949,7 @@ static void rtl8153_down(struct r8152 *tp)
+ 
+ 	tp->rtl_ops.u1u2_enable(tp, false);
+ 	r8153_u2p3en(tp, false);
+-	r8153_power_cut_en(tp, false);
++	tp->rtl_ops.power_cut_en(tp, false);
+ 	tp->rtl_ops.aldps_enable(tp, false);
+ 	r8153_enter_oob(tp);
+ 	tp->rtl_ops.aldps_enable(tp, true);
+@@ -3397,7 +3405,7 @@ static void r8153_init(struct r8152 *tp)
+ 
+ 	ocp_write_word(tp, MCU_TYPE_USB, USB_CONNECT_TIMER, 0x0001);
+ 
+-	r8153_power_cut_en(tp, false);
++	r8153A_power_cut_en(tp, false);
+ 	r8153_u1u2en(tp, true);
+ 
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_MAC_PWR_CTRL, ALDPS_SPDWN_RATIO);
+@@ -4122,7 +4130,7 @@ static void rtl8153_unload(struct r8152 *tp)
+ 	if (test_bit(RTL8152_UNPLUG, &tp->flags))
+ 		return;
+ 
+-	r8153_power_cut_en(tp, false);
++	tp->rtl_ops.power_cut_en(tp, false);
+ }
+ 
+ static int rtl_ops_init(struct r8152 *tp)
+@@ -4145,6 +4153,7 @@ static int rtl_ops_init(struct r8152 *tp)
+ 		ops->aldps_enable	= r8152_aldps_en;
+ 		ops->u1u2_enable	= r8153_u1u2en;
+ 		ops->hw_phy_cfg		= r8152b_hw_phy_cfg;
++		ops->power_cut_en	= r8152_power_cut_en;
+ 		break;
+ 
+ 	case RTL_VER_03:
+@@ -4163,6 +4172,7 @@ static int rtl_ops_init(struct r8152 *tp)
+ 		ops->aldps_enable	= r8153_aldps_en;
+ 		ops->u1u2_enable	= r8153_u1u2en;
+ 		ops->hw_phy_cfg		= r8153_hw_phy_cfg;
++		ops->power_cut_en	= r8153A_power_cut_en;
+ 		break;
+ 
+ 	default:
 -- 
 2.4.11
