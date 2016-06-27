@@ -1,45 +1,75 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 4/7] net/mlx5e: Check for BlueFlame capability before allocating SQ uar
-Date: Mon, 27 Jun 2016 12:08:35 +0300
-Message-ID: <1467018518-11630-5-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 3/7] net/mlx5e: Change enum to better reflect usage
+Date: Mon, 27 Jun 2016 12:08:34 +0300
+Message-ID: <1467018518-11630-4-git-send-email-saeedm@mellanox.com>
 References: <1467018518-11630-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>,
+	Eli Cohen <eli@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53212 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:53267 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751886AbcF0JQP (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jun 2016 05:16:15 -0400
+	id S1750870AbcF0JQa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2016 05:16:30 -0400
 In-Reply-To: <1467018518-11630-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gal Pressman <galp@mellanox.com>
+From: Eli Cohen <eli@mellanox.com>
 
-Previous to this patch mapping was always set to write combining without
-checking whether BlueFlame is supported in the device.
+Change MLX5E_STATE_ASYNC_EVENTS_ENABLE to
+MLX5E_STATE_ASYNC_EVENTS_ENABLED since it represent a state and not an
+operation.
 
-Fixes: 0ba422410bbf ('net/mlx5: Fix global UAR mapping')
-Signed-off-by: Gal Pressman <galp@mellanox.com>
+Fixes: acff797cd1874 ('net/mlx5: Extend mlx5_core to support ConnectX-4 Ethernet functionality')
+Signed-off-by: Eli Cohen <eli@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h      | 2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 6 +++---
+ 2 files changed, 4 insertions(+), 4 deletions(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index e8a6c33..baa991a 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -401,7 +401,7 @@ enum mlx5e_traffic_types {
+ };
+ 
+ enum {
+-	MLX5E_STATE_ASYNC_EVENTS_ENABLE,
++	MLX5E_STATE_ASYNC_EVENTS_ENABLED,
+ 	MLX5E_STATE_OPENED,
+ 	MLX5E_STATE_DESTROYING,
+ };
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 4383f8c..793d7a1 100644
+index f5c8d5d..4383f8c 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -580,7 +580,7 @@ static int mlx5e_create_sq(struct mlx5e_channel *c,
- 	void *sqc_wq = MLX5_ADDR_OF(sqc, sqc, wq);
- 	int err;
+@@ -244,7 +244,7 @@ static void mlx5e_async_event(struct mlx5_core_dev *mdev, void *vpriv,
+ {
+ 	struct mlx5e_priv *priv = vpriv;
  
--	err = mlx5_alloc_map_uar(mdev, &sq->uar, true);
-+	err = mlx5_alloc_map_uar(mdev, &sq->uar, !!MLX5_CAP_GEN(mdev, bf));
- 	if (err)
- 		return err;
+-	if (!test_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state))
++	if (!test_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLED, &priv->state))
+ 		return;
+ 
+ 	switch (event) {
+@@ -260,12 +260,12 @@ static void mlx5e_async_event(struct mlx5_core_dev *mdev, void *vpriv,
+ 
+ static void mlx5e_enable_async_events(struct mlx5e_priv *priv)
+ {
+-	set_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state);
++	set_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLED, &priv->state);
+ }
+ 
+ static void mlx5e_disable_async_events(struct mlx5e_priv *priv)
+ {
+-	clear_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state);
++	clear_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLED, &priv->state);
+ 	synchronize_irq(mlx5_get_msix_vec(priv->mdev, MLX5_EQ_VEC_ASYNC));
+ }
  
 -- 
 2.8.0
