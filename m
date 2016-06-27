@@ -1,38 +1,83 @@
-From: Iago Abal <iari@itu.dk>
-Subject: Potential double mutex_lock bug in net/ceph/auth.c
-Date: Mon, 27 Jun 2016 10:22:22 +0200
-Message-ID: <CAGbDTvo5zF_vO7KwG8frD7H0gf3fkJc_oTXiZ=tKbiD9GpPXmQ@mail.gmail.com>
+From: Arjun V <arjun@chelsio.com>
+Subject: Re: [REGRESSION, bisect]cxgb4 port failure with TSO traffic after
+ commit 10d3be569243def8("tcp-tso: do not split TSO packets at retransmit
+ time")
+Date: Mon, 27 Jun 2016 14:29:58 +0530
+Message-ID: <20160627085957.GB13319@v4.asicdesigners.com>
+References: <6DE8042992C3D3488ACEF3F2607097E3C4A81CA5@nice.asicdesigners.com>
+ <CANn89iLpBC5tUqpdSE4jCMKFgUi=mg=2kPZtMaRh-cnBhvauNg@mail.gmail.com>
+ <6DE8042992C3D3488ACEF3F2607097E3C4A82805@nice.asicdesigners.com>
+ <CANn89i+ePpSDYPtQeZa=fdN84=4WKdDb88P-dOVyPyY_DMK02g@mail.gmail.com>
+ <1466785507.6850.105.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160627071750.GA13304@v4.asicdesigners.com>
+ <1467014782.6850.144.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Cc: Sage Weil <sage@inktank.com>, Alex Elder <elder@inktank.com>
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	Kumar A S <kumaras@chelsio.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	Nirranjan Kirubaharan <nirranjan@chelsio.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"ycheng@google.com" <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0102.outbound.protection.outlook.com ([157.56.112.102]:25568
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750736AbcF0I46 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jun 2016 04:56:58 -0400
-Received: by mail-wm0-f49.google.com with SMTP id r201so103383316wme.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 01:23:06 -0700 (PDT)
+Received: from [12.32.117.8] ([12.32.117.8]:44190 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751671AbcF0JBR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 05:01:17 -0400
+Content-Disposition: inline
+In-Reply-To: <1467014782.6850.144.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Monday, June 06/27/16, 2016 at 13:36:22 +0530, Eric Dumazet wrote:
+> On Mon, 2016-06-27 at 12:47 +0530, Arjun V wrote:
+> 
+> > Eric,
+> > 
+> > Thanks for the quick patch. It didn't help much. We still see packets larger than 65536 with the patch.
+> > 
+> > Below is the dump_stack() trace I am seeing for packets larger than 65536 in our xmit routine:
+> 
+> What values do you get for skb->len ?
+>
+These are the skb->len values I am hitting in t4_eth_xmit() for around half hour run of netperf bidi(800 connections total)
+packet with skb->len 69570 detected
+packet with skb->len 66674 detected
+packet with skb->len 68122 detected
+packet with skb->len 68122 detected
+packet with skb->len 72466 detected
+packet with skb->len 76810 detected
+packet with skb->len 69570 detected
+packet with skb->len 66674 detected
+packet with skb->len 66674 detected
+packet with skb->len 68122 detected
+packet with skb->len 71018 detected
+packet with skb->len 66674 detected
+packet with skb->len 66674 detected
+packet with skb->len 66674 detected
+packet with skb->len 69570 detected
+packet with skb->len 68122 detected
+packet with skb->len 73914 detected
+packet with skb->len 66674 detected
+packet with skb->len 69570 detected
+packet with skb->len 69570 detected
+packet with skb->len 69570 detected
+packet with skb->len 68122 detected
+packet with skb->len 72466 detected
+packet with skb->len 68122 detected
+packet with skb->len 69570 detected
+packet with skb->len 69570 detected
+packet with skb->len 72466 detected
+packet with skb->len 72466 detected
 
-I'm testing a static bug finder (EBA) on Linux 4.7 release candidates
-and I may have found a potential double lock:
-
-  Double lock in net/ceph/auth.c
-  second lock at 108: mutex_lock(& ac->mutex); [ceph_auth_build_hello]
-  after calling from 263: ret = ceph_auth_build_hello(ac, msg_buf, msg_len);
-  if ! ac->protocol -> true at 262
-  first lock at 261: mutex_lock(& ac->mutex); [ceph_build_auth]
-
-This seems to have been introduced by commit e9966076cdd9 ("libceph:
-wrap auth methods in a mutex").
-
-I hope it helps!
-
-Thanks,
-
--- iago
+> Again, at retransmit time we never grow packets, we only can split
+> existing packets. So there is something very wrong.
+> 
+> The original xmit should already have hit this issue.
+> 
+> 
+> 
