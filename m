@@ -1,75 +1,60 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 3/7] net/mlx5e: Change enum to better reflect usage
-Date: Mon, 27 Jun 2016 12:08:34 +0300
-Message-ID: <1467018518-11630-4-git-send-email-saeedm@mellanox.com>
-References: <1467018518-11630-1-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 0/7] Mellanox 100G mlx5 fixes#2 for 4.7-rc
+Date: Mon, 27 Jun 2016 12:08:31 +0300
+Message-ID: <1467018518-11630-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Eli Cohen <eli@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53267 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:53195 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750870AbcF0JQa (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jun 2016 05:16:30 -0400
-In-Reply-To: <1467018518-11630-1-git-send-email-saeedm@mellanox.com>
+	id S1751673AbcF0JQK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2016 05:16:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eli Cohen <eli@mellanox.com>
+Hi Dave,
 
-Change MLX5E_STATE_ASYNC_EVENTS_ENABLE to
-MLX5E_STATE_ASYNC_EVENTS_ENABLED since it represent a state and not an
-operation.
+The following series provides one-liners fixes for mlx5 driver plus one
+medium patch to reorganize ethtool counters reporting.
 
-Fixes: acff797cd1874 ('net/mlx5: Extend mlx5_core to support ConnectX-4 Ethernet functionality')
-Signed-off-by: Eli Cohen <eli@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en.h      | 2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 6 +++---
- 2 files changed, 4 insertions(+), 4 deletions(-)
+Highlights:
+	- Added MODIFY_FLOW_TABLE to command strings table
+	- Add ConnectX-5 PCIe 4.0 to list of supported devices
+	- Rename ASYNC_EVENTS enum
+	- Enable BlueFlame only when supported by device
+	- Avoid adding same vxlan port twice
+	- Report the correct number of PFC counters
+	- Reorganize ethtool reported counters and remove duplications
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index e8a6c33..baa991a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -401,7 +401,7 @@ enum mlx5e_traffic_types {
- };
- 
- enum {
--	MLX5E_STATE_ASYNC_EVENTS_ENABLE,
-+	MLX5E_STATE_ASYNC_EVENTS_ENABLED,
- 	MLX5E_STATE_OPENED,
- 	MLX5E_STATE_DESTROYING,
- };
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index f5c8d5d..4383f8c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -244,7 +244,7 @@ static void mlx5e_async_event(struct mlx5_core_dev *mdev, void *vpriv,
- {
- 	struct mlx5e_priv *priv = vpriv;
- 
--	if (!test_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state))
-+	if (!test_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLED, &priv->state))
- 		return;
- 
- 	switch (event) {
-@@ -260,12 +260,12 @@ static void mlx5e_async_event(struct mlx5_core_dev *mdev, void *vpriv,
- 
- static void mlx5e_enable_async_events(struct mlx5e_priv *priv)
- {
--	set_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state);
-+	set_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLED, &priv->state);
- }
- 
- static void mlx5e_disable_async_events(struct mlx5e_priv *priv)
- {
--	clear_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLE, &priv->state);
-+	clear_bit(MLX5E_STATE_ASYNC_EVENTS_ENABLED, &priv->state);
- 	synchronize_irq(mlx5_get_msix_vec(priv->mdev, MLX5_EQ_VEC_ASYNC));
- }
- 
+Thanks,
+Saeed.
+
+Eli Cohen (2):
+  net/mlx5: Update command strings
+  net/mlx5e: Change enum to better reflect usage
+
+Gal Pressman (3):
+  net/mlx5e: Check for BlueFlame capability before allocating SQ uar
+  net/mlx5e: Fix number of PFC counters reported to ethtool
+  net/mlx5e: Reorganize ethtool statistics
+
+Majd Dibbiny (1):
+  net/mlx5: Add ConnectX-5 PCIe 4.0 to list of supported devices
+
+Matthew Finlay (1):
+  net/mlx5e: Prevent adding the same vxlan port
+
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c      |   1 +
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |   2 +-
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  34 +--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  35 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_rx.c    |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 228 +++++++++------------
+ drivers/net/ethernet/mellanox/mlx5/core/en_tx.c    |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |   3 +-
+ drivers/net/ethernet/mellanox/mlx5/core/vxlan.c    |   3 +
+ 9 files changed, 144 insertions(+), 170 deletions(-)
+
 -- 
 2.8.0
