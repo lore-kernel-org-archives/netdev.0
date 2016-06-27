@@ -1,57 +1,75 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next] tcp: md5: do not use stack storage in crypto
- operations
-Date: Mon, 27 Jun 2016 17:22:41 +0200
-Message-ID: <1467040961.6850.155.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1466828771.6850.124.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1466829439.6850.126.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1466870975.6850.139.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160627.105158.605041440961301398.davem@davemloft.net>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: Multi-thread udp 4.7 regression, bisected to 71d8c47fc653
+Date: Mon, 27 Jun 2016 17:38:20 +0200
+Message-ID: <20160627153820.GB10613@breakpoint.cc>
+References: <CAB9dFduvE0dKzZ8Dm5RVVrUAq1Auvj8t9xXAyARGyO4NmowvYw@mail.gmail.com>
+ <20160627142238.GA10613@breakpoint.cc>
+ <CAB9dFds=qY=Dk++p7qVX7a8aOOH4wn0rtL3m4poO6HMQPuPrnA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: luto@amacapital.net, herbert@gondor.apana.org.au,
-	netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>,
+	netdev <netdev@vger.kernel.org>
+To: Marc Dionne <marc.c.dionne@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:36488 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751982AbcF0PWt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 11:22:49 -0400
-Received: by mail-wm0-f65.google.com with SMTP id c82so25489342wme.3
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 08:22:48 -0700 (PDT)
-In-Reply-To: <20160627.105158.605041440961301398.davem@davemloft.net>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:42406 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751638AbcF0Pi0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 11:38:26 -0400
+Content-Disposition: inline
+In-Reply-To: <CAB9dFds=qY=Dk++p7qVX7a8aOOH4wn0rtL3m4poO6HMQPuPrnA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-06-27 at 10:51 -0400, David Miller wrote:
-> From: Eric Dumazet <eric.dumazet@gmail.com>
-> Date: Sat, 25 Jun 2016 18:09:35 +0200
-> 
-> > From: Eric Dumazet <edumazet@google.com>
-> > 
-> > Some arches have virtually mapped kernel stacks, or will soon have.
-> > 
-> > tcp_md5_hash_header() uses an automatic variable to copy tcp header
-> > before mangling th->check and calling crypto function, which might
-> > be problematic on such arches.
-> > 
-> > So use percpu storage as we already do for the pseudo header,
-> > and reduce number of crypto functions calls, as these headers
-> > are ridiculously small.
-> > 
-> > Signed-off-by: Eric Dumazet <edumazet@google.com>
-> > Reported-by: Andy Lutomirski <luto@amacapital.net>
-> > ---
-> > I am not sure the md5 crypto functions have a problem with data backed
-> > in virtually mapped stacks, but this patch seems to remove the doubt.
-> 
-> In a non-SMP build this storage will be in the kernel image itself.
-> 
-> And this violates the crypto layer's requirements.
-> 
-> It has to be memory taken from the page allocator or kmalloc.  So
-> before vmalloc'd stacks, the current code is perfectly fine.  And
-> with vmalloc'd stacks this patch trades one bug for another.
+Marc Dionne <marc.c.dionne@gmail.com> wrote:
+> On Mon, Jun 27, 2016 at 11:22 AM, Florian Westphal <fw@strlen.de> wrote:
+> > Marc Dionne <marc.c.dionne@gmail.com> wrote:
+> >> Hi,
 
-OK, so lets simply use kmalloc() allocated storage instead of percpu.
+> >         hlist_nulls_for_each_entry(h, n, &nf_conntrack_hash[hash], hnnode)
+> >                 if (nf_ct_key_equal(h, &ct->tuplehash[IP_CT_DIR_ORIGINAL].tuple,
+> > -                                   zone, net))
+> > -                       goto out;
+> > +                                   zone, net)) {
+> > +                       nf_ct_add_to_dying_list(ct);
+> > +                       ret = nf_ct_resolve_clash(net, skb, ctinfo, h);
+> > +                       goto dying;
+> > +               }
+
+This is bogus as h can be a reply too (key compare does not deal
+with it).
+
+Below is what I actually intended; I can't come up with a reason why
+you experience this issue other than that we're getting confused over
+reply/original direction.
+
+If the patch doesn't help either, can you tell us what kind of iptables
+rules are installed on the affected system or perhaps report perf drop
+monitor stat when things go wrong?
+
+Thanks!
+
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -638,6 +638,12 @@ static int nf_ct_resolve_clash(struct net *net, struct sk_buff *skb,
+ 	struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
+ 	struct nf_conntrack_l4proto *l4proto;
+ 
++	/* skb being confirmed is always original dir; do not attach to
++	 * a reply tuple.
++	 */
++	if (NF_CT_DIRECTION(h) != IP_CT_DIR_ORIGINAL)
++		goto out;
++
+ 	l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
+ 	if (l4proto->allow_clash &&
+ 	    !nf_ct_is_dying(ct) &&
+@@ -650,6 +656,7 @@ static int nf_ct_resolve_clash(struct net *net, struct sk_buff *skb,
+ 		skb->nfct = &ct->ct_general;
+ 		return NF_ACCEPT;
+ 	}
++ out:
+ 	NF_CT_STAT_INC(net, drop);
+ 	return NF_DROP;
+ }
