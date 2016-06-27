@@ -1,56 +1,61 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: [PATCH v4 00/19] CALIPSO Implementation
-Date: Mon, 27 Jun 2016 15:29:46 -0400
-Message-ID: <CAHC9VhSPat1Um-bGFBFO2pVh-6XJqih4HjbMs589wA-cS15bUw@mail.gmail.com>
-References: <1466429819-12707-1-git-send-email-huw@codeweavers.com>
- <20160621.053928.1340819307282355897.davem@davemloft.net> <20160621095548.GA19213@merlot.physics.ox.ac.uk>
- <20160623.152112.1146976941740701983.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, linux-security-module@vger.kernel.org,
-	selinux@tycho.nsa.gov, Paul Moore <pmoore@redhat.com>
-To: huw@codeweavers.com, David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:33756 "EHLO
-	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752362AbcF0T3r (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 15:29:47 -0400
-Received: by mail-oi0-f50.google.com with SMTP id u201so214357102oie.0
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 12:29:47 -0700 (PDT)
-In-Reply-To: <20160623.152112.1146976941740701983.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net] bpf, perf: delay release of BPF prog after grace period
+Date: Mon, 27 Jun 2016 21:38:11 +0200
+Message-ID: <7b2f4311ea7b4d0acc0042b49b8443702f1d1a70.1467055933.git.daniel@iogearbox.net>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	alexei.starovoitov@gmail.com,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Jann Horn <jann@thejh.net>
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 23, 2016 at 3:21 PM, David Miller <davem@davemloft.net> wrote:
-> From: Huw Davies <huw@codeweavers.com>
-> Date: Tue, 21 Jun 2016 10:55:48 +0100
->
->> On Tue, Jun 21, 2016 at 05:39:28AM -0400, David Miller wrote:
->>> From: Huw Davies <huw@codeweavers.com>
->>> Date: Mon, 20 Jun 2016 14:36:40 +0100
->>>
->>> > This patch series implements RFC 5570 - Common Architecture Label IPv6
->>> > Security Option (CALIPSO).  Its goal is to set MLS sensitivity labels
->>> > on IPv6 packets using a hop-by-hop option.  CALIPSO is very similar to
->>> > its IPv4 cousin CIPSO and much of this series is based on that code.
->>>
->>> What tree do you expect to integrate this?
->>
->> My understanding is that Paul Moore is happy to take them
->> in via the SELinux tree.  However, these patches do touch
->> some core networking code, such as the IPv6 option handling
->> code (in a similar manner to the way CIPSO touched the IPv4
->> option code), so if you have any comments on those aspects
->> that would be good to hear.
->
-> No objections on my part.
+Commit dead9f29ddcc ("perf: Fix race in BPF program unregister") moved
+destruction of BPF program from free_event_rcu() callback to __free_event(),
+which is problematic if used with tail calls: if prog A is attached as
+trace event directly, but at the same time present in a tail call map used
+by another trace event program elsewhere, then we need to delay destruction
+via RCU grace period since it can still be in use by the program doing the
+tail call (the prog first needs to be dropped from the tail call map, then
+trace event with prog A attached destroyed, so we get immediate destruction).
 
-Okay.
+Fixes: dead9f29ddcc ("perf: Fix race in BPF program unregister")
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
+Cc: Jann Horn <jann@thejh.net>
+---
+ include/linux/bpf.h  | 4 ++++
+ kernel/events/core.c | 2 +-
+ 2 files changed, 5 insertions(+), 1 deletion(-)
 
-The changes between v3 and v4 were pretty trivial so I've gone ahead
-and merged v4 into the SELinux next branch.  Huw, thanks very much for
-all of this, I know it was a lot of work.
-
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 8269caf..0de4de6 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -264,6 +264,10 @@ static inline struct bpf_prog *bpf_prog_get(u32 ufd)
+ static inline void bpf_prog_put(struct bpf_prog *prog)
+ {
+ }
++
++static inline void bpf_prog_put_rcu(struct bpf_prog *prog)
++{
++}
+ #endif /* CONFIG_BPF_SYSCALL */
+ 
+ /* verifier prototypes for helper functions called from eBPF programs */
+diff --git a/kernel/events/core.c b/kernel/events/core.c
+index 274450e..d00c47b 100644
+--- a/kernel/events/core.c
++++ b/kernel/events/core.c
+@@ -7531,7 +7531,7 @@ static void perf_event_free_bpf_prog(struct perf_event *event)
+ 	prog = event->tp_event->prog;
+ 	if (prog) {
+ 		event->tp_event->prog = NULL;
+-		bpf_prog_put(prog);
++		bpf_prog_put_rcu(prog);
+ 	}
+ }
+ 
 -- 
-paul moore
-www.paul-moore.com
+1.9.3
