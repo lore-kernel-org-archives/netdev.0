@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH net-next 2/9] net: hns: fix code style about hns driver
-Date: Mon, 27 Jun 2016 17:54:08 +0800
-Message-ID: <1467021255-95900-3-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH net-next 9/9] net: hns: get reset registers from DT
+Date: Mon, 27 Jun 2016 17:54:15 +0800
+Message-ID: <1467021255-95900-10-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,59 +13,166 @@ Cc: <liguozhu@huawei.com>, <huangdaode@hisilicon.com>, <arnd@arndb.de>,
 	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
 To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
 	<salil.mehta@huawei.com>, <yankejian@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:32871 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751850AbcF0Jf7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 05:35:59 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Daode Huang <huangdaode@hisilicon.com>
+From: Kejian Yan <yankejian@huawei.com>
 
-This patch fixes code sytle of hns driver to make it
-simple.
+Since the registers of subctrl may be different, it is better to
+mv the registers from hns mdio driver routine to device tree node.
 
-Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 16 +++++++---------
- 1 file changed, 7 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/hisilicon/hns_mdio.c | 80 +++++++++++++++++++++++++------
+ 1 file changed, 66 insertions(+), 14 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-index 8473287..611b67b 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-@@ -253,10 +253,9 @@ static void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
- 		reg_val_1  = 0x1 << port;
- 		port_rst_off = dsaf_dev->mac_cb[port]->port_rst_off;
- 		/* there is difference between V1 and V2 in register.*/
--		if (AE_IS_VER1(dsaf_dev->dsaf_ver))
--			reg_val_2  = 0x1041041 << port_rst_off;
--		else
--			reg_val_2  = 0x2082082 << port_rst_off;
-+		reg_val_2 = AE_IS_VER1(dsaf_dev->dsaf_ver) ?
-+				0x1041041 : 0x2082082;
-+		reg_val_2 <<= port_rst_off;
+diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
+index 761a32f..988ad69 100644
+--- a/drivers/net/ethernet/hisilicon/hns_mdio.c
++++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
+@@ -37,9 +37,19 @@
  
- 		if (!dereset) {
- 			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_GE_RESET_REQ1_REG,
-@@ -272,12 +271,11 @@ static void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
- 				       reg_val_1);
+ #define MDIO_TIMEOUT			1000000
+ 
++struct hns_mdio_sc_reg {
++	u16 mdio_clk_en;
++	u16 mdio_clk_dis;
++	u16 mdio_reset_req;
++	u16 mdio_reset_dreq;
++	u16 mdio_clk_st;
++	u16 mdio_reset_st;
++};
++
+ struct hns_mdio_device {
+ 	void *vbase;		/* mdio reg base address */
+ 	struct regmap *subctrl_vbase;
++	struct hns_mdio_sc_reg sc_reg;
+ };
+ 
+ /* mdio reg */
+@@ -93,7 +103,6 @@ enum mdio_c45_op_seq {
+ #define MDIO_SC_CLK_DIS		0x33C
+ #define MDIO_SC_RESET_REQ	0xA38
+ #define MDIO_SC_RESET_DREQ	0xA3C
+-#define MDIO_SC_CTRL		0x2010
+ #define MDIO_SC_CLK_ST		0x531C
+ #define MDIO_SC_RESET_ST	0x5A1C
+ 
+@@ -353,6 +362,7 @@ static int hns_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
+ static int hns_mdio_reset(struct mii_bus *bus)
+ {
+ 	struct hns_mdio_device *mdio_dev = (struct hns_mdio_device *)bus->priv;
++	const struct hns_mdio_sc_reg *sc_reg;
+ 	int ret;
+ 
+ 	if (dev_of_node(bus->parent)) {
+@@ -361,9 +371,10 @@ static int hns_mdio_reset(struct mii_bus *bus)
+ 			return -ENODEV;
  		}
- 	} else {
--		reg_val_1 = 0x15540 << dsaf_dev->reset_offset;
-+		reg_val_1 = 0x15540;
-+		reg_val_2 = AE_IS_VER1(dsaf_dev->dsaf_ver) ? 0x100 : 0x40;
  
--		if (AE_IS_VER1(dsaf_dev->dsaf_ver))
--			reg_val_2 = 0x100 << dsaf_dev->reset_offset;
--		else
--			reg_val_2 = 0x40 << dsaf_dev->reset_offset;
-+		reg_val_1 <<= dsaf_dev->reset_offset;
-+		reg_val_2 <<= dsaf_dev->reset_offset;
++	sc_reg = &mdio_dev->sc_reg;
+ 		/* 1. reset req, and read reset st check */
+-		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_REQ, 0x1,
+-					    MDIO_SC_RESET_ST, 0x1,
++	ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_reset_req, 0x1,
++				    sc_reg->mdio_reset_st, 0x1,
+ 					    MDIO_CHECK_SET_ST);
+ 		if (ret) {
+ 			dev_err(&bus->dev, "MDIO reset fail\n");
+@@ -371,8 +382,8 @@ static int hns_mdio_reset(struct mii_bus *bus)
+ 		}
  
- 		if (!dereset) {
- 			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_GE_RESET_REQ1_REG,
+ 		/* 2. dis clk, and read clk st check */
+-		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_DIS,
+-					    0x1, MDIO_SC_CLK_ST, 0x1,
++	ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_clk_dis,
++				    0x1, sc_reg->mdio_clk_st, 0x1,
+ 					    MDIO_CHECK_CLR_ST);
+ 		if (ret) {
+ 			dev_err(&bus->dev, "MDIO dis clk fail\n");
+@@ -380,8 +391,8 @@ static int hns_mdio_reset(struct mii_bus *bus)
+ 		}
+ 
+ 		/* 3. reset dreq, and read reset st check */
+-		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_DREQ, 0x1,
+-					    MDIO_SC_RESET_ST, 0x1,
++	ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_reset_dreq, 0x1,
++				    sc_reg->mdio_reset_st, 0x1,
+ 					    MDIO_CHECK_CLR_ST);
+ 		if (ret) {
+ 			dev_err(&bus->dev, "MDIO dis clk fail\n");
+@@ -389,8 +400,8 @@ static int hns_mdio_reset(struct mii_bus *bus)
+ 		}
+ 
+ 		/* 4. en clk, and read clk st check */
+-		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_EN,
+-					    0x1, MDIO_SC_CLK_ST, 0x1,
++	ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_clk_en,
++				    0x1, sc_reg->mdio_clk_st, 0x1,
+ 					    MDIO_CHECK_SET_ST);
+ 		if (ret)
+ 			dev_err(&bus->dev, "MDIO en clk fail\n");
+@@ -458,13 +469,54 @@ static int hns_mdio_probe(struct platform_device *pdev)
+ 	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%s-%s", "Mii",
+ 		 dev_name(&pdev->dev));
+ 	if (dev_of_node(&pdev->dev)) {
+-		mdio_dev->subctrl_vbase = syscon_node_to_regmap(
+-			of_parse_phandle(pdev->dev.of_node,
+-					 "subctrl-vbase", 0));
+-		if (IS_ERR(mdio_dev->subctrl_vbase)) {
+-			dev_warn(&pdev->dev, "no syscon hisilicon,peri-c-subctrl\n");
++		struct of_phandle_args reg_args;
++
++		ret = of_parse_phandle_with_fixed_args(pdev->dev.of_node,
++						       "subctrl-vbase",
++						       4,
++						       0,
++						       &reg_args);
++		if (!ret) {
++			mdio_dev->subctrl_vbase =
++				syscon_node_to_regmap(reg_args.np);
++			if (IS_ERR(mdio_dev->subctrl_vbase)) {
++				dev_warn(&pdev->dev, "syscon_node_to_regmap error\n");
++				mdio_dev->subctrl_vbase = NULL;
++			} else {
++				if (reg_args.args_count == 4) {
++					mdio_dev->sc_reg.mdio_clk_en =
++						(u16)reg_args.args[0];
++					mdio_dev->sc_reg.mdio_clk_dis =
++						(u16)reg_args.args[0] + 4;
++					mdio_dev->sc_reg.mdio_reset_req =
++						(u16)reg_args.args[1];
++					mdio_dev->sc_reg.mdio_reset_dreq =
++						(u16)reg_args.args[1] + 4;
++					mdio_dev->sc_reg.mdio_clk_st =
++						(u16)reg_args.args[2];
++					mdio_dev->sc_reg.mdio_reset_st =
++						(u16)reg_args.args[3];
++				} else {
++					/* for compatible */
++					mdio_dev->sc_reg.mdio_clk_en =
++						MDIO_SC_CLK_EN;
++					mdio_dev->sc_reg.mdio_clk_dis =
++						MDIO_SC_CLK_DIS;
++					mdio_dev->sc_reg.mdio_reset_req =
++						MDIO_SC_RESET_REQ;
++					mdio_dev->sc_reg.mdio_reset_dreq =
++						MDIO_SC_RESET_DREQ;
++					mdio_dev->sc_reg.mdio_clk_st =
++						MDIO_SC_CLK_ST;
++					mdio_dev->sc_reg.mdio_reset_st =
++						MDIO_SC_RESET_ST;
++				}
++			}
++		} else {
++			dev_warn(&pdev->dev, "find syscon ret = %#x\n", ret);
+ 			mdio_dev->subctrl_vbase = NULL;
+ 		}
++
+ 		ret = of_mdiobus_register(new_bus, pdev->dev.of_node);
+ 	} else if (is_acpi_node(pdev->dev.fwnode)) {
+ 		/* Clear all the IRQ properties */
 -- 
 1.9.1
