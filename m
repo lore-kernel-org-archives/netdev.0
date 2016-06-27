@@ -1,89 +1,81 @@
-From: Mugunthan V N <mugunthanvnm@ti.com>
-Subject: Re: [PATCH v2 00/15] drivers: net: cpsw: improve runtime pm
-Date: Mon, 27 Jun 2016 14:48:11 +0530
-Message-ID: <5770EF53.3090500@ti.com>
-References: <20160624182355.23515-1-grygorii.strashko@ti.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [REGRESSION, bisect]cxgb4 port failure with TSO traffic after
+ commit 10d3be569243def8("tcp-tso: do not split TSO packets at retransmit
+ time")
+Date: Mon, 27 Jun 2016 11:21:19 +0200
+Message-ID: <1467019279.6850.145.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <6DE8042992C3D3488ACEF3F2607097E3C4A81CA5@nice.asicdesigners.com>
+	 <CANn89iLpBC5tUqpdSE4jCMKFgUi=mg=2kPZtMaRh-cnBhvauNg@mail.gmail.com>
+	 <6DE8042992C3D3488ACEF3F2607097E3C4A82805@nice.asicdesigners.com>
+	 <CANn89i+ePpSDYPtQeZa=fdN84=4WKdDb88P-dOVyPyY_DMK02g@mail.gmail.com>
+	 <1466785507.6850.105.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160627071750.GA13304@v4.asicdesigners.com>
+	 <1467014782.6850.144.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <20160627085957.GB13319@v4.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Sekhar Nori <nsekhar@ti.com>, <linux-kernel@vger.kernel.org>,
-	<linux-omap@vger.kernel.org>,
-	Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
-	Rob Herring <robh+dt@kernel.org>, <devicetree@vger.kernel.org>
-To: Grygorii Strashko <grygorii.strashko@ti.com>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160624182355.23515-1-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Eric Dumazet <edumazet@google.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Hariprasad S <hariprasad@chelsio.com>,
+	Casey Leedom <leedom@chelsio.com>,
+	Kumar A S <kumaras@chelsio.com>,
+	Santosh Rastapur <santosh@chelsio.com>,
+	Nirranjan Kirubaharan <nirranjan@chelsio.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"ycheng@google.com" <ycheng@google.com>
+To: Arjun V <arjun@chelsio.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34338 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750736AbcF0JV1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 05:21:27 -0400
+Received: by mail-wm0-f65.google.com with SMTP id 187so22885476wmz.1
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 02:21:26 -0700 (PDT)
+In-Reply-To: <20160627085957.GB13319@v4.asicdesigners.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Friday 24 June 2016 11:53 PM, Grygorii Strashko wrote:
-> This series intended to improve runtime PM and allow CPSW to be
-> RPM suspended when all ethX netdevices are down.
-> 
-> To achieve above goal it is required to relax runtime PM constraints for
-> Davinci MDIO which blocks CPSW runtime PM now, because Davinci MDIO is always
-> powered on during probe and powered off only when it's going to be removed.
-> - Patches 6-11 implement PM runtime autosuspend for Davinci MDIO, but keep it
-> disabled by default, because Davinci MDIO is integrated in big set of TI devices
-> and not all of them verified to work correctly with RPM autosuspend enabled:
->  expected to work on SoCs where MDIO is defined as part of CPSW in DT
->  (cpsw.c DRA7/am57x, am437x, am335x)
-> The CPSW need to be fixed before RPM suspended can be allowed:
->  - Patches 1-5 ensure that CPSW will not cause L3 errors while it is in RPM
->    suspended state.
-> 
-> Davinci MDIO RPM autosuspend can be enabled through sysfs:
->  echo 100 > /sys/devices/../48484000.ethernet/48485000.mdio/power/autosuspend_delay_ms
-> 
-> Patches 12 - 15: introduce new compatible string "ti,cpsw-mdio" which is used
-> then to enable RPM for am335x/am437x/dra7 SoCs.
-> 
-> Tested on am335x, am437x, am572x and k2g (on k2g with RPM disabled for Davinci MDIO)
-> These changes should not affect on errata i877 implementation on DRA7.
-> 
-> Power measurement on am335x GP EVM:
->  Without this series:  547.60 mW total SoC power
->  With this series + "ifconfig eth0 down": 477.32 mW Total Soc Power
-> 
-> Changes in v2:
-> - CPSW ethtool interface updated to use .begin()/.complete() callbacks
-> - kbuild failure fixed
-> - davinci_mdio DT updated with proper description of allowed compatible strings
->   combinations
-> 
-> Link on v1:
->  https://lkml.org/lkml/2016/6/15/362
+On Mon, 2016-06-27 at 14:29 +0530, Arjun V wrote:
+> On Monday, June 06/27/16, 2016 at 13:36:22 +0530, Eric Dumazet wrote:
+> > On Mon, 2016-06-27 at 12:47 +0530, Arjun V wrote:
+> > 
+> > > Eric,
+> > > 
+> > > Thanks for the quick patch. It didn't help much. We still see packets larger than 65536 with the patch.
+> > > 
+> > > Below is the dump_stack() trace I am seeing for packets larger than 65536 in our xmit routine:
+> > 
+> > What values do you get for skb->len ?
+> >
+> These are the skb->len values I am hitting in t4_eth_xmit() for around half hour run of netperf bidi(800 connections total)
+> packet with skb->len 69570 detected
+> packet with skb->len 66674 detected
 
-For the series.
-Reviewed-by: Mugunthan V N <mugunthanvnm@ti.com>
+Ok please add :
 
-Regards
-Mugunthan V N
-
-> 
-> Grygorii Strashko (15):
->   drivers: net: cpsw: fix suspend when all ethX devices are down
->   drivers: net: cpsw: check return code from pm runtime calls
->   drivers: net: cpsw: remove pm runtime calls from suspend callbacks
->   drivers: net: cpsw: ethtool: fix accessing to suspended device
->   drivers: net: cpsw: ndev: fix accessing to suspended device
->   drivers: net: davinci_mdio: do pm runtime initialization later in probe
->   drivers: net: davinci_mdio: remove pm runtime calls from suspend callbacks
->   drivers: net: davinci_mdio: drop suspended and lock fields from mdio_data
->   drivers: net: davinci_mdio: split reset function on init_clk and enable
->   drivers: net: davinci_mdio: add pm runtime callbacks
->   drivers: net: davinci_mdio: implement pm runtime auto mode
->   net: davinci_mdio: document missed "ti,am4372-mdio" compat string
->   net: davinci_mdio: introduce "ti,cpsw-mdio" compat string
->   drivers: net: davinci_mdio: enable pm runtime auto for ti cpsw-mdio
->   ARM: dts: am335x/am437x/dra7: use new "ti,cpsw-mdio" compat string
-> 
->  .../devicetree/bindings/net/davinci-mdio.txt       |   5 +-
->  arch/arm/boot/dts/am33xx.dtsi                      |   2 +-
->  arch/arm/boot/dts/am4372.dtsi                      |   2 +-
->  arch/arm/boot/dts/dra7.dtsi                        |   2 +-
->  drivers/net/ethernet/ti/cpsw.c                     |  79 ++++++++--
->  drivers/net/ethernet/ti/davinci_mdio.c             | 169 +++++++++++++--------
->  6 files changed, 182 insertions(+), 77 deletions(-)
-> 
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 5c7ed147449c1b7ba029b12e033ad779a631460a..39bd2a2b8f4d931c514fe62a00541efef29157ad 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -845,6 +845,7 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+ 	u32 new_size_goal, size_goal;
++	u32 res;
+ 
+ 	if (!large_allowed || !sk_can_gso(sk))
+ 		return mss_now;
+@@ -862,7 +863,11 @@ static unsigned int tcp_xmit_size_goal(struct sock *sk, u32 mss_now,
+ 		size_goal = tp->gso_segs * mss_now;
+ 	}
+ 
+-	return max(size_goal, mss_now);
++	res = max(size_goal, mss_now);
++	if (res >= 65536)
++		pr_err_once("tcp_xmit_size_goal() -> %u size_goal %u, mss_now %u gso_max_size %u gso_segs %u\n",
++			    res, size_goal, mss_now, sk->sk_gso_max_size, tp->gso_segs);
++	return res;
+ }
+ 
+ static int tcp_send_mss(struct sock *sk, int *size_goal, int flags)
