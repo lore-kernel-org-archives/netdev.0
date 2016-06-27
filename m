@@ -1,49 +1,60 @@
-From: Martin Blumenstingl <martin.blumenstingl@googlemail.com>
-Subject: Re: [PATCH RFC 3/3] ARM64: dts: meson-gxbb: use the new meson8b DWMAC glue
-Date: Mon, 27 Jun 2016 13:33:49 +0200
-Message-ID: <CAFBinCBcv+4MHe9sFeGLRRRvb7hjX4=XYOtxN_rO1yzVFZisaQ@mail.gmail.com>
-References: <20160625165013.15917-1-martin.blumenstingl@googlemail.com>
- <20160625165013.15917-4-martin.blumenstingl@googlemail.com>
- <20160627092448.GA3275@localhost> <CAFBinCB6i2-ZUDupAXUZkQO9y93rtCvguD_avdY=Ze72wxQKpw@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH net-next 6/9] net: hns: normalize two different loop
+Date: Mon, 27 Jun 2016 04:49:21 -0700
+Message-ID: <1467028161.1847.101.camel@perches.com>
+References: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
+	 <1467021255-95900-7-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: linux-amlogic@lists.infradead.org, mark.rutland@arm.com,
-	khilman@baylibre.com, robh+dt@kernel.org, netdev@vger.kernel.org,
-	peppe.cavallaro@st.com
-To: Carlo Caione <carlo@caione.org>, mturquette@baylibre.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: liguozhu@huawei.com, huangdaode@hisilicon.com, arnd@arndb.de,
+	andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
+	geliangtang@163.com, ivecera@redhat.com, fengguang.wu@intel.com,
+	charles.chenxin@huawei.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
+	linuxarm@huawei.com
+To: Yisen Zhuang <Yisen.Zhuang@huawei.com>, davem@davemloft.net,
+	salil.mehta@huawei.com, yankejian@huawei.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:35997 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752031AbcF0LeP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 07:34:15 -0400
-Received: by mail-wm0-f43.google.com with SMTP id f126so96428372wma.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 04:34:14 -0700 (PDT)
-In-Reply-To: <CAFBinCB6i2-ZUDupAXUZkQO9y93rtCvguD_avdY=Ze72wxQKpw@mail.gmail.com>
+Received: from smtprelay0018.hostedemail.com ([216.40.44.18]:47369 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751215AbcF0Lt0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 07:49:26 -0400
+In-Reply-To: <1467021255-95900-7-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 27, 2016 at 12:44 PM, Martin Blumenstingl
-<martin.blumenstingl@googlemail.com> wrote:
-> On Mon, Jun 27, 2016 at 11:24 AM, Carlo Caione <carlo@caione.org> wrote:
->> A syscon is a region containing a set of miscellaneous registers used
->> for several reasons by several devices [1]. It this case there is really
->> no need to define a new syscon node since those two registers are only
->> used by your driver.
-> I can easily change it back if that's the way to go.
-> Before I do that: could you please confirm that "mp2_clk_out" (which
-> is controlled by PRG_ETH0/offset 0x0 bits 7-9) is not something which
-> has to be available through the common clk framework?
-there was just an IRC discussion with Carlo on this topic:
-We tried to find whether PRG_ETH0 is used to actually configure
-"mp2_clk_out". Carlo brought up that it could also be the case that
-the ethernet block simply needs to be informed about the rate of the
-mp2_clk_out (which is *probably* the "mpll2" clock).
+On Mon, 2016-06-27 at 17:54 +0800, Yisen Zhuang wrote:
+> From: Daode Huang <huangdaode@hisilicon.com>
+>=20
+> There are two approaches to assign data, one does 2 loops, another
+> does 1 loop. This patch normalize the different methods to 1 loop.
+[]
+> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/dri=
+vers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+[]
+> @@ -2567,15 +2567,15 @@ static char *hns_dsaf_get_node_stats_strings(=
+char *data, int node,
+> =A0	buff +=3D ETH_GSTRING_LEN;
+> =A0	if (node < DSAF_SERVICE_NW_NUM && !is_ver1) {
+> =A0		for (i =3D 0; i < DSAF_PRIO_NR; i++) {
+> -			snprintf(buff, ETH_GSTRING_LEN,
+> -				=A0"inod%d_pfc_prio%d_pkts", node, i);
+> -			buff +=3D ETH_GSTRING_LEN;
+> -		}
+> -		for (i =3D 0; i < DSAF_PRIO_NR; i++) {
+> -			snprintf(buff, ETH_GSTRING_LEN,
+> -				=A0"onod%d_pfc_prio%d_pkts", node, i);
+> +			snprintf(buff + 0 * ETH_GSTRING_LEN * DSAF_PRIO_NR,
+> +				=A0ETH_GSTRING_LEN, "inod%d_pfc_prio%d_pkts",
+> +				=A0node, i);
+> +			snprintf(buff + 1 * ETH_GSTRING_LEN * DSAF_PRIO_NR,
+> +				=A0ETH_GSTRING_LEN, "onod%d_pfc_prio%d_pkts",
+> +				=A0node, i);
+> =A0			buff +=3D ETH_GSTRING_LEN;
 
-I'm adding Michael Turquette to this mail, maybe you can comment on this topic.
+This looks odd and likely incorrect.
 
-If it turns out that the etthernet block just has to know about the
-clock rate then we have two tasks:
-1. identify why the mpll2 rate returns 0 on my GXBB device
-2. change my patch so the new DWMAC glue gets a reference to the mpll2
-clock and then use "clk_get_rate(mpll2) / (250 * 1000000)" to
-configure the PRG_ETH0_MP2_CLK bits.
+> =A0		}
+> +		buff +=3D 1 * DSAF_PRIO_NR * ETH_GSTRING_LEN;
+> =A0	}
