@@ -1,65 +1,54 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH v2 net-next] tcp: md5: use kmalloc() backed scratch areas
-Date: Tue, 28 Jun 2016 10:35:31 -0700
-Message-ID: <CALCETrXOT-zaV8O1Yu4RGybGvPv5C7gr=7EWjTKvUQUaRxz1aQ@mail.gmail.com>
-References: <CALCETrXezCXy4N7wMjYdr+U1A9Avda5bVxTxOQZswinh62gbvw@mail.gmail.com>
- <1466827910.6850.123.camel@edumazet-glaptop3.roam.corp.google.com>
- <1466828771.6850.124.camel@edumazet-glaptop3.roam.corp.google.com>
- <1466829439.6850.126.camel@edumazet-glaptop3.roam.corp.google.com>
- <1466870975.6850.139.camel@edumazet-glaptop3.roam.corp.google.com>
- <1467046313.6850.171.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALCETrUSi3T5JXMunEO9RM5ZEz=aA2xtf9encEVYGxJF4mbhKg@mail.gmail.com> <20160628034150.GA13953@gondor.apana.org.au>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [iproute PATCH v3 0/6] Big C99 style initializer rework
+Date: Tue, 28 Jun 2016 11:37:43 -0600
+Message-ID: <0a003d6f-ae2f-57cb-f3f1-1975011c7b78@cumulusnetworks.com>
+References: <d6784d8bb2d84ceab6c1719e32e8fa8e@HQ1WP-EXMB11.corp.brocade.com>
+ <20160627105912.7961c3f4@xeon-e3> <20160627182302.GB13664@orbyte.nwl.cc>
+ <20160627141049.356c1eff@xeon-e3> <20160628173723.GA6733@orbyte.nwl.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Phil Sutter <phil@nwl.cc>,
+	Stephen Hemminger <shemming@brocade.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Julien Floret <julien.floret@6wind.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f50.google.com ([209.85.213.50]:36031 "EHLO
-	mail-vk0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752238AbcF1RgE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 13:36:04 -0400
-Received: by mail-vk0-f50.google.com with SMTP id k62so22038685vkb.3
-        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 10:35:51 -0700 (PDT)
-In-Reply-To: <20160628034150.GA13953@gondor.apana.org.au>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:34795 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750710AbcF1Riy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 13:38:54 -0400
+Received: by mail-pa0-f49.google.com with SMTP id bz2so8433987pad.1
+        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 10:37:44 -0700 (PDT)
+In-Reply-To: <20160628173723.GA6733@orbyte.nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 27, 2016 at 8:41 PM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> On Mon, Jun 27, 2016 at 10:58:42AM -0700, Andy Lutomirski wrote:
+On 6/28/16 11:37 AM, Phil Sutter wrote:
+>>> I saw these too with gcc-3.4.6 but not with 5.3.0. It appears to be a
+>>> gcc bug[1]. One possible workaround is to match the brace level of the
+>>> first field, but it's quite ugly: [2]. Another way might be to
+>>> initialize one of the fields to zero, like so:
+>>>
+>>> | struct ifreq ifr = { .ifr_qlen = 0 };
+>>>
+>>> What do you think?
+>>>
+>>> Thanks, Phil
+>>>
+>>> [1] https://gcc.gnu.org/bugzilla/show_bug.cgi?id=53119
+>>> [2] http://nwl.cc/cgi-bin/git/gitweb.cgi?p=iproute2.git;a=commitdiff;h=a1cbf2b63c995b2f633c5b4699248ab308b201d2;hp=3809cfec65b03716d1d0360338126df4b4f3fbf6
 >>
->> I wonder if it's worth switching from ahash to shash, though.  It
->> would probably be simpler and faster.
+>> I am using gcc on Debian stable which is 5.3.1.
 >
-> No shash is not appropriate here because it needs to hash skb
-> frags which are SG lists.
+> Hmm. In a fresh install of Debian 8.5 I see the warnings as well, but it
+> has gcc-4.9.2-10 as most recent version.
 >
+> Another thing I noticed: Using empty braces ('{}') instead of the
+> universal zero initializer seems to work without causing warnings (at
+> least unless '-pedantic' is used).
 
-Do you mean this code:
-
-    for (i = 0; i < shi->nr_frags; ++i) {
-        const struct skb_frag_struct *f = &shi->frags[i];
-        unsigned int offset = f->page_offset;
-        struct page *page = skb_frag_page(f) + (offset >> PAGE_SHIFT);
-
-        sg_set_page(&sg, page, skb_frag_size(f),
-                offset_in_page(offset));
-        ahash_request_set_crypt(req, &sg, NULL, skb_frag_size(f));
-        if (crypto_ahash_update(req))
-            return 1;
-    }
-
-I'm wondering why support for scatterlists is all-or-nothing.  Why
-can't we initialize a hash object and then alternate between passing
-it scatterlists and pointers?
-
-I'm guessing that ahash enables async operation and shash is
-synchronous only.  If I'm right, I understand why ahash requires a
-scatterlist.  What I don't understand is why shash can't also accept a
-scatterlist.  It appears that most of the ahash users in the tree
-actually want synchronous crypto and are presumably using ahash for
-some other reason such as ahash's ability to hash via scatterlist (in
-this case, struct page *).
-
---Andy
+since .ifr_qlen is already referenced in that function seems like your 
+suggestion above (struct ifreq ifr = { .ifr_qlen = 0 };) should be 
+acceptable.
