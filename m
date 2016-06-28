@@ -1,95 +1,57 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v3 2/7] r8152: add u1u2_enable for rtl_ops
-Date: Tue, 28 Jun 2016 20:28:37 +0800
-Message-ID: <1394712342-15778-200-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-184-Taiwan-albertk@realtek.com>
- <1394712342-15778-198-Taiwan-albertk@realtek.com>
+From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
+Subject: [PATCH net 1/1] qed: Protect the doorbell BAR with the write barriers.
+Date: Tue, 28 Jun 2016 07:46:03 -0400
+Message-ID: <1467114363-16948-1-git-send-email-sudarsana.kalluru@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-198-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <netdev@vger.kernel.org>, <Yuval.Mintz@qlogic.com>,
+	<sudarsana.kalluru@qlogic.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx0b-0016ce01.pphosted.com ([67.231.156.153]:16728 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1753009AbcF1Mad (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 08:30:33 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add u1u2_enable() for rtl_ops.
+SPQ doorbell is currently protected with the compilation barrier. Under the
+stress scenarios, we may get into a state where (due to the weak ordering)
+several ramrod doorbells were written to the BAR with an out-of-order
+producer values. Need to change the barrier type to a write barrier to make
+sure that the write buffer is flushed after each doorbell.
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+Signed-off-by: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
 ---
- drivers/net/usb/r8152.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/qlogic/qed/qed_spq.c | 10 +++-------
+ 1 file changed, 3 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index b253003..f51d799 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -620,6 +620,7 @@ struct r8152 {
- 		int (*eee_set)(struct r8152 *, struct ethtool_eee *);
- 		bool (*in_nway)(struct r8152 *);
- 		void (*aldps_enable)(struct r8152 *tp, bool enable);
-+		void (*u1u2_enable)(struct r8152 *tp, bool enable);
- 		void (*hw_phy_cfg)(struct r8152 *);
- 	} rtl_ops;
+diff --git a/drivers/net/ethernet/qlogic/qed/qed_spq.c b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+index 67d9893..b122f60 100644
+--- a/drivers/net/ethernet/qlogic/qed/qed_spq.c
++++ b/drivers/net/ethernet/qlogic/qed/qed_spq.c
+@@ -213,19 +213,15 @@ static int qed_spq_hw_post(struct qed_hwfn *p_hwfn,
+ 	SET_FIELD(db.params, CORE_DB_DATA_AGG_VAL_SEL,
+ 		  DQ_XCM_CORE_SPQ_PROD_CMD);
+ 	db.agg_flags = DQ_XCM_CORE_DQ_CF_CMD;
+-
+-	/* validate producer is up to-date */
+-	rmb();
+-
+ 	db.spq_prod = cpu_to_le16(qed_chain_get_prod_idx(p_chain));
  
-@@ -2408,7 +2409,7 @@ static void rtl_runtime_suspend_enable(struct r8152 *tp, bool enable)
- 	if (enable) {
- 		u32 ocp_data;
+-	/* do not reorder */
+-	barrier();
++	/* make sure the SPQE is updated before the doorbell */
++	wmb();
  
--		r8153_u1u2en(tp, false);
-+		tp->rtl_ops.u1u2_enable(tp, false);
- 		r8153_u2p3en(tp, false);
+ 	DOORBELL(p_hwfn, qed_db_addr(p_spq->cid, DQ_DEMS_LEGACY), *(u32 *)&db);
  
- 		__rtl_set_wol(tp, WAKE_ANY);
-@@ -2423,7 +2424,7 @@ static void rtl_runtime_suspend_enable(struct r8152 *tp, bool enable)
- 	} else {
- 		__rtl_set_wol(tp, tp->saved_wolopts);
- 		r8153_u2p3en(tp, true);
--		r8153_u1u2en(tp, true);
-+		tp->rtl_ops.u1u2_enable(tp, true);
- 	}
- }
+ 	/* make sure doorbell is rang */
+-	mmiowb();
++	wmb();
  
-@@ -2922,12 +2923,12 @@ static void rtl8153_up(struct r8152 *tp)
- 	if (test_bit(RTL8152_UNPLUG, &tp->flags))
- 		return;
- 
--	r8153_u1u2en(tp, false);
-+	tp->rtl_ops.u1u2_enable(tp, false);
- 	tp->rtl_ops.aldps_enable(tp, false);
- 	r8153_first_init(tp);
- 	tp->rtl_ops.aldps_enable(tp, true);
- 	r8153_u2p3en(tp, true);
--	r8153_u1u2en(tp, true);
-+	tp->rtl_ops.u1u2_enable(tp, true);
- 	usb_enable_lpm(tp->udev);
- }
- 
-@@ -2938,7 +2939,7 @@ static void rtl8153_down(struct r8152 *tp)
- 		return;
- 	}
- 
--	r8153_u1u2en(tp, false);
-+	tp->rtl_ops.u1u2_enable(tp, false);
- 	r8153_u2p3en(tp, false);
- 	r8153_power_cut_en(tp, false);
- 	tp->rtl_ops.aldps_enable(tp, false);
-@@ -4142,6 +4143,7 @@ static int rtl_ops_init(struct r8152 *tp)
- 		ops->eee_set		= r8152_set_eee;
- 		ops->in_nway		= rtl8152_in_nway;
- 		ops->aldps_enable	= r8152_aldps_en;
-+		ops->u1u2_enable	= r8153_u1u2en;
- 		ops->hw_phy_cfg		= r8152b_hw_phy_cfg;
- 		break;
- 
-@@ -4159,6 +4161,7 @@ static int rtl_ops_init(struct r8152 *tp)
- 		ops->eee_set		= r8153_set_eee;
- 		ops->in_nway		= rtl8153_in_nway;
- 		ops->aldps_enable	= r8153_aldps_en;
-+		ops->u1u2_enable	= r8153_u1u2en;
- 		ops->hw_phy_cfg		= r8153_hw_phy_cfg;
- 		break;
- 
+ 	DP_VERBOSE(p_hwfn, QED_MSG_SPQ,
+ 		   "Doorbelled [0x%08x, CID 0x%08x] with Flags: %02x agg_params: %02x, prod: %04x\n",
 -- 
-2.4.11
+1.8.3.1
