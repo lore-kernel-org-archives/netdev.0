@@ -1,38 +1,29 @@
-From: Bob Copeland <me@bobcopeland.com>
-Subject: Re: [PATCH 4/4] mac80211: sta_info: max_peers reached falsely
-Date: Tue, 28 Jun 2016 08:56:21 -0400
-Message-ID: <20160628125621.GA9223@localhost>
-References: <20160628111307.8784-1-yanivma@ti.com>
- <20160628111307.8784-2-yanivma@ti.com>
- <20160628111307.8784-3-yanivma@ti.com>
- <20160628111307.8784-4-yanivma@ti.com>
- <20160628111307.8784-5-yanivma@ti.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v2 00/15] drivers: net: cpsw: improve runtime pm
+Date: Tue, 28 Jun 2016 08:58:25 -0400 (EDT)
+Message-ID: <20160628.085825.2239188856327920357.davem@davemloft.net>
+References: <20160624182355.23515-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S . Miller" <davem@davemloft.net>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	Meirav Kama <meiravk@ti.com>
-To: Yaniv Machani <yanivma@ti.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160628111307.8784-5-yanivma@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, mugunthanvnm-l0cyMroinI0@public.gmane.org, nsekhar-l0cyMroinI0@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-omap-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	ivan.khoronzhuk-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: grygorii.strashko-l0cyMroinI0@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160624182355.23515-1-grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 28, 2016 at 02:13:07PM +0300, Yaniv Machani wrote:
-> From: Meirav Kama <meiravk@ti.com>
-> 
-> Issue happened when receiving delete_sta command without
-> changing plink_state from ESTAB to HOLDING before.
-> When receiving delete_sta command for mesh interface
-> verify plink_state is not ESTAB and if so, decrease
-> plink count and update beacon.
+From: Grygorii Strashko <grygorii.strashko-l0cyMroinI0@public.gmane.org>
+Date: Fri, 24 Jun 2016 21:23:40 +0300
 
-This should be fixed already (and properly) by the patch
-"mac80211: Fix mesh estab links counting" -- please let us
-know if you have a case that's still broken with that fix.
+> This series intended to improve runtime PM and allow CPSW to be
+> RPM suspended when all ethX netdevices are down.
 
--- 
-Bob Copeland %% http://bobcopeland.com/
+Series applied, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
