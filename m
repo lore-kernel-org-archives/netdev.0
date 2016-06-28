@@ -1,37 +1,54 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH V5 1/1] net: ethernet: Add TSE PCS support to
- dwmac-socfpga
-Date: Tue, 28 Jun 2016 05:34:50 -0400 (EDT)
-Message-ID: <20160628.053450.2071467949973087029.davem@davemloft.net>
-References: <1466759603-30769-1-git-send-email-thloh@altera.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] of_mdio: select fixed phy support unconditionally
+Date: Tue, 28 Jun 2016 05:43:42 -0400 (EDT)
+Message-ID: <20160628.054342.1681185612913979373.davem@davemloft.net>
+References: <20160624092450.1507991-1-arnd@arndb.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
-	alexandre.torgue-qxv4g6HH51o@public.gmane.org, preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org,
-	dinguyen-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	thloh85-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cnphoon-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org
-To: thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1466759603-30769-1-git-send-email-thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: f.fainelli@gmail.com, robh+dt@kernel.org, frowand.list@gmail.com,
+	david.daney@cavium.com, andrew@lunn.ch,
+	sergei.shtylyov@cogentembedded.com, ben.hutchings@codethink.co.uk,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: arnd@arndb.de
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160624092450.1507991-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: <thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
-Date: Fri, 24 Jun 2016 02:13:23 -0700
+From: Arnd Bergmann <arnd@arndb.de>
+Date: Fri, 24 Jun 2016 11:24:08 +0200
 
-> From: Tien Hock Loh <thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
+> Calling the fixed-phy functions when CONFIG_FIXED_PHY=m as a previous
+> change tried cannot work if the caller is in built-in code:
 > 
-> This adds support for TSE PCS that uses SGMII adapter when the phy-mode of
-> the dwmac is set to sgmii.
+> drivers/of/built-in.o: In function `of_phy_register_fixed_link':
+> of_reserved_mem.c:(.text+0x85e0): undefined reference to `fixed_phy_register'
 > 
-> Signed-off-by: Tien Hock Loh <thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
-> Acked-by: Giuseppe Cavallaro <peppe.cavallaro-qxv4g6HH51o@public.gmane.org>
-> Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+> Making of_mdio depend on 'FIXED_PHY || !FIXED_PHY' would solve this
+> dependency by enforcing that OF_MDIO itself becomes a loadable module
+> when FIXED_PHY=y, but that creates a different dependency as it
+> breaks any built-in ethernet driver that uses of_mdio.
+> 
+> Making FIXED_PHY a bool option also cannot work, since it depends on
+> PHYLIB, which again is tristate.
+> 
+> This version now uses 'select FIXED_PHY' to ensure that the fixed-phy
+> portion of of_mdio is not optional. The main downside of this is
+> a small increase in code size for cases that do not need fixed phy
+> support, but it should avoid all of the link-time problems.
+> 
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: d1bd330a229f ("of_mdio: Enable fixed PHY support if driver is a module")
 
-Applied to net-next, thanks.
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Applied to net-next, thanks Arnd.
+
+In the future, please be explicit about what tree a patch is
+targetting by specifying it in your Subject line, as:
+
+	[PATCH net-next] ...
+
+or similar.
+
+Thanks.
