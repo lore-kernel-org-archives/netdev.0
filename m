@@ -1,33 +1,35 @@
 From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: Supporting C45 PHY without ID registers
-Date: Tue, 28 Jun 2016 02:56:18 +0200
-Message-ID: <20160628005618.GC26597@lunn.ch>
-References: <CAAtXAHdfL07C+p-FcafHL5s0Noqh4Br1VP6dcyBr89wWidvsJQ@mail.gmail.com>
+Subject: Re: [PATCH net-next 0/6] net: dsa: Platform data for dsa2.c
+Date: Tue, 28 Jun 2016 03:05:51 +0200
+Message-ID: <20160628010551.GD26597@lunn.ch>
+References: <1467075163-15890-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: Moritz Fischer <moritz.fischer@ettus.com>
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from vps0.lunn.ch ([178.209.37.122]:58847 "EHLO vps0.lunn.ch"
+Received: from vps0.lunn.ch ([178.209.37.122]:58855 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751888AbcF1A4U (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 27 Jun 2016 20:56:20 -0400
+	id S1751942AbcF1BFy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 27 Jun 2016 21:05:54 -0400
 Content-Disposition: inline
-In-Reply-To: <CAAtXAHdfL07C+p-FcafHL5s0Noqh4Br1VP6dcyBr89wWidvsJQ@mail.gmail.com>
+In-Reply-To: <1467075163-15890-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 27, 2016 at 04:36:20PM -0700, Moritz Fischer wrote:
+On Mon, Jun 27, 2016 at 05:52:37PM -0700, Florian Fainelli wrote:
 > Hi all,
 > 
-> I have a 10GigE PHY that I'm working with that has most of it's
-> functionality availabile via MDIO
-> in a clause 45 compliant fashion, however the usual probe method fails
-> since the id registers
-> are not implemented.
+> This patch series adds support for platform data using the new code from
+> net/dsa/dsa2.c. The motivation behind this is that we have a bit of in tree
+> platforms (ar7, bcm47xx, x86, others) that could be benefiting from the new
+> dsa_register_switch() API model but do not support Device Tree, nor is there a
+> plan to bring Device Tree to these platforms (time vs. benefits).
 
-Hi Moritz
+Hi Florian
 
-Does it have any ID registers at all?
+Please could you convert an in tree device to actually use this.
 
-     Andrew
+       Thanks
+	Andrew
