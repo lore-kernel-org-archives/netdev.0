@@ -1,40 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2 net-next] tcp: md5: use kmalloc() backed scratch areas
-Date: Tue, 28 Jun 2016 11:41:50 +0800
-Message-ID: <20160628034150.GA13953@gondor.apana.org.au>
-References: <CALCETrXezCXy4N7wMjYdr+U1A9Avda5bVxTxOQZswinh62gbvw@mail.gmail.com>
- <1466827910.6850.123.camel@edumazet-glaptop3.roam.corp.google.com>
- <1466828771.6850.124.camel@edumazet-glaptop3.roam.corp.google.com>
- <1466829439.6850.126.camel@edumazet-glaptop3.roam.corp.google.com>
- <1466870975.6850.139.camel@edumazet-glaptop3.roam.corp.google.com>
- <1467046313.6850.171.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALCETrUSi3T5JXMunEO9RM5ZEz=aA2xtf9encEVYGxJF4mbhKg@mail.gmail.com>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH] rtlwifi: Create _rtl_dbg_trace function to reduce
+ RT_TRACE code size
+Date: Mon, 27 Jun 2016 20:55:16 -0700
+Message-ID: <1467086116.24287.11.camel@perches.com>
+References: <90cd7c8f12b51571db565fd496a2fcf610e2e484.1466894688.git.joe@perches.com>
+	 <5771CA6C.1060403@lwfinger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:49111 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751846AbcF1DmB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 23:42:01 -0400
-Content-Disposition: inline
-In-Reply-To: <CALCETrUSi3T5JXMunEO9RM5ZEz=aA2xtf9encEVYGxJF4mbhKg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Larry Finger <Larry.Finger@lwfinger.net>,
+	Chaoming Li <chaoming_li@realsil.com.cn>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5771CA6C.1060403@lwfinger.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 27, 2016 at 10:58:42AM -0700, Andy Lutomirski wrote:
->
-> I wonder if it's worth switching from ahash to shash, though.  It
-> would probably be simpler and faster.
+On Mon, 2016-06-27 at 19:53 -0500, Larry Finger wrote:
+> On 06/25/2016 05:46 PM, Joe Perches wrote:
+> >=20
+> > This debugging macro can expand to a lot of code.
+> > Make it a function to reduce code size.
+> >=20
+> > (x86-64 defconfig w/ all rtlwifi drivers and allyesconfig)
+> > $ size drivers/net/wireless/realtek/rtlwifi/built-in.o*
+> > =A0=A0=A0=A0text	=A0=A0=A0data	=A0=A0=A0=A0bss	=A0=A0=A0=A0dec	=A0=A0=
+=A0=A0hex	filename
+> > =A0 900083	=A0200499	=A0=A0=A01907	1102489	=A010d299	drivers/net/wi=
+reless/realtek/rtlwifi/built-in.o.defconfig.new
+> > 1113597	=A0200499	=A0=A0=A01907	1316003	=A01414a3	drivers/net/wirel=
+ess/realtek/rtlwifi/built-in.o.defconfig.old
+> > 1746879	=A0453503	=A0=A0=A08512	2208894	=A021b47e	drivers/net/wirel=
+ess/realtek/rtlwifi/built-in.o.new
+> > 2051965	=A0503311	=A0=A0=A08512	2563788	=A0271ecc	drivers/net/wirel=
+ess/realtek/rtlwifi/built-in.o.old
+> >=20
+> > Signed-off-by: Joe Perches <joe@perches.com>
+> I acked this before; however there is a bug that breaks the build if=A0
+> CONFIG_RTLWIFI_DEBUG is not defined. The rest of the code calls=A0
+> _rtl_dbg_trace(), but that symbol is never defined. The problem can b=
+e fixed in=A0
+> debug.c or debug.h.
 
-No shash is not appropriate here because it needs to hash skb
-frags which are SG lists.
+Confused a bit. =A0What breaks again?
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+debug.h:
+
+#ifdef CONFIG_RTLWIFI_DEBUG
+[]
+__printf(5, 6)
+void _rtl_dbg_trace(struct rtl_priv *rtlpriv, int comp, int level,
+		=A0=A0=A0=A0const char *modname, const char *fmt, ...);
+
+#define RT_TRACE(rtlpriv, comp, level, fmt, ...)			\
+	_rtl_dbg_trace(rtlpriv, comp, level,				\
+		=A0=A0=A0=A0=A0=A0=A0KBUILD_MODNAME, fmt, ##__VA_ARGS__)
+[]
+#else
+[]
+__printf(4, 5)
+static inline void RT_TRACE(struct rtl_priv *rtlpriv,
+			=A0=A0=A0=A0int comp, int level,
+			=A0=A0=A0=A0const char *fmt, ...)
+{
+}
+[]
+#endif
