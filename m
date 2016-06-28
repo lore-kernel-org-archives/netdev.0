@@ -1,28 +1,50 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: ethernet: sxgbe: use phydev from struct
- net_device
-Date: Tue, 28 Jun 2016 09:16:28 -0400 (EDT)
-Message-ID: <20160628.091628.1064129501008233722.davem@davemloft.net>
-References: <1466885127-27794-1-git-send-email-tremyfr@gmail.com>
+From: Joe Stringer <joe-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net] openvswitch: fix conntrack netlink event
+	delivery
+Date: Tue, 28 Jun 2016 15:18:04 +0200
+Message-ID: <CAPWQB7HUqyK8EiTZagaxV=g_3An9meNgtBAOWUh_UVDgWwuoPQ@mail.gmail.com>
+References: <1467115937-16197-1-git-send-email-samuel.gauthier@6wind.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: bh74.an@samsung.com, ks.giri@samsung.com, vipul.pandya@samsung.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1466885127-27794-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>, netdev <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+ Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+To: Samuel Gauthier <samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1467115937-16197-1-git-send-email-samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sat, 25 Jun 2016 22:05:26 +0200
-
-> The private structure contain a pointer to phydev, but the structure
-> net_device already contain such pointer. So we can remove the pointer
-> phydev in the private structure, and update the driver to use the
-> one contained in struct net_device.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-
-Applied.
+T24gMjggSnVuZSAyMDE2IGF0IDE0OjEyLCBTYW11ZWwgR2F1dGhpZXIgPHNhbXVlbC5nYXV0aGll
+ckA2d2luZC5jb20+IHdyb3RlOgo+IE9ubHkgdGhlIGZpcnN0IGFuZCBsYXN0IG5ldGxpbmsgbWVz
+c2FnZSBmb3IgYSBwYXJ0aWN1bGFyIGNvbm50cmFjayBhcmUKPiBhY3R1YWxseSBzZW50LiBUaGUg
+Zmlyc3QgbWVzc2FnZSBpcyBzZW50IHRocm91Z2ggbmZfY29ubnRyYWNrX2NvbmZpcm0gd2hlbgo+
+IHRoZSBjb25udHJhY2sgaXMgY29tbWl0dGVkLiBUaGUgbGFzdCBvbmUgaXMgc2VudCB3aGVuIHRo
+ZSBjb25udHJhY2sgaXMKPiBkZXN0cm95ZWQgb24gdGltZW91dC4gVGhlIG90aGVyIGNvbm50cmFj
+ayBzdGF0ZSBjaGFuZ2UgbWVzc2FnZXMgYXJlIG5vdAo+IGFkdmVydGlzZWQuCj4KPiBXaGVuIHRo
+ZSBjb25udHJhY2sgc3Vic3lzdGVtIGlzIHVzZWQgZnJvbSBuZXRmaWx0ZXIsIG5mX2Nvbm50cmFj
+a19jb25maXJtCj4gaXMgY2FsbGVkIGZvciBlYWNoIHBhY2tldCwgZnJvbSB0aGUgcG9zdHJvdXRp
+bmcgaG9vaywgd2hpY2ggaW4gdHVybiBjYWxscwo+IG5mX2N0X2RlbGl2ZXJfY2FjaGVkX2V2ZW50
+cyB0byBzZW5kIHRoZSBzdGF0ZSBjaGFuZ2UgbmV0bGluayBtZXNzYWdlcy4KPgo+IFRoaXMgY29t
+bWl0IGZpeGVzIHRoZSBwcm9ibGVtIGJ5IGNhbGxpbmcgbmZfY29ubnRyYWNrX2NvbmZpcm0gYWxs
+IHRoZSB0aW1lLAo+IGkuZSBub3Qgb25seSBpbiB0aGUgY29tbWl0IGNhc2UuCj4KPiBGaXhlczog
+N2Y4YTQzNmVhYTJjICgib3BlbnZzd2l0Y2g6IEFkZCBjb25udHJhY2sgYWN0aW9uIikKPiBDQzog
+Sm9lIFN0cmluZ2VyIDxqb2VzdHJpbmdlckBuaWNpcmEuY29tPgo+IENDOiBKdXN0aW4gUGV0dGl0
+IDxqcGV0dGl0QG5pY2lyYS5jb20+Cj4gQ0M6IEFuZHkgWmhvdSA8YXpob3VAbmljaXJhLmNvbT4K
+PiBDQzogVGhvbWFzIEdyYWYgPHRncmFmQHN1dWcuY2g+Cj4gU2lnbmVkLW9mZi1ieTogU2FtdWVs
+IEdhdXRoaWVyIDxzYW11ZWwuZ2F1dGhpZXJANndpbmQuY29tPgoKVGhpcyBicmVha3MgdGhlIHNl
+bWFudGljcyBvZiBPVlNfQ1RfQVRUUl9DT01NSVQuIElmIHlvdSBqdXN0IHdhbnQgdG8KZW5zdXJl
+IHRoYXQgbmZfY3RfZGVsaXZlcl9jYWNoZWRfZXZlbnRzKCkgaXMgcnVuLCB0aGVuIHdlIHNob3Vs
+ZCBjYWxsCnRvIHRoYXQgZm9yIGNvbmZpcm1lZCBjb25uZWN0aW9ucyBpbiB0aGUgbm9uLWNvbW1p
+dCBjYXNlLgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpk
+ZXYgbWFpbGluZyBsaXN0CmRldkBvcGVudnN3aXRjaC5vcmcKaHR0cDovL29wZW52c3dpdGNoLm9y
+Zy9tYWlsbWFuL2xpc3RpbmZvL2Rldgo=
