@@ -1,62 +1,59 @@
-From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
-Subject: Re: [PATCH] cfg80211/nl80211: add wifi tx power mode switching
- support
-Date: Tue, 28 Jun 2016 12:57:28 +0200
-Message-ID: <1467111448.2493.15.camel@sipsolutions.net>
-References: <1462430663-9448-1-git-send-email-wnhuang@chromium.org>
-	<1462464478.23962.12.camel@redhat.com>
-	<CABicQ-VWrRG+0rEEF0GxUTPixSbkA18Gq4b5hbgph60SoEQ+2Q@mail.gmail.com>
-	<CABicQ-XWm=Rxdj3at4+-0OAWn=T7qOTWEaTK=JY7LDOmcN87yw@mail.gmail.com>
-	<1462991620.22404.5.camel@redhat.com>
-	 <CABicQ-UeU-8PPdK9Je51j_KD-BH8G1HuOjo0yZLcNBQgtJsyTA@mail.gmail.com>
-	 (sfid-20160512_113439_036671_8A8ED376)
+From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
+Subject: Re: [Bridge] [PATCH net-next] net: bridge: add support for IGMP/MLD
+ stats and export them via netlink
+Date: Tue, 28 Jun 2016 13:03:21 +0200
+Message-ID: <20160628110321.GA3221@otheros>
+References: <1467051048-32604-1-git-send-email-nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Linux-Wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Sameer Nanda <snanda-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>,
-	Todd Broch <tbroch-F7+t8E8rja9g9hUCZPvPmw@public.gmane.org>, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Wei-Ning Huang <wnhuang-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>, Dan Williams <dcbw-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CABicQ-UeU-8PPdK9Je51j_KD-BH8G1HuOjo0yZLcNBQgtJsyTA-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org> (sfid-20160512_113439_036671_8A8ED376)
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org, davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.aperture-lab.de ([138.201.29.205]:58985 "EHLO
+	mail.aperture-lab.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752145AbcF1LDZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 07:03:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1467051048-32604-1-git-send-email-nikolay@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-05-12 at 17:34 +0800, Wei-Ning Huang wrote:
->=C2=A0
-> Johannes, I feel like being able to set calibration data at runtime
-> is something common to all wireless drivers, so instead of using
-> vendor commands what do you think if I pass the calibration data name
-> instead of using those magic constants? This way, userspace does not
-> need to know the details of what band/range power limit the driver
-> supports. It allows for flexible driver side implementation and
-> easier for userspace to control.
->=20
+On Mon, Jun 27, 2016 at 08:10:48PM +0200, Nikolay Aleksandrov via Bridge wrote:
+> These are invaluable when monitoring or debugging complex multicast setups
+> with bridges.
 
-Sorry - I dropped this thread accidentally.
+Indeed! Great patch :). Especially if people are unable to provide
+pcap files for debugging (due to whatever reason). Hopefully that
+will help with bugzilla ticket #99081, too...
 
-I'm not really sure I understand the situation fully, but right now to
-me this seems very strange.
+I know it might not quite fit into your current patch, which simply
+stores the ICMPv6 and IGMP type in the bridge private skb->cb, but
+do you think you could count and export the following two more
+things, too:
 
-The physical antennas probably don't really change between "clamshell"
-and "tablet" mode, do the physical radiation properties change enough
-to actually require different *calibration*? To me, that sounds very
-strange.
+* MLDv1 vs. MLDv2 querier (and IGMP accordingly)
+* Number of (potential) MLD/IGMP parse errors
+  (e.g. beginning of br_multicast_ipv{4,6}_rcv():
+   http://lxr.free-electrons.com/source/net/bridge/br_multicast.c?v=4.5#L1588 and
+   http://lxr.free-electrons.com/source/net/bridge/br_multicast.c?v=4.5#L1634)
 
-Assuming they don't really change fundamentally, then I understand the
-need to set different power levels, per band/channel/whatever
-granularity. But that can be achieved in very different ways, and in
-fact if you look at Chrome then for our iwl7000 driver there we do have
-a command to do something similar (currently a vendor command, but that
-can be changed) without ever changing the *calibration*.
+The former would help to know how the network is expected to
+behave (for instance whether you should see MLDv2 reports at all or
+whether / how much report suppression to expect).
 
-So to me, the whole premise of the patch is confusing and/or wrong.
+The latter would help to spot either potential IGMP/MLD parsing bugs in
+the bridge or malformed IGMP/MLD messages send by someone else.
 
-johannes
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
+Ideally, there would be per port counters again for the overall
+IPv4/IPv6 multicast traffic. That would help for multicast streams
+for instance, to easily see whether multicast counters increase
+rapidly on the ports you would expect them to. And whether snooping
+is working in general for such streames, without needing to check
+each port individually via tcpdump, for instance.
+
+
+Just some thoughts, would love to hear what you think about them.
+
+Regards, Linus
