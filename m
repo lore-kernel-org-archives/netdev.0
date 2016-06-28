@@ -1,118 +1,60 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH v2] notifier: Fix soft lockup for notifier_call_chain().
-Date: Tue, 28 Jun 2016 12:56:09 +0800
-Message-ID: <57720369.6040507@huawei.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: IP ID check (flush_id) in inet_gro_receive is necessary or
+ =?UTF-8?Q?not=EF=BC=9F?=
+Date: Tue, 28 Jun 2016 06:57:09 +0200
+Message-ID: <1467089829.6850.181.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <5771FFA1.3050306@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-To: <luto@kernel.org>, <mingo@kernel.org>,
-	<linux-kernel@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Cong Wang <cwang@twopensource.com>
+Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@namei.org,
+	yoshfuji@linux-ipv6.org, kaber@trash.net, aduyck@mirantis.com,
+	hkchu@google.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Tan Xiaojun <tanxiaojun@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5771FFA1.3050306@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The problem was occurs in my system that a lot of drviers register
-its own handler to the notifiler call chain for netdev_chain, and
-then create 4095 vlan dev for one nic, and add several ipv6 address
-on each one of them, just like this:
+On Tue, 2016-06-28 at 12:40 +0800, Tan Xiaojun wrote:
+> Hi everyone,
+> 
+> 	I'm sorry to bother you. But I was confused.
+> 
+> 	The IP ID check (flush_id) in inet_gro_receive is only used by
+> tcp_gro_receive, and in tcp_gro_receive we have tcphdr check to ensure
+> the order of skbs,
+> 	like below:
+> 
+> 	flush |= (__force int)(th->ack_seq ^ th2->ack_seq);
+> 	flush |= (ntohl(th2->seq) + skb_gro_len(p)) ^ ntohl(th->seq);
+> 
+> 	So if I remove the IP ID check in inet_gro_receive, there will be a
+> problem ? And under what circumstances ?
 
-for i in `seq 1 4095`; do ip link add link eth0 name eth0.$i type vlan id $i; done
-for i in `seq 1 4095`; do ip -6 addr add 2001::$i dev eth0.$i; done
-for i in `seq 1 4095`; do ip -6 addr add 2002::$i dev eth0.$i; done
-for i in `seq 1 4095`; do ip -6 addr add 2003::$i dev eth0.$i; done
+You probably missed a recent patch ?
 
-ifconfig eth0 up
-ifconfig eth0 down
+commit 1530545ed64b42e87acb43c0c16401bd1ebae6bf
+Author: Alexander Duyck <aduyck@mirantis.com>
+Date:   Sun Apr 10 21:44:57 2016 -0400
 
-then it will halt several seconds, and occurs softlockup:
-
-<0>[ 7620.364058]NMI watchdog: BUG: soft lockup - CPU#0 stuck for 23s! [ifconfig:19186]
-<0>[ 7620.364592]Call trace:
-<4>[ 7620.364599][<ffffffc000208f68>] dump_backtrace+0x0/0x220
-<4>[ 7620.364603][<ffffffc0002091a8>] show_stack+0x20/0x28
-<4>[ 7620.364607][<ffffffc000691fac>] dump_stack+0x90/0xb0
-<4>[ 7620.364612][<ffffffc0002cacbc>] watchdog_timer_fn+0x41c/0x460
-<4>[ 7620.364617][<ffffffc000289ec8>] __run_hrtimer+0x98/0x2d8
-<4>[ 7620.364620][<ffffffc00028a3e0>] hrtimer_interrupt+0x110/0x288
-<4>[ 7620.364624][<ffffffc00059c0c8>] arch_timer_handler_phys+0x38/0x48
-<4>[ 7620.364628][<ffffffc000276d2c>] handle_percpu_devid_irq+0x9c/0x190
-<4>[ 7620.364632][<ffffffc000271ef8>] generic_handle_irq+0x40/0x58
-<4>[ 7620.364635][<ffffffc000272270>] __handle_domain_irq+0x68/0xc0
-<4>[ 7620.364638][<ffffffc000200634>] gic_handle_irq+0xc4/0x1c8
-<4>[ 7620.364641]Exception stack(0xffffffc0309b3640 to 0xffffffc0309b3770)
-<4>[ 7620.364644]3640: 0000000000001000 0000000000000000 ffffffc0309b37c0 ffffffbfa1019cf8
-<4>[ 7620.364647]3660: 0000000080000145 ffffffc0309b3958 0000000000000000 ffffffbfa1013008
-<4>[ 7620.364651]3680: 00000000000007f0 ffffffbfa131b770 ffffffd08aaadc40 ffffffbfa1019cf8
-<4>[ 7620.364654]36a0: ffffffbfa1019cc4 ffffffd089c2b000 ffffffd08eff8000 ffffffc0309b3958
-<4>[ 7620.364656]36c0: ffffffbfa101c5c0 0000000000000000 0000000000000000 ffffffbfa101c66c
-<4>[ 7620.364659]36e0: 7f7f7f7f7f7f7f7f 0000000000000030 ffffffffffffffff ffff000000000000
-<4>[ 7620.364662]3700: 0000000000000000 0000000000000000 ffffffc000393d58 0000007f794d67b0
-<4>[ 7620.364665]3720: 0000007fe62215d0 ffffffc0309b3830 ffffffc00021d8e0 ffffffbfa1049b68
-<4>[ 7620.364668]3740: ffffffc000697578 ffffffc0006974b8 ffffffc0309b3958 0000000000000000
-<4>[ 7620.364670]3760: ffffffbfa1013008 00000000000007f0
-<4>[ 7620.364673][<ffffffc000203780>] el1_irq+0x80/0x100
-<4>[ 7620.364692][<ffffffbfa1019ed4>] fib6_walk+0x3c/0x70 [ipv6]
-<4>[ 7620.364710][<ffffffbfa1019f70>] fib6_clean_tree+0x68/0x90 [ipv6]
-<4>[ 7620.364727][<ffffffbfa101a020>] __fib6_clean_all+0x88/0xc0 [ipv6]
-<4>[ 7620.364746][<ffffffbfa101c760>] fib6_clean_all+0x28/0x30 [ipv6]
-<4>[ 7620.364763][<ffffffbfa101933c>] rt6_ifdown+0x64/0x148 [ipv6]
-<4>[ 7620.364781][<ffffffbfa100e6d8>] addrconf_ifdown+0x68/0x540 [ipv6]
-<4>[ 7620.364798][<ffffffbfa1010f58>] addrconf_notify+0xd0/0x8b8 [ipv6]
-<4>[ 7620.364801][<ffffffc00023f83c>] notifier_call_chain+0x5c/0xa0
-<4>[ 7620.364804][<ffffffc00023f9e0>] raw_notifier_call_chain+0x20/0x28
-<4>[ 7620.364809][<ffffffc0005cbab4>] call_netdevice_notifiers_info+0x4c/0x80
-<4>[ 7620.364812][<ffffffc0005cbfc8>] dev_close_many+0xd0/0x138
-<4>[ 7620.364821][<ffffffbfa33be6e8>] vlan_device_event+0x4a8/0x6a0 [8021q]
-<4>[ 7620.364824][<ffffffc00023f83c>] notifier_call_chain+0x5c/0xa0
-<4>[ 7620.364827][<ffffffc00023f9e0>] raw_notifier_call_chain+0x20/0x28
-<4>[ 7620.364830][<ffffffc0005cbab4>] call_netdevice_notifiers_info+0x4c/0x80
-<4>[ 7620.364833][<ffffffc0005d5148>] __dev_notify_flags+0xb8/0xe0
-<4>[ 7620.364836][<ffffffc0005d5994>] dev_change_flags+0x54/0x68
-<4>[ 7620.364840][<ffffffc00064a620>] devinet_ioctl+0x650/0x700
-<4>[ 7620.364843][<ffffffc00064bea4>] inet_ioctl+0xa4/0xc8
-<4>[ 7620.364847][<ffffffc0005b1094>] sock_do_ioctl+0x44/0x88
-<4>[ 7620.364850][<ffffffc0005b1a3c>] sock_ioctl+0x23c/0x308
-<4>[ 7620.364854][<ffffffc000393bc4>] do_vfs_ioctl+0x48c/0x620
-<4>[ 7620.364857][<ffffffc000393dec>] SyS_ioctl+0x94/0xa8
-
-=================================cut here========================================
-
-It looks that the notifier_call_chain has to deal with too much handler, and will not
-feed the watchdog until finish the work, and the notifier_call_chain may be called
-in atomic context, so add touch_nmi_watchdog() in the loops to fix this problem,
-and it will not panic again.
-
-v2: add cond_resched() will break the atomic context, so feed the watchdog in
-    the loops to fix this bug.
-
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- kernel/notifier.c | 3 +++
- 1 file changed, 3 insertions(+)
-
-diff --git a/kernel/notifier.c b/kernel/notifier.c
-index fd2c9ac..7eca3c1 100644
---- a/kernel/notifier.c
-+++ b/kernel/notifier.c
-@@ -5,6 +5,7 @@
- #include <linux/rcupdate.h>
- #include <linux/vmalloc.h>
- #include <linux/reboot.h>
-+#include <linux/nmi.h>
- 
- /*
-  *	Notifier list for kernel code which wants to be called
-@@ -92,6 +93,8 @@ static int notifier_call_chain(struct notifier_block **nl,
- #endif
- 		ret = nb->notifier_call(nb, val, v);
- 
-+		touch_nmi_watchdog();
-+
- 		if (nr_calls)
- 			(*nr_calls)++;
- 
--- 
-1.9.0
+    GRO: Add support for TCP with fixed IPv4 ID field, limit tunnel IP ID values
+    
+    This patch does two things.
+    
+    First it allows TCP to aggregate TCP frames with a fixed IPv4 ID field.  As
+    a result we should now be able to aggregate flows that were converted from
+    IPv6 to IPv4.  In addition this allows us more flexibility for future
+    implementations of segmentation as we may be able to use a fixed IP ID when
+    segmenting the flow.
+    
+    The second thing this does is that it places limitations on the outer IPv4
+    ID header in the case of tunneled frames.  Specifically it forces the IP ID
+    to be incrementing by 1 unless the DF bit is set in the outer IPv4 header.
+    This way we can avoid creating overlapping series of IP IDs that could
+    possibly be fragmented if the frame goes through GRO and is then
+    resegmented via GSO.
+    
+    Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+    Signed-off-by: David S. Miller <davem@davemloft.net>
