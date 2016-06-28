@@ -1,41 +1,37 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH usbnet v2.1] mtu change needs to stop RX
-Date: Tue, 28 Jun 2016 05:14:38 -0400 (EDT)
-Message-ID: <20160628.051438.2119909907582286496.davem@davemloft.net>
-References: <8aa35a23da7141bba3549841e66e55db@seaexchmbx01.olympus.F5Net.com>
-	<1466728213238.68985@f5.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH v3] net/mlx5: use mlx5_buf_alloc_node instead of
+ mlx5_buf_alloc in mlx5_wq_ll_create
+Date: Tue, 28 Jun 2016 05:17:50 -0400 (EDT)
+Message-ID: <20160628.051750.163695606512731630.davem@davemloft.net>
+References: <1466729531-45481-1-git-send-email-shhuiw@foxmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: oneukum@suse.com, netdev@vger.kernel.org
-To: Soohoon.Lee@f5.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53825 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752173AbcF1JPH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 05:15:07 -0400
-In-Reply-To: <1466728213238.68985@f5.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: saeedm-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, amirv-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: shhuiw-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1466729531-45481-1-git-send-email-shhuiw-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Soohoon Lee <Soohoon.Lee@f5.com>
-Date: Fri, 24 Jun 2016 00:30:16 +0000
+From: Wang Sheng-Hui <shhuiw-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>
+Date: Fri, 24 Jun 2016 08:52:11 +0800
 
+> Commit 311c7c71c9bb ("net/mlx5e: Allocate DMA coherent memory on
+> reader NUMA node") introduced mlx5_*_alloc_node() but missed changing
+> some calling and warn messages. This patch introduces 2 changes:
+> 	* Use mlx5_buf_alloc_node() instead of mlx5_buf_alloc() in
+> 	  mlx5_wq_ll_create()
+> 	* Update the failure warn messages with _node postfix for
+> 	  mlx5_*_alloc function names
 > 
-> When MTU is changed unlink_urbs() flushes RX Q but mean while usbnet_bh() can fill up the Q at the same time.
-> Depends on which HCD is down there unlink takes long time then the flush never ends.
-> 
-> Signed-off-by: Soohoon Lee <soohoon.lee@f5.com>
-> Reviewed-by: Kimball Murray <kmurray@f5.com>
+> Fixes: 311c7c71c9bb ("net/mlx5e: Allocate DMA coherent memory on reader NUMA node")
+> Signed-off-by: Wang Sheng-Hui <shhuiw-H32Fclmsjq1BDgjK7y7TUQ@public.gmane.org>
 
-This patch is mangled by your email client, the TAB characters have been
-converted into spaces.
-
-Please do not resubmit this patah until you can successfully email the
-patch to yourself and apply it cleanly.
-
-Also, your subject line should be formatted like:
-
-	[PATCH net v2.x] usbnet: ....
-
-Thanks.
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
