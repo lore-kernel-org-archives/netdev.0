@@ -1,57 +1,74 @@
-From: Tien Hock Loh <thloh@altera.com>
-Subject: Re: [PATCH V5 1/1] net: ethernet: Add TSE PCS support to
- dwmac-socfpga
-Date: Tue, 28 Jun 2016 02:58:55 -0700
-Message-ID: <1467107935.2700.2.camel@ubuntu>
-References: <1466759603-30769-1-git-send-email-thloh@altera.com>
-	 <20160628.053450.2071467949973087029.davem@davemloft.net>
-	 <20160628.054815.1440008157228833144.davem@davemloft.net>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH v12 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Tue, 28 Jun 2016 09:59:21 +0000
+Message-ID: <CO2PR03MB2182CC1DA2804F09D8D77A70BF220@CO2PR03MB2182.namprd03.prod.outlook.com>
+References: <BLUPR03MB1410A0ECB526A1CD13814D36BF2E0@BLUPR03MB1410.namprd03.prod.outlook.com>
+ <20160628.053350.1891488485477523405.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 8BIT
-Cc: <robh+dt@kernel.org>, <mark.rutland@arm.com>,
-	<peppe.cavallaro@st.com>, <alexandre.torgue@st.com>,
-	<preid@electromag.com.au>, <dinguyen@opensource.altera.com>,
-	<netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<linux-kernel@vger.kernel.org>, <thloh85@gmail.com>,
-	<cnphoon@altera.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "olaf@aepfle.de" <olaf@aepfle.de>,
+ "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "joe@perches.com" <joe@perches.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "vkuznets@redhat.com" <vkuznets@redhat.com>,
+ "cavery@redhat.com" <cavery@redhat.com>,
+ Haiyang Zhang <haiyangz@microsoft.com>
 To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0078.outbound.protection.outlook.com ([65.55.169.78]:18678
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752156AbcF1J7K convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 05:59:10 -0400
-In-Reply-To: <20160628.054815.1440008157228833144.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20160628.053350.1891488485477523405.davem@davemloft.net>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-My fault, I wasn't testing against building as module, was always
-building as part of the kernel. I'll get it fixed and put another patch
-for review.
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Tuesday, June 28, 2016 17:34
+> To: Dexuan Cui <decui@microsoft.com>
+> Cc: gregkh@linuxfoundation.org; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
+> apw@canonical.com; jasowang@redhat.com; vkuznets@redhat.com;
+> cavery@redhat.com; KY Srinivasan <kys@microsoft.com>; Haiyang Zhang
+> <haiyangz@microsoft.com>; joe@perches.com
+> Subject: Re: [PATCH v12 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+> 
+> From: Dexuan Cui <decui@microsoft.com>
+> Date: Fri, 24 Jun 2016 07:45:24 +0000
+> 
+> > +	while ((ret = vmalloc(size)) == NULL)
+> > +		ssleep(1);
+> 
+> This is completely, and entirely, unacceptable.
+> 
+> If the allocation fails, you return an error and release
+> your resources.
+> 
+> You don't just loop forever waiting for it to succeed.
 
-Thanks
-Tien Hock
+Hi David,
+I agree this is ugly...
 
-On Tue, 2016-06-28 at 05:48 -0400, David Miller wrote:
-> From: David Miller <davem@davemloft.net>
-> Date: Tue, 28 Jun 2016 05:34:50 -0400 (EDT)
-> 
-> > From: <thloh@altera.com>
-> > Date: Fri, 24 Jun 2016 02:13:23 -0700
-> > 
-> >> From: Tien Hock Loh <thloh@altera.com>
-> >> 
-> >> This adds support for TSE PCS that uses SGMII adapter when the phy-mode of
-> >> the dwmac is set to sgmii.
-> >> 
-> >> Signed-off-by: Tien Hock Loh <thloh@altera.com>
-> >> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
-> >> Acked-by: Rob Herring <robh@kernel.org>
-> > 
-> > Applied to net-next, thanks.
-> 
-> I had to revert, this breaks the build:
-> 
-> ERROR: "tse_pcs_fix_mac_speed" [drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.ko] undefined!
-> ERROR: "tse_pcs_init" [drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.ko] undefined!
+The idea here is: IMO the syscalls sys_read()/write() shoudn't return
+-ENOMEM, so I have to make sure the buffer allocation succeeds?
+
+I tried to use kmalloc with __GFP_NOFAIL, but I hit a warning in 
+in mm/page_alloc.c:
+WARN_ON_ONCE((gfp_flags & __GFP_NOFAIL) && (order > 1));
+
+What error code do you think I should return? 
+EAGAIN, ERESTARTSYS, or something else?
+
+May I have your suggestion? Thanks!
+
+-- Dexuan
