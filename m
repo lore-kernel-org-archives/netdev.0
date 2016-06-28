@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v3 5/7] r8152: support the new chip 8050
-Date: Tue, 28 Jun 2016 20:28:40 +0800
-Message-ID: <1394712342-15778-203-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next v3 2/7] r8152: add u1u2_enable for rtl_ops
+Date: Tue, 28 Jun 2016 20:28:37 +0800
+Message-ID: <1394712342-15778-200-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-184-Taiwan-albertk@realtek.com>
  <1394712342-15778-198-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
@@ -14,74 +14,82 @@ In-Reply-To: <1394712342-15778-198-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Support a new chip which has the product ID 0x8050.
+Add u1u2_enable() for rtl_ops.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/usb/r8152.c | 13 ++++++++-----
+ 1 file changed, 8 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index df370e5..7227931 100644
+index b253003..f51d799 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -647,6 +647,7 @@ enum rtl_version {
- 	RTL_VER_04,
- 	RTL_VER_05,
- 	RTL_VER_06,
-+	RTL_VER_07,
- 	RTL_VER_MAX
- };
+@@ -620,6 +620,7 @@ struct r8152 {
+ 		int (*eee_set)(struct r8152 *, struct ethtool_eee *);
+ 		bool (*in_nway)(struct r8152 *);
+ 		void (*aldps_enable)(struct r8152 *tp, bool enable);
++		void (*u1u2_enable)(struct r8152 *tp, bool enable);
+ 		void (*hw_phy_cfg)(struct r8152 *);
+ 	} rtl_ops;
  
-@@ -3921,6 +3922,7 @@ static int rtl8152_get_coalesce(struct net_device *netdev,
- 	switch (tp->version) {
- 	case RTL_VER_01:
- 	case RTL_VER_02:
-+	case RTL_VER_07:
- 		return -EOPNOTSUPP;
- 	default:
- 		break;
-@@ -3940,6 +3942,7 @@ static int rtl8152_set_coalesce(struct net_device *netdev,
- 	switch (tp->version) {
- 	case RTL_VER_01:
- 	case RTL_VER_02:
-+	case RTL_VER_07:
- 		return -EOPNOTSUPP;
- 	default:
- 		break;
-@@ -4039,6 +4042,7 @@ static int rtl8152_change_mtu(struct net_device *dev, int new_mtu)
- 	switch (tp->version) {
- 	case RTL_VER_01:
- 	case RTL_VER_02:
-+	case RTL_VER_07:
- 		return eth_change_mtu(dev, new_mtu);
- 	default:
- 		break;
-@@ -4110,6 +4114,9 @@ static void r8152b_get_version(struct r8152 *tp)
- 		tp->version = RTL_VER_06;
- 		tp->mii.supports_gmii = 1;
- 		break;
-+	case 0x4800:
-+		tp->version = RTL_VER_07;
-+		break;
- 	default:
- 		netif_info(tp, probe, tp->netdev,
- 			   "Unknown version 0x%04x\n", version);
-@@ -4142,6 +4149,7 @@ static int rtl_ops_init(struct r8152 *tp)
- 	switch (tp->version) {
- 	case RTL_VER_01:
- 	case RTL_VER_02:
-+	case RTL_VER_07:
- 		ops->init		= r8152b_init;
- 		ops->enable		= rtl8152_enable;
- 		ops->disable		= rtl8152_disable;
-@@ -4339,6 +4347,7 @@ static void rtl8152_disconnect(struct usb_interface *intf)
+@@ -2408,7 +2409,7 @@ static void rtl_runtime_suspend_enable(struct r8152 *tp, bool enable)
+ 	if (enable) {
+ 		u32 ocp_data;
  
- /* table of devices that work with this driver */
- static struct usb_device_id rtl8152_table[] = {
-+	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8050)},
- 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
- 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
- 	{REALTEK_USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
+-		r8153_u1u2en(tp, false);
++		tp->rtl_ops.u1u2_enable(tp, false);
+ 		r8153_u2p3en(tp, false);
+ 
+ 		__rtl_set_wol(tp, WAKE_ANY);
+@@ -2423,7 +2424,7 @@ static void rtl_runtime_suspend_enable(struct r8152 *tp, bool enable)
+ 	} else {
+ 		__rtl_set_wol(tp, tp->saved_wolopts);
+ 		r8153_u2p3en(tp, true);
+-		r8153_u1u2en(tp, true);
++		tp->rtl_ops.u1u2_enable(tp, true);
+ 	}
+ }
+ 
+@@ -2922,12 +2923,12 @@ static void rtl8153_up(struct r8152 *tp)
+ 	if (test_bit(RTL8152_UNPLUG, &tp->flags))
+ 		return;
+ 
+-	r8153_u1u2en(tp, false);
++	tp->rtl_ops.u1u2_enable(tp, false);
+ 	tp->rtl_ops.aldps_enable(tp, false);
+ 	r8153_first_init(tp);
+ 	tp->rtl_ops.aldps_enable(tp, true);
+ 	r8153_u2p3en(tp, true);
+-	r8153_u1u2en(tp, true);
++	tp->rtl_ops.u1u2_enable(tp, true);
+ 	usb_enable_lpm(tp->udev);
+ }
+ 
+@@ -2938,7 +2939,7 @@ static void rtl8153_down(struct r8152 *tp)
+ 		return;
+ 	}
+ 
+-	r8153_u1u2en(tp, false);
++	tp->rtl_ops.u1u2_enable(tp, false);
+ 	r8153_u2p3en(tp, false);
+ 	r8153_power_cut_en(tp, false);
+ 	tp->rtl_ops.aldps_enable(tp, false);
+@@ -4142,6 +4143,7 @@ static int rtl_ops_init(struct r8152 *tp)
+ 		ops->eee_set		= r8152_set_eee;
+ 		ops->in_nway		= rtl8152_in_nway;
+ 		ops->aldps_enable	= r8152_aldps_en;
++		ops->u1u2_enable	= r8153_u1u2en;
+ 		ops->hw_phy_cfg		= r8152b_hw_phy_cfg;
+ 		break;
+ 
+@@ -4159,6 +4161,7 @@ static int rtl_ops_init(struct r8152 *tp)
+ 		ops->eee_set		= r8153_set_eee;
+ 		ops->in_nway		= rtl8153_in_nway;
+ 		ops->aldps_enable	= r8153_aldps_en;
++		ops->u1u2_enable	= r8153_u1u2en;
+ 		ops->hw_phy_cfg		= r8153_hw_phy_cfg;
+ 		break;
+ 
 -- 
 2.4.11
