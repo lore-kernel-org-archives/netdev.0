@@ -1,120 +1,126 @@
-From: Mateusz Bajorski <mateusz.bajorski@nokia.com>
-Subject: [PATCH v3] fib_rules: Added NLM_F_EXCL support to fib_nl_newrule
-Date: Tue, 28 Jun 2016 14:03:52 +0200
-Message-ID: <577267A8.4020101@nokia.com>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net-next 10/16] net/mlx5e: Add devlink based SRIOV mode
+ changes (legacy --> offloads)
+Date: Tue, 28 Jun 2016 09:42:13 -0400
+Message-ID: <20160628134211.GK18787@gospo.rdu.cumulusnetworks.com>
+References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
+ <1467043649-28594-11-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Hen-Zion <hadarh@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Saeed Mahameed <saeedm@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-am1on0130.outbound.protection.outlook.com ([157.56.112.130]:59066
-	"EHLO emea01-am1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752164AbcF1NiO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jun 2016 09:38:14 -0400
+Received: from mail-qk0-f173.google.com ([209.85.220.173]:35582 "EHLO
+	mail-qk0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751419AbcF1NmR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 09:42:17 -0400
+Received: by mail-qk0-f173.google.com with SMTP id a125so29283210qkc.2
+        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 06:42:16 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1467043649-28594-11-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-When adding rule with NLM_F_EXCL flag then check if the same rule exist.
-If yes then exit with -EEXIST.
+On Mon, Jun 27, 2016 at 07:07:23PM +0300, Saeed Mahameed wrote:
+> From: Or Gerlitz <ogerlitz@mellanox.com>
+> 
+> Implement handlers for the devlink commands to get and set the SRIOV
+> E-Switch mode.
+> 
+> When turning to the offloads mode, we disable the e-switch and enable
+> it again in the new mode, create the NIC offloads table and create VF reps.
+> 
+> When turning to legacy mode, we remove the VF reps and the offloads
+> table, and re-initiate the e-switch in it's legacy mode.
+> 
+> The actual creation/removal of the VF reps is done in downstream patches.
+> 
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  12 ++-
+>  .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 102 ++++++++++++++++++++-
+>  2 files changed, 105 insertions(+), 9 deletions(-)
+> 
+[...]
+> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+> index 3b3afbd..a39af6b 100644
+> --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+> +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+[...]
+>  int mlx5_devlink_eswitch_mode_set(struct devlink *devlink, u16 mode)
+>  {
+> -	return -EOPNOTSUPP;
+> +	struct mlx5_core_dev *dev;
+> +	u16 cur_mode;
+> +
+> +	dev = devlink_priv(devlink);
+> +
+> +	if (!MLX5_CAP_GEN(dev, vport_group_manager))
+> +		return -EOPNOTSUPP;
+> +
+> +	cur_mode = dev->priv.eswitch->mode;
+> +
+> +	if (cur_mode == SRIOV_NONE || mode == SRIOV_NONE)
+> +		return -EOPNOTSUPP;
+> +
+> +	if (cur_mode == mode)
+> +		return 0;
+> +
+> +	if (mode == SRIOV_OFFLOADS) /* current mode is legacy */
+> +		return esw_offloads_start(dev->priv.eswitch);
+> +	else if (mode == SRIOV_LEGACY) /* curreny mode is offloads */
+> +		return esw_offloads_stop(dev->priv.eswitch);
+> +	else
+> +		return -EINVAL;
+>  }
+>  
+>  int mlx5_devlink_eswitch_mode_get(struct devlink *devlink, u16 *mode)
+>  {
+> -	return -EOPNOTSUPP;
+> +	struct mlx5_core_dev *dev;
+> +
+> +	dev = devlink_priv(devlink);
+> +
+> +	if (!MLX5_CAP_GEN(dev, vport_group_manager))
+> +		return -EOPNOTSUPP;
+> +
+> +	if (dev->priv.eswitch->mode == SRIOV_NONE)
+> +		return -EOPNOTSUPP;
+> +
+> +	*mode = dev->priv.eswitch->mode;
+> +
+> +	return 0;
+>  }
 
-This is already implemented in iproute2:
-        if (cmd == RTM_NEWRULE) {
-                req.n.nlmsg_flags |= NLM_F_CREATE|NLM_F_EXCL;
-                req.r.rtm_type = RTN_UNICAST;
-        }
+This is an _extremely_ minor nit, but I only bring it up since you are
+leading the way here and your model may be one that other people
+follow...
 
-Tested ipv4 and ipv6 with net-next linux on qemu x86
+Internally you have a enum to track the SRIOV modes:
 
-expected behavior after patch:
-localhost ~ # ip rule
-0:    from all lookup local
-32766:    from all lookup main
-32767:    from all lookup default
-localhost ~ # ip rule add from 10.46.177.97 lookup 104 pref 1005
-localhost ~ # ip rule add from 10.46.177.97 lookup 104 pref 1005
-RTNETLINK answers: File exists
-localhost ~ # ip rule
-0:    from all lookup local
-1005:    from 10.46.177.97 lookup 104
-32766:    from all lookup main
-32767:    from all lookup default
+enum {
+       SRIOV_NONE,
+       SRIOV_LEGACY,
+       SRIOV_OFFLOADS
+};
 
-There was already topic regarding this but I don't see any changes
-merged and problem still occurs.
-https://lkml.kernel.org/r/1135778809.5944.7.camel+%28%29+localhost+%21+localdomain
+But patch 8 adds a new enum for devlink to track this as well.
 
-Signed-off-by: Mateusz Bajorski <mateusz.bajorski@nokia.com>
----
-Changes in v2: section moved to new place where new rule is already built
-Changes in v3: compare moved to helper, added fr_net compare
+enum devlink_eswitch_mode {
+       DEVLINK_ESWITCH_MODE_NONE,
+       DEVLINK_ESWITCH_MODE_LEGACY,
+       DEVLINK_ESWITCH_MODE_OFFLOADS,
+};
 
- net/core/fib_rules.c | 46 ++++++++++++++++++++++++++++++++++++++++++++++
- 1 file changed, 46 insertions(+)
+Would it make sense at some point to use the devlink modes in the driver
+so it's less to track?
 
-diff --git a/net/core/fib_rules.c b/net/core/fib_rules.c
-index 98298b1..fa0c3ff 100644
---- a/net/core/fib_rules.c
-+++ b/net/core/fib_rules.c
-@@ -269,6 +269,46 @@ errout:
- 	return err;
- }
- 
-+static int rule_exists(struct fib_rules_ops *ops, struct fib_rule_hdr *frh,
-+		       struct nlattr **tb, struct fib_rule *rule)
-+{
-+	struct fib_rule *r;
-+
-+	list_for_each_entry(r, &ops->rules_list, list) {
-+		if (r->action != rule->action)
-+			continue;
-+
-+		if (r->table != rule->table)
-+			continue;
-+
-+		if (r->pref != rule->pref)
-+			continue;
-+
-+		if (memcmp(r->iifname, rule->iifname, IFNAMSIZ))
-+			continue;
-+
-+		if (memcmp(r->oifname, rule->oifname, IFNAMSIZ))
-+			continue;
-+
-+		if (r->mark != rule->mark)
-+			continue;
-+
-+		if (r->mark_mask != rule->mark_mask)
-+			continue;
-+
-+		if (r->tun_id != rule->tun_id)
-+			continue;
-+
-+		if (r->fr_net != rule->fr_net)
-+			continue;
-+
-+		if (!ops->compare(r, frh, tb))
-+			continue;
-+		return 1;
-+	}
-+	return 0;
-+}
-+
- int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr *nlh)
- {
- 	struct net *net = sock_net(skb->sk);
-@@ -386,6 +426,12 @@ int fib_nl_newrule(struct sk_buff *skb, struct nlmsghdr *nlh)
- 	if (rule->l3mdev && rule->table)
- 		goto errout_free;
- 
-+	if ((nlh->nlmsg_flags & NLM_F_EXCL) &&
-+	    rule_exists(ops, frh, tb, rule)) {
-+		err = -EEXIST;
-+		goto errout_free;
-+	}
-+
- 	err = ops->configure(rule, skb, frh, tb);
- 	if (err < 0)
- 		goto errout_free;
--- 
-2.6.4
+Again, this is an extremely _minor_ concern.  The rest of the set looks
+great and I like the architectural decisions made here.  Awesome work
+all around!
