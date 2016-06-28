@@ -1,95 +1,31 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 3/3] net: hisilicon: Add Fast Ethernet MAC driver
-Date: Tue, 28 Jun 2016 11:34:26 +0200
-Message-ID: <4787248.HAfgOdBKVY@wuerfel>
-References: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com> <247637090.PhpfAhp4VJ@wuerfel> <5772418F.9040101@hisilicon.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v12 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Tue, 28 Jun 2016 05:33:50 -0400 (EDT)
+Message-ID: <20160628.053350.1891488485477523405.davem@davemloft.net>
+References: <BLUPR03MB1410A0ECB526A1CD13814D36BF2E0@BLUPR03MB1410.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, xuejiancheng-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Dongpo Li <lidongpo-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5772418F.9040101-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com,
+	vkuznets@redhat.com, cavery@redhat.com, kys@microsoft.com,
+	haiyangz@microsoft.com, joe@perches.com
+To: decui@microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <BLUPR03MB1410A0ECB526A1CD13814D36BF2E0@BLUPR03MB1410.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tuesday, June 28, 2016 5:21:19 PM CEST Dongpo Li wrote:
-> On 2016/6/15 5:20, Arnd Bergmann wrote:
-> > On Tuesday, June 14, 2016 9:17:44 PM CEST Li Dongpo wrote:
-> >> On 2016/6/13 17:06, Arnd Bergmann wrote:
-> >>> On Monday, June 13, 2016 2:07:56 PM CEST Dongpo Li wrote:
-> >>> You tx function uses BQL to optimize the queue length, and that
-> >>> is great. You also check xmit reclaim for rx interrupts, so
-> >>> as long as you have both rx and tx traffic, this should work
-> >>> great.
-> >>>
-> >>> However, I notice that you only have a 'tx fifo empty'
-> >>> interrupt triggering the napi poll, so I guess on a tx-only
-> >>> workload you will always end up pushing packets into the
-> >>> queue until BQL throttles tx, and then get the interrupt
-> >>> after all packets have been sent, which will cause BQL to
-> >>> make the queue longer up to the maximum queue size, and that
-> >>> negates the effect of BQL.
-> >>>
-> >>> Is there any way you can get a tx interrupt earlier than
-> >>> this in order to get a more balanced queue, or is it ok
-> >>> to just rely on rx packets to come in occasionally, and
-> >>> just use the tx fifo empty interrupt as a fallback?
-> >>>
-> >> In tx direction, there are only two kinds of interrupts, 'tx fifo empty'
-> >> and 'tx one packet finish'. I didn't use 'tx one packet finish' because
-> >> it would lead to high hardware interrupts rate. This has been verified in
-> >> our chips. It's ok to just use tx fifo empty interrupt.
-> > 
-> > I'm not convinced by the explanation, I don't think that has anything
-> > to do with the hardware design, but instead is about the correctness
-> > of the BQL logic with your driver.
-> > 
-> > Maybe your xmit function can do something like
-> > 
-> >       if (dql_avail(netdev_get_tx_queue(dev, 0)->dql) < 0)
-> >               enable per-packet interrupt
-> >       else
-> >               use only fifo-empty interrupt
-> > 
-> > That way, you don't get a lot of interrupts when the system is
-> > in a state of packets being received and sent continuously,
-> > but if you get to the point where your tx queue fills up
-> > and no rx interrupts arrive, you don't have to wait for it
-> > to become completely empty before adding new packets, and
-> > BQL won't keep growing the queue.
-> > 
-> Hi, Arnd
-> I tried enable per-packet interrupt when tx queue full in xmit function
-> and disable it in NAPI poll. But the number of interrupts are a little
-> bigger than only using fifo-empty interrupt.
+From: Dexuan Cui <decui@microsoft.com>
+Date: Fri, 24 Jun 2016 07:45:24 +0000
 
-Right, I'd expect that to be the case, it basically means that the
-algorithm works as expected.
+> +	while ((ret = vmalloc(size)) == NULL)
+> +		ssleep(1);
 
-Just to be sure you didn't have extra interrupts: you only enable the
-per-packet interrupts if interrupts are currently enabled, not in
-NAPI polling mode, right?
+This is completely, and entirely, unacceptable.
 
-> The other hand, this is a fast ethernet MAC. Its maximum speed is 100Mbps.
-> This speed is very easily achived and the efficiency of the BQL is not
-> so important. What we focus on is the lower cpu utilization.
-> So I think it is okay to just use the tx fifo empty interrupt.
+If the allocation fails, you return an error and release
+your resources.
 
-BQL is not about efficiency, it's about keeping the latency down, which
-is at least as important for low-throughput devices as it is for faster
-ones. I don't think that disabling BQL here would be the right answer,
-you'd just end up with the maximum TX queue length all the time.
-
-Your queue length is 12 packets of 1500 bytes, meaning that you have 1.4ms
-of latency at 100mbit/s rate, or 14ms for 10mbit/s. This is much less
-than most, but it's probably still worth using BQL on it.
-
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+You don't just loop forever waiting for it to succeed.
