@@ -1,41 +1,62 @@
 From: Yaniv Machani <yanivma@ti.com>
-Subject: [PATCH 0/4] Mesh mpm fixes and enhancements
-Date: Tue, 28 Jun 2016 14:13:03 +0300
-Message-ID: <20160628111307.8784-1-yanivma@ti.com>
+Subject: [PATCH 1/4] mac80211: mesh: flush stations before beacons are stopped
+Date: Tue, 28 Jun 2016 14:13:04 +0300
+Message-ID: <20160628111307.8784-2-yanivma@ti.com>
+References: <20160628111307.8784-1-yanivma@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Yaniv Machani <yanivma@ti.com>
+Cc: Maital Hahn <maitalm@ti.com>
 To: <linux-kernel@vger.kernel.org>,
 	Johannes Berg <johannes@sipsolutions.net>,
 	"David S . Miller" <davem@davemloft.net>,
 	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from bear.ext.ti.com ([198.47.19.11]:56626 "EHLO bear.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751158AbcF1LKw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jun 2016 07:10:52 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160628111307.8784-1-yanivma@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This patch set is addressing some issues found in the current 802.11s implementation,
-specifically when using hostap mpm. 
-It's aligning the beacon format and handling some corner cases.
+From: Maital Hahn <maitalm@ti.com>
 
-Maital Hahn (2):
-  mac80211: mesh: flush stations before beacons are stopped
-  mac80211/cfg: mesh: fix healing time when a mesh peer is disconnecting
+Some drivers (e.g. wl18xx) expect that the last stage in the
+de-initialization process will be stopping the beacons, similar to ap.
+Update ieee80211_stop_mesh() flow accordingly.
 
-Meirav Kama (2):
-  mac80211: mesh: fixed HT ies in beacon template
-  mac80211: sta_info: max_peers reached falsely
+Signed-off-by: Maital Hahn <maitalm@ti.com>
+Acked-by: Yaniv Machani <yanivma@ti.com>
+---
+ net/mac80211/mesh.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
 
- net/mac80211/cfg.c       |  1 +
- net/mac80211/mesh.c      | 46 ++++++++++++++++++++++++++++++++++++++++------
- net/mac80211/mesh_hwmp.c | 42 +++++++++++++++++++++++++-----------------
- net/mac80211/sta_info.c  | 14 ++++++++++++++
- net/mac80211/util.c      |  3 ---
- net/wireless/mesh.c      |  2 +-
- 6 files changed, 81 insertions(+), 27 deletions(-)
-
+diff --git a/net/mac80211/mesh.c b/net/mac80211/mesh.c
+index 21b1fdf..9214bc1 100644
+--- a/net/mac80211/mesh.c
++++ b/net/mac80211/mesh.c
+@@ -896,20 +896,22 @@ void ieee80211_stop_mesh(struct ieee80211_sub_if_data *sdata)
+ 
+ 	netif_carrier_off(sdata->dev);
+ 
++	/* flush STAs and mpaths on this iface */
++	sta_info_flush(sdata);
++	mesh_path_flush_by_iface(sdata);
++
+ 	/* stop the beacon */
+ 	ifmsh->mesh_id_len = 0;
+ 	sdata->vif.bss_conf.enable_beacon = false;
+ 	clear_bit(SDATA_STATE_OFFCHANNEL_BEACON_STOPPED, &sdata->state);
+ 	ieee80211_bss_info_change_notify(sdata, BSS_CHANGED_BEACON_ENABLED);
++
++	/* remove beacon */
+ 	bcn = rcu_dereference_protected(ifmsh->beacon,
+ 					lockdep_is_held(&sdata->wdev.mtx));
+ 	RCU_INIT_POINTER(ifmsh->beacon, NULL);
+ 	kfree_rcu(bcn, rcu_head);
+ 
+-	/* flush STAs and mpaths on this iface */
+-	sta_info_flush(sdata);
+-	mesh_path_flush_by_iface(sdata);
+-
+ 	/* free all potentially still buffered group-addressed frames */
+ 	local->total_ps_buffered -= skb_queue_len(&ifmsh->ps.bc_buf);
+ 	skb_queue_purge(&ifmsh->ps.bc_buf);
 -- 
 2.9.0
