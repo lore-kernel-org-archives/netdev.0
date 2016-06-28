@@ -1,62 +1,39 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next V2] tun: introduce tx skb ring
-Date: Tue, 28 Jun 2016 10:09:42 +0300
-Message-ID: <20160628100907-mutt-send-email-mst@redhat.com>
-References: <1465979897-4445-1-git-send-email-jasowang@redhat.com>
-	<20160617033218-mutt-send-email-mst@redhat.com>
-	<20160622211620-mutt-send-email-mst@redhat.com>
-	<576B701F.2020105@redhat.com>
+From: Holger Schurig <holgerschurig@gmail.com>
+Subject: Re: [PATCH 2/3] can: fix oops caused by wrong rtnl dellink usage
+Date: Tue, 28 Jun 2016 09:36:57 +0200
+Message-ID: <874m8d7oiu.fsf@gmail.com>
+References: <1466673741-23115-1-git-send-email-mkl@pengutronix.de> <1466673741-23115-3-git-send-email-mkl@pengutronix.de> <e092c3e9-56f3-f765-a9ef-89697ec46e16@cogentembedded.com> <0e51107f-a381-6c94-0079-d0ed415d8bcc@hartkopp.net> <f4b685f9-a2ad-d3cc-1204-f457705467df@cogentembedded.com> <a1bd95b5-ea93-0e99-7784-dad393240f06@hartkopp.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: kvm@vger.kernel.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, brouer@redhat.com,
-	davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <576B701F.2020105@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de, stable@vger.kernel.org
+To: Oliver Hartkopp <socketcan@hartkopp.net>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <a1bd95b5-ea93-0e99-7784-dad393240f06@hartkopp.net>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gVGh1LCBKdW4gMjMsIDIwMTYgYXQgMDE6MTQ6MDdQTSArMDgwMCwgSmFzb24gV2FuZyB3cm90
-ZToKPiAKPiAKPiBPbiAyMDE25bm0MDbmnIgyM+aXpSAwMjoxOCwgTWljaGFlbCBTLiBUc2lya2lu
-IHdyb3RlOgo+ID4gT24gRnJpLCBKdW4gMTcsIDIwMTYgYXQgMDM6NDE6MjBBTSArMDMwMCwgTWlj
-aGFlbCBTLiBUc2lya2luIHdyb3RlOgo+ID4gPiA+V291bGQgaXQgaGVscCB0byBoYXZlIHB0cl9y
-aW5nX3Jlc2l6ZSB0aGF0IGdldHMgYW4gYXJyYXkgb2YKPiA+ID4gPnJpbmdzIGFuZCByZXNpemVz
-IHRoZW0gYm90aCB0byBzYW1lIGxlbmd0aD8KPiA+IE9LLCBoZXJlIGl0IGlzLiBVbnRlc3RlZCBz
-byBmYXIsIGFuZCBubyBza2Igd3JhcHBlci4KPiA+IFBscyBsZXQgbWUga25vdyB3aGV0aGVyIHRo
-aXMgaXMgd2hhdCB5b3UgaGFkIGluIG1pbmQuCj4gCj4gRXhhY3RseSB3aGF0IEkgd2FudC4KPiAK
-PiBUaGFua3MKCk9rIGFuZCB0aGlzIGZvciBza2JfYXJyYXkKCi0tPgpza2JfYXJyYXk6IGFkZCB3
-cmFwcGVycyBmb3IgcmVzaXppbmcKClNpZ25lZC1vZmYtYnk6IE1pY2hhZWwgUy4gVHNpcmtpbiA8
-bXN0QHJlZGhhdC5jb20+CgotLQoKZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvc2tiX2FycmF5
-LmggYi9pbmNsdWRlL2xpbnV4L3NrYl9hcnJheS5oCmluZGV4IGM5MDA3MDguLjdlMDFjMWYgMTAw
-NjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgvc2tiX2FycmF5LmgKKysrIGIvaW5jbHVkZS9saW51eC9z
-a2JfYXJyYXkuaApAQCAtMTUxLDE2ICsxNTEsMjQgQEAgc3RhdGljIGlubGluZSBpbnQgc2tiX2Fy
-cmF5X2luaXQoc3RydWN0IHNrYl9hcnJheSAqYSwgaW50IHNpemUsIGdmcF90IGdmcCkKIAlyZXR1
-cm4gcHRyX3JpbmdfaW5pdCgmYS0+cmluZywgc2l6ZSwgMCwgZ2ZwKTsKIH0KIAotdm9pZCBfX3Nr
-Yl9hcnJheV9kZXN0cm95X3NrYih2b2lkICpwdHIpCitzdGF0aWMgdm9pZCBfX3NrYl9hcnJheV9k
-ZXN0cm95X3NrYih2b2lkICpwdHIpCiB7CiAJa2ZyZWVfc2tiKHB0cik7CiB9CiAKLWludCBza2Jf
-YXJyYXlfcmVzaXplKHN0cnVjdCBza2JfYXJyYXkgKmEsIGludCBzaXplLCBnZnBfdCBnZnApCitz
-dGF0aWMgaW5saW5lIGludCBza2JfYXJyYXlfcmVzaXplKHN0cnVjdCBza2JfYXJyYXkgKmEsIGlu
-dCBzaXplLCBnZnBfdCBnZnApCiB7CiAJcmV0dXJuIHB0cl9yaW5nX3Jlc2l6ZSgmYS0+cmluZywg
-c2l6ZSwgZ2ZwLCBfX3NrYl9hcnJheV9kZXN0cm95X3NrYik7CiB9CiAKK3N0YXRpYyBpbmxpbmUg
-aW50IHNrYl9yYWF5X3Jlc2l6ZV9tdWx0aXBsZShzdHJ1Y3Qgc2tiX2FycmF5ICoqcmluZ3MsIGlu
-dCBucmluZ3MsCisJCQkJCSAgIGludCBzaXplLCBnZnBfdCBnZnApCit7CisJQlVJTERfQlVHX09O
-KG9mZnNldG9mKHN0cnVjdCBza2JfYXJyYXksIHJpbmcpKTsKKwlwdHJfcmluZ19yZXNpemVfbXVs
-dGlwbGUoKHN0cnVjdCBwdHJfcmluZyAqKilyaW5ncywgbnJpbmdzLCBzaXplLCBnZnAsCisJCQkJ
-IF9fc2tiX2FycmF5X2Rlc3Ryb3lfc2tiKTsKK30KKwogc3RhdGljIGlubGluZSB2b2lkIHNrYl9h
-cnJheV9jbGVhbnVwKHN0cnVjdCBza2JfYXJyYXkgKmEpCiB7CiAJcHRyX3JpbmdfY2xlYW51cCgm
-YS0+cmluZywgX19za2JfYXJyYXlfZGVzdHJveV9za2IpOwpfX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlvbiBtYWlsaW5nIGxpc3QKVmly
-dHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcKaHR0cHM6Ly9saXN0cy5saW51
-eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVhbGl6YXRpb24=
+> static void can_dellink(struct net_device *dev, struct list_head *head);
+>
+> and
+>
+> static void can_dellink(struct net_device *dev, struct list_head *head)
+> {
+> 	return;
+> }
+
+Wouldn't the canonical form be this:
+
+static void can_dellink(struct net_device *dev, struct list_head *head)
+{
+}
+
+
+- the curly braces make sure this isn't a forward definition
+- but no useless return either
+
+
+But then again, this "return" is only cosmetical. No compiler will
+generate any code from it.
