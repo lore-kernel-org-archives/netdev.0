@@ -1,28 +1,46 @@
 From: "Seymour, Shane M" <shane.seymour@hpe.com>
-Subject: RE: [PATCH net-next] tcp: increase size at which
- tcp_bound_to_half_wnd bounds to > TCP_MSS_DEFAULT
-Date: Tue, 28 Jun 2016 22:51:08 +0000
-Message-ID: <CS1PR84MB0295F44AA41F27857EC2E9B6FD220@CS1PR84MB0295.NAMPRD84.PROD.OUTLOOK.COM>
-References: <CS1PR84MB0295E420892A535E40FE338EFD220@CS1PR84MB0295.NAMPRD84.PROD.OUTLOOK.COM>
-	 <1467115090.6850.202.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CS1PR84MB02950F38FF1801E89612B9E4FD220@CS1PR84MB0295.NAMPRD84.PROD.OUTLOOK.COM>
- <1467153342.6850.205.camel@edumazet-glaptop3.roam.corp.google.com>
+Subject: [PATCH V2 net-next] tcp: increase size at which tcp_bound_to_half_wnd
+ bounds to > TCP_MSS_DEFAULT
+Date: Tue, 28 Jun 2016 23:06:48 +0000
+Message-ID: <CS1PR84MB0295BC70B8ACF200C11B5E25FD220@CS1PR84MB0295.NAMPRD84.PROD.OUTLOOK.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Eric Dumazet <eric.dumazet@gmail.com>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-by2on0144.outbound.protection.outlook.com ([207.46.100.144]:55368
-	"EHLO na01-by2-obe.outbound.protection.outlook.com"
+Received: from mail-bl2on0122.outbound.protection.outlook.com ([65.55.169.122]:37823
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752466AbcF1WvT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jun 2016 18:51:19 -0400
-In-Reply-To: <1467153342.6850.205.camel@edumazet-glaptop3.roam.corp.google.com>
+	id S1752431AbcF1XGv convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 19:06:51 -0400
 Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-PiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBZ
-b3VyIGRpZmYgaXMgcmV2ZXJzZWQuIA0KDQpTb3JyeSBteSBhcG9sb2dpZXMsIEknbGwgc2VuZCBh
-IFYyLiANCg0K
+In previous commit 01f83d69844d307be2aa6fea88b0e8fe5cbdb2f4
+the following comments were added:
+
+"When peer uses tiny windows, there is no use in packetizing to sub-MSS
+pieces for the sake of SWS or making sure there are enough packets in
+the pipe for fast recovery."
+
+The test should be > TCP_MSS_DEFAULT not >= 512. This allows low end
+devices that send an MSS of 536 (TCP_MSS_DEFAULT) to see better network
+performance by sending it 536 bytes of data at a time instead of bounding
+to half window size (268). Other network stacks work this way, e.g. HP-UX.
+
+Signed-off-by: Shane Seymour <shane.seymour@hpe.com>
+---
+Changed from V1 - patch reversed, Doh!, corrected patch.
+--- a/include/net/tcp.h	2016-06-15 17:19:21.964821477 -0500
++++ b/include/net/tcp.h	2016-06-23 20:59:14.521686048 -0500
+@@ -589,7 +589,7 @@ static inline int tcp_bound_to_half_wnd(
+ 	 * On the other hand, for extremely large MSS devices, handling
+ 	 * smaller than MSS windows in this way does make sense.
+ 	 */
+-	if (tp->max_window >= 512)
++	if (tp->max_window > TCP_MSS_DEFAULT)
+ 		cutoff = (tp->max_window >> 1);
+ 	else
+ 		cutoff = tp->max_window;
