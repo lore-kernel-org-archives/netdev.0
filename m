@@ -1,50 +1,125 @@
-From: Yaniv Machani <yanivma@ti.com>
-Subject: [PATCH] mac80211: rx: frames received out of order
-Date: Tue, 28 Jun 2016 14:15:03 +0300
-Message-ID: <20160628111510.8857-1-yanivma@ti.com>
+From: Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>
+Subject: Re: [PATCH net] bonding: fix 802.3ad aggregator reselection
+Date: Tue, 28 Jun 2016 14:57:37 +0300
+Message-ID: <CAKdSkDVXe5jRgWU8WAvx43KvEuZvS4ak+a9qd9H4C3zy+OvkPQ@mail.gmail.com>
+References: <10542.1466716851@famine>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Meirav Kama <meiravk@ti.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
-To: <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	zhuyj <zyjzyj2000@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from devils.ext.ti.com ([198.47.26.153]:33457 "EHLO
-	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751673AbcF1LQ0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 07:16:26 -0400
+Received: from mail-oi0-f53.google.com ([209.85.218.53]:33915 "EHLO
+	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752236AbcF1L5s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 07:57:48 -0400
+Received: by mail-oi0-f53.google.com with SMTP id s66so18941643oif.1
+        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 04:57:39 -0700 (PDT)
+In-Reply-To: <10542.1466716851@famine>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Meirav Kama <meiravk@ti.com>
+2016-06-24 0:20 GMT+03:00 Jay Vosburgh <jay.vosburgh@canonical.com>:
+>
+>         Since commit 7bb11dc9f59d ("bonding: unify all places where
+> actor-oper key needs to be updated."), the logic in bonding to handle
+> selection between multiple aggregators has not functioned.
+>
+>         This affects only configurations wherein the bonding slaves
+> connect to two discrete aggregators (e.g., two independent switches, each
+> with LACP enabled), thus creating two separate aggregation groups within a
+> single bond.
+>
+>         The cause is a change in 7bb11dc9f59d to no longer set
+> AD_PORT_BEGIN on a port after a link state change, which would cause the
+> port to be reselected for attachment to an aggregator as if were newly
+> added to the bond.  We cannot restore the prior behavior, as it
+> contradicts IEEE 802.1AX 5.4.12, which requires ports that "become
+> inoperable" (lose carrier, setting port_enabled=false as per 802.1AX
+> 5.4.7) to remain selected (i.e., assigned to the aggregator).  As the port
+> now remains selected, the aggregator selection logic is not invoked.
+>
+>         A side effect of this change is that aggregators in bonding will
+> now contain ports that are link down.  The aggregator selection logic
+> does not currently handle this situation correctly, causing incorrect
+> aggregator selection.
+>
+>         This patch makes two changes to repair the aggregator selection
+> logic in bonding to function as documented and within the confines of the
+> standard:
+>
+>         First, the aggregator selection and related logic now utilizes the
+> number of active ports per aggregator, not the number of selected ports
+> (as some selected ports may be down).  The ad_select "bandwidth" and
+> "count" options only consider ports that are link up.
+>
+>         Second, on any carrier state change of any slave, the aggregator
+> selection logic is explicitly called to insure the correct aggregator is
+> active.
+>
+> Reported-by: Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>
+> Fixes: 7bb11dc9f59d ("bonding: unify all places where actor-oper key needs to be updated.")
+> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
 
-MP received data frames from another MP. Frames are forwarded
-from Rx to Tx to be transmitted to a third MP.
-Upon cloning the skb, the tx_info was zeroed, and the
-hw_queue wasn't set correctly, causing frames to be
-inserted to queue 0 (VOICE). If re-queue occurred for some
-reason, frame will be inserted to correct queue 2 (BE).
-In this case frames are now dequeued from 2 different queues and
-sent out of order.
 
-Signed-off-by: Meirav Kama <meiravk@ti.com>
-Acked-by: Yaniv Machani <yanivma@ti.com>
----
- net/mac80211/rx.c | 1 +
- 1 file changed, 1 insertion(+)
+Hi,
 
-diff --git a/net/mac80211/rx.c b/net/mac80211/rx.c
-index 9a1eb70..88dc744 100644
---- a/net/mac80211/rx.c
-+++ b/net/mac80211/rx.c
-@@ -2392,6 +2392,7 @@ ieee80211_rx_h_mesh_fwding(struct ieee80211_rx_data *rx)
- 	info->flags |= IEEE80211_TX_INTFL_NEED_TXPROCESSING;
- 	info->control.vif = &rx->sdata->vif;
- 	info->control.jiffies = jiffies;
-+	info->hw_queue = q;
- 	if (is_multicast_ether_addr(fwd_hdr->addr1)) {
- 		IEEE80211_IFSTA_MESH_CTR_INC(ifmsh, fwded_mcast);
- 		memcpy(fwd_hdr->addr2, sdata->vif.addr, ETH_ALEN);
--- 
-2.9.0
+Thanks for the patch. I have been now testing it and the reselection
+seems to be working now in most cases, but I hit one case that seems
+to consistently fail in my test environment.
+
+I've been doing most of testing with ad_select=count and this happens
+with it. I haven't yet done extensive testing with
+ad_select=stable/bandwidth.
+
+The sequence to trigger the failure seems to be:
+
+  Switch A (Agg ID 2)       Switch B (Agg ID 1)
+enp5s0f0 ens5f0 ens6f0    enp5s0f1 ens5f1 ens6f1
+    X       X      -           X      -       -     Connection works
+(Agg ID 2 active)
+    X       -      -           X      -       -     Connection works
+(Agg ID 1 active)
+    X       -      -           -      -       -     No connection (Agg
+ID 2 active)
+
+I'm also wondering why link down event causes change of aggregator
+when the active aggregator has the same number of active links than
+the new aggregator.
+
+The situation here clears once a port comes up. Once I hit also
+problems without disabling all ports on active switch:
+
+  Switch A (Agg ID 2)       Switch B (Agg ID 1)
+enp5s0f0 ens5f0 ens6f0    enp5s0f1 ens5f1 ens6f1
+    X       X      -           X      -       -     Connection works
+(Agg ID 2 active)
+    X       -      -           X      -       -     No connection (Agg
+ID 1 active)
+
+The active switch does not seem to matter either when disabling ports:
+
+  Switch A (Agg ID 2)       Switch B (Agg ID 1)
+enp5s0f0 ens5f0 ens6f0    enp5s0f1 ens5f1 ens6f1
+    X       -      -           X      X       X     Connection works
+(Agg ID 1 active)
+    X       -      -           X      -       -     Connection works
+(Agg ID 2 active)
+    -       -      -           X      -       -     No connection (Agg
+ID 1 active)
+
+All testing was done with upstream version 4.6.2 with the patch
+applied. When there is no connection, /proc/net/bonding/bond0 still
+shows that there is an active aggregator that has a link up, but for
+some reason no traffic passes through. I added some debugging
+information in bond_procfs.c and the number of active ports seems to
+match the enabled ports on switches.
+
+I'll continue doing tests with different scenarios and I can also test
+specific cases if needed.
+
+
+Veli-Matti
