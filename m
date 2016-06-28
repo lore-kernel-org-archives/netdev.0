@@ -1,34 +1,57 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [RFC 3/7] net: ethernet: bgmac: move BCMA MDIO Phy code into a
- separate file
-Date: Tue, 28 Jun 2016 22:02:19 +0200
-Message-ID: <20160628200219.GE16588@lunn.ch>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RFC 6/7] dt-bindings: net: bgmac: add bindings documentation for
+ bgmac
+Date: Tue, 28 Jun 2016 23:11:38 +0300
+Message-ID: <340820bf-bb1e-3228-5003-135363ea27b9@cogentembedded.com>
 References: <1467142484-11161-1-git-send-email-jon.mason@broadcom.com>
- <1467142484-11161-4-git-send-email-jon.mason@broadcom.com>
+ <1467142484-11161-7-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: zajec5@gmail.com, davem@davemloft.net, f.fainelli@gmail.com,
-	hauke@hauke-m.de, bcm-kernel-feedback-list@broadcom.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Jon Mason <jon.mason@broadcom.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, f.fainelli@gmail.com, hauke@hauke-m.de,
+	bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jon Mason <jon.mason@broadcom.com>, zajec5@gmail.com
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1467142484-11161-4-git-send-email-jon.mason@broadcom.com>
+In-Reply-To: <1467142484-11161-7-git-send-email-jon.mason@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 28, 2016 at 03:34:40PM -0400, Jon Mason wrote:
-> Move the BCMA MDIO phy into a separate file, as it is very tightly
-> coupled with the BCMA bus.  This will help with the upcoming BCMA
-> removal from the bgmac driver.  Optimally, this should be moved into
-> phy drivers, but it is too tightly coupled with the bgmac driver to
-> effectively move it without more changes to the driver.
+Hello.
 
-It is quite common to have the MII bus driver as a sub driver of the
-MAC driver, if they are tightly coupled. The MII drivers in
-drivers/net/phy are all independent of the MAC driver and use a
-different space in the register sets. This does not seem the case
-here, so i think the split you have made is O.K, and i don't see a
-need to move it into phy.
+On 06/28/2016 10:34 PM, Jon Mason wrote:
 
-     Andrew
+> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+> ---
+>  .../devicetree/bindings/net/brcm,bgmac-enet.txt     | 21 +++++++++++++++++++++
+>  1 file changed, 21 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
+>
+> diff --git a/Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt b/Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
+> new file mode 100644
+> index 0000000..efd36d5
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
+> @@ -0,0 +1,21 @@
+> +Broadcom GMAC Ethernet Controller Device Tree Bindings
+> +-------------------------------------------------------------
+> +
+> +Required properties:
+> + - compatible:	"brcm,bgmac-enet"
+> + - reg:		Address and length of the GMAC registers,
+> +		Address and length of the GMAC IDM registers
+> + - interrupts:	Interrupt number
+> +
+> +Optional properties:
+> +- mac-address:	mac address to be assigned to the device
+
+    Refer to ethernet.txt in the same directory.
+
+> +
+> +Examples:
+> +
+> +gmac0: enet@18022000 {
+
+    The node name should be "ethernet@..." to comply eith the ePAPR standard.
+
+WBR, Sergei
