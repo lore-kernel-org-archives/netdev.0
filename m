@@ -1,42 +1,59 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 0/6] net: dsa: Platform data for dsa2.c
-Date: Mon, 27 Jun 2016 18:19:28 -0700
-Message-ID: <CAGVrzcYzJ-NOZ-vTO_zRAVfhQ5qd=06dY9ybHfBwJHV6GtmK8A@mail.gmail.com>
-References: <1467075163-15890-1-git-send-email-f.fainelli@gmail.com> <20160628010551.GD26597@lunn.ch>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the imx-mxs tree
+Date: Tue, 28 Jun 2016 11:27:11 +1000
+Message-ID: <20160628112711.5dc3b529@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f46.google.com ([209.85.214.46]:38145 "EHLO
-	mail-it0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751947AbcF1BUI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 21:20:08 -0400
-Received: by mail-it0-f46.google.com with SMTP id h190so3870299ith.1
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 18:20:08 -0700 (PDT)
-In-Reply-To: <20160628010551.GD26597@lunn.ch>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Lucas Stach <l.stach@pengutronix.de>,
+	Fugang Duan <fugang.duan@nxp.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Shawn Guo <shawn.guo@linaro.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2016-06-27 18:05 GMT-07:00 Andrew Lunn <andrew@lunn.ch>:
-> On Mon, Jun 27, 2016 at 05:52:37PM -0700, Florian Fainelli wrote:
->> Hi all,
->>
->> This patch series adds support for platform data using the new code from
->> net/dsa/dsa2.c. The motivation behind this is that we have a bit of in tree
->> platforms (ar7, bcm47xx, x86, others) that could be benefiting from the new
->> dsa_register_switch() API model but do not support Device Tree, nor is there a
->> plan to bring Device Tree to these platforms (time vs. benefits).
->
-> Hi Florian
->
-> Please could you convert an in tree device to actually use this.
+Hi all,
 
-Sure, I don't think there are going to be in tree users who need the
-dsa2_port_link information most of what we have is typically single
-chip, and so in that case, we can even re-use the existing
-dsa_platform_data.
+Today's linux-next merge of the net-next tree got a conflict in:
+
+  drivers/net/ethernet/freescale/fec.h
+
+between commit:
+
+  293809055656 ("ARM: imx6: disable deeper idle states when FEC is active w/o HW workaround")
+
+from the imx-mxs tree and commit:
+
+  ff7566b8d71f ("net: fec: add interrupt coalesc quirk flag")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
 -- 
-Florian
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/ethernet/freescale/fec.h
+index dc71a88e9c55,92fd5c0bf4df..000000000000
+--- a/drivers/net/ethernet/freescale/fec.h
++++ b/drivers/net/ethernet/freescale/fec.h
+@@@ -442,8 -442,8 +442,10 @@@ struct bufdesc_ex 
+  #define FEC_QUIRK_SINGLE_MDIO		(1 << 11)
+  /* Controller supports RACC register */
+  #define FEC_QUIRK_HAS_RACC		(1 << 12)
+ +/* Interrupt doesn't wake CPU from deep idle */
+ +#define FEC_QUIRK_ERR006687		(1 << 13)
++ /* Controller supports interrupt coalesc */
+ -#define FEC_QUIRK_HAS_COALESCE		(1 << 13)
+++#define FEC_QUIRK_HAS_COALESCE		(1 << 14)
+  
+  struct bufdesc_prop {
+  	int qid;
