@@ -1,30 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net: diag: Add support to filter on device
- index
-Date: Tue, 28 Jun 2016 05:25:31 -0400 (EDT)
-Message-ID: <20160628.052531.715609559856475342.davem@davemloft.net>
-References: <1466732571-31133-1-git-send-email-dsa@cumulusnetworks.com>
+Subject: Re: [PATCH] caif: Remove unneeded header file
+Date: Tue, 28 Jun 2016 05:26:28 -0400 (EDT)
+Message-ID: <20160628.052628.752695490149507663.davem@davemloft.net>
+References: <20160624062354.GA23515@amitoj-Inspiron-3542>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: dsa@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53960 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752313AbcF1J0B (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 05:26:01 -0400
-In-Reply-To: <1466732571-31133-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dmitry.tarnyagin@lockless.no, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, julia.lawall@lip6.fr
+To: amitoj1606@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160624062354.GA23515@amitoj-Inspiron-3542>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: David Ahern <dsa@cumulusnetworks.com>
-Date: Thu, 23 Jun 2016 18:42:51 -0700
+From: Amitoj Kaur Chawla <amitoj1606@gmail.com>
+Date: Fri, 24 Jun 2016 11:53:54 +0530
 
-> Add support to inet_diag facility to filter sockets based on device
-> index. If an interface index is in the filter only sockets bound
-> to that index (sk_bound_dev_if) are returned.
+> Drop redundant include of moduleparam.h
 > 
-> Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+> The Coccinelle semantic patch used to make this change is as follows:
+> @ includesmodule @
+> @@
+> 
+> #include <linux/module.h>
+> 
+> @ depends on includesmodule @
+> @@
+> 
+> - #include <linux/moduleparam.h>
+> 
+> Signed-off-by: Amitoj Kaur Chawla <amitoj1606@gmail.com>
 
-Applied.
+Applied, thanks.
