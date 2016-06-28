@@ -1,59 +1,36 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: manual merge of the net-next tree with the imx-mxs tree
-Date: Tue, 28 Jun 2016 11:27:11 +1000
-Message-ID: <20160628112711.5dc3b529@canb.auug.org.au>
+From: Moritz Fischer <moritz.fischer@ettus.com>
+Subject: Re: Supporting C45 PHY without ID registers
+Date: Mon, 27 Jun 2016 18:50:30 -0700
+Message-ID: <CAAtXAHeWgcJoR4CeTsN202+zvh7cNyZJeR_u2WoAVgo_i24dpA@mail.gmail.com>
+References: <CAAtXAHdfL07C+p-FcafHL5s0Noqh4Br1VP6dcyBr89wWidvsJQ@mail.gmail.com>
+ <20160628005618.GC26597@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Lucas Stach <l.stach@pengutronix.de>,
-	Fugang Duan <fugang.duan@nxp.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Shawn Guo <shawn.guo@linaro.org>
-Return-path: <linux-next-owner@vger.kernel.org>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-vk0-f42.google.com ([209.85.213.42]:33940 "EHLO
+	mail-vk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752050AbcF1Buc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 21:50:32 -0400
+Received: by mail-vk0-f42.google.com with SMTP id c2so3234849vkg.1
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 18:50:31 -0700 (PDT)
+In-Reply-To: <20160628005618.GC26597@lunn.ch>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
+Hi Andrew,
 
-Today's linux-next merge of the net-next tree got a conflict in:
+On Mon, Jun 27, 2016 at 5:56 PM, Andrew Lunn <andrew@lunn.ch> wrote:
 
-  drivers/net/ethernet/freescale/fec.h
+> Does it have any ID registers at all?
 
-between commit:
+There is a vendor specific (to my knowledge) register at device 1
+register 65535 ([1]) that could be read back. I haven't seen anyone
+else do that.
 
-  293809055656 ("ARM: imx6: disable deeper idle states when FEC is active w/o HW workaround")
+Thanks,
 
-from the imx-mxs tree and commit:
+Moritz
 
-  ff7566b8d71f ("net: fec: add interrupt coalesc quirk flag")
-
-from the net-next tree.
-
-I fixed it up (see below) and can carry the fix as necessary. This
-is now fixed as far as linux-next is concerned, but any non trivial
-conflicts should be mentioned to your upstream maintainer when your tree
-is submitted for merging.  You may also want to consider cooperating
-with the maintainer of the conflicting tree to minimise any particularly
-complex conflicts.
-
--- 
-Cheers,
-Stephen Rothwell
-
-diff --cc drivers/net/ethernet/freescale/fec.h
-index dc71a88e9c55,92fd5c0bf4df..000000000000
---- a/drivers/net/ethernet/freescale/fec.h
-+++ b/drivers/net/ethernet/freescale/fec.h
-@@@ -442,8 -442,8 +442,10 @@@ struct bufdesc_ex 
-  #define FEC_QUIRK_SINGLE_MDIO		(1 << 11)
-  /* Controller supports RACC register */
-  #define FEC_QUIRK_HAS_RACC		(1 << 12)
- +/* Interrupt doesn't wake CPU from deep idle */
- +#define FEC_QUIRK_ERR006687		(1 << 13)
-+ /* Controller supports interrupt coalesc */
- -#define FEC_QUIRK_HAS_COALESCE		(1 << 13)
-++#define FEC_QUIRK_HAS_COALESCE		(1 << 14)
-  
-  struct bufdesc_prop {
-  	int qid;
+[1] http://www.xilinx.com/support/documentation/ip_documentation/ten_gig_eth_pcs_pma/v6_0/pg068-ten-gig-eth-pcs-pma.pdf
