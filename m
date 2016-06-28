@@ -1,43 +1,36 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] mlx4: set csum_complete_sw bit when fixing complete csum
-Date: Tue, 28 Jun 2016 09:52:15 -0700
-Message-ID: <CAM_iQpVPp3YYpfjGmYzBi=i1ONeOT+eLd-P67KuGpHGUmcCZNA@mail.gmail.com>
-References: <1467051724-8314-1-git-send-email-xiyou.wangcong@gmail.com>
- <CAJ3xEMjgb6K1QeWZKNLWJWk4Ch++FmcV-PPWp7VJzWLYSHo8YQ@mail.gmail.com>
- <CAM_iQpUBQqV3oC7=WqyNtu58HmbJbV29yz6_r_ib6XqWpw7VGg@mail.gmail.com> <CAJ3xEMhgyvq2_ZsipQ_iFcC6Ef65hj2rkZ0U5scGvj4-=eNkLA@mail.gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] libertas_tf: Remove create_workqueue
+Date: Tue, 28 Jun 2016 20:02:53 +0300
+Message-ID: <87shvxb60y.fsf@kamboji.qca.qualcomm.com>
+References: <20160607200853.GA13742@Karyakshetra>
+	<20160611224708.GC31708@htj.duckdns.org>
+	<CAFNHFT8_4P3h1Ou0PZ6d4tPbJ1ysb5JjPc=NL2GiVO-tUZAp5g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Tom Herbert <tom@herbertland.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Shani Michaeli <shanim@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>,
-	Yishai Hadas <yishaih@mellanox.com>,
-	Carol L Soto <clsoto@us.ibm.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Tejun Heo <tj@kernel.org>, Johannes Berg <johannes.berg@intel.com>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	netdev@vger.kernel.org,
+	"Linux-Kernel\@Vger. Kernel. Org" <linux-kernel@vger.kernel.org>
+To: Bhaktipriya Shridhar <bhaktipriya96@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f170.google.com ([209.85.220.170]:36045 "EHLO
-	mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751946AbcF1Qwf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 12:52:35 -0400
-Received: by mail-qk0-f170.google.com with SMTP id z142so16126474qkb.3
-        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 09:52:35 -0700 (PDT)
-In-Reply-To: <CAJ3xEMhgyvq2_ZsipQ_iFcC6Ef65hj2rkZ0U5scGvj4-=eNkLA@mail.gmail.com>
+Received: from smtp.codeaurora.org ([198.145.29.96]:37576 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751946AbcF1RC7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 13:02:59 -0400
+In-Reply-To: <CAFNHFT8_4P3h1Ou0PZ6d4tPbJ1ysb5JjPc=NL2GiVO-tUZAp5g@mail.gmail.com>
+	(Bhaktipriya Shridhar's message of "Tue, 28 Jun 2016 22:20:11 +0530")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 28, 2016 at 7:30 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
-> Wow, can you please report us the exact card type (lspci -nn | grep -i
-> mellanox) and  firmware version (ethtool -i $DEV)
+Bhaktipriya Shridhar <bhaktipriya96@gmail.com> writes:
 
-See below. Does commit f8c6455bb04b944edb69e rely on any firmware
-change to get an expected checksum?
+> Ping!
 
-$ lspci -nn | grep -i mellanox
-82:00.0 Ethernet controller [0200]: Mellanox Technologies MT27500
-Family [ConnectX-3] [15b3:1003]
+I'm lagging behind, the patch is still on my queue:
 
-$ ethtool -i eth0
-driver: mlx4_en
-version: 2.2-1 (Feb 2014)
-firmware-version: 2.33.5220
-bus-info: 0000:82:00.0
+https://patchwork.kernel.org/patch/9162447/
+
+Please don't top most, it's annoying.
+
+-- 
+Kalle Valo
