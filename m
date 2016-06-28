@@ -1,54 +1,36 @@
-From: David Miller <davem@davemloft.net>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
 Subject: Re: [PATCH] of_mdio: select fixed phy support unconditionally
-Date: Tue, 28 Jun 2016 05:43:42 -0400 (EDT)
-Message-ID: <20160628.054342.1681185612913979373.davem@davemloft.net>
-References: <20160624092450.1507991-1-arnd@arndb.de>
+Date: Tue, 28 Jun 2016 11:48:17 +0200
+Message-ID: <3805319.F0zTRbauKS@wuerfel>
+References: <20160624092450.1507991-1-arnd@arndb.de> <20160628.054342.1681185612913979373.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, robh+dt@kernel.org, frowand.list@gmail.com,
-	david.daney@cavium.com, andrew@lunn.ch,
-	sergei.shtylyov@cogentembedded.com, ben.hutchings@codethink.co.uk,
-	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
-To: arnd@arndb.de
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160624092450.1507991-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+	sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org, ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160628.054342.1681185612913979373.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-From: Arnd Bergmann <arnd@arndb.de>
-Date: Fri, 24 Jun 2016 11:24:08 +0200
-
-> Calling the fixed-phy functions when CONFIG_FIXED_PHY=m as a previous
-> change tried cannot work if the caller is in built-in code:
+On Tuesday, June 28, 2016 5:43:42 AM CEST David Miller wrote:
+> Applied to net-next, thanks Arnd.
 > 
-> drivers/of/built-in.o: In function `of_phy_register_fixed_link':
-> of_reserved_mem.c:(.text+0x85e0): undefined reference to `fixed_phy_register'
+> In the future, please be explicit about what tree a patch is
+> targetting by specifying it in your Subject line, as:
 > 
-> Making of_mdio depend on 'FIXED_PHY || !FIXED_PHY' would solve this
-> dependency by enforcing that OF_MDIO itself becomes a loadable module
-> when FIXED_PHY=y, but that creates a different dependency as it
-> breaks any built-in ethernet driver that uses of_mdio.
+>         [PATCH net-next] ...
 > 
-> Making FIXED_PHY a bool option also cannot work, since it depends on
-> PHYLIB, which again is tristate.
-> 
-> This version now uses 'select FIXED_PHY' to ensure that the fixed-phy
-> portion of of_mdio is not optional. The main downside of this is
-> a small increase in code size for cases that do not need fixed phy
-> support, but it should avoid all of the link-time problems.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: d1bd330a229f ("of_mdio: Enable fixed PHY support if driver is a module")
 
-Applied to net-next, thanks Arnd.
+Sure, will do.
 
-In the future, please be explicit about what tree a patch is
-targetting by specifying it in your Subject line, as:
+	Arnd
 
-	[PATCH net-next] ...
-
-or similar.
-
-Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
