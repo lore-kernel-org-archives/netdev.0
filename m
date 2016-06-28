@@ -1,46 +1,43 @@
-From: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH] libertas_tf: Remove create_workqueue
-Date: Tue, 28 Jun 2016 22:20:11 +0530
-Message-ID: <CAFNHFT8_4P3h1Ou0PZ6d4tPbJ1ysb5JjPc=NL2GiVO-tUZAp5g@mail.gmail.com>
-References: <20160607200853.GA13742@Karyakshetra> <20160611224708.GC31708@htj.duckdns.org>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] mlx4: set csum_complete_sw bit when fixing complete csum
+Date: Tue, 28 Jun 2016 09:52:15 -0700
+Message-ID: <CAM_iQpVPp3YYpfjGmYzBi=i1ONeOT+eLd-P67KuGpHGUmcCZNA@mail.gmail.com>
+References: <1467051724-8314-1-git-send-email-xiyou.wangcong@gmail.com>
+ <CAJ3xEMjgb6K1QeWZKNLWJWk4Ch++FmcV-PPWp7VJzWLYSHo8YQ@mail.gmail.com>
+ <CAM_iQpUBQqV3oC7=WqyNtu58HmbJbV29yz6_r_ib6XqWpw7VGg@mail.gmail.com> <CAJ3xEMhgyvq2_ZsipQ_iFcC6Ef65hj2rkZ0U5scGvj4-=eNkLA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	linux-wireless <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	"Linux-Kernel@Vger. Kernel. Org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160611224708.GC31708-piEFEHQLUPpN0TnZuCh8vA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: Tom Herbert <tom@herbertland.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Shani Michaeli <shanim@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Carol L Soto <clsoto@us.ibm.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-qk0-f170.google.com ([209.85.220.170]:36045 "EHLO
+	mail-qk0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751946AbcF1Qwf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 12:52:35 -0400
+Received: by mail-qk0-f170.google.com with SMTP id z142so16126474qkb.3
+        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 09:52:35 -0700 (PDT)
+In-Reply-To: <CAJ3xEMhgyvq2_ZsipQ_iFcC6Ef65hj2rkZ0U5scGvj4-=eNkLA@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Ping!
-Thanks,
-Bhaktipriya
+On Tue, Jun 28, 2016 at 7:30 AM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> Wow, can you please report us the exact card type (lspci -nn | grep -i
+> mellanox) and  firmware version (ethtool -i $DEV)
 
+See below. Does commit f8c6455bb04b944edb69e rely on any firmware
+change to get an expected checksum?
 
-On Sun, Jun 12, 2016 at 4:17 AM, Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org> wrote:
-> On Wed, Jun 08, 2016 at 01:38:53AM +0530, Bhaktipriya Shridhar wrote:
->> alloc_workqueue replaces deprecated create_workqueue().
->>
->> A dedicated workqueue has been used since the workitem (viz
->> &priv->cmd_work per priv, which maps to lbtf_cmd_work) is involved in
->> actual command processing and may be used on a memory reclaim path.
->> The workitems require forward progress under memory pressure and hence,
->> WQ_MEM_RECLAIM has been set. Since there are only a fixed number of work
->> items, explicit concurrency limit is unnecessary here.
->>
->> Signed-off-by: Bhaktipriya Shridhar <bhaktipriya96-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
->
-> Acked-by: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
->
-> Thanks.
->
-> --
-> tejun
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+$ lspci -nn | grep -i mellanox
+82:00.0 Ethernet controller [0200]: Mellanox Technologies MT27500
+Family [ConnectX-3] [15b3:1003]
+
+$ ethtool -i eth0
+driver: mlx4_en
+version: 2.2-1 (Feb 2014)
+firmware-version: 2.33.5220
+bus-info: 0000:82:00.0
