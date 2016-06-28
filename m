@@ -1,39 +1,44 @@
-From: Linus =?utf-8?Q?L=C3=BCssing?= <linus.luessing@c0d3.blue>
-Subject: Re: [PATCH net] Bridge: Fix ipv6 mc snooping if bridge has
- no ipv6 address
-Date: Tue, 28 Jun 2016 15:22:36 +0200
-Message-ID: <20160628132236.GE3221@otheros>
-References: <1466764518-11358-1-git-send-email-daniel@dd-wrt.com>
-	<20160625142028.GF4407@otheros>
-	<20160628.080442.1941457943482109633.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, ulrich.weber@sophos.com, uw@ocedo.com
-To: David Miller <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <20160628.080442.1941457943482109633.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: "George Spelvin" <linux@sciencehorizons.net>
+Subject: Re: Doing crypto in small stack buffers (bluetooth vs vmalloc-stack crash, etc)
+Date: 28 Jun 2016 09:23:01 -0400
+Message-ID: <20160628132301.11479.qmail@ns.sciencehorizons.net>
+References: <20160628124241.GA17940@gondor.apana.org.au>
+Cc: linux-bluetooth@vger.kernel.org, linux-crypto@vger.kernel.org,
+	luto@amacapital.net, netdev@vger.kernel.org
+To: herbert@gondor.apana.org.au, linux@sciencehorizons.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ns.sciencehorizons.net ([71.41.210.147]:42138 "HELO
+	ns.sciencehorizons.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with SMTP id S1752786AbcF1NXJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 09:23:09 -0400
+In-Reply-To: <20160628124241.GA17940@gondor.apana.org.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 28, 2016 at 08:04:42AM -0400, David Miller wrote:
-> From: Linus L=C3=BCssing <linus.luessing@c0d3.blue>
-> [...]
-> > Fixes: 1d81d4c3dd88 ("bridge: check return value of ipv6_dev_get_sadd=
-r()")
->=20
-> You're missing an initial 'd' in that SHA1-ID.
->=20
-> With that fixed, applied and queued up for -stable.
+Herbert Xu wrote:
+> I'm currently working on cts and I'm removing the stack usage
+> altogether by having it operate on the src/dst SG lists only.
 
-Sorry :(. Thanks for taking care of it!
+Wow, I should see how you do that.  I couldn't get it below 3
+blocks of temporary, and the dst SG list only gives you
+one and a half.
+
+> BTW, the only cts user in our tree appears to be implementing
+> CTS all over again and is only calling the crypto API cts for
+> the last two blocks.  Someone should fix that.
+
+Hint taken.  Although I'm having a hard time finding that only user
+amidst all the drivers thinking it means Clear To Send or (for HDMI)
+Cycle Time Stamp.
+
+Um...the uses in fs/crypto/keyinfo.c and fs/ext4/crypto_key.c
+don't seem to do anything untoward.
+
+Is net/sunrpc/auth_gss/gss_krb5_mech.c doing something odd?
+
+
+I have a request of you: like Andy, I find the crypto layer an
+impenetrable thicket of wrapper structures.  I'm not suggesting there
+aren't reasons for it, but it's extremely hard to infer those reasons by
+looking at the code.  If I were to draft a (hilariously wrong) overview
+document, would you be willing to edit it into correctness?
