@@ -1,36 +1,46 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH] of_mdio: select fixed phy support unconditionally
-Date: Tue, 28 Jun 2016 11:48:17 +0200
-Message-ID: <3805319.F0zTRbauKS@wuerfel>
-References: <20160624092450.1507991-1-arnd@arndb.de> <20160628.054342.1681185612913979373.davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH V5 1/1] net: ethernet: Add TSE PCS support to
+ dwmac-socfpga
+Date: Tue, 28 Jun 2016 05:48:15 -0400 (EDT)
+Message-ID: <20160628.054815.1440008157228833144.davem@davemloft.net>
+References: <1466759603-30769-1-git-send-email-thloh@altera.com>
+	<20160628.053450.2071467949973087029.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, frowand.list-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	david.daney-YGCgFSpz5w/QT0dZR+AlfA@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-	sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org, ben.hutchings-4yDnlxn2s6sWdaTGBSpHTA@public.gmane.org,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160628.054342.1681185612913979373.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: robh+dt@kernel.org, mark.rutland@arm.com, peppe.cavallaro@st.com,
+	alexandre.torgue@st.com, preid@electromag.com.au,
+	dinguyen@opensource.altera.com, netdev@vger.kernel.org,
+	devicetree@vger.kernel.org, linux-kernel@vger.kernel.org,
+	thloh85@gmail.com, cnphoon@altera.com
+To: thloh@altera.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:54312 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752509AbcF1Jsq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 05:48:46 -0400
+In-Reply-To: <20160628.053450.2071467949973087029.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, June 28, 2016 5:43:42 AM CEST David Miller wrote:
-> Applied to net-next, thanks Arnd.
+From: David Miller <davem@davemloft.net>
+Date: Tue, 28 Jun 2016 05:34:50 -0400 (EDT)
+
+> From: <thloh@altera.com>
+> Date: Fri, 24 Jun 2016 02:13:23 -0700
 > 
-> In the future, please be explicit about what tree a patch is
-> targetting by specifying it in your Subject line, as:
+>> From: Tien Hock Loh <thloh@altera.com>
+>> 
+>> This adds support for TSE PCS that uses SGMII adapter when the phy-mode of
+>> the dwmac is set to sgmii.
+>> 
+>> Signed-off-by: Tien Hock Loh <thloh@altera.com>
+>> Acked-by: Giuseppe Cavallaro <peppe.cavallaro@st.com>
+>> Acked-by: Rob Herring <robh@kernel.org>
 > 
->         [PATCH net-next] ...
-> 
+> Applied to net-next, thanks.
 
-Sure, will do.
+I had to revert, this breaks the build:
 
-	Arnd
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+ERROR: "tse_pcs_fix_mac_speed" [drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.ko] undefined!
+ERROR: "tse_pcs_init" [drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.ko] undefined!
