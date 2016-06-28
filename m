@@ -1,46 +1,62 @@
-From: "Seymour, Shane M" <shane.seymour@hpe.com>
-Subject: [PATCH V2 net-next] tcp: increase size at which tcp_bound_to_half_wnd
- bounds to > TCP_MSS_DEFAULT
-Date: Tue, 28 Jun 2016 23:06:48 +0000
-Message-ID: <CS1PR84MB0295BC70B8ACF200C11B5E25FD220@CS1PR84MB0295.NAMPRD84.PROD.OUTLOOK.COM>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Eric Dumazet <eric.dumazet@gmail.com>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+From: Andrey Vagin <avagin@openvz.org>
+Subject: [PATCH] ip route: timeout for routes has to be set in seconds
+Date: Wed, 29 Jun 2016 02:27:14 +0300
+Message-ID: <1467156434-2157-1-git-send-email-avagin@openvz.org>
+Cc: Andrew Vagin <avagin@virtuozzo.com>,
+	Xin Long <lucien.xin@gmail.com>,
+	Hangbin Liu <liuhangbin@gmail.com>,
+	Stephen Hemminger <shemming@brocade.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bl2on0122.outbound.protection.outlook.com ([65.55.169.122]:37823
-	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752431AbcF1XGv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 19:06:51 -0400
-Content-Language: en-US
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33954 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752433AbcF1X1d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 19:27:33 -0400
+Received: by mail-pa0-f66.google.com with SMTP id us13so2812611pab.1
+        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 16:27:20 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In previous commit 01f83d69844d307be2aa6fea88b0e8fe5cbdb2f4
-the following comments were added:
+From: Andrew Vagin <avagin@virtuozzo.com>
 
-"When peer uses tiny windows, there is no use in packetizing to sub-MSS
-pieces for the sake of SWS or making sure there are enough packets in
-the pipe for fast recovery."
+Currently a timeout is multiplied by HZ in user-space and
+then it multiplied by HZ in kernel-space.
 
-The test should be > TCP_MSS_DEFAULT not >= 512. This allows low end
-devices that send an MSS of 536 (TCP_MSS_DEFAULT) to see better network
-performance by sending it 536 bytes of data at a time instead of bounding
-to half window size (268). Other network stacks work this way, e.g. HP-UX.
+$ ./ip/ip r add 2002::0/64 dev veth1 expires 10
+$ ./ip/ip -6 r
+2002::/64 dev veth1  metric 1024 linkdown  expires 996sec pref medium
 
-Signed-off-by: Shane Seymour <shane.seymour@hpe.com>
+Cc: Xin Long <lucien.xin@gmail.com>
+Cc: Hangbin Liu <liuhangbin@gmail.com>
+Cc: Stephen Hemminger <shemming@brocade.com>
+Fixes: 68eede250500 ("route: allow routes to be configured with expire values")
+Signed-off-by: Andrew Vagin <avagin@virtuozzo.com>
 ---
-Changed from V1 - patch reversed, Doh!, corrected patch.
---- a/include/net/tcp.h	2016-06-15 17:19:21.964821477 -0500
-+++ b/include/net/tcp.h	2016-06-23 20:59:14.521686048 -0500
-@@ -589,7 +589,7 @@ static inline int tcp_bound_to_half_wnd(
- 	 * On the other hand, for extremely large MSS devices, handling
- 	 * smaller than MSS windows in this way does make sense.
- 	 */
--	if (tp->max_window >= 512)
-+	if (tp->max_window > TCP_MSS_DEFAULT)
- 		cutoff = (tp->max_window >> 1);
- 	else
- 		cutoff = tp->max_window;
+ ip/iproute.c | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/ip/iproute.c b/ip/iproute.c
+index 8224d7f..7c0f5a4 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -839,7 +839,6 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 	int table_ok = 0;
+ 	int raw = 0;
+ 	int type_ok = 0;
+-	static int hz;
+ 
+ 	memset(&req, 0, sizeof(req));
+ 
+@@ -923,9 +922,7 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 			NEXT_ARG();
+ 			if (get_u32(&expires, *argv, 0))
+ 				invarg("\"expires\" value is invalid\n", *argv);
+-			if (!hz)
+-				hz = get_user_hz();
+-			addattr32(&req.n, sizeof(req), RTA_EXPIRES, expires*hz);
++			addattr32(&req.n, sizeof(req), RTA_EXPIRES, expires);
+ 		} else if (matches(*argv, "metric") == 0 ||
+ 			   matches(*argv, "priority") == 0 ||
+ 			   strcmp(*argv, "preference") == 0) {
+-- 
+2.7.4
