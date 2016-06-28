@@ -1,7 +1,7 @@
 From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net-next v3 7/7] r8152: add byte_enable for ocp_read_word function
-Date: Tue, 28 Jun 2016 20:28:42 +0800
-Message-ID: <1394712342-15778-205-Taiwan-albertk@realtek.com>
+Subject: [PATCH net-next v3 5/7] r8152: support the new chip 8050
+Date: Tue, 28 Jun 2016 20:28:40 +0800
+Message-ID: <1394712342-15778-203-Taiwan-albertk@realtek.com>
 References: <1394712342-15778-184-Taiwan-albertk@realtek.com>
  <1394712342-15778-198-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
@@ -14,42 +14,74 @@ In-Reply-To: <1394712342-15778-198-Taiwan-albertk@realtek.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Add byte_enable for ocp_read_word() to replace reading 4
-bytes data with reading the desired 2 bytes data.
-
-This is used to avoid the issue which is described in
-commit b4d99def0938 ("r8152: remove sram_read"). The
-original method always reads 4 bytes data, and it may
-have problem when reading the PHY registers.
-
-The new method is supported since RTL8152B, but it
-doesn't influence the previous chips. The bits of the
-byte_enable for the previous chips are the reserved
-bits, and the hw would ignore them.
+Support a new chip which has the product ID 0x8050.
 
 Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 ---
- drivers/net/usb/r8152.c | 4 +++-
- 1 file changed, 3 insertions(+), 1 deletion(-)
+ drivers/net/usb/r8152.c | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
 diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index bd74fab..e5405e6 100644
+index df370e5..7227931 100644
 --- a/drivers/net/usb/r8152.c
 +++ b/drivers/net/usb/r8152.c
-@@ -946,11 +946,13 @@ static u16 ocp_read_word(struct r8152 *tp, u16 type, u16 index)
- {
- 	u32 data;
- 	__le32 tmp;
-+	u16 byen = BYTE_EN_WORD;
- 	u8 shift = index & 2;
+@@ -647,6 +647,7 @@ enum rtl_version {
+ 	RTL_VER_04,
+ 	RTL_VER_05,
+ 	RTL_VER_06,
++	RTL_VER_07,
+ 	RTL_VER_MAX
+ };
  
- 	index &= ~3;
-+	byen <<= shift;
+@@ -3921,6 +3922,7 @@ static int rtl8152_get_coalesce(struct net_device *netdev,
+ 	switch (tp->version) {
+ 	case RTL_VER_01:
+ 	case RTL_VER_02:
++	case RTL_VER_07:
+ 		return -EOPNOTSUPP;
+ 	default:
+ 		break;
+@@ -3940,6 +3942,7 @@ static int rtl8152_set_coalesce(struct net_device *netdev,
+ 	switch (tp->version) {
+ 	case RTL_VER_01:
+ 	case RTL_VER_02:
++	case RTL_VER_07:
+ 		return -EOPNOTSUPP;
+ 	default:
+ 		break;
+@@ -4039,6 +4042,7 @@ static int rtl8152_change_mtu(struct net_device *dev, int new_mtu)
+ 	switch (tp->version) {
+ 	case RTL_VER_01:
+ 	case RTL_VER_02:
++	case RTL_VER_07:
+ 		return eth_change_mtu(dev, new_mtu);
+ 	default:
+ 		break;
+@@ -4110,6 +4114,9 @@ static void r8152b_get_version(struct r8152 *tp)
+ 		tp->version = RTL_VER_06;
+ 		tp->mii.supports_gmii = 1;
+ 		break;
++	case 0x4800:
++		tp->version = RTL_VER_07;
++		break;
+ 	default:
+ 		netif_info(tp, probe, tp->netdev,
+ 			   "Unknown version 0x%04x\n", version);
+@@ -4142,6 +4149,7 @@ static int rtl_ops_init(struct r8152 *tp)
+ 	switch (tp->version) {
+ 	case RTL_VER_01:
+ 	case RTL_VER_02:
++	case RTL_VER_07:
+ 		ops->init		= r8152b_init;
+ 		ops->enable		= rtl8152_enable;
+ 		ops->disable		= rtl8152_disable;
+@@ -4339,6 +4347,7 @@ static void rtl8152_disconnect(struct usb_interface *intf)
  
--	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type);
-+	generic_ocp_read(tp, index, sizeof(tmp), &tmp, type | byen);
- 
- 	data = __le32_to_cpu(tmp);
- 	data >>= (shift * 8);
+ /* table of devices that work with this driver */
+ static struct usb_device_id rtl8152_table[] = {
++	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8050)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8152)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_REALTEK, 0x8153)},
+ 	{REALTEK_USB_DEVICE(VENDOR_ID_SAMSUNG, 0xa101)},
 -- 
 2.4.11
