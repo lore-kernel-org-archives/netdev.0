@@ -1,99 +1,83 @@
-From: Or Gerlitz <ogerlitz@mellanox.com>
-Subject: Re: [PATCH net-next 08/16] net/devlink: Add E-Switch mode control
-Date: Tue, 28 Jun 2016 13:25:06 +0300
-Message-ID: <28223ec8-f105-d598-39ad-5dc93598dc64@mellanox.com>
-References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
- <1467043649-28594-9-git-send-email-saeedm@mellanox.com>
- <577211E2.90802@gmail.com>
+From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
+Subject: Re: [PATCH net-next] net: bridge: add support for IGMP/MLD
+ stats and export them via netlink
+Date: Tue, 28 Jun 2016 14:02:07 +0200
+Message-ID: <5772673F.8010808@cumulusnetworks.com>
+References: <1467051048-32604-1-git-send-email-nikolay@cumulusnetworks.com>
+	<20160628110321.GA3221@otheros>
+Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>, <netdev@vger.kernel.org>,
-	Hadar Hen-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Ido Schimmel <idosch@mellanox.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db3on0074.outbound.protection.outlook.com ([157.55.234.74]:28376
-	"EHLO emea01-db3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752709AbcF1MAO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jun 2016 08:00:14 -0400
-In-Reply-To: <577211E2.90802@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
+	bridge@lists.linux-foundation.org, davem@davemloft.net
+To: =?UTF-8?Q?Linus_L=c3=bcssing?= <linus.luessing@c0d3.blue>
+Return-path: <bridge-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160628110321.GA3221@otheros>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
+List-Post: <mailto:bridge@lists.linux-foundation.org>
+List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
+Sender: bridge-bounces@lists.linux-foundation.org
+Errors-To: bridge-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On 6/28/2016 8:57 AM, John Fastabend wrote:
-> On 16-06-27 09:07 AM, Saeed Mahameed wrote:
->> Add the commands to set and show the mode of SRIOV E-Switch, two modes are supported:
->>
->> * legacy   : operating in the "old" L2 based mode (DMAC --> VF vport)
->> * offloads : offloading SW rules/policy (e.g Bridge/FDB or TC/Flows based) set by the host OS
->>
->> Nice work overall also I really appreciated that the core networking
->> interfaces appear to able to support this without any change.
+On 28/06/16 13:03, Linus L=C3=BCssing wrote:
+> On Mon, Jun 27, 2016 at 08:10:48PM +0200, Nikolay Aleksandrov via Bridg=
+e wrote:
+>> These are invaluable when monitoring or debugging complex multicast se=
+tups
+>> with bridges.
+>=20
+> Indeed! Great patch :). Especially if people are unable to provide
+> pcap files for debugging (due to whatever reason). Hopefully that
+> will help with bugzilla ticket #99081, too...
+>=20
+> I know it might not quite fit into your current patch, which simply
+> stores the ICMPv6 and IGMP type in the bridge private skb->cb, but
+> do you think you could count and export the following two more
+> things, too:
+>=20
+> * MLDv1 vs. MLDv2 querier (and IGMP accordingly)
+> * Number of (potential) MLD/IGMP parse errors
+>   (e.g. beginning of br_multicast_ipv{4,6}_rcv():
+>    http://lxr.free-electrons.com/source/net/bridge/br_multicast.c?v=3D4=
+.5#L1588 and
+>    http://lxr.free-electrons.com/source/net/bridge/br_multicast.c?v=3D4=
+.5#L1634)
+>=20
+> The former would help to know how the network is expected to
+> behave (for instance whether you should see MLDv2 reports at all or
+> whether / how much report suppression to expect).
+>=20
+> The latter would help to spot either potential IGMP/MLD parsing bugs in
+> the bridge or malformed IGMP/MLD messages send by someone else.
+>=20
+>=20
+> Ideally, there would be per port counters again for the overall
+> IPv4/IPv6 multicast traffic. That would help for multicast streams
+> for instance, to easily see whether multicast counters increase
+> rapidly on the ports you would expect them to. And whether snooping
+> is working in general for such streames, without needing to check
+> each port individually via tcpdump, for instance.
+>=20
+>=20
+> Just some thoughts, would love to hear what you think about them.
+>=20
+> Regards, Linus
+>=20
 
-thanks..
+Hi Linus,
+I think these are all reasonable and helpful things to export in addition=
+. I will
+definitely look into extending the stats with them. If this patch is acce=
+pted as-is
+I'll just do it as a follow-up.
 
->> On this patch though do we really need modes like this? My concern with
->> modes is two fold. One its another knob that some controller will have
->> to get right which I would prefer to avoid. And two I suspect switching
->> between the two modes flushes the tables or leaves them in some
->> unexpected state? At least I can't figure out what the expected should
->> be off-hand.
+Thanks for the good suggestions!
 
-Re the 1st concern (another knob), I think we do want that, see below
-
-Re the 2nd concern, I will re-read the cover letter and change logs and 
-if needed clarify/improve: the transition is clean! When you are moving 
-from legacy to offloads or the other way around, nothing is left in 
-unexpected state,  all HW forwarding tables as filled by the current 
-mode are flushed and next they are set as needed for the new mode.
-
->> Could we instead continue to use the "legacy" mode by default by just
->> populating the fdb table correctly and then if users want to enable
->> the "offloads" mode they can modify the fdb tables by deleting entries
->> or adding them or just extending the dmac/vf mapping via 'tc'. This
->> would seem natural to me. The flooding rules in fdb might need to be
->> exposed a bit more cleanly to get the right default flooding behavior
->> etc. But to me at least this would be much cleaner. Everything will be
->> nicely defined and we wont have issues with drivers doing slightly
->> and subtle different defaults between legacy/offload and the transitions
->> between the states or on resets or etc. If users need to discover the
->> current configuration then they just query fdb, query tc, and the state
->> is known no need for any magic toggle switch as best I can see.
-
-
-Few comments here:
-
-Each mode has it's own way of the driver doing setup for the HW tables 
-and how population of the HW tables is done.
-
-The offloads mode needs to create a black hole miss rule and 
-send-to-vport rules and create the tables so they can contain later 
-rules set by the kernel in a way which is HW/driver dependent.
-
-The legacy mode creates the tables differently and populates them later 
-with rule set by
-the driver and not the kernel.
-
-Even if we put the different table setup issue a side, I don't think it 
-would be correct for bridge/tc to remove rules they didn't add, which is 
-needed under your proposal when moving from legacy type rules to 
-offloads mode. Querying is problematic too, since legacy could (and 
-does) involve some default rules set by the FW, e.g that deals with 
-outer world (== not belonging to VM on this host) MACs which are 
-invisible to the driver.
-
-That legacy was here and we can't avoid handling it properly for which 
-this knob is needed. Note that a vendor can choose to put their default 
-to be offloads, hopefully over time, we will all go there :)
-
->> Otherwise I didn't review the mlx code but read the commit msgs and
->> it looks good. I'll take a closer look in the morning.
-
-appreciated
+Cheers,
+ Nik
