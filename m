@@ -1,48 +1,62 @@
-From: Jiri Kosina <jikos@kernel.org>
-Subject: Re: Deleting child qdisc doesn't reset parent to default qdisc?
-Date: Tue, 28 Jun 2016 17:19:13 +0200 (CEST)
-Message-ID: <alpine.LNX.2.00.1606281717140.6874@cbobk.fhfr.pm>
-References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>  <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>  <20160414151813.GE3715@orbyte.nwl.cc>  <alpine.LNX.2.00.1604141807350.27368@cbobk.fhfr.pm>
- <1460656170.10638.61.camel@edumazet-glaptop3.roam.corp.google.com>  <5710E1C1.2090209@mojatatu.com> <1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Samuel Gauthier <samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net v2] openvswitch: fix conntrack netlink event
+	delivery
+Date: Tue, 28 Jun 2016 17:22:26 +0200
+Message-ID: <1467127346-23743-1-git-send-email-samuel.gauthier@6wind.com>
+References: <CAPWQB7HUqyK8EiTZagaxV=g_3An9meNgtBAOWUh_UVDgWwuoPQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Phil Sutter <phil@nwl.cc>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+To: pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <CAPWQB7HUqyK8EiTZagaxV=g_3An9meNgtBAOWUh_UVDgWwuoPQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Apr 2016, Eric Dumazet wrote:
-
-> > TBF is probably a bad example because it started life as a classless 
-> > qdisc. There was only one built-in fifo queue that was shaped. Then 
-> > someone made it classful and changed this behavior. To me it sounds 
-> > reasonable to have the default behavior restored. At minimal 
-> > consistency.
-> 
-> 
-> Then you need to save the initial qdisc (bfifo for TBF) in a special
-> place, to make sure the delete operation is guaranteed to succeed.
-> 
-> Or fail the delete if the bfifo can not be allocated.
-> 
-> I can tell that determinism if far more interesting than usability for
-> some users occasionally playing with tc.
-
-BTW, I've started to actually work on fixing this, and I've noticed that 
-TBF behavior actually violates what's stated in pfifo_fast manpage:
-
-==========
-        Whenever  an  interface is created, the pfifo_fast qdisc is 
-	automatically used as a queue. If another qdisc is
-	attached, it preempts the default pfifo_fast, which automatically 
-	returns to function when an  existing  qdisc is detached.
-
-	In this sense this qdisc is magic, and unlike other qdiscs.
-==========
-
--- 
-Jiri Kosina
-SUSE Labs
+T25seSB0aGUgZmlyc3QgYW5kIGxhc3QgbmV0bGluayBtZXNzYWdlIGZvciBhIHBhcnRpY3VsYXIg
+Y29ubnRyYWNrIGFyZQphY3R1YWxseSBzZW50LiBUaGUgZmlyc3QgbWVzc2FnZSBpcyBzZW50IHRo
+cm91Z2ggbmZfY29ubnRyYWNrX2NvbmZpcm0gd2hlbgp0aGUgY29ubnRyYWNrIGlzIGNvbW1pdHRl
+ZC4gVGhlIGxhc3Qgb25lIGlzIHNlbnQgd2hlbiB0aGUgY29ubnRyYWNrIGlzCmRlc3Ryb3llZCBv
+biB0aW1lb3V0LiBUaGUgb3RoZXIgY29ubnRyYWNrIHN0YXRlIGNoYW5nZSBtZXNzYWdlcyBhcmUg
+bm90CmFkdmVydGlzZWQuCgpXaGVuIHRoZSBjb25udHJhY2sgc3Vic3lzdGVtIGlzIHVzZWQgZnJv
+bSBuZXRmaWx0ZXIsIG5mX2Nvbm50cmFja19jb25maXJtCmlzIGNhbGxlZCBmb3IgZWFjaCBwYWNr
+ZXQsIGZyb20gdGhlIHBvc3Ryb3V0aW5nIGhvb2ssIHdoaWNoIGluIHR1cm4gY2FsbHMKbmZfY3Rf
+ZGVsaXZlcl9jYWNoZWRfZXZlbnRzIHRvIHNlbmQgdGhlIHN0YXRlIGNoYW5nZSBuZXRsaW5rIG1l
+c3NhZ2VzLgoKVGhpcyBjb21taXQgZml4ZXMgdGhlIHByb2JsZW0gYnkgY2FsbGluZyBuZl9jdF9k
+ZWxpdmVyX2NhY2hlZF9ldmVudHMgaW4gdGhlCm5vbi1jb21taXQgY2FzZSBhcyB3ZWxsLgoKRml4
+ZXM6IDdmOGE0MzZlYWEyYyAoIm9wZW52c3dpdGNoOiBBZGQgY29ubnRyYWNrIGFjdGlvbiIpCkND
+OiBKb2UgU3RyaW5nZXIgPGpvZXN0cmluZ2VyQG5pY2lyYS5jb20+CkNDOiBKdXN0aW4gUGV0dGl0
+IDxqcGV0dGl0QG5pY2lyYS5jb20+CkNDOiBBbmR5IFpob3UgPGF6aG91QG5pY2lyYS5jb20+CkND
+OiBUaG9tYXMgR3JhZiA8dGdyYWZAc3V1Zy5jaD4KU2lnbmVkLW9mZi1ieTogU2FtdWVsIEdhdXRo
+aWVyIDxzYW11ZWwuZ2F1dGhpZXJANndpbmQuY29tPgotLS0KCnYxIC0+IHYyOiBkb24ndCBicmVh
+ayBPVlNfQ1RfQVRUUl9DT01NSVQgYXR0cmlidXRlCgpUaGlzIHBhdGNoIHdhcyB0ZXN0ZWQgYWdh
+aW5zdCB0aGUgbmV0IHRyZWUsIGNoZWNraW5nIHRoZSBub3RpZmljYXRpb25zIHdpdGgKY29ubnRy
+YWNrIC1FLgoKIG5ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYyB8IDE0ICsrKysrKysrKysrKy0t
+CiAxIGZpbGUgY2hhbmdlZCwgMTIgaW5zZXJ0aW9ucygrKSwgMiBkZWxldGlvbnMoLSkKCmRpZmYg
+LS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgYi9uZXQvb3BlbnZzd2l0Y2gvY29u
+bnRyYWNrLmMKaW5kZXggM2Q1ZmVlZGU5NjJkLi5kODQzMTI1ODRlZTQgMTAwNjQ0Ci0tLSBhL25l
+dC9vcGVudnN3aXRjaC9jb25udHJhY2suYworKysgYi9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNr
+LmMKQEAgLTgxOCw4ICs4MTgsMTggQEAgc3RhdGljIGludCBvdnNfY3RfbG9va3VwKHN0cnVjdCBu
+ZXQgKm5ldCwgc3RydWN0IHN3X2Zsb3dfa2V5ICprZXksCiAJCSAqLwogCQlzdGF0ZSA9IE9WU19D
+U19GX1RSQUNLRUQgfCBPVlNfQ1NfRl9ORVcgfCBPVlNfQ1NfRl9SRUxBVEVEOwogCQlfX292c19j
+dF91cGRhdGVfa2V5KGtleSwgc3RhdGUsICZpbmZvLT56b25lLCBleHAtPm1hc3Rlcik7Ci0JfSBl
+bHNlCi0JCXJldHVybiBfX292c19jdF9sb29rdXAobmV0LCBrZXksIGluZm8sIHNrYik7CisJfSBl
+bHNlIHsKKwkJc3RydWN0IG5mX2Nvbm4gKmN0OworCQlpbnQgZXJyOworCisJCWVyciA9IF9fb3Zz
+X2N0X2xvb2t1cChuZXQsIGtleSwgaW5mbywgc2tiKTsKKwkJaWYgKGVycikKKwkJCXJldHVybiBl
+cnI7CisKKwkJY3QgPSAoc3RydWN0IG5mX2Nvbm4gKilza2ItPm5mY3Q7CisJCWlmIChjdCkKKwkJ
+CW5mX2N0X2RlbGl2ZXJfY2FjaGVkX2V2ZW50cyhjdCk7CisJfQogCiAJcmV0dXJuIDA7CiB9Ci0t
+IAoyLjIuMS42Mi5nM2YxNTA5OAoKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9v
+cGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
