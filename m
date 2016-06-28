@@ -1,31 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 1/2] net: ethernet: dnet: use phydev from struct
- net_device
-Date: Tue, 28 Jun 2016 05:10:58 -0400 (EDT)
-Message-ID: <20160628.051058.2147077763062976982.davem@davemloft.net>
+Subject: Re: [PATCH 2/2] net: ethernet: dnet: use
+ phy_ethtool_{get|set}_link_ksettings
+Date: Tue, 28 Jun 2016 05:12:25 -0400 (EDT)
+Message-ID: <20160628.051225.46701963707196008.davem@davemloft.net>
 References: <1466718539-6526-1-git-send-email-tremyfr@gmail.com>
+	<1466718539-6526-2-git-send-email-tremyfr@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: andrew@lunn.ch, f.fainelli@gmail.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org
 To: tremyfr@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:53794 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751440AbcF1JMP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 05:12:15 -0400
-In-Reply-To: <1466718539-6526-1-git-send-email-tremyfr@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1466718539-6526-2-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Philippe Reynes <tremyfr@gmail.com>
-Date: Thu, 23 Jun 2016 23:48:58 +0200
+Date: Thu, 23 Jun 2016 23:48:59 +0200
 
-> The private structure contain a pointer to phydev, but the structure
-> net_device already contain such pointer. So we can remove the pointer
-> phydev in the private structure, and update the driver to use the
-> one contained in struct net_device.
+> There are two generics functions phy_ethtool_{get|set}_link_ksettings,
+> so we can use them instead of defining the same code in the driver.
 > 
 > Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 
