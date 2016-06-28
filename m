@@ -1,82 +1,146 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH] neigh: Explicitly declare RCU-bh read side critical section
- in neigh_xmit()
-Date: Tue, 28 Jun 2016 11:16:43 +0300
-Message-ID: <20160628081643.GU10080@wantstofly.org>
+From: Feng Tang <feng.tang@intel.com>
+Subject: Backported alx driver fix for stable 4.4 kernel and older
+Date: Tue, 28 Jun 2016 16:23:44 +0800
+Message-ID: <20160628082344.GA8213@shbuild888>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Ahern <dsa@cumulusnetworks.com>, roopa@cumulusnetworks.com,
-	Robert Shearman <rshearma@brocade.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>
-To: netdev@vger.kernel.org
+Content-Type: multipart/mixed; boundary="d6Gm4EdcadzBjdND"
+Cc: Eric Dumazet <edumazet@google.com>, Ole Lukoie <olelukoie@mail.ru>,
+	netdev@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hmm.wantstofly.org ([138.201.34.84]:48588 "EHLO
-	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751862AbcF1IQo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 04:16:44 -0400
+Received: from mga04.intel.com ([192.55.52.120]:39465 "EHLO mga04.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752020AbcF1IVJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jun 2016 04:21:09 -0400
 Content-Disposition: inline
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: David Barroso <dbarroso@fastly.com>
 
-neigh_xmit() expects to be called inside an RCU-bh read side critical
-section, and while one of its two current callers gets this right, the
-other one doesn't.
+--d6Gm4EdcadzBjdND
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-More specifically, neigh_xmit() has two callers, mpls_forward() and
-mpls_output(), and while both callers call neigh_xmit() under
-rcu_read_lock(), this provides sufficient protection for neigh_xmit()
-only in the case of mpls_forward(), as that is always called from
-softirq context and therefore doesn't need explicit BH protection,
-while mpls_output() can be called from process context with softirqs
-enabled.
+Hi David,
 
-When mpls_output() is called from process context, with softirqs
-enabled, we can be preempted by a softirq at any time, and RCU-bh
-considers the completion of a softirq as signaling the end of any
-pending read-side critical sections, so if we do get a softirq
-while we are in the part of neigh_xmit() that expects to be run inside
-an RCU-bh read side critical section, we can end up with an unexpected
-RCU grace period running right in the middle of that critical section,
-making things go boom.
+Greg KH has picked up the alx driver fix for 4.6 stable kernel, and
+people are asking about plan for 4.4/4.1 stable kernel in
+	https://bugzilla.kernel.org/show_bug.cgi?id=70761
 
-This patch fixes this impedance mismatch in the callee, by making
-neigh_xmit() always take rcu_read_{,un}lock_bh() around the code that
-expects to be treated as an RCU-bh read side critical section, as this
-seems a safer option than fixing it in the callers.
+Since the fix patch in your "net" git can't be applied to 4.4 and older
+kernel as is, so I backport it as follows. Could you help to add it
+to your stable queue.
 
-Fixes: 4fd3d7d9e868f ("neigh: Add helper function neigh_xmit")
-Signed-off-by: David Barroso <dbarroso@fastly.com>
-Signed-off-by: Lennert Buytenhek <lbuytenhek@fastly.com>
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
-Acked-by: Robert Shearman <rshearma@brocade.com>
+Let me know if I break any netdev+stable patch rule, thanks
+
+- Feng
+
+----
+
+>From 9c9caee22400c7ed3a514b1ee5e017e5e5b6b812 Mon Sep 17 00:00:00 2001
+From: Feng Tang <feng.tang@intel.com>
+Date: Fri, 24 Jun 2016 15:26:05 +0800
+Subject: [PATCH] net: alx: Work around the DMA RX overflow issue
+
+Note: This is a verified backported patch for stable 4.4 kernel, and it
+could also be applied to 4.3/4.2/4.1/3.18/3.16
+
+There is a problem with alx devices, that the network link will be
+lost in 1-5 minutes after the device is up.
+
+>From debugging without datasheet, we found the error always
+happen when the DMA RX address is set to 0x....fc0, which is very
+likely to be a HW/silicon problem.
+
+This patch will apply rx skb with 64 bytes longer space, and if the
+allocated skb has a 0x...fc0 address, it will use skb_resever(skb, 64)
+to advance the address, so that the RX overflow can be avoided.
+
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=70761
+Signed-off-by: Feng Tang <feng.tang@intel.com>
+Suggested-by: Eric Dumazet <edumazet@google.com>
+Tested-by: Ole Lukoie <olelukoie@mail.ru>
 ---
- net/core/neighbour.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/atheros/alx/main.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
 
-diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 29dd8cc..510cd62 100644
---- a/net/core/neighbour.c
-+++ b/net/core/neighbour.c
-@@ -2469,13 +2469,17 @@ int neigh_xmit(int index, struct net_device *dev,
- 		tbl = neigh_tables[index];
- 		if (!tbl)
- 			goto out;
-+		rcu_read_lock_bh();
- 		neigh = __neigh_lookup_noref(tbl, addr, dev);
- 		if (!neigh)
- 			neigh = __neigh_create(tbl, addr, dev, false);
- 		err = PTR_ERR(neigh);
--		if (IS_ERR(neigh))
-+		if (IS_ERR(neigh)) {
-+			rcu_read_unlock_bh();
- 			goto out_kfree_skb;
-+		}
- 		err = neigh->output(neigh, skb);
-+		rcu_read_unlock_bh();
- 	}
- 	else if (index == NEIGH_LINK_TABLE) {
- 		err = dev_hard_header(skb, dev, ntohs(skb->protocol),
+diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
+index c8af3ce..a43d6a8 100644
+--- a/drivers/net/ethernet/atheros/alx/main.c
++++ b/drivers/net/ethernet/atheros/alx/main.c
+@@ -86,9 +86,14 @@ static int alx_refill_rx_ring(struct alx_priv *alx, gfp_t gfp)
+ 	while (!cur_buf->skb && next != rxq->read_idx) {
+ 		struct alx_rfd *rfd = &rxq->rfd[cur];
+ 
+-		skb = __netdev_alloc_skb(alx->dev, alx->rxbuf_size, gfp);
++		skb = __netdev_alloc_skb(alx->dev, alx->rxbuf_size + 64, gfp);
+ 		if (!skb)
+ 			break;
++
++		/* Workround for the HW RX DMA overflow issue */
++		if (((unsigned long)skb->data & 0xfff) == 0xfc0)
++			skb_reserve(skb, 64);
++
+ 		dma = dma_map_single(&alx->hw.pdev->dev,
+ 				     skb->data, alx->rxbuf_size,
+ 				     DMA_FROM_DEVICE);
 -- 
-2.7.4
+2.5.0
+
+
+--d6Gm4EdcadzBjdND
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="0001-net-alx-Work-around-the-DMA-RX-overflow-issue.patch"
+
+>From 9c9caee22400c7ed3a514b1ee5e017e5e5b6b812 Mon Sep 17 00:00:00 2001
+From: Feng Tang <feng.tang@intel.com>
+Date: Fri, 24 Jun 2016 15:26:05 +0800
+Subject: [PATCH] net: alx: Work around the DMA RX overflow issue
+
+Note: This is a verified backported patch for stable 4.4 kernel, and it
+could also be applied to 4.3/4.2/4.1/3.18/3.16
+
+There is a problem with alx devices, that the network link will be
+lost in 1-5 minutes after the device is up.
+
+>From debugging without datasheet, we found the error always
+happen when the DMA RX address is set to 0x....fc0, which is very
+likely to be a HW/silicon problem.
+
+This patch will apply rx skb with 64 bytes longer space, and if the
+allocated skb has a 0x...fc0 address, it will use skb_resever(skb, 64)
+to advance the address, so that the RX overflow can be avoided.
+
+Bugzilla: https://bugzilla.kernel.org/show_bug.cgi?id=70761
+Signed-off-by: Feng Tang <feng.tang@intel.com>
+Suggested-by: Eric Dumazet <edumazet@google.com>
+Tested-by: Ole Lukoie <olelukoie@mail.ru>
+---
+ drivers/net/ethernet/atheros/alx/main.c | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/atheros/alx/main.c b/drivers/net/ethernet/atheros/alx/main.c
+index c8af3ce..a43d6a8 100644
+--- a/drivers/net/ethernet/atheros/alx/main.c
++++ b/drivers/net/ethernet/atheros/alx/main.c
+@@ -86,9 +86,14 @@ static int alx_refill_rx_ring(struct alx_priv *alx, gfp_t gfp)
+ 	while (!cur_buf->skb && next != rxq->read_idx) {
+ 		struct alx_rfd *rfd = &rxq->rfd[cur];
+ 
+-		skb = __netdev_alloc_skb(alx->dev, alx->rxbuf_size, gfp);
++		skb = __netdev_alloc_skb(alx->dev, alx->rxbuf_size + 64, gfp);
+ 		if (!skb)
+ 			break;
++
++		/* Workround for the HW RX DMA overflow issue */
++		if (((unsigned long)skb->data & 0xfff) == 0xfc0)
++			skb_reserve(skb, 64);
++
+ 		dma = dma_map_single(&alx->hw.pdev->dev,
+ 				     skb->data, alx->rxbuf_size,
+ 				     DMA_FROM_DEVICE);
+-- 
+2.5.0
+
+
+--d6Gm4EdcadzBjdND--
