@@ -1,111 +1,91 @@
-From: Larry Finger <Larry.Finger@lwfinger.net>
-Subject: Re: [PATCH] rtlwifi: Create _rtl_dbg_trace function to reduce
- RT_TRACE code size
-Date: Mon, 27 Jun 2016 19:53:00 -0500
-Message-ID: <5771CA6C.1060403@lwfinger.net>
-References: <90cd7c8f12b51571db565fd496a2fcf610e2e484.1466894688.git.joe@perches.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>,
-	Chaoming Li <chaoming_li@realsil.com.cn>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH net-next 3/6] net: dsa: Suffix function manipulating device_node with _dn
+Date: Mon, 27 Jun 2016 17:52:40 -0700
+Message-ID: <1467075163-15890-4-git-send-email-f.fainelli@gmail.com>
+References: <1467075163-15890-1-git-send-email-f.fainelli@gmail.com>
+Cc: davem@davemloft.net, andrew@lunn.ch,
+	vivien.didelot@savoirfairelinux.com,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34924 "EHLO
-	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752191AbcF1AxE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 20:53:04 -0400
-In-Reply-To: <90cd7c8f12b51571db565fd496a2fcf610e2e484.1466894688.git.joe@perches.com>
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:33208 "EHLO
+	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752060AbcF1AxD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 20:53:03 -0400
+Received: by mail-oi0-f68.google.com with SMTP id w141so269595oia.0
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 17:52:50 -0700 (PDT)
+In-Reply-To: <1467075163-15890-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/25/2016 05:46 PM, Joe Perches wrote:
-> This debugging macro can expand to a lot of code.
-> Make it a function to reduce code size.
->
-> (x86-64 defconfig w/ all rtlwifi drivers and allyesconfig)
-> $ size drivers/net/wireless/realtek/rtlwifi/built-in.o*
->     text	   data	    bss	    dec	    hex	filename
->   900083	 200499	   1907	1102489	 10d299	drivers/net/wireless/realtek/rtlwifi/built-in.o.defconfig.new
-> 1113597	 200499	   1907	1316003	 1414a3	drivers/net/wireless/realtek/rtlwifi/built-in.o.defconfig.old
-> 1746879	 453503	   8512	2208894	 21b47e	drivers/net/wireless/realtek/rtlwifi/built-in.o.new
-> 2051965	 503311	   8512	2563788	 271ecc	drivers/net/wireless/realtek/rtlwifi/built-in.o.old
->
-> Signed-off-by: Joe Perches <joe@perches.com>
+Make it clear that these functions take a device_node structure pointer
 
-I acked this before; however there is a bug that breaks the build if 
-CONFIG_RTLWIFI_DEBUG is not defined. The rest of the code calls 
-_rtl_dbg_trace(), but that symbol is never defined. The problem can be fixed in 
-debug.c or debug.h.
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+---
+ net/dsa/dsa2.c | 16 ++++++++--------
+ 1 file changed, 8 insertions(+), 8 deletions(-)
 
-Larry
-
-> ---
->   drivers/net/wireless/realtek/rtlwifi/debug.c | 25 +++++++++++++++++++++++++
->   drivers/net/wireless/realtek/rtlwifi/debug.h | 17 +++++++++--------
->   2 files changed, 34 insertions(+), 8 deletions(-)
->
-> diff --git a/drivers/net/wireless/realtek/rtlwifi/debug.c b/drivers/net/wireless/realtek/rtlwifi/debug.c
-> index fd25aba..33905bb 100644
-> --- a/drivers/net/wireless/realtek/rtlwifi/debug.c
-> +++ b/drivers/net/wireless/realtek/rtlwifi/debug.c
-> @@ -48,3 +48,28 @@ void rtl_dbgp_flag_init(struct ieee80211_hw *hw)
->   	/*Init Debug flag enable condition */
->   }
->   EXPORT_SYMBOL_GPL(rtl_dbgp_flag_init);
-> +
-> +#ifdef CONFIG_RTLWIFI_DEBUG
-> +void _rtl_dbg_trace(struct rtl_priv *rtlpriv, int comp, int level,
-> +		    const char *modname, const char *fmt, ...)
-> +{
-> +	if (unlikely((comp & rtlpriv->dbg.global_debugcomponents) &&
-> +		     (level <= rtlpriv->dbg.global_debuglevel))) {
-> +		struct va_format vaf;
-> +		va_list args;
-> +
-> +		va_start(args, fmt);
-> +
-> +		vaf.fmt = fmt;
-> +		vaf.va = &args;
-> +
-> +		printk(KERN_DEBUG "%s:%ps:<%lx-%x> %pV",
-> +		       modname, __builtin_return_address(0),
-> +		       in_interrupt(), in_atomic(),
-> +		       &vaf);
-> +
-> +		va_end(args);
-> +	}
-> +}
-> +EXPORT_SYMBOL_GPL(_rtl_dbg_trace);
-> +#endif
-> diff --git a/drivers/net/wireless/realtek/rtlwifi/debug.h b/drivers/net/wireless/realtek/rtlwifi/debug.h
-> index fc794b3..6156a79 100644
-> --- a/drivers/net/wireless/realtek/rtlwifi/debug.h
-> +++ b/drivers/net/wireless/realtek/rtlwifi/debug.h
-> @@ -174,15 +174,16 @@ do {									\
->   	}								\
->   } while (0)
->
-> +
-> +struct rtl_priv;
-> +
-> +__printf(5, 6)
-> +void _rtl_dbg_trace(struct rtl_priv *rtlpriv, int comp, int level,
-> +		    const char *modname, const char *fmt, ...);
-> +
->   #define RT_TRACE(rtlpriv, comp, level, fmt, ...)			\
-> -do {									\
-> -	if (unlikely(((comp) & rtlpriv->dbg.global_debugcomponents) &&	\
-> -		     ((level) <= rtlpriv->dbg.global_debuglevel))) {	\
-> -		printk(KERN_DEBUG KBUILD_MODNAME ":%s():<%lx-%x> " fmt,	\
-> -		       __func__, in_interrupt(), in_atomic(),		\
-> -		       ##__VA_ARGS__);					\
-> -	}								\
-> -} while (0)
-> +	_rtl_dbg_trace(rtlpriv, comp, level,				\
-> +		       KBUILD_MODNAME, fmt, ##__VA_ARGS__)
->
->   #define RTPRINT(rtlpriv, dbgtype, dbgflag, fmt, ...)			\
->   do {									\
->
+diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
+index 3a782ceef716..bdde5d217326 100644
+--- a/net/dsa/dsa2.c
++++ b/net/dsa/dsa2.c
+@@ -110,8 +110,8 @@ static bool dsa_port_is_cpu(struct dsa_port *port)
+ 	return false;
+ }
+ 
+-static bool dsa_ds_find_port(struct dsa_switch *ds,
+-			     struct device_node *port)
++static bool dsa_ds_find_port_dn(struct dsa_switch *ds,
++				struct device_node *port)
+ {
+ 	u32 index;
+ 
+@@ -121,8 +121,8 @@ static bool dsa_ds_find_port(struct dsa_switch *ds,
+ 	return false;
+ }
+ 
+-static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
+-					    struct device_node *port)
++static struct dsa_switch *dsa_dst_find_port_dn(struct dsa_switch_tree *dst,
++					       struct device_node *port)
+ {
+ 	struct dsa_switch *ds;
+ 	u32 index;
+@@ -132,7 +132,7 @@ static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
+ 		if (!ds)
+ 			continue;
+ 
+-		if (dsa_ds_find_port(ds, port))
++		if (dsa_ds_find_port_dn(ds, port))
+ 			return ds;
+ 	}
+ 
+@@ -153,7 +153,7 @@ static int dsa_port_complete(struct dsa_switch_tree *dst,
+ 		if (!link)
+ 			break;
+ 
+-		dst_ds = dsa_dst_find_port(dst, link);
++		dst_ds = dsa_dst_find_port_dn(dst, link);
+ 		of_node_put(link);
+ 
+ 		if (!dst_ds)
+@@ -557,7 +557,7 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
+ 	return 0;
+ }
+ 
+-static int dsa_parse_member(struct device_node *np, u32 *tree, u32 *index)
++static int dsa_parse_member_dn(struct device_node *np, u32 *tree, u32 *index)
+ {
+ 	int err;
+ 
+@@ -603,7 +603,7 @@ static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
+ 	u32 tree, index;
+ 	int err;
+ 
+-	err = dsa_parse_member(np, &tree, &index);
++	err = dsa_parse_member_dn(np, &tree, &index);
+ 	if (err)
+ 		return err;
+ 
+-- 
+2.7.4
