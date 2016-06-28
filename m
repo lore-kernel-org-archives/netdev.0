@@ -1,71 +1,158 @@
-From: Oliver Hartkopp <socketcan@hartkopp.net>
-Subject: Re: [PATCH 2/3] can: fix oops caused by wrong rtnl dellink usage
-Date: Tue, 28 Jun 2016 17:55:27 +0200
-Message-ID: <34b61d80-6069-4ee4-a129-93d77305edae@hartkopp.net>
-References: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
- <1466673741-23115-3-git-send-email-mkl@pengutronix.de>
- <e092c3e9-56f3-f765-a9ef-89697ec46e16@cogentembedded.com>
- <0e51107f-a381-6c94-0079-d0ed415d8bcc@hartkopp.net>
- <f4b685f9-a2ad-d3cc-1204-f457705467df@cogentembedded.com>
- <a1bd95b5-ea93-0e99-7784-dad393240f06@hartkopp.net>
- <874m8d7oiu.fsf@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 08/16] net/devlink: Add E-Switch mode control
+Date: Tue, 28 Jun 2016 09:19:35 -0700
+Message-ID: <5772A397.3010905@gmail.com>
+References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
+ <1467043649-28594-9-git-send-email-saeedm@mellanox.com>
+ <577211E2.90802@gmail.com>
+ <28223ec8-f105-d598-39ad-5dc93598dc64@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, linux-can@vger.kernel.org,
-	kernel@pengutronix.de, stable@vger.kernel.org
-To: Holger Schurig <holgerschurig@gmail.com>,
-	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
-	Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org
-Return-path: <linux-can-owner@vger.kernel.org>
-In-Reply-To: <874m8d7oiu.fsf@gmail.com>
-Sender: linux-can-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Hadar Hen-Zion <hadarh@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Ido Schimmel <idosch@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:36716 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751947AbcF1QUM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 12:20:12 -0400
+Received: by mail-oi0-f41.google.com with SMTP id f189so29939912oig.3
+        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 09:19:58 -0700 (PDT)
+In-Reply-To: <28223ec8-f105-d598-39ad-5dc93598dc64@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 06/28/2016 09:36 AM, Holger Schurig wrote:
->> static void can_dellink(struct net_device *dev, struct list_head *head);
->>
->> and
->>
->> static void can_dellink(struct net_device *dev, struct list_head *head)
->> {
->> 	return;
->> }
->
-> Wouldn't the canonical form be this:
->
-> static void can_dellink(struct net_device *dev, struct list_head *head)
-> {
-> }
->
->
-> - the curly braces make sure this isn't a forward definition
-> - but no useless return either
->
->
-> But then again, this "return" is only cosmetical.
+On 16-06-28 03:25 AM, Or Gerlitz wrote:
+> On 6/28/2016 8:57 AM, John Fastabend wrote:
+>> On 16-06-27 09:07 AM, Saeed Mahameed wrote:
+>>> Add the commands to set and show the mode of SRIOV E-Switch, two
+>>> modes are supported:
+>>>
+>>> * legacy   : operating in the "old" L2 based mode (DMAC --> VF vport)
+>>> * offloads : offloading SW rules/policy (e.g Bridge/FDB or TC/Flows
+>>> based) set by the host OS
+>>>
+>>> Nice work overall also I really appreciated that the core networking
+>>> interfaces appear to able to support this without any change.
+> 
+> thanks..
+> 
+>>> On this patch though do we really need modes like this? My concern with
+>>> modes is two fold. One its another knob that some controller will have
+>>> to get right which I would prefer to avoid. And two I suspect switching
+>>> between the two modes flushes the tables or leaves them in some
+>>> unexpected state? At least I can't figure out what the expected should
+>>> be off-hand.
+> 
+> Re the 1st concern (another knob), I think we do want that, see below
+> 
+> Re the 2nd concern, I will re-read the cover letter and change logs and
+> if needed clarify/improve: the transition is clean! When you are moving
+> from legacy to offloads or the other way around, nothing is left in
+> unexpected state,  all HW forwarding tables as filled by the current
+> mode are flushed and next they are set as needed for the new mode.
+> 
 
-Yes it is just coding style.
+OK if I had read the entire patch series maybe I would have caught this
+:)
 
- > No compiler will
-> generate any code from it.
+>>> Could we instead continue to use the "legacy" mode by default by just
+>>> populating the fdb table correctly and then if users want to enable
+>>> the "offloads" mode they can modify the fdb tables by deleting entries
+>>> or adding them or just extending the dmac/vf mapping via 'tc'. This
+>>> would seem natural to me. The flooding rules in fdb might need to be
+>>> exposed a bit more cleanly to get the right default flooding behavior
+>>> etc. But to me at least this would be much cleaner. Everything will be
+>>> nicely defined and we wont have issues with drivers doing slightly
+>>> and subtle different defaults between legacy/offload and the transitions
+>>> between the states or on resets or etc. If users need to discover the
+>>> current configuration then they just query fdb, query tc, and the state
+>>> is known no need for any magic toggle switch as best I can see.
+> 
+> 
+> Few comments here:
+> 
+> Each mode has it's own way of the driver doing setup for the HW tables
+> and how population of the HW tables is done.
 
-ACK.
+hmm so in the hardware I have there is actually a l2 table and various
+other tables so I don't have any issue with doing table setup. I would
+like to see a table_create/table_delete/table_show devlink commands at
+some point though but I'm not there yet. This would allow users to
+optimize the table slices if they cared to. But that is future work
+IMO. Certainly not needed in this series at least. If you want I can
+show you a patch I had for this against rocker but it was before devlink
+so it would need some porting.
 
-If you check
+> 
+> The offloads mode needs to create a black hole miss rule and
+> send-to-vport rules and create the tables so they can contain later
+> rules set by the kernel in a way which is HW/driver dependent.
 
-	~/linux$ git grep \{\ return\;
+Agreed a black hole miss rule needs to be applied but rather than apply
+it automatically with some toggle I would prefer to just add a 'tc' rule
+for this. Or alternatively it can be added by configuring flooding
+ports so that only a single port is in the flooding mode. This could
+all be done via 'bridge fdb ...' and 'bridge link ...' today I believe.
+Then the user defines the state and not the driver writer. It really is
+cleaner in my opinion.
 
-there are many occurrences of empty void functions having a 'return' 
-inside the curly braces.
+One oddball case I have is if I have two PF functions behind a single
+network facing port. Yes its a bit strange but in this case its nice to
+pick which host facing PF to flood on vs the driver picking one.
 
-I think
+And send-to-vport rules I'm not entirely clear on what these actually
+are used for. Is this a rule to match packets sent from a VF representer
+netdev to the actual VF pcie device? If this is the case its seems to
+me that any packet sent on a VF representer should be sent to the VF
+directly and these rules can be created when the VF is created. Or did
+you mean some other rule by this?
 
-	static void can_dellink( ... ){}
+> 
+> The legacy mode creates the tables differently and populates them later
+> with rule set by
+> the driver and not the kernel.
+> 
+> Even if we put the different table setup issue a side, I don't think it
+> would be correct for bridge/tc to remove rules they didn't add, which is
+> needed under your proposal when moving from legacy type rules to
+> offloads mode. Querying is problematic too, since legacy could (and
+> does) involve some default rules set by the FW, e.g that deals with
+> outer world (== not belonging to VM on this host) MACs which are
+> invisible to the driver.
 
-would have made it too.
+But even legacy mode should report the correct fdb table and setup.
+I don't think querying should be a problem if the driver reports the
+configuration correctly. This allows us visibility into the driver
+default case so we don't have to guess what driver X writer implemented.
 
-Now can_dellink() just locks similar to can_newlink() some lines above.
+> 
+> That legacy was here and we can't avoid handling it properly for which
+> this knob is needed. Note that a vendor can choose to put their default
+> to be offloads, hopefully over time, we will all go there :)
+> 
 
-Regards,
-Oliver
+But you can come up in legacy mode and report it via the existing
+mechanisms 'tc', 'bridge', etc. and then users can transition to any
+mode they like using the tools.
+
+I really don't think the switch here is necessary if you implement the
+bridge hooks and tc hooks. cls_u32 can handle this for example and I
+would expect flower can as well if you want to do mgmt via flow based
+tc commands. And the bridge tool has the attributes for per port
+flooding but not sure off-hand if its packed into the msg sent to the
+driver. But we could fix that fairly easily in another patch series if
+needed.
+
+>>> Otherwise I didn't review the mlx code but read the commit msgs and
+>>> it looks good. I'll take a closer look in the morning.
+> 
+> appreciated
+> 
