@@ -1,83 +1,49 @@
-From: Nikolay Aleksandrov via Bridge <bridge@lists.linux-foundation.org>
-Subject: Re: [PATCH net-next] net: bridge: add support for IGMP/MLD
- stats and export them via netlink
-Date: Tue, 28 Jun 2016 14:02:07 +0200
-Message-ID: <5772673F.8010808@cumulusnetworks.com>
-References: <1467051048-32604-1-git-send-email-nikolay@cumulusnetworks.com>
-	<20160628110321.GA3221@otheros>
-Reply-To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	bridge@lists.linux-foundation.org, davem@davemloft.net
-To: =?UTF-8?Q?Linus_L=c3=bcssing?= <linus.luessing@c0d3.blue>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <20160628110321.GA3221@otheros>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+From: Michael Ellerman <mpe@ellerman.id.au>
+Subject: Re: [PATCHv2, 2/7] ppc: bpf/jit: Fix/enhance 32-bit Load Immediate implementation
+Date: Tue, 28 Jun 2016 22:10:12 +1000 (AEST)
+Message-ID: <3rf4Pc1S8mz9sXy@ozlabs.org>
+References: <d584015e9fb33ed526d693c5ab3c228d385f3c74.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
+Cc: Matt Evans <matt@ozlabs.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Alexei Starovoitov <ast@fb.com>,
+	Denis Kirjanov <kda@linux-powerpc.org>,
+	Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
+	Paul Mackerras <paulus@samba.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Ananth N Mavinakayanahalli <ananth@in.ibm.com>
+To: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>,
+	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from ozlabs.org ([103.22.144.67]:49336 "EHLO ozlabs.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751060AbcF1MKN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jun 2016 08:10:13 -0400
+In-Reply-To: <d584015e9fb33ed526d693c5ab3c228d385f3c74.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 28/06/16 13:03, Linus L=C3=BCssing wrote:
-> On Mon, Jun 27, 2016 at 08:10:48PM +0200, Nikolay Aleksandrov via Bridg=
-e wrote:
->> These are invaluable when monitoring or debugging complex multicast se=
-tups
->> with bridges.
->=20
-> Indeed! Great patch :). Especially if people are unable to provide
-> pcap files for debugging (due to whatever reason). Hopefully that
-> will help with bugzilla ticket #99081, too...
->=20
-> I know it might not quite fit into your current patch, which simply
-> stores the ICMPv6 and IGMP type in the bridge private skb->cb, but
-> do you think you could count and export the following two more
-> things, too:
->=20
-> * MLDv1 vs. MLDv2 querier (and IGMP accordingly)
-> * Number of (potential) MLD/IGMP parse errors
->   (e.g. beginning of br_multicast_ipv{4,6}_rcv():
->    http://lxr.free-electrons.com/source/net/bridge/br_multicast.c?v=3D4=
-.5#L1588 and
->    http://lxr.free-electrons.com/source/net/bridge/br_multicast.c?v=3D4=
-.5#L1634)
->=20
-> The former would help to know how the network is expected to
-> behave (for instance whether you should see MLDv2 reports at all or
-> whether / how much report suppression to expect).
->=20
-> The latter would help to spot either potential IGMP/MLD parsing bugs in
-> the bridge or malformed IGMP/MLD messages send by someone else.
->=20
->=20
-> Ideally, there would be per port counters again for the overall
-> IPv4/IPv6 multicast traffic. That would help for multicast streams
-> for instance, to easily see whether multicast counters increase
-> rapidly on the ports you would expect them to. And whether snooping
-> is working in general for such streames, without needing to check
-> each port individually via tcpdump, for instance.
->=20
->=20
-> Just some thoughts, would love to hear what you think about them.
->=20
-> Regards, Linus
->=20
+On Wed, 2016-22-06 at 16:25:02 UTC, "Naveen N. Rao" wrote:
+> The existing LI32() macro can sometimes result in a sign-extended 32-bit
+> load that does not clear the top 32-bits properly. As an example,
+> loading 0x7fffffff results in the register containing
+> 0xffffffff7fffffff. While this does not impact classic BPF JIT
+> implementation (since that only uses the lower word for all operations),
+> we would like to share this macro between classic BPF JIT and extended
+> BPF JIT, wherein the entire 64-bit value in the register matters. Fix
+> this by first doing a shifted LI followed by ORI.
+> 
+> An additional optimization is with loading values between -32768 to -1,
+> where we now only need a single LI.
+> 
+> The new implementation now generates the same or less number of
+> instructions.
+> 
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
 
-Hi Linus,
-I think these are all reasonable and helpful things to export in addition=
-. I will
-definitely look into extending the stats with them. If this patch is acce=
-pted as-is
-I'll just do it as a follow-up.
+Series applied to powerpc next, thanks.
 
-Thanks for the good suggestions!
+https://git.kernel.org/powerpc/c/aaf2f7e09932a08c1287d8e4c6
 
-Cheers,
- Nik
+cheers
