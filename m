@@ -1,314 +1,111 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 2/6] net: dsa: Make most functions take a dsa_port argument
-Date: Mon, 27 Jun 2016 17:52:39 -0700
-Message-ID: <1467075163-15890-3-git-send-email-f.fainelli@gmail.com>
-References: <1467075163-15890-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-	vivien.didelot@savoirfairelinux.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] rtlwifi: Create _rtl_dbg_trace function to reduce
+ RT_TRACE code size
+Date: Mon, 27 Jun 2016 19:53:00 -0500
+Message-ID: <5771CA6C.1060403@lwfinger.net>
+References: <90cd7c8f12b51571db565fd496a2fcf610e2e484.1466894688.git.joe@perches.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Kalle Valo <kvalo@codeaurora.org>, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Joe Perches <joe@perches.com>,
+	Chaoming Li <chaoming_li@realsil.com.cn>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:36668 "EHLO
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:34924 "EHLO
 	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752172AbcF1AxC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 20:53:02 -0400
-Received: by mail-oi0-f66.google.com with SMTP id x6so257464oif.3
-        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 17:52:49 -0700 (PDT)
-In-Reply-To: <1467075163-15890-1-git-send-email-f.fainelli@gmail.com>
+	with ESMTP id S1752191AbcF1AxE (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 20:53:04 -0400
+In-Reply-To: <90cd7c8f12b51571db565fd496a2fcf610e2e484.1466894688.git.joe@perches.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation for allowing platform data, and therefore no valid
-device_node pointer, make most DSA functions takes a pointer to a
-dsa_port structure whenever possible. While at it, introduce a
-dsa_port_is_valid() helper function which checks whether port->dn is
-NULL or not at the moment.
+On 06/25/2016 05:46 PM, Joe Perches wrote:
+> This debugging macro can expand to a lot of code.
+> Make it a function to reduce code size.
+>
+> (x86-64 defconfig w/ all rtlwifi drivers and allyesconfig)
+> $ size drivers/net/wireless/realtek/rtlwifi/built-in.o*
+>     text	   data	    bss	    dec	    hex	filename
+>   900083	 200499	   1907	1102489	 10d299	drivers/net/wireless/realtek/rtlwifi/built-in.o.defconfig.new
+> 1113597	 200499	   1907	1316003	 1414a3	drivers/net/wireless/realtek/rtlwifi/built-in.o.defconfig.old
+> 1746879	 453503	   8512	2208894	 21b47e	drivers/net/wireless/realtek/rtlwifi/built-in.o.new
+> 2051965	 503311	   8512	2563788	 271ecc	drivers/net/wireless/realtek/rtlwifi/built-in.o.old
+>
+> Signed-off-by: Joe Perches <joe@perches.com>
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
- net/dsa/dsa.c      | 14 +++++++------
- net/dsa/dsa2.c     | 61 +++++++++++++++++++++++++++++-------------------------
- net/dsa/dsa_priv.h |  4 ++--
- 3 files changed, 43 insertions(+), 36 deletions(-)
+I acked this before; however there is a bug that breaks the build if 
+CONFIG_RTLWIFI_DEBUG is not defined. The rest of the code calls 
+_rtl_dbg_trace(), but that symbol is never defined. The problem can be fixed in 
+debug.c or debug.h.
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 766d2a525ada..d117580a78b6 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -208,8 +208,9 @@ __ATTRIBUTE_GROUPS(dsa_hwmon);
- 
- /* basic switch operations **************************************************/
- int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
--		      struct device_node *port_dn, int port)
-+		      struct dsa_port *dport, int port)
- {
-+	struct device_node *port_dn = dport->dn;
- 	struct phy_device *phydev;
- 	int ret, mode;
- 
-@@ -237,15 +238,15 @@ int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
- 
- static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
- {
--	struct device_node *port_dn;
-+	struct dsa_port *dport;
- 	int ret, port;
- 
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
- 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
- 			continue;
- 
--		port_dn = ds->ports[port].dn;
--		ret = dsa_cpu_dsa_setup(ds, dev, port_dn, port);
-+		dport = &ds->ports[port];
-+		ret = dsa_cpu_dsa_setup(ds, dev, dport, port);
- 		if (ret)
- 			return ret;
- 	}
-@@ -494,8 +495,9 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 	return ds;
- }
- 
--void dsa_cpu_dsa_destroy(struct device_node *port_dn)
-+void dsa_cpu_dsa_destroy(struct dsa_port *port)
- {
-+	struct device_node *port_dn = port->dn;
- 	struct phy_device *phydev;
- 
- 	if (of_phy_is_fixed_link(port_dn)) {
-@@ -531,7 +533,7 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
- 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
- 			continue;
--		dsa_cpu_dsa_destroy(ds->ports[port].dn);
-+		dsa_cpu_dsa_destroy(&ds->ports[port]);
- 
- 		/* Clearing a bit which is not set does no harm */
- 		ds->cpu_port_mask |= ~(1 << port);
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 0940a0ec83e6..3a782ceef716 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -77,11 +77,16 @@ static void dsa_dst_del_ds(struct dsa_switch_tree *dst,
- 	kref_put(&dst->refcount, dsa_free_dst);
- }
- 
--static bool dsa_port_is_dsa(struct device_node *port)
-+static bool dsa_port_is_valid(struct dsa_port *port)
-+{
-+	return !!port->dn;
-+}
-+
-+static bool dsa_port_is_dsa(struct dsa_port *port)
- {
- 	const char *name;
- 
--	name = of_get_property(port, "label", NULL);
-+	name = of_get_property(port->dn, "label", NULL);
- 	if (!name)
- 		return false;
- 
-@@ -91,11 +96,11 @@ static bool dsa_port_is_dsa(struct device_node *port)
- 	return false;
- }
- 
--static bool dsa_port_is_cpu(struct device_node *port)
-+static bool dsa_port_is_cpu(struct dsa_port *port)
- {
- 	const char *name;
- 
--	name = of_get_property(port, "label", NULL);
-+	name = of_get_property(port->dn, "label", NULL);
- 	if (!name)
- 		return false;
- 
-@@ -136,7 +141,7 @@ static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
- 
- static int dsa_port_complete(struct dsa_switch_tree *dst,
- 			     struct dsa_switch *src_ds,
--			     struct device_node *port,
-+			     struct dsa_port *port,
- 			     u32 src_port)
- {
- 	struct device_node *link;
-@@ -144,7 +149,7 @@ static int dsa_port_complete(struct dsa_switch_tree *dst,
- 	struct dsa_switch *dst_ds;
- 
- 	for (index = 0;; index++) {
--		link = of_parse_phandle(port, "link", index);
-+		link = of_parse_phandle(port->dn, "link", index);
- 		if (!link)
- 			break;
- 
-@@ -167,13 +172,13 @@ static int dsa_port_complete(struct dsa_switch_tree *dst,
-  */
- static int dsa_ds_complete(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- {
--	struct device_node *port;
-+	struct dsa_port *port;
- 	u32 index;
- 	int err;
- 
- 	for (index = 0; index < DSA_MAX_PORTS; index++) {
--		port = ds->ports[index].dn;
--		if (!port)
-+		port = &ds->ports[index];
-+		if (!dsa_port_is_valid(port))
- 			continue;
- 
- 		if (!dsa_port_is_dsa(port))
-@@ -213,7 +218,7 @@ static int dsa_dst_complete(struct dsa_switch_tree *dst)
- 	return 0;
- }
- 
--static int dsa_dsa_port_apply(struct device_node *port, u32 index,
-+static int dsa_dsa_port_apply(struct dsa_port *port, u32 index,
- 			      struct dsa_switch *ds)
- {
- 	int err;
-@@ -228,13 +233,13 @@ static int dsa_dsa_port_apply(struct device_node *port, u32 index,
- 	return 0;
- }
- 
--static void dsa_dsa_port_unapply(struct device_node *port, u32 index,
-+static void dsa_dsa_port_unapply(struct dsa_port *port, u32 index,
- 				 struct dsa_switch *ds)
- {
- 	dsa_cpu_dsa_destroy(port);
- }
- 
--static int dsa_cpu_port_apply(struct device_node *port, u32 index,
-+static int dsa_cpu_port_apply(struct dsa_port *port, u32 index,
- 			      struct dsa_switch *ds)
- {
- 	int err;
-@@ -251,7 +256,7 @@ static int dsa_cpu_port_apply(struct device_node *port, u32 index,
- 	return 0;
- }
- 
--static void dsa_cpu_port_unapply(struct device_node *port, u32 index,
-+static void dsa_cpu_port_unapply(struct dsa_port *port, u32 index,
- 				 struct dsa_switch *ds)
- {
- 	dsa_cpu_dsa_destroy(port);
-@@ -259,13 +264,13 @@ static void dsa_cpu_port_unapply(struct device_node *port, u32 index,
- 
- }
- 
--static int dsa_user_port_apply(struct device_node *port, u32 index,
-+static int dsa_user_port_apply(struct dsa_port *port, u32 index,
- 			       struct dsa_switch *ds)
- {
- 	const char *name;
- 	int err;
- 
--	name = of_get_property(port, "label", NULL);
-+	name = of_get_property(port->dn, "label", NULL);
- 
- 	err = dsa_slave_create(ds, ds->dev, index, name);
- 	if (err) {
-@@ -277,7 +282,7 @@ static int dsa_user_port_apply(struct device_node *port, u32 index,
- 	return 0;
- }
- 
--static void dsa_user_port_unapply(struct device_node *port, u32 index,
-+static void dsa_user_port_unapply(struct dsa_port *port, u32 index,
- 				  struct dsa_switch *ds)
- {
- 	if (ds->ports[index].netdev) {
-@@ -289,7 +294,7 @@ static void dsa_user_port_unapply(struct device_node *port, u32 index,
- 
- static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- {
--	struct device_node *port;
-+	struct dsa_port *port;
- 	u32 index;
- 	int err;
- 
-@@ -325,8 +330,8 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- 	}
- 
- 	for (index = 0; index < DSA_MAX_PORTS; index++) {
--		port = ds->ports[index].dn;
--		if (!port)
-+		port = &ds->ports[index];
-+		if (!dsa_port_is_valid(port))
- 			continue;
- 
- 		if (dsa_port_is_dsa(port)) {
-@@ -353,12 +358,12 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- 
- static void dsa_ds_unapply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- {
--	struct device_node *port;
-+	struct dsa_port *port;
- 	u32 index;
- 
- 	for (index = 0; index < DSA_MAX_PORTS; index++) {
--		port = ds->ports[index].dn;
--		if (!port)
-+		port = &ds->ports[index];
-+		if (!dsa_port_is_valid(port))
- 			continue;
- 
- 		if (dsa_port_is_dsa(port)) {
-@@ -439,14 +444,14 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
- 	dst->applied = false;
- }
- 
--static int dsa_cpu_parse(struct device_node *port, u32 index,
-+static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 			 struct dsa_switch_tree *dst,
- 			 struct dsa_switch *ds)
- {
- 	struct net_device *ethernet_dev;
- 	struct device_node *ethernet;
- 
--	ethernet = of_parse_phandle(port, "ethernet", 0);
-+	ethernet = of_parse_phandle(port->dn, "ethernet", 0);
- 	if (!ethernet)
- 		return -EINVAL;
- 
-@@ -478,13 +483,13 @@ static int dsa_cpu_parse(struct device_node *port, u32 index,
- 
- static int dsa_ds_parse(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- {
--	struct device_node *port;
-+	struct dsa_port *port;
- 	u32 index;
- 	int err;
- 
- 	for (index = 0; index < DSA_MAX_PORTS; index++) {
--		port = ds->ports[index].dn;
--		if (!port)
-+		port = &ds->ports[index];
-+		if (!dsa_port_is_valid(port))
- 			continue;
- 
- 		if (dsa_port_is_cpu(port)) {
-@@ -545,7 +550,7 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
- 		 * to have access to a correct value, just like what
- 		 * net/dsa/dsa.c::dsa_switch_setup_one does.
- 		 */
--		if (!dsa_port_is_cpu(port))
-+		if (!dsa_port_is_cpu(&ds->ports[reg]))
- 			ds->enabled_port_mask |= 1 << reg;
- 	}
- 
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 00077a9c97f4..3dbc9ce10ab0 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -51,8 +51,8 @@ struct dsa_slave_priv {
- /* dsa.c */
- extern char dsa_driver_version[];
- int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
--		      struct device_node *port_dn, int port);
--void dsa_cpu_dsa_destroy(struct device_node *port_dn);
-+		      struct dsa_port *dport, int port);
-+void dsa_cpu_dsa_destroy(struct dsa_port *dport);
- const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol);
- int dsa_cpu_port_ethtool_setup(struct dsa_switch *ds);
- void dsa_cpu_port_ethtool_restore(struct dsa_switch *ds);
--- 
-2.7.4
+Larry
+
+> ---
+>   drivers/net/wireless/realtek/rtlwifi/debug.c | 25 +++++++++++++++++++++++++
+>   drivers/net/wireless/realtek/rtlwifi/debug.h | 17 +++++++++--------
+>   2 files changed, 34 insertions(+), 8 deletions(-)
+>
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/debug.c b/drivers/net/wireless/realtek/rtlwifi/debug.c
+> index fd25aba..33905bb 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/debug.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/debug.c
+> @@ -48,3 +48,28 @@ void rtl_dbgp_flag_init(struct ieee80211_hw *hw)
+>   	/*Init Debug flag enable condition */
+>   }
+>   EXPORT_SYMBOL_GPL(rtl_dbgp_flag_init);
+> +
+> +#ifdef CONFIG_RTLWIFI_DEBUG
+> +void _rtl_dbg_trace(struct rtl_priv *rtlpriv, int comp, int level,
+> +		    const char *modname, const char *fmt, ...)
+> +{
+> +	if (unlikely((comp & rtlpriv->dbg.global_debugcomponents) &&
+> +		     (level <= rtlpriv->dbg.global_debuglevel))) {
+> +		struct va_format vaf;
+> +		va_list args;
+> +
+> +		va_start(args, fmt);
+> +
+> +		vaf.fmt = fmt;
+> +		vaf.va = &args;
+> +
+> +		printk(KERN_DEBUG "%s:%ps:<%lx-%x> %pV",
+> +		       modname, __builtin_return_address(0),
+> +		       in_interrupt(), in_atomic(),
+> +		       &vaf);
+> +
+> +		va_end(args);
+> +	}
+> +}
+> +EXPORT_SYMBOL_GPL(_rtl_dbg_trace);
+> +#endif
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/debug.h b/drivers/net/wireless/realtek/rtlwifi/debug.h
+> index fc794b3..6156a79 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/debug.h
+> +++ b/drivers/net/wireless/realtek/rtlwifi/debug.h
+> @@ -174,15 +174,16 @@ do {									\
+>   	}								\
+>   } while (0)
+>
+> +
+> +struct rtl_priv;
+> +
+> +__printf(5, 6)
+> +void _rtl_dbg_trace(struct rtl_priv *rtlpriv, int comp, int level,
+> +		    const char *modname, const char *fmt, ...);
+> +
+>   #define RT_TRACE(rtlpriv, comp, level, fmt, ...)			\
+> -do {									\
+> -	if (unlikely(((comp) & rtlpriv->dbg.global_debugcomponents) &&	\
+> -		     ((level) <= rtlpriv->dbg.global_debuglevel))) {	\
+> -		printk(KERN_DEBUG KBUILD_MODNAME ":%s():<%lx-%x> " fmt,	\
+> -		       __func__, in_interrupt(), in_atomic(),		\
+> -		       ##__VA_ARGS__);					\
+> -	}								\
+> -} while (0)
+> +	_rtl_dbg_trace(rtlpriv, comp, level,				\
+> +		       KBUILD_MODNAME, fmt, ##__VA_ARGS__)
+>
+>   #define RTPRINT(rtlpriv, dbgtype, dbgflag, fmt, ...)			\
+>   do {									\
+>
