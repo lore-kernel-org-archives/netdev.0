@@ -1,68 +1,22 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] mpls: Add missing RCU-bh read side critical section
- locking in output path
-Date: Tue, 28 Jun 2016 11:14:04 +0300
-Message-ID: <20160628081404.GT10080@wantstofly.org>
-References: <20160620180527.GU20238@wantstofly.org>
- <20160623.120055.541092448348137374.davem@davemloft.net>
+Subject: [PATCH] neigh: Explicitly declare RCU-bh read side critical section
+ in neigh_xmit()
+Date: Tue, 28 Jun 2016 11:16:43 +0300
+Message-ID: <20160628081643.GU10080@wantstofly.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com,
-	roopa@cumulusnetworks.com, rshearma@brocade.com
-To: David Miller <davem@davemloft.net>
+Cc: David Ahern <dsa@cumulusnetworks.com>, roopa@cumulusnetworks.com,
+	Robert Shearman <rshearma@brocade.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from hmm.wantstofly.org ([138.201.34.84]:48578 "EHLO
+Received: from hmm.wantstofly.org ([138.201.34.84]:48588 "EHLO
 	mail.wantstofly.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751193AbcF1IOH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 04:14:07 -0400
+	with ESMTP id S1751862AbcF1IQo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 04:16:44 -0400
 Content-Disposition: inline
-In-Reply-To: <20160623.120055.541092448348137374.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
-
-On Thu, Jun 23, 2016 at 12:00:55PM -0400, David Miller wrote:
-
-> > From: David Barroso <dbarroso@fastly.com>
-> > 
-> > When locally originated IP traffic hits a route that says to push
-> > MPLS labels, we'll get a call chain dst_output() -> lwtunnel_output()
-> > -> mpls_output() -> neigh_xmit() -> ___neigh_lookup_noref() where the
-> > last function in this chain accesses a RCU-bh protected struct
-> > neigh_table pointer without us ever having declared an RCU-bh read
-> > side critical section.
-> > 
-> > As in case of locally originated IP traffic we'll be running in process
-> > context, with softirqs enabled, we can be preempted by a softirq at any
-> > time, and RCU-bh considers the completion of a softirq as signaling
-> > the end of any pending read-side critical sections, so if we do get a
-> > softirq here, we can end up with an unexpected RCU grace period and
-> > all the nastiness that that comes with.
-> > 
-> > This patch makes neigh_xmit() take rcu_read_{,un}lock_bh() around the
-> > code that expects to be treated as an RCU-bh read side critical section.
-> > 
-> > Signed-off-by: David Barroso <dbarroso@fastly.com>
-> > Signed-off-by: Lennert Buytenhek <lbuytenhek@fastly.com>
-> 
-> Whilst the case that was used to discover this problem was MPLS, that
-> is not the subsystem where the bug exists and is being fixed.
-> 
-> Therefore please fix your Subject line.
-> 
-> Thanks.
-
-I'd say that the bug _is_ in the MPLS code, but that we're just fixing
-it in a helper function that lives elsewhere (and which is only used by
-MPLS), but yeah, the subject line and the patch body don't match up. :(
-I've resubmitted the patch with the commit message below, I hope that
-that'll do.
-
-Thanks!
-
-
-===
-
-[PATCH] neigh: Explicitly declare RCU-bh read side critical section in neigh_xmit()
 
 From: David Barroso <dbarroso@fastly.com>
 
@@ -97,3 +51,32 @@ Signed-off-by: David Barroso <dbarroso@fastly.com>
 Signed-off-by: Lennert Buytenhek <lbuytenhek@fastly.com>
 Acked-by: David Ahern <dsa@cumulusnetworks.com>
 Acked-by: Robert Shearman <rshearma@brocade.com>
+---
+ net/core/neighbour.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+diff --git a/net/core/neighbour.c b/net/core/neighbour.c
+index 29dd8cc..510cd62 100644
+--- a/net/core/neighbour.c
++++ b/net/core/neighbour.c
+@@ -2469,13 +2469,17 @@ int neigh_xmit(int index, struct net_device *dev,
+ 		tbl = neigh_tables[index];
+ 		if (!tbl)
+ 			goto out;
++		rcu_read_lock_bh();
+ 		neigh = __neigh_lookup_noref(tbl, addr, dev);
+ 		if (!neigh)
+ 			neigh = __neigh_create(tbl, addr, dev, false);
+ 		err = PTR_ERR(neigh);
+-		if (IS_ERR(neigh))
++		if (IS_ERR(neigh)) {
++			rcu_read_unlock_bh();
+ 			goto out_kfree_skb;
++		}
+ 		err = neigh->output(neigh, skb);
++		rcu_read_unlock_bh();
+ 	}
+ 	else if (index == NEIGH_LINK_TABLE) {
+ 		err = dev_hard_header(skb, dev, ntohs(skb->protocol),
+-- 
+2.7.4
