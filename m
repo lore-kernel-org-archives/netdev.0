@@ -1,160 +1,120 @@
 From: Yaniv Machani <yanivma@ti.com>
-Subject: [PATCH 2/4] mac80211/cfg: mesh: fix healing time when a mesh peer is disconnecting
-Date: Tue, 28 Jun 2016 14:13:05 +0300
-Message-ID: <20160628111307.8784-3-yanivma@ti.com>
+Subject: [PATCH 3/4] mac80211: mesh: fixed HT ies in beacon template
+Date: Tue, 28 Jun 2016 14:13:06 +0300
+Message-ID: <20160628111307.8784-4-yanivma@ti.com>
 References: <20160628111307.8784-1-yanivma@ti.com>
  <20160628111307.8784-2-yanivma@ti.com>
+ <20160628111307.8784-3-yanivma@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Maital Hahn <maitalm@ti.com>
+Cc: Meirav Kama <meiravk@ti.com>
 To: <linux-kernel@vger.kernel.org>,
 	Johannes Berg <johannes@sipsolutions.net>,
 	"David S . Miller" <davem@davemloft.net>,
 	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160628111307.8784-2-yanivma@ti.com>
+In-Reply-To: <20160628111307.8784-3-yanivma@ti.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Maital Hahn <maitalm@ti.com>
+From: Meirav Kama <meiravk@ti.com>
 
-Once receiving a CLOSE action frame from the disconnecting peer,
-flush all entries in the path table which has this peer as the
-next hop.
+There are several values in HT info elements of mesh beacon (built by the
+mac80211) that are incorrect.
+To fix them:
+1. mac80211 will check configuration from cfg and will build accordingly.
+2. changes made in mesh default values.
 
-In addition, upon receiving a packet, if next hop is not found,
-trigger PERQ immidiatly, instead of just putting it in the queue.
-
-Signed-off-by: Maital Hahn <maitalm@ti.com>
+Signed-off-by: Meirav Kama <meiravk@ti.com>
 Acked-by: Yaniv Machani <yanivma@ti.com>
 ---
- net/mac80211/cfg.c       |  1 +
- net/mac80211/mesh.c      |  3 ++-
- net/mac80211/mesh_hwmp.c | 42 +++++++++++++++++++++++++-----------------
- 3 files changed, 28 insertions(+), 18 deletions(-)
+ net/mac80211/mesh.c | 33 ++++++++++++++++++++++++++++++++-
+ net/mac80211/util.c |  3 ---
+ net/wireless/mesh.c |  2 +-
+ 3 files changed, 33 insertions(+), 5 deletions(-)
 
-diff --git a/net/mac80211/cfg.c b/net/mac80211/cfg.c
-index 0c12e40..f876ef7 100644
---- a/net/mac80211/cfg.c
-+++ b/net/mac80211/cfg.c
-@@ -1011,6 +1011,7 @@ static void sta_apply_mesh_params(struct ieee80211_local *local,
- 			if (sta->mesh->plink_state == NL80211_PLINK_ESTAB)
- 				changed = mesh_plink_dec_estab_count(sdata);
- 			sta->mesh->plink_state = params->plink_state;
-+			mesh_path_flush_by_nexthop(sta);
- 
- 			ieee80211_mps_sta_status_update(sta);
- 			changed |= ieee80211_mps_set_sta_local_pm(sta,
 diff --git a/net/mac80211/mesh.c b/net/mac80211/mesh.c
-index 9214bc1..1f5be54 100644
+index 1f5be54..1b63b11 100644
 --- a/net/mac80211/mesh.c
 +++ b/net/mac80211/mesh.c
-@@ -159,7 +159,8 @@ void mesh_sta_cleanup(struct sta_info *sta)
- 	if (!sdata->u.mesh.user_mpm) {
- 		changed |= mesh_plink_deactivate(sta);
- 		del_timer_sync(&sta->mesh->plink_timer);
--	}
-+	} else
-+		mesh_path_flush_by_nexthop(sta);
+@@ -423,6 +423,8 @@ int mesh_add_ht_cap_ie(struct ieee80211_sub_if_data *sdata,
+ 	enum nl80211_band band = ieee80211_get_sdata_band(sdata);
+ 	struct ieee80211_supported_band *sband;
+ 	u8 *pos;
++	u16 cap;
++
  
- 	/* make sure no readers can access nexthop sta from here on */
- 	mesh_path_flush_by_nexthop(sta);
-diff --git a/net/mac80211/mesh_hwmp.c b/net/mac80211/mesh_hwmp.c
-index 8f9c3bd..9783d49 100644
---- a/net/mac80211/mesh_hwmp.c
-+++ b/net/mac80211/mesh_hwmp.c
-@@ -19,7 +19,7 @@
+ 	sband = local->hw.wiphy->bands[band];
+ 	if (!sband->ht_cap.ht_supported ||
+@@ -431,11 +433,40 @@ int mesh_add_ht_cap_ie(struct ieee80211_sub_if_data *sdata,
+ 	    sdata->vif.bss_conf.chandef.width == NL80211_CHAN_WIDTH_10)
+ 		return 0;
  
- #define MAX_PREQ_QUEUE_LEN	64
- 
--static void mesh_queue_preq(struct mesh_path *, u8);
-+static void mesh_queue_preq(struct mesh_path *, u8, bool);
- 
- static inline u32 u32_field_get(const u8 *preq_elem, int offset, bool ae)
- {
-@@ -830,7 +830,8 @@ static void hwmp_rann_frame_process(struct ieee80211_sub_if_data *sdata,
- 		mhwmp_dbg(sdata,
- 			  "time to refresh root mpath %pM\n",
- 			  orig_addr);
--		mesh_queue_preq(mpath, PREQ_Q_F_START | PREQ_Q_F_REFRESH);
-+		mesh_queue_preq(mpath, PREQ_Q_F_START | PREQ_Q_F_REFRESH,
-+				false);
- 		mpath->last_preq_to_root = jiffies;
- 	}
- 
-@@ -925,7 +926,7 @@ void mesh_rx_path_sel_frame(struct ieee80211_sub_if_data *sdata,
-  * Locking: the function must be called from within a rcu read lock block.
-  *
-  */
--static void mesh_queue_preq(struct mesh_path *mpath, u8 flags)
-+static void mesh_queue_preq(struct mesh_path *mpath, u8 flags, bool immediate)
- {
- 	struct ieee80211_sub_if_data *sdata = mpath->sdata;
- 	struct ieee80211_if_mesh *ifmsh = &sdata->u.mesh;
-@@ -964,18 +965,24 @@ static void mesh_queue_preq(struct mesh_path *mpath, u8 flags)
- 	++ifmsh->preq_queue_len;
- 	spin_unlock_bh(&ifmsh->mesh_preq_queue_lock);
- 
--	if (time_after(jiffies, ifmsh->last_preq + min_preq_int_jiff(sdata)))
-+	if (immediate) {
- 		ieee80211_queue_work(&sdata->local->hw, &sdata->work);
-+	} else {
-+		if (time_after(jiffies,
-+			       ifmsh->last_preq + min_preq_int_jiff(sdata))) {
-+			ieee80211_queue_work(&sdata->local->hw, &sdata->work);
- 
--	else if (time_before(jiffies, ifmsh->last_preq)) {
--		/* avoid long wait if did not send preqs for a long time
--		 * and jiffies wrapped around
--		 */
--		ifmsh->last_preq = jiffies - min_preq_int_jiff(sdata) - 1;
--		ieee80211_queue_work(&sdata->local->hw, &sdata->work);
--	} else
--		mod_timer(&ifmsh->mesh_path_timer, ifmsh->last_preq +
--						min_preq_int_jiff(sdata));
-+		} else if (time_before(jiffies, ifmsh->last_preq)) {
-+			/* avoid long wait if did not send preqs for a long time
-+			 * and jiffies wrapped around
-+			 */
-+			ifmsh->last_preq = jiffies -
-+					   min_preq_int_jiff(sdata) - 1;
-+			ieee80211_queue_work(&sdata->local->hw, &sdata->work);
-+		} else
-+			mod_timer(&ifmsh->mesh_path_timer, ifmsh->last_preq +
-+				  min_preq_int_jiff(sdata));
++    /* determine capability flags */
++	cap = sband->ht_cap.cap;
++
++    /* if channel width is 20MHz - configure HT capab accordingly*/
++	if (sdata->vif.bss_conf.chandef.width == NL80211_CHAN_WIDTH_20) {
++		cap &= ~IEEE80211_HT_CAP_SUP_WIDTH_20_40;
++		cap &= ~IEEE80211_HT_CAP_DSSSCCK40;
 +	}
++
++	/* set SM PS mode properly */
++	cap &= ~IEEE80211_HT_CAP_SM_PS;
++	switch (sdata->smps_mode) {
++	case IEEE80211_SMPS_AUTOMATIC:
++	case IEEE80211_SMPS_NUM_MODES:
++		WARN_ON(1);
++	case IEEE80211_SMPS_OFF:
++		cap |= WLAN_HT_CAP_SM_PS_DISABLED <<
++			IEEE80211_HT_CAP_SM_PS_SHIFT;
++		break;
++	case IEEE80211_SMPS_STATIC:
++		cap |= WLAN_HT_CAP_SM_PS_STATIC <<
++			IEEE80211_HT_CAP_SM_PS_SHIFT;
++		break;
++	case IEEE80211_SMPS_DYNAMIC:
++		cap |= WLAN_HT_CAP_SM_PS_DYNAMIC <<
++			IEEE80211_HT_CAP_SM_PS_SHIFT;
++		break;
++	}
++
+ 	if (skb_tailroom(skb) < 2 + sizeof(struct ieee80211_ht_cap))
+ 		return -ENOMEM;
+ 
+ 	pos = skb_put(skb, 2 + sizeof(struct ieee80211_ht_cap));
+-	ieee80211_ie_build_ht_cap(pos, &sband->ht_cap, sband->ht_cap.cap);
++	ieee80211_ie_build_ht_cap(pos, &sband->ht_cap, cap);
+ 
+ 	return 0;
  }
+diff --git a/net/mac80211/util.c b/net/mac80211/util.c
+index 42bf0b6..5375a82 100644
+--- a/net/mac80211/util.c
++++ b/net/mac80211/util.c
+@@ -2349,10 +2349,7 @@ u8 *ieee80211_ie_build_ht_oper(u8 *pos, struct ieee80211_sta_ht_cap *ht_cap,
+ 	ht_oper->operation_mode = cpu_to_le16(prot_mode);
+ 	ht_oper->stbc_param = 0x0000;
  
- /**
-@@ -1110,7 +1117,7 @@ int mesh_nexthop_resolve(struct ieee80211_sub_if_data *sdata,
- 	}
+-	/* It seems that Basic MCS set and Supported MCS set
+-	   are identical for the first 10 bytes */
+ 	memset(&ht_oper->basic_set, 0, 16);
+-	memcpy(&ht_oper->basic_set, &ht_cap->mcs, 10);
  
- 	if (!(mpath->flags & MESH_PATH_RESOLVING))
--		mesh_queue_preq(mpath, PREQ_Q_F_START);
-+		mesh_queue_preq(mpath, PREQ_Q_F_START, true);
- 
- 	if (skb_queue_len(&mpath->frame_queue) >= MESH_FRAME_QUEUE_LEN)
- 		skb_to_free = skb_dequeue(&mpath->frame_queue);
-@@ -1157,8 +1164,9 @@ int mesh_nexthop_lookup(struct ieee80211_sub_if_data *sdata,
- 		       msecs_to_jiffies(sdata->u.mesh.mshcfg.path_refresh_time)) &&
- 	    ether_addr_equal(sdata->vif.addr, hdr->addr4) &&
- 	    !(mpath->flags & MESH_PATH_RESOLVING) &&
--	    !(mpath->flags & MESH_PATH_FIXED))
--		mesh_queue_preq(mpath, PREQ_Q_F_START | PREQ_Q_F_REFRESH);
-+	    !(mpath->flags & MESH_PATH_FIXED)) {
-+	    mesh_queue_preq(mpath, PREQ_Q_F_START | PREQ_Q_F_REFRESH, false);
-+	}
- 
- 	next_hop = rcu_dereference(mpath->next_hop);
- 	if (next_hop) {
-@@ -1192,7 +1200,7 @@ void mesh_path_timer(unsigned long data)
- 		mpath->discovery_timeout *= 2;
- 		mpath->flags &= ~MESH_PATH_REQ_QUEUED;
- 		spin_unlock_bh(&mpath->state_lock);
--		mesh_queue_preq(mpath, 0);
-+		mesh_queue_preq(mpath, 0, false);
- 	} else {
- 		mpath->flags &= ~(MESH_PATH_RESOLVING |
- 				  MESH_PATH_RESOLVED |
+ 	return pos + sizeof(struct ieee80211_ht_operation);
+ }
+diff --git a/net/wireless/mesh.c b/net/wireless/mesh.c
+index fa2066b..ac19a19 100644
+--- a/net/wireless/mesh.c
++++ b/net/wireless/mesh.c
+@@ -70,7 +70,7 @@ const struct mesh_config default_mesh_config = {
+ 	.dot11MeshGateAnnouncementProtocol = false,
+ 	.dot11MeshForwarding = true,
+ 	.rssi_threshold = MESH_RSSI_THRESHOLD,
+-	.ht_opmode = IEEE80211_HT_OP_MODE_PROTECTION_NONHT_MIXED,
++	.ht_opmode = IEEE80211_HT_OP_MODE_PROTECTION_NONE,
+ 	.dot11MeshHWMPactivePathToRootTimeout = MESH_PATH_TO_ROOT_TIMEOUT,
+ 	.dot11MeshHWMProotInterval = MESH_ROOT_INTERVAL,
+ 	.dot11MeshHWMPconfirmationInterval = MESH_ROOT_CONFIRMATION_INTERVAL,
 -- 
 2.9.0
