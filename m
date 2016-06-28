@@ -1,50 +1,71 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [PATCH v12 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Tue, 28 Jun 2016 08:42:48 -0700
-Message-ID: <57729AF8.3050708@hpe.com>
-References: <BLUPR03MB1410A0ECB526A1CD13814D36BF2E0@BLUPR03MB1410.namprd03.prod.outlook.com>
- <20160628.053350.1891488485477523405.davem@davemloft.net>
- <CO2PR03MB2182CC1DA2804F09D8D77A70BF220@CO2PR03MB2182.namprd03.prod.outlook.com>
+From: Oliver Hartkopp <socketcan@hartkopp.net>
+Subject: Re: [PATCH 2/3] can: fix oops caused by wrong rtnl dellink usage
+Date: Tue, 28 Jun 2016 17:55:27 +0200
+Message-ID: <34b61d80-6069-4ee4-a129-93d77305edae@hartkopp.net>
+References: <1466673741-23115-1-git-send-email-mkl@pengutronix.de>
+ <1466673741-23115-3-git-send-email-mkl@pengutronix.de>
+ <e092c3e9-56f3-f765-a9ef-89697ec46e16@cogentembedded.com>
+ <0e51107f-a381-6c94-0079-d0ed415d8bcc@hartkopp.net>
+ <f4b685f9-a2ad-d3cc-1204-f457705467df@cogentembedded.com>
+ <a1bd95b5-ea93-0e99-7784-dad393240f06@hartkopp.net>
+ <874m8d7oiu.fsf@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	"vkuznets@redhat.com" <vkuznets@redhat.com>,
-	"cavery@redhat.com" <cavery@redhat.com>,
-	KY Srinivasan <kys@microsoft.com>,
-	Haiyang Zhang <haiyangz@microsoft.com>,
-	"joe@perches.com" <joe@perches.com>
-To: Dexuan Cui <decui@microsoft.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CO2PR03MB2182CC1DA2804F09D8D77A70BF220@CO2PR03MB2182.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: davem@davemloft.net, linux-can@vger.kernel.org,
+	kernel@pengutronix.de, stable@vger.kernel.org
+To: Holger Schurig <holgerschurig@gmail.com>,
+	Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>,
+	Marc Kleine-Budde <mkl@pengutronix.de>, netdev@vger.kernel.org
+Return-path: <linux-can-owner@vger.kernel.org>
+In-Reply-To: <874m8d7oiu.fsf@gmail.com>
+Sender: linux-can-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 06/28/2016 02:59 AM, Dexuan Cui wrote:
-> The idea here is: IMO the syscalls sys_read()/write() shoudn't return
-> -ENOMEM, so I have to make sure the buffer allocation succeeds?
+On 06/28/2016 09:36 AM, Holger Schurig wrote:
+>> static void can_dellink(struct net_device *dev, struct list_head *head);
+>>
+>> and
+>>
+>> static void can_dellink(struct net_device *dev, struct list_head *head)
+>> {
+>> 	return;
+>> }
 >
-> I tried to use kmalloc with __GFP_NOFAIL, but I hit a warning in
-> in mm/page_alloc.c:
-> WARN_ON_ONCE((gfp_flags & __GFP_NOFAIL) && (order > 1));
+> Wouldn't the canonical form be this:
 >
-> What error code do you think I should return?
-> EAGAIN, ERESTARTSYS, or something else?
+> static void can_dellink(struct net_device *dev, struct list_head *head)
+> {
+> }
 >
-> May I have your suggestion? Thanks!
+>
+> - the curly braces make sure this isn't a forward definition
+> - but no useless return either
+>
+>
+> But then again, this "return" is only cosmetical.
 
-What happens as far as errno is concerned when an application makes a 
-read() call against a (say TCP) socket associated with a connection 
-which has been reset?  Is it limited to those errno values listed in the 
-read() manpage, or does it end-up getting an errno value from those 
-listed in the recv() manpage?  Or, perhaps even one not (presently) 
-listed in either?
+Yes it is just coding style.
 
-rick jones
+ > No compiler will
+> generate any code from it.
+
+ACK.
+
+If you check
+
+	~/linux$ git grep \{\ return\;
+
+there are many occurrences of empty void functions having a 'return' 
+inside the curly braces.
+
+I think
+
+	static void can_dellink( ... ){}
+
+would have made it too.
+
+Now can_dellink() just locks similar to can_newlink() some lines above.
+
+Regards,
+Oliver
