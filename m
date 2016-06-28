@@ -1,44 +1,40 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH] notifier: Fix soft lockup for notifier_call_chain().
-Date: Tue, 28 Jun 2016 11:30:58 +0800
-Message-ID: <5771EF72.3060101@huawei.com>
-References: <576DF09B.6010406@huawei.com>
- <CAM_iQpU7mkBFk=AF0kbRZga-nvaE0=nMr-gmn1GJ8WDW-UvO4Q@mail.gmail.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v2 net-next] tcp: md5: use kmalloc() backed scratch areas
+Date: Tue, 28 Jun 2016 11:41:50 +0800
+Message-ID: <20160628034150.GA13953@gondor.apana.org.au>
+References: <CALCETrXezCXy4N7wMjYdr+U1A9Avda5bVxTxOQZswinh62gbvw@mail.gmail.com>
+ <1466827910.6850.123.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1466828771.6850.124.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1466829439.6850.126.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1466870975.6850.139.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1467046313.6850.171.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALCETrUSi3T5JXMunEO9RM5ZEz=aA2xtf9encEVYGxJF4mbhKg@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <luto@kernel.org>, Ingo Molnar <mingo@kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CAM_iQpU7mkBFk=AF0kbRZga-nvaE0=nMr-gmn1GJ8WDW-UvO4Q@mail.gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:49111 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751846AbcF1DmB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 27 Jun 2016 23:42:01 -0400
+Content-Disposition: inline
+In-Reply-To: <CALCETrUSi3T5JXMunEO9RM5ZEz=aA2xtf9encEVYGxJF4mbhKg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016/6/28 3:50, Cong Wang wrote:
-> On Fri, Jun 24, 2016 at 7:46 PM, Ding Tianhong <dingtianhong@huawei.com> wrote:
->> diff --git a/kernel/notifier.c b/kernel/notifier.c
->> index fd2c9ac..9c30411 100644
->> --- a/kernel/notifier.c
->> +++ b/kernel/notifier.c
->> @@ -92,6 +92,8 @@ static int notifier_call_chain(struct notifier_block **nl,
->>  #endif
->>                 ret = nb->notifier_call(nb, val, v);
->>
->> +               cond_resched();
->> +
->>                 if (nr_calls)
->>                         (*nr_calls)++;
-> 
-> NAK.
-> 
-> You can't do a resched in atomic context in __atomic_notifier_call_chain().
-> 
-> 
-Sorry, I miss this, so I think add touch_nmi_watchdog looks like the best solution for this problem.
+On Mon, Jun 27, 2016 at 10:58:42AM -0700, Andy Lutomirski wrote:
+>
+> I wonder if it's worth switching from ahash to shash, though.  It
+> would probably be simpler and faster.
 
-Thanks
-Ding
+No shash is not appropriate here because it needs to hash skb
+frags which are SG lists.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
