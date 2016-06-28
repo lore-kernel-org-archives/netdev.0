@@ -1,125 +1,40 @@
-From: Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>
-Subject: Re: [PATCH net] bonding: fix 802.3ad aggregator reselection
-Date: Tue, 28 Jun 2016 14:57:37 +0300
-Message-ID: <CAKdSkDVXe5jRgWU8WAvx43KvEuZvS4ak+a9qd9H4C3zy+OvkPQ@mail.gmail.com>
-References: <10542.1466716851@famine>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next] tcp: increase size at which
+ tcp_bound_to_half_wnd bounds to > TCP_MSS_DEFAULT
+Date: Tue, 28 Jun 2016 13:58:10 +0200
+Message-ID: <1467115090.6850.202.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <CS1PR84MB0295E420892A535E40FE338EFD220@CS1PR84MB0295.NAMPRD84.PROD.OUTLOOK.COM>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	zhuyj <zyjzyj2000@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: "Seymour, Shane M" <shane.seymour@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:33915 "EHLO
-	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752236AbcF1L5s (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 07:57:48 -0400
-Received: by mail-oi0-f53.google.com with SMTP id s66so18941643oif.1
-        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 04:57:39 -0700 (PDT)
-In-Reply-To: <10542.1466716851@famine>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:37907 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752185AbcF1L60 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 07:58:26 -0400
+Received: by mail-wm0-f46.google.com with SMTP id r201so24138471wme.1
+        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 04:58:17 -0700 (PDT)
+In-Reply-To: <CS1PR84MB0295E420892A535E40FE338EFD220@CS1PR84MB0295.NAMPRD84.PROD.OUTLOOK.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-06-24 0:20 GMT+03:00 Jay Vosburgh <jay.vosburgh@canonical.com>:
->
->         Since commit 7bb11dc9f59d ("bonding: unify all places where
-> actor-oper key needs to be updated."), the logic in bonding to handle
-> selection between multiple aggregators has not functioned.
->
->         This affects only configurations wherein the bonding slaves
-> connect to two discrete aggregators (e.g., two independent switches, each
-> with LACP enabled), thus creating two separate aggregation groups within a
-> single bond.
->
->         The cause is a change in 7bb11dc9f59d to no longer set
-> AD_PORT_BEGIN on a port after a link state change, which would cause the
-> port to be reselected for attachment to an aggregator as if were newly
-> added to the bond.  We cannot restore the prior behavior, as it
-> contradicts IEEE 802.1AX 5.4.12, which requires ports that "become
-> inoperable" (lose carrier, setting port_enabled=false as per 802.1AX
-> 5.4.7) to remain selected (i.e., assigned to the aggregator).  As the port
-> now remains selected, the aggregator selection logic is not invoked.
->
->         A side effect of this change is that aggregators in bonding will
-> now contain ports that are link down.  The aggregator selection logic
-> does not currently handle this situation correctly, causing incorrect
-> aggregator selection.
->
->         This patch makes two changes to repair the aggregator selection
-> logic in bonding to function as documented and within the confines of the
-> standard:
->
->         First, the aggregator selection and related logic now utilizes the
-> number of active ports per aggregator, not the number of selected ports
-> (as some selected ports may be down).  The ad_select "bandwidth" and
-> "count" options only consider ports that are link up.
->
->         Second, on any carrier state change of any slave, the aggregator
-> selection logic is explicitly called to insure the correct aggregator is
-> active.
->
-> Reported-by: Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>
-> Fixes: 7bb11dc9f59d ("bonding: unify all places where actor-oper key needs to be updated.")
-> Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
+On Tue, 2016-06-28 at 04:33 +0000, Seymour, Shane M wrote:
+> In previous commit 01f83d69844d307be2aa6fea88b0e8fe5cbdb2f4
+> the following comments were added:
+> 
+> "When peer uses tiny windows, there is no use in packetizing to sub-MSS
+> pieces for the sake of SWS or making sure there are enough packets in
+> the pipe for fast recovery."
+> 
+> The test should be > TCP_MSS_DEFAULT not >= 512. This allows low end
+> devices that send an MSS of 536 (TCP_MSS_DEFAULT) to see better network
+> performance by sending it 536 bytes of data at a time instead of bounding
+> to half window size (268). Other network stacks work this way, e.g. HP-UX.
 
 
-Hi,
+Trying to cope with ridiculous windows these days is really a waste of
+time, as we perform this check for all tcp sendmsg() calls :(
 
-Thanks for the patch. I have been now testing it and the reselection
-seems to be working now in most cases, but I hit one case that seems
-to consistently fail in my test environment.
-
-I've been doing most of testing with ad_select=count and this happens
-with it. I haven't yet done extensive testing with
-ad_select=stable/bandwidth.
-
-The sequence to trigger the failure seems to be:
-
-  Switch A (Agg ID 2)       Switch B (Agg ID 1)
-enp5s0f0 ens5f0 ens6f0    enp5s0f1 ens5f1 ens6f1
-    X       X      -           X      -       -     Connection works
-(Agg ID 2 active)
-    X       -      -           X      -       -     Connection works
-(Agg ID 1 active)
-    X       -      -           -      -       -     No connection (Agg
-ID 2 active)
-
-I'm also wondering why link down event causes change of aggregator
-when the active aggregator has the same number of active links than
-the new aggregator.
-
-The situation here clears once a port comes up. Once I hit also
-problems without disabling all ports on active switch:
-
-  Switch A (Agg ID 2)       Switch B (Agg ID 1)
-enp5s0f0 ens5f0 ens6f0    enp5s0f1 ens5f1 ens6f1
-    X       X      -           X      -       -     Connection works
-(Agg ID 2 active)
-    X       -      -           X      -       -     No connection (Agg
-ID 1 active)
-
-The active switch does not seem to matter either when disabling ports:
-
-  Switch A (Agg ID 2)       Switch B (Agg ID 1)
-enp5s0f0 ens5f0 ens6f0    enp5s0f1 ens5f1 ens6f1
-    X       -      -           X      X       X     Connection works
-(Agg ID 1 active)
-    X       -      -           X      -       -     Connection works
-(Agg ID 2 active)
-    -       -      -           X      -       -     No connection (Agg
-ID 1 active)
-
-All testing was done with upstream version 4.6.2 with the patch
-applied. When there is no connection, /proc/net/bonding/bond0 still
-shows that there is an active aggregator that has a link up, but for
-some reason no traffic passes through. I added some debugging
-information in bond_procfs.c and the number of active ports seems to
-match the enabled ports on switches.
-
-I'll continue doing tests with different scenarios and I can also test
-specific cases if needed.
-
-
-Veli-Matti
+Anyway, your patch is reversed.
