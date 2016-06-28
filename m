@@ -1,77 +1,139 @@
-From: Tan Xiaojun <tanxiaojun@huawei.com>
-Subject: =?UTF-8?Q?Re:_IP_ID_check_=28flush=5fid=29_in_inet=5fgro=5freceive_?=
- =?UTF-8?Q?is_necessary_or_not=ef=bc=9f?=
-Date: Tue, 28 Jun 2016 15:44:00 +0800
-Message-ID: <57722AC0.7090003@huawei.com>
-References: <5771FFA1.3050306@huawei.com>
- <1467089829.6850.181.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v10 04/22] IB/hns: Add RoCE engine reset function
+Date: Tue, 28 Jun 2016 11:09:26 +0300
+Message-ID: <20160628080926.GC3584@leon.nu>
+References: <1466087730-54856-1-git-send-email-oulijun@huawei.com>
+ <1466087730-54856-5-git-send-email-oulijun@huawei.com>
+ <20160624145938.GE23995@leon.nu>
+ <576E5C21.5030904@huawei.com>
+ <20160627080122.GA3584@leon.nu>
+ <5770E465.1070702@huawei.com>
+ <577219CD.2000604@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <davem@davemloft.net>, <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>,
-	<yoshfuji@linux-ipv6.org>, <kaber@trash.net>,
-	<aduyck@mirantis.com>, <hkchu@google.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467089829.6850.181.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="bAmEntskrkuBymla"
+Cc: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: "Wei Hu (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <577219CD.2000604-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-On 2016/6/28 12:57, Eric Dumazet wrote:
-> On Tue, 2016-06-28 at 12:40 +0800, Tan Xiaojun wrote:
->> Hi everyone,
->>
->> 	I'm sorry to bother you. But I was confused.
->>
->> 	The IP ID check (flush_id) in inet_gro_receive is only used by
->> tcp_gro_receive, and in tcp_gro_receive we have tcphdr check to ensure
->> the order of skbs,
->> 	like below:
->>
->> 	flush |= (__force int)(th->ack_seq ^ th2->ack_seq);
->> 	flush |= (ntohl(th2->seq) + skb_gro_len(p)) ^ ntohl(th->seq);
->>
->> 	So if I remove the IP ID check in inet_gro_receive, there will be a
->> problem ? And under what circumstances ?
-> 
-> You probably missed a recent patch ?
-> 
 
-Thank you very much. 
+--bAmEntskrkuBymla
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Is this patch means forcing the IP ID to be incrementing by 1 is necessary in the
-case of using tunnel (if the IP_DF is not set in frag_off).
+On Tue, Jun 28, 2016 at 02:31:41PM +0800, Wei Hu (Xavier) wrote:
+>=20
+>=20
+> On 2016/6/27 16:31, oulijun wrote:
+> >Hi, Leon
+> >=E5=9C=A8 2016/6/27 16:01, Leon Romanovsky =E5=86=99=E9=81=93:
+> >>On Sat, Jun 25, 2016 at 06:25:37PM +0800, Wei Hu (Xavier) wrote:
+> >>>
+> >>>On 2016/6/24 22:59, Leon Romanovsky wrote:
+> >>>>On Thu, Jun 16, 2016 at 10:35:12PM +0800, Lijun Ou wrote:
+> >>>>>This patch mainly added reset flow of RoCE engine in RoCE
+> >>>>>driver. It is necessary when RoCE is loaded and removed.
+> >>>>>
+> >>>>>Signed-off-by: Wei Hu <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> >>>>>Signed-off-by: Nenglong Zhao <zhaonenglong-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+> >>>>>Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+> >>>>>---
+> >>...
+> >>
+> >>>>>+
+> >>>>>+#define SLEEP_TIME_INTERVAL				20
+> >>>>>+
+> >>>>>+extern int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, b=
+ool enable);
+> >>>>Why did you add this extern?
+> >>>>You already exported this function.
+> >>>>drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c:EXPORT_SYMBOL(hns_=
+dsaf_roce_reset);
+> >>>Hi, Leon
+> >>>
+> >>>         The function named hns_dsaf_roce_reset is defined in hns_dsaf=
+_main.c
+> >>>         It exists in hns_dsaf.ko(ethernet driver)
+> >>>
+> >>>         RoCE driver will call this function.
+> >>>
+> >>>         Your suggestion is that delete "extern" as below:
+> >>>             In /drivers/infiniband/hw/hns/hns_roce_hw_v1.h:
+> >>>
+> >>>           int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, =
+bool
+> >>>enable);
+> >>>
+> >>>Right? or other soultion?
+> >>You placed it in header file.
+> >>Please move it to your hns_roce_hw_v1.c file.
+> >>
+> >  You suggest to do as follows, right?
+> >  in hns_roce_hw_v1.c
+> >    int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, bool enab=
+le);
+> >
+> >  and delete the keyword extern
+> >
+> >  Bcause reserve the extern in hns_roce_hw_v1.c, the checkpatch is not p=
+ass.
+> Hi, Leon & Doug Ledford
+>=20
+>     If we move it to hns_roce_hw_v1.c file as below:
+>         int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode, bool
+> enable);
+>     The result of checkpatch is warning.
+>=20
+>     We prepare to add a head file for this function as below:
+>         In the directory of include\linux,  mkdir hns.
+>         add hns_driver.h in include\linux\hns.
+>         In the file of hns_driver.h, the declaration:
+>                int hns_dsaf_roce_reset(struct fwnode_handle *dsaf_fwnode,
+> bool enable);
+>     What do you think about?
+>=20
+>
 
-I have not used the tunneled frames. Do you have some examples for that ?
+Please avoid creating new directories/files under include/linux,
+especially for one function only.
 
-Xiaojun.
+--bAmEntskrkuBymla
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 
-> commit 1530545ed64b42e87acb43c0c16401bd1ebae6bf
-> Author: Alexander Duyck <aduyck@mirantis.com>
-> Date:   Sun Apr 10 21:44:57 2016 -0400
-> 
->     GRO: Add support for TCP with fixed IPv4 ID field, limit tunnel IP ID values
->     
->     This patch does two things.
->     
->     First it allows TCP to aggregate TCP frames with a fixed IPv4 ID field.  As
->     a result we should now be able to aggregate flows that were converted from
->     IPv6 to IPv4.  In addition this allows us more flexibility for future
->     implementations of segmentation as we may be able to use a fixed IP ID when
->     segmenting the flow.
->     
->     The second thing this does is that it places limitations on the outer IPv4
->     ID header in the case of tunneled frames.  Specifically it forces the IP ID
->     to be incrementing by 1 unless the DF bit is set in the outer IPv4 header.
->     This way we can avoid creating overlapping series of IP IDs that could
->     possibly be fragmented if the frame goes through GRO and is then
->     resegmented via GSO.
->     
->     Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-> 
-> 
-> 
-> .
-> 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXcjC2AAoJEORje4g2clinH0QP/is5TiAbbRkxaCyEcPTwcmGA
+vzswCNyDSrx8DPz+jJMEOQXBGl+xdELYnJeIiRLGre9wXGxBp010Cei89OWUljtY
+SD0EuGglo9v7Ru1uNNbZKYIXHm6DRYWUI2jTSejeFh/RmilkKG27x5mtPgTqoxn9
+Ut/XOvFUbX36G30EL0hFl0KLYIlKdDWxhkVvtEqgW/Ej972KB2iUvPM6icvGQSa/
+ERxfKXhPKTHleX5wsdTrVG3c5w2qUggSdnpTL0YE3FpQybPczvX4kTj28xhlH2x1
+kiv/Xsyb+hy8H0KZkH/zEjIea4UpoWX3ve+ExI4DP3Tv3ex4ykYyo2Thw0OMwLXv
+5Vy+zMMMT7aKZmVZhR5yiWpQSvrwGk6/QN/5N79RX0HcnXqzplZN9VYIrIOXqyjA
+Cifwo4vTbdKJj4M8qZqU+pUmfoPIWy0pqExy1GRVbUneNp3Pg7Ifuost7JZZN0Pt
+IIRGuBhn9hE0GO0qLce14ir3xzIICJrckeauCN4CmxpRoJClYpJbct9nTzJSuZn4
+wkAuZ42M1DkHAk3uMLc70Oa5nJBKxyoTJgOgdUf2o5AKX+53sxdLuQlAYyx45BqX
+F+BmdQAqJe8Y/Dqw4mEgj0BkBkvWBoapTmGX3+s4Bf/RVbZXsZltvIAD2YUKMYei
+scEeZS7xmboZHJgKzj0z
+=gAna
+-----END PGP SIGNATURE-----
+
+--bAmEntskrkuBymla--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
