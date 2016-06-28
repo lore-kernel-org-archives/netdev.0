@@ -1,54 +1,42 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [iproute PATCH v3 0/6] Big C99 style initializer rework
-Date: Tue, 28 Jun 2016 11:37:43 -0600
-Message-ID: <0a003d6f-ae2f-57cb-f3f1-1975011c7b78@cumulusnetworks.com>
-References: <d6784d8bb2d84ceab6c1719e32e8fa8e@HQ1WP-EXMB11.corp.brocade.com>
- <20160627105912.7961c3f4@xeon-e3> <20160627182302.GB13664@orbyte.nwl.cc>
- <20160627141049.356c1eff@xeon-e3> <20160628173723.GA6733@orbyte.nwl.cc>
+Subject: Re: [PATCH v2 iproute2 3/3] ss: Add support to filter on device
+Date: Tue, 28 Jun 2016 11:40:40 -0600
+Message-ID: <08825943-ee97-c769-e70a-f6dcc3f49493@cumulusnetworks.com>
+References: <1467052465-14488-1-git-send-email-dsa@cumulusnetworks.com>
+ <1467052465-14488-4-git-send-email-dsa@cumulusnetworks.com>
+ <20160627141304.2178a549@xeon-e3>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-To: Phil Sutter <phil@nwl.cc>,
-	Stephen Hemminger <shemming@brocade.com>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Julien Floret <julien.floret@6wind.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <stephen@networkplumber.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34795 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750710AbcF1Riy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 13:38:54 -0400
-Received: by mail-pa0-f49.google.com with SMTP id bz2so8433987pad.1
-        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 10:37:44 -0700 (PDT)
-In-Reply-To: <20160628173723.GA6733@orbyte.nwl.cc>
+Received: from mail-pa0-f44.google.com ([209.85.220.44]:34181 "EHLO
+	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752074AbcF1Rky (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 13:40:54 -0400
+Received: by mail-pa0-f44.google.com with SMTP id bz2so8454629pad.1
+        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 10:40:41 -0700 (PDT)
+In-Reply-To: <20160627141304.2178a549@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/28/16 11:37 AM, Phil Sutter wrote:
->>> I saw these too with gcc-3.4.6 but not with 5.3.0. It appears to be a
->>> gcc bug[1]. One possible workaround is to match the brace level of the
->>> first field, but it's quite ugly: [2]. Another way might be to
->>> initialize one of the fields to zero, like so:
->>>
->>> | struct ifreq ifr = { .ifr_qlen = 0 };
->>>
->>> What do you think?
->>>
->>> Thanks, Phil
->>>
->>> [1] https://gcc.gnu.org/bugzilla/show_bug.cgi?id=53119
->>> [2] http://nwl.cc/cgi-bin/git/gitweb.cgi?p=iproute2.git;a=commitdiff;h=a1cbf2b63c995b2f633c5b4699248ab308b201d2;hp=3809cfec65b03716d1d0360338126df4b4f3fbf6
->>
->> I am using gcc on Debian stable which is 5.3.1.
+On 6/27/16 3:13 PM, Stephen Hemminger wrote:
+> On Mon, 27 Jun 2016 11:34:25 -0700
+> David Ahern <dsa@cumulusnetworks.com> wrote:
 >
-> Hmm. In a fresh install of Debian 8.5 I see the warnings as well, but it
-> has gcc-4.9.2-10 as most recent version.
+>> +		case SSF_DEVCOND:
+>> +	{
+>> +		struct aafilter *a = (void *)f->pred;
 >
-> Another thing I noticed: Using empty braces ('{}') instead of the
-> universal zero initializer seems to work without causing warnings (at
-> least unless '-pedantic' is used).
+> I don't like the wandering bracket left, but all the code has that.
+> After this will change it to:
+> 		case SSF_DEVCOND:  {
+> 			struct aafilter *a = f->pred;
+> ...
+>
 
-since .ifr_qlen is already referenced in that function seems like your 
-suggestion above (struct ifreq ifr = { .ifr_qlen = 0 };) should be 
-acceptable.
+meaning you'll take the patches as is since they follow current 
+formatting and you will apply a patch to fix the indentation in that 
+run_ssfilter? They have not shown up in your repo so want to make sure I 
+understand the intent.
