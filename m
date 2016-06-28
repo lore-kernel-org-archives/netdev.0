@@ -1,43 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] etherdevice.h & bridge: netfilter: Add and use
- ether_addr_equal_masked
-Date: Tue, 28 Jun 2016 09:01:12 -0400 (EDT)
-Message-ID: <20160628.090112.1438085992622018555.davem@davemloft.net>
-References: <20160624085752.GB1939@salvia>
-	<3dcddfef3b9ac0eceb2869d9e95ae857b509fabe.1466793022.git.joe@perches.com>
+From: Evgeniy Polyakov <zbr@ioremap.net>
+Subject: Re: [PATCH] connector: fix out-of-order cn_proc netlink message delivery
+Date: Tue, 28 Jun 2016 15:56:05 +0300
+Message-ID: <1710991467118565@web17j.yandex.ru>
+References: <1466773532-16596-1-git-send-email-aaron@monkey.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu,
-	kaber@trash.net, pablo@netfilter.org
-To: joe@perches.com
-Return-path: <bridge-bounces@lists.linux-foundation.org>
-In-Reply-To: <3dcddfef3b9ac0eceb2869d9e95ae857b509fabe.1466793022.git.joe@perches.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jon DeVree <nuxi@vault24.org>
+To: Aaron Campbell <aaron@monkey.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from forward2j.cmail.yandex.net ([5.255.227.20]:59969 "EHLO
+	forward2j.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752180AbcF1NDi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 09:03:38 -0400
+In-Reply-To: <1466773532-16596-1-git-send-email-aaron@monkey.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Joe Perches <joe@perches.com>
-Date: Fri, 24 Jun 2016 11:32:26 -0700
+Hi Aaron
 
-> There are code duplications of a masked ethernet address comparison here
-> so make it a separate function instead.
-> 
-> Miscellanea:
-> 
-> o Neaten alignment of FWINV macro uses to make it clearer for the reader
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
+24.06.2016, 16:07, "Aaron Campbell" <aaron@monkey.org>:
+> The proc connector messages include a sequence number, allowing userspace
+> programs to detect lost messages. However, performing this detection is
+> currently more difficult than necessary, since netlink messages can be
+> delivered to the application out-of-order. To fix this, leave pre-emption
+> disabled during cn_netlink_send(), and use GFP_NOWAIT.
+>
+> The following was written as a test case. Building the kernel w/ make -j32
+> proved a reliable way to generate out-of-order cn_proc messages.
 
-Pablo feel free to take this:
+This is not actually about out-of-order sending which is impossible iirc,
+but the way fork pushes messages into socket queue in parallel. What you've done
+is syncing one more layer higher.
 
-Acked-by: David S. Miller <davem@davemloft.net>
+I'm not against this patch if you think it does fix some issues, but wording is not correct imo.
