@@ -1,141 +1,232 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCH net-next 10/16] net/mlx5e: Add devlink based SRIOV mode
- changes (legacy --> offloads)
-Date: Tue, 28 Jun 2016 10:49:29 -0400
-Message-ID: <20160628144928.GL18787@gospo.rdu.cumulusnetworks.com>
-References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
- <1467043649-28594-11-git-send-email-saeedm@mellanox.com>
- <20160628134211.GK18787@gospo.rdu.cumulusnetworks.com>
- <e6b6247e-cad1-8ebe-75a6-335aec90efca@mellanox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Hadar Hen-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>
-To: Or Gerlitz <ogerlitz@mellanox.com>
+From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+Subject: [PATCH net-next v2 1/2] net: rtnetlink: add support for the IFLA_STATS_LINK_XSTATS_SLAVE attribute
+Date: Tue, 28 Jun 2016 16:57:05 +0200
+Message-ID: <1467125826-11980-2-git-send-email-nikolay@cumulusnetworks.com>
+References: <1467125826-11980-1-git-send-email-nikolay@cumulusnetworks.com>
+Cc: linus.luessing@c0d3.blue, roopa@cumulusnetworks.com,
+	stephen@networkplumber.org, bridge@lists.linux-foundation.org,
+	davem@davemloft.net,
+	Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f172.google.com ([209.85.220.172]:34031 "EHLO
-	mail-qk0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752363AbcF1Ote (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 10:49:34 -0400
-Received: by mail-qk0-f172.google.com with SMTP id t127so33321990qkf.1
-        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 07:49:33 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <e6b6247e-cad1-8ebe-75a6-335aec90efca@mellanox.com>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:38388 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751673AbcF1O5p (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 10:57:45 -0400
+Received: by mail-wm0-f51.google.com with SMTP id r201so31923184wme.1
+        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 07:57:45 -0700 (PDT)
+In-Reply-To: <1467125826-11980-1-git-send-email-nikolay@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 28, 2016 at 05:25:11PM +0300, Or Gerlitz wrote:
-> On 6/28/2016 4:42 PM, Andy Gospodarek wrote:
-> >On Mon, Jun 27, 2016 at 07:07:23PM +0300, Saeed Mahameed wrote:
-> >>From: Or Gerlitz <ogerlitz@mellanox.com>
-> >>
-> >>Implement handlers for the devlink commands to get and set the SRIOV
-> >>E-Switch mode.
-> >>
-> >>When turning to the offloads mode, we disable the e-switch and enable
-> >>it again in the new mode, create the NIC offloads table and create VF reps.
-> >>
-> >>When turning to legacy mode, we remove the VF reps and the offloads
-> >>table, and re-initiate the e-switch in it's legacy mode.
-> >>
-> >>The actual creation/removal of the VF reps is done in downstream patches.
-> >>
-> >>Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-> >>Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-> >>---
-> >>  drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  12 ++-
-> >>  .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 102 ++++++++++++++++++++-
-> >>  2 files changed, 105 insertions(+), 9 deletions(-)
-> >>
-> >[...]
-> >>diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-> >>index 3b3afbd..a39af6b 100644
-> >>--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-> >>+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-> >[...]
-> >>  int mlx5_devlink_eswitch_mode_set(struct devlink *devlink, u16 mode)
-> >>  {
-> >>-	return -EOPNOTSUPP;
-> >>+	struct mlx5_core_dev *dev;
-> >>+	u16 cur_mode;
-> >>+
-> >>+	dev = devlink_priv(devlink);
-> >>+
-> >>+	if (!MLX5_CAP_GEN(dev, vport_group_manager))
-> >>+		return -EOPNOTSUPP;
-> >>+
-> >>+	cur_mode = dev->priv.eswitch->mode;
-> >>+
-> >>+	if (cur_mode == SRIOV_NONE || mode == SRIOV_NONE)
-> >>+		return -EOPNOTSUPP;
-> >>+
-> >>+	if (cur_mode == mode)
-> >>+		return 0;
-> >>+
-> >>+	if (mode == SRIOV_OFFLOADS) /* current mode is legacy */
-> >>+		return esw_offloads_start(dev->priv.eswitch);
-> >>+	else if (mode == SRIOV_LEGACY) /* curreny mode is offloads */
-> >>+		return esw_offloads_stop(dev->priv.eswitch);
-> >>+	else
-> >>+		return -EINVAL;
-> >>  }
-> >>
-> >>This is an _extremely_ minor nit, but I only bring it up since you are
-> >>leading the way here and your model may be one that other people
-> >>follow...
-> >>
-> >>Internally you have a enum to track the SRIOV modes:
-> >>
-> >>enum {
-> >>        SRIOV_NONE,
-> >>        SRIOV_LEGACY,
-> >>        SRIOV_OFFLOADS
-> >>};
-> >>
-> >>But patch 8 adds a new enum for devlink to track this as well.
-> >>
-> >>enum devlink_eswitch_mode {
-> >>        DEVLINK_ESWITCH_MODE_NONE,
-> >>        DEVLINK_ESWITCH_MODE_LEGACY,
-> >>        DEVLINK_ESWITCH_MODE_OFFLOADS,
-> >>};
-> >>
-> 
-> 
-> Andy,
-> 
-> In mlx5 we're having an eswitch driver instance also when not in sriov mode
-> where on that case the mlx5 eswitch mode is called sriov_none, which is
-> maybe not a very successful name, I'll look on that.
-> 
-> On the devlink/system level, the eswitch modes are relevant only for SRIOV,
-> you can see in the mlx5 set function that we return error when in the none
-> mode or asked to go there.
-> 
-> So... with your comment,  I realize now that I forgot to remove
-> DEVLINK_ESWITCH_MODE_NONE value from the submission.
-> 
-> >Would it make sense at some point to use the devlink modes in the driver
-> >so it's less to track?
-> 
-> This makes it a bit problematic for mlx5 to use the DEVLINK_ESWITCH_MODE_YYY
-> values internally.
+This patch adds support for the IFLA_STATS_LINK_XSTATS_SLAVE attribute
+which allows to export per-slave statistics if the master device supports
+the linkxstats callback. The attribute is passed down to the linkxstats
+callback and it is up to the callback user to use it (an example has been
+added to the only current user - the bridge). This allows us to query only
+specific slaves of master devices like bridge ports and export only what
+we're interested in instead of having to dump all ports and searching only
+for a single one. This will be used to export per-port IGMP/MLD stats and
+also per-port vlan stats in the future, possibly other statistics as well.
 
-If you planned to remove DEVLINK_ESWITCH_MODE_NONE then I could see how
-using these in mlx5 would be problematic.  Thinking about it for just a
-minute, I can see the value dropping DEVLINK_ESWITCH_MODE_NONE.  If the
-driver supports the ability to set the eswitch mode, then it should
-report an actual mode other than none.
+Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+---
+v2: new patch
 
-If you remove DEVLINK_ESWITCH_MODE_NONE, then obviously
-mlx5_devlink_eswitch_mode_set/get will need to change a bit as well as
-there will need to be a mapping between the two values since the enums
-would no longer be the same.  Easy fix, though.  :-)
+ include/net/rtnetlink.h      |  5 ++--
+ include/uapi/linux/if_link.h |  1 +
+ net/bridge/br_netlink.c      | 59 +++++++++++++++++++++++++++++++++++++++++---
+ net/core/rtnetlink.c         | 50 +++++++++++++++++++++++++++++++++++--
+ 4 files changed, 108 insertions(+), 7 deletions(-)
 
-> >Again, this is an extremely _minor_ concern.  The rest of the set looks
-> >great and I like the architectural decisions made here.  Awesome work
-> >all around!
+diff --git a/include/net/rtnetlink.h b/include/net/rtnetlink.h
+index 006a7b81d758..4113916cc1bb 100644
+--- a/include/net/rtnetlink.h
++++ b/include/net/rtnetlink.h
+@@ -98,10 +98,11 @@ struct rtnl_link_ops {
+ 						   const struct net_device *dev,
+ 						   const struct net_device *slave_dev);
+ 	struct net		*(*get_link_net)(const struct net_device *dev);
+-	size_t			(*get_linkxstats_size)(const struct net_device *dev);
++	size_t			(*get_linkxstats_size)(const struct net_device *dev,
++						       int attr);
+ 	int			(*fill_linkxstats)(struct sk_buff *skb,
+ 						   const struct net_device *dev,
+-						   int *prividx);
++						   int *prividx, int attr);
+ };
+ 
+ int __rtnl_link_register(struct rtnl_link_ops *ops);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index bb36bd5675a7..db2458ade81c 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -822,6 +822,7 @@ enum {
+ 	IFLA_STATS_UNSPEC, /* also used as 64bit pad attribute */
+ 	IFLA_STATS_LINK_64,
+ 	IFLA_STATS_LINK_XSTATS,
++	IFLA_STATS_LINK_XSTATS_SLAVE,
+ 	__IFLA_STATS_MAX,
+ };
+ 
+diff --git a/net/bridge/br_netlink.c b/net/bridge/br_netlink.c
+index a5343c7232bf..765e7e72edb3 100644
+--- a/net/bridge/br_netlink.c
++++ b/net/bridge/br_netlink.c
+@@ -1234,7 +1234,7 @@ static int br_fill_info(struct sk_buff *skb, const struct net_device *brdev)
+ 	return 0;
+ }
+ 
+-static size_t br_get_linkxstats_size(const struct net_device *dev)
++static size_t bridge_get_linkxstats_size(const struct net_device *dev)
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
+ 	struct net_bridge_vlan_group *vg;
+@@ -1254,8 +1254,30 @@ static size_t br_get_linkxstats_size(const struct net_device *dev)
+ 	       nla_total_size(0);
+ }
+ 
+-static int br_fill_linkxstats(struct sk_buff *skb, const struct net_device *dev,
+-			      int *prividx)
++static size_t brport_get_linkxstats_size(const struct net_device *dev)
++{
++	return nla_total_size(0);
++}
++
++static size_t br_get_linkxstats_size(const struct net_device *dev, int attr)
++{
++	size_t retsize = 0;
++
++	switch (attr) {
++	case IFLA_STATS_LINK_XSTATS:
++		retsize = bridge_get_linkxstats_size(dev);
++		break;
++	case IFLA_STATS_LINK_XSTATS_SLAVE:
++		retsize = brport_get_linkxstats_size(dev);
++		break;
++	}
++
++	return retsize;
++}
++
++static int bridge_fill_linkxstats(struct sk_buff *skb,
++				  const struct net_device *dev,
++				  int *prividx)
+ {
+ 	struct net_bridge *br = netdev_priv(dev);
+ 	struct net_bridge_vlan_group *vg;
+@@ -1298,6 +1320,37 @@ nla_put_failure:
+ 	return -EMSGSIZE;
+ }
+ 
++static int brport_fill_linkxstats(struct sk_buff *skb,
++				  const struct net_device *dev,
++				  int *prividx)
++{
++	struct nlattr *nest;
++
++	nest = nla_nest_start(skb, LINK_XSTATS_TYPE_BRIDGE);
++	if (!nest)
++		return -EMSGSIZE;
++	nla_nest_end(skb, nest);
++
++	return 0;
++}
++
++static int br_fill_linkxstats(struct sk_buff *skb, const struct net_device *dev,
++			      int *prividx, int attr)
++{
++	int ret = -EINVAL;
++
++	switch (attr) {
++	case IFLA_STATS_LINK_XSTATS:
++		ret = bridge_fill_linkxstats(skb, dev, prividx);
++		break;
++	case IFLA_STATS_LINK_XSTATS_SLAVE:
++		ret = brport_fill_linkxstats(skb, dev, prividx);
++		break;
++	}
++
++	return ret;
++}
++
+ static struct rtnl_af_ops br_af_ops __read_mostly = {
+ 	.family			= AF_BRIDGE,
+ 	.get_link_af_size	= br_get_link_af_size_filtered,
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index eb49ca24274a..cfed7bc14ee6 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -3519,7 +3519,32 @@ static int rtnl_fill_statsinfo(struct sk_buff *skb, struct net_device *dev,
+ 			if (!attr)
+ 				goto nla_put_failure;
+ 
+-			err = ops->fill_linkxstats(skb, dev, prividx);
++			err = ops->fill_linkxstats(skb, dev, prividx, *idxattr);
++			nla_nest_end(skb, attr);
++			if (err)
++				goto nla_put_failure;
++			*idxattr = 0;
++		}
++	}
++
++	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS_SLAVE,
++			     *idxattr)) {
++		const struct rtnl_link_ops *ops = NULL;
++		const struct net_device *master;
++
++		master = netdev_master_upper_dev_get(dev);
++		if (master)
++			ops = master->rtnl_link_ops;
++		if (ops && ops->fill_linkxstats) {
++			int err;
++
++			*idxattr = IFLA_STATS_LINK_XSTATS_SLAVE;
++			attr = nla_nest_start(skb,
++					      IFLA_STATS_LINK_XSTATS_SLAVE);
++			if (!attr)
++				goto nla_put_failure;
++
++			err = ops->fill_linkxstats(skb, dev, prividx, *idxattr);
+ 			nla_nest_end(skb, attr);
+ 			if (err)
+ 				goto nla_put_failure;
+@@ -3555,14 +3580,35 @@ static size_t if_nlmsg_stats_size(const struct net_device *dev,
+ 
+ 	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS, 0)) {
+ 		const struct rtnl_link_ops *ops = dev->rtnl_link_ops;
++		int attr = IFLA_STATS_LINK_XSTATS;
+ 
+ 		if (ops && ops->get_linkxstats_size) {
+-			size += nla_total_size(ops->get_linkxstats_size(dev));
++			size += nla_total_size(ops->get_linkxstats_size(dev,
++									attr));
+ 			/* for IFLA_STATS_LINK_XSTATS */
+ 			size += nla_total_size(0);
+ 		}
+ 	}
+ 
++	if (stats_attr_valid(filter_mask, IFLA_STATS_LINK_XSTATS_SLAVE, 0)) {
++		struct net_device *_dev = (struct net_device *)dev;
++		const struct rtnl_link_ops *ops = NULL;
++		const struct net_device *master;
++
++		/* netdev_master_upper_dev_get can't take const */
++		master = netdev_master_upper_dev_get(_dev);
++		if (master)
++			ops = master->rtnl_link_ops;
++		if (ops && ops->get_linkxstats_size) {
++			int attr = IFLA_STATS_LINK_XSTATS_SLAVE;
++
++			size += nla_total_size(ops->get_linkxstats_size(dev,
++									attr));
++			/* for IFLA_STATS_LINK_XSTATS_SLAVE */
++			size += nla_total_size(0);
++		}
++	}
++
+ 	return size;
+ }
+ 
+-- 
+2.1.4
