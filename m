@@ -1,49 +1,66 @@
-From: Michael Ellerman <mpe@ellerman.id.au>
-Subject: Re: [PATCHv2, 2/7] ppc: bpf/jit: Fix/enhance 32-bit Load Immediate implementation
-Date: Tue, 28 Jun 2016 22:10:12 +1000 (AEST)
-Message-ID: <3rf4Pc1S8mz9sXy@ozlabs.org>
-References: <d584015e9fb33ed526d693c5ab3c228d385f3c74.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
-Cc: Matt Evans <matt@ozlabs.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <ast@fb.com>,
-	Denis Kirjanov <kda@linux-powerpc.org>,
-	Thadeu Lima de Souza Cascardo <cascardo@redhat.com>,
-	Paul Mackerras <paulus@samba.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Ananth N Mavinakayanahalli <ananth@in.ibm.com>
-To: "Naveen N. Rao" <naveen.n.rao@linux.vnet.ibm.com>,
-	linux-kernel@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from ozlabs.org ([103.22.144.67]:49336 "EHLO ozlabs.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751060AbcF1MKN (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 28 Jun 2016 08:10:13 -0400
-In-Reply-To: <d584015e9fb33ed526d693c5ab3c228d385f3c74.1466612260.git.naveen.n.rao@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Samuel Gauthier <samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH net] openvswitch: fix conntrack netlink event
+	delivery
+Date: Tue, 28 Jun 2016 14:12:17 +0200
+Message-ID: <1467115937-16197-1-git-send-email-samuel.gauthier@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Joe Stringer <joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ Justin Pettit <jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org>
+To: pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-22-06 at 16:25:02 UTC, "Naveen N. Rao" wrote:
-> The existing LI32() macro can sometimes result in a sign-extended 32-bit
-> load that does not clear the top 32-bits properly. As an example,
-> loading 0x7fffffff results in the register containing
-> 0xffffffff7fffffff. While this does not impact classic BPF JIT
-> implementation (since that only uses the lower word for all operations),
-> we would like to share this macro between classic BPF JIT and extended
-> BPF JIT, wherein the entire 64-bit value in the register matters. Fix
-> this by first doing a shifted LI followed by ORI.
-> 
-> An additional optimization is with loading values between -32768 to -1,
-> where we now only need a single LI.
-> 
-> The new implementation now generates the same or less number of
-> instructions.
-> 
-> Acked-by: Alexei Starovoitov <ast@kernel.org>
-> Signed-off-by: Naveen N. Rao <naveen.n.rao@linux.vnet.ibm.com>
-
-Series applied to powerpc next, thanks.
-
-https://git.kernel.org/powerpc/c/aaf2f7e09932a08c1287d8e4c6
-
-cheers
+T25seSB0aGUgZmlyc3QgYW5kIGxhc3QgbmV0bGluayBtZXNzYWdlIGZvciBhIHBhcnRpY3VsYXIg
+Y29ubnRyYWNrIGFyZQphY3R1YWxseSBzZW50LiBUaGUgZmlyc3QgbWVzc2FnZSBpcyBzZW50IHRo
+cm91Z2ggbmZfY29ubnRyYWNrX2NvbmZpcm0gd2hlbgp0aGUgY29ubnRyYWNrIGlzIGNvbW1pdHRl
+ZC4gVGhlIGxhc3Qgb25lIGlzIHNlbnQgd2hlbiB0aGUgY29ubnRyYWNrIGlzCmRlc3Ryb3llZCBv
+biB0aW1lb3V0LiBUaGUgb3RoZXIgY29ubnRyYWNrIHN0YXRlIGNoYW5nZSBtZXNzYWdlcyBhcmUg
+bm90CmFkdmVydGlzZWQuCgpXaGVuIHRoZSBjb25udHJhY2sgc3Vic3lzdGVtIGlzIHVzZWQgZnJv
+bSBuZXRmaWx0ZXIsIG5mX2Nvbm50cmFja19jb25maXJtCmlzIGNhbGxlZCBmb3IgZWFjaCBwYWNr
+ZXQsIGZyb20gdGhlIHBvc3Ryb3V0aW5nIGhvb2ssIHdoaWNoIGluIHR1cm4gY2FsbHMKbmZfY3Rf
+ZGVsaXZlcl9jYWNoZWRfZXZlbnRzIHRvIHNlbmQgdGhlIHN0YXRlIGNoYW5nZSBuZXRsaW5rIG1l
+c3NhZ2VzLgoKVGhpcyBjb21taXQgZml4ZXMgdGhlIHByb2JsZW0gYnkgY2FsbGluZyBuZl9jb25u
+dHJhY2tfY29uZmlybSBhbGwgdGhlIHRpbWUsCmkuZSBub3Qgb25seSBpbiB0aGUgY29tbWl0IGNh
+c2UuCgpGaXhlczogN2Y4YTQzNmVhYTJjICgib3BlbnZzd2l0Y2g6IEFkZCBjb25udHJhY2sgYWN0
+aW9uIikKQ0M6IEpvZSBTdHJpbmdlciA8am9lc3RyaW5nZXJAbmljaXJhLmNvbT4KQ0M6IEp1c3Rp
+biBQZXR0aXQgPGpwZXR0aXRAbmljaXJhLmNvbT4KQ0M6IEFuZHkgWmhvdSA8YXpob3VAbmljaXJh
+LmNvbT4KQ0M6IFRob21hcyBHcmFmIDx0Z3JhZkBzdXVnLmNoPgpTaWduZWQtb2ZmLWJ5OiBTYW11
+ZWwgR2F1dGhpZXIgPHNhbXVlbC5nYXV0aGllckA2d2luZC5jb20+Ci0tLQpUaGlzIHBhdGNoIHdh
+cyB0ZXN0ZWQgYWdhaW5zdCB0aGUgbmV0IHRyZWUsIGNoZWNraW5nIHRoZSBub3RpZmljYXRpb25z
+IHdpdGgKY29ubnRyYWNrIC1FLgoKRGF2aWQsIHRoaXMgcGF0Y2ggY29uZmxpY3RzIHdpdGggdGhl
+IHBhdGNoIDdkOTA0YzdiY2Q1MSAoIm9wZW52c3dpdGNoOiBPbmx5CnNldCBtYXJrIGFuZCBsYWJl
+bHMgd2l0aCBhIGNvbW1pdCBmbGFnLiIpIGZyb20gbmV0LW5leHQuIEkgY2FuIGhlbHAgc29sdmlu
+Zwp0aGUgY29uZmxpY3QgaWYgeW91IG5lZWQgdG8uCgogbmV0L29wZW52c3dpdGNoL2Nvbm50cmFj
+ay5jIHwgOCArKysrKy0tLQogMSBmaWxlIGNoYW5nZWQsIDUgaW5zZXJ0aW9ucygrKSwgMyBkZWxl
+dGlvbnMoLSkKCmRpZmYgLS1naXQgYS9uZXQvb3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMgYi9uZXQv
+b3BlbnZzd2l0Y2gvY29ubnRyYWNrLmMKaW5kZXggM2Q1ZmVlZGU5NjJkLi40ZWE5N2YxYzM4NjEg
+MTAwNjQ0Ci0tLSBhL25ldC9vcGVudnN3aXRjaC9jb25udHJhY2suYworKysgYi9uZXQvb3BlbnZz
+d2l0Y2gvY29ubnRyYWNrLmMKQEAgLTgzNCw5ICs4MzQsNiBAQCBzdGF0aWMgaW50IG92c19jdF9j
+b21taXQoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3Qgc3dfZmxvd19rZXkgKmtleSwKIAllcnIgPSBf
+X292c19jdF9sb29rdXAobmV0LCBrZXksIGluZm8sIHNrYik7CiAJaWYgKGVycikKIAkJcmV0dXJu
+IGVycjsKLQkvKiBUaGlzIGlzIGEgbm8tb3AgaWYgdGhlIGNvbm5lY3Rpb24gaGFzIGFscmVhZHkg
+YmVlbiBjb25maXJtZWQuICovCi0JaWYgKG5mX2Nvbm50cmFja19jb25maXJtKHNrYikgIT0gTkZf
+QUNDRVBUKQotCQlyZXR1cm4gLUVJTlZBTDsKIAogCXJldHVybiAwOwogfQpAQCAtODg4LDYgKzg4
+NSwxMSBAQCBpbnQgb3ZzX2N0X2V4ZWN1dGUoc3RydWN0IG5ldCAqbmV0LCBzdHJ1Y3Qgc2tfYnVm
+ZiAqc2tiLAogCWlmIChsYWJlbHNfbm9uemVybygmaW5mby0+bGFiZWxzLm1hc2spKQogCQllcnIg
+PSBvdnNfY3Rfc2V0X2xhYmVscyhza2IsIGtleSwgJmluZm8tPmxhYmVscy52YWx1ZSwKIAkJCQkJ
+JmluZm8tPmxhYmVscy5tYXNrKTsKKworCS8qIFRoaXMgaXMgYSBuby1vcCBpZiB0aGUgY29ubmVj
+dGlvbiBoYXMgYWxyZWFkeSBiZWVuIGNvbmZpcm1lZC4gKi8KKwlpZiAobmZfY29ubnRyYWNrX2Nv
+bmZpcm0oc2tiKSAhPSBORl9BQ0NFUFQpCisJCXJldHVybiAtRUlOVkFMOworCiBlcnI6CiAJc2ti
+X3B1c2goc2tiLCBuaF9vZnMpOwogCWlmIChlcnIpCi0tIAoyLjIuMS42Mi5nM2YxNTA5OAoKX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KZGV2IG1haWxpbmcg
+bGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9vcGVudnN3aXRjaC5vcmcvbWFpbG1hbi9s
+aXN0aW5mby9kZXYK
