@@ -1,97 +1,72 @@
-From: Daode Huang <huangdaode@hisilicon.com>
-Subject: Re: [PATCH net-next 6/9] net: hns: normalize two different loop
-Date: Tue, 28 Jun 2016 13:41:35 +0800
-Message-ID: <57720E0F.8090605@hisilicon.com>
-References: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
- <1467021255-95900-7-git-send-email-Yisen.Zhuang@huawei.com>
- <1467028161.1847.101.camel@perches.com>
- <1467028835.30123.287.camel@linux.intel.com>
- <1467029338.1847.106.camel@perches.com>
- <1467029589.30123.288.camel@linux.intel.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 08/16] net/devlink: Add E-Switch mode control
+Date: Mon, 27 Jun 2016 22:57:54 -0700
+Message-ID: <577211E2.90802@gmail.com>
+References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
+ <1467043649-28594-9-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; format=flowed
+Content-Type: text/plain; charset=windows-1252
 Content-Transfer-Encoding: 7bit
-Cc: <liguozhu@huawei.com>, <arnd@arndb.de>, <andrew@lunn.ch>,
-	<geliangtang@163.com>, <ivecera@redhat.com>,
-	<fengguang.wu@intel.com>, <charles.chenxin@huawei.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
-To: Andy Shevchenko <andriy.shevchenko@linux.intel.com>,
-	Joe Perches <joe@perches.com>,
-	Yisen Zhuang <Yisen.Zhuang@huawei.com>, <davem@davemloft.net>,
-	<salil.mehta@huawei.com>, <yankejian@huawei.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Hen-Zion <hadarh@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>
+To: Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga02-in.huawei.com ([119.145.14.65]:23491 "EHLO
-	szxga02-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751237AbcF1FnX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 01:43:23 -0400
-In-Reply-To: <1467029589.30123.288.camel@linux.intel.com>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:34507 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750921AbcF1F6U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 01:58:20 -0400
+Received: by mail-oi0-f41.google.com with SMTP id s66so8852053oif.1
+        for <netdev@vger.kernel.org>; Mon, 27 Jun 2016 22:58:20 -0700 (PDT)
+In-Reply-To: <1467043649-28594-9-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On 16-06-27 09:07 AM, Saeed Mahameed wrote:
+> From: Or Gerlitz <ogerlitz@mellanox.com>
+> 
+> Add the commands to set and show the mode of SRIOV E-Switch,
+> two modes are supported:
+> 
+> * legacy   : operating in the "old" L2 based mode (DMAC --> VF vport)
+> * offloads : offloading SW rules/policy (e.g Bridge/FDB or TC/Flows based) set by the host OS
+> 
+> Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
+> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+> ---
 
 
-On 2016/6/27 20:13, Andy Shevchenko wrote:
-> On Mon, 2016-06-27 at 05:08 -0700, Joe Perches wrote:
->> On Mon, 2016-06-27 at 15:00 +0300, Andy Shevchenko wrote:
->>> On Mon, 2016-06-27 at 04:49 -0700, Joe Perches wrote:
->>>> On Mon, 2016-06-27 at 17:54 +0800, Yisen Zhuang wrote:
->>>>> From: Daode Huang <huangdaode@hisilicon.com>
->>>>>
->>>>> There are two approaches to assign data, one does 2 loops,
->>>>> another
->>>>> does 1 loop. This patch normalize the different methods to 1
->>>>> loop.
->>>> []
->>>>> diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
->>>>> b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
->>>> []
->>>>> @@ -2567,15 +2567,15 @@ static char
->>>>> *hns_dsaf_get_node_stats_strings(char *data, int node,
->>>>>   	buff += ETH_GSTRING_LEN;
->>>>>   	if (node < DSAF_SERVICE_NW_NUM && !is_ver1) {
->>>>>   		for (i = 0; i < DSAF_PRIO_NR; i++) {
->>>>> -			snprintf(buff, ETH_GSTRING_LEN,
->>>>> -				 "inod%d_pfc_prio%d_pkts",
->>>>> node,
->>>>> i);
->>>>> -			buff += ETH_GSTRING_LEN;
->>>>> -		}
->>>>> -		for (i = 0; i < DSAF_PRIO_NR; i++) {
->>>>> -			snprintf(buff, ETH_GSTRING_LEN,
->>>>> -				 "onod%d_pfc_prio%d_pkts",
->>>>> node,
->>>>> i);
->>>>> +			snprintf(buff + 0 * ETH_GSTRING_LEN *
->>>>> DSAF_PRIO_NR,
->>>>> +				 ETH_GSTRING_LEN,
->>>>> "inod%d_pfc_prio%d_pkts",
->>>>> +				 node, i);
->>>>> +			snprintf(buff + 1 * ETH_GSTRING_LEN *
->>>>> DSAF_PRIO_NR,
->>>>> +				 ETH_GSTRING_LEN,
->>>>> "onod%d_pfc_prio%d_pkts",
->>>>> +				 node, i);
->>>>>   			buff += ETH_GSTRING_LEN;
->>>> This looks odd and likely incorrect.
->>> Why? the idea is to print stats for Rx and Tx at once.
->>>
->>> I hope it was tested.
->> It changes the order of the strings in buff.
-> I don't see how.
-Hi Andy,
-The patch has been tested when sent out.
+Hi,
 
->> Is a bug fix or a style fix?
->>
->> If it's a bug fix, then it should likely be added
->> to the stable trees.
-> I doubt it's a bug fix.
+Nice work overall also I really appreciated that the core networking
+interfaces appear to able to support this without any change.
 
-Because the previous patch is accepted in net-next, and this set is
-an appendix to the series, in order to avoid merge conflict, we also
-send this bug fix to net-next.
+On this patch though do we really need modes like this? My concern with
+modes is two fold. One its another knob that some controller will have
+to get right which I would prefer to avoid. And two I suspect switching
+between the two modes flushes the tables or leaves them in some
+unexpected state? At least I can't figure out what the expected should
+be off-hand.
 
-thanks.
+Could we instead continue to use the "legacy" mode by default by just
+populating the fdb table correctly and then if users want to enable
+the "offloads" mode they can modify the fdb tables by deleting entries
+or adding them or just extending the dmac/vf mapping via 'tc'. This
+would seem natural to me. The flooding rules in fdb might need to be
+exposed a bit more cleanly to get the right default flooding behavior
+etc. But to me at least this would be much cleaner. Everything will be
+nicely defined and we wont have issues with drivers doing slightly
+and subtle different defaults between legacy/offload and the transitions
+between the states or on resets or etc. If users need to discover the
+current configuration then they just query fdb, query tc, and the state
+is known no need for any magic toggle switch as best I can see.
 
->
+Otherwise I didn't review the mlx code but read the commit msgs and
+it looks good. I'll take a closer look in the morning.
+
+Thanks,
+John
