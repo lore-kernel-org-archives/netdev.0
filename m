@@ -1,38 +1,53 @@
-From: Evgeniy Polyakov <zbr@ioremap.net>
-Subject: Re: [PATCH] connector: fix out-of-order cn_proc netlink message delivery
-Date: Tue, 28 Jun 2016 15:56:05 +0300
-Message-ID: <1710991467118565@web17j.yandex.ru>
-References: <1466773532-16596-1-git-send-email-aaron@monkey.org>
+From: "Machani, Yaniv" <yanivma@ti.com>
+Subject: RE: [PATCH 4/4] mac80211: sta_info: max_peers reached falsely
+Date: Tue, 28 Jun 2016 13:05:18 +0000
+Message-ID: <AE1C82FB3D0EC64DB1F752C81CBD1101391D5053@DFRE01.ent.ti.com>
+References: <20160628111307.8784-1-yanivma@ti.com>
+ <20160628111307.8784-2-yanivma@ti.com>
+ <20160628111307.8784-3-yanivma@ti.com>
+ <20160628111307.8784-4-yanivma@ti.com>
+ <20160628111307.8784-5-yanivma@ti.com> <20160628125621.GA9223@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Jon DeVree <nuxi@vault24.org>
-To: Aaron Campbell <aaron@monkey.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"Johannes Berg" <johannes@sipsolutions.net>,
+	"David S . Miller" <davem@davemloft.net>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Kama, Meirav" <meiravk@ti.com>
+To: Bob Copeland <me@bobcopeland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from forward2j.cmail.yandex.net ([5.255.227.20]:59969 "EHLO
-	forward2j.cmail.yandex.net" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752180AbcF1NDi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 09:03:38 -0400
-In-Reply-To: <1466773532-16596-1-git-send-email-aaron@monkey.org>
+Received: from devils.ext.ti.com ([198.47.26.153]:37993 "EHLO
+	devils.ext.ti.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752325AbcF1NFc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 09:05:32 -0400
+In-Reply-To: <20160628125621.GA9223@localhost>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Aaron
+On Tue, Jun 28, 2016 at 15:56:21, Bob Copeland wrote:
+> linux- wireless@vger.kernel.org; netdev@vger.kernel.org; Kama, Meirav
+> Subject: Re: [PATCH 4/4] mac80211: sta_info: max_peers reached falsely
+> 
+> On Tue, Jun 28, 2016 at 02:13:07PM +0300, Yaniv Machani wrote:
+> > From: Meirav Kama <meiravk@ti.com>
+> >
+> > Issue happened when receiving delete_sta command without changing 
+> > plink_state from ESTAB to HOLDING before.
+> > When receiving delete_sta command for mesh interface verify 
+> > plink_state is not ESTAB and if so, decrease plink count and update 
+> > beacon.
+> 
+> This should be fixed already (and properly) by the patch
+> "mac80211: Fix mesh estab links counting" -- please let us know if you 
+> have a case that's still broken with that fix.
+> 
 
-24.06.2016, 16:07, "Aaron Campbell" <aaron@monkey.org>:
-> The proc connector messages include a sequence number, allowing userspace
-> programs to detect lost messages. However, performing this detection is
-> currently more difficult than necessary, since netlink messages can be
-> delivered to the application out-of-order. To fix this, leave pre-emption
-> disabled during cn_netlink_send(), and use GFP_NOWAIT.
->
-> The following was written as a test case. Building the kernel w/ make -j32
-> proved a reliable way to generate out-of-order cn_proc messages.
+Thanks Bob,
+Will be dropped.
 
-This is not actually about out-of-order sending which is impossible iirc,
-but the way fork pushes messages into socket queue in parallel. What you've done
-is syncing one more layer higher.
-
-I'm not against this patch if you think it does fix some issues, but wording is not correct imo.
+Yaniv
+> --
+> Bob Copeland %% http://bobcopeland.com/
