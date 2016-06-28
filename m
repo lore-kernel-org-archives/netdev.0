@@ -1,79 +1,34 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: lpc_eth: use
- phy_ethtool_{get|set}_link_ksettings
-Date: Tue, 28 Jun 2016 23:59:45 +0200
-Message-ID: <1467151185-31403-2-git-send-email-tremyfr@gmail.com>
-References: <1467151185-31403-1-git-send-email-tremyfr@gmail.com>
+From: "Seymour, Shane M" <shane.seymour@hpe.com>
+Subject: RE: [PATCH net-next] tcp: increase size at which
+ tcp_bound_to_half_wnd bounds to > TCP_MSS_DEFAULT
+Date: Tue, 28 Jun 2016 21:54:46 +0000
+Message-ID: <CS1PR84MB02950F38FF1801E89612B9E4FD220@CS1PR84MB0295.NAMPRD84.PROD.OUTLOOK.COM>
+References: <CS1PR84MB0295E420892A535E40FE338EFD220@CS1PR84MB0295.NAMPRD84.PROD.OUTLOOK.COM>
+ <1467115090.6850.202.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- linux-arm-kernel@lists.infradead.org, Philippe Reynes <tremyfr@gmail.com>
-To: vz@mleia.com,
-	slemieux.tyco@gmail.com,
-	davem@davemloft.net
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1467151185-31403-1-git-send-email-tremyfr@gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-bn1bon0112.outbound.protection.outlook.com ([157.56.111.112]:25664
+	"EHLO na01-bn1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752395AbcF1WJs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jun 2016 18:09:48 -0400
+In-Reply-To: <1467115090.6850.202.camel@edumazet-glaptop3.roam.corp.google.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-so we can use them instead of defining the same code in the driver.
-
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/nxp/lpc_eth.c |   26 ++------------------------
- 1 files changed, 2 insertions(+), 24 deletions(-)
-
-diff --git a/drivers/net/ethernet/nxp/lpc_eth.c b/drivers/net/ethernet/nxp/lpc_eth.c
-index b003501..01b50ff 100644
---- a/drivers/net/ethernet/nxp/lpc_eth.c
-+++ b/drivers/net/ethernet/nxp/lpc_eth.c
-@@ -1245,35 +1245,13 @@ static void lpc_eth_ethtool_setmsglevel(struct net_device *ndev, u32 level)
- 	pldat->msg_enable = level;
- }
- 
--static int lpc_eth_ethtool_getsettings(struct net_device *ndev,
--	struct ethtool_cmd *cmd)
--{
--	struct phy_device *phydev = ndev->phydev;
--
--	if (!phydev)
--		return -EOPNOTSUPP;
--
--	return phy_ethtool_gset(phydev, cmd);
--}
--
--static int lpc_eth_ethtool_setsettings(struct net_device *ndev,
--	struct ethtool_cmd *cmd)
--{
--	struct phy_device *phydev = ndev->phydev;
--
--	if (!phydev)
--		return -EOPNOTSUPP;
--
--	return phy_ethtool_sset(phydev, cmd);
--}
--
- static const struct ethtool_ops lpc_eth_ethtool_ops = {
- 	.get_drvinfo	= lpc_eth_ethtool_getdrvinfo,
--	.get_settings	= lpc_eth_ethtool_getsettings,
--	.set_settings	= lpc_eth_ethtool_setsettings,
- 	.get_msglevel	= lpc_eth_ethtool_getmsglevel,
- 	.set_msglevel	= lpc_eth_ethtool_setmsglevel,
- 	.get_link	= ethtool_op_get_link,
-+	.get_link_ksettings = phy_ethtool_get_link_ksettings,
-+	.set_link_ksettings = phy_ethtool_set_link_ksettings,
- };
- 
- static const struct net_device_ops lpc_netdev_ops = {
--- 
-1.7.4.4
+PiBGcm9tOiBFcmljIER1bWF6ZXQgW21haWx0bzplcmljLmR1bWF6ZXRAZ21haWwuY29tXQ0KPiBU
+cnlpbmcgdG8gY29wZSB3aXRoIHJpZGljdWxvdXMgd2luZG93cyB0aGVzZSBkYXlzIGlzIHJlYWxs
+eSBhIHdhc3RlIG9mDQo+IHRpbWUsIGFzIHdlIHBlcmZvcm0gdGhpcyBjaGVjayBmb3IgYWxsIHRj
+cCBzZW5kbXNnKCkgY2FsbHMgOigNCg0KSSBkb24ndCBkaXNhZ3JlZSB3aXRoIHlvdSBidXQgdW5m
+b3J0dW5hdGVseSB0aGVyZSBhcmUgc3RpbGwgZGV2aWNlcw0Kb3V0IHRoZXJlIGxpa2UgdGhpcyBh
+bmQgcHJvYmFibHkgd2lsbCBiZSBmb3IgYSBsb25nIHRpbWUuDQoNCj4gQW55d2F5LCB5b3VyIHBh
+dGNoIGlzIHJldmVyc2VkLg0KDQpJJ20gbm90IHN1cmUgd2hhdCB5b3UgbWVhbiBieSByZXZlcnNl
+ZCwgSSBkaWRuJ3QgY2hhbmdlIHRoZSBkaXJlY3Rpb24NCm9mIHRoZSB0ZXN0IGluIHRoZSBjb2Rl
+IGp1c3Qgd2hhdCBpdCdzIGJlaW5nIGNvbXBhcmVkIGFnYWluc3QgYW5kIHNvDQppdCdzIGdyZWF0
+ZXIgdGhhbiBub3QgZ3JlYXRlciB0aGFuIG9yIGVxdWFsIHRvLg0KDQpVbmxlc3MgYXV0by1jb3Jy
+ZWN0aW9uIGNoYW5nZWQgcmV2aWV3ZWQgdG8gcmV2ZXJzZWQ/DQo=
