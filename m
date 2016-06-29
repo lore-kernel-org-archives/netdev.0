@@ -1,37 +1,62 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net 0/7] Mellanox 100G mlx5 fixes#2 for 4.7-rc
-Date: Wed, 29 Jun 2016 04:30:16 -0400 (EDT)
-Message-ID: <20160629.043016.1770660936415930624.davem@davemloft.net>
-References: <1467018518-11630-1-git-send-email-saeedm@mellanox.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com
-To: saeedm@mellanox.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39080 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751041AbcF2Iaq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 04:30:46 -0400
-In-Reply-To: <1467018518-11630-1-git-send-email-saeedm@mellanox.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Amir Levy <amir.jer.levy@intel.com>
+Subject: [PATCH v2 0/8] thunderbolt: Introducing Thunderbolt(TM) networking
+Date: Wed, 29 Jun 2016 11:35:28 +0300
+Message-ID: <1467189336-29556-1-git-send-email-amir.jer.levy@intel.com>
+Cc: linux-pci@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, thunderbolt-linux@intel.com,
+	mika.westerberg@intel.com, tomas.winkler@intel.com,
+	Amir Levy <amir.jer.levy@intel.com>
+To: andreas.noever@gmail.com, gregkh@linuxfoundation.org,
+	bhelgaas@google.com
+Return-path: <linux-pci-owner@vger.kernel.org>
+Sender: linux-pci-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Saeed Mahameed <saeedm@mellanox.com>
-Date: Mon, 27 Jun 2016 12:08:31 +0300
+This is version 2 of Thunderbolt(TM) driver for non-Apple hardware.
 
-> Hi Dave,
-> 
-> The following series provides one-liners fixes for mlx5 driver plus one
-> medium patch to reorganize ethtool counters reporting.
-> 
-> Highlights:
-> 	- Added MODIFY_FLOW_TABLE to command strings table
-> 	- Add ConnectX-5 PCIe 4.0 to list of supported devices
-> 	- Rename ASYNC_EVENTS enum
-> 	- Enable BlueFlame only when supported by device
-> 	- Avoid adding same vxlan port twice
-> 	- Report the correct number of PFC counters
-> 	- Reorganize ethtool reported counters and remove duplications
+Changes since v1:
+ - Separation to 2 modules.
+ - Moved ICM specific registers definition to ICM header file.
+ - Added new Thunderbolt device IDs.
+ - Renamed the Thunderbolt networking documentation.
+ - General cleanups
 
-Series applied, thanks.
+These patches were pushed to GitHub where they can be reviewed more
+comfortably with green/red highlighting:
+	https://github.com/01org/thunderbolt-software-kernel-tree
+
+Daemon code:
+	https://github.com/01org/thunderbolt-software-daemon
+
+For reference, here's a link to version 1:
+[v1]:	http://www.spinics.net/lists/linux-pci/msg51287.html
+
+Amir Levy (8):
+  thunderbolt: Macro rename
+  thunderbolt: Updating device IDs
+  thunderbolt: Updating the register definitions
+  thunderbolt: Kconfig for Thunderbolt(TM) networking
+  thunderbolt: Communication with the ICM (firmware)
+  thunderbolt: Networking state machine
+  thunderbolt: Networking transmit and receive
+  thunderbolt: Networking doc
+
+ Documentation/00-INDEX                   |    2 +
+ Documentation/thunderbolt-networking.txt |  135 ++
+ drivers/thunderbolt/Kconfig              |   25 +-
+ drivers/thunderbolt/Makefile             |    4 +-
+ drivers/thunderbolt/icm_nhi.c            | 1631 +++++++++++++++++++++
+ drivers/thunderbolt/icm_nhi.h            |   84 ++
+ drivers/thunderbolt/net.c                | 2277 ++++++++++++++++++++++++++++++
+ drivers/thunderbolt/net.h                |  274 ++++
+ drivers/thunderbolt/nhi_regs.h           |  115 +-
+ include/linux/pci_ids.h                  |   44 +-
+ 10 files changed, 4565 insertions(+), 26 deletions(-)
+ create mode 100644 Documentation/thunderbolt-networking.txt
+ create mode 100644 drivers/thunderbolt/icm_nhi.c
+ create mode 100644 drivers/thunderbolt/icm_nhi.h
+ create mode 100644 drivers/thunderbolt/net.c
+ create mode 100644 drivers/thunderbolt/net.h
+
+-- 
+2.7.4
