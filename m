@@ -1,24 +1,47 @@
-From: "George Spelvin" <linux-+7tBnqSOmQ59SlIZoIAWRdHuzzzSOjJt@public.gmane.org>
-Subject: Re: Doing crypto in small stack buffers (bluetooth vs vmalloc-stack crash, etc)
-Date: 29 Jun 2016 08:10:24 -0400
-Message-ID: <20160629121024.2497.qmail@ns.sciencehorizons.net>
-References: <20160629022049.GA23390@gondor.apana.org.au>
-Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, linux-+7tBnqSOmQ59SlIZoIAWRdHuzzzSOjJt@public.gmane.org
-Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160629022049.GA23390-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
-Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net v2] openvswitch: fix conntrack netlink
+ event delivery
+Date: Wed, 29 Jun 2016 08:16:53 -0400 (EDT)
+Message-ID: <20160629.081653.952362504263813618.davem@davemloft.net>
+References: <CAPWQB7HUqyK8EiTZagaxV=g_3An9meNgtBAOWUh_UVDgWwuoPQ@mail.gmail.com>
+ <1467127346-23743-1-git-send-email-samuel.gauthier@6wind.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, joestringer-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org,
+ netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, jpettit-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org
+To: samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1467127346-23743-1-git-send-email-samuel.gauthier-pdR9zngts4EAvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
->> Also not mentioned in the documentation is that some algorithms *do*
->> have different implementations depending on key size.  SHA-2 is the
->> classic example.
-
-> What do you mean by that? SHA has no keying at all.
-
-In this case, the analagous property is hash size.  Sorry, I thought
-that was so obvious I didn't need to say it.
-
-Specifically, SHA2-256 (and -224) and SHA2-512 (and -384) are separate
-algorithms with similar structures but deparate implementations.
+RnJvbTogU2FtdWVsIEdhdXRoaWVyIDxzYW11ZWwuZ2F1dGhpZXJANndpbmQuY29tPgpEYXRlOiBU
+dWUsIDI4IEp1biAyMDE2IDE3OjIyOjI2ICswMjAwCgo+IE9ubHkgdGhlIGZpcnN0IGFuZCBsYXN0
+IG5ldGxpbmsgbWVzc2FnZSBmb3IgYSBwYXJ0aWN1bGFyIGNvbm50cmFjayBhcmUKPiBhY3R1YWxs
+eSBzZW50LiBUaGUgZmlyc3QgbWVzc2FnZSBpcyBzZW50IHRocm91Z2ggbmZfY29ubnRyYWNrX2Nv
+bmZpcm0gd2hlbgo+IHRoZSBjb25udHJhY2sgaXMgY29tbWl0dGVkLiBUaGUgbGFzdCBvbmUgaXMg
+c2VudCB3aGVuIHRoZSBjb25udHJhY2sgaXMKPiBkZXN0cm95ZWQgb24gdGltZW91dC4gVGhlIG90
+aGVyIGNvbm50cmFjayBzdGF0ZSBjaGFuZ2UgbWVzc2FnZXMgYXJlIG5vdAo+IGFkdmVydGlzZWQu
+Cj4gCj4gV2hlbiB0aGUgY29ubnRyYWNrIHN1YnN5c3RlbSBpcyB1c2VkIGZyb20gbmV0ZmlsdGVy
+LCBuZl9jb25udHJhY2tfY29uZmlybQo+IGlzIGNhbGxlZCBmb3IgZWFjaCBwYWNrZXQsIGZyb20g
+dGhlIHBvc3Ryb3V0aW5nIGhvb2ssIHdoaWNoIGluIHR1cm4gY2FsbHMKPiBuZl9jdF9kZWxpdmVy
+X2NhY2hlZF9ldmVudHMgdG8gc2VuZCB0aGUgc3RhdGUgY2hhbmdlIG5ldGxpbmsgbWVzc2FnZXMu
+Cj4gCj4gVGhpcyBjb21taXQgZml4ZXMgdGhlIHByb2JsZW0gYnkgY2FsbGluZyBuZl9jdF9kZWxp
+dmVyX2NhY2hlZF9ldmVudHMgaW4gdGhlCj4gbm9uLWNvbW1pdCBjYXNlIGFzIHdlbGwuCj4gCj4g
+Rml4ZXM6IDdmOGE0MzZlYWEyYyAoIm9wZW52c3dpdGNoOiBBZGQgY29ubnRyYWNrIGFjdGlvbiIp
+Cj4gQ0M6IEpvZSBTdHJpbmdlciA8am9lc3RyaW5nZXJAbmljaXJhLmNvbT4KPiBDQzogSnVzdGlu
+IFBldHRpdCA8anBldHRpdEBuaWNpcmEuY29tPgo+IENDOiBBbmR5IFpob3UgPGF6aG91QG5pY2ly
+YS5jb20+Cj4gQ0M6IFRob21hcyBHcmFmIDx0Z3JhZkBzdXVnLmNoPgo+IFNpZ25lZC1vZmYtYnk6
+IFNhbXVlbCBHYXV0aGllciA8c2FtdWVsLmdhdXRoaWVyQDZ3aW5kLmNvbT4KCkFwcGxpZWQuCl9f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5n
+IGxpc3QKZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4v
+bGlzdGluZm8vZGV2Cg==
