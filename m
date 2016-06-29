@@ -1,110 +1,54 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v2 1/2] net: pktgen: support injecting packets for
- qdisc testing
-Date: Wed, 29 Jun 2016 13:03:06 -0700
-Message-ID: <20160629200306.16491.65359.stgit@john-Precision-Tower-5810>
+From: tndave <tushar.n.dave@oracle.com>
+Subject: Question on i40e PCIe relaxed ordering (RO)
+Date: Wed, 29 Jun 2016 13:05:59 -0700
+Message-ID: <57742A27.5040207@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jhs@mojatatu.com, brouer@redhat.com
+Cc: netdev <netdev@vger.kernel.org>
+To: intel-wired-lan@lists.osuosl.org,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:34997 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751975AbcF2UDc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 16:03:32 -0400
-Received: by mail-pa0-f67.google.com with SMTP id hf6so5146222pac.2
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 13:03:21 -0700 (PDT)
+Received: from userp1040.oracle.com ([156.151.31.81]:40112 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751845AbcF2UGh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 16:06:37 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add another xmit_mode to pktgen to allow testing xmit functionality
-of qdiscs. The new mode "queue_xmit" injects packets at
-__dev_queue_xmit() so that qdisc is called.
+Hi,
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- net/core/pktgen.c |   42 ++++++++++++++++++++++++++++++++++++++++--
- 1 file changed, 40 insertions(+), 2 deletions(-)
+Running iperf tcp test on 2 sparc systems with i40e connected back to
+back, I see huge number of 'port.rx_dropped' (on iperf server). Based on
+past experience with ixgbe, this could very well because of PCIe RO
+(relaxed ordering) not enabled.
 
-diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-index f74ab9c..4b3d467 100644
---- a/net/core/pktgen.c
-+++ b/net/core/pktgen.c
-@@ -213,6 +213,7 @@
- /* Xmit modes */
- #define M_START_XMIT		0	/* Default normal TX */
- #define M_NETIF_RECEIVE 	1	/* Inject packets into stack */
-+#define M_QUEUE_XMIT		2	/* Inject packet into qdisc */
- 
- /* If lock -- protects updating of if_list */
- #define   if_lock(t)           spin_lock(&(t->if_lock));
-@@ -626,6 +627,8 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
- 
- 	if (pkt_dev->xmit_mode == M_NETIF_RECEIVE)
- 		seq_puts(seq, "     xmit_mode: netif_receive\n");
-+	else if (pkt_dev->xmit_mode == M_QUEUE_XMIT)
-+		seq_puts(seq, "     xmit_mode: xmit_queue\n");
- 
- 	seq_puts(seq, "     Flags: ");
- 
-@@ -1142,8 +1145,10 @@ static ssize_t pktgen_if_write(struct file *file,
- 			return len;
- 
- 		i += len;
--		if ((value > 1) && (pkt_dev->xmit_mode == M_START_XMIT) &&
--		    (!(pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)))
-+		if ((value > 1) &&
-+		    ((pkt_dev->xmit_mode == M_QUEUE_XMIT) ||
-+		     ((pkt_dev->xmit_mode == M_START_XMIT) &&
-+		     (!(pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)))))
- 			return -ENOTSUPP;
- 		pkt_dev->burst = value < 1 ? 1 : value;
- 		sprintf(pg_result, "OK: burst=%d", pkt_dev->burst);
-@@ -1198,6 +1203,9 @@ static ssize_t pktgen_if_write(struct file *file,
- 			 * at module loading time
- 			 */
- 			pkt_dev->clone_skb = 0;
-+		} else if (strcmp(f, "queue_xmit") == 0) {
-+			pkt_dev->xmit_mode = M_QUEUE_XMIT;
-+			pkt_dev->last_ok = 1;
- 		} else {
- 			sprintf(pg_result,
- 				"xmit_mode -:%s:- unknown\nAvailable modes: %s",
-@@ -3434,6 +3442,36 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
- #endif
- 		} while (--burst > 0);
- 		goto out; /* Skips xmit_mode M_START_XMIT */
-+	} else if (pkt_dev->xmit_mode == M_QUEUE_XMIT) {
-+		local_bh_disable();
-+		atomic_add(burst, &pkt_dev->skb->users);
-+
-+		ret = dev_queue_xmit(pkt_dev->skb);
-+		switch (ret) {
-+		case NET_XMIT_SUCCESS:
-+			pkt_dev->sofar++;
-+			pkt_dev->seq_num++;
-+			pkt_dev->tx_bytes += pkt_dev->last_pkt_size;
-+			break;
-+		case NET_XMIT_DROP:
-+		case NET_XMIT_CN:
-+		/* These are all valid return codes for a qdisc but
-+		 * indicate packets are being dropped or will likely
-+		 * be dropped soon.
-+		 */
-+		case NETDEV_TX_BUSY:
-+		/* qdisc may call dev_hard_start_xmit directly in cases
-+		 * where no queues exist e.g. loopback device, virtual
-+		 * devices, etc. In this case we need to handle
-+		 * NETDEV_TX_ codes.
-+		 */
-+		default:
-+			pkt_dev->errors++;
-+			net_info_ratelimited("%s xmit error: %d\n",
-+					     pkt_dev->odevname, ret);
-+			break;
-+		}
-+		goto out;
- 	}
- 
- 	txq = skb_get_tx_queue(odev, pkt_dev->skb);
+I am trying to confirm RO is enabled. i40e datasheet mentioned RO
+settings in 3 different sections:
+
+1. section 10.2.2.2.38 PCIe Global Config 2 - GLPCI_CNF2 register
+contains global status fields of PCIe configuration. The bit 0 of the
+register is "RO_DIS". If this bit is set to 1 RO is disabled.
+
+RO_DIS in my setup is 0 imply RO is not disabled.
+
+2. section 12.3.5.5 Device Control Register (0xA8; RW) has bit 4
+that enable/disable RO. This is pcie cap register.
+
+In my i40e pcie config space value at offset 0xA8 is "2110". i.e 4th bit
+set to 1 imply RO is enabled.
+
+3. section 3.1.2.7.2 mentions some relaxed ordering rules
+e.g. "The GLLAN_RCTL.RXDESCRDROEN bit (loaded from NVM) enables relaxed
+ordering for Rx descriptor reads"
+
+However, GLLAN_RCTL register definition has not bit like RXDESCRDROEN.
+Same goes for GLLAN_TCTL.TXDESCRDROEN.
+
+Am I missing anything? please advise.
+
+Thanks.
+
+-Tushar
+
+(Ref:http://www.intel.com/content/dam/www/public/us/en/documents/datasheets/xl710-10-40-controller-datasheet.pdf)
