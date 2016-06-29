@@ -1,102 +1,199 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/15] igb: introduce ptp_flags variable and use it to replace IGB_FLAG_PTP
-Date: Wed, 29 Jun 2016 14:32:54 -0700
-Message-ID: <1467235982-55437-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 05/15] ixgbe: Fix deleting link filters for cls_u32 offloads
+Date: Wed, 29 Jun 2016 14:32:52 -0700
+Message-ID: <1467235982-55437-6-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1467235982-55437-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:37786 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:58211 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751830AbcF2VdH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jun 2016 17:33:07 -0400
+	id S1751721AbcF2VdG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jun 2016 17:33:06 -0400
 In-Reply-To: <1467235982-55437-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+From: Amritha Nambiar <amritha.nambiar@intel.com>
 
-Upcoming patches will introduce new PTP specific flags. To avoid
-cluttering the normal flags variable, introduce PTP specific "ptp_flags"
-variable for this purpose, and move IGB_FLAG_PTP to become
-IGB_PTP_ENABLED.
+On deleting filters which are links to a child hash table, the filters
+in the child hash table must be cleared from the hardware if there
+is no link between the parent and child hash table.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Verified with the following filters:
+
+Create a child hash table:
+	handle 1: u32 divisor 1
+
+Link to the child hash table from parent hash table:
+	handle 800:0:10 u32 ht 800: link 1: \
+	offset at 0 mask 0f00 shift 6 plus 0 eat \
+	match ip protocol 6 ff match ip dst 15.0.0.1/32
+
+Add filters into child hash table:
+	handle 1:0:2 u32 ht 1: \
+	match tcp src 22 ffff action drop
+        handle 1:0:3 u32 ht 1: \
+        match tcp src 33 ffff action drop
+
+Delete link filter from parent hash table:
+	handle 800:0:10 u32
+
+Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
+Acked-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/igb/igb.h     | 5 ++++-
- drivers/net/ethernet/intel/igb/igb_ptp.c | 7 ++++---
- 2 files changed, 8 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 75 +++++++++++++++++++++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_model.h |  4 ++
+ 2 files changed, 72 insertions(+), 7 deletions(-)
 
-diff --git a/drivers/net/ethernet/intel/igb/igb.h b/drivers/net/ethernet/intel/igb/igb.h
-index b9609af..1e18a9e 100644
---- a/drivers/net/ethernet/intel/igb/igb.h
-+++ b/drivers/net/ethernet/intel/igb/igb.h
-@@ -445,6 +445,7 @@ struct igb_adapter {
- 	unsigned long ptp_tx_start;
- 	unsigned long last_rx_ptp_check;
- 	unsigned long last_rx_timestamp;
-+	unsigned int ptp_flags;
- 	spinlock_t tmreg_lock;
- 	struct cyclecounter cc;
- 	struct timecounter tc;
-@@ -474,12 +475,14 @@ struct igb_adapter {
- 	u16 eee_advert;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+index 468fa9d..75e6855 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
+@@ -8300,14 +8300,50 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
+ static int ixgbe_delete_clsu32(struct ixgbe_adapter *adapter,
+ 			       struct tc_cls_u32_offload *cls)
+ {
++	u32 hdl = cls->knode.handle;
+ 	u32 uhtid = TC_U32_USERHTID(cls->knode.handle);
+-	u32 loc;
+-	int err;
++	u32 loc = cls->knode.handle & 0xfffff;
++	int err = 0, i, j;
++	struct ixgbe_jump_table *jump = NULL;
++
++	if (loc > IXGBE_MAX_HW_ENTRIES)
++		return -EINVAL;
+ 
+ 	if ((uhtid != 0x800) && (uhtid >= IXGBE_MAX_LINK_HANDLE))
+ 		return -EINVAL;
+ 
+-	loc = cls->knode.handle & 0xfffff;
++	/* Clear this filter in the link data it is associated with */
++	if (uhtid != 0x800) {
++		jump = adapter->jump_tables[uhtid];
++		if (jump)
++			clear_bit(loc - 1, jump->child_loc_map);
++	}
++
++	/* Check if the filter being deleted is a link */
++	for (i = 1; i < IXGBE_MAX_LINK_HANDLE; i++) {
++		jump = adapter->jump_tables[i];
++		if (jump && jump->link_hdl == hdl) {
++			/* Delete filters in the hardware in the child hash
++			 * table associated with this link
++			 */
++			for (j = 0; j < IXGBE_MAX_HW_ENTRIES; j++) {
++				if (!test_bit(j, jump->child_loc_map))
++					continue;
++				spin_lock(&adapter->fdir_perfect_lock);
++				err = ixgbe_update_ethtool_fdir_entry(adapter,
++								      NULL,
++								      j + 1);
++				spin_unlock(&adapter->fdir_perfect_lock);
++				clear_bit(j, jump->child_loc_map);
++			}
++			/* Remove resources for this link */
++			kfree(jump->input);
++			kfree(jump->mask);
++			kfree(jump);
++			adapter->jump_tables[i] = NULL;
++			return err;
++		}
++	}
+ 
+ 	spin_lock(&adapter->fdir_perfect_lock);
+ 	err = ixgbe_update_ethtool_fdir_entry(adapter, NULL, loc);
+@@ -8541,6 +8577,18 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 		if (!test_bit(link_uhtid - 1, &adapter->tables))
+ 			return err;
+ 
++		/* Multiple filters as links to the same hash table are not
++		 * supported. To add a new filter with the same next header
++		 * but different match/jump conditions, create a new hash table
++		 * and link to it.
++		 */
++		if (adapter->jump_tables[link_uhtid] &&
++		    (adapter->jump_tables[link_uhtid])->link_hdl) {
++			e_err(drv, "Link filter exists for link: %x\n",
++			      link_uhtid);
++			return err;
++		}
++
+ 		for (i = 0; nexthdr[i].jump; i++) {
+ 			if (nexthdr[i].o != cls->knode.sel->offoff ||
+ 			    nexthdr[i].s != cls->knode.sel->offshift ||
+@@ -8558,10 +8606,12 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 			mask = kzalloc(sizeof(*mask), GFP_KERNEL);
+ 			if (!mask) {
+ 				err = -ENOMEM;
+-				goto free_input;
++				goto err_out;
+ 			}
+ 			jump->input = input;
+ 			jump->mask = mask;
++			jump->link_hdl = cls->knode.handle;
++
+ 			err = ixgbe_clsu32_build_input(input, mask, cls,
+ 						       field_ptr, &nexthdr[i]);
+ 			if (!err) {
+@@ -8579,7 +8629,7 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 	mask = kzalloc(sizeof(*mask), GFP_KERNEL);
+ 	if (!mask) {
+ 		err = -ENOMEM;
+-		goto free_input;
++		goto err_out;
+ 	}
+ 
+ 	if ((uhtid != 0x800) && (adapter->jump_tables[uhtid])) {
+@@ -8620,14 +8670,25 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 		ixgbe_update_ethtool_fdir_entry(adapter, input, input->sw_idx);
+ 	spin_unlock(&adapter->fdir_perfect_lock);
+ 
++	if ((uhtid != 0x800) && (adapter->jump_tables[uhtid])) {
++		struct ixgbe_jump_table *link = adapter->jump_tables[uhtid];
++
++		if (test_bit(loc - 1, link->child_loc_map)) {
++			e_err(drv, "Filter: %x exists in hash table: %x\n",
++			      loc, uhtid);
++			err = -EINVAL;
++			goto free_mask;
++		}
++		set_bit(loc - 1, link->child_loc_map);
++	}
+ 	kfree(mask);
+ 	return err;
+ err_out_w_lock:
+ 	spin_unlock(&adapter->fdir_perfect_lock);
+ err_out:
+-	kfree(mask);
+-free_input:
+ 	kfree(input);
++free_mask:
++	kfree(mask);
+ free_jump:
+ 	kfree(jump);
+ 	return err;
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
+index a8bed3d..538a1c54 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
+@@ -42,8 +42,12 @@ struct ixgbe_jump_table {
+ 	struct ixgbe_mat_field *mat;
+ 	struct ixgbe_fdir_filter *input;
+ 	union ixgbe_atr_input *mask;
++	u32 link_hdl;
++	unsigned long child_loc_map[32];
  };
  
-+/* flags controlling PTP/1588 function */
-+#define IGB_PTP_ENABLED		BIT(0)
++#define IXGBE_MAX_HW_ENTRIES 2045
 +
- #define IGB_FLAG_HAS_MSI		BIT(0)
- #define IGB_FLAG_DCA_ENABLED		BIT(1)
- #define IGB_FLAG_QUAD_PORT_A		BIT(2)
- #define IGB_FLAG_QUEUE_PAIRS		BIT(3)
- #define IGB_FLAG_DMAC			BIT(4)
--#define IGB_FLAG_PTP			BIT(5)
- #define IGB_FLAG_RSS_FIELD_IPV4_UDP	BIT(6)
- #define IGB_FLAG_RSS_FIELD_IPV6_UDP	BIT(7)
- #define IGB_FLAG_WOL_SUPPORTED		BIT(8)
-diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
-index f097c5a..504102b 100644
---- a/drivers/net/ethernet/intel/igb/igb_ptp.c
-+++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
-@@ -684,6 +684,7 @@ void igb_ptp_rx_hang(struct igb_adapter *adapter)
- 	u32 tsyncrxctl = rd32(E1000_TSYNCRXCTL);
- 	unsigned long rx_event;
- 
-+	/* Other hardware uses per-packet timestamps */
- 	if (hw->mac.type != e1000_82576)
- 		return;
- 
-@@ -1156,7 +1157,7 @@ void igb_ptp_init(struct igb_adapter *adapter)
- 	} else {
- 		dev_info(&adapter->pdev->dev, "added PHC on %s\n",
- 			 adapter->netdev->name);
--		adapter->flags |= IGB_FLAG_PTP;
-+		adapter->ptp_flags |= IGB_PTP_ENABLED;
- 	}
- }
- 
-@@ -1194,7 +1195,7 @@ void igb_ptp_stop(struct igb_adapter *adapter)
- 		ptp_clock_unregister(adapter->ptp_clock);
- 		dev_info(&adapter->pdev->dev, "removed PHC on %s\n",
- 			 adapter->netdev->name);
--		adapter->flags &= ~IGB_FLAG_PTP;
-+		adapter->ptp_flags &= ~IGB_PTP_ENABLED;
- 	}
- }
- 
-@@ -1209,7 +1210,7 @@ void igb_ptp_reset(struct igb_adapter *adapter)
- 	struct e1000_hw *hw = &adapter->hw;
- 	unsigned long flags;
- 
--	if (!(adapter->flags & IGB_FLAG_PTP))
-+	if (!(adapter->ptp_flags & IGB_PTP_ENABLED))
- 		return;
- 
- 	/* reset the tstamp_config */
+ static inline int ixgbe_mat_prgm_sip(struct ixgbe_fdir_filter *input,
+ 				     union ixgbe_atr_input *mask,
+ 				     u32 val, u32 m)
 -- 
 2.5.5
