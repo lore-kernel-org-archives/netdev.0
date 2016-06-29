@@ -1,46 +1,65 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/15] fm10k: don't use BIT() macro where the value isn't a bitmask
-Date: Wed, 29 Jun 2016 14:32:48 -0700
-Message-ID: <1467235982-55437-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1467235982-55437-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
-	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH] ipv4: Fix ip_skb_dst_mtu to use the sk passed by
+ ip_finish_output
+Date: Wed, 29 Jun 2016 23:42:06 +0200
+Message-ID: <1467236526.2907671.652444929.21883A96@webmail.messagingengine.com>
+References: <1467226023-4168-1-git-send-email-shmulik.ladkani@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andy Zhou <azhou@ovn.org>,
+	Stephen Hemminger <stephen@networkplumber.org>,
+	netdev@vger.kernel.org
+To: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
+	"David S . Miller" <davem@davemloft.net>,
+	Hannes Frederic Sowa <hannes@redhat.com>,
+	Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:3817 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751728AbcF2VdG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jun 2016 17:33:06 -0400
-In-Reply-To: <1467235982-55437-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:48490 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751499AbcF2VmI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 17:42:08 -0400
+In-Reply-To: <1467226023-4168-1-git-send-email-shmulik.ladkani@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jacob Keller <jacob.e.keller@intel.com>
+On Wed, Jun 29, 2016, at 20:47, Shmulik Ladkani wrote:
+> ip_skb_dst_mtu uses skb->sk, assuming it is an AF_INET socket (e.g. it
+> calls ip_sk_use_pmtu which casts sk as an inet_sk).
+> 
+> However, in the case of UDP tunneling, the skb->sk is not necessarily an
+> inet socket (could be AF_PACKET socket, or AF_UNSPEC if arriving from
+> tun/tap).
+> 
+> OTOH, the sk passed as an argument throughout IP stack's output path is
+> the one which is of PMTU interest:
+>  - In case of local sockets, sk is same as skb->sk;
+>  - In case of a udp tunnel, sk is the tunneling socket.
+> 
+> Fix, by passing ip_finish_output's sk to ip_skb_dst_mtu.
+> This augments 7026b1ddb6 'netfilter: Pass socket pointer down through
+> okfn().'
+> 
+> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+> ---
+> 
+> Discovered while debugging other issue in adjacent code area.
+> 
+> My setup seems to be handling this well; However I'd appreciate a
+> Tested-by or Reviewed-by as one can only cover relatively few of the
+> possible code flows leading to ip_skb_dst_mtu.
 
-The FM10K_MAX_DATA_PER_TXD is really just using a bitshift as a power of
-2 operation in an efficient manner. We shouldn't represent this as a BIT()
-because that obscures the intention of the operation.
+Well spotted.
 
-Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
-Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/fm10k/fm10k.h | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+It all looks good, the socket's pmtudisc field is initialized
+accordingly and I suspect people want to have vxlan to use the path mtu
+when transmitting packets, even during forwarding.
 
-diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
-index fcf106e..e98b86b 100644
---- a/drivers/net/ethernet/intel/fm10k/fm10k.h
-+++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
-@@ -406,7 +406,7 @@ static inline u16 fm10k_desc_unused(struct fm10k_ring *ring)
- 	 (&(((union fm10k_rx_desc *)((R)->desc))[i]))
- 
- #define FM10K_MAX_TXD_PWR	14
--#define FM10K_MAX_DATA_PER_TXD	BIT(FM10K_MAX_TXD_PWR)
-+#define FM10K_MAX_DATA_PER_TXD	(1u << FM10K_MAX_TXD_PWR)
- 
- /* Tx Descriptors needed, worst case */
- #define TXD_USE_COUNT(S)	DIV_ROUND_UP((S), FM10K_MAX_DATA_PER_TXD)
--- 
-2.5.5
+Maybe this can be tweaked with an additional patch, if people want to
+change this behavior.
+
+But as your patch doesn't change any of this,
+
+Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
+
+Thanks!
