@@ -1,124 +1,90 @@
-From: Masanari Iida <standby24x7-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH] [linux-next] rtlwifi: Fix typo in printk
-Date: Wed, 29 Jun 2016 12:37:19 +0900
-Message-ID: <20160629033719.13215-1-standby24x7@gmail.com>
-Cc: Masanari Iida <standby24x7-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, trivial-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	Jes.Sorensen-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net] e1000e: keep VLAN interfaces functional after rxvlan off
+Date: Tue, 28 Jun 2016 20:41:31 -0700
+Message-ID: <1467171691-54525-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jarod Wilson <jarod@redhat.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga01.intel.com ([192.55.52.88]:56233 "EHLO mga01.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752509AbcF2DmB (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 28 Jun 2016 23:42:01 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch fix spelling typos found in drivers/net/wireless/realtek.
+From: Jarod Wilson <jarod@redhat.com>
 
-Signed-off-by: Masanari Iida <standby24x7-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+I've got a bug report about an e1000e interface, where a VLAN interface is
+set up on top of it:
+
+$ ip link add link ens1f0 name ens1f0.99 type vlan id 99
+$ ip link set ens1f0 up
+$ ip link set ens1f0.99 up
+$ ip addr add 192.168.99.92 dev ens1f0.99
+
+At this point, I can ping another host on vlan 99, ip 192.168.99.91.
+However, if I do the following:
+
+$ ethtool -K ens1f0 rxvlan off
+
+Then no traffic passes on ens1f0.99. It comes back if I toggle rxvlan on
+again. I'm not sure if this is actually intended behavior, or if there's a
+lack of software VLAN stripping fallback, or what, but things continue to
+work if I simply don't call e1000e_vlan_strip_disable() if there are
+active VLANs (plagiarizing a function from the e1000 driver here) on the
+interface.
+
+Also slipped a related-ish fix to the kerneldoc text for
+e1000e_vlan_strip_disable here...
+
+Signed-off-by: Jarod Wilson <jarod@redhat.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/wireless/realtek/rtlwifi/rtl8188ee/phy.c       | 2 +-
- drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c | 2 +-
- drivers/net/wireless/realtek/rtlwifi/rtl8192ee/dm.c        | 2 +-
- drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c       | 2 +-
- drivers/net/wireless/realtek/rtlwifi/rtl8723ae/phy.c       | 2 +-
- drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c        | 2 +-
- drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c       | 2 +-
- 7 files changed, 7 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/e1000e/netdev.c | 15 +++++++++++++--
+ 1 file changed, 13 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/phy.c
-index 416a9ba6382e..422c7813f5ee 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/phy.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/phy.c
-@@ -1239,7 +1239,7 @@ u8 rtl88e_phy_sw_chnl(struct ieee80211_hw *hw)
- 	if (!(is_hal_stop(rtlhal)) && !(RT_CANNOT_IO(hw))) {
- 		rtl88e_phy_sw_chnl_callback(hw);
- 		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
--			 "sw_chnl_inprogress false schdule workitem current channel %d\n",
-+			 "sw_chnl_inprogress false schedule workitem current channel %d\n",
- 			 rtlphy->current_channel);
- 		rtlphy->sw_chnl_inprogress = false;
- 	} else {
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c
-index 77e61b19bf36..9301583ce768 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c
-@@ -757,7 +757,7 @@ u8 rtl92c_phy_sw_chnl(struct ieee80211_hw *hw)
- 	if (!(is_hal_stop(rtlhal)) && !(RT_CANNOT_IO(hw))) {
- 		rtl92c_phy_sw_chnl_callback(hw);
- 		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
--			 "sw_chnl_inprogress false schdule workitem\n");
-+			 "sw_chnl_inprogress false schedule workitem\n");
- 		rtlphy->sw_chnl_inprogress = false;
- 	} else {
- 		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/dm.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/dm.c
-index 459f3d0efa2f..0a5c9fcfe73b 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/dm.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/dm.c
-@@ -496,7 +496,7 @@ static void rtl92ee_dm_find_minimum_rssi(struct ieee80211_hw *hw)
- 		rtl_dm_dig->min_undec_pwdb_for_dm =
- 			rtlpriv->dm.entry_min_undec_sm_pwdb;
- 		RT_TRACE(rtlpriv, COMP_BB_POWERSAVING, DBG_LOUD,
--			 "AP Ext Port or disconnet PWDB = 0x%x\n",
-+			 "AP Ext Port or disconnect PWDB = 0x%x\n",
- 			 rtl_dm_dig->min_undec_pwdb_for_dm);
- 	}
- 	RT_TRACE(rtlpriv, COMP_DIG, DBG_LOUD,
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
-index c2bf8d1a7af3..97d9a8e209f1 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
-@@ -1819,7 +1819,7 @@ u8 rtl92ee_phy_sw_chnl(struct ieee80211_hw *hw)
- 	if (!(is_hal_stop(rtlhal)) && !(RT_CANNOT_IO(hw))) {
- 		rtl92ee_phy_sw_chnl_callback(hw);
- 		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
--			 "sw_chnl_inprogress false schdule workitem current channel %d\n",
-+			 "sw_chnl_inprogress false schedule workitem current channel %d\n",
- 			 rtlphy->current_channel);
- 		rtlphy->sw_chnl_inprogress = false;
- 	} else {
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/phy.c
-index d367097f490b..e9a9bbf44966 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/phy.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/phy.c
-@@ -893,7 +893,7 @@ u8 rtl8723e_phy_sw_chnl(struct ieee80211_hw *hw)
- 	if (!(is_hal_stop(rtlhal)) && !(RT_CANNOT_IO(hw))) {
- 		rtl8723e_phy_sw_chnl_callback(hw);
- 		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
--			 "sw_chnl_inprogress false schdule workitem\n");
-+			 "sw_chnl_inprogress false schedule workitem\n");
- 		rtlphy->sw_chnl_inprogress = false;
- 	} else {
- 		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c
-index 08288ac9020a..97ae14d48840 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c
-@@ -1474,7 +1474,7 @@ static enum version_8723e _rtl8723be_read_chip_version(struct ieee80211_hw *hw)
+diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
+index 75e6089..73f7452 100644
+--- a/drivers/net/ethernet/intel/e1000e/netdev.c
++++ b/drivers/net/ethernet/intel/e1000e/netdev.c
+@@ -154,6 +154,16 @@ void __ew32(struct e1000_hw *hw, unsigned long reg, u32 val)
+ 	writel(val, hw->hw_addr + reg);
+ }
  
- 	value32 = rtl_read_dword(rtlpriv, REG_SYS_CFG1);
- 	if ((value32 & (CHIP_8723B)) != CHIP_8723B)
--		RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD, "unkown chip version\n");
-+		RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD, "unknown chip version\n");
++static bool e1000e_vlan_used(struct e1000_adapter *adapter)
++{
++	u16 vid;
++
++	for_each_set_bit(vid, adapter->active_vlans, VLAN_N_VID)
++		return true;
++
++	return false;
++}
++
+ /**
+  * e1000_regdump - register printout routine
+  * @hw: pointer to the HW structure
+@@ -2789,7 +2799,7 @@ static void e1000e_vlan_filter_enable(struct e1000_adapter *adapter)
+ }
+ 
+ /**
+- * e1000e_vlan_strip_enable - helper to disable HW VLAN stripping
++ * e1000e_vlan_strip_disable - helper to disable HW VLAN stripping
+  * @adapter: board private structure to initialize
+  **/
+ static void e1000e_vlan_strip_disable(struct e1000_adapter *adapter)
+@@ -3443,7 +3453,8 @@ static void e1000e_set_rx_mode(struct net_device *netdev)
+ 
+ 	ew32(RCTL, rctl);
+ 
+-	if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX)
++	if (netdev->features & NETIF_F_HW_VLAN_CTAG_RX ||
++	    e1000e_vlan_used(adapter))
+ 		e1000e_vlan_strip_enable(adapter);
  	else
- 		version = (enum version_8723e)CHIP_8723B;
- 
-diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c
-index c5ca9dfb445c..dbe7c1eb0085 100644
---- a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c
-+++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c
-@@ -1395,7 +1395,7 @@ u8 rtl8723be_phy_sw_chnl(struct ieee80211_hw *hw)
- 	if (!(is_hal_stop(rtlhal)) && !(RT_CANNOT_IO(hw))) {
- 		rtl8723be_phy_sw_chnl_callback(hw);
- 		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
--			 "sw_chnl_inprogress false schdule workitem current channel %d\n",
-+			 "sw_chnl_inprogress false schedule workitem current channel %d\n",
- 			 rtlphy->current_channel);
- 		rtlphy->sw_chnl_inprogress = false;
- 	} else {
+ 		e1000e_vlan_strip_disable(adapter);
 -- 
-2.9.0.137.gcf4c2cf
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+2.5.5
