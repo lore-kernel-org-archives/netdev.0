@@ -1,54 +1,52 @@
-From: tndave <tushar.n.dave@oracle.com>
-Subject: Question on i40e PCIe relaxed ordering (RO)
-Date: Wed, 29 Jun 2016 13:05:59 -0700
-Message-ID: <57742A27.5040207@oracle.com>
+From: Jon Mason <jon.mason@broadcom.com>
+Subject: Re: [RFC 3/7] net: ethernet: bgmac: move BCMA MDIO Phy code into a
+ separate file
+Date: Wed, 29 Jun 2016 16:08:20 -0400
+Message-ID: <CAC3K-4p9z5pmxmga_ssZ_VA6RNFD5dTTCvms=KJMWvZDVxtNqw@mail.gmail.com>
+References: <1467142484-11161-1-git-send-email-jon.mason@broadcom.com>
+ <1467142484-11161-4-git-send-email-jon.mason@broadcom.com>
+ <20160629141324.GA24194@lunn.ch> <577414F0.3060609@gmail.com> <20160629184618.GC7480@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: intel-wired-lan@lists.osuosl.org,
-	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Florian Fainelli <f.fainelli@gmail.com>,
+	=?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	davem@davemloft.net, Hauke Mehrtens <hauke@hauke-m.de>,
+	BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:40112 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751845AbcF2UGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 16:06:37 -0400
+Received: from mail-it0-f50.google.com ([209.85.214.50]:36939 "EHLO
+	mail-it0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751669AbcF2UIg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 16:08:36 -0400
+Received: by mail-it0-f50.google.com with SMTP id f6so50664360ith.0
+        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 13:08:21 -0700 (PDT)
+In-Reply-To: <20160629184618.GC7480@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+On Wed, Jun 29, 2016 at 2:46 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+> On Wed, Jun 29, 2016 at 11:35:28AM -0700, Florian Fainelli wrote:
+>> On 06/29/2016 07:13 AM, Andrew Lunn wrote:
+>> > Hi Jon
+>> >
+>> > I know you are just refactoring code, but at some point it would be
+>> > good to take a closer look at this MDIO bus driver.
+>
+>> And, to re-iterate all of your points are valid, but this is premature
+>
+> We agree then :-)
+>
+>    Andrew
 
-Running iperf tcp test on 2 sparc systems with i40e connected back to
-back, I see huge number of 'port.rx_dropped' (on iperf server). Based on
-past experience with ixgbe, this could very well because of PCIe RO
-(relaxed ordering) not enabled.
+I also agree with all of your points, but hope this is not something
+that would prevent this patch series from being acceptable.  It could
+be quite an effort to try and properly document the code and what it
+is doing, get HW to verify the assumptions from the documentation (as
+the MIPS HW was done by a different group, no hardware is available,
+etc), relocate the code to the drivers/net/phy and add a standard
+interface.  From your original comment, I believe that you agree that
+this additional effort is not necessary at this point in time.
 
-I am trying to confirm RO is enabled. i40e datasheet mentioned RO
-settings in 3 different sections:
-
-1. section 10.2.2.2.38 PCIe Global Config 2 - GLPCI_CNF2 register
-contains global status fields of PCIe configuration. The bit 0 of the
-register is "RO_DIS". If this bit is set to 1 RO is disabled.
-
-RO_DIS in my setup is 0 imply RO is not disabled.
-
-2. section 12.3.5.5 Device Control Register (0xA8; RW) has bit 4
-that enable/disable RO. This is pcie cap register.
-
-In my i40e pcie config space value at offset 0xA8 is "2110". i.e 4th bit
-set to 1 imply RO is enabled.
-
-3. section 3.1.2.7.2 mentions some relaxed ordering rules
-e.g. "The GLLAN_RCTL.RXDESCRDROEN bit (loaded from NVM) enables relaxed
-ordering for Rx descriptor reads"
-
-However, GLLAN_RCTL register definition has not bit like RXDESCRDROEN.
-Same goes for GLLAN_TCTL.TXDESCRDROEN.
-
-Am I missing anything? please advise.
-
-Thanks.
-
--Tushar
-
-(Ref:http://www.intel.com/content/dam/www/public/us/en/documents/datasheets/xl710-10-40-controller-datasheet.pdf)
+Thanks,
+Jon
