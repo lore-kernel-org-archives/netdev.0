@@ -1,63 +1,116 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] [v6] net: emac: emac gigabit ethernet controller driver
-Date: Wed, 29 Jun 2016 21:45:37 +0200
-Message-ID: <11472258.9SNjZdPb6l@wuerfel>
-References: <1466812008-26686-1-git-send-email-timur@codeaurora.org> <3914163.aNiIdzedWT@wuerfel> <5773ED4F.4050401@codeaurora.org>
+From: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>
+Subject: [PATCH 1/2] brcmfmac: delete interface directly in code that sent fw request
+Date: Wed, 29 Jun 2016 21:54:26 +0200
+Message-ID: <1467230067-3302-2-git-send-email-zajec5@gmail.com>
+References: <1466353420-30998-1-git-send-email-zajec5@gmail.com>
+ <1467230067-3302-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	shankerd@codeaurora.org, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
-	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
-	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net,
-	f.fainelli@gmail.com, catalin.marinas@arm.com
-To: Timur Tabi <timur@codeaurora.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Arend van Spriel <arend.vanspriel@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	Hante Meuleman <hante.meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	brcm80211-dev-list.pdl@broadcom.com (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.130]:62083 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752432AbcF2TuJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 15:50:09 -0400
-In-Reply-To: <5773ED4F.4050401@codeaurora.org>
+Received: from mail-lf0-f65.google.com ([209.85.215.65]:35818 "EHLO
+	mail-lf0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751839AbcF2TzP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 15:55:15 -0400
+In-Reply-To: <1467230067-3302-1-git-send-email-zajec5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, June 29, 2016 10:46:23 AM CEST Timur Tabi wrote:
-> Arnd Bergmann wrote:
-> > Usually drivers try 64-bit mask and 32-bit masks, and the 32 bit
-> > mask is practically guaranteed to succeed.
-> 
-> Sure, but in theory, my for-loop is correct, right?  Wouldn't there be 
-> some value in setting a 36-bit or 40-bit DMA mask if it works?  We have 
-> a platform where memory starts at a 40-bit address, so some devices have 
-> a 44-bit address bus.  If a 64-bit mask doesn't work, then a 32-bit mask 
-> certainly wont.
+So far when receiving event about in-firmware-interface removal our
+event worker was notifying listener and afterwards it was removing Linu=
+x
+interface.
 
-The question is whether it makes any difference to the driver: what decision
-does the driver make differently if it has set a 44-bit mask?
+=46irst of all it was resulting in slightly unexpected order. The liste=
+ner
+(del_virtual_intf callback) was (usually) returning with success before
+we even called unregister_netdev(ice).
 
-We don't have ZONE_DMA44 (and it's very unlikely that we will introduce
-it), so neither the driver nor the network stack can actually act on the
-fact that a 64-bit mask failed but a 44-bit mask succeeded.
+Please note this couldn't be simply fixed by changing order of calls in
+brcmf_fweh_handle_if_event as unregistering interface earlier could fre=
+e
+struct brcmf_if.
 
-> > Platforms will also allow allow the driver to set a mask that
-> > is larger than what the bus supports, as long as all RAM is
-> > reachable by the bus.
-> 
-> And that check (like all others) is made in the dma_set_mask call?
+Another problem of current implementation are possible lockups. Focus o=
+n
+the time slot between calling event handler and removing Linux
+interface. During that time original caller may leave (unlocking rtnl
+semaphore) *and* another call to the same code may be done (locking it
+again). If that happens our event handler will stuck at removing Linux
+interface, it won't handle another event and will block process holding
+rtnl lock.
 
-Yes. Regarding the system you mentioned: I understand that it has
-no memory in ZONE_DMA32 and no IOMMU (btw, that also means 32-bit
-PCI devices are fundamentally broken), and the bus can only address
-the lower 44 bit of address space.
+This can be simply solved by unregistering interface in a proper
+callback, right after receiving confirmation event from firmware. This
+only required modifying worker to don't unregister on its own if there
+is someone waiting for the event.
 
-Does this system support more than 15TB of RAM? If not, then there
-is no problem, and if it  does, I think your best way out is not
-to disable SWIOTLB. That will be a slower compared to a system
-with an IOMMU or the fictional ZONE_DMA44, but it should work
-correctly. In either case (less than 15TB without swiotlb, or
-more than 15TB with swiotlb), the driver should just ask for
-a 64-bit mask and that will succeed.
+Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+---
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/fweh.c | 10 ++++++++-=
+-
+ drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c  |  3 +--
+ 2 files changed, 9 insertions(+), 4 deletions(-)
 
-	Arnd
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fweh.c b/=
+drivers/net/wireless/broadcom/brcm80211/brcmfmac/fweh.c
+index 9da7a4c..79c081f 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fweh.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/fweh.c
+@@ -18,6 +18,7 @@
+ #include "brcmu_wifi.h"
+ #include "brcmu_utils.h"
+=20
++#include "cfg80211.h"
+ #include "core.h"
+ #include "debug.h"
+ #include "tracepoint.h"
+@@ -182,8 +183,13 @@ static void brcmf_fweh_handle_if_event(struct brcm=
+f_pub *drvr,
+=20
+ 	err =3D brcmf_fweh_call_event_handler(ifp, emsg->event_code, emsg, da=
+ta);
+=20
+-	if (ifp && ifevent->action =3D=3D BRCMF_E_IF_DEL)
+-		brcmf_remove_interface(ifp, false);
++	if (ifp && ifevent->action =3D=3D BRCMF_E_IF_DEL) {
++		bool armed =3D brcmf_cfg80211_vif_event_armed(drvr->config);
++
++		/* Default handling in case no-one waits for this event */
++		if (!armed)
++			brcmf_remove_interface(ifp, false);
++	}
+ }
+=20
+ /**
+diff --git a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c b/d=
+rivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+index f6241fd..66f942f 100644
+--- a/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
++++ b/drivers/net/wireless/broadcom/brcm80211/brcmfmac/p2p.c
+@@ -2288,8 +2288,7 @@ int brcmf_p2p_del_vif(struct wiphy *wiphy, struct=
+ wireless_dev *wdev)
+ 		else
+ 			err =3D 0;
+ 	}
+-	if (err)
+-		brcmf_remove_interface(vif->ifp, true);
++	brcmf_remove_interface(vif->ifp, true);
+=20
+ 	brcmf_cfg80211_arm_vif_event(cfg, NULL);
+ 	if (vif->wdev.iftype !=3D NL80211_IFTYPE_P2P_DEVICE)
+--=20
+1.8.4.5
