@@ -1,34 +1,37 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v3] net: ethernet: ti: cpdma: switch to use genalloc
-Date: Wed, 29 Jun 2016 04:19:11 -0400 (EDT)
-Message-ID: <20160629.041911.971288115210875782.davem@davemloft.net>
-References: <20160627090511.27487-1-grygorii.strashko@ti.com>
+Subject: Re: [PATCH net 0/7] Mellanox 100G mlx5 fixes#2 for 4.7-rc
+Date: Wed, 29 Jun 2016 04:30:16 -0400 (EDT)
+Message-ID: <20160629.043016.1770660936415930624.davem@davemloft.net>
+References: <1467018518-11630-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com, nsekhar@ti.com,
-	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
-	ivan.khoronzhuk@linaro.org, lsorense@csclub.uwaterloo.ca,
-	afzal.mohd.ma@gmail.com
-To: grygorii.strashko@ti.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160627090511.27487-1-grygorii.strashko@ti.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com
+To: saeedm@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39080 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751041AbcF2Iaq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 04:30:46 -0400
+In-Reply-To: <1467018518-11630-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Grygorii Strashko <grygorii.strashko@ti.com>
-Date: Mon, 27 Jun 2016 12:05:11 +0300
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Mon, 27 Jun 2016 12:08:31 +0300
 
-> TI CPDMA currently uses a bitmap for tracking descriptors alloactions
-> allocations, but The genalloc already handles the same and can be used
-> as with special memory (SRAM) as with DMA cherent memory chank
-> (dma_alloc_coherent()). Hence, switch to using genalloc and add
-> desc_num property for each channel for limitation of max number of
-> allowed descriptors for each CPDMA channel. This patch do not affect
-> on net throuput.
+> Hi Dave,
 > 
-> Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
-> Tested-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
+> The following series provides one-liners fixes for mlx5 driver plus one
+> medium patch to reorganize ethtool counters reporting.
+> 
+> Highlights:
+> 	- Added MODIFY_FLOW_TABLE to command strings table
+> 	- Add ConnectX-5 PCIe 4.0 to list of supported devices
+> 	- Rename ASYNC_EVENTS enum
+> 	- Enable BlueFlame only when supported by device
+> 	- Avoid adding same vxlan port twice
+> 	- Report the correct number of PFC counters
+> 	- Reorganize ethtool reported counters and remove duplications
 
-Applied, thanks.
+Series applied, thanks.
