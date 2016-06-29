@@ -1,104 +1,60 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 00/16][pull request] 40GbE Intel Wired LAN Driver Updates 2016-06-27
-Date: Tue, 28 Jun 2016 21:40:46 -0700
-Message-ID: <1467175262-54719-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Jeff Kirsher <jeffrey.t.kirsher@intel.com>, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+Subject: [net-next 10/16] i40e: Fix RSS to not be limited by the number of CPUs
+Date: Tue, 28 Jun 2016 21:40:56 -0700
+Message-ID: <1467175262-54719-11-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1467175262-54719-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Catherine Sullivan <catherine.sullivan@intel.com>,
+	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:52537 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:22102 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752664AbcF2EoT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jun 2016 00:44:19 -0400
+	id S1751266AbcF2EnS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jun 2016 00:43:18 -0400
+In-Reply-To: <1467175262-54719-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This series contains updates to i40e and i40evf only.
+From: Catherine Sullivan <catherine.sullivan@intel.com>
 
-Mitch provides several changes, first adds functions to enable and disable
-VSI on a VEB, which allows for configuration of limited promiscuous mode
-specifically for bridging purposes.  Sets the RSS Hash Enable registers by
-default now that VF RSS is configured by the PF driver.  Fixed a issue
-where we could overflow the buffer, by checking the address count and bail
-out of the loop at the appropriate time.  Removed the need for a reset
-when the device enters limited promiscuous mode, since this was causing
-heartburn for people who were using VFs and bridging.
+Limiting qcount to pf->num_lan_msix, effectively limits the RSS queues
+to only use the number of CPUs, and ignore all other queues. We don't
+want to do this. If the user has changed the RSS settings to use more
+queues then CPUS, we want to trust they know what they are doing and
+let them. More importantly, if we tell them that is what we did, we want
+to actually do it and allow traffic into all of the queues we have
+allocated. This does not change the default setting to initially
+allocate only the number of CPUS of queue pairs.
 
-Catherine adds a call to set the client interface down when we put the VSI
-down.  Fixed an issue where RSS queues was being limited to the number
-of CPUs, so if a user wants to use more queues than CPUs, we want to
-trust they know what they are doing and let them.
+Change-ID: Ie941a96e806e4bcd016addb4e17affb46770ada5
+Signed-off-by: Catherine Sullivan <catherine.sullivan@intel.com>
+Tested-by: Andrew Bowers <andrewx.bowers@intel.com
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 10 ++--------
+ 1 file changed, 2 insertions(+), 8 deletions(-)
 
-Greg cleans up the driver suspend routine to ensure we are calling
-synchronize_irq() before freeing IRQ vectors and explicitly free the other
-causes interrupt resources and shut down the MSIX interrupt.
-
-Serey fixes i40e_set_settings() to not fail when a Direct Attach (DA)
-cable is used.
-
-Avinash fixes a supported link bug by removing code which was not allowing
-100BaseT to show up in the supported link modes for 10GBaseT PHYs.
-
-Shannon adds a bit of information to the error messages to help determine
-the source of error by adding VSI info to macaddr messages.
-
-Tushar Dave fixes error received when turning off TSO on some systems,
-which was caused by enabling FD_SB without checking availability of
-MSIx vectors, so add the check.
-
-Neerav fixes a possible panic when LLDP/DCBX change happens and the
-driver tried to notify the client(s) for each of the PF VSIs, which would
-panic when it reached a VSI that did not have any netdev associated with
-it.
-
-The following are changes since commit de2fbe7ae3637533ebf711b91b04988633bf38ee:
-  Merge branch 'sfp-infra'
-and are available in the git repository at:
-  git://git.kernel.org/pub/scm/linux/kernel/git/jkirsher/next-queue 40GbE
-
-Avinash Dayanand (1):
-  i40e: Removing unnecessary code which caused supported link mode bug
-
-Bimmy Pujari (1):
-  i40e/i40evf: Bump version from 1.5.16 to 1.6.4
-
-Catherine Sullivan (2):
-  i40e: Add a call to set the client interface down
-  i40e: Fix RSS to not be limited by the number of CPUs
-
-Greg Rose (2):
-  i40e: Clean up MSIX IRQs before suspend
-  i40e: Save PCI state before suspend
-
-Mitch Williams (6):
-  i40e: add functions to control default VSI
-  i40e: add hw struct local variable
-  i40e: write HENA for VFs
-  i40evf: don't overflow buffer
-  i40evf: always activate correct MAC address filter
-  i40e: set default VSI without a reset
-
-Neerav Parikh (1):
-  i40e: Don't notify client(s) for DCB changes on all VSIs
-
-Serey Kong (1):
-  i40e: fix missing DA cable check
-
-Shannon Nelson (1):
-  i40e: add VSI info to macaddr messages
-
-Tushar Dave (1):
-  i40e: Fix errors resulted while turning off TSO
-
- drivers/net/ethernet/intel/i40e/i40e.h             |   1 +
- drivers/net/ethernet/intel/i40e/i40e_common.c      |  56 +++++++
- drivers/net/ethernet/intel/i40e/i40e_ethtool.c     |   4 +-
- drivers/net/ethernet/intel/i40e/i40e_main.c        | 173 +++++++++++++--------
- drivers/net/ethernet/intel/i40e/i40e_prototype.h   |   2 +
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c |   6 +
- drivers/net/ethernet/intel/i40evf/i40evf_main.c    |   6 +-
- .../net/ethernet/intel/i40evf/i40evf_virtchnl.c    |   8 +
- 8 files changed, 183 insertions(+), 73 deletions(-)
-
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 52d9d28..a32be7c 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -1579,14 +1579,8 @@ static void i40e_vsi_setup_queue_map(struct i40e_vsi *vsi,
+ 	vsi->tc_config.numtc = numtc;
+ 	vsi->tc_config.enabled_tc = enabled_tc ? enabled_tc : 1;
+ 	/* Number of queues per enabled TC */
+-	/* In MFP case we can have a much lower count of MSIx
+-	 * vectors available and so we need to lower the used
+-	 * q count.
+-	 */
+-	if (pf->flags & I40E_FLAG_MSIX_ENABLED)
+-		qcount = min_t(int, vsi->alloc_queue_pairs, pf->num_lan_msix);
+-	else
+-		qcount = vsi->alloc_queue_pairs;
++	qcount = vsi->alloc_queue_pairs;
++
+ 	num_tc_qps = qcount / numtc;
+ 	num_tc_qps = min_t(int, num_tc_qps, i40e_pf_get_max_q_per_tc(pf));
+ 
 -- 
 2.5.5
