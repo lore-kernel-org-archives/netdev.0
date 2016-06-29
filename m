@@ -1,28 +1,40 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [iproute PATCH 1/2] ip-address: Support filtering by slave type,
- too
-Date: Tue, 28 Jun 2016 19:19:03 -0600
-Message-ID: <b4ca924e-41f9-840e-6d31-dfe3ccd5e66e@cumulusnetworks.com>
-References: <1467119237-12544-1-git-send-email-phil@nwl.cc>
- <1467119237-12544-2-git-send-email-phil@nwl.cc>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Doing crypto in small stack buffers (bluetooth vs vmalloc-stack
+ crash, etc)
+Date: Wed, 29 Jun 2016 10:20:49 +0800
+Message-ID: <20160629022049.GA23390@gondor.apana.org.au>
+References: <20160628133050.GA18468@gondor.apana.org.au>
+ <20160628143212.17215.qmail@ns.sciencehorizons.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>, Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:35653 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752448AbcF2BT1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 21:19:27 -0400
-Received: by mail-pf0-f178.google.com with SMTP id c2so12098997pfa.2
-        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 18:19:03 -0700 (PDT)
-In-Reply-To: <1467119237-12544-2-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-bluetooth@vger.kernel.org, linux-crypto@vger.kernel.org,
+	luto@amacapital.net, netdev@vger.kernel.org
+To: George Spelvin <linux@sciencehorizons.net>
+Return-path: <linux-crypto-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <20160628143212.17215.qmail@ns.sciencehorizons.net>
+Sender: linux-crypto-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 6/28/16 7:07 AM, Phil Sutter wrote:
-> This patch allows to query all interfaces enslaved to a bridge or bond
-> using the following syntax:
+On Tue, Jun 28, 2016 at 10:32:12AM -0400, George Spelvin wrote:
+> 
+> - struct crypto_instance
+> - struct crypto_spawn
+> - struct crypto_blkcipher
+> - struct blkcipher_desc
+> - More on the context structures returned by crypto_tfm_ctx
 
-works for vrf's too.
+blkcipher is obsolete and will be removed soon.  So if you are
+going to write this then please document skcipher instead.
+
+> Also not mentioned in the documentation is that some algorithms *do*
+> have different implementations depending on key size.  SHA-2 is the
+> classic example.
+
+What do you mean by that? SHA has no keying at all.
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
