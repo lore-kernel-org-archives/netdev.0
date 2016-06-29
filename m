@@ -1,55 +1,57 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] [v6] net: emac: emac gigabit ethernet controller driver
-Date: Wed, 29 Jun 2016 17:34:57 +0200
-Message-ID: <3914163.aNiIdzedWT@wuerfel>
-References: <1466812008-26686-1-git-send-email-timur@codeaurora.org> <5679359.84lXZytcOR@wuerfel> <5773E503.3070404@codeaurora.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH v2 net-next] tcp: md5: use kmalloc() backed scratch areas
+Date: Wed, 29 Jun 2016 23:38:18 +0800
+Message-ID: <20160629153818.GA29838@gondor.apana.org.au>
+References: <1466829439.6850.126.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1466870975.6850.139.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1467046313.6850.171.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CALCETrUSi3T5JXMunEO9RM5ZEz=aA2xtf9encEVYGxJF4mbhKg@mail.gmail.com>
+ <20160628034150.GA13953@gondor.apana.org.au>
+ <CALCETrXOT-zaV8O1Yu4RGybGvPv5C7gr=7EWjTKvUQUaRxz1aQ@mail.gmail.com>
+ <20160629022337.GB23390@gondor.apana.org.au>
+ <CALCETrW3zzMRazohKfOh7PKb5jegJOmyrC7EiCEF0eQ5SArNyg@mail.gmail.com>
+ <20160629150257.GA29490@gondor.apana.org.au>
+ <CALCETrVKjwKkzR+qwsC=DMvM9tR4beAtvw=LLjzsAyuztV4bWw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	shankerd@codeaurora.org, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
-	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
-	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net,
-	f.fainelli@gmail.com, catalin.marinas@arm.com
-To: Timur Tabi <timur@codeaurora.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <5773E503.3070404@codeaurora.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from helcar.hengli.com.au ([209.40.204.226]:40610 "EHLO
+	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752138AbcF2Pi0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 11:38:26 -0400
+Content-Disposition: inline
+In-Reply-To: <CALCETrVKjwKkzR+qwsC=DMvM9tR4beAtvw=LLjzsAyuztV4bWw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wednesday, June 29, 2016 10:10:59 AM CEST Timur Tabi wrote:
-> Arnd Bergmann wrote:
-> > That's also not how it works: each device starts out with a 32-bit mask,
-> > because that's what historically all PCI devices can do. If a device
-> > is 64-bit DMA capable, it can extend the mask by passing DMA_BIT_MASK(64)
-> > (or whatever it can support), and the platform code checks if that's
-> > possible.
+On Wed, Jun 29, 2016 at 08:26:43AM -0700, Andy Lutomirski wrote:
 > 
-> So if it's not possible, then dma_set_mask returns an error, and the 
-> driver should try a smaller mask?  Doesn't that mean that every driver 
-> for a 64-bit device should do this:
+> Two reasons:
 > 
->         for (i = 64; i >=32; i--) {
->                 ret = dma_set_mask_and_coherent(dev, DMA_BIT_MASK(i));
->                 if (!ret)
->                         break;
->         }
-> 
->         if (ret)
->                 return ret;
-> 
-> Sure, this is overkill, but it seems to me that the driver does not 
-> really know what mask is actually valid, so it has to find the largest 
-> mask that works.
-> 
+> 1. Code like tcp md5 would be simpler if it could pass a scatterlist
+> to hash the skb but use a virtual address for the header.
 
-Usually drivers try 64-bit mask and 32-bit masks, and the 32 bit
-mask is practically guaranteed to succeed.
+True.  But I bet we can make it simpler in other ways without
+creating special interfaces for it.  Look at how we do IPsec
+encryption/hashing, this is what TCP md5 should look like.  But
+nobody in their right mind would bother doing this because this
+is dead code.
 
-Platforms will also allow allow the driver to set a mask that
-is larger than what the bus supports, as long as all RAM is
-reachable by the bus.
+> 2. The actual calling sequence and the amount of indirection is much
+> less for shash, so hashing short buffer is probably *much* faster.
 
-	Arnd
+Really?
+
+Have you measured the speed difference between the ahash and shash
+interfaces? Are you sure that this would matter when compared
+against the speed of hashing a single MD5 block?
+
+Cheers,
+-- 
+Email: Herbert Xu <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
