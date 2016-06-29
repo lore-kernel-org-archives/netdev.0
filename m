@@ -1,214 +1,181 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH v2 net-next] tcp: md5: use kmalloc() backed scratch areas
-Date: Wed, 29 Jun 2016 09:41:44 -0700
-Message-ID: <CALCETrUR1+au2-11qSAT24832nZcTwjUj8UY09rCMisyHawnaA@mail.gmail.com>
-References: <1466829439.6850.126.camel@edumazet-glaptop3.roam.corp.google.com>
- <1466870975.6850.139.camel@edumazet-glaptop3.roam.corp.google.com>
- <1467046313.6850.171.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALCETrUSi3T5JXMunEO9RM5ZEz=aA2xtf9encEVYGxJF4mbhKg@mail.gmail.com>
- <20160628034150.GA13953@gondor.apana.org.au> <CALCETrXOT-zaV8O1Yu4RGybGvPv5C7gr=7EWjTKvUQUaRxz1aQ@mail.gmail.com>
- <20160629022337.GB23390@gondor.apana.org.au> <CALCETrW3zzMRazohKfOh7PKb5jegJOmyrC7EiCEF0eQ5SArNyg@mail.gmail.com>
- <20160629150257.GA29490@gondor.apana.org.au> <CALCETrVKjwKkzR+qwsC=DMvM9tR4beAtvw=LLjzsAyuztV4bWw@mail.gmail.com>
- <20160629153818.GA29838@gondor.apana.org.au>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 08/16] net/devlink: Add E-Switch mode control
+Date: Wed, 29 Jun 2016 09:35:24 -0700
+Message-ID: <5773F8CC.4090300@gmail.com>
+References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
+ <1467043649-28594-9-git-send-email-saeedm@mellanox.com>
+ <577211E2.90802@gmail.com>
+ <28223ec8-f105-d598-39ad-5dc93598dc64@mellanox.com>
+ <5772A397.3010905@gmail.com> <5772B18A.9000300@gmail.com>
+ <20160628184655.GB2089@nanopsycho.orion> <5772CA20.4030002@intel.com>
+ <20160628191230.GC2089@nanopsycho.orion> <5772D091.9030709@gmail.com>
+ <0327b6de-dfdf-8db2-1354-b7a4144dbc02@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
+	Hadar Hen-Zion <hadarh@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Tal Anker <Ankertal@mellanox.com>
+To: Or Gerlitz <ogerlitz@mellanox.com>, Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f45.google.com ([209.85.213.45]:32991 "EHLO
-	mail-vk0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751782AbcF2QmF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 12:42:05 -0400
-Received: by mail-vk0-f45.google.com with SMTP id j3so73840910vkb.0
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 09:42:05 -0700 (PDT)
-In-Reply-To: <20160629153818.GA29838@gondor.apana.org.au>
+Received: from mail-ob0-f179.google.com ([209.85.214.179]:33080 "EHLO
+	mail-ob0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751629AbcF2Qmf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 12:42:35 -0400
+Received: by mail-ob0-f179.google.com with SMTP id xn17so33788702obc.0
+        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 09:42:18 -0700 (PDT)
+In-Reply-To: <0327b6de-dfdf-8db2-1354-b7a4144dbc02@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 29, 2016 at 8:38 AM, Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> On Wed, Jun 29, 2016 at 08:26:43AM -0700, Andy Lutomirski wrote:
+On 16-06-29 07:48 AM, Or Gerlitz wrote:
+> On 6/28/2016 10:31 PM, John Fastabend wrote:
+>> On 16-06-28 12:12 PM, Jiri Pirko wrote:
+>>>
+>>> Why?! Please, leave legacy be legacy. Use the new mode for
+>>> implementing new features. Don't make things any more complicated :(
+>>>
+>> OK so how I read this is there are two things going on that are being
+>> conflated together. Creating VF netdev's is linked to the PCIe
+>> subsystems and brings VFs into the netdev model. This is a good thing
+>> but doesn't need to be a global nic policy it can be per port hence
+>> the ethtool flag vs devlink discussion. I don't actually have a use case
+>> to have one port with VF netdevs and another without it so I'm not too
+>> particular on this. Logically it looks like a per port setting because
+>> the hardware has no issues with making one physical function create
+>> a netdev for each of its VFs and the other one run without these
+>> netdevs. This is why I called it out.
 >>
->> Two reasons:
+>> How this relates to bridge, tc, etc. is now you have a identifier to
+>> configure instead of using strange 'ip link set ... vf#' commands. This
+>> is great. But I see no reason the hardware has to make changes to
+>> the existing tables or any of this. Before we used 'bridge fdb' and 'ip
+>> link' now we can use bridge tools more effectively and can deprecate
+>> the overloaded use of ip. But again I see no reason to thrash the
+>> forwarding state of the switch because we happen to be adding VFs.
+>> Having a set of fdb rules to forward MAC/Vlan pairs (as we do now)
+>> seems like a perfectly reasonable default. Add with this patch now
+>> when I run 'fdb show' I can see the defaults.
 >>
->> 1. Code like tcp md5 would be simpler if it could pass a scatterlist
->> to hash the skb but use a virtual address for the header.
->
-> True.  But I bet we can make it simpler in other ways without
-> creating special interfaces for it.  Look at how we do IPsec
-> encryption/hashing, this is what TCP md5 should look like.  But
-> nobody in their right mind would bother doing this because this
-> is dead code.
->
->> 2. The actual calling sequence and the amount of indirection is much
->> less for shash, so hashing short buffer is probably *much* faster.
->
-> Really?
->
-> Have you measured the speed difference between the ahash and shash
-> interfaces? Are you sure that this would matter when compared
-> against the speed of hashing a single MD5 block?
->
+>> Maybe I'm reading to much into the devlink flag names and if instead
+>> you use a switch like the following,
+>>
+>>    VF representer : enable/disable the creation VF netdev's to represent
+>>                     the virtual functions on the PF
+>>
+>>
+>> Much less complicated then magic switching between forwarding logic IMO
+>> and you don't whack a default configuration that an entire stack (e.g.
+>> libvirt) has been built to use.
+> 
+> 
+> John,
+> 
+> I'll try to address here the core questions and arguments you brought.
+> 
 
-It's non-negligible.  If I had SHA-NI, it would probably be a bigger
-relative difference.
+thanks. Also just to reiterate I really like the series just a few
+details here.
 
-[    0.535717] SHA1 ahash: warming up
-[    0.737471] SHA1 ahash: 500000 loops, 386 ns/loop
-[    0.737937] SHA1 shash: warming up
-[    0.903131] SHA1 shash: 500000 loops, 323 ns/loop
-[    1.055409] SHA1 shash_digest: 500000 loops, 303 ns/loop
+> Re letting the user to observe/modify the rules added by the
+> driver/firmware while legacy mode. Even if possible with bridge/fdb, it
+> will be really pragmatical and doesn't make sense to get that donefor
+> the TC subsystem. So this isn't a well defined solution and anyway, as
+> you said, legacy mode enhancements is a different exercise. Personally,
+> I agree with Jiri, that we should legacy be legacyand focus on adding
+> the new model.
+> 
 
-[    0.574410] SHA1 ahash: warming up
-[    0.796927] SHA1 ahash: 500000 loops, 414 ns/loop
-[    0.797695] SHA1 shash: warming up
-[    0.959772] SHA1 shash: 500000 loops, 316 ns/loop
-[    1.100886] SHA1 shash_digest: 500000 loops, 280 ns/loop
+The ixgbe driver already supports bridge and tc commands without the VF
+representer.  Adding the VF representer to these drivers just extends
+the existing support so we have an identifier for VFs and now the
+redirect action works and the fdb commands can specify the VF netdevs.
+I don't see this as a problem because we already do it today with
+'ip' and bridge tools.
 
-Here's MD5:
+We are also slightly in disagreement about what the default should be
+with VF netdevs. I think the default should be the same L2 mac/vlan
+switch behavior and see no reason to change it by default just because
+we added VF netdevs. The infrastructure libvirt/openstack/etc are built
+around this default today. But I guess nothing in this series specifies
+what the defaults of any given driver will be. VF netdevs are still
+useful even on older hardware that only supports mac/vlan forwarding to
+expose statistics and send/receive control frames such as lldp.
 
-[    0.504708] MD5 ahash: warming up
-[    0.688155] MD5 ahash: 500000 loops, 344 ns/loop
-[    0.688971] MD5 shash: warming up
-[    0.834953] MD5 shash: 500000 loops, 285 ns/loop
-[    0.982021] MD5 shash_digest: 500000 loops, 292 ns/loop
+> The new model has few building blocks, and by all means, have the VF
+> representors is not the full story, which is not magic but rather the
+> following:
+> 
+> 1. VF (vport) representors netdevices + the needed mechanics
+> (send-to-vport rules that makes xmit on VF rep --> recv on VF)
+> 
 
-[    0.570780] MD5 ahash: warming up
-[    0.754325] MD5 ahash: 500000 loops, 357 ns/loop
-[    0.754807] MD5 shash: warming up
-[    0.906861] MD5 shash: 500000 loops, 297 ns/loop
-[    1.059057] MD5 shash_digest: 500000 loops, 303 ns/loop
+We all agree on this. For me this should be its own knob VF netdevs or
+no VF netdevs.
 
-If you throw in sub-one-block requests, it'll be worse, because those
-requests don't do real work.
+There is also my point that this is really a port attribute of the PCIe
+configuration not a switch attribute.
 
-Overall, it looks like there's overhead of something like 50ns for
-each ahash invocation vs the shash equivalent.  It's not huge, but
-it's there.  (This is cache-hot.  I bet it's considerably worse if
-cache-cold, because ahash will require a lot more code cache lines as
-well as the extra cache lines involved in the scatterlist and whatever
-arch stuff is needed to map back and forth between virtual and
-physical addresses.
+> 2. handling HW data-patch misses --> send to CPU or drop
 
-Here's the code:
+Yep need this also but we have a standard way to configure this already
+with bridge and 'tc' so why have a toggle for it? Also you don't know
+in the driver where I want to send missed packets. In some use cases I
+have the VM is managing the system and in these cases I want to send
+missed packets to a VF.
 
-static void test_ahash(void)
-{
-    struct crypto_ahash *hash;
-    struct ahash_request *req;
-    struct scatterlist sg_in;
-    char *buf, *out;
-    int i;
-    u64 end, start;
-    unsigned loops = 500000;
+In ixgbe we get this for free (with the vf identifier netdevs) because
+we have 'tc' and 'bridge' already hooked up. With 'tc' you can define
+a wild card match with low priority and with 'bridge' model you can
+setup the flood ports to do this.
 
-    hash = crypto_alloc_ahash("sha1", 0, CRYPTO_ALG_ASYNC);
-    if (IS_ERR(hash))
-        return;
+> 
+> 3. ability to offload SW rules (tc/bridge/etc) using VF representors and
+> ingress qdiscs / bridge fdb rules / switchdev fdb rule, etc
+> 
+> The knob we suggested says that the system is put into a state where
+> 1,2,3 are needed to make it full performance and functional one. This
+> submission includes parts 1 and 2, so the offloading of SW rules will
+> done in successive submission which uses TC offloads which are already
+> upstream (u32 or flower).
+> 
+> So... we're almost in agreement, do you have another name for the knob
+> that goes beyond creation/deletion of VF reps? maybe that would be it
+> for making a progress...
 
-    req = ahash_request_alloc(hash, GFP_KERNEL);
-    if (!req)
-        return;
+The sticking point for me is (2) is not needed if you do (3)
+correctly. So once you have implemented bridge and one of the 'tc'
+classifiers that can be used to specify the policy in (2) and you don't
+have a chunk policy being defined by the driver writer.
 
-    ahash_request_set_callback(req, 0, NULL, NULL);
+Just to put out an alternative if you add an ethtool feature flag 'VF
+representer' so that I can specify enable/disable of VFs per port that
+would resolve my concerns.
 
-    buf = kmalloc(64, GFP_KERNEL);
-    memset(buf, 0, 64);
-    out = kmalloc(20, GFP_KERNEL);
+If you have this additional switch in devlink to hammer the datapath
+between two switch modes that seems OK but I'm not sure who else other
+than mlx drivers would use it. Additionally if you just used this
+devlink hook to set the feature flag on each port and made it 'fixed'
+from an ethtool perspective that would work for me as well. Then on
+my devices that support VF representers per port I can configure it
+and on the devices that can only do it globally it is configured with
+this devlink thing.
 
-    pr_err("SHA1 ahash: warming up\n");
+Why I think the VF representer is a per port ethtool flag and not a
+devlink option is my use case might be to assign a PF into a VM or
+namespace where I don't want VF netdevs.
 
-    for (i = 0; i < 10000; i++) {
-        crypto_ahash_init(req);
-        sg_init_one(&sg_in, buf, 64);
-        ahash_request_set_crypt(req, &sg_in, NULL, 64);
-        if (crypto_ahash_update(req))
-            return;
-        ahash_request_set_crypt(req, NULL, out, 0);
-        if (crypto_ahash_final(req))
-            return;
-    }
+Thanks,
+.John
 
-    start = ktime_get_ns();
-    for (i = 0; i < loops; i++) {
-        crypto_ahash_init(req);
-        sg_init_one(&sg_in, buf, 64);
-        ahash_request_set_crypt(req, &sg_in, NULL, 64);
-        if (crypto_ahash_update(req))
-            return;
-        ahash_request_set_crypt(req, NULL, out, 0);
-        if (crypto_ahash_final(req))
-            return;
-    }
-    end = ktime_get_ns();
 
-    pr_err("SHA1 ahash: %u loops, %llu ns/loop\n", loops, (unsigned
-long long)((end-start)/loops));
-}
-
-static void test_shash(void)
-{
-    struct crypto_shash *hash;
-    struct shash_desc *desc;
-    char *buf, *out;
-    int i;
-    u64 end, start;
-    unsigned loops = 500000;
-
-    hash = crypto_alloc_shash("sha1", 0, CRYPTO_ALG_ASYNC);
-    if (IS_ERR(hash))
-        return;
-
-    desc = kmalloc(crypto_shash_descsize(hash), GFP_KERNEL);
-    if (!desc)
-        return;
-    desc->tfm = hash;
-    desc->flags = 0;
-
-    /*
-     * Hmm.  This interface isn't conducive to the use of hardware that
-     * needs state beyond what lives in a single memory buffer -- how would
-     * the shash implementation know when to free the state?
-     */
-
-    buf = kmalloc(64, GFP_KERNEL);
-    memset(buf, 0, 64);
-    out = kmalloc(20, GFP_KERNEL);
-
-    pr_err("SHA1 shash: warming up\n");
-
-    for (i = 0; i < 10000; i++) {
-        crypto_shash_init(desc);
-        if (crypto_shash_update(desc, buf, 64))
-            return;
-        if (crypto_shash_final(desc, out))
-            return;
-    }
-
-    start = ktime_get_ns();
-    for (i = 0; i < loops; i++) {
-        /*
-         * For fairness, this does init; update; final instead of
-         * just digest.
-         */
-        crypto_shash_init(desc);
-        if (crypto_shash_update(desc, buf, 64))
-            return;
-        if (crypto_shash_final(desc, out))
-            return;
-    }
-    end = ktime_get_ns();
-
-    pr_err("SHA1 shash: %u loops, %llu ns/loop\n", loops, (unsigned
-long long)((end-start)/loops));
-
-    start = ktime_get_ns();
-    for (i = 0; i < loops; i++) {
-        crypto_shash_digest(desc, buf, 64, out);
-    }
-    end = ktime_get_ns();
-
-    pr_err("SHA1 shash_digest: %u loops, %llu ns/loop\n", loops,
-(unsigned long long)((end-start)/loops));
-}
+> 
+> Or.
+> 
