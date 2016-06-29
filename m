@@ -1,166 +1,87 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH v4 iproute2 6/6] ip route: Add support for vrf keyword
-Date: Wed, 29 Jun 2016 11:27:02 -0700
-Message-ID: <1467224822-16773-7-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH v4 iproute2 3/6] ip neigh: Add support for keyword
+Date: Wed, 29 Jun 2016 11:26:59 -0700
+Message-ID: <1467224822-16773-4-git-send-email-dsa@cumulusnetworks.com>
 References: <1467224822-16773-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: stephen@networkplumber.org, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:33290 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751973AbcF2S1N (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 14:27:13 -0400
-Received: by mail-pa0-f43.google.com with SMTP id b13so19870639pat.0
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 11:27:13 -0700 (PDT)
+Received: from mail-pf0-f181.google.com ([209.85.192.181]:34171 "EHLO
+	mail-pf0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751852AbcF2S1K (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 14:27:10 -0400
+Received: by mail-pf0-f181.google.com with SMTP id h14so20557875pfe.1
+        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 11:27:10 -0700 (PDT)
 In-Reply-To: <1467224822-16773-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add vrf keyword to 'ip route' commands. Allows:
-1. Users can list routes by VRF name:
-       $ ip route show vrf NAME
-
-   VRF tables have all routes including local and broadcast routes.
-   The VRF keyword filters LOCAL and BROADCAST routes; to see all
-   routes the table option can be used. Or to see local routes only
-   for a VRF:
-       $ ip route show vrf NAME type local
-
-2. Add or delete a route for a VRF:
-       $ ip route {add|delete} vrf NAME <route spec>
-
-3. Do a route lookup for a VRF:
-       $ ip route get vrf NAME ADDRESS
+Add vrf keyword to 'ip neigh' commands. Allows listing neighbor
+entries for all links associated with a given VRF.
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- ip/iproute.c           | 32 ++++++++++++++++++++++++++++++--
- man/man8/ip-route.8.in | 19 ++++++++++++++++++-
- 2 files changed, 48 insertions(+), 3 deletions(-)
+ ip/ipneigh.c            | 14 +++++++++++++-
+ man/man8/ip-neighbour.8 |  8 +++++++-
+ 2 files changed, 20 insertions(+), 2 deletions(-)
 
-diff --git a/ip/iproute.c b/ip/iproute.c
-index aae693d17be8..bd661c16cb46 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -67,10 +67,10 @@ static void usage(void)
- 	fprintf(stderr, "       ip route showdump\n");
- 	fprintf(stderr, "       ip route get ADDRESS [ from ADDRESS iif STRING ]\n");
- 	fprintf(stderr, "                            [ oif STRING ] [ tos TOS ]\n");
--	fprintf(stderr, "                            [ mark NUMBER ]\n");
-+	fprintf(stderr, "                            [ mark NUMBER ] [ vrf NAME ]\n");
- 	fprintf(stderr, "       ip route { add | del | change | append | replace } ROUTE\n");
- 	fprintf(stderr, "SELECTOR := [ root PREFIX ] [ match PREFIX ] [ exact PREFIX ]\n");
--	fprintf(stderr, "            [ table TABLE_ID ] [ proto RTPROTO ]\n");
-+	fprintf(stderr, "            [ table TABLE_ID ] [ vrf NAME ] [ proto RTPROTO ]\n");
- 	fprintf(stderr, "            [ type TYPE ] [ scope SCOPE ]\n");
- 	fprintf(stderr, "ROUTE := NODE_SPEC [ INFO_SPEC ]\n");
- 	fprintf(stderr, "NODE_SPEC := [ TYPE ] PREFIX [ tos TOS ]\n");
-@@ -1141,6 +1141,20 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
- 				addattr32(&req.n, sizeof(req), RTA_TABLE, tid);
- 			}
- 			table_ok = 1;
-+		} else if (matches(*argv, "vrf") == 0) {
-+			__u32 tid;
+diff --git a/ip/ipneigh.c b/ip/ipneigh.c
+index 4ddb747e2086..3e444712645f 100644
+--- a/ip/ipneigh.c
++++ b/ip/ipneigh.c
+@@ -48,7 +48,8 @@ static void usage(void)
+ {
+ 	fprintf(stderr, "Usage: ip neigh { add | del | change | replace }\n"
+ 			"                { ADDR [ lladdr LLADDR ] [ nud STATE ] | proxy ADDR } [ dev DEV ]\n");
+-	fprintf(stderr, "       ip neigh { show | flush } [ proxy ] [ to PREFIX ] [ dev DEV ] [ nud STATE ]\n\n");
++	fprintf(stderr, "       ip neigh { show | flush } [ proxy ] [ to PREFIX ] [ dev DEV ] [ nud STATE ]\n");
++	fprintf(stderr, "                                 [ vrf NAME ]\n\n");
+ 	fprintf(stderr, "STATE := { permanent | noarp | stale | reachable | none |\n"
+ 			"           incomplete | delay | probe | failed }\n");
+ 	exit(-1);
+@@ -385,6 +386,17 @@ static int do_show_or_flush(int argc, char **argv, int flush)
+ 				invarg("Device does not exist\n", *argv);
+ 			addattr32(&req.n, sizeof(req), NDA_MASTER, ifindex);
+ 			filter.master = ifindex;
++		} else if (strcmp(*argv, "vrf") == 0) {
++			int ifindex;
 +
 +			NEXT_ARG();
-+			tid = ipvrf_get_table(*argv);
-+			if (tid == 0)
-+				invarg("Invalid VRF\n", *argv);
-+			if (tid < 256)
-+				req.r.rtm_table = tid;
-+			else {
-+				req.r.rtm_table = RT_TABLE_UNSPEC;
-+				addattr32(&req.n, sizeof(req), RTA_TABLE, tid);
-+			}
-+			table_ok = 1;
- 		} else if (strcmp(*argv, "dev") == 0 ||
- 			   strcmp(*argv, "oif") == 0) {
- 			NEXT_ARG();
-@@ -1395,6 +1409,15 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
- 				}
- 			} else
- 				filter.tb = tid;
-+		} else if (matches(*argv, "vrf") == 0) {
-+			__u32 tid;
-+
-+			NEXT_ARG();
-+			tid = ipvrf_get_table(*argv);
-+			if (tid == 0)
-+				invarg("Invalid VRF\n", *argv);
-+			filter.tb = tid;
-+			filter.typemask = ~(1 << RTN_LOCAL | 1<<RTN_BROADCAST);
- 		} else if (matches(*argv, "cached") == 0 ||
- 			   matches(*argv, "cloned") == 0) {
- 			filter.cloned = 1;
-@@ -1681,6 +1704,11 @@ static int iproute_get(int argc, char **argv)
- 			req.r.rtm_flags |= RTM_F_NOTIFY;
- 		} else if (matches(*argv, "connected") == 0) {
- 			connected = 1;
-+		} else if (matches(*argv, "vrf") == 0) {
-+			NEXT_ARG();
++			ifindex = ll_name_to_index(*argv);
++			if (!ifindex)
++				invarg("Not a valid VRF name\n", *argv);
 +			if (!name_is_vrf(*argv))
-+				invarg("Invalid VRF\n", *argv);
-+			odev = *argv;
- 		} else {
- 			inet_prefix addr;
- 
-diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
-index d7fb8fba8bb0..d4fae3cc783b 100644
---- a/man/man8/ip-route.8.in
-+++ b/man/man8/ip-route.8.in
-@@ -33,7 +33,9 @@ ip-route \- routing table management
- .RB " ] [ " oif
- .IR STRING " ] [ "
- .B  tos
--.IR TOS " ]"
-+.IR TOS " ] [ "
++				invarg("Not a valid VRF name\n", *argv);
++			addattr32(&req.n, sizeof(req), NDA_MASTER, ifindex);
++			filter.master = ifindex;
+ 		} else if (strcmp(*argv, "unused") == 0) {
+ 			filter.unused_only = 1;
+ 		} else if (strcmp(*argv, "nud") == 0) {
+diff --git a/man/man8/ip-neighbour.8 b/man/man8/ip-neighbour.8
+index b292e1814495..bbfe8e72a09c 100644
+--- a/man/man8/ip-neighbour.8
++++ b/man/man8/ip-neighbour.8
+@@ -31,7 +31,9 @@ ip-neighbour \- neighbour/arp tables management.
+ .B  dev
+ .IR DEV " ] [ "
+ .B  nud
+-.IR STATE " ]"
++.IR STATE " ] [ "
 +.B  vrf
 +.IR NAME " ] "
  
  .ti -8
- .BR "ip route" " { " add " | " del " | " change " | " append " | "\
-@@ -50,6 +52,8 @@ replace " } "
- .IR PREFIX " ] [ "
- .B  table
- .IR TABLE_ID " ] [ "
-+.B  vrf
-+.IR NAME " ] [ "
- .B  proto
- .IR RTPROTO " ] [ "
- .B  type
-@@ -369,6 +373,11 @@ routes, which are put into the
- table by default.
+ .IR STATE " := {"
+@@ -164,6 +166,10 @@ the prefix selecting the neighbours to list.
+ only list the neighbours attached to this device.
  
  .TP
 +.BI vrf " NAME"
-+the vrf name to add this route to. Implicitly means the table
-+associated with the VRF.
++only list the neighbours for given VRF.
 +
 +.TP
- .BI dev " NAME"
- the output device name.
+ .BI proxy
+ list neighbour proxies.
  
-@@ -746,6 +755,10 @@ show the routes from this table(s). The default setting is to show table
- .in -8
- 
- .TP
-+.BI vrf " NAME"
-+show the routes for the table associated with the vrf name
-+
-+.TP
- .B cloned
- .TP
- .B cached
-@@ -855,6 +868,10 @@ the device from which this packet is expected to arrive.
- force the output device on which this packet will be routed.
- 
- .TP
-+.BI vrf " NAME"
-+force the vrf device on which this packet will be routed.
-+
-+.TP
- .B connected
- if no source address
- .RB "(option " from ")"
 -- 
 2.1.4
