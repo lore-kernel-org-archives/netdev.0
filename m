@@ -1,62 +1,110 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v4] fib_rules: Added NLM_F_EXCL support to fib_nl_newrule
-Date: Wed, 29 Jun 2016 13:38:54 -0600
-Message-ID: <c5e9792a-592b-b01a-9f05-b8db6c4da84c@cumulusnetworks.com>
-References: <57737722.6000101@nokia.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH 1/2] net: pktgen: support injecting packets for
+ qdisc testing
+Date: Wed, 29 Jun 2016 12:47:31 -0700
+Message-ID: <20160629194731.14745.20562.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-To: Mateusz Bajorski <mateusz.bajorski@nokia.com>,
-	netdev@vger.kernel.org
+Cc: netdev@vger.kernel.org
+To: jhs@mojatatu.com, brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f41.google.com ([209.85.220.41]:34591 "EHLO
-	mail-pa0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750878AbcF2Tiy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 15:38:54 -0400
-Received: by mail-pa0-f41.google.com with SMTP id bz2so20320073pad.1
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 12:38:54 -0700 (PDT)
-In-Reply-To: <57737722.6000101@nokia.com>
+Received: from mail-pf0-f195.google.com ([209.85.192.195]:33695 "EHLO
+	mail-pf0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752147AbcF2Trr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 15:47:47 -0400
+Received: by mail-pf0-f195.google.com with SMTP id c74so5274869pfb.0
+        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 12:47:46 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/29/16 1:22 AM, Mateusz Bajorski wrote:
-> When adding rule with NLM_F_EXCL flag then check if the same rule exist.
-> If yes then exit with -EEXIST.
->
-> This is already implemented in iproute2:
->         if (cmd == RTM_NEWRULE) {
->                 req.n.nlmsg_flags |= NLM_F_CREATE|NLM_F_EXCL;
->                 req.r.rtm_type = RTN_UNICAST;
->         }
->
-> Tested ipv4 and ipv6 with net-next linux on qemu x86
->
-> expected behavior after patch:
-> localhost ~ # ip rule
-> 0:    from all lookup local
-> 32766:    from all lookup main
-> 32767:    from all lookup default
-> localhost ~ # ip rule add from 10.46.177.97 lookup 104 pref 1005
-> localhost ~ # ip rule add from 10.46.177.97 lookup 104 pref 1005
-> RTNETLINK answers: File exists
-> localhost ~ # ip rule
-> 0:    from all lookup local
-> 1005:    from 10.46.177.97 lookup 104
-> 32766:    from all lookup main
-> 32767:    from all lookup default
->
-> There was already topic regarding this but I don't see any changes
-> merged and problem still occurs.
-> https://lkml.kernel.org/r/1135778809.5944.7.camel+%28%29+localhost+%21+localdomain
->
-> Signed-off-by: Mateusz Bajorski <mateusz.bajorski@nokia.com>
-> ---
-> Changes in v2: section moved to new place where new rule is already built
-> Changes in v3: compare moved to helper, added fr_net compare
-> Changes in v4: added l3mdev compare
->
->  net/core/fib_rules.c | 49 +++++++++++++++++++++++++++++++++++++++++++++++++
->  1 file changed, 49 insertions(+)
->
+Add another xmit_mode to pktgen to allow testing xmit functionality
+of qdiscs. The new mode "queue_xmit" injects packets at
+__dev_queue_xmit() so that qdisc is called.
 
-Acked-by: David Ahern <dsa@cumulusnetworks.com>
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ net/core/pktgen.c |   42 ++++++++++++++++++++++++++++++++++++++++--
+ 1 file changed, 40 insertions(+), 2 deletions(-)
+
+diff --git a/net/core/pktgen.c b/net/core/pktgen.c
+index f74ab9c..4b3d467 100644
+--- a/net/core/pktgen.c
++++ b/net/core/pktgen.c
+@@ -213,6 +213,7 @@
+ /* Xmit modes */
+ #define M_START_XMIT		0	/* Default normal TX */
+ #define M_NETIF_RECEIVE 	1	/* Inject packets into stack */
++#define M_QUEUE_XMIT		2	/* Inject packet into qdisc */
+ 
+ /* If lock -- protects updating of if_list */
+ #define   if_lock(t)           spin_lock(&(t->if_lock));
+@@ -626,6 +627,8 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
+ 
+ 	if (pkt_dev->xmit_mode == M_NETIF_RECEIVE)
+ 		seq_puts(seq, "     xmit_mode: netif_receive\n");
++	else if (pkt_dev->xmit_mode == M_QUEUE_XMIT)
++		seq_puts(seq, "     xmit_mode: xmit_queue\n");
+ 
+ 	seq_puts(seq, "     Flags: ");
+ 
+@@ -1142,8 +1145,10 @@ static ssize_t pktgen_if_write(struct file *file,
+ 			return len;
+ 
+ 		i += len;
+-		if ((value > 1) && (pkt_dev->xmit_mode == M_START_XMIT) &&
+-		    (!(pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)))
++		if ((value > 1) &&
++		    ((pkt_dev->xmit_mode == M_QUEUE_XMIT) ||
++		     ((pkt_dev->xmit_mode == M_START_XMIT) &&
++		     (!(pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)))))
+ 			return -ENOTSUPP;
+ 		pkt_dev->burst = value < 1 ? 1 : value;
+ 		sprintf(pg_result, "OK: burst=%d", pkt_dev->burst);
+@@ -1198,6 +1203,9 @@ static ssize_t pktgen_if_write(struct file *file,
+ 			 * at module loading time
+ 			 */
+ 			pkt_dev->clone_skb = 0;
++		} else if (strcmp(f, "queue_xmit") == 0) {
++			pkt_dev->xmit_mode = M_QUEUE_XMIT;
++			pkt_dev->last_ok = 1;
+ 		} else {
+ 			sprintf(pg_result,
+ 				"xmit_mode -:%s:- unknown\nAvailable modes: %s",
+@@ -3434,6 +3442,36 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
+ #endif
+ 		} while (--burst > 0);
+ 		goto out; /* Skips xmit_mode M_START_XMIT */
++	} else if (pkt_dev->xmit_mode == M_QUEUE_XMIT) {
++		local_bh_disable();
++		atomic_add(burst, &pkt_dev->skb->users);
++
++		ret = dev_queue_xmit(pkt_dev->skb);
++		switch (ret) {
++		case NET_XMIT_SUCCESS:
++			pkt_dev->sofar++;
++			pkt_dev->seq_num++;
++			pkt_dev->tx_bytes += pkt_dev->last_pkt_size;
++			break;
++		case NET_XMIT_DROP:
++		case NET_XMIT_CN:
++		/* These are all valid return codes for a qdisc but
++		 * indicate packets are being dropped or will likely
++		 * be dropped soon.
++		 */
++		case NETDEV_TX_BUSY:
++		/* qdisc may call dev_hard_start_xmit directly in cases
++		 * where no queues exist e.g. loopback device, virtual
++		 * devices, etc. In this case we need to handle
++		 * NETDEV_TX_ codes.
++		 */
++		default:
++			pkt_dev->errors++;
++			net_info_ratelimited("%s xmit error: %d\n",
++					     pkt_dev->odevname, ret);
++			break;
++		}
++		goto out;
+ 	}
+ 
+ 	txq = skb_get_tx_queue(odev, pkt_dev->skb);
