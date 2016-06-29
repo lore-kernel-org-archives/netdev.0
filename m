@@ -1,58 +1,108 @@
-From: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/2] brcmfmac: support removing AP interfaces with new fw
-Date: Wed, 29 Jun 2016 21:57:41 +0200
-Message-ID: <CACna6rwQ6s0j5k74p=xAtX7Qe=y11Hivbd0hF2=bksZp6rK9gA@mail.gmail.com>
-References: <1466353420-30998-1-git-send-email-zajec5@gmail.com> <1467230067-3302-1-git-send-email-zajec5@gmail.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: [net-next PATCH v2 2/2] net: samples: pktgen mode samples/tests for
+ qdisc layer
+Date: Wed, 29 Jun 2016 13:03:26 -0700
+Message-ID: <20160629200326.16491.11589.stgit@john-Precision-Tower-5810>
+References: <20160629200306.16491.65359.stgit@john-Precision-Tower-5810>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Arend van Spriel <arend.vanspriel-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Franky Lin <franky.lin-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Hante Meuleman <hante.meuleman-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Pieter-Paul Giesberts <pieterpg-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"Franky (Zhenhui) Lin" <frankyl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"open list:BROADCOM BRCM80211 IEEE802.11n WIRELESS DRIVER"
-	<brcm80211-dev-list.pdl-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Network Development <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1467230067-3302-1-git-send-email-zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: jhs@mojatatu.com, brouer@redhat.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f194.google.com ([209.85.192.194]:34782 "EHLO
+	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752208AbcF2UDj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 16:03:39 -0400
+Received: by mail-pf0-f194.google.com with SMTP id 66so5283929pfy.1
+        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 13:03:39 -0700 (PDT)
+In-Reply-To: <20160629200306.16491.65359.stgit@john-Precision-Tower-5810>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 29 June 2016 at 21:54, Rafa=C5=82 Mi=C5=82ecki <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wr=
-ote:
-> This is the latest patchset needed to get brcmfmac working reasonably=
- well
-> with BCM4366.
->
-> Both patches were already sent as V2 RFC (10 days ago), there were no=
- more
-> comments since then and this is the same code as in V2 RFC. I was mos=
-tly waiting
-> for accepting
-> brcmfmac: fix lockup when removing P2P interface after event timeout
-> before sending these 2 (because of dependency).
->
-> Rafa=C5=82 Mi=C5=82ecki (2):
->   brcmfmac: delete interface directly in code that sent fw request
->   brcmfmac: support removing AP interfaces with "interface_remove"
->
->  .../broadcom/brcm80211/brcmfmac/cfg80211.c         | 39 ++++++++++++=
-+++++++++-
->  .../wireless/broadcom/brcm80211/brcmfmac/fweh.c    | 10 ++++--
->  .../net/wireless/broadcom/brcm80211/brcmfmac/p2p.c |  3 +-
->  3 files changed, 47 insertions(+), 5 deletions(-)
+This adds samples for pktgen to use with new mode to inject pkts into
+the qdisc layer. This also doubles as nice test cases to test any
+patches against qdisc layer.
 
-Oops, I just realized get_maintainer.pl didn't pick any ppl/ML for
-this cover letter. Added them now.
+Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+---
+ .../pktgen/pktgen_bench_xmit_mode_queue_xmit.sh    |   70 ++++++++++++++++++++
+ 1 file changed, 70 insertions(+)
+ create mode 100755 samples/pktgen/pktgen_bench_xmit_mode_queue_xmit.sh
 
---=20
-Rafa=C5=82
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/samples/pktgen/pktgen_bench_xmit_mode_queue_xmit.sh b/samples/pktgen/pktgen_bench_xmit_mode_queue_xmit.sh
+new file mode 100755
+index 0000000..eee06cc
+--- /dev/null
++++ b/samples/pktgen/pktgen_bench_xmit_mode_queue_xmit.sh
+@@ -0,0 +1,70 @@
++#!/bin/bash
++#
++# Benchmark script:
++#  - developed for benchmarking egress qdisc path, derived from
++#    ingress benchmark script.
++#
++# Script for injecting packets into egress qdisc path of the stack
++# with pktgen "xmit_mode queue_xmit".
++#
++basedir=`dirname $0`
++source ${basedir}/functions.sh
++root_check_run_with_sudo "$@"
++
++# Parameter parsing via include
++source ${basedir}/parameters.sh
++# Using invalid DST_MAC will cause the packets to get dropped in
++# ip_rcv() which is part of the test
++[ -z "$DEST_IP" ] && DEST_IP="198.18.0.42"
++[ -z "$DST_MAC" ] && DST_MAC="90:e2:ba:ff:ff:ff"
++
++# Burst greater than 1 are invalid but allow users to specify it and
++# get an error instead of silently ignoring it.
++[ -z "$BURST" ] && BURST=1
++
++# Base Config
++DELAY="0"        # Zero means max speed
++COUNT="10000000" # Zero means indefinitely
++
++# General cleanup everything since last run
++pg_ctrl "reset"
++
++# Threads are specified with parameter -t value in $THREADS
++for ((thread = 0; thread < $THREADS; thread++)); do
++    # The device name is extended with @name, using thread number to
++    # make then unique, but any name will do.
++    dev=${DEV}@${thread}
++
++    # Add remove all other devices and add_device $dev to thread
++    pg_thread $thread "rem_device_all"
++    pg_thread $thread "add_device" $dev
++
++    # Base config of dev
++    pg_set $dev "flag QUEUE_MAP_CPU"
++    pg_set $dev "count $COUNT"
++    pg_set $dev "pkt_size $PKT_SIZE"
++    pg_set $dev "delay $DELAY"
++    pg_set $dev "flag NO_TIMESTAMP"
++
++    # Destination
++    pg_set $dev "dst_mac $DST_MAC"
++    pg_set $dev "dst $DEST_IP"
++
++    # Inject packet into RX path of stack
++    pg_set $dev "xmit_mode queue_xmit"
++
++    # Burst allow us to avoid measuring SKB alloc/free overhead
++    pg_set $dev "burst $BURST"
++done
++
++# start_run
++echo "Running... ctrl^C to stop" >&2
++pg_ctrl "start"
++echo "Done" >&2
++
++# Print results
++for ((thread = 0; thread < $THREADS; thread++)); do
++    dev=${DEV}@${thread}
++    echo "Device: $dev"
++    cat /proc/net/pktgen/$dev | grep -A2 "Result:"
++done
