@@ -1,16 +1,16 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 05/15] ixgbe: Fix deleting link filters for cls_u32 offloads
-Date: Wed, 29 Jun 2016 14:32:52 -0700
-Message-ID: <1467235982-55437-6-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 06/15] ixgbe: Error handler for duplicate filter locations in hardware for cls_u32 offloads
+Date: Wed, 29 Jun 2016 14:32:53 -0700
+Message-ID: <1467235982-55437-7-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1467235982-55437-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Cc: Amritha Nambiar <amritha.nambiar@intel.com>,
 	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
 	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:58211 "EHLO mga11.intel.com"
+Received: from mga11.intel.com ([192.55.52.93]:37786 "EHLO mga11.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751721AbcF2VdG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751722AbcF2VdG (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 29 Jun 2016 17:33:06 -0400
 In-Reply-To: <1467235982-55437-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,182 +18,126 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Amritha Nambiar <amritha.nambiar@intel.com>
 
-On deleting filters which are links to a child hash table, the filters
-in the child hash table must be cleared from the hardware if there
-is no link between the parent and child hash table.
+For u32 classifier filters, avoid overwriting existing filter
+in a hardware location without removing it first, to clean up
+inconsistencies due to duplicate values for filter location.
 
 Verified with the following filters:
 
-Create a child hash table:
+Create child hash tables:
 	handle 1: u32 divisor 1
+	handle 2: u32 divisor 1
 
 Link to the child hash table from parent hash table:
-	handle 800:0:10 u32 ht 800: link 1: \
+	handle 800:0:11 u32 ht 800: link 1: \
 	offset at 0 mask 0f00 shift 6 plus 0 eat \
 	match ip protocol 6 ff match ip dst 15.0.0.1/32
 
-Add filters into child hash table:
-	handle 1:0:2 u32 ht 1: \
-	match tcp src 22 ffff action drop
-        handle 1:0:3 u32 ht 1: \
-        match tcp src 33 ffff action drop
+	handle 800:0:12 u32 ht 800: link 2: \
+	offset at 0 mask 0f00 shift 6 plus 0 eat \
+	match ip protocol 17 ff match ip dst 16.0.0.1/32
 
-Delete link filter from parent hash table:
-	handle 800:0:10 u32
+Add filter into child hash table:
+	handle 1:0:3 u32 ht 1: \
+	match tcp src 22 ffff action drop
+
+Add another filter to the same location:
+	handle 2:0:3 u32 ht 2: \
+	match tcp src 33 ffff action drop
 
 Signed-off-by: Amritha Nambiar <amritha.nambiar@intel.com>
-Acked-by: Sridhar Samudrala <sridhar.samudrala@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c  | 75 +++++++++++++++++++++++---
- drivers/net/ethernet/intel/ixgbe/ixgbe_model.h |  4 ++
- 2 files changed, 72 insertions(+), 7 deletions(-)
+ drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 41 ++++++++++++++++-----------
+ 1 file changed, 25 insertions(+), 16 deletions(-)
 
 diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index 468fa9d..75e6855 100644
+index 75e6855..fd5a761 100644
 --- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
 +++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -8300,14 +8300,50 @@ int ixgbe_setup_tc(struct net_device *dev, u8 tc)
- static int ixgbe_delete_clsu32(struct ixgbe_adapter *adapter,
- 			       struct tc_cls_u32_offload *cls)
- {
-+	u32 hdl = cls->knode.handle;
- 	u32 uhtid = TC_U32_USERHTID(cls->knode.handle);
--	u32 loc;
--	int err;
-+	u32 loc = cls->knode.handle & 0xfffff;
-+	int err = 0, i, j;
-+	struct ixgbe_jump_table *jump = NULL;
-+
-+	if (loc > IXGBE_MAX_HW_ENTRIES)
-+		return -EINVAL;
+@@ -8315,8 +8315,11 @@ static int ixgbe_delete_clsu32(struct ixgbe_adapter *adapter,
+ 	/* Clear this filter in the link data it is associated with */
+ 	if (uhtid != 0x800) {
+ 		jump = adapter->jump_tables[uhtid];
+-		if (jump)
+-			clear_bit(loc - 1, jump->child_loc_map);
++		if (!jump)
++			return -EINVAL;
++		if (!test_bit(loc - 1, jump->child_loc_map))
++			return -EINVAL;
++		clear_bit(loc - 1, jump->child_loc_map);
+ 	}
  
- 	if ((uhtid != 0x800) && (uhtid >= IXGBE_MAX_LINK_HANDLE))
- 		return -EINVAL;
- 
--	loc = cls->knode.handle & 0xfffff;
-+	/* Clear this filter in the link data it is associated with */
-+	if (uhtid != 0x800) {
-+		jump = adapter->jump_tables[uhtid];
-+		if (jump)
-+			clear_bit(loc - 1, jump->child_loc_map);
-+	}
-+
-+	/* Check if the filter being deleted is a link */
-+	for (i = 1; i < IXGBE_MAX_LINK_HANDLE; i++) {
-+		jump = adapter->jump_tables[i];
-+		if (jump && jump->link_hdl == hdl) {
-+			/* Delete filters in the hardware in the child hash
-+			 * table associated with this link
-+			 */
-+			for (j = 0; j < IXGBE_MAX_HW_ENTRIES; j++) {
-+				if (!test_bit(j, jump->child_loc_map))
-+					continue;
-+				spin_lock(&adapter->fdir_perfect_lock);
-+				err = ixgbe_update_ethtool_fdir_entry(adapter,
-+								      NULL,
-+								      j + 1);
-+				spin_unlock(&adapter->fdir_perfect_lock);
-+				clear_bit(j, jump->child_loc_map);
-+			}
-+			/* Remove resources for this link */
-+			kfree(jump->input);
-+			kfree(jump->mask);
-+			kfree(jump);
-+			adapter->jump_tables[i] = NULL;
-+			return err;
-+		}
-+	}
- 
- 	spin_lock(&adapter->fdir_perfect_lock);
- 	err = ixgbe_update_ethtool_fdir_entry(adapter, NULL, loc);
-@@ -8541,6 +8577,18 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
- 		if (!test_bit(link_uhtid - 1, &adapter->tables))
- 			return err;
- 
-+		/* Multiple filters as links to the same hash table are not
-+		 * supported. To add a new filter with the same next header
-+		 * but different match/jump conditions, create a new hash table
-+		 * and link to it.
-+		 */
-+		if (adapter->jump_tables[link_uhtid] &&
-+		    (adapter->jump_tables[link_uhtid])->link_hdl) {
-+			e_err(drv, "Link filter exists for link: %x\n",
-+			      link_uhtid);
-+			return err;
-+		}
-+
- 		for (i = 0; nexthdr[i].jump; i++) {
- 			if (nexthdr[i].o != cls->knode.sel->offoff ||
- 			    nexthdr[i].s != cls->knode.sel->offshift ||
-@@ -8558,10 +8606,12 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 	/* Check if the filter being deleted is a link */
+@@ -8606,7 +8609,7 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
  			mask = kzalloc(sizeof(*mask), GFP_KERNEL);
  			if (!mask) {
  				err = -ENOMEM;
--				goto free_input;
-+				goto err_out;
+-				goto err_out;
++				goto free_input;
  			}
  			jump->input = input;
  			jump->mask = mask;
-+			jump->link_hdl = cls->knode.handle;
-+
- 			err = ixgbe_clsu32_build_input(input, mask, cls,
- 						       field_ptr, &nexthdr[i]);
- 			if (!err) {
-@@ -8579,7 +8629,7 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+@@ -8629,7 +8632,7 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
  	mask = kzalloc(sizeof(*mask), GFP_KERNEL);
  	if (!mask) {
  		err = -ENOMEM;
--		goto free_input;
-+		goto err_out;
+-		goto err_out;
++		goto free_input;
  	}
  
  	if ((uhtid != 0x800) && (adapter->jump_tables[uhtid])) {
-@@ -8620,14 +8670,25 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+@@ -8639,6 +8642,20 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
+ 		if ((adapter->jump_tables[uhtid])->mask)
+ 			memcpy(mask, (adapter->jump_tables[uhtid])->mask,
+ 			       sizeof(*mask));
++
++		/* Lookup in all child hash tables if this location is already
++		 * filled with a filter
++		 */
++		for (i = 1; i < IXGBE_MAX_LINK_HANDLE; i++) {
++			struct ixgbe_jump_table *link = adapter->jump_tables[i];
++
++			if (link && (test_bit(loc - 1, link->child_loc_map))) {
++				e_err(drv, "Filter exists in location: %x\n",
++				      loc);
++				err = -EINVAL;
++				goto err_out;
++			}
++		}
+ 	}
+ 	err = ixgbe_clsu32_build_input(input, mask, cls, field_ptr, NULL);
+ 	if (err)
+@@ -8670,25 +8687,17 @@ static int ixgbe_configure_clsu32(struct ixgbe_adapter *adapter,
  		ixgbe_update_ethtool_fdir_entry(adapter, input, input->sw_idx);
  	spin_unlock(&adapter->fdir_perfect_lock);
  
-+	if ((uhtid != 0x800) && (adapter->jump_tables[uhtid])) {
-+		struct ixgbe_jump_table *link = adapter->jump_tables[uhtid];
-+
-+		if (test_bit(loc - 1, link->child_loc_map)) {
-+			e_err(drv, "Filter: %x exists in hash table: %x\n",
-+			      loc, uhtid);
-+			err = -EINVAL;
-+			goto free_mask;
-+		}
-+		set_bit(loc - 1, link->child_loc_map);
-+	}
+-	if ((uhtid != 0x800) && (adapter->jump_tables[uhtid])) {
+-		struct ixgbe_jump_table *link = adapter->jump_tables[uhtid];
++	if ((uhtid != 0x800) && (adapter->jump_tables[uhtid]))
++		set_bit(loc - 1, (adapter->jump_tables[uhtid])->child_loc_map);
+ 
+-		if (test_bit(loc - 1, link->child_loc_map)) {
+-			e_err(drv, "Filter: %x exists in hash table: %x\n",
+-			      loc, uhtid);
+-			err = -EINVAL;
+-			goto free_mask;
+-		}
+-		set_bit(loc - 1, link->child_loc_map);
+-	}
  	kfree(mask);
  	return err;
  err_out_w_lock:
  	spin_unlock(&adapter->fdir_perfect_lock);
  err_out:
--	kfree(mask);
--free_input:
- 	kfree(input);
-+free_mask:
-+	kfree(mask);
+-	kfree(input);
+-free_mask:
+ 	kfree(mask);
++free_input:
++	kfree(input);
  free_jump:
  	kfree(jump);
  	return err;
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
-index a8bed3d..538a1c54 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_model.h
-@@ -42,8 +42,12 @@ struct ixgbe_jump_table {
- 	struct ixgbe_mat_field *mat;
- 	struct ixgbe_fdir_filter *input;
- 	union ixgbe_atr_input *mask;
-+	u32 link_hdl;
-+	unsigned long child_loc_map[32];
- };
- 
-+#define IXGBE_MAX_HW_ENTRIES 2045
-+
- static inline int ixgbe_mat_prgm_sip(struct ixgbe_fdir_filter *input,
- 				     union ixgbe_atr_input *mask,
- 				     u32 val, u32 m)
 -- 
 2.5.5
