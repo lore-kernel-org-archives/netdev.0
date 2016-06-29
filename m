@@ -1,65 +1,65 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] ipv4: Fix ip_skb_dst_mtu to use the sk passed by
- ip_finish_output
-Date: Wed, 29 Jun 2016 23:42:06 +0200
-Message-ID: <1467236526.2907671.652444929.21883A96@webmail.messagingengine.com>
-References: <1467226023-4168-1-git-send-email-shmulik.ladkani@gmail.com>
+From: Jarod Wilson <jarod@redhat.com>
+Subject: Re: [net] e1000e: keep VLAN interfaces functional after rxvlan off
+Date: Wed, 29 Jun 2016 17:42:57 -0400
+Message-ID: <577440E1.9070308@redhat.com>
+References: <1467171691-54525-1-git-send-email-jeffrey.t.kirsher@intel.com> <20160629.074006.1279014794531759883.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andy Zhou <azhou@ovn.org>,
-	Stephen Hemminger <stephen@networkplumber.org>,
-	netdev@vger.kernel.org
-To: Shmulik Ladkani <shmulik.ladkani@gmail.com>,
-	"David S . Miller" <davem@davemloft.net>,
-	Hannes Frederic Sowa <hannes@redhat.com>,
-	Tom Herbert <tom@herbertland.com>
+Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out1-smtp.messagingengine.com ([66.111.4.25]:48490 "EHLO
-	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751499AbcF2VmI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 17:42:08 -0400
-In-Reply-To: <1467226023-4168-1-git-send-email-shmulik.ladkani@gmail.com>
+Received: from mail-qk0-f174.google.com ([209.85.220.174]:33281 "EHLO
+	mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751480AbcF2VnB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 17:43:01 -0400
+Received: by mail-qk0-f174.google.com with SMTP id q79so112985130qke.0
+        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 14:43:00 -0700 (PDT)
+In-Reply-To: <20160629.074006.1279014794531759883.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 29, 2016, at 20:47, Shmulik Ladkani wrote:
-> ip_skb_dst_mtu uses skb->sk, assuming it is an AF_INET socket (e.g. it
-> calls ip_sk_use_pmtu which casts sk as an inet_sk).
-> 
-> However, in the case of UDP tunneling, the skb->sk is not necessarily an
-> inet socket (could be AF_PACKET socket, or AF_UNSPEC if arriving from
-> tun/tap).
-> 
-> OTOH, the sk passed as an argument throughout IP stack's output path is
-> the one which is of PMTU interest:
->  - In case of local sockets, sk is same as skb->sk;
->  - In case of a udp tunnel, sk is the tunneling socket.
-> 
-> Fix, by passing ip_finish_output's sk to ip_skb_dst_mtu.
-> This augments 7026b1ddb6 'netfilter: Pass socket pointer down through
-> okfn().'
-> 
-> Signed-off-by: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-> ---
-> 
-> Discovered while debugging other issue in adjacent code area.
-> 
-> My setup seems to be handling this well; However I'd appreciate a
-> Tested-by or Reviewed-by as one can only cover relatively few of the
-> possible code flows leading to ip_skb_dst_mtu.
+David Miller wrote:
+> From: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
+> Date: Tue, 28 Jun 2016 20:41:31 -0700
+>
+>> From: Jarod Wilson<jarod@redhat.com>
+>>
+>> I've got a bug report about an e1000e interface, where a VLAN interface is
+>> set up on top of it:
+>>
+>> $ ip link add link ens1f0 name ens1f0.99 type vlan id 99
+>> $ ip link set ens1f0 up
+>> $ ip link set ens1f0.99 up
+>> $ ip addr add 192.168.99.92 dev ens1f0.99
+>>
+>> At this point, I can ping another host on vlan 99, ip 192.168.99.91.
+>> However, if I do the following:
+>>
+>> $ ethtool -K ens1f0 rxvlan off
+>>
+>> Then no traffic passes on ens1f0.99. It comes back if I toggle rxvlan on
+>> again. I'm not sure if this is actually intended behavior, or if there's a
+>> lack of software VLAN stripping fallback, or what, but things continue to
+>> work if I simply don't call e1000e_vlan_strip_disable() if there are
+>> active VLANs (plagiarizing a function from the e1000 driver here) on the
+>> interface.
+>>
+>> Also slipped a related-ish fix to the kerneldoc text for
+>> e1000e_vlan_strip_disable here...
+>>
+>> Signed-off-by: Jarod Wilson<jarod@redhat.com>
+>> Tested-by: Aaron Brown<aaron.f.brown@intel.com>
+>> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
+>
+> Applied, thanks.
 
-Well spotted.
+Hm.. There was actually a v2 patch that followed this one that fixed the 
+problem slightly differently and slightly better, I think.
 
-It all looks good, the socket's pmtudisc field is initialized
-accordingly and I suspect people want to have vxlan to use the path mtu
-when transmitting packets, even during forwarding.
+http://marc.info/?l=intel-wired-lan&m=146551652424417&w=2
 
-Maybe this can be tweaked with an additional patch, if people want to
-change this behavior.
-
-But as your patch doesn't change any of this,
-
-Reviewed-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-
-Thanks!
+-- 
+Jarod Wilson
+jarod@redhat.com
