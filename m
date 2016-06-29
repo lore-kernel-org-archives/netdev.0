@@ -1,26 +1,60 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 0/2] qed*: Fix the static checker warnings.
-Date: Wed, 29 Jun 2016 07:59:35 -0400 (EDT)
-Message-ID: <20160629.075935.172097568221840600.davem@davemloft.net>
-References: <1467094259-16061-1-git-send-email-sudarsana.kalluru@qlogic.com>
+Subject: Re: [PATCH] neigh: Explicitly declare RCU-bh read side critical
+ section in neigh_xmit()
+Date: Wed, 29 Jun 2016 08:01:19 -0400 (EDT)
+Message-ID: <20160629.080119.236337033632160248.davem@davemloft.net>
+References: <20160628081643.GU10080@wantstofly.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Yuval.Mintz@qlogic.com
-To: sudarsana.kalluru@qlogic.com
+Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com,
+	roopa@cumulusnetworks.com, rshearma@brocade.com,
+	ebiederm@xmission.com
+To: buytenh@wantstofly.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40757 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40780 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752233AbcF2MAF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 08:00:05 -0400
-In-Reply-To: <1467094259-16061-1-git-send-email-sudarsana.kalluru@qlogic.com>
+	with ESMTP id S1752048AbcF2MBp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 08:01:45 -0400
+In-Reply-To: <20160628081643.GU10080@wantstofly.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sudarsana Reddy Kalluru <sudarsana.kalluru@qlogic.com>
-Date: Tue, 28 Jun 2016 02:10:57 -0400
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Date: Tue, 28 Jun 2016 11:16:43 +0300
 
-> The patch series addresses the static checker warnings introduced by the
-> earlier patches related to qed/qede coalesce configuration support.
+> From: David Barroso <dbarroso@fastly.com>
+> 
+> neigh_xmit() expects to be called inside an RCU-bh read side critical
+> section, and while one of its two current callers gets this right, the
+> other one doesn't.
+> 
+> More specifically, neigh_xmit() has two callers, mpls_forward() and
+> mpls_output(), and while both callers call neigh_xmit() under
+> rcu_read_lock(), this provides sufficient protection for neigh_xmit()
+> only in the case of mpls_forward(), as that is always called from
+> softirq context and therefore doesn't need explicit BH protection,
+> while mpls_output() can be called from process context with softirqs
+> enabled.
+> 
+> When mpls_output() is called from process context, with softirqs
+> enabled, we can be preempted by a softirq at any time, and RCU-bh
+> considers the completion of a softirq as signaling the end of any
+> pending read-side critical sections, so if we do get a softirq
+> while we are in the part of neigh_xmit() that expects to be run inside
+> an RCU-bh read side critical section, we can end up with an unexpected
+> RCU grace period running right in the middle of that critical section,
+> making things go boom.
+> 
+> This patch fixes this impedance mismatch in the callee, by making
+> neigh_xmit() always take rcu_read_{,un}lock_bh() around the code that
+> expects to be treated as an RCU-bh read side critical section, as this
+> seems a safer option than fixing it in the callers.
+> 
+> Fixes: 4fd3d7d9e868f ("neigh: Add helper function neigh_xmit")
+> Signed-off-by: David Barroso <dbarroso@fastly.com>
+> Signed-off-by: Lennert Buytenhek <lbuytenhek@fastly.com>
+> Acked-by: David Ahern <dsa@cumulusnetworks.com>
+> Acked-by: Robert Shearman <rshearma@brocade.com>
 
-Series applied.
+Applied.
