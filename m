@@ -1,43 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 9/9] net: hns: get reset registers from DT
-Date: Wed, 29 Jun 2016 05:11:42 -0400 (EDT)
-Message-ID: <20160629.051142.259737654994822294.davem@davemloft.net>
-References: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
-	<1467021255-95900-10-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: Re: [PATCH v2 0/2] net: thunderx: Miscellaneous fixes
+Date: Wed, 29 Jun 2016 05:14:42 -0400 (EDT)
+Message-ID: <20160629.051442.2015921481863589323.davem@davemloft.net>
+References: <1467021603-26226-1-git-send-email-sunil.kovvuri@gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: salil.mehta@huawei.com, yankejian@huawei.com, liguozhu@huawei.com,
-	huangdaode@hisilicon.com, arnd@arndb.de,
-	andriy.shevchenko@linux.intel.com, andrew@lunn.ch,
-	geliangtang@163.com, ivecera@redhat.com, fengguang.wu@intel.com,
-	charles.chenxin@huawei.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, linux-arm-kernel@lists.infradead.org,
-	linuxarm@huawei.com
-To: Yisen.Zhuang@huawei.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467021255-95900-10-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, Naveen.Reddy@cavium.com,
+ linux-kernel@vger.kernel.org, robert.richter@caviumnetworks.com,
+ sgoutham@cavium.com, linux-arm-kernel@lists.infradead.org
+To: sunil.kovvuri@gmail.com
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <1467021603-26226-1-git-send-email-sunil.kovvuri@gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
 List-Id: netdev.vger.kernel.org
 
-From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Date: Mon, 27 Jun 2016 17:54:15 +0800
+From: sunil.kovvuri@gmail.com
+Date: Mon, 27 Jun 2016 15:30:01 +0530
 
-> @@ -361,9 +371,10 @@ static int hns_mdio_reset(struct mii_bus *bus)
->  			return -ENODEV;
->  		}
->  
-> +	sc_reg = &mdio_dev->sc_reg;
->  		/* 1. reset req, and read reset st check */
-> -		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_REQ, 0x1,
-> -					    MDIO_SC_RESET_ST, 0x1,
-> +	ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_reset_req, 0x1,
-> +				    sc_reg->mdio_reset_st, 0x1,
->  					    MDIO_CHECK_SET_ST);
->  		if (ret) {
->  			dev_err(&bus->dev, "MDIO reset fail\n");
+> From: Sunil Goutham <sgoutham@cavium.com>
+> 
+> This 2 patch series fixes issues w.r.t physical link status
+> reporting and transmit datapath configuration for
+> secondary qsets.
+> 
+> Changes from v1:
+> Fixed lmac disable sequence for interfaces of type SGMII.
 
-What in the world are you doing to the indentation here?
-
-Please read your patches before actually sending them, such things
-will be quite obvious by simple visual inspection.
+Series applied.
