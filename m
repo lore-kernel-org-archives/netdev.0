@@ -1,57 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2 net-next] tcp: md5: use kmalloc() backed scratch areas
-Date: Wed, 29 Jun 2016 23:38:18 +0800
-Message-ID: <20160629153818.GA29838@gondor.apana.org.au>
-References: <1466829439.6850.126.camel@edumazet-glaptop3.roam.corp.google.com>
- <1466870975.6850.139.camel@edumazet-glaptop3.roam.corp.google.com>
- <1467046313.6850.171.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALCETrUSi3T5JXMunEO9RM5ZEz=aA2xtf9encEVYGxJF4mbhKg@mail.gmail.com>
- <20160628034150.GA13953@gondor.apana.org.au>
- <CALCETrXOT-zaV8O1Yu4RGybGvPv5C7gr=7EWjTKvUQUaRxz1aQ@mail.gmail.com>
- <20160629022337.GB23390@gondor.apana.org.au>
- <CALCETrW3zzMRazohKfOh7PKb5jegJOmyrC7EiCEF0eQ5SArNyg@mail.gmail.com>
- <20160629150257.GA29490@gondor.apana.org.au>
- <CALCETrVKjwKkzR+qwsC=DMvM9tR4beAtvw=LLjzsAyuztV4bWw@mail.gmail.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: brcmfmac: slightly simplify building interface combinations
+Date: Wed, 29 Jun 2016 15:41:52 +0000 (UTC)
+Message-ID: <20160629154152.8E340613A6@smtp.codeaurora.org>
+References: <1465326626-365-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:40610 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752138AbcF2Pi0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 11:38:26 -0400
-Content-Disposition: inline
-In-Reply-To: <CALCETrVKjwKkzR+qwsC=DMvM9tR4beAtvw=LLjzsAyuztV4bWw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Brett Rudley <brudley@broadcom.com>,
+	Arend van Spriel <arend@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Hante Meuleman <meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieterpg@broadcom.com>,
+	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	brcm80211-dev-list@broadcom.com (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1465326626-365-1-git-send-email-zajec5@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 29, 2016 at 08:26:43AM -0700, Andy Lutomirski wrote:
-> 
-> Two reasons:
-> 
-> 1. Code like tcp md5 would be simpler if it could pass a scatterlist
-> to hash the skb but use a virtual address for the header.
+Rafa=C5=82 Mi=C5=82ecki wrote:
+> This change reorders some operations in brcmf_setup_ifmodes in hope t=
+o
+> make it simpler:
+> 1) It allocates arrays right before filling them. This way it's easie=
+r
+>    to follow requested array length as it's immediately followed by
+>    code filling it. It's easier to check e.g. why we need 4 entries f=
+or
+>    P2P. Other than that it deduplicates some checks (e.g. for P2P).
+> 2) It reorders code to first prepare limits and then define a new com=
+bo.
+>    Previously this was mixed (e.g. we were setting num of channels
+>    before preparing limits).
+> 3) It modifies mbss code to use i variable just like other combos do.
+>=20
+> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+> Acked-by: Arend van Spriel <arend.vanspriel@broadcom.com>
 
-True.  But I bet we can make it simpler in other ways without
-creating special interfaces for it.  Look at how we do IPsec
-encryption/hashing, this is what TCP md5 should look like.  But
-nobody in their right mind would bother doing this because this
-is dead code.
+Thanks, 1 patch applied to wireless-drivers-next.git:
 
-> 2. The actual calling sequence and the amount of indirection is much
-> less for shash, so hashing short buffer is probably *much* faster.
+f568adac7d1a brcmfmac: slightly simplify building interface combination=
+s
 
-Really?
-
-Have you measured the speed difference between the ahash and shash
-interfaces? Are you sure that this would matter when compared
-against the speed of hashing a single MD5 block?
-
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--=20
+Sent by pwcli
+https://patchwork.kernel.org/patch/9162267/
