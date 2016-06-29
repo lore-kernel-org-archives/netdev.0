@@ -1,167 +1,164 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH v4 iproute2 2/6] ip link/addr: Add support for vrf keyword
-Date: Wed, 29 Jun 2016 11:26:58 -0700
-Message-ID: <1467224822-16773-3-git-send-email-dsa@cumulusnetworks.com>
-References: <1467224822-16773-1-git-send-email-dsa@cumulusnetworks.com>
-Cc: stephen@networkplumber.org, David Ahern <dsa@cumulusnetworks.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:36345 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751504AbcF2S1J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 14:27:09 -0400
-Received: by mail-pf0-f173.google.com with SMTP id t190so20606956pfb.3
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 11:27:09 -0700 (PDT)
-In-Reply-To: <1467224822-16773-1-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [RFC 3/7] net: ethernet: bgmac: move BCMA MDIO Phy code into a
+ separate file
+Date: Wed, 29 Jun 2016 11:35:28 -0700
+Message-ID: <577414F0.3060609@gmail.com>
+References: <1467142484-11161-1-git-send-email-jon.mason@broadcom.com>
+ <1467142484-11161-4-git-send-email-jon.mason@broadcom.com>
+ <20160629141324.GA24194@lunn.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: zajec5@gmail.com, davem@davemloft.net, hauke@hauke-m.de,
+	bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Andrew Lunn <andrew@lunn.ch>, Jon Mason <jon.mason@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160629141324.GA24194@lunn.ch>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Add vrf keyword to 'ip link' and 'ip addr' commands (common list code).
+On 06/29/2016 07:13 AM, Andrew Lunn wrote:
+> Hi Jon
+> 
+> I know you are just refactoring code, but at some point it would be
+> good to take a closer look at this MDIO bus driver.
+> 
+> The MDIO bus driver should be generic, allowing access to all 32
+> addresses on the bus, if that makes sense. You could for example have
+> a B53 switch hanging off the MDIO bus.... The basic read/write
+> functions seem to allow this.
 
-Allows:
-1. Adding a link to a VRF
-       $ ip link set NAME vrf NAME
+That's the case on MIPS-based SoCs actually.
 
-   Removing a link from a VRF still uses 'ip link set NAME nomaster'
+> 
+>> +/* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipphyinit */
+>> +static void bcma_mdio_phy_init(struct bcma_mdio *bcma_mdio)
+>> +{
+>> +	struct bcma_chipinfo *ci = &bcma_mdio->core->bus->chipinfo;
+>> +	u8 i;
+>> +
+>> +	if (ci->id == BCMA_CHIP_ID_BCM5356) {
+>> +		for (i = 0; i < 5; i++) {
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x008b);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x15, 0x0100);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x000f);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x12, 0x2aaa);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x000b);
+> 
+> It would be good to document what these writes are doing. Also, could
+> they be moved into the phy driver? Does the PHY implement an ID in
+> registers 2 and 3 that can be used to determine these are needed?
+> 
+> Also, why is it iterating over 5 PHYs? Is this actually a switch with
+> 5 ports?
 
-2. Showing links associated with a VRF:
-       $ ip link show vrf NAME
+Yes, this is applying workarounds to the integrated PHYs, the plan is to
+move that to a proper PHY driver so we can get rid of that.
 
-3. List addresses associated with links in a VRF
-       $ ip -br addr show vrf red
+> 
+>> +		}
+>> +	}
+>> +	if ((ci->id == BCMA_CHIP_ID_BCM5357 && ci->pkg != 10) ||
+>> +	    (ci->id == BCMA_CHIP_ID_BCM4749 && ci->pkg != 10) ||
+>> +	    (ci->id == BCMA_CHIP_ID_BCM53572 && ci->pkg != 9)) {
+>> +		struct bcma_drv_cc *cc = &bcma_mdio->core->bus->drv_cc;
+>> +
+>> +		bcma_chipco_chipctl_maskset(cc, 2, ~0xc0000000, 0);
+>> +		bcma_chipco_chipctl_maskset(cc, 4, ~0x80000000, 0);
+>> +		for (i = 0; i < 5; i++) {
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x000f);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x16, 0x5284);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x000b);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x17, 0x0010);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x000f);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x16, 0x5296);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x17, 0x1073);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x17, 0x9073);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x16, 0x52b6);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x17, 0x9273);
+>> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x000b);
+> 
+> Same comment here.
+> 
+>> +/* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipphyreset */
+>> +static int bcma_mdio_phy_reset(struct mii_bus *bus)
+>> +{
+>> +	struct bcma_mdio *bcma_mdio = bus->priv;
+>> +	u8 phyaddr = bcma_mdio->phyaddr;
+>> +
+>> +	if (bcma_mdio->phyaddr == BGMAC_PHY_NOREGS)
+>> +		return 0;
+>> +
+>> +	bcma_mdio_phy_write(bcma_mdio, phyaddr, MII_BMCR, BMCR_RESET);
+>> +	udelay(100);
+>> +	if (bcma_mdio_phy_read(bcma_mdio, phyaddr, MII_BMCR) & BMCR_RESET)
+>> +		dev_err(&bcma_mdio->core->dev, "PHY reset failed\n");
+>> +	bcma_mdio_phy_init(bcma_mdio);
+> 
+> This appears to be resetting one PHY. What about the others? Why not
+> put this in the PHY driver?
 
-Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
----
- ip/ipaddress.c           | 12 +++++++++++-
- ip/iplink.c              | 15 +++++++++++++--
- man/man8/ip-address.8.in |  6 ++++++
- man/man8/ip-link.8.in    | 10 ++++++++++
- 4 files changed, 40 insertions(+), 3 deletions(-)
+Probably should be there, keep in mind this driver was mostly reverse
+engineered, from an internal code base which usually did not plan on
+utilizing existing APIs.
 
-diff --git a/ip/ipaddress.c b/ip/ipaddress.c
-index d4d649505e15..54896c726e07 100644
---- a/ip/ipaddress.c
-+++ b/ip/ipaddress.c
-@@ -80,7 +80,7 @@ static void usage(void)
- 	fprintf(stderr, "                            [ to PREFIX ] [ FLAG-LIST ] [ label LABEL ] [up]\n");
- 	fprintf(stderr, "       ip address [ show [ dev IFNAME ] [ scope SCOPE-ID ] [ master DEVICE ]\n");
- 	fprintf(stderr, "                         [ type TYPE ] [ to PREFIX ] [ FLAG-LIST ]\n");
--	fprintf(stderr, "                         [ label LABEL ] [up] ]\n");
-+	fprintf(stderr, "                         [ label LABEL ] [up] [ vrf NAME ] ]\n");
- 	fprintf(stderr, "       ip address {showdump|restore}\n");
- 	fprintf(stderr, "IFADDR := PREFIX | ADDR peer PREFIX\n");
- 	fprintf(stderr, "          [ broadcast ADDR ] [ anycast ADDR ]\n");
-@@ -1620,6 +1620,16 @@ static int ipaddr_list_flush_or_save(int argc, char **argv, int action)
- 			if (!ifindex)
- 				invarg("Device does not exist\n", *argv);
- 			filter.master = ifindex;
-+		} else if (strcmp(*argv, "vrf") == 0) {
-+			int ifindex;
-+
-+			NEXT_ARG();
-+			ifindex = ll_name_to_index(*argv);
-+			if (!ifindex)
-+				invarg("Not a valid VRF name\n", *argv);
-+			if (!name_is_vrf(*argv))
-+				invarg("Not a valid VRF name\n", *argv);
-+			filter.master = ifindex;
- 		} else if (strcmp(*argv, "type") == 0) {
- 			int soff;
- 
-diff --git a/ip/iplink.c b/ip/iplink.c
-index b1f8a37922f5..f2a2e13cf0c5 100644
---- a/ip/iplink.c
-+++ b/ip/iplink.c
-@@ -82,11 +82,11 @@ void iplink_usage(void)
- 	fprintf(stderr, "				   [ query_rss { on | off} ]\n");
- 	fprintf(stderr, "				   [ state { auto | enable | disable} ] ]\n");
- 	fprintf(stderr, "				   [ trust { on | off} ] ]\n");
--	fprintf(stderr, "			  [ master DEVICE ]\n");
-+	fprintf(stderr, "			  [ master DEVICE ][ vrf NAME ]\n");
- 	fprintf(stderr, "			  [ nomaster ]\n");
- 	fprintf(stderr, "			  [ addrgenmode { eui64 | none | stable_secret | random } ]\n");
- 	fprintf(stderr, "	                  [ protodown { on | off } ]\n");
--	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up] [master DEV] [type TYPE]\n");
-+	fprintf(stderr, "       ip link show [ DEVICE | group GROUP ] [up] [master DEV] [vrf NAME] [type TYPE]\n");
- 
- 	if (iplink_have_newlink()) {
- 		fprintf(stderr, "       ip link help [ TYPE ]\n");
-@@ -603,6 +603,17 @@ int iplink_parse(int argc, char **argv, struct iplink_req *req,
- 				invarg("Device does not exist\n", *argv);
- 			addattr_l(&req->n, sizeof(*req), IFLA_MASTER,
- 				  &ifindex, 4);
-+		} else if (strcmp(*argv, "vrf") == 0) {
-+			int ifindex;
-+
-+			NEXT_ARG();
-+			ifindex = ll_name_to_index(*argv);
-+			if (!ifindex)
-+				invarg("Not a valid VRF name\n", *argv);
-+			if (!name_is_vrf(*argv))
-+				invarg("Not a valid VRF name\n", *argv);
-+			addattr_l(&req->n, sizeof(*req), IFLA_MASTER,
-+				  &ifindex, sizeof(ifindex));
- 		} else if (matches(*argv, "nomaster") == 0) {
- 			int ifindex = 0;
- 
-diff --git a/man/man8/ip-address.8.in b/man/man8/ip-address.8.in
-index 3cbe4181f7e3..7cb927173133 100644
---- a/man/man8/ip-address.8.in
-+++ b/man/man8/ip-address.8.in
-@@ -45,6 +45,8 @@ ip-address \- protocol address management
- .IR DEVICE " ] [ "
- .B  type
- .IR TYPE " ] [ "
-+.B vrf
-+.IR NAME " ] [ "
- .BR up " ] ]"
- 
- .ti -8
-@@ -280,6 +282,10 @@ is a usual shell style pattern.
- only list interfaces enslaved to this master device.
- 
- .TP
-+.BI vrf " NAME "
-+only list interfaces enslaved to this vrf.
-+
-+.TP
- .BI type " TYPE"
- only list interfaces of the given type.
- 
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index 375b4d081408..ad18f7555d0a 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -154,6 +154,9 @@ ip-link \- network device configuration
- .br
- .RB "[ " nomaster " ]"
- .br
-+.RB "[ " vrf
-+.IR NAME " ]"
-+.br
- .RB "[ " addrgenmode " { " eui64 " | " none " | " stable_secret " | " random " } ]"
- 
- 
-@@ -167,6 +170,8 @@ ip-link \- network device configuration
- .IR DEVICE " ] ["
- .B type
- .IR TYPE " ]"
-+.B vrf
-+.IR NAME " ]"
- 
- .ti -8
- .B ip link help
-@@ -1256,6 +1261,11 @@ only display running interfaces.
- specifies the master device which enslaves devices to show.
- 
- .TP
-+.BI vrf " NAME "
-+.I NAME
-+speficies the VRF which enslaves devices to show.
-+
-+.TP
- .BI type " TYPE "
- .I TYPE
- specifies the type of devices to show.
+> 
+>> +struct mii_bus *bcma_mdio_mii_register(struct bcma_device *core, u8 phyaddr)
+>> +{
+>> +	struct bcma_mdio *bcma_mdio;
+>> +	struct mii_bus *mii_bus;
+>> +	int err;
+>> +
+>> +	bcma_mdio = kzalloc(sizeof(*bcma_mdio), GFP_KERNEL);
+>> +	if (!bcma_mdio)
+>> +		return ERR_PTR(-ENOMEM);
+>> +
+>> +	mii_bus = mdiobus_alloc();
+>> +	if (!mii_bus) {
+>> +		err = -ENOMEM;
+>> +		goto err;
+>> +	}
+>> +
+>> +	mii_bus->name = "bcma_mdio mii bus";
+>> +	sprintf(mii_bus->id, "%s-%d-%d", "bcma_mdio", core->bus->num,
+>> +		core->core_unit);
+>> +	mii_bus->priv = bcma_mdio;
+>> +	mii_bus->read = bcma_mdio_mii_read;
+>> +	mii_bus->write = bcma_mdio_mii_write;
+>> +	mii_bus->reset = bcma_mdio_phy_reset;
+>> +	mii_bus->parent = &core->dev;
+>> +	mii_bus->phy_mask = ~(1 << phyaddr);
+> 
+> Is there a need to limit this to just the one PHY?
+
+Usually this is only relevant for an external PHY, and Jon is just
+moving code around without making functional changes to existing BCMA
+code, so all of that can be changed at a later time.
+
+> 
+>> +
+>> +	bcma_mdio->core = core;
+>> +	bcma_mdio->phyaddr = phyaddr;
+>> +
+>> +	err = mdiobus_register(mii_bus);
+> 
+> Something which appears to be missing from the later patch which adds
+> device tree support. If you have a device node pointer, you should use
+> of_mdiobus_register() and document in the binding that PHYs should be
+> listed in the usual way.
+
+This is just moving the code around for now.
+
+I don't think of_mdiobus_register() is going to be used at all, because
+on the ARM-based BCM5301X SoCs that use Device Tree, we have yet to see
+a platform which requires this MDIO bus driver, all PHYs are internal,
+and hanging off the switch register access block.
+
+On MIPS-based BCM53xx/47xx, we need this driver to drive the external
+switches, but those are not Device Tree aware, nor is there a need to
+make that happen.
+
+And, to re-iterate all of your points are valid, but this is premature
 -- 
-2.1.4
+Florian
