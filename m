@@ -1,115 +1,134 @@
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 01/16] i40e: add functions to control default VSI
-Date: Tue, 28 Jun 2016 21:40:47 -0700
-Message-ID: <1467175262-54719-2-git-send-email-jeffrey.t.kirsher@intel.com>
-References: <1467175262-54719-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Mitch Williams <mitch.a.williams@intel.com>,
-	netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com, Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-To: davem@davemloft.net
+From: Larry Finger <Larry.Finger@lwfinger.net>
+Subject: Re: [PATCH] [linux-next] rtlwifi: Fix typo in printk
+Date: Wed, 29 Jun 2016 00:22:58 -0500
+Message-ID: <57735B32.1040705@lwfinger.net>
+References: <20160629033719.13215-1-standby24x7@gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Masanari Iida <standby24x7@gmail.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	trivial@kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net, Jes.Sorensen@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:20214 "EHLO mga09.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750790AbcF2ErJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jun 2016 00:47:09 -0400
-In-Reply-To: <1467175262-54719-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Received: from mail-ob0-f193.google.com ([209.85.214.193]:35914 "EHLO
+	mail-ob0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750756AbcF2FXB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 01:23:01 -0400
+In-Reply-To: <20160629033719.13215-1-standby24x7@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mitch Williams <mitch.a.williams@intel.com>
+On 06/28/2016 10:37 PM, Masanari Iida wrote:
+> This patch fix spelling typos found in drivers/net/wireless/realtek.
+>
+> Signed-off-by: Masanari Iida <standby24x7@gmail.com>
 
-Add functions to enable and disable default VSI on a VEB. This allows
-for configuration of limited promiscuous mode specifically for bridging
-purposes.
+Acked--by: Larry Finger <Larry.Finger@lwfinger.net>
 
-Change-ID: I0cc5bd68b31c500fdff4d47e1f15d50d2739faf4
-Signed-off-by: Mitch Williams <mitch.a.williams@intel.com>
-Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
-Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
----
- drivers/net/ethernet/intel/i40e/i40e_common.c    | 56 ++++++++++++++++++++++++
- drivers/net/ethernet/intel/i40e/i40e_prototype.h |  2 +
- 2 files changed, 58 insertions(+)
+Thanks,
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_common.c b/drivers/net/ethernet/intel/i40e/i40e_common.c
-index 422b41d..e447dc4 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_common.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_common.c
-@@ -1967,6 +1967,62 @@ aq_add_vsi_exit:
- }
- 
- /**
-+ * i40e_aq_set_default_vsi
-+ * @hw: pointer to the hw struct
-+ * @seid: vsi number
-+ * @cmd_details: pointer to command details structure or NULL
-+ **/
-+i40e_status i40e_aq_set_default_vsi(struct i40e_hw *hw,
-+				    u16 seid,
-+				    struct i40e_asq_cmd_details *cmd_details)
-+{
-+	struct i40e_aq_desc desc;
-+	struct i40e_aqc_set_vsi_promiscuous_modes *cmd =
-+		(struct i40e_aqc_set_vsi_promiscuous_modes *)
-+		&desc.params.raw;
-+	i40e_status status;
-+
-+	i40e_fill_default_direct_cmd_desc(&desc,
-+					  i40e_aqc_opc_set_vsi_promiscuous_modes);
-+
-+	cmd->promiscuous_flags = cpu_to_le16(I40E_AQC_SET_VSI_DEFAULT);
-+	cmd->valid_flags = cpu_to_le16(I40E_AQC_SET_VSI_DEFAULT);
-+	cmd->seid = cpu_to_le16(seid);
-+
-+	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
-+
-+	return status;
-+}
-+
-+/**
-+ * i40e_aq_clear_default_vsi
-+ * @hw: pointer to the hw struct
-+ * @seid: vsi number
-+ * @cmd_details: pointer to command details structure or NULL
-+ **/
-+i40e_status i40e_aq_clear_default_vsi(struct i40e_hw *hw,
-+				      u16 seid,
-+				      struct i40e_asq_cmd_details *cmd_details)
-+{
-+	struct i40e_aq_desc desc;
-+	struct i40e_aqc_set_vsi_promiscuous_modes *cmd =
-+		(struct i40e_aqc_set_vsi_promiscuous_modes *)
-+		&desc.params.raw;
-+	i40e_status status;
-+
-+	i40e_fill_default_direct_cmd_desc(&desc,
-+					  i40e_aqc_opc_set_vsi_promiscuous_modes);
-+
-+	cmd->promiscuous_flags = cpu_to_le16(0);
-+	cmd->valid_flags = cpu_to_le16(I40E_AQC_SET_VSI_DEFAULT);
-+	cmd->seid = cpu_to_le16(seid);
-+
-+	status = i40e_asq_send_command(hw, &desc, NULL, 0, cmd_details);
-+
-+	return status;
-+}
-+
-+/**
-  * i40e_aq_set_vsi_unicast_promiscuous
-  * @hw: pointer to the hw struct
-  * @seid: vsi number
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_prototype.h b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-index 80403c6..4660c5a 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-+++ b/drivers/net/ethernet/intel/i40e/i40e_prototype.h
-@@ -98,6 +98,8 @@ i40e_status i40e_aq_set_phy_debug(struct i40e_hw *hw, u8 cmd_flags,
- 				struct i40e_asq_cmd_details *cmd_details);
- i40e_status i40e_aq_set_default_vsi(struct i40e_hw *hw, u16 vsi_id,
- 				struct i40e_asq_cmd_details *cmd_details);
-+i40e_status i40e_aq_clear_default_vsi(struct i40e_hw *hw, u16 vsi_id,
-+				      struct i40e_asq_cmd_details *cmd_details);
- enum i40e_status_code i40e_aq_get_phy_capabilities(struct i40e_hw *hw,
- 			bool qualified_modules, bool report_init,
- 			struct i40e_aq_get_phy_abilities_resp *abilities,
--- 
-2.5.5
+Larry
+
+> ---
+>   drivers/net/wireless/realtek/rtlwifi/rtl8188ee/phy.c       | 2 +-
+>   drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c | 2 +-
+>   drivers/net/wireless/realtek/rtlwifi/rtl8192ee/dm.c        | 2 +-
+>   drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c       | 2 +-
+>   drivers/net/wireless/realtek/rtlwifi/rtl8723ae/phy.c       | 2 +-
+>   drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c        | 2 +-
+>   drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c       | 2 +-
+>   7 files changed, 7 insertions(+), 7 deletions(-)
+>
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/phy.c
+> index 416a9ba6382e..422c7813f5ee 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/phy.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8188ee/phy.c
+> @@ -1239,7 +1239,7 @@ u8 rtl88e_phy_sw_chnl(struct ieee80211_hw *hw)
+>   	if (!(is_hal_stop(rtlhal)) && !(RT_CANNOT_IO(hw))) {
+>   		rtl88e_phy_sw_chnl_callback(hw);
+>   		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
+> -			 "sw_chnl_inprogress false schdule workitem current channel %d\n",
+> +			 "sw_chnl_inprogress false schedule workitem current channel %d\n",
+>   			 rtlphy->current_channel);
+>   		rtlphy->sw_chnl_inprogress = false;
+>   	} else {
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c
+> index 77e61b19bf36..9301583ce768 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192c/phy_common.c
+> @@ -757,7 +757,7 @@ u8 rtl92c_phy_sw_chnl(struct ieee80211_hw *hw)
+>   	if (!(is_hal_stop(rtlhal)) && !(RT_CANNOT_IO(hw))) {
+>   		rtl92c_phy_sw_chnl_callback(hw);
+>   		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
+> -			 "sw_chnl_inprogress false schdule workitem\n");
+> +			 "sw_chnl_inprogress false schedule workitem\n");
+>   		rtlphy->sw_chnl_inprogress = false;
+>   	} else {
+>   		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/dm.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/dm.c
+> index 459f3d0efa2f..0a5c9fcfe73b 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/dm.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/dm.c
+> @@ -496,7 +496,7 @@ static void rtl92ee_dm_find_minimum_rssi(struct ieee80211_hw *hw)
+>   		rtl_dm_dig->min_undec_pwdb_for_dm =
+>   			rtlpriv->dm.entry_min_undec_sm_pwdb;
+>   		RT_TRACE(rtlpriv, COMP_BB_POWERSAVING, DBG_LOUD,
+> -			 "AP Ext Port or disconnet PWDB = 0x%x\n",
+> +			 "AP Ext Port or disconnect PWDB = 0x%x\n",
+>   			 rtl_dm_dig->min_undec_pwdb_for_dm);
+>   	}
+>   	RT_TRACE(rtlpriv, COMP_DIG, DBG_LOUD,
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
+> index c2bf8d1a7af3..97d9a8e209f1 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8192ee/phy.c
+> @@ -1819,7 +1819,7 @@ u8 rtl92ee_phy_sw_chnl(struct ieee80211_hw *hw)
+>   	if (!(is_hal_stop(rtlhal)) && !(RT_CANNOT_IO(hw))) {
+>   		rtl92ee_phy_sw_chnl_callback(hw);
+>   		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
+> -			 "sw_chnl_inprogress false schdule workitem current channel %d\n",
+> +			 "sw_chnl_inprogress false schedule workitem current channel %d\n",
+>   			 rtlphy->current_channel);
+>   		rtlphy->sw_chnl_inprogress = false;
+>   	} else {
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/phy.c
+> index d367097f490b..e9a9bbf44966 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/phy.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723ae/phy.c
+> @@ -893,7 +893,7 @@ u8 rtl8723e_phy_sw_chnl(struct ieee80211_hw *hw)
+>   	if (!(is_hal_stop(rtlhal)) && !(RT_CANNOT_IO(hw))) {
+>   		rtl8723e_phy_sw_chnl_callback(hw);
+>   		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
+> -			 "sw_chnl_inprogress false schdule workitem\n");
+> +			 "sw_chnl_inprogress false schedule workitem\n");
+>   		rtlphy->sw_chnl_inprogress = false;
+>   	} else {
+>   		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c
+> index 08288ac9020a..97ae14d48840 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/hw.c
+> @@ -1474,7 +1474,7 @@ static enum version_8723e _rtl8723be_read_chip_version(struct ieee80211_hw *hw)
+>
+>   	value32 = rtl_read_dword(rtlpriv, REG_SYS_CFG1);
+>   	if ((value32 & (CHIP_8723B)) != CHIP_8723B)
+> -		RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD, "unkown chip version\n");
+> +		RT_TRACE(rtlpriv, COMP_INIT, DBG_LOUD, "unknown chip version\n");
+>   	else
+>   		version = (enum version_8723e)CHIP_8723B;
+>
+> diff --git a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c
+> index c5ca9dfb445c..dbe7c1eb0085 100644
+> --- a/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c
+> +++ b/drivers/net/wireless/realtek/rtlwifi/rtl8723be/phy.c
+> @@ -1395,7 +1395,7 @@ u8 rtl8723be_phy_sw_chnl(struct ieee80211_hw *hw)
+>   	if (!(is_hal_stop(rtlhal)) && !(RT_CANNOT_IO(hw))) {
+>   		rtl8723be_phy_sw_chnl_callback(hw);
+>   		RT_TRACE(rtlpriv, COMP_CHAN, DBG_LOUD,
+> -			 "sw_chnl_inprogress false schdule workitem current channel %d\n",
+> +			 "sw_chnl_inprogress false schedule workitem current channel %d\n",
+>   			 rtlphy->current_channel);
+>   		rtlphy->sw_chnl_inprogress = false;
+>   	} else {
+>
