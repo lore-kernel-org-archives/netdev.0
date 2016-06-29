@@ -1,31 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] net: bridge: fix vlan stats continue counter
-Date: Wed, 29 Jun 2016 05:40:01 -0400 (EDT)
-Message-ID: <20160629.054001.1335885793021861692.davem@davemloft.net>
-References: <1467045282-21612-1-git-send-email-nikolay@cumulusnetworks.com>
+Subject: Re: [PATCH net] bpf, perf: delay release of BPF prog after grace
+ period
+Date: Wed, 29 Jun 2016 05:43:33 -0400 (EDT)
+Message-ID: <20160629.054333.288595753337307108.davem@davemloft.net>
+References: <7b2f4311ea7b4d0acc0042b49b8443702f1d1a70.1467055933.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com,
-	stephen@networkplumber.org, bridge@lists.linux-foundation.org
-To: nikolay@cumulusnetworks.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39529 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750892AbcF2Jkb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 05:40:31 -0400
-In-Reply-To: <1467045282-21612-1-git-send-email-nikolay@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	alexei.starovoitov@gmail.com, jann@thejh.net
+To: daniel@iogearbox.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <7b2f4311ea7b4d0acc0042b49b8443702f1d1a70.1467055933.git.daniel@iogearbox.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
-Date: Mon, 27 Jun 2016 18:34:42 +0200
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Mon, 27 Jun 2016 21:38:11 +0200
 
-> I made a dumb off-by-one mistake when I added the vlan stats counter
-> dumping code. The increment should happen before the check, not after
-> otherwise we miss one entry when we continue dumping.
+> Commit dead9f29ddcc ("perf: Fix race in BPF program unregister") moved
+> destruction of BPF program from free_event_rcu() callback to __free_event(),
+> which is problematic if used with tail calls: if prog A is attached as
+> trace event directly, but at the same time present in a tail call map used
+> by another trace event program elsewhere, then we need to delay destruction
+> via RCU grace period since it can still be in use by the program doing the
+> tail call (the prog first needs to be dropped from the tail call map, then
+> trace event with prog A attached destroyed, so we get immediate destruction).
 > 
-> Fixes: a60c090361ea ("bridge: netlink: export per-vlan stats")
-> Signed-off-by: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+> Fixes: dead9f29ddcc ("perf: Fix race in BPF program unregister")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Alexei Starovoitov <ast@kernel.org>
+> Cc: Jann Horn <jann@thejh.net>
 
-Applied.
+Applied and queued up for -stable, thanks Daniel.
