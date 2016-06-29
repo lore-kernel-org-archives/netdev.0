@@ -1,62 +1,118 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [PATCH v2 iproute2 0/6] Add support for vrf keyword
-Date: Wed, 29 Jun 2016 11:06:13 -0600
-Message-ID: <15470508-47f3-ce7e-420a-085ab6131127@cumulusnetworks.com>
-References: <1467053461-16147-1-git-send-email-dsa@cumulusnetworks.com>
- <20160629080740.198843fe@xeon-e3>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <stephen@networkplumber.org>
+Subject: [PATCH v3 iproute2 5/6] ip vrf: Add ipvrf_get_table
+Date: Wed, 29 Jun 2016 11:06:19 -0700
+Message-ID: <1467223580-14548-6-git-send-email-dsa@cumulusnetworks.com>
+References: <1467223580-14548-1-git-send-email-dsa@cumulusnetworks.com>
+Cc: stephen@networkplumber.org, David Ahern <dsa@cumulusnetworks.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f43.google.com ([209.85.220.43]:36126 "EHLO
-	mail-pa0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751230AbcF2RGM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 13:06:12 -0400
-Received: by mail-pa0-f43.google.com with SMTP id wo6so19265492pac.3
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 10:06:12 -0700 (PDT)
-In-Reply-To: <20160629080740.198843fe@xeon-e3>
+Received: from mail-pf0-f174.google.com ([209.85.192.174]:36474 "EHLO
+	mail-pf0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752254AbcF2SGa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 14:06:30 -0400
+Received: by mail-pf0-f174.google.com with SMTP id t190so20456413pfb.3
+        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 11:06:30 -0700 (PDT)
+In-Reply-To: <1467223580-14548-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 6/29/16 9:07 AM, Stephen Hemminger wrote:
-> On Mon, 27 Jun 2016 11:50:55 -0700
-> David Ahern <dsa@cumulusnetworks.com> wrote:
->
->> Currently the syntax for VRF related commands is rather kludgy and
->> inconsistent from one subcommand to another. This set adds support
->> for the VRF keyword to the link, address, neigh, and route commands
->> to improve the user experience listing data associated with vrfs,
->> modifying routes or doing a route lookup.
->>
->> v2
->> - rebased to top of tree
->> - all checkpatch warnings are usage lines. The change in these
->>   patches is consistent with existing code for usage lines
->
-> Does this break current user scripts?
+Add ipvrf_get_table to lookup table id for device name. Returns 0
+on any error or if name is not a VRF device.
 
-I don't see how it can. Existing syntax is not touched so if a user 
-wants to run:
+Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
+---
+ ip/ip_common.h  |  1 +
+ ip/iplink_vrf.c | 66 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 67 insertions(+)
 
-$ ip link show master red
-$ ip ro sh table 1001
-
-it still works. Using the vrf keyword just makes for a more natural syntax:
-
-$ ip link show vrf red
-$ ip ro sh vrf red
-
-in this case I don't have to lookup what table device red is associated 
-with ip learns it and shows that table.
-
->
-> It seems this method will cause lots of additional netlink requests
-> to check if device is a vrf. Won't this impact users with 1000's of devices?
->
-
-It only adds 1 GETLINK request if the vrf keyword is used. The lookup 
-verifies the name is actually a VRF. It's really no different than the 
-ll_name_to_index lookups used when processing the command line 
-(ll_name_to_index relies on a cache or an ioctl, if_nametoindex).
+diff --git a/ip/ip_common.h b/ip/ip_common.h
+index b747ea47122d..8faed6174f06 100644
+--- a/ip/ip_common.h
++++ b/ip/ip_common.h
+@@ -90,6 +90,7 @@ struct link_util *get_link_slave_kind(const char *slave_kind);
+ 
+ void br_dump_bridge_id(const struct ifla_bridge_id *id, char *buf, size_t len);
+ 
++__u32 ipvrf_get_table(char *name);
+ bool name_is_vrf(const char *name);
+ 
+ #ifndef	INFINITY_LIFE_TIME
+diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
+index 166f566e6d77..b4013773537f 100644
+--- a/ip/iplink_vrf.c
++++ b/ip/iplink_vrf.c
+@@ -97,6 +97,72 @@ struct link_util vrf_slave_link_util = {
+ 	.slave          = true,
+ };
+ 
++/* returns table id if name is a VRF device */
++__u32 ipvrf_get_table(char *name)
++{
++	struct {
++		struct nlmsghdr		n;
++		struct ifinfomsg	i;
++		char			buf[1024];
++	} req = {
++		.n = {
++			.nlmsg_len   = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
++			.nlmsg_flags = NLM_F_REQUEST,
++			.nlmsg_type  = RTM_GETLINK,
++		},
++		.i = {
++			.ifi_family  = preferred_family,
++		},
++	};
++	struct {
++		struct nlmsghdr n;
++		char buf[8192];
++	} answer;
++	struct rtattr *tb[IFLA_MAX+1];
++	struct rtattr *li[IFLA_INFO_MAX+1];
++	struct rtattr *vrf_attr[IFLA_VRF_MAX + 1];
++	struct ifinfomsg *ifi;
++	__u32 tb_id = 0;
++	int len;
++
++	addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, strlen(name) + 1);
++
++	if (rtnl_talk(&rth, &req.n, &answer.n, sizeof(answer)) < 0)
++		goto err;
++
++	ifi = NLMSG_DATA(&answer.n);
++	len = answer.n.nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
++	if (len < 0) {
++		fprintf(stderr, "BUG: Invalid response to link query.\n");
++		goto err;
++	}
++
++	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
++
++	if (!tb[IFLA_LINKINFO])
++		goto err;
++
++	parse_rtattr_nested(li, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
++
++	if (!li[IFLA_INFO_KIND] || !li[IFLA_INFO_DATA])
++		goto err;
++
++	if (strcmp(RTA_DATA(li[IFLA_INFO_KIND]), "vrf"))
++		goto err;
++
++	parse_rtattr_nested(vrf_attr, IFLA_VRF_MAX, li[IFLA_INFO_DATA]);
++	if (vrf_attr[IFLA_VRF_TABLE])
++		tb_id = rta_getattr_u32(vrf_attr[IFLA_VRF_TABLE]);
++
++	if (!tb_id)
++		fprintf(stderr, "BUG: VRF %s is missing table id\n", name);
++
++	return tb_id;
++
++err:
++	return 0;
++}
++
+ bool name_is_vrf(const char *name)
+ {
+ 	struct {
+-- 
+2.1.4
