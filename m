@@ -1,43 +1,43 @@
-From: Timur Tabi <timur@codeaurora.org>
-Subject: Re: [PATCH] [v6] net: emac: emac gigabit ethernet controller driver
-Date: Wed, 29 Jun 2016 10:46:23 -0500
-Message-ID: <5773ED4F.4050401@codeaurora.org>
-References: <1466812008-26686-1-git-send-email-timur@codeaurora.org>
- <5679359.84lXZytcOR@wuerfel> <5773E503.3070404@codeaurora.org>
- <3914163.aNiIdzedWT@wuerfel>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: libertas: Add spinlock to avoid race condition
+Date: Wed, 29 Jun 2016 15:47:12 +0000 (UTC)
+Message-ID: <20160629154712.95563613CE@smtp.codeaurora.org>
+References: <1465990443-19738-1-git-send-email-andrianov@ispras.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	shankerd@codeaurora.org, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
-	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
-	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net,
-	f.fainelli@gmail.com, catalin.marinas@arm.com
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <3914163.aNiIdzedWT@wuerfel>
-Sender: linux-arm-msm-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Pavel Andrianov <andrianov@ispras.ru>,
+	libertas-dev@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	ldv-project@linuxtesting.org, vaishali.thakkar@oracle.com
+To: Pavel Andrianov <andrianov@ispras.ru>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:39623 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752660AbcF2Pr2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 11:47:28 -0400
+In-Reply-To: <1465990443-19738-1-git-send-email-andrianov@ispras.ru>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann wrote:
-> Usually drivers try 64-bit mask and 32-bit masks, and the 32 bit
-> mask is practically guaranteed to succeed.
+Pavel Andrianov <andrianov@ispras.ru> wrote:
+> lbs_mac_event_disconnected may free priv->currenttxskb
+> while lbs_hard_start_xmit accesses to it.
+> The patch adds a spinlock for mutual exclusion.
+> 
+> Tested on OLPC XO-1 (usb8388) and XO-1.5 (sd8686) with v4.7-rc3.
+> 
+> Confirmed that lbs_mac_event_disconnected is being called on the
+> station when hostapd on access point is given SIGHUP.
+> 
+> Signed-off-by: Pavel <andrianov@ispras.ru>
+> Tested-by: James Cameron <quozl@laptop.org>
+> Acked-by: Vaishali Thakkar <vaishali.thakkar@oracle.com>
 
-Sure, but in theory, my for-loop is correct, right?  Wouldn't there be 
-some value in setting a 36-bit or 40-bit DMA mask if it works?  We have 
-a platform where memory starts at a 40-bit address, so some devices have 
-a 44-bit address bus.  If a 64-bit mask doesn't work, then a 32-bit mask 
-certainly wont.
+Thanks, 1 patch applied to wireless-drivers-next.git:
 
-> Platforms will also allow allow the driver to set a mask that
-> is larger than what the bus supports, as long as all RAM is
-> reachable by the bus.
-
-And that check (like all others) is made in the dma_set_mask call?
+f52b041aed77 libertas: Add spinlock to avoid race condition
 
 -- 
-Qualcomm Innovation Center, Inc.
-The Qualcomm Innovation Center, Inc. is a member of the Code Aurora
-Forum, a Linux Foundation collaborative project.
+Sent by pwcli
+https://patchwork.kernel.org/patch/9178477/
