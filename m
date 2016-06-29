@@ -1,105 +1,63 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH 2/2] net: samples: pktgen mode samples/tests for
- qdisc layer
-Date: Wed, 29 Jun 2016 12:47:52 -0700
-Message-ID: <20160629194752.14745.94973.stgit@john-Precision-Tower-5810>
-References: <20160629194731.14745.20562.stgit@john-Precision-Tower-5810>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] [v6] net: emac: emac gigabit ethernet controller driver
+Date: Wed, 29 Jun 2016 21:45:37 +0200
+Message-ID: <11472258.9SNjZdPb6l@wuerfel>
+References: <1466812008-26686-1-git-send-email-timur@codeaurora.org> <3914163.aNiIdzedWT@wuerfel> <5773ED4F.4050401@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jhs@mojatatu.com, brouer@redhat.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	shankerd@codeaurora.org, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
+	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
+	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net,
+	f.fainelli@gmail.com, catalin.marinas@arm.com
+To: Timur Tabi <timur@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:34159 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752215AbcF2TsR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 15:48:17 -0400
-Received: by mail-pa0-f67.google.com with SMTP id us13so5118900pab.1
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 12:48:14 -0700 (PDT)
-In-Reply-To: <20160629194731.14745.20562.stgit@john-Precision-Tower-5810>
+Received: from mout.kundenserver.de ([212.227.126.130]:62083 "EHLO
+	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752432AbcF2TuJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 15:50:09 -0400
+In-Reply-To: <5773ED4F.4050401@codeaurora.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds samples for pktgen to use with new mode to inject pkts into
-the qdisc layer. This also doubles as nice test cases to test any
-patches against qdisc layer.
+On Wednesday, June 29, 2016 10:46:23 AM CEST Timur Tabi wrote:
+> Arnd Bergmann wrote:
+> > Usually drivers try 64-bit mask and 32-bit masks, and the 32 bit
+> > mask is practically guaranteed to succeed.
+> 
+> Sure, but in theory, my for-loop is correct, right?  Wouldn't there be 
+> some value in setting a 36-bit or 40-bit DMA mask if it works?  We have 
+> a platform where memory starts at a 40-bit address, so some devices have 
+> a 44-bit address bus.  If a 64-bit mask doesn't work, then a 32-bit mask 
+> certainly wont.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
----
- .../pktgen/pktgen_bench_xmit_mode_queue_xmit.sh    |   67 ++++++++++++++++++++
- 1 file changed, 67 insertions(+)
- create mode 100755 samples/pktgen/pktgen_bench_xmit_mode_queue_xmit.sh
+The question is whether it makes any difference to the driver: what decision
+does the driver make differently if it has set a 44-bit mask?
 
-diff --git a/samples/pktgen/pktgen_bench_xmit_mode_queue_xmit.sh b/samples/pktgen/pktgen_bench_xmit_mode_queue_xmit.sh
-new file mode 100755
-index 0000000..f1aaef0
---- /dev/null
-+++ b/samples/pktgen/pktgen_bench_xmit_mode_queue_xmit.sh
-@@ -0,0 +1,67 @@
-+#!/bin/bash
-+#
-+# Benchmark script:
-+#  - developed for benchmarking egress qdisc path, derived from
-+#    ingress benchmark script.
-+#
-+# Script for injecting packets into egress qdisc path of the stack
-+# with pktgen "xmit_mode queue_xmit".
-+#
-+basedir=`dirname $0`
-+source ${basedir}/functions.sh
-+root_check_run_with_sudo "$@"
-+
-+# Parameter parsing via include
-+source ${basedir}/parameters.sh
-+# Using invalid DST_MAC will cause the packets to get dropped in
-+# ip_rcv() which is part of the test
-+[ -z "$DEST_IP" ] && DEST_IP="198.18.0.42"
-+[ -z "$DST_MAC" ] && DST_MAC="90:e2:ba:ff:ff:ff"
-+[ -z "$BURST" ] && BURST=1024
-+
-+# Base Config
-+DELAY="0"        # Zero means max speed
-+COUNT="10000000" # Zero means indefinitely
-+
-+# General cleanup everything since last run
-+pg_ctrl "reset"
-+
-+# Threads are specified with parameter -t value in $THREADS
-+for ((thread = 0; thread < $THREADS; thread++)); do
-+    # The device name is extended with @name, using thread number to
-+    # make then unique, but any name will do.
-+    dev=${DEV}@${thread}
-+
-+    # Add remove all other devices and add_device $dev to thread
-+    pg_thread $thread "rem_device_all"
-+    pg_thread $thread "add_device" $dev
-+
-+    # Base config of dev
-+    pg_set $dev "flag QUEUE_MAP_CPU"
-+    pg_set $dev "count $COUNT"
-+    pg_set $dev "pkt_size $PKT_SIZE"
-+    pg_set $dev "delay $DELAY"
-+    pg_set $dev "flag NO_TIMESTAMP"
-+
-+    # Destination
-+    pg_set $dev "dst_mac $DST_MAC"
-+    pg_set $dev "dst $DEST_IP"
-+
-+    # Inject packet into RX path of stack
-+    pg_set $dev "xmit_mode queue_xmit"
-+
-+    # Burst allow us to avoid measuring SKB alloc/free overhead
-+    pg_set $dev "burst $BURST"
-+done
-+
-+# start_run
-+echo "Running... ctrl^C to stop" >&2
-+pg_ctrl "start"
-+echo "Done" >&2
-+
-+# Print results
-+for ((thread = 0; thread < $THREADS; thread++)); do
-+    dev=${DEV}@${thread}
-+    echo "Device: $dev"
-+    cat /proc/net/pktgen/$dev | grep -A2 "Result:"
-+done
+We don't have ZONE_DMA44 (and it's very unlikely that we will introduce
+it), so neither the driver nor the network stack can actually act on the
+fact that a 64-bit mask failed but a 44-bit mask succeeded.
+
+> > Platforms will also allow allow the driver to set a mask that
+> > is larger than what the bus supports, as long as all RAM is
+> > reachable by the bus.
+> 
+> And that check (like all others) is made in the dma_set_mask call?
+
+Yes. Regarding the system you mentioned: I understand that it has
+no memory in ZONE_DMA32 and no IOMMU (btw, that also means 32-bit
+PCI devices are fundamentally broken), and the bus can only address
+the lower 44 bit of address space.
+
+Does this system support more than 15TB of RAM? If not, then there
+is no problem, and if it  does, I think your best way out is not
+to disable SWIOTLB. That will be a slower compared to a system
+with an IOMMU or the fictional ZONE_DMA44, but it should work
+correctly. In either case (less than 15TB without swiotlb, or
+more than 15TB with swiotlb), the driver should just ask for
+a 64-bit mask and that will succeed.
+
+	Arnd
