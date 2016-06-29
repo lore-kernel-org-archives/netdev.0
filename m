@@ -1,62 +1,48 @@
-From: Andrey Vagin <avagin@openvz.org>
-Subject: [PATCH] ip route: timeout for routes has to be set in seconds
-Date: Wed, 29 Jun 2016 02:27:14 +0300
-Message-ID: <1467156434-2157-1-git-send-email-avagin@openvz.org>
-Cc: Andrew Vagin <avagin@virtuozzo.com>,
-	Xin Long <lucien.xin@gmail.com>,
-	Hangbin Liu <liuhangbin@gmail.com>,
-	Stephen Hemminger <shemming@brocade.com>
-To: netdev@vger.kernel.org
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH v2 iproute2 3/3] ss: Add support to filter on device
+Date: Tue, 28 Jun 2016 17:11:26 -0700
+Message-ID: <20160628171126.5da73f41@xeon-e3>
+References: <1467052465-14488-1-git-send-email-dsa@cumulusnetworks.com>
+	<1467052465-14488-4-git-send-email-dsa@cumulusnetworks.com>
+	<20160627141304.2178a549@xeon-e3>
+	<08825943-ee97-c769-e70a-f6dcc3f49493@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33954 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752433AbcF1X1d (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 19:27:33 -0400
-Received: by mail-pa0-f66.google.com with SMTP id us13so2812611pab.1
-        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 16:27:20 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:34647 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752448AbcF2ALN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 28 Jun 2016 20:11:13 -0400
+Received: by mail-pa0-f48.google.com with SMTP id bz2so11106023pad.1
+        for <netdev@vger.kernel.org>; Tue, 28 Jun 2016 17:11:13 -0700 (PDT)
+In-Reply-To: <08825943-ee97-c769-e70a-f6dcc3f49493@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrew Vagin <avagin@virtuozzo.com>
+On Tue, 28 Jun 2016 11:40:40 -0600
+David Ahern <dsa@cumulusnetworks.com> wrote:
 
-Currently a timeout is multiplied by HZ in user-space and
-then it multiplied by HZ in kernel-space.
+> On 6/27/16 3:13 PM, Stephen Hemminger wrote:
+> > On Mon, 27 Jun 2016 11:34:25 -0700
+> > David Ahern <dsa@cumulusnetworks.com> wrote:
+> >  
+> >> +		case SSF_DEVCOND:
+> >> +	{
+> >> +		struct aafilter *a = (void *)f->pred;  
+> >
+> > I don't like the wandering bracket left, but all the code has that.
+> > After this will change it to:
+> > 		case SSF_DEVCOND:  {
+> > 			struct aafilter *a = f->pred;
+> > ...
+> >  
+> 
+> meaning you'll take the patches as is since they follow current 
+> formatting and you will apply a patch to fix the indentation in that 
+> run_ssfilter? They have not shown up in your repo so want to make sure I 
+> understand the intent.
 
-$ ./ip/ip r add 2002::0/64 dev veth1 expires 10
-$ ./ip/ip -6 r
-2002::/64 dev veth1  metric 1024 linkdown  expires 996sec pref medium
-
-Cc: Xin Long <lucien.xin@gmail.com>
-Cc: Hangbin Liu <liuhangbin@gmail.com>
-Cc: Stephen Hemminger <shemming@brocade.com>
-Fixes: 68eede250500 ("route: allow routes to be configured with expire values")
-Signed-off-by: Andrew Vagin <avagin@virtuozzo.com>
----
- ip/iproute.c | 5 +----
- 1 file changed, 1 insertion(+), 4 deletions(-)
-
-diff --git a/ip/iproute.c b/ip/iproute.c
-index 8224d7f..7c0f5a4 100644
---- a/ip/iproute.c
-+++ b/ip/iproute.c
-@@ -839,7 +839,6 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
- 	int table_ok = 0;
- 	int raw = 0;
- 	int type_ok = 0;
--	static int hz;
- 
- 	memset(&req, 0, sizeof(req));
- 
-@@ -923,9 +922,7 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
- 			NEXT_ARG();
- 			if (get_u32(&expires, *argv, 0))
- 				invarg("\"expires\" value is invalid\n", *argv);
--			if (!hz)
--				hz = get_user_hz();
--			addattr32(&req.n, sizeof(req), RTA_EXPIRES, expires*hz);
-+			addattr32(&req.n, sizeof(req), RTA_EXPIRES, expires);
- 		} else if (matches(*argv, "metric") == 0 ||
- 			   matches(*argv, "priority") == 0 ||
- 			   strcmp(*argv, "preference") == 0) {
--- 
-2.7.4
+They all got applied today
