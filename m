@@ -1,32 +1,36 @@
-From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
-Subject: net.git commit 3bb549ae4c51
-Date: Wed, 29 Jun 2016 15:18:55 -0400
-Message-ID: <20160629191855.GA15982@oracle.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sowmini.varadhan@oracle.com
-To: netdev@vger.kernel.org, davem@davemloft.net
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH iproute2] bridge: man: fix BPUD typo
+Date: Wed, 29 Jun 2016 15:26:10 -0400
+Message-ID: <20160629192610.1328-1-vivien.didelot@savoirfairelinux.com>
+Cc: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+To: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:16392 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750878AbcF2TT5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 15:19:57 -0400
-Content-Disposition: inline
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:34019 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751465AbcF2T01 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 15:26:27 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
+s/BPUD/BPDU/ in guard description.
 
-I'm getting ready with the next installment of changes to rds-tcp
-for mprds, and I noticed that commit 3bb549ae4c51 ("RDS: TCP:
-rds_tcp_accept_one() should transition socket from RESETTING to UP")
-has not made its way to net-next.  I also noticed that (even though this
-is a one-liner), this patch generates a conflict when applied as-is
-to net-next.
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ man/man8/bridge.8 | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-My planned changes will cause more turbulence around this piece 
-of code, so they depend on this patch. What is the advised approach
-here? Should I just port this patch over to net-next as part
-of my patch-set, and make a note about the port, or something else?
-
---Sowmini
+diff --git a/man/man8/bridge.8 b/man/man8/bridge.8
+index 8a39673..ef4f83e 100644
+--- a/man/man8/bridge.8
++++ b/man/man8/bridge.8
+@@ -256,7 +256,7 @@ STP BPDUs.
+ 
+ .TP
+ .BR "guard on " or " guard off "
+-Controls whether STP BPUDs will be processed by the bridge port. By default,
++Controls whether STP BPDUs will be processed by the bridge port. By default,
+ the flag is turned off allowed BPDU processing. Turning this flag on will
+ cause the port to stop processing STP BPDUs.
+ 
+-- 
+2.9.0
