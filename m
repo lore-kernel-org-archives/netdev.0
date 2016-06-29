@@ -1,106 +1,71 @@
-From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2 1/6] ip vrf: Add name_is_vrf
-Date: Wed, 29 Jun 2016 08:06:13 -0700
-Message-ID: <20160629080613.6d368b4f@xeon-e3>
-References: <1467053461-16147-1-git-send-email-dsa@cumulusnetworks.com>
-	<1467053461-16147-2-git-send-email-dsa@cumulusnetworks.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH] [v6] net: emac: emac gigabit ethernet controller driver
+Date: Wed, 29 Jun 2016 17:04:45 +0200
+Message-ID: <5679359.84lXZytcOR@wuerfel>
+References: <1466812008-26686-1-git-send-email-timur@codeaurora.org> <4312386.60Y44nCzSI@wuerfel> <5773DC52.4010703@codeaurora.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f176.google.com ([209.85.192.176]:33064 "EHLO
-	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752211AbcF2PGB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 11:06:01 -0400
-Received: by mail-pf0-f176.google.com with SMTP id i123so19065291pfg.0
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 08:06:01 -0700 (PDT)
-In-Reply-To: <1467053461-16147-2-git-send-email-dsa@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
+	shankerd@codeaurora.org, vikrams@codeaurora.org,
+	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
+	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
+	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net,
+	f.fainelli@gmail.com, catalin.marinas@arm.com
+To: Timur Tabi <timur@codeaurora.org>
+Return-path: <linux-arm-msm-owner@vger.kernel.org>
+In-Reply-To: <5773DC52.4010703@codeaurora.org>
+Sender: linux-arm-msm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, 27 Jun 2016 11:50:56 -0700
-David Ahern <dsa@cumulusnetworks.com> wrote:
+On Wednesday, June 29, 2016 9:33:54 AM CEST Timur Tabi wrote:
+> Arnd Bergmann wrote:
+> > If the ranges property lists the bus as dma capable for only the
+> > lower 32 bits, then dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
+> > should fail, otherwise dma_alloc_coherent() will return an invalid
+> > memory area.
+> 
+> That seems wrong.  dma_alloc_coherent() should be smart enough to 
+> restrict itself to the the dma-ranges property.  Isn't that why the 
+> property exists?  When dma_alloc_coherent() looks for memory, it should 
+> knows it has to create a 32-bit address.  That's why we have ZONE_DMA.
 
-> diff --git a/ip/ip_common.h b/ip/ip_common.h
-> index e8da9e034b15..410eb135774a 100644
-> --- a/ip/ip_common.h
-> +++ b/ip/ip_common.h
-> @@ -90,6 +90,8 @@ struct link_util *get_link_slave_kind(const char *slave_kind);
->  
->  void br_dump_bridge_id(const struct ifla_bridge_id *id, char *buf, size_t len);
->  
-> +bool name_is_vrf(char *name);
-> +
->  #ifndef	INFINITY_LIFE_TIME
->  #define     INFINITY_LIFE_TIME      0xFFFFFFFFU
->  #endif
-> diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
-> index e3c7b4652da5..abd43c08423e 100644
-> --- a/ip/iplink_vrf.c
-> +++ b/ip/iplink_vrf.c
-> @@ -96,3 +96,56 @@ struct link_util vrf_slave_link_util = {
->  	.print_opt	= vrf_slave_print_opt,
->  	.slave          = true,
->  };
-> +
-> +bool name_is_vrf(char *name)
+No, dma_alloc_coherent() is documented to use the dma_mask as
+its reference, it's supposed to be independent of the underlying
+bus.
 
-Why not?
-bool name_is_vrf(const char *name)
+dma-ranges is just how we communicate the limitation of the
+bus to the kernel, but relying on dma-ranges itself would fail
+to consider drivers that impose additional limitations, i.e.
+when a device needs a smaller mask and calls 'dma_set_mask(dev,
+DMA_BIT_MASK(24))' or something like that.
 
-> +{
-> +	struct {
-> +		struct nlmsghdr		n;
-> +		struct ifinfomsg	i;
-> +		char			buf[1024];
-> +	} req = {
-> +		.n = {
-> +			.nlmsg_len   = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
-> +			.nlmsg_flags = NLM_F_REQUEST,
-> +			.nlmsg_type  = RTM_GETLINK,
-> +		},
-> +		.i = {
-> +			.ifi_family  = preferred_family,
-> +		},
-> +	};
-> +	struct {
-> +		struct nlmsghdr n;
-> +		char buf[8192];
-> +	} answer;
-> +	struct rtattr *tb[IFLA_MAX+1];
-> +	struct rtattr *li[IFLA_INFO_MAX+1];
-> +	struct ifinfomsg *ifi;
-> +	int len;
-> +
-> +	addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, strlen(name) + 1);
-> +
-> +	if (rtnl_talk(&rth, &req.n, &answer.n, sizeof(answer)) < 0)
-> +		goto err;
-Just return false instead of all these goto's?
-Also you might want to give some indication of error.
+> > Another twist is how arm64 currently uses SWIOTLB unconditionally:
+> > As long as SWIOTLB (or iommu) is enabled, dma_set_mask_and_coherent()
+> > should succeed for any mask(), but not actually update the mask of the
+> > device to more than the bus can handle.
+> 
+> That just seems like a bug in ARM64 SWIOTLB.  SWIOTLB should inject 
+> itself when the driver tries to map memory outside of its DMA range.
 
-> +
-> +	ifi = NLMSG_DATA(&answer.n);
-> +	len = answer.n.nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
-> +	if (len < 0) {
-> +		fprintf(stderr, "BUG: Invalid response to link query.\n");
-> +		goto err;
-> +	}
-> +
-> +	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
-> +
-> +	if (!tb[IFLA_LINKINFO])
-> +		goto err;
-> +
-> +	parse_rtattr_nested(li, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
-> +
-> +	if (!li[IFLA_INFO_KIND])
-> +		goto err;
-> +
-> +	return strcmp(RTA_DATA(li[IFLA_INFO_KIND]), "vrf") == 0;
-> +
-> +err:
-> +	return false;
-> +}
+Again, the dma mask is how swiotlb_map_*() finds whether a page
+needs a bounce buffer or not, so it has to be set to whatever
+the device can address.
+
+> Without SWIOTLB/IOMMU, dma_alloc_coherent() should be aware of the 
+> platform-specific limitations of each device and ensure that it only 
+> allocates memory that conforms *all* limitations.  For example, if the 
+> platform is capable of 64-bit DMA, but a legacy device can only handle 
+> 32-bit bus addresses, then the driver should do this:
+> 
+> 	dma_set_mask_and_coherent(dev, DMA_BIT_MASK(32))
+
+That's also not how it works: each device starts out with a 32-bit mask,
+because that's what historically all PCI devices can do. If a device
+is 64-bit DMA capable, it can extend the mask by passing DMA_BIT_MASK(64)
+(or whatever it can support), and the platform code checks if that's
+possible.
+
+
+	Arnd
