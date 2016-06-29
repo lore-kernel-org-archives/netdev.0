@@ -1,65 +1,50 @@
-From: Jarod Wilson <jarod@redhat.com>
-Subject: Re: [net] e1000e: keep VLAN interfaces functional after rxvlan off
-Date: Wed, 29 Jun 2016 17:42:57 -0400
-Message-ID: <577440E1.9070308@redhat.com>
-References: <1467171691-54525-1-git-send-email-jeffrey.t.kirsher@intel.com> <20160629.074006.1279014794531759883.davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH v2 net-next] tcp: md5: use kmalloc() backed scratch areas
+Date: Wed, 29 Jun 2016 23:44:06 +0200
+Message-ID: <1467236646.6369.5.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1466829439.6850.126.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1466870975.6850.139.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1467046313.6850.171.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CALCETrUSi3T5JXMunEO9RM5ZEz=aA2xtf9encEVYGxJF4mbhKg@mail.gmail.com>
+	 <20160628034150.GA13953@gondor.apana.org.au>
+	 <CALCETrXOT-zaV8O1Yu4RGybGvPv5C7gr=7EWjTKvUQUaRxz1aQ@mail.gmail.com>
+	 <20160629022337.GB23390@gondor.apana.org.au>
+	 <CALCETrW3zzMRazohKfOh7PKb5jegJOmyrC7EiCEF0eQ5SArNyg@mail.gmail.com>
+	 <20160629150257.GA29490@gondor.apana.org.au>
+	 <CALCETrVKjwKkzR+qwsC=DMvM9tR4beAtvw=LLjzsAyuztV4bWw@mail.gmail.com>
+	 <20160629153818.GA29838@gondor.apana.org.au>
+	 <CALCETrUR1+au2-11qSAT24832nZcTwjUj8UY09rCMisyHawnaA@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: jeffrey.t.kirsher@intel.com, netdev@vger.kernel.org,
-	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com
-To: David Miller <davem@davemloft.net>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	David Miller <davem@davemloft.net>,
+	Network Development <netdev@vger.kernel.org>
+To: Andy Lutomirski <luto@amacapital.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f174.google.com ([209.85.220.174]:33281 "EHLO
-	mail-qk0-f174.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751480AbcF2VnB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 17:43:01 -0400
-Received: by mail-qk0-f174.google.com with SMTP id q79so112985130qke.0
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 14:43:00 -0700 (PDT)
-In-Reply-To: <20160629.074006.1279014794531759883.davem@davemloft.net>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:32806 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751735AbcF2Voe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 17:44:34 -0400
+Received: by mail-wm0-f68.google.com with SMTP id r201so17540752wme.0
+        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 14:44:09 -0700 (PDT)
+In-Reply-To: <CALCETrUR1+au2-11qSAT24832nZcTwjUj8UY09rCMisyHawnaA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Miller wrote:
-> From: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
-> Date: Tue, 28 Jun 2016 20:41:31 -0700
->
->> From: Jarod Wilson<jarod@redhat.com>
->>
->> I've got a bug report about an e1000e interface, where a VLAN interface is
->> set up on top of it:
->>
->> $ ip link add link ens1f0 name ens1f0.99 type vlan id 99
->> $ ip link set ens1f0 up
->> $ ip link set ens1f0.99 up
->> $ ip addr add 192.168.99.92 dev ens1f0.99
->>
->> At this point, I can ping another host on vlan 99, ip 192.168.99.91.
->> However, if I do the following:
->>
->> $ ethtool -K ens1f0 rxvlan off
->>
->> Then no traffic passes on ens1f0.99. It comes back if I toggle rxvlan on
->> again. I'm not sure if this is actually intended behavior, or if there's a
->> lack of software VLAN stripping fallback, or what, but things continue to
->> work if I simply don't call e1000e_vlan_strip_disable() if there are
->> active VLANs (plagiarizing a function from the e1000 driver here) on the
->> interface.
->>
->> Also slipped a related-ish fix to the kerneldoc text for
->> e1000e_vlan_strip_disable here...
->>
->> Signed-off-by: Jarod Wilson<jarod@redhat.com>
->> Tested-by: Aaron Brown<aaron.f.brown@intel.com>
->> Signed-off-by: Jeff Kirsher<jeffrey.t.kirsher@intel.com>
->
-> Applied, thanks.
+On Wed, 2016-06-29 at 09:41 -0700, Andy Lutomirski wrote:
 
-Hm.. There was actually a v2 patch that followed this one that fixed the 
-problem slightly differently and slightly better, I think.
+> Overall, it looks like there's overhead of something like 50ns for
+> each ahash invocation vs the shash equivalent.  It's not huge, but
+> it's there.  (This is cache-hot.  I bet it's considerably worse if
+> cache-cold, because ahash will require a lot more code cache lines as
+> well as the extra cache lines involved in the scatterlist and whatever
+> arch stuff is needed to map back and forth between virtual and
+> physical addresses.
 
-http://marc.info/?l=intel-wired-lan&m=146551652424417&w=2
+I am kind of mystified seeing someone caring about TCP MD5, other than
+just making sure it wont crash the host when it needs to be used ;)
 
--- 
-Jarod Wilson
-jarod@redhat.com
+The real useful work would be to use a jump label so that we can avoid
+spending cycles for non TCP MD5 sessions, when a host never had to use
+any MD5 negotiation.
