@@ -1,50 +1,106 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2 net-next] tcp: md5: use kmalloc() backed scratch areas
-Date: Wed, 29 Jun 2016 23:02:57 +0800
-Message-ID: <20160629150257.GA29490@gondor.apana.org.au>
-References: <1466827910.6850.123.camel@edumazet-glaptop3.roam.corp.google.com>
- <1466828771.6850.124.camel@edumazet-glaptop3.roam.corp.google.com>
- <1466829439.6850.126.camel@edumazet-glaptop3.roam.corp.google.com>
- <1466870975.6850.139.camel@edumazet-glaptop3.roam.corp.google.com>
- <1467046313.6850.171.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALCETrUSi3T5JXMunEO9RM5ZEz=aA2xtf9encEVYGxJF4mbhKg@mail.gmail.com>
- <20160628034150.GA13953@gondor.apana.org.au>
- <CALCETrXOT-zaV8O1Yu4RGybGvPv5C7gr=7EWjTKvUQUaRxz1aQ@mail.gmail.com>
- <20160629022337.GB23390@gondor.apana.org.au>
- <CALCETrW3zzMRazohKfOh7PKb5jegJOmyrC7EiCEF0eQ5SArNyg@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 1/6] ip vrf: Add name_is_vrf
+Date: Wed, 29 Jun 2016 08:06:13 -0700
+Message-ID: <20160629080613.6d368b4f@xeon-e3>
+References: <1467053461-16147-1-git-send-email-dsa@cumulusnetworks.com>
+	<1467053461-16147-2-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:58730 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752048AbcF2PEJ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 11:04:09 -0400
-Content-Disposition: inline
-In-Reply-To: <CALCETrW3zzMRazohKfOh7PKb5jegJOmyrC7EiCEF0eQ5SArNyg@mail.gmail.com>
+Received: from mail-pf0-f176.google.com ([209.85.192.176]:33064 "EHLO
+	mail-pf0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752211AbcF2PGB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 11:06:01 -0400
+Received: by mail-pf0-f176.google.com with SMTP id i123so19065291pfg.0
+        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 08:06:01 -0700 (PDT)
+In-Reply-To: <1467053461-16147-2-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 29, 2016 at 07:59:22AM -0700, Andy Lutomirski wrote:
->> I suspect that, if you compare a synchronous implementation that can
-> use virtual addresses to a DMA based implementation that can't, you'll
-> find that, for short messages like tcp md5 uses, the synchronous
-> implementation would win every time.  I'm wondering if shash should
-> gain the ability to use scatterlists and, if it doesn't already have
-> it, the ability to use synchronous hardware implementations (like
-> SHA-NI, for example, although I don't think that's useful for MD5).
+On Mon, 27 Jun 2016 11:50:56 -0700
+David Ahern <dsa@cumulusnetworks.com> wrote:
 
-I don't understand, if you add SGs to shash you get ahash.  So
-why wouldn't you just use ahash?
+> diff --git a/ip/ip_common.h b/ip/ip_common.h
+> index e8da9e034b15..410eb135774a 100644
+> --- a/ip/ip_common.h
+> +++ b/ip/ip_common.h
+> @@ -90,6 +90,8 @@ struct link_util *get_link_slave_kind(const char *slave_kind);
+>  
+>  void br_dump_bridge_id(const struct ifla_bridge_id *id, char *buf, size_t len);
+>  
+> +bool name_is_vrf(char *name);
+> +
+>  #ifndef	INFINITY_LIFE_TIME
+>  #define     INFINITY_LIFE_TIME      0xFFFFFFFFU
+>  #endif
+> diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
+> index e3c7b4652da5..abd43c08423e 100644
+> --- a/ip/iplink_vrf.c
+> +++ b/ip/iplink_vrf.c
+> @@ -96,3 +96,56 @@ struct link_util vrf_slave_link_util = {
+>  	.print_opt	= vrf_slave_print_opt,
+>  	.slave          = true,
+>  };
+> +
+> +bool name_is_vrf(char *name)
 
-AFAICS tcp md5 already uses ahash in sync mode so there is nothing
-asynchronous here at all.
+Why not?
+bool name_is_vrf(const char *name)
 
-Cheers,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> +{
+> +	struct {
+> +		struct nlmsghdr		n;
+> +		struct ifinfomsg	i;
+> +		char			buf[1024];
+> +	} req = {
+> +		.n = {
+> +			.nlmsg_len   = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
+> +			.nlmsg_flags = NLM_F_REQUEST,
+> +			.nlmsg_type  = RTM_GETLINK,
+> +		},
+> +		.i = {
+> +			.ifi_family  = preferred_family,
+> +		},
+> +	};
+> +	struct {
+> +		struct nlmsghdr n;
+> +		char buf[8192];
+> +	} answer;
+> +	struct rtattr *tb[IFLA_MAX+1];
+> +	struct rtattr *li[IFLA_INFO_MAX+1];
+> +	struct ifinfomsg *ifi;
+> +	int len;
+> +
+> +	addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, strlen(name) + 1);
+> +
+> +	if (rtnl_talk(&rth, &req.n, &answer.n, sizeof(answer)) < 0)
+> +		goto err;
+Just return false instead of all these goto's?
+Also you might want to give some indication of error.
+
+> +
+> +	ifi = NLMSG_DATA(&answer.n);
+> +	len = answer.n.nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
+> +	if (len < 0) {
+> +		fprintf(stderr, "BUG: Invalid response to link query.\n");
+> +		goto err;
+> +	}
+> +
+> +	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
+> +
+> +	if (!tb[IFLA_LINKINFO])
+> +		goto err;
+> +
+> +	parse_rtattr_nested(li, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
+> +
+> +	if (!li[IFLA_INFO_KIND])
+> +		goto err;
+> +
+> +	return strcmp(RTA_DATA(li[IFLA_INFO_KIND]), "vrf") == 0;
+> +
+> +err:
+> +	return false;
+> +}
