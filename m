@@ -1,41 +1,34 @@
-From: Joe Stringer <joe@ovn.org>
-Subject: Re: [ovs-dev] [PATCH net v2] openvswitch: fix conntrack netlink event delivery
-Date: Wed, 29 Jun 2016 11:47:15 +0200
-Message-ID: <CAPWQB7F+JgzPtSf=aUAmuAa77L2EE0p7qMWRe_A4xfH-wwo3wg@mail.gmail.com>
-References: <CAPWQB7HUqyK8EiTZagaxV=g_3An9meNgtBAOWUh_UVDgWwuoPQ@mail.gmail.com>
- <1467127346-23743-1-git-send-email-samuel.gauthier@6wind.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] qlcnic: use the correct ring in
+ qlcnic_83xx_process_rcv_ring_diag()
+Date: Wed, 29 Jun 2016 05:48:01 -0400 (EDT)
+Message-ID: <20160629.054801.713412217544385924.davem@davemloft.net>
+References: <20160627205029.GA22095@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Pravin B Shelar <pshelar@nicira.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	ovs dev <dev@openvswitch.org>, netdev <netdev@vger.kernel.org>,
-	Joe Stringer <joestringer@nicira.com>,
-	netfilter-devel@vger.kernel.org, Justin Pettit <jpettit@nicira.com>
-To: Samuel Gauthier <samuel.gauthier@6wind.com>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1467127346-23743-1-git-send-email-samuel.gauthier@6wind.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Dept-GELinuxNICDev@qlogic.com, sony.chacko@qlogic.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:39586 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750932AbcF2Jsd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 05:48:33 -0400
+In-Reply-To: <20160627205029.GA22095@mwanda>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 28 June 2016 at 17:22, Samuel Gauthier <samuel.gauthier@6wind.com> wrote:
-> Only the first and last netlink message for a particular conntrack are
-> actually sent. The first message is sent through nf_conntrack_confirm when
-> the conntrack is committed. The last one is sent when the conntrack is
-> destroyed on timeout. The other conntrack state change messages are not
-> advertised.
->
-> When the conntrack subsystem is used from netfilter, nf_conntrack_confirm
-> is called for each packet, from the postrouting hook, which in turn calls
-> nf_ct_deliver_cached_events to send the state change netlink messages.
->
-> This commit fixes the problem by calling nf_ct_deliver_cached_events in the
-> non-commit case as well.
->
-> Fixes: 7f8a436eaa2c ("openvswitch: Add conntrack action")
-> CC: Joe Stringer <joestringer@nicira.com>
-> CC: Justin Pettit <jpettit@nicira.com>
-> CC: Andy Zhou <azhou@nicira.com>
-> CC: Thomas Graf <tgraf@suug.ch>
-> Signed-off-by: Samuel Gauthier <samuel.gauthier@6wind.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Mon, 27 Jun 2016 23:50:29 +0300
 
-Acked-by: Joe Stringer <joe@ovn.org>
+> There is a static checker warning here "warn: mask and shift to zero"
+> and the code sets "ring" to zero every time.  From looking at how
+> QLCNIC_FETCH_RING_ID() is used in qlcnic_83xx_process_rcv_ring() the
+> qlcnic_83xx_hndl() should be removed.
+> 
+> Fixes: 4be41e92f7c6 ('qlcnic: 83xx data path routines')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+
+Applied.
