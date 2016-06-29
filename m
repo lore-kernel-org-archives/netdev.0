@@ -1,62 +1,48 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 04/15] e1000e: prevent division by zero if TIMINCA is zero
-Date: Wed, 29 Jun 2016 14:32:51 -0700
-Message-ID: <1467235982-55437-5-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 02/15] fm10k: Align Rx buffers to 512B blocks
+Date: Wed, 29 Jun 2016 14:32:49 -0700
+Message-ID: <1467235982-55437-3-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1467235982-55437-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Denys Vlasenko <dvlasenk@redhat.com>, netdev@vger.kernel.org,
+Cc: Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga11.intel.com ([192.55.52.93]:58211 "EHLO mga11.intel.com"
+Received: from mga02.intel.com ([134.134.136.20]:42568 "EHLO mga02.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751550AbcF2VdF (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jun 2016 17:33:05 -0400
+	id S1751810AbcF2VdH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jun 2016 17:33:07 -0400
 In-Reply-To: <1467235982-55437-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Denys Vlasenko <dvlasenk@redhat.com>
+From: Alexander Duyck <aduyck@mirantis.com>
 
-Users report that under VMWare, er32(TIMINCA) returns zero.
-This causes division by zero at init time as follows:
+While reviewing the i40e driver changes to support page based receive I
+realized that I had overlooked the fact that the fm10k hardware required a
+512 byte alignment for Rx buffers.  This patch is meant to address that by
+changing the alignment for Rx buffers to 512 bytes instead of allowing it
+to be L1 cache aligned.
 
- ==>       incvalue = er32(TIMINCA) & E1000_TIMINCA_INCVALUE_MASK;
-           for (i = 0; i < E1000_MAX_82574_SYSTIM_REREADS; i++) {
-                   /* latch SYSTIMH on read of SYSTIML */
-                   systim_next = (cycle_t)er32(SYSTIML);
-                   systim_next |= (cycle_t)er32(SYSTIMH) << 32;
-
-                   time_delta = systim_next - systim;
-                   temp = time_delta;
- ====>             rem = do_div(temp, incvalue);
-
-This change makes kernel survive this, and users report that
-NIC does work after this change.
-
-Since on real hardware incvalue is never zero, this should not affect
-real hardware use case.
-
-Signed-off-by: Denys Vlasenko <dvlasenk@redhat.com>
-Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Alexander Duyck <aduyck@mirantis.com>
+Tested-by: Krishneil Singh <Krishneil.k.singh@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/e1000e/netdev.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/fm10k/fm10k_main.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/intel/e1000e/netdev.c b/drivers/net/ethernet/intel/e1000e/netdev.c
-index 75e6089..9d5bab8 100644
---- a/drivers/net/ethernet/intel/e1000e/netdev.c
-+++ b/drivers/net/ethernet/intel/e1000e/netdev.c
-@@ -4352,7 +4352,8 @@ static cycle_t e1000e_cyclecounter_read(const struct cyclecounter *cc)
- 
- 			time_delta = systim_next - systim;
- 			temp = time_delta;
--			rem = do_div(temp, incvalue);
-+			/* VMWare users have seen incvalue of zero, don't div / 0 */
-+			rem = incvalue ? do_div(temp, incvalue) : (time_delta != 0);
- 
- 			systim = systim_next;
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_main.c b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+index 0e166e9..53d02416 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_main.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_main.c
+@@ -272,7 +272,7 @@ static bool fm10k_add_rx_frag(struct fm10k_rx_buffer *rx_buffer,
+ #if (PAGE_SIZE < 8192)
+ 	unsigned int truesize = FM10K_RX_BUFSZ;
+ #else
+-	unsigned int truesize = SKB_DATA_ALIGN(size);
++	unsigned int truesize = ALIGN(size, 512);
+ #endif
+ 	unsigned int pull_len;
  
 -- 
 2.5.5
