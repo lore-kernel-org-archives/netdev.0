@@ -1,43 +1,72 @@
-From: Daniel Metz <dmetz@mytum.de>
-Subject: Re: [PATCH net-next v3] tcp: use RFC6298 compliant TCP RTO
- calculation
-Date: Wed, 29 Jun 2016 22:18:28 +0200
-Message-ID: <d2568bd1-1722-fa7d-9870-279e2e5ef6fb@mytum.de>
-References: <CAK6E8=eeso8OEN_0-znqkuEyVTqzP1mTvwktk4QOsrLJXmuj9Q@mail.gmail.com>
- <20160615180003.28970-1-dmetz@mytum.de>
- <20160617.113235.1099766688971255047.davem@davemloft.net>
- <CAK6E8=eQNkSyAujuqF9hiE1iFk03O4T6op_-g=y87+UQUrS4=Q@mail.gmail.com>
- <CAK6E8=cyrog=2UmVpwP3jzCtFAR9LxxtS+g01R42H9jk=_cZ2A@mail.gmail.com>
- <CAK6E8=dx0Yt7y2g6JBi4JWM5Z8ARQPSsAYioEOPS5DiGkTU1yw@mail.gmail.com>
+From: Greg <gvrose8192@gmail.com>
+Subject: Re: Question on i40e PCIe relaxed ordering (RO)
+Date: Wed, 29 Jun 2016 13:18:39 -0700
+Message-ID: <1467231519.3404.11.camel@gmail.com>
+References: <57742A27.5040207@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>,
-	Neal Cardwell <ncardwell@google.com>,
-	David Miller <davem@davemloft.net>
-To: Yuchung Cheng <ycheng@google.com>,
-	Hagen Paul Pfeifer <hagen@jauu.net>,
-	Daniel Metz <Daniel.Metz@rohde-schwarz.com>
+Cc: intel-wired-lan@lists.osuosl.org,
+	"Kirsher, Jeffrey T" <jeffrey.t.kirsher@intel.com>,
+	netdev <netdev@vger.kernel.org>
+To: tndave <tushar.n.dave@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.lrz.de ([129.187.255.136]:35080 "EHLO mailout2.lrz.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750921AbcF2U0Z (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jun 2016 16:26:25 -0400
-In-Reply-To: <CAK6E8=dx0Yt7y2g6JBi4JWM5Z8ARQPSsAYioEOPS5DiGkTU1yw@mail.gmail.com>
+Received: from mail-pa0-f51.google.com ([209.85.220.51]:34678 "EHLO
+	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751499AbcF2U1S (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 16:27:18 -0400
+Received: by mail-pa0-f51.google.com with SMTP id bz2so20633055pad.1
+        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 13:26:34 -0700 (PDT)
+In-Reply-To: <57742A27.5040207@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->                                       B        D      R     Y
-> ------------------------------------------------------------------------------
-> mean TCPRecovLat      3s      -7%   +39% +38%
-> mean TCPRecovLat2    52s     +1%   -11%  -11%
+On Wed, 2016-06-29 at 13:05 -0700, tndave wrote:
+> Hi,
+> 
+> Running iperf tcp test on 2 sparc systems with i40e connected back to
+> back, I see huge number of 'port.rx_dropped' (on iperf server). Based on
+> past experience with ixgbe, this could very well because of PCIe RO
+> (relaxed ordering) not enabled.
+> 
+> I am trying to confirm RO is enabled. i40e datasheet mentioned RO
+> settings in 3 different sections:
+> 
+> 1. section 10.2.2.2.38 PCIe Global Config 2 - GLPCI_CNF2 register
+> contains global status fields of PCIe configuration. The bit 0 of the
+> register is "RO_DIS". If this bit is set to 1 RO is disabled.
+> 
+> RO_DIS in my setup is 0 imply RO is not disabled.
+> 
+> 2. section 12.3.5.5 Device Control Register (0xA8; RW) has bit 4
+> that enable/disable RO. This is pcie cap register.
+> 
+> In my i40e pcie config space value at offset 0xA8 is "2110". i.e 4th bit
+> set to 1 imply RO is enabled.
+> 
+> 3. section 3.1.2.7.2 mentions some relaxed ordering rules
+> e.g. "The GLLAN_RCTL.RXDESCRDROEN bit (loaded from NVM) enables relaxed
+> ordering for Rx descriptor reads"
+> 
+> However, GLLAN_RCTL register definition has not bit like RXDESCRDROEN.
+> Same goes for GLLAN_TCTL.TXDESCRDROEN.
+> 
+> Am I missing anything? please advise.
 
-This is indeed very interesting and somewhat unexpected. Do you have any 
-clue why Y is as bad as R and so much worse than B? By my understanding 
-I would have expected Y to be similar to B. At least tests on the Mean 
-Response Waiting Time of sender limited flows show hardly any difference 
-to B (as expected).
+I would try posting this question to the e1000 developer list over at
+Source Forge.  The Intel customer support folks used to monitor that
+list closely when I was there, hopefully they still are.
 
-Also, is a potential longer time in TCPRecovLat such a bad thing 
-considering your information on HTTP response performance?
+Regards,
+
+- Greg
+
+> 
+> Thanks.
+> 
+> -Tushar
+> 
+> (Ref:http://www.intel.com/content/dam/www/public/us/en/documents/datasheets/xl710-10-40-controller-datasheet.pdf)
+> 
+> 
+> 
