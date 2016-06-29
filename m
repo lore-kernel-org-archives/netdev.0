@@ -1,100 +1,166 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: [PATCH v3 iproute2 1/6] ip vrf: Add name_is_vrf
-Date: Wed, 29 Jun 2016 11:06:15 -0700
-Message-ID: <1467223580-14548-2-git-send-email-dsa@cumulusnetworks.com>
+Subject: [PATCH v3 iproute2 6/6] ip route: Add support for vrf keyword
+Date: Wed, 29 Jun 2016 11:06:20 -0700
+Message-ID: <1467223580-14548-7-git-send-email-dsa@cumulusnetworks.com>
 References: <1467223580-14548-1-git-send-email-dsa@cumulusnetworks.com>
 Cc: stephen@networkplumber.org, David Ahern <dsa@cumulusnetworks.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:36467 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752410AbcF2SGk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 14:06:40 -0400
-Received: by mail-pf0-f170.google.com with SMTP id t190so20456074pfb.3
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 11:06:27 -0700 (PDT)
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:34263 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752258AbcF2SGb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 14:06:31 -0400
+Received: by mail-pf0-f182.google.com with SMTP id h14so20405144pfe.1
+        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 11:06:31 -0700 (PDT)
 In-Reply-To: <1467223580-14548-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add name_is_vrf function to determine if given name corresponds to a
-VRF device.
+Add vrf keyword to 'ip route' commands. Allows:
+1. Users can list routes by VRF name:
+       $ ip route show vrf NAME
+
+   VRF tables have all routes including local and broadcast routes.
+   The VRF keyword filters LOCAL and BROADCAST routes; to see all
+   routes the table option can be used. Or to see local routes only
+   for a VRF:
+       $ ip route show vrf NAME type local
+
+2. Add or delete a route for a VRF:
+       $ ip route {add|delete} vrf NAME <route spec>
+
+3. Do a route lookup for a VRF:
+       $ ip route get vrf NAME ADDRESS
 
 Signed-off-by: David Ahern <dsa@cumulusnetworks.com>
 ---
- ip/ip_common.h  |  2 ++
- ip/iplink_vrf.c | 50 ++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 52 insertions(+)
+ ip/iproute.c           | 32 ++++++++++++++++++++++++++++++--
+ man/man8/ip-route.8.in | 19 ++++++++++++++++++-
+ 2 files changed, 48 insertions(+), 3 deletions(-)
 
-diff --git a/ip/ip_common.h b/ip/ip_common.h
-index e8da9e034b15..b747ea47122d 100644
---- a/ip/ip_common.h
-+++ b/ip/ip_common.h
-@@ -90,6 +90,8 @@ struct link_util *get_link_slave_kind(const char *slave_kind);
+diff --git a/ip/iproute.c b/ip/iproute.c
+index aae693d17be8..bd661c16cb46 100644
+--- a/ip/iproute.c
++++ b/ip/iproute.c
+@@ -67,10 +67,10 @@ static void usage(void)
+ 	fprintf(stderr, "       ip route showdump\n");
+ 	fprintf(stderr, "       ip route get ADDRESS [ from ADDRESS iif STRING ]\n");
+ 	fprintf(stderr, "                            [ oif STRING ] [ tos TOS ]\n");
+-	fprintf(stderr, "                            [ mark NUMBER ]\n");
++	fprintf(stderr, "                            [ mark NUMBER ] [ vrf NAME ]\n");
+ 	fprintf(stderr, "       ip route { add | del | change | append | replace } ROUTE\n");
+ 	fprintf(stderr, "SELECTOR := [ root PREFIX ] [ match PREFIX ] [ exact PREFIX ]\n");
+-	fprintf(stderr, "            [ table TABLE_ID ] [ proto RTPROTO ]\n");
++	fprintf(stderr, "            [ table TABLE_ID ] [ vrf NAME ] [ proto RTPROTO ]\n");
+ 	fprintf(stderr, "            [ type TYPE ] [ scope SCOPE ]\n");
+ 	fprintf(stderr, "ROUTE := NODE_SPEC [ INFO_SPEC ]\n");
+ 	fprintf(stderr, "NODE_SPEC := [ TYPE ] PREFIX [ tos TOS ]\n");
+@@ -1141,6 +1141,20 @@ static int iproute_modify(int cmd, unsigned int flags, int argc, char **argv)
+ 				addattr32(&req.n, sizeof(req), RTA_TABLE, tid);
+ 			}
+ 			table_ok = 1;
++		} else if (matches(*argv, "vrf") == 0) {
++			__u32 tid;
++
++			NEXT_ARG();
++			tid = ipvrf_get_table(*argv);
++			if (tid == 0)
++				invarg("Invalid VRF\n", *argv);
++			if (tid < 256)
++				req.r.rtm_table = tid;
++			else {
++				req.r.rtm_table = RT_TABLE_UNSPEC;
++				addattr32(&req.n, sizeof(req), RTA_TABLE, tid);
++			}
++			table_ok = 1;
+ 		} else if (strcmp(*argv, "dev") == 0 ||
+ 			   strcmp(*argv, "oif") == 0) {
+ 			NEXT_ARG();
+@@ -1395,6 +1409,15 @@ static int iproute_list_flush_or_save(int argc, char **argv, int action)
+ 				}
+ 			} else
+ 				filter.tb = tid;
++		} else if (matches(*argv, "vrf") == 0) {
++			__u32 tid;
++
++			NEXT_ARG();
++			tid = ipvrf_get_table(*argv);
++			if (tid == 0)
++				invarg("Invalid VRF\n", *argv);
++			filter.tb = tid;
++			filter.typemask = ~(1 << RTN_LOCAL | 1<<RTN_BROADCAST);
+ 		} else if (matches(*argv, "cached") == 0 ||
+ 			   matches(*argv, "cloned") == 0) {
+ 			filter.cloned = 1;
+@@ -1681,6 +1704,11 @@ static int iproute_get(int argc, char **argv)
+ 			req.r.rtm_flags |= RTM_F_NOTIFY;
+ 		} else if (matches(*argv, "connected") == 0) {
+ 			connected = 1;
++		} else if (matches(*argv, "vrf") == 0) {
++			NEXT_ARG();
++			if (!name_is_vrf(*argv))
++				invarg("Invalid VRF\n", *argv);
++			odev = *argv;
+ 		} else {
+ 			inet_prefix addr;
  
- void br_dump_bridge_id(const struct ifla_bridge_id *id, char *buf, size_t len);
+diff --git a/man/man8/ip-route.8.in b/man/man8/ip-route.8.in
+index d7fb8fba8bb0..d4fae3cc783b 100644
+--- a/man/man8/ip-route.8.in
++++ b/man/man8/ip-route.8.in
+@@ -33,7 +33,9 @@ ip-route \- routing table management
+ .RB " ] [ " oif
+ .IR STRING " ] [ "
+ .B  tos
+-.IR TOS " ]"
++.IR TOS " ] [ "
++.B  vrf
++.IR NAME " ] "
  
-+bool name_is_vrf(const char *name);
+ .ti -8
+ .BR "ip route" " { " add " | " del " | " change " | " append " | "\
+@@ -50,6 +52,8 @@ replace " } "
+ .IR PREFIX " ] [ "
+ .B  table
+ .IR TABLE_ID " ] [ "
++.B  vrf
++.IR NAME " ] [ "
+ .B  proto
+ .IR RTPROTO " ] [ "
+ .B  type
+@@ -369,6 +373,11 @@ routes, which are put into the
+ table by default.
+ 
+ .TP
++.BI vrf " NAME"
++the vrf name to add this route to. Implicitly means the table
++associated with the VRF.
 +
- #ifndef	INFINITY_LIFE_TIME
- #define     INFINITY_LIFE_TIME      0xFFFFFFFFU
- #endif
-diff --git a/ip/iplink_vrf.c b/ip/iplink_vrf.c
-index e3c7b4652da5..166f566e6d77 100644
---- a/ip/iplink_vrf.c
-+++ b/ip/iplink_vrf.c
-@@ -96,3 +96,53 @@ struct link_util vrf_slave_link_util = {
- 	.print_opt	= vrf_slave_print_opt,
- 	.slave          = true,
- };
++.TP
+ .BI dev " NAME"
+ the output device name.
+ 
+@@ -746,6 +755,10 @@ show the routes from this table(s). The default setting is to show table
+ .in -8
+ 
+ .TP
++.BI vrf " NAME"
++show the routes for the table associated with the vrf name
 +
-+bool name_is_vrf(const char *name)
-+{
-+	struct {
-+		struct nlmsghdr		n;
-+		struct ifinfomsg	i;
-+		char			buf[1024];
-+	} req = {
-+		.n = {
-+			.nlmsg_len   = NLMSG_LENGTH(sizeof(struct ifinfomsg)),
-+			.nlmsg_flags = NLM_F_REQUEST,
-+			.nlmsg_type  = RTM_GETLINK,
-+		},
-+		.i = {
-+			.ifi_family  = preferred_family,
-+		},
-+	};
-+	struct {
-+		struct nlmsghdr n;
-+		char buf[8192];
-+	} answer;
-+	struct rtattr *tb[IFLA_MAX+1];
-+	struct rtattr *li[IFLA_INFO_MAX+1];
-+	struct ifinfomsg *ifi;
-+	int len;
++.TP
+ .B cloned
+ .TP
+ .B cached
+@@ -855,6 +868,10 @@ the device from which this packet is expected to arrive.
+ force the output device on which this packet will be routed.
+ 
+ .TP
++.BI vrf " NAME"
++force the vrf device on which this packet will be routed.
 +
-+	addattr_l(&req.n, sizeof(req), IFLA_IFNAME, name, strlen(name) + 1);
-+
-+	if (rtnl_talk(&rth, &req.n, &answer.n, sizeof(answer)) < 0)
-+		return false;
-+
-+	ifi = NLMSG_DATA(&answer.n);
-+	len = answer.n.nlmsg_len - NLMSG_LENGTH(sizeof(*ifi));
-+	if (len < 0) {
-+		fprintf(stderr, "BUG: Invalid response to link query.\n");
-+		return false;
-+	}
-+
-+	parse_rtattr(tb, IFLA_MAX, IFLA_RTA(ifi), len);
-+
-+	if (!tb[IFLA_LINKINFO])
-+		return false;
-+
-+	parse_rtattr_nested(li, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
-+
-+	if (!li[IFLA_INFO_KIND])
-+		return false;
-+
-+	return strcmp(RTA_DATA(li[IFLA_INFO_KIND]), "vrf") == 0;
-+}
++.TP
+ .B connected
+ if no source address
+ .RB "(option " from ")"
 -- 
 2.1.4
