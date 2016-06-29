@@ -1,41 +1,34 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] [v6] net: emac: emac gigabit ethernet controller driver
-Date: Wed, 29 Jun 2016 10:17:07 +0200
-Message-ID: <5301045.3F9gkJcz60@wuerfel>
-References: <1466812008-26686-1-git-send-email-timur@codeaurora.org>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v3] net: ethernet: ti: cpdma: switch to use genalloc
+Date: Wed, 29 Jun 2016 04:19:11 -0400 (EDT)
+Message-ID: <20160629.041911.971288115210875782.davem@davemloft.net>
+References: <20160627090511.27487-1-grygorii.strashko@ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	shankerd@codeaurora.org, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
-	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
-	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net,
-	f.fainelli@gmail.com
-To: Timur Tabi <timur@codeaurora.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <1466812008-26686-1-git-send-email-timur@codeaurora.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com, nsekhar@ti.com,
+	linux-kernel@vger.kernel.org, linux-omap@vger.kernel.org,
+	ivan.khoronzhuk@linaro.org, lsorense@csclub.uwaterloo.ca,
+	afzal.mohd.ma@gmail.com
+To: grygorii.strashko@ti.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160627090511.27487-1-grygorii.strashko@ti.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Friday, June 24, 2016 6:46:48 PM CEST Timur Tabi wrote:
-> +       /* The EMAC itself is capable of 64-bit DMA. If the SOC limits that
-> +        * range, then we expect platform code to adjust the mask accordingly.
-> +        */
-> +       ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
-> +       if (ret) {
-> +               dev_err(&pdev->dev, "could not set DMA mask\n");
-> +               return ret;
-> +       }
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Date: Mon, 27 Jun 2016 12:05:11 +0300
+
+> TI CPDMA currently uses a bitmap for tracking descriptors alloactions
+> allocations, but The genalloc already handles the same and can be used
+> as with special memory (SRAM) as with DMA cherent memory chank
+> (dma_alloc_coherent()). Hence, switch to using genalloc and add
+> desc_num property for each channel for limitation of max number of
+> allowed descriptors for each CPDMA channel. This patch do not affect
+> on net throuput.
 > 
+> Acked-by: Mugunthan V N <mugunthanvnm@ti.com>
+> Tested-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+> Signed-off-by: Grygorii Strashko <grygorii.strashko@ti.com>
 
-The comment does not match the code: if the platform has no IOMMU
-and the bus limit is smaller than the memory, dma_set_mask_and_coherent()
-will fail, and the driver should instead ensure that the buffers are
-allocated from the 32-bit area.
-
-Alternatively, adjust the comment to explain that this is a limitation
-in the driver that can be lifted if necessary.
-
-	Arnd 
+Applied, thanks.
