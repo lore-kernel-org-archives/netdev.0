@@ -1,27 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next 00/16][pull request] 40GbE Intel Wired LAN Driver
- Updates 2016-06-27
-Date: Wed, 29 Jun 2016 08:23:31 -0400 (EDT)
-Message-ID: <20160629.082331.138862645627283149.davem@davemloft.net>
-References: <1467175262-54719-1-git-send-email-jeffrey.t.kirsher@intel.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull-request: mac80211 2016-06-29-v2
+Date: Wed, 29 Jun 2016 08:35:19 -0400 (EDT)
+Message-ID: <20160629.083519.1140782026978366981.davem@davemloft.net>
+References: <1467194567-19602-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
-	jogreene@redhat.com
-To: jeffrey.t.kirsher@intel.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:41052 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752432AbcF2MYB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 08:24:01 -0400
-In-Reply-To: <1467175262-54719-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1467194567-19602-1-git-send-email-johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Date: Tue, 28 Jun 2016 21:40:46 -0700
+From: Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>
+Date: Wed, 29 Jun 2016 12:02:46 +0200
 
-> This series contains updates to i40e and i40evf only.
+> Sorry to be sending a new pull request, but Felix had just submitted a
+> fairly important fix and I decided I should send it on quickly.
+> 
+> Now thus we have two fixes, one for the mesh refcounting issue and one
+> for an issue with the ethertype/length field being too long when it's
+> used as a length, during A-MSDU decapsulation.
+> 
+> Let me know if there's any problem.
 
-Pulled, thanks Jeff.
+Pulled, thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
