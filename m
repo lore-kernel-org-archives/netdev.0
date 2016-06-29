@@ -1,64 +1,46 @@
 From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
-Subject: [net-next 07/16] i40e: Save PCI state before suspend
-Date: Tue, 28 Jun 2016 21:40:53 -0700
-Message-ID: <1467175262-54719-8-git-send-email-jeffrey.t.kirsher@intel.com>
+Subject: [net-next 08/16] i40e: fix missing DA cable check
+Date: Tue, 28 Jun 2016 21:40:54 -0700
+Message-ID: <1467175262-54719-9-git-send-email-jeffrey.t.kirsher@intel.com>
 References: <1467175262-54719-1-git-send-email-jeffrey.t.kirsher@intel.com>
-Cc: Greg Rose <gregory.v.rose@intel.com>, netdev@vger.kernel.org,
+Cc: Serey Kong <serey.kong@intel.com>, netdev@vger.kernel.org,
 	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
 	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga09.intel.com ([134.134.136.24]:22102 "EHLO mga09.intel.com"
+Received: from mga09.intel.com ([134.134.136.24]:62810 "EHLO mga09.intel.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751171AbcF2EnS (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751251AbcF2EnS (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 29 Jun 2016 00:43:18 -0400
 In-Reply-To: <1467175262-54719-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Greg Rose <gregory.v.rose@intel.com>
+From: Serey Kong <serey.kong@intel.com>
 
-The i40e_suspend() function was failing to save PCI state
-and this would result in a kernel stack trace from a WARN_ONCE in the
-pci_legacy_suspend() function.
+When a Direct Attach (DA) cable is used, if the i40e_set_settings
+function is called it would return an error. Add the DA type so
+the function won't fail.
 
-Add a call to pci_save_state() to fix that problem.
-
-Change-ID: I4736e62bb660966bd208cc8af617a14cb07fc4bd
-Signed-off-by: Greg Rose <gregory.v.rose@intel.com>
+Change-ID: I2b802f27a5d91cfefa72fd1f852acb4d74647a8e
+Signed-off-by: Serey Kong <serey.kong@intel.com>
 Tested-by: Andrew Bowers <andrewx.bowers@intel.com>
 Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
 ---
- drivers/net/ethernet/intel/i40e/i40e_main.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/intel/i40e/i40e_ethtool.c | 1 +
+ 1 file changed, 1 insertion(+)
 
-diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
-index e071c22..52d9d28 100644
---- a/drivers/net/ethernet/intel/i40e/i40e_main.c
-+++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
-@@ -11441,6 +11441,7 @@ static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
- {
- 	struct i40e_pf *pf = pci_get_drvdata(pdev);
- 	struct i40e_hw *hw = &pf->hw;
-+	int retval = 0;
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+index 5e8d84f..8381dab 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_ethtool.c
+@@ -663,6 +663,7 @@ static int i40e_set_settings(struct net_device *netdev,
+ 	if (hw->phy.media_type != I40E_MEDIA_TYPE_BASET &&
+ 	    hw->phy.media_type != I40E_MEDIA_TYPE_FIBER &&
+ 	    hw->phy.media_type != I40E_MEDIA_TYPE_BACKPLANE &&
++	    hw->phy.media_type != I40E_MEDIA_TYPE_DA &&
+ 	    hw->phy.link_info.link_info & I40E_AQ_LINK_UP)
+ 		return -EOPNOTSUPP;
  
- 	set_bit(__I40E_SUSPENDED, &pf->state);
- 	set_bit(__I40E_DOWN, &pf->state);
-@@ -11454,10 +11455,14 @@ static int i40e_suspend(struct pci_dev *pdev, pm_message_t state)
- 
- 	i40e_stop_misc_vector(pf);
- 
-+	retval = pci_save_state(pdev);
-+	if (retval)
-+		return retval;
-+
- 	pci_wake_from_d3(pdev, pf->wol_en);
- 	pci_set_power_state(pdev, PCI_D3hot);
- 
--	return 0;
-+	return retval;
- }
- 
- /**
 -- 
 2.5.5
