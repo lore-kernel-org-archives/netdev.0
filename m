@@ -1,41 +1,50 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next 01/10] liquidio: Vxlan support
-Date: Wed, 29 Jun 2016 05:03:44 -0400 (EDT)
-Message-ID: <20160629.050344.1877930858239242573.davem@davemloft.net>
-References: <1467161672-21063-1-git-send-email-rvatsavayi@caviumnetworks.com>
-	<1467161672-21063-2-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: Re: [PATCH net] tcp: do not send too big packets at retransmit time
+Date: Wed, 29 Jun 2016 05:26:17 -0400 (EDT)
+Message-ID: <20160629.052617.632863831347001831.davem@davemloft.net>
+References: <CADVnQynZxphzi37PD6GRV6k=tgjHfH2HuL7GiGVjOSMOCLSOcA@mail.gmail.com>
+	<1467034072.6850.152.camel@edumazet-glaptop3.roam.corp.google.com>
+	<1467041930.6850.166.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, derek.chickles@caviumnetworks.com,
-	satananda.burla@caviumnetworks.com,
-	felix.manlunas@caviumnetworks.com,
-	raghu.vatsavayi@caviumnetworks.com
-To: rvatsavayi@caviumnetworks.com
+Cc: ncardwell@google.com, arjun@chelsio.com, edumazet@google.com,
+	netdev@vger.kernel.org, hariprasad@chelsio.com, leedom@chelsio.com,
+	kumaras@chelsio.com, santosh@chelsio.com, nirranjan@chelsio.com,
+	ycheng@google.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:39400 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:39472 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752396AbcF2JQD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 05:16:03 -0400
-In-Reply-To: <1467161672-21063-2-git-send-email-rvatsavayi@caviumnetworks.com>
+	with ESMTP id S1751419AbcF2J0s (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 05:26:48 -0400
+In-Reply-To: <1467041930.6850.166.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Date: Tue, 28 Jun 2016 17:54:23 -0700
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Mon, 27 Jun 2016 17:38:50 +0200
 
-> @@ -3222,6 +3406,10 @@ static struct net_device_ops lionetdevops = {
->  	.ndo_do_ioctl		= liquidio_ioctl,
->  	.ndo_fix_features	= liquidio_fix_features,
->  	.ndo_set_features	= liquidio_set_features,
-> +#ifdef CONFIG_VXLAN
-> +	.ndo_add_vxlan_port	= liquidio_add_vxlan_port,
-> +	.ndo_del_vxlan_port	= liquidio_del_vxlan_port,
-> +#endif
->  };
->  
->  /** \brief Entry point for the liquidio module
+> From: Eric Dumazet <edumazet@google.com>
+> 
+> Arjun reported a bug in TCP stack and bisected it to a recent commit.
+> 
+> In case where we process SACK, we can coalesce multiple skbs
+> into fat ones (tcp_shift_skb_data()), to lower write queue
+> overhead, because we do not expect to retransmit these packets.
+> 
+> However, SACK reneging can happen, forcing the sender to retransmit
+> all these packets. If skb->len is above 64KB, we then send buggy
+> IP packets that could hang TSO engine on cxgb4.
+> 
+> Neal suggested to use tcp_tso_autosize() instead of tp->gso_segs
+> so that we cook packets of optimal size vs TCP/pacing.
+> 
+> Thanks to Arjun for reporting the bug and running the tests !
+> 
+> Fixes: 10d3be569243 ("tcp-tso: do not split TSO packets at retransmit time")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Arjun V <arjun@chelsio.com>
+> Tested-by: Arjun V <arjun@chelsio.com>
 
-This means that VXLAN cannot be used as a module with your driver.
-
-Please look at how other drivers handle this issue.
+Applied.
