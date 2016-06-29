@@ -1,115 +1,159 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 08/16] net/devlink: Add E-Switch mode control
-Date: Thu, 30 Jun 2016 00:33:49 +0300
-Message-ID: <CAJ3xEMgGCW_P-sb3pe1KqMVoKe4BWKoO88_O364nwEU6bDnaoA@mail.gmail.com>
-References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
- <1467043649-28594-9-git-send-email-saeedm@mellanox.com> <577211E2.90802@gmail.com>
- <28223ec8-f105-d598-39ad-5dc93598dc64@mellanox.com> <5772A397.3010905@gmail.com>
- <5772B18A.9000300@gmail.com> <20160628184655.GB2089@nanopsycho.orion>
- <5772CA20.4030002@intel.com> <20160628191230.GC2089@nanopsycho.orion>
- <5772D091.9030709@gmail.com> <0327b6de-dfdf-8db2-1354-b7a4144dbc02@mellanox.com>
- <5773F8CC.4090300@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Or Gerlitz <ogerlitz@mellanox.com>, Jiri Pirko <jiri@resnulli.us>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Hadar Hen-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Tal Anker <Ankertal@mellanox.com>
-To: John Fastabend <john.fastabend@gmail.com>
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Subject: [net-next 09/15] igb: re-use igb_ptp_reset in igb_ptp_init
+Date: Wed, 29 Jun 2016 14:32:56 -0700
+Message-ID: <1467235982-55437-10-git-send-email-jeffrey.t.kirsher@intel.com>
+References: <1467235982-55437-1-git-send-email-jeffrey.t.kirsher@intel.com>
+Cc: Jacob Keller <jacob.e.keller@intel.com>, netdev@vger.kernel.org,
+	nhorman@redhat.com, sassmann@redhat.com, jogreene@redhat.com,
+	Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-ob0-f172.google.com ([209.85.214.172]:36686 "EHLO
-	mail-ob0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751997AbcF2Vdv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 17:33:51 -0400
-Received: by mail-ob0-f172.google.com with SMTP id mu6so44728235obc.3
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 14:33:51 -0700 (PDT)
-In-Reply-To: <5773F8CC.4090300@gmail.com>
+Received: from mga11.intel.com ([192.55.52.93]:58211 "EHLO mga11.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751550AbcF2VdI (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jun 2016 17:33:08 -0400
+In-Reply-To: <1467235982-55437-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 29, 2016 at 7:35 PM, John Fastabend
-<john.fastabend@gmail.com> wrote:
-> On 16-06-29 07:48 AM, Or Gerlitz wrote:
->> On 6/28/2016 10:31 PM, John Fastabend wrote:
->>> On 16-06-28 12:12 PM, Jiri Pirko wrote:
+From: Jacob Keller <jacob.e.keller@intel.com>
 
->>>> Why?! Please, leave legacy be legacy. Use the new mode for
->>>> implementing new features. Don't make things any more complicated :(
+Modify igb_ptp_init to take advantage of igb_ptp_reset, and remove
+duplicated work that was occurring in both igb_ptp_reset and
+igb_ptp_init.
 
-[...]
->>> Maybe I'm reading to much into the devlink flag names and if instead
->>> you use a switch like the following,
+In total, resetting the TSAUXC register, and resetting the system time
+both happen in igb_ptp_reset already. igb_ptp_reset now also takes care
+of starting the delayed work item for overflow checks, as well.
 
->>>    VF representer : enable/disable the creation VF netdev's to represent
->>>                     the virtual functions on the PF
+Signed-off-by: Jacob Keller <jacob.e.keller@intel.com>
+Tested-by: Aaron Brown <aaron.f.brown@intel.com>
+Signed-off-by: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+---
+ drivers/net/ethernet/intel/igb/igb_main.c |  3 +-
+ drivers/net/ethernet/intel/igb/igb_ptp.c  | 48 +++++++++++--------------------
+ 2 files changed, 18 insertions(+), 33 deletions(-)
 
->>> Much less complicated then magic switching between forwarding logic IMO
->>> and you don't whack a default configuration that an entire stack (e.g.
->>> libvirt) has been built to use.
-
->> Re letting the user to observe/modify the rules added by the
->> driver/firmware while legacy mode. Even if possible with bridge/fdb, it
->> will be really pragmatical and doesn't make sense to get that donefor
->> the TC subsystem. So this isn't a well defined solution and anyway, as
->> you said, legacy mode enhancements is a different exercise. Personally,
->> I agree with Jiri, that we should legacy be legacyand focus on adding
->> the new model.
-
-> The ixgbe driver already supports bridge and tc commands without the VF
-> representer.  Adding the VF representer to these drivers just extends
-> the existing support so we have an identifier for VFs and now the
-> redirect action works and the fdb commands can specify the VF netdevs.
-> I don't see this as a problem because we already do it today with
-> 'ip' and bridge tools.
-
-To be precise, for both ixgbe and mlx5, the existing tc support
-(u32/ixgbe, flower/mlx5) is not for switching functionality but rather
-for NIC-ish one, e.g drop, mark, etc. Indeed in ixgbe you added
-redirect to VF, but this is only for south --> north (wire --> VF)
-traffic, w.o the VF rep you can't do the other way around.
-
-Just to clarify, to what exact bridge command support did you refer for ixgbe?
-
-The forwarding done in the legacy mode is not well defined, and
-different across vendors, adding there the VF reps will not make it
-any better b/c some steering rules will be set by tc/bridge offloads
-while other rules will be put by the driver.
-I don't see how this takes us to better place.
-
-> We are also slightly in disagreement about what the default should be
-> with VF netdevs. I think the default should be the same L2 mac/vlan
-> switch behavior and see no reason to change it by default just because
-> we added VF netdevs. The infrastructure libvirt/openstack/etc are built
-> around this default today. But I guess nothing in this series specifies
-> what the defaults of any given driver will be. VF netdevs are still
-> useful even on older hardware that only supports mac/vlan forwarding to
-> expose statistics and send/receive control frames such as lldp.
-
-Again, this is not about default engineering... and using the VF reps
-(not VF netdevs) in legacy mode only make it more cryptic to my
-opinion. I agree some changes would be needed in openstack to support
-the new model, but this is how progress is made... you can't always
-make all layer above you unchanged. Note that the VF reps behave the
-same as tap devices (v-switch doing xmit on tap --> recv in VM, VM
-sends --> recv on tap into the v-switch), so the change in open-stack
-would not be that big.
-
-[...]
-
-> Why I think the VF representer is a per port ethtool flag and not a
-> devlink option is my use case might be to assign a PF into a VM or
-> namespace where I don't want VF netdevs.
-
-again, we think the correct place to set how the eswitch is managed is
-through eswitch manager PCI devices and not net devices and hence
-ethtool is not the way to go.
-
-Also, how do you want your e-switch to be managed in this case?
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index ef3d642..750a5d8 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -2027,7 +2027,8 @@ void igb_reset(struct igb_adapter *adapter)
+ 	wr32(E1000_VET, ETHERNET_IEEE_VLAN_TYPE);
+ 
+ 	/* Re-enable PTP, where applicable. */
+-	igb_ptp_reset(adapter);
++	if (adapter->ptp_flags & IGB_PTP_ENABLED)
++		igb_ptp_reset(adapter);
+ 
+ 	igb_get_phy_info(hw);
+ }
+diff --git a/drivers/net/ethernet/intel/igb/igb_ptp.c b/drivers/net/ethernet/intel/igb/igb_ptp.c
+index 88d367d..907c225 100644
+--- a/drivers/net/ethernet/intel/igb/igb_ptp.c
++++ b/drivers/net/ethernet/intel/igb/igb_ptp.c
+@@ -1043,6 +1043,13 @@ int igb_ptp_set_ts_config(struct net_device *netdev, struct ifreq *ifr)
+ 		-EFAULT : 0;
+ }
+ 
++/**
++ * igb_ptp_init - Initialize PTP functionality
++ * @adapter: Board private structure
++ *
++ * This function is called at device probe to initialize the PTP
++ * functionality.
++ */
+ void igb_ptp_init(struct igb_adapter *adapter)
+ {
+ 	struct e1000_hw *hw = &adapter->hw;
+@@ -1065,8 +1072,6 @@ void igb_ptp_init(struct igb_adapter *adapter)
+ 		adapter->cc.mask = CYCLECOUNTER_MASK(64);
+ 		adapter->cc.mult = 1;
+ 		adapter->cc.shift = IGB_82576_TSYNC_SHIFT;
+-		/* Dial the nominal frequency. */
+-		wr32(E1000_TIMINCA, INCPERIOD_82576 | INCVALUE_82576);
+ 		adapter->ptp_flags |= IGB_PTP_OVERFLOW_CHECK;
+ 		break;
+ 	case e1000_82580:
+@@ -1086,8 +1091,6 @@ void igb_ptp_init(struct igb_adapter *adapter)
+ 		adapter->cc.mask = CYCLECOUNTER_MASK(IGB_NBITS_82580);
+ 		adapter->cc.mult = 1;
+ 		adapter->cc.shift = 0;
+-		/* Enable the timer functions by clearing bit 31. */
+-		wr32(E1000_TSAUXC, 0x0);
+ 		adapter->ptp_flags |= IGB_PTP_OVERFLOW_CHECK;
+ 		break;
+ 	case e1000_i210:
+@@ -1113,46 +1116,24 @@ void igb_ptp_init(struct igb_adapter *adapter)
+ 		adapter->ptp_caps.settime64 = igb_ptp_settime_i210;
+ 		adapter->ptp_caps.enable = igb_ptp_feature_enable_i210;
+ 		adapter->ptp_caps.verify = igb_ptp_verify_pin;
+-		/* Enable the timer functions by clearing bit 31. */
+-		wr32(E1000_TSAUXC, 0x0);
+ 		break;
+ 	default:
+ 		adapter->ptp_clock = NULL;
+ 		return;
+ 	}
+ 
+-	wrfl();
+-
+ 	spin_lock_init(&adapter->tmreg_lock);
+ 	INIT_WORK(&adapter->ptp_tx_work, igb_ptp_tx_work);
+ 
+-	/* Initialize the clock and overflow work for devices that need it. */
+-	if ((hw->mac.type == e1000_i210) || (hw->mac.type == e1000_i211)) {
+-		struct timespec64 ts = ktime_to_timespec64(ktime_get_real());
+-
+-		igb_ptp_settime_i210(&adapter->ptp_caps, &ts);
+-	} else {
+-		timecounter_init(&adapter->tc, &adapter->cc,
+-				 ktime_to_ns(ktime_get_real()));
+-	}
+-
+-	if (adapter->ptp_flags & IGB_PTP_OVERFLOW_CHECK) {
++	if (adapter->ptp_flags & IGB_PTP_OVERFLOW_CHECK)
+ 		INIT_DELAYED_WORK(&adapter->ptp_overflow_work,
+ 				  igb_ptp_overflow_check);
+ 
+-		schedule_delayed_work(&adapter->ptp_overflow_work,
+-				      IGB_SYSTIM_OVERFLOW_PERIOD);
+-	}
+-
+-	/* Initialize the time sync interrupts for devices that support it. */
+-	if (hw->mac.type >= e1000_82580) {
+-		wr32(E1000_TSIM, TSYNC_INTERRUPTS);
+-		wr32(E1000_IMS, E1000_IMS_TS);
+-	}
+-
+ 	adapter->tstamp_config.rx_filter = HWTSTAMP_FILTER_NONE;
+ 	adapter->tstamp_config.tx_type = HWTSTAMP_TX_OFF;
+ 
++	igb_ptp_reset(adapter);
++
+ 	adapter->ptp_clock = ptp_clock_register(&adapter->ptp_caps,
+ 						&adapter->pdev->dev);
+ 	if (IS_ERR(adapter->ptp_clock)) {
+@@ -1205,9 +1186,6 @@ void igb_ptp_reset(struct igb_adapter *adapter)
+ 	struct e1000_hw *hw = &adapter->hw;
+ 	unsigned long flags;
+ 
+-	if (!(adapter->ptp_flags & IGB_PTP_ENABLED))
+-		return;
+-
+ 	/* reset the tstamp_config */
+ 	igb_ptp_set_timestamp_mode(adapter, &adapter->tstamp_config);
+ 
+@@ -1244,4 +1222,10 @@ void igb_ptp_reset(struct igb_adapter *adapter)
+ 	}
+ out:
+ 	spin_unlock_irqrestore(&adapter->tmreg_lock, flags);
++
++	wrfl();
++
++	if (adapter->ptp_flags & IGB_PTP_OVERFLOW_CHECK)
++		schedule_delayed_work(&adapter->ptp_overflow_work,
++				      IGB_SYSTIM_OVERFLOW_PERIOD);
+ }
+-- 
+2.5.5
