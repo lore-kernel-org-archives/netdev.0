@@ -1,44 +1,57 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [1/8] wireless: airo: rename 'register' variable
-Date: Wed, 29 Jun 2016 15:56:43 +0000 (UTC)
-Message-ID: <20160629155643.6DD4B61372@smtp.codeaurora.org>
-References: <20160616135245.3198419-1-arnd@arndb.de>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [REBASED] brcmfmac: fix lockup when removing P2P interface after
+ event timeout
+Date: Wed, 29 Jun 2016 15:57:57 +0000 (UTC)
+Message-ID: <20160629155757.4250E61372@smtp.codeaurora.org>
+References: <1466159371-19968-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>,
-	Ondrej Zary <linux-ZCIryABCsrmttCpgsWEBFmD2FQJk+8+b@public.gmane.org>,
-	Johannes Berg <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160616135245.3198419-1-arnd-r2nGTMty4D4@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Arend van Spriel <arend.vanspriel@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	Hante Meuleman <hante.meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	brcm80211-dev-list.pdl@broadcom.com (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:40430 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752756AbcF2P6j (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 11:58:39 -0400
+In-Reply-To: <1466159371-19968-1-git-send-email-zajec5@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org> wrote:
-> 'register' is a keyword in C and cannot be used in place of a
-> variable name, as shown by this -Wextra warning:
-> 
-> drivers/net/wireless/cisco/airo.c:1105:29: error: 'register' is not at beginning of declaration [-Werror=old-style-declaration]
-> 
-> This replaces the 'register' keyword with a 'reg' identifier in
-> the declaration, which matches the definition and has the intended
-> meaning.
-> 
-> Signed-off-by: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Rafa=C5=82 Mi=C5=82ecki wrote:
+> Removing P2P interface is handled by sending a proper request to the
+> firmware. On success firmware triggers an event and driver's handler
+> removes a matching interface.
+>=20
+> However on event timeout we remove interface directly from the cfg802=
+11
+> callback. Current code doesn't handle this case correctly as it alway=
+s
+> assumes rtnl to be unlocked.
+>=20
+> Fix it by adding an extra rtnl_locked parameter to functions and call=
+ing
+> unregister_netdevice when needed.
+>=20
+> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 
-Thanks, 3 patches applied to wireless-drivers-next.git:
+Thanks, 1 patch applied to wireless-drivers-next.git:
 
-88e97c32068f wireless: airo: rename 'register' variable
-2a063835ce7c wireless: brcmsmac: fix old-style declaration
-6f07e0f12a57 wireless: ipw2200: fix old-style declaration
+b50ddfa8530e brcmfmac: fix lockup when removing P2P interface after eve=
+nt timeout
 
--- 
+--=20
 Sent by pwcli
-https://patchwork.kernel.org/patch/9180951/
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+https://patchwork.kernel.org/patch/9183337/
