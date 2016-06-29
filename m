@@ -1,8 +1,8 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: brcmfmac: include also core.h header in cfg80211.h
-Date: Wed, 29 Jun 2016 16:01:14 +0000 (UTC)
-Message-ID: <20160629160114.BA16461388@smtp.codeaurora.org>
-References: <1466268596-12178-1-git-send-email-zajec5@gmail.com>
+Subject: Re: brcmfmac: add missing break when deleting P2P_DEVICE
+Date: Wed, 29 Jun 2016 16:02:12 +0000 (UTC)
+Message-ID: <20160629160212.42D5461385@smtp.codeaurora.org>
+References: <1466294168-8890-1-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
@@ -20,37 +20,27 @@ Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
 	linux-kernel@vger.kernel.org (open list)
 To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:41111 "EHLO
+Received: from smtp.codeaurora.org ([198.145.29.96]:41272 "EHLO
 	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752073AbcF2QBP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 12:01:15 -0400
-In-Reply-To: <1466268596-12178-1-git-send-email-zajec5@gmail.com>
+	with ESMTP id S1752698AbcF2QCM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 12:02:12 -0400
+In-Reply-To: <1466294168-8890-1-git-send-email-zajec5@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 Rafa=C5=82 Mi=C5=82ecki wrote:
-> This header provides two inline functions using struct brcmf_if so we
-> need core.h to avoid:
->=20
-> drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h: In funct=
-ion =E2=80=98ndev_to_prof=E2=80=99:
-> drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h:368:13: e=
-rror: dereferencing pointer to incomplete type
->   return &ifp->vif->profile;
->              ^
-> drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h: In funct=
-ion =E2=80=98ndev_to_vif=E2=80=99:
-> drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.h:374:12: e=
-rror: dereferencing pointer to incomplete type
->   return ifp->vif;
->             ^
+> We obviously don't want to fall through in that switch. With this cha=
+nge
+> 1) We wait for event (triggered by p2p_disc) as expected
+> 2) We remove interface manually on timeout
+> 3) We return 0 on success instead of -ENOTSUPP
 >=20
 > Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 
 Thanks, 1 patch applied to wireless-drivers-next.git:
 
-bda9d01427f5 brcmfmac: include also core.h header in cfg80211.h
+20856adf2280 brcmfmac: add missing break when deleting P2P_DEVICE
 
 --=20
 Sent by pwcli
-https://patchwork.kernel.org/patch/9185755/
+https://patchwork.kernel.org/patch/9185903/
