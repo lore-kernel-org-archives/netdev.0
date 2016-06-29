@@ -1,88 +1,132 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] [v6] net: emac: emac gigabit ethernet controller driver
-Date: Wed, 29 Jun 2016 16:07:58 +0200
-Message-ID: <4312386.60Y44nCzSI@wuerfel>
-References: <1466812008-26686-1-git-send-email-timur@codeaurora.org> <5301045.3F9gkJcz60@wuerfel> <5773BC59.5010404@codeaurora.org>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [RFC 3/7] net: ethernet: bgmac: move BCMA MDIO Phy code into a
+ separate file
+Date: Wed, 29 Jun 2016 16:13:24 +0200
+Message-ID: <20160629141324.GA24194@lunn.ch>
+References: <1467142484-11161-1-git-send-email-jon.mason@broadcom.com>
+ <1467142484-11161-4-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-msm@vger.kernel.org, sdharia@codeaurora.org,
-	shankerd@codeaurora.org, vikrams@codeaurora.org,
-	cov@codeaurora.org, gavidov@codeaurora.org, robh+dt@kernel.org,
-	andrew@lunn.ch, bjorn.andersson@linaro.org, mlangsdo@redhat.com,
-	jcm@redhat.com, agross@codeaurora.org, davem@davemloft.net,
-	f.fainelli@gmail.com, catalin.marinas@arm.com
-To: Timur Tabi <timur@codeaurora.org>
-Return-path: <linux-arm-msm-owner@vger.kernel.org>
-In-Reply-To: <5773BC59.5010404@codeaurora.org>
-Sender: linux-arm-msm-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: zajec5@gmail.com, davem@davemloft.net, f.fainelli@gmail.com,
+	hauke@hauke-m.de, bcm-kernel-feedback-list@broadcom.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Jon Mason <jon.mason@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1467142484-11161-4-git-send-email-jon.mason@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday, June 29, 2016 7:17:29 AM CEST Timur Tabi wrote:
-> Arnd Bergmann wrote:
-> > On Friday, June 24, 2016 6:46:48 PM CEST Timur Tabi wrote:
-> >> >+       /* The EMAC itself is capable of 64-bit DMA. If the SOC limits that
-> >> >+        * range, then we expect platform code to adjust the mask accordingly.
-> >> >+        */
-> >> >+       ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
-> >> >+       if (ret) {
-> >> >+               dev_err(&pdev->dev, "could not set DMA mask\n");
-> >> >+               return ret;
-> >> >+       }
-> >> >
-> > The comment does not match the code: if the platform has no IOMMU
-> > and the bus limit is smaller than the memory, dma_set_mask_and_coherent()
-> > will fail, and the driver should instead ensure that the buffers are
-> > allocated from the 32-bit area.
-> >
-> > Alternatively, adjust the comment to explain that this is a limitation
-> > in the driver that can be lifted if necessary.
-> 
-> I'm not sure I understand.  The EMAC hardware is capable of 64-bit DMA. 
->   This is true on every platform -- the hardware registers that take bus 
-> addresses are 64-bit.  The driver itself has no limitations.
-> 
-> And that's what the dma_set_mask_and_coherent() does.  It tells the 
-> kernel what the device is capable of.
+Hi Jon
 
-dma_set_mask_and_coherent() is a two-way interface, the driver says what
-it wants to do, and the platform reports on whether that is possible.
+I know you are just refactoring code, but at some point it would be
+good to take a closer look at this MDIO bus driver.
 
-> However, on some SOCs, only a subset of those address lines are 
-> connected to the memory bus.  So for instance, some platforms only have 
-> 32 bits connected.
-> 
-> There's no way for the EMAC driver to know this, so it expects other 
-> code in the kernel to adjust.  I'm not exactly sure what this code is 
-> supposed to be, because I get conflicting information.  At one point, I 
-> thought that the dma-ranges property would handle that.  The kernel 
-> would parse that property, see that the DMA range is limited to 32 bits, 
-> and adjust the DMA mask accordingly.  However, with dma-ranges in the 
-> parent node, I don't see how that can work.
+The MDIO bus driver should be generic, allowing access to all 32
+addresses on the bus, if that makes sense. You could for example have
+a B53 switch hanging off the MDIO bus.... The basic read/write
+functions seem to allow this.
 
-dma-ranges in fact is what should handle it, but arm64 currently does
-not interpret it correctly, and just allows the mask to be set regardless,
-which I consider a bug in the architecture specific code.
+> +/* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipphyinit */
+> +static void bcma_mdio_phy_init(struct bcma_mdio *bcma_mdio)
+> +{
+> +	struct bcma_chipinfo *ci = &bcma_mdio->core->bus->chipinfo;
+> +	u8 i;
+> +
+> +	if (ci->id == BCMA_CHIP_ID_BCM5356) {
+> +		for (i = 0; i < 5; i++) {
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x008b);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x15, 0x0100);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x000f);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x12, 0x2aaa);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x000b);
 
-> So my question is, how do I handle the situation where a subset of the 
-> DMA address lines are masked off by the SOC?  I've seen code like this:
-> 
-> ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(64));
-> if (ret)
-> 	ret = dma_set_mask_and_coherent(&pdev->dev, DMA_BIT_MASK(32));
-> 
-> But this has never made any sense to me.  If DMA_BIT_MASK(64) fails, 
-> then how can DMA_BIT_MASK(32) succeed?
+It would be good to document what these writes are doing. Also, could
+they be moved into the phy driver? Does the PHY implement an ID in
+registers 2 and 3 that can be used to determine these are needed?
 
-If the ranges property lists the bus as dma capable for only the
-lower 32 bits, then dma_set_mask_and_coherent(dev, DMA_BIT_MASK(64));
-should fail, otherwise dma_alloc_coherent() will return an invalid
-memory area.
+Also, why is it iterating over 5 PHYs? Is this actually a switch with
+5 ports?
 
-Another twist is how arm64 currently uses SWIOTLB unconditionally:
-As long as SWIOTLB (or iommu) is enabled, dma_set_mask_and_coherent()
-should succeed for any mask(), but not actually update the mask of the
-device to more than the bus can handle.
+> +		}
+> +	}
+> +	if ((ci->id == BCMA_CHIP_ID_BCM5357 && ci->pkg != 10) ||
+> +	    (ci->id == BCMA_CHIP_ID_BCM4749 && ci->pkg != 10) ||
+> +	    (ci->id == BCMA_CHIP_ID_BCM53572 && ci->pkg != 9)) {
+> +		struct bcma_drv_cc *cc = &bcma_mdio->core->bus->drv_cc;
+> +
+> +		bcma_chipco_chipctl_maskset(cc, 2, ~0xc0000000, 0);
+> +		bcma_chipco_chipctl_maskset(cc, 4, ~0x80000000, 0);
+> +		for (i = 0; i < 5; i++) {
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x000f);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x16, 0x5284);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x000b);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x17, 0x0010);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x000f);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x16, 0x5296);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x17, 0x1073);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x17, 0x9073);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x16, 0x52b6);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x17, 0x9273);
+> +			bcma_mdio_phy_write(bcma_mdio, i, 0x1f, 0x000b);
 
-	Arnd
+Same comment here.
+
+> +/* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipphyreset */
+> +static int bcma_mdio_phy_reset(struct mii_bus *bus)
+> +{
+> +	struct bcma_mdio *bcma_mdio = bus->priv;
+> +	u8 phyaddr = bcma_mdio->phyaddr;
+> +
+> +	if (bcma_mdio->phyaddr == BGMAC_PHY_NOREGS)
+> +		return 0;
+> +
+> +	bcma_mdio_phy_write(bcma_mdio, phyaddr, MII_BMCR, BMCR_RESET);
+> +	udelay(100);
+> +	if (bcma_mdio_phy_read(bcma_mdio, phyaddr, MII_BMCR) & BMCR_RESET)
+> +		dev_err(&bcma_mdio->core->dev, "PHY reset failed\n");
+> +	bcma_mdio_phy_init(bcma_mdio);
+
+This appears to be resetting one PHY. What about the others? Why not
+put this in the PHY driver?
+
+> +struct mii_bus *bcma_mdio_mii_register(struct bcma_device *core, u8 phyaddr)
+> +{
+> +	struct bcma_mdio *bcma_mdio;
+> +	struct mii_bus *mii_bus;
+> +	int err;
+> +
+> +	bcma_mdio = kzalloc(sizeof(*bcma_mdio), GFP_KERNEL);
+> +	if (!bcma_mdio)
+> +		return ERR_PTR(-ENOMEM);
+> +
+> +	mii_bus = mdiobus_alloc();
+> +	if (!mii_bus) {
+> +		err = -ENOMEM;
+> +		goto err;
+> +	}
+> +
+> +	mii_bus->name = "bcma_mdio mii bus";
+> +	sprintf(mii_bus->id, "%s-%d-%d", "bcma_mdio", core->bus->num,
+> +		core->core_unit);
+> +	mii_bus->priv = bcma_mdio;
+> +	mii_bus->read = bcma_mdio_mii_read;
+> +	mii_bus->write = bcma_mdio_mii_write;
+> +	mii_bus->reset = bcma_mdio_phy_reset;
+> +	mii_bus->parent = &core->dev;
+> +	mii_bus->phy_mask = ~(1 << phyaddr);
+
+Is there a need to limit this to just the one PHY?
+
+> +
+> +	bcma_mdio->core = core;
+> +	bcma_mdio->phyaddr = phyaddr;
+> +
+> +	err = mdiobus_register(mii_bus);
+
+Something which appears to be missing from the later patch which adds
+device tree support. If you have a device node pointer, you should use
+of_mdiobus_register() and document in the binding that PHYs should be
+listed in the usual way.
+
+       Andrew
