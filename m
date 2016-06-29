@@ -1,33 +1,24 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] net_sched: netem: do not call qdisc_drop()
- with a NULL skb
-Date: Wed, 29 Jun 2016 08:04:21 -0400 (EDT)
-Message-ID: <20160629.080421.1061742188520549581.davem@davemloft.net>
-References: <1467102608.6850.196.camel@edumazet-glaptop3.roam.corp.google.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com
-To: eric.dumazet@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40799 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751674AbcF2MEr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 08:04:47 -0400
-In-Reply-To: <1467102608.6850.196.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "George Spelvin" <linux-+7tBnqSOmQ59SlIZoIAWRdHuzzzSOjJt@public.gmane.org>
+Subject: Re: Doing crypto in small stack buffers (bluetooth vs vmalloc-stack crash, etc)
+Date: 29 Jun 2016 08:10:24 -0400
+Message-ID: <20160629121024.2497.qmail@ns.sciencehorizons.net>
+References: <20160629022049.GA23390@gondor.apana.org.au>
+Cc: linux-bluetooth-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-crypto-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	luto-kltTT9wpgjJwATOyAt5JVQ@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: herbert-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org, linux-+7tBnqSOmQ59SlIZoIAWRdHuzzzSOjJt@public.gmane.org
+Return-path: <linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160629022049.GA23390-lOAM2aK0SrRLBo1qDEOMRrpzq4S04n8Q@public.gmane.org>
+Sender: linux-bluetooth-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Date: Tue, 28 Jun 2016 10:30:08 +0200
+>> Also not mentioned in the documentation is that some algorithms *do*
+>> have different implementations depending on key size.  SHA-2 is the
+>> classic example.
 
-> From: Eric Dumazet <edumazet@google.com>
-> 
-> If skb_unshare() fails, we call qdisc_drop() with a NULL skb, which
-> is no longer supported.
-> 
-> Fixes: 520ac30f4551 ("net_sched: drop packets after root qdisc lock is released")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
+> What do you mean by that? SHA has no keying at all.
 
-Applied.
+In this case, the analagous property is hash size.  Sorry, I thought
+that was so obvious I didn't need to say it.
+
+Specifically, SHA2-256 (and -224) and SHA2-512 (and -384) are separate
+algorithms with similar structures but deparate implementations.
