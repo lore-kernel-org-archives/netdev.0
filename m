@@ -1,60 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] neigh: Explicitly declare RCU-bh read side critical
- section in neigh_xmit()
-Date: Wed, 29 Jun 2016 08:01:19 -0400 (EDT)
-Message-ID: <20160629.080119.236337033632160248.davem@davemloft.net>
-References: <20160628081643.GU10080@wantstofly.org>
+Subject: Re: [PATCH net-next] net_sched: netem: do not call qdisc_drop()
+ with a NULL skb
+Date: Wed, 29 Jun 2016 08:04:21 -0400 (EDT)
+Message-ID: <20160629.080421.1061742188520549581.davem@davemloft.net>
+References: <1467102608.6850.196.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, dsa@cumulusnetworks.com,
-	roopa@cumulusnetworks.com, rshearma@brocade.com,
-	ebiederm@xmission.com
-To: buytenh@wantstofly.org
+Cc: netdev@vger.kernel.org, dan.carpenter@oracle.com
+To: eric.dumazet@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:40780 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:40799 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752048AbcF2MBp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 08:01:45 -0400
-In-Reply-To: <20160628081643.GU10080@wantstofly.org>
+	with ESMTP id S1751674AbcF2MEr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 08:04:47 -0400
+In-Reply-To: <1467102608.6850.196.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Date: Tue, 28 Jun 2016 11:16:43 +0300
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Date: Tue, 28 Jun 2016 10:30:08 +0200
 
-> From: David Barroso <dbarroso@fastly.com>
+> From: Eric Dumazet <edumazet@google.com>
 > 
-> neigh_xmit() expects to be called inside an RCU-bh read side critical
-> section, and while one of its two current callers gets this right, the
-> other one doesn't.
+> If skb_unshare() fails, we call qdisc_drop() with a NULL skb, which
+> is no longer supported.
 > 
-> More specifically, neigh_xmit() has two callers, mpls_forward() and
-> mpls_output(), and while both callers call neigh_xmit() under
-> rcu_read_lock(), this provides sufficient protection for neigh_xmit()
-> only in the case of mpls_forward(), as that is always called from
-> softirq context and therefore doesn't need explicit BH protection,
-> while mpls_output() can be called from process context with softirqs
-> enabled.
-> 
-> When mpls_output() is called from process context, with softirqs
-> enabled, we can be preempted by a softirq at any time, and RCU-bh
-> considers the completion of a softirq as signaling the end of any
-> pending read-side critical sections, so if we do get a softirq
-> while we are in the part of neigh_xmit() that expects to be run inside
-> an RCU-bh read side critical section, we can end up with an unexpected
-> RCU grace period running right in the middle of that critical section,
-> making things go boom.
-> 
-> This patch fixes this impedance mismatch in the callee, by making
-> neigh_xmit() always take rcu_read_{,un}lock_bh() around the code that
-> expects to be treated as an RCU-bh read side critical section, as this
-> seems a safer option than fixing it in the callers.
-> 
-> Fixes: 4fd3d7d9e868f ("neigh: Add helper function neigh_xmit")
-> Signed-off-by: David Barroso <dbarroso@fastly.com>
-> Signed-off-by: Lennert Buytenhek <lbuytenhek@fastly.com>
-> Acked-by: David Ahern <dsa@cumulusnetworks.com>
-> Acked-by: Robert Shearman <rshearma@brocade.com>
+> Fixes: 520ac30f4551 ("net_sched: drop packets after root qdisc lock is released")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dan Carpenter <dan.carpenter@oracle.com>
 
 Applied.
