@@ -1,214 +1,130 @@
-From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Subject: It's back! (Re: [REGRESSION] NFS is creating a hidden port (left
- over from xs_bind() ))
-Date: Thu, 30 Jun 2016 08:59:50 -0400
-Message-ID: <20160630085950.61e5c7e0@gandalf.local.home>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: [PATCH net] bonding: prevent out of bound accesses
+Date: Thu, 30 Jun 2016 15:04:13 +0200
+Message-ID: <CACT4Y+aAVS+oYg62hftq7RMb2QM9wiPCK-Vf33c2PaG2Sm6R6g@mail.gmail.com>
+References: <1467291379.11238.8.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="MP_/cuRJNwtlXYuEP0MTlFBq6e1"
-Cc: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Anna Schumaker <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	Linux NFS Mailing List <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Network Devel Mailing List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Bruce James Fields <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-To: Trond Myklebust <trond.myklebust-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
-
---MP_/cuRJNwtlXYuEP0MTlFBq6e1
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Ding Tianhong <dingtianhong@huawei.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:33591 "EHLO
+	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751424AbcF3NJi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 09:09:38 -0400
+Received: by mail-lf0-f41.google.com with SMTP id f6so55101770lfg.0
+        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 06:09:37 -0700 (PDT)
+In-Reply-To: <1467291379.11238.8.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-[ resending as a new email, as I'm assuming people do not sort their
-  INBOX via last email on thread, thus my last email is sitting in the
-  bottom of everyone's INBOX ]
+On Thu, Jun 30, 2016 at 2:56 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> ether_addr_equal_64bits() requires some care about its arguments,
+> namely that 8 bytes might be read, even if last 2 byte values are not
+> used.
+>
+> KASan detected a violation with null_mac_addr and lacpdu_mcast_addr
+> in bond_3ad.c
+>
+> Fixes: 815117adaf5b ("bonding: use ether_addr_equal_unaligned for bond addr compare")
+> Fixes: bb54e58929f3 ("bonding: Verify RX LACPDU has proper dest mac-addr")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> ---
+>  drivers/net/bonding/bond_3ad.c |   11 +++++++----
+>  drivers/net/bonding/bond_alb.c |    3 ---
+>  include/net/bonding.h          |    7 ++++++-
+>  3 files changed, 13 insertions(+), 8 deletions(-)
+>
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> index ca81f46ea1aa..8ad491ab1d01 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -101,11 +101,14 @@ enum ad_link_speed_type {
+>  #define MAC_ADDRESS_EQUAL(A, B)        \
+>         ether_addr_equal_64bits((const u8 *)A, (const u8 *)B)
+>
+> -static struct mac_addr null_mac_addr = { { 0, 0, 0, 0, 0, 0 } };
+> +static const u8 null_mac_addr[ETH_ALEN] __long_aligned = {
+> +       0, 0, 0, 0, 0, 0
+> +};
 
-I've hit this again. Not sure when it started, but I applied my old
-debug trace_printk() patch (attached) and rebooted (4.5.7). I just
-tested the latest kernel from Linus's tree (from last nights pull), and
-it still gives me the problem.
-
-Here's the trace I have:
-
-    kworker/3:1H-134   [003] ..s.    61.036129: inet_csk_get_port: snum 805
-    kworker/3:1H-134   [003] ..s.    61.036135: <stack trace>
- =3D> sched_clock
- =3D> inet_addr_type_table
- =3D> security_capable
- =3D> inet_bind
- =3D> xs_bind
- =3D> release_sock
- =3D> sock_setsockopt
- =3D> __sock_create
- =3D> xs_create_sock.isra.19
- =3D> xs_tcp_setup_socket
- =3D> process_one_work
- =3D> worker_thread
- =3D> worker_thread
- =3D> kthread
- =3D> ret_from_fork
- =3D> kthread =20
-    kworker/3:1H-134   [003] ..s.    61.036136: inet_bind_hash: add 805
-    kworker/3:1H-134   [003] ..s.    61.036138: <stack trace>
- =3D> inet_csk_get_port
- =3D> sched_clock
- =3D> inet_addr_type_table
- =3D> security_capable
- =3D> inet_bind
- =3D> xs_bind
- =3D> release_sock
- =3D> sock_setsockopt
- =3D> __sock_create
- =3D> xs_create_sock.isra.19
- =3D> xs_tcp_setup_socket
- =3D> process_one_work
- =3D> worker_thread
- =3D> worker_thread
- =3D> kthread
- =3D> ret_from_fork
- =3D> kthread =20
-    kworker/3:1H-134   [003] ....    61.036139: xs_bind: RPC:       xs_bind=
- 4.136.255.255:805: ok (0)
-    kworker/3:1H-134   [003] ....    61.036140: xs_tcp_setup_socket: RPC:  =
-     worker connecting xprt ffff880407eca800 via tcp to 192.168.23.22 (port=
- 43651)
-    kworker/3:1H-134   [003] ....    61.036162: xs_tcp_setup_socket: RPC:  =
-     ffff880407eca800 connect status 115 connected 0 sock state 2
-          <idle>-0     [001] ..s.    61.036450: xs_tcp_state_change: RPC:  =
-     xs_tcp_state_change client ffff880407eca800...
-          <idle>-0     [001] ..s.    61.036452: xs_tcp_state_change: RPC:  =
-     state 1 conn 0 dead 0 zapped 1 sk_shutdown 0
-    kworker/1:1H-136   [001] ....    61.036476: xprt_connect_status: RPC:  =
-  43 xprt_connect_status: retrying
-    kworker/1:1H-136   [001] ....    61.036478: xprt_prepare_transmit: RPC:=
-    43 xprt_prepare_transmit
-    kworker/1:1H-136   [001] ....    61.036479: xprt_transmit: RPC:    43 x=
-prt_transmit(72)
-    kworker/1:1H-136   [001] ....    61.036486: xs_tcp_send_request: RPC:  =
-     xs_tcp_send_request(72) =3D 0
-    kworker/1:1H-136   [001] ....    61.036487: xprt_transmit: RPC:    43 x=
-mit complete
-          <idle>-0     [001] ..s.    61.036789: xs_tcp_data_ready: RPC:    =
-   xs_tcp_data_ready...
-    kworker/1:1H-136   [001] ....    61.036798: xs_tcp_data_recv: RPC:     =
-  xs_tcp_data_recv started
-    kworker/1:1H-136   [001] ....    61.036799: xs_tcp_data_recv: RPC:     =
-  reading TCP record fragment of length 24
-    kworker/1:1H-136   [001] ....    61.036799: xs_tcp_data_recv: RPC:     =
-  reading XID (4 bytes)
-    kworker/1:1H-136   [001] ....    61.036800: xs_tcp_data_recv: RPC:     =
-  reading request with XID 2f4c3f88
-    kworker/1:1H-136   [001] ....    61.036800: xs_tcp_data_recv: RPC:     =
-  reading CALL/REPLY flag (4 bytes)
-    kworker/1:1H-136   [001] ....    61.036801: xs_tcp_data_recv: RPC:     =
-  read reply XID 2f4c3f88
-    kworker/1:1H-136   [001] ..s.    61.036801: xs_tcp_data_recv: RPC:     =
-  XID 2f4c3f88 read 16 bytes
-    kworker/1:1H-136   [001] ..s.    61.036802: xs_tcp_data_recv: RPC:     =
-  xprt =3D ffff880407eca800, tcp_copied =3D 24, tcp_offset =3D 24, tcp_recl=
-en =3D 24
-    kworker/1:1H-136   [001] ..s.    61.036802: xprt_complete_rqst: RPC:   =
- 43 xid 2f4c3f88 complete (24 bytes received)
-    kworker/1:1H-136   [001] ....    61.036803: xs_tcp_data_recv: RPC:     =
-  xs_tcp_data_recv done
-    kworker/1:1H-136   [001] ....    61.036812: xprt_release: RPC:    43 re=
-lease request ffff88040b270800
+__long_aligned won't prevent KASAN from barking, it's still 6 bytes
+but we are reading 8.
+Can we please do "ETH_ALEN + 2" as below?
 
 
-# unhide-tcp=20
-Unhide-tcp 20130526
-Copyright =C2=A9 2013 Yago Jesus & Patrick Gouin
-License GPLv3+ : GNU GPL version 3 or later
-http://www.unhide-forensics.info
-Used options:=20
-[*]Starting TCP checking
-
-Found Hidden port that not appears in ss: 805
-
--- Steve
-
---MP_/cuRJNwtlXYuEP0MTlFBq6e1
-Content-Type: text/x-patch
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename=debug-hidden-port-4.7.patch
-
----
- net/ipv4/inet_connection_sock.c |    4 ++++
- net/ipv4/inet_hashtables.c      |    5 +++++
- net/sunrpc/xprt.c               |    5 +++++
- net/sunrpc/xprtsock.c           |    5 +++++
- 5 files changed, 22 insertions(+)
-
-Index: linux-build.git/net/ipv4/inet_connection_sock.c
-===================================================================
---- linux-build.git.orig/net/ipv4/inet_connection_sock.c	2016-06-22 11:55:05.952267493 -0400
-+++ linux-build.git/net/ipv4/inet_connection_sock.c	2016-06-22 11:56:20.002662092 -0400
-@@ -232,6 +232,10 @@ tb_found:
- 		}
- 	}
- success:
-+	if (!current->mm) {
-+		trace_printk("snum %d\n", snum);
-+		trace_dump_stack(1);
-+	}
- 	if (!inet_csk(sk)->icsk_bind_hash)
- 		inet_bind_hash(sk, tb, port);
- 	WARN_ON(inet_csk(sk)->icsk_bind_hash != tb);
-Index: linux-build.git/net/ipv4/inet_hashtables.c
-===================================================================
---- linux-build.git.orig/net/ipv4/inet_hashtables.c	2016-06-22 11:55:05.952267493 -0400
-+++ linux-build.git/net/ipv4/inet_hashtables.c	2016-06-22 11:55:05.948267360 -0400
-@@ -93,6 +93,11 @@ void inet_bind_bucket_destroy(struct kme
- void inet_bind_hash(struct sock *sk, struct inet_bind_bucket *tb,
- 		    const unsigned short snum)
- {
-+	if (!current->mm) {
-+		trace_printk("add %d\n", snum);
-+		trace_dump_stack(1);
-+	}
-+
- 	inet_sk(sk)->inet_num = snum;
- 	sk_add_bind_node(sk, &tb->owners);
- 	tb->num_owners++;
-Index: linux-build.git/net/sunrpc/xprt.c
-===================================================================
---- linux-build.git.orig/net/sunrpc/xprt.c	2016-06-22 11:55:05.952267493 -0400
-+++ linux-build.git/net/sunrpc/xprt.c	2016-06-22 11:55:05.948267360 -0400
-@@ -54,6 +54,11 @@
- 
- #include "sunrpc.h"
- 
-+#undef dprintk
-+#undef dprintk_rcu
-+#define dprintk(args...)	trace_printk(args)
-+#define dprintk_rcu(args...)	trace_printk(args)
-+
- /*
-  * Local variables
-  */
-Index: linux-build.git/net/sunrpc/xprtsock.c
-===================================================================
---- linux-build.git.orig/net/sunrpc/xprtsock.c	2016-06-22 11:55:05.952267493 -0400
-+++ linux-build.git/net/sunrpc/xprtsock.c	2016-06-22 11:55:05.948267360 -0400
-@@ -51,6 +51,11 @@
- 
- #include "sunrpc.h"
- 
-+#undef dprintk
-+#undef dprintk_rcu
-+#define dprintk(args...)	trace_printk(args)
-+#define dprintk_rcu(args...)	trace_printk(args)
-+
- static void xs_close(struct rpc_xprt *xprt);
- 
- /*
-
---MP_/cuRJNwtlXYuEP0MTlFBq6e1--
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>  static u16 ad_ticks_per_sec;
+>  static const int ad_delta_in_ticks = (AD_TIMER_INTERVAL * HZ) / 1000;
+>
+> -static const u8 lacpdu_mcast_addr[ETH_ALEN] = MULTICAST_LACPDU_ADDR;
+> +static const u8 lacpdu_mcast_addr[ETH_ALEN] __long_aligned =
+> +       MULTICAST_LACPDU_ADDR;
+>
+>  /* ================= main 802.3ad protocol functions ================== */
+>  static int ad_lacpdu_send(struct port *port);
+> @@ -1739,7 +1742,7 @@ static void ad_clear_agg(struct aggregator *aggregator)
+>                 aggregator->is_individual = false;
+>                 aggregator->actor_admin_aggregator_key = 0;
+>                 aggregator->actor_oper_aggregator_key = 0;
+> -               aggregator->partner_system = null_mac_addr;
+> +               eth_zero_addr(aggregator->partner_system.mac_addr_value);
+>                 aggregator->partner_system_priority = 0;
+>                 aggregator->partner_oper_aggregator_key = 0;
+>                 aggregator->receive_state = 0;
+> @@ -1761,7 +1764,7 @@ static void ad_initialize_agg(struct aggregator *aggregator)
+>         if (aggregator) {
+>                 ad_clear_agg(aggregator);
+>
+> -               aggregator->aggregator_mac_address = null_mac_addr;
+> +               eth_zero_addr(aggregator->aggregator_mac_address.mac_addr_value);
+>                 aggregator->aggregator_identifier = 0;
+>                 aggregator->slave = NULL;
+>         }
+> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+> index c5ac160a8ae9..26beed070bf0 100644
+> --- a/drivers/net/bonding/bond_alb.c
+> +++ b/drivers/net/bonding/bond_alb.c
+> @@ -42,9 +42,6 @@
+>
+>
+>
+> -#ifndef __long_aligned
+> -#define __long_aligned __attribute__((aligned((sizeof(long)))))
+> -#endif
+>  static const u8 mac_bcast[ETH_ALEN] __long_aligned = {
+>         0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+>  };
+> diff --git a/include/net/bonding.h b/include/net/bonding.h
+> index 791800ddd6d9..6360c259da6d 100644
+> --- a/include/net/bonding.h
+> +++ b/include/net/bonding.h
+> @@ -34,6 +34,9 @@
+>
+>  #define BOND_DEFAULT_MIIMON    100
+>
+> +#ifndef __long_aligned
+> +#define __long_aligned __attribute__((aligned((sizeof(long)))))
+> +#endif
+>  /*
+>   * Less bad way to call ioctl from within the kernel; this needs to be
+>   * done some other way to get the call out of interrupt context.
+> @@ -138,7 +141,9 @@ struct bond_params {
+>         struct reciprocal_value reciprocal_packets_per_slave;
+>         u16 ad_actor_sys_prio;
+>         u16 ad_user_port_key;
+> -       u8 ad_actor_system[ETH_ALEN];
+> +
+> +       /* 2 bytes of padding : see ether_addr_equal_64bits() */
+> +       u8 ad_actor_system[ETH_ALEN + 2];
+>  };
+>
+>  struct bond_parm_tbl {
+>
+>
