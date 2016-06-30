@@ -1,44 +1,53 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net v2] net: bcmsysport: Device stats are unsigned long
-Date: Thu, 30 Jun 2016 13:27:20 -0700
-Message-ID: <1467318440-19152-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, edumazet@google.com, andrew@lunn.ch,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:35695 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751533AbcF3U1Z (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 16:27:25 -0400
-Received: by mail-pf0-f193.google.com with SMTP id t190so8187124pfb.2
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 13:27:25 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Aaron Conole <aconole@bytheb.org>
+Subject: [PATCH nf-next 0/3] Compact netfilter hooks list
+Date: Thu, 30 Jun 2016 17:19:32 -0400
+Message-ID: <1467321575-6107-1-git-send-email-aconole@bytheb.org>
+To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 64bits kernels, device stats are 64bits wide, not 32bits.
+This series makes a simple change to shrink the netfilter hook list
+from a double linked list, to a singly linked list.  Since the hooks
+are always traversed in-order, there is no need to maintain a previous
+pointer.
 
-Fixes: 80105befdb4b ("net: systemport: add Broadcom SYSTEMPORT Ethernet MAC driver")
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
-Changes in v2:
+This series is being submitted for early feedback. This was jointly
+developed by Florian Westphal.
 
-- use a plain cast to unsigned long
+Aaron Conole (1):
+  netfilter: replace list_head with single linked list
 
- drivers/net/ethernet/broadcom/bcmsysport.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Florian Westphal (2):
+  netfilter: bridge: add and use br_nf_hook_thresh
+  netfilter: call nf_hook_state_init with rcu_read_lock held
 
-diff --git a/drivers/net/ethernet/broadcom/bcmsysport.c b/drivers/net/ethernet/broadcom/bcmsysport.c
-index 543bf38105c9..bfa26a2590c9 100644
---- a/drivers/net/ethernet/broadcom/bcmsysport.c
-+++ b/drivers/net/ethernet/broadcom/bcmsysport.c
-@@ -392,7 +392,7 @@ static void bcm_sysport_get_stats(struct net_device *dev,
- 		else
- 			p = (char *)priv;
- 		p += s->stat_offset;
--		data[i] = *(u32 *)p;
-+		data[i] = *(unsigned long *)p;
- 	}
- }
- 
+ include/linux/netdevice.h                      |   2 +-
+ include/linux/netfilter.h                      |  26 ++++--
+ include/linux/netfilter_ingress.h              |  15 ++--
+ include/net/netfilter/br_netfilter.h           |   6 ++
+ include/net/netfilter/nf_queue.h               |   9 +-
+ include/net/netns/netfilter.h                  |   2 +-
+ net/bridge/br_netfilter_hooks.c                |  50 +++++++++--
+ net/bridge/br_netfilter_ipv6.c                 |  12 ++-
+ net/bridge/netfilter/ebt_redirect.c            |   2 +-
+ net/bridge/netfilter/ebtables.c                |   2 +-
+ net/ipv4/netfilter/nf_conntrack_l3proto_ipv4.c |   2 +-
+ net/ipv4/netfilter/nf_conntrack_proto_icmp.c   |   2 +-
+ net/ipv6/netfilter/nf_conntrack_l3proto_ipv6.c |   2 +-
+ net/ipv6/netfilter/nf_conntrack_proto_icmpv6.c |   2 +-
+ net/netfilter/core.c                           | 120 +++++++++++++++----------
+ net/netfilter/nf_conntrack_core.c              |   2 +-
+ net/netfilter/nf_conntrack_h323_main.c         |   2 +-
+ net/netfilter/nf_conntrack_helper.c            |   2 +-
+ net/netfilter/nf_internals.h                   |  10 +--
+ net/netfilter/nf_queue.c                       |  15 ++--
+ net/netfilter/nfnetlink_cthelper.c             |   2 +-
+ net/netfilter/nfnetlink_log.c                  |   8 +-
+ net/netfilter/nfnetlink_queue.c                |   7 +-
+ net/netfilter/xt_helper.c                      |   2 +-
+ 24 files changed, 193 insertions(+), 111 deletions(-)
+
 -- 
-2.7.4
+2.5.5
+
