@@ -1,79 +1,74 @@
-From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
-Subject: [PATCH] usbnet: add reset_resume quirk to prevent resume failure
-Date: Thu, 30 Jun 2016 10:41:59 +0000 (GMT)
-Message-ID: <1387942633.112861467283319260.JavaMail.weblogic@epmlwas03c>
-Reply-To: vivek.bhagat@samsung.com
+From: Stefan Hajnoczi <stefanha@redhat.com>
+Subject: Re: [RFC v2 1/3] vsockmon: Add tap functions
+Date: Thu, 30 Jun 2016 11:49:12 +0100
+Message-ID: <20160630104912.GB31866@stefanha-x1.localdomain>
+References: <20160622161102.8250-1-ggarcia@deic.uab.cat>
+ <20160622161102.8250-2-ggarcia@deic.uab.cat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: hemanshu.s@samsung.com, vikas.bansal@samsung.com
-To: netdev@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="neYutvxvOLaeuPCA"
+Cc: netdev@vger.kernel.org, jhansen@vmware.com
+To: ggarcia@abra.uab.cat
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout2.samsung.com ([203.254.224.25]:52350 "EHLO
-	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751601AbcF3KmC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 06:42:02 -0400
-Received: from epcpsbgr3.samsung.com
- (u143.gpu120.samsung.co.kr [203.254.230.143])
- by mailout2.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
- 64bit (built May  5 2014))
- with ESMTP id <0O9K00148Z1ZAI20@mailout2.samsung.com> for
- netdev@vger.kernel.org; Thu, 30 Jun 2016 19:41:59 +0900 (KST)
-MIME-version: 1.0
+Received: from mx1.redhat.com ([209.132.183.28]:54950 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751825AbcF3Ktm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jun 2016 06:49:42 -0400
+Content-Disposition: inline
+In-Reply-To: <20160622161102.8250-2-ggarcia@deic.uab.cat>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-CklkZWFsbHksIHVzYm5ldF9yZXN1bWUgaXMgc3VmZmljaWVudCBmb3IgZGV2aWNlIHJlc3VtZSBv
-cGVyYXRpb24uCnNpbmNlIHVzYmNvcmUgZnVuY3Rpb24gdXNiX3Jlc3VtZV9kZXZpY2UoKSBzZXRz
-IHVkZXYtPnJlc2V0X3Jlc3VtZQpmbGFnIGFzIGEgcXVpcmsgc29sdXRpb24sIHJlc2V0X3Jlc3Vt
-ZSgpIHF1aXJrIHdlIGNhbiBrZWVwIGluCmNsYXNzIGRyaXZlciBhbHNvLiBXZSBjaGVja2VkIG9u
-IGRvbmdsZSBEQS1RdWVlbiBVRkUyMEMsCndpdGhvdXQgcmVzZXQgZnVuY3Rpb24gcmVzdW1lIG9w
-ZXJhdGlvbiBmYWlscy4gUmVhc29uIGNvdWxkIGJlCnNvbWUgcG93ZXIgZ2xpdGNoIGR1cmluZyBz
-dXNwZW5kIHRpbWUgZHVlIHRvIHdoaWNoIGRldmljZSBsb3NlCml0cyBpbnRlcm5hbCBzdGF0ZSBh
-bmQgaXQgbmVlZHMgYSBkZXZpY2UgcGh5IHJlc2V0IGFnYWluIGR1cmluZwpyZXN1bWUgdG8gcmVj
-b3Zlci4KClNpZ25lZC1vZmYtYnk6IFZpdmVrIEt1bWFyIEJoYWdhdCA8dml2ZWsuYmhhZ2F0QHNh
-bXN1bmcuY29tPgpTaWduZWQtb2ZmLWJ5OiBWaWthcyBCYW5zYWwgPHZpa2FzLmJhbnNhbEBzYW1z
-dW5nLmNvbT4KU2lnbmVkLW9mZi1ieTogU2FuZ21pbiBCYWUgPHNtNzkuYmFlQHNhbXN1bmcuY29t
-PgotLS0KIGRyaXZlcnMvbmV0L3VzYi9hc2l4X2RldmljZXMuYyB8ICAgIDEgKwogZHJpdmVycy9u
-ZXQvdXNiL2NkY19lZW0uYyAgICAgIHwgICAgMSArCiBkcml2ZXJzL25ldC91c2IvdXNibmV0LmMg
-ICAgICAgfCAgIDE3ICsrKysrKysrKysrKysrKysrCiBpbmNsdWRlL2xpbnV4L3VzYi91c2JuZXQu
-aCAgICAgfCAgICAxICsKIDQgZmlsZXMgY2hhbmdlZCwgMjAgaW5zZXJ0aW9ucygrKQoKZGlmZiAt
-LWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9hc2l4X2RldmljZXMuYyBiL2RyaXZlcnMvbmV0L3VzYi9h
-c2l4X2RldmljZXMuYwppbmRleCA1Y2FiZWZjLi42OGRkYTYxIDEwMDY0NAotLS0gYS9kcml2ZXJz
-L25ldC91c2IvYXNpeF9kZXZpY2VzLmMKKysrIGIvZHJpdmVycy9uZXQvdXNiL2FzaXhfZGV2aWNl
-cy5jCkBAIC0xMDk3LDYgKzEwOTcsNyBAQCBzdGF0aWMgc3RydWN0IHVzYl9kcml2ZXIgYXNpeF9k
-cml2ZXIgPSB7CiAJLnByb2JlID0JdXNibmV0X3Byb2JlLAogCS5zdXNwZW5kID0JdXNibmV0X3N1
-c3BlbmQsCiAJLnJlc3VtZSA9CXVzYm5ldF9yZXN1bWUsCisJLnJlc2V0X3Jlc3VtZSA9IHVzYm5l
-dF9yZXNldF9yZXN1bWUsCiAJLmRpc2Nvbm5lY3QgPQl1c2JuZXRfZGlzY29ubmVjdCwKIAkuc3Vw
-cG9ydHNfYXV0b3N1c3BlbmQgPSAxLAogCS5kaXNhYmxlX2h1Yl9pbml0aWF0ZWRfbHBtID0gMSwK
-ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9jZGNfZWVtLmMgYi9kcml2ZXJzL25ldC91c2Iv
-Y2RjX2VlbS5jCmluZGV4IGY3MTgwZjguLjgzYjY4NTcgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0
-L3VzYi9jZGNfZWVtLmMKKysrIGIvZHJpdmVycy9uZXQvdXNiL2NkY19lZW0uYwpAQCAtMzcxLDYg
-KzM3MSw3IEBAIHN0YXRpYyBzdHJ1Y3QgdXNiX2RyaXZlciBlZW1fZHJpdmVyID0gewogCS5kaXNj
-b25uZWN0ID0JdXNibmV0X2Rpc2Nvbm5lY3QsCiAJLnN1c3BlbmQgPQl1c2JuZXRfc3VzcGVuZCwK
-IAkucmVzdW1lID0JdXNibmV0X3Jlc3VtZSwKKwkucmVzZXRfcmVzdW1lID0gdXNibmV0X3Jlc2V0
-X3Jlc3VtZSwKIAkuZGlzYWJsZV9odWJfaW5pdGlhdGVkX2xwbSA9IDEsCiB9OwogCmRpZmYgLS1n
-aXQgYS9kcml2ZXJzL25ldC91c2IvdXNibmV0LmMgYi9kcml2ZXJzL25ldC91c2IvdXNibmV0LmMK
-aW5kZXggNjFiYTQ2NC4uZjU2YzE3NiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvdXNiL3VzYm5l
-dC5jCisrKyBiL2RyaXZlcnMvbmV0L3VzYi91c2JuZXQuYwpAQCAtMTg3Niw2ICsxODc2LDIzIEBA
-IGludCB1c2JuZXRfcmVzdW1lIChzdHJ1Y3QgdXNiX2ludGVyZmFjZSAqaW50ZikKIH0KIEVYUE9S
-VF9TWU1CT0xfR1BMKHVzYm5ldF9yZXN1bWUpOwogCitpbnQgdXNibmV0X3Jlc2V0X3Jlc3VtZShz
-dHJ1Y3QgdXNiX2ludGVyZmFjZSAqaW50ZikKK3sKKwlzdHJ1Y3QgdXNibmV0ICpkZXYgPSB1c2Jf
-Z2V0X2ludGZkYXRhKGludGYpOworCWludCByZXQ7CisKKwlpZiAoZGV2LT5kcml2ZXJfaW5mby0+
-cmVzZXQpIHsKKwkJcmV0ID0gZGV2LT5kcml2ZXJfaW5mby0+cmVzZXQoZGV2KTsKKwkJaWYgKHJl
-dCA8IDApCisJCQlyZXR1cm4gcmV0OworCisJCXJldHVybiB1c2JuZXRfcmVzdW1lKGludGYpOwor
-CX0KKworCXJldHVybiAtRUlOVkFMOworfQorRVhQT1JUX1NZTUJPTF9HUEwodXNibmV0X3Jlc2V0
-X3Jlc3VtZSk7CisKIC8qCiAgKiBFaXRoZXIgYSBzdWJkcml2ZXIgaW1wbGVtZW50cyBtYW5hZ2Vf
-cG93ZXIsIHRoZW4gaXQgaXMgYXNzdW1lZCB0byBhbHdheXMKICAqIGJlIHJlYWR5IHRvIGJlIHN1
-c3BlbmRlZCBvciBpdCByZXBvcnRzIHRoZSByZWFkaW5lc3MgdG8gYmUgc3VzcGVuZGVkCmRpZmYg
-LS1naXQgYS9pbmNsdWRlL2xpbnV4L3VzYi91c2JuZXQuaCBiL2luY2x1ZGUvbGludXgvdXNiL3Vz
-Ym5ldC5oCmluZGV4IDZlMGNlOGMuLjBiMjYxZDUgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgv
-dXNiL3VzYm5ldC5oCisrKyBiL2luY2x1ZGUvbGludXgvdXNiL3VzYm5ldC5oCkBAIC0xNzcsNiAr
-MTc3LDcgQEAgc3RydWN0IGRyaXZlcl9pbmZvIHsKIGV4dGVybiBpbnQgdXNibmV0X3Byb2JlKHN0
-cnVjdCB1c2JfaW50ZXJmYWNlICosIGNvbnN0IHN0cnVjdCB1c2JfZGV2aWNlX2lkICopOwogZXh0
-ZXJuIGludCB1c2JuZXRfc3VzcGVuZChzdHJ1Y3QgdXNiX2ludGVyZmFjZSAqLCBwbV9tZXNzYWdl
-X3QpOwogZXh0ZXJuIGludCB1c2JuZXRfcmVzdW1lKHN0cnVjdCB1c2JfaW50ZXJmYWNlICopOwor
-ZXh0ZXJuIGludCB1c2JuZXRfcmVzZXRfcmVzdW1lKHN0cnVjdCB1c2JfaW50ZXJmYWNlICopOwog
-ZXh0ZXJuIHZvaWQgdXNibmV0X2Rpc2Nvbm5lY3Qoc3RydWN0IHVzYl9pbnRlcmZhY2UgKik7CiBl
-eHRlcm4gdm9pZCB1c2JuZXRfZGV2aWNlX3N1Z2dlc3RzX2lkbGUoc3RydWN0IHVzYm5ldCAqZGV2
-KTsKIAotLSAKMS43LjkuNQo=
+
+--neYutvxvOLaeuPCA
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Wed, Jun 22, 2016 at 06:11:00PM +0200, ggarcia@abra.uab.cat wrote:
+> +int __vsock_remove_tap(struct vsock_tap *vt) {
+
+This function should be static, it's not used outside this source file.
+
+> +static int __vsock_deliver_tap_skb(struct sk_buff *skb,
+> +				     struct net_device *dev)
+> +{
+> +	int ret = 0;
+> +
+> +	if (skb) {
+> +		dev_hold(dev);
+
+I don't understand the need for this dev_hold()/dev_put().  Can anyone
+explain why it is necessary?
+
+> +		/* Take skb ownership so it is not consumed in dev_queue_xmit.
+> +		 * dev_queue_xmit will drop a reference so the reference count
+> +		 * will reset.
+> +		 */
+> +		skb_get(skb);
+> +		skb->dev = dev;
+> +		ret = dev_queue_xmit(skb);
+> +		if (unlikely(ret > 0))
+> +			ret = net_xmit_errno(ret);
+> +
+> +		dev_put(dev);
+> +	}
+> +
+> +	return ret;
+> +}
+
+--neYutvxvOLaeuPCA
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQEcBAEBAgAGBQJXdPkoAAoJEJykq7OBq3PIXvIIAIv6cjCJq9zyOlDzqll4kymL
+dw0Mo1KUN6x6kU22dG6U8zDYjUvx79juQfBKD+fAgW4FNhRdCYZYkrCFRk3NA+3I
+Gh/21haMhqxosa+3exm2ModKgf1OtEvB5unKfbVt+8LEoOZuMkHLpay4p4Gj55E9
+1R4sdXfaJMOhU23JT6+QxXcEivR2gKjvPvQNxpU747SeFTmOmS5mEXi/FOlWcvlU
+dAeCaBi2A6hhrGjtIKv4sREc6Kz7sNxeHU9DaCNmlx+ZZkeraSMoNJiJxdFTb9Jh
+RrI6NPb+pry6qOkVaSfkCg4BNV3bVIDT9gWvMlrz+AIKz76d3r2A7FxUck+jAL4=
+=UhrZ
+-----END PGP SIGNATURE-----
+
+--neYutvxvOLaeuPCA--
