@@ -1,246 +1,86 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 08/16] net/devlink: Add E-Switch mode control
-Date: Thu, 30 Jun 2016 08:25:16 +0200
-Message-ID: <20160630062516.GA2569@nanopsycho.orion>
-References: <20160628184655.GB2089@nanopsycho.orion>
- <5772CA20.4030002@intel.com>
- <20160628191230.GC2089@nanopsycho.orion>
- <5772D091.9030709@gmail.com>
- <0327b6de-dfdf-8db2-1354-b7a4144dbc02@mellanox.com>
- <5773F8CC.4090300@gmail.com>
- <CAJ3xEMgGCW_P-sb3pe1KqMVoKe4BWKoO88_O364nwEU6bDnaoA@mail.gmail.com>
- <577446FE.7060402@gmail.com>
- <5774938D.7010902@gmail.com>
- <57749A57.1030709@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next V3 5/6] net: introduce NETDEV_CHANGE_TX_QUEUE_LEN
+Date: Thu, 30 Jun 2016 14:43:00 +0800
+Message-ID: <5774BF74.9000508@redhat.com>
+References: <1467258779-3539-1-git-send-email-jasowang@redhat.com>
+	<1467258779-3539-6-git-send-email-jasowang@redhat.com>
+	<5774A67B.1060802@gmail.com> <5774AA46.3090604@redhat.com>
+	<5774B553.5070701@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Hadar Hen-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Tal Anker <Ankertal@mellanox.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:34915 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751832AbcF3GZ1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 02:25:27 -0400
-Received: by mail-wm0-f41.google.com with SMTP id v199so206920361wmv.0
-        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 23:25:20 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <57749A57.1030709@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: brouer@redhat.com, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, davem@davemloft.net
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <5774B553.5070701@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-Thu, Jun 30, 2016 at 06:04:39AM CEST, john.fastabend@gmail.com wrote:
->On 16-06-29 08:35 PM, John Fastabend wrote:
->> On 16-06-29 03:09 PM, John Fastabend wrote:
->>> On 16-06-29 02:33 PM, Or Gerlitz wrote:
->>>> On Wed, Jun 29, 2016 at 7:35 PM, John Fastabend
->>>> <john.fastabend@gmail.com> wrote:
->>>>> On 16-06-29 07:48 AM, Or Gerlitz wrote:
->>>>>> On 6/28/2016 10:31 PM, John Fastabend wrote:
->>>>>>> On 16-06-28 12:12 PM, Jiri Pirko wrote:
->>>>
->>>>>>>> Why?! Please, leave legacy be legacy. Use the new mode for
->>>>>>>> implementing new features. Don't make things any more complicated :(
->>>>
->>>> [...]
->>>>>>> Maybe I'm reading to much into the devlink flag names and if instead
->>>>>>> you use a switch like the following,
->>>>
->>>>>>>    VF representer : enable/disable the creation VF netdev's to represent
->>>>>>>                     the virtual functions on the PF
->>>>
->>>>>>> Much less complicated then magic switching between forwarding logic IMO
->>>>>>> and you don't whack a default configuration that an entire stack (e.g.
->>>>>>> libvirt) has been built to use.
->>>>
->>>>>> Re letting the user to observe/modify the rules added by the
->>>>>> driver/firmware while legacy mode. Even if possible with bridge/fdb, it
->>>>>> will be really pragmatical and doesn't make sense to get that donefor
->>>>>> the TC subsystem. So this isn't a well defined solution and anyway, as
->>>>>> you said, legacy mode enhancements is a different exercise. Personally,
->>>>>> I agree with Jiri, that we should legacy be legacyand focus on adding
->>>>>> the new model.
->>>>
->>>>> The ixgbe driver already supports bridge and tc commands without the VF
->>>>> representer.  Adding the VF representer to these drivers just extends
->>>>> the existing support so we have an identifier for VFs and now the
->>>>> redirect action works and the fdb commands can specify the VF netdevs.
->>>>> I don't see this as a problem because we already do it today with
->>>>> 'ip' and bridge tools.
->>>>
->>>> To be precise, for both ixgbe and mlx5, the existing tc support
->>>> (u32/ixgbe, flower/mlx5) is not for switching functionality but rather
->>>> for NIC-ish one, e.g drop, mark, etc. Indeed in ixgbe you added
->>>> redirect to VF, but this is only for south --> north (wire --> VF)
->>>> traffic, w.o the VF rep you can't do the other way around.
->>>>
->>>
->>> Correct which is why we need the VF rep. So we are completely in
->>> sync there.
->>>
->>>> Just to clarify, to what exact bridge command support did you refer for ixgbe?
->>>
->>> 'bridge fdb' commands are supported today on the PF. But its the
->>> same story as above we need the VF rep to also use it on the
->>> VF representer
->>>
->>> Also 'bridge link' command for veb/vepa modes is supported and the
->>> other link attributes could be supported with additional driver
->>> support. No need for core changes here. But again yes only on the
->>> PF so again we need the VF reps.
->>>
->>>>
->>>> The forwarding done in the legacy mode is not well defined, and
->>>> different across vendors, adding there the VF reps will not make it
->>>> any better b/c some steering rules will be set by tc/bridge offloads
->>>> while other rules will be put by the driver.
->>>> I don't see how this takes us to better place.
->>>
->>> In legacy mode or any other mode you are defining some default policy
->>> and rules.
->>>
->>> In the legacy mode we use mac/vlan assigned l2 forwarding entries in the
->>> hardware fdb which are seen when you query 'ip link' and 'bridge fdb'
->>> today. And similarly can be modified today using 'ip link' and 'bridge
->>> fdb' at least on the intel devices. Its not undefined in any way with
->>> a quick query of the tools we can learn exactly what the configuration
->>> is and even change it. This works fairly well with existing controllers
->>> and stacks.
->>>
->>> The limitations are 'ip' only supports a single MAC address per VF and
->>> 'tc' doesn't work on VF ports because when the VF is assigned to a VM
->>> or namespace we lose visibility of it. Providing a VF rep for this
->>> solves both of those problems.
->>>
->>> In this new mode the default policy is to create a default miss rule
->>> and implement no l2 forwarding rules. Unfortunately not all hardware
->>> in use supports this default miss rule case but would still benefit
->>> from having a VF rep. So we shouldn't make this a stipulation for
->>> enabling VF reps. It also changes a default policy that has been in
->>> place for years without IMO at least any compelling reason. It will
->>> be easy enough to change the default l2 policy to a flow based model
->>> with a few bridge/tc commands.
->>>
->>>>
->>>>> We are also slightly in disagreement about what the default should be
->>>>> with VF netdevs. I think the default should be the same L2 mac/vlan
->>>>> switch behavior and see no reason to change it by default just because
->>>>> we added VF netdevs. The infrastructure libvirt/openstack/etc are built
->>>>> around this default today. But I guess nothing in this series specifies
->>>>> what the defaults of any given driver will be. VF netdevs are still
->>>>> useful even on older hardware that only supports mac/vlan forwarding to
->>>>> expose statistics and send/receive control frames such as lldp.
->>>>
->>>> Again, this is not about default engineering... and using the VF reps
->>>> (not VF netdevs) in legacy mode only make it more cryptic to my
->>>> opinion. I agree some changes would be needed in openstack to support
->>>> the new model, but this is how progress is made... you can't always
->>>> make all layer above you unchanged. Note that the VF reps behave the
->>>> same as tap devices (v-switch doing xmit on tap --> recv in VM, VM
->>>> sends --> recv on tap into the v-switch), so the change in open-stack
->>>> would not be that big.
->>>>
->>>
->>> But in this case we have no reason to break the stack above us. The
->>> currently deployed usage is L2 mac/vlan. As soon as you bind a vSwitch
->>> or whatever mgmt agent to the device it can go ahead and manage the
->>> switch putting it in the correct mode using the tooling in 'bridge' and
->>> 'tc'.
->>>
->>>
->>>> [...]
->>>>
->>>>> Why I think the VF representer is a per port ethtool flag and not a
->>>>> devlink option is my use case might be to assign a PF into a VM or
->>>>> namespace where I don't want VF netdevs.
->>>>
->>>> again, we think the correct place to set how the eswitch is managed is
->>>> through eswitch manager PCI devices and not net devices and hence
->>>> ethtool is not the way to go.
->>>>
->>>> Also, how do you want your e-switch to be managed in this case?
->>>>
->>>
->>> In the case where I don't create vf netdevs on one of the PFs I'll
->>> manage the forwarding tables via the existing mechanisms 'ip' and
->>> 'bridge'. However its likely not a big deal because 'ip' and 'bridge'
->>> will continue to work even if VF reps are around. The ethtool/devlink
->>> comment was more about pointing out that creating VFs does not
->>> require you to manage your switch any differently. Its useful even on
->>> devices that can't support flow based forwarding for statistics and
->>> setting port attributes like mtu, etc.
->>>
->>> .John
->>>
->> 
->> Probably bad form to respond to my own email but just to highlight how
->> subtle the distinction is (hopefully not to much repeat),
->> 
->> Today in "legacy" mode each VF mac address is automatically added to
->> the fdb along with the PF mac address. If there is a miss in the table
->> (an unknown mac) the packet is sent to the PF but unless the PF is in
->> promisc mode the packet is dropped by the rx filter. I presume even
->> with the proposed model you would want to continue to enforce the
->> rx filter otherwise the instance you flip the mode you are open to
->> receive unwanted traffic. The promisc mode semantics have been in place
->> for a long time so certainly don't want to break that. Can we agree on
->> the promisc point? Also bridges/vswitch/etc already set promisc mode
->> once they attach to the netdevs.
->> 
->> (assuming we agree on the promisc point?)
->> In your proposed model the only difference I can see is when the mode is
->> changed you don't want to add the VF mac address to the fdb table. How
->> about rather than make this part of the mode selection pick one way to
->> do this in all cases. Either add the VF mac addresses to the fdb or
->> do not do this. I have a preference for adding the VF mac addresses
->> because this is the current behavior. Then rename the devlink option
->> "VF reps" or something because that is what it is controlling.
->> 
->> The last thing to argue about is if its a port attribute ala ethtool
->> or a device attribute ala devlink. But maybe we can agree on everything
->> up to this point?
->> 
->> Thanks,
->> John
->> 
->
->FWIW reviewing devlink and items I want to put there in the future I've
->decided it makes sense to keep it in devlink (sorry took me a day of
->emails to get here). If you can agree to the above and rename it
->something like,
->
->+enum devlink_eswitch_mode {
->+	DEVLINK_ESWITCH_MODE_NONE,
->+	DEVLINK_ESWITCH_MODE_LEGACY,
->+	DEVLINK_ESWITCH_MODE_CREATE_VF_NETDEVS,
-
-That is certainly totally misleading name. The mode is not about
-creating "VF netdevs".
-
-The VF representors are created but just as a side effect. The "offload"
-mode or maybe better "switchdev" mode is creating representor netdevs for
-VFs because they are needed in order to be able to configure ESwitch in
-the same way we configure physical switches - putting netdevs into
-bridge/bond/ovs/whatever. You see stats on the representors. Basicaly
-they are the same as physical port representors on physical switch ASIC.
-
-
-
->+};
->
->I'll Ack it and implement it on the drivers I tend to work on.
->
->.John
->
->
+CgpPbiAyMDE25bm0MDbmnIgzMOaXpSAxMzo1OSwgSmFzb24gV2FuZyB3cm90ZToKPgo+Cj4gT24g
+MjAxNuW5tDA25pyIMzDml6UgMTM6MTIsIEphc29uIFdhbmcgd3JvdGU6Cj4+Cj4+Cj4+IE9uIDIw
+MTblubQwNuaciDMw5pelIDEyOjU2LCBKb2huIEZhc3RhYmVuZCB3cm90ZToKPj4+IE9uIDE2LTA2
+LTI5IDA4OjUyIFBNLCBKYXNvbiBXYW5nIHdyb3RlOgo+Pj4+IFRoaXMgcGF0Y2ggaW50cm9kdWNl
+cyBhIG5ldyBldmVudCAtIE5FVERFVl9DSEFOR0VfVFhfUVVFVUVfTEVOLCB0aGlzCj4+Pj4gd2ls
+bCBiZSB0cmlnZ2VyZWQgd2hlbiB0eF9xdWV1ZV9sZW4uIEl0IGNvdWxkIGJlIHVzZWQgYnkgbmV0
+IGRldmljZQo+Pj4+IHdobyB3YW50IHRvIGRvIHNvbWUgcHJvY2Vzc2luZyBhdCB0aGF0IHRpbWUu
+IEFuIGV4YW1wbGUgaXMgdHVuIHdobyBtYXkKPj4+PiB3YW50IHRvIHJlc2l6ZSB0eCBhcnJheSB3
+aGVuIHR4X3F1ZXVlX2xlbiBpcyBjaGFuZ2VkLgo+Pj4+Cj4+Pj4gU2lnbmVkLW9mZi1ieTogSmFz
+b24gV2FuZyA8amFzb3dhbmdAcmVkaGF0LmNvbT4KPj4+PiAtLS0KPj4+PiAgIGluY2x1ZGUvbGlu
+dXgvbmV0ZGV2aWNlLmggfCAgMSArCj4+Pj4gICBuZXQvY29yZS9uZXQtc3lzZnMuYyAgICAgIHwg
+MTUgKysrKysrKysrKysrKystCj4+Pj4gICAyIGZpbGVzIGNoYW5nZWQsIDE1IGluc2VydGlvbnMo
+KyksIDEgZGVsZXRpb24oLSkKPj4+Pgo+Pj4+IGRpZmYgLS1naXQgYS9pbmNsdWRlL2xpbnV4L25l
+dGRldmljZS5oIGIvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaAo+Pj4+IGluZGV4IGU4NGQ5ZDIu
+LjdkYzJlYzcgMTAwNjQ0Cj4+Pj4gLS0tIGEvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaAo+Pj4+
+ICsrKyBiL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgKPj4+PiBAQCAtMjIzNyw2ICsyMjM3LDcg
+QEAgc3RydWN0IG5ldGRldl9sYWdfbG93ZXJfc3RhdGVfaW5mbyB7Cj4+Pj4gICAjZGVmaW5lIE5F
+VERFVl9QUkVDSEFOR0VVUFBFUiAgICAweDAwMUEKPj4+PiAgICNkZWZpbmUgTkVUREVWX0NIQU5H
+RUxPV0VSU1RBVEUgICAgMHgwMDFCCj4+Pj4gICAjZGVmaW5lIE5FVERFVl9VRFBfVFVOTkVMX1BV
+U0hfSU5GTyAgICAweDAwMUMKPj4+PiArI2RlZmluZSBORVRERVZfQ0hBTkdFX1RYX1FVRVVFX0xF
+TiAgICAweDAwMUUKPj4+PiAgICAgaW50IHJlZ2lzdGVyX25ldGRldmljZV9ub3RpZmllcihzdHJ1
+Y3Qgbm90aWZpZXJfYmxvY2sgKm5iKTsKPj4+PiAgIGludCB1bnJlZ2lzdGVyX25ldGRldmljZV9u
+b3RpZmllcihzdHJ1Y3Qgbm90aWZpZXJfYmxvY2sgKm5iKTsKPj4+PiBkaWZmIC0tZ2l0IGEvbmV0
+L2NvcmUvbmV0LXN5c2ZzLmMgYi9uZXQvY29yZS9uZXQtc3lzZnMuYwo+Pj4+IGluZGV4IDdhMGI2
+MTYuLjZlNGYzNDcgMTAwNjQ0Cj4+Pj4gLS0tIGEvbmV0L2NvcmUvbmV0LXN5c2ZzLmMKPj4+PiAr
+KysgYi9uZXQvY29yZS9uZXQtc3lzZnMuYwo+Pj4+IEBAIC0zMjIsNyArMzIyLDIwIEBAIE5FVERF
+VklDRV9TSE9XX1JXKGZsYWdzLCBmbXRfaGV4KTsKPj4+PiAgICAgc3RhdGljIGludCBjaGFuZ2Vf
+dHhfcXVldWVfbGVuKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIHVuc2lnbmVkIAo+Pj4+IGxvbmcg
+bmV3X2xlbikKPj4+PiAgIHsKPj4+PiAtICAgIGRldi0+dHhfcXVldWVfbGVuID0gbmV3X2xlbjsK
+Pj4+PiArICAgIGludCByZXMsIG9yaWdfbGVuID0gZGV2LT50eF9xdWV1ZV9sZW47Cj4+Pj4gKwo+
+Pj4+ICsgICAgaWYgKG5ld19sZW4gIT0gb3JpZ19sZW4pIHsKPj4+PiArICAgICAgICBkZXYtPnR4
+X3F1ZXVlX2xlbiA9IG5ld19sZW47Cj4+Pj4gKyAgICAgICAgcmVzID0gY2FsbF9uZXRkZXZpY2Vf
+bm90aWZpZXJzKE5FVERFVl9DSEFOR0VfVFhfUVVFVUVfTEVOLCAKPj4+PiBkZXYpOwo+Pj4+ICsg
+ICAgICAgIHJlcyA9IG5vdGlmaWVyX3RvX2Vycm5vKHJlcyk7Cj4+Pj4gKyAgICAgICAgaWYgKHJl
+cykgewo+Pj4+ICsgICAgICAgICAgICBuZXRkZXZfZXJyKGRldiwKPj4+PiArICAgICAgICAgICAg
+ICAgICAgICJyZWZ1c2VkIHRvIGNoYW5nZSBkZXZpY2UgdHhfcXVldWVfbGVuXG4iKTsKPj4+PiAr
+ICAgICAgICAgICAgZGV2LT50eF9xdWV1ZV9sZW4gPSBvcmlnX2xlbjsKPj4+PiArICAgICAgICAg
+ICAgcmV0dXJuIC1FRkFVTFQ7Cj4+Pj4gKyAgICAgICAgfQo+Pj4+ICsgICAgfQo+Pj4+ICsKPj4+
+PiAgICAgICByZXR1cm4gMDsKPj4+PiAgIH0KPj4+Pgo+Pj4gQWNrZWQtYnk6IEpvaG4gRmFzdGFi
+ZW5kIDxqb2huLnIuZmFzdGFiZW5kQGludGVsLmNvbT4KPj4+Cj4+PiBHcmVhdCB0aW1pbmcgSSB3
+YXMganVzdCBsb29raW5nIGludG8gdGhpcyBiZWNhdXNlIEkgbmVlZCBpdCBmb3IgdGhlCj4+PiBx
+ZGlzYyBzaWRlLgo+Pj4KPj4+IEl0IGxvb2tzIGxpa2UgdGhpcyBjb3ZlcnMgdGhlIHN5c2ZzIGNo
+YW5nZSBidXQgdGhlIHR4X3F1ZXVlX2xlbiBjYW4KPj4+IGFsc28gYmUgY2hhbmdlZCB2aWEgcnRu
+ZXRsaW5rIGFzIHdlbGwuIFNvIHdlIG5lZWQgYW5vdGhlciBwYXRjaCBmb3IKPj4+IHRoYXQgcGF0
+aCByaWdodD8KPj4+Cj4+PiAgICAgICAgICBpZiAodGJbSUZMQV9UWFFMRU5dKSB7Cj4+PiAgICAg
+ICAgICAgICAgICAgIHVuc2lnbmVkIGxvbmcgdmFsdWUgPSBubGFfZ2V0X3UzMih0YltJRkxBX1RY
+UUxFTl0pOwo+Pj4KPj4+ICAgICAgICAgICAgICAgICAgaWYgKGRldi0+dHhfcXVldWVfbGVuIF4g
+dmFsdWUpCj4+PiAgICAgICAgICAgICAgICAgICAgICAgICAgc3RhdHVzIHw9IERPX1NFVExJTktf
+Tk9USUZZOwo+Pj4KPj4+ICAgICAgICAgICAgICAgICAgZGV2LT50eF9xdWV1ZV9sZW4gPSB2YWx1
+ZTsKPj4+ICAgICAgICAgIH0KPj4+Cj4+PiBUaGFua3MsCj4+PiBKb2huCj4+Pgo+Pgo+PiBSaWdo
+dCwgd2lsbCBkbyB0aGlzIGluIG5leHQgdmVyc2lvbi4KPj4KPj4gVGhhbmtzCj4KPiBPaywgc2lu
+Y2UgTWljaGFlbCBoYXMgYWNrZWQgb24gdGhlIHNlcmllcywgd2lsbCBwcmVwYXJlIGEgcGF0Y2gg
+b24gdG9wLgo+Cj4gVGhhbmtzIAoKU2luY2Uga2J1aWxkIHRlc3Qgcm9ib3QgaGFzIGZvdW5kIGEg
+bWlub3IgaXNzdWUgb24gdGhpcyBzZXJpZXMsIEkgd2lsbCAKcG9zdCB2NCB3aXRoIHRoaXMgZml4
+ZWQuCgpUaGFua3MKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4
+LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFu
+L2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
