@@ -1,225 +1,142 @@
-From: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>
-Subject: Re: [PATCH net-next 08/16] net/devlink: Add E-Switch mode control
-Date: Thu, 30 Jun 2016 00:13:55 -0700
-Message-ID: <5774C6B3.1000901@intel.com>
-References: <20160628184655.GB2089@nanopsycho.orion> <5772CA20.4030002@intel.com> <20160628191230.GC2089@nanopsycho.orion> <5772D091.9030709@gmail.com> <0327b6de-dfdf-8db2-1354-b7a4144dbc02@mellanox.com> <5773F8CC.4090300@gmail.com> <CAJ3xEMgGCW_P-sb3pe1KqMVoKe4BWKoO88_O364nwEU6bDnaoA@mail.gmail.com> <577446FE.7060402@gmail.com> <5774938D.7010902@gmail.com> <57749A57.1030709@gmail.com> <20160630062516.GA2569@nanopsycho.orion>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: [PATCH net-next 4/5] qede: Add get/set rx copy break tunable support
+Date: Thu, 30 Jun 2016 02:35:21 -0400
+Message-ID: <1467268522-24589-5-git-send-email-manish.chopra@qlogic.com>
+References: <1467268522-24589-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Hadar Hen-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Tal Anker <Ankertal@mellanox.com>
-To: Jiri Pirko <jiri@resnulli.us>,
-	John Fastabend <john.fastabend@gmail.com>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
+	<Yuval.Mintz@qlogic.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mga02.intel.com ([134.134.136.20]:20496 "EHLO mga02.intel.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751383AbcF3HOu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jun 2016 03:14:50 -0400
-In-Reply-To: <20160630062516.GA2569@nanopsycho.orion>
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:34725 "EHLO
+	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751383AbcF3HTv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 03:19:51 -0400
+In-Reply-To: <1467268522-24589-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+Signed-off-by: Manish <manish.chopra@qlogic.com>
+Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
+---
+ drivers/net/ethernet/qlogic/qede/qede.h         |  3 ++
+ drivers/net/ethernet/qlogic/qede/qede_ethtool.c | 46 +++++++++++++++++++++++++
+ drivers/net/ethernet/qlogic/qede/qede_main.c    |  3 +-
+ 3 files changed, 51 insertions(+), 1 deletion(-)
 
-
-On 6/29/2016 11:25 PM, Jiri Pirko wrote:
-> Thu, Jun 30, 2016 at 06:04:39AM CEST, john.fastabend@gmail.com wrote:
->> On 16-06-29 08:35 PM, John Fastabend wrote:
->>> On 16-06-29 03:09 PM, John Fastabend wrote:
->>>> On 16-06-29 02:33 PM, Or Gerlitz wrote:
->>>>> On Wed, Jun 29, 2016 at 7:35 PM, John Fastabend
->>>>> <john.fastabend@gmail.com> wrote:
->>>>>> On 16-06-29 07:48 AM, Or Gerlitz wrote:
->>>>>>> On 6/28/2016 10:31 PM, John Fastabend wrote:
->>>>>>>> On 16-06-28 12:12 PM, Jiri Pirko wrote:
->>>>>>>>> Why?! Please, leave legacy be legacy. Use the new mode for
->>>>>>>>> implementing new features. Don't make things any more complicated :(
->>>>> [...]
->>>>>>>> Maybe I'm reading to much into the devlink flag names and if instead
->>>>>>>> you use a switch like the following,
->>>>>>>>     VF representer : enable/disable the creation VF netdev's to represent
->>>>>>>>                      the virtual functions on the PF
->>>>>>>> Much less complicated then magic switching between forwarding logic IMO
->>>>>>>> and you don't whack a default configuration that an entire stack (e.g.
->>>>>>>> libvirt) has been built to use.
->>>>>>> Re letting the user to observe/modify the rules added by the
->>>>>>> driver/firmware while legacy mode. Even if possible with bridge/fdb, it
->>>>>>> will be really pragmatical and doesn't make sense to get that donefor
->>>>>>> the TC subsystem. So this isn't a well defined solution and anyway, as
->>>>>>> you said, legacy mode enhancements is a different exercise. Personally,
->>>>>>> I agree with Jiri, that we should legacy be legacyand focus on adding
->>>>>>> the new model.
->>>>>> The ixgbe driver already supports bridge and tc commands without the VF
->>>>>> representer.  Adding the VF representer to these drivers just extends
->>>>>> the existing support so we have an identifier for VFs and now the
->>>>>> redirect action works and the fdb commands can specify the VF netdevs.
->>>>>> I don't see this as a problem because we already do it today with
->>>>>> 'ip' and bridge tools.
->>>>> To be precise, for both ixgbe and mlx5, the existing tc support
->>>>> (u32/ixgbe, flower/mlx5) is not for switching functionality but rather
->>>>> for NIC-ish one, e.g drop, mark, etc. Indeed in ixgbe you added
->>>>> redirect to VF, but this is only for south --> north (wire --> VF)
->>>>> traffic, w.o the VF rep you can't do the other way around.
->>>>>
->>>> Correct which is why we need the VF rep. So we are completely in
->>>> sync there.
->>>>
->>>>> Just to clarify, to what exact bridge command support did you refer for ixgbe?
->>>> 'bridge fdb' commands are supported today on the PF. But its the
->>>> same story as above we need the VF rep to also use it on the
->>>> VF representer
->>>>
->>>> Also 'bridge link' command for veb/vepa modes is supported and the
->>>> other link attributes could be supported with additional driver
->>>> support. No need for core changes here. But again yes only on the
->>>> PF so again we need the VF reps.
->>>>
->>>>> The forwarding done in the legacy mode is not well defined, and
->>>>> different across vendors, adding there the VF reps will not make it
->>>>> any better b/c some steering rules will be set by tc/bridge offloads
->>>>> while other rules will be put by the driver.
->>>>> I don't see how this takes us to better place.
->>>> In legacy mode or any other mode you are defining some default policy
->>>> and rules.
->>>>
->>>> In the legacy mode we use mac/vlan assigned l2 forwarding entries in the
->>>> hardware fdb which are seen when you query 'ip link' and 'bridge fdb'
->>>> today. And similarly can be modified today using 'ip link' and 'bridge
->>>> fdb' at least on the intel devices. Its not undefined in any way with
->>>> a quick query of the tools we can learn exactly what the configuration
->>>> is and even change it. This works fairly well with existing controllers
->>>> and stacks.
->>>>
->>>> The limitations are 'ip' only supports a single MAC address per VF and
->>>> 'tc' doesn't work on VF ports because when the VF is assigned to a VM
->>>> or namespace we lose visibility of it. Providing a VF rep for this
->>>> solves both of those problems.
->>>>
->>>> In this new mode the default policy is to create a default miss rule
->>>> and implement no l2 forwarding rules. Unfortunately not all hardware
->>>> in use supports this default miss rule case but would still benefit
->>>> from having a VF rep. So we shouldn't make this a stipulation for
->>>> enabling VF reps. It also changes a default policy that has been in
->>>> place for years without IMO at least any compelling reason. It will
->>>> be easy enough to change the default l2 policy to a flow based model
->>>> with a few bridge/tc commands.
->>>>
->>>>>> We are also slightly in disagreement about what the default should be
->>>>>> with VF netdevs. I think the default should be the same L2 mac/vlan
->>>>>> switch behavior and see no reason to change it by default just because
->>>>>> we added VF netdevs. The infrastructure libvirt/openstack/etc are built
->>>>>> around this default today. But I guess nothing in this series specifies
->>>>>> what the defaults of any given driver will be. VF netdevs are still
->>>>>> useful even on older hardware that only supports mac/vlan forwarding to
->>>>>> expose statistics and send/receive control frames such as lldp.
->>>>> Again, this is not about default engineering... and using the VF reps
->>>>> (not VF netdevs) in legacy mode only make it more cryptic to my
->>>>> opinion. I agree some changes would be needed in openstack to support
->>>>> the new model, but this is how progress is made... you can't always
->>>>> make all layer above you unchanged. Note that the VF reps behave the
->>>>> same as tap devices (v-switch doing xmit on tap --> recv in VM, VM
->>>>> sends --> recv on tap into the v-switch), so the change in open-stack
->>>>> would not be that big.
->>>>>
->>>> But in this case we have no reason to break the stack above us. The
->>>> currently deployed usage is L2 mac/vlan. As soon as you bind a vSwitch
->>>> or whatever mgmt agent to the device it can go ahead and manage the
->>>> switch putting it in the correct mode using the tooling in 'bridge' and
->>>> 'tc'.
->>>>
->>>>
->>>>> [...]
->>>>>
->>>>>> Why I think the VF representer is a per port ethtool flag and not a
->>>>>> devlink option is my use case might be to assign a PF into a VM or
->>>>>> namespace where I don't want VF netdevs.
->>>>> again, we think the correct place to set how the eswitch is managed is
->>>>> through eswitch manager PCI devices and not net devices and hence
->>>>> ethtool is not the way to go.
->>>>>
->>>>> Also, how do you want your e-switch to be managed in this case?
->>>>>
->>>> In the case where I don't create vf netdevs on one of the PFs I'll
->>>> manage the forwarding tables via the existing mechanisms 'ip' and
->>>> 'bridge'. However its likely not a big deal because 'ip' and 'bridge'
->>>> will continue to work even if VF reps are around. The ethtool/devlink
->>>> comment was more about pointing out that creating VFs does not
->>>> require you to manage your switch any differently. Its useful even on
->>>> devices that can't support flow based forwarding for statistics and
->>>> setting port attributes like mtu, etc.
->>>>
->>>> .John
->>>>
->>> Probably bad form to respond to my own email but just to highlight how
->>> subtle the distinction is (hopefully not to much repeat),
->>>
->>> Today in "legacy" mode each VF mac address is automatically added to
->>> the fdb along with the PF mac address. If there is a miss in the table
->>> (an unknown mac) the packet is sent to the PF but unless the PF is in
->>> promisc mode the packet is dropped by the rx filter. I presume even
->>> with the proposed model you would want to continue to enforce the
->>> rx filter otherwise the instance you flip the mode you are open to
->>> receive unwanted traffic. The promisc mode semantics have been in place
->>> for a long time so certainly don't want to break that. Can we agree on
->>> the promisc point? Also bridges/vswitch/etc already set promisc mode
->>> once they attach to the netdevs.
->>>
->>> (assuming we agree on the promisc point?)
->>> In your proposed model the only difference I can see is when the mode is
->>> changed you don't want to add the VF mac address to the fdb table. How
->>> about rather than make this part of the mode selection pick one way to
->>> do this in all cases. Either add the VF mac addresses to the fdb or
->>> do not do this. I have a preference for adding the VF mac addresses
->>> because this is the current behavior. Then rename the devlink option
->>> "VF reps" or something because that is what it is controlling.
->>>
->>> The last thing to argue about is if its a port attribute ala ethtool
->>> or a device attribute ala devlink. But maybe we can agree on everything
->>> up to this point?
->>>
->>> Thanks,
->>> John
->>>
->> FWIW reviewing devlink and items I want to put there in the future I've
->> decided it makes sense to keep it in devlink (sorry took me a day of
->> emails to get here). If you can agree to the above and rename it
->> something like,
->>
->> +enum devlink_eswitch_mode {
->> +	DEVLINK_ESWITCH_MODE_NONE,
->> +	DEVLINK_ESWITCH_MODE_LEGACY,
->> +	DEVLINK_ESWITCH_MODE_CREATE_VF_NETDEVS,
-> That is certainly totally misleading name. The mode is not about
-> creating "VF netdevs".
->
-> The VF representors are created but just as a side effect. The "offload"
-> mode or maybe better "switchdev" mode is creating representor netdevs for
-> VFs because they are needed in order to be able to configure ESwitch in
-> the same way we configure physical switches - putting netdevs into
-> bridge/bond/ovs/whatever. You see stats on the representors. Basicaly
-> they are the same as physical port representors on physical switch ASIC.
-
-May be we need 2 new modes
-- legacy+ mode which only creates VF netdevs and let the user configure and manage the switch via the standard bridge/tc/ip/ethtool interfaces
-- 'offload' or 'switchdev' mode that does more than just creating VF netdevs if it is not possible to configure the switch into this mode via standard interfaces.
-  
-
->
->
->
->> +};
->>
->> I'll Ack it and implement it on the drivers I tend to work on.
->>
->> .John
->>
->>
+diff --git a/drivers/net/ethernet/qlogic/qede/qede.h b/drivers/net/ethernet/qlogic/qede/qede.h
+index 677213e..4e3f1a0 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede.h
++++ b/drivers/net/ethernet/qlogic/qede/qede.h
+@@ -143,6 +143,8 @@ struct qede_dev {
+ 	struct mutex			qede_lock;
+ 	u32				state; /* Protected by qede_lock */
+ 	u16				rx_buf_size;
++	u32				rx_copybreak;
++
+ 	/* L2 header size + 2*VLANs (8 bytes) + LLC SNAP (8 bytes) */
+ #define ETH_OVERHEAD			(ETH_HLEN + 8 + 8)
+ 	/* Max supported alignment is 256 (8 shift)
+@@ -333,6 +335,7 @@ void qede_recycle_rx_bd_ring(struct qede_rx_queue *rxq, struct qede_dev *edev,
+ #define NUM_TX_BDS_MIN		128
+ #define NUM_TX_BDS_DEF		NUM_TX_BDS_MAX
+ 
++#define QEDE_MIN_PKT_LEN	64
+ #define QEDE_RX_HDR_SIZE	256
+ #define	for_each_rss(i) for (i = 0; i < edev->num_rss; i++)
+ 
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+index f59322c..a4ba4fd 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_ethtool.c
+@@ -1183,6 +1183,48 @@ static void qede_self_test(struct net_device *dev,
+ 	}
+ }
+ 
++static int qede_set_tunable(struct net_device *dev,
++			    const struct ethtool_tunable *tuna,
++			    const void *data)
++{
++	struct qede_dev *edev = netdev_priv(dev);
++	u32 val;
++
++	switch (tuna->id) {
++	case ETHTOOL_RX_COPYBREAK:
++		val = *(u32 *)data;
++		if (val < QEDE_MIN_PKT_LEN || val > QEDE_RX_HDR_SIZE) {
++			DP_VERBOSE(edev, QED_MSG_DEBUG,
++				   "Invalid rx copy break value, range is [%u, %u]",
++				   QEDE_MIN_PKT_LEN, QEDE_RX_HDR_SIZE);
++			return -EINVAL;
++		}
++
++		edev->rx_copybreak = *(u32 *)data;
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	return 0;
++}
++
++static int qede_get_tunable(struct net_device *dev,
++			    const struct ethtool_tunable *tuna, void *data)
++{
++	struct qede_dev *edev = netdev_priv(dev);
++
++	switch (tuna->id) {
++	case ETHTOOL_RX_COPYBREAK:
++		*(u32 *)data = edev->rx_copybreak;
++		break;
++	default:
++		return -EOPNOTSUPP;
++	}
++
++	return 0;
++}
++
+ static const struct ethtool_ops qede_ethtool_ops = {
+ 	.get_settings = qede_get_settings,
+ 	.set_settings = qede_set_settings,
+@@ -1211,6 +1253,8 @@ static const struct ethtool_ops qede_ethtool_ops = {
+ 	.get_channels = qede_get_channels,
+ 	.set_channels = qede_set_channels,
+ 	.self_test = qede_self_test,
++	.get_tunable = qede_get_tunable,
++	.set_tunable = qede_set_tunable,
+ };
+ 
+ static const struct ethtool_ops qede_vf_ethtool_ops = {
+@@ -1233,6 +1277,8 @@ static const struct ethtool_ops qede_vf_ethtool_ops = {
+ 	.set_rxfh = qede_set_rxfh,
+ 	.get_channels = qede_get_channels,
+ 	.set_channels = qede_set_channels,
++	.get_tunable = qede_get_tunable,
++	.set_tunable = qede_set_tunable,
+ };
+ 
+ void qede_set_ethtool_ops(struct net_device *dev)
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 2c27b3b..482eaba 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -1474,7 +1474,7 @@ alloc_skb:
+ 		}
+ 
+ 		/* Copy data into SKB */
+-		if (len + pad <= QEDE_RX_HDR_SIZE) {
++		if (len + pad <= edev->rx_copybreak) {
+ 			memcpy(skb_put(skb, len),
+ 			       page_address(data) + pad +
+ 				sw_rx_data->page_offset, len);
+@@ -2519,6 +2519,7 @@ static int __qede_probe(struct pci_dev *pdev, u32 dp_module, u8 dp_level,
+ 
+ 	INIT_DELAYED_WORK(&edev->sp_task, qede_sp_task);
+ 	mutex_init(&edev->qede_lock);
++	edev->rx_copybreak = QEDE_RX_HDR_SIZE;
+ 
+ 	DP_INFO(edev, "Ending successfully qede probe\n");
+ 
+-- 
+2.7.2
