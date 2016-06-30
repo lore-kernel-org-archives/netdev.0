@@ -1,357 +1,230 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V3 6/6] tun: switch to use skb array for tx
-Date: Thu, 30 Jun 2016 11:52:59 +0800
-Message-ID: <1467258779-3539-7-git-send-email-jasowang@redhat.com>
-References: <1467258779-3539-1-git-send-email-jasowang@redhat.com>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [PATCH net-next 08/16] net/devlink: Add E-Switch mode control
+Date: Wed, 29 Jun 2016 21:04:39 -0700
+Message-ID: <57749A57.1030709@gmail.com>
+References: <1467043649-28594-1-git-send-email-saeedm@mellanox.com>
+ <1467043649-28594-9-git-send-email-saeedm@mellanox.com>
+ <577211E2.90802@gmail.com>
+ <28223ec8-f105-d598-39ad-5dc93598dc64@mellanox.com>
+ <5772A397.3010905@gmail.com> <5772B18A.9000300@gmail.com>
+ <20160628184655.GB2089@nanopsycho.orion> <5772CA20.4030002@intel.com>
+ <20160628191230.GC2089@nanopsycho.orion> <5772D091.9030709@gmail.com>
+ <0327b6de-dfdf-8db2-1354-b7a4144dbc02@mellanox.com>
+ <5773F8CC.4090300@gmail.com>
+ <CAJ3xEMgGCW_P-sb3pe1KqMVoKe4BWKoO88_O364nwEU6bDnaoA@mail.gmail.com>
+ <577446FE.7060402@gmail.com> <5774938D.7010902@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1467258779-3539-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: Or Gerlitz <ogerlitz@mellanox.com>, Jiri Pirko <jiri@resnulli.us>,
+	"Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Hadar Hen-Zion <hadarh@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Ido Schimmel <idosch@mellanox.com>,
+	Tal Anker <Ankertal@mellanox.com>
+To: Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f43.google.com ([209.85.218.43]:35016 "EHLO
+	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750732AbcF3EFB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 00:05:01 -0400
+Received: by mail-oi0-f43.google.com with SMTP id r2so48091721oih.2
+        for <netdev@vger.kernel.org>; Wed, 29 Jun 2016 21:05:00 -0700 (PDT)
+In-Reply-To: <5774938D.7010902@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-We used to queue tx packets in sk_receive_queue, this is less
-efficient since it requires spinlocks to synchronize between producer
-and consumer.
+On 16-06-29 08:35 PM, John Fastabend wrote:
+> On 16-06-29 03:09 PM, John Fastabend wrote:
+>> On 16-06-29 02:33 PM, Or Gerlitz wrote:
+>>> On Wed, Jun 29, 2016 at 7:35 PM, John Fastabend
+>>> <john.fastabend@gmail.com> wrote:
+>>>> On 16-06-29 07:48 AM, Or Gerlitz wrote:
+>>>>> On 6/28/2016 10:31 PM, John Fastabend wrote:
+>>>>>> On 16-06-28 12:12 PM, Jiri Pirko wrote:
+>>>
+>>>>>>> Why?! Please, leave legacy be legacy. Use the new mode for
+>>>>>>> implementing new features. Don't make things any more complicated :(
+>>>
+>>> [...]
+>>>>>> Maybe I'm reading to much into the devlink flag names and if instead
+>>>>>> you use a switch like the following,
+>>>
+>>>>>>    VF representer : enable/disable the creation VF netdev's to represent
+>>>>>>                     the virtual functions on the PF
+>>>
+>>>>>> Much less complicated then magic switching between forwarding logic IMO
+>>>>>> and you don't whack a default configuration that an entire stack (e.g.
+>>>>>> libvirt) has been built to use.
+>>>
+>>>>> Re letting the user to observe/modify the rules added by the
+>>>>> driver/firmware while legacy mode. Even if possible with bridge/fdb, it
+>>>>> will be really pragmatical and doesn't make sense to get that donefor
+>>>>> the TC subsystem. So this isn't a well defined solution and anyway, as
+>>>>> you said, legacy mode enhancements is a different exercise. Personally,
+>>>>> I agree with Jiri, that we should legacy be legacyand focus on adding
+>>>>> the new model.
+>>>
+>>>> The ixgbe driver already supports bridge and tc commands without the VF
+>>>> representer.  Adding the VF representer to these drivers just extends
+>>>> the existing support so we have an identifier for VFs and now the
+>>>> redirect action works and the fdb commands can specify the VF netdevs.
+>>>> I don't see this as a problem because we already do it today with
+>>>> 'ip' and bridge tools.
+>>>
+>>> To be precise, for both ixgbe and mlx5, the existing tc support
+>>> (u32/ixgbe, flower/mlx5) is not for switching functionality but rather
+>>> for NIC-ish one, e.g drop, mark, etc. Indeed in ixgbe you added
+>>> redirect to VF, but this is only for south --> north (wire --> VF)
+>>> traffic, w.o the VF rep you can't do the other way around.
+>>>
+>>
+>> Correct which is why we need the VF rep. So we are completely in
+>> sync there.
+>>
+>>> Just to clarify, to what exact bridge command support did you refer for ixgbe?
+>>
+>> 'bridge fdb' commands are supported today on the PF. But its the
+>> same story as above we need the VF rep to also use it on the
+>> VF representer
+>>
+>> Also 'bridge link' command for veb/vepa modes is supported and the
+>> other link attributes could be supported with additional driver
+>> support. No need for core changes here. But again yes only on the
+>> PF so again we need the VF reps.
+>>
+>>>
+>>> The forwarding done in the legacy mode is not well defined, and
+>>> different across vendors, adding there the VF reps will not make it
+>>> any better b/c some steering rules will be set by tc/bridge offloads
+>>> while other rules will be put by the driver.
+>>> I don't see how this takes us to better place.
+>>
+>> In legacy mode or any other mode you are defining some default policy
+>> and rules.
+>>
+>> In the legacy mode we use mac/vlan assigned l2 forwarding entries in the
+>> hardware fdb which are seen when you query 'ip link' and 'bridge fdb'
+>> today. And similarly can be modified today using 'ip link' and 'bridge
+>> fdb' at least on the intel devices. Its not undefined in any way with
+>> a quick query of the tools we can learn exactly what the configuration
+>> is and even change it. This works fairly well with existing controllers
+>> and stacks.
+>>
+>> The limitations are 'ip' only supports a single MAC address per VF and
+>> 'tc' doesn't work on VF ports because when the VF is assigned to a VM
+>> or namespace we lose visibility of it. Providing a VF rep for this
+>> solves both of those problems.
+>>
+>> In this new mode the default policy is to create a default miss rule
+>> and implement no l2 forwarding rules. Unfortunately not all hardware
+>> in use supports this default miss rule case but would still benefit
+>> from having a VF rep. So we shouldn't make this a stipulation for
+>> enabling VF reps. It also changes a default policy that has been in
+>> place for years without IMO at least any compelling reason. It will
+>> be easy enough to change the default l2 policy to a flow based model
+>> with a few bridge/tc commands.
+>>
+>>>
+>>>> We are also slightly in disagreement about what the default should be
+>>>> with VF netdevs. I think the default should be the same L2 mac/vlan
+>>>> switch behavior and see no reason to change it by default just because
+>>>> we added VF netdevs. The infrastructure libvirt/openstack/etc are built
+>>>> around this default today. But I guess nothing in this series specifies
+>>>> what the defaults of any given driver will be. VF netdevs are still
+>>>> useful even on older hardware that only supports mac/vlan forwarding to
+>>>> expose statistics and send/receive control frames such as lldp.
+>>>
+>>> Again, this is not about default engineering... and using the VF reps
+>>> (not VF netdevs) in legacy mode only make it more cryptic to my
+>>> opinion. I agree some changes would be needed in openstack to support
+>>> the new model, but this is how progress is made... you can't always
+>>> make all layer above you unchanged. Note that the VF reps behave the
+>>> same as tap devices (v-switch doing xmit on tap --> recv in VM, VM
+>>> sends --> recv on tap into the v-switch), so the change in open-stack
+>>> would not be that big.
+>>>
+>>
+>> But in this case we have no reason to break the stack above us. The
+>> currently deployed usage is L2 mac/vlan. As soon as you bind a vSwitch
+>> or whatever mgmt agent to the device it can go ahead and manage the
+>> switch putting it in the correct mode using the tooling in 'bridge' and
+>> 'tc'.
+>>
+>>
+>>> [...]
+>>>
+>>>> Why I think the VF representer is a per port ethtool flag and not a
+>>>> devlink option is my use case might be to assign a PF into a VM or
+>>>> namespace where I don't want VF netdevs.
+>>>
+>>> again, we think the correct place to set how the eswitch is managed is
+>>> through eswitch manager PCI devices and not net devices and hence
+>>> ethtool is not the way to go.
+>>>
+>>> Also, how do you want your e-switch to be managed in this case?
+>>>
+>>
+>> In the case where I don't create vf netdevs on one of the PFs I'll
+>> manage the forwarding tables via the existing mechanisms 'ip' and
+>> 'bridge'. However its likely not a big deal because 'ip' and 'bridge'
+>> will continue to work even if VF reps are around. The ethtool/devlink
+>> comment was more about pointing out that creating VFs does not
+>> require you to manage your switch any differently. Its useful even on
+>> devices that can't support flow based forwarding for statistics and
+>> setting port attributes like mtu, etc.
+>>
+>> .John
+>>
+> 
+> Probably bad form to respond to my own email but just to highlight how
+> subtle the distinction is (hopefully not to much repeat),
+> 
+> Today in "legacy" mode each VF mac address is automatically added to
+> the fdb along with the PF mac address. If there is a miss in the table
+> (an unknown mac) the packet is sent to the PF but unless the PF is in
+> promisc mode the packet is dropped by the rx filter. I presume even
+> with the proposed model you would want to continue to enforce the
+> rx filter otherwise the instance you flip the mode you are open to
+> receive unwanted traffic. The promisc mode semantics have been in place
+> for a long time so certainly don't want to break that. Can we agree on
+> the promisc point? Also bridges/vswitch/etc already set promisc mode
+> once they attach to the netdevs.
+> 
+> (assuming we agree on the promisc point?)
+> In your proposed model the only difference I can see is when the mode is
+> changed you don't want to add the VF mac address to the fdb table. How
+> about rather than make this part of the mode selection pick one way to
+> do this in all cases. Either add the VF mac addresses to the fdb or
+> do not do this. I have a preference for adding the VF mac addresses
+> because this is the current behavior. Then rename the devlink option
+> "VF reps" or something because that is what it is controlling.
+> 
+> The last thing to argue about is if its a port attribute ala ethtool
+> or a device attribute ala devlink. But maybe we can agree on everything
+> up to this point?
+> 
+> Thanks,
+> John
+> 
 
-This patch tries to address this by:
+FWIW reviewing devlink and items I want to put there in the future I've
+decided it makes sense to keep it in devlink (sorry took me a day of
+emails to get here). If you can agree to the above and rename it
+something like,
 
-- switch from sk_receive_queue to a skb_array, and resize it when
-  tx_queue_len was changed.
-- introduce a new proto_ops peek_len which was used for peeking the
-  skb length.
-- implement a tun version of peek_len for vhost_net to use and convert
-  vhost_net to use peek_len if possible.
-
-Pktgen test shows about 15.3% improvement on guest receiving pps for small
-buffers:
-
-Before: ~1300000pps
-After : ~1500000pps
-
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c   | 138 +++++++++++++++++++++++++++++++++++++++++++++++++---
- drivers/vhost/net.c |  16 +++++-
- include/linux/net.h |   1 +
- 3 files changed, 146 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 4884802..3be69ea 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -71,6 +71,7 @@
- #include <net/sock.h>
- #include <linux/seq_file.h>
- #include <linux/uio.h>
-+#include <linux/skb_array.h>
- 
- #include <asm/uaccess.h>
- 
-@@ -167,6 +168,7 @@ struct tun_file {
- 	};
- 	struct list_head next;
- 	struct tun_struct *detached;
-+	struct skb_array tx_array;
- };
- 
- struct tun_flow_entry {
-@@ -515,7 +517,11 @@ static struct tun_struct *tun_enable_queue(struct tun_file *tfile)
- 
- static void tun_queue_purge(struct tun_file *tfile)
- {
--	skb_queue_purge(&tfile->sk.sk_receive_queue);
-+	struct sk_buff *skb;
-+
-+	while ((skb = skb_array_consume(&tfile->tx_array)) != NULL)
-+		kfree_skb(skb);
-+
- 	skb_queue_purge(&tfile->sk.sk_error_queue);
- }
- 
-@@ -560,6 +566,8 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
- 			    tun->dev->reg_state == NETREG_REGISTERED)
- 				unregister_netdevice(tun->dev);
- 		}
-+		if (tun)
-+			skb_array_cleanup(&tfile->tx_array);
- 		sock_put(&tfile->sk);
- 	}
- }
-@@ -613,6 +621,7 @@ static void tun_detach_all(struct net_device *dev)
- static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filter)
- {
- 	struct tun_file *tfile = file->private_data;
-+	struct net_device *dev = tun->dev;
- 	int err;
- 
- 	err = security_tun_dev_attach(tfile->socket.sk, tun->security);
-@@ -642,6 +651,13 @@ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filte
- 		if (!err)
- 			goto out;
- 	}
-+
-+	if (!tfile->detached &&
-+	    skb_array_init(&tfile->tx_array, dev->tx_queue_len, GFP_KERNEL)) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
-+
- 	tfile->queue_index = tun->numqueues;
- 	tfile->socket.sk->sk_shutdown &= ~RCV_SHUTDOWN;
- 	rcu_assign_pointer(tfile->tun, tun);
-@@ -891,8 +907,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	nf_reset(skb);
- 
--	/* Enqueue packet */
--	skb_queue_tail(&tfile->socket.sk->sk_receive_queue, skb);
-+	if (skb_array_produce(&tfile->tx_array, skb))
-+		goto drop;
- 
- 	/* Notify and wake up reader process */
- 	if (tfile->flags & TUN_FASYNC)
-@@ -1107,7 +1123,7 @@ static unsigned int tun_chr_poll(struct file *file, poll_table *wait)
- 
- 	poll_wait(file, sk_sleep(sk), wait);
- 
--	if (!skb_queue_empty(&sk->sk_receive_queue))
-+	if (!skb_array_empty(&tfile->tx_array))
- 		mask |= POLLIN | POLLRDNORM;
- 
- 	if (sock_writeable(sk) ||
-@@ -1426,22 +1442,61 @@ done:
- 	return total;
- }
- 
-+static struct sk_buff *tun_ring_recv(struct tun_file *tfile, int noblock,
-+				     int *err)
-+{
-+	DECLARE_WAITQUEUE(wait, current);
-+	struct sk_buff *skb = NULL;
-+
-+	skb = skb_array_consume(&tfile->tx_array);
-+	if (skb)
-+		goto out;
-+	if (noblock) {
-+		*err = -EAGAIN;
-+		goto out;
-+	}
-+
-+	add_wait_queue(&tfile->wq.wait, &wait);
-+	current->state = TASK_INTERRUPTIBLE;
-+
-+	while (1) {
-+		skb = skb_array_consume(&tfile->tx_array);
-+		if (skb)
-+			break;
-+		if (signal_pending(current)) {
-+			*err = -ERESTARTSYS;
-+			break;
-+		}
-+		if (tfile->socket.sk->sk_shutdown & RCV_SHUTDOWN) {
-+			*err = -EFAULT;
-+			break;
-+		}
-+
-+		schedule();
-+	};
-+
-+	current->state = TASK_RUNNING;
-+	remove_wait_queue(&tfile->wq.wait, &wait);
-+
-+out:
-+	return skb;
-+}
-+
- static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
- 			   struct iov_iter *to,
- 			   int noblock)
- {
- 	struct sk_buff *skb;
- 	ssize_t ret;
--	int peeked, err, off = 0;
-+	int err;
- 
- 	tun_debug(KERN_INFO, tun, "tun_do_read\n");
- 
- 	if (!iov_iter_count(to))
- 		return 0;
- 
--	/* Read frames from queue */
--	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
--				  &peeked, &off, &err);
-+	/* Read frames from ring */
-+	skb = tun_ring_recv(tfile, noblock, &err);
- 	if (!skb)
- 		return err;
- 
-@@ -1574,8 +1629,25 @@ out:
- 	return ret;
- }
- 
-+static int tun_peek_len(struct socket *sock)
-+{
-+	struct tun_file *tfile = container_of(sock, struct tun_file, socket);
-+	struct tun_struct *tun;
-+	int ret = 0;
-+
-+	tun = __tun_get(tfile);
-+	if (!tun)
-+		return 0;
-+
-+	ret = skb_array_peek_len(&tfile->tx_array);
-+	tun_put(tun);
-+
-+	return ret;
-+}
-+
- /* Ops structure to mimic raw sockets with tun */
- static const struct proto_ops tun_socket_ops = {
-+	.peek_len = tun_peek_len,
- 	.sendmsg = tun_sendmsg,
- 	.recvmsg = tun_recvmsg,
- };
-@@ -2397,6 +2469,53 @@ static const struct ethtool_ops tun_ethtool_ops = {
- 	.get_ts_info	= ethtool_op_get_ts_info,
- };
- 
-+static int tun_queue_resize(struct tun_struct *tun)
-+{
-+	struct net_device *dev = tun->dev;
-+	struct tun_file *tfile;
-+	struct skb_array **arrays;
-+	int n = tun->numqueues + tun->numdisabled;
-+	int ret, i;
-+
-+	arrays = kmalloc(sizeof *arrays * n, GFP_KERNEL);
-+	if (!arrays)
-+		return -ENOMEM;
-+
-+	for (i = 0; i < tun->numqueues; i++) {
-+		tfile = rtnl_dereference(tun->tfiles[i]);
-+		arrays[i] = &tfile->tx_array;
-+	}
-+	list_for_each_entry(tfile, &tun->disabled, next)
-+		arrays[i++] = &tfile->tx_array;
-+
-+	ret = skb_array_resize_multiple(arrays, n,
-+					dev->tx_queue_len, GFP_KERNEL);
-+
-+	kfree(arrays);
-+	return ret;
-+}
-+
-+static int tun_device_event(struct notifier_block *unused,
-+			    unsigned long event, void *ptr)
-+{
-+	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
-+	struct tun_struct *tun = netdev_priv(dev);
-+
-+	switch (event) {
-+	case NETDEV_CHANGE_TX_QUEUE_LEN:
-+		if (tun_queue_resize(tun))
-+			return NOTIFY_BAD;
-+		break;
-+	default:
-+		break;
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block tun_notifier_block __read_mostly = {
-+	.notifier_call	= tun_device_event,
++enum devlink_eswitch_mode {
++	DEVLINK_ESWITCH_MODE_NONE,
++	DEVLINK_ESWITCH_MODE_LEGACY,
++	DEVLINK_ESWITCH_MODE_CREATE_VF_NETDEVS,
 +};
- 
- static int __init tun_init(void)
- {
-@@ -2416,6 +2535,8 @@ static int __init tun_init(void)
- 		pr_err("Can't register misc device %d\n", TUN_MINOR);
- 		goto err_misc;
- 	}
-+
-+	register_netdevice_notifier(&tun_notifier_block);
- 	return  0;
- err_misc:
- 	rtnl_link_unregister(&tun_link_ops);
-@@ -2427,6 +2548,7 @@ static void tun_cleanup(void)
- {
- 	misc_deregister(&tun_miscdev);
- 	rtnl_link_unregister(&tun_link_ops);
-+	unregister_netdevice_notifier(&tun_notifier_block);
- }
- 
- /* Get an underlying socket object from tun file.  Returns error unless file is
-diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
-index 1d3e45f..e032ca3 100644
---- a/drivers/vhost/net.c
-+++ b/drivers/vhost/net.c
-@@ -481,10 +481,14 @@ out:
- 
- static int peek_head_len(struct sock *sk)
- {
-+	struct socket *sock = sk->sk_socket;
- 	struct sk_buff *head;
- 	int len = 0;
- 	unsigned long flags;
- 
-+	if (sock->ops->peek_len)
-+		return sock->ops->peek_len(sock);
-+
- 	spin_lock_irqsave(&sk->sk_receive_queue.lock, flags);
- 	head = skb_peek(&sk->sk_receive_queue);
- 	if (likely(head)) {
-@@ -497,6 +501,16 @@ static int peek_head_len(struct sock *sk)
- 	return len;
- }
- 
-+static int sk_has_rx_data(struct sock *sk)
-+{
-+	struct socket *sock = sk->sk_socket;
-+
-+	if (sock->ops->peek_len)
-+		return sock->ops->peek_len(sock);
-+
-+	return skb_queue_empty(&sk->sk_receive_queue);
-+}
-+
- static int vhost_net_rx_peek_head_len(struct vhost_net *net, struct sock *sk)
- {
- 	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
-@@ -513,7 +527,7 @@ static int vhost_net_rx_peek_head_len(struct vhost_net *net, struct sock *sk)
- 		endtime = busy_clock() + vq->busyloop_timeout;
- 
- 		while (vhost_can_busy_poll(&net->dev, endtime) &&
--		       skb_queue_empty(&sk->sk_receive_queue) &&
-+		       !sk_has_rx_data(sk) &&
- 		       vhost_vq_avail_empty(&net->dev, vq))
- 			cpu_relax_lowlatency();
- 
-diff --git a/include/linux/net.h b/include/linux/net.h
-index 9aa49a0..b6b3843 100644
---- a/include/linux/net.h
-+++ b/include/linux/net.h
-@@ -185,6 +185,7 @@ struct proto_ops {
- 	ssize_t 	(*splice_read)(struct socket *sock,  loff_t *ppos,
- 				       struct pipe_inode_info *pipe, size_t len, unsigned int flags);
- 	int		(*set_peek_off)(struct sock *sk, int val);
-+	int		(*peek_len)(struct socket *sock);
- };
- 
- #define DECLARE_SOCKADDR(type, dst, src)	\
--- 
-2.7.4
+
+I'll Ack it and implement it on the drivers I tend to work on.
+
+.John
