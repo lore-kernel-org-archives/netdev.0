@@ -1,197 +1,177 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: It's back! (Re: [REGRESSION] NFS is creating a hidden port
- (left over from xs_bind() ))
-Date: Thu, 30 Jun 2016 11:23:41 -0400
-Message-ID: <20160630112341.5ab5a821@gandalf.local.home>
-References: <20160630085950.61e5c7e0@gandalf.local.home>
- <C44AFFBB-EF40-4B22-8B45-7817EB7276E3@primarydata.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Layton <jlayton@poochiereds.net>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
-	Schumaker Anna <anna.schumaker@netapp.com>,
-	"Linux NFS Mailing List" <linux-nfs@vger.kernel.org>,
-	"Linux Network Devel Mailing List" <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	"Andrew Morton" <akpm@linux-foundation.org>,
-	Fields Bruce <bfields@fieldses.org>
-To: Trond Myklebust <trondmy@primarydata.com>
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V2 00/16] Mellanox 100G SRIOV E-Switch offload and VF representors
+Date: Thu, 30 Jun 2016 18:23:19 +0300
+Message-ID: <1467300215-14199-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Hen-Zion <hadarh@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0193.hostedemail.com ([216.40.44.193]:54938 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1752000AbcF3PXt convert rfc822-to-8bit
-	(ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jun 2016 11:23:49 -0400
-In-Reply-To: <C44AFFBB-EF40-4B22-8B45-7817EB7276E3@primarydata.com>
+Received: from [193.47.165.129] ([193.47.165.129]:43131 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932161AbcF3PYp (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jun 2016 11:24:45 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 30 Jun 2016 13:17:47 +0000
-Trond Myklebust <trondmy@primarydata.com> wrote:
+Hi Dave
 
-> > On Jun 30, 2016, at 08:59, Steven Rostedt <rostedt@goodmis.org> wro=
-te:
-> >=20
-> > [ resending as a new email, as I'm assuming people do not sort thei=
-r
-> >  INBOX via last email on thread, thus my last email is sitting in t=
-he
-> >  bottom of everyone's INBOX ]
-> >=20
-> > I've hit this again. Not sure when it started, but I applied my old
-> > debug trace_printk() patch (attached) and rebooted (4.5.7). I just
-> > tested the latest kernel from Linus's tree (from last nights pull),=
- and
-> > it still gives me the problem.
-> >=20
-> > Here's the trace I have:
-> >=20
-> >    kworker/3:1H-134   [003] ..s.    61.036129: inet_csk_get_port: s=
-num 805
+We are happy to announce SRIOV E-Switch offload and VF netdev representors.
 
-Here's were the port is taken
+Or Gerlitz says:
 
-> >    kworker/3:1H-134   [003] ..s.    61.036135: <stack trace> =20
-> > =3D> sched_clock
-> > =3D> inet_addr_type_table
-> > =3D> security_capable
-> > =3D> inet_bind
-> > =3D> xs_bind
-> > =3D> release_sock
-> > =3D> sock_setsockopt
-> > =3D> __sock_create
-> > =3D> xs_create_sock.isra.19
-> > =3D> xs_tcp_setup_socket
-> > =3D> process_one_work
-> > =3D> worker_thread
-> > =3D> worker_thread
-> > =3D> kthread
-> > =3D> ret_from_fork
-> > =3D> kthread   =20
-> >    kworker/3:1H-134   [003] ..s.    61.036136: inet_bind_hash: add =
-805
-> >    kworker/3:1H-134   [003] ..s.    61.036138: <stack trace> =20
-> > =3D> inet_csk_get_port
-> > =3D> sched_clock
-> > =3D> inet_addr_type_table
-> > =3D> security_capable
-> > =3D> inet_bind
-> > =3D> xs_bind
-> > =3D> release_sock
-> > =3D> sock_setsockopt
-> > =3D> __sock_create
-> > =3D> xs_create_sock.isra.19
-> > =3D> xs_tcp_setup_socket
-> > =3D> process_one_work
-> > =3D> worker_thread
-> > =3D> worker_thread
-> > =3D> kthread
-> > =3D> ret_from_fork
-> > =3D> kthread   =20
-> >    kworker/3:1H-134   [003] ....    61.036139: xs_bind: RPC:       =
-xs_bind 4.136.255.255:805: ok (0)
+Currently, the way SR-IOV embedded switches are dealt with in Linux is limited 
+in its expressiveness and flexibility, but this is not necessarily due to 
+hardware limitations. The kernel software model for controlling the SR-IOV
+switch simply does not allow the configuration of anything more complex than
+MAC/VLAN based forwarding. 
 
-Here's where it is bounded.
+Hence the benefits brought by SRIOV come at a price of management flexibility, 
+when compared to software virtual switches which are used in Para-Virtual (PV) 
+schemes and allow implementing complex policies and virtual topologies. Such 
+SW switching typically involved a complex per-packet processing within the host 
+kernel using subsystems such as TC, Bridge, Netfilter and Open-vswitch.
 
-> >    kworker/3:1H-134   [003] ....    61.036140: xs_tcp_setup_socket:=
- RPC:       worker connecting xprt ffff880407eca800 via tcp to 192.168.=
-23.22 (port 43651)
-> >    kworker/3:1H-134   [003] ....    61.036162: xs_tcp_setup_socket:=
- RPC:       ffff880407eca800 connect status 115 connected 0 sock state =
-2
-> >          <idle>-0     [001] ..s.    61.036450: xs_tcp_state_change:=
- RPC:       xs_tcp_state_change client ffff880407eca800...
-> >          <idle>-0     [001] ..s.    61.036452: xs_tcp_state_change:=
- RPC:       state 1 conn 0 dead 0 zapped 1 sk_shutdown 0
-> >    kworker/1:1H-136   [001] ....    61.036476: xprt_connect_status:=
- RPC:    43 xprt_connect_status: retrying
-> >    kworker/1:1H-136   [001] ....    61.036478: xprt_prepare_transmi=
-t: RPC:    43 xprt_prepare_transmit
-> >    kworker/1:1H-136   [001] ....    61.036479: xprt_transmit: RPC: =
-   43 xprt_transmit(72)
-> >    kworker/1:1H-136   [001] ....    61.036486: xs_tcp_send_request:=
- RPC:       xs_tcp_send_request(72) =3D 0
-> >    kworker/1:1H-136   [001] ....    61.036487: xprt_transmit: RPC: =
-   43 xmit complete
-> >          <idle>-0     [001] ..s.    61.036789: xs_tcp_data_ready: R=
-PC:       xs_tcp_data_ready...
-> >    kworker/1:1H-136   [001] ....    61.036798: xs_tcp_data_recv: RP=
-C:       xs_tcp_data_recv started
-> >    kworker/1:1H-136   [001] ....    61.036799: xs_tcp_data_recv: RP=
-C:       reading TCP record fragment of length 24
-> >    kworker/1:1H-136   [001] ....    61.036799: xs_tcp_data_recv: RP=
-C:       reading XID (4 bytes)
-> >    kworker/1:1H-136   [001] ....    61.036800: xs_tcp_data_recv: RP=
-C:       reading request with XID 2f4c3f88
-> >    kworker/1:1H-136   [001] ....    61.036800: xs_tcp_data_recv: RP=
-C:       reading CALL/REPLY flag (4 bytes)
-> >    kworker/1:1H-136   [001] ....    61.036801: xs_tcp_data_recv: RP=
-C:       read reply XID 2f4c3f88
-> >    kworker/1:1H-136   [001] ..s.    61.036801: xs_tcp_data_recv: RP=
-C:       XID 2f4c3f88 read 16 bytes
-> >    kworker/1:1H-136   [001] ..s.    61.036802: xs_tcp_data_recv: RP=
-C:       xprt =3D ffff880407eca800, tcp_copied =3D 24, tcp_offset =3D 2=
-4, tcp_reclen =3D 24
-> >    kworker/1:1H-136   [001] ..s.    61.036802: xprt_complete_rqst: =
-RPC:    43 xid 2f4c3f88 complete (24 bytes received)
-> >    kworker/1:1H-136   [001] ....    61.036803: xs_tcp_data_recv: RP=
-C:       xs_tcp_data_recv done
-> >    kworker/1:1H-136   [001] ....    61.036812: xprt_release: RPC:  =
-  43 release request ffff88040b270800
-> >=20
-> >=20
-> > # unhide-tcp=20
-> > Unhide-tcp 20130526
-> > Copyright =C2=A9 2013 Yago Jesus & Patrick Gouin
-> > License GPLv3+ : GNU GPL version 3 or later
-> > http://www.unhide-forensics.info
-> > Used options:=20
-> > [*]Starting TCP checking
-> >=20
-> > Found Hidden port that not appears in ss: 805
-> >  =20
->=20
-> What is a =E2=80=9CHidden port that not appears in ss: 805=E2=80=9D, =
-and what does this report mean? Are we failing to close a socket?
+We'd like to change that and get the best of both worlds: the performance of SR-IOV 
+with the management flexibility of software switches. This will eventually include 
+a richer model for controlling the SR-IOV switch for flow-based switching and 
+tunneling. Under this model, the e-switch is configured dynamically and a fallback 
+to software exists in case the hardware is unable to offload all required flows.
 
-I believe hidden ports are ports that are bound to no socket.
-Basically, a "port leak". Where they are in limbo and can never be
-reused.
+This series from Hadar Hen-Zion and myself, is the 1st step in that direction, 
+specfically, it provides full control on the SRIOV embedded switching by host 
+software and paves the way to offload switching rules and polices with downstream 
+patches.
 
-I looked at my past report, and everthing is exactly like the issue
-before. When I first boot my box, the port is there, I have the above
-trace. I run netstat -tapn and grep for the port. And it shows that it
-is an established socket between my box and my wife's box (I have a nfs
-mounted file system for her to copy her pictures to my server). After a
-couple of minutes, the port turns from ESTABLISHED to TIME_WAIT, and
-after another minute it disappears. At that moment, the unhide-tcp
-shows the port as hidden.
+To allow for host based SW control on the SRIOV HW switch, we introduce per VF 
+representor host netdevice. The VF representor plays the same role as TAP devices
+in PV setup. A packet send through the VF representor on the host arrives to 
+the VF, and a packet sent through the VF is received by its representor. The
+administrator can hook the representor netdev into a kernel switching component. 
+Once they do that, packets from the VF are subject to steering (matching and 
+actions) of that software component."
 
-When the socket goes away (without releasing the port) I see this in my
-trace:
+Doing so indeed hurts the performance benefits of SRIOV as it forces all the 
+traffic to go through the hypervisor. However, this SW representation is what  
+would eventually allow us to introduce hybrid model, where we offload steering 
+for some of the VF/VM traffic to the HW while keeping other VM traffic to go 
+through the hypervisor. Examples for the latter are first packet of flows which 
+are needed for SW switches learning and/or matching against policy database or
+types of traffic for which offloading is not desired or not supported by the
+current HW eswitch generation.
 
-    kworker/1:1H-131   [001] ..s.   364.762537: xs_tcp_state_change: RP=
-C:       xs_tcp_state_change client ffff88040ad68800...
-    kworker/1:1H-131   [001] ..s.   364.762539: xs_tcp_state_change: RP=
-C:       state 4 conn 1 dead 0 zapped 1 sk_shutdown 3
-          <idle>-0     [001] ..s.   364.762715: xs_tcp_state_change: RP=
-C:       xs_tcp_state_change client ffff88040ad68800...
-          <idle>-0     [001] ..s.   364.762716: xs_tcp_state_change: RP=
-C:       state 5 conn 0 dead 0 zapped 1 sk_shutdown 3
-          <idle>-0     [001] ..s.   364.762728: xs_tcp_state_change: RP=
-C:       xs_tcp_state_change client ffff88040ad68800...
-          <idle>-0     [001] ..s.   364.762728: xs_tcp_state_change: RP=
-C:       state 7 conn 0 dead 0 zapped 1 sk_shutdown 3
-          <idle>-0     [001] ..s.   364.762729: xprt_disconnect_done: R=
-PC:       disconnected transport ffff88040ad68800
-          <idle>-0     [001] ..s.   364.762730: xs_tcp_state_change: RP=
-C:       xs_tcp_state_change client ffff88040ad68800...
-          <idle>-0     [001] ..s.   364.762730: xs_tcp_state_change: RP=
-C:       state 7 conn 0 dead 0 zapped 1 sk_shutdown 3
-          <idle>-0     [001] ..s.   364.762730: xprt_disconnect_done: R=
-PC:       disconnected transport ffff88040ad68800
+The embedded switch is managed through a PCI device driver. As such, we introduce
+a devlink/pci based scheme for setting the mode of the e-switch. The current mode
+(where steering is done based on mac/vlan, etc) is referred to as "legacy" and the 
+new mode as "offloads".
 
-I can add more trace_printk()s if it would help.
+For the mlx5 driver / ConnectX4 HW case, the VF representors implement a functional 
+subset of mlx5e Ethernet netdevices using their own profile. This design buys us robust 
+implementation with code reuse and sharing.
 
--- Steve
+The representors are created by the host PCI driver when (1) in SRIOV and (2) the 
+e-switch is set to offloads mode. Currently, in mlx5 the e-switch management is done 
+through the PF vport (0) and hence the VF representors along with the existing PF 
+netdev which represents the uplink share the PCI PF device instance.
+
+The series is built from two major components, the first relates to the e-switch 
+management and the second to VF representors.
+
+We start with a refactoring that treats the existing SRIOV e-switch code as of operating 
+in legacy mode. Next, we add the code for the offloads mode which programs the e-switch
+to operate in a way which serves for software based switching:
+
+1. miss rule which matches all packets that do not match any HW other switching rule 
+and forwards them to the e-switch management port (0) for further processing.
+
+2. infrastructure for send-to-vport rules which conceptually bypass other "normal" 
+steering rules which present at the e-switch datapath. Such rules apply only for packets 
+that originate in the e-switch manager vport (0).
+
+Since all the VF reps run over the same e-switch port, we use more logic in the host PCI 
+driver to do HW steering of missed packets into the HW queue opened by a the respective VF 
+representor. Finally here, we add the devlink APIs to configure the e-switch mode.
+
+The second part from Hadar starts with some refactoring work which allow for multiple 
+mlx5e NIC instances to be created over the same PCI function, use common resources
+and avoid wrong loopbacks.
+
+Next comes the heart of the change which is a profile definition which allow to practically 
+have both "conventional" mlx5e NIC use cases such as native mode (non SRIOV), VF, PF and VF 
+representor to share the Ethernet driver code. This is done by a small surgery that ended up 
+with few internal callbacks that should be implemented by a profile instance. The profile 
+for the conventional NIC is implemented, to preserve the existing functionality.
+
+The last two patches add e-switch registration API for the VF representors and the 
+implementation of the VF representors netdevice profile. Being an mlx5e instance, the 
+VF representor uses HW send/recv queues, completions queues and such. It currently doesn't 
+support NIC offloads but some of them could be added later on. The VF representor has 
+switchdev ops, where currently the only supported API is the one to the HW ID,
+which is needed to identify multiple representors belonging to the same e-switch.
+
+The architecture + solution (software and firmware) work were done by a team consisting 
+of Ilya Lesokhin, Haggai Eran, Rony Efraim, Tal Anker, Natan Oppenheimer, Saeed Mahameed, 
+Hadar and Or, thanks you all!
+
+v1 --> v2 fixes:
+* removed unneeded variable (patch #3)
+* removed unused value DEVLINK_ESWITCH_MODE_NONE (patch #8)
+* changed the devlink mode name from "offloads" to "switchdev" which
+   better describes what are we referring here, using a known concept (patch #8)
+* correctly refer to devlink e-switch modes (patch #10)
+* use the correct mlx5e way to define the VF rep statistics  (patch #16)
+
+Thanks,
+Or & Saeed.
+
+Hadar Hen Zion (6):
+  net/mlx5e: Create NIC global resources only once
+  net/mlx5e: TIRs management refactoring
+  net/mlx5e: Mark enabled RQTs instances explicitly
+  net/mlx5e: Add support for multiple profiles
+  net/mlx5: Add Representors registration API
+  net/mlx5e: Introduce SRIOV VF representors
+
+Or Gerlitz (10):
+  net/mlx5: E-Switch, Add operational mode to the SRIOV e-Switch
+  net/mlx5: E-Switch, Add support for the sriov offloads mode
+  net/mlx5: E-Switch, Add miss rule for offloads mode
+  net/mlx5: E-Switch, Add API to create send-to-vport rules
+  net/mlx5: Introduce offloads steering namespace
+  net/mlx5: E-Switch, Add offloads table
+  net/mlx5: E-Switch, Add API to create vport rx rules
+  net/devlink: Add E-Switch mode control
+  net/mlx5: Add devlink interface
+  net/mlx5e: Add devlink based SRIOV mode changes
+
+ drivers/net/ethernet/mellanox/mlx5/core/Kconfig    |   1 +
+ drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   8 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  73 ++-
+ drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c  |  14 +-
+ .../net/ethernet/mellanox/mlx5/core/en_common.c    | 160 ++++++
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |   4 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |   2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 627 ++++++++++++---------
+ drivers/net/ethernet/mellanox/mlx5/core/en_rep.c   | 394 +++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  90 +--
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  78 ++-
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 566 +++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |  11 +-
+ drivers/net/ethernet/mellanox/mlx5/core/main.c     |  26 +-
+ drivers/net/ethernet/mellanox/mlx5/core/sriov.c    |   5 +-
+ include/linux/mlx5/driver.h                        |  13 +
+ include/linux/mlx5/fs.h                            |   1 +
+ include/net/devlink.h                              |   3 +
+ include/uapi/linux/devlink.h                       |   8 +
+ net/core/devlink.c                                 |  87 +++
+ 20 files changed, 1840 insertions(+), 331 deletions(-)
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_common.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
+ create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+
+-- 
+2.8.0
