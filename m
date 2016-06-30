@@ -1,54 +1,70 @@
-From: "Yankejian (Hackim Yim)" <yankejian@huawei.com>
-Subject: Re: [PATCH net-next 9/9] net: hns: get reset registers from DT
-Date: Thu, 30 Jun 2016 09:10:52 +0800
-Message-ID: <5774719C.4090409@huawei.com>
-References: <1467021255-95900-1-git-send-email-Yisen.Zhuang@huawei.com>
- <1467021255-95900-10-git-send-email-Yisen.Zhuang@huawei.com>
- <20160629.051142.259737654994822294.davem@davemloft.net>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next V2] tun: introduce tx skb ring
+Date: Thu, 30 Jun 2016 09:50:36 +0800
+Message-ID: <57747AEC.8050307@redhat.com>
+References: <1465979897-4445-1-git-send-email-jasowang@redhat.com>
+	<20160617033218-mutt-send-email-mst@redhat.com>
+	<20160622211620-mutt-send-email-mst@redhat.com>
+	<576B701F.2020105@redhat.com>
+	<20160628100907-mutt-send-email-mst@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <salil.mehta@huawei.com>, <liguozhu@huawei.com>,
-	<huangdaode@hisilicon.com>, <arnd@arndb.de>,
-	<andriy.shevchenko@linux.intel.com>, <andrew@lunn.ch>,
-	<geliangtang@163.com>, <ivecera@redhat.com>,
-	<fengguang.wu@intel.com>, <charles.chenxin@huawei.com>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>, <linuxarm@huawei.com>
-To: David Miller <davem@davemloft.net>, <Yisen.Zhuang@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160629.051142.259737654994822294.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: kvm@vger.kernel.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, brouer@redhat.com,
+	davem@davemloft.net
+To: "Michael S. Tsirkin" <mst@redhat.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160628100907-mutt-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On 2016/6/29 17:11, David Miller wrote:
-> From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-> Date: Mon, 27 Jun 2016 17:54:15 +0800
->
->> @@ -361,9 +371,10 @@ static int hns_mdio_reset(struct mii_bus *bus)
->>  			return -ENODEV;
->>  		}
->>  
->> +	sc_reg = &mdio_dev->sc_reg;
->>  		/* 1. reset req, and read reset st check */
->> -		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_REQ, 0x1,
->> -					    MDIO_SC_RESET_ST, 0x1,
->> +	ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_reset_req, 0x1,
->> +				    sc_reg->mdio_reset_st, 0x1,
->>  					    MDIO_CHECK_SET_ST);
->>  		if (ret) {
->>  			dev_err(&bus->dev, "MDIO reset fail\n");
-> What in the world are you doing to the indentation here?
->
-> Please read your patches before actually sending them, such things
-> will be quite obvious by simple visual inspection.
->
-> .
->
-Hi David,
-i am sorry for my carelessness. i will pay more attention next time.
-Thanks for pointing it our
-
--- 
-MBR,
-Yankejian (Hackim Yim)
+CgpPbiAyMDE25bm0MDbmnIgyOOaXpSAxNTowOSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFRodSwgSnVuIDIzLCAyMDE2IGF0IDAxOjE0OjA3UE0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
+dGU6Cj4+Cj4+IE9uIDIwMTblubQwNuaciDIz5pelIDAyOjE4LCBNaWNoYWVsIFMuIFRzaXJraW4g
+d3JvdGU6Cj4+PiBPbiBGcmksIEp1biAxNywgMjAxNiBhdCAwMzo0MToyMEFNICswMzAwLCBNaWNo
+YWVsIFMuIFRzaXJraW4gd3JvdGU6Cj4+Pj4+IFdvdWxkIGl0IGhlbHAgdG8gaGF2ZSBwdHJfcmlu
+Z19yZXNpemUgdGhhdCBnZXRzIGFuIGFycmF5IG9mCj4+Pj4+IHJpbmdzIGFuZCByZXNpemVzIHRo
+ZW0gYm90aCB0byBzYW1lIGxlbmd0aD8KPj4+IE9LLCBoZXJlIGl0IGlzLiBVbnRlc3RlZCBzbyBm
+YXIsIGFuZCBubyBza2Igd3JhcHBlci4KPj4+IFBscyBsZXQgbWUga25vdyB3aGV0aGVyIHRoaXMg
+aXMgd2hhdCB5b3UgaGFkIGluIG1pbmQuCj4+IEV4YWN0bHkgd2hhdCBJIHdhbnQuCj4+Cj4+IFRo
+YW5rcwo+IE9rIGFuZCB0aGlzIGZvciBza2JfYXJyYXkKPgo+IC0tPgo+IHNrYl9hcnJheTogYWRk
+IHdyYXBwZXJzIGZvciByZXNpemluZwo+Cj4gU2lnbmVkLW9mZi1ieTogTWljaGFlbCBTLiBUc2ly
+a2luIDxtc3RAcmVkaGF0LmNvbT4KPgo+IC0tCj4KPiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51
+eC9za2JfYXJyYXkuaCBiL2luY2x1ZGUvbGludXgvc2tiX2FycmF5LmgKPiBpbmRleCBjOTAwNzA4
+Li43ZTAxYzFmIDEwMDY0NAo+IC0tLSBhL2luY2x1ZGUvbGludXgvc2tiX2FycmF5LmgKPiArKysg
+Yi9pbmNsdWRlL2xpbnV4L3NrYl9hcnJheS5oCj4gQEAgLTE1MSwxNiArMTUxLDI0IEBAIHN0YXRp
+YyBpbmxpbmUgaW50IHNrYl9hcnJheV9pbml0KHN0cnVjdCBza2JfYXJyYXkgKmEsIGludCBzaXpl
+LCBnZnBfdCBnZnApCj4gICAJcmV0dXJuIHB0cl9yaW5nX2luaXQoJmEtPnJpbmcsIHNpemUsIDAs
+IGdmcCk7Cj4gICB9Cj4gICAKPiAtdm9pZCBfX3NrYl9hcnJheV9kZXN0cm95X3NrYih2b2lkICpw
+dHIpCj4gK3N0YXRpYyB2b2lkIF9fc2tiX2FycmF5X2Rlc3Ryb3lfc2tiKHZvaWQgKnB0cikKPiAg
+IHsKPiAgIAlrZnJlZV9za2IocHRyKTsKPiAgIH0KPiAgIAo+IC1pbnQgc2tiX2FycmF5X3Jlc2l6
+ZShzdHJ1Y3Qgc2tiX2FycmF5ICphLCBpbnQgc2l6ZSwgZ2ZwX3QgZ2ZwKQo+ICtzdGF0aWMgaW5s
+aW5lIGludCBza2JfYXJyYXlfcmVzaXplKHN0cnVjdCBza2JfYXJyYXkgKmEsIGludCBzaXplLCBn
+ZnBfdCBnZnApCj4gICB7Cj4gICAJcmV0dXJuIHB0cl9yaW5nX3Jlc2l6ZSgmYS0+cmluZywgc2l6
+ZSwgZ2ZwLCBfX3NrYl9hcnJheV9kZXN0cm95X3NrYik7Cj4gICB9CgpXaWxsIHNwbGl0IHVwIHRo
+ZSBhYm92ZSB0d2VhayBpbnRvIGFub3RoZXIgcGF0Y2ggd2hlbiByZXBvc3RpbmcuCgo+ICAgCj4g
+K3N0YXRpYyBpbmxpbmUgaW50IHNrYl9yYWF5X3Jlc2l6ZV9tdWx0aXBsZShzdHJ1Y3Qgc2tiX2Fy
+cmF5ICoqcmluZ3MsIGludCBucmluZ3MsCgpJIHRoaW5rIHlvdSBtZWFuICdza2JfYXJyYXlfcmVz
+aXplJyBoZXJlLgoKPiArCQkJCQkgICBpbnQgc2l6ZSwgZ2ZwX3QgZ2ZwKQo+ICt7Cj4gKwlCVUlM
+RF9CVUdfT04ob2Zmc2V0b2Yoc3RydWN0IHNrYl9hcnJheSwgcmluZykpOwo+ICsJcHRyX3Jpbmdf
+cmVzaXplX211bHRpcGxlKChzdHJ1Y3QgcHRyX3JpbmcgKiopcmluZ3MsIG5yaW5ncywgc2l6ZSwg
+Z2ZwLAo+ICsJCQkJIF9fc2tiX2FycmF5X2Rlc3Ryb3lfc2tiKTsKClRoaXMgc2hvdWxkIGJlIHJl
+dHVybiBwdHJfcmluZ19yZXNpemVfbXVsdGlwbGUoLi4uCgo+ICt9Cj4gKwo+ICAgc3RhdGljIGlu
+bGluZSB2b2lkIHNrYl9hcnJheV9jbGVhbnVwKHN0cnVjdCBza2JfYXJyYXkgKmEpCj4gICB7Cj4g
+ICAJcHRyX3JpbmdfY2xlYW51cCgmYS0+cmluZywgX19za2JfYXJyYXlfZGVzdHJveV9za2IpOwoK
+V2l0aCB0aGlzLCBsb29rcyBsaWtlIHRoZXJlJ3Mgbm8gbmVlZCBmb3IgYSBuZXcgZmxhZy4gV2ls
+bCByZXBvc3QgdGhlIApzZXJpZXMgd2l0aCB0aG9zZSB0d28gcGF0Y2hlcy4KClRoYW5rcwpfX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXwpWaXJ0dWFsaXphdGlv
+biBtYWlsaW5nIGxpc3QKVmlydHVhbGl6YXRpb25AbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcK
+aHR0cHM6Ly9saXN0cy5saW51eGZvdW5kYXRpb24ub3JnL21haWxtYW4vbGlzdGluZm8vdmlydHVh
+bGl6YXRpb24=
