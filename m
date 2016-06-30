@@ -1,136 +1,185 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH v2 net] bonding: prevent out of bound accesses
-Date: Thu, 30 Jun 2016 16:19:37 +0200
-Message-ID: <CACT4Y+ZQnpgb4kmfkw2utT-Cwu1gApmO=cr1pw=T=RFJJzAPSg@mail.gmail.com>
-References: <1467291379.11238.8.camel@edumazet-glaptop3.roam.corp.google.com> <1467296021.11238.19.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 04/19] rxrpc: Dup the main conn list for the proc
+ interface
+Date: Thu, 30 Jun 2016 15:11:11 +0100
+Message-ID: <146729587097.26306.13227659158823501656.stgit@warthog.procyon.org.uk>
+References: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Ding Tianhong <dingtianhong@huawei.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f43.google.com ([209.85.215.43]:32791 "EHLO
-	mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752549AbcF3OT7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 10:19:59 -0400
-Received: by mail-lf0-f43.google.com with SMTP id f6so56600226lfg.0
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 07:19:58 -0700 (PDT)
-In-Reply-To: <1467296021.11238.19.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 30, 2016 at 4:13 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> ether_addr_equal_64bits() requires some care about its arguments,
-> namely that 8 bytes might be read, even if last 2 byte values are not
-> used.
->
-> KASan detected a violation with null_mac_addr and lacpdu_mcast_addr
-> in bond_3ad.c
->
-> Same problem with mac_bcast[] and mac_v6_allmcast[] in bond_alb.c :
-> Although the 8-byte alignment was there, KASan would detect out
-> of bound accesses.
->
-> Fixes: 815117adaf5b ("bonding: use ether_addr_equal_unaligned for bond addr compare")
-> Fixes: bb54e58929f3 ("bonding: Verify RX LACPDU has proper dest mac-addr")
-> Fixes: 885a136c52a8 ("bonding: use compare_ether_addr_64bits() in ALB")
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Reported-by: Dmitry Vyukov <dvyukov@google.com>
-> ---
->  drivers/net/bonding/bond_3ad.c |   11 +++++++----
->  drivers/net/bonding/bond_alb.c |    7 ++-----
->  include/net/bonding.h          |    7 ++++++-
->  3 files changed, 15 insertions(+), 10 deletions(-)
->
-> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-> index ca81f46ea1aa..8ad491ab1d01 100644
-> --- a/drivers/net/bonding/bond_3ad.c
-> +++ b/drivers/net/bonding/bond_3ad.c
-> @@ -101,11 +101,14 @@ enum ad_link_speed_type {
->  #define MAC_ADDRESS_EQUAL(A, B)        \
->         ether_addr_equal_64bits((const u8 *)A, (const u8 *)B)
->
-> -static struct mac_addr null_mac_addr = { { 0, 0, 0, 0, 0, 0 } };
-> +static const u8 null_mac_addr[ETH_ALEN + 2] __long_aligned = {
-> +       0, 0, 0, 0, 0, 0
-> +};
->  static u16 ad_ticks_per_sec;
->  static const int ad_delta_in_ticks = (AD_TIMER_INTERVAL * HZ) / 1000;
->
-> -static const u8 lacpdu_mcast_addr[ETH_ALEN] = MULTICAST_LACPDU_ADDR;
-> +static const u8 lacpdu_mcast_addr[ETH_ALEN + 2] __long_aligned =
-> +       MULTICAST_LACPDU_ADDR;
->
->  /* ================= main 802.3ad protocol functions ================== */
->  static int ad_lacpdu_send(struct port *port);
-> @@ -1739,7 +1742,7 @@ static void ad_clear_agg(struct aggregator *aggregator)
->                 aggregator->is_individual = false;
->                 aggregator->actor_admin_aggregator_key = 0;
->                 aggregator->actor_oper_aggregator_key = 0;
-> -               aggregator->partner_system = null_mac_addr;
-> +               eth_zero_addr(aggregator->partner_system.mac_addr_value);
->                 aggregator->partner_system_priority = 0;
->                 aggregator->partner_oper_aggregator_key = 0;
->                 aggregator->receive_state = 0;
-> @@ -1761,7 +1764,7 @@ static void ad_initialize_agg(struct aggregator *aggregator)
->         if (aggregator) {
->                 ad_clear_agg(aggregator);
->
-> -               aggregator->aggregator_mac_address = null_mac_addr;
-> +               eth_zero_addr(aggregator->aggregator_mac_address.mac_addr_value);
->                 aggregator->aggregator_identifier = 0;
->                 aggregator->slave = NULL;
->         }
-> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-> index c5ac160a8ae9..551f0f8dead3 100644
-> --- a/drivers/net/bonding/bond_alb.c
-> +++ b/drivers/net/bonding/bond_alb.c
-> @@ -42,13 +42,10 @@
->
->
->
-> -#ifndef __long_aligned
-> -#define __long_aligned __attribute__((aligned((sizeof(long)))))
-> -#endif
-> -static const u8 mac_bcast[ETH_ALEN] __long_aligned = {
-> +static const u8 mac_bcast[ETH_ALEN + 2] __long_aligned = {
->         0xff, 0xff, 0xff, 0xff, 0xff, 0xff
->  };
-> -static const u8 mac_v6_allmcast[ETH_ALEN] __long_aligned = {
-> +static const u8 mac_v6_allmcast[ETH_ALEN + 2] __long_aligned = {
->         0x33, 0x33, 0x00, 0x00, 0x00, 0x01
->  };
->  static const int alb_delta_in_ticks = HZ / ALB_TIMER_TICKS_PER_SEC;
-> diff --git a/include/net/bonding.h b/include/net/bonding.h
-> index 791800ddd6d9..6360c259da6d 100644
-> --- a/include/net/bonding.h
-> +++ b/include/net/bonding.h
-> @@ -34,6 +34,9 @@
->
->  #define BOND_DEFAULT_MIIMON    100
->
-> +#ifndef __long_aligned
-> +#define __long_aligned __attribute__((aligned((sizeof(long)))))
-> +#endif
->  /*
->   * Less bad way to call ioctl from within the kernel; this needs to be
->   * done some other way to get the call out of interrupt context.
-> @@ -138,7 +141,9 @@ struct bond_params {
->         struct reciprocal_value reciprocal_packets_per_slave;
->         u16 ad_actor_sys_prio;
->         u16 ad_user_port_key;
-> -       u8 ad_actor_system[ETH_ALEN];
-> +
-> +       /* 2 bytes of padding : see ether_addr_equal_64bits() */
-> +       u8 ad_actor_system[ETH_ALEN + 2];
->  };
->
->  struct bond_parm_tbl {
+The main connection list is used for two independent purposes: primarily it
+is used to find connections to reap and secondarily it is used to list
+connections in procfs.
 
+Split the procfs list out from the reap list.  This allows the reap list to
+be phased out in stages as the client conns and service conns acquire their
+own separate connection management strategies.
 
-Acked-by: Dmitry Vyukov <dvyukov@google.com>
+Whilst we're at it, use the address information stored in conn->proto when
+displaying through procfs rather than accessing the peer record.
+
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
+
+ net/rxrpc/ar-internal.h |    3 ++-
+ net/rxrpc/conn_object.c |   12 +++++++++++-
+ net/rxrpc/proc.c        |   14 ++++++--------
+ 3 files changed, 19 insertions(+), 10 deletions(-)
+
+diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
+index 45aef3ef7609..f2b1c6dd5e9a 100644
+--- a/net/rxrpc/ar-internal.h
++++ b/net/rxrpc/ar-internal.h
+@@ -271,6 +271,7 @@ struct rxrpc_connection {
+ 		struct rb_node	client_node;	/* Node in local->client_conns */
+ 		struct rb_node	service_node;	/* Node in peer->service_conns */
+ 	};
++	struct list_head	proc_link;	/* link in procfs list */
+ 	struct list_head	link;		/* link in master connection list */
+ 	struct rb_root		calls;		/* calls on this connection */
+ 	struct sk_buff_head	rx_queue;	/* received conn-level packets */
+@@ -535,7 +536,7 @@ void rxrpc_reject_packets(struct rxrpc_local *);
+  * conn_object.c
+  */
+ extern unsigned int rxrpc_connection_expiry;
+-extern struct list_head rxrpc_connections;
++extern struct list_head rxrpc_connection_proc_list;
+ extern rwlock_t rxrpc_connection_lock;
+ 
+ int rxrpc_connect_call(struct rxrpc_call *, struct rxrpc_conn_parameters *,
+diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
+index 0ab87fa0bbac..ff0c502ed68d 100644
+--- a/net/rxrpc/conn_object.c
++++ b/net/rxrpc/conn_object.c
+@@ -27,7 +27,8 @@ unsigned int rxrpc_connection_expiry = 10 * 60;
+ 
+ static void rxrpc_connection_reaper(struct work_struct *work);
+ 
+-LIST_HEAD(rxrpc_connections);
++static LIST_HEAD(rxrpc_connections);
++LIST_HEAD(rxrpc_connection_proc_list);
+ DEFINE_RWLOCK(rxrpc_connection_lock);
+ static DECLARE_DELAYED_WORK(rxrpc_connection_reap, rxrpc_connection_reaper);
+ 
+@@ -45,6 +46,7 @@ static struct rxrpc_connection *rxrpc_alloc_connection(gfp_t gfp)
+ 		spin_lock_init(&conn->channel_lock);
+ 		init_waitqueue_head(&conn->channel_wq);
+ 		INIT_WORK(&conn->processor, &rxrpc_process_connection);
++		INIT_LIST_HEAD(&conn->proc_link);
+ 		INIT_LIST_HEAD(&conn->link);
+ 		conn->calls = RB_ROOT;
+ 		skb_queue_head_init(&conn->rx_queue);
+@@ -144,6 +146,7 @@ rxrpc_alloc_client_connection(struct rxrpc_conn_parameters *cp, gfp_t gfp)
+ 
+ 	write_lock(&rxrpc_connection_lock);
+ 	list_add_tail(&conn->link, &rxrpc_connections);
++	list_add_tail(&conn->proc_link, &rxrpc_connection_proc_list);
+ 	write_unlock(&rxrpc_connection_lock);
+ 
+ 	/* We steal the caller's peer ref. */
+@@ -602,6 +605,7 @@ static void rxrpc_connection_reaper(struct work_struct *work)
+ 	struct rxrpc_connection *conn, *_p;
+ 	struct rxrpc_peer *peer;
+ 	unsigned long now, earliest, reap_time;
++	bool remove;
+ 
+ 	LIST_HEAD(graveyard);
+ 
+@@ -619,6 +623,7 @@ static void rxrpc_connection_reaper(struct work_struct *work)
+ 		if (likely(atomic_read(&conn->usage) > 0))
+ 			continue;
+ 
++		remove = false;
+ 		if (rxrpc_conn_is_client(conn)) {
+ 			struct rxrpc_local *local = conn->params.local;
+ 			spin_lock(&local->client_conns_lock);
+@@ -631,6 +636,7 @@ static void rxrpc_connection_reaper(struct work_struct *work)
+ 				rxrpc_put_client_connection_id(conn);
+ 				rb_erase(&conn->client_node,
+ 					 &local->client_conns);
++				remove = true;
+ 			} else if (reap_time < earliest) {
+ 				earliest = reap_time;
+ 			}
+@@ -647,12 +653,16 @@ static void rxrpc_connection_reaper(struct work_struct *work)
+ 				list_move_tail(&conn->link, &graveyard);
+ 				rb_erase(&conn->service_node,
+ 					 &peer->service_conns);
++				remove = true;
+ 			} else if (reap_time < earliest) {
+ 				earliest = reap_time;
+ 			}
+ 
+ 			write_unlock_bh(&peer->conn_lock);
+ 		}
++
++		if (remove)
++			list_del_init(&conn->proc_link);
+ 	}
+ 	write_unlock(&rxrpc_connection_lock);
+ 
+diff --git a/net/rxrpc/proc.c b/net/rxrpc/proc.c
+index 500cdcdc843c..afb5e1bc1b6e 100644
+--- a/net/rxrpc/proc.c
++++ b/net/rxrpc/proc.c
+@@ -67,8 +67,7 @@ static int rxrpc_call_seq_show(struct seq_file *seq, void *v)
+ 	conn = call->conn;
+ 	if (conn)
+ 		sprintf(rbuff, "%pI4:%u",
+-			&conn->params.peer->srx.transport.sin.sin_addr,
+-			ntohs(conn->params.peer->srx.transport.sin.sin_port));
++			&conn->proto.ipv4_addr, ntohs(conn->proto.port));
+ 	else
+ 		strcpy(rbuff, "no_connection");
+ 
+@@ -115,13 +114,13 @@ const struct file_operations rxrpc_call_seq_fops = {
+ static void *rxrpc_connection_seq_start(struct seq_file *seq, loff_t *_pos)
+ {
+ 	read_lock(&rxrpc_connection_lock);
+-	return seq_list_start_head(&rxrpc_connections, *_pos);
++	return seq_list_start_head(&rxrpc_connection_proc_list, *_pos);
+ }
+ 
+ static void *rxrpc_connection_seq_next(struct seq_file *seq, void *v,
+ 				       loff_t *pos)
+ {
+-	return seq_list_next(v, &rxrpc_connections, pos);
++	return seq_list_next(v, &rxrpc_connection_proc_list, pos);
+ }
+ 
+ static void rxrpc_connection_seq_stop(struct seq_file *seq, void *v)
+@@ -134,7 +133,7 @@ static int rxrpc_connection_seq_show(struct seq_file *seq, void *v)
+ 	struct rxrpc_connection *conn;
+ 	char lbuff[4 + 4 + 4 + 4 + 5 + 1], rbuff[4 + 4 + 4 + 4 + 5 + 1];
+ 
+-	if (v == &rxrpc_connections) {
++	if (v == &rxrpc_connection_proc_list) {
+ 		seq_puts(seq,
+ 			 "Proto Local                  Remote                "
+ 			 " SvID ConnID   Calls    End Use State    Key     "
+@@ -143,15 +142,14 @@ static int rxrpc_connection_seq_show(struct seq_file *seq, void *v)
+ 		return 0;
+ 	}
+ 
+-	conn = list_entry(v, struct rxrpc_connection, link);
++	conn = list_entry(v, struct rxrpc_connection, proc_link);
+ 
+ 	sprintf(lbuff, "%pI4:%u",
+ 		&conn->params.local->srx.transport.sin.sin_addr,
+ 		ntohs(conn->params.local->srx.transport.sin.sin_port));
+ 
+ 	sprintf(rbuff, "%pI4:%u",
+-		&conn->params.peer->srx.transport.sin.sin_addr,
+-		ntohs(conn->params.peer->srx.transport.sin.sin_port));
++		&conn->proto.ipv4_addr, ntohs(conn->proto.port));
+ 
+ 	seq_printf(seq,
+ 		   "UDP   %-22.22s %-22.22s %4x %08x %08x %s %3u"
