@@ -1,54 +1,79 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH v2 net-next] tcp: md5: use kmalloc() backed scratch areas
-Date: Thu, 30 Jun 2016 11:45:20 +0800
-Message-ID: <20160630034520.GA2049@gondor.apana.org.au>
-References: <20160628034150.GA13953@gondor.apana.org.au>
- <CALCETrXOT-zaV8O1Yu4RGybGvPv5C7gr=7EWjTKvUQUaRxz1aQ@mail.gmail.com>
- <20160629022337.GB23390@gondor.apana.org.au>
- <CALCETrW3zzMRazohKfOh7PKb5jegJOmyrC7EiCEF0eQ5SArNyg@mail.gmail.com>
- <20160629150257.GA29490@gondor.apana.org.au>
- <CALCETrVKjwKkzR+qwsC=DMvM9tR4beAtvw=LLjzsAyuztV4bWw@mail.gmail.com>
- <20160629153818.GA29838@gondor.apana.org.au>
- <CALCETrUR1+au2-11qSAT24832nZcTwjUj8UY09rCMisyHawnaA@mail.gmail.com>
- <1467236646.6369.5.camel@edumazet-glaptop3.roam.corp.google.com>
- <CALCETrWUOuwaUrwkU9ywcqTK6aqQn6yNESmR3fgz6VMhwAnQdg@mail.gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: [PATCH net-next V3 0/6] switch to use tx skb array in tun
+Date: Thu, 30 Jun 2016 11:52:53 +0800
+Message-ID: <1467258779-3539-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	David Miller <davem@davemloft.net>,
-	Network Development <netdev@vger.kernel.org>
-To: Andy Lutomirski <luto@amacapital.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from helcar.hengli.com.au ([209.40.204.226]:54307 "EHLO
-	helcar.hengli.com.au" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751486AbcF3Dp3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 29 Jun 2016 23:45:29 -0400
-Content-Disposition: inline
-In-Reply-To: <CALCETrWUOuwaUrwkU9ywcqTK6aqQn6yNESmR3fgz6VMhwAnQdg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: brouer@redhat.com, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	davem@davemloft.net
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 29, 2016 at 03:39:37PM -0700, Andy Lutomirski wrote:
->
-> I don't care about TCP MD5 performance at all.  Ease of maintenance is
-> nice, though, and maybe there are other places in the kernel where
-> performance does matter.
+Hi all:
 
-TCP MD5 is using ahash because it touches SG lists.  Touching
-SG lists is a pretty reliable indicator for hashing a large amount
-of data.  In fact TCP MD5 hashes the entire packet content so we're
-talking about ~1000 bytes, just like IPsec.
+This series tries to switch to use skb array in tun. This is used to
+eliminate the spinlock contention between producer and consumer. The
+conversion was straightforward: just introdce a tx skb array and use
+it instead of sk_receive_queue.
 
-Therefore it is completely pointless to use something like shash
-for it as shash is only meant to be used for those hashing less
-one block of data or less.
+A minor issue is to keep the tx_queue_len behaviour, since tun used to
+use it for the length of sk_receive_queue. This is done through:
 
-If you're aware of any other user in the kernel that is using
-ahash and is hashing a small amount of data in aggregate (not
-per update) please let me know.
+- add the ability to resize multiple rings at once to avoid handling
+  partial resize failure for mutiple rings.
+- add the support for zero length ring.
+- introduce a notifier which was triggered when tx_queue_len was
+  changed for a netdev.
+- resize all queues during the tx_queue_len changing.
 
-Cheers,
+Tests shows about 15% improvement on guest rx pps:
+
+Before: ~1300000pps
+After : ~1500000pps
+
+Changes from V2:
+- add multiple rings resizing support for ptr_ring/skb_array
+- add zero length ring support
+- introdce a NETDEV_CHANGE_TX_QUEUE_LEN
+- drop new flags
+
+Changes from V1:
+- switch to use skb array instead of a customized circular buffer
+- add non-blocking support
+- rename .peek to .peek_len
+- drop lockless peeking since test show very minor improvement
+
+Jason Wang (5):
+  ptr_ring: support zero length ring
+  skb_array: minor tweak
+  skb_array: add wrappers for resizing
+  net: introduce NETDEV_CHANGE_TX_QUEUE_LEN
+  tun: switch to use skb array for tx
+
+Michael S. Tsirkin (1):
+  ptr_ring: support resizing multiple queues
+
+ drivers/net/tun.c                | 138 ++++++++++++++++++++++++++++++++++++---
+ drivers/vhost/net.c              |  16 ++++-
+ include/linux/net.h              |   1 +
+ include/linux/netdevice.h        |   1 +
+ include/linux/ptr_ring.h         |  77 ++++++++++++++++++----
+ include/linux/skb_array.h        |  13 +++-
+ net/core/net-sysfs.c             |  15 ++++-
+ tools/virtio/ringtest/ptr_ring.c |   5 ++
+ 8 files changed, 243 insertions(+), 23 deletions(-)
+
 -- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+2.7.4
