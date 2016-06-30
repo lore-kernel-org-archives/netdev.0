@@ -1,65 +1,91 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC PATCH] ila: Resolver mechanism
-Date: Fri, 1 Jul 2016 00:02:00 +0200
-Message-ID: <20160630220200.GB25822@pox.localdomain>
-References: <1467315680-4148054-1-git-send-email-tom@herbertland.com>
+From: Jon Mason <jon.mason@broadcom.com>
+Subject: Re: [RFC 6/7] dt-bindings: net: bgmac: add bindings documentation for bgmac
+Date: Thu, 30 Jun 2016 17:57:51 -0400
+Message-ID: <CAC3K-4rHetOEfYnJ_G4xTgnvez13dX_OqS6Tv_mNjeMjwWbJqQ@mail.gmail.com>
+References: <1467142484-11161-1-git-send-email-jon.mason@broadcom.com>
+ <1467142484-11161-7-git-send-email-jon.mason@broadcom.com> <a6dd7282-cdd0-6e62-4666-fdb3905fe81d@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org, kernel-team@fb.com,
-	haoxuany@fb.com
-To: Tom Herbert <tom@herbertland.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f52.google.com ([74.125.82.52]:37529 "EHLO
-	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751536AbcF3WCD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 18:02:03 -0400
-Received: by mail-wm0-f52.google.com with SMTP id a66so4552887wme.0
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 15:02:02 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1467315680-4148054-1-git-send-email-tom@herbertland.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ray Jui <ray.jui@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <a6dd7282-cdd0-6e62-4666-fdb3905fe81d@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/30/16 at 12:41pm, Tom Herbert wrote:
-> This is not yet complete, we would still need to some controls
-> to rate limit number of resolution requests and a means to track
-> pending requests. I'm posting this as RFC because it seems like
-> this might be part of a general mechanism to a perform address
-> resolution in userspace and I would appreciate comments with
-> regard to that.
+On Thu, Jun 30, 2016 at 2:06 PM, Ray Jui <ray.jui@broadcom.com> wrote:
+> Hi Jon,
+>
+> On 6/28/2016 12:34 PM, Jon Mason wrote:
+>>
+>> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+>> ---
+>>  .../devicetree/bindings/net/brcm,bgmac-enet.txt     | 21
+>> +++++++++++++++++++++
+>>  1 file changed, 21 insertions(+)
+>>  create mode 100644
+>> Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
+>>
+>> diff --git a/Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
+>> b/Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
+>> new file mode 100644
+>> index 0000000..efd36d5
+>> --- /dev/null
+>> +++ b/Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
+>> @@ -0,0 +1,21 @@
+>> +Broadcom GMAC Ethernet Controller Device Tree Bindings
+>> +-------------------------------------------------------------
+>> +
+>> +Required properties:
+>> + - compatible: "brcm,bgmac-enet"
+>> + - reg:                Address and length of the GMAC registers,
+>> +               Address and length of the GMAC IDM registers
+>
+>
+> As we know there will be additional optional register banks required for
+> some of the other SoCs that the current driver has not yet supported. In my
+> opinion, we should consider to make "reg-names" a mandatory property now and
+> map the register blocks based on names.
+>
+> I think this will help to make our life easier in the future when new
+> optional SoC specific register blocks are added, such that we can map the
+> register blocks based on names instead of indices, which will change and be
+> different among different SoCs and will require much more complex logic in
+> the driver to deal with.
 
-I wouldn't mind having the rate limiting done as generic route
-attribute so it could be applied to non-ILA routes as well.
+I don't have any objection to this.  I'll tweak the patches to do it by name.
 
-> 
-> diff --git a/include/uapi/linux/lwtunnel.h b/include/uapi/linux/lwtunnel.h
-> index a478fe8..d880e49 100644
-> --- a/include/uapi/linux/lwtunnel.h
-> +++ b/include/uapi/linux/lwtunnel.h
-> @@ -9,6 +9,7 @@ enum lwtunnel_encap_types {
->  	LWTUNNEL_ENCAP_IP,
->  	LWTUNNEL_ENCAP_ILA,
->  	LWTUNNEL_ENCAP_IP6,
-> +	LWTUNNEL_ENCAP_ILA_NOTIFY,
->  	__LWTUNNEL_ENCAP_MAX,
->  };
+>
+>> + - interrupts: Interrupt number
+>> +
+>> +Optional properties:
+>> +- mac-address: mac address to be assigned to the device
+>> +
+>> +Examples:
+>> +
+>> +gmac0: enet@18022000 {
+>> +       compatible = "brcm,bgmac-enet";
+>> +       reg = <0x18022000 0x1000>,
+>> +             <0x18110000 0x1000>;
+>> +       interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>;
+>> +       status = "disabled";
+>> +};
+>>
+>
+> Btw, I think Rob Herring should be included in the review for device tree
+> binding document changes.
 
-Neat.
+Thanks, I'll add him and the other DT maintainers when I send this out
+as a "PATCH" shortly.
 
-> diff --git a/include/uapi/linux/rtnetlink.h b/include/uapi/linux/rtnetlink.h
-> index 262f037..271215f 100644
-> --- a/include/uapi/linux/rtnetlink.h
-> +++ b/include/uapi/linux/rtnetlink.h
-> @@ -144,6 +144,9 @@ enum {
->  	RTM_GETSTATS = 94,
->  #define RTM_GETSTATS RTM_GETSTATS
->  
-> +	RTM_ADDR_RESOLVE = 95,
-> +#define RTM_ADDR_RESOLVE RTM_ADDR_RESOLVE
-> +
+Thanks,
+Jon
 
-I realize this is currently only kernel->user but let's plan ahead.
-Each RTM_ group should start aligned to 4 with types specified in
-the order new, del, get, set. RTM_ADDR_RESOLVE probably maps best
-to NEW in terms of behaviour. See the magic around 'kind' in
-rtnetlink_rcv_msg().
+>
+> Thanks,
+>
+> Ray
