@@ -1,7 +1,7 @@
 From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: [PATCH net-next 3/5] qede: Utilize xmit_more
-Date: Thu, 30 Jun 2016 02:35:20 -0400
-Message-ID: <1467268522-24589-4-git-send-email-manish.chopra@qlogic.com>
+Subject: [PATCH net-next 2/5] qede: qede_poll refactoring
+Date: Thu, 30 Jun 2016 02:35:19 -0400
+Message-ID: <1467268522-24589-3-git-send-email-manish.chopra@qlogic.com>
 References: <1467268522-24589-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -9,98 +9,121 @@ Cc: <netdev@vger.kernel.org>, <Ariel.Elior@qlogic.com>,
 	<Yuval.Mintz@qlogic.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:34727 "EHLO
+Received: from mx0a-0016ce01.pphosted.com ([67.231.148.157]:34726 "EHLO
 	mx0b-0016ce01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751837AbcF3HTw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 03:19:52 -0400
+	by vger.kernel.org with ESMTP id S1751695AbcF3HTv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 03:19:51 -0400
 In-Reply-To: <1467268522-24589-1-git-send-email-manish.chopra@qlogic.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch uses xmit_more optimization to reduce
-number of TX doorbells write per packet.
+This patch cleanups qede_poll() routine a bit
+and allows qede_poll() to do single iteration to handle
+TX completion [As under heavy TX load qede_poll() might
+run for indefinite time in the while(1) loop for TX
+completion processing and cause CPU stuck].
 
 Signed-off-by: Manish <manish.chopra@qlogic.com>
 Signed-off-by: Yuval Mintz <Yuval.Mintz@qlogic.com>
 ---
- drivers/net/ethernet/qlogic/qede/qede_main.c | 37 +++++++++++++++++-----------
- 1 file changed, 23 insertions(+), 14 deletions(-)
+ drivers/net/ethernet/qlogic/qede/qede_main.c | 77 +++++++++++++---------------
+ 1 file changed, 35 insertions(+), 42 deletions(-)
 
 diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
-index ab811e2..2c27b3b 100644
+index f476cd0..ab811e2 100644
 --- a/drivers/net/ethernet/qlogic/qede/qede_main.c
 +++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
-@@ -485,6 +485,24 @@ static bool qede_pkt_req_lin(struct qede_dev *edev, struct sk_buff *skb,
- }
- #endif
+@@ -1597,56 +1597,49 @@ next_cqe: /* don't consume bd rx buffer */
  
-+static inline void qede_update_tx_producer(struct qede_tx_queue *txq)
-+{
-+	/* wmb makes sure that the BDs data is updated before updating the
-+	 * producer, otherwise FW may read old data from the BDs.
-+	 */
-+	wmb();
-+	barrier();
-+	writel(txq->tx_db.raw, txq->doorbell_addr);
-+
-+	/* mmiowb is needed to synchronize doorbell writes from more than one
-+	 * processor. It guarantees that the write arrives to the device before
-+	 * the queue lock is released and another start_xmit is called (possibly
-+	 * on another CPU). Without this barrier, the next doorbell can bypass
-+	 * this doorbell. This is applicable to IA64/Altix systems.
-+	 */
-+	mmiowb();
-+}
-+
- /* Main transmit function */
- static
- netdev_tx_t qede_start_xmit(struct sk_buff *skb,
-@@ -543,6 +561,7 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb,
- 	if (unlikely(dma_mapping_error(&edev->pdev->dev, mapping))) {
- 		DP_NOTICE(edev, "SKB mapping failed\n");
- 		qede_free_failed_tx_pkt(edev, txq, first_bd, 0, false);
-+		qede_update_tx_producer(txq);
- 		return NETDEV_TX_OK;
- 	}
- 	nbd++;
-@@ -657,6 +676,7 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb,
- 		if (rc) {
- 			qede_free_failed_tx_pkt(edev, txq, first_bd, nbd,
- 						data_split);
-+			qede_update_tx_producer(txq);
- 			return NETDEV_TX_OK;
- 		}
+ static int qede_poll(struct napi_struct *napi, int budget)
+ {
+-	int work_done = 0;
+ 	struct qede_fastpath *fp = container_of(napi, struct qede_fastpath,
+-						 napi);
++						napi);
+ 	struct qede_dev *edev = fp->edev;
++	int rx_work_done = 0;
++	u8 tc;
  
-@@ -681,6 +701,7 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb,
- 		if (rc) {
- 			qede_free_failed_tx_pkt(edev, txq, first_bd, nbd,
- 						data_split);
-+			qede_update_tx_producer(txq);
- 			return NETDEV_TX_OK;
- 		}
- 	}
-@@ -701,20 +722,8 @@ netdev_tx_t qede_start_xmit(struct sk_buff *skb,
- 	txq->tx_db.data.bd_prod =
- 		cpu_to_le16(qed_chain_get_prod_idx(&txq->tx_pbl));
- 
--	/* wmb makes sure that the BDs data is updated before updating the
--	 * producer, otherwise FW may read old data from the BDs.
--	 */
--	wmb();
--	barrier();
--	writel(txq->tx_db.raw, txq->doorbell_addr);
+-	while (1) {
+-		u8 tc;
 -
--	/* mmiowb is needed to synchronize doorbell writes from more than one
--	 * processor. It guarantees that the write arrives to the device before
--	 * the queue lock is released and another start_xmit is called (possibly
--	 * on another CPU). Without this barrier, the next doorbell can bypass
--	 * this doorbell. This is applicable to IA64/Altix systems.
--	 */
--	mmiowb();
-+	if (!skb->xmit_more || netif_tx_queue_stopped(netdev_txq))
-+		qede_update_tx_producer(txq);
+-		for (tc = 0; tc < edev->num_tc; tc++)
+-			if (qede_txq_has_work(&fp->txqs[tc]))
+-				qede_tx_int(edev, &fp->txqs[tc]);
+-
+-		if (qede_has_rx_work(fp->rxq)) {
+-			work_done += qede_rx_int(fp, budget - work_done);
+-
+-			/* must not complete if we consumed full budget */
+-			if (work_done >= budget)
+-				break;
+-		}
++	for (tc = 0; tc < edev->num_tc; tc++)
++		if (qede_txq_has_work(&fp->txqs[tc]))
++			qede_tx_int(edev, &fp->txqs[tc]);
++
++	rx_work_done = qede_has_rx_work(fp->rxq) ?
++			qede_rx_int(fp, budget) : 0;
++	if (rx_work_done < budget) {
++		qed_sb_update_sb_idx(fp->sb_info);
++		/* *_has_*_work() reads the status block,
++		 * thus we need to ensure that status block indices
++		 * have been actually read (qed_sb_update_sb_idx)
++		 * prior to this check (*_has_*_work) so that
++		 * we won't write the "newer" value of the status block
++		 * to HW (if there was a DMA right after
++		 * qede_has_rx_work and if there is no rmb, the memory
++		 * reading (qed_sb_update_sb_idx) may be postponed
++		 * to right before *_ack_sb). In this case there
++		 * will never be another interrupt until there is
++		 * another update of the status block, while there
++		 * is still unhandled work.
++		 */
++		rmb();
  
- 	if (unlikely(qed_chain_get_elem_left(&txq->tx_pbl)
- 		      < (MAX_SKB_FRAGS + 1))) {
+ 		/* Fall out from the NAPI loop if needed */
+-		if (!(qede_has_rx_work(fp->rxq) || qede_has_tx_work(fp))) {
+-			qed_sb_update_sb_idx(fp->sb_info);
+-			/* *_has_*_work() reads the status block,
+-			 * thus we need to ensure that status block indices
+-			 * have been actually read (qed_sb_update_sb_idx)
+-			 * prior to this check (*_has_*_work) so that
+-			 * we won't write the "newer" value of the status block
+-			 * to HW (if there was a DMA right after
+-			 * qede_has_rx_work and if there is no rmb, the memory
+-			 * reading (qed_sb_update_sb_idx) may be postponed
+-			 * to right before *_ack_sb). In this case there
+-			 * will never be another interrupt until there is
+-			 * another update of the status block, while there
+-			 * is still unhandled work.
+-			 */
+-			rmb();
+-
+-			if (!(qede_has_rx_work(fp->rxq) ||
+-			      qede_has_tx_work(fp))) {
+-				napi_complete(napi);
+-				/* Update and reenable interrupts */
+-				qed_sb_ack(fp->sb_info, IGU_INT_ENABLE,
+-					   1 /*update*/);
+-				break;
+-			}
++		if (!(qede_has_rx_work(fp->rxq) ||
++		      qede_has_tx_work(fp))) {
++			napi_complete(napi);
++
++			/* Update and reenable interrupts */
++			qed_sb_ack(fp->sb_info, IGU_INT_ENABLE,
++				   1 /*update*/);
++		} else {
++			rx_work_done = budget;
+ 		}
+ 	}
+ 
+-	return work_done;
++	return rx_work_done;
+ }
+ 
+ static irqreturn_t qede_msix_fp_int(int irq, void *fp_cookie)
 -- 
 2.7.2
