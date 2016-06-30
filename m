@@ -1,55 +1,38 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] tcp: add an ability to dump and restore window
- parameters
-Date: Thu, 30 Jun 2016 08:16:07 -0400 (EDT)
-Message-ID: <20160630.081607.555906539070578914.davem@davemloft.net>
-References: <1467066836-3817-1-git-send-email-avagin@openvz.org>
+Subject: Re: [PATCH V2 net-next] tcp: increase size at which
+ tcp_bound_to_half_wnd bounds to > TCP_MSS_DEFAULT
+Date: Thu, 30 Jun 2016 08:19:16 -0400 (EDT)
+Message-ID: <20160630.081916.1225181723655280381.davem@davemloft.net>
+References: <CS1PR84MB0295BC70B8ACF200C11B5E25FD220@CS1PR84MB0295.NAMPRD84.PROD.OUTLOOK.COM>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	criu@openvz.org, xemul@parallels.com, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: avagin@openvz.org
+Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
+To: shane.seymour@hpe.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55259 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55284 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752225AbcF3MRL (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 08:17:11 -0400
-In-Reply-To: <1467066836-3817-1-git-send-email-avagin@openvz.org>
+	with ESMTP id S1751986AbcF3MTm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 08:19:42 -0400
+In-Reply-To: <CS1PR84MB0295BC70B8ACF200C11B5E25FD220@CS1PR84MB0295.NAMPRD84.PROD.OUTLOOK.COM>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Andrey Vagin <avagin@openvz.org>
-Date: Mon, 27 Jun 2016 15:33:56 -0700
+From: "Seymour, Shane M" <shane.seymour@hpe.com>
+Date: Tue, 28 Jun 2016 23:06:48 +0000
 
-> We found that sometimes a restored tcp socket doesn't work.
+> In previous commit 01f83d69844d307be2aa6fea88b0e8fe5cbdb2f4
+> the following comments were added:
 > 
-> A reason of this bug is incorrect window parameters and in this case
-> tcp_acceptable_seq() returns tcp_wnd_end(tp) instead of tp->snd_nxt. The
-> other side drops packets with this seq, because seq is less than
-> tp->rcv_nxt ( tcp_sequence() ).
+> "When peer uses tiny windows, there is no use in packetizing to sub-MSS
+> pieces for the sake of SWS or making sure there are enough packets in
+> the pipe for fast recovery."
 > 
-> Data from a send queue is sent only if there is enough space in a
-> window, so when we restore unacked data, we need to expand a window to
-> fit this data.
+> The test should be > TCP_MSS_DEFAULT not >= 512. This allows low end
+> devices that send an MSS of 536 (TCP_MSS_DEFAULT) to see better network
+> performance by sending it 536 bytes of data at a time instead of bounding
+> to half window size (268). Other network stacks work this way, e.g. HP-UX.
 > 
-> This was in a first version of this patch:
-> "tcp: extend window to fit all restored unacked data in a send queue"
-> 
-> Then Alexey recommended me to restore window parameters instead of
-> adjusted them according with data in a sent queue. This sounds resonable.
-> 
-> rcv_wnd has to be restored, because it was reported to another side
-> and the offered window is never shrunk.
-> One of reasons why we need to restore snd_wnd was described above.
-> 
-> Cc: Pavel Emelyanov <xemul@parallels.com>
-> Cc: "David S. Miller" <davem@davemloft.net>
-> Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-> Cc: James Morris <jmorris@namei.org>
-> Cc: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> Cc: Patrick McHardy <kaber@trash.net>
-> Signed-off-by: Andrey Vagin <avagin@openvz.org>
+> Signed-off-by: Shane Seymour <shane.seymour@hpe.com>
 
-Applied to net-next, thanks.
+Applied.
