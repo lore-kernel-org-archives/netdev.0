@@ -1,7 +1,8 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v2 net-next 0/9] net: hns: fix the typo of hns
-Date: Thu, 30 Jun 2016 15:25:00 +0800
-Message-ID: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v2 net-next 1/9] MAINTAINERS: add maintainers for hns driver
+Date: Thu, 30 Jun 2016 15:25:01 +0800
+Message-ID: <1467271509-63162-2-git-send-email-Yisen.Zhuang@huawei.com>
+References: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <akpm@linux-foundation.org>, <gregkh@linuxfoundation.org>,
@@ -13,48 +14,43 @@ Cc: <akpm@linux-foundation.org>, <gregkh@linuxfoundation.org>,
 	<netdev@vger.kernel.org>
 To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
 	<salil.mehta@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:38054 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751860AbcF3HHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 03:07:07 -0400
+In-Reply-To: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This series includes typo fixes which review by Andy, adding
-the hns maintainer to MAINTAINERS, as below:
+From: Daode Huang <huangdaode@hisilicon.com>
 
- > from Daode: adds the maintainer for hns driver;
+This patch adds maintainers for hisilicon network subsystem driver
 
- > from Daode: fix the typo of hns reviewed by Andy Shevchenko;
+Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
+---
+ MAINTAINERS | 9 +++++++++
+ 1 file changed, 9 insertions(+)
 
- > from Kejian: one remove redundant function and two fix to get 
-configuration from DT.
-
-changlog:
- v1 -> v2:
-  fix the indentations reviewed by David.
-
-Daode Huang (6):
-  MAINTAINERS: add maintainers for hns driver
-  net: hns: fix code style about hns driver
-  net: hns: change code style from a = a + x to a += x
-  net: hns: delete redundant parens
-  net: hns: add a space before "*/"
-  net: hns: normalize two different loop
-
-Kejian Yan (3):
-  net: hns: remove redundant hns_mac_dev_to_enet_if()
-  net: hns: add media-type property for hns
-  net: hns: get reset registers from DT
-
- MAINTAINERS                                        |  9 +++
- drivers/net/ethernet/hisilicon/hns/hnae.h          |  9 +++
- drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |  1 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 41 +++++++----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |  1 +
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 52 +++++++-------
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 16 ++---
- drivers/net/ethernet/hisilicon/hns/hns_enet.c      |  4 +-
- drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   | 14 +++-
- drivers/net/ethernet/hisilicon/hns_mdio.c          | 80 ++++++++++++++++++----
- 10 files changed, 158 insertions(+), 69 deletions(-)
-
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 3a171a9..c819659 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -5421,6 +5421,15 @@ F:	include/uapi/linux/if_hippi.h
+ F:	net/802/hippi.c
+ F:	drivers/net/hippi/
+ 
++HISILICON NETWORK SUBSYSTEM DRIVER
++M:	Yisen Zhuang <yisen.zhuang@huawei.com>
++M:	Salil Mehta <salil.mehta@huawei.com>
++L:	netdev@vger.kernel.org
++W:	http://www.hisilicon.com
++S:	Maintained
++F:	drivers/net/ethernet/hisilicon/*
++F:	Documentation/devicetree/bindings/net/hisilicon*.txt
++
+ HISILICON SAS Controller
+ M:	John Garry <john.garry@huawei.com>
+ W:	http://www.hisilicon.com
 -- 
 1.9.1
