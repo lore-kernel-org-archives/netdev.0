@@ -1,46 +1,44 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net] net: poll tx timeout only on active tx queues
-Date: Thu, 30 Jun 2016 16:58:05 +0300
-Message-ID: <1467295085-9204-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Eric Dumazet <edumazet@google.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Mohamad Haj Yahia <mohamad@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] bonding: prevent out of bound accesses
+Date: Thu, 30 Jun 2016 16:08:49 +0200
+Message-ID: <1467295729.11238.14.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1467291379.11238.8.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CACT4Y+aAVS+oYg62hftq7RMb2QM9wiPCK-Vf33c2PaG2Sm6R6g@mail.gmail.com>
+	 <1467293149.11238.12.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <CACT4Y+YdOi1-z1pPJaYBybyHZ=MXzHPGjGU+UJWJf-N3pgGzeg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Ding Tianhong <dingtianhong@huawei.com>
+To: Dmitry Vyukov <dvyukov@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:33352 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752123AbcF3N6u (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jun 2016 09:58:50 -0400
+Received: from mail-wm0-f43.google.com ([74.125.82.43]:33116 "EHLO
+	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752239AbcF3OJS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 10:09:18 -0400
+Received: by mail-wm0-f43.google.com with SMTP id r190so4630192wmr.0
+        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 07:08:52 -0700 (PDT)
+In-Reply-To: <CACT4Y+YdOi1-z1pPJaYBybyHZ=MXzHPGjGU+UJWJf-N3pgGzeg@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mohamad Haj Yahia <mohamad@mellanox.com>
+On Thu, 2016-06-30 at 15:35 +0200, Dmitry Vyukov wrote:
 
-Change the netdev watchdog to poll only the real active tx queues
-instead of polling all tx queues.
-The netdev driver doesn't necessarily have to start/stop all the
-tx queues including the inactive tx queues.
+> 
+> What does nm -S say?
+> I've tried to compile a sample program with gcc6 and
+> __attribute__((aligned(8))) does in fact force alignment of start of
+> the symbol, but size still stays 6. (and asan still barks on my test
+> program).
 
-Fixes: fd2ea0a79faa ('net: Use queue aware tests throughout.')
-Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- net/sched/sch_generic.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+Right, but then it means I also need to change mac_bcast[] and
+mac_v6_allmcast[] in bond_alb.c to avoid false positive.
 
-diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-index f9e0e9c..a10f0ff 100644
---- a/net/sched/sch_generic.c
-+++ b/net/sched/sch_generic.c
-@@ -253,7 +253,7 @@ static void dev_watchdog(unsigned long arg)
- 			unsigned int i;
- 			unsigned long trans_start;
- 
--			for (i = 0; i < dev->num_tx_queues; i++) {
-+			for (i = 0; i < dev->real_num_tx_queues; i++) {
- 				struct netdev_queue *txq;
- 
- 				txq = netdev_get_tx_queue(dev, i);
--- 
-2.8.0
+(Technically, if their alignment is 8, we have 8 bytes there,
+no way it could span 2 pages)
+
+I'll send a v2.
