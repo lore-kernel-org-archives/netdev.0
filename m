@@ -1,126 +1,79 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: Re: [net-next PATCH 1/2] net: pktgen: support injecting packets for
- qdisc testing
-Date: Thu, 30 Jun 2016 06:21:26 -0400
-Message-ID: <5774F2A6.3020308@mojatatu.com>
-References: <20160629194731.14745.20562.stgit@john-Precision-Tower-5810>
+From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
+Subject: [PATCH] usbnet: add reset_resume quirk to prevent resume failure
+Date: Thu, 30 Jun 2016 10:41:59 +0000 (GMT)
+Message-ID: <1387942633.112861467283319260.JavaMail.weblogic@epmlwas03c>
+Reply-To: vivek.bhagat@samsung.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: John Fastabend <john.fastabend@gmail.com>, brouer@redhat.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+Cc: hemanshu.s@samsung.com, vikas.bansal@samsung.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:35988 "EHLO
-	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750937AbcF3KVe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 06:21:34 -0400
-Received: by mail-io0-f195.google.com with SMTP id s63so7701731ioi.3
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 03:21:33 -0700 (PDT)
-In-Reply-To: <20160629194731.14745.20562.stgit@john-Precision-Tower-5810>
+Received: from mailout2.samsung.com ([203.254.224.25]:52350 "EHLO
+	mailout2.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751601AbcF3KmC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 06:42:02 -0400
+Received: from epcpsbgr3.samsung.com
+ (u143.gpu120.samsung.co.kr [203.254.230.143])
+ by mailout2.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
+ 64bit (built May  5 2014))
+ with ESMTP id <0O9K00148Z1ZAI20@mailout2.samsung.com> for
+ netdev@vger.kernel.org; Thu, 30 Jun 2016 19:41:59 +0900 (KST)
+MIME-version: 1.0
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-06-29 03:47 PM, John Fastabend wrote:
-> Add another xmit_mode to pktgen to allow testing xmit functionality
-> of qdiscs. The new mode "queue_xmit" injects packets at
-> __dev_queue_xmit() so that qdisc is called.
->
-> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> ---
->   net/core/pktgen.c |   42 ++++++++++++++++++++++++++++++++++++++++--
->   1 file changed, 40 insertions(+), 2 deletions(-)
->
-> diff --git a/net/core/pktgen.c b/net/core/pktgen.c
-> index f74ab9c..4b3d467 100644
-> --- a/net/core/pktgen.c
-> +++ b/net/core/pktgen.c
-> @@ -213,6 +213,7 @@
->   /* Xmit modes */
->   #define M_START_XMIT		0	/* Default normal TX */
->   #define M_NETIF_RECEIVE 	1	/* Inject packets into stack */
-> +#define M_QUEUE_XMIT		2	/* Inject packet into qdisc */
->
->   /* If lock -- protects updating of if_list */
->   #define   if_lock(t)           spin_lock(&(t->if_lock));
-> @@ -626,6 +627,8 @@ static int pktgen_if_show(struct seq_file *seq, void *v)
->
->   	if (pkt_dev->xmit_mode == M_NETIF_RECEIVE)
->   		seq_puts(seq, "     xmit_mode: netif_receive\n");
-> +	else if (pkt_dev->xmit_mode == M_QUEUE_XMIT)
-> +		seq_puts(seq, "     xmit_mode: xmit_queue\n");
->
->   	seq_puts(seq, "     Flags: ");
->
-> @@ -1142,8 +1145,10 @@ static ssize_t pktgen_if_write(struct file *file,
->   			return len;
->
->   		i += len;
-> -		if ((value > 1) && (pkt_dev->xmit_mode == M_START_XMIT) &&
-> -		    (!(pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)))
-> +		if ((value > 1) &&
-> +		    ((pkt_dev->xmit_mode == M_QUEUE_XMIT) ||
-> +		     ((pkt_dev->xmit_mode == M_START_XMIT) &&
-> +		     (!(pkt_dev->odev->priv_flags & IFF_TX_SKB_SHARING)))))
->   			return -ENOTSUPP;
->   		pkt_dev->burst = value < 1 ? 1 : value;
->   		sprintf(pg_result, "OK: burst=%d", pkt_dev->burst);
-> @@ -1198,6 +1203,9 @@ static ssize_t pktgen_if_write(struct file *file,
->   			 * at module loading time
->   			 */
->   			pkt_dev->clone_skb = 0;
-> +		} else if (strcmp(f, "queue_xmit") == 0) {
-> +			pkt_dev->xmit_mode = M_QUEUE_XMIT;
-> +			pkt_dev->last_ok = 1;
->   		} else {
->   			sprintf(pg_result,
->   				"xmit_mode -:%s:- unknown\nAvailable modes: %s",
-> @@ -3434,6 +3442,36 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
->   #endif
->   		} while (--burst > 0);
->   		goto out; /* Skips xmit_mode M_START_XMIT */
-> +	} else if (pkt_dev->xmit_mode == M_QUEUE_XMIT) {
-> +		local_bh_disable();
-> +		atomic_add(burst, &pkt_dev->skb->users);
-> +
-> +		ret = dev_queue_xmit(pkt_dev->skb);
-> +		switch (ret) {
-> +		case NET_XMIT_SUCCESS:
-> +			pkt_dev->sofar++;
-> +			pkt_dev->seq_num++;
-> +			pkt_dev->tx_bytes += pkt_dev->last_pkt_size;
-> +			break;
-> +		case NET_XMIT_DROP:
-> +		case NET_XMIT_CN:
-> +		/* These are all valid return codes for a qdisc but
-> +		 * indicate packets are being dropped or will likely
-> +		 * be dropped soon.
-> +		 */
-> +		case NETDEV_TX_BUSY:
-> +		/* qdisc may call dev_hard_start_xmit directly in cases
-> +		 * where no queues exist e.g. loopback device, virtual
-> +		 * devices, etc. In this case we need to handle
-> +		 * NETDEV_TX_ codes.
-> +		 */
-> +		default:
-> +			pkt_dev->errors++;
-> +			net_info_ratelimited("%s xmit error: %d\n",
-> +					     pkt_dev->odevname, ret);
-> +			break;
-> +		}
-> +		goto out;
->   	}
->
->   	txq = skb_get_tx_queue(odev, pkt_dev->skb);
->
-
-
-Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
-
-In travel mode, dont have much cycles right now - but can you review
-again:
-http://www.spinics.net/lists/netdev/msg359545.html
-I think you should disallow clone for example and i wasnt sure if you
-covered all error scenarios etc.
-
-cheers,
-jamal
+CklkZWFsbHksIHVzYm5ldF9yZXN1bWUgaXMgc3VmZmljaWVudCBmb3IgZGV2aWNlIHJlc3VtZSBv
+cGVyYXRpb24uCnNpbmNlIHVzYmNvcmUgZnVuY3Rpb24gdXNiX3Jlc3VtZV9kZXZpY2UoKSBzZXRz
+IHVkZXYtPnJlc2V0X3Jlc3VtZQpmbGFnIGFzIGEgcXVpcmsgc29sdXRpb24sIHJlc2V0X3Jlc3Vt
+ZSgpIHF1aXJrIHdlIGNhbiBrZWVwIGluCmNsYXNzIGRyaXZlciBhbHNvLiBXZSBjaGVja2VkIG9u
+IGRvbmdsZSBEQS1RdWVlbiBVRkUyMEMsCndpdGhvdXQgcmVzZXQgZnVuY3Rpb24gcmVzdW1lIG9w
+ZXJhdGlvbiBmYWlscy4gUmVhc29uIGNvdWxkIGJlCnNvbWUgcG93ZXIgZ2xpdGNoIGR1cmluZyBz
+dXNwZW5kIHRpbWUgZHVlIHRvIHdoaWNoIGRldmljZSBsb3NlCml0cyBpbnRlcm5hbCBzdGF0ZSBh
+bmQgaXQgbmVlZHMgYSBkZXZpY2UgcGh5IHJlc2V0IGFnYWluIGR1cmluZwpyZXN1bWUgdG8gcmVj
+b3Zlci4KClNpZ25lZC1vZmYtYnk6IFZpdmVrIEt1bWFyIEJoYWdhdCA8dml2ZWsuYmhhZ2F0QHNh
+bXN1bmcuY29tPgpTaWduZWQtb2ZmLWJ5OiBWaWthcyBCYW5zYWwgPHZpa2FzLmJhbnNhbEBzYW1z
+dW5nLmNvbT4KU2lnbmVkLW9mZi1ieTogU2FuZ21pbiBCYWUgPHNtNzkuYmFlQHNhbXN1bmcuY29t
+PgotLS0KIGRyaXZlcnMvbmV0L3VzYi9hc2l4X2RldmljZXMuYyB8ICAgIDEgKwogZHJpdmVycy9u
+ZXQvdXNiL2NkY19lZW0uYyAgICAgIHwgICAgMSArCiBkcml2ZXJzL25ldC91c2IvdXNibmV0LmMg
+ICAgICAgfCAgIDE3ICsrKysrKysrKysrKysrKysrCiBpbmNsdWRlL2xpbnV4L3VzYi91c2JuZXQu
+aCAgICAgfCAgICAxICsKIDQgZmlsZXMgY2hhbmdlZCwgMjAgaW5zZXJ0aW9ucygrKQoKZGlmZiAt
+LWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9hc2l4X2RldmljZXMuYyBiL2RyaXZlcnMvbmV0L3VzYi9h
+c2l4X2RldmljZXMuYwppbmRleCA1Y2FiZWZjLi42OGRkYTYxIDEwMDY0NAotLS0gYS9kcml2ZXJz
+L25ldC91c2IvYXNpeF9kZXZpY2VzLmMKKysrIGIvZHJpdmVycy9uZXQvdXNiL2FzaXhfZGV2aWNl
+cy5jCkBAIC0xMDk3LDYgKzEwOTcsNyBAQCBzdGF0aWMgc3RydWN0IHVzYl9kcml2ZXIgYXNpeF9k
+cml2ZXIgPSB7CiAJLnByb2JlID0JdXNibmV0X3Byb2JlLAogCS5zdXNwZW5kID0JdXNibmV0X3N1
+c3BlbmQsCiAJLnJlc3VtZSA9CXVzYm5ldF9yZXN1bWUsCisJLnJlc2V0X3Jlc3VtZSA9IHVzYm5l
+dF9yZXNldF9yZXN1bWUsCiAJLmRpc2Nvbm5lY3QgPQl1c2JuZXRfZGlzY29ubmVjdCwKIAkuc3Vw
+cG9ydHNfYXV0b3N1c3BlbmQgPSAxLAogCS5kaXNhYmxlX2h1Yl9pbml0aWF0ZWRfbHBtID0gMSwK
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3VzYi9jZGNfZWVtLmMgYi9kcml2ZXJzL25ldC91c2Iv
+Y2RjX2VlbS5jCmluZGV4IGY3MTgwZjguLjgzYjY4NTcgMTAwNjQ0Ci0tLSBhL2RyaXZlcnMvbmV0
+L3VzYi9jZGNfZWVtLmMKKysrIGIvZHJpdmVycy9uZXQvdXNiL2NkY19lZW0uYwpAQCAtMzcxLDYg
+KzM3MSw3IEBAIHN0YXRpYyBzdHJ1Y3QgdXNiX2RyaXZlciBlZW1fZHJpdmVyID0gewogCS5kaXNj
+b25uZWN0ID0JdXNibmV0X2Rpc2Nvbm5lY3QsCiAJLnN1c3BlbmQgPQl1c2JuZXRfc3VzcGVuZCwK
+IAkucmVzdW1lID0JdXNibmV0X3Jlc3VtZSwKKwkucmVzZXRfcmVzdW1lID0gdXNibmV0X3Jlc2V0
+X3Jlc3VtZSwKIAkuZGlzYWJsZV9odWJfaW5pdGlhdGVkX2xwbSA9IDEsCiB9OwogCmRpZmYgLS1n
+aXQgYS9kcml2ZXJzL25ldC91c2IvdXNibmV0LmMgYi9kcml2ZXJzL25ldC91c2IvdXNibmV0LmMK
+aW5kZXggNjFiYTQ2NC4uZjU2YzE3NiAxMDA2NDQKLS0tIGEvZHJpdmVycy9uZXQvdXNiL3VzYm5l
+dC5jCisrKyBiL2RyaXZlcnMvbmV0L3VzYi91c2JuZXQuYwpAQCAtMTg3Niw2ICsxODc2LDIzIEBA
+IGludCB1c2JuZXRfcmVzdW1lIChzdHJ1Y3QgdXNiX2ludGVyZmFjZSAqaW50ZikKIH0KIEVYUE9S
+VF9TWU1CT0xfR1BMKHVzYm5ldF9yZXN1bWUpOwogCitpbnQgdXNibmV0X3Jlc2V0X3Jlc3VtZShz
+dHJ1Y3QgdXNiX2ludGVyZmFjZSAqaW50ZikKK3sKKwlzdHJ1Y3QgdXNibmV0ICpkZXYgPSB1c2Jf
+Z2V0X2ludGZkYXRhKGludGYpOworCWludCByZXQ7CisKKwlpZiAoZGV2LT5kcml2ZXJfaW5mby0+
+cmVzZXQpIHsKKwkJcmV0ID0gZGV2LT5kcml2ZXJfaW5mby0+cmVzZXQoZGV2KTsKKwkJaWYgKHJl
+dCA8IDApCisJCQlyZXR1cm4gcmV0OworCisJCXJldHVybiB1c2JuZXRfcmVzdW1lKGludGYpOwor
+CX0KKworCXJldHVybiAtRUlOVkFMOworfQorRVhQT1JUX1NZTUJPTF9HUEwodXNibmV0X3Jlc2V0
+X3Jlc3VtZSk7CisKIC8qCiAgKiBFaXRoZXIgYSBzdWJkcml2ZXIgaW1wbGVtZW50cyBtYW5hZ2Vf
+cG93ZXIsIHRoZW4gaXQgaXMgYXNzdW1lZCB0byBhbHdheXMKICAqIGJlIHJlYWR5IHRvIGJlIHN1
+c3BlbmRlZCBvciBpdCByZXBvcnRzIHRoZSByZWFkaW5lc3MgdG8gYmUgc3VzcGVuZGVkCmRpZmYg
+LS1naXQgYS9pbmNsdWRlL2xpbnV4L3VzYi91c2JuZXQuaCBiL2luY2x1ZGUvbGludXgvdXNiL3Vz
+Ym5ldC5oCmluZGV4IDZlMGNlOGMuLjBiMjYxZDUgMTAwNjQ0Ci0tLSBhL2luY2x1ZGUvbGludXgv
+dXNiL3VzYm5ldC5oCisrKyBiL2luY2x1ZGUvbGludXgvdXNiL3VzYm5ldC5oCkBAIC0xNzcsNiAr
+MTc3LDcgQEAgc3RydWN0IGRyaXZlcl9pbmZvIHsKIGV4dGVybiBpbnQgdXNibmV0X3Byb2JlKHN0
+cnVjdCB1c2JfaW50ZXJmYWNlICosIGNvbnN0IHN0cnVjdCB1c2JfZGV2aWNlX2lkICopOwogZXh0
+ZXJuIGludCB1c2JuZXRfc3VzcGVuZChzdHJ1Y3QgdXNiX2ludGVyZmFjZSAqLCBwbV9tZXNzYWdl
+X3QpOwogZXh0ZXJuIGludCB1c2JuZXRfcmVzdW1lKHN0cnVjdCB1c2JfaW50ZXJmYWNlICopOwor
+ZXh0ZXJuIGludCB1c2JuZXRfcmVzZXRfcmVzdW1lKHN0cnVjdCB1c2JfaW50ZXJmYWNlICopOwog
+ZXh0ZXJuIHZvaWQgdXNibmV0X2Rpc2Nvbm5lY3Qoc3RydWN0IHVzYl9pbnRlcmZhY2UgKik7CiBl
+eHRlcm4gdm9pZCB1c2JuZXRfZGV2aWNlX3N1Z2dlc3RzX2lkbGUoc3RydWN0IHVzYm5ldCAqZGV2
+KTsKIAotLSAKMS43LjkuNQo=
