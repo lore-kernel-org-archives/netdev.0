@@ -1,105 +1,118 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: [Patch net] net_sched: fix mirrored packets checksum
-Date: Thu, 30 Jun 2016 10:15:22 -0700
-Message-ID: <1467306922-7086-1-git-send-email-xiyou.wangcong@gmail.com>
-Cc: Cong Wang <xiyou.wangcong@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Tom Herbert <tom@herbertland.com>
-To: netdev@vger.kernel.org
+From: Bjorn Andersson <bjorn.andersson@linaro.org>
+Subject: [PATCH] wcn36xx: Implement print_reg indication
+Date: Thu, 30 Jun 2016 10:46:29 -0700
+Message-ID: <1467308789-23475-1-git-send-email-bjorn.andersson@linaro.org>
+Cc: wcn36xx@lists.infradead.org, linux-wireless@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Nicolas Dechesne <ndec@linaro.org>
+To: Eugene Krasnikov <k.eugene.e@gmail.com>,
+	Kalle Valo <kvalo@codeaurora.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33190 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751536AbcF3RaN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 13:30:13 -0400
-Received: by mail-pa0-f66.google.com with SMTP id ts6so7679400pac.0
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 10:30:00 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35502 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752525AbcF3Rqh (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 13:46:37 -0400
+Received: by mail-pa0-f48.google.com with SMTP id hl6so30379774pac.2
+        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 10:46:31 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Similar to commit 9b368814b336 ("net: fix bridge multicast packet checksum validation")
-we need to fixup the checksum for CHECKSUM_COMPLETE when
-pushing skb on RX path. Otherwise we get similar splats.
+Some firmware versions sends a "print register indication", handle this
+by printing out the content.
 
-Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-Cc: Tom Herbert <tom@herbertland.com>
-Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+Cc: Nicolas Dechesne <ndec@linaro.org>
+Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
 ---
- include/linux/skbuff.h | 19 +++++++++++++++++++
- net/core/skbuff.c      | 18 ------------------
- net/sched/act_mirred.c |  2 +-
- 3 files changed, 20 insertions(+), 19 deletions(-)
+ drivers/net/wireless/ath/wcn36xx/hal.h | 16 ++++++++++++++++
+ drivers/net/wireless/ath/wcn36xx/smd.c | 30 ++++++++++++++++++++++++++++++
+ 2 files changed, 46 insertions(+)
 
-diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
-index ee38a41..61ab566 100644
---- a/include/linux/skbuff.h
-+++ b/include/linux/skbuff.h
-@@ -2870,6 +2870,25 @@ static inline void skb_postpush_rcsum(struct sk_buff *skb,
+diff --git a/drivers/net/wireless/ath/wcn36xx/hal.h b/drivers/net/wireless/ath/wcn36xx/hal.h
+index 4f87ef1e1eb8..b765c647319d 100644
+--- a/drivers/net/wireless/ath/wcn36xx/hal.h
++++ b/drivers/net/wireless/ath/wcn36xx/hal.h
+@@ -350,6 +350,8 @@ enum wcn36xx_hal_host_msg_type {
+ 
+ 	WCN36XX_HAL_AVOID_FREQ_RANGE_IND = 233,
+ 
++	WCN36XX_HAL_PRINT_REG_INFO_IND = 259,
++
+ 	WCN36XX_HAL_MSG_MAX = WCN36XX_HAL_MSG_TYPE_MAX_ENUM_SIZE
+ };
+ 
+@@ -4703,4 +4705,18 @@ struct stats_class_b_ind {
+ 	u32 rx_time_total;
+ };
+ 
++/* WCN36XX_HAL_PRINT_REG_INFO_IND */
++struct wcn36xx_hal_print_reg_info_ind {
++	struct wcn36xx_hal_msg_header header;
++
++	u32 count;
++	u32 scenario;
++	u32 reason;
++
++	struct {
++		u32 addr;
++		u32 value;
++	} regs[];
++} __packed;
++
+ #endif /* _HAL_H_ */
+diff --git a/drivers/net/wireless/ath/wcn36xx/smd.c b/drivers/net/wireless/ath/wcn36xx/smd.c
+index 87a62eb6228c..28d6ca0ca819 100644
+--- a/drivers/net/wireless/ath/wcn36xx/smd.c
++++ b/drivers/net/wireless/ath/wcn36xx/smd.c
+@@ -2109,6 +2109,30 @@ static int wcn36xx_smd_delete_sta_context_ind(struct wcn36xx *wcn,
+ 	return -ENOENT;
  }
  
- /**
-+ *	skb_push_rcsum - push skb and update receive checksum
-+ *	@skb: buffer to update
-+ *	@len: length of data pulled
-+ *
-+ *	This function performs an skb_push on the packet and updates
-+ *	the CHECKSUM_COMPLETE checksum.  It should be used on
-+ *	receive path processing instead of skb_push unless you know
-+ *	that the checksum difference is zero (e.g., a valid IP header)
-+ *	or you are setting ip_summed to CHECKSUM_NONE.
-+ */
-+static inline unsigned char *skb_push_rcsum(struct sk_buff *skb,
-+					    unsigned int len)
++static int wcn36xx_smd_print_reg_info_ind(struct wcn36xx *wcn,
++					  void *buf,
++					  size_t len)
 +{
-+	skb_push(skb, len);
-+	skb_postpush_rcsum(skb, skb->data, len);
-+	return skb->data;
++	struct wcn36xx_hal_print_reg_info_ind *rsp = buf;
++	int i;
++
++	if (len < sizeof(*rsp)) {
++		wcn36xx_warn("Corrupted print reg info indication\n");
++		return -EIO;
++	}
++
++	wcn36xx_dbg(WCN36XX_DBG_HAL,
++		    "reginfo indication, scenario: 0x%x reason: 0x%x\n",
++		    rsp->scenario, rsp->reason);
++
++	for (i = 0; i < rsp->count; i++) {
++		wcn36xx_dbg(WCN36XX_DBG_HAL, "\t0x%x: 0x%x\n",
++			    rsp->regs[i].addr, rsp->regs[i].value);
++	}
++
++	return 0;
 +}
 +
-+/**
-  *	pskb_trim_rcsum - trim received skb and update checksum
-  *	@skb: buffer to trim
-  *	@len: new length
-diff --git a/net/core/skbuff.c b/net/core/skbuff.c
-index f2b77e5..eb12d21 100644
---- a/net/core/skbuff.c
-+++ b/net/core/skbuff.c
-@@ -3016,24 +3016,6 @@ int skb_append_pagefrags(struct sk_buff *skb, struct page *page,
- EXPORT_SYMBOL_GPL(skb_append_pagefrags);
- 
- /**
-- *	skb_push_rcsum - push skb and update receive checksum
-- *	@skb: buffer to update
-- *	@len: length of data pulled
-- *
-- *	This function performs an skb_push on the packet and updates
-- *	the CHECKSUM_COMPLETE checksum.  It should be used on
-- *	receive path processing instead of skb_push unless you know
-- *	that the checksum difference is zero (e.g., a valid IP header)
-- *	or you are setting ip_summed to CHECKSUM_NONE.
-- */
--static unsigned char *skb_push_rcsum(struct sk_buff *skb, unsigned len)
--{
--	skb_push(skb, len);
--	skb_postpush_rcsum(skb, skb->data, len);
--	return skb->data;
--}
--
--/**
-  *	skb_pull_rcsum - pull skb and update receive checksum
-  *	@skb: buffer to update
-  *	@len: length of data pulled
-diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-index 128942b..1f5bd6c 100644
---- a/net/sched/act_mirred.c
-+++ b/net/sched/act_mirred.c
-@@ -181,7 +181,7 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
- 
- 	if (!(at & AT_EGRESS)) {
- 		if (m->tcfm_ok_push)
--			skb_push(skb2, skb->mac_len);
-+			skb_push_rcsum(skb2, skb->mac_len);
- 	}
- 
- 	/* mirror is always swallowed */
+ int wcn36xx_smd_update_cfg(struct wcn36xx *wcn, u32 cfg_id, u32 value)
+ {
+ 	struct wcn36xx_hal_update_cfg_req_msg msg_body, *body;
+@@ -2238,6 +2262,7 @@ int wcn36xx_smd_rsp_process(struct qcom_smd_channel *channel,
+ 	case WCN36XX_HAL_OTA_TX_COMPL_IND:
+ 	case WCN36XX_HAL_MISSED_BEACON_IND:
+ 	case WCN36XX_HAL_DELETE_STA_CONTEXT_IND:
++	case WCN36XX_HAL_PRINT_REG_INFO_IND:
+ 		msg_ind = kmalloc(sizeof(*msg_ind) + len, GFP_ATOMIC);
+ 		if (!msg_ind) {
+ 			/*
+@@ -2300,6 +2325,11 @@ static void wcn36xx_ind_smd_work(struct work_struct *work)
+ 						   hal_ind_msg->msg,
+ 						   hal_ind_msg->msg_len);
+ 		break;
++	case WCN36XX_HAL_PRINT_REG_INFO_IND:
++		wcn36xx_smd_print_reg_info_ind(wcn,
++					       hal_ind_msg->msg,
++					       hal_ind_msg->msg_len);
++		break;
+ 	default:
+ 		wcn36xx_err("SMD_EVENT (%d) not supported\n",
+ 			      msg_header->msg_type);
 -- 
-2.1.0
+2.5.0
