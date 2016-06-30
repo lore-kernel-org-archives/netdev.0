@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 04/16] net/mlx5: E-Switch, Add API to create send-to-vport rules
-Date: Thu, 30 Jun 2016 18:23:23 +0300
-Message-ID: <1467300215-14199-5-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 08/16] net/devlink: Add E-Switch mode control
+Date: Thu, 30 Jun 2016 18:23:27 +0300
+Message-ID: <1467300215-14199-9-git-send-email-saeedm@mellanox.com>
 References: <1467300215-14199-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -12,102 +12,192 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:43147 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:43224 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932407AbcF3PY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jun 2016 11:24:56 -0400
+	id S932184AbcF3PZN (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jun 2016 11:25:13 -0400
 In-Reply-To: <1467300215-14199-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Add the API to create send-to-vport e-switch rules of the form
+Add the commands to set and show the mode of SRIOV E-Switch, two modes
+are supported:
 
- packet meta-data :: send-queue-number == $SQN and source-vport == 0 --> $VPORT
+* legacy: operating in the "old" L2 based mode (DMAC --> VF vport)
 
-These rules are to be used for a send-to-vport logic which conceptually bypasses
-the "normal" steering rules currently present at the e-switch datapath.
-
-Such rule should apply only for packets that originate in the e-switch manager
-vport (0) and are sent for a given SQN which is used by a given VF representor
-device, and hence the matching logic.
+* switchdev: the E-Switch is referred to as whitebox switch configured
+using standard tools such as tc, bridge, openvswitch etc. To allow
+working with the tools, for each VF, a VF representor netdevice is
+created by the E-Switch manager vendor device driver instance (e.g PF).
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  3 +-
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 39 ++++++++++++++++++++++
- 2 files changed, 41 insertions(+), 1 deletion(-)
+ include/net/devlink.h        |  3 ++
+ include/uapi/linux/devlink.h |  8 ++++
+ net/core/devlink.c           | 87 ++++++++++++++++++++++++++++++++++++++++++++
+ 3 files changed, 98 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index 8eed33f..b7fabd1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -193,6 +193,8 @@ int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
- int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
- 				 int vport,
- 				 struct ifla_vf_stats *vf_stats);
-+struct mlx5_flow_rule *
-+mlx5_eswitch_add_send_to_vport_rule(struct mlx5_eswitch *esw, int vport, u32 sqn);
+diff --git a/include/net/devlink.h b/include/net/devlink.h
+index 1d45b61..c99ffe8 100644
+--- a/include/net/devlink.h
++++ b/include/net/devlink.h
+@@ -90,6 +90,9 @@ struct devlink_ops {
+ 				       u16 tc_index,
+ 				       enum devlink_sb_pool_type pool_type,
+ 				       u32 *p_cur, u32 *p_max);
++
++	int (*eswitch_mode_get)(struct devlink *devlink, u16 *p_mode);
++	int (*eswitch_mode_set)(struct devlink *devlink, u16 mode);
+ };
  
- #define MLX5_DEBUG_ESWITCH_MASK BIT(3)
+ static inline void *devlink_priv(struct devlink *devlink)
+diff --git a/include/uapi/linux/devlink.h b/include/uapi/linux/devlink.h
+index ba0073b..915bfa7 100644
+--- a/include/uapi/linux/devlink.h
++++ b/include/uapi/linux/devlink.h
+@@ -57,6 +57,8 @@ enum devlink_command {
+ 	DEVLINK_CMD_SB_OCC_SNAPSHOT,
+ 	DEVLINK_CMD_SB_OCC_MAX_CLEAR,
  
-@@ -204,5 +206,4 @@ int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
++	DEVLINK_CMD_ESWITCH_MODE_GET,
++	DEVLINK_CMD_ESWITCH_MODE_SET,
+ 	/* add new commands above here */
  
- #define esw_debug(dev, format, ...)				\
- 	mlx5_core_dbg_mask(dev, MLX5_DEBUG_ESWITCH_MASK, format, ##__VA_ARGS__)
--
- #endif /* __MLX5_ESWITCH_H__ */
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index e3d81ae..8964f71 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -38,6 +38,45 @@
- #include "mlx5_core.h"
- #include "eswitch.h"
+ 	__DEVLINK_CMD_MAX,
+@@ -95,6 +97,11 @@ enum devlink_sb_threshold_type {
  
-+struct mlx5_flow_rule *
-+mlx5_eswitch_add_send_to_vport_rule(struct mlx5_eswitch *esw, int vport, u32 sqn)
+ #define DEVLINK_SB_THRESHOLD_TO_ALPHA_MAX 20
+ 
++enum devlink_eswitch_mode {
++	DEVLINK_ESWITCH_MODE_LEGACY,
++	DEVLINK_ESWITCH_MODE_SWITCHDEV,
++};
++
+ enum devlink_attr {
+ 	/* don't change the order or add anything between, this is ABI! */
+ 	DEVLINK_ATTR_UNSPEC,
+@@ -125,6 +132,7 @@ enum devlink_attr {
+ 	DEVLINK_ATTR_SB_TC_INDEX,		/* u16 */
+ 	DEVLINK_ATTR_SB_OCC_CUR,		/* u32 */
+ 	DEVLINK_ATTR_SB_OCC_MAX,		/* u32 */
++	DEVLINK_ATTR_ESWITCH_MODE,		/* u16 */
+ 
+ 	/* add new attributes above here, update the policy in devlink.c */
+ 
+diff --git a/net/core/devlink.c b/net/core/devlink.c
+index 933e8d4..b2e592a 100644
+--- a/net/core/devlink.c
++++ b/net/core/devlink.c
+@@ -1394,6 +1394,78 @@ static int devlink_nl_cmd_sb_occ_max_clear_doit(struct sk_buff *skb,
+ 	return -EOPNOTSUPP;
+ }
+ 
++static int devlink_eswitch_fill(struct sk_buff *msg, struct devlink *devlink,
++				enum devlink_command cmd, u32 portid,
++				u32 seq, int flags, u16 mode)
 +{
-+	struct mlx5_flow_destination dest;
-+	struct mlx5_flow_rule *flow_rule;
-+	int match_header = MLX5_MATCH_MISC_PARAMETERS;
-+	u32 *match_v, *match_c;
-+	void *misc;
++	void *hdr;
 +
-+	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
-+	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
-+	if (!match_v || !match_c) {
-+		esw_warn(esw->dev, "FDB: Failed to alloc match parameters\n");
-+		flow_rule = ERR_PTR(-ENOMEM);
-+		goto out;
-+	}
++	hdr = genlmsg_put(msg, portid, seq, &devlink_nl_family, flags, cmd);
++	if (!hdr)
++		return -EMSGSIZE;
 +
-+	misc = MLX5_ADDR_OF(fte_match_param, match_v, misc_parameters);
-+	MLX5_SET(fte_match_set_misc, misc, source_sqn, sqn);
-+	MLX5_SET(fte_match_set_misc, misc, source_port, 0x0); /* source vport is 0 */
++	if (devlink_nl_put_handle(msg, devlink))
++		goto nla_put_failure;
 +
-+	misc = MLX5_ADDR_OF(fte_match_param, match_c, misc_parameters);
-+	MLX5_SET_TO_ONES(fte_match_set_misc, misc, source_sqn);
-+	MLX5_SET_TO_ONES(fte_match_set_misc, misc, source_port);
++	if (nla_put_u16(msg, DEVLINK_ATTR_ESWITCH_MODE, mode))
++		goto nla_put_failure;
 +
-+	dest.type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
-+	dest.vport_num = vport;
++	genlmsg_end(msg, hdr);
++	return 0;
 +
-+	flow_rule = mlx5_add_flow_rule(esw->fdb_table.fdb, match_header, match_c,
-+				       match_v, MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
-+				       0, &dest);
-+	if (IS_ERR(flow_rule))
-+		esw_warn(esw->dev, "FDB: Failed to add send to vport rule err %ld\n", PTR_ERR(flow_rule));
-+out:
-+	kfree(match_v);
-+	kfree(match_c);
-+	return flow_rule;
++nla_put_failure:
++	genlmsg_cancel(msg, hdr);
++	return -EMSGSIZE;
 +}
 +
- static int esw_add_fdb_miss_rule(struct mlx5_eswitch *esw)
- {
- 	struct mlx5_flow_destination dest;
++static int devlink_nl_cmd_eswitch_mode_get_doit(struct sk_buff *skb,
++						struct genl_info *info)
++{
++	struct devlink *devlink = info->user_ptr[0];
++	const struct devlink_ops *ops = devlink->ops;
++	struct sk_buff *msg;
++	u16 mode;
++	int err;
++
++	if (!ops || !ops->eswitch_mode_get)
++		return -EOPNOTSUPP;
++
++	err = ops->eswitch_mode_get(devlink, &mode);
++	if (err)
++		return err;
++
++	msg = nlmsg_new(NLMSG_DEFAULT_SIZE, GFP_KERNEL);
++	if (!msg)
++		return -ENOMEM;
++
++	err = devlink_eswitch_fill(msg, devlink, DEVLINK_CMD_ESWITCH_MODE_GET,
++				   info->snd_portid, info->snd_seq, 0, mode);
++
++	if (err) {
++		nlmsg_free(msg);
++		return err;
++	}
++
++	return genlmsg_reply(msg, info);
++}
++
++static int devlink_nl_cmd_eswitch_mode_set_doit(struct sk_buff *skb,
++						struct genl_info *info)
++{
++	struct devlink *devlink = info->user_ptr[0];
++	const struct devlink_ops *ops = devlink->ops;
++	u16 mode;
++
++	if (!info->attrs[DEVLINK_ATTR_ESWITCH_MODE])
++		return -EINVAL;
++
++	mode = nla_get_u16(info->attrs[DEVLINK_ATTR_ESWITCH_MODE]);
++
++	if (ops && ops->eswitch_mode_set)
++		return ops->eswitch_mode_set(devlink, mode);
++	return -EOPNOTSUPP;
++}
++
+ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
+ 	[DEVLINK_ATTR_BUS_NAME] = { .type = NLA_NUL_STRING },
+ 	[DEVLINK_ATTR_DEV_NAME] = { .type = NLA_NUL_STRING },
+@@ -1407,6 +1479,7 @@ static const struct nla_policy devlink_nl_policy[DEVLINK_ATTR_MAX + 1] = {
+ 	[DEVLINK_ATTR_SB_POOL_THRESHOLD_TYPE] = { .type = NLA_U8 },
+ 	[DEVLINK_ATTR_SB_THRESHOLD] = { .type = NLA_U32 },
+ 	[DEVLINK_ATTR_SB_TC_INDEX] = { .type = NLA_U16 },
++	[DEVLINK_ATTR_ESWITCH_MODE] = { .type = NLA_U16 },
+ };
+ 
+ static const struct genl_ops devlink_nl_ops[] = {
+@@ -1525,6 +1598,20 @@ static const struct genl_ops devlink_nl_ops[] = {
+ 				  DEVLINK_NL_FLAG_NEED_SB |
+ 				  DEVLINK_NL_FLAG_LOCK_PORTS,
+ 	},
++	{
++		.cmd = DEVLINK_CMD_ESWITCH_MODE_GET,
++		.doit = devlink_nl_cmd_eswitch_mode_get_doit,
++		.policy = devlink_nl_policy,
++		.flags = GENL_ADMIN_PERM,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
++	},
++	{
++		.cmd = DEVLINK_CMD_ESWITCH_MODE_SET,
++		.doit = devlink_nl_cmd_eswitch_mode_set_doit,
++		.policy = devlink_nl_policy,
++		.flags = GENL_ADMIN_PERM,
++		.internal_flags = DEVLINK_NL_FLAG_NEED_DEVLINK,
++	},
+ };
+ 
+ /**
 -- 
 2.8.0
