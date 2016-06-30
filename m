@@ -1,35 +1,60 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH net-next 19/19] rxrpc: Use RCU to access a peer's service connection tree
-Date: Thu, 30 Jun 2016 17:22:19 +0100
-Message-ID: <19436.1467303739@warthog.procyon.org.uk>
-References: <20160630153049.GG30935@twins.programming.kicks-ass.net> <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk> <146729597856.26306.17024362508555652794.stgit@warthog.procyon.org.uk>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: It's back! (Re: [REGRESSION] NFS is creating a hidden port
+ (left over from xs_bind() ))
+Date: Thu, 30 Jun 2016 12:24:10 -0400
+Message-ID: <20160630122410.1022ea37@gandalf.local.home>
+References: <20160630085950.61e5c7e0@gandalf.local.home>
+	<C44AFFBB-EF40-4B22-8B45-7817EB7276E3@primarydata.com>
+	<20160630112341.5ab5a821@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: dhowells@redhat.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Layton <jlayton@poochiereds.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Schumaker Anna <anna.schumaker@netapp.com>,
+	"Linux NFS Mailing List" <linux-nfs@vger.kernel.org>,
+	"Linux Network Devel Mailing List" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	Fields Bruce <bfields@fieldses.org>
+To: Trond Myklebust <trondmy@primarydata.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160630153049.GG30935@twins.programming.kicks-ass.net>
-Content-ID: <19435.1467303739.1@warthog.procyon.org.uk>
+In-Reply-To: <20160630112341.5ab5a821@gandalf.local.home>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Peter Zijlstra <peterz@infradead.org> wrote:
+On Thu, 30 Jun 2016 11:23:41 -0400
+Steven Rostedt <rostedt@goodmis.org> wrote:
 
-> > +			if (conn->proto.index_key < k.index_key)
-> > +				p = p->rb_left;
-> > +			else if (conn->proto.index_key > k.index_key)
-> > +				p = p->rb_right;
-> 
-> You still very much need rcu_dereference() for both left and right
-> pointers. As well as the first p load.
 
-Bah...  Yes.  Good point.
+> I can add more trace_printk()s if it would help.
 
-> > +	rb_link_node(&conn->service_node, parent, pp);
-> 
-> You want rb_link_node_rcu() here.
+I added a trace_printk() in inet_bind_bucket_destroy() to print out
+some information on the socket used by xs_bind(), and it shows that the
+bind destroy is called, but the list is not empty.
 
-Should there be an rb_replace_node_rcu() also?
 
-David
+
+/*
+ * Caller must hold hashbucket lock for this tb with local BH disabled
+ */
+void inet_bind_bucket_destroy(struct kmem_cache *cachep, struct inet_bind_bucket *tb)
+{
+	if (!current->mm && xs_port == tb->port) {
+		trace_printk("destroy %d empty=%d %p\n",
+			     tb->port, hlist_empty(&tb->owners), tb);
+		trace_dump_stack(1);
+	}
+	if (hlist_empty(&tb->owners)) {
+		__hlist_del(&tb->node);
+		kmem_cache_free(cachep, tb);
+	}
+}
+
+I created "xs_port" to hold the port of the variable used by xs_bind,
+and when it is called, the hlist_empty(&tb->owners) returns false.
+
+I'll add more trace_printks to find out where those owners are being
+added.
+
+-- Steve
