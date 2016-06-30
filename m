@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 02/16] net/mlx5: E-Switch, Add support for the sriov offloads mode
-Date: Thu, 30 Jun 2016 18:23:21 +0300
-Message-ID: <1467300215-14199-3-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V2 04/16] net/mlx5: E-Switch, Add API to create send-to-vport rules
+Date: Thu, 30 Jun 2016 18:23:23 +0300
+Message-ID: <1467300215-14199-5-git-send-email-saeedm@mellanox.com>
 References: <1467300215-14199-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -12,315 +12,102 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:43123 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:43147 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932176AbcF3PYo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jun 2016 11:24:44 -0400
+	id S932407AbcF3PY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jun 2016 11:24:56 -0400
 In-Reply-To: <1467300215-14199-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Unlike the legacy mode, here, forwarding rules are not learned by the
-driver per events on macs set by VFs/VMs into their vports, but rather
-should be programmed by higher-level SW entities.
+Add the API to create send-to-vport e-switch rules of the form
 
-Saying that, still, in the offloads mode (SRIOV_OFFLOADS), two flow
-groups are created by the driver for management (slow path) purposes:
+ packet meta-data :: send-queue-number == $SQN and source-vport == 0 --> $VPORT
 
-The first group will be used for sending packets over e-switch vports
-from the host OS where the e-switch management code runs, to be
-received by VFs.
+These rules are to be used for a send-to-vport logic which conceptually bypasses
+the "normal" steering rules currently present at the e-switch datapath.
 
-The second group will be used by a miss rule which forwards packets toward
-the e-switch manager. Further logic will trap these packets such that
-the receiving net-device as seen by the networking stack is the representor
-of the vport that sent the packet over the e-switch data-path.
+Such rule should apply only for packets that originate in the e-switch manager
+vport (0) and are sent for a given SQN which is used by a given VF representor
+device, and hence the matching logic.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/Makefile   |   2 +-
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  |  35 +++---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  16 +++
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 135 +++++++++++++++++++++
- 4 files changed, 168 insertions(+), 20 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  3 +-
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 39 ++++++++++++++++++++++
+ 2 files changed, 41 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/Makefile b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-index c4f450f..96f1826 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/Makefile
-@@ -5,7 +5,7 @@ mlx5_core-y :=	main.o cmd.o debugfs.o fw.o eq.o uar.o pagealloc.o \
- 		mad.o transobj.o vport.o sriov.o fs_cmd.o fs_core.o \
- 		fs_counters.o rl.o
- 
--mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o \
-+mlx5_core-$(CONFIG_MLX5_CORE_EN) += wq.o eswitch.o eswitch_offloads.o \
- 		en_main.o en_fs.o en_ethtool.o en_tx.o en_rx.o \
- 		en_rx_am.o en_txrx.o en_clock.o vxlan.o en_tc.o \
- 		en_arfs.o
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-index 8068dde..1fc4cfd 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
-@@ -40,17 +40,6 @@
- 
- #define UPLINK_VPORT 0xFFFF
- 
--#define MLX5_DEBUG_ESWITCH_MASK BIT(3)
--
--#define esw_info(dev, format, ...)				\
--	pr_info("(%s): E-Switch: " format, (dev)->priv.name, ##__VA_ARGS__)
--
--#define esw_warn(dev, format, ...)				\
--	pr_warn("(%s): E-Switch: " format, (dev)->priv.name, ##__VA_ARGS__)
--
--#define esw_debug(dev, format, ...)				\
--	mlx5_core_dbg_mask(dev, MLX5_DEBUG_ESWITCH_MASK, format, ##__VA_ARGS__)
--
- enum {
- 	MLX5_ACTION_NONE = 0,
- 	MLX5_ACTION_ADD  = 1,
-@@ -92,6 +81,9 @@ enum {
- 			    MC_ADDR_CHANGE | \
- 			    PROMISC_CHANGE)
- 
-+int  esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports);
-+void esw_destroy_offloads_fdb_table(struct mlx5_eswitch *esw);
-+
- static int arm_vport_context_events_cmd(struct mlx5_core_dev *dev, u16 vport,
- 					u32 events_mask)
- {
-@@ -578,7 +570,8 @@ static int esw_add_uc_addr(struct mlx5_eswitch *esw, struct vport_addr *vaddr)
- 	if (err)
- 		goto abort;
- 
--	if (esw->fdb_table.fdb) /* SRIOV is enabled: Forward UC MAC to vport */
-+	/* SRIOV is enabled: Forward UC MAC to vport */
-+	if (esw->fdb_table.fdb && esw->mode == SRIOV_LEGACY)
- 		vaddr->flow_rule = esw_fdb_set_vport_rule(esw, mac, vport);
- 
- 	esw_debug(esw->dev, "\tADDED UC MAC: vport[%d] %pM index:%d fr(%p)\n",
-@@ -1543,7 +1536,7 @@ static void esw_disable_vport(struct mlx5_eswitch *esw, int vport_num)
- int mlx5_eswitch_enable_sriov(struct mlx5_eswitch *esw, int nvfs, int mode)
- {
- 	int err;
--	int i;
-+	int i, enabled_events;
- 
- 	if (!esw || !MLX5_CAP_GEN(esw->dev, vport_group_manager) ||
- 	    MLX5_CAP_GEN(esw->dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
-@@ -1562,18 +1555,19 @@ int mlx5_eswitch_enable_sriov(struct mlx5_eswitch *esw, int nvfs, int mode)
- 		esw_warn(esw->dev, "E-Switch engress ACL is not supported by FW\n");
- 
- 	esw_info(esw->dev, "E-Switch enable SRIOV: nvfs(%d) mode (%d)\n", nvfs, mode);
--	if (mode != SRIOV_LEGACY)
--		return -EINVAL;
--
- 	esw->mode = mode;
- 	esw_disable_vport(esw, 0);
- 
--	err = esw_create_legacy_fdb_table(esw, nvfs + 1);
-+	if (mode == SRIOV_LEGACY)
-+		err = esw_create_legacy_fdb_table(esw, nvfs + 1);
-+	else
-+		err = esw_create_offloads_fdb_table(esw, nvfs + 1);
- 	if (err)
- 		goto abort;
- 
-+	enabled_events = (mode == SRIOV_LEGACY) ? SRIOV_VPORT_EVENTS : UC_ADDR_CHANGE;
- 	for (i = 0; i <= nvfs; i++)
--		esw_enable_vport(esw, i, SRIOV_VPORT_EVENTS);
-+		esw_enable_vport(esw, i, enabled_events);
- 
- 	esw_info(esw->dev, "SRIOV enabled: active vports(%d)\n",
- 		 esw->enabled_vports);
-@@ -1604,7 +1598,10 @@ void mlx5_eswitch_disable_sriov(struct mlx5_eswitch *esw)
- 	if (mc_promisc && mc_promisc->uplink_rule)
- 		mlx5_del_flow_rule(mc_promisc->uplink_rule);
- 
--	esw_destroy_legacy_fdb_table(esw);
-+	if (esw->mode == SRIOV_LEGACY)
-+		esw_destroy_legacy_fdb_table(esw);
-+	else
-+		esw_destroy_offloads_fdb_table(esw);
- 
- 	esw->mode = SRIOV_NONE;
- 	/* VPORT 0 (PF) must be enabled back with non-sriov configuration */
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index 544fbfe..2360180 100644
+index 8eed33f..b7fabd1 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -140,6 +140,11 @@ struct mlx5_eswitch_fdb {
- 			struct mlx5_flow_group *allmulti_grp;
- 			struct mlx5_flow_group *promisc_grp;
- 		} legacy;
-+
-+		struct offloads_fdb {
-+			struct mlx5_flow_group *send_to_vport_grp;
-+			struct mlx5_flow_group *miss_grp;
-+		} offloads;
- 	};
- };
- 
-@@ -188,4 +193,15 @@ int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
+@@ -193,6 +193,8 @@ int mlx5_eswitch_get_vport_config(struct mlx5_eswitch *esw,
+ int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
  				 int vport,
  				 struct ifla_vf_stats *vf_stats);
++struct mlx5_flow_rule *
++mlx5_eswitch_add_send_to_vport_rule(struct mlx5_eswitch *esw, int vport, u32 sqn);
  
-+#define MLX5_DEBUG_ESWITCH_MASK BIT(3)
-+
-+#define esw_info(dev, format, ...)				\
-+	pr_info("(%s): E-Switch: " format, (dev)->priv.name, ##__VA_ARGS__)
-+
-+#define esw_warn(dev, format, ...)				\
-+	pr_warn("(%s): E-Switch: " format, (dev)->priv.name, ##__VA_ARGS__)
-+
-+#define esw_debug(dev, format, ...)				\
-+	mlx5_core_dbg_mask(dev, MLX5_DEBUG_ESWITCH_MASK, format, ##__VA_ARGS__)
-+
+ #define MLX5_DEBUG_ESWITCH_MASK BIT(3)
+ 
+@@ -204,5 +206,4 @@ int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
+ 
+ #define esw_debug(dev, format, ...)				\
+ 	mlx5_core_dbg_mask(dev, MLX5_DEBUG_ESWITCH_MASK, format, ##__VA_ARGS__)
+-
  #endif /* __MLX5_ESWITCH_H__ */
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-new file mode 100644
-index 0000000..c6b28df
---- /dev/null
+index e3d81ae..8964f71 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -0,0 +1,135 @@
-+/*
-+ * Copyright (c) 2016, Mellanox Technologies. All rights reserved.
-+ *
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available from the file
-+ * COPYING in the main directory of this source tree, or the
-+ * OpenIB.org BSD license below:
-+ *
-+ *     Redistribution and use in source and binary forms, with or
-+ *     without modification, are permitted provided that the following
-+ *     conditions are met:
-+ *
-+ *      - Redistributions of source code must retain the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer.
-+ *
-+ *      - Redistributions in binary form must reproduce the above
-+ *        copyright notice, this list of conditions and the following
-+ *        disclaimer in the documentation and/or other materials
-+ *        provided with the distribution.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ */
-+
-+#include <linux/etherdevice.h>
-+#include <linux/mlx5/driver.h>
-+#include <linux/mlx5/mlx5_ifc.h>
-+#include <linux/mlx5/vport.h>
-+#include <linux/mlx5/fs.h>
-+#include "mlx5_core.h"
-+#include "eswitch.h"
-+
-+#define MAX_PF_SQ 256
-+
-+int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
+@@ -38,6 +38,45 @@
+ #include "mlx5_core.h"
+ #include "eswitch.h"
+ 
++struct mlx5_flow_rule *
++mlx5_eswitch_add_send_to_vport_rule(struct mlx5_eswitch *esw, int vport, u32 sqn)
 +{
-+	int inlen = MLX5_ST_SZ_BYTES(create_flow_group_in);
-+	struct mlx5_core_dev *dev = esw->dev;
-+	struct mlx5_flow_namespace *root_ns;
-+	struct mlx5_flow_table *fdb = NULL;
-+	struct mlx5_flow_group *g;
-+	u32 *flow_group_in;
-+	void *match_criteria;
-+	int table_size, ix, err = 0;
++	struct mlx5_flow_destination dest;
++	struct mlx5_flow_rule *flow_rule;
++	int match_header = MLX5_MATCH_MISC_PARAMETERS;
++	u32 *match_v, *match_c;
++	void *misc;
 +
-+	flow_group_in = mlx5_vzalloc(inlen);
-+	if (!flow_group_in)
-+		return -ENOMEM;
-+
-+	root_ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_FDB);
-+	if (!root_ns) {
-+		esw_warn(dev, "Failed to get FDB flow namespace\n");
-+		goto ns_err;
++	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
++	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
++	if (!match_v || !match_c) {
++		esw_warn(esw->dev, "FDB: Failed to alloc match parameters\n");
++		flow_rule = ERR_PTR(-ENOMEM);
++		goto out;
 +	}
 +
-+	esw_debug(dev, "Create offloads FDB table, log_max_size(%d)\n",
-+		  MLX5_CAP_ESW_FLOWTABLE_FDB(dev, log_max_ft_size));
++	misc = MLX5_ADDR_OF(fte_match_param, match_v, misc_parameters);
++	MLX5_SET(fte_match_set_misc, misc, source_sqn, sqn);
++	MLX5_SET(fte_match_set_misc, misc, source_port, 0x0); /* source vport is 0 */
 +
-+	table_size = nvports + MAX_PF_SQ + 1;
-+	fdb = mlx5_create_flow_table(root_ns, 0, table_size, 0);
-+	if (IS_ERR(fdb)) {
-+		err = PTR_ERR(fdb);
-+		esw_warn(dev, "Failed to create FDB Table err %d\n", err);
-+		goto fdb_err;
-+	}
-+	esw->fdb_table.fdb = fdb;
++	misc = MLX5_ADDR_OF(fte_match_param, match_c, misc_parameters);
++	MLX5_SET_TO_ONES(fte_match_set_misc, misc, source_sqn);
++	MLX5_SET_TO_ONES(fte_match_set_misc, misc, source_port);
 +
-+	/* create send-to-vport group */
-+	memset(flow_group_in, 0, inlen);
-+	MLX5_SET(create_flow_group_in, flow_group_in, match_criteria_enable,
-+		 MLX5_MATCH_MISC_PARAMETERS);
++	dest.type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
++	dest.vport_num = vport;
 +
-+	match_criteria = MLX5_ADDR_OF(create_flow_group_in, flow_group_in, match_criteria);
-+
-+	MLX5_SET_TO_ONES(fte_match_param, match_criteria, misc_parameters.source_sqn);
-+	MLX5_SET_TO_ONES(fte_match_param, match_criteria, misc_parameters.source_port);
-+
-+	ix = nvports + MAX_PF_SQ;
-+	MLX5_SET(create_flow_group_in, flow_group_in, start_flow_index, 0);
-+	MLX5_SET(create_flow_group_in, flow_group_in, end_flow_index, ix - 1);
-+
-+	g = mlx5_create_flow_group(fdb, flow_group_in);
-+	if (IS_ERR(g)) {
-+		err = PTR_ERR(g);
-+		esw_warn(dev, "Failed to create send-to-vport flow group err(%d)\n", err);
-+		goto send_vport_err;
-+	}
-+	esw->fdb_table.offloads.send_to_vport_grp = g;
-+
-+	/* create miss group */
-+	memset(flow_group_in, 0, inlen);
-+	MLX5_SET(create_flow_group_in, flow_group_in, match_criteria_enable, 0);
-+
-+	MLX5_SET(create_flow_group_in, flow_group_in, start_flow_index, ix);
-+	MLX5_SET(create_flow_group_in, flow_group_in, end_flow_index, ix + 1);
-+
-+	g = mlx5_create_flow_group(fdb, flow_group_in);
-+	if (IS_ERR(g)) {
-+		err = PTR_ERR(g);
-+		esw_warn(dev, "Failed to create miss flow group err(%d)\n", err);
-+		goto miss_err;
-+	}
-+	esw->fdb_table.offloads.miss_grp = g;
-+
-+	return 0;
-+
-+miss_err:
-+	mlx5_destroy_flow_group(esw->fdb_table.offloads.send_to_vport_grp);
-+send_vport_err:
-+	mlx5_destroy_flow_table(fdb);
-+fdb_err:
-+ns_err:
-+	kvfree(flow_group_in);
-+	return err;
++	flow_rule = mlx5_add_flow_rule(esw->fdb_table.fdb, match_header, match_c,
++				       match_v, MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
++				       0, &dest);
++	if (IS_ERR(flow_rule))
++		esw_warn(esw->dev, "FDB: Failed to add send to vport rule err %ld\n", PTR_ERR(flow_rule));
++out:
++	kfree(match_v);
++	kfree(match_c);
++	return flow_rule;
 +}
 +
-+void esw_destroy_offloads_fdb_table(struct mlx5_eswitch *esw)
-+{
-+	if (!esw->fdb_table.fdb)
-+		return;
-+
-+	esw_debug(esw->dev, "Destroy offloads FDB Table\n");
-+	mlx5_destroy_flow_group(esw->fdb_table.offloads.send_to_vport_grp);
-+	mlx5_destroy_flow_group(esw->fdb_table.offloads.miss_grp);
-+
-+	mlx5_destroy_flow_table(esw->fdb_table.fdb);
-+}
+ static int esw_add_fdb_miss_rule(struct mlx5_eswitch *esw)
+ {
+ 	struct mlx5_flow_destination dest;
 -- 
 2.8.0
