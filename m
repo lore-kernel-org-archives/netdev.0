@@ -1,118 +1,61 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH net-next 19/19] rxrpc: Use RCU to access a peer's service connection tree
-Date: Thu, 30 Jun 2016 17:36:51 +0100
-Message-ID: <587.1467304611@warthog.procyon.org.uk>
-References: <19436.1467303739@warthog.procyon.org.uk> <20160630153049.GG30935@twins.programming.kicks-ass.net> <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk> <146729597856.26306.17024362508555652794.stgit@warthog.procyon.org.uk>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: [net-next PATCH 1/2] net: pktgen: support injecting packets for
+ qdisc testing
+Date: Thu, 30 Jun 2016 09:53:02 -0700
+Message-ID: <57754E6E.8010602@gmail.com>
+References: <20160629194731.14745.20562.stgit@john-Precision-Tower-5810>
+ <5774F2A6.3020308@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: dhowells@redhat.com, davem@davemloft.net, netdev@vger.kernel.org,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org
+To: Jamal Hadi Salim <jhs@mojatatu.com>, brouer@redhat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56323 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752625AbcF3QqD convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 12:46:03 -0400
-In-Reply-To: <19436.1467303739@warthog.procyon.org.uk>
-Content-ID: <586.1467304611.1@warthog.procyon.org.uk>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:35103 "EHLO
+	mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752028AbcF3QyK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 12:54:10 -0400
+Received: by mail-oi0-f65.google.com with SMTP id d132so8410909oig.2
+        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 09:53:12 -0700 (PDT)
+In-Reply-To: <5774F2A6.3020308@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-David Howells <dhowells@redhat.com> wrote:
+On 16-06-30 03:21 AM, Jamal Hadi Salim wrote:
+> On 16-06-29 03:47 PM, John Fastabend wrote:
+>> Add another xmit_mode to pktgen to allow testing xmit functionality
+>> of qdiscs. The new mode "queue_xmit" injects packets at
+>> __dev_queue_xmit() so that qdisc is called.
+>>
+>> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+>> ---
 
-> > You want rb_link_node_rcu() here.
+[...]
+
 > 
-> Should there be an rb_replace_node_rcu() also?
+> Acked-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> 
+> In travel mode, dont have much cycles right now - but can you review
+> again:
+> http://www.spinics.net/lists/netdev/msg359545.html
+> I think you should disallow clone for example and i wasnt sure if you
+> covered all error scenarios etc.
+> 
 
-Or I could make rb_replace_node() RCU friendly.  What do you think of the
-attached changes (split into appropriate patches)?  It's a case of changing
-the order in which pointers are set in the rbtree code and inserting a
-barrier.
+Taking a look at the link couple differences exist. First the patch
+linked does a 'netif_xmit_frozen_or_drv_stopped(txq)' check but this
+really shouldn't be needed it is handled by the sch_direct_xmit()
+logic in ./net/sched
 
-I also wonder if rb_insert_color() needs some attention - though possibly
-that's okay as it doesn't start with unset pointers (since you call
-rb_link_node_rcu() first).
+Also in this patch I made it way more conservative on when to back
+off then my original patch and now its closer to the one linked except
+I also back off with return code NET_XMIT_CN.
 
-David
----
-diff --git a/include/linux/rbtree_augmented.h b/include/linux/rbtree_augmented.h
-index 14d7b831b63a..d076183e49be 100644
---- a/include/linux/rbtree_augmented.h
-+++ b/include/linux/rbtree_augmented.h
-@@ -130,6 +130,19 @@ __rb_change_child(struct rb_node *old, struct rb_node *new,
- 		WRITE_ONCE(root->rb_node, new);
- }
- 
-+static inline void
-+__rb_change_child_rcu(struct rb_node *old, struct rb_node *new,
-+		      struct rb_node *parent, struct rb_root *root)
-+{
-+	if (parent) {
-+		if (parent->rb_left == old)
-+			rcu_assign_pointer(parent->rb_left, new);
-+		else
-+			rcu_assign_pointer(parent->rb_right, new);
-+	} else
-+		rcu_assign_pointer(root->rb_node, new);
-+}
-+
- extern void __rb_erase_color(struct rb_node *parent, struct rb_root *root,
- 	void (*augment_rotate)(struct rb_node *old, struct rb_node *new));
- 
-diff --git a/lib/rbtree.c b/lib/rbtree.c
-index 1356454e36de..2b1a190c737c 100644
---- a/lib/rbtree.c
-+++ b/lib/rbtree.c
-@@ -539,15 +539,17 @@ void rb_replace_node(struct rb_node *victim, struct rb_node *new,
- {
- 	struct rb_node *parent = rb_parent(victim);
- 
-+	/* Copy the pointers/colour from the victim to the replacement */
-+	*new = *victim;
-+
- 	/* Set the surrounding nodes to point to the replacement */
--	__rb_change_child(victim, new, parent, root);
- 	if (victim->rb_left)
- 		rb_set_parent(victim->rb_left, new);
- 	if (victim->rb_right)
- 		rb_set_parent(victim->rb_right, new);
- 
--	/* Copy the pointers/colour from the victim to the replacement */
--	*new = *victim;
-+	/* Set the onward pointer last with an RCU barrier */
-+	__rb_change_child_rcu(victim, new, parent, root);
- }
- EXPORT_SYMBOL(rb_replace_node);
- 
-diff --git a/net/rxrpc/conn_service.c b/net/rxrpc/conn_service.c
-index dc64211c5ee8..298ec300cfcc 100644
---- a/net/rxrpc/conn_service.c
-+++ b/net/rxrpc/conn_service.c
-@@ -41,14 +41,14 @@ struct rxrpc_connection *rxrpc_find_service_conn_rcu(struct rxrpc_peer *peer,
- 		 */
- 		read_seqbegin_or_lock(&peer->service_conn_lock, &seq);
- 
--		p = peer->service_conns.rb_node;
-+		p = rcu_dereference(peer->service_conns.rb_node);
- 		while (p) {
- 			conn = rb_entry(p, struct rxrpc_connection, service_node);
- 
- 			if (conn->proto.index_key < k.index_key)
--				p = p->rb_left;
-+				p = rcu_dereference(p->rb_left);
- 			else if (conn->proto.index_key > k.index_key)
--				p = p->rb_right;
-+				p = rcu_dereference(p->rb_right);
- 			else
- 				goto done;
- 			conn = NULL;
-@@ -90,7 +90,7 @@ rxrpc_publish_service_conn(struct rxrpc_peer *peer,
- 			goto found_extant_conn;
- 	}
- 
--	rb_link_node(&conn->service_node, parent, pp);
-+	rb_link_node_rcu(&conn->service_node, parent, pp);
- 	rb_insert_color(&conn->service_node, &peer->service_conns);
- conn_published:
- 	set_bit(RXRPC_CONN_IN_SERVICE_CONNS, &conn->flags);
+As for clones what is the concern exactly? We allow them through the
+ingress pktgen mode that can hit classifiers and I don't see any issues
+testing with them.
+
+.John
+
+> cheers,
+> jamal
