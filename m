@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v2 net-next 7/9] net: hns: remove redundant hns_mac_dev_to_enet_if()
-Date: Thu, 30 Jun 2016 15:25:07 +0800
-Message-ID: <1467271509-63162-8-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v2 net-next 2/9] net: hns: fix code style about hns driver
+Date: Thu, 30 Jun 2016 15:25:02 +0800
+Message-ID: <1467271509-63162-3-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,57 +14,59 @@ Cc: <akpm@linux-foundation.org>, <gregkh@linuxfoundation.org>,
 	<netdev@vger.kernel.org>
 To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
 	<salil.mehta@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:38062 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751883AbcF3HHI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 03:07:08 -0400
 In-Reply-To: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Kejian Yan <yankejian@huawei.com>
+From: Daode Huang <huangdaode@hisilicon.com>
 
-The sequence of hns_mac_dev_to_enet_if() is the same as
-hns_get_enet_interface(), and hns_get_enet_interface() is called
-by initialization to get the mac mode. And the mode is not changed
-anywhere. Thus add hns_mac_dev_to_enet_if() function to get the mac
-mode is obviously redundant.
+This patch fixes code sytle of hns driver to make it
+simple.
 
-Reported-by: Jinchuan Tian <tianjinchuan1@huawei.com>
-Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 15 ---------------
- 1 file changed, 15 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 16 +++++++---------
+ 1 file changed, 7 insertions(+), 9 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-index c526558..d2effcc 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
-@@ -56,20 +56,6 @@ static const enum mac_mode g_mac_mode_1000[] = {
- 	[PHY_INTERFACE_MODE_RTBI]   = MAC_MODE_RTBI_1000
- };
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+index 8473287..611b67b 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
+@@ -253,10 +253,9 @@ static void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
+ 		reg_val_1  = 0x1 << port;
+ 		port_rst_off = dsaf_dev->mac_cb[port]->port_rst_off;
+ 		/* there is difference between V1 and V2 in register.*/
+-		if (AE_IS_VER1(dsaf_dev->dsaf_ver))
+-			reg_val_2  = 0x1041041 << port_rst_off;
+-		else
+-			reg_val_2  = 0x2082082 << port_rst_off;
++		reg_val_2 = AE_IS_VER1(dsaf_dev->dsaf_ver) ?
++				0x1041041 : 0x2082082;
++		reg_val_2 <<= port_rst_off;
  
--static enum mac_mode hns_mac_dev_to_enet_if(const struct hns_mac_cb *mac_cb)
--{
--	switch (mac_cb->max_speed) {
--	case MAC_SPEED_100:
--		return g_mac_mode_100[mac_cb->phy_if];
--	case MAC_SPEED_1000:
--		return g_mac_mode_1000[mac_cb->phy_if];
--	case MAC_SPEED_10000:
--		return MAC_MODE_XGMII_10000;
--	default:
--		return MAC_MODE_MII_100;
--	}
--}
--
- static enum mac_mode hns_get_enet_interface(const struct hns_mac_cb *mac_cb)
- {
- 	switch (mac_cb->max_speed) {
-@@ -134,7 +120,6 @@ void hns_mac_adjust_link(struct hns_mac_cb *mac_cb, int speed, int duplex)
+ 		if (!dereset) {
+ 			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_GE_RESET_REQ1_REG,
+@@ -272,12 +271,11 @@ static void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
+ 				       reg_val_1);
+ 		}
+ 	} else {
+-		reg_val_1 = 0x15540 << dsaf_dev->reset_offset;
++		reg_val_1 = 0x15540;
++		reg_val_2 = AE_IS_VER1(dsaf_dev->dsaf_ver) ? 0x100 : 0x40;
  
- 	mac_cb->speed = speed;
- 	mac_cb->half_duplex = !duplex;
--	mac_ctrl_drv->mac_mode = hns_mac_dev_to_enet_if(mac_cb);
+-		if (AE_IS_VER1(dsaf_dev->dsaf_ver))
+-			reg_val_2 = 0x100 << dsaf_dev->reset_offset;
+-		else
+-			reg_val_2 = 0x40 << dsaf_dev->reset_offset;
++		reg_val_1 <<= dsaf_dev->reset_offset;
++		reg_val_2 <<= dsaf_dev->reset_offset;
  
- 	if (mac_ctrl_drv->adjust_link) {
- 		ret = mac_ctrl_drv->adjust_link(mac_ctrl_drv,
+ 		if (!dereset) {
+ 			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_GE_RESET_REQ1_REG,
 -- 
 1.9.1
