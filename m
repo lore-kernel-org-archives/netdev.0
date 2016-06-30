@@ -1,61 +1,100 @@
-From: Steven Rostedt <rostedt-nx8X9YLhiw1AfugRpC6u6w@public.gmane.org>
-Subject: Re: It's back! (Re: [REGRESSION] NFS is creating a hidden port
- (left over from xs_bind() ))
-Date: Thu, 30 Jun 2016 16:07:26 -0400
-Message-ID: <20160630160726.304a3d14@gandalf.local.home>
-References: <20160630085950.61e5c7e0@gandalf.local.home>
-	<C44AFFBB-EF40-4B22-8B45-7817EB7276E3@primarydata.com>
-	<20160630112341.5ab5a821@gandalf.local.home>
-	<72EF2259-3A78-4FE3-8E0E-B3090FDFF14F@primarydata.com>
+From: Peter Zijlstra <peterz@infradead.org>
+Subject: Re: [PATCH net-next 19/19] rxrpc: Use RCU to access a peer's service
+ connection tree
+Date: Thu, 30 Jun 2016 22:19:46 +0200
+Message-ID: <20160630201946.GF30921@twins.programming.kicks-ass.net>
+References: <19436.1467303739@warthog.procyon.org.uk>
+ <20160630153049.GG30935@twins.programming.kicks-ass.net>
+ <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
+ <146729597856.26306.17024362508555652794.stgit@warthog.procyon.org.uk>
+ <587.1467304611@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Jeff Layton <jlayton-vpEMnDpepFuMZCB2o+C8xQ@public.gmane.org>,
-	Eric Dumazet <eric.dumazet-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Schumaker Anna <anna.schumaker-HgOvQuBEEgTQT0dZR+AlfA@public.gmane.org>,
-	"Linux NFS Mailing List" <linux-nfs-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Linux Network Devel Mailing List" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	LKML <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Andrew Morton" <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>,
-	Fields Bruce <bfields-uC3wQj2KruNg9hUCZPvPmw@public.gmane.org>
-To: Trond Myklebust <trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Return-path: <linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <72EF2259-3A78-4FE3-8E0E-B3090FDFF14F-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org>
-Sender: linux-nfs-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: David Howells <dhowells@redhat.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <587.1467304611@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Jun 2016 18:30:42 +0000
-Trond Myklebust <trondmy-7I+n7zu2hftEKMMhf/gKZA@public.gmane.org> wrote:
+On Thu, Jun 30, 2016 at 05:36:51PM +0100, David Howells wrote:
+> David Howells <dhowells@redhat.com> wrote:
+> 
+> > > You want rb_link_node_rcu() here.
+> > 
+> > Should there be an rb_replace_node_rcu() also?
+> 
+> Or I could make rb_replace_node() RCU friendly.  What do you think of the
+> attached changes (split into appropriate patches)?  It's a case of changing
+> the order in which pointers are set in the rbtree code and inserting a
+> barrier.
+
+> diff --git a/lib/rbtree.c b/lib/rbtree.c
+> index 1356454e36de..2b1a190c737c 100644
+> --- a/lib/rbtree.c
+> +++ b/lib/rbtree.c
+> @@ -539,15 +539,17 @@ void rb_replace_node(struct rb_node *victim, struct rb_node *new,
+>  {
+>  	struct rb_node *parent = rb_parent(victim);
+>  
+> +	/* Copy the pointers/colour from the victim to the replacement */
+> +	*new = *victim;
+> +
+>  	/* Set the surrounding nodes to point to the replacement */
+> -	__rb_change_child(victim, new, parent, root);
+>  	if (victim->rb_left)
+>  		rb_set_parent(victim->rb_left, new);
+>  	if (victim->rb_right)
+>  		rb_set_parent(victim->rb_right, new);
+>  
+> -	/* Copy the pointers/colour from the victim to the replacement */
+> -	*new = *victim;
+> +	/* Set the onward pointer last with an RCU barrier */
+> +	__rb_change_child_rcu(victim, new, parent, root);
+>  }
+>  EXPORT_SYMBOL(rb_replace_node);
+
+So back when I did this work there was resistance to making the regular
+RB-tree primitives more expensive for the rare RCU user. And I suspect
+that this is still so.
+
+Now, rb_replace_node() isn't a widely used primitive, so it might go
+unnoticed, but since we already have rb_link_node_rcu() adding
+rb_replace_node_rcu() is the consistent thing to do.
 
 
-> Wait. So the NFS mount is still active, it=E2=80=99s just that the so=
-cket
-> disconnected due to no traffic? That should be OK. Granted that the
-> port can=E2=80=99t be reused by another process, but you really don=E2=
-=80=99t want
-> that: what if there are no other ports available and you start
-> writing to a file on the NFS partition?
+> diff --git a/net/rxrpc/conn_service.c b/net/rxrpc/conn_service.c
+> index dc64211c5ee8..298ec300cfcc 100644
+> --- a/net/rxrpc/conn_service.c
+> +++ b/net/rxrpc/conn_service.c
+> @@ -41,14 +41,14 @@ struct rxrpc_connection *rxrpc_find_service_conn_rcu(struct rxrpc_peer *peer,
+>  		 */
+>  		read_seqbegin_or_lock(&peer->service_conn_lock, &seq);
+>  
+> -		p = peer->service_conns.rb_node;
+> +		p = rcu_dereference(peer->service_conns.rb_node);
+>  		while (p) {
+>  			conn = rb_entry(p, struct rxrpc_connection, service_node);
+>  
+>  			if (conn->proto.index_key < k.index_key)
+> -				p = p->rb_left;
+> +				p = rcu_dereference(p->rb_left);
+>  			else if (conn->proto.index_key > k.index_key)
+> -				p = p->rb_right;
+> +				p = rcu_dereference(p->rb_right);
+>  			else
+>  				goto done;
+>  			conn = NULL;
+> @@ -90,7 +90,7 @@ rxrpc_publish_service_conn(struct rxrpc_peer *peer,
+>  			goto found_extant_conn;
+>  	}
+>  
+> -	rb_link_node(&conn->service_node, parent, pp);
+> +	rb_link_node_rcu(&conn->service_node, parent, pp);
+>  	rb_insert_color(&conn->service_node, &peer->service_conns);
+>  conn_published:
+>  	set_bit(RXRPC_CONN_IN_SERVICE_CONNS, &conn->flags);
 
-What would cause the port to be connected to a socket again? I copied a
-large file to the nfs mount, and the hidden port is still there?
-
-Remember, this wasn't always the case, the hidden port is a recent
-issue.
-
-I ran wireshark on this and it appears to create two ports for NFS. One
-of them is canceled by the client (sends a FIN/ACK) and this port is
-what lays around never to be used again, and uses the other port for
-all connections after that.
-
-When I unmount the NFS directory, the port is finally freed (but has no
-socket attached to it). What is the purpose of keeping this port around=
-?
-
-I can reproduce this by having the client unmount and remount the
-directory.
-
--- Steve
---
-To unsubscribe from this list: send the line "unsubscribe linux-nfs" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Yep, that's about right.
