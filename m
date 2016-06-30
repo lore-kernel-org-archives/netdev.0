@@ -1,47 +1,91 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH] etherdevice.h & bridge: netfilter: Add and use
- ether_addr_equal_masked
-Date: Thu, 30 Jun 2016 11:26:50 +0200
-Message-ID: <20160630092650.GA2107@salvia>
-References: <20160624085752.GB1939@salvia>
-	<3dcddfef3b9ac0eceb2869d9e95ae857b509fabe.1466793022.git.joe@perches.com>
-	<20160628.090112.1438085992622018555.davem@davemloft.net>
+From: Russell King - ARM Linux <linux@armlinux.org.uk>
+Subject: [PATCH] net: mvneta: fix open() error cleanup
+Date: Thu, 30 Jun 2016 10:36:15 +0100
+Message-ID: <20160630093615.GK1041@n2100.armlinux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, bridge@lists.linux-foundation.org,
-	linux-kernel@vger.kernel.org, coreteam@netfilter.org,
-	netfilter-devel@vger.kernel.org, kadlec@blackhole.kfki.hu,
-	joe@perches.com, kaber@trash.net
-To: David Miller <davem@davemloft.net>
-Return-path: <bridge-bounces@lists.linux-foundation.org>
+Cc: Jon Nettleton <jon@solid-run.com>
+To: netdev@vger.kernel.org,
+	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from pandora.armlinux.org.uk ([78.32.30.218]:34735 "EHLO
+	pandora.armlinux.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751695AbcF3JgZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 05:36:25 -0400
 Content-Disposition: inline
-In-Reply-To: <20160628.090112.1438085992622018555.davem@davemloft.net>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/bridge/>
-List-Post: <mailto:bridge@lists.linux-foundation.org>
-List-Help: <mailto:bridge-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/bridge>,
-	<mailto:bridge-request@lists.linux-foundation.org?subject=subscribe>
-Sender: bridge-bounces@lists.linux-foundation.org
-Errors-To: bridge-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jun 28, 2016 at 09:01:12AM -0400, David Miller wrote:
-> From: Joe Perches <joe@perches.com>
-> Date: Fri, 24 Jun 2016 11:32:26 -0700
-> 
-> > There are code duplications of a masked ethernet address comparison here
-> > so make it a separate function instead.
-> > 
-> > Miscellanea:
-> > 
-> > o Neaten alignment of FWINV macro uses to make it clearer for the reader
-> > 
-> > Signed-off-by: Joe Perches <joe@perches.com>
-> 
-> Pablo feel free to take this:
-> 
-> Acked-by: David S. Miller <davem@davemloft.net>
+If mvneta_mdio_probe() fails, a kernel warning is triggered due to
+missing cleanup in the error path.  Add the necessary cleanup.
 
-Applied, thanks!
+------------[ cut here ]------------
+WARNING: CPU: 1 PID: 281 at kernel/irq/manage.c:1814 __free_percpu_irq+0xfc/0x130
+percpu IRQ 38 still enabled on CPU0!
+Modules linked in: bnep bluetooth xhci_plat_hcd xhci_hcd marvell_cesa armada_thermal des_generic ehci_orion mcp3021 spi_orion sfp mdio_i2c evbug fuse
+CPU: 1 PID: 281 Comm: connmand Not tainted 4.7.0-rc2+ #53
+Hardware name: Marvell Armada 380/385 (Device Tree)
+Backtrace:
+[<c0013488>] (dump_backtrace) from [<c00137d0>] (show_stack+0x18/0x1c)
+ r6:60010093 r5:ffffffff r4:00000000 r3:dc8ba500
+[<c00137b8>] (show_stack) from [<c02c6fe0>] (dump_stack+0xa4/0xdc)
+[<c02c6f3c>] (dump_stack) from [<c002d4ec>] (__warn+0xd8/0x104)
+ r6:c081e6a0 r5:00000000 r4:edfe5d50 r3:dc8ba500
+[<c002d414>] (__warn) from [<c002d5d0>] (warn_slowpath_fmt+0x40/0x48)
+ r10:a0010013 r8:c09356f8 r7:00000026 r6:ef11a260 r5:edd7b980 r4:ef11a200
+[<c002d594>] (warn_slowpath_fmt) from [<c008c8e0>] (__free_percpu_irq+0xfc/0x130)
+ r3:00000026 r2:c081e7ac
+[<c008c7e4>] (__free_percpu_irq) from [<c008c95c>] (free_percpu_irq+0x48/0x74)
+ r10:00008914 r8:00000000 r7:ffffffed r6:c09356f8 r5:00000026 r4:ef11a200
+[<c008c914>] (free_percpu_irq) from [<c043dd70>] (mvneta_open+0x118/0x134)
+ r6:ffffffed r5:ef01e640 r4:ef01e000 r3:ef01e000
+[<c043dc58>] (mvneta_open) from [<c055f5b4>] (__dev_open+0xa4/0x108)
+ r7:ef01e030 r6:c06ff3d8 r5:ffff9003 r4:ef01e000
+[<c055f510>] (__dev_open) from [<c055f844>] (__dev_change_flags+0x94/0x150)
+ r7:00001002 r6:00000001 r5:ffff9003 r4:ef01e000
+[<c055f7b0>] (__dev_change_flags) from [<c055f938>] (dev_change_flags+0x20/0x50)
+ r8:00000000 r7:c09334c8 r6:00001002 r5:00000148 r4:ef01e000 r3:00008914
+[<c055f918>] (dev_change_flags) from [<c05de044>] (devinet_ioctl+0x6f4/0x7e0)
+ r8:00000000 r7:c09334c8 r6:00000000 r5:ee87200c r4:00000000 r3:00008914
+[<c05dd950>] (devinet_ioctl) from [<c05e0168>] (inet_ioctl+0x1b8/0x1c8)
+ r10:beb4499c r9:edfe4000 r8:ecf13280 r7:c096cf00 r6:beb4499c r5:eef7c240
+ r4:00008914
+[<c05dffb0>] (inet_ioctl) from [<c053c898>] (sock_ioctl+0x78/0x300)
+[<c053c820>] (sock_ioctl) from [<c0155ecc>] (do_vfs_ioctl+0x98/0xa60)
+ r7:00000011 r6:00008914 r5:00000011 r4:c01568d0
+[<c0155e34>] (do_vfs_ioctl) from [<c01568d0>] (SyS_ioctl+0x3c/0x60)
+ r10:00000000 r9:edfe4000 r8:beb4499c r7:00000011 r6:00008914 r5:ecf13280
+ r4:ecf13280
+[<c0156894>] (SyS_ioctl) from [<c000fe60>] (ret_fast_syscall+0x0/0x1c)
+ r8:c0010004 r7:00000036 r6:00000011 r5:000a2978 r4:00000000 r3:00009003
+---[ end trace 711f625d5b04b3a7 ]---
+
+Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
+---
+I've omitted a Fixes: line because it's not just one commit, but many
+as the code has gone through a number of transformations here, but the
+bug has been present for a long time.  The first commit suitable for
+this patch is 6b125d63b7f6 ("net: mvneta: Use on_each_cpu when
+possible")
+
+ drivers/net/ethernet/marvell/mvneta.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
+index b04380896a94..c59e9295a7e5 100644
+--- a/drivers/net/ethernet/marvell/mvneta.c
++++ b/drivers/net/ethernet/marvell/mvneta.c
+@@ -3570,6 +3570,8 @@ static int mvneta_open(struct net_device *dev)
+ 	return 0;
+ 
+ err_free_irq:
++	unregister_cpu_notifier(&pp->cpu_notifier);
++	on_each_cpu(mvneta_percpu_disable, pp, true);
+ 	free_percpu_irq(pp->dev->irq, pp->ports);
+ err_cleanup_txqs:
+ 	mvneta_cleanup_txqs(pp);
+
+-- 
+RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
+FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
+according to speedtest.net.
