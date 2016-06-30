@@ -1,129 +1,156 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 08/13] net/mlx5e: Implement ndo_tx_timeout callback
-Date: Thu, 30 Jun 2016 17:34:45 +0300
-Message-ID: <1467297290-11443-9-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net 05/13] net/mlx5: Fix potential deadlock in command mode change
+Date: Thu, 30 Jun 2016 17:34:42 +0300
+Message-ID: <1467297290-11443-6-git-send-email-saeedm@mellanox.com>
 References: <1467297290-11443-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Daniel Jurgens <danielj@mellanox.com>,
+	Mohamad Haj Yahia <mohamad@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:37690 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:37678 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752351AbcF3OhV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751987AbcF3OhV (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Thu, 30 Jun 2016 10:37:21 -0400
 In-Reply-To: <1467297290-11443-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Jurgens <danielj@mellanox.com>
+From: Mohamad Haj Yahia <mohamad@mellanox.com>
 
-Add callback to handle TX timeouts.
+Call command completion handler in case of timeout when working in
+interrupts mode.
+Avoid flushing the commands workqueue after acquiring the semaphores to
+prevent a potential deadlock.
 
-Fixes: f62b8bb8f2d3 ('net/mlx5: Extend mlx5_core to support ConnectX-4 Ethernet functionality')
-Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
+Fixes: e126ba97dba9 ('mlx5: Add driver for Mellanox Connect-IB adapters')
+Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  1 +
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 46 +++++++++++++++++++++++
- 2 files changed, 47 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/cmd.c | 79 +++++++++++----------------
+ 1 file changed, 33 insertions(+), 46 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index c22d8c8..244aced 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -539,6 +539,7 @@ struct mlx5e_priv {
- 	struct workqueue_struct    *wq;
- 	struct work_struct         update_carrier_work;
- 	struct work_struct         set_rx_mode_work;
-+	struct work_struct         tx_timeout_work;
- 	struct delayed_work        update_stats_work;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+index fda43bc..74067f5 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/cmd.c
+@@ -710,13 +710,13 @@ static int wait_func(struct mlx5_core_dev *dev, struct mlx5_cmd_work_ent *ent)
  
- 	struct mlx5_core_dev      *mdev;
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index b94c84b..38c1286 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -98,6 +98,26 @@ static void mlx5e_update_carrier_work(struct work_struct *work)
- 	mutex_unlock(&priv->state_lock);
- }
+ 	if (cmd->mode == CMD_MODE_POLLING) {
+ 		wait_for_completion(&ent->done);
+-		err = ent->ret;
+-	} else {
+-		if (!wait_for_completion_timeout(&ent->done, timeout))
+-			err = -ETIMEDOUT;
+-		else
+-			err = 0;
++	} else if (!wait_for_completion_timeout(&ent->done, timeout)) {
++		ent->ret = -ETIMEDOUT;
++		mlx5_cmd_comp_handler(dev, 1UL << ent->idx);
+ 	}
++
++	err = ent->ret;
++
+ 	if (err == -ETIMEDOUT) {
+ 		mlx5_core_warn(dev, "%s(0x%x) timeout. Will cause a leak of a command resource\n",
+ 			       mlx5_command_str(msg_to_opcode(ent->in)),
+@@ -774,28 +774,26 @@ static int mlx5_cmd_invoke(struct mlx5_core_dev *dev, struct mlx5_cmd_msg *in,
+ 		goto out_free;
+ 	}
  
-+static void mlx5e_tx_timeout_work(struct work_struct *work)
-+{
-+	struct mlx5e_priv *priv = container_of(work, struct mlx5e_priv,
-+					       tx_timeout_work);
-+	int err;
-+
-+	rtnl_lock();
-+	mutex_lock(&priv->state_lock);
-+	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
-+		goto unlock;
-+	mlx5e_close_locked(priv->netdev);
-+	err = mlx5e_open_locked(priv->netdev);
-+	if (err)
-+		netdev_err(priv->netdev, "mlx5e_open_locked failed recovering from a tx_timeout, err(%d).\n",
-+			   err);
-+unlock:
-+	mutex_unlock(&priv->state_lock);
-+	rtnl_unlock();
-+}
-+
- static void mlx5e_update_sw_counters(struct mlx5e_priv *priv)
- {
- 	struct mlx5e_sw_stats *s = &priv->stats.sw;
-@@ -2609,6 +2629,29 @@ static netdev_features_t mlx5e_features_check(struct sk_buff *skb,
- 	return features;
- }
+-	if (!callback) {
+-		err = wait_func(dev, ent);
+-		if (err == -ETIMEDOUT)
+-			goto out;
+-
+-		ds = ent->ts2 - ent->ts1;
+-		op = be16_to_cpu(((struct mlx5_inbox_hdr *)in->first.data)->opcode);
+-		if (op < ARRAY_SIZE(cmd->stats)) {
+-			stats = &cmd->stats[op];
+-			spin_lock_irq(&stats->lock);
+-			stats->sum += ds;
+-			++stats->n;
+-			spin_unlock_irq(&stats->lock);
+-		}
+-		mlx5_core_dbg_mask(dev, 1 << MLX5_CMD_TIME,
+-				   "fw exec time for %s is %lld nsec\n",
+-				   mlx5_command_str(op), ds);
+-		*status = ent->status;
+-		free_cmd(ent);
+-	}
++	if (callback)
++		goto out;
  
-+static void mlx5e_tx_timeout(struct net_device *dev)
-+{
-+	struct mlx5e_priv *priv = netdev_priv(dev);
-+	bool sched_work = false;
-+	int i;
+-	return err;
++	err = wait_func(dev, ent);
++	if (err == -ETIMEDOUT)
++		goto out_free;
 +
-+	netdev_err(dev, "TX timeout detected\n");
-+
-+	for (i = 0; i < priv->params.num_channels * priv->params.num_tc; i++) {
-+		struct mlx5e_sq *sq = priv->txq_to_sq_map[i];
-+
-+		if (!netif_tx_queue_stopped(netdev_get_tx_queue(dev, i)))
-+			continue;
-+		sched_work = true;
-+		set_bit(MLX5E_SQ_STATE_TX_TIMEOUT, &sq->state);
-+		netdev_err(dev, "TX timeout on queue: %d, SQ: 0x%x, CQ: 0x%x, SQ Cons: 0x%x SQ Prod: 0x%x\n",
-+			   i, sq->sqn, sq->cq.mcq.cqn, sq->cc, sq->pc);
++	ds = ent->ts2 - ent->ts1;
++	op = be16_to_cpu(((struct mlx5_inbox_hdr *)in->first.data)->opcode);
++	if (op < ARRAY_SIZE(cmd->stats)) {
++		stats = &cmd->stats[op];
++		spin_lock_irq(&stats->lock);
++		stats->sum += ds;
++		++stats->n;
++		spin_unlock_irq(&stats->lock);
 +	}
-+
-+	if (sched_work && test_bit(MLX5E_STATE_OPENED, &priv->state))
-+		schedule_work(&priv->tx_timeout_work);
-+}
-+
- static const struct net_device_ops mlx5e_netdev_ops_basic = {
- 	.ndo_open                = mlx5e_open,
- 	.ndo_stop                = mlx5e_close,
-@@ -2626,6 +2669,7 @@ static const struct net_device_ops mlx5e_netdev_ops_basic = {
- #ifdef CONFIG_RFS_ACCEL
- 	.ndo_rx_flow_steer	 = mlx5e_rx_flow_steer,
- #endif
-+	.ndo_tx_timeout          = mlx5e_tx_timeout,
- };
++	mlx5_core_dbg_mask(dev, 1 << MLX5_CMD_TIME,
++			   "fw exec time for %s is %lld nsec\n",
++			   mlx5_command_str(op), ds);
++	*status = ent->status;
  
- static const struct net_device_ops mlx5e_netdev_ops_sriov = {
-@@ -2655,6 +2699,7 @@ static const struct net_device_ops mlx5e_netdev_ops_sriov = {
- 	.ndo_get_vf_config       = mlx5e_get_vf_config,
- 	.ndo_set_vf_link_state   = mlx5e_set_vf_link_state,
- 	.ndo_get_vf_stats        = mlx5e_get_vf_stats,
-+	.ndo_tx_timeout          = mlx5e_tx_timeout,
- };
- 
- static int mlx5e_check_required_hca_cap(struct mlx5_core_dev *mdev)
-@@ -2857,6 +2902,7 @@ static void mlx5e_build_netdev_priv(struct mlx5_core_dev *mdev,
- 
- 	INIT_WORK(&priv->update_carrier_work, mlx5e_update_carrier_work);
- 	INIT_WORK(&priv->set_rx_mode_work, mlx5e_set_rx_mode_work);
-+	INIT_WORK(&priv->tx_timeout_work, mlx5e_tx_timeout_work);
- 	INIT_DELAYED_WORK(&priv->update_stats_work, mlx5e_update_stats_work);
+ out_free:
+ 	free_cmd(ent);
+@@ -1185,41 +1183,30 @@ err_dbg:
+ 	return err;
  }
  
+-void mlx5_cmd_use_events(struct mlx5_core_dev *dev)
++static void mlx5_cmd_change_mod(struct mlx5_core_dev *dev, int mode)
+ {
+ 	struct mlx5_cmd *cmd = &dev->cmd;
+ 	int i;
+ 
+ 	for (i = 0; i < cmd->max_reg_cmds; i++)
+ 		down(&cmd->sem);
+-
+ 	down(&cmd->pages_sem);
+ 
+-	flush_workqueue(cmd->wq);
+-
+-	cmd->mode = CMD_MODE_EVENTS;
++	cmd->mode = mode;
+ 
+ 	up(&cmd->pages_sem);
+ 	for (i = 0; i < cmd->max_reg_cmds; i++)
+ 		up(&cmd->sem);
+ }
+ 
+-void mlx5_cmd_use_polling(struct mlx5_core_dev *dev)
++void mlx5_cmd_use_events(struct mlx5_core_dev *dev)
+ {
+-	struct mlx5_cmd *cmd = &dev->cmd;
+-	int i;
+-
+-	for (i = 0; i < cmd->max_reg_cmds; i++)
+-		down(&cmd->sem);
+-
+-	down(&cmd->pages_sem);
+-
+-	flush_workqueue(cmd->wq);
+-	cmd->mode = CMD_MODE_POLLING;
++	mlx5_cmd_change_mod(dev, CMD_MODE_EVENTS);
++}
+ 
+-	up(&cmd->pages_sem);
+-	for (i = 0; i < cmd->max_reg_cmds; i++)
+-		up(&cmd->sem);
++void mlx5_cmd_use_polling(struct mlx5_core_dev *dev)
++{
++	mlx5_cmd_change_mod(dev, CMD_MODE_POLLING);
+ }
+ 
+ static void free_msg(struct mlx5_core_dev *dev, struct mlx5_cmd_msg *msg)
 -- 
 2.8.0
