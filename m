@@ -1,7 +1,7 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V3 4/6] skb_array: add wrappers for resizing
-Date: Thu, 30 Jun 2016 11:52:57 +0800
-Message-ID: <1467258779-3539-5-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V3 5/6] net: introduce NETDEV_CHANGE_TX_QUEUE_LEN
+Date: Thu, 30 Jun 2016 11:52:58 +0800
+Message-ID: <1467258779-3539-6-git-send-email-jasowang@redhat.com>
 References: <1467258779-3539-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -23,31 +23,54 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+This patch introduces a new event - NETDEV_CHANGE_TX_QUEUE_LEN, this
+will be triggered when tx_queue_len. It could be used by net device
+who want to do some processing at that time. An example is tun who may
+want to resize tx array when tx_queue_len is changed.
+
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- include/linux/skb_array.h | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ include/linux/netdevice.h |  1 +
+ net/core/net-sysfs.c      | 15 ++++++++++++++-
+ 2 files changed, 15 insertions(+), 1 deletion(-)
 
-diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-index 2dd0d1e..f4dfade 100644
---- a/include/linux/skb_array.h
-+++ b/include/linux/skb_array.h
-@@ -161,6 +161,15 @@ static inline int skb_array_resize(struct skb_array *a, int size, gfp_t gfp)
- 	return ptr_ring_resize(&a->ring, size, gfp, __skb_array_destroy_skb);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e84d9d2..7dc2ec7 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2237,6 +2237,7 @@ struct netdev_lag_lower_state_info {
+ #define NETDEV_PRECHANGEUPPER	0x001A
+ #define NETDEV_CHANGELOWERSTATE	0x001B
+ #define NETDEV_UDP_TUNNEL_PUSH_INFO	0x001C
++#define NETDEV_CHANGE_TX_QUEUE_LEN	0x001E
+ 
+ int register_netdevice_notifier(struct notifier_block *nb);
+ int unregister_netdevice_notifier(struct notifier_block *nb);
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 7a0b616..6e4f347 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -322,7 +322,20 @@ NETDEVICE_SHOW_RW(flags, fmt_hex);
+ 
+ static int change_tx_queue_len(struct net_device *dev, unsigned long new_len)
+ {
+-	dev->tx_queue_len = new_len;
++	int res, orig_len = dev->tx_queue_len;
++
++	if (new_len != orig_len) {
++		dev->tx_queue_len = new_len;
++		res = call_netdevice_notifiers(NETDEV_CHANGE_TX_QUEUE_LEN, dev);
++		res = notifier_to_errno(res);
++		if (res) {
++			netdev_err(dev,
++				   "refused to change device tx_queue_len\n");
++			dev->tx_queue_len = orig_len;
++			return -EFAULT;
++		}
++	}
++
+ 	return 0;
  }
  
-+static inline int skb_array_resize_multiple(struct skb_array **rings,
-+					    int nrings, int size, gfp_t gfp)
-+{
-+	BUILD_BUG_ON(offsetof(struct skb_array, ring));
-+	return ptr_ring_resize_multiple((struct ptr_ring **)rings,
-+					nrings, size, gfp,
-+					__skb_array_destroy_skb);
-+}
-+
- static inline void skb_array_cleanup(struct skb_array *a)
- {
- 	ptr_ring_cleanup(&a->ring, __skb_array_destroy_skb);
 -- 
 2.7.4
