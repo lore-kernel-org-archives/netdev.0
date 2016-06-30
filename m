@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v2 net-next 9/9] net: hns: get reset registers from DT
-Date: Thu, 30 Jun 2016 15:25:09 +0800
-Message-ID: <1467271509-63162-10-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v2 net-next 8/9] net: hns: add media-type property for hns
+Date: Thu, 30 Jun 2016 15:25:08 +0800
+Message-ID: <1467271509-63162-9-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,172 +14,165 @@ Cc: <akpm@linux-foundation.org>, <gregkh@linuxfoundation.org>,
 	<netdev@vger.kernel.org>
 To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
 	<salil.mehta@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from szxga01-in.huawei.com ([58.251.152.64]:38065 "EHLO
+	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751858AbcF3HHH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 03:07:07 -0400
 In-Reply-To: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 From: Kejian Yan <yankejian@huawei.com>
 
-Since the registers of subctrl may be different, it is better to
-mv the registers from hns mdio driver routine to device tree node.
+It is PORT_TP type if the service port is GE mode. It is wrong to
+judge the port type by using if it is service port. Adding the media
+type to know port type.
 
+Reported-by: Jinchuan Tian <tianjinchuan1@huawei.com>
 Signed-off-by: Kejian Yan <yankejian@huawei.com>
 ---
-change log:
- v2: fix the wrong indentations
+ drivers/net/ethernet/hisilicon/hns/hnae.h         |  9 ++++++++
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c |  1 +
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c | 26 +++++++++++++++++++++++
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h |  1 +
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c  | 14 +++++++++---
+ 5 files changed, 48 insertions(+), 3 deletions(-)
 
- v1: first submit
-  link: https://lkml.org/lkml/2016/6/27/182
----
- drivers/net/ethernet/hisilicon/hns_mdio.c | 80 +++++++++++++++++++++++++------
- 1 file changed, 66 insertions(+), 14 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
-index 761a32f..33f4c48 100644
---- a/drivers/net/ethernet/hisilicon/hns_mdio.c
-+++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
-@@ -37,9 +37,19 @@
- 
- #define MDIO_TIMEOUT			1000000
- 
-+struct hns_mdio_sc_reg {
-+	u16 mdio_clk_en;
-+	u16 mdio_clk_dis;
-+	u16 mdio_reset_req;
-+	u16 mdio_reset_dreq;
-+	u16 mdio_clk_st;
-+	u16 mdio_reset_st;
-+};
-+
- struct hns_mdio_device {
- 	void *vbase;		/* mdio reg base address */
- 	struct regmap *subctrl_vbase;
-+	struct hns_mdio_sc_reg sc_reg;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hnae.h b/drivers/net/ethernet/hisilicon/hns/hnae.h
+index 3869322..e093cbf 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hnae.h
++++ b/drivers/net/ethernet/hisilicon/hns/hnae.h
+@@ -363,6 +363,14 @@ enum hnae_port_type {
+ 	HNAE_PORT_DEBUG
  };
  
- /* mdio reg */
-@@ -93,7 +103,6 @@ enum mdio_c45_op_seq {
- #define MDIO_SC_CLK_DIS		0x33C
- #define MDIO_SC_RESET_REQ	0xA38
- #define MDIO_SC_RESET_DREQ	0xA3C
--#define MDIO_SC_CTRL		0x2010
- #define MDIO_SC_CLK_ST		0x531C
- #define MDIO_SC_RESET_ST	0x5A1C
- 
-@@ -353,6 +362,7 @@ static int hns_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
- static int hns_mdio_reset(struct mii_bus *bus)
- {
- 	struct hns_mdio_device *mdio_dev = (struct hns_mdio_device *)bus->priv;
-+	const struct hns_mdio_sc_reg *sc_reg;
- 	int ret;
- 
- 	if (dev_of_node(bus->parent)) {
-@@ -361,9 +371,10 @@ static int hns_mdio_reset(struct mii_bus *bus)
- 			return -ENODEV;
- 		}
- 
-+		sc_reg = &mdio_dev->sc_reg;
- 		/* 1. reset req, and read reset st check */
--		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_REQ, 0x1,
--					    MDIO_SC_RESET_ST, 0x1,
-+		ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_reset_req,
-+					    0x1, sc_reg->mdio_reset_st, 0x1,
- 					    MDIO_CHECK_SET_ST);
- 		if (ret) {
- 			dev_err(&bus->dev, "MDIO reset fail\n");
-@@ -371,8 +382,8 @@ static int hns_mdio_reset(struct mii_bus *bus)
- 		}
- 
- 		/* 2. dis clk, and read clk st check */
--		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_DIS,
--					    0x1, MDIO_SC_CLK_ST, 0x1,
-+		ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_clk_dis,
-+					    0x1, sc_reg->mdio_clk_st, 0x1,
- 					    MDIO_CHECK_CLR_ST);
- 		if (ret) {
- 			dev_err(&bus->dev, "MDIO dis clk fail\n");
-@@ -380,8 +391,8 @@ static int hns_mdio_reset(struct mii_bus *bus)
- 		}
- 
- 		/* 3. reset dreq, and read reset st check */
--		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_DREQ, 0x1,
--					    MDIO_SC_RESET_ST, 0x1,
-+		ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_reset_dreq,
-+					    0x1, sc_reg->mdio_reset_st, 0x1,
- 					    MDIO_CHECK_CLR_ST);
- 		if (ret) {
- 			dev_err(&bus->dev, "MDIO dis clk fail\n");
-@@ -389,8 +400,8 @@ static int hns_mdio_reset(struct mii_bus *bus)
- 		}
- 
- 		/* 4. en clk, and read clk st check */
--		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_EN,
--					    0x1, MDIO_SC_CLK_ST, 0x1,
-+		ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_clk_en,
-+					    0x1, sc_reg->mdio_clk_st, 0x1,
- 					    MDIO_CHECK_SET_ST);
- 		if (ret)
- 			dev_err(&bus->dev, "MDIO en clk fail\n");
-@@ -458,13 +469,54 @@ static int hns_mdio_probe(struct platform_device *pdev)
- 	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%s-%s", "Mii",
- 		 dev_name(&pdev->dev));
- 	if (dev_of_node(&pdev->dev)) {
--		mdio_dev->subctrl_vbase = syscon_node_to_regmap(
--			of_parse_phandle(pdev->dev.of_node,
--					 "subctrl-vbase", 0));
--		if (IS_ERR(mdio_dev->subctrl_vbase)) {
--			dev_warn(&pdev->dev, "no syscon hisilicon,peri-c-subctrl\n");
-+		struct of_phandle_args reg_args;
++/* mac media type */
++enum hnae_media_type {
++	HNAE_MEDIA_TYPE_UNKNOWN = 0,
++	HNAE_MEDIA_TYPE_FIBER,
++	HNAE_MEDIA_TYPE_COPPER,
++	HNAE_MEDIA_TYPE_BACKPLANE,
++};
 +
-+		ret = of_parse_phandle_with_fixed_args(pdev->dev.of_node,
-+						       "subctrl-vbase",
-+						       4,
-+						       0,
-+						       &reg_args);
-+		if (!ret) {
-+			mdio_dev->subctrl_vbase =
-+				syscon_node_to_regmap(reg_args.np);
-+			if (IS_ERR(mdio_dev->subctrl_vbase)) {
-+				dev_warn(&pdev->dev, "syscon_node_to_regmap error\n");
-+				mdio_dev->subctrl_vbase = NULL;
-+			} else {
-+				if (reg_args.args_count == 4) {
-+					mdio_dev->sc_reg.mdio_clk_en =
-+						(u16)reg_args.args[0];
-+					mdio_dev->sc_reg.mdio_clk_dis =
-+						(u16)reg_args.args[0] + 4;
-+					mdio_dev->sc_reg.mdio_reset_req =
-+						(u16)reg_args.args[1];
-+					mdio_dev->sc_reg.mdio_reset_dreq =
-+						(u16)reg_args.args[1] + 4;
-+					mdio_dev->sc_reg.mdio_clk_st =
-+						(u16)reg_args.args[2];
-+					mdio_dev->sc_reg.mdio_reset_st =
-+						(u16)reg_args.args[3];
-+				} else {
-+					/* for compatible */
-+					mdio_dev->sc_reg.mdio_clk_en =
-+						MDIO_SC_CLK_EN;
-+					mdio_dev->sc_reg.mdio_clk_dis =
-+						MDIO_SC_CLK_DIS;
-+					mdio_dev->sc_reg.mdio_reset_req =
-+						MDIO_SC_RESET_REQ;
-+					mdio_dev->sc_reg.mdio_reset_dreq =
-+						MDIO_SC_RESET_DREQ;
-+					mdio_dev->sc_reg.mdio_clk_st =
-+						MDIO_SC_CLK_ST;
-+					mdio_dev->sc_reg.mdio_reset_st =
-+						MDIO_SC_RESET_ST;
-+				}
+ /* This struct defines the operation on the handle.
+  *
+  * get_handle(): (mandatory)
+@@ -525,6 +533,7 @@ struct hnae_handle {
+ 	u32 eport_id;
+ 	u32 dport_id;	/* v2 tx bd should fill the dport_id */
+ 	enum hnae_port_type port_type;
++	enum hnae_media_type media_type;
+ 	struct list_head node;    /* list to hnae_ae_dev->handle_list */
+ 	struct hnae_buf_ops *bops; /* operation for the buffer */
+ 	struct hnae_queue **qs;  /* array base of all queues */
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+index 835521b..e28d960 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c
+@@ -134,6 +134,7 @@ struct hnae_handle *hns_ae_get_handle(struct hnae_ae_dev *dev,
+ 	ae_handle->phy_dev = vf_cb->mac_cb->phy_dev;
+ 	ae_handle->if_support = vf_cb->mac_cb->if_support;
+ 	ae_handle->port_type = vf_cb->mac_cb->mac_type;
++	ae_handle->media_type = vf_cb->mac_cb->media_type;
+ 	ae_handle->dport_id = port_id;
+ 
+ 	return ae_handle;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+index d2effcc..3fb87e2 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c
+@@ -733,6 +733,18 @@ static void hns_mac_register_phy(struct hns_mac_cb *mac_cb)
+ 			mac_cb->mac_id, addr);
+ }
+ 
++#define MAC_MEDIA_TYPE_MAX_LEN		16
++
++static const struct {
++	enum hnae_media_type value;
++	const char *name;
++} media_type_defs[] = {
++	{HNAE_MEDIA_TYPE_UNKNOWN,	"unknown" },
++	{HNAE_MEDIA_TYPE_FIBER,		"fiber" },
++	{HNAE_MEDIA_TYPE_COPPER,	"copper" },
++	{HNAE_MEDIA_TYPE_BACKPLANE,	"backplane" },
++};
++
+ /**
+  *hns_mac_get_info  - get mac information from device node
+  *@mac_cb: mac device
+@@ -744,10 +756,13 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
+ 	struct device_node *np;
+ 	struct regmap *syscon;
+ 	struct of_phandle_args cpld_args;
++	const char *media_type;
++	u32 i;
+ 	u32 ret;
+ 
+ 	mac_cb->link = false;
+ 	mac_cb->half_duplex = false;
++	mac_cb->media_type = HNAE_MEDIA_TYPE_UNKNOWN;
+ 	mac_cb->speed = mac_phy_to_speed[mac_cb->phy_if];
+ 	mac_cb->max_speed = mac_cb->speed;
+ 
+@@ -849,6 +864,17 @@ static int  hns_mac_get_info(struct hns_mac_cb *mac_cb)
+ 			mac_cb->mac_id);
+ 	}
+ 
++	if (!fwnode_property_read_string(mac_cb->fw_port, "media-type",
++					 &media_type)) {
++		for (i = 0; i < ARRAY_SIZE(media_type_defs); i++) {
++			if (!strncmp(media_type_defs[i].name, media_type,
++				     MAC_MEDIA_TYPE_MAX_LEN)) {
++				mac_cb->media_type = media_type_defs[i].value;
++				break;
 +			}
-+		} else {
-+			dev_warn(&pdev->dev, "find syscon ret = %#x\n", ret);
- 			mdio_dev->subctrl_vbase = NULL;
- 		}
++		}
++	}
 +
- 		ret = of_mdiobus_register(new_bus, pdev->dev.of_node);
- 	} else if (is_acpi_node(pdev->dev.fwnode)) {
- 		/* Clear all the IRQ properties */
+ 	return 0;
+ }
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
+index 05a6e8f..4cbdf14 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h
+@@ -335,6 +335,7 @@ struct hns_mac_cb {
+ 	u64 txpkt_for_led;
+ 	u64 rxpkt_for_led;
+ 	enum hnae_port_type mac_type;
++	enum hnae_media_type media_type;
+ 	phy_interface_t phy_if;
+ 	enum hnae_loop loop_mode;
+ 
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+index a395ca1..ab33487 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_ethtool.c
+@@ -165,13 +165,21 @@ static int hns_nic_get_settings(struct net_device *net_dev,
+ 		cmd->advertising |= ADVERTISED_10000baseKR_Full;
+ 	}
+ 
+-	if (h->port_type == HNAE_PORT_SERVICE) {
++	switch (h->media_type) {
++	case HNAE_MEDIA_TYPE_FIBER:
+ 		cmd->port = PORT_FIBRE;
+-		cmd->supported |= SUPPORTED_Pause;
+-	} else {
++		break;
++	case HNAE_MEDIA_TYPE_COPPER:
+ 		cmd->port = PORT_TP;
++		break;
++	case HNAE_MEDIA_TYPE_UNKNOWN:
++	default:
++		break;
+ 	}
+ 
++	if (!(AE_IS_VER1(priv->enet_ver) && h->port_type == HNAE_PORT_DEBUG))
++		cmd->supported |= SUPPORTED_Pause;
++
+ 	cmd->transceiver = XCVR_EXTERNAL;
+ 	cmd->mdio_support = (ETH_MDIO_SUPPORTS_C45 | ETH_MDIO_SUPPORTS_C22);
+ 	hns_get_mdix_mode(net_dev, cmd);
 -- 
 1.9.1
