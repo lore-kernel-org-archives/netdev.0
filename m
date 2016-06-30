@@ -1,180 +1,136 @@
-From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 09/19] rxrpc: Release a call's connection ref on
- call disconnection
-Date: Thu, 30 Jun 2016 15:11:46 +0100
-Message-ID: <146729590642.26306.14381202354327359346.stgit@warthog.procyon.org.uk>
-References: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
+From: Dmitry Vyukov <dvyukov@google.com>
+Subject: Re: [PATCH v2 net] bonding: prevent out of bound accesses
+Date: Thu, 30 Jun 2016 16:19:37 +0200
+Message-ID: <CACT4Y+ZQnpgb4kmfkw2utT-Cwu1gApmO=cr1pw=T=RFJJzAPSg@mail.gmail.com>
+References: <1467291379.11238.8.camel@edumazet-glaptop3.roam.corp.google.com> <1467296021.11238.19.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Mahesh Bandewar <maheshb@google.com>,
+	Nikolay Aleksandrov <nikolay@redhat.com>,
+	Ding Tianhong <dingtianhong@huawei.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:32791 "EHLO
+	mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752549AbcF3OT7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 10:19:59 -0400
+Received: by mail-lf0-f43.google.com with SMTP id f6so56600226lfg.0
+        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 07:19:58 -0700 (PDT)
+In-Reply-To: <1467296021.11238.19.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-When a call is disconnected, clear the call's pointer to the connection and
-release the associated ref on that connection.  This means that the call no
-longer pins the connection and the connection can be discarded even before
-the call is.
+On Thu, Jun 30, 2016 at 4:13 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> ether_addr_equal_64bits() requires some care about its arguments,
+> namely that 8 bytes might be read, even if last 2 byte values are not
+> used.
+>
+> KASan detected a violation with null_mac_addr and lacpdu_mcast_addr
+> in bond_3ad.c
+>
+> Same problem with mac_bcast[] and mac_v6_allmcast[] in bond_alb.c :
+> Although the 8-byte alignment was there, KASan would detect out
+> of bound accesses.
+>
+> Fixes: 815117adaf5b ("bonding: use ether_addr_equal_unaligned for bond addr compare")
+> Fixes: bb54e58929f3 ("bonding: Verify RX LACPDU has proper dest mac-addr")
+> Fixes: 885a136c52a8 ("bonding: use compare_ether_addr_64bits() in ALB")
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Reported-by: Dmitry Vyukov <dvyukov@google.com>
+> ---
+>  drivers/net/bonding/bond_3ad.c |   11 +++++++----
+>  drivers/net/bonding/bond_alb.c |    7 ++-----
+>  include/net/bonding.h          |    7 ++++++-
+>  3 files changed, 15 insertions(+), 10 deletions(-)
+>
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> index ca81f46ea1aa..8ad491ab1d01 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -101,11 +101,14 @@ enum ad_link_speed_type {
+>  #define MAC_ADDRESS_EQUAL(A, B)        \
+>         ether_addr_equal_64bits((const u8 *)A, (const u8 *)B)
+>
+> -static struct mac_addr null_mac_addr = { { 0, 0, 0, 0, 0, 0 } };
+> +static const u8 null_mac_addr[ETH_ALEN + 2] __long_aligned = {
+> +       0, 0, 0, 0, 0, 0
+> +};
+>  static u16 ad_ticks_per_sec;
+>  static const int ad_delta_in_ticks = (AD_TIMER_INTERVAL * HZ) / 1000;
+>
+> -static const u8 lacpdu_mcast_addr[ETH_ALEN] = MULTICAST_LACPDU_ADDR;
+> +static const u8 lacpdu_mcast_addr[ETH_ALEN + 2] __long_aligned =
+> +       MULTICAST_LACPDU_ADDR;
+>
+>  /* ================= main 802.3ad protocol functions ================== */
+>  static int ad_lacpdu_send(struct port *port);
+> @@ -1739,7 +1742,7 @@ static void ad_clear_agg(struct aggregator *aggregator)
+>                 aggregator->is_individual = false;
+>                 aggregator->actor_admin_aggregator_key = 0;
+>                 aggregator->actor_oper_aggregator_key = 0;
+> -               aggregator->partner_system = null_mac_addr;
+> +               eth_zero_addr(aggregator->partner_system.mac_addr_value);
+>                 aggregator->partner_system_priority = 0;
+>                 aggregator->partner_oper_aggregator_key = 0;
+>                 aggregator->receive_state = 0;
+> @@ -1761,7 +1764,7 @@ static void ad_initialize_agg(struct aggregator *aggregator)
+>         if (aggregator) {
+>                 ad_clear_agg(aggregator);
+>
+> -               aggregator->aggregator_mac_address = null_mac_addr;
+> +               eth_zero_addr(aggregator->aggregator_mac_address.mac_addr_value);
+>                 aggregator->aggregator_identifier = 0;
+>                 aggregator->slave = NULL;
+>         }
+> diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+> index c5ac160a8ae9..551f0f8dead3 100644
+> --- a/drivers/net/bonding/bond_alb.c
+> +++ b/drivers/net/bonding/bond_alb.c
+> @@ -42,13 +42,10 @@
+>
+>
+>
+> -#ifndef __long_aligned
+> -#define __long_aligned __attribute__((aligned((sizeof(long)))))
+> -#endif
+> -static const u8 mac_bcast[ETH_ALEN] __long_aligned = {
+> +static const u8 mac_bcast[ETH_ALEN + 2] __long_aligned = {
+>         0xff, 0xff, 0xff, 0xff, 0xff, 0xff
+>  };
+> -static const u8 mac_v6_allmcast[ETH_ALEN] __long_aligned = {
+> +static const u8 mac_v6_allmcast[ETH_ALEN + 2] __long_aligned = {
+>         0x33, 0x33, 0x00, 0x00, 0x00, 0x01
+>  };
+>  static const int alb_delta_in_ticks = HZ / ALB_TIMER_TICKS_PER_SEC;
+> diff --git a/include/net/bonding.h b/include/net/bonding.h
+> index 791800ddd6d9..6360c259da6d 100644
+> --- a/include/net/bonding.h
+> +++ b/include/net/bonding.h
+> @@ -34,6 +34,9 @@
+>
+>  #define BOND_DEFAULT_MIIMON    100
+>
+> +#ifndef __long_aligned
+> +#define __long_aligned __attribute__((aligned((sizeof(long)))))
+> +#endif
+>  /*
+>   * Less bad way to call ioctl from within the kernel; this needs to be
+>   * done some other way to get the call out of interrupt context.
+> @@ -138,7 +141,9 @@ struct bond_params {
+>         struct reciprocal_value reciprocal_packets_per_slave;
+>         u16 ad_actor_sys_prio;
+>         u16 ad_user_port_key;
+> -       u8 ad_actor_system[ETH_ALEN];
+> +
+> +       /* 2 bytes of padding : see ether_addr_equal_64bits() */
+> +       u8 ad_actor_system[ETH_ALEN + 2];
+>  };
+>
+>  struct bond_parm_tbl {
 
-As the code currently stands, the call struct is effectively pinned by
-userspace until userspace has enacted a recvmsg() to retrieve the final
-call state as sk_buffs on the receive queue pin the call to which they're
-related because:
 
- (1) The rxrpc_call struct contains the userspace ID that recvmsg() has to
-     include in the control message buffer to indicate which call is being
-     referred to.  This ID must remain valid until the terminal packet is
-     completely read and must be invalidated immediately at that point as
-     userspace is entitled to immediately reuse it.
-
- (2) The final ACK to the reply to a client call isn't sent until the last
-     data packet is entirely read (it's probably worth altering this in
-     future to be send the ACK as soon as all the data has been received).
-
-
-This change requires a bit of rearrangement to make sure that the call
-isn't going to try and access the connection again after protocol
-completion:
-
- (1) Delete the error link earlier when we're releasing the call.  Possibly
-     network errors should be distributed via connections at the cost of
-     adding in an access to the rxrpc_connection struct.
-
- (2) Remove the call from the connection's call tree before disconnecting
-     the call.  The call tree needs to be removed anyway and incoming
-     packets delivered by channel pointer instead.
-
- (3) The release call event should be considered last after all other
-     events have been processed so that we don't need access to the
-     connection again.
-
- (4) Move the channel_lock taking from rxrpc_release_call() to
-     rxrpc_disconnect_call() where it will be required in future.
-
-Signed-off-by: David Howells <dhowells@redhat.com>
----
-
- net/rxrpc/call_event.c  |   10 +++++-----
- net/rxrpc/call_object.c |   26 +++++++++-----------------
- net/rxrpc/conn_object.c |    8 ++++++++
- 3 files changed, 22 insertions(+), 22 deletions(-)
-
-diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
-index 0ba84295f913..638d66df284a 100644
---- a/net/rxrpc/call_event.c
-+++ b/net/rxrpc/call_event.c
-@@ -858,11 +858,6 @@ void rxrpc_process_call(struct work_struct *work)
- 	iov[0].iov_len	= sizeof(whdr);
- 
- 	/* deal with events of a final nature */
--	if (test_bit(RXRPC_CALL_EV_RELEASE, &call->events)) {
--		rxrpc_release_call(call);
--		clear_bit(RXRPC_CALL_EV_RELEASE, &call->events);
--	}
--
- 	if (test_bit(RXRPC_CALL_EV_RCVD_ERROR, &call->events)) {
- 		enum rxrpc_skb_mark mark;
- 		int error;
-@@ -1144,6 +1139,11 @@ void rxrpc_process_call(struct work_struct *work)
- 		goto maybe_reschedule;
- 	}
- 
-+	if (test_bit(RXRPC_CALL_EV_RELEASE, &call->events)) {
-+		rxrpc_release_call(call);
-+		clear_bit(RXRPC_CALL_EV_RELEASE, &call->events);
-+	}
-+
- 	/* other events may have been raised since we started checking */
- 	goto maybe_reschedule;
- 
-diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
-index 6223a7ed831f..b43d89c89744 100644
---- a/net/rxrpc/call_object.c
-+++ b/net/rxrpc/call_object.c
-@@ -628,6 +628,10 @@ void rxrpc_release_call(struct rxrpc_call *call)
- 	 */
- 	_debug("RELEASE CALL %p (%d CONN %p)", call, call->debug_id, conn);
- 
-+	spin_lock(&conn->params.peer->lock);
-+	hlist_del_init(&call->error_link);
-+	spin_unlock(&conn->params.peer->lock);
-+
- 	write_lock_bh(&rx->call_lock);
- 	if (!list_empty(&call->accept_link)) {
- 		_debug("unlinking once-pending call %p { e=%lx f=%lx }",
-@@ -643,25 +647,22 @@ void rxrpc_release_call(struct rxrpc_call *call)
- 	write_unlock_bh(&rx->call_lock);
- 
- 	/* free up the channel for reuse */
--	spin_lock(&conn->channel_lock);
- 	write_lock_bh(&conn->lock);
- 	write_lock(&call->state_lock);
- 
--	rxrpc_disconnect_call(call);
--
--	spin_unlock(&conn->channel_lock);
--
- 	if (call->state < RXRPC_CALL_COMPLETE &&
- 	    call->state != RXRPC_CALL_CLIENT_FINAL_ACK) {
- 		_debug("+++ ABORTING STATE %d +++\n", call->state);
- 		call->state = RXRPC_CALL_LOCALLY_ABORTED;
- 		call->local_abort = RX_CALL_DEAD;
--		set_bit(RXRPC_CALL_EV_ABORT, &call->events);
--		rxrpc_queue_call(call);
- 	}
- 	write_unlock(&call->state_lock);
-+
-+	rb_erase(&call->conn_node, &conn->calls);
- 	write_unlock_bh(&conn->lock);
- 
-+	rxrpc_disconnect_call(call);
-+
- 	/* clean up the Rx queue */
- 	if (!skb_queue_empty(&call->rx_queue) ||
- 	    !skb_queue_empty(&call->rx_oos_queue)) {
-@@ -817,16 +818,7 @@ static void rxrpc_cleanup_call(struct rxrpc_call *call)
- 		return;
- 	}
- 
--	if (call->conn) {
--		spin_lock(&call->conn->params.peer->lock);
--		hlist_del_init(&call->error_link);
--		spin_unlock(&call->conn->params.peer->lock);
--
--		write_lock_bh(&call->conn->lock);
--		rb_erase(&call->conn_node, &call->conn->calls);
--		write_unlock_bh(&call->conn->lock);
--		rxrpc_put_connection(call->conn);
--	}
-+	ASSERTCMP(call->conn, ==, NULL);
- 
- 	/* Remove the call from the hash */
- 	rxrpc_call_hash_del(call);
-diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
-index 6d50d0d165b7..a2c1ddade974 100644
---- a/net/rxrpc/conn_object.c
-+++ b/net/rxrpc/conn_object.c
-@@ -544,11 +544,19 @@ void rxrpc_disconnect_call(struct rxrpc_call *call)
- 
- 	_enter("%d,%d", conn->debug_id, call->channel);
- 
-+	spin_lock(&conn->channel_lock);
-+
- 	if (conn->channels[chan] == call) {
- 		rcu_assign_pointer(conn->channels[chan], NULL);
- 		atomic_inc(&conn->avail_chans);
- 		wake_up(&conn->channel_wq);
- 	}
-+
-+	spin_unlock(&conn->channel_lock);
-+
-+	call->conn = NULL;
-+	rxrpc_put_connection(conn);
-+	_leave("");
- }
- 
- /*
+Acked-by: Dmitry Vyukov <dvyukov@google.com>
