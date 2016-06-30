@@ -1,50 +1,58 @@
-From: Michal Soltys <soltys@ziu.info>
-Subject: [net-next PATCH 0/5] HFSC patches, part 1
-Date: Thu, 30 Jun 2016 02:26:43 +0200
-Message-ID: <1467246408-913-1-git-send-email-soltys@ziu.info>
-Cc: netdev@vger.kernel.org, kaber@trash.net
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from drutsystem.com ([84.10.39.251]:50040 "EHLO drutsystem.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751610AbcF3A1b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jun 2016 20:27:31 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with Linus' tree
+Date: Thu, 30 Jun 2016 11:01:46 +1000
+Message-ID: <20160630110146.6becc338@canb.auug.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Florian Fainelli <f.fainelli@gmail.com>,
+	Russell King <rmk+kernel@arm.linux.org.uk>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi all,
 
-It's revised version of part of the patches I submitted really, really long
-time ago (back then I asked Patrick to ignore them as I found some issues
-shortly after submitting).
+Today's linux-next merge of the net-next tree got a conflict in:
 
-Anyway this is the first set with very simple fixes/changes though some of them
-relatively subtle (I tried to do very exhaustive commit messages explaining what
-and why with those).
+  drivers/net/phy/fixed_phy.c
 
-The patches are against net-next tree.
+between commit:
 
-The second set will be heavier - or rather with more complex explanations, among those I have:
+  69fc58a57e56 ("net: phy: Manage fixed PHY address space using IDA")
 
-- a fix to subtle issue introduced in
-  http://permalink.gmane.org/gmane.linux.kernel.commits.2-4/8281
-  along with simplifying related stuff
-- update times to 96 bits (which allows to "just" use 32 bit shifts and
-  improves curve definition accuracy at more extreme low/high speeds)
-- add curve "merging" instead of just selecting in convex case (computations
-  mirror those from concave intersection)
+from Linus' tree and commit:
 
-But these are eventually for later.
+  bf7afb29d545 ("phy: improve safety of fixed-phy MII register reading")
 
-Michal Soltys (5):
-  net/sched/sch_hfsc.c: handle corner cases where head may change invalidating calculated deadline
-  net/sched/sch_hfsc.c: add unlikely() in qdisc_peek_len()
-  net/sched/sch_hfsc.c: remove leftover dlist and droplist
-  net/sched/sch_hfsc.c: go passive after vt update
-  net/sched/sch_hfsc.c: anchor virtual curve at proper vt in hfsc_change_fsc()
+from the net-next tree.
 
- net/sched/sch_hfsc.c | 54 ++++++++++++++++++++++++++--------------------------
- 1 file changed, 27 insertions(+), 27 deletions(-)
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
 
 -- 
-2.1.3
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/phy/fixed_phy.c
+index 9ec7f7353434,b376ada83598..000000000000
+--- a/drivers/net/phy/fixed_phy.c
++++ b/drivers/net/phy/fixed_phy.c
+@@@ -23,9 -23,9 +23,10 @@@
+  #include <linux/slab.h>
+  #include <linux/of.h>
+  #include <linux/gpio.h>
++ #include <linux/seqlock.h>
+ +#include <linux/idr.h>
+  
+- #define MII_REGS_NUM 29
++ #include "swphy.h"
+  
+  struct fixed_mdio_bus {
+  	struct mii_bus *mii_bus;
