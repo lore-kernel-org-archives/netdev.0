@@ -1,99 +1,40 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V2 06/16] net/mlx5: E-Switch, Add offloads table
-Date: Thu, 30 Jun 2016 18:23:25 +0300
-Message-ID: <1467300215-14199-7-git-send-email-saeedm@mellanox.com>
-References: <1467300215-14199-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Hen-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 0/2] Further robustify putting BPF progs
+Date: Thu, 30 Jun 2016 17:24:42 +0200
+Message-ID: <cover.1467298256.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, jannh@google.com,
+	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:43173 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932421AbcF3PY4 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jun 2016 11:24:56 -0400
-In-Reply-To: <1467300215-14199-1-git-send-email-saeedm@mellanox.com>
+Received: from www62.your-server.de ([213.133.104.62]:48315 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932454AbcF3PZK (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 11:25:10 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Or Gerlitz <ogerlitz@mellanox.com>
+This series addresses a potential issue reported to us by Jann Horn
+with regards to putting progs. First patch moves progs generally under
+RCU destruction and second patch refactors getting of progs to simplify
+code a bit. For details, please see individual patches. Note, we think
+that addressing this one in net-next should be sufficient.
 
-Belongs to the NIC offloads name-space, and to be used as part of the
-SRIOV offloads logic to steer packets that hit the e-switch miss rule
-to the TIR of the relevant VF representor.
+Thanks!
 
-Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  5 ++++
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 31 ++++++++++++++++++++++
- 2 files changed, 36 insertions(+)
+Daniel Borkmann (2):
+  bpf: generally move prog destruction to RCU deferral
+  bpf: refactor bpf_prog_get and type check into helper
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index b7fabd1..32db37a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -155,6 +155,10 @@ enum {
- 	SRIOV_OFFLOADS
- };
- 
-+struct mlx5_esw_offload {
-+	struct mlx5_flow_table *ft_offloads;
-+};
-+
- struct mlx5_eswitch {
- 	struct mlx5_core_dev    *dev;
- 	struct mlx5_l2_table    l2_table;
-@@ -169,6 +173,7 @@ struct mlx5_eswitch {
- 	 */
- 	struct mutex            state_lock;
- 	struct esw_mc_addr      *mc_promisc;
-+	struct mlx5_esw_offload offloads;
- 	int                     mode;
- };
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index 8964f71..e895c6f 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -212,3 +212,34 @@ void esw_destroy_offloads_fdb_table(struct mlx5_eswitch *esw)
- 
- 	mlx5_destroy_flow_table(esw->fdb_table.fdb);
- }
-+
-+static int esw_create_offloads_table(struct mlx5_eswitch *esw)
-+{
-+	struct mlx5_flow_namespace *ns;
-+	struct mlx5_flow_table *ft_offloads;
-+	struct mlx5_core_dev *dev = esw->dev;
-+	int err = 0;
-+
-+	ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_OFFLOADS);
-+	if (!ns) {
-+		esw_warn(esw->dev, "Failed to get offloads flow namespace\n");
-+		return -ENOMEM;
-+	}
-+
-+	ft_offloads = mlx5_create_flow_table(ns, 0, dev->priv.sriov.num_vfs + 2, 0);
-+	if (IS_ERR(ft_offloads)) {
-+		err = PTR_ERR(ft_offloads);
-+		esw_warn(esw->dev, "Failed to create offloads table, err %d\n", err);
-+		return err;
-+	}
-+
-+	esw->offloads.ft_offloads = ft_offloads;
-+	return 0;
-+}
-+
-+static void esw_destroy_offloads_table(struct mlx5_eswitch *esw)
-+{
-+	struct mlx5_esw_offload *offloads = &esw->offloads;
-+
-+	mlx5_destroy_flow_table(offloads->ft_offloads);
-+}
+ include/linux/bpf.h    |  8 +++++---
+ kernel/bpf/arraymap.c  |  4 +---
+ kernel/bpf/syscall.c   | 40 ++++++++++++++++++++++------------------
+ kernel/events/core.c   |  2 +-
+ net/core/filter.c      | 13 +------------
+ net/kcm/kcmsock.c      |  8 +-------
+ net/packet/af_packet.c |  6 +-----
+ net/sched/act_bpf.c    |  7 +------
+ net/sched/cls_bpf.c    |  7 +------
+ 9 files changed, 34 insertions(+), 61 deletions(-)
+
 -- 
-2.8.0
+1.9.3
