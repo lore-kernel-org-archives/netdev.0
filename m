@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 15/19] rxrpc: Move peer lookup from call-accept to
- new-incoming-conn
-Date: Thu, 30 Jun 2016 15:12:29 +0100
-Message-ID: <146729594992.26306.7455044215916160739.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 09/19] rxrpc: Release a call's connection ref on
+ call disconnection
+Date: Thu, 30 Jun 2016 15:11:46 +0100
+Message-ID: <146729590642.26306.14381202354327359346.stgit@warthog.procyon.org.uk>
 References: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,198 +15,166 @@ In-Reply-To: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move the lookup of a peer from a call that's being accepted into the
-function that creates a new incoming connection.  This will allow us to
-avoid incrementing the peer's usage count in some cases in future.
+When a call is disconnected, clear the call's pointer to the connection and
+release the associated ref on that connection.  This means that the call no
+longer pins the connection and the connection can be discarded even before
+the call is.
 
-Note that I haven't bother to integrate rxrpc_get_addr_from_skb() with
-rxrpc_extract_addr_from_skb() as I'm going to delete the former in the very
-near future.
+As the code currently stands, the call struct is effectively pinned by
+userspace until userspace has enacted a recvmsg() to retrieve the final
+call state as sk_buffs on the receive queue pin the call to which they're
+related because:
+
+ (1) The rxrpc_call struct contains the userspace ID that recvmsg() has to
+     include in the control message buffer to indicate which call is being
+     referred to.  This ID must remain valid until the terminal packet is
+     completely read and must be invalidated immediately at that point as
+     userspace is entitled to immediately reuse it.
+
+ (2) The final ACK to the reply to a client call isn't sent until the last
+     data packet is entirely read (it's probably worth altering this in
+     future to be send the ACK as soon as all the data has been received).
+
+
+This change requires a bit of rearrangement to make sure that the call
+isn't going to try and access the connection again after protocol
+completion:
+
+ (1) Delete the error link earlier when we're releasing the call.  Possibly
+     network errors should be distributed via connections at the cost of
+     adding in an access to the rxrpc_connection struct.
+
+ (2) Remove the call from the connection's call tree before disconnecting
+     the call.  The call tree needs to be removed anyway and incoming
+     packets delivered by channel pointer instead.
+
+ (3) The release call event should be considered last after all other
+     events have been processed so that we don't need access to the
+     connection again.
+
+ (4) Move the channel_lock taking from rxrpc_release_call() to
+     rxrpc_disconnect_call() where it will be required in future.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h  |    3 ++-
- net/rxrpc/call_accept.c  |   31 +++++++------------------------
- net/rxrpc/conn_service.c |   11 ++++++++++-
- net/rxrpc/utils.c        |   32 ++++++++++++++++++++++++++++++++
- 4 files changed, 51 insertions(+), 26 deletions(-)
+ net/rxrpc/call_event.c  |   10 +++++-----
+ net/rxrpc/call_object.c |   26 +++++++++-----------------
+ net/rxrpc/conn_object.c |    8 ++++++++
+ 3 files changed, 22 insertions(+), 22 deletions(-)
 
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 2495c4facf51..7d87cace0177 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -609,7 +609,7 @@ static inline void rxrpc_queue_conn(struct rxrpc_connection *conn)
-  * conn_service.c
-  */
- struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *,
--						   struct rxrpc_peer *,
-+						   struct sockaddr_rxrpc *,
- 						   struct sk_buff *);
+diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
+index 0ba84295f913..638d66df284a 100644
+--- a/net/rxrpc/call_event.c
++++ b/net/rxrpc/call_event.c
+@@ -858,11 +858,6 @@ void rxrpc_process_call(struct work_struct *work)
+ 	iov[0].iov_len	= sizeof(whdr);
  
- /*
-@@ -775,6 +775,7 @@ static inline void rxrpc_sysctl_exit(void) {}
-  */
- void rxrpc_get_addr_from_skb(struct rxrpc_local *, const struct sk_buff *,
- 			     struct sockaddr_rxrpc *);
-+int rxrpc_extract_addr_from_skb(struct sockaddr_rxrpc *, struct sk_buff *);
- 
- /*
-  * debug tracing
-diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
-index 5367dbe9b96f..0b2832141bd0 100644
---- a/net/rxrpc/call_accept.c
-+++ b/net/rxrpc/call_accept.c
-@@ -75,7 +75,6 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
- {
- 	struct rxrpc_connection *conn;
- 	struct rxrpc_skb_priv *sp, *nsp;
--	struct rxrpc_peer *peer;
- 	struct rxrpc_call *call;
- 	struct sk_buff *notification;
- 	int ret;
-@@ -94,15 +93,7 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
- 	rxrpc_new_skb(notification);
- 	notification->mark = RXRPC_SKB_MARK_NEW_CALL;
- 
--	peer = rxrpc_lookup_peer(local, srx, GFP_NOIO);
--	if (!peer) {
--		_debug("no peer");
--		ret = -EBUSY;
--		goto error;
+ 	/* deal with events of a final nature */
+-	if (test_bit(RXRPC_CALL_EV_RELEASE, &call->events)) {
+-		rxrpc_release_call(call);
+-		clear_bit(RXRPC_CALL_EV_RELEASE, &call->events);
 -	}
 -
--	conn = rxrpc_incoming_connection(local, peer, skb);
--	rxrpc_put_peer(peer);
-+	conn = rxrpc_incoming_connection(local, srx, skb);
- 	if (IS_ERR(conn)) {
- 		_debug("no conn");
- 		ret = PTR_ERR(conn);
-@@ -226,20 +217,8 @@ void rxrpc_accept_incoming_calls(struct rxrpc_local *local)
- 	whdr._rsvd	= 0;
- 	whdr.serviceId	= htons(sp->hdr.serviceId);
+ 	if (test_bit(RXRPC_CALL_EV_RCVD_ERROR, &call->events)) {
+ 		enum rxrpc_skb_mark mark;
+ 		int error;
+@@ -1144,6 +1139,11 @@ void rxrpc_process_call(struct work_struct *work)
+ 		goto maybe_reschedule;
+ 	}
  
--	/* determine the remote address */
--	memset(&srx, 0, sizeof(srx));
--	srx.srx_family = AF_RXRPC;
--	srx.transport.family = local->srx.transport.family;
--	srx.transport_type = local->srx.transport_type;
--	switch (srx.transport.family) {
--	case AF_INET:
--		srx.transport_len = sizeof(struct sockaddr_in);
--		srx.transport.sin.sin_port = udp_hdr(skb)->source;
--		srx.transport.sin.sin_addr.s_addr = ip_hdr(skb)->saddr;
--		break;
--	default:
--		goto busy;
++	if (test_bit(RXRPC_CALL_EV_RELEASE, &call->events)) {
++		rxrpc_release_call(call);
++		clear_bit(RXRPC_CALL_EV_RELEASE, &call->events);
++	}
++
+ 	/* other events may have been raised since we started checking */
+ 	goto maybe_reschedule;
+ 
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index 6223a7ed831f..b43d89c89744 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -628,6 +628,10 @@ void rxrpc_release_call(struct rxrpc_call *call)
+ 	 */
+ 	_debug("RELEASE CALL %p (%d CONN %p)", call, call->debug_id, conn);
+ 
++	spin_lock(&conn->params.peer->lock);
++	hlist_del_init(&call->error_link);
++	spin_unlock(&conn->params.peer->lock);
++
+ 	write_lock_bh(&rx->call_lock);
+ 	if (!list_empty(&call->accept_link)) {
+ 		_debug("unlinking once-pending call %p { e=%lx f=%lx }",
+@@ -643,25 +647,22 @@ void rxrpc_release_call(struct rxrpc_call *call)
+ 	write_unlock_bh(&rx->call_lock);
+ 
+ 	/* free up the channel for reuse */
+-	spin_lock(&conn->channel_lock);
+ 	write_lock_bh(&conn->lock);
+ 	write_lock(&call->state_lock);
+ 
+-	rxrpc_disconnect_call(call);
+-
+-	spin_unlock(&conn->channel_lock);
+-
+ 	if (call->state < RXRPC_CALL_COMPLETE &&
+ 	    call->state != RXRPC_CALL_CLIENT_FINAL_ACK) {
+ 		_debug("+++ ABORTING STATE %d +++\n", call->state);
+ 		call->state = RXRPC_CALL_LOCALLY_ABORTED;
+ 		call->local_abort = RX_CALL_DEAD;
+-		set_bit(RXRPC_CALL_EV_ABORT, &call->events);
+-		rxrpc_queue_call(call);
+ 	}
+ 	write_unlock(&call->state_lock);
++
++	rb_erase(&call->conn_node, &conn->calls);
+ 	write_unlock_bh(&conn->lock);
+ 
++	rxrpc_disconnect_call(call);
++
+ 	/* clean up the Rx queue */
+ 	if (!skb_queue_empty(&call->rx_queue) ||
+ 	    !skb_queue_empty(&call->rx_oos_queue)) {
+@@ -817,16 +818,7 @@ static void rxrpc_cleanup_call(struct rxrpc_call *call)
+ 		return;
+ 	}
+ 
+-	if (call->conn) {
+-		spin_lock(&call->conn->params.peer->lock);
+-		hlist_del_init(&call->error_link);
+-		spin_unlock(&call->conn->params.peer->lock);
+-
+-		write_lock_bh(&call->conn->lock);
+-		rb_erase(&call->conn_node, &call->conn->calls);
+-		write_unlock_bh(&call->conn->lock);
+-		rxrpc_put_connection(call->conn);
 -	}
-+	if (rxrpc_extract_addr_from_skb(&srx, skb) < 0)
-+		goto drop;
++	ASSERTCMP(call->conn, ==, NULL);
  
- 	/* get the socket providing the service */
- 	read_lock_bh(&local->services_lock);
-@@ -285,6 +264,10 @@ busy:
- 	rxrpc_free_skb(skb);
- 	return;
+ 	/* Remove the call from the hash */
+ 	rxrpc_call_hash_del(call);
+diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
+index 6d50d0d165b7..a2c1ddade974 100644
+--- a/net/rxrpc/conn_object.c
++++ b/net/rxrpc/conn_object.c
+@@ -544,11 +544,19 @@ void rxrpc_disconnect_call(struct rxrpc_call *call)
  
-+drop:
-+	rxrpc_free_skb(skb);
-+	return;
+ 	_enter("%d,%d", conn->debug_id, call->channel);
+ 
++	spin_lock(&conn->channel_lock);
 +
- invalid_service:
- 	skb->priority = RX_INVALID_OPERATION;
- 	rxrpc_reject_packet(local, skb);
-diff --git a/net/rxrpc/conn_service.c b/net/rxrpc/conn_service.c
-index 2536d5276f67..3f0242423a66 100644
---- a/net/rxrpc/conn_service.c
-+++ b/net/rxrpc/conn_service.c
-@@ -16,11 +16,12 @@
-  * get a record of an incoming connection
-  */
- struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
--						   struct rxrpc_peer *peer,
-+						   struct sockaddr_rxrpc *srx,
- 						   struct sk_buff *skb)
- {
- 	struct rxrpc_connection *conn, *candidate = NULL;
- 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
-+	struct rxrpc_peer *peer;
- 	struct rb_node *p, **pp;
- 	const char *new = "old";
- 	__be32 epoch;
-@@ -28,6 +29,12 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
- 
- 	_enter("");
- 
-+	peer = rxrpc_lookup_peer(local, srx, GFP_NOIO);
-+	if (!peer) {
-+		_debug("no peer");
-+		return ERR_PTR(-EBUSY);
-+	}
+ 	if (conn->channels[chan] == call) {
+ 		rcu_assign_pointer(conn->channels[chan], NULL);
+ 		atomic_inc(&conn->avail_chans);
+ 		wake_up(&conn->channel_wq);
+ 	}
 +
- 	ASSERT(sp->hdr.flags & RXRPC_CLIENT_INITIATED);
- 
- 	epoch = sp->hdr.epoch;
-@@ -59,6 +66,7 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
- 	 * redo the search */
- 	candidate = rxrpc_alloc_connection(GFP_NOIO);
- 	if (!candidate) {
-+		rxrpc_put_peer(peer);
- 		_leave(" = -ENOMEM");
- 		return ERR_PTR(-ENOMEM);
- 	}
-@@ -115,6 +123,7 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
- success:
- 	_net("CONNECTION %s %d {%x}", new, conn->debug_id, conn->proto.cid);
- 
-+	rxrpc_put_peer(peer);
- 	_leave(" = %p {u=%d}", conn, atomic_read(&conn->usage));
- 	return conn;
- 
-diff --git a/net/rxrpc/utils.c b/net/rxrpc/utils.c
-index f28122a15a24..d3db02ecc37f 100644
---- a/net/rxrpc/utils.c
-+++ b/net/rxrpc/utils.c
-@@ -10,6 +10,7 @@
-  */
- 
- #include <linux/ip.h>
-+#include <linux/ipv6.h>
- #include <linux/udp.h>
- #include "ar-internal.h"
- 
-@@ -39,3 +40,34 @@ void rxrpc_get_addr_from_skb(struct rxrpc_local *local,
- 		BUG();
- 	}
++	spin_unlock(&conn->channel_lock);
++
++	call->conn = NULL;
++	rxrpc_put_connection(conn);
++	_leave("");
  }
-+
-+/*
-+ * Fill out a peer address from a socket buffer containing a packet.
-+ */
-+int rxrpc_extract_addr_from_skb(struct sockaddr_rxrpc *srx, struct sk_buff *skb)
-+{
-+	memset(srx, 0, sizeof(*srx));
-+
-+	switch (ntohs(skb->protocol)) {
-+	case ETH_P_IP:
-+		srx->transport_type = SOCK_DGRAM;
-+		srx->transport_len = sizeof(srx->transport.sin);
-+		srx->transport.sin.sin_family = AF_INET;
-+		srx->transport.sin.sin_port = udp_hdr(skb)->source;
-+		srx->transport.sin.sin_addr.s_addr = ip_hdr(skb)->saddr;
-+		return 0;
-+
-+	case ETH_P_IPV6:
-+		srx->transport_type = SOCK_DGRAM;
-+		srx->transport_len = sizeof(srx->transport.sin6);
-+		srx->transport.sin6.sin6_family = AF_INET6;
-+		srx->transport.sin6.sin6_port = udp_hdr(skb)->source;
-+		srx->transport.sin6.sin6_addr = ipv6_hdr(skb)->saddr;
-+		return 0;
-+
-+	default:
-+		pr_warn_ratelimited("AF_RXRPC: Unknown eth protocol %u\n",
-+				    ntohs(skb->protocol));
-+		return -EAFNOSUPPORT;
-+	}
-+}
+ 
+ /*
