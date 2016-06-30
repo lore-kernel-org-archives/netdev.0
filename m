@@ -1,56 +1,59 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v2 1/2] net: pktgen: support injecting packets
- for qdisc testing
-Date: Thu, 30 Jun 2016 09:42:01 -0700
-Message-ID: <57754BD9.5010709@gmail.com>
-References: <20160629200306.16491.65359.stgit@john-Precision-Tower-5810>
- <20160630103758.37bc8d6f@redhat.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [Patch net] mlx4: set csum_complete_sw bit when fixing complete csum
+Date: Thu, 30 Jun 2016 10:08:28 -0700
+Message-ID: <CAM_iQpVijBedKTnU3A4Oa5tWn_qHDEDmJ4aHXH-7bB4xmU_2DA@mail.gmail.com>
+References: <1467051724-8314-1-git-send-email-xiyou.wangcong@gmail.com>
+ <CAJ3xEMjgb6K1QeWZKNLWJWk4Ch++FmcV-PPWp7VJzWLYSHo8YQ@mail.gmail.com>
+ <CAM_iQpUBQqV3oC7=WqyNtu58HmbJbV29yz6_r_ib6XqWpw7VGg@mail.gmail.com>
+ <CAJ3xEMhgyvq2_ZsipQ_iFcC6Ef65hj2rkZ0U5scGvj4-=eNkLA@mail.gmail.com>
+ <CAM_iQpVPp3YYpfjGmYzBi=i1ONeOT+eLd-P67KuGpHGUmcCZNA@mail.gmail.com> <ca13266f-4cd9-3ac1-9092-9142475cbce9@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Or Gerlitz <gerlitz.or@gmail.com>,
+	Tom Herbert <tom@herbertland.com>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Shani Michaeli <shanim@mellanox.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Yishai Hadas <yishaih@mellanox.com>,
+	Carol L Soto <clsoto@us.ibm.com>
+To: Tariq Toukan <ttoukan.linux@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34918 "EHLO
-	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752565AbcF3Q55 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 12:57:57 -0400
-Received: by mail-oi0-f68.google.com with SMTP id d132so8433150oig.2
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 09:57:57 -0700 (PDT)
-In-Reply-To: <20160630103758.37bc8d6f@redhat.com>
+Received: from mail-qk0-f176.google.com ([209.85.220.176]:33674 "EHLO
+	mail-qk0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750746AbcF3RIs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 13:08:48 -0400
+Received: by mail-qk0-f176.google.com with SMTP id o76so43561531qke.0
+        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 10:08:48 -0700 (PDT)
+In-Reply-To: <ca13266f-4cd9-3ac1-9092-9142475cbce9@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-06-30 01:37 AM, Jesper Dangaard Brouer wrote:
-> On Wed, 29 Jun 2016 13:03:06 -0700
-> John Fastabend <john.fastabend@gmail.com> wrote:
-> 
->> Add another xmit_mode to pktgen to allow testing xmit functionality
->> of qdiscs. The new mode "queue_xmit" injects packets at
->> __dev_queue_xmit() so that qdisc is called.
+On Wed, Jun 29, 2016 at 7:23 AM, Tariq Toukan <ttoukan.linux@gmail.com> wrote:
+> Hi Cong,
+>
+>> See below. Does commit f8c6455bb04b944edb69e rely on any firmware
+>> change to get an expected checksum?
 >>
->> Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
-> 
-> I generally like this.
-> 
+>> $ lspci -nn | grep -i mellanox
+>> 82:00.0 Ethernet controller [0200]: Mellanox Technologies MT27500
+>> Family [ConnectX-3] [15b3:1003]
+>>
+>> $ ethtool -i eth0
+>> driver: mlx4_en
+>> version: 2.2-1 (Feb 2014)
+>> firmware-version: 2.33.5220
+>> bus-info: 0000:82:00.0
+>
+> I used same HW and FW, but was not able to reproduce.
+> I have kernel HEAD of net-next: 8a79813c1401 net: ethernet: dwc_eth_qos: use
+> phy_ethtool_{get|set}_link_ksettings
+>
+> I ran regular ping, and ping6. Checksum complete counter increases, but no
+> warnings in dmesg.
 
-[...]
+Thanks for testing it! This helps me a lot to identify the real bug.
+Actually the bug is in mirred action instead of mlx4 driver, I have
+a patch and just confirmed it fixes the bug. I will send it out in a
+few minutes.
 
->> @@ -3434,6 +3442,36 @@ static void pktgen_xmit(struct pktgen_dev *pkt_dev)
->>  #endif
->>  		} while (--burst > 0);
->>  		goto out; /* Skips xmit_mode M_START_XMIT */
->> +	} else if (pkt_dev->xmit_mode == M_QUEUE_XMIT) {
->> +		local_bh_disable();
->> +		atomic_add(burst, &pkt_dev->skb->users);
-> 
-> Reading the code, people might think that "burst" is allowed for this
-> mode, which it is not. (You do handle this earlier in this patch when
-> configuring this mode).
-
-Right we never get here without burst == 1 but sure it does read
-a bit strange I'll use atomic_inc().
-
-
-Thanks,
-John
+Again, thanks a lot for your help!
