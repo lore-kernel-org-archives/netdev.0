@@ -1,19 +1,19 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next V3 5/6] net: introduce NETDEV_CHANGE_TX_QUEUE_LEN
-Date: Thu, 30 Jun 2016 13:12:38 +0800
-Message-ID: <5774AA46.3090604@redhat.com>
+From: "Michael S. Tsirkin" <mst@redhat.com>
+Subject: Re: [PATCH net-next V3 0/6] switch to use tx skb array in tun
+Date: Thu, 30 Jun 2016 08:37:31 +0300
+Message-ID: <20160630083717-mutt-send-email-mst@redhat.com>
 References: <1467258779-3539-1-git-send-email-jasowang@redhat.com>
-	<1467258779-3539-6-git-send-email-jasowang@redhat.com>
-	<5774A67B.1060802@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: brouer@redhat.com, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, davem@davemloft.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, brouer@redhat.com,
+	davem@davemloft.net
+To: Jason Wang <jasowang@redhat.com>
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <5774A67B.1060802@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <1467258779-3539-1-git-send-email-jasowang@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -25,51 +25,65 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE25bm0MDbmnIgzMOaXpSAxMjo1NiwgSm9obiBGYXN0YWJlbmQgd3JvdGU6Cj4gT24g
-MTYtMDYtMjkgMDg6NTIgUE0sIEphc29uIFdhbmcgd3JvdGU6Cj4+IFRoaXMgcGF0Y2ggaW50cm9k
-dWNlcyBhIG5ldyBldmVudCAtIE5FVERFVl9DSEFOR0VfVFhfUVVFVUVfTEVOLCB0aGlzCj4+IHdp
-bGwgYmUgdHJpZ2dlcmVkIHdoZW4gdHhfcXVldWVfbGVuLiBJdCBjb3VsZCBiZSB1c2VkIGJ5IG5l
-dCBkZXZpY2UKPj4gd2hvIHdhbnQgdG8gZG8gc29tZSBwcm9jZXNzaW5nIGF0IHRoYXQgdGltZS4g
-QW4gZXhhbXBsZSBpcyB0dW4gd2hvIG1heQo+PiB3YW50IHRvIHJlc2l6ZSB0eCBhcnJheSB3aGVu
-IHR4X3F1ZXVlX2xlbiBpcyBjaGFuZ2VkLgo+Pgo+PiBTaWduZWQtb2ZmLWJ5OiBKYXNvbiBXYW5n
-IDxqYXNvd2FuZ0ByZWRoYXQuY29tPgo+PiAtLS0KPj4gICBpbmNsdWRlL2xpbnV4L25ldGRldmlj
-ZS5oIHwgIDEgKwo+PiAgIG5ldC9jb3JlL25ldC1zeXNmcy5jICAgICAgfCAxNSArKysrKysrKysr
-KysrKy0KPj4gICAyIGZpbGVzIGNoYW5nZWQsIDE1IGluc2VydGlvbnMoKyksIDEgZGVsZXRpb24o
-LSkKPj4KPj4gZGlmZiAtLWdpdCBhL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmggYi9pbmNsdWRl
-L2xpbnV4L25ldGRldmljZS5oCj4+IGluZGV4IGU4NGQ5ZDIuLjdkYzJlYzcgMTAwNjQ0Cj4+IC0t
-LSBhL2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgKPj4gKysrIGIvaW5jbHVkZS9saW51eC9uZXRk
-ZXZpY2UuaAo+PiBAQCAtMjIzNyw2ICsyMjM3LDcgQEAgc3RydWN0IG5ldGRldl9sYWdfbG93ZXJf
-c3RhdGVfaW5mbyB7Cj4+ICAgI2RlZmluZSBORVRERVZfUFJFQ0hBTkdFVVBQRVIJMHgwMDFBCj4+
-ICAgI2RlZmluZSBORVRERVZfQ0hBTkdFTE9XRVJTVEFURQkweDAwMUIKPj4gICAjZGVmaW5lIE5F
-VERFVl9VRFBfVFVOTkVMX1BVU0hfSU5GTwkweDAwMUMKPj4gKyNkZWZpbmUgTkVUREVWX0NIQU5H
-RV9UWF9RVUVVRV9MRU4JMHgwMDFFCj4+ICAgCj4+ICAgaW50IHJlZ2lzdGVyX25ldGRldmljZV9u
-b3RpZmllcihzdHJ1Y3Qgbm90aWZpZXJfYmxvY2sgKm5iKTsKPj4gICBpbnQgdW5yZWdpc3Rlcl9u
-ZXRkZXZpY2Vfbm90aWZpZXIoc3RydWN0IG5vdGlmaWVyX2Jsb2NrICpuYik7Cj4+IGRpZmYgLS1n
-aXQgYS9uZXQvY29yZS9uZXQtc3lzZnMuYyBiL25ldC9jb3JlL25ldC1zeXNmcy5jCj4+IGluZGV4
-IDdhMGI2MTYuLjZlNGYzNDcgMTAwNjQ0Cj4+IC0tLSBhL25ldC9jb3JlL25ldC1zeXNmcy5jCj4+
-ICsrKyBiL25ldC9jb3JlL25ldC1zeXNmcy5jCj4+IEBAIC0zMjIsNyArMzIyLDIwIEBAIE5FVERF
-VklDRV9TSE9XX1JXKGZsYWdzLCBmbXRfaGV4KTsKPj4gICAKPj4gICBzdGF0aWMgaW50IGNoYW5n
-ZV90eF9xdWV1ZV9sZW4oc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgdW5zaWduZWQgbG9uZyBuZXdf
-bGVuKQo+PiAgIHsKPj4gLQlkZXYtPnR4X3F1ZXVlX2xlbiA9IG5ld19sZW47Cj4+ICsJaW50IHJl
-cywgb3JpZ19sZW4gPSBkZXYtPnR4X3F1ZXVlX2xlbjsKPj4gKwo+PiArCWlmIChuZXdfbGVuICE9
-IG9yaWdfbGVuKSB7Cj4+ICsJCWRldi0+dHhfcXVldWVfbGVuID0gbmV3X2xlbjsKPj4gKwkJcmVz
-ID0gY2FsbF9uZXRkZXZpY2Vfbm90aWZpZXJzKE5FVERFVl9DSEFOR0VfVFhfUVVFVUVfTEVOLCBk
-ZXYpOwo+PiArCQlyZXMgPSBub3RpZmllcl90b19lcnJubyhyZXMpOwo+PiArCQlpZiAocmVzKSB7
-Cj4+ICsJCQluZXRkZXZfZXJyKGRldiwKPj4gKwkJCQkgICAicmVmdXNlZCB0byBjaGFuZ2UgZGV2
-aWNlIHR4X3F1ZXVlX2xlblxuIik7Cj4+ICsJCQlkZXYtPnR4X3F1ZXVlX2xlbiA9IG9yaWdfbGVu
-Owo+PiArCQkJcmV0dXJuIC1FRkFVTFQ7Cj4+ICsJCX0KPj4gKwl9Cj4+ICsKPj4gICAJcmV0dXJu
-IDA7Cj4+ICAgfQo+PiAgIAo+Pgo+IEFja2VkLWJ5OiBKb2huIEZhc3RhYmVuZCA8am9obi5yLmZh
-c3RhYmVuZEBpbnRlbC5jb20+Cj4KPiBHcmVhdCB0aW1pbmcgSSB3YXMganVzdCBsb29raW5nIGlu
-dG8gdGhpcyBiZWNhdXNlIEkgbmVlZCBpdCBmb3IgdGhlCj4gcWRpc2Mgc2lkZS4KPgo+IEl0IGxv
-b2tzIGxpa2UgdGhpcyBjb3ZlcnMgdGhlIHN5c2ZzIGNoYW5nZSBidXQgdGhlIHR4X3F1ZXVlX2xl
-biBjYW4KPiBhbHNvIGJlIGNoYW5nZWQgdmlhIHJ0bmV0bGluayBhcyB3ZWxsLiBTbyB3ZSBuZWVk
-IGFub3RoZXIgcGF0Y2ggZm9yCj4gdGhhdCBwYXRoIHJpZ2h0Pwo+Cj4gICAgICAgICAgaWYgKHRi
-W0lGTEFfVFhRTEVOXSkgewo+ICAgICAgICAgICAgICAgICAgdW5zaWduZWQgbG9uZyB2YWx1ZSA9
-IG5sYV9nZXRfdTMyKHRiW0lGTEFfVFhRTEVOXSk7Cj4KPiAgICAgICAgICAgICAgICAgIGlmIChk
-ZXYtPnR4X3F1ZXVlX2xlbiBeIHZhbHVlKQo+ICAgICAgICAgICAgICAgICAgICAgICAgICBzdGF0
-dXMgfD0gRE9fU0VUTElOS19OT1RJRlk7Cj4KPiAgICAgICAgICAgICAgICAgIGRldi0+dHhfcXVl
-dWVfbGVuID0gdmFsdWU7Cj4gICAgICAgICAgfQo+Cj4gVGhhbmtzLAo+IEpvaG4KPgoKUmlnaHQs
-IHdpbGwgZG8gdGhpcyBpbiBuZXh0IHZlcnNpb24uCgpUaGFua3MKX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRpb24gbWFpbGluZyBsaXN0
-ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3JnCmh0dHBzOi8vbGlzdHMu
-bGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1YWxpemF0aW9u
+On Thu, Jun 30, 2016 at 11:52:53AM +0800, Jason Wang wrote:
+> Hi all:
+> 
+> This series tries to switch to use skb array in tun. This is used to
+> eliminate the spinlock contention between producer and consumer. The
+> conversion was straightforward: just introdce a tx skb array and use
+> it instead of sk_receive_queue.
+> 
+> A minor issue is to keep the tx_queue_len behaviour, since tun used to
+> use it for the length of sk_receive_queue. This is done through:
+> 
+> - add the ability to resize multiple rings at once to avoid handling
+>   partial resize failure for mutiple rings.
+> - add the support for zero length ring.
+> - introduce a notifier which was triggered when tx_queue_len was
+>   changed for a netdev.
+> - resize all queues during the tx_queue_len changing.
+> 
+> Tests shows about 15% improvement on guest rx pps:
+> 
+> Before: ~1300000pps
+> After : ~1500000pps
+
+Series:
+
+Acked-by: Michael S. Tsirkin <mst@redhat.com>
+
+
+> Changes from V2:
+> - add multiple rings resizing support for ptr_ring/skb_array
+> - add zero length ring support
+> - introdce a NETDEV_CHANGE_TX_QUEUE_LEN
+> - drop new flags
+> 
+> Changes from V1:
+> - switch to use skb array instead of a customized circular buffer
+> - add non-blocking support
+> - rename .peek to .peek_len
+> - drop lockless peeking since test show very minor improvement
+> 
+> Jason Wang (5):
+>   ptr_ring: support zero length ring
+>   skb_array: minor tweak
+>   skb_array: add wrappers for resizing
+>   net: introduce NETDEV_CHANGE_TX_QUEUE_LEN
+>   tun: switch to use skb array for tx
+> 
+> Michael S. Tsirkin (1):
+>   ptr_ring: support resizing multiple queues
+> 
+>  drivers/net/tun.c                | 138 ++++++++++++++++++++++++++++++++++++---
+>  drivers/vhost/net.c              |  16 ++++-
+>  include/linux/net.h              |   1 +
+>  include/linux/netdevice.h        |   1 +
+>  include/linux/ptr_ring.h         |  77 ++++++++++++++++++----
+>  include/linux/skb_array.h        |  13 +++-
+>  net/core/net-sysfs.c             |  15 ++++-
+>  tools/virtio/ringtest/ptr_ring.c |   5 ++
+>  8 files changed, 243 insertions(+), 23 deletions(-)
+> 
+> -- 
+> 2.7.4
