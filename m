@@ -1,173 +1,215 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: [PATCH net-next 1/2] bpf: generally move prog destruction to RCU deferral
-Date: Thu, 30 Jun 2016 17:24:43 +0200
-Message-ID: <21793b7893ca86eb0ba06bc7cedca60dd27e3e84.1467298256.git.daniel@iogearbox.net>
-References: <cover.1467298256.git.daniel@iogearbox.net>
-Cc: alexei.starovoitov@gmail.com, jannh@google.com,
-	netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net-next V2 13/16] net/mlx5e: Mark enabled RQTs instances explicitly
+Date: Thu, 30 Jun 2016 18:23:32 +0300
+Message-ID: <1467300215-14199-14-git-send-email-saeedm@mellanox.com>
+References: <1467300215-14199-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
+	Hadar Hen-Zion <hadarh@mellanox.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jesse Brandeburg <jesse.brandeburg@intel.com>,
+	John Fastabend <john.r.fastabend@intel.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:48319 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932447AbcF3PZG (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 11:25:06 -0400
-In-Reply-To: <cover.1467298256.git.daniel@iogearbox.net>
-In-Reply-To: <cover.1467298256.git.daniel@iogearbox.net>
-References: <cover.1467298256.git.daniel@iogearbox.net>
+Received: from [193.47.165.129] ([193.47.165.129]:43318 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752346AbcF3P0X (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jun 2016 11:26:23 -0400
+In-Reply-To: <1467300215-14199-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Jann Horn reported following analysis that could potentially result
-in a very hard to trigger (if not impossible) UAF race, to quote his
-event timeline:
+From: Hadar Hen Zion <hadarh@mellanox.com>
 
- - Set up a process with threads T1, T2 and T3
- - Let T1 set up a socket filter F1 that invokes another filter F2
-   through a BPF map [tail call]
- - Let T1 trigger the socket filter via a unix domain socket write,
-   don't wait for completion
- - Let T2 call PERF_EVENT_IOC_SET_BPF with F2, don't wait for completion
- - Now T2 should be behind bpf_prog_get(), but before bpf_prog_put()
- - Let T3 close the file descriptor for F2, dropping the reference
-   count of F2 to 2
- - At this point, T1 should have looked up F2 from the map, but not
-   finished executing it
- - Let T3 remove F2 from the BPF map, dropping the reference count of
-   F2 to 1
- - Now T2 should call bpf_prog_put() (wrong BPF program type), dropping
-   the reference count of F2 to 0 and scheduling bpf_prog_free_deferred()
-   via schedule_work()
- - At this point, the BPF program could be freed
- - BPF execution is still running in a freed BPF program
+In the current driver implementation two types of receive queue
+tables (RQTs) are in use - direct and indirect.
 
-While at PERF_EVENT_IOC_SET_BPF time it's only guaranteed that the perf
-event fd we're doing the syscall on doesn't disappear from underneath us
-for whole syscall time, it may not be the case for the bpf fd used as
-an argument only after we did the put. It needs to be a valid fd pointing
-to a BPF program at the time of the call to make the bpf_prog_get() and
-while T2 gets preempted, F2 must have dropped reference to 1 on the other
-CPU. The fput() from the close() in T3 should also add additionally delay
-to the reference drop via exit_task_work() when bpf_prog_release() gets
-called as well as scheduling bpf_prog_free_deferred().
+Change the driver to mark each new created RQT (direct or indirect)
+as "enabled". This behaviour is needed for introducing new mlx5e
+instances which serve to represent SRIOV VFs.
 
-That said, it makes nevertheless sense to move the BPF prog destruction
-generally after RCU grace period to guarantee that such scenario above,
-but also others as recently fixed in ceb56070359b ("bpf, perf: delay release
-of BPF prog after grace period") with regards to tail calls won't happen.
-Integrating bpf_prog_free_deferred() directly into the RCU callback is
-not allowed since the invocation might happen from either softirq or
-process context, so we're not permitted to block. Reviewing all bpf_prog_put()
-invocations from eBPF side (note, cBPF -> eBPF progs don't use this for
-their destruction) with call_rcu() look good to me.
+The VF representors will have only one type of RQTs (direct).
 
-Since we don't know whether at the time of attaching the program, we're
-already part of a tail call map, we need to use RCU variant. However, due
-to this, there won't be severely more stress on the RCU callback queue:
-situations with above bpf_prog_get() and bpf_prog_put() combo in practice
-normally won't lead to releases, but even if they would, enough effort/
-cycles have to be put into loading a BPF program into the kernel already.
+An "enabled" flag is added to each RQT to allow better handling
+and code sharing between the representors and the nic netdevices.
 
-Reported-by: Jann Horn <jannh@google.com>
-Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-Acked-by: Alexei Starovoitov <ast@kernel.org>
+This patch doesn't add any new functionality.
+
+Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
+Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- include/linux/bpf.h   |  5 -----
- kernel/bpf/arraymap.c |  4 +---
- kernel/bpf/syscall.c  | 13 +++----------
- kernel/events/core.c  |  2 +-
- 4 files changed, 5 insertions(+), 19 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       | 13 +++++--
+ .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  2 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 45 +++++++++++++---------
+ 3 files changed, 37 insertions(+), 23 deletions(-)
 
-diff --git a/include/linux/bpf.h b/include/linux/bpf.h
-index 8411032..7495498 100644
---- a/include/linux/bpf.h
-+++ b/include/linux/bpf.h
-@@ -220,7 +220,6 @@ void bpf_register_map_type(struct bpf_map_type_list *tl);
- struct bpf_prog *bpf_prog_get(u32 ufd);
- struct bpf_prog *bpf_prog_inc(struct bpf_prog *prog);
- void bpf_prog_put(struct bpf_prog *prog);
--void bpf_prog_put_rcu(struct bpf_prog *prog);
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+index ded3f96..1843a4c 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@ -552,10 +552,15 @@ struct mlx5e_flow_steering {
+ 	struct mlx5e_arfs_tables        arfs;
+ };
  
- struct bpf_map *bpf_map_get_with_uref(u32 ufd);
- struct bpf_map *__bpf_map_get(struct fd f);
-@@ -281,10 +280,6 @@ static inline struct bpf_prog *bpf_prog_get(u32 ufd)
- static inline void bpf_prog_put(struct bpf_prog *prog)
+-struct mlx5e_tir {
+-	u32              tirn;
++struct mlx5e_rqt {
+ 	u32              rqtn;
+-	struct list_head list;
++	bool		 enabled;
++};
++
++struct mlx5e_tir {
++	u32		  tirn;
++	struct mlx5e_rqt  rqt;
++	struct list_head  list;
+ };
+ 
+ enum {
+@@ -576,7 +581,7 @@ struct mlx5e_priv {
+ 
+ 	struct mlx5e_channel     **channel;
+ 	u32                        tisn[MLX5E_MAX_NUM_TC];
+-	u32                        indir_rqtn;
++	struct mlx5e_rqt           indir_rqt;
+ 	struct mlx5e_tir           indir_tir[MLX5E_NUM_INDIR_TIRS];
+ 	struct mlx5e_tir           direct_tir[MLX5E_MAX_NUM_CHANNELS];
+ 	u32                        tx_rates[MLX5E_MAX_NUM_SQS];
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+index 877cf68..7c5c477 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
+@@ -898,7 +898,7 @@ static int mlx5e_set_rxfh(struct net_device *dev, const u32 *indir,
+ 	mutex_lock(&priv->state_lock);
+ 
+ 	if (indir) {
+-		u32 rqtn = priv->indir_rqtn;
++		u32 rqtn = priv->indir_rqt.rqtn;
+ 
+ 		memcpy(priv->params.indirection_rqt, indir,
+ 		       sizeof(priv->params.indirection_rqt));
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 808dff4..db890b2 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -1487,7 +1487,8 @@ static void mlx5e_fill_direct_rqt_rqn(struct mlx5e_priv *priv, void *rqtc,
+ 	MLX5_SET(rqtc, rqtc, rq_num[0], rqn);
+ }
+ 
+-static int mlx5e_create_rqt(struct mlx5e_priv *priv, int sz, int ix, u32 *rqtn)
++static int mlx5e_create_rqt(struct mlx5e_priv *priv, int sz,
++			    int ix, struct mlx5e_rqt *rqt)
  {
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 	void *rqtc;
+@@ -1510,34 +1511,37 @@ static int mlx5e_create_rqt(struct mlx5e_priv *priv, int sz, int ix, u32 *rqtn)
+ 	else
+ 		mlx5e_fill_direct_rqt_rqn(priv, rqtc, ix);
+ 
+-	err = mlx5_core_create_rqt(mdev, in, inlen, rqtn);
++	err = mlx5_core_create_rqt(mdev, in, inlen, &rqt->rqtn);
++	if (!err)
++		rqt->enabled = true;
+ 
+ 	kvfree(in);
+ 	return err;
  }
--
--static inline void bpf_prog_put_rcu(struct bpf_prog *prog)
--{
--}
- #endif /* CONFIG_BPF_SYSCALL */
  
- /* verifier prototypes for helper functions called from eBPF programs */
-diff --git a/kernel/bpf/arraymap.c b/kernel/bpf/arraymap.c
-index 5af3073..4ec57a6 100644
---- a/kernel/bpf/arraymap.c
-+++ b/kernel/bpf/arraymap.c
-@@ -390,9 +390,7 @@ static void *prog_fd_array_get_ptr(struct bpf_map *map,
- 
- static void prog_fd_array_put_ptr(void *ptr)
+-static void mlx5e_destroy_rqt(struct mlx5e_priv *priv, u32 rqtn)
++static void mlx5e_destroy_rqt(struct mlx5e_priv *priv, struct mlx5e_rqt *rqt)
  {
--	struct bpf_prog *prog = ptr;
--
--	bpf_prog_put_rcu(prog);
-+	bpf_prog_put(ptr);
+-	mlx5_core_destroy_rqt(priv->mdev, rqtn);
++	rqt->enabled = false;
++	mlx5_core_destroy_rqt(priv->mdev, rqt->rqtn);
  }
  
- /* decrement refcnt of all bpf_progs that are stored in this map */
-diff --git a/kernel/bpf/syscall.c b/kernel/bpf/syscall.c
-index c23a4e93..f6806a1 100644
---- a/kernel/bpf/syscall.c
-+++ b/kernel/bpf/syscall.c
-@@ -623,7 +623,7 @@ static void bpf_prog_uncharge_memlock(struct bpf_prog *prog)
- 	free_uid(user);
- }
- 
--static void __prog_put_common(struct rcu_head *rcu)
-+static void __bpf_prog_put_rcu(struct rcu_head *rcu)
+ static int mlx5e_create_rqts(struct mlx5e_priv *priv)
  {
- 	struct bpf_prog_aux *aux = container_of(rcu, struct bpf_prog_aux, rcu);
+ 	int nch = mlx5e_get_max_num_channels(priv->mdev);
+-	u32 *rqtn;
++	struct mlx5e_rqt *rqt;
+ 	int err;
+ 	int ix;
  
-@@ -632,17 +632,10 @@ static void __prog_put_common(struct rcu_head *rcu)
- 	bpf_prog_free(aux->prog);
+ 	/* Indirect RQT */
+-	rqtn = &priv->indir_rqtn;
+-	err = mlx5e_create_rqt(priv, MLX5E_INDIR_RQT_SIZE, 0, rqtn);
++	rqt = &priv->indir_rqt;
++	err = mlx5e_create_rqt(priv, MLX5E_INDIR_RQT_SIZE, 0, rqt);
+ 	if (err)
+ 		return err;
+ 
+ 	/* Direct RQTs */
+ 	for (ix = 0; ix < nch; ix++) {
+-		rqtn = &priv->direct_tir[ix].rqtn;
+-		err = mlx5e_create_rqt(priv, 1 /*size */, ix, rqtn);
++		rqt = &priv->direct_tir[ix].rqt;
++		err = mlx5e_create_rqt(priv, 1 /*size */, ix, rqt);
+ 		if (err)
+ 			goto err_destroy_rqts;
+ 	}
+@@ -1546,9 +1550,9 @@ static int mlx5e_create_rqts(struct mlx5e_priv *priv)
+ 
+ err_destroy_rqts:
+ 	for (ix--; ix >= 0; ix--)
+-		mlx5e_destroy_rqt(priv, priv->direct_tir[ix].rqtn);
++		mlx5e_destroy_rqt(priv, &priv->direct_tir[ix].rqt);
+ 
+-	mlx5e_destroy_rqt(priv, priv->indir_rqtn);
++	mlx5e_destroy_rqt(priv, &priv->indir_rqt);
+ 
+ 	return err;
+ }
+@@ -1559,9 +1563,9 @@ static void mlx5e_destroy_rqts(struct mlx5e_priv *priv)
+ 	int i;
+ 
+ 	for (i = 0; i < nch; i++)
+-		mlx5e_destroy_rqt(priv, priv->direct_tir[i].rqtn);
++		mlx5e_destroy_rqt(priv, &priv->direct_tir[i].rqt);
+ 
+-	mlx5e_destroy_rqt(priv, priv->indir_rqtn);
++	mlx5e_destroy_rqt(priv, &priv->indir_rqt);
  }
  
--/* version of bpf_prog_put() that is called after a grace period */
--void bpf_prog_put_rcu(struct bpf_prog *prog)
--{
--	if (atomic_dec_and_test(&prog->aux->refcnt))
--		call_rcu(&prog->aux->rcu, __prog_put_common);
--}
--
- void bpf_prog_put(struct bpf_prog *prog)
- {
- 	if (atomic_dec_and_test(&prog->aux->refcnt))
--		__prog_put_common(&prog->aux->rcu);
-+		call_rcu(&prog->aux->rcu, __bpf_prog_put_rcu);
- }
- EXPORT_SYMBOL_GPL(bpf_prog_put);
+ int mlx5e_redirect_rqt(struct mlx5e_priv *priv, u32 rqtn, int sz, int ix)
+@@ -1599,10 +1603,15 @@ static void mlx5e_redirect_rqts(struct mlx5e_priv *priv)
+ 	u32 rqtn;
+ 	int ix;
  
-@@ -650,7 +643,7 @@ static int bpf_prog_release(struct inode *inode, struct file *filp)
- {
- 	struct bpf_prog *prog = filp->private_data;
- 
--	bpf_prog_put_rcu(prog);
-+	bpf_prog_put(prog);
- 	return 0;
- }
- 
-diff --git a/kernel/events/core.c b/kernel/events/core.c
-index 85cd418..9c51ec3 100644
---- a/kernel/events/core.c
-+++ b/kernel/events/core.c
-@@ -7529,7 +7529,7 @@ static void perf_event_free_bpf_prog(struct perf_event *event)
- 	prog = event->tp_event->prog;
- 	if (prog) {
- 		event->tp_event->prog = NULL;
--		bpf_prog_put_rcu(prog);
-+		bpf_prog_put(prog);
+-	rqtn = priv->indir_rqtn;
+-	mlx5e_redirect_rqt(priv, rqtn, MLX5E_INDIR_RQT_SIZE, 0);
++	if (priv->indir_rqt.enabled) {
++		rqtn = priv->indir_rqt.rqtn;
++		mlx5e_redirect_rqt(priv, rqtn, MLX5E_INDIR_RQT_SIZE, 0);
++	}
++
+ 	for (ix = 0; ix < priv->params.num_channels; ix++) {
+-		rqtn = priv->direct_tir[ix].rqtn;
++		if (!priv->direct_tir[ix].rqt.enabled)
++			continue;
++		rqtn = priv->direct_tir[ix].rqt.rqtn;
+ 		mlx5e_redirect_rqt(priv, rqtn, 1, ix);
  	}
  }
+@@ -2013,7 +2022,7 @@ static void mlx5e_build_indir_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
+ 	mlx5e_build_tir_ctx_lro(tirc, priv);
  
+ 	MLX5_SET(tirc, tirc, disp_type, MLX5_TIRC_DISP_TYPE_INDIRECT);
+-	MLX5_SET(tirc, tirc, indirect_table, priv->indir_rqtn);
++	MLX5_SET(tirc, tirc, indirect_table, priv->indir_rqt.rqtn);
+ 	mlx5e_build_tir_ctx_hash(tirc, priv);
+ 
+ 	switch (tt) {
+@@ -2145,7 +2154,7 @@ static int mlx5e_create_tirs(struct mlx5e_priv *priv)
+ 		tir = &priv->direct_tir[ix];
+ 		tirc = MLX5_ADDR_OF(create_tir_in, in, ctx);
+ 		mlx5e_build_direct_tir_ctx(priv, tirc,
+-					   priv->direct_tir[ix].rqtn);
++					   priv->direct_tir[ix].rqt.rqtn);
+ 		err = mlx5e_create_tir(priv->mdev, tir, in, inlen);
+ 		if (err)
+ 			goto err_destroy_ch_tirs;
 -- 
-1.9.3
+2.8.0
