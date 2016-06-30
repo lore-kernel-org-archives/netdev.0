@@ -1,74 +1,67 @@
-From: Stefan Hajnoczi <stefanha@redhat.com>
-Subject: Re: [RFC v2 1/3] vsockmon: Add tap functions
-Date: Thu, 30 Jun 2016 11:49:12 +0100
-Message-ID: <20160630104912.GB31866@stefanha-x1.localdomain>
-References: <20160622161102.8250-1-ggarcia@deic.uab.cat>
- <20160622161102.8250-2-ggarcia@deic.uab.cat>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v2 net-next 1/9] MAINTAINERS: add maintainers for hns
+ driver
+Date: Thu, 30 Jun 2016 03:48:21 -0700
+Message-ID: <1467283701.24287.137.camel@perches.com>
+References: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
+	 <1467271509-63162-2-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="neYutvxvOLaeuPCA"
-Cc: netdev@vger.kernel.org, jhansen@vmware.com
-To: ggarcia@abra.uab.cat
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54950 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751825AbcF3Ktm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jun 2016 06:49:42 -0400
-Content-Disposition: inline
-In-Reply-To: <20160622161102.8250-2-ggarcia@deic.uab.cat>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: akpm@linux-foundation.org, gregkh@linuxfoundation.org,
+	kvalo@codeaurora.org, mchehab@osg.samsung.com, linux@roeck-us.net,
+	jslaby@suse.cz, yankejian@huawei.com, huangdaode@hisilicon.com,
+	lipeng321@huawei.com, xieqianqian@huawei.com, arnd@arndb.de,
+	andrew@lunn.ch, xypron.glpk@gmx.de, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Yisen Zhuang <Yisen.Zhuang@huawei.com>, davem@davemloft.net,
+	salil.mehta@huawei.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1467271509-63162-2-git-send-email-Yisen.Zhuang@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, 2016-06-30 at 15:25 +0800, Yisen Zhuang wrote:
+> From: Daode Huang <huangdaode@hisilicon.com>
+>=20
+> This patch adds maintainers for hisilicon network subsystem driver
+[]
+> diff --git a/MAINTAINERS b/MAINTAINERS
+[]
+> @@ -5421,6 +5421,15 @@ F:	include/uapi/linux/if_hippi.h
+> =A0F:	net/802/hippi.c
+> =A0F:	drivers/net/hippi/
+> =A0
+> +HISILICON NETWORK SUBSYSTEM DRIVER
+> +M:	Yisen Zhuang <yisen.zhuang@huawei.com>
+> +M:	Salil Mehta <salil.mehta@huawei.com>
+> +L:	netdev@vger.kernel.org
+> +W:	http://www.hisilicon.com
+> +S:	Maintained
+> +F:	drivers/net/ethernet/hisilicon/*
 
---neYutvxvOLaeuPCA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+=46rom MAINTAINERS:
 
-On Wed, Jun 22, 2016 at 06:11:00PM +0200, ggarcia@abra.uab.cat wrote:
-> +int __vsock_remove_tap(struct vsock_tap *vt) {
+	F: Files and directories with wildcard patterns.
+	=A0=A0=A0A trailing slash includes all files and subdirectory files.
+	=A0=A0=A0F:	drivers/net/	all files in and below drivers/net
+	=A0=A0=A0F:	drivers/net/*	all files in drivers/net, but not below
+	=A0=A0=A0F:	*/net/*		all files in "any top level directory"/net
+	=A0=A0=A0One pattern per line.=A0=A0Multiple F: lines acceptable.
 
-This function should be static, it's not used outside this source file.
+So this pattern with the trailing /* matches only:
 
-> +static int __vsock_deliver_tap_skb(struct sk_buff *skb,
-> +				     struct net_device *dev)
-> +{
-> +	int ret = 0;
-> +
-> +	if (skb) {
-> +		dev_hold(dev);
+drivers/net/ethernet/hisilicon/Kconfig
+drivers/net/ethernet/hisilicon/Makefile
+drivers/net/ethernet/hisilicon/hip04_eth.c
+drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
 
-I don't understand the need for this dev_hold()/dev_put().  Can anyone
-explain why it is necessary?
+and not any file in drivers/net/ethernet/hisilicon/hns/
 
-> +		/* Take skb ownership so it is not consumed in dev_queue_xmit.
-> +		 * dev_queue_xmit will drop a reference so the reference count
-> +		 * will reset.
-> +		 */
-> +		skb_get(skb);
-> +		skb->dev = dev;
-> +		ret = dev_queue_xmit(skb);
-> +		if (unlikely(ret > 0))
-> +			ret = net_xmit_errno(ret);
-> +
-> +		dev_put(dev);
-> +	}
-> +
-> +	return ret;
-> +}
+Is that what you want?
 
---neYutvxvOLaeuPCA
-Content-Type: application/pgp-signature; name="signature.asc"
+using
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
+=46:	drivers/net/ethernet/hisilicon/
 
-iQEcBAEBAgAGBQJXdPkoAAoJEJykq7OBq3PIXvIIAIv6cjCJq9zyOlDzqll4kymL
-dw0Mo1KUN6x6kU22dG6U8zDYjUvx79juQfBKD+fAgW4FNhRdCYZYkrCFRk3NA+3I
-Gh/21haMhqxosa+3exm2ModKgf1OtEvB5unKfbVt+8LEoOZuMkHLpay4p4Gj55E9
-1R4sdXfaJMOhU23JT6+QxXcEivR2gKjvPvQNxpU747SeFTmOmS5mEXi/FOlWcvlU
-dAeCaBi2A6hhrGjtIKv4sREc6Kz7sNxeHU9DaCNmlx+ZZkeraSMoNJiJxdFTb9Jh
-RrI6NPb+pry6qOkVaSfkCg4BNV3bVIDT9gWvMlrz+AIKz76d3r2A7FxUck+jAL4=
-=UhrZ
------END PGP SIGNATURE-----
-
---neYutvxvOLaeuPCA--
+matches all files in hisilicon and any directory below it.
