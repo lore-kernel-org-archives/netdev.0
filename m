@@ -1,83 +1,67 @@
 From: Michal Soltys <soltys@ziu.info>
-Subject: [net-next PATCH 3/5] net/sched/sch_hfsc.c: remove leftover dlist and droplist
-Date: Thu, 30 Jun 2016 02:26:46 +0200
-Message-ID: <1467246408-913-4-git-send-email-soltys@ziu.info>
+Subject: [net-next PATCH 1/5] net/sched/sch_hfsc.c: handle corner cases where head may change invalidating calculated deadline
+Date: Thu, 30 Jun 2016 02:26:44 +0200
+Message-ID: <1467246408-913-2-git-send-email-soltys@ziu.info>
 References: <1467246408-913-1-git-send-email-soltys@ziu.info>
 Cc: netdev@vger.kernel.org, kaber@trash.net
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from drutsystem.com ([84.10.39.251]:50044 "EHLO drutsystem.com"
+Received: from drutsystem.com ([84.10.39.251]:50062 "EHLO drutsystem.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751590AbcF3A1b (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 29 Jun 2016 20:27:31 -0400
+	id S1751886AbcF3A1d (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 29 Jun 2016 20:27:33 -0400
 In-Reply-To: <1467246408-913-1-git-send-email-soltys@ziu.info>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This is update to:
-commit a09ceb0e08140a ("sched: remove qdisc->drop")
+Realtime scheduling implemented in HFSC uses head of the queue to make
+the decision about which packet to schedule next. But in case of any
+head drop, the deadline calculated for the previous head is not
+necessarily correct for the next head (unless both packets have the same
+length).
 
-That commit removed qdisc->drop, but left alone dlist and droplist
-that no longer serve any meaningful purpose.
+Thanks to peek() function used during dequeue - which internally is a
+dequeue operation - hfsc is almost safe from this issue, as peek()
+dequeues and isolates the head storing it temporarily until the real
+dequeue happens.
+
+But there is one exception: if after the class activation a drop happens
+before the first dequeue operation, there's never a chance to do the
+peek().
+
+Adding peek() call in enqueue - if this is the first packet in a new
+backlog period AND the scheduler has realtime curve defined - fixes that
+one corner case. The 1st hfsc_dequeue() will use that peeked packet,
+similarly as every subsequent hfsc_dequeue() call uses packet peeked by
+the previous call.
 
 Signed-off-by: Michal Soltys <soltys@ziu.info>
 ---
- net/sched/sch_hfsc.c | 8 --------
- 1 file changed, 8 deletions(-)
+ net/sched/sch_hfsc.c | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
 
 diff --git a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
-index e2244bb..df07f06 100644
+index 8cb5eff..6d6df6b 100644
 --- a/net/sched/sch_hfsc.c
 +++ b/net/sched/sch_hfsc.c
-@@ -130,7 +130,6 @@ struct hfsc_class {
- 	struct rb_node vt_node;		/* parent's vt_tree member */
- 	struct rb_root cf_tree;		/* active children sorted by cl_f */
- 	struct rb_node cf_node;		/* parent's cf_heap member */
--	struct list_head dlist;		/* drop list member */
- 
- 	u64	cl_total;		/* total work in bytes */
- 	u64	cl_cumul;		/* cumulative work in bytes done by
-@@ -177,8 +176,6 @@ struct hfsc_sched {
- 	struct hfsc_class root;			/* root class */
- 	struct Qdisc_class_hash clhash;		/* class hash */
- 	struct rb_root eligible;		/* eligible tree */
--	struct list_head droplist;		/* active leaf class list (for
--						   dropping) */
- 	struct qdisc_watchdog watchdog;		/* watchdog timer */
- };
- 
-@@ -858,7 +855,6 @@ set_active(struct hfsc_class *cl, unsigned int len)
- 	if (cl->cl_flags & HFSC_FSC)
- 		init_vf(cl, len);
- 
--	list_add_tail(&cl->dlist, &cl->sched->droplist);
- }
- 
- static void
-@@ -867,8 +863,6 @@ set_passive(struct hfsc_class *cl)
- 	if (cl->cl_flags & HFSC_RSC)
- 		eltree_remove(cl);
- 
--	list_del(&cl->dlist);
--
- 	/*
- 	 * vttree is now handled in update_vf() so that update_vf(cl, 0, 0)
- 	 * needs to be called explicitly to remove a class from vttree.
-@@ -1443,7 +1437,6 @@ hfsc_init_qdisc(struct Qdisc *sch, struct nlattr *opt)
- 	if (err < 0)
+@@ -1594,8 +1594,17 @@ hfsc_enqueue(struct sk_buff *skb, struct Qdisc *sch, struct sk_buff **to_free)
  		return err;
- 	q->eligible = RB_ROOT;
--	INIT_LIST_HEAD(&q->droplist);
- 
- 	q->root.cl_common.classid = sch->handle;
- 	q->root.refcnt  = 1;
-@@ -1527,7 +1520,6 @@ hfsc_reset_qdisc(struct Qdisc *sch)
- 			hfsc_reset_class(cl);
  	}
- 	q->eligible = RB_ROOT;
--	INIT_LIST_HEAD(&q->droplist);
- 	qdisc_watchdog_cancel(&q->watchdog);
- 	sch->qstats.backlog = 0;
- 	sch->q.qlen = 0;
+ 
+-	if (cl->qdisc->q.qlen == 1)
++	if (cl->qdisc->q.qlen == 1) {
+ 		set_active(cl, qdisc_pkt_len(skb));
++		/*
++		 * If this is the first packet, isolate the head so an eventual
++		 * head drop before the first dequeue operation has no chance
++		 * to invalidate the deadline.
++		 */
++		if (cl->cl_flags & HFSC_RSC)
++			cl->qdisc->ops->peek(cl->qdisc);
++
++	}
+ 
+ 	qdisc_qstats_backlog_inc(sch, skb);
+ 	sch->q.qlen++;
 -- 
 2.1.3
