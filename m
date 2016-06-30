@@ -1,38 +1,43 @@
-From: "Valo, Kalle" <kvalo@qca.qualcomm.com>
-Subject: Re: [PATCH 1/2] ath10k: remove unused <linux/semaphore.h>
-Date: Thu, 30 Jun 2016 11:26:22 +0000
-Message-ID: <87inwq6hpe.fsf@kamboji.qca.qualcomm.com>
-References: <20160621114539.15313-1-chaehyun.lim@gmail.com>
-	<bf7b2008-b333-2d79-a952-fda895da8479@cogentembedded.com>
+From: Sathya Perla <sathya.perla@broadcom.com>
+Subject: RE: [patch] be2net: signedness bug in be_msix_enable()
+Date: Thu, 30 Jun 2016 16:52:56 +0530
+Message-ID: <5e01e26fa672cf9686fdbc8d4448ffd2@mail.gmail.com>
+References: <20160629143943.GA22818@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Chaehyun Lim <chaehyun.lim@gmail.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"ath10k@lists.infradead.org" <ath10k@lists.infradead.org>
-To: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from wolverine02.qualcomm.com ([199.106.114.251]:42184 "EHLO
-	wolverine02.qualcomm.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751845AbcF3L02 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 07:26:28 -0400
-In-Reply-To: <bf7b2008-b333-2d79-a952-fda895da8479@cogentembedded.com> (Sergei
-	Shtylyov's message of "Tue, 21 Jun 2016 16:46:00 +0300")
-Content-Language: en-US
-Content-ID: <3C0A1E261BB4E84384DEB906A6BC60C2@qualcomm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Ajit Kumar Khaparde <ajit.khaparde@broadcom.com>,
+	Sriharsha Basavapatna <sriharsha.basavapatna@broadcom.com>,
+	Somnath Kotur <somnath.kotur@broadcom.com>,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: Dan Carpenter <dan.carpenter@oracle.com>
+Return-path: <kernel-janitors-owner@vger.kernel.org>
+In-Reply-To: <20160629143943.GA22818@mwanda>
+Sender: kernel-janitors-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Sergei Shtylyov <sergei.shtylyov@cogentembedded.com> writes:
-
-> On 6/21/2016 2:45 PM, Chaehyun Lim wrote:
+> -----Original Message-----
+> From: Dan Carpenter [mailto:dan.carpenter@oracle.com]
 >
->> <linux/semaphore.h> is not used anymore, so just remove it.
+> "num_vec" needs to be signed for the error handling to work.
 >
->    s/it/#include/?
+> Fixes: e261768e9e39 ('be2net: support asymmetric rx/tx queue counts')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+>
+> diff --git a/drivers/net/ethernet/emulex/benet/be_main.c
+b/drivers/net/ethernet/emulex/benet/be_main.c
+> index 1873c74..1f16e73 100644
+> --- a/drivers/net/ethernet/emulex/benet/be_main.c
+> +++ b/drivers/net/ethernet/emulex/benet/be_main.c
+> @@ -3251,8 +3251,9 @@ static void be_msix_disable(struct be_adapter
+*adapter)
+>
+>  static int be_msix_enable(struct be_adapter *adapter)  {
+> -	unsigned int i, num_vec, max_roce_eqs;
+> +	unsigned int i, max_roce_eqs;
+>  	struct device *dev = &adapter->pdev->dev;
+> +	int num_vec;
+>
 
-Fixed that in the pending branch.
+Oops...thanks for catching this! This must go into net-next.
 
--- 
-Kalle Valo
+Acked-by: Sathya Perla <sathya.perla@broadcom.com>
