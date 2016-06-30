@@ -1,80 +1,35 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: [PATCH 7/7] ARM: dts: NSP: Add bgmac entries
-Date: Thu, 30 Jun 2016 18:59:14 -0400
-Message-ID: <1467327554-22074-8-git-send-email-jon.mason@broadcom.com>
-References: <1467327554-22074-1-git-send-email-jon.mason@broadcom.com>
-Cc: davem@davemloft.net, f.fainelli@gmail.com, hauke@hauke-m.de,
-	Rob Herring <robh+dt@kernel.org>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>, Ray Jui <rjui@broadcom.com>,
-	Scott Branden <sbranden@broadcom.com>,
-	bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: zajec5@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467327554-22074-1-git-send-email-jon.mason@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [Patch net] net_sched: fix mirrored packets checksum
+Date: Fri, 01 Jul 2016 01:11:12 +0200
+Message-ID: <5775A710.9010105@iogearbox.net>
+References: <1467306922-7086-1-git-send-email-xiyou.wangcong@gmail.com> <57757823.4090000@iogearbox.net> <CAM_iQpXtOr+AD2_q1E_dZm8MmLFAhdqPb6-_3ChgCr38gKi0yg@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from www62.your-server.de ([213.133.104.62]:59469 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752065AbcF3XLO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 19:11:14 -0400
+In-Reply-To: <CAM_iQpXtOr+AD2_q1E_dZm8MmLFAhdqPb6-_3ChgCr38gKi0yg@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add device tree entries for the ethernet devices present on the
-Broadcom Northstar Plus SoCs
+On 07/01/2016 12:42 AM, Cong Wang wrote:
+> On Thu, Jun 30, 2016 at 12:50 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
+>>
+>> Maybe makes sense to move skb_push_rcsum() but /also/ skb_pull_rcsum()
+>> to the header then? Both seem similarly small at least (could be split
+>> f.e into two patches then, first for the move, second for the actual fix).
+>
+> No objection from me. Please feel free to send a patch. ;)
 
-Signed-off-by: Jon Mason <jon.mason@broadcom.com>
----
- arch/arm/boot/dts/bcm-nsp.dtsi   | 18 ++++++++++++++++++
- arch/arm/boot/dts/bcm958625k.dts |  8 ++++++++
- 2 files changed, 26 insertions(+)
+Shrug, I actually meant this as feedback to your patch, since you move that
+helper and not as a note to myself. ;)
 
-diff --git a/arch/arm/boot/dts/bcm-nsp.dtsi b/arch/arm/boot/dts/bcm-nsp.dtsi
-index def9e78..8f4343b 100644
---- a/arch/arm/boot/dts/bcm-nsp.dtsi
-+++ b/arch/arm/boot/dts/bcm-nsp.dtsi
-@@ -192,6 +192,24 @@
- 			status = "disabled";
- 		};
- 
-+		gmac0: ethernet@22000 {
-+			compatible = "brcm,bgmac-nsp";
-+			reg = <0x022000 0x1000>,
-+			      <0x110000 0x1000>;
-+			reg-names = "gmac_base", "idm_base";
-+			interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>;
-+			status = "disabled";
-+		};
-+
-+		gmac1: ethernet@23000 {
-+			compatible = "brcm,bgmac-nsp";
-+			reg = <0x023000 0x1000>,
-+			      <0x111000 0x1000>;
-+			reg-names = "gmac_base", "idm_base";
-+			interrupts = <GIC_SPI 148 IRQ_TYPE_LEVEL_HIGH>;
-+			status = "disabled";
-+		};
-+
- 		nand: nand@26000 {
- 			compatible = "brcm,nand-iproc", "brcm,brcmnand-v6.1";
- 			reg = <0x026000 0x600>,
-diff --git a/arch/arm/boot/dts/bcm958625k.dts b/arch/arm/boot/dts/bcm958625k.dts
-index e298450..d16ab53 100644
---- a/arch/arm/boot/dts/bcm958625k.dts
-+++ b/arch/arm/boot/dts/bcm958625k.dts
-@@ -56,6 +56,14 @@
- 	status = "okay";
- };
- 
-+&gmac0 {
-+	status = "okay";
-+};
-+
-+&gmac1 {
-+	status = "okay";
-+};
-+
- &pcie0 {
- 	status = "okay";
- };
--- 
-1.9.1
+Thanks,
+Daniel
