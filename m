@@ -1,13 +1,14 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V4 3/6] ptr_ring: support resizing multiple queues
-Date: Thu, 30 Jun 2016 14:45:33 +0800
-Message-ID: <1467269136-8082-4-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V4 5/6] net: introduce NETDEV_CHANGE_TX_QUEUE_LEN
+Date: Thu, 30 Jun 2016 14:45:35 +0800
+Message-ID: <1467269136-8082-6-git-send-email-jasowang@redhat.com>
 References: <1467269136-8082-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
+Cc: kvm@vger.kernel.org, eric.dumazet@gmail.com,
+	virtualization@lists.linux-foundation.org,
+	John Fastabend <john.r.fastabend@intel.com>, brouer@redhat.com
 To: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
 	davem@davemloft.net
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
@@ -23,135 +24,84 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: "Michael S. Tsirkin" <mst@redhat.com>
+This patch introduces a new event - NETDEV_CHANGE_TX_QUEUE_LEN, this
+will be triggered when tx_queue_len. It could be used by net device
+who want to do some processing at that time. An example is tun who may
+want to resize tx array when tx_queue_len is changed.
 
-Sometimes, we need support resizing multiple queues at once. This is
-because it was not easy to recover to recover from a partial failure
-of multiple queues resizing.
-
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+Cc: John Fastabend <john.r.fastabend@intel.com>
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- include/linux/ptr_ring.h         | 71 +++++++++++++++++++++++++++++++++++-----
- tools/virtio/ringtest/ptr_ring.c |  5 +++
- 2 files changed, 67 insertions(+), 9 deletions(-)
+ include/linux/netdevice.h |  1 +
+ net/core/net-sysfs.c      | 15 ++++++++++++++-
+ net/core/rtnetlink.c      | 16 ++++++++++++----
+ 3 files changed, 27 insertions(+), 5 deletions(-)
 
-diff --git a/include/linux/ptr_ring.h b/include/linux/ptr_ring.h
-index d78b8b8..2052011 100644
---- a/include/linux/ptr_ring.h
-+++ b/include/linux/ptr_ring.h
-@@ -349,20 +349,14 @@ static inline int ptr_ring_init(struct ptr_ring *r, int size, gfp_t gfp)
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e84d9d2..7dc2ec7 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -2237,6 +2237,7 @@ struct netdev_lag_lower_state_info {
+ #define NETDEV_PRECHANGEUPPER	0x001A
+ #define NETDEV_CHANGELOWERSTATE	0x001B
+ #define NETDEV_UDP_TUNNEL_PUSH_INFO	0x001C
++#define NETDEV_CHANGE_TX_QUEUE_LEN	0x001E
+ 
+ int register_netdevice_notifier(struct notifier_block *nb);
+ int unregister_netdevice_notifier(struct notifier_block *nb);
+diff --git a/net/core/net-sysfs.c b/net/core/net-sysfs.c
+index 7a0b616..6e4f347 100644
+--- a/net/core/net-sysfs.c
++++ b/net/core/net-sysfs.c
+@@ -322,7 +322,20 @@ NETDEVICE_SHOW_RW(flags, fmt_hex);
+ 
+ static int change_tx_queue_len(struct net_device *dev, unsigned long new_len)
+ {
+-	dev->tx_queue_len = new_len;
++	int res, orig_len = dev->tx_queue_len;
++
++	if (new_len != orig_len) {
++		dev->tx_queue_len = new_len;
++		res = call_netdevice_notifiers(NETDEV_CHANGE_TX_QUEUE_LEN, dev);
++		res = notifier_to_errno(res);
++		if (res) {
++			netdev_err(dev,
++				   "refused to change device tx_queue_len\n");
++			dev->tx_queue_len = orig_len;
++			return -EFAULT;
++		}
++	}
++
  	return 0;
  }
  
--static inline int ptr_ring_resize(struct ptr_ring *r, int size, gfp_t gfp,
--				  void (*destroy)(void *))
-+static inline void **__ptr_ring_swap_queue(struct ptr_ring *r, void **queue,
-+					   int size, gfp_t gfp,
-+					   void (*destroy)(void *))
- {
--	unsigned long flags;
- 	int producer = 0;
--	void **queue = __ptr_ring_init_queue_alloc(size, gfp);
- 	void **old;
- 	void *ptr;
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index eb49ca2..b16b779 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -1927,11 +1927,19 @@ static int do_setlink(const struct sk_buff *skb,
  
--	if (!queue)
--		return -ENOMEM;
+ 	if (tb[IFLA_TXQLEN]) {
+ 		unsigned long value = nla_get_u32(tb[IFLA_TXQLEN]);
 -
--	spin_lock_irqsave(&(r)->producer_lock, flags);
+-		if (dev->tx_queue_len ^ value)
++		unsigned long orig_len = dev->tx_queue_len;
++
++		if (dev->tx_queue_len ^ value) {
++			dev->tx_queue_len = value;
++			err = call_netdevice_notifiers(
++			      NETDEV_CHANGE_TX_QUEUE_LEN, dev);
++			err = notifier_to_errno(err);
++			if (err) {
++				dev->tx_queue_len = orig_len;
++				goto errout;
++			}
+ 			status |= DO_SETLINK_NOTIFY;
 -
- 	while ((ptr = ptr_ring_consume(r)))
- 		if (producer < size)
- 			queue[producer++] = ptr;
-@@ -375,6 +369,23 @@ static inline int ptr_ring_resize(struct ptr_ring *r, int size, gfp_t gfp,
- 	old = r->queue;
- 	r->queue = queue;
+-		dev->tx_queue_len = value;
++		}
+ 	}
  
-+	return old;
-+}
-+
-+static inline int ptr_ring_resize(struct ptr_ring *r, int size, gfp_t gfp,
-+				  void (*destroy)(void *))
-+{
-+	unsigned long flags;
-+	void **queue = __ptr_ring_init_queue_alloc(size, gfp);
-+	void **old;
-+
-+	if (!queue)
-+		return -ENOMEM;
-+
-+	spin_lock_irqsave(&(r)->producer_lock, flags);
-+
-+	old = __ptr_ring_swap_queue(r, queue, size, gfp, destroy);
-+
- 	spin_unlock_irqrestore(&(r)->producer_lock, flags);
- 
- 	kfree(old);
-@@ -382,6 +393,48 @@ static inline int ptr_ring_resize(struct ptr_ring *r, int size, gfp_t gfp,
- 	return 0;
- }
- 
-+static inline int ptr_ring_resize_multiple(struct ptr_ring **rings, int nrings,
-+					   int size,
-+					   gfp_t gfp, void (*destroy)(void *))
-+{
-+	unsigned long flags;
-+	void ***queues;
-+	int i;
-+
-+	queues = kmalloc(nrings * sizeof *queues, gfp);
-+	if (!queues)
-+		goto noqueues;
-+
-+	for (i = 0; i < nrings; ++i) {
-+		queues[i] = __ptr_ring_init_queue_alloc(size, gfp);
-+		if (!queues[i])
-+			goto nomem;
-+	}
-+
-+	for (i = 0; i < nrings; ++i) {
-+		spin_lock_irqsave(&(rings[i])->producer_lock, flags);
-+		queues[i] = __ptr_ring_swap_queue(rings[i], queues[i],
-+						  size, gfp, destroy);
-+		spin_unlock_irqrestore(&(rings[i])->producer_lock, flags);
-+	}
-+
-+	for (i = 0; i < nrings; ++i)
-+		kfree(queues[i]);
-+
-+	kfree(queues);
-+
-+	return 0;
-+
-+nomem:
-+	while (--i >= 0)
-+		kfree(queues[i]);
-+
-+	kfree(queues);
-+
-+noqueues:
-+	return -ENOMEM;
-+}
-+
- static inline void ptr_ring_cleanup(struct ptr_ring *r, void (*destroy)(void *))
- {
- 	void *ptr;
-diff --git a/tools/virtio/ringtest/ptr_ring.c b/tools/virtio/ringtest/ptr_ring.c
-index 74abd74..68e4f9f 100644
---- a/tools/virtio/ringtest/ptr_ring.c
-+++ b/tools/virtio/ringtest/ptr_ring.c
-@@ -17,6 +17,11 @@
- typedef pthread_spinlock_t  spinlock_t;
- 
- typedef int gfp_t;
-+static void *kmalloc(unsigned size, gfp_t gfp)
-+{
-+	return memalign(64, size);
-+}
-+
- static void *kzalloc(unsigned size, gfp_t gfp)
- {
- 	void *p = memalign(64, size);
+ 	if (tb[IFLA_OPERSTATE])
 -- 
 2.7.4
