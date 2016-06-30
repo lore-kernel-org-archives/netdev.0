@@ -1,133 +1,219 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH v2 net] bonding: prevent out of bound accesses
-Date: Thu, 30 Jun 2016 16:13:41 +0200
-Message-ID: <1467296021.11238.19.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1467291379.11238.8.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 10/19] rxrpc: Add RCU destruction for connections
+ and calls
+Date: Thu, 30 Jun 2016 15:11:53 +0100
+Message-ID: <146729591353.26306.2898861506902106306.stgit@warthog.procyon.org.uk>
+References: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	Dmitry Vyukov <dvyukov@google.com>
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34055 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751994AbcF3ONr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 10:13:47 -0400
-Received: by mail-wm0-f68.google.com with SMTP id 187so23263208wmz.1
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 07:13:45 -0700 (PDT)
-In-Reply-To: <1467291379.11238.8.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Eric Dumazet <edumazet@google.com>
+Add RCU destruction for connections and calls as the RCU lookup from the
+transport socket data_ready handler is going to come along shortly.
 
-ether_addr_equal_64bits() requires some care about its arguments,
-namely that 8 bytes might be read, even if last 2 byte values are not
-used.
+Whilst we're at it, move the cleanup workqueue flushing and RCU barrierage
+into the destruction code for the objects that need it (locals and
+connections) and add the extra RCU barrier required for connection cleanup.
 
-KASan detected a violation with null_mac_addr and lacpdu_mcast_addr
-in bond_3ad.c
-
-Same problem with mac_bcast[] and mac_v6_allmcast[] in bond_alb.c :
-Although the 8-byte alignment was there, KASan would detect out
-of bound accesses.
-
-Fixes: 815117adaf5b ("bonding: use ether_addr_equal_unaligned for bond addr compare")
-Fixes: bb54e58929f3 ("bonding: Verify RX LACPDU has proper dest mac-addr")
-Fixes: 885a136c52a8 ("bonding: use compare_ether_addr_64bits() in ALB")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
+Signed-off-by: David Howells <dhowells@redhat.com>
 ---
- drivers/net/bonding/bond_3ad.c |   11 +++++++----
- drivers/net/bonding/bond_alb.c |    7 ++-----
- include/net/bonding.h          |    7 ++++++-
- 3 files changed, 15 insertions(+), 10 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index ca81f46ea1aa..8ad491ab1d01 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -101,11 +101,14 @@ enum ad_link_speed_type {
- #define MAC_ADDRESS_EQUAL(A, B)	\
- 	ether_addr_equal_64bits((const u8 *)A, (const u8 *)B)
+ net/rxrpc/af_rxrpc.c     |   19 -------------------
+ net/rxrpc/ar-internal.h  |    4 +++-
+ net/rxrpc/call_object.c  |   15 +++++++++++++--
+ net/rxrpc/conn_object.c  |   29 ++++++++++++++++++++++++++---
+ net/rxrpc/local_object.c |   19 +++++++++++--------
+ 5 files changed, 53 insertions(+), 33 deletions(-)
+
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index d5073eb02498..d6e4e3b69dc3 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -788,26 +788,7 @@ static void __exit af_rxrpc_exit(void)
+ 	proto_unregister(&rxrpc_proto);
+ 	rxrpc_destroy_all_calls();
+ 	rxrpc_destroy_all_connections();
+-
+ 	ASSERTCMP(atomic_read(&rxrpc_n_skbs), ==, 0);
+-
+-	/* We need to flush the scheduled work twice because the local endpoint
+-	 * records involve a work item in their destruction as they can only be
+-	 * destroyed from process context.  However, a connection may have a
+-	 * work item outstanding - and this will pin the local endpoint record
+-	 * until the connection goes away.
+-	 *
+-	 * Peers don't pin locals and calls pin sockets - which prevents the
+-	 * module from being unloaded - so we should only need two flushes.
+-	 */
+-	_debug("flush scheduled work");
+-	flush_workqueue(rxrpc_workqueue);
+-	_debug("flush scheduled work 2");
+-	flush_workqueue(rxrpc_workqueue);
+-	_debug("synchronise RCU");
+-	rcu_barrier();
+-	_debug("destroy locals");
+-	rxrpc_destroy_client_conn_ids();
+ 	rxrpc_destroy_all_locals();
  
--static struct mac_addr null_mac_addr = { { 0, 0, 0, 0, 0, 0 } };
-+static const u8 null_mac_addr[ETH_ALEN + 2] __long_aligned = {
-+	0, 0, 0, 0, 0, 0
-+};
- static u16 ad_ticks_per_sec;
- static const int ad_delta_in_ticks = (AD_TIMER_INTERVAL * HZ) / 1000;
+ 	remove_proc_entry("rxrpc_conns", init_net.proc_net);
+diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
+index d43cb7831693..ea45f1fc4ded 100644
+--- a/net/rxrpc/ar-internal.h
++++ b/net/rxrpc/ar-internal.h
+@@ -292,9 +292,10 @@ struct rxrpc_connection {
+ 	struct rxrpc_conn_parameters params;
  
--static const u8 lacpdu_mcast_addr[ETH_ALEN] = MULTICAST_LACPDU_ADDR;
-+static const u8 lacpdu_mcast_addr[ETH_ALEN + 2] __long_aligned =
-+	MULTICAST_LACPDU_ADDR;
+ 	spinlock_t		channel_lock;
+-	struct rxrpc_call	*channels[RXRPC_MAXCALLS]; /* active calls */
++	struct rxrpc_call __rcu	*channels[RXRPC_MAXCALLS]; /* active calls */
+ 	wait_queue_head_t	channel_wq;	/* queue to wait for channel to become available */
  
- /* ================= main 802.3ad protocol functions ================== */
- static int ad_lacpdu_send(struct port *port);
-@@ -1739,7 +1742,7 @@ static void ad_clear_agg(struct aggregator *aggregator)
- 		aggregator->is_individual = false;
- 		aggregator->actor_admin_aggregator_key = 0;
- 		aggregator->actor_oper_aggregator_key = 0;
--		aggregator->partner_system = null_mac_addr;
-+		eth_zero_addr(aggregator->partner_system.mac_addr_value);
- 		aggregator->partner_system_priority = 0;
- 		aggregator->partner_oper_aggregator_key = 0;
- 		aggregator->receive_state = 0;
-@@ -1761,7 +1764,7 @@ static void ad_initialize_agg(struct aggregator *aggregator)
- 	if (aggregator) {
- 		ad_clear_agg(aggregator);
++	struct rcu_head		rcu;
+ 	struct work_struct	processor;	/* connection event processor */
+ 	union {
+ 		struct rb_node	client_node;	/* Node in local->client_conns */
+@@ -399,6 +400,7 @@ enum rxrpc_call_state {
+  * - matched by { connection, call_id }
+  */
+ struct rxrpc_call {
++	struct rcu_head		rcu;
+ 	struct rxrpc_connection	*conn;		/* connection carrying call */
+ 	struct rxrpc_sock	*socket;	/* socket responsible */
+ 	struct timer_list	lifetimer;	/* lifetime remaining on call */
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index b43d89c89744..3c4f8517ab55 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -544,7 +544,7 @@ struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *rx,
+ 	candidate = NULL;
+ 	rb_link_node(&call->conn_node, parent, p);
+ 	rb_insert_color(&call->conn_node, &conn->calls);
+-	conn->channels[call->channel] = call;
++	rcu_assign_pointer(conn->channels[call->channel], call);
+ 	sock_hold(&rx->sk);
+ 	rxrpc_get_connection(conn);
+ 	write_unlock_bh(&conn->lock);
+@@ -795,6 +795,17 @@ void __rxrpc_put_call(struct rxrpc_call *call)
+ }
  
--		aggregator->aggregator_mac_address = null_mac_addr;
-+		eth_zero_addr(aggregator->aggregator_mac_address.mac_addr_value);
- 		aggregator->aggregator_identifier = 0;
- 		aggregator->slave = NULL;
- 	}
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index c5ac160a8ae9..551f0f8dead3 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -42,13 +42,10 @@
- 
- 
- 
--#ifndef __long_aligned
--#define __long_aligned __attribute__((aligned((sizeof(long)))))
--#endif
--static const u8 mac_bcast[ETH_ALEN] __long_aligned = {
-+static const u8 mac_bcast[ETH_ALEN + 2] __long_aligned = {
- 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff
- };
--static const u8 mac_v6_allmcast[ETH_ALEN] __long_aligned = {
-+static const u8 mac_v6_allmcast[ETH_ALEN + 2] __long_aligned = {
- 	0x33, 0x33, 0x00, 0x00, 0x00, 0x01
- };
- static const int alb_delta_in_ticks = HZ / ALB_TIMER_TICKS_PER_SEC;
-diff --git a/include/net/bonding.h b/include/net/bonding.h
-index 791800ddd6d9..6360c259da6d 100644
---- a/include/net/bonding.h
-+++ b/include/net/bonding.h
-@@ -34,6 +34,9 @@
- 
- #define BOND_DEFAULT_MIIMON	100
- 
-+#ifndef __long_aligned
-+#define __long_aligned __attribute__((aligned((sizeof(long)))))
-+#endif
  /*
-  * Less bad way to call ioctl from within the kernel; this needs to be
-  * done some other way to get the call out of interrupt context.
-@@ -138,7 +141,9 @@ struct bond_params {
- 	struct reciprocal_value reciprocal_packets_per_slave;
- 	u16 ad_actor_sys_prio;
- 	u16 ad_user_port_key;
--	u8 ad_actor_system[ETH_ALEN];
++ * Final call destruction under RCU.
++ */
++static void rxrpc_rcu_destroy_call(struct rcu_head *rcu)
++{
++	struct rxrpc_call *call = container_of(rcu, struct rxrpc_call, rcu);
 +
-+	/* 2 bytes of padding : see ether_addr_equal_64bits() */
-+	u8 ad_actor_system[ETH_ALEN + 2];
- };
++	rxrpc_purge_queue(&call->rx_queue);
++	kmem_cache_free(rxrpc_call_jar, call);
++}
++
++/*
+  * clean up a call
+  */
+ static void rxrpc_cleanup_call(struct rxrpc_call *call)
+@@ -849,7 +860,7 @@ static void rxrpc_cleanup_call(struct rxrpc_call *call)
+ 	rxrpc_purge_queue(&call->rx_queue);
+ 	ASSERT(skb_queue_empty(&call->rx_oos_queue));
+ 	sock_put(&call->socket->sk);
+-	kmem_cache_free(rxrpc_call_jar, call);
++	call_rcu(&call->rcu, rxrpc_rcu_destroy_call);
+ }
  
- struct bond_parm_tbl {
+ /*
+diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
+index a2c1ddade974..b409b2cf7651 100644
+--- a/net/rxrpc/conn_object.c
++++ b/net/rxrpc/conn_object.c
+@@ -584,9 +584,12 @@ void rxrpc_put_connection(struct rxrpc_connection *conn)
+ /*
+  * destroy a virtual connection
+  */
+-static void rxrpc_destroy_connection(struct rxrpc_connection *conn)
++static void rxrpc_destroy_connection(struct rcu_head *rcu)
+ {
+-	_enter("%p{%d}", conn, atomic_read(&conn->usage));
++	struct rxrpc_connection *conn =
++		container_of(rcu, struct rxrpc_connection, rcu);
++
++	_enter("{%d,u=%d}", conn->debug_id, atomic_read(&conn->usage));
+ 
+ 	ASSERTCMP(atomic_read(&conn->usage), ==, 0);
+ 
+@@ -688,7 +691,8 @@ static void rxrpc_connection_reaper(struct work_struct *work)
+ 		list_del_init(&conn->link);
+ 
+ 		ASSERTCMP(atomic_read(&conn->usage), ==, 0);
+-		rxrpc_destroy_connection(conn);
++		skb_queue_purge(&conn->rx_queue);
++		call_rcu(&conn->rcu, rxrpc_destroy_connection);
+ 	}
+ 
+ 	_leave("");
+@@ -700,11 +704,30 @@ static void rxrpc_connection_reaper(struct work_struct *work)
+  */
+ void __exit rxrpc_destroy_all_connections(void)
+ {
++	struct rxrpc_connection *conn, *_p;
++	bool leak = false;
++
+ 	_enter("");
+ 
+ 	rxrpc_connection_expiry = 0;
+ 	cancel_delayed_work(&rxrpc_connection_reap);
+ 	rxrpc_queue_delayed_work(&rxrpc_connection_reap, 0);
++	flush_workqueue(rxrpc_workqueue);
++
++	write_lock(&rxrpc_connection_lock);
++	list_for_each_entry_safe(conn, _p, &rxrpc_connections, link) {
++		pr_err("AF_RXRPC: Leaked conn %p {%d}\n",
++		       conn, atomic_read(&conn->usage));
++		leak = true;
++	}
++	write_unlock(&rxrpc_connection_lock);
++	BUG_ON(leak);
++
++	/* Make sure the local and peer records pinned by any dying connections
++	 * are released.
++	 */
++	rcu_barrier();
++	rxrpc_destroy_client_conn_ids();
+ 
+ 	_leave("");
+ }
+diff --git a/net/rxrpc/local_object.c b/net/rxrpc/local_object.c
+index 3ab7764f7cd8..a753796fbe8f 100644
+--- a/net/rxrpc/local_object.c
++++ b/net/rxrpc/local_object.c
+@@ -374,14 +374,17 @@ void __exit rxrpc_destroy_all_locals(void)
+ 
+ 	_enter("");
+ 
+-	if (list_empty(&rxrpc_local_endpoints))
+-		return;
++	flush_workqueue(rxrpc_workqueue);
+ 
+-	mutex_lock(&rxrpc_local_mutex);
+-	list_for_each_entry(local, &rxrpc_local_endpoints, link) {
+-		pr_err("AF_RXRPC: Leaked local %p {%d}\n",
+-		       local, atomic_read(&local->usage));
++	if (!list_empty(&rxrpc_local_endpoints)) {
++		mutex_lock(&rxrpc_local_mutex);
++		list_for_each_entry(local, &rxrpc_local_endpoints, link) {
++			pr_err("AF_RXRPC: Leaked local %p {%d}\n",
++			       local, atomic_read(&local->usage));
++		}
++		mutex_unlock(&rxrpc_local_mutex);
++		BUG();
+ 	}
+-	mutex_unlock(&rxrpc_local_mutex);
+-	BUG();
++
++	rcu_barrier();
+ }
