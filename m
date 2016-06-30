@@ -1,75 +1,51 @@
-From: Ray Jui <ray.jui@broadcom.com>
-Subject: Re: [RFC 6/7] dt-bindings: net: bgmac: add bindings documentation for
- bgmac
-Date: Thu, 30 Jun 2016 11:06:52 -0700
-Message-ID: <a6dd7282-cdd0-6e62-4666-fdb3905fe81d@broadcom.com>
-References: <1467142484-11161-1-git-send-email-jon.mason@broadcom.com>
- <1467142484-11161-7-git-send-email-jon.mason@broadcom.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: ethtool needs a new maintainer
+Date: Thu, 30 Jun 2016 14:15:06 -0400
+Message-ID: <20160630181505.GB2778@tuxdriver.com>
+References: <1466956772.2551.6.camel@decadent.org.uk>
+ <1466957501.2551.17.camel@decadent.org.uk>
+ <20160627135146.GB6864@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, f.fainelli@gmail.com, hauke@hauke-m.de,
-	bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jon Mason <jon.mason@broadcom.com>, zajec5@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467142484-11161-7-git-send-email-jon.mason@broadcom.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:59752 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750929AbcF3SPR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 14:15:17 -0400
+Content-Disposition: inline
+In-Reply-To: <20160627135146.GB6864@tuxdriver.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Jon,
+On Mon, Jun 27, 2016 at 09:51:47AM -0400, John W. Linville wrote:
+> On Sun, Jun 26, 2016 at 06:11:41PM +0200, Ben Hutchings wrote:
+> > I've become steadily less enthusiastic and less responsive as a
+> > maintainer over the past year or so. =A0I no longer work on network=
+ing
+> > regularly, so it takes a lot more time to get into the right state =
+of
+> > mind to think about ethtool code, while I have other demands on my =
+time
+> > that tend to take priority.
+> >=20
+> > So, I would like to find a new maintainer to take over as soon as
+> > possible. =A0Ideally the new maintainer would have previous contrib=
+utions
+> > to ethtool and an existing account on kernel.org so that they can p=
+ush
+> > to the git repository and the home page. =A0But neither of those is
+> > essential. =A0Please reply if you're interested.
+>=20
+> I would like to take this responsibility. My previous contributions
+> to ethtool are meager, but I think my skills and interests are suited
+> to the task.  Plus, I already have a kernel.org account... :-)
 
-On 6/28/2016 12:34 PM, Jon Mason wrote:
-> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
-> ---
->  .../devicetree/bindings/net/brcm,bgmac-enet.txt     | 21 +++++++++++++++++++++
->  1 file changed, 21 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
->
-> diff --git a/Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt b/Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
-> new file mode 100644
-> index 0000000..efd36d5
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
-> @@ -0,0 +1,21 @@
-> +Broadcom GMAC Ethernet Controller Device Tree Bindings
-> +-------------------------------------------------------------
-> +
-> +Required properties:
-> + - compatible:	"brcm,bgmac-enet"
-> + - reg:		Address and length of the GMAC registers,
-> +		Address and length of the GMAC IDM registers
+Are there any other takers?  Or is this a done deal?
 
-As we know there will be additional optional register banks required for 
-some of the other SoCs that the current driver has not yet supported. In 
-my opinion, we should consider to make "reg-names" a mandatory property 
-now and map the register blocks based on names.
-
-I think this will help to make our life easier in the future when new 
-optional SoC specific register blocks are added, such that we can map 
-the register blocks based on names instead of indices, which will change 
-and be different among different SoCs and will require much more complex 
-logic in the driver to deal with.
-
-> + - interrupts:	Interrupt number
-> +
-> +Optional properties:
-> +- mac-address:	mac address to be assigned to the device
-> +
-> +Examples:
-> +
-> +gmac0: enet@18022000 {
-> +	compatible = "brcm,bgmac-enet";
-> +	reg = <0x18022000 0x1000>,
-> +	      <0x18110000 0x1000>;
-> +	interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>;
-> +	status = "disabled";
-> +};
->
-
-Btw, I think Rob Herring should be included in the review for device 
-tree binding document changes.
-
-Thanks,
-
-Ray
+John
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
