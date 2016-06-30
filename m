@@ -1,57 +1,69 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] net: poll tx timeout only on active tx queues
-Date: Thu, 30 Jun 2016 16:28:12 +0200
-Message-ID: <1467296892.11238.24.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1467295085-9204-1-git-send-email-saeedm@mellanox.com>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH v13 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Thu, 30 Jun 2016 14:33:19 +0000
+Message-ID: <CY1PR03MB218662883B42266C3BF5F3F4BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
+References: <CO2PR03MB2182E76562A8236C5ABEA71CBF230@CO2PR03MB2182.namprd03.prod.outlook.com>
+ <20160630.084454.396711639535557444.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@vger.kernel.org,
-	Eric Dumazet <edumazet@google.com>,
-	Tom Herbert <tom@herbertland.com>,
-	Mohamad Haj Yahia <mohamad@mellanox.com>
-To: Saeed Mahameed <saeedm@mellanox.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	"vkuznets@redhat.com" <vkuznets@redhat.com>,
+	"cavery@redhat.com" <cavery@redhat.com>,
+	KY Srinivasan <kys@microsoft.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	"joe@perches.com" <joe@perches.com>,
+	"rolf.neugebauer@docker.com" <rolf.neugebauer@docker.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34103 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752170AbcF3O3M (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 10:29:12 -0400
-Received: by mail-wm0-f68.google.com with SMTP id 187so23369102wmz.1
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 07:28:15 -0700 (PDT)
-In-Reply-To: <1467295085-9204-1-git-send-email-saeedm@mellanox.com>
+Received: from mail-bl2on0111.outbound.protection.outlook.com ([65.55.169.111]:46504
+	"EHLO na01-bl2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751987AbcF3Odc convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 10:33:32 -0400
+In-Reply-To: <20160630.084454.396711639535557444.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-06-30 at 16:58 +0300, Saeed Mahameed wrote:
-> From: Mohamad Haj Yahia <mohamad@mellanox.com>
+> From: David Miller [mailto:davem@davemloft.net]
+> Sent: Thursday, June 30, 2016 20:45
+> To: Dexuan Cui <decui@microsoft.com>
+> Cc: gregkh@linuxfoundation.org; netdev@vger.kernel.org; linux-
+> kernel@vger.kernel.org; devel@linuxdriverproject.org; olaf@aepfle.de;
+> apw@canonical.com; jasowang@redhat.com; vkuznets@redhat.com;
+> cavery@redhat.com; KY Srinivasan <kys@microsoft.com>; Haiyang Zhang
+> <haiyangz@microsoft.com>; joe@perches.com; rolf.neugebauer@docker.com
+> Subject: Re: [PATCH v13 net-next 1/1] hv_sock: introduce Hyper-V Sockets
 > 
-> Change the netdev watchdog to poll only the real active tx queues
-> instead of polling all tx queues.
-> The netdev driver doesn't necessarily have to start/stop all the
-> tx queues including the inactive tx queues.
+> From: Dexuan Cui <decui@microsoft.com>
+> Date: Wed, 29 Jun 2016 11:30:40 +0000
 > 
-> Fixes: fd2ea0a79faa ('net: Use queue aware tests throughout.')
-> Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
-> Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
-> ---
->  net/sched/sch_generic.c | 2 +-
->  1 file changed, 1 insertion(+), 1 deletion(-)
+> > @@ -1509,4 +1509,18 @@ static inline void commit_rd_index(struct
+> vmbus_channel *channel)
+> >  }
+> >
+> >
+> > +struct vmpipe_proto_header {
+> > +	u32 pkt_type;
 > 
-> diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
-> index f9e0e9c..a10f0ff 100644
-> --- a/net/sched/sch_generic.c
-> +++ b/net/sched/sch_generic.c
-> @@ -253,7 +253,7 @@ static void dev_watchdog(unsigned long arg)
->  			unsigned int i;
->  			unsigned long trans_start;
->  
-> -			for (i = 0; i < dev->num_tx_queues; i++) {
-> +			for (i = 0; i < dev->real_num_tx_queues; i++) {
->  				struct netdev_queue *txq;
->  
->  				txq = netdev_get_tx_queue(dev, i);
+> It is wasteful to have two empty lines before this structure definition, one
+> is sufficient.
+> 
+> ...
 
-Strange, why don't you change all others helpers that are using
-num_tx_queues ?
+Hi David,
+Thank you for pointing out the issues!
 
-Which driver had a problem with this code ?
+I'll fix all of them, and check all the similar issues in the patch.
+
+Will post a new version ASAP.
+
+Thanks,
+-- Dexuan
