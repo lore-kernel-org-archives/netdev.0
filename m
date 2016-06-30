@@ -1,146 +1,105 @@
-From: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
-Subject: [PATCH net-next v3 3/4] cgroup: bpf: Add bpf_skb_in_cgroup_proto
-Date: Thu, 30 Jun 2016 10:28:44 -0700
-Message-ID: <1467307725-1948415-4-git-send-email-kafai@fb.com>
-References: <1467307725-1948415-1-git-send-email-kafai@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>,
-	Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>,
-	Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, <kernel-team-b10kYP2dOMg@public.gmane.org>
-To: <cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1467307725-1948415-1-git-send-email-kafai-b10kYP2dOMg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] net_sched: fix mirrored packets checksum
+Date: Thu, 30 Jun 2016 10:15:22 -0700
+Message-ID: <1467306922-7086-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Cong Wang <xiyou.wangcong@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Tom Herbert <tom@herbertland.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33190 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751536AbcF3RaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 13:30:13 -0400
+Received: by mail-pa0-f66.google.com with SMTP id ts6so7679400pac.0
+        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 10:30:00 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Adds a bpf helper, bpf_skb_in_cgroup, to decide if a skb->sk
-belongs to a descendant of a cgroup2.  It is similar to the
-feature added in netfilter:
-commit c38c4597e4bf ("netfilter: implement xt_cgroup cgroup2 path match")
+Similar to commit 9b368814b336 ("net: fix bridge multicast packet checksum validation")
+we need to fixup the checksum for CHECKSUM_COMPLETE when
+pushing skb on RX path. Otherwise we get similar splats.
 
-The user is expected to populate a BPF_MAP_TYPE_CGROUP_ARRAY
-which will be used by the bpf_skb_in_cgroup.
-
-Modifications to the bpf verifier is to ensure BPF_MAP_TYPE_CGROUP_ARRAY
-and bpf_skb_in_cgroup() are always used together.
-
-Signed-off-by: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
-Cc: Alexei Starovoitov <ast-b10kYP2dOMg@public.gmane.org>
-Cc: Daniel Borkmann <daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org>
-Cc: Tejun Heo <tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Acked-by: Alexei Starovoitov <ast-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>
+Cc: Tom Herbert <tom@herbertland.com>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
 ---
- include/uapi/linux/bpf.h | 12 ++++++++++++
- kernel/bpf/verifier.c    |  8 +++++++-
- net/core/filter.c        | 38 ++++++++++++++++++++++++++++++++++++++
- 3 files changed, 57 insertions(+), 1 deletion(-)
+ include/linux/skbuff.h | 19 +++++++++++++++++++
+ net/core/skbuff.c      | 18 ------------------
+ net/sched/act_mirred.c |  2 +-
+ 3 files changed, 20 insertions(+), 19 deletions(-)
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index ef4e386..bad309f 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -314,6 +314,18 @@ enum bpf_func_id {
- 	 */
- 	BPF_FUNC_skb_get_tunnel_opt,
- 	BPF_FUNC_skb_set_tunnel_opt,
-+
-+	/**
-+	 * bpf_skb_in_cgroup(skb, map, index) - Check cgroup2 membership of skb
-+	 * @skb: pointer to skb
-+	 * @map: pointer to bpf_map in BPF_MAP_TYPE_CGROUP_ARRAY type
-+	 * @index: index of the cgroup in the bpf_map
-+	 * Return:
-+	 *   == 0 skb failed the cgroup2 descendant test
-+	 *   == 1 skb succeeded the cgroup2 descendant test
-+	 *    < 0 error
-+	 */
-+	BPF_FUNC_skb_in_cgroup,
- 	__BPF_FUNC_MAX_ID,
- };
- 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index 0f6db58..68753e0 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -1063,7 +1063,9 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
- 			goto error;
- 		break;
- 	case BPF_MAP_TYPE_CGROUP_ARRAY:
--		goto error;
-+		if (func_id != BPF_FUNC_skb_in_cgroup)
-+			goto error;
-+		break;
- 	default:
- 		break;
- 	}
-@@ -1083,6 +1085,10 @@ static int check_map_func_compatibility(struct bpf_map *map, int func_id)
- 		if (map->map_type != BPF_MAP_TYPE_STACK_TRACE)
- 			goto error;
- 		break;
-+	case BPF_FUNC_skb_in_cgroup:
-+		if (map->map_type != BPF_MAP_TYPE_CGROUP_ARRAY)
-+			goto error;
-+		break;
- 	default:
- 		break;
- 	}
-diff --git a/net/core/filter.c b/net/core/filter.c
-index df6860c..8134c98 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2024,6 +2024,40 @@ bpf_get_skb_set_tunnel_proto(enum bpf_func_id which)
- 	}
+diff --git a/include/linux/skbuff.h b/include/linux/skbuff.h
+index ee38a41..61ab566 100644
+--- a/include/linux/skbuff.h
++++ b/include/linux/skbuff.h
+@@ -2870,6 +2870,25 @@ static inline void skb_postpush_rcsum(struct sk_buff *skb,
  }
  
-+#ifdef CONFIG_SOCK_CGROUP_DATA
-+static u64 bpf_skb_in_cgroup(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+ /**
++ *	skb_push_rcsum - push skb and update receive checksum
++ *	@skb: buffer to update
++ *	@len: length of data pulled
++ *
++ *	This function performs an skb_push on the packet and updates
++ *	the CHECKSUM_COMPLETE checksum.  It should be used on
++ *	receive path processing instead of skb_push unless you know
++ *	that the checksum difference is zero (e.g., a valid IP header)
++ *	or you are setting ip_summed to CHECKSUM_NONE.
++ */
++static inline unsigned char *skb_push_rcsum(struct sk_buff *skb,
++					    unsigned int len)
 +{
-+	struct sk_buff *skb = (struct sk_buff *)(long)r1;
-+	struct bpf_map *map = (struct bpf_map *)(long)r2;
-+	struct bpf_array *array = container_of(map, struct bpf_array, map);
-+	struct cgroup *cgrp;
-+	struct sock *sk;
-+	u32 i = (u32)r3;
-+
-+	sk = skb->sk;
-+	if (!sk || !sk_fullsock(sk))
-+		return -ENOENT;
-+
-+	if (unlikely(i >= array->map.max_entries))
-+		return -E2BIG;
-+
-+	cgrp = READ_ONCE(array->ptrs[i]);
-+	if (unlikely(!cgrp))
-+		return -EAGAIN;
-+
-+	return cgroup_is_descendant(sock_cgroup_ptr(&sk->sk_cgrp_data), cgrp);
++	skb_push(skb, len);
++	skb_postpush_rcsum(skb, skb->data, len);
++	return skb->data;
 +}
 +
-+static const struct bpf_func_proto bpf_skb_in_cgroup_proto = {
-+	.func		= bpf_skb_in_cgroup,
-+	.gpl_only	= false,
-+	.ret_type	= RET_INTEGER,
-+	.arg1_type	= ARG_PTR_TO_CTX,
-+	.arg2_type	= ARG_CONST_MAP_PTR,
-+	.arg3_type	= ARG_ANYTHING,
-+};
-+#endif
-+
- static const struct bpf_func_proto *
- sk_filter_func_proto(enum bpf_func_id func_id)
- {
-@@ -2086,6 +2120,10 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
- 		return &bpf_get_route_realm_proto;
- 	case BPF_FUNC_perf_event_output:
- 		return bpf_get_event_output_proto();
-+#ifdef CONFIG_SOCK_CGROUP_DATA
-+	case BPF_FUNC_skb_in_cgroup:
-+		return &bpf_skb_in_cgroup_proto;
-+#endif
- 	default:
- 		return sk_filter_func_proto(func_id);
++/**
+  *	pskb_trim_rcsum - trim received skb and update checksum
+  *	@skb: buffer to trim
+  *	@len: new length
+diff --git a/net/core/skbuff.c b/net/core/skbuff.c
+index f2b77e5..eb12d21 100644
+--- a/net/core/skbuff.c
++++ b/net/core/skbuff.c
+@@ -3016,24 +3016,6 @@ int skb_append_pagefrags(struct sk_buff *skb, struct page *page,
+ EXPORT_SYMBOL_GPL(skb_append_pagefrags);
+ 
+ /**
+- *	skb_push_rcsum - push skb and update receive checksum
+- *	@skb: buffer to update
+- *	@len: length of data pulled
+- *
+- *	This function performs an skb_push on the packet and updates
+- *	the CHECKSUM_COMPLETE checksum.  It should be used on
+- *	receive path processing instead of skb_push unless you know
+- *	that the checksum difference is zero (e.g., a valid IP header)
+- *	or you are setting ip_summed to CHECKSUM_NONE.
+- */
+-static unsigned char *skb_push_rcsum(struct sk_buff *skb, unsigned len)
+-{
+-	skb_push(skb, len);
+-	skb_postpush_rcsum(skb, skb->data, len);
+-	return skb->data;
+-}
+-
+-/**
+  *	skb_pull_rcsum - pull skb and update receive checksum
+  *	@skb: buffer to update
+  *	@len: length of data pulled
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index 128942b..1f5bd6c 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -181,7 +181,7 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
+ 
+ 	if (!(at & AT_EGRESS)) {
+ 		if (m->tcfm_ok_push)
+-			skb_push(skb2, skb->mac_len);
++			skb_push_rcsum(skb2, skb->mac_len);
  	}
+ 
+ 	/* mirror is always swallowed */
 -- 
-2.5.1
+2.1.0
