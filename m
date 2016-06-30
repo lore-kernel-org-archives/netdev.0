@@ -1,30 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch] be2net: signedness bug in be_msix_enable()
-Date: Thu, 30 Jun 2016 08:56:26 -0400 (EDT)
-Message-ID: <20160630.085626.1553236786452459332.davem@davemloft.net>
-References: <20160629143943.GA22818@mwanda>
+Subject: Re: [net 0/2][pull request] Intel Wired LAN Driver Updates
+ 2016-06-29
+Date: Thu, 30 Jun 2016 08:57:54 -0400 (EDT)
+Message-ID: <20160630.085754.1158846583386900804.davem@davemloft.net>
+References: <1467217804-137463-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
-	sriharsha.basavapatna@broadcom.com, somnath.kotur@broadcom.com,
-	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
+Cc: netdev@vger.kernel.org, nhorman@redhat.com, sassmann@redhat.com,
+	jogreene@redhat.com
+To: jeffrey.t.kirsher@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55695 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55702 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751994AbcF3M44 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 08:56:56 -0400
-In-Reply-To: <20160629143943.GA22818@mwanda>
+	with ESMTP id S1752232AbcF3M6U (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 08:58:20 -0400
+In-Reply-To: <1467217804-137463-1-git-send-email-jeffrey.t.kirsher@intel.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Wed, 29 Jun 2016 17:39:43 +0300
+From: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Date: Wed, 29 Jun 2016 09:30:02 -0700
 
-> "num_vec" needs to be signed for the error handling to work.
-> 
-> Fixes: e261768e9e39 ('be2net: support asymmetric rx/tx queue counts')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> This series contains fixes to e1000e and ixgbevf.
 
-Applied.
+Pulled, thanks Jeff.
