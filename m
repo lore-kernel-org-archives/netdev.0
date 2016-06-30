@@ -1,64 +1,35 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH v14 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Thu, 30 Jun 2016 16:22:12 +0000
-Message-ID: <CY1PR03MB2186E874E6D0B48EEDF069BBBF240@CY1PR03MB2186.namprd03.prod.outlook.com>
-References: <CY1PR03MB21865E21E637F03877784979BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
- <20160630161212.GA7456@aepfle.de>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH net-next 19/19] rxrpc: Use RCU to access a peer's service connection tree
+Date: Thu, 30 Jun 2016 17:22:19 +0100
+Message-ID: <19436.1467303739@warthog.procyon.org.uk>
+References: <20160630153049.GG30935@twins.programming.kicks-ass.net> <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk> <146729597856.26306.17024362508555652794.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- Haiyang Zhang <haiyangz@microsoft.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "joe@perches.com" <joe@perches.com>,
- Rolf Neugebauer <rolf.neugebauer@docker.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- Vitaly Kuznetsov <vkuznets@redhat.com>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Olaf Hering <olaf@aepfle.de>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <20160630161212.GA7456@aepfle.de>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Cc: dhowells@redhat.com, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160630153049.GG30935@twins.programming.kicks-ass.net>
+Content-ID: <19435.1467303739.1@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> From: Olaf Hering [mailto:olaf@aepfle.de]
-> Sent: Friday, July 1, 2016 0:12
-> To: Dexuan Cui <decui@microsoft.com>
-> Cc: davem@davemloft.net; gregkh@linuxfoundation.org;
-> netdev@vger.kernel.org; linux-kernel@vger.kernel.org;
-> devel@linuxdriverproject.org; apw@canonical.com; jasowang@redhat.com;
-> Vitaly Kuznetsov <vkuznets@redhat.com>; Cathy Avery <cavery@redhat.com>;
-> KY Srinivasan <kys@microsoft.com>; Haiyang Zhang
-> <haiyangz@microsoft.com>; joe@perches.com; Rolf Neugebauer
-> <rolf.neugebauer@docker.com>
-> Subject: Re: [PATCH v14 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-> 
-> On Thu, Jun 30, Dexuan Cui wrote:
-> 
-> > -#define AF_MAX		43	/* For now.. */
-> > +#define AF_MAX		44	/* For now.. */
-> 
-> Should this patch also change the places where AF_MAX is used,
-> like all the arrays in net/core/sock.c?
-> 
-> Olaf
+Peter Zijlstra <peterz@infradead.org> wrote:
 
-Thanks for the reminder, Olaf!
+> > +			if (conn->proto.index_key < k.index_key)
+> > +				p = p->rb_left;
+> > +			else if (conn->proto.index_key > k.index_key)
+> > +				p = p->rb_right;
+> 
+> You still very much need rcu_dereference() for both left and right
+> pointers. As well as the first p load.
 
-I think we may as well make a separate patch for this. 
-It is in my To-Do list.
+Bah...  Yes.  Good point.
 
-Thanks,
--- Dexuan
+> > +	rb_link_node(&conn->service_node, parent, pp);
+> 
+> You want rb_link_node_rcu() here.
+
+Should there be an rb_replace_node_rcu() also?
+
+David
