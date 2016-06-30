@@ -1,316 +1,224 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH net-next 08/16] net/devlink: Add E-Switch mode control
-Date: Thu, 30 Jun 2016 17:53:14 +0200
-Message-ID: <20160630155314.GG2569@nanopsycho.orion>
-References: <CAJ3xEMgGCW_P-sb3pe1KqMVoKe4BWKoO88_O364nwEU6bDnaoA@mail.gmail.com>
- <577446FE.7060402@gmail.com>
- <5774938D.7010902@gmail.com>
- <57749A57.1030709@gmail.com>
- <20160630062516.GA2569@nanopsycho.orion>
- <5774C6B3.1000901@intel.com>
- <20160630074154.GC2569@nanopsycho.orion>
- <5774D0E1.4070605@gmail.com>
- <20160630105212.GD2569@nanopsycho.orion>
- <57753D89.3030904@gmail.com>
+From: Dexuan Cui <decui@microsoft.com>
+Subject: [PATCH v14 net-next 0/1] introduce Hyper-V VM Sockets(hv_sock)
+Date: Thu, 30 Jun 2016 15:56:04 +0000
+Message-ID: <CY1PR03MB21865C5C6DC30757B6B4A2A7BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Samudrala, Sridhar" <sridhar.samudrala@intel.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Hadar Hen-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jesse Brandeburg <jesse.brandeburg@intel.com>,
-	John Fastabend <john.r.fastabend@intel.com>,
-	Ido Schimmel <idosch@mellanox.com>,
-	Tal Anker <Ankertal@mellanox.com>
-To: John Fastabend <john.fastabend@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:37240 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752690AbcF3Pxo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 11:53:44 -0400
-Received: by mail-wm0-f46.google.com with SMTP id a66so125039239wme.0
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 08:53:17 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <57753D89.3030904@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "joe@perches.com" <joe@perches.com>,
+ Rolf Neugebauer <rolf.neugebauer@docker.com>,
+ Haiyang Zhang <haiyangz@microsoft.com>
+To: "davem@davemloft.net" <davem@davemloft.net>, "gregkh@linuxfoundation.org"
+ <gregkh@linuxfoundation.org>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>, "linux-kernel@vger.kernel.org"
+ <linux-kernel@vger.kernel.org>, "devel@linuxdriverproject.org"
+ <devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
+ "apw@canonical.com" <apw@canonical.com>, "jasowang@redhat.com"
+ <jasowang@redhat.com>, Vitaly Kuznetsov <vkuznets@redhat.com>, Cathy Avery
+ <cavery@redhat.com>, KY Srinivasan <kys@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Thu, Jun 30, 2016 at 05:40:57PM CEST, john.fastabend@gmail.com wrote:
->On 16-06-30 03:52 AM, Jiri Pirko wrote:
->> Thu, Jun 30, 2016 at 09:57:21AM CEST, john.fastabend@gmail.com wrote:
->>> On 16-06-30 12:41 AM, Jiri Pirko wrote:
->>>> Thu, Jun 30, 2016 at 09:13:55AM CEST, sridhar.samudrala@intel.com wrote:
->>>>>
->>>>>
->>>>> On 6/29/2016 11:25 PM, Jiri Pirko wrote:
->>>>>> Thu, Jun 30, 2016 at 06:04:39AM CEST, john.fastabend@gmail.com wrote:
->>>>>>> On 16-06-29 08:35 PM, John Fastabend wrote:
->>>>>>>> On 16-06-29 03:09 PM, John Fastabend wrote:
->>>>>>>>> On 16-06-29 02:33 PM, Or Gerlitz wrote:
->>>>>>>>>> On Wed, Jun 29, 2016 at 7:35 PM, John Fastabend
->>>>>>>>>> <john.fastabend@gmail.com> wrote:
->>>>>>>>>>> On 16-06-29 07:48 AM, Or Gerlitz wrote:
->>>>>>>>>>>> On 6/28/2016 10:31 PM, John Fastabend wrote:
->>>>>>>>>>>>> On 16-06-28 12:12 PM, Jiri Pirko wrote:
->>>>>>>>>>>>>> Why?! Please, leave legacy be legacy. Use the new mode for
->>>>>>>>>>>>>> implementing new features. Don't make things any more complicated :(
->>>>>>>>>> [...]
->>>>>>>>>>>>> Maybe I'm reading to much into the devlink flag names and if instead
->>>>>>>>>>>>> you use a switch like the following,
->>>>>>>>>>>>>    VF representer : enable/disable the creation VF netdev's to represent
->>>>>>>>>>>>>                     the virtual functions on the PF
->>>>>>>>>>>>> Much less complicated then magic switching between forwarding logic IMO
->>>>>>>>>>>>> and you don't whack a default configuration that an entire stack (e.g.
->>>>>>>>>>>>> libvirt) has been built to use.
->>>>>>>>>>>> Re letting the user to observe/modify the rules added by the
->>>>>>>>>>>> driver/firmware while legacy mode. Even if possible with bridge/fdb, it
->>>>>>>>>>>> will be really pragmatical and doesn't make sense to get that donefor
->>>>>>>>>>>> the TC subsystem. So this isn't a well defined solution and anyway, as
->>>>>>>>>>>> you said, legacy mode enhancements is a different exercise. Personally,
->>>>>>>>>>>> I agree with Jiri, that we should legacy be legacyand focus on adding
->>>>>>>>>>>> the new model.
->>>>>>>>>>> The ixgbe driver already supports bridge and tc commands without the VF
->>>>>>>>>>> representer.  Adding the VF representer to these drivers just extends
->>>>>>>>>>> the existing support so we have an identifier for VFs and now the
->>>>>>>>>>> redirect action works and the fdb commands can specify the VF netdevs.
->>>>>>>>>>> I don't see this as a problem because we already do it today with
->>>>>>>>>>> 'ip' and bridge tools.
->>>>>>>>>> To be precise, for both ixgbe and mlx5, the existing tc support
->>>>>>>>>> (u32/ixgbe, flower/mlx5) is not for switching functionality but rather
->>>>>>>>>> for NIC-ish one, e.g drop, mark, etc. Indeed in ixgbe you added
->>>>>>>>>> redirect to VF, but this is only for south --> north (wire --> VF)
->>>>>>>>>> traffic, w.o the VF rep you can't do the other way around.
->>>>>>>>>>
->>>>>>>>> Correct which is why we need the VF rep. So we are completely in
->>>>>>>>> sync there.
->>>>>>>>>
->>>>>>>>>> Just to clarify, to what exact bridge command support did you refer for ixgbe?
->>>>>>>>> 'bridge fdb' commands are supported today on the PF. But its the
->>>>>>>>> same story as above we need the VF rep to also use it on the
->>>>>>>>> VF representer
->>>>>>>>>
->>>>>>>>> Also 'bridge link' command for veb/vepa modes is supported and the
->>>>>>>>> other link attributes could be supported with additional driver
->>>>>>>>> support. No need for core changes here. But again yes only on the
->>>>>>>>> PF so again we need the VF reps.
->>>>>>>>>
->>>>>>>>>> The forwarding done in the legacy mode is not well defined, and
->>>>>>>>>> different across vendors, adding there the VF reps will not make it
->>>>>>>>>> any better b/c some steering rules will be set by tc/bridge offloads
->>>>>>>>>> while other rules will be put by the driver.
->>>>>>>>>> I don't see how this takes us to better place.
->>>>>>>>> In legacy mode or any other mode you are defining some default policy
->>>>>>>>> and rules.
->>>>>>>>>
->>>>>>>>> In the legacy mode we use mac/vlan assigned l2 forwarding entries in the
->>>>>>>>> hardware fdb which are seen when you query 'ip link' and 'bridge fdb'
->>>>>>>>> today. And similarly can be modified today using 'ip link' and 'bridge
->>>>>>>>> fdb' at least on the intel devices. Its not undefined in any way with
->>>>>>>>> a quick query of the tools we can learn exactly what the configuration
->>>>>>>>> is and even change it. This works fairly well with existing controllers
->>>>>>>>> and stacks.
->>>>>>>>>
->>>>>>>>> The limitations are 'ip' only supports a single MAC address per VF and
->>>>>>>>> 'tc' doesn't work on VF ports because when the VF is assigned to a VM
->>>>>>>>> or namespace we lose visibility of it. Providing a VF rep for this
->>>>>>>>> solves both of those problems.
->>>>>>>>>
->>>>>>>>> In this new mode the default policy is to create a default miss rule
->>>>>>>>> and implement no l2 forwarding rules. Unfortunately not all hardware
->>>>>>>>> in use supports this default miss rule case but would still benefit
->>>>>>>> >from having a VF rep. So we shouldn't make this a stipulation for
->>>>>>>>> enabling VF reps. It also changes a default policy that has been in
->>>>>>>>> place for years without IMO at least any compelling reason. It will
->>>>>>>>> be easy enough to change the default l2 policy to a flow based model
->>>>>>>>> with a few bridge/tc commands.
->>>>>>>>>
->>>>>>>>>>> We are also slightly in disagreement about what the default should be
->>>>>>>>>>> with VF netdevs. I think the default should be the same L2 mac/vlan
->>>>>>>>>>> switch behavior and see no reason to change it by default just because
->>>>>>>>>>> we added VF netdevs. The infrastructure libvirt/openstack/etc are built
->>>>>>>>>>> around this default today. But I guess nothing in this series specifies
->>>>>>>>>>> what the defaults of any given driver will be. VF netdevs are still
->>>>>>>>>>> useful even on older hardware that only supports mac/vlan forwarding to
->>>>>>>>>>> expose statistics and send/receive control frames such as lldp.
->>>>>>>>>> Again, this is not about default engineering... and using the VF reps
->>>>>>>>>> (not VF netdevs) in legacy mode only make it more cryptic to my
->>>>>>>>>> opinion. I agree some changes would be needed in openstack to support
->>>>>>>>>> the new model, but this is how progress is made... you can't always
->>>>>>>>>> make all layer above you unchanged. Note that the VF reps behave the
->>>>>>>>>> same as tap devices (v-switch doing xmit on tap --> recv in VM, VM
->>>>>>>>>> sends --> recv on tap into the v-switch), so the change in open-stack
->>>>>>>>>> would not be that big.
->>>>>>>>>>
->>>>>>>>> But in this case we have no reason to break the stack above us. The
->>>>>>>>> currently deployed usage is L2 mac/vlan. As soon as you bind a vSwitch
->>>>>>>>> or whatever mgmt agent to the device it can go ahead and manage the
->>>>>>>>> switch putting it in the correct mode using the tooling in 'bridge' and
->>>>>>>>> 'tc'.
->>>>>>>>>
->>>>>>>>>
->>>>>>>>>> [...]
->>>>>>>>>>
->>>>>>>>>>> Why I think the VF representer is a per port ethtool flag and not a
->>>>>>>>>>> devlink option is my use case might be to assign a PF into a VM or
->>>>>>>>>>> namespace where I don't want VF netdevs.
->>>>>>>>>> again, we think the correct place to set how the eswitch is managed is
->>>>>>>>>> through eswitch manager PCI devices and not net devices and hence
->>>>>>>>>> ethtool is not the way to go.
->>>>>>>>>>
->>>>>>>>>> Also, how do you want your e-switch to be managed in this case?
->>>>>>>>>>
->>>>>>>>> In the case where I don't create vf netdevs on one of the PFs I'll
->>>>>>>>> manage the forwarding tables via the existing mechanisms 'ip' and
->>>>>>>>> 'bridge'. However its likely not a big deal because 'ip' and 'bridge'
->>>>>>>>> will continue to work even if VF reps are around. The ethtool/devlink
->>>>>>>>> comment was more about pointing out that creating VFs does not
->>>>>>>>> require you to manage your switch any differently. Its useful even on
->>>>>>>>> devices that can't support flow based forwarding for statistics and
->>>>>>>>> setting port attributes like mtu, etc.
->>>>>>>>>
->>>>>>>>> .John
->>>>>>>>>
->>>>>>>> Probably bad form to respond to my own email but just to highlight how
->>>>>>>> subtle the distinction is (hopefully not to much repeat),
->>>>>>>>
->>>>>>>> Today in "legacy" mode each VF mac address is automatically added to
->>>>>>>> the fdb along with the PF mac address. If there is a miss in the table
->>>>>>>> (an unknown mac) the packet is sent to the PF but unless the PF is in
->>>>>>>> promisc mode the packet is dropped by the rx filter. I presume even
->>>>>>>> with the proposed model you would want to continue to enforce the
->>>>>>>> rx filter otherwise the instance you flip the mode you are open to
->>>>>>>> receive unwanted traffic. The promisc mode semantics have been in place
->>>>>>>> for a long time so certainly don't want to break that. Can we agree on
->>>>>>>> the promisc point? Also bridges/vswitch/etc already set promisc mode
->>>>>>>> once they attach to the netdevs.
->>>>>>>>
->>>>>>>> (assuming we agree on the promisc point?)
->>>>>>>> In your proposed model the only difference I can see is when the mode is
->>>>>>>> changed you don't want to add the VF mac address to the fdb table. How
->>>>>>>> about rather than make this part of the mode selection pick one way to
->>>>>>>> do this in all cases. Either add the VF mac addresses to the fdb or
->>>>>>>> do not do this. I have a preference for adding the VF mac addresses
->>>>>>>> because this is the current behavior. Then rename the devlink option
->>>>>>>> "VF reps" or something because that is what it is controlling.
->>>>>>>>
->>>>>>>> The last thing to argue about is if its a port attribute ala ethtool
->>>>>>>> or a device attribute ala devlink. But maybe we can agree on everything
->>>>>>>> up to this point?
->>>>>>>>
->>>>>>>> Thanks,
->>>>>>>> John
->>>>>>>>
->>>>>>> FWIW reviewing devlink and items I want to put there in the future I've
->>>>>>> decided it makes sense to keep it in devlink (sorry took me a day of
->>>>>>> emails to get here). If you can agree to the above and rename it
->>>>>>> something like,
->>>>>>>
->>>>>>> +enum devlink_eswitch_mode {
->>>>>>> +	DEVLINK_ESWITCH_MODE_NONE,
->>>>>>> +	DEVLINK_ESWITCH_MODE_LEGACY,
->>>>>>> +	DEVLINK_ESWITCH_MODE_CREATE_VF_NETDEVS,
->>>>>> That is certainly totally misleading name. The mode is not about
->>>>>> creating "VF netdevs".
->>>>>>
->>>>>> The VF representors are created but just as a side effect. The "offload"
->>>>>> mode or maybe better "switchdev" mode is creating representor netdevs for
->>>>>> VFs because they are needed in order to be able to configure ESwitch in
->>>>>> the same way we configure physical switches - putting netdevs into
->>>>>> bridge/bond/ovs/whatever. You see stats on the representors. Basicaly
->>>>>> they are the same as physical port representors on physical switch ASIC.
->>>>>
->>>>> May be we need 2 new modes
->>>>> - legacy+ mode which only creates VF netdevs and let the user configure and manage the switch via the standard bridge/tc/ip/ethtool interfaces
->>>>> - 'offload' or 'switchdev' mode that does more than just creating VF netdevs if it is not possible to configure the switch into this mode via standard interfaces.
->>>>
->>>> What?
->>>>
->>>> That what you described as "legacy+" as "let the user configure and
->>>> manage the switch via the standard bridge/tc/ip/ethtool interfaces" is
->>>> exactly the "offload/switchdev" mode.
->>>>
->>>> The second mode you described is something that I don't get what you are
->>>> talking about...
->>>>
->>>> Please forget about legacy. It's a mistake. Similar to SDKs :(
->>>> Let's work on getting the proper offload solution in.
->>>>
->>>
->>> I think the point here is switchdev is not needed to use bridge, tc,
->>> ip, and ethtool tools. By adding the VF representors we can continue
->>> using 'tc', 'bridge', etc. and it is much more interesting because
->>> we bring the VFs into the netdev world even without switchdev support
->>> this is nice. Adding switchdev of course gets you some extra goodies
->>> like l3 and l2 learning if your nic supports it but its not strictly
->>> required to see goodness from this patch. Without switchdev support
->>> you get stats (big win), basic port configuration with ip link cmds,
->>> tc and bridge fdb to name a few.
->> 
->> Why not to have 2 modes:
->> 
->> 1) lagacy - the current solution, blackbox eswitch, undefined behaviour
->> 2) switchdev - with representors, all features possible as on physical
->> switches, whitebox eswitch configured using standard tools?
->> 
->> I don't see *ANY* reason for a hybrid. That would only make things
->> already complicated much more complicated.
->> 
->>
->>>
->>> Also we can't completely forget about legacy though because we have
->>> infrastructure built around it and its unlikely we can switch entirely
->>> over in one shot. For example the firewall application may switch over
->>> to the new VF rep model while the libvirt VM manager continues to use
->>> the 'ip link set ... vf #' model. No reason to stop this from being
->>> supported its actually more work in the code to block it. We get it for
->>> free.
->> 
->> Let legacy be legacy, I have no problem with that. New drivers would be
->> encouraged to implement only new switchdev mode.
->> 
->
->Nope I disagree there is no reason to break existing userspace here just
->continue to support the handful of ip commands and bridge commands
->already supported. The code is already in the driver and supported.
->In general the kernel shouldn't break UAPI already in place.
+Hyper-V Sockets (hv_sock) supplies a byte-stream based communication
+mechanism between the host and the guest. It's somewhat like TCP over
+VMBus, but the transportation layer (VMBus) is much simpler than IP.
 
-Who is breaking existing userspace? I don't understand what breakage are
-you are referring to :(
+With Hyper-V Sockets, applications between the host and the guest can talk
+to each other directly by the traditional BSD-style socket APIs.
+
+Hyper-V Sockets is only available on new Windows hosts, like Windows Server
+2016. More info is in this article "Make your own integration services":
+https://msdn.microsoft.com/en-us/virtualization/hyperv_on_windows/develop/make_mgmt_service
+
+The patch implements the necessary support in the guest side by
+introducing a new socket address family AF_HYPERV.
+
+You can also get the patch by:
+https://github.com/dcui/linux/commits/decui/hv_sock/net-next/20160629_v14
+
+Note: the VMBus driver side's supporting patches have been in the mainline
+tree.
+
+I know the kernel has already had a VM Sockets driver (AF_VSOCK) based
+on VMware VMCI (net/vmw_vsock/, drivers/misc/vmw_vmci), and KVM is
+proposing AF_VSOCK of virtio version:
+http://marc.info/?l=linux-netdev&m=145952064004765&w=2
+
+However, though Hyper-V Sockets may seem conceptually similar to
+AF_VOSCK, there are differences in the transportation layer, and IMO these
+make the direct code reusing impractical:
+
+1. In AF_VSOCK, the endpoint type is: <u32 ContextID, u32 Port>, but in
+AF_HYPERV, the endpoint type is: <GUID VM_ID, GUID ServiceID>. Here GUID
+is 128-bit.
+
+2. AF_VSOCK supports SOCK_DGRAM, while AF_HYPERV doesn't.
+
+3. AF_VSOCK supports some special sock opts, like SO_VM_SOCKETS_BUFFER_SIZE,
+SO_VM_SOCKETS_BUFFER_MIN/MAX_SIZE and SO_VM_SOCKETS_CONNECT_TIMEOUT.
+These are meaningless to AF_HYPERV.
+
+4. Some AF_VSOCK's VMCI transportation ops are meanless to AF_HYPERV/VMBus,
+like .notify_recv_init
+.notify_recv_pre_block
+.notify_recv_pre_dequeue
+.notify_recv_post_dequeue
+.notify_send_init
+.notify_send_pre_block
+.notify_send_pre_enqueue
+.notify_send_post_enqueue
+etc.
+
+So I think we'd better introduce a new address family: AF_HYPERV.
+
+Please review the patch.
+
+Looking forward to your comments, especially comments from David. :-)
+
+Changes since v1:
+- updated "[PATCH 6/7] hvsock: introduce Hyper-V VM Sockets feature"
+- added __init and __exit for the module init/exit functions
+- net/hv_sock/Kconfig: "default m" -> "default m if HYPERV"
+- MODULE_LICENSE: "Dual MIT/GPL" -> "Dual BSD/GPL"
+
+Changes since v2:
+- fixed various coding issue pointed out by David Miller
+- fixed indentation issues
+- removed pr_debug in net/hv_sock/af_hvsock.c
+- used reverse-Chrismas-tree style for local variables.
+- EXPORT_SYMBOL -> EXPORT_SYMBOL_GPL
+
+Changes since v3:
+- fixed a few coding issue pointed by Vitaly Kuznetsov and Dan Carpenter
+- fixed the ret value in vmbus_recvpacket_hvsock on error
+- fixed the style of multi-line comment: vmbus_get_hvsock_rw_status()
+
+Changes since v4 (https://lkml.org/lkml/2015/7/28/404):
+- addressed all the comments about V4.
+- treat the hvsock offers/channels as special VMBus devices
+- add a mechanism to pass hvsock events to the hvsock driver
+- fixed some corner cases with proper locking when a connection is closed
+- rebased to the latest Greg's tree
+
+Changes since v5 (https://lkml.org/lkml/2015/12/24/103):
+- addressed the coding style issues (Vitaly Kuznetsov & David Miller, thanks!)
+- used a better coding for the per-channel rescind callback (Thank Vitaly!)
+- avoided the introduction of new VMBUS driver APIs vmbus_sendpacket_hvsock()
+and vmbus_recvpacket_hvsock() and used vmbus_sendpacket()/vmbus_recvpacket()
+in the higher level (i.e., the vmsock driver). Thank Vitaly!
+
+Changes since v6 (http://lkml.iu.edu/hypermail/linux/kernel/1601.3/01813.html)
+- only a few minor changes of coding style and comments
+
+Changes since v7
+- a few minor changes of coding style: thanks, Joe Perches!
+- added some lines of comments about GUID/UUID before the struct sockaddr_hv.
+
+Changes since v8
+- removed the unnecessary __packed for some definitions: thanks, David!
+- hvsock_open_connection:  use offer.u.pipe.user_def[0] to know the connection
+and reorganized the function
+direction 
+- reorganized the code according to suggestions from Cathy Avery: split big
+functions into small ones, set .setsockopt and getsockopt to
+sock_no_setsockopt/sock_no_getsockopt
+- inline'd some small list helper functions
+
+Changes since v9
+- minimized struct hvsock_sock by making the send/recv buffers pointers.
+   the buffers are allocated by kmalloc() in __hvsock_create() now.
+- minimized the sizes of the send/recv buffers and the vmbus ringbuffers.
+
+Changes since v10
+
+1) add module params: send_ring_page, recv_ring_page. They can be used to
+enlarge the ringbuffer size to get better performance, e.g.,
+# modprobe hv_sock  recv_ring_page=16 send_ring_page=16
+By default, recv_ring_page is 3 and send_ring_page is 2.
+
+2) add module param max_socket_number (the default is 1024).
+A user can enlarge the number to create more than 1024 hv_sock sockets.
+By default, 1024 sockets take about 1024 * (3+2+1+1) * 4KB = 28M bytes.
+(Here 1+1 means 1 page for send/recv buffers per connection, respectively.)
+
+3) implement the TODO in hvsock_shutdown().
+
+4) fix a bug in hvsock_close_connection():
+   I remove "sk->sk_socket->state = SS_UNCONNECTED;" -- actually this line
+is not really useful. For a connection triggered by a host app's connect(),
+sk->sk_socket remains NULL before the connection is accepted by the server
+app (in Linux VM): see hvsock_accept() -> hvsock_accept_wait() ->
+sock_graft(connected, newsock). If the host app exits before the server
+app's accept() returns, the host can send a rescind-message to close the
+connection and later in the Linux VM's message handler 
+i.e. vmbus_onoffer_rescind()), Linux will get a NULL de-referencing crash. 
+
+5) fix a bug in hvsock_open_connection()
+  I move the vmbus_set_chn_rescind_callback() to a later place, because
+when vmbus_open() fails, hvsock_close_connection() can do nothing and we
+count on vmbus_onoffer_rescind() -> vmbus_device_unregister() to clean up
+the device.
+
+6) some stylistic modificiation.
 
 
->
->> 
->>>
->>> I've come to the conclusion that we are just arguing over a name and
->>> a bit of perspective calling it "offload" mode is OK with me even
->>> though legacy mode did offloading as well just not as interesting of
->>> offloads. If the VF representors are the cause or effect is not all
->>> that important to me.
->> 
->> Why not call it just MODE_SWITCHDEV? I believe it describes it the best.
->> Everyone knows what that is about.
->> 
->
->This is fine but it doesn't require drivers actually register with
->switchdev here to get the goodness.
+Changes since v11:
+1) remove the module params as David suggested.
 
-Switch id for ports, that is the only thing needed.
+2) use 5 exact pages for VMBus send/recv rings, respectively.
+The host side's design of the feature requires 5 exact pages for recv/send
+rings respectively -- this is suboptimal considering memory consumption,
+however unluckily we have to live with it, before the host comes up with
+a new design in the future. :-(
 
+3) remove the per-connection static send/recv buffers
+Instead, we allocate and free the buffers dynamically only when we recv/send
+data. This means: when a connection is idle, no memory is consumed as
+recv/send buffers at all.
+Dexuan Cui (1):
+  hv_sock: introduce Hyper-V Sockets
 
->
->> 
->>>
->>> If drivers populate the fdb table with known MACs is a side issue
->>> IMO (the thread Or and I got lost in) and doesn't need to hold up this
->>> patch.
->>>
->>> .John
->>>
->>>
->>>
->
+Changes since v12:
+return ENOMEM on buffer alllocation failure
+
+   Actually "man read/write" says "Other errors may occur, depending on the
+object connected to fd". "man send/recv" indeed lists ENOMEM.
+   Considering AF_HYPERV is a new socket type, ENOMEM seems OK here.
+   In the long run, I think we should add a new API in the VMBus driver,
+allowing data copy from VMBus ringbuffer into user mode buffer directly.
+This way, we can even eliminate this temporary buffer.
+
+Changes since v13:
+fix some coding style issues pointed out by David.
+
+Dexuan Cui (1):
+  hv_sock: introduce Hyper-V Sockets
+
+ MAINTAINERS                 |    2 +
+ include/linux/hyperv.h      |   13 +
+ include/linux/socket.h      |    4 +-
+ include/net/af_hvsock.h     |   59 ++
+ include/uapi/linux/hyperv.h |   24 +
+ net/Kconfig                 |    1 +
+ net/Makefile                |    1 +
+ net/hv_sock/Kconfig         |   10 +
+ net/hv_sock/Makefile        |    3 +
+ net/hv_sock/af_hvsock.c     | 1519 +++++++++++++++++++++++++++++++++++++++++++
+ 10 files changed, 1635 insertions(+), 1 deletion(-)
+ create mode 100644 include/net/af_hvsock.h
+ create mode 100644 net/hv_sock/Kconfig
+ create mode 100644 net/hv_sock/Makefile
+ create mode 100644 net/hv_sock/af_hvsock.c
+
+-- 
+2.1.0
