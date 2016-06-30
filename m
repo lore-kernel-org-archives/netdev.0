@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v2 net-next 2/9] net: hns: fix code style about hns driver
-Date: Thu, 30 Jun 2016 15:25:02 +0800
-Message-ID: <1467271509-63162-3-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v2 net-next 5/9] net: hns: add a space before "*/"
+Date: Thu, 30 Jun 2016 15:25:05 +0800
+Message-ID: <1467271509-63162-6-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -14,59 +14,40 @@ Cc: <akpm@linux-foundation.org>, <gregkh@linuxfoundation.org>,
 	<netdev@vger.kernel.org>
 To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
 	<salil.mehta@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga01-in.huawei.com ([58.251.152.64]:38062 "EHLO
-	szxga01-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751883AbcF3HHI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 03:07:08 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 From: Daode Huang <huangdaode@hisilicon.com>
 
-This patch fixes code sytle of hns driver to make it
-simple.
+In comment line, some time miss a space before */, so this
+patch adds a space before */.
 
 Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 16 +++++++---------
- 1 file changed, 7 insertions(+), 9 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-index 8473287..611b67b 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c
-@@ -253,10 +253,9 @@ static void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
- 		reg_val_1  = 0x1 << port;
- 		port_rst_off = dsaf_dev->mac_cb[port]->port_rst_off;
- 		/* there is difference between V1 and V2 in register.*/
--		if (AE_IS_VER1(dsaf_dev->dsaf_ver))
--			reg_val_2  = 0x1041041 << port_rst_off;
--		else
--			reg_val_2  = 0x2082082 << port_rst_off;
-+		reg_val_2 = AE_IS_VER1(dsaf_dev->dsaf_ver) ?
-+				0x1041041 : 0x2082082;
-+		reg_val_2 <<= port_rst_off;
- 
- 		if (!dereset) {
- 			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_GE_RESET_REQ1_REG,
-@@ -272,12 +271,11 @@ static void hns_dsaf_ge_srst_by_port(struct dsaf_device *dsaf_dev, u32 port,
- 				       reg_val_1);
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index d5297ec..d7e1f8c 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -762,13 +762,13 @@ static int hns_nic_rx_poll_one(struct hns_nic_ring_data *ring_data,
+ 	recv_pkts = 0, recv_bds = 0, clean_count = 0;
+ recv:
+ 	while (recv_pkts < budget && recv_bds < num) {
+-		/* reuse or realloc buffers*/
++		/* reuse or realloc buffers */
+ 		if (clean_count >= RCB_NOF_ALLOC_RX_BUFF_ONCE) {
+ 			hns_nic_alloc_rx_buffers(ring_data, clean_count);
+ 			clean_count = 0;
  		}
- 	} else {
--		reg_val_1 = 0x15540 << dsaf_dev->reset_offset;
-+		reg_val_1 = 0x15540;
-+		reg_val_2 = AE_IS_VER1(dsaf_dev->dsaf_ver) ? 0x100 : 0x40;
  
--		if (AE_IS_VER1(dsaf_dev->dsaf_ver))
--			reg_val_2 = 0x100 << dsaf_dev->reset_offset;
--		else
--			reg_val_2 = 0x40 << dsaf_dev->reset_offset;
-+		reg_val_1 <<= dsaf_dev->reset_offset;
-+		reg_val_2 <<= dsaf_dev->reset_offset;
- 
- 		if (!dereset) {
- 			dsaf_write_sub(dsaf_dev, DSAF_SUB_SC_GE_RESET_REQ1_REG,
+-		/* poll one pkt*/
++		/* poll one pkt */
+ 		err = hns_nic_poll_rx_skb(ring_data, &skb, &bnum);
+ 		if (unlikely(!skb)) /* this fault cannot be repaired */
+ 			goto out;
 -- 
 1.9.1
