@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 17/19] rxrpc: Prune the contents of the
- rxrpc_conn_proto struct
-Date: Thu, 30 Jun 2016 15:12:44 +0100
-Message-ID: <146729596430.26306.8396808153971578445.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 18/19] rxrpc: Move data_ready peer lookup into
+ rxrpc_find_connection()
+Date: Thu, 30 Jun 2016 15:12:51 +0100
+Message-ID: <146729597140.26306.10071829222462684822.stgit@warthog.procyon.org.uk>
 References: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,133 +15,235 @@ In-Reply-To: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Prune the contents of the rxrpc_conn_proto struct.  Most of the fields aren't
-used anymore.
+Move the peer lookup done in input.c by data_ready into
+rxrpc_find_connection().
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h  |   20 +++++++-------------
- net/rxrpc/call_object.c  |    2 +-
- net/rxrpc/conn_client.c  |   11 -----------
- net/rxrpc/conn_service.c |    2 --
- net/rxrpc/proc.c         |    6 ++++--
- 5 files changed, 12 insertions(+), 29 deletions(-)
+ net/rxrpc/ar-internal.h |    3 --
+ net/rxrpc/conn_object.c |   73 ++++++++++++++++++++++++++++++++++++-----------
+ net/rxrpc/input.c       |   30 ++-----------------
+ net/rxrpc/utils.c       |   27 -----------------
+ 4 files changed, 59 insertions(+), 74 deletions(-)
 
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 71618e983b4a..db866552877e 100644
+index db866552877e..f7f85151b399 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -229,18 +229,12 @@ struct rxrpc_peer {
-  * Keys for matching a connection.
+@@ -566,7 +566,6 @@ void rxrpc_extract_conn_params(struct rxrpc_conn_proto *,
+ 			       struct rxrpc_local *, struct sk_buff *);
+ struct rxrpc_connection *rxrpc_alloc_connection(gfp_t);
+ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_local *,
+-					       struct rxrpc_peer *,
+ 					       struct sk_buff *);
+ void __rxrpc_disconnect_call(struct rxrpc_call *);
+ void rxrpc_disconnect_call(struct rxrpc_call *);
+@@ -770,8 +769,6 @@ static inline void rxrpc_sysctl_exit(void) {}
+ /*
+  * utils.c
   */
- struct rxrpc_conn_proto {
--	unsigned long		hash_key;
--	struct rxrpc_local	*local;		/* Representation of local endpoint */
--	u32			epoch;		/* epoch of this connection */
--	u32			cid;		/* connection ID */
--	u8			in_clientflag;	/* RXRPC_CLIENT_INITIATED if we are server */
--	u8			addr_size;	/* Size of the address */
--	sa_family_t		family;		/* Transport protocol */
--	__be16			port;		/* Peer UDP/UDP6 port */
--	union {					/* Peer address */
--		struct in_addr	ipv4_addr;
--		struct in6_addr	ipv6_addr;
--		u32		raw_addr[0];
-+	union {
-+		struct {
-+			u32	epoch;		/* epoch of this connection */
-+			u32	cid;		/* connection ID */
-+		};
-+		u64		index_key;
- 	};
- };
+-void rxrpc_get_addr_from_skb(struct rxrpc_local *, const struct sk_buff *,
+-			     struct sockaddr_rxrpc *);
+ int rxrpc_extract_addr_from_skb(struct sockaddr_rxrpc *, struct sk_buff *);
  
-@@ -586,7 +580,7 @@ static inline bool rxrpc_conn_is_client(const struct rxrpc_connection *conn)
- 
- static inline bool rxrpc_conn_is_service(const struct rxrpc_connection *conn)
+ /*
+diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
+index 83cd3548ec10..ff19ee123a9b 100644
+--- a/net/rxrpc/conn_object.c
++++ b/net/rxrpc/conn_object.c
+@@ -70,52 +70,91 @@ struct rxrpc_connection *rxrpc_alloc_connection(gfp_t gfp)
+  * packet
+  */
+ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_local *local,
+-					       struct rxrpc_peer *peer,
+ 					       struct sk_buff *skb)
  {
--	return conn->proto.in_clientflag;
-+	return !rxrpc_conn_is_client(conn);
+ 	struct rxrpc_connection *conn;
++	struct rxrpc_conn_proto k;
+ 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
++	struct sockaddr_rxrpc srx;
++	struct rxrpc_peer *peer;
+ 	struct rb_node *p;
+-	u32 epoch, cid;
+ 
+ 	_enter(",{%x,%x}", sp->hdr.cid, sp->hdr.flags);
+ 
+-	read_lock_bh(&peer->conn_lock);
++	if (rxrpc_extract_addr_from_skb(&srx, skb) < 0)
++		goto not_found;
+ 
+-	cid	= sp->hdr.cid & RXRPC_CIDMASK;
+-	epoch	= sp->hdr.epoch;
++	/* We may have to handle mixing IPv4 and IPv6 */
++	if (srx.transport.family != local->srx.transport.family) {
++		pr_warn_ratelimited("AF_RXRPC: Protocol mismatch %u not %u\n",
++				    srx.transport.family,
++				    local->srx.transport.family);
++		goto not_found;
++	}
++
++	k.epoch	= sp->hdr.epoch;
++	k.cid	= sp->hdr.cid & RXRPC_CIDMASK;
+ 
+ 	if (sp->hdr.flags & RXRPC_CLIENT_INITIATED) {
++		/* We need to look up service connections by the full protocol
++		 * parameter set.  We look up the peer first as an intermediate
++		 * step and then the connection from the peer's tree.
++		 */
++		peer = rxrpc_lookup_peer_rcu(local, &srx);
++		if (!peer)
++			goto not_found;
++
++		read_lock_bh(&peer->conn_lock);
++
+ 		p = peer->service_conns.rb_node;
+ 		while (p) {
+ 			conn = rb_entry(p, struct rxrpc_connection, service_node);
+ 
+ 			_debug("maybe %x", conn->proto.cid);
+ 
+-			if (epoch < conn->proto.epoch)
++			if (k.epoch < conn->proto.epoch)
+ 				p = p->rb_left;
+-			else if (epoch > conn->proto.epoch)
++			else if (k.epoch > conn->proto.epoch)
+ 				p = p->rb_right;
+-			else if (cid < conn->proto.cid)
++			else if (k.cid < conn->proto.cid)
+ 				p = p->rb_left;
+-			else if (cid > conn->proto.cid)
++			else if (k.cid > conn->proto.cid)
+ 				p = p->rb_right;
+ 			else
+-				goto found;
++				goto found_service_conn;
+ 		}
++		read_unlock_bh(&peer->conn_lock);
+ 	} else {
+-		conn = idr_find(&rxrpc_client_conn_ids, cid >> RXRPC_CIDSHIFT);
+-		if (conn &&
+-		    conn->proto.epoch == epoch &&
+-		    conn->params.peer == peer)
+-			goto found;
++		conn = idr_find(&rxrpc_client_conn_ids,
++				k.cid >> RXRPC_CIDSHIFT);
++		if (!conn ||
++		    conn->proto.epoch != k.epoch ||
++		    conn->params.local != local)
++			goto not_found;
++
++		peer = conn->params.peer;
++		switch (srx.transport.family) {
++		case AF_INET:
++			if (peer->srx.transport.sin.sin_port !=
++			    srx.transport.sin.sin_port ||
++			    peer->srx.transport.sin.sin_addr.s_addr !=
++			    srx.transport.sin.sin_addr.s_addr)
++				goto not_found;
++			break;
++		default:
++			BUG();
++		}
++
++		conn = rxrpc_get_connection_maybe(conn);
++		_leave(" = %p", conn);
++		return conn;
+ 	}
+ 
+-	read_unlock_bh(&peer->conn_lock);
++not_found:
+ 	_leave(" = NULL");
+ 	return NULL;
+ 
+-found:
++found_service_conn:
+ 	conn = rxrpc_get_connection_maybe(conn);
+ 	read_unlock_bh(&peer->conn_lock);
+ 	_leave(" = %p", conn);
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index 710e55a5f569..51a7611dd2f6 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -626,32 +626,6 @@ int rxrpc_extract_header(struct rxrpc_skb_priv *sp, struct sk_buff *skb)
+ 	return 0;
  }
  
- static inline void rxrpc_get_connection(struct rxrpc_connection *conn)
-diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
-index 118b0c00a7b4..a88a94c16402 100644
---- a/net/rxrpc/call_object.c
-+++ b/net/rxrpc/call_object.c
-@@ -566,7 +566,7 @@ struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *rx,
- 	}
- 	call->epoch = conn->proto.epoch;
- 	call->service_id = conn->params.service_id;
--	call->in_clientflag = conn->proto.in_clientflag;
-+	call->in_clientflag = RXRPC_CLIENT_INITIATED;
- 	/* Add the new call to the hashtable */
- 	rxrpc_call_hash_add(call);
- 
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-index 52809e21f56d..74b97f67acf5 100644
---- a/net/rxrpc/conn_client.c
-+++ b/net/rxrpc/conn_client.c
-@@ -132,22 +132,11 @@ rxrpc_alloc_client_connection(struct rxrpc_conn_parameters *cp, gfp_t gfp)
- 	}
- 
- 	conn->params		= *cp;
--	conn->proto.local	= cp->local;
- 	conn->proto.epoch	= rxrpc_epoch;
- 	conn->proto.cid		= 0;
--	conn->proto.in_clientflag = 0;
--	conn->proto.family	= cp->peer->srx.transport.family;
- 	conn->out_clientflag	= RXRPC_CLIENT_INITIATED;
- 	conn->state		= RXRPC_CONN_CLIENT;
- 
--	switch (conn->proto.family) {
--	case AF_INET:
--		conn->proto.addr_size = sizeof(conn->proto.ipv4_addr);
--		conn->proto.ipv4_addr = cp->peer->srx.transport.sin.sin_addr;
--		conn->proto.port = cp->peer->srx.transport.sin.sin_port;
--		break;
--	}
+-static struct rxrpc_connection *rxrpc_conn_from_local(struct rxrpc_local *local,
+-						      struct sk_buff *skb)
+-{
+-	struct rxrpc_peer *peer;
+-	struct rxrpc_connection *conn;
+-	struct sockaddr_rxrpc srx;
 -
- 	ret = rxrpc_get_client_connection_id(conn, gfp);
- 	if (ret < 0)
- 		goto error_0;
-diff --git a/net/rxrpc/conn_service.c b/net/rxrpc/conn_service.c
-index 4ae9a9e7f31f..ac56ecf1c079 100644
---- a/net/rxrpc/conn_service.c
-+++ b/net/rxrpc/conn_service.c
-@@ -71,10 +71,8 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
- 		return ERR_PTR(-ENOMEM);
- 	}
+-	rxrpc_get_addr_from_skb(local, skb, &srx);
+-	rcu_read_lock();
+-	peer = rxrpc_lookup_peer_rcu(local, &srx);
+-	if (!peer)
+-		goto cant_find_peer;
+-
+-	conn = rxrpc_find_connection(local, peer, skb);
+-	rcu_read_unlock();
+-	if (!conn)
+-		goto cant_find_conn;
+-
+-	return conn;
+-
+-cant_find_peer:
+-	rcu_read_unlock();
+-cant_find_conn:
+-	return NULL;
+-}
+-
+ /*
+  * handle data received on the local endpoint
+  * - may be called in interrupt context
+@@ -731,7 +705,9 @@ void rxrpc_data_ready(struct sock *sk)
+ 		 * old-fashioned way doesn't really hurt */
+ 		struct rxrpc_connection *conn;
  
--	candidate->proto.local		= local;
- 	candidate->proto.epoch		= sp->hdr.epoch;
- 	candidate->proto.cid		= sp->hdr.cid & RXRPC_CIDMASK;
--	candidate->proto.in_clientflag	= RXRPC_CLIENT_INITIATED;
- 	candidate->params.local		= local;
- 	candidate->params.peer		= peer;
- 	candidate->params.service_id	= sp->hdr.serviceId;
-diff --git a/net/rxrpc/proc.c b/net/rxrpc/proc.c
-index ed5a94d8be7b..f8a3d0f285e5 100644
---- a/net/rxrpc/proc.c
-+++ b/net/rxrpc/proc.c
-@@ -67,7 +67,8 @@ static int rxrpc_call_seq_show(struct seq_file *seq, void *v)
- 	conn = call->conn;
- 	if (conn)
- 		sprintf(rbuff, "%pI4:%u",
--			&conn->proto.ipv4_addr, ntohs(conn->proto.port));
-+			&conn->params.peer->srx.transport.sin.sin_addr,
-+			ntohs(conn->params.peer->srx.transport.sin.sin_port));
- 	else
- 		strcpy(rbuff, "no_connection");
+-		conn = rxrpc_conn_from_local(local, skb);
++		rcu_read_lock();
++		conn = rxrpc_find_connection(local, skb);
++		rcu_read_unlock();
+ 		if (!conn)
+ 			goto cant_route_call;
  
-@@ -149,7 +150,8 @@ static int rxrpc_connection_seq_show(struct seq_file *seq, void *v)
- 		ntohs(conn->params.local->srx.transport.sin.sin_port));
+diff --git a/net/rxrpc/utils.c b/net/rxrpc/utils.c
+index d3db02ecc37f..b88914d53ca5 100644
+--- a/net/rxrpc/utils.c
++++ b/net/rxrpc/utils.c
+@@ -15,33 +15,6 @@
+ #include "ar-internal.h"
  
- 	sprintf(rbuff, "%pI4:%u",
--		&conn->proto.ipv4_addr, ntohs(conn->proto.port));
-+		&conn->params.peer->srx.transport.sin.sin_addr,
-+		ntohs(conn->params.peer->srx.transport.sin.sin_port));
- 
- 	seq_printf(seq,
- 		   "UDP   %-22.22s %-22.22s %4x %08x %s %3u"
+ /*
+- * Set up an RxRPC address from a socket buffer.
+- */
+-void rxrpc_get_addr_from_skb(struct rxrpc_local *local,
+-			     const struct sk_buff *skb,
+-			     struct sockaddr_rxrpc *srx)
+-{
+-	memset(srx, 0, sizeof(*srx));
+-	srx->transport_type = local->srx.transport_type;
+-	srx->transport.family = local->srx.transport.family;
+-
+-	/* Can we see an ipv4 UDP packet on an ipv6 UDP socket?  and vice
+-	 * versa?
+-	 */
+-	switch (srx->transport.family) {
+-	case AF_INET:
+-		srx->transport.sin.sin_port = udp_hdr(skb)->source;
+-		srx->transport_len = sizeof(struct sockaddr_in);
+-		memcpy(&srx->transport.sin.sin_addr, &ip_hdr(skb)->saddr,
+-		       sizeof(struct in_addr));
+-		break;
+-
+-	default:
+-		BUG();
+-	}
+-}
+-
+-/*
+  * Fill out a peer address from a socket buffer containing a packet.
+  */
+ int rxrpc_extract_addr_from_skb(struct sockaddr_rxrpc *srx, struct sk_buff *skb)
