@@ -1,38 +1,33 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH V2 net-next] tcp: increase size at which
- tcp_bound_to_half_wnd bounds to > TCP_MSS_DEFAULT
-Date: Thu, 30 Jun 2016 08:19:16 -0400 (EDT)
-Message-ID: <20160630.081916.1225181723655280381.davem@davemloft.net>
-References: <CS1PR84MB0295BC70B8ACF200C11B5E25FD220@CS1PR84MB0295.NAMPRD84.PROD.OUTLOOK.COM>
+Subject: Re: [PATCH net-next] cxgb4: Introduce API for sending work
+ requests on ctrl queue via copy
+Date: Thu, 30 Jun 2016 08:22:04 -0400 (EDT)
+Message-ID: <20160630.082204.1957002173817318052.davem@davemloft.net>
+References: <1467171079-27193-1-git-send-email-hariprasad@chelsio.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, eric.dumazet@gmail.com
-To: shane.seymour@hpe.com
+Cc: netdev@vger.kernel.org, nirranjan@chelsio.com
+To: hariprasad@chelsio.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55284 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:55318 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751986AbcF3MTm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 08:19:42 -0400
-In-Reply-To: <CS1PR84MB0295BC70B8ACF200C11B5E25FD220@CS1PR84MB0295.NAMPRD84.PROD.OUTLOOK.COM>
+	with ESMTP id S1751845AbcF3MWe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 08:22:34 -0400
+In-Reply-To: <1467171079-27193-1-git-send-email-hariprasad@chelsio.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: "Seymour, Shane M" <shane.seymour@hpe.com>
-Date: Tue, 28 Jun 2016 23:06:48 +0000
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Date: Wed, 29 Jun 2016 09:01:19 +0530
 
-> In previous commit 01f83d69844d307be2aa6fea88b0e8fe5cbdb2f4
-> the following comments were added:
+> If the ctrl queue is full, just follows current path by allocating an
+> skb. If that fails then caller will just have to handle that case as
+> before.
 > 
-> "When peer uses tiny windows, there is no use in packetizing to sub-MSS
-> pieces for the sake of SWS or making sure there are enough packets in
-> the pipe for fast recovery."
-> 
-> The test should be > TCP_MSS_DEFAULT not >= 512. This allows low end
-> devices that send an MSS of 536 (TCP_MSS_DEFAULT) to see better network
-> performance by sending it 536 bytes of data at a time instead of bounding
-> to half window size (268). Other network stacks work this way, e.g. HP-UX.
-> 
-> Signed-off-by: Shane Seymour <shane.seymour@hpe.com>
+> Signed-off-by: Hariprasad Shenai <hariprasad@chelsio.com>
 
-Applied.
+I only want to see new interfaces added alongside the actual users
+of these interfaces.
+
+Otherwise I'm not applying the change.
