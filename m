@@ -1,160 +1,41 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 07/13] net/mlx5e: Timeout if SQ doesn't flush during close
-Date: Thu, 30 Jun 2016 17:34:44 +0300
-Message-ID: <1467297290-11443-8-git-send-email-saeedm@mellanox.com>
-References: <1467297290-11443-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Daniel Jurgens <danielj@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH] ip-address: constify match_link_kind arg
+Date: Thu, 30 Jun 2016 16:47:02 +0200
+Message-ID: <1467298022-7627-1-git-send-email-phil@nwl.cc>
+References: <20160629171141.62b44c1f@xeon-e3>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:37694 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751845AbcF3OhW (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jun 2016 10:37:22 -0400
-In-Reply-To: <1467297290-11443-1-git-send-email-saeedm@mellanox.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:55779 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932094AbcF3OrQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jun 2016 10:47:16 -0400
+In-Reply-To: <20160629171141.62b44c1f@xeon-e3>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Jurgens <danielj@mellanox.com>
+Since the function won't ever change the data 'kind' is pointing at, it
+can sanely be made const.
 
-Avoid an infinite loop by timing out waiting for the SQ to flush. Also
-clean up the TX descriptors if that happens.
-
-Fixes: f62b8bb8f2d3 ('net/mlx5: Extend mlx5_core to support ConnectX-4 Ethernet functionality')
-Signed-off-by: Daniel Jurgens <danielj@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Fixes: e0513807f6dbb ("ip-address: Support filtering by slave type, too")
+Suggested-by: Stephen Hemminger <shemming@brocade.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h      |  2 ++
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 25 +++++++++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c   | 32 +++++++++++++++++++++++
- 3 files changed, 56 insertions(+), 3 deletions(-)
+ ip/ipaddress.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index baa991a..c22d8c8 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -305,6 +305,7 @@ struct mlx5e_sq_dma {
- enum {
- 	MLX5E_SQ_STATE_WAKE_TXQ_ENABLE,
- 	MLX5E_SQ_STATE_BF_ENABLE,
-+	MLX5E_SQ_STATE_TX_TIMEOUT,
- };
- 
- struct mlx5e_ico_wqe_info {
-@@ -589,6 +590,7 @@ void mlx5e_cq_error_event(struct mlx5_core_cq *mcq, enum mlx5_event event);
- int mlx5e_napi_poll(struct napi_struct *napi, int budget);
- bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget);
- int mlx5e_poll_rx_cq(struct mlx5e_cq *cq, int budget);
-+void mlx5e_free_tx_descs(struct mlx5e_sq *sq);
- 
- void mlx5e_handle_rx_cqe(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe);
- void mlx5e_handle_rx_cqe_mpwrq(struct mlx5e_rq *rq, struct mlx5_cqe64 *cqe);
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index cb6defd..b94c84b 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -39,6 +39,13 @@
- #include "eswitch.h"
- #include "vxlan.h"
- 
-+enum {
-+	MLX5_EN_QP_FLUSH_TIMEOUT_MS	= 5000,
-+	MLX5_EN_QP_FLUSH_MSLEEP_QUANT	= 20,
-+	MLX5_EN_QP_FLUSH_MAX_ITER	= MLX5_EN_QP_FLUSH_TIMEOUT_MS /
-+					  MLX5_EN_QP_FLUSH_MSLEEP_QUANT,
-+};
-+
- struct mlx5e_rq_param {
- 	u32                        rqc[MLX5_ST_SZ_DW(rqc)];
- 	struct mlx5_wq_param       wq;
-@@ -782,6 +789,9 @@ static inline void netif_tx_disable_queue(struct netdev_queue *txq)
- 
- static void mlx5e_close_sq(struct mlx5e_sq *sq)
- {
-+	int tout = 0;
-+	int err;
-+
- 	if (sq->txq) {
- 		clear_bit(MLX5E_SQ_STATE_WAKE_TXQ_ENABLE, &sq->state);
- 		/* prevent netif_tx_wake_queue */
-@@ -792,15 +802,24 @@ static void mlx5e_close_sq(struct mlx5e_sq *sq)
- 		if (mlx5e_sq_has_room_for(sq, 1))
- 			mlx5e_send_nop(sq, true);
- 
--		mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY, MLX5_SQC_STATE_ERR);
-+		err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY,
-+				      MLX5_SQC_STATE_ERR);
-+		if (err)
-+			set_bit(MLX5E_SQ_STATE_TX_TIMEOUT, &sq->state);
- 	}
- 
--	while (sq->cc != sq->pc) /* wait till sq is empty */
--		msleep(20);
-+	/* wait till sq is empty, unless a TX timeout occurred on this SQ */
-+	while (sq->cc != sq->pc &&
-+	       !test_bit(MLX5E_SQ_STATE_TX_TIMEOUT, &sq->state)) {
-+		msleep(MLX5_EN_QP_FLUSH_MSLEEP_QUANT);
-+		if (tout++ > MLX5_EN_QP_FLUSH_MAX_ITER)
-+			set_bit(MLX5E_SQ_STATE_TX_TIMEOUT, &sq->state);
-+	}
- 
- 	/* avoid destroying sq before mlx5e_poll_tx_cq() is done with it */
- 	napi_synchronize(&sq->channel->napi);
- 
-+	mlx5e_free_tx_descs(sq);
- 	mlx5e_disable_sq(sq);
- 	mlx5e_destroy_sq(sq);
- }
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-index 5a750b9cd..65e3bce 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tx.c
-@@ -341,6 +341,35 @@ netdev_tx_t mlx5e_xmit(struct sk_buff *skb, struct net_device *dev)
- 	return mlx5e_sq_xmit(sq, skb);
+diff --git a/ip/ipaddress.c b/ip/ipaddress.c
+index d4d649505e15a..02bc9029d6b20 100644
+--- a/ip/ipaddress.c
++++ b/ip/ipaddress.c
+@@ -220,7 +220,7 @@ static char *parse_link_kind(struct rtattr *tb, bool slave)
+ 	return "";
  }
  
-+void mlx5e_free_tx_descs(struct mlx5e_sq *sq)
-+{
-+	struct mlx5e_tx_wqe_info *wi;
-+	struct sk_buff *skb;
-+	u16 ci;
-+	int i;
-+
-+	while (sq->cc != sq->pc) {
-+		ci = sq->cc & sq->wq.sz_m1;
-+		skb = sq->skb[ci];
-+		wi = &sq->wqe_info[ci];
-+
-+		if (!skb) { /* nop */
-+			sq->cc++;
-+			continue;
-+		}
-+
-+		for (i = 0; i < wi->num_dma; i++) {
-+			struct mlx5e_sq_dma *dma =
-+				mlx5e_dma_get(sq, sq->dma_fifo_cc++);
-+
-+			mlx5e_tx_dma_unmap(sq->pdev, dma);
-+		}
-+
-+		dev_kfree_skb_any(skb);
-+		sq->cc += wi->num_wqebbs;
-+	}
-+}
-+
- bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget)
+-static int match_link_kind(struct rtattr **tb, char *kind, bool slave)
++static int match_link_kind(struct rtattr **tb, const char *kind, bool slave)
  {
- 	struct mlx5e_sq *sq;
-@@ -352,6 +381,9 @@ bool mlx5e_poll_tx_cq(struct mlx5e_cq *cq, int napi_budget)
- 
- 	sq = container_of(cq, struct mlx5e_sq, cq);
- 
-+	if (unlikely(test_bit(MLX5E_SQ_STATE_TX_TIMEOUT, &sq->state)))
-+		return false;
-+
- 	npkts = 0;
- 	nbytes = 0;
- 
+ 	if (!tb[IFLA_LINKINFO])
+ 		return -1;
 -- 
-2.8.0
+2.8.2
