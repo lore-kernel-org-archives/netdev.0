@@ -1,754 +1,402 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: Re: [RFC 5/7] net: ethernet: bgmac: Add platform device support
-Date: Thu, 30 Jun 2016 17:55:16 -0400
-Message-ID: <CAC3K-4ozVyAi43Jc=8cr+Yh6Mg2NG4BPa_WfBZ38MF=i8KvSxw@mail.gmail.com>
-References: <1467142484-11161-1-git-send-email-jon.mason@broadcom.com>
- <1467142484-11161-6-git-send-email-jon.mason@broadcom.com> <65b8801d-b066-0179-273c-647c51a5ec8f@broadcom.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: It's back! (Re: [REGRESSION] NFS is creating a hidden port
+ (left over from xs_bind() ))
+Date: Thu, 30 Jun 2016 17:56:18 -0400
+Message-ID: <20160630175618.51a725ee@gandalf.local.home>
+References: <20160630085950.61e5c7e0@gandalf.local.home>
+	<C44AFFBB-EF40-4B22-8B45-7817EB7276E3@primarydata.com>
+	<20160630112341.5ab5a821@gandalf.local.home>
+	<72EF2259-3A78-4FE3-8E0E-B3090FDFF14F@primarydata.com>
+	<20160630160726.304a3d14@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ray Jui <ray.jui@broadcom.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Layton <jlayton@poochiereds.net>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Schumaker Anna <anna.schumaker@netapp.com>,
+	"Linux NFS Mailing List" <linux-nfs@vger.kernel.org>,
+	"Linux Network Devel Mailing List" <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	"Andrew Morton" <akpm@linux-foundation.org>,
+	Fields Bruce <bfields@fieldses.org>
+To: Trond Myklebust <trondmy@primarydata.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f172.google.com ([209.85.223.172]:33598 "EHLO
-	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752041AbcF3V4q convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 17:56:46 -0400
-Received: by mail-io0-f172.google.com with SMTP id t74so84863973ioi.0
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 14:55:17 -0700 (PDT)
-In-Reply-To: <65b8801d-b066-0179-273c-647c51a5ec8f@broadcom.com>
+Received: from smtprelay0217.hostedemail.com ([216.40.44.217]:37323 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752092AbcF3V7e (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 17:59:34 -0400
+In-Reply-To: <20160630160726.304a3d14@gandalf.local.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 30, 2016 at 1:58 PM, Ray Jui <ray.jui@broadcom.com> wrote:
-> Hi Jon,
->
->
-> On 6/28/2016 12:34 PM, Jon Mason wrote:
->>
->> The bcma portion of the driver has been split off into a bcma specif=
-ic
->> driver.  This has been mirrored for the platform driver.  The last
->> references to the bcma core struct have been changed into a generic
->> function call.  These function calls are wrappers to either the orig=
-inal
->> bcma code or new platform functions that access the same areas via M=
-MIO.
->> This necessitated adding function pointers for both platform and bcm=
-a to
->> hide which backend is being used from the generic bgmac code.
->>
->> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
->> ---
->>  drivers/net/ethernet/broadcom/Kconfig          |  23 +-
->>  drivers/net/ethernet/broadcom/Makefile         |   4 +-
->>  drivers/net/ethernet/broadcom/bgmac-bcma.c     | 315
->> ++++++++++++++++++++++++
->>  drivers/net/ethernet/broadcom/bgmac-platform.c | 208 ++++++++++++++=
-++
->>  drivers/net/ethernet/broadcom/bgmac.c          | 327
->> ++++---------------------
->>  drivers/net/ethernet/broadcom/bgmac.h          |  73 +++++-
->>  6 files changed, 666 insertions(+), 284 deletions(-)
->>  create mode 100644 drivers/net/ethernet/broadcom/bgmac-bcma.c
->>  create mode 100644 drivers/net/ethernet/broadcom/bgmac-platform.c
->>
->> diff --git a/drivers/net/ethernet/broadcom/Kconfig
->> b/drivers/net/ethernet/broadcom/Kconfig
->> index d74a92e..bd8c80c 100644
->> --- a/drivers/net/ethernet/broadcom/Kconfig
->> +++ b/drivers/net/ethernet/broadcom/Kconfig
->> @@ -140,10 +140,18 @@ config BNX2X_SRIOV
->>           allows for virtual function acceleration in virtual
->> environments.
->>
->>  config BGMAC
->> -       tristate "BCMA bus GBit core support"
->> +       tristate
->> +       help
->> +         This enables the integrated ethernet controller support fo=
-r many
->> +         Broadcom (mostly iProc) SoCs. An appropriate bus interface
->> driver
->> +         needs to be enabled to select this.
->> +
->> +config BGMAC_BCMA
->> +       tristate "Broadcom iProc GBit BCMA support"
->>         depends on BCMA && BCMA_HOST_SOC
->>         depends on HAS_DMA
->>         depends on BCM47XX || ARCH_BCM_5301X || COMPILE_TEST
->> +       select BGMAC
->>         select PHYLIB
->>         select FIXED_PHY
->>         ---help---
->> @@ -152,6 +160,19 @@ config BGMAC
->>           In case of using this driver on BCM4706 it's also requires=
- to
->> enable
->>           BCMA_DRIVER_GMAC_CMN to make it work.
->>
->> +config BGMAC_PLATFORM
->> +       tristate "Broadcom iProc GBit platform support"
->> +       depends on HAS_DMA
->> +       depends on ARCH_BCM_IPROC || COMPILE_TEST
->> +       depends on OF
->> +       select BGMAC
->> +       select PHYLIB
->> +       select FIXED_PHY
->> +       default ARCH_BCM_IPROC
->> +       ---help---
->> +         Say Y here if you want to use the Broadcom iProc Gigabit
->> Ethernet
->> +         controller through the generic platform interface
->> +
->>  config SYSTEMPORT
->>         tristate "Broadcom SYSTEMPORT internal MAC support"
->>         depends on OF
->> diff --git a/drivers/net/ethernet/broadcom/Makefile
->> b/drivers/net/ethernet/broadcom/Makefile
->> index f559794..79f2372 100644
->> --- a/drivers/net/ethernet/broadcom/Makefile
->> +++ b/drivers/net/ethernet/broadcom/Makefile
->> @@ -10,6 +10,8 @@ obj-$(CONFIG_CNIC) +=3D cnic.o
->>  obj-$(CONFIG_BNX2X) +=3D bnx2x/
->>  obj-$(CONFIG_SB1250_MAC) +=3D sb1250-mac.o
->>  obj-$(CONFIG_TIGON3) +=3D tg3.o
->> -obj-$(CONFIG_BGMAC) +=3D bgmac.o bgmac-bcma-mdio.o
->> +obj-$(CONFIG_BGMAC) +=3D bgmac.o
->> +obj-$(CONFIG_BGMAC_BCMA) +=3D bgmac-bcma.o bgmac-bcma-mdio.o
->> +obj-$(CONFIG_BGMAC_PLATFORM) +=3D bgmac-platform.o
->>  obj-$(CONFIG_SYSTEMPORT) +=3D bcmsysport.o
->>  obj-$(CONFIG_BNXT) +=3D bnxt/
->> diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma.c
->> b/drivers/net/ethernet/broadcom/bgmac-bcma.c
->> new file mode 100644
->> index 0000000..9a9745c4
->> --- /dev/null
->> +++ b/drivers/net/ethernet/broadcom/bgmac-bcma.c
->> @@ -0,0 +1,315 @@
->> +/*
->> + * Driver for (BCM4706)? GBit MAC core on BCMA bus.
->> + *
->> + * Copyright (C) 2012 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
->> + *
->> + * Licensed under the GNU/GPL. See COPYING for details.
->> + */
->> +
->> +#define pr_fmt(fmt)            KBUILD_MODNAME ": " fmt
->> +
->> +#include <linux/bcma/bcma.h>
->> +#include <linux/brcmphy.h>
->> +#include <linux/etherdevice.h>
->> +#include "bgmac.h"
->> +
->> +static inline bool bgmac_is_bcm4707_family(struct bcma_device *core=
-)
->> +{
->> +       switch (core->bus->chipinfo.id) {
->> +       case BCMA_CHIP_ID_BCM4707:
->> +       case BCMA_CHIP_ID_BCM47094:
->> +       case BCMA_CHIP_ID_BCM53018:
->> +               return true;
->> +       default:
->> +               return false;
->> +       }
->> +}
->> +
->> +/**************************************************
->> + * BCMA bus ops
->> + **************************************************/
->> +
->> +static u32 bcma_bgmac_read(struct bgmac *bgmac, u16 offset)
->> +{
->> +       return bcma_read32(bgmac->bcma.core, offset);
->> +}
->> +
->> +static void bcma_bgmac_write(struct bgmac *bgmac, u16 offset, u32 v=
-alue)
->> +{
->> +       bcma_write32(bgmac->bcma.core, offset, value);
->> +}
->> +
->> +static u32 bcma_bgmac_idm_read(struct bgmac *bgmac, u16 offset)
->> +{
->> +       return bcma_aread32(bgmac->bcma.core, offset);
->> +}
->> +
->> +static void bcma_bgmac_idm_write(struct bgmac *bgmac, u16 offset, u=
-32
->> value)
->> +{
->> +       return bcma_awrite32(bgmac->bcma.core, offset, value);
->> +}
->> +
->> +static bool bcma_bgmac_clk_enabled(struct bgmac *bgmac)
->> +{
->> +       return bcma_core_is_enabled(bgmac->bcma.core);
->> +}
->> +
->> +static void bcma_bgmac_clk_enable(struct bgmac *bgmac, u32 flags)
->> +{
->> +       bcma_core_enable(bgmac->bcma.core, flags);
->> +}
->> +
->> +static void bcma_bgmac_cco_ctl_maskset(struct bgmac *bgmac, u32 off=
-set,
->> +                                      u32 mask, u32 set)
->> +{
->> +       struct bcma_drv_cc *cc =3D &bgmac->bcma.core->bus->drv_cc;
->> +
->> +       bcma_chipco_chipctl_maskset(cc, offset, mask, set);
->> +}
->> +
->> +static u32 bcma_bgmac_get_bus_clock(struct bgmac *bgmac)
->> +{
->> +       struct bcma_drv_cc *cc =3D &bgmac->bcma.core->bus->drv_cc;
->> +
->> +       return bcma_pmu_get_bus_clock(cc);
->> +}
->> +
->> +static void bcma_bgmac_cmn_maskset32(struct bgmac *bgmac, u16 offse=
-t, u32
->> mask,
->> +                                    u32 set)
->> +{
->> +       bcma_maskset32(bgmac->bcma.cmn, offset, mask, set);
->> +}
->> +
->> +static const struct bcma_device_id bgmac_bcma_tbl[] =3D {
->> +       BCMA_CORE(BCMA_MANUF_BCM, BCMA_CORE_4706_MAC_GBIT,
->> +                 BCMA_ANY_REV, BCMA_ANY_CLASS),
->> +       BCMA_CORE(BCMA_MANUF_BCM, BCMA_CORE_MAC_GBIT, BCMA_ANY_REV,
->> +                 BCMA_ANY_CLASS),
->> +       {},
->> +};
->> +MODULE_DEVICE_TABLE(bcma, bgmac_bcma_tbl);
->> +
->> +/* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipattach */
->> +static int bgmac_probe(struct bcma_device *core)
->> +{
->> +       struct ssb_sprom *sprom =3D &core->bus->sprom;
->> +       struct mii_bus *mii_bus;
->> +       struct bgmac *bgmac;
->> +       u8 *mac;
->> +       int err;
->> +
->> +       bgmac =3D kzalloc(sizeof(*bgmac), GFP_KERNEL);
->> +       if (!bgmac)
->> +               return -ENOMEM;
->> +
->> +       bgmac->bcma.core =3D core;
->> +       bgmac->dev =3D &core->dev;
->> +       bgmac->dma_dev =3D core->dma_dev;
->> +       bgmac->irq =3D core->irq;
->> +
->> +       bcma_set_drvdata(core, bgmac);
->> +
->> +       switch (core->core_unit) {
->> +       case 0:
->> +               mac =3D sprom->et0mac;
->> +               break;
->> +       case 1:
->> +               mac =3D sprom->et1mac;
->> +               break;
->> +       case 2:
->> +               mac =3D sprom->et2mac;
->> +               break;
->> +       default:
->> +               dev_err(bgmac->dev, "Unsupported core_unit %d\n",
->> +                       core->core_unit);
->> +               err =3D -ENOTSUPP;
->> +               goto err;
->> +       }
->> +
->> +       ether_addr_copy(bgmac->mac_addr, mac);
->> +
->> +       /* On BCM4706 we need common core to access PHY */
->> +       if (core->id.id =3D=3D BCMA_CORE_4706_MAC_GBIT &&
->> +           !core->bus->drv_gmac_cmn.core) {
->> +               dev_err(bgmac->dev, "GMAC CMN core not found (requir=
-ed for
->> BCM4706)\n");
->> +               err =3D -ENODEV;
->> +               goto err;
->> +       }
->> +       bgmac->bcma.cmn =3D core->bus->drv_gmac_cmn.core;
->> +
->> +       switch (core->core_unit) {
->> +       case 0:
->> +               bgmac->phyaddr =3D sprom->et0phyaddr;
->> +               break;
->> +       case 1:
->> +               bgmac->phyaddr =3D sprom->et1phyaddr;
->> +               break;
->> +       case 2:
->> +               bgmac->phyaddr =3D sprom->et2phyaddr;
->> +               break;
->> +       }
->> +       bgmac->phyaddr &=3D BGMAC_PHY_MASK;
->> +       if (bgmac->phyaddr =3D=3D BGMAC_PHY_MASK) {
->> +               dev_err(bgmac->dev, "No PHY found\n");
->> +               err =3D -ENODEV;
->> +               goto err;
->> +       }
->> +       dev_info(bgmac->dev, "Found PHY addr: %d%s\n", bgmac->phyadd=
-r,
->> +                bgmac->phyaddr =3D=3D BGMAC_PHY_NOREGS ? " (NOREGS)=
-" : "");
->> +
->> +       if (!bgmac_is_bcm4707_family(core)) {
->> +               mii_bus =3D bcma_mdio_mii_register(core, bgmac->phya=
-ddr);
->> +               if (!IS_ERR(mii_bus)) {
->> +                       err =3D PTR_ERR(mii_bus);
->> +                       goto err;
->> +               }
->> +
->> +               bgmac->mii_bus =3D mii_bus;
->> +       }
->> +
->> +       if (core->bus->hosttype =3D=3D BCMA_HOSTTYPE_PCI) {
->> +               dev_err(bgmac->dev, "PCI setup not implemented\n");
->> +               err =3D -ENOTSUPP;
->> +               goto err1;
->> +       }
->> +
->> +       bgmac->has_robosw =3D !!(core->bus->sprom.boardflags_lo &
->> +                              BGMAC_BFL_ENETROBO);
->> +       if (bgmac->has_robosw)
->> +               dev_warn(bgmac->dev, "Support for Roboswitch not
->> implemented\n");
->> +
->> +       if (core->bus->sprom.boardflags_lo & BGMAC_BFL_ENETADM)
->> +               dev_warn(bgmac->dev, "Support for ADMtek ethernet sw=
-itch
->> not implemented\n");
->> +
->> +       /* Feature Flags */
->> +       switch (core->bus->chipinfo.id) {
->> +       case BCMA_CHIP_ID_BCM5357:
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_SET_RXQ_CLK;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_FLW_CTRL1;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_SW_TYPE_PHY;
->> +               if (core->bus->chipinfo.pkg =3D=3D BCMA_PKG_ID_BCM47=
-186) {
->> +                       bgmac->feature_flags |=3D BGMAC_FEAT_IOST_AT=
-TACHED;
->> +                       bgmac->feature_flags |=3D BGMAC_FEAT_SW_TYPE=
-_RGMII;
->> +               }
->> +               if (core->bus->chipinfo.pkg =3D=3D BCMA_PKG_ID_BCM53=
-58)
->> +                       bgmac->feature_flags |=3D
->> BGMAC_FEAT_SW_TYPE_EPHYRMII;
->> +               break;
->> +       case BCMA_CHIP_ID_BCM53572:
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_SET_RXQ_CLK;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_FLW_CTRL1;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_SW_TYPE_PHY;
->> +               if (core->bus->chipinfo.pkg =3D=3D BCMA_PKG_ID_BCM47=
-188) {
->> +                       bgmac->feature_flags |=3D BGMAC_FEAT_SW_TYPE=
-_RGMII;
->> +                       bgmac->feature_flags |=3D BGMAC_FEAT_IOST_AT=
-TACHED;
->> +               }
->> +               break;
->> +       case BCMA_CHIP_ID_BCM4749:
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_SET_RXQ_CLK;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_FLW_CTRL1;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_SW_TYPE_PHY;
->> +               if (core->bus->chipinfo.pkg =3D=3D 10) {
->> +                       bgmac->feature_flags |=3D BGMAC_FEAT_SW_TYPE=
-_RGMII;
->> +                       bgmac->feature_flags |=3D BGMAC_FEAT_IOST_AT=
-TACHED;
->> +               }
->> +               break;
->> +       case BCMA_CHIP_ID_BCM4716:
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
->> +               /* fallthrough */
->> +       case BCMA_CHIP_ID_BCM47162:
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_FLW_CTRL2;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_SET_RXQ_CLK;
->> +               break;
->> +       /* bcm4707_family */
->> +       case BCMA_CHIP_ID_BCM4707:
->> +       case BCMA_CHIP_ID_BCM47094:
->> +       case BCMA_CHIP_ID_BCM53018:
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_NO_RESET;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_FORCE_SPEED_250=
-0;
->> +               break;
->> +       default:
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_SET_RXQ_CLK;
->> +       }
->> +
->> +       if (!bgmac_is_bcm4707_family(core) && core->id.rev > 2)
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_MISC_PLL_REQ;
->> +
->> +       if (core->id.id =3D=3D BCMA_CORE_4706_MAC_GBIT) {
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_CMN_PHY_CTL;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_NO_CLR_MIB;
->> +       }
->> +
->> +       if (core->id.rev >=3D 4) {
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_CMDCFG_SR_REV4;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_TX_MASK_SETUP;
->> +               bgmac->feature_flags |=3D BGMAC_FEAT_RX_MASK_SETUP;
->> +       }
->> +
->> +       bgmac->read =3D bcma_bgmac_read;
->> +       bgmac->write =3D bcma_bgmac_write;
->> +       bgmac->idm_read =3D bcma_bgmac_idm_read;
->> +       bgmac->idm_write =3D bcma_bgmac_idm_write;
->> +       bgmac->clk_enabled =3D bcma_bgmac_clk_enabled;
->> +       bgmac->clk_enable =3D bcma_bgmac_clk_enable;
->> +       bgmac->cco_ctl_maskset =3D bcma_bgmac_cco_ctl_maskset;
->> +       bgmac->get_bus_clock =3D bcma_bgmac_get_bus_clock;
->> +       bgmac->cmn_maskset32 =3D bcma_bgmac_cmn_maskset32;
->> +
->> +       err =3D bgmac_enet_probe(bgmac);
->> +       if (err)
->> +               goto err1;
->> +
->> +       return 0;
->> +
->> +err1:
->> +       bcma_mdio_mii_unregister(bgmac->mii_bus);
->> +err:
->> +       kfree(bgmac);
->> +       bcma_set_drvdata(core, NULL);
->> +
->> +       return err;
->> +}
->> +
->> +static void bgmac_remove(struct bcma_device *core)
->> +{
->> +       struct bgmac *bgmac =3D bcma_get_drvdata(core);
->> +
->> +       bcma_mdio_mii_unregister(bgmac->mii_bus);
->> +       bgmac_enet_remove(bgmac);
->> +       bcma_set_drvdata(core, NULL);
->> +       kfree(bgmac);
->> +}
->> +
->> +static struct bcma_driver bgmac_bcma_driver =3D {
->> +       .name           =3D KBUILD_MODNAME,
->> +       .id_table       =3D bgmac_bcma_tbl,
->> +       .probe          =3D bgmac_probe,
->> +       .remove         =3D bgmac_remove,
->> +};
->> +
->> +static int __init bgmac_init(void)
->> +{
->> +       int err;
->> +
->> +       err =3D bcma_driver_register(&bgmac_bcma_driver);
->> +       if (err)
->> +               return err;
->> +       pr_info("Broadcom 47xx GBit MAC driver loaded\n");
->> +
->> +       return 0;
->> +}
->> +
->> +static void __exit bgmac_exit(void)
->> +{
->> +       bcma_driver_unregister(&bgmac_bcma_driver);
->> +}
->> +
->> +module_init(bgmac_init)
->> +module_exit(bgmac_exit)
->> +
->> +MODULE_AUTHOR("Rafa=C5=82 Mi=C5=82ecki");
->> +MODULE_LICENSE("GPL");
->> diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c
->> b/drivers/net/ethernet/broadcom/bgmac-platform.c
->> new file mode 100644
->> index 0000000..fac93c0
->> --- /dev/null
->> +++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
->> @@ -0,0 +1,208 @@
->> +/*
->> + * Copyright (C) 2016 Broadcom
->> + *
->> + * This program is free software; you can redistribute it and/or
->> + * modify it under the terms of the GNU General Public License as
->> + * published by the Free Software Foundation version 2.
->> + *
->> + * This program is distributed "as is" WITHOUT ANY WARRANTY of any
->> + * kind, whether express or implied; without even the implied warra=
-nty
->> + * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
->> + * GNU General Public License for more details.
->> + */
->> +
->> +#define pr_fmt(fmt)            KBUILD_MODNAME ": " fmt
->> +
->> +#include <linux/bcma/bcma.h>
->> +#include <linux/etherdevice.h>
->> +#include <linux/of_address.h>
->> +#include <linux/of_net.h>
->> +#include "bgmac.h"
->> +
->> +static u32 platform_bgmac_read(struct bgmac *bgmac, u16 offset)
->> +{
->> +       return readl(bgmac->plat.base + offset);
->> +}
->> +
->> +static void platform_bgmac_write(struct bgmac *bgmac, u16 offset, u=
-32
->> value)
->> +{
->> +       writel(value, bgmac->plat.base + offset);
->> +}
->> +
->> +static u32 platform_bgmac_idm_read(struct bgmac *bgmac, u16 offset)
->> +{
->> +       return readl(bgmac->plat.idm_base + offset);
->> +}
->> +
->> +static void platform_bgmac_idm_write(struct bgmac *bgmac, u16 offse=
-t, u32
->> value)
->> +{
->> +       return writel(value, bgmac->plat.idm_base + offset);
->> +}
->> +
->> +static bool platform_bgmac_clk_enabled(struct bgmac *bgmac)
->> +{
->> +       if ((bgmac_idm_read(bgmac, BCMA_IOCTL) &
->> +            (BCMA_IOCTL_CLK | BCMA_IOCTL_FGC)) !=3D BCMA_IOCTL_CLK)
->> +               return false;
->> +       if (bgmac_idm_read(bgmac, BCMA_RESET_CTL) & BCMA_RESET_CTL_R=
-ESET)
->> +               return false;
->> +       return true;
->> +}
->> +
->> +static void platform_bgmac_clk_enable(struct bgmac *bgmac, u32 flag=
-s)
->> +{
->> +       bgmac_idm_write(bgmac, BCMA_IOCTL,
->> +                       (BCMA_IOCTL_CLK | BCMA_IOCTL_FGC | flags));
->> +       bgmac_idm_read(bgmac, BCMA_IOCTL);
->> +
->> +       bgmac_idm_write(bgmac, BCMA_RESET_CTL, 0);
->> +       bgmac_idm_read(bgmac, BCMA_RESET_CTL);
->> +       udelay(1);
->> +
->> +       bgmac_idm_write(bgmac, BCMA_IOCTL, (BCMA_IOCTL_CLK | flags))=
-;
->> +       bgmac_idm_read(bgmac, BCMA_IOCTL);
->> +       udelay(1);
->> +}
->> +
->> +static void platform_bgmac_cco_ctl_maskset(struct bgmac *bgmac, u32
->> offset,
->> +                                          u32 mask, u32 set)
->> +{
->> +       /* This shouldn't be encountered */
->> +       WARN_ON(1);
->> +}
->> +
->> +static u32 platform_bgmac_get_bus_clock(struct bgmac *bgmac)
->> +{
->> +       /* This shouldn't be encountered */
->> +       WARN_ON(1);
->> +
->> +       return 0;
->> +}
->> +
->> +static void platform_bgmac_cmn_maskset32(struct bgmac *bgmac, u16 o=
-ffset,
->> +                                        u32 mask, u32 set)
->> +{
->> +       /* This shouldn't be encountered */
->> +       WARN_ON(1);
->> +}
->> +
->> +static int bgmac_probe(struct platform_device *pdev)
->> +{
->> +       struct device_node *np =3D pdev->dev.of_node;
->> +       struct bgmac *bgmac;
->> +       struct resource regs;
->> +       const u8 *mac_addr;
->> +       int rc;
->> +
->> +       bgmac =3D kzalloc(sizeof(*bgmac), GFP_KERNEL);
->
->
-> The trend has been using devm_xxx based API to let the devm framework=
- deals
-> with device resource management. This will help to reduce all the cod=
-e that
-> is currently needed to free the resource below and in the remove func=
-tion.
+On Thu, 30 Jun 2016 16:07:26 -0400
+Steven Rostedt <rostedt@goodmis.org> wrote:
 
-Thanks for the review Ray.  This echo's some of Florian's comments to
-use devm_*.  I have some changes queued to do exactly what both of you
-are requesting.  I'll be pushing it shortly as a "PATCH" instead of an
-"RFC".
+> I can reproduce this by having the client unmount and remount the
+> directory.
 
-Thanks,
-Jon
+It gets even more interesting. When I unmount the directory, the hidden
+port does not go away. It is still there. But if I mount it again, it
+goes away (until it times out again).
+
+Even more info:
+
+When I first mount it, it creates 3 sockets, where one immediately is
+closed:
+
+tcp        0      0 192.168.23.9:892        192.168.23.22:44672     TIME_WAIT   -                   
+tcp        0      0 192.168.23.9:2049       192.168.23.22:815       ESTABLISHED -                   
+tcp        0      0 192.168.23.9:754        192.168.23.22:44672     ESTABLISHED -                   
+
+(192.168.23.22 is the machine remotely mounting a directory from the
+server 192.168.23.9)
+
+The trace of port 892 is this:
+
+   kworker/u32:1-13473 [000] ....  4093.915114: xs_setup_tcp: RPC:       set up xprt to 192.168.23.22 (port 44672) via tcp
+   kworker/u32:1-13473 [000] ....  4093.915122: xprt_create_transport: RPC:       created transport ffff8803b1c38000 with 65536 slots
+    kworker/0:1H-129   [000] ....  4093.915152: xprt_alloc_slot: RPC:    47 reserved req ffff88040b27ca00 xid c50ccaff
+    kworker/0:1H-129   [000] ....  4093.915157: xprt_connect: RPC:    47 xprt_connect xprt ffff8803b1c38000 is not connected
+    kworker/0:1H-129   [000] ....  4093.915159: xs_connect: RPC:       xs_connect scheduled xprt ffff8803b1c38000
+    kworker/0:1H-129   [000] ..s.  4093.915170: inet_csk_get_port: snum 892
+    kworker/0:1H-129   [000] ..s.  4093.915177: <stack trace>
+ => sched_clock
+ => inet_addr_type_table
+ => security_capable
+ => inet_bind
+ => xs_bind
+ => release_sock
+ => sock_setsockopt
+ => __sock_create
+ => xs_create_sock.isra.19
+ => xs_tcp_setup_socket
+ => process_one_work
+ => worker_thread
+ => worker_thread
+ => kthread
+ => ret_from_fork
+ => kthread
+    kworker/0:1H-129   [000] ..s.  4093.915178: inet_bind_hash: add 892 ffff8803bb9b5cc0
+    kworker/0:1H-129   [000] ..s.  4093.915184: <stack trace>
+ => inet_csk_get_port
+ => sched_clock
+ => inet_addr_type_table
+ => security_capable
+ => inet_bind
+ => xs_bind
+ => release_sock
+ => sock_setsockopt
+ => __sock_create
+ => xs_create_sock.isra.19
+ => xs_tcp_setup_socket
+ => process_one_work
+ => worker_thread
+ => worker_thread
+ => kthread
+ => ret_from_fork
+ => kthread
+    kworker/0:1H-129   [000] ....  4093.915185: xs_bind: RPC:       xs_bind 4.136.255.255:892: ok (0)
+    kworker/0:1H-129   [000] ....  4093.915186: xs_tcp_setup_socket: RPC:       worker connecting xprt ffff8803b1c38000 via tcp to 192.168.23.22 (port 44672)
+    kworker/0:1H-129   [000] ....  4093.915221: xs_tcp_setup_socket: RPC:       ffff8803b1c38000 connect status 115 connected 0 sock state 2
+          <idle>-0     [003] ..s.  4093.915434: xs_tcp_state_change: RPC:       xs_tcp_state_change client ffff8803b1c38000...
+          <idle>-0     [003] ..s.  4093.915435: xs_tcp_state_change: RPC:       state 1 conn 0 dead 0 zapped 1 sk_shutdown 0
+    kworker/3:1H-145   [003] ....  4093.915558: xprt_connect_status: RPC:    47 xprt_connect_status: retrying
+    kworker/3:1H-145   [003] ....  4093.915560: xprt_prepare_transmit: RPC:    47 xprt_prepare_transmit
+    kworker/3:1H-145   [003] ....  4093.915562: xprt_transmit: RPC:    47 xprt_transmit(72)
+    kworker/3:1H-145   [003] ....  4093.915588: xs_tcp_send_request: RPC:       xs_tcp_send_request(72) = 0
+    kworker/3:1H-145   [003] ....  4093.915589: xprt_transmit: RPC:    47 xmit complete
+          <idle>-0     [003] ..s.  4093.915969: xs_tcp_data_ready: RPC:       xs_tcp_data_ready...
+    kworker/3:1H-145   [003] ....  4093.916081: xs_tcp_data_recv: RPC:       xs_tcp_data_recv started
+    kworker/3:1H-145   [003] ....  4093.916083: xs_tcp_data_recv: RPC:       reading TCP record fragment of length 24
+    kworker/3:1H-145   [003] ....  4093.916084: xs_tcp_data_recv: RPC:       reading XID (4 bytes)
+    kworker/3:1H-145   [003] ....  4093.916085: xs_tcp_data_recv: RPC:       reading request with XID c50ccaff
+    kworker/3:1H-145   [003] ....  4093.916086: xs_tcp_data_recv: RPC:       reading CALL/REPLY flag (4 bytes)
+    kworker/3:1H-145   [003] ....  4093.916087: xs_tcp_data_recv: RPC:       read reply XID c50ccaff
+    kworker/3:1H-145   [003] ..s.  4093.916088: xs_tcp_data_recv: RPC:       XID c50ccaff read 16 bytes
+    kworker/3:1H-145   [003] ..s.  4093.916089: xs_tcp_data_recv: RPC:       xprt = ffff8803b1c38000, tcp_copied = 24, tcp_offset = 24, tcp_reclen = 24
+    kworker/3:1H-145   [003] ..s.  4093.916090: xprt_complete_rqst: RPC:    47 xid c50ccaff complete (24 bytes received)
+    kworker/3:1H-145   [003] ....  4093.916091: xs_tcp_data_recv: RPC:       xs_tcp_data_recv done
+    kworker/3:1H-145   [003] ....  4093.916098: xprt_release: RPC:    47 release request ffff88040b27ca00
+   kworker/u32:1-13473 [002] ....  4093.976056: xprt_destroy: RPC:       destroying transport ffff8803b1c38000
+   kworker/u32:1-13473 [002] ....  4093.976068: xs_destroy: RPC:       xs_destroy xprt ffff8803b1c38000
+   kworker/u32:1-13473 [002] ....  4093.976069: xs_close: RPC:       xs_close xprt ffff8803b1c38000
+   kworker/u32:1-13473 [002] ..s.  4093.976096: xs_tcp_state_change: RPC:       xs_tcp_state_change client ffff8803b1c38000...
+   kworker/u32:1-13473 [002] ..s.  4093.976098: xs_tcp_state_change: RPC:       state 4 conn 1 dead 0 zapped 1 sk_shutdown 3
+   kworker/u32:1-13473 [002] ....  4093.976103: xprt_disconnect_done: RPC:       disconnected transport ffff8803b1c38000
+   kworker/u32:1-13473 [002] ....  4093.976104: xprt_disconnect_done: disconnect transport!
+   kworker/u32:1-13473 [002] ....  4093.976113: <stack trace>
+ => xs_destroy
+ => xprt_switch_free
+ => rpc_free_client
+ => rpc_release_client
+ => rpc_shutdown_client
+ => load_balance
+ => ttwu_do_wakeup
+ => nfsd4_process_cb_update.isra.14
+ => __switch_to
+ => pick_next_task_fair
+ => nfsd4_run_cb_work
+ => process_one_work
+ => worker_thread
+ => worker_thread
+ => kthread
+ => ret_from_fork
+ => kthread
 
 
->> +       if (!bgmac)
->> +               return -ENOMEM;
->> +
->> +       platform_set_drvdata(pdev, bgmac);
->> +
->> +       /* Set the features of the 4707 family */
->> +       bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
->> +       bgmac->feature_flags |=3D BGMAC_FEAT_NO_RESET;
->> +       bgmac->feature_flags |=3D BGMAC_FEAT_FORCE_SPEED_2500;
->> +       bgmac->feature_flags |=3D BGMAC_FEAT_CMDCFG_SR_REV4;
->> +       bgmac->feature_flags |=3D BGMAC_FEAT_TX_MASK_SETUP;
->> +       bgmac->feature_flags |=3D BGMAC_FEAT_RX_MASK_SETUP;
->> +
->> +       bgmac->dev =3D &pdev->dev;
->> +       bgmac->dma_dev =3D &pdev->dev;
->> +
->> +       mac_addr =3D of_get_mac_address(np);
->> +       if (mac_addr)
->> +               ether_addr_copy(bgmac->mac_addr, mac_addr);
->> +       else
->> +               dev_warn(&pdev->dev, "MAC address not present in dev=
-ice
->> tree\n");
->> +
->> +       bgmac->irq =3D platform_get_irq(pdev, 0);
->
->
->> +       if (bgmac->irq < 0) {
->> +               rc =3D bgmac->irq;
->> +               dev_err(&pdev->dev, "Unable to obtain IRQ\n");
->> +               goto err;
->> +       }
->> +
->> +       rc =3D of_address_to_resource(np, 0, &regs);
->> +       if (rc < 0) {
->> +               dev_err(&pdev->dev, "Unable to obtain base resource\=
-n");
->> +               goto err;
->> +       }
->> +
->> +       bgmac->plat.base =3D ioremap(regs.start, resource_size(&regs=
-));
->
->
-> Again, there's devm based API to use, and the resource should be mark=
-ed
-> reserved so no one else can remap it.
->
-> platform_get_resource
-> devm_ioremap_resource
->
->> +       if (!bgmac->plat.base) {
->> +               dev_err(&pdev->dev, "Unable to map base resource\n")=
-;
->> +               rc =3D -ENOMEM;
->> +               goto err;
->> +       }
->> +
->> +       rc =3D of_address_to_resource(np, 1, &regs);
->> +       if (rc < 0) {
->> +               dev_err(&pdev->dev, "Unable to obtain idm resource\n=
-");
->> +               goto err1;
->> +       }
->> +
->> +       bgmac->plat.idm_base =3D ioremap(regs.start, resource_size(&=
-regs));
->> +       if (!bgmac->plat.base) {
->> +               dev_err(&pdev->dev, "Unable to map idm resource\n");
->> +               rc =3D -ENOMEM;
->> +               goto err1;
->> +       }
->
->
-> same here
->
->> +
->> +       bgmac->read =3D platform_bgmac_read;
->> +       bgmac->write =3D platform_bgmac_write;
->> +       bgmac->idm_read =3D platform_bgmac_idm_read;
->> +       bgmac->idm_write =3D platform_bgmac_idm_write;
->> +       bgmac->clk_enabled =3D platform_bgmac_clk_enabled;
->> +       bgmac->clk_enable =3D platform_bgmac_clk_enable;
->> +       bgmac->cco_ctl_maskset =3D platform_bgmac_cco_ctl_maskset;
->> +       bgmac->get_bus_clock =3D platform_bgmac_get_bus_clock;
->> +       bgmac->cmn_maskset32 =3D platform_bgmac_cmn_maskset32;
->> +
->> +       rc =3D bgmac_enet_probe(bgmac);
->> +       if (rc)
->> +               goto err2;
->> +
->> +       return 0;
->> +
->> +err2:
->> +       iounmap(bgmac->plat.idm_base);
->> +err1:
->> +       iounmap(bgmac->plat.base);
->> +err:
->> +       kfree(bgmac);
->
->
-> All of the above error handling code can be gone.
->
->> +
->> +       return rc;
->> +}
->> +
->> +static int bgmac_remove(struct platform_device *pdev)
->> +{
->> +       struct bgmac *bgmac =3D platform_get_drvdata(pdev);
->> +
->> +       bgmac_enet_remove(bgmac);
->> +       iounmap(bgmac->plat.idm_base);
->> +       iounmap(bgmac->plat.base);
->> +       kfree(bgmac);
->
->
-> Here too.
->
->> +
->> +       return 0;
->> +}
->> +
->> +static const struct of_device_id bgmac_of_enet_match[] =3D {
->> +       {.compatible =3D "brcm,bgmac-enet",},
->> +       {},
->> +};
->> +
->> +MODULE_DEVICE_TABLE(of, bgmac_of_enet_match);
->> +
->> +static struct platform_driver bgmac_enet_driver =3D {
->> +       .driver =3D {
->> +               .name  =3D "bgmac-enet",
->> +               .of_match_table =3D bgmac_of_enet_match,
->> +       },
->> +       .probe =3D bgmac_probe,
->> +       .remove =3D bgmac_remove,
->> +};
->> +
->> +module_platform_driver(bgmac_enet_driver);
->> +MODULE_LICENSE("GPL");
->
->
-> ...
-> ...
->
-> Thanks,
->
-> Ray
+Immediately followed by setting up of the port that will eventually turn into the hidden port:
+
+   kworker/u32:1-13473 [002] ....  4093.976128: xs_setup_tcp: RPC:       set up xprt to 192.168.23.22 (port 44672) via tcp
+   kworker/u32:1-13473 [002] ....  4093.976136: xprt_create_transport: RPC:       created transport ffff8803b8c22000 with 65536 slots
+    kworker/2:1H-144   [002] ....  4093.976209: xprt_alloc_slot: RPC:    48 reserved req ffff8803bfe89c00 xid 10c028fe
+    kworker/2:1H-144   [002] ....  4093.976213: xprt_connect: RPC:    48 xprt_connect xprt ffff8803b8c22000 is not connected
+    kworker/2:1H-144   [002] ....  4093.976215: xs_connect: RPC:       xs_connect scheduled xprt ffff8803b8c22000
+    kworker/2:1H-144   [002] ..s.  4093.976231: inet_csk_get_port: snum 754
+    kworker/2:1H-144   [002] ..s.  4093.976239: <stack trace>
+ => sched_clock
+ => inet_addr_type_table
+ => security_capable
+ => inet_bind
+ => xs_bind
+ => release_sock
+ => sock_setsockopt
+ => __sock_create
+ => xs_create_sock.isra.19
+ => xs_tcp_setup_socket
+ => process_one_work
+ => worker_thread
+ => worker_thread
+ => kthread
+ => ret_from_fork
+ => kthread
+    kworker/2:1H-144   [002] ..s.  4093.976239: inet_bind_hash: add 754 ffff8803afc20e40
+    kworker/2:1H-144   [002] ..s.  4093.976247: <stack trace>
+ => inet_csk_get_port
+ => sched_clock
+ => inet_addr_type_table
+ => security_capable
+ => inet_bind
+ => xs_bind
+ => release_sock
+ => sock_setsockopt
+ => __sock_create
+ => xs_create_sock.isra.19
+ => xs_tcp_setup_socket
+ => process_one_work
+ => worker_thread
+ => worker_thread
+ => kthread
+ => ret_from_fork
+ => kthread
+    kworker/2:1H-144   [002] ....  4093.976248: xs_bind: RPC:       xs_bind 4.136.255.255:754: ok (0)
+    kworker/2:1H-144   [002] ....  4093.976250: xs_tcp_setup_socket: RPC:       worker connecting xprt ffff8803b8c22000 via tcp to 192.168.23.22 (port 44672)
+    kworker/2:1H-144   [002] ....  4093.976284: xs_tcp_setup_socket: RPC:       ffff8803b8c22000 connect status 115 connected 0 sock state 2
+          <idle>-0     [003] ..s.  4093.976456: xs_tcp_state_change: RPC:       xs_tcp_state_change client ffff8803b8c22000...
+          <idle>-0     [003] ..s.  4093.976458: xs_tcp_state_change: RPC:       state 1 conn 0 dead 0 zapped 1 sk_shutdown 0
+    kworker/3:1H-145   [003] ....  4093.976588: xprt_connect_status: RPC:    48 xprt_connect_status: retrying
+    kworker/3:1H-145   [003] ....  4093.976590: xprt_prepare_transmit: RPC:    48 xprt_prepare_transmit
+    kworker/3:1H-145   [003] ....  4093.976604: xprt_transmit: RPC:    48 xprt_transmit(72)
+    kworker/3:1H-145   [003] ....  4093.976622: xs_tcp_send_request: RPC:       xs_tcp_send_request(72) = 0
+    kworker/3:1H-145   [003] ....  4093.976623: xprt_transmit: RPC:    48 xmit complete
+          <idle>-0     [003] ..s.  4093.977040: xs_tcp_data_ready: RPC:       xs_tcp_data_ready...
+    kworker/3:1H-145   [003] ....  4093.977151: xs_tcp_data_recv: RPC:       xs_tcp_data_recv started
+    kworker/3:1H-145   [003] ....  4093.977153: xs_tcp_data_recv: RPC:       reading TCP record fragment of length 24
+    kworker/3:1H-145   [003] ....  4093.977154: xs_tcp_data_recv: RPC:       reading XID (4 bytes)
+    kworker/3:1H-145   [003] ....  4093.977155: xs_tcp_data_recv: RPC:       reading request with XID 10c028fe
+    kworker/3:1H-145   [003] ....  4093.977156: xs_tcp_data_recv: RPC:       reading CALL/REPLY flag (4 bytes)
+    kworker/3:1H-145   [003] ....  4093.977157: xs_tcp_data_recv: RPC:       read reply XID 10c028fe
+    kworker/3:1H-145   [003] ..s.  4093.977158: xs_tcp_data_recv: RPC:       XID 10c028fe read 16 bytes
+    kworker/3:1H-145   [003] ..s.  4093.977159: xs_tcp_data_recv: RPC:       xprt = ffff8803b8c22000, tcp_copied = 24, tcp_offset = 24, tcp_reclen = 24
+    kworker/3:1H-145   [003] ..s.  4093.977160: xprt_complete_rqst: RPC:    48 xid 10c028fe complete (24 bytes received)
+    kworker/3:1H-145   [003] ....  4093.977161: xs_tcp_data_recv: RPC:       xs_tcp_data_recv done
+    kworker/3:1H-145   [003] ....  4093.977167: xprt_release: RPC:    48 release request ffff8803bfe89c00
+
+
+That "2049" port is what is used for all transferring of data.
+
+When the FIN/ACK is sent by the client, the socket is destroyed (no more connections
+can be used) but the port is not freed up, because it appears there's still an owner
+attached to it. That means this port will *never* be used again. Even if the client
+unmount the directory. That port is still in limbo.
+
+When the FIN/ACK comes in, it goes into the TIME_WAIT state here:
+
+    kworker/3:1H-145   [003] ..s.  4394.370019: xs_tcp_state_change: RPC:       xs_tcp_state_change client ffff8803b8c22000...
+    kworker/3:1H-145   [003] ..s.  4394.370022: xs_tcp_state_change: RPC:       state 4 conn 1 dead 0 zapped 1 sk_shutdown 3
+          <idle>-0     [003] ..s.  4394.370352: xs_tcp_state_change: RPC:       xs_tcp_state_change client ffff8803b8c22000...
+          <idle>-0     [003] ..s.  4394.370354: xs_tcp_state_change: RPC:       state 5 conn 0 dead 0 zapped 1 sk_shutdown 3
+          <idle>-0     [003] ..s.  4394.370375: tcp_time_wait: moving xs_bind sock to time wait
+          <idle>-0     [003] ..s.  4394.370396: <stack trace>
+ => tcp_data_queue
+ => tcp_rcv_state_process
+ => tcp_v4_inbound_md5_hash
+ => tcp_v4_do_rcv
+ => tcp_v4_rcv
+ => ipv4_confirm
+ => nf_iterate
+ => ip_local_deliver_finish
+ => ip_local_deliver
+ => ip_local_deliver_finish
+ => ip_rcv
+ => packet_rcv
+ => ip_rcv_finish
+ => __netif_receive_skb_core
+ => kmem_cache_alloc
+ => netif_receive_skb_internal
+ => br_pass_frame_up
+ => br_flood
+ => br_handle_frame
+ => br_handle_frame_finish
+ => enqueue_task_fair
+ => br_handle_frame
+ => br_handle_frame
+ => find_busiest_group
+ => __netif_receive_skb_core
+ => inet_gro_receive
+ => netif_receive_skb_internal
+ => napi_gro_receive
+ => e1000_clean_rx_irq
+ => e1000_clean
+ => net_rx_action
+ => __do_softirq
+ => irq_exit
+ => do_IRQ
+ => ret_from_intr
+ => cpuidle_enter_state
+ => cpuidle_enter_state
+ => cpu_startup_entry
+ => start_secondary
+
+
+Then eventually, the socket is freed, and 'netstat' no longer shows it.
+
+          <idle>-0     [003] .Ns.  4454.371802: inet_bind_bucket_destroy: destroy 754 empty=0 ffff8803afc20e40
+          <idle>-0     [003] .Ns.  4454.371813: <stack trace>
+ => inet_twsk_bind_unhash
+ => inet_twsk_kill
+ => tw_timer_handler
+ => call_timer_fn
+ => tw_timer_handler
+ => run_timer_softirq
+ => __do_softirq
+ => irq_exit
+ => do_IRQ
+ => ret_from_intr
+ => cpuidle_enter_state
+ => cpuidle_enter_state
+ => cpu_startup_entry
+ => start_secondary
+
+
+"empty=0" means the tb->owners associated with the port is not empty, and the
+freeing of the port is skipped.
+
+Now when I go and remount the directory from the client, the code finally cleans
+up the port:
+
+   kworker/u32:0-25031 [000] ....  4544.674603: xprt_destroy: RPC:       destroying transport ffff8803b8c22000
+   kworker/u32:0-25031 [000] ....  4544.674616: xs_destroy: RPC:       xs_destroy xprt ffff8803b8c22000
+   kworker/u32:0-25031 [000] ....  4544.674617: xs_close: RPC:       xs_close xprt ffff8803b8c22000
+   kworker/u32:0-25031 [000] ..s.  4544.674619: xs_tcp_state_change: RPC:       xs_tcp_state_change client ffff8803b8c22000...
+   kworker/u32:0-25031 [000] ..s.  4544.674620: xs_tcp_state_change: RPC:       state 7 conn 0 dead 0 zapped 1 sk_shutdown 3
+   kworker/u32:0-25031 [000] ..s.  4544.674621: xprt_disconnect_done: RPC:       disconnected transport ffff8803b8c22000
+   kworker/u32:0-25031 [000] ..s.  4544.674621: xprt_disconnect_done: disconnect transport!
+
+
+   kworker/u32:0-25031 [000] ..s.  4544.674647: inet_bind_bucket_destroy: destroy 754 empty=1 ffff8803afc20e40
+   kworker/u32:0-25031 [000] ..s.  4544.674655: <stack trace>
+ => inet_put_port
+ => tcp_v4_destroy_sock
+ => inet_csk_destroy_sock
+ => tcp_close
+ => inet_release
+ => sock_release
+ => xs_close
+ => xs_destroy
+ => xprt_switch_free
+ => rpc_free_client
+ => rpc_release_client
+ => rpc_shutdown_client
+ => nfsd4_process_cb_update.isra.14
+ => update_curr
+ => dequeue_task_fair
+ => __switch_to
+ => pick_next_task_fair
+ => nfsd4_run_cb_work
+ => process_one_work
+ => worker_thread
+ => worker_thread
+ => kthread
+ => ret_from_fork
+ => kthread
+   kworker/u32:0-25031 [000] ....  4544.674660: xprt_disconnect_done: RPC:       disconnected transport ffff8803b8c22000
+
+Notice that "empty=1" now, and the port is freed.
+
+Then it goes back doing everything all over again:
+
+    kworker/3:1H-145   [003] ....  4558.442458: xs_bind: RPC:       xs_bind 4.136.255.255:973: ok (0)
+    kworker/3:1H-145   [003] ....  4558.442460: xs_tcp_setup_socket: RPC:       worker connecting xprt ffff8803d7fd3800 via tcp to 192.168.23.22 (port 45075)
+    kworker/3:1H-145   [003] ....  4558.442496: xs_tcp_setup_socket: RPC:       ffff8803d7fd3800 connect status 115 connected 0 sock state 2
+          <idle>-0     [002] ..s.  4558.442691: xs_tcp_state_change: RPC:       xs_tcp_state_change client ffff8803d7fd3800...
+          <idle>-0     [002] ..s.  4558.442693: xs_tcp_state_change: RPC:       state 1 conn 0 dead 0 zapped 1 sk_shutdown 0
+    kworker/2:1H-144   [002] ....  4558.442732: xprt_connect_status: RPC:    49 xprt_connect_status: retrying
+    kworker/2:1H-144   [002] ....  4558.442734: xprt_prepare_transmit: RPC:    49 xprt_prepare_transmit
+    kworker/2:1H-144   [002] ....  4558.442737: xprt_transmit: RPC:    49 xprt_transmit(72)
+    kworker/2:1H-144   [002] ....  4558.442753: xs_tcp_send_request: RPC:       xs_tcp_send_request(72) = 0
+    kworker/2:1H-144   [002] ....  4558.442754: xprt_transmit: RPC:    49 xmit complete
+            nfsd-4382  [002] ..s.  4558.443203: xs_tcp_data_ready: RPC:       xs_tcp_data_ready...
+    kworker/2:1H-144   [002] ....  4558.443227: xs_tcp_data_recv: RPC:       xs_tcp_data_recv started
+    kworker/2:1H-144   [002] ....  4558.443229: xs_tcp_data_recv: RPC:       reading TCP record fragment of length 24
+    kworker/2:1H-144   [002] ....  4558.443230: xs_tcp_data_recv: RPC:       reading XID (4 bytes)
+    kworker/2:1H-144   [002] ....  4558.443231: xs_tcp_data_recv: RPC:       reading request with XID e2e1dc21
+    kworker/2:1H-144   [002] ....  4558.443232: xs_tcp_data_recv: RPC:       reading CALL/REPLY flag (4 bytes)
+    kworker/2:1H-144   [002] ....  4558.443233: xs_tcp_data_recv: RPC:       read reply XID e2e1dc21
+    kworker/2:1H-144   [002] ..s.  4558.443235: xs_tcp_data_recv: RPC:       XID e2e1dc21 read 16 bytes
+    kworker/2:1H-144   [002] ..s.  4558.443236: xs_tcp_data_recv: RPC:       xprt = ffff8803d7fd3800, tcp_copied = 24, tcp_offset = 24, tcp_reclen = 24
+    kworker/2:1H-144   [002] ..s.  4558.443237: xprt_complete_rqst: RPC:    49 xid e2e1dc21 complete (24 bytes received)
+    kworker/2:1H-144   [002] ....  4558.443238: xs_tcp_data_recv: RPC:       xs_tcp_data_recv done
+    kworker/2:1H-144   [002] ....  4558.443246: xprt_release: RPC:    49 release request ffff8800dba14800
+   kworker/u32:1-13473 [003] ....  4558.496850: xprt_destroy: RPC:       destroying transport ffff8803d7fd3800
+   kworker/u32:1-13473 [003] ....  4558.496860: xs_destroy: RPC:       xs_destroy xprt ffff8803d7fd3800
+   kworker/u32:1-13473 [003] ....  4558.496861: xs_close: RPC:       xs_close xprt ffff8803d7fd3800
+   kworker/u32:1-13473 [003] ..s.  4558.496888: xs_tcp_state_change: RPC:       xs_tcp_state_change client ffff8803d7fd3800...
+   kworker/u32:1-13473 [003] ..s.  4558.496889: xs_tcp_state_change: RPC:       state 4 conn 1 dead 0 zapped 1 sk_shutdown 3
+   kworker/u32:1-13473 [003] ....  4558.496894: xprt_disconnect_done: RPC:       disconnected transport ffff8803d7fd3800
+   kworker/u32:1-13473 [003] ....  4558.496895: xprt_disconnect_done: disconnect transport!
+
+Where 973 is the port that gets added and disconnected right away (and freed)
+
+    kworker/3:1H-145   [003] ....  4558.496991: xs_bind: RPC:       xs_bind 4.136.255.255:688: ok (0)
+    kworker/3:1H-145   [003] ....  4558.496993: xs_tcp_setup_socket: RPC:       worker connecting xprt ffff8803bb889000 via tcp to 192.168.23.22 (port 45075)
+    kworker/3:1H-145   [003] ....  4558.497024: xs_tcp_setup_socket: RPC:       ffff8803bb889000 connect status 115 connected 0 sock state 2
+          <idle>-0     [002] .Ns.  4558.497171: xs_tcp_state_change: RPC:       xs_tcp_state_change client ffff8803bb889000...
+          <idle>-0     [002] .Ns.  4558.497173: xs_tcp_state_change: RPC:       state 1 conn 0 dead 0 zapped 1 sk_shutdown 0
+    kworker/2:1H-144   [002] ....  4558.497196: xprt_connect_status: RPC:    50 xprt_connect_status: retrying
+    kworker/2:1H-144   [002] ....  4558.497197: xprt_prepare_transmit: RPC:    50 xprt_prepare_transmit
+    kworker/2:1H-144   [002] ....  4558.497199: xprt_transmit: RPC:    50 xprt_transmit(72)
+    kworker/2:1H-144   [002] ....  4558.497210: xs_tcp_send_request: RPC:       xs_tcp_send_request(72) = 0
+    kworker/2:1H-144   [002] ....  4558.497210: xprt_transmit: RPC:    50 xmit complete
+          <idle>-0     [002] ..s.  4558.497475: xs_tcp_data_ready: RPC:       xs_tcp_data_ready...
+    kworker/2:1H-144   [002] ....  4558.497569: xs_tcp_data_recv: RPC:       xs_tcp_data_recv started
+    kworker/2:1H-144   [002] ....  4558.497571: xs_tcp_data_recv: RPC:       reading TCP record fragment of length 24
+    kworker/2:1H-144   [002] ....  4558.497571: xs_tcp_data_recv: RPC:       reading XID (4 bytes)
+    kworker/2:1H-144   [002] ....  4558.497572: xs_tcp_data_recv: RPC:       reading request with XID a4418f34
+    kworker/2:1H-144   [002] ....  4558.497573: xs_tcp_data_recv: RPC:       reading CALL/REPLY flag (4 bytes)
+    kworker/2:1H-144   [002] ....  4558.497573: xs_tcp_data_recv: RPC:       read reply XID a4418f34
+    kworker/2:1H-144   [002] ..s.  4558.497574: xs_tcp_data_recv: RPC:       XID a4418f34 read 16 bytes
+    kworker/2:1H-144   [002] ..s.  4558.497575: xs_tcp_data_recv: RPC:       xprt = ffff8803bb889000, tcp_copied = 24, tcp_offset = 24, tcp_reclen = 24
+    kworker/2:1H-144   [002] ..s.  4558.497575: xprt_complete_rqst: RPC:    50 xid a4418f34 complete (24 bytes received)
+    kworker/2:1H-144   [002] ....  4558.497577: xs_tcp_data_recv: RPC:       xs_tcp_data_recv done
+    kworker/2:1H-144   [002] ....  4558.497581: xprt_release: RPC:    50 release request ffff8800db28d800
+
+And 688 will be the port that becomes the new hidden port.
+
+Thus it looks like there's something that is not cleaning up ports properly. There's
+some timing issues here.
+
+Any thoughts why. Because this is obviously wrong, and not only is it wasting a port
+and memory to store it, but it's causing rkhunter to report it, because it's one of
+the things that rootkits do.
+
+-- Steve
