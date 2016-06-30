@@ -1,114 +1,118 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: [net-next PATCH v2 2/2] net: samples: pktgen mode samples/tests
- for qdisc layer
-Date: Thu, 30 Jun 2016 09:39:57 -0700
-Message-ID: <57754B5D.2040303@gmail.com>
-References: <20160629200306.16491.65359.stgit@john-Precision-Tower-5810>
- <20160629200326.16491.11589.stgit@john-Precision-Tower-5810>
- <20160630102329.00750272@redhat.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH net-next 19/19] rxrpc: Use RCU to access a peer's service connection tree
+Date: Thu, 30 Jun 2016 17:36:51 +0100
+Message-ID: <587.1467304611@warthog.procyon.org.uk>
+References: <19436.1467303739@warthog.procyon.org.uk> <20160630153049.GG30935@twins.programming.kicks-ass.net> <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk> <146729597856.26306.17024362508555652794.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: jhs@mojatatu.com, netdev@vger.kernel.org
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: dhowells@redhat.com, davem@davemloft.net, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: Peter Zijlstra <peterz@infradead.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:34919 "EHLO
-	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751793AbcF3Qkl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 12:40:41 -0400
-Received: by mail-oi0-f43.google.com with SMTP id r2so73168819oih.2
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 09:40:09 -0700 (PDT)
-In-Reply-To: <20160630102329.00750272@redhat.com>
+Received: from mx1.redhat.com ([209.132.183.28]:56323 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752625AbcF3QqD convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 12:46:03 -0400
+In-Reply-To: <19436.1467303739@warthog.procyon.org.uk>
+Content-ID: <586.1467304611.1@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-06-30 01:23 AM, Jesper Dangaard Brouer wrote:
-> On Wed, 29 Jun 2016 13:03:26 -0700
-> John Fastabend <john.fastabend@gmail.com> wrote:
+David Howells <dhowells@redhat.com> wrote:
+
+> > You want rb_link_node_rcu() here.
 > 
->> This adds samples for pktgen to use with new mode to inject pkts into
->> the qdisc layer. This also doubles as nice test cases to test any
->> patches against qdisc layer.
+> Should there be an rb_replace_node_rcu() also?
 
-[...]
+Or I could make rb_replace_node() RCU friendly.  What do you think of the
+attached changes (split into appropriate patches)?  It's a case of changing
+the order in which pointers are set in the rbtree code and inserting a
+barrier.
 
->> +#
->> +# Benchmark script:
->> +#  - developed for benchmarking egress qdisc path, derived from
->> +#    ingress benchmark script.
->> +#
+I also wonder if rb_insert_color() needs some attention - though possibly
+that's okay as it doesn't start with unset pointers (since you call
+rb_link_node_rcu() first).
 
-As you probably gathered 'derived' is giving me too much credit here
-its more like cut'n'pasted from ingress benchmark scrip :)
-
->> +# Script for injecting packets into egress qdisc path of the stack
->> +# with pktgen "xmit_mode queue_xmit".
->> +#
->> +basedir=`dirname $0`
->> +source ${basedir}/functions.sh
->> +root_check_run_with_sudo "$@"
->> +
->> +# Parameter parsing via include
->> +source ${basedir}/parameters.sh
->> +# Using invalid DST_MAC will cause the packets to get dropped in
->> +# ip_rcv() which is part of the test
->> +[ -z "$DEST_IP" ] && DEST_IP="198.18.0.42"
->> +[ -z "$DST_MAC" ] && DST_MAC="90:e2:ba:ff:ff:ff"
->> +
->> +# Burst greater than 1 are invalid but allow users to specify it and
->> +# get an error instead of silently ignoring it.
->> +[ -z "$BURST" ] && BURST=1
-> 
-> In other scripts I've rejected this at this step, instead of depending
-> on failure when sending the burst option to pktgen. Like:
-> 
-> https://github.com/netoptimizer/network-testing/blob/master/pktgen/pktgen_sample04_many_flows.sh#L31-L33
-> 
-
-Agreed that is nicer. I had originally left it to make sure I was
-catching the burst > 1 case in pktgen but will remove.
-
->> +
->> +# Base Config
->> +DELAY="0"        # Zero means max speed
->> +COUNT="10000000" # Zero means indefinitely
->> +
->> +# General cleanup everything since last run
->> +pg_ctrl "reset"
->> +
->> +# Threads are specified with parameter -t value in $THREADS
->> +for ((thread = 0; thread < $THREADS; thread++)); do
->> +    # The device name is extended with @name, using thread number to
->> +    # make then unique, but any name will do.
->> +    dev=${DEV}@${thread}
->> +
->> +    # Add remove all other devices and add_device $dev to thread
->> +    pg_thread $thread "rem_device_all"
->> +    pg_thread $thread "add_device" $dev
->> +
->> +    # Base config of dev
->> +    pg_set $dev "flag QUEUE_MAP_CPU"
->> +    pg_set $dev "count $COUNT"
->> +    pg_set $dev "pkt_size $PKT_SIZE"
->> +    pg_set $dev "delay $DELAY"
->> +    pg_set $dev "flag NO_TIMESTAMP"
->> +
->> +    # Destination
->> +    pg_set $dev "dst_mac $DST_MAC"
->> +    pg_set $dev "dst $DEST_IP"
->> +
->> +    # Inject packet into RX path of stack
-> 
-> Hmmm, maybe above comment need to be adjusted...
-
-Yep.
-
-> 
->> +    pg_set $dev "xmit_mode queue_xmit"
->> +
->> +    # Burst allow us to avoid measuring SKB alloc/free overhead
-> 
-> This comment is confusing, maybe just remove. Didn't think burst is a
-> valid use-case.
-
-Yep.
+David
+---
+diff --git a/include/linux/rbtree_augmented.h b/include/linux/rbtree_augmented.h
+index 14d7b831b63a..d076183e49be 100644
+--- a/include/linux/rbtree_augmented.h
++++ b/include/linux/rbtree_augmented.h
+@@ -130,6 +130,19 @@ __rb_change_child(struct rb_node *old, struct rb_node *new,
+ 		WRITE_ONCE(root->rb_node, new);
+ }
+ 
++static inline void
++__rb_change_child_rcu(struct rb_node *old, struct rb_node *new,
++		      struct rb_node *parent, struct rb_root *root)
++{
++	if (parent) {
++		if (parent->rb_left == old)
++			rcu_assign_pointer(parent->rb_left, new);
++		else
++			rcu_assign_pointer(parent->rb_right, new);
++	} else
++		rcu_assign_pointer(root->rb_node, new);
++}
++
+ extern void __rb_erase_color(struct rb_node *parent, struct rb_root *root,
+ 	void (*augment_rotate)(struct rb_node *old, struct rb_node *new));
+ 
+diff --git a/lib/rbtree.c b/lib/rbtree.c
+index 1356454e36de..2b1a190c737c 100644
+--- a/lib/rbtree.c
++++ b/lib/rbtree.c
+@@ -539,15 +539,17 @@ void rb_replace_node(struct rb_node *victim, struct rb_node *new,
+ {
+ 	struct rb_node *parent = rb_parent(victim);
+ 
++	/* Copy the pointers/colour from the victim to the replacement */
++	*new = *victim;
++
+ 	/* Set the surrounding nodes to point to the replacement */
+-	__rb_change_child(victim, new, parent, root);
+ 	if (victim->rb_left)
+ 		rb_set_parent(victim->rb_left, new);
+ 	if (victim->rb_right)
+ 		rb_set_parent(victim->rb_right, new);
+ 
+-	/* Copy the pointers/colour from the victim to the replacement */
+-	*new = *victim;
++	/* Set the onward pointer last with an RCU barrier */
++	__rb_change_child_rcu(victim, new, parent, root);
+ }
+ EXPORT_SYMBOL(rb_replace_node);
+ 
+diff --git a/net/rxrpc/conn_service.c b/net/rxrpc/conn_service.c
+index dc64211c5ee8..298ec300cfcc 100644
+--- a/net/rxrpc/conn_service.c
++++ b/net/rxrpc/conn_service.c
+@@ -41,14 +41,14 @@ struct rxrpc_connection *rxrpc_find_service_conn_rcu(struct rxrpc_peer *peer,
+ 		 */
+ 		read_seqbegin_or_lock(&peer->service_conn_lock, &seq);
+ 
+-		p = peer->service_conns.rb_node;
++		p = rcu_dereference(peer->service_conns.rb_node);
+ 		while (p) {
+ 			conn = rb_entry(p, struct rxrpc_connection, service_node);
+ 
+ 			if (conn->proto.index_key < k.index_key)
+-				p = p->rb_left;
++				p = rcu_dereference(p->rb_left);
+ 			else if (conn->proto.index_key > k.index_key)
+-				p = p->rb_right;
++				p = rcu_dereference(p->rb_right);
+ 			else
+ 				goto done;
+ 			conn = NULL;
+@@ -90,7 +90,7 @@ rxrpc_publish_service_conn(struct rxrpc_peer *peer,
+ 			goto found_extant_conn;
+ 	}
+ 
+-	rb_link_node(&conn->service_node, parent, pp);
++	rb_link_node_rcu(&conn->service_node, parent, pp);
+ 	rb_insert_color(&conn->service_node, &peer->service_conns);
+ conn_published:
+ 	set_bit(RXRPC_CONN_IN_SERVICE_CONNS, &conn->flags);
