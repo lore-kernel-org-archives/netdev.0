@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 06/19] rxrpc: Check that the client conns cache is
- empty before module removal
-Date: Thu, 30 Jun 2016 15:11:25 +0100
-Message-ID: <146729588538.26306.13628963933419857885.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 07/19] rxrpc: Move usage count getting into
+ rxrpc_queue_conn()
+Date: Thu, 30 Jun 2016 15:11:32 +0100
+Message-ID: <146729589235.26306.15114701415404719693.stgit@warthog.procyon.org.uk>
 References: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,69 +15,116 @@ In-Reply-To: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Check that the client conns cache is empty before module removal and bug if
-not, listing any offending connections that are still present.  Unfortunately,
-if there are connections still around, then the transport socket is still
-unexpectedly open and active, so we can't just unallocate the connections.
+Rather than calling rxrpc_get_connection() manually before calling
+rxrpc_queue_conn(), do it inside the queue wrapper.
+
+This allows us to do some important fixes:
+
+ (1) If the usage count is 0, do nothing.  This prevents connections from
+     being reanimated once they're dead.
+
+ (2) If rxrpc_queue_work() fails because the work item is already queued,
+     retract the usage count increment which would otherwise be lost.
+
+ (3) Don't take a ref on the connection in the work function.  By passing
+     the ref through the work item, this is unnecessary.  Doing it in the
+     work function is too late anyway.  Previously, connection-directed
+     packets held a ref on the connection, but that's not really the best
+     idea.
+
+And another useful changes:
+
+ (*) Don't need to take a refcount on the connection in the data_ready
+     handler unless we invoke the connection's work item.  We're using RCU
+     there so that's otherwise redundant.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/af_rxrpc.c    |    3 +--
- net/rxrpc/ar-internal.h |    1 +
- net/rxrpc/conn_client.c |   19 +++++++++++++++++++
- 3 files changed, 21 insertions(+), 2 deletions(-)
+ net/rxrpc/ar-internal.h |    9 ++++++++-
+ net/rxrpc/call_accept.c |    1 -
+ net/rxrpc/conn_event.c  |    8 +-------
+ net/rxrpc/input.c       |    1 -
+ 4 files changed, 9 insertions(+), 10 deletions(-)
 
-diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
-index 5d3e795a7c48..d5073eb02498 100644
---- a/net/rxrpc/af_rxrpc.c
-+++ b/net/rxrpc/af_rxrpc.c
-@@ -807,8 +807,7 @@ static void __exit af_rxrpc_exit(void)
- 	_debug("synchronise RCU");
- 	rcu_barrier();
- 	_debug("destroy locals");
--	ASSERT(idr_is_empty(&rxrpc_client_conn_ids));
--	idr_destroy(&rxrpc_client_conn_ids);
-+	rxrpc_destroy_client_conn_ids();
- 	rxrpc_destroy_all_locals();
- 
- 	remove_proc_entry("rxrpc_conns", init_net.proc_net);
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 6f62b0eef0e0..2a8710dac3c5 100644
+index 2a8710dac3c5..d43cb7831693 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -542,6 +542,7 @@ extern struct idr rxrpc_client_conn_ids;
+@@ -585,10 +585,17 @@ static inline void rxrpc_get_connection(struct rxrpc_connection *conn)
+ 	atomic_inc(&conn->usage);
+ }
  
- int rxrpc_get_client_connection_id(struct rxrpc_connection *, gfp_t);
- void rxrpc_put_client_connection_id(struct rxrpc_connection *);
-+void rxrpc_destroy_client_conn_ids(void);
++static inline
++struct rxrpc_connection *rxrpc_get_connection_maybe(struct rxrpc_connection *conn)
++{
++	return atomic_inc_not_zero(&conn->usage) ? conn : NULL;
++}
+ 
+ static inline void rxrpc_queue_conn(struct rxrpc_connection *conn)
+ {
+-	rxrpc_queue_work(&conn->processor);
++	if (rxrpc_get_connection_maybe(conn) &&
++	    !rxrpc_queue_work(&conn->processor))
++		rxrpc_put_connection(conn);
+ }
  
  /*
-  * conn_event.c
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-index 82488d6adb83..be437d5e90ce 100644
---- a/net/rxrpc/conn_client.c
-+++ b/net/rxrpc/conn_client.c
-@@ -92,3 +92,22 @@ void rxrpc_put_client_connection_id(struct rxrpc_connection *conn)
- 		spin_unlock(&rxrpc_conn_id_lock);
- 	}
+diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
+index 1c0860df150e..5367dbe9b96f 100644
+--- a/net/rxrpc/call_accept.c
++++ b/net/rxrpc/call_accept.c
+@@ -132,7 +132,6 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
+ 			_debug("await conn sec");
+ 			list_add_tail(&call->accept_link, &rx->secureq);
+ 			call->conn->state = RXRPC_CONN_SERVICE_CHALLENGING;
+-			rxrpc_get_connection(call->conn);
+ 			set_bit(RXRPC_CONN_EV_CHALLENGE, &call->conn->events);
+ 			rxrpc_queue_conn(call->conn);
+ 		} else {
+diff --git a/net/rxrpc/conn_event.c b/net/rxrpc/conn_event.c
+index b9c39b83eddb..9ceddd3fd5db 100644
+--- a/net/rxrpc/conn_event.c
++++ b/net/rxrpc/conn_event.c
+@@ -266,12 +266,8 @@ void rxrpc_process_connection(struct work_struct *work)
+ 
+ 	_enter("{%d}", conn->debug_id);
+ 
+-	rxrpc_get_connection(conn);
+-
+-	if (test_and_clear_bit(RXRPC_CONN_EV_CHALLENGE, &conn->events)) {
++	if (test_and_clear_bit(RXRPC_CONN_EV_CHALLENGE, &conn->events))
+ 		rxrpc_secure_connection(conn);
+-		rxrpc_put_connection(conn);
+-	}
+ 
+ 	/* go through the conn-level event packets, releasing the ref on this
+ 	 * connection that each one has when we've finished with it */
+@@ -286,7 +282,6 @@ void rxrpc_process_connection(struct work_struct *work)
+ 			goto requeue_and_leave;
+ 		case -ECONNABORTED:
+ 		default:
+-			rxrpc_put_connection(conn);
+ 			rxrpc_free_skb(skb);
+ 			break;
+ 		}
+@@ -304,7 +299,6 @@ requeue_and_leave:
+ protocol_error:
+ 	if (rxrpc_abort_connection(conn, -ret, abort_code) < 0)
+ 		goto requeue_and_leave;
+-	rxrpc_put_connection(conn);
+ 	rxrpc_free_skb(skb);
+ 	_leave(" [EPROTO]");
+ 	goto out;
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index 8a68cc387a8c..710e55a5f569 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -580,7 +580,6 @@ static void rxrpc_post_packet_to_conn(struct rxrpc_connection *conn,
+ {
+ 	_enter("%p,%p", conn, skb);
+ 
+-	rxrpc_get_connection(conn);
+ 	skb_queue_tail(&conn->rx_queue, skb);
+ 	rxrpc_queue_conn(conn);
  }
-+
-+/*
-+ * Destroy the client connection ID tree.
-+ */
-+void rxrpc_destroy_client_conn_ids(void)
-+{
-+	struct rxrpc_connection *conn;
-+	int id;
-+
-+	if (!idr_is_empty(&rxrpc_client_conn_ids)) {
-+		idr_for_each_entry(&rxrpc_client_conn_ids, conn, id) {
-+			pr_err("AF_RXRPC: Leaked client conn %p {%d}\n",
-+			       conn, atomic_read(&conn->usage));
-+		}
-+		BUG();
-+	}
-+
-+	idr_destroy(&rxrpc_client_conn_ids);
-+}
