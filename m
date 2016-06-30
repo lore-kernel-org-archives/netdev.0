@@ -1,8 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v2 net-next 6/9] net: hns: normalize two different loop
-Date: Thu, 30 Jun 2016 15:25:06 +0800
-Message-ID: <1467271509-63162-7-git-send-email-Yisen.Zhuang@huawei.com>
-References: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v2 net-next 0/9] net: hns: fix the typo of hns
+Date: Thu, 30 Jun 2016 15:25:00 +0800
+Message-ID: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <akpm@linux-foundation.org>, <gregkh@linuxfoundation.org>,
@@ -15,57 +14,47 @@ Cc: <akpm@linux-foundation.org>, <gregkh@linuxfoundation.org>,
 To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
 	<salil.mehta@huawei.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Daode Huang <huangdaode@hisilicon.com>
+This series includes typo fixes which review by Andy, adding
+the hns maintainer to MAINTAINERS, as below:
 
-There are two approaches to assign data, one does 2 loops, another
-does 1 loop. This patch normalize the different methods to 1 loop.
+ > from Daode: adds the maintainer for hns driver;
 
-Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
+ > from Daode: fix the typo of hns reviewed by Andy Shevchenko;
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index e36ee22..86ce28a 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -2567,15 +2567,15 @@ static char *hns_dsaf_get_node_stats_strings(char *data, int node,
- 	buff += ETH_GSTRING_LEN;
- 	if (node < DSAF_SERVICE_NW_NUM && !is_ver1) {
- 		for (i = 0; i < DSAF_PRIO_NR; i++) {
--			snprintf(buff, ETH_GSTRING_LEN,
--				 "inod%d_pfc_prio%d_pkts", node, i);
--			buff += ETH_GSTRING_LEN;
--		}
--		for (i = 0; i < DSAF_PRIO_NR; i++) {
--			snprintf(buff, ETH_GSTRING_LEN,
--				 "onod%d_pfc_prio%d_pkts", node, i);
-+			snprintf(buff + 0 * ETH_GSTRING_LEN * DSAF_PRIO_NR,
-+				 ETH_GSTRING_LEN, "inod%d_pfc_prio%d_pkts",
-+				 node, i);
-+			snprintf(buff + 1 * ETH_GSTRING_LEN * DSAF_PRIO_NR,
-+				 ETH_GSTRING_LEN, "onod%d_pfc_prio%d_pkts",
-+				 node, i);
- 			buff += ETH_GSTRING_LEN;
- 		}
-+		buff += 1 * DSAF_PRIO_NR * ETH_GSTRING_LEN;
- 	}
- 	snprintf(buff, ETH_GSTRING_LEN, "onnod%d_tx_pkts", node);
- 	buff += ETH_GSTRING_LEN;
-@@ -2606,8 +2606,8 @@ static u64 *hns_dsaf_get_node_stats(struct dsaf_device *ddev, u64 *data,
- 	p[12] = hw_stats->stp_drop;
- 	if (node_num < DSAF_SERVICE_NW_NUM && !is_ver1) {
- 		for (i = 0; i < DSAF_PRIO_NR; i++) {
--			p[13 + i] = hw_stats->rx_pfc[i];
--			p[13 + i + DSAF_PRIO_NR] = hw_stats->tx_pfc[i];
-+			p[13 + i + 0 * DSAF_PRIO_NR] = hw_stats->rx_pfc[i];
-+			p[13 + i + 1 * DSAF_PRIO_NR] = hw_stats->tx_pfc[i];
- 		}
- 		p[29] = hw_stats->tx_pkts;
- 		return &p[30];
+ > from Kejian: one remove redundant function and two fix to get 
+configuration from DT.
+
+changlog:
+ v1 -> v2:
+  fix the indentations reviewed by David.
+
+Daode Huang (6):
+  MAINTAINERS: add maintainers for hns driver
+  net: hns: fix code style about hns driver
+  net: hns: change code style from a = a + x to a += x
+  net: hns: delete redundant parens
+  net: hns: add a space before "*/"
+  net: hns: normalize two different loop
+
+Kejian Yan (3):
+  net: hns: remove redundant hns_mac_dev_to_enet_if()
+  net: hns: add media-type property for hns
+  net: hns: get reset registers from DT
+
+ MAINTAINERS                                        |  9 +++
+ drivers/net/ethernet/hisilicon/hns/hnae.h          |  9 +++
+ drivers/net/ethernet/hisilicon/hns/hns_ae_adapt.c  |  1 +
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.c  | 41 +++++++----
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_mac.h  |  1 +
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 52 +++++++-------
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c | 16 ++---
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c      |  4 +-
+ drivers/net/ethernet/hisilicon/hns/hns_ethtool.c   | 14 +++-
+ drivers/net/ethernet/hisilicon/hns_mdio.c          | 80 ++++++++++++++++++----
+ 10 files changed, 158 insertions(+), 69 deletions(-)
+
 -- 
 1.9.1
