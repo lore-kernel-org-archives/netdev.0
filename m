@@ -1,381 +1,499 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 14/19] rxrpc: Split service connection code out
- into its own file
-Date: Thu, 30 Jun 2016 15:12:22 +0100
-Message-ID: <146729594270.26306.6317475466933409703.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 02/19] rxrpc: Avoid using stack memory in SG lists
+ in rxkad
+Date: Thu, 30 Jun 2016 15:10:56 +0100
+Message-ID: <146729585598.26306.9547871912823830532.stgit@warthog.procyon.org.uk>
 References: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, dhowells@redhat.com,
+	Andy Lutomirski <luto@kernel.org>,
+	linux-afs@lists.infradead.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:54395 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38862 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752100AbcF3ONB (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jun 2016 10:13:01 -0400
+	id S1751959AbcF3OMv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jun 2016 10:12:51 -0400
 In-Reply-To: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Split the service-specific connection code out into into its own file.  The
-client-specific code has already been split out.  This will leave just the
-common code in the original file.
+From: Herbert Xu <herbert@gondor.apana.org.au>
 
+rxkad uses stack memory in SG lists which would not work if stacks were
+allocated from vmalloc memory.  In fact, in most cases this isn't even
+necessary as the stack memory ends up getting copied over to kmalloc
+memory.
+
+This patch eliminates all the unnecessary stack memory uses by supplying
+the final destination directly to the crypto API.  In two instances where a
+temporary buffer is actually needed we also switch use a scratch area in
+the rxrpc_call struct (only one DATA packet will be being secured or
+verified at a time).
+
+Finally there is no need to split a split-page buffer into two SG entries
+so code dealing with that has been removed.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Andy Lutomirski <luto@kernel.org>
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/Makefile       |    1 
- net/rxrpc/ar-internal.h  |   13 +++-
- net/rxrpc/conn_object.c  |  133 ------------------------------------------
- net/rxrpc/conn_service.c |  146 ++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 157 insertions(+), 136 deletions(-)
- create mode 100644 net/rxrpc/conn_service.c
+ net/rxrpc/ar-internal.h |    8 +--
+ net/rxrpc/conn_event.c  |    5 +-
+ net/rxrpc/conn_object.c |    6 ++
+ net/rxrpc/insecure.c    |    7 +-
+ net/rxrpc/rxkad.c       |  150 +++++++++++++++--------------------------------
+ 5 files changed, 65 insertions(+), 111 deletions(-)
 
-diff --git a/net/rxrpc/Makefile b/net/rxrpc/Makefile
-index 6522e50fb750..10f3f48a16a8 100644
---- a/net/rxrpc/Makefile
-+++ b/net/rxrpc/Makefile
-@@ -10,6 +10,7 @@ af-rxrpc-y := \
- 	conn_client.o \
- 	conn_event.o \
- 	conn_object.o \
-+	conn_service.o \
- 	input.o \
- 	insecure.o \
- 	key.o \
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index b95380dd0f37..2495c4facf51 100644
+index 702db72196fb..796368d1fb25 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -565,6 +565,9 @@ extern struct list_head rxrpc_connections;
- extern struct list_head rxrpc_connection_proc_list;
- extern rwlock_t rxrpc_connection_lock;
+@@ -141,17 +141,16 @@ struct rxrpc_security {
+ 	int (*init_connection_security)(struct rxrpc_connection *);
  
-+void rxrpc_conn_hash_proto_key(struct rxrpc_conn_proto *);
-+void rxrpc_extract_conn_params(struct rxrpc_conn_proto *,
-+			       struct rxrpc_local *, struct sk_buff *);
- struct rxrpc_connection *rxrpc_alloc_connection(gfp_t);
- struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_local *,
- 					       struct rxrpc_peer *,
-@@ -573,9 +576,6 @@ void __rxrpc_disconnect_call(struct rxrpc_call *);
- void rxrpc_disconnect_call(struct rxrpc_call *);
- void rxrpc_put_connection(struct rxrpc_connection *);
- void __exit rxrpc_destroy_all_connections(void);
--struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *,
--						   struct rxrpc_peer *,
--						   struct sk_buff *);
+ 	/* prime a connection's packet security */
+-	void (*prime_packet_security)(struct rxrpc_connection *);
++	int (*prime_packet_security)(struct rxrpc_connection *);
  
- static inline bool rxrpc_conn_is_client(const struct rxrpc_connection *conn)
- {
-@@ -606,6 +606,13 @@ static inline void rxrpc_queue_conn(struct rxrpc_connection *conn)
- }
+ 	/* impose security on a packet */
+-	int (*secure_packet)(const struct rxrpc_call *,
++	int (*secure_packet)(struct rxrpc_call *,
+ 			     struct sk_buff *,
+ 			     size_t,
+ 			     void *);
  
- /*
-+ * conn_service.c
-+ */
-+struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *,
-+						   struct rxrpc_peer *,
-+						   struct sk_buff *);
+ 	/* verify the security on a received packet */
+-	int (*verify_packet)(const struct rxrpc_call *, struct sk_buff *,
+-			     u32 *);
++	int (*verify_packet)(struct rxrpc_call *, struct sk_buff *, u32 *);
+ 
+ 	/* issue a challenge */
+ 	int (*issue_challenge)(struct rxrpc_connection *);
+@@ -399,6 +398,7 @@ struct rxrpc_call {
+ 	struct sk_buff_head	rx_oos_queue;	/* packets received out of sequence */
+ 	struct sk_buff		*tx_pending;	/* Tx socket buffer being filled */
+ 	wait_queue_head_t	tx_waitq;	/* wait for Tx window space to become available */
++	__be32			crypto_buf[2];	/* Temporary packet crypto buffer */
+ 	unsigned long		user_call_ID;	/* user-defined call ID */
+ 	unsigned long		creation_jif;	/* time of call creation */
+ 	unsigned long		flags;
+diff --git a/net/rxrpc/conn_event.c b/net/rxrpc/conn_event.c
+index bf6971555eac..6a3c96707831 100644
+--- a/net/rxrpc/conn_event.c
++++ b/net/rxrpc/conn_event.c
+@@ -188,7 +188,10 @@ static int rxrpc_process_event(struct rxrpc_connection *conn,
+ 		if (ret < 0)
+ 			return ret;
+ 
+-		conn->security->prime_packet_security(conn);
++		ret = conn->security->prime_packet_security(conn);
++		if (ret < 0)
++			return ret;
 +
-+/*
-  * input.c
-  */
- void rxrpc_data_ready(struct sock *);
+ 		read_lock_bh(&conn->lock);
+ 		spin_lock(&conn->state_lock);
+ 
 diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
-index 4a2876b9904b..12d7c7850aed 100644
+index 9381938187ac..0ab87fa0bbac 100644
 --- a/net/rxrpc/conn_object.c
 +++ b/net/rxrpc/conn_object.c
-@@ -63,139 +63,6 @@ struct rxrpc_connection *rxrpc_alloc_connection(gfp_t gfp)
+@@ -138,7 +138,9 @@ rxrpc_alloc_client_connection(struct rxrpc_conn_parameters *cp, gfp_t gfp)
+ 	if (ret < 0)
+ 		goto error_1;
+ 
+-	conn->security->prime_packet_security(conn);
++	ret = conn->security->prime_packet_security(conn);
++	if (ret < 0)
++		goto error_2;
+ 
+ 	write_lock(&rxrpc_connection_lock);
+ 	list_add_tail(&conn->link, &rxrpc_connections);
+@@ -152,6 +154,8 @@ rxrpc_alloc_client_connection(struct rxrpc_conn_parameters *cp, gfp_t gfp)
+ 	_leave(" = %p", conn);
+ 	return conn;
+ 
++error_2:
++	conn->security->clear(conn);
+ error_1:
+ 	rxrpc_put_client_connection_id(conn);
+ error_0:
+diff --git a/net/rxrpc/insecure.c b/net/rxrpc/insecure.c
+index e571403613c1..c21ad213b337 100644
+--- a/net/rxrpc/insecure.c
++++ b/net/rxrpc/insecure.c
+@@ -17,11 +17,12 @@ static int none_init_connection_security(struct rxrpc_connection *conn)
+ 	return 0;
+ }
+ 
+-static void none_prime_packet_security(struct rxrpc_connection *conn)
++static int none_prime_packet_security(struct rxrpc_connection *conn)
+ {
++	return 0;
+ }
+ 
+-static int none_secure_packet(const struct rxrpc_call *call,
++static int none_secure_packet(struct rxrpc_call *call,
+ 			       struct sk_buff *skb,
+ 			       size_t data_size,
+ 			       void *sechdr)
+@@ -29,7 +30,7 @@ static int none_secure_packet(const struct rxrpc_call *call,
+ 	return 0;
+ }
+ 
+-static int none_verify_packet(const struct rxrpc_call *call,
++static int none_verify_packet(struct rxrpc_call *call,
+ 			       struct sk_buff *skb,
+ 			       u32 *_abort_code)
+ {
+diff --git a/net/rxrpc/rxkad.c b/net/rxrpc/rxkad.c
+index 23c05ec6fa28..3acc7c1241d4 100644
+--- a/net/rxrpc/rxkad.c
++++ b/net/rxrpc/rxkad.c
+@@ -103,43 +103,43 @@ error:
+  * prime the encryption state with the invariant parts of a connection's
+  * description
+  */
+-static void rxkad_prime_packet_security(struct rxrpc_connection *conn)
++static int rxkad_prime_packet_security(struct rxrpc_connection *conn)
+ {
+ 	struct rxrpc_key_token *token;
+ 	SKCIPHER_REQUEST_ON_STACK(req, conn->cipher);
+-	struct scatterlist sg[2];
++	struct scatterlist sg;
+ 	struct rxrpc_crypt iv;
+-	struct {
+-		__be32 x[4];
+-	} tmpbuf __attribute__((aligned(16))); /* must all be in same page */
++	__be32 *tmpbuf;
++	size_t tmpsize = 4 * sizeof(__be32);
+ 
+ 	_enter("");
+ 
+ 	if (!conn->params.key)
+-		return;
++		return 0;
++
++	tmpbuf = kmalloc(tmpsize, GFP_KERNEL);
++	if (!tmpbuf)
++		return -ENOMEM;
+ 
+ 	token = conn->params.key->payload.data[0];
+ 	memcpy(&iv, token->kad->session_key, sizeof(iv));
+ 
+-	tmpbuf.x[0] = htonl(conn->proto.epoch);
+-	tmpbuf.x[1] = htonl(conn->proto.cid);
+-	tmpbuf.x[2] = 0;
+-	tmpbuf.x[3] = htonl(conn->security_ix);
+-
+-	sg_init_one(&sg[0], &tmpbuf, sizeof(tmpbuf));
+-	sg_init_one(&sg[1], &tmpbuf, sizeof(tmpbuf));
++	tmpbuf[0] = htonl(conn->proto.epoch);
++	tmpbuf[1] = htonl(conn->proto.cid);
++	tmpbuf[2] = 0;
++	tmpbuf[3] = htonl(conn->security_ix);
+ 
++	sg_init_one(&sg, tmpbuf, tmpsize);
+ 	skcipher_request_set_tfm(req, conn->cipher);
+ 	skcipher_request_set_callback(req, 0, NULL, NULL);
+-	skcipher_request_set_crypt(req, &sg[1], &sg[0], sizeof(tmpbuf), iv.x);
+-
++	skcipher_request_set_crypt(req, &sg, &sg, tmpsize, iv.x);
+ 	crypto_skcipher_encrypt(req);
+ 	skcipher_request_zero(req);
+ 
+-	memcpy(&conn->csum_iv, &tmpbuf.x[2], sizeof(conn->csum_iv));
+-	ASSERTCMP((u32 __force)conn->csum_iv.n[0], ==, (u32 __force)tmpbuf.x[2]);
+-
+-	_leave("");
++	memcpy(&conn->csum_iv, tmpbuf + 2, sizeof(conn->csum_iv));
++	kfree(tmpbuf);
++	_leave(" = 0");
++	return 0;
  }
  
  /*
-- * get a record of an incoming connection
+@@ -152,12 +152,9 @@ static int rxkad_secure_packet_auth(const struct rxrpc_call *call,
+ {
+ 	struct rxrpc_skb_priv *sp;
+ 	SKCIPHER_REQUEST_ON_STACK(req, call->conn->cipher);
++	struct rxkad_level1_hdr hdr;
+ 	struct rxrpc_crypt iv;
+-	struct scatterlist sg[2];
+-	struct {
+-		struct rxkad_level1_hdr hdr;
+-		__be32	first;	/* first four bytes of data and padding */
+-	} tmpbuf __attribute__((aligned(8))); /* must all be in same page */
++	struct scatterlist sg;
+ 	u16 check;
+ 
+ 	sp = rxrpc_skb(skb);
+@@ -167,24 +164,19 @@ static int rxkad_secure_packet_auth(const struct rxrpc_call *call,
+ 	check = sp->hdr.seq ^ sp->hdr.callNumber;
+ 	data_size |= (u32)check << 16;
+ 
+-	tmpbuf.hdr.data_size = htonl(data_size);
+-	memcpy(&tmpbuf.first, sechdr + 4, sizeof(tmpbuf.first));
++	hdr.data_size = htonl(data_size);
++	memcpy(sechdr, &hdr, sizeof(hdr));
+ 
+ 	/* start the encryption afresh */
+ 	memset(&iv, 0, sizeof(iv));
+ 
+-	sg_init_one(&sg[0], &tmpbuf, sizeof(tmpbuf));
+-	sg_init_one(&sg[1], &tmpbuf, sizeof(tmpbuf));
+-
++	sg_init_one(&sg, sechdr, 8);
+ 	skcipher_request_set_tfm(req, call->conn->cipher);
+ 	skcipher_request_set_callback(req, 0, NULL, NULL);
+-	skcipher_request_set_crypt(req, &sg[1], &sg[0], sizeof(tmpbuf), iv.x);
+-
++	skcipher_request_set_crypt(req, &sg, &sg, 8, iv.x);
+ 	crypto_skcipher_encrypt(req);
+ 	skcipher_request_zero(req);
+ 
+-	memcpy(sechdr, &tmpbuf, sizeof(tmpbuf));
+-
+ 	_leave(" = 0");
+ 	return 0;
+ }
+@@ -198,8 +190,7 @@ static int rxkad_secure_packet_encrypt(const struct rxrpc_call *call,
+ 				       void *sechdr)
+ {
+ 	const struct rxrpc_key_token *token;
+-	struct rxkad_level2_hdr rxkhdr
+-		__attribute__((aligned(8))); /* must be all on one page */
++	struct rxkad_level2_hdr rxkhdr;
+ 	struct rxrpc_skb_priv *sp;
+ 	SKCIPHER_REQUEST_ON_STACK(req, call->conn->cipher);
+ 	struct rxrpc_crypt iv;
+@@ -218,18 +209,16 @@ static int rxkad_secure_packet_encrypt(const struct rxrpc_call *call,
+ 
+ 	rxkhdr.data_size = htonl(data_size | (u32)check << 16);
+ 	rxkhdr.checksum = 0;
++	memcpy(sechdr, &rxkhdr, sizeof(rxkhdr));
+ 
+ 	/* encrypt from the session key */
+ 	token = call->conn->params.key->payload.data[0];
+ 	memcpy(&iv, token->kad->session_key, sizeof(iv));
+ 
+ 	sg_init_one(&sg[0], sechdr, sizeof(rxkhdr));
+-	sg_init_one(&sg[1], &rxkhdr, sizeof(rxkhdr));
+-
+ 	skcipher_request_set_tfm(req, call->conn->cipher);
+ 	skcipher_request_set_callback(req, 0, NULL, NULL);
+-	skcipher_request_set_crypt(req, &sg[1], &sg[0], sizeof(rxkhdr), iv.x);
+-
++	skcipher_request_set_crypt(req, &sg[0], &sg[0], sizeof(rxkhdr), iv.x);
+ 	crypto_skcipher_encrypt(req);
+ 
+ 	/* we want to encrypt the skbuff in-place */
+@@ -243,9 +232,7 @@ static int rxkad_secure_packet_encrypt(const struct rxrpc_call *call,
+ 
+ 	sg_init_table(sg, nsg);
+ 	skb_to_sgvec(skb, sg, 0, len);
+-
+ 	skcipher_request_set_crypt(req, sg, sg, len, iv.x);
+-
+ 	crypto_skcipher_encrypt(req);
+ 
+ 	_leave(" = 0");
+@@ -259,7 +246,7 @@ out:
+ /*
+  * checksum an RxRPC packet header
+  */
+-static int rxkad_secure_packet(const struct rxrpc_call *call,
++static int rxkad_secure_packet(struct rxrpc_call *call,
+ 			       struct sk_buff *skb,
+ 			       size_t data_size,
+ 			       void *sechdr)
+@@ -267,10 +254,7 @@ static int rxkad_secure_packet(const struct rxrpc_call *call,
+ 	struct rxrpc_skb_priv *sp;
+ 	SKCIPHER_REQUEST_ON_STACK(req, call->conn->cipher);
+ 	struct rxrpc_crypt iv;
+-	struct scatterlist sg[2];
+-	struct {
+-		__be32 x[2];
+-	} tmpbuf __attribute__((aligned(8))); /* must all be in same page */
++	struct scatterlist sg;
+ 	u32 x, y;
+ 	int ret;
+ 
+@@ -293,20 +277,17 @@ static int rxkad_secure_packet(const struct rxrpc_call *call,
+ 	/* calculate the security checksum */
+ 	x = call->channel << (32 - RXRPC_CIDSHIFT);
+ 	x |= sp->hdr.seq & 0x3fffffff;
+-	tmpbuf.x[0] = htonl(sp->hdr.callNumber);
+-	tmpbuf.x[1] = htonl(x);
+-
+-	sg_init_one(&sg[0], &tmpbuf, sizeof(tmpbuf));
+-	sg_init_one(&sg[1], &tmpbuf, sizeof(tmpbuf));
++	call->crypto_buf[0] = htonl(sp->hdr.callNumber);
++	call->crypto_buf[1] = htonl(x);
+ 
++	sg_init_one(&sg, call->crypto_buf, 8);
+ 	skcipher_request_set_tfm(req, call->conn->cipher);
+ 	skcipher_request_set_callback(req, 0, NULL, NULL);
+-	skcipher_request_set_crypt(req, &sg[1], &sg[0], sizeof(tmpbuf), iv.x);
+-
++	skcipher_request_set_crypt(req, &sg, &sg, 8, iv.x);
+ 	crypto_skcipher_encrypt(req);
+ 	skcipher_request_zero(req);
+ 
+-	y = ntohl(tmpbuf.x[1]);
++	y = ntohl(call->crypto_buf[1]);
+ 	y = (y >> 16) & 0xffff;
+ 	if (y == 0)
+ 		y = 1; /* zero checksums are not permitted */
+@@ -367,7 +348,6 @@ static int rxkad_verify_packet_auth(const struct rxrpc_call *call,
+ 	skcipher_request_set_tfm(req, call->conn->cipher);
+ 	skcipher_request_set_callback(req, 0, NULL, NULL);
+ 	skcipher_request_set_crypt(req, sg, sg, 8, iv.x);
+-
+ 	crypto_skcipher_decrypt(req);
+ 	skcipher_request_zero(req);
+ 
+@@ -452,7 +432,6 @@ static int rxkad_verify_packet_encrypt(const struct rxrpc_call *call,
+ 	skcipher_request_set_tfm(req, call->conn->cipher);
+ 	skcipher_request_set_callback(req, 0, NULL, NULL);
+ 	skcipher_request_set_crypt(req, sg, sg, skb->len, iv.x);
+-
+ 	crypto_skcipher_decrypt(req);
+ 	skcipher_request_zero(req);
+ 	if (sg != _sg)
+@@ -498,17 +477,14 @@ nomem:
+ /*
+  * verify the security on a received packet
+  */
+-static int rxkad_verify_packet(const struct rxrpc_call *call,
++static int rxkad_verify_packet(struct rxrpc_call *call,
+ 			       struct sk_buff *skb,
+ 			       u32 *_abort_code)
+ {
+ 	SKCIPHER_REQUEST_ON_STACK(req, call->conn->cipher);
+ 	struct rxrpc_skb_priv *sp;
+ 	struct rxrpc_crypt iv;
+-	struct scatterlist sg[2];
+-	struct {
+-		__be32 x[2];
+-	} tmpbuf __attribute__((aligned(8))); /* must all be in same page */
++	struct scatterlist sg;
+ 	u16 cksum;
+ 	u32 x, y;
+ 	int ret;
+@@ -533,20 +509,17 @@ static int rxkad_verify_packet(const struct rxrpc_call *call,
+ 	/* validate the security checksum */
+ 	x = call->channel << (32 - RXRPC_CIDSHIFT);
+ 	x |= sp->hdr.seq & 0x3fffffff;
+-	tmpbuf.x[0] = htonl(call->call_id);
+-	tmpbuf.x[1] = htonl(x);
+-
+-	sg_init_one(&sg[0], &tmpbuf, sizeof(tmpbuf));
+-	sg_init_one(&sg[1], &tmpbuf, sizeof(tmpbuf));
++	call->crypto_buf[0] = htonl(call->call_id);
++	call->crypto_buf[1] = htonl(x);
+ 
++	sg_init_one(&sg, call->crypto_buf, 8);
+ 	skcipher_request_set_tfm(req, call->conn->cipher);
+ 	skcipher_request_set_callback(req, 0, NULL, NULL);
+-	skcipher_request_set_crypt(req, &sg[1], &sg[0], sizeof(tmpbuf), iv.x);
+-
++	skcipher_request_set_crypt(req, &sg, &sg, 8, iv.x);
+ 	crypto_skcipher_encrypt(req);
+ 	skcipher_request_zero(req);
+ 
+-	y = ntohl(tmpbuf.x[1]);
++	y = ntohl(call->crypto_buf[1]);
+ 	cksum = (y >> 16) & 0xffff;
+ 	if (cksum == 0)
+ 		cksum = 1; /* zero checksums are not permitted */
+@@ -710,29 +683,6 @@ static void rxkad_calc_response_checksum(struct rxkad_response *response)
+ }
+ 
+ /*
+- * load a scatterlist with a potentially split-page buffer
 - */
--struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
--						   struct rxrpc_peer *peer,
--						   struct sk_buff *skb)
+-static void rxkad_sg_set_buf2(struct scatterlist sg[2],
+-			      void *buf, size_t buflen)
 -{
--	struct rxrpc_connection *conn, *candidate = NULL;
--	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
--	struct rb_node *p, **pp;
--	const char *new = "old";
--	__be32 epoch;
--	u32 cid;
+-	int nsg = 1;
 -
--	_enter("");
+-	sg_init_table(sg, 2);
 -
--	ASSERT(sp->hdr.flags & RXRPC_CLIENT_INITIATED);
--
--	epoch = sp->hdr.epoch;
--	cid = sp->hdr.cid & RXRPC_CIDMASK;
--
--	/* search the connection list first */
--	read_lock_bh(&peer->conn_lock);
--
--	p = peer->service_conns.rb_node;
--	while (p) {
--		conn = rb_entry(p, struct rxrpc_connection, service_node);
--
--		_debug("maybe %x", conn->proto.cid);
--
--		if (epoch < conn->proto.epoch)
--			p = p->rb_left;
--		else if (epoch > conn->proto.epoch)
--			p = p->rb_right;
--		else if (cid < conn->proto.cid)
--			p = p->rb_left;
--		else if (cid > conn->proto.cid)
--			p = p->rb_right;
--		else
--			goto found_extant_connection;
--	}
--	read_unlock_bh(&peer->conn_lock);
--
--	/* not yet present - create a candidate for a new record and then
--	 * redo the search */
--	candidate = rxrpc_alloc_connection(GFP_NOIO);
--	if (!candidate) {
--		_leave(" = -ENOMEM");
--		return ERR_PTR(-ENOMEM);
+-	sg_set_buf(&sg[0], buf, buflen);
+-	if (sg[0].offset + buflen > PAGE_SIZE) {
+-		/* the buffer was split over two pages */
+-		sg[0].length = PAGE_SIZE - sg[0].offset;
+-		sg_set_buf(&sg[1], buf + sg[0].length, buflen - sg[0].length);
+-		nsg++;
 -	}
 -
--	candidate->proto.local		= local;
--	candidate->proto.epoch		= sp->hdr.epoch;
--	candidate->proto.cid		= sp->hdr.cid & RXRPC_CIDMASK;
--	candidate->proto.in_clientflag	= RXRPC_CLIENT_INITIATED;
--	candidate->params.local		= local;
--	candidate->params.peer		= peer;
--	candidate->params.service_id	= sp->hdr.serviceId;
--	candidate->security_ix		= sp->hdr.securityIndex;
--	candidate->out_clientflag	= 0;
--	candidate->state		= RXRPC_CONN_SERVICE;
--	if (candidate->params.service_id)
--		candidate->state	= RXRPC_CONN_SERVICE_UNSECURED;
+-	sg_mark_end(&sg[nsg - 1]);
 -
--	write_lock_bh(&peer->conn_lock);
--
--	pp = &peer->service_conns.rb_node;
--	p = NULL;
--	while (*pp) {
--		p = *pp;
--		conn = rb_entry(p, struct rxrpc_connection, service_node);
--
--		if (epoch < conn->proto.epoch)
--			pp = &(*pp)->rb_left;
--		else if (epoch > conn->proto.epoch)
--			pp = &(*pp)->rb_right;
--		else if (cid < conn->proto.cid)
--			pp = &(*pp)->rb_left;
--		else if (cid > conn->proto.cid)
--			pp = &(*pp)->rb_right;
--		else
--			goto found_extant_second;
--	}
--
--	/* we can now add the new candidate to the list */
--	conn = candidate;
--	candidate = NULL;
--	rb_link_node(&conn->service_node, p, pp);
--	rb_insert_color(&conn->service_node, &peer->service_conns);
--	rxrpc_get_peer(peer);
--	rxrpc_get_local(local);
--
--	write_unlock_bh(&peer->conn_lock);
--
--	write_lock(&rxrpc_connection_lock);
--	list_add_tail(&conn->link, &rxrpc_connections);
--	write_unlock(&rxrpc_connection_lock);
--
--	new = "new";
--
--success:
--	_net("CONNECTION %s %d {%x}", new, conn->debug_id, conn->proto.cid);
--
--	_leave(" = %p {u=%d}", conn, atomic_read(&conn->usage));
--	return conn;
--
--	/* we found the connection in the list immediately */
--found_extant_connection:
--	if (sp->hdr.securityIndex != conn->security_ix) {
--		read_unlock_bh(&peer->conn_lock);
--		goto security_mismatch;
--	}
--	rxrpc_get_connection(conn);
--	read_unlock_bh(&peer->conn_lock);
--	goto success;
--
--	/* we found the connection on the second time through the list */
--found_extant_second:
--	if (sp->hdr.securityIndex != conn->security_ix) {
--		write_unlock_bh(&peer->conn_lock);
--		goto security_mismatch;
--	}
--	rxrpc_get_connection(conn);
--	write_unlock_bh(&peer->conn_lock);
--	kfree(candidate);
--	goto success;
--
--security_mismatch:
--	kfree(candidate);
--	_leave(" = -EKEYREJECTED");
--	return ERR_PTR(-EKEYREJECTED);
+-	ASSERTCMP(sg[0].length + sg[1].length, ==, buflen);
 -}
 -
 -/*
-  * find a connection based on transport and RxRPC connection ID for an incoming
-  * packet
+  * encrypt the response packet
   */
-diff --git a/net/rxrpc/conn_service.c b/net/rxrpc/conn_service.c
-new file mode 100644
-index 000000000000..2536d5276f67
---- /dev/null
-+++ b/net/rxrpc/conn_service.c
-@@ -0,0 +1,146 @@
-+/* Service connection management
-+ *
-+ * Copyright (C) 2016 Red Hat, Inc. All Rights Reserved.
-+ * Written by David Howells (dhowells@redhat.com)
-+ *
-+ * This program is free software; you can redistribute it and/or
-+ * modify it under the terms of the GNU General Public Licence
-+ * as published by the Free Software Foundation; either version
-+ * 2 of the Licence, or (at your option) any later version.
-+ */
-+
-+#include <linux/slab.h>
-+#include "ar-internal.h"
-+
-+/*
-+ * get a record of an incoming connection
-+ */
-+struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
-+						   struct rxrpc_peer *peer,
-+						   struct sk_buff *skb)
-+{
-+	struct rxrpc_connection *conn, *candidate = NULL;
-+	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
-+	struct rb_node *p, **pp;
-+	const char *new = "old";
-+	__be32 epoch;
-+	u32 cid;
-+
-+	_enter("");
-+
-+	ASSERT(sp->hdr.flags & RXRPC_CLIENT_INITIATED);
-+
-+	epoch = sp->hdr.epoch;
-+	cid = sp->hdr.cid & RXRPC_CIDMASK;
-+
-+	/* search the connection list first */
-+	read_lock_bh(&peer->conn_lock);
-+
-+	p = peer->service_conns.rb_node;
-+	while (p) {
-+		conn = rb_entry(p, struct rxrpc_connection, service_node);
-+
-+		_debug("maybe %x", conn->proto.cid);
-+
-+		if (epoch < conn->proto.epoch)
-+			p = p->rb_left;
-+		else if (epoch > conn->proto.epoch)
-+			p = p->rb_right;
-+		else if (cid < conn->proto.cid)
-+			p = p->rb_left;
-+		else if (cid > conn->proto.cid)
-+			p = p->rb_right;
-+		else
-+			goto found_extant_connection;
-+	}
-+	read_unlock_bh(&peer->conn_lock);
-+
-+	/* not yet present - create a candidate for a new record and then
-+	 * redo the search */
-+	candidate = rxrpc_alloc_connection(GFP_NOIO);
-+	if (!candidate) {
-+		_leave(" = -ENOMEM");
-+		return ERR_PTR(-ENOMEM);
-+	}
-+
-+	candidate->proto.local		= local;
-+	candidate->proto.epoch		= sp->hdr.epoch;
-+	candidate->proto.cid		= sp->hdr.cid & RXRPC_CIDMASK;
-+	candidate->proto.in_clientflag	= RXRPC_CLIENT_INITIATED;
-+	candidate->params.local		= local;
-+	candidate->params.peer		= peer;
-+	candidate->params.service_id	= sp->hdr.serviceId;
-+	candidate->security_ix		= sp->hdr.securityIndex;
-+	candidate->out_clientflag	= 0;
-+	candidate->state		= RXRPC_CONN_SERVICE;
-+	if (candidate->params.service_id)
-+		candidate->state	= RXRPC_CONN_SERVICE_UNSECURED;
-+
-+	write_lock_bh(&peer->conn_lock);
-+
-+	pp = &peer->service_conns.rb_node;
-+	p = NULL;
-+	while (*pp) {
-+		p = *pp;
-+		conn = rb_entry(p, struct rxrpc_connection, service_node);
-+
-+		if (epoch < conn->proto.epoch)
-+			pp = &(*pp)->rb_left;
-+		else if (epoch > conn->proto.epoch)
-+			pp = &(*pp)->rb_right;
-+		else if (cid < conn->proto.cid)
-+			pp = &(*pp)->rb_left;
-+		else if (cid > conn->proto.cid)
-+			pp = &(*pp)->rb_right;
-+		else
-+			goto found_extant_second;
-+	}
-+
-+	/* we can now add the new candidate to the list */
-+	conn = candidate;
-+	candidate = NULL;
-+	rb_link_node(&conn->service_node, p, pp);
-+	rb_insert_color(&conn->service_node, &peer->service_conns);
-+	rxrpc_get_peer(peer);
-+	rxrpc_get_local(local);
-+
-+	write_unlock_bh(&peer->conn_lock);
-+
-+	write_lock(&rxrpc_connection_lock);
-+	list_add_tail(&conn->link, &rxrpc_connections);
-+	write_unlock(&rxrpc_connection_lock);
-+
-+	new = "new";
-+
-+success:
-+	_net("CONNECTION %s %d {%x}", new, conn->debug_id, conn->proto.cid);
-+
-+	_leave(" = %p {u=%d}", conn, atomic_read(&conn->usage));
-+	return conn;
-+
-+	/* we found the connection in the list immediately */
-+found_extant_connection:
-+	if (sp->hdr.securityIndex != conn->security_ix) {
-+		read_unlock_bh(&peer->conn_lock);
-+		goto security_mismatch;
-+	}
-+	rxrpc_get_connection(conn);
-+	read_unlock_bh(&peer->conn_lock);
-+	goto success;
-+
-+	/* we found the connection on the second time through the list */
-+found_extant_second:
-+	if (sp->hdr.securityIndex != conn->security_ix) {
-+		write_unlock_bh(&peer->conn_lock);
-+		goto security_mismatch;
-+	}
-+	rxrpc_get_connection(conn);
-+	write_unlock_bh(&peer->conn_lock);
-+	kfree(candidate);
-+	goto success;
-+
-+security_mismatch:
-+	kfree(candidate);
-+	_leave(" = -EKEYREJECTED");
-+	return ERR_PTR(-EKEYREJECTED);
-+}
+ static void rxkad_encrypt_response(struct rxrpc_connection *conn,
+@@ -741,17 +691,16 @@ static void rxkad_encrypt_response(struct rxrpc_connection *conn,
+ {
+ 	SKCIPHER_REQUEST_ON_STACK(req, conn->cipher);
+ 	struct rxrpc_crypt iv;
+-	struct scatterlist sg[2];
++	struct scatterlist sg[1];
+ 
+ 	/* continue encrypting from where we left off */
+ 	memcpy(&iv, s2->session_key, sizeof(iv));
+ 
+-	rxkad_sg_set_buf2(sg, &resp->encrypted, sizeof(resp->encrypted));
+-
++	sg_init_table(sg, 1);
++	sg_set_buf(sg, &resp->encrypted, sizeof(resp->encrypted));
+ 	skcipher_request_set_tfm(req, conn->cipher);
+ 	skcipher_request_set_callback(req, 0, NULL, NULL);
+ 	skcipher_request_set_crypt(req, sg, sg, sizeof(resp->encrypted), iv.x);
+-
+ 	crypto_skcipher_encrypt(req);
+ 	skcipher_request_zero(req);
+ }
+@@ -887,10 +836,8 @@ static int rxkad_decrypt_ticket(struct rxrpc_connection *conn,
+ 	}
+ 
+ 	sg_init_one(&sg[0], ticket, ticket_len);
+-
+ 	skcipher_request_set_callback(req, 0, NULL, NULL);
+ 	skcipher_request_set_crypt(req, sg, sg, ticket_len, iv.x);
+-
+ 	crypto_skcipher_decrypt(req);
+ 	skcipher_request_free(req);
+ 
+@@ -1001,7 +948,7 @@ static void rxkad_decrypt_response(struct rxrpc_connection *conn,
+ 				   const struct rxrpc_crypt *session_key)
+ {
+ 	SKCIPHER_REQUEST_ON_STACK(req, rxkad_ci);
+-	struct scatterlist sg[2];
++	struct scatterlist sg[1];
+ 	struct rxrpc_crypt iv;
+ 
+ 	_enter(",,%08x%08x",
+@@ -1016,12 +963,11 @@ static void rxkad_decrypt_response(struct rxrpc_connection *conn,
+ 
+ 	memcpy(&iv, session_key, sizeof(iv));
+ 
+-	rxkad_sg_set_buf2(sg, &resp->encrypted, sizeof(resp->encrypted));
+-
++	sg_init_table(sg, 1);
++	sg_set_buf(sg, &resp->encrypted, sizeof(resp->encrypted));
+ 	skcipher_request_set_tfm(req, rxkad_ci);
+ 	skcipher_request_set_callback(req, 0, NULL, NULL);
+ 	skcipher_request_set_crypt(req, sg, sg, sizeof(resp->encrypted), iv.x);
+-
+ 	crypto_skcipher_decrypt(req);
+ 	skcipher_request_zero(req);
+ 
