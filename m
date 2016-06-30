@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 05/19] rxrpc: Turn connection #defines into enums
- and put outside struct def
-Date: Thu, 30 Jun 2016 15:11:18 +0100
-Message-ID: <146729587824.26306.13009523565299410873.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 06/19] rxrpc: Check that the client conns cache is
+ empty before module removal
+Date: Thu, 30 Jun 2016 15:11:25 +0100
+Message-ID: <146729588538.26306.13628963933419857885.stgit@warthog.procyon.org.uk>
 References: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,185 +10,74 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, netdev@vger.kernel.org,
 	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:56044 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932340AbcF3OVx (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 30 Jun 2016 10:21:53 -0400
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Turn the connection event and state #define lists into enums and move
-outside of the struct definition.
-
-Whilst we're at it, change _SERVER to _SERVICE in those identifiers and add
-EV_ into the event name to distinguish them from flags and states.
-
-Also add a symbol indicating the number of states and use that in the state
-text array.
+Check that the client conns cache is empty before module removal and bug if
+not, listing any offending connections that are still present.  Unfortunately,
+if there are connections still around, then the transport socket is still
+unexpectedly open and active, so we can't just unallocate the connections.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h |   42 ++++++++++++++++++++++++++++++------------
- net/rxrpc/call_accept.c |    6 +++---
- net/rxrpc/conn_event.c  |    6 +++---
- net/rxrpc/conn_object.c |    4 ++--
- net/rxrpc/proc.c        |   18 +++++++++---------
- 5 files changed, 47 insertions(+), 29 deletions(-)
+ net/rxrpc/af_rxrpc.c    |    3 +--
+ net/rxrpc/ar-internal.h |    1 +
+ net/rxrpc/conn_client.c |   19 +++++++++++++++++++
+ 3 files changed, 21 insertions(+), 2 deletions(-)
 
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index 5d3e795a7c48..d5073eb02498 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -807,8 +807,7 @@ static void __exit af_rxrpc_exit(void)
+ 	_debug("synchronise RCU");
+ 	rcu_barrier();
+ 	_debug("destroy locals");
+-	ASSERT(idr_is_empty(&rxrpc_client_conn_ids));
+-	idr_destroy(&rxrpc_client_conn_ids);
++	rxrpc_destroy_client_conn_ids();
+ 	rxrpc_destroy_all_locals();
+ 
+ 	remove_proc_entry("rxrpc_conns", init_net.proc_net);
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index f2b1c6dd5e9a..6f62b0eef0e0 100644
+index 6f62b0eef0e0..2a8710dac3c5 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -254,6 +254,35 @@ struct rxrpc_conn_parameters {
- };
+@@ -542,6 +542,7 @@ extern struct idr rxrpc_client_conn_ids;
+ 
+ int rxrpc_get_client_connection_id(struct rxrpc_connection *, gfp_t);
+ void rxrpc_put_client_connection_id(struct rxrpc_connection *);
++void rxrpc_destroy_client_conn_ids(void);
  
  /*
-+ * Bits in the connection flags.
-+ */
-+enum rxrpc_conn_flag {
-+	RXRPC_CONN_HAS_IDR,		/* Has a client conn ID assigned */
-+};
-+
-+/*
-+ * Events that can be raised upon a connection.
-+ */
-+enum rxrpc_conn_event {
-+	RXRPC_CONN_EV_CHALLENGE,	/* Send challenge packet */
-+};
-+
-+/*
-+ * The connection protocol state.
-+ */
-+enum rxrpc_conn_proto_state {
-+	RXRPC_CONN_UNUSED,		/* Connection not yet attempted */
-+	RXRPC_CONN_CLIENT,		/* Client connection */
-+	RXRPC_CONN_SERVICE_UNSECURED,	/* Service unsecured connection */
-+	RXRPC_CONN_SERVICE_CHALLENGING,	/* Service challenging for security */
-+	RXRPC_CONN_SERVICE,		/* Service secured connection */
-+	RXRPC_CONN_REMOTELY_ABORTED,	/* Conn aborted by peer */
-+	RXRPC_CONN_LOCALLY_ABORTED,	/* Conn aborted locally */
-+	RXRPC_CONN_NETWORK_ERROR,	/* Conn terminated by network error */
-+	RXRPC_CONN__NR_STATES
-+};
-+
-+/*
-  * RxRPC connection definition
-  * - matched by { local, peer, epoch, conn_id, direction }
-  * - each connection can only handle four simultaneous calls
-@@ -280,23 +309,12 @@ struct rxrpc_connection {
- 	struct crypto_skcipher	*cipher;	/* encryption handle */
- 	struct rxrpc_crypt	csum_iv;	/* packet checksum base */
- 	unsigned long		flags;
--#define RXRPC_CONN_HAS_IDR	0		/* - Has a client conn ID assigned */
- 	unsigned long		events;
--#define RXRPC_CONN_CHALLENGE	0		/* send challenge packet */
- 	unsigned long		put_time;	/* Time at which last put */
- 	rwlock_t		lock;		/* access lock */
- 	spinlock_t		state_lock;	/* state-change lock */
- 	atomic_t		usage;
--	enum {					/* current state of connection */
--		RXRPC_CONN_UNUSED,		/* - connection not yet attempted */
--		RXRPC_CONN_CLIENT,		/* - client connection */
--		RXRPC_CONN_SERVER_UNSECURED,	/* - server unsecured connection */
--		RXRPC_CONN_SERVER_CHALLENGING,	/* - server challenging for security */
--		RXRPC_CONN_SERVER,		/* - server secured connection */
--		RXRPC_CONN_REMOTELY_ABORTED,	/* - conn aborted by peer */
--		RXRPC_CONN_LOCALLY_ABORTED,	/* - conn aborted locally */
--		RXRPC_CONN_NETWORK_ERROR,	/* - conn terminated by network error */
--	} state;
-+	enum rxrpc_conn_proto_state state : 8;	/* current state of connection */
- 	u32			local_abort;	/* local abort code */
- 	u32			remote_abort;	/* remote abort code */
- 	int			error;		/* local error incurred */
-diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
-index 202e053a3c6d..1c0860df150e 100644
---- a/net/rxrpc/call_accept.c
-+++ b/net/rxrpc/call_accept.c
-@@ -128,12 +128,12 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
- 
- 		spin_lock(&call->conn->state_lock);
- 		if (sp->hdr.securityIndex > 0 &&
--		    call->conn->state == RXRPC_CONN_SERVER_UNSECURED) {
-+		    call->conn->state == RXRPC_CONN_SERVICE_UNSECURED) {
- 			_debug("await conn sec");
- 			list_add_tail(&call->accept_link, &rx->secureq);
--			call->conn->state = RXRPC_CONN_SERVER_CHALLENGING;
-+			call->conn->state = RXRPC_CONN_SERVICE_CHALLENGING;
- 			rxrpc_get_connection(call->conn);
--			set_bit(RXRPC_CONN_CHALLENGE, &call->conn->events);
-+			set_bit(RXRPC_CONN_EV_CHALLENGE, &call->conn->events);
- 			rxrpc_queue_conn(call->conn);
- 		} else {
- 			_debug("conn ready");
-diff --git a/net/rxrpc/conn_event.c b/net/rxrpc/conn_event.c
-index d7e183c6b5df..b9c39b83eddb 100644
---- a/net/rxrpc/conn_event.c
-+++ b/net/rxrpc/conn_event.c
-@@ -195,8 +195,8 @@ static int rxrpc_process_event(struct rxrpc_connection *conn,
- 		read_lock_bh(&conn->lock);
- 		spin_lock(&conn->state_lock);
- 
--		if (conn->state == RXRPC_CONN_SERVER_CHALLENGING) {
--			conn->state = RXRPC_CONN_SERVER;
-+		if (conn->state == RXRPC_CONN_SERVICE_CHALLENGING) {
-+			conn->state = RXRPC_CONN_SERVICE;
- 			for (loop = 0; loop < RXRPC_MAXCALLS; loop++)
- 				rxrpc_call_is_secure(conn->channels[loop]);
- 		}
-@@ -268,7 +268,7 @@ void rxrpc_process_connection(struct work_struct *work)
- 
- 	rxrpc_get_connection(conn);
- 
--	if (test_and_clear_bit(RXRPC_CONN_CHALLENGE, &conn->events)) {
-+	if (test_and_clear_bit(RXRPC_CONN_EV_CHALLENGE, &conn->events)) {
- 		rxrpc_secure_connection(conn);
- 		rxrpc_put_connection(conn);
+  * conn_event.c
+diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
+index 82488d6adb83..be437d5e90ce 100644
+--- a/net/rxrpc/conn_client.c
++++ b/net/rxrpc/conn_client.c
+@@ -92,3 +92,22 @@ void rxrpc_put_client_connection_id(struct rxrpc_connection *conn)
+ 		spin_unlock(&rxrpc_conn_id_lock);
  	}
-diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
-index ff0c502ed68d..6d50d0d165b7 100644
---- a/net/rxrpc/conn_object.c
-+++ b/net/rxrpc/conn_object.c
-@@ -403,9 +403,9 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
- 	candidate->params.service_id	= sp->hdr.serviceId;
- 	candidate->security_ix		= sp->hdr.securityIndex;
- 	candidate->out_clientflag	= 0;
--	candidate->state		= RXRPC_CONN_SERVER;
-+	candidate->state		= RXRPC_CONN_SERVICE;
- 	if (candidate->params.service_id)
--		candidate->state	= RXRPC_CONN_SERVER_UNSECURED;
-+		candidate->state	= RXRPC_CONN_SERVICE_UNSECURED;
- 
- 	write_lock_bh(&peer->conn_lock);
- 
-diff --git a/net/rxrpc/proc.c b/net/rxrpc/proc.c
-index afb5e1bc1b6e..46d470335263 100644
---- a/net/rxrpc/proc.c
-+++ b/net/rxrpc/proc.c
-@@ -14,15 +14,15 @@
- #include <net/af_rxrpc.h>
- #include "ar-internal.h"
- 
--static const char *const rxrpc_conn_states[] = {
--	[RXRPC_CONN_UNUSED]		= "Unused  ",
--	[RXRPC_CONN_CLIENT]		= "Client  ",
--	[RXRPC_CONN_SERVER_UNSECURED]	= "SvUnsec ",
--	[RXRPC_CONN_SERVER_CHALLENGING]	= "SvChall ",
--	[RXRPC_CONN_SERVER]		= "SvSecure",
--	[RXRPC_CONN_REMOTELY_ABORTED]	= "RmtAbort",
--	[RXRPC_CONN_LOCALLY_ABORTED]	= "LocAbort",
--	[RXRPC_CONN_NETWORK_ERROR]	= "NetError",
-+static const char *const rxrpc_conn_states[RXRPC_CONN__NR_STATES] = {
-+	[RXRPC_CONN_UNUSED]			= "Unused  ",
-+	[RXRPC_CONN_CLIENT]			= "Client  ",
-+	[RXRPC_CONN_SERVICE_UNSECURED]		= "SvUnsec ",
-+	[RXRPC_CONN_SERVICE_CHALLENGING]	= "SvChall ",
-+	[RXRPC_CONN_SERVICE]			= "SvSecure",
-+	[RXRPC_CONN_REMOTELY_ABORTED]		= "RmtAbort",
-+	[RXRPC_CONN_LOCALLY_ABORTED]		= "LocAbort",
-+	[RXRPC_CONN_NETWORK_ERROR]		= "NetError",
- };
- 
- /*
+ }
++
++/*
++ * Destroy the client connection ID tree.
++ */
++void rxrpc_destroy_client_conn_ids(void)
++{
++	struct rxrpc_connection *conn;
++	int id;
++
++	if (!idr_is_empty(&rxrpc_client_conn_ids)) {
++		idr_for_each_entry(&rxrpc_client_conn_ids, conn, id) {
++			pr_err("AF_RXRPC: Leaked client conn %p {%d}\n",
++			       conn, atomic_read(&conn->usage));
++		}
++		BUG();
++	}
++
++	idr_destroy(&rxrpc_client_conn_ids);
++}
