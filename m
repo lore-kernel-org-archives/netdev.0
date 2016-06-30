@@ -1,19 +1,19 @@
-From: "Michael S. Tsirkin" <mst@redhat.com>
-Subject: Re: [PATCH net-next V3 0/6] switch to use tx skb array in tun
-Date: Thu, 30 Jun 2016 08:37:31 +0300
-Message-ID: <20160630083717-mutt-send-email-mst@redhat.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next V3 5/6] net: introduce NETDEV_CHANGE_TX_QUEUE_LEN
+Date: Thu, 30 Jun 2016 13:59:47 +0800
+Message-ID: <5774B553.5070701@redhat.com>
 References: <1467258779-3539-1-git-send-email-jasowang@redhat.com>
+	<1467258779-3539-6-git-send-email-jasowang@redhat.com>
+	<5774A67B.1060802@gmail.com> <5774AA46.3090604@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, brouer@redhat.com,
-	davem@davemloft.net
-To: Jason Wang <jasowang@redhat.com>
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: brouer@redhat.com, eric.dumazet@gmail.com, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org
+To: John Fastabend <john.fastabend@gmail.com>, mst@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org, davem@davemloft.net
 Return-path: <virtualization-bounces@lists.linux-foundation.org>
-Content-Disposition: inline
-In-Reply-To: <1467258779-3539-1-git-send-email-jasowang@redhat.com>
+In-Reply-To: <5774AA46.3090604@redhat.com>
 List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
 	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
 List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
@@ -25,65 +25,57 @@ Sender: virtualization-bounces@lists.linux-foundation.org
 Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 30, 2016 at 11:52:53AM +0800, Jason Wang wrote:
-> Hi all:
-> 
-> This series tries to switch to use skb array in tun. This is used to
-> eliminate the spinlock contention between producer and consumer. The
-> conversion was straightforward: just introdce a tx skb array and use
-> it instead of sk_receive_queue.
-> 
-> A minor issue is to keep the tx_queue_len behaviour, since tun used to
-> use it for the length of sk_receive_queue. This is done through:
-> 
-> - add the ability to resize multiple rings at once to avoid handling
->   partial resize failure for mutiple rings.
-> - add the support for zero length ring.
-> - introduce a notifier which was triggered when tx_queue_len was
->   changed for a netdev.
-> - resize all queues during the tx_queue_len changing.
-> 
-> Tests shows about 15% improvement on guest rx pps:
-> 
-> Before: ~1300000pps
-> After : ~1500000pps
-
-Series:
-
-Acked-by: Michael S. Tsirkin <mst@redhat.com>
-
-
-> Changes from V2:
-> - add multiple rings resizing support for ptr_ring/skb_array
-> - add zero length ring support
-> - introdce a NETDEV_CHANGE_TX_QUEUE_LEN
-> - drop new flags
-> 
-> Changes from V1:
-> - switch to use skb array instead of a customized circular buffer
-> - add non-blocking support
-> - rename .peek to .peek_len
-> - drop lockless peeking since test show very minor improvement
-> 
-> Jason Wang (5):
->   ptr_ring: support zero length ring
->   skb_array: minor tweak
->   skb_array: add wrappers for resizing
->   net: introduce NETDEV_CHANGE_TX_QUEUE_LEN
->   tun: switch to use skb array for tx
-> 
-> Michael S. Tsirkin (1):
->   ptr_ring: support resizing multiple queues
-> 
->  drivers/net/tun.c                | 138 ++++++++++++++++++++++++++++++++++++---
->  drivers/vhost/net.c              |  16 ++++-
->  include/linux/net.h              |   1 +
->  include/linux/netdevice.h        |   1 +
->  include/linux/ptr_ring.h         |  77 ++++++++++++++++++----
->  include/linux/skb_array.h        |  13 +++-
->  net/core/net-sysfs.c             |  15 ++++-
->  tools/virtio/ringtest/ptr_ring.c |   5 ++
->  8 files changed, 243 insertions(+), 23 deletions(-)
-> 
-> -- 
-> 2.7.4
+CgpPbiAyMDE25bm0MDbmnIgzMOaXpSAxMzoxMiwgSmFzb24gV2FuZyB3cm90ZToKPgo+Cj4gT24g
+MjAxNuW5tDA25pyIMzDml6UgMTI6NTYsIEpvaG4gRmFzdGFiZW5kIHdyb3RlOgo+PiBPbiAxNi0w
+Ni0yOSAwODo1MiBQTSwgSmFzb24gV2FuZyB3cm90ZToKPj4+IFRoaXMgcGF0Y2ggaW50cm9kdWNl
+cyBhIG5ldyBldmVudCAtIE5FVERFVl9DSEFOR0VfVFhfUVVFVUVfTEVOLCB0aGlzCj4+PiB3aWxs
+IGJlIHRyaWdnZXJlZCB3aGVuIHR4X3F1ZXVlX2xlbi4gSXQgY291bGQgYmUgdXNlZCBieSBuZXQg
+ZGV2aWNlCj4+PiB3aG8gd2FudCB0byBkbyBzb21lIHByb2Nlc3NpbmcgYXQgdGhhdCB0aW1lLiBB
+biBleGFtcGxlIGlzIHR1biB3aG8gbWF5Cj4+PiB3YW50IHRvIHJlc2l6ZSB0eCBhcnJheSB3aGVu
+IHR4X3F1ZXVlX2xlbiBpcyBjaGFuZ2VkLgo+Pj4KPj4+IFNpZ25lZC1vZmYtYnk6IEphc29uIFdh
+bmcgPGphc293YW5nQHJlZGhhdC5jb20+Cj4+PiAtLS0KPj4+ICAgaW5jbHVkZS9saW51eC9uZXRk
+ZXZpY2UuaCB8ICAxICsKPj4+ICAgbmV0L2NvcmUvbmV0LXN5c2ZzLmMgICAgICB8IDE1ICsrKysr
+KysrKysrKysrLQo+Pj4gICAyIGZpbGVzIGNoYW5nZWQsIDE1IGluc2VydGlvbnMoKyksIDEgZGVs
+ZXRpb24oLSkKPj4+Cj4+PiBkaWZmIC0tZ2l0IGEvaW5jbHVkZS9saW51eC9uZXRkZXZpY2UuaCBi
+L2luY2x1ZGUvbGludXgvbmV0ZGV2aWNlLmgKPj4+IGluZGV4IGU4NGQ5ZDIuLjdkYzJlYzcgMTAw
+NjQ0Cj4+PiAtLS0gYS9pbmNsdWRlL2xpbnV4L25ldGRldmljZS5oCj4+PiArKysgYi9pbmNsdWRl
+L2xpbnV4L25ldGRldmljZS5oCj4+PiBAQCAtMjIzNyw2ICsyMjM3LDcgQEAgc3RydWN0IG5ldGRl
+dl9sYWdfbG93ZXJfc3RhdGVfaW5mbyB7Cj4+PiAgICNkZWZpbmUgTkVUREVWX1BSRUNIQU5HRVVQ
+UEVSICAgIDB4MDAxQQo+Pj4gICAjZGVmaW5lIE5FVERFVl9DSEFOR0VMT1dFUlNUQVRFICAgIDB4
+MDAxQgo+Pj4gICAjZGVmaW5lIE5FVERFVl9VRFBfVFVOTkVMX1BVU0hfSU5GTyAgICAweDAwMUMK
+Pj4+ICsjZGVmaW5lIE5FVERFVl9DSEFOR0VfVFhfUVVFVUVfTEVOICAgIDB4MDAxRQo+Pj4gICAg
+IGludCByZWdpc3Rlcl9uZXRkZXZpY2Vfbm90aWZpZXIoc3RydWN0IG5vdGlmaWVyX2Jsb2NrICpu
+Yik7Cj4+PiAgIGludCB1bnJlZ2lzdGVyX25ldGRldmljZV9ub3RpZmllcihzdHJ1Y3Qgbm90aWZp
+ZXJfYmxvY2sgKm5iKTsKPj4+IGRpZmYgLS1naXQgYS9uZXQvY29yZS9uZXQtc3lzZnMuYyBiL25l
+dC9jb3JlL25ldC1zeXNmcy5jCj4+PiBpbmRleCA3YTBiNjE2Li42ZTRmMzQ3IDEwMDY0NAo+Pj4g
+LS0tIGEvbmV0L2NvcmUvbmV0LXN5c2ZzLmMKPj4+ICsrKyBiL25ldC9jb3JlL25ldC1zeXNmcy5j
+Cj4+PiBAQCAtMzIyLDcgKzMyMiwyMCBAQCBORVRERVZJQ0VfU0hPV19SVyhmbGFncywgZm10X2hl
+eCk7Cj4+PiAgICAgc3RhdGljIGludCBjaGFuZ2VfdHhfcXVldWVfbGVuKHN0cnVjdCBuZXRfZGV2
+aWNlICpkZXYsIHVuc2lnbmVkIAo+Pj4gbG9uZyBuZXdfbGVuKQo+Pj4gICB7Cj4+PiAtICAgIGRl
+di0+dHhfcXVldWVfbGVuID0gbmV3X2xlbjsKPj4+ICsgICAgaW50IHJlcywgb3JpZ19sZW4gPSBk
+ZXYtPnR4X3F1ZXVlX2xlbjsKPj4+ICsKPj4+ICsgICAgaWYgKG5ld19sZW4gIT0gb3JpZ19sZW4p
+IHsKPj4+ICsgICAgICAgIGRldi0+dHhfcXVldWVfbGVuID0gbmV3X2xlbjsKPj4+ICsgICAgICAg
+IHJlcyA9IGNhbGxfbmV0ZGV2aWNlX25vdGlmaWVycyhORVRERVZfQ0hBTkdFX1RYX1FVRVVFX0xF
+TiwgCj4+PiBkZXYpOwo+Pj4gKyAgICAgICAgcmVzID0gbm90aWZpZXJfdG9fZXJybm8ocmVzKTsK
+Pj4+ICsgICAgICAgIGlmIChyZXMpIHsKPj4+ICsgICAgICAgICAgICBuZXRkZXZfZXJyKGRldiwK
+Pj4+ICsgICAgICAgICAgICAgICAgICAgInJlZnVzZWQgdG8gY2hhbmdlIGRldmljZSB0eF9xdWV1
+ZV9sZW5cbiIpOwo+Pj4gKyAgICAgICAgICAgIGRldi0+dHhfcXVldWVfbGVuID0gb3JpZ19sZW47
+Cj4+PiArICAgICAgICAgICAgcmV0dXJuIC1FRkFVTFQ7Cj4+PiArICAgICAgICB9Cj4+PiArICAg
+IH0KPj4+ICsKPj4+ICAgICAgIHJldHVybiAwOwo+Pj4gICB9Cj4+Pgo+PiBBY2tlZC1ieTogSm9o
+biBGYXN0YWJlbmQgPGpvaG4uci5mYXN0YWJlbmRAaW50ZWwuY29tPgo+Pgo+PiBHcmVhdCB0aW1p
+bmcgSSB3YXMganVzdCBsb29raW5nIGludG8gdGhpcyBiZWNhdXNlIEkgbmVlZCBpdCBmb3IgdGhl
+Cj4+IHFkaXNjIHNpZGUuCj4+Cj4+IEl0IGxvb2tzIGxpa2UgdGhpcyBjb3ZlcnMgdGhlIHN5c2Zz
+IGNoYW5nZSBidXQgdGhlIHR4X3F1ZXVlX2xlbiBjYW4KPj4gYWxzbyBiZSBjaGFuZ2VkIHZpYSBy
+dG5ldGxpbmsgYXMgd2VsbC4gU28gd2UgbmVlZCBhbm90aGVyIHBhdGNoIGZvcgo+PiB0aGF0IHBh
+dGggcmlnaHQ/Cj4+Cj4+ICAgICAgICAgIGlmICh0YltJRkxBX1RYUUxFTl0pIHsKPj4gICAgICAg
+ICAgICAgICAgICB1bnNpZ25lZCBsb25nIHZhbHVlID0gbmxhX2dldF91MzIodGJbSUZMQV9UWFFM
+RU5dKTsKPj4KPj4gICAgICAgICAgICAgICAgICBpZiAoZGV2LT50eF9xdWV1ZV9sZW4gXiB2YWx1
+ZSkKPj4gICAgICAgICAgICAgICAgICAgICAgICAgIHN0YXR1cyB8PSBET19TRVRMSU5LX05PVElG
+WTsKPj4KPj4gICAgICAgICAgICAgICAgICBkZXYtPnR4X3F1ZXVlX2xlbiA9IHZhbHVlOwo+PiAg
+ICAgICAgICB9Cj4+Cj4+IFRoYW5rcywKPj4gSm9obgo+Pgo+Cj4gUmlnaHQsIHdpbGwgZG8gdGhp
+cyBpbiBuZXh0IHZlcnNpb24uCj4KPiBUaGFua3MKCk9rLCBzaW5jZSBNaWNoYWVsIGhhcyBhY2tl
+ZCBvbiB0aGUgc2VyaWVzLCB3aWxsIHByZXBhcmUgYSBwYXRjaCBvbiB0b3AuCgpUaGFua3MKX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6YXRp
+b24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24ub3Jn
+Cmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3ZpcnR1
+YWxpemF0aW9u
