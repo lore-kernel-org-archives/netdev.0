@@ -1,48 +1,48 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: Re: [PATCH net] bonding: prevent out of bound accesses
-Date: Thu, 30 Jun 2016 16:13:37 +0200
-Message-ID: <CACT4Y+Y=1T_iYGL83bL8pN2QtC8-jiiGXyG0qLmpeOE8R3WX5w@mail.gmail.com>
-References: <1467291379.11238.8.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACT4Y+aAVS+oYg62hftq7RMb2QM9wiPCK-Vf33c2PaG2Sm6R6g@mail.gmail.com>
- <1467293149.11238.12.camel@edumazet-glaptop3.roam.corp.google.com>
- <CACT4Y+YdOi1-z1pPJaYBybyHZ=MXzHPGjGU+UJWJf-N3pgGzeg@mail.gmail.com> <1467295729.11238.14.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 11/19] rxrpc: Access socket accept queue under
+ right lock
+Date: Thu, 30 Jun 2016 15:12:00 +0100
+Message-ID: <146729592088.26306.12478214428736330734.stgit@warthog.procyon.org.uk>
+References: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Ding Tianhong <dingtianhong@huawei.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f44.google.com ([209.85.215.44]:34122 "EHLO
-	mail-lf0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752509AbcF3ON6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 10:13:58 -0400
-Received: by mail-lf0-f44.google.com with SMTP id h129so56480963lfh.1
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 07:13:57 -0700 (PDT)
-In-Reply-To: <1467295729.11238.14.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 30, 2016 at 4:08 PM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> On Thu, 2016-06-30 at 15:35 +0200, Dmitry Vyukov wrote:
->
->>
->> What does nm -S say?
->> I've tried to compile a sample program with gcc6 and
->> __attribute__((aligned(8))) does in fact force alignment of start of
->> the symbol, but size still stays 6. (and asan still barks on my test
->> program).
->
-> Right, but then it means I also need to change mac_bcast[] and
-> mac_v6_allmcast[] in bond_alb.c to avoid false positive.
->
-> (Technically, if their alignment is 8, we have 8 bytes there,
-> no way it could span 2 pages)
+The socket's accept queue (socket->acceptq) should be accessed under
+socket->call_lock, not under the connection lock.
 
-Agree.
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-> I'll send a v2.
+ net/rxrpc/call_event.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-Thanks!
+diff --git a/net/rxrpc/call_event.c b/net/rxrpc/call_event.c
+index 638d66df284a..fc32aa5764a2 100644
+--- a/net/rxrpc/call_event.c
++++ b/net/rxrpc/call_event.c
+@@ -1089,7 +1089,7 @@ void rxrpc_process_call(struct work_struct *work)
+ 
+ 		if (call->state == RXRPC_CALL_SERVER_SECURING) {
+ 			_debug("securing");
+-			write_lock(&call->conn->lock);
++			write_lock(&call->socket->call_lock);
+ 			if (!test_bit(RXRPC_CALL_RELEASED, &call->flags) &&
+ 			    !test_bit(RXRPC_CALL_EV_RELEASE, &call->events)) {
+ 				_debug("not released");
+@@ -1097,7 +1097,7 @@ void rxrpc_process_call(struct work_struct *work)
+ 				list_move_tail(&call->accept_link,
+ 					       &call->socket->acceptq);
+ 			}
+-			write_unlock(&call->conn->lock);
++			write_unlock(&call->socket->call_lock);
+ 			read_lock(&call->state_lock);
+ 			if (call->state < RXRPC_CALL_COMPLETE)
+ 				set_bit(RXRPC_CALL_EV_POST_ACCEPT, &call->events);
