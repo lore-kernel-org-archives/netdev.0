@@ -1,587 +1,754 @@
-From: Aaron Conole <aconole@bytheb.org>
-Subject: [PATCH nf-next 3/3] netfilter: replace list_head with single linked list
-Date: Thu, 30 Jun 2016 17:19:35 -0400
-Message-ID: <1467321575-6107-4-git-send-email-aconole@bytheb.org>
-References: <1467321575-6107-1-git-send-email-aconole@bytheb.org>
-To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1467321575-6107-1-git-send-email-aconole@bytheb.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jon Mason <jon.mason@broadcom.com>
+Subject: Re: [RFC 5/7] net: ethernet: bgmac: Add platform device support
+Date: Thu, 30 Jun 2016 17:55:16 -0400
+Message-ID: <CAC3K-4ozVyAi43Jc=8cr+Yh6Mg2NG4BPa_WfBZ38MF=i8KvSxw@mail.gmail.com>
+References: <1467142484-11161-1-git-send-email-jon.mason@broadcom.com>
+ <1467142484-11161-6-git-send-email-jon.mason@broadcom.com> <65b8801d-b066-0179-273c-647c51a5ec8f@broadcom.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+	davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
+	Hauke Mehrtens <hauke@hauke-m.de>,
+	BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Ray Jui <ray.jui@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f172.google.com ([209.85.223.172]:33598 "EHLO
+	mail-io0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752041AbcF3V4q convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 17:56:46 -0400
+Received: by mail-io0-f172.google.com with SMTP id t74so84863973ioi.0
+        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 14:55:17 -0700 (PDT)
+In-Reply-To: <65b8801d-b066-0179-273c-647c51a5ec8f@broadcom.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The netfilter hook list never uses the prev pointer, and so can be
-trimmed to be a smaller singly-linked list.
+On Thu, Jun 30, 2016 at 1:58 PM, Ray Jui <ray.jui@broadcom.com> wrote:
+> Hi Jon,
+>
+>
+> On 6/28/2016 12:34 PM, Jon Mason wrote:
+>>
+>> The bcma portion of the driver has been split off into a bcma specif=
+ic
+>> driver.  This has been mirrored for the platform driver.  The last
+>> references to the bcma core struct have been changed into a generic
+>> function call.  These function calls are wrappers to either the orig=
+inal
+>> bcma code or new platform functions that access the same areas via M=
+MIO.
+>> This necessitated adding function pointers for both platform and bcm=
+a to
+>> hide which backend is being used from the generic bgmac code.
+>>
+>> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+>> ---
+>>  drivers/net/ethernet/broadcom/Kconfig          |  23 +-
+>>  drivers/net/ethernet/broadcom/Makefile         |   4 +-
+>>  drivers/net/ethernet/broadcom/bgmac-bcma.c     | 315
+>> ++++++++++++++++++++++++
+>>  drivers/net/ethernet/broadcom/bgmac-platform.c | 208 ++++++++++++++=
+++
+>>  drivers/net/ethernet/broadcom/bgmac.c          | 327
+>> ++++---------------------
+>>  drivers/net/ethernet/broadcom/bgmac.h          |  73 +++++-
+>>  6 files changed, 666 insertions(+), 284 deletions(-)
+>>  create mode 100644 drivers/net/ethernet/broadcom/bgmac-bcma.c
+>>  create mode 100644 drivers/net/ethernet/broadcom/bgmac-platform.c
+>>
+>> diff --git a/drivers/net/ethernet/broadcom/Kconfig
+>> b/drivers/net/ethernet/broadcom/Kconfig
+>> index d74a92e..bd8c80c 100644
+>> --- a/drivers/net/ethernet/broadcom/Kconfig
+>> +++ b/drivers/net/ethernet/broadcom/Kconfig
+>> @@ -140,10 +140,18 @@ config BNX2X_SRIOV
+>>           allows for virtual function acceleration in virtual
+>> environments.
+>>
+>>  config BGMAC
+>> -       tristate "BCMA bus GBit core support"
+>> +       tristate
+>> +       help
+>> +         This enables the integrated ethernet controller support fo=
+r many
+>> +         Broadcom (mostly iProc) SoCs. An appropriate bus interface
+>> driver
+>> +         needs to be enabled to select this.
+>> +
+>> +config BGMAC_BCMA
+>> +       tristate "Broadcom iProc GBit BCMA support"
+>>         depends on BCMA && BCMA_HOST_SOC
+>>         depends on HAS_DMA
+>>         depends on BCM47XX || ARCH_BCM_5301X || COMPILE_TEST
+>> +       select BGMAC
+>>         select PHYLIB
+>>         select FIXED_PHY
+>>         ---help---
+>> @@ -152,6 +160,19 @@ config BGMAC
+>>           In case of using this driver on BCM4706 it's also requires=
+ to
+>> enable
+>>           BCMA_DRIVER_GMAC_CMN to make it work.
+>>
+>> +config BGMAC_PLATFORM
+>> +       tristate "Broadcom iProc GBit platform support"
+>> +       depends on HAS_DMA
+>> +       depends on ARCH_BCM_IPROC || COMPILE_TEST
+>> +       depends on OF
+>> +       select BGMAC
+>> +       select PHYLIB
+>> +       select FIXED_PHY
+>> +       default ARCH_BCM_IPROC
+>> +       ---help---
+>> +         Say Y here if you want to use the Broadcom iProc Gigabit
+>> Ethernet
+>> +         controller through the generic platform interface
+>> +
+>>  config SYSTEMPORT
+>>         tristate "Broadcom SYSTEMPORT internal MAC support"
+>>         depends on OF
+>> diff --git a/drivers/net/ethernet/broadcom/Makefile
+>> b/drivers/net/ethernet/broadcom/Makefile
+>> index f559794..79f2372 100644
+>> --- a/drivers/net/ethernet/broadcom/Makefile
+>> +++ b/drivers/net/ethernet/broadcom/Makefile
+>> @@ -10,6 +10,8 @@ obj-$(CONFIG_CNIC) +=3D cnic.o
+>>  obj-$(CONFIG_BNX2X) +=3D bnx2x/
+>>  obj-$(CONFIG_SB1250_MAC) +=3D sb1250-mac.o
+>>  obj-$(CONFIG_TIGON3) +=3D tg3.o
+>> -obj-$(CONFIG_BGMAC) +=3D bgmac.o bgmac-bcma-mdio.o
+>> +obj-$(CONFIG_BGMAC) +=3D bgmac.o
+>> +obj-$(CONFIG_BGMAC_BCMA) +=3D bgmac-bcma.o bgmac-bcma-mdio.o
+>> +obj-$(CONFIG_BGMAC_PLATFORM) +=3D bgmac-platform.o
+>>  obj-$(CONFIG_SYSTEMPORT) +=3D bcmsysport.o
+>>  obj-$(CONFIG_BNXT) +=3D bnxt/
+>> diff --git a/drivers/net/ethernet/broadcom/bgmac-bcma.c
+>> b/drivers/net/ethernet/broadcom/bgmac-bcma.c
+>> new file mode 100644
+>> index 0000000..9a9745c4
+>> --- /dev/null
+>> +++ b/drivers/net/ethernet/broadcom/bgmac-bcma.c
+>> @@ -0,0 +1,315 @@
+>> +/*
+>> + * Driver for (BCM4706)? GBit MAC core on BCMA bus.
+>> + *
+>> + * Copyright (C) 2012 Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
+>> + *
+>> + * Licensed under the GNU/GPL. See COPYING for details.
+>> + */
+>> +
+>> +#define pr_fmt(fmt)            KBUILD_MODNAME ": " fmt
+>> +
+>> +#include <linux/bcma/bcma.h>
+>> +#include <linux/brcmphy.h>
+>> +#include <linux/etherdevice.h>
+>> +#include "bgmac.h"
+>> +
+>> +static inline bool bgmac_is_bcm4707_family(struct bcma_device *core=
+)
+>> +{
+>> +       switch (core->bus->chipinfo.id) {
+>> +       case BCMA_CHIP_ID_BCM4707:
+>> +       case BCMA_CHIP_ID_BCM47094:
+>> +       case BCMA_CHIP_ID_BCM53018:
+>> +               return true;
+>> +       default:
+>> +               return false;
+>> +       }
+>> +}
+>> +
+>> +/**************************************************
+>> + * BCMA bus ops
+>> + **************************************************/
+>> +
+>> +static u32 bcma_bgmac_read(struct bgmac *bgmac, u16 offset)
+>> +{
+>> +       return bcma_read32(bgmac->bcma.core, offset);
+>> +}
+>> +
+>> +static void bcma_bgmac_write(struct bgmac *bgmac, u16 offset, u32 v=
+alue)
+>> +{
+>> +       bcma_write32(bgmac->bcma.core, offset, value);
+>> +}
+>> +
+>> +static u32 bcma_bgmac_idm_read(struct bgmac *bgmac, u16 offset)
+>> +{
+>> +       return bcma_aread32(bgmac->bcma.core, offset);
+>> +}
+>> +
+>> +static void bcma_bgmac_idm_write(struct bgmac *bgmac, u16 offset, u=
+32
+>> value)
+>> +{
+>> +       return bcma_awrite32(bgmac->bcma.core, offset, value);
+>> +}
+>> +
+>> +static bool bcma_bgmac_clk_enabled(struct bgmac *bgmac)
+>> +{
+>> +       return bcma_core_is_enabled(bgmac->bcma.core);
+>> +}
+>> +
+>> +static void bcma_bgmac_clk_enable(struct bgmac *bgmac, u32 flags)
+>> +{
+>> +       bcma_core_enable(bgmac->bcma.core, flags);
+>> +}
+>> +
+>> +static void bcma_bgmac_cco_ctl_maskset(struct bgmac *bgmac, u32 off=
+set,
+>> +                                      u32 mask, u32 set)
+>> +{
+>> +       struct bcma_drv_cc *cc =3D &bgmac->bcma.core->bus->drv_cc;
+>> +
+>> +       bcma_chipco_chipctl_maskset(cc, offset, mask, set);
+>> +}
+>> +
+>> +static u32 bcma_bgmac_get_bus_clock(struct bgmac *bgmac)
+>> +{
+>> +       struct bcma_drv_cc *cc =3D &bgmac->bcma.core->bus->drv_cc;
+>> +
+>> +       return bcma_pmu_get_bus_clock(cc);
+>> +}
+>> +
+>> +static void bcma_bgmac_cmn_maskset32(struct bgmac *bgmac, u16 offse=
+t, u32
+>> mask,
+>> +                                    u32 set)
+>> +{
+>> +       bcma_maskset32(bgmac->bcma.cmn, offset, mask, set);
+>> +}
+>> +
+>> +static const struct bcma_device_id bgmac_bcma_tbl[] =3D {
+>> +       BCMA_CORE(BCMA_MANUF_BCM, BCMA_CORE_4706_MAC_GBIT,
+>> +                 BCMA_ANY_REV, BCMA_ANY_CLASS),
+>> +       BCMA_CORE(BCMA_MANUF_BCM, BCMA_CORE_MAC_GBIT, BCMA_ANY_REV,
+>> +                 BCMA_ANY_CLASS),
+>> +       {},
+>> +};
+>> +MODULE_DEVICE_TABLE(bcma, bgmac_bcma_tbl);
+>> +
+>> +/* http://bcm-v4.sipsolutions.net/mac-gbit/gmac/chipattach */
+>> +static int bgmac_probe(struct bcma_device *core)
+>> +{
+>> +       struct ssb_sprom *sprom =3D &core->bus->sprom;
+>> +       struct mii_bus *mii_bus;
+>> +       struct bgmac *bgmac;
+>> +       u8 *mac;
+>> +       int err;
+>> +
+>> +       bgmac =3D kzalloc(sizeof(*bgmac), GFP_KERNEL);
+>> +       if (!bgmac)
+>> +               return -ENOMEM;
+>> +
+>> +       bgmac->bcma.core =3D core;
+>> +       bgmac->dev =3D &core->dev;
+>> +       bgmac->dma_dev =3D core->dma_dev;
+>> +       bgmac->irq =3D core->irq;
+>> +
+>> +       bcma_set_drvdata(core, bgmac);
+>> +
+>> +       switch (core->core_unit) {
+>> +       case 0:
+>> +               mac =3D sprom->et0mac;
+>> +               break;
+>> +       case 1:
+>> +               mac =3D sprom->et1mac;
+>> +               break;
+>> +       case 2:
+>> +               mac =3D sprom->et2mac;
+>> +               break;
+>> +       default:
+>> +               dev_err(bgmac->dev, "Unsupported core_unit %d\n",
+>> +                       core->core_unit);
+>> +               err =3D -ENOTSUPP;
+>> +               goto err;
+>> +       }
+>> +
+>> +       ether_addr_copy(bgmac->mac_addr, mac);
+>> +
+>> +       /* On BCM4706 we need common core to access PHY */
+>> +       if (core->id.id =3D=3D BCMA_CORE_4706_MAC_GBIT &&
+>> +           !core->bus->drv_gmac_cmn.core) {
+>> +               dev_err(bgmac->dev, "GMAC CMN core not found (requir=
+ed for
+>> BCM4706)\n");
+>> +               err =3D -ENODEV;
+>> +               goto err;
+>> +       }
+>> +       bgmac->bcma.cmn =3D core->bus->drv_gmac_cmn.core;
+>> +
+>> +       switch (core->core_unit) {
+>> +       case 0:
+>> +               bgmac->phyaddr =3D sprom->et0phyaddr;
+>> +               break;
+>> +       case 1:
+>> +               bgmac->phyaddr =3D sprom->et1phyaddr;
+>> +               break;
+>> +       case 2:
+>> +               bgmac->phyaddr =3D sprom->et2phyaddr;
+>> +               break;
+>> +       }
+>> +       bgmac->phyaddr &=3D BGMAC_PHY_MASK;
+>> +       if (bgmac->phyaddr =3D=3D BGMAC_PHY_MASK) {
+>> +               dev_err(bgmac->dev, "No PHY found\n");
+>> +               err =3D -ENODEV;
+>> +               goto err;
+>> +       }
+>> +       dev_info(bgmac->dev, "Found PHY addr: %d%s\n", bgmac->phyadd=
+r,
+>> +                bgmac->phyaddr =3D=3D BGMAC_PHY_NOREGS ? " (NOREGS)=
+" : "");
+>> +
+>> +       if (!bgmac_is_bcm4707_family(core)) {
+>> +               mii_bus =3D bcma_mdio_mii_register(core, bgmac->phya=
+ddr);
+>> +               if (!IS_ERR(mii_bus)) {
+>> +                       err =3D PTR_ERR(mii_bus);
+>> +                       goto err;
+>> +               }
+>> +
+>> +               bgmac->mii_bus =3D mii_bus;
+>> +       }
+>> +
+>> +       if (core->bus->hosttype =3D=3D BCMA_HOSTTYPE_PCI) {
+>> +               dev_err(bgmac->dev, "PCI setup not implemented\n");
+>> +               err =3D -ENOTSUPP;
+>> +               goto err1;
+>> +       }
+>> +
+>> +       bgmac->has_robosw =3D !!(core->bus->sprom.boardflags_lo &
+>> +                              BGMAC_BFL_ENETROBO);
+>> +       if (bgmac->has_robosw)
+>> +               dev_warn(bgmac->dev, "Support for Roboswitch not
+>> implemented\n");
+>> +
+>> +       if (core->bus->sprom.boardflags_lo & BGMAC_BFL_ENETADM)
+>> +               dev_warn(bgmac->dev, "Support for ADMtek ethernet sw=
+itch
+>> not implemented\n");
+>> +
+>> +       /* Feature Flags */
+>> +       switch (core->bus->chipinfo.id) {
+>> +       case BCMA_CHIP_ID_BCM5357:
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_SET_RXQ_CLK;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_FLW_CTRL1;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_SW_TYPE_PHY;
+>> +               if (core->bus->chipinfo.pkg =3D=3D BCMA_PKG_ID_BCM47=
+186) {
+>> +                       bgmac->feature_flags |=3D BGMAC_FEAT_IOST_AT=
+TACHED;
+>> +                       bgmac->feature_flags |=3D BGMAC_FEAT_SW_TYPE=
+_RGMII;
+>> +               }
+>> +               if (core->bus->chipinfo.pkg =3D=3D BCMA_PKG_ID_BCM53=
+58)
+>> +                       bgmac->feature_flags |=3D
+>> BGMAC_FEAT_SW_TYPE_EPHYRMII;
+>> +               break;
+>> +       case BCMA_CHIP_ID_BCM53572:
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_SET_RXQ_CLK;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_FLW_CTRL1;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_SW_TYPE_PHY;
+>> +               if (core->bus->chipinfo.pkg =3D=3D BCMA_PKG_ID_BCM47=
+188) {
+>> +                       bgmac->feature_flags |=3D BGMAC_FEAT_SW_TYPE=
+_RGMII;
+>> +                       bgmac->feature_flags |=3D BGMAC_FEAT_IOST_AT=
+TACHED;
+>> +               }
+>> +               break;
+>> +       case BCMA_CHIP_ID_BCM4749:
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_SET_RXQ_CLK;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_FLW_CTRL1;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_SW_TYPE_PHY;
+>> +               if (core->bus->chipinfo.pkg =3D=3D 10) {
+>> +                       bgmac->feature_flags |=3D BGMAC_FEAT_SW_TYPE=
+_RGMII;
+>> +                       bgmac->feature_flags |=3D BGMAC_FEAT_IOST_AT=
+TACHED;
+>> +               }
+>> +               break;
+>> +       case BCMA_CHIP_ID_BCM4716:
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
+>> +               /* fallthrough */
+>> +       case BCMA_CHIP_ID_BCM47162:
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_FLW_CTRL2;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_SET_RXQ_CLK;
+>> +               break;
+>> +       /* bcm4707_family */
+>> +       case BCMA_CHIP_ID_BCM4707:
+>> +       case BCMA_CHIP_ID_BCM47094:
+>> +       case BCMA_CHIP_ID_BCM53018:
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_NO_RESET;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_FORCE_SPEED_250=
+0;
+>> +               break;
+>> +       default:
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_SET_RXQ_CLK;
+>> +       }
+>> +
+>> +       if (!bgmac_is_bcm4707_family(core) && core->id.rev > 2)
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_MISC_PLL_REQ;
+>> +
+>> +       if (core->id.id =3D=3D BCMA_CORE_4706_MAC_GBIT) {
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_CMN_PHY_CTL;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_NO_CLR_MIB;
+>> +       }
+>> +
+>> +       if (core->id.rev >=3D 4) {
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_CMDCFG_SR_REV4;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_TX_MASK_SETUP;
+>> +               bgmac->feature_flags |=3D BGMAC_FEAT_RX_MASK_SETUP;
+>> +       }
+>> +
+>> +       bgmac->read =3D bcma_bgmac_read;
+>> +       bgmac->write =3D bcma_bgmac_write;
+>> +       bgmac->idm_read =3D bcma_bgmac_idm_read;
+>> +       bgmac->idm_write =3D bcma_bgmac_idm_write;
+>> +       bgmac->clk_enabled =3D bcma_bgmac_clk_enabled;
+>> +       bgmac->clk_enable =3D bcma_bgmac_clk_enable;
+>> +       bgmac->cco_ctl_maskset =3D bcma_bgmac_cco_ctl_maskset;
+>> +       bgmac->get_bus_clock =3D bcma_bgmac_get_bus_clock;
+>> +       bgmac->cmn_maskset32 =3D bcma_bgmac_cmn_maskset32;
+>> +
+>> +       err =3D bgmac_enet_probe(bgmac);
+>> +       if (err)
+>> +               goto err1;
+>> +
+>> +       return 0;
+>> +
+>> +err1:
+>> +       bcma_mdio_mii_unregister(bgmac->mii_bus);
+>> +err:
+>> +       kfree(bgmac);
+>> +       bcma_set_drvdata(core, NULL);
+>> +
+>> +       return err;
+>> +}
+>> +
+>> +static void bgmac_remove(struct bcma_device *core)
+>> +{
+>> +       struct bgmac *bgmac =3D bcma_get_drvdata(core);
+>> +
+>> +       bcma_mdio_mii_unregister(bgmac->mii_bus);
+>> +       bgmac_enet_remove(bgmac);
+>> +       bcma_set_drvdata(core, NULL);
+>> +       kfree(bgmac);
+>> +}
+>> +
+>> +static struct bcma_driver bgmac_bcma_driver =3D {
+>> +       .name           =3D KBUILD_MODNAME,
+>> +       .id_table       =3D bgmac_bcma_tbl,
+>> +       .probe          =3D bgmac_probe,
+>> +       .remove         =3D bgmac_remove,
+>> +};
+>> +
+>> +static int __init bgmac_init(void)
+>> +{
+>> +       int err;
+>> +
+>> +       err =3D bcma_driver_register(&bgmac_bcma_driver);
+>> +       if (err)
+>> +               return err;
+>> +       pr_info("Broadcom 47xx GBit MAC driver loaded\n");
+>> +
+>> +       return 0;
+>> +}
+>> +
+>> +static void __exit bgmac_exit(void)
+>> +{
+>> +       bcma_driver_unregister(&bgmac_bcma_driver);
+>> +}
+>> +
+>> +module_init(bgmac_init)
+>> +module_exit(bgmac_exit)
+>> +
+>> +MODULE_AUTHOR("Rafa=C5=82 Mi=C5=82ecki");
+>> +MODULE_LICENSE("GPL");
+>> diff --git a/drivers/net/ethernet/broadcom/bgmac-platform.c
+>> b/drivers/net/ethernet/broadcom/bgmac-platform.c
+>> new file mode 100644
+>> index 0000000..fac93c0
+>> --- /dev/null
+>> +++ b/drivers/net/ethernet/broadcom/bgmac-platform.c
+>> @@ -0,0 +1,208 @@
+>> +/*
+>> + * Copyright (C) 2016 Broadcom
+>> + *
+>> + * This program is free software; you can redistribute it and/or
+>> + * modify it under the terms of the GNU General Public License as
+>> + * published by the Free Software Foundation version 2.
+>> + *
+>> + * This program is distributed "as is" WITHOUT ANY WARRANTY of any
+>> + * kind, whether express or implied; without even the implied warra=
+nty
+>> + * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+>> + * GNU General Public License for more details.
+>> + */
+>> +
+>> +#define pr_fmt(fmt)            KBUILD_MODNAME ": " fmt
+>> +
+>> +#include <linux/bcma/bcma.h>
+>> +#include <linux/etherdevice.h>
+>> +#include <linux/of_address.h>
+>> +#include <linux/of_net.h>
+>> +#include "bgmac.h"
+>> +
+>> +static u32 platform_bgmac_read(struct bgmac *bgmac, u16 offset)
+>> +{
+>> +       return readl(bgmac->plat.base + offset);
+>> +}
+>> +
+>> +static void platform_bgmac_write(struct bgmac *bgmac, u16 offset, u=
+32
+>> value)
+>> +{
+>> +       writel(value, bgmac->plat.base + offset);
+>> +}
+>> +
+>> +static u32 platform_bgmac_idm_read(struct bgmac *bgmac, u16 offset)
+>> +{
+>> +       return readl(bgmac->plat.idm_base + offset);
+>> +}
+>> +
+>> +static void platform_bgmac_idm_write(struct bgmac *bgmac, u16 offse=
+t, u32
+>> value)
+>> +{
+>> +       return writel(value, bgmac->plat.idm_base + offset);
+>> +}
+>> +
+>> +static bool platform_bgmac_clk_enabled(struct bgmac *bgmac)
+>> +{
+>> +       if ((bgmac_idm_read(bgmac, BCMA_IOCTL) &
+>> +            (BCMA_IOCTL_CLK | BCMA_IOCTL_FGC)) !=3D BCMA_IOCTL_CLK)
+>> +               return false;
+>> +       if (bgmac_idm_read(bgmac, BCMA_RESET_CTL) & BCMA_RESET_CTL_R=
+ESET)
+>> +               return false;
+>> +       return true;
+>> +}
+>> +
+>> +static void platform_bgmac_clk_enable(struct bgmac *bgmac, u32 flag=
+s)
+>> +{
+>> +       bgmac_idm_write(bgmac, BCMA_IOCTL,
+>> +                       (BCMA_IOCTL_CLK | BCMA_IOCTL_FGC | flags));
+>> +       bgmac_idm_read(bgmac, BCMA_IOCTL);
+>> +
+>> +       bgmac_idm_write(bgmac, BCMA_RESET_CTL, 0);
+>> +       bgmac_idm_read(bgmac, BCMA_RESET_CTL);
+>> +       udelay(1);
+>> +
+>> +       bgmac_idm_write(bgmac, BCMA_IOCTL, (BCMA_IOCTL_CLK | flags))=
+;
+>> +       bgmac_idm_read(bgmac, BCMA_IOCTL);
+>> +       udelay(1);
+>> +}
+>> +
+>> +static void platform_bgmac_cco_ctl_maskset(struct bgmac *bgmac, u32
+>> offset,
+>> +                                          u32 mask, u32 set)
+>> +{
+>> +       /* This shouldn't be encountered */
+>> +       WARN_ON(1);
+>> +}
+>> +
+>> +static u32 platform_bgmac_get_bus_clock(struct bgmac *bgmac)
+>> +{
+>> +       /* This shouldn't be encountered */
+>> +       WARN_ON(1);
+>> +
+>> +       return 0;
+>> +}
+>> +
+>> +static void platform_bgmac_cmn_maskset32(struct bgmac *bgmac, u16 o=
+ffset,
+>> +                                        u32 mask, u32 set)
+>> +{
+>> +       /* This shouldn't be encountered */
+>> +       WARN_ON(1);
+>> +}
+>> +
+>> +static int bgmac_probe(struct platform_device *pdev)
+>> +{
+>> +       struct device_node *np =3D pdev->dev.of_node;
+>> +       struct bgmac *bgmac;
+>> +       struct resource regs;
+>> +       const u8 *mac_addr;
+>> +       int rc;
+>> +
+>> +       bgmac =3D kzalloc(sizeof(*bgmac), GFP_KERNEL);
+>
+>
+> The trend has been using devm_xxx based API to let the devm framework=
+ deals
+> with device resource management. This will help to reduce all the cod=
+e that
+> is currently needed to free the resource below and in the remove func=
+tion.
 
-In addition to having a more light weight structure for hook traversal,
-struct net becomes 5568 bytes (down from 6400) and struct net_device
-becomes 2176 bytes (down from 2240).
+Thanks for the review Ray.  This echo's some of Florian's comments to
+use devm_*.  I have some changes queued to do exactly what both of you
+are requesting.  I'll be pushing it shortly as a "PATCH" instead of an
+"RFC".
 
-Signed-off-by: Aaron Conole <aconole@bytheb.org>
-Signed-off-by: Florian Westphal <fw@strlen.de>
----
- include/linux/netdevice.h         |   2 +-
- include/linux/netfilter.h         |  18 +++---
- include/linux/netfilter_ingress.h |  14 +++--
- include/net/netfilter/nf_queue.h  |   9 ++-
- include/net/netns/netfilter.h     |   2 +-
- net/bridge/br_netfilter_hooks.c   |  21 +++----
- net/netfilter/core.c              | 126 ++++++++++++++++++++++++--------------
- net/netfilter/nf_internals.h      |  10 +--
- net/netfilter/nf_queue.c          |  15 +++--
- net/netfilter/nfnetlink_queue.c   |   5 +-
- 10 files changed, 129 insertions(+), 93 deletions(-)
+Thanks,
+Jon
 
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index e84d9d2..8235f67 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -1747,7 +1747,7 @@ struct net_device {
- #endif
- 	struct netdev_queue __rcu *ingress_queue;
- #ifdef CONFIG_NETFILTER_INGRESS
--	struct list_head	nf_hooks_ingress;
-+	struct nf_hook_entry __rcu *nf_hooks_ingress;
- #endif
- 
- 	unsigned char		broadcast[MAX_ADDR_LEN];
-diff --git a/include/linux/netfilter.h b/include/linux/netfilter.h
-index ad444f0..3390a84 100644
---- a/include/linux/netfilter.h
-+++ b/include/linux/netfilter.h
-@@ -55,12 +55,12 @@ struct nf_hook_state {
- 	struct net_device *out;
- 	struct sock *sk;
- 	struct net *net;
--	struct list_head *hook_list;
-+	struct nf_hook_entry *hook_list;
- 	int (*okfn)(struct net *, struct sock *, struct sk_buff *);
- };
- 
- static inline void nf_hook_state_init(struct nf_hook_state *p,
--				      struct list_head *hook_list,
-+				      struct nf_hook_entry *hook_list,
- 				      unsigned int hook,
- 				      int thresh, u_int8_t pf,
- 				      struct net_device *indev,
-@@ -97,6 +97,12 @@ struct nf_hook_ops {
- 	int			priority;
- };
- 
-+struct nf_hook_entry {
-+	struct nf_hook_entry __rcu	*next;
-+	struct nf_hook_ops		ops;
-+	const struct nf_hook_ops	*orig_ops;
-+};
-+
- struct nf_sockopt_ops {
- 	struct list_head list;
- 
-@@ -161,8 +167,6 @@ static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
- 				 int (*okfn)(struct net *, struct sock *, struct sk_buff *),
- 				 int thresh)
- {
--	struct list_head *hook_list;
--
- #ifdef HAVE_JUMP_LABEL
- 	if (__builtin_constant_p(pf) &&
- 	    __builtin_constant_p(hook) &&
-@@ -170,14 +174,14 @@ static inline int nf_hook_thresh(u_int8_t pf, unsigned int hook,
- 		return 1;
- #endif
- 
--	hook_list = &net->nf.hooks[pf][hook];
--
--	if (!list_empty(hook_list)) {
-+	if (rcu_access_pointer(net->nf.hooks[pf][hook])) {
-+		struct nf_hook_entry *hook_list;
- 		struct nf_hook_state state;
- 		int ret;
- 
- 		/* We may already have this, but read-locks nest anyway */
- 		rcu_read_lock();
-+		hook_list = rcu_dereference(net->nf.hooks[pf][hook]);
- 		nf_hook_state_init(&state, hook_list, hook, thresh,
- 				   pf, indev, outdev, sk, net, okfn);
- 
-diff --git a/include/linux/netfilter_ingress.h b/include/linux/netfilter_ingress.h
-index 6965ba0..e3e3f6d 100644
---- a/include/linux/netfilter_ingress.h
-+++ b/include/linux/netfilter_ingress.h
-@@ -11,23 +11,27 @@ static inline bool nf_hook_ingress_active(const struct sk_buff *skb)
- 	if (!static_key_false(&nf_hooks_needed[NFPROTO_NETDEV][NF_NETDEV_INGRESS]))
- 		return false;
- #endif
--	return !list_empty(&skb->dev->nf_hooks_ingress);
-+	return rcu_access_pointer(skb->dev->nf_hooks_ingress) != NULL;
- }
- 
- /* caller must hold rcu_read_lock */
- static inline int nf_hook_ingress(struct sk_buff *skb)
- {
-+	struct nf_hook_entry *e = rcu_dereference(skb->dev->nf_hooks_ingress);
- 	struct nf_hook_state state;
- 
--	nf_hook_state_init(&state, &skb->dev->nf_hooks_ingress,
--			   NF_NETDEV_INGRESS, INT_MIN, NFPROTO_NETDEV,
--			   skb->dev, NULL, NULL, dev_net(skb->dev), NULL);
-+	if (unlikely(!e))
-+		return 0;
-+
-+	nf_hook_state_init(&state, e, NF_NETDEV_INGRESS, INT_MIN,
-+			   NFPROTO_NETDEV, skb->dev, NULL, NULL,
-+			   dev_net(skb->dev), NULL);
- 	return nf_hook_slow(skb, &state);
- }
- 
- static inline void nf_hook_ingress_init(struct net_device *dev)
- {
--	INIT_LIST_HEAD(&dev->nf_hooks_ingress);
-+	RCU_INIT_POINTER(dev->nf_hooks_ingress, NULL);
- }
- #else /* CONFIG_NETFILTER_INGRESS */
- static inline int nf_hook_ingress_active(struct sk_buff *skb)
-diff --git a/include/net/netfilter/nf_queue.h b/include/net/netfilter/nf_queue.h
-index 0dbce55..1da5bc0 100644
---- a/include/net/netfilter/nf_queue.h
-+++ b/include/net/netfilter/nf_queue.h
-@@ -11,7 +11,6 @@ struct nf_queue_entry {
- 	struct sk_buff		*skb;
- 	unsigned int		id;
- 
--	struct nf_hook_ops	*elem;
- 	struct nf_hook_state	state;
- 	u16			size; /* sizeof(entry) + saved route keys */
- 
-@@ -22,10 +21,10 @@ struct nf_queue_entry {
- 
- /* Packet queuing */
- struct nf_queue_handler {
--	int			(*outfn)(struct nf_queue_entry *entry,
--					 unsigned int queuenum);
--	void			(*nf_hook_drop)(struct net *net,
--						struct nf_hook_ops *ops);
-+	int		(*outfn)(struct nf_queue_entry *entry,
-+				 unsigned int queuenum);
-+	void		(*nf_hook_drop)(struct net *net,
-+					const struct nf_hook_entry *ops);
- };
- 
- void nf_register_queue_handler(struct net *net, const struct nf_queue_handler *qh);
-diff --git a/include/net/netns/netfilter.h b/include/net/netns/netfilter.h
-index 36d7235..58487b1 100644
---- a/include/net/netns/netfilter.h
-+++ b/include/net/netns/netfilter.h
-@@ -16,6 +16,6 @@ struct netns_nf {
- #ifdef CONFIG_SYSCTL
- 	struct ctl_table_header *nf_log_dir_header;
- #endif
--	struct list_head hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
-+	struct nf_hook_entry __rcu *hooks[NFPROTO_NUMPROTO][NF_MAX_HOOKS];
- };
- #endif
-diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
-index 19f230c..88bb8ed 100644
---- a/net/bridge/br_netfilter_hooks.c
-+++ b/net/bridge/br_netfilter_hooks.c
-@@ -1000,28 +1000,21 @@ int br_nf_hook_thresh(unsigned int hook, struct net *net,
- 		      struct net_device *indev,
- 		      struct net_device *outdev,
- 		      int (*okfn)(struct net *, struct sock *,
--				  struct sk_buf *))
-+				  struct sk_buff *))
- {
--	struct nf_hook_ops *elem;
-+	struct nf_hook_entry *elem;
- 	struct nf_hook_state state;
--	struct list_head *head;
- 	int ret;
- 
--	head = &net->nf.hooks[NFPROTO_BRIDGE][hook];
-+	elem = rcu_dereference(net->nf.hooks[NFPROTO_BRIDGE][hook]);
- 
--	list_for_each_entry_rcu(elem, head, list) {
--		struct nf_hook_ops *next;
-+	while (elem && (elem->ops.priority <= NF_BR_PRI_BRNF))
-+		elem = rcu_dereference(elem->next);
- 
--		next = list_entry_rcu(list_next_rcu(&elem->list),
--				      struct nf_hook_ops, list);
--		if (next->priority <= NF_BR_PRI_BRNF)
--			continue;
--	}
--
--	if (&elem->list == head)
-+	if (!elem)
- 		return okfn(net, sk, skb);
- 
--	nf_hook_state_init(&state, head, hook, NF_BR_PRI_BRNF + 1,
-+	nf_hook_state_init(&state, elem, hook, NF_BR_PRI_BRNF + 1,
- 			   NFPROTO_BRIDGE, indev, outdev, sk, net, okfn);
- 
- 	ret = nf_hook_slow(skb, &state);
-diff --git a/net/netfilter/core.c b/net/netfilter/core.c
-index 6561d5c..94c0921 100644
---- a/net/netfilter/core.c
-+++ b/net/netfilter/core.c
-@@ -22,6 +22,7 @@
- #include <linux/proc_fs.h>
- #include <linux/mutex.h>
- #include <linux/slab.h>
-+#include <linux/rcupdate.h>
- #include <net/net_namespace.h>
- #include <net/sock.h>
- 
-@@ -61,33 +62,52 @@ EXPORT_SYMBOL(nf_hooks_needed);
- #endif
- 
- static DEFINE_MUTEX(nf_hook_mutex);
-+#define nf_entry_dereference(e) \
-+	rcu_dereference_protected(e, lockdep_is_held(&nf_hook_mutex))
- 
--static struct list_head *nf_find_hook_list(struct net *net,
--					   const struct nf_hook_ops *reg)
-+static struct nf_hook_entry *nf_find_hook_list(struct net *net,
-+					       const struct nf_hook_ops *reg)
- {
--	struct list_head *hook_list = NULL;
-+	struct nf_hook_entry *hook_list = NULL;
- 
- 	if (reg->pf != NFPROTO_NETDEV)
--		hook_list = &net->nf.hooks[reg->pf][reg->hooknum];
-+		hook_list = rcu_dereference(net->nf.hooks[reg->pf]
-+					    [reg->hooknum]);
- 	else if (reg->hooknum == NF_NETDEV_INGRESS) {
- #ifdef CONFIG_NETFILTER_INGRESS
- 		if (reg->dev && dev_net(reg->dev) == net)
--			hook_list = &reg->dev->nf_hooks_ingress;
-+			hook_list =
-+				rcu_dereference(reg->dev->nf_hooks_ingress);
- #endif
- 	}
- 	return hook_list;
- }
- 
--struct nf_hook_entry {
--	const struct nf_hook_ops	*orig_ops;
--	struct nf_hook_ops		ops;
--};
-+/* must hold nf_hook_mutex */
-+static void nf_set_hook_list(struct net *net, const struct nf_hook_ops *reg,
-+			     struct nf_hook_entry *e)
-+{
-+	if (reg->pf != NFPROTO_NETDEV) {
-+		rcu_assign_pointer(net->nf.hooks[reg->pf][reg->hooknum], e);
-+#ifdef CONFIG_NETFILTER_INGRESS
-+	} else if (reg->hooknum == NF_NETDEV_INGRESS) {
-+		rcu_assign_pointer(reg->dev->nf_hooks_ingress, e);
-+#endif
-+	} else {
-+		net_warn_ratelimited("pf %d, hooknum %d: not set\n",
-+				     reg->pf, reg->hooknum);
-+	}
-+}
- 
- int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
- {
--	struct list_head *hook_list;
-+	struct nf_hook_entry *hook_list;
- 	struct nf_hook_entry *entry;
--	struct nf_hook_ops *elem;
-+
-+	if (reg->pf == NFPROTO_NETDEV &&
-+	    (reg->hooknum != NF_NETDEV_INGRESS ||
-+	     !reg->dev || dev_net(reg->dev) != net))
-+		return -EINVAL;
- 
- 	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
- 	if (!entry)
-@@ -96,18 +116,20 @@ int nf_register_net_hook(struct net *net, const struct nf_hook_ops *reg)
- 	entry->orig_ops	= reg;
- 	entry->ops	= *reg;
- 
-+	mutex_lock(&nf_hook_mutex);
- 	hook_list = nf_find_hook_list(net, reg);
--	if (!hook_list) {
--		kfree(entry);
--		return -ENOENT;
-+	entry->next = hook_list;
-+	while (hook_list && reg->priority >= hook_list->orig_ops->priority &&
-+	       hook_list->next) {
-+		hook_list = nf_entry_dereference(hook_list->next);
- 	}
- 
--	mutex_lock(&nf_hook_mutex);
--	list_for_each_entry(elem, hook_list, list) {
--		if (reg->priority < elem->priority)
--			break;
-+	if (hook_list) {
-+		entry->next = hook_list->next;
-+		rcu_assign_pointer(hook_list->next, entry);
-+	} else {
-+		nf_set_hook_list(net, reg, entry);
- 	}
--	list_add_rcu(&entry->ops.list, elem->list.prev);
- 	mutex_unlock(&nf_hook_mutex);
- #ifdef CONFIG_NETFILTER_INGRESS
- 	if (reg->pf == NFPROTO_NETDEV && reg->hooknum == NF_NETDEV_INGRESS)
-@@ -122,24 +144,34 @@ EXPORT_SYMBOL(nf_register_net_hook);
- 
- void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
- {
--	struct list_head *hook_list;
- 	struct nf_hook_entry *entry;
--	struct nf_hook_ops *elem;
--
--	hook_list = nf_find_hook_list(net, reg);
--	if (!hook_list)
--		return;
- 
- 	mutex_lock(&nf_hook_mutex);
--	list_for_each_entry(elem, hook_list, list) {
--		entry = container_of(elem, struct nf_hook_entry, ops);
--		if (entry->orig_ops == reg) {
--			list_del_rcu(&entry->ops.list);
--			break;
-+	entry = nf_find_hook_list(net, reg);
-+	if (!entry)
-+		goto unlocked;
-+
-+	if (entry->orig_ops == reg) {
-+		nf_set_hook_list(net, reg,
-+				 nf_entry_dereference(entry->next));
-+	} else {
-+		while (entry && entry->next) {
-+			struct nf_hook_entry *next =
-+				nf_entry_dereference(entry->next);
-+			if (next->orig_ops == reg) {
-+				struct nf_hook_entry *nn =
-+					nf_entry_dereference(next->next);
-+				rcu_assign_pointer(entry->next, nn);
-+				entry = next;
-+				break;
-+			}
- 		}
- 	}
-+
-+unlocked:
- 	mutex_unlock(&nf_hook_mutex);
--	if (&elem->list == hook_list) {
-+
-+	if (!entry) {
- 		WARN(1, "nf_unregister_net_hook: hook not found!\n");
- 		return;
- 	}
-@@ -151,7 +183,7 @@ void nf_unregister_net_hook(struct net *net, const struct nf_hook_ops *reg)
- 	static_key_slow_dec(&nf_hooks_needed[reg->pf][reg->hooknum]);
- #endif
- 	synchronize_net();
--	nf_queue_nf_hook_drop(net, &entry->ops);
-+	nf_queue_nf_hook_drop(net, entry);
- 	/* other cpu might still process nfqueue verdict that used reg */
- 	synchronize_net();
- 	kfree(entry);
-@@ -193,6 +225,8 @@ int nf_register_hook(struct nf_hook_ops *reg)
- 	struct net *net, *last;
- 	int ret;
- 
-+	WARN_ON(reg->priv);
-+
- 	rtnl_lock();
- 	for_each_net(net) {
- 		ret = nf_register_net_hook(net, reg);
-@@ -253,10 +287,9 @@ void nf_unregister_hooks(struct nf_hook_ops *reg, unsigned int n)
- }
- EXPORT_SYMBOL(nf_unregister_hooks);
- 
--unsigned int nf_iterate(struct list_head *head,
--			struct sk_buff *skb,
-+unsigned int nf_iterate(struct sk_buff *skb,
- 			struct nf_hook_state *state,
--			struct nf_hook_ops **elemp)
-+			struct nf_hook_entry **elemp)
- {
- 	unsigned int verdict;
- 
-@@ -264,20 +297,20 @@ unsigned int nf_iterate(struct list_head *head,
- 	 * The caller must not block between calls to this
- 	 * function because of risk of continuing from deleted element.
- 	 */
--	list_for_each_entry_continue_rcu((*elemp), head, list) {
--		if (state->thresh > (*elemp)->priority)
-+	while (*elemp) {
-+		if (state->thresh > (*elemp)->ops.priority)
- 			continue;
- 
- 		/* Optimization: we don't need to hold module
- 		   reference here, since function can't sleep. --RR */
- repeat:
--		verdict = (*elemp)->hook((*elemp)->priv, skb, state);
-+		verdict = (*elemp)->ops.hook((*elemp)->ops.priv, skb, state);
- 		if (verdict != NF_ACCEPT) {
- #ifdef CONFIG_NETFILTER_DEBUG
- 			if (unlikely((verdict & NF_VERDICT_MASK)
- 							> NF_MAX_VERDICT)) {
- 				NFDEBUG("Evil return from %p(%u).\n",
--					(*elemp)->hook, state->hook);
-+					(*elemp)->ops.hook, state->hook);
- 				continue;
- 			}
- #endif
-@@ -285,6 +318,7 @@ repeat:
- 				return verdict;
- 			goto repeat;
- 		}
-+		*elemp = (*elemp)->next;
- 	}
- 	return NF_ACCEPT;
- }
-@@ -295,13 +329,13 @@ repeat:
-  * -EPERM for NF_DROP, 0 otherwise. */
- int nf_hook_slow(struct sk_buff *skb, struct nf_hook_state *state)
- {
--	struct nf_hook_ops *elem;
-+	struct nf_hook_entry *elem;
- 	unsigned int verdict;
- 	int ret = 0;
- 
--	elem = list_entry_rcu(state->hook_list, struct nf_hook_ops, list);
-+	elem = state->hook_list;
- next_hook:
--	verdict = nf_iterate(state->hook_list, skb, state, &elem);
-+	verdict = nf_iterate(skb, state, &elem);
- 	if (verdict == NF_ACCEPT || verdict == NF_STOP) {
- 		ret = 1;
- 	} else if ((verdict & NF_VERDICT_MASK) == NF_DROP) {
-@@ -310,8 +344,10 @@ next_hook:
- 		if (ret == 0)
- 			ret = -EPERM;
- 	} else if ((verdict & NF_VERDICT_MASK) == NF_QUEUE) {
--		int err = nf_queue(skb, elem, state,
--				   verdict >> NF_VERDICT_QBITS);
-+		int err;
-+
-+		state->hook_list = elem;
-+		err = nf_queue(skb, state, verdict >> NF_VERDICT_QBITS);
- 		if (err < 0) {
- 			if (err == -ESRCH &&
- 			   (verdict & NF_VERDICT_FLAG_QUEUE_BYPASS))
-@@ -438,7 +474,7 @@ static int __net_init netfilter_net_init(struct net *net)
- 
- 	for (i = 0; i < ARRAY_SIZE(net->nf.hooks); i++) {
- 		for (h = 0; h < NF_MAX_HOOKS; h++)
--			INIT_LIST_HEAD(&net->nf.hooks[i][h]);
-+			RCU_INIT_POINTER(net->nf.hooks[i][h], NULL);
- 	}
- 
- #ifdef CONFIG_PROC_FS
-diff --git a/net/netfilter/nf_internals.h b/net/netfilter/nf_internals.h
-index 0655225..6c0846d 100644
---- a/net/netfilter/nf_internals.h
-+++ b/net/netfilter/nf_internals.h
-@@ -13,13 +13,13 @@
- 
- 
- /* core.c */
--unsigned int nf_iterate(struct list_head *head, struct sk_buff *skb,
--			struct nf_hook_state *state, struct nf_hook_ops **elemp);
-+unsigned int nf_iterate(struct sk_buff *skb, struct nf_hook_state *state,
-+			struct nf_hook_entry **elemp);
- 
- /* nf_queue.c */
--int nf_queue(struct sk_buff *skb, struct nf_hook_ops *elem,
--	     struct nf_hook_state *state, unsigned int queuenum);
--void nf_queue_nf_hook_drop(struct net *net, struct nf_hook_ops *ops);
-+int nf_queue(struct sk_buff *skb, struct nf_hook_state *state,
-+	     unsigned int queuenum);
-+void nf_queue_nf_hook_drop(struct net *net, const struct nf_hook_entry *e);
- int __init netfilter_queue_init(void);
- 
- /* nf_log.c */
-diff --git a/net/netfilter/nf_queue.c b/net/netfilter/nf_queue.c
-index b19ad20..0cb131b 100644
---- a/net/netfilter/nf_queue.c
-+++ b/net/netfilter/nf_queue.c
-@@ -96,14 +96,14 @@ void nf_queue_entry_get_refs(struct nf_queue_entry *entry)
- }
- EXPORT_SYMBOL_GPL(nf_queue_entry_get_refs);
- 
--void nf_queue_nf_hook_drop(struct net *net, struct nf_hook_ops *ops)
-+void nf_queue_nf_hook_drop(struct net *net, const struct nf_hook_entry *e)
- {
- 	const struct nf_queue_handler *qh;
- 
- 	rcu_read_lock();
- 	qh = rcu_dereference(net->nf.queue_handler);
- 	if (qh)
--		qh->nf_hook_drop(net, ops);
-+		qh->nf_hook_drop(net, e);
- 	rcu_read_unlock();
- }
- 
-@@ -112,7 +112,6 @@ void nf_queue_nf_hook_drop(struct net *net, struct nf_hook_ops *ops)
-  * through nf_reinject().
-  */
- int nf_queue(struct sk_buff *skb,
--	     struct nf_hook_ops *elem,
- 	     struct nf_hook_state *state,
- 	     unsigned int queuenum)
- {
-@@ -141,7 +140,6 @@ int nf_queue(struct sk_buff *skb,
- 
- 	*entry = (struct nf_queue_entry) {
- 		.skb	= skb,
--		.elem	= elem,
- 		.state	= *state,
- 		.size	= sizeof(*entry) + afinfo->route_key_size,
- 	};
-@@ -166,7 +164,8 @@ err:
- void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
- {
- 	struct sk_buff *skb = entry->skb;
--	struct nf_hook_ops *elem = entry->elem;
-+	struct nf_hook_entry *e = entry->state.hook_list;
-+	struct nf_hook_ops *elem = &e->ops;
- 	const struct nf_afinfo *afinfo;
- 	int err;
- 
-@@ -186,8 +185,7 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
- 
- 	if (verdict == NF_ACCEPT) {
- 	next_hook:
--		verdict = nf_iterate(entry->state.hook_list,
--				     skb, &entry->state, &elem);
-+		verdict = nf_iterate(skb, &entry->state, &e);
- 	}
- 
- 	switch (verdict & NF_VERDICT_MASK) {
-@@ -198,7 +196,8 @@ void nf_reinject(struct nf_queue_entry *entry, unsigned int verdict)
- 		local_bh_enable();
- 		break;
- 	case NF_QUEUE:
--		err = nf_queue(skb, elem, &entry->state,
-+		entry->state.hook_list = e;
-+		err = nf_queue(skb, &entry->state,
- 			       verdict >> NF_VERDICT_QBITS);
- 		if (err < 0) {
- 			if (err == -ESRCH &&
-diff --git a/net/netfilter/nfnetlink_queue.c b/net/netfilter/nfnetlink_queue.c
-index 216bf69..60d3e51 100644
---- a/net/netfilter/nfnetlink_queue.c
-+++ b/net/netfilter/nfnetlink_queue.c
-@@ -919,10 +919,11 @@ static struct notifier_block nfqnl_dev_notifier = {
- 
- static int nf_hook_cmp(struct nf_queue_entry *entry, unsigned long ops_ptr)
- {
--	return entry->elem == (struct nf_hook_ops *)ops_ptr;
-+	return entry->state.hook_list == (struct nf_hook_entry *)ops_ptr;
- }
- 
--static void nfqnl_nf_hook_drop(struct net *net, struct nf_hook_ops *hook)
-+static void nfqnl_nf_hook_drop(struct net *net,
-+			       const struct nf_hook_entry *hook)
- {
- 	struct nfnl_queue_net *q = nfnl_queue_pernet(net);
- 	int i;
--- 
-2.5.5
 
+>> +       if (!bgmac)
+>> +               return -ENOMEM;
+>> +
+>> +       platform_set_drvdata(pdev, bgmac);
+>> +
+>> +       /* Set the features of the 4707 family */
+>> +       bgmac->feature_flags |=3D BGMAC_FEAT_CLKCTLST;
+>> +       bgmac->feature_flags |=3D BGMAC_FEAT_NO_RESET;
+>> +       bgmac->feature_flags |=3D BGMAC_FEAT_FORCE_SPEED_2500;
+>> +       bgmac->feature_flags |=3D BGMAC_FEAT_CMDCFG_SR_REV4;
+>> +       bgmac->feature_flags |=3D BGMAC_FEAT_TX_MASK_SETUP;
+>> +       bgmac->feature_flags |=3D BGMAC_FEAT_RX_MASK_SETUP;
+>> +
+>> +       bgmac->dev =3D &pdev->dev;
+>> +       bgmac->dma_dev =3D &pdev->dev;
+>> +
+>> +       mac_addr =3D of_get_mac_address(np);
+>> +       if (mac_addr)
+>> +               ether_addr_copy(bgmac->mac_addr, mac_addr);
+>> +       else
+>> +               dev_warn(&pdev->dev, "MAC address not present in dev=
+ice
+>> tree\n");
+>> +
+>> +       bgmac->irq =3D platform_get_irq(pdev, 0);
+>
+>
+>> +       if (bgmac->irq < 0) {
+>> +               rc =3D bgmac->irq;
+>> +               dev_err(&pdev->dev, "Unable to obtain IRQ\n");
+>> +               goto err;
+>> +       }
+>> +
+>> +       rc =3D of_address_to_resource(np, 0, &regs);
+>> +       if (rc < 0) {
+>> +               dev_err(&pdev->dev, "Unable to obtain base resource\=
+n");
+>> +               goto err;
+>> +       }
+>> +
+>> +       bgmac->plat.base =3D ioremap(regs.start, resource_size(&regs=
+));
+>
+>
+> Again, there's devm based API to use, and the resource should be mark=
+ed
+> reserved so no one else can remap it.
+>
+> platform_get_resource
+> devm_ioremap_resource
+>
+>> +       if (!bgmac->plat.base) {
+>> +               dev_err(&pdev->dev, "Unable to map base resource\n")=
+;
+>> +               rc =3D -ENOMEM;
+>> +               goto err;
+>> +       }
+>> +
+>> +       rc =3D of_address_to_resource(np, 1, &regs);
+>> +       if (rc < 0) {
+>> +               dev_err(&pdev->dev, "Unable to obtain idm resource\n=
+");
+>> +               goto err1;
+>> +       }
+>> +
+>> +       bgmac->plat.idm_base =3D ioremap(regs.start, resource_size(&=
+regs));
+>> +       if (!bgmac->plat.base) {
+>> +               dev_err(&pdev->dev, "Unable to map idm resource\n");
+>> +               rc =3D -ENOMEM;
+>> +               goto err1;
+>> +       }
+>
+>
+> same here
+>
+>> +
+>> +       bgmac->read =3D platform_bgmac_read;
+>> +       bgmac->write =3D platform_bgmac_write;
+>> +       bgmac->idm_read =3D platform_bgmac_idm_read;
+>> +       bgmac->idm_write =3D platform_bgmac_idm_write;
+>> +       bgmac->clk_enabled =3D platform_bgmac_clk_enabled;
+>> +       bgmac->clk_enable =3D platform_bgmac_clk_enable;
+>> +       bgmac->cco_ctl_maskset =3D platform_bgmac_cco_ctl_maskset;
+>> +       bgmac->get_bus_clock =3D platform_bgmac_get_bus_clock;
+>> +       bgmac->cmn_maskset32 =3D platform_bgmac_cmn_maskset32;
+>> +
+>> +       rc =3D bgmac_enet_probe(bgmac);
+>> +       if (rc)
+>> +               goto err2;
+>> +
+>> +       return 0;
+>> +
+>> +err2:
+>> +       iounmap(bgmac->plat.idm_base);
+>> +err1:
+>> +       iounmap(bgmac->plat.base);
+>> +err:
+>> +       kfree(bgmac);
+>
+>
+> All of the above error handling code can be gone.
+>
+>> +
+>> +       return rc;
+>> +}
+>> +
+>> +static int bgmac_remove(struct platform_device *pdev)
+>> +{
+>> +       struct bgmac *bgmac =3D platform_get_drvdata(pdev);
+>> +
+>> +       bgmac_enet_remove(bgmac);
+>> +       iounmap(bgmac->plat.idm_base);
+>> +       iounmap(bgmac->plat.base);
+>> +       kfree(bgmac);
+>
+>
+> Here too.
+>
+>> +
+>> +       return 0;
+>> +}
+>> +
+>> +static const struct of_device_id bgmac_of_enet_match[] =3D {
+>> +       {.compatible =3D "brcm,bgmac-enet",},
+>> +       {},
+>> +};
+>> +
+>> +MODULE_DEVICE_TABLE(of, bgmac_of_enet_match);
+>> +
+>> +static struct platform_driver bgmac_enet_driver =3D {
+>> +       .driver =3D {
+>> +               .name  =3D "bgmac-enet",
+>> +               .of_match_table =3D bgmac_of_enet_match,
+>> +       },
+>> +       .probe =3D bgmac_probe,
+>> +       .remove =3D bgmac_remove,
+>> +};
+>> +
+>> +module_platform_driver(bgmac_enet_driver);
+>> +MODULE_LICENSE("GPL");
+>
+>
+> ...
+> ...
+>
+> Thanks,
+>
+> Ray
