@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 16/19] rxrpc: Maintain an extra ref on a conn for
- the cache list
-Date: Thu, 30 Jun 2016 15:12:37 +0100
-Message-ID: <146729595704.26306.9113530094478095254.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 15/19] rxrpc: Move peer lookup from call-accept to
+ new-incoming-conn
+Date: Thu, 30 Jun 2016 15:12:29 +0100
+Message-ID: <146729594992.26306.7455044215916160739.stgit@warthog.procyon.org.uk>
 References: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,366 +15,198 @@ In-Reply-To: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Overhaul the usage count accounting for the rxrpc_connection struct to make
-it easier to implement RCU access from the data_ready handler.
+Move the lookup of a peer from a call that's being accepted into the
+function that creates a new incoming connection.  This will allow us to
+avoid incrementing the peer's usage count in some cases in future.
 
-The problem is that currently we're using a lock to prevent the garbage
-collector from trying to clean up a connection that we're contemplating
-unidling.  We could just stick incoming packets on the connection we find,
-but we've then got a problem that we may race when dispatching a work item
-to process it as we need to give that a ref to prevent the rxrpc_connection
-struct from disappearing in the meantime.
-
-Further, incoming packets may get discarded if attached to an
-rxrpc_connection struct that is going away.  Whilst this is not a total
-disaster - the client will presumably resend - it would delay processing of
-the call.  This would affect the AFS client filesystem's service manager
-operation.
-
-To this end:
-
- (1) We now maintain an extra count on the connection usage count whilst it
-     is on the connection list.  This mean it is not in use when its
-     refcount is 1.
-
- (2) When trying to reuse an old connection, we only increment the refcount
-     if it is greater than 0.  If it is 0, we replace it in the tree with a
-     new candidate connection.
-
- (3) Two connection flags are added to indicate whether or not a connection
-     is in the local's client connection tree (used by sendmsg) or the
-     peer's service connection tree (used by data_ready).  This makes sure
-     that we don't try and remove a connection if it got replaced.
-
-     The flags are tested under lock with the removal operation to prevent
-     the reaper from killing the rxrpc_connection struct whilst someone
-     else is trying to effect a replacement.
-
-     This could probably be alleviated by using memory barriers between the
-     flag set/test and the rb_tree ops.  The rb_tree op would still need to
-     be under the lock, however.
-
- (4) When trying to reap an old connection, we try to flip the usage count
-     from 1 to 0.  If it's not 1 at that point, then it must've come back
-     to life temporarily and we ignore it.
+Note that I haven't bother to integrate rxrpc_get_addr_from_skb() with
+rxrpc_extract_addr_from_skb() as I'm going to delete the former in the very
+near future.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h  |    5 ++-
- net/rxrpc/conn_client.c  |   42 ++++++++++++++++++++----
- net/rxrpc/conn_object.c  |   80 +++++++++++++++++-----------------------------
- net/rxrpc/conn_service.c |   34 +++++++++++++++++---
- 4 files changed, 97 insertions(+), 64 deletions(-)
+ net/rxrpc/ar-internal.h  |    3 ++-
+ net/rxrpc/call_accept.c  |   31 +++++++------------------------
+ net/rxrpc/conn_service.c |   11 ++++++++++-
+ net/rxrpc/utils.c        |   32 ++++++++++++++++++++++++++++++++
+ 4 files changed, 51 insertions(+), 26 deletions(-)
 
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 7d87cace0177..71618e983b4a 100644
+index 2495c4facf51..7d87cace0177 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -258,6 +258,8 @@ struct rxrpc_conn_parameters {
+@@ -609,7 +609,7 @@ static inline void rxrpc_queue_conn(struct rxrpc_connection *conn)
+  * conn_service.c
   */
- enum rxrpc_conn_flag {
- 	RXRPC_CONN_HAS_IDR,		/* Has a client conn ID assigned */
-+	RXRPC_CONN_IN_SERVICE_CONNS,	/* Conn is in peer->service_conns */
-+	RXRPC_CONN_IN_CLIENT_CONNS,	/* Conn is in local->client_conns */
- };
- 
- /*
-@@ -545,10 +547,10 @@ void __exit rxrpc_destroy_all_calls(void);
-  */
- extern struct idr rxrpc_client_conn_ids;
- 
--void rxrpc_put_client_connection_id(struct rxrpc_connection *);
- void rxrpc_destroy_client_conn_ids(void);
- int rxrpc_connect_call(struct rxrpc_call *, struct rxrpc_conn_parameters *,
- 		       struct sockaddr_rxrpc *, gfp_t);
-+void rxrpc_unpublish_client_conn(struct rxrpc_connection *);
- 
- /*
-  * conn_event.c
-@@ -611,6 +613,7 @@ static inline void rxrpc_queue_conn(struct rxrpc_connection *conn)
  struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *,
- 						   struct sockaddr_rxrpc *,
+-						   struct rxrpc_peer *,
++						   struct sockaddr_rxrpc *,
  						   struct sk_buff *);
-+void rxrpc_unpublish_service_conn(struct rxrpc_connection *);
  
  /*
-  * input.c
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-index ce2fd4508bb5..52809e21f56d 100644
---- a/net/rxrpc/conn_client.c
-+++ b/net/rxrpc/conn_client.c
-@@ -84,7 +84,7 @@ error:
- /*
-  * Release a connection ID for a client connection from the global pool.
+@@ -775,6 +775,7 @@ static inline void rxrpc_sysctl_exit(void) {}
   */
--void rxrpc_put_client_connection_id(struct rxrpc_connection *conn)
-+static void rxrpc_put_client_connection_id(struct rxrpc_connection *conn)
+ void rxrpc_get_addr_from_skb(struct rxrpc_local *, const struct sk_buff *,
+ 			     struct sockaddr_rxrpc *);
++int rxrpc_extract_addr_from_skb(struct sockaddr_rxrpc *, struct sk_buff *);
+ 
+ /*
+  * debug tracing
+diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
+index 5367dbe9b96f..0b2832141bd0 100644
+--- a/net/rxrpc/call_accept.c
++++ b/net/rxrpc/call_accept.c
+@@ -75,7 +75,6 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
  {
- 	if (test_bit(RXRPC_CONN_HAS_IDR, &conn->flags)) {
- 		spin_lock(&rxrpc_conn_id_lock);
-@@ -279,12 +279,13 @@ int rxrpc_connect_call(struct rxrpc_call *call,
- 	 * lock before dropping the client conn lock.
- 	 */
- 	_debug("new conn");
-+	set_bit(RXRPC_CONN_IN_CLIENT_CONNS, &candidate->flags);
-+	rb_link_node(&candidate->client_node, parent, pp);
-+	rb_insert_color(&candidate->client_node, &local->client_conns);
-+attached:
- 	conn = candidate;
- 	candidate = NULL;
- 
--	rb_link_node(&conn->client_node, parent, pp);
--	rb_insert_color(&conn->client_node, &local->client_conns);
--
- 	atomic_set(&conn->avail_chans, RXRPC_MAXCALLS - 1);
- 	spin_lock(&conn->channel_lock);
- 	spin_unlock(&local->client_conns_lock);
-@@ -308,13 +309,22 @@ found_channel:
- 	_leave(" = %p {u=%d}", conn, atomic_read(&conn->usage));
- 	return 0;
- 
--	/* We found a suitable connection already in existence.  Discard any
--	 * candidate we may have allocated, and try to get a channel on this
--	 * one.
-+	/* We found a potentially suitable connection already in existence.  If
-+	 * we can reuse it (ie. its usage count hasn't been reduced to 0 by the
-+	 * reaper), discard any candidate we may have allocated, and try to get
-+	 * a channel on this one, otherwise we have to replace it.
- 	 */
- found_extant_conn:
- 	_debug("found conn");
--	rxrpc_get_connection(conn);
-+	if (!rxrpc_get_connection_maybe(conn)) {
-+		set_bit(RXRPC_CONN_IN_CLIENT_CONNS, &candidate->flags);
-+		rb_replace_node(&conn->client_node,
-+				&candidate->client_node,
-+				&local->client_conns);
-+		clear_bit(RXRPC_CONN_IN_CLIENT_CONNS, &conn->flags);
-+		goto attached;
-+	}
-+
- 	spin_unlock(&local->client_conns_lock);
- 
- 	rxrpc_put_connection(candidate);
-@@ -358,3 +368,19 @@ interrupted:
- 	_leave(" = -ERESTARTSYS");
- 	return -ERESTARTSYS;
- }
-+
-+/*
-+ * Remove a client connection from the local endpoint's tree, thereby removing
-+ * it as a target for reuse for new client calls.
-+ */
-+void rxrpc_unpublish_client_conn(struct rxrpc_connection *conn)
-+{
-+	struct rxrpc_local *local = conn->params.local;
-+
-+	spin_lock(&local->client_conns_lock);
-+	if (test_and_clear_bit(RXRPC_CONN_IN_CLIENT_CONNS, &conn->flags))
-+		rb_erase(&conn->client_node, &local->client_conns);
-+	spin_unlock(&local->client_conns_lock);
-+
-+	rxrpc_put_client_connection_id(conn);
-+}
-diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
-index 12d7c7850aed..83cd3548ec10 100644
---- a/net/rxrpc/conn_object.c
-+++ b/net/rxrpc/conn_object.c
-@@ -51,7 +51,10 @@ struct rxrpc_connection *rxrpc_alloc_connection(gfp_t gfp)
- 		skb_queue_head_init(&conn->rx_queue);
- 		conn->security = &rxrpc_no_security;
- 		spin_lock_init(&conn->state_lock);
--		atomic_set(&conn->usage, 1);
-+		/* We maintain an extra ref on the connection whilst it is
-+		 * on the rxrpc_connections list.
-+		 */
-+		atomic_set(&conn->usage, 2);
- 		conn->debug_id = atomic_inc_return(&rxrpc_debug_id);
- 		atomic_set(&conn->avail_chans, RXRPC_MAXCALLS);
- 		conn->size_align = 4;
-@@ -113,7 +116,7 @@ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_local *local,
- 	return NULL;
- 
- found:
--	rxrpc_get_connection(conn);
-+	conn = rxrpc_get_connection_maybe(conn);
- 	read_unlock_bh(&peer->conn_lock);
- 	_leave(" = %p", conn);
- 	return conn;
-@@ -175,10 +178,10 @@ void rxrpc_put_connection(struct rxrpc_connection *conn)
- 	_enter("%p{u=%d,d=%d}",
- 	       conn, atomic_read(&conn->usage), conn->debug_id);
- 
--	ASSERTCMP(atomic_read(&conn->usage), >, 0);
-+	ASSERTCMP(atomic_read(&conn->usage), >, 1);
- 
- 	conn->put_time = ktime_get_seconds();
--	if (atomic_dec_and_test(&conn->usage)) {
-+	if (atomic_dec_return(&conn->usage) == 1) {
- 		_debug("zombie");
- 		rxrpc_queue_delayed_work(&rxrpc_connection_reap, 0);
- 	}
-@@ -218,66 +221,42 @@ static void rxrpc_destroy_connection(struct rcu_head *rcu)
- static void rxrpc_connection_reaper(struct work_struct *work)
- {
- 	struct rxrpc_connection *conn, *_p;
+ 	struct rxrpc_connection *conn;
+ 	struct rxrpc_skb_priv *sp, *nsp;
 -	struct rxrpc_peer *peer;
--	unsigned long now, earliest, reap_time;
--	bool remove;
-+	unsigned long reap_older_than, earliest, put_time, now;
+ 	struct rxrpc_call *call;
+ 	struct sk_buff *notification;
+ 	int ret;
+@@ -94,15 +93,7 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
+ 	rxrpc_new_skb(notification);
+ 	notification->mark = RXRPC_SKB_MARK_NEW_CALL;
  
- 	LIST_HEAD(graveyard);
+-	peer = rxrpc_lookup_peer(local, srx, GFP_NOIO);
+-	if (!peer) {
+-		_debug("no peer");
+-		ret = -EBUSY;
+-		goto error;
+-	}
+-
+-	conn = rxrpc_incoming_connection(local, peer, skb);
+-	rxrpc_put_peer(peer);
++	conn = rxrpc_incoming_connection(local, srx, skb);
+ 	if (IS_ERR(conn)) {
+ 		_debug("no conn");
+ 		ret = PTR_ERR(conn);
+@@ -226,20 +217,8 @@ void rxrpc_accept_incoming_calls(struct rxrpc_local *local)
+ 	whdr._rsvd	= 0;
+ 	whdr.serviceId	= htons(sp->hdr.serviceId);
+ 
+-	/* determine the remote address */
+-	memset(&srx, 0, sizeof(srx));
+-	srx.srx_family = AF_RXRPC;
+-	srx.transport.family = local->srx.transport.family;
+-	srx.transport_type = local->srx.transport_type;
+-	switch (srx.transport.family) {
+-	case AF_INET:
+-		srx.transport_len = sizeof(struct sockaddr_in);
+-		srx.transport.sin.sin_port = udp_hdr(skb)->source;
+-		srx.transport.sin.sin_addr.s_addr = ip_hdr(skb)->saddr;
+-		break;
+-	default:
+-		goto busy;
+-	}
++	if (rxrpc_extract_addr_from_skb(&srx, skb) < 0)
++		goto drop;
+ 
+ 	/* get the socket providing the service */
+ 	read_lock_bh(&local->services_lock);
+@@ -285,6 +264,10 @@ busy:
+ 	rxrpc_free_skb(skb);
+ 	return;
+ 
++drop:
++	rxrpc_free_skb(skb);
++	return;
++
+ invalid_service:
+ 	skb->priority = RX_INVALID_OPERATION;
+ 	rxrpc_reject_packet(local, skb);
+diff --git a/net/rxrpc/conn_service.c b/net/rxrpc/conn_service.c
+index 2536d5276f67..3f0242423a66 100644
+--- a/net/rxrpc/conn_service.c
++++ b/net/rxrpc/conn_service.c
+@@ -16,11 +16,12 @@
+  * get a record of an incoming connection
+  */
+ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
+-						   struct rxrpc_peer *peer,
++						   struct sockaddr_rxrpc *srx,
+ 						   struct sk_buff *skb)
+ {
+ 	struct rxrpc_connection *conn, *candidate = NULL;
+ 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
++	struct rxrpc_peer *peer;
+ 	struct rb_node *p, **pp;
+ 	const char *new = "old";
+ 	__be32 epoch;
+@@ -28,6 +29,12 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
  
  	_enter("");
  
- 	now = ktime_get_seconds();
-+	reap_older_than =  now - rxrpc_connection_expiry;
- 	earliest = ULONG_MAX;
- 
- 	write_lock(&rxrpc_connection_lock);
- 	list_for_each_entry_safe(conn, _p, &rxrpc_connections, link) {
--		_debug("reap CONN %d { u=%d,t=%ld }",
--		       conn->debug_id, atomic_read(&conn->usage),
--		       (long) now - (long) conn->put_time);
--
--		if (likely(atomic_read(&conn->usage) > 0))
-+		ASSERTCMP(atomic_read(&conn->usage), >, 0);
-+		if (likely(atomic_read(&conn->usage) > 1))
- 			continue;
- 
--		remove = false;
--		if (rxrpc_conn_is_client(conn)) {
--			struct rxrpc_local *local = conn->params.local;
--			spin_lock(&local->client_conns_lock);
--			reap_time = conn->put_time + rxrpc_connection_expiry;
--
--			if (atomic_read(&conn->usage) > 0) {
--				;
--			} else if (reap_time <= now) {
--				list_move_tail(&conn->link, &graveyard);
--				rxrpc_put_client_connection_id(conn);
--				rb_erase(&conn->client_node,
--					 &local->client_conns);
--				remove = true;
--			} else if (reap_time < earliest) {
--				earliest = reap_time;
--			}
--
--			spin_unlock(&local->client_conns_lock);
--		} else {
--			peer = conn->params.peer;
--			write_lock_bh(&peer->conn_lock);
--			reap_time = conn->put_time + rxrpc_connection_expiry;
--
--			if (atomic_read(&conn->usage) > 0) {
--				;
--			} else if (reap_time <= now) {
--				list_move_tail(&conn->link, &graveyard);
--				rb_erase(&conn->service_node,
--					 &peer->service_conns);
--				remove = true;
--			} else if (reap_time < earliest) {
--				earliest = reap_time;
--			}
--
--			write_unlock_bh(&peer->conn_lock);
-+		put_time = READ_ONCE(conn->put_time);
-+		if (time_after(put_time, reap_older_than)) {
-+			if (time_before(put_time, earliest))
-+				earliest = put_time;
-+			continue;
- 		}
- 
--		if (remove)
--			list_del_init(&conn->proc_link);
-+		/* The usage count sits at 1 whilst the object is unused on the
-+		 * list; we reduce that to 0 to make the object unavailable.
-+		 */
-+		if (atomic_cmpxchg(&conn->usage, 1, 0) != 1)
-+			continue;
-+
-+		if (rxrpc_conn_is_client(conn))
-+			rxrpc_unpublish_client_conn(conn);
-+		else
-+			rxrpc_unpublish_service_conn(conn);
-+
-+		list_move_tail(&conn->link, &graveyard);
-+		list_del_init(&conn->proc_link);
- 	}
- 	write_unlock(&rxrpc_connection_lock);
- 
-@@ -288,7 +267,6 @@ static void rxrpc_connection_reaper(struct work_struct *work)
- 					 (earliest - now) * HZ);
- 	}
- 
--	/* then destroy all those pulled out */
- 	while (!list_empty(&graveyard)) {
- 		conn = list_entry(graveyard.next, struct rxrpc_connection,
- 				  link);
-diff --git a/net/rxrpc/conn_service.c b/net/rxrpc/conn_service.c
-index 3f0242423a66..4ae9a9e7f31f 100644
---- a/net/rxrpc/conn_service.c
-+++ b/net/rxrpc/conn_service.c
-@@ -105,10 +105,12 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
- 	}
- 
- 	/* we can now add the new candidate to the list */
-+	set_bit(RXRPC_CONN_IN_SERVICE_CONNS, &candidate->flags);
-+	rb_link_node(&candidate->service_node, p, pp);
-+	rb_insert_color(&candidate->service_node, &peer->service_conns);
-+attached:
- 	conn = candidate;
- 	candidate = NULL;
--	rb_link_node(&conn->service_node, p, pp);
--	rb_insert_color(&conn->service_node, &peer->service_conns);
- 	rxrpc_get_peer(peer);
- 	rxrpc_get_local(local);
- 
-@@ -129,11 +131,19 @@ success:
- 
- 	/* we found the connection in the list immediately */
- found_extant_connection:
-+	if (!rxrpc_get_connection_maybe(conn)) {
-+		set_bit(RXRPC_CONN_IN_SERVICE_CONNS, &candidate->flags);
-+		rb_replace_node(&conn->service_node,
-+				&candidate->service_node,
-+				&peer->service_conns);
-+		clear_bit(RXRPC_CONN_IN_SERVICE_CONNS, &conn->flags);
-+		goto attached;
++	peer = rxrpc_lookup_peer(local, srx, GFP_NOIO);
++	if (!peer) {
++		_debug("no peer");
++		return ERR_PTR(-EBUSY);
 +	}
 +
- 	if (sp->hdr.securityIndex != conn->security_ix) {
- 		read_unlock_bh(&peer->conn_lock);
--		goto security_mismatch;
-+		goto security_mismatch_put;
+ 	ASSERT(sp->hdr.flags & RXRPC_CLIENT_INITIATED);
+ 
+ 	epoch = sp->hdr.epoch;
+@@ -59,6 +66,7 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
+ 	 * redo the search */
+ 	candidate = rxrpc_alloc_connection(GFP_NOIO);
+ 	if (!candidate) {
++		rxrpc_put_peer(peer);
+ 		_leave(" = -ENOMEM");
+ 		return ERR_PTR(-ENOMEM);
  	}
--	rxrpc_get_connection(conn);
- 	read_unlock_bh(&peer->conn_lock);
- 	goto success;
+@@ -115,6 +123,7 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
+ success:
+ 	_net("CONNECTION %s %d {%x}", new, conn->debug_id, conn->proto.cid);
  
-@@ -148,8 +158,24 @@ found_extant_second:
- 	kfree(candidate);
- 	goto success;
++	rxrpc_put_peer(peer);
+ 	_leave(" = %p {u=%d}", conn, atomic_read(&conn->usage));
+ 	return conn;
  
-+security_mismatch_put:
-+	rxrpc_put_connection(conn);
- security_mismatch:
- 	kfree(candidate);
- 	_leave(" = -EKEYREJECTED");
- 	return ERR_PTR(-EKEYREJECTED);
+diff --git a/net/rxrpc/utils.c b/net/rxrpc/utils.c
+index f28122a15a24..d3db02ecc37f 100644
+--- a/net/rxrpc/utils.c
++++ b/net/rxrpc/utils.c
+@@ -10,6 +10,7 @@
+  */
+ 
+ #include <linux/ip.h>
++#include <linux/ipv6.h>
+ #include <linux/udp.h>
+ #include "ar-internal.h"
+ 
+@@ -39,3 +40,34 @@ void rxrpc_get_addr_from_skb(struct rxrpc_local *local,
+ 		BUG();
+ 	}
  }
 +
 +/*
-+ * Remove the service connection from the peer's tree, thereby removing it as a
-+ * target for incoming packets.
++ * Fill out a peer address from a socket buffer containing a packet.
 + */
-+void rxrpc_unpublish_service_conn(struct rxrpc_connection *conn)
++int rxrpc_extract_addr_from_skb(struct sockaddr_rxrpc *srx, struct sk_buff *skb)
 +{
-+	struct rxrpc_peer *peer = conn->params.peer;
++	memset(srx, 0, sizeof(*srx));
 +
-+	write_lock_bh(&peer->conn_lock);
-+	if (test_and_clear_bit(RXRPC_CONN_IN_SERVICE_CONNS, &conn->flags))
-+		rb_erase(&conn->service_node, &peer->service_conns);
-+	write_unlock_bh(&peer->conn_lock);
++	switch (ntohs(skb->protocol)) {
++	case ETH_P_IP:
++		srx->transport_type = SOCK_DGRAM;
++		srx->transport_len = sizeof(srx->transport.sin);
++		srx->transport.sin.sin_family = AF_INET;
++		srx->transport.sin.sin_port = udp_hdr(skb)->source;
++		srx->transport.sin.sin_addr.s_addr = ip_hdr(skb)->saddr;
++		return 0;
++
++	case ETH_P_IPV6:
++		srx->transport_type = SOCK_DGRAM;
++		srx->transport_len = sizeof(srx->transport.sin6);
++		srx->transport.sin6.sin6_family = AF_INET6;
++		srx->transport.sin6.sin6_port = udp_hdr(skb)->source;
++		srx->transport.sin6.sin6_addr = ipv6_hdr(skb)->saddr;
++		return 0;
++
++	default:
++		pr_warn_ratelimited("AF_RXRPC: Unknown eth protocol %u\n",
++				    ntohs(skb->protocol));
++		return -EAFNOSUPPORT;
++	}
 +}
