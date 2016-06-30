@@ -1,91 +1,55 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: Re: [RFC 6/7] dt-bindings: net: bgmac: add bindings documentation for bgmac
-Date: Thu, 30 Jun 2016 17:57:51 -0400
-Message-ID: <CAC3K-4rHetOEfYnJ_G4xTgnvez13dX_OqS6Tv_mNjeMjwWbJqQ@mail.gmail.com>
-References: <1467142484-11161-1-git-send-email-jon.mason@broadcom.com>
- <1467142484-11161-7-git-send-email-jon.mason@broadcom.com> <a6dd7282-cdd0-6e62-4666-fdb3905fe81d@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Ray Jui <ray.jui@broadcom.com>
+From: Brian Norris <briannorris@chromium.org>
+Subject: [PATCH] mwifiex: mask PCIe interrupts before removal
+Date: Thu, 30 Jun 2016 15:21:02 -0700
+Message-ID: <1467325262-82799-1-git-send-email-briannorris@chromium.org>
+Cc: <linux-kernel@vger.kernel.org>,
+	Doug Anderson <dianders@chromium.org>,
+	Brian Norris <computersforpeace@gmail.com>,
+	Stephen Barber <smbarber@chromium.org>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	Brian Norris <briannorris@chromium.org>
+To: Amitkumar Karwar <akarwar@marvell.com>,
+	Nishant Sarmukadam <nishants@marvell.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <a6dd7282-cdd0-6e62-4666-fdb3905fe81d@broadcom.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 30, 2016 at 2:06 PM, Ray Jui <ray.jui@broadcom.com> wrote:
-> Hi Jon,
->
-> On 6/28/2016 12:34 PM, Jon Mason wrote:
->>
->> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
->> ---
->>  .../devicetree/bindings/net/brcm,bgmac-enet.txt     | 21
->> +++++++++++++++++++++
->>  1 file changed, 21 insertions(+)
->>  create mode 100644
->> Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
->>
->> diff --git a/Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
->> b/Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
->> new file mode 100644
->> index 0000000..efd36d5
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/brcm,bgmac-enet.txt
->> @@ -0,0 +1,21 @@
->> +Broadcom GMAC Ethernet Controller Device Tree Bindings
->> +-------------------------------------------------------------
->> +
->> +Required properties:
->> + - compatible: "brcm,bgmac-enet"
->> + - reg:                Address and length of the GMAC registers,
->> +               Address and length of the GMAC IDM registers
->
->
-> As we know there will be additional optional register banks required for
-> some of the other SoCs that the current driver has not yet supported. In my
-> opinion, we should consider to make "reg-names" a mandatory property now and
-> map the register blocks based on names.
->
-> I think this will help to make our life easier in the future when new
-> optional SoC specific register blocks are added, such that we can map the
-> register blocks based on names instead of indices, which will change and be
-> different among different SoCs and will require much more complex logic in
-> the driver to deal with.
+The PCIe driver didn't mask the host interrupts before trying to tear
+down. This causes lockups at reboot or rmmod when using MSI-X on 8997,
+since the MSI handler gets confused and locks up the system.
 
-I don't have any objection to this.  I'll tweak the patches to do it by name.
+Also tested on 8897, which does not support MSI-X (and wasn't
+experiencing this same bug). No regressions seen there.
 
->
->> + - interrupts: Interrupt number
->> +
->> +Optional properties:
->> +- mac-address: mac address to be assigned to the device
->> +
->> +Examples:
->> +
->> +gmac0: enet@18022000 {
->> +       compatible = "brcm,bgmac-enet";
->> +       reg = <0x18022000 0x1000>,
->> +             <0x18110000 0x1000>;
->> +       interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>;
->> +       status = "disabled";
->> +};
->>
->
-> Btw, I think Rob Herring should be included in the review for device tree
-> binding document changes.
+Signed-off-by: Brian Norris <briannorris@chromium.org>
+---
+ drivers/net/wireless/marvell/mwifiex/pcie.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
 
-Thanks, I'll add him and the other DT maintainers when I send this out
-as a "PATCH" shortly.
-
-Thanks,
-Jon
-
->
-> Thanks,
->
-> Ray
+diff --git a/drivers/net/wireless/marvell/mwifiex/pcie.c b/drivers/net/wireless/marvell/mwifiex/pcie.c
+index 0c7937eb6b77..af98371dc2af 100644
+--- a/drivers/net/wireless/marvell/mwifiex/pcie.c
++++ b/drivers/net/wireless/marvell/mwifiex/pcie.c
+@@ -440,6 +440,11 @@ static int mwifiex_pcie_disable_host_int(struct mwifiex_adapter *adapter)
+ 	return 0;
+ }
+ 
++static void mwifiex_pcie_disable_host_int_noerr(struct mwifiex_adapter *adapter)
++{
++	WARN_ON(mwifiex_pcie_disable_host_int(adapter));
++}
++
+ /*
+  * This function enables the host interrupt.
+  *
+@@ -2945,6 +2950,7 @@ static struct mwifiex_if_ops pcie_ops = {
+ 	.register_dev =			mwifiex_register_dev,
+ 	.unregister_dev =		mwifiex_unregister_dev,
+ 	.enable_int =			mwifiex_pcie_enable_host_int,
++	.disable_int =			mwifiex_pcie_disable_host_int_noerr,
+ 	.process_int_status =		mwifiex_process_int_status,
+ 	.host_to_card =			mwifiex_pcie_host_to_card,
+ 	.wakeup =			mwifiex_pm_wakeup_card,
+-- 
+2.8.0.rc3.226.g39d4020
