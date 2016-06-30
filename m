@@ -1,55 +1,64 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v4] fib_rules: Added NLM_F_EXCL support to
- fib_nl_newrule
-Date: Thu, 30 Jun 2016 08:24:31 -0400 (EDT)
-Message-ID: <20160630.082431.1308534563356523412.davem@davemloft.net>
-References: <57737722.6000101@nokia.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH V6 1/1] net: ethernet: Add TSE PCS support to
+ dwmac-socfpga
+Date: Thu, 30 Jun 2016 08:34:33 -0400 (EDT)
+Message-ID: <20160630.083433.705935493078392286.davem@davemloft.net>
+References: <1467191413-16715-1-git-send-email-thloh@altera.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: mateusz.bajorski@nokia.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:55324 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751858AbcF3MZA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 08:25:00 -0400
-In-Reply-To: <57737722.6000101@nokia.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, mark.rutland-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+	alexandre.torgue-qxv4g6HH51o@public.gmane.org, preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org,
+	dinguyen-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	thloh85-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cnphoon-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org
+To: thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1467191413-16715-1-git-send-email-thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Mateusz Bajorski <mateusz.bajorski@nokia.com>
-Date: Wed, 29 Jun 2016 09:22:10 +0200
+From: <thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
+Date: Wed, 29 Jun 2016 02:10:13 -0700
 
-> When adding rule with NLM_F_EXCL flag then check if the same rule exist.
-> If yes then exit with -EEXIST.
-> 
-> This is already implemented in iproute2:
->         if (cmd == RTM_NEWRULE) {
->                 req.n.nlmsg_flags |= NLM_F_CREATE|NLM_F_EXCL;
->                 req.r.rtm_type = RTN_UNICAST;
->         }
-> 
-> Tested ipv4 and ipv6 with net-next linux on qemu x86
-> 
-> expected behavior after patch:
-> localhost ~ # ip rule
-> 0:    from all lookup local
-> 32766:    from all lookup main
-> 32767:    from all lookup default
-> localhost ~ # ip rule add from 10.46.177.97 lookup 104 pref 1005
-> localhost ~ # ip rule add from 10.46.177.97 lookup 104 pref 1005
-> RTNETLINK answers: File exists
-> localhost ~ # ip rule
-> 0:    from all lookup local
-> 1005:    from 10.46.177.97 lookup 104
-> 32766:    from all lookup main
-> 32767:    from all lookup default
-> 
-> There was already topic regarding this but I don't see any changes
-> merged and problem still occurs.
-> https://lkml.kernel.org/r/1135778809.5944.7.camel+%28%29+localhost+%21+localdomain
-> 
-> Signed-off-by: Mateusz Bajorski <mateusz.bajorski@nokia.com>
+> +static void auto_nego_timer_callback(unsigned long data)
+> +{
+> +	u16 val = 0;
+> +	u16 speed = 0;
+> +	u16 duplex = 0;
+> +
+> +	struct tse_pcs *pcs = (struct tse_pcs *)data;
+> +	void __iomem *tse_pcs_base = pcs->tse_pcs_base;
+> +	void __iomem *sgmii_adapter_base = pcs->sgmii_adapter_base;
 
-Applied to net-next, thanks.
+Please do not break up a set of local variable declarations with
+an empty line.
+
+> +	if ((tse_pcs_base) && (sgmii_adapter_base))
+
+Unnecessary parenthesis.
+
+> +	if ((tse_pcs_base) && (sgmii_adapter_base))
+
+Likewise.
+
+> @@ -88,9 +104,13 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+>  	struct device_node *np = dev->of_node;
+>  	struct regmap *sys_mgr_base_addr;
+>  	u32 reg_offset, reg_shift;
+> -	int ret;
+> -	struct device_node *np_splitter;
+> +	int ret, index;
+> +	struct device_node *np_splitter = NULL;
+> +	struct device_node *np_sgmii_adapter = NULL;
+> +
+>  	struct resource res_splitter;
+> +	struct resource res_tse_pcs;
+> +	struct resource res_sgmii_adapter;
+
+Again, do not break up local variable declarations with an empty line
+like this.
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
