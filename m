@@ -1,120 +1,30 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: [PATCH net] bonding: prevent out of bound accesses
-Date: Thu, 30 Jun 2016 14:56:19 +0200
-Message-ID: <1467291379.11238.8.camel@edumazet-glaptop3.roam.corp.google.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch] be2net: signedness bug in be_msix_enable()
+Date: Thu, 30 Jun 2016 08:56:26 -0400 (EDT)
+Message-ID: <20160630.085626.1553236786452459332.davem@davemloft.net>
+References: <20160629143943.GA22818@mwanda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Ding Tianhong <dingtianhong@huawei.com>,
-	Dmitry Vyukov <dvyukov@google.com>
-To: David Miller <davem@davemloft.net>
+Cc: sathya.perla@broadcom.com, ajit.khaparde@broadcom.com,
+	sriharsha.basavapatna@broadcom.com, somnath.kotur@broadcom.com,
+	netdev@vger.kernel.org, kernel-janitors@vger.kernel.org
+To: dan.carpenter@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33197 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752064AbcF3M41 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 08:56:27 -0400
-Received: by mail-wm0-f67.google.com with SMTP id r201so22650650wme.0
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 05:56:26 -0700 (PDT)
+Received: from shards.monkeyblade.net ([149.20.54.216]:55695 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751994AbcF3M44 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 08:56:56 -0400
+In-Reply-To: <20160629143943.GA22818@mwanda>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Eric Dumazet <edumazet@google.com>
+From: Dan Carpenter <dan.carpenter@oracle.com>
+Date: Wed, 29 Jun 2016 17:39:43 +0300
 
-ether_addr_equal_64bits() requires some care about its arguments,
-namely that 8 bytes might be read, even if last 2 byte values are not
-used.
+> "num_vec" needs to be signed for the error handling to work.
+> 
+> Fixes: e261768e9e39 ('be2net: support asymmetric rx/tx queue counts')
+> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-KASan detected a violation with null_mac_addr and lacpdu_mcast_addr
-in bond_3ad.c
-
-Fixes: 815117adaf5b ("bonding: use ether_addr_equal_unaligned for bond addr compare")
-Fixes: bb54e58929f3 ("bonding: Verify RX LACPDU has proper dest mac-addr")
-Signed-off-by: Eric Dumazet <edumazet@google.com>
-Reported-by: Dmitry Vyukov <dvyukov@google.com>
----
- drivers/net/bonding/bond_3ad.c |   11 +++++++----
- drivers/net/bonding/bond_alb.c |    3 ---
- include/net/bonding.h          |    7 ++++++-
- 3 files changed, 13 insertions(+), 8 deletions(-)
-
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index ca81f46ea1aa..8ad491ab1d01 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -101,11 +101,14 @@ enum ad_link_speed_type {
- #define MAC_ADDRESS_EQUAL(A, B)	\
- 	ether_addr_equal_64bits((const u8 *)A, (const u8 *)B)
- 
--static struct mac_addr null_mac_addr = { { 0, 0, 0, 0, 0, 0 } };
-+static const u8 null_mac_addr[ETH_ALEN] __long_aligned = {
-+	0, 0, 0, 0, 0, 0
-+};
- static u16 ad_ticks_per_sec;
- static const int ad_delta_in_ticks = (AD_TIMER_INTERVAL * HZ) / 1000;
- 
--static const u8 lacpdu_mcast_addr[ETH_ALEN] = MULTICAST_LACPDU_ADDR;
-+static const u8 lacpdu_mcast_addr[ETH_ALEN] __long_aligned =
-+	MULTICAST_LACPDU_ADDR;
- 
- /* ================= main 802.3ad protocol functions ================== */
- static int ad_lacpdu_send(struct port *port);
-@@ -1739,7 +1742,7 @@ static void ad_clear_agg(struct aggregator *aggregator)
- 		aggregator->is_individual = false;
- 		aggregator->actor_admin_aggregator_key = 0;
- 		aggregator->actor_oper_aggregator_key = 0;
--		aggregator->partner_system = null_mac_addr;
-+		eth_zero_addr(aggregator->partner_system.mac_addr_value);
- 		aggregator->partner_system_priority = 0;
- 		aggregator->partner_oper_aggregator_key = 0;
- 		aggregator->receive_state = 0;
-@@ -1761,7 +1764,7 @@ static void ad_initialize_agg(struct aggregator *aggregator)
- 	if (aggregator) {
- 		ad_clear_agg(aggregator);
- 
--		aggregator->aggregator_mac_address = null_mac_addr;
-+		eth_zero_addr(aggregator->aggregator_mac_address.mac_addr_value);
- 		aggregator->aggregator_identifier = 0;
- 		aggregator->slave = NULL;
- 	}
-diff --git a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
-index c5ac160a8ae9..26beed070bf0 100644
---- a/drivers/net/bonding/bond_alb.c
-+++ b/drivers/net/bonding/bond_alb.c
-@@ -42,9 +42,6 @@
- 
- 
- 
--#ifndef __long_aligned
--#define __long_aligned __attribute__((aligned((sizeof(long)))))
--#endif
- static const u8 mac_bcast[ETH_ALEN] __long_aligned = {
- 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff
- };
-diff --git a/include/net/bonding.h b/include/net/bonding.h
-index 791800ddd6d9..6360c259da6d 100644
---- a/include/net/bonding.h
-+++ b/include/net/bonding.h
-@@ -34,6 +34,9 @@
- 
- #define BOND_DEFAULT_MIIMON	100
- 
-+#ifndef __long_aligned
-+#define __long_aligned __attribute__((aligned((sizeof(long)))))
-+#endif
- /*
-  * Less bad way to call ioctl from within the kernel; this needs to be
-  * done some other way to get the call out of interrupt context.
-@@ -138,7 +141,9 @@ struct bond_params {
- 	struct reciprocal_value reciprocal_packets_per_slave;
- 	u16 ad_actor_sys_prio;
- 	u16 ad_user_port_key;
--	u8 ad_actor_system[ETH_ALEN];
-+
-+	/* 2 bytes of padding : see ether_addr_equal_64bits() */
-+	u8 ad_actor_system[ETH_ALEN + 2];
- };
- 
- struct bond_parm_tbl {
+Applied.
