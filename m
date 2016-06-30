@@ -1,53 +1,347 @@
 From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next V4 4/6] skb_array: add wrappers for resizing
-Date: Thu, 30 Jun 2016 14:45:34 +0800
-Message-ID: <1467269136-8082-5-git-send-email-jasowang@redhat.com>
+Subject: [PATCH net-next V4 6/6] tun: switch to use skb array for tx
+Date: Thu, 30 Jun 2016 14:45:36 +0800
+Message-ID: <1467269136-8082-7-git-send-email-jasowang@redhat.com>
 References: <1467269136-8082-1-git-send-email-jasowang@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com, eric.dumazet@gmail.com, kvm@vger.kernel.org,
-	virtualization@lists.linux-foundation.org
-To: mst@redhat.com, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	davem@davemloft.net
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Cc: kvm@vger.kernel.org, virtualization@lists.linux-foundation.org,
+	eric.dumazet@gmail.com, brouer@redhat.com,
+	Jason Wang <jasowang@redhat.com>
+To: mst@redhat.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
 In-Reply-To: <1467269136-8082-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Michael S. Tsirkin <mst@redhat.com>
+We used to queue tx packets in sk_receive_queue, this is less
+efficient since it requires spinlocks to synchronize between producer
+and consumer.
+
+This patch tries to address this by:
+
+- switch from sk_receive_queue to a skb_array, and resize it when
+  tx_queue_len was changed.
+- introduce a new proto_ops peek_len which was used for peeking the
+  skb length.
+- implement a tun version of peek_len for vhost_net to use and convert
+  vhost_net to use peek_len if possible.
+
+Pktgen test shows about 15.3% improvement on guest receiving pps for small
+buffers:
+
+Before: ~1300000pps
+After : ~1500000pps
+
 Signed-off-by: Jason Wang <jasowang@redhat.com>
 ---
- include/linux/skb_array.h | 9 +++++++++
- 1 file changed, 9 insertions(+)
+ drivers/net/tun.c   | 138 +++++++++++++++++++++++++++++++++++++++++++++++++---
+ drivers/vhost/net.c |  16 +++++-
+ include/linux/net.h |   1 +
+ 3 files changed, 146 insertions(+), 9 deletions(-)
 
-diff --git a/include/linux/skb_array.h b/include/linux/skb_array.h
-index 2dd0d1e..f4dfade 100644
---- a/include/linux/skb_array.h
-+++ b/include/linux/skb_array.h
-@@ -161,6 +161,15 @@ static inline int skb_array_resize(struct skb_array *a, int size, gfp_t gfp)
- 	return ptr_ring_resize(&a->ring, size, gfp, __skb_array_destroy_skb);
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 4884802..7475215 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -71,6 +71,7 @@
+ #include <net/sock.h>
+ #include <linux/seq_file.h>
+ #include <linux/uio.h>
++#include <linux/skb_array.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -167,6 +168,7 @@ struct tun_file {
+ 	};
+ 	struct list_head next;
+ 	struct tun_struct *detached;
++	struct skb_array tx_array;
+ };
+ 
+ struct tun_flow_entry {
+@@ -515,7 +517,11 @@ static struct tun_struct *tun_enable_queue(struct tun_file *tfile)
+ 
+ static void tun_queue_purge(struct tun_file *tfile)
+ {
+-	skb_queue_purge(&tfile->sk.sk_receive_queue);
++	struct sk_buff *skb;
++
++	while ((skb = skb_array_consume(&tfile->tx_array)) != NULL)
++		kfree_skb(skb);
++
+ 	skb_queue_purge(&tfile->sk.sk_error_queue);
  }
  
-+static inline int skb_array_resize_multiple(struct skb_array **rings,
-+					    int nrings, int size, gfp_t gfp)
+@@ -560,6 +566,8 @@ static void __tun_detach(struct tun_file *tfile, bool clean)
+ 			    tun->dev->reg_state == NETREG_REGISTERED)
+ 				unregister_netdevice(tun->dev);
+ 		}
++		if (tun)
++			skb_array_cleanup(&tfile->tx_array);
+ 		sock_put(&tfile->sk);
+ 	}
+ }
+@@ -613,6 +621,7 @@ static void tun_detach_all(struct net_device *dev)
+ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filter)
+ {
+ 	struct tun_file *tfile = file->private_data;
++	struct net_device *dev = tun->dev;
+ 	int err;
+ 
+ 	err = security_tun_dev_attach(tfile->socket.sk, tun->security);
+@@ -642,6 +651,13 @@ static int tun_attach(struct tun_struct *tun, struct file *file, bool skip_filte
+ 		if (!err)
+ 			goto out;
+ 	}
++
++	if (!tfile->detached &&
++	    skb_array_init(&tfile->tx_array, dev->tx_queue_len, GFP_KERNEL)) {
++		err = -ENOMEM;
++		goto out;
++	}
++
+ 	tfile->queue_index = tun->numqueues;
+ 	tfile->socket.sk->sk_shutdown &= ~RCV_SHUTDOWN;
+ 	rcu_assign_pointer(tfile->tun, tun);
+@@ -891,8 +907,8 @@ static netdev_tx_t tun_net_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	nf_reset(skb);
+ 
+-	/* Enqueue packet */
+-	skb_queue_tail(&tfile->socket.sk->sk_receive_queue, skb);
++	if (skb_array_produce(&tfile->tx_array, skb))
++		goto drop;
+ 
+ 	/* Notify and wake up reader process */
+ 	if (tfile->flags & TUN_FASYNC)
+@@ -1107,7 +1123,7 @@ static unsigned int tun_chr_poll(struct file *file, poll_table *wait)
+ 
+ 	poll_wait(file, sk_sleep(sk), wait);
+ 
+-	if (!skb_queue_empty(&sk->sk_receive_queue))
++	if (!skb_array_empty(&tfile->tx_array))
+ 		mask |= POLLIN | POLLRDNORM;
+ 
+ 	if (sock_writeable(sk) ||
+@@ -1426,22 +1442,61 @@ done:
+ 	return total;
+ }
+ 
++static struct sk_buff *tun_ring_recv(struct tun_file *tfile, int noblock,
++				     int *err)
 +{
-+	BUILD_BUG_ON(offsetof(struct skb_array, ring));
-+	return ptr_ring_resize_multiple((struct ptr_ring **)rings,
-+					nrings, size, gfp,
-+					__skb_array_destroy_skb);
++	DECLARE_WAITQUEUE(wait, current);
++	struct sk_buff *skb = NULL;
++
++	skb = skb_array_consume(&tfile->tx_array);
++	if (skb)
++		goto out;
++	if (noblock) {
++		*err = -EAGAIN;
++		goto out;
++	}
++
++	add_wait_queue(&tfile->wq.wait, &wait);
++	current->state = TASK_INTERRUPTIBLE;
++
++	while (1) {
++		skb = skb_array_consume(&tfile->tx_array);
++		if (skb)
++			break;
++		if (signal_pending(current)) {
++			*err = -ERESTARTSYS;
++			break;
++		}
++		if (tfile->socket.sk->sk_shutdown & RCV_SHUTDOWN) {
++			*err = -EFAULT;
++			break;
++		}
++
++		schedule();
++	}
++
++	current->state = TASK_RUNNING;
++	remove_wait_queue(&tfile->wq.wait, &wait);
++
++out:
++	return skb;
 +}
 +
- static inline void skb_array_cleanup(struct skb_array *a)
+ static ssize_t tun_do_read(struct tun_struct *tun, struct tun_file *tfile,
+ 			   struct iov_iter *to,
+ 			   int noblock)
  {
- 	ptr_ring_cleanup(&a->ring, __skb_array_destroy_skb);
+ 	struct sk_buff *skb;
+ 	ssize_t ret;
+-	int peeked, err, off = 0;
++	int err;
+ 
+ 	tun_debug(KERN_INFO, tun, "tun_do_read\n");
+ 
+ 	if (!iov_iter_count(to))
+ 		return 0;
+ 
+-	/* Read frames from queue */
+-	skb = __skb_recv_datagram(tfile->socket.sk, noblock ? MSG_DONTWAIT : 0,
+-				  &peeked, &off, &err);
++	/* Read frames from ring */
++	skb = tun_ring_recv(tfile, noblock, &err);
+ 	if (!skb)
+ 		return err;
+ 
+@@ -1574,8 +1629,25 @@ out:
+ 	return ret;
+ }
+ 
++static int tun_peek_len(struct socket *sock)
++{
++	struct tun_file *tfile = container_of(sock, struct tun_file, socket);
++	struct tun_struct *tun;
++	int ret = 0;
++
++	tun = __tun_get(tfile);
++	if (!tun)
++		return 0;
++
++	ret = skb_array_peek_len(&tfile->tx_array);
++	tun_put(tun);
++
++	return ret;
++}
++
+ /* Ops structure to mimic raw sockets with tun */
+ static const struct proto_ops tun_socket_ops = {
++	.peek_len = tun_peek_len,
+ 	.sendmsg = tun_sendmsg,
+ 	.recvmsg = tun_recvmsg,
+ };
+@@ -2397,6 +2469,53 @@ static const struct ethtool_ops tun_ethtool_ops = {
+ 	.get_ts_info	= ethtool_op_get_ts_info,
+ };
+ 
++static int tun_queue_resize(struct tun_struct *tun)
++{
++	struct net_device *dev = tun->dev;
++	struct tun_file *tfile;
++	struct skb_array **arrays;
++	int n = tun->numqueues + tun->numdisabled;
++	int ret, i;
++
++	arrays = kmalloc(sizeof *arrays * n, GFP_KERNEL);
++	if (!arrays)
++		return -ENOMEM;
++
++	for (i = 0; i < tun->numqueues; i++) {
++		tfile = rtnl_dereference(tun->tfiles[i]);
++		arrays[i] = &tfile->tx_array;
++	}
++	list_for_each_entry(tfile, &tun->disabled, next)
++		arrays[i++] = &tfile->tx_array;
++
++	ret = skb_array_resize_multiple(arrays, n,
++					dev->tx_queue_len, GFP_KERNEL);
++
++	kfree(arrays);
++	return ret;
++}
++
++static int tun_device_event(struct notifier_block *unused,
++			    unsigned long event, void *ptr)
++{
++	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
++	struct tun_struct *tun = netdev_priv(dev);
++
++	switch (event) {
++	case NETDEV_CHANGE_TX_QUEUE_LEN:
++		if (tun_queue_resize(tun))
++			return NOTIFY_BAD;
++		break;
++	default:
++		break;
++	}
++
++	return NOTIFY_DONE;
++}
++
++static struct notifier_block tun_notifier_block __read_mostly = {
++	.notifier_call	= tun_device_event,
++};
+ 
+ static int __init tun_init(void)
+ {
+@@ -2416,6 +2535,8 @@ static int __init tun_init(void)
+ 		pr_err("Can't register misc device %d\n", TUN_MINOR);
+ 		goto err_misc;
+ 	}
++
++	register_netdevice_notifier(&tun_notifier_block);
+ 	return  0;
+ err_misc:
+ 	rtnl_link_unregister(&tun_link_ops);
+@@ -2427,6 +2548,7 @@ static void tun_cleanup(void)
+ {
+ 	misc_deregister(&tun_miscdev);
+ 	rtnl_link_unregister(&tun_link_ops);
++	unregister_netdevice_notifier(&tun_notifier_block);
+ }
+ 
+ /* Get an underlying socket object from tun file.  Returns error unless file is
+diff --git a/drivers/vhost/net.c b/drivers/vhost/net.c
+index 1d3e45f..e032ca3 100644
+--- a/drivers/vhost/net.c
++++ b/drivers/vhost/net.c
+@@ -481,10 +481,14 @@ out:
+ 
+ static int peek_head_len(struct sock *sk)
+ {
++	struct socket *sock = sk->sk_socket;
+ 	struct sk_buff *head;
+ 	int len = 0;
+ 	unsigned long flags;
+ 
++	if (sock->ops->peek_len)
++		return sock->ops->peek_len(sock);
++
+ 	spin_lock_irqsave(&sk->sk_receive_queue.lock, flags);
+ 	head = skb_peek(&sk->sk_receive_queue);
+ 	if (likely(head)) {
+@@ -497,6 +501,16 @@ static int peek_head_len(struct sock *sk)
+ 	return len;
+ }
+ 
++static int sk_has_rx_data(struct sock *sk)
++{
++	struct socket *sock = sk->sk_socket;
++
++	if (sock->ops->peek_len)
++		return sock->ops->peek_len(sock);
++
++	return skb_queue_empty(&sk->sk_receive_queue);
++}
++
+ static int vhost_net_rx_peek_head_len(struct vhost_net *net, struct sock *sk)
+ {
+ 	struct vhost_net_virtqueue *nvq = &net->vqs[VHOST_NET_VQ_TX];
+@@ -513,7 +527,7 @@ static int vhost_net_rx_peek_head_len(struct vhost_net *net, struct sock *sk)
+ 		endtime = busy_clock() + vq->busyloop_timeout;
+ 
+ 		while (vhost_can_busy_poll(&net->dev, endtime) &&
+-		       skb_queue_empty(&sk->sk_receive_queue) &&
++		       !sk_has_rx_data(sk) &&
+ 		       vhost_vq_avail_empty(&net->dev, vq))
+ 			cpu_relax_lowlatency();
+ 
+diff --git a/include/linux/net.h b/include/linux/net.h
+index 9aa49a0..b6b3843 100644
+--- a/include/linux/net.h
++++ b/include/linux/net.h
+@@ -185,6 +185,7 @@ struct proto_ops {
+ 	ssize_t 	(*splice_read)(struct socket *sock,  loff_t *ppos,
+ 				       struct pipe_inode_info *pipe, size_t len, unsigned int flags);
+ 	int		(*set_peek_off)(struct sock *sk, int val);
++	int		(*peek_len)(struct socket *sock);
+ };
+ 
+ #define DECLARE_SOCKADDR(type, dst, src)	\
 -- 
 2.7.4
