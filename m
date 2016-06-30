@@ -1,44 +1,97 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net] bonding: prevent out of bound accesses
-Date: Thu, 30 Jun 2016 16:08:49 +0200
-Message-ID: <1467295729.11238.14.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1467291379.11238.8.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CACT4Y+aAVS+oYg62hftq7RMb2QM9wiPCK-Vf33c2PaG2Sm6R6g@mail.gmail.com>
-	 <1467293149.11238.12.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CACT4Y+YdOi1-z1pPJaYBybyHZ=MXzHPGjGU+UJWJf-N3pgGzeg@mail.gmail.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 03/19] rxrpc: Provide more refcount helper functions
+Date: Thu, 30 Jun 2016 15:11:03 +0100
+Message-ID: <146729586380.26306.5735072010592120761.stgit@warthog.procyon.org.uk>
+References: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Mahesh Bandewar <maheshb@google.com>,
-	Nikolay Aleksandrov <nikolay@redhat.com>,
-	Ding Tianhong <dingtianhong@huawei.com>
-To: Dmitry Vyukov <dvyukov@google.com>
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:33116 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752239AbcF3OJS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 10:09:18 -0400
-Received: by mail-wm0-f43.google.com with SMTP id r190so4630192wmr.0
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 07:08:52 -0700 (PDT)
-In-Reply-To: <CACT4Y+YdOi1-z1pPJaYBybyHZ=MXzHPGjGU+UJWJf-N3pgGzeg@mail.gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:49844 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751994AbcF3OMv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 30 Jun 2016 10:12:51 -0400
+In-Reply-To: <146729584148.26306.13038965408565743258.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-06-30 at 15:35 +0200, Dmitry Vyukov wrote:
+Provide refcount helper functions for connections so that the code doesn't
+touch conn->usage directly.
 
-> 
-> What does nm -S say?
-> I've tried to compile a sample program with gcc6 and
-> __attribute__((aligned(8))) does in fact force alignment of start of
-> the symbol, but size still stays 6. (and asan still barks on my test
-> program).
+Also provide queueing helper functions so that the queueing of local and
+connection objects can be fixed later.
 
-Right, but then it means I also need to change mac_bcast[] and
-mac_v6_allmcast[] in bond_alb.c to avoid false positive.
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-(Technically, if their alignment is 8, we have 8 bytes there,
-no way it could span 2 pages)
+ net/rxrpc/ar-internal.h |   12 +++++++++++-
+ net/rxrpc/conn_event.c  |    2 +-
+ net/rxrpc/input.c       |    2 +-
+ 3 files changed, 13 insertions(+), 3 deletions(-)
 
-I'll send a v2.
+diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
+index 796368d1fb25..45aef3ef7609 100644
+--- a/net/rxrpc/ar-internal.h
++++ b/net/rxrpc/ar-internal.h
+@@ -35,7 +35,6 @@ struct rxrpc_crypt {
+ 	queue_delayed_work(rxrpc_workqueue, (WS), (D))
+ 
+ #define rxrpc_queue_call(CALL)	rxrpc_queue_work(&(CALL)->processor)
+-#define rxrpc_queue_conn(CONN)	rxrpc_queue_work(&(CONN)->processor)
+ 
+ struct rxrpc_connection;
+ 
+@@ -566,6 +565,12 @@ static inline void rxrpc_get_connection(struct rxrpc_connection *conn)
+ 	atomic_inc(&conn->usage);
+ }
+ 
++
++static inline void rxrpc_queue_conn(struct rxrpc_connection *conn)
++{
++	rxrpc_queue_work(&conn->processor);
++}
++
+ /*
+  * input.c
+  */
+@@ -618,6 +623,11 @@ static inline void rxrpc_put_local(struct rxrpc_local *local)
+ 		__rxrpc_put_local(local);
+ }
+ 
++static inline void rxrpc_queue_local(struct rxrpc_local *local)
++{
++	rxrpc_queue_work(&local->processor);
++}
++
+ /*
+  * misc.c
+  */
+diff --git a/net/rxrpc/conn_event.c b/net/rxrpc/conn_event.c
+index 6a3c96707831..d7e183c6b5df 100644
+--- a/net/rxrpc/conn_event.c
++++ b/net/rxrpc/conn_event.c
+@@ -318,7 +318,7 @@ void rxrpc_reject_packet(struct rxrpc_local *local, struct sk_buff *skb)
+ 	CHECK_SLAB_OKAY(&local->usage);
+ 
+ 	skb_queue_tail(&local->reject_queue, skb);
+-	rxrpc_queue_work(&local->processor);
++	rxrpc_queue_local(local);
+ }
+ 
+ /*
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index f4bd57b77b93..8a68cc387a8c 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -595,7 +595,7 @@ static void rxrpc_post_packet_to_local(struct rxrpc_local *local,
+ 	_enter("%p,%p", local, skb);
+ 
+ 	skb_queue_tail(&local->event_queue, skb);
+-	rxrpc_queue_work(&local->processor);
++	rxrpc_queue_local(local);
+ }
+ 
+ /*
