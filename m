@@ -1,88 +1,59 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: davinci_emac: use phy_ethtool_{get|set}_link_ksettings
-Date: Sat,  2 Jul 2016 00:02:35 +0200
-Message-ID: <1467410555-19514-2-git-send-email-tremyfr@gmail.com>
-References: <1467410555-19514-1-git-send-email-tremyfr@gmail.com>
-Cc: linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
-To: mugunthanvnm@ti.com, grygorii.strashko@ti.com, davem@davemloft.net
+From: Ido Schimmel <idosch@mellanox.com>
+Subject: Re: [patch net-next 11/42] mlxsw: spectrum: Add router interface
+ struct
+Date: Fri, 1 Jul 2016 21:37:13 +0300
+Message-ID: <20160701183713.GB11348@colbert.idosch.org>
+References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
+ <1467381910-3445-12-git-send-email-jiri@resnulli.us>
+ <90c0b9d3-6d54-c4f1-407f-0f93c12caf5d@cumulusnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Cc: Jiri Pirko <jiri@resnulli.us>, <netdev@vger.kernel.org>,
+	<davem@davemloft.net>, <yotamg@mellanox.com>, <eladr@mellanox.com>,
+	<nogahf@mellanox.com>, <ogerlitz@mellanox.com>,
+	<sfeldma@gmail.com>, <roopa@cumulusnetworks.com>,
+	<andy@greyhouse.net>, <tgraf@suug.ch>, <jhs@mojatatu.com>,
+	<linville@tuxdriver.com>, <ivecera@redhat.com>
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36522 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752220AbcGAWCq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 18:02:46 -0400
-In-Reply-To: <1467410555-19514-1-git-send-email-tremyfr@gmail.com>
+Received: from mail-db5eur01on0054.outbound.protection.outlook.com ([104.47.2.54]:7328
+	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751128AbcGAWSz (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jul 2016 18:18:55 -0400
+Content-Disposition: inline
+In-Reply-To: <90c0b9d3-6d54-c4f1-407f-0f93c12caf5d@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-so we can use them instead of defining the same code in the driver.
+Fri, Jul 01, 2016 at 07:16:23PM IDT, dsa@cumulusnetworks.com wrote:
+>On 7/1/16 8:04 AM, Jiri Pirko wrote:
+>> @@ -327,6 +333,19 @@ mlxsw_sp_port_vport_find_by_fid(const struct mlxsw_sp_port *mlxsw_sp_port,
+>>  	return NULL;
+>>  }
+>>
+>> +static inline struct mlxsw_sp_rif *
+>> +mlxsw_sp_rif_find_by_dev(const struct mlxsw_sp *mlxsw_sp,
+>> +			 const struct net_device *dev)
+>> +{
+>> +	int i;
+>> +
+>> +	for (i = 0; i < MLXSW_SP_RIF_MAX; i++)
+>> +		if (mlxsw_sp->rifs[i] && mlxsw_sp->rifs[i]->dev == dev)
+>> +			return mlxsw_sp->rifs[i];
+>> +
+>> +	return NULL;
+>> +}
+>> +
+>
+>Why not add the rif to mlxsw_sp_port which is the priv data for a mlxsw dev?
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/ti/davinci_emac.c |   39 +------------------------------
- 1 files changed, 2 insertions(+), 37 deletions(-)
+We create 'mlxsw_sp_port' for physical ports and vPorts (VLAN netdevs),
+but not for master devices such as bridge and team, which can also be
+assigned RIFs. The reason for this is that in most cases any bridge /
+team setting eventually needs to be programmed to the device via each
+slave 'mlxsw_sp_port'. You can see, for example, that in our netdev
+notification block we simply propagate team/bond CHANGEUPPER to each
+slave port.
 
-diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
-index 76683c7..c6c5465 100644
---- a/drivers/net/ethernet/ti/davinci_emac.c
-+++ b/drivers/net/ethernet/ti/davinci_emac.c
-@@ -485,41 +485,6 @@ static void emac_get_drvinfo(struct net_device *ndev,
- }
- 
- /**
-- * emac_get_settings - Get EMAC settings
-- * @ndev: The DaVinci EMAC network adapter
-- * @ecmd: ethtool command
-- *
-- * Executes ethool get command
-- *
-- */
--static int emac_get_settings(struct net_device *ndev,
--			     struct ethtool_cmd *ecmd)
--{
--	if (ndev->phydev)
--		return phy_ethtool_gset(ndev->phydev, ecmd);
--	else
--		return -EOPNOTSUPP;
--
--}
--
--/**
-- * emac_set_settings - Set EMAC settings
-- * @ndev: The DaVinci EMAC network adapter
-- * @ecmd: ethtool command
-- *
-- * Executes ethool set command
-- *
-- */
--static int emac_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
--{
--	if (ndev->phydev)
--		return phy_ethtool_sset(ndev->phydev, ecmd);
--	else
--		return -EOPNOTSUPP;
--
--}
--
--/**
-  * emac_get_coalesce - Get interrupt coalesce settings for this device
-  * @ndev : The DaVinci EMAC network adapter
-  * @coal : ethtool coalesce settings structure
-@@ -622,12 +587,12 @@ static int emac_set_coalesce(struct net_device *ndev,
-  */
- static const struct ethtool_ops ethtool_ops = {
- 	.get_drvinfo = emac_get_drvinfo,
--	.get_settings = emac_get_settings,
--	.set_settings = emac_set_settings,
- 	.get_link = ethtool_op_get_link,
- 	.get_coalesce = emac_get_coalesce,
- 	.set_coalesce =  emac_set_coalesce,
- 	.get_ts_info = ethtool_op_get_ts_info,
-+	.get_link_ksettings = phy_ethtool_get_link_ksettings,
-+	.set_link_ksettings = phy_ethtool_set_link_ksettings,
- };
- 
- /**
--- 
-1.7.4.4
+Thanks for taking the time to review this!
