@@ -1,52 +1,53 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [RFC PATCH 2/2] net: macb: Add gmii2rgmii phy converter support
-Date: Fri, 1 Jul 2016 13:07:29 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5BAB75@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <1467354012-7364-1-git-send-email-appanad@xilinx.com>
- <1467354012-7364-3-git-send-email-appanad@xilinx.com>
- <57761F96.4060609@atmel.com>
- <C246CAC1457055469EF09E3A7AC4E11A4A5BA97B@XAP-PVEXMBX01.xlnx.xilinx.com>
- <57766A2D.5060507@atmel.com>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH 05/17] batman-adv: update elp interval
+	documentation
+Date: Fri,  1 Jul 2016 15:08:57 +0200
+Message-ID: <1467378549-9646-6-git-send-email-sw@simonwunderlich.de>
+References: <1467378549-9646-1-git-send-email-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	Michal Simek <michals@xilinx.com>,
-	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	Harini Katakam <harinik@xilinx.com>,
-	Florian Fainelli <f.fainelli@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57766A2D.5060507@atmel.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1467378549-9646-1-git-send-email-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
 
-> >>> +static inline void macb_hw_fix_mac_speed(struct macb *bp,
-> >>> +					 struct phy_device *phydev)
-> >>> +{
-> >>> +	if (likely(bp->converter_phy.fix_mac_speed))
-> >>
-> >> What is the purpose of this branch bias? The code isn't in some hot
-> >> path, so I suspect that its not needed.
-> >
-> > If we won't put this check driver will crash with NULL pointer
-> > dereference for the below cases
-> 
-> I know that...
-> 
-> > ---> Converter driver is disabled
-> > ---> Converter driver is enabled but the converter probe is not called from the
-> macb driver.
-> 
-> I didn't make myself clear: It's not the branch itself that I'm talking about it's the
-> branch profiling directive "likely()" that seems not necessary.
+Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
+Acked-by: Antonio Quartulli <a@unstable.cc>
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+---
+ Documentation/ABI/testing/sysfs-class-net-batman-adv | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-Ok will remove in the next version...
-
-Regards,
-Kedar.
+diff --git a/Documentation/ABI/testing/sysfs-class-net-batman-adv b/Docum=
+entation/ABI/testing/sysfs-class-net-batman-adv
+index 77d3083..8981068 100644
+--- a/Documentation/ABI/testing/sysfs-class-net-batman-adv
++++ b/Documentation/ABI/testing/sysfs-class-net-batman-adv
+@@ -4,7 +4,7 @@ Date:           Feb 2014
+ Contact:        Linus L=C3=BCssing <linus.luessing-S0/GAf8tV78@public.gmane.org>
+ Description:
+                 Defines the interval in milliseconds in which batman
+-                sends its probing packets for link quality measurements.
++                emits probing packets for neighbor sensing (ELP).
+=20
+ What:           /sys/class/net/<iface>/batman-adv/iface_status
+ Date:           May 2010
+--=20
+2.8.1
