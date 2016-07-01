@@ -1,31 +1,32 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] net_sched: fix mirrored packets checksum
-Date: Fri, 01 Jul 2016 16:20:14 -0400 (EDT)
-Message-ID: <20160701.162014.122571360002384184.davem@davemloft.net>
-References: <1467306922-7086-1-git-send-email-xiyou.wangcong@gmail.com>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH net-next v3 0/4] cgroup: bpf: cgroup2 membership test
+ on skb
+Date: Fri, 01 Jul 2016 16:26:06 -0400 (EDT)
+Message-ID: <20160701.162606.549473968684555391.davem@davemloft.net>
+References: <1467307725-1948415-1-git-send-email-kafai@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com, tom@herbertland.com
-To: xiyou.wangcong@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:42864 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752519AbcGAUUX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 16:20:23 -0400
-In-Reply-To: <1467306922-7086-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
+	tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org
+To: kafai-b10kYP2dOMg@public.gmane.org
+Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1467307725-1948415-1-git-send-email-kafai-b10kYP2dOMg@public.gmane.org>
+Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Thu, 30 Jun 2016 10:15:22 -0700
+From: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
+Date: Thu, 30 Jun 2016 10:28:41 -0700
 
-> Similar to commit 9b368814b336 ("net: fix bridge multicast packet checksum validation")
-> we need to fixup the checksum for CHECKSUM_COMPLETE when
-> pushing skb on RX path. Otherwise we get similar splats.
+> This series is to implement a bpf-way to
+> check the cgroup2 membership of a skb (sk_buff).
 > 
-> Cc: Jamal Hadi Salim <jhs@mojatatu.com>
-> Cc: Tom Herbert <tom@herbertland.com>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> It is similar to the feature added in netfilter:
+> c38c4597e4bf ("netfilter: implement xt_cgroup cgroup2 path match")
+> 
+> The current target is the tc-like usage.
 
-Applied and queued up for -stable, thanks.
+I'll apply this series, but the colloqual way to arrange this header
+posting is to keep the overview and description of the series at the
+top of the text, and then have the "v3 ..., v2 ..." changelog afterwards.
