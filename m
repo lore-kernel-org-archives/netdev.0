@@ -1,34 +1,34 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next V4 0/6] switch to use tx skb array in tun
-Date: Fri, 01 Jul 2016 05:40:03 -0400 (EDT)
-Message-ID: <20160701.054003.1169513351817423544.davem@davemloft.net>
-References: <1467269136-8082-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [PATCH net-next 0/5] qede: Enhancements
+Date: Fri, 01 Jul 2016 05:43:05 -0400 (EDT)
+Message-ID: <20160701.054305.2286397431645050772.davem@davemloft.net>
+References: <1467268522-24589-1-git-send-email-manish.chopra@qlogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kvm@vger.kernel.org, eric.dumazet@gmail.com, mst@redhat.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, brouer@redhat.com
-To: jasowang@redhat.com
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <1467269136-8082-1-git-send-email-jasowang@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, Ariel.Elior@qlogic.com,
+	Yuval.Mintz@qlogic.com
+To: manish.chopra@qlogic.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37432 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751218AbcGAJoS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 05:44:18 -0400
+In-Reply-To: <1467268522-24589-1-git-send-email-manish.chopra@qlogic.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Thu, 30 Jun 2016 14:45:30 +0800
+From: Manish Chopra <manish.chopra@qlogic.com>
+Date: Thu, 30 Jun 2016 02:35:17 -0400
 
-> This series tries to switch to use skb array in tun. This is used to
-> eliminate the spinlock contention between producer and consumer. The
-> conversion was straightforward: just introdce a tx skb array and use
-> it instead of sk_receive_queue.
+> This patch series have few small fastpath features
+> support and code refactoring.
+> 
+> Note - regarding get/set tunable configuration via ethtool
+> Surprisingly, there is NO ethtool application support for
+> such configuration given that we have kernel support.
+> Do let us know if we need to add support for that in user ethtool.
+> 
+> Please consider applying this series to "net-next".
 
-Series applied, thanks Jason.
+Series applied, thanks.
