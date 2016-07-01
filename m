@@ -1,98 +1,117 @@
-From: Jon Nettleton <jon@solid-run.com>
-Subject: Re: [PATCH] net: mvneta: fix open() error cleanup
-Date: Fri, 1 Jul 2016 09:34:00 +0200
-Message-ID: <CABdtJHsGzNVpP11DL91XQ9ZKX2FWTgjRU+w29zU1+T7kmw3fsw@mail.gmail.com>
-References: <20160630093615.GK1041@n2100.armlinux.org.uk>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: [PATCH] ipv6: Fix soft lockup for ipv6 network notifier.
+Date: Fri, 1 Jul 2016 15:38:44 +0800
+Message-ID: <57761E04.8030202@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org,
-	Thomas Petazzoni <thomas.petazzoni@free-electrons.com>
-To: Russell King - ARM Linux <linux@armlinux.org.uk>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+To: <luto@kernel.org>, <mingo@kernel.org>,
+	<linux-kernel@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Cong Wang <cwang@twopensource.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:34924 "EHLO
-	mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752003AbcGAHeE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 03:34:04 -0400
-Received: by mail-lf0-f67.google.com with SMTP id w130so10569728lfd.2
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 00:34:02 -0700 (PDT)
-In-Reply-To: <20160630093615.GK1041@n2100.armlinux.org.uk>
+Received: from szxga03-in.huawei.com ([119.145.14.66]:1703 "EHLO
+	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752199AbcGAHjB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 03:39:01 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 30, 2016 at 11:36 AM, Russell King - ARM Linux
-<linux@armlinux.org.uk> wrote:
-> If mvneta_mdio_probe() fails, a kernel warning is triggered due to
-> missing cleanup in the error path.  Add the necessary cleanup.
->
-> ------------[ cut here ]------------
-> WARNING: CPU: 1 PID: 281 at kernel/irq/manage.c:1814 __free_percpu_irq+0xfc/0x130
-> percpu IRQ 38 still enabled on CPU0!
-> Modules linked in: bnep bluetooth xhci_plat_hcd xhci_hcd marvell_cesa armada_thermal des_generic ehci_orion mcp3021 spi_orion sfp mdio_i2c evbug fuse
-> CPU: 1 PID: 281 Comm: connmand Not tainted 4.7.0-rc2+ #53
-> Hardware name: Marvell Armada 380/385 (Device Tree)
-> Backtrace:
-> [<c0013488>] (dump_backtrace) from [<c00137d0>] (show_stack+0x18/0x1c)
->  r6:60010093 r5:ffffffff r4:00000000 r3:dc8ba500
-> [<c00137b8>] (show_stack) from [<c02c6fe0>] (dump_stack+0xa4/0xdc)
-> [<c02c6f3c>] (dump_stack) from [<c002d4ec>] (__warn+0xd8/0x104)
->  r6:c081e6a0 r5:00000000 r4:edfe5d50 r3:dc8ba500
-> [<c002d414>] (__warn) from [<c002d5d0>] (warn_slowpath_fmt+0x40/0x48)
->  r10:a0010013 r8:c09356f8 r7:00000026 r6:ef11a260 r5:edd7b980 r4:ef11a200
-> [<c002d594>] (warn_slowpath_fmt) from [<c008c8e0>] (__free_percpu_irq+0xfc/0x130)
->  r3:00000026 r2:c081e7ac
-> [<c008c7e4>] (__free_percpu_irq) from [<c008c95c>] (free_percpu_irq+0x48/0x74)
->  r10:00008914 r8:00000000 r7:ffffffed r6:c09356f8 r5:00000026 r4:ef11a200
-> [<c008c914>] (free_percpu_irq) from [<c043dd70>] (mvneta_open+0x118/0x134)
->  r6:ffffffed r5:ef01e640 r4:ef01e000 r3:ef01e000
-> [<c043dc58>] (mvneta_open) from [<c055f5b4>] (__dev_open+0xa4/0x108)
->  r7:ef01e030 r6:c06ff3d8 r5:ffff9003 r4:ef01e000
-> [<c055f510>] (__dev_open) from [<c055f844>] (__dev_change_flags+0x94/0x150)
->  r7:00001002 r6:00000001 r5:ffff9003 r4:ef01e000
-> [<c055f7b0>] (__dev_change_flags) from [<c055f938>] (dev_change_flags+0x20/0x50)
->  r8:00000000 r7:c09334c8 r6:00001002 r5:00000148 r4:ef01e000 r3:00008914
-> [<c055f918>] (dev_change_flags) from [<c05de044>] (devinet_ioctl+0x6f4/0x7e0)
->  r8:00000000 r7:c09334c8 r6:00000000 r5:ee87200c r4:00000000 r3:00008914
-> [<c05dd950>] (devinet_ioctl) from [<c05e0168>] (inet_ioctl+0x1b8/0x1c8)
->  r10:beb4499c r9:edfe4000 r8:ecf13280 r7:c096cf00 r6:beb4499c r5:eef7c240
->  r4:00008914
-> [<c05dffb0>] (inet_ioctl) from [<c053c898>] (sock_ioctl+0x78/0x300)
-> [<c053c820>] (sock_ioctl) from [<c0155ecc>] (do_vfs_ioctl+0x98/0xa60)
->  r7:00000011 r6:00008914 r5:00000011 r4:c01568d0
-> [<c0155e34>] (do_vfs_ioctl) from [<c01568d0>] (SyS_ioctl+0x3c/0x60)
->  r10:00000000 r9:edfe4000 r8:beb4499c r7:00000011 r6:00008914 r5:ecf13280
->  r4:ecf13280
-> [<c0156894>] (SyS_ioctl) from [<c000fe60>] (ret_fast_syscall+0x0/0x1c)
->  r8:c0010004 r7:00000036 r6:00000011 r5:000a2978 r4:00000000 r3:00009003
-> ---[ end trace 711f625d5b04b3a7 ]---
->
-> Signed-off-by: Russell King <rmk+kernel@armlinux.org.uk>
-> ---
-> I've omitted a Fixes: line because it's not just one commit, but many
-> as the code has gone through a number of transformations here, but the
-> bug has been present for a long time.  The first commit suitable for
-> this patch is 6b125d63b7f6 ("net: mvneta: Use on_each_cpu when
-> possible")
->
->  drivers/net/ethernet/marvell/mvneta.c | 2 ++
->  1 file changed, 2 insertions(+)
->
-> diff --git a/drivers/net/ethernet/marvell/mvneta.c b/drivers/net/ethernet/marvell/mvneta.c
-> index b04380896a94..c59e9295a7e5 100644
-> --- a/drivers/net/ethernet/marvell/mvneta.c
-> +++ b/drivers/net/ethernet/marvell/mvneta.c
-> @@ -3570,6 +3570,8 @@ static int mvneta_open(struct net_device *dev)
->         return 0;
->
->  err_free_irq:
-> +       unregister_cpu_notifier(&pp->cpu_notifier);
-> +       on_each_cpu(mvneta_percpu_disable, pp, true);
->         free_percpu_irq(pp->dev->irq, pp->ports);
->  err_cleanup_txqs:
->         mvneta_cleanup_txqs(pp);
->
-> --
-> RMK's Patch system: http://www.armlinux.org.uk/developer/patches/
-> FTTC broadband for 0.8mile line: currently at 9.6Mbps down 400kbps up
-> according to speedtest.net.
+The problem was occurs in my system that a lot of drviers register
+its own handler to the notifiler call chain for netdev_chain, and
+then create 4095 vlan dev for one nic, and add several ipv6 address
+on each one of them, just like this:
 
-Tested-by: Jon Nettleton <jon@solid-run.com>
+for i in `seq 1 4095`; do ip link add link eth0 name eth0.$i type vlan id $i; done
+for i in `seq 1 4095`; do ip -6 addr add 2001::$i dev eth0.$i; done
+for i in `seq 1 4095`; do ip -6 addr add 2002::$i dev eth0.$i; done
+for i in `seq 1 4095`; do ip -6 addr add 2003::$i dev eth0.$i; done
+
+ifconfig eth0 up
+ifconfig eth0 down
+
+then it will halt several seconds, and occurs softlockup:
+
+<0>[ 7620.364058]NMI watchdog: BUG: soft lockup - CPU#0 stuck for 23s! [ifconfig:19186]
+<0>[ 7620.364592]Call trace:
+<4>[ 7620.364599][<ffffffc000208f68>] dump_backtrace+0x0/0x220
+<4>[ 7620.364603][<ffffffc0002091a8>] show_stack+0x20/0x28
+<4>[ 7620.364607][<ffffffc000691fac>] dump_stack+0x90/0xb0
+<4>[ 7620.364612][<ffffffc0002cacbc>] watchdog_timer_fn+0x41c/0x460
+<4>[ 7620.364617][<ffffffc000289ec8>] __run_hrtimer+0x98/0x2d8
+<4>[ 7620.364620][<ffffffc00028a3e0>] hrtimer_interrupt+0x110/0x288
+<4>[ 7620.364624][<ffffffc00059c0c8>] arch_timer_handler_phys+0x38/0x48
+<4>[ 7620.364628][<ffffffc000276d2c>] handle_percpu_devid_irq+0x9c/0x190
+<4>[ 7620.364632][<ffffffc000271ef8>] generic_handle_irq+0x40/0x58
+<4>[ 7620.364635][<ffffffc000272270>] __handle_domain_irq+0x68/0xc0
+<4>[ 7620.364638][<ffffffc000200634>] gic_handle_irq+0xc4/0x1c8
+<4>[ 7620.364641]Exception stack(0xffffffc0309b3640 to 0xffffffc0309b3770)
+<4>[ 7620.364644]3640: 0000000000001000 0000000000000000 ffffffc0309b37c0 ffffffbfa1019cf8
+<4>[ 7620.364647]3660: 0000000080000145 ffffffc0309b3958 0000000000000000 ffffffbfa1013008
+<4>[ 7620.364651]3680: 00000000000007f0 ffffffbfa131b770 ffffffd08aaadc40 ffffffbfa1019cf8
+<4>[ 7620.364654]36a0: ffffffbfa1019cc4 ffffffd089c2b000 ffffffd08eff8000 ffffffc0309b3958
+<4>[ 7620.364656]36c0: ffffffbfa101c5c0 0000000000000000 0000000000000000 ffffffbfa101c66c
+<4>[ 7620.364659]36e0: 7f7f7f7f7f7f7f7f 0000000000000030 ffffffffffffffff ffff000000000000
+<4>[ 7620.364662]3700: 0000000000000000 0000000000000000 ffffffc000393d58 0000007f794d67b0
+<4>[ 7620.364665]3720: 0000007fe62215d0 ffffffc0309b3830 ffffffc00021d8e0 ffffffbfa1049b68
+<4>[ 7620.364668]3740: ffffffc000697578 ffffffc0006974b8 ffffffc0309b3958 0000000000000000
+<4>[ 7620.364670]3760: ffffffbfa1013008 00000000000007f0
+<4>[ 7620.364673][<ffffffc000203780>] el1_irq+0x80/0x100
+<4>[ 7620.364692][<ffffffbfa1019ed4>] fib6_walk+0x3c/0x70 [ipv6]
+<4>[ 7620.364710][<ffffffbfa1019f70>] fib6_clean_tree+0x68/0x90 [ipv6]
+<4>[ 7620.364727][<ffffffbfa101a020>] __fib6_clean_all+0x88/0xc0 [ipv6]
+<4>[ 7620.364746][<ffffffbfa101c760>] fib6_clean_all+0x28/0x30 [ipv6]
+<4>[ 7620.364763][<ffffffbfa101933c>] rt6_ifdown+0x64/0x148 [ipv6]
+<4>[ 7620.364781][<ffffffbfa100e6d8>] addrconf_ifdown+0x68/0x540 [ipv6]
+<4>[ 7620.364798][<ffffffbfa1010f58>] addrconf_notify+0xd0/0x8b8 [ipv6]
+<4>[ 7620.364801][<ffffffc00023f83c>] notifier_call_chain+0x5c/0xa0
+<4>[ 7620.364804][<ffffffc00023f9e0>] raw_notifier_call_chain+0x20/0x28
+<4>[ 7620.364809][<ffffffc0005cbab4>] call_netdevice_notifiers_info+0x4c/0x80
+<4>[ 7620.364812][<ffffffc0005cbfc8>] dev_close_many+0xd0/0x138
+<4>[ 7620.364821][<ffffffbfa33be6e8>] vlan_device_event+0x4a8/0x6a0 [8021q]
+<4>[ 7620.364824][<ffffffc00023f83c>] notifier_call_chain+0x5c/0xa0
+<4>[ 7620.364827][<ffffffc00023f9e0>] raw_notifier_call_chain+0x20/0x28
+<4>[ 7620.364830][<ffffffc0005cbab4>] call_netdevice_notifiers_info+0x4c/0x80
+<4>[ 7620.364833][<ffffffc0005d5148>] __dev_notify_flags+0xb8/0xe0
+<4>[ 7620.364836][<ffffffc0005d5994>] dev_change_flags+0x54/0x68
+<4>[ 7620.364840][<ffffffc00064a620>] devinet_ioctl+0x650/0x700
+<4>[ 7620.364843][<ffffffc00064bea4>] inet_ioctl+0xa4/0xc8
+<4>[ 7620.364847][<ffffffc0005b1094>] sock_do_ioctl+0x44/0x88
+<4>[ 7620.364850][<ffffffc0005b1a3c>] sock_ioctl+0x23c/0x308
+<4>[ 7620.364854][<ffffffc000393bc4>] do_vfs_ioctl+0x48c/0x620
+<4>[ 7620.364857][<ffffffc000393dec>] SyS_ioctl+0x94/0xa8
+
+=================================cut here========================================
+
+It looks that the notifier_call_chain has to deal with too much handler, and will not
+feed the watchdog until finish the work, and the notifier_call_chain would call the
+ipv6_dev_notf several times and hold the cpu for a long time, so add cond_resched()
+in the ipv6_dev_notf in order to schedule out in the network notifiers to avoid softlocking
+to fix this problem.
+
+Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
+Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
+---
+ net/ipv6/addrconf.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index f555f4f..e294a3d 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -3284,6 +3284,12 @@ restart:
+ 		spin_unlock_bh(&addrconf_hash_lock);
+ 	}
+ 
++	/*
++	 * It is safe here to schedule out to avoid softlocking if preempt
++	 * is disabled.
++	 */
++	cond_resched();
++
+ 	write_lock_bh(&idev->lock);
+ 
+ 	addrconf_del_rs_timer(idev);
+-- 
+1.9.0
