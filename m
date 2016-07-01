@@ -1,58 +1,80 @@
 From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH net-next V2 00/16] Mellanox 100G SRIOV E-Switch offload
- and VF representors
-Date: Fri, 1 Jul 2016 14:04:04 +0300
-Message-ID: <CALzJLG_98jBdK62B=bN4=C8xdEL4zp2=mZOMOfJGv_n+JXNNGA@mail.gmail.com>
-References: <1467300215-14199-1-git-send-email-saeedm@mellanox.com> <20160701.061639.58539315378533703.davem@davemloft.net>
+Subject: Re: [PATCH net 00/13] Mellanox 100G mlx5 resiliency and xmit path fixes
+Date: Fri, 1 Jul 2016 14:11:28 +0300
+Message-ID: <CALzJLG_Z-bvZYR=LNHg859bAuEFYpTCg5GrtOSUSEgaQQDKzbw@mail.gmail.com>
+References: <1467297290-11443-1-git-send-email-saeedm@mellanox.com> <20160701.061449.151195686797738506.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: Saeed Mahameed <saeedm@mellanox.com>,
 	Linux Netdev List <netdev@vger.kernel.org>,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>, gospo@cumulusnetworks.com,
-	jesse.brandeburg@intel.com,
-	John Fastabend <john.r.fastabend@intel.com>
+	Or Gerlitz <ogerlitz@mellanox.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f180.google.com ([209.85.220.180]:34356 "EHLO
-	mail-qk0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751523AbcGALJn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 07:09:43 -0400
-Received: by mail-qk0-f180.google.com with SMTP id t127so195311852qkf.1
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 04:09:43 -0700 (PDT)
-In-Reply-To: <20160701.061639.58539315378533703.davem@davemloft.net>
+Received: from mail-qk0-f195.google.com ([209.85.220.195]:35828 "EHLO
+	mail-qk0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751963AbcGALLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 07:11:48 -0400
+Received: by mail-qk0-f195.google.com with SMTP id b136so22732296qkg.2
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 04:11:48 -0700 (PDT)
+In-Reply-To: <20160701.061449.151195686797738506.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 1, 2016 at 1:16 PM, David Miller <davem@davemloft.net> wrote:
+On Fri, Jul 1, 2016 at 1:14 PM, David Miller <davem@davemloft.net> wrote:
+> From: Saeed Mahameed <saeedm@mellanox.com>
+> Date: Thu, 30 Jun 2016 17:34:37 +0300
 >
-> So you have submitted to me, in parallel, two non-trivial sets of changes
-> to the mlx5 driver.  One for 'net' and one for 'net-next, and at the same
-> exact time.
+>> This series provides two set of fixes to the mlx5 driver:
+>>       - Resiliency fixes for reset flow and internal pci errors
+>>       - xmit path fixes
 >
-> You haven't given me any indication of whether there are any dependencies
-> nor conflicts from these two sets of changes.
+> Series applied to 'net' but expecting all of this to be backported
+> to -stable is unreasonable.
 >
 
-Right,
+Thanks Dave,
 
-Now that i see you've merged 'f5074d0ce2f8 Merge branch
-'mlx5-100G-fixes'' ino net-next
+One small comment on this series is that it will hit two trivial
+conflicts once net is merged into current net-next.
 
-the last patch "net/mlx5e: Introduce SRIOV VF representors" will
-encounter the following compilation error
+Conflict applying: "net/mlx5e: Timeout if SQ doesn't flush during close":
+Fix:
+ ---
+@@@ -810,12 -802,19 +820,19 @@@ static void mlx5e_close_sq(struct mlx5e
+                if (mlx5e_sq_has_room_for(sq, 1))
+                        mlx5e_send_nop(sq, true);
 
-drivers/net/ethernet/mellanox/mlx5/core/en_rep.c: In function
-'mlx5e_rep_get_strings':
-drivers/net/ethernet/mellanox/mlx5/core/en_rep.c:68:31: error: 'const
-struct counter_desc' has no member named 'name'
-           sw_rep_stats_desc[i].name);
+-               mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY, MLX5_SQC_STATE_ERR,
+-                               false, 0);
+ -              err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY,
+ -                                    MLX5_SQC_STATE_ERR);
 
-I will rebase, fix and respin.
+++              err = mlx5e_modify_sq(sq, MLX5_SQC_STATE_RDY,
+MLX5_SQC_STATE_ERR,
+++                                    false, 0);
++               if (err)
++                       set_bit(MLX5E_SQ_STATE_TX_TIMEOUT, &sq->state);
 
-Regarding the latest fixes you applied today ''resiliency and xmit
-path fixes", there will be two trivial conflicts (not related to this
-series) once net is merged into net-next.
+---
 
-I will send you details on that mail thread.
+Conflict applying: "net/mlx5e: Handle RQ flush in error cases"
+Fix:
+
+---
+diff --cc drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 6db979e,b429591..0000000
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+
+@@@ -214,7 -191,7 +214,8 @@@ struct mlx5e_tstamp
+  enum {
+                MLX5E_RQ_STATE_POST_WQES_ENABLE,
+                MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS,
+ +            MLX5E_RQ_STATE_AM,
++             MLX5E_RQ_STATE_FLUSH_TIMEOUT,
+  };
+
+---
+
+Thanks,
+Saeed
