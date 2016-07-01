@@ -1,34 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] macsec: set actual real device for xmit when
- !protect_frames
-Date: Fri, 01 Jul 2016 16:36:58 -0400 (EDT)
-Message-ID: <20160701.163658.219548351536664342.davem@davemloft.net>
-References: <920063998328f5014b267defd80eec862f181ad8.1467323773.git.daniel@iogearbox.net>
+Subject: Re: [PATCH 1/4] net: ethernet: ti: davinci_cpdma: split descs num
+ between all channels
+Date: Fri, 01 Jul 2016 16:35:06 -0400 (EDT)
+Message-ID: <20160701.163506.323242842287789721.davem@davemloft.net>
+References: <1467313478-22919-1-git-send-email-ivan.khoronzhuk@linaro.org>
+	<1467313478-22919-2-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sd@queasysnail.net, hannes@stressinduktion.org,
-	netdev@vger.kernel.org
-To: daniel@iogearbox.net
+Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com,
+	grygorii.strashko@ti.com, linux-kernel@vger.kernel.org,
+	linux-omap@vger.kernel.org, nsekhar@ti.com
+To: ivan.khoronzhuk@linaro.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([149.20.54.216]:43028 "EHLO
+Received: from shards.monkeyblade.net ([149.20.54.216]:43080 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751992AbcGAUhH (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 16:37:07 -0400
-In-Reply-To: <920063998328f5014b267defd80eec862f181ad8.1467323773.git.daniel@iogearbox.net>
+	with ESMTP id S1751911AbcGAUnI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 16:43:08 -0400
+In-Reply-To: <1467313478-22919-2-git-send-email-ivan.khoronzhuk@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Daniel Borkmann <daniel@iogearbox.net>
-Date: Fri,  1 Jul 2016 00:00:54 +0200
+From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+Date: Thu, 30 Jun 2016 22:04:35 +0300
 
-> Avoid recursions of dev_queue_xmit() to the wrong net device when
-> frames are unprotected, since at that time skb->dev still points to
-> our own macsec dev and unlike macsec_encrypt_finish() dev pointer
-> doesn't get updated to real underlying device.
-> 
-> Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
-> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
-> Acked-by: Sabrina Dubroca <sd@queasysnail.net>
+> @@ -720,7 +763,7 @@ unlock_ret:
+>  }
+>  EXPORT_SYMBOL_GPL(cpdma_chan_submit);
+>  
+> -bool cpdma_check_free_tx_desc(struct cpdma_chan *chan)
+> +inline bool cpdma_check_free_desc(struct cpdma_chan *chan)
+>  {
 
-Applied and queued up for -stable, thanks.
+This needs to be marked static.
