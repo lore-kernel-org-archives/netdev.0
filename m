@@ -1,101 +1,86 @@
-From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
-Subject: [RFC PATCH 2/2] net: macb: Add gmii2rgmii phy converter support
-Date: Fri, 1 Jul 2016 11:50:12 +0530
-Message-ID: <1467354012-7364-3-git-send-email-appanad@xilinx.com>
-References: <1467354012-7364-1-git-send-email-appanad@xilinx.com>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: Re: [PATCH v14 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Fri, 1 Jul 2016 08:42:40 +0200
+Message-ID: <20160701064240.GA19086@aepfle.de>
+References: <CY1PR03MB21865E21E637F03877784979BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
+ <20160630161212.GA7456@aepfle.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: <appanad@xilinx.com>, <michal.simek@xilinx.com>,
-	<nicolas.ferre@atmel.com>, <punnaia@xilinx.com>,
-	<anirudh@xilinx.com>, <harinik@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467354012-7364-1-git-send-email-appanad@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============3189355261347578229=="
+Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ Haiyang Zhang <haiyangz@microsoft.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "joe@perches.com" <joe@perches.com>,
+ Rolf Neugebauer <rolf.neugebauer@docker.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ Vitaly Kuznetsov <vkuznets@redhat.com>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Dexuan Cui <decui@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <20160630161212.GA7456@aepfle.de>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-This patch adds support for gmii2rgmii phy converter
-in the macb driver.
 
-Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
----
- drivers/net/ethernet/cadence/macb.c |   21 ++++++++++++++++++++-
- drivers/net/ethernet/cadence/macb.h |    3 +++
- 2 files changed, 23 insertions(+), 1 deletions(-)
+--===============3189355261347578229==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="zhXaljGHf11kAtnf"
+Content-Disposition: inline
 
-diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethernet/cadence/macb.c
-index cb07d95..de0ad71 100644
---- a/drivers/net/ethernet/cadence/macb.c
-+++ b/drivers/net/ethernet/cadence/macb.c
-@@ -257,6 +257,14 @@ static int macb_mdio_write(struct mii_bus *bus, int mii_id, int regnum,
- 	return 0;
- }
- 
-+static inline void macb_hw_fix_mac_speed(struct macb *bp,
-+					 struct phy_device *phydev)
-+{
-+	if (likely(bp->converter_phy.fix_mac_speed))
-+		bp->converter_phy.fix_mac_speed(&bp->converter_phy,
-+						phydev->speed);
-+}
-+
- /**
-  * macb_set_tx_clk() - Set a clock to a new frequency
-  * @clk		Pointer to the clock to change
-@@ -329,6 +337,7 @@ static void macb_handle_link_change(struct net_device *dev)
- 				reg |= GEM_BIT(GBE);
- 
- 			macb_or_gem_writel(bp, NCFGR, reg);
-+			macb_hw_fix_mac_speed(bp, phydev);
- 
- 			bp->speed = phydev->speed;
- 			bp->duplex = phydev->duplex;
-@@ -2884,7 +2893,7 @@ static int macb_probe(struct platform_device *pdev)
- 			struct clk **, struct clk **)
- 					      = macb_clk_init;
- 	int (*init)(struct platform_device *) = macb_init;
--	struct device_node *np = pdev->dev.of_node;
-+	struct device_node *np = pdev->dev.of_node, *np1, *np11;
- 	struct device_node *phy_node;
- 	const struct macb_config *macb_config = NULL;
- 	struct clk *pclk, *hclk = NULL, *tx_clk = NULL;
-@@ -3011,6 +3020,16 @@ static int macb_probe(struct platform_device *pdev)
- 		goto err_out_free_netdev;
- 
- 	phydev = bp->phy_dev;
-+	np1 = of_get_next_child(np, NULL);
-+	for_each_child_of_node(np1, np11) {
-+		if (of_device_is_compatible(np11, "xlnx,gmiitorgmii")) {
-+			bp->converter_phy.dev = dev;
-+			bp->converter_phy.mii_bus = bp->mii_bus;
-+			bp->converter_phy.mdio_write = macb_mdio_write;
-+			bp->converter_phy.platform_data = bp->pdev->dev.of_node;
-+			gmii2rgmii_phyprobe(&bp->converter_phy);
-+		}
-+	}
- 
- 	netif_carrier_off(dev);
- 
-diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethernet/cadence/macb.h
-index 8a13824..735bce2 100644
---- a/drivers/net/ethernet/cadence/macb.h
-+++ b/drivers/net/ethernet/cadence/macb.h
-@@ -10,6 +10,8 @@
- #ifndef _MACB_H
- #define _MACB_H
- 
-+#include <linux/xilinx_gmii2rgmii.h>
-+
- #define MACB_GREGS_NBR 16
- #define MACB_GREGS_VERSION 2
- #define MACB_MAX_QUEUES 8
-@@ -846,6 +848,7 @@ struct macb {
- 	unsigned int		jumbo_max_len;
- 
- 	u32			wol;
-+	struct	gmii2rgmii	converter_phy;
- };
- 
- static inline bool macb_is_gem(struct macb *bp)
--- 
-1.7.1
+
+--zhXaljGHf11kAtnf
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, Jun 30, Olaf Hering wrote:
+
+> On Thu, Jun 30, Dexuan Cui wrote:
+>=20
+> > -#define AF_MAX		43	/* For now.. */
+> > +#define AF_MAX		44	/* For now.. */
+>=20
+> Should this patch also change the places where AF_MAX is used,
+> like all the arrays in net/core/sock.c?
+
+Also, there are appearently two competing changes for AF_MAX, one is
+yours and the other one is AF_SMC. I'm not subscribed to netdev, so its
+not clear which one gets applied first.
+
+Olaf.
+
+--zhXaljGHf11kAtnf
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iEYEARECAAYFAld2ENoACgkQXUKg+qaYNn6ArACgpph8IVgAV222xs3tYf1v+fqc
+ckIAn1eDUjwvukXAlBbGw6HI1TEK+CH0
+=wGN+
+-----END PGP SIGNATURE-----
+
+--zhXaljGHf11kAtnf--
+
+--===============3189355261347578229==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+devel mailing list
+devel@linuxdriverproject.org
+http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
+
+--===============3189355261347578229==--
