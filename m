@@ -1,80 +1,54 @@
-From: Jon Mason <jon.mason@broadcom.com>
-Subject: Re: [PATCH 6/7] dt-bindings: net: bgmac: add bindings documentation
- for bgmac
-Date: Fri, 1 Jul 2016 10:29:36 -0400
-Message-ID: <CAC3K-4pu2k8HZ3g-LxbVAFOxPayDT=hK1qgix1Pc81aTEmGQzA@mail.gmail.com>
-References: <1467327554-22074-1-git-send-email-jon.mason@broadcom.com>
- <1467327554-22074-7-git-send-email-jon.mason@broadcom.com> <20160701025619.GA4906@rob-hp-laptop>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [PATCH v3] netfilter/nflog: nflog-range does not truncate
+ packets (userspace)
+Date: Fri, 1 Jul 2016 16:30:02 +0200
+Message-ID: <20160701143002.GA14239@salvia>
+References: <20160624204231.GA3062@akamai.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: =?UTF-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
-	davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>,
-	Hauke Mehrtens <hauke@hauke-m.de>,
-	Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>, Ray Jui <rjui@broadcom.com>,
-	Scott Branden <sbranden@broadcom.com>,
-	BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	devicetree@vger.kernel.org,
-	linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
-To: Rob Herring <robh@kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, kadlec@blackhole.kfki.hu, johunt@akamai.com,
+	davem@davemloft.net, netfilter-devel@vger.kernel.org,
+	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, pai.vishwain@gmail.com,
+	ilubashe@akamai.com, jdollard@akamai.com
+To: Vishwanath Pai <vpai@akamai.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:34325 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752426AbcGAO3i (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 10:29:38 -0400
-Received: by mail-io0-f175.google.com with SMTP id g13so100920255ioj.1
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:29:37 -0700 (PDT)
-In-Reply-To: <20160701025619.GA4906@rob-hp-laptop>
+Received: from mail.us.es ([193.147.175.20]:32874 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932115AbcGAOaJ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jul 2016 10:30:09 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id E7CD81B1DFC
+	for <netdev@vger.kernel.org>; Fri,  1 Jul 2016 16:30:05 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id D7955FAB48
+	for <netdev@vger.kernel.org>; Fri,  1 Jul 2016 16:30:05 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id D1F0AFAB59
+	for <netdev@vger.kernel.org>; Fri,  1 Jul 2016 16:30:03 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <20160624204231.GA3062@akamai.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 30, 2016 at 10:56 PM, Rob Herring <robh@kernel.org> wrote:
-> On Thu, Jun 30, 2016 at 06:59:13PM -0400, Jon Mason wrote:
->> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
->> ---
->>  .../devicetree/bindings/net/brcm,bgmac-nsp.txt     | 24 ++++++++++++++++++++++
->>  1 file changed, 24 insertions(+)
->>  create mode 100644 Documentation/devicetree/bindings/net/brcm,bgmac-nsp.txt
->>
->> diff --git a/Documentation/devicetree/bindings/net/brcm,bgmac-nsp.txt b/Documentation/devicetree/bindings/net/brcm,bgmac-nsp.txt
->> new file mode 100644
->> index 0000000..022946c
->> --- /dev/null
->> +++ b/Documentation/devicetree/bindings/net/brcm,bgmac-nsp.txt
->> @@ -0,0 +1,24 @@
->> +Broadcom GMAC Ethernet Controller Device Tree Bindings
->> +-------------------------------------------------------------
->> +
->> +Required properties:
->> + - compatible:       "brcm,bgmac-nsp"
->
-> Usually we do <soc>-<block> order.
+On Fri, Jun 24, 2016 at 04:42:31PM -0400, Vishwanath Pai wrote:
+> Added tests to libxt_NFLOG.t for the new option --nflog-size
+> 
+> --
+> 
+> netfilter/nflog: nflog-range does not truncate packets
+> 
+> The option --nflog-range has never worked, but we cannot just fix this
+> because users might be using this feature option and their behavior would
+> change. Instead add a new option --nflog-size. This option works the same
+> way nflog-range should have, and both of them are mutually exclusive. When
+> someone uses --nflog-range we print a warning message informing them that
+> this feature has no effect.
+> 
+> To indicate the kernel that the user has set --nflog-size we have to pass a
+> new flag XT_NFLOG_F_COPY_LEN.
+> 
+> Also updated the man page to reflect the new option and added tests to
+> extensions/libxt_NFLOG.t
 
-Thanks, I'll make the necessary changes and push out a v2.
-
->
->> + - reg:              Address and length of the GMAC registers,
->> +             Address and length of the GMAC IDM registers
->> + - reg-names:        Names of the registers.  Must have both "gmac_base" and
->> +             "idm_base"
->> + - interrupts:       Interrupt number
->> +
->> +Optional properties:
->> +- mac-address:       See ethernet.txt file in the same directory
->> +
->> +Examples:
->> +
->> +gmac0: ethernet@18022000 {
->> +     compatible = "brcm,bgmac-nsp";
->> +     reg = <0x18022000 0x1000>,
->> +           <0x18110000 0x1000>;
->> +     reg-names = "gmac_base", "idm_base";
->> +     interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>;
->> +     status = "disabled";
->> +};
->> --
->> 1.9.1
->>
+Applied to iptables userspace, thanks.
