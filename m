@@ -1,50 +1,35 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next V4 0/6] switch to use tx skb array in tun
-Date: Fri, 1 Jul 2016 14:04:01 +0800
-Message-ID: <577607D1.9070307@redhat.com>
-References: <1467269136-8082-1-git-send-email-jasowang@redhat.com>
-	<20160630184242-mutt-send-email-mst@redhat.com>
+From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
+Subject: [RFC PATCH 0/2] net: ethernet: Add support for gmii2rgmii converter
+Date: Fri, 1 Jul 2016 11:50:10 +0530
+Message-ID: <1467354012-7364-1-git-send-email-appanad@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: kvm@vger.kernel.org, eric.dumazet@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	virtualization@lists.linux-foundation.org, brouer@redhat.com,
-	davem@davemloft.net
-To: "Michael S. Tsirkin" <mst@redhat.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20160630184242-mutt-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: <appanad@xilinx.com>, <michal.simek@xilinx.com>,
+	<nicolas.ferre@atmel.com>, <punnaia@xilinx.com>,
+	<anirudh@xilinx.com>, <harinik@xilinx.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-CgpPbiAyMDE25bm0MDbmnIgzMOaXpSAyMzo0NSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIFRodSwgSnVuIDMwLCAyMDE2IGF0IDAyOjQ1OjMwUE0gKzA4MDAsIEphc29uIFdhbmcgd3Jv
-dGU6Cj4+ID5IaSBhbGw6Cj4+ID4KPj4gPlRoaXMgc2VyaWVzIHRyaWVzIHRvIHN3aXRjaCB0byB1
-c2Ugc2tiIGFycmF5IGluIHR1bi4gVGhpcyBpcyB1c2VkIHRvCj4+ID5lbGltaW5hdGUgdGhlIHNw
-aW5sb2NrIGNvbnRlbnRpb24gYmV0d2VlbiBwcm9kdWNlciBhbmQgY29uc3VtZXIuIFRoZQo+PiA+
-Y29udmVyc2lvbiB3YXMgc3RyYWlnaHRmb3J3YXJkOiBqdXN0IGludHJvZGNlIGEgdHggc2tiIGFy
-cmF5IGFuZCB1c2UKPj4gPml0IGluc3RlYWQgb2Ygc2tfcmVjZWl2ZV9xdWV1ZS4KPj4gPgo+PiA+
-QSBtaW5vciBpc3N1ZSBpcyB0byBrZWVwIHRoZSB0eF9xdWV1ZV9sZW4gYmVoYXZpb3VyLCBzaW5j
-ZSB0dW4gdXNlZCB0bwo+PiA+dXNlIGl0IGZvciB0aGUgbGVuZ3RoIG9mIHNrX3JlY2VpdmVfcXVl
-dWUuIFRoaXMgaXMgZG9uZSB0aHJvdWdoOgo+PiA+Cj4+ID4tIGFkZCB0aGUgYWJpbGl0eSB0byBy
-ZXNpemUgbXVsdGlwbGUgcmluZ3MgYXQgb25jZSB0byBhdm9pZCBoYW5kbGluZwo+PiA+ICAgcGFy
-dGlhbCByZXNpemUgZmFpbHVyZSBmb3IgbXV0aXBsZSByaW5ncy4KPj4gPi0gYWRkIHRoZSBzdXBw
-b3J0IGZvciB6ZXJvIGxlbmd0aCByaW5nLgo+PiA+LSBpbnRyb2R1Y2UgYSBub3RpZmllciB3aGlj
-aCB3YXMgdHJpZ2dlcmVkIHdoZW4gdHhfcXVldWVfbGVuIHdhcwo+PiA+ICAgY2hhbmdlZCBmb3Ig
-YSBuZXRkZXYuCj4+ID4tIHJlc2l6ZSBhbGwgcXVldWVzIGR1cmluZyB0aGUgdHhfcXVldWVfbGVu
-IGNoYW5naW5nLgo+PiA+Cj4+ID5UZXN0cyBzaG93cyBhYm91dCAxNSUgaW1wcm92ZW1lbnQgb24g
-Z3Vlc3QgcnggcHBzOgo+PiA+Cj4+ID5CZWZvcmU6IH4xMzAwMDAwcHBzCj4+ID5BZnRlciA6IH4x
-NTAwMDAwcHBzCj4gQWNrZWQtYnk6IE1pY2hhZWwgUy4gVHNpcmtpbjxtc3RAcmVkaGF0LmNvbT4K
-Pgo+IEFja2VkLWZyb20tYWx0aXR1ZGU6IDM0Njk3IGZlZXQuCgpXb3csIHRoYW5rcyBhIGxvdCEK
-X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX18KVmlydHVhbGl6
-YXRpb24gbWFpbGluZyBsaXN0ClZpcnR1YWxpemF0aW9uQGxpc3RzLmxpbnV4LWZvdW5kYXRpb24u
-b3JnCmh0dHBzOi8vbGlzdHMubGludXhmb3VuZGF0aW9uLm9yZy9tYWlsbWFuL2xpc3RpbmZvL3Zp
-cnR1YWxpemF0aW9u
+This patch series does the following
+---> Add support for gmii2rgmii converter.
+---> Add support for gmii2rgmii converter in the macb driver.
+
+Earlier sent one RFC patch https://patchwork.kernel.org/patch/9186615/ 
+which includes converter related stuff also in macb driver.
+This patch series fixes this issue.
+
+Kedareswara rao Appana (2):
+  net: ethernet: xilinx: Add gmii2rgmii converter support
+  net: macb: Add gmii2rgmii phy converter support
+
+ drivers/net/ethernet/cadence/macb.c             |   21 ++++++-
+ drivers/net/ethernet/cadence/macb.h             |    3 +
+ drivers/net/ethernet/xilinx/Kconfig             |    7 ++
+ drivers/net/ethernet/xilinx/Makefile            |    1 +
+ drivers/net/ethernet/xilinx/xilinx_gmii2rgmii.c |   76 +++++++++++++++++++++++
+ include/linux/xilinx_gmii2rgmii.h               |   24 +++++++
+ 6 files changed, 131 insertions(+), 1 deletions(-)
+ create mode 100644 drivers/net/ethernet/xilinx/xilinx_gmii2rgmii.c
+ create mode 100644 include/linux/xilinx_gmii2rgmii.h
