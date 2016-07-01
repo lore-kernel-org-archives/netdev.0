@@ -1,54 +1,39 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v3] netfilter/nflog: nflog-range does not truncate
- packets (userspace)
-Date: Fri, 1 Jul 2016 16:30:02 +0200
-Message-ID: <20160701143002.GA14239@salvia>
-References: <20160624204231.GA3062@akamai.com>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [patch net-next 10/42] mlxsw: spectrum_router: Add basic ipv4
+ router initialization
+Date: Fri, 1 Jul 2016 08:39:01 -0600
+Message-ID: <15542d5f-e11e-4901-0e36-8231012e8f7e@cumulusnetworks.com>
+References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
+ <1467381910-3445-11-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kaber@trash.net, kadlec@blackhole.kfki.hu, johunt@akamai.com,
-	davem@davemloft.net, netfilter-devel@vger.kernel.org,
-	coreteam@netfilter.org, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org, pai.vishwain@gmail.com,
-	ilubashe@akamai.com, jdollard@akamai.com
-To: Vishwanath Pai <vpai@akamai.com>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
+	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+	sfeldma@gmail.com, roopa@cumulusnetworks.com, andy@greyhouse.net,
+	tgraf@suug.ch, jhs@mojatatu.com, linville@tuxdriver.com,
+	ivecera@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:32874 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932115AbcGAOaJ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jul 2016 10:30:09 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id E7CD81B1DFC
-	for <netdev@vger.kernel.org>; Fri,  1 Jul 2016 16:30:05 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id D7955FAB48
-	for <netdev@vger.kernel.org>; Fri,  1 Jul 2016 16:30:05 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id D1F0AFAB59
-	for <netdev@vger.kernel.org>; Fri,  1 Jul 2016 16:30:03 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <20160624204231.GA3062@akamai.com>
+Received: from mail-it0-f44.google.com ([209.85.214.44]:36316 "EHLO
+	mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751280AbcGAOi6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 10:38:58 -0400
+Received: by mail-it0-f44.google.com with SMTP id a5so19757470ita.1
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:38:58 -0700 (PDT)
+In-Reply-To: <1467381910-3445-11-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jun 24, 2016 at 04:42:31PM -0400, Vishwanath Pai wrote:
-> Added tests to libxt_NFLOG.t for the new option --nflog-size
-> 
-> --
-> 
-> netfilter/nflog: nflog-range does not truncate packets
-> 
-> The option --nflog-range has never worked, but we cannot just fix this
-> because users might be using this feature option and their behavior would
-> change. Instead add a new option --nflog-size. This option works the same
-> way nflog-range should have, and both of them are mutually exclusive. When
-> someone uses --nflog-range we print a warning message informing them that
-> this feature has no effect.
-> 
-> To indicate the kernel that the user has set --nflog-size we have to pass a
-> new flag XT_NFLOG_F_COPY_LEN.
-> 
-> Also updated the man page to reflect the new option and added tests to
-> extensions/libxt_NFLOG.t
+On 7/1/16 8:04 AM, Jiri Pirko wrote:
+> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+> index 05d5fcc..c2ac037 100644
+> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+> @@ -74,6 +74,8 @@
+>
+>  #define MLXSW_SP_CELL_FACTOR 2	/* 2 * cell_size / (IPG + cell_size + 1) */
+>
+> +#define MLXSW_SP_RIF_MAX 800
 
-Applied to iptables userspace, thanks.
+At most 800 RIFs can be created? Why 800?
