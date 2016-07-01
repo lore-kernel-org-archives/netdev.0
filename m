@@ -1,60 +1,60 @@
-From: Sony Chacko <sony.chacko@qlogic.com>
-Subject: RE: [PATCH 1/1] qlcnic: add wmb() call in transmit data path.
-Date: Thu, 30 Jun 2016 18:48:25 +0000
-Message-ID: <CY1PR11MB08870104F21B3345D1C6301C82240@CY1PR11MB0887.namprd11.prod.outlook.com>
-References: <1467237094-23088-1-git-send-email-sony.chacko@qlogic.com>
- <1467237094-23088-2-git-send-email-sony.chacko@qlogic.com>
- <57753B8F.9020302@marvell.com> <57753DBB.9010608@marvell.com>
+From: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH V6 1/1] net: ethernet: Add TSE PCS support to
+ dwmac-socfpga
+Date: Thu, 30 Jun 2016 20:38:47 -0500
+Message-ID: <20160701013847.GA25538@rob-hp-laptop>
+References: <1467191413-16715-1-git-send-email-thloh@altera.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: netdev <netdev@vger.kernel.org>,
-	Dept-NX Linux NIC Driver
-	<Dept_NX_Linux_NIC_Driver@qlogic.com>
-To: Lino Sanfilippo <lsanfil@marvell.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-bn3nam01on0115.outbound.protection.outlook.com ([104.47.33.115]:43704
-	"EHLO NAM01-BN3-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751673AbcGABMv convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 21:12:51 -0400
-In-Reply-To: <57753DBB.9010608@marvell.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+	alexandre.torgue-qxv4g6HH51o@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	preid-qgqNFa1JUf/o2iN0hyhwsIdd74u8MsAO@public.gmane.org, dinguyen-yzvPICuk2ABMcg4IHK0kFoH6Mc4MB0Vx@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, thloh85-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, cnphoon-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org
+To: thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1467191413-16715-1-git-send-email-thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Subject: Re: [PATCH 1/1] qlcnic: add wmb() call in transmit data path.
+On Wed, Jun 29, 2016 at 02:10:13AM -0700, thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org wrote:
+> From: Tien Hock Loh <thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
+> 
+> This adds support for TSE PCS that uses SGMII adapter when the phy-mode of
+> the dwmac is set to sgmii.
+> 
+> Signed-off-by: Tien Hock Loh <thloh-EIB2kfCEclfQT0dZR+AlfA@public.gmane.org>
+> 
+> ---
+> v2:
+> - Refactored the TSE PCS out from the dwmac-socfpga.c file
+> - Added binding documentation for TSE PCS sgmii adapter
+> v3:
+> - Added missing license header for new source files
+> - Updated tse_pcs.h include headers
+> - Standardize if statements
+> v4:
+> - Reset SGMII adapter on speed change
+> - Do not enable SGMII adapter if speed is not supported
+> - On init, if PCS reset fails, do not enable adapter
+> v5:
+> - Fixed devicetree binding property name using _ instead of -
+> v6:
+> - Fixed a problem where driver build broken if driver is set as module
+> ---
+>  .../devicetree/bindings/net/socfpga-dwmac.txt      |  19 ++
 
->
->> +    /* Ensure writes are complete before HW fetches Tx descriptors */
->> +    wmb();
->>       qlcnic_update_cmd_producer(tx_ring);
->>
->>       return NETDEV_TX_OK;
->>
->
-> Would not an mmiowb be more appropriate in this case?
->
-> Regards,
-> Lino
+Acked-by: Rob Herring <robh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
 
-Sorry, this was nonsense.This should be "dma_wmb" not "mmiowb".
-
-Lino,
-
-The patch is based on this kernel documentation. 
-
-https://www.kernel.org/doc/Documentation/memory-barriers.txt
-	
-	/* force memory to sync before notifying device via MMIO */
-		wmb();
-
-		/* notify device of new descriptors */
-		writel(DESC_NOTIFY, doorbell);
-	}
-The wmb() is needed to guarantee that the cache coherent memory writes have 
-completed before attempting a write to the cache incoherent MMIO region.
-
-Thanks,
-Sony
+>  drivers/net/ethernet/stmicro/stmmac/Makefile       |   3 +-
+>  drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c | 276 +++++++++++++++++++++
+>  drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.h |  36 +++
+>  .../net/ethernet/stmicro/stmmac/dwmac-socfpga.c    | 141 +++++++++--
+>  5 files changed, 453 insertions(+), 22 deletions(-)
+>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.c
+>  create mode 100644 drivers/net/ethernet/stmicro/stmmac/altr_tse_pcs.h
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
