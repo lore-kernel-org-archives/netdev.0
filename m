@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 05/42] mlxsw: spectrum: Remove VLANs configuration via SELF flag
-Date: Fri,  1 Jul 2016 16:04:33 +0200
-Message-ID: <1467381910-3445-6-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 18/42] mlxsw: reg: Add Router Algorithmic LPM Structure Tree Register definition
+Date: Fri,  1 Jul 2016 16:04:46 +0200
+Message-ID: <1467381910-3445-19-git-send-email-jiri@resnulli.us>
 References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,184 +10,120 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:32900 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752207AbcGAOWb (ORCPT
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:33045 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752220AbcGAOWb (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 10:22:31 -0400
-Received: by mail-wm0-f68.google.com with SMTP id r201so5685986wme.0
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:21:43 -0700 (PDT)
+Received: by mail-wm0-f65.google.com with SMTP id r201so5687064wme.0
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:21:54 -0700 (PDT)
 In-Reply-To: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-When port isn't bridged it is still possible to invoke switchdev ops and
-configure the device's VLAN filters.
+Serves to build LPM tree structure.
 
-However, this will require us to use different Router InterFaces (RIFs)
-for the same netdev, instead of one per-netdev as with any other
-configuration.
-
-Taking the above into account and the fact that this functionality is
-questionable with regards to the device's normal use-case, remove it and
-instead return an error.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 24 ++---------
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  2 -
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 46 +---------------------
- 3 files changed, 6 insertions(+), 66 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 77 +++++++++++++++++++++++++++++++
+ 1 file changed, 77 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index afd06dc..4f67a8c 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -890,8 +890,8 @@ err_port_vp_mode_trans:
- 	return err;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index a358e1b..4ea608f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3504,6 +3504,81 @@ static inline void mlxsw_reg_ralta_pack(char *payload, bool alloc,
+ 	mlxsw_reg_ralta_tree_id_set(payload, tree_id);
  }
  
--int mlxsw_sp_port_kill_vid(struct net_device *dev,
--			   __be16 __always_unused proto, u16 vid)
-+static int mlxsw_sp_port_kill_vid(struct net_device *dev,
-+				  __be16 __always_unused proto, u16 vid)
- {
- 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
- 	struct mlxsw_sp_port *mlxsw_sp_vport;
-@@ -1845,23 +1845,6 @@ err_port_active_vlans_alloc:
- 	return err;
- }
- 
--static void mlxsw_sp_port_vports_fini(struct mlxsw_sp_port *mlxsw_sp_port)
--{
--	struct net_device *dev = mlxsw_sp_port->dev;
--	struct mlxsw_sp_port *mlxsw_sp_vport, *tmp;
--
--	list_for_each_entry_safe(mlxsw_sp_vport, tmp,
--				 &mlxsw_sp_port->vports_list, vport.list) {
--		u16 vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
--
--		/* vPorts created for VLAN devices should already be gone
--		 * by now, since we unregistered the port netdev.
--		 */
--		WARN_ON(is_vlan_dev(mlxsw_sp_vport->dev));
--		mlxsw_sp_port_kill_vid(dev, 0, vid);
--	}
--}
--
- static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- {
- 	struct mlxsw_sp_port *mlxsw_sp_port = mlxsw_sp->ports[local_port];
-@@ -1872,13 +1855,14 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
- 	mlxsw_core_port_fini(&mlxsw_sp_port->core_port);
- 	unregister_netdev(mlxsw_sp_port->dev); /* This calls ndo_stop */
- 	mlxsw_sp_port_dcb_fini(mlxsw_sp_port);
--	mlxsw_sp_port_vports_fini(mlxsw_sp_port);
-+	mlxsw_sp_port_kill_vid(mlxsw_sp_port->dev, 0, 1);
- 	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
- 	mlxsw_sp_port_swid_set(mlxsw_sp_port, MLXSW_PORT_SWID_DISABLED_PORT);
- 	mlxsw_sp_port_module_unmap(mlxsw_sp, mlxsw_sp_port->local_port);
- 	free_percpu(mlxsw_sp_port->pcpu_stats);
- 	kfree(mlxsw_sp_port->untagged_vlans);
- 	kfree(mlxsw_sp_port->active_vlans);
-+	WARN_ON_ONCE(!list_empty(&mlxsw_sp_port->vports_list));
- 	free_netdev(mlxsw_sp_port->dev);
- }
- 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 36c9835..05d5fcc 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -377,8 +377,6 @@ int mlxsw_sp_port_vlan_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid_begin,
- 			   u16 vid_end, bool is_member, bool untagged);
- int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
- 			  u16 vid);
--int mlxsw_sp_port_kill_vid(struct net_device *dev,
--			   __be16 __always_unused proto, u16 vid);
- int mlxsw_sp_vport_flood_set(struct mlxsw_sp_port *mlxsw_sp_vport, u16 fid,
- 			     bool set);
- void mlxsw_sp_port_active_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index a0c7376..927117e 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -633,25 +633,6 @@ err_port_allow_untagged_set:
- 	return err;
- }
- 
--static int mlxsw_sp_port_add_vids(struct net_device *dev, u16 vid_begin,
--				  u16 vid_end)
--{
--	u16 vid;
--	int err;
--
--	for (vid = vid_begin; vid <= vid_end; vid++) {
--		err = mlxsw_sp_port_add_vid(dev, 0, vid);
--		if (err)
--			goto err_port_add_vid;
--	}
--	return 0;
--
--err_port_add_vid:
--	for (vid--; vid >= vid_begin; vid--)
--		mlxsw_sp_port_kill_vid(dev, 0, vid);
--	return err;
--}
--
- static int __mlxsw_sp_port_vlans_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 				     u16 vid_begin, u16 vid_end, bool is_member,
- 				     bool untagged)
-@@ -681,12 +662,8 @@ static int __mlxsw_sp_port_vlans_add(struct mlxsw_sp_port *mlxsw_sp_port,
- 	u16 vid, old_pvid;
- 	int err;
- 
--	/* In case this is invoked with BRIDGE_FLAGS_SELF and port is
--	 * not bridged, then packets ingressing through the port with
--	 * the specified VIDs will be directed to CPU.
--	 */
- 	if (!mlxsw_sp_port->bridged)
--		return mlxsw_sp_port_add_vids(dev, vid_begin, vid_end);
-+		return -EINVAL;
- 
- 	err = mlxsw_sp_port_fid_join(mlxsw_sp_port, vid_begin, vid_end);
- 	if (err) {
-@@ -1019,21 +996,6 @@ static int mlxsw_sp_port_obj_add(struct net_device *dev,
- 	return err;
- }
- 
--static int mlxsw_sp_port_kill_vids(struct net_device *dev, u16 vid_begin,
--				   u16 vid_end)
--{
--	u16 vid;
--	int err;
--
--	for (vid = vid_begin; vid <= vid_end; vid++) {
--		err = mlxsw_sp_port_kill_vid(dev, 0, vid);
--		if (err)
--			return err;
--	}
--
--	return 0;
--}
--
- static int __mlxsw_sp_port_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port,
- 				     u16 vid_begin, u16 vid_end, bool init)
- {
-@@ -1041,12 +1003,8 @@ static int __mlxsw_sp_port_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port,
- 	u16 vid, pvid;
- 	int err;
- 
--	/* In case this is invoked with BRIDGE_FLAGS_SELF and port is
--	 * not bridged, then prevent packets ingressing through the
--	 * port with the specified VIDs from being trapped to CPU.
--	 */
- 	if (!init && !mlxsw_sp_port->bridged)
--		return mlxsw_sp_port_kill_vids(dev, vid_begin, vid_end);
-+		return -EINVAL;
- 
- 	err = __mlxsw_sp_port_vlans_set(mlxsw_sp_port, vid_begin, vid_end,
- 					false, false);
++/* RALST - Router Algorithmic LPM Structure Tree Register
++ * ------------------------------------------------------
++ * RALST is used to set and query the structure of an LPM tree.
++ * The structure of the tree must be sorted as a sorted binary tree, while
++ * each node is a bin that is tagged as the length of the prefixes the lookup
++ * will refer to. Therefore, bin X refers to a set of entries with prefixes
++ * of X bits to match with the destination address. The bin 0 indicates
++ * the default action, when there is no match of any prefix.
++ */
++#define MLXSW_REG_RALST_ID 0x8011
++#define MLXSW_REG_RALST_LEN 0x104
++
++static const struct mlxsw_reg_info mlxsw_reg_ralst = {
++	.id = MLXSW_REG_RALST_ID,
++	.len = MLXSW_REG_RALST_LEN,
++};
++
++/* reg_ralst_root_bin
++ * The bin number of the root bin.
++ * 0<root_bin=<(length of IP address)
++ * For a default-route tree configure 0xff
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ralst, root_bin, 0x00, 16, 8);
++
++/* reg_ralst_tree_id
++ * Tree identifier numbered from 1..(cap_shspm_max_trees-1).
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, ralst, tree_id, 0x00, 0, 8);
++
++#define MLXSW_REG_RALST_BIN_NO_CHILD 0xff
++#define MLXSW_REG_RALST_BIN_OFFSET 0x04
++#define MLXSW_REG_RALST_BIN_COUNT 128
++
++/* reg_ralst_left_child_bin
++ * Holding the children of the bin according to the stored tree's structure.
++ * For trees composed of less than 4 blocks, the bins in excess are reserved.
++ * Note that tree_id 0 is allocated for a default-route tree, bins are 0xff
++ * Access: RW
++ */
++MLXSW_ITEM16_INDEXED(reg, ralst, left_child_bin, 0x04, 8, 8, 0x02, 0x00, false);
++
++/* reg_ralst_right_child_bin
++ * Holding the children of the bin according to the stored tree's structure.
++ * For trees composed of less than 4 blocks, the bins in excess are reserved.
++ * Note that tree_id 0 is allocated for a default-route tree, bins are 0xff
++ * Access: RW
++ */
++MLXSW_ITEM16_INDEXED(reg, ralst, right_child_bin, 0x04, 0, 8, 0x02, 0x00,
++		     false);
++
++static inline void mlxsw_reg_ralst_pack(char *payload, u8 root_bin, u8 tree_id)
++{
++	MLXSW_REG_ZERO(ralst, payload);
++
++	/* Initialize all bins to have no left or right child */
++	memset(payload + MLXSW_REG_RALST_BIN_OFFSET,
++	       MLXSW_REG_RALST_BIN_NO_CHILD, MLXSW_REG_RALST_BIN_COUNT * 2);
++
++	mlxsw_reg_ralst_root_bin_set(payload, root_bin);
++	mlxsw_reg_ralst_tree_id_set(payload, tree_id);
++}
++
++static inline void mlxsw_reg_ralst_bin_pack(char *payload, u8 bin_number,
++					    u8 left_child_bin,
++					    u8 right_child_bin)
++{
++	int bin_index = bin_number - 1;
++
++	mlxsw_reg_ralst_left_child_bin_set(payload, bin_index, left_child_bin);
++	mlxsw_reg_ralst_right_child_bin_set(payload, bin_index,
++					    right_child_bin);
++}
++
+ /* MFCR - Management Fan Control Register
+  * --------------------------------------
+  * This register controls the settings of the Fan Speed PWM mechanism.
+@@ -4248,6 +4323,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
+ 		return "RITR";
+ 	case MLXSW_REG_RALTA_ID:
+ 		return "RALTA";
++	case MLXSW_REG_RALST_ID:
++		return "RALST";
+ 	case MLXSW_REG_MFCR_ID:
+ 		return "MFCR";
+ 	case MLXSW_REG_MFSC_ID:
 -- 
 2.5.5
