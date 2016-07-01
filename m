@@ -1,25 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net] r8152: clear LINK_OFF_WAKE_EN after autoresume
-Date: Fri, 01 Jul 2016 05:57:37 -0400 (EDT)
-Message-ID: <20160701.055737.515449390875714786.davem@davemloft.net>
-References: <1394712342-15778-206-Taiwan-albertk@realtek.com>
+Subject: Re: [PATCH net-next V2 00/16] Mellanox 100G SRIOV E-Switch offload
+ and VF representors
+Date: Fri, 01 Jul 2016 06:16:39 -0400 (EDT)
+Message-ID: <20160701.061639.58539315378533703.davem@davemloft.net>
+References: <1467300215-14199-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
-	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
-To: hayeswang@realtek.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-206-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com, hadarh@mellanox.com,
+	jiri@mellanox.com, gospo@cumulusnetworks.com,
+	jesse.brandeburg@intel.com, john.r.fastabend@intel.com
+To: saeedm@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37715 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752758AbcGAKRG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 06:17:06 -0400
+In-Reply-To: <1467300215-14199-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Hayes Wang <hayeswang@realtek.com>
-Date: Thu, 30 Jun 2016 15:33:35 +0800
 
-> LINK_OFF_WAKE_EN should be cleared after autoresume, otherwise after
-> system suspend, the system would wake up when linking off occurs.
-> 
-> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+So you have submitted to me, in parallel, two non-trivial sets of changes
+to the mlx5 driver.  One for 'net' and one for 'net-next, and at the same
+exact time.
 
-Applied, thanks.
+You haven't given me any indication of whether there are any dependencies
+nor conflicts from these two sets of changes.
+
+So I'm tossing this series until you do so.
