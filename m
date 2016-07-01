@@ -1,8 +1,8 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 06/17] batman-adv: refactor
-	batadv_neigh_node_* functions to follow common style
-Date: Fri,  1 Jul 2016 15:08:58 +0200
-Message-ID: <1467378549-9646-7-git-send-email-sw@simonwunderlich.de>
+Subject: [PATCH 07/17] batman-adv: remove unused callback
+	from batadv_algo_ops struct
+Date: Fri,  1 Jul 2016 15:08:59 +0200
+Message-ID: <1467378549-9646-8-git-send-email-sw@simonwunderlich.de>
 References: <1467378549-9646-1-git-send-email-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
@@ -28,132 +28,55 @@ Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.o
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 ---
- net/batman-adv/bat_iv_ogm.c |  3 ++-
- net/batman-adv/bat_v_elp.c  |  3 ++-
- net/batman-adv/bat_v_ogm.c  |  4 ++--
- net/batman-adv/originator.c | 35 +++++++++++++++++++++++++++++------
- net/batman-adv/originator.h |  6 +++---
- 5 files changed, 38 insertions(+), 13 deletions(-)
+ net/batman-adv/originator.c | 5 -----
+ net/batman-adv/types.h      | 3 ---
+ 2 files changed, 8 deletions(-)
 
-diff --git a/net/batman-adv/bat_iv_ogm.c b/net/batman-adv/bat_iv_ogm.c
-index ce2f203..aa11296 100644
---- a/net/batman-adv/bat_iv_ogm.c
-+++ b/net/batman-adv/bat_iv_ogm.c
-@@ -336,7 +336,8 @@ batadv_iv_ogm_neigh_new(struct batadv_hard_iface *hard_iface,
- {
- 	struct batadv_neigh_node *neigh_node;
- 
--	neigh_node = batadv_neigh_node_new(orig_node, hard_iface, neigh_addr);
-+	neigh_node = batadv_neigh_node_get_or_create(orig_node,
-+						     hard_iface, neigh_addr);
- 	if (!neigh_node)
- 		goto out;
- 
-diff --git a/net/batman-adv/bat_v_elp.c b/net/batman-adv/bat_v_elp.c
-index df42eb1..8909d1e 100644
---- a/net/batman-adv/bat_v_elp.c
-+++ b/net/batman-adv/bat_v_elp.c
-@@ -443,7 +443,8 @@ static void batadv_v_elp_neigh_update(struct batadv_priv *bat_priv,
- 	if (!orig_neigh)
- 		return;
- 
--	neigh = batadv_neigh_node_new(orig_neigh, if_incoming, neigh_addr);
-+	neigh = batadv_neigh_node_get_or_create(orig_neigh,
-+						if_incoming, neigh_addr);
- 	if (!neigh)
- 		goto orig_free;
- 
-diff --git a/net/batman-adv/bat_v_ogm.c b/net/batman-adv/bat_v_ogm.c
-index 473ebb9..23ea9bf 100644
---- a/net/batman-adv/bat_v_ogm.c
-+++ b/net/batman-adv/bat_v_ogm.c
-@@ -683,8 +683,8 @@ static void batadv_v_ogm_process(const struct sk_buff *skb, int ogm_offset,
- 	if (!orig_node)
- 		return;
- 
--	neigh_node = batadv_neigh_node_new(orig_node, if_incoming,
--					   ethhdr->h_source);
-+	neigh_node = batadv_neigh_node_get_or_create(orig_node, if_incoming,
-+						     ethhdr->h_source);
- 	if (!neigh_node)
- 		goto out;
- 
 diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 7f51bc2..b0bad57 100644
+index b0bad57..076d258 100644
 --- a/net/batman-adv/originator.c
 +++ b/net/batman-adv/originator.c
-@@ -602,19 +602,19 @@ batadv_hardif_neigh_get(const struct batadv_hard_iface *hard_iface,
- }
- 
- /**
-- * batadv_neigh_node_new - create and init a new neigh_node object
-+ * batadv_neigh_node_create - create a neigh node object
-  * @orig_node: originator object representing the neighbour
-  * @hard_iface: the interface where the neighbour is connected to
-  * @neigh_addr: the mac address of the neighbour interface
-  *
-  * Allocates a new neigh_node object and initialises all the generic fields.
-  *
-- * Return: neighbor when found. Othwerwise NULL
-+ * Return: the neighbour node if found or created or NULL otherwise.
-  */
--struct batadv_neigh_node *
--batadv_neigh_node_new(struct batadv_orig_node *orig_node,
--		      struct batadv_hard_iface *hard_iface,
--		      const u8 *neigh_addr)
-+static struct batadv_neigh_node *
-+batadv_neigh_node_create(struct batadv_orig_node *orig_node,
-+			 struct batadv_hard_iface *hard_iface,
-+			 const u8 *neigh_addr)
- {
+@@ -251,10 +251,8 @@ static void batadv_neigh_node_release(struct kref *ref)
+ 	struct hlist_node *node_tmp;
  	struct batadv_neigh_node *neigh_node;
- 	struct batadv_hardif_neigh_node *hardif_neigh = NULL;
-@@ -667,6 +667,29 @@ out:
- }
+ 	struct batadv_neigh_ifinfo *neigh_ifinfo;
+-	struct batadv_algo_ops *bao;
  
- /**
-+ * batadv_neigh_node_get_or_create - retrieve or create a neigh node object
-+ * @orig_node: originator object representing the neighbour
-+ * @hard_iface: the interface where the neighbour is connected to
-+ * @neigh_addr: the mac address of the neighbour interface
-+ *
-+ * Return: the neighbour node if found or created or NULL otherwise.
-+ */
-+struct batadv_neigh_node *
-+batadv_neigh_node_get_or_create(struct batadv_orig_node *orig_node,
-+				struct batadv_hard_iface *hard_iface,
-+				const u8 *neigh_addr)
-+{
-+	struct batadv_neigh_node *neigh_node = NULL;
-+
-+	/* first check without locking to avoid the overhead */
-+	neigh_node = batadv_neigh_node_get(orig_node, hard_iface, neigh_addr);
-+	if (neigh_node)
-+		return neigh_node;
-+
-+	return batadv_neigh_node_create(orig_node, hard_iface, neigh_addr);
-+}
-+
-+/**
-  * batadv_hardif_neigh_seq_print_text - print the single hop neighbour list
-  * @seq: neighbour table seq_file struct
-  * @offset: not used
-diff --git a/net/batman-adv/originator.h b/net/batman-adv/originator.h
-index 64a8951..566306b 100644
---- a/net/batman-adv/originator.h
-+++ b/net/batman-adv/originator.h
-@@ -46,9 +46,9 @@ batadv_hardif_neigh_get(const struct batadv_hard_iface *hard_iface,
- void
- batadv_hardif_neigh_put(struct batadv_hardif_neigh_node *hardif_neigh);
- struct batadv_neigh_node *
--batadv_neigh_node_new(struct batadv_orig_node *orig_node,
--		      struct batadv_hard_iface *hard_iface,
--		      const u8 *neigh_addr);
-+batadv_neigh_node_get_or_create(struct batadv_orig_node *orig_node,
-+				struct batadv_hard_iface *hard_iface,
-+				const u8 *neigh_addr);
- void batadv_neigh_node_put(struct batadv_neigh_node *neigh_node);
- struct batadv_neigh_node *
- batadv_orig_router_get(struct batadv_orig_node *orig_node,
+ 	neigh_node = container_of(ref, struct batadv_neigh_node, refcount);
+-	bao = neigh_node->orig_node->bat_priv->bat_algo_ops;
+ 
+ 	hlist_for_each_entry_safe(neigh_ifinfo, node_tmp,
+ 				  &neigh_node->ifinfo_list, list) {
+@@ -263,9 +261,6 @@ static void batadv_neigh_node_release(struct kref *ref)
+ 
+ 	batadv_hardif_neigh_put(neigh_node->hardif_neigh);
+ 
+-	if (bao->bat_neigh_free)
+-		bao->bat_neigh_free(neigh_node);
+-
+ 	batadv_hardif_put(neigh_node->if_incoming);
+ 
+ 	kfree_rcu(neigh_node, rcu);
+diff --git a/net/batman-adv/types.h b/net/batman-adv/types.h
+index 6a577f4..114d150 100644
+--- a/net/batman-adv/types.h
++++ b/net/batman-adv/types.h
+@@ -1278,8 +1278,6 @@ struct batadv_forw_packet {
+  *  better than neigh2 for their respective outgoing interface from the metric
+  *  prospective
+  * @bat_neigh_print: print the single hop neighbor list (optional)
+- * @bat_neigh_free: free the resources allocated by the routing algorithm for a
+- *  neigh_node object
+  * @bat_orig_print: print the originator table (optional)
+  * @bat_orig_free: free the resources allocated by the routing algorithm for an
+  *  orig_node object
+@@ -1310,7 +1308,6 @@ struct batadv_algo_ops {
+ 		 struct batadv_neigh_node *neigh2,
+ 		 struct batadv_hard_iface *if_outgoing2);
+ 	void (*bat_neigh_print)(struct batadv_priv *priv, struct seq_file *seq);
+-	void (*bat_neigh_free)(struct batadv_neigh_node *neigh);
+ 	/* orig_node handling API */
+ 	void (*bat_orig_print)(struct batadv_priv *priv, struct seq_file *seq,
+ 			       struct batadv_hard_iface *hard_iface);
 -- 
 2.8.1
