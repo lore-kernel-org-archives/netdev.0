@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 04/42] mlxsw: spectrum: Send untagged packets through a port netdev
-Date: Fri,  1 Jul 2016 16:04:32 +0200
-Message-ID: <1467381910-3445-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 14/42] mlxsw: spectrum: Use action 'discard' when removing traps
+Date: Fri,  1 Jul 2016 16:04:42 +0200
+Message-ID: <1467381910-3445-15-git-send-email-jiri@resnulli.us>
 References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,55 +10,53 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34105 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752690AbcGAOUo (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 10:20:44 -0400
-Received: by mail-wm0-f68.google.com with SMTP id 187so5676407wmz.1
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:20:43 -0700 (PDT)
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36404 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752690AbcGAOUl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 10:20:41 -0400
+Received: by mail-wm0-f65.google.com with SMTP id c82so5667738wme.3
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:20:40 -0700 (PDT)
 In-Reply-To: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Port netdevs (e.g. swXpY) that are not bridged are represented in the
-device using a vPort with VID=PVID=1 (the PVID vPort), as untagged
-packets entering the switch are internally tagged with the PVID VLAN.
-When these packets are routed through a different port netdev they
-should egress untagged.
+When removing packet traps we should use action 'discard' instead of
+'forward', as some trap IDs we'll add cannot be configured with the
+later. However, result is the same, as packets are not trapped to the
+CPU.
 
-This wasn't a problem until now, as non-bridged traffic only originated
-from the CPU, which transmits packets out of the port as-is.
-
-When a vPort is created with VID 1 mark it as egress untagged.
+In the future we will be able to reverse the operation properly by
+detaching the trap group from the CPU.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index a453fff..afd06dc 100644
+index d15ebf3..de30763 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -816,6 +816,7 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
- {
- 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
- 	struct mlxsw_sp_port *mlxsw_sp_vport;
-+	bool untagged = vid == 1;
- 	int err;
+@@ -2295,7 +2295,7 @@ err_rx_trap_set:
+ 					  mlxsw_sp);
+ err_rx_listener_register:
+ 	for (i--; i >= 0; i--) {
+-		mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_FORWARD,
++		mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_DISCARD,
+ 				    mlxsw_sp_rx_listener[i].trap_id);
+ 		mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(hpkt), hpkt_pl);
  
- 	/* VLAN 0 is added to HW filter when device goes up, but it is
-@@ -859,7 +860,7 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
- 		goto err_port_vid_learning_set;
- 	}
+@@ -2312,7 +2312,7 @@ static void mlxsw_sp_traps_fini(struct mlxsw_sp *mlxsw_sp)
+ 	int i;
  
--	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, true, false);
-+	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, true, untagged);
- 	if (err) {
- 		netdev_err(dev, "Failed to set VLAN membership for VID=%d\n",
- 			   vid);
+ 	for (i = 0; i < ARRAY_SIZE(mlxsw_sp_rx_listener); i++) {
+-		mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_FORWARD,
++		mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_DISCARD,
+ 				    mlxsw_sp_rx_listener[i].trap_id);
+ 		mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(hpkt), hpkt_pl);
+ 
 -- 
 2.5.5
