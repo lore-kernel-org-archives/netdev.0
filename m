@@ -1,62 +1,79 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 0/7] net: ethernet: bgmac: Add platform device support
-Date: Fri, 01 Jul 2016 11:49:52 +0200
-Message-ID: <7754885.zcSf8DnDt9@wuerfel>
-References: <1467327554-22074-1-git-send-email-jon.mason@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
- f.fainelli@gmail.com, Scott Branden <sbranden@broadcom.com>,
- Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
- hauke@hauke-m.de, zajec5@gmail.com, linux-kernel@vger.kernel.org,
- Ray Jui <rjui@broadcom.com>, Rob Herring <robh+dt@kernel.org>,
- bcm-kernel-feedback-list@broadcom.com, Kumar Gala <galak@codeaurora.org>,
- netdev@vger.kernel.org, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-To: Jon Mason <jon.mason@broadcom.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1467327554-22074-1-git-send-email-jon.mason@broadcom.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: Christophe Leroy <christophe.leroy@c-s.fr>
+Subject: [PATCH] netfilter: nf_conntrack_sip: CSeq 0 is a valid CSeq
+Date: Fri,  1 Jul 2016 11:48:33 +0200 (CEST)
+Message-ID: <20160701094833.B281E1A23A2@localhost.localdomain>
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday, June 30, 2016 6:59:07 PM CEST Jon Mason wrote:
-> Well, no compilained too loudly at the RFC version of this patch series
-> (see https://lkml.org/lkml/2016/6/28/863).  So, I'm officially sending
-> this out for inclusion.  All comments from the RFC were addressed in
-> this version.
-> 
-> This patch series adds support for other, non-bcma iProc SoC's to the
-> bgmac driver.  This series only adds NSP support, but we are interested
-> in adding support for the Cygnus and NS2 families (with more possible
-> down the road).
-> 
-> To support non-bcma enabled SoCs, we need to add the standard device
-> tree "platform device" support.  Unfortunately, this driver is very
-> tighly coupled with the bcma bus and much unwinding is needed.  I tried
-> to break this up into a number of patches to make it more obvious what
-> was being done to add platform device support.  I was able to verify
-> that the bcma code still works using a 53012K board (NS SoC), and that
-> the platform code works using a 58625K board (NSP SoC).
+Do not drop packet when CSeq is 0 as 0 is also a valid value for CSeq.
 
-Looks reasonable overall. I have one comment for the binding, but
-we can handle them separately. I think the first five patches
-can just get merged through net-next if there are no other concerns,
-and feel free to add my
+In order to do so, we replace obsolete simple_strtoul() which
+returns 0 on error by kstrtouint(). As kstrtouint() requires a
+NULL terminated string, we need to use a temporary buffer
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+---
+ net/netfilter/nf_conntrack_sip.c | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
 
-
-For the last two patches, once we have worked out the right
-compatible strings, please send them to Florian for merging through
-the arm-soc next/dt branch.
-
-	Arnd
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index f72ba55..e770477 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -1368,6 +1368,7 @@ static int process_sip_response(struct sk_buff *skb, unsigned int protoff,
+ 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+ 	unsigned int matchoff, matchlen, matchend;
+ 	unsigned int code, cseq, i;
++	char buf[21];
+ 
+ 	if (*datalen < strlen("SIP/2.0 200"))
+ 		return NF_ACCEPT;
+@@ -1382,8 +1383,13 @@ static int process_sip_response(struct sk_buff *skb, unsigned int protoff,
+ 		nf_ct_helper_log(skb, ct, "cannot parse cseq");
+ 		return NF_DROP;
+ 	}
+-	cseq = simple_strtoul(*dptr + matchoff, NULL, 10);
+-	if (!cseq) {
++	if (matchlen > sizeof(buf) - 1) {
++		nf_ct_helper_log(skb, ct, "cannot parse cseq (too big)");
++		return NF_DROP;
++	}
++	memcpy(buf, *dptr + matchoff, matchlen);
++	buf[matchlen] = 0;
++	if (kstrtouint(buf, 10, &cseq)) {
+ 		nf_ct_helper_log(skb, ct, "cannot get cseq");
+ 		return NF_DROP;
+ 	}
+@@ -1432,6 +1438,7 @@ static int process_sip_request(struct sk_buff *skb, unsigned int protoff,
+ 
+ 	for (i = 0; i < ARRAY_SIZE(sip_handlers); i++) {
+ 		const struct sip_handler *handler;
++		char buf[21];
+ 
+ 		handler = &sip_handlers[i];
+ 		if (handler->request == NULL)
+@@ -1445,8 +1452,13 @@ static int process_sip_request(struct sk_buff *skb, unsigned int protoff,
+ 			nf_ct_helper_log(skb, ct, "cannot parse cseq");
+ 			return NF_DROP;
+ 		}
+-		cseq = simple_strtoul(*dptr + matchoff, NULL, 10);
+-		if (!cseq) {
++		if (matchlen > sizeof(buf) - 1) {
++			nf_ct_helper_log(skb, ct, "cannot parse cseq(too big)");
++			return NF_DROP;
++		}
++		memcpy(buf, *dptr + matchoff, matchlen);
++		buf[matchlen] = 0;
++		if (kstrtouint(buf, 10, &cseq)) {
+ 			nf_ct_helper_log(skb, ct, "cannot get cseq");
+ 			return NF_DROP;
+ 		}
+-- 
+2.1.0
