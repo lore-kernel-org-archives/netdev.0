@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 33/42] mlxsw: spectrum_router: Periodically update the kernel's neigh table
-Date: Fri,  1 Jul 2016 16:05:01 +0200
-Message-ID: <1467381910-3445-34-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 32/42] mlxsw: reg: Add Router Algorithmic LPM Unicast Host Table Dump register
+Date: Fri,  1 Jul 2016 16:05:00 +0200
+Message-ID: <1467381910-3445-33-git-send-email-jiri@resnulli.us>
 References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,277 +10,192 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35082 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752445AbcGAOWb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 10:22:31 -0400
-Received: by mail-wm0-f66.google.com with SMTP id a66so5672963wme.2
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:22:18 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35870 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752457AbcGAOWj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 10:22:39 -0400
+Received: by mail-wm0-f68.google.com with SMTP id c82so5679408wme.3
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:22:38 -0700 (PDT)
 In-Reply-To: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-As previously explained, the driver should periodically poll the device
-for neighbours activity according to the configured DELAY_PROBE_TIME.
-This will prevent active neighbours from staying in STALE state for long
-periods of time.
-
-During init configure the polling interval according to the
-DELAY_PROBE_TIME used in the default table. In addition, register a
-netevent notification block, so that the interval is updated whenever
-DELAY_PROBE_TIME changes.
-
-Using the computed interval schedule a delayed work, which will update
-the kernel via neigh_event_send() on any active neighbour since the last
-delayed work.
+The RAUHTD register allows dumping entries from the Router Unicast Host
+Table.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   4 +
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 192 ++++++++++++++++++++-
- 2 files changed, 194 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 147 ++++++++++++++++++++++++++++++
+ 1 file changed, 147 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 734c5ba..9c2a60f 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -214,6 +214,10 @@ struct mlxsw_sp_router {
- 	struct mlxsw_sp_lpm_tree lpm_trees[MLXSW_SP_LPM_TREE_COUNT];
- 	struct mlxsw_sp_vr vrs[MLXSW_SP_VIRTUAL_ROUTER_MAX];
- 	struct rhashtable neigh_ht;
-+	struct {
-+		struct delayed_work dw;
-+		unsigned long interval;	/* ms */
-+	} neighs_update;
- };
- 
- struct mlxsw_sp {
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 90d382a..db1c2c4 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -3,6 +3,7 @@
-  * Copyright (c) 2016 Mellanox Technologies. All rights reserved.
-  * Copyright (c) 2016 Jiri Pirko <jiri@mellanox.com>
-  * Copyright (c) 2016 Ido Schimmel <idosch@mellanox.com>
-+ * Copyright (c) 2016 Yotam Gigi <yotamg@mellanox.com>
-  *
-  * Redistribution and use in source and binary forms, with or without
-  * modification, are permitted provided that the following conditions are met:
-@@ -38,6 +39,8 @@
- #include <linux/rhashtable.h>
- #include <linux/bitops.h>
- #include <linux/in6.h>
-+#include <linux/notifier.h>
-+#include <net/netevent.h>
- #include <net/neighbour.h>
- #include <net/arp.h>
- 
-@@ -676,14 +679,199 @@ void mlxsw_sp_router_neigh_destroy(struct net_device *dev,
- 	mlxsw_sp_neigh_entry_destroy(neigh_entry);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index cc6a0b3..fcf379b 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -4023,6 +4023,151 @@ static inline void mlxsw_reg_rauht_pack4(char *payload,
+ 	mlxsw_reg_rauht_dip4_set(payload, dip);
  }
  
-+static void
-+mlxsw_sp_router_neighs_update_interval_init(struct mlxsw_sp *mlxsw_sp)
-+{
-+	unsigned long interval = NEIGH_VAR(&arp_tbl.parms, DELAY_PROBE_TIME);
++/* RAUHTD - Router Algorithmic LPM Unicast Host Table Dump Register
++ * ----------------------------------------------------------------
++ * The RAUHTD register allows dumping entries from the Router Unicast Host
++ * Table. For a given session an entry is dumped no more than one time. The
++ * first RAUHTD access after reset is a new session. A session ends when the
++ * num_rec response is smaller than num_rec request or for IPv4 when the
++ * num_entries is smaller than 4. The clear activity affect the current session
++ * or the last session if a new session has not started.
++ */
++#define MLXSW_REG_RAUHTD_ID 0x8018
++#define MLXSW_REG_RAUHTD_BASE_LEN 0x20
++#define MLXSW_REG_RAUHTD_REC_LEN 0x20
++#define MLXSW_REG_RAUHTD_REC_MAX_NUM 32
++#define MLXSW_REG_RAUHTD_LEN (MLXSW_REG_RAUHTD_BASE_LEN + \
++		MLXSW_REG_RAUHTD_REC_MAX_NUM * MLXSW_REG_RAUHTD_REC_LEN)
++#define MLXSW_REG_RAUHTD_IPV4_ENT_PER_REC 4
 +
-+	mlxsw_sp->router.neighs_update.interval = jiffies_to_msecs(interval);
-+}
-+
-+static void mlxsw_sp_router_neigh_ent_ipv4_process(struct mlxsw_sp *mlxsw_sp,
-+						   char *rauhtd_pl,
-+						   int ent_index)
-+{
-+	struct net_device *dev;
-+	struct neighbour *n;
-+	__be32 dipn;
-+	u32 dip;
-+	u16 rif;
-+
-+	mlxsw_reg_rauhtd_ent_ipv4_unpack(rauhtd_pl, ent_index, &rif, &dip);
-+
-+	if (!mlxsw_sp->rifs[rif]) {
-+		dev_err_ratelimited(mlxsw_sp->bus_info->dev, "Incorrect RIF in neighbour entry\n");
-+		return;
-+	}
-+
-+	dipn = htonl(dip);
-+	dev = mlxsw_sp->rifs[rif]->dev;
-+	n = neigh_lookup(&arp_tbl, &dipn, dev);
-+	if (!n) {
-+		netdev_err(dev, "Failed to find matching neighbour for IP=%pI4h\n",
-+			   &dip);
-+		return;
-+	}
-+
-+	netdev_dbg(dev, "Updating neighbour with IP=%pI4h\n", &dip);
-+	neigh_event_send(n, NULL);
-+	neigh_release(n);
-+}
-+
-+static void mlxsw_sp_router_neigh_rec_ipv4_process(struct mlxsw_sp *mlxsw_sp,
-+						   char *rauhtd_pl,
-+						   int rec_index)
-+{
-+	u8 num_entries;
-+	int i;
-+
-+	num_entries = mlxsw_reg_rauhtd_ipv4_rec_num_entries_get(rauhtd_pl,
-+								rec_index);
-+	/* Hardware starts counting at 0, so add 1. */
-+	num_entries++;
-+
-+	/* Each record consists of several neighbour entries. */
-+	for (i = 0; i < num_entries; i++) {
-+		int ent_index;
-+
-+		ent_index = rec_index * MLXSW_REG_RAUHTD_IPV4_ENT_PER_REC + i;
-+		mlxsw_sp_router_neigh_ent_ipv4_process(mlxsw_sp, rauhtd_pl,
-+						       ent_index);
-+	}
-+
-+}
-+
-+static void mlxsw_sp_router_neigh_rec_process(struct mlxsw_sp *mlxsw_sp,
-+					      char *rauhtd_pl, int rec_index)
-+{
-+	switch (mlxsw_reg_rauhtd_rec_type_get(rauhtd_pl, rec_index)) {
-+	case MLXSW_REG_RAUHTD_TYPE_IPV4:
-+		mlxsw_sp_router_neigh_rec_ipv4_process(mlxsw_sp, rauhtd_pl,
-+						       rec_index);
-+		break;
-+	case MLXSW_REG_RAUHTD_TYPE_IPV6:
-+		WARN_ON_ONCE(1);
-+		break;
-+	}
-+}
-+
-+static void
-+mlxsw_sp_router_neighs_update_work_schedule(struct mlxsw_sp *mlxsw_sp)
-+{
-+	unsigned long interval = mlxsw_sp->router.neighs_update.interval;
-+
-+	mlxsw_core_schedule_dw(&mlxsw_sp->router.neighs_update.dw,
-+			       msecs_to_jiffies(interval));
-+}
-+
-+static void mlxsw_sp_router_neighs_update_work(struct work_struct *work)
-+{
-+	struct mlxsw_sp *mlxsw_sp;
-+	char *rauhtd_pl;
-+	u8 num_rec;
-+	int i, err;
-+
-+	rauhtd_pl = kmalloc(MLXSW_REG_RAUHTD_LEN, GFP_KERNEL);
-+	if (!rauhtd_pl)
-+		return;
-+
-+	mlxsw_sp = container_of(work, struct mlxsw_sp,
-+				router.neighs_update.dw.work);
-+
-+	/* Make sure the neighbour's netdev isn't removed in the
-+	 * process.
-+	 */
-+	rtnl_lock();
-+	do {
-+		mlxsw_reg_rauhtd_pack(rauhtd_pl, MLXSW_REG_RAUHTD_TYPE_IPV4);
-+		err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(rauhtd),
-+				      rauhtd_pl);
-+		if (err) {
-+			dev_err_ratelimited(mlxsw_sp->bus_info->dev, "Failed to dump neighbour talbe\n");
-+			break;
-+		}
-+		num_rec = mlxsw_reg_rauhtd_num_rec_get(rauhtd_pl);
-+		for (i = 0; i < num_rec; i++)
-+			mlxsw_sp_router_neigh_rec_process(mlxsw_sp, rauhtd_pl,
-+							  i);
-+	} while (num_rec);
-+	rtnl_unlock();
-+
-+	kfree(rauhtd_pl);
-+	mlxsw_sp_router_neighs_update_work_schedule(mlxsw_sp);
-+}
-+
-+static int mlxsw_sp_router_netevent_event(struct notifier_block *unused,
-+					  unsigned long event, void *ptr)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_port;
-+	struct mlxsw_sp *mlxsw_sp;
-+	unsigned long interval;
-+	struct neigh_parms *p;
-+
-+	switch (event) {
-+	case NETEVENT_DELAY_PROBE_TIME_UPDATE:
-+		p = ptr;
-+
-+		/* We don't care about changes in the default table. */
-+		if (!p->dev || p->tbl != &arp_tbl)
-+			return NOTIFY_DONE;
-+
-+		/* We are in atomic context and can't take RTNL mutex,
-+		 * so use RCU variant to walk the device chain.
-+		 */
-+		mlxsw_sp_port = mlxsw_sp_port_lower_dev_hold(p->dev);
-+		if (!mlxsw_sp_port)
-+			return NOTIFY_DONE;
-+
-+		mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+		interval = jiffies_to_msecs(NEIGH_VAR(p, DELAY_PROBE_TIME));
-+		mlxsw_sp->router.neighs_update.interval = interval;
-+
-+		mlxsw_sp_port_dev_put(mlxsw_sp_port);
-+		break;
-+	}
-+
-+	return NOTIFY_DONE;
-+}
-+
-+static struct notifier_block mlxsw_sp_router_netevent_nb __read_mostly = {
-+	.notifier_call = mlxsw_sp_router_netevent_event,
++static const struct mlxsw_reg_info mlxsw_reg_rauhtd = {
++	.id = MLXSW_REG_RAUHTD_ID,
++	.len = MLXSW_REG_RAUHTD_LEN,
 +};
 +
- static int mlxsw_sp_neigh_init(struct mlxsw_sp *mlxsw_sp)
- {
--	return rhashtable_init(&mlxsw_sp->router.neigh_ht,
--			       &mlxsw_sp_neigh_ht_params);
-+	int err;
++#define MLXSW_REG_RAUHTD_FILTER_A BIT(0)
++#define MLXSW_REG_RAUHTD_FILTER_RIF BIT(3)
 +
-+	err = rhashtable_init(&mlxsw_sp->router.neigh_ht,
-+			      &mlxsw_sp_neigh_ht_params);
-+	if (err)
-+		return err;
++/* reg_rauhtd_filter_fields
++ * if a bit is '0' then the relevant field is ignored and dump is done
++ * regardless of the field value
++ * Bit0 - filter by activity: entry_a
++ * Bit3 - filter by entry rip: entry_rif
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, rauhtd, filter_fields, 0x00, 0, 8);
 +
-+	/* Initialize the polling interval according to the default
-+	 * table.
-+	 */
-+	mlxsw_sp_router_neighs_update_interval_init(mlxsw_sp);
++enum mlxsw_reg_rauhtd_op {
++	MLXSW_REG_RAUHTD_OP_DUMP,
++	MLXSW_REG_RAUHTD_OP_DUMP_AND_CLEAR,
++};
 +
-+	err = register_netevent_notifier(&mlxsw_sp_router_netevent_nb);
-+	if (err)
-+		goto err_register_netevent_notifier;
++/* reg_rauhtd_op
++ * Access: OP
++ */
++MLXSW_ITEM32(reg, rauhtd, op, 0x04, 24, 2);
 +
-+	INIT_DELAYED_WORK(&mlxsw_sp->router.neighs_update.dw,
-+			  mlxsw_sp_router_neighs_update_work);
-+	mlxsw_core_schedule_dw(&mlxsw_sp->router.neighs_update.dw, 0);
++/* reg_rauhtd_num_rec
++ * At request: number of records requested
++ * At response: number of records dumped
++ * For IPv4, each record has 4 entries at request and up to 4 entries
++ * at response
++ * Range is 0..MLXSW_REG_RAUHTD_REC_MAX_NUM
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, rauhtd, num_rec, 0x04, 0, 8);
 +
-+	return 0;
++/* reg_rauhtd_entry_a
++ * Dump only if activity has value of entry_a
++ * Reserved if filter_fields bit0 is '0'
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, rauhtd, entry_a, 0x08, 16, 1);
 +
-+err_register_netevent_notifier:
-+	rhashtable_destroy(&mlxsw_sp->router.neigh_ht);
-+	return err;
- }
- 
- static void mlxsw_sp_neigh_fini(struct mlxsw_sp *mlxsw_sp)
- {
-+	cancel_delayed_work_sync(&mlxsw_sp->router.neighs_update.dw);
-+	unregister_netevent_notifier(&mlxsw_sp_router_netevent_nb);
- 	rhashtable_destroy(&mlxsw_sp->router.neigh_ht);
- }
- 
++enum mlxsw_reg_rauhtd_type {
++	MLXSW_REG_RAUHTD_TYPE_IPV4,
++	MLXSW_REG_RAUHTD_TYPE_IPV6,
++};
++
++/* reg_rauhtd_type
++ * Dump only if record type is:
++ * 0 - IPv4
++ * 1 - IPv6
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, rauhtd, type, 0x08, 0, 4);
++
++/* reg_rauhtd_entry_rif
++ * Dump only if RIF has value of entry_rif
++ * Reserved if filter_fields bit3 is '0'
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, rauhtd, entry_rif, 0x0C, 0, 16);
++
++static inline void mlxsw_reg_rauhtd_pack(char *payload,
++					 enum mlxsw_reg_rauhtd_type type)
++{
++	MLXSW_REG_ZERO(rauhtd, payload);
++	mlxsw_reg_rauhtd_filter_fields_set(payload, MLXSW_REG_RAUHTD_FILTER_A);
++	mlxsw_reg_rauhtd_op_set(payload, MLXSW_REG_RAUHTD_OP_DUMP_AND_CLEAR);
++	mlxsw_reg_rauhtd_num_rec_set(payload, MLXSW_REG_RAUHTD_REC_MAX_NUM);
++	mlxsw_reg_rauhtd_entry_a_set(payload, 1);
++	mlxsw_reg_rauhtd_type_set(payload, type);
++}
++
++/* reg_rauhtd_ipv4_rec_num_entries
++ * Number of valid entries in this record:
++ * 0 - 1 valid entry
++ * 1 - 2 valid entries
++ * 2 - 3 valid entries
++ * 3 - 4 valid entries
++ * Access: RO
++ */
++MLXSW_ITEM32_INDEXED(reg, rauhtd, ipv4_rec_num_entries,
++		     MLXSW_REG_RAUHTD_BASE_LEN, 28, 2,
++		     MLXSW_REG_RAUHTD_REC_LEN, 0x00, false);
++
++/* reg_rauhtd_rec_type
++ * Record type.
++ * 0 - IPv4
++ * 1 - IPv6
++ * Access: RO
++ */
++MLXSW_ITEM32_INDEXED(reg, rauhtd, rec_type, MLXSW_REG_RAUHTD_BASE_LEN, 24, 2,
++		     MLXSW_REG_RAUHTD_REC_LEN, 0x00, false);
++
++#define MLXSW_REG_RAUHTD_IPV4_ENT_LEN 0x8
++
++/* reg_rauhtd_ipv4_ent_a
++ * Activity. Set for new entries. Set if a packet lookup has hit on the
++ * specific entry.
++ * Access: RO
++ */
++MLXSW_ITEM32_INDEXED(reg, rauhtd, ipv4_ent_a, MLXSW_REG_RAUHTD_BASE_LEN, 16, 1,
++		     MLXSW_REG_RAUHTD_IPV4_ENT_LEN, 0x00, false);
++
++/* reg_rauhtd_ipv4_ent_rif
++ * Router interface.
++ * Access: RO
++ */
++MLXSW_ITEM32_INDEXED(reg, rauhtd, ipv4_ent_rif, MLXSW_REG_RAUHTD_BASE_LEN, 0,
++		     16, MLXSW_REG_RAUHTD_IPV4_ENT_LEN, 0x00, false);
++
++/* reg_rauhtd_ipv4_ent_dip
++ * Destination IPv4 address.
++ * Access: RO
++ */
++MLXSW_ITEM32_INDEXED(reg, rauhtd, ipv4_ent_dip, MLXSW_REG_RAUHTD_BASE_LEN, 0,
++		     32, MLXSW_REG_RAUHTD_IPV4_ENT_LEN, 0x04, false);
++
++static inline void mlxsw_reg_rauhtd_ent_ipv4_unpack(char *payload,
++						    int ent_index, u16 *p_rif,
++						    u32 *p_dip)
++{
++	*p_rif = mlxsw_reg_rauhtd_ipv4_ent_rif_get(payload, ent_index);
++	*p_dip = mlxsw_reg_rauhtd_ipv4_ent_dip_get(payload, ent_index);
++}
++
+ /* MFCR - Management Fan Control Register
+  * --------------------------------------
+  * This register controls the settings of the Fan Speed PWM mechanism.
+@@ -4775,6 +4920,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
+ 		return "RALUE";
+ 	case MLXSW_REG_RAUHT_ID:
+ 		return "RAUHT";
++	case MLXSW_REG_RAUHTD_ID:
++		return "RAUHTD";
+ 	case MLXSW_REG_MFCR_ID:
+ 		return "MFCR";
+ 	case MLXSW_REG_MFSC_ID:
 -- 
 2.5.5
