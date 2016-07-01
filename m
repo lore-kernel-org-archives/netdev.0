@@ -1,39 +1,66 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [patch net-next 10/42] mlxsw: spectrum_router: Add basic ipv4
- router initialization
-Date: Fri, 1 Jul 2016 08:39:01 -0600
-Message-ID: <15542d5f-e11e-4901-0e36-8231012e8f7e@cumulusnetworks.com>
-References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
- <1467381910-3445-11-git-send-email-jiri@resnulli.us>
+From: Richard Weinberger <richard@nod.at>
+Subject: Re: [RFC] WireGuard: next generation secure network tunnel
+Date: Fri, 1 Jul 2016 16:47:27 +0200
+Message-ID: <5776827F.8010306@nod.at>
+References: <CAHmME9q-6ioctzcB8gLdYOsMFqHVGY8GUsVGFisKv=wGdVqi2A@mail.gmail.com>
+ <CAFLxGvzk5NywJou_g9_z6JQUrvcTNsAUPXt4R6AdS9nmRqYwcw@mail.gmail.com>
+ <CAHmME9opjoOYQBacomKBMXMPkch8fxSjFp1B_uoPFFmQeLh24g@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
-	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-	sfeldma@gmail.com, roopa@cumulusnetworks.com, andy@greyhouse.net,
-	tgraf@suug.ch, jhs@mojatatu.com, linville@tuxdriver.com,
-	ivecera@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+Cc: David Miller <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>, linux-crypto@vger.kernel.org,
+	LKML <linux-kernel@vger.kernel.org>
+To: "Jason A. Donenfeld" <Jason@zx2c4.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f44.google.com ([209.85.214.44]:36316 "EHLO
-	mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751280AbcGAOi6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 10:38:58 -0400
-Received: by mail-it0-f44.google.com with SMTP id a5so19757470ita.1
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:38:58 -0700 (PDT)
-In-Reply-To: <1467381910-3445-11-git-send-email-jiri@resnulli.us>
+Received: from b.ns.miles-group.at ([95.130.255.144]:44724 "EHLO radon.swed.at"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752579AbcGAOrk (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jul 2016 10:47:40 -0400
+In-Reply-To: <CAHmME9opjoOYQBacomKBMXMPkch8fxSjFp1B_uoPFFmQeLh24g@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/1/16 8:04 AM, Jiri Pirko wrote:
-> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-> index 05d5fcc..c2ac037 100644
-> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-> @@ -74,6 +74,8 @@
->
->  #define MLXSW_SP_CELL_FACTOR 2	/* 2 * cell_size / (IPG + cell_size + 1) */
->
-> +#define MLXSW_SP_RIF_MAX 800
+Jason,
 
-At most 800 RIFs can be created? Why 800?
+Am 01.07.2016 um 16:25 schrieb Jason A. Donenfeld:
+> Hi Richard,
+> 
+> On Fri, Jul 1, 2016 at 1:42 PM, Richard Weinberger
+> <richard.weinberger@gmail.com> wrote:
+>> So every logical tunnel will allocate a new net device?
+>> Doesn't this scale badly? I have ipsec alike setups
+>> with many, many road warriors in mind.
+> 
+> No, this isn't the case. Each net device has multiple peers. Check out
+> the example config on the website, pasted here for convenience:
+> 
+>> [Interface]
+>> PrivateKey = yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk=
+>> ListenPort = 41414
+>>
+>> [Peer]
+>> PublicKey = xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg=
+>> AllowedIPs = 10.192.122.3/32, 10.192.124.1/24
+>>
+>> [Peer]
+>> PublicKey = TrMvSoP4jYQlY6RIzBgbssQqY3vxI2Pi+y71lOWWXX0=
+>> AllowedIPs = 10.192.122.4/32, 192.168.0.0/16
+>>
+>> [Peer]
+>> PublicKey = gN65BkIKy1eCE9pP1wdc8ROUtkHLF2PfAqYdyYBz6EA=
+>> AllowedIPs = 10.10.10.230/32
+> 
+> If that file is example.conf, you could set up a single device like this:
+> 
+> $ ip link add dev wg0 type wireguard
+> $ wg setconf wg0 example.conf
+> 
+> That single netdev is now configured to communicate with several peers.
+> 
+> I hope this clarifies things. Let me know if you have further questions.
+
+Yes. Makes sense. :-)
+
+Thanks,
+//richard
