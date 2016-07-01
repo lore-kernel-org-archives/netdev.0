@@ -1,56 +1,62 @@
-From: Mark Brown <broonie@kernel.org>
-Subject: Re: next-20160701 build: 2 failures 5 warnings (next-20160701)
-Date: Fri, 1 Jul 2016 19:15:57 +0200
-Message-ID: <20160701171557.GB6247@sirena.org.uk>
-References: <E1bIuIz-00085X-RP@optimist>
+From: Jason Baron <jbaron@akamai.com>
+Subject: Re: strange Mac OSX RST behavior
+Date: Fri, 1 Jul 2016 13:19:03 -0400
+Message-ID: <5776A607.70800@akamai.com>
+References: <1467385815-6357-1-git-send-email-jbaron@akamai.com>
+ <5776A3A4.8000503@hpe.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha256;
-	protocol="application/pgp-signature"; boundary="j6Ejlva3tMw3xXYi"
-Cc: kernel-build-reports@lists.linaro.org,
-	linaro-kernel@lists.linaro.org, linux-next@vger.kernel.org,
-	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
-To: John Crispin <john@phrozen.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mezzanine.sirena.org.uk ([106.187.55.193]:34330 "EHLO
-	mezzanine.sirena.org.uk" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751960AbcGARQT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 13:16:19 -0400
-Content-Disposition: inline
-In-Reply-To: <E1bIuIz-00085X-RP@optimist>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <davem@davemloft.net>, <eric.dumazet@gmail.com>
+To: Rick Jones <rick.jones2@hpe.com>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <5776A3A4.8000503@hpe.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On 07/01/2016 01:08 PM, Rick Jones wrote:
+> On 07/01/2016 08:10 AM, Jason Baron wrote:
+>> I'm wondering if anybody else has run into this...
+>>
+>> On Mac OSX 10.11.5 (latest version), we have found that when tcp
+>> connections are abruptly terminated (via ^C), a FIN is sent followed
+>> by an RST packet.
+> 
+> That just seems, well, silly.  If the client application wants to use
+> abortive close (sigh..) it should do so, there shouldn't be this
+> little-bit-pregnant, correct close initiation (FIN) followed by a RST.
+> 
+>> The RST is sent with the same sequence number as the
+>> FIN, and thus dropped since the stack only accepts RST packets matching
+>> rcv_nxt (RFC 5961). This could also be resolved if Mac OSX replied with
+>> an RST on the closed socket, but it appears that it does not.
+>>
+>> The workaround here is then to reset the connection, if the RST is
+>> is equal to rcv_nxt - 1, if we have already received a FIN.
+>>
+>> The RST attack surface is limited b/c we only accept the RST after we've
+>> accepted a FIN and have not previously sent a FIN and received back the
+>> corresponding ACK. In other words RST is only accepted in the tcp
+>> states: TCP_CLOSE_WAIT, TCP_LAST_ACK, and TCP_CLOSING.
+>>
+>> I'm interested if anybody else has run into this issue. Its problematic
+>> since it takes up server resources for sockets sitting in TCP_CLOSE_WAIT.
+> 
+> Isn't the server application expected to act on the read return of zero
+> (which is supposed to be) triggered by the receipt of the FIN segment?
+>
 
---j6Ejlva3tMw3xXYi
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+yes, we do in fact see a POLLRDHUP from the FIN in this case and
+read of zero, but we still have more data to write to the socket, and
+b/c the RST is dropped here, the socket stays in TIME_WAIT until
+things eventually time out...
 
-On Fri, Jul 01, 2016 at 10:00:09AM +0100, Build bot for Mark Brown wrote:
+Thanks,
 
-Today's -next fails to build am ARM allmodconfig due to:
+-Jason
 
-> 	arm-allmodconfig
-> ../drivers/net/ethernet/mediatek/mtk_eth_soc.c:1300:2: error: implicit declaration of function 'mtk_handle_irq' [-Werror=implicit-function-declaration]
-> ../drivers/net/ethernet/mediatek/mtk_eth_soc.c:1300:25: error: subscripted value is neither array nor pointer nor vector
-
-due to the recent changes to the interrupt handling code, the function
-has been split into rx and tx functions but the NET_POLL_CONTROLLER code
-hasn't been updated.
-
---j6Ejlva3tMw3xXYi
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iQEcBAEBCAAGBQJXdqVHAAoJECTWi3JdVIfQO2MH/j+NzZjHLWOgTxyh8eYR4lzg
-j47odvfmLt5f/JJtORRffwoR1QNMjNf2LrpnVSk3QNsQEXCPU0kQ7/kVoUghrUbR
-Za2tYpD49QXge0ZSCqAepKzNnOMDfbOmPJOZClq9X14mp3GAZ0LA/vV1joKrkqJj
-a8HfSihFu4hW3SgfhfwLLBLan+aXyoL0lKRD7mxJWBGuhNVWQfu4WkKqLLzvvUKq
-dEKOqXNHo9AM1EnOaZsl6iOqGVZyWhcVP/W8SWtHqedgOSJtWxHFJA23i13iU2T3
-ON4PGsYaHPbJ+N9YYHP509FOOjyHM6L2DsIixziD/09riw97yI9dZcMXvvQd2qg=
-=51wI
------END PGP SIGNATURE-----
-
---j6Ejlva3tMw3xXYi--
+> rick jones
+> 
+>> We are also in the process of contacting Apple to see what can be done
+>> here...workaround patch is below.
