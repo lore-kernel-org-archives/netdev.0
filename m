@@ -1,64 +1,72 @@
 From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
 Subject: RE: [RFC PATCH 0/2] net: ethernet: Add support for gmii2rgmii
  converter
-Date: Fri, 1 Jul 2016 15:21:11 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5BABE8@XAP-PVEXMBX01.xlnx.xilinx.com>
+Date: Fri, 1 Jul 2016 15:29:59 +0000
+Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5BAC07@XAP-PVEXMBX01.xlnx.xilinx.com>
 References: <1467354012-7364-1-git-send-email-appanad@xilinx.com>
- <57768673.2090103@gmail.com>
+ <20160701151304.GE6804@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andrew Lunn <andrew@lunn.ch>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Michal Simek <michals@xilinx.com>,
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Michal Simek <michals@xilinx.com>,
 	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
 	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
 	Anirudha Sarangi <anirudh@xilinx.com>,
-	Harini Katakam <harinik@xilinx.com>
+	Harini Katakam <harinik@xilinx.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57768673.2090103@gmail.com>
+In-Reply-To: <20160701151304.GE6804@lunn.ch>
 Content-Language: en-US
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-SGkgRmxvcmlhbiwNCg0KCVRoYW5rcyBmb3IgdGhlIHJldmlldy4uLg0KDQo+IExlIDMwLzA2LzIw
-MTYgMjM6MjAsIEtlZGFyZXN3YXJhIHJhbyBBcHBhbmEgYSDDqWNyaXQgOg0KPiA+IFRoaXMgcGF0
-Y2ggc2VyaWVzIGRvZXMgdGhlIGZvbGxvd2luZw0KPiA+IC0tLT4gQWRkIHN1cHBvcnQgZm9yIGdt
-aWkycmdtaWkgY29udmVydGVyLg0KPiA+IC0tLT4gQWRkIHN1cHBvcnQgZm9yIGdtaWkycmdtaWkg
-Y29udmVydGVyIGluIHRoZSBtYWNiIGRyaXZlci4NCj4gPg0KPiA+IEVhcmxpZXIgc2VudCBvbmUg
-UkZDIHBhdGNoIGh0dHBzOi8vcGF0Y2h3b3JrLmtlcm5lbC5vcmcvcGF0Y2gvOTE4NjYxNS8NCj4g
-PiB3aGljaCBpbmNsdWRlcyBjb252ZXJ0ZXIgcmVsYXRlZCBzdHVmZiBhbHNvIGluIG1hY2IgZHJp
-dmVyLg0KPiA+IFRoaXMgcGF0Y2ggc2VyaWVzIGZpeGVzIHRoaXMgaXNzdWUuDQo+IA0KPiBUaGlz
-IHN0aWxsIHNlZW1zIHZlcnkgYWRob2MgYW5kIG5vdCBjb21wbGV0ZWx5IGV4cGxhaW5lZC4gQ2Fu
-IHlvdSBjbGFyaWZ5IGhvdw0KPiB0aGUgZ21taTJyZ21paSBjb252ZXJ0ZXIgZ2V0cyB1c2VkPw0K
-DQpTb3JyeSBJIHNob3VsZCBoYXZlIGJlZW4gZXhwbGFpbmVkIGl0IGNsZWFybHkgaW4gdGhlIHBh
-dGNoLg0KV2lsbCBmaXggaXQgaW4gdGhlIHYyLg0KDQpUaGlzIGNvbnZlcnRlciB3b3JrcyBsaWtl
-IGJlbG93DQoNCk1BQ0IgPD09PiBHTUlJMlJHTUlJIDw9PT4gUkdNSUlfUEhZDQoNCglNRElPCSAg
-ICA8PT09PT09PT0+IEdNSUkyUkdNSUkNCk1DQUI8PT09PT09PT4gDQoJCSAgPD09PT09PT09PiBS
-R01JSQ0KDQpVc2luZyBNQUNCIE1ESU8gYnVzIHdlIGNhbiBhY2Nlc3MgYm90aCB0aGUgY29udmVy
-dGVyIGFuZCB0aGUgZXh0ZXJuYWwgUEhZLg0KV2UgbmVlZCB0byBwcm9ncmFtIHRoZSBsaW5lIHNw
-ZWVkIG9mIHRoZSBjb252ZXJ0ZXIgZHVyaW5nIHJ1biB0aW1lIGJhc2VkIG9uIHRoZQ0KRXh0ZXJu
-YWwgcGh5IG5lZ290aWF0ZWQgc3BlZWQuIA0KDQpNRElPIGludGVyZmFjZSBpcyB1c2VkIHRvIHNl
-dCBvcGVyYXRpbmcgc3BlZWQgKGxpbmUgc3BlZWQpIA0KDQpUaGUgY29udmVydGVyIGhhcyBvbmx5
-IG9uZSByZWdpc3RlciAoMHgxMCkgdGhhdCB3ZSBuZWVkIHRvIHByb2dyYW0gdG8gc2V0IHRoZSBv
-cGVyYXRpbmcgc3BlZWQuDQpUaGUgY29tcG9zaXRpb24gb2YgdGhpcyByZWdpc3RlciBpcyBzaW1p
-bGFyIHRvIHRoZSBJRUVFIHN0YW5kYXJkIDgwMi4zIE1ESU8gY29udHJvbCByZWdpc3RlciAweDAu
-DQoNClBsZWFzZSBsZXQgbWUga25vdyBpZiB5b3Ugc3RpbGwgbmVlZCBub3QgY2xlYXIgd2l0aCBo
-b3cgdGhpcyBjb252ZXJ0ZXIgd29ya3MuDQoNCklQIGRhdGEgc2hlZXQgaXMgYXZhaWxhYmxlIGhl
-cmUgQCBodHRwOi8vd3d3LnhpbGlueC5jb20vc3VwcG9ydC9kb2N1bWVudGF0aW9uL2lwX2RvY3Vt
-ZW50YXRpb24vZ21paV90b19yZ21paS92M18wL3BnMTYwLWdtaWktdG8tcmdtaWkucGRmIA0KDQoJ
-CSAgIA0KPiANCj4gSXMgdGhlIGV4cGVjdGF0aW9uIHRoYXQgYSBNQUNCIEV0aGVybmV0IGFkYXB0
-ZXIgd2lsbCBiZSBjb25uZWN0ZWQgdG8gYSBSR01JSQ0KPiBQSFkgbGlrZSB0aGlzOg0KPiANCj4g
-TUFDQiA8PT4gR01JSTJSR01JSSA8PT4gUkdNSUkgUEhZDQo+IE1BQ0IgTURJTyA8PT09PT09PT09
-PT0+IFJHTUlJX1BIWQ0KPiANCj4gYW5kIHN0aWxsIGhhdmUgdGhlIGFiaWxpdHkgdG8gY29udHJv
-bCBib3RoIHRoZSBQSFkgZGV2aWNlJ3MgTURJTyByZWdpc3RlcnMgYW5kIHRoZQ0KPiBHTUlJMlJH
-TUlJIGNvbnZlcnRlciBhbmQgd2UgbmVlZCB0byBtYWtlIHN1cmUgYm90aCBoYXZlIG1hdGNoaW5n
-IHNldHRpbmdzLA0KPiBvciBpcyBpdCBzb21ldGhpbmcgbGlrZSB0aGlzOg0KPiANCj4gTUFDQiA8
-PT4gR01JSTJSR01JSSA8PT4gUkdNSUkgUEhZDQo+IE1BQ0IgTURJTyB1bmNvbm5lY3RlZA0KPiAN
-Cj4gYW5kIHdlIGxvc2UgdGhlIGFiaWxpdHkgdG8gcXVlcnkgdGhlIFBIWSB2aWEgTURJTz8NCj4g
-DQo+IEFzIE5pY29sYXMgcG9pbnRlZCBvdXQsIHByb3ZpZGluZyBhIGJpbmRpbmcgZG9jdW1lbnRh
-dGlvbiB1cGRhdGUgbWF5IGhlbHANCj4gcmV2aWV3ZXJzIHVuZGVyc3RhbmQgd2hhdCBpcyBiZWlu
-ZyBhY2NvbXBsaXNoZWQgaGVyZS4NCg0KU3VyZSB3aWxsIGZpeCBpbiB2Mi4NCg0KUmVnYXJkcywN
-CktlZGFyLg0KDQo=
+Hi Andrew,
+
+> On Fri, Jul 01, 2016 at 11:50:10AM +0530, Kedareswara rao Appana wrote:
+> > This patch series does the following
+> > ---> Add support for gmii2rgmii converter.
+> 
+> How generic is this gmii2rgmii IP block? Could it be used with any GMII and
+> RGMII device?
+
+This converter does GMII2RGMII conversion.
+This can be used with any MAC which has shared MDIO with external PHY
+And this Converter. This Converter IP is validated for MACB.
+But it should work with any MAC which has shared MDIO bus (I mean single MDIO multiple PHYS)...
+
+This converter works like below
+
+MACB <==> GMII2RGMII <==> RGMII_PHY
+
+	MDIO	    <========> GMII2RGMII
+MCAB<=======> 
+		  <========> RGMII
+
+Using MACB MDIO bus we can access both the converter and the external PHY.
+We need to program the line speed of the converter during run time based on the External phy negotiated speed. 
+
+MDIO interface is used to set operating speed (line speed) 
+
+The converter has only one register (0x10) that we need to program to set the operating speed.
+The composition of this register is similar to the IEEE standard 802.3 MDIO control register 0x0.
+
+Please let me know if you still not clear about how this converter works.
+
+> 
+> Should it be placed in drivers/net/phy, so making it easier to reuse?
+
+Ok will move it drivers/net/phy folder in the next version...
+
+> 
+> Also, Russell Kings phylink might be a more natural structure for this. It is hard to
+> know when those patches will land, but it might be worth looking at.
+
+Ok sure will take a look at this series once posted...
+
+Regards,
+Kedar.
+
+> 
+>        Andrew
