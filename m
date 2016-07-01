@@ -1,32 +1,34 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [PATCH net-next v3 0/4] cgroup: bpf: cgroup2 membership test
- on skb
-Date: Fri, 01 Jul 2016 16:26:06 -0400 (EDT)
-Message-ID: <20160701.162606.549473968684555391.davem@davemloft.net>
-References: <1467307725-1948415-1-git-send-email-kafai@fb.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net] macsec: set actual real device for xmit when
+ !protect_frames
+Date: Fri, 01 Jul 2016 16:36:58 -0400 (EDT)
+Message-ID: <20160701.163658.219548351536664342.davem@davemloft.net>
+References: <920063998328f5014b267defd80eec862f181ad8.1467323773.git.daniel@iogearbox.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: cgroups-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, ast-b10kYP2dOMg@public.gmane.org, daniel-FeC+5ew28dpmcu3hnIyYJQ@public.gmane.org,
-	tj-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, kernel-team-b10kYP2dOMg@public.gmane.org
-To: kafai-b10kYP2dOMg@public.gmane.org
-Return-path: <cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1467307725-1948415-1-git-send-email-kafai-b10kYP2dOMg@public.gmane.org>
-Sender: cgroups-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: sd@queasysnail.net, hannes@stressinduktion.org,
+	netdev@vger.kernel.org
+To: daniel@iogearbox.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:43028 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751992AbcGAUhH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 16:37:07 -0400
+In-Reply-To: <920063998328f5014b267defd80eec862f181ad8.1467323773.git.daniel@iogearbox.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Martin KaFai Lau <kafai-b10kYP2dOMg@public.gmane.org>
-Date: Thu, 30 Jun 2016 10:28:41 -0700
+From: Daniel Borkmann <daniel@iogearbox.net>
+Date: Fri,  1 Jul 2016 00:00:54 +0200
 
-> This series is to implement a bpf-way to
-> check the cgroup2 membership of a skb (sk_buff).
+> Avoid recursions of dev_queue_xmit() to the wrong net device when
+> frames are unprotected, since at that time skb->dev still points to
+> our own macsec dev and unlike macsec_encrypt_finish() dev pointer
+> doesn't get updated to real underlying device.
 > 
-> It is similar to the feature added in netfilter:
-> c38c4597e4bf ("netfilter: implement xt_cgroup cgroup2 path match")
-> 
-> The current target is the tc-like usage.
+> Fixes: c09440f7dcb3 ("macsec: introduce IEEE 802.1AE driver")
+> Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+> Acked-by: Sabrina Dubroca <sd@queasysnail.net>
 
-I'll apply this series, but the colloqual way to arrange this header
-posting is to keep the overview and description of the series at the
-top of the text, and then have the "v3 ..., v2 ..." changelog afterwards.
+Applied and queued up for -stable, thanks.
