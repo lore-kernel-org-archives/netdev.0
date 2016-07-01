@@ -1,117 +1,145 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: [PATCH] ipv6: Fix soft lockup for ipv6 network notifier.
-Date: Fri, 1 Jul 2016 15:38:44 +0800
-Message-ID: <57761E04.8030202@huawei.com>
+From: Nicolas Ferre <nicolas.ferre@atmel.com>
+Subject: Re: [RFC PATCH 2/2] net: macb: Add gmii2rgmii phy converter support
+Date: Fri, 1 Jul 2016 09:45:26 +0200
+Message-ID: <57761F96.4060609@atmel.com>
+References: <1467354012-7364-1-git-send-email-appanad@xilinx.com>
+ <1467354012-7364-3-git-send-email-appanad@xilinx.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-To: <luto@kernel.org>, <mingo@kernel.org>,
-	<linux-kernel@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Cong Wang <cwang@twopensource.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:1703 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752199AbcGAHjB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 03:39:01 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>
+To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
+	<appanad@xilinx.com>, <michal.simek@xilinx.com>,
+	<punnaia@xilinx.com>, <anirudh@xilinx.com>, <harinik@xilinx.com>,
+	Florian Fainelli <f.fainelli@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1467354012-7364-3-git-send-email-appanad@xilinx.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The problem was occurs in my system that a lot of drviers register
-its own handler to the notifiler call chain for netdev_chain, and
-then create 4095 vlan dev for one nic, and add several ipv6 address
-on each one of them, just like this:
+Le 01/07/2016 08:20, Kedareswara rao Appana a =E9crit :
+> This patch adds support for gmii2rgmii phy converter
+> in the macb driver.
 
-for i in `seq 1 4095`; do ip link add link eth0 name eth0.$i type vlan id $i; done
-for i in `seq 1 4095`; do ip -6 addr add 2001::$i dev eth0.$i; done
-for i in `seq 1 4095`; do ip -6 addr add 2002::$i dev eth0.$i; done
-for i in `seq 1 4095`; do ip -6 addr add 2003::$i dev eth0.$i; done
+Okay, I'd like more explanation here.
+Hints & key words:
+- dt property
+- mdio bus
+- mac speed
 
-ifconfig eth0 up
-ifconfig eth0 down
 
-then it will halt several seconds, and occurs softlockup:
+> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+> ---
+>  drivers/net/ethernet/cadence/macb.c |   21 ++++++++++++++++++++-
+>  drivers/net/ethernet/cadence/macb.h |    3 +++
+>  2 files changed, 23 insertions(+), 1 deletions(-)
+>=20
+> diff --git a/drivers/net/ethernet/cadence/macb.c b/drivers/net/ethern=
+et/cadence/macb.c
+> index cb07d95..de0ad71 100644
+> --- a/drivers/net/ethernet/cadence/macb.c
+> +++ b/drivers/net/ethernet/cadence/macb.c
+> @@ -257,6 +257,14 @@ static int macb_mdio_write(struct mii_bus *bus, =
+int mii_id, int regnum,
+>  	return 0;
+>  }
+> =20
+> +static inline void macb_hw_fix_mac_speed(struct macb *bp,
+> +					 struct phy_device *phydev)
+> +{
+> +	if (likely(bp->converter_phy.fix_mac_speed))
 
-<0>[ 7620.364058]NMI watchdog: BUG: soft lockup - CPU#0 stuck for 23s! [ifconfig:19186]
-<0>[ 7620.364592]Call trace:
-<4>[ 7620.364599][<ffffffc000208f68>] dump_backtrace+0x0/0x220
-<4>[ 7620.364603][<ffffffc0002091a8>] show_stack+0x20/0x28
-<4>[ 7620.364607][<ffffffc000691fac>] dump_stack+0x90/0xb0
-<4>[ 7620.364612][<ffffffc0002cacbc>] watchdog_timer_fn+0x41c/0x460
-<4>[ 7620.364617][<ffffffc000289ec8>] __run_hrtimer+0x98/0x2d8
-<4>[ 7620.364620][<ffffffc00028a3e0>] hrtimer_interrupt+0x110/0x288
-<4>[ 7620.364624][<ffffffc00059c0c8>] arch_timer_handler_phys+0x38/0x48
-<4>[ 7620.364628][<ffffffc000276d2c>] handle_percpu_devid_irq+0x9c/0x190
-<4>[ 7620.364632][<ffffffc000271ef8>] generic_handle_irq+0x40/0x58
-<4>[ 7620.364635][<ffffffc000272270>] __handle_domain_irq+0x68/0xc0
-<4>[ 7620.364638][<ffffffc000200634>] gic_handle_irq+0xc4/0x1c8
-<4>[ 7620.364641]Exception stack(0xffffffc0309b3640 to 0xffffffc0309b3770)
-<4>[ 7620.364644]3640: 0000000000001000 0000000000000000 ffffffc0309b37c0 ffffffbfa1019cf8
-<4>[ 7620.364647]3660: 0000000080000145 ffffffc0309b3958 0000000000000000 ffffffbfa1013008
-<4>[ 7620.364651]3680: 00000000000007f0 ffffffbfa131b770 ffffffd08aaadc40 ffffffbfa1019cf8
-<4>[ 7620.364654]36a0: ffffffbfa1019cc4 ffffffd089c2b000 ffffffd08eff8000 ffffffc0309b3958
-<4>[ 7620.364656]36c0: ffffffbfa101c5c0 0000000000000000 0000000000000000 ffffffbfa101c66c
-<4>[ 7620.364659]36e0: 7f7f7f7f7f7f7f7f 0000000000000030 ffffffffffffffff ffff000000000000
-<4>[ 7620.364662]3700: 0000000000000000 0000000000000000 ffffffc000393d58 0000007f794d67b0
-<4>[ 7620.364665]3720: 0000007fe62215d0 ffffffc0309b3830 ffffffc00021d8e0 ffffffbfa1049b68
-<4>[ 7620.364668]3740: ffffffc000697578 ffffffc0006974b8 ffffffc0309b3958 0000000000000000
-<4>[ 7620.364670]3760: ffffffbfa1013008 00000000000007f0
-<4>[ 7620.364673][<ffffffc000203780>] el1_irq+0x80/0x100
-<4>[ 7620.364692][<ffffffbfa1019ed4>] fib6_walk+0x3c/0x70 [ipv6]
-<4>[ 7620.364710][<ffffffbfa1019f70>] fib6_clean_tree+0x68/0x90 [ipv6]
-<4>[ 7620.364727][<ffffffbfa101a020>] __fib6_clean_all+0x88/0xc0 [ipv6]
-<4>[ 7620.364746][<ffffffbfa101c760>] fib6_clean_all+0x28/0x30 [ipv6]
-<4>[ 7620.364763][<ffffffbfa101933c>] rt6_ifdown+0x64/0x148 [ipv6]
-<4>[ 7620.364781][<ffffffbfa100e6d8>] addrconf_ifdown+0x68/0x540 [ipv6]
-<4>[ 7620.364798][<ffffffbfa1010f58>] addrconf_notify+0xd0/0x8b8 [ipv6]
-<4>[ 7620.364801][<ffffffc00023f83c>] notifier_call_chain+0x5c/0xa0
-<4>[ 7620.364804][<ffffffc00023f9e0>] raw_notifier_call_chain+0x20/0x28
-<4>[ 7620.364809][<ffffffc0005cbab4>] call_netdevice_notifiers_info+0x4c/0x80
-<4>[ 7620.364812][<ffffffc0005cbfc8>] dev_close_many+0xd0/0x138
-<4>[ 7620.364821][<ffffffbfa33be6e8>] vlan_device_event+0x4a8/0x6a0 [8021q]
-<4>[ 7620.364824][<ffffffc00023f83c>] notifier_call_chain+0x5c/0xa0
-<4>[ 7620.364827][<ffffffc00023f9e0>] raw_notifier_call_chain+0x20/0x28
-<4>[ 7620.364830][<ffffffc0005cbab4>] call_netdevice_notifiers_info+0x4c/0x80
-<4>[ 7620.364833][<ffffffc0005d5148>] __dev_notify_flags+0xb8/0xe0
-<4>[ 7620.364836][<ffffffc0005d5994>] dev_change_flags+0x54/0x68
-<4>[ 7620.364840][<ffffffc00064a620>] devinet_ioctl+0x650/0x700
-<4>[ 7620.364843][<ffffffc00064bea4>] inet_ioctl+0xa4/0xc8
-<4>[ 7620.364847][<ffffffc0005b1094>] sock_do_ioctl+0x44/0x88
-<4>[ 7620.364850][<ffffffc0005b1a3c>] sock_ioctl+0x23c/0x308
-<4>[ 7620.364854][<ffffffc000393bc4>] do_vfs_ioctl+0x48c/0x620
-<4>[ 7620.364857][<ffffffc000393dec>] SyS_ioctl+0x94/0xa8
+What is the purpose of this branch bias? The code isn't in some hot
+path, so I suspect that its not needed.
 
-=================================cut here========================================
+> +		bp->converter_phy.fix_mac_speed(&bp->converter_phy,
+> +						phydev->speed);
+> +}
+> +
+>  /**
+>   * macb_set_tx_clk() - Set a clock to a new frequency
+>   * @clk		Pointer to the clock to change
+> @@ -329,6 +337,7 @@ static void macb_handle_link_change(struct net_de=
+vice *dev)
+>  				reg |=3D GEM_BIT(GBE);
+> =20
+>  			macb_or_gem_writel(bp, NCFGR, reg);
+> +			macb_hw_fix_mac_speed(bp, phydev);
+> =20
+>  			bp->speed =3D phydev->speed;
+>  			bp->duplex =3D phydev->duplex;
+> @@ -2884,7 +2893,7 @@ static int macb_probe(struct platform_device *p=
+dev)
+>  			struct clk **, struct clk **)
+>  					      =3D macb_clk_init;
+>  	int (*init)(struct platform_device *) =3D macb_init;
+> -	struct device_node *np =3D pdev->dev.of_node;
+> +	struct device_node *np =3D pdev->dev.of_node, *np1, *np11;
 
-It looks that the notifier_call_chain has to deal with too much handler, and will not
-feed the watchdog until finish the work, and the notifier_call_chain would call the
-ipv6_dev_notf several times and hold the cpu for a long time, so add cond_resched()
-in the ipv6_dev_notf in order to schedule out in the network notifiers to avoid softlocking
-to fix this problem.
+Nitpicking:
+Be more explicit on variable names. Simple name for the iterator is
+okay, the other is better if changed.
+I also like to see variable on separated lines.
 
-Suggested-by: Eric Dumazet <eric.dumazet@gmail.com>
-Signed-off-by: Ding Tianhong <dingtianhong@huawei.com>
----
- net/ipv6/addrconf.c | 6 ++++++
- 1 file changed, 6 insertions(+)
+>  	struct device_node *phy_node;
+>  	const struct macb_config *macb_config =3D NULL;
+>  	struct clk *pclk, *hclk =3D NULL, *tx_clk =3D NULL;
+> @@ -3011,6 +3020,16 @@ static int macb_probe(struct platform_device *=
+pdev)
+>  		goto err_out_free_netdev;
+> =20
+>  	phydev =3D bp->phy_dev;
+> +	np1 =3D of_get_next_child(np, NULL);
+> +	for_each_child_of_node(np1, np11) {
+> +		if (of_device_is_compatible(np11, "xlnx,gmiitorgmii")) {
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index f555f4f..e294a3d 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3284,6 +3284,12 @@ restart:
- 		spin_unlock_bh(&addrconf_hash_lock);
- 	}
- 
-+	/*
-+	 * It is safe here to schedule out to avoid softlocking if preempt
-+	 * is disabled.
-+	 */
-+	cond_resched();
-+
- 	write_lock_bh(&idev->lock);
- 
- 	addrconf_del_rs_timer(idev);
--- 
-1.9.0
+This would definitively need documentation and at least link in the mac=
+b
+binding to show how this emulated phy connect to the mdio bus...
+
+I'm not able to judge if the node arrangement is okay: I let Florian
+tell his view on this...
+
+> +			bp->converter_phy.dev =3D dev;
+> +			bp->converter_phy.mii_bus =3D bp->mii_bus;
+> +			bp->converter_phy.mdio_write =3D macb_mdio_write;
+> +			bp->converter_phy.platform_data =3D bp->pdev->dev.of_node;
+> +			gmii2rgmii_phyprobe(&bp->converter_phy);
+> +		}
+> +	}
+> =20
+>  	netif_carrier_off(dev);
+> =20
+> diff --git a/drivers/net/ethernet/cadence/macb.h b/drivers/net/ethern=
+et/cadence/macb.h
+> index 8a13824..735bce2 100644
+> --- a/drivers/net/ethernet/cadence/macb.h
+> +++ b/drivers/net/ethernet/cadence/macb.h
+> @@ -10,6 +10,8 @@
+>  #ifndef _MACB_H
+>  #define _MACB_H
+> =20
+> +#include <linux/xilinx_gmii2rgmii.h>
+
+No, put it in the macb.c.
+
+> +
+>  #define MACB_GREGS_NBR 16
+>  #define MACB_GREGS_VERSION 2
+>  #define MACB_MAX_QUEUES 8
+> @@ -846,6 +848,7 @@ struct macb {
+>  	unsigned int		jumbo_max_len;
+> =20
+>  	u32			wol;
+> +	struct	gmii2rgmii	converter_phy;
+>  };
+> =20
+>  static inline bool macb_is_gem(struct macb *bp)
+
+
+If Florian and phy guys are okay with the approach, I'm fine with this
+patch, once corrected.
+
+Thanks, bye,
+--=20
+Nicolas Ferre
