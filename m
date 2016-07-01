@@ -1,65 +1,35 @@
-From: Stefan Hauser <stefan@shauser.net>
-Subject: [PATCH] net: phy: dp83867: Fix initialization of PHYCR register
-Date: Fri,  1 Jul 2016 22:35:03 +0200
-Message-ID: <1467405303-19212-1-git-send-email-stefan@shauser.net>
-Cc: f.fainelli@gmail.com, Stefan Hauser <stefan@shauser.net>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx24.sysproserver.de ([79.133.52.76]:43532 "EHLO
-	mx24.sysproserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752082AbcGAVBk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 17:01:40 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: pull request for net-next: batman-adv 2016-07-01
+Date: Fri, 01 Jul 2016 17:05:46 -0400 (EDT)
+Message-ID: <20160701.170546.1136133284049626189.davem@davemloft.net>
+References: <1467378549-9646-1-git-send-email-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1467378549-9646-1-git-send-email-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-When initializing the PHY control register, the FIFO depth bits are
-written without reading the previous register value, i.e. all other
-bits are overwritten with zero. This disables automatic MDI-X
-configuration, which is enabled by default. Fix initialization by doing
-a read/modify/write operation.
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Date: Fri,  1 Jul 2016 15:08:52 +0200
 
-Signed-off-by: Stefan Hauser <stefan@shauser.net>
----
- drivers/net/phy/dp83867.c | 13 +++++++++----
- 1 file changed, 9 insertions(+), 4 deletions(-)
+> we are a bit late to submit our feature patches, but I hope we make it in time.
+> Antonio is taking a pause in his upstream work, so I'll be submitting our
+> batman-adv patches for now. It is my first time, so please bear with me. :)
+> 
+> Please pull or let me know of any problem!
 
-diff --git a/drivers/net/phy/dp83867.c b/drivers/net/phy/dp83867.c
-index 2afa61b..91177a4 100644
---- a/drivers/net/phy/dp83867.c
-+++ b/drivers/net/phy/dp83867.c
-@@ -57,6 +57,7 @@
- 
- /* PHY CTRL bits */
- #define DP83867_PHYCR_FIFO_DEPTH_SHIFT		14
-+#define DP83867_PHYCR_FIFO_DEPTH_MASK		(3 << 14)
- 
- /* RGMIIDCTL bits */
- #define DP83867_RGMII_TX_CLK_DELAY_SHIFT	4
-@@ -133,8 +134,8 @@ static int dp83867_of_init(struct phy_device *phydev)
- static int dp83867_config_init(struct phy_device *phydev)
- {
- 	struct dp83867_private *dp83867;
--	int ret;
--	u16 val, delay;
-+	int ret, val;
-+	u16 delay;
- 
- 	if (!phydev->priv) {
- 		dp83867 = devm_kzalloc(&phydev->mdio.dev, sizeof(*dp83867),
-@@ -151,8 +152,12 @@ static int dp83867_config_init(struct phy_device *phydev)
- 	}
- 
- 	if (phy_interface_is_rgmii(phydev)) {
--		ret = phy_write(phydev, MII_DP83867_PHYCTRL,
--			(dp83867->fifo_depth << DP83867_PHYCR_FIFO_DEPTH_SHIFT));
-+		val = phy_read(phydev, MII_DP83867_PHYCTRL);
-+		if (val < 0)
-+			return val;
-+		val &= ~DP83867_PHYCR_FIFO_DEPTH_MASK;
-+		val |= (dp83867->fifo_depth << DP83867_PHYCR_FIFO_DEPTH_SHIFT);
-+		ret = phy_write(phydev, MII_DP83867_PHYCTRL, val);
- 		if (ret)
- 			return ret;
- 	}
--- 
-1.9.1
+Pulled, thanks.
