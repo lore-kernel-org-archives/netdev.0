@@ -1,146 +1,197 @@
-From: Jakub Kicinski <jakub.kicinski@netronome.com>
-Subject: [PATCHv3 wl-drv-next 1/2] add basic register-field manipulation macros
-Date: Fri,  1 Jul 2016 22:26:48 +0100
-Message-ID: <1467408409-24224-2-git-send-email-jakub.kicinski@netronome.com>
-References: <1467408409-24224-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: netdev@vger.kernel.org, hannes@stressinduktion.org, nbd@nbd.name,
-	linux-kernel@vger.kernel.org,
-	Jakub Kicinski <jakub.kicinski@netronome.com>
-To: kvalo@codeaurora.org, linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:37814 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752652AbcGAV1W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 17:27:22 -0400
-Received: by mail-wm0-f54.google.com with SMTP id a66so44452945wme.0
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 14:27:21 -0700 (PDT)
-In-Reply-To: <1467408409-24224-1-git-send-email-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 1/2] net: ethernet: davinci_emac: use phydev from struct net_device
+Date: Sat,  2 Jul 2016 00:02:34 +0200
+Message-ID: <1467410555-19514-1-git-send-email-tremyfr@gmail.com>
+Cc: linux-omap@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, Philippe Reynes <tremyfr@gmail.com>
+To: mugunthanvnm@ti.com, grygorii.strashko@ti.com, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-C bitfields are problematic and best avoided.  Developers
-interacting with hardware registers find themselves searching
-for easy-to-use alternatives.  Common approach is to define
-structures or sets of macros containing mask and shift pair.
-Operations on the register are then performed as follows:
+The private structure contain a pointer to phydev, but the structure
+net_device already contain such pointer. So we can remove the pointer
+phy in the private structure, and update the driver to use the
+one contained in struct net_device.
 
- field = (reg >> shift) & mask;
-
- reg &= ~(mask << shift);
- reg |= (field & mask) << shift;
-
-Defining shift and mask separately is tedious.  Ivo van Doorn
-came up with an idea of computing them at compilation time
-based on a single shifted mask (later refined by Felix) which
-can be used like this:
-
- #define REG_FIELD 0x000ff000
-
- field = FIELD_GET(REG_FIELD, reg);
-
- reg &= ~REG_FIELD;
- reg |= FIELD_PUT(REG_FIELD, field);
-
-FIELD_{GET,PUT} macros take care of finding out what the
-appropriate shift is based on compilation time ffs operation.
-
-GENMASK can be used to define registers (which is usually
-less error-prone and easier to match with datasheets).
-
-This approach is the most convenient I've seen so to limit code
-multiplication let's move the macros to a global header file.
-
-Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- include/linux/bitfield.h | 58 ++++++++++++++++++++++++++++++++++++++++++++++++
- include/linux/bug.h      |  3 +++
- 2 files changed, 61 insertions(+)
- create mode 100644 include/linux/bitfield.h
+ drivers/net/ethernet/ti/davinci_emac.c |   61 ++++++++++++++------------------
+ 1 files changed, 27 insertions(+), 34 deletions(-)
 
-diff --git a/include/linux/bitfield.h b/include/linux/bitfield.h
-new file mode 100644
-index 000000000000..d6a36c3c1775
---- /dev/null
-+++ b/include/linux/bitfield.h
-@@ -0,0 +1,58 @@
-+/*
-+ * Copyright (C) 2014 Felix Fietkau <nbd@nbd.name>
-+ * Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
-+ *
-+ * This program is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License version 2
-+ * as published by the Free Software Foundation
-+ *
-+ * This program is distributed in the hope that it will be useful,
-+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-+ * GNU General Public License for more details.
-+ */
-+
-+#ifndef _LINUX_BITFIELD_H
-+#define _LINUX_BITFIELD_H
-+
-+#include <asm/types.h>
-+#include <linux/bug.h>
-+#include <linux/log2.h>
-+
-+#define _bf_shf(x) (__builtin_ffsll(x) - 1)
-+
-+#define _BF_FIELD_CHECK(_mask, _val)					\
-+	({								\
-+		BUILD_BUG_ON(!(_mask));					\
-+		BUILD_BUG_ON(__builtin_constant_p(_val) ?		\
-+			     ~((_mask) >> _bf_shf(_mask)) & (_val) :	\
-+			     0);					\
-+		__BUILD_BUG_ON_NOT_POWER_OF_2((_mask) +			\
-+					      (1ULL << _bf_shf(_mask))); \
-+	})
-+
-+#define FIELD_PUT(_mask, _val)					\
-+	({							\
-+		_BF_FIELD_CHECK(_mask, _val);			\
-+		((u32)(_val) << _bf_shf(_mask)) & (_mask);	\
-+	})
-+
-+#define FIELD_GET(_mask, _val)					\
-+	({							\
-+		_BF_FIELD_CHECK(_mask, 0);			\
-+		(u32)(((_val) & (_mask)) >> _bf_shf(_mask));	\
-+	})
-+
-+#define FIELD_PUT64(_mask, _val)				\
-+	({							\
-+		_BF_FIELD_CHECK(_mask, _val);			\
-+		((u64)(_val) << _bf_shf(_mask)) & (_mask);	\
-+	})
-+
-+#define FIELD_GET64(_mask, _val)				\
-+	({							\
-+		_BF_FIELD_CHECK(_mask, 0);			\
-+		(u64)(((_val) & (_mask)) >> _bf_shf(_mask));	\
-+	})
-+
-+#endif
-diff --git a/include/linux/bug.h b/include/linux/bug.h
-index e51b0709e78d..bba5bdae1681 100644
---- a/include/linux/bug.h
-+++ b/include/linux/bug.h
-@@ -13,6 +13,7 @@ enum bug_trap_type {
- struct pt_regs;
+diff --git a/drivers/net/ethernet/ti/davinci_emac.c b/drivers/net/ethernet/ti/davinci_emac.c
+index f56d66e..76683c7 100644
+--- a/drivers/net/ethernet/ti/davinci_emac.c
++++ b/drivers/net/ethernet/ti/davinci_emac.c
+@@ -348,7 +348,6 @@ struct emac_priv {
+ 	u32 rx_addr_type;
+ 	const char *phy_id;
+ 	struct device_node *phy_node;
+-	struct phy_device *phydev;
+ 	spinlock_t lock;
+ 	/*platform specific members*/
+ 	void (*int_enable) (void);
+@@ -496,9 +495,8 @@ static void emac_get_drvinfo(struct net_device *ndev,
+ static int emac_get_settings(struct net_device *ndev,
+ 			     struct ethtool_cmd *ecmd)
+ {
+-	struct emac_priv *priv = netdev_priv(ndev);
+-	if (priv->phydev)
+-		return phy_ethtool_gset(priv->phydev, ecmd);
++	if (ndev->phydev)
++		return phy_ethtool_gset(ndev->phydev, ecmd);
+ 	else
+ 		return -EOPNOTSUPP;
  
- #ifdef __CHECKER__
-+#define __BUILD_BUG_ON_NOT_POWER_OF_2(n) (0)
- #define BUILD_BUG_ON_NOT_POWER_OF_2(n) (0)
- #define BUILD_BUG_ON_ZERO(e) (0)
- #define BUILD_BUG_ON_NULL(e) ((void*)0)
-@@ -24,6 +25,8 @@ struct pt_regs;
- #else /* __CHECKER__ */
+@@ -514,9 +512,8 @@ static int emac_get_settings(struct net_device *ndev,
+  */
+ static int emac_set_settings(struct net_device *ndev, struct ethtool_cmd *ecmd)
+ {
+-	struct emac_priv *priv = netdev_priv(ndev);
+-	if (priv->phydev)
+-		return phy_ethtool_sset(priv->phydev, ecmd);
++	if (ndev->phydev)
++		return phy_ethtool_sset(ndev->phydev, ecmd);
+ 	else
+ 		return -EOPNOTSUPP;
  
- /* Force a compilation error if a constant expression is not a power of 2 */
-+#define __BUILD_BUG_ON_NOT_POWER_OF_2(n) 			\
-+	BUILD_BUG_ON(((n) & ((n) - 1)) != 0)
- #define BUILD_BUG_ON_NOT_POWER_OF_2(n)			\
- 	BUILD_BUG_ON((n) == 0 || (((n) & ((n) - 1)) != 0))
+@@ -651,8 +648,8 @@ static void emac_update_phystatus(struct emac_priv *priv)
+ 	mac_control = emac_read(EMAC_MACCONTROL);
+ 	cur_duplex = (mac_control & EMAC_MACCONTROL_FULLDUPLEXEN) ?
+ 			DUPLEX_FULL : DUPLEX_HALF;
+-	if (priv->phydev)
+-		new_duplex = priv->phydev->duplex;
++	if (ndev->phydev)
++		new_duplex = ndev->phydev->duplex;
+ 	else
+ 		new_duplex = DUPLEX_FULL;
  
+@@ -1454,7 +1451,7 @@ static void emac_poll_controller(struct net_device *ndev)
+ static void emac_adjust_link(struct net_device *ndev)
+ {
+ 	struct emac_priv *priv = netdev_priv(ndev);
+-	struct phy_device *phydev = priv->phydev;
++	struct phy_device *phydev = ndev->phydev;
+ 	unsigned long flags;
+ 	int new_state = 0;
+ 
+@@ -1483,7 +1480,7 @@ static void emac_adjust_link(struct net_device *ndev)
+ 	}
+ 	if (new_state) {
+ 		emac_update_phystatus(priv);
+-		phy_print_status(priv->phydev);
++		phy_print_status(ndev->phydev);
+ 	}
+ 
+ 	spin_unlock_irqrestore(&priv->lock, flags);
+@@ -1505,15 +1502,13 @@ static void emac_adjust_link(struct net_device *ndev)
+  */
+ static int emac_devioctl(struct net_device *ndev, struct ifreq *ifrq, int cmd)
+ {
+-	struct emac_priv *priv = netdev_priv(ndev);
+-
+ 	if (!(netif_running(ndev)))
+ 		return -EINVAL;
+ 
+ 	/* TODO: Add phy read and write and private statistics get feature */
+ 
+-	if (priv->phydev)
+-		return phy_mii_ioctl(priv->phydev, ifrq, cmd);
++	if (ndev->phydev)
++		return phy_mii_ioctl(ndev->phydev, ifrq, cmd);
+ 	else
+ 		return -EOPNOTSUPP;
+ }
+@@ -1542,6 +1537,7 @@ static int emac_dev_open(struct net_device *ndev)
+ 	int res_num = 0, irq_num = 0;
+ 	int i = 0;
+ 	struct emac_priv *priv = netdev_priv(ndev);
++	struct phy_device *phydev = NULL;
+ 
+ 	ret = pm_runtime_get_sync(&priv->pdev->dev);
+ 	if (ret < 0) {
+@@ -1607,12 +1603,10 @@ static int emac_dev_open(struct net_device *ndev)
+ 
+ 	cpdma_ctlr_start(priv->dma);
+ 
+-	priv->phydev = NULL;
+-
+ 	if (priv->phy_node) {
+-		priv->phydev = of_phy_connect(ndev, priv->phy_node,
+-					      &emac_adjust_link, 0, 0);
+-		if (!priv->phydev) {
++		phydev = of_phy_connect(ndev, priv->phy_node,
++					&emac_adjust_link, 0, 0);
++		if (!phydev) {
+ 			dev_err(emac_dev, "could not connect to phy %s\n",
+ 				priv->phy_node->full_name);
+ 			ret = -ENODEV;
+@@ -1621,7 +1615,7 @@ static int emac_dev_open(struct net_device *ndev)
+ 	}
+ 
+ 	/* use the first phy on the bus if pdata did not give us a phy id */
+-	if (!priv->phydev && !priv->phy_id) {
++	if (!phydev && !priv->phy_id) {
+ 		struct device *phy;
+ 
+ 		phy = bus_find_device(&mdio_bus_type, NULL, NULL,
+@@ -1630,16 +1624,15 @@ static int emac_dev_open(struct net_device *ndev)
+ 			priv->phy_id = dev_name(phy);
+ 	}
+ 
+-	if (!priv->phydev && priv->phy_id && *priv->phy_id) {
+-		priv->phydev = phy_connect(ndev, priv->phy_id,
+-					   &emac_adjust_link,
+-					   PHY_INTERFACE_MODE_MII);
++	if (!phydev && priv->phy_id && *priv->phy_id) {
++		phydev = phy_connect(ndev, priv->phy_id,
++				     &emac_adjust_link,
++				     PHY_INTERFACE_MODE_MII);
+ 
+-		if (IS_ERR(priv->phydev)) {
++		if (IS_ERR(phydev)) {
+ 			dev_err(emac_dev, "could not connect to phy %s\n",
+ 				priv->phy_id);
+-			ret = PTR_ERR(priv->phydev);
+-			priv->phydev = NULL;
++			ret = PTR_ERR(phydev);
+ 			goto err;
+ 		}
+ 
+@@ -1647,10 +1640,10 @@ static int emac_dev_open(struct net_device *ndev)
+ 		priv->speed = 0;
+ 		priv->duplex = ~0;
+ 
+-		phy_attached_info(priv->phydev);
++		phy_attached_info(phydev);
+ 	}
+ 
+-	if (!priv->phydev) {
++	if (!phydev) {
+ 		/* No PHY , fix the link, speed and duplex settings */
+ 		dev_notice(emac_dev, "no phy, defaulting to 100/full\n");
+ 		priv->link = 1;
+@@ -1665,8 +1658,8 @@ static int emac_dev_open(struct net_device *ndev)
+ 	if (netif_msg_drv(priv))
+ 		dev_notice(emac_dev, "DaVinci EMAC: Opened %s\n", ndev->name);
+ 
+-	if (priv->phydev)
+-		phy_start(priv->phydev);
++	if (phydev)
++		phy_start(phydev);
+ 
+ 	return 0;
+ 
+@@ -1717,8 +1710,8 @@ static int emac_dev_stop(struct net_device *ndev)
+ 	cpdma_ctlr_stop(priv->dma);
+ 	emac_write(EMAC_SOFTRESET, 1);
+ 
+-	if (priv->phydev)
+-		phy_disconnect(priv->phydev);
++	if (ndev->phydev)
++		phy_disconnect(ndev->phydev);
+ 
+ 	/* Free IRQ */
+ 	while ((res = platform_get_resource(priv->pdev, IORESOURCE_IRQ, i))) {
 -- 
-1.9.1
+1.7.4.4
