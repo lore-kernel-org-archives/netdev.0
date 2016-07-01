@@ -1,13 +1,13 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 02/17] batman-adv: statically print gateway
-	table header
-Date: Fri,  1 Jul 2016 15:08:54 +0200
-Message-ID: <1467378549-9646-3-git-send-email-sw@simonwunderlich.de>
+Subject: [PATCH 03/17] batman-adv: remove unused vid local
+	variable in tt seq print
+Date: Fri,  1 Jul 2016 15:08:55 +0200
+Message-ID: <1467378549-9646-4-git-send-email-sw@simonwunderlich.de>
 References: <1467378549-9646-1-git-send-email-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
- Antonio Quartulli <a@unstable.cc>, Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
+ Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 In-Reply-To: <1467378549-9646-1-git-send-email-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
@@ -22,35 +22,32 @@ Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Antonio Quartulli <a@unstable.cc>
-
-To make it easier to search through the code it is better to print static
-strings directly instead of using format strings printing constants.
-
-This was addressed in a previous patch, but the Gateway table header
-was not updated accordingly.
-
-Signed-off-by: Antonio Quartulli <a@unstable.cc>
-Reviewed-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
-Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
 Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
 ---
- net/batman-adv/gateway_client.c | 3 +--
- 1 file changed, 1 insertion(+), 2 deletions(-)
+ net/batman-adv/translation-table.c | 2 --
+ 1 file changed, 2 deletions(-)
 
-diff --git a/net/batman-adv/gateway_client.c b/net/batman-adv/gateway_client.c
-index 5839c56..b9d72e9 100644
---- a/net/batman-adv/gateway_client.c
-+++ b/net/batman-adv/gateway_client.c
-@@ -638,8 +638,7 @@ int batadv_gw_client_seq_print_text(struct seq_file *seq, void *offset)
- 		goto out;
- 
- 	seq_printf(seq,
--		   "      %-12s (%s/%i) %17s [%10s]: advertised uplink bandwidth ... [B.A.T.M.A.N. adv %s, MainIF/MAC: %s/%pM (%s)]\n",
--		   "Gateway", "#", BATADV_TQ_MAX_VALUE, "Nexthop", "outgoingIF",
-+		   "      Gateway      (#/255)           Nexthop [outgoingIF]: advertised uplink bandwidth ... [B.A.T.M.A.N. adv %s, MainIF/MAC: %s/%pM (%s)]\n",
- 		   BATADV_SOURCE_VERSION, primary_if->net_dev->name,
- 		   primary_if->net_dev->dev_addr, net_dev->name);
- 
+diff --git a/net/batman-adv/translation-table.c b/net/batman-adv/translation-table.c
+index feaf492b..87bb203 100644
+--- a/net/batman-adv/translation-table.c
++++ b/net/batman-adv/translation-table.c
+@@ -995,7 +995,6 @@ int batadv_tt_local_seq_print_text(struct seq_file *seq, void *offset)
+ 	struct batadv_tt_local_entry *tt_local;
+ 	struct batadv_hard_iface *primary_if;
+ 	struct hlist_head *head;
+-	unsigned short vid;
+ 	u32 i;
+ 	int last_seen_secs;
+ 	int last_seen_msecs;
+@@ -1022,7 +1021,6 @@ int batadv_tt_local_seq_print_text(struct seq_file *seq, void *offset)
+ 			tt_local = container_of(tt_common_entry,
+ 						struct batadv_tt_local_entry,
+ 						common);
+-			vid = tt_common_entry->vid;
+ 			last_seen_jiffies = jiffies - tt_local->last_seen;
+ 			last_seen_msecs = jiffies_to_msecs(last_seen_jiffies);
+ 			last_seen_secs = last_seen_msecs / 1000;
 -- 
 2.8.1
