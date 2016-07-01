@@ -1,85 +1,68 @@
-From: Daode Huang <huangdaode@hisilicon.com>
-Subject: Re: [PATCH v2 net-next 1/9] MAINTAINERS: add maintainers for hns
- driver
-Date: Fri, 1 Jul 2016 10:15:12 +0800
-Message-ID: <5775D230.6040103@hisilicon.com>
-References: <1467271509-63162-1-git-send-email-Yisen.Zhuang@huawei.com>
- <1467271509-63162-2-git-send-email-Yisen.Zhuang@huawei.com>
- <1467283701.24287.137.camel@perches.com>
+From: Rob Herring <robh@kernel.org>
+Subject: Re: [PATCH 6/7] dt-bindings: net: bgmac: add bindings documentation
+ for bgmac
+Date: Thu, 30 Jun 2016 21:56:19 -0500
+Message-ID: <20160701025619.GA4906@rob-hp-laptop>
+References: <1467327554-22074-1-git-send-email-jon.mason@broadcom.com>
+ <1467327554-22074-7-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: <akpm@linux-foundation.org>, <gregkh@linuxfoundation.org>,
-	<kvalo@codeaurora.org>, <mchehab@osg.samsung.com>,
-	<linux@roeck-us.net>, <jslaby@suse.cz>, <yankejian@huawei.com>,
-	<lipeng321@huawei.com>, <xieqianqian@huawei.com>, <arnd@arndb.de>,
-	<andrew@lunn.ch>, <xypron.glpk@gmx.de>,
-	<linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>
-To: Joe Perches <joe@perches.com>,
-	Yisen Zhuang <Yisen.Zhuang@huawei.com>, <davem@davemloft.net>,
-	<salil.mehta@huawei.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from szxga03-in.huawei.com ([119.145.14.66]:5584 "EHLO
-	szxga03-in.huawei.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752320AbcGACUN (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 22:20:13 -0400
-In-Reply-To: <1467283701.24287.137.camel@perches.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: zajec5@gmail.com, davem@davemloft.net, f.fainelli@gmail.com,
+	hauke@hauke-m.de, Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>, Ray Jui <rjui@broadcom.com>,
+	Scott Branden <sbranden@broadcom.com>,
+	bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Jon Mason <jon.mason@broadcom.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1467327554-22074-7-git-send-email-jon.mason@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
+On Thu, Jun 30, 2016 at 06:59:13PM -0400, Jon Mason wrote:
+> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
+> ---
+>  .../devicetree/bindings/net/brcm,bgmac-nsp.txt     | 24 ++++++++++++++++++++++
+>  1 file changed, 24 insertions(+)
+>  create mode 100644 Documentation/devicetree/bindings/net/brcm,bgmac-nsp.txt
+> 
+> diff --git a/Documentation/devicetree/bindings/net/brcm,bgmac-nsp.txt b/Documentation/devicetree/bindings/net/brcm,bgmac-nsp.txt
+> new file mode 100644
+> index 0000000..022946c
+> --- /dev/null
+> +++ b/Documentation/devicetree/bindings/net/brcm,bgmac-nsp.txt
+> @@ -0,0 +1,24 @@
+> +Broadcom GMAC Ethernet Controller Device Tree Bindings
+> +-------------------------------------------------------------
+> +
+> +Required properties:
+> + - compatible:	"brcm,bgmac-nsp"
 
+Usually we do <soc>-<block> order.
 
-On 2016/6/30 18:48, Joe Perches wrote:
-> On Thu, 2016-06-30 at 15:25 +0800, Yisen Zhuang wrote:
->> From: Daode Huang <huangdaode@hisilicon.com>
->>
->> This patch adds maintainers for hisilicon network subsystem driver
-> []
->> diff --git a/MAINTAINERS b/MAINTAINERS
-> []
->> @@ -5421,6 +5421,15 @@ F:	include/uapi/linux/if_hippi.h
->>   F:	net/802/hippi.c
->>   F:	drivers/net/hippi/
->>   
->> +HISILICON NETWORK SUBSYSTEM DRIVER
->> +M:	Yisen Zhuang <yisen.zhuang@huawei.com>
->> +M:	Salil Mehta <salil.mehta@huawei.com>
->> +L:	netdev@vger.kernel.org
->> +W:	http://www.hisilicon.com
->> +S:	Maintained
->> +F:	drivers/net/ethernet/hisilicon/*
-> >From MAINTAINERS:
->
-> 	F: Files and directories with wildcard patterns.
-> 	   A trailing slash includes all files and subdirectory files.
-> 	   F:	drivers/net/	all files in and below drivers/net
-> 	   F:	drivers/net/*	all files in drivers/net, but not below
-> 	   F:	*/net/*		all files in "any top level directory"/net
-> 	   One pattern per line.  Multiple F: lines acceptable.
->
-> So this pattern with the trailing /* matches only:
->
-> drivers/net/ethernet/hisilicon/Kconfig
-> drivers/net/ethernet/hisilicon/Makefile
-> drivers/net/ethernet/hisilicon/hip04_eth.c
-> drivers/net/ethernet/hisilicon/hix5hd2_gmac.c
->
-> and not any file in drivers/net/ethernet/hisilicon/hns/
->
-> Is that what you want?
-
-We will maintain all files in hisilicon and any directory below it.
-will fix it in next submit.
-
-Thanks
-
-> using
->
-> F:	drivers/net/ethernet/hisilicon/
->
-> matches all files in hisilicon and any directory below it.
->
->
->
-> .
->
+> + - reg:		Address and length of the GMAC registers,
+> +		Address and length of the GMAC IDM registers
+> + - reg-names:	Names of the registers.  Must have both "gmac_base" and
+> +		"idm_base"
+> + - interrupts:	Interrupt number
+> +
+> +Optional properties:
+> +- mac-address:	See ethernet.txt file in the same directory
+> +
+> +Examples:
+> +
+> +gmac0: ethernet@18022000 {
+> +	compatible = "brcm,bgmac-nsp";
+> +	reg = <0x18022000 0x1000>,
+> +	      <0x18110000 0x1000>;
+> +	reg-names = "gmac_base", "idm_base";
+> +	interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>;
+> +	status = "disabled";
+> +};
+> -- 
+> 1.9.1
+> 
