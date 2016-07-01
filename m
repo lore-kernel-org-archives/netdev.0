@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next V3 13/16] net/mlx5e: Mark enabled RQTs instances explicitly
-Date: Fri,  1 Jul 2016 14:51:06 +0300
-Message-ID: <1467373869-22746-14-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next V3 15/16] net/mlx5: Add Representors registration API
+Date: Fri,  1 Jul 2016 14:51:08 +0300
+Message-ID: <1467373869-22746-16-git-send-email-saeedm@mellanox.com>
 References: <1467373869-22746-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -12,204 +12,301 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:51946 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:51970 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752225AbcGAL4j (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jul 2016 07:56:39 -0400
+	id S1750715AbcGAL5F (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jul 2016 07:57:05 -0400
 In-Reply-To: <1467373869-22746-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Hadar Hen Zion <hadarh@mellanox.com>
 
-In the current driver implementation two types of receive queue
-tables (RQTs) are in use - direct and indirect.
+Introduce E-Switch registration/unregister representors functions.
 
-Change the driver to mark each new created RQT (direct or indirect)
-as "enabled". This behaviour is needed for introducing new mlx5e
-instances which serve to represent SRIOV VFs.
+Those functions are called by the mlx5e driver when the PF NIC is
+created upon pci probe action regardless of the E-Switch mode (NONE,
+LEGACY or OFFLOADS).
 
-The VF representors will have only one type of RQTs (direct).
-
-An "enabled" flag is added to each RQT to allow better handling
-and code sharing between the representors and the nic netdevices.
+Adding basic E-Switch database that will hold the vport represntors
+upon creation.
 
 This patch doesn't add any new functionality.
 
 Signed-off-by: Hadar Hen Zion <hadarh@mellanox.com>
-Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en.h       | 13 +++++--
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   |  2 +-
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 45 +++++++++++++---------
- 3 files changed, 37 insertions(+), 23 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en.h       |  3 +-
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  | 60 +++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  | 10 ++++
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  | 12 +++++
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 19 +++++++
+ 5 files changed, 97 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en.h b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-index 8dad50c..91c6bbe 100644
+index edfc9be..081259a 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
-@@ -552,10 +552,15 @@ struct mlx5e_flow_steering {
- 	struct mlx5e_arfs_tables        arfs;
+@@ -571,7 +571,7 @@ enum {
+ struct mlx5e_profile {
+ 	void	(*init)(struct mlx5_core_dev *mdev,
+ 			struct net_device *netdev,
+-			const struct mlx5e_profile *profile);
++			const struct mlx5e_profile *profile, void *ppriv);
+ 	void	(*cleanup)(struct mlx5e_priv *priv);
+ 	int	(*init_rx)(struct mlx5e_priv *priv);
+ 	void	(*cleanup_rx)(struct mlx5e_priv *priv);
+@@ -618,6 +618,7 @@ struct mlx5e_priv {
+ 	struct mlx5e_tstamp        tstamp;
+ 	u16 q_counter;
+ 	const struct mlx5e_profile *profile;
++	void                      *ppriv;
  };
  
--struct mlx5e_tir {
--	u32              tirn;
-+struct mlx5e_rqt {
- 	u32              rqtn;
--	struct list_head list;
-+	bool		 enabled;
-+};
-+
-+struct mlx5e_tir {
-+	u32		  tirn;
-+	struct mlx5e_rqt  rqt;
-+	struct list_head  list;
- };
- 
- enum {
-@@ -576,7 +581,7 @@ struct mlx5e_priv {
- 
- 	struct mlx5e_channel     **channel;
- 	u32                        tisn[MLX5E_MAX_NUM_TC];
--	u32                        indir_rqtn;
-+	struct mlx5e_rqt           indir_rqt;
- 	struct mlx5e_tir           indir_tir[MLX5E_NUM_INDIR_TIRS];
- 	struct mlx5e_tir           direct_tir[MLX5E_MAX_NUM_CHANNELS];
- 	u32                        tx_rates[MLX5E_MAX_NUM_SQS];
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index 5b88967..7e61ffa 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -898,7 +898,7 @@ static int mlx5e_set_rxfh(struct net_device *dev, const u32 *indir,
- 	mutex_lock(&priv->state_lock);
- 
- 	if (indir) {
--		u32 rqtn = priv->indir_rqtn;
-+		u32 rqtn = priv->indir_rqt.rqtn;
- 
- 		memcpy(priv->params.indirection_rqt, indir,
- 		       sizeof(priv->params.indirection_rqt));
+ enum mlx5e_link_mode {
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 30efa8a..7f1f1ec 100644
+index 3e22c5e..2c9e458 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1486,7 +1486,8 @@ static void mlx5e_fill_direct_rqt_rqn(struct mlx5e_priv *priv, void *rqtc,
- 	MLX5_SET(rqtc, rqtc, rq_num[0], rqn);
+@@ -2880,7 +2880,8 @@ void mlx5e_set_rx_cq_mode_params(struct mlx5e_params *params, u8 cq_period_mode)
+ 
+ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
+ 					struct net_device *netdev,
+-					const struct mlx5e_profile *profile)
++					const struct mlx5e_profile *profile,
++					void *ppriv)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 	u32 link_speed = 0;
+@@ -2962,6 +2963,7 @@ static void mlx5e_build_nic_netdev_priv(struct mlx5_core_dev *mdev,
+ 	priv->netdev                       = netdev;
+ 	priv->params.num_channels          = profile->max_nch(mdev);
+ 	priv->profile                      = profile;
++	priv->ppriv                        = ppriv;
+ 
+ #ifdef CONFIG_MLX5_CORE_EN_DCB
+ 	mlx5e_ets_init(priv);
+@@ -3126,18 +3128,25 @@ static int mlx5e_create_umr_mkey(struct mlx5e_priv *priv)
+ 
+ static void mlx5e_nic_init(struct mlx5_core_dev *mdev,
+ 			   struct net_device *netdev,
+-			   const struct mlx5e_profile *profile)
++			   const struct mlx5e_profile *profile,
++			   void *ppriv)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(netdev);
+ 
+-	mlx5e_build_nic_netdev_priv(mdev, netdev, profile);
++	mlx5e_build_nic_netdev_priv(mdev, netdev, profile, ppriv);
+ 	mlx5e_build_nic_netdev(netdev);
+ 	mlx5e_vxlan_init(priv);
  }
  
--static int mlx5e_create_rqt(struct mlx5e_priv *priv, int sz, int ix, u32 *rqtn)
-+static int mlx5e_create_rqt(struct mlx5e_priv *priv, int sz,
-+			    int ix, struct mlx5e_rqt *rqt)
+ static void mlx5e_nic_cleanup(struct mlx5e_priv *priv)
  {
++	struct mlx5_core_dev *mdev = priv->mdev;
++	struct mlx5_eswitch *esw = mdev->priv.eswitch;
++
+ 	mlx5e_vxlan_cleanup(priv);
++
++	if (MLX5_CAP_GEN(mdev, vport_group_manager))
++		mlx5_eswitch_unregister_vport_rep(esw, 0);
+ }
+ 
+ static int mlx5e_init_nic_rx(struct mlx5e_priv *priv)
+@@ -3229,6 +3238,8 @@ static void mlx5e_nic_enable(struct mlx5e_priv *priv)
+ {
+ 	struct net_device *netdev = priv->netdev;
  	struct mlx5_core_dev *mdev = priv->mdev;
- 	void *rqtc;
-@@ -1509,34 +1510,37 @@ static int mlx5e_create_rqt(struct mlx5e_priv *priv, int sz, int ix, u32 *rqtn)
- 	else
- 		mlx5e_fill_direct_rqt_rqn(priv, rqtc, ix);
++	struct mlx5_eswitch *esw = mdev->priv.eswitch;
++	struct mlx5_eswitch_rep rep;
  
--	err = mlx5_core_create_rqt(mdev, in, inlen, rqtn);
-+	err = mlx5_core_create_rqt(mdev, in, inlen, &rqt->rqtn);
-+	if (!err)
-+		rqt->enabled = true;
+ 	if (mlx5e_vxlan_allowed(mdev)) {
+ 		rtnl_lock();
+@@ -3238,6 +3249,12 @@ static void mlx5e_nic_enable(struct mlx5e_priv *priv)
  
- 	kvfree(in);
- 	return err;
+ 	mlx5e_enable_async_events(priv);
+ 	queue_work(priv->wq, &priv->set_rx_mode_work);
++
++	if (MLX5_CAP_GEN(mdev, vport_group_manager)) {
++		rep.vport = 0;
++		rep.priv_data = priv;
++		mlx5_eswitch_register_vport_rep(esw, &rep);
++	}
  }
  
--static void mlx5e_destroy_rqt(struct mlx5e_priv *priv, u32 rqtn)
-+static void mlx5e_destroy_rqt(struct mlx5e_priv *priv, struct mlx5e_rqt *rqt)
+ static void mlx5e_nic_disable(struct mlx5e_priv *priv)
+@@ -3261,7 +3278,7 @@ static const struct mlx5e_profile mlx5e_nic_profile = {
+ };
+ 
+ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
+-				 const struct mlx5e_profile *profile)
++				 const struct mlx5e_profile *profile, void *ppriv)
  {
--	mlx5_core_destroy_rqt(priv->mdev, rqtn);
-+	rqt->enabled = false;
-+	mlx5_core_destroy_rqt(priv->mdev, rqt->rqtn);
- }
- 
- static int mlx5e_create_rqts(struct mlx5e_priv *priv)
- {
- 	int nch = mlx5e_get_max_num_channels(priv->mdev);
--	u32 *rqtn;
-+	struct mlx5e_rqt *rqt;
- 	int err;
- 	int ix;
- 
- 	/* Indirect RQT */
--	rqtn = &priv->indir_rqtn;
--	err = mlx5e_create_rqt(priv, MLX5E_INDIR_RQT_SIZE, 0, rqtn);
-+	rqt = &priv->indir_rqt;
-+	err = mlx5e_create_rqt(priv, MLX5E_INDIR_RQT_SIZE, 0, rqt);
- 	if (err)
- 		return err;
- 
- 	/* Direct RQTs */
- 	for (ix = 0; ix < nch; ix++) {
--		rqtn = &priv->direct_tir[ix].rqtn;
--		err = mlx5e_create_rqt(priv, 1 /*size */, ix, rqtn);
-+		rqt = &priv->direct_tir[ix].rqt;
-+		err = mlx5e_create_rqt(priv, 1 /*size */, ix, rqt);
- 		if (err)
- 			goto err_destroy_rqts;
+ 	struct net_device *netdev;
+ 	struct mlx5e_priv *priv;
+@@ -3276,7 +3293,7 @@ static void *mlx5e_create_netdev(struct mlx5_core_dev *mdev,
+ 		return NULL;
  	}
-@@ -1545,9 +1549,9 @@ static int mlx5e_create_rqts(struct mlx5e_priv *priv)
  
- err_destroy_rqts:
- 	for (ix--; ix >= 0; ix--)
--		mlx5e_destroy_rqt(priv, priv->direct_tir[ix].rqtn);
-+		mlx5e_destroy_rqt(priv, &priv->direct_tir[ix].rqt);
+-	profile->init(mdev, netdev, profile);
++	profile->init(mdev, netdev, profile, ppriv);
  
--	mlx5e_destroy_rqt(priv, priv->indir_rqtn);
-+	mlx5e_destroy_rqt(priv, &priv->indir_rqt);
+ 	netif_carrier_off(netdev);
  
- 	return err;
- }
-@@ -1558,9 +1562,9 @@ static void mlx5e_destroy_rqts(struct mlx5e_priv *priv)
- 	int i;
- 
- 	for (i = 0; i < nch; i++)
--		mlx5e_destroy_rqt(priv, priv->direct_tir[i].rqtn);
-+		mlx5e_destroy_rqt(priv, &priv->direct_tir[i].rqt);
- 
--	mlx5e_destroy_rqt(priv, priv->indir_rqtn);
-+	mlx5e_destroy_rqt(priv, &priv->indir_rqt);
+@@ -3343,8 +3360,27 @@ err_free_netdev:
+ 	return NULL;
  }
  
- int mlx5e_redirect_rqt(struct mlx5e_priv *priv, u32 rqtn, int sz, int ix)
-@@ -1598,10 +1602,15 @@ static void mlx5e_redirect_rqts(struct mlx5e_priv *priv)
- 	u32 rqtn;
- 	int ix;
++static void mlx5e_register_vport_rep(struct mlx5_core_dev *mdev)
++{
++	struct mlx5_eswitch *esw = mdev->priv.eswitch;
++	int total_vfs = MLX5_TOTAL_VPORTS(mdev);
++	int vport;
++
++	if (!MLX5_CAP_GEN(mdev, vport_group_manager))
++		return;
++
++	for (vport = 1; vport < total_vfs; vport++) {
++		struct mlx5_eswitch_rep rep;
++
++		rep.vport = vport;
++		mlx5_eswitch_register_vport_rep(esw, &rep);
++	}
++}
++
+ static void *mlx5e_add(struct mlx5_core_dev *mdev)
+ {
++	struct mlx5_eswitch *esw = mdev->priv.eswitch;
++	void *ppriv = NULL;
+ 	void *ret;
  
--	rqtn = priv->indir_rqtn;
--	mlx5e_redirect_rqt(priv, rqtn, MLX5E_INDIR_RQT_SIZE, 0);
-+	if (priv->indir_rqt.enabled) {
-+		rqtn = priv->indir_rqt.rqtn;
-+		mlx5e_redirect_rqt(priv, rqtn, MLX5E_INDIR_RQT_SIZE, 0);
+ 	if (mlx5e_check_required_hca_cap(mdev))
+@@ -3353,7 +3389,12 @@ static void *mlx5e_add(struct mlx5_core_dev *mdev)
+ 	if (mlx5e_create_mdev_resources(mdev))
+ 		return NULL;
+ 
+-	ret = mlx5e_create_netdev(mdev, &mlx5e_nic_profile);
++	mlx5e_register_vport_rep(mdev);
++
++	if (MLX5_CAP_GEN(mdev, vport_group_manager))
++		ppriv = &esw->offloads.vport_reps[0];
++
++	ret = mlx5e_create_netdev(mdev, &mlx5e_nic_profile, ppriv);
+ 	if (!ret) {
+ 		mlx5e_destroy_mdev_resources(mdev);
+ 		return NULL;
+@@ -3394,9 +3435,16 @@ static void mlx5e_destroy_netdev(struct mlx5_core_dev *mdev, struct mlx5e_priv *
+ 
+ static void mlx5e_remove(struct mlx5_core_dev *mdev, void *vpriv)
+ {
++	struct mlx5_eswitch *esw = mdev->priv.eswitch;
++	int total_vfs = MLX5_TOTAL_VPORTS(mdev);
+ 	struct mlx5e_priv *priv = vpriv;
++	int vport;
+ 
+ 	mlx5e_destroy_netdev(mdev, priv);
++
++	for (vport = 1; vport < total_vfs; vport++)
++		mlx5_eswitch_unregister_vport_rep(esw, vport);
++
+ 	mlx5e_destroy_mdev_resources(mdev);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index 12f509c..f0a9735 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -1663,6 +1663,14 @@ int mlx5_eswitch_init(struct mlx5_core_dev *dev)
+ 		goto abort;
+ 	}
+ 
++	esw->offloads.vport_reps =
++		kzalloc(total_vports * sizeof(struct mlx5_eswitch_rep),
++			GFP_KERNEL);
++	if (!esw->offloads.vport_reps) {
++		err = -ENOMEM;
++		goto abort;
 +	}
 +
- 	for (ix = 0; ix < priv->params.num_channels; ix++) {
--		rqtn = priv->direct_tir[ix].rqtn;
-+		if (!priv->direct_tir[ix].rqt.enabled)
-+			continue;
-+		rqtn = priv->direct_tir[ix].rqt.rqtn;
- 		mlx5e_redirect_rqt(priv, rqtn, 1, ix);
- 	}
+ 	mutex_init(&esw->state_lock);
+ 
+ 	for (vport_num = 0; vport_num < total_vports; vport_num++) {
+@@ -1687,6 +1695,7 @@ abort:
+ 		destroy_workqueue(esw->work_queue);
+ 	kfree(esw->l2_table.bitmap);
+ 	kfree(esw->vports);
++	kfree(esw->offloads.vport_reps);
+ 	kfree(esw);
+ 	return err;
  }
-@@ -2012,7 +2021,7 @@ static void mlx5e_build_indir_tir_ctx(struct mlx5e_priv *priv, u32 *tirc,
- 	mlx5e_build_tir_ctx_lro(tirc, priv);
+@@ -1704,6 +1713,7 @@ void mlx5_eswitch_cleanup(struct mlx5_eswitch *esw)
+ 	destroy_workqueue(esw->work_queue);
+ 	kfree(esw->l2_table.bitmap);
+ 	kfree(esw->mc_promisc);
++	kfree(esw->offloads.vport_reps);
+ 	kfree(esw->vports);
+ 	kfree(esw);
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+index 7843f98..ffe5eab 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
+@@ -156,9 +156,17 @@ enum {
+ 	SRIOV_OFFLOADS
+ };
  
- 	MLX5_SET(tirc, tirc, disp_type, MLX5_TIRC_DISP_TYPE_INDIRECT);
--	MLX5_SET(tirc, tirc, indirect_table, priv->indir_rqtn);
-+	MLX5_SET(tirc, tirc, indirect_table, priv->indir_rqt.rqtn);
- 	mlx5e_build_tir_ctx_hash(tirc, priv);
++
++struct mlx5_eswitch_rep {
++	u16		       vport;
++	void		      *priv_data;
++	bool		       valid;
++};
++
+ struct mlx5_esw_offload {
+ 	struct mlx5_flow_table *ft_offloads;
+ 	struct mlx5_flow_group *vport_rx_group;
++	struct mlx5_eswitch_rep *vport_reps;
+ };
  
- 	switch (tt) {
-@@ -2144,7 +2153,7 @@ static int mlx5e_create_tirs(struct mlx5e_priv *priv)
- 		tir = &priv->direct_tir[ix];
- 		tirc = MLX5_ADDR_OF(create_tir_in, in, ctx);
- 		mlx5e_build_direct_tir_ctx(priv, tirc,
--					   priv->direct_tir[ix].rqtn);
-+					   priv->direct_tir[ix].rqt.rqtn);
- 		err = mlx5e_create_tir(priv->mdev, tir, in, inlen);
- 		if (err)
- 			goto err_destroy_ch_tirs;
+ struct mlx5_eswitch {
+@@ -208,6 +216,10 @@ mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn)
+ 
+ int mlx5_devlink_eswitch_mode_set(struct devlink *devlink, u16 mode);
+ int mlx5_devlink_eswitch_mode_get(struct devlink *devlink, u16 *mode);
++void mlx5_eswitch_register_vport_rep(struct mlx5_eswitch *esw,
++				     struct mlx5_eswitch_rep *rep);
++void mlx5_eswitch_unregister_vport_rep(struct mlx5_eswitch *esw,
++				       int vport);
+ 
+ #define MLX5_DEBUG_ESWITCH_MASK BIT(3)
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index 312b6f3..f84aa79 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -451,3 +451,22 @@ int mlx5_devlink_eswitch_mode_get(struct devlink *devlink, u16 *mode)
+ 
+ 	return 0;
+ }
++
++void mlx5_eswitch_register_vport_rep(struct mlx5_eswitch *esw,
++				     struct mlx5_eswitch_rep *rep)
++{
++	struct mlx5_esw_offload *offloads = &esw->offloads;
++
++	memcpy(&offloads->vport_reps[rep->vport], rep,
++	       sizeof(struct mlx5_eswitch_rep));
++
++	offloads->vport_reps[rep->vport].valid = true;
++}
++
++void mlx5_eswitch_unregister_vport_rep(struct mlx5_eswitch *esw,
++				       int vport)
++{
++	struct mlx5_esw_offload *offloads = &esw->offloads;
++
++	offloads->vport_reps[vport].valid = false;
++}
 -- 
 2.8.0
