@@ -1,10 +1,10 @@
 From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [patch net-next 23/42] mlxsw: spectrum_router: Implement fib4
- add/del switchdev obj ops
-Date: Fri, 1 Jul 2016 10:10:58 -0600
-Message-ID: <070108fc-a6bd-b23e-8ada-ef82717a82ff@cumulusnetworks.com>
+Subject: Re: [patch net-next 11/42] mlxsw: spectrum: Add router interface
+ struct
+Date: Fri, 1 Jul 2016 10:16:23 -0600
+Message-ID: <90c0b9d3-6d54-c4f1-407f-0f93c12caf5d@cumulusnetworks.com>
 References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
- <1467381910-3445-24-git-send-email-jiri@resnulli.us>
+ <1467381910-3445-12-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
@@ -15,32 +15,33 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	ivecera@redhat.com
 To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:35710 "EHLO
+Received: from mail-io0-f180.google.com ([209.85.223.180]:34607 "EHLO
 	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752254AbcGAQLB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 12:11:01 -0400
-Received: by mail-io0-f180.google.com with SMTP id f30so104167989ioj.2
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 09:11:00 -0700 (PDT)
-In-Reply-To: <1467381910-3445-24-git-send-email-jiri@resnulli.us>
+	with ESMTP id S1751863AbcGAQQT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 12:16:19 -0400
+Received: by mail-io0-f180.google.com with SMTP id g13so103558088ioj.1
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 09:16:19 -0700 (PDT)
+In-Reply-To: <1467381910-3445-12-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On 7/1/16 8:04 AM, Jiri Pirko wrote:
-
-> +static int
-> +mlxsw_sp_router_fib4_entry_init(struct mlxsw_sp *mlxsw_sp,
-> +				const struct switchdev_obj_ipv4_fib *fib4,
-> +				struct mlxsw_sp_fib_entry *fib_entry)
+> @@ -327,6 +333,19 @@ mlxsw_sp_port_vport_find_by_fid(const struct mlxsw_sp_port *mlxsw_sp_port,
+>  	return NULL;
+>  }
+>
+> +static inline struct mlxsw_sp_rif *
+> +mlxsw_sp_rif_find_by_dev(const struct mlxsw_sp *mlxsw_sp,
+> +			 const struct net_device *dev)
 > +{
-> +	struct fib_info *fi = fib4->fi;
+> +	int i;
 > +
-> +	if (fib4->type == RTN_LOCAL || fib4->type == RTN_BROADCAST) {
-> +		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_TRAP;
-> +		return 0;
-> +	}
-> +	if (fib4->type != RTN_UNICAST)
-> +		return -EINVAL;
+> +	for (i = 0; i < MLXSW_SP_RIF_MAX; i++)
+> +		if (mlxsw_sp->rifs[i] && mlxsw_sp->rifs[i]->dev == dev)
+> +			return mlxsw_sp->rifs[i];
+> +
+> +	return NULL;
+> +}
+> +
 
-This is going to cause offload to fail b/c is a user has RTN_UNREACHABLE 
-or RTN_PROHIBIT default route in a table. Those routes are needed per 
-VRF/table to keep lookups from dropping to the another table.
+Why not add the rif to mlxsw_sp_port which is the priv data for a mlxsw dev?
