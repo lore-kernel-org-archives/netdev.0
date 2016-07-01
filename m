@@ -1,169 +1,232 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: [patch net-next 02/42] net: introduce default
- neigh_construct/destroy ndo calls for L2 upper devices
-Date: Fri, 1 Jul 2016 08:24:54 -0600
-Message-ID: <54eb6809-c681-f1af-51a3-aaf52b12ef45@cumulusnetworks.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 24/42] mlxsw: spectrum: Add couple of lower device helper functions
+Date: Fri,  1 Jul 2016 16:04:52 +0200
+Message-ID: <1467381910-3445-25-git-send-email-jiri@resnulli.us>
 References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
- <1467381910-3445-3-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	sfeldma@gmail.com, roopa@cumulusnetworks.com, andy@greyhouse.net,
-	tgraf@suug.ch, jhs@mojatatu.com, linville@tuxdriver.com,
-	ivecera@redhat.com
-To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
+	dsa@cumulusnetworks.com, tgraf@suug.ch, jhs@mojatatu.com,
+	linville@tuxdriver.com, ivecera@redhat.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f54.google.com ([209.85.214.54]:37594 "EHLO
-	mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752581AbcGAOY5 (ORCPT
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35482 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752702AbcGAOY5 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 10:24:57 -0400
-Received: by mail-it0-f54.google.com with SMTP id f6so18024075ith.0
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:24:56 -0700 (PDT)
-In-Reply-To: <1467381910-3445-3-git-send-email-jiri@resnulli.us>
+Received: by mail-wm0-f67.google.com with SMTP id a66so5683899wme.2
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:24:02 -0700 (PDT)
+In-Reply-To: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 7/1/16 8:04 AM, Jiri Pirko wrote:
-> From: Jiri Pirko <jiri@mellanox.com>
->
-> L2 upper device needs to propagate neigh_construct/destroy calls down to
-> lower devices. Do this by defining default ndo functions and use them in
-> team, bond, bridge and vlan.
->
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
-> ---
->  drivers/net/bonding/bond_main.c |  2 ++
->  drivers/net/team/team.c         |  2 ++
->  include/linux/netdevice.h       |  4 ++++
->  net/8021q/vlan_dev.c            |  2 ++
->  net/bridge/br_device.c          |  2 ++
->  net/core/dev.c                  | 32 ++++++++++++++++++++++++++++++++
->  6 files changed, 44 insertions(+)
->
-> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-> index 90157e2..480d73a 100644
-> --- a/drivers/net/bonding/bond_main.c
-> +++ b/drivers/net/bonding/bond_main.c
-> @@ -4137,6 +4137,8 @@ static const struct net_device_ops bond_netdev_ops = {
->  	.ndo_add_slave		= bond_enslave,
->  	.ndo_del_slave		= bond_release,
->  	.ndo_fix_features	= bond_fix_features,
-> +	.ndo_neigh_construct	= netdev_default_l2upper_neigh_construct,
-> +	.ndo_neigh_destroy	= netdev_default_l2upper_neigh_destroy,
->  	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
->  	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
->  	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
-> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
-> index f9eebea..a380649 100644
-> --- a/drivers/net/team/team.c
-> +++ b/drivers/net/team/team.c
-> @@ -2002,6 +2002,8 @@ static const struct net_device_ops team_netdev_ops = {
->  	.ndo_add_slave		= team_add_slave,
->  	.ndo_del_slave		= team_del_slave,
->  	.ndo_fix_features	= team_fix_features,
-> +	.ndo_neigh_construct	= netdev_default_l2upper_neigh_construct,
-> +	.ndo_neigh_destroy	= netdev_default_l2upper_neigh_destroy,
->  	.ndo_change_carrier     = team_change_carrier,
->  	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
->  	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
-> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> index f126119..fac5132 100644
-> --- a/include/linux/netdevice.h
-> +++ b/include/linux/netdevice.h
-> @@ -3826,6 +3826,10 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
->  				   struct net_device *lower_dev);
->  void netdev_lower_state_changed(struct net_device *lower_dev,
->  				void *lower_state_info);
-> +int netdev_default_l2upper_neigh_construct(struct net_device *dev,
-> +					   struct neighbour *n);
-> +void netdev_default_l2upper_neigh_destroy(struct net_device *dev,
-> +					  struct neighbour *n);
->
->  /* RSS keys are 40 or 52 bytes long */
->  #define NETDEV_RSS_KEY_LEN 52
-> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-> index 86ae75b..c8f422c 100644
-> --- a/net/8021q/vlan_dev.c
-> +++ b/net/8021q/vlan_dev.c
-> @@ -790,6 +790,8 @@ static const struct net_device_ops vlan_netdev_ops = {
->  	.ndo_netpoll_cleanup	= vlan_dev_netpoll_cleanup,
->  #endif
->  	.ndo_fix_features	= vlan_dev_fix_features,
-> +	.ndo_neigh_construct	= netdev_default_l2upper_neigh_construct,
-> +	.ndo_neigh_destroy	= netdev_default_l2upper_neigh_destroy,
->  	.ndo_fdb_add		= switchdev_port_fdb_add,
->  	.ndo_fdb_del		= switchdev_port_fdb_del,
->  	.ndo_fdb_dump		= switchdev_port_fdb_dump,
-> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
-> index 0c39e0f..8eecd0e 100644
-> --- a/net/bridge/br_device.c
-> +++ b/net/bridge/br_device.c
-> @@ -349,6 +349,8 @@ static const struct net_device_ops br_netdev_ops = {
->  	.ndo_add_slave		 = br_add_slave,
->  	.ndo_del_slave		 = br_del_slave,
->  	.ndo_fix_features        = br_fix_features,
-> +	.ndo_neigh_construct	 = netdev_default_l2upper_neigh_construct,
-> +	.ndo_neigh_destroy	 = netdev_default_l2upper_neigh_destroy,
->  	.ndo_fdb_add		 = br_fdb_add,
->  	.ndo_fdb_del		 = br_fdb_delete,
->  	.ndo_fdb_dump		 = br_fdb_dump,
-> diff --git a/net/core/dev.c b/net/core/dev.c
-> index aba10d2..eb13647 100644
-> --- a/net/core/dev.c
-> +++ b/net/core/dev.c
-> @@ -6041,6 +6041,38 @@ void netdev_lower_state_changed(struct net_device *lower_dev,
->  }
->  EXPORT_SYMBOL(netdev_lower_state_changed);
->
-> +int netdev_default_l2upper_neigh_construct(struct net_device *dev,
-> +					   struct neighbour *n)
-> +{
-> +	struct net_device *lower_dev;
-> +	struct list_head *iter;
-> +	int err;
-> +
-> +	netdev_for_each_lower_dev(dev, lower_dev, iter) {
-> +		if (!lower_dev->netdev_ops->ndo_neigh_construct)
-> +			continue;
-> +		err = lower_dev->netdev_ops->ndo_neigh_construct(lower_dev, n);
-> +		if (err)
-> +			return err;
+From: Jiri Pirko <jiri@mellanox.com>
 
-If the Mth lower_dev of N total fails why not call destroy on the first M-1?
+Add functions that iterate over lower devices and find port device.
+As a dependency add netdev_for_each_all_lower_dev and
+netdev_for_each_all_lower_dev_rcu macro with
+netdev_all_lower_get_next and netdev_all_lower_get_next_rcu shelpers.
 
-> +	}
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL(netdev_default_l2upper_neigh_construct);
+Also, add functions to return mlxsw struct according to lower device
+found and mlxsw_port struct with a reference to lower device.
 
-_GPL?
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 65 ++++++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  3 ++
+ include/linux/netdevice.h                      | 18 +++++++
+ net/core/dev.c                                 | 46 ++++++++++++++++++
+ 4 files changed, 127 insertions(+), 5 deletions(-)
 
-
-> +
-> +void netdev_default_l2upper_neigh_destroy(struct net_device *dev,
-> +					  struct neighbour *n)
-> +{
-> +	struct net_device *lower_dev;
-> +	struct list_head *iter;
-> +
-> +	netdev_for_each_lower_dev(dev, lower_dev, iter) {
-> +		if (!lower_dev->netdev_ops->ndo_neigh_destroy)
-> +			continue;
-> +		lower_dev->netdev_ops->ndo_neigh_destroy(lower_dev, n);
-> +	}
-> +}
-> +EXPORT_SYMBOL(netdev_default_l2upper_neigh_destroy);
-
-_GPL?
-
-> +
->  static void dev_change_rx_flags(struct net_device *dev, int flags)
->  {
->  	const struct net_device_ops *ops = dev->netdev_ops;
->
-
-I do not see either of the new functions being called in this patch set; 
-only hit grep shows is this patch.
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index f0799898..f54fd6a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2567,6 +2567,66 @@ static struct mlxsw_driver mlxsw_sp_driver = {
+ 	.profile			= &mlxsw_sp_config_profile,
+ };
+ 
++static bool mlxsw_sp_port_dev_check(const struct net_device *dev)
++{
++	return dev->netdev_ops == &mlxsw_sp_port_netdev_ops;
++}
++
++static struct mlxsw_sp_port *mlxsw_sp_port_dev_lower_find(struct net_device *dev)
++{
++	struct net_device *lower_dev;
++	struct list_head *iter;
++
++	if (mlxsw_sp_port_dev_check(dev))
++		return netdev_priv(dev);
++
++	netdev_for_each_all_lower_dev(dev, lower_dev, iter) {
++		if (mlxsw_sp_port_dev_check(lower_dev))
++			return netdev_priv(lower_dev);
++	}
++	return NULL;
++}
++
++static struct mlxsw_sp *mlxsw_sp_lower_get(struct net_device *dev)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port;
++
++	mlxsw_sp_port = mlxsw_sp_port_dev_lower_find(dev);
++	return mlxsw_sp_port ? mlxsw_sp_port->mlxsw_sp : NULL;
++}
++
++static struct mlxsw_sp_port *mlxsw_sp_port_dev_lower_find_rcu(struct net_device *dev)
++{
++	struct net_device *lower_dev;
++	struct list_head *iter;
++
++	if (mlxsw_sp_port_dev_check(dev))
++		return netdev_priv(dev);
++
++	netdev_for_each_all_lower_dev_rcu(dev, lower_dev, iter) {
++		if (mlxsw_sp_port_dev_check(lower_dev))
++			return netdev_priv(lower_dev);
++	}
++	return NULL;
++}
++
++struct mlxsw_sp_port *mlxsw_sp_port_lower_dev_hold(struct net_device *dev)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port;
++
++	rcu_read_lock();
++	mlxsw_sp_port = mlxsw_sp_port_dev_lower_find_rcu(dev);
++	if (mlxsw_sp_port)
++		dev_hold(mlxsw_sp_port->dev);
++	rcu_read_unlock();
++	return mlxsw_sp_port;
++}
++
++void mlxsw_sp_port_dev_put(struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	dev_put(mlxsw_sp_port->dev);
++}
++
+ static bool mlxsw_sp_lag_port_fid_member(struct mlxsw_sp_port *lag_port,
+ 					 u16 fid)
+ {
+@@ -2647,11 +2707,6 @@ int mlxsw_sp_port_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_port, u16 fid)
+ 		return mlxsw_sp_port_fdb_flush_by_port_fid(mlxsw_sp_port, fid);
+ }
+ 
+-static bool mlxsw_sp_port_dev_check(const struct net_device *dev)
+-{
+-	return dev->netdev_ops == &mlxsw_sp_port_netdev_ops;
+-}
+-
+ static bool mlxsw_sp_master_bridge_check(struct mlxsw_sp *mlxsw_sp,
+ 					 struct net_device *br_dev)
+ {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 877a879..fefff25 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -292,6 +292,9 @@ struct mlxsw_sp_port {
+ 	struct list_head vports_list;
+ };
+ 
++struct mlxsw_sp_port *mlxsw_sp_port_lower_dev_hold(struct net_device *dev);
++void mlxsw_sp_port_dev_put(struct mlxsw_sp_port *mlxsw_sp_port);
++
+ static inline bool
+ mlxsw_sp_port_is_pause_en(const struct mlxsw_sp_port *mlxsw_sp_port)
+ {
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index fac5132..02c5254 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3805,12 +3805,30 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ 
+ void *netdev_lower_get_next(struct net_device *dev,
+ 				struct list_head **iter);
++
+ #define netdev_for_each_lower_dev(dev, ldev, iter) \
+ 	for (iter = (dev)->adj_list.lower.next, \
+ 	     ldev = netdev_lower_get_next(dev, &(iter)); \
+ 	     ldev; \
+ 	     ldev = netdev_lower_get_next(dev, &(iter)))
+ 
++struct net_device *netdev_all_lower_get_next(struct net_device *dev,
++					     struct list_head **iter);
++struct net_device *netdev_all_lower_get_next_rcu(struct net_device *dev,
++						 struct list_head **iter);
++
++#define netdev_for_each_all_lower_dev(dev, ldev, iter) \
++	for (iter = (dev)->all_adj_list.lower.next, \
++	     ldev = netdev_all_lower_get_next(dev, &(iter)); \
++	     ldev; \
++	     ldev = netdev_all_lower_get_next(dev, &(iter)))
++
++#define netdev_for_each_all_lower_dev_rcu(dev, ldev, iter) \
++	for (iter = (dev)->all_adj_list.lower.next, \
++	     ldev = netdev_all_lower_get_next_rcu(dev, &(iter)); \
++	     ldev; \
++	     ldev = netdev_all_lower_get_next_rcu(dev, &(iter)))
++
+ void *netdev_adjacent_get_private(struct list_head *adj_list);
+ void *netdev_lower_get_first_private_rcu(struct net_device *dev);
+ struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index eb13647..ce008e4 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5445,6 +5445,52 @@ void *netdev_lower_get_next(struct net_device *dev, struct list_head **iter)
+ EXPORT_SYMBOL(netdev_lower_get_next);
+ 
+ /**
++ * netdev_all_lower_get_next - Get the next device from all lower neighbour list
++ * @dev: device
++ * @iter: list_head ** of the current position
++ *
++ * Gets the next netdev_adjacent from the dev's all lower neighbour
++ * list, starting from iter position. The caller must hold RTNL lock or
++ * its own locking that guarantees that the neighbour all lower
++ * list will remain unchanged.
++ */
++struct net_device *netdev_all_lower_get_next(struct net_device *dev, struct list_head **iter)
++{
++	struct netdev_adjacent *lower;
++
++	lower = list_entry(*iter, struct netdev_adjacent, list);
++
++	if (&lower->list == &dev->all_adj_list.lower)
++		return NULL;
++
++	*iter = lower->list.next;
++
++	return lower->dev;
++}
++EXPORT_SYMBOL(netdev_all_lower_get_next);
++
++/**
++ * netdev_all_lower_get_next_rcu - Get the next device from all
++ *				   lower neighbour list, RCU variant
++ * @dev: device
++ * @iter: list_head ** of the current position
++ *
++ * Gets the next netdev_adjacent from the dev's all lower neighbour
++ * list, starting from iter position. The caller must hold RCU read lock.
++ */
++struct net_device *netdev_all_lower_get_next_rcu(struct net_device *dev,
++						 struct list_head **iter)
++{
++	struct netdev_adjacent *lower;
++
++	lower = list_first_or_null_rcu(&dev->all_adj_list.lower,
++				       struct netdev_adjacent, list);
++
++	return lower ? lower->dev : NULL;
++}
++EXPORT_SYMBOL(netdev_all_lower_get_next_rcu);
++
++/**
+  * netdev_lower_get_first_private_rcu - Get the first ->private from the
+  *				       lower neighbour list, RCU
+  *				       variant
+-- 
+2.5.5
