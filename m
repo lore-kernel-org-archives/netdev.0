@@ -1,54 +1,147 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: strange Mac OSX RST behavior
-Date: Fri, 1 Jul 2016 10:08:52 -0700
-Message-ID: <5776A3A4.8000503@hpe.com>
-References: <1467385815-6357-1-git-send-email-jbaron@akamai.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, eric.dumazet@gmail.com
-To: Jason Baron <jbaron@akamai.com>, linux-kernel@vger.kernel.org,
-	netdev@vger.kernel.org
+From: Tushar Dave <tushar.n.dave@oracle.com>
+Subject: [PATCH] i40e: Explicitly write platform-specific mac address after PF reset
+Date: Fri,  1 Jul 2016 10:11:20 -0700
+Message-ID: <1467393080-2202-1-git-send-email-tushar.n.dave@oracle.com>
+Cc: sowmini.varadhan@oracle.com
+To: jeffrey.t.kirsher@intel.com, jesse.brandeburg@intel.com,
+	shannon.nelson@intel.com, carolyn.wyborny@intel.com,
+	donald.c.skidmore@intel.com, bruce.w.allan@intel.com,
+	john.ronciak@intel.com, mitch.a.williams@intel.com,
+	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3427.houston.hpe.com ([15.241.140.73]:16097 "EHLO
-	g4t3427.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751879AbcGARJx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 13:09:53 -0400
-In-Reply-To: <1467385815-6357-1-git-send-email-jbaron@akamai.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:48974 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751960AbcGARLs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 13:11:48 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/01/2016 08:10 AM, Jason Baron wrote:
-> I'm wondering if anybody else has run into this...
->
-> On Mac OSX 10.11.5 (latest version), we have found that when tcp
-> connections are abruptly terminated (via ^C), a FIN is sent followed
-> by an RST packet.
+i40e PF reset clears mac filters. If platform-specific mac address
+is used, driver has to explicitly write default mac address to mac
+filters otherwise all incoming traffic destined to default mac
+address will be dropped after reset.
 
-That just seems, well, silly.  If the client application wants to use 
-abortive close (sigh..) it should do so, there shouldn't be this 
-little-bit-pregnant, correct close initiation (FIN) followed by a RST.
+This issue was found on SPARC while toggling i40e ntuple via ethtool.
 
-> The RST is sent with the same sequence number as the
-> FIN, and thus dropped since the stack only accepts RST packets matching
-> rcv_nxt (RFC 5961). This could also be resolved if Mac OSX replied with
-> an RST on the closed socket, but it appears that it does not.
->
-> The workaround here is then to reset the connection, if the RST is
-> is equal to rcv_nxt - 1, if we have already received a FIN.
->
-> The RST attack surface is limited b/c we only accept the RST after we've
-> accepted a FIN and have not previously sent a FIN and received back the
-> corresponding ACK. In other words RST is only accepted in the tcp
-> states: TCP_CLOSE_WAIT, TCP_LAST_ACK, and TCP_CLOSING.
->
-> I'm interested if anybody else has run into this issue. Its problematic
-> since it takes up server resources for sockets sitting in TCP_CLOSE_WAIT.
+Signed-off-by: Tushar Dave <tushar.n.dave@oracle.com>
+Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+---
+ drivers/net/ethernet/intel/i40e/i40e_main.c | 87 ++++++++++++++++-------------
+ 1 file changed, 49 insertions(+), 38 deletions(-)
 
-Isn't the server application expected to act on the read return of zero 
-(which is supposed to be) triggered by the receipt of the FIN segment?
-
-rick jones
-
-> We are also in the process of contacting Apple to see what can be done
-> here...workaround patch is below.
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_main.c b/drivers/net/ethernet/intel/i40e/i40e_main.c
+index 3449129..b330723 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_main.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_main.c
+@@ -2573,6 +2573,44 @@ static int i40e_vlan_rx_kill_vid(struct net_device *netdev,
+ }
+ 
+ /**
++ * i40e_macaddr_init - explicitly write the mac address filters.
++ *
++ * @vsi: pointer to the vsi.
++ * @macaddr: the MAC address
++ *
++ * This is needed when the macaddr has been obtained by other
++ * means than the default, e.g., from Open Firmware or IDPROM.
++ * Returns 0 on success, negative on failure
++ **/
++static int i40e_macaddr_init(struct i40e_vsi *vsi, u8 *macaddr)
++{
++	int ret;
++	struct i40e_aqc_add_macvlan_element_data element;
++
++	ret = i40e_aq_mac_address_write(&vsi->back->hw,
++					I40E_AQC_WRITE_TYPE_LAA_WOL,
++					macaddr, NULL);
++	if (ret) {
++		dev_info(&vsi->back->pdev->dev,
++			 "Addr change for VSI failed: %d\n", ret);
++		return -EADDRNOTAVAIL;
++	}
++
++	memset(&element, 0, sizeof(element));
++	ether_addr_copy(element.mac_addr, macaddr);
++	element.flags = cpu_to_le16(I40E_AQC_MACVLAN_ADD_PERFECT_MATCH);
++	ret = i40e_aq_add_macvlan(&vsi->back->hw, vsi->seid, &element, 1, NULL);
++	if (ret) {
++		dev_info(&vsi->back->pdev->dev,
++			 "add filter failed err %s aq_err %s\n",
++			 i40e_stat_str(&vsi->back->hw, ret),
++			 i40e_aq_str(&vsi->back->hw,
++				     vsi->back->hw.aq.asq_last_status));
++	}
++	return ret;
++}
++
++/**
+  * i40e_restore_vlan - Reinstate vlans when vsi/netdev comes back up
+  * @vsi: the vsi being brought back up
+  **/
+@@ -3058,8 +3096,19 @@ static void i40e_vsi_config_dcb_rings(struct i40e_vsi *vsi)
+  **/
+ static void i40e_set_vsi_rx_mode(struct i40e_vsi *vsi)
+ {
++	struct i40e_pf *pf = vsi->back;
++	int err;
++
+ 	if (vsi->netdev)
+ 		i40e_set_rx_mode(vsi->netdev);
++
++	if (!!(pf->flags & I40E_FLAG_PF_MAC)) {
++		err = i40e_macaddr_init(vsi, pf->hw.mac.addr);
++		if (err) {
++			dev_warn(&pf->pdev->dev,
++				 "could not set up macaddr; err %d\n", err);
++		}
++	}
+ }
+ 
+ /**
+@@ -9719,44 +9768,6 @@ err_vsi:
+ }
+ 
+ /**
+- * i40e_macaddr_init - explicitly write the mac address filters.
+- *
+- * @vsi: pointer to the vsi.
+- * @macaddr: the MAC address
+- *
+- * This is needed when the macaddr has been obtained by other
+- * means than the default, e.g., from Open Firmware or IDPROM.
+- * Returns 0 on success, negative on failure
+- **/
+-static int i40e_macaddr_init(struct i40e_vsi *vsi, u8 *macaddr)
+-{
+-	int ret;
+-	struct i40e_aqc_add_macvlan_element_data element;
+-
+-	ret = i40e_aq_mac_address_write(&vsi->back->hw,
+-					I40E_AQC_WRITE_TYPE_LAA_WOL,
+-					macaddr, NULL);
+-	if (ret) {
+-		dev_info(&vsi->back->pdev->dev,
+-			 "Addr change for VSI failed: %d\n", ret);
+-		return -EADDRNOTAVAIL;
+-	}
+-
+-	memset(&element, 0, sizeof(element));
+-	ether_addr_copy(element.mac_addr, macaddr);
+-	element.flags = cpu_to_le16(I40E_AQC_MACVLAN_ADD_PERFECT_MATCH);
+-	ret = i40e_aq_add_macvlan(&vsi->back->hw, vsi->seid, &element, 1, NULL);
+-	if (ret) {
+-		dev_info(&vsi->back->pdev->dev,
+-			 "add filter failed err %s aq_err %s\n",
+-			 i40e_stat_str(&vsi->back->hw, ret),
+-			 i40e_aq_str(&vsi->back->hw,
+-				     vsi->back->hw.aq.asq_last_status));
+-	}
+-	return ret;
+-}
+-
+-/**
+  * i40e_vsi_setup - Set up a VSI by a given type
+  * @pf: board private structure
+  * @type: VSI type
+-- 
+1.9.1
