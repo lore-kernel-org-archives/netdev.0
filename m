@@ -1,53 +1,79 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 6/7] dt-bindings: net: bgmac: add bindings documentation
- for bgmac
-Date: Fri, 01 Jul 2016 11:46:04 +0200
-Message-ID: <29091648.CIZSyGWL7u@wuerfel>
-References: <1467327554-22074-1-git-send-email-jon.mason@broadcom.com>
- <1467327554-22074-7-git-send-email-jon.mason@broadcom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
- f.fainelli@gmail.com, Scott Branden <sbranden@broadcom.com>,
- Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
- hauke@hauke-m.de, zajec5@gmail.com, linux-kernel@vger.kernel.org,
- Ray Jui <rjui@broadcom.com>, Rob Herring <robh+dt@kernel.org>,
- bcm-kernel-feedback-list@broadcom.com, Kumar Gala <galak@codeaurora.org>,
- netdev@vger.kernel.org, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org
-To: Jon Mason <jon.mason@broadcom.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1467327554-22074-7-git-send-email-jon.mason@broadcom.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+From: chleroy <chleroy@ce692ce0-f8e3-4c9c-b4d7-dcccc219094e.localdomain>
+Subject: [PATCH] netfilter: nf_conntrack_sip: CSeq 0 is a valid CSeq
+Date: Fri,  1 Jul 2016 11:45:41 +0200 (CEST)
+Message-ID: <20160701094541.2A8AA1A23A2@localhost.localdomain>
+Cc: netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thursday, June 30, 2016 6:59:13 PM CEST Jon Mason wrote:
-> +
-> +Required properties:
-> + - compatible: "brcm,bgmac-nsp"
-> + - reg:                Address and length of the GMAC registers,
-> +               Address and length of the GMAC IDM registers
-> + - reg-names:  Names of the registers.  Must have both "gmac_base" and
-> +               "idm_base"
-> + - interrupts: Interrupt number
-> +
+Do not drop packet when CSeq is 0 as 0 is also a valid value for CSeq.
 
+In order to do so, we replace obsolete simple_strtoul() which
+returns 0 on error by kstrtouint(). As kstrtouint() requires a
+NULL terminated string, we need to use a temporary buffer
 
-"brcm,bgmac-nsp" sounds a bit too general. As I understand, this is a family
-of SoCs that might not all have the exact same implementation of this
-ethernet device, as we can see from the long lookup table in bgmac_probe().
+Signed-off-by: Christophe Leroy <christophe.leroy@c-s.fr>
+---
+ net/netfilter/nf_conntrack_sip.c | 20 ++++++++++++++++----
+ 1 file changed, 16 insertions(+), 4 deletions(-)
 
-Please document the specific product numbers here that are publically
-known already. Having the driver match just on "brcm,bgmac-nsp" as a fallback
-is fine, so you can document that one as required for all users.
-
-	Arnd
+diff --git a/net/netfilter/nf_conntrack_sip.c b/net/netfilter/nf_conntrack_sip.c
+index f72ba55..e770477 100644
+--- a/net/netfilter/nf_conntrack_sip.c
++++ b/net/netfilter/nf_conntrack_sip.c
+@@ -1368,6 +1368,7 @@ static int process_sip_response(struct sk_buff *skb, unsigned int protoff,
+ 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+ 	unsigned int matchoff, matchlen, matchend;
+ 	unsigned int code, cseq, i;
++	char buf[21];
+ 
+ 	if (*datalen < strlen("SIP/2.0 200"))
+ 		return NF_ACCEPT;
+@@ -1382,8 +1383,13 @@ static int process_sip_response(struct sk_buff *skb, unsigned int protoff,
+ 		nf_ct_helper_log(skb, ct, "cannot parse cseq");
+ 		return NF_DROP;
+ 	}
+-	cseq = simple_strtoul(*dptr + matchoff, NULL, 10);
+-	if (!cseq) {
++	if (matchlen > sizeof(buf) - 1) {
++		nf_ct_helper_log(skb, ct, "cannot parse cseq (too big)");
++		return NF_DROP;
++	}
++	memcpy(buf, *dptr + matchoff, matchlen);
++	buf[matchlen] = 0;
++	if (kstrtouint(buf, 10, &cseq)) {
+ 		nf_ct_helper_log(skb, ct, "cannot get cseq");
+ 		return NF_DROP;
+ 	}
+@@ -1432,6 +1438,7 @@ static int process_sip_request(struct sk_buff *skb, unsigned int protoff,
+ 
+ 	for (i = 0; i < ARRAY_SIZE(sip_handlers); i++) {
+ 		const struct sip_handler *handler;
++		char buf[21];
+ 
+ 		handler = &sip_handlers[i];
+ 		if (handler->request == NULL)
+@@ -1445,8 +1452,13 @@ static int process_sip_request(struct sk_buff *skb, unsigned int protoff,
+ 			nf_ct_helper_log(skb, ct, "cannot parse cseq");
+ 			return NF_DROP;
+ 		}
+-		cseq = simple_strtoul(*dptr + matchoff, NULL, 10);
+-		if (!cseq) {
++		if (matchlen > sizeof(buf) - 1) {
++			nf_ct_helper_log(skb, ct, "cannot parse cseq(too big)");
++			return NF_DROP;
++		}
++		memcpy(buf, *dptr + matchoff, matchlen);
++		buf[matchlen] = 0;
++		if (kstrtouint(buf, 10, &cseq)) {
+ 			nf_ct_helper_log(skb, ct, "cannot get cseq");
+ 			return NF_DROP;
+ 		}
+-- 
+2.1.0
