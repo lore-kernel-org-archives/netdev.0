@@ -1,47 +1,88 @@
-From: zam chukwu <zamchukwu4@gmail.com>
-Subject: GOOD INTEREST
-Date: Fri, 1 Jul 2016 17:34:51 +0200
-Message-ID: <CAHk2tA1N6Z5JtCsu3EfYjXf5hPap2WhQjq6itvJnPkoFftnbXw@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 6/7] dt-bindings: net: bgmac: add bindings documentation
+ for bgmac
+Date: Fri, 01 Jul 2016 17:42:39 +0200
+Message-ID: <6488341.IDGze89kcW@wuerfel>
+References: <1467327554-22074-1-git-send-email-jon.mason@broadcom.com>
+ <29091648.CIZSyGWL7u@wuerfel>
+ <CAC3K-4qfb3JQ3i8nEo2AOobb1ExB=d=dSZUrdype+z9eHi1FwQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-To: undisclosed-recipients:;
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f195.google.com ([209.85.223.195]:35679 "EHLO
-	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752182AbcGAPey (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 11:34:54 -0400
-Received: by mail-io0-f195.google.com with SMTP id u25so11868263iou.2
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 08:34:53 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Mark Rutland <mark.rutland@arm.com>, devicetree@vger.kernel.org,
+ Florian Fainelli <f.fainelli@gmail.com>, Scott Branden <sbranden@broadcom.com>,
+ Pawel Moll <pawel.moll@arm.com>, Ian Campbell <ijc+devicetree@hellion.org.uk>,
+ Hauke Mehrtens <hauke@hauke-m.de>,
+ =?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>,
+ linux-kernel@vger.kernel.org, Ray Jui <rjui@broadcom.com>,
+ Rob Herring <robh+dt@kernel.org>,
+ BCM Kernel Feedback <bcm-kernel-feedback-list@broadcom.com>,
+ Kumar Gala <galak@codeaurora.org>, netdev@vger.kernel.org, davem@davemloft.net,
+ linux-arm-kernel <linux-arm-kernel@lists.infradead.org>
+To: Jon Mason <jon.mason@broadcom.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+In-Reply-To: <CAC3K-4qfb3JQ3i8nEo2AOobb1ExB=d=dSZUrdype+z9eHi1FwQ@mail.gmail.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-Dearest,
+On Friday, July 1, 2016 11:17:25 AM CEST Jon Mason wrote:
+> On Fri, Jul 1, 2016 at 5:46 AM, Arnd Bergmann <arnd@arndb.de> wrote:
+> > On Thursday, June 30, 2016 6:59:13 PM CEST Jon Mason wrote:
+> >> +
+> >> +Required properties:
+> >> + - compatible: "brcm,bgmac-nsp"
+> >> + - reg:                Address and length of the GMAC registers,
+> >> +               Address and length of the GMAC IDM registers
+> >> + - reg-names:  Names of the registers.  Must have both "gmac_base" and
+> >> +               "idm_base"
+> >> + - interrupts: Interrupt number
+> >> +
+> >
+> >
+> > "brcm,bgmac-nsp" sounds a bit too general. As I understand, this is a family
+> > of SoCs that might not all have the exact same implementation of this
+> > ethernet device, as we can see from the long lookup table in bgmac_probe().
+> 
+> The Broadcom iProc family of SoCs contains:
+> Northstar
+> Northstar Plus
+> Cygnus
+> Northstar 2
+> a few SoCs that are under development
+> and a number of ethernet switches (which might never be officially supported)
+> 
+> Each one of these SoCs could have a different revision of the gmac IP
+> block, but they should be uniform within each SoC (though there might
+> be a A0/B0 change necessary).  The Northstar Plus product family has a
+> number of different implementations, but the SoC is unchanged.  So, I
+> think this might be too specific, when we really need a general compat
+> string.
 
-I am interested in establishing and operating a very viable business
-as a means of investment abroad. I do not know too well on how this is
-done in your country, so I will need you to help me in this regard.
+Ok, thanks for the clarification, that sounds good enough.
 
-My preference is any good profit yielding business and I would any
-viable ideas you could come up with. I will also need you to help me
-look for properties like homes and lands for sale as I proposing to
-invest the sum of Fifty Million United States Dollars ($50,000,000
-USD) for this. I do not know if you can and will be of help to me. For
-a brief on my personality; My name is Elder Zireva, a  in Accra Ghana.
+> Broadcom has a history of sharing IP blocks amongst the different
+> divisions.  So, this driver might be used on other SoC families (as it
+> apparently has been done in the past, based on the code you
+> reference).  I do not know of any way to know what legacy, non-iProc
+> chips have used this IP block.  I can make this "brcm,iproc-bgmac",
+> and add "brcm,iproc-nsp-bgmac" as an alternative compatible string in
+> this file (which I believe you are suggesting), but there might be
+> non-iProc SoCs that use this driver.  Is this acceptable?
 
-I am a retired Business man formally into private Shipping Business. I
-62 years of age, married with a wife and 4 lovely kids. I dropped my
-Shipping business because it wasn't producing profitable income and
-above all, the Government is too inquisitive with a lot of political
-enemies here and there.
+If it is also used outside of iProc, then I see no need for the
+extra compatible string, although it would not do any harm either.
 
-My need for this business proposition and to acquire these properties
-is very urgent as I am planning to move out of this country with my
-family down to your country. I want you to also help in finding a good
-home where my family and I will live in. (Mini Estate)
+Ideally we should name it whatever the name for this IP block is
+inside of the company, with "nsp" as the designation for the variant
+in Northstar Plus. A lot of Broadcom IP blocks themselves seem to have
+some four-digit or five-digit number, maybe this one does too?
 
-Please I expect your good and prompt reply so that we can proceed swiftly.
-
-I will need your phone and fax numbers for easier communication.
-
-Best Regards,
-Mr Zireva David.
+	Arnd
