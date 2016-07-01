@@ -1,55 +1,186 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [Patch net] net_sched: fix mirrored packets checksum
-Date: Fri, 01 Jul 2016 11:13:55 +0200
-Message-ID: <57763453.1050008@iogearbox.net>
-References: <1467306922-7086-1-git-send-email-xiyou.wangcong@gmail.com> <57757823.4090000@iogearbox.net> <CAM_iQpXtOr+AD2_q1E_dZm8MmLFAhdqPb6-_3ChgCr38gKi0yg@mail.gmail.com> <5775A710.9010105@iogearbox.net> <CAM_iQpVOVKyyGLqvSzB9L1Dugo_zXdrc0Qymy_gBVNMTPm-sHw@mail.gmail.com> <CAM_iQpXd7-rx_XzoZ=8gVekLD0YRLkmr0kgud3WoXnjEvCOLZw@mail.gmail.com>
+From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+Subject: [PATCH v3 net-next 9/9] net: hns: get reset registers from DT
+Date: Fri, 1 Jul 2016 17:34:13 +0800
+Message-ID: <1467365653-83331-10-git-send-email-Yisen.Zhuang@huawei.com>
+References: <1467365653-83331-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Tom Herbert <tom@herbertland.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:47985 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751900AbcGAJN5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 05:13:57 -0400
-In-Reply-To: <CAM_iQpXd7-rx_XzoZ=8gVekLD0YRLkmr0kgud3WoXnjEvCOLZw@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <akpm@linux-foundation.org>, <gregkh@linuxfoundation.org>,
+	<kvalo@codeaurora.org>, <mchehab@osg.samsung.com>,
+	<linux@roeck-us.net>, <jslaby@suse.cz>, <yankejian@huawei.com>,
+	<huangdaode@hisilicon.com>, <lipeng321@huawei.com>,
+	<xieqianqian@huawei.com>, <arnd@arndb.de>, <andrew@lunn.ch>,
+	<xypron.glpk@gmx.de>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linuxarm@huawei.com>
+To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
+	<salil.mehta@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1467365653-83331-1-git-send-email-Yisen.Zhuang@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/01/2016 01:41 AM, Cong Wang wrote:
-> On Thu, Jun 30, 2016 at 4:26 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
->> On Thu, Jun 30, 2016 at 4:11 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->>> On 07/01/2016 12:42 AM, Cong Wang wrote:
->>>> On Thu, Jun 30, 2016 at 12:50 PM, Daniel Borkmann <daniel@iogearbox.net>
->>>> wrote:
->>>>>
->>>>> Maybe makes sense to move skb_push_rcsum() but /also/ skb_pull_rcsum()
->>>>> to the header then? Both seem similarly small at least (could be split
->>>>> f.e into two patches then, first for the move, second for the actual
->>>>> fix).
->>>>
->>>> No objection from me. Please feel free to send a patch. ;)
->>>
->>> Shrug, I actually meant this as feedback to your patch, since you move that
->>> helper and not as a note to myself. ;)
->>
->> Interesting, my patch only moves what it needs, why does it need
->> to do more?
->
-> In case you miss the context:
-> http://marc.info/?l=linux-netdev&m=146730654005424&w=2
+From: Kejian Yan <yankejian@huawei.com>
 
-I didn't miss it. Btw, recently had a similar issue (f8ffad69c9f8b8dfb0b).
+Since the registers of subctrl may be different, it is better to
+mv the registers from hns mdio driver routine to device tree node.
 
-> This patch should be backported to stable too, which is another
-> reason why we should keep it as small as possible.
+Signed-off-by: Kejian Yan <yankejian@huawei.com>
+Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
+---
+change log:
+ v2: fix the wrong indentations
 
-Fair enough.
+ v1: first submit
+  link: https://lkml.org/lkml/2016/6/27/182
+---
+ drivers/net/ethernet/hisilicon/hns_mdio.c | 80 +++++++++++++++++++++++++------
+ 1 file changed, 66 insertions(+), 14 deletions(-)
 
-> Here, at Twitter, we already backported it to 4.1 kernel for testing.
->
-> (The reason why I don't have a Fixes: tag is that I don't identify an
-> offending commit to blame yet.)
+diff --git a/drivers/net/ethernet/hisilicon/hns_mdio.c b/drivers/net/ethernet/hisilicon/hns_mdio.c
+index 761a32f..33f4c48 100644
+--- a/drivers/net/ethernet/hisilicon/hns_mdio.c
++++ b/drivers/net/ethernet/hisilicon/hns_mdio.c
+@@ -37,9 +37,19 @@
+ 
+ #define MDIO_TIMEOUT			1000000
+ 
++struct hns_mdio_sc_reg {
++	u16 mdio_clk_en;
++	u16 mdio_clk_dis;
++	u16 mdio_reset_req;
++	u16 mdio_reset_dreq;
++	u16 mdio_clk_st;
++	u16 mdio_reset_st;
++};
++
+ struct hns_mdio_device {
+ 	void *vbase;		/* mdio reg base address */
+ 	struct regmap *subctrl_vbase;
++	struct hns_mdio_sc_reg sc_reg;
+ };
+ 
+ /* mdio reg */
+@@ -93,7 +103,6 @@ enum mdio_c45_op_seq {
+ #define MDIO_SC_CLK_DIS		0x33C
+ #define MDIO_SC_RESET_REQ	0xA38
+ #define MDIO_SC_RESET_DREQ	0xA3C
+-#define MDIO_SC_CTRL		0x2010
+ #define MDIO_SC_CLK_ST		0x531C
+ #define MDIO_SC_RESET_ST	0x5A1C
+ 
+@@ -353,6 +362,7 @@ static int hns_mdio_read(struct mii_bus *bus, int phy_id, int regnum)
+ static int hns_mdio_reset(struct mii_bus *bus)
+ {
+ 	struct hns_mdio_device *mdio_dev = (struct hns_mdio_device *)bus->priv;
++	const struct hns_mdio_sc_reg *sc_reg;
+ 	int ret;
+ 
+ 	if (dev_of_node(bus->parent)) {
+@@ -361,9 +371,10 @@ static int hns_mdio_reset(struct mii_bus *bus)
+ 			return -ENODEV;
+ 		}
+ 
++		sc_reg = &mdio_dev->sc_reg;
+ 		/* 1. reset req, and read reset st check */
+-		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_REQ, 0x1,
+-					    MDIO_SC_RESET_ST, 0x1,
++		ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_reset_req,
++					    0x1, sc_reg->mdio_reset_st, 0x1,
+ 					    MDIO_CHECK_SET_ST);
+ 		if (ret) {
+ 			dev_err(&bus->dev, "MDIO reset fail\n");
+@@ -371,8 +382,8 @@ static int hns_mdio_reset(struct mii_bus *bus)
+ 		}
+ 
+ 		/* 2. dis clk, and read clk st check */
+-		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_DIS,
+-					    0x1, MDIO_SC_CLK_ST, 0x1,
++		ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_clk_dis,
++					    0x1, sc_reg->mdio_clk_st, 0x1,
+ 					    MDIO_CHECK_CLR_ST);
+ 		if (ret) {
+ 			dev_err(&bus->dev, "MDIO dis clk fail\n");
+@@ -380,8 +391,8 @@ static int hns_mdio_reset(struct mii_bus *bus)
+ 		}
+ 
+ 		/* 3. reset dreq, and read reset st check */
+-		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_RESET_DREQ, 0x1,
+-					    MDIO_SC_RESET_ST, 0x1,
++		ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_reset_dreq,
++					    0x1, sc_reg->mdio_reset_st, 0x1,
+ 					    MDIO_CHECK_CLR_ST);
+ 		if (ret) {
+ 			dev_err(&bus->dev, "MDIO dis clk fail\n");
+@@ -389,8 +400,8 @@ static int hns_mdio_reset(struct mii_bus *bus)
+ 		}
+ 
+ 		/* 4. en clk, and read clk st check */
+-		ret = mdio_sc_cfg_reg_write(mdio_dev, MDIO_SC_CLK_EN,
+-					    0x1, MDIO_SC_CLK_ST, 0x1,
++		ret = mdio_sc_cfg_reg_write(mdio_dev, sc_reg->mdio_clk_en,
++					    0x1, sc_reg->mdio_clk_st, 0x1,
+ 					    MDIO_CHECK_SET_ST);
+ 		if (ret)
+ 			dev_err(&bus->dev, "MDIO en clk fail\n");
+@@ -458,13 +469,54 @@ static int hns_mdio_probe(struct platform_device *pdev)
+ 	snprintf(new_bus->id, MII_BUS_ID_SIZE, "%s-%s", "Mii",
+ 		 dev_name(&pdev->dev));
+ 	if (dev_of_node(&pdev->dev)) {
+-		mdio_dev->subctrl_vbase = syscon_node_to_regmap(
+-			of_parse_phandle(pdev->dev.of_node,
+-					 "subctrl-vbase", 0));
+-		if (IS_ERR(mdio_dev->subctrl_vbase)) {
+-			dev_warn(&pdev->dev, "no syscon hisilicon,peri-c-subctrl\n");
++		struct of_phandle_args reg_args;
++
++		ret = of_parse_phandle_with_fixed_args(pdev->dev.of_node,
++						       "subctrl-vbase",
++						       4,
++						       0,
++						       &reg_args);
++		if (!ret) {
++			mdio_dev->subctrl_vbase =
++				syscon_node_to_regmap(reg_args.np);
++			if (IS_ERR(mdio_dev->subctrl_vbase)) {
++				dev_warn(&pdev->dev, "syscon_node_to_regmap error\n");
++				mdio_dev->subctrl_vbase = NULL;
++			} else {
++				if (reg_args.args_count == 4) {
++					mdio_dev->sc_reg.mdio_clk_en =
++						(u16)reg_args.args[0];
++					mdio_dev->sc_reg.mdio_clk_dis =
++						(u16)reg_args.args[0] + 4;
++					mdio_dev->sc_reg.mdio_reset_req =
++						(u16)reg_args.args[1];
++					mdio_dev->sc_reg.mdio_reset_dreq =
++						(u16)reg_args.args[1] + 4;
++					mdio_dev->sc_reg.mdio_clk_st =
++						(u16)reg_args.args[2];
++					mdio_dev->sc_reg.mdio_reset_st =
++						(u16)reg_args.args[3];
++				} else {
++					/* for compatible */
++					mdio_dev->sc_reg.mdio_clk_en =
++						MDIO_SC_CLK_EN;
++					mdio_dev->sc_reg.mdio_clk_dis =
++						MDIO_SC_CLK_DIS;
++					mdio_dev->sc_reg.mdio_reset_req =
++						MDIO_SC_RESET_REQ;
++					mdio_dev->sc_reg.mdio_reset_dreq =
++						MDIO_SC_RESET_DREQ;
++					mdio_dev->sc_reg.mdio_clk_st =
++						MDIO_SC_CLK_ST;
++					mdio_dev->sc_reg.mdio_reset_st =
++						MDIO_SC_RESET_ST;
++				}
++			}
++		} else {
++			dev_warn(&pdev->dev, "find syscon ret = %#x\n", ret);
+ 			mdio_dev->subctrl_vbase = NULL;
+ 		}
++
+ 		ret = of_mdiobus_register(new_bus, pdev->dev.of_node);
+ 	} else if (is_acpi_node(pdev->dev.fwnode)) {
+ 		/* Clear all the IRQ properties */
+-- 
+1.9.1
