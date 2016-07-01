@@ -1,73 +1,112 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [RFC PATCH 0/2] net: ethernet: Add support for gmii2rgmii
- converter
-Date: Fri, 1 Jul 2016 08:04:19 -0700
-Message-ID: <57768673.2090103@gmail.com>
-References: <1467354012-7364-1-git-send-email-appanad@xilinx.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Andrew Lunn <andrew@lunn.ch>
-To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	appanad@xilinx.com, michal.simek@xilinx.com,
-	nicolas.ferre@atmel.com, punnaia@xilinx.com, anirudh@xilinx.com,
-	harinik@xilinx.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467354012-7364-1-git-send-email-appanad@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 42/42] mlxsw: Add the unresolved next-hops probes
+Date: Fri,  1 Jul 2016 16:05:10 +0200
+Message-ID: <1467381910-3445-43-git-send-email-jiri@resnulli.us>
+References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
+	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+	sfeldma@gmail.com, roopa@cumulusnetworks.com, andy@greyhouse.net,
+	dsa@cumulusnetworks.com, tgraf@suug.ch, jhs@mojatatu.com,
+	linville@tuxdriver.com, ivecera@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33523 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751699AbcGAPIL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 11:08:11 -0400
+Received: by mail-wm0-f67.google.com with SMTP id r201so5985475wme.0
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 08:08:10 -0700 (PDT)
+In-Reply-To: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 30/06/2016 23:20, Kedareswara rao Appana a =C3=A9crit :
-> This patch series does the following
-> ---> Add support for gmii2rgmii converter.
-> ---> Add support for gmii2rgmii converter in the macb driver.
->=20
-> Earlier sent one RFC patch https://patchwork.kernel.org/patch/9186615=
-/=20
-> which includes converter related stuff also in macb driver.
-> This patch series fixes this issue.
+From: Yotam Gigi <yotamg@mellanox.com>
 
-This still seems very adhoc and not completely explained. Can you
-clarify how the gmmi2rgmii converter gets used?
+Now, the driver sends arp probes for all unresolved neighbours that are
+currently a nexthop for some route on the system. The job is set
+periodically every 5 seconds.
 
-Is the expectation that a MACB Ethernet adapter will be connected to a
-RGMII PHY like this:
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  2 ++
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 33 +++++++++++++++++++++-
+ 2 files changed, 34 insertions(+), 1 deletion(-)
 
-MACB <=3D> GMII2RGMII <=3D> RGMII PHY
-MACB MDIO <=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D> RGMII_PHY
-
-and still have the ability to control both the PHY device's MDIO
-registers and the GMII2RGMII converter and we need to make sure both
-have matching settings, or is it something like this:
-
-MACB <=3D> GMII2RGMII <=3D> RGMII PHY
-MACB MDIO unconnected
-
-and we lose the ability to query the PHY via MDIO?
-
-As Nicolas pointed out, providing a binding documentation update may
-help reviewers understand what is being accomplished here.
-
-Thanks!
-
->=20
-> Kedareswara rao Appana (2):
->   net: ethernet: xilinx: Add gmii2rgmii converter support
->   net: macb: Add gmii2rgmii phy converter support
->=20
->  drivers/net/ethernet/cadence/macb.c             |   21 ++++++-
->  drivers/net/ethernet/cadence/macb.h             |    3 +
->  drivers/net/ethernet/xilinx/Kconfig             |    7 ++
->  drivers/net/ethernet/xilinx/Makefile            |    1 +
->  drivers/net/ethernet/xilinx/xilinx_gmii2rgmii.c |   76 +++++++++++++=
-++++++++++
->  include/linux/xilinx_gmii2rgmii.h               |   24 +++++++
->  6 files changed, 131 insertions(+), 1 deletions(-)
->  create mode 100644 drivers/net/ethernet/xilinx/xilinx_gmii2rgmii.c
->  create mode 100644 include/linux/xilinx_gmii2rgmii.h
->=20
-
-
---=20
-=46lorian
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index ff5b859..ef4ac89 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -222,6 +222,8 @@ struct mlxsw_sp_router {
+ 		struct delayed_work dw;
+ 		unsigned long interval;	/* ms */
+ 	} neighs_update;
++	struct delayed_work nexthop_probe_dw;
++#define MLXSW_SP_UNRESOLVED_NH_PROBE_INTERVAL 5000 /* ms */
+ 	struct list_head nexthop_group_list;
+ 	struct list_head nexthop_neighs_list;
+ };
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 2b20279..e084ea5 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -845,6 +845,33 @@ static void mlxsw_sp_router_neighs_update_work(struct work_struct *work)
+ 	mlxsw_sp_router_neighs_update_work_schedule(mlxsw_sp);
+ }
+ 
++static void mlxsw_sp_router_probe_unresolved_nexthops(struct work_struct *work)
++{
++	struct mlxsw_sp_neigh_entry *neigh_entry;
++	struct mlxsw_sp *mlxsw_sp = container_of(work, struct mlxsw_sp,
++						 router.nexthop_probe_dw.work);
++
++	/* Iterate over nexthop neighbours, find those who are unresolved and
++	 * send arp on them. This solves the chicken-egg problem when
++	 * the nexthop wouldn't get offloaded until the neighbor is resolved
++	 * but it wouldn't get resolved ever in case traffic is flowing in HW
++	 * using different nexthop.
++	 *
++	 * Take RTNL mutex here to prevent lists from changes.
++	 */
++	rtnl_lock();
++	list_for_each_entry(neigh_entry, &mlxsw_sp->router.nexthop_neighs_list,
++			    nexthop_neighs_list_node) {
++		if (!(neigh_entry->n->nud_state & NUD_VALID) &&
++		    !list_empty(&neigh_entry->nexthop_list))
++			neigh_event_send(neigh_entry->n, NULL);
++	}
++	rtnl_unlock();
++
++	mlxsw_core_schedule_dw(&mlxsw_sp->router.nexthop_probe_dw,
++			       MLXSW_SP_UNRESOLVED_NH_PROBE_INTERVAL);
++}
++
+ static void
+ mlxsw_sp_nexthop_neigh_update(struct mlxsw_sp *mlxsw_sp,
+ 			      struct mlxsw_sp_neigh_entry *neigh_entry,
+@@ -1004,10 +1031,13 @@ static int mlxsw_sp_neigh_init(struct mlxsw_sp *mlxsw_sp)
+ 	if (err)
+ 		goto err_register_netevent_notifier;
+ 
++	/* Create the delayed works for the activity_update */
+ 	INIT_DELAYED_WORK(&mlxsw_sp->router.neighs_update.dw,
+ 			  mlxsw_sp_router_neighs_update_work);
++	INIT_DELAYED_WORK(&mlxsw_sp->router.nexthop_probe_dw,
++			  mlxsw_sp_router_probe_unresolved_nexthops);
+ 	mlxsw_core_schedule_dw(&mlxsw_sp->router.neighs_update.dw, 0);
+-
++	mlxsw_core_schedule_dw(&mlxsw_sp->router.nexthop_probe_dw, 0);
+ 	return 0;
+ 
+ err_register_netevent_notifier:
+@@ -1018,6 +1048,7 @@ err_register_netevent_notifier:
+ static void mlxsw_sp_neigh_fini(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	cancel_delayed_work_sync(&mlxsw_sp->router.neighs_update.dw);
++	cancel_delayed_work_sync(&mlxsw_sp->router.nexthop_probe_dw);
+ 	unregister_netevent_notifier(&mlxsw_sp_router_netevent_nb);
+ 	rhashtable_destroy(&mlxsw_sp->router.neigh_ht);
+ }
+-- 
+2.5.5
