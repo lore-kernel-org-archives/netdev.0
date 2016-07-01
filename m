@@ -1,51 +1,58 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH v2] notifier: Fix soft lockup for notifier_call_chain().
-Date: Fri, 1 Jul 2016 11:06:11 +0800
-Message-ID: <5775DE23.40101@huawei.com>
-References: <57720369.6040507@huawei.com>
- <1467090824.6850.185.camel@edumazet-glaptop3.roam.corp.google.com>
- <5772149D.6040304@huawei.com>
- <1467094963.6850.189.camel@edumazet-glaptop3.roam.corp.google.com>
- <1467095271.6850.192.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Hariprasad Shenai <hariprasad@chelsio.com>
+Subject: Re: [PATCHv2 net-next 1/3] net: Add provision to specify pf number
+ while assigning VF mac
+Date: Fri, 1 Jul 2016 08:40:56 +0530
+Message-ID: <20160701031055.GA29804@hari-Latitude-E5550>
+References: <1467300884-32340-1-git-send-email-hariprasad@chelsio.com>
+ <1467300884-32340-2-git-send-email-hariprasad@chelsio.com>
+ <CO2PR11MB0088BB6334851B5B51E5851497240@CO2PR11MB0088.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <luto@kernel.org>, <mingo@kernel.org>,
-	<linux-kernel@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Cong Wang <cwang@twopensource.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467095271.6850.192.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: David Miller <davem@davemloft.net>,
+	"stephen@networkplumber.org" <stephen@networkplumber.org>,
+	netdev <netdev@vger.kernel.org>,
+	"nirranjan@chelsio.com" <nirranjan@chelsio.com>,
+	"leedom@chelsio.com" <leedom@chelsio.com>,
+	"kumaras@chelsio.com" <kumaras@chelsio.com>
+To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [12.32.117.8] ([12.32.117.8]:61673 "EHLO
+	stargate3.asicdesigners.com" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751969AbcGADNR (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 23:13:17 -0400
+Content-Disposition: inline
+In-Reply-To: <CO2PR11MB0088BB6334851B5B51E5851497240@CO2PR11MB0088.namprd11.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016/6/28 14:27, Eric Dumazet wrote:
-> On Tue, 2016-06-28 at 08:22 +0200, Eric Dumazet wrote:
-> 
->> Follow the stack trace and add another cond_resched() where it is needed
->> then ?
->>
->> Lot of this code was written decade ago where nobody expected a root
->> user was going to try hard to crash its host ;)
->>
->> I did not check if the following is valid (Maybe __fib6_clean_all() is
->> called with some spinlock/rwlock held)
-> 
-> Well, fib6_run_gc() can call it with
-> spin_lock_bh(&net->ipv6.fib6_gc_lock) so this wont work.
-> 
-> We need more invasive changes.
-> 
-> 
-> 
-Hi Eric:
+On Thu, Jun 30, 2016 at 19:04:16 +0000, Yuval Mintz wrote:
+> > Chelsio T4/T5 cards have SR-IOV Capabilities on Physical Functions
+> > 0..3 and the administrative Driver(cxgb4) attaches to Physical Func=
+tion 4.
+> > Each of the Physical Functions 0..3 can support up to 16 Virtual
+> > Functions. With the current Linux APIs, a 2-Port card would only be
+> > able to use the Virtual Functions on Physical Functions 0..1 and no=
+t
+> > allow the Virtual Functions on Physical Functions 2..3 to be used s=
+ince
+> > there are no Ports 2..3 on a 2-Port card.
+> >
+> > Also the current ip commands takes netdev as one of the argument, a=
+nd
+> > it assumes a 1-to-1 mapping of Network Ports, Physical Functions an=
+d the
+> > SR-IOV Virtual Functions of those Physical Functions. But it is not
+> > true in our case and won't work for us.
+> >=20
+> > Added a new argument to specify the PF number associated with the V=
+=46, to
+> > fix this.
+>=20
+> I don't get it - what's the exact definition of 'Physical Function'?
+> Are we talking PCI functions? Logical partitons? Something else?
 
-I debug this problem, and found that the __fib6_clean_all() would not hold the cpu more than 1 second event though there
-is a lot of ipv6 address to deal with, but the notifier_chian would call the ipv6 notifier several times and hold the cpu
-for a long time, so add cond_resched() in the addrconf_ifdown could solve the problem correctly, I think your first solution
-is the good way to fix this bug.
-
-Thanks
-Ding
+Its PCIe physical function. Physical functions (PFs) are full-featured
+PCIe functions; virtual functions (VFs) are =E2=80=9Clightweight=E2=80=9D=
+ functions that
+lack configuration resource.
