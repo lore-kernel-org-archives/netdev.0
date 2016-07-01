@@ -1,13 +1,13 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 11/17] batman-adv: init ELP tweaking options
-	only once
-Date: Fri,  1 Jul 2016 15:09:03 +0200
-Message-ID: <1467378549-9646-12-git-send-email-sw@simonwunderlich.de>
+Subject: [PATCH 12/17] batman-adv: Set skb priority in
+	fragments
+Date: Fri,  1 Jul 2016 15:09:04 +0200
+Message-ID: <1467378549-9646-13-git-send-email-sw@simonwunderlich.de>
 References: <1467378549-9646-1-git-send-email-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Cc: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org, Antonio Quartulli <a@unstable.cc>
+ b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 In-Reply-To: <1467378549-9646-1-git-send-email-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
@@ -22,125 +22,41 @@ Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-From: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
+From: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
 
-The ELP interval and throughput override interface settings are initialized
-with default settings on every time an interface is added to a mesh.
-This patch prevents this behavior by moving the configuration init to the
-interface detection routine which runs only once per interface.
+BATMAN will set the skb->priority based on the IP precedence or 802.1q
+tag. However, if it needs to fragment the frame, it currently leaves
+the fragment skb with the default priority and actually overwrites the
+priority in the unfragmented frame. Fix this.
 
+Signed-off-by: Andrew Lunn <andrew-g2DYL2Zd6BY@public.gmane.org>
 Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
-[a@unstable.cc: move initialization to batadv_v_hardif_init]
-Signed-off-by: Antonio Quartulli <a@unstable.cc>
 Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 ---
- net/batman-adv/bat_algo.h       |  7 ++++++-
- net/batman-adv/bat_v.c          | 19 ++++++++++++++-----
- net/batman-adv/bat_v_elp.c      |  1 -
- net/batman-adv/hard-interface.c |  3 +++
- 4 files changed, 23 insertions(+), 7 deletions(-)
+ net/batman-adv/fragmentation.c | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
 
-diff --git a/net/batman-adv/bat_algo.h b/net/batman-adv/bat_algo.h
-index 03dafd3..3654296 100644
---- a/net/batman-adv/bat_algo.h
-+++ b/net/batman-adv/bat_algo.h
-@@ -18,13 +18,14 @@
- #ifndef _NET_BATMAN_ADV_BAT_ALGO_H_
- #define _NET_BATMAN_ADV_BAT_ALGO_H_
- 
--struct batadv_priv;
-+#include "main.h"
- 
- int batadv_iv_init(void);
- 
- #ifdef CONFIG_BATMAN_ADV_BATMAN_V
- 
- int batadv_v_init(void);
-+void batadv_v_hardif_init(struct batadv_hard_iface *hardif);
- int batadv_v_mesh_init(struct batadv_priv *bat_priv);
- void batadv_v_mesh_free(struct batadv_priv *bat_priv);
- 
-@@ -35,6 +36,10 @@ static inline int batadv_v_init(void)
- 	return 0;
- }
- 
-+static inline void batadv_v_hardif_init(struct batadv_hard_iface *hardif)
-+{
-+}
-+
- static inline int batadv_v_mesh_init(struct batadv_priv *bat_priv)
- {
- 	return 0;
-diff --git a/net/batman-adv/bat_v.c b/net/batman-adv/bat_v.c
-index c16cd44..c2fea81 100644
---- a/net/batman-adv/bat_v.c
-+++ b/net/batman-adv/bat_v.c
-@@ -70,11 +70,6 @@ static int batadv_v_iface_enable(struct batadv_hard_iface *hard_iface)
- 	if (ret < 0)
- 		batadv_v_elp_iface_disable(hard_iface);
- 
--	/* enable link throughput auto-detection by setting the throughput
--	 * override to zero
--	 */
--	atomic_set(&hard_iface->bat_v.throughput_override, 0);
--
- 	return ret;
- }
- 
-@@ -339,6 +334,20 @@ static struct batadv_algo_ops batadv_batman_v __read_mostly = {
- };
- 
- /**
-+ * batadv_v_hardif_init - initialize the algorithm specific fields in the
-+ *  hard-interface object
-+ * @hard_iface: the hard-interface to initialize
-+ */
-+void batadv_v_hardif_init(struct batadv_hard_iface *hard_iface)
-+{
-+	/* enable link throughput auto-detection by setting the throughput
-+	 * override to zero
-+	 */
-+	atomic_set(&hard_iface->bat_v.throughput_override, 0);
-+	atomic_set(&hard_iface->bat_v.elp_interval, 500);
-+}
-+
-+/**
-  * batadv_v_mesh_init - initialize the B.A.T.M.A.N. V private resources for a
-  *  mesh
-  * @bat_priv: the object representing the mesh interface to initialise
-diff --git a/net/batman-adv/bat_v_elp.c b/net/batman-adv/bat_v_elp.c
-index 8909d1e..cf0262b 100644
---- a/net/batman-adv/bat_v_elp.c
-+++ b/net/batman-adv/bat_v_elp.c
-@@ -344,7 +344,6 @@ int batadv_v_elp_iface_enable(struct batadv_hard_iface *hard_iface)
- 	/* randomize initial seqno to avoid collision */
- 	get_random_bytes(&random_seqno, sizeof(random_seqno));
- 	atomic_set(&hard_iface->bat_v.elp_seqno, random_seqno);
--	atomic_set(&hard_iface->bat_v.elp_interval, 500);
- 
- 	/* assume full-duplex by default */
- 	hard_iface->bat_v.flags |= BATADV_FULL_DUPLEX;
-diff --git a/net/batman-adv/hard-interface.c b/net/batman-adv/hard-interface.c
-index db2009d..3696929 100644
---- a/net/batman-adv/hard-interface.c
-+++ b/net/batman-adv/hard-interface.c
-@@ -37,6 +37,7 @@
+diff --git a/net/batman-adv/fragmentation.c b/net/batman-adv/fragmentation.c
+index 65536db..a119b6a 100644
+--- a/net/batman-adv/fragmentation.c
++++ b/net/batman-adv/fragmentation.c
+@@ -27,7 +27,6 @@
+ #include <linux/kernel.h>
+ #include <linux/lockdep.h>
+ #include <linux/netdevice.h>
+-#include <linux/pkt_sched.h>
+ #include <linux/skbuff.h>
+ #include <linux/slab.h>
  #include <linux/spinlock.h>
- #include <linux/workqueue.h>
+@@ -414,7 +413,7 @@ static struct sk_buff *batadv_frag_create(struct sk_buff *skb,
+ 	if (!skb_fragment)
+ 		goto err;
  
-+#include "bat_algo.h"
- #include "bridge_loop_avoidance.h"
- #include "debugfs.h"
- #include "distributed-arp-table.h"
-@@ -683,6 +684,8 @@ batadv_hardif_add_interface(struct net_device *net_dev)
- 	if (batadv_is_wifi_netdev(net_dev))
- 		hard_iface->num_bcasts = BATADV_NUM_BCASTS_WIRELESS;
+-	skb->priority = TC_PRIO_CONTROL;
++	skb_fragment->priority = skb->priority;
  
-+	batadv_v_hardif_init(hard_iface);
-+
- 	/* extra reference for return */
- 	kref_init(&hard_iface->refcount);
- 	kref_get(&hard_iface->refcount);
+ 	/* Eat the last mtu-bytes of the skb */
+ 	skb_reserve(skb_fragment, header_size + ETH_HLEN);
 -- 
 2.8.1
