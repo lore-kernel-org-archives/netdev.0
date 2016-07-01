@@ -1,203 +1,169 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 31/42] mlxsw: reg: Add Router Algorithmic LPM Unicast Host Table register
-Date: Fri,  1 Jul 2016 16:04:59 +0200
-Message-ID: <1467381910-3445-32-git-send-email-jiri@resnulli.us>
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: [patch net-next 02/42] net: introduce default
+ neigh_construct/destroy ndo calls for L2 upper devices
+Date: Fri, 1 Jul 2016 08:24:54 -0600
+Message-ID: <54eb6809-c681-f1af-51a3-aaf52b12ef45@cumulusnetworks.com>
 References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
+ <1467381910-3445-3-git-send-email-jiri@resnulli.us>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	sfeldma@gmail.com, roopa@cumulusnetworks.com, andy@greyhouse.net,
-	dsa@cumulusnetworks.com, tgraf@suug.ch, jhs@mojatatu.com,
-	linville@tuxdriver.com, ivecera@redhat.com
-To: netdev@vger.kernel.org
+	tgraf@suug.ch, jhs@mojatatu.com, linville@tuxdriver.com,
+	ivecera@redhat.com
+To: Jiri Pirko <jiri@resnulli.us>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33674 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752703AbcGAOY5 (ORCPT
+Received: from mail-it0-f54.google.com ([209.85.214.54]:37594 "EHLO
+	mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752581AbcGAOY5 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 10:24:57 -0400
-Received: by mail-wm0-f65.google.com with SMTP id r201so5700228wme.0
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:24:02 -0700 (PDT)
-In-Reply-To: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
+Received: by mail-it0-f54.google.com with SMTP id f6so18024075ith.0
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:24:56 -0700 (PDT)
+In-Reply-To: <1467381910-3445-3-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yotam Gigi <yotamg@mellanox.com>
+On 7/1/16 8:04 AM, Jiri Pirko wrote:
+> From: Jiri Pirko <jiri@mellanox.com>
+>
+> L2 upper device needs to propagate neigh_construct/destroy calls down to
+> lower devices. Do this by defining default ndo functions and use them in
+> team, bond, bridge and vlan.
+>
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+> ---
+>  drivers/net/bonding/bond_main.c |  2 ++
+>  drivers/net/team/team.c         |  2 ++
+>  include/linux/netdevice.h       |  4 ++++
+>  net/8021q/vlan_dev.c            |  2 ++
+>  net/bridge/br_device.c          |  2 ++
+>  net/core/dev.c                  | 32 ++++++++++++++++++++++++++++++++
+>  6 files changed, 44 insertions(+)
+>
+> diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+> index 90157e2..480d73a 100644
+> --- a/drivers/net/bonding/bond_main.c
+> +++ b/drivers/net/bonding/bond_main.c
+> @@ -4137,6 +4137,8 @@ static const struct net_device_ops bond_netdev_ops = {
+>  	.ndo_add_slave		= bond_enslave,
+>  	.ndo_del_slave		= bond_release,
+>  	.ndo_fix_features	= bond_fix_features,
+> +	.ndo_neigh_construct	= netdev_default_l2upper_neigh_construct,
+> +	.ndo_neigh_destroy	= netdev_default_l2upper_neigh_destroy,
+>  	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
+>  	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
+>  	.ndo_bridge_dellink	= switchdev_port_bridge_dellink,
+> diff --git a/drivers/net/team/team.c b/drivers/net/team/team.c
+> index f9eebea..a380649 100644
+> --- a/drivers/net/team/team.c
+> +++ b/drivers/net/team/team.c
+> @@ -2002,6 +2002,8 @@ static const struct net_device_ops team_netdev_ops = {
+>  	.ndo_add_slave		= team_add_slave,
+>  	.ndo_del_slave		= team_del_slave,
+>  	.ndo_fix_features	= team_fix_features,
+> +	.ndo_neigh_construct	= netdev_default_l2upper_neigh_construct,
+> +	.ndo_neigh_destroy	= netdev_default_l2upper_neigh_destroy,
+>  	.ndo_change_carrier     = team_change_carrier,
+>  	.ndo_bridge_setlink	= switchdev_port_bridge_setlink,
+>  	.ndo_bridge_getlink	= switchdev_port_bridge_getlink,
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index f126119..fac5132 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -3826,6 +3826,10 @@ void *netdev_lower_dev_get_private(struct net_device *dev,
+>  				   struct net_device *lower_dev);
+>  void netdev_lower_state_changed(struct net_device *lower_dev,
+>  				void *lower_state_info);
+> +int netdev_default_l2upper_neigh_construct(struct net_device *dev,
+> +					   struct neighbour *n);
+> +void netdev_default_l2upper_neigh_destroy(struct net_device *dev,
+> +					  struct neighbour *n);
+>
+>  /* RSS keys are 40 or 52 bytes long */
+>  #define NETDEV_RSS_KEY_LEN 52
+> diff --git a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+> index 86ae75b..c8f422c 100644
+> --- a/net/8021q/vlan_dev.c
+> +++ b/net/8021q/vlan_dev.c
+> @@ -790,6 +790,8 @@ static const struct net_device_ops vlan_netdev_ops = {
+>  	.ndo_netpoll_cleanup	= vlan_dev_netpoll_cleanup,
+>  #endif
+>  	.ndo_fix_features	= vlan_dev_fix_features,
+> +	.ndo_neigh_construct	= netdev_default_l2upper_neigh_construct,
+> +	.ndo_neigh_destroy	= netdev_default_l2upper_neigh_destroy,
+>  	.ndo_fdb_add		= switchdev_port_fdb_add,
+>  	.ndo_fdb_del		= switchdev_port_fdb_del,
+>  	.ndo_fdb_dump		= switchdev_port_fdb_dump,
+> diff --git a/net/bridge/br_device.c b/net/bridge/br_device.c
+> index 0c39e0f..8eecd0e 100644
+> --- a/net/bridge/br_device.c
+> +++ b/net/bridge/br_device.c
+> @@ -349,6 +349,8 @@ static const struct net_device_ops br_netdev_ops = {
+>  	.ndo_add_slave		 = br_add_slave,
+>  	.ndo_del_slave		 = br_del_slave,
+>  	.ndo_fix_features        = br_fix_features,
+> +	.ndo_neigh_construct	 = netdev_default_l2upper_neigh_construct,
+> +	.ndo_neigh_destroy	 = netdev_default_l2upper_neigh_destroy,
+>  	.ndo_fdb_add		 = br_fdb_add,
+>  	.ndo_fdb_del		 = br_fdb_delete,
+>  	.ndo_fdb_dump		 = br_fdb_dump,
+> diff --git a/net/core/dev.c b/net/core/dev.c
+> index aba10d2..eb13647 100644
+> --- a/net/core/dev.c
+> +++ b/net/core/dev.c
+> @@ -6041,6 +6041,38 @@ void netdev_lower_state_changed(struct net_device *lower_dev,
+>  }
+>  EXPORT_SYMBOL(netdev_lower_state_changed);
+>
+> +int netdev_default_l2upper_neigh_construct(struct net_device *dev,
+> +					   struct neighbour *n)
+> +{
+> +	struct net_device *lower_dev;
+> +	struct list_head *iter;
+> +	int err;
+> +
+> +	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+> +		if (!lower_dev->netdev_ops->ndo_neigh_construct)
+> +			continue;
+> +		err = lower_dev->netdev_ops->ndo_neigh_construct(lower_dev, n);
+> +		if (err)
+> +			return err;
 
-The RAUHT register is used to configure and query the Unicast Host Table
-in devices that implement the Algorithmic LPM. In other words, it is
-used to configure neighbour entries in the device.
+If the Mth lower_dev of N total fails why not call destroy on the first M-1?
 
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 141 ++++++++++++++++++++++++++++++
- 1 file changed, 141 insertions(+)
+> +	}
+> +	return 0;
+> +}
+> +EXPORT_SYMBOL(netdev_default_l2upper_neigh_construct);
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 9280d96..cc6a0b3 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -4,6 +4,7 @@
-  * Copyright (c) 2015-2016 Ido Schimmel <idosch@mellanox.com>
-  * Copyright (c) 2015 Elad Raz <eladr@mellanox.com>
-  * Copyright (c) 2015-2016 Jiri Pirko <jiri@mellanox.com>
-+ * Copyright (c) 2016 Yotam Gigi <yotamg@mellanox.com>
-  *
-  * Redistribution and use in source and binary forms, with or without
-  * modification, are permitted provided that the following conditions are met:
-@@ -3884,6 +3885,144 @@ mlxsw_reg_ralue_act_ip2me_pack(char *payload)
- 					MLXSW_REG_RALUE_ACTION_TYPE_IP2ME);
- }
- 
-+/* RAUHT - Router Algorithmic LPM Unicast Host Table Register
-+ * ----------------------------------------------------------
-+ * The RAUHT register is used to configure and query the Unicast Host table in
-+ * devices that implement the Algorithmic LPM.
-+ */
-+#define MLXSW_REG_RAUHT_ID 0x8014
-+#define MLXSW_REG_RAUHT_LEN 0x74
-+
-+static const struct mlxsw_reg_info mlxsw_reg_rauht = {
-+	.id = MLXSW_REG_RAUHT_ID,
-+	.len = MLXSW_REG_RAUHT_LEN,
-+};
-+
-+enum mlxsw_reg_rauht_type {
-+	MLXSW_REG_RAUHT_TYPE_IPV4,
-+	MLXSW_REG_RAUHT_TYPE_IPV6,
-+};
-+
-+/* reg_rauht_type
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, rauht, type, 0x00, 24, 2);
-+
-+enum mlxsw_reg_rauht_op {
-+	MLXSW_REG_RAUHT_OP_QUERY_READ = 0,
-+	/* Read operation */
-+	MLXSW_REG_RAUHT_OP_QUERY_CLEAR_ON_READ = 1,
-+	/* Clear on read operation. Used to read entry and clear
-+	 * activity bit.
-+	 */
-+	MLXSW_REG_RAUHT_OP_WRITE_ADD = 0,
-+	/* Add. Used to write a new entry to the table. All R/W fields are
-+	 * relevant for new entry. Activity bit is set for new entries.
-+	 */
-+	MLXSW_REG_RAUHT_OP_WRITE_UPDATE = 1,
-+	/* Update action. Used to update an existing route entry and
-+	 * only update the following fields:
-+	 * trap_action, trap_id, mac, counter_set_type, counter_index
-+	 */
-+	MLXSW_REG_RAUHT_OP_WRITE_CLEAR_ACTIVITY = 2,
-+	/* Clear activity. A bit is cleared for the entry. */
-+	MLXSW_REG_RAUHT_OP_WRITE_DELETE = 3,
-+	/* Delete entry */
-+	MLXSW_REG_RAUHT_OP_WRITE_DELETE_ALL = 4,
-+	/* Delete all host entries on a RIF. In this command, dip
-+	 * field is reserved.
-+	 */
-+};
-+
-+/* reg_rauht_op
-+ * Access: OP
-+ */
-+MLXSW_ITEM32(reg, rauht, op, 0x00, 20, 3);
-+
-+/* reg_rauht_a
-+ * Activity. Set for new entries. Set if a packet lookup has hit on
-+ * the specific entry.
-+ * To clear the a bit, use "clear activity" op.
-+ * Enabled by activity_dis in RGCR
-+ * Access: RO
-+ */
-+MLXSW_ITEM32(reg, rauht, a, 0x00, 16, 1);
-+
-+/* reg_rauht_rif
-+ * Router Interface
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, rauht, rif, 0x00, 0, 16);
-+
-+/* reg_rauht_dip*
-+ * Destination address.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, rauht, dip4, 0x1C, 0x0, 32);
-+
-+enum mlxsw_reg_rauht_trap_action {
-+	MLXSW_REG_RAUHT_TRAP_ACTION_NOP,
-+	MLXSW_REG_RAUHT_TRAP_ACTION_TRAP,
-+	MLXSW_REG_RAUHT_TRAP_ACTION_MIRROR_TO_CPU,
-+	MLXSW_REG_RAUHT_TRAP_ACTION_MIRROR,
-+	MLXSW_REG_RAUHT_TRAP_ACTION_DISCARD_ERRORS,
-+};
-+
-+/* reg_rauht_trap_action
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rauht, trap_action, 0x60, 28, 4);
-+
-+enum mlxsw_reg_rauht_trap_id {
-+	MLXSW_REG_RAUHT_TRAP_ID_RTR_EGRESS0,
-+	MLXSW_REG_RAUHT_TRAP_ID_RTR_EGRESS1,
-+};
-+
-+/* reg_rauht_trap_id
-+ * Trap ID to be reported to CPU.
-+ * Trap-ID is RTR_EGRESS0 or RTR_EGRESS1.
-+ * For trap_action of NOP, MIRROR and DISCARD_ERROR,
-+ * trap_id is reserved.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rauht, trap_id, 0x60, 0, 9);
-+
-+/* reg_rauht_counter_set_type
-+ * Counter set type for flow counters
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rauht, counter_set_type, 0x68, 24, 8);
-+
-+/* reg_rauht_counter_index
-+ * Counter index for flow counters
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rauht, counter_index, 0x68, 0, 24);
-+
-+/* reg_rauht_mac
-+ * MAC address.
-+ * Access: RW
-+ */
-+MLXSW_ITEM_BUF(reg, rauht, mac, 0x6E, 6);
-+
-+static inline void mlxsw_reg_rauht_pack(char *payload,
-+					enum mlxsw_reg_rauht_op op, u16 rif,
-+					const char *mac)
-+{
-+	MLXSW_REG_ZERO(rauht, payload);
-+	mlxsw_reg_rauht_op_set(payload, op);
-+	mlxsw_reg_rauht_rif_set(payload, rif);
-+	mlxsw_reg_rauht_mac_memcpy_to(payload, mac);
-+}
-+
-+static inline void mlxsw_reg_rauht_pack4(char *payload,
-+					 enum mlxsw_reg_rauht_op op, u16 rif,
-+					 const char *mac, u32 dip)
-+{
-+	mlxsw_reg_rauht_pack(payload, op, rif, mac);
-+	mlxsw_reg_rauht_dip4_set(payload, dip);
-+}
-+
- /* MFCR - Management Fan Control Register
-  * --------------------------------------
-  * This register controls the settings of the Fan Speed PWM mechanism.
-@@ -4634,6 +4773,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "RALTB";
- 	case MLXSW_REG_RALUE_ID:
- 		return "RALUE";
-+	case MLXSW_REG_RAUHT_ID:
-+		return "RAUHT";
- 	case MLXSW_REG_MFCR_ID:
- 		return "MFCR";
- 	case MLXSW_REG_MFSC_ID:
--- 
-2.5.5
+_GPL?
+
+
+> +
+> +void netdev_default_l2upper_neigh_destroy(struct net_device *dev,
+> +					  struct neighbour *n)
+> +{
+> +	struct net_device *lower_dev;
+> +	struct list_head *iter;
+> +
+> +	netdev_for_each_lower_dev(dev, lower_dev, iter) {
+> +		if (!lower_dev->netdev_ops->ndo_neigh_destroy)
+> +			continue;
+> +		lower_dev->netdev_ops->ndo_neigh_destroy(lower_dev, n);
+> +	}
+> +}
+> +EXPORT_SYMBOL(netdev_default_l2upper_neigh_destroy);
+
+_GPL?
+
+> +
+>  static void dev_change_rx_flags(struct net_device *dev, int flags)
+>  {
+>  	const struct net_device_ops *ops = dev->netdev_ops;
+>
+
+I do not see either of the new functions being called in this patch set; 
+only hit grep shows is this patch.
