@@ -1,57 +1,48 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [patch net-next 10/42] mlxsw: spectrum_router: Add basic ipv4
- router initialization
-Date: Fri, 1 Jul 2016 20:58:51 +0300
-Message-ID: <20160701175851.GA11348@colbert.idosch.org>
-References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
- <1467381910-3445-11-git-send-email-jiri@resnulli.us>
- <15542d5f-e11e-4901-0e36-8231012e8f7e@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: Jiri Pirko <jiri@resnulli.us>, <netdev@vger.kernel.org>,
-	<davem@davemloft.net>, <yotamg@mellanox.com>, <eladr@mellanox.com>,
-	<nogahf@mellanox.com>, <ogerlitz@mellanox.com>,
-	<sfeldma@gmail.com>, <roopa@cumulusnetworks.com>,
-	<andy@greyhouse.net>, <tgraf@suug.ch>, <jhs@mojatatu.com>,
-	<linville@tuxdriver.com>, <ivecera@redhat.com>
-To: David Ahern <dsa@cumulusnetworks.com>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: [PATCH net-next 00/11] bnxt_en updates for net-next.
+Date: Fri,  1 Jul 2016 18:46:18 -0400
+Message-ID: <1467413189-29566-1-git-send-email-michael.chan@broadcom.com>
+Cc: netdev@vger.kernel.org
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0067.outbound.protection.outlook.com ([104.47.2.67]:38296
-	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751604AbcGAWe5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jul 2016 18:34:57 -0400
-Content-Disposition: inline
-In-Reply-To: <15542d5f-e11e-4901-0e36-8231012e8f7e@cumulusnetworks.com>
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:36273 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752418AbcGAWqn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 18:46:43 -0400
+Received: by mail-pf0-f178.google.com with SMTP id t190so43955492pfb.3
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 15:46:42 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Jul 01, 2016 at 05:39:01PM IDT, dsa@cumulusnetworks.com wrote:
->On 7/1/16 8:04 AM, Jiri Pirko wrote:
->> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
->> index 05d5fcc..c2ac037 100644
->> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
->> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
->> @@ -74,6 +74,8 @@
->>
->>  #define MLXSW_SP_CELL_FACTOR 2	/* 2 * cell_size / (IPG + cell_size + 1) */
->>
->> +#define MLXSW_SP_RIF_MAX 800
->
->At most 800 RIFs can be created?
+Mostly small miscellaneous changes.
 
-Yes.
+Please review for net-next.  Thanks.
 
-Do you have use cases that require more than that? If so, how many
-router interfaces would be required? That would be a good feedback for
-us.
+Michael Chan (7):
+  bnxt_en: VF/NPAR should return -EOPNOTSUPP for unsupported ethtool
+    ops.
+  bnxt_en: Update firmware spec. to 1.3.0.
+  bnxt_en: Do function reset on the 1st PF open only.
+  bnxt_en: Enable MRU enables bit when configuring VNIC MRU.
+  bnxt_en: Allow promiscuous mode for VF if default VLAN is enabled.
+  bnxt_en: Assign netdev->dev_port with port ID.
+  bnxt_en: Allow statistics DMA to be configurable using ethtool -C.
 
->Why 800?
+Rob Swindell (3):
+  bnxt_en: Add support for updating flash more securely
+  bnxt_en: Request firmware reset after successful firwmare update
+  bnxt_en: Add support for firmware updates for additional processors.
 
-Currently, trying to configure a RIF with an higher index will result in
-firmware errors. We plan to increase this number in the future (don't
-expect it to be infinite...).
+Vasundhara Volam (1):
+  bnxt_en: Increase maximum supported MTU to 9500.
 
-We are currently implementing a new mechanism in the driver that will
-query these resources from the firmware, so we won't need to hardcode
-them.
+ drivers/net/ethernet/broadcom/bnxt/bnxt.c          | 47 +++++++++---
+ drivers/net/ethernet/broadcom/bnxt/bnxt.h          | 17 +++--
+ drivers/net/ethernet/broadcom/bnxt/bnxt_ethtool.c  | 54 ++++++++++++--
+ drivers/net/ethernet/broadcom/bnxt/bnxt_fw_hdr.h   |  1 +
+ drivers/net/ethernet/broadcom/bnxt/bnxt_hsi.h      | 87 +++++++++++++++-------
+ drivers/net/ethernet/broadcom/bnxt/bnxt_nvm_defs.h |  1 +
+ 6 files changed, 158 insertions(+), 49 deletions(-)
+
+-- 
+1.8.3.1
