@@ -1,68 +1,51 @@
-From: Rob Herring <robh@kernel.org>
-Subject: Re: [PATCH 6/7] dt-bindings: net: bgmac: add bindings documentation
- for bgmac
-Date: Thu, 30 Jun 2016 21:56:19 -0500
-Message-ID: <20160701025619.GA4906@rob-hp-laptop>
-References: <1467327554-22074-1-git-send-email-jon.mason@broadcom.com>
- <1467327554-22074-7-git-send-email-jon.mason@broadcom.com>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH v2] notifier: Fix soft lockup for notifier_call_chain().
+Date: Fri, 1 Jul 2016 11:06:11 +0800
+Message-ID: <5775DE23.40101@huawei.com>
+References: <57720369.6040507@huawei.com>
+ <1467090824.6850.185.camel@edumazet-glaptop3.roam.corp.google.com>
+ <5772149D.6040304@huawei.com>
+ <1467094963.6850.189.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1467095271.6850.192.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: zajec5@gmail.com, davem@davemloft.net, f.fainelli@gmail.com,
-	hauke@hauke-m.de, Pawel Moll <pawel.moll@arm.com>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ian Campbell <ijc+devicetree@hellion.org.uk>,
-	Kumar Gala <galak@codeaurora.org>, Ray Jui <rjui@broadcom.com>,
-	Scott Branden <sbranden@broadcom.com>,
-	bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org
-To: Jon Mason <jon.mason@broadcom.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: <luto@kernel.org>, <mingo@kernel.org>,
+	<linux-kernel@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Cong Wang <cwang@twopensource.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1467327554-22074-7-git-send-email-jon.mason@broadcom.com>
+In-Reply-To: <1467095271.6850.192.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 30, 2016 at 06:59:13PM -0400, Jon Mason wrote:
-> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
-> ---
->  .../devicetree/bindings/net/brcm,bgmac-nsp.txt     | 24 ++++++++++++++++++++++
->  1 file changed, 24 insertions(+)
->  create mode 100644 Documentation/devicetree/bindings/net/brcm,bgmac-nsp.txt
+On 2016/6/28 14:27, Eric Dumazet wrote:
+> On Tue, 2016-06-28 at 08:22 +0200, Eric Dumazet wrote:
 > 
-> diff --git a/Documentation/devicetree/bindings/net/brcm,bgmac-nsp.txt b/Documentation/devicetree/bindings/net/brcm,bgmac-nsp.txt
-> new file mode 100644
-> index 0000000..022946c
-> --- /dev/null
-> +++ b/Documentation/devicetree/bindings/net/brcm,bgmac-nsp.txt
-> @@ -0,0 +1,24 @@
-> +Broadcom GMAC Ethernet Controller Device Tree Bindings
-> +-------------------------------------------------------------
-> +
-> +Required properties:
-> + - compatible:	"brcm,bgmac-nsp"
-
-Usually we do <soc>-<block> order.
-
-> + - reg:		Address and length of the GMAC registers,
-> +		Address and length of the GMAC IDM registers
-> + - reg-names:	Names of the registers.  Must have both "gmac_base" and
-> +		"idm_base"
-> + - interrupts:	Interrupt number
-> +
-> +Optional properties:
-> +- mac-address:	See ethernet.txt file in the same directory
-> +
-> +Examples:
-> +
-> +gmac0: ethernet@18022000 {
-> +	compatible = "brcm,bgmac-nsp";
-> +	reg = <0x18022000 0x1000>,
-> +	      <0x18110000 0x1000>;
-> +	reg-names = "gmac_base", "idm_base";
-> +	interrupts = <GIC_SPI 147 IRQ_TYPE_LEVEL_HIGH>;
-> +	status = "disabled";
-> +};
-> -- 
-> 1.9.1
+>> Follow the stack trace and add another cond_resched() where it is needed
+>> then ?
+>>
+>> Lot of this code was written decade ago where nobody expected a root
+>> user was going to try hard to crash its host ;)
+>>
+>> I did not check if the following is valid (Maybe __fib6_clean_all() is
+>> called with some spinlock/rwlock held)
 > 
+> Well, fib6_run_gc() can call it with
+> spin_lock_bh(&net->ipv6.fib6_gc_lock) so this wont work.
+> 
+> We need more invasive changes.
+> 
+> 
+> 
+Hi Eric:
+
+I debug this problem, and found that the __fib6_clean_all() would not hold the cpu more than 1 second event though there
+is a lot of ipv6 address to deal with, but the notifier_chian would call the ipv6 notifier several times and hold the cpu
+for a long time, so add cond_resched() in the addrconf_ifdown could solve the problem correctly, I think your first solution
+is the good way to fix this bug.
+
+Thanks
+Ding
