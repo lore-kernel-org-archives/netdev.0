@@ -1,42 +1,43 @@
-From: Doug Anderson <dianders@chromium.org>
-Subject: Re: [PATCH] mwifiex: mask PCIe interrupts before removal
-Date: Fri, 1 Jul 2016 10:42:40 -0700
-Message-ID: <CAD=FV=W6BttCyg6Pq4hdBHaQ7hYXF0-ACHiqR84X4M4WG2ppVw@mail.gmail.com>
-References: <1467325262-82799-1-git-send-email-briannorris@chromium.org>
+From: John Crispin <john@phrozen.org>
+Subject: Re: next-20160701 build: 2 failures 5 warnings (next-20160701)
+Date: Fri, 1 Jul 2016 19:46:56 +0200
+Message-ID: <ba71c80f-e01e-8ae0-f99d-6ea32c7c1341@phrozen.org>
+References: <E1bIuIz-00085X-RP@optimist> <20160701171557.GB6247@sirena.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Amitkumar Karwar <akarwar@marvell.com>,
-	Nishant Sarmukadam <nishants@marvell.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Brian Norris <computersforpeace@gmail.com>,
-	Stephen Barber <smbarber@chromium.org>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	netdev@vger.kernel.org
-To: Brian Norris <briannorris@chromium.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467325262-82799-1-git-send-email-briannorris@chromium.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: kernel-build-reports@lists.linaro.org,
+	linaro-kernel@lists.linaro.org, linux-next@vger.kernel.org,
+	netdev@vger.kernel.org, linux-arm-kernel@lists.infradead.org
+To: Mark Brown <broonie@kernel.org>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbd.name ([46.4.11.11]:39431 "EHLO nbd.name"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752422AbcGARrO (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jul 2016 13:47:14 -0400
+In-Reply-To: <20160701171557.GB6247@sirena.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-On Thu, Jun 30, 2016 at 3:21 PM, Brian Norris <briannorris@chromium.org> wrote:
-> The PCIe driver didn't mask the host interrupts before trying to tear
-> down. This causes lockups at reboot or rmmod when using MSI-X on 8997,
-> since the MSI handler gets confused and locks up the system.
->
-> Also tested on 8897, which does not support MSI-X (and wasn't
-> experiencing this same bug). No regressions seen there.
->
-> Signed-off-by: Brian Norris <briannorris@chromium.org>
-> ---
->  drivers/net/wireless/marvell/mwifiex/pcie.c | 6 ++++++
->  1 file changed, 6 insertions(+)
 
-This looks very sane but isn't my area of expertise at all.  However,
-if my Reviewed-by is at all useful feel free to add it.  I will say
-that this fixes the issue of the crash at reboot time, so at least
-I'll add:
+On 01/07/2016 19:15, Mark Brown wrote:
+> On Fri, Jul 01, 2016 at 10:00:09AM +0100, Build bot for Mark Brown wrote:
+> 
+> Today's -next fails to build am ARM allmodconfig due to:
+> 
+>> 	arm-allmodconfig
+>> ../drivers/net/ethernet/mediatek/mtk_eth_soc.c:1300:2: error: implicit declaration of function 'mtk_handle_irq' [-Werror=implicit-function-declaration]
+>> ../drivers/net/ethernet/mediatek/mtk_eth_soc.c:1300:25: error: subscripted value is neither array nor pointer nor vector
+> 
+> due to the recent changes to the interrupt handling code, the function
+> has been split into rx and tx functions but the NET_POLL_CONTROLLER code
+> hasn't been updated.
+> 
 
-Tested-by: Douglas Anderson <dianders@chromium.org>
+Hi Mark,
+
+i'll look into this first thing in the morning.
+
+	John
