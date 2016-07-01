@@ -1,72 +1,34 @@
-From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v3 net-next 6/9] net: hns: normalize two different loop
-Date: Fri, 1 Jul 2016 17:34:10 +0800
-Message-ID: <1467365653-83331-7-git-send-email-Yisen.Zhuang@huawei.com>
-References: <1467365653-83331-1-git-send-email-Yisen.Zhuang@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net-next V4 0/6] switch to use tx skb array in tun
+Date: Fri, 01 Jul 2016 05:40:03 -0400 (EDT)
+Message-ID: <20160701.054003.1169513351817423544.davem@davemloft.net>
+References: <1467269136-8082-1-git-send-email-jasowang@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <akpm@linux-foundation.org>, <gregkh@linuxfoundation.org>,
-	<kvalo@codeaurora.org>, <mchehab@osg.samsung.com>,
-	<linux@roeck-us.net>, <jslaby@suse.cz>, <yankejian@huawei.com>,
-	<huangdaode@hisilicon.com>, <lipeng321@huawei.com>,
-	<xieqianqian@huawei.com>, <arnd@arndb.de>, <andrew@lunn.ch>,
-	<xypron.glpk@gmx.de>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
-	<salil.mehta@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467365653-83331-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: kvm@vger.kernel.org, eric.dumazet@gmail.com, mst@redhat.com,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	virtualization@lists.linux-foundation.org, brouer@redhat.com
+To: jasowang@redhat.com
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <1467269136-8082-1-git-send-email-jasowang@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
 List-Id: netdev.vger.kernel.org
 
-From: Daode Huang <huangdaode@hisilicon.com>
+From: Jason Wang <jasowang@redhat.com>
+Date: Thu, 30 Jun 2016 14:45:30 +0800
 
-There are two approaches to assign data, one does 2 loops, another
-does 1 loop. This patch normalize the different methods to 1 loop.
+> This series tries to switch to use skb array in tun. This is used to
+> eliminate the spinlock contention between producer and consumer. The
+> conversion was straightforward: just introdce a tx skb array and use
+> it instead of sk_receive_queue.
 
-Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
-Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 18 +++++++++---------
- 1 file changed, 9 insertions(+), 9 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index e36ee22..86ce28a 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -2567,15 +2567,15 @@ static char *hns_dsaf_get_node_stats_strings(char *data, int node,
- 	buff += ETH_GSTRING_LEN;
- 	if (node < DSAF_SERVICE_NW_NUM && !is_ver1) {
- 		for (i = 0; i < DSAF_PRIO_NR; i++) {
--			snprintf(buff, ETH_GSTRING_LEN,
--				 "inod%d_pfc_prio%d_pkts", node, i);
--			buff += ETH_GSTRING_LEN;
--		}
--		for (i = 0; i < DSAF_PRIO_NR; i++) {
--			snprintf(buff, ETH_GSTRING_LEN,
--				 "onod%d_pfc_prio%d_pkts", node, i);
-+			snprintf(buff + 0 * ETH_GSTRING_LEN * DSAF_PRIO_NR,
-+				 ETH_GSTRING_LEN, "inod%d_pfc_prio%d_pkts",
-+				 node, i);
-+			snprintf(buff + 1 * ETH_GSTRING_LEN * DSAF_PRIO_NR,
-+				 ETH_GSTRING_LEN, "onod%d_pfc_prio%d_pkts",
-+				 node, i);
- 			buff += ETH_GSTRING_LEN;
- 		}
-+		buff += 1 * DSAF_PRIO_NR * ETH_GSTRING_LEN;
- 	}
- 	snprintf(buff, ETH_GSTRING_LEN, "onnod%d_tx_pkts", node);
- 	buff += ETH_GSTRING_LEN;
-@@ -2606,8 +2606,8 @@ static u64 *hns_dsaf_get_node_stats(struct dsaf_device *ddev, u64 *data,
- 	p[12] = hw_stats->stp_drop;
- 	if (node_num < DSAF_SERVICE_NW_NUM && !is_ver1) {
- 		for (i = 0; i < DSAF_PRIO_NR; i++) {
--			p[13 + i] = hw_stats->rx_pfc[i];
--			p[13 + i + DSAF_PRIO_NR] = hw_stats->tx_pfc[i];
-+			p[13 + i + 0 * DSAF_PRIO_NR] = hw_stats->rx_pfc[i];
-+			p[13 + i + 1 * DSAF_PRIO_NR] = hw_stats->tx_pfc[i];
- 		}
- 		p[29] = hw_stats->tx_pkts;
- 		return &p[30];
--- 
-1.9.1
+Series applied, thanks Jason.
