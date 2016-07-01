@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 24/42] mlxsw: spectrum: Add couple of lower device helper functions
-Date: Fri,  1 Jul 2016 16:04:52 +0200
-Message-ID: <1467381910-3445-25-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 30/42] mlxsw: spectrum_router: Add private neigh table
+Date: Fri,  1 Jul 2016 16:04:58 +0200
+Message-ID: <1467381910-3445-31-git-send-email-jiri@resnulli.us>
 References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,223 +10,250 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35482 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752702AbcGAOY5 (ORCPT
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35478 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752697AbcGAOY5 (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 10:24:57 -0400
-Received: by mail-wm0-f67.google.com with SMTP id a66so5683899wme.2
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:24:02 -0700 (PDT)
+Received: by mail-wm0-f68.google.com with SMTP id a66so5683880wme.2
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 07:24:01 -0700 (PDT)
 In-Reply-To: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Add functions that iterate over lower devices and find port device.
-As a dependency add netdev_for_each_all_lower_dev and
-netdev_for_each_all_lower_dev_rcu macro with
-netdev_all_lower_get_next and netdev_all_lower_get_next_rcu shelpers.
-
-Also, add functions to return mlxsw struct according to lower device
-found and mlxsw_port struct with a reference to lower device.
+We need to hold some private data for every neigh entry. It would be
+possible to do it using neigh_priv_len/ndo_neigh_construct/
+ndo_neigh_destroy however only for the port device itself. That would not
+work for stacked devices like bridge/team/bond. So introduce a private
+neigh table. Hook onto ndos neigh_construct/destroy and add/remove
+table entry according to that.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 65 ++++++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  3 ++
- include/linux/netdevice.h                      | 18 +++++++
- net/core/dev.c                                 | 46 ++++++++++++++++++
- 4 files changed, 127 insertions(+), 5 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   2 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   6 +
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 146 ++++++++++++++++++++-
+ 3 files changed, 153 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index f0799898..f54fd6a 100644
+index 7b2b741b..9bebb7a 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2567,6 +2567,66 @@ static struct mlxsw_driver mlxsw_sp_driver = {
- 	.profile			= &mlxsw_sp_config_profile,
- };
- 
-+static bool mlxsw_sp_port_dev_check(const struct net_device *dev)
-+{
-+	return dev->netdev_ops == &mlxsw_sp_port_netdev_ops;
-+}
-+
-+static struct mlxsw_sp_port *mlxsw_sp_port_dev_lower_find(struct net_device *dev)
-+{
-+	struct net_device *lower_dev;
-+	struct list_head *iter;
-+
-+	if (mlxsw_sp_port_dev_check(dev))
-+		return netdev_priv(dev);
-+
-+	netdev_for_each_all_lower_dev(dev, lower_dev, iter) {
-+		if (mlxsw_sp_port_dev_check(lower_dev))
-+			return netdev_priv(lower_dev);
-+	}
-+	return NULL;
-+}
-+
-+static struct mlxsw_sp *mlxsw_sp_lower_get(struct net_device *dev)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_port;
-+
-+	mlxsw_sp_port = mlxsw_sp_port_dev_lower_find(dev);
-+	return mlxsw_sp_port ? mlxsw_sp_port->mlxsw_sp : NULL;
-+}
-+
-+static struct mlxsw_sp_port *mlxsw_sp_port_dev_lower_find_rcu(struct net_device *dev)
-+{
-+	struct net_device *lower_dev;
-+	struct list_head *iter;
-+
-+	if (mlxsw_sp_port_dev_check(dev))
-+		return netdev_priv(dev);
-+
-+	netdev_for_each_all_lower_dev_rcu(dev, lower_dev, iter) {
-+		if (mlxsw_sp_port_dev_check(lower_dev))
-+			return netdev_priv(lower_dev);
-+	}
-+	return NULL;
-+}
-+
-+struct mlxsw_sp_port *mlxsw_sp_port_lower_dev_hold(struct net_device *dev)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_port;
-+
-+	rcu_read_lock();
-+	mlxsw_sp_port = mlxsw_sp_port_dev_lower_find_rcu(dev);
-+	if (mlxsw_sp_port)
-+		dev_hold(mlxsw_sp_port->dev);
-+	rcu_read_unlock();
-+	return mlxsw_sp_port;
-+}
-+
-+void mlxsw_sp_port_dev_put(struct mlxsw_sp_port *mlxsw_sp_port)
-+{
-+	dev_put(mlxsw_sp_port->dev);
-+}
-+
- static bool mlxsw_sp_lag_port_fid_member(struct mlxsw_sp_port *lag_port,
- 					 u16 fid)
- {
-@@ -2647,11 +2707,6 @@ int mlxsw_sp_port_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_port, u16 fid)
- 		return mlxsw_sp_port_fdb_flush_by_port_fid(mlxsw_sp_port, fid);
- }
- 
--static bool mlxsw_sp_port_dev_check(const struct net_device *dev)
--{
--	return dev->netdev_ops == &mlxsw_sp_port_netdev_ops;
--}
--
- static bool mlxsw_sp_master_bridge_check(struct mlxsw_sp *mlxsw_sp,
- 					 struct net_device *br_dev)
- {
+@@ -803,6 +803,8 @@ static const struct net_device_ops mlxsw_sp_port_netdev_ops = {
+ 	.ndo_get_stats64	= mlxsw_sp_port_get_stats64,
+ 	.ndo_vlan_rx_add_vid	= mlxsw_sp_port_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= mlxsw_sp_port_kill_vid,
++	.ndo_neigh_construct	= mlxsw_sp_router_neigh_construct,
++	.ndo_neigh_destroy	= mlxsw_sp_router_neigh_destroy,
+ 	.ndo_fdb_add		= switchdev_port_fdb_add,
+ 	.ndo_fdb_del		= switchdev_port_fdb_del,
+ 	.ndo_fdb_dump		= switchdev_port_fdb_dump,
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 877a879..fefff25 100644
+index 958e821..734c5ba 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -292,6 +292,9 @@ struct mlxsw_sp_port {
- 	struct list_head vports_list;
+@@ -39,6 +39,7 @@
+ 
+ #include <linux/types.h>
+ #include <linux/netdevice.h>
++#include <linux/rhashtable.h>
+ #include <linux/bitops.h>
+ #include <linux/if_vlan.h>
+ #include <linux/list.h>
+@@ -212,6 +213,7 @@ struct mlxsw_sp_vr {
+ struct mlxsw_sp_router {
+ 	struct mlxsw_sp_lpm_tree lpm_trees[MLXSW_SP_LPM_TREE_COUNT];
+ 	struct mlxsw_sp_vr vrs[MLXSW_SP_VIRTUAL_ROUTER_MAX];
++	struct rhashtable neigh_ht;
  };
  
-+struct mlxsw_sp_port *mlxsw_sp_port_lower_dev_hold(struct net_device *dev);
-+void mlxsw_sp_port_dev_put(struct mlxsw_sp_port *mlxsw_sp_port);
-+
- static inline bool
- mlxsw_sp_port_is_pause_en(const struct mlxsw_sp_port *mlxsw_sp_port)
- {
-diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-index fac5132..02c5254 100644
---- a/include/linux/netdevice.h
-+++ b/include/linux/netdevice.h
-@@ -3805,12 +3805,30 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
+ struct mlxsw_sp {
+@@ -524,5 +526,9 @@ int mlxsw_sp_router_fib4_add(struct mlxsw_sp_port *mlxsw_sp_port,
+ 			     struct switchdev_trans *trans);
+ int mlxsw_sp_router_fib4_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 			     const struct switchdev_obj_ipv4_fib *fib4);
++int mlxsw_sp_router_neigh_construct(struct net_device *dev,
++				    struct neighbour *n);
++void mlxsw_sp_router_neigh_destroy(struct net_device *dev,
++				   struct neighbour *n);
  
- void *netdev_lower_get_next(struct net_device *dev,
- 				struct list_head **iter);
-+
- #define netdev_for_each_lower_dev(dev, ldev, iter) \
- 	for (iter = (dev)->adj_list.lower.next, \
- 	     ldev = netdev_lower_get_next(dev, &(iter)); \
- 	     ldev; \
- 	     ldev = netdev_lower_get_next(dev, &(iter)))
+ #endif
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 7e3992a..90d382a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -38,6 +38,8 @@
+ #include <linux/rhashtable.h>
+ #include <linux/bitops.h>
+ #include <linux/in6.h>
++#include <net/neighbour.h>
++#include <net/arp.h>
  
-+struct net_device *netdev_all_lower_get_next(struct net_device *dev,
-+					     struct list_head **iter);
-+struct net_device *netdev_all_lower_get_next_rcu(struct net_device *dev,
-+						 struct list_head **iter);
-+
-+#define netdev_for_each_all_lower_dev(dev, ldev, iter) \
-+	for (iter = (dev)->all_adj_list.lower.next, \
-+	     ldev = netdev_all_lower_get_next(dev, &(iter)); \
-+	     ldev; \
-+	     ldev = netdev_all_lower_get_next(dev, &(iter)))
-+
-+#define netdev_for_each_all_lower_dev_rcu(dev, ldev, iter) \
-+	for (iter = (dev)->all_adj_list.lower.next, \
-+	     ldev = netdev_all_lower_get_next_rcu(dev, &(iter)); \
-+	     ldev; \
-+	     ldev = netdev_all_lower_get_next_rcu(dev, &(iter)))
-+
- void *netdev_adjacent_get_private(struct list_head *adj_list);
- void *netdev_lower_get_first_private_rcu(struct net_device *dev);
- struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
-diff --git a/net/core/dev.c b/net/core/dev.c
-index eb13647..ce008e4 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -5445,6 +5445,52 @@ void *netdev_lower_get_next(struct net_device *dev, struct list_head **iter)
- EXPORT_SYMBOL(netdev_lower_get_next);
+ #include "spectrum.h"
+ #include "core.h"
+@@ -544,6 +546,147 @@ static void mlxsw_sp_vrs_init(struct mlxsw_sp *mlxsw_sp)
+ 	}
+ }
  
- /**
-+ * netdev_all_lower_get_next - Get the next device from all lower neighbour list
-+ * @dev: device
-+ * @iter: list_head ** of the current position
-+ *
-+ * Gets the next netdev_adjacent from the dev's all lower neighbour
-+ * list, starting from iter position. The caller must hold RTNL lock or
-+ * its own locking that guarantees that the neighbour all lower
-+ * list will remain unchanged.
-+ */
-+struct net_device *netdev_all_lower_get_next(struct net_device *dev, struct list_head **iter)
++struct mlxsw_sp_neigh_key {
++	unsigned char addr[sizeof(struct in6_addr)];
++	struct net_device *dev;
++};
++
++struct mlxsw_sp_neigh_entry {
++	struct rhash_head ht_node;
++	struct mlxsw_sp_neigh_key key;
++	u16 rif;
++	struct neighbour *n;
++};
++
++static const struct rhashtable_params mlxsw_sp_neigh_ht_params = {
++	.key_offset = offsetof(struct mlxsw_sp_neigh_entry, key),
++	.head_offset = offsetof(struct mlxsw_sp_neigh_entry, ht_node),
++	.key_len = sizeof(struct mlxsw_sp_neigh_key),
++};
++
++static int
++mlxsw_sp_neigh_entry_insert(struct mlxsw_sp *mlxsw_sp,
++			    struct mlxsw_sp_neigh_entry *neigh_entry)
 +{
-+	struct netdev_adjacent *lower;
++	return rhashtable_insert_fast(&mlxsw_sp->router.neigh_ht,
++				      &neigh_entry->ht_node,
++				      mlxsw_sp_neigh_ht_params);
++}
 +
-+	lower = list_entry(*iter, struct netdev_adjacent, list);
++static void
++mlxsw_sp_neigh_entry_remove(struct mlxsw_sp *mlxsw_sp,
++			    struct mlxsw_sp_neigh_entry *neigh_entry)
++{
++	rhashtable_remove_fast(&mlxsw_sp->router.neigh_ht,
++			       &neigh_entry->ht_node,
++			       mlxsw_sp_neigh_ht_params);
++}
 +
-+	if (&lower->list == &dev->all_adj_list.lower)
++static struct mlxsw_sp_neigh_entry *
++mlxsw_sp_neigh_entry_create(const void *addr, size_t addr_len,
++			    struct net_device *dev, u16 rif,
++			    struct neighbour *n)
++{
++	struct mlxsw_sp_neigh_entry *neigh_entry;
++
++	neigh_entry = kzalloc(sizeof(*neigh_entry), GFP_ATOMIC);
++	if (!neigh_entry)
 +		return NULL;
-+
-+	*iter = lower->list.next;
-+
-+	return lower->dev;
++	memcpy(neigh_entry->key.addr, addr, addr_len);
++	neigh_entry->key.dev = dev;
++	neigh_entry->rif = rif;
++	neigh_entry->n = n;
++	return neigh_entry;
 +}
-+EXPORT_SYMBOL(netdev_all_lower_get_next);
 +
-+/**
-+ * netdev_all_lower_get_next_rcu - Get the next device from all
-+ *				   lower neighbour list, RCU variant
-+ * @dev: device
-+ * @iter: list_head ** of the current position
-+ *
-+ * Gets the next netdev_adjacent from the dev's all lower neighbour
-+ * list, starting from iter position. The caller must hold RCU read lock.
-+ */
-+struct net_device *netdev_all_lower_get_next_rcu(struct net_device *dev,
-+						 struct list_head **iter)
++static void
++mlxsw_sp_neigh_entry_destroy(struct mlxsw_sp_neigh_entry *neigh_entry)
 +{
-+	struct netdev_adjacent *lower;
-+
-+	lower = list_first_or_null_rcu(&dev->all_adj_list.lower,
-+				       struct netdev_adjacent, list);
-+
-+	return lower ? lower->dev : NULL;
++	kfree(neigh_entry);
 +}
-+EXPORT_SYMBOL(netdev_all_lower_get_next_rcu);
 +
-+/**
-  * netdev_lower_get_first_private_rcu - Get the first ->private from the
-  *				       lower neighbour list, RCU
-  *				       variant
++static struct mlxsw_sp_neigh_entry *
++mlxsw_sp_neigh_entry_lookup(struct mlxsw_sp *mlxsw_sp, const void *addr,
++			    size_t addr_len, struct net_device *dev)
++{
++	struct mlxsw_sp_neigh_key key = {{ 0 } };
++
++	memcpy(key.addr, addr, addr_len);
++	key.dev = dev;
++	return rhashtable_lookup_fast(&mlxsw_sp->router.neigh_ht,
++				      &key, mlxsw_sp_neigh_ht_params);
++}
++
++int mlxsw_sp_router_neigh_construct(struct net_device *dev,
++				    struct neighbour *n)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	struct mlxsw_sp_neigh_entry *neigh_entry;
++	struct mlxsw_sp_rif *r;
++	u32 dip;
++	int err;
++
++	if (n->tbl != &arp_tbl)
++		return 0;
++
++	dip = ntohl(*((__be32 *) n->primary_key));
++	neigh_entry = mlxsw_sp_neigh_entry_lookup(mlxsw_sp, &dip, sizeof(dip),
++						  n->dev);
++	if (neigh_entry) {
++		WARN_ON(neigh_entry->n != n);
++		return 0;
++	}
++
++	r = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
++	if (WARN_ON(!r))
++		return -EINVAL;
++
++	neigh_entry = mlxsw_sp_neigh_entry_create(&dip, sizeof(dip), n->dev,
++						  r->rif, n);
++	if (!neigh_entry)
++		return -ENOMEM;
++	err = mlxsw_sp_neigh_entry_insert(mlxsw_sp, neigh_entry);
++	if (err)
++		goto err_neigh_entry_insert;
++	return 0;
++
++err_neigh_entry_insert:
++	mlxsw_sp_neigh_entry_destroy(neigh_entry);
++	return err;
++}
++
++void mlxsw_sp_router_neigh_destroy(struct net_device *dev,
++				   struct neighbour *n)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	struct mlxsw_sp_neigh_entry *neigh_entry;
++	u32 dip;
++
++	if (n->tbl != &arp_tbl)
++		return;
++
++	dip = ntohl(*((__be32 *) n->primary_key));
++	neigh_entry = mlxsw_sp_neigh_entry_lookup(mlxsw_sp, &dip, sizeof(dip),
++						  n->dev);
++	if (!neigh_entry)
++		return;
++	mlxsw_sp_neigh_entry_remove(mlxsw_sp, neigh_entry);
++	mlxsw_sp_neigh_entry_destroy(neigh_entry);
++}
++
++static int mlxsw_sp_neigh_init(struct mlxsw_sp *mlxsw_sp)
++{
++	return rhashtable_init(&mlxsw_sp->router.neigh_ht,
++			       &mlxsw_sp_neigh_ht_params);
++}
++
++static void mlxsw_sp_neigh_fini(struct mlxsw_sp *mlxsw_sp)
++{
++	rhashtable_destroy(&mlxsw_sp->router.neigh_ht);
++}
++
+ static int __mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	char rgcr_pl[MLXSW_REG_RGCR_LEN];
+@@ -570,11 +713,12 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+ 		return err;
+ 	mlxsw_sp_lpm_init(mlxsw_sp);
+ 	mlxsw_sp_vrs_init(mlxsw_sp);
+-	return 0;
++	return mlxsw_sp_neigh_init(mlxsw_sp);
+ }
+ 
+ void mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
+ {
++	mlxsw_sp_neigh_fini(mlxsw_sp);
+ 	__mlxsw_sp_router_fini(mlxsw_sp);
+ }
+ 
 -- 
 2.5.5
