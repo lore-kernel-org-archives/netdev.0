@@ -1,57 +1,47 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [Patch net] net_sched: fix mirrored packets checksum
-Date: Thu, 30 Jun 2016 16:41:17 -0700
-Message-ID: <CAM_iQpXd7-rx_XzoZ=8gVekLD0YRLkmr0kgud3WoXnjEvCOLZw@mail.gmail.com>
-References: <1467306922-7086-1-git-send-email-xiyou.wangcong@gmail.com>
- <57757823.4090000@iogearbox.net> <CAM_iQpXtOr+AD2_q1E_dZm8MmLFAhdqPb6-_3ChgCr38gKi0yg@mail.gmail.com>
- <5775A710.9010105@iogearbox.net> <CAM_iQpVOVKyyGLqvSzB9L1Dugo_zXdrc0Qymy_gBVNMTPm-sHw@mail.gmail.com>
+From: Stephen Hemminger <stephen@networkplumber.org>
+Subject: Re: [PATCH iproute2 net-next] bridge: vlan: add support to display
+ per-vlan statistics
+Date: Thu, 30 Jun 2016 17:06:59 -0700
+Message-ID: <20160630170659.07f46c3c@xeon-e3>
+References: <1466417599-12940-1-git-send-email-nikolay@cumulusnetworks.com>
+	<20160621090141.0c13d12d@xeon-e3>
+	<57696709.7010506@cumulusnetworks.com>
+	<5769674F.3090700@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Tom Herbert <tom@herbertland.com>
-To: Daniel Borkmann <daniel@iogearbox.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, roopa@cumulusnetworks.com
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qk0-f194.google.com ([209.85.220.194]:34564 "EHLO
-	mail-qk0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752065AbcF3Xlw (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 19:41:52 -0400
-Received: by mail-qk0-f194.google.com with SMTP id j2so20125083qkf.1
-        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 16:41:37 -0700 (PDT)
-In-Reply-To: <CAM_iQpVOVKyyGLqvSzB9L1Dugo_zXdrc0Qymy_gBVNMTPm-sHw@mail.gmail.com>
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:34788 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751052AbcGAAGq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 30 Jun 2016 20:06:46 -0400
+Received: by mail-pa0-f53.google.com with SMTP id bz2so32877800pad.1
+        for <netdev@vger.kernel.org>; Thu, 30 Jun 2016 17:06:45 -0700 (PDT)
+In-Reply-To: <5769674F.3090700@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jun 30, 2016 at 4:26 PM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
-> On Thu, Jun 30, 2016 at 4:11 PM, Daniel Borkmann <daniel@iogearbox.net> wrote:
->> On 07/01/2016 12:42 AM, Cong Wang wrote:
->>>
->>> On Thu, Jun 30, 2016 at 12:50 PM, Daniel Borkmann <daniel@iogearbox.net>
->>> wrote:
->>>>
->>>>
->>>> Maybe makes sense to move skb_push_rcsum() but /also/ skb_pull_rcsum()
->>>> to the header then? Both seem similarly small at least (could be split
->>>> f.e into two patches then, first for the move, second for the actual
->>>> fix).
->>>
->>>
->>> No objection from me. Please feel free to send a patch. ;)
->>
->>
->> Shrug, I actually meant this as feedback to your patch, since you move that
->> helper and not as a note to myself. ;)
->
-> Interesting, my patch only moves what it needs, why does it need
-> to do more?
+On Tue, 21 Jun 2016 18:11:59 +0200
+Nikolay Aleksandrov <nikolay@cumulusnetworks.com> wrote:
 
-In case you miss the context:
-http://marc.info/?l=linux-netdev&m=146730654005424&w=2
+> >> Thanks, this is a useful tool, but I think the formatting of output may need to be
+> >> reworked.  The bridge tool works similar to ip command. And in the ip command the
+> >> -s flag causes additional lines, but does not change the output format.  
+> > 
+> > Indeed, I agree that it needs refinement.
+> >   
+> 
+> Or alternatively I can make it:
+> $ bridge vlan stats
+> a subcommand instead of using the "-s" argument in order to be consistent.
+> So it can have its own format.
 
-This patch should be backported to stable too, which is another
-reason why we should keep it as small as possible.
+Why not:
 
-Here, at Twitter, we already backported it to 4.1 kernel for testing.
+$ bridge -s vlan show
 
-(The reason why I don't have a Fixes: tag is that I don't identify an
-offending commit to blame yet.)
+to be consistent with:
+
+$ ip -s li show
