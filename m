@@ -1,54 +1,45 @@
-From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v3 net-next 5/9] net: hns: add a space before "*/"
-Date: Fri, 1 Jul 2016 17:34:09 +0800
-Message-ID: <1467365653-83331-6-git-send-email-Yisen.Zhuang@huawei.com>
-References: <1467365653-83331-1-git-send-email-Yisen.Zhuang@huawei.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next PATCH 0/5] HFSC patches, part 1
+Date: Fri, 01 Jul 2016 05:07:57 -0400 (EDT)
+Message-ID: <20160701.050757.234421925335359788.davem@davemloft.net>
+References: <1467246408-913-1-git-send-email-soltys@ziu.info>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <akpm@linux-foundation.org>, <gregkh@linuxfoundation.org>,
-	<kvalo@codeaurora.org>, <mchehab@osg.samsung.com>,
-	<linux@roeck-us.net>, <jslaby@suse.cz>, <yankejian@huawei.com>,
-	<huangdaode@hisilicon.com>, <lipeng321@huawei.com>,
-	<xieqianqian@huawei.com>, <arnd@arndb.de>, <andrew@lunn.ch>,
-	<xypron.glpk@gmx.de>, <linux-kernel@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linuxarm@huawei.com>
-To: <davem@davemloft.net>, <yisen.zhuang@huawei.com>,
-	<salil.mehta@huawei.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467365653-83331-1-git-send-email-Yisen.Zhuang@huawei.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, kaber@trash.net
+To: soltys@ziu.info
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([149.20.54.216]:37217 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752201AbcGAJRp (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 05:17:45 -0400
+In-Reply-To: <1467246408-913-1-git-send-email-soltys@ziu.info>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Daode Huang <huangdaode@hisilicon.com>
+From: Michal Soltys <soltys@ziu.info>
+Date: Thu, 30 Jun 2016 02:26:43 +0200
 
-In comment line, some time miss a space before */, so this
-patch adds a space before */.
+> It's revised version of part of the patches I submitted really, really long
+> time ago (back then I asked Patrick to ignore them as I found some issues
+> shortly after submitting).
+> 
+> Anyway this is the first set with very simple fixes/changes though some of them
+> relatively subtle (I tried to do very exhaustive commit messages explaining what
+> and why with those).
+> 
+> The patches are against net-next tree.
+> 
+> The second set will be heavier - or rather with more complex explanations, among those I have:
+> 
+> - a fix to subtle issue introduced in
+>   http://permalink.gmane.org/gmane.linux.kernel.commits.2-4/8281
+>   along with simplifying related stuff
+> - update times to 96 bits (which allows to "just" use 32 bit shifts and
+>   improves curve definition accuracy at more extreme low/high speeds)
+> - add curve "merging" instead of just selecting in convex case (computations
+>   mirror those from concave intersection)
+> 
+> But these are eventually for later.
 
-Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
-Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
----
- drivers/net/ethernet/hisilicon/hns/hns_enet.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
-
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-index d5297ec..d7e1f8c 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
-@@ -762,13 +762,13 @@ static int hns_nic_rx_poll_one(struct hns_nic_ring_data *ring_data,
- 	recv_pkts = 0, recv_bds = 0, clean_count = 0;
- recv:
- 	while (recv_pkts < budget && recv_bds < num) {
--		/* reuse or realloc buffers*/
-+		/* reuse or realloc buffers */
- 		if (clean_count >= RCB_NOF_ALLOC_RX_BUFF_ONCE) {
- 			hns_nic_alloc_rx_buffers(ring_data, clean_count);
- 			clean_count = 0;
- 		}
- 
--		/* poll one pkt*/
-+		/* poll one pkt */
- 		err = hns_nic_poll_rx_skb(ring_data, &skb, &bnum);
- 		if (unlikely(!skb)) /* this fault cannot be repaired */
- 			goto out;
--- 
-1.9.1
+Series applied, thanks.
