@@ -1,72 +1,47 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [RFC PATCH 0/2] net: ethernet: Add support for gmii2rgmii
- converter
-Date: Fri, 1 Jul 2016 15:29:59 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5BAC07@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <1467354012-7364-1-git-send-email-appanad@xilinx.com>
- <20160701151304.GE6804@lunn.ch>
+From: zam chukwu <zamchukwu4@gmail.com>
+Subject: GOOD INTEREST
+Date: Fri, 1 Jul 2016 17:34:51 +0200
+Message-ID: <CAHk2tA1N6Z5JtCsu3EfYjXf5hPap2WhQjq6itvJnPkoFftnbXw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Michal Simek <michals@xilinx.com>,
-	"nicolas.ferre@atmel.com" <nicolas.ferre@atmel.com>,
-	Punnaiah Choudary Kalluri <punnaia@xilinx.com>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	Harini Katakam <harinik@xilinx.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Andrew Lunn <andrew@lunn.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160701151304.GE6804@lunn.ch>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+To: undisclosed-recipients:;
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:35679 "EHLO
+	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752182AbcGAPey (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 1 Jul 2016 11:34:54 -0400
+Received: by mail-io0-f195.google.com with SMTP id u25so11868263iou.2
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 08:34:53 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Andrew,
+Dearest,
 
-> On Fri, Jul 01, 2016 at 11:50:10AM +0530, Kedareswara rao Appana wrote:
-> > This patch series does the following
-> > ---> Add support for gmii2rgmii converter.
-> 
-> How generic is this gmii2rgmii IP block? Could it be used with any GMII and
-> RGMII device?
+I am interested in establishing and operating a very viable business
+as a means of investment abroad. I do not know too well on how this is
+done in your country, so I will need you to help me in this regard.
 
-This converter does GMII2RGMII conversion.
-This can be used with any MAC which has shared MDIO with external PHY
-And this Converter. This Converter IP is validated for MACB.
-But it should work with any MAC which has shared MDIO bus (I mean single MDIO multiple PHYS)...
+My preference is any good profit yielding business and I would any
+viable ideas you could come up with. I will also need you to help me
+look for properties like homes and lands for sale as I proposing to
+invest the sum of Fifty Million United States Dollars ($50,000,000
+USD) for this. I do not know if you can and will be of help to me. For
+a brief on my personality; My name is Elder Zireva, a  in Accra Ghana.
 
-This converter works like below
+I am a retired Business man formally into private Shipping Business. I
+62 years of age, married with a wife and 4 lovely kids. I dropped my
+Shipping business because it wasn't producing profitable income and
+above all, the Government is too inquisitive with a lot of political
+enemies here and there.
 
-MACB <==> GMII2RGMII <==> RGMII_PHY
+My need for this business proposition and to acquire these properties
+is very urgent as I am planning to move out of this country with my
+family down to your country. I want you to also help in finding a good
+home where my family and I will live in. (Mini Estate)
 
-	MDIO	    <========> GMII2RGMII
-MCAB<=======> 
-		  <========> RGMII
+Please I expect your good and prompt reply so that we can proceed swiftly.
 
-Using MACB MDIO bus we can access both the converter and the external PHY.
-We need to program the line speed of the converter during run time based on the External phy negotiated speed. 
+I will need your phone and fax numbers for easier communication.
 
-MDIO interface is used to set operating speed (line speed) 
-
-The converter has only one register (0x10) that we need to program to set the operating speed.
-The composition of this register is similar to the IEEE standard 802.3 MDIO control register 0x0.
-
-Please let me know if you still not clear about how this converter works.
-
-> 
-> Should it be placed in drivers/net/phy, so making it easier to reuse?
-
-Ok will move it drivers/net/phy folder in the next version...
-
-> 
-> Also, Russell Kings phylink might be a more natural structure for this. It is hard to
-> know when those patches will land, but it might be worth looking at.
-
-Ok sure will take a look at this series once posted...
-
-Regards,
-Kedar.
-
-> 
->        Andrew
+Best Regards,
+Mr Zireva David.
