@@ -1,7 +1,7 @@
 From: Yisen Zhuang <Yisen.Zhuang@huawei.com>
-Subject: [PATCH v3 net-next 3/9] net: hns: change code style from a = a + x to a += x
-Date: Fri, 1 Jul 2016 17:34:07 +0800
-Message-ID: <1467365653-83331-4-git-send-email-Yisen.Zhuang@huawei.com>
+Subject: [PATCH v3 net-next 5/9] net: hns: add a space before "*/"
+Date: Fri, 1 Jul 2016 17:34:09 +0800
+Message-ID: <1467365653-83331-6-git-send-email-Yisen.Zhuang@huawei.com>
 References: <1467365653-83331-1-git-send-email-Yisen.Zhuang@huawei.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -21,82 +21,34 @@ List-Id: netdev.vger.kernel.org
 
 From: Daode Huang <huangdaode@hisilicon.com>
 
-This patch fixes the code style in hns driver. Change it from
-"buff = buff + xxx" to "buff += xxx". The reveiw comments is
-from andy.
+In comment line, some time miss a space before */, so this
+patch adds a space before */.
 
-Reviewed-by: Andriy Shevchenko <andriy.shevchenko@linux.intel.com>
 Signed-off-by: Daode Huang <huangdaode@hisilicon.com>
 Signed-off-by: Yisen Zhuang <Yisen.Zhuang@huawei.com>
 ---
- drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 32 +++++++++++-----------
- 1 file changed, 16 insertions(+), 16 deletions(-)
+ drivers/net/ethernet/hisilicon/hns/hns_enet.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-index 67e8e13..b9d01ea 100644
---- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-+++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
-@@ -2540,45 +2540,45 @@ static char *hns_dsaf_get_node_stats_strings(char *data, int node,
- 	bool is_ver1 = AE_IS_VER1(dsaf_dev->dsaf_ver);
- 
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_pad_drop_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_manage_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_rx_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_rx_pkt_id", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_rx_pause_frame", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_release_buf_num", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_sbm_drop_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_crc_false_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_bp_drop_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_lookup_rslt_drop_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_local_rslt_fail_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_vlan_drop_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	snprintf(buff, ETH_GSTRING_LEN, "innod%d_stp_drop_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
- 	if ((node < DSAF_SERVICE_NW_NUM) && (!is_ver1)) {
- 		for (i = 0; i < DSAF_PRIO_NR; i++) {
- 			snprintf(buff, ETH_GSTRING_LEN,
- 				 "inod%d_pfc_prio%d_pkts", node, i);
--			buff = buff + ETH_GSTRING_LEN;
-+			buff += ETH_GSTRING_LEN;
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_enet.c b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+index d5297ec..d7e1f8c 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_enet.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_enet.c
+@@ -762,13 +762,13 @@ static int hns_nic_rx_poll_one(struct hns_nic_ring_data *ring_data,
+ 	recv_pkts = 0, recv_bds = 0, clean_count = 0;
+ recv:
+ 	while (recv_pkts < budget && recv_bds < num) {
+-		/* reuse or realloc buffers*/
++		/* reuse or realloc buffers */
+ 		if (clean_count >= RCB_NOF_ALLOC_RX_BUFF_ONCE) {
+ 			hns_nic_alloc_rx_buffers(ring_data, clean_count);
+ 			clean_count = 0;
  		}
- 		for (i = 0; i < DSAF_PRIO_NR; i++) {
- 			snprintf(buff, ETH_GSTRING_LEN,
- 				 "onod%d_pfc_prio%d_pkts", node, i);
--			buff = buff + ETH_GSTRING_LEN;
-+			buff += ETH_GSTRING_LEN;
- 		}
- 	}
- 	snprintf(buff, ETH_GSTRING_LEN, "onnod%d_tx_pkts", node);
--	buff = buff + ETH_GSTRING_LEN;
-+	buff += ETH_GSTRING_LEN;
  
- 	return buff;
- }
+-		/* poll one pkt*/
++		/* poll one pkt */
+ 		err = hns_nic_poll_rx_skb(ring_data, &skb, &bnum);
+ 		if (unlikely(!skb)) /* this fault cannot be repaired */
+ 			goto out;
 -- 
 1.9.1
