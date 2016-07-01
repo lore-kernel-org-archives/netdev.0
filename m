@@ -1,11 +1,11 @@
 From: Ido Schimmel <idosch@mellanox.com>
-Subject: Re: [patch net-next 11/42] mlxsw: spectrum: Add router interface
- struct
-Date: Fri, 1 Jul 2016 21:37:13 +0300
-Message-ID: <20160701183713.GB11348@colbert.idosch.org>
+Subject: Re: [patch net-next 10/42] mlxsw: spectrum_router: Add basic ipv4
+ router initialization
+Date: Fri, 1 Jul 2016 20:58:51 +0300
+Message-ID: <20160701175851.GA11348@colbert.idosch.org>
 References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
- <1467381910-3445-12-git-send-email-jiri@resnulli.us>
- <90c0b9d3-6d54-c4f1-407f-0f93c12caf5d@cumulusnetworks.com>
+ <1467381910-3445-11-git-send-email-jiri@resnulli.us>
+ <15542d5f-e11e-4901-0e36-8231012e8f7e@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: Jiri Pirko <jiri@resnulli.us>, <netdev@vger.kernel.org>,
@@ -16,44 +16,42 @@ Cc: Jiri Pirko <jiri@resnulli.us>, <netdev@vger.kernel.org>,
 	<linville@tuxdriver.com>, <ivecera@redhat.com>
 To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0054.outbound.protection.outlook.com ([104.47.2.54]:7328
+Received: from mail-db5eur01on0067.outbound.protection.outlook.com ([104.47.2.67]:38296
 	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751128AbcGAWSz (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 1 Jul 2016 18:18:55 -0400
+	id S1751604AbcGAWe5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 1 Jul 2016 18:34:57 -0400
 Content-Disposition: inline
-In-Reply-To: <90c0b9d3-6d54-c4f1-407f-0f93c12caf5d@cumulusnetworks.com>
+In-Reply-To: <15542d5f-e11e-4901-0e36-8231012e8f7e@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Fri, Jul 01, 2016 at 07:16:23PM IDT, dsa@cumulusnetworks.com wrote:
+Fri, Jul 01, 2016 at 05:39:01PM IDT, dsa@cumulusnetworks.com wrote:
 >On 7/1/16 8:04 AM, Jiri Pirko wrote:
->> @@ -327,6 +333,19 @@ mlxsw_sp_port_vport_find_by_fid(const struct mlxsw_sp_port *mlxsw_sp_port,
->>  	return NULL;
->>  }
+>> diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+>> index 05d5fcc..c2ac037 100644
+>> --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+>> +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+>> @@ -74,6 +74,8 @@
 >>
->> +static inline struct mlxsw_sp_rif *
->> +mlxsw_sp_rif_find_by_dev(const struct mlxsw_sp *mlxsw_sp,
->> +			 const struct net_device *dev)
->> +{
->> +	int i;
->> +
->> +	for (i = 0; i < MLXSW_SP_RIF_MAX; i++)
->> +		if (mlxsw_sp->rifs[i] && mlxsw_sp->rifs[i]->dev == dev)
->> +			return mlxsw_sp->rifs[i];
->> +
->> +	return NULL;
->> +}
->> +
+>>  #define MLXSW_SP_CELL_FACTOR 2	/* 2 * cell_size / (IPG + cell_size + 1) */
+>>
+>> +#define MLXSW_SP_RIF_MAX 800
 >
->Why not add the rif to mlxsw_sp_port which is the priv data for a mlxsw dev?
+>At most 800 RIFs can be created?
 
-We create 'mlxsw_sp_port' for physical ports and vPorts (VLAN netdevs),
-but not for master devices such as bridge and team, which can also be
-assigned RIFs. The reason for this is that in most cases any bridge /
-team setting eventually needs to be programmed to the device via each
-slave 'mlxsw_sp_port'. You can see, for example, that in our netdev
-notification block we simply propagate team/bond CHANGEUPPER to each
-slave port.
+Yes.
 
-Thanks for taking the time to review this!
+Do you have use cases that require more than that? If so, how many
+router interfaces would be required? That would be a good feedback for
+us.
+
+>Why 800?
+
+Currently, trying to configure a RIF with an higher index will result in
+firmware errors. We plan to increase this number in the future (don't
+expect it to be infinite...).
+
+We are currently implementing a new mechanism in the driver that will
+query these resources from the firmware, so we won't need to hardcode
+them.
