@@ -1,58 +1,69 @@
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Subject: [PATCH v2 net-next 3/3] net sched actions: skbedit convert to use more modern nla_put_xxx
-Date: Sat,  2 Jul 2016 06:43:16 -0400
-Message-ID: <1467456196-25712-3-git-send-email-jhs@emojatatu.com>
-References: <1467456196-25712-1-git-send-email-jhs@emojatatu.com>
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-	xiyou.wangcong@gmail.com, fw@strlen.de,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: davem@davemloft.net
+From: Michal Soltys <soltys@ziu.info>
+Subject: [PATCH 1/1] iproute2: unmangle netdev/my emails in man pages (hfsc, stab)
+Date: Sat,  2 Jul 2016 13:03:12 +0200
+Message-ID: <1467457392-15402-1-git-send-email-soltys@ziu.info>
+Cc: netdev@vger.kernel.org
+To: stephen@networkplumber.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:35113 "EHLO
-	mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752018AbcGBKnc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 06:43:32 -0400
-Received: by mail-it0-f67.google.com with SMTP id g127so4520236ith.2
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 03:43:31 -0700 (PDT)
-In-Reply-To: <1467456196-25712-1-git-send-email-jhs@emojatatu.com>
+Received: from drutsystem.com ([84.10.39.251]:48834 "EHLO drutsystem.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750806AbcGBLDV (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 2 Jul 2016 07:03:21 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-
-Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+No other man pages do so, hiding netdev is kind of silly and I don't
+mind having my own address normally visible.
 ---
- net/sched/act_skbedit.c | 12 ++++--------
- 1 file changed, 4 insertions(+), 8 deletions(-)
+ man/man7/tc-hfsc.7 | 4 ++--
+ man/man8/tc-hfsc.8 | 4 ++--
+ man/man8/tc-stab.8 | 4 ++--
+ 3 files changed, 6 insertions(+), 6 deletions(-)
 
-diff --git a/net/sched/act_skbedit.c b/net/sched/act_skbedit.c
-index 1c4c924..8e573c0 100644
---- a/net/sched/act_skbedit.c
-+++ b/net/sched/act_skbedit.c
-@@ -170,20 +170,16 @@ static int tcf_skbedit_dump(struct sk_buff *skb, struct tc_action *a,
- 	if (nla_put(skb, TCA_SKBEDIT_PARMS, sizeof(opt), &opt))
- 		goto nla_put_failure;
- 	if ((d->flags & SKBEDIT_F_PRIORITY) &&
--	    nla_put(skb, TCA_SKBEDIT_PRIORITY, sizeof(d->priority),
--		    &d->priority))
-+	    nla_put_u32(skb, TCA_SKBEDIT_PRIORITY, d->priority))
- 		goto nla_put_failure;
- 	if ((d->flags & SKBEDIT_F_QUEUE_MAPPING) &&
--	    nla_put(skb, TCA_SKBEDIT_QUEUE_MAPPING,
--		    sizeof(d->queue_mapping), &d->queue_mapping))
-+	    nla_put_u16(skb, TCA_SKBEDIT_QUEUE_MAPPING, d->queue_mapping))
- 		goto nla_put_failure;
- 	if ((d->flags & SKBEDIT_F_MARK) &&
--	    nla_put(skb, TCA_SKBEDIT_MARK, sizeof(d->mark),
--		    &d->mark))
-+	    nla_put_u32(skb, TCA_SKBEDIT_MARK, d->mark))
- 		goto nla_put_failure;
- 	if ((d->flags & SKBEDIT_F_PTYPE) &&
--	    nla_put(skb, TCA_SKBEDIT_PTYPE, sizeof(d->ptype),
--		    &d->ptype))
-+	    nla_put_u16(skb, TCA_SKBEDIT_PTYPE, d->ptype))
- 		goto nla_put_failure;
+diff --git a/man/man7/tc-hfsc.7 b/man/man7/tc-hfsc.7
+index ca04961..5ae5e6b 100644
+--- a/man/man7/tc-hfsc.7
++++ b/man/man7/tc-hfsc.7
+@@ -555,8 +555,8 @@ Please refer to \fBtc\-stab\fR(8)
+ .
+ \fBtc\fR(8), \fBtc\-hfsc\fR(8), \fBtc\-stab\fR(8)
  
- 	tcf_tm_dump(&t, &d->tcf_tm);
+-Please direct bugreports and patches to: <net...@vger.kernel.org>
++Please direct bugreports and patches to: <netdev@vger.kernel.org>
+ .
+ .SH "AUTHOR"
+ .
+-Manpage created by Michal Soltys (sol...@ziu.info)
++Manpage created by Michal Soltys (soltys@ziu.info)
+diff --git a/man/man8/tc-hfsc.8 b/man/man8/tc-hfsc.8
+index 5444118..fd0df8f 100644
+--- a/man/man8/tc-hfsc.8
++++ b/man/man8/tc-hfsc.8
+@@ -54,8 +54,8 @@ parameters, you will specify linear service curve.
+ .
+ \fBtc\fR(8), \fBtc\-hfsc\fR(7), \fBtc\-stab\fR(8)
+ 
+-Please direct bugreports and patches to: <net...@vger.kernel.org>
++Please direct bugreports and patches to: <netdev@vger.kernel.org>
+ .
+ .SH "AUTHOR"
+ .
+-Manpage created by Michal Soltys (sol...@ziu.info)
++Manpage created by Michal Soltys (soltys@ziu.info)
+diff --git a/man/man8/tc-stab.8 b/man/man8/tc-stab.8
+index 02caa7d..03a0659 100644
+--- a/man/man8/tc-stab.8
++++ b/man/man8/tc-stab.8
+@@ -156,8 +156,8 @@ it's good to use \fBethtool\fR to turn off offloading features.
+ .br
+ \fB[2]\fR http://www.faqs.org/rfcs/rfc2684.html
+ 
+-Please direct bugreports and patches to: <net...@vger.kernel.org>
++Please direct bugreports and patches to: <netdev@vger.kernel.org>
+ .
+ .SH "AUTHOR"
+ .
+-Manpage created by Michal Soltys (sol...@ziu.info)
++Manpage created by Michal Soltys (soltys@ziu.info)
 -- 
-1.9.1
+2.1.3
