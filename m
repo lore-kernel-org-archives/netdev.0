@@ -1,172 +1,106 @@
-From: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 Subject: Re: [PATCH net-next 1/1] net sched actions: mirred add support for
  setting Dst MAC address
-Date: Sat, 2 Jul 2016 15:49:39 +0200
-Message-ID: <5777C673.8000703@cumulusnetworks.com>
+Date: Sat, 2 Jul 2016 10:02:30 -0400
+Message-ID: <5777C976.4000402@mojatatu.com>
 References: <1467465978-28271-1-git-send-email-jhs@emojatatu.com>
+ <5777C673.8000703@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
 	daniel@iogearbox.net
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
+To: Nikolay Aleksandrov <nikolay@cumulusnetworks.com>,
+	davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f48.google.com ([74.125.82.48]:35344 "EHLO
-	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751360AbcGBNtm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 09:49:42 -0400
-Received: by mail-wm0-f48.google.com with SMTP id v199so55742412wmv.0
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 06:49:42 -0700 (PDT)
-In-Reply-To: <1467465978-28271-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-it0-f66.google.com ([209.85.214.66]:33218 "EHLO
+	mail-it0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751360AbcGBOCd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 10:02:33 -0400
+Received: by mail-it0-f66.google.com with SMTP id y93so4945051ita.0
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 07:02:33 -0700 (PDT)
+In-Reply-To: <5777C673.8000703@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 02/07/16 15:26, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
-> 
-> Often redirecting or mirroring requires that we set the MAC address
-> of the target device. While it is possible to pipe to a pedit action
-> this obsoletes the need for that. This is justified feature because
-> the dst MAC addresses rewrite is such a common use case.
-> 
-> Sample usage:
-> sudo $TC filter add dev $ETH parent 1: protocol ip prio 10 \
-> u32 match ip protocol 1 0xff flowid 1:2 \
-> action mirred egress redirect dev $SPANPORT dst 02:15:15:15:15:15
-> 
-> This will match all icmp packets going out on dev $ETH and
-> redirect them to dev $SPANPORT while setting their dst MAC address
-> to 02:15:15:15:15:15
-> 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
-> ---
->  include/net/tc_act/tc_mirred.h        |  4 +++-
->  include/uapi/linux/tc_act/tc_mirred.h |  7 ++++---
->  net/sched/act_mirred.c                | 20 +++++++++++++++++++-
->  3 files changed, 26 insertions(+), 5 deletions(-)
-> 
-> diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
-> index e891835..7e8bced 100644
-> --- a/include/net/tc_act/tc_mirred.h
-> +++ b/include/net/tc_act/tc_mirred.h
-> @@ -6,10 +6,12 @@
->  
->  struct tcf_mirred {
->  	struct tcf_common	common;
-> +	struct net_device __rcu	*tcfm_dev;
->  	int			tcfm_eaction;
->  	int			tcfm_ifindex;
->  	int			tcfm_ok_push;
-> -	struct net_device __rcu	*tcfm_dev;
-> +	u8			eth_dst[ETH_ALEN];
-> +	/* XXX 6 bytes hole here*/
->  	struct list_head	tcfm_list;
->  };
->  #define to_mirred(a) \
-> diff --git a/include/uapi/linux/tc_act/tc_mirred.h b/include/uapi/linux/tc_act/tc_mirred.h
-> index 3d7a2b3..aaca1ff 100644
-> --- a/include/uapi/linux/tc_act/tc_mirred.h
-> +++ b/include/uapi/linux/tc_act/tc_mirred.h
-> @@ -9,20 +9,21 @@
->  #define TCA_EGRESS_MIRROR 2 /* mirror packet to EGRESS */
->  #define TCA_INGRESS_REDIR 3  /* packet redirect to INGRESS*/
->  #define TCA_INGRESS_MIRROR 4 /* mirror packet to INGRESS */
-> -                                                                                
-> +
->  struct tc_mirred {
->  	tc_gen;
->  	int                     eaction;   /* one of IN/EGRESS_MIRROR/REDIR */
->  	__u32                   ifindex;  /* ifindex of egress port */
->  };
-> -                                                                                
-> +
->  enum {
->  	TCA_MIRRED_UNSPEC,
->  	TCA_MIRRED_TM,
->  	TCA_MIRRED_PARMS,
->  	TCA_MIRRED_PAD,
-> +	TCA_MIRRED_DMAC,
+On 16-07-02 09:49 AM, Nikolay Aleksandrov wrote:
+> On 02/07/16 15:26, Jamal Hadi Salim wrote:
+>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>>
+>> Often redirecting or mirroring requires that we set the MAC address
+>> of the target device. While it is possible to pipe to a pedit action
+>> this obsoletes the need for that. This is justified feature because
+>> the dst MAC addresses rewrite is such a common use case.
+>>
+>> Sample usage:
+>> sudo $TC filter add dev $ETH parent 1: protocol ip prio 10 \
+>> u32 match ip protocol 1 0xff flowid 1:2 \
+>> action mirred egress redirect dev $SPANPORT dst 02:15:15:15:15:15
+>>
+>> This will match all icmp packets going out on dev $ETH and
+>> redirect them to dev $SPANPORT while setting their dst MAC address
+>> to 02:15:15:15:15:15
+>>
+>> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+>> ---
+>>   include/net/tc_act/tc_mirred.h        |  4 +++-
+>>   include/uapi/linux/tc_act/tc_mirred.h |  7 ++++---
+>>   net/sched/act_mirred.c                | 20 +++++++++++++++++++-
+>>   3 files changed, 26 insertions(+), 5 deletions(-)
+>>
+>> diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
+>> index e891835..7e8bced 100644
+>> --- a/include/net/tc_act/tc_mirred.h
+>> +++ b/include/net/tc_act/tc_mirred.h
+>> @@ -6,10 +6,12 @@
+>>
+>>   struct tcf_mirred {
+>>   	struct tcf_common	common;
+>> +	struct net_device __rcu	*tcfm_dev;
+>>   	int			tcfm_eaction;
+>>   	int			tcfm_ifindex;
+>>   	int			tcfm_ok_push;
+>> -	struct net_device __rcu	*tcfm_dev;
+>> +	u8			eth_dst[ETH_ALEN];
+>> +	/* XXX 6 bytes hole here*/
+>>   	struct list_head	tcfm_list;
+>>   };
+>>   #define to_mirred(a) \
+>> diff --git a/include/uapi/linux/tc_act/tc_mirred.h b/include/uapi/linux/tc_act/tc_mirred.h
+>> index 3d7a2b3..aaca1ff 100644
+>> --- a/include/uapi/linux/tc_act/tc_mirred.h
+>> +++ b/include/uapi/linux/tc_act/tc_mirred.h
+>> @@ -9,20 +9,21 @@
+>>   #define TCA_EGRESS_MIRROR 2 /* mirror packet to EGRESS */
+>>   #define TCA_INGRESS_REDIR 3  /* packet redirect to INGRESS*/
+>>   #define TCA_INGRESS_MIRROR 4 /* mirror packet to INGRESS */
+>> -
+>> +
+>>   struct tc_mirred {
+>>   	tc_gen;
+>>   	int                     eaction;   /* one of IN/EGRESS_MIRROR/REDIR */
+>>   	__u32                   ifindex;  /* ifindex of egress port */
+>>   };
+>> -
+>> +
+>>   enum {
+>>   	TCA_MIRRED_UNSPEC,
+>>   	TCA_MIRRED_TM,
+>>   	TCA_MIRRED_PARMS,
+>>   	TCA_MIRRED_PAD,
+>> +	TCA_MIRRED_DMAC,
+>
+> Hi Jamal,
+> I think you should update "mirred_policy" in order to ensure that the attribute has
+> the minimum length for a mac address.
 
-Hi Jamal,
-I think you should update "mirred_policy" in order to ensure that the attribute has
-the minimum length for a mac address. Also a minor suggestion - maybe err out on a
-zero mac address, otherwise the user might think the operation was successful.
+Good point. Will do in the next update.
 
-Cheers,
- Nik
+> Also a minor suggestion - maybe err out on a
+> zero mac address, otherwise the user might think the operation was successful.
+>
 
->  	__TCA_MIRRED_MAX
->  };
->  #define TCA_MIRRED_MAX (__TCA_MIRRED_MAX - 1)
-> -                                                                                
-> +
->  #endif
-> diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
-> index 5b135d3..044648d 100644
-> --- a/net/sched/act_mirred.c
-> +++ b/net/sched/act_mirred.c
-> @@ -64,15 +64,21 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
->  	struct net_device *dev;
->  	int ret, ok_push = 0;
->  	bool exists = false;
-> +	u8 *daddr = NULL;
->  
->  	if (nla == NULL)
->  		return -EINVAL;
-> +
->  	ret = nla_parse_nested(tb, TCA_MIRRED_MAX, nla, mirred_policy);
->  	if (ret < 0)
->  		return ret;
-> +
->  	if (tb[TCA_MIRRED_PARMS] == NULL)
->  		return -EINVAL;
-> +
->  	parm = nla_data(tb[TCA_MIRRED_PARMS]);
-> +	if (tb[TCA_MIRRED_DMAC])
-> +		daddr = nla_data(tb[TCA_MIRRED_DMAC]);
->  
->  	exists = tcf_hash_check(tn, parm->index, a, bind);
->  	if (exists && bind)
-> @@ -126,6 +132,9 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
->  	}
->  	m = to_mirred(a);
->  
-> +	if (daddr)
-> +		ether_addr_copy(m->eth_dst, daddr);
-> +
->  	ASSERT_RTNL();
->  	m->tcf_action = parm->action;
->  	m->tcfm_eaction = parm->eaction;
-> @@ -190,6 +199,9 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
->  
->  	skb2->skb_iif = skb->dev->ifindex;
->  	skb2->dev = dev;
-> +	if (!is_zero_ether_addr(m->eth_dst))
-> +		ether_addr_copy(eth_hdr(skb2)->h_dest, m->eth_dst);
-> +
->  	err = dev_queue_xmit(skb2);
->  
->  	if (err) {
-> @@ -203,7 +215,8 @@ out:
->  	return retval;
->  }
->  
-> -static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
-> +static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind,
-> +			   int ref)
->  {
->  	unsigned char *b = skb_tail_pointer(skb);
->  	struct tcf_mirred *m = a->priv;
-> @@ -220,6 +233,11 @@ static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind, i
->  	if (nla_put(skb, TCA_MIRRED_PARMS, sizeof(opt), &opt))
->  		goto nla_put_failure;
->  
-> +	if (!is_zero_ether_addr(m->eth_dst)) {
-> +		if (nla_put(skb, TCA_MIRRED_DMAC, ETH_ALEN, m->eth_dst))
-> +			goto nla_put_failure;
-> +	}
-> +
->  	tcf_tm_dump(&t, &m->tcf_tm);
->  	if (nla_put_64bit(skb, TCA_MIRRED_TM, sizeof(t), &t, TCA_MIRRED_PAD))
->  		goto nla_put_failure;
-> 
+Is a zero mac address wrong? What if that was policy intent?
+
+cheers,
+jamal
