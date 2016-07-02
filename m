@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 16/18] mlxsw: spectrum: Unsplit the vFID range
-Date: Sat,  2 Jul 2016 09:26:38 +0200
-Message-ID: <1467444400-9480-17-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 10/18] mlxsw: reg: Add Router Interface Table Register
+Date: Sat,  2 Jul 2016 09:26:32 +0200
+Message-ID: <1467444400-9480-11-git-send-email-jiri@resnulli.us>
 References: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,234 +10,238 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:33304 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751257AbcGBH1X (ORCPT
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:36612 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751153AbcGBH1X (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 03:27:23 -0400
-Received: by mail-wm0-f66.google.com with SMTP id r201so9908478wme.0
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:27:04 -0700 (PDT)
+Received: by mail-wm0-f68.google.com with SMTP id c82so9896305wme.3
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:26:56 -0700 (PDT)
 In-Reply-To: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Previous commit deprecated the vFIDs used to get traffic to the CPU
-('port_vfids'). Thus, we now use the vFIDs as god intended and the
-artificial split is no longer needed.
-
-Rename functions and variables to reflect that.
+Add the Router Interface Table Register (RITR), which allows us to
+create and configure router interfaces (RIFs).
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 55 +++++++++++++-------------
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  4 +-
- 2 files changed, 30 insertions(+), 29 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 194 ++++++++++++++++++++++++++++++
+ 1 file changed, 194 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index bd8448a..e987a8a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2235,7 +2235,7 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
- 	mlxsw_sp->core = mlxsw_core;
- 	mlxsw_sp->bus_info = mlxsw_bus_info;
- 	INIT_LIST_HEAD(&mlxsw_sp->fids);
--	INIT_LIST_HEAD(&mlxsw_sp->br_vfids.list);
-+	INIT_LIST_HEAD(&mlxsw_sp->vfids.list);
- 	INIT_LIST_HEAD(&mlxsw_sp->br_mids.list);
- 
- 	err = mlxsw_sp_base_mac_get(mlxsw_sp);
-@@ -2320,6 +2320,7 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
- 	mlxsw_sp_buffers_fini(mlxsw_sp);
- 	mlxsw_sp_traps_fini(mlxsw_sp);
- 	mlxsw_sp_event_unregister(mlxsw_sp, MLXSW_TRAP_ID_PUDE);
-+	WARN_ON(!list_empty(&mlxsw_sp->vfids.list));
- 	WARN_ON(!list_empty(&mlxsw_sp->fids));
- 	for (i = 0; i < MLXSW_SP_RIF_MAX; i++)
- 		WARN_ON_ONCE(mlxsw_sp->rifs[i]);
-@@ -3373,12 +3374,12 @@ static int mlxsw_sp_netdevice_lag_event(struct net_device *lag_dev,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index ea05e83..5ddc1d3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3262,6 +3262,198 @@ static inline void mlxsw_reg_rgcr_pack(char *payload, bool ipv4_en)
+ 	mlxsw_reg_rgcr_ipv4_en_set(payload, ipv4_en);
  }
  
- static struct mlxsw_sp_fid *
--mlxsw_sp_br_vfid_find(const struct mlxsw_sp *mlxsw_sp,
--		      const struct net_device *br_dev)
-+mlxsw_sp_vfid_find(const struct mlxsw_sp *mlxsw_sp,
-+		   const struct net_device *br_dev)
- {
- 	struct mlxsw_sp_fid *f;
- 
--	list_for_each_entry(f, &mlxsw_sp->br_vfids.list, list) {
-+	list_for_each_entry(f, &mlxsw_sp->vfids.list, list) {
- 		if (f->dev == br_dev)
- 			return f;
- 	}
-@@ -3386,9 +3387,9 @@ mlxsw_sp_br_vfid_find(const struct mlxsw_sp *mlxsw_sp,
- 	return NULL;
- }
- 
--static u16 mlxsw_sp_avail_br_vfid_get(const struct mlxsw_sp *mlxsw_sp)
-+static u16 mlxsw_sp_avail_vfid_get(const struct mlxsw_sp *mlxsw_sp)
- {
--	return find_first_zero_bit(mlxsw_sp->br_vfids.mapped,
-+	return find_first_zero_bit(mlxsw_sp->vfids.mapped,
- 				   MLXSW_SP_VFID_MAX);
- }
- 
-@@ -3400,17 +3401,17 @@ static int mlxsw_sp_vfid_op(struct mlxsw_sp *mlxsw_sp, u16 fid, bool create)
- 	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfmr), sfmr_pl);
- }
- 
--static void mlxsw_sp_vport_br_vfid_leave(struct mlxsw_sp_port *mlxsw_sp_vport);
-+static void mlxsw_sp_vport_vfid_leave(struct mlxsw_sp_port *mlxsw_sp_vport);
- 
--static struct mlxsw_sp_fid *mlxsw_sp_br_vfid_create(struct mlxsw_sp *mlxsw_sp,
--						    struct net_device *br_dev)
-+static struct mlxsw_sp_fid *mlxsw_sp_vfid_create(struct mlxsw_sp *mlxsw_sp,
-+						 struct net_device *br_dev)
- {
- 	struct device *dev = mlxsw_sp->bus_info->dev;
- 	struct mlxsw_sp_fid *f;
- 	u16 vfid, fid;
- 	int err;
- 
--	vfid = mlxsw_sp_avail_br_vfid_get(mlxsw_sp);
-+	vfid = mlxsw_sp_avail_vfid_get(mlxsw_sp);
- 	if (vfid == MLXSW_SP_VFID_MAX) {
- 		dev_err(dev, "No available vFIDs\n");
- 		return ERR_PTR(-ERANGE);
-@@ -3427,12 +3428,12 @@ static struct mlxsw_sp_fid *mlxsw_sp_br_vfid_create(struct mlxsw_sp *mlxsw_sp,
- 	if (!f)
- 		goto err_allocate_vfid;
- 
--	f->leave = mlxsw_sp_vport_br_vfid_leave;
-+	f->leave = mlxsw_sp_vport_vfid_leave;
- 	f->fid = fid;
- 	f->dev = br_dev;
- 
--	list_add(&f->list, &mlxsw_sp->br_vfids.list);
--	set_bit(vfid, mlxsw_sp->br_vfids.mapped);
-+	list_add(&f->list, &mlxsw_sp->vfids.list);
-+	set_bit(vfid, mlxsw_sp->vfids.mapped);
- 
- 	return f;
- 
-@@ -3441,12 +3442,12 @@ err_allocate_vfid:
- 	return ERR_PTR(-ENOMEM);
- }
- 
--static void mlxsw_sp_br_vfid_destroy(struct mlxsw_sp *mlxsw_sp,
--				     struct mlxsw_sp_fid *f)
-+static void mlxsw_sp_vfid_destroy(struct mlxsw_sp *mlxsw_sp,
-+				  struct mlxsw_sp_fid *f)
- {
- 	u16 vfid = mlxsw_sp_fid_to_vfid(f->fid);
- 
--	clear_bit(vfid, mlxsw_sp->br_vfids.mapped);
-+	clear_bit(vfid, mlxsw_sp->vfids.mapped);
- 	list_del(&f->list);
- 
- 	mlxsw_sp_vfid_op(mlxsw_sp, f->fid, false);
-@@ -3464,15 +3465,15 @@ static int mlxsw_sp_vport_fid_map(struct mlxsw_sp_port *mlxsw_sp_vport, u16 fid,
- 					    vid);
- }
- 
--static int mlxsw_sp_vport_br_vfid_join(struct mlxsw_sp_port *mlxsw_sp_vport,
--				       struct net_device *br_dev)
-+static int mlxsw_sp_vport_vfid_join(struct mlxsw_sp_port *mlxsw_sp_vport,
-+				    struct net_device *br_dev)
- {
- 	struct mlxsw_sp_fid *f;
- 	int err;
- 
--	f = mlxsw_sp_br_vfid_find(mlxsw_sp_vport->mlxsw_sp, br_dev);
-+	f = mlxsw_sp_vfid_find(mlxsw_sp_vport->mlxsw_sp, br_dev);
- 	if (!f) {
--		f = mlxsw_sp_br_vfid_create(mlxsw_sp_vport->mlxsw_sp, br_dev);
-+		f = mlxsw_sp_vfid_create(mlxsw_sp_vport->mlxsw_sp, br_dev);
- 		if (IS_ERR(f))
- 			return PTR_ERR(f);
- 	}
-@@ -3496,11 +3497,11 @@ err_vport_fid_map:
- 	mlxsw_sp_vport_flood_set(mlxsw_sp_vport, f->fid, false);
- err_vport_flood_set:
- 	if (!f->ref_count)
--		mlxsw_sp_br_vfid_destroy(mlxsw_sp_vport->mlxsw_sp, f);
-+		mlxsw_sp_vfid_destroy(mlxsw_sp_vport->mlxsw_sp, f);
- 	return err;
- }
- 
--static void mlxsw_sp_vport_br_vfid_leave(struct mlxsw_sp_port *mlxsw_sp_vport)
-+static void mlxsw_sp_vport_vfid_leave(struct mlxsw_sp_port *mlxsw_sp_vport)
- {
- 	struct mlxsw_sp_fid *f = mlxsw_sp_vport_fid_get(mlxsw_sp_vport);
- 
-@@ -3514,7 +3515,7 @@ static void mlxsw_sp_vport_br_vfid_leave(struct mlxsw_sp_port *mlxsw_sp_vport)
- 
- 	mlxsw_sp_vport_fid_set(mlxsw_sp_vport, NULL);
- 	if (--f->ref_count == 0)
--		mlxsw_sp_br_vfid_destroy(mlxsw_sp_vport->mlxsw_sp, f);
-+		mlxsw_sp_vfid_destroy(mlxsw_sp_vport->mlxsw_sp, f);
- }
- 
- static int mlxsw_sp_vport_bridge_join(struct mlxsw_sp_port *mlxsw_sp_vport,
-@@ -3528,7 +3529,7 @@ static int mlxsw_sp_vport_bridge_join(struct mlxsw_sp_port *mlxsw_sp_vport,
- 	if (f && !WARN_ON(!f->leave))
- 		f->leave(mlxsw_sp_vport);
- 
--	err = mlxsw_sp_vport_br_vfid_join(mlxsw_sp_vport, br_dev);
-+	err = mlxsw_sp_vport_vfid_join(mlxsw_sp_vport, br_dev);
- 	if (err) {
- 		netdev_err(dev, "Failed to join vFID\n");
- 		return err;
-@@ -3548,7 +3549,7 @@ static int mlxsw_sp_vport_bridge_join(struct mlxsw_sp_port *mlxsw_sp_vport,
- 	return 0;
- 
- err_port_vid_learning_set:
--	mlxsw_sp_vport_br_vfid_leave(mlxsw_sp_vport);
-+	mlxsw_sp_vport_vfid_leave(mlxsw_sp_vport);
- 	return err;
- }
- 
-@@ -3558,7 +3559,7 @@ static void mlxsw_sp_vport_bridge_leave(struct mlxsw_sp_port *mlxsw_sp_vport)
- 
- 	mlxsw_sp_port_vid_learning_set(mlxsw_sp_vport, vid, false);
- 
--	mlxsw_sp_vport_br_vfid_leave(mlxsw_sp_vport);
-+	mlxsw_sp_vport_vfid_leave(mlxsw_sp_vport);
- 
- 	mlxsw_sp_vport->learning = 0;
- 	mlxsw_sp_vport->learning_sync = 0;
-@@ -3574,7 +3575,7 @@ mlxsw_sp_port_master_bridge_check(const struct mlxsw_sp_port *mlxsw_sp_port,
- 
- 	list_for_each_entry(mlxsw_sp_vport, &mlxsw_sp_port->vports_list,
- 			    vport.list) {
--		struct net_device *dev = mlxsw_sp_vport_br_get(mlxsw_sp_vport);
-+		struct net_device *dev = mlxsw_sp_vport_dev_get(mlxsw_sp_vport);
- 
- 		if (dev && dev == br_dev)
- 			return false;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index ec708a4..ae7c1c9 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -177,7 +177,7 @@ struct mlxsw_sp {
- 	struct {
- 		struct list_head list;
- 		DECLARE_BITMAP(mapped, MLXSW_SP_VFID_MAX);
--	} br_vfids;
-+	} vfids;
- 	struct {
- 		struct list_head list;
- 		DECLARE_BITMAP(mapped, MLXSW_SP_MID_MAX);
-@@ -307,7 +307,7 @@ mlxsw_sp_vport_fid_get(const struct mlxsw_sp_port *mlxsw_sp_vport)
- }
- 
- static inline struct net_device *
--mlxsw_sp_vport_br_get(const struct mlxsw_sp_port *mlxsw_sp_vport)
-+mlxsw_sp_vport_dev_get(const struct mlxsw_sp_port *mlxsw_sp_vport)
- {
- 	struct mlxsw_sp_fid *f = mlxsw_sp_vport_fid_get(mlxsw_sp_vport);
- 
++/* RITR - Router Interface Table Register
++ * --------------------------------------
++ * The register is used to configure the router interface table.
++ */
++#define MLXSW_REG_RITR_ID 0x8002
++#define MLXSW_REG_RITR_LEN 0x40
++
++static const struct mlxsw_reg_info mlxsw_reg_ritr = {
++	.id = MLXSW_REG_RITR_ID,
++	.len = MLXSW_REG_RITR_LEN,
++};
++
++/* reg_ritr_enable
++ * Enables routing on the router interface.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, enable, 0x00, 31, 1);
++
++/* reg_ritr_ipv4
++ * IPv4 routing enable. Enables routing of IPv4 traffic on the router
++ * interface.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, ipv4, 0x00, 29, 1);
++
++/* reg_ritr_ipv6
++ * IPv6 routing enable. Enables routing of IPv6 traffic on the router
++ * interface.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, ipv6, 0x00, 28, 1);
++
++enum mlxsw_reg_ritr_if_type {
++	MLXSW_REG_RITR_VLAN_IF,
++	MLXSW_REG_RITR_FID_IF,
++	MLXSW_REG_RITR_SP_IF,
++};
++
++/* reg_ritr_type
++ * Router interface type.
++ * 0 - VLAN interface.
++ * 1 - FID interface.
++ * 2 - Sub-port interface.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, type, 0x00, 23, 3);
++
++enum {
++	MLXSW_REG_RITR_RIF_CREATE,
++	MLXSW_REG_RITR_RIF_DEL,
++};
++
++/* reg_ritr_op
++ * Opcode:
++ * 0 - Create or edit RIF.
++ * 1 - Delete RIF.
++ * Reserved for SwitchX-2. For Spectrum, editing of interface properties
++ * is not supported. An interface must be deleted and re-created in order
++ * to update properties.
++ * Access: WO
++ */
++MLXSW_ITEM32(reg, ritr, op, 0x00, 20, 2);
++
++/* reg_ritr_rif
++ * Router interface index. A pointer to the Router Interface Table.
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, ritr, rif, 0x00, 0, 16);
++
++/* reg_ritr_ipv4_fe
++ * IPv4 Forwarding Enable.
++ * Enables routing of IPv4 traffic on the router interface. When disabled,
++ * forwarding is blocked but local traffic (traps and IP2ME) will be enabled.
++ * Not supported in SwitchX-2.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, ipv4_fe, 0x04, 29, 1);
++
++/* reg_ritr_ipv6_fe
++ * IPv6 Forwarding Enable.
++ * Enables routing of IPv6 traffic on the router interface. When disabled,
++ * forwarding is blocked but local traffic (traps and IP2ME) will be enabled.
++ * Not supported in SwitchX-2.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, ipv6_fe, 0x04, 28, 1);
++
++/* reg_ritr_virtual_router
++ * Virtual router ID associated with the router interface.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, virtual_router, 0x04, 0, 16);
++
++/* reg_ritr_mtu
++ * Router interface MTU.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, mtu, 0x34, 0, 16);
++
++/* reg_ritr_if_swid
++ * Switch partition ID.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, if_swid, 0x08, 24, 8);
++
++/* reg_ritr_if_mac
++ * Router interface MAC address.
++ * In Spectrum, all MAC addresses must have the same 38 MSBits.
++ * Access: RW
++ */
++MLXSW_ITEM_BUF(reg, ritr, if_mac, 0x12, 6);
++
++/* VLAN Interface */
++
++/* reg_ritr_vlan_if_vid
++ * VLAN ID.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, vlan_if_vid, 0x08, 0, 12);
++
++/* FID Interface */
++
++/* reg_ritr_fid_if_fid
++ * Filtering ID. Used to connect a bridge to the router. Only FIDs from
++ * the vFID range are supported.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, fid_if_fid, 0x08, 0, 16);
++
++static inline void mlxsw_reg_ritr_fid_set(char *payload,
++					  enum mlxsw_reg_ritr_if_type rif_type,
++					  u16 fid)
++{
++	if (rif_type == MLXSW_REG_RITR_FID_IF)
++		mlxsw_reg_ritr_fid_if_fid_set(payload, fid);
++	else
++		mlxsw_reg_ritr_vlan_if_vid_set(payload, fid);
++}
++
++/* Sub-port Interface */
++
++/* reg_ritr_sp_if_lag
++ * LAG indication. When this bit is set the system_port field holds the
++ * LAG identifier.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, sp_if_lag, 0x08, 24, 1);
++
++/* reg_ritr_sp_system_port
++ * Port unique indentifier. When lag bit is set, this field holds the
++ * lag_id in bits 0:9.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, sp_if_system_port, 0x08, 0, 16);
++
++/* reg_ritr_sp_if_vid
++ * VLAN ID.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ritr, sp_if_vid, 0x18, 0, 12);
++
++static inline void mlxsw_reg_ritr_rif_pack(char *payload, u16 rif)
++{
++	MLXSW_REG_ZERO(ritr, payload);
++	mlxsw_reg_ritr_rif_set(payload, rif);
++}
++
++static inline void mlxsw_reg_ritr_sp_if_pack(char *payload, bool lag,
++					     u16 system_port, u16 vid)
++{
++	mlxsw_reg_ritr_sp_if_lag_set(payload, lag);
++	mlxsw_reg_ritr_sp_if_system_port_set(payload, system_port);
++	mlxsw_reg_ritr_sp_if_vid_set(payload, vid);
++}
++
++static inline void mlxsw_reg_ritr_pack(char *payload, bool enable,
++				       enum mlxsw_reg_ritr_if_type type,
++				       u16 rif, u16 mtu, const char *mac)
++{
++	bool op = enable ? MLXSW_REG_RITR_RIF_CREATE : MLXSW_REG_RITR_RIF_DEL;
++
++	MLXSW_REG_ZERO(ritr, payload);
++	mlxsw_reg_ritr_enable_set(payload, enable);
++	mlxsw_reg_ritr_ipv4_set(payload, 1);
++	mlxsw_reg_ritr_type_set(payload, type);
++	mlxsw_reg_ritr_op_set(payload, op);
++	mlxsw_reg_ritr_rif_set(payload, rif);
++	mlxsw_reg_ritr_ipv4_fe_set(payload, 1);
++	mlxsw_reg_ritr_mtu_set(payload, mtu);
++	mlxsw_reg_ritr_if_mac_memcpy_to(payload, mac);
++}
++
+ /* MFCR - Management Fan Control Register
+  * --------------------------------------
+  * This register controls the settings of the Fan Speed PWM mechanism.
+@@ -4002,6 +4194,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
+ 		return "HPKT";
+ 	case MLXSW_REG_RGCR_ID:
+ 		return "RGCR";
++	case MLXSW_REG_RITR_ID:
++		return "RITR";
+ 	case MLXSW_REG_MFCR_ID:
+ 		return "MFCR";
+ 	case MLXSW_REG_MFSC_ID:
 -- 
 2.5.5
