@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 18/18] mlxsw: spectrum: Enable L3 interfaces on top of bridge devices
-Date: Sat,  2 Jul 2016 09:26:40 +0200
-Message-ID: <1467444400-9480-19-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 17/18] mlxsw: spectrum: Configure FIDs based on bridge events
+Date: Sat,  2 Jul 2016 09:26:39 +0200
+Message-ID: <1467444400-9480-18-git-send-email-jiri@resnulli.us>
 References: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,249 +10,256 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34913 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34905 "EHLO
 	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751289AbcGBH1X (ORCPT
+	with ESMTP id S1751268AbcGBH1X (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 03:27:23 -0400
-Received: by mail-wm0-f67.google.com with SMTP id a66so9893592wme.2
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:27:09 -0700 (PDT)
+Received: by mail-wm0-f67.google.com with SMTP id a66so9893531wme.2
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:27:07 -0700 (PDT)
 In-Reply-To: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-As with the previously introduced L3 interfaces, listen to 'inetaddr'
-notifications sent for bridges devices configured on top of the port
-netdevs and create / destroy router interfaces (RIFs) accordingly.
-This also includes VLAN devices configured on top of the VLAN-aware
-bridge.
+Before introducing support for L3 interfaces on top of the VLAN-aware
+bridge we need to add some missing infrastructure.
 
-The RIFs will be destroyed either when the last IP address is removed or
-when the underlying FID is is destroyed.
+Such an interface can either be the bridge device itself or a VLAN
+device on top of it. In the first case the router interface (RIF) is
+associated with FID 1, which is created whenever the first port netdev
+joins the bridge. We currently assume the default PVID is 1 and that
+it's already created, as it seems reasonable. This can be extended in
+the future.
+
+However, in the second case it's entirely possible we've yet to create a
+matching FID. This can happen if the VLAN device was configured before
+making any bridge port member in the VLAN.
+
+Prevent such ordering problems by using the VLAN device's CHANGEUPPER
+event to configure the FID. Make the VLAN device hold a reference to the
+FID and prevent it from being destroyed even if none of the port netdevs
+is using it.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 139 ++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   2 +
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |   3 +
- 3 files changed, 143 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 86 ++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     | 27 +++++++
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 18 +----
+ 3 files changed, 107 insertions(+), 24 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index e49f80ba..7b2b741b 100644
+index e987a8a..e49f80ba 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2706,10 +2706,135 @@ static int mlxsw_sp_inetaddr_lag_event(struct net_device *lag_dev,
- 	return __mlxsw_sp_inetaddr_lag_event(lag_dev, lag_dev, event, 1);
+@@ -2887,6 +2887,17 @@ int mlxsw_sp_port_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_port, u16 fid)
+ 		return mlxsw_sp_port_fdb_flush_by_port_fid(mlxsw_sp_port, fid);
  }
  
-+static struct mlxsw_sp_fid *mlxsw_sp_bridge_fid_get(struct mlxsw_sp *mlxsw_sp,
-+						    struct net_device *l3_dev)
++static void mlxsw_sp_master_bridge_gone_sync(struct mlxsw_sp *mlxsw_sp)
 +{
-+	u16 fid;
++	struct mlxsw_sp_fid *f, *tmp;
 +
-+	if (is_vlan_dev(l3_dev))
-+		fid = vlan_dev_vlan_id(l3_dev);
-+	else if (mlxsw_sp->master_bridge.dev == l3_dev)
-+		fid = 1;
-+	else
-+		return mlxsw_sp_vfid_find(mlxsw_sp, l3_dev);
-+
-+	return mlxsw_sp_fid_find(mlxsw_sp, fid);
++	list_for_each_entry_safe(f, tmp, &mlxsw_sp->fids, list)
++		if (--f->ref_count == 0)
++			mlxsw_sp_fid_destroy(mlxsw_sp, f);
++		else
++			WARN_ON_ONCE(1);
 +}
 +
-+static enum mlxsw_reg_ritr_if_type mlxsw_sp_rif_type_get(u16 fid)
-+{
-+	if (mlxsw_sp_fid_is_vfid(fid))
-+		return MLXSW_REG_RITR_FID_IF;
-+	else
-+		return MLXSW_REG_RITR_VLAN_IF;
-+}
-+
-+static int mlxsw_sp_rif_bridge_op(struct mlxsw_sp *mlxsw_sp,
-+				  struct net_device *l3_dev,
-+				  u16 fid, u16 rif,
-+				  bool create)
-+{
-+	enum mlxsw_reg_ritr_if_type rif_type;
-+	char ritr_pl[MLXSW_REG_RITR_LEN];
-+
-+	rif_type = mlxsw_sp_rif_type_get(fid);
-+	mlxsw_reg_ritr_pack(ritr_pl, create, rif_type, rif, l3_dev->mtu,
-+			    l3_dev->dev_addr);
-+	mlxsw_reg_ritr_fid_set(ritr_pl, rif_type, fid);
-+
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ritr), ritr_pl);
-+}
-+
-+static int mlxsw_sp_rif_bridge_create(struct mlxsw_sp *mlxsw_sp,
-+				      struct net_device *l3_dev,
-+				      struct mlxsw_sp_fid *f)
-+{
-+	struct mlxsw_sp_rif *r;
-+	u16 rif;
-+	int err;
-+
-+	rif = mlxsw_sp_avail_rif_get(mlxsw_sp);
-+	if (rif == MLXSW_SP_RIF_MAX)
-+		return -ERANGE;
-+
-+	err = mlxsw_sp_rif_bridge_op(mlxsw_sp, l3_dev, f->fid, rif, true);
-+	if (err)
-+		return err;
-+
-+	err = mlxsw_sp_rif_fdb_op(mlxsw_sp, l3_dev->dev_addr, f->fid, true);
-+	if (err)
-+		goto err_rif_fdb_op;
-+
-+	r = mlxsw_sp_rif_alloc(rif, l3_dev, f);
-+	if (!r) {
-+		err = -ENOMEM;
-+		goto err_rif_alloc;
+ static bool mlxsw_sp_master_bridge_check(struct mlxsw_sp *mlxsw_sp,
+ 					 struct net_device *br_dev)
+ {
+@@ -2903,8 +2914,15 @@ static void mlxsw_sp_master_bridge_inc(struct mlxsw_sp *mlxsw_sp,
+ 
+ static void mlxsw_sp_master_bridge_dec(struct mlxsw_sp *mlxsw_sp)
+ {
+-	if (--mlxsw_sp->master_bridge.ref_count == 0)
++	if (--mlxsw_sp->master_bridge.ref_count == 0) {
+ 		mlxsw_sp->master_bridge.dev = NULL;
++		/* It's possible upper VLAN devices are still holding
++		 * references to underlying FIDs. Drop the reference
++		 * and release the resources if it was the last one.
++		 * If it wasn't, then something bad happened.
++		 */
++		mlxsw_sp_master_bridge_gone_sync(mlxsw_sp);
 +	}
-+
-+	f->r = r;
-+	mlxsw_sp->rifs[rif] = r;
-+
-+	netdev_dbg(l3_dev, "RIF=%d created\n", rif);
+ }
+ 
+ static int mlxsw_sp_port_bridge_join(struct mlxsw_sp_port *mlxsw_sp_port,
+@@ -3373,18 +3391,68 @@ static int mlxsw_sp_netdevice_lag_event(struct net_device *lag_dev,
+ 	return 0;
+ }
+ 
+-static struct mlxsw_sp_fid *
+-mlxsw_sp_vfid_find(const struct mlxsw_sp *mlxsw_sp,
+-		   const struct net_device *br_dev)
++static int mlxsw_sp_master_bridge_vlan_link(struct mlxsw_sp *mlxsw_sp,
++					    struct net_device *vlan_dev)
+ {
++	u16 fid = vlan_dev_vlan_id(vlan_dev);
+ 	struct mlxsw_sp_fid *f;
+ 
+-	list_for_each_entry(f, &mlxsw_sp->vfids.list, list) {
+-		if (f->dev == br_dev)
+-			return f;
++	f = mlxsw_sp_fid_find(mlxsw_sp, fid);
++	if (!f) {
++		f = mlxsw_sp_fid_create(mlxsw_sp, fid);
++		if (IS_ERR(f))
++			return PTR_ERR(f);
+ 	}
+ 
+-	return NULL;
++	f->ref_count++;
 +
 +	return 0;
-+
-+err_rif_alloc:
-+	mlxsw_sp_rif_fdb_op(mlxsw_sp, l3_dev->dev_addr, f->fid, false);
-+err_rif_fdb_op:
-+	mlxsw_sp_rif_bridge_op(mlxsw_sp, l3_dev, f->fid, rif, false);
-+	return err;
 +}
 +
-+void mlxsw_sp_rif_bridge_destroy(struct mlxsw_sp *mlxsw_sp,
-+				 struct mlxsw_sp_rif *r)
++static void mlxsw_sp_master_bridge_vlan_unlink(struct mlxsw_sp *mlxsw_sp,
++					       struct net_device *vlan_dev)
 +{
-+	struct net_device *l3_dev = r->dev;
-+	struct mlxsw_sp_fid *f = r->f;
-+	u16 rif = r->rif;
-+
-+	mlxsw_sp->rifs[rif] = NULL;
-+	f->r = NULL;
-+
-+	kfree(r);
-+
-+	mlxsw_sp_rif_fdb_op(mlxsw_sp, l3_dev->dev_addr, f->fid, false);
-+
-+	mlxsw_sp_rif_bridge_op(mlxsw_sp, l3_dev, f->fid, rif, false);
-+
-+	netdev_dbg(l3_dev, "RIF=%d destroyed\n", rif);
-+}
-+
-+static int mlxsw_sp_inetaddr_bridge_event(struct net_device *l3_dev,
-+					  struct net_device *br_dev,
-+					  unsigned long event)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_lower_get(l3_dev);
++	u16 fid = vlan_dev_vlan_id(vlan_dev);
 +	struct mlxsw_sp_fid *f;
 +
-+	/* FID can either be an actual FID if the L3 device is the
-+	 * VLAN-aware bridge or a VLAN device on top. Otherwise, the
-+	 * L3 device is a VLAN-unaware bridge and we get a vFID.
-+	 */
-+	f = mlxsw_sp_bridge_fid_get(mlxsw_sp, l3_dev);
-+	if (WARN_ON(!f))
-+		return -EINVAL;
++	f = mlxsw_sp_fid_find(mlxsw_sp, fid);
++	if (f && --f->ref_count == 0)
++		mlxsw_sp_fid_destroy(mlxsw_sp, f);
++}
++
++static int mlxsw_sp_netdevice_bridge_event(struct net_device *br_dev,
++					   unsigned long event, void *ptr)
++{
++	struct netdev_notifier_changeupper_info *info;
++	struct net_device *upper_dev;
++	struct mlxsw_sp *mlxsw_sp;
++	int err;
++
++	mlxsw_sp = mlxsw_sp_lower_get(br_dev);
++	if (!mlxsw_sp)
++		return 0;
++	if (br_dev != mlxsw_sp->master_bridge.dev)
++		return 0;
++
++	info = ptr;
 +
 +	switch (event) {
-+	case NETDEV_UP:
-+		return mlxsw_sp_rif_bridge_create(mlxsw_sp, l3_dev, f);
-+	case NETDEV_DOWN:
-+		mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
++	case NETDEV_CHANGEUPPER:
++		upper_dev = info->upper_dev;
++		if (!is_vlan_dev(upper_dev))
++			break;
++		if (info->linking) {
++			err = mlxsw_sp_master_bridge_vlan_link(mlxsw_sp,
++							       upper_dev);
++			if (err)
++				return err;
++		} else {
++			mlxsw_sp_master_bridge_vlan_unlink(mlxsw_sp, upper_dev);
++		}
 +		break;
 +	}
 +
 +	return 0;
-+}
-+
- static int mlxsw_sp_inetaddr_vlan_event(struct net_device *vlan_dev,
- 					unsigned long event)
- {
- 	struct net_device *real_dev = vlan_dev_real_dev(vlan_dev);
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_lower_get(vlan_dev);
- 	u16 vid = vlan_dev_vlan_id(vlan_dev);
- 
- 	if (mlxsw_sp_port_dev_check(real_dev))
-@@ -2718,6 +2843,10 @@ static int mlxsw_sp_inetaddr_vlan_event(struct net_device *vlan_dev,
- 	else if (netif_is_lag_master(real_dev))
- 		return __mlxsw_sp_inetaddr_lag_event(vlan_dev, real_dev, event,
- 						     vid);
-+	else if (netif_is_bridge_master(real_dev) &&
-+		 mlxsw_sp->master_bridge.dev == real_dev)
-+		return mlxsw_sp_inetaddr_bridge_event(vlan_dev, real_dev,
-+						      event);
- 
- 	return 0;
  }
-@@ -2743,6 +2872,8 @@ static int mlxsw_sp_inetaddr_event(struct notifier_block *unused,
- 		err = mlxsw_sp_inetaddr_port_event(dev, event);
+ 
+ static u16 mlxsw_sp_avail_vfid_get(const struct mlxsw_sp *mlxsw_sp)
+@@ -3675,6 +3743,8 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
+ 		err = mlxsw_sp_netdevice_port_event(dev, event, ptr);
  	else if (netif_is_lag_master(dev))
- 		err = mlxsw_sp_inetaddr_lag_event(dev, event);
+ 		err = mlxsw_sp_netdevice_lag_event(dev, event, ptr);
 +	else if (netif_is_bridge_master(dev))
-+		err = mlxsw_sp_inetaddr_bridge_event(dev, dev, event);
++		err = mlxsw_sp_netdevice_bridge_event(dev, event, ptr);
  	else if (is_vlan_dev(dev))
- 		err = mlxsw_sp_inetaddr_vlan_event(dev, event);
+ 		err = mlxsw_sp_netdevice_vlan_event(dev, event, ptr);
  
-@@ -3416,6 +3547,8 @@ static void mlxsw_sp_master_bridge_vlan_unlink(struct mlxsw_sp *mlxsw_sp,
- 	struct mlxsw_sp_fid *f;
- 
- 	f = mlxsw_sp_fid_find(mlxsw_sp, fid);
-+	if (f && f->r)
-+		mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
- 	if (f && --f->ref_count == 0)
- 		mlxsw_sp_fid_destroy(mlxsw_sp, f);
- }
-@@ -3514,13 +3647,17 @@ static void mlxsw_sp_vfid_destroy(struct mlxsw_sp *mlxsw_sp,
- 				  struct mlxsw_sp_fid *f)
- {
- 	u16 vfid = mlxsw_sp_fid_to_vfid(f->fid);
-+	u16 fid = f->fid;
- 
- 	clear_bit(vfid, mlxsw_sp->vfids.mapped);
- 	list_del(&f->list);
- 
--	mlxsw_sp_vfid_op(mlxsw_sp, f->fid, false);
-+	if (f->r)
-+		mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
- 
- 	kfree(f);
-+
-+	mlxsw_sp_vfid_op(mlxsw_sp, fid, false);
- }
- 
- static int mlxsw_sp_vport_fid_map(struct mlxsw_sp_port *mlxsw_sp_vport, u16 fid,
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index b550660..2a3c5df 100644
+index ae7c1c9..b550660 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -444,6 +444,8 @@ int mlxsw_sp_rif_fdb_op(struct mlxsw_sp *mlxsw_sp, const char *mac, u16 fid,
+@@ -345,6 +345,31 @@ mlxsw_sp_port_vport_find_by_fid(const struct mlxsw_sp_port *mlxsw_sp_port,
+ 	return NULL;
+ }
+ 
++static inline struct mlxsw_sp_fid *mlxsw_sp_fid_find(struct mlxsw_sp *mlxsw_sp,
++						     u16 fid)
++{
++	struct mlxsw_sp_fid *f;
++
++	list_for_each_entry(f, &mlxsw_sp->fids, list)
++		if (f->fid == fid)
++			return f;
++
++	return NULL;
++}
++
++static inline struct mlxsw_sp_fid *
++mlxsw_sp_vfid_find(const struct mlxsw_sp *mlxsw_sp,
++		   const struct net_device *br_dev)
++{
++	struct mlxsw_sp_fid *f;
++
++	list_for_each_entry(f, &mlxsw_sp->vfids.list, list)
++		if (f->dev == br_dev)
++			return f;
++
++	return NULL;
++}
++
+ static inline struct mlxsw_sp_rif *
+ mlxsw_sp_rif_find_by_dev(const struct mlxsw_sp *mlxsw_sp,
+ 			 const struct net_device *dev)
+@@ -417,6 +442,8 @@ int mlxsw_sp_port_pvid_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid);
+ int mlxsw_sp_port_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_port, u16 fid);
+ int mlxsw_sp_rif_fdb_op(struct mlxsw_sp *mlxsw_sp, const char *mac, u16 fid,
  			bool adding);
- struct mlxsw_sp_fid *mlxsw_sp_fid_create(struct mlxsw_sp *mlxsw_sp, u16 fid);
- void mlxsw_sp_fid_destroy(struct mlxsw_sp *mlxsw_sp, struct mlxsw_sp_fid *f);
-+void mlxsw_sp_rif_bridge_destroy(struct mlxsw_sp *mlxsw_sp,
-+				 struct mlxsw_sp_rif *r);
++struct mlxsw_sp_fid *mlxsw_sp_fid_create(struct mlxsw_sp *mlxsw_sp, u16 fid);
++void mlxsw_sp_fid_destroy(struct mlxsw_sp *mlxsw_sp, struct mlxsw_sp_fid *f);
  int mlxsw_sp_port_ets_set(struct mlxsw_sp_port *mlxsw_sp_port,
  			  enum mlxsw_reg_qeec_hr hr, u8 index, u8 next_index,
  			  bool dwrr, u8 dwrr_weight);
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 78bd967..0aa163c 100644
+index c05d7d6..78bd967 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -445,6 +445,9 @@ void mlxsw_sp_fid_destroy(struct mlxsw_sp *mlxsw_sp, struct mlxsw_sp_fid *f)
+@@ -374,18 +374,6 @@ static int mlxsw_sp_port_attr_set(struct net_device *dev,
+ 	return err;
+ }
  
- 	list_del(&f->list);
+-static struct mlxsw_sp_fid *mlxsw_sp_fid_find(struct mlxsw_sp *mlxsw_sp,
+-					      u16 fid)
+-{
+-	struct mlxsw_sp_fid *f;
+-
+-	list_for_each_entry(f, &mlxsw_sp->fids, list)
+-		if (f->fid == fid)
+-			return f;
+-
+-	return NULL;
+-}
+-
+ static int mlxsw_sp_fid_op(struct mlxsw_sp *mlxsw_sp, u16 fid, bool create)
+ {
+ 	char sfmr_pl[MLXSW_REG_SFMR_LEN];
+@@ -416,8 +404,7 @@ static struct mlxsw_sp_fid *mlxsw_sp_fid_alloc(u16 fid)
+ 	return f;
+ }
  
-+	if (f->r)
-+		mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
-+
- 	kfree(f);
+-static struct mlxsw_sp_fid *mlxsw_sp_fid_create(struct mlxsw_sp *mlxsw_sp,
+-						u16 fid)
++struct mlxsw_sp_fid *mlxsw_sp_fid_create(struct mlxsw_sp *mlxsw_sp, u16 fid)
+ {
+ 	struct mlxsw_sp_fid *f;
+ 	int err;
+@@ -452,8 +439,7 @@ err_fid_map:
+ 	return ERR_PTR(err);
+ }
  
- 	mlxsw_sp_fid_op(mlxsw_sp, fid, false);
+-static void mlxsw_sp_fid_destroy(struct mlxsw_sp *mlxsw_sp,
+-				 struct mlxsw_sp_fid *f)
++void mlxsw_sp_fid_destroy(struct mlxsw_sp *mlxsw_sp, struct mlxsw_sp_fid *f)
+ {
+ 	u16 fid = f->fid;
+ 
 -- 
 2.5.5
