@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 10/18] mlxsw: reg: Add Router Interface Table Register
-Date: Sat,  2 Jul 2016 09:26:32 +0200
-Message-ID: <1467444400-9480-11-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 18/18] mlxsw: spectrum: Enable L3 interfaces on top of bridge devices
+Date: Sat,  2 Jul 2016 09:26:40 +0200
+Message-ID: <1467444400-9480-19-git-send-email-jiri@resnulli.us>
 References: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,238 +10,249 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36612 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751153AbcGBH1X (ORCPT
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34913 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751289AbcGBH1X (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 03:27:23 -0400
-Received: by mail-wm0-f68.google.com with SMTP id c82so9896305wme.3
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:26:56 -0700 (PDT)
+Received: by mail-wm0-f67.google.com with SMTP id a66so9893592wme.2
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:27:09 -0700 (PDT)
 In-Reply-To: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Add the Router Interface Table Register (RITR), which allows us to
-create and configure router interfaces (RIFs).
+As with the previously introduced L3 interfaces, listen to 'inetaddr'
+notifications sent for bridges devices configured on top of the port
+netdevs and create / destroy router interfaces (RIFs) accordingly.
+This also includes VLAN devices configured on top of the VLAN-aware
+bridge.
+
+The RIFs will be destroyed either when the last IP address is removed or
+when the underlying FID is is destroyed.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 194 ++++++++++++++++++++++++++++++
- 1 file changed, 194 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 139 ++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   2 +
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |   3 +
+ 3 files changed, 143 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index ea05e83..5ddc1d3 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -3262,6 +3262,198 @@ static inline void mlxsw_reg_rgcr_pack(char *payload, bool ipv4_en)
- 	mlxsw_reg_rgcr_ipv4_en_set(payload, ipv4_en);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index e49f80ba..7b2b741b 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2706,10 +2706,135 @@ static int mlxsw_sp_inetaddr_lag_event(struct net_device *lag_dev,
+ 	return __mlxsw_sp_inetaddr_lag_event(lag_dev, lag_dev, event, 1);
  }
  
-+/* RITR - Router Interface Table Register
-+ * --------------------------------------
-+ * The register is used to configure the router interface table.
-+ */
-+#define MLXSW_REG_RITR_ID 0x8002
-+#define MLXSW_REG_RITR_LEN 0x40
-+
-+static const struct mlxsw_reg_info mlxsw_reg_ritr = {
-+	.id = MLXSW_REG_RITR_ID,
-+	.len = MLXSW_REG_RITR_LEN,
-+};
-+
-+/* reg_ritr_enable
-+ * Enables routing on the router interface.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, enable, 0x00, 31, 1);
-+
-+/* reg_ritr_ipv4
-+ * IPv4 routing enable. Enables routing of IPv4 traffic on the router
-+ * interface.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, ipv4, 0x00, 29, 1);
-+
-+/* reg_ritr_ipv6
-+ * IPv6 routing enable. Enables routing of IPv6 traffic on the router
-+ * interface.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, ipv6, 0x00, 28, 1);
-+
-+enum mlxsw_reg_ritr_if_type {
-+	MLXSW_REG_RITR_VLAN_IF,
-+	MLXSW_REG_RITR_FID_IF,
-+	MLXSW_REG_RITR_SP_IF,
-+};
-+
-+/* reg_ritr_type
-+ * Router interface type.
-+ * 0 - VLAN interface.
-+ * 1 - FID interface.
-+ * 2 - Sub-port interface.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, type, 0x00, 23, 3);
-+
-+enum {
-+	MLXSW_REG_RITR_RIF_CREATE,
-+	MLXSW_REG_RITR_RIF_DEL,
-+};
-+
-+/* reg_ritr_op
-+ * Opcode:
-+ * 0 - Create or edit RIF.
-+ * 1 - Delete RIF.
-+ * Reserved for SwitchX-2. For Spectrum, editing of interface properties
-+ * is not supported. An interface must be deleted and re-created in order
-+ * to update properties.
-+ * Access: WO
-+ */
-+MLXSW_ITEM32(reg, ritr, op, 0x00, 20, 2);
-+
-+/* reg_ritr_rif
-+ * Router interface index. A pointer to the Router Interface Table.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, ritr, rif, 0x00, 0, 16);
-+
-+/* reg_ritr_ipv4_fe
-+ * IPv4 Forwarding Enable.
-+ * Enables routing of IPv4 traffic on the router interface. When disabled,
-+ * forwarding is blocked but local traffic (traps and IP2ME) will be enabled.
-+ * Not supported in SwitchX-2.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, ipv4_fe, 0x04, 29, 1);
-+
-+/* reg_ritr_ipv6_fe
-+ * IPv6 Forwarding Enable.
-+ * Enables routing of IPv6 traffic on the router interface. When disabled,
-+ * forwarding is blocked but local traffic (traps and IP2ME) will be enabled.
-+ * Not supported in SwitchX-2.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, ipv6_fe, 0x04, 28, 1);
-+
-+/* reg_ritr_virtual_router
-+ * Virtual router ID associated with the router interface.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, virtual_router, 0x04, 0, 16);
-+
-+/* reg_ritr_mtu
-+ * Router interface MTU.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, mtu, 0x34, 0, 16);
-+
-+/* reg_ritr_if_swid
-+ * Switch partition ID.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, if_swid, 0x08, 24, 8);
-+
-+/* reg_ritr_if_mac
-+ * Router interface MAC address.
-+ * In Spectrum, all MAC addresses must have the same 38 MSBits.
-+ * Access: RW
-+ */
-+MLXSW_ITEM_BUF(reg, ritr, if_mac, 0x12, 6);
-+
-+/* VLAN Interface */
-+
-+/* reg_ritr_vlan_if_vid
-+ * VLAN ID.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, vlan_if_vid, 0x08, 0, 12);
-+
-+/* FID Interface */
-+
-+/* reg_ritr_fid_if_fid
-+ * Filtering ID. Used to connect a bridge to the router. Only FIDs from
-+ * the vFID range are supported.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, fid_if_fid, 0x08, 0, 16);
-+
-+static inline void mlxsw_reg_ritr_fid_set(char *payload,
-+					  enum mlxsw_reg_ritr_if_type rif_type,
-+					  u16 fid)
++static struct mlxsw_sp_fid *mlxsw_sp_bridge_fid_get(struct mlxsw_sp *mlxsw_sp,
++						    struct net_device *l3_dev)
 +{
-+	if (rif_type == MLXSW_REG_RITR_FID_IF)
-+		mlxsw_reg_ritr_fid_if_fid_set(payload, fid);
++	u16 fid;
++
++	if (is_vlan_dev(l3_dev))
++		fid = vlan_dev_vlan_id(l3_dev);
++	else if (mlxsw_sp->master_bridge.dev == l3_dev)
++		fid = 1;
 +	else
-+		mlxsw_reg_ritr_vlan_if_vid_set(payload, fid);
++		return mlxsw_sp_vfid_find(mlxsw_sp, l3_dev);
++
++	return mlxsw_sp_fid_find(mlxsw_sp, fid);
 +}
 +
-+/* Sub-port Interface */
-+
-+/* reg_ritr_sp_if_lag
-+ * LAG indication. When this bit is set the system_port field holds the
-+ * LAG identifier.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, sp_if_lag, 0x08, 24, 1);
-+
-+/* reg_ritr_sp_system_port
-+ * Port unique indentifier. When lag bit is set, this field holds the
-+ * lag_id in bits 0:9.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, sp_if_system_port, 0x08, 0, 16);
-+
-+/* reg_ritr_sp_if_vid
-+ * VLAN ID.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ritr, sp_if_vid, 0x18, 0, 12);
-+
-+static inline void mlxsw_reg_ritr_rif_pack(char *payload, u16 rif)
++static enum mlxsw_reg_ritr_if_type mlxsw_sp_rif_type_get(u16 fid)
 +{
-+	MLXSW_REG_ZERO(ritr, payload);
-+	mlxsw_reg_ritr_rif_set(payload, rif);
++	if (mlxsw_sp_fid_is_vfid(fid))
++		return MLXSW_REG_RITR_FID_IF;
++	else
++		return MLXSW_REG_RITR_VLAN_IF;
 +}
 +
-+static inline void mlxsw_reg_ritr_sp_if_pack(char *payload, bool lag,
-+					     u16 system_port, u16 vid)
++static int mlxsw_sp_rif_bridge_op(struct mlxsw_sp *mlxsw_sp,
++				  struct net_device *l3_dev,
++				  u16 fid, u16 rif,
++				  bool create)
 +{
-+	mlxsw_reg_ritr_sp_if_lag_set(payload, lag);
-+	mlxsw_reg_ritr_sp_if_system_port_set(payload, system_port);
-+	mlxsw_reg_ritr_sp_if_vid_set(payload, vid);
++	enum mlxsw_reg_ritr_if_type rif_type;
++	char ritr_pl[MLXSW_REG_RITR_LEN];
++
++	rif_type = mlxsw_sp_rif_type_get(fid);
++	mlxsw_reg_ritr_pack(ritr_pl, create, rif_type, rif, l3_dev->mtu,
++			    l3_dev->dev_addr);
++	mlxsw_reg_ritr_fid_set(ritr_pl, rif_type, fid);
++
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ritr), ritr_pl);
 +}
 +
-+static inline void mlxsw_reg_ritr_pack(char *payload, bool enable,
-+				       enum mlxsw_reg_ritr_if_type type,
-+				       u16 rif, u16 mtu, const char *mac)
++static int mlxsw_sp_rif_bridge_create(struct mlxsw_sp *mlxsw_sp,
++				      struct net_device *l3_dev,
++				      struct mlxsw_sp_fid *f)
 +{
-+	bool op = enable ? MLXSW_REG_RITR_RIF_CREATE : MLXSW_REG_RITR_RIF_DEL;
++	struct mlxsw_sp_rif *r;
++	u16 rif;
++	int err;
 +
-+	MLXSW_REG_ZERO(ritr, payload);
-+	mlxsw_reg_ritr_enable_set(payload, enable);
-+	mlxsw_reg_ritr_ipv4_set(payload, 1);
-+	mlxsw_reg_ritr_type_set(payload, type);
-+	mlxsw_reg_ritr_op_set(payload, op);
-+	mlxsw_reg_ritr_rif_set(payload, rif);
-+	mlxsw_reg_ritr_ipv4_fe_set(payload, 1);
-+	mlxsw_reg_ritr_mtu_set(payload, mtu);
-+	mlxsw_reg_ritr_if_mac_memcpy_to(payload, mac);
++	rif = mlxsw_sp_avail_rif_get(mlxsw_sp);
++	if (rif == MLXSW_SP_RIF_MAX)
++		return -ERANGE;
++
++	err = mlxsw_sp_rif_bridge_op(mlxsw_sp, l3_dev, f->fid, rif, true);
++	if (err)
++		return err;
++
++	err = mlxsw_sp_rif_fdb_op(mlxsw_sp, l3_dev->dev_addr, f->fid, true);
++	if (err)
++		goto err_rif_fdb_op;
++
++	r = mlxsw_sp_rif_alloc(rif, l3_dev, f);
++	if (!r) {
++		err = -ENOMEM;
++		goto err_rif_alloc;
++	}
++
++	f->r = r;
++	mlxsw_sp->rifs[rif] = r;
++
++	netdev_dbg(l3_dev, "RIF=%d created\n", rif);
++
++	return 0;
++
++err_rif_alloc:
++	mlxsw_sp_rif_fdb_op(mlxsw_sp, l3_dev->dev_addr, f->fid, false);
++err_rif_fdb_op:
++	mlxsw_sp_rif_bridge_op(mlxsw_sp, l3_dev, f->fid, rif, false);
++	return err;
 +}
 +
- /* MFCR - Management Fan Control Register
-  * --------------------------------------
-  * This register controls the settings of the Fan Speed PWM mechanism.
-@@ -4002,6 +4194,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "HPKT";
- 	case MLXSW_REG_RGCR_ID:
- 		return "RGCR";
-+	case MLXSW_REG_RITR_ID:
-+		return "RITR";
- 	case MLXSW_REG_MFCR_ID:
- 		return "MFCR";
- 	case MLXSW_REG_MFSC_ID:
++void mlxsw_sp_rif_bridge_destroy(struct mlxsw_sp *mlxsw_sp,
++				 struct mlxsw_sp_rif *r)
++{
++	struct net_device *l3_dev = r->dev;
++	struct mlxsw_sp_fid *f = r->f;
++	u16 rif = r->rif;
++
++	mlxsw_sp->rifs[rif] = NULL;
++	f->r = NULL;
++
++	kfree(r);
++
++	mlxsw_sp_rif_fdb_op(mlxsw_sp, l3_dev->dev_addr, f->fid, false);
++
++	mlxsw_sp_rif_bridge_op(mlxsw_sp, l3_dev, f->fid, rif, false);
++
++	netdev_dbg(l3_dev, "RIF=%d destroyed\n", rif);
++}
++
++static int mlxsw_sp_inetaddr_bridge_event(struct net_device *l3_dev,
++					  struct net_device *br_dev,
++					  unsigned long event)
++{
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_lower_get(l3_dev);
++	struct mlxsw_sp_fid *f;
++
++	/* FID can either be an actual FID if the L3 device is the
++	 * VLAN-aware bridge or a VLAN device on top. Otherwise, the
++	 * L3 device is a VLAN-unaware bridge and we get a vFID.
++	 */
++	f = mlxsw_sp_bridge_fid_get(mlxsw_sp, l3_dev);
++	if (WARN_ON(!f))
++		return -EINVAL;
++
++	switch (event) {
++	case NETDEV_UP:
++		return mlxsw_sp_rif_bridge_create(mlxsw_sp, l3_dev, f);
++	case NETDEV_DOWN:
++		mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
++		break;
++	}
++
++	return 0;
++}
++
+ static int mlxsw_sp_inetaddr_vlan_event(struct net_device *vlan_dev,
+ 					unsigned long event)
+ {
+ 	struct net_device *real_dev = vlan_dev_real_dev(vlan_dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_lower_get(vlan_dev);
+ 	u16 vid = vlan_dev_vlan_id(vlan_dev);
+ 
+ 	if (mlxsw_sp_port_dev_check(real_dev))
+@@ -2718,6 +2843,10 @@ static int mlxsw_sp_inetaddr_vlan_event(struct net_device *vlan_dev,
+ 	else if (netif_is_lag_master(real_dev))
+ 		return __mlxsw_sp_inetaddr_lag_event(vlan_dev, real_dev, event,
+ 						     vid);
++	else if (netif_is_bridge_master(real_dev) &&
++		 mlxsw_sp->master_bridge.dev == real_dev)
++		return mlxsw_sp_inetaddr_bridge_event(vlan_dev, real_dev,
++						      event);
+ 
+ 	return 0;
+ }
+@@ -2743,6 +2872,8 @@ static int mlxsw_sp_inetaddr_event(struct notifier_block *unused,
+ 		err = mlxsw_sp_inetaddr_port_event(dev, event);
+ 	else if (netif_is_lag_master(dev))
+ 		err = mlxsw_sp_inetaddr_lag_event(dev, event);
++	else if (netif_is_bridge_master(dev))
++		err = mlxsw_sp_inetaddr_bridge_event(dev, dev, event);
+ 	else if (is_vlan_dev(dev))
+ 		err = mlxsw_sp_inetaddr_vlan_event(dev, event);
+ 
+@@ -3416,6 +3547,8 @@ static void mlxsw_sp_master_bridge_vlan_unlink(struct mlxsw_sp *mlxsw_sp,
+ 	struct mlxsw_sp_fid *f;
+ 
+ 	f = mlxsw_sp_fid_find(mlxsw_sp, fid);
++	if (f && f->r)
++		mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
+ 	if (f && --f->ref_count == 0)
+ 		mlxsw_sp_fid_destroy(mlxsw_sp, f);
+ }
+@@ -3514,13 +3647,17 @@ static void mlxsw_sp_vfid_destroy(struct mlxsw_sp *mlxsw_sp,
+ 				  struct mlxsw_sp_fid *f)
+ {
+ 	u16 vfid = mlxsw_sp_fid_to_vfid(f->fid);
++	u16 fid = f->fid;
+ 
+ 	clear_bit(vfid, mlxsw_sp->vfids.mapped);
+ 	list_del(&f->list);
+ 
+-	mlxsw_sp_vfid_op(mlxsw_sp, f->fid, false);
++	if (f->r)
++		mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
+ 
+ 	kfree(f);
++
++	mlxsw_sp_vfid_op(mlxsw_sp, fid, false);
+ }
+ 
+ static int mlxsw_sp_vport_fid_map(struct mlxsw_sp_port *mlxsw_sp_vport, u16 fid,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index b550660..2a3c5df 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -444,6 +444,8 @@ int mlxsw_sp_rif_fdb_op(struct mlxsw_sp *mlxsw_sp, const char *mac, u16 fid,
+ 			bool adding);
+ struct mlxsw_sp_fid *mlxsw_sp_fid_create(struct mlxsw_sp *mlxsw_sp, u16 fid);
+ void mlxsw_sp_fid_destroy(struct mlxsw_sp *mlxsw_sp, struct mlxsw_sp_fid *f);
++void mlxsw_sp_rif_bridge_destroy(struct mlxsw_sp *mlxsw_sp,
++				 struct mlxsw_sp_rif *r);
+ int mlxsw_sp_port_ets_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 			  enum mlxsw_reg_qeec_hr hr, u8 index, u8 next_index,
+ 			  bool dwrr, u8 dwrr_weight);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 78bd967..0aa163c 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -445,6 +445,9 @@ void mlxsw_sp_fid_destroy(struct mlxsw_sp *mlxsw_sp, struct mlxsw_sp_fid *f)
+ 
+ 	list_del(&f->list);
+ 
++	if (f->r)
++		mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
++
+ 	kfree(f);
+ 
+ 	mlxsw_sp_fid_op(mlxsw_sp, fid, false);
 -- 
 2.5.5
