@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/12] mlxsw: Lay the groundwork for the introduction of router interfaces
-Date: Sat,  2 Jul 2016 11:00:08 +0200
-Message-ID: <1467450020-23415-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 03/12] mlxsw: spectrum: Sync PVID vPort LAG status
+Date: Sat,  2 Jul 2016 11:00:11 +0200
+Message-ID: <1467450020-23415-4-git-send-email-jiri@resnulli.us>
+References: <1467450020-23415-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	sfeldma@gmail.com, roopa@cumulusnetworks.com, andy@greyhouse.net,
@@ -9,46 +10,89 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:34895 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751029AbcGBJAX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 05:00:23 -0400
-Received: by mail-wm0-f65.google.com with SMTP id a66so10281360wme.2
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 02:00:22 -0700 (PDT)
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34949 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751029AbcGBJA2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 05:00:28 -0400
+Received: by mail-wm0-f67.google.com with SMTP id a66so10281764wme.2
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 02:00:28 -0700 (PDT)
+In-Reply-To: <1467450020-23415-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Ido Schimmel <idosch@mellanox.com>
 
-This is first patchset on a way to introduce ipv4 routing offload support
-in mlxsw driver. Does preparations before router interfaces will
-be introduced in mlxsw.
+When VLAN devices are created on top of LAG, their underlying vPorts are
+configured correctly with LAG membership.
 
-Ido Schimmel (11):
-  mlxsw: spectrum: Send untagged packets through a port netdev
-  mlxsw: spectrum: Remove VLANs configuration via SELF flag
-  mlxsw: spectrum: Sync PVID vPort LAG status
-  mlxsw: spectrum: Remove RIF from PVID vPort when joining / leaving LAG
-  mlxsw: reg: Add Router General Configuration Register
-  mlxsw: spectrum: Initialize ports at the end of init sequence
-  mlxsw: spectrum_router: Add basic ipv4 router initialization
-  mlxsw: spectrum: Add router interface struct
-  mlxsw: reg: Add FDB action to forward to router
-  mlxsw: reg: Add Router Interface Table Register
-  mlxsw: spectrum: Use action 'discard' when removing traps
+However, the PVID vPort is implicit and already present when the port
+netdev is put under LAG, so its LAG membership is never set. Set it
+correctly when joining / leaving LAG.
 
-Jiri Pirko (1):
-  mlxsw: spectrum: Add traps needed for router implementation
+This didn't matter until now, but we are going to introduce support for
+router interfaces (RIFs), which need to take into account LAG membership.
 
- drivers/net/ethernet/mellanox/mlxsw/Makefile       |   2 +-
- drivers/net/ethernet/mellanox/mlxsw/reg.h          | 276 ++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 137 +++++++---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  26 +-
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  |  68 +++++
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |  46 +---
- drivers/net/ethernet/mellanox/mlxsw/trap.h         |   5 +
- 7 files changed, 474 insertions(+), 86 deletions(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 31 ++++++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 4f67a8c..f276c45 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2795,6 +2795,32 @@ static int mlxsw_sp_port_lag_index_get(struct mlxsw_sp *mlxsw_sp,
+ 	return -EBUSY;
+ }
+ 
++static void
++mlxsw_sp_port_pvid_vport_lag_join(struct mlxsw_sp_port *mlxsw_sp_port,
++				  u16 lag_id)
++{
++	struct mlxsw_sp_port *mlxsw_sp_vport;
++
++	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, 1);
++	if (WARN_ON(!mlxsw_sp_vport))
++		return;
++
++	mlxsw_sp_vport->lag_id = lag_id;
++	mlxsw_sp_vport->lagged = 1;
++}
++
++static void
++mlxsw_sp_port_pvid_vport_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	struct mlxsw_sp_port *mlxsw_sp_vport;
++
++	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, 1);
++	if (WARN_ON(!mlxsw_sp_vport))
++		return;
++
++	mlxsw_sp_vport->lagged = 0;
++}
++
+ static int mlxsw_sp_port_lag_join(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				  struct net_device *lag_dev)
+ {
+@@ -2830,6 +2856,9 @@ static int mlxsw_sp_port_lag_join(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	mlxsw_sp_port->lag_id = lag_id;
+ 	mlxsw_sp_port->lagged = 1;
+ 	lag->ref_count++;
++
++	mlxsw_sp_port_pvid_vport_lag_join(mlxsw_sp_port, lag_id);
++
+ 	return 0;
+ 
+ err_col_port_enable:
+@@ -2867,6 +2896,8 @@ static void mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				     mlxsw_sp_port->local_port);
+ 	mlxsw_sp_port->lagged = 0;
+ 	lag->ref_count--;
++
++	mlxsw_sp_port_pvid_vport_lag_leave(mlxsw_sp_port);
+ }
+ 
+ static int mlxsw_sp_lag_dist_port_add(struct mlxsw_sp_port *mlxsw_sp_port,
 -- 
 2.5.5
