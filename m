@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 11/18] mlxsw: spectrum: Use action 'discard' when removing traps
-Date: Sat,  2 Jul 2016 09:26:33 +0200
-Message-ID: <1467444400-9480-12-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 12/18] mlxsw: spectrum: Add traps needed for router implementation
+Date: Sat,  2 Jul 2016 09:26:34 +0200
+Message-ID: <1467444400-9480-13-git-send-email-jiri@resnulli.us>
 References: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,53 +10,97 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33989 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751194AbcGBH1X (ORCPT
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36634 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751212AbcGBH1X (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 03:27:23 -0400
-Received: by mail-wm0-f65.google.com with SMTP id 187so9912135wmz.1
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:26:58 -0700 (PDT)
+Received: by mail-wm0-f66.google.com with SMTP id c82so9896496wme.3
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:26:59 -0700 (PDT)
 In-Reply-To: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-When removing packet traps we should use action 'discard' instead of
-'forward', as some trap IDs we'll add cannot be configured with the
-later. However, result is the same, as packets are not trapped to the
-CPU.
+ip2me:
+To instruct HW to send trapped ip2me traffic to kernel, we have to add
+this trap. Selection ip2me traffic is introduced later on in this set.
 
-In the future we will be able to reverse the operation properly by
-detaching the trap group from the CPU.
+ARPs:
+We are going to stop flooding to CPU port when netdev isn't bridged and
+only get packets destined to the netdev's IP address and certain control
+packets.
+
+Add traps for ARP request (broadcast) and response (unicast) in order to
+get these to the CPU and resolve neighbours.
+
+host miss:
+If a packet is routed through a directly connected route and its
+destination IP is not in the device's neighbour table, then we need to
+trap it to CPU. This will cause the host to resolve the MAC of the
+neighbour, which will be eventually programmed to the device's table.
+
+router ingress:
+In order to trap packets in router part.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 4 ++--
- 1 file changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 25 +++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlxsw/trap.h     |  5 +++++
+ 2 files changed, 30 insertions(+)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index d15ebf3..de30763 100644
+index de30763..f0799898 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2295,7 +2295,7 @@ err_rx_trap_set:
- 					  mlxsw_sp);
- err_rx_listener_register:
- 	for (i--; i >= 0; i--) {
--		mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_FORWARD,
-+		mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_DISCARD,
- 				    mlxsw_sp_rx_listener[i].trap_id);
- 		mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(hpkt), hpkt_pl);
+@@ -2255,6 +2255,31 @@ static const struct mlxsw_rx_listener mlxsw_sp_rx_listener[] = {
+ 		.local_port = MLXSW_PORT_DONT_CARE,
+ 		.trap_id = MLXSW_TRAP_ID_IGMP_V3_REPORT,
+ 	},
++	{
++		.func = mlxsw_sp_rx_listener_func,
++		.local_port = MLXSW_PORT_DONT_CARE,
++		.trap_id = MLXSW_TRAP_ID_ARPBC,
++	},
++	{
++		.func = mlxsw_sp_rx_listener_func,
++		.local_port = MLXSW_PORT_DONT_CARE,
++		.trap_id = MLXSW_TRAP_ID_ARPUC,
++	},
++	{
++		.func = mlxsw_sp_rx_listener_func,
++		.local_port = MLXSW_PORT_DONT_CARE,
++		.trap_id = MLXSW_TRAP_ID_IP2ME,
++	},
++	{
++		.func = mlxsw_sp_rx_listener_func,
++		.local_port = MLXSW_PORT_DONT_CARE,
++		.trap_id = MLXSW_TRAP_ID_RTR_INGRESS0,
++	},
++	{
++		.func = mlxsw_sp_rx_listener_func,
++		.local_port = MLXSW_PORT_DONT_CARE,
++		.trap_id = MLXSW_TRAP_ID_HOST_MISS_IPV4,
++	},
+ };
  
-@@ -2312,7 +2312,7 @@ static void mlxsw_sp_traps_fini(struct mlxsw_sp *mlxsw_sp)
- 	int i;
+ static int mlxsw_sp_traps_init(struct mlxsw_sp *mlxsw_sp)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/trap.h b/drivers/net/ethernet/mellanox/mlxsw/trap.h
+index 53a9550..470d769 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/trap.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/trap.h
+@@ -54,6 +54,11 @@ enum {
+ 	MLXSW_TRAP_ID_IGMP_V2_REPORT = 0x32,
+ 	MLXSW_TRAP_ID_IGMP_V2_LEAVE = 0x33,
+ 	MLXSW_TRAP_ID_IGMP_V3_REPORT = 0x34,
++	MLXSW_TRAP_ID_ARPBC = 0x50,
++	MLXSW_TRAP_ID_ARPUC = 0x51,
++	MLXSW_TRAP_ID_IP2ME = 0x5F,
++	MLXSW_TRAP_ID_RTR_INGRESS0 = 0x70,
++	MLXSW_TRAP_ID_HOST_MISS_IPV4 = 0x90,
  
- 	for (i = 0; i < ARRAY_SIZE(mlxsw_sp_rx_listener); i++) {
--		mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_FORWARD,
-+		mlxsw_reg_hpkt_pack(hpkt_pl, MLXSW_REG_HPKT_ACTION_DISCARD,
- 				    mlxsw_sp_rx_listener[i].trap_id);
- 		mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(hpkt), hpkt_pl);
- 
+ 	MLXSW_TRAP_ID_MAX = 0x1FF
+ };
 -- 
 2.5.5
