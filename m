@@ -1,52 +1,64 @@
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Subject: [PATCH v2] geneve: fix max_mtu setting
-Date: Sat,  2 Jul 2016 15:02:48 +0800
-Message-ID: <1467442968-13723-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-To: "David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@kernel.org>,
-	Pravin B Shelar <pshelar@nicira.com>,
-	Tom Herbert <tom@herbertland.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next 01/18] mlxsw: spectrum: Send untagged packets through a port netdev
+Date: Sat,  2 Jul 2016 09:26:23 +0200
+Message-ID: <1467444400-9480-2-git-send-email-jiri@resnulli.us>
+References: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
+	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+	sfeldma@gmail.com, roopa@cumulusnetworks.com, andy@greyhouse.net,
+	dsa@cumulusnetworks.com, tgraf@suug.ch, jhs@mojatatu.com,
+	linville@tuxdriver.com, ivecera@redhat.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33121 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750815AbcGBH1X (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 03:27:23 -0400
+Received: by mail-wm0-f68.google.com with SMTP id r201so9907203wme.0
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:26:44 -0700 (PDT)
+In-Reply-To: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-For ipv6+udp+geneve encapsulation data, the max_mtu should subtract
-sizeof(ipv6hdr), instead of sizeof(iphdr).
+From: Ido Schimmel <idosch@mellanox.com>
 
-Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Port netdevs (e.g. swXpY) that are not bridged are represented in the
+device using a vPort with VID=PVID=1 (the PVID vPort), as untagged
+packets entering the switch are internally tagged with the PVID VLAN.
+When these packets are routed through a different port netdev they
+should egress untagged.
+
+This wasn't a problem until now, as non-bridged traffic only originated
+from the CPU, which transmits packets out of the port as-is.
+
+When a vPort is created with VID 1 mark it as egress untagged.
+
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
-Changes in v2:
-   - As suggested by Jesse Gross, treat AF_UNSPEC same as AF_INET4 to
-avoid disallowing potentially valid configrations.
----
- drivers/net/geneve.c | 9 +++++++--
- 1 file changed, 7 insertions(+), 2 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 310e0b9c..5de892f 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -1036,12 +1036,17 @@ static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- static int __geneve_change_mtu(struct net_device *dev, int new_mtu, bool strict)
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index a453fff..afd06dc 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -816,6 +816,7 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
  {
-+	struct geneve_dev *geneve = netdev_priv(dev);
- 	/* The max_mtu calculation does not take account of GENEVE
- 	 * options, to avoid excluding potentially valid
- 	 * configurations.
- 	 */
--	int max_mtu = IP_MAX_MTU - GENEVE_BASE_HLEN - sizeof(struct iphdr)
--		- dev->hard_header_len;
-+	int max_mtu = IP_MAX_MTU - GENEVE_BASE_HLEN - dev->hard_header_len;
-+
-+	if (geneve->remote.sa.sa_family == AF_INET6)
-+		max_mtu -= sizeof(struct ipv6hdr);
-+	else
-+		max_mtu -= sizeof(struct iphdr);
+ 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
+ 	struct mlxsw_sp_port *mlxsw_sp_vport;
++	bool untagged = vid == 1;
+ 	int err;
  
- 	if (new_mtu < 68)
- 		return -EINVAL;
+ 	/* VLAN 0 is added to HW filter when device goes up, but it is
+@@ -859,7 +860,7 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
+ 		goto err_port_vid_learning_set;
+ 	}
+ 
+-	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, true, false);
++	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, true, untagged);
+ 	if (err) {
+ 		netdev_err(dev, "Failed to set VLAN membership for VID=%d\n",
+ 			   vid);
 -- 
-1.8.3.1
+2.5.5
