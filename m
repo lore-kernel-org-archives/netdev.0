@@ -1,32 +1,27 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH 2/2] net: ethernet: davinci_emac: use
- phy_ethtool_{get|set}_link_ksettings
-Date: Sat, 02 Jul 2016 14:51:41 -0400 (EDT)
-Message-ID: <20160702.145141.372304368206325956.davem@davemloft.net>
-References: <1467410555-19514-1-git-send-email-tremyfr@gmail.com>
-	<1467410555-19514-2-git-send-email-tremyfr@gmail.com>
+Subject: Re: [PATCH net-next 00/11] bnxt_en updates for net-next.
+Date: Sat, 02 Jul 2016 14:55:01 -0400 (EDT)
+Message-ID: <20160702.145501.2138113882652543659.davem@davemloft.net>
+References: <1467413189-29566-1-git-send-email-michael.chan@broadcom.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mugunthanvnm@ti.com, grygorii.strashko@ti.com,
-	linux-omap@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
+Cc: netdev@vger.kernel.org
+To: michael.chan@broadcom.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [184.105.139.130] ([184.105.139.130]:37750 "EHLO
+Received: from [184.105.139.130] ([184.105.139.130]:37888 "EHLO
 	shards.monkeyblade.net" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750800AbcGBSvp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 14:51:45 -0400
-In-Reply-To: <1467410555-19514-2-git-send-email-tremyfr@gmail.com>
+	by vger.kernel.org with ESMTP id S1751135AbcGBSzF (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 14:55:05 -0400
+In-Reply-To: <1467413189-29566-1-git-send-email-michael.chan@broadcom.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sat,  2 Jul 2016 00:02:35 +0200
+From: Michael Chan <michael.chan@broadcom.com>
+Date: Fri,  1 Jul 2016 18:46:18 -0400
 
-> There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-> so we can use them instead of defining the same code in the driver.
+> Mostly small miscellaneous changes.
 > 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+> Please review for net-next.  Thanks.
 
-Applied.
+Series applied, thanks.
