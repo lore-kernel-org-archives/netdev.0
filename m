@@ -1,28 +1,58 @@
-From: "Mr. Bun Sam" <buns8527@soonaik.com>
-Subject: Re:
-Date: Sat, 2 Jul 2016 06:04:38 -0400
-Message-ID: <a060719c-4626-4515-9695-7d39634af413@EXCHB.soonaik.com.sg>
-Reply-To: buns8527@gmail.com
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail1.sparepartszone.com ([116.12.204.214]:45200 "EHLO
-	mail.sparepartszone.com" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S1750939AbcGBL2t convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 07:28:49 -0400
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 2/2] net: ethernet: ixp4xx_eth: use phy_ethtool_{get|set}_link_ksettings
+Date: Sat,  2 Jul 2016 14:06:15 +0200
+Message-ID: <1467461175-25137-2-git-send-email-tremyfr@gmail.com>
+References: <1467461175-25137-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Philippe Reynes <tremyfr@gmail.com>
+To: khalasa@piap.pl, davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1467461175-25137-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+There are two generics functions phy_ethtool_{get|set}_link_ksettings,
+so we can use them instead of defining the same code in the driver.
 
-I work with one of the major banks in Cambodia as the director of audit. I have a proposal for you, a very urgent and quick business that will be completed in 12 working days. I have just discovered documents relating to funds belonging to a deceased client of our bank,
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/xscale/ixp4xx_eth.c |   14 ++------------
+ 1 files changed, 2 insertions(+), 12 deletions(-)
 
-I went through all the related documents to the funds and I discovered no listed next of kin to inherit the funds which has been in our bank for more than 7 years now. I need your cooperation in getting the funds, I have the power to list you as the beneficiary of the funds and have the funds transferred to you.
-
-If you are interested, do get back to me so I can provide you with the full details.
-
-Regards
-Bun Sam.
+diff --git a/drivers/net/ethernet/xscale/ixp4xx_eth.c b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+index a7778d9..7f127dc 100644
+--- a/drivers/net/ethernet/xscale/ixp4xx_eth.c
++++ b/drivers/net/ethernet/xscale/ixp4xx_eth.c
+@@ -1002,16 +1002,6 @@ static void ixp4xx_get_drvinfo(struct net_device *dev,
+ 	strlcpy(info->bus_info, "internal", sizeof(info->bus_info));
+ }
+ 
+-static int ixp4xx_get_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	return phy_ethtool_gset(dev->phydev, cmd);
+-}
+-
+-static int ixp4xx_set_settings(struct net_device *dev, struct ethtool_cmd *cmd)
+-{
+-	return phy_ethtool_sset(dev->phydev, cmd);
+-}
+-
+ static int ixp4xx_nway_reset(struct net_device *dev)
+ {
+ 	return phy_start_aneg(dev->phydev);
+@@ -1048,11 +1038,11 @@ static int ixp4xx_get_ts_info(struct net_device *dev,
+ 
+ static const struct ethtool_ops ixp4xx_ethtool_ops = {
+ 	.get_drvinfo = ixp4xx_get_drvinfo,
+-	.get_settings = ixp4xx_get_settings,
+-	.set_settings = ixp4xx_set_settings,
+ 	.nway_reset = ixp4xx_nway_reset,
+ 	.get_link = ethtool_op_get_link,
+ 	.get_ts_info = ixp4xx_get_ts_info,
++	.get_link_ksettings = phy_ethtool_get_link_ksettings,
++	.set_link_ksettings = phy_ethtool_set_link_ksettings,
+ };
+ 
+ 
+-- 
+1.7.4.4
