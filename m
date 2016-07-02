@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 05/18] mlxsw: reg: Add Router General Configuration Register
-Date: Sat,  2 Jul 2016 09:26:27 +0200
-Message-ID: <1467444400-9480-6-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 08/18] mlxsw: spectrum: Add router interface struct
+Date: Sat,  2 Jul 2016 09:26:30 +0200
+Message-ID: <1467444400-9480-9-git-send-email-jiri@resnulli.us>
 References: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,129 +10,101 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36548 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750994AbcGBH1X (ORCPT
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:36587 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751113AbcGBH1X (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 03:27:23 -0400
-Received: by mail-wm0-f67.google.com with SMTP id c82so9895868wme.3
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:26:50 -0700 (PDT)
+Received: by mail-wm0-f66.google.com with SMTP id c82so9896151wme.3
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:26:54 -0700 (PDT)
 In-Reply-To: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Add the Router General Configuration Register (RGCR), which allows us to
-enable the router in the device and configure its various parameters.
+When enabling the router in the device we will represent L3 netdevs
+using router interfaces (RIFs). These will be specified whenever
+programming routes or neighbours on the netdev.
+
+Introduce the basic RIF infrastructure which allows one to lookup a RIF
+by its netdev. Later patches in the series will extend this, but the
+basic routines are needed now in order to direct traffic to CPU.
+
+Pointers to the RIF structs are stored in an array indexed by the RIF's
+number. This will allow us to efficiently update the kernel's neighbour
+table when regularly dumping the device's table.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 78 ++++++++++++++++++++++++++++++-
- 1 file changed, 77 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c |  3 +++
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h | 19 +++++++++++++++++++
+ 2 files changed, 22 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 1977e7a..7f74eb7 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -1,7 +1,7 @@
- /*
-  * drivers/net/ethernet/mellanox/mlxsw/reg.h
-  * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
-- * Copyright (c) 2015 Ido Schimmel <idosch@mellanox.com>
-+ * Copyright (c) 2015-2016 Ido Schimmel <idosch@mellanox.com>
-  * Copyright (c) 2015 Elad Raz <eladr@mellanox.com>
-  * Copyright (c) 2015 Jiri Pirko <jiri@mellanox.com>
-  *
-@@ -3186,6 +3186,80 @@ static inline void mlxsw_reg_hpkt_pack(char *payload, u8 action, u16 trap_id)
- 	mlxsw_reg_hpkt_ctrl_set(payload, MLXSW_REG_HPKT_CTRL_PACKET_DEFAULT);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index d011902..d15ebf3 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -2470,6 +2470,7 @@ err_rx_listener_register:
+ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
+ {
+ 	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
++	int i;
+ 
+ 	mlxsw_sp_ports_remove(mlxsw_sp);
+ 	mlxsw_sp_router_fini(mlxsw_sp);
+@@ -2478,6 +2479,8 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
+ 	mlxsw_sp_traps_fini(mlxsw_sp);
+ 	mlxsw_sp_event_unregister(mlxsw_sp, MLXSW_TRAP_ID_PUDE);
+ 	WARN_ON(!list_empty(&mlxsw_sp->fids));
++	for (i = 0; i < MLXSW_SP_RIF_MAX; i++)
++		WARN_ON_ONCE(mlxsw_sp->rifs[i]);
  }
  
-+/* RGCR - Router General Configuration Register
-+ * --------------------------------------------
-+ * The register is used for setting up the router configuration.
-+ */
-+#define MLXSW_REG_RGCR_ID 0x8001
-+#define MLXSW_REG_RGCR_LEN 0x28
-+
-+static const struct mlxsw_reg_info mlxsw_reg_rgcr = {
-+	.id = MLXSW_REG_RGCR_ID,
-+	.len = MLXSW_REG_RGCR_LEN,
+ static struct mlxsw_config_profile mlxsw_sp_config_profile = {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index c2ac037..83d5807 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -98,6 +98,11 @@ struct mlxsw_sp_fid {
+ 	u16 vid;
+ };
+ 
++struct mlxsw_sp_rif {
++	struct net_device *dev;
++	u16 rif;
 +};
 +
-+/* reg_rgcr_ipv4_en
-+ * IPv4 router enable.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rgcr, ipv4_en, 0x00, 31, 1);
-+
-+/* reg_rgcr_ipv6_en
-+ * IPv6 router enable.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rgcr, ipv6_en, 0x00, 30, 1);
-+
-+/* reg_rgcr_max_router_interfaces
-+ * Defines the maximum number of active router interfaces for all virtual
-+ * routers.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rgcr, max_router_interfaces, 0x10, 0, 16);
-+
-+/* reg_rgcr_usp
-+ * Update switch priority and packet color.
-+ * 0 - Preserve the value of Switch Priority and packet color.
-+ * 1 - Recalculate the value of Switch Priority and packet color.
-+ * Access: RW
-+ *
-+ * Note: Not supported by SwitchX and SwitchX-2.
-+ */
-+MLXSW_ITEM32(reg, rgcr, usp, 0x18, 20, 1);
-+
-+/* reg_rgcr_pcp_rw
-+ * Indicates how to handle the pcp_rewrite_en value:
-+ * 0 - Preserve the value of pcp_rewrite_en.
-+ * 2 - Disable PCP rewrite.
-+ * 3 - Enable PCP rewrite.
-+ * Access: RW
-+ *
-+ * Note: Not supported by SwitchX and SwitchX-2.
-+ */
-+MLXSW_ITEM32(reg, rgcr, pcp_rw, 0x18, 16, 2);
-+
-+/* reg_rgcr_activity_dis
-+ * Activity disable:
-+ * 0 - Activity will be set when an entry is hit (default).
-+ * 1 - Activity will not be set when an entry is hit.
-+ *
-+ * Bit 0 - Disable activity bit in Router Algorithmic LPM Unicast Entry
-+ * (RALUE).
-+ * Bit 1 - Disable activity bit in Router Algorithmic LPM Unicast Host
-+ * Entry (RAUHT).
-+ * Bits 2:7 are reserved.
-+ * Access: RW
-+ *
-+ * Note: Not supported by SwitchX, SwitchX-2 and Switch-IB.
-+ */
-+MLXSW_ITEM32(reg, rgcr, activity_dis, 0x20, 0, 8);
-+
-+static inline void mlxsw_reg_rgcr_pack(char *payload, bool ipv4_en)
+ struct mlxsw_sp_mid {
+ 	struct list_head list;
+ 	unsigned char addr[ETH_ALEN];
+@@ -169,6 +174,7 @@ struct mlxsw_sp {
+ 		DECLARE_BITMAP(mapped, MLXSW_SP_MID_MAX);
+ 	} br_mids;
+ 	struct list_head fids;	/* VLAN-aware bridge FIDs */
++	struct mlxsw_sp_rif *rifs[MLXSW_SP_RIF_MAX];
+ 	struct mlxsw_sp_port **ports;
+ 	struct mlxsw_core *core;
+ 	const struct mlxsw_bus_info *bus_info;
+@@ -327,6 +333,19 @@ mlxsw_sp_port_vport_find_by_fid(const struct mlxsw_sp_port *mlxsw_sp_port,
+ 	return NULL;
+ }
+ 
++static inline struct mlxsw_sp_rif *
++mlxsw_sp_rif_find_by_dev(const struct mlxsw_sp *mlxsw_sp,
++			 const struct net_device *dev)
 +{
-+	MLXSW_REG_ZERO(rgcr, payload);
-+	mlxsw_reg_rgcr_ipv4_en_set(payload, ipv4_en);
++	int i;
++
++	for (i = 0; i < MLXSW_SP_RIF_MAX; i++)
++		if (mlxsw_sp->rifs[i] && mlxsw_sp->rifs[i]->dev == dev)
++			return mlxsw_sp->rifs[i];
++
++	return NULL;
 +}
 +
- /* MFCR - Management Fan Control Register
-  * --------------------------------------
-  * This register controls the settings of the Fan Speed PWM mechanism.
-@@ -3924,6 +3998,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "HTGT";
- 	case MLXSW_REG_HPKT_ID:
- 		return "HPKT";
-+	case MLXSW_REG_RGCR_ID:
-+		return "RGCR";
- 	case MLXSW_REG_MFCR_ID:
- 		return "MFCR";
- 	case MLXSW_REG_MFSC_ID:
+ enum mlxsw_sp_flood_table {
+ 	MLXSW_SP_FLOOD_TABLE_UC,
+ 	MLXSW_SP_FLOOD_TABLE_BM,
 -- 
 2.5.5
