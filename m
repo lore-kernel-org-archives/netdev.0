@@ -1,37 +1,35 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [PATCH v2 net-next 1/1] net sched actions: mirred add support for
- setting Dst MAC address
-Date: Sat, 2 Jul 2016 09:58:22 -0700
-Message-ID: <CAM_iQpXpkUo2H=Yndb4u63yKk6jNBbxYynmWtQRGhw6SAVUZrA@mail.gmail.com>
-References: <1467470065-17613-1-git-send-email-jhs@emojatatu.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH] net: phy: dp83867: Fix initialization of PHYCR register
+Date: Sat, 2 Jul 2016 10:01:34 -0700
+Message-ID: <5777F36E.6090105@gmail.com>
+References: <1467405303-19212-1-git-send-email-stefan@shauser.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	nikolay@cumulusnetworks.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: Stefan Hauser <stefan@shauser.net>, netdev@vger.kernel.org,
+	Dan Murphy <dmurphy@ti.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f170.google.com ([209.85.223.170]:33694 "EHLO
-	mail-io0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752250AbcGBQ6m (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 12:58:42 -0400
-Received: by mail-io0-f170.google.com with SMTP id t74so123922624ioi.0
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 09:58:42 -0700 (PDT)
-In-Reply-To: <1467470065-17613-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-oi0-f41.google.com ([209.85.218.41]:36776 "EHLO
+	mail-oi0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752162AbcGBRBi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 13:01:38 -0400
+Received: by mail-oi0-f41.google.com with SMTP id f189so148856742oig.3
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 10:01:37 -0700 (PDT)
+In-Reply-To: <1467405303-19212-1-git-send-email-stefan@shauser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 2, 2016 at 7:34 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> Often redirecting or mirroring requires that we set the dstMAC address
-> of the target device. While it is possible to pipe to a pedit action,
-> this patch obsoletes the need for that. This is a justified feature because
-> the dst MAC addresses rewrite is such a common use case.
+Le 01/07/2016 13:35, Stefan Hauser a =C3=A9crit :
+> When initializing the PHY control register, the FIFO depth bits are
+> written without reading the previous register value, i.e. all other
+> bits are overwritten with zero. This disables automatic MDI-X
+> configuration, which is enabled by default. Fix initialization by doi=
+ng
+> a read/modify/write operation.
+>=20
+> Signed-off-by: Stefan Hauser <stefan@shauser.net>
 
-Maybe, instead of allowing to set arbitrary MAC address, how about
-just allow setting to the MAC address of the target device?
-If so we only need a boolean flag for user-space.
-
-IOW, do we really need such flexibility?
+Reviewed-by: Florian Fainelli <f.fainelli@gmail.com>
+=46ixes: 2a10154abcb7 ("net: phy: dp83867: Add TI dp83867 phy")
+--=20
+=46lorian
