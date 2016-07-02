@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 07/18] mlxsw: spectrum_router: Add basic ipv4 router initialization
-Date: Sat,  2 Jul 2016 09:26:29 +0200
-Message-ID: <1467444400-9480-8-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 02/18] mlxsw: spectrum: Remove VLANs configuration via SELF flag
+Date: Sat,  2 Jul 2016 09:26:24 +0200
+Message-ID: <1467444400-9480-3-git-send-email-jiri@resnulli.us>
 References: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,169 +10,184 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33198 "EHLO
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:35734 "EHLO
 	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751049AbcGBH1X (ORCPT
+	with ESMTP id S1750846AbcGBH1X (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 03:27:23 -0400
-Received: by mail-wm0-f65.google.com with SMTP id r201so9907710wme.0
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:26:52 -0700 (PDT)
+Received: by mail-wm0-f65.google.com with SMTP id a66so9892111wme.2
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:26:46 -0700 (PDT)
 In-Reply-To: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-Create a skeleton router file and do basic HW initialization of router.
+When port isn't bridged it is still possible to invoke switchdev ops and
+configure the device's VLAN filters.
+
+However, this will require us to use different Router InterFaces (RIFs)
+for the same netdev, instead of one per-netdev as with any other
+configuration.
+
+Taking the above into account and the fact that this functionality is
+questionable with regards to the device's normal use-case, remove it and
+instead return an error.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/Makefile       |  2 +-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |  9 +++
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  5 ++
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 68 ++++++++++++++++++++++
- 4 files changed, 83 insertions(+), 1 deletion(-)
- create mode 100644 drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 24 ++---------
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  2 -
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 46 +---------------------
+ 3 files changed, 6 insertions(+), 66 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/Makefile b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-index 9b5ebf8..ea05f8a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/Makefile
-+++ b/drivers/net/ethernet/mellanox/mlxsw/Makefile
-@@ -7,5 +7,5 @@ obj-$(CONFIG_MLXSW_SWITCHX2)	+= mlxsw_switchx2.o
- mlxsw_switchx2-objs		:= switchx2.o
- obj-$(CONFIG_MLXSW_SPECTRUM)	+= mlxsw_spectrum.o
- mlxsw_spectrum-objs		:= spectrum.o spectrum_buffers.o \
--				   spectrum_switchdev.o
-+				   spectrum_switchdev.o spectrum_router.o
- mlxsw_spectrum-$(CONFIG_MLXSW_SPECTRUM_DCB)	+= spectrum_dcb.o
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index b6f4dfb..d011902 100644
+index afd06dc..4f67a8c 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2438,6 +2438,12 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
- 		goto err_switchdev_init;
- 	}
+@@ -890,8 +890,8 @@ err_port_vp_mode_trans:
+ 	return err;
+ }
  
-+	err = mlxsw_sp_router_init(mlxsw_sp);
-+	if (err) {
-+		dev_err(mlxsw_sp->bus_info->dev, "Failed to initialize router\n");
-+		goto err_router_init;
-+	}
-+
- 	err = mlxsw_sp_ports_create(mlxsw_sp);
- 	if (err) {
- 		dev_err(mlxsw_sp->bus_info->dev, "Failed to create ports\n");
-@@ -2447,6 +2453,8 @@ static int mlxsw_sp_init(struct mlxsw_core *mlxsw_core,
- 	return 0;
+-int mlxsw_sp_port_kill_vid(struct net_device *dev,
+-			   __be16 __always_unused proto, u16 vid)
++static int mlxsw_sp_port_kill_vid(struct net_device *dev,
++				  __be16 __always_unused proto, u16 vid)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
+ 	struct mlxsw_sp_port *mlxsw_sp_vport;
+@@ -1845,23 +1845,6 @@ err_port_active_vlans_alloc:
+ 	return err;
+ }
  
- err_ports_create:
-+	mlxsw_sp_router_fini(mlxsw_sp);
-+err_router_init:
- 	mlxsw_sp_switchdev_fini(mlxsw_sp);
- err_switchdev_init:
- err_lag_init:
-@@ -2464,6 +2472,7 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
- 	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
+-static void mlxsw_sp_port_vports_fini(struct mlxsw_sp_port *mlxsw_sp_port)
+-{
+-	struct net_device *dev = mlxsw_sp_port->dev;
+-	struct mlxsw_sp_port *mlxsw_sp_vport, *tmp;
+-
+-	list_for_each_entry_safe(mlxsw_sp_vport, tmp,
+-				 &mlxsw_sp_port->vports_list, vport.list) {
+-		u16 vid = mlxsw_sp_vport_vid_get(mlxsw_sp_vport);
+-
+-		/* vPorts created for VLAN devices should already be gone
+-		 * by now, since we unregistered the port netdev.
+-		 */
+-		WARN_ON(is_vlan_dev(mlxsw_sp_vport->dev));
+-		mlxsw_sp_port_kill_vid(dev, 0, vid);
+-	}
+-}
+-
+ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ {
+ 	struct mlxsw_sp_port *mlxsw_sp_port = mlxsw_sp->ports[local_port];
+@@ -1872,13 +1855,14 @@ static void mlxsw_sp_port_remove(struct mlxsw_sp *mlxsw_sp, u8 local_port)
+ 	mlxsw_core_port_fini(&mlxsw_sp_port->core_port);
+ 	unregister_netdev(mlxsw_sp_port->dev); /* This calls ndo_stop */
+ 	mlxsw_sp_port_dcb_fini(mlxsw_sp_port);
+-	mlxsw_sp_port_vports_fini(mlxsw_sp_port);
++	mlxsw_sp_port_kill_vid(mlxsw_sp_port->dev, 0, 1);
+ 	mlxsw_sp_port_switchdev_fini(mlxsw_sp_port);
+ 	mlxsw_sp_port_swid_set(mlxsw_sp_port, MLXSW_PORT_SWID_DISABLED_PORT);
+ 	mlxsw_sp_port_module_unmap(mlxsw_sp, mlxsw_sp_port->local_port);
+ 	free_percpu(mlxsw_sp_port->pcpu_stats);
+ 	kfree(mlxsw_sp_port->untagged_vlans);
+ 	kfree(mlxsw_sp_port->active_vlans);
++	WARN_ON_ONCE(!list_empty(&mlxsw_sp_port->vports_list));
+ 	free_netdev(mlxsw_sp_port->dev);
+ }
  
- 	mlxsw_sp_ports_remove(mlxsw_sp);
-+	mlxsw_sp_router_fini(mlxsw_sp);
- 	mlxsw_sp_switchdev_fini(mlxsw_sp);
- 	mlxsw_sp_buffers_fini(mlxsw_sp);
- 	mlxsw_sp_traps_fini(mlxsw_sp);
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 05d5fcc..c2ac037 100644
+index 36c9835..05d5fcc 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -74,6 +74,8 @@
+@@ -377,8 +377,6 @@ int mlxsw_sp_port_vlan_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid_begin,
+ 			   u16 vid_end, bool is_member, bool untagged);
+ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
+ 			  u16 vid);
+-int mlxsw_sp_port_kill_vid(struct net_device *dev,
+-			   __be16 __always_unused proto, u16 vid);
+ int mlxsw_sp_vport_flood_set(struct mlxsw_sp_port *mlxsw_sp_vport, u16 fid,
+ 			     bool set);
+ void mlxsw_sp_port_active_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index a0c7376..927117e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -633,25 +633,6 @@ err_port_allow_untagged_set:
+ 	return err;
+ }
  
- #define MLXSW_SP_CELL_FACTOR 2	/* 2 * cell_size / (IPG + cell_size + 1) */
+-static int mlxsw_sp_port_add_vids(struct net_device *dev, u16 vid_begin,
+-				  u16 vid_end)
+-{
+-	u16 vid;
+-	int err;
+-
+-	for (vid = vid_begin; vid <= vid_end; vid++) {
+-		err = mlxsw_sp_port_add_vid(dev, 0, vid);
+-		if (err)
+-			goto err_port_add_vid;
+-	}
+-	return 0;
+-
+-err_port_add_vid:
+-	for (vid--; vid >= vid_begin; vid--)
+-		mlxsw_sp_port_kill_vid(dev, 0, vid);
+-	return err;
+-}
+-
+ static int __mlxsw_sp_port_vlans_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				     u16 vid_begin, u16 vid_end, bool is_member,
+ 				     bool untagged)
+@@ -681,12 +662,8 @@ static int __mlxsw_sp_port_vlans_add(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	u16 vid, old_pvid;
+ 	int err;
  
-+#define MLXSW_SP_RIF_MAX 800
-+
- static inline u16 mlxsw_sp_pfc_delay_get(int mtu, u16 delay)
+-	/* In case this is invoked with BRIDGE_FLAGS_SELF and port is
+-	 * not bridged, then packets ingressing through the port with
+-	 * the specified VIDs will be directed to CPU.
+-	 */
+ 	if (!mlxsw_sp_port->bridged)
+-		return mlxsw_sp_port_add_vids(dev, vid_begin, vid_end);
++		return -EINVAL;
+ 
+ 	err = mlxsw_sp_port_fid_join(mlxsw_sp_port, vid_begin, vid_end);
+ 	if (err) {
+@@ -1019,21 +996,6 @@ static int mlxsw_sp_port_obj_add(struct net_device *dev,
+ 	return err;
+ }
+ 
+-static int mlxsw_sp_port_kill_vids(struct net_device *dev, u16 vid_begin,
+-				   u16 vid_end)
+-{
+-	u16 vid;
+-	int err;
+-
+-	for (vid = vid_begin; vid <= vid_end; vid++) {
+-		err = mlxsw_sp_port_kill_vid(dev, 0, vid);
+-		if (err)
+-			return err;
+-	}
+-
+-	return 0;
+-}
+-
+ static int __mlxsw_sp_port_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 				     u16 vid_begin, u16 vid_end, bool init)
  {
- 	delay = MLXSW_SP_BYTES_TO_CELLS(DIV_ROUND_UP(delay, BITS_PER_BYTE));
-@@ -411,4 +413,7 @@ static inline void mlxsw_sp_port_dcb_fini(struct mlxsw_sp_port *mlxsw_sp_port)
+@@ -1041,12 +1003,8 @@ static int __mlxsw_sp_port_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 	u16 vid, pvid;
+ 	int err;
  
- #endif
+-	/* In case this is invoked with BRIDGE_FLAGS_SELF and port is
+-	 * not bridged, then prevent packets ingressing through the
+-	 * port with the specified VIDs from being trapped to CPU.
+-	 */
+ 	if (!init && !mlxsw_sp_port->bridged)
+-		return mlxsw_sp_port_kill_vids(dev, vid_begin, vid_end);
++		return -EINVAL;
  
-+int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp);
-+void mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp);
-+
- #endif
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-new file mode 100644
-index 0000000..8d70496
---- /dev/null
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -0,0 +1,68 @@
-+/*
-+ * drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+ * Copyright (c) 2016 Mellanox Technologies. All rights reserved.
-+ * Copyright (c) 2016 Jiri Pirko <jiri@mellanox.com>
-+ * Copyright (c) 2016 Ido Schimmel <idosch@mellanox.com>
-+ *
-+ * Redistribution and use in source and binary forms, with or without
-+ * modification, are permitted provided that the following conditions are met:
-+ *
-+ * 1. Redistributions of source code must retain the above copyright
-+ *    notice, this list of conditions and the following disclaimer.
-+ * 2. Redistributions in binary form must reproduce the above copyright
-+ *    notice, this list of conditions and the following disclaimer in the
-+ *    documentation and/or other materials provided with the distribution.
-+ * 3. Neither the names of the copyright holders nor the names of its
-+ *    contributors may be used to endorse or promote products derived from
-+ *    this software without specific prior written permission.
-+ *
-+ * Alternatively, this software may be distributed under the terms of the
-+ * GNU General Public License ("GPL") version 2 as published by the Free
-+ * Software Foundation.
-+ *
-+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-+ * ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE
-+ * LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-+ * POSSIBILITY OF SUCH DAMAGE.
-+ */
-+
-+#include <linux/kernel.h>
-+#include <linux/types.h>
-+
-+#include "spectrum.h"
-+#include "core.h"
-+#include "reg.h"
-+
-+static int __mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
-+{
-+	char rgcr_pl[MLXSW_REG_RGCR_LEN];
-+
-+	mlxsw_reg_rgcr_pack(rgcr_pl, true);
-+	mlxsw_reg_rgcr_max_router_interfaces_set(rgcr_pl, MLXSW_SP_RIF_MAX);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(rgcr), rgcr_pl);
-+}
-+
-+static void __mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
-+{
-+	char rgcr_pl[MLXSW_REG_RGCR_LEN];
-+
-+	mlxsw_reg_rgcr_pack(rgcr_pl, false);
-+	mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(rgcr), rgcr_pl);
-+}
-+
-+int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
-+{
-+	return __mlxsw_sp_router_init(mlxsw_sp);
-+}
-+
-+void mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
-+{
-+	__mlxsw_sp_router_fini(mlxsw_sp);
-+}
+ 	err = __mlxsw_sp_port_vlans_set(mlxsw_sp_port, vid_begin, vid_end,
+ 					false, false);
 -- 
 2.5.5
