@@ -1,104 +1,261 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: [net-next PATCH v2 2/2] net: samples: pktgen mode samples/tests for
- qdisc layer
-Date: Sat, 02 Jul 2016 14:13:13 -0700
-Message-ID: <20160702211313.13884.90199.stgit@john-Precision-Tower-5810>
-References: <20160702211254.13884.81202.stgit@john-Precision-Tower-5810>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: jhs@mojatatu.com, brouer@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f196.google.com ([209.85.192.196]:36189 "EHLO
-	mail-pf0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752092AbcGBVNZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 17:13:25 -0400
-Received: by mail-pf0-f196.google.com with SMTP id i123so12907795pfg.3
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 14:13:24 -0700 (PDT)
-In-Reply-To: <20160702211254.13884.81202.stgit@john-Precision-Tower-5810>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 1/2] net: ethernet: cavium: octeon: use phydev from struct net_device
+Date: Sat,  2 Jul 2016 23:36:59 +0200
+Message-ID: <1467495420-23359-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, mugunthanvnm@ti.com, ivecera@redhat.com,
+	a@unstable.cc, fw@strlen.de, david.daney@cavium.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This adds samples for pktgen to use with new mode to inject pkts into
-the qdisc layer. This also doubles as nice test cases to test any
-patches against qdisc layer.
+The private structure contain a pointer to phydev, but the structure
+net_device already contain such pointer. So we can remove the pointer
+phy in the private structure, and update the driver to use the
+one contained in struct net_device.
 
-Signed-off-by: John Fastabend <john.r.fastabend@intel.com>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
 ---
- .../pktgen/pktgen_bench_xmit_mode_queue_xmit.sh    |   66 ++++++++++++++++++++
- 1 file changed, 66 insertions(+)
- create mode 100755 samples/pktgen/pktgen_bench_xmit_mode_queue_xmit.sh
+ drivers/net/ethernet/cavium/octeon/octeon_mgmt.c |   86 ++++++++++------------
+ 1 files changed, 40 insertions(+), 46 deletions(-)
 
-diff --git a/samples/pktgen/pktgen_bench_xmit_mode_queue_xmit.sh b/samples/pktgen/pktgen_bench_xmit_mode_queue_xmit.sh
-new file mode 100755
-index 0000000..4e4e92b
---- /dev/null
-+++ b/samples/pktgen/pktgen_bench_xmit_mode_queue_xmit.sh
-@@ -0,0 +1,66 @@
-+#!/bin/bash
-+#
-+# Benchmark script:
-+#  - developed for benchmarking egress qdisc path, derived (more
-+#    like cut'n'pasted) from ingress benchmark script.
-+#
-+# Script for injecting packets into egress qdisc path of the stack
-+# with pktgen "xmit_mode queue_xmit".
-+#
-+basedir=`dirname $0`
-+source ${basedir}/functions.sh
-+root_check_run_with_sudo "$@"
-+
-+# Parameter parsing via include
-+source ${basedir}/parameters.sh
-+[ -z "$DEST_IP" ] && DEST_IP="198.18.0.42"
-+[ -z "$DST_MAC" ] && DST_MAC="90:e2:ba:ff:ff:ff"
-+
-+# Burst greater than 1 are invalid for queue_xmit mode
-+if [[ -n "$BURST" ]]; then
-+    err 1 "Bursting not supported for this mode"
-+fi
-+
-+# Base Config
-+DELAY="0"        # Zero means max speed
-+COUNT="10000000" # Zero means indefinitely
-+
-+# General cleanup everything since last run
-+pg_ctrl "reset"
-+
-+# Threads are specified with parameter -t value in $THREADS
-+for ((thread = 0; thread < $THREADS; thread++)); do
-+    # The device name is extended with @name, using thread number to
-+    # make then unique, but any name will do.
-+    dev=${DEV}@${thread}
-+
-+    # Add remove all other devices and add_device $dev to thread
-+    pg_thread $thread "rem_device_all"
-+    pg_thread $thread "add_device" $dev
-+
-+    # Base config of dev
-+    pg_set $dev "flag QUEUE_MAP_CPU"
-+    pg_set $dev "count $COUNT"
-+    pg_set $dev "pkt_size $PKT_SIZE"
-+    pg_set $dev "delay $DELAY"
-+    pg_set $dev "flag NO_TIMESTAMP"
-+
-+    # Destination
-+    pg_set $dev "dst_mac $DST_MAC"
-+    pg_set $dev "dst $DEST_IP"
-+
-+    # Inject packet into TX qdisc egress path of stack
-+    pg_set $dev "xmit_mode queue_xmit"
-+done
-+
-+# start_run
-+echo "Running... ctrl^C to stop" >&2
-+pg_ctrl "start"
-+echo "Done" >&2
-+
-+# Print results
-+for ((thread = 0; thread < $THREADS; thread++)); do
-+    dev=${DEV}@${thread}
-+    echo "Device: $dev"
-+    cat /proc/net/pktgen/$dev | grep -A2 "Result:"
-+done
+diff --git a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+index 388cd79..de678e6 100644
+--- a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
++++ b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
+@@ -146,7 +146,6 @@ struct octeon_mgmt {
+ 	struct device *dev;
+ 	struct napi_struct napi;
+ 	struct tasklet_struct tx_clean_tasklet;
+-	struct phy_device *phydev;
+ 	struct device_node *phy_np;
+ 	resource_size_t mix_phys;
+ 	resource_size_t mix_size;
+@@ -787,14 +786,12 @@ static int octeon_mgmt_ioctl_hwtstamp(struct net_device *netdev,
+ static int octeon_mgmt_ioctl(struct net_device *netdev,
+ 			     struct ifreq *rq, int cmd)
+ {
+-	struct octeon_mgmt *p = netdev_priv(netdev);
+-
+ 	switch (cmd) {
+ 	case SIOCSHWTSTAMP:
+ 		return octeon_mgmt_ioctl_hwtstamp(netdev, rq, cmd);
+ 	default:
+-		if (p->phydev)
+-			return phy_mii_ioctl(p->phydev, rq, cmd);
++		if (netdev->phydev)
++			return phy_mii_ioctl(netdev->phydev, rq, cmd);
+ 		return -EINVAL;
+ 	}
+ }
+@@ -836,16 +833,18 @@ static void octeon_mgmt_enable_link(struct octeon_mgmt *p)
+ 
+ static void octeon_mgmt_update_link(struct octeon_mgmt *p)
+ {
++	struct net_device *ndev = p->netdev;
++	struct phy_device *phydev = ndev->phydev;
+ 	union cvmx_agl_gmx_prtx_cfg prtx_cfg;
+ 
+ 	prtx_cfg.u64 = cvmx_read_csr(p->agl + AGL_GMX_PRT_CFG);
+ 
+-	if (!p->phydev->link)
++	if (!phydev->link)
+ 		prtx_cfg.s.duplex = 1;
+ 	else
+-		prtx_cfg.s.duplex = p->phydev->duplex;
++		prtx_cfg.s.duplex = phydev->duplex;
+ 
+-	switch (p->phydev->speed) {
++	switch (phydev->speed) {
+ 	case 10:
+ 		prtx_cfg.s.speed = 0;
+ 		prtx_cfg.s.slottime = 0;
+@@ -871,7 +870,7 @@ static void octeon_mgmt_update_link(struct octeon_mgmt *p)
+ 			prtx_cfg.s.speed_msb = 0;
+ 			/* Only matters for half-duplex */
+ 			prtx_cfg.s.slottime = 1;
+-			prtx_cfg.s.burst = p->phydev->duplex;
++			prtx_cfg.s.burst = phydev->duplex;
+ 		}
+ 		break;
+ 	case 0:  /* No link */
+@@ -894,9 +893,9 @@ static void octeon_mgmt_update_link(struct octeon_mgmt *p)
+ 		/* MII (both speeds) and RGMII 1000 speed. */
+ 		agl_clk.s.clk_cnt = 1;
+ 		if (prtx_ctl.s.mode == 0) { /* RGMII mode */
+-			if (p->phydev->speed == 10)
++			if (phydev->speed == 10)
+ 				agl_clk.s.clk_cnt = 50;
+-			else if (p->phydev->speed == 100)
++			else if (phydev->speed == 100)
+ 				agl_clk.s.clk_cnt = 5;
+ 		}
+ 		cvmx_write_csr(p->agl + AGL_GMX_TX_CLK, agl_clk.u64);
+@@ -906,39 +905,40 @@ static void octeon_mgmt_update_link(struct octeon_mgmt *p)
+ static void octeon_mgmt_adjust_link(struct net_device *netdev)
+ {
+ 	struct octeon_mgmt *p = netdev_priv(netdev);
++	struct phy_device *phydev = netdev->phydev;
+ 	unsigned long flags;
+ 	int link_changed = 0;
+ 
+-	if (!p->phydev)
++	if (!phydev)
+ 		return;
+ 
+ 	spin_lock_irqsave(&p->lock, flags);
+ 
+ 
+-	if (!p->phydev->link && p->last_link)
++	if (!phydev->link && p->last_link)
+ 		link_changed = -1;
+ 
+-	if (p->phydev->link
+-	    && (p->last_duplex != p->phydev->duplex
+-		|| p->last_link != p->phydev->link
+-		|| p->last_speed != p->phydev->speed)) {
++	if (phydev->link &&
++	    (p->last_duplex != phydev->duplex ||
++	     p->last_link != phydev->link ||
++	     p->last_speed != phydev->speed)) {
+ 		octeon_mgmt_disable_link(p);
+ 		link_changed = 1;
+ 		octeon_mgmt_update_link(p);
+ 		octeon_mgmt_enable_link(p);
+ 	}
+ 
+-	p->last_link = p->phydev->link;
+-	p->last_speed = p->phydev->speed;
+-	p->last_duplex = p->phydev->duplex;
++	p->last_link = phydev->link;
++	p->last_speed = phydev->speed;
++	p->last_duplex = phydev->duplex;
+ 
+ 	spin_unlock_irqrestore(&p->lock, flags);
+ 
+ 	if (link_changed != 0) {
+ 		if (link_changed > 0) {
+ 			pr_info("%s: Link is up - %d/%s\n", netdev->name,
+-				p->phydev->speed,
+-				DUPLEX_FULL == p->phydev->duplex ?
++				phydev->speed,
++				phydev->duplex == DUPLEX_FULL ?
+ 				"Full" : "Half");
+ 		} else {
+ 			pr_info("%s: Link is down\n", netdev->name);
+@@ -949,6 +949,7 @@ static void octeon_mgmt_adjust_link(struct net_device *netdev)
+ static int octeon_mgmt_init_phy(struct net_device *netdev)
+ {
+ 	struct octeon_mgmt *p = netdev_priv(netdev);
++	struct phy_device *phydev = NULL;
+ 
+ 	if (octeon_is_simulation() || p->phy_np == NULL) {
+ 		/* No PHYs in the simulator. */
+@@ -956,11 +957,11 @@ static int octeon_mgmt_init_phy(struct net_device *netdev)
+ 		return 0;
+ 	}
+ 
+-	p->phydev = of_phy_connect(netdev, p->phy_np,
+-				   octeon_mgmt_adjust_link, 0,
+-				   PHY_INTERFACE_MODE_MII);
++	phydev = of_phy_connect(netdev, p->phy_np,
++				octeon_mgmt_adjust_link, 0,
++				PHY_INTERFACE_MODE_MII);
+ 
+-	if (!p->phydev)
++	if (!phydev)
+ 		return -ENODEV;
+ 
+ 	return 0;
+@@ -1080,9 +1081,9 @@ static int octeon_mgmt_open(struct net_device *netdev)
+ 	}
+ 
+ 	/* Set the mode of the interface, RGMII/MII. */
+-	if (OCTEON_IS_MODEL(OCTEON_CN6XXX) && p->phydev) {
++	if (OCTEON_IS_MODEL(OCTEON_CN6XXX) && netdev->phydev) {
+ 		union cvmx_agl_prtx_ctl agl_prtx_ctl;
+-		int rgmii_mode = (p->phydev->supported &
++		int rgmii_mode = (netdev->phydev->supported &
+ 				  (SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full)) != 0;
+ 
+ 		agl_prtx_ctl.u64 = cvmx_read_csr(p->agl_prt_ctl);
+@@ -1205,7 +1206,7 @@ static int octeon_mgmt_open(struct net_device *netdev)
+ 
+ 	/* Configure the port duplex, speed and enables */
+ 	octeon_mgmt_disable_link(p);
+-	if (p->phydev)
++	if (netdev->phydev)
+ 		octeon_mgmt_update_link(p);
+ 	octeon_mgmt_enable_link(p);
+ 
+@@ -1214,9 +1215,9 @@ static int octeon_mgmt_open(struct net_device *netdev)
+ 	/* PHY is not present in simulator. The carrier is enabled
+ 	 * while initializing the phy for simulator, leave it enabled.
+ 	 */
+-	if (p->phydev) {
++	if (netdev->phydev) {
+ 		netif_carrier_off(netdev);
+-		phy_start_aneg(p->phydev);
++		phy_start_aneg(netdev->phydev);
+ 	}
+ 
+ 	netif_wake_queue(netdev);
+@@ -1244,9 +1245,8 @@ static int octeon_mgmt_stop(struct net_device *netdev)
+ 	napi_disable(&p->napi);
+ 	netif_stop_queue(netdev);
+ 
+-	if (p->phydev)
+-		phy_disconnect(p->phydev);
+-	p->phydev = NULL;
++	if (netdev->phydev)
++		phy_disconnect(netdev->phydev);
+ 
+ 	netif_carrier_off(netdev);
+ 
+@@ -1349,10 +1349,8 @@ static void octeon_mgmt_get_drvinfo(struct net_device *netdev,
+ static int octeon_mgmt_get_settings(struct net_device *netdev,
+ 				    struct ethtool_cmd *cmd)
+ {
+-	struct octeon_mgmt *p = netdev_priv(netdev);
+-
+-	if (p->phydev)
+-		return phy_ethtool_gset(p->phydev, cmd);
++	if (netdev->phydev)
++		return phy_ethtool_gset(netdev->phydev, cmd);
+ 
+ 	return -EOPNOTSUPP;
+ }
+@@ -1360,26 +1358,22 @@ static int octeon_mgmt_get_settings(struct net_device *netdev,
+ static int octeon_mgmt_set_settings(struct net_device *netdev,
+ 				    struct ethtool_cmd *cmd)
+ {
+-	struct octeon_mgmt *p = netdev_priv(netdev);
+-
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	if (p->phydev)
+-		return phy_ethtool_sset(p->phydev, cmd);
++	if (netdev->phydev)
++		return phy_ethtool_sset(netdev->phydev, cmd);
+ 
+ 	return -EOPNOTSUPP;
+ }
+ 
+ static int octeon_mgmt_nway_reset(struct net_device *dev)
+ {
+-	struct octeon_mgmt *p = netdev_priv(dev);
+-
+ 	if (!capable(CAP_NET_ADMIN))
+ 		return -EPERM;
+ 
+-	if (p->phydev)
+-		return phy_start_aneg(p->phydev);
++	if (dev->phydev)
++		return phy_start_aneg(dev->phydev);
+ 
+ 	return -EOPNOTSUPP;
+ }
+-- 
+1.7.4.4
