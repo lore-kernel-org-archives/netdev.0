@@ -1,38 +1,84 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v2 net-next 2/3] net sched actions: skbedit add support
- for mod-ing skb pkt_type
-Date: Sat, 02 Jul 2016 19:35:49 +0200
-Message-ID: <5777FB75.2050407@iogearbox.net>
-References: <1467456196-25712-1-git-send-email-jhs@emojatatu.com> <1467456196-25712-2-git-send-email-jhs@emojatatu.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com, fw@strlen.de
-To: Jamal Hadi Salim <jhs@mojatatu.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:46957 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752254AbcGBRf6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 13:35:58 -0400
-In-Reply-To: <1467456196-25712-2-git-send-email-jhs@emojatatu.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Philippe Reynes <tremyfr@gmail.com>
+Subject: [PATCH 2/2] net: ethernet: arc: emac: use phy_ethtool_{get|set}_link_ksettings
+Date: Sat,  2 Jul 2016 20:06:52 +0200
+Message-ID: <1467482812-13917-2-git-send-email-tremyfr@gmail.com>
+References: <1467482812-13917-1-git-send-email-tremyfr@gmail.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Philippe Reynes <tremyfr@gmail.com>
+To: davem@davemloft.net, wxt@rock-chips.com, heiko@sntech.de,
+	al.kochet@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1467482812-13917-1-git-send-email-tremyfr@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/02/2016 12:43 PM, Jamal Hadi Salim wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
->
-> Extremely useful for setting packet type to host so i dont
-> have to modify the dst mac address using pedit (which requires
-> that i know the mac address)
->
-> Example usage:
-> tc filter add dev eth0 parent ffff: protocol ip pref 9 u32 \
-> match ip src 5.5.5.5/32 \
-> flowid 1:5 action skbedit ptype host
->
-> This will tag all packets incoming from 5.5.5.5 with type
-> PACKET_HOST
->
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+There are two generics functions phy_ethtool_{get|set}_link_ksettings,
+so we can use them instead of defining the same code in the driver.
 
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
+Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
+---
+ drivers/net/ethernet/arc/emac_main.c |   40 +--------------------------------
+ 1 files changed, 2 insertions(+), 38 deletions(-)
+
+diff --git a/drivers/net/ethernet/arc/emac_main.c b/drivers/net/ethernet/arc/emac_main.c
+index a8a1dc9..586beda 100644
+--- a/drivers/net/ethernet/arc/emac_main.c
++++ b/drivers/net/ethernet/arc/emac_main.c
+@@ -80,42 +80,6 @@ static void arc_emac_adjust_link(struct net_device *ndev)
+ }
+ 
+ /**
+- * arc_emac_get_settings - Get PHY settings.
+- * @ndev:	Pointer to net_device structure.
+- * @cmd:	Pointer to ethtool_cmd structure.
+- *
+- * This implements ethtool command for getting PHY settings. If PHY could
+- * not be found, the function returns -ENODEV. This function calls the
+- * relevant PHY ethtool API to get the PHY settings.
+- * Issue "ethtool ethX" under linux prompt to execute this function.
+- */
+-static int arc_emac_get_settings(struct net_device *ndev,
+-				 struct ethtool_cmd *cmd)
+-{
+-	return phy_ethtool_gset(ndev->phydev, cmd);
+-}
+-
+-/**
+- * arc_emac_set_settings - Set PHY settings as passed in the argument.
+- * @ndev:	Pointer to net_device structure.
+- * @cmd:	Pointer to ethtool_cmd structure.
+- *
+- * This implements ethtool command for setting various PHY settings. If PHY
+- * could not be found, the function returns -ENODEV. This function calls the
+- * relevant PHY ethtool API to set the PHY.
+- * Issue e.g. "ethtool -s ethX speed 1000" under linux prompt to execute this
+- * function.
+- */
+-static int arc_emac_set_settings(struct net_device *ndev,
+-				 struct ethtool_cmd *cmd)
+-{
+-	if (!capable(CAP_NET_ADMIN))
+-		return -EPERM;
+-
+-	return phy_ethtool_sset(ndev->phydev, cmd);
+-}
+-
+-/**
+  * arc_emac_get_drvinfo - Get EMAC driver information.
+  * @ndev:	Pointer to net_device structure.
+  * @info:	Pointer to ethtool_drvinfo structure.
+@@ -133,10 +97,10 @@ static void arc_emac_get_drvinfo(struct net_device *ndev,
+ }
+ 
+ static const struct ethtool_ops arc_emac_ethtool_ops = {
+-	.get_settings	= arc_emac_get_settings,
+-	.set_settings	= arc_emac_set_settings,
+ 	.get_drvinfo	= arc_emac_get_drvinfo,
+ 	.get_link	= ethtool_op_get_link,
++	.get_link_ksettings = phy_ethtool_get_link_ksettings,
++	.set_link_ksettings = phy_ethtool_set_link_ksettings,
+ };
+ 
+ #define FIRST_OR_LAST_MASK	(FIRST_MASK | LAST_MASK)
+-- 
+1.7.4.4
