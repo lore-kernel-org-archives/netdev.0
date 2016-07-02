@@ -1,59 +1,53 @@
-From: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
-Subject: [PATCH] net-next: mediatek: fix compile error inside
- mtk_poll_controller()
-Date: Sat,  2 Jul 2016 08:00:50 +0200
-Message-ID: <1467439250-48222-1-git-send-email-john@phrozen.org>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 23/42] mlxsw: spectrum_router: Implement fib4
+ add/del switchdev obj ops
+Date: Sat, 2 Jul 2016 08:30:10 +0200
+Message-ID: <20160702063010.GA1995@nanopsycho.orion>
+References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
+ <1467381910-3445-24-git-send-email-jiri@resnulli.us>
+ <070108fc-a6bd-b23e-8ada-ef82717a82ff@cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Sean Wang <keyhaede-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>, Felix Fietkau <nbd-Vt+b4OUoWG0@public.gmane.org>
-To: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
-List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
- <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	yotamg@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+	ogerlitz@mellanox.com, sfeldma@gmail.com,
+	roopa@cumulusnetworks.com, andy@greyhouse.net, tgraf@suug.ch,
+	jhs@mojatatu.com, linville@tuxdriver.com, ivecera@redhat.com
+To: David Ahern <dsa@cumulusnetworks.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34824 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750766AbcGBGaN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 02:30:13 -0400
+Received: by mail-wm0-f68.google.com with SMTP id a66so9679151wme.2
+        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 23:30:12 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <070108fc-a6bd-b23e-8ada-ef82717a82ff@cumulusnetworks.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-commit 8067302973a1 ("net-next: mediatek: add support for IRQ grouping")
-failed to properly update the irq handling inside mtk_poll_controller()
-causing compile errors if netconsole was enabled. Fix this by updating
-the code to use the new separated irq handler function for RX.
+Fri, Jul 01, 2016 at 06:10:58PM CEST, dsa@cumulusnetworks.com wrote:
+>On 7/1/16 8:04 AM, Jiri Pirko wrote:
+>
+>>+static int
+>>+mlxsw_sp_router_fib4_entry_init(struct mlxsw_sp *mlxsw_sp,
+>>+				const struct switchdev_obj_ipv4_fib *fib4,
+>>+				struct mlxsw_sp_fib_entry *fib_entry)
+>>+{
+>>+	struct fib_info *fi = fib4->fi;
+>>+
+>>+	if (fib4->type == RTN_LOCAL || fib4->type == RTN_BROADCAST) {
+>>+		fib_entry->type = MLXSW_SP_FIB_ENTRY_TYPE_TRAP;
+>>+		return 0;
+>>+	}
+>>+	if (fib4->type != RTN_UNICAST)
+>>+		return -EINVAL;
+>
+>This is going to cause offload to fail b/c is a user has RTN_UNREACHABLE or
+>RTN_PROHIBIT default route in a table. Those routes are needed per VRF/table
+>to keep lookups from dropping to the another table.
 
-Signed-off-by: John Crispin <john-Pj+rj9U5foFAfugRpC6u6w@public.gmane.org>
+We plan to support vfr offload as a follow-up
 
----
-
-Hi Dave,
-
-ideally you could fold this into the following patch inside net-next.git
-
-commit 8067302973a1 ("net-next: mediatek: add support for IRQ grouping")
-
-	John
----
- drivers/net/ethernet/mediatek/mtk_eth_soc.c |    2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-index 7056a37..fbab9b2 100644
---- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-+++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
-@@ -1297,7 +1297,7 @@ static void mtk_poll_controller(struct net_device *dev)
- 	u32 int_mask = MTK_TX_DONE_INT | MTK_RX_DONE_INT;
- 
- 	mtk_irq_disable(eth, int_mask);
--	mtk_handle_irq(dev->irq[0], dev);
-+	mtk_handle_irq_rx(eth->irq[2], dev);
- 	mtk_irq_enable(eth, int_mask);
- }
- #endif
--- 
-1.7.10.4
+>
+>
