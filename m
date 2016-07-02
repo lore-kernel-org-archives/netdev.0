@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 08/18] mlxsw: spectrum: Add router interface struct
-Date: Sat,  2 Jul 2016 09:26:30 +0200
-Message-ID: <1467444400-9480-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 14/18] mlxsw: spectrum: Edit RIF properties based on netdev events
+Date: Sat,  2 Jul 2016 09:26:36 +0200
+Message-ID: <1467444400-9480-15-git-send-email-jiri@resnulli.us>
 References: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,101 +10,190 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:36587 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751113AbcGBH1X (ORCPT
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34857 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751226AbcGBH1X (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 03:27:23 -0400
-Received: by mail-wm0-f66.google.com with SMTP id c82so9896151wme.3
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:26:54 -0700 (PDT)
+Received: by mail-wm0-f68.google.com with SMTP id a66so9893197wme.2
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:27:01 -0700 (PDT)
 In-Reply-To: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-When enabling the router in the device we will represent L3 netdevs
-using router interfaces (RIFs). These will be specified whenever
-programming routes or neighbours on the netdev.
+We are just about to introduce router interfaces (RIFs), but before that
+we need to be able update the device with the correct RIF attributes
+whenever they change for the netdev the RIF is backing. Two such
+attributes are MTU and MAC.
 
-Introduce the basic RIF infrastructure which allows one to lookup a RIF
-by its netdev. Later patches in the series will extend this, but the
-basic routines are needed now in order to direct traffic to CPU.
+The MAC is used both to set the source MAC of packets egressing from the
+RIF and also to program an FDB rule that will direct packets to the
+router block.
 
-Pointers to the RIF structs are stored in an array indexed by the RIF's
-number. This will allow us to efficiently update the kernel's neighbour
-table when regularly dumping the device's table.
+Use the existing netdevice notification block and respond to CHANGEADDR
+and CHANGEMTU accordingly. Store both attributes in the RIF struct
+in case we need to revert to old attributes following a failed update.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c |  3 +++
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h | 19 +++++++++++++++++++
- 2 files changed, 22 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 61 +++++++++++++++++++++-
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  5 ++
+ .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 26 +++++++--
+ 3 files changed, 86 insertions(+), 6 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index d011902..d15ebf3 100644
+index f54fd6a..284f6ab 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2470,6 +2470,7 @@ err_rx_listener_register:
- static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
- {
- 	struct mlxsw_sp *mlxsw_sp = mlxsw_core_driver_priv(mlxsw_core);
-+	int i;
- 
- 	mlxsw_sp_ports_remove(mlxsw_sp);
- 	mlxsw_sp_router_fini(mlxsw_sp);
-@@ -2478,6 +2479,8 @@ static void mlxsw_sp_fini(struct mlxsw_core *mlxsw_core)
- 	mlxsw_sp_traps_fini(mlxsw_sp);
- 	mlxsw_sp_event_unregister(mlxsw_sp, MLXSW_TRAP_ID_PUDE);
- 	WARN_ON(!list_empty(&mlxsw_sp->fids));
-+	for (i = 0; i < MLXSW_SP_RIF_MAX; i++)
-+		WARN_ON_ONCE(mlxsw_sp->rifs[i]);
+@@ -2627,6 +2627,63 @@ void mlxsw_sp_port_dev_put(struct mlxsw_sp_port *mlxsw_sp_port)
+ 	dev_put(mlxsw_sp_port->dev);
  }
  
- static struct mlxsw_config_profile mlxsw_sp_config_profile = {
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index c2ac037..83d5807 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -98,6 +98,11 @@ struct mlxsw_sp_fid {
- 	u16 vid;
- };
- 
-+struct mlxsw_sp_rif {
-+	struct net_device *dev;
-+	u16 rif;
-+};
-+
- struct mlxsw_sp_mid {
- 	struct list_head list;
- 	unsigned char addr[ETH_ALEN];
-@@ -169,6 +174,7 @@ struct mlxsw_sp {
- 		DECLARE_BITMAP(mapped, MLXSW_SP_MID_MAX);
- 	} br_mids;
- 	struct list_head fids;	/* VLAN-aware bridge FIDs */
-+	struct mlxsw_sp_rif *rifs[MLXSW_SP_RIF_MAX];
- 	struct mlxsw_sp_port **ports;
- 	struct mlxsw_core *core;
- 	const struct mlxsw_bus_info *bus_info;
-@@ -327,6 +333,19 @@ mlxsw_sp_port_vport_find_by_fid(const struct mlxsw_sp_port *mlxsw_sp_port,
- 	return NULL;
- }
- 
-+static inline struct mlxsw_sp_rif *
-+mlxsw_sp_rif_find_by_dev(const struct mlxsw_sp *mlxsw_sp,
-+			 const struct net_device *dev)
++static int mlxsw_sp_rif_edit(struct mlxsw_sp *mlxsw_sp, u16 rif,
++			     const char *mac, int mtu)
 +{
-+	int i;
++	char ritr_pl[MLXSW_REG_RITR_LEN];
++	int err;
 +
-+	for (i = 0; i < MLXSW_SP_RIF_MAX; i++)
-+		if (mlxsw_sp->rifs[i] && mlxsw_sp->rifs[i]->dev == dev)
-+			return mlxsw_sp->rifs[i];
++	mlxsw_reg_ritr_rif_pack(ritr_pl, rif);
++	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(ritr), ritr_pl);
++	if (err)
++		return err;
 +
-+	return NULL;
++	mlxsw_reg_ritr_mtu_set(ritr_pl, mtu);
++	mlxsw_reg_ritr_if_mac_memcpy_to(ritr_pl, mac);
++	mlxsw_reg_ritr_op_set(ritr_pl, MLXSW_REG_RITR_RIF_CREATE);
++	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ritr), ritr_pl);
 +}
 +
- enum mlxsw_sp_flood_table {
- 	MLXSW_SP_FLOOD_TABLE_UC,
- 	MLXSW_SP_FLOOD_TABLE_BM,
++static int mlxsw_sp_netdevice_router_port_event(struct net_device *dev)
++{
++	struct mlxsw_sp *mlxsw_sp;
++	struct mlxsw_sp_rif *r;
++	int err;
++
++	mlxsw_sp = mlxsw_sp_lower_get(dev);
++	if (!mlxsw_sp)
++		return 0;
++
++	r = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
++	if (!r)
++		return 0;
++
++	err = mlxsw_sp_rif_fdb_op(mlxsw_sp, r->addr, r->f->fid, false);
++	if (err)
++		return err;
++
++	err = mlxsw_sp_rif_edit(mlxsw_sp, r->rif, dev->dev_addr, dev->mtu);
++	if (err)
++		goto err_rif_edit;
++
++	err = mlxsw_sp_rif_fdb_op(mlxsw_sp, dev->dev_addr, r->f->fid, true);
++	if (err)
++		goto err_rif_fdb_op;
++
++	ether_addr_copy(r->addr, dev->dev_addr);
++	r->mtu = dev->mtu;
++
++	netdev_dbg(dev, "Updated RIF=%d\n", r->rif);
++
++	return 0;
++
++err_rif_fdb_op:
++	mlxsw_sp_rif_edit(mlxsw_sp, r->rif, r->addr, r->mtu);
++err_rif_edit:
++	mlxsw_sp_rif_fdb_op(mlxsw_sp, r->addr, r->f->fid, true);
++	return err;
++}
++
+ static bool mlxsw_sp_lag_port_fid_member(struct mlxsw_sp_port *lag_port,
+ 					 u16 fid)
+ {
+@@ -3487,7 +3544,9 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+ 	int err = 0;
+ 
+-	if (mlxsw_sp_port_dev_check(dev))
++	if (event == NETDEV_CHANGEADDR || event == NETDEV_CHANGEMTU)
++		err = mlxsw_sp_netdevice_router_port_event(dev);
++	else if (mlxsw_sp_port_dev_check(dev))
+ 		err = mlxsw_sp_netdevice_port_event(dev, event, ptr);
+ 	else if (netif_is_lag_master(dev))
+ 		err = mlxsw_sp_netdevice_lag_event(dev, event, ptr);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index d7b08ca..281328e 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -100,6 +100,9 @@ struct mlxsw_sp_fid {
+ 
+ struct mlxsw_sp_rif {
+ 	struct net_device *dev;
++	struct mlxsw_sp_fid *f;
++	unsigned char addr[ETH_ALEN];
++	int mtu;
+ 	u16 rif;
+ };
+ 
+@@ -406,6 +409,8 @@ int mlxsw_sp_vport_flood_set(struct mlxsw_sp_port *mlxsw_sp_vport, u16 fid,
+ void mlxsw_sp_port_active_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port);
+ int mlxsw_sp_port_pvid_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid);
+ int mlxsw_sp_port_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_port, u16 fid);
++int mlxsw_sp_rif_fdb_op(struct mlxsw_sp *mlxsw_sp, const char *mac, u16 fid,
++			bool adding);
+ int mlxsw_sp_port_ets_set(struct mlxsw_sp_port *mlxsw_sp_port,
+ 			  enum mlxsw_reg_qeec_hr hr, u8 index, u8 next_index,
+ 			  bool dwrr, u8 dwrr_weight);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+index 927117e..5b5ab14 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
+@@ -753,9 +753,10 @@ static enum mlxsw_reg_sfd_op mlxsw_sp_sfd_op(bool adding)
+ 			MLXSW_REG_SFD_OP_WRITE_REMOVE;
+ }
+ 
+-static int mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+-				   const char *mac, u16 fid, bool adding,
+-				   bool dynamic)
++static int __mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp *mlxsw_sp, u8 local_port,
++				     const char *mac, u16 fid, bool adding,
++				     enum mlxsw_reg_sfd_rec_action action,
++				     bool dynamic)
+ {
+ 	char *sfd_pl;
+ 	int err;
+@@ -766,14 +767,29 @@ static int mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+ 
+ 	mlxsw_reg_sfd_pack(sfd_pl, mlxsw_sp_sfd_op(adding), 0);
+ 	mlxsw_reg_sfd_uc_pack(sfd_pl, 0, mlxsw_sp_sfd_rec_policy(dynamic),
+-			      mac, fid, MLXSW_REG_SFD_REC_ACTION_NOP,
+-			      local_port);
++			      mac, fid, action, local_port);
+ 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfd), sfd_pl);
+ 	kfree(sfd_pl);
+ 
+ 	return err;
+ }
+ 
++static int mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp *mlxsw_sp, u8 local_port,
++				   const char *mac, u16 fid, bool adding,
++				   bool dynamic)
++{
++	return __mlxsw_sp_port_fdb_uc_op(mlxsw_sp, local_port, mac, fid, adding,
++					 MLXSW_REG_SFD_REC_ACTION_NOP, dynamic);
++}
++
++int mlxsw_sp_rif_fdb_op(struct mlxsw_sp *mlxsw_sp, const char *mac, u16 fid,
++			bool adding)
++{
++	return __mlxsw_sp_port_fdb_uc_op(mlxsw_sp, 0, mac, fid, adding,
++					 MLXSW_REG_SFD_REC_ACTION_FORWARD_IP_ROUTER,
++					 false);
++}
++
+ static int mlxsw_sp_port_fdb_uc_lag_op(struct mlxsw_sp *mlxsw_sp, u16 lag_id,
+ 				       const char *mac, u16 fid, u16 lag_vid,
+ 				       bool adding, bool dynamic)
 -- 
 2.5.5
