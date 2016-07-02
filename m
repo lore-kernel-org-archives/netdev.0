@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 03/12] mlxsw: spectrum: Sync PVID vPort LAG status
-Date: Sat,  2 Jul 2016 11:00:11 +0200
-Message-ID: <1467450020-23415-4-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 01/12] mlxsw: spectrum: Send untagged packets through a port netdev
+Date: Sat,  2 Jul 2016 11:00:09 +0200
+Message-ID: <1467450020-23415-2-git-send-email-jiri@resnulli.us>
 References: <1467450020-23415-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,89 +10,55 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34949 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34031 "EHLO
 	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751029AbcGBJA2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 05:00:28 -0400
-Received: by mail-wm0-f67.google.com with SMTP id a66so10281764wme.2
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 02:00:28 -0700 (PDT)
+	with ESMTP id S1751029AbcGBJA0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 05:00:26 -0400
+Received: by mail-wm0-f67.google.com with SMTP id 187so10302591wmz.1
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 02:00:25 -0700 (PDT)
 In-Reply-To: <1467450020-23415-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ido Schimmel <idosch@mellanox.com>
 
-When VLAN devices are created on top of LAG, their underlying vPorts are
-configured correctly with LAG membership.
+Port netdevs (e.g. swXpY) that are not bridged are represented in the
+device using a vPort with VID=PVID=1 (the PVID vPort), as untagged
+packets entering the switch are internally tagged with the PVID VLAN.
+When these packets are routed through a different port netdev they
+should egress untagged.
 
-However, the PVID vPort is implicit and already present when the port
-netdev is put under LAG, so its LAG membership is never set. Set it
-correctly when joining / leaving LAG.
+This wasn't a problem until now, as non-bridged traffic only originated
+from the CPU, which transmits packets out of the port as-is.
 
-This didn't matter until now, but we are going to introduce support for
-router interfaces (RIFs), which need to take into account LAG membership.
+When a vPort is created with VID 1 mark it as egress untagged.
 
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 31 ++++++++++++++++++++++++++
- 1 file changed, 31 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index 4f67a8c..f276c45 100644
+index a453fff..afd06dc 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2795,6 +2795,32 @@ static int mlxsw_sp_port_lag_index_get(struct mlxsw_sp *mlxsw_sp,
- 	return -EBUSY;
- }
- 
-+static void
-+mlxsw_sp_port_pvid_vport_lag_join(struct mlxsw_sp_port *mlxsw_sp_port,
-+				  u16 lag_id)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_vport;
-+
-+	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, 1);
-+	if (WARN_ON(!mlxsw_sp_vport))
-+		return;
-+
-+	mlxsw_sp_vport->lag_id = lag_id;
-+	mlxsw_sp_vport->lagged = 1;
-+}
-+
-+static void
-+mlxsw_sp_port_pvid_vport_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port)
-+{
-+	struct mlxsw_sp_port *mlxsw_sp_vport;
-+
-+	mlxsw_sp_vport = mlxsw_sp_port_vport_find(mlxsw_sp_port, 1);
-+	if (WARN_ON(!mlxsw_sp_vport))
-+		return;
-+
-+	mlxsw_sp_vport->lagged = 0;
-+}
-+
- static int mlxsw_sp_port_lag_join(struct mlxsw_sp_port *mlxsw_sp_port,
- 				  struct net_device *lag_dev)
+@@ -816,6 +816,7 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
  {
-@@ -2830,6 +2856,9 @@ static int mlxsw_sp_port_lag_join(struct mlxsw_sp_port *mlxsw_sp_port,
- 	mlxsw_sp_port->lag_id = lag_id;
- 	mlxsw_sp_port->lagged = 1;
- 	lag->ref_count++;
-+
-+	mlxsw_sp_port_pvid_vport_lag_join(mlxsw_sp_port, lag_id);
-+
- 	return 0;
+ 	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
+ 	struct mlxsw_sp_port *mlxsw_sp_vport;
++	bool untagged = vid == 1;
+ 	int err;
  
- err_col_port_enable:
-@@ -2867,6 +2896,8 @@ static void mlxsw_sp_port_lag_leave(struct mlxsw_sp_port *mlxsw_sp_port,
- 				     mlxsw_sp_port->local_port);
- 	mlxsw_sp_port->lagged = 0;
- 	lag->ref_count--;
-+
-+	mlxsw_sp_port_pvid_vport_lag_leave(mlxsw_sp_port);
- }
+ 	/* VLAN 0 is added to HW filter when device goes up, but it is
+@@ -859,7 +860,7 @@ int mlxsw_sp_port_add_vid(struct net_device *dev, __be16 __always_unused proto,
+ 		goto err_port_vid_learning_set;
+ 	}
  
- static int mlxsw_sp_lag_dist_port_add(struct mlxsw_sp_port *mlxsw_sp_port,
+-	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, true, false);
++	err = mlxsw_sp_port_vlan_set(mlxsw_sp_vport, vid, vid, true, untagged);
+ 	if (err) {
+ 		netdev_err(dev, "Failed to set VLAN membership for VID=%d\n",
+ 			   vid);
 -- 
 2.5.5
