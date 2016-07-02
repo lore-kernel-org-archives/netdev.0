@@ -1,66 +1,157 @@
-From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Subject: Re: [PATCH v11 00/22] Add HiSilicon RoCE driver
-Date: Sat, 2 Jul 2016 15:58:16 +0300
-Message-ID: <20160702125816.GG4750@leon.nu>
-References: <1467452364-66522-1-git-send-email-oulijun@huawei.com>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="9Iq5ULCa7nGtWwZS"
-Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
-	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
-	ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
-	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-To: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <1467452364-66522-1-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: [PATCH net-next 1/1] net sched actions: mirred add support for setting Dst MAC address
+Date: Sat,  2 Jul 2016 09:26:18 -0400
+Message-ID: <1467465978-28271-1-git-send-email-jhs@emojatatu.com>
+Cc: netdev@vger.kernel.org, xiyou.wangcong@gmail.com,
+	daniel@iogearbox.net, Jamal Hadi Salim <jhs@mojatatu.com>
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f196.google.com ([209.85.223.196]:36777 "EHLO
+	mail-io0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751342AbcGBN0d (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 09:26:33 -0400
+Received: by mail-io0-f196.google.com with SMTP id s63so14094720ioi.3
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 06:26:33 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+From: Jamal Hadi Salim <jhs@mojatatu.com>
 
---9Iq5ULCa7nGtWwZS
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Often redirecting or mirroring requires that we set the MAC address
+of the target device. While it is possible to pipe to a pedit action
+this obsoletes the need for that. This is justified feature because
+the dst MAC addresses rewrite is such a common use case.
 
-On Sat, Jul 02, 2016 at 05:39:02PM +0800, Lijun Ou wrote:
+Sample usage:
+sudo $TC filter add dev $ETH parent 1: protocol ip prio 10 \
+u32 match ip protocol 1 0xff flowid 1:2 \
+action mirred egress redirect dev $SPANPORT dst 02:15:15:15:15:15
 
-This v11
->  28 files changed, 10626 insertions(+), 1 deletion(-)
+This will match all icmp packets going out on dev $ETH and
+redirect them to dev $SPANPORT while setting their dst MAC address
+to 02:15:15:15:15:15
 
-First version
->  27 files changed, 11670 insertions(+), 11 deletions(-)
+Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+---
+ include/net/tc_act/tc_mirred.h        |  4 +++-
+ include/uapi/linux/tc_act/tc_mirred.h |  7 ++++---
+ net/sched/act_mirred.c                | 20 +++++++++++++++++++-
+ 3 files changed, 26 insertions(+), 5 deletions(-)
 
-1K LOC less, we are moving in right direction.
-
---9Iq5ULCa7nGtWwZS
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJXd7poAAoJEORje4g2clin4j8P/2CWXjKftIvKCqU8rKvmCWaP
-8K3X6heK7EnXQtwRcorKavlk8nsQ+IkHwCpfKVzseNL3E0MyUwTF2bjGZbBM3cxl
-dirpWdAMwtfAeDu/9JQseYcCZDcSOeG39WGpAIHChujTh2//RbS0koOPH7Qy3CK8
-sY9Y4ZcPKzN5/uQrG39nZjGEaO7JZMGt7NsH8W2CxrH3irJYt46RGFViuPT+j4ck
-9TqvSEdov9OVkzXk/gC6jE9nm59nmZ+k+ZBba85AKLw1t3xVMFkpbDGntEHjyX4z
-Vu2KZfsEuETi9vfIQ+SuS8k+60/2y3St/G3MMx56A8RcHP+GjweE69bovQfxIgzG
-6hEu13ooMIeWLd6fzy/YwznA3Qw8IJtyVZbmMUUohOnMLJ25l+4umz3vihD0hf9Q
-MVJ4dB5cVC6x/5OyNl8vi5g96G+ovobnVVB4wFO2SvaiORsg2WygsckQzrkq0jqL
-bnmwN7hVNEtwpVjS1gsfI/M7mptRTpR9nrJZ91jaLMkweF3emaD+cKpu+FqN30AY
-tK0QXul1EOzmqHxp6HQu7AsioUHegCHOoCdPr/N7M0OVBN/aNJCl4P8Gtljf2pRQ
-AALSapjsSM6z7AGleZ3G1vlCnvwYYvGU8aVu10LX3ui7Is9KY64BuvNrIZhoLwR7
-N+B8CXeE9oL9zxkB32X+
-=GwXj
------END PGP SIGNATURE-----
-
---9Iq5ULCa7nGtWwZS--
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/include/net/tc_act/tc_mirred.h b/include/net/tc_act/tc_mirred.h
+index e891835..7e8bced 100644
+--- a/include/net/tc_act/tc_mirred.h
++++ b/include/net/tc_act/tc_mirred.h
+@@ -6,10 +6,12 @@
+ 
+ struct tcf_mirred {
+ 	struct tcf_common	common;
++	struct net_device __rcu	*tcfm_dev;
+ 	int			tcfm_eaction;
+ 	int			tcfm_ifindex;
+ 	int			tcfm_ok_push;
+-	struct net_device __rcu	*tcfm_dev;
++	u8			eth_dst[ETH_ALEN];
++	/* XXX 6 bytes hole here*/
+ 	struct list_head	tcfm_list;
+ };
+ #define to_mirred(a) \
+diff --git a/include/uapi/linux/tc_act/tc_mirred.h b/include/uapi/linux/tc_act/tc_mirred.h
+index 3d7a2b3..aaca1ff 100644
+--- a/include/uapi/linux/tc_act/tc_mirred.h
++++ b/include/uapi/linux/tc_act/tc_mirred.h
+@@ -9,20 +9,21 @@
+ #define TCA_EGRESS_MIRROR 2 /* mirror packet to EGRESS */
+ #define TCA_INGRESS_REDIR 3  /* packet redirect to INGRESS*/
+ #define TCA_INGRESS_MIRROR 4 /* mirror packet to INGRESS */
+-                                                                                
++
+ struct tc_mirred {
+ 	tc_gen;
+ 	int                     eaction;   /* one of IN/EGRESS_MIRROR/REDIR */
+ 	__u32                   ifindex;  /* ifindex of egress port */
+ };
+-                                                                                
++
+ enum {
+ 	TCA_MIRRED_UNSPEC,
+ 	TCA_MIRRED_TM,
+ 	TCA_MIRRED_PARMS,
+ 	TCA_MIRRED_PAD,
++	TCA_MIRRED_DMAC,
+ 	__TCA_MIRRED_MAX
+ };
+ #define TCA_MIRRED_MAX (__TCA_MIRRED_MAX - 1)
+-                                                                                
++
+ #endif
+diff --git a/net/sched/act_mirred.c b/net/sched/act_mirred.c
+index 5b135d3..044648d 100644
+--- a/net/sched/act_mirred.c
++++ b/net/sched/act_mirred.c
+@@ -64,15 +64,21 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 	struct net_device *dev;
+ 	int ret, ok_push = 0;
+ 	bool exists = false;
++	u8 *daddr = NULL;
+ 
+ 	if (nla == NULL)
+ 		return -EINVAL;
++
+ 	ret = nla_parse_nested(tb, TCA_MIRRED_MAX, nla, mirred_policy);
+ 	if (ret < 0)
+ 		return ret;
++
+ 	if (tb[TCA_MIRRED_PARMS] == NULL)
+ 		return -EINVAL;
++
+ 	parm = nla_data(tb[TCA_MIRRED_PARMS]);
++	if (tb[TCA_MIRRED_DMAC])
++		daddr = nla_data(tb[TCA_MIRRED_DMAC]);
+ 
+ 	exists = tcf_hash_check(tn, parm->index, a, bind);
+ 	if (exists && bind)
+@@ -126,6 +132,9 @@ static int tcf_mirred_init(struct net *net, struct nlattr *nla,
+ 	}
+ 	m = to_mirred(a);
+ 
++	if (daddr)
++		ether_addr_copy(m->eth_dst, daddr);
++
+ 	ASSERT_RTNL();
+ 	m->tcf_action = parm->action;
+ 	m->tcfm_eaction = parm->eaction;
+@@ -190,6 +199,9 @@ static int tcf_mirred(struct sk_buff *skb, const struct tc_action *a,
+ 
+ 	skb2->skb_iif = skb->dev->ifindex;
+ 	skb2->dev = dev;
++	if (!is_zero_ether_addr(m->eth_dst))
++		ether_addr_copy(eth_hdr(skb2)->h_dest, m->eth_dst);
++
+ 	err = dev_queue_xmit(skb2);
+ 
+ 	if (err) {
+@@ -203,7 +215,8 @@ out:
+ 	return retval;
+ }
+ 
+-static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
++static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind,
++			   int ref)
+ {
+ 	unsigned char *b = skb_tail_pointer(skb);
+ 	struct tcf_mirred *m = a->priv;
+@@ -220,6 +233,11 @@ static int tcf_mirred_dump(struct sk_buff *skb, struct tc_action *a, int bind, i
+ 	if (nla_put(skb, TCA_MIRRED_PARMS, sizeof(opt), &opt))
+ 		goto nla_put_failure;
+ 
++	if (!is_zero_ether_addr(m->eth_dst)) {
++		if (nla_put(skb, TCA_MIRRED_DMAC, ETH_ALEN, m->eth_dst))
++			goto nla_put_failure;
++	}
++
+ 	tcf_tm_dump(&t, &m->tcf_tm);
+ 	if (nla_put_64bit(skb, TCA_MIRRED_TM, sizeof(t), &t, TCA_MIRRED_PAD))
+ 		goto nla_put_failure;
+-- 
+1.9.1
