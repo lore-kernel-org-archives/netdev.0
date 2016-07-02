@@ -1,42 +1,52 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 00/42] mlxsw: Implement IPV4 unicast routing
-Date: Sat, 2 Jul 2016 08:31:17 +0200
-Message-ID: <20160702063117.GB1995@nanopsycho.orion>
-References: <1467381910-3445-1-git-send-email-jiri@resnulli.us>
- <20160701.152716.1930131608670556376.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, yotamg@mellanox.com,
-	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-	sfeldma@gmail.com, roopa@cumulusnetworks.com, andy@greyhouse.net,
-	dsa@cumulusnetworks.com, tgraf@suug.ch, jhs@mojatatu.com,
-	linville@tuxdriver.com, ivecera@redhat.com
-To: David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f42.google.com ([74.125.82.42]:37044 "EHLO
-	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750766AbcGBGbU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 02:31:20 -0400
-Received: by mail-wm0-f42.google.com with SMTP id a66so53157702wme.0
-        for <netdev@vger.kernel.org>; Fri, 01 Jul 2016 23:31:19 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160701.152716.1930131608670556376.davem@davemloft.net>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+Subject: [PATCH v2] geneve: fix max_mtu setting
+Date: Sat,  2 Jul 2016 15:02:48 +0800
+Message-ID: <1467442968-13723-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+To: "David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@kernel.org>,
+	Pravin B Shelar <pshelar@nicira.com>,
+	Tom Herbert <tom@herbertland.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Fri, Jul 01, 2016 at 09:27:16PM CEST, davem@davemloft.net wrote:
->From: Jiri Pirko <jiri@resnulli.us>
->Date: Fri,  1 Jul 2016 16:04:28 +0200
->
->> This patchset enables IPv4 unicast routing in the Mellanox Spectrum
->> ASIC switch driver. The basic dependencies are already present in
->> the kernel and used by rocker.
->
->Please split this up into smaller segments (~15 patches, max) and
->resubmit.
->
->A 42 patch series present an unreasonable burdon for reviewers.
+For ipv6+udp+geneve encapsulation data, the max_mtu should subtract
+sizeof(ipv6hdr), instead of sizeof(iphdr).
 
-Yeah, I did not want to cut it as it is one logical subject.
+Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+---
+Changes in v2:
+   - As suggested by Jesse Gross, treat AF_UNSPEC same as AF_INET4 to
+avoid disallowing potentially valid configrations.
+---
+ drivers/net/geneve.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
 
-Will cut it. Thanks.
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 310e0b9c..5de892f 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -1036,12 +1036,17 @@ static netdev_tx_t geneve_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ static int __geneve_change_mtu(struct net_device *dev, int new_mtu, bool strict)
+ {
++	struct geneve_dev *geneve = netdev_priv(dev);
+ 	/* The max_mtu calculation does not take account of GENEVE
+ 	 * options, to avoid excluding potentially valid
+ 	 * configurations.
+ 	 */
+-	int max_mtu = IP_MAX_MTU - GENEVE_BASE_HLEN - sizeof(struct iphdr)
+-		- dev->hard_header_len;
++	int max_mtu = IP_MAX_MTU - GENEVE_BASE_HLEN - dev->hard_header_len;
++
++	if (geneve->remote.sa.sa_family == AF_INET6)
++		max_mtu -= sizeof(struct ipv6hdr);
++	else
++		max_mtu -= sizeof(struct iphdr);
+ 
+ 	if (new_mtu < 68)
+ 		return -EINVAL;
+-- 
+1.8.3.1
