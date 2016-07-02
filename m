@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 14/18] mlxsw: spectrum: Edit RIF properties based on netdev events
-Date: Sat,  2 Jul 2016 09:26:36 +0200
-Message-ID: <1467444400-9480-15-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 13/18] mlxsw: spectrum: Add couple of lower device helper functions
+Date: Sat,  2 Jul 2016 09:26:35 +0200
+Message-ID: <1467444400-9480-14-git-send-email-jiri@resnulli.us>
 References: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,190 +10,223 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34857 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751226AbcGBH1X (ORCPT
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:34010 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751213AbcGBH1X (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 03:27:23 -0400
-Received: by mail-wm0-f68.google.com with SMTP id a66so9893197wme.2
-        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:27:01 -0700 (PDT)
+Received: by mail-wm0-f65.google.com with SMTP id 187so9912342wmz.1
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 00:27:00 -0700 (PDT)
 In-Reply-To: <1467444400-9480-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-We are just about to introduce router interfaces (RIFs), but before that
-we need to be able update the device with the correct RIF attributes
-whenever they change for the netdev the RIF is backing. Two such
-attributes are MTU and MAC.
+Add functions that iterate over lower devices and find port device.
+As a dependency add netdev_for_each_all_lower_dev and
+netdev_for_each_all_lower_dev_rcu macro with
+netdev_all_lower_get_next and netdev_all_lower_get_next_rcu shelpers.
 
-The MAC is used both to set the source MAC of packets egressing from the
-RIF and also to program an FDB rule that will direct packets to the
-router block.
+Also, add functions to return mlxsw struct according to lower device
+found and mlxsw_port struct with a reference to lower device.
 
-Use the existing netdevice notification block and respond to CHANGEADDR
-and CHANGEMTU accordingly. Store both attributes in the RIF struct
-in case we need to revert to old attributes following a failed update.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 61 +++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  5 ++
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   | 26 +++++++--
- 3 files changed, 86 insertions(+), 6 deletions(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c | 65 ++++++++++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h |  3 ++
+ include/linux/netdevice.h                      | 18 +++++++
+ net/core/dev.c                                 | 46 ++++++++++++++++++
+ 4 files changed, 127 insertions(+), 5 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index f54fd6a..284f6ab 100644
+index f0799898..f54fd6a 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2627,6 +2627,63 @@ void mlxsw_sp_port_dev_put(struct mlxsw_sp_port *mlxsw_sp_port)
- 	dev_put(mlxsw_sp_port->dev);
- }
+@@ -2567,6 +2567,66 @@ static struct mlxsw_driver mlxsw_sp_driver = {
+ 	.profile			= &mlxsw_sp_config_profile,
+ };
  
-+static int mlxsw_sp_rif_edit(struct mlxsw_sp *mlxsw_sp, u16 rif,
-+			     const char *mac, int mtu)
++static bool mlxsw_sp_port_dev_check(const struct net_device *dev)
 +{
-+	char ritr_pl[MLXSW_REG_RITR_LEN];
-+	int err;
-+
-+	mlxsw_reg_ritr_rif_pack(ritr_pl, rif);
-+	err = mlxsw_reg_query(mlxsw_sp->core, MLXSW_REG(ritr), ritr_pl);
-+	if (err)
-+		return err;
-+
-+	mlxsw_reg_ritr_mtu_set(ritr_pl, mtu);
-+	mlxsw_reg_ritr_if_mac_memcpy_to(ritr_pl, mac);
-+	mlxsw_reg_ritr_op_set(ritr_pl, MLXSW_REG_RITR_RIF_CREATE);
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ritr), ritr_pl);
++	return dev->netdev_ops == &mlxsw_sp_port_netdev_ops;
 +}
 +
-+static int mlxsw_sp_netdevice_router_port_event(struct net_device *dev)
++static struct mlxsw_sp_port *mlxsw_sp_port_dev_lower_find(struct net_device *dev)
 +{
-+	struct mlxsw_sp *mlxsw_sp;
-+	struct mlxsw_sp_rif *r;
-+	int err;
++	struct net_device *lower_dev;
++	struct list_head *iter;
 +
-+	mlxsw_sp = mlxsw_sp_lower_get(dev);
-+	if (!mlxsw_sp)
-+		return 0;
++	if (mlxsw_sp_port_dev_check(dev))
++		return netdev_priv(dev);
 +
-+	r = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
-+	if (!r)
-+		return 0;
++	netdev_for_each_all_lower_dev(dev, lower_dev, iter) {
++		if (mlxsw_sp_port_dev_check(lower_dev))
++			return netdev_priv(lower_dev);
++	}
++	return NULL;
++}
 +
-+	err = mlxsw_sp_rif_fdb_op(mlxsw_sp, r->addr, r->f->fid, false);
-+	if (err)
-+		return err;
++static struct mlxsw_sp *mlxsw_sp_lower_get(struct net_device *dev)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port;
 +
-+	err = mlxsw_sp_rif_edit(mlxsw_sp, r->rif, dev->dev_addr, dev->mtu);
-+	if (err)
-+		goto err_rif_edit;
++	mlxsw_sp_port = mlxsw_sp_port_dev_lower_find(dev);
++	return mlxsw_sp_port ? mlxsw_sp_port->mlxsw_sp : NULL;
++}
 +
-+	err = mlxsw_sp_rif_fdb_op(mlxsw_sp, dev->dev_addr, r->f->fid, true);
-+	if (err)
-+		goto err_rif_fdb_op;
++static struct mlxsw_sp_port *mlxsw_sp_port_dev_lower_find_rcu(struct net_device *dev)
++{
++	struct net_device *lower_dev;
++	struct list_head *iter;
 +
-+	ether_addr_copy(r->addr, dev->dev_addr);
-+	r->mtu = dev->mtu;
++	if (mlxsw_sp_port_dev_check(dev))
++		return netdev_priv(dev);
 +
-+	netdev_dbg(dev, "Updated RIF=%d\n", r->rif);
++	netdev_for_each_all_lower_dev_rcu(dev, lower_dev, iter) {
++		if (mlxsw_sp_port_dev_check(lower_dev))
++			return netdev_priv(lower_dev);
++	}
++	return NULL;
++}
 +
-+	return 0;
++struct mlxsw_sp_port *mlxsw_sp_port_lower_dev_hold(struct net_device *dev)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port;
 +
-+err_rif_fdb_op:
-+	mlxsw_sp_rif_edit(mlxsw_sp, r->rif, r->addr, r->mtu);
-+err_rif_edit:
-+	mlxsw_sp_rif_fdb_op(mlxsw_sp, r->addr, r->f->fid, true);
-+	return err;
++	rcu_read_lock();
++	mlxsw_sp_port = mlxsw_sp_port_dev_lower_find_rcu(dev);
++	if (mlxsw_sp_port)
++		dev_hold(mlxsw_sp_port->dev);
++	rcu_read_unlock();
++	return mlxsw_sp_port;
++}
++
++void mlxsw_sp_port_dev_put(struct mlxsw_sp_port *mlxsw_sp_port)
++{
++	dev_put(mlxsw_sp_port->dev);
 +}
 +
  static bool mlxsw_sp_lag_port_fid_member(struct mlxsw_sp_port *lag_port,
  					 u16 fid)
  {
-@@ -3487,7 +3544,9 @@ static int mlxsw_sp_netdevice_event(struct notifier_block *unused,
- 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
- 	int err = 0;
+@@ -2647,11 +2707,6 @@ int mlxsw_sp_port_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_port, u16 fid)
+ 		return mlxsw_sp_port_fdb_flush_by_port_fid(mlxsw_sp_port, fid);
+ }
  
--	if (mlxsw_sp_port_dev_check(dev))
-+	if (event == NETDEV_CHANGEADDR || event == NETDEV_CHANGEMTU)
-+		err = mlxsw_sp_netdevice_router_port_event(dev);
-+	else if (mlxsw_sp_port_dev_check(dev))
- 		err = mlxsw_sp_netdevice_port_event(dev, event, ptr);
- 	else if (netif_is_lag_master(dev))
- 		err = mlxsw_sp_netdevice_lag_event(dev, event, ptr);
+-static bool mlxsw_sp_port_dev_check(const struct net_device *dev)
+-{
+-	return dev->netdev_ops == &mlxsw_sp_port_netdev_ops;
+-}
+-
+ static bool mlxsw_sp_master_bridge_check(struct mlxsw_sp *mlxsw_sp,
+ 					 struct net_device *br_dev)
+ {
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index d7b08ca..281328e 100644
+index 83d5807..d7b08ca 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -100,6 +100,9 @@ struct mlxsw_sp_fid {
- 
- struct mlxsw_sp_rif {
- 	struct net_device *dev;
-+	struct mlxsw_sp_fid *f;
-+	unsigned char addr[ETH_ALEN];
-+	int mtu;
- 	u16 rif;
+@@ -250,6 +250,9 @@ struct mlxsw_sp_port {
+ 	struct list_head vports_list;
  };
  
-@@ -406,6 +409,8 @@ int mlxsw_sp_vport_flood_set(struct mlxsw_sp_port *mlxsw_sp_vport, u16 fid,
- void mlxsw_sp_port_active_vlans_del(struct mlxsw_sp_port *mlxsw_sp_port);
- int mlxsw_sp_port_pvid_set(struct mlxsw_sp_port *mlxsw_sp_port, u16 vid);
- int mlxsw_sp_port_fdb_flush(struct mlxsw_sp_port *mlxsw_sp_port, u16 fid);
-+int mlxsw_sp_rif_fdb_op(struct mlxsw_sp *mlxsw_sp, const char *mac, u16 fid,
-+			bool adding);
- int mlxsw_sp_port_ets_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 			  enum mlxsw_reg_qeec_hr hr, u8 index, u8 next_index,
- 			  bool dwrr, u8 dwrr_weight);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index 927117e..5b5ab14 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -753,9 +753,10 @@ static enum mlxsw_reg_sfd_op mlxsw_sp_sfd_op(bool adding)
- 			MLXSW_REG_SFD_OP_WRITE_REMOVE;
- }
- 
--static int mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp *mlxsw_sp, u8 local_port,
--				   const char *mac, u16 fid, bool adding,
--				   bool dynamic)
-+static int __mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp *mlxsw_sp, u8 local_port,
-+				     const char *mac, u16 fid, bool adding,
-+				     enum mlxsw_reg_sfd_rec_action action,
-+				     bool dynamic)
++struct mlxsw_sp_port *mlxsw_sp_port_lower_dev_hold(struct net_device *dev);
++void mlxsw_sp_port_dev_put(struct mlxsw_sp_port *mlxsw_sp_port);
++
+ static inline bool
+ mlxsw_sp_port_is_pause_en(const struct mlxsw_sp_port *mlxsw_sp_port)
  {
- 	char *sfd_pl;
- 	int err;
-@@ -766,14 +767,29 @@ static int mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp *mlxsw_sp, u8 local_port,
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index e84d9d2..81e1399 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -3803,12 +3803,30 @@ void *netdev_lower_get_next_private_rcu(struct net_device *dev,
  
- 	mlxsw_reg_sfd_pack(sfd_pl, mlxsw_sp_sfd_op(adding), 0);
- 	mlxsw_reg_sfd_uc_pack(sfd_pl, 0, mlxsw_sp_sfd_rec_policy(dynamic),
--			      mac, fid, MLXSW_REG_SFD_REC_ACTION_NOP,
--			      local_port);
-+			      mac, fid, action, local_port);
- 	err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(sfd), sfd_pl);
- 	kfree(sfd_pl);
- 
- 	return err;
- }
- 
-+static int mlxsw_sp_port_fdb_uc_op(struct mlxsw_sp *mlxsw_sp, u8 local_port,
-+				   const char *mac, u16 fid, bool adding,
-+				   bool dynamic)
-+{
-+	return __mlxsw_sp_port_fdb_uc_op(mlxsw_sp, local_port, mac, fid, adding,
-+					 MLXSW_REG_SFD_REC_ACTION_NOP, dynamic);
-+}
+ void *netdev_lower_get_next(struct net_device *dev,
+ 				struct list_head **iter);
 +
-+int mlxsw_sp_rif_fdb_op(struct mlxsw_sp *mlxsw_sp, const char *mac, u16 fid,
-+			bool adding)
-+{
-+	return __mlxsw_sp_port_fdb_uc_op(mlxsw_sp, 0, mac, fid, adding,
-+					 MLXSW_REG_SFD_REC_ACTION_FORWARD_IP_ROUTER,
-+					 false);
-+}
+ #define netdev_for_each_lower_dev(dev, ldev, iter) \
+ 	for (iter = (dev)->adj_list.lower.next, \
+ 	     ldev = netdev_lower_get_next(dev, &(iter)); \
+ 	     ldev; \
+ 	     ldev = netdev_lower_get_next(dev, &(iter)))
+ 
++struct net_device *netdev_all_lower_get_next(struct net_device *dev,
++					     struct list_head **iter);
++struct net_device *netdev_all_lower_get_next_rcu(struct net_device *dev,
++						 struct list_head **iter);
 +
- static int mlxsw_sp_port_fdb_uc_lag_op(struct mlxsw_sp *mlxsw_sp, u16 lag_id,
- 				       const char *mac, u16 fid, u16 lag_vid,
- 				       bool adding, bool dynamic)
++#define netdev_for_each_all_lower_dev(dev, ldev, iter) \
++	for (iter = (dev)->all_adj_list.lower.next, \
++	     ldev = netdev_all_lower_get_next(dev, &(iter)); \
++	     ldev; \
++	     ldev = netdev_all_lower_get_next(dev, &(iter)))
++
++#define netdev_for_each_all_lower_dev_rcu(dev, ldev, iter) \
++	for (iter = (dev)->all_adj_list.lower.next, \
++	     ldev = netdev_all_lower_get_next_rcu(dev, &(iter)); \
++	     ldev; \
++	     ldev = netdev_all_lower_get_next_rcu(dev, &(iter)))
++
+ void *netdev_adjacent_get_private(struct list_head *adj_list);
+ void *netdev_lower_get_first_private_rcu(struct net_device *dev);
+ struct net_device *netdev_master_upper_dev_get(struct net_device *dev);
+diff --git a/net/core/dev.c b/net/core/dev.c
+index aba10d2..a4f3b0a 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -5445,6 +5445,52 @@ void *netdev_lower_get_next(struct net_device *dev, struct list_head **iter)
+ EXPORT_SYMBOL(netdev_lower_get_next);
+ 
+ /**
++ * netdev_all_lower_get_next - Get the next device from all lower neighbour list
++ * @dev: device
++ * @iter: list_head ** of the current position
++ *
++ * Gets the next netdev_adjacent from the dev's all lower neighbour
++ * list, starting from iter position. The caller must hold RTNL lock or
++ * its own locking that guarantees that the neighbour all lower
++ * list will remain unchanged.
++ */
++struct net_device *netdev_all_lower_get_next(struct net_device *dev, struct list_head **iter)
++{
++	struct netdev_adjacent *lower;
++
++	lower = list_entry(*iter, struct netdev_adjacent, list);
++
++	if (&lower->list == &dev->all_adj_list.lower)
++		return NULL;
++
++	*iter = lower->list.next;
++
++	return lower->dev;
++}
++EXPORT_SYMBOL(netdev_all_lower_get_next);
++
++/**
++ * netdev_all_lower_get_next_rcu - Get the next device from all
++ *				   lower neighbour list, RCU variant
++ * @dev: device
++ * @iter: list_head ** of the current position
++ *
++ * Gets the next netdev_adjacent from the dev's all lower neighbour
++ * list, starting from iter position. The caller must hold RCU read lock.
++ */
++struct net_device *netdev_all_lower_get_next_rcu(struct net_device *dev,
++						 struct list_head **iter)
++{
++	struct netdev_adjacent *lower;
++
++	lower = list_first_or_null_rcu(&dev->all_adj_list.lower,
++				       struct netdev_adjacent, list);
++
++	return lower ? lower->dev : NULL;
++}
++EXPORT_SYMBOL(netdev_all_lower_get_next_rcu);
++
++/**
+  * netdev_lower_get_first_private_rcu - Get the first ->private from the
+  *				       lower neighbour list, RCU
+  *				       variant
 -- 
 2.5.5
