@@ -1,131 +1,118 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [ANNOUNCE] libmnl 1.0.4 release
-Date: Sat, 2 Jul 2016 11:11:42 +0200
-Message-ID: <20160702091142.GA2457@salvia>
+From: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: [PATCH v11 21/22] IB/hns: Kconfig and Makefile for RoCE module
+Date: Sat, 2 Jul 2016 17:39:23 +0800
+Message-ID: <1467452364-66522-22-git-send-email-oulijun@huawei.com>
+References: <1467452364-66522-1-git-send-email-oulijun@huawei.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="CE+1k2dSO48ffgeK"
-Content-Transfer-Encoding: 8bit
-Cc: lwn@lwn.net
-To: netfilter-devel@vger.kernel.org, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:46746 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751128AbcGBJLt (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 2 Jul 2016 05:11:49 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 4E935E8E8A
-	for <netdev@vger.kernel.org>; Sat,  2 Jul 2016 11:11:46 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 3DB8B9EBB2
-	for <netdev@vger.kernel.org>; Sat,  2 Jul 2016 11:11:46 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id A3ECD6449E
-	for <netdev@vger.kernel.org>; Sat,  2 Jul 2016 11:11:43 +0200 (CEST)
-Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1467452364-66522-1-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
+This patch added Kconfig and Makefile for building RoCE module.
 
---CE+1k2dSO48ffgeK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Signed-off-by: Wei Hu <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Signed-off-by: Nenglong Zhao <zhaonenglong-C8/M+/jPZTeaMJb+Lgu22Q@public.gmane.org>
+Signed-off-by: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+---
+PATCH v11:
+hns_roce_icm.o -> hns_roce_hem.o
 
-Hi!
+PATCH v10/v9/v8/v7/v6/v5:
+- No change over the PATCH v4
 
-The Netfilter project presents:
+PATCH v4:
+This fixes the comments given by Christoph Hellwig over the PATCH v3:
+  Link: https://lkml.org/lkml/2016/3/22/609
 
-        libmnl 1.0.4
+PATCH V3:
+This fixes the comments given by Leon Romanovsky over the PATCH v2:
+  Link: https://lkml.org/lkml/2016/3/20/5
 
-libmnl is a minimalistic user-space library oriented to Netlink
-developers. There are a lot of common tasks in parsing, validating,
-constructing of both the Netlink header and TLVs that are repetitive
-and easy to get wrong. This library aims to provide simple helpers
-that allows you to re-use code and to avoid re-inventing the wheel.
+PATCH v2:
+This fixes the comments given by Leon Romanovsky over the PATCH v1:
+  Link: https://lkml.org/lkml/2016/3/6/94
+Fixes the error tested by kbuild test robot over the PATCH v1:
+  Link: https://lkml.org/lkml/2016/3/4/343
 
-This release comes with improvements in the netlink message printing
-function, attribute validation for MNL_TYPE_MSEC and MNL_TYPE_U64,
-clang compilation fixes, the new mnl_socket_open2() and
-mnl_socket_fdopen() functions, missing handling for NLM_F_DUMP_INTR
-and documentation updates.
+PATCH v1:
+- The initial patch
+---
+---
+ drivers/infiniband/Kconfig         |  1 +
+ drivers/infiniband/hw/Makefile     |  1 +
+ drivers/infiniband/hw/hns/Kconfig  | 10 ++++++++++
+ drivers/infiniband/hw/hns/Makefile |  8 ++++++++
+ 4 files changed, 20 insertions(+)
+ create mode 100644 drivers/infiniband/hw/hns/Kconfig
+ create mode 100644 drivers/infiniband/hw/hns/Makefile
 
-See ChangeLog that comes attached to this email for more details.
+diff --git a/drivers/infiniband/Kconfig b/drivers/infiniband/Kconfig
+index 2137adf..767f92b 100644
+--- a/drivers/infiniband/Kconfig
++++ b/drivers/infiniband/Kconfig
+@@ -74,6 +74,7 @@ source "drivers/infiniband/hw/mlx5/Kconfig"
+ source "drivers/infiniband/hw/nes/Kconfig"
+ source "drivers/infiniband/hw/ocrdma/Kconfig"
+ source "drivers/infiniband/hw/usnic/Kconfig"
++source "drivers/infiniband/hw/hns/Kconfig"
+ 
+ source "drivers/infiniband/ulp/ipoib/Kconfig"
+ 
+diff --git a/drivers/infiniband/hw/Makefile b/drivers/infiniband/hw/Makefile
+index c0c7cf8..2ad851d 100644
+--- a/drivers/infiniband/hw/Makefile
++++ b/drivers/infiniband/hw/Makefile
+@@ -9,3 +9,4 @@ obj-$(CONFIG_INFINIBAND_NES)		+= nes/
+ obj-$(CONFIG_INFINIBAND_OCRDMA)		+= ocrdma/
+ obj-$(CONFIG_INFINIBAND_USNIC)		+= usnic/
+ obj-$(CONFIG_INFINIBAND_HFI1)		+= hfi1/
++obj-$(CONFIG_INFINIBAND_HISILICON_HNS) 	+= hns/
+diff --git a/drivers/infiniband/hw/hns/Kconfig b/drivers/infiniband/hw/hns/Kconfig
+new file mode 100644
+index 0000000..c47c168
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/Kconfig
+@@ -0,0 +1,10 @@
++config INFINIBAND_HISILICON_HNS
++	tristate "Hisilicon Hns ROCE Driver"
++	depends on NET_VENDOR_HISILICON
++	depends on ARM64 && HNS && HNS_DSAF && HNS_ENET
++	---help---
++	  This is a ROCE/RDMA driver for the Hisilicon RoCE engine. The engine
++	  is used in Hisilicon Hi1610 and more further ICT SoC.
++
++	  To compile this driver as a module, choose M here: the module
++	  will be called hns-roce.
+diff --git a/drivers/infiniband/hw/hns/Makefile b/drivers/infiniband/hw/hns/Makefile
+new file mode 100644
+index 0000000..8bb7e85
+--- /dev/null
++++ b/drivers/infiniband/hw/hns/Makefile
+@@ -0,0 +1,8 @@
++#
++# Makefile for the HISILICON RoCE drivers.
++#
++
++obj-$(CONFIG_INFINIBAND_HISILICON_HNS) += hns-roce.o
++hns-roce-objs := hns_roce_main.o hns_roce_cmd.o hns_roce_eq.o hns_roce_pd.o \
++	hns_roce_ah.o hns_roce_hem.o hns_roce_mr.o hns_roce_qp.o \
++	hns_roce_cq.o hns_roce_alloc.o hns_roce_hw_v1.o
+-- 
+1.9.1
 
-You can download it from:
-
-http://www.netfilter.org/projects/libmnl/downloads.html
-ftp://ftp.netfilter.org/pub/libmnl/
-
-Have fun!
-
---CE+1k2dSO48ffgeK
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: attachment; filename="changes-libmnl-1.0.4.txt"
-Content-Transfer-Encoding: 8bit
-
-Carlos Falgueras García (1):
-      nlmsg: Improve payload printing
-
-Eric Leblond (1):
-      doxygen: fix a variable name.
-
-Felix Janda (1):
-      examples/netfilter: Include <endian.h> for be64toh
-
-Guillaume Nault (1):
-      socket: introduce mnl_socket_open2()
-
-Gustavo Zacarias (1):
-      configure: uclinux is also linux
-
-Hisao Tanabe (1):
-      attr: minor doc fix in mnl_attr_next()
-
-Ken-ichirou MATSUZAWA (9):
-      examples: set attr table
-      examples: fix trivial error message
-      examples: use mnl_nlmsg_get_payload()
-      attr: validate MNL_TYPE_MSEC same as MNL_TYPE_U64
-      examples: made sub functions the same
-      examples: fix display condition
-      examples: use mnl_socket_setsockopt
-      socket: creating a struct mnl_socket from a pre-existing socket
-      doc: minor fix
-
-Markus Teich (1):
-      header: use sysconf() instead of getpagesize()
-
-Pablo Neira Ayuso (18):
-      examples: add genl-group-events
-      examples: add kobject-event
-      examples: rtnl-route-add improvements (including IPv6 support)
-      examples: rtnl-route-event: add example to listen to IPv4/IPv6 routes
-      examples: rtnl-route-event: update Makefile.am
-      examples: rtnl-route-add: fix typo in IPv6 support
-      examples: rtnl-route-dump: display also metric/priority
-      examples: rtnl-link-dump: display HW address
-      examples: add rtnl-addr-dump
-      examples: netfilter: add nfct-dump
-      include: cache copy of nfnetlink_conntrack.h
-      examples: netfilter: add nfct daemon skeleton code
-      include: don't force compiler to enter C++11 mode
-      include: cache copy of include/linux/socket.h
-      socket: calloc expects struct size as second parameter
-      example: netfilter: get rid of aligned_be64 definitions
-      src: cleanup function definitions
-      build: libmnl 1.0.4 release
-
-Peter Foley (1):
-      Move declaration of visibility attributes before definition.
-
-Philip Prindeville (1):
-      examples: rtnl-route-dump: add IPv6 support
-
-Shawn Landden (1):
-      doc: mnl_socket_open returns NULL on error
-
-Stephen Hemminger (2):
-      headers: update netlink.h to 3.9
-      callback: fix missing handling of NLM_F_DUMP_INTR
-
-
---CE+1k2dSO48ffgeK--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
