@@ -1,73 +1,51 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: [PATCH 2/2] net: ethernet: cavium: octeon: use phy_ethtool_{get|set}_link_ksettings
-Date: Sat,  2 Jul 2016 23:37:00 +0200
-Message-ID: <1467495420-23359-2-git-send-email-tremyfr@gmail.com>
-References: <1467495420-23359-1-git-send-email-tremyfr@gmail.com>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Philippe Reynes <tremyfr@gmail.com>
-To: davem@davemloft.net, mugunthanvnm@ti.com, ivecera@redhat.com,
-	a@unstable.cc, fw@strlen.de, david.daney@cavium.com
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v2 net-next 1/1] net sched actions: mirred add support for
+ setting Dst MAC address
+Date: Sat, 2 Jul 2016 17:38:36 -0400
+Message-ID: <5778345C.1060201@mojatatu.com>
+References: <1467470065-17613-1-git-send-email-jhs@emojatatu.com>
+ <CAM_iQpXpkUo2H=Yndb4u63yKk6jNBbxYynmWtQRGhw6SAVUZrA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	nikolay@cumulusnetworks.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35679 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751469AbcGBVhW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 17:37:22 -0400
-In-Reply-To: <1467495420-23359-1-git-send-email-tremyfr@gmail.com>
+Received: from mail-it0-f44.google.com ([209.85.214.44]:36742 "EHLO
+	mail-it0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751854AbcGBVij (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 17:38:39 -0400
+Received: by mail-it0-f44.google.com with SMTP id a5so43585514ita.1
+        for <netdev@vger.kernel.org>; Sat, 02 Jul 2016 14:38:38 -0700 (PDT)
+In-Reply-To: <CAM_iQpXpkUo2H=Yndb4u63yKk6jNBbxYynmWtQRGhw6SAVUZrA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-There are two generics functions phy_ethtool_{get|set}_link_ksettings,
-so we can use them instead of defining the same code in the driver.
+On 16-07-02 12:58 PM, Cong Wang wrote:
+> On Sat, Jul 2, 2016 at 7:34 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>> From: Jamal Hadi Salim <jhs@mojatatu.com>
+>>
+>> Often redirecting or mirroring requires that we set the dstMAC address
+>> of the target device. While it is possible to pipe to a pedit action,
+>> this patch obsoletes the need for that. This is a justified feature because
+>> the dst MAC addresses rewrite is such a common use case.
+>
+> Maybe, instead of allowing to set arbitrary MAC address, how about
+> just allow setting to the MAC address of the target device?
 
-Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
----
- drivers/net/ethernet/cavium/octeon/octeon_mgmt.c |   25 +--------------------
- 1 files changed, 2 insertions(+), 23 deletions(-)
+You cant discover the remote MAC address; I have a wire
+connected between two machines. I set it to the MAC address
+of the remote machine i know of. And there are times I really
+want to set it to some arbitrary values (although that is more
+test mode than production).
 
-diff --git a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-index de678e6..e8bc15b 100644
---- a/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-+++ b/drivers/net/ethernet/cavium/octeon/octeon_mgmt.c
-@@ -1346,27 +1346,6 @@ static void octeon_mgmt_get_drvinfo(struct net_device *netdev,
- 	strlcpy(info->bus_info, "N/A", sizeof(info->bus_info));
- }
- 
--static int octeon_mgmt_get_settings(struct net_device *netdev,
--				    struct ethtool_cmd *cmd)
--{
--	if (netdev->phydev)
--		return phy_ethtool_gset(netdev->phydev, cmd);
--
--	return -EOPNOTSUPP;
--}
--
--static int octeon_mgmt_set_settings(struct net_device *netdev,
--				    struct ethtool_cmd *cmd)
--{
--	if (!capable(CAP_NET_ADMIN))
--		return -EPERM;
--
--	if (netdev->phydev)
--		return phy_ethtool_sset(netdev->phydev, cmd);
--
--	return -EOPNOTSUPP;
--}
--
- static int octeon_mgmt_nway_reset(struct net_device *dev)
- {
- 	if (!capable(CAP_NET_ADMIN))
-@@ -1380,10 +1359,10 @@ static int octeon_mgmt_nway_reset(struct net_device *dev)
- 
- static const struct ethtool_ops octeon_mgmt_ethtool_ops = {
- 	.get_drvinfo = octeon_mgmt_get_drvinfo,
--	.get_settings = octeon_mgmt_get_settings,
--	.set_settings = octeon_mgmt_set_settings,
- 	.nway_reset = octeon_mgmt_nway_reset,
- 	.get_link = ethtool_op_get_link,
-+	.get_link_ksettings = phy_ethtool_get_link_ksettings,
-+	.set_link_ksettings = phy_ethtool_set_link_ksettings,
- };
- 
- static const struct net_device_ops octeon_mgmt_ops = {
--- 
-1.7.4.4
+cheers,
+jamal
+
+> If so we only need a boolean flag for user-space.
+>
+> IOW, do we really need such flexibility?
+>
