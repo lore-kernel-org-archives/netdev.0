@@ -1,49 +1,31 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Fix race condition in enc28j60 driver
-Date: Sat, 02 Jul 2016 14:49:19 -0400 (EDT)
-Message-ID: <20160702.144919.52232813385388603.davem@davemloft.net>
-References: <1467395070-8632-1-git-send-email-sergio.valverde@hpe.com>
+Subject: Re: [PATCH] net: phy: dp83867: Fix initialization of PHYCR register
+Date: Sat, 02 Jul 2016 14:49:24 -0400 (EDT)
+Message-ID: <20160702.144924.2057687330898460203.davem@davemloft.net>
+References: <1467405303-19212-1-git-send-email-stefan@shauser.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mhei@heimpold.de, dompe@hpe.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: sergio.valverde@hpe.com
+Cc: netdev@vger.kernel.org, f.fainelli@gmail.com
+To: stefan@shauser.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [184.105.139.130] ([184.105.139.130]:37714 "EHLO
+Received: from [184.105.139.130] ([184.105.139.130]:37722 "EHLO
 	shards.monkeyblade.net" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1750746AbcGBStW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 14:49:22 -0400
-In-Reply-To: <1467395070-8632-1-git-send-email-sergio.valverde@hpe.com>
+	by vger.kernel.org with ESMTP id S1750800AbcGBStc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 2 Jul 2016 14:49:32 -0400
+In-Reply-To: <1467405303-19212-1-git-send-email-stefan@shauser.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Sergio Valverde < sergio.valverde@hpe.com >
-Date: Fri,  1 Jul 2016 11:44:30 -0600
+From: Stefan Hauser <stefan@shauser.net>
+Date: Fri,  1 Jul 2016 22:35:03 +0200
 
-> From: Sergio Valverde <sergio.valverde@hpe.com>
+> When initializing the PHY control register, the FIFO depth bits are
+> written without reading the previous register value, i.e. all other
+> bits are overwritten with zero. This disables automatic MDI-X
+> configuration, which is enabled by default. Fix initialization by doing
+> a read/modify/write operation.
 > 
-> The interrupt worker code for the enc28j60 relies only on the TXIF flag to
-> determinate if the packet transmission was completed. However the datasheet
-> specifies in section 12.1.3 that TXERIF will clear the TXRTS after a
-> transmit abort. Also in section 12.1.4 that TXIF will be set
-> when TXRTS transitions from '1' to '0'. Therefore the TXIF flag is enabled
-> during transmission errors.
-> 
-> This causes a race condition, since the worker code will invoke
-> enc28j60_tx_clear() -> netif_wake_queue(), potentially invoking the
-> ndo_start_xmit function to send a new packet. The enc28j60_send_packet function
-> uses a workqueue that invokes enc28j60_hw_tx(). In between this function is
-> called, the worker from the interrupt handler will enter the path for error
-> handler because of the TXERIF flag, causing to invoke enc28j60_tx_clear() again
-> and releasing the packet scheduled for transmission, causing a kernel crash with
-> due a NULL pointer.
-> 
-> These crashes due a NULL pointer were observed under stress conditions of the
-> device. A BUG_ON() sequence was used to validate the issue was fixed, and has
-> been running without problems for 2 years now.
-> 
-> Signed-off-by: Diego Dompe <dompe@hpe.com>
-> Acked-by: Sergio Valverde <sergio.valverde@hpe.com>
+> Signed-off-by: Stefan Hauser <stefan@shauser.net>
 
 Applied.
