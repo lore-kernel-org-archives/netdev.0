@@ -1,134 +1,66 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: [PATCH] net/mlx4: Fix some indent inconsistancy
-Date: Sat,  2 Jul 2016 14:31:05 +0200
-Message-ID: <1467462665-10191-1-git-send-email-christophe.jaillet@wanadoo.fr>
-Cc: netdev@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-kernel@vger.kernel.org, kernel-janitors@vger.kernel.org,
-	Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: yishaih@mellanox.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
+Subject: Re: [PATCH v11 00/22] Add HiSilicon RoCE driver
+Date: Sat, 2 Jul 2016 15:58:16 +0300
+Message-ID: <20160702125816.GG4750@leon.nu>
+References: <1467452364-66522-1-git-send-email-oulijun@huawei.com>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="9Iq5ULCa7nGtWwZS"
+Cc: dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
+	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org,
+	jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org,
+	ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org,
+	charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org, linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+To: Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Content-Disposition: inline
+In-Reply-To: <1467452364-66522-1-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Silent a few smatch warnings about indentation.
-This include the removal of a 'return' statement in 'resource_tracker.c'.
-This 'return' will still be performed when breaking out of the
-corresponding 'switch' block.
 
-Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
----
- drivers/net/ethernet/mellanox/mlx4/intf.c          |  2 +-
- drivers/net/ethernet/mellanox/mlx4/main.c          |  2 +-
- drivers/net/ethernet/mellanox/mlx4/mcg.c           |  8 ++++----
- drivers/net/ethernet/mellanox/mlx4/mr.c            |  2 +-
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 22 ++++++++++------------
- 5 files changed, 17 insertions(+), 19 deletions(-)
+--9Iq5ULCa7nGtWwZS
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/intf.c b/drivers/net/ethernet/mellanox/mlx4/intf.c
-index dec77d6..7ae1cda 100644
---- a/drivers/net/ethernet/mellanox/mlx4/intf.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/intf.c
-@@ -147,7 +147,7 @@ int mlx4_do_bond(struct mlx4_dev *dev, bool enable)
- 	if (enable) {
- 		dev->flags |= MLX4_FLAG_BONDED;
- 	} else {
--		 ret = mlx4_virt2phy_port_map(dev, 1, 2);
-+		ret = mlx4_virt2phy_port_map(dev, 1, 2);
- 		if (ret) {
- 			mlx4_err(dev, "Fail to reset port map\n");
- 			return ret;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/main.c b/drivers/net/ethernet/mellanox/mlx4/main.c
-index b673a5f..75dd2e3 100644
---- a/drivers/net/ethernet/mellanox/mlx4/main.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/main.c
-@@ -2600,7 +2600,7 @@ static int mlx4_setup_hca(struct mlx4_dev *dev)
- 	err = mlx4_init_uar_table(dev);
- 	if (err) {
- 		mlx4_err(dev, "Failed to initialize user access region table, aborting\n");
--		 return err;
-+		return err;
- 	}
- 
- 	err = mlx4_uar_alloc(dev, &priv->driver_uar);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mcg.c b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-index f2d0920..94b891c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mcg.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mcg.c
-@@ -618,8 +618,8 @@ static int remove_promisc_qp(struct mlx4_dev *dev, u8 port,
- 				err = mlx4_READ_ENTRY(dev,
- 						      entry->index,
- 						      mailbox);
--					if (err)
--						goto out_mailbox;
-+				if (err)
-+					goto out_mailbox;
- 				members_count =
- 					be32_to_cpu(mgm->members_count) &
- 					0xffffff;
-@@ -657,8 +657,8 @@ static int remove_promisc_qp(struct mlx4_dev *dev, u8 port,
- 				err = mlx4_WRITE_ENTRY(dev,
- 						       entry->index,
- 						       mailbox);
--					if (err)
--						goto out_mailbox;
-+				if (err)
-+					goto out_mailbox;
- 			}
- 		}
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mr.c b/drivers/net/ethernet/mellanox/mlx4/mr.c
-index 9319519..395b546 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mr.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/mr.c
-@@ -248,7 +248,7 @@ static void mlx4_free_mtt_range(struct mlx4_dev *dev, u32 offset, int order)
- 				  offset, order);
- 		return;
- 	}
--	 __mlx4_free_mtt_range(dev, offset, order);
-+	__mlx4_free_mtt_range(dev, offset, order);
- }
- 
- void mlx4_mtt_cleanup(struct mlx4_dev *dev, struct mlx4_mtt *mtt)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index cd9b2b2..8b81114 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -2372,16 +2372,15 @@ static int mpt_free_res(struct mlx4_dev *dev, int slave, int op, int cmd,
- 		__mlx4_mpt_release(dev, index);
- 		break;
- 	case RES_OP_MAP_ICM:
--			index = get_param_l(&in_param);
--			id = index & mpt_mask(dev);
--			err = mr_res_start_move_to(dev, slave, id,
--						   RES_MPT_RESERVED, &mpt);
--			if (err)
--				return err;
--
--			__mlx4_mpt_free_icm(dev, mpt->key);
--			res_end_move(dev, slave, RES_MPT, id);
-+		index = get_param_l(&in_param);
-+		id = index & mpt_mask(dev);
-+		err = mr_res_start_move_to(dev, slave, id,
-+					   RES_MPT_RESERVED, &mpt);
-+		if (err)
- 			return err;
-+
-+		__mlx4_mpt_free_icm(dev, mpt->key);
-+		res_end_move(dev, slave, RES_MPT, id);
- 		break;
- 	default:
- 		err = -EINVAL;
-@@ -4253,9 +4252,8 @@ int mlx4_UPDATE_QP_wrapper(struct mlx4_dev *dev, int slave,
- 	     (1ULL << MLX4_UPD_QP_PATH_MASK_ETH_SRC_CHECK_MC_LB)) &&
- 		!(dev->caps.flags2 &
- 		  MLX4_DEV_CAP_FLAG2_UPDATE_QP_SRC_CHECK_LB)) {
--			mlx4_warn(dev,
--				  "Src check LB for slave %d isn't supported\n",
--				   slave);
-+		mlx4_warn(dev, "Src check LB for slave %d isn't supported\n",
-+			  slave);
- 		return -ENOTSUPP;
- 	}
- 
--- 
-2.7.4
+On Sat, Jul 02, 2016 at 05:39:02PM +0800, Lijun Ou wrote:
+
+This v11
+>  28 files changed, 10626 insertions(+), 1 deletion(-)
+
+First version
+>  27 files changed, 11670 insertions(+), 11 deletions(-)
+
+1K LOC less, we are moving in right direction.
+
+--9Iq5ULCa7nGtWwZS
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1
+
+iQIcBAEBAgAGBQJXd7poAAoJEORje4g2clin4j8P/2CWXjKftIvKCqU8rKvmCWaP
+8K3X6heK7EnXQtwRcorKavlk8nsQ+IkHwCpfKVzseNL3E0MyUwTF2bjGZbBM3cxl
+dirpWdAMwtfAeDu/9JQseYcCZDcSOeG39WGpAIHChujTh2//RbS0koOPH7Qy3CK8
+sY9Y4ZcPKzN5/uQrG39nZjGEaO7JZMGt7NsH8W2CxrH3irJYt46RGFViuPT+j4ck
+9TqvSEdov9OVkzXk/gC6jE9nm59nmZ+k+ZBba85AKLw1t3xVMFkpbDGntEHjyX4z
+Vu2KZfsEuETi9vfIQ+SuS8k+60/2y3St/G3MMx56A8RcHP+GjweE69bovQfxIgzG
+6hEu13ooMIeWLd6fzy/YwznA3Qw8IJtyVZbmMUUohOnMLJ25l+4umz3vihD0hf9Q
+MVJ4dB5cVC6x/5OyNl8vi5g96G+ovobnVVB4wFO2SvaiORsg2WygsckQzrkq0jqL
+bnmwN7hVNEtwpVjS1gsfI/M7mptRTpR9nrJZ91jaLMkweF3emaD+cKpu+FqN30AY
+tK0QXul1EOzmqHxp6HQu7AsioUHegCHOoCdPr/N7M0OVBN/aNJCl4P8Gtljf2pRQ
+AALSapjsSM6z7AGleZ3G1vlCnvwYYvGU8aVu10LX3ui7Is9KY64BuvNrIZhoLwR7
+N+B8CXeE9oL9zxkB32X+
+=GwXj
+-----END PGP SIGNATURE-----
+
+--9Iq5ULCa7nGtWwZS--
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
