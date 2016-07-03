@@ -1,134 +1,73 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCHv3 wl-drv-next 1/2] add basic register-field manipulation
- macros
-Date: Sun, 3 Jul 2016 21:54:45 +0200
-Message-ID: <90392b12-b953-10fa-4bb0-ceb7e099d144@stressinduktion.org>
-References: <1467408409-24224-1-git-send-email-jakub.kicinski@netronome.com>
- <1467408409-24224-2-git-send-email-jakub.kicinski@netronome.com>
+From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: [PATCH net,stable] cdc_ncm: workaround for EM7455 "silent" data interface
+Date: Sun,  3 Jul 2016 22:24:50 +0200
+Message-ID: <1467577490-27810-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, nbd@nbd.name, linux-kernel@vger.kernel.org
-To: Jakub Kicinski <jakub.kicinski@netronome.com>,
-	kvalo@codeaurora.org, linux-wireless@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from out3-smtp.messagingengine.com ([66.111.4.27]:38257 "EHLO
-	out3-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752850AbcGCTyv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jul 2016 15:54:51 -0400
-In-Reply-To: <1467408409-24224-2-git-send-email-jakub.kicinski@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 01.07.2016 23:26, Jakub Kicinski wrote:
-> C bitfields are problematic and best avoided.  Developers
-> interacting with hardware registers find themselves searching
-> for easy-to-use alternatives.  Common approach is to define
-> structures or sets of macros containing mask and shift pair.
-> Operations on the register are then performed as follows:
-> 
->  field = (reg >> shift) & mask;
-> 
->  reg &= ~(mask << shift);
->  reg |= (field & mask) << shift;
-> 
-> Defining shift and mask separately is tedious.  Ivo van Doorn
-> came up with an idea of computing them at compilation time
-> based on a single shifted mask (later refined by Felix) which
-> can be used like this:
-> 
->  #define REG_FIELD 0x000ff000
-> 
->  field = FIELD_GET(REG_FIELD, reg);
-> 
->  reg &= ~REG_FIELD;
->  reg |= FIELD_PUT(REG_FIELD, field);
-> 
-> FIELD_{GET,PUT} macros take care of finding out what the
-> appropriate shift is based on compilation time ffs operation.
-> 
-> GENMASK can be used to define registers (which is usually
-> less error-prone and easier to match with datasheets).
-> 
-> This approach is the most convenient I've seen so to limit code
-> multiplication let's move the macros to a global header file.
-> 
-> Signed-off-by: Jakub Kicinski <jakub.kicinski@netronome.com>
-> ---
->  include/linux/bitfield.h | 58 ++++++++++++++++++++++++++++++++++++++++++++++++
->  include/linux/bug.h      |  3 +++
->  2 files changed, 61 insertions(+)
->  create mode 100644 include/linux/bitfield.h
-> 
-> diff --git a/include/linux/bitfield.h b/include/linux/bitfield.h
-> new file mode 100644
-> index 000000000000..d6a36c3c1775
-> --- /dev/null
-> +++ b/include/linux/bitfield.h
-> @@ -0,0 +1,58 @@
-> +/*
-> + * Copyright (C) 2014 Felix Fietkau <nbd@nbd.name>
-> + * Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn@gmail.com>
-> + *
-> + * This program is free software; you can redistribute it and/or modify
-> + * it under the terms of the GNU General Public License version 2
-> + * as published by the Free Software Foundation
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + */
-> +
-> +#ifndef _LINUX_BITFIELD_H
-> +#define _LINUX_BITFIELD_H
-> +
-> +#include <asm/types.h>
-> +#include <linux/bug.h>
-> +#include <linux/log2.h>
-> +
-> +#define _bf_shf(x) (__builtin_ffsll(x) - 1)
-> +
-> +#define _BF_FIELD_CHECK(_mask, _val)					\
-> +	({								\
-> +		BUILD_BUG_ON(!(_mask));					\
-> +		BUILD_BUG_ON(__builtin_constant_p(_val) ?		\
-> +			     ~((_mask) >> _bf_shf(_mask)) & (_val) :	\
-> +			     0);					\
-> +		__BUILD_BUG_ON_NOT_POWER_OF_2((_mask) +			\
-> +					      (1ULL << _bf_shf(_mask))); \
-> +	})
-> +
-> +#define FIELD_PUT(_mask, _val)					\
-> +	({							\
-> +		_BF_FIELD_CHECK(_mask, _val);			\
-> +		((u32)(_val) << _bf_shf(_mask)) & (_mask);	\
-> +	})
-> +
-> +#define FIELD_GET(_mask, _val)					\
-> +	({							\
-> +		_BF_FIELD_CHECK(_mask, 0);			\
-> +		(u32)(((_val) & (_mask)) >> _bf_shf(_mask));	\
-> +	})
-> +
-> +#define FIELD_PUT64(_mask, _val)				\
-> +	({							\
-> +		_BF_FIELD_CHECK(_mask, _val);			\
-> +		((u64)(_val) << _bf_shf(_mask)) & (_mask);	\
-> +	})
-> +
-> +#define FIELD_GET64(_mask, _val)				\
-> +	({							\
-> +		_BF_FIELD_CHECK(_mask, 0);			\
-> +		(u64)(((_val) & (_mask)) >> _bf_shf(_mask));	\
-> +	})
-> +
-> +#endif
+Several Lenovo users have reported problems with their Sierra
+Wireless EM7455 modem. The driver has loaded successfully and
+the MBIM management channel has appeared to work, including
+establishing a connection to the mobile network. But no frames
+have been received over the data interface.
 
-Cool! I think this is totally fine. Albeit one point: can you put your
-commit comment into the header itself. People check header files more
-often than git commits for documentation and it should be quickly
-graspable by a developer if someone looks them up.
+The problem affects all EM7455 and MC7455, and is assumed to
+affect other modems based on the same Qualcomm chipset and
+baseband firmware.
 
-Thanks,
-Hannes
+Testing narrowed the problem down to what seems to be a
+firmware timing bug during initialization. Adding a short sleep
+while probing is sufficient to make the problem disappear.
+Experiments have shown that 1-2 ms is too little to have any
+effect, while 10-20 ms is enough to reliably succeed.
+
+Reported-by: Stefan Armbruster <ml001-v/iS5pZ/V4yNgfvolfaAKQ@public.gmane.org>
+Reported-by: Ralph Plawetzki <ralph-pY4NoiSaI/Zg9hUCZPvPmw@public.gmane.org>
+Reported-by: Andreas Fett <andreas.fett-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org>
+Reported-by: Rasmus Lerdorf <rasmus-zLLba4SOMilBDgjK7y7TUQ@public.gmane.org>
+Reported-by: Samo Ratnik <samo.ratnik-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Reported-and-tested-by: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
+Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
+---
+I hope this unconditional short sleep during probing is acceptable,
+as I don't want to start a new non-maintainable quirk device list for
+this.  The EM7455 is already used by a number of laptop vendors, each
+using their own device ID.  More are likely to come.  And that's only
+the modems we *know* are affected...
+
+ drivers/net/usb/cdc_ncm.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
+index 53759c315b97..877c9516e781 100644
+--- a/drivers/net/usb/cdc_ncm.c
++++ b/drivers/net/usb/cdc_ncm.c
+@@ -854,6 +854,13 @@ int cdc_ncm_bind_common(struct usbnet *dev, struct=
+ usb_interface *intf, u8 data_
+ 	if (cdc_ncm_init(dev))
+ 		goto error2;
+=20
++	/* Some firmwares need a pause here or they will silently fail
++	 * to set up the interface properly.  This value was decided
++	 * empirically on a Sierra Wireless MC7455 running 02.08.02.00
++	 * firmware.
++	 */
++	usleep_range(10000, 20000);
++
+ 	/* configure data interface */
+ 	temp =3D usb_set_interface(dev->udev, iface_no, data_altsetting);
+ 	if (temp) {
+--=20
+2.1.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
