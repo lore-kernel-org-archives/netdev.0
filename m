@@ -1,7 +1,7 @@
 From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
-Subject: [PATCH net-next V2 06/10] liquidio: free resources during shutdown
-Date: Sun, 3 Jul 2016 13:56:52 -0700
-Message-ID: <1467579416-24219-7-git-send-email-rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V2 03/10] liquidio: IQ synchronization
+Date: Sun, 3 Jul 2016 13:56:49 -0700
+Message-ID: <1467579416-24219-4-git-send-email-rvatsavayi@caviumnetworks.com>
 References: <1467579416-24219-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -13,107 +13,116 @@ Cc: <netdev@vger.kernel.org>,
 	Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0067.outbound.protection.outlook.com ([104.47.32.67]:40160
+Received: from mail-sn1nam01on0077.outbound.protection.outlook.com ([104.47.32.77]:24147
 	"EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
 	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S932156AbcGCVaH (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Jul 2016 17:30:07 -0400
+	id S932156AbcGCVaR (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Jul 2016 17:30:17 -0400
 In-Reply-To: <1467579416-24219-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch fixes the issue of proper freeing of queue
-memory resources during free device. It also has fix for
-correct pcie error reporting.
+This patch tries to protect against bh preemption with
+sc_buf_pool. It also modifies the syncronization primitives
+during input queue processing.
 
 Signed-off-by: Derek Chickles <derek.chickles@caviumnetworks.com>
 Signed-off-by: Satanand Burla <satananda.burla@caviumnetworks.com>
 Signed-off-by: Felix Manlunas <felix.manlunas@caviumnetworks.com>
 Signed-off-by: Raghu Vatsavayi <raghu.vatsavayi@caviumnetworks.com>
 ---
- drivers/net/ethernet/cavium/liquidio/cn66xx_device.c  |  4 ++--
- drivers/net/ethernet/cavium/liquidio/lio_main.c       |  4 +++-
- drivers/net/ethernet/cavium/liquidio/octeon_console.c |  3 +++
- drivers/net/ethernet/cavium/liquidio/octeon_device.c  | 10 +++++-----
- 4 files changed, 13 insertions(+), 8 deletions(-)
+ .../net/ethernet/cavium/liquidio/request_manager.c | 27 +++++++++++++---------
+ 1 file changed, 16 insertions(+), 11 deletions(-)
 
-diff --git a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-index ee40b47..6271c57 100644
---- a/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/cn66xx_device.c
-@@ -64,9 +64,9 @@ void lio_cn6xxx_enable_error_reporting(struct octeon_device *oct)
- 	u32 val;
+diff --git a/drivers/net/ethernet/cavium/liquidio/request_manager.c b/drivers/net/ethernet/cavium/liquidio/request_manager.c
+index 5e2211f..ef0bdd8 100644
+--- a/drivers/net/ethernet/cavium/liquidio/request_manager.c
++++ b/drivers/net/ethernet/cavium/liquidio/request_manager.c
+@@ -360,6 +360,7 @@ lio_process_iq_request_list(struct octeon_device *oct,
+ 	unsigned int pkts_compl = 0, bytes_compl = 0;
+ 	struct octeon_soft_command *sc;
+ 	struct octeon_instr_irh *irh;
++	unsigned long flags;
  
- 	pci_read_config_dword(oct->pci_dev, CN6XXX_PCIE_DEVCTL, &val);
--	if (val & 0x000f0000) {
-+	if (val & 0x000c0000) {
- 		dev_err(&oct->pci_dev->dev, "PCI-E Link error detected: 0x%08x\n",
--			val & 0x000f0000);
-+			val & 0x000c0000);
+ 	while (old != iq->octeon_read_index) {
+ 		reqtype = iq->request_list[old].reqtype;
+@@ -389,15 +390,19 @@ lio_process_iq_request_list(struct octeon_device *oct,
+ 				 * command response list because we expect
+ 				 * a response from Octeon.
+ 				 */
+-				spin_lock_bh(&oct->response_list
+-					[OCTEON_ORDERED_SC_LIST].lock);
++				spin_lock_irqsave
++					(&oct->response_list
++					 [OCTEON_ORDERED_SC_LIST].lock,
++					 flags);
+ 				atomic_inc(&oct->response_list
+ 					[OCTEON_ORDERED_SC_LIST].
+ 					pending_req_count);
+ 				list_add_tail(&sc->node, &oct->response_list
+ 					[OCTEON_ORDERED_SC_LIST].head);
+-				spin_unlock_bh(&oct->response_list
+-					[OCTEON_ORDERED_SC_LIST].lock);
++				spin_unlock_irqrestore
++					(&oct->response_list
++					 [OCTEON_ORDERED_SC_LIST].lock,
++					 flags);
+ 			} else {
+ 				if (sc->callback) {
+ 					sc->callback(oct, OCTEON_REQUEST_DONE,
+@@ -674,7 +679,7 @@ int octeon_free_sc_buffer_pool(struct octeon_device *oct)
+ 	struct list_head *tmp, *tmp2;
+ 	struct octeon_soft_command *sc;
+ 
+-	spin_lock(&oct->sc_buf_pool.lock);
++	spin_lock_bh(&oct->sc_buf_pool.lock);
+ 
+ 	list_for_each_safe(tmp, tmp2, &oct->sc_buf_pool.head) {
+ 		list_del(tmp);
+@@ -686,7 +691,7 @@ int octeon_free_sc_buffer_pool(struct octeon_device *oct)
+ 
+ 	INIT_LIST_HEAD(&oct->sc_buf_pool.head);
+ 
+-	spin_unlock(&oct->sc_buf_pool.lock);
++	spin_unlock_bh(&oct->sc_buf_pool.lock);
+ 
+ 	return 0;
+ }
+@@ -705,10 +710,10 @@ struct octeon_soft_command *octeon_alloc_soft_command(struct octeon_device *oct,
+ 	WARN_ON((offset + datasize + rdatasize + ctxsize) >
+ 	       SOFT_COMMAND_BUFFER_SIZE);
+ 
+-	spin_lock(&oct->sc_buf_pool.lock);
++	spin_lock_bh(&oct->sc_buf_pool.lock);
+ 
+ 	if (list_empty(&oct->sc_buf_pool.head)) {
+-		spin_unlock(&oct->sc_buf_pool.lock);
++		spin_unlock_bh(&oct->sc_buf_pool.lock);
+ 		return NULL;
  	}
  
- 	val |= 0xf;          /* Enable Link error reporting */
-diff --git a/drivers/net/ethernet/cavium/liquidio/lio_main.c b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-index a759cc9..e4e476f 100644
---- a/drivers/net/ethernet/cavium/liquidio/lio_main.c
-+++ b/drivers/net/ethernet/cavium/liquidio/lio_main.c
-@@ -3957,6 +3957,7 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
- 		/* Release any previously allocated queues */
- 		for (j = 0; j < octeon_dev->num_oqs; j++)
- 			octeon_delete_droq(octeon_dev, j);
-+		return 1;
- 	}
+@@ -719,7 +724,7 @@ struct octeon_soft_command *octeon_alloc_soft_command(struct octeon_device *oct,
  
- 	atomic_set(&octeon_dev->status, OCT_DEV_DROQ_INIT_DONE);
-@@ -3979,7 +3980,8 @@ static int octeon_device_init(struct octeon_device *octeon_dev)
+ 	atomic_inc(&oct->sc_buf_pool.alloc_buf_count);
  
- 	/* Setup the interrupt handler and record the INT SUM register address
- 	 */
--	octeon_setup_interrupt(octeon_dev);
-+	if (octeon_setup_interrupt(octeon_dev))
-+		return 1;
+-	spin_unlock(&oct->sc_buf_pool.lock);
++	spin_unlock_bh(&oct->sc_buf_pool.lock);
  
- 	/* Enable Octeon device interrupts */
- 	octeon_dev->fn_list.enable_interrupt(octeon_dev->chip);
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_console.c b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-index bceff8a..70a8cd3 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_console.c
-@@ -312,6 +312,9 @@ static u64 cvmx_bootmem_phy_named_block_find(struct octeon_device *oct,
- 			if (name && named_size) {
- 				char *name_tmp =
- 					kmalloc(name_length + 1, GFP_KERNEL);
-+				if (!name_tmp)
-+					break;
-+
- 				CVMX_BOOTMEM_NAMED_GET_NAME(oct, named_addr,
- 							    name_tmp,
- 							    name_length);
-diff --git a/drivers/net/ethernet/cavium/liquidio/octeon_device.c b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-index 046f096..fda93be 100644
---- a/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-+++ b/drivers/net/ethernet/cavium/liquidio/octeon_device.c
-@@ -644,16 +644,16 @@ int octeon_download_firmware(struct octeon_device *oct, const u8 *data,
+ 	sc = (struct octeon_soft_command *)tmp;
  
- void octeon_free_device_mem(struct octeon_device *oct)
+@@ -762,11 +767,11 @@ struct octeon_soft_command *octeon_alloc_soft_command(struct octeon_device *oct,
+ void octeon_free_soft_command(struct octeon_device *oct,
+ 			      struct octeon_soft_command *sc)
  {
--	u32 i;
-+	int i;
+-	spin_lock(&oct->sc_buf_pool.lock);
++	spin_lock_bh(&oct->sc_buf_pool.lock);
  
- 	for (i = 0; i < MAX_OCTEON_OUTPUT_QUEUES(oct); i++) {
--		/* could check  mask as well */
--		vfree(oct->droq[i]);
-+		if (oct->io_qmask.oq & (1ULL << i))
-+			vfree(oct->droq[i]);
- 	}
+ 	list_add_tail(&sc->node, &oct->sc_buf_pool.head);
  
- 	for (i = 0; i < MAX_OCTEON_INSTR_QUEUES(oct); i++) {
--		/* could check mask as well */
--		vfree(oct->instr_queue[i]);
-+		if (oct->io_qmask.iq & (1ULL << i))
-+			vfree(oct->instr_queue[i]);
- 	}
+ 	atomic_dec(&oct->sc_buf_pool.alloc_buf_count);
  
- 	i = oct->octeon_id;
+-	spin_unlock(&oct->sc_buf_pool.lock);
++	spin_unlock_bh(&oct->sc_buf_pool.lock);
+ }
 -- 
 1.8.3.1
