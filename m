@@ -1,176 +1,153 @@
 From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: [PATCH net-next 06/10] net/farady: Helper functions to create or destroy MDIO interface
-Date: Sun,  3 Jul 2016 15:32:29 +1000
-Message-ID: <1467523953-18998-7-git-send-email-gwshan@linux.vnet.ibm.com>
+Subject: [PATCH net-next 07/10] net/farady: Read MAC address from chip
+Date: Sun,  3 Jul 2016 15:32:30 +1000
+Message-ID: <1467523953-18998-8-git-send-email-gwshan@linux.vnet.ibm.com>
 References: <1467523953-18998-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Cc: davem@davemloft.net, benh@kernel.crashing.org, joel@jms.id.au,
 	weixue@trustnetic.com, Gavin Shan <gwshan@linux.vnet.ibm.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:57871 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752138AbcGCFdQ (ORCPT
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:40691 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1752137AbcGCFdQ (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jul 2016 01:33:16 -0400
-Received: from pps.filterd (m0098404.ppops.net [127.0.0.1])
-	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u635TJML022583
+Received: from pps.filterd (m0098421.ppops.net [127.0.0.1])
+	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u635TL1h039739
 	for <netdev@vger.kernel.org>; Sun, 3 Jul 2016 01:33:16 -0400
-Received: from e23smtp01.au.ibm.com (e23smtp01.au.ibm.com [202.81.31.143])
-	by mx0a-001b2d01.pphosted.com with ESMTP id 23x9pnq87r-1
+Received: from e23smtp07.au.ibm.com (e23smtp07.au.ibm.com [202.81.31.140])
+	by mx0a-001b2d01.pphosted.com with ESMTP id 23x9mbq5cm-1
 	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
 	for <netdev@vger.kernel.org>; Sun, 03 Jul 2016 01:33:15 -0400
 Received: from localhost
-	by e23smtp01.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e23smtp07.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
 	Sun, 3 Jul 2016 15:33:13 +1000
-Received: from d23relay10.au.ibm.com (d23relay10.au.ibm.com [9.190.26.77])
-	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 14E832BB0057
+Received: from d23relay09.au.ibm.com (d23relay09.au.ibm.com [9.185.63.181])
+	by d23dlp02.au.ibm.com (Postfix) with ESMTP id A4D442BB0059
 	for <netdev@vger.kernel.org>; Sun,  3 Jul 2016 15:33:10 +1000 (EST)
-Received: from d23av06.au.ibm.com (d23av06.au.ibm.com [9.190.235.151])
-	by d23relay10.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u635XAhs9830848
+Received: from d23av01.au.ibm.com (d23av01.au.ibm.com [9.190.234.96])
+	by d23relay09.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u635XABs22675548
 	for <netdev@vger.kernel.org>; Sun, 3 Jul 2016 15:33:10 +1000
-Received: from d23av06.au.ibm.com (localhost [127.0.0.1])
-	by d23av06.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u635X9L1011023
-	for <netdev@vger.kernel.org>; Sun, 3 Jul 2016 15:33:09 +1000
+Received: from d23av01.au.ibm.com (localhost [127.0.0.1])
+	by d23av01.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u635X93Q012656
+	for <netdev@vger.kernel.org>; Sun, 3 Jul 2016 15:33:10 +1000
 In-Reply-To: <1467523953-18998-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This introduces two helper functions to create or destroy MDIO
-interface. No logical changes introduced except the proper MDIO
-names are given when having more than one MDIO bus.
+The device is assigned with random MAC address. It isn't reasonable.
+An valid MAC address might have been provided by (uboot) firmware by
+device-tree or in chip. It's reasonable to use it to maintain consistency.
+
+This uses the MAC address from device-tree or that in the chip if it's
+valid. Otherwise, a random MAC address is given as before.
 
 Signed-off-by: Gavin Shan <gwshan@linux.vnet.ibm.com>
 Acked-by: Joel Stanley <joel@jms.id.au>
 ---
- drivers/net/ethernet/faraday/ftgmac100.c | 95 ++++++++++++++++++++------------
- 1 file changed, 60 insertions(+), 35 deletions(-)
+ drivers/net/ethernet/faraday/ftgmac100.c | 69 ++++++++++++++++++++++++++++----
+ 1 file changed, 62 insertions(+), 7 deletions(-)
 
 diff --git a/drivers/net/ethernet/faraday/ftgmac100.c b/drivers/net/ethernet/faraday/ftgmac100.c
-index e7cf313..9b09493 100644
+index 9b09493..2c3f656 100644
 --- a/drivers/net/ethernet/faraday/ftgmac100.c
 +++ b/drivers/net/ethernet/faraday/ftgmac100.c
-@@ -1146,6 +1146,60 @@ static const struct net_device_ops ftgmac100_netdev_ops = {
- 	.ndo_do_ioctl		= ftgmac100_do_ioctl,
- };
+@@ -141,6 +141,64 @@ static void ftgmac100_set_mac(struct ftgmac100 *priv, const unsigned char *mac)
+ 	iowrite32(laddr, priv->base + FTGMAC100_OFFSET_MAC_LADR);
+ }
  
-+static int ftgmac100_setup_mdio(struct net_device *netdev)
++static void ftgmac100_setup_mac(struct ftgmac100 *priv)
 +{
-+	struct ftgmac100 *priv = netdev_priv(netdev);
-+	struct platform_device *pdev = to_platform_device(priv->dev);
-+	int i, err = 0;
++	u8 mac[ETH_ALEN];
++	unsigned int m;
++	unsigned int l;
++	void *addr;
 +
-+	/* initialize mdio bus */
-+	priv->mii_bus = mdiobus_alloc();
-+	if (!priv->mii_bus)
-+		return -EIO;
-+
-+	priv->mii_bus->name = "ftgmac100_mdio";
-+	snprintf(priv->mii_bus->id, MII_BUS_ID_SIZE, "%s-%d",
-+		 pdev->name, pdev->id);
-+	priv->mii_bus->priv = priv->netdev;
-+	priv->mii_bus->read = ftgmac100_mdiobus_read;
-+	priv->mii_bus->write = ftgmac100_mdiobus_write;
-+
-+	for (i = 0; i < PHY_MAX_ADDR; i++)
-+		priv->mii_bus->irq[i] = PHY_POLL;
-+
-+	err = mdiobus_register(priv->mii_bus);
-+	if (err) {
-+		dev_err(priv->dev, "Cannot register MDIO bus!\n");
-+		goto err_register_mdiobus;
++	addr = device_get_mac_address(priv->dev, mac, ETH_ALEN);
++	if (addr) {
++		ether_addr_copy(priv->netdev->dev_addr, mac);
++		dev_info(priv->dev, "Read MAC address %pM from device tree\n",
++			 mac);
++		return;
 +	}
 +
-+	err = ftgmac100_mii_probe(priv);
-+	if (err) {
-+		dev_err(priv->dev, "MII Probe failed!\n");
-+		goto err_mii_probe;
++	m = ioread32(priv->base + FTGMAC100_OFFSET_MAC_MADR);
++	l = ioread32(priv->base + FTGMAC100_OFFSET_MAC_LADR);
++
++	mac[0] = (m >> 8) & 0xff;
++	mac[1] = m & 0xff;
++	mac[2] = (l >> 24) & 0xff;
++	mac[3] = (l >> 16) & 0xff;
++	mac[4] = (l >> 8) & 0xff;
++	mac[5] = l & 0xff;
++
++	if (!is_valid_ether_addr(mac)) {
++		mac[5] = (m >> 8) & 0xff;
++		mac[4] = m & 0xff;
++		mac[3] = (l >> 24) & 0xff;
++		mac[2] = (l >> 16) & 0xff;
++		mac[1] = (l >>  8) & 0xff;
++		mac[0] = l & 0xff;
 +	}
++
++	if (is_valid_ether_addr(mac)) {
++		ether_addr_copy(priv->netdev->dev_addr, mac);
++		dev_info(priv->dev, "Read MAC address %pM from chip\n", mac);
++	} else {
++		eth_hw_addr_random(priv->netdev);
++		dev_info(priv->dev, "Generated random MAC address %pM\n",
++			 priv->netdev->dev_addr);
++	}
++}
++
++static int ftgmac100_set_mac_addr(struct net_device *dev, void *p)
++{
++	int ret;
++
++	ret = eth_prepare_mac_addr_change(dev, p);
++	if (ret < 0)
++		return ret;
++
++	eth_commit_mac_addr_change(dev, p);
++	ftgmac100_set_mac(netdev_priv(dev), dev->dev_addr);
 +
 +	return 0;
-+
-+err_mii_probe:
-+	mdiobus_unregister(priv->mii_bus);
-+err_register_mdiobus:
-+	mdiobus_free(priv->mii_bus);
-+	return err;
 +}
 +
-+static void ftgmac100_destroy_mdio(struct net_device *netdev)
-+{
-+	struct ftgmac100 *priv = netdev_priv(netdev);
-+
-+	if (!netdev->phydev)
-+		return;
-+
-+	phy_disconnect(netdev->phydev);
-+	mdiobus_unregister(priv->mii_bus);
-+	mdiobus_free(priv->mii_bus);
-+}
-+
- /******************************************************************************
-  * struct platform_driver functions
-  *****************************************************************************/
-@@ -1211,31 +1265,9 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ static void ftgmac100_init_hw(struct ftgmac100 *priv)
+ {
+ 	/* setup ring buffer base registers */
+@@ -1141,7 +1199,7 @@ static const struct net_device_ops ftgmac100_netdev_ops = {
+ 	.ndo_open		= ftgmac100_open,
+ 	.ndo_stop		= ftgmac100_stop,
+ 	.ndo_start_xmit		= ftgmac100_hard_start_xmit,
+-	.ndo_set_mac_address	= eth_mac_addr,
++	.ndo_set_mac_address	= ftgmac100_set_mac_addr,
+ 	.ndo_validate_addr	= eth_validate_addr,
+ 	.ndo_do_ioctl		= ftgmac100_do_ioctl,
+ };
+@@ -1265,6 +1323,9 @@ static int ftgmac100_probe(struct platform_device *pdev)
  
  	priv->irq = irq;
  
--	/* initialize mdio bus */
--	priv->mii_bus = mdiobus_alloc();
--	if (!priv->mii_bus) {
--		err = -EIO;
--		goto err_alloc_mdiobus;
--	}
--
--	priv->mii_bus->name = "ftgmac100_mdio";
--	snprintf(priv->mii_bus->id, MII_BUS_ID_SIZE, "ftgmac100_mii");
--
--	priv->mii_bus->priv = netdev;
--	priv->mii_bus->read = ftgmac100_mdiobus_read;
--	priv->mii_bus->write = ftgmac100_mdiobus_write;
--
--	err = mdiobus_register(priv->mii_bus);
--	if (err) {
--		dev_err(&pdev->dev, "Cannot register MDIO bus!\n");
--		goto err_register_mdiobus;
--	}
--
--	err = ftgmac100_mii_probe(priv);
--	if (err) {
--		dev_err(&pdev->dev, "MII Probe failed!\n");
--		goto err_mii_probe;
--	}
-+	err = ftgmac100_setup_mdio(netdev);
-+	if (err)
-+		goto err_setup_mdio;
++	/* MAC address from chip or random one */
++	ftgmac100_setup_mac(priv);
++
+ 	err = ftgmac100_setup_mdio(netdev);
+ 	if (err)
+ 		goto err_setup_mdio;
+@@ -1278,12 +1339,6 @@ static int ftgmac100_probe(struct platform_device *pdev)
  
- 	/* register network device */
- 	err = register_netdev(netdev);
-@@ -1255,12 +1287,8 @@ static int ftgmac100_probe(struct platform_device *pdev)
+ 	netdev_info(netdev, "irq %d, mapped at %p\n", priv->irq, priv->base);
+ 
+-	if (!is_valid_ether_addr(netdev->dev_addr)) {
+-		eth_hw_addr_random(netdev);
+-		netdev_info(netdev, "generated random MAC address %pM\n",
+-			    netdev->dev_addr);
+-	}
+-
  	return 0;
  
  err_register_netdev:
--	phy_disconnect(netdev->phydev);
--err_mii_probe:
--	mdiobus_unregister(priv->mii_bus);
--err_register_mdiobus:
--	mdiobus_free(priv->mii_bus);
--err_alloc_mdiobus:
-+	ftgmac100_destroy_mdio(netdev);
-+err_setup_mdio:
- 	iounmap(priv->base);
- err_ioremap:
- 	release_resource(priv->res);
-@@ -1280,10 +1308,7 @@ static int __exit ftgmac100_remove(struct platform_device *pdev)
- 	priv = netdev_priv(netdev);
- 
- 	unregister_netdev(netdev);
--
--	phy_disconnect(netdev->phydev);
--	mdiobus_unregister(priv->mii_bus);
--	mdiobus_free(priv->mii_bus);
-+	ftgmac100_destroy_mdio(netdev);
- 
- 	iounmap(priv->base);
- 	release_resource(priv->res);
 -- 
 2.1.0
