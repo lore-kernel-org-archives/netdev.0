@@ -1,73 +1,63 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-Subject: [PATCH net,stable] cdc_ncm: workaround for EM7455 "silent" data interface
-Date: Sun,  3 Jul 2016 22:24:50 +0200
-Message-ID: <1467577490-27810-1-git-send-email-bjorn@mork.no>
+From: Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+Subject: [PATCH net-next V2 00/10] liquidio updates and bug fixes
+Date: Sun, 3 Jul 2016 13:56:46 -0700
+Message-ID: <1467579416-24219-1-git-send-email-rvatsavayi@caviumnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Oliver Neukum <oliver-GvhC2dPhHPQdnm+yROfE0A@public.gmane.org>, linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>,
+	Raghu Vatsavayi <rvatsavayi@caviumnetworks.com>
+To: <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam01on0064.outbound.protection.outlook.com ([104.47.32.64]:21199
+	"EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932156AbcGCVaD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 3 Jul 2016 17:30:03 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Several Lenovo users have reported problems with their Sierra
-Wireless EM7455 modem. The driver has loaded successfully and
-the MBIM management channel has appeared to work, including
-establishing a connection to the mobile network. But no frames
-have been received over the data interface.
+Dave,
 
-The problem affects all EM7455 and MC7455, and is assumed to
-affect other modems based on the same Qualcomm chipset and
-baseband firmware.
+Following V2 patchset contains updates and bug fixes for
+liquidio driver. This patchset also has changes that you
+suggested in vxlan code. Please apply the patches in following
+order as some of the patches depend on earlier patches in the
+series.
 
-Testing narrowed the problem down to what seems to be a
-firmware timing bug during initialization. Adding a short sleep
-while probing is sufficient to make the problem disappear.
-Experiments have shown that 1-2 ms is too little to have any
-effect, while 10-20 ms is enough to reliably succeed.
+Raghu Vatsavayi (10):
+  liquidio: Vxlan support
+  liquidio: Macro replacements
+  liquidio: IQ synchronization
+  liquidio: softcommand delay
+  liquidio: iq/oq limits
+  liquidio: free resources during shutdown
+  liquidio: MTU limits
+  liquidio: Droq validation
+  liquidio: Remove redundant code
+  liquidio: Response header changes
 
-Reported-by: Stefan Armbruster <ml001-v/iS5pZ/V4yNgfvolfaAKQ@public.gmane.org>
-Reported-by: Ralph Plawetzki <ralph-pY4NoiSaI/Zg9hUCZPvPmw@public.gmane.org>
-Reported-by: Andreas Fett <andreas.fett-opNxpl+3fjRBDgjK7y7TUQ@public.gmane.org>
-Reported-by: Rasmus Lerdorf <rasmus-zLLba4SOMilBDgjK7y7TUQ@public.gmane.org>
-Reported-by: Samo Ratnik <samo.ratnik-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Reported-and-tested-by: Aleksander Morgado <aleksander-Dvg4H30XQSRVIjRurl1/8g@public.gmane.org>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn-yOkvZcmFvRU@public.gmane.org>
----
-I hope this unconditional short sleep during probing is acceptable,
-as I don't want to start a new non-maintainable quirk device list for
-this.  The EM7455 is already used by a number of laptop vendors, each
-using their own device ID.  More are likely to come.  And that's only
-the modems we *know* are affected...
+ .../net/ethernet/cavium/liquidio/cn66xx_device.c   |  22 +-
+ .../net/ethernet/cavium/liquidio/cn66xx_device.h   |   2 -
+ .../net/ethernet/cavium/liquidio/cn68xx_device.c   |  13 +-
+ .../net/ethernet/cavium/liquidio/cn68xx_device.h   |   1 -
+ drivers/net/ethernet/cavium/liquidio/cn68xx_regs.h |   1 -
+ drivers/net/ethernet/cavium/liquidio/lio_ethtool.c |  73 +++--
+ drivers/net/ethernet/cavium/liquidio/lio_main.c    | 325 ++++++++++++++++-----
+ .../net/ethernet/cavium/liquidio/liquidio_common.h |  35 ++-
+ .../net/ethernet/cavium/liquidio/octeon_config.h   |   4 +-
+ .../net/ethernet/cavium/liquidio/octeon_console.c  |  50 ++--
+ .../net/ethernet/cavium/liquidio/octeon_device.c   |  99 +------
+ .../net/ethernet/cavium/liquidio/octeon_device.h   |   7 +-
+ drivers/net/ethernet/cavium/liquidio/octeon_droq.c |  42 +--
+ drivers/net/ethernet/cavium/liquidio/octeon_droq.h |  20 +-
+ drivers/net/ethernet/cavium/liquidio/octeon_iq.h   |   3 +-
+ drivers/net/ethernet/cavium/liquidio/octeon_main.h |   2 +-
+ .../net/ethernet/cavium/liquidio/octeon_mem_ops.c  |  24 +-
+ .../net/ethernet/cavium/liquidio/octeon_network.h  |  12 +-
+ drivers/net/ethernet/cavium/liquidio/octeon_nic.c  |  12 -
+ .../net/ethernet/cavium/liquidio/request_manager.c |  98 ++-----
+ .../ethernet/cavium/liquidio/response_manager.c    |  19 +-
+ 21 files changed, 433 insertions(+), 431 deletions(-)
 
- drivers/net/usb/cdc_ncm.c | 7 +++++++
- 1 file changed, 7 insertions(+)
-
-diff --git a/drivers/net/usb/cdc_ncm.c b/drivers/net/usb/cdc_ncm.c
-index 53759c315b97..877c9516e781 100644
---- a/drivers/net/usb/cdc_ncm.c
-+++ b/drivers/net/usb/cdc_ncm.c
-@@ -854,6 +854,13 @@ int cdc_ncm_bind_common(struct usbnet *dev, struct=
- usb_interface *intf, u8 data_
- 	if (cdc_ncm_init(dev))
- 		goto error2;
-=20
-+	/* Some firmwares need a pause here or they will silently fail
-+	 * to set up the interface properly.  This value was decided
-+	 * empirically on a Sierra Wireless MC7455 running 02.08.02.00
-+	 * firmware.
-+	 */
-+	usleep_range(10000, 20000);
-+
- 	/* configure data interface */
- 	temp =3D usb_set_interface(dev->udev, iface_no, data_altsetting);
- 	if (temp) {
---=20
-2.1.4
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+1.8.3.1
