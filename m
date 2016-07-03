@@ -1,40 +1,26 @@
-From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-Subject: Re: [PATCH 1/4] net: ethernet: ti: davinci_cpdma: split descs num
- between all channels
-Date: Sun, 3 Jul 2016 11:57:18 +0300
-Message-ID: <5778D36E.2040803@linaro.org>
-References: <1467313478-22919-1-git-send-email-ivan.khoronzhuk@linaro.org>
- <1467313478-22919-2-git-send-email-ivan.khoronzhuk@linaro.org>
- <20160701.163506.323242842287789721.davem@davemloft.net>
+From: Sowmini Varadhan <sowmini.varadhan@oracle.com>
+Subject: Re: [PATCH] RDS: fix rds_tcp_init() error path
+Date: Sun, 3 Jul 2016 07:21:15 -0400
+Message-ID: <20160703112105.GA32174@oracle.com>
+References: <1467536094-23722-1-git-send-email-vegard.nossum@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, mugunthanvnm@ti.com,
-	grygorii.strashko@ti.com, linux-kernel@vger.kernel.org,
-	linux-omap@vger.kernel.org, nsekhar@ti.com
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160701.163506.323242842287789721.davem@davemloft.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: santosh.shilimkar@oracle.com, davem@davemloft.net,
+	rds-devel@oss.oracle.com, linux-rdma@vger.kernel.org,
+	netdev@vger.kernel.org
+To: Vegard Nossum <vegard.nossum@oracle.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from aserp1040.oracle.com ([141.146.126.69]:26158 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751987AbcGCLVZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jul 2016 07:21:25 -0400
+Content-Disposition: inline
+In-Reply-To: <1467536094-23722-1-git-send-email-vegard.nossum@oracle.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 
-On 01.07.16 23:35, David Miller wrote:
-> From: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
-> Date: Thu, 30 Jun 2016 22:04:35 +0300
->
->> @@ -720,7 +763,7 @@ unlock_ret:
->>   }
->>   EXPORT_SYMBOL_GPL(cpdma_chan_submit);
->>
->> -bool cpdma_check_free_tx_desc(struct cpdma_chan *chan)
->> +inline bool cpdma_check_free_desc(struct cpdma_chan *chan)
->>   {
->
-> This needs to be marked static.
->
-Yes. Will correct it.
+> If register_pernet_subsys() fails, we shouldn't try to call
+> unregister_pernet_subsys().
 
--- 
-Regards,
-Ivan Khoronzhuk
+Acked-by: Sowmini Varadhan <sowmini.varadhan@oracle.com>
