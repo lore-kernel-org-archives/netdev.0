@@ -1,7 +1,8 @@
 From: Kedareswara rao Appana <appana.durga.rao@xilinx.com>
-Subject: [RFC PATCH v2 0/4] net: ethernet: Add support for gmii2rgmii converter
-Date: Mon, 4 Jul 2016 14:34:40 +0530
-Message-ID: <1467623084-15471-1-git-send-email-appanad@xilinx.com>
+Subject: [RFC PATCH v2 1/4] Documentation: DT: net: Add Xilinx gmiitorgmii converter device tree binding documentation
+Date: Mon, 4 Jul 2016 14:34:41 +0530
+Message-ID: <1467623084-15471-2-git-send-email-appanad@xilinx.com>
+References: <1467623084-15471-1-git-send-email-appanad@xilinx.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
@@ -13,53 +14,63 @@ To: <robh+dt@kernel.org>, <mark.rutland@arm.com>,
 	<punnaia@xilinx.com>, <nicolas.ferre@atmel.com>,
 	<f.fainelli@gmail.com>, <andrew@lunn.ch>, <anirudh@xilinx.com>,
 	<harinik@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-sn1nam02on0050.outbound.protection.outlook.com ([104.47.36.50]:29536
+	"EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750895AbcGDJEx (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jul 2016 05:04:53 -0400
+In-Reply-To: <1467623084-15471-1-git-send-email-appanad@xilinx.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-This patch series does the following
----> Add support for gmii2rgmii converter.
----> Add support for gmii2rgmii converter in the macb driver.
+Device-tree binding documentation for xilinx gmiitorgmii converter.
 
-The Gigabit Media Independent Interface (GMII) to Reduced Gigabit Media
-Independent Interface (RGMII) core provides the RGMII between RGMII-compliant
-Ethernet physical media devices (PHY) and the Gigabit Ethernet controller.
-This core can be used in all three modes of operation(10/100/1000 Mb/s).
-The Management Data Input/Output (MDIO) interface is used to configure the
-Speed of operation. This core can switch dynamically between the three
-Different speed modes by configuring the conveter register through mdio write.
+Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
+---
+Changes for v2:
+--> New patch.
 
-The conveter sits b/w the MAC and external phy like below
-
-MACB <==> GMII2RGMII <==> RGMII_PHY
-
-	MDIO   <========> GMII2RGMII
-MCAB <=======> 
-	       <========> RGMII
-
-Using MAC MDIO bus we can access both the converter and the external PHY.
-We need to program the line speed of the converter during run time based
-On the external phy negotiated speed.
-
-Kedareswara rao Appana (4):
-  Documentation: DT: net: Add Xilinx gmiitorgmii converter device tree
-    binding documentation
-  net: ethernet: xilinx: Add gmii2rgmii converter support
-  Documentation: DT: net: Update binding doc for gmiitorgmii conveter
-  net: macb: Add gmii2rgmii phy converter support
-
- Documentation/devicetree/bindings/net/macb.txt     |  4 ++
- .../devicetree/bindings/net/xilinx_gmii2rgmii.txt  | 31 +++++++++
- drivers/net/ethernet/cadence/macb.c                | 21 ++++++
- drivers/net/ethernet/cadence/macb.h                |  1 +
- drivers/net/ethernet/xilinx/Kconfig                |  8 +++
- drivers/net/ethernet/xilinx/Makefile               |  1 +
- drivers/net/ethernet/xilinx/xilinx_gmii2rgmii.c    | 79 ++++++++++++++++++++++
- include/linux/xilinx_gmii2rgmii.h                  | 24 +++++++
- 8 files changed, 169 insertions(+)
+ .../devicetree/bindings/net/xilinx_gmii2rgmii.txt  | 31 ++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)
  create mode 100644 Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
- create mode 100644 drivers/net/ethernet/xilinx/xilinx_gmii2rgmii.c
- create mode 100644 include/linux/xilinx_gmii2rgmii.h
 
+diff --git a/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+new file mode 100644
+index 0000000..d11e259
+--- /dev/null
++++ b/Documentation/devicetree/bindings/net/xilinx_gmii2rgmii.txt
+@@ -0,0 +1,31 @@
++* XILINX GMIITORGMII Converter Driver
++
++The Gigabit Media Independent Interface (GMII) to Reduced Gigabit Media
++Independent Interface (RGMII) core provides the RGMII between RGMII-compliant
++Ethernet physical media devices (PHY) and the Gigabit Ethernet controller.
++This core can be used in all three modes of operation(10/100/1000 Mb/s).
++The Management Data Input/Output (MDIO) interface is used to configure the
++Speed of operation. This core can switch dynamically between the three
++Different speed modes by configuring the conveter register through mdio write.
++
++The MDIO is a bus to which the PHY devices are connected.  For each
++device that exists on this bus, a child node should be created.  See
++the definition of the PHY node in booting-without-of.txt for an example
++of how to define a PHY.
++
++Required properties:
++  - compatible : Should be "xlnx,gmiitorgmii"
++  - reg : The ID number for the phy, usually a small integer
++
++Example:
++	mdio {
++                #address-cells = <1>;
++                #size-cells = <0>;
++		ethernet-phy@0 {
++			......
++		};
++                gmii_to_rgmii: gmii_to_rgmii@8 {
++                        compatible = "xlnx,gmiitorgmii";
++                        reg = <8>;
++                };
++        };
 -- 
 2.1.2
