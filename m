@@ -1,51 +1,54 @@
-From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
-Subject: Re: [PATCH net,stable] cdc_ncm: workaround for EM7455 "silent" data interface
-Date: Mon, 04 Jul 2016 13:40:10 +0200
-Message-ID: <87h9c5638l.fsf@nemi.mork.no>
-References: <1467577490-27810-1-git-send-email-bjorn@mork.no>
-	<1467619605.9978.4.camel@suse.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
-To: Oliver Neukum <oneukum@suse.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:60164 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753161AbcGDMBz convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 08:01:55 -0400
-In-Reply-To: <1467619605.9978.4.camel@suse.com> (Oliver Neukum's message of
-	"Mon, 04 Jul 2016 10:06:45 +0200")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Subject: [PATCH net 1/1] qeth: delete napi struct when removing a qeth device
+Date: Mon,  4 Jul 2016 14:07:16 +0200
+Message-ID: <1467634036-49548-2-git-send-email-ubraun@linux.vnet.ibm.com>
+References: <1467634036-49548-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Cc: netdev@vger.kernel.org, linux-s390@vger.kernel.org,
+	stable@vger.kernel.org, schwidefsky@de.ibm.com,
+	heiko.carstens@de.ibm.com, utz.bacher@de.ibm.com
+To: davem@davemloft.net
+Return-path: <stable-owner@vger.kernel.org>
+In-Reply-To: <1467634036-49548-1-git-send-email-ubraun@linux.vnet.ibm.com>
+Sender: stable-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Oliver Neukum <oneukum@suse.com> writes:
-> On Sun, 2016-07-03 at 22:24 +0200, Bj=C3=B8rn Mork wrote:
->> Several Lenovo users have reported problems with their Sierra
->> Wireless EM7455 modem. The driver has loaded successfully and
->> the MBIM management channel has appeared to work, including
->> establishing a connection to the mobile network. But no frames
->> have been received over the data interface.
->
-> If this is needed in open() it must also be needed in reset_resume()
+A qeth_card contains a napi_struct linked to the net_device during
+device probing. This struct must be deleted when removing the qeth
+device, otherwise Panic on oops can occur when qeth devices are
+repeatedly removed and added.
 
-reset_resume needs fixing in general. This is completely unrelated to
-this bug. In fact, as we don't do any NCM control messages there in the
-current resume, I'm not sure this firmware bug is triggered by it.  But
-it's untestable, because:
+Fixes: a1c3ed4c9ca ("qeth: NAPI support for l2 and l3 discipline")
+Cc: stable@vger.kernel.org # v2.6.37+
+Signed-off-by: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Tested-by: Alexander Klein <ALKL@de.ibm.com>
+---
+ drivers/s390/net/qeth_l2_main.c | 1 +
+ drivers/s390/net/qeth_l3_main.c | 1 +
+ 2 files changed, 2 insertions(+)
 
-reset_resume cannot work for MBIM. At least not with the driver/userspa=
-ce
-model we have chosen.  The driver does not have enough information abou=
-t
-the device state to recreate it.  It could maybe work for NCM, but I
-don't think it currently does.  The NCM protocol requires some minimum
-driver and device negotiation, and the current NCM .reset_resume points
-to usbnet_resume which completely ignores that.
-
-Proposals for fixing reset_resume would of course be good, and I'll
-think about how to deal with it, but I don't think it should block
-fixing the current issue.  They are not related.
-
-
-Bj=C3=B8rn
+diff --git a/drivers/s390/net/qeth_l2_main.c b/drivers/s390/net/qeth_l2_main.c
+index 80b1979..df036b8 100644
+--- a/drivers/s390/net/qeth_l2_main.c
++++ b/drivers/s390/net/qeth_l2_main.c
+@@ -1051,6 +1051,7 @@ static void qeth_l2_remove_device(struct ccwgroup_device *cgdev)
+ 		qeth_l2_set_offline(cgdev);
+ 
+ 	if (card->dev) {
++		netif_napi_del(&card->napi);
+ 		unregister_netdev(card->dev);
+ 		card->dev = NULL;
+ 	}
+diff --git a/drivers/s390/net/qeth_l3_main.c b/drivers/s390/net/qeth_l3_main.c
+index ac54433..709b523 100644
+--- a/drivers/s390/net/qeth_l3_main.c
++++ b/drivers/s390/net/qeth_l3_main.c
+@@ -3226,6 +3226,7 @@ static void qeth_l3_remove_device(struct ccwgroup_device *cgdev)
+ 		qeth_l3_set_offline(cgdev);
+ 
+ 	if (card->dev) {
++		netif_napi_del(&card->napi);
+ 		unregister_netdev(card->dev);
+ 		card->dev = NULL;
+ 	}
+-- 
+2.6.6
