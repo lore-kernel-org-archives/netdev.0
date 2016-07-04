@@ -1,70 +1,101 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next 00/10] NCSI Support
-Date: Mon, 4 Jul 2016 10:24:25 +1000
-Message-ID: <20160704002425.GA5153@gwshan>
-References: <1467523953-18998-1-git-send-email-gwshan@linux.vnet.ibm.com>
- <CAJ3xEMjEup1VUeCr3g2Ry78HvprfnC6wjGd=MWjnMOLWdLyKdQ@mail.gmail.com>
- <1467586171.7422.104.camel@kernel.crashing.org>
-Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Mon, 4 Jul 2016 13:02:17 +1000
+Message-ID: <20160704130217.79de2ba1@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Or Gerlitz <gerlitz.or@gmail.com>,
-	Gavin Shan <gwshan@linux.vnet.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, joel@jms.id.au,
-	weixue@trustnetic.com, yuvali@mellanox.com
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:6895 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S932182AbcGDAYe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jul 2016 20:24:34 -0400
-Received: from pps.filterd (m0098419.ppops.net [127.0.0.1])
-	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u640JJVT141149
-	for <netdev@vger.kernel.org>; Sun, 3 Jul 2016 20:24:33 -0400
-Received: from e23smtp09.au.ibm.com (e23smtp09.au.ibm.com [202.81.31.142])
-	by mx0b-001b2d01.pphosted.com with ESMTP id 23x6hw5g81-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Sun, 03 Jul 2016 20:24:33 -0400
-Received: from localhost
-	by e23smtp09.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-	Mon, 4 Jul 2016 10:24:30 +1000
-Received: from d23relay06.au.ibm.com (d23relay06.au.ibm.com [9.185.63.219])
-	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 64FF62BB0057
-	for <netdev@vger.kernel.org>; Mon,  4 Jul 2016 10:24:27 +1000 (EST)
-Received: from d23av03.au.ibm.com (d23av03.au.ibm.com [9.190.234.97])
-	by d23relay06.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u640ORRN7274910
-	for <netdev@vger.kernel.org>; Mon, 4 Jul 2016 10:24:27 +1000
-Received: from d23av03.au.ibm.com (localhost [127.0.0.1])
-	by d23av03.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u640OQSP020326
-	for <netdev@vger.kernel.org>; Mon, 4 Jul 2016 10:24:27 +1000
-Content-Disposition: inline
-In-Reply-To: <1467586171.7422.104.camel@kernel.crashing.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Jurgens <danielj@mellanox.com>,
+	Gil Rockah <gilr@mellanox.com>,
+	Achiad Shochat <achiad@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 04, 2016 at 08:49:31AM +1000, Benjamin Herrenschmidt wrote:
->On Mon, 2016-07-04 at 01:03 +0300, Or Gerlitz wrote:
->> FWIW, talking to a colleague, he made a comment that some of the text
->> above is wrong:
->> 
->> AENs are sent from NIC to BMC. Not from Host to BMC.
->
->Just a typo in the commit message thankfully ;-)
->
+Hi all,
 
-Yeah, the AENs are sent from NIC to BMC and the code follows it. The code
-is tested on IBM's openPower server where a BMC (ARM system) and host (
-Power system and NIC) are included. So the host, the far end and NIC can
-be regarded as equivalents.
+Today's linux-next merge of the net-next tree got a conflict in:
 
->> The traffic between a BMC and a NIC is over RBT if it is formatted as
->> NC-SI packets. This is not over network traffic....
->
+  drivers/net/ethernet/mellanox/mlx5/core/en.h
 
-It's correct. The figure included in the commit log might give the illusion
-that NCSI packets are sent over network traffic.
+between commit:
 
-Thanks,
-Gavin
+  6cd392a082de ("net/mlx5e: Handle RQ flush in error cases")
+
+from the net tree and commit:
+
+  cb3c7fd4f839 ("net/mlx5e: Support adaptive RX coalescing")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/ethernet/mellanox/mlx5/core/en.h
+index 943b1bd434bf,00643a116492..000000000000
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en.h
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en.h
+@@@ -143,10 -146,32 +146,31 @@@ struct mlx5e_umr_wqe 
+  	struct mlx5_wqe_data_seg       data;
+  };
+  
++ static const char mlx5e_priv_flags[][ETH_GSTRING_LEN] = {
++ 	"rx_cqe_moder",
++ };
++ 
++ enum mlx5e_priv_flag {
++ 	MLX5E_PFLAG_RX_CQE_BASED_MODER = (1 << 0),
++ };
++ 
++ #define MLX5E_SET_PRIV_FLAG(priv, pflag, enable)    \
++ 	do {                                        \
++ 		if (enable)                         \
++ 			priv->pflags |= pflag;      \
++ 		else                                \
++ 			priv->pflags &= ~pflag;     \
++ 	} while (0)
++ 
+  #ifdef CONFIG_MLX5_CORE_EN_DCB
+  #define MLX5E_MAX_BW_ALLOC 100 /* Max percentage of BW allocation */
+ -#define MLX5E_MIN_BW_ALLOC 1   /* Min percentage of BW allocation */
+  #endif
+  
++ struct mlx5e_cq_moder {
++ 	u16 usec;
++ 	u16 pkts;
++ };
++ 
+  struct mlx5e_params {
+  	u8  log_sq_size;
+  	u8  rq_wq_type;
+@@@ -190,7 -215,7 +214,8 @@@ struct mlx5e_tstamp 
+  enum {
+  	MLX5E_RQ_STATE_POST_WQES_ENABLE,
+  	MLX5E_RQ_STATE_UMR_WQE_IN_PROGRESS,
+ +	MLX5E_RQ_STATE_FLUSH_TIMEOUT,
++ 	MLX5E_RQ_STATE_AM,
+  };
+  
+  struct mlx5e_cq {
+@@@ -542,9 -610,9 +614,10 @@@ struct mlx5e_priv 
+  	struct workqueue_struct    *wq;
+  	struct work_struct         update_carrier_work;
+  	struct work_struct         set_rx_mode_work;
+ +	struct work_struct         tx_timeout_work;
+  	struct delayed_work        update_stats_work;
+  
++ 	u32                        pflags;
+  	struct mlx5_core_dev      *mdev;
+  	struct net_device         *netdev;
+  	struct mlx5e_stats         stats;
