@@ -1,123 +1,186 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 8/8] net/mlx5e: Expose flow control counters to ethtool
-Date: Mon,  4 Jul 2016 17:23:12 +0300
-Message-ID: <1467642192-28259-9-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 3/8] net/mlx5: Properly remove all steering objects
+Date: Mon,  4 Jul 2016 17:23:07 +0300
+Message-ID: <1467642192-28259-4-git-send-email-saeedm@mellanox.com>
 References: <1467642192-28259-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
-	Gal Pressman <galp@mellanox.com>,
+	Maor Gottlieb <maorg@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:54708 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:54682 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752411AbcGDOX5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jul 2016 10:23:57 -0400
+	id S1751980AbcGDOXv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jul 2016 10:23:51 -0400
 In-Reply-To: <1467642192-28259-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Gal Pressman <galp@mellanox.com>
+From: Maor Gottlieb <maorg@mellanox.com>
 
-Just like per prio counters, the global flow counters are queried from
-per priority counters register.
-Global flow control counters are stored in priority 0 PFC counters.
+Instead of explicitly cleaning up the well known parts of the steering
+tree, we use the generic tree structure to traverse for cleanup.
+No functional changes.
 
-Signed-off-by: Gal Pressman <galp@mellanox.com>
+Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlx5/core/en_ethtool.c   | 35 ++++++++++++++++++++--
- drivers/net/ethernet/mellanox/mlx5/core/en_stats.h | 11 +++----
- 2 files changed, 38 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 120 +++-------------------
+ 1 file changed, 15 insertions(+), 105 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-index d652aa9..4a3757e 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_ethtool.c
-@@ -139,6 +139,18 @@ static unsigned long mlx5e_query_pfc_combined(struct mlx5e_priv *priv)
- 	return err ? 0 : pfc_en_tx | pfc_en_rx;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index 0f969cb..3e95775 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -1663,115 +1663,24 @@ cleanup:
+ 	return -ENOMEM;
  }
  
-+static bool mlx5e_query_global_pause_combined(struct mlx5e_priv *priv)
-+{
-+	struct mlx5_core_dev *mdev = priv->mdev;
-+	u32 rx_pause;
-+	u32 tx_pause;
-+	int err;
-+
-+	err = mlx5_query_port_pause(mdev, &rx_pause, &tx_pause);
-+
-+	return err ? false : rx_pause | tx_pause;
-+}
-+
- #define MLX5E_NUM_Q_CNTRS(priv) (NUM_Q_COUNTERS * (!!priv->q_counter))
- #define MLX5E_NUM_RQ_STATS(priv) \
- 	(NUM_RQ_STATS * priv->params.num_channels * \
-@@ -147,8 +159,8 @@ static unsigned long mlx5e_query_pfc_combined(struct mlx5e_priv *priv)
- 	(NUM_SQ_STATS * priv->params.num_channels * priv->params.num_tc * \
- 	 test_bit(MLX5E_STATE_OPENED, &priv->state))
- #define MLX5E_NUM_PFC_COUNTERS(priv) \
--	(hweight8(mlx5e_query_pfc_combined(priv)) * \
--	 NUM_PPORT_PER_PRIO_PFC_COUNTERS)
-+	((mlx5e_query_global_pause_combined(priv) + hweight8(mlx5e_query_pfc_combined(priv))) * \
-+	  NUM_PPORT_PER_PRIO_PFC_COUNTERS)
- 
- static int mlx5e_get_sset_count(struct net_device *dev, int sset)
+-static void cleanup_single_prio_root_ns(struct mlx5_flow_steering *steering,
+-					struct mlx5_flow_root_namespace *root_ns)
++static void clean_tree(struct fs_node *node)
  {
-@@ -210,8 +222,18 @@ static void mlx5e_fill_stats_strings(struct mlx5e_priv *priv, uint8_t *data)
- 	pfc_combined = mlx5e_query_pfc_combined(priv);
- 	for_each_set_bit(prio, &pfc_combined, NUM_PPORT_PRIO) {
- 		for (i = 0; i < NUM_PPORT_PER_PRIO_PFC_COUNTERS; i++) {
-+			char pfc_string[ETH_GSTRING_LEN];
-+
-+			snprintf(pfc_string, sizeof(pfc_string), "prio%d", prio);
- 			sprintf(data + (idx++) * ETH_GSTRING_LEN,
--				pport_per_prio_pfc_stats_desc[i].format, prio);
-+				pport_per_prio_pfc_stats_desc[i].format, pfc_string);
-+		}
-+	}
-+
-+	if (mlx5e_query_global_pause_combined(priv)) {
-+		for (i = 0; i < NUM_PPORT_PER_PRIO_PFC_COUNTERS; i++) {
-+			sprintf(data + (idx++) * ETH_GSTRING_LEN,
-+				pport_per_prio_pfc_stats_desc[i].format, "global");
- 		}
- 	}
+-	struct fs_node *prio;
+-
+-	if (!root_ns)
+-		return;
++	if (node) {
++		struct fs_node *iter;
++		struct fs_node *temp;
  
-@@ -306,6 +328,13 @@ static void mlx5e_get_ethtool_stats(struct net_device *dev,
- 		}
+-	if (!list_empty(&root_ns->ns.node.children)) {
+-		prio = list_first_entry(&root_ns->ns.node.children,
+-					struct fs_node,
+-				 list);
+-		if (tree_remove_node(prio))
+-			mlx5_core_warn(steering->dev,
+-				       "Flow steering priority wasn't destroyed, refcount > 1\n");
++		list_for_each_entry_safe(iter, temp, &node->children, list)
++			clean_tree(iter);
++		tree_remove_node(node);
  	}
+-	if (tree_remove_node(&root_ns->ns.node))
+-		mlx5_core_warn(steering->dev,
+-			       "Flow steering namespace wasn't destroyed, refcount > 1\n");
+-	root_ns = NULL;
+-}
+-
+-static void destroy_flow_tables(struct fs_prio *prio)
+-{
+-	struct mlx5_flow_table *iter;
+-	struct mlx5_flow_table *tmp;
+-
+-	fs_for_each_ft_safe(iter, tmp, prio)
+-		mlx5_destroy_flow_table(iter);
+ }
  
-+	if (mlx5e_query_global_pause_combined(priv)) {
-+		for (i = 0; i < NUM_PPORT_PER_PRIO_PFC_COUNTERS; i++) {
-+			data[idx++] = MLX5E_READ_CTR64_BE(&priv->stats.pport.per_prio_counters[0],
-+							  pport_per_prio_pfc_stats_desc, 0);
-+		}
-+	}
-+
- 	if (!test_bit(MLX5E_STATE_OPENED, &priv->state))
+-static void cleanup_root_ns(struct mlx5_flow_steering *steering)
++static void cleanup_root_ns(struct mlx5_flow_root_namespace *root_ns)
+ {
+-	struct mlx5_flow_root_namespace *root_ns = steering->root_ns;
+-	struct fs_prio *iter_prio;
+-
+-	if (!MLX5_CAP_GEN(steering->dev, nic_flow_table))
+-		return;
+-
+ 	if (!root_ns)
  		return;
  
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-index ae29998..7b9d8a9 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_stats.h
-@@ -254,11 +254,12 @@ static const struct counter_desc pport_per_prio_traffic_stats_desc[] = {
- };
+-	/* stage 1 */
+-	fs_for_each_prio(iter_prio, &root_ns->ns) {
+-		struct fs_node *node;
+-		struct mlx5_flow_namespace *iter_ns;
+-
+-		fs_for_each_ns_or_ft(node, iter_prio) {
+-			if (node->type == FS_TYPE_FLOW_TABLE)
+-				continue;
+-			fs_get_obj(iter_ns, node);
+-			while (!list_empty(&iter_ns->node.children)) {
+-				struct fs_prio *obj_iter_prio2;
+-				struct fs_node *iter_prio2 =
+-					list_first_entry(&iter_ns->node.children,
+-							 struct fs_node,
+-							 list);
+-
+-				fs_get_obj(obj_iter_prio2, iter_prio2);
+-				destroy_flow_tables(obj_iter_prio2);
+-				if (tree_remove_node(iter_prio2)) {
+-					mlx5_core_warn(steering->dev,
+-						       "Priority %d wasn't destroyed, refcount > 1\n",
+-						       obj_iter_prio2->prio);
+-					return;
+-				}
+-			}
+-		}
+-	}
+-
+-	/* stage 2 */
+-	fs_for_each_prio(iter_prio, &root_ns->ns) {
+-		while (!list_empty(&iter_prio->node.children)) {
+-			struct fs_node *iter_ns =
+-				list_first_entry(&iter_prio->node.children,
+-						 struct fs_node,
+-						 list);
+-			if (tree_remove_node(iter_ns)) {
+-				mlx5_core_warn(steering->dev,
+-					       "Namespace wasn't destroyed, refcount > 1\n");
+-				return;
+-			}
+-		}
+-	}
+-
+-	/* stage 3 */
+-	while (!list_empty(&root_ns->ns.node.children)) {
+-		struct fs_prio *obj_prio_node;
+-		struct fs_node *prio_node =
+-			list_first_entry(&root_ns->ns.node.children,
+-					 struct fs_node,
+-					 list);
+-
+-		fs_get_obj(obj_prio_node, prio_node);
+-		if (tree_remove_node(prio_node)) {
+-			mlx5_core_warn(steering->dev,
+-				       "Priority %d wasn't destroyed, refcount > 1\n",
+-				       obj_prio_node->prio);
+-			return;
+-		}
+-	}
+-
+-	if (tree_remove_node(&root_ns->ns.node)) {
+-		mlx5_core_warn(steering->dev,
+-			       "root namespace wasn't destroyed, refcount > 1\n");
+-		return;
+-	}
+-
+-	steering->root_ns = NULL;
++	clean_tree(&root_ns->ns.node);
+ }
  
- static const struct counter_desc pport_per_prio_pfc_stats_desc[] = {
--	{ "rx_prio%d_pause", PPORT_PER_PRIO_OFF(rx_pause) },
--	{ "rx_prio%d_pause_duration", PPORT_PER_PRIO_OFF(rx_pause_duration) },
--	{ "tx_prio%d_pause", PPORT_PER_PRIO_OFF(tx_pause) },
--	{ "tx_prio%d_pause_duration", PPORT_PER_PRIO_OFF(tx_pause_duration) },
--	{ "rx_prio%d_pause_transition", PPORT_PER_PRIO_OFF(rx_pause_transition) },
-+	/* %s is "global" or "prio{i}" */
-+	{ "rx_%s_pause", PPORT_PER_PRIO_OFF(rx_pause) },
-+	{ "rx_%s_pause_duration", PPORT_PER_PRIO_OFF(rx_pause_duration) },
-+	{ "tx_%s_pause", PPORT_PER_PRIO_OFF(tx_pause) },
-+	{ "tx_%s_pause_duration", PPORT_PER_PRIO_OFF(tx_pause_duration) },
-+	{ "rx_%s_pause_transition", PPORT_PER_PRIO_OFF(rx_pause_transition) },
- };
+ void mlx5_cleanup_fs(struct mlx5_core_dev *dev)
+@@ -1781,10 +1690,10 @@ void mlx5_cleanup_fs(struct mlx5_core_dev *dev)
+ 	if (MLX5_CAP_GEN(dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
+ 		return;
  
- struct mlx5e_rq_stats {
+-	cleanup_root_ns(steering);
+-	cleanup_single_prio_root_ns(steering, steering->esw_egress_root_ns);
+-	cleanup_single_prio_root_ns(steering, steering->esw_ingress_root_ns);
+-	cleanup_single_prio_root_ns(steering, steering->fdb_root_ns);
++	cleanup_root_ns(steering->root_ns);
++	cleanup_root_ns(steering->esw_egress_root_ns);
++	cleanup_root_ns(steering->esw_ingress_root_ns);
++	cleanup_root_ns(steering->fdb_root_ns);
+ 	mlx5_cleanup_fc_stats(dev);
+ 	kfree(steering);
+ }
+@@ -1800,7 +1709,8 @@ static int init_fdb_root_ns(struct mlx5_flow_steering *steering)
+ 	/* Create single prio */
+ 	prio = fs_create_prio(&steering->fdb_root_ns->ns, 0, 1);
+ 	if (IS_ERR(prio)) {
+-		cleanup_single_prio_root_ns(steering, steering->fdb_root_ns);
++		cleanup_root_ns(steering->fdb_root_ns);
++		steering->fdb_root_ns = NULL;
+ 		return PTR_ERR(prio);
+ 	} else {
+ 		return 0;
 -- 
 2.8.0
