@@ -1,16 +1,16 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 2/8] net/mlx5: Introduce mlx5_flow_steering structure
-Date: Mon,  4 Jul 2016 17:23:06 +0300
-Message-ID: <1467642192-28259-3-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 1/8] net/mlx5: Refactor mlx5_add_flow_rule
+Date: Mon,  4 Jul 2016 17:23:05 +0300
+Message-ID: <1467642192-28259-2-git-send-email-saeedm@mellanox.com>
 References: <1467642192-28259-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Maor Gottlieb <maorg@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:54679 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:54673 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751889AbcGDOXv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1751424AbcGDOXv (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Mon, 4 Jul 2016 10:23:51 -0400
 In-Reply-To: <1467642192-28259-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,437 +18,1006 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Maor Gottlieb <maorg@mellanox.com>
 
-Instead of having all steering private name spaces and
-steering module fields flat in mlx5_core_priv, we wrap
-them in mlx5_flow_steering for better modularity and
-API exposure.
+Reduce the set of arguments passed to mlx5_add_flow_rule
+by introducing flow_spec structure.
 
 Signed-off-by: Maor Gottlieb <maorg@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.c | 134 ++++++++++++----------
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h |   8 ++
- include/linux/mlx5/driver.h                       |   6 +-
- 3 files changed, 84 insertions(+), 64 deletions(-)
+ drivers/infiniband/hw/mlx5/main.c                  |  21 ++---
+ drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c  |  68 ++++++--------
+ drivers/net/ethernet/mellanox/mlx5/core/en_fs.c    |  96 ++++++++------------
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c    |  31 +++----
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.c  | 100 ++++++++-------------
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c |  55 ++++++------
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  |  22 ++---
+ include/linux/mlx5/fs.h                            |  10 ++-
+ 8 files changed, 171 insertions(+), 232 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-index 7fcdae1..0f969cb 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
-@@ -1363,12 +1363,13 @@ void mlx5_destroy_flow_group(struct mlx5_flow_group *fg)
- struct mlx5_flow_namespace *mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
- 						    enum mlx5_flow_namespace_type type)
+diff --git a/drivers/infiniband/hw/mlx5/main.c b/drivers/infiniband/hw/mlx5/main.c
+index b48ad85..dad63f0 100644
+--- a/drivers/infiniband/hw/mlx5/main.c
++++ b/drivers/infiniband/hw/mlx5/main.c
+@@ -1528,21 +1528,18 @@ static struct mlx5_ib_flow_handler *create_flow_rule(struct mlx5_ib_dev *dev,
  {
--	struct mlx5_flow_root_namespace *root_ns = dev->priv.root_ns;
-+	struct mlx5_flow_steering *steering = dev->priv.steering;
-+	struct mlx5_flow_root_namespace *root_ns;
- 	int prio;
- 	struct fs_prio *fs_prio;
- 	struct mlx5_flow_namespace *ns;
- 
--	if (!root_ns)
-+	if (!steering)
- 		return NULL;
- 
- 	switch (type) {
-@@ -1380,24 +1381,28 @@ struct mlx5_flow_namespace *mlx5_get_flow_namespace(struct mlx5_core_dev *dev,
- 		prio = type;
- 		break;
- 	case MLX5_FLOW_NAMESPACE_FDB:
--		if (dev->priv.fdb_root_ns)
--			return &dev->priv.fdb_root_ns->ns;
-+		if (steering->fdb_root_ns)
-+			return &steering->fdb_root_ns->ns;
- 		else
- 			return NULL;
- 	case MLX5_FLOW_NAMESPACE_ESW_EGRESS:
--		if (dev->priv.esw_egress_root_ns)
--			return &dev->priv.esw_egress_root_ns->ns;
-+		if (steering->esw_egress_root_ns)
-+			return &steering->esw_egress_root_ns->ns;
- 		else
- 			return NULL;
- 	case MLX5_FLOW_NAMESPACE_ESW_INGRESS:
--		if (dev->priv.esw_ingress_root_ns)
--			return &dev->priv.esw_ingress_root_ns->ns;
-+		if (steering->esw_ingress_root_ns)
-+			return &steering->esw_ingress_root_ns->ns;
- 		else
- 			return NULL;
- 	default:
- 		return NULL;
- 	}
- 
-+	root_ns = steering->root_ns;
-+	if (!root_ns)
-+		return NULL;
-+
- 	fs_prio = find_prio(&root_ns->ns, prio);
- 	if (!fs_prio)
- 		return NULL;
-@@ -1483,13 +1488,13 @@ static bool has_required_caps(struct mlx5_core_dev *dev, struct node_caps *caps)
- 	return true;
- }
- 
--static int init_root_tree_recursive(struct mlx5_core_dev *dev,
-+static int init_root_tree_recursive(struct mlx5_flow_steering *steering,
- 				    struct init_tree_node *init_node,
- 				    struct fs_node *fs_parent_node,
- 				    struct init_tree_node *init_parent_node,
- 				    int prio)
- {
--	int max_ft_level = MLX5_CAP_FLOWTABLE(dev,
-+	int max_ft_level = MLX5_CAP_FLOWTABLE(steering->dev,
- 					      flow_table_properties_nic_receive.
- 					      max_ft_level);
- 	struct mlx5_flow_namespace *fs_ns;
-@@ -1500,7 +1505,7 @@ static int init_root_tree_recursive(struct mlx5_core_dev *dev,
- 
- 	if (init_node->type == FS_TYPE_PRIO) {
- 		if ((init_node->min_ft_level > max_ft_level) ||
--		    !has_required_caps(dev, &init_node->caps))
-+		    !has_required_caps(steering->dev, &init_node->caps))
- 			return 0;
- 
- 		fs_get_obj(fs_ns, fs_parent_node);
-@@ -1521,7 +1526,7 @@ static int init_root_tree_recursive(struct mlx5_core_dev *dev,
- 	}
- 	prio = 0;
- 	for (i = 0; i < init_node->ar_size; i++) {
--		err = init_root_tree_recursive(dev, &init_node->children[i],
-+		err = init_root_tree_recursive(steering, &init_node->children[i],
- 					       base, init_node, prio);
- 		if (err)
- 			return err;
-@@ -1534,7 +1539,7 @@ static int init_root_tree_recursive(struct mlx5_core_dev *dev,
- 	return 0;
- }
- 
--static int init_root_tree(struct mlx5_core_dev *dev,
-+static int init_root_tree(struct mlx5_flow_steering *steering,
- 			  struct init_tree_node *init_node,
- 			  struct fs_node *fs_parent_node)
- {
-@@ -1544,7 +1549,7 @@ static int init_root_tree(struct mlx5_core_dev *dev,
- 
- 	fs_get_obj(fs_ns, fs_parent_node);
- 	for (i = 0; i < init_node->ar_size; i++) {
--		err = init_root_tree_recursive(dev, &init_node->children[i],
-+		err = init_root_tree_recursive(steering, &init_node->children[i],
- 					       &fs_ns->node,
- 					       init_node, i);
- 		if (err)
-@@ -1553,7 +1558,7 @@ static int init_root_tree(struct mlx5_core_dev *dev,
- 	return 0;
- }
- 
--static struct mlx5_flow_root_namespace *create_root_ns(struct mlx5_core_dev *dev,
-+static struct mlx5_flow_root_namespace *create_root_ns(struct mlx5_flow_steering *steering,
- 						       enum fs_flow_table_type
- 						       table_type)
- {
-@@ -1565,7 +1570,7 @@ static struct mlx5_flow_root_namespace *create_root_ns(struct mlx5_core_dev *dev
- 	if (!root_ns)
- 		return NULL;
- 
--	root_ns->dev = dev;
-+	root_ns->dev = steering->dev;
- 	root_ns->table_type = table_type;
- 
- 	ns = &root_ns->ns;
-@@ -1620,46 +1625,45 @@ static void set_prio_attrs(struct mlx5_flow_root_namespace *root_ns)
- #define ANCHOR_PRIO 0
- #define ANCHOR_SIZE 1
- #define ANCHOR_LEVEL 0
--static int create_anchor_flow_table(struct mlx5_core_dev
--							*dev)
-+static int create_anchor_flow_table(struct mlx5_flow_steering *steering)
- {
- 	struct mlx5_flow_namespace *ns = NULL;
- 	struct mlx5_flow_table *ft;
- 
--	ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_ANCHOR);
-+	ns = mlx5_get_flow_namespace(steering->dev, MLX5_FLOW_NAMESPACE_ANCHOR);
- 	if (!ns)
- 		return -EINVAL;
- 	ft = mlx5_create_flow_table(ns, ANCHOR_PRIO, ANCHOR_SIZE, ANCHOR_LEVEL);
- 	if (IS_ERR(ft)) {
--		mlx5_core_err(dev, "Failed to create last anchor flow table");
-+		mlx5_core_err(steering->dev, "Failed to create last anchor flow table");
- 		return PTR_ERR(ft);
- 	}
- 	return 0;
- }
- 
--static int init_root_ns(struct mlx5_core_dev *dev)
-+static int init_root_ns(struct mlx5_flow_steering *steering)
- {
- 
--	dev->priv.root_ns = create_root_ns(dev, FS_FT_NIC_RX);
--	if (IS_ERR_OR_NULL(dev->priv.root_ns))
-+	steering->root_ns = create_root_ns(steering, FS_FT_NIC_RX);
-+	if (IS_ERR_OR_NULL(steering->root_ns))
- 		goto cleanup;
- 
--	if (init_root_tree(dev, &root_fs, &dev->priv.root_ns->ns.node))
-+	if (init_root_tree(steering, &root_fs, &steering->root_ns->ns.node))
- 		goto cleanup;
- 
--	set_prio_attrs(dev->priv.root_ns);
-+	set_prio_attrs(steering->root_ns);
- 
--	if (create_anchor_flow_table(dev))
-+	if (create_anchor_flow_table(steering))
- 		goto cleanup;
- 
- 	return 0;
- 
- cleanup:
--	mlx5_cleanup_fs(dev);
-+	mlx5_cleanup_fs(steering->dev);
- 	return -ENOMEM;
- }
- 
--static void cleanup_single_prio_root_ns(struct mlx5_core_dev *dev,
-+static void cleanup_single_prio_root_ns(struct mlx5_flow_steering *steering,
- 					struct mlx5_flow_root_namespace *root_ns)
- {
- 	struct fs_node *prio;
-@@ -1672,11 +1676,11 @@ static void cleanup_single_prio_root_ns(struct mlx5_core_dev *dev,
- 					struct fs_node,
- 				 list);
- 		if (tree_remove_node(prio))
--			mlx5_core_warn(dev,
-+			mlx5_core_warn(steering->dev,
- 				       "Flow steering priority wasn't destroyed, refcount > 1\n");
- 	}
- 	if (tree_remove_node(&root_ns->ns.node))
--		mlx5_core_warn(dev,
-+		mlx5_core_warn(steering->dev,
- 			       "Flow steering namespace wasn't destroyed, refcount > 1\n");
- 	root_ns = NULL;
- }
-@@ -1690,12 +1694,12 @@ static void destroy_flow_tables(struct fs_prio *prio)
- 		mlx5_destroy_flow_table(iter);
- }
- 
--static void cleanup_root_ns(struct mlx5_core_dev *dev)
-+static void cleanup_root_ns(struct mlx5_flow_steering *steering)
- {
--	struct mlx5_flow_root_namespace *root_ns = dev->priv.root_ns;
-+	struct mlx5_flow_root_namespace *root_ns = steering->root_ns;
- 	struct fs_prio *iter_prio;
- 
--	if (!MLX5_CAP_GEN(dev, nic_flow_table))
-+	if (!MLX5_CAP_GEN(steering->dev, nic_flow_table))
- 		return;
- 
- 	if (!root_ns)
-@@ -1720,7 +1724,7 @@ static void cleanup_root_ns(struct mlx5_core_dev *dev)
- 				fs_get_obj(obj_iter_prio2, iter_prio2);
- 				destroy_flow_tables(obj_iter_prio2);
- 				if (tree_remove_node(iter_prio2)) {
--					mlx5_core_warn(dev,
-+					mlx5_core_warn(steering->dev,
- 						       "Priority %d wasn't destroyed, refcount > 1\n",
- 						       obj_iter_prio2->prio);
- 					return;
-@@ -1737,7 +1741,7 @@ static void cleanup_root_ns(struct mlx5_core_dev *dev)
- 						 struct fs_node,
- 						 list);
- 			if (tree_remove_node(iter_ns)) {
--				mlx5_core_warn(dev,
-+				mlx5_core_warn(steering->dev,
- 					       "Namespace wasn't destroyed, refcount > 1\n");
- 				return;
- 			}
-@@ -1754,7 +1758,7 @@ static void cleanup_root_ns(struct mlx5_core_dev *dev)
- 
- 		fs_get_obj(obj_prio_node, prio_node);
- 		if (tree_remove_node(prio_node)) {
--			mlx5_core_warn(dev,
-+			mlx5_core_warn(steering->dev,
- 				       "Priority %d wasn't destroyed, refcount > 1\n",
- 				       obj_prio_node->prio);
- 			return;
-@@ -1762,70 +1766,75 @@ static void cleanup_root_ns(struct mlx5_core_dev *dev)
- 	}
- 
- 	if (tree_remove_node(&root_ns->ns.node)) {
--		mlx5_core_warn(dev,
-+		mlx5_core_warn(steering->dev,
- 			       "root namespace wasn't destroyed, refcount > 1\n");
- 		return;
- 	}
- 
--	dev->priv.root_ns = NULL;
-+	steering->root_ns = NULL;
- }
- 
- void mlx5_cleanup_fs(struct mlx5_core_dev *dev)
- {
-+	struct mlx5_flow_steering *steering = dev->priv.steering;
-+
- 	if (MLX5_CAP_GEN(dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
- 		return;
- 
--	cleanup_root_ns(dev);
--	cleanup_single_prio_root_ns(dev, dev->priv.fdb_root_ns);
--	cleanup_single_prio_root_ns(dev, dev->priv.esw_egress_root_ns);
--	cleanup_single_prio_root_ns(dev, dev->priv.esw_ingress_root_ns);
-+	cleanup_root_ns(steering);
-+	cleanup_single_prio_root_ns(steering, steering->esw_egress_root_ns);
-+	cleanup_single_prio_root_ns(steering, steering->esw_ingress_root_ns);
-+	cleanup_single_prio_root_ns(steering, steering->fdb_root_ns);
- 	mlx5_cleanup_fc_stats(dev);
-+	kfree(steering);
- }
- 
--static int init_fdb_root_ns(struct mlx5_core_dev *dev)
-+static int init_fdb_root_ns(struct mlx5_flow_steering *steering)
- {
- 	struct fs_prio *prio;
- 
--	dev->priv.fdb_root_ns = create_root_ns(dev, FS_FT_FDB);
--	if (!dev->priv.fdb_root_ns)
-+	steering->fdb_root_ns = create_root_ns(steering, FS_FT_FDB);
-+	if (!steering->fdb_root_ns)
- 		return -ENOMEM;
- 
- 	/* Create single prio */
--	prio = fs_create_prio(&dev->priv.fdb_root_ns->ns, 0, 1);
-+	prio = fs_create_prio(&steering->fdb_root_ns->ns, 0, 1);
- 	if (IS_ERR(prio)) {
--		cleanup_single_prio_root_ns(dev, dev->priv.fdb_root_ns);
-+		cleanup_single_prio_root_ns(steering, steering->fdb_root_ns);
- 		return PTR_ERR(prio);
- 	} else {
- 		return 0;
- 	}
- }
- 
--static int init_egress_acl_root_ns(struct mlx5_core_dev *dev)
-+static int init_ingress_acl_root_ns(struct mlx5_flow_steering *steering)
- {
- 	struct fs_prio *prio;
- 
--	dev->priv.esw_egress_root_ns = create_root_ns(dev, FS_FT_ESW_EGRESS_ACL);
--	if (!dev->priv.esw_egress_root_ns)
-+	steering->esw_egress_root_ns = create_root_ns(steering, FS_FT_ESW_EGRESS_ACL);
-+	if (!steering->esw_egress_root_ns)
- 		return -ENOMEM;
- 
- 	/* create 1 prio*/
--	prio = fs_create_prio(&dev->priv.esw_egress_root_ns->ns, 0, MLX5_TOTAL_VPORTS(dev));
-+	prio = fs_create_prio(&steering->esw_egress_root_ns->ns, 0,
-+			      MLX5_TOTAL_VPORTS(steering->dev));
- 	if (IS_ERR(prio))
- 		return PTR_ERR(prio);
- 	else
- 		return 0;
- }
- 
--static int init_ingress_acl_root_ns(struct mlx5_core_dev *dev)
-+static int init_egress_acl_root_ns(struct mlx5_flow_steering *steering)
- {
- 	struct fs_prio *prio;
- 
--	dev->priv.esw_ingress_root_ns = create_root_ns(dev, FS_FT_ESW_INGRESS_ACL);
--	if (!dev->priv.esw_ingress_root_ns)
-+	steering->esw_ingress_root_ns = create_root_ns(steering, FS_FT_ESW_INGRESS_ACL);
-+	if (!steering->esw_ingress_root_ns)
- 		return -ENOMEM;
- 
- 	/* create 1 prio*/
--	prio = fs_create_prio(&dev->priv.esw_ingress_root_ns->ns, 0, MLX5_TOTAL_VPORTS(dev));
-+	prio = fs_create_prio(&steering->esw_ingress_root_ns->ns, 0,
-+			      MLX5_TOTAL_VPORTS(steering->dev));
- 	if (IS_ERR(prio))
- 		return PTR_ERR(prio);
- 	else
-@@ -1834,6 +1843,7 @@ static int init_ingress_acl_root_ns(struct mlx5_core_dev *dev)
- 
- int mlx5_init_fs(struct mlx5_core_dev *dev)
- {
-+	struct mlx5_flow_steering *steering;
+ 	struct mlx5_flow_table	*ft = ft_prio->flow_table;
+ 	struct mlx5_ib_flow_handler *handler;
++	struct mlx5_flow_spec *spec;
+ 	void *ib_flow = flow_attr + 1;
+-	u8 match_criteria_enable = 0;
+ 	unsigned int spec_index;
+-	u32 *match_c;
+-	u32 *match_v;
+ 	u32 action;
  	int err = 0;
  
- 	if (MLX5_CAP_GEN(dev, port_type) != MLX5_CAP_PORT_TYPE_ETH)
-@@ -1843,26 +1853,32 @@ int mlx5_init_fs(struct mlx5_core_dev *dev)
- 	if (err)
- 		return err;
+ 	if (!is_valid_attr(flow_attr))
+ 		return ERR_PTR(-EINVAL);
  
-+	steering = kzalloc(sizeof(*steering), GFP_KERNEL);
-+	if (!steering)
-+		return -ENOMEM;
-+	steering->dev = dev;
-+	dev->priv.steering = steering;
-+
- 	if (MLX5_CAP_GEN(dev, nic_flow_table) &&
- 	    MLX5_CAP_FLOWTABLE_NIC_RX(dev, ft_support)) {
--		err = init_root_ns(dev);
-+		err = init_root_ns(steering);
- 		if (err)
- 			goto err;
+-	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
++	spec = mlx5_vzalloc(sizeof(*spec));
+ 	handler = kzalloc(sizeof(*handler), GFP_KERNEL);
+-	if (!handler || !match_c || !match_v) {
++	if (!handler || !spec) {
+ 		err = -ENOMEM;
+ 		goto free;
+ 	}
+@@ -1550,7 +1547,8 @@ static struct mlx5_ib_flow_handler *create_flow_rule(struct mlx5_ib_dev *dev,
+ 	INIT_LIST_HEAD(&handler->list);
+ 
+ 	for (spec_index = 0; spec_index < flow_attr->num_of_specs; spec_index++) {
+-		err = parse_flow_attr(match_c, match_v, ib_flow);
++		err = parse_flow_attr(spec->match_criteria,
++				      spec->match_value, ib_flow);
+ 		if (err < 0)
+ 			goto free;
+ 
+@@ -1558,11 +1556,11 @@ static struct mlx5_ib_flow_handler *create_flow_rule(struct mlx5_ib_dev *dev,
  	}
  
- 	if (MLX5_CAP_GEN(dev, eswitch_flow_table)) {
- 		if (MLX5_CAP_ESW_FLOWTABLE_FDB(dev, ft_support)) {
--			err = init_fdb_root_ns(dev);
-+			err = init_fdb_root_ns(steering);
- 			if (err)
- 				goto err;
- 		}
- 		if (MLX5_CAP_ESW_EGRESS_ACL(dev, ft_support)) {
--			err = init_egress_acl_root_ns(dev);
-+			err = init_egress_acl_root_ns(steering);
- 			if (err)
- 				goto err;
- 		}
- 		if (MLX5_CAP_ESW_INGRESS_ACL(dev, ft_support)) {
--			err = init_ingress_acl_root_ns(dev);
-+			err = init_ingress_acl_root_ns(steering);
- 			if (err)
- 				goto err;
- 		}
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-index aa41a73..d7ba91a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-@@ -55,6 +55,14 @@ enum fs_fte_status {
- 	FS_FTE_STATUS_EXISTING = 1UL << 0,
- };
+ 	/* Outer header support only */
+-	match_criteria_enable = (!outer_header_zero(match_c)) << 0;
++	spec->match_criteria_enable = (!outer_header_zero(spec->match_criteria))
++		<< 0;
+ 	action = dst ? MLX5_FLOW_CONTEXT_ACTION_FWD_DEST :
+ 		MLX5_FLOW_CONTEXT_ACTION_FWD_NEXT_PRIO;
+-	handler->rule = mlx5_add_flow_rule(ft, match_criteria_enable,
+-					   match_c, match_v,
++	handler->rule = mlx5_add_flow_rule(ft, spec,
+ 					   action,
+ 					   MLX5_FS_DEFAULT_FLOW_TAG,
+ 					   dst);
+@@ -1578,8 +1576,7 @@ static struct mlx5_ib_flow_handler *create_flow_rule(struct mlx5_ib_dev *dev,
+ free:
+ 	if (err)
+ 		kfree(handler);
+-	kfree(match_c);
+-	kfree(match_v);
++	kvfree(spec);
+ 	return err ? ERR_PTR(err) : handler;
+ }
  
-+struct mlx5_flow_steering {
-+	struct mlx5_core_dev *dev;
-+	struct mlx5_flow_root_namespace *root_ns;
-+	struct mlx5_flow_root_namespace *fdb_root_ns;
-+	struct mlx5_flow_root_namespace *esw_egress_root_ns;
-+	struct mlx5_flow_root_namespace *esw_ingress_root_ns;
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
+index 10f18d4..a8cb387 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_arfs.c
+@@ -175,15 +175,12 @@ static int arfs_add_default_rule(struct mlx5e_priv *priv,
+ {
+ 	struct arfs_table *arfs_t = &priv->fs.arfs.arfs_tables[type];
+ 	struct mlx5_flow_destination dest;
+-	u8 match_criteria_enable = 0;
+ 	struct mlx5e_tir *tir = priv->indir_tir;
+-	u32 *match_criteria;
+-	u32 *match_value;
++	struct mlx5_flow_spec *spec;
+ 	int err = 0;
+ 
+-	match_value	= mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
+-	match_criteria	= mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
+-	if (!match_value || !match_criteria) {
++	spec = mlx5_vzalloc(sizeof(*spec));
++	if (!spec) {
+ 		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -208,8 +205,7 @@ static int arfs_add_default_rule(struct mlx5e_priv *priv,
+ 		goto out;
+ 	}
+ 
+-	arfs_t->default_rule = mlx5_add_flow_rule(arfs_t->ft.t, match_criteria_enable,
+-						  match_criteria, match_value,
++	arfs_t->default_rule = mlx5_add_flow_rule(arfs_t->ft.t, spec,
+ 						  MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
+ 						  MLX5_FS_DEFAULT_FLOW_TAG,
+ 						  &dest);
+@@ -220,8 +216,7 @@ static int arfs_add_default_rule(struct mlx5e_priv *priv,
+ 			   __func__, type);
+ 	}
+ out:
+-	kvfree(match_criteria);
+-	kvfree(match_value);
++	kvfree(spec);
+ 	return err;
+ }
+ 
+@@ -475,23 +470,20 @@ static struct mlx5_flow_rule *arfs_add_rule(struct mlx5e_priv *priv,
+ 	struct mlx5_flow_rule *rule = NULL;
+ 	struct mlx5_flow_destination dest;
+ 	struct arfs_table *arfs_table;
+-	u8 match_criteria_enable = 0;
++	struct mlx5_flow_spec *spec;
+ 	struct mlx5_flow_table *ft;
+-	u32 *match_criteria;
+-	u32 *match_value;
+ 	int err = 0;
+ 
+-	match_value	= mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
+-	match_criteria	= mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
+-	if (!match_value || !match_criteria) {
++	spec = mlx5_vzalloc(sizeof(*spec));
++	if (!spec) {
+ 		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
+ 		err = -ENOMEM;
+ 		goto out;
+ 	}
+-	match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
+-	MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++	spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
++	MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria,
+ 			 outer_headers.ethertype);
+-	MLX5_SET(fte_match_param, match_value, outer_headers.ethertype,
++	MLX5_SET(fte_match_param, spec->match_value, outer_headers.ethertype,
+ 		 ntohs(tuple->etype));
+ 	arfs_table = arfs_get_table(arfs, tuple->ip_proto, tuple->etype);
+ 	if (!arfs_table) {
+@@ -501,59 +493,58 @@ static struct mlx5_flow_rule *arfs_add_rule(struct mlx5e_priv *priv,
+ 
+ 	ft = arfs_table->ft.t;
+ 	if (tuple->ip_proto == IPPROTO_TCP) {
+-		MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria,
+ 				 outer_headers.tcp_dport);
+-		MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria,
+ 				 outer_headers.tcp_sport);
+-		MLX5_SET(fte_match_param, match_value, outer_headers.tcp_dport,
++		MLX5_SET(fte_match_param, spec->match_value, outer_headers.tcp_dport,
+ 			 ntohs(tuple->dst_port));
+-		MLX5_SET(fte_match_param, match_value, outer_headers.tcp_sport,
++		MLX5_SET(fte_match_param, spec->match_value, outer_headers.tcp_sport,
+ 			 ntohs(tuple->src_port));
+ 	} else {
+-		MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria,
+ 				 outer_headers.udp_dport);
+-		MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria,
+ 				 outer_headers.udp_sport);
+-		MLX5_SET(fte_match_param, match_value, outer_headers.udp_dport,
++		MLX5_SET(fte_match_param, spec->match_value, outer_headers.udp_dport,
+ 			 ntohs(tuple->dst_port));
+-		MLX5_SET(fte_match_param, match_value, outer_headers.udp_sport,
++		MLX5_SET(fte_match_param, spec->match_value, outer_headers.udp_sport,
+ 			 ntohs(tuple->src_port));
+ 	}
+ 	if (tuple->etype == htons(ETH_P_IP)) {
+-		memcpy(MLX5_ADDR_OF(fte_match_param, match_value,
++		memcpy(MLX5_ADDR_OF(fte_match_param, spec->match_value,
+ 				    outer_headers.src_ipv4_src_ipv6.ipv4_layout.ipv4),
+ 		       &tuple->src_ipv4,
+ 		       4);
+-		memcpy(MLX5_ADDR_OF(fte_match_param, match_value,
++		memcpy(MLX5_ADDR_OF(fte_match_param, spec->match_value,
+ 				    outer_headers.dst_ipv4_dst_ipv6.ipv4_layout.ipv4),
+ 		       &tuple->dst_ipv4,
+ 		       4);
+-		MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria,
+ 				 outer_headers.src_ipv4_src_ipv6.ipv4_layout.ipv4);
+-		MLX5_SET_TO_ONES(fte_match_param, match_criteria,
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria,
+ 				 outer_headers.dst_ipv4_dst_ipv6.ipv4_layout.ipv4);
+ 	} else {
+-		memcpy(MLX5_ADDR_OF(fte_match_param, match_value,
++		memcpy(MLX5_ADDR_OF(fte_match_param, spec->match_value,
+ 				    outer_headers.src_ipv4_src_ipv6.ipv6_layout.ipv6),
+ 		       &tuple->src_ipv6,
+ 		       16);
+-		memcpy(MLX5_ADDR_OF(fte_match_param, match_value,
++		memcpy(MLX5_ADDR_OF(fte_match_param, spec->match_value,
+ 				    outer_headers.dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
+ 		       &tuple->dst_ipv6,
+ 		       16);
+-		memset(MLX5_ADDR_OF(fte_match_param, match_criteria,
++		memset(MLX5_ADDR_OF(fte_match_param, spec->match_criteria,
+ 				    outer_headers.src_ipv4_src_ipv6.ipv6_layout.ipv6),
+ 		       0xff,
+ 		       16);
+-		memset(MLX5_ADDR_OF(fte_match_param, match_criteria,
++		memset(MLX5_ADDR_OF(fte_match_param, spec->match_criteria,
+ 				    outer_headers.dst_ipv4_dst_ipv6.ipv6_layout.ipv6),
+ 		       0xff,
+ 		       16);
+ 	}
+ 	dest.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
+ 	dest.tir_num = priv->direct_tir[arfs_rule->rxq].tirn;
+-	rule = mlx5_add_flow_rule(ft, match_criteria_enable, match_criteria,
+-				  match_value, MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
++	rule = mlx5_add_flow_rule(ft, spec, MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
+ 				  MLX5_FS_DEFAULT_FLOW_TAG,
+ 				  &dest);
+ 	if (IS_ERR(rule)) {
+@@ -563,8 +554,7 @@ static struct mlx5_flow_rule *arfs_add_rule(struct mlx5e_priv *priv,
+ 	}
+ 
+ out:
+-	kvfree(match_criteria);
+-	kvfree(match_value);
++	kvfree(spec);
+ 	return err ? ERR_PTR(err) : rule;
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+index 606e69b..2e1e863 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_fs.c
+@@ -156,19 +156,18 @@ enum mlx5e_vlan_rule_type {
+ 
+ static int __mlx5e_add_vlan_rule(struct mlx5e_priv *priv,
+ 				 enum mlx5e_vlan_rule_type rule_type,
+-				 u16 vid, u32 *mc, u32 *mv)
++				 u16 vid, struct mlx5_flow_spec *spec)
+ {
+ 	struct mlx5_flow_table *ft = priv->fs.vlan.ft.t;
+ 	struct mlx5_flow_destination dest;
+-	u8 match_criteria_enable = 0;
+ 	struct mlx5_flow_rule **rule_p;
+ 	int err = 0;
+ 
+ 	dest.type = MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE;
+ 	dest.ft = priv->fs.l2.ft.t;
+ 
+-	match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
+-	MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.vlan_tag);
++	spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
++	MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.vlan_tag);
+ 
+ 	switch (rule_type) {
+ 	case MLX5E_VLAN_RULE_TYPE_UNTAGGED:
+@@ -176,17 +175,19 @@ static int __mlx5e_add_vlan_rule(struct mlx5e_priv *priv,
+ 		break;
+ 	case MLX5E_VLAN_RULE_TYPE_ANY_VID:
+ 		rule_p = &priv->fs.vlan.any_vlan_rule;
+-		MLX5_SET(fte_match_param, mv, outer_headers.vlan_tag, 1);
++		MLX5_SET(fte_match_param, spec->match_value, outer_headers.vlan_tag, 1);
+ 		break;
+ 	default: /* MLX5E_VLAN_RULE_TYPE_MATCH_VID */
+ 		rule_p = &priv->fs.vlan.active_vlans_rule[vid];
+-		MLX5_SET(fte_match_param, mv, outer_headers.vlan_tag, 1);
+-		MLX5_SET_TO_ONES(fte_match_param, mc, outer_headers.first_vid);
+-		MLX5_SET(fte_match_param, mv, outer_headers.first_vid, vid);
++		MLX5_SET(fte_match_param, spec->match_value, outer_headers.vlan_tag, 1);
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria,
++				 outer_headers.first_vid);
++		MLX5_SET(fte_match_param, spec->match_value, outer_headers.first_vid,
++			 vid);
+ 		break;
+ 	}
+ 
+-	*rule_p = mlx5_add_flow_rule(ft, match_criteria_enable, mc, mv,
++	*rule_p = mlx5_add_flow_rule(ft, spec,
+ 				     MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
+ 				     MLX5_FS_DEFAULT_FLOW_TAG,
+ 				     &dest);
+@@ -203,27 +204,21 @@ static int __mlx5e_add_vlan_rule(struct mlx5e_priv *priv,
+ static int mlx5e_add_vlan_rule(struct mlx5e_priv *priv,
+ 			       enum mlx5e_vlan_rule_type rule_type, u16 vid)
+ {
+-	u32 *match_criteria;
+-	u32 *match_value;
++	struct mlx5_flow_spec *spec;
+ 	int err = 0;
+ 
+-	match_value	= mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
+-	match_criteria	= mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
+-	if (!match_value || !match_criteria) {
++	spec = mlx5_vzalloc(sizeof(*spec));
++	if (!spec) {
+ 		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
+-		err = -ENOMEM;
+-		goto add_vlan_rule_out;
++		return -ENOMEM;
+ 	}
+ 
+ 	if (rule_type == MLX5E_VLAN_RULE_TYPE_MATCH_VID)
+ 		mlx5e_vport_context_update_vlans(priv);
+ 
+-	err = __mlx5e_add_vlan_rule(priv, rule_type, vid, match_criteria,
+-				    match_value);
++	err = __mlx5e_add_vlan_rule(priv, rule_type, vid, spec);
+ 
+-add_vlan_rule_out:
+-	kvfree(match_criteria);
+-	kvfree(match_value);
++	kvfree(spec);
+ 
+ 	return err;
+ }
+@@ -598,32 +593,27 @@ static struct mlx5_flow_rule *mlx5e_generate_ttc_rule(struct mlx5e_priv *priv,
+ 						      u8 proto)
+ {
+ 	struct mlx5_flow_rule *rule;
+-	u8 match_criteria_enable = 0;
+-	u32 *match_criteria;
+-	u32 *match_value;
++	struct mlx5_flow_spec *spec;
+ 	int err = 0;
+ 
+-	match_value	= mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
+-	match_criteria	= mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
+-	if (!match_value || !match_criteria) {
++	spec = mlx5_vzalloc(sizeof(*spec));
++	if (!spec) {
+ 		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
+-		err = -ENOMEM;
+-		goto out;
++		return ERR_PTR(-ENOMEM);
+ 	}
+ 
+ 	if (proto) {
+-		match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
+-		MLX5_SET_TO_ONES(fte_match_param, match_criteria, outer_headers.ip_protocol);
+-		MLX5_SET(fte_match_param, match_value, outer_headers.ip_protocol, proto);
++		spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.ip_protocol);
++		MLX5_SET(fte_match_param, spec->match_value, outer_headers.ip_protocol, proto);
+ 	}
+ 	if (etype) {
+-		match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
+-		MLX5_SET_TO_ONES(fte_match_param, match_criteria, outer_headers.ethertype);
+-		MLX5_SET(fte_match_param, match_value, outer_headers.ethertype, etype);
++		spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.ethertype);
++		MLX5_SET(fte_match_param, spec->match_value, outer_headers.ethertype, etype);
+ 	}
+ 
+-	rule = mlx5_add_flow_rule(ft, match_criteria_enable,
+-				  match_criteria, match_value,
++	rule = mlx5_add_flow_rule(ft, spec,
+ 				  MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
+ 				  MLX5_FS_DEFAULT_FLOW_TAG,
+ 				  dest);
+@@ -631,9 +621,8 @@ static struct mlx5_flow_rule *mlx5e_generate_ttc_rule(struct mlx5e_priv *priv,
+ 		err = PTR_ERR(rule);
+ 		netdev_err(priv->netdev, "%s: add rule failed\n", __func__);
+ 	}
+-out:
+-	kvfree(match_criteria);
+-	kvfree(match_value);
++
++	kvfree(spec);
+ 	return err ? ERR_PTR(err) : rule;
+ }
+ 
+@@ -792,24 +781,20 @@ static int mlx5e_add_l2_flow_rule(struct mlx5e_priv *priv,
+ {
+ 	struct mlx5_flow_table *ft = priv->fs.l2.ft.t;
+ 	struct mlx5_flow_destination dest;
+-	u8 match_criteria_enable = 0;
+-	u32 *match_criteria;
+-	u32 *match_value;
++	struct mlx5_flow_spec *spec;
+ 	int err = 0;
+ 	u8 *mc_dmac;
+ 	u8 *mv_dmac;
+ 
+-	match_value    = mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
+-	match_criteria = mlx5_vzalloc(MLX5_ST_SZ_BYTES(fte_match_param));
+-	if (!match_value || !match_criteria) {
++	spec = mlx5_vzalloc(sizeof(*spec));
++	if (!spec) {
+ 		netdev_err(priv->netdev, "%s: alloc failed\n", __func__);
+-		err = -ENOMEM;
+-		goto add_l2_rule_out;
++		return -ENOMEM;
+ 	}
+ 
+-	mc_dmac = MLX5_ADDR_OF(fte_match_param, match_criteria,
++	mc_dmac = MLX5_ADDR_OF(fte_match_param, spec->match_criteria,
+ 			       outer_headers.dmac_47_16);
+-	mv_dmac = MLX5_ADDR_OF(fte_match_param, match_value,
++	mv_dmac = MLX5_ADDR_OF(fte_match_param, spec->match_value,
+ 			       outer_headers.dmac_47_16);
+ 
+ 	dest.type = MLX5_FLOW_DESTINATION_TYPE_FLOW_TABLE;
+@@ -817,13 +802,13 @@ static int mlx5e_add_l2_flow_rule(struct mlx5e_priv *priv,
+ 
+ 	switch (type) {
+ 	case MLX5E_FULLMATCH:
+-		match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
++		spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
+ 		eth_broadcast_addr(mc_dmac);
+ 		ether_addr_copy(mv_dmac, ai->addr);
+ 		break;
+ 
+ 	case MLX5E_ALLMULTI:
+-		match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
++		spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
+ 		mc_dmac[0] = 0x01;
+ 		mv_dmac[0] = 0x01;
+ 		break;
+@@ -832,8 +817,7 @@ static int mlx5e_add_l2_flow_rule(struct mlx5e_priv *priv,
+ 		break;
+ 	}
+ 
+-	ai->rule = mlx5_add_flow_rule(ft, match_criteria_enable, match_criteria,
+-				      match_value,
++	ai->rule = mlx5_add_flow_rule(ft, spec,
+ 				      MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
+ 				      MLX5_FS_DEFAULT_FLOW_TAG, &dest);
+ 	if (IS_ERR(ai->rule)) {
+@@ -843,9 +827,7 @@ static int mlx5e_add_l2_flow_rule(struct mlx5e_priv *priv,
+ 		ai->rule = NULL;
+ 	}
+ 
+-add_l2_rule_out:
+-	kvfree(match_criteria);
+-	kvfree(match_value);
++	kvfree(spec);
+ 
+ 	return err;
+ }
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 704c3d3..3261e8b 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -50,7 +50,7 @@ struct mlx5e_tc_flow {
+ #define MLX5E_TC_TABLE_NUM_GROUPS 4
+ 
+ static struct mlx5_flow_rule *mlx5e_tc_add_flow(struct mlx5e_priv *priv,
+-						u32 *match_c, u32 *match_v,
++						struct mlx5_flow_spec *spec,
+ 						u32 action, u32 flow_tag)
+ {
+ 	struct mlx5_core_dev *dev = priv->mdev;
+@@ -88,8 +88,8 @@ static struct mlx5_flow_rule *mlx5e_tc_add_flow(struct mlx5e_priv *priv,
+ 		table_created = true;
+ 	}
+ 
+-	rule = mlx5_add_flow_rule(priv->fs.tc.t, MLX5_MATCH_OUTER_HEADERS,
+-				  match_c, match_v,
++	spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
++	rule = mlx5_add_flow_rule(priv->fs.tc.t, spec,
+ 				  action, flow_tag,
+ 				  &dest);
+ 
+@@ -126,12 +126,13 @@ static void mlx5e_tc_del_flow(struct mlx5e_priv *priv,
+ 	}
+ }
+ 
+-static int parse_cls_flower(struct mlx5e_priv *priv,
+-			    u32 *match_c, u32 *match_v,
++static int parse_cls_flower(struct mlx5e_priv *priv, struct mlx5_flow_spec *spec,
+ 			    struct tc_cls_flower_offload *f)
+ {
+-	void *headers_c = MLX5_ADDR_OF(fte_match_param, match_c, outer_headers);
+-	void *headers_v = MLX5_ADDR_OF(fte_match_param, match_v, outer_headers);
++	void *headers_c = MLX5_ADDR_OF(fte_match_param, spec->match_criteria,
++				       outer_headers);
++	void *headers_v = MLX5_ADDR_OF(fte_match_param, spec->match_value,
++				       outer_headers);
+ 	u16 addr_type = 0;
+ 	u8 ip_proto = 0;
+ 
+@@ -342,12 +343,11 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
+ 			   struct tc_cls_flower_offload *f)
+ {
+ 	struct mlx5e_tc_table *tc = &priv->fs.tc;
+-	u32 *match_c;
+-	u32 *match_v;
+ 	int err = 0;
+ 	u32 flow_tag;
+ 	u32 action;
+ 	struct mlx5e_tc_flow *flow;
++	struct mlx5_flow_spec *spec;
+ 	struct mlx5_flow_rule *old = NULL;
+ 
+ 	flow = rhashtable_lookup_fast(&tc->ht, &f->cookie,
+@@ -357,16 +357,15 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
+ 	else
+ 		flow = kzalloc(sizeof(*flow), GFP_KERNEL);
+ 
+-	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	if (!match_c || !match_v || !flow) {
++	spec = mlx5_vzalloc(sizeof(*spec));
++	if (!spec || !flow) {
+ 		err = -ENOMEM;
+ 		goto err_free;
+ 	}
+ 
+ 	flow->cookie = f->cookie;
+ 
+-	err = parse_cls_flower(priv, match_c, match_v, f);
++	err = parse_cls_flower(priv, spec, f);
+ 	if (err < 0)
+ 		goto err_free;
+ 
+@@ -379,8 +378,7 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
+ 	if (err)
+ 		goto err_free;
+ 
+-	flow->rule = mlx5e_tc_add_flow(priv, match_c, match_v, action,
+-				       flow_tag);
++	flow->rule = mlx5e_tc_add_flow(priv, spec, action, flow_tag);
+ 	if (IS_ERR(flow->rule)) {
+ 		err = PTR_ERR(flow->rule);
+ 		goto err_hash_del;
+@@ -398,8 +396,7 @@ err_free:
+ 	if (!old)
+ 		kfree(flow);
+ out:
+-	kfree(match_c);
+-	kfree(match_v);
++	kvfree(spec);
+ 	return err;
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+index f0a9735..f6d6677 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.c
+@@ -329,25 +329,23 @@ __esw_fdb_set_vport_rule(struct mlx5_eswitch *esw, u32 vport, bool rx_rule,
+ 			    MLX5_MATCH_OUTER_HEADERS);
+ 	struct mlx5_flow_rule *flow_rule = NULL;
+ 	struct mlx5_flow_destination dest;
++	struct mlx5_flow_spec *spec;
+ 	void *mv_misc = NULL;
+ 	void *mc_misc = NULL;
+ 	u8 *dmac_v = NULL;
+ 	u8 *dmac_c = NULL;
+-	u32 *match_v;
+-	u32 *match_c;
+ 
+ 	if (rx_rule)
+ 		match_header |= MLX5_MATCH_MISC_PARAMETERS;
+-	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	if (!match_v || !match_c) {
++
++	spec = mlx5_vzalloc(sizeof(*spec));
++	if (!spec) {
+ 		pr_warn("FDB: Failed to alloc match parameters\n");
+-		goto out;
++		return NULL;
+ 	}
+-
+-	dmac_v = MLX5_ADDR_OF(fte_match_param, match_v,
++	dmac_v = MLX5_ADDR_OF(fte_match_param, spec->match_value,
+ 			      outer_headers.dmac_47_16);
+-	dmac_c = MLX5_ADDR_OF(fte_match_param, match_c,
++	dmac_c = MLX5_ADDR_OF(fte_match_param, spec->match_criteria,
+ 			      outer_headers.dmac_47_16);
+ 
+ 	if (match_header & MLX5_MATCH_OUTER_HEADERS) {
+@@ -356,8 +354,10 @@ __esw_fdb_set_vport_rule(struct mlx5_eswitch *esw, u32 vport, bool rx_rule,
+ 	}
+ 
+ 	if (match_header & MLX5_MATCH_MISC_PARAMETERS) {
+-		mv_misc  = MLX5_ADDR_OF(fte_match_param, match_v, misc_parameters);
+-		mc_misc  = MLX5_ADDR_OF(fte_match_param, match_c, misc_parameters);
++		mv_misc  = MLX5_ADDR_OF(fte_match_param, spec->match_value,
++					misc_parameters);
++		mc_misc  = MLX5_ADDR_OF(fte_match_param, spec->match_criteria,
++					misc_parameters);
+ 		MLX5_SET(fte_match_set_misc, mv_misc, source_port, UPLINK_VPORT);
+ 		MLX5_SET_TO_ONES(fte_match_set_misc, mc_misc, source_port);
+ 	}
+@@ -368,11 +368,9 @@ __esw_fdb_set_vport_rule(struct mlx5_eswitch *esw, u32 vport, bool rx_rule,
+ 	esw_debug(esw->dev,
+ 		  "\tFDB add rule dmac_v(%pM) dmac_c(%pM) -> vport(%d)\n",
+ 		  dmac_v, dmac_c, vport);
++	spec->match_criteria_enable = match_header;
+ 	flow_rule =
+-		mlx5_add_flow_rule(esw->fdb_table.fdb,
+-				   match_header,
+-				   match_c,
+-				   match_v,
++		mlx5_add_flow_rule(esw->fdb_table.fdb, spec,
+ 				   MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
+ 				   0, &dest);
+ 	if (IS_ERR(flow_rule)) {
+@@ -381,9 +379,8 @@ __esw_fdb_set_vport_rule(struct mlx5_eswitch *esw, u32 vport, bool rx_rule,
+ 			 dmac_v, dmac_c, vport, PTR_ERR(flow_rule));
+ 		flow_rule = NULL;
+ 	}
+-out:
+-	kfree(match_v);
+-	kfree(match_c);
++
++	kvfree(spec);
+ 	return flow_rule;
+ }
+ 
+@@ -1293,9 +1290,8 @@ static void esw_vport_disable_ingress_acl(struct mlx5_eswitch *esw,
+ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
+ 				    struct mlx5_vport *vport)
+ {
++	struct mlx5_flow_spec *spec;
+ 	u8 smac[ETH_ALEN];
+-	u32 *match_v;
+-	u32 *match_c;
+ 	int err = 0;
+ 	u8 *smac_v;
+ 
+@@ -1329,9 +1325,8 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
+ 		  "vport[%d] configure ingress rules, vlan(%d) qos(%d)\n",
+ 		  vport->vport, vport->vlan, vport->qos);
+ 
+-	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	if (!match_v || !match_c) {
++	spec = mlx5_vzalloc(sizeof(*spec));
++	if (!spec) {
+ 		err = -ENOMEM;
+ 		esw_warn(esw->dev, "vport[%d] configure ingress rules failed, err(%d)\n",
+ 			 vport->vport, err);
+@@ -1339,22 +1334,20 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
+ 	}
+ 
+ 	if (vport->vlan || vport->qos)
+-		MLX5_SET_TO_ONES(fte_match_param, match_c, outer_headers.vlan_tag);
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.vlan_tag);
+ 
+ 	if (vport->spoofchk) {
+-		MLX5_SET_TO_ONES(fte_match_param, match_c, outer_headers.smac_47_16);
+-		MLX5_SET_TO_ONES(fte_match_param, match_c, outer_headers.smac_15_0);
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.smac_47_16);
++		MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.smac_15_0);
+ 		smac_v = MLX5_ADDR_OF(fte_match_param,
+-				      match_v,
++				      spec->match_value,
+ 				      outer_headers.smac_47_16);
+ 		ether_addr_copy(smac_v, smac);
+ 	}
+ 
++	spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
+ 	vport->ingress.allow_rule =
+-		mlx5_add_flow_rule(vport->ingress.acl,
+-				   MLX5_MATCH_OUTER_HEADERS,
+-				   match_c,
+-				   match_v,
++		mlx5_add_flow_rule(vport->ingress.acl, spec,
+ 				   MLX5_FLOW_CONTEXT_ACTION_ALLOW,
+ 				   0, NULL);
+ 	if (IS_ERR(vport->ingress.allow_rule)) {
+@@ -1365,13 +1358,9 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
+ 		goto out;
+ 	}
+ 
+-	memset(match_c, 0, MLX5_ST_SZ_BYTES(fte_match_param));
+-	memset(match_v, 0, MLX5_ST_SZ_BYTES(fte_match_param));
++	memset(spec, 0, sizeof(*spec));
+ 	vport->ingress.drop_rule =
+-		mlx5_add_flow_rule(vport->ingress.acl,
+-				   0,
+-				   match_c,
+-				   match_v,
++		mlx5_add_flow_rule(vport->ingress.acl, spec,
+ 				   MLX5_FLOW_CONTEXT_ACTION_DROP,
+ 				   0, NULL);
+ 	if (IS_ERR(vport->ingress.drop_rule)) {
+@@ -1385,17 +1374,14 @@ static int esw_vport_ingress_config(struct mlx5_eswitch *esw,
+ out:
+ 	if (err)
+ 		esw_vport_cleanup_ingress_rules(esw, vport);
+-
+-	kfree(match_v);
+-	kfree(match_c);
++	kvfree(spec);
+ 	return err;
+ }
+ 
+ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
+ 				   struct mlx5_vport *vport)
+ {
+-	u32 *match_v;
+-	u32 *match_c;
++	struct mlx5_flow_spec *spec;
+ 	int err = 0;
+ 
+ 	esw_vport_cleanup_egress_rules(esw, vport);
+@@ -1411,9 +1397,8 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
+ 		  "vport[%d] configure egress rules, vlan(%d) qos(%d)\n",
+ 		  vport->vport, vport->vlan, vport->qos);
+ 
+-	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	if (!match_v || !match_c) {
++	spec = mlx5_vzalloc(sizeof(*spec));
++	if (!spec) {
+ 		err = -ENOMEM;
+ 		esw_warn(esw->dev, "vport[%d] configure egress rules failed, err(%d)\n",
+ 			 vport->vport, err);
+@@ -1421,16 +1406,14 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
+ 	}
+ 
+ 	/* Allowed vlan rule */
+-	MLX5_SET_TO_ONES(fte_match_param, match_c, outer_headers.vlan_tag);
+-	MLX5_SET_TO_ONES(fte_match_param, match_v, outer_headers.vlan_tag);
+-	MLX5_SET_TO_ONES(fte_match_param, match_c, outer_headers.first_vid);
+-	MLX5_SET(fte_match_param, match_v, outer_headers.first_vid, vport->vlan);
++	MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.vlan_tag);
++	MLX5_SET_TO_ONES(fte_match_param, spec->match_value, outer_headers.vlan_tag);
++	MLX5_SET_TO_ONES(fte_match_param, spec->match_criteria, outer_headers.first_vid);
++	MLX5_SET(fte_match_param, spec->match_value, outer_headers.first_vid, vport->vlan);
+ 
++	spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS;
+ 	vport->egress.allowed_vlan =
+-		mlx5_add_flow_rule(vport->egress.acl,
+-				   MLX5_MATCH_OUTER_HEADERS,
+-				   match_c,
+-				   match_v,
++		mlx5_add_flow_rule(vport->egress.acl, spec,
+ 				   MLX5_FLOW_CONTEXT_ACTION_ALLOW,
+ 				   0, NULL);
+ 	if (IS_ERR(vport->egress.allowed_vlan)) {
+@@ -1442,13 +1425,9 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
+ 	}
+ 
+ 	/* Drop others rule (star rule) */
+-	memset(match_c, 0, MLX5_ST_SZ_BYTES(fte_match_param));
+-	memset(match_v, 0, MLX5_ST_SZ_BYTES(fte_match_param));
++	memset(spec, 0, sizeof(*spec));
+ 	vport->egress.drop_rule =
+-		mlx5_add_flow_rule(vport->egress.acl,
+-				   0,
+-				   match_c,
+-				   match_v,
++		mlx5_add_flow_rule(vport->egress.acl, spec,
+ 				   MLX5_FLOW_CONTEXT_ACTION_DROP,
+ 				   0, NULL);
+ 	if (IS_ERR(vport->egress.drop_rule)) {
+@@ -1458,8 +1437,7 @@ static int esw_vport_egress_config(struct mlx5_eswitch *esw,
+ 		vport->egress.drop_rule = NULL;
+ 	}
+ out:
+-	kfree(match_v);
+-	kfree(match_c);
++	kvfree(spec);
+ 	return err;
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+index ed8ad98..1842dfb 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
+@@ -43,37 +43,35 @@ mlx5_eswitch_add_send_to_vport_rule(struct mlx5_eswitch *esw, int vport, u32 sqn
+ {
+ 	struct mlx5_flow_destination dest;
+ 	struct mlx5_flow_rule *flow_rule;
+-	int match_header = MLX5_MATCH_MISC_PARAMETERS;
+-	u32 *match_v, *match_c;
++	struct mlx5_flow_spec *spec;
+ 	void *misc;
+ 
+-	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	if (!match_v || !match_c) {
++	spec = mlx5_vzalloc(sizeof(*spec));
++	if (!spec) {
+ 		esw_warn(esw->dev, "FDB: Failed to alloc match parameters\n");
+ 		flow_rule = ERR_PTR(-ENOMEM);
+ 		goto out;
+ 	}
+ 
+-	misc = MLX5_ADDR_OF(fte_match_param, match_v, misc_parameters);
++	misc = MLX5_ADDR_OF(fte_match_param, spec->match_value, misc_parameters);
+ 	MLX5_SET(fte_match_set_misc, misc, source_sqn, sqn);
+ 	MLX5_SET(fte_match_set_misc, misc, source_port, 0x0); /* source vport is 0 */
+ 
+-	misc = MLX5_ADDR_OF(fte_match_param, match_c, misc_parameters);
++	misc = MLX5_ADDR_OF(fte_match_param, spec->match_criteria, misc_parameters);
+ 	MLX5_SET_TO_ONES(fte_match_set_misc, misc, source_sqn);
+ 	MLX5_SET_TO_ONES(fte_match_set_misc, misc, source_port);
+ 
++	spec->match_criteria_enable = MLX5_MATCH_MISC_PARAMETERS;
+ 	dest.type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
+ 	dest.vport_num = vport;
+ 
+-	flow_rule = mlx5_add_flow_rule(esw->fdb_table.fdb, match_header, match_c,
+-				       match_v, MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
++	flow_rule = mlx5_add_flow_rule(esw->fdb_table.fdb, spec,
++				       MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
+ 				       0, &dest);
+ 	if (IS_ERR(flow_rule))
+ 		esw_warn(esw->dev, "FDB: Failed to add send to vport rule err %ld\n", PTR_ERR(flow_rule));
+ out:
+-	kfree(match_v);
+-	kfree(match_c);
++	kvfree(spec);
+ 	return flow_rule;
+ }
+ 
+@@ -138,12 +136,11 @@ static int esw_add_fdb_miss_rule(struct mlx5_eswitch *esw)
+ {
+ 	struct mlx5_flow_destination dest;
+ 	struct mlx5_flow_rule *flow_rule = NULL;
+-	u32 *match_v, *match_c;
++	struct mlx5_flow_spec *spec;
+ 	int err = 0;
+ 
+-	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	if (!match_v || !match_c) {
++	spec = mlx5_vzalloc(sizeof(*spec));
++	if (!spec) {
+ 		esw_warn(esw->dev, "FDB: Failed to alloc match parameters\n");
+ 		err = -ENOMEM;
+ 		goto out;
+@@ -152,8 +149,9 @@ static int esw_add_fdb_miss_rule(struct mlx5_eswitch *esw)
+ 	dest.type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
+ 	dest.vport_num = 0;
+ 
+-	flow_rule = mlx5_add_flow_rule(esw->fdb_table.fdb, 0, match_c, match_v,
+-				       MLX5_FLOW_CONTEXT_ACTION_FWD_DEST, 0, &dest);
++	flow_rule = mlx5_add_flow_rule(esw->fdb_table.fdb, spec,
++				       MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
++				       0, &dest);
+ 	if (IS_ERR(flow_rule)) {
+ 		err = PTR_ERR(flow_rule);
+ 		esw_warn(esw->dev,  "FDB: Failed to add miss flow rule err %d\n", err);
+@@ -162,8 +160,7 @@ static int esw_add_fdb_miss_rule(struct mlx5_eswitch *esw)
+ 
+ 	esw->fdb_table.offloads.miss_rule = flow_rule;
+ out:
+-	kfree(match_v);
+-	kfree(match_c);
++	kvfree(spec);
+ 	return err;
+ }
+ 
+@@ -351,29 +348,28 @@ mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn)
+ {
+ 	struct mlx5_flow_destination dest;
+ 	struct mlx5_flow_rule *flow_rule;
+-	int match_header = MLX5_MATCH_MISC_PARAMETERS;
+-	u32 *match_v, *match_c;
++	struct mlx5_flow_spec *spec;
+ 	void *misc;
+ 
+-	match_v = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	match_c = kzalloc(MLX5_ST_SZ_BYTES(fte_match_param), GFP_KERNEL);
+-	if (!match_v || !match_c) {
++	spec = mlx5_vzalloc(sizeof(*spec));
++	if (!spec) {
+ 		esw_warn(esw->dev, "Failed to alloc match parameters\n");
+ 		flow_rule = ERR_PTR(-ENOMEM);
+ 		goto out;
+ 	}
+ 
+-	misc = MLX5_ADDR_OF(fte_match_param, match_v, misc_parameters);
++	misc = MLX5_ADDR_OF(fte_match_param, spec->match_value, misc_parameters);
+ 	MLX5_SET(fte_match_set_misc, misc, source_port, vport);
+ 
+-	misc = MLX5_ADDR_OF(fte_match_param, match_c, misc_parameters);
++	misc = MLX5_ADDR_OF(fte_match_param, spec->match_criteria, misc_parameters);
+ 	MLX5_SET_TO_ONES(fte_match_set_misc, misc, source_port);
+ 
++	spec->match_criteria_enable = MLX5_MATCH_MISC_PARAMETERS;
+ 	dest.type = MLX5_FLOW_DESTINATION_TYPE_TIR;
+ 	dest.tir_num = tirn;
+ 
+-	flow_rule = mlx5_add_flow_rule(esw->offloads.ft_offloads, match_header, match_c,
+-				       match_v, MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
++	flow_rule = mlx5_add_flow_rule(esw->offloads.ft_offloads, spec,
++				       MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
+ 				       0, &dest);
+ 	if (IS_ERR(flow_rule)) {
+ 		esw_warn(esw->dev, "fs offloads: Failed to add vport rx rule err %ld\n", PTR_ERR(flow_rule));
+@@ -381,8 +377,7 @@ mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn)
+ 	}
+ 
+ out:
+-	kfree(match_v);
+-	kfree(match_c);
++	kvfree(spec);
+ 	return flow_rule;
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index b040110..7fcdae1 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -1160,9 +1160,7 @@ static bool dest_is_valid(struct mlx5_flow_destination *dest,
+ 
+ static struct mlx5_flow_rule *
+ _mlx5_add_flow_rule(struct mlx5_flow_table *ft,
+-		    u8 match_criteria_enable,
+-		    u32 *match_criteria,
+-		    u32 *match_value,
++		   struct mlx5_flow_spec *spec,
+ 		    u32 action,
+ 		    u32 flow_tag,
+ 		    struct mlx5_flow_destination *dest)
+@@ -1176,22 +1174,23 @@ _mlx5_add_flow_rule(struct mlx5_flow_table *ft,
+ 	nested_lock_ref_node(&ft->node, FS_MUTEX_GRANDPARENT);
+ 	fs_for_each_fg(g, ft)
+ 		if (compare_match_criteria(g->mask.match_criteria_enable,
+-					   match_criteria_enable,
++					   spec->match_criteria_enable,
+ 					   g->mask.match_criteria,
+-					   match_criteria)) {
+-			rule = add_rule_fg(g, match_value,
++					   spec->match_criteria)) {
++			rule = add_rule_fg(g, spec->match_value,
+ 					   action, flow_tag, dest);
+ 			if (!IS_ERR(rule) || PTR_ERR(rule) != -ENOSPC)
+ 				goto unlock;
+ 		}
+ 
+-	g = create_autogroup(ft, match_criteria_enable, match_criteria);
++	g = create_autogroup(ft, spec->match_criteria_enable,
++			     spec->match_criteria);
+ 	if (IS_ERR(g)) {
+ 		rule = (void *)g;
+ 		goto unlock;
+ 	}
+ 
+-	rule = add_rule_fg(g, match_value,
++	rule = add_rule_fg(g, spec->match_value,
+ 			   action, flow_tag, dest);
+ 	if (IS_ERR(rule)) {
+ 		/* Remove assumes refcount > 0 and autogroup creates a group
+@@ -1215,9 +1214,7 @@ static bool fwd_next_prio_supported(struct mlx5_flow_table *ft)
+ 
+ struct mlx5_flow_rule *
+ mlx5_add_flow_rule(struct mlx5_flow_table *ft,
+-		   u8 match_criteria_enable,
+-		   u32 *match_criteria,
+-		   u32 *match_value,
++		   struct mlx5_flow_spec *spec,
+ 		   u32 action,
+ 		   u32 flow_tag,
+ 		   struct mlx5_flow_destination *dest)
+@@ -1248,8 +1245,7 @@ mlx5_add_flow_rule(struct mlx5_flow_table *ft,
+ 		}
+ 	}
+ 
+-	rule =	_mlx5_add_flow_rule(ft, match_criteria_enable, match_criteria,
+-				    match_value, action, flow_tag, dest);
++	rule = _mlx5_add_flow_rule(ft, spec, action, flow_tag, dest);
+ 
+ 	if (sw_action == MLX5_FLOW_CONTEXT_ACTION_FWD_NEXT_PRIO) {
+ 		if (!IS_ERR_OR_NULL(rule) &&
+diff --git a/include/linux/mlx5/fs.h b/include/linux/mlx5/fs.h
+index 6ad1119..d22fe7e 100644
+--- a/include/linux/mlx5/fs.h
++++ b/include/linux/mlx5/fs.h
+@@ -68,6 +68,12 @@ struct mlx5_flow_group;
+ struct mlx5_flow_rule;
+ struct mlx5_flow_namespace;
+ 
++struct mlx5_flow_spec {
++	u8   match_criteria_enable;
++	u32  match_criteria[MLX5_ST_SZ_DW(fte_match_param)];
++	u32  match_value[MLX5_ST_SZ_DW(fte_match_param)];
 +};
 +
- struct fs_node {
- 	struct list_head	list;
- 	struct list_head	children;
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index e22b345..f21c459 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -550,14 +550,10 @@ struct mlx5_priv {
- 	struct list_head        ctx_list;
- 	spinlock_t              ctx_lock;
- 
-+	struct mlx5_flow_steering *steering;
- 	struct mlx5_eswitch     *eswitch;
- 	struct mlx5_core_sriov	sriov;
- 	unsigned long		pci_dev_data;
--	struct mlx5_flow_root_namespace *root_ns;
--	struct mlx5_flow_root_namespace *fdb_root_ns;
--	struct mlx5_flow_root_namespace *esw_egress_root_ns;
--	struct mlx5_flow_root_namespace *esw_ingress_root_ns;
--
- 	struct mlx5_fc_stats		fc_stats;
- 	struct mlx5_rl_table            rl_table;
- };
+ struct mlx5_flow_destination {
+ 	enum mlx5_flow_destination_type	type;
+ 	union {
+@@ -116,9 +122,7 @@ void mlx5_destroy_flow_group(struct mlx5_flow_group *fg);
+  */
+ struct mlx5_flow_rule *
+ mlx5_add_flow_rule(struct mlx5_flow_table *ft,
+-		   u8 match_criteria_enable,
+-		   u32 *match_criteria,
+-		   u32 *match_value,
++		   struct mlx5_flow_spec *spec,
+ 		   u32 action,
+ 		   u32 flow_tag,
+ 		   struct mlx5_flow_destination *dest);
 -- 
 2.8.0
