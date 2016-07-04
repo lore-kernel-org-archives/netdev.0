@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 14/14] mlxsw: spectrum: Enable L3 interfaces on top of bridge devices
-Date: Mon,  4 Jul 2016 08:23:17 +0200
-Message-ID: <1467613397-17140-15-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 03/14] mlxsw: reg: Add Router Algorithmic LPM Structure Tree Register definition
+Date: Mon,  4 Jul 2016 08:23:06 +0200
+Message-ID: <1467613397-17140-4-git-send-email-jiri@resnulli.us>
 References: <1467613397-17140-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,249 +10,120 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35425 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752444AbcGDGXj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 02:23:39 -0400
-Received: by mail-wm0-f66.google.com with SMTP id a66so19143223wme.2
-        for <netdev@vger.kernel.org>; Sun, 03 Jul 2016 23:23:39 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33326 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753050AbcGDGXY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 02:23:24 -0400
+Received: by mail-wm0-f68.google.com with SMTP id r201so19140867wme.0
+        for <netdev@vger.kernel.org>; Sun, 03 Jul 2016 23:23:23 -0700 (PDT)
 In-Reply-To: <1467613397-17140-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-As with the previously introduced L3 interfaces, listen to 'inetaddr'
-notifications sent for bridges devices configured on top of the port
-netdevs and create / destroy router interfaces (RIFs) accordingly.
-This also includes VLAN devices configured on top of the VLAN-aware
-bridge.
+Serves to build LPM tree structure.
 
-The RIFs will be destroyed either when the last IP address is removed or
-when the underlying FID is is destroyed.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 139 ++++++++++++++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   2 +
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |   3 +
- 3 files changed, 143 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 77 +++++++++++++++++++++++++++++++
+ 1 file changed, 77 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-index e49f80ba..7b2b741b 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
-@@ -2706,10 +2706,135 @@ static int mlxsw_sp_inetaddr_lag_event(struct net_device *lag_dev,
- 	return __mlxsw_sp_inetaddr_lag_event(lag_dev, lag_dev, event, 1);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index a358e1b..4ea608f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3504,6 +3504,81 @@ static inline void mlxsw_reg_ralta_pack(char *payload, bool alloc,
+ 	mlxsw_reg_ralta_tree_id_set(payload, tree_id);
  }
  
-+static struct mlxsw_sp_fid *mlxsw_sp_bridge_fid_get(struct mlxsw_sp *mlxsw_sp,
-+						    struct net_device *l3_dev)
++/* RALST - Router Algorithmic LPM Structure Tree Register
++ * ------------------------------------------------------
++ * RALST is used to set and query the structure of an LPM tree.
++ * The structure of the tree must be sorted as a sorted binary tree, while
++ * each node is a bin that is tagged as the length of the prefixes the lookup
++ * will refer to. Therefore, bin X refers to a set of entries with prefixes
++ * of X bits to match with the destination address. The bin 0 indicates
++ * the default action, when there is no match of any prefix.
++ */
++#define MLXSW_REG_RALST_ID 0x8011
++#define MLXSW_REG_RALST_LEN 0x104
++
++static const struct mlxsw_reg_info mlxsw_reg_ralst = {
++	.id = MLXSW_REG_RALST_ID,
++	.len = MLXSW_REG_RALST_LEN,
++};
++
++/* reg_ralst_root_bin
++ * The bin number of the root bin.
++ * 0<root_bin=<(length of IP address)
++ * For a default-route tree configure 0xff
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ralst, root_bin, 0x00, 16, 8);
++
++/* reg_ralst_tree_id
++ * Tree identifier numbered from 1..(cap_shspm_max_trees-1).
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, ralst, tree_id, 0x00, 0, 8);
++
++#define MLXSW_REG_RALST_BIN_NO_CHILD 0xff
++#define MLXSW_REG_RALST_BIN_OFFSET 0x04
++#define MLXSW_REG_RALST_BIN_COUNT 128
++
++/* reg_ralst_left_child_bin
++ * Holding the children of the bin according to the stored tree's structure.
++ * For trees composed of less than 4 blocks, the bins in excess are reserved.
++ * Note that tree_id 0 is allocated for a default-route tree, bins are 0xff
++ * Access: RW
++ */
++MLXSW_ITEM16_INDEXED(reg, ralst, left_child_bin, 0x04, 8, 8, 0x02, 0x00, false);
++
++/* reg_ralst_right_child_bin
++ * Holding the children of the bin according to the stored tree's structure.
++ * For trees composed of less than 4 blocks, the bins in excess are reserved.
++ * Note that tree_id 0 is allocated for a default-route tree, bins are 0xff
++ * Access: RW
++ */
++MLXSW_ITEM16_INDEXED(reg, ralst, right_child_bin, 0x04, 0, 8, 0x02, 0x00,
++		     false);
++
++static inline void mlxsw_reg_ralst_pack(char *payload, u8 root_bin, u8 tree_id)
 +{
-+	u16 fid;
++	MLXSW_REG_ZERO(ralst, payload);
 +
-+	if (is_vlan_dev(l3_dev))
-+		fid = vlan_dev_vlan_id(l3_dev);
-+	else if (mlxsw_sp->master_bridge.dev == l3_dev)
-+		fid = 1;
-+	else
-+		return mlxsw_sp_vfid_find(mlxsw_sp, l3_dev);
++	/* Initialize all bins to have no left or right child */
++	memset(payload + MLXSW_REG_RALST_BIN_OFFSET,
++	       MLXSW_REG_RALST_BIN_NO_CHILD, MLXSW_REG_RALST_BIN_COUNT * 2);
 +
-+	return mlxsw_sp_fid_find(mlxsw_sp, fid);
++	mlxsw_reg_ralst_root_bin_set(payload, root_bin);
++	mlxsw_reg_ralst_tree_id_set(payload, tree_id);
 +}
 +
-+static enum mlxsw_reg_ritr_if_type mlxsw_sp_rif_type_get(u16 fid)
++static inline void mlxsw_reg_ralst_bin_pack(char *payload, u8 bin_number,
++					    u8 left_child_bin,
++					    u8 right_child_bin)
 +{
-+	if (mlxsw_sp_fid_is_vfid(fid))
-+		return MLXSW_REG_RITR_FID_IF;
-+	else
-+		return MLXSW_REG_RITR_VLAN_IF;
++	int bin_index = bin_number - 1;
++
++	mlxsw_reg_ralst_left_child_bin_set(payload, bin_index, left_child_bin);
++	mlxsw_reg_ralst_right_child_bin_set(payload, bin_index,
++					    right_child_bin);
 +}
 +
-+static int mlxsw_sp_rif_bridge_op(struct mlxsw_sp *mlxsw_sp,
-+				  struct net_device *l3_dev,
-+				  u16 fid, u16 rif,
-+				  bool create)
-+{
-+	enum mlxsw_reg_ritr_if_type rif_type;
-+	char ritr_pl[MLXSW_REG_RITR_LEN];
-+
-+	rif_type = mlxsw_sp_rif_type_get(fid);
-+	mlxsw_reg_ritr_pack(ritr_pl, create, rif_type, rif, l3_dev->mtu,
-+			    l3_dev->dev_addr);
-+	mlxsw_reg_ritr_fid_set(ritr_pl, rif_type, fid);
-+
-+	return mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(ritr), ritr_pl);
-+}
-+
-+static int mlxsw_sp_rif_bridge_create(struct mlxsw_sp *mlxsw_sp,
-+				      struct net_device *l3_dev,
-+				      struct mlxsw_sp_fid *f)
-+{
-+	struct mlxsw_sp_rif *r;
-+	u16 rif;
-+	int err;
-+
-+	rif = mlxsw_sp_avail_rif_get(mlxsw_sp);
-+	if (rif == MLXSW_SP_RIF_MAX)
-+		return -ERANGE;
-+
-+	err = mlxsw_sp_rif_bridge_op(mlxsw_sp, l3_dev, f->fid, rif, true);
-+	if (err)
-+		return err;
-+
-+	err = mlxsw_sp_rif_fdb_op(mlxsw_sp, l3_dev->dev_addr, f->fid, true);
-+	if (err)
-+		goto err_rif_fdb_op;
-+
-+	r = mlxsw_sp_rif_alloc(rif, l3_dev, f);
-+	if (!r) {
-+		err = -ENOMEM;
-+		goto err_rif_alloc;
-+	}
-+
-+	f->r = r;
-+	mlxsw_sp->rifs[rif] = r;
-+
-+	netdev_dbg(l3_dev, "RIF=%d created\n", rif);
-+
-+	return 0;
-+
-+err_rif_alloc:
-+	mlxsw_sp_rif_fdb_op(mlxsw_sp, l3_dev->dev_addr, f->fid, false);
-+err_rif_fdb_op:
-+	mlxsw_sp_rif_bridge_op(mlxsw_sp, l3_dev, f->fid, rif, false);
-+	return err;
-+}
-+
-+void mlxsw_sp_rif_bridge_destroy(struct mlxsw_sp *mlxsw_sp,
-+				 struct mlxsw_sp_rif *r)
-+{
-+	struct net_device *l3_dev = r->dev;
-+	struct mlxsw_sp_fid *f = r->f;
-+	u16 rif = r->rif;
-+
-+	mlxsw_sp->rifs[rif] = NULL;
-+	f->r = NULL;
-+
-+	kfree(r);
-+
-+	mlxsw_sp_rif_fdb_op(mlxsw_sp, l3_dev->dev_addr, f->fid, false);
-+
-+	mlxsw_sp_rif_bridge_op(mlxsw_sp, l3_dev, f->fid, rif, false);
-+
-+	netdev_dbg(l3_dev, "RIF=%d destroyed\n", rif);
-+}
-+
-+static int mlxsw_sp_inetaddr_bridge_event(struct net_device *l3_dev,
-+					  struct net_device *br_dev,
-+					  unsigned long event)
-+{
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_lower_get(l3_dev);
-+	struct mlxsw_sp_fid *f;
-+
-+	/* FID can either be an actual FID if the L3 device is the
-+	 * VLAN-aware bridge or a VLAN device on top. Otherwise, the
-+	 * L3 device is a VLAN-unaware bridge and we get a vFID.
-+	 */
-+	f = mlxsw_sp_bridge_fid_get(mlxsw_sp, l3_dev);
-+	if (WARN_ON(!f))
-+		return -EINVAL;
-+
-+	switch (event) {
-+	case NETDEV_UP:
-+		return mlxsw_sp_rif_bridge_create(mlxsw_sp, l3_dev, f);
-+	case NETDEV_DOWN:
-+		mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
-+		break;
-+	}
-+
-+	return 0;
-+}
-+
- static int mlxsw_sp_inetaddr_vlan_event(struct net_device *vlan_dev,
- 					unsigned long event)
- {
- 	struct net_device *real_dev = vlan_dev_real_dev(vlan_dev);
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_lower_get(vlan_dev);
- 	u16 vid = vlan_dev_vlan_id(vlan_dev);
- 
- 	if (mlxsw_sp_port_dev_check(real_dev))
-@@ -2718,6 +2843,10 @@ static int mlxsw_sp_inetaddr_vlan_event(struct net_device *vlan_dev,
- 	else if (netif_is_lag_master(real_dev))
- 		return __mlxsw_sp_inetaddr_lag_event(vlan_dev, real_dev, event,
- 						     vid);
-+	else if (netif_is_bridge_master(real_dev) &&
-+		 mlxsw_sp->master_bridge.dev == real_dev)
-+		return mlxsw_sp_inetaddr_bridge_event(vlan_dev, real_dev,
-+						      event);
- 
- 	return 0;
- }
-@@ -2743,6 +2872,8 @@ static int mlxsw_sp_inetaddr_event(struct notifier_block *unused,
- 		err = mlxsw_sp_inetaddr_port_event(dev, event);
- 	else if (netif_is_lag_master(dev))
- 		err = mlxsw_sp_inetaddr_lag_event(dev, event);
-+	else if (netif_is_bridge_master(dev))
-+		err = mlxsw_sp_inetaddr_bridge_event(dev, dev, event);
- 	else if (is_vlan_dev(dev))
- 		err = mlxsw_sp_inetaddr_vlan_event(dev, event);
- 
-@@ -3416,6 +3547,8 @@ static void mlxsw_sp_master_bridge_vlan_unlink(struct mlxsw_sp *mlxsw_sp,
- 	struct mlxsw_sp_fid *f;
- 
- 	f = mlxsw_sp_fid_find(mlxsw_sp, fid);
-+	if (f && f->r)
-+		mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
- 	if (f && --f->ref_count == 0)
- 		mlxsw_sp_fid_destroy(mlxsw_sp, f);
- }
-@@ -3514,13 +3647,17 @@ static void mlxsw_sp_vfid_destroy(struct mlxsw_sp *mlxsw_sp,
- 				  struct mlxsw_sp_fid *f)
- {
- 	u16 vfid = mlxsw_sp_fid_to_vfid(f->fid);
-+	u16 fid = f->fid;
- 
- 	clear_bit(vfid, mlxsw_sp->vfids.mapped);
- 	list_del(&f->list);
- 
--	mlxsw_sp_vfid_op(mlxsw_sp, f->fid, false);
-+	if (f->r)
-+		mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
- 
- 	kfree(f);
-+
-+	mlxsw_sp_vfid_op(mlxsw_sp, fid, false);
- }
- 
- static int mlxsw_sp_vport_fid_map(struct mlxsw_sp_port *mlxsw_sp_vport, u16 fid,
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 17c5d3b..958e821 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -486,6 +486,8 @@ int mlxsw_sp_rif_fdb_op(struct mlxsw_sp *mlxsw_sp, const char *mac, u16 fid,
- 			bool adding);
- struct mlxsw_sp_fid *mlxsw_sp_fid_create(struct mlxsw_sp *mlxsw_sp, u16 fid);
- void mlxsw_sp_fid_destroy(struct mlxsw_sp *mlxsw_sp, struct mlxsw_sp_fid *f);
-+void mlxsw_sp_rif_bridge_destroy(struct mlxsw_sp *mlxsw_sp,
-+				 struct mlxsw_sp_rif *r);
- int mlxsw_sp_port_ets_set(struct mlxsw_sp_port *mlxsw_sp_port,
- 			  enum mlxsw_reg_qeec_hr hr, u8 index, u8 next_index,
- 			  bool dwrr, u8 dwrr_weight);
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-index e446640..a1ad5e6 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_switchdev.c
-@@ -445,6 +445,9 @@ void mlxsw_sp_fid_destroy(struct mlxsw_sp *mlxsw_sp, struct mlxsw_sp_fid *f)
- 
- 	list_del(&f->list);
- 
-+	if (f->r)
-+		mlxsw_sp_rif_bridge_destroy(mlxsw_sp, f->r);
-+
- 	kfree(f);
- 
- 	mlxsw_sp_fid_op(mlxsw_sp, fid, false);
+ /* MFCR - Management Fan Control Register
+  * --------------------------------------
+  * This register controls the settings of the Fan Speed PWM mechanism.
+@@ -4248,6 +4323,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
+ 		return "RITR";
+ 	case MLXSW_REG_RALTA_ID:
+ 		return "RALTA";
++	case MLXSW_REG_RALST_ID:
++		return "RALST";
+ 	case MLXSW_REG_MFCR_ID:
+ 		return "MFCR";
+ 	case MLXSW_REG_MFSC_ID:
 -- 
 2.5.5
