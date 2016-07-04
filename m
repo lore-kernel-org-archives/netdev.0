@@ -1,25 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2] geneve: fix max_mtu setting
-Date: Mon, 04 Jul 2016 14:50:54 -0700 (PDT)
-Message-ID: <20160704.145054.701386332958657320.davem@davemloft.net>
-References: <1467442968-13723-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
+From: Paul Gortmaker <paul.gortmaker@windriver.com>
+Subject: [PATCH -next] connector: make cn_proc explicitly non-modular
+Date: Mon, 4 Jul 2016 17:50:58 -0400
+Message-ID: <20160704215058.13593-1-paul.gortmaker@windriver.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jesse@kernel.org, pshelar@nicira.com, tom@herbertland.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: yanhaishuang@cmss.chinamobile.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467442968-13723-1-git-send-email-yanhaishuang@cmss.chinamobile.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: Paul Gortmaker <paul.gortmaker@windriver.com>,
+	Evgeniy Polyakov <zbr@ioremap.net>, <netdev@vger.kernel.org>
+To: <linux-kernel@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.windriver.com ([147.11.1.11]:57183 "EHLO
+	mail.windriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932661AbcGDVvO (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 17:51:14 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
-Date: Sat,  2 Jul 2016 15:02:48 +0800
+The Kconfig controlling build of this code is currently:
 
-> For ipv6+udp+geneve encapsulation data, the max_mtu should subtract
-> sizeof(ipv6hdr), instead of sizeof(iphdr).
-> 
-> Signed-off-by: Haishuang Yan <yanhaishuang@cmss.chinamobile.com>
+drivers/connector/Kconfig:config PROC_EVENTS
+drivers/connector/Kconfig:      bool "Report process events to userspace"
 
-Applied and queued up for -stable, thanks.
+...meaning that it currently is not being built as a module by anyone.
+Lets remove the two modular references, so that when reading the driver
+there is no doubt it is builtin-only.
+
+Since module_init translates to device_initcall in the non-modular
+case, the init ordering remains unchanged with this commit.
+
+Cc: Evgeniy Polyakov <zbr@ioremap.net>
+Cc: netdev@vger.kernel.org
+Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
+---
+ drivers/connector/cn_proc.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/drivers/connector/cn_proc.c b/drivers/connector/cn_proc.c
+index b02f9c606e0b..a782ce87715c 100644
+--- a/drivers/connector/cn_proc.c
++++ b/drivers/connector/cn_proc.c
+@@ -22,7 +22,6 @@
+  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+  */
+ 
+-#include <linux/module.h>
+ #include <linux/kernel.h>
+ #include <linux/ktime.h>
+ #include <linux/init.h>
+@@ -390,5 +389,4 @@ static int __init cn_proc_init(void)
+ 	}
+ 	return 0;
+ }
+-
+-module_init(cn_proc_init);
++device_initcall(cn_proc_init);
+-- 
+2.8.4
