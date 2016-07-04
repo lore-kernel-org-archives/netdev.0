@@ -1,78 +1,115 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: ethtool needs a new maintainer
-Date: Mon, 4 Jul 2016 16:24:55 +0200
-Message-ID: <20160704142455.GH2325@nanopsycho.orion>
-References: <1466956772.2551.6.camel@decadent.org.uk>
- <1466957501.2551.17.camel@decadent.org.uk>
- <20160627135146.GB6864@tuxdriver.com>
+From: weiyj_lk@163.com
+Subject: [PATCH -next] net: hns: fix return value check in hns_dsaf_get_cfg()
+Date: Mon,  4 Jul 2016 15:00:58 +0000
+Message-ID: <1467644458-10131-1-git-send-email-weiyj_lk@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Ben Hutchings <ben@decadent.org.uk>,
-	netdev <netdev@vger.kernel.org>
-To: "John W. Linville" <linville@tuxdriver.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>, netdev@vger.kernel.org
+To: Yisen Zhuang <yisen.zhuang@huawei.com>,
+	Salil Mehta <salil.mehta@huawei.com>,
+	Kejian Yan <yankejian@huawei.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f41.google.com ([74.125.82.41]:36785 "EHLO
-	mail-wm0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750734AbcGDOY7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 10:24:59 -0400
-Received: by mail-wm0-f41.google.com with SMTP id f126so105720852wma.1
-        for <netdev@vger.kernel.org>; Mon, 04 Jul 2016 07:24:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160627135146.GB6864@tuxdriver.com>
+Received: from m12-12.163.com ([220.181.12.12]:51751 "EHLO m12-12.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751424AbcGDPBL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jul 2016 11:01:11 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Jun 27, 2016 at 03:51:47PM CEST, linville@tuxdriver.com wrote:
->On Sun, Jun 26, 2016 at 06:11:41PM +0200, Ben Hutchings wrote:
->> I've become steadily less enthusiastic and less responsive as a
->> maintainer over the past year or so. =A0I no longer work on networki=
-ng
->> regularly, so it takes a lot more time to get into the right state o=
-f
->> mind to think about ethtool code, while I have other demands on my t=
-ime
->> that tend to take priority.
->>=20
->> So, I would like to find a new maintainer to take over as soon as
->> possible. =A0Ideally the new maintainer would have previous contribu=
-tions
->> to ethtool and an existing account on kernel.org so that they can pu=
-sh
->> to the git repository and the home page. =A0But neither of those is
->> essential. =A0Please reply if you're interested.
->
->I would like to take this responsibility. My previous contributions
->to ethtool are meager, but I think my skills and interests are suited
->to the task.  Plus, I already have a kernel.org account... :-)
->
->> I was thinking of adding a TODO file to the repository, but it's rea=
-lly
->> for the new maintainer to decide what to do. =A0So here's my list as=
- a
->> suggestion:
->>=20
->> * Add regression test coverage for all sub-commands with complex log=
-ic
->>=20
->> * Internationalise output and error messages
->>=20
->> * Build a libethtool that handles all the API quirks and fallbacks f=
-or
->> =A0 old kernel versions.=A0=A0This might help people writing languag=
-e
->> =A0 bindings or other utilities that use the ethtool API.
->>=20
->> * Provide a 'cleaned up' ethtool (under some other name) that has:
->> =A0 - More conventional sub-command syntax, i.e. no '-'/'--' prefix
->> =A0 - More consistent output formatting
->
->That seems like a reasonable start for a TODO list. I'll bet there
->are a few people out there with other suggestions as well...?
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Before that, I would like to see ethtool migrate to use generic
-netlink. Then, the new tool would be needed anyway, should exist within
-iproute2 package and have similar command line syntax.
+In case of error, function devm_ioremap_resource() returns ERR_PTR()
+and never returns NULL. The NULL test in the return value check should
+be replaced with IS_ERR().
+Also removed unneeded error handling on the result of call to
+platform_get_resource() and redundant dev_err call.
 
-I have some ideas about the gennetlink ethtool, have to find some time
-to implement some initial part of it.
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c | 49 +++++-----------------
+ 1 file changed, 10 insertions(+), 39 deletions(-)
+
+diff --git a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+index 86ce28a..b09d56a 100644
+--- a/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
++++ b/drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c
+@@ -107,68 +107,39 @@ int hns_dsaf_get_cfg(struct dsaf_device *dsaf_dev)
+ 		if (IS_ERR_OR_NULL(syscon)) {
+ 			res = platform_get_resource(pdev, IORESOURCE_MEM,
+ 						    res_idx++);
+-			if (!res) {
+-				dev_err(dsaf_dev->dev, "subctrl info is needed!\n");
+-				return -ENOMEM;
+-			}
+-
+ 			dsaf_dev->sc_base = devm_ioremap_resource(&pdev->dev,
+ 								  res);
+-			if (!dsaf_dev->sc_base) {
+-				dev_err(dsaf_dev->dev, "subctrl can not map!\n");
+-				return -ENOMEM;
+-			}
++			if (IS_ERR(dsaf_dev->sc_base))
++				return PTR_ERR(dsaf_dev->sc_base);
+ 
+ 			res = platform_get_resource(pdev, IORESOURCE_MEM,
+ 						    res_idx++);
+-			if (!res) {
+-				dev_err(dsaf_dev->dev, "serdes-ctrl info is needed!\n");
+-				return -ENOMEM;
+-			}
+-
+ 			dsaf_dev->sds_base = devm_ioremap_resource(&pdev->dev,
+ 								   res);
+-			if (!dsaf_dev->sds_base) {
+-				dev_err(dsaf_dev->dev, "serdes-ctrl can not map!\n");
+-				return -ENOMEM;
+-			}
++			if (IS_ERR(dsaf_dev->sds_base))
++				return PTR_ERR(dsaf_dev->sds_base);
+ 		} else {
+ 			dsaf_dev->sub_ctrl = syscon;
+ 		}
+ 	}
+ 
+ 	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ppe-base");
+-	if (!res) {
++	if (!res)
+ 		res = platform_get_resource(pdev, IORESOURCE_MEM, res_idx++);
+-		if (!res) {
+-			dev_err(dsaf_dev->dev, "ppe-base info is needed!\n");
+-			return -ENOMEM;
+-		}
+-	}
+ 	dsaf_dev->ppe_base = devm_ioremap_resource(&pdev->dev, res);
+-	if (!dsaf_dev->ppe_base) {
+-		dev_err(dsaf_dev->dev, "ppe-base resource can not map!\n");
+-		return -ENOMEM;
+-	}
++	if (IS_ERR(dsaf_dev->ppe_base))
++		return PTR_ERR(dsaf_dev->ppe_base);
+ 	dsaf_dev->ppe_paddr = res->start;
+ 
+ 	if (!HNS_DSAF_IS_DEBUG(dsaf_dev)) {
+ 		res = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+ 						   "dsaf-base");
+-		if (!res) {
++		if (!res)
+ 			res = platform_get_resource(pdev, IORESOURCE_MEM,
+ 						    res_idx);
+-			if (!res) {
+-				dev_err(dsaf_dev->dev,
+-					"dsaf-base info is needed!\n");
+-				return -ENOMEM;
+-			}
+-		}
+ 		dsaf_dev->io_base = devm_ioremap_resource(&pdev->dev, res);
+-		if (!dsaf_dev->io_base) {
+-			dev_err(dsaf_dev->dev, "dsaf-base resource can not map!\n");
+-			return -ENOMEM;
+-		}
++		if (IS_ERR(dsaf_dev->io_base))
++			return PTR_ERR(dsaf_dev->io_base);
+ 	}
+ 
+ 	ret = device_property_read_u32(dsaf_dev->dev, "desc-num", &desc_num);
