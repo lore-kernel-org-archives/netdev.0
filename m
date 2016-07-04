@@ -1,7 +1,8 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 00/14] mlxsw: Implement basic FIB offload and router interfaces
-Date: Mon,  4 Jul 2016 08:23:03 +0200
-Message-ID: <1467613397-17140-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 02/14] mlxsw: reg: Add Router Algorithmic LPM Tree Allocation Register definition
+Date: Mon,  4 Jul 2016 08:23:05 +0200
+Message-ID: <1467613397-17140-3-git-send-email-jiri@resnulli.us>
+References: <1467613397-17140-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	sfeldma@gmail.com, roopa@cumulusnetworks.com, andy@greyhouse.net,
@@ -9,54 +10,104 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34538 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:33316 "EHLO
 	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750898AbcGDGXU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 02:23:20 -0400
-Received: by mail-wm0-f67.google.com with SMTP id 187so19171649wmz.1
-        for <netdev@vger.kernel.org>; Sun, 03 Jul 2016 23:23:19 -0700 (PDT)
+	with ESMTP id S1753032AbcGDGXX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 02:23:23 -0400
+Received: by mail-wm0-f67.google.com with SMTP id r201so19140786wme.0
+        for <netdev@vger.kernel.org>; Sun, 03 Jul 2016 23:23:22 -0700 (PDT)
+In-Reply-To: <1467613397-17140-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Introduce LPM trees management including virtual router management for HW.
-Implement basic FIB offloading using switchdev FIB objects. For now only support
-local routes and direct routes (next-hop support will be introduced in
-a follow-up patchset).
+Register serves for allocation and deallocation of LPM search tree.
 
-Introduce router interfaces in patches 10-14.
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
+---
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 54 ++++++++++++++++++++++++++++++-
+ 1 file changed, 53 insertions(+), 1 deletion(-)
 
-Ido Schimmel (5):
-  mlxsw: spectrum: Edit RIF properties based on netdev events
-  mlxsw: spectrum: Introduce support for router interfaces
-  mlxsw: spectrum: Unsplit the vFID range
-  mlxsw: spectrum: Configure FIDs based on bridge events
-  mlxsw: spectrum: Enable L3 interfaces on top of bridge devices
-
-Jiri Pirko (9):
-  mlxsw: spectrum_router: Implement private fib
-  mlxsw: reg: Add Router Algorithmic LPM Tree Allocation Register
-    definition
-  mlxsw: reg: Add Router Algorithmic LPM Structure Tree Register
-    definition
-  mlxsw: reg: Add Router Algorithmic LPM Tree Binding Register
-    definition
-  mlxsw: spectrum_router: Implement LPM trees management
-  mlxsw: spectrum_router: Add virtual router management
-  mlxsw: reg: Add Router Algorithmic LPM Unicast Entry Register
-    definition
-  mlxsw: spectrum_router: Implement fib4 add/del switchdev obj ops
-  mlxsw: spectrum: Add couple of lower device helper functions
-
- drivers/net/ethernet/mellanox/mlxsw/reg.h          | 440 +++++++++-
- drivers/net/ethernet/mellanox/mlxsw/spectrum.c     | 923 +++++++++++++++------
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     | 118 ++-
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 748 ++++++++++++++++-
- .../ethernet/mellanox/mlxsw/spectrum_switchdev.c   |  70 +-
- include/linux/netdevice.h                          |  18 +
- net/core/dev.c                                     |  46 +
- 7 files changed, 2079 insertions(+), 284 deletions(-)
-
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 5ddc1d3..a358e1b 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3,7 +3,7 @@
+  * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
+  * Copyright (c) 2015-2016 Ido Schimmel <idosch@mellanox.com>
+  * Copyright (c) 2015 Elad Raz <eladr@mellanox.com>
+- * Copyright (c) 2015 Jiri Pirko <jiri@mellanox.com>
++ * Copyright (c) 2015-2016 Jiri Pirko <jiri@mellanox.com>
+  *
+  * Redistribution and use in source and binary forms, with or without
+  * modification, are permitted provided that the following conditions are met:
+@@ -3454,6 +3454,56 @@ static inline void mlxsw_reg_ritr_pack(char *payload, bool enable,
+ 	mlxsw_reg_ritr_if_mac_memcpy_to(payload, mac);
+ }
+ 
++/* RALTA - Router Algorithmic LPM Tree Allocation Register
++ * -------------------------------------------------------
++ * RALTA is used to allocate the LPM trees of the SHSPM method.
++ */
++#define MLXSW_REG_RALTA_ID 0x8010
++#define MLXSW_REG_RALTA_LEN 0x04
++
++static const struct mlxsw_reg_info mlxsw_reg_ralta = {
++	.id = MLXSW_REG_RALTA_ID,
++	.len = MLXSW_REG_RALTA_LEN,
++};
++
++/* reg_ralta_op
++ * opcode (valid for Write, must be 0 on Read)
++ * 0 - allocate a tree
++ * 1 - deallocate a tree
++ * Access: OP
++ */
++MLXSW_ITEM32(reg, ralta, op, 0x00, 28, 2);
++
++enum mlxsw_reg_ralxx_protocol {
++	MLXSW_REG_RALXX_PROTOCOL_IPV4,
++	MLXSW_REG_RALXX_PROTOCOL_IPV6,
++};
++
++/* reg_ralta_protocol
++ * Protocol.
++ * Deallocation opcode: Reserved.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, ralta, protocol, 0x00, 24, 4);
++
++/* reg_ralta_tree_id
++ * An identifier (numbered from 1..cap_shspm_max_trees-1) representing
++ * the tree identifier (managed by software).
++ * Note that tree_id 0 is allocated for a default-route tree.
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, ralta, tree_id, 0x00, 0, 8);
++
++static inline void mlxsw_reg_ralta_pack(char *payload, bool alloc,
++					enum mlxsw_reg_ralxx_protocol protocol,
++					u8 tree_id)
++{
++	MLXSW_REG_ZERO(ralta, payload);
++	mlxsw_reg_ralta_op_set(payload, !alloc);
++	mlxsw_reg_ralta_protocol_set(payload, protocol);
++	mlxsw_reg_ralta_tree_id_set(payload, tree_id);
++}
++
+ /* MFCR - Management Fan Control Register
+  * --------------------------------------
+  * This register controls the settings of the Fan Speed PWM mechanism.
+@@ -4196,6 +4246,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
+ 		return "RGCR";
+ 	case MLXSW_REG_RITR_ID:
+ 		return "RITR";
++	case MLXSW_REG_RALTA_ID:
++		return "RALTA";
+ 	case MLXSW_REG_MFCR_ID:
+ 		return "MFCR";
+ 	case MLXSW_REG_MFSC_ID:
 -- 
 2.5.5
