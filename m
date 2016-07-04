@@ -1,52 +1,28 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: [PATCH net-next V4 0/6] switch to use tx skb array in tun
-Date: Fri, 8 Jul 2016 17:14:19 +0800
-Message-ID: <577F6EEB.9080908@redhat.com>
-References: <CAEfhGixKLfLOj11ERgPhpVB+UXbqxrvkQKgQgn19bDjroO_4dQ@mail.gmail.com>
-	<20160708091855-mutt-send-email-mst@redhat.com>
+From: "flitkin13@gmail.com" <flitkin13@gmail.com>
+Subject: =?windows-1251?B?x+Tw4OLx8uLz6fLlISDC4PEg6O3y5fDl8fP+?=
+	=?windows-1251?B?8iDq6+jl7fLx6ujlIOHg5/sg5ODt7fv1PyDE?=
+	=?windows-1251?B?wCAtIM3F0iDv8Oj46+jy5SDt4CBlbWFpbDog?=
+	=?windows-1251?B?YWJ1cm92NTJAZ21haWwuY29tIFNreXBlOiBw?=
+	=?windows-1251?B?cm9kYXdlejM4OSDP8Oj46+XsIO/u5PDu4e3u?=
+	=?windows-1251?B?8fLoIQ==?=
+Date: Mon, 4 Jul 2016 17:07:52 +0600
+Message-ID: <E8ED5B0803D7F94A9693DA66723CD1E8@xmqerp>
+Reply-To: "flitkin13@gmail.com" <aburov52@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Type: text/plain;
+	format=flowed;
+	charset="windows-1251";
+	reply-type=original
 Content-Transfer-Encoding: base64
-Cc: kvm@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
-	netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org, brouer@redhat.com,
-	David Miller <davem@davemloft.net>
-To: "Michael S. Tsirkin" <mst@redhat.com>, Craig Gallek <kraigatgoog@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
-In-Reply-To: <20160708091855-mutt-send-email-mst@redhat.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+To: unlisted-recipients:; (no To-header on input)
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from [222.211.65.72] ([222.211.65.72]:34512 "EHLO
+	gc03-000000-0007.localdomain" rhost-flags-FAIL-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751815AbcGHJpz (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 05:45:55 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-CgpPbiAyMDE25bm0MDfmnIgwOOaXpSAxNDoxOSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
-IE9uIFdlZCwgSnVsIDA2LCAyMDE2IGF0IDAxOjQ1OjU4UE0gLTA0MDAsIENyYWlnIEdhbGxlayB3
-cm90ZToKPj4gPk9uIFRodSwgSnVuIDMwLCAyMDE2IGF0IDI6NDUgQU0sIEphc29uIFdhbmc8amFz
-b3dhbmdAcmVkaGF0LmNvbT4gIHdyb3RlOgo+Pj4gPiA+SGkgYWxsOgo+Pj4gPiA+Cj4+PiA+ID5U
-aGlzIHNlcmllcyB0cmllcyB0byBzd2l0Y2ggdG8gdXNlIHNrYiBhcnJheSBpbiB0dW4uIFRoaXMg
-aXMgdXNlZCB0bwo+Pj4gPiA+ZWxpbWluYXRlIHRoZSBzcGlubG9jayBjb250ZW50aW9uIGJldHdl
-ZW4gcHJvZHVjZXIgYW5kIGNvbnN1bWVyLiBUaGUKPj4+ID4gPmNvbnZlcnNpb24gd2FzIHN0cmFp
-Z2h0Zm9yd2FyZDoganVzdCBpbnRyb2RjZSBhIHR4IHNrYiBhcnJheSBhbmQgdXNlCj4+PiA+ID5p
-dCBpbnN0ZWFkIG9mIHNrX3JlY2VpdmVfcXVldWUuCj4+ID4KPj4gPkknbSBzZWVpbmcgdGhlIHNw
-bGF0IGJlbG93IGFmdGVyIHRoaXMgc2VyaWVzLiAgSSdtIHN0aWxsIHdyYXBwaW5nIG15Cj4+ID5o
-ZWFkIGFyb3VuZCB0aGlzIGNvZGUsIGJ1dCBpdCBhcHBlYXJzIHRvIGJlIGhhcHBlbmluZyBiZWNh
-dXNlIHRoZQo+PiA+dHVuX3N0cnVjdCBwYXNzZWQgaW50byB0dW5fcXVldWVfcmVzaXplIGlzIHVu
-aW5pdGlhbGl6ZWQuCj4+ID5TcGVjaWZpY2FsbHksIGl0ZXJhdGlvbiBvdmVyIHRoZSBkaXNhYmxl
-ZCBsaXN0X2hlYWQgZmFpbHMgYmVjYXVzZSBwcmV2Cj4+ID49IG5leHQgPSBOVUxMLiAgVGhpcyBz
-ZWVtcyB0byBoYXBwZW4gd2hlbiBhIHN0YXJ0dXAgc2NyaXB0IG9uIG15IHRlc3QKPj4gPm1hY2hp
-bmUgY2hhbmdlcyB0aGUgcXVldWUgbGVuZ3RoLiAgSSdsbCB0cnkgdG8gZmlndXJlIG91dCB3aGF0
-J3MKPj4gPmhhcHBlbmluZywgYnV0IGlmIGl0J3Mgb2J2aW91cyB0byBzb21lb25lIGVsc2UgZnJv
-bSB0aGUgc3RhY2ssIHBsZWFzZQo+PiA+bGV0IG1lIGtub3cuCj4gRG9uJ3Qgc2VlIGFueXRoaW5n
-IG9idmlvdXMuIEknbSB0cmF2ZWxpbmcsIHdpbGwgbG9vayBhdCBpdCB3aGVuIEknbSBiYWNrCj4g
-dW5sZXNzIGl0J3MgZml4ZWQgYnkgdGhlbi4gSmFzb24sIGFueSBpZGVhPwo+CgpMb29rcyBsaWtl
-IENyYWlnIGhhcyBwb3N0ZWQgYSBmaXggdG8gdGhpczoKCmh0dHA6Ly9wYXRjaHdvcmsub3psYWJz
-Lm9yZy9wYXRjaC82NDU2NDUvCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0
-cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcv
-bWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
+x+Tw4OLx8uLz6fLlISDC4PEg6O3y5fDl8fP+8iDq6+jl7fLx6ujlIOHg5/sg5ODt7fv1PyDEwCAt
+IM3F0iDv8Oj46+jy5SDt4CBlbWFpbDogYWJ1cm92NTJAZ21haWwuY29tIFNreXBlOiBwcm9kYXdl
+ejM4OSDP8Oj46+XsIO/u5PDu4e3u8fLoIQ0K
