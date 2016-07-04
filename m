@@ -1,218 +1,98 @@
-From: Nicolas Ferre <nicolas.ferre@atmel.com>
-Subject: Re: [RFC PATCH v2 2/4] net: ethernet: xilinx: Add gmii2rgmii
- converter support
-Date: Mon, 4 Jul 2016 11:54:02 +0200
-Message-ID: <577A323A.4080207@atmel.com>
-References: <1467623084-15471-1-git-send-email-appanad@xilinx.com>
- <1467623084-15471-3-git-send-email-appanad@xilinx.com>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: PROBLEM: MTU of ipsec tunnel drops continuously until traffic
+ stops
+Date: Mon, 4 Jul 2016 13:12:02 +0200
+Message-ID: <20160704111202.GI12335@gauss.secunet.com>
+References: <1467598059395.19100@alliedtelesis.co.nz>
+ <1467604370799.64629@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <netdev@vger.kernel.org>, <devicetree@vger.kernel.org>,
-	<linux-arm-kernel@lists.infradead.org>,
-	<linux-kernel@vger.kernel.org>,
-	Kedareswara rao Appana <appanad@xilinx.com>
-To: Kedareswara rao Appana <appana.durga.rao@xilinx.com>,
-	<robh+dt@kernel.org>, <mark.rutland@arm.com>,
-	<michal.simek@xilinx.com>, <soren.brinkmann@xilinx.com>,
-	<punnaia@xilinx.com>, <f.fainelli@gmail.com>, <andrew@lunn.ch>,
-	<anirudh@xilinx.com>, <harinik@xilinx.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467623084-15471-3-git-send-email-appanad@xilinx.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from a.mx.secunet.com ([62.96.220.36]:39940 "EHLO a.mx.secunet.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752444AbcGDLMH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jul 2016 07:12:07 -0400
+Content-Disposition: inline
+In-Reply-To: <1467604370799.64629@alliedtelesis.co.nz>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Le 04/07/2016 11:04, Kedareswara rao Appana a =E9crit :
-> This patch adds support for gmii2rgmii converter.
+On Mon, Jul 04, 2016 at 03:52:50AM +0000, Matt Bennett wrote:
+> *Resending as plain text so the mailing list accepts it.. Sorry Steff=
+en and Herbert*
 >=20
-> The GMII to RGMII IP core provides the Reduced Gigabit Media
-> Independent Interface (RGMII) between Ethernet physical media
-> Devices and the Gigabit Ethernet controller. This core can
-> Switch dynamically between the three different speed modes of
-> Operation by configuring the converter register through mdio write.
+> =E2=80=8BHi,
 >=20
-> MDIO interface is used to set operating speed of Ethernet MAC.
+> During long run testing of an ipsec tunnel over a PPP link it was fou=
+nd that occasionally traffic would stop flowing over the tunnel. Eventu=
+ally the traffic would start again, however using the command "ip route=
+ flush cache"=C2=A0causes=C2=A0traffic to start flowing  again immediat=
+ely.
 >=20
-> Signed-off-by: Kedareswara rao Appana <appanad@xilinx.com>
-> ---
-> Changes for v2:
-> --> Passed struct xphy pointer directly to the fix_mac_speed
-> API as suggested by the Florian.
-> --> Added checks for the phy-node fail case as suggested
-> by the Florian.
+> Note, I am=C2=A0using a 4.4.6 based kernel, however I see no major di=
+fferences between 4.4.6 and 4.4.14 (current=C2=A0LTS) in any of the cod=
+e I am debugging.=C2=A0I  have manually debugged the code as far as I c=
+an, however I don't know the code well enough to make further progress.=
+=C2=A0What I have uncovered is outlined below:
 >=20
->  drivers/net/ethernet/xilinx/Kconfig             |  8 +++
->  drivers/net/ethernet/xilinx/Makefile            |  1 +
->  drivers/net/ethernet/xilinx/xilinx_gmii2rgmii.c | 79 +++++++++++++++=
-++++++++++
->  include/linux/xilinx_gmii2rgmii.h               | 24 ++++++++
->  4 files changed, 112 insertions(+)
->  create mode 100644 drivers/net/ethernet/xilinx/xilinx_gmii2rgmii.c
->  create mode 100644 include/linux/xilinx_gmii2rgmii.h
+> By pinging the other end of the tunnel when the traffic stops flowing=
+ I get messages like the following:
 >=20
-> diff --git a/drivers/net/ethernet/xilinx/Kconfig b/drivers/net/ethern=
-et/xilinx/Kconfig
-> index 4f5c024..4b65174 100644
-> --- a/drivers/net/ethernet/xilinx/Kconfig
-> +++ b/drivers/net/ethernet/xilinx/Kconfig
-> @@ -39,4 +39,12 @@ config XILINX_LL_TEMAC
->  	  This driver supports the Xilinx 10/100/1000 LocalLink TEMAC
->  	  core used in Xilinx Spartan and Virtex FPGAs
-> =20
-> +config XILINX_GMII2RGMII
-> +	tristate "Xilinx GMII2RGMII converter driver"
-> +	default y
-> +	---help---
-> +	  This driver support xilinx GMII to RGMII IP core it provides
-> +	  the Reduced Gigabit Media Independent Interface(RGMII) between
-> +	  Ethernet physical media devices and the Gigabit Ethernet controll=
-er.
-> +
->  endif # NET_VENDOR_XILINX
-> diff --git a/drivers/net/ethernet/xilinx/Makefile b/drivers/net/ether=
-net/xilinx/Makefile
-> index 214205e..bca0da0 100644
-> --- a/drivers/net/ethernet/xilinx/Makefile
-> +++ b/drivers/net/ethernet/xilinx/Makefile
-> @@ -7,3 +7,4 @@ obj-$(CONFIG_XILINX_LL_TEMAC) +=3D ll_temac.o
->  obj-$(CONFIG_XILINX_EMACLITE) +=3D xilinx_emaclite.o
->  xilinx_emac-objs :=3D xilinx_axienet_main.o xilinx_axienet_mdio.o
->  obj-$(CONFIG_XILINX_AXI_EMAC) +=3D xilinx_emac.o
-> +obj-$(CONFIG_XILINX_GMII2RGMII) +=3D xilinx_gmii2rgmii.o
-> diff --git a/drivers/net/ethernet/xilinx/xilinx_gmii2rgmii.c b/driver=
-s/net/ethernet/xilinx/xilinx_gmii2rgmii.c
-> new file mode 100644
-> index 0000000..de3bd89
-> --- /dev/null
-> +++ b/drivers/net/ethernet/xilinx/xilinx_gmii2rgmii.c
-> @@ -0,0 +1,79 @@
-> +/* Xilinx GMII2RGMII Converter driver
-> + *
-> + * Copyright (C) 2016 Xilinx, Inc.
-> + *
-> + * Author: Kedareswara rao Appana <appanad@xilinx.com>
-> + *
-> + * Description:
-> + * This driver is developed for Xilinx GMII2RGMII Converter
-> + *
-> + * This program is free software: you can redistribute it and/or mod=
-ify
-> + * it under the terms of the GNU General Public License as published=
- by
-> + * the Free Software Foundation, either version 2 of the License, or
-> + * (at your option) any later version.
-> + *
-> + * This program is distributed in the hope that it will be useful,
-> + * but WITHOUT ANY WARRANTY; without even the implied warranty of
-> + * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-> + * GNU General Public License for more details.
-> + */
-> +#include <linux/module.h>
-> +#include <linux/kernel.h>
-> +#include <linux/types.h>
-> +#include <linux/netdevice.h>
-> +#include <linux/mii.h>
-> +#include <linux/of_platform.h>
-> +#include <linux/of_address.h>
-> +#include <linux/of_mdio.h>
-> +#include <linux/xilinx_gmii2rgmii.h>
-> +
-> +static void xgmii2rgmii_fix_mac_speed(struct gmii2rgmii *xphy,
-> +				      unsigned int speed)
-> +{
-> +	struct phy_device *gmii2rgmii_phydev =3D xphy->gmii2rgmii_phy_dev;
-> +	u16 gmii2rgmii_reg =3D 0;
-> +
-> +	switch (speed) {
-> +	case 1000:
-> +		gmii2rgmii_reg |=3D XILINX_GMII2RGMII_SPEED1000;
-> +		break;
-> +	case 100:
-> +		gmii2rgmii_reg |=3D XILINX_GMII2RGMII_SPEED100;
-> +		break;
-> +	default:
-> +		return;
-> +	}
-> +
-> +	xphy->mdio_write(xphy->mii_bus, gmii2rgmii_phydev->mdio.addr,
-> +			 XILINX_GMII2RGMII_REG_NUM,
-> +			 gmii2rgmii_reg);
-> +}
-> +
-> +int gmii2rgmii_phyprobe(struct gmii2rgmii *xphy)
-> +{
-> +	struct device_node *phy_node;
-> +	struct phy_device *phydev;
-> +	struct device_node *np =3D (struct device_node *)xphy->platform_dat=
-a;
-> +
-> +	phy_node =3D of_parse_phandle(np, "gmii2rgmii-phy-handle", 0);
-> +	if (phy_node) {
-> +		phydev =3D of_phy_attach(xphy->dev, phy_node, 0, 0);
-> +		if (!phydev) {
-> +			netdev_err(xphy->dev,
-> +				   "%s: no gmii to rgmii converter found\n",
-> +				   xphy->dev->name);
-> +			return -1;
-> +		}
-> +		xphy->gmii2rgmii_phy_dev =3D phydev;
-> +		xphy->fix_mac_speed =3D xgmii2rgmii_fix_mac_speed;
-> +	} else {
-> +		xphy->gmii2rgmii_phy_dev =3D 0;
-> +		xphy->fix_mac_speed =3D 0;
-> +	}
-> +
-> +	return 0;
-> +}
-> +EXPORT_SYMBOL(gmii2rgmii_phyprobe);
-> +
-> +MODULE_DESCRIPTION("Xilinx GMII2RGMII converter driver");
-> +MODULE_LICENSE("GPL");
-> diff --git a/include/linux/xilinx_gmii2rgmii.h b/include/linux/xilinx=
-_gmii2rgmii.h
-> new file mode 100644
-> index 0000000..b328ee7
-> --- /dev/null
-> +++ b/include/linux/xilinx_gmii2rgmii.h
-> @@ -0,0 +1,24 @@
+> 10-AR4050#ping 172.16.0.5
+> PING 172.16.0.5 (172.16.0.5) 56(84) bytes of data.
+> From 172.16.0.6 icmp_seq=3D1 Frag needed and DF set (mtu =3D 46)
+> From 172.16.0.6 icmp_seq=3D2 Frag needed and DF set (mtu =3D 46)
+>=20
+> but this is weird considering (note the mtu values):
+>=20
+> [root@10-AR4050 /flash]# ip link
+> 16778240: ppp0: <POINTOPOINT,MULTICAST,NOARP,UP,LOWER_UP> mtu 1492 qd=
+isc htb state UP mode DEFAULT group default qlen 3
+> =C2=A0 =C2=A0 link/ppp=C2=A0
+> 14: tunnel64@NONE: <POINTOPOINT,MULTICAST,UP,LOWER_UP> mtu 1200 qdisc=
+ htb state UNKNOWN mode DEFAULT group default qlen=C2=A01
+> =C2=A0 =C2=A0 link/ipip 203.0.113.10 peer 203.0.113.5
+>=20
+> The code that generates the ICMP_FRAG_NEEDED packet is vti_xmit()=C2=A0=
+(ip_vti.c)=C2=A0where there is a check of skb length against the mtu of=
+ dst entry. Since the mtu is lower than the packet (debug shows the mtu=
+ is=C2=A046 as expected from the ping output) the ICMP  error is genera=
+ted.
 
+Semms like you use vti tunnels. Is tunnel64@NONE a vti device, and
+if so did you set the mtu to 1200?
 
-Here, header of the file seems needed.
+Not sure if it is related to your problem, but there was a recent
+fix for vti pmtu handling. It was commit d6af1a31 ("vti: Add pmtu
+handling to vti_xmit.") Do you have this on your branch?
 
-> +#ifndef _GMII2RGMII_H
-> +#define _GMII2RGMII_H
-> +
-> +#include <linux/of.h>
-> +#include <linux/phy.h>
-> +#include <linux/mii.h>
-> +
-> +#define XILINX_GMII2RGMII_FULLDPLX		BMCR_FULLDPLX
-> +#define XILINX_GMII2RGMII_SPEED1000		BMCR_SPEED1000
-> +#define XILINX_GMII2RGMII_SPEED100		BMCR_SPEED100
-> +#define XILINX_GMII2RGMII_REG_NUM			0x10
-> +
-> +struct gmii2rgmii {
-> +	struct net_device	*dev;
-> +	struct mii_bus		*mii_bus;
-> +	struct phy_device	*gmii2rgmii_phy_dev;
-> +	void			*platform_data;
-> +	int (*mdio_write)(struct mii_bus *bus, int mii_id, int reg,
-> +			  u16 val);
-> +	void (*fix_mac_speed)(struct gmii2rgmii *xphy, unsigned int speed);
-> +};
-> +
-> +extern int gmii2rgmii_phyprobe(struct gmii2rgmii *xphy);
-> +#endif
+>=20
+> Digging further I find that when the issue occurs the mtu value is be=
+ing updated in what appears to be an error case in xfrm_bundle_ok (xfrm=
+_policy.c). Specifically the block of code:
+>=20
+> if (likely(!last))
+>         return 1;
+>=20
+> is not hit meaning there is a difference between the cached mtu value=
+ and the value just calculated. I then see this code being hit continuo=
+usly and each time the mtu keeps getting lowered. i.e. (I don't know if=
+ the drop by 80 bytes is significant)
+>=20
+> 1200
+> 1118
+> 1038
+> 958
+> 878
+>  ....
+> 46
 
-I see a compilation issue here:
+I remember that we had a similar problem with IPsec when no
+vti was used some years ago...
 
-You should provide a way to have this function even if the
-NET_VENDOR_XILINX config option is not selected (test to compile with
-the sama5_defconfig and you'll see).
-
-What about making this function void in case of !XILINX?
-
-(so, NACK for the series as it is).
-Bye,
---=20
-Nicolas Ferre
+Unfortunately, today is my last office day before my vacation,
+so no fix from me for the next two weeks.
