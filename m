@@ -1,44 +1,55 @@
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Subject: [PATCH] fsl/fman: fix error handling
-Date: Mon,  4 Jul 2016 07:46:42 +0200
-Message-ID: <1467611202-15168-1-git-send-email-christophe.jaillet@wanadoo.fr>
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org,
-	Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-To: davem@davemloft.net, igal.liberman@freescale.com,
-	rdunlap@infradead.org, standby24x7@gmail.com, arnd@arndb.de
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp03.smtpout.orange.fr ([80.12.242.125]:53464 "EHLO
-	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752690AbcGDFqv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 01:46:51 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Liping Zhang <zlpnobody@gmail.com>
+Subject: Re: [PATCH] netfilter: nf_conntrack_sip: CSeq 0 is a valid CSeq
+Date: Mon, 4 Jul 2016 13:48:10 +0800
+Message-ID: <CAML_gOdB=SjFyXosSb4MtaEymsAGV3beQwQqZMyhbezy=yDgxQ@mail.gmail.com>
+References: <20160701094833.B281E1A23A2@localhost.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Christophe Leroy <christophe.leroy@c-s.fr>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160701094833.B281E1A23A2@localhost.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This is likely that checking 'fman->fifo_offset' instead of
-'fman->cam_offset' is expected here.
+2016-07-01 17:48 GMT+08:00 Christophe Leroy <christophe.leroy@c-s.fr>:
+> Do not drop packet when CSeq is 0 as 0 is also a valid value for CSeq.
+>
+> --- a/net/netfilter/nf_conntrack_sip.c
+> +++ b/net/netfilter/nf_conntrack_sip.c
+> @@ -1368,6 +1368,7 @@ static int process_sip_response(struct sk_buff *skb, unsigned int protoff,
+>         struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+>         unsigned int matchoff, matchlen, matchend;
+>         unsigned int code, cseq, i;
+> +       char buf[21];
+>
+>         if (*datalen < strlen("SIP/2.0 200"))
+>                 return NF_ACCEPT;
+> @@ -1382,8 +1383,13 @@ static int process_sip_response(struct sk_buff *skb, unsigned int protoff,
+>                 nf_ct_helper_log(skb, ct, "cannot parse cseq");
+>                 return NF_DROP;
+>         }
+> -       cseq = simple_strtoul(*dptr + matchoff, NULL, 10);
+> -       if (!cseq) {
 
-Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+I think there is no need to convert simple_strtoul to kstrtouint, add
+a further check seems better?
+Like this:
+ -       if (!cseq) {
++       if (!cseq && *(*dptr + matchoff) != '0') {
 
----
-
-The type of 'fifo_offset' may also need to be changed.
----
- drivers/net/ethernet/freescale/fman/fman.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
-
-diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
-index 1de2e1e..f634e769 100644
---- a/drivers/net/ethernet/freescale/fman/fman.c
-+++ b/drivers/net/ethernet/freescale/fman/fman.c
-@@ -2036,7 +2036,7 @@ static int fman_init(struct fman *fman)
- 	/* allocate MURAM for FIFO according to total size */
- 	fman->fifo_offset = fman_muram_alloc(fman->muram,
- 					     fman->state->total_fifo_size);
--	if (IS_ERR_VALUE(fman->cam_offset)) {
-+	if (IS_ERR_VALUE(fman->fifo_offset)) {
- 		free_init_resources(fman);
- 		dev_err(fman->dev, "%s: MURAM alloc for BMI FIFO failed\n",
- 			__func__);
--- 
-2.7.4
+> +       if (matchlen > sizeof(buf) - 1) {
+> +               nf_ct_helper_log(skb, ct, "cannot parse cseq (too big)");
+> +               return NF_DROP;
+> +       }
+> +       memcpy(buf, *dptr + matchoff, matchlen);
+> +       buf[matchlen] = 0;
+> +       if (kstrtouint(buf, 10, &cseq)) {
+>                 nf_ct_helper_log(skb, ct, "cannot get cseq");
+>                 return NF_DROP;
+>         }
