@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 01/14] mlxsw: spectrum_router: Implement private fib
-Date: Mon,  4 Jul 2016 08:23:04 +0200
-Message-ID: <1467613397-17140-2-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 04/14] mlxsw: reg: Add Router Algorithmic LPM Tree Binding Register definition
+Date: Mon,  4 Jul 2016 08:23:07 +0200
+Message-ID: <1467613397-17140-5-git-send-email-jiri@resnulli.us>
 References: <1467613397-17140-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,189 +10,89 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:36844 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750898AbcGDGXW (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 02:23:22 -0400
-Received: by mail-wm0-f67.google.com with SMTP id c82so19139283wme.3
-        for <netdev@vger.kernel.org>; Sun, 03 Jul 2016 23:23:21 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33336 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753149AbcGDGXZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 02:23:25 -0400
+Received: by mail-wm0-f68.google.com with SMTP id r201so19140966wme.0
+        for <netdev@vger.kernel.org>; Sun, 03 Jul 2016 23:23:25 -0700 (PDT)
 In-Reply-To: <1467613397-17140-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Shadow FIB is needed in order to hold additional information for FIB
-entries and keep track of used prefixes. That is needed for the LPM tree
-construction to be introduced later on in this set.
+This register is used to bind virtual router and protocol to an
+allocated LPM tree.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   7 ++
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 120 +++++++++++++++++++++
- 2 files changed, 127 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/reg.h | 45 +++++++++++++++++++++++++++++++
+ 1 file changed, 45 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-index 83d5807..da0e072 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
-@@ -43,6 +43,7 @@
- #include <linux/if_vlan.h>
- #include <linux/list.h>
- #include <linux/dcbnl.h>
-+#include <linux/in6.h>
- #include <net/switchdev.h>
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+index 4ea608f..0b7b91f 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
+@@ -3579,6 +3579,49 @@ static inline void mlxsw_reg_ralst_bin_pack(char *payload, u8 bin_number,
+ 					    right_child_bin);
+ }
  
- #include "port.h"
-@@ -160,6 +161,12 @@ struct mlxsw_sp_sb {
- 	} ports[MLXSW_PORT_MAX_PORTS];
- };
- 
-+#define MLXSW_SP_PREFIX_COUNT (sizeof(struct in6_addr) * BITS_PER_BYTE)
++/* RALTB - Router Algorithmic LPM Tree Binding Register
++ * ----------------------------------------------------
++ * RALTB is used to bind virtual router and protocol to an allocated LPM tree.
++ */
++#define MLXSW_REG_RALTB_ID 0x8012
++#define MLXSW_REG_RALTB_LEN 0x04
 +
-+struct mlxsw_sp_prefix_usage {
-+	DECLARE_BITMAP(b, MLXSW_SP_PREFIX_COUNT);
++static const struct mlxsw_reg_info mlxsw_reg_raltb = {
++	.id = MLXSW_REG_RALTB_ID,
++	.len = MLXSW_REG_RALTB_LEN,
 +};
 +
- struct mlxsw_sp {
- 	struct {
- 		struct list_head list;
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index 8d70496..af4a35d 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -35,11 +35,131 @@
- 
- #include <linux/kernel.h>
- #include <linux/types.h>
-+#include <linux/rhashtable.h>
-+#include <linux/bitops.h>
-+#include <linux/in6.h>
- 
- #include "spectrum.h"
- #include "core.h"
- #include "reg.h"
- 
-+static void
-+mlxsw_sp_prefix_usage_set(struct mlxsw_sp_prefix_usage *prefix_usage,
-+			  unsigned char prefix_len)
++/* reg_raltb_virtual_router
++ * Virtual Router ID
++ * Range is 0..cap_max_virtual_routers-1
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, raltb, virtual_router, 0x00, 16, 16);
++
++/* reg_raltb_protocol
++ * Protocol.
++ * Access: Index
++ */
++MLXSW_ITEM32(reg, raltb, protocol, 0x00, 12, 4);
++
++/* reg_raltb_tree_id
++ * Tree to be used for the {virtual_router, protocol}
++ * Tree identifier numbered from 1..(cap_shspm_max_trees-1).
++ * By default, all Unicast IPv4 and IPv6 are bound to tree_id 0.
++ * Access: RW
++ */
++MLXSW_ITEM32(reg, raltb, tree_id, 0x00, 0, 8);
++
++static inline void mlxsw_reg_raltb_pack(char *payload, u16 virtual_router,
++					enum mlxsw_reg_ralxx_protocol protocol,
++					u8 tree_id)
 +{
-+	set_bit(prefix_len, prefix_usage->b);
++	MLXSW_REG_ZERO(raltb, payload);
++	mlxsw_reg_raltb_virtual_router_set(payload, virtual_router);
++	mlxsw_reg_raltb_protocol_set(payload, protocol);
++	mlxsw_reg_raltb_tree_id_set(payload, tree_id);
 +}
 +
-+static void
-+mlxsw_sp_prefix_usage_clear(struct mlxsw_sp_prefix_usage *prefix_usage,
-+			    unsigned char prefix_len)
-+{
-+	clear_bit(prefix_len, prefix_usage->b);
-+}
-+
-+struct mlxsw_sp_fib_key {
-+	unsigned char addr[sizeof(struct in6_addr)];
-+	unsigned char prefix_len;
-+};
-+
-+struct mlxsw_sp_fib_entry {
-+	struct rhash_head ht_node;
-+	struct mlxsw_sp_fib_key key;
-+};
-+
-+struct mlxsw_sp_fib {
-+	struct rhashtable ht;
-+	unsigned long prefix_ref_count[MLXSW_SP_PREFIX_COUNT];
-+	struct mlxsw_sp_prefix_usage prefix_usage;
-+};
-+
-+static const struct rhashtable_params mlxsw_sp_fib_ht_params = {
-+	.key_offset = offsetof(struct mlxsw_sp_fib_entry, key),
-+	.head_offset = offsetof(struct mlxsw_sp_fib_entry, ht_node),
-+	.key_len = sizeof(struct mlxsw_sp_fib_key),
-+	.automatic_shrinking = true,
-+};
-+
-+static int mlxsw_sp_fib_entry_insert(struct mlxsw_sp_fib *fib,
-+				     struct mlxsw_sp_fib_entry *fib_entry)
-+{
-+	unsigned char prefix_len = fib_entry->key.prefix_len;
-+	int err;
-+
-+	err = rhashtable_insert_fast(&fib->ht, &fib_entry->ht_node,
-+				     mlxsw_sp_fib_ht_params);
-+	if (err)
-+		return err;
-+	if (fib->prefix_ref_count[prefix_len]++ == 0)
-+		mlxsw_sp_prefix_usage_set(&fib->prefix_usage, prefix_len);
-+	return 0;
-+}
-+
-+static void mlxsw_sp_fib_entry_remove(struct mlxsw_sp_fib *fib,
-+				      struct mlxsw_sp_fib_entry *fib_entry)
-+{
-+	unsigned char prefix_len = fib_entry->key.prefix_len;
-+
-+	if (--fib->prefix_ref_count[prefix_len] == 0)
-+		mlxsw_sp_prefix_usage_clear(&fib->prefix_usage, prefix_len);
-+	rhashtable_remove_fast(&fib->ht, &fib_entry->ht_node,
-+			       mlxsw_sp_fib_ht_params);
-+}
-+
-+static struct mlxsw_sp_fib_entry *
-+mlxsw_sp_fib_entry_create(struct mlxsw_sp_fib *fib, const void *addr,
-+			  size_t addr_len, unsigned char prefix_len)
-+{
-+	struct mlxsw_sp_fib_entry *fib_entry;
-+
-+	fib_entry = kzalloc(sizeof(*fib_entry), GFP_KERNEL);
-+	if (!fib_entry)
-+		return NULL;
-+	memcpy(fib_entry->key.addr, addr, addr_len);
-+	fib_entry->key.prefix_len = prefix_len;
-+	return fib_entry;
-+}
-+
-+static void mlxsw_sp_fib_entry_destroy(struct mlxsw_sp_fib_entry *fib_entry)
-+{
-+	kfree(fib_entry);
-+}
-+
-+static struct mlxsw_sp_fib_entry *
-+mlxsw_sp_fib_entry_lookup(struct mlxsw_sp_fib *fib, const void *addr,
-+			  size_t addr_len, unsigned char prefix_len)
-+{
-+	struct mlxsw_sp_fib_key key = {{ 0 } };
-+
-+	memcpy(key.addr, addr, addr_len);
-+	key.prefix_len = prefix_len;
-+	return rhashtable_lookup_fast(&fib->ht, &key, mlxsw_sp_fib_ht_params);
-+}
-+
-+static struct mlxsw_sp_fib *mlxsw_sp_fib_create(void)
-+{
-+	struct mlxsw_sp_fib *fib;
-+	int err;
-+
-+	fib = kzalloc(sizeof(*fib), GFP_KERNEL);
-+	if (!fib)
-+		return ERR_PTR(-ENOMEM);
-+	err = rhashtable_init(&fib->ht, &mlxsw_sp_fib_ht_params);
-+	if (err)
-+		goto err_rhashtable_init;
-+	return fib;
-+
-+err_rhashtable_init:
-+	kfree(fib);
-+	return ERR_PTR(err);
-+}
-+
-+static void mlxsw_sp_fib_destroy(struct mlxsw_sp_fib *fib)
-+{
-+	rhashtable_destroy(&fib->ht);
-+	kfree(fib);
-+}
-+
- static int __mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
- {
- 	char rgcr_pl[MLXSW_REG_RGCR_LEN];
+ /* MFCR - Management Fan Control Register
+  * --------------------------------------
+  * This register controls the settings of the Fan Speed PWM mechanism.
+@@ -4325,6 +4368,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
+ 		return "RALTA";
+ 	case MLXSW_REG_RALST_ID:
+ 		return "RALST";
++	case MLXSW_REG_RALTB_ID:
++		return "RALTB";
+ 	case MLXSW_REG_MFCR_ID:
+ 		return "MFCR";
+ 	case MLXSW_REG_MFSC_ID:
 -- 
 2.5.5
