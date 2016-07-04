@@ -1,39 +1,44 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: Re: linux-next: build warning after merge of the net-next tree
-Date: Mon, 4 Jul 2016 13:19:37 +0800
-Message-ID: <5779F1E9.9070505@redhat.com>
-References: <20160704131552.22b44d58@canb.auug.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Stephen Rothwell <sfr@canb.auug.org.au>,
-	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
-Return-path: <linux-next-owner@vger.kernel.org>
-In-Reply-To: <20160704131552.22b44d58@canb.auug.org.au>
-Sender: linux-next-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Subject: [PATCH] fsl/fman: fix error handling
+Date: Mon,  4 Jul 2016 07:46:42 +0200
+Message-ID: <1467611202-15168-1-git-send-email-christophe.jaillet@wanadoo.fr>
+Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	kernel-janitors@vger.kernel.org,
+	Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+To: davem@davemloft.net, igal.liberman@freescale.com,
+	rdunlap@infradead.org, standby24x7@gmail.com, arnd@arndb.de
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp03.smtpout.orange.fr ([80.12.242.125]:53464 "EHLO
+	smtp.smtpout.orange.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752690AbcGDFqv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 01:46:51 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+This is likely that checking 'fman->fifo_offset' instead of
+'fman->cam_offset' is expected here.
 
+Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
 
-On 2016=E5=B9=B407=E6=9C=8804=E6=97=A5 11:15, Stephen Rothwell wrote:
-> Hi all,
->
-> After merging the net-next tree, today's linux-next build (powerpc
-> ppc64_defconfig) produced this warning:
->
-> drivers/net/tun.c: In function 'tun_do_read.part.5':
-> /home/sfr/next/next/drivers/net/tun.c:1491:6: warning: 'err' may be u=
-sed uninitialized in this function [-Wmaybe-uninitialized]
->    int err;
->        ^
->
-> Introduced by commit
->
->    1576d9860599 ("tun: switch to use skb array for tx")
->
-> I can't easily see if this is a false positive.
->
+---
 
-Thanks for the reporting, will post a fix.
+The type of 'fifo_offset' may also need to be changed.
+---
+ drivers/net/ethernet/freescale/fman/fman.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/freescale/fman/fman.c b/drivers/net/ethernet/freescale/fman/fman.c
+index 1de2e1e..f634e769 100644
+--- a/drivers/net/ethernet/freescale/fman/fman.c
++++ b/drivers/net/ethernet/freescale/fman/fman.c
+@@ -2036,7 +2036,7 @@ static int fman_init(struct fman *fman)
+ 	/* allocate MURAM for FIFO according to total size */
+ 	fman->fifo_offset = fman_muram_alloc(fman->muram,
+ 					     fman->state->total_fifo_size);
+-	if (IS_ERR_VALUE(fman->cam_offset)) {
++	if (IS_ERR_VALUE(fman->fifo_offset)) {
+ 		free_init_resources(fman);
+ 		dev_err(fman->dev, "%s: MURAM alloc for BMI FIFO failed\n",
+ 			__func__);
+-- 
+2.7.4
