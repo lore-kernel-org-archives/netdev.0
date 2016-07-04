@@ -1,99 +1,98 @@
-From: Appana Durga Kedareswara Rao <appana.durga.rao@xilinx.com>
-Subject: RE: [RFC PATCH v2 2/4] net: ethernet: xilinx: Add gmii2rgmii
- converter support
-Date: Mon, 4 Jul 2016 12:36:05 +0000
-Message-ID: <C246CAC1457055469EF09E3A7AC4E11A4A5BB285@XAP-PVEXMBX01.xlnx.xilinx.com>
-References: <1467623084-15471-1-git-send-email-appanad@xilinx.com>
- <1467623084-15471-3-git-send-email-appanad@xilinx.com>
- <577A323A.4080207@atmel.com>
- <C246CAC1457055469EF09E3A7AC4E11A4A5BB227@XAP-PVEXMBX01.xlnx.xilinx.com>
- <577A572F.1050004@atmel.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: Nicolas Ferre <nicolas.ferre@atmel.com>,
-	"robh+dt@kernel.org" <robh+dt@kernel.org>,
-	"mark.rutland@arm.com" <mark.rutland@arm.com>,
-	"Michal Simek" <michals@xilinx.com>,
-	Soren Brinkmann <sorenb@xilinx.com>,
-	"Punnaiah Choudary Kalluri" <punnaia@xilinx.com>,
-	"f.fainelli@gmail.com" <f.fainelli@gmail.com>,
-	"andrew@lunn.ch" <andrew@lunn.ch>,
-	Anirudha Sarangi <anirudh@xilinx.com>,
-	Harini Katakam <harinik@xilinx.com>
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Subject: [PATCH] net: check for NULL net_device in FIB tables
+Date: Mon,  4 Jul 2016 14:47:26 +0200
+Message-ID: <1467636446-6771-1-git-send-email-vegard.nossum@oracle.com>
+Cc: netdev@vger.kernel.org, Vegard Nossum <vegard.nossum@oracle.com>,
+	Dinesh Dutt <ddutt@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam02on0074.outbound.protection.outlook.com ([104.47.36.74]:34127
-	"EHLO NAM02-SN1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1753644AbcGDMgM convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 08:36:12 -0400
-In-Reply-To: <577A572F.1050004@atmel.com>
-Content-Language: en-US
+Received: from aserp1040.oracle.com ([141.146.126.69]:20052 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753352AbcGDMrl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 08:47:41 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Nicolas,
+struct fib_nh->nh_dev can be NULL, so we should check it before calling
+__in_dev_get_rcu on it.
 
+Multiple places seem to want this (and check the return value), so we can
+add a convenience wrapper for this.
 
-> >
-> > #ifdef CONFIG_NET_VENDOR_XILINX
-> 
-> You may need to have:
-> #if defined(CONFIG_NET_VENDOR_XILINX) &&
-> defined(CONFIG_XILINX_GMII2RGMII)
-> 
-> >  extern int gmii2rgmii_phyprobe(struct gmii2rgmii *xphy); #else extern
-> > void gmii2rgmii_phyprobe(struct gmii2rgmii *xphy);
-> 
-> No need for the line above...
-> 
-> > void gmii2rgmii_phyprobe(struct gmii2rgmii *xphy) { }
-> 
-> On one single line, like:
-> 
-> static inline void gmii2rgmii_phyprobe(struct gmii2rgmii *xphy) { }
-> 
-> > #endif
-> > For me the changes are looking odd...
-> 
-> For me, it's okay...
+This fixes a crash in AF_NETLINK sendmsg().
 
-Ok will fix as you suggested...
+Please double check that I caught all the callers that need the NULL
+guard.
 
-> 
-> >
-> > Other possible ways
-> > 	1)  Put a config check around phyprobe api in the macb driver.
-> > #ifdef CONFIG_XILINX_GMII2RGMII
-> >                        gmii2rgmii_phyprobe(&bp->converter_phy);
-> > #endif
-> 
-> Nope!
-> 
-> > 	2) Select NET_VENDOR_XILINX in the macb Kconfig @ -22,6 +22,7 @@
-> > config MACB
-> >         tristate "Cadence MACB/GEM support"
-> >         depends on HAS_DMA
-> >         select PHYLIB
-> > +       select NET_VENDOR_XILINX
-> 
-> 
-> 
-> > Please let me know which one you prefer will fix that and will post v3...
-> 
-> First one with my changes is the best. But maybe wait for more feedback...
+Fixes: 0eeb075fad73 ("net: ipv4 sysctl option to ignore routes when nexthop link is down")
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
+Cc: Dinesh Dutt <ddutt@cumulusnetworks.com>
+Cc: Scott Feldman <sfeldma@gmail.com>
+Cc: David S. Miller <davem@davemloft.net>
+Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+---
+ include/linux/inetdevice.h | 7 +++++++
+ net/ipv4/fib_semantics.c   | 8 ++++----
+ 2 files changed, 11 insertions(+), 4 deletions(-)
 
-Ok sure will wait and will post next version with your suggestion in case of no comments...
-
-Regards,
-Kedar.
-
-> 
-> Bye,
-> --
-> Nicolas Ferre
+diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+index ee971f3..2d8bea1 100644
+--- a/include/linux/inetdevice.h
++++ b/include/linux/inetdevice.h
+@@ -222,6 +222,13 @@ static inline struct in_device *__in_dev_get_rtnl(const struct net_device *dev)
+ 	return rtnl_dereference(dev->ip_ptr);
+ }
+ 
++static inline struct in_device *in_dev_get_rtnl(const struct net_device *dev)
++{
++	if (!dev)
++		return NULL;
++	return __in_dev_get_rtnl(dev);
++}
++
+ static inline struct neigh_parms *__in_dev_arp_parms_get_rcu(const struct net_device *dev)
+ {
+ 	struct in_device *in_dev = __in_dev_get_rcu(dev);
+diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+index d09173b..8289799 100644
+--- a/net/ipv4/fib_semantics.c
++++ b/net/ipv4/fib_semantics.c
+@@ -545,7 +545,7 @@ static void fib_rebalance(struct fib_info *fi)
+ 		if (nh->nh_flags & RTNH_F_DEAD)
+ 			continue;
+ 
+-		in_dev = __in_dev_get_rtnl(nh->nh_dev);
++		in_dev = in_dev_get_rtnl(nh->nh_dev);
+ 
+ 		if (in_dev &&
+ 		    IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
+@@ -559,7 +559,7 @@ static void fib_rebalance(struct fib_info *fi)
+ 	change_nexthops(fi) {
+ 		int upper_bound;
+ 
+-		in_dev = __in_dev_get_rtnl(nexthop_nh->nh_dev);
++		in_dev = in_dev_get_rtnl(nexthop_nh->nh_dev);
+ 
+ 		if (nexthop_nh->nh_flags & RTNH_F_DEAD) {
+ 			upper_bound = -1;
+@@ -1261,7 +1261,7 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
+ 		    nla_put_u32(skb, RTA_OIF, fi->fib_nh->nh_oif))
+ 			goto nla_put_failure;
+ 		if (fi->fib_nh->nh_flags & RTNH_F_LINKDOWN) {
+-			in_dev = __in_dev_get_rtnl(fi->fib_nh->nh_dev);
++			in_dev = in_dev_get_rtnl(fi->fib_nh->nh_dev);
+ 			if (in_dev &&
+ 			    IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev))
+ 				rtm->rtm_flags |= RTNH_F_DEAD;
+@@ -1292,7 +1292,7 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
+ 
+ 			rtnh->rtnh_flags = nh->nh_flags & 0xFF;
+ 			if (nh->nh_flags & RTNH_F_LINKDOWN) {
+-				in_dev = __in_dev_get_rtnl(nh->nh_dev);
++				in_dev = in_dev_get_rtnl(nh->nh_dev);
+ 				if (in_dev &&
+ 				    IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev))
+ 					rtnh->rtnh_flags |= RTNH_F_DEAD;
+-- 
+1.9.1
