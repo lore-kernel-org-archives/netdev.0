@@ -1,56 +1,31 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [PATCH iproute2] tc: flower: Add skip_{hw|sw} support
-Date: Mon, 4 Jul 2016 09:41:34 +0200
-Message-ID: <20160704074133.GA2325@nanopsycho.orion>
-References: <20160704073411.17633-1-amir@vadai.me>
+From: Oliver Neukum <oneukum@suse.com>
+Subject: Re: [PATCH net,stable] cdc_ncm: workaround for EM7455 "silent" data
+ interface
+Date: Mon, 04 Jul 2016 10:06:45 +0200
+Message-ID: <1467619605.9978.4.camel@suse.com>
+References: <1467577490-27810-1-git-send-email-bjorn@mork.no>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Amir Vadai <amirva@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, linux-usb@vger.kernel.org
+To: =?ISO-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:37724 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753200AbcGDHlh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 03:41:37 -0400
-Received: by mail-wm0-f43.google.com with SMTP id a66so103247909wme.0
-        for <netdev@vger.kernel.org>; Mon, 04 Jul 2016 00:41:36 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160704073411.17633-1-amir@vadai.me>
+Received: from mx2.suse.de ([195.135.220.15]:38753 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932232AbcGDIKy (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jul 2016 04:10:54 -0400
+In-Reply-To: <1467577490-27810-1-git-send-email-bjorn@mork.no>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Mon, Jul 04, 2016 at 09:34:11AM CEST, amir@vadai.me wrote:
->From: Amir Vadai <amirva@mellanox.com>
->
->On devices that support TC flower offloads, these flags enable a filter to be
->added only to HW or only to SW. skip_sw and skip_hw are mutually exclusive
->flags. By default without any flags, the filter is added to both HW and SW,
->but no error checks are done in case of failure to add to HW.
->With skip-sw, failure to add to HW is treated as an error.
->
->Here is a sample script that adds 2 filters, one with skip_sw and the other
->with skip_hw flag.
->
->   # add ingress qdisc
->   tc qdisc add dev enp0s9 ingress
->
->   # enable hw tc offload.
->   ethtool -K enp0s9 hw-tc-offload on
->
->   # add a flower filter with skip-sw flag.
->   tc filter add dev enp0s9 protocol ip parent ffff: flower \
->	   ip_proto 1 indev enp0s9 skip_sw \
->	   action drop
->
->   # add a flower filter with skip-hw flag.
->   tc filter add dev enp0s9 protocol ip parent ffff: flower \
->	   ip_proto 3 indev enp0s9 skip_hw \
->	   action drop
->
->Signed-off-by: Amir Vadai <amirva@mellanox.com>
+On Sun, 2016-07-03 at 22:24 +0200, Bj=C3=B8rn Mork wrote:
+> Several Lenovo users have reported problems with their Sierra
+> Wireless EM7455 modem. The driver has loaded successfully and
+> the MBIM management channel has appeared to work, including
+> establishing a connection to the mobile network. But no frames
+> have been received over the data interface.
 
-Acked-by: Jiri Pirko <jiri@mellanox.com>
+If this is needed in open() it must also be needed in reset_resume()
+
+	Regards
+		Oliver
