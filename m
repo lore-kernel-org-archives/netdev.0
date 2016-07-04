@@ -1,54 +1,61 @@
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Subject: Re: [PATCH] net: check for NULL net_device in FIB tables
-Date: Tue, 5 Jul 2016 00:02:09 +0200
-Message-ID: <577ADCE1.6010506@oracle.com>
-References: <1467636446-6771-1-git-send-email-vegard.nossum@oracle.com>
- <alpine.LFD.2.11.1607042221290.2228@ja.home.ssi.bg>
- <577ABF71.6020002@oracle.com>
- <alpine.LFD.2.11.1607050014000.2228@ja.home.ssi.bg>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: 4.6.3 kernel panic on ppp interface termination
+ (__tcf_hash_release / spinlock )
+Date: Mon, 4 Jul 2016 15:02:58 -0700
+Message-ID: <CAM_iQpW0PPZJzhbaeNN1zYZsyopzAWiO1b13XAXZLjpPBKapxQ@mail.gmail.com>
+References: <9b35b4153ec398e17cfb7c2739eee1de@nuclearcat.com> <31e51065f1531b4fa819dac37dc0ba11@nuclearcat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Dinesh Dutt <ddutt@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jamal Hadi Salim <jhs@mojatatu.com>
+To: nuclearcat@nuclearcat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:31774 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752357AbcGDWC2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 18:02:28 -0400
-In-Reply-To: <alpine.LFD.2.11.1607050014000.2228@ja.home.ssi.bg>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:34572 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752357AbcGDWDT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 18:03:19 -0400
+Received: by mail-io0-f177.google.com with SMTP id g13so159450138ioj.1
+        for <netdev@vger.kernel.org>; Mon, 04 Jul 2016 15:03:18 -0700 (PDT)
+In-Reply-To: <31e51065f1531b4fa819dac37dc0ba11@nuclearcat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/04/2016 11:24 PM, Julian Anastasov wrote:
+On Mon, Jul 4, 2016 at 12:07 PM,  <nuclearcat@nuclearcat.com> wrote:
+> A little bit more details:
 >
-> 	Hello,
+>  ~ # tc -s -d filter show dev ppp0 parent ffff:
+> filter protocol ip pref 100 u32
+> filter protocol ip pref 100 u32 fh 800: ht divisor 1
+> filter protocol ip pref 100 u32 fh 800::1 order 1 key ht 800 bkt 0 flowid :1
+> (rule hit 156 success 156)
+>   match 00000000/00000000 at 12 (success 156 )
+>         action order 1:  police 0x1 rate 4024Kbit burst 503000b mtu 2Kb
+> action drop overhead 0b linklayer unspec
+> ref 1 bind 1
+>         Action statistics:
+>         Sent 10564 bytes 156 pkt (dropped 0, overlimits 0 requeues 0)
+>         backlog 0b 0p requeues 0
 >
-> On Mon, 4 Jul 2016, Vegard Nossum wrote:
 >
->> Alright.
->>
->> Thanks for the review! I can submit a new patch to only check the one
->> place above that actually crashed. Otherwise, if you think it's better
->> to go with your fc_flags suggestion, feel free to send a patch for that.
->> As you can tell, I am not very familiar with this code :-) If you do
->> send a patch, I can test it easily.
+> Panic occurs when i delete ingress qdisc
 >
-> 	Of course, here is untested version. May be I'll do some
-> testing this weekend and will submit with proper commit
-> message...
+> tc qdisc del dev ppp0 ingress
 >
-> [PATCH RFC] ipv4: reject RTNH_F_LINKDOWN for incompatible routes
+> After reversing commits (and some related commits)
+>         1d4150c02c5709fdfd80f10368a31867de35e72e
+>         ddf97ccdd7cb7e00daba465a5c947b8d941dc2a4
 >
-> The RTNH_F_LINKDOWN flag is used only for link routes.
-> Reject it for error routes and local routes.
+> Problem is not occurring.
 >
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> I'm not certainly sure this commits are causing issue, it is very hard to
+> reverse patches on this particular system.
+>
 
-Tested your patch, it fixes the problem for me. I haven't tested if it
-breaks anything else :-)
+Can you check if the following commit helps?
 
+commit a03e6fe569713fb3ff0714f8fd7c8785c0ca9e22
+Author: WANG Cong <xiyou.wangcong@gmail.com>
+Date:   Mon Jun 6 09:54:30 2016 -0700
 
-Vegard
+    act_police: fix a crash during removal
