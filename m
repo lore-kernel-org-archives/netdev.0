@@ -1,33 +1,70 @@
-From: Stephen Rothwell <sfr@canb.auug.org.au>
-Subject: linux-next: build warning after merge of the net-next tree
-Date: Mon, 4 Jul 2016 13:15:52 +1000
-Message-ID: <20160704131552.22b44d58@canb.auug.org.au>
+From: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+Subject: PROBLEM: MTU of ipsec tunnel drops continuously until traffic stops
+Date: Mon, 4 Jul 2016 03:52:50 +0000
+Message-ID: <1467604370799.64629@alliedtelesis.co.nz>
+References: <1467598059395.19100@alliedtelesis.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Jason Wang <jasowang@redhat.com>
-To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Steffen Klassert <steffen.klassert@secunet.com>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:51836 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751854AbcGDDw7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jul 2016 23:52:59 -0400
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(Client did not present a certificate)
+	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id A8DC1806C1
+	for <netdev@vger.kernel.org>; Mon,  4 Jul 2016 15:53:13 +1200 (NZST)
+In-Reply-To: <1467598059395.19100@alliedtelesis.co.nz>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi all,
-
-After merging the net-next tree, today's linux-next build (powerpc
-ppc64_defconfig) produced this warning:
-
-drivers/net/tun.c: In function 'tun_do_read.part.5':
-/home/sfr/next/next/drivers/net/tun.c:1491:6: warning: 'err' may be used uninitialized in this function [-Wmaybe-uninitialized]
-  int err;
-      ^
-
-Introduced by commit
-
-  1576d9860599 ("tun: switch to use skb array for tx")
-
-I can't easily see if this is a false positive.
-
--- 
-Cheers,
-Stephen Rothwell
+KlJlc2VuZGluZyBhcyBwbGFpbiB0ZXh0IHNvIHRoZSBtYWlsaW5nIGxpc3QgYWNjZXB0cyBpdC4u
+IFNvcnJ5IFN0ZWZmZW4gYW5kIEhlcmJlcnQqCgrigItIaSwKCkR1cmluZyBsb25nIHJ1biB0ZXN0
+aW5nIG9mIGFuIGlwc2VjIHR1bm5lbCBvdmVyIGEgUFBQIGxpbmsgaXQgd2FzIGZvdW5kIHRoYXQg
+b2NjYXNpb25hbGx5IHRyYWZmaWMgd291bGQgc3RvcCBmbG93aW5nIG92ZXIgdGhlIHR1bm5lbC4g
+RXZlbnR1YWxseSB0aGUgdHJhZmZpYyB3b3VsZCBzdGFydCBhZ2FpbiwgaG93ZXZlciB1c2luZyB0
+aGUgY29tbWFuZCAiaXAgcm91dGUgZmx1c2ggY2FjaGUiwqBjYXVzZXPCoHRyYWZmaWMgdG8gc3Rh
+cnQgZmxvd2luZyAgYWdhaW4gaW1tZWRpYXRlbHkuCgpOb3RlLCBJIGFtwqB1c2luZyBhIDQuNC42
+IGJhc2VkIGtlcm5lbCwgaG93ZXZlciBJIHNlZSBubyBtYWpvciBkaWZmZXJlbmNlcyBiZXR3ZWVu
+IDQuNC42IGFuZCA0LjQuMTQgKGN1cnJlbnTCoExUUykgaW4gYW55IG9mIHRoZSBjb2RlIEkgYW0g
+ZGVidWdnaW5nLsKgSSAgaGF2ZSBtYW51YWxseSBkZWJ1Z2dlZCB0aGUgY29kZSBhcyBmYXIgYXMg
+SSBjYW4sIGhvd2V2ZXIgSSBkb24ndCBrbm93IHRoZSBjb2RlIHdlbGwgZW5vdWdoIHRvIG1ha2Ug
+ZnVydGhlciBwcm9ncmVzcy7CoFdoYXQgSSBoYXZlIHVuY292ZXJlZCBpcyBvdXRsaW5lZCBiZWxv
+dzoKCkJ5IHBpbmdpbmcgdGhlIG90aGVyIGVuZCBvZiB0aGUgdHVubmVsIHdoZW4gdGhlIHRyYWZm
+aWMgc3RvcHMgZmxvd2luZyBJIGdldCBtZXNzYWdlcyBsaWtlIHRoZSBmb2xsb3dpbmc6CgoxMC1B
+UjQwNTAjcGluZyAxNzIuMTYuMC41ClBJTkcgMTcyLjE2LjAuNSAoMTcyLjE2LjAuNSkgNTYoODQp
+IGJ5dGVzIG9mIGRhdGEuCkZyb20gMTcyLjE2LjAuNiBpY21wX3NlcT0xIEZyYWcgbmVlZGVkIGFu
+ZCBERiBzZXQgKG10dSA9IDQ2KQpGcm9tIDE3Mi4xNi4wLjYgaWNtcF9zZXE9MiBGcmFnIG5lZWRl
+ZCBhbmQgREYgc2V0IChtdHUgPSA0NikKCmJ1dCB0aGlzIGlzIHdlaXJkIGNvbnNpZGVyaW5nIChu
+b3RlIHRoZSBtdHUgdmFsdWVzKToKCltyb290QDEwLUFSNDA1MCAvZmxhc2hdIyBpcCBsaW5rCjE2
+Nzc4MjQwOiBwcHAwOiA8UE9JTlRPUE9JTlQsTVVMVElDQVNULE5PQVJQLFVQLExPV0VSX1VQPiBt
+dHUgMTQ5MiBxZGlzYyBodGIgc3RhdGUgVVAgbW9kZSBERUZBVUxUIGdyb3VwIGRlZmF1bHQgcWxl
+biAzCsKgIMKgIGxpbmsvcHBwwqAKMTQ6IHR1bm5lbDY0QE5PTkU6IDxQT0lOVE9QT0lOVCxNVUxU
+SUNBU1QsVVAsTE9XRVJfVVA+IG10dSAxMjAwIHFkaXNjIGh0YiBzdGF0ZSBVTktOT1dOIG1vZGUg
+REVGQVVMVCBncm91cCBkZWZhdWx0IHFsZW7CoDEKwqAgwqAgbGluay9pcGlwIDIwMy4wLjExMy4x
+MCBwZWVyIDIwMy4wLjExMy41CgpUaGUgY29kZSB0aGF0IGdlbmVyYXRlcyB0aGUgSUNNUF9GUkFH
+X05FRURFRCBwYWNrZXQgaXMgdnRpX3htaXQoKcKgKGlwX3Z0aS5jKcKgd2hlcmUgdGhlcmUgaXMg
+YSBjaGVjayBvZiBza2IgbGVuZ3RoIGFnYWluc3QgdGhlIG10dSBvZiBkc3QgZW50cnkuIFNpbmNl
+IHRoZSBtdHUgaXMgbG93ZXIgdGhhbiB0aGUgcGFja2V0IChkZWJ1ZyBzaG93cyB0aGUgbXR1IGlz
+wqA0NiBhcyBleHBlY3RlZCBmcm9tIHRoZSBwaW5nIG91dHB1dCkgdGhlIElDTVAgIGVycm9yIGlz
+IGdlbmVyYXRlZC4KCkRpZ2dpbmcgZnVydGhlciBJIGZpbmQgdGhhdCB3aGVuIHRoZSBpc3N1ZSBv
+Y2N1cnMgdGhlIG10dSB2YWx1ZSBpcyBiZWluZyB1cGRhdGVkIGluIHdoYXQgYXBwZWFycyB0byBi
+ZSBhbiBlcnJvciBjYXNlIGluIHhmcm1fYnVuZGxlX29rICh4ZnJtX3BvbGljeS5jKS4gU3BlY2lm
+aWNhbGx5IHRoZSBibG9jayBvZiBjb2RlOgoKaWYgKGxpa2VseSghbGFzdCkpCiAgICAgICAgcmV0
+dXJuIDE7CgppcyBub3QgaGl0IG1lYW5pbmcgdGhlcmUgaXMgYSBkaWZmZXJlbmNlIGJldHdlZW4g
+dGhlIGNhY2hlZCBtdHUgdmFsdWUgYW5kIHRoZSB2YWx1ZSBqdXN0IGNhbGN1bGF0ZWQuIEkgdGhl
+biBzZWUgdGhpcyBjb2RlIGJlaW5nIGhpdCBjb250aW51b3VzbHkgYW5kIGVhY2ggdGltZSB0aGUg
+bXR1IGtlZXBzIGdldHRpbmcgbG93ZXJlZC4gaS5lLiAoSSBkb24ndCBrbm93IGlmIHRoZSBkcm9w
+IGJ5IDgwIGJ5dGVzIGlzIHNpZ25pZmljYW50KQoKMTIwMAoxMTE4CjEwMzgKOTU4Cjg3OAogLi4u
+Lgo0NgoKQXQgdGhpcyBwb2ludCBJIGRvbid0IGtub3cgaG93IHRvIGRlYnVnIGZ1cnRoZXIuIEl0
+IGFwcGVhcnMgdGhlcmUgaXMgYSBkaXNwYXJpdHkgYmV0d2VlbiBjYWNoZWQgbXR1IHZhbHVlcyBh
+bmQgd2hhdCBpcyBjYWxjdWxhdGVkIGluIHhmcm1fYnVuZGxlX29rKCkuwqBIb3BlZnVsbHkgdGhp
+cyBpcyBlbm91Z2ggaW5mb3JtYXRpb24gdG8gZXhwbGFpbiB0aGUgcHJvYmxlbSBJIGFtIHNlZWlu
+Zy4gUGxlYXNlIGxldCBtZSBrbm93IGlmIHlvdSBuZWVkIG1vcmUgaW5mb3JtYXRpb24uCgpUaGFu
+a3MsCk1hdHQ=
