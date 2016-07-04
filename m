@@ -1,56 +1,22 @@
-From: Vivek Kumar Bhagat <vivek.bhagat@samsung.com>
-Subject: Re^2: [PATCH] usbnet: add reset_resume quirk to prevent resume failure
-Date: Mon, 04 Jul 2016 04:14:11 +0000 (GMT)
-Message-ID: <1072936814.152611467605651369.JavaMail.weblogic@epmlwas01d>
-Reply-To: vivek.bhagat@samsung.com
+From: "LISA QUAM " <camnet@camtel.cm>
+Subject: UPDATE
+Date: Mon, 04 Jul 2016 05:37:25 +0100
+Message-ID: <20160704043739.330F32BE060A@mail.camtel.cm>
+Reply-To: lisaquam011@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	HEMANSHU SRIVASTAVA <hemanshu.s@samsung.com>,
-	Vikas Bansal <vikas.bansal@samsung.com>
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailout1.samsung.com ([203.254.224.24]:56057 "EHLO
-	mailout1.samsung.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750737AbcGDEPZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 00:15:25 -0400
-Received: from epcpsbgr1.samsung.com
- (u141.gpu120.samsung.co.kr [203.254.230.141])
- by mailout1.samsung.com (Oracle Communications Messaging Server 7.0.5.31.0
- 64bit (built May  5 2014))
- with ESMTP id <0O9R01RXFVTMLC00@mailout1.samsung.com> for
- netdev@vger.kernel.org; Mon, 04 Jul 2016 13:15:22 +0900 (KST)
-MIME-version: 1.0
+Received: from mail.camtel.cm ([195.24.207.208]:53367 "HELO mail.camtel.cm"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
+	id S1750757AbcGDEna convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 00:43:30 -0400
+Received: from [192.168.43.11] (unknown [105.112.18.10])
+	by mail.camtel.cm (Postfix) with ESMTPSA id 330F32BE060A
+	for <netdev@vger.kernel.org>; Mon,  4 Jul 2016 05:37:38 +0100 (WAT)
+Content-Description: Mail message body
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-SGVsbG8gRGF2aWQsDQoNCkNsYXNzIGRyaXZlciAucmVzZXRfcmVzdW1lKCkgZnVuY3Rpb24gd2ls
-bCBiZSBjYWxsZWQgb25seSB3aGVuIFVTQiBob3N0IGRyaXZlciBoYXMNCnNldCBiZWxvdyBmbGFn
-LCBvdGhlcndpc2UgaXQgd2lsbCBmb2xsb3cgbm9ybWFsIHJlc3VtZSAod2l0aG91dCByZXNldCku
-DQogICAgaWYgKHVkZXYtPnF1aXJrcyAmIFVTQl9RVUlSS19SRVNFVF9SRVNVTUUpICAgICAgIDwt
-LSB1c2JfcmVzdW1lX2RldmljZSgpDQogICAgICAgICAgICB1ZGV2LT5yZXNldF9yZXN1bWUgPSAx
-Ow0KDQpJIHNoYWxsIHJlbW92ZSBjZGNfZWVtIGNoYW5nZXMsIHRoZW4gaXQgd291bGQgYmUgYXBw
-bGljYWJsZSBmb3IgYXNpeCAyLjAgZGV2aWNlIG9ubHkuIA0KSSBzaGFsbCBtYWtlIG9uZSBwYXRj
-aCBmb3IgYXNpeCAyLjAgKGFzaXhfZGV2aWNlcy5jKSBhbmQgYXNpeCAzLjAgKGF4ODgxNzlfMTc4
-YS5jKS4NCldlIGhhdmUgdmVyaWZpZWQgb24gYWxtb3N0IGFsbCB0eXBlIG9mIGF2YWlsYWJsZSBh
-c2l4IGRvbmdsZS4NCkkgaG9wZSBpdCB3b3VsZCBiZSBva2F5Lg0KDQpSZWdhcmRzLA0KVml2ZWsN
-Ci0tLS0tLS0gT3JpZ2luYWwgTWVzc2FnZSAtLS0tLS0tDQpTZW5kZXIgOiBEYXZpZCBNaWxsZXI8
-ZGF2ZW1AZGF2ZW1sb2Z0Lm5ldD4NCkRhdGUgOiBKdWwgMDIsIDIwMTYgMDE6MjggKEdNVCswNToz
-MCkNClRpdGxlIDogUmU6IFtQQVRDSF0gdXNibmV0OiBhZGQgcmVzZXRfcmVzdW1lIHF1aXJrIHRv
-IHByZXZlbnQgcmVzdW1lIGZhaWx1cmUNCg0KRnJvbTogVml2ZWsgS3VtYXIgQmhhZ2F0IA0KRGF0
-ZTogVGh1LCAzMCBKdW4gMjAxNiAxMDo0MTo1OSArMDAwMCAoR01UKQ0KDQo+IA0KPiBJZGVhbGx5
-LCB1c2JuZXRfcmVzdW1lIGlzIHN1ZmZpY2llbnQgZm9yIGRldmljZSByZXN1bWUgb3BlcmF0aW9u
-Lg0KPiBzaW5jZSB1c2Jjb3JlIGZ1bmN0aW9uIHVzYl9yZXN1bWVfZGV2aWNlKCkgc2V0cyB1ZGV2
-LT5yZXNldF9yZXN1bWUNCj4gZmxhZyBhcyBhIHF1aXJrIHNvbHV0aW9uLCByZXNldF9yZXN1bWUo
-KSBxdWlyayB3ZSBjYW4ga2VlcCBpbg0KPiBjbGFzcyBkcml2ZXIgYWxzby4gV2UgY2hlY2tlZCBv
-biBkb25nbGUgREEtUXVlZW4gVUZFMjBDLA0KPiB3aXRob3V0IHJlc2V0IGZ1bmN0aW9uIHJlc3Vt
-ZSBvcGVyYXRpb24gZmFpbHMuIFJlYXNvbiBjb3VsZCBiZQ0KPiBzb21lIHBvd2VyIGdsaXRjaCBk
-dXJpbmcgc3VzcGVuZCB0aW1lIGR1ZSB0byB3aGljaCBkZXZpY2UgbG9zZQ0KPiBpdHMgaW50ZXJu
-YWwgc3RhdGUgYW5kIGl0IG5lZWRzIGEgZGV2aWNlIHBoeSByZXNldCBhZ2FpbiBkdXJpbmcNCj4g
-cmVzdW1lIHRvIHJlY292ZXIuDQo+IA0KPiBTaWduZWQtb2ZmLWJ5OiBWaXZlayBLdW1hciBCaGFn
-YXQgDQo+IFNpZ25lZC1vZmYtYnk6IFZpa2FzIEJhbnNhbCANCj4gU2lnbmVkLW9mZi1ieTogU2Fu
-Z21pbiBCYWUgDQoNCllvdSd2ZSBzZWVuIHRoaXMgbmVjZXNzYXJ5IGZvciBvbmUgZGV2aWNlLCB5
-ZXQgeW91IGFyZSBkb2luZyB0aGlzDQpuZXcgcmVzZXQgZm9yIGFsbCB1c2JuZXQgZGV2aWNlcy4N
-Cg0KVGhhdCBkb2Vzbid0IHNvdW5kIGNvcnJlY3Qgb3Igc2FmZSBhdCBhbGwuDQoNCkknbSBub3Qg
-YXBwbHlpbmcgdGhpcywgc29ycnku
+Recently, we have detect some unusual activity on your account and as a result, all email users are urged to update their email account within 24 hours of receiving this e-mail, Please  click the link http://bit.ly/29ftCbA to  update requirement
