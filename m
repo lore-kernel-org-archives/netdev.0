@@ -1,74 +1,70 @@
-From: Jason Wang <jasowang@redhat.com>
-Subject: [PATCH net-next] tun: fix build warnings
-Date: Mon,  4 Jul 2016 13:53:38 +0800
-Message-ID: <1467611618-4046-1-git-send-email-jasowang@redhat.com>
-Cc: mst@redhat.com, sfr@canb.auug.org.au,
-	Jason Wang <jasowang@redhat.com>
-To: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:43746 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750946AbcGDFxn (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 4 Jul 2016 01:53:43 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Christophe Leroy <christophe.leroy@c-s.fr>
+Subject: Re: [PATCH] netfilter: nf_conntrack_sip: CSeq 0 is a valid CSeq
+Date: Mon, 4 Jul 2016 08:14:52 +0200
+Message-ID: <bb18da60-bd09-05e0-0244-49942abbd1bd@c-s.fr>
+References: <20160701094833.B281E1A23A2@localhost.localdomain>
+ <CAML_gOdB=SjFyXosSb4MtaEymsAGV3beQwQqZMyhbezy=yDgxQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Pablo Neira Ayuso <pablo@netfilter.org>,
+	Patrick McHardy <kaber@trash.net>,
+	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
+	"David S. Miller" <davem@davemloft.net>,
+	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Liping Zhang <zlpnobody@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CAML_gOdB=SjFyXosSb4MtaEymsAGV3beQwQqZMyhbezy=yDgxQ@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Stephen Rothwell reports a build warnings(powerpc ppc64_defconfig)
 
-drivers/net/tun.c: In function 'tun_do_read.part.5':
-/home/sfr/next/next/drivers/net/tun.c:1491:6: warning: 'err' may be
-used uninitialized in this function [-Wmaybe-uninitialized]
-   int err;
 
-This is because tun_ring_recv() may return an uninitialized err, fix this.
+Le 04/07/2016 =C3=A0 07:48, Liping Zhang a =C3=A9crit :
+> 2016-07-01 17:48 GMT+08:00 Christophe Leroy <christophe.leroy@c-s.fr>=
+:
+>> Do not drop packet when CSeq is 0 as 0 is also a valid value for CSe=
+q.
+>>
+>> --- a/net/netfilter/nf_conntrack_sip.c
+>> +++ b/net/netfilter/nf_conntrack_sip.c
+>> @@ -1368,6 +1368,7 @@ static int process_sip_response(struct sk_buff=
+ *skb, unsigned int protoff,
+>>         struct nf_conn *ct =3D nf_ct_get(skb, &ctinfo);
+>>         unsigned int matchoff, matchlen, matchend;
+>>         unsigned int code, cseq, i;
+>> +       char buf[21];
+>>
+>>         if (*datalen < strlen("SIP/2.0 200"))
+>>                 return NF_ACCEPT;
+>> @@ -1382,8 +1383,13 @@ static int process_sip_response(struct sk_buf=
+f *skb, unsigned int protoff,
+>>                 nf_ct_helper_log(skb, ct, "cannot parse cseq");
+>>                 return NF_DROP;
+>>         }
+>> -       cseq =3D simple_strtoul(*dptr + matchoff, NULL, 10);
+>> -       if (!cseq) {
+>
+> I think there is no need to convert simple_strtoul to kstrtouint, add
+> a further check seems better?
+> Like this:
+>  -       if (!cseq) {
+> +       if (!cseq && *(*dptr + matchoff) !=3D '0') {
+>
 
-Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-Signed-off-by: Jason Wang <jasowang@redhat.com>
----
- drivers/net/tun.c | 8 +++++---
- 1 file changed, 5 insertions(+), 3 deletions(-)
+And what about an invalid CSeq that would look like CSeq: 0abzk852 ?
+Should we check it is 0 + space instead ?
 
-diff --git a/drivers/net/tun.c b/drivers/net/tun.c
-index 7475215..5eadb7a 100644
---- a/drivers/net/tun.c
-+++ b/drivers/net/tun.c
-@@ -1447,12 +1447,13 @@ static struct sk_buff *tun_ring_recv(struct tun_file *tfile, int noblock,
- {
- 	DECLARE_WAITQUEUE(wait, current);
- 	struct sk_buff *skb = NULL;
-+	int error = 0;
- 
- 	skb = skb_array_consume(&tfile->tx_array);
- 	if (skb)
- 		goto out;
- 	if (noblock) {
--		*err = -EAGAIN;
-+		error = -EAGAIN;
- 		goto out;
- 	}
- 
-@@ -1464,11 +1465,11 @@ static struct sk_buff *tun_ring_recv(struct tun_file *tfile, int noblock,
- 		if (skb)
- 			break;
- 		if (signal_pending(current)) {
--			*err = -ERESTARTSYS;
-+			error = -ERESTARTSYS;
- 			break;
- 		}
- 		if (tfile->socket.sk->sk_shutdown & RCV_SHUTDOWN) {
--			*err = -EFAULT;
-+			error = -EFAULT;
- 			break;
- 		}
- 
-@@ -1479,6 +1480,7 @@ static struct sk_buff *tun_ring_recv(struct tun_file *tfile, int noblock,
- 	remove_wait_queue(&tfile->wq.wait, &wait);
- 
- out:
-+	*err = error;
- 	return skb;
- }
- 
--- 
-2.7.4
+>> +       if (matchlen > sizeof(buf) - 1) {
+>> +               nf_ct_helper_log(skb, ct, "cannot parse cseq (too bi=
+g)");
+>> +               return NF_DROP;
+>> +       }
+>> +       memcpy(buf, *dptr + matchoff, matchlen);
+>> +       buf[matchlen] =3D 0;
+>> +       if (kstrtouint(buf, 10, &cseq)) {
+>>                 nf_ct_helper_log(skb, ct, "cannot get cseq");
+>>                 return NF_DROP;
+>>         }
