@@ -1,32 +1,61 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net/mlx4: Fix some indent inconsistancy
-Date: Mon, 04 Jul 2016 15:22:59 -0700 (PDT)
-Message-ID: <20160704.152259.97878670707820538.davem@davemloft.net>
-References: <1467462665-10191-1-git-send-email-christophe.jaillet@wanadoo.fr>
+From: David Ranch <linux-hams@trinnet.net>
+Subject: Re: PATCH 1/1] AX.25: Close socket connection on session completion
+Date: Mon, 4 Jul 2016 15:48:40 -0700
+Message-ID: <577AE7C8.3040806@trinnet.net>
+References: <20160616094230.1d023d0b@brox.localnet>
+ <20160618.205545.1211200211643065140.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yishaih@mellanox.com, netdev@vger.kernel.org,
-	linux-rdma@vger.kernel.org, linux-kernel@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: christophe.jaillet@wanadoo.fr
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [184.105.139.130] ([184.105.139.130]:50476 "EHLO
-	shards.monkeyblade.net" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752357AbcGDWXB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 18:23:01 -0400
-In-Reply-To: <1467462665-10191-1-git-send-email-christophe.jaillet@wanadoo.fr>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: jreuter@yaina.de, ralf@linux-mips.org, linux-hams@vger.kernel.org,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>, basil@pacabunga.com
+Return-path: <linux-hams-owner@vger.kernel.org>
+In-Reply-To: <20160618.205545.1211200211643065140.davem@davemloft.net>
+Sender: linux-hams-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
-Date: Sat,  2 Jul 2016 14:31:05 +0200
 
-> Silent a few smatch warnings about indentation.
-> This include the removal of a 'return' statement in 'resource_tracker.c'.
-> This 'return' will still be performed when breaking out of the
-> corresponding 'switch' block.
-> 
-> Signed-off-by: Christophe JAILLET <christophe.jaillet@wanadoo.fr>
+Hello David,
 
-Applied to net-next, thanks.
+Unless I'm doing something wrong, it seems this patch has only been 
+applied to the newest
+kernel:
+
+    Git/linux-stable$ git tag -l --contains 
+4a7d99ea1b27734558feb6833f180cd38a159940
+    v4.7-rc6
+
+How can we get this critical fix applied to the other stable kernel 
+versions?  I would really hate
+to depend on all the various Distro packagers to miss on picking this up 
+as this is a critical
+toxicity fix.
+
+
+Reference: http://www.spinics.net/lists/linux-hams/msg03628.html
+
+--David
+
+
+
+
+On 06/18/2016 08:55 PM, David Miller wrote:
+> From: Basil Gunn <basil@pacabunga.com>
+> Date: Thu, 16 Jun 2016 09:42:30 -0700
+>
+>> A socket connection made in ax.25 is not closed when session is
+>> completed.  The heartbeat timer is stopped prematurely and this is
+>> where the socket gets closed. Allow heatbeat timer to run to close
+>> socket. Symptom occurs in kernels >= 4.2.0
+>>
+>> Originally sent 6/15/2016. Resend with distribution list matching
+>> scripts/maintainer.pl output.
+>>
+>> Signed-off-by: Basil Gunn <basil@pacabunga.com>
+> Applied.
+> --
+> To unsubscribe from this list: send the line "unsubscribe linux-hams" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+
