@@ -1,58 +1,38 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next 1/1] net sched actions: mirred add support
- for setting Dst MAC address
-Date: Mon, 04 Jul 2016 15:14:35 -0700 (PDT)
-Message-ID: <20160704.151435.624086916441807197.davem@davemloft.net>
-References: <1467470065-17613-1-git-send-email-jhs@emojatatu.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] net: check for NULL net_device in FIB tables
+Date: Tue, 5 Jul 2016 01:15:36 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1607050114010.2228@ja.home.ssi.bg>
+References: <1467636446-6771-1-git-send-email-vegard.nossum@oracle.com> <alpine.LFD.2.11.1607042221290.2228@ja.home.ssi.bg> <577ABF71.6020002@oracle.com> <alpine.LFD.2.11.1607050014000.2228@ja.home.ssi.bg> <577ADCE1.6010506@oracle.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, daniel@iogearbox.net,
-	xiyou.wangcong@gmail.com, nikolay@cumulusnetworks.com
-To: jhs@mojatatu.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andy Gospodarek <gospo@cumulusnetworks.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Dinesh Dutt <ddutt@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Vegard Nossum <vegard.nossum@oracle.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [184.105.139.130] ([184.105.139.130]:50412 "EHLO
-	shards.monkeyblade.net" rhost-flags-FAIL-FAIL-OK-OK)
-	by vger.kernel.org with ESMTP id S1752357AbcGDWOg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 18:14:36 -0400
-In-Reply-To: <1467470065-17613-1-git-send-email-jhs@emojatatu.com>
+Received: from ja.ssi.bg ([178.16.129.10]:55003 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752357AbcGDWPw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 4 Jul 2016 18:15:52 -0400
+In-Reply-To: <577ADCE1.6010506@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jamal Hadi Salim <jhs@mojatatu.com>
-Date: Sat,  2 Jul 2016 10:34:25 -0400
 
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
+	Hello,
+
+On Tue, 5 Jul 2016, Vegard Nossum wrote:
+
+> > [PATCH RFC] ipv4: reject RTNH_F_LINKDOWN for incompatible routes
+> >
+> > The RTNH_F_LINKDOWN flag is used only for link routes.
+> > Reject it for error routes and local routes.
+> >
+> > Signed-off-by: Julian Anastasov <ja@ssi.bg>
 > 
-> Often redirecting or mirroring requires that we set the dstMAC address
-> of the target device. While it is possible to pipe to a pedit action,
-> this patch obsoletes the need for that. This is a justified feature because
-> the dst MAC addresses rewrite is such a common use case.
-> 
-> Sample usage:
-> sudo $TC filter add dev $ETH parent 1: protocol ip prio 10 \
-> u32 match ip protocol 1 0xff flowid 1:2 \
-> action mirred egress redirect dev $SPANPORT dst 02:15:15:15:15:15
-> 
-> This will match all icmp packets going out on dev $ETH and
-> redirect them to dev $SPANPORT while setting their dst MAC address
-> to 02:15:15:15:15:15
-> 
-> Signed-off-by: Jamal Hadi Salim <jhs@mojatatu.com>
+> Tested your patch, it fixes the problem for me. I haven't tested if it
+> breaks anything else :-)
 
-I agree with Jiri.
+	Thanks!
 
-The whole model is to chain together the actions that you need to
-accomplish whatever it is you want to do.
-
-This means actions are as specialized as possible, and do one thing
-as precisely and efficiently as possible.
-
-It seems unnecessary to break this model and start to make swiss army
-knife actions.
-
-Every time we find some "common use case" will we turn yet another
-action into a Frankenstein thing that does more than it was designed
-to do?
-
-I don't want to apply this and start us down this road, seriously...
+Regards
