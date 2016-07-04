@@ -1,23 +1,34 @@
-From: "Mrs Alice Walton" <nordine.madani@ac-toulouse.fr>
-Subject: (unknown)
-Date: Mon, 04 Jul 2016 15:34:14 -0700
-Message-ID: <20160704223520.8B5D3D68005@mtav7-2.ac-toulouse.fr>
-Reply-To: info@alicewnders.com
+From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [PATCH] RDS: fix rds_tcp_init() error path
+Date: Mon, 04 Jul 2016 16:10:10 -0700 (PDT)
+Message-ID: <20160704.161010.2254809649116558533.davem@davemloft.net>
+References: <1467536094-23722-1-git-send-email-vegard.nossum@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: Recipients <nordine.madani@ac-toulouse.fr>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mtav7-2.ac-toulouse.fr ([194.214.242.27]:41426 "EHLO
-	mtav7-2.ac-toulouse.fr" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753568AbcGDXJT convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 19:09:19 -0400
-Received: from mtav7-2.ac-toulouse.fr (localhost.localdomain [127.0.0.1])
-	by mtav7-2.ac-toulouse.fr (Postfix) with ESMTP id 5BDCACE8DEE
-	for <netdev@vger.kernel.org>; Tue,  5 Jul 2016 00:35:41 +0200 (CEST)
-Content-Description: Mail message body
-Subject: 
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: santosh.shilimkar-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org, sowmini.varadhan-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org,
+	rds-devel-N0ozoZBvEnrZJqsBc5GL+g@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: vegard.nossum-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1467536094-23722-1-git-send-email-vegard.nossum-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-I have a business proposal for you contact me for more info
+From: Vegard Nossum <vegard.nossum-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+Date: Sun,  3 Jul 2016 10:54:54 +0200
+
+> If register_pernet_subsys() fails, we shouldn't try to call
+> unregister_pernet_subsys().
+> 
+> Fixes: 467fa15356 ("RDS-TCP: Support multiple RDS-TCP listen endpoints, one per netns.")
+> Cc: stable-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+> Cc: Sowmini Varadhan <sowmini.varadhan-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+> Cc: David S. Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+> Signed-off-by: Vegard Nossum <vegard.nossum-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
+
+Applied.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
