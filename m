@@ -1,33 +1,50 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH net-next 00/10] NCSI Support
-Date: Mon, 04 Jul 2016 08:49:31 +1000
-Message-ID: <1467586171.7422.104.camel@kernel.crashing.org>
-References: <1467523953-18998-1-git-send-email-gwshan@linux.vnet.ibm.com>
-	 <CAJ3xEMjEup1VUeCr3g2Ry78HvprfnC6wjGd=MWjnMOLWdLyKdQ@mail.gmail.com>
+From: Julian Calaby <julian.calaby@gmail.com>
+Subject: Re: [PATCH] mwifiex: fix unconditional error return in
+ .add_virtual_intf callback
+Date: Mon, 4 Jul 2016 10:18:52 +1000
+Message-ID: <CAGRGNgUdUf2TC1ix-uZNR+kuNApLXduAivMY=3AmgXKDx-cxyg@mail.gmail.com>
+References: <1467401982-18943-1-git-send-email-javier@osg.samsung.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, joel@jms.id.au,
-	weixue@trustnetic.com, yuvali@mellanox.com
-To: Or Gerlitz <gerlitz.or@gmail.com>,
-	Gavin Shan <gwshan@linux.vnet.ibm.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	netdev <netdev@vger.kernel.org>,
+	linux-wireless <linux-wireless@vger.kernel.org>,
+	Nishant Sarmukadam <nishants@marvell.com>
+To: Javier Martinez Canillas <javier@osg.samsung.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:57457 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932198AbcGCXcK (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 3 Jul 2016 19:32:10 -0400
-In-Reply-To: <CAJ3xEMjEup1VUeCr3g2Ry78HvprfnC6wjGd=MWjnMOLWdLyKdQ@mail.gmail.com>
+Received: from mail-io0-f173.google.com ([209.85.223.173]:34624 "EHLO
+	mail-io0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932182AbcGDATN (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 3 Jul 2016 20:19:13 -0400
+In-Reply-To: <1467401982-18943-1-git-send-email-javier@osg.samsung.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 2016-07-04 at 01:03 +0300, Or Gerlitz wrote:
-> FWIW, talking to a colleague, he made a comment that some of the text
-> above is wrong:
-> 
-> AENs are sent from NIC to BMC. Not from Host to BMC.
+Hi All,
 
-Just a typo in the commit message thankfully ;-)
+On Sat, Jul 2, 2016 at 5:39 AM, Javier Martinez Canillas
+<javier@osg.samsung.com> wrote:
+> The commit 7311ea850079 ("mwifiex: fix AP start problem for newly added
+> interface") attempted to fix an issue when a new AP interface is added.
+>
+> But the patch didn't check the return value of the functions doing the
+> firmware calls and returned an error even if the functions didn't fail.
+>
+> This prevents the network device to be registered properly, so fix it.
+>
+> Fixes: commit 7311ea850079 ("mwifiex: fix AP start problem for newly added interface")
+> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
 
-> The traffic between a BMC and a NIC is over RBT if it is formatted as
-> NC-SI packets. This is not over network traffic....
+Looks correct to me as Dan Carpenter submitted the same fix.
+
+Reviewed-by: Julian Calaby <julian.calaby@gmail.com>
+
+Thanks,
+
+-- 
+Julian Calaby
+
+Email: julian.calaby@gmail.com
+Profile: http://www.google.com/profiles/julian.calaby/
