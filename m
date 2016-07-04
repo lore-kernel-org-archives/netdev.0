@@ -1,98 +1,134 @@
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Subject: [PATCH] net: check for NULL net_device in FIB tables
-Date: Mon,  4 Jul 2016 14:47:26 +0200
-Message-ID: <1467636446-6771-1-git-send-email-vegard.nossum@oracle.com>
-Cc: netdev@vger.kernel.org, Vegard Nossum <vegard.nossum@oracle.com>,
-	Dinesh Dutt <ddutt@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>, davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:20052 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753352AbcGDMrl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 08:47:41 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH 00/11] pull request for net-next: batman-adv
+	2016-07-04
+Date: Mon,  4 Jul 2016 15:02:48 +0200
+Message-ID: <1467637379-6089-1-git-send-email-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-struct fib_nh->nh_dev can be NULL, so we should check it before calling
-__in_dev_get_rcu on it.
+Hi David,
 
-Multiple places seem to want this (and check the return value), so we can
-add a convenience wrapper for this.
+this is our second and final feature pull request for batman-adv in this
+round.
 
-This fixes a crash in AF_NETLINK sendmsg().
+Please pull or let me know of any problem!
 
-Please double check that I caught all the callers that need the NULL
-guard.
+Thank you,
+      Simon
 
-Fixes: 0eeb075fad73 ("net: ipv4 sysctl option to ignore routes when nexthop link is down")
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
-Cc: Dinesh Dutt <ddutt@cumulusnetworks.com>
-Cc: Scott Feldman <sfeldma@gmail.com>
-Cc: David S. Miller <davem@davemloft.net>
-Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
----
- include/linux/inetdevice.h | 7 +++++++
- net/ipv4/fib_semantics.c   | 8 ++++----
- 2 files changed, 11 insertions(+), 4 deletions(-)
+The following changes since commit 4e3e823b5a503235630921287f130e1d8d22d200:
 
-diff --git a/include/linux/inetdevice.h b/include/linux/inetdevice.h
-index ee971f3..2d8bea1 100644
---- a/include/linux/inetdevice.h
-+++ b/include/linux/inetdevice.h
-@@ -222,6 +222,13 @@ static inline struct in_device *__in_dev_get_rtnl(const struct net_device *dev)
- 	return rtnl_dereference(dev->ip_ptr);
- }
- 
-+static inline struct in_device *in_dev_get_rtnl(const struct net_device *dev)
-+{
-+	if (!dev)
-+		return NULL;
-+	return __in_dev_get_rtnl(dev);
-+}
-+
- static inline struct neigh_parms *__in_dev_arp_parms_get_rcu(const struct net_device *dev)
- {
- 	struct in_device *in_dev = __in_dev_get_rcu(dev);
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index d09173b..8289799 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -545,7 +545,7 @@ static void fib_rebalance(struct fib_info *fi)
- 		if (nh->nh_flags & RTNH_F_DEAD)
- 			continue;
- 
--		in_dev = __in_dev_get_rtnl(nh->nh_dev);
-+		in_dev = in_dev_get_rtnl(nh->nh_dev);
- 
- 		if (in_dev &&
- 		    IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev) &&
-@@ -559,7 +559,7 @@ static void fib_rebalance(struct fib_info *fi)
- 	change_nexthops(fi) {
- 		int upper_bound;
- 
--		in_dev = __in_dev_get_rtnl(nexthop_nh->nh_dev);
-+		in_dev = in_dev_get_rtnl(nexthop_nh->nh_dev);
- 
- 		if (nexthop_nh->nh_flags & RTNH_F_DEAD) {
- 			upper_bound = -1;
-@@ -1261,7 +1261,7 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
- 		    nla_put_u32(skb, RTA_OIF, fi->fib_nh->nh_oif))
- 			goto nla_put_failure;
- 		if (fi->fib_nh->nh_flags & RTNH_F_LINKDOWN) {
--			in_dev = __in_dev_get_rtnl(fi->fib_nh->nh_dev);
-+			in_dev = in_dev_get_rtnl(fi->fib_nh->nh_dev);
- 			if (in_dev &&
- 			    IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev))
- 				rtm->rtm_flags |= RTNH_F_DEAD;
-@@ -1292,7 +1292,7 @@ int fib_dump_info(struct sk_buff *skb, u32 portid, u32 seq, int event,
- 
- 			rtnh->rtnh_flags = nh->nh_flags & 0xFF;
- 			if (nh->nh_flags & RTNH_F_LINKDOWN) {
--				in_dev = __in_dev_get_rtnl(nh->nh_dev);
-+				in_dev = in_dev_get_rtnl(nh->nh_dev);
- 				if (in_dev &&
- 				    IN_DEV_IGNORE_ROUTES_WITH_LINKDOWN(in_dev))
- 					rtnh->rtnh_flags |= RTNH_F_DEAD;
--- 
-1.9.1
+  batman-adv: Add debugfs table for mcast flags (2016-06-30 10:29:43 +0200)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batadv-next-for-davem-20160704
+
+for you to fetch changes up to 29824a55c07cd79a530d4bc1020a529c402515b6:
+
+  batman-adv: split routing API data structure in subobjects (2016-07-04 12:37:19 +0200)
+
+----------------------------------------------------------------
+This feature patchset includes the following changes:
+
+ - Cleanup work by Markus Pargmann and Sven Eckelmann (six patches)
+
+ - Initial Netlink support by Matthias Schiffer (two patches)
+
+ - Throughput Meter implementation by Antonio Quartulli, a kernel-space
+   traffic generator to estimate link speeds. This feature is useful on
+   low-end WiFi APs where running iperf or netperf from userspace
+   gives wrong results due to heavy userspace/kernelspace overhead.
+   (two patches)
+
+ - API clean-up work by Antonio Quartulli (one patch)
+
+----------------------------------------------------------------
+Antonio Quartulli (3):
+      batman-adv: return netdev status in the TX path
+      batman-adv: throughput meter implementation
+      batman-adv: split routing API data structure in subobjects
+
+Markus Pargmann (1):
+      batman-adv: split tvlv into a separate file
+
+Matthias Schiffer (2):
+      batman-adv: add generic netlink family for batman-adv
+      batman-adv: add netlink command to query generic mesh information files
+
+Sven Eckelmann (5):
+      batman-adv: Include main.h in bat_v_ogm.h
+      batman-adv: Keep includes ordered by filename
+      batman-adv: move bat_algo functions into a separate file
+      batman-adv: Consolidate logging related functions
+      batman-adv: Fix bat_(iv|v) function declaration header
+
+ MAINTAINERS                            |    1 +
+ include/uapi/linux/batman_adv.h        |  114 +++
+ net/batman-adv/Makefile                |    5 +
+ net/batman-adv/bat_algo.c              |  140 +++
+ net/batman-adv/bat_algo.h              |   35 +-
+ net/batman-adv/bat_iv_ogm.c            |   40 +-
+ net/batman-adv/bat_iv_ogm.h            |   25 +
+ net/batman-adv/bat_v.c                 |   29 +-
+ net/batman-adv/bat_v.h                 |   52 ++
+ net/batman-adv/bat_v_elp.c             |    3 +-
+ net/batman-adv/bat_v_elp.h             |    4 +-
+ net/batman-adv/bat_v_ogm.c             |    5 +-
+ net/batman-adv/bat_v_ogm.h             |    4 +-
+ net/batman-adv/bitarray.c              |    2 +
+ net/batman-adv/bridge_loop_avoidance.c |    1 +
+ net/batman-adv/debugfs.c               |  217 +----
+ net/batman-adv/distributed-arp-table.c |    2 +
+ net/batman-adv/fragmentation.c         |   41 +-
+ net/batman-adv/fragmentation.h         |    6 +-
+ net/batman-adv/gateway_client.c        |    1 +
+ net/batman-adv/gateway_common.c        |    4 +-
+ net/batman-adv/hard-interface.c        |   21 +-
+ net/batman-adv/icmp_socket.c           |    1 +
+ net/batman-adv/log.c                   |  231 +++++
+ net/batman-adv/log.h                   |  111 +++
+ net/batman-adv/main.c                  |  707 +--------------
+ net/batman-adv/main.h                  |  121 +--
+ net/batman-adv/multicast.c             |    2 +
+ net/batman-adv/netlink.c               |  424 +++++++++
+ net/batman-adv/netlink.h               |   32 +
+ net/batman-adv/network-coding.c        |    2 +
+ net/batman-adv/originator.c            |   51 +-
+ net/batman-adv/packet.h                |   54 ++
+ net/batman-adv/routing.c               |   43 +-
+ net/batman-adv/send.c                  |   39 +-
+ net/batman-adv/soft-interface.c        |    3 +
+ net/batman-adv/sysfs.c                 |    7 +-
+ net/batman-adv/tp_meter.c              | 1507 ++++++++++++++++++++++++++++++++
+ net/batman-adv/tp_meter.h              |   34 +
+ net/batman-adv/translation-table.c     |    8 +-
+ net/batman-adv/tvlv.c                  |  632 ++++++++++++++
+ net/batman-adv/tvlv.h                  |   61 ++
+ net/batman-adv/types.h                 |  226 ++++-
+ 43 files changed, 3831 insertions(+), 1217 deletions(-)
+ create mode 100644 include/uapi/linux/batman_adv.h
+ create mode 100644 net/batman-adv/bat_algo.c
+ create mode 100644 net/batman-adv/bat_iv_ogm.h
+ create mode 100644 net/batman-adv/bat_v.h
+ create mode 100644 net/batman-adv/log.c
+ create mode 100644 net/batman-adv/log.h
+ create mode 100644 net/batman-adv/netlink.c
+ create mode 100644 net/batman-adv/netlink.h
+ create mode 100644 net/batman-adv/tp_meter.c
+ create mode 100644 net/batman-adv/tp_meter.h
+ create mode 100644 net/batman-adv/tvlv.c
+ create mode 100644 net/batman-adv/tvlv.h
