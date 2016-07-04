@@ -1,46 +1,58 @@
-From: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v11 00/22] Add HiSilicon RoCE driver
-Date: Mon, 4 Jul 2016 16:16:46 +0800
-Message-ID: <577A1B6E.40601@huawei.com>
-References: <1467452364-66522-1-git-send-email-oulijun@huawei.com>
- <20160702125816.GG4750@leon.nu>
+From: Victor Julien <victor@inliniac.net>
+Subject: Re: [PATCH] packet: Use symmetric hash for PACKET_FANOUT_HASH.
+Date: Mon, 4 Jul 2016 10:41:07 +0200
+Message-ID: <577A2123.8020005@inliniac.net>
+References: <CALx6S34B33PUMfk4R662_WEjiafjheNbH=wH9r=QhYTK14nmqw@mail.gmail.com>
+ <20160701.170701.1456256736115514983.davem@davemloft.net>
+ <CALx6S37Gn3SL9XucQ8+9MM78TOyEYQHV6bKyCEgQ+trg4e_Xmg@mail.gmail.com>
+ <20160702.163825.1446208948440189011.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160702125816.GG4750-2ukJVAZIZ/Y@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 8bit
+Cc: netdev@vger.kernel.org, eric@regit.org
+To: David Miller <davem@davemloft.net>, tom@herbertland.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from static-27.netfusion.at ([83.215.238.27]:55014 "EHLO
+	mail.inliniac.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932189AbcGDIsq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 04:48:46 -0400
+In-Reply-To: <20160702.163825.1446208948440189011.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-=E5=9C=A8 2016/7/2 20:58, Leon Romanovsky =E5=86=99=E9=81=93:
-> On Sat, Jul 02, 2016 at 05:39:02PM +0800, Lijun Ou wrote:
->=20
-> This v11
->>  28 files changed, 10626 insertions(+), 1 deletion(-)
->=20
-> First version
->>  27 files changed, 11670 insertions(+), 11 deletions(-)
->=20
-> 1K LOC less, we are moving in right direction.
->=20
-Good, Thank you very much=EF=BC=81
-Thank you for more suggestions.
+On 02-07-16 22:38, David Miller wrote:
+> From: Tom Herbert <tom@herbertland.com>
+> Date: Fri, 1 Jul 2016 14:16:54 -0700
+> 
+>> On Fri, Jul 1, 2016 at 2:07 PM, David Miller <davem@davemloft.net> wrote:
+>>> From: Tom Herbert <tom@herbertland.com>
+>>> Date: Fri, 1 Jul 2016 13:52:58 -0700
+>>>
+>>>> Why are symmetric hashes required?
+>>>
+>>> Because they want load balancing, such that one flow only can overrun
+>>> one single socket not all of the ones in the fanout.
+>>>
+>> I'm still missing it. Why is this any different than what we need with
+>> something like SO_REUSEPORT?
+> 
+> Because local sockets only demux on RX packets for a flow so they
+> don't need a symmetric hash, and in fact wouldn't even notice if the
+> hash was symmetric or not.
+> 
+> Programs like suricata that are operating as a bump in the stack see
+> both directions of traffic for a flow and therefore for them whether
+> the hash is symmetric is an issue.
 
-Thanks
-Lijun Ou
+Tools like Suricata, Bro, Snort, netsniff-ng are often used to sit on
+the side and receive a copy of the traffic from a tap or span port. This
+leads to both sides of connections coming in on the RX side. As the said
+tools often rely on the hashing for load balancing to multiple
+threads/processes, the hashing should be done symmetrically.
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+-- 
+---------------------------------------------
+Victor Julien
+http://www.inliniac.net/
+PGP: http://www.inliniac.net/victorjulien.asc
+---------------------------------------------
