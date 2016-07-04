@@ -1,49 +1,55 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 1/9] net: r6040: Utilize phy_print_status
-Date: Mon,  4 Jul 2016 14:36:01 -0700
-Message-ID: <1467668169-31547-2-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next 2/9] net: r6040: Increase statistics upon transmit completion
+Date: Mon,  4 Jul 2016 14:36:02 -0700
+Message-ID: <1467668169-31547-3-git-send-email-f.fainelli@gmail.com>
 References: <1467668169-31547-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f68.google.com ([209.85.218.68]:34047 "EHLO
+Received: from mail-oi0-f68.google.com ([209.85.218.68]:36596 "EHLO
 	mail-oi0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753803AbcGDVgP (ORCPT
+	with ESMTP id S1752357AbcGDVgP (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 17:36:15 -0400
-Received: by mail-oi0-f68.google.com with SMTP id s17so24991401oih.1
-        for <netdev@vger.kernel.org>; Mon, 04 Jul 2016 14:36:14 -0700 (PDT)
+Received: by mail-oi0-f68.google.com with SMTP id x6so24965855oif.3
+        for <netdev@vger.kernel.org>; Mon, 04 Jul 2016 14:36:15 -0700 (PDT)
 In-Reply-To: <1467668169-31547-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Instead of open coding our own version utilize the library provided
-function.
+r6040_xmit() is increasing transmit statistics during transmission while
+this may still fail, do this in r6040_tx() where we complete transmitted
+buffers instead.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- drivers/net/ethernet/rdc/r6040.c | 10 ++--------
- 1 file changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/ethernet/rdc/r6040.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
 
 diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
-index 7a7a395d0512..12fc7cd67fa7 100644
+index 12fc7cd67fa7..75776eee36f9 100644
 --- a/drivers/net/ethernet/rdc/r6040.c
 +++ b/drivers/net/ethernet/rdc/r6040.c
-@@ -1001,14 +1001,8 @@ static void r6040_adjust_link(struct net_device *dev)
- 		lp->old_duplex = phydev->duplex;
+@@ -614,6 +614,11 @@ static void r6040_tx(struct net_device *dev)
+ 		if (descptr->status & DSC_OWNER_MAC)
+ 			break; /* Not complete */
+ 		skb_ptr = descptr->skb_ptr;
++
++		/* Statistic Counter */
++		dev->stats.tx_packets++;
++		dev->stats.tx_bytes += skb_ptr->len;
++
+ 		pci_unmap_single(priv->pdev, le32_to_cpu(descptr->buf),
+ 			skb_ptr->len, PCI_DMA_TODEVICE);
+ 		/* Free buffer */
+@@ -821,9 +826,6 @@ static netdev_tx_t r6040_start_xmit(struct sk_buff *skb,
+ 		return NETDEV_TX_BUSY;
  	}
  
--	if (status_changed) {
--		pr_info("%s: link %s", dev->name, phydev->link ?
--			"UP" : "DOWN");
--		if (phydev->link)
--			pr_cont(" - %d/%s", phydev->speed,
--			DUPLEX_FULL == phydev->duplex ? "full" : "half");
--		pr_cont("\n");
--	}
-+	if (status_changed)
-+		phy_print_status(phydev);
- }
- 
- static int r6040_mii_probe(struct net_device *dev)
+-	/* Statistic Counter */
+-	dev->stats.tx_packets++;
+-	dev->stats.tx_bytes += skb->len;
+ 	/* Set TX descriptor & Transmit it */
+ 	lp->tx_free_desc--;
+ 	descptr = lp->tx_insert_ptr;
 -- 
 2.7.4
