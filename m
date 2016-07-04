@@ -1,22 +1,39 @@
-From: "LISA QUAM " <camnet@camtel.cm>
-Subject: UPDATE
-Date: Mon, 04 Jul 2016 05:37:25 +0100
-Message-ID: <20160704043739.330F32BE060A@mail.camtel.cm>
-Reply-To: lisaquam011@gmail.com
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: linux-next: build warning after merge of the net-next tree
+Date: Mon, 4 Jul 2016 13:19:37 +0800
+Message-ID: <5779F1E9.9070505@redhat.com>
+References: <20160704131552.22b44d58@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.camtel.cm ([195.24.207.208]:53367 "HELO mail.camtel.cm"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with SMTP
-	id S1750757AbcGDEna convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 00:43:30 -0400
-Received: from [192.168.43.11] (unknown [105.112.18.10])
-	by mail.camtel.cm (Postfix) with ESMTPSA id 330F32BE060A
-	for <netdev@vger.kernel.org>; Mon,  4 Jul 2016 05:37:38 +0100 (WAT)
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Stephen Rothwell <sfr@canb.auug.org.au>,
+	David Miller <davem@davemloft.net>, netdev@vger.kernel.org
+Return-path: <linux-next-owner@vger.kernel.org>
+In-Reply-To: <20160704131552.22b44d58@canb.auug.org.au>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Recently, we have detect some unusual activity on your account and as a result, all email users are urged to update their email account within 24 hours of receiving this e-mail, Please  click the link http://bit.ly/29ftCbA to  update requirement
+
+
+On 2016=E5=B9=B407=E6=9C=8804=E6=97=A5 11:15, Stephen Rothwell wrote:
+> Hi all,
+>
+> After merging the net-next tree, today's linux-next build (powerpc
+> ppc64_defconfig) produced this warning:
+>
+> drivers/net/tun.c: In function 'tun_do_read.part.5':
+> /home/sfr/next/next/drivers/net/tun.c:1491:6: warning: 'err' may be u=
+sed uninitialized in this function [-Wmaybe-uninitialized]
+>    int err;
+>        ^
+>
+> Introduced by commit
+>
+>    1576d9860599 ("tun: switch to use skb array for tx")
+>
+> I can't easily see if this is a false positive.
+>
+
+Thanks for the reporting, will post a fix.
