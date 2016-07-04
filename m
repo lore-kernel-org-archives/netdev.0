@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 02/14] mlxsw: reg: Add Router Algorithmic LPM Tree Allocation Register definition
-Date: Mon,  4 Jul 2016 08:23:05 +0200
-Message-ID: <1467613397-17140-3-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 01/14] mlxsw: spectrum_router: Implement private fib
+Date: Mon,  4 Jul 2016 08:23:04 +0200
+Message-ID: <1467613397-17140-2-git-send-email-jiri@resnulli.us>
 References: <1467613397-17140-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,104 +10,189 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:33316 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:36844 "EHLO
 	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753032AbcGDGXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 02:23:23 -0400
-Received: by mail-wm0-f67.google.com with SMTP id r201so19140786wme.0
-        for <netdev@vger.kernel.org>; Sun, 03 Jul 2016 23:23:22 -0700 (PDT)
+	with ESMTP id S1750898AbcGDGXW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 02:23:22 -0400
+Received: by mail-wm0-f67.google.com with SMTP id c82so19139283wme.3
+        for <netdev@vger.kernel.org>; Sun, 03 Jul 2016 23:23:21 -0700 (PDT)
 In-Reply-To: <1467613397-17140-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Register serves for allocation and deallocation of LPM search tree.
+Shadow FIB is needed in order to hold additional information for FIB
+entries and keep track of used prefixes. That is needed for the LPM tree
+construction to be introduced later on in this set.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 54 ++++++++++++++++++++++++++++++-
- 1 file changed, 53 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   7 ++
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 120 +++++++++++++++++++++
+ 2 files changed, 127 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 5ddc1d3..a358e1b 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -3,7 +3,7 @@
-  * Copyright (c) 2015 Mellanox Technologies. All rights reserved.
-  * Copyright (c) 2015-2016 Ido Schimmel <idosch@mellanox.com>
-  * Copyright (c) 2015 Elad Raz <eladr@mellanox.com>
-- * Copyright (c) 2015 Jiri Pirko <jiri@mellanox.com>
-+ * Copyright (c) 2015-2016 Jiri Pirko <jiri@mellanox.com>
-  *
-  * Redistribution and use in source and binary forms, with or without
-  * modification, are permitted provided that the following conditions are met:
-@@ -3454,6 +3454,56 @@ static inline void mlxsw_reg_ritr_pack(char *payload, bool enable,
- 	mlxsw_reg_ritr_if_mac_memcpy_to(payload, mac);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 83d5807..da0e072 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -43,6 +43,7 @@
+ #include <linux/if_vlan.h>
+ #include <linux/list.h>
+ #include <linux/dcbnl.h>
++#include <linux/in6.h>
+ #include <net/switchdev.h>
  
-+/* RALTA - Router Algorithmic LPM Tree Allocation Register
-+ * -------------------------------------------------------
-+ * RALTA is used to allocate the LPM trees of the SHSPM method.
-+ */
-+#define MLXSW_REG_RALTA_ID 0x8010
-+#define MLXSW_REG_RALTA_LEN 0x04
+ #include "port.h"
+@@ -160,6 +161,12 @@ struct mlxsw_sp_sb {
+ 	} ports[MLXSW_PORT_MAX_PORTS];
+ };
+ 
++#define MLXSW_SP_PREFIX_COUNT (sizeof(struct in6_addr) * BITS_PER_BYTE)
 +
-+static const struct mlxsw_reg_info mlxsw_reg_ralta = {
-+	.id = MLXSW_REG_RALTA_ID,
-+	.len = MLXSW_REG_RALTA_LEN,
++struct mlxsw_sp_prefix_usage {
++	DECLARE_BITMAP(b, MLXSW_SP_PREFIX_COUNT);
 +};
 +
-+/* reg_ralta_op
-+ * opcode (valid for Write, must be 0 on Read)
-+ * 0 - allocate a tree
-+ * 1 - deallocate a tree
-+ * Access: OP
-+ */
-+MLXSW_ITEM32(reg, ralta, op, 0x00, 28, 2);
-+
-+enum mlxsw_reg_ralxx_protocol {
-+	MLXSW_REG_RALXX_PROTOCOL_IPV4,
-+	MLXSW_REG_RALXX_PROTOCOL_IPV6,
-+};
-+
-+/* reg_ralta_protocol
-+ * Protocol.
-+ * Deallocation opcode: Reserved.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ralta, protocol, 0x00, 24, 4);
-+
-+/* reg_ralta_tree_id
-+ * An identifier (numbered from 1..cap_shspm_max_trees-1) representing
-+ * the tree identifier (managed by software).
-+ * Note that tree_id 0 is allocated for a default-route tree.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, ralta, tree_id, 0x00, 0, 8);
-+
-+static inline void mlxsw_reg_ralta_pack(char *payload, bool alloc,
-+					enum mlxsw_reg_ralxx_protocol protocol,
-+					u8 tree_id)
+ struct mlxsw_sp {
+ 	struct {
+ 		struct list_head list;
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 8d70496..af4a35d 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -35,11 +35,131 @@
+ 
+ #include <linux/kernel.h>
+ #include <linux/types.h>
++#include <linux/rhashtable.h>
++#include <linux/bitops.h>
++#include <linux/in6.h>
+ 
+ #include "spectrum.h"
+ #include "core.h"
+ #include "reg.h"
+ 
++static void
++mlxsw_sp_prefix_usage_set(struct mlxsw_sp_prefix_usage *prefix_usage,
++			  unsigned char prefix_len)
 +{
-+	MLXSW_REG_ZERO(ralta, payload);
-+	mlxsw_reg_ralta_op_set(payload, !alloc);
-+	mlxsw_reg_ralta_protocol_set(payload, protocol);
-+	mlxsw_reg_ralta_tree_id_set(payload, tree_id);
++	set_bit(prefix_len, prefix_usage->b);
 +}
 +
- /* MFCR - Management Fan Control Register
-  * --------------------------------------
-  * This register controls the settings of the Fan Speed PWM mechanism.
-@@ -4196,6 +4246,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "RGCR";
- 	case MLXSW_REG_RITR_ID:
- 		return "RITR";
-+	case MLXSW_REG_RALTA_ID:
-+		return "RALTA";
- 	case MLXSW_REG_MFCR_ID:
- 		return "MFCR";
- 	case MLXSW_REG_MFSC_ID:
++static void
++mlxsw_sp_prefix_usage_clear(struct mlxsw_sp_prefix_usage *prefix_usage,
++			    unsigned char prefix_len)
++{
++	clear_bit(prefix_len, prefix_usage->b);
++}
++
++struct mlxsw_sp_fib_key {
++	unsigned char addr[sizeof(struct in6_addr)];
++	unsigned char prefix_len;
++};
++
++struct mlxsw_sp_fib_entry {
++	struct rhash_head ht_node;
++	struct mlxsw_sp_fib_key key;
++};
++
++struct mlxsw_sp_fib {
++	struct rhashtable ht;
++	unsigned long prefix_ref_count[MLXSW_SP_PREFIX_COUNT];
++	struct mlxsw_sp_prefix_usage prefix_usage;
++};
++
++static const struct rhashtable_params mlxsw_sp_fib_ht_params = {
++	.key_offset = offsetof(struct mlxsw_sp_fib_entry, key),
++	.head_offset = offsetof(struct mlxsw_sp_fib_entry, ht_node),
++	.key_len = sizeof(struct mlxsw_sp_fib_key),
++	.automatic_shrinking = true,
++};
++
++static int mlxsw_sp_fib_entry_insert(struct mlxsw_sp_fib *fib,
++				     struct mlxsw_sp_fib_entry *fib_entry)
++{
++	unsigned char prefix_len = fib_entry->key.prefix_len;
++	int err;
++
++	err = rhashtable_insert_fast(&fib->ht, &fib_entry->ht_node,
++				     mlxsw_sp_fib_ht_params);
++	if (err)
++		return err;
++	if (fib->prefix_ref_count[prefix_len]++ == 0)
++		mlxsw_sp_prefix_usage_set(&fib->prefix_usage, prefix_len);
++	return 0;
++}
++
++static void mlxsw_sp_fib_entry_remove(struct mlxsw_sp_fib *fib,
++				      struct mlxsw_sp_fib_entry *fib_entry)
++{
++	unsigned char prefix_len = fib_entry->key.prefix_len;
++
++	if (--fib->prefix_ref_count[prefix_len] == 0)
++		mlxsw_sp_prefix_usage_clear(&fib->prefix_usage, prefix_len);
++	rhashtable_remove_fast(&fib->ht, &fib_entry->ht_node,
++			       mlxsw_sp_fib_ht_params);
++}
++
++static struct mlxsw_sp_fib_entry *
++mlxsw_sp_fib_entry_create(struct mlxsw_sp_fib *fib, const void *addr,
++			  size_t addr_len, unsigned char prefix_len)
++{
++	struct mlxsw_sp_fib_entry *fib_entry;
++
++	fib_entry = kzalloc(sizeof(*fib_entry), GFP_KERNEL);
++	if (!fib_entry)
++		return NULL;
++	memcpy(fib_entry->key.addr, addr, addr_len);
++	fib_entry->key.prefix_len = prefix_len;
++	return fib_entry;
++}
++
++static void mlxsw_sp_fib_entry_destroy(struct mlxsw_sp_fib_entry *fib_entry)
++{
++	kfree(fib_entry);
++}
++
++static struct mlxsw_sp_fib_entry *
++mlxsw_sp_fib_entry_lookup(struct mlxsw_sp_fib *fib, const void *addr,
++			  size_t addr_len, unsigned char prefix_len)
++{
++	struct mlxsw_sp_fib_key key = {{ 0 } };
++
++	memcpy(key.addr, addr, addr_len);
++	key.prefix_len = prefix_len;
++	return rhashtable_lookup_fast(&fib->ht, &key, mlxsw_sp_fib_ht_params);
++}
++
++static struct mlxsw_sp_fib *mlxsw_sp_fib_create(void)
++{
++	struct mlxsw_sp_fib *fib;
++	int err;
++
++	fib = kzalloc(sizeof(*fib), GFP_KERNEL);
++	if (!fib)
++		return ERR_PTR(-ENOMEM);
++	err = rhashtable_init(&fib->ht, &mlxsw_sp_fib_ht_params);
++	if (err)
++		goto err_rhashtable_init;
++	return fib;
++
++err_rhashtable_init:
++	kfree(fib);
++	return ERR_PTR(err);
++}
++
++static void mlxsw_sp_fib_destroy(struct mlxsw_sp_fib *fib)
++{
++	rhashtable_destroy(&fib->ht);
++	kfree(fib);
++}
++
+ static int __mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	char rgcr_pl[MLXSW_REG_RGCR_LEN];
 -- 
 2.5.5
