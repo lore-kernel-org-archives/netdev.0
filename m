@@ -1,129 +1,43 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 03/14] mlxsw: reg: Add Router Algorithmic LPM Structure Tree Register definition
-Date: Mon,  4 Jul 2016 08:23:06 +0200
-Message-ID: <1467613397-17140-4-git-send-email-jiri@resnulli.us>
-References: <1467613397-17140-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
-	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-	sfeldma@gmail.com, roopa@cumulusnetworks.com, andy@greyhouse.net,
-	dsa@cumulusnetworks.com, tgraf@suug.ch, jhs@mojatatu.com,
-	linville@tuxdriver.com, ivecera@redhat.com
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33326 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753050AbcGDGXY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 02:23:24 -0400
-Received: by mail-wm0-f68.google.com with SMTP id r201so19140867wme.0
-        for <netdev@vger.kernel.org>; Sun, 03 Jul 2016 23:23:23 -0700 (PDT)
-In-Reply-To: <1467613397-17140-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: "Wei Hu (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v11 00/22] Add HiSilicon RoCE driver
+Date: Mon, 4 Jul 2016 14:24:05 +0800
+Message-ID: <577A0105.7000804@huawei.com>
+References: <1467452364-66522-1-git-send-email-oulijun@huawei.com>
+ <20160702125816.GG4750@leon.nu>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="windows-1252"; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	<gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
+	<charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+To: Leon Romanovsky <leon-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>, Lijun Ou <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160702125816.GG4750-2ukJVAZIZ/Y@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@mellanox.com>
 
-Serves to build LPM tree structure.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 77 +++++++++++++++++++++++++++++++
- 1 file changed, 77 insertions(+)
+On 2016/7/2 20:58, Leon Romanovsky wrote:
+> On Sat, Jul 02, 2016 at 05:39:02PM +0800, Lijun Ou wrote:
+>
+> This v11
+>>   28 files changed, 10626 insertions(+), 1 deletion(-)
+> First version
+>>   27 files changed, 11670 insertions(+), 11 deletions(-)
+> 1K LOC less, we are moving in right direction.
+Thanks for your suggestions!
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index a358e1b..4ea608f 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -3504,6 +3504,81 @@ static inline void mlxsw_reg_ralta_pack(char *payload, bool alloc,
- 	mlxsw_reg_ralta_tree_id_set(payload, tree_id);
- }
- 
-+/* RALST - Router Algorithmic LPM Structure Tree Register
-+ * ------------------------------------------------------
-+ * RALST is used to set and query the structure of an LPM tree.
-+ * The structure of the tree must be sorted as a sorted binary tree, while
-+ * each node is a bin that is tagged as the length of the prefixes the lookup
-+ * will refer to. Therefore, bin X refers to a set of entries with prefixes
-+ * of X bits to match with the destination address. The bin 0 indicates
-+ * the default action, when there is no match of any prefix.
-+ */
-+#define MLXSW_REG_RALST_ID 0x8011
-+#define MLXSW_REG_RALST_LEN 0x104
-+
-+static const struct mlxsw_reg_info mlxsw_reg_ralst = {
-+	.id = MLXSW_REG_RALST_ID,
-+	.len = MLXSW_REG_RALST_LEN,
-+};
-+
-+/* reg_ralst_root_bin
-+ * The bin number of the root bin.
-+ * 0<root_bin=<(length of IP address)
-+ * For a default-route tree configure 0xff
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, ralst, root_bin, 0x00, 16, 8);
-+
-+/* reg_ralst_tree_id
-+ * Tree identifier numbered from 1..(cap_shspm_max_trees-1).
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, ralst, tree_id, 0x00, 0, 8);
-+
-+#define MLXSW_REG_RALST_BIN_NO_CHILD 0xff
-+#define MLXSW_REG_RALST_BIN_OFFSET 0x04
-+#define MLXSW_REG_RALST_BIN_COUNT 128
-+
-+/* reg_ralst_left_child_bin
-+ * Holding the children of the bin according to the stored tree's structure.
-+ * For trees composed of less than 4 blocks, the bins in excess are reserved.
-+ * Note that tree_id 0 is allocated for a default-route tree, bins are 0xff
-+ * Access: RW
-+ */
-+MLXSW_ITEM16_INDEXED(reg, ralst, left_child_bin, 0x04, 8, 8, 0x02, 0x00, false);
-+
-+/* reg_ralst_right_child_bin
-+ * Holding the children of the bin according to the stored tree's structure.
-+ * For trees composed of less than 4 blocks, the bins in excess are reserved.
-+ * Note that tree_id 0 is allocated for a default-route tree, bins are 0xff
-+ * Access: RW
-+ */
-+MLXSW_ITEM16_INDEXED(reg, ralst, right_child_bin, 0x04, 0, 8, 0x02, 0x00,
-+		     false);
-+
-+static inline void mlxsw_reg_ralst_pack(char *payload, u8 root_bin, u8 tree_id)
-+{
-+	MLXSW_REG_ZERO(ralst, payload);
-+
-+	/* Initialize all bins to have no left or right child */
-+	memset(payload + MLXSW_REG_RALST_BIN_OFFSET,
-+	       MLXSW_REG_RALST_BIN_NO_CHILD, MLXSW_REG_RALST_BIN_COUNT * 2);
-+
-+	mlxsw_reg_ralst_root_bin_set(payload, root_bin);
-+	mlxsw_reg_ralst_tree_id_set(payload, tree_id);
-+}
-+
-+static inline void mlxsw_reg_ralst_bin_pack(char *payload, u8 bin_number,
-+					    u8 left_child_bin,
-+					    u8 right_child_bin)
-+{
-+	int bin_index = bin_number - 1;
-+
-+	mlxsw_reg_ralst_left_child_bin_set(payload, bin_index, left_child_bin);
-+	mlxsw_reg_ralst_right_child_bin_set(payload, bin_index,
-+					    right_child_bin);
-+}
-+
- /* MFCR - Management Fan Control Register
-  * --------------------------------------
-  * This register controls the settings of the Fan Speed PWM mechanism.
-@@ -4248,6 +4323,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "RITR";
- 	case MLXSW_REG_RALTA_ID:
- 		return "RALTA";
-+	case MLXSW_REG_RALST_ID:
-+		return "RALST";
- 	case MLXSW_REG_MFCR_ID:
- 		return "MFCR";
- 	case MLXSW_REG_MFSC_ID:
--- 
-2.5.5
+Regards
+Wei Hu
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
