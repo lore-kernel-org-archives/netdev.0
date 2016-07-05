@@ -1,66 +1,141 @@
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Subject: [PATCH] xfrm: fix crash in XFRM_MSG_GETSA netlink handler
-Date: Tue,  5 Jul 2016 10:18:08 +0200
-Message-ID: <1467706688-3631-1-git-send-email-vegard.nossum@oracle.com>
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	Vegard Nossum <vegard.nossum@oracle.com>
-To: Steffen Klassert <steffen.klassert@secunet.com>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:32666 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750941AbcGEISa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 04:18:30 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Joe Perches <joe@perches.com>
+Subject: Re: [PATCH v14 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Tue, 05 Jul 2016 01:21:54 -0700
+Message-ID: <1467706914.19760.16.camel@perches.com>
+References: <CY1PR03MB21865E21E637F03877784979BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Haiyang Zhang <haiyangz@microsoft.com>,
+	Rolf Neugebauer <rolf.neugebauer@docker.com>
+To: Dexuan Cui <decui@microsoft.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	Vitaly Kuznetsov <vkuznets@redhat.com>,
+	Cathy Avery <cavery@redhat.com>,
+	KY Srinivasan <kys@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CY1PR03MB21865E21E637F03877784979BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-If we hit any of the error conditions inside xfrm_dump_sa(), then
-xfrm_state_walk_init() never gets called. However, we still call
-xfrm_state_walk_done() from xfrm_dump_sa_done(), which will crash
-because the state walk was never initialized properly.
+On Thu, 2016-06-30 at 15:58 +0000, Dexuan Cui wrote:
+> Hyper-V Sockets (hv_sock) supplies a byte-stream based communication
+> mechanism between the host and the guest. It's somewhat like TCP over
+> VMBus, but the transportation layer (VMBus) is much simpler than IP.
 
-We can fix this by setting cb->args[0] only after we've processed the
-first element and checking this before calling xfrm_state_walk_done().
+trivia:
 
-Fixes: d3623099d3 ("ipsec: add support of limited SA dump")
-Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Cc: Steffen Klassert <steffen.klassert@secunet.com>
-Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
----
- net/xfrm/xfrm_user.c | 6 +++---
- 1 file changed, 3 insertions(+), 3 deletions(-)
+> diff --git a/include/net/af_hvsock.h b/include/net/af_hvsock.h
+[]
+> @@ -0,0 +1,59 @@
+[]
+> +#define sk_to_hvsock(__sk)=A0=A0=A0((struct hvsock_sock *)(__sk))
+> +#define hvsock_to_sk(__hvsk) ((struct sock *)(__hvsk))
 
-diff --git a/net/xfrm/xfrm_user.c b/net/xfrm/xfrm_user.c
-index d516845..4fb04ce 100644
---- a/net/xfrm/xfrm_user.c
-+++ b/net/xfrm/xfrm_user.c
-@@ -896,7 +896,8 @@ static int xfrm_dump_sa_done(struct netlink_callback *cb)
- 	struct sock *sk = cb->skb->sk;
- 	struct net *net = sock_net(sk);
- 
--	xfrm_state_walk_done(walk, net);
-+	if (cb->args[0])
-+		xfrm_state_walk_done(walk, net);
- 	return 0;
- }
- 
-@@ -921,8 +922,6 @@ static int xfrm_dump_sa(struct sk_buff *skb, struct netlink_callback *cb)
- 		u8 proto = 0;
- 		int err;
- 
--		cb->args[0] = 1;
--
- 		err = nlmsg_parse(cb->nlh, 0, attrs, XFRMA_MAX,
- 				  xfrma_policy);
- 		if (err < 0)
-@@ -939,6 +938,7 @@ static int xfrm_dump_sa(struct sk_buff *skb, struct netlink_callback *cb)
- 			proto = nla_get_u8(attrs[XFRMA_PROTO]);
- 
- 		xfrm_state_walk_init(walk, proto, filter);
-+		cb->args[0] = 1;
- 	}
- 
- 	(void) xfrm_state_walk(net, walk, dump_one_state, &info);
--- 
-1.9.1
+Might as well be static inlines
+
+> +/* We send at most 4KB payload per VMBus packet. */
+> +struct hvsock_send_buf {
+> +	struct vmpipe_proto_header hdr;
+> +	u8 buf[PAGE_SIZE];
+
+PAGE_SIZE might not be the right define here if
+the comment is to be believed.
+
+> diff --git a/include/uapi/linux/hyperv.h b/include/uapi/linux/hyperv.=
+h
+[]
+> @@ -396,4 +397,27 @@ struct hv_kvp_ip_msg {
+> =A0	struct hv_kvp_ipaddr_value=A0=A0=A0=A0=A0=A0kvp_ip_val;
+> =A0} __attribute__((packed));
+> =A0
+> +/* This is the address fromat of Hyper-V Sockets.
+
+format
+
+> diff --git a/net/hv_sock/af_hvsock.c b/net/hv_sock/af_hvsock.c
+[]
+> @@ -0,0 +1,1519 @@
+> +/*
+> + * Hyper-V Sockets -- a socket-based communication channel between t=
+he
+> + * Hyper-V host and the virtual machines running on it.
+> + *
+> + * Copyright(c) 2016, Microsoft Corporation. All rights reserved.
+> + *
+> + * Redistribution and use in source and binary forms, with or withou=
+t
+> + * modification, are permitted provided that the following condition=
+s
+> + * are met:
+> + *
+> + * 1. Redistributions of source code must retain the above copyright
+> + *=A0=A0=A0=A0notice, this list of conditions and the following disc=
+laimer.
+> + * 2. Redistributions in binary form must reproduce the above copyri=
+ght
+> + *=A0=A0=A0=A0notice, this list of conditions and the following disc=
+laimer in the
+> + *=A0=A0=A0=A0documentation and/or other materials provided with the=
+ distribution.
+> + * 3. The name of the author may not be used to endorse or promote
+> + *=A0=A0=A0=A0products derived from this software without specific p=
+rior written
+> + *=A0=A0=A0=A0permission.
+> + * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS=
+ OR
+> + * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+> + * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOS=
+E
+> + * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DI=
+RECT,
+> + * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGE=
+S
+> + * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS O=
+R
+> + * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION=
+)
+> + * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRAC=
+T,
+> + * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARI=
+SING
+> + * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF TH=
+E
+> + * POSSIBILITY OF SUCH DAMAGE.
+> + */
+
+Is this license GPL compatible?
+
+> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
+> +
+> +#include=20
+> +#include=20
+> +#include=20
+> +#include=20
+> +
+> +static struct proto hvsock_proto =3D {
+> +	.name =3D "HV_SOCK",
+> +	.owner =3D THIS_MODULE,
+> +	.obj_size =3D sizeof(struct hvsock_sock),
+> +};
+=09
+const?
+
+> +static int hvsock_recvmsg_wait(struct sock *sk, struct msghdr *msg,
+> +			=A0=A0=A0=A0=A0=A0=A0size_t len, int flags)
+> +{
+[]
+> +				if (ret !=3D 0 || payload_len >
+> +						sizeof(hvsk->recv->buf)) {
+
+This could look nicer as
+
+				if (ret !=3D 0 ||
+				=A0 =A0 payload_len > sizeof(hvsk->recv->buf)) {
