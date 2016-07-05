@@ -1,27 +1,38 @@
-From: David Howells <dhowells@redhat.com>
-Subject: Re: [PATCH net-next 06/24] rxrpc: Dup the main conn list for the proc interface
-Date: Tue, 05 Jul 2016 20:53:17 +0100
-Message-ID: <17652.1467748397@warthog.procyon.org.uk>
-References: <20160705.101745.2191999709401594106.davem@davemloft.net> <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk> <146772437424.21657.5653571141789810019.stgit@warthog.procyon.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: David Miller <davem@davemloft.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160705.101745.2191999709401594106.davem@davemloft.net>
-Content-ID: <17651.1467748397.1@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Jay Vosburgh <jay.vosburgh@canonical.com>
+Subject: Re: [PATCH net] bonding: fix 802.3ad aggregator reselection
+Date: Tue, 05 Jul 2016 13:02:50 -0700
+Message-ID: <28421.1467748970@famine>
+References: <10542.1466716851@famine> <CAKdSkDVXe5jRgWU8WAvx43KvEuZvS4ak+a9qd9H4C3zy+OvkPQ@mail.gmail.com> <CAD=hENfHOVBzwrC2Yy371FvxRG9AyJpvAm+s4R6hzU_+o=tJYA@mail.gmail.com> <CAKdSkDX=bf8bNvefjJae2zquEq5+PLDFsfDG--tZrdgzupg5NQ@mail.gmail.com>
+Cc: zhuyj <zyjzyj2000@gmail.com>, netdev <netdev@vger.kernel.org>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from youngberry.canonical.com ([91.189.89.112]:46990 "EHLO
+	youngberry.canonical.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754888AbcGEUC4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 16:02:56 -0400
+In-reply-to: <CAKdSkDX=bf8bNvefjJae2zquEq5+PLDFsfDG--tZrdgzupg5NQ@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Miller <davem@davemloft.net> wrote:
+Veli-Matti Lintu <veli-matti.lintu@opinsys.fi> wrote:
+[...]
+>I have understood that only miimon is available with 802.3ad:
+>
+>bonding.txt:
+>
+>802.3ad:
+>...
+>        Finally, the 802.3ad mode mandates the use of the MII monitor,
+>        therefore, the ARP monitor is not available in this mode.
+>
+>Is there a way to enable ARP monitor somehow?
 
-> Wouldn't it be better to just code the proc stuff to walk whatever
-> table the rest of the stack uses to hold all of the connections
-> as TCP et al. do?
+	No, there isn't.  ARP monitor is not available in 802.3ad mode.
 
-I should also mention that this is an intermediate step.  Splitting out the
-procfs list makes it easier to fix the reap lists.  I can always make the proc
-code do something different once the reap fixes have settled down.
+	-J
 
-David
+---
+	-Jay Vosburgh, jay.vosburgh@canonical.com
