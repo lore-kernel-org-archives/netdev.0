@@ -1,29 +1,39 @@
-From: "Help Desk " <munishgarg@ntpc.co.in>
-Subject: EMAIL UPDATE JULY
-Date: Tue, 05 Jul 2016 06:09:21 +0100
-Message-ID: <20160705051533.CF6971B58B74@mail.cak.go.ke>
-Reply-To: steelcopdept@gmail.com
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v14 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Mon, 04 Jul 2016 23:27:04 -0700 (PDT)
+Message-ID: <20160704.232704.1161688488597729534.davem@davemloft.net>
+References: <CY1PR03MB21865E21E637F03877784979BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
+	<CO2PR03MB21823DBFD52A5CF4F96DB712BF390@CO2PR03MB2182.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtpin.kenyaweb.com ([194.201.253.18]:57144 "EHLO
-	mail.cak.go.ke" rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754415AbcGEFQq convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 01:16:46 -0400
-Received: from localhost (localhost.localdomain [127.0.0.1])
-	by mail.cak.go.ke (Postfix) with ESMTP id DC8B71B58B89
-	for <netdev@vger.kernel.org>; Tue,  5 Jul 2016 08:15:35 +0300 (EAT)
-Received: from mail.cak.go.ke ([127.0.0.1])
-	by localhost (mail.cak.go.ke [127.0.0.1]) (amavisd-new, port 10024)
-	with ESMTP id p2ErqXt0r3y9 for <netdev@vger.kernel.org>;
-	Tue,  5 Jul 2016 08:15:35 +0300 (EAT)
-Received: from [192.168.43.11] (unknown [105.112.22.162])
-	by mail.cak.go.ke (Postfix) with ESMTPSA id CF6971B58B74
-	for <netdev@vger.kernel.org>; Tue,  5 Jul 2016 08:15:33 +0300 (EAT)
-Content-Description: Mail message body
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: gregkh@linuxfoundation.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devel@linuxdriverproject.org,
+	olaf@aepfle.de, apw@canonical.com, jasowang@redhat.com,
+	vkuznets@redhat.com, cavery@redhat.com, kys@microsoft.com,
+	haiyangz@microsoft.com, joe@perches.com, rolf.neugebauer@docker.com
+To: decui@microsoft.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <CO2PR03MB21823DBFD52A5CF4F96DB712BF390@CO2PR03MB2182.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Recently, we have detect some unusual activity on your account and as a result, all email users are urged to update their email account within 24 hours of receiving this e-mail, Please  click the link http://bit.ly/29ftCbA to  update requirement
+From: Dexuan Cui <decui@microsoft.com>
+Date: Tue, 5 Jul 2016 01:58:31 +0000
+
+> Not sure if you had a chance to review this version.
+
+Why me?
+
+Other people have to review this too.
+
+> Now I have a question: may I split the include/linux/socket.h change
+> and ask you to pre-allocate the number for AF_HYPERV to allow
+> backporting of Hyper-V Sockets to distro kernels, and to make sure
+> that applications using the socket type will work with the backport
+> as well as the upstream kernel?
+
+Sorry, I'm not going to do this.
+
+You cannot commit anything in userspace to this value anywhere
+until it is accepted upstream.
