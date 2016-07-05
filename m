@@ -1,45 +1,63 @@
-From: Yuval Mintz <Yuval.Mintz@qlogic.com>
-Subject: RE: [patch net-next 01/16] net: add dev arg to
- ndo_neigh_construct/destroy
-Date: Tue, 5 Jul 2016 11:04:09 +0000
-Message-ID: <CO2PR11MB0088E29053095135134B2BAB97390@CO2PR11MB0088.namprd11.prod.outlook.com>
-References: <1467710872-20056-1-git-send-email-jiri@resnulli.us>
- <1467710872-20056-2-git-send-email-jiri@resnulli.us>
+From: Ganesh Goudar <ganeshgr@chelsio.com>
+Subject: [PATCH] cxgb4: update latest firmware version supported
+Date: Tue, 5 Jul 2016 18:07:24 +0530
+Message-ID: <1467722244-8644-1-git-send-email-ganeshgr@chelsio.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: David Miller <davem@davemloft.net>,
-	"idosch@mellanox.com" <idosch@mellanox.com>,
-	"yotamg@mellanox.com" <yotamg@mellanox.com>,
-	"eladr@mellanox.com" <eladr@mellanox.com>,
-	"nogahf@mellanox.com" <nogahf@mellanox.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"andy@greyhouse.net" <andy@greyhouse.net>,
-	"dsa@cumulusnetworks.com" <dsa@cumulusnetworks.com>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"ivecera@redhat.com" <ivecera@redhat.com>
-To: Jiri Pirko <jiri@resnulli.us>, netdev <netdev@vger.kernel.org>
+Content-Type: text/plain
+Cc: <netdev@vger.kernel.org>, <hariprasad@chelsio.com>,
+	<nirranjan@chelsio.com>, Ganesh Goudar <ganeshgr@chelsio.com>
+To: <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-sn1nam01on0097.outbound.protection.outlook.com ([104.47.32.97]:42736
-	"EHLO NAM01-SN1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1752103AbcGEMhl convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 08:37:41 -0400
-In-Reply-To: <1467710872-20056-2-git-send-email-jiri@resnulli.us>
-Content-Language: en-US
+Received: from [12.32.117.8] ([12.32.117.8]:4989 "EHLO stargate.chelsio.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1754484AbcGEMhw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jul 2016 08:37:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-> -	int			(*ndo_neigh_construct)(struct neighbour *n);
-> -	void			(*ndo_neigh_destroy)(struct neighbour *n);
-> +	int			(*ndo_neigh_construct)(struct net_device
-> *dev,
-> +						       struct neighbour *n);
-> +	void			(*ndo_neigh_destroy)(struct net_device *dev,
-> +						     struct neighbour *n);
+Change t4fw_version.h to update latest firmware version number
 
-Perhaps leverage the fact you touch this and add a comment about this NDO?
+Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+---
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+diff --git a/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h b/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
+index c4b262c..2accab3 100644
+--- a/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
++++ b/drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h
+@@ -36,8 +36,8 @@
+ #define __T4FW_VERSION_H__
+ 
+ #define T4FW_VERSION_MAJOR 0x01
+-#define T4FW_VERSION_MINOR 0x0E
+-#define T4FW_VERSION_MICRO 0x04
++#define T4FW_VERSION_MINOR 0x0F
++#define T4FW_VERSION_MICRO 0x25
+ #define T4FW_VERSION_BUILD 0x00
+ 
+ #define T4FW_MIN_VERSION_MAJOR 0x01
+@@ -45,8 +45,8 @@
+ #define T4FW_MIN_VERSION_MICRO 0x00
+ 
+ #define T5FW_VERSION_MAJOR 0x01
+-#define T5FW_VERSION_MINOR 0x0E
+-#define T5FW_VERSION_MICRO 0x04
++#define T5FW_VERSION_MINOR 0x0F
++#define T5FW_VERSION_MICRO 0x25
+ #define T5FW_VERSION_BUILD 0x00
+ 
+ #define T5FW_MIN_VERSION_MAJOR 0x00
+@@ -54,8 +54,8 @@
+ #define T5FW_MIN_VERSION_MICRO 0x00
+ 
+ #define T6FW_VERSION_MAJOR 0x01
+-#define T6FW_VERSION_MINOR 0x0E
+-#define T6FW_VERSION_MICRO 0x04
++#define T6FW_VERSION_MINOR 0x0F
++#define T6FW_VERSION_MICRO 0x25
+ #define T6FW_VERSION_BUILD 0x00
+ 
+ #define T6FW_MIN_VERSION_MAJOR 0x00
+-- 
+2.1.0
