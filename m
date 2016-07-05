@@ -1,96 +1,111 @@
-From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-Subject: Re: [PATCH net-next 00/10] NCSI Support
-Date: Wed, 06 Jul 2016 07:42:39 +1000
-Message-ID: <1467754959.13965.66.camel@kernel.crashing.org>
-References: <1467523953-18998-1-git-send-email-gwshan@linux.vnet.ibm.com>
-	 <CAJ3xEMjEup1VUeCr3g2Ry78HvprfnC6wjGd=MWjnMOLWdLyKdQ@mail.gmail.com>
-	 <20160705174433.GA73415@ast-mbp.thefacebook.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: WARNING: CPU: 0 PID: 0 at net/ipv4/af_inet.c:155
+ inet_sock_destruct+0x1c4/0x1dc
+Date: Tue, 5 Jul 2016 23:51:44 +0200
+Message-ID: <577C2BF0.7030409@free.fr>
+References: <577BB72E.3020904@free.fr> <577BC94A.4060204@free.fr>
+ <577BD201.2040202@gmail.com> <577BD8BB.7060306@free.fr>
+ <577BDE4E.7090509@gmail.com> <577C17F5.4020106@free.fr>
+ <577C2506.5030300@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Gavin Shan <gwshan@linux.vnet.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, joel@jms.id.au,
-	weixue@trustnetic.com, yuvali@mellanox.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from gate.crashing.org ([63.228.1.57]:35368 "EHLO gate.crashing.org"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755496AbcGEVnI (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jul 2016 17:43:08 -0400
-In-Reply-To: <20160705174433.GA73415@ast-mbp.thefacebook.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 7bit
+Cc: Sebastian Frias <sf84@laposte.net>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	linux-pm <linux-pm@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <577C2506.5030300@gmail.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 2016-07-05 at 10:44 -0700, Alexei Starovoitov wrote:
->=20
+On 05/07/2016 23:22, Florian Fainelli wrote:
+> On 07/05/2016 01:26 PM, Mason wrote:
+>> On 05/07/2016 18:20, Florian Fainelli wrote:
+>>> On 07/05/2016 08:56 AM, Mason wrote:
+>>>> On 05/07/2016 17:28, Florian Fainelli wrote:
+>>>>
+>>>>> nb8800.c does not currently show suspend/resume hooks implemented, are
+>>>>> you positive that when you suspend, you properly tear down all HW, stop
+>>>>> transmit queues, etc. and do the opposite upon resumption?
+>>>>
+>>>> I am currently testing the error path for my suspend routine.
+>>>> Firmware is, in fact, denying the suspend request, and immediately
+>>>> returns control to Linux, without having powered anything down.
+>>>>
+>>>> I expected not having to save any context in that situation.
+>>>> Am I mistaken?
+>>>
+>>> It depends what power state you are going to and resuming from, and how
+>>> much of this is platform dependent, on the platforms I work with S2
+>>> preserves register states for our On/Off domain, while S3 only keeps an
+>>> always-on power island and shuts off the On/Off domain, you therefore
+>>> need to have your drivers in the On/Off domain suspend any activity and
+>>> preserve important register states, or re-initialize them from scratch
+>>> whichever is the most convenient.
+>>
+>> Thanks for bringing these details to my attention, they will
+>> definitely prove useful when I test an actual suspend/resume
+>> sequence. However, I must stress that the platform did NOT
+>> power down in my test case, because the firmware currently
+>> denies all suspend requests.
+>>
+>> Therefore, loss of context cannot possibly explain the
+>> warning I am seeing.
+> 
+> No, but if you go all the way down to trying to suspend and the last
+> step is the firmware failing, anything you have suspended needs to be
+> unwinded, for your ethernet driver that means that you went through a
+> successful suspend then resume cycle even if it failed down later when
+> the platform attempted to suspend.
 
-=C2=A0.../...
+So it is the driver's responsibility to "shut down" on resume?
+(I had the vague impression that the suspend framework would
+"disable" the device through the appropriate callback.)
 
-> > > The design for the patchset is highlighted as below:
-> > >=20
-> > > =C2=A0=C2=A0=C2=A0* The NCSI interface is abstracted with "struct=
- ncsi_dev". It's registered
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0when net_device is created, started=
- to work by calling ncsi_start_dev()
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0when net_device is opened (ndo_open=
-()). For the first time, NCSI packets
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0are sent and received to/from the f=
-ar end (host in above figure) to probe
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0available NCSI packages and channel=
-s. After that, one channel is chosen as
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0active one to provide service.
-> > > =C2=A0=C2=A0=C2=A0* The NCSI stack is driven by workqueue and sta=
-te machine internally.
-> > > =C2=A0=C2=A0=C2=A0* AEN (Asychronous Event Notification) might be=
- received from the far end
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0(host). The currently active NCSI c=
-hannel fails over to another available
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0one if possible. Otherwise, the NCS=
-I channel is out of service.
-> > > =C2=A0=C2=A0=C2=A0* NCSI stack should be configurable through net=
-link or another mechanism,
-> > > =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0but it's not implemented in this pa=
-tchset. It's something TBD.
->=20
-> Gavin,
-> what configurations do you have in mind?
-> For ncsi itself or to control the nic on the host?
-> This set of patches is for BMC side, right?
-> What needs to be done on the host?
+>>> See drivers/net/ethernet/broadcom/genet/bcmgenet.c which is a driver
+>>> that takes care of that for instance, look for bcmgenet_{suspend,resume}
+>>
+>> Thanks. I will look into it.
+>>
+>> If I understand correctly, something is missing in the
+>> network interface code? (My system is using an NFS root
+>> filesystem, so network is an important subsystem.)
+> 
+> The typical things are detaching the network device and stopping
+> transmit queues, but without knowing what changes you have done to
+> nb8800.c, hard to tell what else is needed.
 
-I'll respond for Gavin since I'm awake first ;-)
+I'm using the driver unaltered. So I guess I need to figure out
+the exact steps required for suspending a network device.
+(I'll look at bcmgenet.c tomorrow.)
 
-We use that stack today on OpenBMC on some OpenPOWER machines.
+>>>>> Is your system clocksource also correctly saved/restored, or if you go
+>>>>> through a firmware in-between could it be changing the counter values
+>>>>> and make Linux think that more time as elapsed than it really happened?
+>>>>
+>>>> Thanks for pointing this out, I was not aware I was supposed to save
+>>>> and restore the tick counter on suspend/resume. (This is not an issue
+>>>> in this specific situation, as the platform is NOT suspended.)
+>>>
+>>> You don't have to save and restore the clocksource counter, although if
+>>> you want proper time accounting to be done across suspend states, you
+>>> would want to use a clocksource which is persistent across these suspend
+>>> states.
+>>
+>> The clocksource is a 27 MHz 32-bit tick counter. In other words,
+>> the counter wraps around every 159 seconds. If Linux suspends
+>> for several hours, how can it determine how much time went by?
+> 
+> Well, that's unfortunate, then you are pretty much either doomed to
+> accepting to lose time in between and rely on e.g: NTP to resync your
+> time upon resumption, or, if you had smarter hardware you could have a
+> prescaler or something that makes this counter wrap far ahead (like
+> years or days after).
 
-The configuration is thus for the above stack to run on the BMC in
-order to control the host NIC.
+Maybe the hardware devs thought of that problem, because they
+"widened" the counter to 64 bits on newer platforms.
 
-NC-SI capable host NICs operate autonomously, so there is nothing to be
-done on the host OS itself, at least not with the BCM NICs that we use
-today, but of course the host NIC firmware needs to have the other side
-of the stack.
+Regards.
 
-> > > =C2=A0=C2=A0=C2=A0* The first NIC driver that is aware of NCSI: d=
-rivers/net/ethernet/faraday/ftgmac100.c
-> >=20
-> >=20
-> > FWIW, talking to a colleague, he made a comment that some of the te=
-xt
-> > above is wrong:
-> >=20
-> > AENs are sent from NIC to BMC. Not from Host to BMC.
-> >=20
-> > The traffic between a BMC and a NIC is over RBT if it is formatted =
-as
-> > NC-SI packets. This is not over network traffic....
-> >=20
-> > Or.
->=20
-> Or,
-> since cx4 has ncsi as well, could you do a thorough review of this
-> to make sure that it fits mellanox nics as well?
-
-Cheers,
-Ben.
