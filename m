@@ -1,51 +1,51 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 01/16] net: add dev arg to
- ndo_neigh_construct/destroy
-Date: Tue, 5 Jul 2016 14:06:40 +0200
-Message-ID: <20160705120640.GB1984@nanopsycho.orion>
-References: <1467710872-20056-1-git-send-email-jiri@resnulli.us>
- <1467710872-20056-2-git-send-email-jiri@resnulli.us>
- <CO2PR11MB0088E29053095135134B2BAB97390@CO2PR11MB0088.namprd11.prod.outlook.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [PATCH -next] net: hns: fix return value check in
+ hns_dsaf_get_cfg()
+Date: Tue, 5 Jul 2016 15:08:45 +0300
+Message-ID: <8152b0da-c43a-8657-fe23-98c9441bf79f@cogentembedded.com>
+References: <1467644458-10131-1-git-send-email-weiyj_lk@163.com>
+ <20160705.000856.969400031985428200.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>,
-	"idosch@mellanox.com" <idosch@mellanox.com>,
-	"yotamg@mellanox.com" <yotamg@mellanox.com>,
-	"eladr@mellanox.com" <eladr@mellanox.com>,
-	"nogahf@mellanox.com" <nogahf@mellanox.com>,
-	"ogerlitz@mellanox.com" <ogerlitz@mellanox.com>,
-	"sfeldma@gmail.com" <sfeldma@gmail.com>,
-	"roopa@cumulusnetworks.com" <roopa@cumulusnetworks.com>,
-	"andy@greyhouse.net" <andy@greyhouse.net>,
-	"dsa@cumulusnetworks.com" <dsa@cumulusnetworks.com>,
-	"tgraf@suug.ch" <tgraf@suug.ch>,
-	"jhs@mojatatu.com" <jhs@mojatatu.com>,
-	"linville@tuxdriver.com" <linville@tuxdriver.com>,
-	"ivecera@redhat.com" <ivecera@redhat.com>
-To: Yuval Mintz <Yuval.Mintz@qlogic.com>
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: yisen.zhuang@huawei.com, salil.mehta@huawei.com,
+	yankejian@huawei.com, yongjun_wei@trendmicro.com.cn,
+	netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, weiyj_lk@163.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f47.google.com ([74.125.82.47]:37222 "EHLO
-	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751168AbcGEMGn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 08:06:43 -0400
-Received: by mail-wm0-f47.google.com with SMTP id a66so149736422wme.0
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 05:06:43 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CO2PR11MB0088E29053095135134B2BAB97390@CO2PR11MB0088.namprd11.prod.outlook.com>
+Received: from mail-lf0-f45.google.com ([209.85.215.45]:34641 "EHLO
+	mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754302AbcGEMIt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 08:08:49 -0400
+Received: by mail-lf0-f45.google.com with SMTP id h129so133388612lfh.1
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 05:08:48 -0700 (PDT)
+In-Reply-To: <20160705.000856.969400031985428200.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Jul 05, 2016 at 01:04:09PM CEST, Yuval.Mintz@qlogic.com wrote:
->> -	int			(*ndo_neigh_construct)(struct neighbour *n);
->> -	void			(*ndo_neigh_destroy)(struct neighbour *n);
->> +	int			(*ndo_neigh_construct)(struct net_device
->> *dev,
->> +						       struct neighbour *n);
->> +	void			(*ndo_neigh_destroy)(struct net_device *dev,
->> +						     struct neighbour *n);
->
->Perhaps leverage the fact you touch this and add a comment about this NDO?
+Hello.
 
-Adding comment should be done in a separate patch. It is unrelated to
-the change this patch does. Feel free to send a follow-up.
+On 7/5/2016 10:08 AM, David Miller wrote:
+
+>>
+>>  	res = platform_get_resource_byname(pdev, IORESOURCE_MEM, "ppe-base");
+>> -	if (!res) {
+>> +	if (!res)
+>>  		res = platform_get_resource(pdev, IORESOURCE_MEM, res_idx++);
+>> -		if (!res) {
+>> -			dev_err(dsaf_dev->dev, "ppe-base info is needed!\n");
+>> -			return -ENOMEM;
+>> -		}
+>> -	}
+>
+> platform_get_resource() can return NULL, you can't just remove this check.
+
+    He can -- since devm_ioremap_resource() called right afterwards checks for 
+NULL.
+
+> This is also a case of a patch trying to do many things at once, and that's
+> why bugs like this tend to slip in.
+
+    Agreed.
+
+MBR, Sergei
