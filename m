@@ -1,88 +1,126 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: Tool for sampling /proc/net/softnet_stat statistics
-Date: Tue, 5 Jul 2016 14:20:32 +0200
-Message-ID: <20160705142032.077eabd0@redhat.com>
-References: <20160307163607.1da5f17e@redhat.com>
-	<CAF=yD-LE3WnYZaNUX8h1-uRA2ZzMczrL=Ob4Qb39hhyAEqYMPA@mail.gmail.com>
-	<20160308105056.5bb35bff@redhat.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: Multi-thread udp 4.7 regression, bisected to 71d8c47fc653
+Date: Tue, 5 Jul 2016 14:28:03 +0200
+Message-ID: <20160705122803.GA26862@salvia>
+References: <CAB9dFduvE0dKzZ8Dm5RVVrUAq1Auvj8t9xXAyARGyO4NmowvYw@mail.gmail.com>
+ <20160627142238.GA10613@breakpoint.cc>
+ <CAB9dFds=qY=Dk++p7qVX7a8aOOH4wn0rtL3m4poO6HMQPuPrnA@mail.gmail.com>
+ <20160627153820.GB10613@breakpoint.cc>
+ <CAB9dFdvQ4UyKNMmOSx+FePyR0_Q425XLJRb_k5h+4JOSkQkf3w@mail.gmail.com>
+ <CAB9dFds7KQxihReHhW9CXJeY9+=4BPema3ZawVA89U45QL5uBw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: brouer@redhat.com,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	Tom Herbert <tom@herbertland.com>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	erdnetdev@gmail.com
-To: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160308105056.5bb35bff@redhat.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="vtzGhvizbBRQ85DL"
+Cc: Florian Westphal <fw@strlen.de>, netdev <netdev@vger.kernel.org>,
+	regressions@leemhuis.info, netfilter-devel@vger.kernel.org
+To: Marc Dionne <marc.c.dionne@gmail.com>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CAB9dFds7KQxihReHhW9CXJeY9+=4BPema3ZawVA89U45QL5uBw@mail.gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 8 Mar 2016 10:50:56 +0100
-Jesper Dangaard Brouer <jbrouer@redhat.com> wrote:
 
-> On Mon, 7 Mar 2016 12:54:13 -0500
-> Willem de Bruijn <willemdebruijn.kernel@gmail.com> wrote:
+--vtzGhvizbBRQ85DL
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi,
+
+On Mon, Jul 04, 2016 at 09:35:28AM -0300, Marc Dionne wrote:
+> If there is no quick fix, seems like a revert should be considered:
+> - Looks to me like the commit attempts to fix a long standing bug
+> (exists at least as far back as 3.5,
+> https://bugzilla.kernel.org/show_bug.cgi?id=52991)
+> - The above bug has a simple workaround (at least for us) that we
+> implemented more than 3 years ago
+
+I guess the workaround consists of using a rule to NOTRACK this
+traffic. Or there is any custom patch that you've used on your side to
+resolve this?
+
+> - The commit reverts cleanly, restoring the original behaviour
+> - From that bug report, bind was one of the affected applications; I
+> would suspect that this regression is likely to affect bind as well
 > 
-> > On Mon, Mar 7, 2016 at 10:36 AM, Jesper Dangaard Brouer
-> > <jbrouer@redhat.com> wrote:  
-> > > Hi Google,
-> > >
-> > > While playing with RPS, I needed to read stats from
-> > > /proc/net/softnet_stat and the tools I could find [1] and [2] was not
-> > > very good.
-> > >
-> > > I lack of better, I coded up my own tool softnet_stat.pl here:
-> > >  https://github.com/netoptimizer/network-testing/blob/master/bin/softnet_stat.pl
-> > >
-> > > The output format/columns in /proc/net/softnet_stat is undocumented,
-> > > plus values are printed in hex.  E.g. to decode the columns you need to
-> > > read kernel function kernel softnet_seq_show() in
-> > > kernel/net/core/net-procfs.c.
-> > >
-> > > To make things easier I wrote this small perl script for get
-> > > so human readable statistics from /proc/net/softnet_stat.    
-> > 
-> > Very nice. Thanks for sharing, Jesper. I maintained something similar,
-> > but never got around to clean up and upstream it. Will start using
-> > yours, instead.
-> > 
-> > A few points, from using my earlier tool:
-> > 
-> > A minimum cut-off value is helpful, especially on beefy servers, to
-> > suppress the many 0 rows. Preferably configurable, to also be able to
-> > suppress low-rate background traffic when analyzing a few large
-> > streams. My default was 500.
-> > 
-> > The number of columns has grown with kernel versions. The latest
-> > column is flow_limit, added in 3.11 at99bbc7074190. It is helpful for
-> > the script to be robust against both older and future kernels. On
-> > which note, to be able to support these kinds of tools, any new
-> > columns to such procfs files should be appended, not inserted as for
-> > instance in https://patchwork.ozlabs.org/patch/574171/
-> > 
-> > Time squeeze is an exception, in that it is number of squeeze events
-> > per second, not number of packets squeezed. This is often
-> > misunderstood if not explained clearly.  
-> 
-> Thanks a lot for your feedback.  I don't have time to address it right
-> away, so I've instead added a section with future development todo's.
-> So, I don't forget this valuable feedback :-)
-> 
-> https://github.com/netoptimizer/network-testing/commit/c464676e456aab
+> I'd be more than happy to test suggested fixes or give feedback with
+> debugging patches, etc.
 
-Found a bug in my script:
- https://github.com/netoptimizer/network-testing/blob/master/bin/softnet_stat.pl
+Could you monitor
 
-It was not showing the "squeezed" events.
+# conntrack -S
 
-It is now fixed:
- https://github.com/netoptimizer/network-testing/commit/3b5ca843cf
+or alternatively (if conntrack utility not available in your system):
 
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+# cat /proc/net/stat/nf_conntrack
+
+?
+
+Please, watch for insert_failed and drop statistics.
+
+Are you observing any splat or just large packet drops? Could you
+compile your kernel with lockdep on and retest?
+
+Is there any chance I can get your test file that generates the UDP
+client threads to reproduce this here?
+
+I'm also attaching a patch to drop old ct that lost race path out from
+hashtable locks to avoid releasing the ct object while holding the
+locks, although I couldn't come up with any interaction so far
+triggering the condition that you're observing.
+
+Thanks.
+
+--vtzGhvizbBRQ85DL
+Content-Type: text/x-diff; charset=us-ascii
+Content-Disposition: attachment; filename="x.patch"
+
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 62c42e9..98a71f1 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -638,7 +638,8 @@ static void nf_ct_acct_merge(struct nf_conn *ct, enum ip_conntrack_info ctinfo,
+ /* Resolve race on insertion if this protocol allows this. */
+ static int nf_ct_resolve_clash(struct net *net, struct sk_buff *skb,
+ 			       enum ip_conntrack_info ctinfo,
+-			       struct nf_conntrack_tuple_hash *h)
++			       struct nf_conntrack_tuple_hash *h,
++			       struct nf_conn **old_ct)
+ {
+ 	/* This is the conntrack entry already in hashes that won race. */
+ 	struct nf_conn *ct = nf_ct_tuplehash_to_ctrack(h);
+@@ -649,7 +650,7 @@ static int nf_ct_resolve_clash(struct net *net, struct sk_buff *skb,
+ 	    !nf_ct_is_dying(ct) &&
+ 	    atomic_inc_not_zero(&ct->ct_general.use)) {
+ 		nf_ct_acct_merge(ct, ctinfo, (struct nf_conn *)skb->nfct);
+-		nf_conntrack_put(skb->nfct);
++		*old_ct = (struct nf_conn *)skb->nfct;
+ 		/* Assign conntrack already in hashes to this skbuff. Don't
+ 		 * modify skb->nfctinfo to ensure consistent stateful filtering.
+ 		 */
+@@ -667,7 +668,7 @@ __nf_conntrack_confirm(struct sk_buff *skb)
+ 	const struct nf_conntrack_zone *zone;
+ 	unsigned int hash, reply_hash;
+ 	struct nf_conntrack_tuple_hash *h;
+-	struct nf_conn *ct;
++	struct nf_conn *ct, *old_ct = NULL;
+ 	struct nf_conn_help *help;
+ 	struct nf_conn_tstamp *tstamp;
+ 	struct hlist_nulls_node *n;
+@@ -771,11 +772,14 @@ __nf_conntrack_confirm(struct sk_buff *skb)
+ 
+ out:
+ 	nf_ct_add_to_dying_list(ct);
+-	ret = nf_ct_resolve_clash(net, skb, ctinfo, h);
++	ret = nf_ct_resolve_clash(net, skb, ctinfo, h, &old_ct);
+ dying:
+ 	nf_conntrack_double_unlock(hash, reply_hash);
+ 	NF_CT_STAT_INC(net, insert_failed);
+ 	local_bh_enable();
++	if (old_ct)
++		nf_ct_put(old_ct);
++
+ 	return ret;
+ }
+ EXPORT_SYMBOL_GPL(__nf_conntrack_confirm);
+
+--vtzGhvizbBRQ85DL--
