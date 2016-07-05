@@ -1,7 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 05/24] rxrpc: Provide more refcount helper functions
-Date: Tue, 05 Jul 2016 14:12:47 +0100
-Message-ID: <146772436726.21657.7089071379028604342.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 02/24] rxrpc: Fix some sparse errors
+Date: Tue, 05 Jul 2016 14:12:25 +0100
+Message-ID: <146772434540.21657.8892317874241593843.stgit@warthog.procyon.org.uk>
 References: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -14,80 +14,47 @@ In-Reply-To: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Provide refcount helper functions for connections so that the code doesn't
-touch conn->usage directly.
+Fix the following sparse errors:
 
-Also provide queueing helper functions so that the queueing of local and
-connection objects can be fixed later.
+../net/rxrpc/conn_object.c:77:17: warning: incorrect type in assignment (different base types)
+../net/rxrpc/conn_object.c:77:17:    expected restricted __be32 [usertype] call_id
+../net/rxrpc/conn_object.c:77:17:    got unsigned int [unsigned] [usertype] call_id
+../net/rxrpc/conn_object.c:84:21: warning: restricted __be32 degrades to integer
+../net/rxrpc/conn_object.c:86:26: warning: restricted __be32 degrades to integer
+../net/rxrpc/conn_object.c:357:15: warning: incorrect type in assignment (different base types)
+../net/rxrpc/conn_object.c:357:15:    expected restricted __be32 [usertype] epoch
+../net/rxrpc/conn_object.c:357:15:    got unsigned int [unsigned] [usertype] epoch
+../net/rxrpc/conn_object.c:369:21: warning: restricted __be32 degrades to integer
+../net/rxrpc/conn_object.c:371:26: warning: restricted __be32 degrades to integer
+../net/rxrpc/conn_object.c:411:21: warning: restricted __be32 degrades to integer
+../net/rxrpc/conn_object.c:413:26: warning: restricted __be32 degrades to integer
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h |   12 +++++++++++-
- net/rxrpc/conn_event.c  |    2 +-
- net/rxrpc/input.c       |    2 +-
- 3 files changed, 13 insertions(+), 3 deletions(-)
+ net/rxrpc/conn_object.c |    5 ++---
+ 1 file changed, 2 insertions(+), 3 deletions(-)
 
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 796368d1fb25..45aef3ef7609 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -35,7 +35,6 @@ struct rxrpc_crypt {
- 	queue_delayed_work(rxrpc_workqueue, (WS), (D))
+diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
+index 4bfad7cf96cb..c86a3cff7585 100644
+--- a/net/rxrpc/conn_object.c
++++ b/net/rxrpc/conn_object.c
+@@ -70,7 +70,7 @@ static void rxrpc_add_call_ID_to_conn(struct rxrpc_connection *conn,
+ {
+ 	struct rxrpc_call *xcall;
+ 	struct rb_node *parent, **p;
+-	__be32 call_id;
++	u32 call_id;
  
- #define rxrpc_queue_call(CALL)	rxrpc_queue_work(&(CALL)->processor)
--#define rxrpc_queue_conn(CONN)	rxrpc_queue_work(&(CONN)->processor)
+ 	write_lock_bh(&conn->lock);
  
- struct rxrpc_connection;
+@@ -347,8 +347,7 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
+ 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
+ 	struct rb_node *p, **pp;
+ 	const char *new = "old";
+-	__be32 epoch;
+-	u32 cid;
++	u32 epoch, cid;
  
-@@ -566,6 +565,12 @@ static inline void rxrpc_get_connection(struct rxrpc_connection *conn)
- 	atomic_inc(&conn->usage);
- }
+ 	_enter("");
  
-+
-+static inline void rxrpc_queue_conn(struct rxrpc_connection *conn)
-+{
-+	rxrpc_queue_work(&conn->processor);
-+}
-+
- /*
-  * input.c
-  */
-@@ -618,6 +623,11 @@ static inline void rxrpc_put_local(struct rxrpc_local *local)
- 		__rxrpc_put_local(local);
- }
- 
-+static inline void rxrpc_queue_local(struct rxrpc_local *local)
-+{
-+	rxrpc_queue_work(&local->processor);
-+}
-+
- /*
-  * misc.c
-  */
-diff --git a/net/rxrpc/conn_event.c b/net/rxrpc/conn_event.c
-index 6a3c96707831..d7e183c6b5df 100644
---- a/net/rxrpc/conn_event.c
-+++ b/net/rxrpc/conn_event.c
-@@ -318,7 +318,7 @@ void rxrpc_reject_packet(struct rxrpc_local *local, struct sk_buff *skb)
- 	CHECK_SLAB_OKAY(&local->usage);
- 
- 	skb_queue_tail(&local->reject_queue, skb);
--	rxrpc_queue_work(&local->processor);
-+	rxrpc_queue_local(local);
- }
- 
- /*
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index 5f26cae43069..fe7ff339d7e5 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -595,7 +595,7 @@ static void rxrpc_post_packet_to_local(struct rxrpc_local *local,
- 	_enter("%p,%p", local, skb);
- 
- 	skb_queue_tail(&local->event_queue, skb);
--	rxrpc_queue_work(&local->processor);
-+	rxrpc_queue_local(local);
- }
- 
- /*
