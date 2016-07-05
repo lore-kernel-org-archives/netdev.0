@@ -1,96 +1,83 @@
-From: Vishwanath Pai <vpai@akamai.com>
-Subject: Re: [PATCH iptables 3/3] libxt_hashlimit: iptables-restore does not
- work as expected with xt_hashlimit
-Date: Tue, 5 Jul 2016 16:13:06 -0400
-Message-ID: <577C14D2.3020005@akamai.com>
-References: <20160602001759.GF1644@akamai.com> <20160623102511.GA10493@salvia>
- <576D7AD2.6050107@akamai.com> <20160625093924.GC1289@salvia>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: WARNING: CPU: 0 PID: 0 at net/ipv4/af_inet.c:155
+ inet_sock_destruct+0x1c4/0x1dc
+Date: Tue, 5 Jul 2016 22:26:29 +0200
+Message-ID: <577C17F5.4020106@free.fr>
+References: <577BB72E.3020904@free.fr> <577BC94A.4060204@free.fr>
+ <577BD201.2040202@gmail.com> <577BD8BB.7060306@free.fr>
+ <577BDE4E.7090509@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
+Content-Type: text/plain; charset=ISO-8859-15
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, kadlec@blackhole.kfki.hu,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	johunt@akamai.com, netdev@vger.kernel.org, pai.vishwain@gmail.com
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prod-mail-xrelay07.akamai.com ([23.79.238.175]:9712 "EHLO
-	prod-mail-xrelay07.akamai.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751986AbcGEUN3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 16:13:29 -0400
-In-Reply-To: <20160625093924.GC1289@salvia>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Sebastian Frias <sf84@laposte.net>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	linux-pm <linux-pm@vger.kernel.org>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+Return-path: <linux-pm-owner@vger.kernel.org>
+In-Reply-To: <577BDE4E.7090509@gmail.com>
+Sender: linux-pm-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 06/25/2016 05:39 AM, Pablo Neira Ayuso wrote:
-> I see, but I'm not convinced about this /proc rename feature.
+On 05/07/2016 18:20, Florian Fainelli wrote:
+> On 07/05/2016 08:56 AM, Mason wrote:
+>> On 05/07/2016 17:28, Florian Fainelli wrote:
+>>
+>>> nb8800.c does not currently show suspend/resume hooks implemented, are
+>>> you positive that when you suspend, you properly tear down all HW, stop
+>>> transmit queues, etc. and do the opposite upon resumption?
+>>
+>> I am currently testing the error path for my suspend routine.
+>> Firmware is, in fact, denying the suspend request, and immediately
+>> returns control to Linux, without having powered anything down.
+>>
+>> I expected not having to save any context in that situation.
+>> Am I mistaken?
 > 
-> I think the main point of this, as well as other entries in bugzilla
-> related to this, is ability to update an existing hashlimit state.
+> It depends what power state you are going to and resuming from, and how
+> much of this is platform dependent, on the platforms I work with S2
+> preserves register states for our On/Off domain, while S3 only keeps an
+> always-on power island and shuts off the On/Off domain, you therefore
+> need to have your drivers in the On/Off domain suspend any activity and
+> preserve important register states, or re-initialize them from scratch
+> whichever is the most convenient.
+
+Thanks for bringing these details to my attention, they will
+definitely prove useful when I test an actual suspend/resume
+sequence. However, I must stress that the platform did NOT
+power down in my test case, because the firmware currently
+denies all suspend requests.
+
+Therefore, loss of context cannot possibly explain the
+warning I am seeing.
+
+>> You mention "stop transmit queues". Can you say more about this?
 > 
-> So, I'm not proposing to rename --enhanced-procfs to something else,
-> I think that a different approach consisting on adding a new option
-> like --hashlimit-update that will update the internal state of an
-> existing hashlimit object is just fine for your usecase, right?
+> See drivers/net/ethernet/broadcom/genet/bcmgenet.c which is a driver
+> that takes care of that for instance, look for bcmgenet_{suspend,resume}
+
+Thanks. I will look into it.
+
+If I understand correctly, something is missing in the
+network interface code? (My system is using an NFS root
+filesystem, so network is an important subsystem.)
+
+>>> Is your system clocksource also correctly saved/restored, or if you go
+>>> through a firmware in-between could it be changing the counter values
+>>> and make Linux think that more time as elapsed than it really happened?
+>>
+>> Thanks for pointing this out, I was not aware I was supposed to save
+>> and restore the tick counter on suspend/resume. (This is not an issue
+>> in this specific situation, as the platform is NOT suspended.)
 > 
->> > Other than that, we are doing exactly what you said, but creating a new
->> > entry in the hashtable instead of updating it. The previous entry will
->> > automatically be removed when the old rule is flushed/deleted.
-> What I'm missing is why we need this /proc rename at all.
+> You don't have to save and restore the clocksource counter, although if
+> you want proper time accounting to be done across suspend states, you
+> would want to use a clocksource which is persistent across these suspend
+> states.
 
-The reason we need the procfs rename feature is because it is broken at
-the moment. Let us assume someone adds two rules with the same name
-(intentionally or otherwise). We cannot prevent them from doing this or
-error out when someone does this because all of this is done in
-hashlimit_mt_check which is called for every iptables rule change, even
-an entirely different rule. I'll demonstrate two scenarios here. I have
-put debug printk statements which prints everytime hashlimit_mt_check is
-called.
+The clocksource is a 27 MHz 32-bit tick counter. In other words,
+the counter wraps around every 159 seconds. If Linux suspends
+for several hours, how can it determine how much time went by?
 
-1) Add two rules with the same name but in different chains
+Regards.
 
-$ iptables -A chain1 -m hashlimit --hashlimit-above 200/sec \
-  --hashlimit-mode srcip --hashlimit-name hashlimit1 -j DROP
-
-$ dmesg -c
-[  103.965578] hashlimit_mt_check for rule hashlimit1
-
-
-$ iptables -A chain2 -m hashlimit --hashlimit-above 300/sec \
-   --hashlimit-mode srcip --hashlimit-name hashlimit1 -j DROP
-
-$ dmesg -c
-[  114.613758] hashlimit_mt_check for rule hashlimit1
-[  114.621360] hashlimit_mt_check for rule hashlimit1
-[  114.627411] hashlimit_mt_destroy on hashlimit1
-
-2) Replace an iptables rule with iptables-restore
-
-$ iptables -A chain1 -m hashlimit --hashlimit-above 200/sec \
-  --hashlimit-mode srcip --hashlimit-name hashlimit1 -j DROP
-
-$ iptables-save > /tmp/hashlimit
-
-$ vi /tmp/hashlimit (edit 200/s to 300/s)
-
-$ iptables-restore < /tmp/hashlimit
-
-$ dmesg -c
-[ 1585.411093] hashlimit_mt_check for rule hashlimit1
-[ 1585.418948] hashlimit_mt_destroy on hashlimit1
-
-In case 1 there exists two rules with the same name but we cannot have
-procfs files for both of the rules since they have to exist in the same
-directory. In case 2 there will be only one rule but there is a small
-window where two rules with same name exist. We cannot differentiate
-this from case 1. In both the cases we get the call for
-hashlimit_mt_check for the new rule before the old rule is deleted.
-
-Without the rename feature I do not know how to correctly handle the
-scenario where two rules with different parameters but the same name exist.
-
-I believe the rest of the patch handles the --hashlimit-update feature
-you mentioned, but instead of updating an existing object it creates a
-new one and the old object is deleted by the call to destroy. The
-hashtable match function is modified to include all parameters of the
-object and not just the name so that we can reuse objects that have the
-exact same features.
