@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 06/16] neigh: Send a notification when DELAY_PROBE_TIME changes
-Date: Tue,  5 Jul 2016 11:27:42 +0200
-Message-ID: <1467710872-20056-7-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 01/16] net: add dev arg to ndo_neigh_construct/destroy
+Date: Tue,  5 Jul 2016 11:27:37 +0200
+Message-ID: <1467710872-20056-2-git-send-email-jiri@resnulli.us>
 References: <1467710872-20056-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,76 +10,109 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34775 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:34702 "EHLO
 	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751762AbcGEJ2D (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 05:28:03 -0400
-Received: by mail-wm0-f67.google.com with SMTP id 187so27283981wmz.1
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 02:28:02 -0700 (PDT)
+	with ESMTP id S1751150AbcGEJ15 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 05:27:57 -0400
+Received: by mail-wm0-f67.google.com with SMTP id 187so27283254wmz.1
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 02:27:55 -0700 (PDT)
 In-Reply-To: <1467710872-20056-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ido Schimmel <idosch@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-When the data plane is offloaded the traffic doesn't go through the
-networking stack. Therefore, after first resolving a neighbour the NUD
-state machine will transition it from REACHABLE to STALE until it's
-finally deleted by the garbage collector.
+As the following patch will allow upper devices to follow the call down
+lower devices, we need to add dev here and not rely on n->dev.
 
-To prevent such situations the offloading driver should notify the NUD
-state machine on any neighbours that were recently used. The driver's
-polling interval should be set so that the NUD state machine can
-function as if the traffic wasn't offloaded.
-
-Currently, there are no in-tree drivers that can report confirmation for
-a neighbour, but only 'used' indication. Therefore, the polling interval
-should be set according to DELAY_FIRST_PROBE_TIME, as a neighbour will
-transition from REACHABLE state to DELAY (instead of STALE) if "a packet
-was sent within the last DELAY_FIRST_PROBE_TIME seconds" (RFC 4861).
-
-Send a netevent whenever the DELAY_FIRST_PROBE_TIME changes - either via
-netlink or sysctl - so that offloading drivers can correctly set their
-polling interval.
-
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- include/net/netevent.h | 1 +
- net/core/neighbour.c   | 2 ++
- 2 files changed, 3 insertions(+)
+ drivers/net/ethernet/rocker/rocker_main.c | 3 ++-
+ include/linux/netdevice.h                 | 6 ++++--
+ net/atm/clip.c                            | 2 +-
+ net/core/neighbour.c                      | 4 ++--
+ net/ieee802154/6lowpan/core.c             | 2 +-
+ 5 files changed, 10 insertions(+), 7 deletions(-)
 
-diff --git a/include/net/netevent.h b/include/net/netevent.h
-index d8bbb38..f440df1 100644
---- a/include/net/netevent.h
-+++ b/include/net/netevent.h
-@@ -24,6 +24,7 @@ struct netevent_redirect {
- enum netevent_notif_type {
- 	NETEVENT_NEIGH_UPDATE = 1, /* arg is struct neighbour ptr */
- 	NETEVENT_REDIRECT,	   /* arg is struct netevent_redirect ptr */
-+	NETEVENT_DELAY_PROBE_TIME_UPDATE, /* arg is struct neigh_parms ptr */
+diff --git a/drivers/net/ethernet/rocker/rocker_main.c b/drivers/net/ethernet/rocker/rocker_main.c
+index 28b775e..f0b09b0 100644
+--- a/drivers/net/ethernet/rocker/rocker_main.c
++++ b/drivers/net/ethernet/rocker/rocker_main.c
+@@ -1996,7 +1996,8 @@ static int rocker_port_change_proto_down(struct net_device *dev,
+ 	return 0;
+ }
+ 
+-static void rocker_port_neigh_destroy(struct neighbour *n)
++static void rocker_port_neigh_destroy(struct net_device *dev,
++				      struct neighbour *n)
+ {
+ 	struct rocker_port *rocker_port = netdev_priv(n->dev);
+ 	int err;
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 0c6ee2c..91af73c 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -1209,8 +1209,10 @@ struct net_device_ops {
+ 						    netdev_features_t features);
+ 	int			(*ndo_set_features)(struct net_device *dev,
+ 						    netdev_features_t features);
+-	int			(*ndo_neigh_construct)(struct neighbour *n);
+-	void			(*ndo_neigh_destroy)(struct neighbour *n);
++	int			(*ndo_neigh_construct)(struct net_device *dev,
++						       struct neighbour *n);
++	void			(*ndo_neigh_destroy)(struct net_device *dev,
++						     struct neighbour *n);
+ 
+ 	int			(*ndo_fdb_add)(struct ndmsg *ndm,
+ 					       struct nlattr *tb[],
+diff --git a/net/atm/clip.c b/net/atm/clip.c
+index e07f551..53b4ac0 100644
+--- a/net/atm/clip.c
++++ b/net/atm/clip.c
+@@ -286,7 +286,7 @@ static const struct neigh_ops clip_neigh_ops = {
+ 	.connected_output =	neigh_direct_output,
  };
  
- int register_netevent_notifier(struct notifier_block *nb);
+-static int clip_constructor(struct neighbour *neigh)
++static int clip_constructor(struct net_device *dev, struct neighbour *neigh)
+ {
+ 	struct atmarp_entry *entry = neighbour_priv(neigh);
+ 
 diff --git a/net/core/neighbour.c b/net/core/neighbour.c
-index 952aabb..5cdc62a 100644
+index 510cd62..952aabb 100644
 --- a/net/core/neighbour.c
 +++ b/net/core/neighbour.c
-@@ -2047,6 +2047,7 @@ static int neightbl_set(struct sk_buff *skb, struct nlmsghdr *nlh)
- 			case NDTPA_DELAY_PROBE_TIME:
- 				NEIGH_VAR_SET(p, DELAY_PROBE_TIME,
- 					      nla_get_msecs(tbp[i]));
-+				call_netevent_notifiers(NETEVENT_DELAY_PROBE_TIME_UPDATE, p);
- 				break;
- 			case NDTPA_RETRANS_TIME:
- 				NEIGH_VAR_SET(p, RETRANS_TIME,
-@@ -2930,6 +2931,7 @@ static void neigh_proc_update(struct ctl_table *ctl, int write)
- 		return;
+@@ -473,7 +473,7 @@ struct neighbour *__neigh_create(struct neigh_table *tbl, const void *pkey,
+ 	}
  
- 	set_bit(index, p->data_state);
-+	call_netevent_notifiers(NETEVENT_DELAY_PROBE_TIME_UPDATE, p);
- 	if (!dev) /* NULL dev means this is default value */
- 		neigh_copy_dflt_parms(net, p, index);
+ 	if (dev->netdev_ops->ndo_neigh_construct) {
+-		error = dev->netdev_ops->ndo_neigh_construct(n);
++		error = dev->netdev_ops->ndo_neigh_construct(dev, n);
+ 		if (error < 0) {
+ 			rc = ERR_PTR(error);
+ 			goto out_neigh_release;
+@@ -701,7 +701,7 @@ void neigh_destroy(struct neighbour *neigh)
+ 	neigh->arp_queue_len_bytes = 0;
+ 
+ 	if (dev->netdev_ops->ndo_neigh_destroy)
+-		dev->netdev_ops->ndo_neigh_destroy(neigh);
++		dev->netdev_ops->ndo_neigh_destroy(dev, neigh);
+ 
+ 	dev_put(dev);
+ 	neigh_parms_put(neigh->parms);
+diff --git a/net/ieee802154/6lowpan/core.c b/net/ieee802154/6lowpan/core.c
+index 8c004a0..935ab93 100644
+--- a/net/ieee802154/6lowpan/core.c
++++ b/net/ieee802154/6lowpan/core.c
+@@ -81,7 +81,7 @@ static int lowpan_stop(struct net_device *dev)
+ 	return 0;
  }
+ 
+-static int lowpan_neigh_construct(struct neighbour *n)
++static int lowpan_neigh_construct(struct net_device *dev, struct neighbour *n)
+ {
+ 	struct lowpan_802154_neigh *neigh = lowpan_802154_neigh(neighbour_priv(n));
+ 
 -- 
 2.5.5
