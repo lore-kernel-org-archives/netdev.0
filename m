@@ -1,147 +1,116 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 19/24] rxrpc: Prune the contents of the
- rxrpc_conn_proto struct
-Date: Tue, 05 Jul 2016 14:14:27 +0100
-Message-ID: <146772446761.21657.18204064892803423205.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 21/24] Introduce rb_replace_node_rcu()
+Date: Tue, 05 Jul 2016 14:14:41 +0100
+Message-ID: <146772448187.21657.2344729324665773888.stgit@warthog.procyon.org.uk>
 References: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: dhowells@redhat.com, netdev@vger.kernel.org,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+Cc: "Peter Zijlstra \(Intel\)" <peterz@infradead.org>,
+	dhowells@redhat.com, linux-afs@lists.infradead.org,
+	linux-kernel@vger.kernel.org, netdev@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:46301 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755284AbcGENOo (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jul 2016 09:14:44 -0400
 In-Reply-To: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Prune the contents of the rxrpc_conn_proto struct.  Most of the fields aren't
-used anymore.
+Implement an RCU-safe variant of rb_replace_node() and rearrange
+rb_replace_node() to do things in the same order.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
+Acked-by: Peter Zijlstra (Intel) <peterz@infradead.org>
 ---
 
- net/rxrpc/ar-internal.h  |   20 +++++++-------------
- net/rxrpc/call_object.c  |    2 +-
- net/rxrpc/conn_client.c  |   11 -----------
- net/rxrpc/conn_service.c |    2 --
- net/rxrpc/proc.c         |    6 ++++--
- 5 files changed, 12 insertions(+), 29 deletions(-)
+ include/linux/rbtree.h           |    2 ++
+ include/linux/rbtree_augmented.h |   13 +++++++++++++
+ lib/rbtree.c                     |   26 ++++++++++++++++++++++++--
+ 3 files changed, 39 insertions(+), 2 deletions(-)
 
-diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 71618e983b4a..db866552877e 100644
---- a/net/rxrpc/ar-internal.h
-+++ b/net/rxrpc/ar-internal.h
-@@ -229,18 +229,12 @@ struct rxrpc_peer {
-  * Keys for matching a connection.
-  */
- struct rxrpc_conn_proto {
--	unsigned long		hash_key;
--	struct rxrpc_local	*local;		/* Representation of local endpoint */
--	u32			epoch;		/* epoch of this connection */
--	u32			cid;		/* connection ID */
--	u8			in_clientflag;	/* RXRPC_CLIENT_INITIATED if we are server */
--	u8			addr_size;	/* Size of the address */
--	sa_family_t		family;		/* Transport protocol */
--	__be16			port;		/* Peer UDP/UDP6 port */
--	union {					/* Peer address */
--		struct in_addr	ipv4_addr;
--		struct in6_addr	ipv6_addr;
--		u32		raw_addr[0];
-+	union {
-+		struct {
-+			u32	epoch;		/* epoch of this connection */
-+			u32	cid;		/* connection ID */
-+		};
-+		u64		index_key;
- 	};
- };
+diff --git a/include/linux/rbtree.h b/include/linux/rbtree.h
+index b6900099ea81..e585018498d5 100644
+--- a/include/linux/rbtree.h
++++ b/include/linux/rbtree.h
+@@ -76,6 +76,8 @@ extern struct rb_node *rb_next_postorder(const struct rb_node *);
+ /* Fast replacement of a single node without remove/rebalance/add/rebalance */
+ extern void rb_replace_node(struct rb_node *victim, struct rb_node *new,
+ 			    struct rb_root *root);
++extern void rb_replace_node_rcu(struct rb_node *victim, struct rb_node *new,
++				struct rb_root *root);
  
-@@ -586,7 +580,7 @@ static inline bool rxrpc_conn_is_client(const struct rxrpc_connection *conn)
- 
- static inline bool rxrpc_conn_is_service(const struct rxrpc_connection *conn)
- {
--	return conn->proto.in_clientflag;
-+	return !rxrpc_conn_is_client(conn);
+ static inline void rb_link_node(struct rb_node *node, struct rb_node *parent,
+ 				struct rb_node **rb_link)
+diff --git a/include/linux/rbtree_augmented.h b/include/linux/rbtree_augmented.h
+index 14d7b831b63a..d076183e49be 100644
+--- a/include/linux/rbtree_augmented.h
++++ b/include/linux/rbtree_augmented.h
+@@ -130,6 +130,19 @@ __rb_change_child(struct rb_node *old, struct rb_node *new,
+ 		WRITE_ONCE(root->rb_node, new);
  }
  
- static inline void rxrpc_get_connection(struct rxrpc_connection *conn)
-diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
-index 3f278721269e..ebbd7dd5292f 100644
---- a/net/rxrpc/call_object.c
-+++ b/net/rxrpc/call_object.c
-@@ -566,7 +566,7 @@ struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *rx,
- 	}
- 	call->epoch = conn->proto.epoch;
- 	call->service_id = conn->params.service_id;
--	call->in_clientflag = conn->proto.in_clientflag;
-+	call->in_clientflag = RXRPC_CLIENT_INITIATED;
- 	/* Add the new call to the hashtable */
- 	rxrpc_call_hash_add(call);
++static inline void
++__rb_change_child_rcu(struct rb_node *old, struct rb_node *new,
++		      struct rb_node *parent, struct rb_root *root)
++{
++	if (parent) {
++		if (parent->rb_left == old)
++			rcu_assign_pointer(parent->rb_left, new);
++		else
++			rcu_assign_pointer(parent->rb_right, new);
++	} else
++		rcu_assign_pointer(root->rb_node, new);
++}
++
+ extern void __rb_erase_color(struct rb_node *parent, struct rb_root *root,
+ 	void (*augment_rotate)(struct rb_node *old, struct rb_node *new));
  
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-index 52809e21f56d..74b97f67acf5 100644
---- a/net/rxrpc/conn_client.c
-+++ b/net/rxrpc/conn_client.c
-@@ -132,22 +132,11 @@ rxrpc_alloc_client_connection(struct rxrpc_conn_parameters *cp, gfp_t gfp)
- 	}
+diff --git a/lib/rbtree.c b/lib/rbtree.c
+index 1356454e36de..eb8a19fee110 100644
+--- a/lib/rbtree.c
++++ b/lib/rbtree.c
+@@ -539,17 +539,39 @@ void rb_replace_node(struct rb_node *victim, struct rb_node *new,
+ {
+ 	struct rb_node *parent = rb_parent(victim);
  
- 	conn->params		= *cp;
--	conn->proto.local	= cp->local;
- 	conn->proto.epoch	= rxrpc_epoch;
- 	conn->proto.cid		= 0;
--	conn->proto.in_clientflag = 0;
--	conn->proto.family	= cp->peer->srx.transport.family;
- 	conn->out_clientflag	= RXRPC_CLIENT_INITIATED;
- 	conn->state		= RXRPC_CONN_CLIENT;
++	/* Copy the pointers/colour from the victim to the replacement */
++	*new = *victim;
++
+ 	/* Set the surrounding nodes to point to the replacement */
+-	__rb_change_child(victim, new, parent, root);
+ 	if (victim->rb_left)
+ 		rb_set_parent(victim->rb_left, new);
+ 	if (victim->rb_right)
+ 		rb_set_parent(victim->rb_right, new);
++	__rb_change_child(victim, new, parent, root);
++}
++EXPORT_SYMBOL(rb_replace_node);
++
++void rb_replace_node_rcu(struct rb_node *victim, struct rb_node *new,
++			 struct rb_root *root)
++{
++	struct rb_node *parent = rb_parent(victim);
  
--	switch (conn->proto.family) {
--	case AF_INET:
--		conn->proto.addr_size = sizeof(conn->proto.ipv4_addr);
--		conn->proto.ipv4_addr = cp->peer->srx.transport.sin.sin_addr;
--		conn->proto.port = cp->peer->srx.transport.sin.sin_port;
--		break;
--	}
--
- 	ret = rxrpc_get_client_connection_id(conn, gfp);
- 	if (ret < 0)
- 		goto error_0;
-diff --git a/net/rxrpc/conn_service.c b/net/rxrpc/conn_service.c
-index 77a509e6003a..c6db2e8400a2 100644
---- a/net/rxrpc/conn_service.c
-+++ b/net/rxrpc/conn_service.c
-@@ -70,10 +70,8 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
- 		return ERR_PTR(-ENOMEM);
- 	}
+ 	/* Copy the pointers/colour from the victim to the replacement */
+ 	*new = *victim;
++
++	/* Set the surrounding nodes to point to the replacement */
++	if (victim->rb_left)
++		rb_set_parent(victim->rb_left, new);
++	if (victim->rb_right)
++		rb_set_parent(victim->rb_right, new);
++
++	/* Set the parent's pointer to the new node last after an RCU barrier
++	 * so that the pointers onwards are seen to be set correctly when doing
++	 * an RCU walk over the tree.
++	 */
++	__rb_change_child_rcu(victim, new, parent, root);
+ }
+-EXPORT_SYMBOL(rb_replace_node);
++EXPORT_SYMBOL(rb_replace_node_rcu);
  
--	candidate->proto.local		= local;
- 	candidate->proto.epoch		= sp->hdr.epoch;
- 	candidate->proto.cid		= sp->hdr.cid & RXRPC_CIDMASK;
--	candidate->proto.in_clientflag	= RXRPC_CLIENT_INITIATED;
- 	candidate->params.local		= local;
- 	candidate->params.peer		= peer;
- 	candidate->params.service_id	= sp->hdr.serviceId;
-diff --git a/net/rxrpc/proc.c b/net/rxrpc/proc.c
-index ed5a94d8be7b..f8a3d0f285e5 100644
---- a/net/rxrpc/proc.c
-+++ b/net/rxrpc/proc.c
-@@ -67,7 +67,8 @@ static int rxrpc_call_seq_show(struct seq_file *seq, void *v)
- 	conn = call->conn;
- 	if (conn)
- 		sprintf(rbuff, "%pI4:%u",
--			&conn->proto.ipv4_addr, ntohs(conn->proto.port));
-+			&conn->params.peer->srx.transport.sin.sin_addr,
-+			ntohs(conn->params.peer->srx.transport.sin.sin_port));
- 	else
- 		strcpy(rbuff, "no_connection");
- 
-@@ -149,7 +150,8 @@ static int rxrpc_connection_seq_show(struct seq_file *seq, void *v)
- 		ntohs(conn->params.local->srx.transport.sin.sin_port));
- 
- 	sprintf(rbuff, "%pI4:%u",
--		&conn->proto.ipv4_addr, ntohs(conn->proto.port));
-+		&conn->params.peer->srx.transport.sin.sin_addr,
-+		ntohs(conn->params.peer->srx.transport.sin.sin_port));
- 
- 	seq_printf(seq,
- 		   "UDP   %-22.22s %-22.22s %4x %08x %s %3u"
+ static struct rb_node *rb_left_deepest_node(const struct rb_node *node)
+ {
