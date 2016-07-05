@@ -1,33 +1,54 @@
-From: Masatake YAMATO <yamato@redhat.com>
-Subject: [PATCH] man: rtacct: add missing TP marker
-Date: Tue,  5 Jul 2016 18:08:50 +0900
-Message-ID: <1467709730-17518-1-git-send-email-yamato@redhat.com>
-Cc: yamato@redhat.com
-To: netdev@vger.kernel.org
+From: Saeed Mahameed <saeedm@mellanox.com>
+Subject: [PATCH net] bonding: fix enslavement slave link notifications
+Date: Tue,  5 Jul 2016 12:09:47 +0300
+Message-ID: <1467709787-30993-1-git-send-email-saeedm@mellanox.com>
+Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	Jiri Pirko <jiri@mellanox.com>,
+	Aviv Heller <avivh@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>
+To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48638 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751248AbcGEJI5 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jul 2016 05:08:57 -0400
+Received: from [193.47.165.129] ([193.47.165.129]:53992 "EHLO mellanox.co.il"
+	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751248AbcGEJPZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jul 2016 05:15:25 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Masatake YAMATO <yamato@redhat.com>
+From: Aviv Heller <avivh@mellanox.com>
+
+Currently, link notifications are not sent by
+bond_set_slave_link_state() upon enslavement if
+the slave is enslaved when up.
+
+This happens because slave->link default init value
+is 0, which is the same as BOND_LINK_UP, resulting
+in bond_set_slave_link_state() ignoring this transition.
+
+This patch sets the default value of slave->link to
+BOND_LINK_NOCHANGE, assuring it will count as a state
+transition and thus trigger notification logic.
+
+Signed-off-by: Aviv Heller <avivh@mellanox.com>
+Reviewed-by: Jiri Pirko <jiri@mellanox.com>
+Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- man/man8/rtacct.8 | 1 +
+ drivers/net/bonding/bond_main.c | 1 +
  1 file changed, 1 insertion(+)
 
-diff --git a/man/man8/rtacct.8 b/man/man8/rtacct.8
-index 7cf97aa..01321e6 100644
---- a/man/man8/rtacct.8
-+++ b/man/man8/rtacct.8
-@@ -35,6 +35,7 @@ Dump absolute values of counters. The default is to calculate increments since t
- .TP
- .B \-s, \-\-noupdate
- Do not update history, so that the next time you will see counters including values accumulated to the moment of this measurement too.
-+.TP
- .B \-j, \-\-json
- Display results in JSON format.
- .TP
+diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+index 941ec99..a2afa3b 100644
+--- a/drivers/net/bonding/bond_main.c
++++ b/drivers/net/bonding/bond_main.c
+@@ -1584,6 +1584,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
+ 	}
+ 
+ 	/* check for initial state */
++	new_slave->link = BOND_LINK_NOCHANGE;
+ 	if (bond->params.miimon) {
+ 		if (bond_check_dev_link(bond, slave_dev, 0) == BMSR_LSTATUS) {
+ 			if (bond->params.updelay) {
 -- 
-2.7.4
+2.8.0
