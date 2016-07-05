@@ -1,50 +1,63 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: WARNING: CPU: 0 PID: 0 at net/ipv4/af_inet.c:155
- inet_sock_destruct+0x1c4/0x1dc
-Date: Tue, 5 Jul 2016 17:56:43 +0200
-Message-ID: <577BD8BB.7060306@free.fr>
-References: <577BB72E.3020904@free.fr> <577BC94A.4060204@free.fr>
- <577BD201.2040202@gmail.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: ethtool needs a new maintainer
+Date: Tue, 5 Jul 2016 11:58:26 -0400
+Message-ID: <20160705155825.GB2769@tuxdriver.com>
+References: <1466956772.2551.6.camel@decadent.org.uk>
+ <1466957501.2551.17.camel@decadent.org.uk>
+ <20160627135146.GB6864@tuxdriver.com>
+ <1467652728.12588.42.camel@decadent.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: 7bit
-Cc: Sebastian Frias <sf84@laposte.net>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	linux-pm <linux-pm@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <577BD201.2040202@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>
+To: Ben Hutchings <ben@decadent.org.uk>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from charlotte.tuxdriver.com ([70.61.120.58]:50362 "EHLO
+	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752345AbcGEQAV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 12:00:21 -0400
+Content-Disposition: inline
+In-Reply-To: <1467652728.12588.42.camel@decadent.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 05/07/2016 17:28, Florian Fainelli wrote:
+On Mon, Jul 04, 2016 at 07:18:48PM +0200, Ben Hutchings wrote:
+> On Mon, 2016-06-27 at 09:51 -0400, John W. Linville wrote:
+> > On Sun, Jun 26, 2016 at 06:11:41PM +0200, Ben Hutchings wrote:
+> > > I've become steadily less enthusiastic and less responsive as a
+> > > maintainer over the past year or so. =A0I no longer work on netwo=
+rking
+> > > regularly, so it takes a lot more time to get into the right stat=
+e of
+> > > mind to think about ethtool code, while I have other demands on m=
+y time
+> > > that tend to take priority.
+> > >=20
+> > > So, I would like to find a new maintainer to take over as soon as
+> > > possible. =A0Ideally the new maintainer would have previous contr=
+ibutions
+> > > to ethtool and an existing account on kernel.org so that they can=
+ push
+> > > to the git repository and the home page. =A0But neither of those =
+is
+> > > essential. =A0Please reply if you're interested.
+> >=20
+> > I would like to take this responsibility. My previous contributions
+> > to ethtool are meager, but I think my skills and interests are suit=
+ed
+> > to the task.=A0=A0Plus, I already have a kernel.org account... :-)
+> [...]
+>=20
+> It was a tough choice, but I'm pleased to accept your offer. :-)
+>=20
+> I'll ask for the permissions to be updated accordingly.
+>=20
+> Ben.
 
-> nb8800.c does not currently show suspend/resume hooks implemented, are
-> you positive that when you suspend, you properly tear down all HW, stop
-> transmit queues, etc. and do the opposite upon resumption?
+Awesome, thanks.  And, of course, thank you for your service to the
+community as ethtool maintainer for the past several (5+) years!
 
-I am currently testing the error path for my suspend routine.
-Firmware is, in fact, denying the suspend request, and immediately
-returns control to Linux, without having powered anything down.
-
-I expected not having to save any context in that situation.
-Am I mistaken?
-
-You mention "stop transmit queues". Can you say more about this?
-
-> Is your system clocksource also correctly saved/restored, or if you go
-> through a firmware in-between could it be changing the counter values
-> and make Linux think that more time as elapsed than it really happened?
-
-Thanks for pointing this out, I was not aware I was supposed to save
-and restore the tick counter on suspend/resume. (This is not an issue
-in this specific situation, as the platform is NOT suspended.)
-
-However, your remark has brought some more confusion to my mind.
-Linux is expecting time to stand still when it suspends?
-What if the tick counter is in an always-on power domain, and other
-processors depend on the counter? I can't just overwrite the reg
-when Linux resumes...
-
-Regards.
+John
+--=20
+John W. Linville		Someday the world will need a hero, and you
+linville@tuxdriver.com			might be all we have.  Be ready.
