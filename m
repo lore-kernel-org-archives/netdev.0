@@ -1,221 +1,89 @@
-From: David Miller <davem@davemloft.net>
-Subject: [GIT] Networking
-Date: Tue, 05 Jul 2016 16:23:54 -0700 (PDT)
-Message-ID: <20160705.162354.2087159317908923178.davem@davemloft.net>
+From: John Fastabend <john.fastabend@gmail.com>
+Subject: Re: DCB Auto turn off when link become up with Intel
+ 82599ES ixgbe driver
+Date: Tue, 5 Jul 2016 16:39:42 -0700
+Message-ID: <577C453E.40306@gmail.com>
+References: <loom.20160705T170910-270@post.gmane.org>
+	<CAKgT0UdpbHSGdw1kyEa_YPy5tOX20Oxd4XY_S5_x_PQ=_4XEDw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: akpm@linux-foundation.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: torvalds@linux-foundation.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Netdev <netdev@vger.kernel.org>
+To: Alexander Duyck <alexander.duyck@gmail.com>, ayuj <ayuj.verma@gmail.com>,
+	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>
+Return-path: <e1000-devel-bounces@lists.sourceforge.net>
+In-Reply-To: <CAKgT0UdpbHSGdw1kyEa_YPy5tOX20Oxd4XY_S5_x_PQ=_4XEDw@mail.gmail.com>
+List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
+List-Post: <mailto:e1000-devel@lists.sourceforge.net>
+List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
+List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
+	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
+Errors-To: e1000-devel-bounces@lists.sourceforge.net
 List-Id: netdev.vger.kernel.org
 
-
-1) All users of AF_PACKET's fanout feature want a symmetric packet
-   header hash for load balancing purposes, so give it to them.
-
-2) Fix vlan state synchronization in e1000e, from Jarod Wilson.
-
-3) Use correct socket pointer in ip_skb_dst_mtu(), from Shmulik
-   Ladkani.
-
-4) mlx5 bug fixes from Mohamad Haj Yahia, Daniel Jurgens, Matthew
-   Finlay, Rana Shahout, and Shaker Daibes.  Mostly to do with
-   operation timeouts and PCI error handling.
-
-5) Fix checksum handling in mirred packet action, from WANG Cong.
-
-6) Set skb->dev correctly when transmitting in !protect_frames case
-   of macsec driver, from Daniel Borkmann.
-
-7) Fix MTU calculation in geneve driver, from Haishuang Yan.
-
-8) Missing netif_napi_del() in unregister path of qeth driver, from
-   Ursula Braun.
-
-9) Handle malformed route netlink messages in decnet properly, from
-   Vergard Nossum.
-
-10) Memory leak of percpu data in ipv6 routing code, from Martin
-    KaFai Lau.
-
-Please pull, thanks a lot!
-
-The following changes since commit e7bdea7750eb2a64aea4a08fa5c0a31719c8=
-155d:
-
-  Merge tag 'nfs-for-4.7-2' of git://git.linux-nfs.org/projects/anna/li=
-nux-nfs (2016-06-29 15:30:26 -0700)
-
-are available in the git repository at:
-
-  git://git.kernel.org/pub/scm/linux/kernel/git/davem/net=20
-
-for you to fetch changes up to 903ce4abdf374e3365d93bcb3df56c62008835ba=
-:
-
-  ipv6: Fix mem leak in rt6i_pcpu (2016-07-05 14:09:23 -0700)
-
-----------------------------------------------------------------
-Aviv Heller (1):
-      bonding: fix enslavement slave link notifications
-
-Bj=F8rn Mork (1):
-      cdc_ncm: workaround for EM7455 "silent" data interface
-
-Christophe Jaillet (1):
-      fsl/fman: fix error handling
-
-Daniel Borkmann (1):
-      macsec: set actual real device for xmit when !protect_frames
-
-Daniel Jurgens (5):
-      net/mlx5: Fix incorrect page count when in internal error
-      net/mlx5: Fix wait_vital for VFs and remove fixed sleep
-      net/mlx5e: Timeout if SQ doesn't flush during close
-      net/mlx5e: Implement ndo_tx_timeout callback
-      net/mlx5e: Handle RQ flush in error cases
-
-David S. Miller (4):
-      Merge branch 'master' of git://git.kernel.org/.../jkirsher/net-qu=
-eue
-      Merge branch 'mlx5-fixes'
-      packet: Use symmetric hash for PACKET_FANOUT_HASH.
-      Revert "fsl/fman: fix error handling"
-
-Eric Dumazet (1):
-      bonding: prevent out of bound accesses
-
-=46lorian Fainelli (1):
-      net: bcmsysport: Device stats are unsigned long
-
-Ganesh Goudar (1):
-      cxgb4: update latest firmware version supported
-
-Haishuang Yan (1):
-      geneve: fix max_mtu setting
-
-Jarod Wilson (1):
-      e1000e: keep Rx/Tx HW_VLAN_CTAG in sync
-
-Martin KaFai Lau (1):
-      ipv6: Fix mem leak in rt6i_pcpu
-
-Matt Corallo (1):
-      net: stmmac: Fix null-function call in ISR on stmmac1000
-
-Matthew Finlay (1):
-      net/mlx5e: Copy all L2 headers into inline segment
-
-Mohamad Haj Yahia (4):
-      net/mlx5: Fix teardown errors that happen in pci error handler
-      net/mlx5: Avoid calling sleeping function by the health poll thre=
-ad
-      net/mlx5: Fix potential deadlock in command mode change
-      net/mlx5: Add timeout handle to commands with callback
-
-Or Gerlitz (1):
-      net/mlx5: Avoid setting unused var when modifying vport node GUID
-
-Rana Shahout (2):
-      net/mlx5e: Fix select queue callback
-      net/mlx5e: Validate BW weight values of ETS
-
-Richard Alpe (1):
-      tipc: fix nl compat regression for link statistics
-
-Russell King - ARM Linux (1):
-      net: mvneta: fix open() error cleanup
-
-Sergio Valverde (1):
-      enc28j60: Fix race condition in enc28j60 driver
-
-Shaker Daibes (1):
-      net/mlx5e: Log link state changes
-
-Shmulik Ladkani (1):
-      ipv4: Fix ip_skb_dst_mtu to use the sk passed by ip_finish_output
-
-Sony Chacko (1):
-      qlcnic: add wmb() call in transmit data path.
-
-Soohoon Lee (1):
-      usbnet: Stop RX Q on MTU change
-
-Stefan Hauser (1):
-      net: phy: dp83867: Fix initialization of PHYCR register
-
-Ursula Braun (1):
-      qeth: delete napi struct when removing a qeth device
-
-Vegard Nossum (2):
-      RDS: fix rds_tcp_init() error path
-      net: fix decnet rtnexthop parsing
-
-WANG Cong (1):
-      net_sched: fix mirrored packets checksum
-
-Xin Long (1):
-      ixgbevf: ixgbevf_write/read_posted_mbx should use IXGBE_ERR_MBX t=
-o initialize ret_val
-
-hayeswang (2):
-      r8152: clear LINK_OFF_WAKE_EN after autoresume
-      r8152: fix runtime function for RTL8152
-
- drivers/net/bonding/bond_3ad.c                      |  11 ++++---
- drivers/net/bonding/bond_alb.c                      |   7 ++---
- drivers/net/bonding/bond_main.c                     |   1 +
- drivers/net/ethernet/broadcom/bcmsysport.c          |   2 +-
- drivers/net/ethernet/chelsio/cxgb4/t4fw_version.h   |  12 +++----
- drivers/net/ethernet/intel/e1000e/netdev.c          |  21 ++++++------=
--
- drivers/net/ethernet/intel/ixgbevf/mbx.c            |   4 +--
- drivers/net/ethernet/marvell/mvneta.c               |   2 ++
- drivers/net/ethernet/mellanox/mlx5/core/cmd.c       | 129 ++++++++++++=
-++++++++++++++++++++++++++++++---------------------------------
- drivers/net/ethernet/mellanox/mlx5/core/en.h        |  11 ++++++-
- drivers/net/ethernet/mellanox/mlx5/core/en_dcbnl.c  |   8 +++--
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c   |  99 ++++++++++++=
-+++++++++++++++++++++++++++++++++++++++------
- drivers/net/ethernet/mellanox/mlx5/core/en_rx.c     |  41 ++++++++++++=
-++++++++++++
- drivers/net/ethernet/mellanox/mlx5/core/en_tx.c     |  52 ++++++++++++=
-+++++++++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/health.c    |  11 +++++--
- drivers/net/ethernet/mellanox/mlx5/core/main.c      |  41 +++++++++---=
-------------
- drivers/net/ethernet/mellanox/mlx5/core/pagealloc.c |  63 ++++++++++++=
-++++++++++++++-----------
- drivers/net/ethernet/mellanox/mlx5/core/vport.c     |   3 --
- drivers/net/ethernet/microchip/enc28j60.c           |   7 +++--
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_io.c      |   2 ++
- drivers/net/ethernet/stmicro/stmmac/stmmac_main.c   |   2 +-
- drivers/net/geneve.c                                |   9 ++++--
- drivers/net/macsec.c                                |   1 +
- drivers/net/phy/dp83867.c                           |  13 +++++---
- drivers/net/usb/cdc_ncm.c                           |   7 +++++
- drivers/net/usb/r8152.c                             |  35 ++++++++++++=
-++++-----
- drivers/net/usb/usbnet.c                            |  10 ++++--
- drivers/s390/net/qeth_l2_main.c                     |   1 +
- drivers/s390/net/qeth_l3_main.c                     |   1 +
- include/linux/mlx5/driver.h                         |   1 +
- include/linux/skbuff.h                              |  20 ++++++++++++
- include/net/bonding.h                               |   7 ++++-
- include/net/ip.h                                    |   5 ++-
- net/bridge/br_netfilter_hooks.c                     |   2 +-
- net/core/flow_dissector.c                           |  43 ++++++++++++=
-+++++++++++++
- net/core/skbuff.c                                   |  18 -----------
- net/decnet/dn_fib.c                                 |  21 +++++++-----=
--
- net/ipv4/ip_output.c                                |   4 +--
- net/ipv6/ip6_fib.c                                  |   1 +
- net/packet/af_packet.c                              |   2 +-
- net/rds/tcp.c                                       |   5 +--
- net/sched/act_mirred.c                              |   2 +-
- net/tipc/netlink_compat.c                           |   2 +-
- 43 files changed, 527 insertions(+), 212 deletions(-)
+T24gMTYtMDctMDUgMDg6MzggQU0sIEFsZXhhbmRlciBEdXljayB3cm90ZToKPiBPbiBUdWUsIEp1
+bCA1LCAyMDE2IGF0IDg6MTcgQU0sIGF5dWogPGF5dWoudmVybWFAZ21haWwuY29tPiB3cm90ZToK
+Pj4gSSdtIHRyeWluZyB0byBjb25maWd1cmUgRENCIGluIGJhY2stdG8tYmFjayBzY2VuYXJpby4K
+Pj4gU3lzdGVtIGRldGFpbHMKPj4KPj4gT1MgOi0gQ2VudE9TIDcuMgo+PiBrZXJuZWwgMy4xMC4w
+LTMyNy5lbDcueDg2XzY0Cj4+IGxsZHBhZDotIGxsZHBhZCB2MC45LjQ2Cj4+IGRjYnRvb2w6LSB2
+MC45LjQ2Cj4+IGl4Z2JlIDotIGl4Z2JlLTQuMy4xNQo+Pgo+PiBzdGVwcyBmb2xsb3dlZDotCj4+
+Cj4+ICMgbW9kcG9yYmUgaXhnYmUKPj4gIyBzZXJ2aWNlIGxsZHBhZCBzdGFydAo+PiAgICAgUmVk
+aXJlY3RpbmcgdG8gL2Jpbi9zeXN0ZW1jdGwgc3RhcnQgIGxsZHBhZC5zZXJ2aWNlCj4+Cj4+Cj4+
+ICMgc2VydmljZSBsbGRwYWQgc3RhdHVzCj4+IFJlZGlyZWN0aW5nIHRvIC9iaW4vc3lzdGVtY3Rs
+IHN0YXR1cyAgbGxkcGFkLnNlcnZpY2UKPj4g4pePIGxsZHBhZC5zZXJ2aWNlIC0gTGluayBMYXll
+ciBEaXNjb3ZlcnkgUHJvdG9jb2wgQWdlbnQgRGFlbW9uLgo+PiAgICBMb2FkZWQ6IGxvYWRlZCAo
+L3Vzci9saWIvc3lzdGVtZC9zeXN0ZW0vbGxkcGFkLnNlcnZpY2U7IGRpc2FibGVkOyB2ZW5kb3IK
+Pj4gcHJlc2V0OiBkaXNhYmxlZCkKPj4gICAgQWN0aXZlOiBhY3RpdmUgKHJ1bm5pbmcpIHNpbmNl
+IFR1ZSAyMDE2LTA3LTA1IDA1OjQ5OjEyIEVEVDsgMXMgYWdvCj4+ICBNYWluIFBJRDogMTMzNzM3
+IChsbGRwYWQpCj4+ICAgIENHcm91cDogL3N5c3RlbS5zbGljZS9sbGRwYWQuc2VydmljZQo+PiAg
+ICAgICAgICAgIOKUlOKUgDEzMzczNyAvdXNyL3NiaW4vbGxkcGFkIC10Cj4+Cj4+IEp1bCAwNSAw
+NTo0OToxMiBsb2NhbGhvc3QubG9jYWxkb21haW4gc3lzdGVtZFsxXTogU3RhcnRlZCBMaW5rIExh
+eWVyCj4+IERpc2NvdmVyeSBQcm90b2NvbCBBZ2VudCBEYWVtb24uLgo+PiBKdWwgMDUgMDU6NDk6
+MTIgbG9jYWxob3N0LmxvY2FsZG9tYWluIHN5c3RlbWRbMV06IFN0YXJ0aW5nIExpbmsgTGF5ZXIK
+Pj4gRGlzY292ZXJ5IFByb3RvY29sIEFnZW50IERhZW1vbi4uLi4KPj4KPj4KPj4gIyBkY2J0b29s
+IGdjIHAzcDIgZGNiCj4+IENvbW1hbmQ6ICAgICAgICBHZXQgQ29uZmlnCj4+IEZlYXR1cmU6ICAg
+ICAgICBEQ0IgU3RhdGUKPj4gUG9ydDogICAgICAgICAgIHAzcDIKPj4gU3RhdHVzOiAgICAgICAg
+IFN1Y2Nlc3NmdWwKPj4gRENCIFN0YXRlOiAgICAgIG9mZgo+Pgo+PiAjIGRjYnRvb2wgc2MgcDNw
+MiBkY2Igb24KPj4gQ29tbWFuZDogICAgICAgIFNldCBDb25maWcKPj4gRmVhdHVyZTogICAgICAg
+IERDQiBTdGF0ZQo+PiBQb3J0OiAgICAgICAgICAgcDNwMgo+PiBTdGF0dXM6ICAgICAgICAgU3Vj
+Y2Vzc2Z1bAo+Pgo+PiAjIGRjYnRvb2wgZ2MgcDNwMiBkY2IKPj4gQ29tbWFuZDogICAgICAgIEdl
+dCBDb25maWcKPj4gRmVhdHVyZTogICAgICAgIERDQiBTdGF0ZQo+PiBQb3J0OiAgICAgICAgICAg
+cDNwMgo+PiBTdGF0dXM6ICAgICAgICAgU3VjY2Vzc2Z1bAo+PiBEQ0IgU3RhdGU6ICAgICAgb24K
+Pj4KPj4KPj4gU2ltaWxhciBjb25maWd1cmF0aW9uIG9uIGFub3RoZXIgc3lzdGVtLgo+Pgo+PiBC
+dXQgYXMgc29vbiBhcyBJIGRvICJpZmNvbmZpZyBwM3AyIHVwIGFuZCBjaGVjayBkY2IKPj4KPj4g
+IyBkY2J0b29sIGdjIHAzcDIgZGNiCj4+IENvbW1hbmQ6ICAgICAgICBHZXQgQ29uZmlnCj4+IEZl
+YXR1cmU6ICAgICAgICBEQ0IgU3RhdGUKPj4gUG9ydDogICAgICAgICAgIHAzcDIKPj4gU3RhdHVz
+OiAgICAgICAgIFN1Y2Nlc3NmdWwKPj4gRENCIFN0YXRlOiAgICAgIG9mZgo+Pgo+PiBJbml0aWFs
+bHkgc3VzcGVjdGluZyBpc3N1ZSB3aXRoIGxsZHBhZCBkYWVtb24vaXhnYmUgZHJpdmVyLiBJIHJl
+cGxhY2VkIHRoZW0KPj4gKGRvd25sb2FkZWQgZnJvbSByZXBvKSB3aXRoIGxhdGVzdCBwYWNrYWdl
+cy4KPj4gU2FtZSBiZWhhdmlvdXIgb2JzZXJ2ZWQuCj4+Cj4+IC0gVHJpZWQgZGlzYWJsaW5nIG90
+aGVyIGRjYiBmZWF0dXJlcyBsaWtlIGZjb2UuIFNhbWUgaXNzdWUuCj4+IC0gRGlzYWJsZWQgc2Vs
+aW51eCBldGMKPj4KPj4KPj4gQ2FuIGFueSAxIGhlbHAgbWUgcmVnYXJkaW5nIHRoaXMuCj4gCj4g
+SSdtIGFkZGluZyBlMTAwMC1kZXZlbCBhcyB0aGF0IGlzIHRoZSBtYWlsaW5nIGxpc3QgZm9yIHRo
+ZSBpeGdiZSBtYWludGFpbmVycy4KPiAKPiBZb3UgbWlnaHQgd2FudCB0byBnbyB0aHJvdWdoIGFu
+ZCBhbHNvIGNoZWNrIHRoZSBudW1iZXIgb2YgVENzIGFuZCBob3cKPiB5b3UgaGF2ZSB0aGVtIG1h
+cHBlZCB0byB5b3VyIHByaW9yaXR5IGdyb3Vwcy4gIEl0IGlzIHBvc3NpYmxlIHRoYXQgb25lCj4g
+ZW5kIG9yIHRoZSBvdGhlciBtYXkgb25seSBoYXZlIDEgVEMgY29uZmlndXJlZCBhbmQgaWYgSSBh
+bSBub3QKPiBtaXN0YWtlbiB0aGF0IGlzIGludGVycHJldGVkIGFzIGhhdmluZyBEQ0IgZGlzYWJs
+ZWQgYnkgdGhlIGhhcmR3YXJlLgo+IAo+IEhvcGUgdGhhdCBoZWxwcy4KPiAKPiAtIEFsZXgKPiAK
+CmhtbSB0aG9zZSBhcmUgb2xkZXIgdmVyc2lvbiBvZiB0aGUgdG9vbCBidXQgdGhhdCBzaG91bGRu
+J3QgbmVjZXNzYXJpbHkKYmUgYW4gaXNzdWUuCgpUaGUgb3V0cHV0IGZyb20gdGhlIGZvbGxvd2lu
+ZyB3b3VsZCBoZWxwLCAobm90ZSBpZiB0aGUgcGVlciBpcyBub3QKY29uZmlndXJlZCBjb3JyZWN0
+bHkgYXMgd2VsbCBEQ0Igd2lsbCBiZSBkaXNhYmxlZCkKCiNkY2J0b29sIGdvIHAzcDIgcGcKI2Rj
+YnRvb2wgZ28gcDNwMiBwZmMKCiNsbGRwdG9vbCAtdCAtaSBwM3AyCiNsbGRwdG9vbCAtdCAtaSBw
+M3AyIC1uCgoKVGhlIGZpcnN0IHR3byBkY2J0b29sIGNvbW1hbmRzIGdpdmUgdGhlIGRjYiBzdGF0
+dXMgYW5kIHRoZSBsYXN0IHR3bwpsbGRwdG9vbCBjb21tYW5kcyBwcmludCB0aGUgc2VudC9yZWNl
+aXZlZCBsbGRwIFRMVnMuCgouSm9obgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkF0dGVuZCBTaGFw
+ZTogQW4gQVQmVCBUZWNoIEV4cG8gSnVseSAxNS0xNi4gTWVldCB1cyBhdCBBVCZUIFBhcmsgaW4g
+U2FuCkZyYW5jaXNjbywgQ0EgdG8gZXhwbG9yZSBjdXR0aW5nLWVkZ2UgdGVjaCBhbmQgbGlzdGVu
+IHRvIHRlY2ggbHVtaW5hcmllcwpwcmVzZW50IHRoZWlyIHZpc2lvbiBvZiB0aGUgZnV0dXJlLiBU
+aGlzIGZhbWlseSBldmVudCBoYXMgc29tZXRoaW5nIGZvcgpldmVyeW9uZSwgaW5jbHVkaW5nIGtp
+ZHMuIEdldCBtb3JlIGluZm9ybWF0aW9uIGFuZCByZWdpc3RlciB0b2RheS4KaHR0cDovL3NkbS5s
+aW5rL2F0dHNoYXBlCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3Jn
+ZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAt
+ZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQgaHR0
+cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
