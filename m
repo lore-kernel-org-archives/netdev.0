@@ -1,120 +1,157 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 1/4] net: dsa: Pass device pointer to dsa_register_switch
-Date: Tue,  5 Jul 2016 15:07:10 -0700
-Message-ID: <1467756433-25062-2-git-send-email-f.fainelli@gmail.com>
-References: <1467756433-25062-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, andrew@lunn.ch,
-	vivien.didelot@savoirfairelinux.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:34638 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755725AbcGEWHV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 18:07:21 -0400
-Received: by mail-pa0-f66.google.com with SMTP id us13so19321700pab.1
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 15:07:21 -0700 (PDT)
-In-Reply-To: <1467756433-25062-1-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: kys@exchange.microsoft.com
+Subject: [PATCH RESEND net-next] netvsc: Use the new in-place consumption APIs
+ in the rx path
+Date: Tue,  5 Jul 2016 16:52:46 -0700
+Message-ID: <1467762766-1442-1-git-send-email-kys@exchange.microsoft.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ devel@linuxdriverproject.org, olaf@aepfle.de, apw@canonical.com,
+ jasowang@redhat.com, leann.ogasawara@canonical.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-In preparation for allowing dsa_register_switch() to be supplied with
-device/platform data, pass down a struct device pointer instead of a
-struct device_node.
+From: K. Y. Srinivasan <kys@microsoft.com>
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+Use the new APIs for eliminating a copy on the receive path. These new APIs also
+help in minimizing the number of memory barriers we end up issuing (in the
+ringbuffer code) since we can better control when we want to expose the ring
+state to the host.
+
+The patch is being resent to address earlier email issues.
+
+Signed-off-by: K. Y. Srinivasan <kys@microsoft.com>
 ---
- drivers/net/dsa/b53/b53_common.c | 2 +-
- drivers/net/dsa/mv88e6xxx/chip.c | 7 +++----
- include/net/dsa.h                | 2 +-
- net/dsa/dsa2.c                   | 7 ++++---
- 4 files changed, 9 insertions(+), 9 deletions(-)
+ drivers/net/hyperv/netvsc.c |   88 +++++++++++++++++++++++++++++--------------
+ 1 files changed, 59 insertions(+), 29 deletions(-)
 
-diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
-index 444de66667b9..e5799a68cfc8 100644
---- a/drivers/net/dsa/b53/b53_common.c
-+++ b/drivers/net/dsa/b53/b53_common.c
-@@ -1778,7 +1778,7 @@ int b53_switch_register(struct b53_device *dev)
- 
- 	pr_info("found switch: %s, rev %i\n", dev->name, dev->core_rev);
- 
--	return dsa_register_switch(dev->ds, dev->ds->dev->of_node);
-+	return dsa_register_switch(dev->ds, dev->ds->dev);
+diff --git a/drivers/net/hyperv/netvsc.c b/drivers/net/hyperv/netvsc.c
+index 719cb35..8cd4c19 100644
+--- a/drivers/net/hyperv/netvsc.c
++++ b/drivers/net/hyperv/netvsc.c
+@@ -1141,6 +1141,39 @@ static inline void netvsc_receive_inband(struct hv_device *hdev,
+ 	}
  }
- EXPORT_SYMBOL(b53_switch_register);
  
-diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 5cb06f7673af..11617c04cd33 100644
---- a/drivers/net/dsa/mv88e6xxx/chip.c
-+++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3848,8 +3848,7 @@ static struct dsa_switch_driver mv88e6xxx_switch_driver = {
- 	.port_fdb_dump          = mv88e6xxx_port_fdb_dump,
- };
- 
--static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip,
--				     struct device_node *np)
-+static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip)
++static void netvsc_process_raw_pkt(struct hv_device *device,
++				   struct vmbus_channel *channel,
++				   struct netvsc_device *net_device,
++				   struct net_device *ndev,
++				   u64 request_id,
++				   struct vmpacket_descriptor *desc)
++{
++	struct nvsp_message *nvmsg;
++
++	nvmsg = (struct nvsp_message *)((unsigned long)
++		desc + (desc->offset8 << 3));
++
++	switch (desc->type) {
++	case VM_PKT_COMP:
++		netvsc_send_completion(net_device, channel, device, desc);
++		break;
++
++	case VM_PKT_DATA_USING_XFER_PAGES:
++		netvsc_receive(net_device, channel, device, desc);
++		break;
++
++	case VM_PKT_DATA_INBAND:
++		netvsc_receive_inband(device, net_device, nvmsg);
++		break;
++
++	default:
++		netdev_err(ndev, "unhandled packet type %d, tid %llx\n",
++			   desc->type, request_id);
++		break;
++	}
++}
++
++
+ void netvsc_channel_cb(void *context)
  {
- 	struct device *dev = chip->dev;
- 	struct dsa_switch *ds;
-@@ -3864,7 +3863,7 @@ static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip,
+ 	int ret;
+@@ -1153,7 +1186,7 @@ void netvsc_channel_cb(void *context)
+ 	unsigned char *buffer;
+ 	int bufferlen = NETVSC_PACKET_SIZE;
+ 	struct net_device *ndev;
+-	struct nvsp_message *nvmsg;
++	bool need_to_commit = false;
  
- 	dev_set_drvdata(dev, ds);
+ 	if (channel->primary_channel != NULL)
+ 		device = channel->primary_channel->device_obj;
+@@ -1167,39 +1200,36 @@ void netvsc_channel_cb(void *context)
+ 	buffer = get_per_channel_state(channel);
  
--	return dsa_register_switch(ds, np);
-+	return dsa_register_switch(ds, dev);
- }
+ 	do {
++		desc = get_next_pkt_raw(channel);
++		if (desc != NULL) {
++			netvsc_process_raw_pkt(device,
++					       channel,
++					       net_device,
++					       ndev,
++					       desc->trans_id,
++					       desc);
++
++			put_pkt_raw(channel, desc);
++			need_to_commit = true;
++			continue;
++		}
++		if (need_to_commit) {
++			need_to_commit = false;
++			commit_rd_index(channel);
++		}
++
+ 		ret = vmbus_recvpacket_raw(channel, buffer, bufferlen,
+ 					   &bytes_recvd, &request_id);
+ 		if (ret == 0) {
+ 			if (bytes_recvd > 0) {
+ 				desc = (struct vmpacket_descriptor *)buffer;
+-				nvmsg = (struct nvsp_message *)((unsigned long)
+-					 desc + (desc->offset8 << 3));
+-				switch (desc->type) {
+-				case VM_PKT_COMP:
+-					netvsc_send_completion(net_device,
+-								channel,
+-								device, desc);
+-					break;
+-
+-				case VM_PKT_DATA_USING_XFER_PAGES:
+-					netvsc_receive(net_device, channel,
+-						       device, desc);
+-					break;
+-
+-				case VM_PKT_DATA_INBAND:
+-					netvsc_receive_inband(device,
+-							      net_device,
+-							      nvmsg);
+-					break;
+-
+-				default:
+-					netdev_err(ndev,
+-						   "unhandled packet type %d, "
+-						   "tid %llx len %d\n",
+-						   desc->type, request_id,
+-						   bytes_recvd);
+-					break;
+-				}
++				netvsc_process_raw_pkt(device,
++						       channel,
++						       net_device,
++						       ndev,
++						       request_id,
++						       desc);
++
  
- static void mv88e6xxx_unregister_switch(struct mv88e6xxx_chip *chip)
-@@ -3911,7 +3910,7 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
- 	if (err)
- 		return err;
- 
--	err = mv88e6xxx_register_switch(chip, np);
-+	err = mv88e6xxx_register_switch(chip);
- 	if (err) {
- 		mv88e6xxx_mdio_unregister(chip);
- 		return err;
-diff --git a/include/net/dsa.h b/include/net/dsa.h
-index 20b3087ad193..6de162c8283e 100644
---- a/include/net/dsa.h
-+++ b/include/net/dsa.h
-@@ -381,5 +381,5 @@ static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
- }
- 
- void dsa_unregister_switch(struct dsa_switch *ds);
--int dsa_register_switch(struct dsa_switch *ds, struct device_node *np);
-+int dsa_register_switch(struct dsa_switch *ds, struct device *dev);
- #endif
-diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 83b95fc4cede..0940a0ec83e6 100644
---- a/net/dsa/dsa2.c
-+++ b/net/dsa/dsa2.c
-@@ -590,8 +590,9 @@ static struct device_node *dsa_get_ports(struct dsa_switch *ds,
- 	return ports;
- }
- 
--static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
-+static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
- {
-+	struct device_node *np = dev->of_node;
- 	struct device_node *ports = dsa_get_ports(ds, np);
- 	struct dsa_switch_tree *dst;
- 	u32 tree, index;
-@@ -660,12 +661,12 @@ out:
- 	return err;
- }
- 
--int dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
-+int dsa_register_switch(struct dsa_switch *ds, struct device *dev)
- {
- 	int err;
- 
- 	mutex_lock(&dsa2_mutex);
--	err = _dsa_register_switch(ds, np);
-+	err = _dsa_register_switch(ds, dev);
- 	mutex_unlock(&dsa2_mutex);
- 
- 	return err;
+ 			} else {
+ 				/*
 -- 
-2.7.4
+1.7.4.1
