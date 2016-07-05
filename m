@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 17/24] rxrpc: Move peer lookup from call-accept to
- new-incoming-conn
-Date: Tue, 05 Jul 2016 14:14:13 +0100
-Message-ID: <146772445297.21657.7652746484727390386.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 16/24] rxrpc: Split service connection code out
+ into its own file
+Date: Tue, 05 Jul 2016 14:14:05 +0100
+Message-ID: <146772444570.21657.13148707942559333742.stgit@warthog.procyon.org.uk>
 References: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -15,197 +15,361 @@ In-Reply-To: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Move the lookup of a peer from a call that's being accepted into the
-function that creates a new incoming connection.  This will allow us to
-avoid incrementing the peer's usage count in some cases in future.
-
-Note that I haven't bother to integrate rxrpc_get_addr_from_skb() with
-rxrpc_extract_addr_from_skb() as I'm going to delete the former in the very
-near future.
+Split the service-specific connection code out into into its own file.  The
+client-specific code has already been split out.  This will leave just the
+common code in the original file.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h  |    3 ++-
- net/rxrpc/call_accept.c  |   31 +++++++------------------------
- net/rxrpc/conn_service.c |   11 ++++++++++-
- net/rxrpc/utils.c        |   32 ++++++++++++++++++++++++++++++++
- 4 files changed, 51 insertions(+), 26 deletions(-)
+ net/rxrpc/Makefile       |    1 
+ net/rxrpc/ar-internal.h  |   13 +++-
+ net/rxrpc/conn_object.c  |  132 ------------------------------------------
+ net/rxrpc/conn_service.c |  145 ++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 156 insertions(+), 135 deletions(-)
+ create mode 100644 net/rxrpc/conn_service.c
 
+diff --git a/net/rxrpc/Makefile b/net/rxrpc/Makefile
+index 6522e50fb750..10f3f48a16a8 100644
+--- a/net/rxrpc/Makefile
++++ b/net/rxrpc/Makefile
+@@ -10,6 +10,7 @@ af-rxrpc-y := \
+ 	conn_client.o \
+ 	conn_event.o \
+ 	conn_object.o \
++	conn_service.o \
+ 	input.o \
+ 	insecure.o \
+ 	key.o \
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index 2495c4facf51..7d87cace0177 100644
+index b95380dd0f37..2495c4facf51 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -609,7 +609,7 @@ static inline void rxrpc_queue_conn(struct rxrpc_connection *conn)
-  * conn_service.c
-  */
- struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *,
+@@ -565,6 +565,9 @@ extern struct list_head rxrpc_connections;
+ extern struct list_head rxrpc_connection_proc_list;
+ extern rwlock_t rxrpc_connection_lock;
+ 
++void rxrpc_conn_hash_proto_key(struct rxrpc_conn_proto *);
++void rxrpc_extract_conn_params(struct rxrpc_conn_proto *,
++			       struct rxrpc_local *, struct sk_buff *);
+ struct rxrpc_connection *rxrpc_alloc_connection(gfp_t);
+ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_local *,
+ 					       struct rxrpc_peer *,
+@@ -573,9 +576,6 @@ void __rxrpc_disconnect_call(struct rxrpc_call *);
+ void rxrpc_disconnect_call(struct rxrpc_call *);
+ void rxrpc_put_connection(struct rxrpc_connection *);
+ void __exit rxrpc_destroy_all_connections(void);
+-struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *,
 -						   struct rxrpc_peer *,
-+						   struct sockaddr_rxrpc *,
- 						   struct sk_buff *);
+-						   struct sk_buff *);
  
- /*
-@@ -775,6 +775,7 @@ static inline void rxrpc_sysctl_exit(void) {}
-  */
- void rxrpc_get_addr_from_skb(struct rxrpc_local *, const struct sk_buff *,
- 			     struct sockaddr_rxrpc *);
-+int rxrpc_extract_addr_from_skb(struct sockaddr_rxrpc *, struct sk_buff *);
- 
- /*
-  * debug tracing
-diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
-index 5367dbe9b96f..0b2832141bd0 100644
---- a/net/rxrpc/call_accept.c
-+++ b/net/rxrpc/call_accept.c
-@@ -75,7 +75,6 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
+ static inline bool rxrpc_conn_is_client(const struct rxrpc_connection *conn)
  {
- 	struct rxrpc_connection *conn;
- 	struct rxrpc_skb_priv *sp, *nsp;
--	struct rxrpc_peer *peer;
- 	struct rxrpc_call *call;
- 	struct sk_buff *notification;
- 	int ret;
-@@ -94,15 +93,7 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
- 	rxrpc_new_skb(notification);
- 	notification->mark = RXRPC_SKB_MARK_NEW_CALL;
- 
--	peer = rxrpc_lookup_peer(local, srx, GFP_NOIO);
--	if (!peer) {
--		_debug("no peer");
--		ret = -EBUSY;
--		goto error;
--	}
--
--	conn = rxrpc_incoming_connection(local, peer, skb);
--	rxrpc_put_peer(peer);
-+	conn = rxrpc_incoming_connection(local, srx, skb);
- 	if (IS_ERR(conn)) {
- 		_debug("no conn");
- 		ret = PTR_ERR(conn);
-@@ -226,20 +217,8 @@ void rxrpc_accept_incoming_calls(struct rxrpc_local *local)
- 	whdr._rsvd	= 0;
- 	whdr.serviceId	= htons(sp->hdr.serviceId);
- 
--	/* determine the remote address */
--	memset(&srx, 0, sizeof(srx));
--	srx.srx_family = AF_RXRPC;
--	srx.transport.family = local->srx.transport.family;
--	srx.transport_type = local->srx.transport_type;
--	switch (srx.transport.family) {
--	case AF_INET:
--		srx.transport_len = sizeof(struct sockaddr_in);
--		srx.transport.sin.sin_port = udp_hdr(skb)->source;
--		srx.transport.sin.sin_addr.s_addr = ip_hdr(skb)->saddr;
--		break;
--	default:
--		goto busy;
--	}
-+	if (rxrpc_extract_addr_from_skb(&srx, skb) < 0)
-+		goto drop;
- 
- 	/* get the socket providing the service */
- 	read_lock_bh(&local->services_lock);
-@@ -285,6 +264,10 @@ busy:
- 	rxrpc_free_skb(skb);
- 	return;
- 
-+drop:
-+	rxrpc_free_skb(skb);
-+	return;
-+
- invalid_service:
- 	skb->priority = RX_INVALID_OPERATION;
- 	rxrpc_reject_packet(local, skb);
-diff --git a/net/rxrpc/conn_service.c b/net/rxrpc/conn_service.c
-index cdcac50cd1a8..a42b210c40a5 100644
---- a/net/rxrpc/conn_service.c
-+++ b/net/rxrpc/conn_service.c
-@@ -16,17 +16,24 @@
-  * get a record of an incoming connection
-  */
- struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
--						   struct rxrpc_peer *peer,
-+						   struct sockaddr_rxrpc *srx,
- 						   struct sk_buff *skb)
- {
- 	struct rxrpc_connection *conn, *candidate = NULL;
- 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
-+	struct rxrpc_peer *peer;
- 	struct rb_node *p, **pp;
- 	const char *new = "old";
- 	u32 epoch, cid;
- 
- 	_enter("");
- 
-+	peer = rxrpc_lookup_peer(local, srx, GFP_NOIO);
-+	if (!peer) {
-+		_debug("no peer");
-+		return ERR_PTR(-EBUSY);
-+	}
-+
- 	ASSERT(sp->hdr.flags & RXRPC_CLIENT_INITIATED);
- 
- 	epoch = sp->hdr.epoch;
-@@ -58,6 +65,7 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
- 	 * redo the search */
- 	candidate = rxrpc_alloc_connection(GFP_NOIO);
- 	if (!candidate) {
-+		rxrpc_put_peer(peer);
- 		_leave(" = -ENOMEM");
- 		return ERR_PTR(-ENOMEM);
- 	}
-@@ -114,6 +122,7 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
- success:
- 	_net("CONNECTION %s %d {%x}", new, conn->debug_id, conn->proto.cid);
- 
-+	rxrpc_put_peer(peer);
- 	_leave(" = %p {u=%d}", conn, atomic_read(&conn->usage));
- 	return conn;
- 
-diff --git a/net/rxrpc/utils.c b/net/rxrpc/utils.c
-index f28122a15a24..d3db02ecc37f 100644
---- a/net/rxrpc/utils.c
-+++ b/net/rxrpc/utils.c
-@@ -10,6 +10,7 @@
-  */
- 
- #include <linux/ip.h>
-+#include <linux/ipv6.h>
- #include <linux/udp.h>
- #include "ar-internal.h"
- 
-@@ -39,3 +40,34 @@ void rxrpc_get_addr_from_skb(struct rxrpc_local *local,
- 		BUG();
- 	}
+@@ -606,6 +606,13 @@ static inline void rxrpc_queue_conn(struct rxrpc_connection *conn)
  }
+ 
+ /*
++ * conn_service.c
++ */
++struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *,
++						   struct rxrpc_peer *,
++						   struct sk_buff *);
 +
 +/*
-+ * Fill out a peer address from a socket buffer containing a packet.
+  * input.c
+  */
+ void rxrpc_data_ready(struct sock *);
+diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
+index a43b3a731e6b..cd8c29b7b7d8 100644
+--- a/net/rxrpc/conn_object.c
++++ b/net/rxrpc/conn_object.c
+@@ -63,138 +63,6 @@ struct rxrpc_connection *rxrpc_alloc_connection(gfp_t gfp)
+ }
+ 
+ /*
+- * get a record of an incoming connection
+- */
+-struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
+-						   struct rxrpc_peer *peer,
+-						   struct sk_buff *skb)
+-{
+-	struct rxrpc_connection *conn, *candidate = NULL;
+-	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
+-	struct rb_node *p, **pp;
+-	const char *new = "old";
+-	u32 epoch, cid;
+-
+-	_enter("");
+-
+-	ASSERT(sp->hdr.flags & RXRPC_CLIENT_INITIATED);
+-
+-	epoch = sp->hdr.epoch;
+-	cid = sp->hdr.cid & RXRPC_CIDMASK;
+-
+-	/* search the connection list first */
+-	read_lock_bh(&peer->conn_lock);
+-
+-	p = peer->service_conns.rb_node;
+-	while (p) {
+-		conn = rb_entry(p, struct rxrpc_connection, service_node);
+-
+-		_debug("maybe %x", conn->proto.cid);
+-
+-		if (epoch < conn->proto.epoch)
+-			p = p->rb_left;
+-		else if (epoch > conn->proto.epoch)
+-			p = p->rb_right;
+-		else if (cid < conn->proto.cid)
+-			p = p->rb_left;
+-		else if (cid > conn->proto.cid)
+-			p = p->rb_right;
+-		else
+-			goto found_extant_connection;
+-	}
+-	read_unlock_bh(&peer->conn_lock);
+-
+-	/* not yet present - create a candidate for a new record and then
+-	 * redo the search */
+-	candidate = rxrpc_alloc_connection(GFP_NOIO);
+-	if (!candidate) {
+-		_leave(" = -ENOMEM");
+-		return ERR_PTR(-ENOMEM);
+-	}
+-
+-	candidate->proto.local		= local;
+-	candidate->proto.epoch		= sp->hdr.epoch;
+-	candidate->proto.cid		= sp->hdr.cid & RXRPC_CIDMASK;
+-	candidate->proto.in_clientflag	= RXRPC_CLIENT_INITIATED;
+-	candidate->params.local		= local;
+-	candidate->params.peer		= peer;
+-	candidate->params.service_id	= sp->hdr.serviceId;
+-	candidate->security_ix		= sp->hdr.securityIndex;
+-	candidate->out_clientflag	= 0;
+-	candidate->state		= RXRPC_CONN_SERVICE;
+-	if (candidate->params.service_id)
+-		candidate->state	= RXRPC_CONN_SERVICE_UNSECURED;
+-
+-	write_lock_bh(&peer->conn_lock);
+-
+-	pp = &peer->service_conns.rb_node;
+-	p = NULL;
+-	while (*pp) {
+-		p = *pp;
+-		conn = rb_entry(p, struct rxrpc_connection, service_node);
+-
+-		if (epoch < conn->proto.epoch)
+-			pp = &(*pp)->rb_left;
+-		else if (epoch > conn->proto.epoch)
+-			pp = &(*pp)->rb_right;
+-		else if (cid < conn->proto.cid)
+-			pp = &(*pp)->rb_left;
+-		else if (cid > conn->proto.cid)
+-			pp = &(*pp)->rb_right;
+-		else
+-			goto found_extant_second;
+-	}
+-
+-	/* we can now add the new candidate to the list */
+-	conn = candidate;
+-	candidate = NULL;
+-	rb_link_node(&conn->service_node, p, pp);
+-	rb_insert_color(&conn->service_node, &peer->service_conns);
+-	rxrpc_get_peer(peer);
+-	rxrpc_get_local(local);
+-
+-	write_unlock_bh(&peer->conn_lock);
+-
+-	write_lock(&rxrpc_connection_lock);
+-	list_add_tail(&conn->link, &rxrpc_connections);
+-	write_unlock(&rxrpc_connection_lock);
+-
+-	new = "new";
+-
+-success:
+-	_net("CONNECTION %s %d {%x}", new, conn->debug_id, conn->proto.cid);
+-
+-	_leave(" = %p {u=%d}", conn, atomic_read(&conn->usage));
+-	return conn;
+-
+-	/* we found the connection in the list immediately */
+-found_extant_connection:
+-	if (sp->hdr.securityIndex != conn->security_ix) {
+-		read_unlock_bh(&peer->conn_lock);
+-		goto security_mismatch;
+-	}
+-	rxrpc_get_connection(conn);
+-	read_unlock_bh(&peer->conn_lock);
+-	goto success;
+-
+-	/* we found the connection on the second time through the list */
+-found_extant_second:
+-	if (sp->hdr.securityIndex != conn->security_ix) {
+-		write_unlock_bh(&peer->conn_lock);
+-		goto security_mismatch;
+-	}
+-	rxrpc_get_connection(conn);
+-	write_unlock_bh(&peer->conn_lock);
+-	kfree(candidate);
+-	goto success;
+-
+-security_mismatch:
+-	kfree(candidate);
+-	_leave(" = -EKEYREJECTED");
+-	return ERR_PTR(-EKEYREJECTED);
+-}
+-
+-/*
+  * find a connection based on transport and RxRPC connection ID for an incoming
+  * packet
+  */
+diff --git a/net/rxrpc/conn_service.c b/net/rxrpc/conn_service.c
+new file mode 100644
+index 000000000000..cdcac50cd1a8
+--- /dev/null
++++ b/net/rxrpc/conn_service.c
+@@ -0,0 +1,145 @@
++/* Service connection management
++ *
++ * Copyright (C) 2016 Red Hat, Inc. All Rights Reserved.
++ * Written by David Howells (dhowells@redhat.com)
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of the GNU General Public Licence
++ * as published by the Free Software Foundation; either version
++ * 2 of the Licence, or (at your option) any later version.
 + */
-+int rxrpc_extract_addr_from_skb(struct sockaddr_rxrpc *srx, struct sk_buff *skb)
++
++#include <linux/slab.h>
++#include "ar-internal.h"
++
++/*
++ * get a record of an incoming connection
++ */
++struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
++						   struct rxrpc_peer *peer,
++						   struct sk_buff *skb)
 +{
-+	memset(srx, 0, sizeof(*srx));
++	struct rxrpc_connection *conn, *candidate = NULL;
++	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
++	struct rb_node *p, **pp;
++	const char *new = "old";
++	u32 epoch, cid;
 +
-+	switch (ntohs(skb->protocol)) {
-+	case ETH_P_IP:
-+		srx->transport_type = SOCK_DGRAM;
-+		srx->transport_len = sizeof(srx->transport.sin);
-+		srx->transport.sin.sin_family = AF_INET;
-+		srx->transport.sin.sin_port = udp_hdr(skb)->source;
-+		srx->transport.sin.sin_addr.s_addr = ip_hdr(skb)->saddr;
-+		return 0;
++	_enter("");
 +
-+	case ETH_P_IPV6:
-+		srx->transport_type = SOCK_DGRAM;
-+		srx->transport_len = sizeof(srx->transport.sin6);
-+		srx->transport.sin6.sin6_family = AF_INET6;
-+		srx->transport.sin6.sin6_port = udp_hdr(skb)->source;
-+		srx->transport.sin6.sin6_addr = ipv6_hdr(skb)->saddr;
-+		return 0;
++	ASSERT(sp->hdr.flags & RXRPC_CLIENT_INITIATED);
 +
-+	default:
-+		pr_warn_ratelimited("AF_RXRPC: Unknown eth protocol %u\n",
-+				    ntohs(skb->protocol));
-+		return -EAFNOSUPPORT;
++	epoch = sp->hdr.epoch;
++	cid = sp->hdr.cid & RXRPC_CIDMASK;
++
++	/* search the connection list first */
++	read_lock_bh(&peer->conn_lock);
++
++	p = peer->service_conns.rb_node;
++	while (p) {
++		conn = rb_entry(p, struct rxrpc_connection, service_node);
++
++		_debug("maybe %x", conn->proto.cid);
++
++		if (epoch < conn->proto.epoch)
++			p = p->rb_left;
++		else if (epoch > conn->proto.epoch)
++			p = p->rb_right;
++		else if (cid < conn->proto.cid)
++			p = p->rb_left;
++		else if (cid > conn->proto.cid)
++			p = p->rb_right;
++		else
++			goto found_extant_connection;
 +	}
++	read_unlock_bh(&peer->conn_lock);
++
++	/* not yet present - create a candidate for a new record and then
++	 * redo the search */
++	candidate = rxrpc_alloc_connection(GFP_NOIO);
++	if (!candidate) {
++		_leave(" = -ENOMEM");
++		return ERR_PTR(-ENOMEM);
++	}
++
++	candidate->proto.local		= local;
++	candidate->proto.epoch		= sp->hdr.epoch;
++	candidate->proto.cid		= sp->hdr.cid & RXRPC_CIDMASK;
++	candidate->proto.in_clientflag	= RXRPC_CLIENT_INITIATED;
++	candidate->params.local		= local;
++	candidate->params.peer		= peer;
++	candidate->params.service_id	= sp->hdr.serviceId;
++	candidate->security_ix		= sp->hdr.securityIndex;
++	candidate->out_clientflag	= 0;
++	candidate->state		= RXRPC_CONN_SERVICE;
++	if (candidate->params.service_id)
++		candidate->state	= RXRPC_CONN_SERVICE_UNSECURED;
++
++	write_lock_bh(&peer->conn_lock);
++
++	pp = &peer->service_conns.rb_node;
++	p = NULL;
++	while (*pp) {
++		p = *pp;
++		conn = rb_entry(p, struct rxrpc_connection, service_node);
++
++		if (epoch < conn->proto.epoch)
++			pp = &(*pp)->rb_left;
++		else if (epoch > conn->proto.epoch)
++			pp = &(*pp)->rb_right;
++		else if (cid < conn->proto.cid)
++			pp = &(*pp)->rb_left;
++		else if (cid > conn->proto.cid)
++			pp = &(*pp)->rb_right;
++		else
++			goto found_extant_second;
++	}
++
++	/* we can now add the new candidate to the list */
++	conn = candidate;
++	candidate = NULL;
++	rb_link_node(&conn->service_node, p, pp);
++	rb_insert_color(&conn->service_node, &peer->service_conns);
++	rxrpc_get_peer(peer);
++	rxrpc_get_local(local);
++
++	write_unlock_bh(&peer->conn_lock);
++
++	write_lock(&rxrpc_connection_lock);
++	list_add_tail(&conn->link, &rxrpc_connections);
++	write_unlock(&rxrpc_connection_lock);
++
++	new = "new";
++
++success:
++	_net("CONNECTION %s %d {%x}", new, conn->debug_id, conn->proto.cid);
++
++	_leave(" = %p {u=%d}", conn, atomic_read(&conn->usage));
++	return conn;
++
++	/* we found the connection in the list immediately */
++found_extant_connection:
++	if (sp->hdr.securityIndex != conn->security_ix) {
++		read_unlock_bh(&peer->conn_lock);
++		goto security_mismatch;
++	}
++	rxrpc_get_connection(conn);
++	read_unlock_bh(&peer->conn_lock);
++	goto success;
++
++	/* we found the connection on the second time through the list */
++found_extant_second:
++	if (sp->hdr.securityIndex != conn->security_ix) {
++		write_unlock_bh(&peer->conn_lock);
++		goto security_mismatch;
++	}
++	rxrpc_get_connection(conn);
++	write_unlock_bh(&peer->conn_lock);
++	kfree(candidate);
++	goto success;
++
++security_mismatch:
++	kfree(candidate);
++	_leave(" = -EKEYREJECTED");
++	return ERR_PTR(-EKEYREJECTED);
 +}
