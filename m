@@ -1,8 +1,7 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 23/24] rxrpc: Use RCU to access a peer's service
- connection tree
-Date: Tue, 05 Jul 2016 14:14:56 +0100
-Message-ID: <146772449634.21657.3441453918706873156.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 24/24] rxrpc: Kill off the call hash table
+Date: Tue, 05 Jul 2016 14:15:03 +0100
+Message-ID: <146772450380.21657.3650740406235253291.stgit@warthog.procyon.org.uk>
 References: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -10,652 +9,281 @@ Content-Transfer-Encoding: 7bit
 Cc: dhowells@redhat.com, netdev@vger.kernel.org,
 	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
 To: davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:56202 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754852AbcGENPG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jul 2016 09:15:06 -0400
 In-Reply-To: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Move to using RCU access to a peer's service connection tree when routing
-an incoming packet.  This is done using a seqlock to trigger retrying of
-the tree walk if a change happened.
-
-Further, we no longer get a ref on the connection looked up in the
-data_ready handler unless we queue the connection's work item - and then
-only if the refcount > 0.
-
-
-Note that I'm avoiding the use of a hash table for service connections
-because each service connection is addressed by a 62-bit number
-(constructed from epoch and connection ID >> 2) that would allow the client
-to engage in bucket stuffing, given knowledge of the hash algorithm.
-Peers, however, are hashed as the network address is less controllable by
-the client.  The total number of peers will also be limited in a future
-commit.
+The call hash table is now no longer used as calls are looked up directly
+by channel slot on the connection, so kill it off.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h  |   21 ++--
- net/rxrpc/conn_client.c  |    2 
- net/rxrpc/conn_object.c  |   65 +++++------
- net/rxrpc/conn_service.c |  271 +++++++++++++++++++++++++++-------------------
- net/rxrpc/input.c        |   44 ++++---
- net/rxrpc/peer_object.c  |    2 
- 6 files changed, 225 insertions(+), 180 deletions(-)
+ net/rxrpc/ar-internal.h |   13 +---
+ net/rxrpc/call_object.c |  173 -----------------------------------------------
+ 2 files changed, 2 insertions(+), 184 deletions(-)
 
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index f7f85151b399..02945cc77399 100644
+index 02945cc77399..e07f6d051c86 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -10,6 +10,7 @@
-  */
+@@ -462,19 +462,12 @@ struct rxrpc_call {
+ #define RXRPC_ACKR_WINDOW_ASZ DIV_ROUND_UP(RXRPC_MAXACKS, BITS_PER_LONG)
+ 	unsigned long		ackr_window[RXRPC_ACKR_WINDOW_ASZ + 1];
  
- #include <linux/atomic.h>
-+#include <linux/seqlock.h>
- #include <net/sock.h>
- #include <net/af_rxrpc.h>
- #include <rxrpc/packet.h>
-@@ -206,7 +207,7 @@ struct rxrpc_peer {
- 	struct hlist_head	error_targets;	/* targets for net error distribution */
- 	struct work_struct	error_distributor;
- 	struct rb_root		service_conns;	/* Service connections */
--	rwlock_t		conn_lock;
-+	seqlock_t		service_conn_lock;
- 	spinlock_t		lock;		/* access lock */
- 	unsigned int		if_mtu;		/* interface MTU for this peer */
- 	unsigned int		mtu;		/* network MTU for this peer */
-@@ -561,12 +562,10 @@ extern struct list_head rxrpc_connections;
- extern struct list_head rxrpc_connection_proc_list;
- extern rwlock_t rxrpc_connection_lock;
- 
--void rxrpc_conn_hash_proto_key(struct rxrpc_conn_proto *);
--void rxrpc_extract_conn_params(struct rxrpc_conn_proto *,
--			       struct rxrpc_local *, struct sk_buff *);
-+int rxrpc_extract_addr_from_skb(struct sockaddr_rxrpc *, struct sk_buff *);
- struct rxrpc_connection *rxrpc_alloc_connection(gfp_t);
--struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_local *,
--					       struct sk_buff *);
-+struct rxrpc_connection *rxrpc_find_connection_rcu(struct rxrpc_local *,
-+						   struct sk_buff *);
- void __rxrpc_disconnect_call(struct rxrpc_call *);
- void rxrpc_disconnect_call(struct rxrpc_call *);
- void rxrpc_put_connection(struct rxrpc_connection *);
-@@ -593,16 +592,20 @@ struct rxrpc_connection *rxrpc_get_connection_maybe(struct rxrpc_connection *con
- 	return atomic_inc_not_zero(&conn->usage) ? conn : NULL;
- }
- 
--static inline void rxrpc_queue_conn(struct rxrpc_connection *conn)
-+static inline bool rxrpc_queue_conn(struct rxrpc_connection *conn)
- {
--	if (rxrpc_get_connection_maybe(conn) &&
--	    !rxrpc_queue_work(&conn->processor))
-+	if (!rxrpc_get_connection_maybe(conn))
-+		return false;
-+	if (!rxrpc_queue_work(&conn->processor))
- 		rxrpc_put_connection(conn);
-+	return true;
- }
+-	struct hlist_node	hash_node;
+-	unsigned long		hash_key;	/* Full hash key */
+-	u8			in_clientflag;	/* Copy of conn->in_clientflag for hashing */
+-	struct rxrpc_local	*local;		/* Local endpoint. Used for hashing. */
+-	sa_family_t		family;		/* Frame protocol */
++	u8			in_clientflag;	/* Copy of conn->in_clientflag */
++	struct rxrpc_local	*local;		/* Local endpoint. */
+ 	u32			call_id;	/* call ID on connection  */
+ 	u32			cid;		/* connection ID plus channel index */
+ 	u32			epoch;		/* epoch of this connection */
+ 	u16			service_id;	/* service ID */
+-	union {					/* Peer IP address for hashing */
+-		__be32	ipv4_addr;
+-		__u8	ipv6_addr[16];		/* Anticipates eventual IPv6 support */
+-	} peer_ip;
+ };
  
  /*
-  * conn_service.c
-  */
-+struct rxrpc_connection *rxrpc_find_service_conn_rcu(struct rxrpc_peer *,
-+						     struct sk_buff *);
- struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *,
- 						   struct sockaddr_rxrpc *,
- 						   struct sk_buff *);
-diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
-index 74b97f67acf5..ebdc267ecfb4 100644
---- a/net/rxrpc/conn_client.c
-+++ b/net/rxrpc/conn_client.c
-@@ -132,8 +132,6 @@ rxrpc_alloc_client_connection(struct rxrpc_conn_parameters *cp, gfp_t gfp)
- 	}
+@@ -522,8 +515,6 @@ extern struct kmem_cache *rxrpc_call_jar;
+ extern struct list_head rxrpc_calls;
+ extern rwlock_t rxrpc_call_lock;
  
- 	conn->params		= *cp;
--	conn->proto.epoch	= rxrpc_epoch;
--	conn->proto.cid		= 0;
- 	conn->out_clientflag	= RXRPC_CLIENT_INITIATED;
- 	conn->state		= RXRPC_CONN_CLIENT;
- 
-diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
-index f3f2d9114343..65dfebbad7b4 100644
---- a/net/rxrpc/conn_object.c
-+++ b/net/rxrpc/conn_object.c
-@@ -15,7 +15,6 @@
+-struct rxrpc_call *rxrpc_find_call_hash(struct rxrpc_host_header *,
+-					void *, sa_family_t, const void *);
+ struct rxrpc_call *rxrpc_find_call_by_user_ID(struct rxrpc_sock *, unsigned long);
+ struct rxrpc_call *rxrpc_new_client_call(struct rxrpc_sock *,
+ 					 struct rxrpc_conn_parameters *,
+diff --git a/net/rxrpc/call_object.c b/net/rxrpc/call_object.c
+index ebbd7dd5292f..91287c9d01bb 100644
+--- a/net/rxrpc/call_object.c
++++ b/net/rxrpc/call_object.c
+@@ -14,7 +14,6 @@
  #include <linux/slab.h>
- #include <linux/net.h>
- #include <linux/skbuff.h>
--#include <linux/crypto.h>
+ #include <linux/module.h>
+ #include <linux/circ_buf.h>
+-#include <linux/hashtable.h>
+ #include <linux/spinlock_types.h>
  #include <net/sock.h>
  #include <net/af_rxrpc.h>
- #include "ar-internal.h"
-@@ -66,24 +65,30 @@ struct rxrpc_connection *rxrpc_alloc_connection(gfp_t gfp)
- }
+@@ -61,142 +60,6 @@ static void rxrpc_dead_call_expired(unsigned long _call);
+ static void rxrpc_ack_time_expired(unsigned long _call);
+ static void rxrpc_resend_time_expired(unsigned long _call);
  
- /*
-- * find a connection based on transport and RxRPC connection ID for an incoming
-- * packet
-+ * Look up a connection in the cache by protocol parameters.
-+ *
-+ * If successful, a pointer to the connection is returned, but no ref is taken.
-+ * NULL is returned if there is no match.
-+ *
-+ * The caller must be holding the RCU read lock.
-  */
--struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_local *local,
--					       struct sk_buff *skb)
-+struct rxrpc_connection *rxrpc_find_connection_rcu(struct rxrpc_local *local,
-+						   struct sk_buff *skb)
- {
- 	struct rxrpc_connection *conn;
- 	struct rxrpc_conn_proto k;
- 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
- 	struct sockaddr_rxrpc srx;
- 	struct rxrpc_peer *peer;
--	struct rb_node *p;
- 
--	_enter(",{%x,%x}", sp->hdr.cid, sp->hdr.flags);
-+	_enter(",%x", sp->hdr.cid & RXRPC_CIDMASK);
- 
- 	if (rxrpc_extract_addr_from_skb(&srx, skb) < 0)
- 		goto not_found;
- 
-+	k.epoch	= sp->hdr.epoch;
-+	k.cid	= sp->hdr.cid & RXRPC_CIDMASK;
-+
- 	/* We may have to handle mixing IPv4 and IPv6 */
- 	if (srx.transport.family != local->srx.transport.family) {
- 		pr_warn_ratelimited("AF_RXRPC: Protocol mismatch %u not %u\n",
-@@ -103,32 +108,23 @@ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_local *local,
- 		peer = rxrpc_lookup_peer_rcu(local, &srx);
- 		if (!peer)
- 			goto not_found;
+-static DEFINE_SPINLOCK(rxrpc_call_hash_lock);
+-static DEFINE_HASHTABLE(rxrpc_call_hash, 10);
 -
--		read_lock_bh(&peer->conn_lock);
+-/*
+- * Hash function for rxrpc_call_hash
+- */
+-static unsigned long rxrpc_call_hashfunc(
+-	u8		in_clientflag,
+-	u32		cid,
+-	u32		call_id,
+-	u32		epoch,
+-	u16		service_id,
+-	sa_family_t	family,
+-	void		*localptr,
+-	unsigned int	addr_size,
+-	const u8	*peer_addr)
+-{
+-	const u16 *p;
+-	unsigned int i;
+-	unsigned long key;
 -
--		p = peer->service_conns.rb_node;
--		while (p) {
--			conn = rb_entry(p, struct rxrpc_connection, service_node);
+-	_enter("");
 -
--			_debug("maybe %x", conn->proto.cid);
+-	key = (unsigned long)localptr;
+-	/* We just want to add up the __be32 values, so forcing the
+-	 * cast should be okay.
+-	 */
+-	key += epoch;
+-	key += service_id;
+-	key += call_id;
+-	key += (cid & RXRPC_CIDMASK) >> RXRPC_CIDSHIFT;
+-	key += cid & RXRPC_CHANNELMASK;
+-	key += in_clientflag;
+-	key += family;
+-	/* Step through the peer address in 16-bit portions for speed */
+-	for (i = 0, p = (const u16 *)peer_addr; i < addr_size >> 1; i++, p++)
+-		key += *p;
+-	_leave(" key = 0x%lx", key);
+-	return key;
+-}
 -
--			if (k.epoch < conn->proto.epoch)
--				p = p->rb_left;
--			else if (k.epoch > conn->proto.epoch)
--				p = p->rb_right;
--			else if (k.cid < conn->proto.cid)
--				p = p->rb_left;
--			else if (k.cid > conn->proto.cid)
--				p = p->rb_right;
--			else
--				goto found_service_conn;
+-/*
+- * Add a call to the hashtable
+- */
+-static void rxrpc_call_hash_add(struct rxrpc_call *call)
+-{
+-	unsigned long key;
+-	unsigned int addr_size = 0;
+-
+-	_enter("");
+-	switch (call->family) {
+-	case AF_INET:
+-		addr_size = sizeof(call->peer_ip.ipv4_addr);
+-		break;
+-	case AF_INET6:
+-		addr_size = sizeof(call->peer_ip.ipv6_addr);
+-		break;
+-	default:
+-		break;
+-	}
+-	key = rxrpc_call_hashfunc(call->in_clientflag, call->cid,
+-				  call->call_id, call->epoch,
+-				  call->service_id, call->family,
+-				  call->conn->params.local, addr_size,
+-				  call->peer_ip.ipv6_addr);
+-	/* Store the full key in the call */
+-	call->hash_key = key;
+-	spin_lock(&rxrpc_call_hash_lock);
+-	hash_add_rcu(rxrpc_call_hash, &call->hash_node, key);
+-	spin_unlock(&rxrpc_call_hash_lock);
+-	_leave("");
+-}
+-
+-/*
+- * Remove a call from the hashtable
+- */
+-static void rxrpc_call_hash_del(struct rxrpc_call *call)
+-{
+-	_enter("");
+-	spin_lock(&rxrpc_call_hash_lock);
+-	hash_del_rcu(&call->hash_node);
+-	spin_unlock(&rxrpc_call_hash_lock);
+-	_leave("");
+-}
+-
+-/*
+- * Find a call in the hashtable and return it, or NULL if it
+- * isn't there.
+- */
+-struct rxrpc_call *rxrpc_find_call_hash(
+-	struct rxrpc_host_header *hdr,
+-	void		*localptr,
+-	sa_family_t	family,
+-	const void	*peer_addr)
+-{
+-	unsigned long key;
+-	unsigned int addr_size = 0;
+-	struct rxrpc_call *call = NULL;
+-	struct rxrpc_call *ret = NULL;
+-	u8 in_clientflag = hdr->flags & RXRPC_CLIENT_INITIATED;
+-
+-	_enter("");
+-	switch (family) {
+-	case AF_INET:
+-		addr_size = sizeof(call->peer_ip.ipv4_addr);
+-		break;
+-	case AF_INET6:
+-		addr_size = sizeof(call->peer_ip.ipv6_addr);
+-		break;
+-	default:
+-		break;
+-	}
+-
+-	key = rxrpc_call_hashfunc(in_clientflag, hdr->cid, hdr->callNumber,
+-				  hdr->epoch, hdr->serviceId,
+-				  family, localptr, addr_size,
+-				  peer_addr);
+-	hash_for_each_possible_rcu(rxrpc_call_hash, call, hash_node, key) {
+-		if (call->hash_key == key &&
+-		    call->call_id == hdr->callNumber &&
+-		    call->cid == hdr->cid &&
+-		    call->in_clientflag == in_clientflag &&
+-		    call->service_id == hdr->serviceId &&
+-		    call->family == family &&
+-		    call->local == localptr &&
+-		    memcmp(call->peer_ip.ipv6_addr, peer_addr,
+-			   addr_size) == 0 &&
+-		    call->epoch == hdr->epoch) {
+-			ret = call;
+-			break;
 -		}
--		read_unlock_bh(&peer->conn_lock);
-+		conn = rxrpc_find_service_conn_rcu(peer, skb);
-+		if (!conn || atomic_read(&conn->usage) == 0)
-+			goto not_found;
-+		_leave(" = %p", conn);
-+		return conn;
- 	} else {
-+		/* Look up client connections by connection ID alone as their
-+		 * IDs are unique for this machine.
-+		 */
- 		conn = idr_find(&rxrpc_client_conn_ids,
--				k.cid >> RXRPC_CIDSHIFT);
--		if (!conn ||
--		    conn->proto.epoch != k.epoch ||
-+				sp->hdr.cid >> RXRPC_CIDSHIFT);
-+		if (!conn || atomic_read(&conn->usage) == 0) {
-+			_debug("no conn");
-+			goto not_found;
-+		}
-+
-+		if (conn->proto.epoch != k.epoch ||
- 		    conn->params.local != local)
- 			goto not_found;
- 
-@@ -145,7 +141,6 @@ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_local *local,
- 			BUG();
- 		}
- 
--		conn = rxrpc_get_connection_maybe(conn);
- 		_leave(" = %p", conn);
- 		return conn;
- 	}
-@@ -153,12 +148,6 @@ struct rxrpc_connection *rxrpc_find_connection(struct rxrpc_local *local,
- not_found:
- 	_leave(" = NULL");
- 	return NULL;
+-	}
+-	_leave(" = %p", ret);
+-	return ret;
+-}
 -
--found_service_conn:
--	conn = rxrpc_get_connection_maybe(conn);
--	read_unlock_bh(&peer->conn_lock);
--	_leave(" = %p", conn);
--	return conn;
- }
- 
  /*
-diff --git a/net/rxrpc/conn_service.c b/net/rxrpc/conn_service.c
-index c6db2e8400a2..45faeaf53693 100644
---- a/net/rxrpc/conn_service.c
-+++ b/net/rxrpc/conn_service.c
-@@ -13,18 +13,122 @@
- #include "ar-internal.h"
+  * find an extant server call
+  * - called in process context with IRQs enabled
+@@ -305,20 +168,7 @@ static struct rxrpc_call *rxrpc_alloc_client_call(struct rxrpc_sock *rx,
+ 	call->socket = rx;
+ 	call->rx_data_post = 1;
  
- /*
-+ * Find a service connection under RCU conditions.
-+ *
-+ * We could use a hash table, but that is subject to bucket stuffing by an
-+ * attacker as the client gets to pick the epoch and cid values and would know
-+ * the hash function.  So, instead, we use a hash table for the peer and from
-+ * that an rbtree to find the service connection.  Under ordinary circumstances
-+ * it might be slower than a large hash table, but it is at least limited in
-+ * depth.
-+ */
-+struct rxrpc_connection *rxrpc_find_service_conn_rcu(struct rxrpc_peer *peer,
-+						     struct sk_buff *skb)
-+{
-+	struct rxrpc_connection *conn = NULL;
-+	struct rxrpc_conn_proto k;
-+	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
-+	struct rb_node *p;
-+	unsigned int seq = 0;
-+
-+	k.epoch	= sp->hdr.epoch;
-+	k.cid	= sp->hdr.cid & RXRPC_CIDMASK;
-+
-+	do {
-+		/* Unfortunately, rbtree walking doesn't give reliable results
-+		 * under just the RCU read lock, so we have to check for
-+		 * changes.
-+		 */
-+		read_seqbegin_or_lock(&peer->service_conn_lock, &seq);
-+
-+		p = rcu_dereference_raw(peer->service_conns.rb_node);
-+		while (p) {
-+			conn = rb_entry(p, struct rxrpc_connection, service_node);
-+
-+			if (conn->proto.index_key < k.index_key)
-+				p = rcu_dereference_raw(p->rb_left);
-+			else if (conn->proto.index_key > k.index_key)
-+				p = rcu_dereference_raw(p->rb_right);
-+			else
-+				goto done;
-+			conn = NULL;
-+		}
-+	} while (need_seqretry(&peer->service_conn_lock, seq));
-+
-+done:
-+	done_seqretry(&peer->service_conn_lock, seq);
-+	_leave(" = %d", conn ? conn->debug_id : -1);
-+	return conn;
-+}
-+
-+/*
-+ * Insert a service connection into a peer's tree, thereby making it a target
-+ * for incoming packets.
-+ */
-+static struct rxrpc_connection *
-+rxrpc_publish_service_conn(struct rxrpc_peer *peer,
-+			   struct rxrpc_connection *conn)
-+{
-+	struct rxrpc_connection *cursor = NULL;
-+	struct rxrpc_conn_proto k = conn->proto;
-+	struct rb_node **pp, *parent;
-+
-+	write_seqlock_bh(&peer->service_conn_lock);
-+
-+	pp = &peer->service_conns.rb_node;
-+	parent = NULL;
-+	while (*pp) {
-+		parent = *pp;
-+		cursor = rb_entry(parent,
-+				  struct rxrpc_connection, service_node);
-+
-+		if (cursor->proto.index_key < k.index_key)
-+			pp = &(*pp)->rb_left;
-+		else if (cursor->proto.index_key > k.index_key)
-+			pp = &(*pp)->rb_right;
-+		else
-+			goto found_extant_conn;
-+	}
-+
-+	rb_link_node_rcu(&conn->service_node, parent, pp);
-+	rb_insert_color(&conn->service_node, &peer->service_conns);
-+conn_published:
-+	set_bit(RXRPC_CONN_IN_SERVICE_CONNS, &conn->flags);
-+	write_sequnlock_bh(&peer->service_conn_lock);
-+	_leave(" = %d [new]", conn->debug_id);
-+	return conn;
-+
-+found_extant_conn:
-+	if (atomic_read(&cursor->usage) == 0)
-+		goto replace_old_connection;
-+	write_sequnlock_bh(&peer->service_conn_lock);
-+	/* We should not be able to get here.  rxrpc_incoming_connection() is
-+	 * called in a non-reentrant context, so there can't be a race to
-+	 * insert a new connection.
-+	 */
-+	BUG();
-+
-+replace_old_connection:
-+	/* The old connection is from an outdated epoch. */
-+	_debug("replace conn");
-+	rb_replace_node_rcu(&cursor->service_node,
-+			    &conn->service_node,
-+			    &peer->service_conns);
-+	clear_bit(RXRPC_CONN_IN_SERVICE_CONNS, &cursor->flags);
-+	goto conn_published;
-+}
-+
-+/*
-  * get a record of an incoming connection
-  */
- struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
- 						   struct sockaddr_rxrpc *srx,
- 						   struct sk_buff *skb)
- {
--	struct rxrpc_connection *conn, *candidate = NULL;
-+	struct rxrpc_connection *conn;
- 	struct rxrpc_skb_priv *sp = rxrpc_skb(skb);
- 	struct rxrpc_peer *peer;
--	struct rb_node *p, **pp;
- 	const char *new = "old";
--	u32 epoch, cid;
- 
- 	_enter("");
- 
-@@ -36,131 +140,80 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
- 
- 	ASSERT(sp->hdr.flags & RXRPC_CLIENT_INITIATED);
- 
--	epoch = sp->hdr.epoch;
--	cid = sp->hdr.cid & RXRPC_CIDMASK;
--
--	/* search the connection list first */
--	read_lock_bh(&peer->conn_lock);
--
--	p = peer->service_conns.rb_node;
--	while (p) {
--		conn = rb_entry(p, struct rxrpc_connection, service_node);
--
--		_debug("maybe %x", conn->proto.cid);
--
--		if (epoch < conn->proto.epoch)
--			p = p->rb_left;
--		else if (epoch > conn->proto.epoch)
--			p = p->rb_right;
--		else if (cid < conn->proto.cid)
--			p = p->rb_left;
--		else if (cid > conn->proto.cid)
--			p = p->rb_right;
--		else
--			goto found_extant_connection;
-+	rcu_read_lock();
-+	peer = rxrpc_lookup_peer_rcu(local, srx);
-+	if (peer) {
-+		conn = rxrpc_find_service_conn_rcu(peer, skb);
-+		if (conn) {
-+			if (sp->hdr.securityIndex != conn->security_ix)
-+				goto security_mismatch_rcu;
-+			if (rxrpc_get_connection_maybe(conn))
-+				goto found_extant_connection_rcu;
-+
-+			/* The conn has expired but we can't remove it without
-+			 * the appropriate lock, so we attempt to replace it
-+			 * when we have a new candidate.
-+			 */
-+		}
-+
-+		if (!rxrpc_get_peer_maybe(peer))
-+			peer = NULL;
- 	}
--	read_unlock_bh(&peer->conn_lock);
--
--	/* not yet present - create a candidate for a new record and then
--	 * redo the search */
--	candidate = rxrpc_alloc_connection(GFP_NOIO);
--	if (!candidate) {
--		rxrpc_put_peer(peer);
--		_leave(" = -ENOMEM");
--		return ERR_PTR(-ENOMEM);
+-	/* Record copies of information for hashtable lookup */
+-	call->family = rx->family;
+ 	call->local = rx->local;
+-	switch (call->family) {
+-	case AF_INET:
+-		call->peer_ip.ipv4_addr = srx->transport.sin.sin_addr.s_addr;
+-		break;
+-	case AF_INET6:
+-		memcpy(call->peer_ip.ipv6_addr,
+-		       srx->transport.sin6.sin6_addr.in6_u.u6_addr8,
+-		       sizeof(call->peer_ip.ipv6_addr));
+-		break;
 -	}
 -
--	candidate->proto.epoch		= sp->hdr.epoch;
--	candidate->proto.cid		= sp->hdr.cid & RXRPC_CIDMASK;
--	candidate->params.local		= local;
--	candidate->params.peer		= peer;
--	candidate->params.service_id	= sp->hdr.serviceId;
--	candidate->security_ix		= sp->hdr.securityIndex;
--	candidate->out_clientflag	= 0;
--	candidate->state		= RXRPC_CONN_SERVICE;
--	if (candidate->params.service_id)
--		candidate->state	= RXRPC_CONN_SERVICE_UNSECURED;
+ 	call->service_id = srx->srx_service;
+ 	call->in_clientflag = 0;
+ 
+@@ -345,9 +195,6 @@ static int rxrpc_begin_client_call(struct rxrpc_call *call,
+ 
+ 	call->state = RXRPC_CALL_CLIENT_SEND_REQUEST;
+ 
+-	/* Add the new call to the hashtable */
+-	rxrpc_call_hash_add(call);
 -
--	write_lock_bh(&peer->conn_lock);
--
--	pp = &peer->service_conns.rb_node;
--	p = NULL;
--	while (*pp) {
--		p = *pp;
--		conn = rb_entry(p, struct rxrpc_connection, service_node);
-+	rcu_read_unlock();
+ 	spin_lock(&call->conn->params.peer->lock);
+ 	hlist_add_head(&call->error_link, &call->conn->params.peer->error_targets);
+ 	spin_unlock(&call->conn->params.peer->lock);
+@@ -548,27 +395,10 @@ struct rxrpc_call *rxrpc_incoming_call(struct rxrpc_sock *rx,
+ 	list_add_tail(&call->link, &rxrpc_calls);
+ 	write_unlock_bh(&rxrpc_call_lock);
  
--		if (epoch < conn->proto.epoch)
--			pp = &(*pp)->rb_left;
--		else if (epoch > conn->proto.epoch)
--			pp = &(*pp)->rb_right;
--		else if (cid < conn->proto.cid)
--			pp = &(*pp)->rb_left;
--		else if (cid > conn->proto.cid)
--			pp = &(*pp)->rb_right;
--		else
--			goto found_extant_second;
-+	if (!peer) {
-+		peer = rxrpc_lookup_peer(local, srx, GFP_NOIO);
-+		if (IS_ERR(peer))
-+			goto enomem;
- 	}
- 
--	/* we can now add the new candidate to the list */
--	set_bit(RXRPC_CONN_IN_SERVICE_CONNS, &candidate->flags);
--	rb_link_node(&candidate->service_node, p, pp);
--	rb_insert_color(&candidate->service_node, &peer->service_conns);
--attached:
--	conn = candidate;
--	candidate = NULL;
--	rxrpc_get_peer(peer);
--	rxrpc_get_local(local);
-+	/* We don't have a matching record yet. */
-+	conn = rxrpc_alloc_connection(GFP_NOIO);
-+	if (!conn)
-+		goto enomem_peer;
-+
-+	conn->proto.epoch	= sp->hdr.epoch;
-+	conn->proto.cid		= sp->hdr.cid & RXRPC_CIDMASK;
-+	conn->params.local	= local;
-+	conn->params.peer	= peer;
-+	conn->params.service_id	= sp->hdr.serviceId;
-+	conn->security_ix	= sp->hdr.securityIndex;
-+	conn->out_clientflag	= 0;
-+	conn->state		= RXRPC_CONN_SERVICE;
-+	if (conn->params.service_id)
-+		conn->state	= RXRPC_CONN_SERVICE_UNSECURED;
- 
--	write_unlock_bh(&peer->conn_lock);
-+	rxrpc_get_local(local);
- 
- 	write_lock(&rxrpc_connection_lock);
- 	list_add_tail(&conn->link, &rxrpc_connections);
-+	list_add_tail(&conn->proc_link, &rxrpc_connection_proc_list);
- 	write_unlock(&rxrpc_connection_lock);
- 
-+	/* Make the connection a target for incoming packets. */
-+	rxrpc_publish_service_conn(peer, conn);
-+
- 	new = "new";
- 
- success:
- 	_net("CONNECTION %s %d {%x}", new, conn->debug_id, conn->proto.cid);
--
--	rxrpc_put_peer(peer);
- 	_leave(" = %p {u=%d}", conn, atomic_read(&conn->usage));
- 	return conn;
- 
--	/* we found the connection in the list immediately */
--found_extant_connection:
--	if (!rxrpc_get_connection_maybe(conn)) {
--		set_bit(RXRPC_CONN_IN_SERVICE_CONNS, &candidate->flags);
--		rb_replace_node(&conn->service_node,
--				&candidate->service_node,
--				&peer->service_conns);
--		clear_bit(RXRPC_CONN_IN_SERVICE_CONNS, &conn->flags);
--		goto attached;
+-	/* Record copies of information for hashtable lookup */
+-	call->family = rx->family;
+ 	call->local = conn->params.local;
+-	switch (call->family) {
+-	case AF_INET:
+-		call->peer_ip.ipv4_addr =
+-			conn->params.peer->srx.transport.sin.sin_addr.s_addr;
+-		break;
+-	case AF_INET6:
+-		memcpy(call->peer_ip.ipv6_addr,
+-		       conn->params.peer->srx.transport.sin6.sin6_addr.in6_u.u6_addr8,
+-		       sizeof(call->peer_ip.ipv6_addr));
+-		break;
+-	default:
+-		break;
 -	}
+ 	call->epoch = conn->proto.epoch;
+ 	call->service_id = conn->params.service_id;
+ 	call->in_clientflag = RXRPC_CLIENT_INITIATED;
+-	/* Add the new call to the hashtable */
+-	rxrpc_call_hash_add(call);
+ 
+ 	_net("CALL incoming %d on CONN %d", call->debug_id, call->conn->debug_id);
+ 
+@@ -818,9 +648,6 @@ static void rxrpc_cleanup_call(struct rxrpc_call *call)
+ 
+ 	ASSERTCMP(call->conn, ==, NULL);
+ 
+-	/* Remove the call from the hash */
+-	rxrpc_call_hash_del(call);
 -
--	if (sp->hdr.securityIndex != conn->security_ix) {
--		read_unlock_bh(&peer->conn_lock);
--		goto security_mismatch_put;
--	}
--	read_unlock_bh(&peer->conn_lock);
--	goto success;
--
--	/* we found the connection on the second time through the list */
--found_extant_second:
--	if (sp->hdr.securityIndex != conn->security_ix) {
--		write_unlock_bh(&peer->conn_lock);
--		goto security_mismatch;
--	}
--	rxrpc_get_connection(conn);
--	write_unlock_bh(&peer->conn_lock);
--	kfree(candidate);
-+found_extant_connection_rcu:
-+	rcu_read_unlock();
- 	goto success;
- 
--security_mismatch_put:
--	rxrpc_put_connection(conn);
--security_mismatch:
--	kfree(candidate);
-+security_mismatch_rcu:
-+	rcu_read_unlock();
- 	_leave(" = -EKEYREJECTED");
- 	return ERR_PTR(-EKEYREJECTED);
-+
-+enomem_peer:
-+	rxrpc_put_peer(peer);
-+enomem:
-+	_leave(" = -ENOMEM");
-+	return ERR_PTR(-ENOMEM);
- }
- 
- /*
-@@ -171,8 +224,8 @@ void rxrpc_unpublish_service_conn(struct rxrpc_connection *conn)
- {
- 	struct rxrpc_peer *peer = conn->params.peer;
- 
--	write_lock_bh(&peer->conn_lock);
-+	write_seqlock_bh(&peer->service_conn_lock);
- 	if (test_and_clear_bit(RXRPC_CONN_IN_SERVICE_CONNS, &conn->flags))
- 		rb_erase(&conn->service_node, &peer->service_conns);
--	write_unlock_bh(&peer->conn_lock);
-+	write_sequnlock_bh(&peer->service_conn_lock);
- }
-diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
-index c2436476f793..991a20d25093 100644
---- a/net/rxrpc/input.c
-+++ b/net/rxrpc/input.c
-@@ -575,13 +575,13 @@ done:
-  * post connection-level events to the connection
-  * - this includes challenges, responses and some aborts
-  */
--static void rxrpc_post_packet_to_conn(struct rxrpc_connection *conn,
-+static bool rxrpc_post_packet_to_conn(struct rxrpc_connection *conn,
- 				      struct sk_buff *skb)
- {
- 	_enter("%p,%p", conn, skb);
- 
- 	skb_queue_tail(&conn->rx_queue, skb);
--	rxrpc_queue_conn(conn);
-+	return rxrpc_queue_conn(conn);
- }
- 
- /*
-@@ -636,6 +636,7 @@ int rxrpc_extract_header(struct rxrpc_skb_priv *sp, struct sk_buff *skb)
-  */
- void rxrpc_data_ready(struct sock *sk)
- {
-+	struct rxrpc_connection *conn;
- 	struct rxrpc_skb_priv *sp;
- 	struct rxrpc_local *local = sk->sk_user_data;
- 	struct sk_buff *skb;
-@@ -699,36 +700,37 @@ void rxrpc_data_ready(struct sock *sk)
- 	    (sp->hdr.callNumber == 0 || sp->hdr.seq == 0))
- 		goto bad_message;
- 
--	if (sp->hdr.callNumber == 0) {
--		/* This is a connection-level packet. These should be
--		 * fairly rare, so the extra overhead of looking them up the
--		 * old-fashioned way doesn't really hurt */
--		struct rxrpc_connection *conn;
--
--		rcu_read_lock();
--		conn = rxrpc_find_connection(local, skb);
--		rcu_read_unlock();
--		if (!conn)
--			goto cant_route_call;
-+	rcu_read_lock();
-+
-+retry_find_conn:
-+	conn = rxrpc_find_connection_rcu(local, skb);
-+	if (!conn)
-+		goto cant_route_call;
- 
-+	if (sp->hdr.callNumber == 0) {
-+		/* Connection-level packet */
- 		_debug("CONN %p {%d}", conn, conn->debug_id);
--		rxrpc_post_packet_to_conn(conn, skb);
--		rxrpc_put_connection(conn);
-+		if (!rxrpc_post_packet_to_conn(conn, skb))
-+			goto retry_find_conn;
- 	} else {
--		struct rxrpc_call *call;
-+		/* Call-bound packets are routed by connection channel. */
-+		unsigned int channel = sp->hdr.cid & RXRPC_CHANNELMASK;
-+		struct rxrpc_channel *chan = &conn->channels[channel];
-+		struct rxrpc_call *call = rcu_dereference(chan->call);
- 
--		call = rxrpc_find_call_hash(&sp->hdr, local,
--					    AF_INET, &ip_hdr(skb)->saddr);
--		if (call)
--			rxrpc_post_packet_to_call(call, skb);
--		else
-+		if (!call || atomic_read(&call->usage) == 0)
- 			goto cant_route_call;
-+
-+		rxrpc_post_packet_to_call(call, skb);
- 	}
- 
-+	rcu_read_unlock();
- out:
- 	return;
- 
- cant_route_call:
-+	rcu_read_unlock();
-+
- 	_debug("can't route call");
- 	if (sp->hdr.flags & RXRPC_CLIENT_INITIATED &&
- 	    sp->hdr.type == RXRPC_PACKET_TYPE_DATA) {
-diff --git a/net/rxrpc/peer_object.c b/net/rxrpc/peer_object.c
-index 01d4930a11f7..538e9831c699 100644
---- a/net/rxrpc/peer_object.c
-+++ b/net/rxrpc/peer_object.c
-@@ -189,7 +189,7 @@ struct rxrpc_peer *rxrpc_alloc_peer(struct rxrpc_local *local, gfp_t gfp)
- 		INIT_WORK(&peer->error_distributor,
- 			  &rxrpc_peer_error_distributor);
- 		peer->service_conns = RB_ROOT;
--		rwlock_init(&peer->conn_lock);
-+		seqlock_init(&peer->service_conn_lock);
- 		spin_lock_init(&peer->lock);
- 		peer->debug_id = atomic_inc_return(&rxrpc_debug_id);
- 	}
+ 	if (call->acks_window) {
+ 		_debug("kill Tx window %d",
+ 		       CIRC_CNT(call->acks_head, call->acks_tail,
