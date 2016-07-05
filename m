@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 04/16] mlxsw: reg: Add Router Algorithmic LPM Unicast Host Table register
-Date: Tue,  5 Jul 2016 11:27:40 +0200
-Message-ID: <1467710872-20056-5-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 03/16] mlxsw: spectrum_router: Add private neigh table
+Date: Tue,  5 Jul 2016 11:27:39 +0200
+Message-ID: <1467710872-20056-4-git-send-email-jiri@resnulli.us>
 References: <1467710872-20056-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,194 +10,250 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34745 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752025AbcGEJ2A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 05:28:00 -0400
-Received: by mail-wm0-f67.google.com with SMTP id 187so27283632wmz.1
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 02:27:59 -0700 (PDT)
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35935 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751886AbcGEJ17 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 05:27:59 -0400
+Received: by mail-wm0-f68.google.com with SMTP id c82so27227396wme.3
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 02:27:58 -0700 (PDT)
 In-Reply-To: <1467710872-20056-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Yotam Gigi <yotamg@mellanox.com>
+From: Jiri Pirko <jiri@mellanox.com>
 
-The RAUHT register is used to configure and query the Unicast Host Table
-in devices that implement the Algorithmic LPM. In other words, it is
-used to configure neighbour entries in the device.
+We need to hold some private data for every neigh entry. It would be
+possible to do it using neigh_priv_len/ndo_neigh_construct/
+ndo_neigh_destroy however only for the port device itself. That would not
+work for stacked devices like bridge/team/bond. So introduce a private
+neigh table. Hook onto ndos neigh_construct/destroy and add/remove
+table entry according to that.
 
-Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/reg.h | 141 ++++++++++++++++++++++++++++++
- 1 file changed, 141 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.c     |   2 +
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |   6 +
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 146 ++++++++++++++++++++-
+ 3 files changed, 153 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/reg.h b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-index 9280d96..cc6a0b3 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/reg.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/reg.h
-@@ -4,6 +4,7 @@
-  * Copyright (c) 2015-2016 Ido Schimmel <idosch@mellanox.com>
-  * Copyright (c) 2015 Elad Raz <eladr@mellanox.com>
-  * Copyright (c) 2015-2016 Jiri Pirko <jiri@mellanox.com>
-+ * Copyright (c) 2016 Yotam Gigi <yotamg@mellanox.com>
-  *
-  * Redistribution and use in source and binary forms, with or without
-  * modification, are permitted provided that the following conditions are met:
-@@ -3884,6 +3885,144 @@ mlxsw_reg_ralue_act_ip2me_pack(char *payload)
- 					MLXSW_REG_RALUE_ACTION_TYPE_IP2ME);
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+index 7b2b741b..9bebb7a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.c
+@@ -803,6 +803,8 @@ static const struct net_device_ops mlxsw_sp_port_netdev_ops = {
+ 	.ndo_get_stats64	= mlxsw_sp_port_get_stats64,
+ 	.ndo_vlan_rx_add_vid	= mlxsw_sp_port_add_vid,
+ 	.ndo_vlan_rx_kill_vid	= mlxsw_sp_port_kill_vid,
++	.ndo_neigh_construct	= mlxsw_sp_router_neigh_construct,
++	.ndo_neigh_destroy	= mlxsw_sp_router_neigh_destroy,
+ 	.ndo_fdb_add		= switchdev_port_fdb_add,
+ 	.ndo_fdb_del		= switchdev_port_fdb_del,
+ 	.ndo_fdb_dump		= switchdev_port_fdb_dump,
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 958e821..734c5ba 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -39,6 +39,7 @@
+ 
+ #include <linux/types.h>
+ #include <linux/netdevice.h>
++#include <linux/rhashtable.h>
+ #include <linux/bitops.h>
+ #include <linux/if_vlan.h>
+ #include <linux/list.h>
+@@ -212,6 +213,7 @@ struct mlxsw_sp_vr {
+ struct mlxsw_sp_router {
+ 	struct mlxsw_sp_lpm_tree lpm_trees[MLXSW_SP_LPM_TREE_COUNT];
+ 	struct mlxsw_sp_vr vrs[MLXSW_SP_VIRTUAL_ROUTER_MAX];
++	struct rhashtable neigh_ht;
+ };
+ 
+ struct mlxsw_sp {
+@@ -524,5 +526,9 @@ int mlxsw_sp_router_fib4_add(struct mlxsw_sp_port *mlxsw_sp_port,
+ 			     struct switchdev_trans *trans);
+ int mlxsw_sp_router_fib4_del(struct mlxsw_sp_port *mlxsw_sp_port,
+ 			     const struct switchdev_obj_ipv4_fib *fib4);
++int mlxsw_sp_router_neigh_construct(struct net_device *dev,
++				    struct neighbour *n);
++void mlxsw_sp_router_neigh_destroy(struct net_device *dev,
++				   struct neighbour *n);
+ 
+ #endif
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index 7e3992a..90d382a 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -38,6 +38,8 @@
+ #include <linux/rhashtable.h>
+ #include <linux/bitops.h>
+ #include <linux/in6.h>
++#include <net/neighbour.h>
++#include <net/arp.h>
+ 
+ #include "spectrum.h"
+ #include "core.h"
+@@ -544,6 +546,147 @@ static void mlxsw_sp_vrs_init(struct mlxsw_sp *mlxsw_sp)
+ 	}
  }
  
-+/* RAUHT - Router Algorithmic LPM Unicast Host Table Register
-+ * ----------------------------------------------------------
-+ * The RAUHT register is used to configure and query the Unicast Host table in
-+ * devices that implement the Algorithmic LPM.
-+ */
-+#define MLXSW_REG_RAUHT_ID 0x8014
-+#define MLXSW_REG_RAUHT_LEN 0x74
-+
-+static const struct mlxsw_reg_info mlxsw_reg_rauht = {
-+	.id = MLXSW_REG_RAUHT_ID,
-+	.len = MLXSW_REG_RAUHT_LEN,
++struct mlxsw_sp_neigh_key {
++	unsigned char addr[sizeof(struct in6_addr)];
++	struct net_device *dev;
 +};
 +
-+enum mlxsw_reg_rauht_type {
-+	MLXSW_REG_RAUHT_TYPE_IPV4,
-+	MLXSW_REG_RAUHT_TYPE_IPV6,
++struct mlxsw_sp_neigh_entry {
++	struct rhash_head ht_node;
++	struct mlxsw_sp_neigh_key key;
++	u16 rif;
++	struct neighbour *n;
 +};
 +
-+/* reg_rauht_type
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, rauht, type, 0x00, 24, 2);
-+
-+enum mlxsw_reg_rauht_op {
-+	MLXSW_REG_RAUHT_OP_QUERY_READ = 0,
-+	/* Read operation */
-+	MLXSW_REG_RAUHT_OP_QUERY_CLEAR_ON_READ = 1,
-+	/* Clear on read operation. Used to read entry and clear
-+	 * activity bit.
-+	 */
-+	MLXSW_REG_RAUHT_OP_WRITE_ADD = 0,
-+	/* Add. Used to write a new entry to the table. All R/W fields are
-+	 * relevant for new entry. Activity bit is set for new entries.
-+	 */
-+	MLXSW_REG_RAUHT_OP_WRITE_UPDATE = 1,
-+	/* Update action. Used to update an existing route entry and
-+	 * only update the following fields:
-+	 * trap_action, trap_id, mac, counter_set_type, counter_index
-+	 */
-+	MLXSW_REG_RAUHT_OP_WRITE_CLEAR_ACTIVITY = 2,
-+	/* Clear activity. A bit is cleared for the entry. */
-+	MLXSW_REG_RAUHT_OP_WRITE_DELETE = 3,
-+	/* Delete entry */
-+	MLXSW_REG_RAUHT_OP_WRITE_DELETE_ALL = 4,
-+	/* Delete all host entries on a RIF. In this command, dip
-+	 * field is reserved.
-+	 */
++static const struct rhashtable_params mlxsw_sp_neigh_ht_params = {
++	.key_offset = offsetof(struct mlxsw_sp_neigh_entry, key),
++	.head_offset = offsetof(struct mlxsw_sp_neigh_entry, ht_node),
++	.key_len = sizeof(struct mlxsw_sp_neigh_key),
 +};
 +
-+/* reg_rauht_op
-+ * Access: OP
-+ */
-+MLXSW_ITEM32(reg, rauht, op, 0x00, 20, 3);
-+
-+/* reg_rauht_a
-+ * Activity. Set for new entries. Set if a packet lookup has hit on
-+ * the specific entry.
-+ * To clear the a bit, use "clear activity" op.
-+ * Enabled by activity_dis in RGCR
-+ * Access: RO
-+ */
-+MLXSW_ITEM32(reg, rauht, a, 0x00, 16, 1);
-+
-+/* reg_rauht_rif
-+ * Router Interface
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, rauht, rif, 0x00, 0, 16);
-+
-+/* reg_rauht_dip*
-+ * Destination address.
-+ * Access: Index
-+ */
-+MLXSW_ITEM32(reg, rauht, dip4, 0x1C, 0x0, 32);
-+
-+enum mlxsw_reg_rauht_trap_action {
-+	MLXSW_REG_RAUHT_TRAP_ACTION_NOP,
-+	MLXSW_REG_RAUHT_TRAP_ACTION_TRAP,
-+	MLXSW_REG_RAUHT_TRAP_ACTION_MIRROR_TO_CPU,
-+	MLXSW_REG_RAUHT_TRAP_ACTION_MIRROR,
-+	MLXSW_REG_RAUHT_TRAP_ACTION_DISCARD_ERRORS,
-+};
-+
-+/* reg_rauht_trap_action
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rauht, trap_action, 0x60, 28, 4);
-+
-+enum mlxsw_reg_rauht_trap_id {
-+	MLXSW_REG_RAUHT_TRAP_ID_RTR_EGRESS0,
-+	MLXSW_REG_RAUHT_TRAP_ID_RTR_EGRESS1,
-+};
-+
-+/* reg_rauht_trap_id
-+ * Trap ID to be reported to CPU.
-+ * Trap-ID is RTR_EGRESS0 or RTR_EGRESS1.
-+ * For trap_action of NOP, MIRROR and DISCARD_ERROR,
-+ * trap_id is reserved.
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rauht, trap_id, 0x60, 0, 9);
-+
-+/* reg_rauht_counter_set_type
-+ * Counter set type for flow counters
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rauht, counter_set_type, 0x68, 24, 8);
-+
-+/* reg_rauht_counter_index
-+ * Counter index for flow counters
-+ * Access: RW
-+ */
-+MLXSW_ITEM32(reg, rauht, counter_index, 0x68, 0, 24);
-+
-+/* reg_rauht_mac
-+ * MAC address.
-+ * Access: RW
-+ */
-+MLXSW_ITEM_BUF(reg, rauht, mac, 0x6E, 6);
-+
-+static inline void mlxsw_reg_rauht_pack(char *payload,
-+					enum mlxsw_reg_rauht_op op, u16 rif,
-+					const char *mac)
++static int
++mlxsw_sp_neigh_entry_insert(struct mlxsw_sp *mlxsw_sp,
++			    struct mlxsw_sp_neigh_entry *neigh_entry)
 +{
-+	MLXSW_REG_ZERO(rauht, payload);
-+	mlxsw_reg_rauht_op_set(payload, op);
-+	mlxsw_reg_rauht_rif_set(payload, rif);
-+	mlxsw_reg_rauht_mac_memcpy_to(payload, mac);
++	return rhashtable_insert_fast(&mlxsw_sp->router.neigh_ht,
++				      &neigh_entry->ht_node,
++				      mlxsw_sp_neigh_ht_params);
 +}
 +
-+static inline void mlxsw_reg_rauht_pack4(char *payload,
-+					 enum mlxsw_reg_rauht_op op, u16 rif,
-+					 const char *mac, u32 dip)
++static void
++mlxsw_sp_neigh_entry_remove(struct mlxsw_sp *mlxsw_sp,
++			    struct mlxsw_sp_neigh_entry *neigh_entry)
 +{
-+	mlxsw_reg_rauht_pack(payload, op, rif, mac);
-+	mlxsw_reg_rauht_dip4_set(payload, dip);
++	rhashtable_remove_fast(&mlxsw_sp->router.neigh_ht,
++			       &neigh_entry->ht_node,
++			       mlxsw_sp_neigh_ht_params);
 +}
 +
- /* MFCR - Management Fan Control Register
-  * --------------------------------------
-  * This register controls the settings of the Fan Speed PWM mechanism.
-@@ -4634,6 +4773,8 @@ static inline const char *mlxsw_reg_id_str(u16 reg_id)
- 		return "RALTB";
- 	case MLXSW_REG_RALUE_ID:
- 		return "RALUE";
-+	case MLXSW_REG_RAUHT_ID:
-+		return "RAUHT";
- 	case MLXSW_REG_MFCR_ID:
- 		return "MFCR";
- 	case MLXSW_REG_MFSC_ID:
++static struct mlxsw_sp_neigh_entry *
++mlxsw_sp_neigh_entry_create(const void *addr, size_t addr_len,
++			    struct net_device *dev, u16 rif,
++			    struct neighbour *n)
++{
++	struct mlxsw_sp_neigh_entry *neigh_entry;
++
++	neigh_entry = kzalloc(sizeof(*neigh_entry), GFP_ATOMIC);
++	if (!neigh_entry)
++		return NULL;
++	memcpy(neigh_entry->key.addr, addr, addr_len);
++	neigh_entry->key.dev = dev;
++	neigh_entry->rif = rif;
++	neigh_entry->n = n;
++	return neigh_entry;
++}
++
++static void
++mlxsw_sp_neigh_entry_destroy(struct mlxsw_sp_neigh_entry *neigh_entry)
++{
++	kfree(neigh_entry);
++}
++
++static struct mlxsw_sp_neigh_entry *
++mlxsw_sp_neigh_entry_lookup(struct mlxsw_sp *mlxsw_sp, const void *addr,
++			    size_t addr_len, struct net_device *dev)
++{
++	struct mlxsw_sp_neigh_key key = {{ 0 } };
++
++	memcpy(key.addr, addr, addr_len);
++	key.dev = dev;
++	return rhashtable_lookup_fast(&mlxsw_sp->router.neigh_ht,
++				      &key, mlxsw_sp_neigh_ht_params);
++}
++
++int mlxsw_sp_router_neigh_construct(struct net_device *dev,
++				    struct neighbour *n)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	struct mlxsw_sp_neigh_entry *neigh_entry;
++	struct mlxsw_sp_rif *r;
++	u32 dip;
++	int err;
++
++	if (n->tbl != &arp_tbl)
++		return 0;
++
++	dip = ntohl(*((__be32 *) n->primary_key));
++	neigh_entry = mlxsw_sp_neigh_entry_lookup(mlxsw_sp, &dip, sizeof(dip),
++						  n->dev);
++	if (neigh_entry) {
++		WARN_ON(neigh_entry->n != n);
++		return 0;
++	}
++
++	r = mlxsw_sp_rif_find_by_dev(mlxsw_sp, dev);
++	if (WARN_ON(!r))
++		return -EINVAL;
++
++	neigh_entry = mlxsw_sp_neigh_entry_create(&dip, sizeof(dip), n->dev,
++						  r->rif, n);
++	if (!neigh_entry)
++		return -ENOMEM;
++	err = mlxsw_sp_neigh_entry_insert(mlxsw_sp, neigh_entry);
++	if (err)
++		goto err_neigh_entry_insert;
++	return 0;
++
++err_neigh_entry_insert:
++	mlxsw_sp_neigh_entry_destroy(neigh_entry);
++	return err;
++}
++
++void mlxsw_sp_router_neigh_destroy(struct net_device *dev,
++				   struct neighbour *n)
++{
++	struct mlxsw_sp_port *mlxsw_sp_port = netdev_priv(dev);
++	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
++	struct mlxsw_sp_neigh_entry *neigh_entry;
++	u32 dip;
++
++	if (n->tbl != &arp_tbl)
++		return;
++
++	dip = ntohl(*((__be32 *) n->primary_key));
++	neigh_entry = mlxsw_sp_neigh_entry_lookup(mlxsw_sp, &dip, sizeof(dip),
++						  n->dev);
++	if (!neigh_entry)
++		return;
++	mlxsw_sp_neigh_entry_remove(mlxsw_sp, neigh_entry);
++	mlxsw_sp_neigh_entry_destroy(neigh_entry);
++}
++
++static int mlxsw_sp_neigh_init(struct mlxsw_sp *mlxsw_sp)
++{
++	return rhashtable_init(&mlxsw_sp->router.neigh_ht,
++			       &mlxsw_sp_neigh_ht_params);
++}
++
++static void mlxsw_sp_neigh_fini(struct mlxsw_sp *mlxsw_sp)
++{
++	rhashtable_destroy(&mlxsw_sp->router.neigh_ht);
++}
++
+ static int __mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	char rgcr_pl[MLXSW_REG_RGCR_LEN];
+@@ -570,11 +713,12 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+ 		return err;
+ 	mlxsw_sp_lpm_init(mlxsw_sp);
+ 	mlxsw_sp_vrs_init(mlxsw_sp);
+-	return 0;
++	return mlxsw_sp_neigh_init(mlxsw_sp);
+ }
+ 
+ void mlxsw_sp_router_fini(struct mlxsw_sp *mlxsw_sp)
+ {
++	mlxsw_sp_neigh_fini(mlxsw_sp);
+ 	__mlxsw_sp_router_fini(mlxsw_sp);
+ }
+ 
 -- 
 2.5.5
