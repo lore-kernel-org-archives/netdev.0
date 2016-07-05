@@ -1,56 +1,35 @@
-From: Philippe Reynes <tremyfr@gmail.com>
-Subject: Re: [PATCH 2/2] net: ethernet: bcmgenet: use phy_ethtool_{get|set}_link_ksettings
-Date: Tue, 05 Jul 2016 23:07:21 +0200
-Message-ID: <577C2189.8090604@gmail.com>
-References: <1467560037-21784-1-git-send-email-tremyfr@gmail.com> <1467560037-21784-2-git-send-email-tremyfr@gmail.com> <20160704.160300.953705748553101659.davem@davemloft.net> <577B37CC.80807@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: fix decnet rtnexthop parsing
+Date: Tue, 05 Jul 2016 14:08:58 -0700 (PDT)
+Message-ID: <20160705.140858.1158586328624337181.davem@davemloft.net>
+References: <1467745973-22340-1-git-send-email-vegard.nossum@oracle.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, tgraf@suug.ch
+To: vegard.nossum@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f46.google.com ([74.125.82.46]:37861 "EHLO
-	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754588AbcGEVG5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 17:06:57 -0400
-In-Reply-To: <577B37CC.80807@gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:42634 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751880AbcGEVJB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 17:09:01 -0400
+In-Reply-To: <1467745973-22340-1-git-send-email-vegard.nossum@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Date: Tue,  5 Jul 2016 21:12:53 +0200
 
-On 05/07/16 06:30, Florian Fainelli wrote:
-> Le 04/07/2016 16:03, David Miller a =E9crit :
->> From: Philippe Reynes<tremyfr@gmail.com>
->> Date: Sun,  3 Jul 2016 17:33:57 +0200
->>
->>> There are two generics functions phy_ethtool_{get|set}_link_ksettin=
-gs,
->>> so we can use them instead of defining the same code in the driver.
->>>
->>> Signed-off-by: Philippe Reynes<tremyfr@gmail.com>
->>
->> Applied.
->>
->
-> The transformation is not equivalent, we lost the checks on
-> netif_running() in the process, and those are here for a reason, if t=
-he
-> interface is down and therefore clock gated, MDIO accesses to the PHY
-> will simply fail outright and cause bus errors.
+> dn_fib_count_nhs() could enter an infinite loop if nhp->rtnh_len == 0
+> (i.e. if userspace passes a malformed netlink message).
+> 
+> Let's use the helpers from net/nexthop.h which take care of all this
+> stuff. We can do exactly the same as e.g. fib_count_nexthops() and
+> fib_get_nhs() from net/ipv4/fib_semantics.c.
+> 
+> This fixes the softlockup for me.
+> 
+> Cc: Thomas Graf <tgraf@suug.ch>
+> Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
 
-Oh, I see, I've missed this. Sorry for this mistake.
-We should revert this path.
-
-I think that a lot of hardware had the same behaviour.
-I'm going to look for a generic solution for this behaviour.
-If someone has an idea ...
- =20
-> Philippe, have you tested this?
-
-I haven't tested, I don't have the hardware.
-
-
-Philippe
+Applied, thanks.
