@@ -1,52 +1,30 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: [iproute PATCH 0/2] Netns performance improvements
-Date: Tue, 05 Jul 2016 09:44:00 -0500
-Message-ID: <87twg4ywjz.fsf@x220.int.ebiederm.org>
-References: <1467729773-16751-1-git-send-email-phil@nwl.cc>
+From: ayuj <ayuj.verma@gmail.com>
+Subject: DCB Auto turn off when link become up with Intel 82599ES ixgbe driver
+Date: Tue, 5 Jul 2016 15:17:58 +0000 (UTC)
+Message-ID: <loom.20160705T170910-270@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org
-To: Phil Sutter <phil@nwl.cc>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out01.mta.xmission.com ([166.70.13.231]:56275 "EHLO
-	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932923AbcGEO5A (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 10:57:00 -0400
-In-Reply-To: <1467729773-16751-1-git-send-email-phil@nwl.cc> (Phil Sutter's
-	message of "Tue, 5 Jul 2016 16:42:51 +0200")
+Received: from plane.gmane.org ([80.91.229.3]:37729 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751544AbcGEPZL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jul 2016 11:25:11 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1bKSDh-00058L-Oo
+	for netdev@vger.kernel.org; Tue, 05 Jul 2016 17:25:05 +0200
+Received: from static-67.218.93.111-tataidc.co.in ([static-67.218.93.111-tataidc.co.in])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 17:25:05 +0200
+Received: from ayuj.verma by static-67.218.93.111-tataidc.co.in with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 17:25:05 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Phil Sutter <phil@nwl.cc> writes:
-
-> Stress-testing OpenStack Neutron revealed poor performance of 'ip netns'
-> when dealing with a high amount of namespaces. The cause of this lies in
-> the combination of how iproute2 mounts NETNS_RUN_DIR and the netns files
-> therein and the fact that systemd makes all mount points of the system
-> shared.
-
-So please tell me.  Given that it was clearly a deliberate choice in the
-code to make these directories shared, and that this is not a result
-of a systemd making all directories shared by default.  Why is it
-better to these directories non-shared?
-
-This may be the appropriate change but saying you stress testing things
-and have a problem but do not describe how large a scale you had a
-problem, or anything else to make your problem reproducible by anyone
-else makes it difficult to consider the merits of this change.
-
-Sometimes things are a good default policy but have imperfect scaling on
-extreme workloads.
-
-My experience with the current situtation with ip netns is that it
-prevents a whole lot of confusion by making the network namespace names
-visible whichever mount namespace your processes are running in.
-
-> Phil Sutter (2):
->   ipnetns: Move NETNS_RUN_DIR into it's own propagation group
->   ipnetns: Make netns mount points private
->
->  ip/ipnetns.c | 12 +++++++++++-
->  1 file changed, 11 insertions(+), 1 deletion(-)
-
-Eric
+SSdtIHRyeWluZyB0byBjb25maWd1cmUgRENCIGluIGJhY2stdG8tYmFjayBzY2VuYXJpby4KU3lzdGVtIGRldGFpbHMKCk9TIDotIENlbnRPUyA3LjIKa2VybmVsIDMuMTAuMC0zMjcuZWw3Lng4Nl82NApsbGRwYWQ6LSBsbGRwYWQgdjAuOS40NgpkY2J0b29sOi0gdjAuOS40NgppeGdiZSA6LSBpeGdiZS00LjMuMTUKCnN0ZXBzIGZvbGxvd2VkOi0gCgojIG1vZHBvcmJlIGl4Z2JlCiMgc2VydmljZSBsbGRwYWQgc3RhcnQgCiAgICBSZWRpcmVjdGluZyB0byAvYmluL3N5c3RlbWN0bCBzdGFydCAgbGxkcGFkLnNlcnZpY2UKCgojIHNlcnZpY2UgbGxkcGFkIHN0YXR1cwpSZWRpcmVjdGluZyB0byAvYmluL3N5c3RlbWN0bCBzdGF0dXMgIGxsZHBhZC5zZXJ2aWNlCuKXjyBsbGRwYWQuc2VydmljZSAtIExpbmsgTGF5ZXIgRGlzY292ZXJ5IFByb3RvY29sIEFnZW50IERhZW1vbi4KICAgTG9hZGVkOiBsb2FkZWQgKC91c3IvbGliL3N5c3RlbWQvc3lzdGVtL2xsZHBhZC5zZXJ2aWNlOyBkaXNhYmxlZDsgdmVuZG9yCnByZXNldDogZGlzYWJsZWQpCiAgIEFjdGl2ZTogYWN0aXZlIChydW5uaW5nKSBzaW5jZSBUdWUgMjAxNi0wNy0wNSAwNTo0OToxMiBFRFQ7IDFz
+ IGFnbwogTWFpbiBQSUQ6IDEzMzczNyAobGxkcGFkKQogICBDR3JvdXA6IC9zeXN0ZW0uc2xpY2UvbGxkcGFkLnNlcnZpY2UKICAgICAgICAgICDilJTilIAxMzM3MzcgL3Vzci9zYmluL2xsZHBhZCAtdAoKSnVsIDA1IDA1OjQ5OjEyIGxvY2FsaG9zdC5sb2NhbGRvbWFpbiBzeXN0ZW1kWzFdOiBTdGFydGVkIExpbmsgTGF5ZXIKRGlzY292ZXJ5IFByb3RvY29sIEFnZW50IERhZW1vbi4uCkp1bCAwNSAwNTo0OToxMiBsb2NhbGhvc3QubG9jYWxkb21haW4gc3lzdGVtZFsxXTogU3RhcnRpbmcgTGluayBMYXllcgpEaXNjb3ZlcnkgUHJvdG9jb2wgQWdlbnQgRGFlbW9uLi4uLgoKCiMgZGNidG9vbCBnYyBwM3AyIGRjYiAKQ29tbWFuZDogICAJR2V0IENvbmZpZwpGZWF0dXJlOiAgIAlEQ0IgU3RhdGUKUG9ydDogICAgICAJcDNwMgpTdGF0dXM6ICAgIAlTdWNjZXNzZnVsCkRDQiBTdGF0ZToJb2ZmCgojIGRjYnRvb2wgc2MgcDNwMiBkY2Igb24KQ29tbWFuZDogICAJU2V0IENvbmZpZwpGZWF0dXJlOiAgIAlEQ0IgU3RhdGUKUG9ydDogICAgICAJcDNwMgpTdGF0dXM6ICAgIAlTdWNjZXNzZnVsCgojIGRjYnRvb2wgZ2MgcDNwMiBkY2IgCkNvbW1hbmQ6ICAgCU
+ dldCBDb25maWcKRmVhdHVyZTogICAJRENCIFN0YXRlClBvcnQ6ICAgICAgCXAzcDIKU3RhdHVzOiAgICAJU3VjY2Vzc2Z1bApEQ0IgU3RhdGU6CW9uCgoKU2ltaWxhciBjb25maWd1cmF0aW9uIG9uIGFub3RoZXIgc3lzdGVtLgoKQnV0IGFzIHNvb24gYXMgSSBkbyAiaWZjb25maWcgcDNwMiB1cCBhbmQgY2hlY2sgZGNiCgojIGRjYnRvb2wgZ2MgcDNwMiBkY2IgCkNvbW1hbmQ6ICAgCUdldCBDb25maWcKRmVhdHVyZTogICAJRENCIFN0YXRlClBvcnQ6ICAgICAgCXAzcDIKU3RhdHVzOiAgICAJU3VjY2Vzc2Z1bApEQ0IgU3RhdGU6CW9mZgoKSW5pdGlhbGx5IHN1c3BlY3RpbmcgaXNzdWUgd2l0aCBsbGRwYWQgZGFlbW9uL2l4Z2JlIGRyaXZlci4gSSByZXBsYWNlZCB0aGVtCihkb3dubG9hZGVkIGZyb20gcmVwbykgd2l0aCBsYXRlc3QgcGFja2FnZXMuClNhbWUgYmVoYXZpb3VyIG9ic2VydmVkLgoKLSBUcmllZCBkaXNhYmxpbmcgb3RoZXIgZGNiIGZlYXR1cmVzIGxpa2UgZmNvZS4gU2FtZSBpc3N1ZS4KLSBEaXNhYmxlZCBzZWxpbnV4IGV0YwoKCkNhbiBhbnkgMSBoZWxwIG1lIHJlZ2FyZGluZyB0aGlzLgoKICAg
