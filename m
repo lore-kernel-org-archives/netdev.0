@@ -1,28 +1,23 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] cxgb4: update latest firmware version supported
-Date: Tue, 05 Jul 2016 12:13:40 -0700 (PDT)
-Message-ID: <20160705.121340.678770891497109772.davem@davemloft.net>
-References: <1467722244-8644-1-git-send-email-ganeshgr@chelsio.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH net-next 05/24] rxrpc: Provide more refcount helper functions
+Date: Tue, 05 Jul 2016 20:15:47 +0100
+Message-ID: <14510.1467746147@warthog.procyon.org.uk>
+References: <20160705.101636.1426176903162735420.davem@davemloft.net> <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk> <146772436726.21657.7089071379028604342.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, hariprasad@chelsio.com,
-	nirranjan@chelsio.com
-To: ganeshgr@chelsio.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:40714 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752015AbcGETNl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 15:13:41 -0400
-In-Reply-To: <1467722244-8644-1-git-send-email-ganeshgr@chelsio.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160705.101636.1426176903162735420.davem@davemloft.net>
+Content-ID: <14509.1467746147.1@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Ganesh Goudar <ganeshgr@chelsio.com>
-Date: Tue, 5 Jul 2016 18:07:24 +0530
+David Miller <davem@davemloft.net> wrote:
 
-> Change t4fw_version.h to update latest firmware version number
-> 
-> Signed-off-by: Ganesh Goudar <ganeshgr@chelsio.com>
+> I don't see anything in this patch dealing with refcount helper functions.
 
-Applied.
+Good point.  I split that part out and you took it already.  Will amend.
+
+David
