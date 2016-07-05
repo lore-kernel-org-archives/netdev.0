@@ -1,36 +1,89 @@
-From: "Help Desk " <munishgarg@ntpc.co.in>
-Subject: EMAIL UPDATE JULY
-Date: Tue, 05 Jul 2016 04:28:08 +0100
-Message-ID: <20160705032209.499AA192CB8@mail.hjmvi.gob.ec>
-Reply-To: steelcopdept@gmail.com
+From: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+Subject: Re: PROBLEM: MTU of ipsec tunnel drops continuously until traffic
+ stops
+Date: Tue, 5 Jul 2016 03:55:38 +0000
+Message-ID: <c22799c2751348b8b2e5caddc9d13ece@svr-chch-ex1.atlnz.lc>
+References: <1467598059395.19100@alliedtelesis.co.nz>
+ <1467604370799.64629@alliedtelesis.co.nz>
+ <20160704111202.GI12335@gauss.secunet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-To: netdev@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Herbert Xu <herbert@gondor.apana.org.au>
+To: Steffen Klassert <steffen.klassert@secunet.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.hjmvi.gob.ec ([181.112.159.38]:47132 "EHLO
-	mail.hjmvi.gob.ec" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751589AbcGEDnf convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 23:43:35 -0400
-Received: from localhost (localhost [127.0.0.1])
-	by mail.hjmvi.gob.ec (Postfix) with ESMTP id A23801980A1
-	for <netdev@vger.kernel.org>; Mon,  4 Jul 2016 22:30:40 -0500 (ECT)
-Received: from mail.hjmvi.gob.ec ([127.0.0.1])
-	by localhost (mail.hjmvi.gob.ec [127.0.0.1]) (amavisd-new, port 10032)
-	with ESMTP id u16Xy8l03JgW for <netdev@vger.kernel.org>;
-	Mon,  4 Jul 2016 22:30:40 -0500 (ECT)
-Received: from localhost (localhost [127.0.0.1])
-	by mail.hjmvi.gob.ec (Postfix) with ESMTP id 3867A195032
-	for <netdev@vger.kernel.org>; Mon,  4 Jul 2016 22:25:32 -0500 (ECT)
-Received: from mail.hjmvi.gob.ec ([127.0.0.1])
-	by localhost (mail.hjmvi.gob.ec [127.0.0.1]) (amavisd-new, port 10026)
-	with ESMTP id bveI1TrbtFvD for <netdev@vger.kernel.org>;
-	Mon,  4 Jul 2016 22:25:32 -0500 (ECT)
-Received: from [192.168.43.11] (unknown [105.112.22.162])
-	by mail.hjmvi.gob.ec (Postfix) with ESMTPSA id 499AA192CB8
-	for <netdev@vger.kernel.org>; Mon,  4 Jul 2016 22:22:08 -0500 (ECT)
-Content-Description: Mail message body
+Received: from gate2.alliedtelesis.co.nz ([202.36.163.20]:54642 "EHLO
+	gate2.alliedtelesis.co.nz" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753888AbcGEDzn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 23:55:43 -0400
+Received: from mmarshal3.atlnz.lc (mmarshal3.atlnz.lc [10.32.18.43])
+	(using TLSv1.2 with cipher ECDHE-RSA-AES256-GCM-SHA384 (256/256 bits))
+	(Client did not present a certificate)
+	by gate2.alliedtelesis.co.nz (Postfix) with ESMTPS id 234598604B
+	for <netdev@vger.kernel.org>; Tue,  5 Jul 2016 15:55:40 +1200 (NZST)
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Recently, we have detect some unusual activity on your account and as a result, all email users are urged to update their email account within 24 hours of receiving this e-mail, Please  click the link http://bit.ly/29ftCbA to  update requirement
+T24gMDcvMDQvMjAxNiAxMToxMiBQTSwgU3RlZmZlbiBLbGFzc2VydCB3cm90ZToKPiBPbiBNb24s
+IEp1bCAwNCwgMjAxNiBhdCAwMzo1Mjo1MEFNICswMDAwLCBNYXR0IEJlbm5ldHQgd3JvdGU6Cj4+
+ICpSZXNlbmRpbmcgYXMgcGxhaW4gdGV4dCBzbyB0aGUgbWFpbGluZyBsaXN0IGFjY2VwdHMgaXQu
+LiBTb3JyeSBTdGVmZmVuIGFuZCBIZXJiZXJ0Kgo+Pgo+PiDigItIaSwKPj4KPj4gRHVyaW5nIGxv
+bmcgcnVuIHRlc3Rpbmcgb2YgYW4gaXBzZWMgdHVubmVsIG92ZXIgYSBQUFAgbGluayBpdCB3YXMg
+Zm91bmQgdGhhdCBvY2Nhc2lvbmFsbHkgdHJhZmZpYyB3b3VsZCBzdG9wIGZsb3dpbmcgb3ZlciB0
+aGUgdHVubmVsLiBFdmVudHVhbGx5IHRoZSB0cmFmZmljIHdvdWxkIHN0YXJ0IGFnYWluLCBob3dl
+dmVyIHVzaW5nIHRoZSBjb21tYW5kICJpcCByb3V0ZSBmbHVzaCBjYWNoZSIgY2F1c2VzIHRyYWZm
+aWMgdG8gc3RhcnQgZmxvd2luZyAgYWdhaW4gaW1tZWRpYXRlbHkuCj4+Cj4+IE5vdGUsIEkgYW0g
+dXNpbmcgYSA0LjQuNiBiYXNlZCBrZXJuZWwsIGhvd2V2ZXIgSSBzZWUgbm8gbWFqb3IgZGlmZmVy
+ZW5jZXMgYmV0d2VlbiA0LjQuNiBhbmQgNC40LjE0IChjdXJyZW50IExUUykgaW4gYW55IG9mIHRo
+ZSBjb2RlIEkgYW0gZGVidWdnaW5nLiBJICBoYXZlIG1hbnVhbGx5IGRlYnVnZ2VkIHRoZSBjb2Rl
+IGFzIGZhciBhcyBJIGNhbiwgaG93ZXZlciBJIGRvbid0IGtub3cgdGhlIGNvZGUgd2VsbCBlbm91
+Z2ggdG8gbWFrZSBmdXJ0aGVyIHByb2dyZXNzLiBXaGF0IEkgaGF2ZSB1bmNvdmVyZWQgaXMgb3V0
+bGluZWQgYmVsb3c6Cj4+Cj4+IEJ5IHBpbmdpbmcgdGhlIG90aGVyIGVuZCBvZiB0aGUgdHVubmVs
+IHdoZW4gdGhlIHRyYWZmaWMgc3RvcHMgZmxvd2luZyBJIGdldCBtZXNzYWdlcyBsaWtlIHRoZSBm
+b2xsb3dpbmc6Cj4+Cj4+IDEwLUFSNDA1MCNwaW5nIDE3Mi4xNi4wLjUKPj4gUElORyAxNzIuMTYu
+MC41ICgxNzIuMTYuMC41KSA1Nig4NCkgYnl0ZXMgb2YgZGF0YS4KPj4gIEZyb20gMTcyLjE2LjAu
+NiBpY21wX3NlcT0xIEZyYWcgbmVlZGVkIGFuZCBERiBzZXQgKG10dSA9IDQ2KQo+PiAgRnJvbSAx
+NzIuMTYuMC42IGljbXBfc2VxPTIgRnJhZyBuZWVkZWQgYW5kIERGIHNldCAobXR1ID0gNDYpCj4+
+Cj4+IGJ1dCB0aGlzIGlzIHdlaXJkIGNvbnNpZGVyaW5nIChub3RlIHRoZSBtdHUgdmFsdWVzKToK
+Pj4KPj4gW3Jvb3RAMTAtQVI0MDUwIC9mbGFzaF0jIGlwIGxpbmsKPj4gMTY3NzgyNDA6IHBwcDA6
+IDxQT0lOVE9QT0lOVCxNVUxUSUNBU1QsTk9BUlAsVVAsTE9XRVJfVVA+IG10dSAxNDkyIHFkaXNj
+IGh0YiBzdGF0ZSBVUCBtb2RlIERFRkFVTFQgZ3JvdXAgZGVmYXVsdCBxbGVuIDMKPj4gICAgICBs
+aW5rL3BwcAo+PiAxNDogdHVubmVsNjRATk9ORTogPFBPSU5UT1BPSU5ULE1VTFRJQ0FTVCxVUCxM
+T1dFUl9VUD4gbXR1IDEyMDAgcWRpc2MgaHRiIHN0YXRlIFVOS05PV04gbW9kZSBERUZBVUxUIGdy
+b3VwIGRlZmF1bHQgcWxlbiAxCj4+ICAgICAgbGluay9pcGlwIDIwMy4wLjExMy4xMCBwZWVyIDIw
+My4wLjExMy41Cj4+Cj4+IFRoZSBjb2RlIHRoYXQgZ2VuZXJhdGVzIHRoZSBJQ01QX0ZSQUdfTkVF
+REVEIHBhY2tldCBpcyB2dGlfeG1pdCgpIChpcF92dGkuYykgd2hlcmUgdGhlcmUgaXMgYSBjaGVj
+ayBvZiBza2IgbGVuZ3RoIGFnYWluc3QgdGhlIG10dSBvZiBkc3QgZW50cnkuIFNpbmNlIHRoZSBt
+dHUgaXMgbG93ZXIgdGhhbiB0aGUgcGFja2V0IChkZWJ1ZyBzaG93cyB0aGUgbXR1IGlzIDQ2IGFz
+IGV4cGVjdGVkIGZyb20gdGhlIHBpbmcgb3V0cHV0KSB0aGUgSUNNUCAgZXJyb3IgaXMgZ2VuZXJh
+dGVkLgo+Cj4gU2VtbXMgbGlrZSB5b3UgdXNlIHZ0aSB0dW5uZWxzLiBJcyB0dW5uZWw2NEBOT05F
+IGEgdnRpIGRldmljZSwgYW5kCj4gaWYgc28gZGlkIHlvdSBzZXQgdGhlIG10dSB0byAxMjAwPwpZ
+ZXMgaXQgaXMgYSB2dGkgZGV2aWNlIHdpdGggbXR1IG1hbnVhbGx5IHNldCB0byAxMjAwLiBTaW1p
+bGFybHkgdGhlIApvdGhlciBlbmQgb2YgdGhlIHR1bm5lbCBpcyBhIHZ0aSB3aXRoIG10dSBtYW51
+YWxseSBzZXQgdG8gMTIwMC4gVGhlcmUgaXMgCnRyYWZmaWMgZmxvd2luZyBhY3Jvc3MgdGhlIHR1
+bm5lbCBvZiByYW5kb20gc2l6ZSBiZXR3ZWVuIDUxMiB0byAxNTAwIGJ5dGVzLgo+Cj4gTm90IHN1
+cmUgaWYgaXQgaXMgcmVsYXRlZCB0byB5b3VyIHByb2JsZW0sIGJ1dCB0aGVyZSB3YXMgYSByZWNl
+bnQKPiBmaXggZm9yIHZ0aSBwbXR1IGhhbmRsaW5nLiBJdCB3YXMgY29tbWl0IGQ2YWYxYTMxICgi
+dnRpOiBBZGQgcG10dQo+IGhhbmRsaW5nIHRvIHZ0aV94bWl0LiIpIERvIHlvdSBoYXZlIHRoaXMg
+b24geW91ciBicmFuY2g/ClllcywgdGhhdCBwcm9ibGVtIHdhcyByZXBvcnRlZCBmcm9tIGFub3Ro
+ZXIgb25lIG9mIG91ciB0ZXN0cy4gVGhhdCBwYXRjaCAKaXMgYXBwbGllZCB0byBvdXIgYnJhbmNo
+LiBJdCBpcyB0aGUgY29kZSBhZGRlZCBmcm9tIHRoYXQgcGF0Y2ggdGhhdCAKZXhwbGljaXRseSBz
+ZW5kcyB0aGUgSUNNUF9GUkFHX05FRURFRCBwYWNrZXQuIEJlZm9yZSB0aGlzIHBhdGNoIEkgCnBy
+ZXN1bWUgdGhlIHBhY2tldHMgd291bGQgaGF2ZSBzaW1wbHkgYmVlbiBzZW50IChldmVuIHRob3Vn
+aCB0aGUgY2FjaGVkIAptdHUgdmFsdWVzIHdlcmUgYnVnZ3kpLgo+Cj4+Cj4+IERpZ2dpbmcgZnVy
+dGhlciBJIGZpbmQgdGhhdCB3aGVuIHRoZSBpc3N1ZSBvY2N1cnMgdGhlIG10dSB2YWx1ZSBpcyBi
+ZWluZyB1cGRhdGVkIGluIHdoYXQgYXBwZWFycyB0byBiZSBhbiBlcnJvciBjYXNlIGluIHhmcm1f
+YnVuZGxlX29rICh4ZnJtX3BvbGljeS5jKS4gU3BlY2lmaWNhbGx5IHRoZSBibG9jayBvZiBjb2Rl
+Ogo+Pgo+PiBpZiAobGlrZWx5KCFsYXN0KSkKPj4gICAgICAgICAgcmV0dXJuIDE7Cj4+Cj4+IGlz
+IG5vdCBoaXQgbWVhbmluZyB0aGVyZSBpcyBhIGRpZmZlcmVuY2UgYmV0d2VlbiB0aGUgY2FjaGVk
+IG10dSB2YWx1ZSBhbmQgdGhlIHZhbHVlIGp1c3QgY2FsY3VsYXRlZC4gSSB0aGVuIHNlZSB0aGlz
+IGNvZGUgYmVpbmcgaGl0IGNvbnRpbnVvdXNseSBhbmQgZWFjaCB0aW1lIHRoZSBtdHUga2VlcHMg
+Z2V0dGluZyBsb3dlcmVkLiBpLmUuIChJIGRvbid0IGtub3cgaWYgdGhlIGRyb3AgYnkgODAgYnl0
+ZXMgaXMgc2lnbmlmaWNhbnQpCj4+Cj4+IDEyMDAKPj4gMTExOAo+PiAxMDM4Cj4+IDk1OAo+PiA4
+NzgKPj4gICAuLi4uCj4+IDQ2Cj4KPiBJIHJlbWVtYmVyIHRoYXQgd2UgaGFkIGEgc2ltaWxhciBw
+cm9ibGVtIHdpdGggSVBzZWMgd2hlbiBubwo+IHZ0aSB3YXMgdXNlZCBzb21lIHllYXJzIGFnby4u
+Lgo+Cj4gVW5mb3J0dW5hdGVseSwgdG9kYXkgaXMgbXkgbGFzdCBvZmZpY2UgZGF5IGJlZm9yZSBt
+eSB2YWNhdGlvbiwKPiBzbyBubyBmaXggZnJvbSBtZSBmb3IgdGhlIG5leHQgdHdvIHdlZWtzLgo+
+Cgo=
