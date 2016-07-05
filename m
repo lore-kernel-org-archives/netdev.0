@@ -1,141 +1,85 @@
-From: Joe Perches <joe@perches.com>
-Subject: Re: [PATCH v14 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Tue, 05 Jul 2016 01:21:54 -0700
-Message-ID: <1467706914.19760.16.camel@perches.com>
-References: <CY1PR03MB21865E21E637F03877784979BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: Re: [PATCH 00/11] pull request for net-next:
+	batman-adv 2016-07-04
+Date: Tue, 05 Jul 2016 11:02:05 +0200
+Message-ID: <2972702.D1HUdGKSgq@prime>
+References: <1467637379-6089-1-git-send-email-sw@simonwunderlich.de>
+ <20160704.233725.776967939409818077.davem@davemloft.net>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Haiyang Zhang <haiyangz@microsoft.com>,
-	Rolf Neugebauer <rolf.neugebauer@docker.com>
-To: Dexuan Cui <decui@microsoft.com>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
-	"olaf@aepfle.de" <olaf@aepfle.de>,
-	"apw@canonical.com" <apw@canonical.com>,
-	"jasowang@redhat.com" <jasowang@redhat.com>,
-	Vitaly Kuznetsov <vkuznets@redhat.com>,
-	Cathy Avery <cavery@redhat.com>,
-	KY Srinivasan <kys@microsoft.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <CY1PR03MB21865E21E637F03877784979BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; boundary="nextPart7092014.vjJ4HJfF6a";
+ micalg="pgp-sha512"; protocol="application/pgp-signature"
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <20160704.233725.776967939409818077.davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-06-30 at 15:58 +0000, Dexuan Cui wrote:
-> Hyper-V Sockets (hv_sock) supplies a byte-stream based communication
-> mechanism between the host and the guest. It's somewhat like TCP over
-> VMBus, but the transportation layer (VMBus) is much simpler than IP.
+--nextPart7092014.vjJ4HJfF6a
+Content-Transfer-Encoding: 7Bit
+Content-Type: text/plain; charset="us-ascii"
 
-trivia:
+Hi David,
 
-> diff --git a/include/net/af_hvsock.h b/include/net/af_hvsock.h
-[]
-> @@ -0,0 +1,59 @@
-[]
-> +#define sk_to_hvsock(__sk)=A0=A0=A0((struct hvsock_sock *)(__sk))
-> +#define hvsock_to_sk(__hvsk) ((struct sock *)(__hvsk))
+On Monday 04 July 2016 23:37:25 David Miller wrote:
+> From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+> Date: Mon,  4 Jul 2016 15:02:48 +0200
+> 
+> > this is our second and final feature pull request for batman-adv in this
+> > round.
+> > 
+> > Please pull or let me know of any problem!
+> 
+> Pulled, thanks.
+> 
+> I have no idea why you guys were using debugfs for anything that
+> actually matters like configuration. :-/  debugfs should only be
+> used for "debugging", such that if debugfs were not present the
+> full functionality of the facility would still be present.
 
-Might as well be static inlines
+as Sven pointed out, debugfs was not used for configuration (except for very 
+deep tune parameters which are really for debugging anyway). We use sysfs 
+(formerly) and now rtnl for configuration.
 
-> +/* We send at most 4KB payload per VMBus packet. */
-> +struct hvsock_send_buf {
-> +	struct vmpipe_proto_header hdr;
-> +	u8 buf[PAGE_SIZE];
+However, debugfs has quite some tables showing the current state of the mesh 
+(read only) which are obviously interesting for many users as well. Therefore 
+we want to change to a netlink based interface in the long run, similar to 
+what the wireless stack and iw are doing. This will also enable new features 
+like proper namespace support, which we are going to integrate soon.
 
-PAGE_SIZE might not be the right define here if
-the comment is to be believed.
+Cheers,
+     Simon
+--nextPart7092014.vjJ4HJfF6a
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part.
+Content-Transfer-Encoding: 7Bit
 
-> diff --git a/include/uapi/linux/hyperv.h b/include/uapi/linux/hyperv.=
-h
-[]
-> @@ -396,4 +397,27 @@ struct hv_kvp_ip_msg {
-> =A0	struct hv_kvp_ipaddr_value=A0=A0=A0=A0=A0=A0kvp_ip_val;
-> =A0} __attribute__((packed));
-> =A0
-> +/* This is the address fromat of Hyper-V Sockets.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
 
-format
+iQIcBAABCgAGBQJXe3eNAAoJEKEr45hCkp6hzusP/0d+UXtR3yeeJhcZIEOH5PwU
+4w+elWkCzzFGZ18xj8RAzkJ4LxfZi+OiPlr/6dZp+8ix6GZjqNKR435enGanXU0J
+MNOobBUk8DsYhUix/rmoYqxAu+N91OdCVFQH4m+TQYBY4F6nQ840eTrTue/kGT4l
+DpXJlIvzASKL2EMrx4SC1hpTDTUJIo5NWpajKa/M8v5sd37ofTOyxhWy0sEIc5fb
+IW1YVeZRu7aG2QZS+nbGwJtr3duPxmYSDEo2OPSCSRJzYKr7xeau9VRCJ6yMj9IQ
+KXANN9KrXZr1A3gzO7jx27sKAUZgyy39FP8IPjV9293dqaxdVyZu4L7vsy+8+13i
+wTGSAzOrHD3Z+un273v+SOoWPV2eBKTQbep2F1Qm3okj5h7cvsJFwMlDxG7iE5Dd
+6CDJ7zIYNBLAeCGY2oLevpZvMtCFppc0NP8X9zQfDUzXM66eGIHRoGcfSlxp8ssl
+zTK4lxN5TVvBrFcJW/06t0H1/B1FGC8BMeNx1WFw34XFiFvqSQMq8P9grdtNdBho
+84eQ+0OG3Jf5zhu/mXt1+PeJgh2h37Jo7HLbSZm3tMzTYxSupNRyE4ijgB1sjjsn
+Z7AGGhB94wA7XTIjK8Cp30fMjPUvG+WWHOND0+lzQzd18CwFHJJ4VKH1Yh3XScNr
+UTWXUs9keT6D5INZzKns
+=ktub
+-----END PGP SIGNATURE-----
 
-> diff --git a/net/hv_sock/af_hvsock.c b/net/hv_sock/af_hvsock.c
-[]
-> @@ -0,0 +1,1519 @@
-> +/*
-> + * Hyper-V Sockets -- a socket-based communication channel between t=
-he
-> + * Hyper-V host and the virtual machines running on it.
-> + *
-> + * Copyright(c) 2016, Microsoft Corporation. All rights reserved.
-> + *
-> + * Redistribution and use in source and binary forms, with or withou=
-t
-> + * modification, are permitted provided that the following condition=
-s
-> + * are met:
-> + *
-> + * 1. Redistributions of source code must retain the above copyright
-> + *=A0=A0=A0=A0notice, this list of conditions and the following disc=
-laimer.
-> + * 2. Redistributions in binary form must reproduce the above copyri=
-ght
-> + *=A0=A0=A0=A0notice, this list of conditions and the following disc=
-laimer in the
-> + *=A0=A0=A0=A0documentation and/or other materials provided with the=
- distribution.
-> + * 3. The name of the author may not be used to endorse or promote
-> + *=A0=A0=A0=A0products derived from this software without specific p=
-rior written
-> + *=A0=A0=A0=A0permission.
-> + * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS=
- OR
-> + * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
-> + * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOS=
-E
-> + * ARE DISCLAIMED. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DI=
-RECT,
-> + * INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGE=
-S
-> + * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS O=
-R
-> + * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION=
-)
-> + * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRAC=
-T,
-> + * STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARI=
-SING
-> + * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF TH=
-E
-> + * POSSIBILITY OF SUCH DAMAGE.
-> + */
-
-Is this license GPL compatible?
-
-> +#define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
-> +
-> +#include=20
-> +#include=20
-> +#include=20
-> +#include=20
-> +
-> +static struct proto hvsock_proto =3D {
-> +	.name =3D "HV_SOCK",
-> +	.owner =3D THIS_MODULE,
-> +	.obj_size =3D sizeof(struct hvsock_sock),
-> +};
-=09
-const?
-
-> +static int hvsock_recvmsg_wait(struct sock *sk, struct msghdr *msg,
-> +			=A0=A0=A0=A0=A0=A0=A0size_t len, int flags)
-> +{
-[]
-> +				if (ret !=3D 0 || payload_len >
-> +						sizeof(hvsk->recv->buf)) {
-
-This could look nicer as
-
-				if (ret !=3D 0 ||
-				=A0 =A0 payload_len > sizeof(hvsk->recv->buf)) {
+--nextPart7092014.vjJ4HJfF6a--
