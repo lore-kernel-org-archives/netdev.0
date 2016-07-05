@@ -1,40 +1,87 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH] mwifiex: fix unconditional error return in .add_virtual_intf callback
-Date: Tue, 05 Jul 2016 16:09:26 +0300
-Message-ID: <87twg42pvd.fsf@kamboji.qca.qualcomm.com>
-References: <1467401982-18943-1-git-send-email-javier@osg.samsung.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 08/24] rxrpc: Check that the client conns cache is
+ empty before module removal
+Date: Tue, 05 Jul 2016 14:13:08 +0100
+Message-ID: <146772438847.21657.6657176940182316398.stgit@warthog.procyon.org.uk>
+References: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Amitkumar Karwar <akarwar@marvell.com>, netdev@vger.kernel.org,
-	linux-wireless@vger.kernel.org,
-	Nishant Sarmukadam <nishants@marvell.com>
-To: Javier Martinez Canillas <javier@osg.samsung.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467401982-18943-1-git-send-email-javier@osg.samsung.com>
-	(Javier Martinez Canillas's message of "Fri, 1 Jul 2016 15:39:42
-	-0400")
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:42030 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755087AbcGENNK (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jul 2016 09:13:10 -0400
+In-Reply-To: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Javier Martinez Canillas <javier@osg.samsung.com> writes:
+Check that the client conns cache is empty before module removal and bug if
+not, listing any offending connections that are still present.  Unfortunately,
+if there are connections still around, then the transport socket is still
+unexpectedly open and active, so we can't just unallocate the connections.
 
-> The commit 7311ea850079 ("mwifiex: fix AP start problem for newly added
-> interface") attempted to fix an issue when a new AP interface is added.
->
-> But the patch didn't check the return value of the functions doing the
-> firmware calls and returned an error even if the functions didn't fail.
->
-> This prevents the network device to be registered properly, so fix it.
->
-> Fixes: commit 7311ea850079 ("mwifiex: fix AP start problem for newly added interface")
-> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-The fixes line should be:
+ net/rxrpc/af_rxrpc.c    |    3 +--
+ net/rxrpc/ar-internal.h |    1 +
+ net/rxrpc/conn_client.c |   19 +++++++++++++++++++
+ 3 files changed, 21 insertions(+), 2 deletions(-)
 
-Fixes: 7311ea850079 ("mwifiex: fix AP start problem for newly added interface")
-
-I can fix that before I apply the patch.
-
--- 
-Kalle Valo
+diff --git a/net/rxrpc/af_rxrpc.c b/net/rxrpc/af_rxrpc.c
+index 5d3e795a7c48..d5073eb02498 100644
+--- a/net/rxrpc/af_rxrpc.c
++++ b/net/rxrpc/af_rxrpc.c
+@@ -807,8 +807,7 @@ static void __exit af_rxrpc_exit(void)
+ 	_debug("synchronise RCU");
+ 	rcu_barrier();
+ 	_debug("destroy locals");
+-	ASSERT(idr_is_empty(&rxrpc_client_conn_ids));
+-	idr_destroy(&rxrpc_client_conn_ids);
++	rxrpc_destroy_client_conn_ids();
+ 	rxrpc_destroy_all_locals();
+ 
+ 	remove_proc_entry("rxrpc_conns", init_net.proc_net);
+diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
+index 6f62b0eef0e0..2a8710dac3c5 100644
+--- a/net/rxrpc/ar-internal.h
++++ b/net/rxrpc/ar-internal.h
+@@ -542,6 +542,7 @@ extern struct idr rxrpc_client_conn_ids;
+ 
+ int rxrpc_get_client_connection_id(struct rxrpc_connection *, gfp_t);
+ void rxrpc_put_client_connection_id(struct rxrpc_connection *);
++void rxrpc_destroy_client_conn_ids(void);
+ 
+ /*
+  * conn_event.c
+diff --git a/net/rxrpc/conn_client.c b/net/rxrpc/conn_client.c
+index 82488d6adb83..be437d5e90ce 100644
+--- a/net/rxrpc/conn_client.c
++++ b/net/rxrpc/conn_client.c
+@@ -92,3 +92,22 @@ void rxrpc_put_client_connection_id(struct rxrpc_connection *conn)
+ 		spin_unlock(&rxrpc_conn_id_lock);
+ 	}
+ }
++
++/*
++ * Destroy the client connection ID tree.
++ */
++void rxrpc_destroy_client_conn_ids(void)
++{
++	struct rxrpc_connection *conn;
++	int id;
++
++	if (!idr_is_empty(&rxrpc_client_conn_ids)) {
++		idr_for_each_entry(&rxrpc_client_conn_ids, conn, id) {
++			pr_err("AF_RXRPC: Leaked client conn %p {%d}\n",
++			       conn, atomic_read(&conn->usage));
++		}
++		BUG();
++	}
++
++	idr_destroy(&rxrpc_client_conn_ids);
++}
