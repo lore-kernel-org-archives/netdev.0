@@ -1,36 +1,23 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] connector: make cn_proc explicitly non-modular
-Date: Tue, 05 Jul 2016 11:41:23 -0700 (PDT)
-Message-ID: <20160705.114123.113903664958645436.davem@davemloft.net>
-References: <20160704215058.13593-1-paul.gortmaker@windriver.com>
+From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
+Subject: Re: [RESEND/BUG PATCH v3] net: smsc911x: Fix bug where PHY interrupts
+ are overwritten by 0
+Date: Tue, 5 Jul 2016 21:45:18 +0300
+Message-ID: <f4884458-0407-5968-eb79-e612a52bc5a9@cogentembedded.com>
+References: <1467732769-12471-1-git-send-email-jeremy.linton@arm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, zbr@ioremap.net,
-	netdev@vger.kernel.org
-To: paul.gortmaker@windriver.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160704215058.13593-1-paul.gortmaker@windriver.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: davem@davemloft.net, steve.glendinning@shawell.net, andrew@lunn.ch
+To: Jeremy Linton <jeremy.linton@arm.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f48.google.com ([209.85.215.48]:35049 "EHLO
+	mail-lf0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750994AbcGESpW (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 14:45:22 -0400
+Received: by mail-lf0-f48.google.com with SMTP id l188so140504697lfe.2
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 11:45:22 -0700 (PDT)
+In-Reply-To: <1467732769-12471-1-git-send-email-jeremy.linton@arm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Paul Gortmaker <paul.gortmaker@windriver.com>
-Date: Mon, 4 Jul 2016 17:50:58 -0400
-
-> The Kconfig controlling build of this code is currently:
-> 
-> drivers/connector/Kconfig:config PROC_EVENTS
-> drivers/connector/Kconfig:      bool "Report process events to userspace"
-> 
-> ...meaning that it currently is not being built as a module by anyone.
-> Lets remove the two modular references, so that when reading the driver
-> there is no doubt it is builtin-only.
-> 
-> Since module_init translates to device_initcall in the non-modular
-> case, the init ordering remains unchanged with this commit.
-> 
-> Cc: Evgeniy Polyakov <zbr@ioremap.net>
-> Cc: netdev@vger.kernel.org
-> Signed-off-by: Paul Gortmaker <paul.gortmaker@windriver.com>
-
-Applied, thanks.
+The patch has been merged to 4.7-rc6, why resend it?
