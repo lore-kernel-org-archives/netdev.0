@@ -1,58 +1,52 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCHv2 2/2] ipnetns: Make netns mount points private
-Date: Tue,  5 Jul 2016 16:51:20 +0200
-Message-ID: <1467730280-17493-3-git-send-email-phil@nwl.cc>
-References: <1467730280-17493-1-git-send-email-phil@nwl.cc>
-Cc: "Eric W . Biederman" <ebiederm@xmission.com>,
-	netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [iproute PATCH 0/2] Netns performance improvements
+Date: Tue, 05 Jul 2016 09:44:00 -0500
+Message-ID: <87twg4ywjz.fsf@x220.int.ebiederm.org>
+References: <1467729773-16751-1-git-send-email-phil@nwl.cc>
+Mime-Version: 1.0
+Content-Type: text/plain
+Cc: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org
+To: Phil Sutter <phil@nwl.cc>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:41522 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933169AbcGEOvp (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jul 2016 10:51:45 -0400
-In-Reply-To: <1467730280-17493-1-git-send-email-phil@nwl.cc>
+Received: from out01.mta.xmission.com ([166.70.13.231]:56275 "EHLO
+	out01.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932923AbcGEO5A (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 10:57:00 -0400
+In-Reply-To: <1467729773-16751-1-git-send-email-phil@nwl.cc> (Phil Sutter's
+	message of "Tue, 5 Jul 2016 16:42:51 +0200")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On systems with a shared /proc mount point, the netns mounts inherit
-that propagation group and therefore cause unnecessary overhead upon
-netns deletion.
+Phil Sutter <phil@nwl.cc> writes:
 
-In order to achieve this, the MS_REC flag when making NETNS_RUN_DIR
-shared has to be removed as well or otherwise it will make existing
-netns mount points shared again.
+> Stress-testing OpenStack Neutron revealed poor performance of 'ip netns'
+> when dealing with a high amount of namespaces. The cause of this lies in
+> the combination of how iproute2 mounts NETNS_RUN_DIR and the netns files
+> therein and the fact that systemd makes all mount points of the system
+> shared.
 
-Suggested-by: Miklos Szeredi <mszeredi@redhat.com>
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
- ip/ipnetns.c | 7 ++++++-
- 1 file changed, 6 insertions(+), 1 deletion(-)
+So please tell me.  Given that it was clearly a deliberate choice in the
+code to make these directories shared, and that this is not a result
+of a systemd making all directories shared by default.  Why is it
+better to these directories non-shared?
 
-diff --git a/ip/ipnetns.c b/ip/ipnetns.c
-index 1cefe73c68bfc..acaedd5894e6c 100644
---- a/ip/ipnetns.c
-+++ b/ip/ipnetns.c
-@@ -636,7 +636,7 @@ static int netns_add(int argc, char **argv)
- 	 * file in all namespaces allowing the network namespace to be freed
- 	 * sooner.
- 	 */
--	while (mount("", NETNS_RUN_DIR, "none", MS_SHARED | MS_REC, NULL)) {
-+	while (mount("", NETNS_RUN_DIR, "none", MS_SHARED, NULL)) {
- 		/* Fail unless we need to make the mount point */
- 		if (errno != EINVAL || made_netns_run_dir_mount) {
- 			fprintf(stderr, "mount --make-shared %s failed: %s\n",
-@@ -678,6 +678,11 @@ static int netns_add(int argc, char **argv)
- 			netns_path, strerror(errno));
- 		goto out_delete;
- 	}
-+	if (mount("", netns_path, "none", MS_PRIVATE, NULL)) {
-+		fprintf(stderr, "mount --make-private %s failed: %s\n",
-+			netns_path, strerror(errno));
-+		return -1;
-+	}
- 	return 0;
- out_delete:
- 	netns_delete(argc, argv);
--- 
-2.8.2
+This may be the appropriate change but saying you stress testing things
+and have a problem but do not describe how large a scale you had a
+problem, or anything else to make your problem reproducible by anyone
+else makes it difficult to consider the merits of this change.
+
+Sometimes things are a good default policy but have imperfect scaling on
+extreme workloads.
+
+My experience with the current situtation with ip netns is that it
+prevents a whole lot of confusion by making the network namespace names
+visible whichever mount namespace your processes are running in.
+
+> Phil Sutter (2):
+>   ipnetns: Move NETNS_RUN_DIR into it's own propagation group
+>   ipnetns: Make netns mount points private
+>
+>  ip/ipnetns.c | 12 +++++++++++-
+>  1 file changed, 11 insertions(+), 1 deletion(-)
+
+Eric
