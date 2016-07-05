@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 09/16] mlxsw: Add KVD sizes configuration into profile
-Date: Tue,  5 Jul 2016 11:27:45 +0200
-Message-ID: <1467710872-20056-10-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 15/16] mlxsw: spectrum_router: Add the nexthop neigh activity update
+Date: Tue,  5 Jul 2016 11:27:51 +0200
+Message-ID: <1467710872-20056-16-git-send-email-jiri@resnulli.us>
 References: <1467710872-20056-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,140 +10,170 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33507 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753304AbcGEJ2G (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 05:28:06 -0400
-Received: by mail-wm0-f68.google.com with SMTP id r201so27229904wme.0
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 02:28:05 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:35531 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753656AbcGEJ2N (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 05:28:13 -0400
+Received: by mail-wm0-f66.google.com with SMTP id a66so27233632wme.2
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 02:28:13 -0700 (PDT)
 In-Reply-To: <1467710872-20056-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+From: Yotam Gigi <yotamg@mellanox.com>
 
-Up until now we only used hash-based tables in the device, but we are
-going to use the linear table for remote routes adjacency lists.
+For nexthop neighbours we need to make kernel to think there is a traffic
+flowing to them preventing it from going to stale state. Otherwise
+kernel would stale it and eventually the neigh would be removed from HW
+and nexthop as well. That would reduce ECMP group in HW.
 
-Add the configuration fields that control the size of the linear table.
-
+Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
+Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Reviewed-by: Ido Schimmel <idosch@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlxsw/cmd.h  | 43 ++++++++++++++++++++++++++++++
- drivers/net/ethernet/mellanox/mlxsw/core.h |  6 ++++-
- drivers/net/ethernet/mellanox/mlxsw/pci.c  | 14 ++++++++++
- 3 files changed, 62 insertions(+), 1 deletion(-)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  1 +
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 75 +++++++++++++++++-----
+ 2 files changed, 61 insertions(+), 15 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/cmd.h b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
-index cd63b82..f9cd6e3 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/cmd.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/cmd.h
-@@ -607,6 +607,24 @@ MLXSW_ITEM32(cmd_mbox, config_profile,
-  */
- MLXSW_ITEM32(cmd_mbox, config_profile, set_ar_sec, 0x0C, 15, 1);
- 
-+/* cmd_mbox_config_set_kvd_linear_size
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_kvd_linear_size, 0x0C, 24, 1);
-+
-+/* cmd_mbox_config_set_kvd_hash_single_size
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_kvd_hash_single_size, 0x0C, 25, 1);
-+
-+/* cmd_mbox_config_set_kvd_hash_double_size
-+ * Capability bit. Setting a bit to 1 configures the profile
-+ * according to the mailbox contents.
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, set_kvd_hash_double_size, 0x0C, 26, 1);
-+
- /* cmd_mbox_config_profile_max_vepa_channels
-  * Maximum number of VEPA channels per port (0 through 16)
-  * 0 - multi-channel VEPA is disabled
-@@ -733,6 +751,31 @@ MLXSW_ITEM32(cmd_mbox, config_profile, adaptive_routing_group_cap, 0x4C, 0, 16);
-  */
- MLXSW_ITEM32(cmd_mbox, config_profile, arn, 0x50, 31, 1);
- 
-+/* cmd_mbox_config_kvd_linear_size
-+ * KVD Linear Size
-+ * Valid for Spectrum only
-+ * Allowed values are 128*N where N=0 or higher
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, kvd_linear_size, 0x54, 0, 24);
-+
-+/* cmd_mbox_config_kvd_hash_single_size
-+ * KVD Hash single-entries size
-+ * Valid for Spectrum only
-+ * Allowed values are 128*N where N=0 or higher
-+ * Must be greater or equal to cap_min_kvd_hash_single_size
-+ * Must be smaller or equal to cap_kvd_size - kvd_linear_size
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, kvd_hash_single_size, 0x58, 0, 24);
-+
-+/* cmd_mbox_config_kvd_hash_double_size
-+ * KVD Hash double-entries size (units of single-size entries)
-+ * Valid for Spectrum only
-+ * Allowed values are 128*N where N=0 or higher
-+ * Must be either 0 or greater or equal to cap_min_kvd_hash_double_size
-+ * Must be smaller or equal to cap_kvd_size - kvd_linear_size
-+ */
-+MLXSW_ITEM32(cmd_mbox, config_profile, kvd_hash_double_size, 0x5C, 0, 24);
-+
- /* cmd_mbox_config_profile_swid_config_mask
-  * Modify Switch Partition Configuration mask. When set, the configu-
-  * ration value for the Switch Partition are taken from the mailbox.
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.h b/drivers/net/ethernet/mellanox/mlxsw/core.h
-index 436bc49..2fe385c 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/core.h
-+++ b/drivers/net/ethernet/mellanox/mlxsw/core.h
-@@ -190,7 +190,8 @@ struct mlxsw_config_profile {
- 		used_max_ib_mc:1,
- 		used_max_pkey:1,
- 		used_ar_sec:1,
--		used_adaptive_routing_group_cap:1;
-+		used_adaptive_routing_group_cap:1,
-+		used_kvd_sizes:1;
- 	u8	max_vepa_channels;
- 	u16	max_lag;
- 	u16	max_port_per_lag;
-@@ -211,6 +212,9 @@ struct mlxsw_config_profile {
- 	u8	ar_sec;
- 	u16	adaptive_routing_group_cap;
- 	u8	arn;
-+	u32	kvd_linear_size;
-+	u32	kvd_hash_single_size;
-+	u32	kvd_hash_double_size;
- 	struct mlxsw_swid_config swid_config[MLXSW_CONFIG_PROFILE_SWID_COUNT];
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index 0fe6051..ff5b859 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -223,6 +223,7 @@ struct mlxsw_sp_router {
+ 		unsigned long interval;	/* ms */
+ 	} neighs_update;
+ 	struct list_head nexthop_group_list;
++	struct list_head nexthop_neighs_list;
  };
  
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/pci.c b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-index 7f4173c..ddbc9f2 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/pci.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/pci.c
-@@ -1255,6 +1255,20 @@ static int mlxsw_pci_config_profile(struct mlxsw_pci *mlxsw_pci, char *mbox,
- 		mlxsw_cmd_mbox_config_profile_adaptive_routing_group_cap_set(
- 			mbox, profile->adaptive_routing_group_cap);
- 	}
-+	if (profile->used_kvd_sizes) {
-+		mlxsw_cmd_mbox_config_profile_set_kvd_linear_size_set(
-+			mbox, 1);
-+		mlxsw_cmd_mbox_config_profile_kvd_linear_size_set(
-+			mbox, profile->kvd_linear_size);
-+		mlxsw_cmd_mbox_config_profile_set_kvd_hash_single_size_set(
-+			mbox, 1);
-+		mlxsw_cmd_mbox_config_profile_kvd_hash_single_size_set(
-+			mbox, profile->kvd_hash_single_size);
-+		mlxsw_cmd_mbox_config_profile_set_kvd_hash_double_size_set(
-+			mbox, 1);
-+		mlxsw_cmd_mbox_config_profile_kvd_hash_double_size_set(
-+			mbox, profile->kvd_hash_double_size);
-+	}
+ struct mlxsw_sp {
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+index dc13178..2b20279 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
+@@ -570,6 +570,7 @@ struct mlxsw_sp_neigh_entry {
+ 	struct list_head nexthop_list; /* list of nexthops using
+ 					* this neigh entry
+ 					*/
++	struct list_head nexthop_neighs_list_node;
+ };
  
- 	for (i = 0; i < MLXSW_CONFIG_PROFILE_SWID_COUNT; i++)
- 		mlxsw_pci_config_profile_swid_config(mlxsw_pci, mbox, i,
+ static const struct rhashtable_params mlxsw_sp_neigh_ht_params = {
+@@ -770,28 +771,15 @@ static void mlxsw_sp_router_neigh_rec_process(struct mlxsw_sp *mlxsw_sp,
+ 	}
+ }
+ 
+-static void
+-mlxsw_sp_router_neighs_update_work_schedule(struct mlxsw_sp *mlxsw_sp)
++static int mlxsw_sp_router_neighs_update_rauhtd(struct mlxsw_sp *mlxsw_sp)
+ {
+-	unsigned long interval = mlxsw_sp->router.neighs_update.interval;
+-
+-	mlxsw_core_schedule_dw(&mlxsw_sp->router.neighs_update.dw,
+-			       msecs_to_jiffies(interval));
+-}
+-
+-static void mlxsw_sp_router_neighs_update_work(struct work_struct *work)
+-{
+-	struct mlxsw_sp *mlxsw_sp;
+ 	char *rauhtd_pl;
+ 	u8 num_rec;
+ 	int i, err;
+ 
+ 	rauhtd_pl = kmalloc(MLXSW_REG_RAUHTD_LEN, GFP_KERNEL);
+ 	if (!rauhtd_pl)
+-		return;
+-
+-	mlxsw_sp = container_of(work, struct mlxsw_sp,
+-				router.neighs_update.dw.work);
++		return -ENOMEM;
+ 
+ 	/* Make sure the neighbour's netdev isn't removed in the
+ 	 * process.
+@@ -813,6 +801,47 @@ static void mlxsw_sp_router_neighs_update_work(struct work_struct *work)
+ 	rtnl_unlock();
+ 
+ 	kfree(rauhtd_pl);
++	return err;
++}
++
++static void mlxsw_sp_router_neighs_update_nh(struct mlxsw_sp *mlxsw_sp)
++{
++	struct mlxsw_sp_neigh_entry *neigh_entry;
++
++	/* Take RTNL mutex here to prevent lists from changes */
++	rtnl_lock();
++	list_for_each_entry(neigh_entry, &mlxsw_sp->router.nexthop_neighs_list,
++			    nexthop_neighs_list_node) {
++		/* If this neigh have nexthops, make the kernel think this neigh
++		 * is active regardless of the traffic.
++		 */
++		if (!list_empty(&neigh_entry->nexthop_list))
++			neigh_event_send(neigh_entry->n, NULL);
++	}
++	rtnl_unlock();
++}
++
++static void
++mlxsw_sp_router_neighs_update_work_schedule(struct mlxsw_sp *mlxsw_sp)
++{
++	unsigned long interval = mlxsw_sp->router.neighs_update.interval;
++
++	mlxsw_core_schedule_dw(&mlxsw_sp->router.neighs_update.dw,
++			       msecs_to_jiffies(interval));
++}
++
++static void mlxsw_sp_router_neighs_update_work(struct work_struct *work)
++{
++	struct mlxsw_sp *mlxsw_sp = container_of(work, struct mlxsw_sp,
++						 router.neighs_update.dw.work);
++	int err;
++
++	err = mlxsw_sp_router_neighs_update_rauhtd(mlxsw_sp);
++	if (err)
++		dev_err(mlxsw_sp->bus_info->dev, "Could not update kernel for neigh activity");
++
++	mlxsw_sp_router_neighs_update_nh(mlxsw_sp);
++
+ 	mlxsw_sp_router_neighs_update_work_schedule(mlxsw_sp);
+ }
+ 
+@@ -1277,6 +1306,14 @@ static int mlxsw_sp_nexthop_init(struct mlxsw_sp *mlxsw_sp,
+ 		n = neigh_entry->n;
+ 		neigh_clone(n);
+ 	}
++
++	/* If that is the first nexthop connected to that neigh, add to
++	 * nexthop_neighs_list
++	 */
++	if (list_empty(&neigh_entry->nexthop_list))
++		list_add_tail(&neigh_entry->nexthop_neighs_list_node,
++			      &mlxsw_sp->router.nexthop_neighs_list);
++
+ 	nh->nh_grp = nh_grp;
+ 	nh->neigh_entry = neigh_entry;
+ 	list_add_tail(&nh->neigh_list_node, &neigh_entry->nexthop_list);
+@@ -1294,6 +1331,13 @@ static void mlxsw_sp_nexthop_fini(struct mlxsw_sp *mlxsw_sp,
+ 	struct mlxsw_sp_neigh_entry *neigh_entry = nh->neigh_entry;
+ 
+ 	list_del(&nh->neigh_list_node);
++
++	/* If that is the last nexthop connected to that neigh, remove from
++	 * nexthop_neighs_list
++	 */
++	if (list_empty(&nh->neigh_entry->nexthop_list))
++		list_del(&nh->neigh_entry->nexthop_neighs_list_node);
++
+ 	neigh_release(neigh_entry->n);
+ }
+ 
+@@ -1442,6 +1486,7 @@ int mlxsw_sp_router_init(struct mlxsw_sp *mlxsw_sp)
+ {
+ 	int err;
+ 
++	INIT_LIST_HEAD(&mlxsw_sp->router.nexthop_neighs_list);
+ 	INIT_LIST_HEAD(&mlxsw_sp->router.nexthop_group_list);
+ 	err = __mlxsw_sp_router_init(mlxsw_sp);
+ 	if (err)
 -- 
 2.5.5
