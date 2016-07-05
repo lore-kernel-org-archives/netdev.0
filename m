@@ -1,54 +1,47 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net] bonding: fix enslavement slave link notifications
-Date: Tue,  5 Jul 2016 12:09:47 +0300
-Message-ID: <1467709787-30993-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Aviv Heller <avivh@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
+From: Or Gerlitz <ogerlitz@mellanox.com>
+Subject: [PATCH] net/mlx5: Avoid setting unused var when modifying vport node GUID
+Date: Tue,  5 Jul 2016 12:17:12 +0300
+Message-ID: <1467710232-31192-1-git-send-email-ogerlitz@mellanox.com>
+Cc: netdev@vger.kernel.org, Noa Osherovich <noaos@mellanox.com>,
+	Saeed Mahameed <saeedm@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:53992 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:54398 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751248AbcGEJPZ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jul 2016 05:15:25 -0400
+	id S1751248AbcGEJRm (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jul 2016 05:17:42 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Aviv Heller <avivh@mellanox.com>
+GCC complains on unused-but-set-variable, clean this up.
 
-Currently, link notifications are not sent by
-bond_set_slave_link_state() upon enslavement if
-the slave is enslaved when up.
-
-This happens because slave->link default init value
-is 0, which is the same as BOND_LINK_UP, resulting
-in bond_set_slave_link_state() ignoring this transition.
-
-This patch sets the default value of slave->link to
-BOND_LINK_NOCHANGE, assuring it will count as a state
-transition and thus trigger notification logic.
-
-Signed-off-by: Aviv Heller <avivh@mellanox.com>
-Reviewed-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
+Fixes: 23898c763f4a ('net/mlx5: E-Switch, Modify node guid on vf set MAC')
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 ---
- drivers/net/bonding/bond_main.c | 1 +
- 1 file changed, 1 insertion(+)
+ drivers/net/ethernet/mellanox/mlx5/core/vport.c | 3 ---
+ 1 file changed, 3 deletions(-)
 
-diff --git a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
-index 941ec99..a2afa3b 100644
---- a/drivers/net/bonding/bond_main.c
-+++ b/drivers/net/bonding/bond_main.c
-@@ -1584,6 +1584,7 @@ int bond_enslave(struct net_device *bond_dev, struct net_device *slave_dev)
- 	}
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/vport.c b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+index daf44cd..91846df 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/vport.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/vport.c
+@@ -513,7 +513,6 @@ int mlx5_modify_nic_vport_node_guid(struct mlx5_core_dev *mdev,
+ {
+ 	int inlen = MLX5_ST_SZ_BYTES(modify_nic_vport_context_in);
+ 	void *nic_vport_context;
+-	u8 *guid;
+ 	void *in;
+ 	int err;
  
- 	/* check for initial state */
-+	new_slave->link = BOND_LINK_NOCHANGE;
- 	if (bond->params.miimon) {
- 		if (bond_check_dev_link(bond, slave_dev, 0) == BMSR_LSTATUS) {
- 			if (bond->params.updelay) {
+@@ -535,8 +534,6 @@ int mlx5_modify_nic_vport_node_guid(struct mlx5_core_dev *mdev,
+ 
+ 	nic_vport_context = MLX5_ADDR_OF(modify_nic_vport_context_in,
+ 					 in, nic_vport_context);
+-	guid = MLX5_ADDR_OF(nic_vport_context, nic_vport_context,
+-			    node_guid);
+ 	MLX5_SET64(nic_vport_context, nic_vport_context, node_guid, node_guid);
+ 
+ 	err = mlx5_modify_nic_vport_context(mdev, in, inlen);
 -- 
-2.8.0
+2.3.7
