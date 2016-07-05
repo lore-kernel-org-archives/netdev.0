@@ -1,63 +1,48 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: ethtool needs a new maintainer
-Date: Tue, 5 Jul 2016 11:58:26 -0400
-Message-ID: <20160705155825.GB2769@tuxdriver.com>
-References: <1466956772.2551.6.camel@decadent.org.uk>
- <1466957501.2551.17.camel@decadent.org.uk>
- <20160627135146.GB6864@tuxdriver.com>
- <1467652728.12588.42.camel@decadent.org.uk>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [patch net-next 00/16] mlxsw: Implement IPV4 unicast routing
+Date: Tue, 05 Jul 2016 09:10:43 -0700 (PDT)
+Message-ID: <20160705.091043.970062018694402093.davem@davemloft.net>
+References: <1467710872-20056-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev <netdev@vger.kernel.org>
-To: Ben Hutchings <ben@decadent.org.uk>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, yotamg@mellanox.com,
+	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+	sfeldma@gmail.com, roopa@cumulusnetworks.com, andy@greyhouse.net,
+	dsa@cumulusnetworks.com, tgraf@suug.ch, jhs@mojatatu.com,
+	linville@tuxdriver.com, ivecera@redhat.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from charlotte.tuxdriver.com ([70.61.120.58]:50362 "EHLO
-	smtp.tuxdriver.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752345AbcGEQAV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 12:00:21 -0400
-Content-Disposition: inline
-In-Reply-To: <1467652728.12588.42.camel@decadent.org.uk>
+Received: from shards.monkeyblade.net ([184.105.139.130]:37636 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752611AbcGEQKr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 12:10:47 -0400
+In-Reply-To: <1467710872-20056-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 04, 2016 at 07:18:48PM +0200, Ben Hutchings wrote:
-> On Mon, 2016-06-27 at 09:51 -0400, John W. Linville wrote:
-> > On Sun, Jun 26, 2016 at 06:11:41PM +0200, Ben Hutchings wrote:
-> > > I've become steadily less enthusiastic and less responsive as a
-> > > maintainer over the past year or so. =A0I no longer work on netwo=
-rking
-> > > regularly, so it takes a lot more time to get into the right stat=
-e of
-> > > mind to think about ethtool code, while I have other demands on m=
-y time
-> > > that tend to take priority.
-> > >=20
-> > > So, I would like to find a new maintainer to take over as soon as
-> > > possible. =A0Ideally the new maintainer would have previous contr=
-ibutions
-> > > to ethtool and an existing account on kernel.org so that they can=
- push
-> > > to the git repository and the home page. =A0But neither of those =
-is
-> > > essential. =A0Please reply if you're interested.
-> >=20
-> > I would like to take this responsibility. My previous contributions
-> > to ethtool are meager, but I think my skills and interests are suit=
-ed
-> > to the task.=A0=A0Plus, I already have a kernel.org account... :-)
-> [...]
->=20
-> It was a tough choice, but I'm pleased to accept your offer. :-)
->=20
-> I'll ask for the permissions to be updated accordingly.
->=20
-> Ben.
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Tue,  5 Jul 2016 11:27:36 +0200
 
-Awesome, thanks.  And, of course, thank you for your service to the
-community as ethtool maintainer for the past several (5+) years!
+> This patchset enables IPv4 unicast routing in the Mellanox Spectrum ASIC
+> switch driver. This builds upon the work that was done by a couple of
+> previous patchsets.
+> 
+> Patches 1,2,6 add a couple of dependencies outside the driver. Namely, the
+> ability to propagate ndo_neigh_construct()/destroy() through stacked devices and
+> a notification whenever DELAY_PROBE_TIME changes. When propagated down, the
+> ndos allow drivers to add and remove neighbour entries from their private
+> neighbour table. The DELAY_PROBE_TIME notification gives drivers the ability to
+> correctly configure their polling interval for neighbour activity, so that
+> active neighbour won't be marked as STALE.
+> 
+> Patches 3-5,7-8 add the neighbour offloading infrastructure, where patch 7 uses
+> the DELAY_PROBE_TIME notification in order to correctly configure the device's
+> polling interval. Patch 8 finally programs neighbours to the device's table
+> based on NEIGH_UPDATE notifications, so that directly connected routes can
+> be used.
+> 
+> Patches 9-16 build upon the previous patches and extend the router with
+> remote routes (nexthop) support.
 
-John
---=20
-John W. Linville		Someday the world will need a hero, and you
-linville@tuxdriver.com			might be all we have.  Be ready.
+Looks good to me, series applied, thanks Jiri!
