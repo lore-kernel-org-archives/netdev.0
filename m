@@ -1,89 +1,109 @@
-From: "Paul E. McKenney" <paulmck@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next 22/24] rcu: Suppress sparse warnings for
- rcu_dereference_raw()
-Date: Tue, 5 Jul 2016 14:32:44 -0700
-Message-ID: <20160705213244.GA12384@linux.vnet.ibm.com>
-References: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
- <146772448920.21657.6989233498278959646.stgit@warthog.procyon.org.uk>
-Reply-To: paulmck@linux.vnet.ibm.com
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH 2/2] net: ethernet: bcmgenet: use
+ phy_ethtool_{get|set}_link_ksettings
+Date: Tue, 05 Jul 2016 23:40:10 +0200
+Message-ID: <1467754810.4204.17.camel@decadent.org.uk>
+References: <1467560037-21784-1-git-send-email-tremyfr@gmail.com>
+ <1467560037-21784-2-git-send-email-tremyfr@gmail.com>
+ <20160704.160300.953705748553101659.davem@davemloft.net>
+ <577B37CC.80807@gmail.com> <577C2189.8090604@gmail.com>
+	 <577C2380.4000007@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@vger.kernel.org,
-	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
-To: David Howells <dhowells@redhat.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-PlkL4GuuVtbsZy5EyntM"
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Philippe Reynes <tremyfr@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:49427 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1755599AbcGEVcj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 17:32:39 -0400
-Received: from pps.filterd (m0098393.ppops.net [127.0.0.1])
-	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u65LNoEK094719
-	for <netdev@vger.kernel.org>; Tue, 5 Jul 2016 17:32:39 -0400
-Received: from e17.ny.us.ibm.com (e17.ny.us.ibm.com [129.33.205.207])
-	by mx0a-001b2d01.pphosted.com with ESMTP id 240g6es7ju-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 17:32:39 -0400
-Received: from localhost
-	by e17.ny.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <paulmck@linux.vnet.ibm.com>;
-	Tue, 5 Jul 2016 17:32:38 -0400
-Content-Disposition: inline
-In-Reply-To: <146772448920.21657.6989233498278959646.stgit@warthog.procyon.org.uk>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:42062 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755425AbcGEVkV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 17:40:21 -0400
+In-Reply-To: <577C2380.4000007@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 05, 2016 at 02:14:49PM +0100, David Howells wrote:
-> From: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> 
-> Data structures that are used both with and without RCU protection
-> are difficult to write in a sparse-clean manner.  If you mark the
-> relevant pointers with __rcu, sparse will complain about all non-RCU
-> uses, but if you don't mark those pointers, sparse will complain about
-> all RCU uses.
-> 
-> This commit therefore suppresses sparse warnings for rcu_dereference_raw(),
-> allowing mixed-protection data structures to avoid these warnings.
-> 
-> Reported-by: David Howells <dhowells@redhat.com>
-> Signed-off-by: Paul E. McKenney <paulmck@linux.vnet.ibm.com>
-> Signed-off-by: David Howells <dhowells@redhat.com>
 
-This would normally be my cue to give an Acked-by to an RCU patch, but
-it already has my Signed-off-by.  So this is just to confirm that I agree
-that keeping this patch with the other patches that depend on it is the
-right thing to do.  ;-)
+--=-PlkL4GuuVtbsZy5EyntM
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
 
-							Thanx, Paul
+On Tue, 2016-07-05 at 14:15 -0700, Florian Fainelli wrote:
+> On 07/05/2016 02:07 PM, Philippe Reynes wrote:
+> > Hi Florian,
+> >=20
+> > On 05/07/16 06:30, Florian Fainelli wrote:
+> > > Le 04/07/2016 16:03, David Miller a =C3=A9crit :
+> > > > From: Philippe Reynes<tremyfr@gmail.com>
+> > > > Date: Sun,=C2=A0=C2=A03 Jul 2016 17:33:57 +0200
+> > > >=20
+> > > > > There are two generics functions phy_ethtool_{get|set}_link_ksett=
+ings,
+> > > > > so we can use them instead of defining the same code in the drive=
+r.
+> > > > >=20
+> > > > > Signed-off-by: Philippe Reynes<tremyfr@gmail.com>
+> > > >=20
+> > > > Applied.
+> > > >=20
+> > >=20
+> > > The transformation is not equivalent, we lost the checks on
+> > > netif_running() in the process, and those are here for a reason, if t=
+he
+> > > interface is down and therefore clock gated, MDIO accesses to the PHY
+> > > will simply fail outright and cause bus errors.
+> >=20
+> > Oh, I see, I've missed this. Sorry for this mistake.
+> > We should revert this path.
+>=20
+> Well, maybe better than that, actually put the check in the generic
+> functions, because if the link is down, aka netif_running() returns
+> false, link parameters cannot be reliably queried and they are invalid.
 
-> ---
-> 
->  include/linux/rcupdate.h |    8 ++++++--
->  1 file changed, 6 insertions(+), 2 deletions(-)
-> 
-> diff --git a/include/linux/rcupdate.h b/include/linux/rcupdate.h
-> index 5f1533e3d032..85830e6c797b 100644
-> --- a/include/linux/rcupdate.h
-> +++ b/include/linux/rcupdate.h
-> @@ -611,6 +611,12 @@ static inline void rcu_preempt_sleep_check(void)
->  	rcu_dereference_sparse(p, space); \
->  	((typeof(*p) __force __kernel *)(p)); \
->  })
-> +#define rcu_dereference_raw(p) \
-> +({ \
-> +	/* Dependency order vs. p above. */ \
-> +	typeof(p) ________p1 = lockless_dereference(p); \
-> +	((typeof(*p) __force __kernel *)(________p1)); \
-> +})
-> 
->  /**
->   * RCU_INITIALIZER() - statically initialize an RCU-protected global variable
-> @@ -729,8 +735,6 @@ static inline void rcu_preempt_sleep_check(void)
->  	__rcu_dereference_check((p), (c) || rcu_read_lock_sched_held(), \
->  				__rcu)
-> 
-> -#define rcu_dereference_raw(p) rcu_dereference_check(p, 1) /*@@@ needed? @@@*/
-> -
->  /*
->   * The tracing infrastructure traces RCU (we want that), but unfortunately
->   * some of the RCU checks causes tracing to lock up the system.
-> 
+Either the hardware or the driver needs to remember:
+
+- Is auto-negotiation enabled
+- If so, which modes are advertised
+- If not, which mode is forced
+
+And it should still be possible to get or set that information when the
+interface is down.
+
+Ben.
+
+--=20
+
+Ben Hutchings
+Life is what happens to you while you're busy making other plans.
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=
+=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0- John
+Lennon
+
+--=-PlkL4GuuVtbsZy5EyntM
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJXfCk6AAoJEOe/yOyVhhEJlLYP/38s/T7EfXj9RzPhJBE5Nk5o
+84BKgUQvxRxTjDaf4AZpW9id9JiFsOhkI618cT54JWNnpIUJWP2aTmq/QEcaH6ok
+wSi+lB35wVjkqzynxorv996TE1vZ2hbyYxFUpnQUh9yWrtcVd/QcT995+PI8Vrqa
+2tJTiPgf8bxz3V0RJ/6lZczkUWT0mmFTW89MsF+6yMa3lNVkYCppa0dRTfHp51qF
+2tOdCIKdp2BYMPv1ZeIUnzzblPaWWY9QeNEgKeVn3t/7OKrqkGH1jqDn1WO03LNa
+7akwtuqc4zqzU6WEI0yFNQ+pbcyxUIQSR8dmILwciF/0M3mJCTKodXVpLMnDWGbO
+NlM/XJwRqU+54tGw0v5+mDVO6auA3up7sZozouBkE52DTiUeFYzoWu15rr7GtAqf
+Lg61xmdEF92oYEi8teiUOK9hIqN9svpcKuwJwSzZ8hKAO9LjWONdoUsFP+v+tOcd
+YT3whuOAJ6VztpyyqCuBtzr+6dK0uzQMw+S0lHPAnWdsCZ2Vsvpy385LFt84Wf0L
+/Ow40pwORcgbOOScI6jUudlS68Nh2TpX9GNJoUrFRSG6FtmImQcikd3L94nh5hTq
+csQwUQD0rkAcc3xBJaz1YSO1RhwJMUOf4834M4vrZfjAn2pZk/JU/O/c0E2d4m+Z
+sqWi1Vk2XbCwsJhu238n
+=tgZB
+-----END PGP SIGNATURE-----
+
+--=-PlkL4GuuVtbsZy5EyntM--
