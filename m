@@ -1,169 +1,89 @@
-From: Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>
-Subject: Re: [PATCH net] bonding: fix 802.3ad aggregator reselection
-Date: Tue, 5 Jul 2016 16:59:06 +0300
-Message-ID: <CAKdSkDX=bf8bNvefjJae2zquEq5+PLDFsfDG--tZrdgzupg5NQ@mail.gmail.com>
-References: <10542.1466716851@famine> <CAKdSkDVXe5jRgWU8WAvx43KvEuZvS4ak+a9qd9H4C3zy+OvkPQ@mail.gmail.com>
- <CAD=hENfHOVBzwrC2Yy371FvxRG9AyJpvAm+s4R6hzU_+o=tJYA@mail.gmail.com>
+From: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
+Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
+ exceeds MTU, do segmentation even for non IPSKB_FORWARDED skbs
+Date: Tue, 5 Jul 2016 17:05:41 +0300
+Message-ID: <20160705170541.3f210675@pixies>
+References: <1467722132-10084-1-git-send-email-shmulik.ladkani@ravellosystems.com>
+	<20160705130327.GA10737@breakpoint.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Jay Vosburgh <jay.vosburgh@canonical.com>,
-	netdev <netdev@vger.kernel.org>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: zhuyj <zyjzyj2000@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	shmulik.ladkani@gmail.com, netdev@vger.kernel.org
+To: Florian Westphal <fw@strlen.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f50.google.com ([209.85.218.50]:34442 "EHLO
-	mail-oi0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751598AbcGEN7I (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 09:59:08 -0400
-Received: by mail-oi0-f50.google.com with SMTP id s66so229878872oif.1
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 06:59:08 -0700 (PDT)
-In-Reply-To: <CAD=hENfHOVBzwrC2Yy371FvxRG9AyJpvAm+s4R6hzU_+o=tJYA@mail.gmail.com>
+Received: from mail-wm0-f52.google.com ([74.125.82.52]:36688 "EHLO
+	mail-wm0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751598AbcGEOFt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 10:05:49 -0400
+Received: by mail-wm0-f52.google.com with SMTP id f126so138905787wma.1
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 07:05:48 -0700 (PDT)
+In-Reply-To: <20160705130327.GA10737@breakpoint.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-2016-07-01 12:03 GMT+03:00 zhuyj <zyjzyj2000@gmail.com>:
-> "
-> ...
-> All testing was done with upstream version 4.6.2 with the patch
-> applied. When there is no connection, /proc/net/bonding/bond0 still
-> shows that there is an active aggregator that has a link up, but for
-> some reason no traffic passes through. I added some debugging
-> information in bond_procfs.c and the number of active ports seems to
-> match the enabled ports on switches.
-> ...
-> "
-> Would you like to let me know what method you used, the miimon or
-> arp_interval? If miimon, would you like to use arp_interval to make tests?
+On Tue, 5 Jul 2016 15:03:27 +0200, fw@strlen.de wrote:
+> > The expected behavior in such a setup would be segmenting the skb first,
+> > and then fragmenting each segment according to dst mtu, and finally
+> > passing the resulting fragments to ip_finish_output2.
+> > 
+> > 'ip_finish_output_gso' already supports this "Slowpath" behavior,
+> > but it is only considered if IPSKB_FORWARDED is set.
+> > 
+> > However in the bridged case, IPSKB_FORWARDED is off, and the "Slowpath"
+> > behavior is not considered.
+> 
+> I placed this test there under the assumption that L2 bridges have
+> the same MTU on all bridge ports, so we'd only need to consider routing
+> case.
 
-I have understood that only miimon is available with 802.3ad:
+In our setups we have no control of VM mtu (which affects gso_size of
+packets arriving from tap), and no control of vxlan's underlay mtu.
 
-bonding.txt:
+> How does work if e.g. 1460-sized udp packet arrives on tap0?
+> Do we fragment (possibly ignoring DF?)
 
-802.3ad:
-...
-        Finally, the 802.3ad mode mandates the use of the MII monitor,
-        therefore, the ARP monitor is not available in this mode.
+A *non* gso udp packet arriving on tap0 is bridged to vxlan0 (assuming
+vxlan mtu is sufficient), and the original DF of the inner packet is
+preserved.
 
-Is there a way to enable ARP monitor somehow?
+The skb gets vxlan-udp encapsulated, with outer IP header having DF=0
+(unless tun_flags & TUNNEL_DONT_FRAGMENT), and then, if skb->len > mtu,
+fragmented normally at the ip_finish_output --> ip_fragment code path.
 
-Veli-Matti
+So on wire we have 2 frags of the vxlan datagram; they are reassembled
+at recepient ip stack of vxlan termination. Inner packet preserved.
+Not ideal, but works.
 
+The issue is with GSO skbs arriving from tap, which eventually generates
+segments larger then the mtu, which are not transmitted on eth0:
 
->
-> Let me know the result.
-> Zhu Yanjun
->
-> On Tue, Jun 28, 2016 at 7:57 PM, Veli-Matti Lintu
-> <veli-matti.lintu@opinsys.fi> wrote:
->>
->> 2016-06-24 0:20 GMT+03:00 Jay Vosburgh <jay.vosburgh@canonical.com>:
->> >
->> >         Since commit 7bb11dc9f59d ("bonding: unify all places where
->> > actor-oper key needs to be updated."), the logic in bonding to handle
->> > selection between multiple aggregators has not functioned.
->> >
->> >         This affects only configurations wherein the bonding slaves
->> > connect to two discrete aggregators (e.g., two independent switches,
->> > each
->> > with LACP enabled), thus creating two separate aggregation groups within
->> > a
->> > single bond.
->> >
->> >         The cause is a change in 7bb11dc9f59d to no longer set
->> > AD_PORT_BEGIN on a port after a link state change, which would cause the
->> > port to be reselected for attachment to an aggregator as if were newly
->> > added to the bond.  We cannot restore the prior behavior, as it
->> > contradicts IEEE 802.1AX 5.4.12, which requires ports that "become
->> > inoperable" (lose carrier, setting port_enabled=false as per 802.1AX
->> > 5.4.7) to remain selected (i.e., assigned to the aggregator).  As the
->> > port
->> > now remains selected, the aggregator selection logic is not invoked.
->> >
->> >         A side effect of this change is that aggregators in bonding will
->> > now contain ports that are link down.  The aggregator selection logic
->> > does not currently handle this situation correctly, causing incorrect
->> > aggregator selection.
->> >
->> >         This patch makes two changes to repair the aggregator selection
->> > logic in bonding to function as documented and within the confines of
->> > the
->> > standard:
->> >
->> >         First, the aggregator selection and related logic now utilizes
->> > the
->> > number of active ports per aggregator, not the number of selected ports
->> > (as some selected ports may be down).  The ad_select "bandwidth" and
->> > "count" options only consider ports that are link up.
->> >
->> >         Second, on any carrier state change of any slave, the aggregator
->> > selection logic is explicitly called to insure the correct aggregator is
->> > active.
->> >
->> > Reported-by: Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>
->> > Fixes: 7bb11dc9f59d ("bonding: unify all places where actor-oper key
->> > needs to be updated.")
->> > Signed-off-by: Jay Vosburgh <jay.vosburgh@canonical.com>
->>
->>
->> Hi,
->>
->> Thanks for the patch. I have been now testing it and the reselection
->> seems to be working now in most cases, but I hit one case that seems
->> to consistently fail in my test environment.
->>
->> I've been doing most of testing with ad_select=count and this happens
->> with it. I haven't yet done extensive testing with
->> ad_select=stable/bandwidth.
->>
->> The sequence to trigger the failure seems to be:
->>
->>   Switch A (Agg ID 2)       Switch B (Agg ID 1)
->> enp5s0f0 ens5f0 ens6f0    enp5s0f1 ens5f1 ens6f1
->>     X       X      -           X      -       -     Connection works
->> (Agg ID 2 active)
->>     X       -      -           X      -       -     Connection works
->> (Agg ID 1 active)
->>     X       -      -           -      -       -     No connection (Agg
->> ID 2 active)
->>
->> I'm also wondering why link down event causes change of aggregator
->> when the active aggregator has the same number of active links than
->> the new aggregator.
->>
->> The situation here clears once a port comes up. Once I hit also
->> problems without disabling all ports on active switch:
->>
->>   Switch A (Agg ID 2)       Switch B (Agg ID 1)
->> enp5s0f0 ens5f0 ens6f0    enp5s0f1 ens5f1 ens6f1
->>     X       X      -           X      -       -     Connection works
->> (Agg ID 2 active)
->>     X       -      -           X      -       -     No connection (Agg
->> ID 1 active)
->>
->> The active switch does not seem to matter either when disabling ports:
->>
->>   Switch A (Agg ID 2)       Switch B (Agg ID 1)
->> enp5s0f0 ens5f0 ens6f0    enp5s0f1 ens5f1 ens6f1
->>     X       -      -           X      X       X     Connection works
->> (Agg ID 1 active)
->>     X       -      -           X      -       -     Connection works
->> (Agg ID 2 active)
->>     -       -      -           X      -       -     No connection (Agg
->> ID 1 active)
->>
->> All testing was done with upstream version 4.6.2 with the patch
->> applied. When there is no connection, /proc/net/bonding/bond0 still
->> shows that there is an active aggregator that has a link up, but for
->> some reason no traffic passes through. I added some debugging
->> information in bond_procfs.c and the number of active ports seems to
->> match the enabled ports on switches.
->>
->> I'll continue doing tests with different scenarios and I can also test
->> specific cases if needed.
->>
->>
->> Veli-Matti
->
->
+  tap0 rx:  super packet, gso_size from user's virtio_net_hdr
+    ...
+    vxlan0 tx:  encaps the super packet
+      ...
+      ip_finish_output
+        ip_finish_output_gso
+          *NO* skb_gso_validate_mtu()     <--- problem here
+            ip_finish_output2:  tx the encapsulated super packet on eth0
+              ...
+              validate_xmit_skb
+                netif_needs_gso
+                  skb_gso_segment: segments inner payload according to
+                                   original gso_size,
+                                   leads to vxlan datagrams larger than mtu
+
+> How does it work for non-ip protocols?
+
+The specific problem is with vxlan (or any other udp based tunnel)
+encapsulated GSOed packets.
+
+> (Or did I misunderstand this setup...?)
+
+tap0 bridged with vxlan0.
+route to vxlan0's remote peer is via eth0, configured with small mtu.
+
+Regards,
+Shmulik
