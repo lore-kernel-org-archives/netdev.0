@@ -1,30 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] dwc_eth_qos: remove unused including
- <linux/version.h>
-Date: Tue, 05 Jul 2016 00:09:41 -0700 (PDT)
-Message-ID: <20160705.000941.932888113228026332.davem@davemloft.net>
-References: <1467645890-12766-1-git-send-email-weiyj_lk@163.com>
+Subject: Re: [PATCH net-next 0/9] net: r6040: Misc updates
+Date: Tue, 05 Jul 2016 00:12:22 -0700 (PDT)
+Message-ID: <20160705.001222.25907203605646755.davem@davemloft.net>
+References: <1467668169-31547-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: lars.persson@axis.com, weiyj.lk@gmail.com, netdev@vger.kernel.org
-To: weiyj_lk@163.com
+Cc: netdev@vger.kernel.org
+To: f.fainelli@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57572 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:57606 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754221AbcGEHJm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 03:09:42 -0400
-In-Reply-To: <1467645890-12766-1-git-send-email-weiyj_lk@163.com>
+	with ESMTP id S1751301AbcGEHMX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 03:12:23 -0400
+In-Reply-To: <1467668169-31547-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: weiyj_lk@163.com
-Date: Mon,  4 Jul 2016 15:24:50 +0000
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon,  4 Jul 2016 14:36:00 -0700
 
-> From: Wei Yongjun <weiyj.lk@gmail.com>
-> 
-> Remove including <linux/version.h> that don't need it.
-> 
-> Signed-off-by: Wei Yongjun <weiyj.lk@gmail.com>
+> Here are some various updates for the r6040 driver, mostly to make
+> it more modern and catch up with the latest API improvements.
 
-Applied.
+Series applied, thanks.
