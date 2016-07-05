@@ -1,7 +1,7 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 08/16] mlxsw: spectrum_router: Offload neighbours based on NUD state change
-Date: Tue,  5 Jul 2016 11:27:44 +0200
-Message-ID: <1467710872-20056-9-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 16/16] mlxsw: Add the unresolved next-hops probes
+Date: Tue,  5 Jul 2016 11:27:52 +0200
+Message-ID: <1467710872-20056-17-git-send-email-jiri@resnulli.us>
 References: <1467710872-20056-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
@@ -10,184 +10,103 @@ Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	linville@tuxdriver.com, ivecera@redhat.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:35407 "EHLO
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35542 "EHLO
 	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752611AbcGEJ2F (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 05:28:05 -0400
-Received: by mail-wm0-f67.google.com with SMTP id a66so27232372wme.2
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 02:28:04 -0700 (PDT)
+	with ESMTP id S1753711AbcGEJ2P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 05:28:15 -0400
+Received: by mail-wm0-f67.google.com with SMTP id a66so27233754wme.2
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 02:28:14 -0700 (PDT)
 In-Reply-To: <1467710872-20056-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Yotam Gigi <yotamg@mellanox.com>
 
-Listen to any NEIGH_UPDATE events sent and program the device
-accordingly. If NUD state is VALID and neighbour isn't yet offloaded,
-then program it into the device's table. Otherwise, just edit its
-parameters.
-
-If NUD state machine transitioned neighbour out of VALID state and it's
-present in the device's table, then remove it.
-
-Note that the device is programmed in delayed work, as the netevent
-notification chain is atomic and prevents us from going to sleep.
+Now, the driver sends arp probes for all unresolved neighbours that are
+currently a nexthop for some route on the system. The job is set
+periodically every 5 seconds.
 
 Signed-off-by: Yotam Gigi <yotamg@mellanox.com>
 Signed-off-by: Ido Schimmel <idosch@mellanox.com>
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 103 +++++++++++++++++++++
- 1 file changed, 103 insertions(+)
+ drivers/net/ethernet/mellanox/mlxsw/spectrum.h     |  2 ++
+ .../net/ethernet/mellanox/mlxsw/spectrum_router.c  | 33 +++++++++++++++++++++-
+ 2 files changed, 34 insertions(+), 1 deletion(-)
 
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+index ff5b859..ef4ac89 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
++++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum.h
+@@ -222,6 +222,8 @@ struct mlxsw_sp_router {
+ 		struct delayed_work dw;
+ 		unsigned long interval;	/* ms */
+ 	} neighs_update;
++	struct delayed_work nexthop_probe_dw;
++#define MLXSW_SP_UNRESOLVED_NH_PROBE_INTERVAL 5000 /* ms */
+ 	struct list_head nexthop_group_list;
+ 	struct list_head nexthop_neighs_list;
+ };
 diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index db1c2c4..ed0e6c0 100644
+index 2b20279..e084ea5 100644
 --- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
 +++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -559,6 +559,10 @@ struct mlxsw_sp_neigh_entry {
- 	struct mlxsw_sp_neigh_key key;
- 	u16 rif;
- 	struct neighbour *n;
-+	bool offloaded;
-+	struct delayed_work dw;
-+	struct mlxsw_sp_port *mlxsw_sp_port;
-+	unsigned char ha[ETH_ALEN];
- };
- 
- static const struct rhashtable_params mlxsw_sp_neigh_ht_params = {
-@@ -585,6 +589,8 @@ mlxsw_sp_neigh_entry_remove(struct mlxsw_sp *mlxsw_sp,
- 			       mlxsw_sp_neigh_ht_params);
- }
- 
-+static void mlxsw_sp_router_neigh_update_hw(struct work_struct *work);
-+
- static struct mlxsw_sp_neigh_entry *
- mlxsw_sp_neigh_entry_create(const void *addr, size_t addr_len,
- 			    struct net_device *dev, u16 rif,
-@@ -599,6 +605,7 @@ mlxsw_sp_neigh_entry_create(const void *addr, size_t addr_len,
- 	neigh_entry->key.dev = dev;
- 	neigh_entry->rif = rif;
- 	neigh_entry->n = n;
-+	INIT_DELAYED_WORK(&neigh_entry->dw, mlxsw_sp_router_neigh_update_hw);
- 	return neigh_entry;
- }
- 
-@@ -801,13 +808,76 @@ static void mlxsw_sp_router_neighs_update_work(struct work_struct *work)
+@@ -845,6 +845,33 @@ static void mlxsw_sp_router_neighs_update_work(struct work_struct *work)
  	mlxsw_sp_router_neighs_update_work_schedule(mlxsw_sp);
  }
  
-+static void mlxsw_sp_router_neigh_update_hw(struct work_struct *work)
++static void mlxsw_sp_router_probe_unresolved_nexthops(struct work_struct *work)
 +{
-+	struct mlxsw_sp_neigh_entry *neigh_entry =
-+		container_of(work, struct mlxsw_sp_neigh_entry, dw.work);
-+	struct neighbour *n = neigh_entry->n;
-+	struct mlxsw_sp_port *mlxsw_sp_port = neigh_entry->mlxsw_sp_port;
-+	struct mlxsw_sp *mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+	char rauht_pl[MLXSW_REG_RAUHT_LEN];
-+	struct net_device *dev;
-+	bool entry_connected;
-+	u8 nud_state;
-+	bool updating;
-+	bool removing;
-+	bool adding;
-+	u32 dip;
-+	int err;
++	struct mlxsw_sp_neigh_entry *neigh_entry;
++	struct mlxsw_sp *mlxsw_sp = container_of(work, struct mlxsw_sp,
++						 router.nexthop_probe_dw.work);
 +
-+	read_lock_bh(&n->lock);
-+	dip = ntohl(*((__be32 *) n->primary_key));
-+	memcpy(neigh_entry->ha, n->ha, sizeof(neigh_entry->ha));
-+	nud_state = n->nud_state;
-+	dev = n->dev;
-+	read_unlock_bh(&n->lock);
-+
-+	entry_connected = nud_state & NUD_VALID;
-+	adding = (!neigh_entry->offloaded) && entry_connected;
-+	updating = neigh_entry->offloaded && entry_connected;
-+	removing = neigh_entry->offloaded && !entry_connected;
-+
-+	if (adding || updating) {
-+		mlxsw_reg_rauht_pack4(rauht_pl, MLXSW_REG_RAUHT_OP_WRITE_ADD,
-+				      neigh_entry->rif,
-+				      neigh_entry->ha, dip);
-+		err = mlxsw_reg_write(mlxsw_sp->core,
-+				      MLXSW_REG(rauht), rauht_pl);
-+		if (err) {
-+			netdev_err(dev, "Could not add neigh %pI4h\n", &dip);
-+			neigh_entry->offloaded = false;
-+		} else {
-+			neigh_entry->offloaded = true;
-+		}
-+	} else if (removing) {
-+		mlxsw_reg_rauht_pack4(rauht_pl, MLXSW_REG_RAUHT_OP_WRITE_DELETE,
-+				      neigh_entry->rif,
-+				      neigh_entry->ha, dip);
-+		err = mlxsw_reg_write(mlxsw_sp->core, MLXSW_REG(rauht),
-+				      rauht_pl);
-+		if (err) {
-+			netdev_err(dev, "Could not delete neigh %pI4h\n", &dip);
-+			neigh_entry->offloaded = true;
-+		} else {
-+			neigh_entry->offloaded = false;
-+		}
++	/* Iterate over nexthop neighbours, find those who are unresolved and
++	 * send arp on them. This solves the chicken-egg problem when
++	 * the nexthop wouldn't get offloaded until the neighbor is resolved
++	 * but it wouldn't get resolved ever in case traffic is flowing in HW
++	 * using different nexthop.
++	 *
++	 * Take RTNL mutex here to prevent lists from changes.
++	 */
++	rtnl_lock();
++	list_for_each_entry(neigh_entry, &mlxsw_sp->router.nexthop_neighs_list,
++			    nexthop_neighs_list_node) {
++		if (!(neigh_entry->n->nud_state & NUD_VALID) &&
++		    !list_empty(&neigh_entry->nexthop_list))
++			neigh_event_send(neigh_entry->n, NULL);
 +	}
++	rtnl_unlock();
 +
-+	neigh_release(n);
-+	mlxsw_sp_port_dev_put(mlxsw_sp_port);
++	mlxsw_core_schedule_dw(&mlxsw_sp->router.nexthop_probe_dw,
++			       MLXSW_SP_UNRESOLVED_NH_PROBE_INTERVAL);
 +}
 +
- static int mlxsw_sp_router_netevent_event(struct notifier_block *unused,
- 					  unsigned long event, void *ptr)
+ static void
+ mlxsw_sp_nexthop_neigh_update(struct mlxsw_sp *mlxsw_sp,
+ 			      struct mlxsw_sp_neigh_entry *neigh_entry,
+@@ -1004,10 +1031,13 @@ static int mlxsw_sp_neigh_init(struct mlxsw_sp *mlxsw_sp)
+ 	if (err)
+ 		goto err_register_netevent_notifier;
+ 
++	/* Create the delayed works for the activity_update */
+ 	INIT_DELAYED_WORK(&mlxsw_sp->router.neighs_update.dw,
+ 			  mlxsw_sp_router_neighs_update_work);
++	INIT_DELAYED_WORK(&mlxsw_sp->router.nexthop_probe_dw,
++			  mlxsw_sp_router_probe_unresolved_nexthops);
+ 	mlxsw_core_schedule_dw(&mlxsw_sp->router.neighs_update.dw, 0);
+-
++	mlxsw_core_schedule_dw(&mlxsw_sp->router.nexthop_probe_dw, 0);
+ 	return 0;
+ 
+ err_register_netevent_notifier:
+@@ -1018,6 +1048,7 @@ err_register_netevent_notifier:
+ static void mlxsw_sp_neigh_fini(struct mlxsw_sp *mlxsw_sp)
  {
-+	struct mlxsw_sp_neigh_entry *neigh_entry;
- 	struct mlxsw_sp_port *mlxsw_sp_port;
- 	struct mlxsw_sp *mlxsw_sp;
- 	unsigned long interval;
-+	struct net_device *dev;
- 	struct neigh_parms *p;
-+	struct neighbour *n;
-+	u32 dip;
- 
- 	switch (event) {
- 	case NETEVENT_DELAY_PROBE_TIME_UPDATE:
-@@ -830,6 +900,39 @@ static int mlxsw_sp_router_netevent_event(struct notifier_block *unused,
- 
- 		mlxsw_sp_port_dev_put(mlxsw_sp_port);
- 		break;
-+	case NETEVENT_NEIGH_UPDATE:
-+		n = ptr;
-+		dev = n->dev;
-+
-+		if (n->tbl != &arp_tbl)
-+			return NOTIFY_DONE;
-+
-+		mlxsw_sp_port = mlxsw_sp_port_lower_dev_hold(dev);
-+		if (!mlxsw_sp_port)
-+			return NOTIFY_DONE;
-+
-+		mlxsw_sp = mlxsw_sp_port->mlxsw_sp;
-+		dip = ntohl(*((__be32 *) n->primary_key));
-+		neigh_entry = mlxsw_sp_neigh_entry_lookup(mlxsw_sp,
-+							  &dip,
-+							  sizeof(__be32),
-+							  dev);
-+		if (WARN_ON(!neigh_entry) || WARN_ON(neigh_entry->n != n)) {
-+			mlxsw_sp_port_dev_put(mlxsw_sp_port);
-+			return NOTIFY_DONE;
-+		}
-+		neigh_entry->mlxsw_sp_port = mlxsw_sp_port;
-+
-+		/* Take a reference to ensure the neighbour won't be
-+		 * destructed until we drop the reference in delayed
-+		 * work.
-+		 */
-+		neigh_clone(n);
-+		if (!mlxsw_core_schedule_dw(&neigh_entry->dw, 0)) {
-+			neigh_release(n);
-+			mlxsw_sp_port_dev_put(mlxsw_sp_port);
-+		}
-+		break;
- 	}
- 
- 	return NOTIFY_DONE;
+ 	cancel_delayed_work_sync(&mlxsw_sp->router.neighs_update.dw);
++	cancel_delayed_work_sync(&mlxsw_sp->router.nexthop_probe_dw);
+ 	unregister_netevent_notifier(&mlxsw_sp_router_netevent_nb);
+ 	rhashtable_destroy(&mlxsw_sp->router.neigh_ht);
+ }
 -- 
 2.5.5
