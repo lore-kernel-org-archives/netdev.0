@@ -1,8 +1,8 @@
 From: David Howells <dhowells@redhat.com>
-Subject: [PATCH net-next 07/24] rxrpc: Turn connection #defines into enums
- and put outside struct def
-Date: Tue, 05 Jul 2016 14:13:01 +0100
-Message-ID: <146772438137.21657.1609850494609329594.stgit@warthog.procyon.org.uk>
+Subject: [PATCH net-next 06/24] rxrpc: Dup the main conn list for the proc
+ interface
+Date: Tue, 05 Jul 2016 14:12:54 +0100
+Message-ID: <146772437424.21657.5653571141789810019.stgit@warthog.procyon.org.uk>
 References: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
@@ -11,184 +11,179 @@ Cc: dhowells@redhat.com, netdev@vger.kernel.org,
 	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
 To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:48178 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:58976 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754977AbcGENND (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jul 2016 09:13:03 -0400
+	id S1754924AbcGENM4 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jul 2016 09:12:56 -0400
 In-Reply-To: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Turn the connection event and state #define lists into enums and move
-outside of the struct definition.
+The main connection list is used for two independent purposes: primarily it
+is used to find connections to reap and secondarily it is used to list
+connections in procfs.
 
-Whilst we're at it, change _SERVER to _SERVICE in those identifiers and add
-EV_ into the event name to distinguish them from flags and states.
+Split the procfs list out from the reap list.  This allows the reap list to
+be phased out in stages as the client conns and service conns acquire their
+own separate connection management strategies.
 
-Also add a symbol indicating the number of states and use that in the state
-text array.
+Whilst we're at it, use the address information stored in conn->proto when
+displaying through procfs rather than accessing the peer record.
 
 Signed-off-by: David Howells <dhowells@redhat.com>
 ---
 
- net/rxrpc/ar-internal.h |   42 ++++++++++++++++++++++++++++++------------
- net/rxrpc/call_accept.c |    6 +++---
- net/rxrpc/conn_event.c  |    6 +++---
- net/rxrpc/conn_object.c |    4 ++--
- net/rxrpc/proc.c        |   18 +++++++++---------
- 5 files changed, 47 insertions(+), 29 deletions(-)
+ net/rxrpc/ar-internal.h |    3 ++-
+ net/rxrpc/conn_object.c |   12 +++++++++++-
+ net/rxrpc/proc.c        |   14 ++++++--------
+ 3 files changed, 19 insertions(+), 10 deletions(-)
 
 diff --git a/net/rxrpc/ar-internal.h b/net/rxrpc/ar-internal.h
-index f2b1c6dd5e9a..6f62b0eef0e0 100644
+index 45aef3ef7609..f2b1c6dd5e9a 100644
 --- a/net/rxrpc/ar-internal.h
 +++ b/net/rxrpc/ar-internal.h
-@@ -254,6 +254,35 @@ struct rxrpc_conn_parameters {
- };
+@@ -271,6 +271,7 @@ struct rxrpc_connection {
+ 		struct rb_node	client_node;	/* Node in local->client_conns */
+ 		struct rb_node	service_node;	/* Node in peer->service_conns */
+ 	};
++	struct list_head	proc_link;	/* link in procfs list */
+ 	struct list_head	link;		/* link in master connection list */
+ 	struct rb_root		calls;		/* calls on this connection */
+ 	struct sk_buff_head	rx_queue;	/* received conn-level packets */
+@@ -535,7 +536,7 @@ void rxrpc_reject_packets(struct rxrpc_local *);
+  * conn_object.c
+  */
+ extern unsigned int rxrpc_connection_expiry;
+-extern struct list_head rxrpc_connections;
++extern struct list_head rxrpc_connection_proc_list;
+ extern rwlock_t rxrpc_connection_lock;
  
- /*
-+ * Bits in the connection flags.
-+ */
-+enum rxrpc_conn_flag {
-+	RXRPC_CONN_HAS_IDR,		/* Has a client conn ID assigned */
-+};
-+
-+/*
-+ * Events that can be raised upon a connection.
-+ */
-+enum rxrpc_conn_event {
-+	RXRPC_CONN_EV_CHALLENGE,	/* Send challenge packet */
-+};
-+
-+/*
-+ * The connection protocol state.
-+ */
-+enum rxrpc_conn_proto_state {
-+	RXRPC_CONN_UNUSED,		/* Connection not yet attempted */
-+	RXRPC_CONN_CLIENT,		/* Client connection */
-+	RXRPC_CONN_SERVICE_UNSECURED,	/* Service unsecured connection */
-+	RXRPC_CONN_SERVICE_CHALLENGING,	/* Service challenging for security */
-+	RXRPC_CONN_SERVICE,		/* Service secured connection */
-+	RXRPC_CONN_REMOTELY_ABORTED,	/* Conn aborted by peer */
-+	RXRPC_CONN_LOCALLY_ABORTED,	/* Conn aborted locally */
-+	RXRPC_CONN_NETWORK_ERROR,	/* Conn terminated by network error */
-+	RXRPC_CONN__NR_STATES
-+};
-+
-+/*
-  * RxRPC connection definition
-  * - matched by { local, peer, epoch, conn_id, direction }
-  * - each connection can only handle four simultaneous calls
-@@ -280,23 +309,12 @@ struct rxrpc_connection {
- 	struct crypto_skcipher	*cipher;	/* encryption handle */
- 	struct rxrpc_crypt	csum_iv;	/* packet checksum base */
- 	unsigned long		flags;
--#define RXRPC_CONN_HAS_IDR	0		/* - Has a client conn ID assigned */
- 	unsigned long		events;
--#define RXRPC_CONN_CHALLENGE	0		/* send challenge packet */
- 	unsigned long		put_time;	/* Time at which last put */
- 	rwlock_t		lock;		/* access lock */
- 	spinlock_t		state_lock;	/* state-change lock */
- 	atomic_t		usage;
--	enum {					/* current state of connection */
--		RXRPC_CONN_UNUSED,		/* - connection not yet attempted */
--		RXRPC_CONN_CLIENT,		/* - client connection */
--		RXRPC_CONN_SERVER_UNSECURED,	/* - server unsecured connection */
--		RXRPC_CONN_SERVER_CHALLENGING,	/* - server challenging for security */
--		RXRPC_CONN_SERVER,		/* - server secured connection */
--		RXRPC_CONN_REMOTELY_ABORTED,	/* - conn aborted by peer */
--		RXRPC_CONN_LOCALLY_ABORTED,	/* - conn aborted locally */
--		RXRPC_CONN_NETWORK_ERROR,	/* - conn terminated by network error */
--	} state;
-+	enum rxrpc_conn_proto_state state : 8;	/* current state of connection */
- 	u32			local_abort;	/* local abort code */
- 	u32			remote_abort;	/* remote abort code */
- 	int			error;		/* local error incurred */
-diff --git a/net/rxrpc/call_accept.c b/net/rxrpc/call_accept.c
-index 202e053a3c6d..1c0860df150e 100644
---- a/net/rxrpc/call_accept.c
-+++ b/net/rxrpc/call_accept.c
-@@ -128,12 +128,12 @@ static int rxrpc_accept_incoming_call(struct rxrpc_local *local,
- 
- 		spin_lock(&call->conn->state_lock);
- 		if (sp->hdr.securityIndex > 0 &&
--		    call->conn->state == RXRPC_CONN_SERVER_UNSECURED) {
-+		    call->conn->state == RXRPC_CONN_SERVICE_UNSECURED) {
- 			_debug("await conn sec");
- 			list_add_tail(&call->accept_link, &rx->secureq);
--			call->conn->state = RXRPC_CONN_SERVER_CHALLENGING;
-+			call->conn->state = RXRPC_CONN_SERVICE_CHALLENGING;
- 			rxrpc_get_connection(call->conn);
--			set_bit(RXRPC_CONN_CHALLENGE, &call->conn->events);
-+			set_bit(RXRPC_CONN_EV_CHALLENGE, &call->conn->events);
- 			rxrpc_queue_conn(call->conn);
- 		} else {
- 			_debug("conn ready");
-diff --git a/net/rxrpc/conn_event.c b/net/rxrpc/conn_event.c
-index d7e183c6b5df..b9c39b83eddb 100644
---- a/net/rxrpc/conn_event.c
-+++ b/net/rxrpc/conn_event.c
-@@ -195,8 +195,8 @@ static int rxrpc_process_event(struct rxrpc_connection *conn,
- 		read_lock_bh(&conn->lock);
- 		spin_lock(&conn->state_lock);
- 
--		if (conn->state == RXRPC_CONN_SERVER_CHALLENGING) {
--			conn->state = RXRPC_CONN_SERVER;
-+		if (conn->state == RXRPC_CONN_SERVICE_CHALLENGING) {
-+			conn->state = RXRPC_CONN_SERVICE;
- 			for (loop = 0; loop < RXRPC_MAXCALLS; loop++)
- 				rxrpc_call_is_secure(conn->channels[loop]);
- 		}
-@@ -268,7 +268,7 @@ void rxrpc_process_connection(struct work_struct *work)
- 
- 	rxrpc_get_connection(conn);
- 
--	if (test_and_clear_bit(RXRPC_CONN_CHALLENGE, &conn->events)) {
-+	if (test_and_clear_bit(RXRPC_CONN_EV_CHALLENGE, &conn->events)) {
- 		rxrpc_secure_connection(conn);
- 		rxrpc_put_connection(conn);
- 	}
+ int rxrpc_connect_call(struct rxrpc_call *, struct rxrpc_conn_parameters *,
 diff --git a/net/rxrpc/conn_object.c b/net/rxrpc/conn_object.c
-index b54e2be0a0b1..f28578b31281 100644
+index c2c0926af546..b54e2be0a0b1 100644
 --- a/net/rxrpc/conn_object.c
 +++ b/net/rxrpc/conn_object.c
-@@ -402,9 +402,9 @@ struct rxrpc_connection *rxrpc_incoming_connection(struct rxrpc_local *local,
- 	candidate->params.service_id	= sp->hdr.serviceId;
- 	candidate->security_ix		= sp->hdr.securityIndex;
- 	candidate->out_clientflag	= 0;
--	candidate->state		= RXRPC_CONN_SERVER;
-+	candidate->state		= RXRPC_CONN_SERVICE;
- 	if (candidate->params.service_id)
--		candidate->state	= RXRPC_CONN_SERVER_UNSECURED;
-+		candidate->state	= RXRPC_CONN_SERVICE_UNSECURED;
+@@ -27,7 +27,8 @@ unsigned int rxrpc_connection_expiry = 10 * 60;
  
- 	write_lock_bh(&peer->conn_lock);
+ static void rxrpc_connection_reaper(struct work_struct *work);
+ 
+-LIST_HEAD(rxrpc_connections);
++static LIST_HEAD(rxrpc_connections);
++LIST_HEAD(rxrpc_connection_proc_list);
+ DEFINE_RWLOCK(rxrpc_connection_lock);
+ static DECLARE_DELAYED_WORK(rxrpc_connection_reap, rxrpc_connection_reaper);
+ 
+@@ -45,6 +46,7 @@ static struct rxrpc_connection *rxrpc_alloc_connection(gfp_t gfp)
+ 		spin_lock_init(&conn->channel_lock);
+ 		init_waitqueue_head(&conn->channel_wq);
+ 		INIT_WORK(&conn->processor, &rxrpc_process_connection);
++		INIT_LIST_HEAD(&conn->proc_link);
+ 		INIT_LIST_HEAD(&conn->link);
+ 		conn->calls = RB_ROOT;
+ 		skb_queue_head_init(&conn->rx_queue);
+@@ -144,6 +146,7 @@ rxrpc_alloc_client_connection(struct rxrpc_conn_parameters *cp, gfp_t gfp)
+ 
+ 	write_lock(&rxrpc_connection_lock);
+ 	list_add_tail(&conn->link, &rxrpc_connections);
++	list_add_tail(&conn->proc_link, &rxrpc_connection_proc_list);
+ 	write_unlock(&rxrpc_connection_lock);
+ 
+ 	/* We steal the caller's peer ref. */
+@@ -601,6 +604,7 @@ static void rxrpc_connection_reaper(struct work_struct *work)
+ 	struct rxrpc_connection *conn, *_p;
+ 	struct rxrpc_peer *peer;
+ 	unsigned long now, earliest, reap_time;
++	bool remove;
+ 
+ 	LIST_HEAD(graveyard);
+ 
+@@ -618,6 +622,7 @@ static void rxrpc_connection_reaper(struct work_struct *work)
+ 		if (likely(atomic_read(&conn->usage) > 0))
+ 			continue;
+ 
++		remove = false;
+ 		if (rxrpc_conn_is_client(conn)) {
+ 			struct rxrpc_local *local = conn->params.local;
+ 			spin_lock(&local->client_conns_lock);
+@@ -630,6 +635,7 @@ static void rxrpc_connection_reaper(struct work_struct *work)
+ 				rxrpc_put_client_connection_id(conn);
+ 				rb_erase(&conn->client_node,
+ 					 &local->client_conns);
++				remove = true;
+ 			} else if (reap_time < earliest) {
+ 				earliest = reap_time;
+ 			}
+@@ -646,12 +652,16 @@ static void rxrpc_connection_reaper(struct work_struct *work)
+ 				list_move_tail(&conn->link, &graveyard);
+ 				rb_erase(&conn->service_node,
+ 					 &peer->service_conns);
++				remove = true;
+ 			} else if (reap_time < earliest) {
+ 				earliest = reap_time;
+ 			}
+ 
+ 			write_unlock_bh(&peer->conn_lock);
+ 		}
++
++		if (remove)
++			list_del_init(&conn->proc_link);
+ 	}
+ 	write_unlock(&rxrpc_connection_lock);
  
 diff --git a/net/rxrpc/proc.c b/net/rxrpc/proc.c
-index afb5e1bc1b6e..46d470335263 100644
+index 500cdcdc843c..afb5e1bc1b6e 100644
 --- a/net/rxrpc/proc.c
 +++ b/net/rxrpc/proc.c
-@@ -14,15 +14,15 @@
- #include <net/af_rxrpc.h>
- #include "ar-internal.h"
+@@ -67,8 +67,7 @@ static int rxrpc_call_seq_show(struct seq_file *seq, void *v)
+ 	conn = call->conn;
+ 	if (conn)
+ 		sprintf(rbuff, "%pI4:%u",
+-			&conn->params.peer->srx.transport.sin.sin_addr,
+-			ntohs(conn->params.peer->srx.transport.sin.sin_port));
++			&conn->proto.ipv4_addr, ntohs(conn->proto.port));
+ 	else
+ 		strcpy(rbuff, "no_connection");
  
--static const char *const rxrpc_conn_states[] = {
--	[RXRPC_CONN_UNUSED]		= "Unused  ",
--	[RXRPC_CONN_CLIENT]		= "Client  ",
--	[RXRPC_CONN_SERVER_UNSECURED]	= "SvUnsec ",
--	[RXRPC_CONN_SERVER_CHALLENGING]	= "SvChall ",
--	[RXRPC_CONN_SERVER]		= "SvSecure",
--	[RXRPC_CONN_REMOTELY_ABORTED]	= "RmtAbort",
--	[RXRPC_CONN_LOCALLY_ABORTED]	= "LocAbort",
--	[RXRPC_CONN_NETWORK_ERROR]	= "NetError",
-+static const char *const rxrpc_conn_states[RXRPC_CONN__NR_STATES] = {
-+	[RXRPC_CONN_UNUSED]			= "Unused  ",
-+	[RXRPC_CONN_CLIENT]			= "Client  ",
-+	[RXRPC_CONN_SERVICE_UNSECURED]		= "SvUnsec ",
-+	[RXRPC_CONN_SERVICE_CHALLENGING]	= "SvChall ",
-+	[RXRPC_CONN_SERVICE]			= "SvSecure",
-+	[RXRPC_CONN_REMOTELY_ABORTED]		= "RmtAbort",
-+	[RXRPC_CONN_LOCALLY_ABORTED]		= "LocAbort",
-+	[RXRPC_CONN_NETWORK_ERROR]		= "NetError",
- };
+@@ -115,13 +114,13 @@ const struct file_operations rxrpc_call_seq_fops = {
+ static void *rxrpc_connection_seq_start(struct seq_file *seq, loff_t *_pos)
+ {
+ 	read_lock(&rxrpc_connection_lock);
+-	return seq_list_start_head(&rxrpc_connections, *_pos);
++	return seq_list_start_head(&rxrpc_connection_proc_list, *_pos);
+ }
  
- /*
+ static void *rxrpc_connection_seq_next(struct seq_file *seq, void *v,
+ 				       loff_t *pos)
+ {
+-	return seq_list_next(v, &rxrpc_connections, pos);
++	return seq_list_next(v, &rxrpc_connection_proc_list, pos);
+ }
+ 
+ static void rxrpc_connection_seq_stop(struct seq_file *seq, void *v)
+@@ -134,7 +133,7 @@ static int rxrpc_connection_seq_show(struct seq_file *seq, void *v)
+ 	struct rxrpc_connection *conn;
+ 	char lbuff[4 + 4 + 4 + 4 + 5 + 1], rbuff[4 + 4 + 4 + 4 + 5 + 1];
+ 
+-	if (v == &rxrpc_connections) {
++	if (v == &rxrpc_connection_proc_list) {
+ 		seq_puts(seq,
+ 			 "Proto Local                  Remote                "
+ 			 " SvID ConnID   Calls    End Use State    Key     "
+@@ -143,15 +142,14 @@ static int rxrpc_connection_seq_show(struct seq_file *seq, void *v)
+ 		return 0;
+ 	}
+ 
+-	conn = list_entry(v, struct rxrpc_connection, link);
++	conn = list_entry(v, struct rxrpc_connection, proc_link);
+ 
+ 	sprintf(lbuff, "%pI4:%u",
+ 		&conn->params.local->srx.transport.sin.sin_addr,
+ 		ntohs(conn->params.local->srx.transport.sin.sin_port));
+ 
+ 	sprintf(rbuff, "%pI4:%u",
+-		&conn->params.peer->srx.transport.sin.sin_addr,
+-		ntohs(conn->params.peer->srx.transport.sin.sin_port));
++		&conn->proto.ipv4_addr, ntohs(conn->proto.port));
+ 
+ 	seq_printf(seq,
+ 		   "UDP   %-22.22s %-22.22s %4x %08x %08x %s %3u"
