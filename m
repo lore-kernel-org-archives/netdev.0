@@ -1,154 +1,119 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: Re: [iproute PATCH 0/2] Netns performance improvements
-Date: Tue, 5 Jul 2016 22:51:03 +0200
-Message-ID: <20160705205103.GE620@orbyte.nwl.cc>
-References: <1467729773-16751-1-git-send-email-phil@nwl.cc>
- <87twg4ywjz.fsf@x220.int.ebiederm.org>
+From: Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>
+Subject: Re: [PATCH net] bonding: fix 802.3ad aggregator reselection
+Date: Tue, 5 Jul 2016 23:52:26 +0300
+Message-ID: <CAKdSkDVKwveeuWXyP0q38oaP5fcZCas7w=5zM-S3J2ytc++K=A@mail.gmail.com>
+References: <10542.1466716851@famine> <CAKdSkDVXe5jRgWU8WAvx43KvEuZvS4ak+a9qd9H4C3zy+OvkPQ@mail.gmail.com>
+ <20295.1467215964@famine> <CAKdSkDXprDpOUbKqw7+sqAj8LZ2tGC17YONmX0D1oLLUnCvRYw@mail.gmail.com>
+ <CAKdSkDXBhg-n=TrZ6UiVp-xSxgYmKJ3Oaa-5ei_N+kRu7Xf_5Q@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	zhuyj <zyjzyj2000@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:43968 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752151AbcGEUvG (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jul 2016 16:51:06 -0400
-Content-Disposition: inline
-In-Reply-To: <87twg4ywjz.fsf@x220.int.ebiederm.org>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:32981 "EHLO
+	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751868AbcGEUw2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 16:52:28 -0400
+Received: by mail-oi0-f49.google.com with SMTP id u201so245733605oie.0
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 13:52:28 -0700 (PDT)
+In-Reply-To: <CAKdSkDXBhg-n=TrZ6UiVp-xSxgYmKJ3Oaa-5ei_N+kRu7Xf_5Q@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Eric,
+2016-07-05 17:01 GMT+03:00 Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>:
+> 2016-06-30 14:15 GMT+03:00 Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>:
+>> 2016-06-29 18:59 GMT+03:00 Jay Vosburgh <jay.vosburgh@canonical.com>:
+>>> Veli-Matti Lintu <veli-matti.lintu@opinsys.fi> wrote:
+>
+>>>         I tried this locally, but don't see any failure (at the end, the
+>>> "Switch A" agg is still active with the single port).  I am starting
+>>> with just two ports in each aggregator (instead of three), so that may
+>>> be relevant.
+>>
+>> When the connection problem occurs, /proc/net/bonding/bond0 always
+>> shows the aggregator that has a link up active. Dumpcap sees at least
+>> broadcast traffic on the port, but I haven't done extensive analysis
+>> on that yet. All TCP connections are cut until the bond is up again
+>> when more ports are enabled on the switch. ping doesn't work either
+>> way.
+>
+> I did some further testing on this and it looks like I can get this
+> working by enabling the ports in the new aggregator the same way as
+> the ports in old aggregator are disabled in ad_agg_selection_logic().
+>
+> Normally the ports seem to get enabled from ad_mux_machine() in "case
+> AD_MUX_COLLECTING_DISTRIBUTING", but something different happens there
+> as the port does get enabled, but no traffic passes through. So far I
+> haven't been able to figure out what happens. When the connection is
+> lost, dumpcap sees traffic on the only active port in the bond, but it
+> seems like nothing catches it. If I disable and re-enable the same
+> port, traffic start flowing again normally.
 
-Thanks for your quick and insightful reply rightfully pointing out the
-lack of rationale behind this change. So let me try to catch up:
+One more thing to add here - I have tested the following
+bond/bridge/vlan configurations:
 
-On Tue, Jul 05, 2016 at 09:44:00AM -0500, Eric W. Biederman wrote:
-> Phil Sutter <phil@nwl.cc> writes:
-> 
-> > Stress-testing OpenStack Neutron revealed poor performance of 'ip netns'
-> > when dealing with a high amount of namespaces. The cause of this lies in
-> > the combination of how iproute2 mounts NETNS_RUN_DIR and the netns files
-> > therein and the fact that systemd makes all mount points of the system
-> > shared.
-> 
-> So please tell me.  Given that it was clearly a deliberate choice in the
-> code to make these directories shared, and that this is not a result
-> of a systemd making all directories shared by default.  Why is it
-> better to these directories non-shared?
+1. bond0 has IP address, no bridges/vlans
+2. bond0 belongs to a bridge that has the IP address, no vlans
+3. bond0 belongs to a bridge that has the IP address + there are
+bond0.X VLANs that belong to separate bridges
 
-NETNS_RUN_DIR itself is kept shared as it was intended by you (I hope).
-The only difference is that we should avoid it being in the same group
-as the parent mount point. Otherwise, all netns mount points will occur
-twice.
+All configurations behave the same way.
 
-Regarding the shared state of the netns mount points, I have actually no
-idea what's the benefit, as there won't be any child mount points and
-therefore no propagation should occur. Or am I missing something?
+It is also possible to reproduce this with two aggregators with two
+links each. The steps are:
 
-> This may be the appropriate change but saying you stress testing things
-> and have a problem but do not describe how large a scale you had a
-> problem, or anything else to make your problem reproducible by anyone
-> else makes it difficult to consider the merits of this change.
-> 
-> Sometimes things are a good default policy but have imperfect scaling on
-> extreme workloads.
-> 
-> My experience with the current situtation with ip netns is that it
-> prevents a whole lot of confusion by making the network namespace names
-> visible whichever mount namespace your processes are running in.
+   Agg 1   Agg 2
+   P1 P2   P3 P4
+   X   X   X   X   OK (Agg 2 active)
+   X   X   X   -   OK (Agg 1 active)
+   X   -   X   -   OK (Agg 1 active)
+   -   -   X   -   Fail (Agg 2 active)
 
-The only functional difference I noticed was the no longer twice
-appearing netns mount points. They are still visible in all namespaces
-though, just as before.
+The first disabled port needs to be in active aggregator so that the
+aggregator is reselected and changed.
 
-Here's the script I wrote to benchmark 'ip netns':
+Veli-Matti
 
-| #!/bin/bash
-| 
-| IP=${IP:-/usr/sbin/ip}
-| echo "using ip at $IP"
-| 
-| # make sure we start at a clean state
-| for netns in $(ls /run/netns/* 2>/dev/null); do
-|         $IP netns del ${netns##*/}
-| done
-| umount /run/netns
-| 
-| echo "creating 100 mount ns"
-| touch /tmp/stay_alive
-| for ((i = 0; i < 100; i++)); do
-|         unshare -m --propagation unchanged bash -c \
-| 		"while [[ -e /tmp/stay_alive ]]; do sleep 1; done" &
-| done
-| # give a little time for unshare to complete
-| sleep 3
-| 
-| nscount=1000
-| 
-| echo -en "\ncreating $nscount netns"
-| time (for ((i = 0; i < $nscount; i++)); do $IP netns add test$i; done)
-| 
-| echo -en "\ndeleting $nscount netns"
-| time (for ((i = 0; i < $nscount; i++)); do $IP netns del test$i; done)
-| 
-| echo "removing mount ns again"
-| rm /tmp/stay_alive
-| wait
 
-So basically it creates 100 idle mount namespaces, then times
-adding/removing 1000 network namespaces. I called it three times:
-without any patch, with just patch 1 and with both patches applied. Here
-are the results:
-
-| # IP=/tmp/base/ip /vmshare/reproducer/ip_netns_bench.sh
-| using ip at /tmp/base/ip
-| creating 100 mount ns
-| 
-| creating 1000 netns
-| real	0m8.110s
-| user	0m1.143s
-| sys	0m6.235s
-| 
-| deleting 1000 netns
-| real	0m15.347s
-| user	0m0.957s
-| sys	0m11.359s
-| removing mount ns again
-
-| # IP=/tmp/p1/ip /vmshare/reproducer/ip_netns_bench.sh
-| using ip at /tmp/p1/ip
-| creating 100 mount ns
-| 
-| creating 1000 netns
-| real	0m7.956s
-| user	0m0.987s
-| sys	0m4.896s
-| 
-| deleting 1000 netns
-| real	0m7.407s
-| user	0m1.165s
-| sys	0m3.418s
-| removing mount ns again
-
-| # IP=/tmp/p2/ip /vmshare/reproducer/ip_netns_bench.sh
-| using ip at /tmp/p2/ip
-| creating 100 mount ns
-| 
-| creating 1000 netns
-| real	0m7.843s
-| user	0m0.977s
-| sys	0m4.915s
-| 
-| deleting 1000 netns
-| real	0m6.407s
-| user	0m1.006s
-| sys	0m3.057s
-| removing mount ns again
-
-As you can see, the biggest improvement comes during deletion and from
-patch 1. Though the second patch lowers the total time to delete the
-namespaces by another second, which is still relatively much in
-comparison to the low total time.
-
-Cheers, Phil
+> Here's the patch I used for testing on top of 4.7.0-rc6. I haven't
+> tested this with other modes or h/w setups yet.
+>
+>
+> diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+> index ca81f46..45c06c4 100644
+> --- a/drivers/net/bonding/bond_3ad.c
+> +++ b/drivers/net/bonding/bond_3ad.c
+> @@ -1706,6 +1706,25 @@ static void ad_agg_selection_logic(struct
+> aggregator *agg,
+>                                 __disable_port(port);
+>                         }
+>                 }
+> +
+> +               /* Enable ports in the new aggregator */
+> +                if (best) {
+> +                       netdev_dbg(bond->dev, "Enable ports\n");
+> +
+> +                        for (port = best->lag_ports; port;
+> +                             port = port->next_port_in_aggregator) {
+> +                                netdev_dbg(bond->dev, "Agg: %d, P=%d:
+> Port: %s; Enabled=%d\n",
+> +                                            best->aggregator_identifier,
+> +                                            best->num_of_ports,
+> +                                            port->slave->dev->name,
+> +                                            __port_is_enabled(port));
+> +
+> +                                if (!__port_is_enabled(port))
+> +                                        __enable_port(port);
+> +                        }
+> +                }
+> +
+> +
+>                 /* Slave array needs update. */
+>                 *update_slave_arr = true;
+>         }
+>
+> Veli-Matti
