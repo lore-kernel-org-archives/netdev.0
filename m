@@ -1,69 +1,92 @@
-From: Martin KaFai Lau <kafai@fb.com>
-Subject: [PATCH net] ipv6: Fix mem leak in rt6i_pcpu
-Date: Tue, 5 Jul 2016 12:10:23 -0700
-Message-ID: <1467745823-1402823-1-git-send-email-kafai@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <kernel-team@fb.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Petr Novopashenniy <pety@rusnet.ru>
-To: <netdev@vger.kernel.org>
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Subject: [PATCH] net: fix decnet rtnexthop parsing
+Date: Tue,  5 Jul 2016 21:12:53 +0200
+Message-ID: <1467745973-22340-1-git-send-email-vegard.nossum@oracle.com>
+Cc: netdev@vger.kernel.org, Vegard Nossum <vegard.nossum@oracle.com>,
+	Thomas Graf <tgraf@suug.ch>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:4082 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751805AbcGETK1 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 15:10:27 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u65J7L3J028509
-	for <netdev@vger.kernel.org>; Tue, 5 Jul 2016 12:10:26 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 240jkxg341-1
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 12:10:26 -0700
-Received: from facebook.com (2401:db00:11:d0a6:face:0:33:0)	by
- mx-out.facebook.com (10.223.101.97) with ESMTP	id
- 2062486242e411e6ba1f24be0595f910-3ebe7af0 for <netdev@vger.kernel.org>;	Tue,
- 05 Jul 2016 12:10:24 -0700
+Received: from userp1040.oracle.com ([156.151.31.81]:51574 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752593AbcGETNI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 15:13:08 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-It was first reported and reproduced by Petr (thanks!) in
-https://bugzilla.kernel.org/show_bug.cgi?id=119581
+dn_fib_count_nhs() could enter an infinite loop if nhp->rtnh_len == 0
+(i.e. if userspace passes a malformed netlink message).
 
-free_percpu(rt->rt6i_pcpu) used to always happen in ip6_dst_destroy().
+Let's use the helpers from net/nexthop.h which take care of all this
+stuff. We can do exactly the same as e.g. fib_count_nexthops() and
+fib_get_nhs() from net/ipv4/fib_semantics.c.
 
-However, after fixing a deadlock bug in
-commit 9c7370a166b4 ("ipv6: Fix a potential deadlock when creating pcpu rt"),
-free_percpu() is not called before setting non_pcpu_rt->rt6i_pcpu to NULL.
+This fixes the softlockup for me.
 
-It is worth to note that rt6i_pcpu is protected by table->tb6_lock.
-
-kmemleak somehow did not report it.  We nailed it down by
-observing the pcpu entries in /proc/vmallocinfo (first suggested
-by Hannes, thanks!).
-
-Signed-off-by: Martin KaFai Lau <kafai@fb.com>
-Fixes: 9c7370a166b4 ("ipv6: Fix a potential deadlock when creating pcpu rt")
-Reported-by: Petr Novopashenniy <pety@rusnet.ru>
-Tested-by: Petr Novopashenniy <pety@rusnet.ru>
-Acked-by: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Cc: Petr Novopashenniy <pety@rusnet.ru>
+Cc: Thomas Graf <tgraf@suug.ch>
+Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
 ---
- net/ipv6/ip6_fib.c | 1 +
- 1 file changed, 1 insertion(+)
+ net/decnet/dn_fib.c | 21 ++++++++++++---------
+ 1 file changed, 12 insertions(+), 9 deletions(-)
 
-diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
-index 1bcef23..771be1f 100644
---- a/net/ipv6/ip6_fib.c
-+++ b/net/ipv6/ip6_fib.c
-@@ -177,6 +177,7 @@ static void rt6_free_pcpu(struct rt6_info *non_pcpu_rt)
- 		}
+diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
+index df48034..a796fc7 100644
+--- a/net/decnet/dn_fib.c
++++ b/net/decnet/dn_fib.c
+@@ -41,6 +41,7 @@
+ #include <net/dn_fib.h>
+ #include <net/dn_neigh.h>
+ #include <net/dn_dev.h>
++#include <net/nexthop.h>
+ 
+ #define RT_MIN_TABLE 1
+ 
+@@ -150,14 +151,13 @@ static int dn_fib_count_nhs(const struct nlattr *attr)
+ 	struct rtnexthop *nhp = nla_data(attr);
+ 	int nhs = 0, nhlen = nla_len(attr);
+ 
+-	while(nhlen >= (int)sizeof(struct rtnexthop)) {
+-		if ((nhlen -= nhp->rtnh_len) < 0)
+-			return 0;
++	while (rtnh_ok(nhp, nhlen)) {
+ 		nhs++;
+-		nhp = RTNH_NEXT(nhp);
++		nhp = rtnh_next(nhp, &nhlen);
  	}
  
-+	free_percpu(non_pcpu_rt->rt6i_pcpu);
- 	non_pcpu_rt->rt6i_pcpu = NULL;
+-	return nhs;
++	/* leftover implies invalid nexthop configuration, discard it */
++	return nhlen > 0 ? 0 : nhs;
  }
  
+ static int dn_fib_get_nhs(struct dn_fib_info *fi, const struct nlattr *attr,
+@@ -167,21 +167,24 @@ static int dn_fib_get_nhs(struct dn_fib_info *fi, const struct nlattr *attr,
+ 	int nhlen = nla_len(attr);
+ 
+ 	change_nexthops(fi) {
+-		int attrlen = nhlen - sizeof(struct rtnexthop);
+-		if (attrlen < 0 || (nhlen -= nhp->rtnh_len) < 0)
++		int attrlen;
++
++		if (!rtnh_ok(nhp, nhlen))
+ 			return -EINVAL;
+ 
+ 		nh->nh_flags  = (r->rtm_flags&~0xFF) | nhp->rtnh_flags;
+ 		nh->nh_oif    = nhp->rtnh_ifindex;
+ 		nh->nh_weight = nhp->rtnh_hops + 1;
+ 
+-		if (attrlen) {
++		attrlen = rtnh_attrlen(nhp);
++		if (attrlen > 0) {
+ 			struct nlattr *gw_attr;
+ 
+ 			gw_attr = nla_find((struct nlattr *) (nhp + 1), attrlen, RTA_GATEWAY);
+ 			nh->nh_gw = gw_attr ? nla_get_le16(gw_attr) : 0;
+ 		}
+-		nhp = RTNH_NEXT(nhp);
++
++		nhp = rtnh_next(nhp, &nhlen);
+ 	} endfor_nexthops(fi);
+ 
+ 	return 0;
 -- 
-2.5.1
+1.9.1
