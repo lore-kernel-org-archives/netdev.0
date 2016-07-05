@@ -1,314 +1,120 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next v2 2/4] net: dsa: Make most functions take a dsa_port argument
-Date: Tue,  5 Jul 2016 15:07:11 -0700
-Message-ID: <1467756433-25062-3-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH net-next v2 1/4] net: dsa: Pass device pointer to dsa_register_switch
+Date: Tue,  5 Jul 2016 15:07:10 -0700
+Message-ID: <1467756433-25062-2-git-send-email-f.fainelli@gmail.com>
 References: <1467756433-25062-1-git-send-email-f.fainelli@gmail.com>
 Cc: davem@davemloft.net, andrew@lunn.ch,
 	vivien.didelot@savoirfairelinux.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f67.google.com ([209.85.220.67]:33057 "EHLO
-	mail-pa0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755711AbcGEWHX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 18:07:23 -0400
-Received: by mail-pa0-f67.google.com with SMTP id ts6so19376811pac.0
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 15:07:22 -0700 (PDT)
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34638 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755725AbcGEWHV (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 18:07:21 -0400
+Received: by mail-pa0-f66.google.com with SMTP id us13so19321700pab.1
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 15:07:21 -0700 (PDT)
 In-Reply-To: <1467756433-25062-1-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-In preparation for allowing platform data, and therefore no valid
-device_node pointer, make most DSA functions takes a pointer to a
-dsa_port structure whenever possible. While at it, introduce a
-dsa_port_is_valid() helper function which checks whether port->dn is
-NULL or not at the moment.
+In preparation for allowing dsa_register_switch() to be supplied with
+device/platform data, pass down a struct device pointer instead of a
+struct device_node.
 
 Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- net/dsa/dsa.c      | 14 +++++++------
- net/dsa/dsa2.c     | 61 +++++++++++++++++++++++++++++-------------------------
- net/dsa/dsa_priv.h |  4 ++--
- 3 files changed, 43 insertions(+), 36 deletions(-)
+ drivers/net/dsa/b53/b53_common.c | 2 +-
+ drivers/net/dsa/mv88e6xxx/chip.c | 7 +++----
+ include/net/dsa.h                | 2 +-
+ net/dsa/dsa2.c                   | 7 ++++---
+ 4 files changed, 9 insertions(+), 9 deletions(-)
 
-diff --git a/net/dsa/dsa.c b/net/dsa/dsa.c
-index 766d2a525ada..d117580a78b6 100644
---- a/net/dsa/dsa.c
-+++ b/net/dsa/dsa.c
-@@ -208,8 +208,9 @@ __ATTRIBUTE_GROUPS(dsa_hwmon);
+diff --git a/drivers/net/dsa/b53/b53_common.c b/drivers/net/dsa/b53/b53_common.c
+index 444de66667b9..e5799a68cfc8 100644
+--- a/drivers/net/dsa/b53/b53_common.c
++++ b/drivers/net/dsa/b53/b53_common.c
+@@ -1778,7 +1778,7 @@ int b53_switch_register(struct b53_device *dev)
  
- /* basic switch operations **************************************************/
- int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
--		      struct device_node *port_dn, int port)
-+		      struct dsa_port *dport, int port)
+ 	pr_info("found switch: %s, rev %i\n", dev->name, dev->core_rev);
+ 
+-	return dsa_register_switch(dev->ds, dev->ds->dev->of_node);
++	return dsa_register_switch(dev->ds, dev->ds->dev);
+ }
+ EXPORT_SYMBOL(b53_switch_register);
+ 
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 5cb06f7673af..11617c04cd33 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -3848,8 +3848,7 @@ static struct dsa_switch_driver mv88e6xxx_switch_driver = {
+ 	.port_fdb_dump          = mv88e6xxx_port_fdb_dump,
+ };
+ 
+-static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip,
+-				     struct device_node *np)
++static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip)
  {
-+	struct device_node *port_dn = dport->dn;
- 	struct phy_device *phydev;
- 	int ret, mode;
+ 	struct device *dev = chip->dev;
+ 	struct dsa_switch *ds;
+@@ -3864,7 +3863,7 @@ static int mv88e6xxx_register_switch(struct mv88e6xxx_chip *chip,
  
-@@ -237,15 +238,15 @@ int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
+ 	dev_set_drvdata(dev, ds);
  
- static int dsa_cpu_dsa_setups(struct dsa_switch *ds, struct device *dev)
- {
--	struct device_node *port_dn;
-+	struct dsa_port *dport;
- 	int ret, port;
- 
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
- 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
- 			continue;
- 
--		port_dn = ds->ports[port].dn;
--		ret = dsa_cpu_dsa_setup(ds, dev, port_dn, port);
-+		dport = &ds->ports[port];
-+		ret = dsa_cpu_dsa_setup(ds, dev, dport, port);
- 		if (ret)
- 			return ret;
- 	}
-@@ -494,8 +495,9 @@ dsa_switch_setup(struct dsa_switch_tree *dst, int index,
- 	return ds;
+-	return dsa_register_switch(ds, np);
++	return dsa_register_switch(ds, dev);
  }
  
--void dsa_cpu_dsa_destroy(struct device_node *port_dn)
-+void dsa_cpu_dsa_destroy(struct dsa_port *port)
- {
-+	struct device_node *port_dn = port->dn;
- 	struct phy_device *phydev;
+ static void mv88e6xxx_unregister_switch(struct mv88e6xxx_chip *chip)
+@@ -3911,7 +3910,7 @@ static int mv88e6xxx_probe(struct mdio_device *mdiodev)
+ 	if (err)
+ 		return err;
  
- 	if (of_phy_is_fixed_link(port_dn)) {
-@@ -531,7 +533,7 @@ static void dsa_switch_destroy(struct dsa_switch *ds)
- 	for (port = 0; port < DSA_MAX_PORTS; port++) {
- 		if (!(dsa_is_cpu_port(ds, port) || dsa_is_dsa_port(ds, port)))
- 			continue;
--		dsa_cpu_dsa_destroy(ds->ports[port].dn);
-+		dsa_cpu_dsa_destroy(&ds->ports[port]);
+-	err = mv88e6xxx_register_switch(chip, np);
++	err = mv88e6xxx_register_switch(chip);
+ 	if (err) {
+ 		mv88e6xxx_mdio_unregister(chip);
+ 		return err;
+diff --git a/include/net/dsa.h b/include/net/dsa.h
+index 20b3087ad193..6de162c8283e 100644
+--- a/include/net/dsa.h
++++ b/include/net/dsa.h
+@@ -381,5 +381,5 @@ static inline bool dsa_uses_tagged_protocol(struct dsa_switch_tree *dst)
+ }
  
- 		/* Clearing a bit which is not set does no harm */
- 		ds->cpu_port_mask |= ~(1 << port);
+ void dsa_unregister_switch(struct dsa_switch *ds);
+-int dsa_register_switch(struct dsa_switch *ds, struct device_node *np);
++int dsa_register_switch(struct dsa_switch *ds, struct device *dev);
+ #endif
 diff --git a/net/dsa/dsa2.c b/net/dsa/dsa2.c
-index 0940a0ec83e6..3a782ceef716 100644
+index 83b95fc4cede..0940a0ec83e6 100644
 --- a/net/dsa/dsa2.c
 +++ b/net/dsa/dsa2.c
-@@ -77,11 +77,16 @@ static void dsa_dst_del_ds(struct dsa_switch_tree *dst,
- 	kref_put(&dst->refcount, dsa_free_dst);
+@@ -590,8 +590,9 @@ static struct device_node *dsa_get_ports(struct dsa_switch *ds,
+ 	return ports;
  }
  
--static bool dsa_port_is_dsa(struct device_node *port)
-+static bool dsa_port_is_valid(struct dsa_port *port)
-+{
-+	return !!port->dn;
-+}
-+
-+static bool dsa_port_is_dsa(struct dsa_port *port)
+-static int _dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
++static int _dsa_register_switch(struct dsa_switch *ds, struct device *dev)
  {
- 	const char *name;
- 
--	name = of_get_property(port, "label", NULL);
-+	name = of_get_property(port->dn, "label", NULL);
- 	if (!name)
- 		return false;
- 
-@@ -91,11 +96,11 @@ static bool dsa_port_is_dsa(struct device_node *port)
- 	return false;
++	struct device_node *np = dev->of_node;
+ 	struct device_node *ports = dsa_get_ports(ds, np);
+ 	struct dsa_switch_tree *dst;
+ 	u32 tree, index;
+@@ -660,12 +661,12 @@ out:
+ 	return err;
  }
  
--static bool dsa_port_is_cpu(struct device_node *port)
-+static bool dsa_port_is_cpu(struct dsa_port *port)
+-int dsa_register_switch(struct dsa_switch *ds, struct device_node *np)
++int dsa_register_switch(struct dsa_switch *ds, struct device *dev)
  {
- 	const char *name;
- 
--	name = of_get_property(port, "label", NULL);
-+	name = of_get_property(port->dn, "label", NULL);
- 	if (!name)
- 		return false;
- 
-@@ -136,7 +141,7 @@ static struct dsa_switch *dsa_dst_find_port(struct dsa_switch_tree *dst,
- 
- static int dsa_port_complete(struct dsa_switch_tree *dst,
- 			     struct dsa_switch *src_ds,
--			     struct device_node *port,
-+			     struct dsa_port *port,
- 			     u32 src_port)
- {
- 	struct device_node *link;
-@@ -144,7 +149,7 @@ static int dsa_port_complete(struct dsa_switch_tree *dst,
- 	struct dsa_switch *dst_ds;
- 
- 	for (index = 0;; index++) {
--		link = of_parse_phandle(port, "link", index);
-+		link = of_parse_phandle(port->dn, "link", index);
- 		if (!link)
- 			break;
- 
-@@ -167,13 +172,13 @@ static int dsa_port_complete(struct dsa_switch_tree *dst,
-  */
- static int dsa_ds_complete(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- {
--	struct device_node *port;
-+	struct dsa_port *port;
- 	u32 index;
  	int err;
  
- 	for (index = 0; index < DSA_MAX_PORTS; index++) {
--		port = ds->ports[index].dn;
--		if (!port)
-+		port = &ds->ports[index];
-+		if (!dsa_port_is_valid(port))
- 			continue;
+ 	mutex_lock(&dsa2_mutex);
+-	err = _dsa_register_switch(ds, np);
++	err = _dsa_register_switch(ds, dev);
+ 	mutex_unlock(&dsa2_mutex);
  
- 		if (!dsa_port_is_dsa(port))
-@@ -213,7 +218,7 @@ static int dsa_dst_complete(struct dsa_switch_tree *dst)
- 	return 0;
- }
- 
--static int dsa_dsa_port_apply(struct device_node *port, u32 index,
-+static int dsa_dsa_port_apply(struct dsa_port *port, u32 index,
- 			      struct dsa_switch *ds)
- {
- 	int err;
-@@ -228,13 +233,13 @@ static int dsa_dsa_port_apply(struct device_node *port, u32 index,
- 	return 0;
- }
- 
--static void dsa_dsa_port_unapply(struct device_node *port, u32 index,
-+static void dsa_dsa_port_unapply(struct dsa_port *port, u32 index,
- 				 struct dsa_switch *ds)
- {
- 	dsa_cpu_dsa_destroy(port);
- }
- 
--static int dsa_cpu_port_apply(struct device_node *port, u32 index,
-+static int dsa_cpu_port_apply(struct dsa_port *port, u32 index,
- 			      struct dsa_switch *ds)
- {
- 	int err;
-@@ -251,7 +256,7 @@ static int dsa_cpu_port_apply(struct device_node *port, u32 index,
- 	return 0;
- }
- 
--static void dsa_cpu_port_unapply(struct device_node *port, u32 index,
-+static void dsa_cpu_port_unapply(struct dsa_port *port, u32 index,
- 				 struct dsa_switch *ds)
- {
- 	dsa_cpu_dsa_destroy(port);
-@@ -259,13 +264,13 @@ static void dsa_cpu_port_unapply(struct device_node *port, u32 index,
- 
- }
- 
--static int dsa_user_port_apply(struct device_node *port, u32 index,
-+static int dsa_user_port_apply(struct dsa_port *port, u32 index,
- 			       struct dsa_switch *ds)
- {
- 	const char *name;
- 	int err;
- 
--	name = of_get_property(port, "label", NULL);
-+	name = of_get_property(port->dn, "label", NULL);
- 
- 	err = dsa_slave_create(ds, ds->dev, index, name);
- 	if (err) {
-@@ -277,7 +282,7 @@ static int dsa_user_port_apply(struct device_node *port, u32 index,
- 	return 0;
- }
- 
--static void dsa_user_port_unapply(struct device_node *port, u32 index,
-+static void dsa_user_port_unapply(struct dsa_port *port, u32 index,
- 				  struct dsa_switch *ds)
- {
- 	if (ds->ports[index].netdev) {
-@@ -289,7 +294,7 @@ static void dsa_user_port_unapply(struct device_node *port, u32 index,
- 
- static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- {
--	struct device_node *port;
-+	struct dsa_port *port;
- 	u32 index;
- 	int err;
- 
-@@ -325,8 +330,8 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- 	}
- 
- 	for (index = 0; index < DSA_MAX_PORTS; index++) {
--		port = ds->ports[index].dn;
--		if (!port)
-+		port = &ds->ports[index];
-+		if (!dsa_port_is_valid(port))
- 			continue;
- 
- 		if (dsa_port_is_dsa(port)) {
-@@ -353,12 +358,12 @@ static int dsa_ds_apply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- 
- static void dsa_ds_unapply(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- {
--	struct device_node *port;
-+	struct dsa_port *port;
- 	u32 index;
- 
- 	for (index = 0; index < DSA_MAX_PORTS; index++) {
--		port = ds->ports[index].dn;
--		if (!port)
-+		port = &ds->ports[index];
-+		if (!dsa_port_is_valid(port))
- 			continue;
- 
- 		if (dsa_port_is_dsa(port)) {
-@@ -439,14 +444,14 @@ static void dsa_dst_unapply(struct dsa_switch_tree *dst)
- 	dst->applied = false;
- }
- 
--static int dsa_cpu_parse(struct device_node *port, u32 index,
-+static int dsa_cpu_parse(struct dsa_port *port, u32 index,
- 			 struct dsa_switch_tree *dst,
- 			 struct dsa_switch *ds)
- {
- 	struct net_device *ethernet_dev;
- 	struct device_node *ethernet;
- 
--	ethernet = of_parse_phandle(port, "ethernet", 0);
-+	ethernet = of_parse_phandle(port->dn, "ethernet", 0);
- 	if (!ethernet)
- 		return -EINVAL;
- 
-@@ -478,13 +483,13 @@ static int dsa_cpu_parse(struct device_node *port, u32 index,
- 
- static int dsa_ds_parse(struct dsa_switch_tree *dst, struct dsa_switch *ds)
- {
--	struct device_node *port;
-+	struct dsa_port *port;
- 	u32 index;
- 	int err;
- 
- 	for (index = 0; index < DSA_MAX_PORTS; index++) {
--		port = ds->ports[index].dn;
--		if (!port)
-+		port = &ds->ports[index];
-+		if (!dsa_port_is_valid(port))
- 			continue;
- 
- 		if (dsa_port_is_cpu(port)) {
-@@ -545,7 +550,7 @@ static int dsa_parse_ports_dn(struct device_node *ports, struct dsa_switch *ds)
- 		 * to have access to a correct value, just like what
- 		 * net/dsa/dsa.c::dsa_switch_setup_one does.
- 		 */
--		if (!dsa_port_is_cpu(port))
-+		if (!dsa_port_is_cpu(&ds->ports[reg]))
- 			ds->enabled_port_mask |= 1 << reg;
- 	}
- 
-diff --git a/net/dsa/dsa_priv.h b/net/dsa/dsa_priv.h
-index 00077a9c97f4..3dbc9ce10ab0 100644
---- a/net/dsa/dsa_priv.h
-+++ b/net/dsa/dsa_priv.h
-@@ -51,8 +51,8 @@ struct dsa_slave_priv {
- /* dsa.c */
- extern char dsa_driver_version[];
- int dsa_cpu_dsa_setup(struct dsa_switch *ds, struct device *dev,
--		      struct device_node *port_dn, int port);
--void dsa_cpu_dsa_destroy(struct device_node *port_dn);
-+		      struct dsa_port *dport, int port);
-+void dsa_cpu_dsa_destroy(struct dsa_port *dport);
- const struct dsa_device_ops *dsa_resolve_tag_protocol(int tag_protocol);
- int dsa_cpu_port_ethtool_setup(struct dsa_switch *ds);
- void dsa_cpu_port_ethtool_restore(struct dsa_switch *ds);
+ 	return err;
 -- 
 2.7.4
