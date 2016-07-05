@@ -1,92 +1,37 @@
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Subject: [PATCH] net: fix decnet rtnexthop parsing
-Date: Tue,  5 Jul 2016 21:12:53 +0200
-Message-ID: <1467745973-22340-1-git-send-email-vegard.nossum@oracle.com>
-Cc: netdev@vger.kernel.org, Vegard Nossum <vegard.nossum@oracle.com>,
-	Thomas Graf <tgraf@suug.ch>
-To: davem@davemloft.net
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] xfrm: fix crash in XFRM_MSG_GETSA netlink handler
+Date: Tue, 05 Jul 2016 12:13:03 -0700 (PDT)
+Message-ID: <20160705.121303.399318377900246102.davem@davemloft.net>
+References: <1467706688-3631-1-git-send-email-vegard.nossum@oracle.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: steffen.klassert@secunet.com, herbert@gondor.apana.org.au,
+	nicolas.dichtel@6wind.com, netdev@vger.kernel.org
+To: vegard.nossum@oracle.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:51574 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752593AbcGETNI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 15:13:08 -0400
+Received: from shards.monkeyblade.net ([184.105.139.130]:40668 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751407AbcGETNG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 15:13:06 -0400
+In-Reply-To: <1467706688-3631-1-git-send-email-vegard.nossum@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-dn_fib_count_nhs() could enter an infinite loop if nhp->rtnh_len == 0
-(i.e. if userspace passes a malformed netlink message).
+From: Vegard Nossum <vegard.nossum@oracle.com>
+Date: Tue,  5 Jul 2016 10:18:08 +0200
 
-Let's use the helpers from net/nexthop.h which take care of all this
-stuff. We can do exactly the same as e.g. fib_count_nexthops() and
-fib_get_nhs() from net/ipv4/fib_semantics.c.
+> If we hit any of the error conditions inside xfrm_dump_sa(), then
+> xfrm_state_walk_init() never gets called. However, we still call
+> xfrm_state_walk_done() from xfrm_dump_sa_done(), which will crash
+> because the state walk was never initialized properly.
+> 
+> We can fix this by setting cb->args[0] only after we've processed the
+> first element and checking this before calling xfrm_state_walk_done().
+> 
+> Fixes: d3623099d3 ("ipsec: add support of limited SA dump")
+> Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
 
-This fixes the softlockup for me.
-
-Cc: Thomas Graf <tgraf@suug.ch>
-Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
----
- net/decnet/dn_fib.c | 21 ++++++++++++---------
- 1 file changed, 12 insertions(+), 9 deletions(-)
-
-diff --git a/net/decnet/dn_fib.c b/net/decnet/dn_fib.c
-index df48034..a796fc7 100644
---- a/net/decnet/dn_fib.c
-+++ b/net/decnet/dn_fib.c
-@@ -41,6 +41,7 @@
- #include <net/dn_fib.h>
- #include <net/dn_neigh.h>
- #include <net/dn_dev.h>
-+#include <net/nexthop.h>
- 
- #define RT_MIN_TABLE 1
- 
-@@ -150,14 +151,13 @@ static int dn_fib_count_nhs(const struct nlattr *attr)
- 	struct rtnexthop *nhp = nla_data(attr);
- 	int nhs = 0, nhlen = nla_len(attr);
- 
--	while(nhlen >= (int)sizeof(struct rtnexthop)) {
--		if ((nhlen -= nhp->rtnh_len) < 0)
--			return 0;
-+	while (rtnh_ok(nhp, nhlen)) {
- 		nhs++;
--		nhp = RTNH_NEXT(nhp);
-+		nhp = rtnh_next(nhp, &nhlen);
- 	}
- 
--	return nhs;
-+	/* leftover implies invalid nexthop configuration, discard it */
-+	return nhlen > 0 ? 0 : nhs;
- }
- 
- static int dn_fib_get_nhs(struct dn_fib_info *fi, const struct nlattr *attr,
-@@ -167,21 +167,24 @@ static int dn_fib_get_nhs(struct dn_fib_info *fi, const struct nlattr *attr,
- 	int nhlen = nla_len(attr);
- 
- 	change_nexthops(fi) {
--		int attrlen = nhlen - sizeof(struct rtnexthop);
--		if (attrlen < 0 || (nhlen -= nhp->rtnh_len) < 0)
-+		int attrlen;
-+
-+		if (!rtnh_ok(nhp, nhlen))
- 			return -EINVAL;
- 
- 		nh->nh_flags  = (r->rtm_flags&~0xFF) | nhp->rtnh_flags;
- 		nh->nh_oif    = nhp->rtnh_ifindex;
- 		nh->nh_weight = nhp->rtnh_hops + 1;
- 
--		if (attrlen) {
-+		attrlen = rtnh_attrlen(nhp);
-+		if (attrlen > 0) {
- 			struct nlattr *gw_attr;
- 
- 			gw_attr = nla_find((struct nlattr *) (nhp + 1), attrlen, RTA_GATEWAY);
- 			nh->nh_gw = gw_attr ? nla_get_le16(gw_attr) : 0;
- 		}
--		nhp = RTNH_NEXT(nhp);
-+
-+		nhp = rtnh_next(nhp, &nhlen);
- 	} endfor_nexthops(fi);
- 
- 	return 0;
--- 
-1.9.1
+I assume Steffen will pick this up.
