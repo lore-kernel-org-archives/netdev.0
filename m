@@ -1,38 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH net-next 3/9] net: r6040: Utilize skb_put_padto()
-Date: Wed, 6 Jul 2016 00:44:55 +0200
-Message-ID: <20160705224455.GA29178@electric-eye.fr.zoreil.com>
-References: <1467668169-31547-1-git-send-email-f.fainelli@gmail.com>
- <1467668169-31547-4-git-send-email-f.fainelli@gmail.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH net-next v2 3/4] net: dsa: Suffix function manipulating
+ device_node with _dn
+Date: Wed, 6 Jul 2016 00:52:03 +0200
+Message-ID: <20160705225203.GE28825@lunn.ch>
+References: <1467756433-25062-1-git-send-email-f.fainelli@gmail.com>
+ <1467756433-25062-4-git-send-email-f.fainelli@gmail.com>
+ <20160705223612.GC28825@lunn.ch>
+ <577C3817.1070908@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net
+Cc: netdev@vger.kernel.org, davem@davemloft.net,
+	vivien.didelot@savoirfairelinux.com
 To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from violet.fr.zoreil.com ([92.243.8.30]:53137 "EHLO
-	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751111AbcGEWpA (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 18:45:00 -0400
+Received: from vps0.lunn.ch ([178.209.37.122]:36533 "EHLO vps0.lunn.ch"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750877AbcGEWwH (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jul 2016 18:52:07 -0400
 Content-Disposition: inline
-In-Reply-To: <1467668169-31547-4-git-send-email-f.fainelli@gmail.com>
+In-Reply-To: <577C3817.1070908@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Florian Fainelli <f.fainelli@gmail.com> :
-[...]
-> diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
-> index 75776eee36f9..46ed093348da 100644
-> --- a/drivers/net/ethernet/rdc/r6040.c
-> +++ b/drivers/net/ethernet/rdc/r6040.c
-> @@ -815,6 +815,9 @@ static netdev_tx_t r6040_start_xmit(struct sk_buff *skb,
->  	void __iomem *ioaddr = lp->base;
->  	unsigned long flags;
->  
-> +	if (skb_put_padto(skb, ETH_ZLEN) < 0)
-> +		return NETDEV_TX_OK;
-> +
+> That is true for the devices I know about, both in and out of tree,
+> however, while discussing offline with Vivien it seemed like there was a
+> potential need for having a x86-based platform which could need that,
+> Vivien do you think this platform could be in-tree one day (if not already)?
 
-Missing dev->stats->tx_dropped++.
+x86 can do device tree. And if it is a complex board, it probably
+needs more of the device tree features like fixed-phys, phy-mode,
+devlink when it lands, etc.
 
--- 
-Ueimor
+If this board really does come to mainline, we should consider support
+for it, one way or the other, but until then, i prefer KISS.
+
+   Andrew
