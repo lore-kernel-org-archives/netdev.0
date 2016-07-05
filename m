@@ -1,163 +1,41 @@
-From: Dmitry Vyukov <dvyukov@google.com>
-Subject: dccp: potential deadlock in dccp_v4_ctl_send_reset
-Date: Tue, 5 Jul 2016 13:59:37 +0200
-Message-ID: <CACT4Y+YX6mx3MroiLGVGTg35y2V0QBHHQecrhQV9bnpEPfDK4Q@mail.gmail.com>
+From: Manish Chopra <manish.chopra@qlogic.com>
+Subject: MPLS in Linux
+Date: Tue, 5 Jul 2016 11:28:21 +0000
+Message-ID: <CY1PR11MB041020E739DE80A007366A1193390@CY1PR11MB0410.namprd11.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: syzkaller <syzkaller@googlegroups.com>,
-	Kostya Serebryany <kcc@google.com>,
-	Alexander Potapenko <glider@google.com>
-To: dccp@vger.kernel.org, Gerrit Renker <gerrit@erg.abdn.ac.uk>,
-	David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>,
-	Eric Dumazet <edumazet@google.com>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: netdev <netdev@vger.kernel.org>
+To: "ebiederm@xmission.com" <ebiederm@xmission.com>,
+	Roopa Prabhu <roopa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f46.google.com ([209.85.215.46]:36611 "EHLO
-	mail-lf0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754189AbcGEL77 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 07:59:59 -0400
-Received: by mail-lf0-f46.google.com with SMTP id q132so133094790lfe.3
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 04:59:58 -0700 (PDT)
+Received: from mail-co1nam03on0108.outbound.protection.outlook.com ([104.47.40.108]:61206
+	"EHLO NAM03-CO1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1751599AbcGEMB4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 08:01:56 -0400
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Hello Folks,
 
-While running syzkaller fuzzer I've got the following deadlock report:
+I am trying to play a bit with MPLS on linux. I have basically two servers connected back to back [No switch/router in between those] using NIC devices.
+Linux kernels are configured for MPLS and all required modules [mpls_gso, mpls_router, mpls_iptunnel etc.] are loaded on the setups.
 
-=================================
-[ INFO: inconsistent lock state ]
-4.7.0-rc5+ #28 Not tainted
----------------------------------
-inconsistent {IN-SOFTIRQ-W} -> {SOFTIRQ-ON-W} usage.
-syz-executor/354 [HC0[0]:SC0[0]:HE1:SE1] takes:
- (slock-AF_INET){+.?...}, at: [<     inline     >] spin_lock
-include/linux/spinlock.h:302
- (slock-AF_INET){+.?...}, at: [<ffffffff864831b1>]
-dccp_v4_ctl_send_reset+0xac1/0x10d0 net/dccp/ipv4.c:530
-{IN-SOFTIRQ-W} state was registered at:
-  [<     inline     >] mark_irqflags kernel/locking/lockdep.c:2915
-  [<ffffffff814791ec>] __lock_acquire+0xb5c/0x2fb0 kernel/locking/lockdep.c:3287
-  [<ffffffff8147c293>] lock_acquire+0x1e3/0x460 kernel/locking/lockdep.c:3741
-  [<     inline     >] __raw_spin_lock include/linux/spinlock_api_smp.h:144
-  [<ffffffff86a93f83>] _raw_spin_lock+0x33/0x50 kernel/locking/spinlock.c:151
-  [<     inline     >] spin_lock include/linux/spinlock.h:302
-  [<ffffffff85cf22a5>] udp_queue_rcv_skb+0x4d5/0x18d0 net/ipv4/udp.c:1597
-  [<ffffffff85cf3d72>] __udp4_lib_rcv+0x6d2/0x3270 net/ipv4/udp.c:1770
-  [<ffffffff85cf78c1>] udp_rcv+0x21/0x30 net/ipv4/udp.c:1962
-  [<ffffffff85c1de10>] ip_local_deliver_finish+0x2b0/0xa30
-net/ipv4/ip_input.c:216
-  [<     inline     >] NF_HOOK_THRESH include/linux/netfilter.h:219
-  [<     inline     >] NF_HOOK include/linux/netfilter.h:242
-  [<ffffffff85c1ec82>] ip_local_deliver+0x1b2/0x350 net/ipv4/ip_input.c:257
-  [<     inline     >] dst_input include/net/dst.h:507
-  [<ffffffff85c1c73d>] ip_rcv_finish+0x6fd/0x1b20 net/ipv4/ip_input.c:395
-  [<     inline     >] NF_HOOK_THRESH include/linux/netfilter.h:219
-  [<     inline     >] NF_HOOK include/linux/netfilter.h:242
-  [<ffffffff85c1f7e9>] ip_rcv+0x9c9/0x1150 net/ipv4/ip_input.c:486
-  [<ffffffff8590f5ee>] __netif_receive_skb_core+0x180e/0x28b0
-net/core/dev.c:4205
-  [<ffffffff859106ba>] __netif_receive_skb+0x2a/0x170 net/core/dev.c:4243
-  [<ffffffff85913545>] netif_receive_skb_internal+0x1b5/0x390
-net/core/dev.c:4271
-  [<     inline     >] napi_skb_finish net/core/dev.c:4599
-  [<ffffffff8591818e>] napi_gro_receive+0x2de/0x500 net/core/dev.c:4631
-  [<ffffffff83ed3f73>] e1000_clean_rx_irq+0x4e3/0x1160
-drivers/net/ethernet/intel/e1000e/netdev.c:1028
-  [<ffffffff83ed5a46>] e1000_clean+0xa16/0x24e0
-drivers/net/ethernet/intel/e1000/e1000_main.c:3836
-  [<     inline     >] napi_poll net/core/dev.c:5135
-  [<ffffffff8591560d>] net_rx_action+0x7ed/0xf10 net/core/dev.c:5200
-  [<ffffffff86a97ebc>] __do_softirq+0x25c/0xa50 kernel/softirq.c:273
-  [<     inline     >] invoke_softirq kernel/softirq.c:350
-  [<ffffffff81381cef>] irq_exit+0x18f/0x1d0 kernel/softirq.c:391
-  [<     inline     >] exiting_irq ./arch/x86/include/asm/apic.h:658
-  [<ffffffff86a976fb>] smp_apic_timer_interrupt+0x7b/0xa0
-arch/x86/kernel/apic/apic.c:932
-  [<ffffffff86a95a6c>] apic_timer_interrupt+0x8c/0xa0
-arch/x86/entry/entry_64.S:451
-  [<ffffffff83729a6b>] class_dev_iter_next+0x8b/0xd0 drivers/base/class.c:324
-  [<ffffffff8372a761>] class_find_device+0x101/0x1c0 drivers/base/class.c:428
-  [<     inline     >] tty_get_device drivers/tty/tty_io.c:3134
-  [<ffffffff83105a56>] alloc_tty_struct+0x5f6/0x840 drivers/tty/tty_io.c:3178
-  [<ffffffff83105d18>] tty_init_dev+0x78/0x4b0 drivers/tty/tty_io.c:1528
-  [<ffffffff83121053>] ptmx_open+0xf3/0x310 drivers/tty/pty.c:753
-  [<ffffffff8181aa1e>] chrdev_open+0x22e/0x4c0 fs/char_dev.c:392
-  [<ffffffff81806218>] do_dentry_open+0x698/0xca0 fs/open.c:736
-  [<ffffffff818097cf>] vfs_open+0x10f/0x210 fs/open.c:849
-  [<     inline     >] do_last fs/namei.c:3360
-  [<ffffffff8183e999>] path_openat+0x12f9/0x2a80 fs/namei.c:3483
-  [<ffffffff8184372c>] do_filp_open+0x18c/0x250 fs/namei.c:3518
-  [<ffffffff81809fcc>] do_sys_open+0x1fc/0x420 fs/open.c:1016
-  [<     inline     >] SYSC_open fs/open.c:1034
-  [<ffffffff8180a21d>] SyS_open+0x2d/0x40 fs/open.c:1029
-  [<ffffffff86a94e00>] entry_SYSCALL_64_fastpath+0x23/0xc1
-arch/x86/entry/entry_64.S:207
-irq event stamp: 201
-hardirqs last  enabled at (201): [<     inline     >]
-__raw_spin_unlock_irqrestore include/linux/spinlock_api_smp.h:162
-hardirqs last  enabled at (201): [<ffffffff86a94b51>]
-_raw_spin_unlock_irqrestore+0x31/0xc0 kernel/locking/spinlock.c:191
-hardirqs last disabled at (200): [<     inline     >]
-__raw_spin_lock_irqsave include/linux/spinlock_api_smp.h:110
-hardirqs last disabled at (200): [<ffffffff86a949f8>]
-_raw_spin_lock_irqsave+0x78/0xd0 kernel/locking/spinlock.c:159
-softirqs last  enabled at (170): [<     inline     >] spin_unlock_bh
-include/linux/spinlock.h:352
-softirqs last  enabled at (170): [<ffffffff858b426c>]
-__release_sock+0xcc/0x3a0 net/core/sock.c:2051
-softirqs last disabled at (168): [<     inline     >] spin_lock_bh
-include/linux/spinlock.h:307
-softirqs last disabled at (168): [<ffffffff858b43fe>]
-__release_sock+0x25e/0x3a0 net/core/sock.c:2065
+To visualize it  - here is the configuration with my setup.
 
-other info that might help us debug this:
- Possible unsafe locking scenario:
+Host A                                     Host B
+########|                 	|########
+        Eth0  <===========> Eth1
+########|                	|########
+IP: 192.168.44.20           IP: 192.168.44.21    
 
-       CPU0
-       ----
-  lock(slock-AF_INET);
-  <Interrupt>
-    lock(slock-AF_INET);
+I want to send MPLS packets/traffic between these NICs [Eth0 and Eth1] in the above mentioned scenario - is there any way to achieve this in back to back connection topology ??
+If so, can anyone supply necessary configurations needs to be done on the hosts via iproute2 utility ??
+Or can MPLS be tested only using routers topology, not with back to back connection ?
 
- *** DEADLOCK ***
+Another question I have is - which NIC offloads can be supported with MPLS ?
 
-1 lock held by syz-executor/354:
- #0:  (sk_lock-AF_INET){+.+.+.}, at: [<     inline     >] lock_sock
-include/net/sock.h:1388
- #0:  (sk_lock-AF_INET){+.+.+.}, at: [<ffffffff85d193f4>]
-inet_stream_connect+0x44/0xa0 net/ipv4/af_inet.c:660
-
-stack backtrace:
-CPU: 3 PID: 354 Comm: syz-executor Not tainted 4.7.0-rc5+ #28
-Hardware name: QEMU Standard PC (i440FX + PIIX, 1996), BIOS Bochs 01/01/2011
- ffffffff880b58e0 ffff8800361378c0 ffffffff82cc01af ffffffff00000000
- fffffbfff1016b1c ffff88003abfe840 ffffffff899bb700 ffff88003abff0a8
- ffffffff86cae460 0000000000000001 ffff880036137930 ffffffff8147684d
-Call Trace:
- [<     inline     >] __dump_stack lib/dump_stack.c:15
- [<ffffffff82cc01af>] dump_stack+0x12e/0x18f lib/dump_stack.c:51
- [<ffffffff8147684d>] print_usage_bug+0x34d/0x3a0 kernel/locking/lockdep.c:2383
- [<     inline     >] valid_state kernel/locking/lockdep.c:2396
- [<     inline     >] mark_lock_irq kernel/locking/lockdep.c:2594
- [<ffffffff8147748c>] mark_lock+0xbec/0xe80 kernel/locking/lockdep.c:3057
- [<     inline     >] mark_irqflags kernel/locking/lockdep.c:2933
- [<ffffffff814793ce>] __lock_acquire+0xd3e/0x2fb0 kernel/locking/lockdep.c:3287
- [<ffffffff8147c293>] lock_acquire+0x1e3/0x460 kernel/locking/lockdep.c:3741
- [<     inline     >] __raw_spin_lock include/linux/spinlock_api_smp.h:144
- [<ffffffff86a93f83>] _raw_spin_lock+0x33/0x50 kernel/locking/spinlock.c:151
- [<     inline     >] spin_lock include/linux/spinlock.h:302
- [<ffffffff864831b1>] dccp_v4_ctl_send_reset+0xac1/0x10d0 net/dccp/ipv4.c:530
- [<ffffffff864838b9>] dccp_v4_do_rcv+0xf9/0x190 net/dccp/ipv4.c:684
- [<     inline     >] sk_backlog_rcv include/net/sock.h:872
- [<ffffffff858b42c7>] __release_sock+0x127/0x3a0 net/core/sock.c:2058
- [<ffffffff858b4599>] release_sock+0x59/0x1c0 net/core/sock.c:2516
- [<ffffffff85d19428>] inet_stream_connect+0x78/0xa0 net/ipv4/af_inet.c:662
- [<ffffffff858a62ae>] SYSC_connect+0x23e/0x2e0 net/socket.c:1536
- [<ffffffff858ab3d4>] SyS_connect+0x24/0x30 net/socket.c:1517
- [<ffffffff86a94e00>] entry_SYSCALL_64_fastpath+0x23/0xc1
-arch/x86/entry/entry_64.S:207
-
-
-On commit 1a0a02d1efa066001fd315c1b4df583d939fa2c4 (Jun 30).
+Thanks,
+Manish
