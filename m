@@ -1,74 +1,50 @@
-From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
-Subject: Re: [PATCHv4 wl-drv-next 0/2] register-field manipulation macros
-Date: Tue, 05 Jul 2016 16:24:18 +0300
-Message-ID: <87lh1g2p6l.fsf@kamboji.qca.qualcomm.com>
-References: <1467718979-20029-1-git-send-email-jakub.kicinski@netronome.com>
+From: David Howells <dhowells@redhat.com>
+Subject: [PATCH net-next 01/24] rxrpc: Fix processing of
+ authenticated/encrypted jumbo packets
+Date: Tue, 05 Jul 2016 14:12:18 +0100
+Message-ID: <146772433840.21657.17138888082363167022.stgit@warthog.procyon.org.uk>
+References: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, nbd-Vt+b4OUoWG0@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Andrew Morton <akpm-de/tnXTf+JLsfHDXvbKv3WD2FQJk+8+b@public.gmane.org>
-To: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1467718979-20029-1-git-send-email-jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-	(Jakub Kicinski's message of "Tue, 5 Jul 2016 12:42:57 +0100")
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: davem@davemloft.net
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org> writes:
+When a jumbo packet is being split up and processed, the crypto checksum
+for each split-out packet is in the jumbo header and needs placing in the
+reconstructed packet header.
 
-> This set moves to a global header file macros which I find
-> very useful and worth popularising.  The basic problem is
-> that since C bitfields are not very dependable accessing
-> subfields of registers becomes slightly inconvenient.
-> It is nice to have the necessary mask and shift operations
-> wrapped in a macro.  It is also nice to have that macro
-> compute the shift amount based on the mask automatically.
->
-> My implementation follows what Felix Fietkau has done in
-> mt76.  Hannes Frederic Sowa suggested more use of standard
-> Linux/GCC functions.  Since the RFC I've also added a 
-> compile-time check to validate that the value passed to
-> setters fits in the mask.
->
-> I attempted the use of static inlines instead of macros
-> but it makes GCC < 6.0 barf at the BUILD_BUG_ON()s.
-> I also noticed that forcing arguments to be u32 for inlines
-> makes the compiler use 32bit arithmetic where it could
-> get away with 64bit before (on 64bit machines, obviously).
-> That's a potential performance concern but probably not
-> a very practical one today.  Apart from looking "cleaner"
-> static inlines would have the advantage that we could #undef
-> the auxiliary macros at the end of the header.
+When commit 0d12f8a4027d021c9cc942f09f38d28288020c5d moved to keeping the
+stored copy of the packet header in host byte order, this reconstruction
+was missed.
 
-This information about various compiler problems is good to have in the
-commit log as the cover letter itself is not stored in the git log.
+Found with sparse with CF=-D__CHECK_ENDIAN__:
 
-> v3:
-> Build bot caught a build failure with -Os set.  AFAICT gcc
-> did not handle temporary variable I put in the macro
-> expression too well.  I work around that by defining
-> __BUILD_BUG_ON_NOT_POWER_OF_2 and using it instead of
-> BUILD_BUG_ON(!tmp || is_power_of_2(tmp)).
->
-> Please review and advise on improvements.
->
-> If accepted I think would be best to push this through
-> Kalle's tree, since the only existing user is in
-> drivers/net/wireless/.
+    ../net/rxrpc/input.c:479:33: warning: incorrect type in assignment (different base types)
+    ../net/rxrpc/input.c:479:33:    expected unsigned short [unsigned] [usertype] _rsvd
+    ../net/rxrpc/input.c:479:33:    got restricted __be16 [addressable] [usertype] _rsvd
 
-I like it. But I feel much more comfortable to take these if I get an
-ack from someone like Dave Miller or Andrew Morton (CCed).
+Signed-off-by: David Howells <dhowells@redhat.com>
+---
 
-Full patches here:
+ net/rxrpc/input.c |    2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-https://patchwork.kernel.org/patch/9214129/
-https://patchwork.kernel.org/patch/9214135/
-
--- 
-Kalle Valo
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+diff --git a/net/rxrpc/input.c b/net/rxrpc/input.c
+index f4bd57b77b93..5f26cae43069 100644
+--- a/net/rxrpc/input.c
++++ b/net/rxrpc/input.c
+@@ -476,7 +476,7 @@ static void rxrpc_process_jumbo_packet(struct rxrpc_call *call,
+ 		sp->hdr.seq	+= 1;
+ 		sp->hdr.serial	+= 1;
+ 		sp->hdr.flags	= jhdr.flags;
+-		sp->hdr._rsvd	= jhdr._rsvd;
++		sp->hdr._rsvd	= ntohs(jhdr._rsvd);
+ 
+ 		_proto("Rx DATA Jumbo %%%u", sp->hdr.serial - 1);
+ 
