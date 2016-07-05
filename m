@@ -1,44 +1,34 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next 01/24] rxrpc: Fix processing of
- authenticated/encrypted jumbo packets
-Date: Tue, 5 Jul 2016 20:55:09 +0300
-Message-ID: <3303be0f-af5a-282a-e7d6-bf16a4aee2e1@cogentembedded.com>
-References: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
- <146772433840.21657.17138888082363167022.stgit@warthog.procyon.org.uk>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Problem: BUG_ON hit in ppp_pernet() when re-connect after
+ changing shared key on LAC
+Date: Tue, 5 Jul 2016 10:59:55 -0700
+Message-ID: <CAM_iQpVyNghNJHES5-npZgYGFXps0-XTwJyJ-9pLDAuYJ_syWw@mail.gmail.com>
+References: <7fabf4defe2f468bbcc829247de956c0@svr-chch-ex1.atlnz.lc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: David Howells <dhowells@redhat.com>, davem@davemloft.net
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <146772433840.21657.17138888082363167022.stgit@warthog.procyon.org.uk>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-ppp@vger.kernel.org" <linux-ppp@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"g.nault@alphalink.fr" <g.nault@alphalink.fr>
+To: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f182.google.com ([209.85.223.182]:35684 "EHLO
+	mail-io0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754766AbcGESAP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 14:00:15 -0400
+In-Reply-To: <7fabf4defe2f468bbcc829247de956c0@svr-chch-ex1.atlnz.lc>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
-
-On 07/05/2016 04:12 PM, David Howells wrote:
-
-> When a jumbo packet is being split up and processed, the crypto checksum
-> for each split-out packet is in the jumbo header and needs placing in the
-> reconstructed packet header.
+On Mon, Jul 4, 2016 at 7:50 PM, Matt Bennett
+<Matt.Bennett@alliedtelesis.co.nz> wrote:
+> Using printk I have confirmed that ppp_pernet() is called from
+> ppp_connect_channel() when the BUG occurs (i.e. pch->chan_net is NULL).
 >
-> When commit 0d12f8a4027d021c9cc942f09f38d28288020c5d moved to keeping the
+> This behavior appears to have been introduced in commit 1f461dc ("ppp:
+> take reference on channels netns").
 
-    scripts/checkpatch.pl now enforces the common commit citing style as for 
-the Fixes: tag and the patch description, you need to specify the summary too.
+We have some race condition here, where a parallel ppp_unregister_channel()
+could happen while we are in ppp_connect_channel().
 
-> stored copy of the packet header in host byte order, this reconstruction
-> was missed.
->
-> Found with sparse with CF=-D__CHECK_ENDIAN__:
->
->     ../net/rxrpc/input.c:479:33: warning: incorrect type in assignment (different base types)
->     ../net/rxrpc/input.c:479:33:    expected unsigned short [unsigned] [usertype] _rsvd
->     ../net/rxrpc/input.c:479:33:    got restricted __be16 [addressable] [usertype] _rsvd
->
-> Signed-off-by: David Howells <dhowells@redhat.com>
-[...]
-
-MBR, Sergei
+We need some synchronization for them. I am not sure what is the right lock
+here since ppp locking looks crazy.
