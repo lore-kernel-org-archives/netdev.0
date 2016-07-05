@@ -1,59 +1,36 @@
-From: Dexuan Cui <decui@microsoft.com>
-Subject: RE: [PATCH v14 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Tue, 5 Jul 2016 01:58:31 +0000
-Message-ID: <CO2PR03MB21823DBFD52A5CF4F96DB712BF390@CO2PR03MB2182.namprd03.prod.outlook.com>
-References: <CY1PR03MB21865E21E637F03877784979BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
+From: " System Administrator" <claude.teinga@camtel.cm>
+Subject: EMAIL NOTIFICATION
+Date: Tue, 05 Jul 2016 05:41:27 +0100
+Message-ID: <20160705044139.E45046C48F7@correo.diresacusco.gob.pe>
+Reply-To: lisaquam011@gmail.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "joe@perches.com" <joe@perches.com>,
- Rolf Neugebauer <rolf.neugebauer@docker.com>,
- Haiyang Zhang <haiyangz@microsoft.com>
-To: "davem@davemloft.net" <davem@davemloft.net>, "gregkh@linuxfoundation.org"
- <gregkh@linuxfoundation.org>, "netdev@vger.kernel.org"
- <netdev@vger.kernel.org>, "linux-kernel@vger.kernel.org"
- <linux-kernel@vger.kernel.org>, "devel@linuxdriverproject.org"
- <devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
- "apw@canonical.com" <apw@canonical.com>, "jasowang@redhat.com"
- <jasowang@redhat.com>, Vitaly Kuznetsov <vkuznets@redhat.com>, Cathy Avery
- <cavery@redhat.com>, KY Srinivasan <kys@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <CY1PR03MB21865E21E637F03877784979BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
-Content-Language: en-US
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from correo.diresacusco.gob.pe ([200.37.198.37]:60594 "EHLO
+	correo.diresacusco.gob.pe" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750840AbcGEEzL convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 00:55:11 -0400
+Received: from localhost (localhost [127.0.0.1])
+	by correo.diresacusco.gob.pe (Postfix) with ESMTP id 10CCE6C4444
+	for <netdev@vger.kernel.org>; Mon,  4 Jul 2016 23:48:40 -0500 (PET)
+Received: from correo.diresacusco.gob.pe ([127.0.0.1])
+	by localhost (correo.diresacusco.gob.pe [127.0.0.1]) (amavisd-new, port 10032)
+	with ESMTP id LJGO1XHG_Gsa for <netdev@vger.kernel.org>;
+	Mon,  4 Jul 2016 23:48:39 -0500 (PET)
+Received: from localhost (localhost [127.0.0.1])
+	by correo.diresacusco.gob.pe (Postfix) with ESMTP id 158656C48E8
+	for <netdev@vger.kernel.org>; Mon,  4 Jul 2016 23:44:28 -0500 (PET)
+Received: from correo.diresacusco.gob.pe ([127.0.0.1])
+	by localhost (correo.diresacusco.gob.pe [127.0.0.1]) (amavisd-new, port 10026)
+	with ESMTP id 0HaWOWXvfRLu for <netdev@vger.kernel.org>;
+	Mon,  4 Jul 2016 23:44:28 -0500 (PET)
+Received: from [192.168.43.11] (unknown [105.112.22.162])
+	by correo.diresacusco.gob.pe (Postfix) with ESMTPSA id E45046C48F7
+	for <netdev@vger.kernel.org>; Mon,  4 Jul 2016 23:41:39 -0500 (PET)
+Content-Description: Mail message body
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-> From: linux-kernel-owner@vger.kernel.org [mailto:linux-kernel-
-> owner@vger.kernel.org] On Behalf Of Dexuan Cui
-> Sent: Thursday, June 30, 2016 23:59
-> diff --git a/include/linux/socket.h b/include/linux/socket.h
-> index b5cc5a6..0b68b58 100644
-> --- a/include/linux/socket.h
-> +++ b/include/linux/socket.h
-> @@ -202,8 +202,9 @@ struct ucred {
->  #define AF_VSOCK	40	/* vSockets			*/
->  #define AF_KCM		41	/* Kernel Connection Multiplexor*/
->  #define AF_QIPCRTR	42	/* Qualcomm IPC Router          */
-> +#define AF_HYPERV	43	/* Hyper-V Sockets              */
-> 
-> -#define AF_MAX		43	/* For now.. */
-> +#define AF_MAX		44	/* For now.. */
-
-Hi David,
-Not sure if you had a chance to review this version.
-Now I have a question: may I split the include/linux/socket.h change
-and ask you to pre-allocate the number for AF_HYPERV to allow
-backporting of Hyper-V Sockets to distro kernels, and to make sure that
-applications using the socket type will work with the backport as well
-as the upstream kernel?
-
-Thanks,
--- Dexuan
+Recently, we have detect some unusual activity on your account and as a result, all email users are urged to update their email account within 24 hours of receiving this e-mail, Please  click the link http://bit.ly/29ftCbA to  update requirement
