@@ -1,33 +1,51 @@
 From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCHv2 0/2] Netns performance improvements
-Date: Tue,  5 Jul 2016 16:51:18 +0200
-Message-ID: <1467730280-17493-1-git-send-email-phil@nwl.cc>
+Subject: [iproute PATCHv2 1/2] ipnetns: Move NETNS_RUN_DIR into it's own propagation group
+Date: Tue,  5 Jul 2016 16:51:19 +0200
+Message-ID: <1467730280-17493-2-git-send-email-phil@nwl.cc>
+References: <1467730280-17493-1-git-send-email-phil@nwl.cc>
 Cc: "Eric W . Biederman" <ebiederm@xmission.com>,
 	netdev@vger.kernel.org
 To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:33225 "EHLO mail.nwl.cc"
+Received: from orbyte.nwl.cc ([151.80.46.58]:42772 "EHLO mail.nwl.cc"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933141AbcGEOvc (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 5 Jul 2016 10:51:32 -0400
+	id S933141AbcGEOvj (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 5 Jul 2016 10:51:39 -0400
+In-Reply-To: <1467730280-17493-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Stress-testing OpenStack Neutron revealed poor performance of 'ip netns'
-when dealing with a high amount of namespaces. The cause of this lies in
-the combination of how iproute2 mounts NETNS_RUN_DIR and the netns files
-therein and the fact that systemd makes all mount points of the system
-shared.
+On systems where the parent mount point is shared, NETNS_RUN_DIR
+inherits the parent's propagation group. This leads to netns mount
+points being propagated to the parent and thus showing up twice in the
+output of 'mount'.
 
-Changes since v1:
-- Added Suggested-by tag to patches.
+By making the newly mounted NETNS_RUN_DIR private first, then shared
+again, it will move to it's own propagation group which will still allow
+for netns mounts to propagate between mount namespaces but gets rid of
+the double netns entry at the same time.
 
-Phil Sutter (2):
-  ipnetns: Move NETNS_RUN_DIR into it's own propagation group
-  ipnetns: Make netns mount points private
+Suggested-by: Miklos Szeredi <mszeredi@redhat.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
+---
+ ip/ipnetns.c | 5 +++++
+ 1 file changed, 5 insertions(+)
 
- ip/ipnetns.c | 12 +++++++++++-
- 1 file changed, 11 insertions(+), 1 deletion(-)
-
+diff --git a/ip/ipnetns.c b/ip/ipnetns.c
+index b3ee23c23aaa2..1cefe73c68bfc 100644
+--- a/ip/ipnetns.c
++++ b/ip/ipnetns.c
+@@ -650,6 +650,11 @@ static int netns_add(int argc, char **argv)
+ 				NETNS_RUN_DIR, NETNS_RUN_DIR, strerror(errno));
+ 			return -1;
+ 		}
++		if (mount("", NETNS_RUN_DIR, "none", MS_PRIVATE, NULL)) {
++			fprintf(stderr, "mount --make-private %s failed: %s\n",
++				NETNS_RUN_DIR, strerror(errno));
++			return -1;
++		}
+ 		made_netns_run_dir_mount = 1;
+ 	}
+ 
 -- 
 2.8.2
