@@ -1,83 +1,59 @@
-From: Mason <slash.tmp@free.fr>
-Subject: Re: WARNING: CPU: 0 PID: 0 at net/ipv4/af_inet.c:155
- inet_sock_destruct+0x1c4/0x1dc
-Date: Tue, 5 Jul 2016 22:26:29 +0200
-Message-ID: <577C17F5.4020106@free.fr>
-References: <577BB72E.3020904@free.fr> <577BC94A.4060204@free.fr>
- <577BD201.2040202@gmail.com> <577BD8BB.7060306@free.fr>
- <577BDE4E.7090509@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Problem: BUG_ON hit in ppp_pernet() when re-connect after
+ changing shared key on LAC
+Date: Tue, 5 Jul 2016 13:36:53 -0700
+Message-ID: <CAM_iQpUEKrcuQvcXO_Rembgk_ZKc-v9Pe2ZEuZ5W_QxdcYDDNQ@mail.gmail.com>
+References: <7fabf4defe2f468bbcc829247de956c0@svr-chch-ex1.atlnz.lc> <CAM_iQpVyNghNJHES5-npZgYGFXps0-XTwJyJ-9pLDAuYJ_syWw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15
-Content-Transfer-Encoding: 7bit
-Cc: Sebastian Frias <sf84@laposte.net>
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	linux-pm <linux-pm@vger.kernel.org>,
-	netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-Return-path: <linux-pm-owner@vger.kernel.org>
-In-Reply-To: <577BDE4E.7090509@gmail.com>
-Sender: linux-pm-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary=001a113eca18eb582a0536e96a61
+Cc: "linux-ppp@vger.kernel.org" <linux-ppp@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"g.nault@alphalink.fr" <g.nault@alphalink.fr>
+To: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <CAM_iQpVyNghNJHES5-npZgYGFXps0-XTwJyJ-9pLDAuYJ_syWw@mail.gmail.com>
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On 05/07/2016 18:20, Florian Fainelli wrote:
-> On 07/05/2016 08:56 AM, Mason wrote:
->> On 05/07/2016 17:28, Florian Fainelli wrote:
+--001a113eca18eb582a0536e96a61
+Content-Type: text/plain; charset=UTF-8
+
+On Tue, Jul 5, 2016 at 10:59 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+> On Mon, Jul 4, 2016 at 7:50 PM, Matt Bennett
+> <Matt.Bennett@alliedtelesis.co.nz> wrote:
+>> Using printk I have confirmed that ppp_pernet() is called from
+>> ppp_connect_channel() when the BUG occurs (i.e. pch->chan_net is NULL).
 >>
->>> nb8800.c does not currently show suspend/resume hooks implemented, are
->>> you positive that when you suspend, you properly tear down all HW, stop
->>> transmit queues, etc. and do the opposite upon resumption?
->>
->> I am currently testing the error path for my suspend routine.
->> Firmware is, in fact, denying the suspend request, and immediately
->> returns control to Linux, without having powered anything down.
->>
->> I expected not having to save any context in that situation.
->> Am I mistaken?
-> 
-> It depends what power state you are going to and resuming from, and how
-> much of this is platform dependent, on the platforms I work with S2
-> preserves register states for our On/Off domain, while S3 only keeps an
-> always-on power island and shuts off the On/Off domain, you therefore
-> need to have your drivers in the On/Off domain suspend any activity and
-> preserve important register states, or re-initialize them from scratch
-> whichever is the most convenient.
+>> This behavior appears to have been introduced in commit 1f461dc ("ppp:
+>> take reference on channels netns").
+>
+> We have some race condition here, where a parallel ppp_unregister_channel()
+> could happen while we are in ppp_connect_channel().
+>
+> We need some synchronization for them. I am not sure what is the right lock
+> here since ppp locking looks crazy.
 
-Thanks for bringing these details to my attention, they will
-definitely prove useful when I test an actual suspend/resume
-sequence. However, I must stress that the platform did NOT
-power down in my test case, because the firmware currently
-denies all suspend requests.
+Matt, could you try if the attached patch helps?
 
-Therefore, loss of context cannot possibly explain the
-warning I am seeing.
+Thanks!
 
->> You mention "stop transmit queues". Can you say more about this?
-> 
-> See drivers/net/ethernet/broadcom/genet/bcmgenet.c which is a driver
-> that takes care of that for instance, look for bcmgenet_{suspend,resume}
+--001a113eca18eb582a0536e96a61
+Content-Type: text/plain; charset=US-ASCII; name="ppp.diff"
+Content-Disposition: attachment; filename="ppp.diff"
+Content-Transfer-Encoding: base64
+X-Attachment-Id: f_iq9x1rnr0
 
-Thanks. I will look into it.
-
-If I understand correctly, something is missing in the
-network interface code? (My system is using an NFS root
-filesystem, so network is an important subsystem.)
-
->>> Is your system clocksource also correctly saved/restored, or if you go
->>> through a firmware in-between could it be changing the counter values
->>> and make Linux think that more time as elapsed than it really happened?
->>
->> Thanks for pointing this out, I was not aware I was supposed to save
->> and restore the tick counter on suspend/resume. (This is not an issue
->> in this specific situation, as the platform is NOT suspended.)
-> 
-> You don't have to save and restore the clocksource counter, although if
-> you want proper time accounting to be done across suspend states, you
-> would want to use a clocksource which is persistent across these suspend
-> states.
-
-The clocksource is a 27 MHz 32-bit tick counter. In other words,
-the counter wraps around every 159 seconds. If Linux suspends
-for several hours, how can it determine how much time went by?
-
-Regards.
-
+ZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3BwcC9wcHBfZ2VuZXJpYy5jIGIvZHJpdmVycy9uZXQv
+cHBwL3BwcF9nZW5lcmljLmMKaW5kZXggOGRlZGFmYS4uMDdmMGU0OSAxMDA2NDQKLS0tIGEvZHJp
+dmVycy9uZXQvcHBwL3BwcF9nZW5lcmljLmMKKysrIGIvZHJpdmVycy9uZXQvcHBwL3BwcF9nZW5l
+cmljLmMKQEAgLTI2MDEsOCArMjYwMSw2IEBAIHBwcF91bnJlZ2lzdGVyX2NoYW5uZWwoc3RydWN0
+IHBwcF9jaGFubmVsICpjaGFuKQogCXNwaW5fbG9ja19iaCgmcG4tPmFsbF9jaGFubmVsc19sb2Nr
+KTsKIAlsaXN0X2RlbCgmcGNoLT5saXN0KTsKIAlzcGluX3VubG9ja19iaCgmcG4tPmFsbF9jaGFu
+bmVsc19sb2NrKTsKLQlwdXRfbmV0KHBjaC0+Y2hhbl9uZXQpOwotCXBjaC0+Y2hhbl9uZXQgPSBO
+VUxMOwogCiAJcGNoLT5maWxlLmRlYWQgPSAxOwogCXdha2VfdXBfaW50ZXJydXB0aWJsZSgmcGNo
+LT5maWxlLnJ3YWl0KTsKQEAgLTMxMzYsNiArMzEzNCwxMSBAQCBwcHBfZGlzY29ubmVjdF9jaGFu
+bmVsKHN0cnVjdCBjaGFubmVsICpwY2gpCiAgKi8KIHN0YXRpYyB2b2lkIHBwcF9kZXN0cm95X2No
+YW5uZWwoc3RydWN0IGNoYW5uZWwgKnBjaCkKIHsKKwlpZiAocGNoLT5jaGFuX25ldCkgeworCQlw
+dXRfbmV0KHBjaC0+Y2hhbl9uZXQpOworCQlwY2gtPmNoYW5fbmV0ID0gTlVMTDsKKwl9CisKIAlh
+dG9taWNfZGVjKCZjaGFubmVsX2NvdW50KTsKIAogCWlmICghcGNoLT5maWxlLmRlYWQpIHsK
+--001a113eca18eb582a0536e96a61--
