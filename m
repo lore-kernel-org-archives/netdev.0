@@ -1,48 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v14 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Mon, 04 Jul 2016 23:58:53 -0700 (PDT)
-Message-ID: <20160704.235853.711410488074031899.davem@davemloft.net>
-References: <CO2PR03MB21823DBFD52A5CF4F96DB712BF390@CO2PR03MB2182.namprd03.prod.outlook.com>
- <20160704.232704.1161688488597729534.davem@davemloft.net>
- <CO2PR03MB21821C4832602D8464D9C092BF390@CO2PR03MB2182.namprd03.prod.outlook.com>
+Subject: Re: [PATCH net-next 0/8] Mellanox 100G mlx5 ethtool ntuple
+ steering
+Date: Tue, 05 Jul 2016 00:06:21 -0700 (PDT)
+Message-ID: <20160705.000621.2150339192801998424.davem@davemloft.net>
+References: <1467642192-28259-1-git-send-email-saeedm@mellanox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: olaf@aepfle.de, rolf.neugebauer@docker.com, jasowang@redhat.com,
- linux-kernel@vger.kernel.org, joe@perches.com, netdev@vger.kernel.org,
- gregkh@linuxfoundation.org, apw@canonical.com, devel@linuxdriverproject.org,
- vkuznets@redhat.com, haiyangz@microsoft.com
-To: decui@microsoft.com
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <CO2PR03MB21821C4832602D8464D9C092BF390@CO2PR03MB2182.namprd03.prod.outlook.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, ogerlitz@mellanox.com
+To: saeedm@mellanox.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57518 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754348AbcGEHGX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 03:06:23 -0400
+In-Reply-To: <1467642192-28259-1-git-send-email-saeedm@mellanox.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dexuan Cui <decui@microsoft.com>
-Date: Tue, 5 Jul 2016 06:46:24 +0000
+From: Saeed Mahameed <saeedm@mellanox.com>
+Date: Mon,  4 Jul 2016 17:23:04 +0300
 
->> From: David Miller [mailto:davem@davemloft.net]
->> Sent: Tuesday, July 5, 2016 14:27
->> To: Dexuan Cui <decui@microsoft.com>
->> Subject: Re: [PATCH v14 net-next 1/1] hv_sock: introduce Hyper-V Sockets
->> 
->> From: Dexuan Cui <decui@microsoft.com>
->> Date: Tue, 5 Jul 2016 01:58:31 +0000
->> 
->> > Not sure if you had a chance to review this version.
->> 
->> Why me?
-> I just think you're the most responsive reviewer. :-)
+> This series adds Ethernet ethtool ntuple steering 'ethtool -N|U' and
+> exposes two more counter sets to Ethtool statistics, RDMA vport and
+> global flow control statistics.
 
-I'm the only reviewer, and that's a problem and simply unacceptable.
-
-Nobody other than me is reviewing this code, and I'm not applying
-these changes while that is the case.
+Series applied, thanks.
