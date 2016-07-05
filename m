@@ -1,64 +1,91 @@
-From: Andrew Lunn <andrew@lunn.ch>
-Subject: Re: [PATCH v2 3/5] drivers: net: phy: Add MDIO driver
-Date: Tue, 5 Jul 2016 15:49:50 +0200
-Message-ID: <20160705134950.GC5230@lunn.ch>
-References: <1464739840-21971-1-git-send-email-isubramanian@apm.com>
- <1464739840-21971-4-git-send-email-isubramanian@apm.com>
- <20160601011148.GD31982@lunn.ch>
- <CAKh23FmaQy8J=f-eyfBeNndz0oT5R0icvwJ3vrw1DMJnj9uv_g@mail.gmail.com>
+From: Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>
+Subject: Re: [PATCH net] bonding: fix 802.3ad aggregator reselection
+Date: Tue, 5 Jul 2016 17:01:57 +0300
+Message-ID: <CAKdSkDXBhg-n=TrZ6UiVp-xSxgYmKJ3Oaa-5ei_N+kRu7Xf_5Q@mail.gmail.com>
+References: <10542.1466716851@famine> <CAKdSkDVXe5jRgWU8WAvx43KvEuZvS4ak+a9qd9H4C3zy+OvkPQ@mail.gmail.com>
+ <20295.1467215964@famine> <CAKdSkDXprDpOUbKqw7+sqAj8LZ2tGC17YONmX0D1oLLUnCvRYw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
- netdev <netdev@vger.kernel.org>, patches <patches@apm.com>,
- Matthias Brugger <matthias.bgg@gmail.com>, David Miller <davem@davemloft.net>,
- "linux-arm-kernel@lists.infradead.org" <linux-arm-kernel@lists.infradead.org>
-To: Iyappan Subramanian <isubramanian@apm.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <CAKh23FmaQy8J=f-eyfBeNndz0oT5R0icvwJ3vrw1DMJnj9uv_g@mail.gmail.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>,
+	Veaceslav Falico <vfalico@gmail.com>,
+	Andy Gospodarek <gospo@cumulusnetworks.com>,
+	zhuyj <zyjzyj2000@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>
+To: Jay Vosburgh <jay.vosburgh@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:33917 "EHLO
+	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752103AbcGEOB7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 10:01:59 -0400
+Received: by mail-oi0-f49.google.com with SMTP id s66so230002899oif.1
+        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 07:01:58 -0700 (PDT)
+In-Reply-To: <CAKdSkDXprDpOUbKqw7+sqAj8LZ2tGC17YONmX0D1oLLUnCvRYw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jun 06, 2016 at 10:12:35AM -0700, Iyappan Subramanian wrote:
-> Hi Andrew,
-> 
-> Thanks for the review.
-> 
-> On Tue, May 31, 2016 at 6:11 PM, Andrew Lunn <andrew@lunn.ch> wrote:
-> > On Tue, May 31, 2016 at 05:10:38PM -0700, Iyappan Subramanian wrote:
-> >> +static int xgene_mdio_reset(struct xgene_mdio_pdata *pdata)
-> >> +{
-> >> +     int ret;
-> >> +
-> >> +     if (pdata->mdio_id == XGENE_MDIO_RGMII) {
-> >> +             if (pdata->dev->of_node) {
-> >> +                     clk_prepare_enable(pdata->clk);
-> >> +                     clk_disable_unprepare(pdata->clk);
-> >> +                     clk_prepare_enable(pdata->clk);
-> >
-> > Hi Iyappan
-> >
-> > Is that a workaround for a hardware problem? If so, i would suggest
-> > adding a comment, to stop people submitting a patch simplifying it.
-> 
-> Hardware expects this clock sequence.  I'll add comment as you suggested.
+2016-06-30 14:15 GMT+03:00 Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>:
+> 2016-06-29 18:59 GMT+03:00 Jay Vosburgh <jay.vosburgh@canonical.com>:
+>> Veli-Matti Lintu <veli-matti.lintu@opinsys.fi> wrote:
 
-What exactly does the hardware require? Is this a workaround for a bug
-in the clock generator? Or a workaround for a bug in the MDIO device?
+>>         I tried this locally, but don't see any failure (at the end, the
+>> "Switch A" agg is still active with the single port).  I am starting
+>> with just two ports in each aggregator (instead of three), so that may
+>> be relevant.
+>
+> When the connection problem occurs, /proc/net/bonding/bond0 always
+> shows the aggregator that has a link up active. Dumpcap sees at least
+> broadcast traffic on the port, but I haven't done extensive analysis
+> on that yet. All TCP connections are cut until the bond is up again
+> when more ports are enabled on the switch. ping doesn't work either
+> way.
 
-If it is a clock generator bug, i think the fix should be in the clock
-driver. If this is bug in the MDIO device, do you need a sleep in
-there, so you actually have the clock ticking/not ticking for a time?
-Since these calls can all sleep, you have no idea how long/sort the
-clock will be enabled/disabled.
+I did some further testing on this and it looks like I can get this
+working by enabling the ports in the new aggregator the same way as
+the ports in old aggregator are disabled in ad_agg_selection_logic().
 
-      Andrew
+Normally the ports seem to get enabled from ad_mux_machine() in "case
+AD_MUX_COLLECTING_DISTRIBUTING", but something different happens there
+as the port does get enabled, but no traffic passes through. So far I
+haven't been able to figure out what happens. When the connection is
+lost, dumpcap sees traffic on the only active port in the bond, but it
+seems like nothing catches it. If I disable and re-enable the same
+port, traffic start flowing again normally.
+
+Here's the patch I used for testing on top of 4.7.0-rc6. I haven't
+tested this with other modes or h/w setups yet.
+
+
+diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
+index ca81f46..45c06c4 100644
+--- a/drivers/net/bonding/bond_3ad.c
++++ b/drivers/net/bonding/bond_3ad.c
+@@ -1706,6 +1706,25 @@ static void ad_agg_selection_logic(struct
+aggregator *agg,
+                                __disable_port(port);
+                        }
+                }
++
++               /* Enable ports in the new aggregator */
++                if (best) {
++                       netdev_dbg(bond->dev, "Enable ports\n");
++
++                        for (port = best->lag_ports; port;
++                             port = port->next_port_in_aggregator) {
++                                netdev_dbg(bond->dev, "Agg: %d, P=%d:
+Port: %s; Enabled=%d\n",
++                                            best->aggregator_identifier,
++                                            best->num_of_ports,
++                                            port->slave->dev->name,
++                                            __port_is_enabled(port));
++
++                                if (!__port_is_enabled(port))
++                                        __enable_port(port);
++                        }
++                }
++
++
+                /* Slave array needs update. */
+                *update_slave_arr = true;
+        }
+
+Veli-Matti
