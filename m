@@ -1,52 +1,38 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next v2 3/4] net: dsa: Suffix function manipulating
- device_node with _dn
-Date: Tue, 5 Jul 2016 15:43:35 -0700
-Message-ID: <577C3817.1070908@gmail.com>
-References: <1467756433-25062-1-git-send-email-f.fainelli@gmail.com>
- <1467756433-25062-4-git-send-email-f.fainelli@gmail.com>
- <20160705223612.GC28825@lunn.ch>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH net-next 3/9] net: r6040: Utilize skb_put_padto()
+Date: Wed, 6 Jul 2016 00:44:55 +0200
+Message-ID: <20160705224455.GA29178@electric-eye.fr.zoreil.com>
+References: <1467668169-31547-1-git-send-email-f.fainelli@gmail.com>
+ <1467668169-31547-4-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	vivien.didelot@savoirfairelinux.com
-To: Andrew Lunn <andrew@lunn.ch>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Florian Fainelli <f.fainelli@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34521 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750828AbcGEWnt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 18:43:49 -0400
-Received: by mail-pa0-f51.google.com with SMTP id bz2so70982055pad.1
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 15:43:38 -0700 (PDT)
-In-Reply-To: <20160705223612.GC28825@lunn.ch>
+Received: from violet.fr.zoreil.com ([92.243.8.30]:53137 "EHLO
+	violet.fr.zoreil.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751111AbcGEWpA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 18:45:00 -0400
+Content-Disposition: inline
+In-Reply-To: <1467668169-31547-4-git-send-email-f.fainelli@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/05/2016 03:36 PM, Andrew Lunn wrote:
-> On Tue, Jul 05, 2016 at 03:07:12PM -0700, Florian Fainelli wrote:
->> Make it clear that these functions take a device_node structure pointer
-> 
-> Hi Florian
-> 
-> Didn't we agree that we would only support a single device via a C
-> coded platform data structure?
+Florian Fainelli <f.fainelli@gmail.com> :
+[...]
+> diff --git a/drivers/net/ethernet/rdc/r6040.c b/drivers/net/ethernet/rdc/r6040.c
+> index 75776eee36f9..46ed093348da 100644
+> --- a/drivers/net/ethernet/rdc/r6040.c
+> +++ b/drivers/net/ethernet/rdc/r6040.c
+> @@ -815,6 +815,9 @@ static netdev_tx_t r6040_start_xmit(struct sk_buff *skb,
+>  	void __iomem *ioaddr = lp->base;
+>  	unsigned long flags;
+>  
+> +	if (skb_put_padto(skb, ETH_ZLEN) < 0)
+> +		return NETDEV_TX_OK;
+> +
 
-That is true for the devices I know about, both in and out of tree,
-however, while discussing offline with Vivien it seemed like there was a
-potential need for having a x86-based platform which could need that,
-Vivien do you think this platform could be in-tree one day (if not already)?
-
-> 
-> All the functions you are renaming will never be called in that
-> case. So i think they can retain there names. You have no need to add
-> none device node equivalents.
-> 
-> So lets drop this patch.
-> 
->    Andrew
-> 
-
+Missing dev->stats->tx_dropped++.
 
 -- 
-Florian
+Ueimor
