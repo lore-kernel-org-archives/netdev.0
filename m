@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tun: fix build warnings
-Date: Mon, 04 Jul 2016 17:19:45 -0700 (PDT)
-Message-ID: <20160704.171945.1411429111917733524.davem@davemloft.net>
-References: <1467611618-4046-1-git-send-email-jasowang@redhat.com>
+Subject: Re: [patch net-next 00/14] mlxsw: Implement basic FIB offload and
+ router interfaces
+Date: Mon, 04 Jul 2016 18:25:34 -0700 (PDT)
+Message-ID: <20160704.182534.173186350057964120.davem@davemloft.net>
+References: <1467613397-17140-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	mst@redhat.com, sfr@canb.auug.org.au
-To: jasowang@redhat.com
+Cc: netdev@vger.kernel.org, idosch@mellanox.com, yotamg@mellanox.com,
+	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
+	sfeldma@gmail.com, roopa@cumulusnetworks.com, andy@greyhouse.net,
+	dsa@cumulusnetworks.com, tgraf@suug.ch, jhs@mojatatu.com,
+	linville@tuxdriver.com, ivecera@redhat.com
+To: jiri@resnulli.us
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:52232 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:52982 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753968AbcGEATq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 20:19:46 -0400
-In-Reply-To: <1467611618-4046-1-git-send-email-jasowang@redhat.com>
+	with ESMTP id S932727AbcGEBZi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 4 Jul 2016 21:25:38 -0400
+In-Reply-To: <1467613397-17140-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jason Wang <jasowang@redhat.com>
-Date: Mon,  4 Jul 2016 13:53:38 +0800
+From: Jiri Pirko <jiri@resnulli.us>
+Date: Mon,  4 Jul 2016 08:23:03 +0200
 
-> Stephen Rothwell reports a build warnings(powerpc ppc64_defconfig)
+> Introduce LPM trees management including virtual router management for HW.
+> Implement basic FIB offloading using switchdev FIB objects. For now only support
+> local routes and direct routes (next-hop support will be introduced in
+> a follow-up patchset).
 > 
-> drivers/net/tun.c: In function 'tun_do_read.part.5':
-> /home/sfr/next/next/drivers/net/tun.c:1491:6: warning: 'err' may be
-> used uninitialized in this function [-Wmaybe-uninitialized]
->    int err;
-> 
-> This is because tun_ring_recv() may return an uninitialized err, fix this.
-> 
-> Reported-by: Stephen Rothwell <sfr@canb.auug.org.au>
-> Signed-off-by: Jason Wang <jasowang@redhat.com>
+> Introduce router interfaces in patches 10-14.
 
-Applied, thanks Jason.
+Series applied, thanks.
