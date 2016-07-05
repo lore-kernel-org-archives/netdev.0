@@ -1,61 +1,40 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
- exceeds MTU, do segmentation even for non IPSKB_FORWARDED skbs
-Date: Tue, 5 Jul 2016 15:03:27 +0200
-Message-ID: <20160705130327.GA10737@breakpoint.cc>
-References: <1467722132-10084-1-git-send-email-shmulik.ladkani@ravellosystems.com>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [PATCH] mwifiex: fix unconditional error return in .add_virtual_intf callback
+Date: Tue, 05 Jul 2016 16:09:26 +0300
+Message-ID: <87twg42pvd.fsf@kamboji.qca.qualcomm.com>
+References: <1467401982-18943-1-git-send-email-javier@osg.samsung.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Florian Westphal <fw@strlen.de>,
-	Eric Dumazet <edumazet@google.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	shmulik.ladkani@gmail.com, netdev@vger.kernel.org
-To: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:56430 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S932877AbcGENDg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 09:03:36 -0400
-Content-Disposition: inline
-In-Reply-To: <1467722132-10084-1-git-send-email-shmulik.ladkani@ravellosystems.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-kernel@vger.kernel.org,
+	Amitkumar Karwar <akarwar@marvell.com>, netdev@vger.kernel.org,
+	linux-wireless@vger.kernel.org,
+	Nishant Sarmukadam <nishants@marvell.com>
+To: Javier Martinez Canillas <javier@osg.samsung.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1467401982-18943-1-git-send-email-javier@osg.samsung.com>
+	(Javier Martinez Canillas's message of "Fri, 1 Jul 2016 15:39:42
+	-0400")
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Shmulik Ladkani <shmulik.ladkani@ravellosystems.com> wrote:
-> Given:
->  - tap0, vxlan0 enslaved under a bridge
->  - eth0 is the tunnel underlay having small mtu (e.g. 1400)
-> 
-> Assume GSO skbs arriving from tap0 having a gso_size as determined by
-> user-provided virtio_net_hdr (e.g. 1460 corresponding to VM mtu of 1500).
-> 
-> After encapsulation these skbs have skb_gso_network_seglen that exceed
-> underlay ip_skb_dst_mtu.
-> 
-> These skbs are accidentally passed to ip_finish_output2 AS IS; however
-> each final segment (either segmented by validate_xmit_skb of eth0, or
-> by eth0 hardware UFO) would be larger than eth0 mtu.
-> As a result, those above-mtu segments get dropped on certain underlay
-> networks.
-> 
-> The expected behavior in such a setup would be segmenting the skb first,
-> and then fragmenting each segment according to dst mtu, and finally
-> passing the resulting fragments to ip_finish_output2.
-> 
-> 'ip_finish_output_gso' already supports this "Slowpath" behavior,
-> but it is only considered if IPSKB_FORWARDED is set.
-> 
-> However in the bridged case, IPSKB_FORWARDED is off, and the "Slowpath"
-> behavior is not considered.
+Javier Martinez Canillas <javier@osg.samsung.com> writes:
 
-I placed this test there under the assumption that L2 bridges have
-the same MTU on all bridge ports, so we'd only need to consider routing
-case.
+> The commit 7311ea850079 ("mwifiex: fix AP start problem for newly added
+> interface") attempted to fix an issue when a new AP interface is added.
+>
+> But the patch didn't check the return value of the functions doing the
+> firmware calls and returned an error even if the functions didn't fail.
+>
+> This prevents the network device to be registered properly, so fix it.
+>
+> Fixes: commit 7311ea850079 ("mwifiex: fix AP start problem for newly added interface")
+> Signed-off-by: Javier Martinez Canillas <javier@osg.samsung.com>
 
-How does work if e.g. 1460-sized udp packet arrives on tap0?
-Do we fragment (possibly ignoring DF?)
+The fixes line should be:
 
-How does it work for non-ip protocols?
+Fixes: 7311ea850079 ("mwifiex: fix AP start problem for newly added interface")
 
-(Or did I misunderstand this setup...?)
+I can fix that before I apply the patch.
+
+-- 
+Kalle Valo
