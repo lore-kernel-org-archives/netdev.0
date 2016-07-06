@@ -1,59 +1,65 @@
-From: Willy Tarreau <w@1wt.eu>
-Subject: Re: [PATCH net] net: mvneta: set real interrupt per packet for tx_done
-Date: Wed, 6 Jul 2016 07:04:31 +0200
-Message-ID: <20160706050431.GA26348@1wt.eu>
-References: <1467771538-31811-1-git-send-email-mw@semihalf.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch, linux@arm.linux.org.uk,
- jason@lakedaemon.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
- stable@vger.kernel.org, Dmitri Epshtein <dima@marvell.com>, nadavh@marvell.com,
- alior@marvell.com, jaz@semihalf.com, gregory.clement@free-electrons.com,
- nitroshift@yahoo.com, davem@davemloft.net,
- linux-arm-kernel@lists.infradead.org, sebastian.hesselbarth@gmail.com
-To: Marcin Wojtas <mw@semihalf.com>
-Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
-Content-Disposition: inline
-In-Reply-To: <1467771538-31811-1-git-send-email-mw@semihalf.com>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
-List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
-List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
- <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
-Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: [Patch net] ppp: defer netns reference release for ppp channel
+Date: Tue,  5 Jul 2016 22:12:36 -0700
+Message-ID: <1467781956-2229-1-git-send-email-xiyou.wangcong@gmail.com>
+Cc: Matt.Bennett@alliedtelesis.co.nz,
+	Cong Wang <xiyou.wangcong@gmail.com>,
+	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
+	Guillaume Nault <g.nault@alphalink.fr>,
+	Cyrill Gorcunov <gorcunov@openvz.org>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:35413 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751674AbcGFFOn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 01:14:43 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi,
+Matt reported that we have a NULL pointer dereference
+in ppp_pernet() from ppp_connect_channel(),
+i.e. pch->chan_net is NULL.
 
-On Wed, Jul 06, 2016 at 04:18:58AM +0200, Marcin Wojtas wrote:
-> From: Dmitri Epshtein <dima@marvell.com>
-> 
-> Commit aebea2ba0f74 ("net: mvneta: fix Tx interrupt delay") intended to
-> set coalescing threshold to a value guaranteeing interrupt generation
-> per each sent packet, so that buffers can be released with no delay.
-> 
-> In fact setting threshold to '1' was wrong, because it causes interrupt
-> every two packets. According to the documentation a reason behind it is
-> following - interrupt occurs once sent buffers counter reaches a value,
-> which is higher than one specified in MVNETA_TXQ_SIZE_REG(q). This
-> behavior was confirmed during tests. Also when testing the SoC working
-> as a NAS device, better performance was observed with int-per-packet,
-> as it strongly depends on the fact that all transmitted packets are
-> released immediately.
-> 
-> This commit enables NETA controller work in interrupt per sent packet mode
-> by setting coalescing threshold to 0.
+This is due to that a parallel ppp_unregister_channel()
+could happen while we are in ppp_connect_channel(), during
+which pch->chan_net set to NULL. Since we need a reference
+to net per channel, it makes sense to sync the refcnt
+with the life time of the channel, therefore we should
+release this reference when we destroy it.
 
-We had a discussion about this in January 2015 and I thought I sent a patch
-to change it but I can't find it, so I think it was only proposed to some
-users for testing. I also remember that on more recent kernels by then
-(>=3.13) we observed a slightly better performance with this value set to
-zero.
+Fixes: 1f461dcdd296 ("ppp: take reference on channels netns")
+Reported-by: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+Cc: Paul Mackerras <paulus@samba.org>
+Cc: linux-ppp@vger.kernel.org
+Cc: Guillaume Nault <g.nault@alphalink.fr>
+Cc: Cyrill Gorcunov <gorcunov@openvz.org>
+Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+---
+ drivers/net/ppp/ppp_generic.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
 
-Acked-by: Willy Tarreau <w@1wt.eu>
-
-Willy
+diff --git a/drivers/net/ppp/ppp_generic.c b/drivers/net/ppp/ppp_generic.c
+index 8dedafa..a30ee42 100644
+--- a/drivers/net/ppp/ppp_generic.c
++++ b/drivers/net/ppp/ppp_generic.c
+@@ -2601,8 +2601,6 @@ ppp_unregister_channel(struct ppp_channel *chan)
+ 	spin_lock_bh(&pn->all_channels_lock);
+ 	list_del(&pch->list);
+ 	spin_unlock_bh(&pn->all_channels_lock);
+-	put_net(pch->chan_net);
+-	pch->chan_net = NULL;
+ 
+ 	pch->file.dead = 1;
+ 	wake_up_interruptible(&pch->file.rwait);
+@@ -3136,6 +3134,9 @@ ppp_disconnect_channel(struct channel *pch)
+  */
+ static void ppp_destroy_channel(struct channel *pch)
+ {
++	put_net(pch->chan_net);
++	pch->chan_net = NULL;
++
+ 	atomic_dec(&channel_count);
+ 
+ 	if (!pch->file.dead) {
+-- 
+1.8.4.5
