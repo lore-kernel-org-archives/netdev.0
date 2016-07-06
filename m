@@ -1,51 +1,41 @@
-From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
-Subject: Re: [PATCH 6/7] dt-bindings: net: bgmac: add bindings documentation for bgmac
-Date: Wed, 06 Jul 2016 09:34:14 +0200
-Message-ID: <13160704.EGDxD1URaF@wuerfel>
-References: <1467327554-22074-1-git-send-email-jon.mason@broadcom.com> <3327458.KVBg7y9SeP@wuerfel> <CAC3K-4qZ9tpEAuDBjL-bkjn5F2Xfr4CAmVGc=DpgVh8MrqEDtQ@mail.gmail.com>
+From: Bert Kenward <bkenward@solarflare.com>
+Subject: Re: [PATCH stable] sfc: report supported link speeds on SFP
+ connections
+Date: Wed, 6 Jul 2016 09:00:31 +0100
+Message-ID: <0bfd2078-0e2e-5f43-7ead-c6645ac82d03@solarflare.com>
+References: <2b196485-c720-106e-de23-acefe7ee170a@solarflare.com>
+ <20160705.212833.1713477374234736101.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: linux-arm-kernel <linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
-	Ray Jui <ray.jui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>,
-	devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Scott Branden <sbranden-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Pawel Moll <pawel.moll-5wv7dgnIgG8@public.gmane.org>,
-	Ian Campbell <ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org>,
-	Hauke Mehrtens <hauke-5/S+JYg5SzeELgA04lAiVw@public.gmane.org>,
-	=?utf-8?B?UmFmYcWCIE1pxYJlY2tp?= <zajec5-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Ray Jui <rjui-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
-	BCM Kernel Feedback <bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>,
-	Kumar Gala <galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
-To: Jon Mason <jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org>
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAC3K-4qZ9tpEAuDBjL-bkjn5F2Xfr4CAmVGc=DpgVh8MrqEDtQ-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
+To: David Miller <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:1167 "EHLO
+	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752475AbcGFIAt (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 04:00:49 -0400
+In-Reply-To: <20160705.212833.1713477374234736101.davem@davemloft.net>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tuesday, July 5, 2016 7:18:45 PM CEST Jon Mason wrote:
-> >
-> > Ok, then I'd suggest making the compatible string here
-> >
-> >         compatible = "brcm,nsp-amac", "brcm,amac";
+On 06/07/16 05:28, David Miller wrote:
+> From: Bert Kenward <bkenward@solarflare.com>
+> Date: Tue, 28 Jun 2016 11:11:11 +0100
 > 
-> It is called GMAC in the NS and NSP documentation, but AMAC is fine
-> with me (as it is called this in the NS2 documentation).  I'll make
-> the necessary change and repush.
+>> commit 1974282ab547df7437276c8d4ec47f3d2300f339
+>> Author: Bert Kenward <bkenward@solarflare.com>
+>> Date:   Mon Jun 6 17:29:30 2016 +0100
+>>
+>>     sfc: report supported link speeds on SFP connections
+> 
+> [davem@localhost linux]$ git describe 1974282ab547df7437276c8d4ec47f3d2300f339
+> fatal: 1974282ab547df7437276c8d4ec47f3d2300f339 is not a valid 'commit' object
+> 
+> If you want me to backport something, don't show me a commit from one
+> of your private trees.
 
-Ok, then we can use
+Apologies. The relevant commit in Linus's tree is 3497ed8. Do you need me to
+re-send the request?
 
-	compatible = "brcm,nsp-gmac", "brcm,amac";
-
-to be consistent with that documentation and have the generic name as the
-fallback.
-
-	Arnd
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Bert.
