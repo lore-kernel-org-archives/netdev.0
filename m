@@ -1,7 +1,7 @@
 From: Masashi Honma <masashi.honma@gmail.com>
-Subject: [RFC 1/7] netlink: Add allocation flag to netlink_unicast()
-Date: Wed,  6 Jul 2016 09:28:30 +0900
-Message-ID: <1467764916-4983-2-git-send-email-masashi.honma@gmail.com>
+Subject: [RFC 5/7] net: Add allocation flag to rtnl_unicast()
+Date: Wed,  6 Jul 2016 09:28:34 +0900
+Message-ID: <1467764916-4983-6-git-send-email-masashi.honma@gmail.com>
 References: <1467764916-4983-1-git-send-email-masashi.honma@gmail.com>
 Cc: davem@davemloft.net, johannes@sipsolutions.net,
 	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
@@ -13,417 +13,255 @@ Cc: davem@davemloft.net, johannes@sipsolutions.net,
 To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
 	linux-wireless@vger.kernel.org, linux-rdma@vger.kernel.org,
 	linux-audit@redhat.com, cluster-devel@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f65.google.com ([209.85.220.65]:36060 "EHLO
-	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750840AbcGFA3E (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 20:29:04 -0400
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1467764916-4983-1-git-send-email-masashi.honma@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
-
-Though netlink_broadcast() has allocation flag which can specify
-memory allocation type (ex. GFP_KERNEL/GFP_ATOMIC), netlink_unicast()
-does not have it. This can cause "BUG: sleeping function called from
-invalid context at" with CONFIG_DEBUG_ATOMIC_SLEEP enabled kernel when
-calling netlink_unicast() inside RCU read-side section and not in IRQ.
-
-This patch adds an allocation flag to netlink_unicast().
-
-At this moment, the allocation flag could be zero to imply gfp_any().
-This is a temporal functionality for stepwise modification and
-removed at the end of the series of patches.
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Masashi Honma <masashi.honma@gmail.com>
 ---
- drivers/connector/connector.c        |  2 +-
- include/linux/netlink.h              |  3 ++-
- include/net/netlink.h                |  2 +-
- kernel/audit.c                       |  9 +++++----
- net/core/rtnetlink.c                 |  2 +-
- net/ipv4/fib_frontend.c              |  2 +-
- net/ipv4/inet_diag.c                 |  2 +-
- net/ipv4/udp_diag.c                  |  2 +-
- net/netfilter/ipset/ip_set_core.c    | 11 +++++++----
- net/netfilter/nf_conntrack_netlink.c |  9 ++++++---
- net/netfilter/nfnetlink.c            |  2 +-
- net/netfilter/nfnetlink_acct.c       |  2 +-
- net/netfilter/nfnetlink_cthelper.c   |  2 +-
- net/netfilter/nfnetlink_cttimeout.c  |  5 +++--
- net/netfilter/nft_compat.c           |  4 ++--
- net/netlink/af_netlink.c             | 12 +++++++-----
- net/sctp/sctp_diag.c                 |  2 +-
- net/unix/diag.c                      |  2 +-
- samples/connector/cn_test.c          |  2 +-
- 19 files changed, 44 insertions(+), 33 deletions(-)
+ include/linux/rtnetlink.h |  3 ++-
+ net/core/net_namespace.c  |  2 +-
+ net/core/rtnetlink.c      | 10 ++++++----
+ net/dcb/dcbnl.c           |  2 +-
+ net/decnet/dn_route.c     |  3 ++-
+ net/ipv4/devinet.c        |  2 +-
+ net/ipv4/ipmr.c           |  6 ++++--
+ net/ipv4/route.c          |  2 +-
+ net/ipv6/addrconf.c       |  4 ++--
+ net/ipv6/addrlabel.c      |  2 +-
+ net/ipv6/ip6mr.c          |  6 ++++--
+ net/ipv6/route.c          |  2 +-
+ net/sched/act_api.c       |  2 +-
+ 13 files changed, 27 insertions(+), 19 deletions(-)
 
-diff --git a/drivers/connector/connector.c b/drivers/connector/connector.c
-index 25693b0..44470e6 100644
---- a/drivers/connector/connector.c
-+++ b/drivers/connector/connector.c
-@@ -125,7 +125,7 @@ int cn_netlink_send_mult(struct cn_msg *msg, u16 len, u32 portid, u32 __group,
- 		return netlink_broadcast(dev->nls, skb, portid, group,
- 					 gfp_mask);
- 	return netlink_unicast(dev->nls, skb, portid,
--			!gfpflags_allow_blocking(gfp_mask));
-+			       !gfpflags_allow_blocking(gfp_mask), gfp_mask);
- }
- EXPORT_SYMBOL_GPL(cn_netlink_send_mult);
+diff --git a/include/linux/rtnetlink.h b/include/linux/rtnetlink.h
+index 2daece8..132730f 100644
+--- a/include/linux/rtnetlink.h
++++ b/include/linux/rtnetlink.h
+@@ -8,7 +8,8 @@
+ #include <uapi/linux/rtnetlink.h>
  
-diff --git a/include/linux/netlink.h b/include/linux/netlink.h
-index da14ab6..f90d24a 100644
---- a/include/linux/netlink.h
-+++ b/include/linux/netlink.h
-@@ -69,7 +69,8 @@ extern void __netlink_clear_multicast_users(struct sock *sk, unsigned int group)
- extern void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err);
- extern int netlink_has_listeners(struct sock *sk, unsigned int group);
+ extern int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, u32 group, int echo);
+-extern int rtnl_unicast(struct sk_buff *skb, struct net *net, u32 pid);
++extern int rtnl_unicast(struct sk_buff *skb, struct net *net, u32 pid,
++			gfp_t flags);
+ extern void rtnl_notify(struct sk_buff *skb, struct net *net, u32 pid,
+ 			u32 group, struct nlmsghdr *nlh, gfp_t flags);
+ extern void rtnl_set_sk_err(struct net *net, u32 group, int error);
+diff --git a/net/core/net_namespace.c b/net/core/net_namespace.c
+index 2c2eb1b..28eed58 100644
+--- a/net/core/net_namespace.c
++++ b/net/core/net_namespace.c
+@@ -646,7 +646,7 @@ static int rtnl_net_getid(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 	if (err < 0)
+ 		goto err_out;
  
--extern int netlink_unicast(struct sock *ssk, struct sk_buff *skb, __u32 portid, int nonblock);
-+extern int netlink_unicast(struct sock *ssk, struct sk_buff *skb, __u32 portid,
-+			   int nonblock, gfp_t allocation);
- extern int netlink_broadcast(struct sock *ssk, struct sk_buff *skb, __u32 portid,
- 			     __u32 group, gfp_t allocation);
- extern int netlink_broadcast_filtered(struct sock *ssk, struct sk_buff *skb,
-diff --git a/include/net/netlink.h b/include/net/netlink.h
-index 254a0fc..898e449 100644
---- a/include/net/netlink.h
-+++ b/include/net/netlink.h
-@@ -590,7 +590,7 @@ static inline int nlmsg_unicast(struct sock *sk, struct sk_buff *skb, u32 portid
- {
- 	int err;
+-	err = rtnl_unicast(msg, net, NETLINK_CB(skb).portid);
++	err = rtnl_unicast(msg, net, NETLINK_CB(skb).portid, GFP_KERNEL);
+ 	goto out;
  
--	err = netlink_unicast(sk, skb, portid, MSG_DONTWAIT);
-+	err = netlink_unicast(sk, skb, portid, MSG_DONTWAIT, 0);
- 	if (err > 0)
- 		err = 0;
- 
-diff --git a/kernel/audit.c b/kernel/audit.c
-index 8d528f9..131577d 100644
---- a/kernel/audit.c
-+++ b/kernel/audit.c
-@@ -411,7 +411,7 @@ static void kauditd_send_skb(struct sk_buff *skb)
- restart:
- 	/* take a reference in case we can't send it and we want to hold it */
- 	skb_get(skb);
--	err = netlink_unicast(audit_sock, skb, audit_nlk_portid, 0);
-+	err = netlink_unicast(audit_sock, skb, audit_nlk_portid, 0, gfp_any());
- 	if (err < 0) {
- 		pr_err("netlink_unicast sending to audit_pid=%d returned error: %d\n",
- 		       audit_pid, err);
-@@ -547,7 +547,7 @@ int audit_send_list(void *_dest)
- 	mutex_unlock(&audit_cmd_mutex);
- 
- 	while ((skb = __skb_dequeue(&dest->q)) != NULL)
--		netlink_unicast(aunet->nlsk, skb, dest->portid, 0);
-+		netlink_unicast(aunet->nlsk, skb, dest->portid, 0, gfp_any());
- 
- 	put_net(net);
- 	kfree(dest);
-@@ -591,7 +591,7 @@ static int audit_send_reply_thread(void *arg)
- 
- 	/* Ignore failure. It'll only happen if the sender goes away,
- 	   because our timeout is set to infinite. */
--	netlink_unicast(aunet->nlsk , reply->skb, reply->portid, 0);
-+	netlink_unicast(aunet->nlsk , reply->skb, reply->portid, 0, gfp_any());
- 	put_net(net);
- 	kfree(reply);
- 	return 0;
-@@ -814,7 +814,8 @@ static int audit_replace(pid_t pid)
- 
- 	if (!skb)
- 		return -ENOMEM;
--	return netlink_unicast(audit_sock, skb, audit_nlk_portid, 0);
-+	return netlink_unicast(audit_sock, skb, audit_nlk_portid, 0,
-+			       GFP_KERNEL);
- }
- 
- static int audit_receive_msg(struct sk_buff *skb, struct nlmsghdr *nlh)
+ err_out:
 diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index eb49ca2..3433633f 100644
+index 7f7927f..89fd826 100644
 --- a/net/core/rtnetlink.c
 +++ b/net/core/rtnetlink.c
-@@ -649,7 +649,7 @@ int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, unsigned int g
- 		atomic_inc(&skb->users);
- 	netlink_broadcast(rtnl, skb, pid, group, GFP_KERNEL);
- 	if (echo)
--		err = netlink_unicast(rtnl, skb, pid, MSG_DONTWAIT);
-+		err = netlink_unicast(rtnl, skb, pid, MSG_DONTWAIT, GFP_KERNEL);
+@@ -653,11 +653,11 @@ int rtnetlink_send(struct sk_buff *skb, struct net *net, u32 pid, unsigned int g
  	return err;
  }
  
-diff --git a/net/ipv4/fib_frontend.c b/net/ipv4/fib_frontend.c
-index ef2ebeb..6a4286f 100644
---- a/net/ipv4/fib_frontend.c
-+++ b/net/ipv4/fib_frontend.c
-@@ -1096,7 +1096,7 @@ static void nl_fib_input(struct sk_buff *skb)
- 	portid = NETLINK_CB(skb).portid;      /* netlink portid */
- 	NETLINK_CB(skb).portid = 0;        /* from kernel */
- 	NETLINK_CB(skb).dst_group = 0;  /* unicast */
--	netlink_unicast(net->ipv4.fibnl, skb, portid, MSG_DONTWAIT);
-+	netlink_unicast(net->ipv4.fibnl, skb, portid, MSG_DONTWAIT, GFP_KERNEL);
- }
- 
- static int __net_init nl_fib_lookup_init(struct net *net)
-diff --git a/net/ipv4/inet_diag.c b/net/ipv4/inet_diag.c
-index 38c2c47..2963b5f 100644
---- a/net/ipv4/inet_diag.c
-+++ b/net/ipv4/inet_diag.c
-@@ -441,7 +441,7 @@ int inet_diag_dump_one_icsk(struct inet_hashinfo *hashinfo,
- 		goto out;
- 	}
- 	err = netlink_unicast(net->diag_nlsk, rep, NETLINK_CB(in_skb).portid,
--			      MSG_DONTWAIT);
-+			      MSG_DONTWAIT, GFP_KERNEL);
- 	if (err > 0)
- 		err = 0;
- 
-diff --git a/net/ipv4/udp_diag.c b/net/ipv4/udp_diag.c
-index 3d5ccf4..69ac502 100644
---- a/net/ipv4/udp_diag.c
-+++ b/net/ipv4/udp_diag.c
-@@ -83,7 +83,7 @@ static int udp_dump_one(struct udp_table *tbl, struct sk_buff *in_skb,
- 		goto out;
- 	}
- 	err = netlink_unicast(net->diag_nlsk, rep, NETLINK_CB(in_skb).portid,
--			      MSG_DONTWAIT);
-+			      MSG_DONTWAIT, GFP_KERNEL);
- 	if (err > 0)
- 		err = 0;
- out:
-diff --git a/net/netfilter/ipset/ip_set_core.c b/net/netfilter/ipset/ip_set_core.c
-index a748b0c..fcbe122 100644
---- a/net/netfilter/ipset/ip_set_core.c
-+++ b/net/netfilter/ipset/ip_set_core.c
-@@ -1510,7 +1510,7 @@ call_ad(struct sock *ctnl, struct sk_buff *skb, struct ip_set *set,
- 		*errline = lineno;
- 
- 		netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid,
--				MSG_DONTWAIT);
-+				MSG_DONTWAIT, GFP_KERNEL);
- 		/* Signal netlink not to send its ACK/errmsg.  */
- 		return -EINTR;
- 	}
-@@ -1695,7 +1695,8 @@ static int ip_set_header(struct net *net, struct sock *ctnl,
- 		goto nla_put_failure;
- 	nlmsg_end(skb2, nlh2);
- 
--	ret = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT);
-+	ret = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT,
-+			      GFP_KERNEL);
- 	if (ret < 0)
- 		return ret;
- 
-@@ -1755,7 +1756,8 @@ static int ip_set_type(struct net *net, struct sock *ctnl, struct sk_buff *skb,
- 	nlmsg_end(skb2, nlh2);
- 
- 	pr_debug("Send TYPE, nlmsg_len: %u\n", nlh2->nlmsg_len);
--	ret = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT);
-+	ret = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT,
-+			      GFP_KERNEL);
- 	if (ret < 0)
- 		return ret;
- 
-@@ -1798,7 +1800,8 @@ static int ip_set_protocol(struct net *net, struct sock *ctnl,
- 		goto nla_put_failure;
- 	nlmsg_end(skb2, nlh2);
- 
--	ret = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT);
-+	ret = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT,
-+			      GFP_KERNEL);
- 	if (ret < 0)
- 		return ret;
- 
-diff --git a/net/netfilter/nf_conntrack_netlink.c b/net/netfilter/nf_conntrack_netlink.c
-index a18d1ce..6537e8d 100644
---- a/net/netfilter/nf_conntrack_netlink.c
-+++ b/net/netfilter/nf_conntrack_netlink.c
-@@ -1224,7 +1224,8 @@ static int ctnetlink_get_conntrack(struct net *net, struct sock *ctnl,
- 	if (err <= 0)
- 		goto free;
- 
--	err = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT);
-+	err = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT,
-+			      GFP_KERNEL);
- 	if (err < 0)
- 		goto out;
- 
-@@ -2083,7 +2084,8 @@ static int ctnetlink_stat_ct(struct net *net, struct sock *ctnl,
- 	if (err <= 0)
- 		goto free;
- 
--	err = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT);
-+	err = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT,
-+			      GFP_KERNEL);
- 	if (err < 0)
- 		goto out;
- 
-@@ -2821,7 +2823,8 @@ static int ctnetlink_get_expect(struct net *net, struct sock *ctnl,
- 	if (err <= 0)
- 		goto free;
- 
--	err = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT);
-+	err = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT,
-+			      GFP_KERNEL);
- 	if (err < 0)
- 		goto out;
- 
-diff --git a/net/netfilter/nfnetlink.c b/net/netfilter/nfnetlink.c
-index 2278d9a..f6193e7 100644
---- a/net/netfilter/nfnetlink.c
-+++ b/net/netfilter/nfnetlink.c
-@@ -143,7 +143,7 @@ EXPORT_SYMBOL_GPL(nfnetlink_set_err);
- int nfnetlink_unicast(struct sk_buff *skb, struct net *net, u32 portid,
- 		      int flags)
+-int rtnl_unicast(struct sk_buff *skb, struct net *net, u32 pid)
++int rtnl_unicast(struct sk_buff *skb, struct net *net, u32 pid, gfp_t flags)
  {
--	return netlink_unicast(net->nfnl, skb, portid, flags);
-+	return netlink_unicast(net->nfnl, skb, portid, flags, 0);
+ 	struct sock *rtnl = net->rtnl;
+ 
+-	return nlmsg_unicast(rtnl, skb, pid, gfp_any());
++	return nlmsg_unicast(rtnl, skb, pid, flags);
  }
- EXPORT_SYMBOL_GPL(nfnetlink_unicast);
+ EXPORT_SYMBOL(rtnl_unicast);
  
-diff --git a/net/netfilter/nfnetlink_acct.c b/net/netfilter/nfnetlink_acct.c
-index 1b4de4b..8b5bd59 100644
---- a/net/netfilter/nfnetlink_acct.c
-+++ b/net/netfilter/nfnetlink_acct.c
-@@ -311,7 +311,7 @@ static int nfnl_acct_get(struct net *net, struct sock *nfnl,
- 			break;
- 		}
- 		ret = netlink_unicast(nfnl, skb2, NETLINK_CB(skb).portid,
--					MSG_DONTWAIT);
-+				      MSG_DONTWAIT, GFP_KERNEL);
- 		if (ret > 0)
- 			ret = 0;
+@@ -2565,7 +2565,8 @@ static int rtnl_getlink(struct sk_buff *skb, struct nlmsghdr* nlh)
+ 		WARN_ON(err == -EMSGSIZE);
+ 		kfree_skb(nskb);
+ 	} else
+-		err = rtnl_unicast(nskb, net, NETLINK_CB(skb).portid);
++		err = rtnl_unicast(nskb, net, NETLINK_CB(skb).portid,
++				   GFP_KERNEL);
  
-diff --git a/net/netfilter/nfnetlink_cthelper.c b/net/netfilter/nfnetlink_cthelper.c
-index e924e95..e46b7cd 100644
---- a/net/netfilter/nfnetlink_cthelper.c
-+++ b/net/netfilter/nfnetlink_cthelper.c
-@@ -559,7 +559,7 @@ static int nfnl_cthelper_get(struct net *net, struct sock *nfnl,
- 			}
- 
- 			ret = netlink_unicast(nfnl, skb2, NETLINK_CB(skb).portid,
--						MSG_DONTWAIT);
-+					      MSG_DONTWAIT, GFP_KERNEL);
- 			if (ret > 0)
- 				ret = 0;
- 
-diff --git a/net/netfilter/nfnetlink_cttimeout.c b/net/netfilter/nfnetlink_cttimeout.c
-index 3c84f14..813eb8a 100644
---- a/net/netfilter/nfnetlink_cttimeout.c
-+++ b/net/netfilter/nfnetlink_cttimeout.c
-@@ -279,7 +279,7 @@ static int cttimeout_get_timeout(struct net *net, struct sock *ctnl,
- 			break;
- 		}
- 		ret = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid,
--					MSG_DONTWAIT);
-+				      MSG_DONTWAIT, GFP_KERNEL);
- 		if (ret > 0)
- 			ret = 0;
- 
-@@ -496,7 +496,8 @@ static int cttimeout_default_get(struct net *net, struct sock *ctnl,
- 		err = -ENOMEM;
- 		goto err;
- 	}
--	ret = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT);
-+	ret = netlink_unicast(ctnl, skb2, NETLINK_CB(skb).portid,
-+			      MSG_DONTWAIT, GFP_KERNEL);
- 	if (ret > 0)
- 		ret = 0;
- 
-diff --git a/net/netfilter/nft_compat.c b/net/netfilter/nft_compat.c
-index 6228c42..7de9ea4 100644
---- a/net/netfilter/nft_compat.c
-+++ b/net/netfilter/nft_compat.c
-@@ -582,8 +582,8 @@ static int nfnl_compat_get(struct net *net, struct sock *nfnl,
- 		return -ENOSPC;
+ 	return err;
+ }
+@@ -3601,7 +3602,8 @@ static int rtnl_stats_get(struct sk_buff *skb, struct nlmsghdr *nlh)
+ 		WARN_ON(err == -EMSGSIZE);
+ 		kfree_skb(nskb);
+ 	} else {
+-		err = rtnl_unicast(nskb, net, NETLINK_CB(skb).portid);
++		err = rtnl_unicast(nskb, net, NETLINK_CB(skb).portid,
++				   GFP_KERNEL);
  	}
  
--	ret = netlink_unicast(nfnl, skb2, NETLINK_CB(skb).portid,
--				MSG_DONTWAIT);
-+	ret = netlink_unicast(nfnl, skb2, NETLINK_CB(skb).portid, MSG_DONTWAIT,
-+			      GFP_KERNEL);
- 	if (ret > 0)
- 		ret = 0;
+ 	return err;
+diff --git a/net/dcb/dcbnl.c b/net/dcb/dcbnl.c
+index 4f6c186..e4de9fe 100644
+--- a/net/dcb/dcbnl.c
++++ b/net/dcb/dcbnl.c
+@@ -1749,7 +1749,7 @@ static int dcb_doit(struct sk_buff *skb, struct nlmsghdr *nlh)
  
-diff --git a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
-index 627f898..c68bf74 100644
---- a/net/netlink/af_netlink.c
-+++ b/net/netlink/af_netlink.c
-@@ -1220,14 +1220,14 @@ static int netlink_unicast_kernel(struct sock *sk, struct sk_buff *skb,
+ 	nlmsg_end(reply_skb, reply_nlh);
+ 
+-	ret = rtnl_unicast(reply_skb, net, portid);
++	ret = rtnl_unicast(reply_skb, net, portid, GFP_KERNEL);
+ out:
  	return ret;
  }
- 
--int netlink_unicast(struct sock *ssk, struct sk_buff *skb,
--		    u32 portid, int nonblock)
-+int netlink_unicast(struct sock *ssk, struct sk_buff *skb, u32 portid,
-+		    int nonblock, gfp_t allocation)
- {
- 	struct sock *sk;
- 	int err;
- 	long timeo;
- 
--	skb = netlink_trim(skb, gfp_any());
-+	skb = netlink_trim(skb, allocation ? allocation : gfp_any());
- 
- 	timeo = sock_sndtimeo(ssk, nonblock);
- retry:
-@@ -1783,7 +1783,8 @@ static int netlink_sendmsg(struct socket *sock, struct msghdr *msg, size_t len)
- 		atomic_inc(&skb->users);
- 		netlink_broadcast(sk, skb, dst_portid, dst_group, GFP_KERNEL);
+diff --git a/net/decnet/dn_route.c b/net/decnet/dn_route.c
+index b1dc096..6fe02bb 100644
+--- a/net/decnet/dn_route.c
++++ b/net/decnet/dn_route.c
+@@ -1714,7 +1714,8 @@ static int dn_cache_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 		goto out_free;
  	}
--	err = netlink_unicast(sk, skb, dst_portid, msg->msg_flags&MSG_DONTWAIT);
-+	err = netlink_unicast(sk, skb, dst_portid,
-+			      msg->msg_flags & MSG_DONTWAIT, GFP_KERNEL);
  
- out:
- 	scm_destroy(&scm);
-@@ -2250,7 +2251,8 @@ void netlink_ack(struct sk_buff *in_skb, struct nlmsghdr *nlh, int err)
- 	errmsg = nlmsg_data(rep);
- 	errmsg->error = err;
- 	memcpy(&errmsg->msg, nlh, payload > sizeof(*errmsg) ? nlh->nlmsg_len : sizeof(*nlh));
--	netlink_unicast(in_skb->sk, skb, NETLINK_CB(in_skb).portid, MSG_DONTWAIT);
-+	netlink_unicast(in_skb->sk, skb, NETLINK_CB(in_skb).portid,
-+			MSG_DONTWAIT, GFP_KERNEL);
+-	return rtnl_unicast(skb, &init_net, NETLINK_CB(in_skb).portid);
++	return rtnl_unicast(skb, &init_net, NETLINK_CB(in_skb).portid,
++			    GFP_KERNEL);
+ 
+ out_free:
+ 	kfree_skb(skb);
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index e333bc8..5e969e5 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1917,7 +1917,7 @@ static int inet_netconf_get_devconf(struct sk_buff *in_skb,
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
++	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid, GFP_ATOMIC);
+ errout:
+ 	return err;
  }
- EXPORT_SYMBOL(netlink_ack);
+diff --git a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
+index 5ad48ec..c704a2a 100644
+--- a/net/ipv4/ipmr.c
++++ b/net/ipv4/ipmr.c
+@@ -654,7 +654,8 @@ static void ipmr_destroy_unres(struct mr_table *mrt, struct mfc_cache *c)
+ 			e->error = -ETIMEDOUT;
+ 			memset(&e->msg, 0, sizeof(e->msg));
  
-diff --git a/net/sctp/sctp_diag.c b/net/sctp/sctp_diag.c
-index f69edcf..4e66405 100644
---- a/net/sctp/sctp_diag.c
-+++ b/net/sctp/sctp_diag.c
-@@ -259,7 +259,7 @@ static int sctp_tsp_dump_one(struct sctp_transport *tsp, void *p)
+-			rtnl_unicast(skb, net, NETLINK_CB(skb).portid);
++			rtnl_unicast(skb, net, NETLINK_CB(skb).portid,
++				     gfp_any());
+ 		} else {
+ 			kfree_skb(skb);
+ 		}
+@@ -933,7 +934,8 @@ static void ipmr_cache_resolve(struct net *net, struct mr_table *mrt,
+ 				memset(&e->msg, 0, sizeof(e->msg));
+ 			}
+ 
+-			rtnl_unicast(skb, net, NETLINK_CB(skb).portid);
++			rtnl_unicast(skb, net, NETLINK_CB(skb).portid,
++				     gfp_any());
+ 		} else {
+ 			ip_mr_forward(net, mrt, skb, c, 0);
+ 		}
+diff --git a/net/ipv4/route.c b/net/ipv4/route.c
+index a1f2830..10cb0e0 100644
+--- a/net/ipv4/route.c
++++ b/net/ipv4/route.c
+@@ -2621,7 +2621,7 @@ static int inet_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 	if (err < 0)
+ 		goto errout_free;
+ 
+-	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
++	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid, GFP_KERNEL);
+ errout:
+ 	return err;
+ 
+diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+index a1f6b7b..2b0b994 100644
+--- a/net/ipv6/addrconf.c
++++ b/net/ipv6/addrconf.c
+@@ -628,7 +628,7 @@ static int inet6_netconf_get_devconf(struct sk_buff *in_skb,
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
++	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid, GFP_ATOMIC);
+ errout:
+ 	return err;
+ }
+@@ -4824,7 +4824,7 @@ static int inet6_rtm_getaddr(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 		kfree_skb(skb);
+ 		goto errout_ifa;
+ 	}
+-	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
++	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid, GFP_KERNEL);
+ errout_ifa:
+ 	in6_ifa_put(ifa);
+ errout:
+diff --git a/net/ipv6/addrlabel.c b/net/ipv6/addrlabel.c
+index a8f6986..597e0eb 100644
+--- a/net/ipv6/addrlabel.c
++++ b/net/ipv6/addrlabel.c
+@@ -580,7 +580,7 @@ static int ip6addrlbl_get(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 		goto out;
  	}
  
- 	err = netlink_unicast(net->diag_nlsk, rep, NETLINK_CB(in_skb).portid,
--			      MSG_DONTWAIT);
-+			      MSG_DONTWAIT, GFP_KERNEL);
- 	if (err > 0)
- 		err = 0;
+-	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
++	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid, GFP_KERNEL);
  out:
-diff --git a/net/unix/diag.c b/net/unix/diag.c
-index 4d96797..5e7e952 100644
---- a/net/unix/diag.c
-+++ b/net/unix/diag.c
-@@ -280,7 +280,7 @@ again:
- 		goto again;
+ 	return err;
+ }
+diff --git a/net/ipv6/ip6mr.c b/net/ipv6/ip6mr.c
+index 487ef3b..135ba15 100644
+--- a/net/ipv6/ip6mr.c
++++ b/net/ipv6/ip6mr.c
+@@ -850,7 +850,8 @@ static void ip6mr_destroy_unres(struct mr6_table *mrt, struct mfc6_cache *c)
+ 			nlh->nlmsg_len = nlmsg_msg_size(sizeof(struct nlmsgerr));
+ 			skb_trim(skb, nlh->nlmsg_len);
+ 			((struct nlmsgerr *)nlmsg_data(nlh))->error = -ETIMEDOUT;
+-			rtnl_unicast(skb, net, NETLINK_CB(skb).portid);
++			rtnl_unicast(skb, net, NETLINK_CB(skb).portid,
++				     gfp_any());
+ 		} else
+ 			kfree_skb(skb);
  	}
- 	err = netlink_unicast(net->diag_nlsk, rep, NETLINK_CB(in_skb).portid,
--			      MSG_DONTWAIT);
-+			      MSG_DONTWAIT, GFP_KERNEL);
- 	if (err > 0)
- 		err = 0;
- out:
-diff --git a/samples/connector/cn_test.c b/samples/connector/cn_test.c
-index d12cc94..640d11b 100644
---- a/samples/connector/cn_test.c
-+++ b/samples/connector/cn_test.c
-@@ -116,7 +116,7 @@ static int cn_test_want_notify(void)
+@@ -1114,7 +1115,8 @@ static void ip6mr_cache_resolve(struct net *net, struct mr6_table *mrt,
+ 				skb_trim(skb, nlh->nlmsg_len);
+ 				((struct nlmsgerr *)nlmsg_data(nlh))->error = -EMSGSIZE;
+ 			}
+-			rtnl_unicast(skb, net, NETLINK_CB(skb).portid);
++			rtnl_unicast(skb, net, NETLINK_CB(skb).portid,
++				     gfp_any());
+ 		} else
+ 			ip6_mr_forward(net, mrt, skb, c);
+ 	}
+diff --git a/net/ipv6/route.c b/net/ipv6/route.c
+index 4981755..81318a8 100644
+--- a/net/ipv6/route.c
++++ b/net/ipv6/route.c
+@@ -3367,7 +3367,7 @@ static int inet6_rtm_getroute(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+ 		goto errout;
+ 	}
  
- 	NETLINK_CB(skb).dst_group = ctl->group;
- 	//netlink_broadcast(nls, skb, 0, ctl->group, GFP_ATOMIC);
--	netlink_unicast(nls, skb, 0, 0);
-+	netlink_unicast(nls, skb, 0, 0, GFP_ATOMIC);
+-	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
++	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid, GFP_KERNEL);
+ errout:
+ 	return err;
+ }
+diff --git a/net/sched/act_api.c b/net/sched/act_api.c
+index 47ec230..b988a84 100644
+--- a/net/sched/act_api.c
++++ b/net/sched/act_api.c
+@@ -737,7 +737,7 @@ act_get_notify(struct net *net, u32 portid, struct nlmsghdr *n,
+ 		return -EINVAL;
+ 	}
  
- 	pr_info("request was sent: group=0x%x\n", ctl->group);
+-	return rtnl_unicast(skb, net, portid);
++	return rtnl_unicast(skb, net, portid, GFP_KERNEL);
+ }
  
+ static struct tc_action *create_a(int i)
 -- 
 2.7.4
+
