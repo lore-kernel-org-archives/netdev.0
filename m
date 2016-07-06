@@ -1,40 +1,41 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH 06/26] netfilter: conntrack: align nf_conn on cacheline
- boundary
-Date: Wed, 6 Jul 2016 17:01:25 +0200
-Message-ID: <20160706150125.GC2243@breakpoint.cc>
-References: <1467815048-2240-1-git-send-email-pablo@netfilter.org>
- <1467815048-2240-7-git-send-email-pablo@netfilter.org>
- <063D6719AE5E284EB5DD2968C1650D6D5F4F18C1@AcuExch.aculab.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [PATCH net-next 04/24] rxrpc: Avoid using stack memory in SG lists in rxkad
+Date: Wed, 06 Jul 2016 16:03:08 +0100
+Message-ID: <31310.1467817388@warthog.procyon.org.uk>
+References: <CALCETrXYJTvYgyaeOwY6N3T2rH+4J23FSp6FWA7HFXih4=3acQ@mail.gmail.com> <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk> <146772435939.21657.15502992311223735001.stgit@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: 'Pablo Neira Ayuso' <pablo@netfilter.org>,
-	"netfilter-devel@vger.kernel.org" <netfilter-devel@vger.kernel.org>,
-	"davem@davemloft.net" <davem@davemloft.net>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: David Laight <David.Laight@ACULAB.COM>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D5F4F18C1@AcuExch.aculab.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: dhowells@redhat.com, "David S. Miller" <davem@davemloft.net>,
+	Herbert Xu <herbert@gondor.apana.org.au>,
+	Network Development <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Andy Lutomirski <luto@kernel.org>,
+	linux-afs@lists.infradead.org
+To: Andy Lutomirski <luto@amacapital.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:41247 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753300AbcGFPDL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jul 2016 11:03:11 -0400
+In-Reply-To: <CALCETrXYJTvYgyaeOwY6N3T2rH+4J23FSp6FWA7HFXih4=3acQ@mail.gmail.com>
+Content-ID: <31309.1467817388.1@warthog.procyon.org.uk>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-David Laight <David.Laight@ACULAB.COM> wrote:
-> From: Pablo Neira Ayuso
-> > Sent: 06 July 2016 15:24
-> > From: Florian Westphal <fw@strlen.de>
-> > 
-> > increases struct size by 32 bytes (288 -> 320), but it is the right thing,
-> > else any attempt to (re-)arrange nf_conn members by cacheline won't work.
-> ...
-> >  	nf_conntrack_cachep = kmem_cache_create("nf_conntrack",
-> >  						sizeof(struct nf_conn), 0,
-> > -						SLAB_DESTROY_BY_RCU, NULL);
-> > +						SLAB_DESTROY_BY_RCU | SLAB_HWCACHE_ALIGN, NULL);
+Andy Lutomirski <luto@amacapital.net> wrote:
+
+> > From: Herbert Xu <herbert@gondor.apana.org.au>
+> >
+> > rxkad uses stack memory in SG lists which would not work if stacks were
+> > allocated from vmalloc memory.  In fact, in most cases this isn't even
+> > necessary as the stack memory ends up getting copied over to kmalloc
+> > memory.
 > 
-> What happens on systems with cache lines that are longer than 64 bytes?
+> This version no longer applies to Linus' tree, so I'm dropping it from
+> my series.
 
-Sorry, I don't have a secret decoder ring.
+This version of your rxrpc patch?  There haven't been any conflicting upstream
+changes for a month.  Do you object to me carrying my version of the patch
+since it fits in with the changes I've been making?
 
-HWCACHE_ALIGN is used for several other net slab caches, including
-skbuff, so why is this a problem here?
+David
