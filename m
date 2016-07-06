@@ -1,148 +1,68 @@
-From: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Subject: [PATCHv5 wl-drv-next 2/2] mt7601u: use linux/bitfield.h
-Date: Wed,  6 Jul 2016 17:19:37 +0100
-Message-ID: <1467821977-11777-3-git-send-email-jakub.kicinski@netronome.com>
-References: <1467821977-11777-1-git-send-email-jakub.kicinski@netronome.com>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, hannes-tFNcAqjVMyqKXQKiL6tip0B+6BGkLq7r@public.gmane.org, nbd-Vt+b4OUoWG0@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-To: kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1467821977-11777-1-git-send-email-jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+From: David Ahern <dsa@cumulusnetworks.com>
+Subject: Re: Network hang after c3f1010b30f7fc611139cfb702a8685741aa6827 with
+ CIPSO & Smack
+Date: Wed, 6 Jul 2016 09:28:57 -0700
+Message-ID: <9998a0da-b273-43d4-84ad-a0539e6a69ac@cumulusnetworks.com>
+References: <e5ba1ba9-acf6-c36c-03e4-4cdc81e81648@schaufler-ca.com>
+ <7d833f59-c68f-f779-4de4-15bc0b26ac7c@cumulusnetworks.com>
+ <66709b13-15a7-8d03-9e84-e4be9aab60b5@schaufler-ca.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Linux-Netdev <netdev@vger.kernel.org>
+To: Casey Schaufler <casey@schaufler-ca.com>,
+	David Miller <davem@davemloft.net>,
+	Paul Moore <paul@paul-moore.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pf0-f182.google.com ([209.85.192.182]:33897 "EHLO
+	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754469AbcGFQ27 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 12:28:59 -0400
+Received: by mail-pf0-f182.google.com with SMTP id h14so81042997pfe.1
+        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 09:28:59 -0700 (PDT)
+In-Reply-To: <66709b13-15a7-8d03-9e84-e4be9aab60b5@schaufler-ca.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Use the newly added linux/bitfield.h.
+On 7/5/16 6:31 PM, Casey Schaufler wrote:
+> On 7/5/2016 5:49 PM, David Ahern wrote:
+>> On 7/5/16 5:38 PM, Casey Schaufler wrote:
+>>> I have encountered a system hang with my Smack
+>>> networking tests that bisects to the change below.
+>>> I can't say that I have any idea why the change
+>>> would impact the Smack processing, but there appears
+>>> to be some serious packet processing going on. The
+>>> Smack code is using CIPSO on the loopback interface.
+>>> The test is supposed to verify that labels can be
+>>> set on the packets using CIPSO. Unlabeled packets
+>>> do not appear to be impacted. I do not know if SELinux
+>>> is affected, and if not, why not. Smack and SELinux
+>>> use CIPSO differently.
+>>
+>> What are the commands to repeat the test?
+>>
+> There is a tar file attached with the tests.
+> Put the etc/smack/user file into /etc/smack/user.
+> In the tools-2012 directory run make to build
+> the tools. The test in question is called
+> testnetworking.sh and needs to be run as root.
+> You will need to configure Smack in the kernel,
+> of course.
+>
 
-Signed-off-by: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
----
- drivers/net/wireless/mediatek/mt7601u/dma.h     |  2 -
- drivers/net/wireless/mediatek/mt7601u/mt7601u.h |  5 +-
- drivers/net/wireless/mediatek/mt7601u/util.h    | 77 -------------------------
- 3 files changed, 4 insertions(+), 80 deletions(-)
- delete mode 100644 drivers/net/wireless/mediatek/mt7601u/util.h
+I understand Paul's point and glad to see the changes are not causing 
+issues with his SELinux testing.
 
-diff --git a/drivers/net/wireless/mediatek/mt7601u/dma.h b/drivers/net/wireless/mediatek/mt7601u/dma.h
-index 978e8a90b87f..166ac71905d2 100644
---- a/drivers/net/wireless/mediatek/mt7601u/dma.h
-+++ b/drivers/net/wireless/mediatek/mt7601u/dma.h
-@@ -18,8 +18,6 @@
- #include <asm/unaligned.h>
- #include <linux/skbuff.h>
- 
--#include "util.h"
--
- #define MT_DMA_HDR_LEN			4
- #define MT_RX_INFO_LEN			4
- #define MT_FCE_INFO_LEN			4
-diff --git a/drivers/net/wireless/mediatek/mt7601u/mt7601u.h b/drivers/net/wireless/mediatek/mt7601u/mt7601u.h
-index 428bd2f10b7b..5ef62e02ce66 100644
---- a/drivers/net/wireless/mediatek/mt7601u/mt7601u.h
-+++ b/drivers/net/wireless/mediatek/mt7601u/mt7601u.h
-@@ -15,6 +15,7 @@
- #ifndef MT7601U_H
- #define MT7601U_H
- 
-+#include <linux/bitfield.h>
- #include <linux/kernel.h>
- #include <linux/device.h>
- #include <linux/mutex.h>
-@@ -24,7 +25,6 @@
- #include <linux/debugfs.h>
- 
- #include "regs.h"
--#include "util.h"
- 
- #define MT_CALIBRATE_INTERVAL		(4 * HZ)
- 
-@@ -282,6 +282,9 @@ struct mt7601u_rxwi;
- 
- extern const struct ieee80211_ops mt7601u_ops;
- 
-+#define MT76_SET	FIELD_PUT
-+#define MT76_GET	FIELD_GET
-+
- void mt7601u_init_debugfs(struct mt7601u_dev *dev);
- 
- u32 mt7601u_rr(struct mt7601u_dev *dev, u32 offset);
-diff --git a/drivers/net/wireless/mediatek/mt7601u/util.h b/drivers/net/wireless/mediatek/mt7601u/util.h
-deleted file mode 100644
-index b89140bf1210..000000000000
---- a/drivers/net/wireless/mediatek/mt7601u/util.h
-+++ /dev/null
-@@ -1,77 +0,0 @@
--/*
-- * Copyright (C) 2014 Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>
-- * Copyright (C) 2004 - 2009 Ivo van Doorn <IvDoorn-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-- *
-- * This program is free software; you can redistribute it and/or modify
-- * it under the terms of the GNU General Public License version 2
-- * as published by the Free Software Foundation
-- *
-- * This program is distributed in the hope that it will be useful,
-- * but WITHOUT ANY WARRANTY; without even the implied warranty of
-- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-- * GNU General Public License for more details.
-- */
--
--#ifndef __MT76_UTIL_H
--#define __MT76_UTIL_H
--
--/*
-- * Power of two check, this will check
-- * if the mask that has been given contains and contiguous set of bits.
-- * Note that we cannot use the is_power_of_2() function since this
-- * check must be done at compile-time.
-- */
--#define is_power_of_two(x)	( !((x) & ((x)-1)) )
--#define low_bit_mask(x)		( ((x)-1) & ~(x) )
--#define is_valid_mask(x)	is_power_of_two(1LU + (x) + low_bit_mask(x))
--
--/*
-- * Macros to find first set bit in a variable.
-- * These macros behave the same as the __ffs() functions but
-- * the most important difference that this is done during
-- * compile-time rather then run-time.
-- */
--#define compile_ffs2(__x) \
--	__builtin_choose_expr(((__x) & 0x1), 0, 1)
--
--#define compile_ffs4(__x) \
--	__builtin_choose_expr(((__x) & 0x3), \
--			      (compile_ffs2((__x))), \
--			      (compile_ffs2((__x) >> 2) + 2))
--
--#define compile_ffs8(__x) \
--	__builtin_choose_expr(((__x) & 0xf), \
--			      (compile_ffs4((__x))), \
--			      (compile_ffs4((__x) >> 4) + 4))
--
--#define compile_ffs16(__x) \
--	__builtin_choose_expr(((__x) & 0xff), \
--			      (compile_ffs8((__x))), \
--			      (compile_ffs8((__x) >> 8) + 8))
--
--#define compile_ffs32(__x) \
--	__builtin_choose_expr(((__x) & 0xffff), \
--			      (compile_ffs16((__x))), \
--			      (compile_ffs16((__x) >> 16) + 16))
--
--/*
-- * This macro will check the requirements for the FIELD{8,16,32} macros
-- * The mask should be a constant non-zero contiguous set of bits which
-- * does not exceed the given typelimit.
-- */
--#define FIELD_CHECK(__mask) \
--	BUILD_BUG_ON(!(__mask) || !is_valid_mask(__mask))
--
--#define MT76_SET(_mask, _val)						\
--	({								\
--		FIELD_CHECK(_mask);					\
--		(((u32) (_val)) << compile_ffs32(_mask)) & _mask;	\
--	})
--
--#define MT76_GET(_mask, _val)						\
--	({								\
--		FIELD_CHECK(_mask);					\
--		(u32) (((_val) & _mask) >> compile_ffs32(_mask));	\
--	})
+I have tried to reproduce the lockup you are seeing but not successful. 
+I am using a jessie based VM with latest net-next kernel.
+
+root@kenny-jessie3:~/smack/tools-2012# zcat /proc/config.gz | grep SMACK
+CONFIG_SECURITY_SMACK=y
+CONFIG_SECURITY_SMACK_BRINGUP=y
+CONFIG_SECURITY_SMACK_NETFILTER=y
+# CONFIG_DEFAULT_SECURITY_SMACK is not set
+
+root@kenny-jessie3:~/smack/tools-2012# bash -x ./testnetworking.sh
+<no lockup>
+
+Send me your kernel config. Perhaps I do not have some config enabled.
