@@ -1,79 +1,81 @@
-From: Paul Moore <paul@paul-moore.com>
-Subject: Re: Network hang after c3f1010b30f7fc611139cfb702a8685741aa6827 with
- CIPSO & Smack
-Date: Wed, 6 Jul 2016 08:50:47 -0400
-Message-ID: <CAHC9VhQsJoA3856MZgaJaHwGAcnXCoe0hn2AtEikcCTZx46Jsg@mail.gmail.com>
-References: <e5ba1ba9-acf6-c36c-03e4-4cdc81e81648@schaufler-ca.com>
+From: Andy Lutomirski <luto@amacapital.net>
+Subject: Re: [PATCH v4 01/29] bluetooth: Switch SMP to crypto_cipher_encrypt_one()
+Date: Wed, 6 Jul 2016 06:17:30 -0700
+Message-ID: <CALCETrXg1z0J0Ub7vPfNO4Tt-q7z=PNc6W8d8iSAV3FBmoXphA@mail.gmail.com>
+References: <cover.1466974736.git.luto@kernel.org> <264af59a3060c2bc2a725cfc66a8fa68219d1c4a.1466974736.git.luto@kernel.org>
+ <8C5360E3-94EE-4869-B9B9-AF9D41B5A3AC@holtmann.org> <20160627085403.GA26865@gmail.com>
+ <2833CC26-7306-4803-A5DB-4CBECCF35C08@holtmann.org> <CALCETrVx6PDUb+5S9eYuB+Dhu2VEkz-iz=hpRJdzxRfXypwK8A@mail.gmail.com>
+ <73C272C5-ECDB-4508-B8D3-1F54D5E8E6AB@holtmann.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>, dsa@cumulusnetworks.com,
-	Linux-Netdev <netdev@vger.kernel.org>
-To: Casey Schaufler <casey@schaufler-ca.com>
+Cc: Ingo Molnar <mingo@kernel.org>, Andy Lutomirski <luto@kernel.org>,
+	X86 ML <x86@kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	linux-arch <linux-arch@vger.kernel.org>,
+	Borislav Petkov <bp@alien8.de>,
+	Nadav Amit <nadav.amit@gmail.com>,
+	Kees Cook <keescook@chromium.org>,
+	Brian Gerst <brgerst@gmail.com>,
+	"kernel-hardening@lists.openwall.com"
+	<kernel-hardening@lists.openwall.com>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Josh Poimboeuf <jpoimboe@redhat.com>,
+	Jann Horn <jann@thejh.net>,
+	Heiko Carstens <heiko.carstens@de.ibm.com>,
+	"Gustavo F. Padovan" <gustavo@padovan.org>,
+	Johan Hedberg <johan.hedberg@gmail.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	linux-bluetooth@vger.kernel.org,
+	Network Development <netdev@vger.kernel.org>
+To: Marcel Holtmann <marcel@holtmann.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f42.google.com ([209.85.218.42]:34430 "EHLO
-	mail-oi0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753282AbcGFMut (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 08:50:49 -0400
-Received: by mail-oi0-f42.google.com with SMTP id s66so268695951oif.1
-        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 05:50:49 -0700 (PDT)
-In-Reply-To: <e5ba1ba9-acf6-c36c-03e4-4cdc81e81648@schaufler-ca.com>
+Received: from mail-vk0-f42.google.com ([209.85.213.42]:35497 "EHLO
+	mail-vk0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754200AbcGFNRv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 09:17:51 -0400
+Received: by mail-vk0-f42.google.com with SMTP id v6so33517836vkb.2
+        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 06:17:50 -0700 (PDT)
+In-Reply-To: <73C272C5-ECDB-4508-B8D3-1F54D5E8E6AB@holtmann.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 5, 2016 at 8:38 PM, Casey Schaufler <casey@schaufler-ca.com> wrote:
-> I have encountered a system hang with my Smack
-> networking tests that bisects to the change below.
-> I can't say that I have any idea why the change
-> would impact the Smack processing, but there appears
-> to be some serious packet processing going on. The
-> Smack code is using CIPSO on the loopback interface.
-> The test is supposed to verify that labels can be
-> set on the packets using CIPSO. Unlabeled packets
-> do not appear to be impacted. I do not know if SELinux
-> is affected, and if not, why not. Smack and SELinux
-> use CIPSO differently.
+On Mon, Jul 4, 2016 at 10:56 AM, Marcel Holtmann <marcel@holtmann.org> wrote:
+> Hi Andy,
+>
+>>>>>> SMP does ECB crypto on stack buffers.  This is complicated and
+>>>>>> fragile, and it will not work if the stack is virtually allocated.
+>>>>>>
+>>>>>> Switch to the crypto_cipher interface, which is simpler and safer.
+>>>>>>
+>>>>>> Cc: Marcel Holtmann <marcel@holtmann.org>
+>>>>>> Cc: Gustavo Padovan <gustavo@padovan.org>
+>>>>>> Cc: Johan Hedberg <johan.hedberg@gmail.com>
+>>>>>> Cc: "David S. Miller" <davem@davemloft.net>
+>>>>>> Cc: linux-bluetooth@vger.kernel.org
+>>>>>> Cc: netdev@vger.kernel.org
+>>>>>> Acked-by: Herbert Xu <herbert@gondor.apana.org.au>
+>>>>>> Acked-and-tested-by: Johan Hedberg <johan.hedberg@intel.com>
+>>>>>> Signed-off-by: Andy Lutomirski <luto@kernel.org>
+>>>>>> ---
+>>>>>> net/bluetooth/smp.c | 67 ++++++++++++++++++++++-------------------------------
+>>>>>> 1 file changed, 28 insertions(+), 39 deletions(-)
+>>>>>
+>>>>> patch has been applied to bluetooth-next tree.
+>>>>
+>>>> Sadly carrying this separately will delay the virtual kernel stacks feature by a
+>>>> kernel cycle, because it's a must-have prerequisite.
+>>>
+>>> I can take it back out, but then I have the fear the the ECDH change to use KPP for SMP might be the one that has to wait a kernel cycle. Either way is fine with me, but I want to avoid nasty merge conflicts in the Bluetooth SMP code.
+>>
+>> Nothing goes wrong if an identical patch is queued in both places,
+>> right?  Or, if you prefer not to duplicate it, could one of you commit
+>> it and the other one pull it?  Ingo, given that this is patch 1 in the
+>> series and unlikely to change, if you want to make this whole thing
+>> have a separate branch in -tip, this could live there for starters.
+>> (But, if you do so, please make sure you base off a very new copy of
+>> Linus' tree -- the series is heavily dependent on the thread_info
+>> change he applied a few days ago.)
+>
+> so what are doing now? I take this back out or we keep it in and let git deal with it when merging the trees?
+>
 
-For the past several months I've been running the SELinux testsuite on
-a weekly basis against Linus' kernel plus the SELinux and audit
-development trees and I haven't noticed any problems that haven't
-already been reported.  While not exhaustive, the testsuite does
-exercise the NetLabel/CIPSO code.  I'll see if I can take a closer
-look at the Smack code, but do you rely on the inet_skb_param values
-in Smack?  We did have a similar problem in the NetLabel core code
-that we fixed with 04f81f0154e4bf002be6f4d85668ce1257efa4d9; it's
-possible there is a similar problem in code that we just aren't
-exercising with SELinux at the moment.
-
-* https://github.com/SELinuxProject/selinux-testsuite
-* https://copr.fedorainfracloud.org/coprs/pcmoore/kernel-secnext
-
-> commit c3f1010b30f7fc611139cfb702a8685741aa6827
-> Merge: ca4aa97 0b922b7
-> Author: David S. Miller <davem@davemloft.net>
-> Date:   Wed May 11 19:31:40 2016 -0400
->
->     Merge branch 'vrf-pktinfo'
->
->     David Ahern says:
->
->     ====================
->     net: vrf: Fixup PKTINFO to return enslaved device index
->
->     Applications such as OSPF and BFD need the original ingress device not
->     the VRF device; the latter can be derived from the former. To that end
->     move the packet intercept from an rx handler that is invoked by
->     __netif_receive_skb_core to the ipv4 and ipv6 receive processing.
->
->     IPv6 already saves the skb_iif to the control buffer in ipv6_rcv. Since
->     the skb->dev has not been switched the cb has the enslaved device. Make
->     the same happen for IPv4 by adding the skb_iif to inet_skb_parm and set
->     it in ipv4 code after clearing the skb control buffer similar to IPv6.
->     From there the pktinfo can just pull it from cb with the PKTINFO_SKB_CB
->     cast.
->     ====================
->
->     Signed-off-by: David S. Miller <davem@davemloft.net>
-
--- 
-paul moore
-www.paul-moore.com
+Unless Ingo says otherwise, let's let git deal with it.
