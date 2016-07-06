@@ -1,7 +1,7 @@
 From: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-Subject: [PATCH 2/3] arm64: dts: rockchip: add GMAC dt nodes for rk3399 SoC
-Date: Wed,  6 Jul 2016 18:51:30 +0800
-Message-ID: <1467802291-6487-3-git-send-email-roger.chen@rock-chips.com>
+Subject: [PATCH 3/3] arm64: dts: rockchip: add GMAC dt nodes for RK3399 evb
+Date: Wed,  6 Jul 2016 18:51:31 +0800
+Message-ID: <1467802291-6487-4-git-send-email-roger.chen@rock-chips.com>
 References: <1467802291-6487-1-git-send-email-roger.chen@rock-chips.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
@@ -26,109 +26,50 @@ Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7
 Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-This patch adds ethernet GMAC dt notes for Rockchip RK3399 SoC.
+This patch add ethernet GMAC dt nodes for RK3399 evaluation board.
 
 Signed-off-by: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
 ---
- arch/arm64/boot/dts/rockchip/rk3399.dtsi | 79 ++++++++++++++++++++++++++++++++
- 1 file changed, 79 insertions(+)
+ arch/arm64/boot/dts/rockchip/rk3399-evb.dts | 23 +++++++++++++++++++++++
+ 1 file changed, 23 insertions(+)
 
-diff --git a/arch/arm64/boot/dts/rockchip/rk3399.dtsi b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
-index d7f8e06..cb0b17d 100644
---- a/arch/arm64/boot/dts/rockchip/rk3399.dtsi
-+++ b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
-@@ -189,6 +189,25 @@
- 		};
+diff --git a/arch/arm64/boot/dts/rockchip/rk3399-evb.dts b/arch/arm64/boot/dts/rockchip/rk3399-evb.dts
+index 1a3eb14..337c939 100644
+--- a/arch/arm64/boot/dts/rockchip/rk3399-evb.dts
++++ b/arch/arm64/boot/dts/rockchip/rk3399-evb.dts
+@@ -69,6 +69,13 @@
+ 		regulator-max-microvolt = <3300000>;
  	};
  
-+	gmac: eth@fe300000 {
-+		compatible = "rockchip,rk3399-gmac";
-+		reg = <0x0 0xfe300000 0x0 0x10000>;
-+		rockchip,grf = <&grf>;
-+		interrupts = <GIC_SPI 12 IRQ_TYPE_LEVEL_HIGH>;
-+		interrupt-names = "macirq";
-+		clocks = <&cru SCLK_MAC>, <&cru SCLK_MAC_RX>,
-+			 <&cru SCLK_MAC_TX>, <&cru SCLK_MACREF>,
-+			 <&cru SCLK_MACREF_OUT>, <&cru ACLK_GMAC>,
-+			 <&cru PCLK_GMAC>;
-+		clock-names = "stmmaceth", "mac_clk_rx",
-+			      "mac_clk_tx", "clk_mac_ref",
-+			      "clk_mac_refout", "aclk_mac",
-+			      "pclk_mac";
-+		resets = <&cru SRST_A_GMAC>;
-+		reset-names = "stmmaceth";
-+		status = "disabled";
++	clkin_gmac: external-gmac-clock {
++		compatible = "fixed-clock";
++		clock-frequency = <125000000>;
++		clock-output-names = "clkin_gmac";
++		#clock-cells = <0>;
 +	};
 +
- 	sdio0: dwmmc@fe310000 {
- 		compatible = "rockchip,rk3399-dw-mshc",
- 			     "rockchip,rk3288-dw-mshc";
-@@ -658,6 +677,66 @@
- 			drive-strength = <13>;
+ 	vcc_phy: vcc-phy-regulator {
+ 		compatible = "regulator-fixed";
+ 		regulator-name = "vcc_phy";
+@@ -122,3 +129,19 @@
  		};
- 
-+		gmac {
-+			rgmii_pins: rgmii-pins {
-+				rockchip,pins =
-+					/* mac_txclk */
-+					<3 17 RK_FUNC_1 &pcfg_pull_none_13ma>,
-+					/* mac_rxclk */
-+					<3 14 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_mdio */
-+					<3 13 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_txen */
-+					<3 12 RK_FUNC_1 &pcfg_pull_none_13ma>,
-+					/* mac_clk */
-+					<3 11 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_rxdv */
-+					<3 9 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_mdc */
-+					<3 8 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_rxd1 */
-+					<3 7 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_rxd0 */
-+					<3 6 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_txd1 */
-+					<3 5 RK_FUNC_1 &pcfg_pull_none_13ma>,
-+					/* mac_txd0 */
-+					<3 4 RK_FUNC_1 &pcfg_pull_none_13ma>,
-+					/* mac_rxd3 */
-+					<3 3 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_rxd2 */
-+					<3 2 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_txd3 */
-+					<3 1 RK_FUNC_1 &pcfg_pull_none_13ma>,
-+					/* mac_txd2 */
-+					<3 0 RK_FUNC_1 &pcfg_pull_none_13ma>;
-+			};
+ 	};
+ };
 +
-+			rmii_pins: rmii-pins {
-+				rockchip,pins =
-+					/* mac_mdio */
-+					<3 13 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_txen */
-+					<3 12 RK_FUNC_1 &pcfg_pull_none_13ma>,
-+					/* mac_clk */
-+					<3 11 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_rxer */
-+					<3 10 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_rxdv */
-+					<3 9 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_mdc */
-+					<3 8 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_rxd1 */
-+					<3 7 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_rxd0 */
-+					<3 6 RK_FUNC_1 &pcfg_pull_none>,
-+					/* mac_txd1 */
-+					<3 5 RK_FUNC_1 &pcfg_pull_none_13ma>,
-+					/* mac_txd0 */
-+					<3 4 RK_FUNC_1 &pcfg_pull_none_13ma>;
-+			};
-+		};
-+
- 		i2c0 {
- 			i2c0_xfer: i2c0-xfer {
- 				rockchip,pins =
++&gmac {
++	phy-supply = <&vcc_phy>;
++	phy-mode = "rgmii";
++	clock_in_out = "input";
++	snps,reset-gpio = <&gpio3 15 GPIO_ACTIVE_LOW>;
++	snps,reset-active-low;
++	snps,reset-delays-us = <0 10000 50000>;
++	assigned-clocks = <&cru SCLK_RMII_SRC>;
++	assigned-clock-parents = <&clkin_gmac>;
++	pinctrl-names = "default";
++	pinctrl-0 = <&rgmii_pins>;
++	tx_delay = <0x28>;
++	rx_delay = <0x11>;
++	status = "okay";
++};
 -- 
 1.9.1
