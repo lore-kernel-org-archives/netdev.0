@@ -1,70 +1,89 @@
-From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 0/4] mlx4 VST QinQ support
-Date: Wed,  6 Jul 2016 15:29:02 +0300
-Message-ID: <1467808146-29573-1-git-send-email-tariqt@mellanox.com>
-Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:33794 "EHLO mellanox.co.il"
-	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751565AbcGFMg0 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jul 2016 08:36:26 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Prarit Bhargava <prarit@redhat.com>
+Subject: [PATCH] iwlwifi, Do not implement thermal zone unless ucode is loaded
+Date: Wed,  6 Jul 2016 08:37:03 -0400
+Message-ID: <1467808623-25255-1-git-send-email-prarit@redhat.com>
+Cc: Prarit Bhargava <prarit@redhat.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Luca Coelho <luciano.coelho@intel.com>,
+	Intel Linux Wireless <linuxwifi@intel.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Chaya Rachel Ivgi <chaya.rachel.ivgi@intel.com>,
+	Sara Sharon <sara.sharon@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+The iwlwifi driver implements a thermal zone and hwmon device, but
+returns -EIO on temperature reads if the firmware isn't loaded.  This
+results in the error
 
-This patchset adds VST QinQ support (VLAN protocol 802.1ad)
-to the mlx4 driver.
-We extended the VF VLAN API with an additional parameter
-for VLAN protocol, and kept 802.1Q as drivers' default.
+iwlwifi-virtual-0
+Adapter: Virtual device
+ERROR: Can't get value of subfeature temp1_input: I/O error
+temp1:            N/A
 
-We prepared a userspace support, the patch will be submitted
-to the iproute2 mailing list.
+being output when using sensors from the lm-sensors package.  Since
+the temperature cannot be read unless the ucode is loaded there is no
+reason to add the interface only to have it return an error 100% of
+the time.
 
-The iproute2 VLAN protocol parameter is optional (default: 802.1Q).
-A configuration command of VF VLAN that is used prior to this patchset
-will result in same functionality as today's (VST without QinQ).
+This patch moves the firmware check to iwl_mvm_thermal_zone_register() and
+stops the thermal zone from being created if the ucode hasn't been loaded.
 
-Moshe Shemesh (4):
-  net/mlx4_core: Fix QUERY FUNC CAP flags
-  net/mlx4: Preparation for VST QinQ
-  net: Add VST QinQ support
-  net/mlx4_core: Add an option to configure SVLAN TPID
+Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+Cc: Johannes Berg <johannes.berg@intel.com>
+Cc: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+Cc: Luca Coelho <luciano.coelho@intel.com>
+Cc: Intel Linux Wireless <linuxwifi@intel.com>
+Cc: Kalle Valo <kvalo@codeaurora.org>
+Cc: Chaya Rachel Ivgi <chaya.rachel.ivgi@intel.com>
+Cc: Sara Sharon <sara.sharon@intel.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/wireless/intel/iwlwifi/mvm/tt.c |   13 +++----------
+ 1 file changed, 3 insertions(+), 10 deletions(-)
 
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |  3 +-
- drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |  9 ++-
- drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c    |  6 +-
- drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h    |  2 +-
- drivers/net/ethernet/emulex/benet/be_main.c        |  6 +-
- drivers/net/ethernet/intel/fm10k/fm10k.h           |  2 +-
- drivers/net/ethernet/intel/fm10k/fm10k_iov.c       |  6 +-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 11 +++-
- drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  4 +-
- drivers/net/ethernet/intel/igb/igb_main.c          |  9 ++-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |  5 +-
- drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |  2 +-
- drivers/net/ethernet/mellanox/mlx4/cmd.c           | 32 ++++++++++-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     | 23 +++++++-
- drivers/net/ethernet/mellanox/mlx4/fw.c            | 67 ++++++++++++++++++----
- drivers/net/ethernet/mellanox/mlx4/fw.h            |  2 +-
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |  2 +
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 40 ++++++++++---
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  6 +-
- drivers/net/ethernet/qlogic/qede/qede_main.c       |  6 +-
- drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |  2 +-
- .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |  5 +-
- drivers/net/ethernet/sfc/sriov.c                   |  5 +-
- drivers/net/ethernet/sfc/sriov.h                   |  2 +-
- include/linux/if_link.h                            |  1 +
- include/linux/mlx4/cmd.h                           |  4 +-
- include/linux/mlx4/device.h                        |  5 ++
- include/linux/mlx4/qp.h                            |  2 +
- include/linux/netdevice.h                          |  6 +-
- include/uapi/linux/if_link.h                       | 10 +++-
- net/core/rtnetlink.c                               | 28 ++++++++-
- 31 files changed, 262 insertions(+), 51 deletions(-)
-
+diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/tt.c b/drivers/net/wireless/intel/iwlwifi/mvm/tt.c
+index 58fc7b3c711c..64802659711f 100644
+--- a/drivers/net/wireless/intel/iwlwifi/mvm/tt.c
++++ b/drivers/net/wireless/intel/iwlwifi/mvm/tt.c
+@@ -634,11 +634,6 @@ static int iwl_mvm_tzone_get_temp(struct thermal_zone_device *device,
+ 
+ 	mutex_lock(&mvm->mutex);
+ 
+-	if (!mvm->ucode_loaded || !(mvm->cur_ucode == IWL_UCODE_REGULAR)) {
+-		ret = -EIO;
+-		goto out;
+-	}
+-
+ 	ret = iwl_mvm_get_temp(mvm, &temp);
+ 	if (ret)
+ 		goto out;
+@@ -684,11 +679,6 @@ static int iwl_mvm_tzone_set_trip_temp(struct thermal_zone_device *device,
+ 
+ 	mutex_lock(&mvm->mutex);
+ 
+-	if (!mvm->ucode_loaded || !(mvm->cur_ucode == IWL_UCODE_REGULAR)) {
+-		ret = -EIO;
+-		goto out;
+-	}
+-
+ 	if (trip < 0 || trip >= IWL_MAX_DTS_TRIPS) {
+ 		ret = -EINVAL;
+ 		goto out;
+@@ -750,6 +740,9 @@ static void iwl_mvm_thermal_zone_register(struct iwl_mvm *mvm)
+ 		return;
+ 	}
+ 
++	if (!mvm->ucode_loaded || !(mvm->cur_ucode == IWL_UCODE_REGULAR))
++		return;
++
+ 	BUILD_BUG_ON(ARRAY_SIZE(name) >= THERMAL_NAME_LENGTH);
+ 
+ 	mvm->tz_device.tzone = thermal_zone_device_register(name,
 -- 
-1.8.3.1
+1.7.9.3
