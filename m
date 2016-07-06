@@ -1,89 +1,57 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: DCB Auto turn off when link become up with Intel
- 82599ES ixgbe driver
-Date: Tue, 5 Jul 2016 16:39:42 -0700
-Message-ID: <577C453E.40306@gmail.com>
-References: <loom.20160705T170910-270@post.gmane.org>
-	<CAKgT0UdpbHSGdw1kyEa_YPy5tOX20Oxd4XY_S5_x_PQ=_4XEDw@mail.gmail.com>
+From: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+Subject: Re: Problem: BUG_ON hit in ppp_pernet() when re-connect after
+ changing shared key on LAC
+Date: Wed, 6 Jul 2016 00:05:05 +0000
+Message-ID: <6e0b17d147054867ac0f80978ccf91b2@svr-chch-ex1.atlnz.lc>
+References: <7fabf4defe2f468bbcc829247de956c0@svr-chch-ex1.atlnz.lc>
+ <CAM_iQpVyNghNJHES5-npZgYGFXps0-XTwJyJ-9pLDAuYJ_syWw@mail.gmail.com>
+ <CAM_iQpUEKrcuQvcXO_Rembgk_ZKc-v9Pe2ZEuZ5W_QxdcYDDNQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: Netdev <netdev@vger.kernel.org>
-To: Alexander Duyck <alexander.duyck@gmail.com>, ayuj <ayuj.verma@gmail.com>,
-	"e1000-devel@lists.sourceforge.net" <e1000-devel@lists.sourceforge.net>
-Return-path: <e1000-devel-bounces@lists.sourceforge.net>
-In-Reply-To: <CAKgT0UdpbHSGdw1kyEa_YPy5tOX20Oxd4XY_S5_x_PQ=_4XEDw@mail.gmail.com>
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum_name=e1000-devel>
-List-Post: <mailto:e1000-devel@lists.sourceforge.net>
-List-Help: <mailto:e1000-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/e1000-devel>,
-	<mailto:e1000-devel-request@lists.sourceforge.net?subject=subscribe>
-Errors-To: e1000-devel-bounces@lists.sourceforge.net
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "linux-ppp@vger.kernel.org" <linux-ppp@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"g.nault@alphalink.fr" <g.nault@alphalink.fr>,
+	"g.nault@alphalink.fr" <g.nault@alphalink.fr>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-ppp-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gMTYtMDctMDUgMDg6MzggQU0sIEFsZXhhbmRlciBEdXljayB3cm90ZToKPiBPbiBUdWUsIEp1
-bCA1LCAyMDE2IGF0IDg6MTcgQU0sIGF5dWogPGF5dWoudmVybWFAZ21haWwuY29tPiB3cm90ZToK
-Pj4gSSdtIHRyeWluZyB0byBjb25maWd1cmUgRENCIGluIGJhY2stdG8tYmFjayBzY2VuYXJpby4K
-Pj4gU3lzdGVtIGRldGFpbHMKPj4KPj4gT1MgOi0gQ2VudE9TIDcuMgo+PiBrZXJuZWwgMy4xMC4w
-LTMyNy5lbDcueDg2XzY0Cj4+IGxsZHBhZDotIGxsZHBhZCB2MC45LjQ2Cj4+IGRjYnRvb2w6LSB2
-MC45LjQ2Cj4+IGl4Z2JlIDotIGl4Z2JlLTQuMy4xNQo+Pgo+PiBzdGVwcyBmb2xsb3dlZDotCj4+
-Cj4+ICMgbW9kcG9yYmUgaXhnYmUKPj4gIyBzZXJ2aWNlIGxsZHBhZCBzdGFydAo+PiAgICAgUmVk
-aXJlY3RpbmcgdG8gL2Jpbi9zeXN0ZW1jdGwgc3RhcnQgIGxsZHBhZC5zZXJ2aWNlCj4+Cj4+Cj4+
-ICMgc2VydmljZSBsbGRwYWQgc3RhdHVzCj4+IFJlZGlyZWN0aW5nIHRvIC9iaW4vc3lzdGVtY3Rs
-IHN0YXR1cyAgbGxkcGFkLnNlcnZpY2UKPj4g4pePIGxsZHBhZC5zZXJ2aWNlIC0gTGluayBMYXll
-ciBEaXNjb3ZlcnkgUHJvdG9jb2wgQWdlbnQgRGFlbW9uLgo+PiAgICBMb2FkZWQ6IGxvYWRlZCAo
-L3Vzci9saWIvc3lzdGVtZC9zeXN0ZW0vbGxkcGFkLnNlcnZpY2U7IGRpc2FibGVkOyB2ZW5kb3IK
-Pj4gcHJlc2V0OiBkaXNhYmxlZCkKPj4gICAgQWN0aXZlOiBhY3RpdmUgKHJ1bm5pbmcpIHNpbmNl
-IFR1ZSAyMDE2LTA3LTA1IDA1OjQ5OjEyIEVEVDsgMXMgYWdvCj4+ICBNYWluIFBJRDogMTMzNzM3
-IChsbGRwYWQpCj4+ICAgIENHcm91cDogL3N5c3RlbS5zbGljZS9sbGRwYWQuc2VydmljZQo+PiAg
-ICAgICAgICAgIOKUlOKUgDEzMzczNyAvdXNyL3NiaW4vbGxkcGFkIC10Cj4+Cj4+IEp1bCAwNSAw
-NTo0OToxMiBsb2NhbGhvc3QubG9jYWxkb21haW4gc3lzdGVtZFsxXTogU3RhcnRlZCBMaW5rIExh
-eWVyCj4+IERpc2NvdmVyeSBQcm90b2NvbCBBZ2VudCBEYWVtb24uLgo+PiBKdWwgMDUgMDU6NDk6
-MTIgbG9jYWxob3N0LmxvY2FsZG9tYWluIHN5c3RlbWRbMV06IFN0YXJ0aW5nIExpbmsgTGF5ZXIK
-Pj4gRGlzY292ZXJ5IFByb3RvY29sIEFnZW50IERhZW1vbi4uLi4KPj4KPj4KPj4gIyBkY2J0b29s
-IGdjIHAzcDIgZGNiCj4+IENvbW1hbmQ6ICAgICAgICBHZXQgQ29uZmlnCj4+IEZlYXR1cmU6ICAg
-ICAgICBEQ0IgU3RhdGUKPj4gUG9ydDogICAgICAgICAgIHAzcDIKPj4gU3RhdHVzOiAgICAgICAg
-IFN1Y2Nlc3NmdWwKPj4gRENCIFN0YXRlOiAgICAgIG9mZgo+Pgo+PiAjIGRjYnRvb2wgc2MgcDNw
-MiBkY2Igb24KPj4gQ29tbWFuZDogICAgICAgIFNldCBDb25maWcKPj4gRmVhdHVyZTogICAgICAg
-IERDQiBTdGF0ZQo+PiBQb3J0OiAgICAgICAgICAgcDNwMgo+PiBTdGF0dXM6ICAgICAgICAgU3Vj
-Y2Vzc2Z1bAo+Pgo+PiAjIGRjYnRvb2wgZ2MgcDNwMiBkY2IKPj4gQ29tbWFuZDogICAgICAgIEdl
-dCBDb25maWcKPj4gRmVhdHVyZTogICAgICAgIERDQiBTdGF0ZQo+PiBQb3J0OiAgICAgICAgICAg
-cDNwMgo+PiBTdGF0dXM6ICAgICAgICAgU3VjY2Vzc2Z1bAo+PiBEQ0IgU3RhdGU6ICAgICAgb24K
-Pj4KPj4KPj4gU2ltaWxhciBjb25maWd1cmF0aW9uIG9uIGFub3RoZXIgc3lzdGVtLgo+Pgo+PiBC
-dXQgYXMgc29vbiBhcyBJIGRvICJpZmNvbmZpZyBwM3AyIHVwIGFuZCBjaGVjayBkY2IKPj4KPj4g
-IyBkY2J0b29sIGdjIHAzcDIgZGNiCj4+IENvbW1hbmQ6ICAgICAgICBHZXQgQ29uZmlnCj4+IEZl
-YXR1cmU6ICAgICAgICBEQ0IgU3RhdGUKPj4gUG9ydDogICAgICAgICAgIHAzcDIKPj4gU3RhdHVz
-OiAgICAgICAgIFN1Y2Nlc3NmdWwKPj4gRENCIFN0YXRlOiAgICAgIG9mZgo+Pgo+PiBJbml0aWFs
-bHkgc3VzcGVjdGluZyBpc3N1ZSB3aXRoIGxsZHBhZCBkYWVtb24vaXhnYmUgZHJpdmVyLiBJIHJl
-cGxhY2VkIHRoZW0KPj4gKGRvd25sb2FkZWQgZnJvbSByZXBvKSB3aXRoIGxhdGVzdCBwYWNrYWdl
-cy4KPj4gU2FtZSBiZWhhdmlvdXIgb2JzZXJ2ZWQuCj4+Cj4+IC0gVHJpZWQgZGlzYWJsaW5nIG90
-aGVyIGRjYiBmZWF0dXJlcyBsaWtlIGZjb2UuIFNhbWUgaXNzdWUuCj4+IC0gRGlzYWJsZWQgc2Vs
-aW51eCBldGMKPj4KPj4KPj4gQ2FuIGFueSAxIGhlbHAgbWUgcmVnYXJkaW5nIHRoaXMuCj4gCj4g
-SSdtIGFkZGluZyBlMTAwMC1kZXZlbCBhcyB0aGF0IGlzIHRoZSBtYWlsaW5nIGxpc3QgZm9yIHRo
-ZSBpeGdiZSBtYWludGFpbmVycy4KPiAKPiBZb3UgbWlnaHQgd2FudCB0byBnbyB0aHJvdWdoIGFu
-ZCBhbHNvIGNoZWNrIHRoZSBudW1iZXIgb2YgVENzIGFuZCBob3cKPiB5b3UgaGF2ZSB0aGVtIG1h
-cHBlZCB0byB5b3VyIHByaW9yaXR5IGdyb3Vwcy4gIEl0IGlzIHBvc3NpYmxlIHRoYXQgb25lCj4g
-ZW5kIG9yIHRoZSBvdGhlciBtYXkgb25seSBoYXZlIDEgVEMgY29uZmlndXJlZCBhbmQgaWYgSSBh
-bSBub3QKPiBtaXN0YWtlbiB0aGF0IGlzIGludGVycHJldGVkIGFzIGhhdmluZyBEQ0IgZGlzYWJs
-ZWQgYnkgdGhlIGhhcmR3YXJlLgo+IAo+IEhvcGUgdGhhdCBoZWxwcy4KPiAKPiAtIEFsZXgKPiAK
-CmhtbSB0aG9zZSBhcmUgb2xkZXIgdmVyc2lvbiBvZiB0aGUgdG9vbCBidXQgdGhhdCBzaG91bGRu
-J3QgbmVjZXNzYXJpbHkKYmUgYW4gaXNzdWUuCgpUaGUgb3V0cHV0IGZyb20gdGhlIGZvbGxvd2lu
-ZyB3b3VsZCBoZWxwLCAobm90ZSBpZiB0aGUgcGVlciBpcyBub3QKY29uZmlndXJlZCBjb3JyZWN0
-bHkgYXMgd2VsbCBEQ0Igd2lsbCBiZSBkaXNhYmxlZCkKCiNkY2J0b29sIGdvIHAzcDIgcGcKI2Rj
-YnRvb2wgZ28gcDNwMiBwZmMKCiNsbGRwdG9vbCAtdCAtaSBwM3AyCiNsbGRwdG9vbCAtdCAtaSBw
-M3AyIC1uCgoKVGhlIGZpcnN0IHR3byBkY2J0b29sIGNvbW1hbmRzIGdpdmUgdGhlIGRjYiBzdGF0
-dXMgYW5kIHRoZSBsYXN0IHR3bwpsbGRwdG9vbCBjb21tYW5kcyBwcmludCB0aGUgc2VudC9yZWNl
-aXZlZCBsbGRwIFRMVnMuCgouSm9obgoKLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tCkF0dGVuZCBTaGFw
-ZTogQW4gQVQmVCBUZWNoIEV4cG8gSnVseSAxNS0xNi4gTWVldCB1cyBhdCBBVCZUIFBhcmsgaW4g
-U2FuCkZyYW5jaXNjbywgQ0EgdG8gZXhwbG9yZSBjdXR0aW5nLWVkZ2UgdGVjaCBhbmQgbGlzdGVu
-IHRvIHRlY2ggbHVtaW5hcmllcwpwcmVzZW50IHRoZWlyIHZpc2lvbiBvZiB0aGUgZnV0dXJlLiBU
-aGlzIGZhbWlseSBldmVudCBoYXMgc29tZXRoaW5nIGZvcgpldmVyeW9uZSwgaW5jbHVkaW5nIGtp
-ZHMuIEdldCBtb3JlIGluZm9ybWF0aW9uIGFuZCByZWdpc3RlciB0b2RheS4KaHR0cDovL3NkbS5s
-aW5rL2F0dHNoYXBlCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fCkUxMDAwLWRldmVsIG1haWxpbmcgbGlzdApFMTAwMC1kZXZlbEBsaXN0cy5zb3VyY2Vmb3Jn
-ZS5uZXQKaHR0cHM6Ly9saXN0cy5zb3VyY2Vmb3JnZS5uZXQvbGlzdHMvbGlzdGluZm8vZTEwMDAt
-ZGV2ZWwKVG8gbGVhcm4gbW9yZSBhYm91dCBJbnRlbCYjMTc0OyBFdGhlcm5ldCwgdmlzaXQgaHR0
-cDovL2NvbW11bml0aWVzLmludGVsLmNvbS9jb21tdW5pdHkvd2lyZWQK
+On 07/06/2016 08:37 AM, Cong Wang wrote:
+> On Tue, Jul 5, 2016 at 10:59 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>> On Mon, Jul 4, 2016 at 7:50 PM, Matt Bennett
+>> <Matt.Bennett@alliedtelesis.co.nz> wrote:
+>>> Using printk I have confirmed that ppp_pernet() is called from
+>>> ppp_connect_channel() when the BUG occurs (i.e. pch->chan_net is NULL).
+>>>
+>>> This behavior appears to have been introduced in commit 1f461dc ("ppp:
+>>> take reference on channels netns").
+>>
+>> We have some race condition here, where a parallel ppp_unregister_channel()
+>> could happen while we are in ppp_connect_channel().
+>>
+>> We need some synchronization for them. I am not sure what is the right lock
+>> here since ppp locking looks crazy.
+>
+> Matt, could you try if the attached patch helps?
+>
+> Thanks!
+>
+I have given that patch a good amount of testing and the BUG_ON() no 
+longer is hit. Whether that is the best fix or not I am unsure?
+
+Either way, the following comment in ppp_unregister_channel() seems 
+incorrect to me and should probably be deleted unless it is fixed?
+
+/*
+  * This ensures that we have returned from any calls into the
+  * the channel's start_xmit or ioctl routine before we proceed.
+  */
+
+It appears mutex_lock(&ppp_mutex) what locks ppp_ioctl. ppp_xmit uses 
+ppp_xmit_lock(ppp) in ppp_xmit_process.
+
+
+
