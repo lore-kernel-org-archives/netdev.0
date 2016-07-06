@@ -1,58 +1,57 @@
-From: Hayes Wang <hayeswang@realtek.com>
-Subject: [PATCH net v2] r8152: remove the setting of LAN_WAKE_EN
-Date: Wed, 6 Jul 2016 17:35:59 +0800
-Message-ID: <1394712342-15778-209-Taiwan-albertk@realtek.com>
-References: <1394712342-15778-208-Taiwan-albertk@realtek.com>
+From: Jamal Hadi Salim <jhs@mojatatu.com>
+Subject: Re: [PATCH v2 net-next 1/1] net sched actions: mirred add support for
+ setting Dst MAC address
+Date: Wed, 6 Jul 2016 06:02:51 -0400
+Message-ID: <577CD74B.5070805@mojatatu.com>
+References: <1467470065-17613-1-git-send-email-jhs@emojatatu.com>
+ <20160704.151435.624086916441807197.davem@davemloft.net>
+ <577B942A.2020602@mojatatu.com>
+ <CAM_iQpVrfmVW2m9u0tGfy=WA9joV7Ssu9V+DR+0kbm=yNQ8Yzw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
-	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
-To: <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1394712342-15778-208-Taiwan-albertk@realtek.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	nikolay@cumulusnetworks.com
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-io0-f195.google.com ([209.85.223.195]:36016 "EHLO
+	mail-io0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751103AbcGFKC7 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 06:02:59 -0400
+Received: by mail-io0-f195.google.com with SMTP id s63so23274803ioi.3
+        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 03:02:59 -0700 (PDT)
+In-Reply-To: <CAM_iQpVrfmVW2m9u0tGfy=WA9joV7Ssu9V+DR+0kbm=yNQ8Yzw@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The LAN_WAKE_EN is not used to determine if the device could support
-WOL. It is used to signal a GPIO pin when a WOL event occurs. The WOL
-still works even though it is disabled.
+On 16-07-05 02:19 PM, Cong Wang wrote:
+> On Tue, Jul 5, 2016 at 4:04 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+>> Second arguement  usability, from:
 
-Signed-off-by: Hayes Wang <hayeswang@realtek.com>
----
- drivers/net/usb/r8152.c | 8 +-------
- 1 file changed, 1 insertion(+), 7 deletions(-)
+>> to:
+>> $TC filter add dev $ETH parent 1: protocol ip prio 10 \
+>>      u32 match ip protocol 1 0xff flowid 1:2 \
+>>      action mirred egress redirect dev $SPANPORT dst 02:15:15:15:15:15
+>>
+>> given that I have to do this many many times in scripts and the
+>> second policy is better eye candy.
+>
+> How about adding a "wrapper" in iproute2 pedit action to make
+> it accept "dst mac xx:xx:xx:xx:xx:xx"? Like what we did for u32
+> filters.
+>
 
-diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
-index 0da72d3..419f4ce 100644
---- a/drivers/net/usb/r8152.c
-+++ b/drivers/net/usb/r8152.c
-@@ -2296,10 +2296,6 @@ static u32 __rtl_get_wol(struct r8152 *tp)
- 	u32 ocp_data;
- 	u32 wolopts = 0;
- 
--	ocp_data = ocp_read_byte(tp, MCU_TYPE_PLA, PLA_CONFIG5);
--	if (!(ocp_data & LAN_WAKE_EN))
--		return 0;
--
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CONFIG34);
- 	if (ocp_data & LINK_ON_WAKE_EN)
- 		wolopts |= WAKE_PHY;
-@@ -2332,15 +2328,13 @@ static void __rtl_set_wol(struct r8152 *tp, u32 wolopts)
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CONFIG34, ocp_data);
- 
- 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CONFIG5);
--	ocp_data &= ~(UWF_EN | BWF_EN | MWF_EN | LAN_WAKE_EN);
-+	ocp_data &= ~(UWF_EN | BWF_EN | MWF_EN);
- 	if (wolopts & WAKE_UCAST)
- 		ocp_data |= UWF_EN;
- 	if (wolopts & WAKE_BCAST)
- 		ocp_data |= BWF_EN;
- 	if (wolopts & WAKE_MCAST)
- 		ocp_data |= MWF_EN;
--	if (wolopts & WAKE_ANY)
--		ocp_data |= LAN_WAKE_EN;
- 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CONFIG5, ocp_data);
- 
- 	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR, CRWECR_NORAML);
--- 
-2.7.4
+Thats what we do today. Its fugly and debugging is nasty
+(having to stare at 10s or hundreds of outputs looking at
+offset and bytes when something goes wrong).
+It is ok to use pedit as a starting point because you can
+quickly craft things without any kernel changes.
+But when you start heavily using something handcrafted
+its usability starts affecting you.
+I will work on and send the skbmod patch next time i
+get cycles.
+
+cheers,
+jamal
