@@ -1,55 +1,56 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [Patch net] ppp: defer netns reference release for ppp channel
-Date: Wed, 6 Jul 2016 15:25:15 +0300
-Message-ID: <20160706122515.GN4666@uranus>
-References: <1467781956-2229-1-git-send-email-xiyou.wangcong@gmail.com>
- <20160706082602.GM4666@uranus>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Matt.Bennett@alliedtelesis.co.nz,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	Guillaume Nault <g.nault@alphalink.fr>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Johannes Berg <johannes@sipsolutions.net>
+Subject: pull-request: mac80211 2016-07-06
+Date: Wed,  6 Jul 2016 14:27:43 +0200
+Message-ID: <1467808064-5312-1-git-send-email-johannes@sipsolutions.net>
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:34477 "EHLO
-	mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751853AbcGFMZ3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 08:25:29 -0400
-Content-Disposition: inline
-In-Reply-To: <20160706082602.GM4666@uranus>
+Received: from s3.sipsolutions.net ([5.9.151.49]:40233 "EHLO sipsolutions.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751201AbcGFM1y (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jul 2016 08:27:54 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 06, 2016 at 11:26:02AM +0300, Cyrill Gorcunov wrote:
-> On Tue, Jul 05, 2016 at 10:12:36PM -0700, Cong Wang wrote:
-> > Matt reported that we have a NULL pointer dereference
-> > in ppp_pernet() from ppp_connect_channel(),
-> > i.e. pch->chan_net is NULL.
-> > 
-> > This is due to that a parallel ppp_unregister_channel()
-> > could happen while we are in ppp_connect_channel(), during
-> > which pch->chan_net set to NULL. Since we need a reference
-> > to net per channel, it makes sense to sync the refcnt
-> > with the life time of the channel, therefore we should
-> > release this reference when we destroy it.
-> > 
-> > Fixes: 1f461dcdd296 ("ppp: take reference on channels netns")
-> > Reported-by: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
-> > Cc: Paul Mackerras <paulus@samba.org>
-> > Cc: linux-ppp@vger.kernel.org
-> > Cc: Guillaume Nault <g.nault@alphalink.fr>
-> > Cc: Cyrill Gorcunov <gorcunov@openvz.org>
-> > Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> > ---
-> 
-> Hi Cong! I may be wrong, but this doesn't look right in general.
-> We take the net in ppp_register_channel->ppp_register_net_channel
-> and (name) context implies that ppp_unregister_channel does
-> the reverse. Maybe there some sync point missed? I'll review
-> in detail a bit later.
+Hi Dave,
 
-After staring more I think the patch should be fine as a fix
-since implementing sync with ppp_[re|un]register_channel and
-ppp_ioctl might need a way more work.
+People found two more bugs, so I have two more fixes. Both are related to
+memory - one's a leak, the other is a missing allocation failure check.
 
-Reviewed-by: Cyrill Gorcunov <gorcunov@openvz.org>
+These are both tagged for stable already, and shouldn't conflict with any
+other patches, so if they won't go in any more it won't be a big deal.
+
+Let me know if there's any problem.
+
+Thanks,
+johannes
+
+
+
+The following changes since commit c041778c966c92c964033f1cdfee60a9f2b5e465:
+
+  cfg80211: fix proto in ieee80211_data_to_8023 for frames without LLC header (2016-06-29 11:50:33 +0200)
+
+are available in the git repository at:
+
+  git://git.kernel.org/pub/scm/linux/kernel/git/jberg/mac80211.git tags/mac80211-for-davem-2016-07-06
+
+for you to fetch changes up to 16a910a6722b7a8680409e634c7c0dac073c01e4:
+
+  cfg80211: handle failed skb allocation (2016-07-06 13:52:18 +0200)
+
+----------------------------------------------------------------
+Two more fixes:
+ * handle allocation failures in new(ish) A-MSDU decapsulation
+ * don't leak memory on nl80211 ACL parse errors
+
+----------------------------------------------------------------
+Gregory Greenman (1):
+      cfg80211: handle failed skb allocation
+
+Purushottam Kushwaha (1):
+      nl80211: Move ACL parsing later to avoid a possible memory leak
+
+ net/wireless/nl80211.c | 8 ++++----
+ net/wireless/util.c    | 2 ++
+ 2 files changed, 6 insertions(+), 4 deletions(-)
