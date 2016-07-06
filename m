@@ -1,41 +1,41 @@
-From: Bert Kenward <bkenward@solarflare.com>
-Subject: Re: [PATCH stable] sfc: report supported link speeds on SFP
- connections
-Date: Wed, 6 Jul 2016 09:00:31 +0100
-Message-ID: <0bfd2078-0e2e-5f43-7ead-c6645ac82d03@solarflare.com>
-References: <2b196485-c720-106e-de23-acefe7ee170a@solarflare.com>
- <20160705.212833.1713477374234736101.davem@davemloft.net>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: Backport bpf: try harder on clones when writing into skb? [Commit:
+ 3697649ff29e0f647565eed04b27a7779c646a22]
+Date: Wed, 06 Jul 2016 10:12:57 +0200
+Message-ID: <577CBD89.4060303@iogearbox.net>
+References: <CAMp4zn-MNgqJ1Xzm8JO529=LVyB71bdYaUm0FqyNCMx4Hf+xSA@mail.gmail.com>	<20160706021649.GA82976@ast-mbp.thefacebook.com> <20160705.204755.193524893150572527.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: <netdev@vger.kernel.org>, <linux-net-drivers@solarflare.com>
-To: David Miller <davem@davemloft.net>
+Cc: sargun@sargun.me, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, alexei.starovoitov@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nbfkord-smmo02.seg.att.com ([209.65.160.78]:1167 "EHLO
-	nbfkord-smmo02.seg.att.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752475AbcGFIAt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 04:00:49 -0400
-In-Reply-To: <20160705.212833.1713477374234736101.davem@davemloft.net>
+Received: from www62.your-server.de ([213.133.104.62]:59176 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750779AbcGFINA (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 04:13:00 -0400
+In-Reply-To: <20160705.204755.193524893150572527.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 06/07/16 05:28, David Miller wrote:
-> From: Bert Kenward <bkenward@solarflare.com>
-> Date: Tue, 28 Jun 2016 11:11:11 +0100
-> 
->> commit 1974282ab547df7437276c8d4ec47f3d2300f339
->> Author: Bert Kenward <bkenward@solarflare.com>
->> Date:   Mon Jun 6 17:29:30 2016 +0100
+On 07/06/2016 05:47 AM, David Miller wrote:
+> From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+> Date: Tue, 5 Jul 2016 19:16:51 -0700
+>
+>> On Tue, Jul 05, 2016 at 08:35:18AM -0700, Sargun Dhillon wrote:
+>>> Does it make sense to backport
+>>> 3697649ff29e0f647565eed04b27a7779c646a22 from 4.6 to the longterm
+>>> (4.4) release? I can trivially recreate the issue represented by
+>>> 3697649ff29e0f647565eed04b27a7779c646a22 by attaching a eBPF filter
+>>> that clones an ingress ICMP packet, and then tries to set the
+>>> destination MAC address.
+>>>
+>>> It seems like the patch applies cleanly to 4.4. I cherry-picked it,
+>>> and rebuilt my kernel, and at least in the trivial test case passes.
 >>
->>     sfc: report supported link speeds on SFP connections
-> 
-> [davem@localhost linux]$ git describe 1974282ab547df7437276c8d4ec47f3d2300f339
-> fatal: 1974282ab547df7437276c8d4ec47f3d2300f339 is not a valid 'commit' object
-> 
-> If you want me to backport something, don't show me a commit from one
-> of your private trees.
+>> Makes sense to me, especially since it's lts.
+>> Daniel, thoughts?
+>
+> I'll queued this up for 4.4 -stable.
 
-Apologies. The relevant commit in Linus's tree is 3497ed8. Do you need me to
-re-send the request?
-
-Bert.
+Sounds good, thanks!
