@@ -1,68 +1,42 @@
-From: nuclearcat@nuclearcat.com
-Subject: Re: 4.6.3 kernel panic on ppp interface termination
- (__tcf_hash_release / spinlock )
-Date: Wed, 06 Jul 2016 23:14:22 +0300
-Message-ID: <58100198b6d14f77ce95740e4e912fc3@nuclearcat.com>
-References: <9b35b4153ec398e17cfb7c2739eee1de@nuclearcat.com>
- <31e51065f1531b4fa819dac37dc0ba11@nuclearcat.com>
- <CAM_iQpW0PPZJzhbaeNN1zYZsyopzAWiO1b13XAXZLjpPBKapxQ@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII;
- format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jamal Hadi Salim <jhs@mojatatu.com>
-To: Cong Wang <xiyou.wangcong@gmail.com>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net 0/4] ibmvnic driver bugfixes and improvements
+Date: Wed,  6 Jul 2016 15:35:14 -0500
+Message-ID: <1467837318-31710-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: jallen@linux.vnet.ibm.com, nfont@linux.vnet.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from nuclearcat.com ([144.76.183.226]:52304 "EHLO nuclearcat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751629AbcGFUOb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jul 2016 16:14:31 -0400
-In-Reply-To: <CAM_iQpW0PPZJzhbaeNN1zYZsyopzAWiO1b13XAXZLjpPBKapxQ@mail.gmail.com>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:55326 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755452AbcGFUfZ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 16:35:25 -0400
+Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
+	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u66KY2m9059040
+	for <netdev@vger.kernel.org>; Wed, 6 Jul 2016 16:35:24 -0400
+Received: from e38.co.us.ibm.com (e38.co.us.ibm.com [32.97.110.159])
+	by mx0b-001b2d01.pphosted.com with ESMTP id 2415xmf9fa-1
+	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 16:35:24 -0400
+Received: from localhost
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+	Wed, 6 Jul 2016 14:35:23 -0600
+Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id C12993E4003E
+	for <netdev@vger.kernel.org>; Wed,  6 Jul 2016 14:35:19 -0600 (MDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016-07-05 01:02, Cong Wang wrote:
-> On Mon, Jul 4, 2016 at 12:07 PM,  <nuclearcat@nuclearcat.com> wrote:
->> A little bit more details:
->> 
->>  ~ # tc -s -d filter show dev ppp0 parent ffff:
->> filter protocol ip pref 100 u32
->> filter protocol ip pref 100 u32 fh 800: ht divisor 1
->> filter protocol ip pref 100 u32 fh 800::1 order 1 key ht 800 bkt 0 
->> flowid :1
->> (rule hit 156 success 156)
->>   match 00000000/00000000 at 12 (success 156 )
->>         action order 1:  police 0x1 rate 4024Kbit burst 503000b mtu 
->> 2Kb
->> action drop overhead 0b linklayer unspec
->> ref 1 bind 1
->>         Action statistics:
->>         Sent 10564 bytes 156 pkt (dropped 0, overlimits 0 requeues 0)
->>         backlog 0b 0p requeues 0
->> 
->> 
->> Panic occurs when i delete ingress qdisc
->> 
->> tc qdisc del dev ppp0 ingress
->> 
->> After reversing commits (and some related commits)
->>         1d4150c02c5709fdfd80f10368a31867de35e72e
->>         ddf97ccdd7cb7e00daba465a5c947b8d941dc2a4
->> 
->> Problem is not occurring.
->> 
->> I'm not certainly sure this commits are causing issue, it is very hard 
->> to
->> reverse patches on this particular system.
->> 
-> 
-> Can you check if the following commit helps?
-> 
-> commit a03e6fe569713fb3ff0714f8fd7c8785c0ca9e22
-> Author: WANG Cong <xiyou.wangcong@gmail.com>
-> Date:   Mon Jun 6 09:54:30 2016 -0700
-> 
->     act_police: fix a crash during removal
-Yes, it fixes issue, thanks.
+Miscellaneous fixes and improvements on the ibmvnic driver.
+
+Thomas Falcon (4):
+  ibmvnic: properly start and stop tx queues
+  ibmvnic: dispose irq mappings
+  ibmvnic: simplify and improve driver probe function
+  ibmvnic: Fix passive VNIC server login process
+
+ drivers/net/ethernet/ibm/ibmvnic.c | 227 +++++++++++++++++++++++++++----------
+ drivers/net/ethernet/ibm/ibmvnic.h |   2 +
+ 2 files changed, 169 insertions(+), 60 deletions(-)
+
+-- 
+1.8.3.1
