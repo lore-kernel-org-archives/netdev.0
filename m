@@ -1,56 +1,55 @@
-From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
-Subject: Re: [PATCH 2/3] arm64: dts: rockchip: add GMAC dt nodes for rk3399 SoC
-Date: Wed, 6 Jul 2016 15:23:53 +0300
-Message-ID: <f1e3270b-4908-2d81-9784-21c1cb77e2d9@cogentembedded.com>
-References: <1467802291-6487-1-git-send-email-roger.chen@rock-chips.com>
- <1467802291-6487-3-git-send-email-roger.chen@rock-chips.com>
+From: Cyrill Gorcunov <gorcunov@gmail.com>
+Subject: Re: [Patch net] ppp: defer netns reference release for ppp channel
+Date: Wed, 6 Jul 2016 15:25:15 +0300
+Message-ID: <20160706122515.GN4666@uranus>
+References: <1467781956-2229-1-git-send-email-xiyou.wangcong@gmail.com>
+ <20160706082602.GM4666@uranus>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; Format="flowed"
-Content-Transfer-Encoding: 7bit
-Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
- pawel.moll-5wv7dgnIgG8@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
- linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
- davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
- alexandre.torgue-qxv4g6HH51o@public.gmane.org
-To: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org
-Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-In-Reply-To: <1467802291-6487-3-git-send-email-roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
-List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
- <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
-Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
-Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Matt.Bennett@alliedtelesis.co.nz,
+	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
+	Guillaume Nault <g.nault@alphalink.fr>
+To: Cong Wang <xiyou.wangcong@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-lf0-f67.google.com ([209.85.215.67]:34477 "EHLO
+	mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751853AbcGFMZ3 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 08:25:29 -0400
+Content-Disposition: inline
+In-Reply-To: <20160706082602.GM4666@uranus>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+On Wed, Jul 06, 2016 at 11:26:02AM +0300, Cyrill Gorcunov wrote:
+> On Tue, Jul 05, 2016 at 10:12:36PM -0700, Cong Wang wrote:
+> > Matt reported that we have a NULL pointer dereference
+> > in ppp_pernet() from ppp_connect_channel(),
+> > i.e. pch->chan_net is NULL.
+> > 
+> > This is due to that a parallel ppp_unregister_channel()
+> > could happen while we are in ppp_connect_channel(), during
+> > which pch->chan_net set to NULL. Since we need a reference
+> > to net per channel, it makes sense to sync the refcnt
+> > with the life time of the channel, therefore we should
+> > release this reference when we destroy it.
+> > 
+> > Fixes: 1f461dcdd296 ("ppp: take reference on channels netns")
+> > Reported-by: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+> > Cc: Paul Mackerras <paulus@samba.org>
+> > Cc: linux-ppp@vger.kernel.org
+> > Cc: Guillaume Nault <g.nault@alphalink.fr>
+> > Cc: Cyrill Gorcunov <gorcunov@openvz.org>
+> > Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> > ---
+> 
+> Hi Cong! I may be wrong, but this doesn't look right in general.
+> We take the net in ppp_register_channel->ppp_register_net_channel
+> and (name) context implies that ppp_unregister_channel does
+> the reverse. Maybe there some sync point missed? I'll review
+> in detail a bit later.
 
-On 7/6/2016 1:51 PM, Roger Chen wrote:
+After staring more I think the patch should be fine as a fix
+since implementing sync with ppp_[re|un]register_channel and
+ppp_ioctl might need a way more work.
 
-> This patch adds ethernet GMAC dt notes for Rockchip RK3399 SoC.
->
-> Signed-off-by: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
-> ---
->  arch/arm64/boot/dts/rockchip/rk3399.dtsi | 79 ++++++++++++++++++++++++++++++++
->  1 file changed, 79 insertions(+)
->
-> diff --git a/arch/arm64/boot/dts/rockchip/rk3399.dtsi b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
-> index d7f8e06..cb0b17d 100644
-> --- a/arch/arm64/boot/dts/rockchip/rk3399.dtsi
-> +++ b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
-> @@ -189,6 +189,25 @@
->  		};
->  	};
->
-> +	gmac: eth@fe300000 {
-
-    The node should be named "ethernet@fe300000" to comply with the ePAPR 
-standard.
-
-[...]
-
-MBR, Sergei
+Reviewed-by: Cyrill Gorcunov <gorcunov@openvz.org>
