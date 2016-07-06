@@ -1,125 +1,131 @@
-From: Masashi Honma <masashi.honma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [RFC 0/7] netlink: Add allocation flag to netlink_unicast()
-Date: Wed,  6 Jul 2016 09:28:29 +0900
-Message-ID: <1467764916-4983-1-git-send-email-masashi.honma@gmail.com>
-Cc: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org,
-	pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org, kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org,
-	dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org,
-	hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org, paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org, pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	Masashi Honma <masashi.honma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, cluster-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+From: Masashi Honma <masashi.honma@gmail.com>
+Subject: [RFC 4/7] infiniband: Add allocation flag to ibnl_unicast()
+Date: Wed,  6 Jul 2016 09:28:33 +0900
+Message-ID: <1467764916-4983-5-git-send-email-masashi.honma@gmail.com>
+References: <1467764916-4983-1-git-send-email-masashi.honma@gmail.com>
+Cc: davem@davemloft.net, johannes@sipsolutions.net,
+	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, paul@paul-moore.com, eparis@redhat.com,
+	zbr@ioremap.net, pshelar@nicira.com, ccaulfie@redhat.com,
+	teigland@redhat.com, bsingharora@gmail.com,
+	Masashi Honma <masashi.honma@gmail.com>
+To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-rdma@vger.kernel.org,
+	linux-audit@redhat.com, cluster-devel@redhat.com
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1467764916-4983-1-git-send-email-masashi.honma@gmail.com>
+Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Though netlink_broadcast() has allocation flag which can specify
-memory allocation type (ex. GFP_KERNEL/GFP_ATOMIC), netlink_unicast()
-does not have it. This can cause "BUG: sleeping function called from
-invalid context at" with CONFIG_DEBUG_ATOMIC_SLEEP enabled kernel when
-calling netlink_unicast() inside RCU read-side section and not in IRQ.
+Signed-off-by: Masashi Honma <masashi.honma@gmail.com>
+---
+ drivers/infiniband/core/iwpm_msg.c  | 6 +++---
+ drivers/infiniband/core/iwpm_util.c | 5 +++--
+ drivers/infiniband/core/iwpm_util.h | 1 +
+ drivers/infiniband/core/netlink.c   | 4 ++--
+ include/rdma/rdma_netlink.h         | 3 ++-
+ 5 files changed, 11 insertions(+), 8 deletions(-)
 
-Though currently such a use case was not found, to solve potential
-issue we will add an allocation flag to netlink_unicast(). Previously
-netlink_unicast() have used gfp_any() as a flag. We replaced it to
-GFP_KERNEL or GFP_ATOMIC or etc by guessing based on context. If we
-could not determine the value, we remain it gfp_any(). We welcome
-comments like "this gfp_any() should be GFP_KERNEL". Of course other
-comments are welcome as well.
-
-This series of patches are not tested.
-This is a RFC because this does not fix existing issue.
-
-Masashi Honma (7):
-  netlink: Add allocation flag to netlink_unicast()
-  netfilter: Add allocation flag to nfnetlink_unicast()
-  netlink: Add allocation flag to nlmsg_unicast()
-  infiniband: Add allocation flag to ibnl_unicast()
-  net: Add allocation flag to rtnl_unicast()
-  genetlink: Add allocation flag to genlmsg_unicast()
-  genetlink: Add allocation flag to genlmsg_reply()
-
- crypto/crypto_user.c                  |  3 ++-
- drivers/block/drbd/drbd_nl.c          |  2 +-
- drivers/connector/connector.c         |  2 +-
- drivers/infiniband/core/iwpm_msg.c    |  6 ++---
- drivers/infiniband/core/iwpm_util.c   |  5 ++--
- drivers/infiniband/core/iwpm_util.h   |  1 +
- drivers/infiniband/core/netlink.c     |  4 ++--
- drivers/net/gtp.c                     |  3 ++-
- drivers/net/team/team.c               |  5 ++--
- drivers/net/wireless/mac80211_hwsim.c |  4 ++--
- fs/dlm/netlink.c                      |  2 +-
- include/linux/netfilter/nfnetlink.h   |  2 +-
- include/linux/netlink.h               |  3 ++-
- include/linux/rtnetlink.h             |  3 ++-
- include/net/genetlink.h               | 13 +++++++----
- include/net/netlink.h                 |  6 +++--
- include/rdma/rdma_netlink.h           |  3 ++-
- kernel/audit.c                        |  9 ++++----
- kernel/taskstats.c                    |  4 ++--
- net/core/devlink.c                    | 12 +++++-----
- net/core/net_namespace.c              |  2 +-
- net/core/rtnetlink.c                  | 12 ++++++----
- net/dcb/dcbnl.c                       |  2 +-
- net/decnet/dn_route.c                 |  3 ++-
- net/hsr/hsr_netlink.c                 |  6 +++--
- net/ieee802154/ieee802154.h           |  3 ++-
- net/ieee802154/netlink.c              |  5 ++--
- net/ieee802154/nl-mac.c               |  4 ++--
- net/ieee802154/nl-phy.c               |  6 ++---
- net/ieee802154/nl802154.c             |  4 ++--
- net/ipv4/devinet.c                    |  2 +-
- net/ipv4/fib_frontend.c               |  2 +-
- net/ipv4/fou.c                        |  2 +-
- net/ipv4/inet_diag.c                  |  2 +-
- net/ipv4/ipmr.c                       |  6 +++--
- net/ipv4/route.c                      |  2 +-
- net/ipv4/tcp_metrics.c                |  2 +-
- net/ipv4/udp_diag.c                   |  2 +-
- net/ipv6/addrconf.c                   |  4 ++--
- net/ipv6/addrlabel.c                  |  2 +-
- net/ipv6/ila/ila_xlat.c               |  2 +-
- net/ipv6/ip6mr.c                      |  6 +++--
- net/ipv6/route.c                      |  2 +-
- net/irda/irnetlink.c                  |  2 +-
- net/l2tp/l2tp_netlink.c               |  8 ++++---
- net/netfilter/ipset/ip_set_core.c     | 11 +++++----
- net/netfilter/ipvs/ip_vs_ctl.c        |  2 +-
- net/netfilter/nf_conntrack_netlink.c  |  9 +++++---
- net/netfilter/nf_tables_api.c         | 10 ++++----
- net/netfilter/nfnetlink.c             |  4 ++--
- net/netfilter/nfnetlink_acct.c        |  2 +-
- net/netfilter/nfnetlink_cthelper.c    |  2 +-
- net/netfilter/nfnetlink_cttimeout.c   |  5 ++--
- net/netfilter/nfnetlink_log.c         |  4 ++--
- net/netfilter/nfnetlink_queue.c       |  3 ++-
- net/netfilter/nft_compat.c            |  4 ++--
- net/netlabel/netlabel_cipso_v4.c      |  2 +-
- net/netlabel/netlabel_mgmt.c          |  4 ++--
- net/netlabel/netlabel_unlabeled.c     |  2 +-
- net/netlink/af_netlink.c              | 14 +++++++-----
- net/netlink/genetlink.c               |  2 +-
- net/nfc/netlink.c                     |  6 ++---
- net/openvswitch/datapath.c            |  9 ++++----
- net/sched/act_api.c                   |  2 +-
- net/sctp/sctp_diag.c                  |  2 +-
- net/tipc/bearer.c                     |  4 ++--
- net/tipc/netlink_compat.c             |  2 +-
- net/tipc/node.c                       |  2 +-
- net/unix/diag.c                       |  2 +-
- net/wireless/nl80211.c                | 43 ++++++++++++++++++-----------------
- net/xfrm/xfrm_user.c                  | 15 +++++++-----
- samples/connector/cn_test.c           |  2 +-
- 72 files changed, 199 insertions(+), 155 deletions(-)
-
+diff --git a/drivers/infiniband/core/iwpm_msg.c b/drivers/infiniband/core/iwpm_msg.c
+index 1c41b95..4307eab 100644
+--- a/drivers/infiniband/core/iwpm_msg.c
++++ b/drivers/infiniband/core/iwpm_msg.c
+@@ -174,7 +174,7 @@ int iwpm_add_mapping(struct iwpm_sa_data *pm_msg, u8 nl_client)
+ 		goto add_mapping_error;
+ 	nlmsg_request->req_buffer = pm_msg;
+ 
+-	ret = ibnl_unicast(skb, nlh, iwpm_user_pid);
++	ret = ibnl_unicast(skb, nlh, iwpm_user_pid, GFP_ATOMIC);
+ 	if (ret) {
+ 		skb = NULL; /* skb is freed in the netlink send-op handling */
+ 		iwpm_user_pid = IWPM_PID_UNDEFINED;
+@@ -251,7 +251,7 @@ int iwpm_add_and_query_mapping(struct iwpm_sa_data *pm_msg, u8 nl_client)
+ 		goto query_mapping_error;
+ 	nlmsg_request->req_buffer = pm_msg;
+ 
+-	ret = ibnl_unicast(skb, nlh, iwpm_user_pid);
++	ret = ibnl_unicast(skb, nlh, iwpm_user_pid, GFP_ATOMIC);
+ 	if (ret) {
+ 		skb = NULL; /* skb is freed in the netlink send-op handling */
+ 		err_str = "Unable to send a nlmsg";
+@@ -312,7 +312,7 @@ int iwpm_remove_mapping(struct sockaddr_storage *local_addr, u8 nl_client)
+ 	if (ret)
+ 		goto remove_mapping_error;
+ 
+-	ret = ibnl_unicast(skb, nlh, iwpm_user_pid);
++	ret = ibnl_unicast(skb, nlh, iwpm_user_pid, GFP_ATOMIC);
+ 	if (ret) {
+ 		skb = NULL; /* skb is freed in the netlink send-op handling */
+ 		iwpm_user_pid = IWPM_PID_UNDEFINED;
+diff --git a/drivers/infiniband/core/iwpm_util.c b/drivers/infiniband/core/iwpm_util.c
+index b65e06c..6dcbb2d 100644
+--- a/drivers/infiniband/core/iwpm_util.c
++++ b/drivers/infiniband/core/iwpm_util.c
+@@ -609,7 +609,7 @@ static int send_mapinfo_num(u32 mapping_num, u8 nl_client, int iwpm_pid)
+ 				&mapping_num, IWPM_NLA_MAPINFO_SEND_NUM);
+ 	if (ret)
+ 		goto mapinfo_num_error;
+-	ret = ibnl_unicast(skb, nlh, iwpm_pid);
++	ret = ibnl_unicast(skb, nlh, iwpm_pid, GFP_ATOMIC);
+ 	if (ret) {
+ 		skb = NULL;
+ 		err_str = "Unable to send a nlmsg";
+@@ -638,7 +638,8 @@ static int send_nlmsg_done(struct sk_buff *skb, u8 nl_client, int iwpm_pid)
+ 		return -ENOMEM;
+ 	}
+ 	nlh->nlmsg_type = NLMSG_DONE;
+-	ret = ibnl_unicast(skb, (struct nlmsghdr *)skb->data, iwpm_pid);
++	ret = ibnl_unicast(skb, (struct nlmsghdr *)skb->data, iwpm_pid,
++			   GFP_ATOMIC);
+ 	if (ret)
+ 		pr_warn("%s Unable to send a nlmsg\n", __func__);
+ 	return ret;
+diff --git a/drivers/infiniband/core/iwpm_util.h b/drivers/infiniband/core/iwpm_util.h
+index af1fc14..0ced7f4 100644
+--- a/drivers/infiniband/core/iwpm_util.h
++++ b/drivers/infiniband/core/iwpm_util.h
+@@ -46,6 +46,7 @@
+ #include <linux/jhash.h>
+ #include <linux/kref.h>
+ #include <net/netlink.h>
++#include <net/sock.h>
+ #include <linux/errno.h>
+ #include <rdma/iw_portmap.h>
+ #include <rdma/rdma_netlink.h>
+diff --git a/drivers/infiniband/core/netlink.c b/drivers/infiniband/core/netlink.c
+index 09037a9..1451238 100644
+--- a/drivers/infiniband/core/netlink.c
++++ b/drivers/infiniband/core/netlink.c
+@@ -227,9 +227,9 @@ static void ibnl_rcv(struct sk_buff *skb)
+ }
+ 
+ int ibnl_unicast(struct sk_buff *skb, struct nlmsghdr *nlh,
+-			__u32 pid)
++			__u32 pid, gfp_t flags)
+ {
+-	return nlmsg_unicast(nls, skb, pid, gfp_any());
++	return nlmsg_unicast(nls, skb, pid, flags);
+ }
+ EXPORT_SYMBOL(ibnl_unicast);
+ 
+diff --git a/include/rdma/rdma_netlink.h b/include/rdma/rdma_netlink.h
+index 5852661..0bb3010 100644
+--- a/include/rdma/rdma_netlink.h
++++ b/include/rdma/rdma_netlink.h
+@@ -61,10 +61,11 @@ int ibnl_put_attr(struct sk_buff *skb, struct nlmsghdr *nlh,
+  * @skb: The netlink skb
+  * @nlh: Header of the netlink message to send
+  * @pid: Userspace netlink process ID
++ * @flags: allocation flags
+  * Returns 0 on success or a negative error code.
+  */
+ int ibnl_unicast(struct sk_buff *skb, struct nlmsghdr *nlh,
+-			__u32 pid);
++			__u32 pid, gfp_t flags);
+ 
+ /**
+  * Send the supplied skb to a netlink group.
 -- 
 2.7.4
 
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
