@@ -1,39 +1,55 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH net-next v2 4/4] net: dsa: Move ports assignment closer to
- error checking
-Date: Wed, 6 Jul 2016 14:50:11 +0300
-Message-ID: <ec93aa44-c66e-7a7e-beee-d259e8c15037@cogentembedded.com>
-References: <1467756433-25062-1-git-send-email-f.fainelli@gmail.com>
- <1467756433-25062-5-git-send-email-f.fainelli@gmail.com>
+From: Sergei Shtylyov <sergei.shtylyov-M4DtvfQ/ZS1MRgGoP+s0PdBPR1lH4CV8@public.gmane.org>
+Subject: Re: [PATCH 2/3] arm64: dts: rockchip: add GMAC dt nodes for rk3399 SoC
+Date: Wed, 6 Jul 2016 15:23:53 +0300
+Message-ID: <f1e3270b-4908-2d81-9784-21c1cb77e2d9@cogentembedded.com>
+References: <1467802291-6487-1-git-send-email-roger.chen@rock-chips.com>
+ <1467802291-6487-3-git-send-email-roger.chen@rock-chips.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset="us-ascii"; Format="flowed"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, andrew@lunn.ch,
-	vivien.didelot@savoirfairelinux.com
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f53.google.com ([209.85.215.53]:35538 "EHLO
-	mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751622AbcGFLzi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 07:55:38 -0400
-Received: by mail-lf0-f53.google.com with SMTP id l188so152868537lfe.2
-        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 04:55:37 -0700 (PDT)
-In-Reply-To: <1467756433-25062-5-git-send-email-f.fainelli@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: mark.rutland-5wv7dgnIgG8@public.gmane.org, devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, zhengxing-TNX95d0MmH7DzftRWevZcw@public.gmane.org,
+ pawel.moll-5wv7dgnIgG8@public.gmane.org, ijc+devicetree-KcIKpvwj1kUDXYZnReoRVg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+ linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org, galak-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org, peppe.cavallaro-qxv4g6HH51o@public.gmane.org,
+ davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+ alexandre.torgue-qxv4g6HH51o@public.gmane.org
+To: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>, heiko-4mtYJXux2i+zQB+pC5nmwQ@public.gmane.org
+Return-path: <linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1467802291-6487-3-git-send-email-roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-rockchip/>
+List-Post: <mailto:linux-rockchip-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-rockchip>,
+ <mailto:linux-rockchip-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-rockchip" <linux-rockchip-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-rockchip-bounces+glpar-linux-rockchip=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
 Hello.
 
-On 7/6/2016 1:07 AM, Florian Fainelli wrote:
+On 7/6/2016 1:51 PM, Roger Chen wrote:
 
-> Move the assignment of ports in _dsa_register_switch() closer to where
-> it is checked, no functional change. Re-order declarations to be
-
-    "Be" doesn't seem needed here.
-
-> preserve the inverted christmas tree style.
+> This patch adds ethernet GMAC dt notes for Rockchip RK3399 SoC.
 >
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
+> Signed-off-by: Roger Chen <roger.chen-TNX95d0MmH7DzftRWevZcw@public.gmane.org>
+> ---
+>  arch/arm64/boot/dts/rockchip/rk3399.dtsi | 79 ++++++++++++++++++++++++++++++++
+>  1 file changed, 79 insertions(+)
+>
+> diff --git a/arch/arm64/boot/dts/rockchip/rk3399.dtsi b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
+> index d7f8e06..cb0b17d 100644
+> --- a/arch/arm64/boot/dts/rockchip/rk3399.dtsi
+> +++ b/arch/arm64/boot/dts/rockchip/rk3399.dtsi
+> @@ -189,6 +189,25 @@
+>  		};
+>  	};
+>
+> +	gmac: eth@fe300000 {
+
+    The node should be named "ethernet@fe300000" to comply with the ePAPR 
+standard.
 
 [...]
 
