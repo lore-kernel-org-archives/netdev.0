@@ -1,56 +1,61 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 3/4] net: dsa: Suffix function manipulating device_node with _dn
-Date: Tue, 05 Jul 2016 21:59:05 -0400
-Message-ID: <87a8hvv85y.fsf@ketchup.mtl.sfl>
-References: <1467756433-25062-1-git-send-email-f.fainelli@gmail.com> <1467756433-25062-4-git-send-email-f.fainelli@gmail.com> <20160705223612.GC28825@lunn.ch> <577C3817.1070908@gmail.com>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: Problem: BUG_ON hit in ppp_pernet() when re-connect after
+ changing shared key on LAC
+Date: Tue, 5 Jul 2016 19:02:03 -0700
+Message-ID: <CAM_iQpWTjnFZS6LgW8CBJ_hPdmu+yTgFycfo42VJ32u4onTxBQ@mail.gmail.com>
+References: <7fabf4defe2f468bbcc829247de956c0@svr-chch-ex1.atlnz.lc>
+ <CAM_iQpVyNghNJHES5-npZgYGFXps0-XTwJyJ-9pLDAuYJ_syWw@mail.gmail.com>
+ <CAM_iQpUEKrcuQvcXO_Rembgk_ZKc-v9Pe2ZEuZ5W_QxdcYDDNQ@mail.gmail.com> <6e0b17d147054867ac0f80978ccf91b2@svr-chch-ex1.atlnz.lc>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@vger.kernel.org, davem@davemloft.net
-To: Florian Fainelli <f.fainelli@gmail.com>,
-	Andrew Lunn <andrew@lunn.ch>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:50175 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751611AbcGFB7J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 21:59:09 -0400
-In-Reply-To: <577C3817.1070908@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "linux-ppp@vger.kernel.org" <linux-ppp@vger.kernel.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"g.nault@alphalink.fr" <g.nault@alphalink.fr>
+To: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
+Return-path: <linux-ppp-owner@vger.kernel.org>
+In-Reply-To: <6e0b17d147054867ac0f80978ccf91b2@svr-chch-ex1.atlnz.lc>
+Sender: linux-ppp-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, Jul 5, 2016 at 5:05 PM, Matt Bennett
+<Matt.Bennett@alliedtelesis.co.nz> wrote:
+> On 07/06/2016 08:37 AM, Cong Wang wrote:
+>> On Tue, Jul 5, 2016 at 10:59 AM, Cong Wang <xiyou.wangcong@gmail.com> wrote:
+>>> On Mon, Jul 4, 2016 at 7:50 PM, Matt Bennett
+>>> <Matt.Bennett@alliedtelesis.co.nz> wrote:
+>>>> Using printk I have confirmed that ppp_pernet() is called from
+>>>> ppp_connect_channel() when the BUG occurs (i.e. pch->chan_net is NULL).
+>>>>
+>>>> This behavior appears to have been introduced in commit 1f461dc ("ppp:
+>>>> take reference on channels netns").
+>>>
+>>> We have some race condition here, where a parallel ppp_unregister_channel()
+>>> could happen while we are in ppp_connect_channel().
+>>>
+>>> We need some synchronization for them. I am not sure what is the right lock
+>>> here since ppp locking looks crazy.
+>>
+>> Matt, could you try if the attached patch helps?
+>>
+>> Thanks!
+>>
+> I have given that patch a good amount of testing and the BUG_ON() no
+> longer is hit. Whether that is the best fix or not I am unsure?
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
+At least my patch makes the net refcnt sync with pch life-time:
+we grab a net refcnt when we allocate a pch, and release it when
+we are going to destroy a pch. Makes sense to you?
 
-> On 07/05/2016 03:36 PM, Andrew Lunn wrote:
->> On Tue, Jul 05, 2016 at 03:07:12PM -0700, Florian Fainelli wrote:
->>> Make it clear that these functions take a device_node structure pointer
->> 
->> Hi Florian
->> 
->> Didn't we agree that we would only support a single device via a C
->> coded platform data structure?
 >
-> That is true for the devices I know about, both in and out of tree,
-> however, while discussing offline with Vivien it seemed like there was a
-> potential need for having a x86-based platform which could need that,
-> Vivien do you think this platform could be in-tree one day (if not already)?
+> Either way, the following comment in ppp_unregister_channel() seems
+> incorrect to me and should probably be deleted unless it is fixed?
+>
+> /*
+>   * This ensures that we have returned from any calls into the
+>   * the channel's start_xmit or ioctl routine before we proceed.
+>   */
 
-This customer platform is not mainlined yet and I cannot say today if it
-will be. However it is likely to get a new revision soon with 3
-interconnected 6352 hanging the x86 Baytrail.
+This comment is pretty old, I think it refers to the pch->ppp
+check in ppp_connect_channel().
 
-DT on x86 is possible, but not straight-forward, and thanks to Florian's
-work the pdata support is almost there for free.
-
->> All the functions you are renaming will never be called in that
->> case. So i think they can retain there names. You have no need to add
->> none device node equivalents.
->> 
->> So lets drop this patch.
-
-The patch is not big and I think it doesn't hurt to add that explicit
-suffix, I'd keep the patch in the series.
-
-Thanks,
-
-        Vivien
+Thanks.
