@@ -1,37 +1,45 @@
-From: Andy Lutomirski <luto@amacapital.net>
-Subject: Re: [PATCH net-next 04/24] rxrpc: Avoid using stack memory in SG
- lists in rxkad
-Date: Wed, 6 Jul 2016 06:19:05 -0700
-Message-ID: <CALCETrXYJTvYgyaeOwY6N3T2rH+4J23FSp6FWA7HFXih4=3acQ@mail.gmail.com>
-References: <146772433082.21657.14046392058484946464.stgit@warthog.procyon.org.uk>
- <146772435939.21657.15502992311223735001.stgit@warthog.procyon.org.uk>
+From: weiyj_lk-9Onoh4P/yGk@public.gmane.org
+Subject: [PATCH -next] net: mediatek: remove .owner field for driver
+Date: Wed,  6 Jul 2016 13:30:13 +0000
+Message-ID: <1467811813-4864-1-git-send-email-weiyj_lk@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Herbert Xu <herbert@gondor.apana.org.au>,
-	Network Development <netdev@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	Andy Lutomirski <luto@kernel.org>,
-	linux-afs@lists.infradead.org
-To: David Howells <dhowells@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-vk0-f51.google.com ([209.85.213.51]:35628 "EHLO
-	mail-vk0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753386AbcGFNTZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 09:19:25 -0400
-Received: by mail-vk0-f51.google.com with SMTP id v6so33574897vkb.2
-        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 06:19:25 -0700 (PDT)
-In-Reply-To: <146772435939.21657.15502992311223735001.stgit@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>,
+ linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org, linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+To: Felix Fietkau <nbd-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>, John Crispin <blogic-p3rKhJxN3npAfugRpC6u6w@public.gmane.org>,
+ Matthias Brugger <matthias.bgg-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-mediatek/>
+List-Post: <mailto:linux-mediatek-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-mediatek>,
+ <mailto:linux-mediatek-request-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Sender: "Linux-mediatek" <linux-mediatek-bounces-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>
+Errors-To: linux-mediatek-bounces+glpam-linux-mediatek=m.gmane.org-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 5, 2016 at 6:12 AM, David Howells <dhowells@redhat.com> wrote:
-> From: Herbert Xu <herbert@gondor.apana.org.au>
->
-> rxkad uses stack memory in SG lists which would not work if stacks were
-> allocated from vmalloc memory.  In fact, in most cases this isn't even
-> necessary as the stack memory ends up getting copied over to kmalloc
-> memory.
+From: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
 
-This version no longer applies to Linus' tree, so I'm dropping it from
-my series.
+Remove .owner field since calls to module_platform_driver() will
+set it automatically.
+
+Signed-off-by: Wei Yongjun <yongjun_wei-zrsr2BFq86L20UzCJQGyNP8+0UxHXcjY@public.gmane.org>
+---
+ drivers/net/ethernet/mediatek/mtk_eth_soc.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/mediatek/mtk_eth_soc.c b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+index 682797e..760f3d7 100644
+--- a/drivers/net/ethernet/mediatek/mtk_eth_soc.c
++++ b/drivers/net/ethernet/mediatek/mtk_eth_soc.c
+@@ -1910,7 +1910,6 @@ static struct platform_driver mtk_driver = {
+ 	.remove = mtk_remove,
+ 	.driver = {
+ 		.name = "mtk_soc_eth",
+-		.owner = THIS_MODULE,
+ 		.of_match_table = of_mtk_match,
+ 	},
+ };
