@@ -1,108 +1,99 @@
-From: Vishwanath Pai <vpai@akamai.com>
-Subject: Re: [PATCH iptables 3/3] libxt_hashlimit: iptables-restore does not
- work as expected with xt_hashlimit
-Date: Wed, 6 Jul 2016 18:26:39 -0400
-Message-ID: <577D859F.2000003@akamai.com>
-References: <20160602001759.GF1644@akamai.com> <20160623102511.GA10493@salvia>
- <576D7AD2.6050107@akamai.com> <20160625093924.GC1289@salvia>
- <577C14D2.3020005@akamai.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252
-Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, kadlec@blackhole.kfki.hu,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	johunt@akamai.com, netdev@vger.kernel.org, pai.vishwain@gmail.com
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <577C14D2.3020005@akamai.com>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Craig Gallek <kraigatgoog@gmail.com>
+Subject: [PATCH net-next] tun: Don't assume type tun in tun_device_event
+Date: Wed,  6 Jul 2016 18:44:20 -0400
+Message-ID: <1467845060-7502-1-git-send-email-kraigatgoog@gmail.com>
+Cc: netdev@vger.kernel.org, jasowang@redhat.com
+To: davem@davemloft.net
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f48.google.com ([209.85.214.48]:38387 "EHLO
+	mail-it0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752102AbcGFWul (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 18:50:41 -0400
+Received: by mail-it0-f48.google.com with SMTP id h190so7678362ith.1
+        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 15:50:41 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/05/2016 04:13 PM, Vishwanath Pai wrote:
-> On 06/25/2016 05:39 AM, Pablo Neira Ayuso wrote:
->> I see, but I'm not convinced about this /proc rename feature.
->>
->> I think the main point of this, as well as other entries in bugzilla
->> related to this, is ability to update an existing hashlimit state.
->>
->> So, I'm not proposing to rename --enhanced-procfs to something else,
->> I think that a different approach consisting on adding a new option
->> like --hashlimit-update that will update the internal state of an
->> existing hashlimit object is just fine for your usecase, right?
->>
->>>> Other than that, we are doing exactly what you said, but creating a new
->>>> entry in the hashtable instead of updating it. The previous entry will
->>>> automatically be removed when the old rule is flushed/deleted.
->> What I'm missing is why we need this /proc rename at all.
-> 
-> The reason we need the procfs rename feature is because it is broken at
-> the moment. Let us assume someone adds two rules with the same name
-> (intentionally or otherwise). We cannot prevent them from doing this or
-> error out when someone does this because all of this is done in
-> hashlimit_mt_check which is called for every iptables rule change, even
-> an entirely different rule. I'll demonstrate two scenarios here. I have
-> put debug printk statements which prints everytime hashlimit_mt_check is
-> called.
-> 
-> 1) Add two rules with the same name but in different chains
-> 
-> $ iptables -A chain1 -m hashlimit --hashlimit-above 200/sec \
->   --hashlimit-mode srcip --hashlimit-name hashlimit1 -j DROP
-> 
-> $ dmesg -c
-> [  103.965578] hashlimit_mt_check for rule hashlimit1
-> 
-> 
-> $ iptables -A chain2 -m hashlimit --hashlimit-above 300/sec \
->    --hashlimit-mode srcip --hashlimit-name hashlimit1 -j DROP
-> 
-> $ dmesg -c
-> [  114.613758] hashlimit_mt_check for rule hashlimit1
-> [  114.621360] hashlimit_mt_check for rule hashlimit1
-> [  114.627411] hashlimit_mt_destroy on hashlimit1
-> 
-> 2) Replace an iptables rule with iptables-restore
-> 
-> $ iptables -A chain1 -m hashlimit --hashlimit-above 200/sec \
->   --hashlimit-mode srcip --hashlimit-name hashlimit1 -j DROP
-> 
-> $ iptables-save > /tmp/hashlimit
-> 
-> $ vi /tmp/hashlimit (edit 200/s to 300/s)
-> 
-> $ iptables-restore < /tmp/hashlimit
-> 
-> $ dmesg -c
-> [ 1585.411093] hashlimit_mt_check for rule hashlimit1
-> [ 1585.418948] hashlimit_mt_destroy on hashlimit1
-> 
-> In case 1 there exists two rules with the same name but we cannot have
-> procfs files for both of the rules since they have to exist in the same
-> directory. In case 2 there will be only one rule but there is a small
-> window where two rules with same name exist. We cannot differentiate
-> this from case 1. In both the cases we get the call for
-> hashlimit_mt_check for the new rule before the old rule is deleted.
-> 
-> Without the rename feature I do not know how to correctly handle the
-> scenario where two rules with different parameters but the same name exist.
-> 
-> I believe the rest of the patch handles the --hashlimit-update feature
-> you mentioned, but instead of updating an existing object it creates a
-> new one and the old object is deleted by the call to destroy. The
-> hashtable match function is modified to include all parameters of the
-> object and not just the name so that we can reuse objects that have the
-> exact same features.
-> 
+From: Craig Gallek <kraig@google.com>
 
-There is also another option of removing the procfs files altogether in
-revision 2. The files were only used for debugging and any users relying
-on the file being present will continue to see it as long as they are in
-revision 1.
+The referenced change added a netlink notifier for processing
+device queue size events.  These events are fired for all devices
+but the registered callback assumed they only occurred for tun
+devices.  This fix adds a check (borrowed from macvtap.c) to discard
+non-tun device events.
 
-If we do need these files, we can create another option in rev2 which
-explicitly enables procfs but leave them disabled by default. And we can
-retain the existing behavior assuming whoever is using it knows its
-caveats. Please suggest.
+For reference, this fixes the following splat:
+[   71.505935] BUG: unable to handle kernel NULL pointer dereference at 0000000000000010
+[   71.513870] IP: [<ffffffff8153c1a0>] tun_device_event+0x110/0x340
+[   71.519906] PGD 3f41f56067 PUD 3f264b7067 PMD 0
+[   71.524497] Oops: 0002 [#1] SMP DEBUG_PAGEALLOC
+[   71.529374] gsmi: Log Shutdown Reason 0x03
+[   71.533417] Modules linked in:[   71.533826] mlx4_en: eth1: Link Up
 
-Thanks,
-Vishwanath
+[   71.539616]  bonding w1_therm wire cdc_acm ehci_pci ehci_hcd mlx4_en ib_uverbs mlx4_ib ib_core mlx4_core
+[   71.549282] CPU: 12 PID: 7915 Comm: set.ixion-haswe Not tainted 4.7.0-dbx-DEV #8
+[   71.556586] Hardware name: Intel Grantley,Wellsburg/Ixion_IT_15, BIOS 2.58.0 05/03/2016
+[   71.564495] task: ffff887f00bb20c0 ti: ffff887f00798000 task.ti: ffff887f00798000
+[   71.571894] RIP: 0010:[<ffffffff8153c1a0>]  [<ffffffff8153c1a0>] tun_device_event+0x110/0x340
+[   71.580327] RSP: 0018:ffff887f0079bbd8  EFLAGS: 00010202
+[   71.585576] RAX: fffffffffffffae8 RBX: ffff887ef6d03378 RCX: 0000000000000000
+[   71.592624] RDX: 0000000000000000 RSI: 0000000000000028 RDI: 0000000000000000
+[   71.599675] RBP: ffff887f0079bc48 R08: 0000000000000000 R09: 0000000000000001
+[   71.606730] R10: 0000000000000004 R11: 0000000000000000 R12: 0000000000000010
+[   71.613780] R13: 0000000000000000 R14: 0000000000000001 R15: ffff887f0079bd00
+[   71.620832] FS:  00007f5cdc581700(0000) GS:ffff883f7f700000(0000) knlGS:0000000000000000
+[   71.628826] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+[   71.634500] CR2: 0000000000000010 CR3: 0000003f3eb62000 CR4: 00000000001406e0
+[   71.641549] Stack:
+[   71.643533]  ffff887f0079bc08 0000000000000246 000000000000001e ffff887ef6d00000
+[   71.650871]  ffff887f0079bd00 0000000000000000 0000000000000000 ffffffff00000000
+[   71.658210]  ffff887f0079bc48 ffffffff81d24070 00000000fffffff9 ffffffff81cec7a0
+[   71.665549] Call Trace:
+[   71.667975]  [<ffffffff810eeb0d>] notifier_call_chain+0x5d/0x80
+[   71.673823]  [<ffffffff816365d0>] ? show_tx_maxrate+0x30/0x30
+[   71.679502]  [<ffffffff810eeb3e>] __raw_notifier_call_chain+0xe/0x10
+[   71.685778]  [<ffffffff810eeb56>] raw_notifier_call_chain+0x16/0x20
+[   71.691976]  [<ffffffff8160eb30>] call_netdevice_notifiers_info+0x40/0x70
+[   71.698681]  [<ffffffff8160ec36>] call_netdevice_notifiers+0x16/0x20
+[   71.704956]  [<ffffffff81636636>] change_tx_queue_len+0x66/0x90
+[   71.710807]  [<ffffffff816381ef>] netdev_store.isra.5+0xbf/0xd0
+[   71.716658]  [<ffffffff81638350>] tx_queue_len_store+0x50/0x60
+[   71.722431]  [<ffffffff814a6798>] dev_attr_store+0x18/0x30
+[   71.727857]  [<ffffffff812ea3ff>] sysfs_kf_write+0x4f/0x70
+[   71.733274]  [<ffffffff812e9507>] kernfs_fop_write+0x147/0x1d0
+[   71.739045]  [<ffffffff81134a4f>] ? rcu_read_lock_sched_held+0x8f/0xa0
+[   71.745499]  [<ffffffff8125a108>] __vfs_write+0x28/0x120
+[   71.750748]  [<ffffffff8111b137>] ? percpu_down_read+0x57/0x90
+[   71.756516]  [<ffffffff8125d7d8>] ? __sb_start_write+0xc8/0xe0
+[   71.762278]  [<ffffffff8125d7d8>] ? __sb_start_write+0xc8/0xe0
+[   71.768038]  [<ffffffff8125bd5e>] vfs_write+0xbe/0x1b0
+[   71.773113]  [<ffffffff8125c092>] SyS_write+0x52/0xa0
+[   71.778110]  [<ffffffff817528e5>] entry_SYSCALL_64_fastpath+0x18/0xa8
+[   71.784472] Code: 45 31 f6 48 8b 93 78 33 00 00 48 81 c3 78 33 00 00 48 39 d3 48 8d 82 e8 fa ff ff 74 25 48 8d b0 40 05 00 00 49 63 d6 41 83 c6 01 <49> 89 34 d4 48 8b 90 18 05 00 00 48 39 d3 48 8d 82 e8 fa ff ff
+[   71.803655] RIP  [<ffffffff8153c1a0>] tun_device_event+0x110/0x340
+[   71.809769]  RSP <ffff887f0079bbd8>
+[   71.813213] CR2: 0000000000000010
+[   71.816512] ---[ end trace 4db6449606319f73 ]---
+
+Fixes: 1576d9860599 ("tun: switch to use skb array for tx")
+Signed-off-by: Craig Gallek <kraig@google.com>
+---
+ drivers/net/tun.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+index 5eadb7a1ad7b..9c8b5bc2b9d8 100644
+--- a/drivers/net/tun.c
++++ b/drivers/net/tun.c
+@@ -2503,6 +2503,9 @@ static int tun_device_event(struct notifier_block *unused,
+ 	struct net_device *dev = netdev_notifier_info_to_dev(ptr);
+ 	struct tun_struct *tun = netdev_priv(dev);
+ 
++	if (dev->rtnl_link_ops != &tun_link_ops)
++		return NOTIFY_DONE;
++
+ 	switch (event) {
+ 	case NETDEV_CHANGE_TX_QUEUE_LEN:
+ 		if (tun_queue_resize(tun))
+-- 
+2.8.0.rc3.226.g39d4020
