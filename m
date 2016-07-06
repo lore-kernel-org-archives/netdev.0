@@ -1,16 +1,16 @@
 From: Tariq Toukan <tariqt@mellanox.com>
-Subject: [PATCH net-next 2/4] net/mlx4: Preparation for VST QinQ
-Date: Wed,  6 Jul 2016 15:29:04 +0300
-Message-ID: <1467808146-29573-3-git-send-email-tariqt@mellanox.com>
+Subject: [PATCH net-next 3/4] net: Add VST QinQ support
+Date: Wed,  6 Jul 2016 15:29:05 +0300
+Message-ID: <1467808146-29573-4-git-send-email-tariqt@mellanox.com>
 References: <1467808146-29573-1-git-send-email-tariqt@mellanox.com>
 Cc: netdev@vger.kernel.org, Eran Ben Elisha <eranbe@mellanox.com>,
 	Moshe Shemesh <moshe@mellanox.com>,
 	Tariq Toukan <tariqt@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [193.47.165.129] ([193.47.165.129]:33230 "EHLO mellanox.co.il"
+Received: from [193.47.165.129] ([193.47.165.129]:33235 "EHLO mellanox.co.il"
 	rhost-flags-FAIL-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751925AbcGFMaw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	id S1752001AbcGFMaw (ORCPT <rfc822;netdev@vger.kernel.org>);
 	Wed, 6 Jul 2016 08:30:52 -0400
 In-Reply-To: <1467808146-29573-1-git-send-email-tariqt@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
@@ -18,335 +18,683 @@ List-ID: <netdev.vger.kernel.org>
 
 From: Moshe Shemesh <moshe@mellanox.com>
 
-Check device capability to support VST QinQ mode.
-Add vport attribute vlan protocol.
-Init vport vlan protocol by default to 802.1Q.
-Add update QP support for VST QinQ.
-Add func capability vlan_offload_disable to disable all
-vlan HW acceleration on VF while the VF is set to VST QinQ mode.
+Enable activating VST QinQ mode by IP Link tool.
+Add parameter vlan protocol to the function ndo_set_vf_vlan.
+Vlan protocol by default is 802.1Q, setting vf vlan protocol to
+802.1ad sets the vf to VST QinQ mode.
+Add IFLA_VF_VLAN_INFO in addition to IFLA_VF_VLAN to keep backward
+compatibility with older versions of IP Link tool.
 
 Signed-off-by: Moshe Shemesh <moshe@mellanox.com>
 Signed-off-by: Tariq Toukan <tariqt@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/cmd.c           |  7 ++++
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c     | 18 ++++++++++
- drivers/net/ethernet/mellanox/mlx4/fw.c            | 37 ++++++++++++++++----
- drivers/net/ethernet/mellanox/mlx4/mlx4.h          |  2 ++
- .../net/ethernet/mellanox/mlx4/resource_tracker.c  | 40 ++++++++++++++++++----
- include/linux/mlx4/device.h                        |  3 ++
- include/linux/mlx4/qp.h                            |  2 ++
- 7 files changed, 96 insertions(+), 13 deletions(-)
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |  3 ++-
+ drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |  9 +++++--
+ drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c    |  6 ++++-
+ drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h    |  2 +-
+ drivers/net/ethernet/emulex/benet/be_main.c        |  6 ++++-
+ drivers/net/ethernet/intel/fm10k/fm10k.h           |  2 +-
+ drivers/net/ethernet/intel/fm10k/fm10k_iov.c       |  6 ++++-
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 11 +++++++--
+ drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  4 ++--
+ drivers/net/ethernet/intel/igb/igb_main.c          |  9 ++++---
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |  5 +++-
+ drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |  2 +-
+ drivers/net/ethernet/mellanox/mlx4/cmd.c           | 25 +++++++++++++++++--
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  5 ++--
+ drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  6 ++++-
+ drivers/net/ethernet/qlogic/qede/qede_main.c       |  6 ++++-
+ drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |  2 +-
+ .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |  5 +++-
+ drivers/net/ethernet/sfc/sriov.c                   |  5 +++-
+ drivers/net/ethernet/sfc/sriov.h                   |  2 +-
+ include/linux/if_link.h                            |  1 +
+ include/linux/mlx4/cmd.h                           |  3 ++-
+ include/linux/netdevice.h                          |  6 +++--
+ include/uapi/linux/if_link.h                       | 10 +++++++-
+ net/core/rtnetlink.c                               | 28 ++++++++++++++++++++--
+ 25 files changed, 136 insertions(+), 33 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-index f04a423..6ca4b2c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
-@@ -1845,6 +1845,7 @@ static int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+index 0e68fad..243cb97 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h
+@@ -492,7 +492,8 @@ int __bnx2x_setup_tc(struct net_device *dev, u32 handle, __be16 proto,
+ int bnx2x_get_vf_config(struct net_device *dev, int vf,
+ 			struct ifla_vf_info *ivi);
+ int bnx2x_set_vf_mac(struct net_device *dev, int queue, u8 *mac);
+-int bnx2x_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos);
++int bnx2x_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos,
++		      __be16 vlan_proto);
  
- 	if (vp_oper->state.default_vlan == vp_admin->default_vlan &&
- 	    vp_oper->state.default_qos == vp_admin->default_qos &&
-+	    vp_oper->state.vlan_proto == vp_admin->vlan_proto &&
- 	    vp_oper->state.link_state == vp_admin->link_state &&
- 	    vp_oper->state.qos_vport == vp_admin->qos_vport)
- 		return 0;
-@@ -1903,6 +1904,7 @@ static int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
+ /* select_queue callback */
+ u16 bnx2x_select_queue(struct net_device *dev, struct sk_buff *skb,
+diff --git a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+index 632daff..2f18bd8 100644
+--- a/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c
+@@ -2527,7 +2527,8 @@ void bnx2x_pf_set_vfs_vlan(struct bnx2x *bp)
+ 	for_each_vf(bp, vfidx) {
+ 		bulletin = BP_VF_BULLETIN(bp, vfidx);
+ 		if (bulletin->valid_bitmap & (1 << VLAN_VALID))
+-			bnx2x_set_vf_vlan(bp->dev, vfidx, bulletin->vlan, 0);
++			bnx2x_set_vf_vlan(bp->dev, vfidx, bulletin->vlan, 0,
++					  htons(ETH_P_8021Q));
+ 	}
+ }
  
- 	vp_oper->state.default_vlan = vp_admin->default_vlan;
- 	vp_oper->state.default_qos = vp_admin->default_qos;
-+	vp_oper->state.vlan_proto = vp_admin->vlan_proto;
- 	vp_oper->state.link_state = vp_admin->link_state;
- 	vp_oper->state.qos_vport = vp_admin->qos_vport;
+@@ -2787,7 +2788,8 @@ static int bnx2x_set_vf_vlan_filter(struct bnx2x *bp, struct bnx2x_virtf *vf,
+ 	return 0;
+ }
  
-@@ -1916,6 +1918,7 @@ static int mlx4_master_immediate_activate_vlan_qos(struct mlx4_priv *priv,
- 	work->qos_vport = vp_oper->state.qos_vport;
- 	work->vlan_id = vp_oper->state.default_vlan;
- 	work->vlan_ix = vp_oper->vlan_idx;
-+	work->vlan_proto = vp_oper->state.vlan_proto;
- 	work->priv = priv;
- 	INIT_WORK(&work->work, mlx4_vf_immed_vlan_work_handler);
- 	queue_work(priv->mfunc.master.comm_wq, &work->work);
-@@ -2006,6 +2009,8 @@ static int mlx4_master_activate_admin_state(struct mlx4_priv *priv, int slave)
- 						   vp_admin->default_vlan, &(vp_oper->vlan_idx));
- 			if (err) {
- 				vp_oper->vlan_idx = NO_INDX;
-+				vp_oper->state.default_vlan = MLX4_VGT;
-+				vp_oper->state.vlan_proto = htons(ETH_P_8021Q);
- 				mlx4_warn(&priv->dev,
- 					  "No vlan resources slave %d, port %d\n",
- 					  slave, port);
-@@ -2382,6 +2387,8 @@ int mlx4_multi_func_init(struct mlx4_dev *dev)
- 				admin_vport->qos_vport =
- 						MLX4_VPP_DEFAULT_VPORT;
- 				oper_vport->qos_vport = MLX4_VPP_DEFAULT_VPORT;
-+				admin_vport->vlan_proto = htons(ETH_P_8021Q);
-+				oper_vport->vlan_proto = htons(ETH_P_8021Q);
- 				vf_oper->vport[port].vlan_idx = NO_INDX;
- 				vf_oper->vport[port].mac_idx = NO_INDX;
- 				mlx4_set_random_admin_guid(dev, i, port);
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 6083775..dfba89a 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -3022,6 +3022,7 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
+-int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos)
++int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos,
++		      __be16 vlan_proto)
+ {
+ 	struct pf_vf_bulletin_content *bulletin = NULL;
+ 	struct bnx2x *bp = netdev_priv(dev);
+@@ -2802,6 +2804,9 @@ int bnx2x_set_vf_vlan(struct net_device *dev, int vfidx, u16 vlan, u8 qos)
+ 		return -EINVAL;
  	}
  
- 	if (mlx4_is_slave(mdev->dev)) {
-+		bool vlan_offload_disabled;
- 		int phv;
- 
- 		err = get_phv_bit(mdev->dev, port, &phv);
-@@ -3029,6 +3030,23 @@ int mlx4_en_init_netdev(struct mlx4_en_dev *mdev, int port,
- 			dev->hw_features |= NETIF_F_HW_VLAN_STAG_TX;
- 			priv->pflags |= MLX4_EN_PRIV_FLAGS_PHV;
- 		}
-+		err = mlx4_get_is_vlan_offload_disabled(mdev->dev, port,
-+							&vlan_offload_disabled);
-+		if (!err && vlan_offload_disabled) {
-+			dev->hw_features &= ~(NETIF_F_HW_VLAN_CTAG_TX |
-+					      NETIF_F_HW_VLAN_CTAG_RX |
-+					      NETIF_F_HW_VLAN_CTAG_FILTER |
-+					      NETIF_F_HW_VLAN_STAG_FILTER |
-+					      NETIF_F_HW_VLAN_STAG_TX |
-+					      NETIF_F_HW_VLAN_STAG_RX);
-+			dev->features &= ~(NETIF_F_HW_VLAN_CTAG_TX |
-+					   NETIF_F_HW_VLAN_CTAG_RX |
-+					   NETIF_F_HW_VLAN_CTAG_FILTER |
-+					   NETIF_F_HW_VLAN_STAG_FILTER |
-+					   NETIF_F_HW_VLAN_STAG_TX |
-+					   NETIF_F_HW_VLAN_STAG_RX);
-+		}
++	if (vlan_proto != htons(ETH_P_8021Q))
++		return -EPROTONOSUPPORT;
 +
- 	} else {
- 		if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_PHV_EN &&
- 		    !(mdev->dev->caps.flags2 &
-diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-index 355f05e..6a10129 100644
---- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-@@ -158,7 +158,8 @@ static void dump_dev_cap_flags2(struct mlx4_dev *dev, u64 flags)
- 		[31] = "Modifying loopback source checks using UPDATE_QP support",
- 		[32] = "Loopback source checks support",
- 		[33] = "RoCEv2 support",
--		[34] = "DMFS Sniffer support (UC & MC)"
-+		[34] = "DMFS Sniffer support (UC & MC)",
-+		[35] = "QinQ VST mode support",
- 	};
- 	int i;
+ 	DP(BNX2X_MSG_IOV, "configuring VF %d with VLAN %d qos %d\n",
+ 	   vfidx, vlan, 0);
  
-@@ -313,12 +314,15 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- #define QUERY_FUNC_CAP_FLAGS0_FORCE_PHY_WQE_GID 0x80
- #define QUERY_FUNC_CAP_SUPPORTS_NON_POWER_OF_2_NUM_EQS (1 << 31)
- #define QUERY_FUNC_CAP_PHV_BIT			0x40
-+#define QUERY_FUNC_CAP_VLAN_OFFLOAD_DISABLE	0x20
- 
- 	if (vhcr->op_modifier == 1) {
- 		struct mlx4_active_ports actv_ports =
- 			mlx4_get_active_ports(dev, slave);
- 		int converted_port = mlx4_slave_convert_port(
- 				dev, slave, vhcr->in_modifier);
-+		struct mlx4_vport_oper_state *vp_oper =
-+			&priv->mfunc.master.vf_oper[slave].vport[vhcr->in_modifier];
- 
- 		if (converted_port < 0)
- 			return -EINVAL;
-@@ -357,11 +361,12 @@ int mlx4_QUERY_FUNC_CAP_wrapper(struct mlx4_dev *dev, int slave,
- 		MLX4_PUT(outbox->buf, dev->caps.phys_port_id[vhcr->in_modifier],
- 			 QUERY_FUNC_CAP_PHYS_PORT_ID);
- 
--		if (dev->caps.phv_bit[port]) {
--			field = QUERY_FUNC_CAP_PHV_BIT;
--			MLX4_PUT(outbox->buf, field,
--				 QUERY_FUNC_CAP_FLAGS0_OFFSET);
--		}
-+		field = 0;
-+		if (dev->caps.phv_bit[port])
-+			field |= QUERY_FUNC_CAP_PHV_BIT;
-+		if (vp_oper->state.vlan_proto == htons(ETH_P_8021AD))
-+			field |= QUERY_FUNC_CAP_VLAN_OFFLOAD_DISABLE;
-+		MLX4_PUT(outbox->buf, field, QUERY_FUNC_CAP_FLAGS0_OFFSET);
- 
- 	} else if (vhcr->op_modifier == 0) {
- 		struct mlx4_active_ports actv_ports =
-@@ -689,6 +694,7 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- #define QUERY_DEV_CAP_MAX_DESC_SZ_SQ_OFFSET	0x52
- #define QUERY_DEV_CAP_MAX_SG_RQ_OFFSET		0x55
- #define QUERY_DEV_CAP_MAX_DESC_SZ_RQ_OFFSET	0x56
-+#define QUERY_DEV_CAP_SVLAN_BY_QP_OFFSET	0x5D
- #define QUERY_DEV_CAP_MAX_QP_MCG_OFFSET		0x61
- #define QUERY_DEV_CAP_RSVD_MCG_OFFSET		0x62
- #define QUERY_DEV_CAP_MAX_MCG_OFFSET		0x63
-@@ -855,6 +861,9 @@ int mlx4_QUERY_DEV_CAP(struct mlx4_dev *dev, struct mlx4_dev_cap *dev_cap)
- 	MLX4_GET(size, outbox, QUERY_DEV_CAP_MAX_DESC_SZ_SQ_OFFSET);
- 	dev_cap->max_sq_desc_sz = size;
- 
-+	MLX4_GET(field, outbox, QUERY_DEV_CAP_SVLAN_BY_QP_OFFSET);
-+	if (field & 0x1)
-+		dev_cap->flags2 |= MLX4_DEV_CAP_FLAG2_SVLAN_BY_QP;
- 	MLX4_GET(field, outbox, QUERY_DEV_CAP_MAX_QP_MCG_OFFSET);
- 	dev_cap->max_qp_per_mcg = 1 << field;
- 	MLX4_GET(field, outbox, QUERY_DEV_CAP_RSVD_MCG_OFFSET);
-@@ -2897,6 +2906,22 @@ int set_phv_bit(struct mlx4_dev *dev, u8 port, int new_val)
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+index 50d2007..d2049a9 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c
+@@ -135,7 +135,8 @@ int bnxt_set_vf_mac(struct net_device *dev, int vf_id, u8 *mac)
+ 	return hwrm_send_message(bp, &req, sizeof(req), HWRM_CMD_TIMEOUT);
  }
- EXPORT_SYMBOL(set_phv_bit);
  
-+int mlx4_get_is_vlan_offload_disabled(struct mlx4_dev *dev, u8 port,
-+				      bool *vlan_offload_disabled)
-+{
-+	struct mlx4_func_cap func_cap;
-+	int err;
-+
-+	memset(&func_cap, 0, sizeof(func_cap));
-+	err = mlx4_QUERY_FUNC_CAP(dev, port, &func_cap);
-+	if (!err)
-+		*vlan_offload_disabled =
-+			!!(func_cap.flags0 &
-+			   QUERY_FUNC_CAP_VLAN_OFFLOAD_DISABLE);
-+	return err;
-+}
-+EXPORT_SYMBOL(mlx4_get_is_vlan_offload_disabled);
-+
- void mlx4_replace_zero_macs(struct mlx4_dev *dev)
+-int bnxt_set_vf_vlan(struct net_device *dev, int vf_id, u16 vlan_id, u8 qos)
++int bnxt_set_vf_vlan(struct net_device *dev, int vf_id, u16 vlan_id, u8 qos,
++		     __be16 vlan_proto)
  {
- 	int i;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4.h b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-index c9d7fc51..74e58ef 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4.h
-@@ -507,6 +507,7 @@ struct mlx4_vport_state {
- 	u64 mac;
- 	u16 default_vlan;
- 	u8  default_qos;
+ 	struct hwrm_func_cfg_input req = {0};
+ 	struct bnxt *bp = netdev_priv(dev);
+@@ -146,6 +147,9 @@ int bnxt_set_vf_vlan(struct net_device *dev, int vf_id, u16 vlan_id, u8 qos)
+ 	if (bp->hwrm_spec_code < 0x10201)
+ 		return -ENOTSUPP;
+ 
++	if (vlan_proto != htons(ETH_P_8021Q))
++		return -EPROTONOSUPPORT;
++
+ 	rc = bnxt_vf_ndo_prep(bp, vf_id);
+ 	if (rc)
+ 		return rc;
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h
+index 0392670..1ab72e4 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h
+@@ -12,7 +12,7 @@
+ 
+ int bnxt_get_vf_config(struct net_device *, int, struct ifla_vf_info *);
+ int bnxt_set_vf_mac(struct net_device *, int, u8 *);
+-int bnxt_set_vf_vlan(struct net_device *, int, u16, u8);
++int bnxt_set_vf_vlan(struct net_device *, int, u16, u8, __be16);
+ int bnxt_set_vf_bw(struct net_device *, int, int, int);
+ int bnxt_set_vf_link_state(struct net_device *, int, int);
+ int bnxt_set_vf_spoofchk(struct net_device *, int, bool);
+diff --git a/drivers/net/ethernet/emulex/benet/be_main.c b/drivers/net/ethernet/emulex/benet/be_main.c
+index 1f16e73..f567049 100644
+--- a/drivers/net/ethernet/emulex/benet/be_main.c
++++ b/drivers/net/ethernet/emulex/benet/be_main.c
+@@ -1701,7 +1701,8 @@ static int be_clear_vf_tvt(struct be_adapter *adapter, int vf)
+ 	return 0;
+ }
+ 
+-static int be_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos)
++static int be_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos,
++			  __be16 vlan_proto)
+ {
+ 	struct be_adapter *adapter = netdev_priv(netdev);
+ 	struct be_vf_cfg *vf_cfg = &adapter->vf_cfg[vf];
+@@ -1713,6 +1714,9 @@ static int be_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos)
+ 	if (vf >= adapter->num_vfs || vlan > 4095 || qos > 7)
+ 		return -EINVAL;
+ 
++	if (vlan_proto != htons(ETH_P_8021Q))
++		return -EPROTONOSUPPORT;
++
+ 	if (vlan || qos) {
+ 		vlan |= qos << VLAN_PRIO_SHIFT;
+ 		status = be_set_vf_tvt(adapter, vf, vlan);
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k.h b/drivers/net/ethernet/intel/fm10k/fm10k.h
+index e98b86b..a765e0c 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k.h
++++ b/drivers/net/ethernet/intel/fm10k/fm10k.h
+@@ -507,7 +507,7 @@ int fm10k_iov_configure(struct pci_dev *pdev, int num_vfs);
+ s32 fm10k_iov_update_pvid(struct fm10k_intfc *interface, u16 glort, u16 pvid);
+ int fm10k_ndo_set_vf_mac(struct net_device *netdev, int vf_idx, u8 *mac);
+ int fm10k_ndo_set_vf_vlan(struct net_device *netdev,
+-			  int vf_idx, u16 vid, u8 qos);
++			  int vf_idx, u16 vid, u8 qos, __be16 vlan_proto);
+ int fm10k_ndo_set_vf_bw(struct net_device *netdev, int vf_idx, int rate,
+ 			int unused);
+ int fm10k_ndo_get_vf_config(struct net_device *netdev,
+diff --git a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
+index 47f0743..972bb0f 100644
+--- a/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
++++ b/drivers/net/ethernet/intel/fm10k/fm10k_iov.c
+@@ -445,7 +445,7 @@ int fm10k_ndo_set_vf_mac(struct net_device *netdev, int vf_idx, u8 *mac)
+ }
+ 
+ int fm10k_ndo_set_vf_vlan(struct net_device *netdev, int vf_idx, u16 vid,
+-			  u8 qos)
++			  u8 qos, __be16 vlan_proto)
+ {
+ 	struct fm10k_intfc *interface = netdev_priv(netdev);
+ 	struct fm10k_iov_data *iov_data = interface->iov_data;
+@@ -460,6 +460,10 @@ int fm10k_ndo_set_vf_vlan(struct net_device *netdev, int vf_idx, u16 vid,
+ 	if (qos || (vid > (VLAN_VID_MASK - 1)))
+ 		return -EINVAL;
+ 
++	/* VF VLAN Protocol part to default is unsupported */
++	if (vlan_proto != htons(ETH_P_8021Q))
++		return -EPROTONOSUPPORT;
++
+ 	vf_info = &iov_data->vf_info[vf_idx];
+ 
+ 	/* exit if there is nothing to do */
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+index 6fcbf76..ad2bb21 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c
+@@ -2742,11 +2742,12 @@ error_param:
+  * @vf_id: VF identifier
+  * @vlan_id: mac address
+  * @qos: priority setting
++ * @vlan_proto: vlan protocol
+  *
+  * program VF vlan id and/or qos
+  **/
+-int i40e_ndo_set_vf_port_vlan(struct net_device *netdev,
+-			      int vf_id, u16 vlan_id, u8 qos)
++int i40e_ndo_set_vf_port_vlan(struct net_device *netdev, int vf_id,
++			      u16 vlan_id, u8 qos, __be16 vlan_proto)
+ {
+ 	u16 vlanprio = vlan_id | (qos << I40E_VLAN_PRIORITY_SHIFT);
+ 	struct i40e_netdev_priv *np = netdev_priv(netdev);
+@@ -2769,6 +2770,12 @@ int i40e_ndo_set_vf_port_vlan(struct net_device *netdev,
+ 		goto error_pvid;
+ 	}
+ 
++	if (vlan_proto != htons(ETH_P_8021Q)) {
++		dev_err(&pf->pdev->dev, "VF VLAN protocol is not supported\n");
++		ret = -EPROTONOSUPPORT;
++		goto error_pvid;
++	}
++
+ 	vf = &(pf->vf[vf_id]);
+ 	vsi = pf->vsi[vf->lan_vsi_idx];
+ 	if (!test_bit(I40E_VF_STAT_INIT, &vf->vf_states)) {
+diff --git a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+index 8751741..4012d06 100644
+--- a/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
++++ b/drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h
+@@ -129,8 +129,8 @@ void i40e_vc_notify_vf_reset(struct i40e_vf *vf);
+ 
+ /* VF configuration related iplink handlers */
+ int i40e_ndo_set_vf_mac(struct net_device *netdev, int vf_id, u8 *mac);
+-int i40e_ndo_set_vf_port_vlan(struct net_device *netdev,
+-			      int vf_id, u16 vlan_id, u8 qos);
++int i40e_ndo_set_vf_port_vlan(struct net_device *netdev, int vf_id,
++			      u16 vlan_id, u8 qos, __be16 vlan_proto);
+ int i40e_ndo_set_vf_bw(struct net_device *netdev, int vf_id, int min_tx_rate,
+ 		       int max_tx_rate);
+ int i40e_ndo_set_vf_trust(struct net_device *netdev, int vf_id, bool setting);
+diff --git a/drivers/net/ethernet/intel/igb/igb_main.c b/drivers/net/ethernet/intel/igb/igb_main.c
+index 9bcba42..b97e4b6 100644
+--- a/drivers/net/ethernet/intel/igb/igb_main.c
++++ b/drivers/net/ethernet/intel/igb/igb_main.c
+@@ -169,7 +169,7 @@ static int igb_set_vf_mac(struct igb_adapter *, int, unsigned char *);
+ static void igb_restore_vf_multicasts(struct igb_adapter *adapter);
+ static int igb_ndo_set_vf_mac(struct net_device *netdev, int vf, u8 *mac);
+ static int igb_ndo_set_vf_vlan(struct net_device *netdev,
+-			       int vf, u16 vlan, u8 qos);
++			       int vf, u16 vlan, u8 qos, __be16 vlan_proto);
+ static int igb_ndo_set_vf_bw(struct net_device *, int, int, int);
+ static int igb_ndo_set_vf_spoofchk(struct net_device *netdev, int vf,
+ 				   bool setting);
+@@ -6205,14 +6205,17 @@ static int igb_disable_port_vlan(struct igb_adapter *adapter, int vf)
+ 	return 0;
+ }
+ 
+-static int igb_ndo_set_vf_vlan(struct net_device *netdev,
+-			       int vf, u16 vlan, u8 qos)
++static int igb_ndo_set_vf_vlan(struct net_device *netdev, int vf,
++			       u16 vlan, u8 qos, __be16 vlan_proto)
+ {
+ 	struct igb_adapter *adapter = netdev_priv(netdev);
+ 
+ 	if ((vf >= adapter->vfs_allocated_count) || (vlan > 4095) || (qos > 7))
+ 		return -EINVAL;
+ 
++	if (vlan_proto != htons(ETH_P_8021Q))
++		return -EPROTONOSUPPORT;
++
+ 	return (vlan || qos) ? igb_enable_port_vlan(adapter, vf, vlan, qos) :
+ 			       igb_disable_port_vlan(adapter, vf);
+ }
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+index 8618599..b18590a 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c
+@@ -1354,13 +1354,16 @@ static int ixgbe_disable_port_vlan(struct ixgbe_adapter *adapter, int vf)
+ 	return err;
+ }
+ 
+-int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan, u8 qos)
++int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int vf, u16 vlan,
++			  u8 qos, __be16 vlan_proto)
+ {
+ 	int err = 0;
+ 	struct ixgbe_adapter *adapter = netdev_priv(netdev);
+ 
+ 	if ((vf >= adapter->num_vfs) || (vlan > 4095) || (qos > 7))
+ 		return -EINVAL;
++	if (vlan_proto != htons(ETH_P_8021Q))
++		return -EPROTONOSUPPORT;
+ 	if (vlan || qos) {
+ 		/* Check if there is already a port VLAN set, if so
+ 		 * we have to delete the old one first before we
+diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+index 47e65e2..0c7977d 100644
+--- a/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
++++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h
+@@ -43,7 +43,7 @@ void ixgbe_disable_tx_rx(struct ixgbe_adapter *adapter);
+ void ixgbe_ping_all_vfs(struct ixgbe_adapter *adapter);
+ int ixgbe_ndo_set_vf_mac(struct net_device *netdev, int queue, u8 *mac);
+ int ixgbe_ndo_set_vf_vlan(struct net_device *netdev, int queue, u16 vlan,
+-			   u8 qos);
++			   u8 qos, __be16 vlan_proto);
+ int ixgbe_link_mbps(struct ixgbe_adapter *adapter);
+ int ixgbe_ndo_set_vf_bw(struct net_device *netdev, int vf, int min_tx_rate,
+ 			int max_tx_rate);
+diff --git a/drivers/net/ethernet/mellanox/mlx4/cmd.c b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+index 6ca4b2c..68cc727 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/cmd.c
++++ b/drivers/net/ethernet/mellanox/mlx4/cmd.c
+@@ -2944,11 +2944,13 @@ int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac)
+ EXPORT_SYMBOL_GPL(mlx4_set_vf_mac);
+ 
+ 
+-int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos)
++int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos,
++		     __be16 proto)
+ {
+ 	struct mlx4_priv *priv = mlx4_priv(dev);
+ 	struct mlx4_vport_state *vf_admin;
+ 	int slave;
++	bool vlan_proto_changed;
+ 
+ 	if ((!mlx4_is_master(dev)) ||
+ 	    !(dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_VLAN_CONTROL))
+@@ -2957,6 +2959,18 @@ int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos)
+ 	if ((vlan > 4095) || (qos > 7))
+ 		return -EINVAL;
+ 
++	if (proto == htons(ETH_P_8021AD) &&
++	    !(dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_SVLAN_BY_QP))
++		return -EPROTONOSUPPORT;
++
++	if (proto != htons(ETH_P_8021Q) &&
++	    proto != htons(ETH_P_8021AD))
++		return -EINVAL;
++
++	if ((proto == htons(ETH_P_8021AD)) &&
++	    ((vlan == 0) || (vlan == MLX4_VGT)))
++		return -EINVAL;
++
+ 	slave = mlx4_get_slave_indx(dev, vf);
+ 	if (slave < 0)
+ 		return -EINVAL;
+@@ -2967,11 +2981,13 @@ int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos)
+ 	if (!mlx4_valid_vf_state_change(dev, port, vf_admin, vlan, qos))
+ 		return -EPERM;
+ 
++	vlan_proto_changed = (vf_admin->vlan_proto != proto);
+ 	if ((0 == vlan) && (0 == qos))
+ 		vf_admin->default_vlan = MLX4_VGT;
+ 	else
+ 		vf_admin->default_vlan = vlan;
+ 	vf_admin->default_qos = qos;
++	vf_admin->vlan_proto = proto;
+ 
+ 	/* If rate was configured prior to VST, we saved the configured rate
+ 	 * in vf_admin->rate and now, if priority supported we enforce the QoS
+@@ -2980,7 +2996,11 @@ int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos)
+ 	    vf_admin->tx_rate)
+ 		vf_admin->qos_vport = slave;
+ 
+-	if (mlx4_master_immediate_activate_vlan_qos(priv, slave, port))
++	/* Try to activate new vf state without restart,
++	 * this option is not supported while moving to VST QinQ mode
++	 */
++	if ((proto == htons(ETH_P_8021AD) && vlan_proto_changed) ||
++	    mlx4_master_immediate_activate_vlan_qos(priv, slave, port))
+ 		mlx4_info(dev,
+ 			  "updating vf %d port %d config will take effect on next VF restart\n",
+ 			  vf, port);
+@@ -3124,6 +3144,7 @@ int mlx4_get_vf_config(struct mlx4_dev *dev, int port, int vf, struct ifla_vf_in
+ 
+ 	ivf->vlan		= s_info->default_vlan;
+ 	ivf->qos		= s_info->default_qos;
++	ivf->vlan_proto		= s_info->vlan_proto;
+ 
+ 	if (mlx4_is_vf_vst_and_prio_qos(dev, port, s_info))
+ 		ivf->max_tx_rate = s_info->tx_rate;
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index dfba89a..2f03ea1 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -2298,12 +2298,13 @@ static int mlx4_en_set_vf_mac(struct net_device *dev, int queue, u8 *mac)
+ 	return mlx4_set_vf_mac(mdev->dev, en_priv->port, queue, mac_u64);
+ }
+ 
+-static int mlx4_en_set_vf_vlan(struct net_device *dev, int vf, u16 vlan, u8 qos)
++static int mlx4_en_set_vf_vlan(struct net_device *dev, int vf, u16 vlan,
++			       u8 qos, __be16 proto)
+ {
+ 	struct mlx4_en_priv *en_priv = netdev_priv(dev);
+ 	struct mlx4_en_dev *mdev = en_priv->mdev;
+ 
+-	return mlx4_set_vf_vlan(mdev->dev, en_priv->port, vf, vlan, qos);
++	return mlx4_set_vf_vlan(mdev->dev, en_priv->port, vf, vlan, qos, proto);
+ }
+ 
+ static int mlx4_en_set_vf_rate(struct net_device *dev, int vf, int min_tx_rate,
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+index 96ec53a..4670cc8 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
+@@ -2551,11 +2551,15 @@ static int mlx5e_set_vf_mac(struct net_device *dev, int vf, u8 *mac)
+ 	return mlx5_eswitch_set_vport_mac(mdev->priv.eswitch, vf + 1, mac);
+ }
+ 
+-static int mlx5e_set_vf_vlan(struct net_device *dev, int vf, u16 vlan, u8 qos)
++static int mlx5e_set_vf_vlan(struct net_device *dev, int vf, u16 vlan, u8 qos,
++			     __be16 vlan_proto)
+ {
+ 	struct mlx5e_priv *priv = netdev_priv(dev);
+ 	struct mlx5_core_dev *mdev = priv->mdev;
+ 
++	if (vlan_proto != htons(ETH_P_8021Q))
++		return -EPROTONOSUPPORT;
++
+ 	return mlx5_eswitch_set_vport_vlan(mdev->priv.eswitch, vf + 1,
+ 					   vlan, qos);
+ }
+diff --git a/drivers/net/ethernet/qlogic/qede/qede_main.c b/drivers/net/ethernet/qlogic/qede/qede_main.c
+index 91e7bb0..ecc0dc7 100644
+--- a/drivers/net/ethernet/qlogic/qede/qede_main.c
++++ b/drivers/net/ethernet/qlogic/qede/qede_main.c
+@@ -100,7 +100,8 @@ static int qede_alloc_rx_buffer(struct qede_dev *edev,
+ static void qede_link_update(void *dev, struct qed_link_output *link);
+ 
+ #ifdef CONFIG_QED_SRIOV
+-static int qede_set_vf_vlan(struct net_device *ndev, int vf, u16 vlan, u8 qos)
++static int qede_set_vf_vlan(struct net_device *ndev, int vf, u16 vlan, u8 qos,
++			    __be16 vlan_proto)
+ {
+ 	struct qede_dev *edev = netdev_priv(ndev);
+ 
+@@ -109,6 +110,9 @@ static int qede_set_vf_vlan(struct net_device *ndev, int vf, u16 vlan, u8 qos)
+ 		return -EINVAL;
+ 	}
+ 
++	if (vlan_proto != htons(ETH_P_8021Q))
++		return -EPROTONOSUPPORT;
++
+ 	DP_VERBOSE(edev, QED_MSG_IOV, "Setting Vlan 0x%04x to VF [%d]\n",
+ 		   vlan, vf);
+ 
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
+index 017d8c2c..8c98d92 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h
+@@ -237,7 +237,7 @@ int qlcnic_sriov_set_vf_mac(struct net_device *, int, u8 *);
+ int qlcnic_sriov_set_vf_tx_rate(struct net_device *, int, int, int);
+ int qlcnic_sriov_get_vf_config(struct net_device *, int ,
+ 			       struct ifla_vf_info *);
+-int qlcnic_sriov_set_vf_vlan(struct net_device *, int, u16, u8);
++int qlcnic_sriov_set_vf_vlan(struct net_device *, int, u16, u8, __be16);
+ int qlcnic_sriov_set_vf_spoofchk(struct net_device *, int, bool);
+ #else
+ static inline void qlcnic_sriov_pf_disable(struct qlcnic_adapter *adapter) {}
+diff --git a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+index afd687e..50eaafa 100644
+--- a/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
++++ b/drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c
+@@ -1915,7 +1915,7 @@ int qlcnic_sriov_set_vf_tx_rate(struct net_device *netdev, int vf,
+ }
+ 
+ int qlcnic_sriov_set_vf_vlan(struct net_device *netdev, int vf,
+-			     u16 vlan, u8 qos)
++			     u16 vlan, u8 qos, __be16 vlan_proto)
+ {
+ 	struct qlcnic_adapter *adapter = netdev_priv(netdev);
+ 	struct qlcnic_sriov *sriov = adapter->ahw->sriov;
+@@ -1928,6 +1928,9 @@ int qlcnic_sriov_set_vf_vlan(struct net_device *netdev, int vf,
+ 	if (vf >= sriov->num_vfs || qos > 7)
+ 		return -EINVAL;
+ 
++	if (vlan_proto != htons(ETH_P_8021Q))
++		return -EPROTONOSUPPORT;
++
+ 	if (vlan > MAX_VLAN_ID) {
+ 		netdev_err(netdev,
+ 			   "Invalid VLAN ID, allowed range is [0 - %d]\n",
+diff --git a/drivers/net/ethernet/sfc/sriov.c b/drivers/net/ethernet/sfc/sriov.c
+index 816c446..9abcf4a 100644
+--- a/drivers/net/ethernet/sfc/sriov.c
++++ b/drivers/net/ethernet/sfc/sriov.c
+@@ -22,7 +22,7 @@ int efx_sriov_set_vf_mac(struct net_device *net_dev, int vf_i, u8 *mac)
+ }
+ 
+ int efx_sriov_set_vf_vlan(struct net_device *net_dev, int vf_i, u16 vlan,
+-			  u8 qos)
++			  u8 qos, __be16 vlan_proto)
+ {
+ 	struct efx_nic *efx = netdev_priv(net_dev);
+ 
+@@ -31,6 +31,9 @@ int efx_sriov_set_vf_vlan(struct net_device *net_dev, int vf_i, u16 vlan,
+ 		    (qos & ~(VLAN_PRIO_MASK >> VLAN_PRIO_SHIFT)))
+ 			return -EINVAL;
+ 
++		if (vlan_proto != htons(ETH_P_8021Q))
++			return -EPROTONOSUPPORT;
++
+ 		return efx->type->sriov_set_vf_vlan(efx, vf_i, vlan, qos);
+ 	} else {
+ 		return -EOPNOTSUPP;
+diff --git a/drivers/net/ethernet/sfc/sriov.h b/drivers/net/ethernet/sfc/sriov.h
+index 400df52..ba1762e 100644
+--- a/drivers/net/ethernet/sfc/sriov.h
++++ b/drivers/net/ethernet/sfc/sriov.h
+@@ -16,7 +16,7 @@
+ 
+ int efx_sriov_set_vf_mac(struct net_device *net_dev, int vf_i, u8 *mac);
+ int efx_sriov_set_vf_vlan(struct net_device *net_dev, int vf_i, u16 vlan,
+-			  u8 qos);
++			  u8 qos, __be16 vlan_proto);
+ int efx_sriov_set_vf_spoofchk(struct net_device *net_dev, int vf_i,
+ 			      bool spoofchk);
+ int efx_sriov_get_vf_config(struct net_device *net_dev, int vf_i,
+diff --git a/include/linux/if_link.h b/include/linux/if_link.h
+index f923d15..0b17c58 100644
+--- a/include/linux/if_link.h
++++ b/include/linux/if_link.h
+@@ -25,5 +25,6 @@ struct ifla_vf_info {
+ 	__u32 max_tx_rate;
+ 	__u32 rss_query_en;
+ 	__u32 trusted;
 +	__be16 vlan_proto;
- 	u32 tx_rate;
- 	bool spoofchk;
- 	u32 link_state;
-@@ -655,6 +656,7 @@ struct mlx4_vf_immed_vlan_work {
- 	u8                      qos_vport;
- 	u16			vlan_id;
- 	u16			orig_vlan_id;
-+	__be16			vlan_proto;
  };
- 
- 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-index 8b81114..84d7857 100644
---- a/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/resource_tracker.c
-@@ -790,10 +790,22 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
- 				MLX4_VLAN_CTRL_ETH_RX_BLOCK_UNTAGGED |
- 				MLX4_VLAN_CTRL_ETH_RX_BLOCK_TAGGED;
- 		} else if (0 != vp_oper->state.default_vlan) {
--			qpc->pri_path.vlan_control |=
--				MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
--				MLX4_VLAN_CTRL_ETH_RX_BLOCK_PRIO_TAGGED |
--				MLX4_VLAN_CTRL_ETH_RX_BLOCK_UNTAGGED;
-+			if (vp_oper->state.vlan_proto == htons(ETH_P_8021AD)) {
-+				/* vst QinQ should block untagged on TX,
-+				 * but cvlan is in payload and phv is set so
-+				 * hw see it as untagged. Block tagged instead.
-+				 */
-+				qpc->pri_path.vlan_control |=
-+					MLX4_VLAN_CTRL_ETH_TX_BLOCK_PRIO_TAGGED |
-+					MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
-+					MLX4_VLAN_CTRL_ETH_RX_BLOCK_PRIO_TAGGED |
-+					MLX4_VLAN_CTRL_ETH_RX_BLOCK_UNTAGGED;
-+			} else { /* vst 802.1Q */
-+				qpc->pri_path.vlan_control |=
-+					MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
-+					MLX4_VLAN_CTRL_ETH_RX_BLOCK_PRIO_TAGGED |
-+					MLX4_VLAN_CTRL_ETH_RX_BLOCK_UNTAGGED;
-+			}
- 		} else { /* priority tagged */
- 			qpc->pri_path.vlan_control |=
- 				MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
-@@ -802,7 +814,11 @@ static int update_vport_qp_param(struct mlx4_dev *dev,
- 
- 		qpc->pri_path.fvl_rx |= MLX4_FVL_RX_FORCE_ETH_VLAN;
- 		qpc->pri_path.vlan_index = vp_oper->vlan_idx;
--		qpc->pri_path.fl |= MLX4_FL_CV | MLX4_FL_ETH_HIDE_CQE_VLAN;
-+		qpc->pri_path.fl |= MLX4_FL_ETH_HIDE_CQE_VLAN;
-+		if (vp_oper->state.vlan_proto == htons(ETH_P_8021AD))
-+			qpc->pri_path.fl |= MLX4_FL_SV;
-+		else
-+			qpc->pri_path.fl |= MLX4_FL_CV;
- 		qpc->pri_path.feup |= MLX4_FEUP_FORCE_ETH_UP | MLX4_FVL_FORCE_ETH_VLAN;
- 		qpc->pri_path.sched_queue &= 0xC7;
- 		qpc->pri_path.sched_queue |= (vp_oper->state.default_qos) << 3;
-@@ -5238,6 +5254,7 @@ void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work)
- 	u64 qp_path_mask = ((1ULL << MLX4_UPD_QP_PATH_MASK_VLAN_INDEX) |
- 		       (1ULL << MLX4_UPD_QP_PATH_MASK_FVL) |
- 		       (1ULL << MLX4_UPD_QP_PATH_MASK_CV) |
-+		       (1ULL << MLX4_UPD_QP_PATH_MASK_SV) |
- 		       (1ULL << MLX4_UPD_QP_PATH_MASK_ETH_HIDE_CQE_VLAN) |
- 		       (1ULL << MLX4_UPD_QP_PATH_MASK_FEUP) |
- 		       (1ULL << MLX4_UPD_QP_PATH_MASK_FVL_RX) |
-@@ -5266,7 +5283,12 @@ void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work)
- 	else if (!work->vlan_id)
- 		vlan_control = MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
- 			MLX4_VLAN_CTRL_ETH_RX_BLOCK_TAGGED;
--	else
-+	else if (work->vlan_proto == htons(ETH_P_8021AD))
-+		vlan_control = MLX4_VLAN_CTRL_ETH_TX_BLOCK_PRIO_TAGGED |
-+			MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
-+			MLX4_VLAN_CTRL_ETH_RX_BLOCK_PRIO_TAGGED |
-+			MLX4_VLAN_CTRL_ETH_RX_BLOCK_UNTAGGED;
-+	else  /* vst 802.1Q */
- 		vlan_control = MLX4_VLAN_CTRL_ETH_TX_BLOCK_TAGGED |
- 			MLX4_VLAN_CTRL_ETH_RX_BLOCK_PRIO_TAGGED |
- 			MLX4_VLAN_CTRL_ETH_RX_BLOCK_UNTAGGED;
-@@ -5311,7 +5333,11 @@ void mlx4_vf_immed_vlan_work_handler(struct work_struct *_work)
- 				upd_context->qp_context.pri_path.fvl_rx =
- 					qp->fvl_rx | MLX4_FVL_RX_FORCE_ETH_VLAN;
- 				upd_context->qp_context.pri_path.fl =
--					qp->pri_path_fl | MLX4_FL_CV | MLX4_FL_ETH_HIDE_CQE_VLAN;
-+					qp->pri_path_fl | MLX4_FL_ETH_HIDE_CQE_VLAN;
-+				if (work->vlan_proto == htons(ETH_P_8021AD))
-+					upd_context->qp_context.pri_path.fl |= MLX4_FL_SV;
-+				else
-+					upd_context->qp_context.pri_path.fl |= MLX4_FL_CV;
- 				upd_context->qp_context.pri_path.feup =
- 					qp->feup | MLX4_FEUP_FORCE_ETH_UP | MLX4_FVL_FORCE_ETH_VLAN;
- 				upd_context->qp_context.pri_path.sched_queue =
-diff --git a/include/linux/mlx4/device.h b/include/linux/mlx4/device.h
-index e6f6910..09218d1 100644
---- a/include/linux/mlx4/device.h
-+++ b/include/linux/mlx4/device.h
-@@ -220,6 +220,7 @@ enum {
- 	MLX4_DEV_CAP_FLAG2_LB_SRC_CHK           = 1ULL << 32,
- 	MLX4_DEV_CAP_FLAG2_ROCE_V1_V2		= 1ULL <<  33,
- 	MLX4_DEV_CAP_FLAG2_DMFS_UC_MC_SNIFFER   = 1ULL <<  34,
-+	MLX4_DEV_CAP_FLAG2_SVLAN_BY_QP          = 1ULL <<  35,
- };
- 
+ #endif /* _LINUX_IF_LINK_H */
+diff --git a/include/linux/mlx4/cmd.h b/include/linux/mlx4/cmd.h
+index 116b284..1f35686 100644
+--- a/include/linux/mlx4/cmd.h
++++ b/include/linux/mlx4/cmd.h
+@@ -309,7 +309,8 @@ int mlx4_get_vf_stats(struct mlx4_dev *dev, int port, int vf_idx,
+ 		      struct ifla_vf_stats *vf_stats);
+ u32 mlx4_comm_get_version(void);
+ int mlx4_set_vf_mac(struct mlx4_dev *dev, int port, int vf, u64 mac);
+-int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan, u8 qos);
++int mlx4_set_vf_vlan(struct mlx4_dev *dev, int port, int vf, u16 vlan,
++		     u8 qos, __be16 proto);
+ int mlx4_set_vf_rate(struct mlx4_dev *dev, int port, int vf, int min_tx_rate,
+ 		     int max_tx_rate);
+ int mlx4_set_vf_spoofchk(struct mlx4_dev *dev, int port, int vf, bool setting);
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index 49736a3..4712ae2 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -905,7 +905,8 @@ struct tc_to_netdev {
+  *
+  *	SR-IOV management functions.
+  * int (*ndo_set_vf_mac)(struct net_device *dev, int vf, u8* mac);
+- * int (*ndo_set_vf_vlan)(struct net_device *dev, int vf, u16 vlan, u8 qos);
++ * int (*ndo_set_vf_vlan)(struct net_device *dev, int vf, u16 vlan,
++ *			  u8 qos, __be16 proto);
+  * int (*ndo_set_vf_rate)(struct net_device *dev, int vf, int min_tx_rate,
+  *			  int max_tx_rate);
+  * int (*ndo_set_vf_spoofchk)(struct net_device *dev, int vf, bool setting);
+@@ -1139,7 +1140,8 @@ struct net_device_ops {
+ 	int			(*ndo_set_vf_mac)(struct net_device *dev,
+ 						  int queue, u8 *mac);
+ 	int			(*ndo_set_vf_vlan)(struct net_device *dev,
+-						   int queue, u16 vlan, u8 qos);
++						   int queue, u16 vlan,
++						   u8 qos, __be16 proto);
+ 	int			(*ndo_set_vf_rate)(struct net_device *dev,
+ 						   int vf, int min_tx_rate,
+ 						   int max_tx_rate);
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 4285ac3..b6fc12f 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -616,7 +616,7 @@ enum {
  enum {
-@@ -1367,6 +1368,8 @@ int mlx4_SET_PORT_fcs_check(struct mlx4_dev *dev, u8 port,
- int mlx4_SET_PORT_VXLAN(struct mlx4_dev *dev, u8 port, u8 steering, int enable);
- int set_phv_bit(struct mlx4_dev *dev, u8 port, int new_val);
- int get_phv_bit(struct mlx4_dev *dev, u8 port, int *phv);
-+int mlx4_get_is_vlan_offload_disabled(struct mlx4_dev *dev, u8 port,
-+				      bool *vlan_offload_disabled);
- int mlx4_find_cached_mac(struct mlx4_dev *dev, u8 port, u64 mac, int *idx);
- int mlx4_find_cached_vlan(struct mlx4_dev *dev, u8 port, u16 vid, int *idx);
- int mlx4_register_vlan(struct mlx4_dev *dev, u8 port, u16 vlan, int *index);
-diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
-index 587cdf9..15d5473 100644
---- a/include/linux/mlx4/qp.h
-+++ b/include/linux/mlx4/qp.h
-@@ -160,6 +160,7 @@ struct mlx4_qp_path {
- 
- enum { /* fl */
- 	MLX4_FL_CV	= 1 << 6,
-+	MLX4_FL_SV	= 1 << 5,
- 	MLX4_FL_ETH_HIDE_CQE_VLAN	= 1 << 2,
- 	MLX4_FL_ETH_SRC_CHECK_MC_LB	= 1 << 1,
- 	MLX4_FL_ETH_SRC_CHECK_UC_LB	= 1 << 0,
-@@ -267,6 +268,7 @@ enum {
- 	MLX4_UPD_QP_PATH_MASK_FVL_RX			= 16 + 32,
- 	MLX4_UPD_QP_PATH_MASK_ETH_SRC_CHECK_UC_LB	= 18 + 32,
- 	MLX4_UPD_QP_PATH_MASK_ETH_SRC_CHECK_MC_LB	= 19 + 32,
-+	MLX4_UPD_QP_PATH_MASK_SV			= 22 + 32,
+ 	IFLA_VF_UNSPEC,
+ 	IFLA_VF_MAC,		/* Hardware queue specific attributes */
+-	IFLA_VF_VLAN,
++	IFLA_VF_VLAN,		/* VLAN ID and QoS */
+ 	IFLA_VF_TX_RATE,	/* Max TX Bandwidth Allocation */
+ 	IFLA_VF_SPOOFCHK,	/* Spoof Checking on/off switch */
+ 	IFLA_VF_LINK_STATE,	/* link state enable/disable/auto switch */
+@@ -628,6 +628,7 @@ enum {
+ 	IFLA_VF_TRUST,		/* Trust VF */
+ 	IFLA_VF_IB_NODE_GUID,	/* VF Infiniband node GUID */
+ 	IFLA_VF_IB_PORT_GUID,	/* VF Infiniband port GUID */
++	IFLA_VF_VLAN_INFO,	/* VLAN ID, QoS and VLAN protocol */
+ 	__IFLA_VF_MAX,
  };
  
- enum { /* param3 */
+@@ -644,6 +645,13 @@ struct ifla_vf_vlan {
+ 	__u32 qos;
+ };
+ 
++struct ifla_vf_vlan_info {
++	__u32 vf;
++	__u32 vlan; /* 0 - 4095, 0 disables VLAN filter */
++	__u32 qos;
++	__be16 vlan_proto; /* VLAN protocol either 802.1Q or 802.1ad */
++};
++
+ struct ifla_vf_tx_rate {
+ 	__u32 vf;
+ 	__u32 rate; /* Max TX bandwidth in Mbps, 0 disables throttling */
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a9e3805..7f34352 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -841,7 +841,7 @@ static inline int rtnl_vfinfo_size(const struct net_device *dev,
+ 		size += nla_total_size(num_vfs * sizeof(struct nlattr));
+ 		size += num_vfs *
+ 			(nla_total_size(sizeof(struct ifla_vf_mac)) +
+-			 nla_total_size(sizeof(struct ifla_vf_vlan)) +
++			 nla_total_size(sizeof(struct ifla_vf_vlan_info)) +
+ 			 nla_total_size(sizeof(struct ifla_vf_spoofchk)) +
+ 			 nla_total_size(sizeof(struct ifla_vf_rate)) +
+ 			 nla_total_size(sizeof(struct ifla_vf_link_state)) +
+@@ -1104,6 +1104,7 @@ static noinline_for_stack int rtnl_fill_vfinfo(struct sk_buff *skb,
+ 	struct ifla_vf_stats vf_stats;
+ 	struct ifla_vf_trust vf_trust;
+ 	struct ifla_vf_vlan vf_vlan;
++	struct ifla_vf_vlan_info vf_vlan_info;
+ 	struct ifla_vf_rate vf_rate;
+ 	struct nlattr *vf, *vfstats;
+ 	struct ifla_vf_mac vf_mac;
+@@ -1122,11 +1123,14 @@ static noinline_for_stack int rtnl_fill_vfinfo(struct sk_buff *skb,
+ 	 * IFLA_VF_LINK_STATE_AUTO which equals zero
+ 	 */
+ 	ivi.linkstate = 0;
++	/* VLAN Protocol by default is 802.1Q */
++	ivi.vlan_proto = htons(ETH_P_8021Q);
+ 	if (dev->netdev_ops->ndo_get_vf_config(dev, vfs_num, &ivi))
+ 		return 0;
+ 
+ 	vf_mac.vf =
+ 		vf_vlan.vf =
++		vf_vlan_info.vf =
+ 		vf_rate.vf =
+ 		vf_tx_rate.vf =
+ 		vf_spoofchk.vf =
+@@ -1137,6 +1141,10 @@ static noinline_for_stack int rtnl_fill_vfinfo(struct sk_buff *skb,
+ 	memcpy(vf_mac.mac, ivi.mac, sizeof(ivi.mac));
+ 	vf_vlan.vlan = ivi.vlan;
+ 	vf_vlan.qos = ivi.qos;
++	vf_vlan_info.vlan = ivi.vlan;
++	vf_vlan_info.qos = ivi.qos;
++	vf_vlan_info.vlan_proto = ivi.vlan_proto;
++
+ 	vf_tx_rate.rate = ivi.max_tx_rate;
+ 	vf_rate.min_tx_rate = ivi.min_tx_rate;
+ 	vf_rate.max_tx_rate = ivi.max_tx_rate;
+@@ -1150,6 +1158,8 @@ static noinline_for_stack int rtnl_fill_vfinfo(struct sk_buff *skb,
+ 		return -EMSGSIZE;
+ 	}
+ 	if (nla_put(skb, IFLA_VF_MAC, sizeof(vf_mac), &vf_mac) ||
++	    nla_put(skb, IFLA_VF_VLAN_INFO, sizeof(vf_vlan_info),
++		    &vf_vlan_info) ||
+ 	    nla_put(skb, IFLA_VF_VLAN, sizeof(vf_vlan), &vf_vlan) ||
+ 	    nla_put(skb, IFLA_VF_RATE, sizeof(vf_rate),
+ 		    &vf_rate) ||
+@@ -1404,6 +1414,7 @@ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+ static const struct nla_policy ifla_vf_policy[IFLA_VF_MAX+1] = {
+ 	[IFLA_VF_MAC]		= { .len = sizeof(struct ifla_vf_mac) },
+ 	[IFLA_VF_VLAN]		= { .len = sizeof(struct ifla_vf_vlan) },
++	[IFLA_VF_VLAN_INFO]	= { .len = sizeof(struct ifla_vf_vlan_info) },
+ 	[IFLA_VF_TX_RATE]	= { .len = sizeof(struct ifla_vf_tx_rate) },
+ 	[IFLA_VF_SPOOFCHK]	= { .len = sizeof(struct ifla_vf_spoofchk) },
+ 	[IFLA_VF_RATE]		= { .len = sizeof(struct ifla_vf_rate) },
+@@ -1655,7 +1666,20 @@ static int do_setvfinfo(struct net_device *dev, struct nlattr **tb)
+ 		err = -EOPNOTSUPP;
+ 		if (ops->ndo_set_vf_vlan)
+ 			err = ops->ndo_set_vf_vlan(dev, ivv->vf, ivv->vlan,
+-						   ivv->qos);
++						   ivv->qos,
++						   htons(ETH_P_8021Q));
++		if (err < 0)
++			return err;
++	}
++
++	if (tb[IFLA_VF_VLAN_INFO]) {
++		struct ifla_vf_vlan_info *ivv = nla_data(tb[IFLA_VF_VLAN_INFO]);
++
++		err = -EOPNOTSUPP;
++		if (ops->ndo_set_vf_vlan)
++			err = ops->ndo_set_vf_vlan(dev, ivv->vf, ivv->vlan,
++						   ivv->qos,
++						   ivv->vlan_proto);
+ 		if (err < 0)
+ 			return err;
+ 	}
 -- 
 1.8.3.1
