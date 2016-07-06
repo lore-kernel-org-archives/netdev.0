@@ -1,36 +1,59 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH stable] sfc: report supported link speeds on SFP
- connections
-Date: Tue, 05 Jul 2016 21:28:33 -0700 (PDT)
-Message-ID: <20160705.212833.1713477374234736101.davem@davemloft.net>
-References: <2b196485-c720-106e-de23-acefe7ee170a@solarflare.com>
+From: Willy Tarreau <w@1wt.eu>
+Subject: Re: [PATCH net] net: mvneta: set real interrupt per packet for tx_done
+Date: Wed, 6 Jul 2016 07:04:31 +0200
+Message-ID: <20160706050431.GA26348@1wt.eu>
+References: <1467771538-31811-1-git-send-email-mw@semihalf.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-net-drivers@solarflare.com
-To: bkenward@solarflare.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:48408 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750738AbcGFE2h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 00:28:37 -0400
-In-Reply-To: <2b196485-c720-106e-de23-acefe7ee170a@solarflare.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: thomas.petazzoni@free-electrons.com, andrew@lunn.ch, linux@arm.linux.org.uk,
+ jason@lakedaemon.net, netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+ stable@vger.kernel.org, Dmitri Epshtein <dima@marvell.com>, nadavh@marvell.com,
+ alior@marvell.com, jaz@semihalf.com, gregory.clement@free-electrons.com,
+ nitroshift@yahoo.com, davem@davemloft.net,
+ linux-arm-kernel@lists.infradead.org, sebastian.hesselbarth@gmail.com
+To: Marcin Wojtas <mw@semihalf.com>
+Return-path: <linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org>
+Content-Disposition: inline
+In-Reply-To: <1467771538-31811-1-git-send-email-mw@semihalf.com>
+List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=unsubscribe>
+List-Archive: <http://lists.infradead.org/pipermail/linux-arm-kernel/>
+List-Post: <mailto:linux-arm-kernel@lists.infradead.org>
+List-Help: <mailto:linux-arm-kernel-request@lists.infradead.org?subject=help>
+List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-arm-kernel>,
+ <mailto:linux-arm-kernel-request@lists.infradead.org?subject=subscribe>
+Sender: "linux-arm-kernel" <linux-arm-kernel-bounces@lists.infradead.org>
+Errors-To: linux-arm-kernel-bounces+linux-arm-kernel=m.gmane.org@lists.infradead.org
+List-Id: netdev.vger.kernel.org
 
-From: Bert Kenward <bkenward@solarflare.com>
-Date: Tue, 28 Jun 2016 11:11:11 +0100
+Hi,
 
-> commit 1974282ab547df7437276c8d4ec47f3d2300f339
-> Author: Bert Kenward <bkenward@solarflare.com>
-> Date:   Mon Jun 6 17:29:30 2016 +0100
+On Wed, Jul 06, 2016 at 04:18:58AM +0200, Marcin Wojtas wrote:
+> From: Dmitri Epshtein <dima@marvell.com>
 > 
->     sfc: report supported link speeds on SFP connections
+> Commit aebea2ba0f74 ("net: mvneta: fix Tx interrupt delay") intended to
+> set coalescing threshold to a value guaranteeing interrupt generation
+> per each sent packet, so that buffers can be released with no delay.
+> 
+> In fact setting threshold to '1' was wrong, because it causes interrupt
+> every two packets. According to the documentation a reason behind it is
+> following - interrupt occurs once sent buffers counter reaches a value,
+> which is higher than one specified in MVNETA_TXQ_SIZE_REG(q). This
+> behavior was confirmed during tests. Also when testing the SoC working
+> as a NAS device, better performance was observed with int-per-packet,
+> as it strongly depends on the fact that all transmitted packets are
+> released immediately.
+> 
+> This commit enables NETA controller work in interrupt per sent packet mode
+> by setting coalescing threshold to 0.
 
-[davem@localhost linux]$ git describe 1974282ab547df7437276c8d4ec47f3d2300f339
-fatal: 1974282ab547df7437276c8d4ec47f3d2300f339 is not a valid 'commit' object
+We had a discussion about this in January 2015 and I thought I sent a patch
+to change it but I can't find it, so I think it was only proposed to some
+users for testing. I also remember that on more recent kernels by then
+(>=3.13) we observed a slightly better performance with this value set to
+zero.
 
-If you want me to backport something, don't show me a commit from one
-of your private trees.
+Acked-by: Willy Tarreau <w@1wt.eu>
 
-Thanks.
+Willy
