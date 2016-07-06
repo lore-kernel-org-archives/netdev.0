@@ -1,62 +1,58 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH v2] netfilter: nf_log: fix error on write NONE to logger
- choice sysctl
-Date: Wed, 6 Jul 2016 11:22:10 +0200
-Message-ID: <20160706092156.GA950@salvia>
-References: <1467378972-16770-1-git-send-email-ptikhomirov@virtuozzo.com>
- <1467381234-20364-1-git-send-email-ptikhomirov@virtuozzo.com>
+From: Hayes Wang <hayeswang@realtek.com>
+Subject: [PATCH net v2] r8152: remove the setting of LAN_WAKE_EN
+Date: Wed, 6 Jul 2016 17:35:59 +0800
+Message-ID: <1394712342-15778-209-Taiwan-albertk@realtek.com>
+References: <1394712342-15778-208-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Leblond <eric@inl.fr>, Patrick McHardy <kaber@trash.net>,
-	Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>,
-	netfilter-devel@vger.kernel.org, coreteam@netfilter.org,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
-	Pavel Emelyanov <xemul@virtuozzo.com>,
-	Konstantin Khorenko <khorenko@virtuozzo.com>, devel@openvz.org
-To: Pavel Tikhomirov <ptikhomirov@virtuozzo.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:37080 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750990AbcGFJWT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jul 2016 05:22:19 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id CF7231B694D
-	for <netdev@vger.kernel.org>; Wed,  6 Jul 2016 11:22:16 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id BE5429EBBA
-	for <netdev@vger.kernel.org>; Wed,  6 Jul 2016 11:22:16 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 55E0B6446A
-	for <netdev@vger.kernel.org>; Wed,  6 Jul 2016 11:22:12 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <1467381234-20364-1-git-send-email-ptikhomirov@virtuozzo.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain
+Cc: <nic_swsd@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, Hayes Wang <hayeswang@realtek.com>
+To: <netdev@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1394712342-15778-208-Taiwan-albertk@realtek.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 01, 2016 at 04:53:54PM +0300, Pavel Tikhomirov wrote:
-> It is hard to unbind nf-logger:
-> 
->   echo NONE > /proc/sys/net/netfilter/nf_log/0
->   bash: echo: write error: No such file or directory
-> 
->   sysctl -w net.netfilter.nf_log.0=NONE
->   sysctl: setting key "net.netfilter.nf_log.0": No such file or directory
->   net.netfilter.nf_log.0 = NONE
-> 
-> You need explicitly send '\0', for instance like:
-> 
->   echo -e "NONE\0" > /proc/sys/net/netfilter/nf_log/0
-> 
-> That seem to be strange, so fix it using proc_dostring.
-> 
-> Now it works fine:
->    modprobe nfnetlink_log
->    echo nfnetlink_log > /proc/sys/net/netfilter/nf_log/0
->    cat /proc/sys/net/netfilter/nf_log/0
->    nfnetlink_log
->    echo NONE > /proc/sys/net/netfilter/nf_log/0
->    cat /proc/sys/net/netfilter/nf_log/0
->    NONE
+The LAN_WAKE_EN is not used to determine if the device could support
+WOL. It is used to signal a GPIO pin when a WOL event occurs. The WOL
+still works even though it is disabled.
 
-Applied, thanks.
+Signed-off-by: Hayes Wang <hayeswang@realtek.com>
+---
+ drivers/net/usb/r8152.c | 8 +-------
+ 1 file changed, 1 insertion(+), 7 deletions(-)
+
+diff --git a/drivers/net/usb/r8152.c b/drivers/net/usb/r8152.c
+index 0da72d3..419f4ce 100644
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@ -2296,10 +2296,6 @@ static u32 __rtl_get_wol(struct r8152 *tp)
+ 	u32 ocp_data;
+ 	u32 wolopts = 0;
+ 
+-	ocp_data = ocp_read_byte(tp, MCU_TYPE_PLA, PLA_CONFIG5);
+-	if (!(ocp_data & LAN_WAKE_EN))
+-		return 0;
+-
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CONFIG34);
+ 	if (ocp_data & LINK_ON_WAKE_EN)
+ 		wolopts |= WAKE_PHY;
+@@ -2332,15 +2328,13 @@ static void __rtl_set_wol(struct r8152 *tp, u32 wolopts)
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CONFIG34, ocp_data);
+ 
+ 	ocp_data = ocp_read_word(tp, MCU_TYPE_PLA, PLA_CONFIG5);
+-	ocp_data &= ~(UWF_EN | BWF_EN | MWF_EN | LAN_WAKE_EN);
++	ocp_data &= ~(UWF_EN | BWF_EN | MWF_EN);
+ 	if (wolopts & WAKE_UCAST)
+ 		ocp_data |= UWF_EN;
+ 	if (wolopts & WAKE_BCAST)
+ 		ocp_data |= BWF_EN;
+ 	if (wolopts & WAKE_MCAST)
+ 		ocp_data |= MWF_EN;
+-	if (wolopts & WAKE_ANY)
+-		ocp_data |= LAN_WAKE_EN;
+ 	ocp_write_word(tp, MCU_TYPE_PLA, PLA_CONFIG5, ocp_data);
+ 
+ 	ocp_write_byte(tp, MCU_TYPE_PLA, PLA_CRWECR, CRWECR_NORAML);
+-- 
+2.7.4
