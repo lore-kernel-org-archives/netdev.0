@@ -1,38 +1,72 @@
-From: David Ahern <dsa@cumulusnetworks.com>
-Subject: Re: Network hang after c3f1010b30f7fc611139cfb702a8685741aa6827 with
- CIPSO & Smack
-Date: Tue, 5 Jul 2016 17:49:41 -0700
-Message-ID: <7d833f59-c68f-f779-4de4-15bc0b26ac7c@cumulusnetworks.com>
-References: <e5ba1ba9-acf6-c36c-03e4-4cdc81e81648@schaufler-ca.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: manual merge of the net-next tree with the net tree
+Date: Wed, 6 Jul 2016 11:32:28 +1000
+Message-ID: <20160706113228.114c942c@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux-Netdev <netdev@vger.kernel.org>
-To: Casey Schaufler <casey@schaufler-ca.com>,
-	David Miller <davem@davemloft.net>,
-	Paul Moore <paul@paul-moore.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:35968 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750840AbcGFAto (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 20:49:44 -0400
-Received: by mail-pf0-f171.google.com with SMTP id t190so74793457pfb.3
-        for <netdev@vger.kernel.org>; Tue, 05 Jul 2016 17:49:43 -0700 (PDT)
-In-Reply-To: <e5ba1ba9-acf6-c36c-03e4-4cdc81e81648@schaufler-ca.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	hayeswang <hayeswang@realtek.com>
+To: David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>
+Return-path: <linux-next-owner@vger.kernel.org>
+Sender: linux-next-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 7/5/16 5:38 PM, Casey Schaufler wrote:
-> I have encountered a system hang with my Smack
-> networking tests that bisects to the change below.
-> I can't say that I have any idea why the change
-> would impact the Smack processing, but there appears
-> to be some serious packet processing going on. The
-> Smack code is using CIPSO on the loopback interface.
-> The test is supposed to verify that labels can be
-> set on the packets using CIPSO. Unlabeled packets
-> do not appear to be impacted. I do not know if SELinux
-> is affected, and if not, why not. Smack and SELinux
-> use CIPSO differently.
+Hi all,
 
-What are the commands to repeat the test?
+Today's linux-next merge of the net-next tree got a conflict in:
+
+  drivers/net/usb/r8152.c
+
+between commit:
+
+  2609af19362d ("r8152: fix runtime function for RTL8152")
+
+from the net tree and commit:
+
+  a028a9e003f2 ("r8152: move the settings of PHY to a work queue")
+
+from the net-next tree.
+
+I fixed it up (see below) and can carry the fix as necessary. This
+is now fixed as far as linux-next is concerned, but any non trivial
+conflicts should be mentioned to your upstream maintainer when your tree
+is submitted for merging.  You may also want to consider cooperating
+with the maintainer of the conflicting tree to minimise any particularly
+complex conflicts.
+
+-- 
+Cheers,
+Stephen Rothwell
+
+diff --cc drivers/net/usb/r8152.c
+index 0da72d39b4f9,24d367280ecf..000000000000
+--- a/drivers/net/usb/r8152.c
++++ b/drivers/net/usb/r8152.c
+@@@ -624,7 -624,7 +624,8 @@@ struct r8152 
+  		int (*eee_get)(struct r8152 *, struct ethtool_eee *);
+  		int (*eee_set)(struct r8152 *, struct ethtool_eee *);
+  		bool (*in_nway)(struct r8152 *);
+ +		void (*autosuspend_en)(struct r8152 *tp, bool enable);
++ 		void (*hw_phy_cfg)(struct r8152 *);
+  	} rtl_ops;
+  
+  	int intr_interval;
+@@@ -4156,7 -4157,7 +4176,8 @@@ static int rtl_ops_init(struct r8152 *t
+  		ops->eee_get		= r8152_get_eee;
+  		ops->eee_set		= r8152_set_eee;
+  		ops->in_nway		= rtl8152_in_nway;
+ +		ops->autosuspend_en	= rtl_runtime_suspend_enable;
++ 		ops->hw_phy_cfg		= r8152b_hw_phy_cfg;
+  		break;
+  
+  	case RTL_VER_03:
+@@@ -4172,7 -4173,7 +4193,8 @@@
+  		ops->eee_get		= r8153_get_eee;
+  		ops->eee_set		= r8153_set_eee;
+  		ops->in_nway		= rtl8153_in_nway;
+ +		ops->autosuspend_en	= rtl8153_runtime_enable;
++ 		ops->hw_phy_cfg		= r8153_hw_phy_cfg;
+  		break;
+  
+  	default:
