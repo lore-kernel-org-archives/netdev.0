@@ -1,163 +1,51 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH/RFC net-next 1/4] tunnels: support MPLS over IPv4 tunnels
-Date: Wed,  6 Jul 2016 20:22:32 +0200
-Message-ID: <1467829355-4498-2-git-send-email-simon.horman@netronome.com>
-References: <1467829355-4498-1-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH/RFC iproute2 1/3] iptunnel: document mode parameter for sit tunnels
+Date: Wed,  6 Jul 2016 20:23:16 +0200
+Message-ID: <1467829398-4601-2-git-send-email-simon.horman@netronome.com>
+References: <1467829398-4601-1-git-send-email-simon.horman@netronome.com>
+Cc: stephen@networkplumber.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f54.google.com ([74.125.82.54]:35973 "EHLO
-	mail-wm0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751793AbcGFSWx (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 14:22:53 -0400
-Received: by mail-wm0-f54.google.com with SMTP id f126so183583887wma.1
-        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 11:22:52 -0700 (PDT)
-Received: from penelope.isobedori.kobe.vergenet.net (dhcp-077-251-078-056.chello.nl. [77.251.78.56])
-        by smtp.gmail.com with ESMTPSA id m5sm629757wmm.10.2016.07.06.11.22.49
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
-        Wed, 06 Jul 2016 11:22:50 -0700 (PDT)
-In-Reply-To: <1467829355-4498-1-git-send-email-simon.horman@netronome.com>
+Received: from mail-wm0-f50.google.com ([74.125.82.50]:36290 "EHLO
+	mail-wm0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755291AbcGFSX2 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 14:23:28 -0400
+Received: by mail-wm0-f50.google.com with SMTP id f126so183600109wma.1
+        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 11:23:28 -0700 (PDT)
+In-Reply-To: <1467829398-4601-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Extend tunnel support to MPLS over IPv4.  The implementation extends the
-existing differentiation between IPIP and IPv6 over IPv4 to also cover MPLS
-over IPv4.
-
 Signed-off-by: Simon Horman <simon.horman@netronome.com>
-Reviewed-by: Dinan Gunawardena <dinan.gunawardena@netronome.com>
 ---
- net/ipv4/tunnel4.c | 77 +++++++++++++++++++++++++++++++++++++++++++++++-------
- 1 file changed, 67 insertions(+), 10 deletions(-)
+ man/man8/ip-link.8.in | 8 ++++++++
+ 1 file changed, 8 insertions(+)
 
-diff --git a/net/ipv4/tunnel4.c b/net/ipv4/tunnel4.c
-index 0d0171830620..45cd4253583a 100644
---- a/net/ipv4/tunnel4.c
-+++ b/net/ipv4/tunnel4.c
-@@ -6,6 +6,7 @@
- #include <linux/init.h>
- #include <linux/module.h>
- #include <linux/mutex.h>
-+#include <linux/mpls.h>
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
- #include <linux/slab.h>
-@@ -16,11 +17,14 @@
+diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
+index 375b4d081408..822cf1bbd5f1 100644
+--- a/man/man8/ip-link.8.in
++++ b/man/man8/ip-link.8.in
+@@ -605,6 +605,8 @@ the following additional arguments are supported:
+ .I " [no]encap-csum "
+ ] [
+ .I " [no]encap-remcsum "
++] [
++.I " mode " { ip6ip | ipip | any } "
+ ]
  
- static struct xfrm_tunnel __rcu *tunnel4_handlers __read_mostly;
- static struct xfrm_tunnel __rcu *tunnel64_handlers __read_mostly;
-+static struct xfrm_tunnel __rcu *tunnelmpls4_handlers __read_mostly;
- static DEFINE_MUTEX(tunnel4_mutex);
+ .in +8
+@@ -641,6 +643,12 @@ encapsulation.
+ - specifies if Remote Checksum Offload is enabled. This is only
+ applicable for Generic UDP Encapsulation.
  
- static inline struct xfrm_tunnel __rcu **fam_handlers(unsigned short family)
- {
--	return (family == AF_INET) ? &tunnel4_handlers : &tunnel64_handlers;
-+	return (family == AF_INET) ? &tunnel4_handlers :
-+		(family == AF_INET6) ? &tunnel64_handlers :
-+		&tunnelmpls4_handlers;
- }
++.sp
++.BI mode " { ip6ip | ipip | any } "
++- specifies mode in which device should run. "ip6ip" indicates
++IPv6-Over-IPv4, "ipip" indicates "IPv4-Over-IPv4", "any" indicates either
++IPv6 or IPv4 Over IPv4. Only supported for SIT where the default is "ip6ip".
++
+ .in -8
  
- int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family)
-@@ -125,6 +129,26 @@ drop:
- }
- #endif
- 
-+#if IS_ENABLED(CONFIG_MPLS)
-+static int tunnelmpls4_rcv(struct sk_buff *skb)
-+{
-+	struct xfrm_tunnel *handler;
-+
-+	if (!pskb_may_pull(skb, sizeof(struct mpls_label)))
-+		goto drop;
-+
-+	for_each_tunnel_rcu(tunnelmpls4_handlers, handler)
-+		if (!handler->handler(skb))
-+			return 0;
-+
-+	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
-+
-+drop:
-+	kfree_skb(skb);
-+	return 0;
-+}
-+#endif
-+
- static void tunnel4_err(struct sk_buff *skb, u32 info)
- {
- 	struct xfrm_tunnel *handler;
-@@ -145,6 +169,17 @@ static void tunnel64_err(struct sk_buff *skb, u32 info)
- }
- #endif
- 
-+#if IS_ENABLED(CONFIG_MPLS)
-+static void tunnelmpls4_err(struct sk_buff *skb, u32 info)
-+{
-+	struct xfrm_tunnel *handler;
-+
-+	for_each_tunnel_rcu(tunnelmpls4_handlers, handler)
-+		if (!handler->err_handler(skb, info))
-+			break;
-+}
-+#endif
-+
- static const struct net_protocol tunnel4_protocol = {
- 	.handler	=	tunnel4_rcv,
- 	.err_handler	=	tunnel4_err,
-@@ -161,24 +196,46 @@ static const struct net_protocol tunnel64_protocol = {
- };
- #endif
- 
-+#if IS_ENABLED(CONFIG_MPLS)
-+static const struct net_protocol tunnelmpls4_protocol = {
-+	.handler	=	tunnelmpls4_rcv,
-+	.err_handler	=	tunnelmpls4_err,
-+	.no_policy	=	1,
-+	.netns_ok	=	1,
-+};
-+#endif
-+
- static int __init tunnel4_init(void)
- {
--	if (inet_add_protocol(&tunnel4_protocol, IPPROTO_IPIP)) {
--		pr_err("%s: can't add protocol\n", __func__);
--		return -EAGAIN;
--	}
-+	if (inet_add_protocol(&tunnel4_protocol, IPPROTO_IPIP))
-+		goto err_ipip;
- #if IS_ENABLED(CONFIG_IPV6)
--	if (inet_add_protocol(&tunnel64_protocol, IPPROTO_IPV6)) {
--		pr_err("tunnel64 init: can't add protocol\n");
--		inet_del_protocol(&tunnel4_protocol, IPPROTO_IPIP);
--		return -EAGAIN;
--	}
-+	if (inet_add_protocol(&tunnel64_protocol, IPPROTO_IPV6))
-+		goto err_ipv6;
-+#endif
-+#if IS_ENABLED(CONFIG_MPLS)
-+	if (inet_add_protocol(&tunnelmpls4_protocol, IPPROTO_MPLS))
-+		goto err_mpls;
- #endif
- 	return 0;
-+
-+#if IS_ENABLED(CONFIG_IPV6)
-+err_mpls:
-+	inet_del_protocol(&tunnel4_protocol, IPPROTO_IPV6);
-+#endif
-+err_ipv6:
-+	inet_del_protocol(&tunnel4_protocol, IPPROTO_IPIP);
-+err_ipip:
-+	pr_err("%s: can't add protocol\n", __func__);
-+	return -EAGAIN;
- }
- 
- static void __exit tunnel4_fini(void)
- {
-+#if IS_ENABLED(CONFIG_MPLS)
-+	if (inet_del_protocol(&tunnelmpls4_protocol, IPPROTO_MPLS))
-+		pr_err("tunnelmpls4 close: can't remove protocol\n");
-+#endif
- #if IS_ENABLED(CONFIG_IPV6)
- 	if (inet_del_protocol(&tunnel64_protocol, IPPROTO_IPV6))
- 		pr_err("tunnel64 close: can't remove protocol\n");
+ .TP
 -- 
 2.7.0.rc3.207.g0ac5344
