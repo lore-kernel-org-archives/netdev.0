@@ -1,42 +1,322 @@
 From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Subject: [PATCH net 0/4] ibmvnic driver bugfixes and improvements
-Date: Wed,  6 Jul 2016 15:35:14 -0500
-Message-ID: <1467837318-31710-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net 3/4] ibmvnic: simplify and improve driver probe function
+Date: Wed,  6 Jul 2016 15:35:17 -0500
+Message-ID: <1467837318-31710-4-git-send-email-tlfalcon@linux.vnet.ibm.com>
+References: <1467837318-31710-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Cc: jallen@linux.vnet.ibm.com, nfont@linux.vnet.ibm.com
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:55326 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755452AbcGFUfZ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 16:35:25 -0400
-Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
-	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u66KY2m9059040
-	for <netdev@vger.kernel.org>; Wed, 6 Jul 2016 16:35:24 -0400
-Received: from e38.co.us.ibm.com (e38.co.us.ibm.com [32.97.110.159])
-	by mx0b-001b2d01.pphosted.com with ESMTP id 2415xmf9fa-1
+Received: from mx0a-001b2d01.pphosted.com ([148.163.156.1]:43279 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755606AbcGFUfb (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 16:35:31 -0400
+Received: from pps.filterd (m0098410.ppops.net [127.0.0.1])
+	by mx0a-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u66KY2lY034690
+	for <netdev@vger.kernel.org>; Wed, 6 Jul 2016 16:35:30 -0400
+Received: from e34.co.us.ibm.com (e34.co.us.ibm.com [32.97.110.152])
+	by mx0a-001b2d01.pphosted.com with ESMTP id 2415xkffk9-1
 	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 16:35:24 -0400
+	for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 16:35:30 -0400
 Received: from localhost
-	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	by e34.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
 	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
-	Wed, 6 Jul 2016 14:35:23 -0600
-Received: from b03cxnp07028.gho.boulder.ibm.com (b03cxnp07028.gho.boulder.ibm.com [9.17.130.15])
-	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id C12993E4003E
-	for <netdev@vger.kernel.org>; Wed,  6 Jul 2016 14:35:19 -0600 (MDT)
+	Wed, 6 Jul 2016 14:35:29 -0600
+Received: from b03cxnp08026.gho.boulder.ibm.com (b03cxnp08026.gho.boulder.ibm.com [9.17.130.18])
+	by d03dlp02.boulder.ibm.com (Postfix) with ESMTP id 26AD33E4004F
+	for <netdev@vger.kernel.org>; Wed,  6 Jul 2016 14:35:26 -0600 (MDT)
+In-Reply-To: <1467837318-31710-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Miscellaneous fixes and improvements on the ibmvnic driver.
+This patch creates a function that handles sub-CRQ IRQ creation
+separately from sub-CRQ initialization. Another function is then needed
+to release sub-CRQ resources prior to sub-CRQ IRQ creation.
 
-Thomas Falcon (4):
-  ibmvnic: properly start and stop tx queues
-  ibmvnic: dispose irq mappings
-  ibmvnic: simplify and improve driver probe function
-  ibmvnic: Fix passive VNIC server login process
+These additions allow the driver probe function to be simplified,
+specifically during the VNIC Server login process. A timeout is also
+included while waiting for completion of the login process in case
+the VNIC Server is not available or some other error occurs.
 
- drivers/net/ethernet/ibm/ibmvnic.c | 227 +++++++++++++++++++++++++++----------
- drivers/net/ethernet/ibm/ibmvnic.h |   2 +
- 2 files changed, 169 insertions(+), 60 deletions(-)
+Signed-off-by: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+---
+ drivers/net/ethernet/ibm/ibmvnic.c | 159 ++++++++++++++++++++++++-------------
+ 1 file changed, 103 insertions(+), 56 deletions(-)
 
+diff --git a/drivers/net/ethernet/ibm/ibmvnic.c b/drivers/net/ethernet/ibm/ibmvnic.c
+index 79d2ab3..52b0c07 100644
+--- a/drivers/net/ethernet/ibm/ibmvnic.c
++++ b/drivers/net/ethernet/ibm/ibmvnic.c
+@@ -89,6 +89,7 @@ MODULE_VERSION(IBMVNIC_DRIVER_VERSION);
+ static int ibmvnic_version = IBMVNIC_INITIAL_VERSION;
+ static int ibmvnic_remove(struct vio_dev *);
+ static void release_sub_crqs(struct ibmvnic_adapter *);
++static void release_sub_crqs_no_irqs(struct ibmvnic_adapter *);
+ static int ibmvnic_reset_crq(struct ibmvnic_adapter *);
+ static int ibmvnic_send_crq_init(struct ibmvnic_adapter *);
+ static int ibmvnic_reenable_crq_queue(struct ibmvnic_adapter *);
+@@ -1213,12 +1214,6 @@ static struct ibmvnic_sub_crq_queue *init_sub_crq_queue(struct ibmvnic_adapter
+ 		goto reg_failed;
+ 	}
+ 
+-	scrq->irq = irq_create_mapping(NULL, scrq->hw_irq);
+-	if (scrq->irq == NO_IRQ) {
+-		dev_err(dev, "Error mapping irq\n");
+-		goto map_irq_failed;
+-	}
+-
+ 	scrq->adapter = adapter;
+ 	scrq->size = 4 * PAGE_SIZE / sizeof(*scrq->msgs);
+ 	scrq->cur = 0;
+@@ -1231,12 +1226,6 @@ static struct ibmvnic_sub_crq_queue *init_sub_crq_queue(struct ibmvnic_adapter
+ 
+ 	return scrq;
+ 
+-map_irq_failed:
+-	do {
+-		rc = plpar_hcall_norets(H_FREE_SUB_CRQ,
+-					adapter->vdev->unit_address,
+-					scrq->crq_num);
+-	} while (rc == H_BUSY || H_IS_LONG_BUSY(rc));
+ reg_failed:
+ 	dma_unmap_single(dev, scrq->msg_token, 4 * PAGE_SIZE,
+ 			 DMA_BIDIRECTIONAL);
+@@ -1279,6 +1268,29 @@ static void release_sub_crqs(struct ibmvnic_adapter *adapter)
+ 	adapter->requested_caps = 0;
+ }
+ 
++static void release_sub_crqs_no_irqs(struct ibmvnic_adapter *adapter)
++{
++	int i;
++
++	if (adapter->tx_scrq) {
++		for (i = 0; i < adapter->req_tx_queues; i++)
++			if (adapter->tx_scrq[i])
++				release_sub_crq_queue(adapter,
++						      adapter->tx_scrq[i]);
++		adapter->tx_scrq = NULL;
++	}
++
++	if (adapter->rx_scrq) {
++		for (i = 0; i < adapter->req_rx_queues; i++)
++			if (adapter->rx_scrq[i])
++				release_sub_crq_queue(adapter,
++						      adapter->rx_scrq[i]);
++		adapter->rx_scrq = NULL;
++	}
++
++	adapter->requested_caps = 0;
++}
++
+ static int disable_scrq_irq(struct ibmvnic_adapter *adapter,
+ 			    struct ibmvnic_sub_crq_queue *scrq)
+ {
+@@ -1398,6 +1410,66 @@ static irqreturn_t ibmvnic_interrupt_rx(int irq, void *instance)
+ 	return IRQ_HANDLED;
+ }
+ 
++static int init_sub_crq_irqs(struct ibmvnic_adapter *adapter)
++{
++	struct device *dev = &adapter->vdev->dev;
++	struct ibmvnic_sub_crq_queue *scrq;
++	int i = 0, j = 0;
++	int rc = 0;
++
++	for (i = 0; i < adapter->req_tx_queues; i++) {
++		scrq = adapter->tx_scrq[i];
++		scrq->irq = irq_create_mapping(NULL, scrq->hw_irq);
++
++		if (scrq->irq == NO_IRQ) {
++			rc = -EINVAL;
++			dev_err(dev, "Error mapping irq\n");
++			goto req_tx_irq_failed;
++		}
++
++		rc = request_irq(scrq->irq, ibmvnic_interrupt_tx,
++				 0, "ibmvnic_tx", scrq);
++
++		if (rc) {
++			dev_err(dev, "Couldn't register tx irq 0x%x. rc=%d\n",
++				scrq->irq, rc);
++			irq_dispose_mapping(scrq->irq);
++			goto req_rx_irq_failed;
++		}
++	}
++
++	for (i = 0; i < adapter->req_rx_queues; i++) {
++		scrq = adapter->rx_scrq[i];
++		scrq->irq = irq_create_mapping(NULL, scrq->hw_irq);
++		if (scrq->irq == NO_IRQ) {
++			rc = -EINVAL;
++			dev_err(dev, "Error mapping irq\n");
++			goto req_rx_irq_failed;
++		}
++		rc = request_irq(scrq->irq, ibmvnic_interrupt_rx,
++				 0, "ibmvnic_rx", scrq);
++		if (rc) {
++			dev_err(dev, "Couldn't register rx irq 0x%x. rc=%d\n",
++				scrq->irq, rc);
++			irq_dispose_mapping(scrq->irq);
++			goto req_rx_irq_failed;
++		}
++	}
++	return rc;
++
++req_rx_irq_failed:
++	for (j = 0; j < i; j++)
++		free_irq(adapter->rx_scrq[j]->irq, adapter->rx_scrq[j]);
++		irq_dispose_mapping(adapter->rx_scrq[j]->irq);
++	i = adapter->req_tx_queues;
++req_tx_irq_failed:
++	for (j = 0; j < i; j++)
++		free_irq(adapter->tx_scrq[j]->irq, adapter->tx_scrq[j]);
++		irq_dispose_mapping(adapter->rx_scrq[j]->irq);
++	release_sub_crqs_no_irqs(adapter);
++	return rc;
++}
++
+ static void init_sub_crqs(struct ibmvnic_adapter *adapter, int retry)
+ {
+ 	struct device *dev = &adapter->vdev->dev;
+@@ -1406,8 +1478,7 @@ static void init_sub_crqs(struct ibmvnic_adapter *adapter, int retry)
+ 	union ibmvnic_crq crq;
+ 	int total_queues;
+ 	int more = 0;
+-	int i, j;
+-	int rc;
++	int i;
+ 
+ 	if (!retry) {
+ 		/* Sub-CRQ entries are 32 byte long */
+@@ -1486,13 +1557,6 @@ static void init_sub_crqs(struct ibmvnic_adapter *adapter, int retry)
+ 	for (i = 0; i < adapter->req_tx_queues; i++) {
+ 		adapter->tx_scrq[i] = allqueues[i];
+ 		adapter->tx_scrq[i]->pool_index = i;
+-		rc = request_irq(adapter->tx_scrq[i]->irq, ibmvnic_interrupt_tx,
+-				 0, "ibmvnic_tx", adapter->tx_scrq[i]);
+-		if (rc) {
+-			dev_err(dev, "Couldn't register tx irq 0x%x. rc=%d\n",
+-				adapter->tx_scrq[i]->irq, rc);
+-			goto req_tx_irq_failed;
+-		}
+ 	}
+ 
+ 	adapter->rx_scrq = kcalloc(adapter->req_rx_queues,
+@@ -1503,13 +1567,6 @@ static void init_sub_crqs(struct ibmvnic_adapter *adapter, int retry)
+ 	for (i = 0; i < adapter->req_rx_queues; i++) {
+ 		adapter->rx_scrq[i] = allqueues[i + adapter->req_tx_queues];
+ 		adapter->rx_scrq[i]->scrq_num = i;
+-		rc = request_irq(adapter->rx_scrq[i]->irq, ibmvnic_interrupt_rx,
+-				 0, "ibmvnic_rx", adapter->rx_scrq[i]);
+-		if (rc) {
+-			dev_err(dev, "Couldn't register rx irq 0x%x. rc=%d\n",
+-				adapter->rx_scrq[i]->irq, rc);
+-			goto req_rx_irq_failed;
+-		}
+ 	}
+ 
+ 	memset(&crq, 0, sizeof(crq));
+@@ -1562,15 +1619,6 @@ static void init_sub_crqs(struct ibmvnic_adapter *adapter, int retry)
+ 
+ 	return;
+ 
+-req_rx_irq_failed:
+-	for (j = 0; j < i; j++)
+-		free_irq(adapter->rx_scrq[j]->irq, adapter->rx_scrq[j]);
+-	i = adapter->req_tx_queues;
+-req_tx_irq_failed:
+-	for (j = 0; j < i; j++)
+-		free_irq(adapter->tx_scrq[j]->irq, adapter->tx_scrq[j]);
+-	kfree(adapter->rx_scrq);
+-	adapter->rx_scrq = NULL;
+ rx_failed:
+ 	kfree(adapter->tx_scrq);
+ 	adapter->tx_scrq = NULL;
+@@ -2351,9 +2399,9 @@ static void handle_request_cap_rsp(union ibmvnic_crq *crq,
+ 			 *req_value,
+ 			 (long int)be32_to_cpu(crq->request_capability_rsp.
+ 					       number), name);
+-		release_sub_crqs(adapter);
++		release_sub_crqs_no_irqs(adapter);
+ 		*req_value = be32_to_cpu(crq->request_capability_rsp.number);
+-		complete(&adapter->init_done);
++		init_sub_crqs(adapter, 1);
+ 		return;
+ 	default:
+ 		dev_err(dev, "Error %d in request cap rsp\n",
+@@ -2662,7 +2710,7 @@ static void handle_query_cap_rsp(union ibmvnic_crq *crq,
+ 
+ out:
+ 	if (atomic_read(&adapter->running_cap_queries) == 0)
+-		complete(&adapter->init_done);
++		init_sub_crqs(adapter, 0);
+ 		/* We're done querying the capabilities, initialize sub-crqs */
+ }
+ 
+@@ -3560,6 +3608,7 @@ static const struct file_operations ibmvnic_dump_ops = {
+ 
+ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ {
++	unsigned long timeout = msecs_to_jiffies(30000);
+ 	struct ibmvnic_adapter *adapter;
+ 	struct net_device *netdev;
+ 	unsigned char *mac_addr_p;
+@@ -3638,30 +3687,26 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 	ibmvnic_send_crq_init(adapter);
+ 
+ 	init_completion(&adapter->init_done);
+-	wait_for_completion(&adapter->init_done);
++	if (!wait_for_completion_timeout(&adapter->init_done, timeout))
++		return 0;
+ 
+ 	do {
+-		adapter->renegotiate = false;
+-
+-		init_sub_crqs(adapter, 0);
+-		reinit_completion(&adapter->init_done);
+-		wait_for_completion(&adapter->init_done);
+-
+ 		if (adapter->renegotiate) {
+-			release_sub_crqs(adapter);
++			adapter->renegotiate = false;
++			release_sub_crqs_no_irqs(adapter);
+ 			send_cap_queries(adapter);
+ 
+ 			reinit_completion(&adapter->init_done);
+-			wait_for_completion(&adapter->init_done);
++			if (!wait_for_completion_timeout(&adapter->init_done,
++							 timeout))
++				return 0;
+ 		}
+ 	} while (adapter->renegotiate);
+ 
+-	/* if init_sub_crqs is partially successful, retry */
+-	while (!adapter->tx_scrq || !adapter->rx_scrq) {
+-		init_sub_crqs(adapter, 1);
+-
+-		reinit_completion(&adapter->init_done);
+-		wait_for_completion(&adapter->init_done);
++	rc = init_sub_crq_irqs(adapter);
++	if (rc) {
++		dev_err(&dev->dev, "failed to initialize sub crq irqs\n");
++		goto free_debugfs;
+ 	}
+ 
+ 	netdev->real_num_tx_queues = adapter->req_tx_queues;
+@@ -3669,12 +3714,14 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+ 	rc = register_netdev(netdev);
+ 	if (rc) {
+ 		dev_err(&dev->dev, "failed to register netdev rc=%d\n", rc);
+-		goto free_debugfs;
++		goto free_sub_crqs;
+ 	}
+ 	dev_info(&dev->dev, "ibmvnic registered\n");
+ 
+ 	return 0;
+ 
++free_sub_crqs:
++	release_sub_crqs(adapter);
+ free_debugfs:
+ 	if (adapter->debugfs_dir && !IS_ERR(adapter->debugfs_dir))
+ 		debugfs_remove_recursive(adapter->debugfs_dir);
 -- 
 1.8.3.1
