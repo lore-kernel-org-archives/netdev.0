@@ -1,43 +1,50 @@
-From: Cyrill Gorcunov <gorcunov@gmail.com>
-Subject: Re: [Patch net] ppp: defer netns reference release for ppp channel
-Date: Wed, 6 Jul 2016 11:26:02 +0300
-Message-ID: <20160706082602.GM4666@uranus>
-References: <1467781956-2229-1-git-send-email-xiyou.wangcong@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH] ipv6: Fix soft lockup for ipv6 network notifier.
+Date: Wed, 06 Jul 2016 10:44:04 +0200
+Message-ID: <1467794644.1273.17.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <57761E04.8030202@huawei.com>
+	 <1467359847.11238.34.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <5776258F.6080008@huawei.com>
+	 <1467361396.11238.35.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <577CBE0E.1050809@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Matt.Bennett@alliedtelesis.co.nz,
-	Paul Mackerras <paulus@samba.org>, linux-ppp@vger.kernel.org,
-	Guillaume Nault <g.nault@alphalink.fr>
-To: Cong Wang <xiyou.wangcong@gmail.com>
-Return-path: <linux-ppp-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1467781956-2229-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: linux-ppp-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: luto@kernel.org, mingo@kernel.org, linux-kernel@vger.kernel.org,
+	Eric Dumazet <edumazet@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Netdev <netdev@vger.kernel.org>,
+	Cong Wang <cwang@twopensource.com>
+To: Ding Tianhong <dingtianhong@huawei.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <577CBE0E.1050809@huawei.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 05, 2016 at 10:12:36PM -0700, Cong Wang wrote:
-> Matt reported that we have a NULL pointer dereference
-> in ppp_pernet() from ppp_connect_channel(),
-> i.e. pch->chan_net is NULL.
-> 
-> This is due to that a parallel ppp_unregister_channel()
-> could happen while we are in ppp_connect_channel(), during
-> which pch->chan_net set to NULL. Since we need a reference
-> to net per channel, it makes sense to sync the refcnt
-> with the life time of the channel, therefore we should
-> release this reference when we destroy it.
-> 
-> Fixes: 1f461dcdd296 ("ppp: take reference on channels netns")
-> Reported-by: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
-> Cc: Paul Mackerras <paulus@samba.org>
-> Cc: linux-ppp@vger.kernel.org
-> Cc: Guillaume Nault <g.nault@alphalink.fr>
-> Cc: Cyrill Gorcunov <gorcunov@openvz.org>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
-> ---
+On Wed, 2016-07-06 at 16:15 +0800, Ding Tianhong wrote:
+> Hi Eric=EF=BC=9A
+>=20
+> I had found out that the patch aaf92f(netfilter: conntrack: resched i=
+n
+> nf_ct_iterate_cleanup) solve the problem,=20
+> this patch add cond_sched() in the nf_ct_iterate_cleanup() which will
+> be called in the net notifier chain every time,
+> and I revert this patch at kernel 4.7-rc4 , it will panic for soft
+> lockup, so I am not sure whether our patch is need,
+> it looks like if I disable the CONFIG for netfilter that would
+> register the nf_ct_iterate_cleanup as notifier, the problem still be
+> exist.
 
-Hi Cong! I may be wrong, but this doesn't look right in general.
-We take the net in ppp_register_channel->ppp_register_net_channel
-and (name) context implies that ppp_unregister_channel does
-the reverse. Maybe there some sync point missed? I'll review
-in detail a bit later.
+Well, I do not have conntrack on my kernels, and I can not reproduce th=
+e
+issue.
+
+So I am guessing other patches also solved a scalability issue, between
+4.1 and 4.7
+
+I am aware of something that David did for IPv4, but this might help as
+well for IPv6.
+
+commit fbd40ea0180a2d328c5adc61414dc8bab9335ce2
+ipv4: Don't do expensive useless work during inetdev destroy.
+   =20
