@@ -1,67 +1,46 @@
-From: Sergei Shtylyov <sergei.shtylyov@cogentembedded.com>
-Subject: Re: [PATCH 03/26] netfilter: x_tables: fix possible ZERO_SIZE_PTR
- pointer dereferencing error.
-Date: Wed, 6 Jul 2016 21:11:28 +0300
-Message-ID: <46b1bb67-6261-c641-ce21-61c23beab191@cogentembedded.com>
-References: <1467815048-2240-1-git-send-email-pablo@netfilter.org>
- <1467815048-2240-4-git-send-email-pablo@netfilter.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>,
-	netfilter-devel@vger.kernel.org
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1467815048-2240-4-git-send-email-pablo@netfilter.org>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH/RFC net-next 0/4] net: support MPLS in IPv4 and UDP
+Date: Wed,  6 Jul 2016 20:22:31 +0200
+Message-ID: <1467829355-4498-1-git-send-email-simon.horman@netronome.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:35193 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751793AbcGFSWv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 14:22:51 -0400
+Received: by mail-wm0-f42.google.com with SMTP id z126so121548463wme.0
+        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 11:22:51 -0700 (PDT)
+Received: from penelope.isobedori.kobe.vergenet.net (dhcp-077-251-078-056.chello.nl. [77.251.78.56])
+        by smtp.gmail.com with ESMTPSA id m5sm629757wmm.10.2016.07.06.11.22.48
+        for <netdev@vger.kernel.org>
+        (version=TLS1_2 cipher=ECDHE-RSA-AES128-SHA bits=128/128);
+        Wed, 06 Jul 2016 11:22:48 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello.
+This short series provides support for MPLS in IPv4 (RFC4023), and by
+virtue of FOU, MPLS in UDP (RFC7510).
 
-On 07/06/2016 05:23 PM, Pablo Neira Ayuso wrote:
+The changes are as follows:
+1. Teach tunnel4.c about AF_MPLS, it already understands AF_INET and
+   AF_INET6
+2. Enhance IPIP and SIT to handle MPLS. Both already handle IPv4.
+   SIT also already handles IPv6.
+3. Trivially enhance MPLS to allow routes over SIT and IPIP tunnels.
 
-> From: Xiubo Li <lixiubo@cmss.chinamobile.com>
->
-> Since we cannot make sure that the 'hook_mask' will always be none
-> zero here.
+A corresponding iproute2 patchset will also be posted.
 
-    Non-zero, you mean?
+Simon Horman (4):
+  tunnels: support MPLS over IPv4 tunnels
+  sit: support MPLS over IPv4
+  ipip: support MPLS over IPv4
+  mpls: allow routes on ipip and sit devices
 
-> If it equals to zero, the num_hooks will be zero too,
-> and then kmalloc() will return ZERO_SIZE_PTR, which is (void *)16.
->
-> Then the following error check will fails:
->   ops = kmalloc(sizeof(*ops) * num_hooks, GFP_KERNEL);
->   if (ops == NULL)
->           return ERR_PTR(-ENOMEM);
->
-> So this patch will fix this with just doing the zero check before
-> kmalloc() is called.
->
-> Maybe the case above will never happen here, but in theory.
->
-> Signed-off-by: Xiubo Li <lixiubo@cmss.chinamobile.com>
-> Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
-> ---
->  net/netfilter/x_tables.c | 3 +++
->  1 file changed, 3 insertions(+)
->
-> diff --git a/net/netfilter/x_tables.c b/net/netfilter/x_tables.c
-> index c69c892..8aff34e 100644
-> --- a/net/netfilter/x_tables.c
-> +++ b/net/netfilter/x_tables.c
-> @@ -1460,6 +1460,9 @@ xt_hook_ops_alloc(const struct xt_table *table, nf_hookfn *fn)
->  	uint8_t hooknum;
->  	struct nf_hook_ops *ops;
->
-> +	if (!num_hooks)
-> +		return ERR_PTR(-EINVAL);
-> +
->  	ops = kmalloc(sizeof(*ops) * num_hooks, GFP_KERNEL);
+ net/ipv4/ipip.c    | 137 ++++++++++++++++++++++++++++++++++++++++++++++-------
+ net/ipv4/tunnel4.c |  77 ++++++++++++++++++++++++++----
+ net/ipv6/sit.c     |  93 +++++++++++++++++++++++++++++-------
+ net/mpls/af_mpls.c |   6 ++-
+ 4 files changed, 269 insertions(+), 44 deletions(-)
 
-    BTW, asking to be kcalloc() instead?
-
-[...]
-
-MBR, Sergei
-
+-- 
+2.7.0.rc3.207.g0ac5344
