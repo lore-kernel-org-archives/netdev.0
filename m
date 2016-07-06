@@ -1,37 +1,39 @@
-From: David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
-Subject: Re: [RFC 0/7] netlink: Add allocation flag to netlink_unicast()
-Date: Tue, 05 Jul 2016 20:22:37 -0700 (PDT)
-Message-ID: <20160705.202237.33945138215381341.davem@davemloft.net>
-References: <1467764916-4983-1-git-send-email-masashi.honma@gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: Backport bpf: try harder on clones when writing into skb?
+ [Commit: 3697649ff29e0f647565eed04b27a7779c646a22]
+Date: Tue, 05 Jul 2016 20:47:55 -0700 (PDT)
+Message-ID: <20160705.204755.193524893150572527.davem@davemloft.net>
+References: <CAMp4zn-MNgqJ1Xzm8JO529=LVyB71bdYaUm0FqyNCMx4Hf+xSA@mail.gmail.com>
+	<20160706021649.GA82976@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
-	linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, cluster-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
-	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
-	paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org,
-	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
-	bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-To: masashi.honma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1467764916-4983-1-git-send-email-masashi.honma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: sargun@sargun.me, netdev@vger.kernel.org, daniel@iogearbox.net
+To: alexei.starovoitov@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:48002 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751271AbcGFDr6 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 5 Jul 2016 23:47:58 -0400
+In-Reply-To: <20160706021649.GA82976@ast-mbp.thefacebook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Masashi Honma <masashi.honma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Date: Wed,  6 Jul 2016 09:28:29 +0900
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Date: Tue, 5 Jul 2016 19:16:51 -0700
 
-> Though currently such a use case was not found, to solve potential
-> issue we will add an allocation flag to netlink_unicast().
+> On Tue, Jul 05, 2016 at 08:35:18AM -0700, Sargun Dhillon wrote:
+>> Does it make sense to backport
+>> 3697649ff29e0f647565eed04b27a7779c646a22 from 4.6 to the longterm
+>> (4.4) release? I can trivially recreate the issue represented by
+>> 3697649ff29e0f647565eed04b27a7779c646a22 by attaching a eBPF filter
+>> that clones an ingress ICMP packet, and then tries to set the
+>> destination MAC address.
+>> 
+>> It seems like the patch applies cleanly to 4.4. I cherry-picked it,
+>> and rebuilt my kernel, and at least in the trivial test case passes.
+> 
+> Makes sense to me, especially since it's lts.
+> Daniel, thoughts?
 
-We don't solve potential issues, we solve real issues.
-
-There is no reason to add the GFP parameter until it is actually
-needed.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+I'll queued this up for 4.4 -stable.
