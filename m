@@ -1,134 +1,221 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 12/26] netfilter: xt_NFLOG: nflog-range does not truncate packets
-Date: Wed,  6 Jul 2016 16:23:54 +0200
-Message-ID: <1467815048-2240-13-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 09/26] netfilter: move zone info into struct nf_conn
+Date: Wed,  6 Jul 2016 16:23:51 +0200
+Message-ID: <1467815048-2240-10-git-send-email-pablo@netfilter.org>
 References: <1467815048-2240-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:34235 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754762AbcGFO0q (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 6 Jul 2016 10:26:46 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 5D02117DB74
-	for <netdev@vger.kernel.org>; Wed,  6 Jul 2016 16:26:45 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 36A7A9EBB8
-	for <netdev@vger.kernel.org>; Wed,  6 Jul 2016 16:26:45 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 4A93FFAB55
-	for <netdev@vger.kernel.org>; Wed,  6 Jul 2016 16:26:41 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1467815048-2240-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Vishwanath Pai <vpai@akamai.com>
+From: Florian Westphal <fw@strlen.de>
 
-li->u.ulog.copy_len is currently ignored by the kernel, we should truncate
-the packet to either li->u.ulog.copy_len (if set) or copy_range before
-sending it to userspace. 0 is a valid input for copy_len, so add a new
-flag to indicate whether this was option was specified by the user or not.
+Curently we store zone information as a conntrack extension.
+This has one drawback: for every lookup we need to fetch the zone data
+from the extension area.
 
-Add two flags to indicate whether nflog-size/copy_len was set or not.
-XT_NFLOG_F_COPY_LEN is for XT_NFLOG and NFLOG_F_COPY_LEN for nfnetlink_log
+This change place the zone data directly into the main conntrack object
+structure and then removes the zone conntrack extension.
 
-On the userspace side, this was initially represented by the option
-nflog-range, this will be replaced by --nflog-size now. --nflog-range would
-still exist but does not do anything.
+The zone data is just 4 bytes, it fits into a padding hole before
+the tuplehash info, so we do not even increase the nf_conn structure size.
 
-Reported-by: Joe Dollard <jdollard@akamai.com>
-Reviewed-by: Josh Hunt <johunt@akamai.com>
-Signed-off-by: Vishwanath Pai <vpai@akamai.com>
+Signed-off-by: Florian Westphal <fw@strlen.de>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_log.h          | 7 +++++++
- include/uapi/linux/netfilter/xt_NFLOG.h | 6 +++++-
- net/netfilter/nfnetlink_log.c           | 9 ++++++---
- net/netfilter/xt_NFLOG.c                | 3 +++
- 4 files changed, 21 insertions(+), 4 deletions(-)
+ include/net/netfilter/nf_conntrack.h        |  3 +++
+ include/net/netfilter/nf_conntrack_extend.h |  4 ----
+ include/net/netfilter/nf_conntrack_zones.h  | 33 ++++++++++-------------------
+ net/netfilter/nf_conntrack_core.c           | 33 ++---------------------------
+ 4 files changed, 16 insertions(+), 57 deletions(-)
 
-diff --git a/include/net/netfilter/nf_log.h b/include/net/netfilter/nf_log.h
-index 57639fc..83d855b 100644
---- a/include/net/netfilter/nf_log.h
-+++ b/include/net/netfilter/nf_log.h
-@@ -12,6 +12,9 @@
- #define NF_LOG_UID		0x08	/* Log UID owning local socket */
- #define NF_LOG_MASK		0x0f
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index dd78bea..9c0ed3d 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -85,6 +85,9 @@ struct nf_conn {
+ 	spinlock_t	lock;
+ 	u16		cpu;
  
-+/* This flag indicates that copy_len field in nf_loginfo is set */
-+#define NF_LOG_F_COPY_LEN	0x1
-+
- enum nf_log_type {
- 	NF_LOG_TYPE_LOG		= 0,
- 	NF_LOG_TYPE_ULOG,
-@@ -22,9 +25,13 @@ struct nf_loginfo {
- 	u_int8_t type;
- 	union {
- 		struct {
-+			/* copy_len will be used iff you set
-+			 * NF_LOG_F_COPY_LEN in flags
-+			 */
- 			u_int32_t copy_len;
- 			u_int16_t group;
- 			u_int16_t qthreshold;
-+			u_int16_t flags;
- 		} ulog;
- 		struct {
- 			u_int8_t level;
-diff --git a/include/uapi/linux/netfilter/xt_NFLOG.h b/include/uapi/linux/netfilter/xt_NFLOG.h
-index 87b5831..f330707 100644
---- a/include/uapi/linux/netfilter/xt_NFLOG.h
-+++ b/include/uapi/linux/netfilter/xt_NFLOG.h
-@@ -6,9 +6,13 @@
- #define XT_NFLOG_DEFAULT_GROUP		0x1
- #define XT_NFLOG_DEFAULT_THRESHOLD	0
++#ifdef CONFIG_NF_CONNTRACK_ZONES
++	struct nf_conntrack_zone zone;
++#endif
+ 	/* XXX should I move this to the tail ? - Y.K */
+ 	/* These are my tuples; original and reply */
+ 	struct nf_conntrack_tuple_hash tuplehash[IP_CT_DIR_MAX];
+diff --git a/include/net/netfilter/nf_conntrack_extend.h b/include/net/netfilter/nf_conntrack_extend.h
+index 55d1504..b925395 100644
+--- a/include/net/netfilter/nf_conntrack_extend.h
++++ b/include/net/netfilter/nf_conntrack_extend.h
+@@ -15,9 +15,6 @@ enum nf_ct_ext_id {
+ #ifdef CONFIG_NF_CONNTRACK_EVENTS
+ 	NF_CT_EXT_ECACHE,
+ #endif
+-#ifdef CONFIG_NF_CONNTRACK_ZONES
+-	NF_CT_EXT_ZONE,
+-#endif
+ #ifdef CONFIG_NF_CONNTRACK_TIMESTAMP
+ 	NF_CT_EXT_TSTAMP,
+ #endif
+@@ -38,7 +35,6 @@ enum nf_ct_ext_id {
+ #define NF_CT_EXT_SEQADJ_TYPE struct nf_conn_seqadj
+ #define NF_CT_EXT_ACCT_TYPE struct nf_conn_acct
+ #define NF_CT_EXT_ECACHE_TYPE struct nf_conntrack_ecache
+-#define NF_CT_EXT_ZONE_TYPE struct nf_conntrack_zone
+ #define NF_CT_EXT_TSTAMP_TYPE struct nf_conn_tstamp
+ #define NF_CT_EXT_TIMEOUT_TYPE struct nf_conn_timeout
+ #define NF_CT_EXT_LABELS_TYPE struct nf_conn_labels
+diff --git a/include/net/netfilter/nf_conntrack_zones.h b/include/net/netfilter/nf_conntrack_zones.h
+index bd46926..64a718b 100644
+--- a/include/net/netfilter/nf_conntrack_zones.h
++++ b/include/net/netfilter/nf_conntrack_zones.h
+@@ -9,12 +9,11 @@
+ static inline const struct nf_conntrack_zone *
+ nf_ct_zone(const struct nf_conn *ct)
+ {
+-	const struct nf_conntrack_zone *nf_ct_zone = NULL;
+-
+ #ifdef CONFIG_NF_CONNTRACK_ZONES
+-	nf_ct_zone = nf_ct_ext_find(ct, NF_CT_EXT_ZONE);
++	return &ct->zone;
++#else
++	return &nf_ct_zone_dflt;
+ #endif
+-	return nf_ct_zone ? nf_ct_zone : &nf_ct_zone_dflt;
+ }
  
--#define XT_NFLOG_MASK			0x0
-+#define XT_NFLOG_MASK			0x1
-+
-+/* This flag indicates that 'len' field in xt_nflog_info is set*/
-+#define XT_NFLOG_F_COPY_LEN		0x1
+ static inline const struct nf_conntrack_zone *
+@@ -31,32 +30,22 @@ static inline const struct nf_conntrack_zone *
+ nf_ct_zone_tmpl(const struct nf_conn *tmpl, const struct sk_buff *skb,
+ 		struct nf_conntrack_zone *tmp)
+ {
+-	const struct nf_conntrack_zone *zone;
+-
++#ifdef CONFIG_NF_CONNTRACK_ZONES
+ 	if (!tmpl)
+ 		return &nf_ct_zone_dflt;
  
- struct xt_nflog_info {
-+	/* 'len' will be used iff you set XT_NFLOG_F_COPY_LEN in flags */
- 	__u32	len;
- 	__u16	group;
- 	__u16	threshold;
-diff --git a/net/netfilter/nfnetlink_log.c b/net/netfilter/nfnetlink_log.c
-index 11f81c8..cbcfdfb 100644
---- a/net/netfilter/nfnetlink_log.c
-+++ b/net/netfilter/nfnetlink_log.c
-@@ -700,10 +700,13 @@ nfulnl_log_packet(struct net *net,
- 		break;
+-	zone = nf_ct_zone(tmpl);
+-	if (zone->flags & NF_CT_FLAG_MARK)
+-		zone = nf_ct_zone_init(tmp, skb->mark, zone->dir, 0);
+-
+-	return zone;
++	if (tmpl->zone.flags & NF_CT_FLAG_MARK)
++		return nf_ct_zone_init(tmp, skb->mark, tmpl->zone.dir, 0);
++#endif
++	return nf_ct_zone(tmpl);
+ }
  
- 	case NFULNL_COPY_PACKET:
--		if (inst->copy_range > skb->len)
-+		data_len = inst->copy_range;
-+		if ((li->u.ulog.flags & NF_LOG_F_COPY_LEN) &&
-+		    (li->u.ulog.copy_len < data_len))
-+			data_len = li->u.ulog.copy_len;
-+
-+		if (data_len > skb->len)
- 			data_len = skb->len;
--		else
--			data_len = inst->copy_range;
+-static inline int nf_ct_zone_add(struct nf_conn *ct, gfp_t flags,
+-				 const struct nf_conntrack_zone *info)
++static inline void nf_ct_zone_add(struct nf_conn *ct,
++				  const struct nf_conntrack_zone *zone)
+ {
+ #ifdef CONFIG_NF_CONNTRACK_ZONES
+-	struct nf_conntrack_zone *nf_ct_zone;
+-
+-	nf_ct_zone = nf_ct_ext_add(ct, NF_CT_EXT_ZONE, flags);
+-	if (!nf_ct_zone)
+-		return -ENOMEM;
+-
+-	nf_ct_zone_init(nf_ct_zone, info->id, info->dir,
+-			info->flags);
++	ct->zone = *zone;
+ #endif
+-	return 0;
+ }
  
- 		size += nla_total_size(data_len);
- 		break;
-diff --git a/net/netfilter/xt_NFLOG.c b/net/netfilter/xt_NFLOG.c
-index a1fa2c8..018eed7 100644
---- a/net/netfilter/xt_NFLOG.c
-+++ b/net/netfilter/xt_NFLOG.c
-@@ -33,6 +33,9 @@ nflog_tg(struct sk_buff *skb, const struct xt_action_param *par)
- 	li.u.ulog.group	     = info->group;
- 	li.u.ulog.qthreshold = info->threshold;
+ static inline bool nf_ct_zone_matches_dir(const struct nf_conntrack_zone *zone,
+diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
+index 2903bb4..a459176 100644
+--- a/net/netfilter/nf_conntrack_core.c
++++ b/net/netfilter/nf_conntrack_core.c
+@@ -327,16 +327,10 @@ struct nf_conn *nf_ct_tmpl_alloc(struct net *net,
  
-+	if (info->flags & XT_NFLOG_F_COPY_LEN)
-+		li.u.ulog.flags |= NF_LOG_F_COPY_LEN;
-+
- 	nfulnl_log_packet(net, par->family, par->hooknum, skb, par->in,
- 			  par->out, &li, info->prefix);
- 	return XT_CONTINUE;
+ 	tmpl->status = IPS_TEMPLATE;
+ 	write_pnet(&tmpl->ct_net, net);
+-
+-	if (nf_ct_zone_add(tmpl, flags, zone) < 0)
+-		goto out_free;
+-
++	nf_ct_zone_add(tmpl, zone);
+ 	atomic_set(&tmpl->ct_general.use, 0);
+ 
+ 	return tmpl;
+-out_free:
+-	kfree(tmpl);
+-	return NULL;
+ }
+ EXPORT_SYMBOL_GPL(nf_ct_tmpl_alloc);
+ 
+@@ -929,16 +923,13 @@ __nf_conntrack_alloc(struct net *net,
+ 	       offsetof(struct nf_conn, proto) -
+ 	       offsetof(struct nf_conn, __nfct_init_offset[0]));
+ 
+-	if (zone && nf_ct_zone_add(ct, GFP_ATOMIC, zone) < 0)
+-		goto out_free;
++	nf_ct_zone_add(ct, zone);
+ 
+ 	/* Because we use RCU lookups, we set ct_general.use to zero before
+ 	 * this is inserted in any list.
+ 	 */
+ 	atomic_set(&ct->ct_general.use, 0);
+ 	return ct;
+-out_free:
+-	kmem_cache_free(nf_conntrack_cachep, ct);
+ out:
+ 	atomic_dec(&net->ct.count);
+ 	return ERR_PTR(-ENOMEM);
+@@ -1342,14 +1333,6 @@ bool __nf_ct_kill_acct(struct nf_conn *ct,
+ }
+ EXPORT_SYMBOL_GPL(__nf_ct_kill_acct);
+ 
+-#ifdef CONFIG_NF_CONNTRACK_ZONES
+-static struct nf_ct_ext_type nf_ct_zone_extend __read_mostly = {
+-	.len	= sizeof(struct nf_conntrack_zone),
+-	.align	= __alignof__(struct nf_conntrack_zone),
+-	.id	= NF_CT_EXT_ZONE,
+-};
+-#endif
+-
+ #if IS_ENABLED(CONFIG_NF_CT_NETLINK)
+ 
+ #include <linux/netfilter/nfnetlink.h>
+@@ -1532,9 +1515,6 @@ void nf_conntrack_cleanup_end(void)
+ 
+ 	nf_ct_free_hashtable(nf_conntrack_hash, nf_conntrack_htable_size);
+ 
+-#ifdef CONFIG_NF_CONNTRACK_ZONES
+-	nf_ct_extend_unregister(&nf_ct_zone_extend);
+-#endif
+ 	nf_conntrack_proto_fini();
+ 	nf_conntrack_seqadj_fini();
+ 	nf_conntrack_labels_fini();
+@@ -1771,11 +1751,6 @@ int nf_conntrack_init_start(void)
+ 	if (ret < 0)
+ 		goto err_seqadj;
+ 
+-#ifdef CONFIG_NF_CONNTRACK_ZONES
+-	ret = nf_ct_extend_register(&nf_ct_zone_extend);
+-	if (ret < 0)
+-		goto err_extend;
+-#endif
+ 	ret = nf_conntrack_proto_init();
+ 	if (ret < 0)
+ 		goto err_proto;
+@@ -1791,10 +1766,6 @@ int nf_conntrack_init_start(void)
+ 	return 0;
+ 
+ err_proto:
+-#ifdef CONFIG_NF_CONNTRACK_ZONES
+-	nf_ct_extend_unregister(&nf_ct_zone_extend);
+-err_extend:
+-#endif
+ 	nf_conntrack_seqadj_fini();
+ err_seqadj:
+ 	nf_conntrack_labels_fini();
 -- 
 2.1.4
+
