@@ -1,75 +1,66 @@
-From: Tom Herbert via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: XDP seeking input from NIC hardware vendors
-Date: Thu, 7 Jul 2016 10:53:54 -0700
-Message-ID: <CALx6S36BADKByJAYQLMXBx1NEDaqn6fdqsCk-OdgNo5vgHrO1Q@mail.gmail.com>
-References: <20160707124245.6d95635a@redhat.com>
-	<D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81@fmsmsx115.amr.corp.intel.com>
-	<20160707171246.5be5e433@jkicinski-Precision-T1700>
-Reply-To: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next v2 3/4] net: dsa: Suffix function manipulating
+ device_node with _dn
+Date: Thu, 7 Jul 2016 10:57:18 -0700
+Message-ID: <577E97FE.6010500@gmail.com>
+References: <1467756433-25062-1-git-send-email-f.fainelli@gmail.com>
+ <1467756433-25062-4-git-send-email-f.fainelli@gmail.com>
+ <20160705223612.GC28825@lunn.ch> <577C3817.1070908@gmail.com>
+ <87a8hvv85y.fsf@ketchup.mtl.sfl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	"Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
-	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
-To: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <20160707171246.5be5e433@jkicinski-Precision-T1700>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, davem@davemloft.net
+To: Vivien Didelot <vivien.didelot@savoirfairelinux.com>,
+	Andrew Lunn <andrew@lunn.ch>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f49.google.com ([209.85.220.49]:33078 "EHLO
+	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750859AbcGGR50 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 13:57:26 -0400
+Received: by mail-pa0-f49.google.com with SMTP id b13so7949664pat.0
+        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 10:57:26 -0700 (PDT)
+In-Reply-To: <87a8hvv85y.fsf@ketchup.mtl.sfl>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 7, 2016 at 9:12 AM, Jakub Kicinski
-<jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org> wrote:
-> On Thu, 7 Jul 2016 15:18:11 +0000, Fastabend, John R wrote:
->> The other interesting thing would be to do more than just packet
->> steering but actually run a more complete XDP program. Netronome
->> supports this right. The question I have though is this a stacked of
->> XDP programs one or more designated for hardware and some running in
->> software perhaps with some annotation in the program so the hardware
->> JIT knows where to place programs or do we expect the JIT itself to
->> try and decide what is best to offload. I think the easiest to start
->> with is to annotate the programs.
+On 07/05/2016 06:59 PM, Vivien Didelot wrote:
+> Hi,
+> 
+> Florian Fainelli <f.fainelli@gmail.com> writes:
+> 
+>> On 07/05/2016 03:36 PM, Andrew Lunn wrote:
+>>> On Tue, Jul 05, 2016 at 03:07:12PM -0700, Florian Fainelli wrote:
+>>>> Make it clear that these functions take a device_node structure pointer
+>>>
+>>> Hi Florian
+>>>
+>>> Didn't we agree that we would only support a single device via a C
+>>> coded platform data structure?
 >>
->> Also as far as I know a lot of hardware can stick extra data to the
->> front or end of a packet so you could push metadata calculated by the
->> program here in a generic way without having to extend XDP defined
->> metadata structures. Another option is to DMA the metadata to a
->> specified address. With this metadata the consumer/producer XDP
->> programs have to agree on the format but no one else.
->
-> Yes!
->
-> At the XDP summit we were discussing pipe-lining XDP programs in
-> general, with different stages of the pipeline potentially using
-> specific hardware capabilities or even being directly mappable on
-> fixed HW functions.
->
-> Designating parsing as one of specialized blocks makes sense in a long
-> run, probably at the first stage with recirculation possible.  We also
-> have some parsing HW we could utilize at some point.  However, I'm
-> worried that it's too early to impose constraints and APIs.  I agree
-> that we should first set a standard way to pass metadata across tail
-> calls to facilitate any form of pipe lining, regardless of which parts
-> of pipeline HW is able to offload.
+>> That is true for the devices I know about, both in and out of tree,
+>> however, while discussing offline with Vivien it seemed like there was a
+>> potential need for having a x86-based platform which could need that,
+>> Vivien do you think this platform could be in-tree one day (if not already)?
+> 
+> This customer platform is not mainlined yet and I cannot say today if it
+> will be. However it is likely to get a new revision soon with 3
+> interconnected 6352 hanging the x86 Baytrail.
+> 
+> DT on x86 is possible, but not straight-forward, and thanks to Florian's
+> work the pdata support is almost there for free.
+> 
+>>> All the functions you are renaming will never be called in that
+>>> case. So i think they can retain there names. You have no need to add
+>>> none device node equivalents.
+>>>
+>>> So lets drop this patch.
+> 
+> The patch is not big and I think it doesn't hurt to add that explicit
+> suffix, I'd keep the patch in the series.
 
-+1
-
-I don't see any reason why XDP programs can be turned into a pipeline,
-but this is implementation based on the output of one program being
-the inout of the next.  While XDP may work with pipeline it does not
-require it or define it. This makes XDP different from P4 and the
-match-action paradigm.
-
-Tom
+Either way is fine with me really, we can drop this patch, add it later,
+not add it, up to you guys. I think the 3 others could go in as they are
+pretty self contained, your call David.
+-- 
+Florian
