@@ -1,100 +1,207 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH] net: sched: convert qdisc linked list to hashtable
- (was Re: Deleting child qdisc doesn't reset parent to default qdisc?)
-Date: Thu, 07 Jul 2016 18:53:12 +0200
-Message-ID: <1467910392.1273.44.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>
-	   <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
-	   <20160414151813.GE3715@orbyte.nwl.cc>
-	   <alpine.LNX.2.00.1604141807350.27368@cbobk.fhfr.pm>
-	   <1460656170.10638.61.camel@edumazet-glaptop3.roam.corp.google.com>
-	   <5710E1C1.2090209@mojatatu.com>
-	  <1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com>
-	  <alpine.LNX.2.00.1607071102010.24757@cbobk.fhfr.pm>
-	 <1467899463.1273.37.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <alpine.LNX.2.00.1607071823290.24757@cbobk.fhfr.pm>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: Removing lots of IS_ERR_VALUE abuses and compilation warning.
+Date: Thu, 7 Jul 2016 10:17:59 -0700
+Message-ID: <20160707171759.GA7615@roeck-us.net>
+References: <1467907214-5783-1-git-send-email-arvind.yadav.cs@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Craig Gallek <kraigatgoog@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Jiri Kosina <jikos@kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:32899 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750899AbcGGQxR (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 12:53:17 -0400
-In-Reply-To: <alpine.LNX.2.00.1607071823290.24757@cbobk.fhfr.pm>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: leoli@freescale.com, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <1467907214-5783-1-git-send-email-arvind.yadav.cs@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-07-07 at 18:32 +0200, Jiri Kosina wrote:
-> On Thu, 7 Jul 2016, Eric Dumazet wrote:
+On Thu, Jul 07, 2016 at 09:30:14PM +0530, Arvind Yadav wrote:
+> Passing value in IS_ERR_VALUE() is wrong, as they pass an 'int'
+> into a function that takes an 'unsigned long' argument.This happens
+> to work because the type is sign-extended on 64-bit architectures
+> before it gets converted into an unsigned type.
 > 
-> > > @@ -1440,6 +1441,7 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
-> > >  {
-> > >  	int ret = 0, q_idx = *q_idx_p;
-> > >  	struct Qdisc *q;
-> > > +	int b;
-> > >  
-> > >  	if (!root)
-> > >  		return 0;
-> > > @@ -1454,7 +1456,7 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
-> > >  			goto done;
-> > >  		q_idx++;
-> > >  	}
-> > > -	list_for_each_entry(q, &root->list, list) {
-> > > +	hash_for_each(qdisc_dev(root)->qdisc_hash, b, q, hash) {
-> > >  		if (q_idx < s_q_idx) {
-> > >  			q_idx++;
-> > >  			continue;
-> > > @@ -1771,6 +1773,7 @@ static int tc_dump_tclass_root(struct Qdisc *root, struct sk_buff *skb,
-> > >  			       int *t_p, int s_t)
-> > >  {
-> > >  	struct Qdisc *q;
-> > > +	int b;
-> > >  
-> > >  	if (!root)
-> > >  		return 0;
-> > > @@ -1778,7 +1781,7 @@ static int tc_dump_tclass_root(struct Qdisc *root, struct sk_buff *skb,
-> > >  	if (tc_dump_tclass_qdisc(root, skb, tcm, cb, t_p, s_t) < 0)
-> > >  		return -1;
-> > >  
-> > > -	list_for_each_entry(q, &root->list, list) {
-> > > +	hash_for_each_rcu(qdisc_dev(root)->qdisc_hash, b, q, hash) {
-> > >  		if (tc_dump_tclass_qdisc(q, skb, tcm, cb, t_p, s_t) < 0)
-> > >  			return -1;
-> > >  	}
-> > 
-> > 
-> > Not sure why you used the rcu version here, but the non rcu version in
-> > tc_dump_qdisc_root()
+> Passing an 'unsigned short' or 'unsigned int'argument into
+> IS_ERR_VALUE() is guaranteed to be broken, as are 8-bit integers
+> and types that are wider than 'unsigned long'.
 > 
-> Good catch.
+> Any user will get compilation warning for that do not pass an
+> unsigned long' argument.
 > 
-> Actually even the current code is odd in this regard -- 
-> qdisc_match_from_root() uses RCU iterator,
+> Commit '287980e49f; - This change is alreday fixes lots of other
+> Worst abusers
+> 
+> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+> ---
+>  drivers/net/ethernet/freescale/ucc_geth.c | 30 +++++++++++++++---------------
+>  1 file changed, 15 insertions(+), 15 deletions(-)
+> 
+> diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
+> index 5bf1ade..c1ead2c 100644
+> --- a/drivers/net/ethernet/freescale/ucc_geth.c
+> +++ b/drivers/net/ethernet/freescale/ucc_geth.c
+> @@ -289,7 +289,7 @@ static int fill_init_enet_entries(struct ucc_geth_private *ugeth,
+>  		else {
+>  			init_enet_offset =
+>  			    qe_muram_alloc(thread_size, thread_alignment);
+> -			if (IS_ERR_VALUE(init_enet_offset)) {
+> +			if (init_enet_offset < 0) {
 
-Because it can be run from qdisc enqueue() dequeue(), not holding RTNL.
+init_enet_offset is defined as u32 and thus never < 0.
 
->  while tc_dump_*() use the 
-> non-RCU one; addition and deletion is performed using RCU primitives.
+>  				if (netif_msg_ifup(ugeth))
+>  					pr_err("Can not allocate DPRAM memory\n");
+>  				qe_put_snum((u8) snum);
+> @@ -2234,7 +2234,7 @@ static int ucc_geth_alloc_tx(struct ucc_geth_private *ugeth)
+>  			ugeth->tx_bd_ring_offset[j] =
+>  			    qe_muram_alloc(length,
+>  					   UCC_GETH_TX_BD_RING_ALIGNMENT);
+> -			if (!IS_ERR_VALUE(ugeth->tx_bd_ring_offset[j]))
+> +			if (!ugeth->tx_bd_ring_offset[j])
 
-It really is protected by RTNL (qdiscs can not change during the dump)
+qe_muram_alloc() returns a pointer or offset, not 0, if there is no error,
+meaning this change breaks the driver.
 
-> 
-> I haven't got my head around this yet; if it's correct at all, it'd at 
-> least deserve a comment somewhere.
-> 
-> I'll respin v2 of the patch (there is also a conflict on HASH_SIZE 
-> definition in ip6_tunnel.c, ip6_gre.c and sit.c due to hashtable.h include 
-> in netdevice.h that needs to be resolved as well) that'd make RCU usage 
-> consistent.
-> 
-> Any other objections/comments? I was namely curious about any opinions 
-> regarding the hashtable size.
+>  				ugeth->p_tx_bd_ring[j] =
+>  				    (u8 __iomem *) qe_muram_addr(ugeth->
+>  							 tx_bd_ring_offset[j]);
+> @@ -2311,7 +2311,7 @@ static int ucc_geth_alloc_rx(struct ucc_geth_private *ugeth)
+>  			ugeth->rx_bd_ring_offset[j] =
+>  			    qe_muram_alloc(length,
+>  					   UCC_GETH_RX_BD_RING_ALIGNMENT);
+> -			if (!IS_ERR_VALUE(ugeth->rx_bd_ring_offset[j]))
+> +			if (!ugeth->rx_bd_ring_offset[j])
 
-Well, this is the tricky part, but rhashtable would mean way more
-changes...
+Same here.
+
+>  				ugeth->p_rx_bd_ring[j] =
+>  				    (u8 __iomem *) qe_muram_addr(ugeth->
+>  							 rx_bd_ring_offset[j]);
+> @@ -2521,7 +2521,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  	ugeth->tx_glbl_pram_offset =
+>  	    qe_muram_alloc(sizeof(struct ucc_geth_tx_global_pram),
+>  			   UCC_GETH_TX_GLOBAL_PRAM_ALIGNMENT);
+> -	if (IS_ERR_VALUE(ugeth->tx_glbl_pram_offset)) {
+> +	if (ugeth->tx_glbl_pram_offset < 0) {
+
+tx_glbl_pram_offset is u32 and thus never < 0.
+
+>  		if (netif_msg_ifup(ugeth))
+>  			pr_err("Can not allocate DPRAM memory for p_tx_glbl_pram\n");
+>  		return -ENOMEM;
+> @@ -2541,7 +2541,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  			   sizeof(struct ucc_geth_thread_data_tx) +
+>  			   32 * (numThreadsTxNumerical == 1),
+>  			   UCC_GETH_THREAD_DATA_ALIGNMENT);
+> -	if (IS_ERR_VALUE(ugeth->thread_dat_tx_offset)) {
+> +	if (ugeth->thread_dat_tx_offset < 0) {
+
+thread_dat_tx_offset is u32 and thus never < 0.
+
+>  		if (netif_msg_ifup(ugeth))
+>  			pr_err("Can not allocate DPRAM memory for p_thread_data_tx\n");
+>  		return -ENOMEM;
+> @@ -2568,7 +2568,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  	    qe_muram_alloc(ug_info->numQueuesTx *
+>  			   sizeof(struct ucc_geth_send_queue_qd),
+>  			   UCC_GETH_SEND_QUEUE_QUEUE_DESCRIPTOR_ALIGNMENT);
+> -	if (IS_ERR_VALUE(ugeth->send_q_mem_reg_offset)) {
+> +	if (ugeth->send_q_mem_reg_offset < 0) {
+
+send_q_mem_reg_offset is u32 and thus never < 0.
+
+>  		if (netif_msg_ifup(ugeth))
+>  			pr_err("Can not allocate DPRAM memory for p_send_q_mem_reg\n");
+>  		return -ENOMEM;
+> @@ -2609,7 +2609,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  		ugeth->scheduler_offset =
+>  		    qe_muram_alloc(sizeof(struct ucc_geth_scheduler),
+>  				   UCC_GETH_SCHEDULER_ALIGNMENT);
+> -		if (IS_ERR_VALUE(ugeth->scheduler_offset)) {
+> +		if (ugeth->scheduler_offset < 0) {
+
+scheduler_offset is u32 and thus never < 0.
+
+Giving up here.
+
+I now looked at two of your patches. In both, you introduce bugs instead of
+fixing them. Worse, in this case the driver is no longer functional after your
+patch is applied. Please be more careful.
+
+Thanks,
+Guenter
+
+>  			if (netif_msg_ifup(ugeth))
+>  				pr_err("Can not allocate DPRAM memory for p_scheduler\n");
+>  			return -ENOMEM;
+> @@ -2656,7 +2656,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  		    qe_muram_alloc(sizeof
+>  				   (struct ucc_geth_tx_firmware_statistics_pram),
+>  				   UCC_GETH_TX_STATISTICS_ALIGNMENT);
+> -		if (IS_ERR_VALUE(ugeth->tx_fw_statistics_pram_offset)) {
+> +		if (ugeth->tx_fw_statistics_pram_offset < 0) {
+>  			if (netif_msg_ifup(ugeth))
+>  				pr_err("Can not allocate DPRAM memory for p_tx_fw_statistics_pram\n");
+>  			return -ENOMEM;
+> @@ -2693,7 +2693,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  	ugeth->rx_glbl_pram_offset =
+>  	    qe_muram_alloc(sizeof(struct ucc_geth_rx_global_pram),
+>  			   UCC_GETH_RX_GLOBAL_PRAM_ALIGNMENT);
+> -	if (IS_ERR_VALUE(ugeth->rx_glbl_pram_offset)) {
+> +	if (ugeth->rx_glbl_pram_offset < 0) {
+>  		if (netif_msg_ifup(ugeth))
+>  			pr_err("Can not allocate DPRAM memory for p_rx_glbl_pram\n");
+>  		return -ENOMEM;
+> @@ -2712,7 +2712,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  	    qe_muram_alloc(numThreadsRxNumerical *
+>  			   sizeof(struct ucc_geth_thread_data_rx),
+>  			   UCC_GETH_THREAD_DATA_ALIGNMENT);
+> -	if (IS_ERR_VALUE(ugeth->thread_dat_rx_offset)) {
+> +	if (ugeth->thread_dat_rx_offset < 0) {
+>  		if (netif_msg_ifup(ugeth))
+>  			pr_err("Can not allocate DPRAM memory for p_thread_data_rx\n");
+>  		return -ENOMEM;
+> @@ -2733,7 +2733,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  		    qe_muram_alloc(sizeof
+>  				   (struct ucc_geth_rx_firmware_statistics_pram),
+>  				   UCC_GETH_RX_STATISTICS_ALIGNMENT);
+> -		if (IS_ERR_VALUE(ugeth->rx_fw_statistics_pram_offset)) {
+> +		if (ugeth->rx_fw_statistics_pram_offset < 0) {
+>  			if (netif_msg_ifup(ugeth))
+>  				pr_err("Can not allocate DPRAM memory for p_rx_fw_statistics_pram\n");
+>  			return -ENOMEM;
+> @@ -2753,7 +2753,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  	    qe_muram_alloc(ug_info->numQueuesRx *
+>  			   sizeof(struct ucc_geth_rx_interrupt_coalescing_entry)
+>  			   + 4, UCC_GETH_RX_INTERRUPT_COALESCING_ALIGNMENT);
+> -	if (IS_ERR_VALUE(ugeth->rx_irq_coalescing_tbl_offset)) {
+> +	if (ugeth->rx_irq_coalescing_tbl_offset < 0) {
+>  		if (netif_msg_ifup(ugeth))
+>  			pr_err("Can not allocate DPRAM memory for p_rx_irq_coalescing_tbl\n");
+>  		return -ENOMEM;
+> @@ -2819,7 +2819,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  			   (sizeof(struct ucc_geth_rx_bd_queues_entry) +
+>  			    sizeof(struct ucc_geth_rx_prefetched_bds)),
+>  			   UCC_GETH_RX_BD_QUEUES_ALIGNMENT);
+> -	if (IS_ERR_VALUE(ugeth->rx_bd_qs_tbl_offset)) {
+> +	if (ugeth->rx_bd_qs_tbl_offset < 0) {
+>  		if (netif_msg_ifup(ugeth))
+>  			pr_err("Can not allocate DPRAM memory for p_rx_bd_qs_tbl\n");
+>  		return -ENOMEM;
+> @@ -2905,7 +2905,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  		ugeth->exf_glbl_param_offset =
+>  		    qe_muram_alloc(sizeof(struct ucc_geth_exf_global_pram),
+>  		UCC_GETH_RX_EXTENDED_FILTERING_GLOBAL_PARAMETERS_ALIGNMENT);
+> -		if (IS_ERR_VALUE(ugeth->exf_glbl_param_offset)) {
+> +		if (ugeth->exf_glbl_param_offset < 0) {
+>  			if (netif_msg_ifup(ugeth))
+>  				pr_err("Can not allocate DPRAM memory for p_exf_glbl_param\n");
+>  			return -ENOMEM;
+> @@ -3039,7 +3039,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>  
+>  	/* Allocate InitEnet command parameter structure */
+>  	init_enet_pram_offset = qe_muram_alloc(sizeof(struct ucc_geth_init_pram), 4);
+> -	if (IS_ERR_VALUE(init_enet_pram_offset)) {
+> +	if (init_enet_pram_offset < 0) {
+>  		if (netif_msg_ifup(ugeth))
+>  			pr_err("Can not allocate DPRAM memory for p_init_enet_pram\n");
+>  		return -ENOMEM;
