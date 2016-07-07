@@ -1,60 +1,73 @@
-From: Craig Gallek <kraigatgoog@gmail.com>
-Subject: Re: [RFC PATCH v2] net: sched: convert qdisc linked list to hashtable
-Date: Thu, 7 Jul 2016 18:57:33 -0400
-Message-ID: <CAEfhGizOVjafBpH8K0+57cyN_ySKqChYRw8jrfV=ODM5nmnvmA@mail.gmail.com>
+From: Iyappan Subramanian <isubramanian@apm.com>
+Subject: Re: [PATCH v2 3/5] drivers: net: phy: Add MDIO driver
+Date: Thu, 7 Jul 2016 15:57:36 -0700
+Message-ID: <CAKh23Fk2gBwoMxPN5dsV7=y=1zSYfoXRQhq5anTbG61gYf8z7Q@mail.gmail.com>
+References: <1464739840-21971-1-git-send-email-isubramanian@apm.com>
+ <1464739840-21971-4-git-send-email-isubramanian@apm.com> <20160601011148.GD31982@lunn.ch>
+ <CAKh23FmaQy8J=f-eyfBeNndz0oT5R0icvwJ3vrw1DMJnj9uv_g@mail.gmail.com>
+ <20160705134950.GC5230@lunn.ch> <CAKh23FnvgWRMo=M35Mj4=a_KeUpvOoHa8stU=bSk9Y3VSRtyzQ@mail.gmail.com>
+ <20160707140302.GP19800@lunn.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Eric Dumazet <eric.dumazet@gmail.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Phil Sutter <phil@nwl.cc>, netdev <netdev@vger.kernel.org>,
-	LKML <linux-kernel@vger.kernel.org>
-To: Jiri Kosina <jikos@kernel.org>
+Cc: David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-arm-kernel@lists.infradead.org"
+	<linux-arm-kernel@lists.infradead.org>, patches <patches@apm.com>,
+	Matthias Brugger <matthias.bgg@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:34677 "EHLO
-	mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753044AbcGGW5h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 18:57:37 -0400
-Received: by mail-lf0-f66.google.com with SMTP id a10so907175lfb.1
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 15:57:36 -0700 (PDT)
-Received: from mail-lf0-f45.google.com (mail-lf0-f45.google.com. [209.85.215.45])
-        by smtp.gmail.com with ESMTPSA id 206sm7905675ljj.0.2016.07.07.15.57.34
-        for <netdev@vger.kernel.org>
-        (version=TLS1_2 cipher=ECDHE-RSA-AES128-GCM-SHA256 bits=128/128);
-        Thu, 07 Jul 2016 15:57:34 -0700 (PDT)
-Received: by mail-lf0-f45.google.com with SMTP id l188so20762615lfe.2
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 15:57:34 -0700 (PDT)
+Received: from mail-vk0-f43.google.com ([209.85.213.43]:32998 "EHLO
+	mail-vk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753406AbcGGW5k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 18:57:40 -0400
+Received: by mail-vk0-f43.google.com with SMTP id b192so39810665vke.0
+        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 15:57:39 -0700 (PDT)
+In-Reply-To: <20160707140302.GP19800@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 7, 2016 at 4:36 PM, Jiri Kosina <jikos@kernel.org> wrote:
-> From: Jiri Kosina <jkosina@suse.cz>
+Hi Andrew,
+
+On Thu, Jul 7, 2016 at 7:03 AM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> Wed, Jul 06, 2016 at 04:44:44PM -0700, Iyappan Subramanian wrote:
+>> Hi Andrew,
+>>
+>> On Tue, Jul 5, 2016 at 6:49 AM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> > On Mon, Jun 06, 2016 at 10:12:35AM -0700, Iyappan Subramanian wrote:
+>> >> Hi Andrew,
+>> >>
+>> >> Thanks for the review.
+>> >>
+>> >> On Tue, May 31, 2016 at 6:11 PM, Andrew Lunn <andrew@lunn.ch> wrote:
+>> >> > On Tue, May 31, 2016 at 05:10:38PM -0700, Iyappan Subramanian wrote:
+>> >> >> +static int xgene_mdio_reset(struct xgene_mdio_pdata *pdata)
+>> >> >> +{
+>> >> >> +     int ret;
+>> >> >> +
+>> >> >> +     if (pdata->mdio_id == XGENE_MDIO_RGMII) {
+>> >> >> +             if (pdata->dev->of_node) {
+>> >> >> +                     clk_prepare_enable(pdata->clk);
+>> >> >> +                     clk_disable_unprepare(pdata->clk);
+>> >> >> +                     clk_prepare_enable(pdata->clk);
+>> >> >
+>> >> > Hi Iyappan
+>> >> >
+>> >> > Is that a workaround for a hardware problem? If so, i would suggest
+>> >> > adding a comment, to stop people submitting a patch simplifying it.
+>> >>
+>> >> Hardware expects this clock sequence.  I'll add comment as you suggested.
+>> >
+>> > What exactly does the hardware require? Is this a workaround for a bug
+>> > in the clock generator? Or a workaround for a bug in the MDIO device?
+>>
+>> Hardware requires a clock pulse.  There is no bug.
 >
-> Convert the per-device linked list into a hashtable. The primary
-> motivation for this change is that currently, we're not tracking all the
-> qdiscs in hierarchy (e.g. excluding default qdiscs), as the lookup
-> performed over the linked list by qdisc_match_from_root() is rather
-> expensive.
+> And how are you guaranteeing a pulse? You enable/disable/enable
+> without any sleeps, so it could all happen within a single clock
+> cycle?
+
+I'll add delay to generate the pulse and resubmit the patch.
+
 >
-> The ultimate goal is to get rid of hidden qdiscs completely, which will
-> bring much more determinism in user experience.
->
-> As we're adding hashtable.h include into generic netdevice.h, we have to make
-> sure HASH_SIZE macro is now non-conflicting with local definitions.
->
-> Signed-off-by: Jiri Kosina <jkosina@suse.cz>
-> ---
->
-> v1 -> v2:       fix up RCU hastable usage wrt. rtnl
->                 fix compilation of .c files which define their own
->                  HASH_SIZE that now oncflicts with the one from
->                  hashtable.h (newly included via netdevice.h)
-This sort of seems like it's just side-stepping the problem.  Given
-that the size of this hash table is fixed, the lookup time of this
-operation is still going to approach linear as the number of qdiscs
-increases.  I took a quick pass at trying to use rhashtable for this
-purpose a few weeks ago but dropped it when I realized many of the
-table operations (which can trigger resize events) need to happen
-while holding the rtnl lock.  I still think it would be possible to
-use a dynamically sizable datastructure for this purpose, but it will
-be a fair amount of work to change the current locking semantics to
-make it work...
+>         Andrew
