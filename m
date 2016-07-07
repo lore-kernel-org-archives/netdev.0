@@ -1,196 +1,174 @@
-From: arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: Re: [PATCH] Remove lots of IS_ERR_VALUE abuses.
-Date: Thu, 7 Jul 2016 20:47:09 +0530
-Message-ID: <577E7275.4030503@gmail.com>
-References: <1467832663-5653-1-git-send-email-arvind.yadav.cs@gmail.com>
- <5371430.pWs0YMj39t@wuerfel>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"; Format="flowed"
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>, linuxppc-dev@lists.ozlabs.org
-Return-path: <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
-In-Reply-To: <5371430.pWs0YMj39t@wuerfel>
-List-Unsubscribe: <https://lists.ozlabs.org/options/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=unsubscribe>
-List-Archive: <http://lists.ozlabs.org/pipermail/linuxppc-dev/>
-List-Post: <mailto:linuxppc-dev@lists.ozlabs.org>
-List-Help: <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=help>
-List-Subscribe: <https://lists.ozlabs.org/listinfo/linuxppc-dev>,
- <mailto:linuxppc-dev-request@lists.ozlabs.org?subject=subscribe>
-Errors-To: linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org
-Sender: "Linuxppc-dev"
- <linuxppc-dev-bounces+glppe-linuxppc-embedded-2=m.gmane.org@lists.ozlabs.org>
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: [PATCH] Removing lots of IS_ERR_VALUE abuses and compilation warning.
+Date: Thu,  7 Jul 2016 20:42:16 +0530
+Message-ID: <1467904336-3588-1-git-send-email-arvind.yadav.cs@gmail.com>
+Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
+	linux-kernel@vger.kernel.org,
+	Arvind Yadav <arvind.yadav.cs@gmail.com>
+To: leoli@freescale.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-QXMgcGVyIHlvdXIgY29uY2VybiwgSSBoYXZlIGNoYW5nZSBjb21taXQgbWVzc2FnZS4gU3VibWl0
-IG90aGVyIHBhdGNoLgoKVGhhbmtzLApBcnZpbmQgWWFkYXYKCk9uIFRodXJzZGF5IDA3IEp1bHkg
-MjAxNiAwMTo0MCBQTSwgQXJuZCBCZXJnbWFubiB3cm90ZToKPiBPbiBUaHVyc2RheSwgSnVseSA3
-LCAyMDE2IDEyOjQ3OjQzIEFNIENFU1QgQXJ2aW5kIFlhZGF2IHdyb3RlOgo+PiAgICAgIE1vc3Qg
-dXNlcnMgb2YgSVNfRVJSX1ZBTFVFKCkgaW4gdGhlIGtlcm5lbCBhcmUgd3JvbmcsIGFzIHRoZXkK
-Pj4gICAgICBwYXNzIGFuICdpbnQnIGludG8gYSBmdW5jdGlvbiB0aGF0IHRha2VzIGFuICd1bnNp
-Z25lZCBsb25nJwo+PiAgICAgIGFyZ3VtZW50LiBUaGlzIGhhcHBlbnMgdG8gd29yayBiZWNhdXNl
-IHRoZSB0eXBlIGlzIHNpZ24tZXh0ZW5kZWQKPj4gICAgICBvbiA2NC1iaXQgYXJjaGl0ZWN0dXJl
-cyBiZWZvcmUgaXQgZ2V0cyBjb252ZXJ0ZWQgaW50byBhbgo+PiAgICAgIHVuc2lnbmVkIHR5cGUu
-Cj4+Cj4+ICAgICAgSG93ZXZlciwgYW55dGhpbmcgdGhhdCBwYXNzZXMgYW4gJ3Vuc2lnbmVkIHNo
-b3J0JyBvciAndW5zaWduZWQgaW50Jwo+PiAgICAgIGFyZ3VtZW50IGludG8gSVNfRVJSX1ZBTFVF
-KCkgaXMgZ3VhcmFudGVlZCB0byBiZSBicm9rZW4sIGFzIGFyZQo+PiAgICAgIDgtYml0IGludGVn
-ZXJzIGFuZCB0eXBlcyB0aGF0IGFyZSB3aWRlciB0aGFuICd1bnNpZ25lZCBsb25nJy4KPj4KPj4g
-ICAgICBBbmRyemVqIEhhamRhIGhhcyBhbHJlYWR5IGZpeGVkIGEgbG90IG9mIHRoZSB3b3JzdCBh
-YnVzZXJzIHRoYXQKPj4gICAgICB3ZXJlIGNhdXNpbmcgYWN0dWFsIGJ1Z3MsIGJ1dCBpdCB3b3Vs
-ZCBiZSBuaWNlIHRvIHByZXZlbnQgYW55Cj4+ICAgICAgdXNlcnMgdGhhdCBhcmUgbm90IHBhc3Np
-bmcgJ3Vuc2lnbmVkIGxvbmcnIGFyZ3VtZW50cy4KPj4KPj4gICAgICBUaGlzIHBhdGNoIGNoYW5n
-ZXMgYWxsIHVzZXJzIG9mIElTX0VSUl9WQUxVRSgpIHRoYXQgSSBjb3VsZCBmaW5kCj4+ICAgICAg
-b24gMzItYml0IEFSTSByYW5kY29uZmlnIGJ1aWxkcyBhbmQgeDg2IGFsbG1vZGNvbmZpZy4gRm9y
-IHRoZQo+PiAgICAgIG1vbWVudCwgdGhpcyBkb2Vzbid0IGNoYW5nZSB0aGUgZGVmaW5pdGlvbiBv
-ZiBJU19FUlJfVkFMVUUoKQo+PiAgICAgIGJlY2F1c2UgdGhlcmUgYXJlIHByb2JhYmx5IHN0aWxs
-IGFyY2hpdGVjdHVyZSBzcGVjaWZpYyB1c2Vycwo+PiAgICAgIGVsc2V3aGVyZS4KPj4KPj4gICAg
-ICBBbG1vc3QgYWxsIHRoZSB3YXJuaW5ncyBJIGdvdCBhcmUgZm9yIGZpbGVzIHRoYXQgYXJlIGJl
-dHRlciBvZmYKPj4gICAgICB1c2luZyAnaWYgKGVyciknIG9yICdpZiAoZXJyIDwgMCknLgo+PiAg
-ICAgIFRoZSBvbmx5IGxlZ2l0aW1hdGUgdXNlciBJIGNvdWxkIGZpbmQgdGhhdCB3ZSBnZXQgYSB3
-YXJuaW5nIGZvcgo+PiAgICAgIGlzIHRoZSAoMzItYml0IG9ubHkpIGZyZWVzY2FsZSBnaWdhYml0
-IGV0aGVybmV0IGRyaXZlci4KPj4KPj4gICAgICBJIHdhcyB1c2luZyB0aGlzIGRlZmluaXRpb24g
-Zm9yIHRlc3Rpbmc6Cj4+Cj4+ICAgICAgICNkZWZpbmUgSVNfRVJSX1ZBTFVFKHgpICgodW5zaWdu
-ZWQgbG9uZyopTlVMTCA9PSAodHlwZW9mICh4KSopTlVMTCAmJiBcCj4+ICAgICAgICB1bmxpa2Vs
-eSgodW5zaWduZWQgbG9uZyBsb25nKSh4KSA+PSAodW5zaWduZWQgbG9uZyBsb25nKSh0eXBlb2Yo
-eCkpLU1BWF9FUlJOTykpCj4+Cj4+ICAgICAgd2hpY2ggZW5kcyB1cCBtYWtpbmcgYWxsIDE2LWJp
-dCBvciB3aWRlciB0eXBlcyB3b3JrIGNvcnJlY3RseSB3aXRoCj4+ICAgICAgdGhlIG1vc3QgcGxh
-dXNpYmxlIGludGVycHJldGF0aW9uIG9mIHdoYXQgSVNfRVJSX1ZBTFVFKCkgd2FzIHN1cHBvc2Vk
-Cj4+ICAgICAgdG8gcmV0dXJuIGFjY29yZGluZyB0byBpdHMgdXNlcnMsIGJ1dCBhbHNvIGNhdXNl
-cyBhIGNvbXBpbGUtdGltZQo+PiAgICAgIHdhcm5pbmcgZm9yIGFueSB1c2VycyB0aGF0IGRvIG5v
-dCBwYXNzIGFuICd1bnNpZ25lZCBsb25nJyBhcmd1bWVudC4KPj4KPj4gU2lnbmVkLW9mZi1ieTog
-QXJ2aW5kIFlhZGF2IDxhcnZpbmQueWFkYXYuY3NAZ21haWwuY29tPgo+IFRoZSBhYm92ZSBpcyBt
-eSBjaGFuZ2Vsb2cgdGV4dCBmb3IgY29tbWl0IDI4Nzk4MGU0OWYsIGJ1dCBpdCdzIG5vdCBteSBw
-YXRjaC4KPgo+IFlvdXIgY2hhbmdlcyBsb29rIGZpbmUsIGJ1dCByZXVzaW5nIG15IGRlc2NyaXB0
-aW9uIHRoZXJlIHNlZW1zIHdyb25nLgo+IENhbiB5b3UgYWRkIGEgbmV3IGRlc2NyaXB0aW9uIGFu
-ZCBqdXN0IHBvaW50IHRvIG15IGNvbW1pdCBpbnN0ZWFkPwo+Cj4gCUFybmQKPgo+PiAgIGRyaXZl
-cnMvbmV0L2V0aGVybmV0L2ZyZWVzY2FsZS91Y2NfZ2V0aC5jIHwgMzAgKysrKysrKysrKysrKysr
-LS0tLS0tLS0tLS0tLS0tCj4+ICAgMSBmaWxlIGNoYW5nZWQsIDE1IGluc2VydGlvbnMoKyksIDE1
-IGRlbGV0aW9ucygtKQo+Pgo+PiBkaWZmIC0tZ2l0IGEvZHJpdmVycy9uZXQvZXRoZXJuZXQvZnJl
-ZXNjYWxlL3VjY19nZXRoLmMgYi9kcml2ZXJzL25ldC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dl
-dGguYwo+PiBpbmRleCA1YmYxYWRlLi5jMWVhZDJjIDEwMDY0NAo+PiAtLS0gYS9kcml2ZXJzL25l
-dC9ldGhlcm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYwo+PiArKysgYi9kcml2ZXJzL25ldC9ldGhl
-cm5ldC9mcmVlc2NhbGUvdWNjX2dldGguYwo+PiBAQCAtMjg5LDcgKzI4OSw3IEBAIHN0YXRpYyBp
-bnQgZmlsbF9pbml0X2VuZXRfZW50cmllcyhzdHJ1Y3QgdWNjX2dldGhfcHJpdmF0ZSAqdWdldGgs
-Cj4+ICAgCQllbHNlIHsKPj4gICAJCQlpbml0X2VuZXRfb2Zmc2V0ID0KPj4gICAJCQkgICAgcWVf
-bXVyYW1fYWxsb2ModGhyZWFkX3NpemUsIHRocmVhZF9hbGlnbm1lbnQpOwo+PiAtCQkJaWYgKElT
-X0VSUl9WQUxVRShpbml0X2VuZXRfb2Zmc2V0KSkgewo+PiArCQkJaWYgKGluaXRfZW5ldF9vZmZz
-ZXQgPCAwKSB7Cj4+ICAgCQkJCWlmIChuZXRpZl9tc2dfaWZ1cCh1Z2V0aCkpCj4+ICAgCQkJCQlw
-cl9lcnIoIkNhbiBub3QgYWxsb2NhdGUgRFBSQU0gbWVtb3J5XG4iKTsKPj4gICAJCQkJcWVfcHV0
-X3NudW0oKHU4KSBzbnVtKTsKPj4gQEAgLTIyMzQsNyArMjIzNCw3IEBAIHN0YXRpYyBpbnQgdWNj
-X2dldGhfYWxsb2NfdHgoc3RydWN0IHVjY19nZXRoX3ByaXZhdGUgKnVnZXRoKQo+PiAgIAkJCXVn
-ZXRoLT50eF9iZF9yaW5nX29mZnNldFtqXSA9Cj4+ICAgCQkJICAgIHFlX211cmFtX2FsbG9jKGxl
-bmd0aCwKPj4gICAJCQkJCSAgIFVDQ19HRVRIX1RYX0JEX1JJTkdfQUxJR05NRU5UKTsKPj4gLQkJ
-CWlmICghSVNfRVJSX1ZBTFVFKHVnZXRoLT50eF9iZF9yaW5nX29mZnNldFtqXSkpCj4+ICsJCQlp
-ZiAoIXVnZXRoLT50eF9iZF9yaW5nX29mZnNldFtqXSkKPj4gICAJCQkJdWdldGgtPnBfdHhfYmRf
-cmluZ1tqXSA9Cj4+ICAgCQkJCSAgICAodTggX19pb21lbSAqKSBxZV9tdXJhbV9hZGRyKHVnZXRo
-LT4KPj4gICAJCQkJCQkJIHR4X2JkX3Jpbmdfb2Zmc2V0W2pdKTsKPj4gQEAgLTIzMTEsNyArMjMx
-MSw3IEBAIHN0YXRpYyBpbnQgdWNjX2dldGhfYWxsb2Nfcngoc3RydWN0IHVjY19nZXRoX3ByaXZh
-dGUgKnVnZXRoKQo+PiAgIAkJCXVnZXRoLT5yeF9iZF9yaW5nX29mZnNldFtqXSA9Cj4+ICAgCQkJ
-ICAgIHFlX211cmFtX2FsbG9jKGxlbmd0aCwKPj4gICAJCQkJCSAgIFVDQ19HRVRIX1JYX0JEX1JJ
-TkdfQUxJR05NRU5UKTsKPj4gLQkJCWlmICghSVNfRVJSX1ZBTFVFKHVnZXRoLT5yeF9iZF9yaW5n
-X29mZnNldFtqXSkpCj4+ICsJCQlpZiAoIXVnZXRoLT5yeF9iZF9yaW5nX29mZnNldFtqXSkKPj4g
-ICAJCQkJdWdldGgtPnBfcnhfYmRfcmluZ1tqXSA9Cj4+ICAgCQkJCSAgICAodTggX19pb21lbSAq
-KSBxZV9tdXJhbV9hZGRyKHVnZXRoLT4KPj4gICAJCQkJCQkJIHJ4X2JkX3Jpbmdfb2Zmc2V0W2pd
-KTsKPj4gQEAgLTI1MjEsNyArMjUyMSw3IEBAIHN0YXRpYyBpbnQgdWNjX2dldGhfc3RhcnR1cChz
-dHJ1Y3QgdWNjX2dldGhfcHJpdmF0ZSAqdWdldGgpCj4+ICAgCXVnZXRoLT50eF9nbGJsX3ByYW1f
-b2Zmc2V0ID0KPj4gICAJICAgIHFlX211cmFtX2FsbG9jKHNpemVvZihzdHJ1Y3QgdWNjX2dldGhf
-dHhfZ2xvYmFsX3ByYW0pLAo+PiAgIAkJCSAgIFVDQ19HRVRIX1RYX0dMT0JBTF9QUkFNX0FMSUdO
-TUVOVCk7Cj4+IC0JaWYgKElTX0VSUl9WQUxVRSh1Z2V0aC0+dHhfZ2xibF9wcmFtX29mZnNldCkp
-IHsKPj4gKwlpZiAodWdldGgtPnR4X2dsYmxfcHJhbV9vZmZzZXQgPCAwKSB7Cj4+ICAgCQlpZiAo
-bmV0aWZfbXNnX2lmdXAodWdldGgpKQo+PiAgIAkJCXByX2VycigiQ2FuIG5vdCBhbGxvY2F0ZSBE
-UFJBTSBtZW1vcnkgZm9yIHBfdHhfZ2xibF9wcmFtXG4iKTsKPj4gICAJCXJldHVybiAtRU5PTUVN
-Owo+PiBAQCAtMjU0MSw3ICsyNTQxLDcgQEAgc3RhdGljIGludCB1Y2NfZ2V0aF9zdGFydHVwKHN0
-cnVjdCB1Y2NfZ2V0aF9wcml2YXRlICp1Z2V0aCkKPj4gICAJCQkgICBzaXplb2Yoc3RydWN0IHVj
-Y19nZXRoX3RocmVhZF9kYXRhX3R4KSArCj4+ICAgCQkJICAgMzIgKiAobnVtVGhyZWFkc1R4TnVt
-ZXJpY2FsID09IDEpLAo+PiAgIAkJCSAgIFVDQ19HRVRIX1RIUkVBRF9EQVRBX0FMSUdOTUVOVCk7
-Cj4+IC0JaWYgKElTX0VSUl9WQUxVRSh1Z2V0aC0+dGhyZWFkX2RhdF90eF9vZmZzZXQpKSB7Cj4+
-ICsJaWYgKHVnZXRoLT50aHJlYWRfZGF0X3R4X29mZnNldCA8IDApIHsKPj4gICAJCWlmIChuZXRp
-Zl9tc2dfaWZ1cCh1Z2V0aCkpCj4+ICAgCQkJcHJfZXJyKCJDYW4gbm90IGFsbG9jYXRlIERQUkFN
-IG1lbW9yeSBmb3IgcF90aHJlYWRfZGF0YV90eFxuIik7Cj4+ICAgCQlyZXR1cm4gLUVOT01FTTsK
-Pj4gQEAgLTI1NjgsNyArMjU2OCw3IEBAIHN0YXRpYyBpbnQgdWNjX2dldGhfc3RhcnR1cChzdHJ1
-Y3QgdWNjX2dldGhfcHJpdmF0ZSAqdWdldGgpCj4+ICAgCSAgICBxZV9tdXJhbV9hbGxvYyh1Z19p
-bmZvLT5udW1RdWV1ZXNUeCAqCj4+ICAgCQkJICAgc2l6ZW9mKHN0cnVjdCB1Y2NfZ2V0aF9zZW5k
-X3F1ZXVlX3FkKSwKPj4gICAJCQkgICBVQ0NfR0VUSF9TRU5EX1FVRVVFX1FVRVVFX0RFU0NSSVBU
-T1JfQUxJR05NRU5UKTsKPj4gLQlpZiAoSVNfRVJSX1ZBTFVFKHVnZXRoLT5zZW5kX3FfbWVtX3Jl
-Z19vZmZzZXQpKSB7Cj4+ICsJaWYgKHVnZXRoLT5zZW5kX3FfbWVtX3JlZ19vZmZzZXQgPCAwKSB7
-Cj4+ICAgCQlpZiAobmV0aWZfbXNnX2lmdXAodWdldGgpKQo+PiAgIAkJCXByX2VycigiQ2FuIG5v
-dCBhbGxvY2F0ZSBEUFJBTSBtZW1vcnkgZm9yIHBfc2VuZF9xX21lbV9yZWdcbiIpOwo+PiAgIAkJ
-cmV0dXJuIC1FTk9NRU07Cj4+IEBAIC0yNjA5LDcgKzI2MDksNyBAQCBzdGF0aWMgaW50IHVjY19n
-ZXRoX3N0YXJ0dXAoc3RydWN0IHVjY19nZXRoX3ByaXZhdGUgKnVnZXRoKQo+PiAgIAkJdWdldGgt
-PnNjaGVkdWxlcl9vZmZzZXQgPQo+PiAgIAkJICAgIHFlX211cmFtX2FsbG9jKHNpemVvZihzdHJ1
-Y3QgdWNjX2dldGhfc2NoZWR1bGVyKSwKPj4gICAJCQkJICAgVUNDX0dFVEhfU0NIRURVTEVSX0FM
-SUdOTUVOVCk7Cj4+IC0JCWlmIChJU19FUlJfVkFMVUUodWdldGgtPnNjaGVkdWxlcl9vZmZzZXQp
-KSB7Cj4+ICsJCWlmICh1Z2V0aC0+c2NoZWR1bGVyX29mZnNldCA8IDApIHsKPj4gICAJCQlpZiAo
-bmV0aWZfbXNnX2lmdXAodWdldGgpKQo+PiAgIAkJCQlwcl9lcnIoIkNhbiBub3QgYWxsb2NhdGUg
-RFBSQU0gbWVtb3J5IGZvciBwX3NjaGVkdWxlclxuIik7Cj4+ICAgCQkJcmV0dXJuIC1FTk9NRU07
-Cj4+IEBAIC0yNjU2LDcgKzI2NTYsNyBAQCBzdGF0aWMgaW50IHVjY19nZXRoX3N0YXJ0dXAoc3Ry
-dWN0IHVjY19nZXRoX3ByaXZhdGUgKnVnZXRoKQo+PiAgIAkJICAgIHFlX211cmFtX2FsbG9jKHNp
-emVvZgo+PiAgIAkJCQkgICAoc3RydWN0IHVjY19nZXRoX3R4X2Zpcm13YXJlX3N0YXRpc3RpY3Nf
-cHJhbSksCj4+ICAgCQkJCSAgIFVDQ19HRVRIX1RYX1NUQVRJU1RJQ1NfQUxJR05NRU5UKTsKPj4g
-LQkJaWYgKElTX0VSUl9WQUxVRSh1Z2V0aC0+dHhfZndfc3RhdGlzdGljc19wcmFtX29mZnNldCkp
-IHsKPj4gKwkJaWYgKHVnZXRoLT50eF9md19zdGF0aXN0aWNzX3ByYW1fb2Zmc2V0IDwgMCkgewo+
-PiAgIAkJCWlmIChuZXRpZl9tc2dfaWZ1cCh1Z2V0aCkpCj4+ICAgCQkJCXByX2VycigiQ2FuIG5v
-dCBhbGxvY2F0ZSBEUFJBTSBtZW1vcnkgZm9yIHBfdHhfZndfc3RhdGlzdGljc19wcmFtXG4iKTsK
-Pj4gICAJCQlyZXR1cm4gLUVOT01FTTsKPj4gQEAgLTI2OTMsNyArMjY5Myw3IEBAIHN0YXRpYyBp
-bnQgdWNjX2dldGhfc3RhcnR1cChzdHJ1Y3QgdWNjX2dldGhfcHJpdmF0ZSAqdWdldGgpCj4+ICAg
-CXVnZXRoLT5yeF9nbGJsX3ByYW1fb2Zmc2V0ID0KPj4gICAJICAgIHFlX211cmFtX2FsbG9jKHNp
-emVvZihzdHJ1Y3QgdWNjX2dldGhfcnhfZ2xvYmFsX3ByYW0pLAo+PiAgIAkJCSAgIFVDQ19HRVRI
-X1JYX0dMT0JBTF9QUkFNX0FMSUdOTUVOVCk7Cj4+IC0JaWYgKElTX0VSUl9WQUxVRSh1Z2V0aC0+
-cnhfZ2xibF9wcmFtX29mZnNldCkpIHsKPj4gKwlpZiAodWdldGgtPnJ4X2dsYmxfcHJhbV9vZmZz
-ZXQgPCAwKSB7Cj4+ICAgCQlpZiAobmV0aWZfbXNnX2lmdXAodWdldGgpKQo+PiAgIAkJCXByX2Vy
-cigiQ2FuIG5vdCBhbGxvY2F0ZSBEUFJBTSBtZW1vcnkgZm9yIHBfcnhfZ2xibF9wcmFtXG4iKTsK
-Pj4gICAJCXJldHVybiAtRU5PTUVNOwo+PiBAQCAtMjcxMiw3ICsyNzEyLDcgQEAgc3RhdGljIGlu
-dCB1Y2NfZ2V0aF9zdGFydHVwKHN0cnVjdCB1Y2NfZ2V0aF9wcml2YXRlICp1Z2V0aCkKPj4gICAJ
-ICAgIHFlX211cmFtX2FsbG9jKG51bVRocmVhZHNSeE51bWVyaWNhbCAqCj4+ICAgCQkJICAgc2l6
-ZW9mKHN0cnVjdCB1Y2NfZ2V0aF90aHJlYWRfZGF0YV9yeCksCj4+ICAgCQkJICAgVUNDX0dFVEhf
-VEhSRUFEX0RBVEFfQUxJR05NRU5UKTsKPj4gLQlpZiAoSVNfRVJSX1ZBTFVFKHVnZXRoLT50aHJl
-YWRfZGF0X3J4X29mZnNldCkpIHsKPj4gKwlpZiAodWdldGgtPnRocmVhZF9kYXRfcnhfb2Zmc2V0
-IDwgMCkgewo+PiAgIAkJaWYgKG5ldGlmX21zZ19pZnVwKHVnZXRoKSkKPj4gICAJCQlwcl9lcnIo
-IkNhbiBub3QgYWxsb2NhdGUgRFBSQU0gbWVtb3J5IGZvciBwX3RocmVhZF9kYXRhX3J4XG4iKTsK
-Pj4gICAJCXJldHVybiAtRU5PTUVNOwo+PiBAQCAtMjczMyw3ICsyNzMzLDcgQEAgc3RhdGljIGlu
-dCB1Y2NfZ2V0aF9zdGFydHVwKHN0cnVjdCB1Y2NfZ2V0aF9wcml2YXRlICp1Z2V0aCkKPj4gICAJ
-CSAgICBxZV9tdXJhbV9hbGxvYyhzaXplb2YKPj4gICAJCQkJICAgKHN0cnVjdCB1Y2NfZ2V0aF9y
-eF9maXJtd2FyZV9zdGF0aXN0aWNzX3ByYW0pLAo+PiAgIAkJCQkgICBVQ0NfR0VUSF9SWF9TVEFU
-SVNUSUNTX0FMSUdOTUVOVCk7Cj4+IC0JCWlmIChJU19FUlJfVkFMVUUodWdldGgtPnJ4X2Z3X3N0
-YXRpc3RpY3NfcHJhbV9vZmZzZXQpKSB7Cj4+ICsJCWlmICh1Z2V0aC0+cnhfZndfc3RhdGlzdGlj
-c19wcmFtX29mZnNldCA8IDApIHsKPj4gICAJCQlpZiAobmV0aWZfbXNnX2lmdXAodWdldGgpKQo+
-PiAgIAkJCQlwcl9lcnIoIkNhbiBub3QgYWxsb2NhdGUgRFBSQU0gbWVtb3J5IGZvciBwX3J4X2Z3
-X3N0YXRpc3RpY3NfcHJhbVxuIik7Cj4+ICAgCQkJcmV0dXJuIC1FTk9NRU07Cj4+IEBAIC0yNzUz
-LDcgKzI3NTMsNyBAQCBzdGF0aWMgaW50IHVjY19nZXRoX3N0YXJ0dXAoc3RydWN0IHVjY19nZXRo
-X3ByaXZhdGUgKnVnZXRoKQo+PiAgIAkgICAgcWVfbXVyYW1fYWxsb2ModWdfaW5mby0+bnVtUXVl
-dWVzUnggKgo+PiAgIAkJCSAgIHNpemVvZihzdHJ1Y3QgdWNjX2dldGhfcnhfaW50ZXJydXB0X2Nv
-YWxlc2NpbmdfZW50cnkpCj4+ICAgCQkJICAgKyA0LCBVQ0NfR0VUSF9SWF9JTlRFUlJVUFRfQ09B
-TEVTQ0lOR19BTElHTk1FTlQpOwo+PiAtCWlmIChJU19FUlJfVkFMVUUodWdldGgtPnJ4X2lycV9j
-b2FsZXNjaW5nX3RibF9vZmZzZXQpKSB7Cj4+ICsJaWYgKHVnZXRoLT5yeF9pcnFfY29hbGVzY2lu
-Z190Ymxfb2Zmc2V0IDwgMCkgewo+PiAgIAkJaWYgKG5ldGlmX21zZ19pZnVwKHVnZXRoKSkKPj4g
-ICAJCQlwcl9lcnIoIkNhbiBub3QgYWxsb2NhdGUgRFBSQU0gbWVtb3J5IGZvciBwX3J4X2lycV9j
-b2FsZXNjaW5nX3RibFxuIik7Cj4+ICAgCQlyZXR1cm4gLUVOT01FTTsKPj4gQEAgLTI4MTksNyAr
-MjgxOSw3IEBAIHN0YXRpYyBpbnQgdWNjX2dldGhfc3RhcnR1cChzdHJ1Y3QgdWNjX2dldGhfcHJp
-dmF0ZSAqdWdldGgpCj4+ICAgCQkJICAgKHNpemVvZihzdHJ1Y3QgdWNjX2dldGhfcnhfYmRfcXVl
-dWVzX2VudHJ5KSArCj4+ICAgCQkJICAgIHNpemVvZihzdHJ1Y3QgdWNjX2dldGhfcnhfcHJlZmV0
-Y2hlZF9iZHMpKSwKPj4gICAJCQkgICBVQ0NfR0VUSF9SWF9CRF9RVUVVRVNfQUxJR05NRU5UKTsK
-Pj4gLQlpZiAoSVNfRVJSX1ZBTFVFKHVnZXRoLT5yeF9iZF9xc190Ymxfb2Zmc2V0KSkgewo+PiAr
-CWlmICh1Z2V0aC0+cnhfYmRfcXNfdGJsX29mZnNldCA8IDApIHsKPj4gICAJCWlmIChuZXRpZl9t
-c2dfaWZ1cCh1Z2V0aCkpCj4+ICAgCQkJcHJfZXJyKCJDYW4gbm90IGFsbG9jYXRlIERQUkFNIG1l
-bW9yeSBmb3IgcF9yeF9iZF9xc190YmxcbiIpOwo+PiAgIAkJcmV0dXJuIC1FTk9NRU07Cj4+IEBA
-IC0yOTA1LDcgKzI5MDUsNyBAQCBzdGF0aWMgaW50IHVjY19nZXRoX3N0YXJ0dXAoc3RydWN0IHVj
-Y19nZXRoX3ByaXZhdGUgKnVnZXRoKQo+PiAgIAkJdWdldGgtPmV4Zl9nbGJsX3BhcmFtX29mZnNl
-dCA9Cj4+ICAgCQkgICAgcWVfbXVyYW1fYWxsb2Moc2l6ZW9mKHN0cnVjdCB1Y2NfZ2V0aF9leGZf
-Z2xvYmFsX3ByYW0pLAo+PiAgIAkJVUNDX0dFVEhfUlhfRVhURU5ERURfRklMVEVSSU5HX0dMT0JB
-TF9QQVJBTUVURVJTX0FMSUdOTUVOVCk7Cj4+IC0JCWlmIChJU19FUlJfVkFMVUUodWdldGgtPmV4
-Zl9nbGJsX3BhcmFtX29mZnNldCkpIHsKPj4gKwkJaWYgKHVnZXRoLT5leGZfZ2xibF9wYXJhbV9v
-ZmZzZXQgPCAwKSB7Cj4+ICAgCQkJaWYgKG5ldGlmX21zZ19pZnVwKHVnZXRoKSkKPj4gICAJCQkJ
-cHJfZXJyKCJDYW4gbm90IGFsbG9jYXRlIERQUkFNIG1lbW9yeSBmb3IgcF9leGZfZ2xibF9wYXJh
-bVxuIik7Cj4+ICAgCQkJcmV0dXJuIC1FTk9NRU07Cj4+IEBAIC0zMDM5LDcgKzMwMzksNyBAQCBz
-dGF0aWMgaW50IHVjY19nZXRoX3N0YXJ0dXAoc3RydWN0IHVjY19nZXRoX3ByaXZhdGUgKnVnZXRo
-KQo+PiAgIAo+PiAgIAkvKiBBbGxvY2F0ZSBJbml0RW5ldCBjb21tYW5kIHBhcmFtZXRlciBzdHJ1
-Y3R1cmUgKi8KPj4gICAJaW5pdF9lbmV0X3ByYW1fb2Zmc2V0ID0gcWVfbXVyYW1fYWxsb2Moc2l6
-ZW9mKHN0cnVjdCB1Y2NfZ2V0aF9pbml0X3ByYW0pLCA0KTsKPj4gLQlpZiAoSVNfRVJSX1ZBTFVF
-KGluaXRfZW5ldF9wcmFtX29mZnNldCkpIHsKPj4gKwlpZiAoaW5pdF9lbmV0X3ByYW1fb2Zmc2V0
-IDwgMCkgewo+PiAgIAkJaWYgKG5ldGlmX21zZ19pZnVwKHVnZXRoKSkKPj4gICAJCQlwcl9lcnIo
-IkNhbiBub3QgYWxsb2NhdGUgRFBSQU0gbWVtb3J5IGZvciBwX2luaXRfZW5ldF9wcmFtXG4iKTsK
-Pj4gICAJCXJldHVybiAtRU5PTUVNOwo+Pgo+CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fX19fX19fXwpMaW51eHBwYy1kZXYgbWFpbGluZyBsaXN0CkxpbnV4cHBjLWRl
-dkBsaXN0cy5vemxhYnMub3JnCmh0dHBzOi8vbGlzdHMub3psYWJzLm9yZy9saXN0aW5mby9saW51
-eHBwYy1kZXY=
+    Passing value in IS_ERR_VALUE() is wrong, as they
+    pass an 'int' into a function that takes an 'unsigned long'
+    argument. This happens to work because the type is sign-extended
+    on 64-bit architectures before it gets converted into an
+    unsigned type.
+
+    Passing an 'unsigned short' or 'unsigned int'
+    argument into IS_ERR_VALUE() is guaranteed to be broken, as are
+    8-bit integers and types that are wider than 'unsigned long'.
+
+    Any user will get compilation warning for that do not pass an
+    'unsigned long' argument.
+
+    Commit '287980e49f; - This change is alreday fixes lots of other
+    worst abusers.
+
+Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+---
+ drivers/net/ethernet/freescale/ucc_geth.c | 30 +++++++++++++++---------------
+ 1 file changed, 15 insertions(+), 15 deletions(-)
+
+diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
+index 5bf1ade..c1ead2c 100644
+--- a/drivers/net/ethernet/freescale/ucc_geth.c
++++ b/drivers/net/ethernet/freescale/ucc_geth.c
+@@ -289,7 +289,7 @@ static int fill_init_enet_entries(struct ucc_geth_private *ugeth,
+ 		else {
+ 			init_enet_offset =
+ 			    qe_muram_alloc(thread_size, thread_alignment);
+-			if (IS_ERR_VALUE(init_enet_offset)) {
++			if (init_enet_offset < 0) {
+ 				if (netif_msg_ifup(ugeth))
+ 					pr_err("Can not allocate DPRAM memory\n");
+ 				qe_put_snum((u8) snum);
+@@ -2234,7 +2234,7 @@ static int ucc_geth_alloc_tx(struct ucc_geth_private *ugeth)
+ 			ugeth->tx_bd_ring_offset[j] =
+ 			    qe_muram_alloc(length,
+ 					   UCC_GETH_TX_BD_RING_ALIGNMENT);
+-			if (!IS_ERR_VALUE(ugeth->tx_bd_ring_offset[j]))
++			if (!ugeth->tx_bd_ring_offset[j])
+ 				ugeth->p_tx_bd_ring[j] =
+ 				    (u8 __iomem *) qe_muram_addr(ugeth->
+ 							 tx_bd_ring_offset[j]);
+@@ -2311,7 +2311,7 @@ static int ucc_geth_alloc_rx(struct ucc_geth_private *ugeth)
+ 			ugeth->rx_bd_ring_offset[j] =
+ 			    qe_muram_alloc(length,
+ 					   UCC_GETH_RX_BD_RING_ALIGNMENT);
+-			if (!IS_ERR_VALUE(ugeth->rx_bd_ring_offset[j]))
++			if (!ugeth->rx_bd_ring_offset[j])
+ 				ugeth->p_rx_bd_ring[j] =
+ 				    (u8 __iomem *) qe_muram_addr(ugeth->
+ 							 rx_bd_ring_offset[j]);
+@@ -2521,7 +2521,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	ugeth->tx_glbl_pram_offset =
+ 	    qe_muram_alloc(sizeof(struct ucc_geth_tx_global_pram),
+ 			   UCC_GETH_TX_GLOBAL_PRAM_ALIGNMENT);
+-	if (IS_ERR_VALUE(ugeth->tx_glbl_pram_offset)) {
++	if (ugeth->tx_glbl_pram_offset < 0) {
+ 		if (netif_msg_ifup(ugeth))
+ 			pr_err("Can not allocate DPRAM memory for p_tx_glbl_pram\n");
+ 		return -ENOMEM;
+@@ -2541,7 +2541,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 			   sizeof(struct ucc_geth_thread_data_tx) +
+ 			   32 * (numThreadsTxNumerical == 1),
+ 			   UCC_GETH_THREAD_DATA_ALIGNMENT);
+-	if (IS_ERR_VALUE(ugeth->thread_dat_tx_offset)) {
++	if (ugeth->thread_dat_tx_offset < 0) {
+ 		if (netif_msg_ifup(ugeth))
+ 			pr_err("Can not allocate DPRAM memory for p_thread_data_tx\n");
+ 		return -ENOMEM;
+@@ -2568,7 +2568,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	    qe_muram_alloc(ug_info->numQueuesTx *
+ 			   sizeof(struct ucc_geth_send_queue_qd),
+ 			   UCC_GETH_SEND_QUEUE_QUEUE_DESCRIPTOR_ALIGNMENT);
+-	if (IS_ERR_VALUE(ugeth->send_q_mem_reg_offset)) {
++	if (ugeth->send_q_mem_reg_offset < 0) {
+ 		if (netif_msg_ifup(ugeth))
+ 			pr_err("Can not allocate DPRAM memory for p_send_q_mem_reg\n");
+ 		return -ENOMEM;
+@@ -2609,7 +2609,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		ugeth->scheduler_offset =
+ 		    qe_muram_alloc(sizeof(struct ucc_geth_scheduler),
+ 				   UCC_GETH_SCHEDULER_ALIGNMENT);
+-		if (IS_ERR_VALUE(ugeth->scheduler_offset)) {
++		if (ugeth->scheduler_offset < 0) {
+ 			if (netif_msg_ifup(ugeth))
+ 				pr_err("Can not allocate DPRAM memory for p_scheduler\n");
+ 			return -ENOMEM;
+@@ -2656,7 +2656,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		    qe_muram_alloc(sizeof
+ 				   (struct ucc_geth_tx_firmware_statistics_pram),
+ 				   UCC_GETH_TX_STATISTICS_ALIGNMENT);
+-		if (IS_ERR_VALUE(ugeth->tx_fw_statistics_pram_offset)) {
++		if (ugeth->tx_fw_statistics_pram_offset < 0) {
+ 			if (netif_msg_ifup(ugeth))
+ 				pr_err("Can not allocate DPRAM memory for p_tx_fw_statistics_pram\n");
+ 			return -ENOMEM;
+@@ -2693,7 +2693,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	ugeth->rx_glbl_pram_offset =
+ 	    qe_muram_alloc(sizeof(struct ucc_geth_rx_global_pram),
+ 			   UCC_GETH_RX_GLOBAL_PRAM_ALIGNMENT);
+-	if (IS_ERR_VALUE(ugeth->rx_glbl_pram_offset)) {
++	if (ugeth->rx_glbl_pram_offset < 0) {
+ 		if (netif_msg_ifup(ugeth))
+ 			pr_err("Can not allocate DPRAM memory for p_rx_glbl_pram\n");
+ 		return -ENOMEM;
+@@ -2712,7 +2712,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	    qe_muram_alloc(numThreadsRxNumerical *
+ 			   sizeof(struct ucc_geth_thread_data_rx),
+ 			   UCC_GETH_THREAD_DATA_ALIGNMENT);
+-	if (IS_ERR_VALUE(ugeth->thread_dat_rx_offset)) {
++	if (ugeth->thread_dat_rx_offset < 0) {
+ 		if (netif_msg_ifup(ugeth))
+ 			pr_err("Can not allocate DPRAM memory for p_thread_data_rx\n");
+ 		return -ENOMEM;
+@@ -2733,7 +2733,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		    qe_muram_alloc(sizeof
+ 				   (struct ucc_geth_rx_firmware_statistics_pram),
+ 				   UCC_GETH_RX_STATISTICS_ALIGNMENT);
+-		if (IS_ERR_VALUE(ugeth->rx_fw_statistics_pram_offset)) {
++		if (ugeth->rx_fw_statistics_pram_offset < 0) {
+ 			if (netif_msg_ifup(ugeth))
+ 				pr_err("Can not allocate DPRAM memory for p_rx_fw_statistics_pram\n");
+ 			return -ENOMEM;
+@@ -2753,7 +2753,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 	    qe_muram_alloc(ug_info->numQueuesRx *
+ 			   sizeof(struct ucc_geth_rx_interrupt_coalescing_entry)
+ 			   + 4, UCC_GETH_RX_INTERRUPT_COALESCING_ALIGNMENT);
+-	if (IS_ERR_VALUE(ugeth->rx_irq_coalescing_tbl_offset)) {
++	if (ugeth->rx_irq_coalescing_tbl_offset < 0) {
+ 		if (netif_msg_ifup(ugeth))
+ 			pr_err("Can not allocate DPRAM memory for p_rx_irq_coalescing_tbl\n");
+ 		return -ENOMEM;
+@@ -2819,7 +2819,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 			   (sizeof(struct ucc_geth_rx_bd_queues_entry) +
+ 			    sizeof(struct ucc_geth_rx_prefetched_bds)),
+ 			   UCC_GETH_RX_BD_QUEUES_ALIGNMENT);
+-	if (IS_ERR_VALUE(ugeth->rx_bd_qs_tbl_offset)) {
++	if (ugeth->rx_bd_qs_tbl_offset < 0) {
+ 		if (netif_msg_ifup(ugeth))
+ 			pr_err("Can not allocate DPRAM memory for p_rx_bd_qs_tbl\n");
+ 		return -ENOMEM;
+@@ -2905,7 +2905,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 		ugeth->exf_glbl_param_offset =
+ 		    qe_muram_alloc(sizeof(struct ucc_geth_exf_global_pram),
+ 		UCC_GETH_RX_EXTENDED_FILTERING_GLOBAL_PARAMETERS_ALIGNMENT);
+-		if (IS_ERR_VALUE(ugeth->exf_glbl_param_offset)) {
++		if (ugeth->exf_glbl_param_offset < 0) {
+ 			if (netif_msg_ifup(ugeth))
+ 				pr_err("Can not allocate DPRAM memory for p_exf_glbl_param\n");
+ 			return -ENOMEM;
+@@ -3039,7 +3039,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+ 
+ 	/* Allocate InitEnet command parameter structure */
+ 	init_enet_pram_offset = qe_muram_alloc(sizeof(struct ucc_geth_init_pram), 4);
+-	if (IS_ERR_VALUE(init_enet_pram_offset)) {
++	if (init_enet_pram_offset < 0) {
+ 		if (netif_msg_ifup(ugeth))
+ 			pr_err("Can not allocate DPRAM memory for p_init_enet_pram\n");
+ 		return -ENOMEM;
+-- 
+1.9.1
