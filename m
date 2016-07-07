@@ -1,47 +1,135 @@
-From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: Re: [PATCH net-next v2 0/4] net: dsa: Preparatory patches for pdata
-Date: Wed, 06 Jul 2016 22:00:30 -0400
-Message-ID: <87vb0imcld.fsf@ketchup.mtl.sfl>
-References: <1467756433-25062-1-git-send-email-f.fainelli@gmail.com>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next] tun: Don't assume type tun in tun_device_event
+Date: Thu, 7 Jul 2016 10:11:38 +0800
+Message-ID: <577DBA5A.40706@redhat.com>
+References: <1467845060-7502-1-git-send-email-kraigatgoog@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: davem@davemloft.net, andrew@lunn.ch,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Craig Gallek <kraigatgoog@gmail.com>, davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:58500 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751504AbcGGCAe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 22:00:34 -0400
-In-Reply-To: <1467756433-25062-1-git-send-email-f.fainelli@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55930 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1754702AbcGGCLv (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 6 Jul 2016 22:11:51 -0400
+In-Reply-To: <1467845060-7502-1-git-send-email-kraigatgoog@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi,
 
-Florian Fainelli <f.fainelli@gmail.com> writes:
 
-> Hi all,
+On 2016=E5=B9=B407=E6=9C=8807=E6=97=A5 06:44, Craig Gallek wrote:
+> From: Craig Gallek <kraig@google.com>
 >
-> This is a resend of the patches that just clean up and prepare net/dsa/dsa2.c
-> to support platform data in the future.
+> The referenced change added a netlink notifier for processing
+> device queue size events.  These events are fired for all devices
+> but the registered callback assumed they only occurred for tun
+> devices.  This fix adds a check (borrowed from macvtap.c) to discard
+> non-tun device events.
 >
-> Florian Fainelli (4):
->   net: dsa: Pass device pointer to dsa_register_switch
->   net: dsa: Make most functions take a dsa_port argument
->   net: dsa: Suffix function manipulating device_node with _dn
->   net: dsa: Move ports assignment closer to error checking
+> For reference, this fixes the following splat:
+> [   71.505935] BUG: unable to handle kernel NULL pointer dereference =
+at 0000000000000010
+> [   71.513870] IP: [<ffffffff8153c1a0>] tun_device_event+0x110/0x340
+> [   71.519906] PGD 3f41f56067 PUD 3f264b7067 PMD 0
+> [   71.524497] Oops: 0002 [#1] SMP DEBUG_PAGEALLOC
+> [   71.529374] gsmi: Log Shutdown Reason 0x03
+> [   71.533417] Modules linked in:[   71.533826] mlx4_en: eth1: Link U=
+p
 >
->  drivers/net/dsa/b53/b53_common.c |  2 +-
->  drivers/net/dsa/mv88e6xxx/chip.c |  7 ++--
->  include/net/dsa.h                |  2 +-
->  net/dsa/dsa.c                    | 14 ++++---
->  net/dsa/dsa2.c                   | 87 ++++++++++++++++++++++------------------
->  net/dsa/dsa_priv.h               |  4 +-
->  6 files changed, 62 insertions(+), 54 deletions(-)
+> [   71.539616]  bonding w1_therm wire cdc_acm ehci_pci ehci_hcd mlx4_=
+en ib_uverbs mlx4_ib ib_core mlx4_core
+> [   71.549282] CPU: 12 PID: 7915 Comm: set.ixion-haswe Not tainted 4.=
+7.0-dbx-DEV #8
+> [   71.556586] Hardware name: Intel Grantley,Wellsburg/Ixion_IT_15, B=
+IOS 2.58.0 05/03/2016
+> [   71.564495] task: ffff887f00bb20c0 ti: ffff887f00798000 task.ti: f=
+fff887f00798000
+> [   71.571894] RIP: 0010:[<ffffffff8153c1a0>]  [<ffffffff8153c1a0>] t=
+un_device_event+0x110/0x340
+> [   71.580327] RSP: 0018:ffff887f0079bbd8  EFLAGS: 00010202
+> [   71.585576] RAX: fffffffffffffae8 RBX: ffff887ef6d03378 RCX: 00000=
+00000000000
+> [   71.592624] RDX: 0000000000000000 RSI: 0000000000000028 RDI: 00000=
+00000000000
+> [   71.599675] RBP: ffff887f0079bc48 R08: 0000000000000000 R09: 00000=
+00000000001
+> [   71.606730] R10: 0000000000000004 R11: 0000000000000000 R12: 00000=
+00000000010
+> [   71.613780] R13: 0000000000000000 R14: 0000000000000001 R15: ffff8=
+87f0079bd00
+> [   71.620832] FS:  00007f5cdc581700(0000) GS:ffff883f7f700000(0000) =
+knlGS:0000000000000000
+> [   71.628826] CS:  0010 DS: 0000 ES: 0000 CR0: 0000000080050033
+> [   71.634500] CR2: 0000000000000010 CR3: 0000003f3eb62000 CR4: 00000=
+000001406e0
+> [   71.641549] Stack:
+> [   71.643533]  ffff887f0079bc08 0000000000000246 000000000000001e ff=
+ff887ef6d00000
+> [   71.650871]  ffff887f0079bd00 0000000000000000 0000000000000000 ff=
+ffffff00000000
+> [   71.658210]  ffff887f0079bc48 ffffffff81d24070 00000000fffffff9 ff=
+ffffff81cec7a0
+> [   71.665549] Call Trace:
+> [   71.667975]  [<ffffffff810eeb0d>] notifier_call_chain+0x5d/0x80
+> [   71.673823]  [<ffffffff816365d0>] ? show_tx_maxrate+0x30/0x30
+> [   71.679502]  [<ffffffff810eeb3e>] __raw_notifier_call_chain+0xe/0x=
+10
+> [   71.685778]  [<ffffffff810eeb56>] raw_notifier_call_chain+0x16/0x2=
+0
+> [   71.691976]  [<ffffffff8160eb30>] call_netdevice_notifiers_info+0x=
+40/0x70
+> [   71.698681]  [<ffffffff8160ec36>] call_netdevice_notifiers+0x16/0x=
+20
+> [   71.704956]  [<ffffffff81636636>] change_tx_queue_len+0x66/0x90
+> [   71.710807]  [<ffffffff816381ef>] netdev_store.isra.5+0xbf/0xd0
+> [   71.716658]  [<ffffffff81638350>] tx_queue_len_store+0x50/0x60
+> [   71.722431]  [<ffffffff814a6798>] dev_attr_store+0x18/0x30
+> [   71.727857]  [<ffffffff812ea3ff>] sysfs_kf_write+0x4f/0x70
+> [   71.733274]  [<ffffffff812e9507>] kernfs_fop_write+0x147/0x1d0
+> [   71.739045]  [<ffffffff81134a4f>] ? rcu_read_lock_sched_held+0x8f/=
+0xa0
+> [   71.745499]  [<ffffffff8125a108>] __vfs_write+0x28/0x120
+> [   71.750748]  [<ffffffff8111b137>] ? percpu_down_read+0x57/0x90
+> [   71.756516]  [<ffffffff8125d7d8>] ? __sb_start_write+0xc8/0xe0
+> [   71.762278]  [<ffffffff8125d7d8>] ? __sb_start_write+0xc8/0xe0
+> [   71.768038]  [<ffffffff8125bd5e>] vfs_write+0xbe/0x1b0
+> [   71.773113]  [<ffffffff8125c092>] SyS_write+0x52/0xa0
+> [   71.778110]  [<ffffffff817528e5>] entry_SYSCALL_64_fastpath+0x18/0=
+xa8
+> [   71.784472] Code: 45 31 f6 48 8b 93 78 33 00 00 48 81 c3 78 33 00 =
+00 48 39 d3 48 8d 82 e8 fa ff ff 74 25 48 8d b0 40 05 00 00 49 63 d6 41=
+ 83 c6 01 <49> 89 34 d4 48 8b 90 18 05 00 00 48 39 d3 48 8d 82 e8 fa ff=
+ ff
+> [   71.803655] RIP  [<ffffffff8153c1a0>] tun_device_event+0x110/0x340
+> [   71.809769]  RSP <ffff887f0079bbd8>
+> [   71.813213] CR2: 0000000000000010
+> [   71.816512] ---[ end trace 4db6449606319f73 ]---
+>
+> Fixes: 1576d9860599 ("tun: switch to use skb array for tx")
+> Signed-off-by: Craig Gallek <kraig@google.com>
+> ---
+>   drivers/net/tun.c | 3 +++
+>   1 file changed, 3 insertions(+)
+>
+> diff --git a/drivers/net/tun.c b/drivers/net/tun.c
+> index 5eadb7a1ad7b..9c8b5bc2b9d8 100644
+> --- a/drivers/net/tun.c
+> +++ b/drivers/net/tun.c
+> @@ -2503,6 +2503,9 @@ static int tun_device_event(struct notifier_blo=
+ck *unused,
+>   	struct net_device *dev =3D netdev_notifier_info_to_dev(ptr);
+>   	struct tun_struct *tun =3D netdev_priv(dev);
+>  =20
+> +	if (dev->rtnl_link_ops !=3D &tun_link_ops)
+> +		return NOTIFY_DONE;
+> +
+>   	switch (event) {
+>   	case NETDEV_CHANGE_TX_QUEUE_LEN:
+>   		if (tun_queue_resize(tun))
 
-Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Good catch.
 
-Thanks,
-
-        Vivien
+Acked-by: Jason Wang <jasowang@redhat.com>
