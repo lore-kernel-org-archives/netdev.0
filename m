@@ -1,156 +1,111 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: [net-next PATCH V2] net: tracepoint napi:napi_poll add work and
- budget
-Date: Thu, 07 Jul 2016 18:01:32 +0200
-Message-ID: <20160707160118.32320.81577.stgit@firesoul>
+From: Olaf Hering <olaf@aepfle.de>
+Subject: Re: [PATCH v14 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Thu, 7 Jul 2016 18:02:06 +0200
+Message-ID: <20160707160206.GA5279@aepfle.de>
+References: <CY1PR03MB21865E21E637F03877784979BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
+Content-Type: multipart/mixed; boundary="===============3935028226081460866=="
+Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+ "jasowang@redhat.com" <jasowang@redhat.com>,
+ Haiyang Zhang <haiyangz@microsoft.com>,
+ "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+ "joe@perches.com" <joe@perches.com>,
+ Rolf Neugebauer <rolf.neugebauer@docker.com>,
+ "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+ "apw@canonical.com" <apw@canonical.com>,
+ "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+ "davem@davemloft.net" <davem@davemloft.net>
+To: Dexuan Cui <decui@microsoft.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <CY1PR03MB21865E21E637F03877784979BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
+
+
+--===============3935028226081460866==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="/04w6evG8XlLl3ft"
+Content-Disposition: inline
+
+
+--/04w6evG8XlLl3ft
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+
+On Thu, Jun 30, Dexuan Cui wrote:
+
+> +/* The MTU is 16KB per the host side's design. */
+> +struct hvsock_recv_buf {
+> +	unsigned int data_len;
+> +	unsigned int data_offset;
+> +
+> +	struct vmpipe_proto_header hdr;
+> +	u8 buf[PAGE_SIZE * 4];
+
+Please use some macro related to the protocol rather than a Linux
+compiletime macro.
+
+> +/* We send at most 4KB payload per VMBus packet. */
+> +struct hvsock_send_buf {
+> +	struct vmpipe_proto_header hdr;
+> +	u8 buf[PAGE_SIZE];
+
+Same here.
+
+> + * Copyright(c) 2016, Microsoft Corporation. All rights reserved.
+
+Here the BSD license follows. I think its required/desired to also
+include a GPL blurb like it is done in many other files:
+...
+ * Alternatively, this software may be distributed under the terms of
+ * the GNU General Public License ("GPL") version 2 as published by the
+ * Free Software Foundation.
+....
+
+Otherwise the MODULE_LICENSE string might be incorrect.
+
+
+> +	/* Hyper-V Sockets requires at least VMBus 4.0 */
+> +	if ((vmbus_proto_version >> 16) < 4) {
+> +		pr_err("failed to load: VMBus 4 or later is required\n");
+
+I guess this mens WS 2016+, and loading in earlier host versions will
+trigger this path? I think a silent ENODEV is enough.
+
+> +		return -ENODEV;
+
+Olaf
+
+--/04w6evG8XlLl3ft
+Content-Type: application/pgp-signature; name="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iEYEARECAAYFAld+fPsACgkQXUKg+qaYNn7u3gCeKWOJxMShxY0Gv27zIC18WxD8
+2c8An1wwa0vs1/7Uglhu3Z8z9H1zIGqk
+=VrH3
+-----END PGP SIGNATURE-----
+
+--/04w6evG8XlLl3ft--
+
+--===============3935028226081460866==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
-Cc: rostedt@goodmis.org, Jesper Dangaard Brouer <brouer@redhat.com>
-To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51910 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751344AbcGGQBf (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jul 2016 12:01:35 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Disposition: inline
 
-An important information for the napi_poll tracepoint is knowing
-the work done (packets processed) by the napi_poll() call. Add
-both the work done and budget, as they are related.
+_______________________________________________
+devel mailing list
+devel@linuxdriverproject.org
+http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
 
-Handle trace_napi_poll() param change in dropwatch/drop_monitor
-and in python perf script netdev-times.py in backward compat way,
-as python fortunately supports optional parameter handling.
-
-Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
-
----
-V2: handle for dropwatch/drop_monitor + netdev-times.py
-
- include/trace/events/napi.h               |   13 +++++++++----
- net/core/dev.c                            |    4 ++--
- net/core/drop_monitor.c                   |    3 ++-
- net/core/netpoll.c                        |    2 +-
- tools/perf/scripts/python/netdev-times.py |   11 +++++++----
- 5 files changed, 21 insertions(+), 12 deletions(-)
-
-diff --git a/include/trace/events/napi.h b/include/trace/events/napi.h
-index 8fe1e93f531d..118ed7767639 100644
---- a/include/trace/events/napi.h
-+++ b/include/trace/events/napi.h
-@@ -12,22 +12,27 @@
- 
- TRACE_EVENT(napi_poll,
- 
--	TP_PROTO(struct napi_struct *napi),
-+	TP_PROTO(struct napi_struct *napi, int work, int budget),
- 
--	TP_ARGS(napi),
-+	TP_ARGS(napi, work, budget),
- 
- 	TP_STRUCT__entry(
- 		__field(	struct napi_struct *,	napi)
-+		__field(	int,			work)
-+		__field(	int,			budget)
- 		__string(	dev_name, napi->dev ? napi->dev->name : NO_DEV)
- 	),
- 
- 	TP_fast_assign(
- 		__entry->napi = napi;
-+		__entry->work = work;
-+		__entry->budget = budget;
- 		__assign_str(dev_name, napi->dev ? napi->dev->name : NO_DEV);
- 	),
- 
--	TP_printk("napi poll on napi struct %p for device %s",
--		__entry->napi, __get_str(dev_name))
-+	TP_printk("napi poll on napi struct %p for device %s work %d budget %d",
-+		  __entry->napi, __get_str(dev_name),
-+		  __entry->work, __entry->budget)
- );
- 
- #undef NO_DEV
-diff --git a/net/core/dev.c b/net/core/dev.c
-index b8cc5e979168..7a4e9a714fb3 100644
---- a/net/core/dev.c
-+++ b/net/core/dev.c
-@@ -4973,7 +4973,7 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
- 
- 			if (test_bit(NAPI_STATE_SCHED, &napi->state)) {
- 				rc = napi->poll(napi, BUSY_POLL_BUDGET);
--				trace_napi_poll(napi);
-+				trace_napi_poll(napi, rc, BUSY_POLL_BUDGET);
- 				if (rc == BUSY_POLL_BUDGET) {
- 					napi_complete_done(napi, rc);
- 					napi_schedule(napi);
-@@ -5129,7 +5129,7 @@ static int napi_poll(struct napi_struct *n, struct list_head *repoll)
- 	work = 0;
- 	if (test_bit(NAPI_STATE_SCHED, &n->state)) {
- 		work = n->poll(n, weight);
--		trace_napi_poll(n);
-+		trace_napi_poll(n, work, weight);
- 	}
- 
- 	WARN_ON_ONCE(work > weight);
-diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
-index 252e155c837b..d6b3b579560d 100644
---- a/net/core/drop_monitor.c
-+++ b/net/core/drop_monitor.c
-@@ -187,7 +187,8 @@ static void trace_kfree_skb_hit(void *ignore, struct sk_buff *skb, void *locatio
- 	trace_drop_common(skb, location);
- }
- 
--static void trace_napi_poll_hit(void *ignore, struct napi_struct *napi)
-+static void trace_napi_poll_hit(void *ignore, struct napi_struct *napi,
-+				int work, int budget)
- {
- 	struct dm_hw_stat_delta *new_stat;
- 
-diff --git a/net/core/netpoll.c b/net/core/netpoll.c
-index 94acfc89ad97..53599bd0c82d 100644
---- a/net/core/netpoll.c
-+++ b/net/core/netpoll.c
-@@ -163,7 +163,7 @@ static void poll_one_napi(struct napi_struct *napi)
- 	 */
- 	work = napi->poll(napi, 0);
- 	WARN_ONCE(work, "%pF exceeded budget in poll\n", napi->poll);
--	trace_napi_poll(napi);
-+	trace_napi_poll(napi, work, 0);
- 
- 	clear_bit(NAPI_STATE_NPSVC, &napi->state);
- }
-diff --git a/tools/perf/scripts/python/netdev-times.py b/tools/perf/scripts/python/netdev-times.py
-index 4d21ef2d601d..4c6f09ac7d12 100644
---- a/tools/perf/scripts/python/netdev-times.py
-+++ b/tools/perf/scripts/python/netdev-times.py
-@@ -252,9 +252,10 @@ def irq__irq_handler_exit(name, context, cpu, sec, nsec, pid, comm, callchain, i
- 	event_info = (name, context, cpu, nsecs(sec, nsec), pid, comm, irq, ret)
- 	all_event_list.append(event_info)
- 
--def napi__napi_poll(name, context, cpu, sec, nsec, pid, comm, callchain, napi, dev_name):
-+def napi__napi_poll(name, context, cpu, sec, nsec, pid, comm, callchain, napi,
-+                    dev_name, work=None, budget=None):
- 	event_info = (name, context, cpu, nsecs(sec, nsec), pid, comm,
--			napi, dev_name)
-+			napi, dev_name, work, budget)
- 	all_event_list.append(event_info)
- 
- def net__netif_receive_skb(name, context, cpu, sec, nsec, pid, comm, callchain, skbaddr,
-@@ -354,11 +355,13 @@ def handle_irq_softirq_exit(event_info):
- 	receive_hunk_list.append(rec_data)
- 
- def handle_napi_poll(event_info):
--	(name, context, cpu, time, pid, comm, napi, dev_name) = event_info
-+	(name, context, cpu, time, pid, comm, napi, dev_name,
-+		work, budget) = event_info
- 	if cpu in net_rx_dic.keys():
- 		event_list = net_rx_dic[cpu]['event_list']
- 		rec_data = {'event_name':'napi_poll',
--				'dev':dev_name, 'event_t':time}
-+				'dev':dev_name, 'event_t':time,
-+				'work':work, 'budget':budget}
- 		event_list.append(rec_data)
- 
- def handle_netif_rx(event_info):
+--===============3935028226081460866==--
