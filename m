@@ -1,34 +1,40 @@
 From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] mlxsw: spectrum_router: fix a use after free
-Date: Thu, 7 Jul 2016 11:20:28 +0300
-Message-ID: <20160707082027.GB16742@mwanda>
+Subject: [patch -next] bnxt: fix a condition
+Date: Thu, 7 Jul 2016 11:23:09 +0300
+Message-ID: <20160707082309.GC16742@mwanda>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ido Schimmel <idosch@mellanox.com>, netdev@vger.kernel.org,
+Cc: Jeffrey Huang <huangjw@broadcom.com>,
+	Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
 	kernel-janitors@vger.kernel.org
-To: Jiri Pirko <jiri@mellanox.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>,
+	Michael Chan <michael.chan@broadcom.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from userp1040.oracle.com ([156.151.31.81]:24621 "EHLO
+	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030281AbcGGIXX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 04:23:23 -0400
 Content-Disposition: inline
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-mlxsw_sp_fib_entry_destroy() frees "fib_entry" but we dereference it on
-the next line.
+This code generates as static checker warning because htons(ETH_P_IPV6)
+is always true.  From the context it looks like the && was intended to
+be !=.
 
-Fixes: 61c503f976b5 ('mlxsw: spectrum_router: Implement fib4 add/del switchdev obj ops')
+Fixes: 94758f8de037 ('bnxt_en: Add GRO logic for BCM5731X chips.')
 Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
 
-diff --git a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-index e084ea5..adb481a 100644
---- a/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-+++ b/drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c
-@@ -1652,8 +1652,8 @@ static void mlxsw_sp_router_fib4_add_info_destroy(void const *data)
- 	struct mlxsw_sp_fib_entry *fib_entry = info->fib_entry;
- 	struct mlxsw_sp *mlxsw_sp = info->mlxsw_sp;
- 
--	mlxsw_sp_fib_entry_destroy(fib_entry);
- 	mlxsw_sp_vr_put(mlxsw_sp, fib_entry->vr);
-+	mlxsw_sp_fib_entry_destroy(fib_entry);
- 	kfree(info);
- }
- 
+diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+index 70b148a..659faa6 100644
+--- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
++++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
+@@ -997,7 +997,7 @@ static struct sk_buff *bnxt_gro_func_5731x(struct bnxt_tpa_info *tpa_info,
+ 		 * correct protocol ID, it must be a loopback packet where
+ 		 * the offsets are off by 4.
+ 		 */
+-		if (proto != htons(ETH_P_IP) && proto && htons(ETH_P_IPV6))
++		if (proto != htons(ETH_P_IP) && proto != htons(ETH_P_IPV6))
+ 			loopback = true;
+ 	}
+ 	if (loopback) {
