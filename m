@@ -1,68 +1,76 @@
-From: "Jan Beulich" <JBeulich@suse.com>
-Subject: RE: [Xen-devel] [PATCH] xen-netback: correct return value
- checks on xenbus_scanf()
-Date: Thu, 07 Jul 2016 06:21:18 -0600
-Message-ID: <577E655E02000078000FC358@prv-mh.provo.novell.com>
-References: <577E277C02000078000FBEBB@prv-mh.provo.novell.com>
- <577E27B8.2050603@citrix.com> <20160707103513.GB416@citrix.com>
- <577E32BF.9050007@citrix.com>
- <d0df3b813db94858ab608bd33216c2d9@AMSPEX02CL03.citrite.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: "David Vrabel" <david.vrabel@citrix.com>,
-	"Paul Durrant" <Paul.Durrant@citrix.com>,
-	"Wei Liu" <wei.liu2@citrix.com>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: [PATCH] sctp: fix panic when sending auth chunks
+Date: Thu,  7 Jul 2016 09:39:29 -0300
+Message-ID: <433dedb6a14cd5bd59ad2f82579d872b97171727.1467894889.git.marcelo.leitner@gmail.com>
+Cc: linux-sctp@vger.kernel.org, Neil Horman <nhorman@tuxdriver.com>,
+	Vlad Yasevich <vyasevich@gmail.com>
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from prv-mh.provo.novell.com ([137.65.248.74]:50798 "EHLO
-	prv-mh.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750725AbcGGMVT convert rfc822-to-8bit (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:3:1>);
-	Thu, 7 Jul 2016 08:21:19 -0400
-In-Reply-To: <d0df3b813db94858ab608bd33216c2d9@AMSPEX02CL03.citrite.net>
-Content-Disposition: inline
+Received: from mx1.redhat.com ([209.132.183.28]:39936 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750968AbcGGMkG (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jul 2016 08:40:06 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
->>> On 07.07.16 at 12:55, <Paul.Durrant@citrix.com> wrote:
->>  -----Original Message-----
->> From: netdev-owner@vger.kernel.org [mailto:netdev-
->> owner@vger.kernel.org] On Behalf Of David Vrabel
->> Sent: 07 July 2016 11:45
->> To: Wei Liu; David Vrabel
->> Cc: xen-devel@lists.xenproject.org; Jan Beulich; netdev@vger.kernel.org 
->> Subject: Re: [Xen-devel] [PATCH] xen-netback: correct return value checks
->> on xenbus_scanf()
->> 
->> On 07/07/16 11:35, Wei Liu wrote:
->> > On Thu, Jul 07, 2016 at 10:58:16AM +0100, David Vrabel wrote:
->> >> On 07/07/16 08:57, Jan Beulich wrote:
->> >>> Only a positive return value indicates success.
->> >>
->> >> This is not correct.
->> >>
->> >
->> > Do you mean the commit message is not correct or the code is not
->> > correct? If it is the formal, do you have any suggestion to fix it?
->> 
->> This code is correct as-is, thus the commit message is wrong or misleading.
-> 
-> Is that true? Jan is correct in saying that only >0 is an indicator of 
-> success according to the usual semantics of sccanf().
+When we introduced GSO support, if using auth the auth chunk was being
+left queued on the packet even after the final segment was generated.
+Later on sctp_transmit_packet it calls sctp_packet_reset, which zeroed
+the packet len while not accounting for this left-over. This caused more
+space to be used the next packet due to the chunk still being queued,
+but space which wasn't allocated as its size wasn't accounted.
 
-As was correctly pointed out, xenbus_scanf(), other than scanf(),
-can't return zero right now (which I think has corner cases where
-this might be a problem). So if I would get the feeling that a
-correction (benign or not at this point in time) would be accepted,
-what about "Only a positive return value is guaranteed to indicates
-success" as commit description?
+The fix is to only queue it back when we know that we are going to
+generate another segment.
 
-> Personally I think the 
-> code would be clearer if the checks for failure were < 1 rather than <= 0.
+Fixes: 90017accff61 ("sctp: Add GSO support")
+Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+---
+ net/sctp/output.c | 18 +++++++++++++++---
+ 1 file changed, 15 insertions(+), 3 deletions(-)
 
-I'd be fine with that, albeit if comparing with any non-zero number
-then I think it would better be == or != instead of < or <=.
-
-Jan
+diff --git a/net/sctp/output.c b/net/sctp/output.c
+index 1541a91d6d9de13927951a6215c423ea0ffa13dc..2e9223bb1b3a47386e8164a5a63400899fbf301f 100644
+--- a/net/sctp/output.c
++++ b/net/sctp/output.c
+@@ -582,9 +582,7 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+ 			 */
+ 			pkt_size -= WORD_ROUND(chunk->skb->len);
+ 
+-			if (chunk == packet->auth && !list_empty(&packet->chunk_list))
+-				list_add(&chunk->list, &packet->chunk_list);
+-			else if (!sctp_chunk_is_data(chunk))
++			if (!sctp_chunk_is_data(chunk) && chunk != packet->auth)
+ 				sctp_chunk_free(chunk);
+ 
+ 			if (!pkt_size)
+@@ -605,6 +603,18 @@ int sctp_packet_transmit(struct sctp_packet *packet, gfp_t gfp)
+ 						 (struct sctp_auth_chunk *)auth,
+ 						 gfp);
+ 
++		if (packet->auth) {
++			if (!list_empty(&packet->chunk_list)) {
++				/* We will generate more packets, so re-queue
++				 * auth chunk.
++				 */
++				list_add(&chunk->list, &packet->chunk_list);
++			} else {
++				sctp_chunk_free(packet->auth);
++				packet->auth = NULL;
++			}
++		}
++
+ 		if (!gso)
+ 			break;
+ 
+@@ -735,6 +745,8 @@ err:
+ 	}
+ 	goto out;
+ nomem:
++	if (packet->auth && list_empty(&packet->auth->list))
++		sctp_chunk_free(packet->auth);
+ 	err = -ENOMEM;
+ 	goto err;
+ }
+-- 
+2.7.4
