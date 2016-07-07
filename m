@@ -1,42 +1,41 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [PATCH/RFC net-next 2/4] sit: support MPLS over IPv4
-Date: Thu, 7 Jul 2016 07:37:58 +0200
-Message-ID: <20160707053757.GA10002@penelope.isobedori.kobe.vergenet.net>
+Subject: Re: [PATCH/RFC net-next 0/4] net: support MPLS in IPv4 and UDP
+Date: Thu, 7 Jul 2016 07:38:16 +0200
+Message-ID: <20160707053814.GB10002@penelope.isobedori.kobe.vergenet.net>
 References: <1467829355-4498-1-git-send-email-simon.horman@netronome.com>
- <1467829355-4498-3-git-send-email-simon.horman@netronome.com>
- <20160706.221059.1791526468514384047.davem@davemloft.net>
+ <CALx6S36-zs0SEYgKz4koRhsAaadPaWh_w4SYczp_MwxALKqO5w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org
-To: David Miller <davem@davemloft.net>
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f53.google.com ([74.125.82.53]:33169 "EHLO
-	mail-wm0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756213AbcGGFiC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 01:38:02 -0400
-Received: by mail-wm0-f53.google.com with SMTP id r190so753628wmr.0
-        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 22:38:01 -0700 (PDT)
+Received: from mail-wm0-f47.google.com ([74.125.82.47]:36898 "EHLO
+	mail-wm0-f47.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756199AbcGGFiT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 01:38:19 -0400
+Received: by mail-wm0-f47.google.com with SMTP id a66so17686312wme.0
+        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 22:38:18 -0700 (PDT)
 Content-Disposition: inline
-In-Reply-To: <20160706.221059.1791526468514384047.davem@davemloft.net>
+In-Reply-To: <CALx6S36-zs0SEYgKz4koRhsAaadPaWh_w4SYczp_MwxALKqO5w@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 06, 2016 at 10:10:59PM -0700, David Miller wrote:
-> From: Simon Horman <simon.horman@netronome.com>
-> Date: Wed,  6 Jul 2016 20:22:33 +0200
+On Wed, Jul 06, 2016 at 09:44:13PM -0700, Tom Herbert wrote:
+> On Wed, Jul 6, 2016 at 11:22 AM, Simon Horman
+> <simon.horman@netronome.com> wrote:
+> > This short series provides support for MPLS in IPv4 (RFC4023), and by
+> > virtue of FOU, MPLS in UDP (RFC7510).
+> >
+> > The changes are as follows:
+> > 1. Teach tunnel4.c about AF_MPLS, it already understands AF_INET and
+> >    AF_INET6
+> > 2. Enhance IPIP and SIT to handle MPLS. Both already handle IPv4.
+> >    SIT also already handles IPv6.
+> > 3. Trivially enhance MPLS to allow routes over SIT and IPIP tunnels.
+> >
 > 
-> >  
-> > +bool ipip6_valid_ip_proto(u8 ipproto)
-> > +{
-> > +	return ipproto == IPPROTO_IPV6 ||
-> > +		ipproto != IPPROTO_IPIP ||
-> > +#if IS_ENABLED(CONFIG_MPLS)
-> > +		ipproto == IPPROTO_MPLS ||
-> > +#endif
-> > +		ipproto == 0;
-> > +}
+> HI Siomon,
 > 
-> This returns true any time ipproto is not equal to IPPROTO_IPIP,
-> which is probably not what you intended here.
+> Thanks for these patches! Can provide the commands for testing this?
 
-Thanks, I will fix that.
+Sure, will do.
