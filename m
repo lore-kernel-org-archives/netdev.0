@@ -1,63 +1,101 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [iproute PATCH 0/2] Netns performance improvements
-Date: Thu, 7 Jul 2016 10:28:47 -0700
-Message-ID: <577E914F.3060001@hpe.com>
-References: <1467729773-16751-1-git-send-email-phil@nwl.cc>
- <87twg4ywjz.fsf@x220.int.ebiederm.org> <20160705205103.GE620@orbyte.nwl.cc>
- <87h9c259ip.fsf@x220.int.ebiederm.org> <20160707111718.GL620@orbyte.nwl.cc>
- <577E5244.8030601@6wind.com> <20160707154809.GN620@orbyte.nwl.cc>
- <577E8054.6040603@hpe.com> <87vb0h1k6b.fsf@x220.int.ebiederm.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH net-next 00/10] NCSI Support
+Date: Thu, 7 Jul 2016 10:32:12 -0700
+Message-ID: <577E921C.5050904@gmail.com>
+References: <1467523953-18998-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: Phil Sutter <phil@nwl.cc>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	Stephen Hemminger <shemming@brocade.com>,
-	netdev@vger.kernel.org
-To: "Eric W. Biederman" <ebiederm@xmission.com>
+Cc: davem@davemloft.net, benh@kernel.crashing.org, joel@jms.id.au,
+	weixue@trustnetic.com
+To: Gavin Shan <gwshan@linux.vnet.ibm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t2353.austin.hpe.com ([15.233.44.26]:46946 "EHLO
-	g2t2353.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751588AbcGGR2t (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 13:28:49 -0400
-In-Reply-To: <87vb0h1k6b.fsf@x220.int.ebiederm.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:34434 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751395AbcGGRcP (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 13:32:15 -0400
+Received: by mail-pa0-f66.google.com with SMTP id us13so2286456pab.1
+        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 10:32:14 -0700 (PDT)
+In-Reply-To: <1467523953-18998-1-git-send-email-gwshan@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/07/2016 09:34 AM, Eric W. Biederman wrote:
-> Rick Jones <rick.jones2@hpe.com> writes:
->> 300 routers is far from the upper limit/goal.  Back in HP Public
->> Cloud, we were running as many as 700 routers per network node (*),
->> and more than four network nodes. (back then it was just the one
->> namespace per router and network). Mileage will of course vary based
->> on the "oomph" of one's network node(s).
->
-> To clarify processes for these routers and dhcp servers are created
-> with "ip netns exec"?
+On 07/02/2016 10:32 PM, Gavin Shan wrote:
+> This series rebases on David's linux-net git repo ("master" branch). It's
+> to support NCSI stack on net/farady/ftgmac100.c
+> 
+> The following figure gives an example about how NCSI is deployed: The NCSI is
+> specified by DSP0222, which can be downloaded from the following link here
+> (http://www.dmtf.org/sites/default/files/standards/documents/DSP0222_1.0.0.pdf).
+> 
+>    * The NC-SI (aka NCSI) is defined as the interface between a (Base) Management
+>      Controller (BMC) and one or multiple Network Controlers (NC) on host side.
+>      The interface is responsible for providing external network connectivity
+>      for BMC.
+>    * Each BMC can connect to multiple packages, up to 8. Each package can have
+>      multiple channels, up to 32. Every package and channel are identified by
+>      3-bits and 5-bits in NCSI packet. At one moment, one channel is active to
+>      provide service.
+>    * NCSI packet, encapsulated in ethernet frame, has 0x88F8 in the protocol
+>      field. The destination MAC address should be 0xFF's while the source MAC
+>      address can be arbitrary one.
+>    * NCSI packets are classified to command, response, AEN (Asynchronous Event
+>      Notification). Commands are sent from BMC to host for configuration and
+>      information retrival. Responses, corresponding to commands, are sent from
+>      host to BMC for confirmation and requested information. One command should
+>      have one and only one response. AEN is sent from host to BMC for notification
+>      (e.g. link down on active channel) so that BMC can take appropriate action.
+> 
+>    +------------------+        +----------------------------------------------+
+>    |                  |        |                     Host                     |
+>    |        BMC       |        |                                              |
+>    |                  |        | +-------------------+  +-------------------+ |
+>    |    +---------+   |        | |     Package-A     |  |     Package-B     | |
+>    |    |         |   |        | +---------+---------+  +-------------------+ |
+>    |    |   NIC   |   |        | | Channel | Channel |  | Channel | Channel | |
+>    +----+----+----+---+        +-+---------+---------+--+---------+---------+-+
+>              |                             |                      |
+>              |                             |                      |
+>              +-----------------------------+----------------------+
+> 
+> The design for the patchset is highlighted as below:
+> 
+>    * The NCSI interface is abstracted with "struct ncsi_dev". It's registered
+>      when net_device is created, started to work by calling ncsi_start_dev()
+>      when net_device is opened (ndo_open()). For the first time, NCSI packets
+>      are sent and received to/from the far end (host in above figure) to probe
+>      available NCSI packages and channels. After that, one channel is chosen as
+>      active one to provide service.
+>    * The NCSI stack is driven by workqueue and state machine internally.
+>    * AEN (Asychronous Event Notification) might be received from the far end
+>      (host). The currently active NCSI channel fails over to another available
+>      one if possible. Otherwise, the NCSI channel is out of service.
+>    * NCSI stack should be configurable through netlink or another mechanism,
+>      but it's not implemented in this patchset. It's something TBD.
+>    * The first NIC driver that is aware of NCSI: drivers/net/ethernet/faraday/ftgmac100.c
 
-I believe so, but it would be good to have someone else confirm that, 
-and speak to your paragraph below.
+I know nothing about NCSI, pretty much like Jon Snow, but from a cursory
+look at your patches, is not there a way to make the NCSCI capable
+network devices strictly adhere to the net_device APIs and calling
+conventions?
 
-> If that is the case and you are using this feature as effectively a
-> lightweight container and not lots vrfs in a single network stack
-> then I suspect much larger gains can be had by creating a variant
-> of ip netns exec avoids the mount propagation.
->
+Even if the data flow is a little different than normal ethernet frames,
+and there is not a good way to trap to intercept the delivery of NCSI
+packets, one could imagine doing something ala DSA where you register a
+fake ethertype for NCSI to hook a ptype_fun packet handler, augment
+struct net_device with a ncsi_dev pointer, and do processing in
+net/nsci/ for this device you know where the packet came from. You don't
+need to have an officially assigned ethertype for this, see
+netdev_uses_dsa() which just tests whether the traffic is tagged with a
+particular tag and delivers packet to a protocol specific parser in
+net/dsa/.
 
-...
+For packets on their way out you could imagine assigning them a specific
+skb->protocol value and have the driver's transmit path do specific
+things based on that.
 
->> * Didn't want to go much higher than that because each router had a
->> port on a common linux bridge and getting to > 1024 would be an
->> unpleasant day.
->
-> * I would have thought all you have to do is bump of the size
->    of the linux neighbour cache.  echo $BIGNUM > /proc/sys/net/ipv4/neigh/default/gc_thresh3
-
-We didn't want to hit the 1024 port limit of a (then?) Linux bridge.
-
-rick
-
-Having a bit of deja vu but I suspect things like commit 
-0818bf27c05b2de56c5b2bd08cfae2a939bd5f52  are not exactly on the same 
-wavelength, just my brain seeing "namespaces" and "performance" and 
-lighting-up :)
+Just an idea, I am not even sure this makes sense here, but what seems
+to make sens to me is that if more network device drivers end up
+supporting and transporting NCSI, we barely want them to know about that.
+-- 
+Florian
