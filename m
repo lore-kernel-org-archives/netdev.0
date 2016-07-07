@@ -1,7 +1,8 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next 0/4] net: cleanup for UDP tunnel's GRO
-Date: Thu,  7 Jul 2016 17:58:46 +0200
-Message-ID: <cover.1467895623.git.pabeni@redhat.com>
+Subject: [PATCH net-next 2/4] udp offload: allow GRO on 0 checksum packets
+Date: Thu,  7 Jul 2016 17:58:48 +0200
+Message-ID: <60369c715ef9948b088416639f0bec800f632f9a.1467907022.git.pabeni@redhat.com>
+References: <cover.1467907022.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Jesse Gross <jesse@kernel.org>,
 	Tom Herbert <tom@herbertland.com>,
@@ -9,36 +10,48 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Jiri Benc <jbenc@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42783 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:39720 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1752911AbcGGQAo (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jul 2016 12:00:44 -0400
+	id S1753082AbcGGQAs (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jul 2016 12:00:48 -0400
+In-Reply-To: <cover.1467907022.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-With udp tunnel offload in place, the kernel can do GRO for some udp tunnels
-at the ingress device level. Currently both the geneve and the vxlan drivers
-implement an additional GRO aggregation point via gro_cells.
-The latter takes effect for tunnels using zero checksum udp packets, which are
-currently explicitly not aggregated by the udp offload layer.
+currently, UDP packets with zero checksum are not allowed to
+use udp offload's GRO. This patch admits such packets to
+GRO, if the related socket settings allow it: ipv6 packets
+are not admitted if the sockets don't have the no_check6_rx
+flag set.
 
-This patch series adapts the udp tunnel offload to process also zero checksum
-udp packets, if the tunnel's socket allow it. Aggregation, if possible is always
-performed at the ingress device level.
+Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+---
+ net/ipv4/udp_offload.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
 
-Then the gro_cells hooks, in both vxlan and geneve driver are removed.
-
-Paolo Abeni (4):
-  udp_offload: simplify error path
-  udp offload: allow GRO on 0 checksum packets
-  vxlan: remove gro_cell support
-  geneve: remove gro_cell support
-
- drivers/net/geneve.c   | 12 +-----------
- drivers/net/vxlan.c    |  9 ++-------
- include/net/vxlan.h    |  1 -
- net/ipv4/udp_offload.c | 12 +++++++-----
- 4 files changed, 10 insertions(+), 24 deletions(-)
-
+diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+index 9c37338..ac783f4 100644
+--- a/net/ipv4/udp_offload.c
++++ b/net/ipv4/udp_offload.c
+@@ -257,7 +257,7 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
+ 	struct sock *sk;
+ 
+ 	if (NAPI_GRO_CB(skb)->encap_mark ||
+-	    (skb->ip_summed != CHECKSUM_PARTIAL &&
++	    (uh->check && skb->ip_summed != CHECKSUM_PARTIAL &&
+ 	     NAPI_GRO_CB(skb)->csum_cnt == 0 &&
+ 	     !NAPI_GRO_CB(skb)->csum_valid))
+ 		goto out;
+@@ -271,6 +271,10 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
+ 	if (!sk || !udp_sk(sk)->gro_receive)
+ 		goto out_unlock;
+ 
++	if (!uh->check && skb->protocol == cpu_to_be16(ETH_P_IPV6) &&
++	    !udp_sk(sk)->no_check6_rx)
++		goto out_unlock;
++
+ 	flush = 0;
+ 
+ 	for (p = *head; p; p = p->next) {
 -- 
 1.8.3.1
