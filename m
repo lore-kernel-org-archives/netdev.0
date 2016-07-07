@@ -1,76 +1,57 @@
-From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Subject: Re: Resurrecting due to huge ipoib perf regression - [BUG] skb
- corruption and kernel panic at forwarding with fragmentation
-Date: Thu, 7 Jul 2016 15:01:40 -0700
-Message-ID: <CAL1RGDVgjRcb23jQQqJ4W-dfm8OkiH6n7hktVLX4mo-oUGj4gA@mail.gmail.com>
-References: <CAL1RGDV3u4bzuyGkMZGJQOiXje_qVh7AA-2nJMm2J2TR60H72g@mail.gmail.com>
- <CAKgT0UerNfn9Uas34y6_+Fa4ALCcToQvNdbEkH1erVosa=xvXg@mail.gmail.com>
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH net-next 00/10] NCSI Support
+Date: Fri, 08 Jul 2016 08:05:39 +1000
+Message-ID: <1467929139.27157.57.camel@kernel.crashing.org>
+References: <1467523953-18998-1-git-send-email-gwshan@linux.vnet.ibm.com>
+	 <577E921C.5050904@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
-	Thadeu Lima de Souza Cascardo <cascardo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <CAKgT0UerNfn9Uas34y6_+Fa4ALCcToQvNdbEkH1erVosa=xvXg-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, joel@jms.id.au, weixue@trustnetic.com
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	Gavin Shan <gwshan@linux.vnet.ibm.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from gate.crashing.org ([63.228.1.57]:60986 "EHLO gate.crashing.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751926AbcGGWF7 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jul 2016 18:05:59 -0400
+In-Reply-To: <577E921C.5050904@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
->> struct skb_gso_cb {
->>         int     mac_offset;
->>         int     encap_level;
->>         __u16   csum_start;
->> };
+On Thu, 2016-07-07 at 10:32 -0700, Florian Fainelli wrote:
+> 
+> I know nothing about NCSI, pretty much like Jon Snow, but from a cursory
+> look at your patches, is not there a way to make the NCSCI capable
+> network devices strictly adhere to the net_device APIs and calling
+> conventions?
 
-> This is based on an out-dated version of this struct.  The 4.7 RC
-> kernel has a few more fields that were added to support local checksum
-> offload for encapsulated frames.
+They already do.
 
-Thanks for pointing that out.  I hit the perf regression on 4.4.y
-(stable) and looked at the struct there.  I see that latest upstream
-has changed, and I agree that this struct really can't shrink below 10
-bytes.
+Basically imagine NC-SI being a replacement for the PHY of the device.
 
-Since IP needs 20 bytes, GSO needs 10 bytes and IPoIB needs 20 bytes,
-we're 2 bytes over the 48 that are available in cb[].  So this is
-harder to fix than just changing skb_gso_cb and SKB_SGO_CB_OFFSET
-unfortunately.
+Instead of having a PHY, your MII is directly connected to another NIC
+(the main system NIC) which conveniently provide that sideband MII
+interface for you.
 
->> What is the best way to keep the crash fix but not kill IPoIB performance?
->
-> It seems like what would probably need to happen is to move where the
-> IPoIB address is stored.  I'm not sure the control buffer is really
-> the best place for it since the cb gets overwritten at various levels,
-> and storing 20 bytes makes it hard to avoid bumping up against the
-> size restrictions of the buffer.  Seeing as how the IPoIB hwaddr is
-> generated around the same time we generate the L2 header for the
-> frame, I wonder if you couldn't get away with using a bit of extra skb
-> headroom to store it and then use a offset from the MAC header to
-> access it.  An added bonus would be that with a few tricks with
-> SKB_GSO_CB(skb)->mac_offset you might even be able to set things up so
-> that you copy the hwaddr when you copy the header for each fragment
-> instead of having to go and copy the hwaddr out of the cb and clone it
-> for each frame.
+You then use the NC-SI protocol which uses a specific ethernet packet
+type to communicate with that other NIC as you would otherwise communicate
+with a PHY using MDIO. At least conceptually. For config. Normal traffic
+is still normal ethernet.
 
-Can we assume there are 20 bytes of skb headroom available?  What if
-we're forwarding an skb received on an Ethernet device?
+The protocol is more complex than MDIO though, you can be connected to
+multiple NICs, you have to provide your MAC address to the other guy so
+he can route some incoming traffic to you etc...
 
-The reason we moved to the cb storage is that in the past, trying to
-hide some data in the actual skb buffer that we don't actually send
-led to some awkward-at-best code.  (As I recall GRO was difficult to
-handle before commit 936d7de3d736 "IPoIB: Stop lying about
-hard_header_len and use skb->cb to stash LL addresses")  But maybe
-there's a third way to handle this other than the old way and the
-skb->cb way.
+So in the current implementation by Gavin, all that is needed for an
+existing NIC driver to support NC-SI is a few lines of code to register
+with the stack, which will under the hood create the ncsi_dev associated
+with the net_dev and manage the protocol.
 
- - R.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>From a "user" point of view you still have a normal netdev doing normal
+ethernet, the NC-SI protocol is transparent and strictly used to maintain
+the link active between you and the other NIC thorugh which your traffic
+goes.
+
+Cheers,
+Ben.
