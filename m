@@ -1,181 +1,408 @@
-From: Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>
-Subject: Re: [PATCH net] bonding: fix 802.3ad aggregator reselection
-Date: Thu, 7 Jul 2016 23:04:01 +0300
-Message-ID: <CAKdSkDUkW5DaM_nDkyMNAhWC_MAXK2pXzt-T9opQKDm0xdhibQ@mail.gmail.com>
-References: <10542.1466716851@famine> <CAKdSkDVXe5jRgWU8WAvx43KvEuZvS4ak+a9qd9H4C3zy+OvkPQ@mail.gmail.com>
- <20295.1467215964@famine> <CAKdSkDXprDpOUbKqw7+sqAj8LZ2tGC17YONmX0D1oLLUnCvRYw@mail.gmail.com>
- <CAKdSkDXBhg-n=TrZ6UiVp-xSxgYmKJ3Oaa-5ei_N+kRu7Xf_5Q@mail.gmail.com> <29688.1467753616@famine>
+From: Jiri Kosina <jikos@kernel.org>
+Subject: [RFC PATCH v2] net: sched: convert qdisc linked list to hashtable
+Date: Thu, 7 Jul 2016 22:36:49 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1607072234190.24757@cbobk.fhfr.pm>
+References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>  <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>  <20160414151813.GE3715@orbyte.nwl.cc>  <alpine.LNX.2.00.1604141807350.27368@cbobk.fhfr.pm>
+ <1460656170.10638.61.camel@edumazet-glaptop3.roam.corp.google.com>  <5710E1C1.2090209@mojatatu.com> <1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com> <alpine.LNX.2.00.1607071102010.24757@cbobk.fhfr.pm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev <netdev@vger.kernel.org>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	zhuyj <zyjzyj2000@gmail.com>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jay Vosburgh <jay.vosburgh@canonical.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:33708 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751193AbcGGUEE (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 16:04:04 -0400
-Received: by mail-oi0-f52.google.com with SMTP id u201so38230220oie.0
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 13:04:03 -0700 (PDT)
-In-Reply-To: <29688.1467753616@famine>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>, Phil Sutter <phil@nwl.cc>,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1607071102010.24757@cbobk.fhfr.pm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-2016-07-06 0:20 GMT+03:00 Jay Vosburgh <jay.vosburgh@canonical.com>:
-> Veli-Matti Lintu <veli-matti.lintu@opinsys.fi> wrote:
->
->>2016-06-30 14:15 GMT+03:00 Veli-Matti Lintu <veli-matti.lintu@opinsys.fi>:
->>> 2016-06-29 18:59 GMT+03:00 Jay Vosburgh <jay.vosburgh@canonical.com>:
->>>> Veli-Matti Lintu <veli-matti.lintu@opinsys.fi> wrote:
->>
->>>>         I tried this locally, but don't see any failure (at the end, the
->>>> "Switch A" agg is still active with the single port).  I am starting
->>>> with just two ports in each aggregator (instead of three), so that may
->>>> be relevant.
->>>
->>> When the connection problem occurs, /proc/net/bonding/bond0 always
->>> shows the aggregator that has a link up active. Dumpcap sees at least
->>> broadcast traffic on the port, but I haven't done extensive analysis
->>> on that yet. All TCP connections are cut until the bond is up again
->>> when more ports are enabled on the switch. ping doesn't work either
->>> way.
->>
->>I did some further testing on this and it looks like I can get this
->>working by enabling the ports in the new aggregator the same way as
->>the ports in old aggregator are disabled in ad_agg_selection_logic().
->
->         I tested with this some as well, using 6 ports total across two
-> switches, and was still not able to reproduce the issue.  How are you
-> configuring the bond in the first place?  It may be that there is some
-> dependency on the ordering of the slaves within the bond and how they
-> are disabled.
+From: Jiri Kosina <jkosina@suse.cz>
 
-The switch configuration should be pretty basic - port group that has
-LACP as type. L4 based hashing is configured on the switches. The bond
-is running as untagged on the ports. "show run" shows them as such:
+Convert the per-device linked list into a hashtable. The primary 
+motivation for this change is that currently, we're not tracking all the 
+qdiscs in hierarchy (e.g. excluding default qdiscs), as the lookup 
+performed over the linked list by qdisc_match_from_root() is rather 
+expensive.
 
-trunk 20-22 trk4 lacp
-trunk-load-balance L4-based
+The ultimate goal is to get rid of hidden qdiscs completely, which will 
+bring much more determinism in user experience.
 
-Both switches have similar configuration. I'm not an expert in switch
-configurations, so I do not know if there's anything else interesting
-in there.
+As we're adding hashtable.h include into generic netdevice.h, we have to make
+sure HASH_SIZE macro is now non-conflicting with local definitions.
 
-The servers are running Ubuntu 16.04 and systemd-networkd is used to
-configure the interfaces. Using /etc/network/interfaces failed quite
-often to setup all interfaces at boot time, so we switched over to
-systemd-networkd.
+Signed-off-by: Jiri Kosina <jkosina@suse.cz>
+---
 
->         Also, I am taking the ports down by physically unplugging the
-> cable from the switch.  If you're doing it differently, that might be
-> relevant.
+v1 -> v2: 	fix up RCU hastable usage wrt. rtnl
+	   	fix compilation of .c files which define their own 
+		 HASH_SIZE that now oncflicts with the one from 
+		 hashtable.h (newly included via netdevice.h)
 
-The servers are in remote location, so I'm disabling the ports in
-switch configuration. Unfortunately I do not have a similar setup that
-I could access physically at the moment.
+ include/linux/netdevice.h |  2 ++
+ include/net/pkt_sched.h   |  4 ++--
+ include/net/sch_generic.h |  2 +-
+ net/core/dev.c            |  1 +
+ net/ipv6/ip6_gre.c        |  8 ++++----
+ net/ipv6/ip6_tunnel.c     |  6 +++---
+ net/ipv6/ip6_vti.c        |  6 +++---
+ net/ipv6/sit.c            | 10 +++++-----
+ net/sched/sch_api.c       | 23 +++++++++++++----------
+ net/sched/sch_generic.c   |  6 +++---
+ net/sched/sch_mq.c        |  2 +-
+ net/sched/sch_mqprio.c    |  2 +-
+ 12 files changed, 39 insertions(+), 33 deletions(-)
 
->>Normally the ports seem to get enabled from ad_mux_machine() in "case
->>AD_MUX_COLLECTING_DISTRIBUTING", but something different happens there
->>as the port does get enabled, but no traffic passes through. So far I
->>haven't been able to figure out what happens. When the connection is
->>lost, dumpcap sees traffic on the only active port in the bond, but it
->>seems like nothing catches it. If I disable and re-enable the same
->>port, traffic start flowing again normally.
->
->         Looking at the debug log you provided, the step that fails
-> appears to correspond to this portion:
-
-...
-
->         The "Periodic Machine" 3->4 then 4->3 then "Sent LACPDU" looks
-> normal (3->4 is the periodic timer expiring, state 4 sets port->ntt,
-> then the next iteration moves back to state 3), and includes both send
-> and receive of LACPDUs on port 2 (which is enp5s0f0).
->
->         I don't see a transition to COLL/DIST state for port 2 in the
-> log, so presumably it takes place prior to the beginning.  This is the
-> place that would call __enable_port.
->
->         What you're describing sounds consistent with the slave not
-> being set to active, which would cause bond_handle_frame ->
-> bond_should_deliver_exact_match to return RX_HANDLER_EXACT.
->
->         This leads me to wonder if the port in question is in this
-> incorrect state from the beginning, but it only manifests once it
-> becomes the only active port.
->
->         Can you instrument __enable_port to see when it is called for
-> the bad port, and if it actually calls bond_set_slave_active_flags for
-> the port in question (without your additional patch)?
-
-Thanks for the pointers. Adding some extra debug in __enable_port
-helped me to get in right direction. And adding quite a bit of extra
-debug information after that.
-
-It looks like I'm hitting a case where the port is not initialized
-when bond_update_slave_arr is run and this causes a failure in
-bond_xmit_slave_id as it cannot find any ports that would be usable
-for sending.
-
-When the aggregator changes for the first time, __disable_port() is
-called for all the ports in the old aggregator in
-ad_agg_selection_logic():
-
-                if (active) {
-                        for (port = active->lag_ports; port;
-                             port = port->next_port_in_aggregator) {
-                                __disable_port(port);
-                        }
-                }
-                /* Slave array needs update. */
-                *update_slave_arr = true;
-
-This sets slave->inactive for the port and also slave->backup is set.
-These are still set when agg_selection_logic() is called to reselect
-the aggregator with your patch. It sets the is_enabled flag, but does
-not touch inactive and backup flags.
-
-ad_agg_selection_logic() sets update_slave_arr to true, but the port
-is not enabled yet when bond_update_slave_arr() gets called. When
-__enable_port() is called for the ports in ad_mux_machine() case
-AD_MUX_COLLECTING_DISTRIBUTING, bond_update_slave_arr() is not called
-again. This leaves the xmit hash without any slaves. I added some
-debugging in bond_3ad_xor_xmit() to see that it drops packets while
-connection is not working. The problem is cleared right away when a
-port comes up and bond_update_slave_arr() gets called.
-
-I can try to collect debug logs with some extra debugging enabled if that helps.
-
-I was able to get it working by setting the update_slave_arr in
-ad_mux_machine when a port is enabled. I'm not sure if this the best
-place to get bond_update_slave_arr() invoked, but it seems to do the
-trick.
-
-diff --git a/drivers/net/bonding/bond_3ad.c b/drivers/net/bonding/bond_3ad.c
-index ca81f46..9b8653c 100644
---- a/drivers/net/bonding/bond_3ad.c
-+++ b/drivers/net/bonding/bond_3ad.c
-@@ -970,6 +980,9 @@ static void ad_mux_machine(struct port *port, bool
-*update_slave_arr)
-                                    !__port_is_enabled(port)) {
-
-                                        __enable_port(port);
-+
-+                                       if (__port_is_enabled(port))
-+                                               *update_slave_arr = true;
-                                }
-                        }
-                        break;
-
-The earlier patch that called __enable_port() in
-ad_agg_selection_logic probably did the same by getting the inactive
-and backup flags cleared so that bond_update_slave_arr() included the
-ports in the xmit hash, but I haven't looked through the steps there.
-I really cannot claim to understand all the logic in the code, so this
-might be totally wrong..
-
-
-Veli-Matti
+diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+index f45929c..630838e 100644
+--- a/include/linux/netdevice.h
++++ b/include/linux/netdevice.h
+@@ -52,6 +52,7 @@
+ #include <uapi/linux/netdevice.h>
+ #include <uapi/linux/if_bonding.h>
+ #include <uapi/linux/pkt_cls.h>
++#include <linux/hashtable.h>
+ 
+ struct netpoll_info;
+ struct device;
+@@ -1778,6 +1779,7 @@ struct net_device {
+ 	unsigned int		num_tx_queues;
+ 	unsigned int		real_num_tx_queues;
+ 	struct Qdisc		*qdisc;
++	DECLARE_HASHTABLE	(qdisc_hash, 16);
+ 	unsigned long		tx_queue_len;
+ 	spinlock_t		tx_global_lock;
+ 	int			watchdog_timeo;
+diff --git a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+index fea53f4..8ba11b4 100644
+--- a/include/net/pkt_sched.h
++++ b/include/net/pkt_sched.h
+@@ -90,8 +90,8 @@ int unregister_qdisc(struct Qdisc_ops *qops);
+ void qdisc_get_default(char *id, size_t len);
+ int qdisc_set_default(const char *id);
+ 
+-void qdisc_list_add(struct Qdisc *q);
+-void qdisc_list_del(struct Qdisc *q);
++void qdisc_hash_add(struct Qdisc *q);
++void qdisc_hash_del(struct Qdisc *q);
+ struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle);
+ struct Qdisc *qdisc_lookup_class(struct net_device *dev, u32 handle);
+ struct qdisc_rate_table *qdisc_get_rtab(struct tc_ratespec *r,
+diff --git a/include/net/sch_generic.h b/include/net/sch_generic.h
+index 62d5531..26f5cb3 100644
+--- a/include/net/sch_generic.h
++++ b/include/net/sch_generic.h
+@@ -67,7 +67,7 @@ struct Qdisc {
+ 	u32			limit;
+ 	const struct Qdisc_ops	*ops;
+ 	struct qdisc_size_table	__rcu *stab;
+-	struct list_head	list;
++	struct hlist_node       hash;
+ 	u32			handle;
+ 	u32			parent;
+ 	int			(*reshape_fail)(struct sk_buff *skb,
+diff --git a/net/core/dev.c b/net/core/dev.c
+index 904ff43..edc1617 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -7511,6 +7511,7 @@ struct net_device *alloc_netdev_mqs(int sizeof_priv, const char *name,
+ 	INIT_LIST_HEAD(&dev->all_adj_list.lower);
+ 	INIT_LIST_HEAD(&dev->ptype_all);
+ 	INIT_LIST_HEAD(&dev->ptype_specific);
++	hash_init(dev->qdisc_hash);
+ 	dev->priv_flags = IFF_XMIT_DST_RELEASE | IFF_XMIT_DST_RELEASE_PERM;
+ 	setup(dev);
+ 
+diff --git a/net/ipv6/ip6_gre.c b/net/ipv6/ip6_gre.c
+index fdc9de2..0f70ecc 100644
+--- a/net/ipv6/ip6_gre.c
++++ b/net/ipv6/ip6_gre.c
+@@ -62,11 +62,11 @@ module_param(log_ecn_error, bool, 0644);
+ MODULE_PARM_DESC(log_ecn_error, "Log packets received with corrupted ECN");
+ 
+ #define HASH_SIZE_SHIFT  5
+-#define HASH_SIZE (1 << HASH_SIZE_SHIFT)
++#define __HASH_SIZE (1 << HASH_SIZE_SHIFT)
+ 
+ static int ip6gre_net_id __read_mostly;
+ struct ip6gre_net {
+-	struct ip6_tnl __rcu *tunnels[4][HASH_SIZE];
++	struct ip6_tnl __rcu *tunnels[4][__HASH_SIZE];
+ 
+ 	struct net_device *fb_tunnel_dev;
+ };
+@@ -96,7 +96,7 @@ static void ip6gre_tnl_link_config(struct ip6_tnl *t, int set_mtu);
+    will match fallback tunnel.
+  */
+ 
+-#define HASH_KEY(key) (((__force u32)key^((__force u32)key>>4))&(HASH_SIZE - 1))
++#define HASH_KEY(key) (((__force u32)key^((__force u32)key>>4))&(__HASH_SIZE - 1))
+ static u32 HASH_ADDR(const struct in6_addr *addr)
+ {
+ 	u32 hash = ipv6_addr_hash(addr);
+@@ -1089,7 +1089,7 @@ static void ip6gre_destroy_tunnels(struct net *net, struct list_head *head)
+ 
+ 	for (prio = 0; prio < 4; prio++) {
+ 		int h;
+-		for (h = 0; h < HASH_SIZE; h++) {
++		for (h = 0; h < __HASH_SIZE; h++) {
+ 			struct ip6_tnl *t;
+ 
+ 			t = rtnl_dereference(ign->tunnels[prio][h]);
+diff --git a/net/ipv6/ip6_tunnel.c b/net/ipv6/ip6_tunnel.c
+index 7b0481e..a9da620 100644
+--- a/net/ipv6/ip6_tunnel.c
++++ b/net/ipv6/ip6_tunnel.c
+@@ -65,7 +65,7 @@ MODULE_ALIAS_RTNL_LINK("ip6tnl");
+ MODULE_ALIAS_NETDEV("ip6tnl0");
+ 
+ #define HASH_SIZE_SHIFT  5
+-#define HASH_SIZE (1 << HASH_SIZE_SHIFT)
++#define __HASH_SIZE (1 << HASH_SIZE_SHIFT)
+ 
+ static bool log_ecn_error = true;
+ module_param(log_ecn_error, bool, 0644);
+@@ -87,7 +87,7 @@ struct ip6_tnl_net {
+ 	/* the IPv6 tunnel fallback device */
+ 	struct net_device *fb_tnl_dev;
+ 	/* lists for storing tunnels in use */
+-	struct ip6_tnl __rcu *tnls_r_l[HASH_SIZE];
++	struct ip6_tnl __rcu *tnls_r_l[__HASH_SIZE];
+ 	struct ip6_tnl __rcu *tnls_wc[1];
+ 	struct ip6_tnl __rcu **tnls[2];
+ };
+@@ -2031,7 +2031,7 @@ static void __net_exit ip6_tnl_destroy_tunnels(struct net *net)
+ 		if (dev->rtnl_link_ops == &ip6_link_ops)
+ 			unregister_netdevice_queue(dev, &list);
+ 
+-	for (h = 0; h < HASH_SIZE; h++) {
++	for (h = 0; h < __HASH_SIZE; h++) {
+ 		t = rtnl_dereference(ip6n->tnls_r_l[h]);
+ 		while (t) {
+ 			/* If dev is in the same netns, it has already
+diff --git a/net/ipv6/ip6_vti.c b/net/ipv6/ip6_vti.c
+index d90a11f..2d192af 100644
+--- a/net/ipv6/ip6_vti.c
++++ b/net/ipv6/ip6_vti.c
+@@ -51,7 +51,7 @@
+ #include <net/netns/generic.h>
+ 
+ #define HASH_SIZE_SHIFT  5
+-#define HASH_SIZE (1 << HASH_SIZE_SHIFT)
++#define __HASH_SIZE (1 << HASH_SIZE_SHIFT)
+ 
+ static u32 HASH(const struct in6_addr *addr1, const struct in6_addr *addr2)
+ {
+@@ -69,7 +69,7 @@ struct vti6_net {
+ 	/* the vti6 tunnel fallback device */
+ 	struct net_device *fb_tnl_dev;
+ 	/* lists for storing tunnels in use */
+-	struct ip6_tnl __rcu *tnls_r_l[HASH_SIZE];
++	struct ip6_tnl __rcu *tnls_r_l[__HASH_SIZE];
+ 	struct ip6_tnl __rcu *tnls_wc[1];
+ 	struct ip6_tnl __rcu **tnls[2];
+ };
+@@ -1040,7 +1040,7 @@ static void __net_exit vti6_destroy_tunnels(struct vti6_net *ip6n)
+ 	struct ip6_tnl *t;
+ 	LIST_HEAD(list);
+ 
+-	for (h = 0; h < HASH_SIZE; h++) {
++	for (h = 0; h < __HASH_SIZE; h++) {
+ 		t = rtnl_dereference(ip6n->tnls_r_l[h]);
+ 		while (t) {
+ 			unregister_netdevice_queue(t->dev, &list);
+diff --git a/net/ipv6/sit.c b/net/ipv6/sit.c
+index 0a5a255..9f776d7 100644
+--- a/net/ipv6/sit.c
++++ b/net/ipv6/sit.c
+@@ -62,7 +62,7 @@
+    For comments look at net/ipv4/ip_gre.c --ANK
+  */
+ 
+-#define HASH_SIZE  16
++#define __HASH_SIZE  16
+ #define HASH(addr) (((__force u32)addr^((__force u32)addr>>4))&0xF)
+ 
+ static bool log_ecn_error = true;
+@@ -78,9 +78,9 @@ static struct rtnl_link_ops sit_link_ops __read_mostly;
+ 
+ static int sit_net_id __read_mostly;
+ struct sit_net {
+-	struct ip_tunnel __rcu *tunnels_r_l[HASH_SIZE];
+-	struct ip_tunnel __rcu *tunnels_r[HASH_SIZE];
+-	struct ip_tunnel __rcu *tunnels_l[HASH_SIZE];
++	struct ip_tunnel __rcu *tunnels_r_l[__HASH_SIZE];
++	struct ip_tunnel __rcu *tunnels_r[__HASH_SIZE];
++	struct ip_tunnel __rcu *tunnels_l[__HASH_SIZE];
+ 	struct ip_tunnel __rcu *tunnels_wc[1];
+ 	struct ip_tunnel __rcu **tunnels[4];
+ 
+@@ -1773,7 +1773,7 @@ static void __net_exit sit_destroy_tunnels(struct net *net,
+ 
+ 	for (prio = 1; prio < 4; prio++) {
+ 		int h;
+-		for (h = 0; h < HASH_SIZE; h++) {
++		for (h = 0; h < __HASH_SIZE; h++) {
+ 			struct ip_tunnel *t;
+ 
+ 			t = rtnl_dereference(sitn->tunnels[prio][h]);
+diff --git a/net/sched/sch_api.c b/net/sched/sch_api.c
+index ddf047d..c093d32 100644
+--- a/net/sched/sch_api.c
++++ b/net/sched/sch_api.c
+@@ -29,6 +29,7 @@
+ #include <linux/hrtimer.h>
+ #include <linux/lockdep.h>
+ #include <linux/slab.h>
++#include <linux/hashtable.h>
+ 
+ #include <net/net_namespace.h>
+ #include <net/sock.h>
+@@ -265,33 +266,33 @@ static struct Qdisc *qdisc_match_from_root(struct Qdisc *root, u32 handle)
+ 	    root->handle == handle)
+ 		return root;
+ 
+-	list_for_each_entry_rcu(q, &root->list, list) {
++	hash_for_each_possible_rcu(qdisc_dev(root)->qdisc_hash, q, hash, handle) {
+ 		if (q->handle == handle)
+ 			return q;
+ 	}
+ 	return NULL;
+ }
+ 
+-void qdisc_list_add(struct Qdisc *q)
++void qdisc_hash_add(struct Qdisc *q)
+ {
+ 	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS)) {
+ 		struct Qdisc *root = qdisc_dev(q)->qdisc;
+ 
+ 		WARN_ON_ONCE(root == &noop_qdisc);
+ 		ASSERT_RTNL();
+-		list_add_tail_rcu(&q->list, &root->list);
++		hash_add_rcu(qdisc_dev(q)->qdisc_hash, &q->hash, q->handle);
+ 	}
+ }
+-EXPORT_SYMBOL(qdisc_list_add);
++EXPORT_SYMBOL(qdisc_hash_add);
+ 
+-void qdisc_list_del(struct Qdisc *q)
++void qdisc_hash_del(struct Qdisc *q)
+ {
+ 	if ((q->parent != TC_H_ROOT) && !(q->flags & TCQ_F_INGRESS)) {
+ 		ASSERT_RTNL();
+-		list_del_rcu(&q->list);
++		hash_del_rcu(&q->hash);
+ 	}
+ }
+-EXPORT_SYMBOL(qdisc_list_del);
++EXPORT_SYMBOL(qdisc_hash_del);
+ 
+ struct Qdisc *qdisc_lookup(struct net_device *dev, u32 handle)
+ {
+@@ -1004,7 +1005,7 @@ qdisc_create(struct net_device *dev, struct netdev_queue *dev_queue,
+ 				goto err_out4;
+ 		}
+ 
+-		qdisc_list_add(sch);
++		qdisc_hash_add(sch);
+ 
+ 		return sch;
+ 	}
+@@ -1440,6 +1441,7 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
+ {
+ 	int ret = 0, q_idx = *q_idx_p;
+ 	struct Qdisc *q;
++	int b;
+ 
+ 	if (!root)
+ 		return 0;
+@@ -1454,7 +1456,7 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
+ 			goto done;
+ 		q_idx++;
+ 	}
+-	list_for_each_entry(q, &root->list, list) {
++	hash_for_each(qdisc_dev(root)->qdisc_hash, b, q, hash) {
+ 		if (q_idx < s_q_idx) {
+ 			q_idx++;
+ 			continue;
+@@ -1771,6 +1773,7 @@ static int tc_dump_tclass_root(struct Qdisc *root, struct sk_buff *skb,
+ 			       int *t_p, int s_t)
+ {
+ 	struct Qdisc *q;
++	int b;
+ 
+ 	if (!root)
+ 		return 0;
+@@ -1778,7 +1781,7 @@ static int tc_dump_tclass_root(struct Qdisc *root, struct sk_buff *skb,
+ 	if (tc_dump_tclass_qdisc(root, skb, tcm, cb, t_p, s_t) < 0)
+ 		return -1;
+ 
+-	list_for_each_entry(q, &root->list, list) {
++	hash_for_each(qdisc_dev(root)->qdisc_hash, b, q, hash) {
+ 		if (tc_dump_tclass_qdisc(q, skb, tcm, cb, t_p, s_t) < 0)
+ 			return -1;
+ 	}
+diff --git a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+index f9e0e9c..7efc923 100644
+--- a/net/sched/sch_generic.c
++++ b/net/sched/sch_generic.c
+@@ -378,7 +378,6 @@ struct Qdisc noop_qdisc = {
+ 	.dequeue	=	noop_dequeue,
+ 	.flags		=	TCQ_F_BUILTIN,
+ 	.ops		=	&noop_qdisc_ops,
+-	.list		=	LIST_HEAD_INIT(noop_qdisc.list),
+ 	.q.lock		=	__SPIN_LOCK_UNLOCKED(noop_qdisc.q.lock),
+ 	.dev_queue	=	&noop_netdev_queue,
+ 	.busylock	=	__SPIN_LOCK_UNLOCKED(noop_qdisc.busylock),
+@@ -565,7 +564,6 @@ struct Qdisc *qdisc_alloc(struct netdev_queue *dev_queue,
+ 		sch = (struct Qdisc *) QDISC_ALIGN((unsigned long) p);
+ 		sch->padded = (char *) sch - (char *) p;
+ 	}
+-	INIT_LIST_HEAD(&sch->list);
+ 	skb_queue_head_init(&sch->q);
+ 
+ 	spin_lock_init(&sch->busylock);
+@@ -645,7 +643,7 @@ void qdisc_destroy(struct Qdisc *qdisc)
+ 		return;
+ 
+ #ifdef CONFIG_NET_SCHED
+-	qdisc_list_del(qdisc);
++	qdisc_hash_del(qdisc);
+ 
+ 	qdisc_put_stab(rtnl_dereference(qdisc->stab));
+ #endif
+@@ -732,6 +730,8 @@ static void attach_default_qdiscs(struct net_device *dev)
+ 			qdisc->ops->attach(qdisc);
+ 		}
+ 	}
++	if (dev->qdisc)
++		qdisc_hash_add(dev->qdisc);
+ }
+ 
+ static void transition_one_qdisc(struct net_device *dev,
+diff --git a/net/sched/sch_mq.c b/net/sched/sch_mq.c
+index 56a77b8..3bee15d 100644
+--- a/net/sched/sch_mq.c
++++ b/net/sched/sch_mq.c
+@@ -88,7 +88,7 @@ static void mq_attach(struct Qdisc *sch)
+ 			qdisc_destroy(old);
+ #ifdef CONFIG_NET_SCHED
+ 		if (ntx < dev->real_num_tx_queues)
+-			qdisc_list_add(qdisc);
++			qdisc_hash_add(qdisc);
+ #endif
+ 
+ 	}
+diff --git a/net/sched/sch_mqprio.c b/net/sched/sch_mqprio.c
+index b8002ce..dbfb3a5 100644
+--- a/net/sched/sch_mqprio.c
++++ b/net/sched/sch_mqprio.c
+@@ -182,7 +182,7 @@ static void mqprio_attach(struct Qdisc *sch)
+ 		if (old)
+ 			qdisc_destroy(old);
+ 		if (ntx < dev->real_num_tx_queues)
+-			qdisc_list_add(qdisc);
++			qdisc_hash_add(qdisc);
+ 	}
+ 	kfree(priv->qdiscs);
+ 	priv->qdiscs = NULL;
+-- 
+Jiri Kosina
+SUSE Labs
