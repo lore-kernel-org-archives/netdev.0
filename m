@@ -1,100 +1,100 @@
-From: Alexei Starovoitov <ast@fb.com>
-Subject: [PATCH net-next] bpf: introduce bpf_get_current_task() helper
-Date: Wed, 6 Jul 2016 22:38:36 -0700
-Message-ID: <1467869916-2313494-1-git-send-email-ast@fb.com>
-Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Brendan Gregg <brendan.d.gregg@gmail.com>,
-	<netdev@vger.kernel.org>, <kernel-team@fb.com>
-To: "David S . Miller" <davem@davemloft.net>
+From: Simon Horman <simon.horman@netronome.com>
+Subject: [PATCH net-next v2 0/4] net: support MPLS in IPv4 and UDP
+Date: Thu,  7 Jul 2016 07:56:11 +0200
+Message-ID: <1467870975-28003-1-git-send-email-simon.horman@netronome.com>
+Cc: Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org,
+	Simon Horman <simon.horman@netronome.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0a-00082601.pphosted.com ([67.231.145.42]:40091 "EHLO
-	mx0a-00082601.pphosted.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750776AbcGGFij (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 01:38:39 -0400
-Received: from pps.filterd (m0044010.ppops.net [127.0.0.1])
-	by mx0a-00082601.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u675b2Er011804
-	for <netdev@vger.kernel.org>; Wed, 6 Jul 2016 22:38:39 -0700
-Received: from mail.thefacebook.com ([199.201.64.23])
-	by mx0a-00082601.pphosted.com with ESMTP id 241c909gbg-1
-	(version=TLSv1 cipher=ECDHE-RSA-AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 22:38:39 -0700
-Received: from facebook.com (2401:db00:11:d093:face:0:1b:0)	by
- mx-out.facebook.com (10.212.232.63) with ESMTP	id
- 0d705d6c440511e69be10002c992ebde-10ffbaf0 for <netdev@vger.kernel.org>;	Wed,
- 06 Jul 2016 22:38:37 -0700
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:36714 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751179AbcGGF41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 01:56:27 -0400
+Received: by mail-wm0-f45.google.com with SMTP id f126so196754289wma.1
+        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 22:56:26 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-over time there were multiple requests to access different data
-structures and fields of task_struct current, so finally add
-the helper to access 'current' as-is. Tracing bpf programs will do
-the rest of walking the pointers via bpf_probe_read().
-Note that current can be null and bpf program has to deal it with,
-but even dumb passing null into bpf_probe_read() is still safe.
+This short series provides support for MPLS in IPv4 (RFC4023), and by
+virtue of FOU, MPLS in UDP (RFC7510).
 
-Suggested-by: Brendan Gregg <brendan.d.gregg@gmail.com>
-Signed-off-by: Alexei Starovoitov <ast@kernel.org>
-Acked-by: Daniel Borkmann <daniel@iogearbox.net>
----
-requests for different helpers that can be addressed by walking 'current':
-https://github.com/iovisor/bcc/issues/220
-https://github.com/iovisor/bcc/issues/237
-https://github.com/iovisor/bcc/issues/364
----
- include/uapi/linux/bpf.h |  7 +++++++
- kernel/trace/bpf_trace.c | 13 +++++++++++++
- 2 files changed, 20 insertions(+)
+The changes are as follows:
+1. Teach tunnel4.c about AF_MPLS, it already understands AF_INET and
+   AF_INET6
+2. Enhance IPIP and SIT to handle MPLS. Both already handle IPv4.
+   SIT also already handles IPv6.
+3. Trivially enhance MPLS to allow routes over SIT and IPIP tunnels.
 
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index c14ca1cd6297..262a7e883b19 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -357,6 +357,13 @@ enum bpf_func_id {
- 	 */
- 	BPF_FUNC_get_hash_recalc,
- 
-+	/**
-+	 * u64 bpf_get_current_task(void)
-+	 * Returns current task_struct
-+	 * Return: current
-+	 */
-+	BPF_FUNC_get_current_task,
-+
- 	__BPF_FUNC_MAX_ID,
- };
- 
-diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
-index 19c5b4a5c3eb..094c716154ed 100644
---- a/kernel/trace/bpf_trace.c
-+++ b/kernel/trace/bpf_trace.c
-@@ -312,6 +312,17 @@ const struct bpf_func_proto *bpf_get_event_output_proto(void)
- 	return &bpf_event_output_proto;
- }
- 
-+static u64 bpf_get_current_task(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
-+{
-+	return (long) current;
-+}
-+
-+static const struct bpf_func_proto bpf_get_current_task_proto = {
-+	.func		= bpf_get_current_task,
-+	.gpl_only	= true,
-+	.ret_type	= RET_INTEGER,
-+};
-+
- static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
- {
- 	switch (func_id) {
-@@ -329,6 +340,8 @@ static const struct bpf_func_proto *tracing_func_proto(enum bpf_func_id func_id)
- 		return &bpf_tail_call_proto;
- 	case BPF_FUNC_get_current_pid_tgid:
- 		return &bpf_get_current_pid_tgid_proto;
-+	case BPF_FUNC_get_current_task:
-+		return &bpf_get_current_task_proto;
- 	case BPF_FUNC_get_current_uid_gid:
- 		return &bpf_get_current_uid_gid_proto;
- 	case BPF_FUNC_get_current_comm:
+A corresponding patch set for iproute2 has also been provided.
+
+
+Changes since v1
+* Correct inverted IPIP protocol logic in SIT patch
+* Provide usage example below
+
+
+Sample configuration follows:
+
+* The following creates a tunnel and routes MPLS packets whose outermost
+  label is 100 over it. The forwarded packets will have the outermost label
+  stack entry, 100, removed and two label stack entries added, the
+  outermost having label 200 and the next having label 300.
+
+  The local end-point for the tunnel is 10.0.99.192 and the remote
+  endpoint is 10.0.99.193.
+
+  The local address for encapsulated packets is 10.0.98.192 and the
+  remote address is 10.0.98.193.
+
+  # Create an MPLS over IPv4 tunnel using the IPIP driver
+  ip link add name tun1 type ipip remote 10.0.99.193 local 10.0.99.192 \
+	ttl 225 mode mplsip
+
+  # Bring the tunnel up and an add an IPv4 address and route
+  ip link set up dev tun1
+  ip addr add 10.0.98.192/24 dev tun1
+
+  # Set MPLS route
+  # Allow MPLS forwarding of packets recieved on eth0
+  echo 1 > /proc/sys/net/mpls/conf/eth0/input
+  # Larger than label to be routed (100)
+  echo 101 > /proc/sys/net/mpls/platform_labels
+  ip -f mpls route add 100 as 200/300 via inet 10.0.98.193
+
+
+* For FOU (in this case MPLS over UDP) a tunnel may created using:
+
+  # Packets recieved on UDP port 6635 are MPLS over UDP (IP proto 137)
+  ip fou add port 6635 ipproto 137
+  # Create the tunnel netdev
+  ip link add name tun1 type ipip remote 10.0.99.193 local 10.0.99.192 \
+	ttl 225 mode mplsip encap fou encap-sport auto encap-dport 6635
+
+  IPv4 address, link and route, and MPLS routing commands are as per
+  the MPLS over IPv4 example
+
+* To use the SIT driver instead of the IPIP driver "ipip" may be substituted
+  for "sit" in the above examples.
+
+* To create a tunnel that forwards and receives all supported
+  inner-protocols "mplsip" may be substituted for "any" in the above
+  examples.
+
+  For the IPIP driver this configures both IPv4 and MPLS over IPv4.
+  For the SIT driver this configures IPv6, IPv4 and MPLS over IPv4.
+
+
+Simon Horman (4):
+  tunnels: support MPLS over IPv4 tunnels
+  sit: support MPLS over IPv4
+  ipip: support MPLS over IPv4
+  mpls: allow routes on ipip and sit devices
+
+ net/ipv4/ipip.c    | 137 ++++++++++++++++++++++++++++++++++++++++++++++-------
+ net/ipv4/tunnel4.c |  77 ++++++++++++++++++++++++++----
+ net/ipv6/sit.c     |  93 +++++++++++++++++++++++++++++-------
+ net/mpls/af_mpls.c |   6 ++-
+ 4 files changed, 269 insertions(+), 44 deletions(-)
+
 -- 
-2.8.0
+2.7.0.rc3.207.g0ac5344
