@@ -1,63 +1,67 @@
 From: "Jan Beulich" <JBeulich@suse.com>
-Subject: [PATCH] xen-netback: prefer xenbus_scanf() over
- xenbus_gather()
-Date: Thu, 07 Jul 2016 01:57:49 -0600
-Message-ID: <577E279D02000078000FBEBF@prv-mh.provo.novell.com>
+Subject: [PATCH] xen-netback: prefer xenbus_write() over
+ xenbus_printf() where possible
+Date: Thu, 07 Jul 2016 01:58:18 -0600
+Message-ID: <577E27BA02000078000FBEC3@prv-mh.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 8BIT
-Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: xen-devel@lists.xenproject.org, netdev@vger.kernel.org
 To: "Wei Liu" <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from prv-mh.provo.novell.com ([137.65.248.74]:43101 "EHLO
-	prv-mh.provo.novell.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756296AbcGGH5u convert rfc822-to-8bit (ORCPT
-	<rfc822;groupwise-netdev@vger.kernel.org:3:1>);
-	Thu, 7 Jul 2016 03:57:50 -0400
+Return-path: <xen-devel-bounces@lists.xen.org>
 Content-Disposition: inline
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+List-Unsubscribe: <https://lists.xen.org/cgi-bin/mailman/options/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=unsubscribe>
+List-Post: <mailto:xen-devel@lists.xen.org>
+List-Help: <mailto:xen-devel-request@lists.xen.org?subject=help>
+List-Subscribe: <https://lists.xen.org/cgi-bin/mailman/listinfo/xen-devel>,
+ <mailto:xen-devel-request@lists.xen.org?subject=subscribe>
+Errors-To: xen-devel-bounces@lists.xen.org
+Sender: "Xen-devel" <xen-devel-bounces@lists.xen.org>
+List-Id: netdev.vger.kernel.org
 
-... for single items being collected: It is more typesafe (as the
-compiler can check format string and to-be-written-to variable match)
-and requires one less parameter to be passed.
-
-Signed-off-by: Jan Beulich <jbeulich@suse.com>
----
- drivers/net/xen-netback/xenbus.c |   14 +++++++-------
- 1 file changed, 7 insertions(+), 7 deletions(-)
-
---- 4.7-rc6-prefer-xenbus_scanf.orig/drivers/net/xen-netback/xenbus.c
-+++ 4.7-rc6-prefer-xenbus_scanf/drivers/net/xen-netback/xenbus.c
-@@ -842,16 +842,16 @@ static int connect_ctrl_ring(struct back
- 	unsigned int evtchn;
- 	int err;
- 
--	err = xenbus_gather(XBT_NIL, dev->otherend,
--			    "ctrl-ring-ref", "%u", &val, NULL);
--	if (err)
-+	err = xenbus_scanf(XBT_NIL, dev->otherend,
-+			   "ctrl-ring-ref", "%u", &val);
-+	if (err <= 0)
- 		goto done; /* The frontend does not have a control ring */
- 
- 	ring_ref = val;
- 
--	err = xenbus_gather(XBT_NIL, dev->otherend,
--			    "event-channel-ctrl", "%u", &val, NULL);
--	if (err) {
-+	err = xenbus_scanf(XBT_NIL, dev->otherend,
-+			   "event-channel-ctrl", "%u", &val);
-+	if (err <= 0) {
- 		xenbus_dev_fatal(dev, err,
- 				 "reading %s/event-channel-ctrl",
- 				 dev->otherend);
-@@ -872,7 +872,7 @@ done:
- 	return 0;
- 
- fail:
--	return err;
-+	return err ?: -ENODATA;
- }
- 
- static void connect(struct backend_info *be)
+Li4uIGFzIGJlaW5nIHRoZSBzaW1wbGVyIHZhcmlhbnQuCgpTaWduZWQtb2ZmLWJ5OiBKYW4gQmV1
+bGljaCA8amJldWxpY2hAc3VzZS5jb20+Ci0tLQogZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVu
+YnVzLmMgfCAgIDI0ICsrKysrKysrKy0tLS0tLS0tLS0tLS0tLQogMSBmaWxlIGNoYW5nZWQsIDkg
+aW5zZXJ0aW9ucygrKSwgMTUgZGVsZXRpb25zKC0pCgotLS0gNC43LXJjNi1wcmVmZXIteGVuYnVz
+X3dyaXRlLm9yaWcvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVzLmMKKysrIDQuNy1yYzYt
+cHJlZmVyLXhlbmJ1c193cml0ZS9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMuYwpAQCAt
+MzAxLDE3ICszMDEsMTUgQEAgc3RhdGljIGludCBuZXRiYWNrX3Byb2JlKHN0cnVjdCB4ZW5idXNf
+ZAogCQl9CiAKIAkJLyogV2Ugc3VwcG9ydCBwYXJ0aWFsIGNoZWNrc3VtIHNldHVwIGZvciBJUHY2
+IHBhY2tldHMgKi8KLQkJZXJyID0geGVuYnVzX3ByaW50Zih4YnQsIGRldi0+bm9kZW5hbWUsCi0J
+CQkJICAgICJmZWF0dXJlLWlwdjYtY3N1bS1vZmZsb2FkIiwKLQkJCQkgICAgIiVkIiwgMSk7CisJ
+CWVyciA9IHhlbmJ1c193cml0ZSh4YnQsIGRldi0+bm9kZW5hbWUsCisJCQkJICAgImZlYXR1cmUt
+aXB2Ni1jc3VtLW9mZmxvYWQiLCAiMSIpOwogCQlpZiAoZXJyKSB7CiAJCQltZXNzYWdlID0gIndy
+aXRpbmcgZmVhdHVyZS1pcHY2LWNzdW0tb2ZmbG9hZCI7CiAJCQlnb3RvIGFib3J0X3RyYW5zYWN0
+aW9uOwogCQl9CiAKIAkJLyogV2Ugc3VwcG9ydCByeC1jb3B5IHBhdGguICovCi0JCWVyciA9IHhl
+bmJ1c19wcmludGYoeGJ0LCBkZXYtPm5vZGVuYW1lLAotCQkJCSAgICAiZmVhdHVyZS1yeC1jb3B5
+IiwgIiVkIiwgMSk7CisJCWVyciA9IHhlbmJ1c193cml0ZSh4YnQsIGRldi0+bm9kZW5hbWUsICJm
+ZWF0dXJlLXJ4LWNvcHkiLCAiMSIpOwogCQlpZiAoZXJyKSB7CiAJCQltZXNzYWdlID0gIndyaXRp
+bmcgZmVhdHVyZS1yeC1jb3B5IjsKIAkJCWdvdG8gYWJvcnRfdHJhbnNhY3Rpb247CkBAIC0zMjEs
+MjQgKzMxOSwyMiBAQCBzdGF0aWMgaW50IG5ldGJhY2tfcHJvYmUoc3RydWN0IHhlbmJ1c19kCiAJ
+CSAqIFdlIGRvbid0IHN1cHBvcnQgcngtZmxpcCBwYXRoIChleGNlcHQgb2xkIGd1ZXN0cyB3aG8g
+ZG9uJ3QKIAkJICogZ3JvayB0aGlzIGZlYXR1cmUgZmxhZykuCiAJCSAqLwotCQllcnIgPSB4ZW5i
+dXNfcHJpbnRmKHhidCwgZGV2LT5ub2RlbmFtZSwKLQkJCQkgICAgImZlYXR1cmUtcngtZmxpcCIs
+ICIlZCIsIDApOworCQllcnIgPSB4ZW5idXNfd3JpdGUoeGJ0LCBkZXYtPm5vZGVuYW1lLCAiZmVh
+dHVyZS1yeC1mbGlwIiwgIjAiKTsKIAkJaWYgKGVycikgewogCQkJbWVzc2FnZSA9ICJ3cml0aW5n
+IGZlYXR1cmUtcngtZmxpcCI7CiAJCQlnb3RvIGFib3J0X3RyYW5zYWN0aW9uOwogCQl9CiAKIAkJ
+LyogV2Ugc3VwcG9ydCBkeW5hbWljIG11bHRpY2FzdC1jb250cm9sLiAqLwotCQllcnIgPSB4ZW5i
+dXNfcHJpbnRmKHhidCwgZGV2LT5ub2RlbmFtZSwKLQkJCQkgICAgImZlYXR1cmUtbXVsdGljYXN0
+LWNvbnRyb2wiLCAiJWQiLCAxKTsKKwkJZXJyID0geGVuYnVzX3dyaXRlKHhidCwgZGV2LT5ub2Rl
+bmFtZSwKKwkJCQkgICAiZmVhdHVyZS1tdWx0aWNhc3QtY29udHJvbCIsICIxIik7CiAJCWlmIChl
+cnIpIHsKIAkJCW1lc3NhZ2UgPSAid3JpdGluZyBmZWF0dXJlLW11bHRpY2FzdC1jb250cm9sIjsK
+IAkJCWdvdG8gYWJvcnRfdHJhbnNhY3Rpb247CiAJCX0KIAotCQllcnIgPSB4ZW5idXNfcHJpbnRm
+KHhidCwgZGV2LT5ub2RlbmFtZSwKLQkJCQkgICAgImZlYXR1cmUtZHluYW1pYy1tdWx0aWNhc3Qt
+Y29udHJvbCIsCi0JCQkJICAgICIlZCIsIDEpOworCQllcnIgPSB4ZW5idXNfd3JpdGUoeGJ0LCBk
+ZXYtPm5vZGVuYW1lLAorCQkJCSAgICJmZWF0dXJlLWR5bmFtaWMtbXVsdGljYXN0LWNvbnRyb2wi
+LCAiMSIpOwogCQlpZiAoZXJyKSB7CiAJCQltZXNzYWdlID0gIndyaXRpbmcgZmVhdHVyZS1keW5h
+bWljLW11bHRpY2FzdC1jb250cm9sIjsKIAkJCWdvdG8gYWJvcnRfdHJhbnNhY3Rpb247CkBAIC0z
+NjgsOSArMzY0LDcgQEAgc3RhdGljIGludCBuZXRiYWNrX3Byb2JlKHN0cnVjdCB4ZW5idXNfZAog
+CWlmIChlcnIpCiAJCXByX2RlYnVnKCJFcnJvciB3cml0aW5nIG11bHRpLXF1ZXVlLW1heC1xdWV1
+ZXNcbiIpOwogCi0JZXJyID0geGVuYnVzX3ByaW50ZihYQlRfTklMLCBkZXYtPm5vZGVuYW1lLAot
+CQkJICAgICJmZWF0dXJlLWN0cmwtcmluZyIsCi0JCQkgICAgIiV1IiwgdHJ1ZSk7CisJZXJyID0g
+eGVuYnVzX3dyaXRlKFhCVF9OSUwsIGRldi0+bm9kZW5hbWUsICJmZWF0dXJlLWN0cmwtcmluZyIs
+ICIxIik7CiAJaWYgKGVycikKIAkJcHJfZGVidWcoIkVycm9yIHdyaXRpbmcgZmVhdHVyZS1jdHJs
+LXJpbmdcbiIpOwogCgoKCgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fXwpYZW4tZGV2ZWwgbWFpbGluZyBsaXN0Clhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnCmh0
+dHBzOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwK
