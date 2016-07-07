@@ -1,174 +1,69 @@
-From: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Subject: [PATCH] Removing lots of IS_ERR_VALUE abuses and compilation warning.
-Date: Thu,  7 Jul 2016 20:42:16 +0530
-Message-ID: <1467904336-3588-1-git-send-email-arvind.yadav.cs@gmail.com>
-Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
-	linux-kernel@vger.kernel.org,
-	Arvind Yadav <arvind.yadav.cs@gmail.com>
-To: leoli@freescale.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: "Fastabend, John R" <john.r.fastabend@intel.com>
+Subject: RE: XDP seeking input from NIC hardware vendors
+Date: Thu, 7 Jul 2016 15:18:11 +0000
+Message-ID: <D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81@fmsmsx115.amr.corp.intel.com>
+References: <20160707124245.6d95635a@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Brenden Blanco <bblanco@plumgrid.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Rana Shahout <ranas@mellanox.com>, Ari Saha <as754m@att.com>,
+	Tariq Toukan <tariqt@mellanox.com>,
+	Or Gerlitz <ogerlitz@mellanox.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Simon Horman <horms@verge.net.au>,
+	Simon Horman <simon.horman@netronome.com>,
+	Jakub Kicinski <jakub.kicinski@netronome.com>,
+	Edward Cree <ecree@solarflare.com>
+To: Jesper Dangaard Brouer <brouer@redhat.com>,
+	"iovisor-dev@lists.iovisor.org" <iovisor-dev@lists.iovisor.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mga09.intel.com ([134.134.136.24]:10694 "EHLO mga09.intel.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751615AbcGGPSY convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 11:18:24 -0400
+In-Reply-To: <20160707124245.6d95635a@redhat.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-    Passing value in IS_ERR_VALUE() is wrong, as they
-    pass an 'int' into a function that takes an 'unsigned long'
-    argument. This happens to work because the type is sign-extended
-    on 64-bit architectures before it gets converted into an
-    unsigned type.
+Hi Jesper,
 
-    Passing an 'unsigned short' or 'unsigned int'
-    argument into IS_ERR_VALUE() is guaranteed to be broken, as are
-    8-bit integers and types that are wider than 'unsigned long'.
+I have done some previous work on proprietary systems where we used hardware to do the classification/parsing then passed a cookie to the software which used the cookie to lookup a program to run on the packet. When your programs are structured as a bunch of parsing followed by some actions this can provide real performance benefits. Also a lot of existing hardware supports this today assuming you use headers the hardware "knows" about. It's a natural model for hardware that uses a parser followed by tcam/cam/sram/etc lookup tables.
 
-    Any user will get compilation warning for that do not pass an
-    'unsigned long' argument.
+If the goal is to just separate XDP traffic from non-XDP traffic you could accomplish this with a combination of SR-IOV/macvlan to separate the device queues into multiple netdevs and then run XDP on just one of the netdevs. Then use flow director (ethtool) or 'tc cls_u32/flower' to steer traffic to the netdev. This is how we support multiple networking stacks on one device by the way it is called the bifurcated driver. Its not too far of a stretch to think we could offload some simple XDP programs to program the splitting of traffic instead of cls_u32/flower/flow_director and then you would have a stack of XDP programs. One running in hardware and a set running on the queues in software.
 
-    Commit '287980e49f; - This change is alreday fixes lots of other
-    worst abusers.
+The other interesting thing would be to do more than just packet steering but actually run a more complete XDP program. Netronome supports this right. The question I have though is this a stacked of XDP programs one or more designated for hardware and some running in software perhaps with some annotation in the program so the hardware JIT knows where to place programs or do we expect the JIT itself to try and decide what is best to offload. I think the easiest to start with is to annotate the programs.
 
-Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
----
- drivers/net/ethernet/freescale/ucc_geth.c | 30 +++++++++++++++---------------
- 1 file changed, 15 insertions(+), 15 deletions(-)
+Also as far as I know a lot of hardware can stick extra data to the front or end of a packet so you could push metadata calculated by the program here in a generic way without having to extend XDP defined metadata structures. Another option is to DMA the metadata to a specified address. With this metadata the consumer/producer XDP programs have to agree on the format but no one else.
 
-diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-index 5bf1ade..c1ead2c 100644
---- a/drivers/net/ethernet/freescale/ucc_geth.c
-+++ b/drivers/net/ethernet/freescale/ucc_geth.c
-@@ -289,7 +289,7 @@ static int fill_init_enet_entries(struct ucc_geth_private *ugeth,
- 		else {
- 			init_enet_offset =
- 			    qe_muram_alloc(thread_size, thread_alignment);
--			if (IS_ERR_VALUE(init_enet_offset)) {
-+			if (init_enet_offset < 0) {
- 				if (netif_msg_ifup(ugeth))
- 					pr_err("Can not allocate DPRAM memory\n");
- 				qe_put_snum((u8) snum);
-@@ -2234,7 +2234,7 @@ static int ucc_geth_alloc_tx(struct ucc_geth_private *ugeth)
- 			ugeth->tx_bd_ring_offset[j] =
- 			    qe_muram_alloc(length,
- 					   UCC_GETH_TX_BD_RING_ALIGNMENT);
--			if (!IS_ERR_VALUE(ugeth->tx_bd_ring_offset[j]))
-+			if (!ugeth->tx_bd_ring_offset[j])
- 				ugeth->p_tx_bd_ring[j] =
- 				    (u8 __iomem *) qe_muram_addr(ugeth->
- 							 tx_bd_ring_offset[j]);
-@@ -2311,7 +2311,7 @@ static int ucc_geth_alloc_rx(struct ucc_geth_private *ugeth)
- 			ugeth->rx_bd_ring_offset[j] =
- 			    qe_muram_alloc(length,
- 					   UCC_GETH_RX_BD_RING_ALIGNMENT);
--			if (!IS_ERR_VALUE(ugeth->rx_bd_ring_offset[j]))
-+			if (!ugeth->rx_bd_ring_offset[j])
- 				ugeth->p_rx_bd_ring[j] =
- 				    (u8 __iomem *) qe_muram_addr(ugeth->
- 							 rx_bd_ring_offset[j]);
-@@ -2521,7 +2521,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 	ugeth->tx_glbl_pram_offset =
- 	    qe_muram_alloc(sizeof(struct ucc_geth_tx_global_pram),
- 			   UCC_GETH_TX_GLOBAL_PRAM_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->tx_glbl_pram_offset)) {
-+	if (ugeth->tx_glbl_pram_offset < 0) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_tx_glbl_pram\n");
- 		return -ENOMEM;
-@@ -2541,7 +2541,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 			   sizeof(struct ucc_geth_thread_data_tx) +
- 			   32 * (numThreadsTxNumerical == 1),
- 			   UCC_GETH_THREAD_DATA_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->thread_dat_tx_offset)) {
-+	if (ugeth->thread_dat_tx_offset < 0) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_thread_data_tx\n");
- 		return -ENOMEM;
-@@ -2568,7 +2568,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 	    qe_muram_alloc(ug_info->numQueuesTx *
- 			   sizeof(struct ucc_geth_send_queue_qd),
- 			   UCC_GETH_SEND_QUEUE_QUEUE_DESCRIPTOR_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->send_q_mem_reg_offset)) {
-+	if (ugeth->send_q_mem_reg_offset < 0) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_send_q_mem_reg\n");
- 		return -ENOMEM;
-@@ -2609,7 +2609,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 		ugeth->scheduler_offset =
- 		    qe_muram_alloc(sizeof(struct ucc_geth_scheduler),
- 				   UCC_GETH_SCHEDULER_ALIGNMENT);
--		if (IS_ERR_VALUE(ugeth->scheduler_offset)) {
-+		if (ugeth->scheduler_offset < 0) {
- 			if (netif_msg_ifup(ugeth))
- 				pr_err("Can not allocate DPRAM memory for p_scheduler\n");
- 			return -ENOMEM;
-@@ -2656,7 +2656,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 		    qe_muram_alloc(sizeof
- 				   (struct ucc_geth_tx_firmware_statistics_pram),
- 				   UCC_GETH_TX_STATISTICS_ALIGNMENT);
--		if (IS_ERR_VALUE(ugeth->tx_fw_statistics_pram_offset)) {
-+		if (ugeth->tx_fw_statistics_pram_offset < 0) {
- 			if (netif_msg_ifup(ugeth))
- 				pr_err("Can not allocate DPRAM memory for p_tx_fw_statistics_pram\n");
- 			return -ENOMEM;
-@@ -2693,7 +2693,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 	ugeth->rx_glbl_pram_offset =
- 	    qe_muram_alloc(sizeof(struct ucc_geth_rx_global_pram),
- 			   UCC_GETH_RX_GLOBAL_PRAM_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->rx_glbl_pram_offset)) {
-+	if (ugeth->rx_glbl_pram_offset < 0) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_rx_glbl_pram\n");
- 		return -ENOMEM;
-@@ -2712,7 +2712,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 	    qe_muram_alloc(numThreadsRxNumerical *
- 			   sizeof(struct ucc_geth_thread_data_rx),
- 			   UCC_GETH_THREAD_DATA_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->thread_dat_rx_offset)) {
-+	if (ugeth->thread_dat_rx_offset < 0) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_thread_data_rx\n");
- 		return -ENOMEM;
-@@ -2733,7 +2733,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 		    qe_muram_alloc(sizeof
- 				   (struct ucc_geth_rx_firmware_statistics_pram),
- 				   UCC_GETH_RX_STATISTICS_ALIGNMENT);
--		if (IS_ERR_VALUE(ugeth->rx_fw_statistics_pram_offset)) {
-+		if (ugeth->rx_fw_statistics_pram_offset < 0) {
- 			if (netif_msg_ifup(ugeth))
- 				pr_err("Can not allocate DPRAM memory for p_rx_fw_statistics_pram\n");
- 			return -ENOMEM;
-@@ -2753,7 +2753,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 	    qe_muram_alloc(ug_info->numQueuesRx *
- 			   sizeof(struct ucc_geth_rx_interrupt_coalescing_entry)
- 			   + 4, UCC_GETH_RX_INTERRUPT_COALESCING_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->rx_irq_coalescing_tbl_offset)) {
-+	if (ugeth->rx_irq_coalescing_tbl_offset < 0) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_rx_irq_coalescing_tbl\n");
- 		return -ENOMEM;
-@@ -2819,7 +2819,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 			   (sizeof(struct ucc_geth_rx_bd_queues_entry) +
- 			    sizeof(struct ucc_geth_rx_prefetched_bds)),
- 			   UCC_GETH_RX_BD_QUEUES_ALIGNMENT);
--	if (IS_ERR_VALUE(ugeth->rx_bd_qs_tbl_offset)) {
-+	if (ugeth->rx_bd_qs_tbl_offset < 0) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_rx_bd_qs_tbl\n");
- 		return -ENOMEM;
-@@ -2905,7 +2905,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 		ugeth->exf_glbl_param_offset =
- 		    qe_muram_alloc(sizeof(struct ucc_geth_exf_global_pram),
- 		UCC_GETH_RX_EXTENDED_FILTERING_GLOBAL_PARAMETERS_ALIGNMENT);
--		if (IS_ERR_VALUE(ugeth->exf_glbl_param_offset)) {
-+		if (ugeth->exf_glbl_param_offset < 0) {
- 			if (netif_msg_ifup(ugeth))
- 				pr_err("Can not allocate DPRAM memory for p_exf_glbl_param\n");
- 			return -ENOMEM;
-@@ -3039,7 +3039,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
- 
- 	/* Allocate InitEnet command parameter structure */
- 	init_enet_pram_offset = qe_muram_alloc(sizeof(struct ucc_geth_init_pram), 4);
--	if (IS_ERR_VALUE(init_enet_pram_offset)) {
-+	if (init_enet_pram_offset < 0) {
- 		if (netif_msg_ifup(ugeth))
- 			pr_err("Can not allocate DPRAM memory for p_init_enet_pram\n");
- 		return -ENOMEM;
--- 
-1.9.1
+FWIW I was hoping to get some data to show performance overhead vs how deep we parse into the packets. I just wont have time to get to it for awhile but that could tell us how much perf gain the hardware could provide.
+
+Thanks,
+John
+
+-----Original Message-----
+From: Jesper Dangaard Brouer [mailto:brouer@redhat.com] 
+Sent: Thursday, July 7, 2016 3:43 AM
+To: iovisor-dev@lists.iovisor.org
+Cc: brouer@redhat.com; Brenden Blanco <bblanco@plumgrid.com>; Alexei Starovoitov <alexei.starovoitov@gmail.com>; Rana Shahout <ranas@mellanox.com>; Ari Saha <as754m@att.com>; Tariq Toukan <tariqt@mellanox.com>; Or Gerlitz <ogerlitz@mellanox.com>; netdev@vger.kernel.org; Simon Horman <horms@verge.net.au>; Simon Horman <simon.horman@netronome.com>; Jakub Kicinski <jakub.kicinski@netronome.com>; Edward Cree <ecree@solarflare.com>; Fastabend, John R <john.r.fastabend@intel.com>
+Subject: XDP seeking input from NIC hardware vendors
+
+
+Would it make sense from a hardware point of view, to split the XDP eBPF program into two stages.
+
+ Stage-1: Filter (restricted eBPF / no-helper calls)
+ Stage-2: Program
+
+Then the HW can choose to offload stage-1 "filter", and keep the likely more advanced stage-2 on the kernel side.  Do HW vendors see a benefit of this approach?
+
+
+The generic problem I'm trying to solve is parsing. E.g. that the first step in every XDP program will be to parse the packet-data, in-order to determine if this is a packet the XDP program should process.
+
+Actions from stage-1 "filter" program:
+ - DROP (like XDP_DROP, early drop)
+ - PASS (like XDP_PASS, normal netstack)
+ - MATCH (call stage-2, likely carry-over opaque return code)
+
+The MATCH action should likely carry-over an opaque return code, that makes sense for the stage-2 program. E.g. proto id and/or data offset.
