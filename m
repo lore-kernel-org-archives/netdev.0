@@ -1,101 +1,75 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH net-next 00/10] NCSI Support
-Date: Thu, 7 Jul 2016 10:32:12 -0700
-Message-ID: <577E921C.5050904@gmail.com>
-References: <1467523953-18998-1-git-send-email-gwshan@linux.vnet.ibm.com>
+From: Tom Herbert via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: XDP seeking input from NIC hardware vendors
+Date: Thu, 7 Jul 2016 10:53:54 -0700
+Message-ID: <CALx6S36BADKByJAYQLMXBx1NEDaqn6fdqsCk-OdgNo5vgHrO1Q@mail.gmail.com>
+References: <20160707124245.6d95635a@redhat.com>
+	<D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81@fmsmsx115.amr.corp.intel.com>
+	<20160707171246.5be5e433@jkicinski-Precision-T1700>
+Reply-To: Tom Herbert <tom-BjP2VixgY4xUbtYUoyoikg@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, benh@kernel.crashing.org, joel@jms.id.au,
-	weixue@trustnetic.com
-To: Gavin Shan <gwshan@linux.vnet.ibm.com>, netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:34434 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751395AbcGGRcP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 13:32:15 -0400
-Received: by mail-pa0-f66.google.com with SMTP id us13so2286456pab.1
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 10:32:14 -0700 (PDT)
-In-Reply-To: <1467523953-18998-1-git-send-email-gwshan@linux.vnet.ibm.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	"Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
+To: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <20160707171246.5be5e433@jkicinski-Precision-T1700>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On 07/02/2016 10:32 PM, Gavin Shan wrote:
-> This series rebases on David's linux-net git repo ("master" branch). It's
-> to support NCSI stack on net/farady/ftgmac100.c
-> 
-> The following figure gives an example about how NCSI is deployed: The NCSI is
-> specified by DSP0222, which can be downloaded from the following link here
-> (http://www.dmtf.org/sites/default/files/standards/documents/DSP0222_1.0.0.pdf).
-> 
->    * The NC-SI (aka NCSI) is defined as the interface between a (Base) Management
->      Controller (BMC) and one or multiple Network Controlers (NC) on host side.
->      The interface is responsible for providing external network connectivity
->      for BMC.
->    * Each BMC can connect to multiple packages, up to 8. Each package can have
->      multiple channels, up to 32. Every package and channel are identified by
->      3-bits and 5-bits in NCSI packet. At one moment, one channel is active to
->      provide service.
->    * NCSI packet, encapsulated in ethernet frame, has 0x88F8 in the protocol
->      field. The destination MAC address should be 0xFF's while the source MAC
->      address can be arbitrary one.
->    * NCSI packets are classified to command, response, AEN (Asynchronous Event
->      Notification). Commands are sent from BMC to host for configuration and
->      information retrival. Responses, corresponding to commands, are sent from
->      host to BMC for confirmation and requested information. One command should
->      have one and only one response. AEN is sent from host to BMC for notification
->      (e.g. link down on active channel) so that BMC can take appropriate action.
-> 
->    +------------------+        +----------------------------------------------+
->    |                  |        |                     Host                     |
->    |        BMC       |        |                                              |
->    |                  |        | +-------------------+  +-------------------+ |
->    |    +---------+   |        | |     Package-A     |  |     Package-B     | |
->    |    |         |   |        | +---------+---------+  +-------------------+ |
->    |    |   NIC   |   |        | | Channel | Channel |  | Channel | Channel | |
->    +----+----+----+---+        +-+---------+---------+--+---------+---------+-+
->              |                             |                      |
->              |                             |                      |
->              +-----------------------------+----------------------+
-> 
-> The design for the patchset is highlighted as below:
-> 
->    * The NCSI interface is abstracted with "struct ncsi_dev". It's registered
->      when net_device is created, started to work by calling ncsi_start_dev()
->      when net_device is opened (ndo_open()). For the first time, NCSI packets
->      are sent and received to/from the far end (host in above figure) to probe
->      available NCSI packages and channels. After that, one channel is chosen as
->      active one to provide service.
->    * The NCSI stack is driven by workqueue and state machine internally.
->    * AEN (Asychronous Event Notification) might be received from the far end
->      (host). The currently active NCSI channel fails over to another available
->      one if possible. Otherwise, the NCSI channel is out of service.
->    * NCSI stack should be configurable through netlink or another mechanism,
->      but it's not implemented in this patchset. It's something TBD.
->    * The first NIC driver that is aware of NCSI: drivers/net/ethernet/faraday/ftgmac100.c
+On Thu, Jul 7, 2016 at 9:12 AM, Jakub Kicinski
+<jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org> wrote:
+> On Thu, 7 Jul 2016 15:18:11 +0000, Fastabend, John R wrote:
+>> The other interesting thing would be to do more than just packet
+>> steering but actually run a more complete XDP program. Netronome
+>> supports this right. The question I have though is this a stacked of
+>> XDP programs one or more designated for hardware and some running in
+>> software perhaps with some annotation in the program so the hardware
+>> JIT knows where to place programs or do we expect the JIT itself to
+>> try and decide what is best to offload. I think the easiest to start
+>> with is to annotate the programs.
+>>
+>> Also as far as I know a lot of hardware can stick extra data to the
+>> front or end of a packet so you could push metadata calculated by the
+>> program here in a generic way without having to extend XDP defined
+>> metadata structures. Another option is to DMA the metadata to a
+>> specified address. With this metadata the consumer/producer XDP
+>> programs have to agree on the format but no one else.
+>
+> Yes!
+>
+> At the XDP summit we were discussing pipe-lining XDP programs in
+> general, with different stages of the pipeline potentially using
+> specific hardware capabilities or even being directly mappable on
+> fixed HW functions.
+>
+> Designating parsing as one of specialized blocks makes sense in a long
+> run, probably at the first stage with recirculation possible.  We also
+> have some parsing HW we could utilize at some point.  However, I'm
+> worried that it's too early to impose constraints and APIs.  I agree
+> that we should first set a standard way to pass metadata across tail
+> calls to facilitate any form of pipe lining, regardless of which parts
+> of pipeline HW is able to offload.
 
-I know nothing about NCSI, pretty much like Jon Snow, but from a cursory
-look at your patches, is not there a way to make the NCSCI capable
-network devices strictly adhere to the net_device APIs and calling
-conventions?
++1
 
-Even if the data flow is a little different than normal ethernet frames,
-and there is not a good way to trap to intercept the delivery of NCSI
-packets, one could imagine doing something ala DSA where you register a
-fake ethertype for NCSI to hook a ptype_fun packet handler, augment
-struct net_device with a ncsi_dev pointer, and do processing in
-net/nsci/ for this device you know where the packet came from. You don't
-need to have an officially assigned ethertype for this, see
-netdev_uses_dsa() which just tests whether the traffic is tagged with a
-particular tag and delivers packet to a protocol specific parser in
-net/dsa/.
+I don't see any reason why XDP programs can be turned into a pipeline,
+but this is implementation based on the output of one program being
+the inout of the next.  While XDP may work with pipeline it does not
+require it or define it. This makes XDP different from P4 and the
+match-action paradigm.
 
-For packets on their way out you could imagine assigning them a specific
-skb->protocol value and have the driver's transmit path do specific
-things based on that.
-
-Just an idea, I am not even sure this makes sense here, but what seems
-to make sens to me is that if more network device drivers end up
-supporting and transporting NCSI, we barely want them to know about that.
--- 
-Florian
+Tom
