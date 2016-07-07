@@ -1,94 +1,94 @@
-From: Gavin Shan <gwshan@linux.vnet.ibm.com>
-Subject: Re: [PATCH net-next 00/10] NCSI Support
-Date: Fri, 8 Jul 2016 02:34:22 +1000
-Message-ID: <20160707163422.GA28500@gwshan>
-References: <1467523953-18998-1-git-send-email-gwshan@linux.vnet.ibm.com>
- <CAJ3xEMjEup1VUeCr3g2Ry78HvprfnC6wjGd=MWjnMOLWdLyKdQ@mail.gmail.com>
- <20160705174433.GA73415@ast-mbp.thefacebook.com>
- <CAJ3xEMgRqa_=MmPyRmOU=hUAF3o6N5A0dToa6hSwSut6QvosKw@mail.gmail.com>
- <1467883056.27157.28.camel@kernel.crashing.org>
- <CAJ3xEMg_gCT4rE=U3uX5tjqRarCLukKT9K2iFjsrk_7gwmwNHA@mail.gmail.com>
-Reply-To: Gavin Shan <gwshan@linux.vnet.ibm.com>
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: [iproute PATCH 0/2] Netns performance improvements
+Date: Thu, 07 Jul 2016 11:34:36 -0500
+Message-ID: <87vb0h1k6b.fsf@x220.int.ebiederm.org>
+References: <1467729773-16751-1-git-send-email-phil@nwl.cc>
+	<87twg4ywjz.fsf@x220.int.ebiederm.org>
+	<20160705205103.GE620@orbyte.nwl.cc>
+	<87h9c259ip.fsf@x220.int.ebiederm.org>
+	<20160707111718.GL620@orbyte.nwl.cc> <577E5244.8030601@6wind.com>
+	<20160707154809.GN620@orbyte.nwl.cc> <577E8054.6040603@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Gavin Shan <gwshan@linux.vnet.ibm.com>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	David Miller <davem@davemloft.net>, joel@jms.id.au,
-	weixue@trustnetic.com, Yuval Itkin <yuvali@mellanox.com>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Phil Sutter <phil@nwl.cc>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Stephen Hemminger <shemming@brocade.com>,
+	netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hpe.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:59034 "EHLO
-	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751035AbcGGQeb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 12:34:31 -0400
-Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
-	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u67GYLR8109366
-	for <netdev@vger.kernel.org>; Thu, 7 Jul 2016 12:34:30 -0400
-Received: from e23smtp01.au.ibm.com (e23smtp01.au.ibm.com [202.81.31.143])
-	by mx0b-001b2d01.pphosted.com with ESMTP id 2415xnjw9v-1
-	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
-	for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 12:34:29 -0400
-Received: from localhost
-	by e23smtp01.au.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
-	for <netdev@vger.kernel.org> from <gwshan@linux.vnet.ibm.com>;
-	Fri, 8 Jul 2016 02:34:27 +1000
-Received: from d23relay08.au.ibm.com (d23relay08.au.ibm.com [9.185.71.33])
-	by d23dlp02.au.ibm.com (Postfix) with ESMTP id 6BBC82BB005C
-	for <netdev@vger.kernel.org>; Fri,  8 Jul 2016 02:34:24 +1000 (EST)
-Received: from d23av04.au.ibm.com (d23av04.au.ibm.com [9.190.235.139])
-	by d23relay08.au.ibm.com (8.14.9/8.14.9/NCO v10.0) with ESMTP id u67GYOue9699600
-	for <netdev@vger.kernel.org>; Fri, 8 Jul 2016 02:34:24 +1000
-Received: from d23av04.au.ibm.com (localhost [127.0.0.1])
-	by d23av04.au.ibm.com (8.14.4/8.14.4/NCO v10.0 AVout) with ESMTP id u67GYNWQ005039
-	for <netdev@vger.kernel.org>; Fri, 8 Jul 2016 02:34:24 +1000
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMg_gCT4rE=U3uX5tjqRarCLukKT9K2iFjsrk_7gwmwNHA@mail.gmail.com>
+Received: from out02.mta.xmission.com ([166.70.13.232]:39511 "EHLO
+	out02.mta.xmission.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752187AbcGGQrj convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 12:47:39 -0400
+In-Reply-To: <577E8054.6040603@hpe.com> (Rick Jones's message of "Thu, 7 Jul
+	2016 09:16:20 -0700")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 07, 2016 at 04:44:02PM +0300, Or Gerlitz wrote:
->On Thu, Jul 7, 2016 at 12:17 PM, Benjamin Herrenschmidt
-><benh@kernel.crashing.org> wrote:
->> On Thu, 2016-07-07 at 12:12 +0300, Or Gerlitz wrote:
->>> On Tue, Jul 5, 2016 at 8:44 PM, Alexei Starovoitov
->>> <alexei.starovoitov@gmail.com> wrote:
->>> > On Mon, Jul 04, 2016 at 01:03:06AM +0300, Or Gerlitz wrote:
->>>
->>> > Or, since cx4 has ncsi as well, could you do a thorough review of this
->>> > to make sure that it fits mellanox nics as well?
->>>
->>> Hi Alexei, all
->>>
->>> Yuval from our team who deals with host management did review on the
->>> series, SB his feedback.
->>>
->>> 1. The initialization uses a single unicast MAC address which hints it
->>> assumes that the management traffic is IPv4 only. The infrastructure
->>> does not seem to be ready for IPv6 based management traffic.
+Rick Jones <rick.jones2@hpe.com> writes:
+
+> On 07/07/2016 08:48 AM, Phil Sutter wrote:
+>> On Thu, Jul 07, 2016 at 02:59:48PM +0200, Nicolas Dichtel wrote:
+>>> Le 07/07/2016 13:17, Phil Sutter a =C3=A9crit :
+>>> [snip]
+>>>> The issue came up during OpenStack Neutron testing, see this ticke=
+t for
+>>>> reference:
+>>>>
+>>>> https://bugzilla.redhat.com/show_bug.cgi?id=3D1310795
+>>> Access to this ticket is not public :(
 >>
->> You mean the transfer of the MAC address from the BMC to the NIC for
->> filtering incoming traffic ?
+>> *Sigh* OK, here are a few quotes:
+>>
+>> "OpenStack Neutron controller nodes, when undergoing testing, are
+>> locking up specifically during creation and mounting of namespaces.
+>> They appear to be blocking behind vfsmount_lock, and contention for =
+the
+>> namespace_sem"
+>>
+>> "During the scale testing, we have 300 routers, 600 dhcp namespaces
+>> spread across four neutron network nodes. When then start as one set=
+ of
+>> standard Openstack Rally benchmark test cycle against neutron. An
+>> example scenario is creating 10x networks, list them, delete them an=
+d
+>> repeat 10x times. The second set performs an L3 benchmark test betwe=
+en
+>> two instances."
+>>
 >
->The initialization sequence uses "Set MAC Command" once and
->initializes MAC[1] in the chosen NC-SI pass-through channel.
->If IPv6 is used, then the BMC multicast address (derived from the
->assigned IP address to the BMC) shall also be configured (after the IP
->address is assigned), and some multicast filtering shall be set as
->well.
+> Those 300 routers will each have at least one namespace along with th=
+e
+> dhcp namespaces.  Depending on the nature of the routers (Distributed
+> versus Centralized Virtual Routers - DVR vs CVR) and whether the
+> routers are supposed to be "HA" there can be more than one namespace
+> for a given router.
 >
+> 300 routers is far from the upper limit/goal.  Back in HP Public
+> Cloud, we were running as many as 700 routers per network node (*),
+> and more than four network nodes. (back then it was just the one
+> namespace per router and network). Mileage will of course vary based
+> on the "oomph" of one's network node(s).
 
-Or, Thanks for the explanation. I think they are the multicast
-MAC addresses (33:33:00:00:00:01/02/03)? I guess sending a Global
-Multicast Filter Command is enough according to the NCSI spec
-(line 2062 on page 93):
+To clarify processes for these routers and dhcp servers are created
+with "ip netns exec"?
 
-The Enable Global Multicast Filter command is used to activate global
-filtering of multicast frames with optional filtering of specific multicast
-protocols. Upon receiving and processing this command, the channel shall only
-deliver multicast frames that match specific multicast MAC addresses enabled
-for Pass through using this command ___or___ the Set MAC Address command.
+If that is the case and you are using this feature as effectively a
+lightweight container and not lots vrfs in a single network stack
+then I suspect much larger gains can be had by creating a variant
+of ip netns exec avoids the mount propagation.
 
-Thanks,
-Gavin
+> happy benchmarking,
+>
+> rick jones
+>
+> * Didn't want to go much higher than that because each router had a
+> port on a common linux bridge and getting to > 1024 would be an
+> unpleasant day.
+
+* I would have thought all you have to do is bump of the size
+  of the linux neighbour cache.  echo $BIGNUM > /proc/sys/net/ipv4/neig=
+h/default/gc_thresh3=20
+
+Eric
