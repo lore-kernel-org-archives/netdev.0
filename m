@@ -1,33 +1,28 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net: mediatek: remove .owner field for driver
-Date: Wed, 06 Jul 2016 22:31:52 -0700 (PDT)
-Message-ID: <20160706.223152.980979934196013750.davem@davemloft.net>
-References: <1467811813-4864-1-git-send-email-weiyj_lk@163.com>
+Subject: Re: pull-request: mac80211-next 2016-07-06
+Date: Wed, 06 Jul 2016 22:32:41 -0700 (PDT)
+Message-ID: <20160706.223241.1511538517808855333.davem@davemloft.net>
+References: <1467819300-29764-1-git-send-email-johannes@sipsolutions.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: nbd@openwrt.org, blogic@openwrt.org, matthias.bgg@gmail.com,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org,
-	linux-arm-kernel@lists.infradead.org,
-	linux-mediatek@lists.infradead.org
-To: weiyj_lk@163.com
+Cc: netdev@vger.kernel.org, linux-wireless@vger.kernel.org
+To: johannes@sipsolutions.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:41898 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:41920 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750765AbcGGFcC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 01:32:02 -0400
-In-Reply-To: <1467811813-4864-1-git-send-email-weiyj_lk@163.com>
+	with ESMTP id S1750784AbcGGFco (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 01:32:44 -0400
+In-Reply-To: <1467819300-29764-1-git-send-email-johannes@sipsolutions.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: weiyj_lk@163.com
-Date: Wed,  6 Jul 2016 13:30:13 +0000
+From: Johannes Berg <johannes@sipsolutions.net>
+Date: Wed,  6 Jul 2016 17:34:59 +0200
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> And here's another set of new things. This is the last one I'll send
+> since I'll be away for a bit.
 > 
-> Remove .owner field since calls to module_platform_driver() will
-> set it automatically.
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+> Let me know if there's any problem.
 
-Applied.
+Pulled, thanks Johannes.
