@@ -1,27 +1,101 @@
-From: David Vrabel <david.vrabel@citrix.com>
-Subject: Re: [Xen-devel] [PATCH] xen-netfront: correct return value checks on
- xenbus_scanf()
-Date: Thu, 7 Jul 2016 10:56:21 +0100
-Message-ID: <577E2745.3060400@citrix.com>
-References: <577E280402000078000FBEC7@prv-mh.provo.novell.com>
+From: Ben Hutchings <ben@decadent.org.uk>
+Subject: Re: [PATCH net-next V2] net: ena: Add a driver for Amazon Elastic
+ Network Adapters (ENA)
+Date: Thu, 07 Jul 2016 11:56:43 +0200
+Message-ID: <1467885403.4171.17.camel@decadent.org.uk>
+References: <1467871095-26394-1-git-send-email-netanel@annapurnalabs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: <xen-devel@lists.xenproject.org>, <netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>, <david.vrabel@citrix.com>,
-	<boris.ostrovsky@oracle.com>, Juergen Gross <JGross@suse.com>
+Content-Type: multipart/signed; micalg="pgp-sha512";
+	protocol="application/pgp-signature"; boundary="=-O25I2uKMvh+aHhjVvmOm"
+Cc: zorik@annapurnalabs.com, saeed@annapurnalabs.com,
+	alex@annapurnalabs.com, msw@amazon.com, aliguori@amazon.com,
+	benjamin.poirier@gmail.com, romieu@fr.zoreil.com,
+	rami.rosen@intel.com, antoine.tenart@free-electrons.com
+To: Netanel Belgazal <netanel@annapurnalabs.com>,
+	netdev@vger.kernel.org, davem@davemloft.net,
+	linux-kernel@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.citrix.com ([66.165.176.89]:64591 "EHLO SMTP.CITRIX.COM"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751418AbcGGJ5D (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jul 2016 05:57:03 -0400
-In-Reply-To: <577E280402000078000FBEC7@prv-mh.provo.novell.com>
+Received: from shadbolt.e.decadent.org.uk ([88.96.1.126]:52930 "EHLO
+	shadbolt.e.decadent.org.uk" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752439AbcGGJ5E (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 05:57:04 -0400
+In-Reply-To: <1467871095-26394-1-git-send-email-netanel@annapurnalabs.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/07/16 08:59, Jan Beulich wrote:
-> Only a positive return value indicates success.
 
-This checks were already correct.
+--=-O25I2uKMvh+aHhjVvmOm
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: base64
 
-David
+T24gVGh1LCAyMDE2LTA3LTA3IGF0IDA4OjU4ICswMzAwLCBOZXRhbmVsIEJlbGdhemFsIHdyb3Rl
+OgpbLi4uXQo+ICtpbnQgZW5hX2dldF9zc2V0X2NvdW50KHN0cnVjdCBuZXRfZGV2aWNlICpuZXRk
+ZXYsIGludCBzc2V0KQo+ICt7Cj4gK8KgwqDCoMKgwqDCoMKgaWYgKHNzZXQgIT0gRVRIX1NTX1NU
+QVRTKQo+ICvCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqByZXR1cm4gLUVPUE5PVFNVUFA7
+Cj4gKwo+ICvCoMKgwqDCoMKgwqDCoHJldHVybsKgIG5ldGRldi0+bnVtX3R4X3F1ZXVlcyAqCj4g
+K8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoChFTkFfU1RBVFNfQVJSQVlfVFggKyBFTkFf
+U1RBVFNfQVJSQVlfUlgpICsKPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgRU5BX1NU
+QVRTX0FSUkFZX0dMT0JBTCArIEVOQV9TVEFUU19BUlJBWV9FTkFfQ09NOwoKbnVtX3R4X3F1ZXVl
+cyBpcyB0aGUgbnVtYmVyIG9mIHNvZnR3YXJlIHF1ZXVlcyBvcmlnaW5hbGx5IGFsbG9jYXRlZCwK
+d2hpY2ggbWF5IGJlIGxhcmdlciB0aGFuIHRoZSBudW1iZXIgaW4gdXNlIChyZWFsX251bV90eF9x
+dWV1ZXMpLgoKQW5kIHdoZW4gYWN0dWFsbHkgZ2VuZXJhdGluZyB0aGUgc3RyaW5nczoKClsuLi5d
+Cj4gK3N0YXRpYyB2b2lkIGVuYV9xdWV1ZV9zdHJpbmdzKHN0cnVjdCBlbmFfYWRhcHRlciAqYWRh
+cHRlciwgdTggKipkYXRhKQo+ICt7Cj4gK8KgwqDCoMKgwqDCoMKgY29uc3Qgc3RydWN0IGVuYV9z
+dGF0cyAqZW5hX3N0YXRzOwo+ICvCoMKgwqDCoMKgwqDCoGludCBpLCBqOwo+ICsKPiArwqDCoMKg
+wqDCoMKgwqBmb3IgKGkgPSAwOyBpIDwgYWRhcHRlci0+bnVtX3F1ZXVlczsgaSsrKSB7Cgp5b3Ug
+dXNlIGFkYXB0ZXItPm51bV9xdWV1ZXMuCgpbLi4uXQo+ICtzdGF0aWMgaW50IGVuYV9ud2F5X3Jl
+c2V0KHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpCj4gK3sKPiArwqDCoMKgwqDCoMKgwqByZXR1
+cm4gLUVOT0RFVjsKPiArfQoKVGhhdCBkb2Vzbid0IG1ha2Ugc2Vuc2UuIMKgVGhlIGRldmljZSBp
+cyB0aGVyZSBidXQgcHJlc3VtYWJseSBkb2Vzbid0CnN1cHBvcnQgYXV0b25lZ290aWF0aW9uLiDC
+oFNvIGRvbid0IGltcGxlbWVudCB0aGUgb3BlcmF0aW9uLgoKWy4uLl0KPiArc3RhdGljIGludCBl
+bmFfZ2V0X3J4Zmgoc3RydWN0IG5ldF9kZXZpY2UgKm5ldGRldiwgdTMyICppbmRpciwgdTggKmtl
+eSwKPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoHU4ICpo
+ZnVuYykKPiArewo+ICvCoMKgwqDCoMKgwqDCoHN0cnVjdCBlbmFfYWRhcHRlciAqYWRhcHRlciA9
+IG5ldGRldl9wcml2KG5ldGRldik7Cj4gK8KgwqDCoMKgwqDCoMKgZW51bSBlbmFfYWRtaW5faGFz
+aF9mdW5jdGlvbnMgZW5hX2Z1bmM7Cj4gK8KgwqDCoMKgwqDCoMKgdTggZnVuYzsKPiArwqDCoMKg
+wqDCoMKgwqBpbnQgcmM7Cj4gKwo+ICvCoMKgwqDCoMKgwqDCoHJjID0gZW5hX2NvbV9pbmRpcmVj
+dF90YWJsZV9nZXQoYWRhcHRlci0+ZW5hX2RldiwgaW5kaXIpOwo+ICvCoMKgwqDCoMKgwqDCoGlm
+IChyYykKPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgcmV0dXJuIHJjOwo+ICsKPiAr
+wqDCoMKgwqDCoMKgwqByYyA9IGVuYV9jb21fZ2V0X2hhc2hfZnVuY3Rpb24oYWRhcHRlci0+ZW5h
+X2RldiwgJmVuYV9mdW5jLCBrZXkpOwo+ICvCoMKgwqDCoMKgwqDCoGlmIChyYykKPiArwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgcmV0dXJuIHJjOwo+ICsKPiArwqDCoMKgwqDCoMKgwqBz
+d2l0Y2ggKGVuYV9mdW5jKSB7Cj4gK8KgwqDCoMKgwqDCoMKgY2FzZSBFTkFfQURNSU5fVE9FUExJ
+VFo6Cj4gK8KgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoGZ1bmMgPSBFVEhfUlNTX0hBU0hf
+VE9QOwo+ICvCoMKgwqDCoMKgwqDCoGNhc2UgRU5BX0FETUlOX0NSQzMyOgo+ICvCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqBmdW5jID0gRVRIX1JTU19IQVNIX1hPUjsKCk1pc3NpbmcgYnJl
+YWsgc3RhdGVtZW50cy4KCj4gK8KgwqDCoMKgwqDCoMKgZGVmYXVsdDoKPiArwqDCoMKgwqDCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgbmV0aWZfZXJyKGFkYXB0ZXIsIGRydiwgbmV0ZGV2LAo+ICvCoMKg
+wqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKgwqDCoCJDb21tYW5kIHBh
+cmFtZXRlciBpcyBub3Qgc3VwcG9ydGVkXG4iKTsKPiArwqDCoMKgwqDCoMKgwqDCoMKgwqDCoMKg
+wqDCoMKgcmV0dXJuIC1FT1BOT1RTVVBQOwo+ICvCoMKgwqDCoMKgwqDCoH0KWy4uLl0KPiArc3Rh
+dGljIGNvbnN0IHN0cnVjdCBldGh0b29sX29wcyBlbmFfZXRodG9vbF9vcHMgPSB7Cj4gK8KgwqDC
+oMKgwqDCoMKgLmdldF9zZXR0aW5nc8KgwqDCoMKgwqDCoMKgwqDCoMKgwqA9IGVuYV9nZXRfc2V0
+dGluZ3MsClsuLi5dCgpnZXRfc2V0dGluZ3MgaXMgbm93IGRlcHJlY2F0ZWQgaW4gZmF2b3VyIG9m
+IGdldF9saW5rX2tzZXR0aW5ncy4KCkJlbi4KCkJlbi4KCi0tIAoKQmVuIEh1dGNoaW5ncwpGb3Ig
+ZXZlcnkgYWN0aW9uLCB0aGVyZSBpcyBhbiBlcXVhbCBhbmQgb3Bwb3NpdGUgY3JpdGljaXNtLiAt
+IEhhcnJpc29uCg==
+
+
+--=-O25I2uKMvh+aHhjVvmOm
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iQIcBAABCgAGBQJXfidbAAoJEOe/yOyVhhEJav8P/A+pQysZP1xOyxhe4hWEenlv
+XD0t8w8pvtEECf3p7GeOstW/MpPu1rcQL2JHu/4XpP9gNqG23COHjijzuiL76ocy
+HrtfNHaZCiUsT1hR+Qe9y+qeN3QCUnL7IQvl09ZoKbSEU3GtRbiV4crosFQrJryf
+Y3+yNxinMjJNZzXCK6dNYtaRXhHkdwQnyLZcytq73wH38eWWWpylQlxGuECAika8
+eCnZgOiNtSD9KNPcrmetxHiNHliEckbrAhkyWP9XcfP9cxnj0xhabBYptTrSjfox
+GU3kaG+NqX7oYnCRbAHg35FxzVEPvEq3Wkyknebya+WCe3Sr6RR9RvayGhPcUiKr
+9V1sn4FyEHd0xEDNx+NJ0pcnajBusWyl4uzouUEBGj1T0A7l7M3LGpxx+Db77CPF
+z4zFJX6PvoDHPhJDuUotf9idHsiYUICG8Ef07Rae+6wMDdy3PjOLk/HziOVGz5t5
+ijhEAbseSyVRDre62R+itcIfP0rvo8ZwWiSvirsJptL+jfnG6PshXM6sGYxKDP7B
+/MJemwD4QTHsqWWWJEejtWMHwC6lqgbYi6e8GT7dXq/SdUQMGvAk/Ja+w7tT6CLz
+/eLqFqCZGfvgElX8PEzlwTm5r+s8lkN8tE6vqu2HfU06f1fJbmbtS9/uCIHZFYMT
+sCCHE8m32BxSFvAdW8eN
+=GSed
+-----END PGP SIGNATURE-----
+
+--=-O25I2uKMvh+aHhjVvmOm--
