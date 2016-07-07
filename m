@@ -1,84 +1,70 @@
 From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 3/4] net: Add VST QinQ support
-Date: Thu, 7 Jul 2016 22:22:14 +0300
-Message-ID: <CAJ3xEMhnoZHKL93Mwv4MKe_S106xgDmnYyKCtf7JjKxoWHO4Vg@mail.gmail.com>
-References: <1467808146-29573-1-git-send-email-tariqt@mellanox.com> <1467808146-29573-4-git-send-email-tariqt@mellanox.com>
+Subject: Re: [PATCH net-next 1/4] net/mlx4_core: Fix QUERY FUNC CAP flags
+Date: Thu, 7 Jul 2016 22:26:08 +0300
+Message-ID: <CAJ3xEMhgDG4iWL+ZD07R-ynCXqfY0RARuP5oCFsjXLS1H3uA5g@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Linux Netdev List <netdev@vger.kernel.org>,
-	Eran Ben Elisha <eranbe@mellanox.com>
-To: Moshe Shemesh <moshe@mellanox.com>,
-	Tariq Toukan <tariqt@mellanox.com>
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Hadar Hen Zion <hadarh@mellanox.com>
+To: Tariq Toukan <tariqt@mellanox.com>,
+	Moshe Shemesh <moshe@mellanox.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f53.google.com ([209.85.218.53]:36827 "EHLO
-	mail-oi0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752219AbcGGTWP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 15:22:15 -0400
-Received: by mail-oi0-f53.google.com with SMTP id f189so36729749oig.3
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 12:22:15 -0700 (PDT)
-In-Reply-To: <1467808146-29573-4-git-send-email-tariqt@mellanox.com>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:34122 "EHLO
+	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751153AbcGGT0J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 15:26:09 -0400
+Received: by mail-oi0-f66.google.com with SMTP id s17so3982443oih.1
+        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 12:26:09 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 On Wed, Jul 6, 2016 at 3:29 PM, Tariq Toukan <tariqt@mellanox.com> wrote:
 > From: Moshe Shemesh <moshe@mellanox.com>
+>
+> Separate QUERY_FUNC_CAP flags0 from QUERY_FUNC_CAP flags.
+> Remove QUERY_FUNC_CAP port_flags field which was not in use.
 
-> Enable activating VST QinQ mode by IP Link tool.
-> Add parameter vlan protocol to the function ndo_set_vf_vlan.
-> Vlan protocol by default is 802.1Q, setting vf vlan protocol to
-> 802.1ad sets the vf to VST QinQ mode.
-> Add IFLA_VF_VLAN_INFO in addition to IFLA_VF_VLAN to keep backward
-> compatibility with older versions of IP Link tool.
+The patch title says "Fix ..." but the change log doesn't say if this
+is fixing real bug, or cleaning up dead code, nor you point to the
+commit you are fixing, please add that, I guess it is something we do
+wrong w.r.t the PHV bit but I am not clear what.
 
-Looking on the code, I understand that you are adding a knob to set
-the vlan protocol for VST mode.
 
-What I am not clear about, is why you call it QinQ? is that targeted
-for a mixed VGT/VST mode where the guest put CVLAN and the HW
-adds/strips SVLAN?
-
-Is there anything in the API that actually is dealing/provisioning the
-guest side of things? if not, why call it QinQ?
-
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_cmn.h    |  3 ++-
->  drivers/net/ethernet/broadcom/bnx2x/bnx2x_sriov.c  |  9 +++++--
->  drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.c    |  6 ++++-
->  drivers/net/ethernet/broadcom/bnxt/bnxt_sriov.h    |  2 +-
->  drivers/net/ethernet/emulex/benet/be_main.c        |  6 ++++-
->  drivers/net/ethernet/intel/fm10k/fm10k.h           |  2 +-
->  drivers/net/ethernet/intel/fm10k/fm10k_iov.c       |  6 ++++-
->  drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.c | 11 +++++++--
->  drivers/net/ethernet/intel/i40e/i40e_virtchnl_pf.h |  4 ++--
->  drivers/net/ethernet/intel/igb/igb_main.c          |  9 ++++---
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.c     |  5 +++-
->  drivers/net/ethernet/intel/ixgbe/ixgbe_sriov.h     |  2 +-
-
->  drivers/net/ethernet/mellanox/mlx4/cmd.c           | 25 +++++++++++++++++--
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c     |  5 ++--
->  include/linux/mlx4/cmd.h                           |  3 ++-
-
-The patch does few logical changes
-
-1. introduce new rtnl UAPI that adds the ability for user-space to
-specify vlan protocol for the VF
-
-2. enhances the existing set_vf_vlan ndo to use that
-
-3. adds the actual mlx4 implementation for using the vlan proto
-(nothing about that is documented in the change log)
-
-You better put the mlx4 part into a downstream patch, so things are
-robust and well bisectable.
-
->  drivers/net/ethernet/mellanox/mlx5/core/en_main.c  |  6 ++++-
->  drivers/net/ethernet/qlogic/qede/qede_main.c       |  6 ++++-
->  drivers/net/ethernet/qlogic/qlcnic/qlcnic_sriov.h  |  2 +-
->  .../net/ethernet/qlogic/qlcnic/qlcnic_sriov_pf.c   |  5 +++-
->  drivers/net/ethernet/sfc/sriov.c                   |  5 +++-
->  drivers/net/ethernet/sfc/sriov.h                   |  2 +-
->  include/linux/if_link.h                            |  1 +
->  include/linux/netdevice.h                          |  6 +++--
->  include/uapi/linux/if_link.h                       | 10 +++++++-
->  net/core/rtnetlink.c                               | 28 ++++++++++++++++++++--
->  25 files changed, 136 insertions(+), 33 deletions(-)
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
+> index f4497cf..355f05e 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/fw.c
+> +++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
+> @@ -612,8 +612,7 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u8 gen_or_port,
+>                 MLX4_GET(func_cap->phys_port_id, outbox,
+>                          QUERY_FUNC_CAP_PHYS_PORT_ID);
+>
+> -       MLX4_GET(field, outbox, QUERY_FUNC_CAP_FLAGS0_OFFSET);
+> -       func_cap->flags |= (field & QUERY_FUNC_CAP_PHV_BIT);
+> +       MLX4_GET(func_cap->flags0, outbox, QUERY_FUNC_CAP_FLAGS0_OFFSET);
+>
+>         /* All other resources are allocated by the master, but we still report
+>          * 'num' and 'reserved' capabilities as follows:
+> @@ -2874,7 +2873,7 @@ int get_phv_bit(struct mlx4_dev *dev, u8 port, int *phv)
+>         memset(&func_cap, 0, sizeof(func_cap));
+>         err = mlx4_QUERY_FUNC_CAP(dev, port, &func_cap);
+>         if (!err)
+> -               *phv = func_cap.flags & QUERY_FUNC_CAP_PHV_BIT;
+> +               *phv = func_cap.flags0 & QUERY_FUNC_CAP_PHV_BIT;
+>         return err;
+>  }
+>  EXPORT_SYMBOL(get_phv_bit);
+> diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
+> index cdbd76f..f11614f 100644
+> --- a/drivers/net/ethernet/mellanox/mlx4/fw.h
+> +++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
+> @@ -152,7 +152,7 @@ struct mlx4_func_cap {
+>         u32     qp1_proxy_qpn;
+>         u32     reserved_lkey;
+>         u8      physical_port;
+> -       u8      port_flags;
+> +       u8      flags0;
+>         u8      flags1;
+>         u64     phys_port_id;
+>         u32     extra_flags;
