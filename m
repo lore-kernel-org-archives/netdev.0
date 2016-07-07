@@ -1,111 +1,61 @@
-From: Olaf Hering <olaf@aepfle.de>
-Subject: Re: [PATCH v14 net-next 1/1] hv_sock: introduce Hyper-V Sockets
-Date: Thu, 7 Jul 2016 18:02:06 +0200
-Message-ID: <20160707160206.GA5279@aepfle.de>
-References: <CY1PR03MB21865E21E637F03877784979BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
+From: Jakub Kicinski via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: XDP seeking input from NIC hardware vendors
+Date: Thu, 7 Jul 2016 17:12:46 +0100
+Message-ID: <20160707171246.5be5e433@jkicinski-Precision-T1700>
+References: <20160707124245.6d95635a@redhat.com>
+	<D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81@fmsmsx115.amr.corp.intel.com>
+Reply-To: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3935028226081460866=="
-Cc: "gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
- "jasowang@redhat.com" <jasowang@redhat.com>,
- Haiyang Zhang <haiyangz@microsoft.com>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "joe@perches.com" <joe@perches.com>,
- Rolf Neugebauer <rolf.neugebauer@docker.com>,
- "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "apw@canonical.com" <apw@canonical.com>,
- "devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Dexuan Cui <decui@microsoft.com>
-Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
-In-Reply-To: <CY1PR03MB21865E21E637F03877784979BF240@CY1PR03MB2186.namprd03.prod.outlook.com>
-List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
-List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
-List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
-List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
-List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
- <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
-Errors-To: driverdev-devel-bounces@linuxdriverproject.org
-Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
+To: "Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81-5FK+k9557ZBqS6EAlXoojrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 7 Jul 2016 15:18:11 +0000, Fastabend, John R wrote:
+> The other interesting thing would be to do more than just packet
+> steering but actually run a more complete XDP program. Netronome
+> supports this right. The question I have though is this a stacked of
+> XDP programs one or more designated for hardware and some running in
+> software perhaps with some annotation in the program so the hardware
+> JIT knows where to place programs or do we expect the JIT itself to
+> try and decide what is best to offload. I think the easiest to start
+> with is to annotate the programs.
+> 
+> Also as far as I know a lot of hardware can stick extra data to the
+> front or end of a packet so you could push metadata calculated by the
+> program here in a generic way without having to extend XDP defined
+> metadata structures. Another option is to DMA the metadata to a
+> specified address. With this metadata the consumer/producer XDP
+> programs have to agree on the format but no one else.
 
---===============3935028226081460866==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="/04w6evG8XlLl3ft"
-Content-Disposition: inline
+Yes!
 
+At the XDP summit we were discussing pipe-lining XDP programs in
+general, with different stages of the pipeline potentially using
+specific hardware capabilities or even being directly mappable on
+fixed HW functions.
 
---/04w6evG8XlLl3ft
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-
-On Thu, Jun 30, Dexuan Cui wrote:
-
-> +/* The MTU is 16KB per the host side's design. */
-> +struct hvsock_recv_buf {
-> +	unsigned int data_len;
-> +	unsigned int data_offset;
-> +
-> +	struct vmpipe_proto_header hdr;
-> +	u8 buf[PAGE_SIZE * 4];
-
-Please use some macro related to the protocol rather than a Linux
-compiletime macro.
-
-> +/* We send at most 4KB payload per VMBus packet. */
-> +struct hvsock_send_buf {
-> +	struct vmpipe_proto_header hdr;
-> +	u8 buf[PAGE_SIZE];
-
-Same here.
-
-> + * Copyright(c) 2016, Microsoft Corporation. All rights reserved.
-
-Here the BSD license follows. I think its required/desired to also
-include a GPL blurb like it is done in many other files:
-...
- * Alternatively, this software may be distributed under the terms of
- * the GNU General Public License ("GPL") version 2 as published by the
- * Free Software Foundation.
-....
-
-Otherwise the MODULE_LICENSE string might be incorrect.
-
-
-> +	/* Hyper-V Sockets requires at least VMBus 4.0 */
-> +	if ((vmbus_proto_version >> 16) < 4) {
-> +		pr_err("failed to load: VMBus 4 or later is required\n");
-
-I guess this mens WS 2016+, and loading in earlier host versions will
-trigger this path? I think a silent ENODEV is enough.
-
-> +		return -ENODEV;
-
-Olaf
-
---/04w6evG8XlLl3ft
-Content-Type: application/pgp-signature; name="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iEYEARECAAYFAld+fPsACgkQXUKg+qaYNn7u3gCeKWOJxMShxY0Gv27zIC18WxD8
-2c8An1wwa0vs1/7Uglhu3Z8z9H1zIGqk
-=VrH3
------END PGP SIGNATURE-----
-
---/04w6evG8XlLl3ft--
-
---===============3935028226081460866==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-devel mailing list
-devel@linuxdriverproject.org
-http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
-
---===============3935028226081460866==--
+Designating parsing as one of specialized blocks makes sense in a long
+run, probably at the first stage with recirculation possible.  We also
+have some parsing HW we could utilize at some point.  However, I'm
+worried that it's too early to impose constraints and APIs.  I agree
+that we should first set a standard way to pass metadata across tail
+calls to facilitate any form of pipe lining, regardless of which parts
+of pipeline HW is able to offload.
