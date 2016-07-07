@@ -1,69 +1,75 @@
-From: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
-Subject: [PATCH 4.6 05/31] kcm: fix /proc memory leak
-Date: Wed,  6 Jul 2016 18:18:55 -0700
-Message-ID: <20160707011557.740286994@linuxfoundation.org>
-References: <20160707011557.518104444@linuxfoundation.org>
+From: Ding Tianhong <dingtianhong@huawei.com>
+Subject: Re: [PATCH] ipv6: Fix soft lockup for ipv6 network notifier.
+Date: Thu, 7 Jul 2016 09:42:27 +0800
+Message-ID: <577DB383.30202@huawei.com>
+References: <57761E04.8030202@huawei.com>
+ <1467359847.11238.34.camel@edumazet-glaptop3.roam.corp.google.com>
+ <5776258F.6080008@huawei.com>
+ <1467361396.11238.35.camel@edumazet-glaptop3.roam.corp.google.com>
+ <577CBE0E.1050809@huawei.com>
+ <1467794644.1273.17.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Greg Kroah-Hartman <gregkh@linuxfoundation.org>,
-	stable@vger.kernel.org, Jiri Slaby <jslaby@suse.cz>,
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <luto@kernel.org>, <mingo@kernel.org>,
+	<linux-kernel@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
 	"David S. Miller" <davem@davemloft.net>,
-	Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org
-To: linux-kernel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.linuxfoundation.org ([140.211.169.12]:50102 "EHLO
-	mail.linuxfoundation.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933176AbcGGBTn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 21:19:43 -0400
-In-Reply-To: <20160707011557.518104444@linuxfoundation.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+	Netdev <netdev@vger.kernel.org>,
+	Cong Wang <cwang@twopensource.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1467794644.1273.17.camel@edumazet-glaptop3.roam.corp.google.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-4.6-stable review patch.  If anyone has any objections, please let me know.
+On 2016/7/6 16:44, Eric Dumazet wrote:
+> On Wed, 2016-07-06 at 16:15 +0800, Ding Tianhong wrote:
+>> Hi Eric=EF=BC=9A
+>>
+>> I had found out that the patch aaf92f(netfilter: conntrack: resched =
+in
+>> nf_ct_iterate_cleanup) solve the problem,=20
+>> this patch add cond_sched() in the nf_ct_iterate_cleanup() which wil=
+l
+>> be called in the net notifier chain every time,
+>> and I revert this patch at kernel 4.7-rc4 , it will panic for soft
+>> lockup, so I am not sure whether our patch is need,
+>> it looks like if I disable the CONFIG for netfilter that would
+>> register the nf_ct_iterate_cleanup as notifier, the problem still be
+>> exist.
+>=20
+> Well, I do not have conntrack on my kernels, and I can not reproduce =
+the
+> issue.
+>=20
+> So I am guessing other patches also solved a scalability issue, betwe=
+en
+> 4.1 and 4.7
+>=20
+> I am aware of something that David did for IPv4, but this might help =
+as
+> well for IPv6.
+>=20
+> commit fbd40ea0180a2d328c5adc61414dc8bab9335ce2
+> ipv4: Don't do expensive useless work during inetdev destroy.
+>    =20
 
-------------------
+Hi Eric=EF=BC=9A
 
-From: Jiri Slaby <jslaby@suse.cz>
+I check this patch:
+[root@localhost linux]# git name-rev fbd40ea0180a2d328c5adc61414dc8bab9=
+335ce2
+fbd40ea0180a2d328c5adc61414dc8bab9335ce2 tags/v4.6-rc1~91^2~63
 
-[ Upstream commit d19af0a76444fde629667ecb823c0ee28f9f67d8 ]
+So the kernel4.7-RC4 already has this patch, but it have no effort if I=
+ revert the commit  aaf92f(netfilter: conntrack: resched in
+nf_ct_iterate_cleanup), So I don't think David's patch could fix this p=
+roblem.
 
-Every open of /proc/net/kcm leaks 16 bytes of memory as is reported by
-kmemleak:
-unreferenced object 0xffff88059c0e3458 (size 192):
-  comm "cat", pid 1401, jiffies 4294935742 (age 310.720s)
-  hex dump (first 32 bytes):
-    28 45 71 96 05 88 ff ff 00 10 00 00 00 00 00 00  (Eq.............
-    00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00  ................
-  backtrace:
-    [<ffffffff8156a2de>] kmem_cache_alloc_trace+0x16e/0x230
-    [<ffffffff8162a479>] seq_open+0x79/0x1d0
-    [<ffffffffa0578510>] kcm_seq_open+0x0/0x30 [kcm]
-    [<ffffffff8162a479>] seq_open+0x79/0x1d0
-    [<ffffffff8162a8cf>] __seq_open_private+0x2f/0xa0
-    [<ffffffff81712548>] seq_open_net+0x38/0xa0
-...
+Thanks
+Ding
 
-It is caused by a missing free in the ->release path. So fix it by
-providing seq_release_net as the ->release method.
-
-Signed-off-by: Jiri Slaby <jslaby@suse.cz>
-Fixes: cd6e111bf5 (kcm: Add statistics and proc interfaces)
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Tom Herbert <tom@herbertland.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Greg Kroah-Hartman <gregkh@linuxfoundation.org>
----
- net/kcm/kcmproc.c |    1 +
- 1 file changed, 1 insertion(+)
-
---- a/net/kcm/kcmproc.c
-+++ b/net/kcm/kcmproc.c
-@@ -241,6 +241,7 @@ static const struct file_operations kcm_
- 	.open		= kcm_seq_open,
- 	.read		= seq_read,
- 	.llseek		= seq_lseek,
-+	.release	= seq_release_net,
- };
- 
- static struct kcm_seq_muxinfo kcm_seq_muxinfo = {
+>=20
+>=20
+>=20
+>=20
