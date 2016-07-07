@@ -1,30 +1,33 @@
 From: Arvind Yadav <arvind.yadav.cs@gmail.com>
 Subject: [PATCH] Removing lots of IS_ERR_VALUE abuses and compilation warning.
-Date: Thu,  7 Jul 2016 21:22:15 +0530
-Message-ID: <1467906735-4710-1-git-send-email-arvind.yadav.cs@gmail.com>
+Date: Thu,  7 Jul 2016 21:30:14 +0530
+Message-ID: <1467907214-5783-1-git-send-email-arvind.yadav.cs@gmail.com>
 Cc: netdev@vger.kernel.org, linuxppc-dev@lists.ozlabs.org,
 	linux-kernel@vger.kernel.org,
 	Arvind Yadav <arvind.yadav.cs@gmail.com>
 To: leoli@freescale.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from 51.17-broadband.acttv.in ([106.51.17.148]:9614 "EHLO
+	arvind-ThinkPad-Edge-E431" rhost-flags-OK-FAIL-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750859AbcGGQAT (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 12:00:19 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-    Passing value in IS_ERR_VALUE() is wrong, as they
-    pass an 'int' into a function that takes an 'unsigned long'
-    argument. This happens to work because the type is sign-extended
-    on 64-bit architectures before it gets converted into an
-    unsigned type.
+Passing value in IS_ERR_VALUE() is wrong, as they pass an 'int'
+into a function that takes an 'unsigned long' argument.This happens
+to work because the type is sign-extended on 64-bit architectures
+before it gets converted into an unsigned type.
 
-    Passing an 'unsigned short' or 'unsigned int'
-    argument into IS_ERR_VALUE() is guaranteed to be broken, as are
-    8-bit integers and types that are wider than 'unsigned long'.
+Passing an 'unsigned short' or 'unsigned int'argument into
+IS_ERR_VALUE() is guaranteed to be broken, as are 8-bit integers
+and types that are wider than 'unsigned long'.
 
-    Any user will get compilation warning for that do not pass an
-    'unsigned long' argument.
+Any user will get compilation warning for that do not pass an
+unsigned long' argument.
 
-    Commit '287980e49f; - This change is alreday fixes lots of other
-    worst abusers.
+Commit '287980e49f; - This change is alreday fixes lots of other
+Worst abusers
 
 Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 ---
