@@ -1,75 +1,47 @@
-From: Ding Tianhong <dingtianhong@huawei.com>
-Subject: Re: [PATCH] ipv6: Fix soft lockup for ipv6 network notifier.
-Date: Thu, 7 Jul 2016 09:42:27 +0800
-Message-ID: <577DB383.30202@huawei.com>
-References: <57761E04.8030202@huawei.com>
- <1467359847.11238.34.camel@edumazet-glaptop3.roam.corp.google.com>
- <5776258F.6080008@huawei.com>
- <1467361396.11238.35.camel@edumazet-glaptop3.roam.corp.google.com>
- <577CBE0E.1050809@huawei.com>
- <1467794644.1273.17.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+Subject: Re: [PATCH net-next v2 0/4] net: dsa: Preparatory patches for pdata
+Date: Wed, 06 Jul 2016 22:00:30 -0400
+Message-ID: <87vb0imcld.fsf@ketchup.mtl.sfl>
+References: <1467756433-25062-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <luto@kernel.org>, <mingo@kernel.org>,
-	<linux-kernel@vger.kernel.org>, Eric Dumazet <edumazet@google.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Netdev <netdev@vger.kernel.org>,
-	Cong Wang <cwang@twopensource.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467794644.1273.17.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain
+Cc: davem@davemloft.net, andrew@lunn.ch,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Florian Fainelli <f.fainelli@gmail.com>, netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:58500 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751504AbcGGCAe (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 6 Jul 2016 22:00:34 -0400
+In-Reply-To: <1467756433-25062-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 2016/7/6 16:44, Eric Dumazet wrote:
-> On Wed, 2016-07-06 at 16:15 +0800, Ding Tianhong wrote:
->> Hi Eric=EF=BC=9A
->>
->> I had found out that the patch aaf92f(netfilter: conntrack: resched =
-in
->> nf_ct_iterate_cleanup) solve the problem,=20
->> this patch add cond_sched() in the nf_ct_iterate_cleanup() which wil=
-l
->> be called in the net notifier chain every time,
->> and I revert this patch at kernel 4.7-rc4 , it will panic for soft
->> lockup, so I am not sure whether our patch is need,
->> it looks like if I disable the CONFIG for netfilter that would
->> register the nf_ct_iterate_cleanup as notifier, the problem still be
->> exist.
->=20
-> Well, I do not have conntrack on my kernels, and I can not reproduce =
-the
-> issue.
->=20
-> So I am guessing other patches also solved a scalability issue, betwe=
-en
-> 4.1 and 4.7
->=20
-> I am aware of something that David did for IPv4, but this might help =
-as
-> well for IPv6.
->=20
-> commit fbd40ea0180a2d328c5adc61414dc8bab9335ce2
-> ipv4: Don't do expensive useless work during inetdev destroy.
->    =20
+Hi,
 
-Hi Eric=EF=BC=9A
+Florian Fainelli <f.fainelli@gmail.com> writes:
 
-I check this patch:
-[root@localhost linux]# git name-rev fbd40ea0180a2d328c5adc61414dc8bab9=
-335ce2
-fbd40ea0180a2d328c5adc61414dc8bab9335ce2 tags/v4.6-rc1~91^2~63
+> Hi all,
+>
+> This is a resend of the patches that just clean up and prepare net/dsa/dsa2.c
+> to support platform data in the future.
+>
+> Florian Fainelli (4):
+>   net: dsa: Pass device pointer to dsa_register_switch
+>   net: dsa: Make most functions take a dsa_port argument
+>   net: dsa: Suffix function manipulating device_node with _dn
+>   net: dsa: Move ports assignment closer to error checking
+>
+>  drivers/net/dsa/b53/b53_common.c |  2 +-
+>  drivers/net/dsa/mv88e6xxx/chip.c |  7 ++--
+>  include/net/dsa.h                |  2 +-
+>  net/dsa/dsa.c                    | 14 ++++---
+>  net/dsa/dsa2.c                   | 87 ++++++++++++++++++++++------------------
+>  net/dsa/dsa_priv.h               |  4 +-
+>  6 files changed, 62 insertions(+), 54 deletions(-)
 
-So the kernel4.7-RC4 already has this patch, but it have no effort if I=
- revert the commit  aaf92f(netfilter: conntrack: resched in
-nf_ct_iterate_cleanup), So I don't think David's patch could fix this p=
-roblem.
+Reviewed-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 
-Thanks
-Ding
+Thanks,
 
->=20
->=20
->=20
->=20
+        Vivien
