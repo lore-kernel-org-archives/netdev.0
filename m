@@ -1,63 +1,39 @@
-From: Scott Wood <oss@buserror.net>
-Subject: Re: [PATCH 2/4] soc: fsl: add GUTS driver for QorIQ platforms
-Date: Thu, 07 Jul 2016 15:42:54 -0500
-Message-ID: <1467924174.32358.69.camel@buserror.net>
-References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
-	 <1465609853.22191.151.camel@buserror.net>
-	 <HE1PR04MB0889646206BFAD68046F3473F83B0@HE1PR04MB0889.eurprd04.prod.outlook.com>
-	 <4094106.qfxJu3tJbO@wuerfel>
+From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v11 1/6] net: introduce
+	skb_transport_header_was_set()
+Date: Thu, 7 Jul 2016 13:51:47 -0700
+Message-ID: <CAOrHB_AoMksh0mcs4suNj4rzBCH97pdDi-JgyCUFhO_siRbPCw@mail.gmail.com>
+References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com>
+ <1467827996-32547-2-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	Mark Rutland <mark.rutland@arm.com>,
-	Ulf Hansson <ulf.hansson@linaro.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-i2c@vger.kernel.org" <linux-i2c@vger.kernel.org>,
-	"linux-clk@vger.kernel.org" <linux-clk@vger.kernel.org>,
-	Qiang Zhao <qiang.zhao@nxp.com>,
-	Russell King <linux@arm.linux.org.uk>,
-	Bhupesh Sharma <bhupesh.sharma@freescale.com>,
-	Joerg Roedel <joro@8bytes.org>,
-	Claudiu Manoil <claudiu.manoil@freescale.com>,
-	"devicetree@vger.kernel.org" <devicetree@vger.kernel.org>,
-	Kumar Gala <galak@codeaurora.org>,
-	Rob Herring <robh+dt@kernel.org>,
-	Santosh Shilimkar <ssantosh@kernel.org>,
-	"linux-arm-kernel@lists.infradead.org"
-	<linux-arm-kernel@lists.infradead.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-mmc@vger.kernel.org" <linux-mmc@vger.kernel.org>,
-	Xiaob
-To: Arnd Bergmann <arnd@arndb.de>, Yangbo Lu <yangbo.lu@nxp.com>
-Return-path: <linux-i2c-owner@vger.kernel.org>
-In-Reply-To: <4094106.qfxJu3tJbO@wuerfel>
-Sender: linux-i2c-owner@vger.kernel.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1467827996-32547-2-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2016-07-07 at 10:30 +0200, Arnd Bergmann wrote:
-> On Thursday, July 7, 2016 2:35:33 AM CEST Yangbo Lu wrote:
-> >=20
-> > Hi Arnd,
-> >=20
-> > Could you reply when you see the email?
-> > If your method doesn=E2=80=99t resolve the problem, we still want t=
-o use our old
-> > patchset.
-> >=20
-> > This guts driver had been discussed about one year and blocked many
-> > workaround upstream.
-> > So please help to review and comment soon.
-> >=20
-> I don't really see how more discussion is going to help us here. I th=
-ink
-> I've made it pretty clear that I don't want to see another platform
-> specific way to read an SoC revision and I've even sent a proof-of-co=
-ncept
-> patch to show how the interface can work, now it's up to you to fit t=
-he
-> guts hardware into that and send a new patch series.
-
-In which relevant maintainership capacity are you NACKing it?
-
--Scott
+T24gV2VkLCBKdWwgNiwgMjAxNiBhdCAxMDo1OSBBTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
+YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gVGhpcyBoZWxwZXIgcmVzZXRzIHRoZSBtYWNfaGVh
+ZGVyIG9mIGFuIHNrYiB0byBhIHN0YXRlIHdoZXJlCj4gc2tiX3RyYW5zcG9ydF9oZWFkZXJfd2Fz
+X3NldCgpIHdpbGwgcmV0dXJuIGZhbHNlLgo+Cj4gVGhpcyBpcyBpbnRlbmRlZCB0byBiZSB1c2Vk
+IHdpdGggcGFja2V0cyByZWNlaXZlZCBvbgo+IEFSUEhSRF9OT05FIGRldmljZXMgd2l0aG91dCBh
+biBFdGhlcm5ldCBoZWFkZXIgaW4gdGhlIGlubmVyIHBhY2tldC4KPiBJdCBhbGxvd3Mgc2tiX3Ry
+YW5zcG9ydF9oZWFkZXJfd2FzX3NldCB0byBiZSBzdWJzZXF1ZW50bHkgdXNlZCB0bwo+IGRpZmZl
+cmVudGlhdGUgc3VjaCBwYWNrZXRzIGZyb20gdGhvc2Ugd2l0aCBhbiBFdGhlcm5ldCBoZWFkZXIu
+Cj4KPiBTaWduZWQtb2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUu
+Y29tPgpBY2tlZC1ieTogUHJhdmluIEIgU2hlbGFyIDxwc2hlbGFyQG92bi5vcmc+Cl9fX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmRldiBtYWlsaW5nIGxpc3QK
+ZGV2QG9wZW52c3dpdGNoLm9yZwpodHRwOi8vb3BlbnZzd2l0Y2gub3JnL21haWxtYW4vbGlzdGlu
+Zm8vZGV2Cg==
