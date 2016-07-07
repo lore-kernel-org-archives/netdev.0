@@ -1,76 +1,88 @@
-From: Brian Norris <briannorris@chromium.org>
-Subject: Re: [PATCH] mwifiex: mask PCIe interrupts before removal
-Date: Thu, 7 Jul 2016 11:16:53 -0700
-Message-ID: <20160707181652.GA70075@google.com>
-References: <1467325262-82799-1-git-send-email-briannorris@chromium.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org,
-	Doug Anderson <dianders@chromium.org>,
-	Brian Norris <computersforpeace@gmail.com>,
-	Stephen Barber <smbarber@chromium.org>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	wnhuang@chromium.org
-To: Amitkumar Karwar <akarwar@marvell.com>,
-	Nishant Sarmukadam <nishants@marvell.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f51.google.com ([209.85.220.51]:34550 "EHLO
-	mail-pa0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751154AbcGGSQ6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 14:16:58 -0400
-Received: by mail-pa0-f51.google.com with SMTP id bz2so8050620pad.1
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 11:16:58 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1467325262-82799-1-git-send-email-briannorris@chromium.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Horman <horms@verge.net.au>
+Subject: [PATCH nf] ipvs: fix bind to link-local mcast IPv6 address in backup
+Date: Thu,  7 Jul 2016 20:30:22 +0200
+Message-ID: <1467916222-15595-2-git-send-email-horms@verge.net.au>
+References: <1467916222-15595-1-git-send-email-horms@verge.net.au>
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>,
+	Quentin Armitage <quentin@armitage.org.uk>,
+	Simon Horman <horms@verge.net.au>
+To: Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <lvs-devel-owner@vger.kernel.org>
+In-Reply-To: <1467916222-15595-1-git-send-email-horms@verge.net.au>
+Sender: lvs-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Hi,
+From: Quentin Armitage <quentin@armitage.org.uk>
 
-On Thu, Jun 30, 2016 at 03:21:02PM -0700, Brian Norris wrote:
-> The PCIe driver didn't mask the host interrupts before trying to tear
-> down. This causes lockups at reboot or rmmod when using MSI-X on 8997,
-> since the MSI handler gets confused and locks up the system.
-> 
-> Also tested on 8897, which does not support MSI-X (and wasn't
-> experiencing this same bug). No regressions seen there.
+When using HEAD from
+https://git.kernel.org/cgit/utils/kernel/ipvsadm/ipvsadm.git/,
+the command:
+ipvsadm --start-daemon backup --mcast-interface eth0.60 \
+    --mcast-group ff02::1:81
+fails with the error message:
+Argument list too long
 
-Ping? This is a bugfix, and it'd be nice to either know what's wrong
-with it, or see it merged.
+whereas both:
+ipvsadm --start-daemon master --mcast-interface eth0.60 \
+    --mcast-group ff02::1:81
+and:
+ipvsadm --start-daemon backup --mcast-interface eth0.60 \
+    --mcast-group 224.0.0.81
+are successful.
 
-Regards,
-Brian
+The error message "Argument list too long" isn't helpful. The error occurs
+because an IPv6 address is given in backup mode.
 
-> Signed-off-by: Brian Norris <briannorris@chromium.org>
-> ---
->  drivers/net/wireless/marvell/mwifiex/pcie.c | 6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> diff --git a/drivers/net/wireless/marvell/mwifiex/pcie.c b/drivers/net/wireless/marvell/mwifiex/pcie.c
-> index 0c7937eb6b77..af98371dc2af 100644
-> --- a/drivers/net/wireless/marvell/mwifiex/pcie.c
-> +++ b/drivers/net/wireless/marvell/mwifiex/pcie.c
-> @@ -440,6 +440,11 @@ static int mwifiex_pcie_disable_host_int(struct mwifiex_adapter *adapter)
->  	return 0;
->  }
->  
-> +static void mwifiex_pcie_disable_host_int_noerr(struct mwifiex_adapter *adapter)
-> +{
-> +	WARN_ON(mwifiex_pcie_disable_host_int(adapter));
-> +}
-> +
->  /*
->   * This function enables the host interrupt.
->   *
-> @@ -2945,6 +2950,7 @@ static struct mwifiex_if_ops pcie_ops = {
->  	.register_dev =			mwifiex_register_dev,
->  	.unregister_dev =		mwifiex_unregister_dev,
->  	.enable_int =			mwifiex_pcie_enable_host_int,
-> +	.disable_int =			mwifiex_pcie_disable_host_int_noerr,
->  	.process_int_status =		mwifiex_process_int_status,
->  	.host_to_card =			mwifiex_pcie_host_to_card,
->  	.wakeup =			mwifiex_pm_wakeup_card,
-> -- 
-> 2.8.0.rc3.226.g39d4020
-> 
+The error is in make_receive_sock() in net/netfilter/ipvs/ip_vs_sync.c,
+since it fails to set the interface on the address or the socket before
+calling inet6_bind() (via sock->ops->bind), where the test
+'if (!sk->sk_bound_dev_if)' failed.
+
+Setting sock->sk->sk_bound_dev_if on the socket before calling
+inet6_bind() resolves the issue.
+
+Fixes: d33288172e72 ("ipvs: add more mcast parameters for the sync daemon")
+Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
+Acked-by: Julian Anastasov <ja@ssi.bg>
+Signed-off-by: Simon Horman <horms@verge.net.au>
+---
+ net/netfilter/ipvs/ip_vs_sync.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
+index 803001a45aa1..1b07578bedf3 100644
+--- a/net/netfilter/ipvs/ip_vs_sync.c
++++ b/net/netfilter/ipvs/ip_vs_sync.c
+@@ -1545,7 +1545,8 @@ error:
+ /*
+  *      Set up receiving multicast socket over UDP
+  */
+-static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id)
++static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id,
++					int ifindex)
+ {
+ 	/* multicast addr */
+ 	union ipvs_sockaddr mcast_addr;
+@@ -1566,6 +1567,7 @@ static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id)
+ 		set_sock_size(sock->sk, 0, result);
+ 
+ 	get_mcast_sockaddr(&mcast_addr, &salen, &ipvs->bcfg, id);
++	sock->sk->sk_bound_dev_if = ifindex;
+ 	result = sock->ops->bind(sock, (struct sockaddr *)&mcast_addr, salen);
+ 	if (result < 0) {
+ 		pr_err("Error binding to the multicast addr\n");
+@@ -1868,7 +1870,7 @@ int start_sync_thread(struct netns_ipvs *ipvs, struct ipvs_sync_daemon_cfg *c,
+ 		if (state == IP_VS_STATE_MASTER)
+ 			sock = make_send_sock(ipvs, id);
+ 		else
+-			sock = make_receive_sock(ipvs, id);
++			sock = make_receive_sock(ipvs, id, dev->ifindex);
+ 		if (IS_ERR(sock)) {
+ 			result = PTR_ERR(sock);
+ 			goto outtinfo;
+-- 
+2.7.0.rc3.207.g0ac5344
+
