@@ -1,97 +1,227 @@
-From: Simon Horman <horms@verge.net.au>
-Subject: [PATCH nf-next] ipvs: count pre-established TCP states as active
-Date: Thu,  7 Jul 2016 20:40:40 +0200
-Message-ID: <1467916840-17005-2-git-send-email-horms@verge.net.au>
-References: <1467916840-17005-1-git-send-email-horms@verge.net.au>
-Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org,
-	Wensong Zhang <wensong@linux-vs.org>,
-	Julian Anastasov <ja@ssi.bg>,
-	Michal Kubecek <mkubecek@suse.cz>,
-	Simon Horman <horms@verge.net.au>
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <1467916840-17005-1-git-send-email-horms@verge.net.au>
-Sender: netfilter-devel-owner@vger.kernel.org
+From: arvind Yadav <arvind.yadav.cs@gmail.com>
+Subject: Re: Removing lots of IS_ERR_VALUE abuses and compilation warning.
+Date: Fri, 8 Jul 2016 00:15:53 +0530
+Message-ID: <577EA361.80000@gmail.com>
+References: <1467907214-5783-1-git-send-email-arvind.yadav.cs@gmail.com>
+ <20160707171759.GA7615@roeck-us.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: leoli@freescale.com, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: Guenter Roeck <linux@roeck-us.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160707171759.GA7615@roeck-us.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Michal Kubecek <mkubecek@suse.cz>
+Yes, You are right,
 
-Some users observed that "least connection" distribution algorithm doesn't
-handle well bursts of TCP connections from reconnecting clients after
-a node or network failure.
+-Now Return type of 'qe_muram_alloc' is 'unsigned long', That Was trying 
+to assigned in member of this structure 'ucc_geth_private' . This 
+structure variable are 'unsigned int'. So before assignment need a 
+proper type casting.
 
-This is because the algorithm counts active connection as worth 256
-inactive ones where for TCP, "active" only means TCP connections in
-ESTABLISHED state. In case of a connection burst, new connections are
-handled before previous ones have finished the three way handshaking so
-that all are still counted as "inactive", i.e. cheap ones. The become
-"active" quickly but at that time, all of them are already assigned to one
-real server (or few), resulting in highly unbalanced distribution.
+-Passing value in IS_ERR_VALUE() is wrong. So this is also need a proper 
+type casting before passing an argument.
 
-Address this by counting the "pre-established" states as "active".
+      ugeth->tx_bd_ring_offset[j] =
+-    qe_muram_alloc(length,
++    (u32)qe_muram_alloc(length, UCC_GETH_RX_BD_RING_ALIGNMENT);
 
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
----
- net/netfilter/ipvs/ip_vs_proto_tcp.c | 25 +++++++++++++++++++++++--
- 1 file changed, 23 insertions(+), 2 deletions(-)
+-        if (!IS_ERR_VALUE(ugeth->rx_bd_ring_offset[j]))
++                       if (!IS_ERR_VALUE((unsigned 
+long)ugeth->rx_bd_ring_offset[j]))
 
-diff --git a/net/netfilter/ipvs/ip_vs_proto_tcp.c b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-index d7024b2ed769..5117bcb7d2f0 100644
---- a/net/netfilter/ipvs/ip_vs_proto_tcp.c
-+++ b/net/netfilter/ipvs/ip_vs_proto_tcp.c
-@@ -395,6 +395,20 @@ static const char *const tcp_state_name_table[IP_VS_TCP_S_LAST+1] = {
- 	[IP_VS_TCP_S_LAST]		=	"BUG!",
- };
- 
-+static const bool tcp_state_active_table[IP_VS_TCP_S_LAST] = {
-+	[IP_VS_TCP_S_NONE]		=	false,
-+	[IP_VS_TCP_S_ESTABLISHED]	=	true,
-+	[IP_VS_TCP_S_SYN_SENT]		=	true,
-+	[IP_VS_TCP_S_SYN_RECV]		=	true,
-+	[IP_VS_TCP_S_FIN_WAIT]		=	false,
-+	[IP_VS_TCP_S_TIME_WAIT]		=	false,
-+	[IP_VS_TCP_S_CLOSE]		=	false,
-+	[IP_VS_TCP_S_CLOSE_WAIT]	=	false,
-+	[IP_VS_TCP_S_LAST_ACK]		=	false,
-+	[IP_VS_TCP_S_LISTEN]		=	false,
-+	[IP_VS_TCP_S_SYNACK]		=	true,
-+};
-+
- #define sNO IP_VS_TCP_S_NONE
- #define sES IP_VS_TCP_S_ESTABLISHED
- #define sSS IP_VS_TCP_S_SYN_SENT
-@@ -418,6 +432,13 @@ static const char * tcp_state_name(int state)
- 	return tcp_state_name_table[state] ? tcp_state_name_table[state] : "?";
- }
- 
-+static bool tcp_state_active(int state)
-+{
-+	if (state >= IP_VS_TCP_S_LAST)
-+		return false;
-+	return tcp_state_active_table[state];
-+}
-+
- static struct tcp_states_t tcp_states [] = {
- /*	INPUT */
- /*        sNO, sES, sSS, sSR, sFW, sTW, sCL, sCW, sLA, sLI, sSA	*/
-@@ -540,12 +561,12 @@ set_tcp_state(struct ip_vs_proto_data *pd, struct ip_vs_conn *cp,
- 
- 		if (dest) {
- 			if (!(cp->flags & IP_VS_CONN_F_INACTIVE) &&
--			    (new_state != IP_VS_TCP_S_ESTABLISHED)) {
-+			    !tcp_state_active(new_state)) {
- 				atomic_dec(&dest->activeconns);
- 				atomic_inc(&dest->inactconns);
- 				cp->flags |= IP_VS_CONN_F_INACTIVE;
- 			} else if ((cp->flags & IP_VS_CONN_F_INACTIVE) &&
--				   (new_state == IP_VS_TCP_S_ESTABLISHED)) {
-+				   tcp_state_active(new_state)) {
- 				atomic_inc(&dest->activeconns);
- 				atomic_dec(&dest->inactconns);
- 				cp->flags &= ~IP_VS_CONN_F_INACTIVE;
--- 
-2.7.0.rc3.207.g0ac5344
 
+
+I have done the changes and re-submitted anther patch, Please review It.
+
+Thanks,
+Arvind
+
+On Thursday 07 July 2016 10:47 PM, Guenter Roeck wrote:
+> On Thu, Jul 07, 2016 at 09:30:14PM +0530, Arvind Yadav wrote:
+>> Passing value in IS_ERR_VALUE() is wrong, as they pass an 'int'
+>> into a function that takes an 'unsigned long' argument.This happens
+>> to work because the type is sign-extended on 64-bit architectures
+>> before it gets converted into an unsigned type.
+>>
+>> Passing an 'unsigned short' or 'unsigned int'argument into
+>> IS_ERR_VALUE() is guaranteed to be broken, as are 8-bit integers
+>> and types that are wider than 'unsigned long'.
+>>
+>> Any user will get compilation warning for that do not pass an
+>> unsigned long' argument.
+>>
+>> Commit '287980e49f; - This change is alreday fixes lots of other
+>> Worst abusers
+>>
+>> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
+>> ---
+>>   drivers/net/ethernet/freescale/ucc_geth.c | 30 +++++++++++++++---------------
+>>   1 file changed, 15 insertions(+), 15 deletions(-)
+>>
+>> diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
+>> index 5bf1ade..c1ead2c 100644
+>> --- a/drivers/net/ethernet/freescale/ucc_geth.c
+>> +++ b/drivers/net/ethernet/freescale/ucc_geth.c
+>> @@ -289,7 +289,7 @@ static int fill_init_enet_entries(struct ucc_geth_private *ugeth,
+>>   		else {
+>>   			init_enet_offset =
+>>   			    qe_muram_alloc(thread_size, thread_alignment);
+>> -			if (IS_ERR_VALUE(init_enet_offset)) {
+>> +			if (init_enet_offset < 0) {
+> init_enet_offset is defined as u32 and thus never < 0.
+>
+>>   				if (netif_msg_ifup(ugeth))
+>>   					pr_err("Can not allocate DPRAM memory\n");
+>>   				qe_put_snum((u8) snum);
+>> @@ -2234,7 +2234,7 @@ static int ucc_geth_alloc_tx(struct ucc_geth_private *ugeth)
+>>   			ugeth->tx_bd_ring_offset[j] =
+>>   			    qe_muram_alloc(length,
+>>   					   UCC_GETH_TX_BD_RING_ALIGNMENT);
+>> -			if (!IS_ERR_VALUE(ugeth->tx_bd_ring_offset[j]))
+>> +			if (!ugeth->tx_bd_ring_offset[j])
+> qe_muram_alloc() returns a pointer or offset, not 0, if there is no error,
+> meaning this change breaks the driver.
+>
+>>   				ugeth->p_tx_bd_ring[j] =
+>>   				    (u8 __iomem *) qe_muram_addr(ugeth->
+>>   							 tx_bd_ring_offset[j]);
+>> @@ -2311,7 +2311,7 @@ static int ucc_geth_alloc_rx(struct ucc_geth_private *ugeth)
+>>   			ugeth->rx_bd_ring_offset[j] =
+>>   			    qe_muram_alloc(length,
+>>   					   UCC_GETH_RX_BD_RING_ALIGNMENT);
+>> -			if (!IS_ERR_VALUE(ugeth->rx_bd_ring_offset[j]))
+>> +			if (!ugeth->rx_bd_ring_offset[j])
+> Same here.
+>
+>>   				ugeth->p_rx_bd_ring[j] =
+>>   				    (u8 __iomem *) qe_muram_addr(ugeth->
+>>   							 rx_bd_ring_offset[j]);
+>> @@ -2521,7 +2521,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>>   	ugeth->tx_glbl_pram_offset =
+>>   	    qe_muram_alloc(sizeof(struct ucc_geth_tx_global_pram),
+>>   			   UCC_GETH_TX_GLOBAL_PRAM_ALIGNMENT);
+>> -	if (IS_ERR_VALUE(ugeth->tx_glbl_pram_offset)) {
+>> +	if (ugeth->tx_glbl_pram_offset < 0) {
+> tx_glbl_pram_offset is u32 and thus never < 0.
+>
+>>   		if (netif_msg_ifup(ugeth))
+>>   			pr_err("Can not allocate DPRAM memory for p_tx_glbl_pram\n");
+>>   		return -ENOMEM;
+>> @@ -2541,7 +2541,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>>   			   sizeof(struct ucc_geth_thread_data_tx) +
+>>   			   32 * (numThreadsTxNumerical == 1),
+>>   			   UCC_GETH_THREAD_DATA_ALIGNMENT);
+>> -	if (IS_ERR_VALUE(ugeth->thread_dat_tx_offset)) {
+>> +	if (ugeth->thread_dat_tx_offset < 0) {
+> thread_dat_tx_offset is u32 and thus never < 0.
+>
+>>   		if (netif_msg_ifup(ugeth))
+>>   			pr_err("Can not allocate DPRAM memory for p_thread_data_tx\n");
+>>   		return -ENOMEM;
+>> @@ -2568,7 +2568,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>>   	    qe_muram_alloc(ug_info->numQueuesTx *
+>>   			   sizeof(struct ucc_geth_send_queue_qd),
+>>   			   UCC_GETH_SEND_QUEUE_QUEUE_DESCRIPTOR_ALIGNMENT);
+>> -	if (IS_ERR_VALUE(ugeth->send_q_mem_reg_offset)) {
+>> +	if (ugeth->send_q_mem_reg_offset < 0) {
+> send_q_mem_reg_offset is u32 and thus never < 0.
+>
+>>   		if (netif_msg_ifup(ugeth))
+>>   			pr_err("Can not allocate DPRAM memory for p_send_q_mem_reg\n");
+>>   		return -ENOMEM;
+>> @@ -2609,7 +2609,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>>   		ugeth->scheduler_offset =
+>>   		    qe_muram_alloc(sizeof(struct ucc_geth_scheduler),
+>>   				   UCC_GETH_SCHEDULER_ALIGNMENT);
+>> -		if (IS_ERR_VALUE(ugeth->scheduler_offset)) {
+>> +		if (ugeth->scheduler_offset < 0) {
+> scheduler_offset is u32 and thus never < 0.
+>
+> Giving up here.
+>
+> I now looked at two of your patches. In both, you introduce bugs instead of
+> fixing them. Worse, in this case the driver is no longer functional after your
+> patch is applied. Please be more careful.
+>
+> Thanks,
+> Guenter
+>
+>>   			if (netif_msg_ifup(ugeth))
+>>   				pr_err("Can not allocate DPRAM memory for p_scheduler\n");
+>>   			return -ENOMEM;
+>> @@ -2656,7 +2656,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>>   		    qe_muram_alloc(sizeof
+>>   				   (struct ucc_geth_tx_firmware_statistics_pram),
+>>   				   UCC_GETH_TX_STATISTICS_ALIGNMENT);
+>> -		if (IS_ERR_VALUE(ugeth->tx_fw_statistics_pram_offset)) {
+>> +		if (ugeth->tx_fw_statistics_pram_offset < 0) {
+>>   			if (netif_msg_ifup(ugeth))
+>>   				pr_err("Can not allocate DPRAM memory for p_tx_fw_statistics_pram\n");
+>>   			return -ENOMEM;
+>> @@ -2693,7 +2693,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>>   	ugeth->rx_glbl_pram_offset =
+>>   	    qe_muram_alloc(sizeof(struct ucc_geth_rx_global_pram),
+>>   			   UCC_GETH_RX_GLOBAL_PRAM_ALIGNMENT);
+>> -	if (IS_ERR_VALUE(ugeth->rx_glbl_pram_offset)) {
+>> +	if (ugeth->rx_glbl_pram_offset < 0) {
+>>   		if (netif_msg_ifup(ugeth))
+>>   			pr_err("Can not allocate DPRAM memory for p_rx_glbl_pram\n");
+>>   		return -ENOMEM;
+>> @@ -2712,7 +2712,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>>   	    qe_muram_alloc(numThreadsRxNumerical *
+>>   			   sizeof(struct ucc_geth_thread_data_rx),
+>>   			   UCC_GETH_THREAD_DATA_ALIGNMENT);
+>> -	if (IS_ERR_VALUE(ugeth->thread_dat_rx_offset)) {
+>> +	if (ugeth->thread_dat_rx_offset < 0) {
+>>   		if (netif_msg_ifup(ugeth))
+>>   			pr_err("Can not allocate DPRAM memory for p_thread_data_rx\n");
+>>   		return -ENOMEM;
+>> @@ -2733,7 +2733,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>>   		    qe_muram_alloc(sizeof
+>>   				   (struct ucc_geth_rx_firmware_statistics_pram),
+>>   				   UCC_GETH_RX_STATISTICS_ALIGNMENT);
+>> -		if (IS_ERR_VALUE(ugeth->rx_fw_statistics_pram_offset)) {
+>> +		if (ugeth->rx_fw_statistics_pram_offset < 0) {
+>>   			if (netif_msg_ifup(ugeth))
+>>   				pr_err("Can not allocate DPRAM memory for p_rx_fw_statistics_pram\n");
+>>   			return -ENOMEM;
+>> @@ -2753,7 +2753,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>>   	    qe_muram_alloc(ug_info->numQueuesRx *
+>>   			   sizeof(struct ucc_geth_rx_interrupt_coalescing_entry)
+>>   			   + 4, UCC_GETH_RX_INTERRUPT_COALESCING_ALIGNMENT);
+>> -	if (IS_ERR_VALUE(ugeth->rx_irq_coalescing_tbl_offset)) {
+>> +	if (ugeth->rx_irq_coalescing_tbl_offset < 0) {
+>>   		if (netif_msg_ifup(ugeth))
+>>   			pr_err("Can not allocate DPRAM memory for p_rx_irq_coalescing_tbl\n");
+>>   		return -ENOMEM;
+>> @@ -2819,7 +2819,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>>   			   (sizeof(struct ucc_geth_rx_bd_queues_entry) +
+>>   			    sizeof(struct ucc_geth_rx_prefetched_bds)),
+>>   			   UCC_GETH_RX_BD_QUEUES_ALIGNMENT);
+>> -	if (IS_ERR_VALUE(ugeth->rx_bd_qs_tbl_offset)) {
+>> +	if (ugeth->rx_bd_qs_tbl_offset < 0) {
+>>   		if (netif_msg_ifup(ugeth))
+>>   			pr_err("Can not allocate DPRAM memory for p_rx_bd_qs_tbl\n");
+>>   		return -ENOMEM;
+>> @@ -2905,7 +2905,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>>   		ugeth->exf_glbl_param_offset =
+>>   		    qe_muram_alloc(sizeof(struct ucc_geth_exf_global_pram),
+>>   		UCC_GETH_RX_EXTENDED_FILTERING_GLOBAL_PARAMETERS_ALIGNMENT);
+>> -		if (IS_ERR_VALUE(ugeth->exf_glbl_param_offset)) {
+>> +		if (ugeth->exf_glbl_param_offset < 0) {
+>>   			if (netif_msg_ifup(ugeth))
+>>   				pr_err("Can not allocate DPRAM memory for p_exf_glbl_param\n");
+>>   			return -ENOMEM;
+>> @@ -3039,7 +3039,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
+>>   
+>>   	/* Allocate InitEnet command parameter structure */
+>>   	init_enet_pram_offset = qe_muram_alloc(sizeof(struct ucc_geth_init_pram), 4);
+>> -	if (IS_ERR_VALUE(init_enet_pram_offset)) {
+>> +	if (init_enet_pram_offset < 0) {
+>>   		if (netif_msg_ifup(ugeth))
+>>   			pr_err("Can not allocate DPRAM memory for p_init_enet_pram\n");
+>>   		return -ENOMEM;
