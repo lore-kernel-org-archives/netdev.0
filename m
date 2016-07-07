@@ -1,79 +1,87 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [iproute PATCH 0/2] Netns performance improvements
-Date: Thu, 7 Jul 2016 09:16:20 -0700
-Message-ID: <577E8054.6040603@hpe.com>
-References: <1467729773-16751-1-git-send-email-phil@nwl.cc>
- <87twg4ywjz.fsf@x220.int.ebiederm.org> <20160705205103.GE620@orbyte.nwl.cc>
- <87h9c259ip.fsf@x220.int.ebiederm.org> <20160707111718.GL620@orbyte.nwl.cc>
- <577E5244.8030601@6wind.com> <20160707154809.GN620@orbyte.nwl.cc>
+From: Jiri Kosina <jikos@kernel.org>
+Subject: Re: [RFC PATCH] net: sched: convert qdisc linked list to hashtable
+ (was Re: Deleting child qdisc doesn't reset parent to default qdisc?)
+Date: Thu, 7 Jul 2016 18:32:23 +0200 (CEST)
+Message-ID: <alpine.LNX.2.00.1607071823290.24757@cbobk.fhfr.pm>
+References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>   <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>   <20160414151813.GE3715@orbyte.nwl.cc>   <alpine.LNX.2.00.1604141807350.27368@cbobk.fhfr.pm>  
+ <1460656170.10638.61.camel@edumazet-glaptop3.roam.corp.google.com>   <5710E1C1.2090209@mojatatu.com>  <1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com>  <alpine.LNX.2.00.1607071102010.24757@cbobk.fhfr.pm>
+ <1467899463.1273.37.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Phil Sutter <phil@nwl.cc>,
-	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Stephen Hemminger <shemming@brocade.com>,
-	netdev@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Craig Gallek <kraigatgoog@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from g2t2354.austin.hpe.com ([15.233.44.27]:13004 "EHLO
-	g2t2354.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751220AbcGGQQ2 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 12:16:28 -0400
-In-Reply-To: <20160707154809.GN620@orbyte.nwl.cc>
+Received: from mx2.suse.de ([195.135.220.15]:53608 "EHLO mx2.suse.de"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1752153AbcGGQca (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jul 2016 12:32:30 -0400
+In-Reply-To: <1467899463.1273.37.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/07/2016 08:48 AM, Phil Sutter wrote:
-> On Thu, Jul 07, 2016 at 02:59:48PM +0200, Nicolas Dichtel wrote:
->> Le 07/07/2016 13:17, Phil Sutter a =C3=A9crit :
->> [snip]
->>> The issue came up during OpenStack Neutron testing, see this ticket=
- for
->>> reference:
->>>
->>> https://bugzilla.redhat.com/show_bug.cgi?id=3D1310795
->> Access to this ticket is not public :(
->
-> *Sigh* OK, here are a few quotes:
->
-> "OpenStack Neutron controller nodes, when undergoing testing, are
-> locking up specifically during creation and mounting of namespaces.
-> They appear to be blocking behind vfsmount_lock, and contention for t=
-he
-> namespace_sem"
->
-> "During the scale testing, we have 300 routers, 600 dhcp namespaces
-> spread across four neutron network nodes. When then start as one set =
-of
-> standard Openstack Rally benchmark test cycle against neutron. An
-> example scenario is creating 10x networks, list them, delete them and
-> repeat 10x times. The second set performs an L3 benchmark test betwee=
-n
-> two instances."
->
+On Thu, 7 Jul 2016, Eric Dumazet wrote:
 
-Those 300 routers will each have at least one namespace along with the=20
-dhcp namespaces.  Depending on the nature of the routers (Distributed=20
-versus Centralized Virtual Routers - DVR vs CVR) and whether the router=
-s=20
-are supposed to be "HA" there can be more than one namespace for a give=
-n=20
-router.
+> > @@ -1440,6 +1441,7 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
+> >  {
+> >  	int ret = 0, q_idx = *q_idx_p;
+> >  	struct Qdisc *q;
+> > +	int b;
+> >  
+> >  	if (!root)
+> >  		return 0;
+> > @@ -1454,7 +1456,7 @@ static int tc_dump_qdisc_root(struct Qdisc *root, struct sk_buff *skb,
+> >  			goto done;
+> >  		q_idx++;
+> >  	}
+> > -	list_for_each_entry(q, &root->list, list) {
+> > +	hash_for_each(qdisc_dev(root)->qdisc_hash, b, q, hash) {
+> >  		if (q_idx < s_q_idx) {
+> >  			q_idx++;
+> >  			continue;
+> > @@ -1771,6 +1773,7 @@ static int tc_dump_tclass_root(struct Qdisc *root, struct sk_buff *skb,
+> >  			       int *t_p, int s_t)
+> >  {
+> >  	struct Qdisc *q;
+> > +	int b;
+> >  
+> >  	if (!root)
+> >  		return 0;
+> > @@ -1778,7 +1781,7 @@ static int tc_dump_tclass_root(struct Qdisc *root, struct sk_buff *skb,
+> >  	if (tc_dump_tclass_qdisc(root, skb, tcm, cb, t_p, s_t) < 0)
+> >  		return -1;
+> >  
+> > -	list_for_each_entry(q, &root->list, list) {
+> > +	hash_for_each_rcu(qdisc_dev(root)->qdisc_hash, b, q, hash) {
+> >  		if (tc_dump_tclass_qdisc(q, skb, tcm, cb, t_p, s_t) < 0)
+> >  			return -1;
+> >  	}
+> 
+> 
+> Not sure why you used the rcu version here, but the non rcu version in
+> tc_dump_qdisc_root()
 
-300 routers is far from the upper limit/goal.  Back in HP Public Cloud,=
-=20
-we were running as many as 700 routers per network node (*), and more=20
-than four network nodes. (back then it was just the one namespace per=20
-router and network). Mileage will of course vary based on the "oomph" o=
-f=20
-one's network node(s).
+Good catch.
 
-happy benchmarking,
+Actually even the current code is odd in this regard -- 
+qdisc_match_from_root() uses RCU iterator, while tc_dump_*() use the 
+non-RCU one; addition and deletion is performed using RCU primitives.
 
-rick jones
+I haven't got my head around this yet; if it's correct at all, it'd at 
+least deserve a comment somewhere.
 
-* Didn't want to go much higher than that because each router had a por=
-t=20
-on a common linux bridge and getting to > 1024 would be an unpleasant d=
-ay.
+I'll respin v2 of the patch (there is also a conflict on HASH_SIZE 
+definition in ip6_tunnel.c, ip6_gre.c and sit.c due to hashtable.h include 
+in netdevice.h that needs to be resolved as well) that'd make RCU usage 
+consistent.
+
+Any other objections/comments? I was namely curious about any opinions 
+regarding the hashtable size.
+
+Thanks,
+
+-- 
+Jiri Kosina
+SUSE Labs
