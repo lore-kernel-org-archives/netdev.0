@@ -1,7 +1,7 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 3/9] net: dsa: mv88e6xxx: extract device mapping
-Date: Thu,  7 Jul 2016 08:57:52 -0400
-Message-ID: <20160707125758.1547-4-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 4/9] net: dsa: mv88e6xxx: extract trunk mapping
+Date: Thu,  7 Jul 2016 08:57:53 -0400
+Message-ID: <20160707125758.1547-5-vivien.didelot@savoirfairelinux.com>
 References: <20160707125758.1547-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
@@ -9,89 +9,123 @@ Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.savoirfairelinux.com ([208.88.110.44]:41917 "EHLO
+	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752079AbcGGM6t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 08:58:49 -0400
 In-Reply-To: <20160707125758.1547-1-vivien.didelot@savoirfairelinux.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-The Device Mapping register is an indirect table access.
+The Trunk Mask and Trunk Mapping registers are two Global 2 indirect
+accesses to trunking configuration.
 
-Provide helpers to access this table and explicit the checking of the
-new DSA_RTABLE_NONE routing table value.
+Add helpers for these tables and simplify the Global 2 setup.
 
 Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 ---
- drivers/net/dsa/mv88e6xxx/chip.c | 49 ++++++++++++++++++++++++++++------------
- 1 file changed, 34 insertions(+), 15 deletions(-)
+ drivers/net/dsa/mv88e6xxx/chip.c      | 68 ++++++++++++++++++++++++-----------
+ drivers/net/dsa/mv88e6xxx/mv88e6xxx.h |  1 +
+ 2 files changed, 48 insertions(+), 21 deletions(-)
 
 diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
-index 1e39fa6..9b37310 100644
+index 9b37310..a4e4d3b 100644
 --- a/drivers/net/dsa/mv88e6xxx/chip.c
 +++ b/drivers/net/dsa/mv88e6xxx/chip.c
-@@ -3094,9 +3094,39 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
- 	return 0;
+@@ -3125,6 +3125,49 @@ static int mv88e6xxx_g2_set_device_mapping(struct mv88e6xxx_chip *chip)
+ 	return err;
  }
  
-+static int mv88e6xxx_g2_device_mapping_write(struct mv88e6xxx_chip *chip,
-+					     int target, int port)
++static int mv88e6xxx_g2_trunk_mask_write(struct mv88e6xxx_chip *chip, int num,
++					 bool hask, u16 mask)
 +{
-+	u16 val = GLOBAL2_DEVICE_MAPPING_UPDATE | (target << 8) | (port & 0xf);
++	const u16 port_mask = BIT(chip->info->num_ports) - 1;
++	u16 val = GLOBAL2_TRUNK_MASK_UPDATE | (num << 12) | (mask & port_mask);
 +
-+	return mv88e6xxx_write(chip, REG_GLOBAL2, GLOBAL2_DEVICE_MAPPING, val);
++	if (hask)
++		val |= GLOBAL2_TRUNK_MASK_HASK;
++
++	return mv88e6xxx_write(chip, REG_GLOBAL2, GLOBAL2_TRUNK_MASK, val);
 +}
 +
-+static int mv88e6xxx_g2_set_device_mapping(struct mv88e6xxx_chip *chip)
++static int mv88e6xxx_g2_trunk_mapping_write(struct mv88e6xxx_chip *chip, int id,
++					    u16 map)
 +{
-+	int target, port;
-+	int err;
++	const u16 port_mask = BIT(chip->info->num_ports) - 1;
++	u16 val = GLOBAL2_TRUNK_MAPPING_UPDATE | (id << 11) | (map & port_mask);
 +
-+	/* Initialize the routing port to the 32 possible target devices */
-+	for (target = 0; target < 32; ++target) {
-+		port = 0xf;
++	return mv88e6xxx_write(chip, REG_GLOBAL2, GLOBAL2_TRUNK_MAPPING, val);
++}
 +
-+		if (target < DSA_MAX_SWITCHES) {
-+			port = chip->ds->rtable[target];
-+			if (port == DSA_RTABLE_NONE)
-+				port = 0xf;
-+		}
++static int mv88e6xxx_g2_clear_trunk(struct mv88e6xxx_chip *chip)
++{
++	const u16 port_mask = BIT(chip->info->num_ports) - 1;
++	int i, err;
 +
-+		err = mv88e6xxx_g2_device_mapping_write(chip, target, port);
++	/* Clear all eight possible Trunk Mask vectors */
++	for (i = 0; i < 8; ++i) {
++		err = mv88e6xxx_g2_trunk_mask_write(chip, i, false, port_mask);
 +		if (err)
-+			break;
++			return err;
 +	}
 +
-+	return err;
++	/* Clear all sixteen possible Trunk ID routing vectors */
++	for (i = 0; i < 16; ++i) {
++		err = mv88e6xxx_g2_trunk_mapping_write(chip, i, 0);
++		if (err)
++			return err;
++	}
++
++	return 0;
 +}
 +
  static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
  {
--	struct dsa_switch *ds = chip->ds;
  	int err;
- 	int i;
- 
-@@ -3120,20 +3150,9 @@ static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+@@ -3154,27 +3197,10 @@ static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+ 	if (err)
  		return err;
  
- 	/* Program the DSA routing table. */
--	for (i = 0; i < 32; i++) {
--		int nexthop = 0x1f;
--
--		if (i != ds->index && i < DSA_MAX_SWITCHES)
--			nexthop = ds->rtable[i] & 0x1f;
--
--		err = _mv88e6xxx_reg_write(
--			chip, REG_GLOBAL2,
--			GLOBAL2_DEVICE_MAPPING,
--			GLOBAL2_DEVICE_MAPPING_UPDATE |
--			(i << GLOBAL2_DEVICE_MAPPING_TARGET_SHIFT) | nexthop);
+-	/* Clear all trunk masks. */
+-	for (i = 0; i < 8; i++) {
+-		err = _mv88e6xxx_reg_write(chip, REG_GLOBAL2,
+-					   GLOBAL2_TRUNK_MASK,
+-					   0x8000 |
+-					   (i << GLOBAL2_TRUNK_MASK_NUM_SHIFT) |
+-					   ((1 << chip->info->num_ports) - 1));
 -		if (err)
 -			return err;
 -	}
-+	err = mv88e6xxx_g2_set_device_mapping(chip);
+-
+-	/* Clear all trunk mappings. */
+-	for (i = 0; i < 16; i++) {
+-		err = _mv88e6xxx_reg_write(
+-			chip, REG_GLOBAL2,
+-			GLOBAL2_TRUNK_MAPPING,
+-			GLOBAL2_TRUNK_MAPPING_UPDATE |
+-			(i << GLOBAL2_TRUNK_MAPPING_ID_SHIFT));
+-		if (err)
+-			return err;
+-	}
++	/* Clear all trunk masks and mapping. */
++	err = mv88e6xxx_g2_clear_trunk(chip);
 +	if (err)
 +		return err;
  
- 	/* Clear all trunk masks. */
- 	for (i = 0; i < 8; i++) {
+ 	if (mv88e6xxx_6352_family(chip) || mv88e6xxx_6351_family(chip) ||
+ 	    mv88e6xxx_6165_family(chip) || mv88e6xxx_6097_family(chip) ||
+diff --git a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+index 390dac5..876d9ea 100644
+--- a/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
++++ b/drivers/net/dsa/mv88e6xxx/mv88e6xxx.h
+@@ -294,6 +294,7 @@
+ #define GLOBAL2_TRUNK_MASK	0x07
+ #define GLOBAL2_TRUNK_MASK_UPDATE		BIT(15)
+ #define GLOBAL2_TRUNK_MASK_NUM_SHIFT		12
++#define GLOBAL2_TRUNK_MASK_HASK			BIT(11)
+ #define GLOBAL2_TRUNK_MAPPING	0x08
+ #define GLOBAL2_TRUNK_MAPPING_UPDATE		BIT(15)
+ #define GLOBAL2_TRUNK_MAPPING_ID_SHIFT		11
 -- 
 2.9.0
