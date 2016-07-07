@@ -1,41 +1,61 @@
-From: pravin shelar <pshelar@ovn.org>
-Subject: Re: [ovs-dev] [PATCH net-next v11 2/6] gre: unset mac header for
- non-TEB packets received by ipgre device
-Date: Thu, 7 Jul 2016 13:51:53 -0700
-Message-ID: <CAOrHB_DkFO-aTL4=BZGmy5SKvYPyuyBEmJfcrkY72tP25Zc8tg@mail.gmail.com>
-References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com> <1467827996-32547-3-git-send-email-simon.horman@netronome.com>
+From: pravin shelar <pshelar-LZ6Gd1LRuIk@public.gmane.org>
+Subject: Re: [PATCH net-next v11 3/6] openvswitch: set skb
+ protocol and mac_len when receiving on internal device
+Date: Thu, 7 Jul 2016 13:52:25 -0700
+Message-ID: <CAOrHB_B2VDPcEe0B471J+XjmviAbTO0JRPTHiS7jHzF5V8uHZg@mail.gmail.com>
+References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com>
+ <1467827996-32547-4-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	ovs dev <dev@openvswitch.org>
-To: Simon Horman <simon.horman@netronome.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from relay5-d.mail.gandi.net ([217.70.183.197]:58543 "EHLO
-	relay5-d.mail.gandi.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751223AbcGGUv6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 16:51:58 -0400
-Received: from mfilter13-d.gandi.net (mfilter13-d.gandi.net [217.70.178.141])
-	by relay5-d.mail.gandi.net (Postfix) with ESMTP id D0E7841C08A
-	for <netdev@vger.kernel.org>; Thu,  7 Jul 2016 22:51:56 +0200 (CEST)
-Received: from relay5-d.mail.gandi.net ([IPv6:::ffff:217.70.183.197])
-	by mfilter13-d.gandi.net (mfilter13-d.gandi.net [::ffff:10.0.15.180]) (amavisd-new, port 10024)
-	with ESMTP id W1heApx70dRp for <netdev@vger.kernel.org>;
-	Thu,  7 Jul 2016 22:51:55 +0200 (CEST)
-Received: from mail-it0-f42.google.com (mail-it0-f42.google.com [209.85.214.42])
-	(Authenticated sender: pshelar@ovn.org)
-	by relay5-d.mail.gandi.net (Postfix) with ESMTPSA id 4E79A41C096
-	for <netdev@vger.kernel.org>; Thu,  7 Jul 2016 22:51:55 +0200 (CEST)
-Received: by mail-it0-f42.google.com with SMTP id j185so109282522ith.0
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 13:51:55 -0700 (PDT)
-In-Reply-To: <1467827996-32547-3-git-send-email-simon.horman@netronome.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: ovs dev <dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>,
+ Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Return-path: <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+In-Reply-To: <1467827996-32547-4-git-send-email-simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+List-Unsubscribe: <http://openvswitch.org/mailman/options/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://openvswitch.org/pipermail/dev>
+List-Post: <mailto:dev-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Help: <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=help>
+List-Subscribe: <http://openvswitch.org/mailman/listinfo/dev>,
+ <mailto:dev-request-yBygre7rU0TnMu66kgdUjQ@public.gmane.org?subject=subscribe>
+Errors-To: dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org
+Sender: "dev" <dev-bounces-yBygre7rU0TnMu66kgdUjQ@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 6, 2016 at 10:59 AM, Simon Horman
-<simon.horman@netronome.com> wrote:
-> unset rather than reset mach header for non-TEB packets received by an
-> ipgre device.  This allows skb_transport_header_was_set to be subsequently
-> used to differentiate TEB and non-TEB packets recieved on an ipgre device.
->
-> Signed-off-by: Simon Horman <simon.horman@netronome.com>
-Acked-by: Pravin B Shelar <pshelar@ovn.org>
+T24gV2VkLCBKdWwgNiwgMjAxNiBhdCAxMDo1OSBBTSwgU2ltb24gSG9ybWFuCjxzaW1vbi5ob3Jt
+YW5AbmV0cm9ub21lLmNvbT4gd3JvdGU6Cj4gKiBTZXQgc2tiIHByb3RvY29sIGJhc2VkIG9uIGNv
+bnRlbnRzIG9mIHBhY2tldC4gSSBoYXZlIG9ic2VydmVkIHRoaXMgaXMKPiAgIG5lY2Vzc2FyeSB0
+byBnZXQgYWN0dWFsIHByb3RvY29sIG9mIGEgcGFja2V0IHdoZW4gaXQgaXMgaW5qZWN0ZWQgaW50
+byBhbgo+ICAgaW50ZXJuYWwgZGV2aWNlIGUuZy4gYnkgbGlibmV0IGluIHdoaWNoIGNhc2Ugc2ti
+IHByb3RvY29sIHdpbGwgYmUgc2V0IHRvCj4gICBFVEhfQUxMLgo+CkkgYW0gbm90IHN1cmUgd2hh
+dCBkbyB5byBtZWFuIGJ5IEVUSF9BTEwuIEkgY291bGQgbm90IGZpbmQgaXQgaW4gdGhlIGtlcm5l
+bC4KYW55d2F5cywgQ2FuIHdlIGZpeCBsaWJuZXQgdG8gc2V0IHNrYi0+cHJvdG9jb2wgZmllbGQg
+Y29ycmVjdGx5PyBUaGUKY2hhbmdlIGlzIGludHJvZHVjaW5nIG92ZXJoZWFkIGZvciBldmVyeSBw
+YWNrZXQgcmVjZWl2ZWQgb24gaW50ZXJuYWwKcG9ydC4KCj4gKiBTZXQgdGhlIG1hY19sZW4gd2hp
+Y2ggaGFzIGJlZW4gb2JzZXJ2ZWQgdG8gbm90IGJlIHNldCB1cCBjb3JyZWN0bHkgd2hlbgo+ICAg
+YW4gQVJQIHBhY2tldCBpcyBnZW5lcmF0ZWQgYW5kIHNlbnQgdmlhIGFuIG9wZW52c3dpdGNoIGJy
+aWRnZS4KPiAgIE15IHRlc3QgY2FzZSBpcyBhIHNjZW5hcmlvIHdoZXJlIHRoZXJlIGFyZSB0d28g
+b3BlbiB2c3d0aWNoIGJyaWRnZXMuCj4gICBPbmUgb3V0cHV0cyB0byBhIHR1bm5lbCBwb3J0IHdo
+aWNoIGVncmVzc2VzIG9uIHRoZSBvdGhlci4KPgo+IFRoZSBtb3RpdmF0aW9uIGZvciB0aGlzIGlz
+IHRoYXQgc3VwcG9ydCBmb3Igb3V0cHV0dGluZyB0byBsYXllciAzIChub24tdGFwKQo+IEdSRSB0
+dW5uZWxzIGFzIGltcGxlbWVudGVkIGJ5IGEgc3Vic2VxdWVudCBwYXRjaCBkZXBlbmRzIG9uIHBy
+b3RvY29sIGFuZAo+IG1hY19sZW4gYmVpbmcgc2V0IGNvcnJlY3RseSBvbiByZWNlaXZlLgo+ClRo
+ZSBjb21taXQgbXNnIGFuZCB0aGUgY2hhbmdlIGRvZXMgbm90IG1hdGNoIGFueW1vcmUuCgoKPiBT
+aWduZWQtb2ZmLWJ5OiBTaW1vbiBIb3JtYW4gPHNpbW9uLmhvcm1hbkBuZXRyb25vbWUuY29tPgo+
+Cj4gLS0tCj4gdjExCj4gKiBEbyBub3Qgc2V0IG1hY19sZW4uCj4gICBJbnN0ZWFkIG9mIHJlbHlp
+bmcgb24gbWFjX2xlbiBmb2xsb3ctdXAgcGF0Y2hlcyBub3cKPiAgIHVzZSBza2JfdW5zZXRfbWFj
+X2hlYWRlcigpCj4KPiB2MTAKPiAqIFNldCBtYWNfbGVuCj4KPiB2OQo+ICogTmV3IHBhdGNoCj4g
+LS0tCj4gIG5ldC9vcGVudnN3aXRjaC92cG9ydC1pbnRlcm5hbF9kZXYuYyB8IDMgKysrCj4gIDEg
+ZmlsZSBjaGFuZ2VkLCAzIGluc2VydGlvbnMoKykKPgo+IGRpZmYgLS1naXQgYS9uZXQvb3BlbnZz
+d2l0Y2gvdnBvcnQtaW50ZXJuYWxfZGV2LmMgYi9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtaW50ZXJu
+YWxfZGV2LmMKPiBpbmRleCA0MzRlMDRjM2ExODkuLjMyZDhlOTRkOWJmZiAxMDA2NDQKPiAtLS0g
+YS9uZXQvb3BlbnZzd2l0Y2gvdnBvcnQtaW50ZXJuYWxfZGV2LmMKPiArKysgYi9uZXQvb3BlbnZz
+d2l0Y2gvdnBvcnQtaW50ZXJuYWxfZGV2LmMKPiBAQCAtNDgsNiArNDgsOSBAQCBzdGF0aWMgaW50
+IGludGVybmFsX2Rldl94bWl0KHN0cnVjdCBza19idWZmICpza2IsIHN0cnVjdCBuZXRfZGV2aWNl
+ICpuZXRkZXYpCj4gIHsKPiAgICAgICAgIGludCBsZW4sIGVycjsKPgo+ICsgICAgICAgc2tiLT5w
+cm90b2NvbCA9IGV0aF90eXBlX3RyYW5zKHNrYiwgbmV0ZGV2KTsKPiArICAgICAgIHNrYl9wdXNo
+KHNrYiwgRVRIX0hMRU4pOwo+ICsKX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fX18KZGV2IG1haWxpbmcgbGlzdApkZXZAb3BlbnZzd2l0Y2gub3JnCmh0dHA6Ly9v
+cGVudnN3aXRjaC5vcmcvbWFpbG1hbi9saXN0aW5mby9kZXYK
