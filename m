@@ -1,58 +1,63 @@
 From: Stephen Hemminger <stephen@networkplumber.org>
-Subject: Re: [PATCH iproute2] tc: flower: Add skip_{hw|sw} support
-Date: Wed, 6 Jul 2016 21:26:01 -0700
-Message-ID: <20160706212601.1d0f701d@xeon-e3>
-References: <20160704073411.17633-1-amir@vadai.me>
+Subject: Re: [PATCH v4 iproute2 0/6] Add support for vrf keyword
+Date: Wed, 6 Jul 2016 21:29:23 -0700
+Message-ID: <20160706212923.1a8c5cd7@xeon-e3>
+References: <1467224822-16773-1-git-send-email-dsa@cumulusnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemming@brocade.com>, netdev@vger.kernel.org,
-	Or Gerlitz <ogerlitz@mellanox.com>,
-	Jiri Pirko <jiri@mellanox.com>,
-	Hadar Har-Zion <hadarh@mellanox.com>,
-	Amir Vadai <amirva@mellanox.com>
-To: Amir Vadai <amir@vadai.me>
+Cc: netdev@vger.kernel.org
+To: David Ahern <dsa@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:36053 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750697AbcGGEZr (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 00:25:47 -0400
-Received: by mail-pa0-f44.google.com with SMTP id uj8so2565185pab.3
-        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 21:25:46 -0700 (PDT)
-In-Reply-To: <20160704073411.17633-1-amir@vadai.me>
+Received: from mail-pa0-f46.google.com ([209.85.220.46]:32993 "EHLO
+	mail-pa0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750765AbcGGE3J (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 00:29:09 -0400
+Received: by mail-pa0-f46.google.com with SMTP id b13so2622853pat.0
+        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 21:29:08 -0700 (PDT)
+In-Reply-To: <1467224822-16773-1-git-send-email-dsa@cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon,  4 Jul 2016 10:34:11 +0300
-Amir Vadai <amir@vadai.me> wrote:
+On Wed, 29 Jun 2016 11:26:56 -0700
+David Ahern <dsa@cumulusnetworks.com> wrote:
 
-> From: Amir Vadai <amirva@mellanox.com>
+> Currently the syntax for VRF related commands is rather kludgy and
+> inconsistent from one subcommand to another. This set adds support
+> for the VRF keyword to the link, address, neigh, and route commands
+> to improve the user experience listing data associated with vrfs,
+> modifying routes or doing a route lookup.
 > 
-> On devices that support TC flower offloads, these flags enable a filter to be
-> added only to HW or only to SW. skip_sw and skip_hw are mutually exclusive
-> flags. By default without any flags, the filter is added to both HW and SW,
-> but no error checks are done in case of failure to add to HW.
-> With skip-sw, failure to add to HW is treated as an error.
+> v4
+> - Stephen's comments about patch 1 also apply to patch 5, so updated it
+> v3
+> - addressed comments from Stephen
+> - added documentation updates to patches 2, 3 and 6
 > 
-> Here is a sample script that adds 2 filters, one with skip_sw and the other
-> with skip_hw flag.
+> v2
+> - rebased to top of tree
+> - all checkpatch warnings are usage lines. The change in these
+>   patches is consistent with existing code for usage lines
 > 
->    # add ingress qdisc
->    tc qdisc add dev enp0s9 ingress
+> David Ahern (6):
+>   ip vrf: Add name_is_vrf
+>   ip link/addr: Add support for vrf keyword
+>   ip neigh: Add support for keyword
+>   ip route: Change type mask to bitmask
+>   ip vrf: Add ipvrf_get_table
+>   ip route: Add support for vrf keyword
 > 
->    # enable hw tc offload.
->    ethtool -K enp0s9 hw-tc-offload on
+>  ip/ip_common.h           |   3 ++
+>  ip/ipaddress.c           |  12 ++++-
+>  ip/iplink.c              |  15 ++++++-
+>  ip/iplink_vrf.c          | 113 +++++++++++++++++++++++++++++++++++++++++++++++
+>  ip/ipneigh.c             |  14 +++++-
+>  ip/iproute.c             |  43 +++++++++++++++---
+>  man/man8/ip-address.8.in |   6 +++
+>  man/man8/ip-link.8.in    |  10 +++++
+>  man/man8/ip-neighbour.8  |   8 +++-
+>  man/man8/ip-route.8.in   |  19 +++++++-
+>  10 files changed, 230 insertions(+), 13 deletions(-)
 > 
->    # add a flower filter with skip-sw flag.
->    tc filter add dev enp0s9 protocol ip parent ffff: flower \
-> 	   ip_proto 1 indev enp0s9 skip_sw \
-> 	   action drop
-> 
->    # add a flower filter with skip-hw flag.
->    tc filter add dev enp0s9 protocol ip parent ffff: flower \
-> 	   ip_proto 3 indev enp0s9 skip_hw \
-> 	   action drop
-> 
-> Signed-off-by: Amir Vadai <amirva@mellanox.com>
 
-Looks sane. Applied
+Applied, thanks for cleaning it up.
