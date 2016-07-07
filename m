@@ -1,70 +1,88 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH net-next 1/4] net/mlx4_core: Fix QUERY FUNC CAP flags
-Date: Thu, 7 Jul 2016 22:26:08 +0300
-Message-ID: <CAJ3xEMhgDG4iWL+ZD07R-ynCXqfY0RARuP5oCFsjXLS1H3uA5g@mail.gmail.com>
+From: John Allen <jallen@linux.vnet.ibm.com>
+Subject: Re: [PATCH net 3/4] ibmvnic: simplify and improve driver probe
+ function
+Date: Thu, 7 Jul 2016 14:31:00 -0500
+Message-ID: <b9d427e9-841f-1959-1f58-82166c9b510a@linux.vnet.ibm.com>
+References: <1467837318-31710-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+ <1467837318-31710-4-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Eran Ben Elisha <eranbe@mellanox.com>,
-	Hadar Hen Zion <hadarh@mellanox.com>
-To: Tariq Toukan <tariqt@mellanox.com>,
-	Moshe Shemesh <moshe@mellanox.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: 7bit
+Cc: nfont@linux.vnet.ibm.com
+To: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f66.google.com ([209.85.218.66]:34122 "EHLO
-	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751153AbcGGT0J (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 15:26:09 -0400
-Received: by mail-oi0-f66.google.com with SMTP id s17so3982443oih.1
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 12:26:09 -0700 (PDT)
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:20950 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751400AbcGGTaq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 15:30:46 -0400
+Received: from pps.filterd (m0098414.ppops.net [127.0.0.1])
+	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u67JSoqO132037
+	for <netdev@vger.kernel.org>; Thu, 7 Jul 2016 15:30:45 -0400
+Received: from e31.co.us.ibm.com (e31.co.us.ibm.com [32.97.110.149])
+	by mx0b-001b2d01.pphosted.com with ESMTP id 2415xn0dwu-1
+	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 15:30:45 -0400
+Received: from localhost
+	by e31.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <jallen@linux.vnet.ibm.com>;
+	Thu, 7 Jul 2016 13:30:44 -0600
+Received: from b01cxnp22033.gho.pok.ibm.com (b01cxnp22033.gho.pok.ibm.com [9.57.198.23])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id 27D921FF0049
+	for <netdev@vger.kernel.org>; Thu,  7 Jul 2016 13:30:11 -0600 (MDT)
+In-Reply-To: <1467837318-31710-4-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 6, 2016 at 3:29 PM, Tariq Toukan <tariqt@mellanox.com> wrote:
-> From: Moshe Shemesh <moshe@mellanox.com>
->
-> Separate QUERY_FUNC_CAP flags0 from QUERY_FUNC_CAP flags.
-> Remove QUERY_FUNC_CAP port_flags field which was not in use.
+On 07/06/2016 03:35 PM, Thomas Falcon wrote:
+> @@ -3560,6 +3608,7 @@ static const struct file_operations ibmvnic_dump_ops = {
+> 
+>  static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+>  {
+> +	unsigned long timeout = msecs_to_jiffies(30000);
+>  	struct ibmvnic_adapter *adapter;
+>  	struct net_device *netdev;
+>  	unsigned char *mac_addr_p;
+> @@ -3638,30 +3687,26 @@ static int ibmvnic_probe(struct vio_dev *dev, const struct vio_device_id *id)
+>  	ibmvnic_send_crq_init(adapter);
+> 
+>  	init_completion(&adapter->init_done);
+> -	wait_for_completion(&adapter->init_done);
+> +	if (!wait_for_completion_timeout(&adapter->init_done, timeout))
+> +		return 0;
+> 
+>  	do {
+> -		adapter->renegotiate = false;
+> -
+> -		init_sub_crqs(adapter, 0);
+> -		reinit_completion(&adapter->init_done);
+> -		wait_for_completion(&adapter->init_done);
+> -
+>  		if (adapter->renegotiate) {
+> -			release_sub_crqs(adapter);
+> +			adapter->renegotiate = false;
+> +			release_sub_crqs_no_irqs(adapter);
+>  			send_cap_queries(adapter);
+> 
+>  			reinit_completion(&adapter->init_done);
+> -			wait_for_completion(&adapter->init_done);
+> +			if (!wait_for_completion_timeout(&adapter->init_done,
+> +							 timeout))
+> +				return 0;
+>  		}
+>  	} while (adapter->renegotiate);
 
-The patch title says "Fix ..." but the change log doesn't say if this
-is fixing real bug, or cleaning up dead code, nor you point to the
-commit you are fixing, please add that, I guess it is something we do
-wrong w.r.t the PHV bit but I am not clear what.
+Instead of a do-while here, this should just be simplified to a while loop.
 
+while (adapter->renegotiate) {
+	...
+}
 
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.c b/drivers/net/ethernet/mellanox/mlx4/fw.c
-> index f4497cf..355f05e 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/fw.c
-> +++ b/drivers/net/ethernet/mellanox/mlx4/fw.c
-> @@ -612,8 +612,7 @@ int mlx4_QUERY_FUNC_CAP(struct mlx4_dev *dev, u8 gen_or_port,
->                 MLX4_GET(func_cap->phys_port_id, outbox,
->                          QUERY_FUNC_CAP_PHYS_PORT_ID);
->
-> -       MLX4_GET(field, outbox, QUERY_FUNC_CAP_FLAGS0_OFFSET);
-> -       func_cap->flags |= (field & QUERY_FUNC_CAP_PHV_BIT);
-> +       MLX4_GET(func_cap->flags0, outbox, QUERY_FUNC_CAP_FLAGS0_OFFSET);
->
->         /* All other resources are allocated by the master, but we still report
->          * 'num' and 'reserved' capabilities as follows:
-> @@ -2874,7 +2873,7 @@ int get_phv_bit(struct mlx4_dev *dev, u8 port, int *phv)
->         memset(&func_cap, 0, sizeof(func_cap));
->         err = mlx4_QUERY_FUNC_CAP(dev, port, &func_cap);
->         if (!err)
-> -               *phv = func_cap.flags & QUERY_FUNC_CAP_PHV_BIT;
-> +               *phv = func_cap.flags0 & QUERY_FUNC_CAP_PHV_BIT;
->         return err;
->  }
->  EXPORT_SYMBOL(get_phv_bit);
-> diff --git a/drivers/net/ethernet/mellanox/mlx4/fw.h b/drivers/net/ethernet/mellanox/mlx4/fw.h
-> index cdbd76f..f11614f 100644
-> --- a/drivers/net/ethernet/mellanox/mlx4/fw.h
-> +++ b/drivers/net/ethernet/mellanox/mlx4/fw.h
-> @@ -152,7 +152,7 @@ struct mlx4_func_cap {
->         u32     qp1_proxy_qpn;
->         u32     reserved_lkey;
->         u8      physical_port;
-> -       u8      port_flags;
-> +       u8      flags0;
->         u8      flags1;
->         u64     phys_port_id;
->         u32     extra_flags;
+will serve the same purpose as
+
+do {
+	if (adapter->renegotiate) {
+		...
+	}
+} while (adapter->renegotiate);
+
+Same goes for the similar loop in patch 4/4.
