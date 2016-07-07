@@ -1,7 +1,7 @@
 From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next 3/4] vxlan: remove gro_cell support
-Date: Thu,  7 Jul 2016 17:58:49 +0200
-Message-ID: <6f90239eb6ccb9145a886d4f01c6620c6d6ec87f.1467907022.git.pabeni@redhat.com>
+Subject: [PATCH net-next 4/4] geneve: remove gro_cell support
+Date: Thu,  7 Jul 2016 17:58:50 +0200
+Message-ID: <e3d961b44dc144327a211d527b5426fe75f4735d.1467907022.git.pabeni@redhat.com>
 References: <cover.1467907022.git.pabeni@redhat.com>
 Cc: "David S. Miller" <davem@davemloft.net>,
 	Jesse Gross <jesse@kernel.org>,
@@ -10,80 +10,79 @@ Cc: "David S. Miller" <davem@davemloft.net>,
 	Jiri Benc <jbenc@redhat.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51574 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51592 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753127AbcGGQAs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jul 2016 12:00:48 -0400
+	id S1753129AbcGGQAu (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jul 2016 12:00:50 -0400
 In-Reply-To: <cover.1467907022.git.pabeni@redhat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GRO is now handled entirely by the udp_offload layer and  there is no need
+GRO is now handled entirely by the udp_offload layer and there is no need
 for trying it again at the device level. We can drop gro_cell usage,
 simplifying the driver a bit, while maintaining the same performance for
 TCP and improving slightly for UDP.
-This basically reverts the commit 58ce31cca1ff ("vxlan: GRO support
-at tunnel layer")
+This basically reverts the commit 8e816df87997 ("geneve: Use GRO cells
+infrastructure.")
 
 Signed-off-by: Paolo Abeni <pabeni@redhat.com>
 ---
- drivers/net/vxlan.c | 9 ++-------
- include/net/vxlan.h | 1 -
- 2 files changed, 2 insertions(+), 8 deletions(-)
+ drivers/net/geneve.c | 12 +-----------
+ 1 file changed, 1 insertion(+), 11 deletions(-)
 
-diff --git a/drivers/net/vxlan.c b/drivers/net/vxlan.c
-index ae7455d..050cf40 100644
---- a/drivers/net/vxlan.c
-+++ b/drivers/net/vxlan.c
-@@ -1351,7 +1351,7 @@ static int vxlan_rcv(struct sock *sk, struct sk_buff *skb)
+diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
+index 5de892f..ede46a0 100644
+--- a/drivers/net/geneve.c
++++ b/drivers/net/geneve.c
+@@ -15,7 +15,6 @@
+ #include <linux/etherdevice.h>
+ #include <linux/hash.h>
+ #include <net/dst_metadata.h>
+-#include <net/gro_cells.h>
+ #include <net/rtnetlink.h>
+ #include <net/geneve.h>
+ #include <net/protocol.h>
+@@ -70,7 +69,6 @@ struct geneve_dev {
+ 	__be32		   label;	/* IPv6 flowlabel override */
+ 	__be16		   dst_port;
+ 	bool		   collect_md;
+-	struct gro_cells   gro_cells;
+ 	u32		   flags;
+ 	struct dst_cache   dst_cache;
+ };
+@@ -282,7 +280,7 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
  	stats->rx_bytes += skb->len;
  	u64_stats_update_end(&stats->syncp);
  
--	gro_cells_receive(&vxlan->gro_cells, skb);
+-	gro_cells_receive(&geneve->gro_cells, skb);
 +	netif_rx(skb);
- 	return 0;
- 
+ 	return;
  drop:
-@@ -2533,8 +2533,6 @@ static void vxlan_setup(struct net_device *dev)
+ 	/* Consume bad packet */
+@@ -299,16 +297,9 @@ static int geneve_init(struct net_device *dev)
+ 	if (!dev->tstats)
+ 		return -ENOMEM;
  
- 	vxlan->dev = dev;
- 
--	gro_cells_init(&vxlan->gro_cells, dev);
+-	err = gro_cells_init(&geneve->gro_cells, dev);
+-	if (err) {
+-		free_percpu(dev->tstats);
+-		return err;
+-	}
 -
- 	for (h = 0; h < FDB_HASH_SIZE; ++h)
- 		INIT_HLIST_HEAD(&vxlan->fdb_head[h]);
- }
-@@ -3044,7 +3042,6 @@ static void vxlan_dellink(struct net_device *dev, struct list_head *head)
- 		hlist_del_rcu(&vxlan->hlist);
- 	spin_unlock(&vn->sock_lock);
- 
--	gro_cells_destroy(&vxlan->gro_cells);
- 	list_del(&vxlan->next);
- 	unregister_netdevice_queue(dev, head);
- }
-@@ -3295,10 +3292,8 @@ static void __net_exit vxlan_exit_net(struct net *net)
- 		/* If vxlan->dev is in the same netns, it has already been added
- 		 * to the list by the previous loop.
- 		 */
--		if (!net_eq(dev_net(vxlan->dev), net)) {
--			gro_cells_destroy(&vxlan->gro_cells);
-+		if (!net_eq(dev_net(vxlan->dev), net))
- 			unregister_netdevice_queue(vxlan->dev, &list);
--		}
+ 	err = dst_cache_init(&geneve->dst_cache, GFP_KERNEL);
+ 	if (err) {
+ 		free_percpu(dev->tstats);
+-		gro_cells_destroy(&geneve->gro_cells);
+ 		return err;
  	}
  
- 	unregister_netdevice_many(&list);
-diff --git a/include/net/vxlan.h b/include/net/vxlan.h
-index b96d036..9fa3247 100644
---- a/include/net/vxlan.h
-+++ b/include/net/vxlan.h
-@@ -237,7 +237,6 @@ struct vxlan_dev {
- 	struct timer_list age_timer;
- 	spinlock_t	  hash_lock;
- 	unsigned int	  addrcnt;
--	struct gro_cells  gro_cells;
+@@ -320,7 +311,6 @@ static void geneve_uninit(struct net_device *dev)
+ 	struct geneve_dev *geneve = netdev_priv(dev);
  
- 	struct vxlan_config	cfg;
+ 	dst_cache_destroy(&geneve->dst_cache);
+-	gro_cells_destroy(&geneve->gro_cells);
+ 	free_percpu(dev->tstats);
+ }
  
 -- 
 1.8.3.1
