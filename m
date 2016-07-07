@@ -1,40 +1,96 @@
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Subject: [patch -next] bnxt: fix a condition
-Date: Thu, 7 Jul 2016 11:23:09 +0300
-Message-ID: <20160707082309.GC16742@mwanda>
+From: Paul Durrant <Paul.Durrant@citrix.com>
+Subject: RE: [Xen-devel] [PATCH] xen-netback: correct return value checks on
+ xenbus_scanf()
+Date: Thu, 7 Jul 2016 08:26:21 +0000
+Message-ID: <329fbdff898c4cf6a197eb052873dc3a@AMSPEX02CL03.citrite.net>
+References: <577E277C02000078000FBEBB@prv-mh.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeffrey Huang <huangjw@broadcom.com>,
-	Alexander Duyck <aduyck@mirantis.com>, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>,
-	Michael Chan <michael.chan@broadcom.com>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+To: Jan Beulich <JBeulich@suse.com>, Wei Liu <wei.liu2@citrix.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:24621 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030281AbcGGIXX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 04:23:23 -0400
-Content-Disposition: inline
+Received: from smtp.ctxuk.citrix.com ([185.25.65.24]:21358 "EHLO
+	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756469AbcGGI0Y (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 04:26:24 -0400
+In-Reply-To: <577E277C02000078000FBEBB@prv-mh.provo.novell.com>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This code generates as static checker warning because htons(ETH_P_IPV6)
-is always true.  From the context it looks like the && was intended to
-be !=.
-
-Fixes: 94758f8de037 ('bnxt_en: Add GRO logic for BCM5731X chips.')
-Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
-
-diff --git a/drivers/net/ethernet/broadcom/bnxt/bnxt.c b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-index 70b148a..659faa6 100644
---- a/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-+++ b/drivers/net/ethernet/broadcom/bnxt/bnxt.c
-@@ -997,7 +997,7 @@ static struct sk_buff *bnxt_gro_func_5731x(struct bnxt_tpa_info *tpa_info,
- 		 * correct protocol ID, it must be a loopback packet where
- 		 * the offsets are off by 4.
- 		 */
--		if (proto != htons(ETH_P_IP) && proto && htons(ETH_P_IPV6))
-+		if (proto != htons(ETH_P_IP) && proto != htons(ETH_P_IPV6))
- 			loopback = true;
- 	}
- 	if (loopback) {
+PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBYZW4tZGV2ZWwgW21haWx0bzp4
+ZW4tZGV2ZWwtYm91bmNlc0BsaXN0cy54ZW4ub3JnXSBPbiBCZWhhbGYgT2YgSmFuDQo+IEJldWxp
+Y2gNCj4gU2VudDogMDcgSnVseSAyMDE2IDA4OjU3DQo+IFRvOiBXZWkgTGl1DQo+IENjOiB4ZW4t
+ZGV2ZWxAbGlzdHMueGVucHJvamVjdC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3Vi
+amVjdDogW1hlbi1kZXZlbF0gW1BBVENIXSB4ZW4tbmV0YmFjazogY29ycmVjdCByZXR1cm4gdmFs
+dWUgY2hlY2tzIG9uDQo+IHhlbmJ1c19zY2FuZigpDQo+IA0KPiBPbmx5IGEgcG9zaXRpdmUgcmV0
+dXJuIHZhbHVlIGluZGljYXRlcyBzdWNjZXNzLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogSmFuIEJl
+dWxpY2ggPGpiZXVsaWNoQHN1c2UuY29tPg0KDQpSZXZpZXdlZC1ieTogUGF1bCBEdXJyYW50IDxw
+YXVsLmR1cnJhbnRAY2l0cml4LmNvbT4NCg0KPiAtLS0NCj4gIGRyaXZlcnMvbmV0L3hlbi1uZXRi
+YWNrL3hlbmJ1cy5jIHwgICAyNiArKysrKysrKysrKysrLS0tLS0tLS0tLS0tLQ0KPiAgMSBmaWxl
+IGNoYW5nZWQsIDEzIGluc2VydGlvbnMoKyksIDEzIGRlbGV0aW9ucygtKQ0KPiANCj4gLS0tIDQu
+Ny1yYzYteGVuYnVzX3NjYW5mLm9yaWcvZHJpdmVycy9uZXQveGVuLW5ldGJhY2sveGVuYnVzLmMN
+Cj4gKysrIDQuNy1yYzYteGVuYnVzX3NjYW5mL2RyaXZlcnMvbmV0L3hlbi1uZXRiYWNrL3hlbmJ1
+cy5jDQo+IEBAIC03NDEsNyArNzQxLDcgQEAgc3RhdGljIHZvaWQgeGVuX21jYXN0X2N0cmxfY2hh
+bmdlZChzdHJ1Yw0KPiAgCWludCB2YWw7DQo+IA0KPiAgCWlmICh4ZW5idXNfc2NhbmYoWEJUX05J
+TCwgZGV2LT5vdGhlcmVuZCwNCj4gLQkJCSAicmVxdWVzdC1tdWx0aWNhc3QtY29udHJvbCIsICIl
+ZCIsICZ2YWwpIDwgMCkNCj4gKwkJCSAicmVxdWVzdC1tdWx0aWNhc3QtY29udHJvbCIsICIlZCIs
+ICZ2YWwpIDw9IDApDQo+ICAJCXZhbCA9IDA7DQo+ICAJdmlmLT5tdWx0aWNhc3RfY29udHJvbCA9
+ICEhdmFsOw0KPiAgfQ0KPiBAQCAtODkwLDcgKzg5MCw3IEBAIHN0YXRpYyB2b2lkIGNvbm5lY3Qo
+c3RydWN0IGJhY2tlbmRfaW5mbw0KPiAgCWVyciA9IHhlbmJ1c19zY2FuZihYQlRfTklMLCBkZXYt
+Pm90aGVyZW5kLA0KPiAgCQkJICAgIm11bHRpLXF1ZXVlLW51bS1xdWV1ZXMiLA0KPiAgCQkJICAg
+IiV1IiwgJnJlcXVlc3RlZF9udW1fcXVldWVzKTsNCj4gLQlpZiAoZXJyIDwgMCkgew0KPiArCWlm
+IChlcnIgPD0gMCkgew0KPiAgCQlyZXF1ZXN0ZWRfbnVtX3F1ZXVlcyA9IDE7IC8qIEZhbGwgYmFj
+ayB0byBzaW5nbGUgcXVldWUgKi8NCj4gIAl9IGVsc2UgaWYgKHJlcXVlc3RlZF9udW1fcXVldWVz
+ID4geGVudmlmX21heF9xdWV1ZXMpIHsNCj4gIAkJLyogYnVnZ3kgb3IgbWFsaWNpb3VzIGd1ZXN0
+ICovDQo+IEBAIC0xMDU2LDcgKzEwNTYsNyBAQCBzdGF0aWMgaW50IGNvbm5lY3RfZGF0YV9yaW5n
+cyhzdHJ1Y3QgYmFjDQo+ICAJaWYgKGVyciA8IDApIHsNCj4gIAkJZXJyID0geGVuYnVzX3NjYW5m
+KFhCVF9OSUwsIHhzcGF0aCwNCj4gIAkJCQkgICAiZXZlbnQtY2hhbm5lbCIsICIldSIsICZ0eF9l
+dnRjaG4pOw0KPiAtCQlpZiAoZXJyIDwgMCkgew0KPiArCQlpZiAoZXJyIDw9IDApIHsNCj4gIAkJ
+CXhlbmJ1c19kZXZfZmF0YWwoZGV2LCBlcnIsDQo+ICAJCQkJCSAicmVhZGluZyAlcy9ldmVudC1j
+aGFubmVsKC10eC9yeCkiLA0KPiAgCQkJCQkgeHNwYXRoKTsNCj4gQEAgLTEwOTIsMTAgKzEwOTIs
+MTAgQEAgc3RhdGljIGludCByZWFkX3hlbmJ1c192aWZfZmxhZ3Moc3RydWN0DQo+ICAJZXJyID0g
+eGVuYnVzX3NjYW5mKFhCVF9OSUwsIGRldi0+b3RoZXJlbmQsICJyZXF1ZXN0LXJ4LWNvcHkiLA0K
+PiAiJXUiLA0KPiAgCQkJICAgJnJ4X2NvcHkpOw0KPiAgCWlmIChlcnIgPT0gLUVOT0VOVCkgew0K
+PiAtCQllcnIgPSAwOw0KPiArCQllcnIgPSAxOw0KPiAgCQlyeF9jb3B5ID0gMDsNCj4gIAl9DQo+
+IC0JaWYgKGVyciA8IDApIHsNCj4gKwlpZiAoZXJyIDw9IDApIHsNCj4gIAkJeGVuYnVzX2Rldl9m
+YXRhbChkZXYsIGVyciwgInJlYWRpbmcgJXMvcmVxdWVzdC1yeC1jb3B5IiwNCj4gIAkJCQkgZGV2
+LT5vdGhlcmVuZCk7DQo+ICAJCXJldHVybiBlcnI7DQo+IEBAIC0xMTA0LDcgKzExMDQsNyBAQCBz
+dGF0aWMgaW50IHJlYWRfeGVuYnVzX3ZpZl9mbGFncyhzdHJ1Y3QNCj4gIAkJcmV0dXJuIC1FT1BO
+T1RTVVBQOw0KPiANCj4gIAlpZiAoeGVuYnVzX3NjYW5mKFhCVF9OSUwsIGRldi0+b3RoZXJlbmQs
+DQo+IC0JCQkgImZlYXR1cmUtcngtbm90aWZ5IiwgIiVkIiwgJnZhbCkgPCAwKQ0KPiArCQkJICJm
+ZWF0dXJlLXJ4LW5vdGlmeSIsICIlZCIsICZ2YWwpIDw9IDApDQo+ICAJCXZhbCA9IDA7DQo+ICAJ
+aWYgKCF2YWwpIHsNCj4gIAkJLyogLSBSZWR1Y2UgZHJhaW4gdGltZW91dCB0byBwb2xsIG1vcmUg
+ZnJlcXVlbnRseSBmb3INCj4gQEAgLTExMTYsNyArMTExNiw3IEBAIHN0YXRpYyBpbnQgcmVhZF94
+ZW5idXNfdmlmX2ZsYWdzKHN0cnVjdA0KPiAgCX0NCj4gDQo+ICAJaWYgKHhlbmJ1c19zY2FuZihY
+QlRfTklMLCBkZXYtPm90aGVyZW5kLCAiZmVhdHVyZS1zZyIsDQo+IC0JCQkgIiVkIiwgJnZhbCkg
+PCAwKQ0KPiArCQkJICIlZCIsICZ2YWwpIDw9IDApDQo+ICAJCXZhbCA9IDA7DQo+ICAJdmlmLT5j
+YW5fc2cgPSAhIXZhbDsNCj4gDQo+IEBAIC0xMTI0LDI1ICsxMTI0LDI1IEBAIHN0YXRpYyBpbnQg
+cmVhZF94ZW5idXNfdmlmX2ZsYWdzKHN0cnVjdA0KPiAgCXZpZi0+Z3NvX3ByZWZpeF9tYXNrID0g
+MDsNCj4gDQo+ICAJaWYgKHhlbmJ1c19zY2FuZihYQlRfTklMLCBkZXYtPm90aGVyZW5kLCAiZmVh
+dHVyZS1nc28tdGNwdjQiLA0KPiAtCQkJICIlZCIsICZ2YWwpIDwgMCkNCj4gKwkJCSAiJWQiLCAm
+dmFsKSA8PSAwKQ0KPiAgCQl2YWwgPSAwOw0KPiAgCWlmICh2YWwpDQo+ICAJCXZpZi0+Z3NvX21h
+c2sgfD0gR1NPX0JJVChUQ1BWNCk7DQo+IA0KPiAgCWlmICh4ZW5idXNfc2NhbmYoWEJUX05JTCwg
+ZGV2LT5vdGhlcmVuZCwgImZlYXR1cmUtZ3NvLXRjcHY0LQ0KPiBwcmVmaXgiLA0KPiAtCQkJICIl
+ZCIsICZ2YWwpIDwgMCkNCj4gKwkJCSAiJWQiLCAmdmFsKSA8PSAwKQ0KPiAgCQl2YWwgPSAwOw0K
+PiAgCWlmICh2YWwpDQo+ICAJCXZpZi0+Z3NvX3ByZWZpeF9tYXNrIHw9IEdTT19CSVQoVENQVjQp
+Ow0KPiANCj4gIAlpZiAoeGVuYnVzX3NjYW5mKFhCVF9OSUwsIGRldi0+b3RoZXJlbmQsICJmZWF0
+dXJlLWdzby10Y3B2NiIsDQo+IC0JCQkgIiVkIiwgJnZhbCkgPCAwKQ0KPiArCQkJICIlZCIsICZ2
+YWwpIDw9IDApDQo+ICAJCXZhbCA9IDA7DQo+ICAJaWYgKHZhbCkNCj4gIAkJdmlmLT5nc29fbWFz
+ayB8PSBHU09fQklUKFRDUFY2KTsNCj4gDQo+ICAJaWYgKHhlbmJ1c19zY2FuZihYQlRfTklMLCBk
+ZXYtPm90aGVyZW5kLCAiZmVhdHVyZS1nc28tdGNwdjYtDQo+IHByZWZpeCIsDQo+IC0JCQkgIiVk
+IiwgJnZhbCkgPCAwKQ0KPiArCQkJICIlZCIsICZ2YWwpIDw9IDApDQo+ICAJCXZhbCA9IDA7DQo+
+ICAJaWYgKHZhbCkNCj4gIAkJdmlmLT5nc29fcHJlZml4X21hc2sgfD0gR1NPX0JJVChUQ1BWNik7
+DQo+IEBAIC0xMTU2LDEyICsxMTU2LDEyIEBAIHN0YXRpYyBpbnQgcmVhZF94ZW5idXNfdmlmX2Zs
+YWdzKHN0cnVjdA0KPiAgCX0NCj4gDQo+ICAJaWYgKHhlbmJ1c19zY2FuZihYQlRfTklMLCBkZXYt
+Pm90aGVyZW5kLCAiZmVhdHVyZS1uby1jc3VtLQ0KPiBvZmZsb2FkIiwNCj4gLQkJCSAiJWQiLCAm
+dmFsKSA8IDApDQo+ICsJCQkgIiVkIiwgJnZhbCkgPD0gMCkNCj4gIAkJdmFsID0gMDsNCj4gIAl2
+aWYtPmlwX2NzdW0gPSAhdmFsOw0KPiANCj4gIAlpZiAoeGVuYnVzX3NjYW5mKFhCVF9OSUwsIGRl
+di0+b3RoZXJlbmQsICJmZWF0dXJlLWlwdjYtY3N1bS0NCj4gb2ZmbG9hZCIsDQo+IC0JCQkgIiVk
+IiwgJnZhbCkgPCAwKQ0KPiArCQkJICIlZCIsICZ2YWwpIDw9IDApDQo+ICAJCXZhbCA9IDA7DQo+
+ICAJdmlmLT5pcHY2X2NzdW0gPSAhIXZhbDsNCj4gDQo+IA0KPiANCj4gDQo+IA0KPiBfX19fX19f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fXw0KPiBYZW4tZGV2ZWwgbWFp
+bGluZyBsaXN0DQo+IFhlbi1kZXZlbEBsaXN0cy54ZW4ub3JnDQo+IGh0dHBzOi8vbGlzdHMueGVu
+Lm9yZy94ZW4tZGV2ZWwNCg==
