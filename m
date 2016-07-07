@@ -1,88 +1,156 @@
-From: Paolo Abeni <pabeni@redhat.com>
-Subject: [PATCH net-next 4/4] geneve: remove gro_cell support
-Date: Thu,  7 Jul 2016 17:58:50 +0200
-Message-ID: <e3d961b44dc144327a211d527b5426fe75f4735d.1467907022.git.pabeni@redhat.com>
-References: <cover.1467907022.git.pabeni@redhat.com>
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@kernel.org>,
-	Tom Herbert <tom@herbertland.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Jiri Benc <jbenc@redhat.com>
-To: netdev@vger.kernel.org
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: [net-next PATCH V2] net: tracepoint napi:napi_poll add work and
+ budget
+Date: Thu, 07 Jul 2016 18:01:32 +0200
+Message-ID: <20160707160118.32320.81577.stgit@firesoul>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: rostedt@goodmis.org, Jesper Dangaard Brouer <brouer@redhat.com>
+To: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51592 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:51910 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753129AbcGGQAu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Thu, 7 Jul 2016 12:00:50 -0400
-In-Reply-To: <cover.1467907022.git.pabeni@redhat.com>
+	id S1751344AbcGGQBf (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jul 2016 12:01:35 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-GRO is now handled entirely by the udp_offload layer and there is no need
-for trying it again at the device level. We can drop gro_cell usage,
-simplifying the driver a bit, while maintaining the same performance for
-TCP and improving slightly for UDP.
-This basically reverts the commit 8e816df87997 ("geneve: Use GRO cells
-infrastructure.")
+An important information for the napi_poll tracepoint is knowing
+the work done (packets processed) by the napi_poll() call. Add
+both the work done and budget, as they are related.
 
-Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+Handle trace_napi_poll() param change in dropwatch/drop_monitor
+and in python perf script netdev-times.py in backward compat way,
+as python fortunately supports optional parameter handling.
+
+Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+
 ---
- drivers/net/geneve.c | 12 +-----------
- 1 file changed, 1 insertion(+), 11 deletions(-)
+V2: handle for dropwatch/drop_monitor + netdev-times.py
 
-diff --git a/drivers/net/geneve.c b/drivers/net/geneve.c
-index 5de892f..ede46a0 100644
---- a/drivers/net/geneve.c
-+++ b/drivers/net/geneve.c
-@@ -15,7 +15,6 @@
- #include <linux/etherdevice.h>
- #include <linux/hash.h>
- #include <net/dst_metadata.h>
--#include <net/gro_cells.h>
- #include <net/rtnetlink.h>
- #include <net/geneve.h>
- #include <net/protocol.h>
-@@ -70,7 +69,6 @@ struct geneve_dev {
- 	__be32		   label;	/* IPv6 flowlabel override */
- 	__be16		   dst_port;
- 	bool		   collect_md;
--	struct gro_cells   gro_cells;
- 	u32		   flags;
- 	struct dst_cache   dst_cache;
- };
-@@ -282,7 +280,7 @@ static void geneve_rx(struct geneve_dev *geneve, struct geneve_sock *gs,
- 	stats->rx_bytes += skb->len;
- 	u64_stats_update_end(&stats->syncp);
+ include/trace/events/napi.h               |   13 +++++++++----
+ net/core/dev.c                            |    4 ++--
+ net/core/drop_monitor.c                   |    3 ++-
+ net/core/netpoll.c                        |    2 +-
+ tools/perf/scripts/python/netdev-times.py |   11 +++++++----
+ 5 files changed, 21 insertions(+), 12 deletions(-)
+
+diff --git a/include/trace/events/napi.h b/include/trace/events/napi.h
+index 8fe1e93f531d..118ed7767639 100644
+--- a/include/trace/events/napi.h
++++ b/include/trace/events/napi.h
+@@ -12,22 +12,27 @@
  
--	gro_cells_receive(&geneve->gro_cells, skb);
-+	netif_rx(skb);
- 	return;
- drop:
- 	/* Consume bad packet */
-@@ -299,16 +297,9 @@ static int geneve_init(struct net_device *dev)
- 	if (!dev->tstats)
- 		return -ENOMEM;
+ TRACE_EVENT(napi_poll,
  
--	err = gro_cells_init(&geneve->gro_cells, dev);
--	if (err) {
--		free_percpu(dev->tstats);
--		return err;
--	}
--
- 	err = dst_cache_init(&geneve->dst_cache, GFP_KERNEL);
- 	if (err) {
- 		free_percpu(dev->tstats);
--		gro_cells_destroy(&geneve->gro_cells);
- 		return err;
+-	TP_PROTO(struct napi_struct *napi),
++	TP_PROTO(struct napi_struct *napi, int work, int budget),
+ 
+-	TP_ARGS(napi),
++	TP_ARGS(napi, work, budget),
+ 
+ 	TP_STRUCT__entry(
+ 		__field(	struct napi_struct *,	napi)
++		__field(	int,			work)
++		__field(	int,			budget)
+ 		__string(	dev_name, napi->dev ? napi->dev->name : NO_DEV)
+ 	),
+ 
+ 	TP_fast_assign(
+ 		__entry->napi = napi;
++		__entry->work = work;
++		__entry->budget = budget;
+ 		__assign_str(dev_name, napi->dev ? napi->dev->name : NO_DEV);
+ 	),
+ 
+-	TP_printk("napi poll on napi struct %p for device %s",
+-		__entry->napi, __get_str(dev_name))
++	TP_printk("napi poll on napi struct %p for device %s work %d budget %d",
++		  __entry->napi, __get_str(dev_name),
++		  __entry->work, __entry->budget)
+ );
+ 
+ #undef NO_DEV
+diff --git a/net/core/dev.c b/net/core/dev.c
+index b8cc5e979168..7a4e9a714fb3 100644
+--- a/net/core/dev.c
++++ b/net/core/dev.c
+@@ -4973,7 +4973,7 @@ bool sk_busy_loop(struct sock *sk, int nonblock)
+ 
+ 			if (test_bit(NAPI_STATE_SCHED, &napi->state)) {
+ 				rc = napi->poll(napi, BUSY_POLL_BUDGET);
+-				trace_napi_poll(napi);
++				trace_napi_poll(napi, rc, BUSY_POLL_BUDGET);
+ 				if (rc == BUSY_POLL_BUDGET) {
+ 					napi_complete_done(napi, rc);
+ 					napi_schedule(napi);
+@@ -5129,7 +5129,7 @@ static int napi_poll(struct napi_struct *n, struct list_head *repoll)
+ 	work = 0;
+ 	if (test_bit(NAPI_STATE_SCHED, &n->state)) {
+ 		work = n->poll(n, weight);
+-		trace_napi_poll(n);
++		trace_napi_poll(n, work, weight);
  	}
  
-@@ -320,7 +311,6 @@ static void geneve_uninit(struct net_device *dev)
- 	struct geneve_dev *geneve = netdev_priv(dev);
- 
- 	dst_cache_destroy(&geneve->dst_cache);
--	gro_cells_destroy(&geneve->gro_cells);
- 	free_percpu(dev->tstats);
+ 	WARN_ON_ONCE(work > weight);
+diff --git a/net/core/drop_monitor.c b/net/core/drop_monitor.c
+index 252e155c837b..d6b3b579560d 100644
+--- a/net/core/drop_monitor.c
++++ b/net/core/drop_monitor.c
+@@ -187,7 +187,8 @@ static void trace_kfree_skb_hit(void *ignore, struct sk_buff *skb, void *locatio
+ 	trace_drop_common(skb, location);
  }
  
--- 
-1.8.3.1
+-static void trace_napi_poll_hit(void *ignore, struct napi_struct *napi)
++static void trace_napi_poll_hit(void *ignore, struct napi_struct *napi,
++				int work, int budget)
+ {
+ 	struct dm_hw_stat_delta *new_stat;
+ 
+diff --git a/net/core/netpoll.c b/net/core/netpoll.c
+index 94acfc89ad97..53599bd0c82d 100644
+--- a/net/core/netpoll.c
++++ b/net/core/netpoll.c
+@@ -163,7 +163,7 @@ static void poll_one_napi(struct napi_struct *napi)
+ 	 */
+ 	work = napi->poll(napi, 0);
+ 	WARN_ONCE(work, "%pF exceeded budget in poll\n", napi->poll);
+-	trace_napi_poll(napi);
++	trace_napi_poll(napi, work, 0);
+ 
+ 	clear_bit(NAPI_STATE_NPSVC, &napi->state);
+ }
+diff --git a/tools/perf/scripts/python/netdev-times.py b/tools/perf/scripts/python/netdev-times.py
+index 4d21ef2d601d..4c6f09ac7d12 100644
+--- a/tools/perf/scripts/python/netdev-times.py
++++ b/tools/perf/scripts/python/netdev-times.py
+@@ -252,9 +252,10 @@ def irq__irq_handler_exit(name, context, cpu, sec, nsec, pid, comm, callchain, i
+ 	event_info = (name, context, cpu, nsecs(sec, nsec), pid, comm, irq, ret)
+ 	all_event_list.append(event_info)
+ 
+-def napi__napi_poll(name, context, cpu, sec, nsec, pid, comm, callchain, napi, dev_name):
++def napi__napi_poll(name, context, cpu, sec, nsec, pid, comm, callchain, napi,
++                    dev_name, work=None, budget=None):
+ 	event_info = (name, context, cpu, nsecs(sec, nsec), pid, comm,
+-			napi, dev_name)
++			napi, dev_name, work, budget)
+ 	all_event_list.append(event_info)
+ 
+ def net__netif_receive_skb(name, context, cpu, sec, nsec, pid, comm, callchain, skbaddr,
+@@ -354,11 +355,13 @@ def handle_irq_softirq_exit(event_info):
+ 	receive_hunk_list.append(rec_data)
+ 
+ def handle_napi_poll(event_info):
+-	(name, context, cpu, time, pid, comm, napi, dev_name) = event_info
++	(name, context, cpu, time, pid, comm, napi, dev_name,
++		work, budget) = event_info
+ 	if cpu in net_rx_dic.keys():
+ 		event_list = net_rx_dic[cpu]['event_list']
+ 		rec_data = {'event_name':'napi_poll',
+-				'dev':dev_name, 'event_t':time}
++				'dev':dev_name, 'event_t':time,
++				'work':work, 'budget':budget}
+ 		event_list.append(rec_data)
+ 
+ def handle_netif_rx(event_info):
