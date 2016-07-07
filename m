@@ -1,78 +1,56 @@
-From: Paul Durrant <Paul.Durrant@citrix.com>
-Subject: RE: [Xen-devel] [PATCH] xen-netback: prefer xenbus_write() over
- xenbus_printf() where possible
-Date: Thu, 7 Jul 2016 08:27:22 +0000
-Message-ID: <679a10e41ac9459fae5cbd88aee3216a@AMSPEX02CL03.citrite.net>
-References: <577E27BA02000078000FBEC3@prv-mh.provo.novell.com>
+From: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Subject: Re: [PATCH 2/4] soc: fsl: add GUTS driver for QorIQ platforms
+Date: Thu, 07 Jul 2016 10:30:29 +0200
+Message-ID: <4094106.qfxJu3tJbO@wuerfel>
+References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
+	<1465609853.22191.151.camel@buserror.net>
+	<HE1PR04MB0889646206BFAD68046F3473F83B0@HE1PR04MB0889.eurprd04.prod.outlook.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: base64
-Cc: "xen-devel@lists.xenproject.org" <xen-devel@lists.xenproject.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: Jan Beulich <JBeulich@suse.com>, Wei Liu <wei.liu2@citrix.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.eu.citrix.com ([185.25.65.24]:38929 "EHLO
-	SMTP.EU.CITRIX.COM" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756526AbcGGI1a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 04:27:30 -0400
-In-Reply-To: <577E27BA02000078000FBEC3@prv-mh.provo.novell.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Ulf Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>,
+	Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
+	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>, Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Yang-Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>, "iommu-cunTk1MwBs+mg8Ev75riOw@public.gmane.org
+	x-foundation.org" <iommu@
+To: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <HE1PR04MB0889646206BFAD68046F3473F83B0-6LN7OEpIatX1kPMWxTxe+c9NdZoXdze2vxpqHgZTriW3zl9H0oFU5g@public.gmane.org>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-PiAtLS0tLU9yaWdpbmFsIE1lc3NhZ2UtLS0tLQ0KPiBGcm9tOiBYZW4tZGV2ZWwgW21haWx0bzp4
-ZW4tZGV2ZWwtYm91bmNlc0BsaXN0cy54ZW4ub3JnXSBPbiBCZWhhbGYgT2YgSmFuDQo+IEJldWxp
-Y2gNCj4gU2VudDogMDcgSnVseSAyMDE2IDA4OjU4DQo+IFRvOiBXZWkgTGl1DQo+IENjOiB4ZW4t
-ZGV2ZWxAbGlzdHMueGVucHJvamVjdC5vcmc7IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gU3Vi
-amVjdDogW1hlbi1kZXZlbF0gW1BBVENIXSB4ZW4tbmV0YmFjazogcHJlZmVyIHhlbmJ1c193cml0
-ZSgpIG92ZXINCj4geGVuYnVzX3ByaW50ZigpIHdoZXJlIHBvc3NpYmxlDQo+IA0KPiAuLi4gYXMg
-YmVpbmcgdGhlIHNpbXBsZXIgdmFyaWFudC4NCj4gDQo+IFNpZ25lZC1vZmYtYnk6IEphbiBCZXVs
-aWNoIDxqYmV1bGljaEBzdXNlLmNvbT4NCg0KUmV2aWV3ZWQtYnk6IFBhdWwgRHVycmFudCA8cGF1
-bC5kdXJyYW50QGNpdHJpeC5jb20+DQoNCj4gLS0tDQo+ICBkcml2ZXJzL25ldC94ZW4tbmV0YmFj
-ay94ZW5idXMuYyB8ICAgMjQgKysrKysrKysrLS0tLS0tLS0tLS0tLS0tDQo+ICAxIGZpbGUgY2hh
-bmdlZCwgOSBpbnNlcnRpb25zKCspLCAxNSBkZWxldGlvbnMoLSkNCj4gDQo+IC0tLSA0LjctcmM2
-LXByZWZlci14ZW5idXNfd3JpdGUub3JpZy9kcml2ZXJzL25ldC94ZW4tbmV0YmFjay94ZW5idXMu
-Yw0KPiArKysgNC43LXJjNi1wcmVmZXIteGVuYnVzX3dyaXRlL2RyaXZlcnMvbmV0L3hlbi1uZXRi
-YWNrL3hlbmJ1cy5jDQo+IEBAIC0zMDEsMTcgKzMwMSwxNSBAQCBzdGF0aWMgaW50IG5ldGJhY2tf
-cHJvYmUoc3RydWN0IHhlbmJ1c19kDQo+ICAJCX0NCj4gDQo+ICAJCS8qIFdlIHN1cHBvcnQgcGFy
-dGlhbCBjaGVja3N1bSBzZXR1cCBmb3IgSVB2NiBwYWNrZXRzICovDQo+IC0JCWVyciA9IHhlbmJ1
-c19wcmludGYoeGJ0LCBkZXYtPm5vZGVuYW1lLA0KPiAtCQkJCSAgICAiZmVhdHVyZS1pcHY2LWNz
-dW0tb2ZmbG9hZCIsDQo+IC0JCQkJICAgICIlZCIsIDEpOw0KPiArCQllcnIgPSB4ZW5idXNfd3Jp
-dGUoeGJ0LCBkZXYtPm5vZGVuYW1lLA0KPiArCQkJCSAgICJmZWF0dXJlLWlwdjYtY3N1bS1vZmZs
-b2FkIiwgIjEiKTsNCj4gIAkJaWYgKGVycikgew0KPiAgCQkJbWVzc2FnZSA9ICJ3cml0aW5nIGZl
-YXR1cmUtaXB2Ni1jc3VtLW9mZmxvYWQiOw0KPiAgCQkJZ290byBhYm9ydF90cmFuc2FjdGlvbjsN
-Cj4gIAkJfQ0KPiANCj4gIAkJLyogV2Ugc3VwcG9ydCByeC1jb3B5IHBhdGguICovDQo+IC0JCWVy
-ciA9IHhlbmJ1c19wcmludGYoeGJ0LCBkZXYtPm5vZGVuYW1lLA0KPiAtCQkJCSAgICAiZmVhdHVy
-ZS1yeC1jb3B5IiwgIiVkIiwgMSk7DQo+ICsJCWVyciA9IHhlbmJ1c193cml0ZSh4YnQsIGRldi0+
-bm9kZW5hbWUsICJmZWF0dXJlLXJ4LWNvcHkiLA0KPiAiMSIpOw0KPiAgCQlpZiAoZXJyKSB7DQo+
-ICAJCQltZXNzYWdlID0gIndyaXRpbmcgZmVhdHVyZS1yeC1jb3B5IjsNCj4gIAkJCWdvdG8gYWJv
-cnRfdHJhbnNhY3Rpb247DQo+IEBAIC0zMjEsMjQgKzMxOSwyMiBAQCBzdGF0aWMgaW50IG5ldGJh
-Y2tfcHJvYmUoc3RydWN0IHhlbmJ1c19kDQo+ICAJCSAqIFdlIGRvbid0IHN1cHBvcnQgcngtZmxp
-cCBwYXRoIChleGNlcHQgb2xkIGd1ZXN0cyB3aG8gZG9uJ3QNCj4gIAkJICogZ3JvayB0aGlzIGZl
-YXR1cmUgZmxhZykuDQo+ICAJCSAqLw0KPiAtCQllcnIgPSB4ZW5idXNfcHJpbnRmKHhidCwgZGV2
-LT5ub2RlbmFtZSwNCj4gLQkJCQkgICAgImZlYXR1cmUtcngtZmxpcCIsICIlZCIsIDApOw0KPiAr
-CQllcnIgPSB4ZW5idXNfd3JpdGUoeGJ0LCBkZXYtPm5vZGVuYW1lLCAiZmVhdHVyZS1yeC1mbGlw
-IiwNCj4gIjAiKTsNCj4gIAkJaWYgKGVycikgew0KPiAgCQkJbWVzc2FnZSA9ICJ3cml0aW5nIGZl
-YXR1cmUtcngtZmxpcCI7DQo+ICAJCQlnb3RvIGFib3J0X3RyYW5zYWN0aW9uOw0KPiAgCQl9DQo+
-IA0KPiAgCQkvKiBXZSBzdXBwb3J0IGR5bmFtaWMgbXVsdGljYXN0LWNvbnRyb2wuICovDQo+IC0J
-CWVyciA9IHhlbmJ1c19wcmludGYoeGJ0LCBkZXYtPm5vZGVuYW1lLA0KPiAtCQkJCSAgICAiZmVh
-dHVyZS1tdWx0aWNhc3QtY29udHJvbCIsICIlZCIsIDEpOw0KPiArCQllcnIgPSB4ZW5idXNfd3Jp
-dGUoeGJ0LCBkZXYtPm5vZGVuYW1lLA0KPiArCQkJCSAgICJmZWF0dXJlLW11bHRpY2FzdC1jb250
-cm9sIiwgIjEiKTsNCj4gIAkJaWYgKGVycikgew0KPiAgCQkJbWVzc2FnZSA9ICJ3cml0aW5nIGZl
-YXR1cmUtbXVsdGljYXN0LWNvbnRyb2wiOw0KPiAgCQkJZ290byBhYm9ydF90cmFuc2FjdGlvbjsN
-Cj4gIAkJfQ0KPiANCj4gLQkJZXJyID0geGVuYnVzX3ByaW50Zih4YnQsIGRldi0+bm9kZW5hbWUs
-DQo+IC0JCQkJICAgICJmZWF0dXJlLWR5bmFtaWMtbXVsdGljYXN0LWNvbnRyb2wiLA0KPiAtCQkJ
-CSAgICAiJWQiLCAxKTsNCj4gKwkJZXJyID0geGVuYnVzX3dyaXRlKHhidCwgZGV2LT5ub2RlbmFt
-ZSwNCj4gKwkJCQkgICAiZmVhdHVyZS1keW5hbWljLW11bHRpY2FzdC1jb250cm9sIiwgIjEiKTsN
-Cj4gIAkJaWYgKGVycikgew0KPiAgCQkJbWVzc2FnZSA9ICJ3cml0aW5nIGZlYXR1cmUtZHluYW1p
-Yy1tdWx0aWNhc3QtDQo+IGNvbnRyb2wiOw0KPiAgCQkJZ290byBhYm9ydF90cmFuc2FjdGlvbjsN
-Cj4gQEAgLTM2OCw5ICszNjQsNyBAQCBzdGF0aWMgaW50IG5ldGJhY2tfcHJvYmUoc3RydWN0IHhl
-bmJ1c19kDQo+ICAJaWYgKGVycikNCj4gIAkJcHJfZGVidWcoIkVycm9yIHdyaXRpbmcgbXVsdGkt
-cXVldWUtbWF4LXF1ZXVlc1xuIik7DQo+IA0KPiAtCWVyciA9IHhlbmJ1c19wcmludGYoWEJUX05J
-TCwgZGV2LT5ub2RlbmFtZSwNCj4gLQkJCSAgICAiZmVhdHVyZS1jdHJsLXJpbmciLA0KPiAtCQkJ
-ICAgICIldSIsIHRydWUpOw0KPiArCWVyciA9IHhlbmJ1c193cml0ZShYQlRfTklMLCBkZXYtPm5v
-ZGVuYW1lLCAiZmVhdHVyZS1jdHJsLXJpbmciLA0KPiAiMSIpOw0KPiAgCWlmIChlcnIpDQo+ICAJ
-CXByX2RlYnVnKCJFcnJvciB3cml0aW5nIGZlYXR1cmUtY3RybC1yaW5nXG4iKTsNCj4gDQo+IA0K
-PiANCj4gDQo+IA0KPiBfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fXw0KPiBYZW4tZGV2ZWwgbWFpbGluZyBsaXN0DQo+IFhlbi1kZXZlbEBsaXN0cy54ZW4ub3Jn
-DQo+IGh0dHBzOi8vbGlzdHMueGVuLm9yZy94ZW4tZGV2ZWwNCg==
+T24gVGh1cnNkYXksIEp1bHkgNywgMjAxNiAyOjM1OjMzIEFNIENFU1QgWWFuZ2JvIEx1IHdyb3Rl
+Ogo+IEhpIEFybmQsCj4gCj4gQ291bGQgeW91IHJlcGx5IHdoZW4geW91IHNlZSB0aGUgZW1haWw/
+Cj4gSWYgeW91ciBtZXRob2QgZG9lc27igJl0IHJlc29sdmUgdGhlIHByb2JsZW0sIHdlIHN0aWxs
+IHdhbnQgdG8gdXNlIG91ciBvbGQgcGF0Y2hzZXQuCj4gCj4gVGhpcyBndXRzIGRyaXZlciBoYWQg
+YmVlbiBkaXNjdXNzZWQgYWJvdXQgb25lIHllYXIgYW5kIGJsb2NrZWQgbWFueSB3b3JrYXJvdW5k
+IHVwc3RyZWFtLgo+IFNvIHBsZWFzZSBoZWxwIHRvIHJldmlldyBhbmQgY29tbWVudCBzb29uLgo+
+IAoKSSBkb24ndCByZWFsbHkgc2VlIGhvdyBtb3JlIGRpc2N1c3Npb24gaXMgZ29pbmcgdG8gaGVs
+cCB1cyBoZXJlLiBJIHRoaW5rCkkndmUgbWFkZSBpdCBwcmV0dHkgY2xlYXIgdGhhdCBJIGRvbid0
+IHdhbnQgdG8gc2VlIGFub3RoZXIgcGxhdGZvcm0Kc3BlY2lmaWMgd2F5IHRvIHJlYWQgYW4gU29D
+IHJldmlzaW9uIGFuZCBJJ3ZlIGV2ZW4gc2VudCBhIHByb29mLW9mLWNvbmNlcHQKcGF0Y2ggdG8g
+c2hvdyBob3cgdGhlIGludGVyZmFjZSBjYW4gd29yaywgbm93IGl0J3MgdXAgdG8geW91IHRvIGZp
+dCB0aGUKZ3V0cyBoYXJkd2FyZSBpbnRvIHRoYXQgYW5kIHNlbmQgYSBuZXcgcGF0Y2ggc2VyaWVz
+LgoKCUFybmQKCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+CmlvbW11IG1haWxpbmcgbGlzdAppb21tdUBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRw
+czovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby9pb21tdQ==
