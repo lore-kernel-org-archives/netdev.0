@@ -1,49 +1,97 @@
 From: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
-Subject: [PATCH net-next 0/9] net: dsa: mv88e6xxx: STP and Global 2 cleanup
-Date: Thu,  7 Jul 2016 08:57:49 -0400
-Message-ID: <20160707125758.1547-1-vivien.didelot@savoirfairelinux.com>
+Subject: [PATCH net-next 3/9] net: dsa: mv88e6xxx: extract device mapping
+Date: Thu,  7 Jul 2016 08:57:52 -0400
+Message-ID: <20160707125758.1547-4-vivien.didelot@savoirfairelinux.com>
+References: <20160707125758.1547-1-vivien.didelot@savoirfairelinux.com>
 Cc: linux-kernel@vger.kernel.org, kernel@savoirfairelinux.com,
 	"David S. Miller" <davem@davemloft.net>,
 	Andrew Lunn <andrew@lunn.ch>,
 	Florian Fainelli <f.fainelli@gmail.com>,
 	Vivien Didelot <vivien.didelot@savoirfairelinux.com>
 To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.savoirfairelinux.com ([208.88.110.44]:41873 "EHLO
-	mail.savoirfairelinux.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750899AbcGGM6o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 08:58:44 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160707125758.1547-1-vivien.didelot@savoirfairelinux.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-The Marvell switches registers are organized in distinct internal SMI
-devices, such as PHY, Port, Global 1 or Global 2 registers sets.
+The Device Mapping register is an indirect table access.
 
-Since not all chips support every registers sets or have slightly
-differences in them (such as old 88E6060 or new 88E6390 likely to be
-supported soon), make the setup code clearer now by removing a few
-family checks and adding flags to describe the Global 2 registers map.
+Provide helpers to access this table and explicit the checking of the
+new DSA_RTABLE_NONE routing table value.
 
-This patchset has no functional changes except enabling basic STP
-support and bridging on most chips when getting rid of a few
-inconsistencies in chip descriptions (patch 1).
+Signed-off-by: Vivien Didelot <vivien.didelot@savoirfairelinux.com>
+---
+ drivers/net/dsa/mv88e6xxx/chip.c | 49 ++++++++++++++++++++++++++++------------
+ 1 file changed, 34 insertions(+), 15 deletions(-)
 
-Next patchsets will introduce better description of other register maps.
-
-Vivien Didelot (9):
-  net: dsa: mv88e6xxx: remove basic function flags
-  net: dsa: mv88e6xxx: split setup of Global 1 and 2
-  net: dsa: mv88e6xxx: extract device mapping
-  net: dsa: mv88e6xxx: extract trunk mapping
-  net: dsa: mv88e6xxx: add cap for MGMT Enables bits
-  net: dsa: mv88e6xxx: rework Switch MAC setter
-  net: dsa: mv88e6xxx: add cap for PVT
-  net: dsa: mv88e6xxx: add cap for Priority Override
-  net: dsa: mv88e6xxx: add cap for IRL
-
- drivers/net/dsa/mv88e6xxx/chip.c      | 423 ++++++++++++++++++++--------------
- drivers/net/dsa/mv88e6xxx/mv88e6xxx.h | 149 +++++++-----
- 2 files changed, 339 insertions(+), 233 deletions(-)
-
+diff --git a/drivers/net/dsa/mv88e6xxx/chip.c b/drivers/net/dsa/mv88e6xxx/chip.c
+index 1e39fa6..9b37310 100644
+--- a/drivers/net/dsa/mv88e6xxx/chip.c
++++ b/drivers/net/dsa/mv88e6xxx/chip.c
+@@ -3094,9 +3094,39 @@ static int mv88e6xxx_g1_setup(struct mv88e6xxx_chip *chip)
+ 	return 0;
+ }
+ 
++static int mv88e6xxx_g2_device_mapping_write(struct mv88e6xxx_chip *chip,
++					     int target, int port)
++{
++	u16 val = GLOBAL2_DEVICE_MAPPING_UPDATE | (target << 8) | (port & 0xf);
++
++	return mv88e6xxx_write(chip, REG_GLOBAL2, GLOBAL2_DEVICE_MAPPING, val);
++}
++
++static int mv88e6xxx_g2_set_device_mapping(struct mv88e6xxx_chip *chip)
++{
++	int target, port;
++	int err;
++
++	/* Initialize the routing port to the 32 possible target devices */
++	for (target = 0; target < 32; ++target) {
++		port = 0xf;
++
++		if (target < DSA_MAX_SWITCHES) {
++			port = chip->ds->rtable[target];
++			if (port == DSA_RTABLE_NONE)
++				port = 0xf;
++		}
++
++		err = mv88e6xxx_g2_device_mapping_write(chip, target, port);
++		if (err)
++			break;
++	}
++
++	return err;
++}
++
+ static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+ {
+-	struct dsa_switch *ds = chip->ds;
+ 	int err;
+ 	int i;
+ 
+@@ -3120,20 +3150,9 @@ static int mv88e6xxx_g2_setup(struct mv88e6xxx_chip *chip)
+ 		return err;
+ 
+ 	/* Program the DSA routing table. */
+-	for (i = 0; i < 32; i++) {
+-		int nexthop = 0x1f;
+-
+-		if (i != ds->index && i < DSA_MAX_SWITCHES)
+-			nexthop = ds->rtable[i] & 0x1f;
+-
+-		err = _mv88e6xxx_reg_write(
+-			chip, REG_GLOBAL2,
+-			GLOBAL2_DEVICE_MAPPING,
+-			GLOBAL2_DEVICE_MAPPING_UPDATE |
+-			(i << GLOBAL2_DEVICE_MAPPING_TARGET_SHIFT) | nexthop);
+-		if (err)
+-			return err;
+-	}
++	err = mv88e6xxx_g2_set_device_mapping(chip);
++	if (err)
++		return err;
+ 
+ 	/* Clear all trunk masks. */
+ 	for (i = 0; i < 8; i++) {
 -- 
 2.9.0
