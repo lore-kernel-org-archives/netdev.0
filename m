@@ -1,100 +1,160 @@
 From: Simon Horman <simon.horman@netronome.com>
-Subject: [PATCH net-next v2 0/4] net: support MPLS in IPv4 and UDP
-Date: Thu,  7 Jul 2016 07:56:11 +0200
-Message-ID: <1467870975-28003-1-git-send-email-simon.horman@netronome.com>
+Subject: [PATCH net-next v2 1/4] tunnels: support MPLS over IPv4 tunnels
+Date: Thu,  7 Jul 2016 07:56:12 +0200
+Message-ID: <1467870975-28003-2-git-send-email-simon.horman@netronome.com>
+References: <1467870975-28003-1-git-send-email-simon.horman@netronome.com>
 Cc: Tom Herbert <tom@herbertland.com>, netdev@vger.kernel.org,
 	Simon Horman <simon.horman@netronome.com>
 To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:36714 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751179AbcGGF41 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 01:56:27 -0400
-Received: by mail-wm0-f45.google.com with SMTP id f126so196754289wma.1
-        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 22:56:26 -0700 (PDT)
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:36720 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751399AbcGGF42 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 01:56:28 -0400
+Received: by mail-wm0-f48.google.com with SMTP id f126so196754686wma.1
+        for <netdev@vger.kernel.org>; Wed, 06 Jul 2016 22:56:27 -0700 (PDT)
+In-Reply-To: <1467870975-28003-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This short series provides support for MPLS in IPv4 (RFC4023), and by
-virtue of FOU, MPLS in UDP (RFC7510).
+Extend tunnel support to MPLS over IPv4.  The implementation extends the
+existing differentiation between IPIP and IPv6 over IPv4 to also cover MPLS
+over IPv4.
 
-The changes are as follows:
-1. Teach tunnel4.c about AF_MPLS, it already understands AF_INET and
-   AF_INET6
-2. Enhance IPIP and SIT to handle MPLS. Both already handle IPv4.
-   SIT also already handles IPv6.
-3. Trivially enhance MPLS to allow routes over SIT and IPIP tunnels.
+Signed-off-by: Simon Horman <simon.horman@netronome.com>
+Reviewed-by: Dinan Gunawardena <dinan.gunawardena@netronome.com>
+---
+ net/ipv4/tunnel4.c | 77 +++++++++++++++++++++++++++++++++++++++++++++++-------
+ 1 file changed, 67 insertions(+), 10 deletions(-)
 
-A corresponding patch set for iproute2 has also been provided.
-
-
-Changes since v1
-* Correct inverted IPIP protocol logic in SIT patch
-* Provide usage example below
-
-
-Sample configuration follows:
-
-* The following creates a tunnel and routes MPLS packets whose outermost
-  label is 100 over it. The forwarded packets will have the outermost label
-  stack entry, 100, removed and two label stack entries added, the
-  outermost having label 200 and the next having label 300.
-
-  The local end-point for the tunnel is 10.0.99.192 and the remote
-  endpoint is 10.0.99.193.
-
-  The local address for encapsulated packets is 10.0.98.192 and the
-  remote address is 10.0.98.193.
-
-  # Create an MPLS over IPv4 tunnel using the IPIP driver
-  ip link add name tun1 type ipip remote 10.0.99.193 local 10.0.99.192 \
-	ttl 225 mode mplsip
-
-  # Bring the tunnel up and an add an IPv4 address and route
-  ip link set up dev tun1
-  ip addr add 10.0.98.192/24 dev tun1
-
-  # Set MPLS route
-  # Allow MPLS forwarding of packets recieved on eth0
-  echo 1 > /proc/sys/net/mpls/conf/eth0/input
-  # Larger than label to be routed (100)
-  echo 101 > /proc/sys/net/mpls/platform_labels
-  ip -f mpls route add 100 as 200/300 via inet 10.0.98.193
-
-
-* For FOU (in this case MPLS over UDP) a tunnel may created using:
-
-  # Packets recieved on UDP port 6635 are MPLS over UDP (IP proto 137)
-  ip fou add port 6635 ipproto 137
-  # Create the tunnel netdev
-  ip link add name tun1 type ipip remote 10.0.99.193 local 10.0.99.192 \
-	ttl 225 mode mplsip encap fou encap-sport auto encap-dport 6635
-
-  IPv4 address, link and route, and MPLS routing commands are as per
-  the MPLS over IPv4 example
-
-* To use the SIT driver instead of the IPIP driver "ipip" may be substituted
-  for "sit" in the above examples.
-
-* To create a tunnel that forwards and receives all supported
-  inner-protocols "mplsip" may be substituted for "any" in the above
-  examples.
-
-  For the IPIP driver this configures both IPv4 and MPLS over IPv4.
-  For the SIT driver this configures IPv6, IPv4 and MPLS over IPv4.
-
-
-Simon Horman (4):
-  tunnels: support MPLS over IPv4 tunnels
-  sit: support MPLS over IPv4
-  ipip: support MPLS over IPv4
-  mpls: allow routes on ipip and sit devices
-
- net/ipv4/ipip.c    | 137 ++++++++++++++++++++++++++++++++++++++++++++++-------
- net/ipv4/tunnel4.c |  77 ++++++++++++++++++++++++++----
- net/ipv6/sit.c     |  93 +++++++++++++++++++++++++++++-------
- net/mpls/af_mpls.c |   6 ++-
- 4 files changed, 269 insertions(+), 44 deletions(-)
-
+diff --git a/net/ipv4/tunnel4.c b/net/ipv4/tunnel4.c
+index 0d0171830620..45cd4253583a 100644
+--- a/net/ipv4/tunnel4.c
++++ b/net/ipv4/tunnel4.c
+@@ -6,6 +6,7 @@
+ #include <linux/init.h>
+ #include <linux/module.h>
+ #include <linux/mutex.h>
++#include <linux/mpls.h>
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
+ #include <linux/slab.h>
+@@ -16,11 +17,14 @@
+ 
+ static struct xfrm_tunnel __rcu *tunnel4_handlers __read_mostly;
+ static struct xfrm_tunnel __rcu *tunnel64_handlers __read_mostly;
++static struct xfrm_tunnel __rcu *tunnelmpls4_handlers __read_mostly;
+ static DEFINE_MUTEX(tunnel4_mutex);
+ 
+ static inline struct xfrm_tunnel __rcu **fam_handlers(unsigned short family)
+ {
+-	return (family == AF_INET) ? &tunnel4_handlers : &tunnel64_handlers;
++	return (family == AF_INET) ? &tunnel4_handlers :
++		(family == AF_INET6) ? &tunnel64_handlers :
++		&tunnelmpls4_handlers;
+ }
+ 
+ int xfrm4_tunnel_register(struct xfrm_tunnel *handler, unsigned short family)
+@@ -125,6 +129,26 @@ drop:
+ }
+ #endif
+ 
++#if IS_ENABLED(CONFIG_MPLS)
++static int tunnelmpls4_rcv(struct sk_buff *skb)
++{
++	struct xfrm_tunnel *handler;
++
++	if (!pskb_may_pull(skb, sizeof(struct mpls_label)))
++		goto drop;
++
++	for_each_tunnel_rcu(tunnelmpls4_handlers, handler)
++		if (!handler->handler(skb))
++			return 0;
++
++	icmp_send(skb, ICMP_DEST_UNREACH, ICMP_PORT_UNREACH, 0);
++
++drop:
++	kfree_skb(skb);
++	return 0;
++}
++#endif
++
+ static void tunnel4_err(struct sk_buff *skb, u32 info)
+ {
+ 	struct xfrm_tunnel *handler;
+@@ -145,6 +169,17 @@ static void tunnel64_err(struct sk_buff *skb, u32 info)
+ }
+ #endif
+ 
++#if IS_ENABLED(CONFIG_MPLS)
++static void tunnelmpls4_err(struct sk_buff *skb, u32 info)
++{
++	struct xfrm_tunnel *handler;
++
++	for_each_tunnel_rcu(tunnelmpls4_handlers, handler)
++		if (!handler->err_handler(skb, info))
++			break;
++}
++#endif
++
+ static const struct net_protocol tunnel4_protocol = {
+ 	.handler	=	tunnel4_rcv,
+ 	.err_handler	=	tunnel4_err,
+@@ -161,24 +196,46 @@ static const struct net_protocol tunnel64_protocol = {
+ };
+ #endif
+ 
++#if IS_ENABLED(CONFIG_MPLS)
++static const struct net_protocol tunnelmpls4_protocol = {
++	.handler	=	tunnelmpls4_rcv,
++	.err_handler	=	tunnelmpls4_err,
++	.no_policy	=	1,
++	.netns_ok	=	1,
++};
++#endif
++
+ static int __init tunnel4_init(void)
+ {
+-	if (inet_add_protocol(&tunnel4_protocol, IPPROTO_IPIP)) {
+-		pr_err("%s: can't add protocol\n", __func__);
+-		return -EAGAIN;
+-	}
++	if (inet_add_protocol(&tunnel4_protocol, IPPROTO_IPIP))
++		goto err_ipip;
+ #if IS_ENABLED(CONFIG_IPV6)
+-	if (inet_add_protocol(&tunnel64_protocol, IPPROTO_IPV6)) {
+-		pr_err("tunnel64 init: can't add protocol\n");
+-		inet_del_protocol(&tunnel4_protocol, IPPROTO_IPIP);
+-		return -EAGAIN;
+-	}
++	if (inet_add_protocol(&tunnel64_protocol, IPPROTO_IPV6))
++		goto err_ipv6;
++#endif
++#if IS_ENABLED(CONFIG_MPLS)
++	if (inet_add_protocol(&tunnelmpls4_protocol, IPPROTO_MPLS))
++		goto err_mpls;
+ #endif
+ 	return 0;
++
++#if IS_ENABLED(CONFIG_IPV6)
++err_mpls:
++	inet_del_protocol(&tunnel4_protocol, IPPROTO_IPV6);
++#endif
++err_ipv6:
++	inet_del_protocol(&tunnel4_protocol, IPPROTO_IPIP);
++err_ipip:
++	pr_err("%s: can't add protocol\n", __func__);
++	return -EAGAIN;
+ }
+ 
+ static void __exit tunnel4_fini(void)
+ {
++#if IS_ENABLED(CONFIG_MPLS)
++	if (inet_del_protocol(&tunnelmpls4_protocol, IPPROTO_MPLS))
++		pr_err("tunnelmpls4 close: can't remove protocol\n");
++#endif
+ #if IS_ENABLED(CONFIG_IPV6)
+ 	if (inet_del_protocol(&tunnel64_protocol, IPPROTO_IPV6))
+ 		pr_err("tunnel64 close: can't remove protocol\n");
 -- 
 2.7.0.rc3.207.g0ac5344
