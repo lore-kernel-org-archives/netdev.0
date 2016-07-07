@@ -1,61 +1,42 @@
-From: Jakub Kicinski via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: XDP seeking input from NIC hardware vendors
-Date: Thu, 7 Jul 2016 17:12:46 +0100
-Message-ID: <20160707171246.5be5e433@jkicinski-Precision-T1700>
-References: <20160707124245.6d95635a@redhat.com>
-	<D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81@fmsmsx115.amr.corp.intel.com>
-Reply-To: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net-next 3/4] vxlan: remove gro_cell support
+Date: Thu, 07 Jul 2016 18:13:22 +0200
+Message-ID: <1467908002.1273.42.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <cover.1467907022.git.pabeni@redhat.com>
+	 <6f90239eb6ccb9145a886d4f01c6620c6d6ec87f.1467907022.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
-	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
-To: "Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81-5FK+k9557ZBqS6EAlXoojrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@kernel.org>,
+	Tom Herbert <tom@herbertland.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Jiri Benc <jbenc@redhat.com>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-yw0-f182.google.com ([209.85.161.182]:33289 "EHLO
+	mail-yw0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751344AbcGGQN1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 12:13:27 -0400
+Received: by mail-yw0-f182.google.com with SMTP id j17so18416676ywg.0
+        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 09:13:27 -0700 (PDT)
+In-Reply-To: <6f90239eb6ccb9145a886d4f01c6620c6d6ec87f.1467907022.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 7 Jul 2016 15:18:11 +0000, Fastabend, John R wrote:
-> The other interesting thing would be to do more than just packet
-> steering but actually run a more complete XDP program. Netronome
-> supports this right. The question I have though is this a stacked of
-> XDP programs one or more designated for hardware and some running in
-> software perhaps with some annotation in the program so the hardware
-> JIT knows where to place programs or do we expect the JIT itself to
-> try and decide what is best to offload. I think the easiest to start
-> with is to annotate the programs.
-> 
-> Also as far as I know a lot of hardware can stick extra data to the
-> front or end of a packet so you could push metadata calculated by the
-> program here in a generic way without having to extend XDP defined
-> metadata structures. Another option is to DMA the metadata to a
-> specified address. With this metadata the consumer/producer XDP
-> programs have to agree on the format but no one else.
+On Thu, 2016-07-07 at 17:58 +0200, Paolo Abeni wrote:
+> GRO is now handled entirely by the udp_offload layer and  there is no need
+> for trying it again at the device level. We can drop gro_cell usage,
+> simplifying the driver a bit, while maintaining the same performance for
+> TCP and improving slightly for UDP.
+> This basically reverts the commit 58ce31cca1ff ("vxlan: GRO support
+> at tunnel layer")
 
-Yes!
+Note that gro_cells provide GRO support after RPS, so this helps when we
+must perform TCP checksum computation, if NIC lacks CHECKSUM_COMPLETE
 
-At the XDP summit we were discussing pipe-lining XDP programs in
-general, with different stages of the pipeline potentially using
-specific hardware capabilities or even being directly mappable on
-fixed HW functions.
+(Say we receive packets all steered to a single RX queue due to RSS hash
+being computed on outer header only)
 
-Designating parsing as one of specialized blocks makes sense in a long
-run, probably at the first stage with recirculation possible.  We also
-have some parsing HW we could utilize at some point.  However, I'm
-worried that it's too early to impose constraints and APIs.  I agree
-that we should first set a standard way to pass metadata across tail
-calls to facilitate any form of pipe lining, regardless of which parts
-of pipeline HW is able to offload.
+Some people disable GRO on the physical device, but enable GRO on the
+tunnels.
