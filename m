@@ -1,207 +1,63 @@
-From: Guenter Roeck <linux@roeck-us.net>
-Subject: Re: Removing lots of IS_ERR_VALUE abuses and compilation warning.
-Date: Thu, 7 Jul 2016 10:17:59 -0700
-Message-ID: <20160707171759.GA7615@roeck-us.net>
-References: <1467907214-5783-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: Rick Jones <rick.jones2@hpe.com>
+Subject: Re: [iproute PATCH 0/2] Netns performance improvements
+Date: Thu, 7 Jul 2016 10:28:47 -0700
+Message-ID: <577E914F.3060001@hpe.com>
+References: <1467729773-16751-1-git-send-email-phil@nwl.cc>
+ <87twg4ywjz.fsf@x220.int.ebiederm.org> <20160705205103.GE620@orbyte.nwl.cc>
+ <87h9c259ip.fsf@x220.int.ebiederm.org> <20160707111718.GL620@orbyte.nwl.cc>
+ <577E5244.8030601@6wind.com> <20160707154809.GN620@orbyte.nwl.cc>
+ <577E8054.6040603@hpe.com> <87vb0h1k6b.fsf@x220.int.ebiederm.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: leoli@freescale.com, netdev@vger.kernel.org,
-	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
-To: Arvind Yadav <arvind.yadav.cs@gmail.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <1467907214-5783-1-git-send-email-arvind.yadav.cs@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Phil Sutter <phil@nwl.cc>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Stephen Hemminger <shemming@brocade.com>,
+	netdev@vger.kernel.org
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from g2t2353.austin.hpe.com ([15.233.44.26]:46946 "EHLO
+	g2t2353.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751588AbcGGR2t (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 13:28:49 -0400
+In-Reply-To: <87vb0h1k6b.fsf@x220.int.ebiederm.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 07, 2016 at 09:30:14PM +0530, Arvind Yadav wrote:
-> Passing value in IS_ERR_VALUE() is wrong, as they pass an 'int'
-> into a function that takes an 'unsigned long' argument.This happens
-> to work because the type is sign-extended on 64-bit architectures
-> before it gets converted into an unsigned type.
-> 
-> Passing an 'unsigned short' or 'unsigned int'argument into
-> IS_ERR_VALUE() is guaranteed to be broken, as are 8-bit integers
-> and types that are wider than 'unsigned long'.
-> 
-> Any user will get compilation warning for that do not pass an
-> unsigned long' argument.
-> 
-> Commit '287980e49f; - This change is alreday fixes lots of other
-> Worst abusers
-> 
-> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
-> ---
->  drivers/net/ethernet/freescale/ucc_geth.c | 30 +++++++++++++++---------------
->  1 file changed, 15 insertions(+), 15 deletions(-)
-> 
-> diff --git a/drivers/net/ethernet/freescale/ucc_geth.c b/drivers/net/ethernet/freescale/ucc_geth.c
-> index 5bf1ade..c1ead2c 100644
-> --- a/drivers/net/ethernet/freescale/ucc_geth.c
-> +++ b/drivers/net/ethernet/freescale/ucc_geth.c
-> @@ -289,7 +289,7 @@ static int fill_init_enet_entries(struct ucc_geth_private *ugeth,
->  		else {
->  			init_enet_offset =
->  			    qe_muram_alloc(thread_size, thread_alignment);
-> -			if (IS_ERR_VALUE(init_enet_offset)) {
-> +			if (init_enet_offset < 0) {
+On 07/07/2016 09:34 AM, Eric W. Biederman wrote:
+> Rick Jones <rick.jones2@hpe.com> writes:
+>> 300 routers is far from the upper limit/goal.  Back in HP Public
+>> Cloud, we were running as many as 700 routers per network node (*),
+>> and more than four network nodes. (back then it was just the one
+>> namespace per router and network). Mileage will of course vary based
+>> on the "oomph" of one's network node(s).
+>
+> To clarify processes for these routers and dhcp servers are created
+> with "ip netns exec"?
 
-init_enet_offset is defined as u32 and thus never < 0.
+I believe so, but it would be good to have someone else confirm that, 
+and speak to your paragraph below.
 
->  				if (netif_msg_ifup(ugeth))
->  					pr_err("Can not allocate DPRAM memory\n");
->  				qe_put_snum((u8) snum);
-> @@ -2234,7 +2234,7 @@ static int ucc_geth_alloc_tx(struct ucc_geth_private *ugeth)
->  			ugeth->tx_bd_ring_offset[j] =
->  			    qe_muram_alloc(length,
->  					   UCC_GETH_TX_BD_RING_ALIGNMENT);
-> -			if (!IS_ERR_VALUE(ugeth->tx_bd_ring_offset[j]))
-> +			if (!ugeth->tx_bd_ring_offset[j])
+> If that is the case and you are using this feature as effectively a
+> lightweight container and not lots vrfs in a single network stack
+> then I suspect much larger gains can be had by creating a variant
+> of ip netns exec avoids the mount propagation.
+>
 
-qe_muram_alloc() returns a pointer or offset, not 0, if there is no error,
-meaning this change breaks the driver.
+...
 
->  				ugeth->p_tx_bd_ring[j] =
->  				    (u8 __iomem *) qe_muram_addr(ugeth->
->  							 tx_bd_ring_offset[j]);
-> @@ -2311,7 +2311,7 @@ static int ucc_geth_alloc_rx(struct ucc_geth_private *ugeth)
->  			ugeth->rx_bd_ring_offset[j] =
->  			    qe_muram_alloc(length,
->  					   UCC_GETH_RX_BD_RING_ALIGNMENT);
-> -			if (!IS_ERR_VALUE(ugeth->rx_bd_ring_offset[j]))
-> +			if (!ugeth->rx_bd_ring_offset[j])
+>> * Didn't want to go much higher than that because each router had a
+>> port on a common linux bridge and getting to > 1024 would be an
+>> unpleasant day.
+>
+> * I would have thought all you have to do is bump of the size
+>    of the linux neighbour cache.  echo $BIGNUM > /proc/sys/net/ipv4/neigh/default/gc_thresh3
 
-Same here.
+We didn't want to hit the 1024 port limit of a (then?) Linux bridge.
 
->  				ugeth->p_rx_bd_ring[j] =
->  				    (u8 __iomem *) qe_muram_addr(ugeth->
->  							 rx_bd_ring_offset[j]);
-> @@ -2521,7 +2521,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  	ugeth->tx_glbl_pram_offset =
->  	    qe_muram_alloc(sizeof(struct ucc_geth_tx_global_pram),
->  			   UCC_GETH_TX_GLOBAL_PRAM_ALIGNMENT);
-> -	if (IS_ERR_VALUE(ugeth->tx_glbl_pram_offset)) {
-> +	if (ugeth->tx_glbl_pram_offset < 0) {
+rick
 
-tx_glbl_pram_offset is u32 and thus never < 0.
-
->  		if (netif_msg_ifup(ugeth))
->  			pr_err("Can not allocate DPRAM memory for p_tx_glbl_pram\n");
->  		return -ENOMEM;
-> @@ -2541,7 +2541,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  			   sizeof(struct ucc_geth_thread_data_tx) +
->  			   32 * (numThreadsTxNumerical == 1),
->  			   UCC_GETH_THREAD_DATA_ALIGNMENT);
-> -	if (IS_ERR_VALUE(ugeth->thread_dat_tx_offset)) {
-> +	if (ugeth->thread_dat_tx_offset < 0) {
-
-thread_dat_tx_offset is u32 and thus never < 0.
-
->  		if (netif_msg_ifup(ugeth))
->  			pr_err("Can not allocate DPRAM memory for p_thread_data_tx\n");
->  		return -ENOMEM;
-> @@ -2568,7 +2568,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  	    qe_muram_alloc(ug_info->numQueuesTx *
->  			   sizeof(struct ucc_geth_send_queue_qd),
->  			   UCC_GETH_SEND_QUEUE_QUEUE_DESCRIPTOR_ALIGNMENT);
-> -	if (IS_ERR_VALUE(ugeth->send_q_mem_reg_offset)) {
-> +	if (ugeth->send_q_mem_reg_offset < 0) {
-
-send_q_mem_reg_offset is u32 and thus never < 0.
-
->  		if (netif_msg_ifup(ugeth))
->  			pr_err("Can not allocate DPRAM memory for p_send_q_mem_reg\n");
->  		return -ENOMEM;
-> @@ -2609,7 +2609,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  		ugeth->scheduler_offset =
->  		    qe_muram_alloc(sizeof(struct ucc_geth_scheduler),
->  				   UCC_GETH_SCHEDULER_ALIGNMENT);
-> -		if (IS_ERR_VALUE(ugeth->scheduler_offset)) {
-> +		if (ugeth->scheduler_offset < 0) {
-
-scheduler_offset is u32 and thus never < 0.
-
-Giving up here.
-
-I now looked at two of your patches. In both, you introduce bugs instead of
-fixing them. Worse, in this case the driver is no longer functional after your
-patch is applied. Please be more careful.
-
-Thanks,
-Guenter
-
->  			if (netif_msg_ifup(ugeth))
->  				pr_err("Can not allocate DPRAM memory for p_scheduler\n");
->  			return -ENOMEM;
-> @@ -2656,7 +2656,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  		    qe_muram_alloc(sizeof
->  				   (struct ucc_geth_tx_firmware_statistics_pram),
->  				   UCC_GETH_TX_STATISTICS_ALIGNMENT);
-> -		if (IS_ERR_VALUE(ugeth->tx_fw_statistics_pram_offset)) {
-> +		if (ugeth->tx_fw_statistics_pram_offset < 0) {
->  			if (netif_msg_ifup(ugeth))
->  				pr_err("Can not allocate DPRAM memory for p_tx_fw_statistics_pram\n");
->  			return -ENOMEM;
-> @@ -2693,7 +2693,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  	ugeth->rx_glbl_pram_offset =
->  	    qe_muram_alloc(sizeof(struct ucc_geth_rx_global_pram),
->  			   UCC_GETH_RX_GLOBAL_PRAM_ALIGNMENT);
-> -	if (IS_ERR_VALUE(ugeth->rx_glbl_pram_offset)) {
-> +	if (ugeth->rx_glbl_pram_offset < 0) {
->  		if (netif_msg_ifup(ugeth))
->  			pr_err("Can not allocate DPRAM memory for p_rx_glbl_pram\n");
->  		return -ENOMEM;
-> @@ -2712,7 +2712,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  	    qe_muram_alloc(numThreadsRxNumerical *
->  			   sizeof(struct ucc_geth_thread_data_rx),
->  			   UCC_GETH_THREAD_DATA_ALIGNMENT);
-> -	if (IS_ERR_VALUE(ugeth->thread_dat_rx_offset)) {
-> +	if (ugeth->thread_dat_rx_offset < 0) {
->  		if (netif_msg_ifup(ugeth))
->  			pr_err("Can not allocate DPRAM memory for p_thread_data_rx\n");
->  		return -ENOMEM;
-> @@ -2733,7 +2733,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  		    qe_muram_alloc(sizeof
->  				   (struct ucc_geth_rx_firmware_statistics_pram),
->  				   UCC_GETH_RX_STATISTICS_ALIGNMENT);
-> -		if (IS_ERR_VALUE(ugeth->rx_fw_statistics_pram_offset)) {
-> +		if (ugeth->rx_fw_statistics_pram_offset < 0) {
->  			if (netif_msg_ifup(ugeth))
->  				pr_err("Can not allocate DPRAM memory for p_rx_fw_statistics_pram\n");
->  			return -ENOMEM;
-> @@ -2753,7 +2753,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  	    qe_muram_alloc(ug_info->numQueuesRx *
->  			   sizeof(struct ucc_geth_rx_interrupt_coalescing_entry)
->  			   + 4, UCC_GETH_RX_INTERRUPT_COALESCING_ALIGNMENT);
-> -	if (IS_ERR_VALUE(ugeth->rx_irq_coalescing_tbl_offset)) {
-> +	if (ugeth->rx_irq_coalescing_tbl_offset < 0) {
->  		if (netif_msg_ifup(ugeth))
->  			pr_err("Can not allocate DPRAM memory for p_rx_irq_coalescing_tbl\n");
->  		return -ENOMEM;
-> @@ -2819,7 +2819,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  			   (sizeof(struct ucc_geth_rx_bd_queues_entry) +
->  			    sizeof(struct ucc_geth_rx_prefetched_bds)),
->  			   UCC_GETH_RX_BD_QUEUES_ALIGNMENT);
-> -	if (IS_ERR_VALUE(ugeth->rx_bd_qs_tbl_offset)) {
-> +	if (ugeth->rx_bd_qs_tbl_offset < 0) {
->  		if (netif_msg_ifup(ugeth))
->  			pr_err("Can not allocate DPRAM memory for p_rx_bd_qs_tbl\n");
->  		return -ENOMEM;
-> @@ -2905,7 +2905,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  		ugeth->exf_glbl_param_offset =
->  		    qe_muram_alloc(sizeof(struct ucc_geth_exf_global_pram),
->  		UCC_GETH_RX_EXTENDED_FILTERING_GLOBAL_PARAMETERS_ALIGNMENT);
-> -		if (IS_ERR_VALUE(ugeth->exf_glbl_param_offset)) {
-> +		if (ugeth->exf_glbl_param_offset < 0) {
->  			if (netif_msg_ifup(ugeth))
->  				pr_err("Can not allocate DPRAM memory for p_exf_glbl_param\n");
->  			return -ENOMEM;
-> @@ -3039,7 +3039,7 @@ static int ucc_geth_startup(struct ucc_geth_private *ugeth)
->  
->  	/* Allocate InitEnet command parameter structure */
->  	init_enet_pram_offset = qe_muram_alloc(sizeof(struct ucc_geth_init_pram), 4);
-> -	if (IS_ERR_VALUE(init_enet_pram_offset)) {
-> +	if (init_enet_pram_offset < 0) {
->  		if (netif_msg_ifup(ugeth))
->  			pr_err("Can not allocate DPRAM memory for p_init_enet_pram\n");
->  		return -ENOMEM;
+Having a bit of deja vu but I suspect things like commit 
+0818bf27c05b2de56c5b2bd08cfae2a939bd5f52  are not exactly on the same 
+wavelength, just my brain seeing "namespaces" and "performance" and 
+lighting-up :)
