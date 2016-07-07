@@ -1,47 +1,52 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH] Removing lots of IS_ERR_VALUE abuses and compilation warning.
-Date: Thu, 07 Jul 2016 17:45:53 +0200
-Message-ID: <3262228.FZLtnpegJr@wuerfel>
-References: <1467904336-3588-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [iproute PATCH 0/2] Netns performance improvements
+Date: Thu, 7 Jul 2016 17:48:09 +0200
+Message-ID: <20160707154809.GN620@orbyte.nwl.cc>
+References: <1467729773-16751-1-git-send-email-phil@nwl.cc>
+ <87twg4ywjz.fsf@x220.int.ebiederm.org>
+ <20160705205103.GE620@orbyte.nwl.cc>
+ <87h9c259ip.fsf@x220.int.ebiederm.org>
+ <20160707111718.GL620@orbyte.nwl.cc>
+ <577E5244.8030601@6wind.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: Arvind Yadav <arvind.yadav.cs@gmail.com>, leoli@freescale.com,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: linuxppc-dev@lists.ozlabs.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "Eric W. Biederman" <ebiederm@xmission.com>,
+	Stephen Hemminger <shemming@brocade.com>,
+	netdev@vger.kernel.org
+To: Nicolas Dichtel <nicolas.dichtel@6wind.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.kundenserver.de ([212.227.126.131]:55287 "EHLO
-	mout.kundenserver.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753077AbcGGPml (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 11:42:41 -0400
-In-Reply-To: <1467904336-3588-1-git-send-email-arvind.yadav.cs@gmail.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:58359 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751615AbcGGPsL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Thu, 7 Jul 2016 11:48:11 -0400
+Content-Disposition: inline
+In-Reply-To: <577E5244.8030601@6wind.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thursday, July 7, 2016 8:42:16 PM CEST Arvind Yadav wrote:
->     Passing value in IS_ERR_VALUE() is wrong, as they
->     pass an 'int' into a function that takes an 'unsigned long'
->     argument. This happens to work because the type is sign-extended
->     on 64-bit architectures before it gets converted into an
->     unsigned type.
-> 
->     Passing an 'unsigned short' or 'unsigned int'
->     argument into IS_ERR_VALUE() is guaranteed to be broken, as are
->     8-bit integers and types that are wider than 'unsigned long'.
-> 
->     Any user will get compilation warning for that do not pass an
->     'unsigned long' argument.
-> 
->     Commit '287980e49f; - This change is alreday fixes lots of other
->     worst abusers.
-> 
-> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
-> 
+On Thu, Jul 07, 2016 at 02:59:48PM +0200, Nicolas Dichtel wrote:
+> Le 07/07/2016 13:17, Phil Sutter a =C3=A9crit :
+> [snip]
+> > The issue came up during OpenStack Neutron testing, see this ticket=
+ for
+> > reference:
+> >=20
+> > https://bugzilla.redhat.com/show_bug.cgi?id=3D1310795
+> Access to this ticket is not public :(
 
-Acked-by: Arnd Bergmann <arnd@arndb.de>
+*Sigh* OK, here are a few quotes:
 
-just notice about your submission that the changelog is whitespace
-damaged, you probably got the leading whitespace when you pasted
-a git log into the commit.
+"OpenStack Neutron controller nodes, when undergoing testing, are
+locking up specifically during creation and mounting of namespaces.
+They appear to be blocking behind vfsmount_lock, and contention for the
+namespace_sem"
 
-	Arnd
+"During the scale testing, we have 300 routers, 600 dhcp namespaces
+spread across four neutron network nodes. When then start as one set of
+standard Openstack Rally benchmark test cycle against neutron. An
+example scenario is creating 10x networks, list them, delete them and
+repeat 10x times. The second set performs an L3 benchmark test between
+two instances."
+
+Cheers, Phil
