@@ -1,48 +1,36 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH 0/2] ARM: dts: NSP: Add built-in Ethernet switch nodes
-Date: Fri, 8 Jul 2016 11:52:04 -0700
-Message-ID: <577FF654.9050305@gmail.com>
-References: <1468003735-26895-1-git-send-email-f.fainelli@gmail.com>
+From: Michael Chan <michael.chan@broadcom.com>
+Subject: Re: [PATCH] bnxt_en: initialize rc to zero to avoid returning garbage
+Date: Fri, 8 Jul 2016 13:06:08 -0700
+Message-ID: <CACKFLiknzsGV9ByNEecszKwWRLa=OFb261rGkdLw5Yn5yU3y4A@mail.gmail.com>
+References: <1467992568-1990-1-git-send-email-colin.king@canonical.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-	vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1468003735-26895-1-git-send-email-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S . Miller" <davem@davemloft.net>,
+	Rob Swindell <rob.swindell@broadcom.com>,
+	Satish Baddipadige <sbaddipa@broadcom.com>,
+	Ajit Khaparde <ajit.khaparde@broadcom.com>,
+	Netdev <netdev@vger.kernel.org>, linux-kernel@vger.kernel.org
+To: Colin King <colin.king@canonical.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f51.google.com ([209.85.218.51]:35429 "EHLO
+	mail-oi0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755427AbcGHUGJ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 16:06:09 -0400
+Received: by mail-oi0-f51.google.com with SMTP id r2so73469520oih.2
+        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 13:06:09 -0700 (PDT)
+In-Reply-To: <1467992568-1990-1-git-send-email-colin.king@canonical.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 07/08/2016 11:48 AM, Florian Fainelli wrote:
-> This patch series is based on Broadcom/stblinux/devicetree/next which
-> contains proper support for the BCM958625HR board. To get working
-> Ethernet switch and CPU Ethernet support, the following dependencies
-> based on David Miller's net-next tree are required:
-> 
-> - Jon Mason's BGMAC/AMAC support: https://marc.info/?t=146793308300002&r=1&w=3
-> - dsa/b53 support for NSP switch: https://marc.info/?l=linux-netdev&m=146800324531914&w=3
+On Fri, Jul 8, 2016 at 8:42 AM, Colin King <colin.king@canonical.com> wrote:
+> From: Colin Ian King <colin.king@canonical.com>
+>
+> rc is not initialized so it can contain garbage if it is not
+> set by the call to bnxt_read_sfp_module_eeprom_info. Ensure
+> garbage is not returned by initializing rc to 0.
+>
+> Signed-off-by: Colin Ian King <colin.king@canonical.com>
 
-Please ignore this series, it contained patches from a previous
-submission, see this one instead:
-1468003769-26959-1-git-send-email-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Thanks.
 
-> 
-> Florian Fainelli (2):
->   ARM: dts: NSP: Add Switch Register Access Block node
->   ARM: dts: NSP: Add BCM958625HR switch ports
-> 
->  arch/arm/boot/dts/bcm-nsp.dtsi    | 11 +++++++++
->  arch/arm/boot/dts/bcm958625hr.dts | 49 +++++++++++++++++++++++++++++++++++++++
->  2 files changed, 60 insertions(+)
-> 
-
-
--- 
-Florian
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Acked-by: Michael Chan <michael.chan@broadcom.com>
