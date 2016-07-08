@@ -1,7 +1,7 @@
 From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH v6 01/12] bpf: add XDP prog type for early driver filter
-Date: Thu,  7 Jul 2016 19:15:13 -0700
-Message-ID: <1467944124-14891-2-git-send-email-bblanco@plumgrid.com>
+Subject: [PATCH v6 03/12] rtnl: add option for setting link xdp prog
+Date: Thu,  7 Jul 2016 19:15:15 -0700
+Message-ID: <1467944124-14891-4-git-send-email-bblanco@plumgrid.com>
 References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
 Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Martin KaFai Lau <kafai@fb.com>,
@@ -14,260 +14,163 @@ Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:33544 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753617AbcGHCPf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 22:15:35 -0400
-Received: by mail-pa0-f53.google.com with SMTP id b13so10993274pat.0
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 19:15:35 -0700 (PDT)
+Received: from mail-pf0-f180.google.com ([209.85.192.180]:34574 "EHLO
+	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753817AbcGHCPi (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 22:15:38 -0400
+Received: by mail-pf0-f180.google.com with SMTP id h14so11247744pfe.1
+        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 19:15:37 -0700 (PDT)
 In-Reply-To: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new bpf prog type that is intended to run in early stages of the
-packet rx path. Only minimal packet metadata will be available, hence a
-new context type, struct xdp_md, is exposed to userspace. So far only
-expose the packet start and end pointers, and only in read mode.
-
-An XDP program must return one of the well known enum values, all other
-return codes are reserved for future use. Unfortunately, this
-restriction is hard to enforce at verification time, so take the
-approach of warning at runtime when such programs are encountered. The
-driver can choose to implement unknown return codes however it wants,
-but must invoke the warning helper with the action value.
+Sets the bpf program represented by fd as an early filter in the rx path
+of the netdev. The fd must have been created as BPF_PROG_TYPE_XDP.
+Providing a negative value as fd clears the program. Getting the fd back
+via rtnl is not possible, therefore reading of this value merely
+provides a bool whether the program is valid on the link or not.
 
 Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 ---
- include/linux/filter.h   | 18 ++++++++++
- include/uapi/linux/bpf.h | 19 ++++++++++
- kernel/bpf/verifier.c    |  1 +
- net/core/filter.c        | 91 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 129 insertions(+)
+ include/uapi/linux/if_link.h | 12 ++++++++++
+ net/core/rtnetlink.c         | 55 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 67 insertions(+)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 6fc31ef..522dbc9 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -368,6 +368,11 @@ struct bpf_skb_data_end {
- 	void *data_end;
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 4285ac3..a1b5202 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -156,6 +156,7 @@ enum {
+ 	IFLA_GSO_MAX_SEGS,
+ 	IFLA_GSO_MAX_SIZE,
+ 	IFLA_PAD,
++	IFLA_XDP,
+ 	__IFLA_MAX
  };
  
-+struct xdp_buff {
-+	void *data;
-+	void *data_end;
+@@ -843,4 +844,15 @@ enum {
+ };
+ #define LINK_XSTATS_TYPE_MAX (__LINK_XSTATS_TYPE_MAX - 1)
+ 
++/* XDP section */
++
++enum {
++	IFLA_XDP_UNSPEC,
++	IFLA_XDP_FD,
++	IFLA_XDP_ATTACHED,
++	__IFLA_XDP_MAX,
 +};
 +
- /* compute the linear packet data range [data, data_end) which
-  * will be accessed by cls_bpf and act_bpf programs
-  */
-@@ -429,6 +434,18 @@ static inline u32 bpf_prog_run_clear_cb(const struct bpf_prog *prog,
- 	return BPF_PROG_RUN(prog, skb);
++#define IFLA_XDP_MAX (__IFLA_XDP_MAX - 1)
++
+ #endif /* _UAPI_LINUX_IF_LINK_H */
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a9e3805..017780e 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -891,6 +891,16 @@ static size_t rtnl_port_size(const struct net_device *dev,
+ 		return port_self_size;
  }
  
-+static inline u32 bpf_prog_run_xdp(const struct bpf_prog *prog,
-+				   struct xdp_buff *xdp)
++static size_t rtnl_xdp_size(const struct net_device *dev)
 +{
-+	u32 ret;
++	size_t xdp_size = nla_total_size(1);	/* XDP_ATTACHED */
 +
-+	rcu_read_lock();
-+	ret = BPF_PROG_RUN(prog, (void *)xdp);
-+	rcu_read_unlock();
-+
-+	return ret;
++	if (!dev->netdev_ops->ndo_xdp_attached)
++		return 0;
++	else
++		return xdp_size;
 +}
 +
- static inline unsigned int bpf_prog_size(unsigned int proglen)
+ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 				     u32 ext_filter_mask)
  {
- 	return max(sizeof(struct bpf_prog),
-@@ -509,6 +526,7 @@ bool bpf_helper_changes_skb_data(void *func);
+@@ -927,6 +937,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
+ 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
+ 	       + nla_total_size(IFNAMSIZ) /* IFLA_PHYS_PORT_NAME */
++	       + rtnl_xdp_size(dev) /* IFLA_XDP */
+ 	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
  
- struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
- 				       const struct bpf_insn *patch, u32 len);
-+void bpf_warn_invalid_xdp_action(int act);
- 
- #ifdef CONFIG_BPF_JIT
- extern int bpf_jit_enable;
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index c14ca1c..5b47ac3 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -94,6 +94,7 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_SCHED_CLS,
- 	BPF_PROG_TYPE_SCHED_ACT,
- 	BPF_PROG_TYPE_TRACEPOINT,
-+	BPF_PROG_TYPE_XDP,
- };
- 
- #define BPF_PSEUDO_MAP_FD	1
-@@ -430,4 +431,22 @@ struct bpf_tunnel_key {
- 	__u32 tunnel_label;
- };
- 
-+/* User return codes for XDP prog type.
-+ * A valid XDP program must return one of these defined values. All other
-+ * return codes are reserved for future use. Unknown return codes will result
-+ * in driver-dependent behavior.
-+ */
-+enum xdp_action {
-+	XDP_DROP,
-+	XDP_PASS,
-+};
-+
-+/* user accessible metadata for XDP packet hook
-+ * new fields must be added to the end of this structure
-+ */
-+struct xdp_md {
-+	__u32 data;
-+	__u32 data_end;
-+};
-+
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index e206c21..a8d67d0 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -713,6 +713,7 @@ static int check_ptr_alignment(struct verifier_env *env, struct reg_state *reg,
- 	switch (env->prog->type) {
- 	case BPF_PROG_TYPE_SCHED_CLS:
- 	case BPF_PROG_TYPE_SCHED_ACT:
-+	case BPF_PROG_TYPE_XDP:
- 		break;
- 	default:
- 		verbose("verifier is misconfigured\n");
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 10c4a2f..4ba446f 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2369,6 +2369,12 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
- 	}
  }
- 
-+static const struct bpf_func_proto *
-+xdp_func_proto(enum bpf_func_id func_id)
-+{
-+	return sk_filter_func_proto(func_id);
-+}
-+
- static bool __is_valid_access(int off, int size, enum bpf_access_type type)
- {
- 	if (off < 0 || off >= sizeof(struct __sk_buff))
-@@ -2436,6 +2442,56 @@ static bool tc_cls_act_is_valid_access(int off, int size,
- 	return __is_valid_access(off, size, type);
- }
- 
-+static bool __is_valid_xdp_access(int off, int size,
-+				  enum bpf_access_type type)
-+{
-+	if (off < 0 || off >= sizeof(struct xdp_md))
-+		return false;
-+	if (off % size != 0)
-+		return false;
-+	if (size != 4)
-+		return false;
-+
-+	return true;
-+}
-+
-+static bool xdp_is_valid_access(int off, int size,
-+				enum bpf_access_type type,
-+				enum bpf_reg_type *reg_hint)
-+{
-+	if (type == BPF_WRITE)
-+		return false;
-+
-+	switch (off) {
-+	case offsetof(struct xdp_md, data):
-+		*reg_hint = PTR_TO_PACKET;
-+		break;
-+	case offsetof(struct xdp_md, data_end):
-+		*reg_hint = PTR_TO_PACKET_END;
-+		break;
-+	}
-+
-+	return __is_valid_xdp_access(off, size, type);
-+}
-+
-+void bpf_warn_invalid_xdp_action(int act)
-+{
-+	WARN_ONCE(1, "\n"
-+		     "*****************************************************\n"
-+		     "**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **\n"
-+		     "**                                               **\n"
-+		     "** XDP program returned unknown value %-10u **\n"
-+		     "**                                               **\n"
-+		     "** XDP programs must return a well-known return  **\n"
-+		     "** value. Invalid return values will result in   **\n"
-+		     "** undefined packet actions.                     **\n"
-+		     "**                                               **\n"
-+		     "**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **\n"
-+		     "*****************************************************\n",
-+		  act);
-+}
-+EXPORT_SYMBOL_GPL(bpf_warn_invalid_xdp_action);
-+
- static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
- 				      int src_reg, int ctx_off,
- 				      struct bpf_insn *insn_buf,
-@@ -2587,6 +2643,29 @@ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
- 	return insn - insn_buf;
- }
- 
-+static u32 xdp_convert_ctx_access(enum bpf_access_type type, int dst_reg,
-+				  int src_reg, int ctx_off,
-+				  struct bpf_insn *insn_buf,
-+				  struct bpf_prog *prog)
-+{
-+	struct bpf_insn *insn = insn_buf;
-+
-+	switch (ctx_off) {
-+	case offsetof(struct xdp_md, data):
-+		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct xdp_buff, data)),
-+				      dst_reg, src_reg,
-+				      offsetof(struct xdp_buff, data));
-+		break;
-+	case offsetof(struct xdp_md, data_end):
-+		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct xdp_buff, data_end)),
-+				      dst_reg, src_reg,
-+				      offsetof(struct xdp_buff, data_end));
-+		break;
-+	}
-+
-+	return insn - insn_buf;
-+}
-+
- static const struct bpf_verifier_ops sk_filter_ops = {
- 	.get_func_proto		= sk_filter_func_proto,
- 	.is_valid_access	= sk_filter_is_valid_access,
-@@ -2599,6 +2678,12 @@ static const struct bpf_verifier_ops tc_cls_act_ops = {
- 	.convert_ctx_access	= bpf_net_convert_ctx_access,
- };
- 
-+static const struct bpf_verifier_ops xdp_ops = {
-+	.get_func_proto		= xdp_func_proto,
-+	.is_valid_access	= xdp_is_valid_access,
-+	.convert_ctx_access	= xdp_convert_ctx_access,
-+};
-+
- static struct bpf_prog_type_list sk_filter_type __read_mostly = {
- 	.ops	= &sk_filter_ops,
- 	.type	= BPF_PROG_TYPE_SOCKET_FILTER,
-@@ -2614,11 +2699,17 @@ static struct bpf_prog_type_list sched_act_type __read_mostly = {
- 	.type	= BPF_PROG_TYPE_SCHED_ACT,
- };
- 
-+static struct bpf_prog_type_list xdp_type __read_mostly = {
-+	.ops	= &xdp_ops,
-+	.type	= BPF_PROG_TYPE_XDP,
-+};
-+
- static int __init register_sk_filter_ops(void)
- {
- 	bpf_register_prog_type(&sk_filter_type);
- 	bpf_register_prog_type(&sched_cls_type);
- 	bpf_register_prog_type(&sched_act_type);
-+	bpf_register_prog_type(&xdp_type);
- 
+@@ -1211,6 +1222,24 @@ static int rtnl_fill_link_ifmap(struct sk_buff *skb, struct net_device *dev)
  	return 0;
  }
+ 
++static int rtnl_xdp_fill(struct sk_buff *skb, struct net_device *dev)
++{
++	struct nlattr *xdp;
++
++	if (!dev->netdev_ops->ndo_xdp_attached)
++		return 0;
++	xdp = nla_nest_start(skb, IFLA_XDP);
++	if (!xdp)
++		return -EMSGSIZE;
++	if (nla_put_u8(skb, IFLA_XDP_ATTACHED,
++		       dev->netdev_ops->ndo_xdp_attached(dev))) {
++		nla_nest_cancel(skb, xdp);
++		return -EMSGSIZE;
++	}
++	nla_nest_end(skb, xdp);
++	return 0;
++}
++
+ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    int type, u32 pid, u32 seq, u32 change,
+ 			    unsigned int flags, u32 ext_filter_mask)
+@@ -1307,6 +1336,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	if (rtnl_port_fill(skb, dev, ext_filter_mask))
+ 		goto nla_put_failure;
+ 
++	if (rtnl_xdp_fill(skb, dev))
++		goto nla_put_failure;
++
+ 	if (dev->rtnl_link_ops || rtnl_have_link_slave_info(dev)) {
+ 		if (rtnl_link_fill(skb, dev) < 0)
+ 			goto nla_put_failure;
+@@ -1392,6 +1424,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+ 	[IFLA_LINK_NETNSID]	= { .type = NLA_S32 },
+ 	[IFLA_PROTO_DOWN]	= { .type = NLA_U8 },
++	[IFLA_XDP]		= { .type = NLA_NESTED },
+ };
+ 
+ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+@@ -1429,6 +1462,11 @@ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
+ 	[IFLA_PORT_RESPONSE]	= { .type = NLA_U16, },
+ };
+ 
++static const struct nla_policy ifla_xdp_policy[IFLA_XDP_MAX + 1] = {
++	[IFLA_XDP_FD]		= { .type = NLA_S32 },
++	[IFLA_XDP_ATTACHED]	= { .type = NLA_U8 },
++};
++
+ static const struct rtnl_link_ops *linkinfo_to_kind_ops(const struct nlattr *nla)
+ {
+ 	const struct rtnl_link_ops *ops = NULL;
+@@ -2054,6 +2092,23 @@ static int do_setlink(const struct sk_buff *skb,
+ 		status |= DO_SETLINK_NOTIFY;
+ 	}
+ 
++	if (tb[IFLA_XDP]) {
++		struct nlattr *xdp[IFLA_XDP_MAX + 1];
++
++		err = nla_parse_nested(xdp, IFLA_XDP_MAX, tb[IFLA_XDP],
++				       ifla_xdp_policy);
++		if (err < 0)
++			goto errout;
++
++		if (xdp[IFLA_XDP_FD]) {
++			err = dev_change_xdp_fd(dev,
++						nla_get_s32(xdp[IFLA_XDP_FD]));
++			if (err)
++				goto errout;
++			status |= DO_SETLINK_NOTIFY;
++		}
++	}
++
+ errout:
+ 	if (status & DO_SETLINK_MODIFIED) {
+ 		if (status & DO_SETLINK_NOTIFY)
 -- 
 2.8.2
