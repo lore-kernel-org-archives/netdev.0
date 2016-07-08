@@ -1,63 +1,56 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v6 12/12] net/mlx4_en: add prefetch in xdp rx path
-Date: Fri, 8 Jul 2016 17:20:24 +0200
-Message-ID: <20160708172024.4a849b7a@redhat.com>
-References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
-	<1467944124-14891-13-git-send-email-bblanco@plumgrid.com>
-	<1467950191.17638.3.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: ipv6 issues after an DDoS for kernel 4.6.3
+Date: Fri, 8 Jul 2016 11:28:23 -0400
+Message-ID: <a8a7d2bc-1206-bcf5-3a15-5958728ff5a7@stressinduktion.org>
+References: <577FAFFD.2020306@gmx.de>
+ <1467987260.30694.2.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Martin KaFai Lau <kafai@fb.com>,
-	Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
-	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
-	Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, brouer@redhat.com,
-	Rana Shahout <rana.shahot@gmail.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	=?UTF-8?Q?Toralf_F=c3=b6rster?= <toralf.foerster@gmx.de>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:44549 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755348AbcGHPUh (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jul 2016 11:20:37 -0400
-In-Reply-To: <1467950191.17638.3.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:39515 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1755171AbcGHP2Z (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 11:28:25 -0400
+In-Reply-To: <1467987260.30694.2.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 08 Jul 2016 05:56:31 +0200
-Eric Dumazet <eric.dumazet@gmail.com> wrote:
+On 08.07.2016 10:14, Eric Dumazet wrote:
+> On Fri, 2016-07-08 at 15:51 +0200, Toralf F=C3=B6rster wrote:
+>> I do run a 4.6.3 hardened Gentoo kernel at a commodity i7 server. A
+>> DDoS with about 300 MBit/sec over 5 mins resulted an issue for ipv6 =
+at
+>> that system.
+>>
+>> The IPv6 monitoring from my ISP told my that the to be monitored
+>> services (80, 443, 52222) weren't reachable any longer at ipv6 (at
+>> ipv4 there was no issue). Restarting the NIC brought back green ligh=
+ts
+>> for the services at the ipv6 ports too.
+>=20
+> Hard to tell without knowing DDOS details, but IPv6 lacks some
+> scalability improvements found in IPv4.
+>=20
+> IPv4 no longer has a routing cache, but IPv6 still has one.
 
-> On Thu, 2016-07-07 at 19:15 -0700, Brenden Blanco wrote:
-> > XDP programs read and/or write packet data very early, and cache miss is
-> > seen to be a bottleneck.
-> > 
-> > Add prefetch logic in the xdp case 3 packets in the future. Throughput
-> > improved from 10Mpps to 12.5Mpps.  LLC misses as reported by perf stat
-> > reduced from ~14% to ~7%.  Prefetch values of 0 through 5 were compared
-> > with >3 showing dimishing returns.  
-> 
-> This is what I feared with XDP.
-> 
-> Instead of making generic changes in the driver(s), we now have 'patches
-> that improve XDP numbers'
-> 
-> Careful prefetches make sense in NIC drivers, regardless of XDP being
-> used or not.
+The difference is that routing exceptions are stored in "the" trie
+instead of hash tables in the fib nodes. IPv4 limits that by the size o=
+f
+the hash tables, in IPv6 we grow to ipv6/route/max_size, which is prett=
+y
+low.
 
-I feel the same way.  Our work on XDP should also benefit the normal
-driver usage. Yes, I know that is much much harder to achieve, but it
-will be worth it.
+Only redirects and mtu updates could potentially increase its size.
+Redirects are limited to the same L2 network, MTU updates must hit the
+socket to be acted upon appropriately. All limited to max_size, so I
+currently see a major problem in the routing code.
 
+Unfortunately your report has not enough details to pinpoint a specific
+problem in the kernel
 
-I've been playing with prefetch changes to mxl4 (and mlx5) what are generic. 
-I'll post my patch as RFC.
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+Bye,
+Hannes
