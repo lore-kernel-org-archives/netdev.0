@@ -1,56 +1,37 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH v4] wlcore: spi: add wl18xx support
-Date: Fri, 08 Jul 2016 12:57:51 +0300
-Message-ID: <87bn281mg0.fsf@kamboji.qca.qualcomm.com>
-References: <1466935675-14696-1-git-send-email-eyalr@ti.com>
-	<8665E2433BC68541A24DFFCA87B70F5B3613BF60@DFRE01.ent.ti.com>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: rtlwifi: Add missing newlines to RT_TRACE calls
+Date: Fri,  8 Jul 2016 09:59:05 +0000 (UTC)
+Message-ID: <20160708095905.632BA611B8@smtp.codeaurora.org>
+References: <5677791872bfb47963780c198c825d882456720f.1466969647.git.joe@perches.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"devicetree\@vger.kernel.org" <devicetree@vger.kernel.org>,
-	"linux-spi\@vger.kernel.org" <linux-spi@vger.kernel.org>,
-	Rob Herring <robh@kernel.org>
-To: "Reizer\, Eyal" <eyalr@ti.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:39908 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754176AbcGHJ56 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 05:57:58 -0400
-In-Reply-To: <8665E2433BC68541A24DFFCA87B70F5B3613BF60@DFRE01.ent.ti.com>
-	(Eyal Reizer's message of "Sun, 26 Jun 2016 10:10:54 +0000")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: Larry Finger <Larry.Finger-tQ5ms3gMjBLk1uMJSBkQmQ@public.gmane.org>,
+	Chaoming Li <chaoming_li-kXabqFNEczNtrwSWzY7KCg@public.gmane.org>,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <5677791872bfb47963780c198c825d882456720f.1466969647.git.joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-"Reizer, Eyal" <eyalr@ti.com> writes:
+Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org> wrote:
+> RT_TRACE does not add a newline to the end of a message and always
+> emits at KERN_DEBUG so these are susceptible to message interleaving
+> from other processes without the newline.
+> 
+> Signed-off-by: Joe Perches <joe-6d6DIl74uiNBDgjK7y7TUQ@public.gmane.org>
 
-> Add support for using with both wl12xx and wl18xx.
->
-> - all wilink family needs special init command for entering wspi mode.
->   extra clock cycles should be sent after the spi init command while the
->   cs pin is high.
-> - Use inverted chip select for sending a dummy 4 bytes command that
->   completes the init stage.
->
-> Signed-off-by: Eyal Reizer <eyalr@ti.com>
-> ---
-> v1->v2:update device tree bindings configuration
-> v2->v3:revert from manual gpio manipulation. use inverted chip select instead
-> for sending the extra init cycle which, achieves the same hardware purpose.
-> update device tree bindings docucmentation accordingly
-> v3->v4: Remove redundant data form binding documentation and fix chip select
-> number mismatch in wl1271 example
+Thanks, 1 patch applied to wireless-drivers-next.git:
 
-Doesn't apply to wireless-drivers-next, please resend.
-
-Applying: wlcore: spi: add wl18xx support
-Using index info to reconstruct a base tree...
-Falling back to patching base and 3-way merge...
-Auto-merging drivers/net/wireless/ti/wlcore/spi.c
-CONFLICT (content): Merge conflict in drivers/net/wireless/ti/wlcore/spi.c
-Failed to merge in the changes.
-Patch failed at 0001 wlcore: spi: add wl18xx support
+4713bd1c7407 rtlwifi: Add missing newlines to RT_TRACE calls
 
 -- 
-Kalle Valo
+Sent by pwcli
+https://patchwork.kernel.org/patch/9199581/
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
