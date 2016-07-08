@@ -1,83 +1,78 @@
 From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH net-next 3/4] vxlan: remove gro_cell support
-Date: Fri, 08 Jul 2016 17:33:42 +0200
-Message-ID: <1467992022.30694.11.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <cover.1467907022.git.pabeni@redhat.com>
-	 <6f90239eb6ccb9145a886d4f01c6620c6d6ec87f.1467907022.git.pabeni@redhat.com>
-	 <1467908002.1273.42.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <a7fd6676-4ba5-e1ec-7b57-9b4b7aee24be@stressinduktion.org>
+Subject: Re: ipv6 issues after an DDoS for kernel 4.6.3
+Date: Fri, 08 Jul 2016 17:38:34 +0200
+Message-ID: <1467992314.30694.15.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <577FAFFD.2020306@gmx.de>
+	 <1467987260.30694.2.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <a8a7d2bc-1206-bcf5-3a15-5958728ff5a7@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Paolo Abeni <pabeni@redhat.com>, netdev@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@kernel.org>,
-	Tom Herbert <tom@herbertland.com>, Jiri Benc <jbenc@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Toralf =?ISO-8859-1?Q?F=F6rster?= <toralf.foerster@gmx.de>,
+	netdev@vger.kernel.org
 To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:33206 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754881AbcGHPdq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 11:33:46 -0400
-Received: by mail-pa0-f68.google.com with SMTP id ts6so8107295pac.0
-        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 08:33:46 -0700 (PDT)
-In-Reply-To: <a7fd6676-4ba5-e1ec-7b57-9b4b7aee24be@stressinduktion.org>
+Received: from mail-qt0-f194.google.com ([209.85.216.194]:33743 "EHLO
+	mail-qt0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754983AbcGHPih (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 11:38:37 -0400
+Received: by mail-qt0-f194.google.com with SMTP id f89so8087557qtd.0
+        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 08:38:36 -0700 (PDT)
+In-Reply-To: <a8a7d2bc-1206-bcf5-3a15-5958728ff5a7@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-07-08 at 11:12 -0400, Hannes Frederic Sowa wrote:
-> Hi Eric,
-> 
-> On 07.07.2016 12:13, Eric Dumazet wrote:
-> > On Thu, 2016-07-07 at 17:58 +0200, Paolo Abeni wrote:
-> >> GRO is now handled entirely by the udp_offload layer and  there is no need
-> >> for trying it again at the device level. We can drop gro_cell usage,
-> >> simplifying the driver a bit, while maintaining the same performance for
-> >> TCP and improving slightly for UDP.
-> >> This basically reverts the commit 58ce31cca1ff ("vxlan: GRO support
-> >> at tunnel layer")
-> > 
-> > Note that gro_cells provide GRO support after RPS, so this helps when we
-> > must perform TCP checksum computation, if NIC lacks CHECKSUM_COMPLETE
-> > 
-> > (Say we receive packets all steered to a single RX queue due to RSS hash
-> > being computed on outer header only)
-> > 
-> > Some people disable GRO on the physical device, but enable GRO on the
-> > tunnels.
-> 
-> we are currently discussing your feedback and wonder how much it makes
-> sense to support such a scenario?
-> 
-> We have part of the inner hash in the outer UDP source port. So even the
-> outer hash does provide enough entropy to get frames of one tunnel on
-> multiple CPUs via hardware hashing - given that you don't care about OoO
-> for UDP (I infer that from the fact that RPS will also reorder UDP
-> frames in case of fragmentation).
-> 
-> I wonder why it makes sense to still take single RX queue nics into
-> consideration? We already provide support for multiqueue devices for
-> most VM-related interfaces as well. Can you describe why someone would
-> do such a scenario?
+On Fri, 2016-07-08 at 11:28 -0400, Hannes Frederic Sowa wrote:
+> On 08.07.2016 10:14, Eric Dumazet wrote:
+> > On Fri, 2016-07-08 at 15:51 +0200, Toralf F=C3=B6rster wrote:
+> >> I do run a 4.6.3 hardened Gentoo kernel at a commodity i7 server. =
+A
+> >> DDoS with about 300 MBit/sec over 5 mins resulted an issue for ipv=
+6 at
+> >> that system.
+> >>
+> >> The IPv6 monitoring from my ISP told my that the to be monitored
+> >> services (80, 443, 52222) weren't reachable any longer at ipv6 (at
+> >> ipv4 there was no issue). Restarting the NIC brought back green li=
+ghts
+> >> for the services at the ipv6 ports too.
+> >=20
+> > Hard to tell without knowing DDOS details, but IPv6 lacks some
+> > scalability improvements found in IPv4.
+> >=20
+> > IPv4 no longer has a routing cache, but IPv6 still has one.
+>=20
+> The difference is that routing exceptions are stored in "the" trie
+> instead of hash tables in the fib nodes. IPv4 limits that by the size=
+ of
+> the hash tables, in IPv6 we grow to ipv6/route/max_size, which is pre=
+tty
+> low.
+>=20
+> Only redirects and mtu updates could potentially increase its size.
+> Redirects are limited to the same L2 network, MTU updates must hit th=
+e
+> socket to be acted upon appropriately. All limited to max_size, so I
+> currently see a major problem in the routing code.
+>=20
+> Unfortunately your report has not enough details to pinpoint a specif=
+ic
+> problem in the kernel
 
-I was simply pointing out there are some use cases where the ability to
-split incoming traffic on multiple cpus can help, especially with dumb
-NIC.
+Well, the typical DDOS simply use SYN flood, right ? ;)
 
-Fact that GRO is already handled on the NIC itself is not something that
-is hard coded. GRO can be enabled or disabled.
+With IPv4, a server can typically absorb 10 Mpps SYN without major
+disruption on linux-4.6
 
-If you remove GRO support at tunnel, then you remove some flexibility.
+With IPv6, kernel hits the route rwlock quite hard, at less than 2 Mpps
 
-For example, when GRO for GRE was added by Jerry Chu, we did not remove
-GRO on GRE devices, because mlx4 NICs for example are unable to compute
-TCP checksum when GRE encapsulation is used. A single CPU can not decap
-at line rate on 40Gbit NIC without RX checksum offloading. An admin can
-choose to use RPS to  split traffic coming on a single RX queue to X
-cpus, and enable GRO after RPS, instead of before.
+    30.44%  [kernel]  [k] ip6_pol_route.isra.49            =20
+    12.93%  [kernel]  [k] fib6_lookup                      =20
+    12.35%  [kernel]  [k] fib6_get_table                   =20
+    10.36%  [kernel]  [k] _raw_read_lock_bh                =20
+     8.29%  [kernel]  [k] _raw_read_unlock_bh              =20
+     2.02%  [kernel]  [k] dst_release                      =20
+     1.86%  [kernel]  [k] memcpy_erms      =20
 
-UDP might be different, if the sender properly adds entropy on outer
-header (which is not something you can do with GRE)
-
-You probably could default GRO on tunnels to off, since by default GRO
-would already happen at the physical interface.
+I guess that switching to plain spinlock could help a bit, before major
+surgery.
