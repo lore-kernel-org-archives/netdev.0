@@ -1,54 +1,77 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: [PATCH nf-next 3/3] netfilter: replace list_head with single
- linked list
-Date: Sat, 9 Jul 2016 01:30:38 +0200
-Message-ID: <20160708233038.GA2067@breakpoint.cc>
-References: <1467321575-6107-1-git-send-email-aconole@bytheb.org>
- <1467321575-6107-4-git-send-email-aconole@bytheb.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [PATCH net] udp: prevent bugcheck if filter truncates packet
+ too much
+Date: Sat, 09 Jul 2016 01:31:40 +0200
+Message-ID: <1468020700.30694.38.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <20160708155233.C78AAA0ECC@unicorn.suse.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org
-To: Aaron Conole <aconole@bytheb.org>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	samanthakumar <samanthakumar@google.com>,
+	Marco Grassi <marco.gra@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Michal Kubecek <mkubecek@suse.cz>,
+	Willem de Bruijn <willemb@google.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:35733 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1756313AbcGHXaq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 19:30:46 -0400
-Content-Disposition: inline
-In-Reply-To: <1467321575-6107-4-git-send-email-aconole@bytheb.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33813 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756299AbcGHXbo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 19:31:44 -0400
+In-Reply-To: <20160708155233.C78AAA0ECC@unicorn.suse.cz>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Aaron Conole <aconole@bytheb.org> wrote:
-> --- a/net/netfilter/core.c
-> +++ b/net/netfilter/core
-[..]
-> +#define nf_entry_dereference(e) \
-> +	rcu_dereference_protected(e, lockdep_is_held(&nf_hook_mutex))
+On Fri, 2016-07-08 at 17:52 +0200, Michal Kubecek wrote:
+> If socket filter truncates an udp packet below the length of UDP header
+> in udpv6_queue_rcv_skb() or udp_queue_rcv_skb(), it will trigger a
+> BUG_ON in skb_pull_rcsum(). This BUG_ON (and therefore a system crash if
+> kernel is configured that way) can be easily enforced by an unprivileged
+> user which was reported as CVE-2016-6162. For a reproducer, see
+> http://seclists.org/oss-sec/2016/q3/8
+> 
+> Fixes: e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
+> Reported-by: Marco Grassi <marco.gra@gmail.com>
+> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+> ---
+>  net/ipv4/udp.c | 2 ++
+>  net/ipv6/udp.c | 2 ++
+>  2 files changed, 4 insertions(+)
+> 
+> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+> index ca5e8ea29538..4aed8fc23d32 100644
+> --- a/net/ipv4/udp.c
+> +++ b/net/ipv4/udp.c
+> @@ -1583,6 +1583,8 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
 >  
-> -static struct list_head *nf_find_hook_list(struct net *net,
-> -					   const struct nf_hook_ops *reg)
-> +static struct nf_hook_entry *nf_find_hook_list(struct net *net,
-> +					       const struct nf_hook_ops *reg)
->  {
-> -	struct list_head *hook_list = NULL;
-> +	struct nf_hook_entry *hook_list = NULL;
+>  	if (sk_filter(sk, skb))
+>  		goto drop;
+> +	if (unlikely(skb->len < sizeof(struct udphdr)))
+> +		goto drop;
 >  
->  	if (reg->pf != NFPROTO_NETDEV)
-> -		hook_list = &net->nf.hooks[reg->pf][reg->hooknum];
-> +		hook_list = rcu_dereference(net->nf.hooks[reg->pf]
-> +					    [reg->hooknum]);
->  	else if (reg->hooknum == NF_NETDEV_INGRESS) {
->  #ifdef CONFIG_NETFILTER_INGRESS
->  		if (reg->dev && dev_net(reg->dev) == net)
-> -			hook_list = &reg->dev->nf_hooks_ingress;
-> +			hook_list =
-> +				rcu_dereference(reg->dev->nf_hooks_ingress);
+>  	udp_csum_pull_header(skb);
+>  	if (sk_rcvqueues_full(sk, sk->sk_rcvbuf)) {
+> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+> index 005dc82c2138..acc09705618b 100644
+> --- a/net/ipv6/udp.c
+> +++ b/net/ipv6/udp.c
+> @@ -620,6 +620,8 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>  
+>  	if (sk_filter(sk, skb))
+>  		goto drop;
+> +	if (unlikely(skb->len < sizeof(struct udphdr)))
+> +		goto drop;
+>  
+>  	udp_csum_pull_header(skb);
+>  	if (sk_rcvqueues_full(sk, sk->sk_rcvbuf)) {
 
-Both of these should use nf_entry_dereference() to avoid the lockdep
-splat reported by kbuild robot:
 
-net/netfilter/core.c:75 suspicious rcu_dereference_check() usage!
-2 locks held by swapper/1:
-#0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81c2e567>] rtnl_lock+0x17/0x20
-#1:  (nf_hook_mutex){+.+...}, at: [<ffffffff81c58fcb>] nf_register_net_hook+0xcb/0x240
+Arg :(
+
+Acked-by: Eric Dumazet <edumazet@google.com>
+
+Thanks !
