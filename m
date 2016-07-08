@@ -1,41 +1,56 @@
 From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: rtlwifi: Create _rtl_dbg_trace function to reduce RT_TRACE code
- size
-Date: Fri,  8 Jul 2016 09:55:42 +0000 (UTC)
-Message-ID: <20160708095542.49BF460239@smtp.codeaurora.org>
-References: <90cd7c8f12b51571db565fd496a2fcf610e2e484.1466894688.git.joe@perches.com>
+Subject: Re: [PATCH v4] wlcore: spi: add wl18xx support
+Date: Fri, 08 Jul 2016 12:57:51 +0300
+Message-ID: <87bn281mg0.fsf@kamboji.qca.qualcomm.com>
+References: <1466935675-14696-1-git-send-email-eyalr@ti.com>
+	<8665E2433BC68541A24DFFCA87B70F5B3613BF60@DFRE01.ent.ti.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Larry Finger <Larry.Finger@lwfinger.net>,
-	Chaoming Li <chaoming_li@realsil.com.cn>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Joe Perches <joe@perches.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <90cd7c8f12b51571db565fd496a2fcf610e2e484.1466894688.git.joe@perches.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devicetree\@vger.kernel.org" <devicetree@vger.kernel.org>,
+	"linux-spi\@vger.kernel.org" <linux-spi@vger.kernel.org>,
+	Rob Herring <robh@kernel.org>
+To: "Reizer\, Eyal" <eyalr@ti.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:39908 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754176AbcGHJ56 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 05:57:58 -0400
+In-Reply-To: <8665E2433BC68541A24DFFCA87B70F5B3613BF60@DFRE01.ent.ti.com>
+	(Eyal Reizer's message of "Sun, 26 Jun 2016 10:10:54 +0000")
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Joe Perches <joe@perches.com> wrote:
-> This debugging macro can expand to a lot of code.
-> Make it a function to reduce code size.
-> 
-> (x86-64 defconfig w/ all rtlwifi drivers and allyesconfig)
-> $ size drivers/net/wireless/realtek/rtlwifi/built-in.o*
->    text	   data	    bss	    dec	    hex	filename
->  900083	 200499	   1907	1102489	 10d299	drivers/net/wireless/realtek/rtlwifi/built-in.o.defconfig.new
-> 1113597	 200499	   1907	1316003	 1414a3	drivers/net/wireless/realtek/rtlwifi/built-in.o.defconfig.old
-> 1746879	 453503	   8512	2208894	 21b47e	drivers/net/wireless/realtek/rtlwifi/built-in.o.new
-> 2051965	 503311	   8512	2563788	 271ecc	drivers/net/wireless/realtek/rtlwifi/built-in.o.old
-> 
-> Signed-off-by: Joe Perches <joe@perches.com>
-> Acked-by: Larry Finger <Larry.Finger@lwfinger.net>
+"Reizer, Eyal" <eyalr@ti.com> writes:
 
-Thanks, 1 patch applied to wireless-drivers-next.git:
+> Add support for using with both wl12xx and wl18xx.
+>
+> - all wilink family needs special init command for entering wspi mode.
+>   extra clock cycles should be sent after the spi init command while the
+>   cs pin is high.
+> - Use inverted chip select for sending a dummy 4 bytes command that
+>   completes the init stage.
+>
+> Signed-off-by: Eyal Reizer <eyalr@ti.com>
+> ---
+> v1->v2:update device tree bindings configuration
+> v2->v3:revert from manual gpio manipulation. use inverted chip select instead
+> for sending the extra init cycle which, achieves the same hardware purpose.
+> update device tree bindings docucmentation accordingly
+> v3->v4: Remove redundant data form binding documentation and fix chip select
+> number mismatch in wl1271 example
 
-9ce221915a94 rtlwifi: Create _rtl_dbg_trace function to reduce RT_TRACE code size
+Doesn't apply to wireless-drivers-next, please resend.
+
+Applying: wlcore: spi: add wl18xx support
+Using index info to reconstruct a base tree...
+Falling back to patching base and 3-way merge...
+Auto-merging drivers/net/wireless/ti/wlcore/spi.c
+CONFLICT (content): Merge conflict in drivers/net/wireless/ti/wlcore/spi.c
+Failed to merge in the changes.
+Patch failed at 0001 wlcore: spi: add wl18xx support
 
 -- 
-Sent by pwcli
-https://patchwork.kernel.org/patch/9198897/
+Kalle Valo
