@@ -1,90 +1,87 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: Re: [PATCH v6 12/12] net/mlx4_en: add prefetch in xdp rx path
-Date: Fri, 8 Jul 2016 09:49:40 -0700
-Message-ID: <20160708164939.GA30632@gmail.com>
-References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
- <1467944124-14891-13-git-send-email-bblanco@plumgrid.com>
- <1467950191.17638.3.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160708041612.GA15452@ast-mbp.thefacebook.com>
- <1467961005.17638.28.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Subject: Re: Resurrecting due to huge ipoib perf regression - [BUG] skb
+ corruption and kernel panic at forwarding with fragmentation
+Date: Fri, 8 Jul 2016 10:51:31 -0600
+Message-ID: <20160708165131.GA23650@obsidianresearch.com>
+References: <CAL1RGDV3u4bzuyGkMZGJQOiXje_qVh7AA-2nJMm2J2TR60H72g@mail.gmail.com>
+ <CAKgT0UerNfn9Uas34y6_+Fa4ALCcToQvNdbEkH1erVosa=xvXg@mail.gmail.com>
+ <CAL1RGDVgjRcb23jQQqJ4W-dfm8OkiH6n7hktVLX4mo-oUGj4gA@mail.gmail.com>
+ <20160707231423.GA21039@obsidianresearch.com>
+ <CAL1RGDWbUCi8OT1yGw7mhV9ivpmBqXa4jZ4Lp4op=L5ODK+r3w@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	davem@davemloft.net, netdev@vger.kernel.org,
-	Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>, Or Gerlitz <gerlitz.or@gmail.com>,
-	john.fastabend@gmail.com, hannes@stressinduktion.org,
-	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f49.google.com ([209.85.220.49]:34010 "EHLO
-	mail-pa0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755163AbcGHQtp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 12:49:45 -0400
-Received: by mail-pa0-f49.google.com with SMTP id fi15so608329pac.1
-        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 09:49:44 -0700 (PDT)
+Cc: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
+	Thadeu Lima de Souza Cascardo <cascardo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1467961005.17638.28.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <CAL1RGDWbUCi8OT1yGw7mhV9ivpmBqXa4jZ4Lp4op=L5ODK+r3w-JsoAwUIsXosN+BqQ9rBEUg@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 08, 2016 at 08:56:45AM +0200, Eric Dumazet wrote:
-> On Thu, 2016-07-07 at 21:16 -0700, Alexei Starovoitov wrote:
+On Fri, Jul 08, 2016 at 07:18:11AM -0700, Roland Dreier wrote:
+> On Thu, Jul 7, 2016 at 4:14 PM, Jason Gunthorpe
+> <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote:
+> > We have neighbour_priv, and ndo_neigh_construct/destruct now ..
+> >
+> > A first blush that would seem to be enough to let ipoib store the AH
+> > and other path information in the neigh and avoid the cb? At least the
+> > example in clip sure looks like what ipoib needs to do.
 > 
-> > I've tried this style of prefetching in the past for normal stack
-> > and it didn't help at all.
-> 
-> This is very nice, but my experience showed opposite numbers.
-> So I guess you did not choose the proper prefetch strategy.
-> 
-> prefetching in mlx4 gave me good results, once I made sure our compiler
-> was not moving the actual prefetch operations on x86_64 (ie forcing use
-> of asm volatile as in x86_32 instead of the builtin prefetch). You might
-> check if your compiler does the proper thing because this really hurt me
-> in the past.
-> 
-> In my case, I was using 40Gbit NIC, and prefetching 128 bytes instead of
-> 64 bytes allowed to remove one stall in GRO engine when using TCP with
-> TS (total header size : 66 bytes), or tunnels.
-> 
-> The problem with prefetch is that it works well assuming a given rate
-> (in pps), and given cpus, as prefetch behavior is varying among flavors.
-> 
-> Brenden chose to prefetch N+3, based on some experiments, on some
-> hardware,
-> 
-> prefetch N+3 can actually slow down if you receive a moderate load,
-> which is the case 99% of the time in typical workloads on modern servers
-> with multi queue NIC.
-Thanks for the feedback Eric!
+> Do you think those new facilities let us go back to using the neigh
+> and still avoid the issues that led to commit b63b70d87741 ("IPoIB:
+> Use a private hash table for path lookup in xmit path")?
 
-This particular patch in the series is meant to be standalone exactly
-for this reason. I don't pretend to assert that this optimization will
-work for everybody, or even for a future version of me with different
-hardware. But, it passes my internal criteria for usefulness:
-1. It provides a measurable gain in the experiments that I have at hand
-2. The code is easy to review
-3. The change does not negatively impact non-XDP users
+Well, the priv stuff were brought up in the discussion around
+b63b70d87741 but never fully analyzed. Maybe it could have been used
+to solve that problem, who knows.. I guess it doesn't help this exact
+issue because we don't have a dst at hard header time anyhow.
 
-I would love to have a solution for all mlx4 driver users, but this
-patch set is focused on a different goal. So, without munging a
-different set of changes for the universal use case, and probably
-violating criteria #2 or #3, I went with what you see.
+But, DaveM suggested how to handle our current problem in the above thread:
 
-In hopes of not derailing the whole patch series, what is an actionable
-next step for this patch #12?
-Ideas:
-Pick a safer N? (I saw improvements with N=1 as well)
-Drop this patch?
+http://marc.info/?l=linux-rdma&m=132813323907877&w=2
 
-One thing I definitely don't want to do is go into the weeds trying to
-get a universal prefetch logic in order to merge the XDP framework, even
-though I agree the net result would benefit everybody.
-> 
-> This is why it was hard to upstream such changes, because they focus on
-> max throughput instead of low latencies.
-> 
-> 
-> 
+Which is the same route CLIP took:
+
+331         struct dst_entry *dst = skb_dst(skb);
+347         rt = (struct rtable *) dst;
+348         if (rt->rt_gateway)
+349                 daddr = &rt->rt_gateway;
+350         else
+351                 daddr = &ip_hdr(skb)->daddr;
+352         n = dst_neigh_lookup(dst, daddr);
+
+(DaveM said it should be &ip/ipv6_hdr(skb)->daddr, not the rtable cast)
+
+Last time this was brought up you were concerned about ARP, ARP
+sets skb_dst after calling dev_hard_header:
+
+310         skb = arp_create(type, ptype, dest_ip, dev, src_ip,
+311                          dest_hw, src_hw, target_hw);
+312         if (!skb)
+313                 return;
+314
+315         skb_dst_set(skb, dst_clone(dst));
+
+However, there is at least one fringe case (arp_send) where the dst is
+left NULL. Presumably there are other fringe cases too..
+
+So, it appears, the dst and neigh can be used for all performances cases.
+
+For the non performance dst == null case, can we just burn cycles and
+stuff the daddr in front of the packet at hardheader time, even if we
+have to copy?
+
+Jason
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
