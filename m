@@ -1,7 +1,7 @@
 From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH v6 12/12] net/mlx4_en: add prefetch in xdp rx path
-Date: Thu,  7 Jul 2016 19:15:24 -0700
-Message-ID: <1467944124-14891-13-git-send-email-bblanco@plumgrid.com>
+Subject: [PATCH v6 11/12] bpf: add sample for xdp forwarding and rewrite
+Date: Thu,  7 Jul 2016 19:15:23 -0700
+Message-ID: <1467944124-14891-12-git-send-email-bblanco@plumgrid.com>
 References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
 Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Martin KaFai Lau <kafai@fb.com>,
@@ -14,75 +14,186 @@ Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f171.google.com ([209.85.192.171]:35764 "EHLO
-	mail-pf0-f171.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753993AbcGHCPy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 22:15:54 -0400
-Received: by mail-pf0-f171.google.com with SMTP id c2so11321981pfa.2
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 19:15:54 -0700 (PDT)
+Received: from mail-pa0-f48.google.com ([209.85.220.48]:35284 "EHLO
+	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753978AbcGHCPs (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 22:15:48 -0400
+Received: by mail-pa0-f48.google.com with SMTP id dx3so10985777pab.2
+        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 19:15:48 -0700 (PDT)
 In-Reply-To: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-XDP programs read and/or write packet data very early, and cache miss is
-seen to be a bottleneck.
+Add a sample that rewrites and forwards packets out on the same
+interface. Observed single core forwarding performance of ~10Mpps.
 
-Add prefetch logic in the xdp case 3 packets in the future. Throughput
-improved from 10Mpps to 12.5Mpps.  LLC misses as reported by perf stat
-reduced from ~14% to ~7%.  Prefetch values of 0 through 5 were compared
-with >3 showing dimishing returns.
-
-Before:
- 21.94%  ksoftirqd/0  [mlx4_en]         [k] 0x000000000001d6e4
- 12.96%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_process_rx_cq
- 12.28%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_xmit_frame
- 11.93%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_poll_tx_cq
-  4.77%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_prepare_rx_desc
-  3.13%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_free_tx_desc.isra.30
-  2.68%  ksoftirqd/0  [kernel.vmlinux]  [k] bpf_map_lookup_elem
-  2.22%  ksoftirqd/0  [kernel.vmlinux]  [k] percpu_array_map_lookup_elem
-  2.02%  ksoftirqd/0  [mlx4_core]       [k] mlx4_eq_int
-  1.92%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_rx_recycle
-
-After:
- 20.70%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_xmit_frame
- 18.14%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_process_rx_cq
- 16.30%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_poll_tx_cq
-  6.49%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_prepare_rx_desc
-  4.06%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_free_tx_desc.isra.30
-  2.76%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_rx_recycle
-  2.37%  ksoftirqd/0  [mlx4_core]       [k] mlx4_eq_int
-  1.44%  ksoftirqd/0  [kernel.vmlinux]  [k] bpf_map_lookup_elem
-  1.43%  swapper      [kernel.vmlinux]  [k] intel_idle
-  1.20%  ksoftirqd/0  [kernel.vmlinux]  [k] percpu_array_map_lookup_elem
-  1.19%  ksoftirqd/0  [mlx4_core]       [k] 0x0000000000049eb8
+Since the mlx4 driver under test recycles every single packet page, the
+perf output shows almost exclusively just the ring management and bpf
+program work. Slowdowns are likely occurring due to cache misses.
 
 Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_rx.c | 7 +++++++
- 1 file changed, 7 insertions(+)
+ samples/bpf/Makefile    |   5 +++
+ samples/bpf/xdp2_kern.c | 114 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 119 insertions(+)
+ create mode 100644 samples/bpf/xdp2_kern.c
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index 41c76fe..65e93f7 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -881,10 +881,17 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 		 * read bytes but not past the end of the frag.
- 		 */
- 		if (prog) {
-+			struct mlx4_en_rx_alloc *pref;
- 			struct xdp_buff xdp;
-+			int pref_index;
- 			dma_addr_t dma;
- 			u32 act;
+diff --git a/samples/bpf/Makefile b/samples/bpf/Makefile
+index 0e4ab3a..d2d2b35 100644
+--- a/samples/bpf/Makefile
++++ b/samples/bpf/Makefile
+@@ -22,6 +22,7 @@ hostprogs-y += map_perf_test
+ hostprogs-y += test_overhead
+ hostprogs-y += test_cgrp2_array_pin
+ hostprogs-y += xdp1
++hostprogs-y += xdp2
  
-+			pref_index = (index + 3) & ring->size_mask;
-+			pref = ring->rx_info +
-+					(pref_index << priv->log_rx_info);
-+			prefetch(page_address(pref->page) + pref->page_offset);
+ test_verifier-objs := test_verifier.o libbpf.o
+ test_maps-objs := test_maps.o libbpf.o
+@@ -44,6 +45,8 @@ map_perf_test-objs := bpf_load.o libbpf.o map_perf_test_user.o
+ test_overhead-objs := bpf_load.o libbpf.o test_overhead_user.o
+ test_cgrp2_array_pin-objs := libbpf.o test_cgrp2_array_pin.o
+ xdp1-objs := bpf_load.o libbpf.o xdp1_user.o
++# reuse xdp1 source intentionally
++xdp2-objs := bpf_load.o libbpf.o xdp1_user.o
+ 
+ # Tell kbuild to always build the programs
+ always := $(hostprogs-y)
+@@ -67,6 +70,7 @@ always += test_overhead_kprobe_kern.o
+ always += parse_varlen.o parse_simple.o parse_ldabs.o
+ always += test_cgrp2_tc_kern.o
+ always += xdp1_kern.o
++always += xdp2_kern.o
+ 
+ HOSTCFLAGS += -I$(objtree)/usr/include
+ 
+@@ -88,6 +92,7 @@ HOSTLOADLIBES_spintest += -lelf
+ HOSTLOADLIBES_map_perf_test += -lelf -lrt
+ HOSTLOADLIBES_test_overhead += -lelf -lrt
+ HOSTLOADLIBES_xdp1 += -lelf
++HOSTLOADLIBES_xdp2 += -lelf
+ 
+ # Allows pointing LLC/CLANG to a LLVM backend with bpf support, redefine on cmdline:
+ #  make samples/bpf/ LLC=~/git/llvm/build/bin/llc CLANG=~/git/llvm/build/bin/clang
+diff --git a/samples/bpf/xdp2_kern.c b/samples/bpf/xdp2_kern.c
+new file mode 100644
+index 0000000..38fe7e1
+--- /dev/null
++++ b/samples/bpf/xdp2_kern.c
+@@ -0,0 +1,114 @@
++/* Copyright (c) 2016 PLUMgrid
++ *
++ * This program is free software; you can redistribute it and/or
++ * modify it under the terms of version 2 of the GNU General Public
++ * License as published by the Free Software Foundation.
++ */
++#define KBUILD_MODNAME "foo"
++#include <uapi/linux/bpf.h>
++#include <linux/in.h>
++#include <linux/if_ether.h>
++#include <linux/if_packet.h>
++#include <linux/if_vlan.h>
++#include <linux/ip.h>
++#include <linux/ipv6.h>
++#include "bpf_helpers.h"
 +
- 			dma = be64_to_cpu(rx_desc->data[0].addr);
- 			dma_sync_single_for_cpu(priv->ddev, dma,
- 						priv->frag_info[0].frag_size,
++struct bpf_map_def SEC("maps") dropcnt = {
++	.type = BPF_MAP_TYPE_PERCPU_ARRAY,
++	.key_size = sizeof(u32),
++	.value_size = sizeof(long),
++	.max_entries = 256,
++};
++
++static void swap_src_dst_mac(void *data)
++{
++	unsigned short *p = data;
++	unsigned short dst[3];
++
++	dst[0] = p[0];
++	dst[1] = p[1];
++	dst[2] = p[2];
++	p[0] = p[3];
++	p[1] = p[4];
++	p[2] = p[5];
++	p[3] = dst[0];
++	p[4] = dst[1];
++	p[5] = dst[2];
++}
++
++static int parse_ipv4(void *data, u64 nh_off, void *data_end)
++{
++	struct iphdr *iph = data + nh_off;
++
++	if (iph + 1 > data_end)
++		return 0;
++	return iph->protocol;
++}
++
++static int parse_ipv6(void *data, u64 nh_off, void *data_end)
++{
++	struct ipv6hdr *ip6h = data + nh_off;
++
++	if (ip6h + 1 > data_end)
++		return 0;
++	return ip6h->nexthdr;
++}
++
++SEC("xdp1")
++int xdp_prog1(struct xdp_md *ctx)
++{
++	void *data_end = (void *)(long)ctx->data_end;
++	void *data = (void *)(long)ctx->data;
++	struct ethhdr *eth = data;
++	int rc = XDP_DROP;
++	long *value;
++	u16 h_proto;
++	u64 nh_off;
++	u32 index;
++
++	nh_off = sizeof(*eth);
++	if (data + nh_off > data_end)
++		return rc;
++
++	h_proto = eth->h_proto;
++
++	if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
++		struct vlan_hdr *vhdr;
++
++		vhdr = data + nh_off;
++		nh_off += sizeof(struct vlan_hdr);
++		if (data + nh_off > data_end)
++			return rc;
++		h_proto = vhdr->h_vlan_encapsulated_proto;
++	}
++	if (h_proto == htons(ETH_P_8021Q) || h_proto == htons(ETH_P_8021AD)) {
++		struct vlan_hdr *vhdr;
++
++		vhdr = data + nh_off;
++		nh_off += sizeof(struct vlan_hdr);
++		if (data + nh_off > data_end)
++			return rc;
++		h_proto = vhdr->h_vlan_encapsulated_proto;
++	}
++
++	if (h_proto == htons(ETH_P_IP))
++		index = parse_ipv4(data, nh_off, data_end);
++	else if (h_proto == htons(ETH_P_IPV6))
++		index = parse_ipv6(data, nh_off, data_end);
++	else
++		index = 0;
++
++	value = bpf_map_lookup_elem(&dropcnt, &index);
++	if (value)
++		*value += 1;
++
++	if (index == 17) {
++		swap_src_dst_mac(data);
++		rc = XDP_TX;
++	}
++
++	return rc;
++}
++
++char _license[] SEC("license") = "GPL";
 -- 
 2.8.2
