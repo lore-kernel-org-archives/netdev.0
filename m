@@ -1,33 +1,39 @@
-From: Kalle Valo <kvalo@qca.qualcomm.com>
-Subject: Re: wcn36xx: Silence error about unsupported smd event 188
-Date: Fri, 8 Jul 2016 16:05:05 +0200
-Message-ID: <a4318d226b5e422a81772abe9befb423@euamsexm01a.eu.qualcomm.com>
-References: <1467902933-28577-1-git-send-email-bjorn.andersson@linaro.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: ipv6 issues after an DDoS for kernel 4.6.3
+Date: Fri, 08 Jul 2016 16:14:20 +0200
+Message-ID: <1467987260.30694.2.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <577FAFFD.2020306@gmx.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Eugene Krasnikov <k.eugene.e@gmail.com>,
-	Kalle Valo <kvalo@codeaurora.org>,
-	<wcn36xx@lists.infradead.org>, <linux-wireless@vger.kernel.org>,
-	<netdev@vger.kernel.org>, <linux-kernel@vger.kernel.org>,
-	Nicolas Dechesne <nicolas.dechesne@linaro.org>
-To: Bjorn Andersson <bjorn.andersson@linaro.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467902933-28577-1-git-send-email-bjorn.andersson@linaro.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org
+To: Toralf =?ISO-8859-1?Q?F=F6rster?= <toralf.foerster@gmx.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:35564 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932540AbcGHOOX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 10:14:23 -0400
+Received: by mail-wm0-f68.google.com with SMTP id k123so7582819wme.2
+        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 07:14:23 -0700 (PDT)
+In-Reply-To: <577FAFFD.2020306@gmx.de>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Bjorn Andersson <bjorn.andersson@linaro.org> wrote:
-> Sometimes the firmware sends a HAL_DEL_BA_IND, the prima driver silently
-> ignore this message so let's do the same to silence the error message.
-> 
-> Cc: Nicolas Dechesne <nicolas.dechesne@linaro.org>
-> Signed-off-by: Bjorn Andersson <bjorn.andersson@linaro.org>
+On Fri, 2016-07-08 at 15:51 +0200, Toralf F=C3=B6rster wrote:
+> I do run a 4.6.3 hardened Gentoo kernel at a commodity i7 server. A
+> DDoS with about 300 MBit/sec over 5 mins resulted an issue for ipv6 a=
+t
+> that system.
+>=20
+> The IPv6 monitoring from my ISP told my that the to be monitored
+> services (80, 443, 52222) weren't reachable any longer at ipv6 (at
+> ipv4 there was no issue). Restarting the NIC brought back green light=
+s
+> for the services at the ipv6 ports too.
 
-Thanks, 1 patch applied to ath-next branch of ath.git:
+Hard to tell without knowing DDOS details, but IPv6 lacks some
+scalability improvements found in IPv4.
 
-7860eb7537a0 wcn36xx: Silence error about unsupported smd event 188
+IPv4 no longer has a routing cache, but IPv6 still has one.
 
--- 
-Sent by pwcli
-https://patchwork.kernel.org/patch/9219071/
+Are you sure conntrack is needed at all ?
