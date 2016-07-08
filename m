@@ -1,29 +1,25 @@
 From: "Michael S. Tsirkin" <mst@redhat.com>
 Subject: Re: [PATCH net-next V4 0/6] switch to use tx skb array in tun
-Date: Fri, 8 Jul 2016 09:19:35 +0300
-Message-ID: <20160708091855-mutt-send-email-mst@redhat.com>
+Date: Fri, 8 Jul 2016 09:19:54 +0300
+Message-ID: <20160708091940-mutt-send-email-mst@redhat.com>
 References: <CAEfhGixKLfLOj11ERgPhpVB+UXbqxrvkQKgQgn19bDjroO_4dQ@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Eric Dumazet <eric.dumazet@gmail.com>, kvm@vger.kernel.org,
-	netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
-	virtualization@lists.linux-foundation.org, brouer@redhat.com,
-	David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jason Wang <jasowang@redhat.com>, netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, kvm@vger.kernel.org,
+	virtualization@lists.linux-foundation.org,
+	Eric Dumazet <eric.dumazet@gmail.com>, brouer@redhat.com
 To: Craig Gallek <kraigatgoog@gmail.com>
-Return-path: <virtualization-bounces@lists.linux-foundation.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mx1.redhat.com ([209.132.183.28]:58521 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932066AbcGHGT6 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Fri, 8 Jul 2016 02:19:58 -0400
 Content-Disposition: inline
 In-Reply-To: <CAEfhGixKLfLOj11ERgPhpVB+UXbqxrvkQKgQgn19bDjroO_4dQ@mail.gmail.com>
-List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
-List-Post: <mailto:virtualization@lists.linux-foundation.org>
-List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
-List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
-	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
-Sender: virtualization-bounces@lists.linux-foundation.org
-Errors-To: virtualization-bounces@lists.linux-foundation.org
-List-Id: netdev.vger.kernel.org
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
 On Wed, Jul 06, 2016 at 01:45:58PM -0400, Craig Gallek wrote:
 > On Thu, Jun 30, 2016 at 2:45 AM, Jason Wang <jasowang@redhat.com> wrote:
@@ -44,8 +40,7 @@ On Wed, Jul 06, 2016 at 01:45:58PM -0400, Craig Gallek wrote:
 > let me know.
 
 
-Don't see anything obvious. I'm traveling, will look at it when I'm back
-unless it's fixed by then. Jason, any idea?
+Uploading your .config might help BTW.
 
 > [   72.322236] BUG: unable to handle kernel NULL pointer dereference
 > at 0000000000000010
