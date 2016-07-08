@@ -1,84 +1,76 @@
 From: Linus Walleij <linus.walleij@linaro.org>
-Subject: [PATCH 1/3] net: smsc911x: augment device tree bindings
-Date: Fri,  8 Jul 2016 11:07:30 +0200
-Message-ID: <1467968852-6175-1-git-send-email-linus.walleij@linaro.org>
+Subject: [PATCH 2/3] net: smsc911x: request and deassert optional RESET GPIO
+Date: Fri,  8 Jul 2016 11:07:31 +0200
+Message-ID: <1467968852-6175-2-git-send-email-linus.walleij@linaro.org>
+References: <1467968852-6175-1-git-send-email-linus.walleij@linaro.org>
 Cc: Guenter Roeck <linux@roeck-us.net>,
 	Jeremy Linton <jeremy.linton@arm.com>,
 	Kamlakant Patel <kamlakant.patel@broadcom.com>,
 	Pavel Fedin <p.fedin@samsung.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	devicetree@vger.kernel.org
+	Linus Walleij <linus.walleij@linaro.org>
 To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
 	Steve Glendinning <steve.glendinning@smsc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f45.google.com ([209.85.215.45]:32996 "EHLO
-	mail-lf0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751815AbcGHJHl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 05:07:41 -0400
-Received: by mail-lf0-f45.google.com with SMTP id f6so26063779lfg.0
-        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 02:07:40 -0700 (PDT)
+Received: from mail-lf0-f41.google.com ([209.85.215.41]:33006 "EHLO
+	mail-lf0-f41.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753955AbcGHJHo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 05:07:44 -0400
+Received: by mail-lf0-f41.google.com with SMTP id f6so26064194lfg.0
+        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 02:07:43 -0700 (PDT)
+In-Reply-To: <1467968852-6175-1-git-send-email-linus.walleij@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This adds device tree bindings for:
+On some systems (such as the Qualcomm APQ8060 Dragonboard) the
+RESET signal of the SMSC911x is not pulled up by a resistor but
+connected to a GPIO line, so that the operating system must
+explicitly deassert RESET before use.
 
-- An optional GPIO line for releasing the RESET signal to the
-  SMSC911x devices
+Support this in the SMSC911x driver so this ethernet connector
+can be used on such targets.
 
-- An optional PME (power management event) interrupt line that
-  can be utilized to wake up the system on network activity.
-  This signal exist on all the SMSC911x devices, it is just not
-  very often routed.
-
-Both these lines are routed to the SoC on the Qualcomm APQ8060
-Dragonboard and thus needs to be bound in the device tree.
-
-Cc: devicetree@vger.kernel.org
 Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
 ---
- Documentation/devicetree/bindings/net/smsc911x.txt | 16 ++++++++++++----
- 1 file changed, 12 insertions(+), 4 deletions(-)
+ drivers/net/ethernet/smsc/smsc911x.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
 
-diff --git a/Documentation/devicetree/bindings/net/smsc911x.txt b/Documentation/devicetree/bindings/net/smsc911x.txt
-index 3fed3c124411..7b01c37272c1 100644
---- a/Documentation/devicetree/bindings/net/smsc911x.txt
-+++ b/Documentation/devicetree/bindings/net/smsc911x.txt
-@@ -3,9 +3,12 @@
- Required properties:
- - compatible : Should be "smsc,lan<model>", "smsc,lan9115"
- - reg : Address and length of the io space for SMSC LAN
--- interrupts : Should contain SMSC LAN interrupt line
--- interrupt-parent : Should be the phandle for the interrupt controller
--  that services interrupts for this device
-+- interrupts/extended-interrupts : Should contain the SMSC LAN
-+  interrupt line as cell 0, cell 1 is an OPTIONAL PME (power
-+  management event) interrupt that is able to wake up the host
-+  system with a 50ms pulse on network activity
-+  For generic bindings for interrupt controller parents, refer to
-+  interrupt-controller/interrupts.txt
- - phy-mode : See ethernet.txt file in the same directory
+diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+index 8af25563f627..125d58ac22bd 100644
+--- a/drivers/net/ethernet/smsc/smsc911x.c
++++ b/drivers/net/ethernet/smsc/smsc911x.c
+@@ -62,6 +62,7 @@
+ #include <linux/acpi.h>
+ #include <linux/pm_runtime.h>
+ #include <linux/property.h>
++#include <linux/gpio/consumer.h>
  
- Optional properties:
-@@ -21,6 +24,10 @@ Optional properties:
-   external PHY
- - smsc,save-mac-address : Indicates that mac address needs to be saved
-   before resetting the controller
-+- reset-gpios : a GPIO line connected to the RESET (active low) signal
-+  of the device. On many systems this is wired high so the device goes
-+  out of reset at power-on, but if it is under program control, this
-+  optional GPIO can wake up in response to it.
+ #include "smsc911x.h"
  
- Examples:
+@@ -149,6 +150,9 @@ struct smsc911x_data {
+ 	/* regulators */
+ 	struct regulator_bulk_data supplies[SMSC911X_NUM_SUPPLIES];
  
-@@ -29,7 +36,8 @@ lan9220@f4000000 {
- 	reg = <0xf4000000 0x2000000>;
- 	phy-mode = "mii";
- 	interrupt-parent = <&gpio1>;
--	interrupts = <31>;
-+	interrupts = <31>, <32>;
-+	reset-gpios = <&gpio1 30 GPIO_ACTIVE_LOW>;
- 	reg-io-width = <4>;
- 	smsc,irq-push-pull;
++	/* Reset GPIO */
++	struct gpio_desc *reset_gpiod;
++
+ 	/* clock */
+ 	struct clk *clk;
  };
+@@ -440,6 +444,15 @@ static int smsc911x_request_resources(struct platform_device *pdev)
+ 		netdev_err(ndev, "couldn't get regulators %d\n",
+ 				ret);
+ 
++	/* Request optional RESET GPIO */
++	pdata->reset_gpiod = devm_gpiod_get(&pdev->dev, "reset",
++					    GPIOD_OUT_HIGH);
++	/* Deassert the signal */
++	if (!IS_ERR(pdata->reset_gpiod)) {
++		dev_info(&pdev->dev, "release reset\n");
++		gpiod_set_value(pdata->reset_gpiod, 0);
++	}
++
+ 	/* Request clock */
+ 	pdata->clk = clk_get(&pdev->dev, NULL);
+ 	if (IS_ERR(pdata->clk))
 -- 
 2.7.4
