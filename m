@@ -1,116 +1,84 @@
-From: John Fastabend via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: XDP seeking input from NIC hardware vendors
-Date: Fri, 8 Jul 2016 09:45:25 -0700
-Message-ID: <577FD8A5.8020700@gmail.com>
-References: <20160707124245.6d95635a@redhat.com>
-	<D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81@fmsmsx115.amr.corp.intel.com>
-	<20160708022210.GA12244@ast-mbp.thefacebook.com>
-	<20160708144453.345b51e5@jkicinski-Precision-T1700>
-	<20160708171943.0e1ce8d7@redhat.com>
-	<20160708170751.2eaae790@jkicinski-Precision-T1700>
-Reply-To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Alexander Duyck <alexander.duyck@gmail.com>
+Subject: Re: [PATCH net-next 2/4] udp offload: allow GRO on 0 checksum packets
+Date: Fri, 8 Jul 2016 09:46:33 -0700
+Message-ID: <CAKgT0UeONTtXw2SeVr7Zm_AZT50xqeFhLE8mTOAicabsifMLXQ@mail.gmail.com>
+References: <cover.1467907022.git.pabeni@redhat.com> <60369c715ef9948b088416639f0bec800f632f9a.1467907022.git.pabeni@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	"Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
-	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
-To: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
-	Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <20160708170751.2eaae790@jkicinski-Precision-T1700>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=UTF-8
+Cc: Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@kernel.org>,
+	Tom Herbert <tom@herbertland.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Jiri Benc <jbenc@redhat.com>
+To: Paolo Abeni <pabeni@redhat.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-it0-f67.google.com ([209.85.214.67]:36584 "EHLO
+	mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756187AbcGHQqg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 12:46:36 -0400
+Received: by mail-it0-f67.google.com with SMTP id h190so5640221ith.3
+        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 09:46:35 -0700 (PDT)
+In-Reply-To: <60369c715ef9948b088416639f0bec800f632f9a.1467907022.git.pabeni@redhat.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 16-07-08 09:07 AM, Jakub Kicinski wrote:
-> On Fri, 8 Jul 2016 17:19:43 +0200, Jesper Dangaard Brouer wrote:
->> On Fri, 8 Jul 2016 14:44:53 +0100 Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org> wrote:
->>> On Thu, 7 Jul 2016 19:22:12 -0700, Alexei Starovoitov wrote:
->>>>> If the goal is to just separate XDP traffic from non-XDP traffic
->>>>> you could accomplish this with a combination of SR-IOV/macvlan to
->>>>> separate the device queues into multiple netdevs and then run XDP
->>>>> on just one of the netdevs. Then use flow director (ethtool) or
->>>>> 'tc cls_u32/flower' to steer traffic to the netdev. This is how
->>>>> we support multiple networking stacks on one device by the way it
->>>>> is called the bifurcated driver. Its not too far of a stretch to
->>>>> think we could offload some simple XDP programs to program the
->>>>> splitting of traffic instead of cls_u32/flower/flow_director and
->>>>> then you would have a stack of XDP programs. One running in
->>>>> hardware and a set running on the queues in software.      
->>>>
->>>>
->>>> the above sounds like much better approach then Jesper/mine
->>>> prog_per_ring stuff.
->>>>
->>>> If we can split the nic via sriov and have dedicated netdev via VF
->>>> just for XDP that's way cleaner approach. I guess we won't need to
->>>> do xdp_rxqmask after all.    
->>>
->>> +1
->>>
->>> I was thinking about using eBPF to direct to NIC queues but concluded
->>> that doing a redirect to a VF is cleaner.  Especially if the PF driver
->>> supports VF representatives we could potentially just use
->>> bpf_redirect(VFR netdev) and the VF doesn't even have to be handled by
->>> the same stack.  
->>
->> I actually disagree.
->>
->> I _do_ want to use the "filter" part of eBPF to direct to NIC queues, and
->> then run a single/specific XDP program on that queue.
->>
->> Why to I want this?
->>
->> This part of solving a very fundamental CS problem (early demux), when
->> wanting to support Zero-copy on RX.  The basic problem that the NIC
->> driver need to map RX pages into the RX ring, prior to receiving
->> packets. Thus, we need HW support to steer packets, for gaining enough
->> isolation (e.g between tenants domains) for allowing zero-copy.
->>
->>
->> Based on the flexibility of the HW-filter, the granularity achievable
->> for isolation (e.g. application specific) is much more flexible.  Than
->> splitting up the entire NIC with SR-IOV, VFs or macvlans.
-> 
-> I think of SR-IOV VFs a way of grouping queues.  If HW is capable of
-> directing to a queue it's usually capable of directing to a VF as well.
-> And the VF could have all other traffic disabled so you would get only
-> packets directed to it by the (BPF) filter - same as you would for the
-> queue.  Does that make sense for zero copy apps?
-> 
+On Thu, Jul 7, 2016 at 8:58 AM, Paolo Abeni <pabeni@redhat.com> wrote:
+> currently, UDP packets with zero checksum are not allowed to
+> use udp offload's GRO. This patch admits such packets to
+> GRO, if the related socket settings allow it: ipv6 packets
+> are not admitted if the sockets don't have the no_check6_rx
+> flag set.
+>
+> Signed-off-by: Paolo Abeni <pabeni@redhat.com>
+> ---
+>  net/ipv4/udp_offload.c | 6 +++++-
+>  1 file changed, 5 insertions(+), 1 deletion(-)
+>
+> diff --git a/net/ipv4/udp_offload.c b/net/ipv4/udp_offload.c
+> index 9c37338..ac783f4 100644
+> --- a/net/ipv4/udp_offload.c
+> +++ b/net/ipv4/udp_offload.c
+> @@ -257,7 +257,7 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
+>         struct sock *sk;
+>
+>         if (NAPI_GRO_CB(skb)->encap_mark ||
+> -           (skb->ip_summed != CHECKSUM_PARTIAL &&
+> +           (uh->check && skb->ip_summed != CHECKSUM_PARTIAL &&
+>              NAPI_GRO_CB(skb)->csum_cnt == 0 &&
+>              !NAPI_GRO_CB(skb)->csum_valid))
+>                 goto out;
 
-The only distinction between VFs and queue groupings on my side is VFs
-provide RSS where as queue groupings have to be selected explicitly.
-In a programmable NIC world the distinction might be lost if a "RSS"
-program can be loaded into the NIC to select queues but for existing
-hardware the distinction is there.
+So now all zero checksum UDP traffic will be targeted for GRO if I am
+understanding this right.  Have you looked into how much of an impact
+this might have on performance for non-tunnel UDP traffic using a zero
+checksum?  I'm thinking it will be negative.  The issue is you are now
+going to be performing an extra socket lookup for all incoming UDP
+frames that have a zero checksum.
 
-If you demux using a eBPF program or via a filter model like
-flow_director or cls_{u32|flower} I think we can support both. And this
-just depends on the programmability of the hardware. Note flow_director
-and cls_{u32|flower} steering to VFs is already in place.
+Also in the line below this line we are setting the encap_mark.  That
+will probably need to be moved down to the point just before we call
+gro_receive so that we can avoid setting unneeded data in the
+NAPI_GRO_CB.
 
-The question I have is should the "filter" part of the eBPF program
-be a separate program from the XDP program and loaded using specific
-semantics (e.g. "load_hardware_demux" ndo op) at the risk of building
-a ever growing set of "ndo" ops. If you are running multiple XDP
-programs on the same NIC hardware then I think this actually makes
-sense otherwise how would the hardware and even software find the
-"demux" logic. In this model there is a "demux" program that selects
-a queue/VF and a program that runs on the netdev queues.
+> @@ -271,6 +271,10 @@ struct sk_buff **udp_gro_receive(struct sk_buff **head, struct sk_buff *skb,
+>         if (!sk || !udp_sk(sk)->gro_receive)
+>                 goto out_unlock;
+>
+> +       if (!uh->check && skb->protocol == cpu_to_be16(ETH_P_IPV6) &&
+> +           !udp_sk(sk)->no_check6_rx)
+> +               goto out_unlock;
+> +
+>         flush = 0;
+>
+>         for (p = *head; p; p = p->next) {
 
-Any thoughts?
+So I am pretty sure this check doesn't pass the sniff test.
+Specifically I don't believe you can use skb->protocol like you
+currently are as it could be an 8021q frame for instance that is being
+aggregated so the skb->protocol would be invalid.  I think what you
+should probably be using is NAPI_GRO_CB(skb)->is_ipv6 although it
+occurs to me that in the case of tunnels I don't know if that value is
+being reset for IPv4 like it should be.
 
-.John
+- Alex
