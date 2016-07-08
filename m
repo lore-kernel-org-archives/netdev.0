@@ -1,237 +1,75 @@
-From: oulijun <oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v11 00/22] Add HiSilicon RoCE driver
-Date: Fri, 8 Jul 2016 10:58:09 +0800
-Message-ID: <577F16C1.8090705@huawei.com>
-References: <1467452364-66522-1-git-send-email-oulijun@huawei.com>
+From: Yangbo Lu <yangbo.lu-3arQi8VN3Tc@public.gmane.org>
+Subject: RE: [PATCH 2/4] soc: fsl: add GUTS driver for QorIQ platforms
+Date: Fri, 8 Jul 2016 03:05:41 +0000
+Message-ID: <HE1PR04MB0889950E99B791029F1670E9F83C0@HE1PR04MB0889.eurprd04.prod.outlook.com>
+References: <1462417950-46796-1-git-send-email-yangbo.lu@nxp.com>
+	<1465609853.22191.151.camel@buserror.net>
+	<HE1PR04MB0889646206BFAD68046F3473F83B0@HE1PR04MB0889.eurprd04.prod.outlook.com>
+	<4094106.qfxJu3tJbO@wuerfel>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gbk
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <gongyangming-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<xiaokun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <tangchaofei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<haifeng.wei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <yisen.zhuang-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<yankejian-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, <charles.chenxin-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>,
-	<linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-To: <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>, <sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	<hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>, <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	<jeffrey.t.kirsher-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>, <jiri-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	<ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1467452364-66522-1-git-send-email-oulijun-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: base64
+Cc: Mark Rutland <mark.rutland-5wv7dgnIgG8@public.gmane.org>, Ulf
+	Hansson <ulf.hansson-QSEj5FYQhm4dnm+yROfE0A@public.gmane.org>, Xiaobo Xie <xiaobo.xie-3arQi8VN3Tc@public.gmane.org>,
+	"linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-i2c-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-clk-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Qiang Zhao <qiang.zhao-3arQi8VN3Tc@public.gmane.org>, Russell King <linux-lFZ/pmaqli7XmaaqVzeoHQ@public.gmane.org>,
+	Bhupesh Sharma <bhupesh.sharma-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	Claudiu Manoil <claudiu.manoil-KZfg59tc24xl57MIdRCFDg@public.gmane.org>,
+	"devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Scott Wood <oss-fOR+EgIDQEHk1uMJSBkQmQ@public.gmane.org>, Rob Herring <robh+dt-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	Santosh Shilimkar <ssantosh-DgEjT+Ai2ygdnm+yROfE0A@public.gmane.org>,
+	"linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org"
+	<linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-mmc-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Yang-Leo Li <leoyang.li-3arQi8VN3Tc@public.gmane.org>,
+	"iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org" <iommu@l
+To: Arnd Bergmann <arnd-r2nGTMty4D4@public.gmane.org>
+Return-path: <iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+In-Reply-To: <4094106.qfxJu3tJbO@wuerfel>
+Content-Language: en-US
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/iommu/>
+List-Post: <mailto:iommu-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org>
+List-Help: <mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/iommu>,
+	<mailto:iommu-request-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org?subject=subscribe>
+Sender: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
+Errors-To: iommu-bounces-cunTk1MwBs9QetFLy7KEm3xJsTq8ys+cHZ5vskTnxNA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-=D4=DA 2016/7/2 17:39, Lijun Ou =D0=B4=B5=C0:
-> The HiSilicon Network Substem is a long term evolution IP which is
-> supposed to be used in HiSilicon ICT SoCs. HNS (HiSilicon Network
-> Sybsystem) also has a hardware support of performing RDMA with
-> RoCEE.
-> The driver for HiSilicon RoCEE(RoCE Engine) is a platform driver and
-> will support mulitple versions of SOCs in future. This version of dri=
-ver
-> is meant to support Hip06 SoC(which confirms to RoCEv1 hardware
-> specifications).
->=20
-> Changes v10 -> v11:
-> [1/22]:
-> 1. modify the print description of chip don't support roce
-> 2. remove explicit values for enums for patch series
-> [3/22]:
-> 3. remove non-essential headers for patch series
-> 4. add judgement for port_cnt is zero
-> 5. Keep unified print style for "set mask..." vs. "No usable
->    ..."
-> 6. modify the MODULE_LICENSE
-> 7. remove MODULE_ALIAS
-> [4/22]:
-> 8. Move this line out of if-else and leave "if (enable)" part only
-> 9. renaming the meaningful definition to 20 for patch series
-> 10. delete extern keyword for hns_dsaf_roce_reset function
-> 11. delete void keyword for hr_dev->hw->reset when driver removed
-> [5/22]:
-> 12. remove few unnecessary variables and some lines.
-> 13. remove the function for one line of code which will be called
->     once only for patch series
-> [6/22]:
-> 14. redesign the method for calculating token_mask' value
-> [7/22]:
-> 15. delete hns_roce_status_to_errno
-> 16. modify the one enum only for all patches
-> 17. remove the spin_lock in hns_roce_cq_event function
-> 18. add comment here that 0x10 and 0x11 in hns_roce_event struct
-> 19. refactor hns_roce_aeq_int function and It has switch in switch
->     and it is almost 200 LOCs
-> 20. simplify the lines for err_out_free_pages branch
-> [8/22]:
-> 21. remove icm and redesign it for patch series
->=20
-> Changes v9 -> v10:
-> 1. delete redundant lines which it is netdevice.h in hns_roce_main.c
-> 2. adjust the indentation for HNS_ROCE_V1_NUM_ASYNC_EQE
-> 3. simplify the lines in hns_roce_init_qp_table function
-> 4. add static type for hns_roce_unregister_device
-> 5. move the call with hns_roce_unregister_device from the tenth patch=
- to
->    the eleventh patch in hns_roce_remove function
-> 6. readjuest the alphabetic order in MAINTAINERS
-> 7. redesigned the way for getting irq names
-> 8. avoid the memory leakage because mr->pbl is not free in
->    hns_roce_mr function
-> 9. avoid the memory leakage because not kfree table->icm when excepti=
-on
-> 10. add the link from LKML as well whose comment in all
->=20
-> Changes v8 -> v9:
-> 1. delete the definition of ADDR_SHIFT_n, use literal 12, 32 and 44 a=
-nd
->    add comments
-> 2. use roce_read/roce_write/readl/write instead of roce_readl/roce_wr=
-itel
-> 3. delete the print error/debug messages for memory allocation errors
-> 4. use exit instead of uninit, for example hw->uninit -> hw->exit
-> 5. use roce_raw_write instead of _raw_writel in eq_set_cons_index
-> 6. modify the label with underscore
-> 7. adjust the indentation for the macro definitions in hns_roce_hw_v1=
-=2Ec
-> 8. simplify some lines in few functions and structures
-> 9. adjust the alphabetic order in MAINTAINERS
->=20
-> Changes v7 -> v8:
-> 1. add a verbs operation named get_port_immutable. It is an=20
->    independent patch
-> 2. add a comment for the definition of ADDR_SHIFT_n, n are 12,32
->    and 44
-> 3. restructures the code to align with naming convention of the Linux
->    according to the review of Doug Ledford
-> 4. modify the state for all .c and .h files
->=20
-> Changes v6 -> v7:
-> 1. modify some type of parameter, use bool replace the original type
-> 2. add the Signed-off-by signatures in the first patch
-> 3. delete the improper print sentence in hns_roce_create_eq.
->=20
-> Changes v5 -> v6:
-> 1. modify the type of obj for unsigned long according the reviews, an=
-d
->    modify the same questions in RoCE module
-> 2. fix the spelling error
-> 3. fix the Signed-off-by signatures
->=20
-> Changes v4 -> v5:
-> 1. redesign the patchset for RoCE modules in order to split the huge
->    patch into small patches
-> 2. fix the directory path for RoCE module. Delete the hisilicon level=
-=2E
-> 3. modify the name of roce_v1_hw into roce_hw_v1
->=20
-> Changes v3 -> v4:
-> 1. modify roce.o into hns-roce.o in Makefile and Kconfig file
->=20
-> Changes v2 -> v3:
-> 1. modify the formats of RoCE driver code base v2 by the experts=20
->    reviewing. also, it used kmalloc_array instead of kmalloc, kcalloc
->    instead of kzalloc, when refer to memory allocation for array
-> 2. remove some functions without use and unconnected macros
-> 3. modify the binding document with RoCE DT base v2 which added
->    interrupt-names
-> 4. redesign the port_map and si_map in hns_dsaf_roce_reset
-> 5. add HiSilicon RoCE driver maintainers introduction in MAINTAINERS
->    document
->=20
-> Changes v1 -> v2:
-> 1. modify the formats of roce driver code by the experts reviewing
-> 2. modify the bindings file with roce dts. add the attribute named=20
->    interrput-names.
-> 3. modify the way of defining port mode in hns_dsaf_main.c
-> 4. move the Kconfig file into the hns directory and send it with roce
->=20
-> Lijun Ou (22):
->   net: hns: Add reset function support for RoCE driver
->   devicetree: bindings: IB: Add binding document for HiSilicon RoCE
->   IB/hns: Add initial main frame driver and get cfg info
->   IB/hns: Add RoCE engine reset function
->   IB/hns: Add initial profile resource
->   IB/hns: Add initial cmd operation
->   IB/hns: Add event queue support
->   IB/hns: Add hem support
->   IB/hns: Add hca support
->   IB/hns: Add process flow to init RoCE engine
->   IB/hns: Add IB device registration
->   IB/hns: Set mtu and gid support
->   IB/hns: Add interface of the protocol stack registration
->   IB/hns: Add operations support for IB device and port
->   IB/hns: Add PD operations support
->   IB/hns: Add ah operations support
->   IB/hns: Add QP operations support
->   IB/hns: Add CQ operations support
->   IB/hns: Add memory region operations support
->   IB/hns: Add operation for getting immutable port
->   IB/hns: Kconfig and Makefile for RoCE module
->   MAINTAINERS: Add maintainers for HiSilicon RoCE driver
->=20
->  .../bindings/infiniband/hisilicon-hns-roce.txt     |  107 +
->  MAINTAINERS                                        |    8 +
->  drivers/infiniband/Kconfig                         |    1 +
->  drivers/infiniband/hw/Makefile                     |    1 +
->  drivers/infiniband/hw/hns/Kconfig                  |   10 +
->  drivers/infiniband/hw/hns/Makefile                 |    8 +
->  drivers/infiniband/hw/hns/hns_roce_ah.c            |  128 +
->  drivers/infiniband/hw/hns/hns_roce_alloc.c         |  257 ++
->  drivers/infiniband/hw/hns/hns_roce_cmd.c           |  371 +++
->  drivers/infiniband/hw/hns/hns_roce_cmd.h           |   80 +
->  drivers/infiniband/hw/hns/hns_roce_common.h        |  325 +++
->  drivers/infiniband/hw/hns/hns_roce_cq.c            |  446 ++++
->  drivers/infiniband/hw/hns/hns_roce_device.h        |  734 ++++++
->  drivers/infiniband/hw/hns/hns_roce_eq.c            |  762 ++++++
->  drivers/infiniband/hw/hns/hns_roce_eq.h            |  130 +
->  drivers/infiniband/hw/hns/hns_roce_hem.c           |  476 ++++
->  drivers/infiniband/hw/hns/hns_roce_hem.h           |  131 +
->  drivers/infiniband/hw/hns/hns_roce_hw_v1.c         | 2781 ++++++++++=
-++++++++++
->  drivers/infiniband/hw/hns/hns_roce_hw_v1.h         |  981 +++++++
->  drivers/infiniband/hw/hns/hns_roce_main.c          | 1059 ++++++++
->  drivers/infiniband/hw/hns/hns_roce_mr.c            |  614 +++++
->  drivers/infiniband/hw/hns/hns_roce_pd.c            |  144 +
->  drivers/infiniband/hw/hns/hns_roce_qp.c            |  855 ++++++
->  drivers/infiniband/hw/hns/hns_roce_user.h          |   53 +
->  drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.c |   84 +
->  drivers/net/ethernet/hisilicon/hns/hns_dsaf_main.h |   30 +
->  drivers/net/ethernet/hisilicon/hns/hns_dsaf_misc.c |   36 +
->  drivers/net/ethernet/hisilicon/hns/hns_dsaf_reg.h  |   15 +-
->  28 files changed, 10626 insertions(+), 1 deletion(-)
->  create mode 100644 Documentation/devicetree/bindings/infiniband/hisi=
-licon-hns-roce.txt
->  create mode 100644 drivers/infiniband/hw/hns/Kconfig
->  create mode 100644 drivers/infiniband/hw/hns/Makefile
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_ah.c
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_alloc.c
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_cmd.c
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_cmd.h
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_common.h
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_cq.c
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_device.h
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_eq.c
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_eq.h
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_hem.c
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_hem.h
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_hw_v1.c
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_hw_v1.h
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_main.c
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_mr.c
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_pd.c
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_qp.c
->  create mode 100644 drivers/infiniband/hw/hns/hns_roce_user.h
->=20
-Hi, Doug
-We have modified Patch v10 to Patch v11 according to all the reviews fr=
-om Leon Romanovsky, and Patch v11 has been upstreamed,
-hopefully, there will be more reviews.
-Best Regards,
-
-Lijun Ou
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+SGkgQXJuZCwNCg0KDQo+IC0tLS0tT3JpZ2luYWwgTWVzc2FnZS0tLS0tDQo+IEZyb206IEFybmQg
+QmVyZ21hbm4gW21haWx0bzphcm5kQGFybmRiLmRlXQ0KPiBTZW50OiBUaHVyc2RheSwgSnVseSAw
+NywgMjAxNiA0OjMwIFBNDQo+IFRvOiBZYW5nYm8gTHUNCj4gQ2M6IFNjb3R0IFdvb2Q7IGxpbnV4
+cHBjLWRldkBsaXN0cy5vemxhYnMub3JnOyBNYXJrIFJ1dGxhbmQ7IFVsZiBIYW5zc29uOw0KPiBs
+aW51eC1rZXJuZWxAdmdlci5rZXJuZWwub3JnOyBsaW51eC1pMmNAdmdlci5rZXJuZWwub3JnOyBs
+aW51eC0NCj4gY2xrQHZnZXIua2VybmVsLm9yZzsgUWlhbmcgWmhhbzsgUnVzc2VsbCBLaW5nOyBC
+aHVwZXNoIFNoYXJtYTsgSm9lcmcNCj4gUm9lZGVsOyBDbGF1ZGl1IE1hbm9pbDsgZGV2aWNldHJl
+ZUB2Z2VyLmtlcm5lbC5vcmc7IEt1bWFyIEdhbGE7IFJvYg0KPiBIZXJyaW5nOyBTYW50b3NoIFNo
+aWxpbWthcjsgbGludXgtYXJtLWtlcm5lbEBsaXN0cy5pbmZyYWRlYWQub3JnOw0KPiBuZXRkZXZA
+dmdlci5rZXJuZWwub3JnOyBsaW51eC1tbWNAdmdlci5rZXJuZWwub3JnOyBYaWFvYm8gWGllOyBZ
+YW5nLUxlbw0KPiBMaTsgaW9tbXVAbGlzdHMubGludXgtZm91bmRhdGlvbi5vcmcNCj4gU3ViamVj
+dDogUmU6IFtQQVRDSCAyLzRdIHNvYzogZnNsOiBhZGQgR1VUUyBkcml2ZXIgZm9yIFFvcklRIHBs
+YXRmb3Jtcw0KPiANCj4gT24gVGh1cnNkYXksIEp1bHkgNywgMjAxNiAyOjM1OjMzIEFNIENFU1Qg
+WWFuZ2JvIEx1IHdyb3RlOg0KPiA+IEhpIEFybmQsDQo+ID4NCj4gPiBDb3VsZCB5b3UgcmVwbHkg
+d2hlbiB5b3Ugc2VlIHRoZSBlbWFpbD8NCj4gPiBJZiB5b3VyIG1ldGhvZCBkb2VzbuKAmXQgcmVz
+b2x2ZSB0aGUgcHJvYmxlbSwgd2Ugc3RpbGwgd2FudCB0byB1c2Ugb3VyDQo+IG9sZCBwYXRjaHNl
+dC4NCj4gPg0KPiA+IFRoaXMgZ3V0cyBkcml2ZXIgaGFkIGJlZW4gZGlzY3Vzc2VkIGFib3V0IG9u
+ZSB5ZWFyIGFuZCBibG9ja2VkIG1hbnkNCj4gd29ya2Fyb3VuZCB1cHN0cmVhbS4NCj4gPiBTbyBw
+bGVhc2UgaGVscCB0byByZXZpZXcgYW5kIGNvbW1lbnQgc29vbi4NCj4gPg0KPiANCj4gSSBkb24n
+dCByZWFsbHkgc2VlIGhvdyBtb3JlIGRpc2N1c3Npb24gaXMgZ29pbmcgdG8gaGVscCB1cyBoZXJl
+LiBJIHRoaW5rDQo+IEkndmUgbWFkZSBpdCBwcmV0dHkgY2xlYXIgdGhhdCBJIGRvbid0IHdhbnQg
+dG8gc2VlIGFub3RoZXIgcGxhdGZvcm0NCj4gc3BlY2lmaWMgd2F5IHRvIHJlYWQgYW4gU29DIHJl
+dmlzaW9uIGFuZCBJJ3ZlIGV2ZW4gc2VudCBhIHByb29mLW9mLQ0KPiBjb25jZXB0IHBhdGNoIHRv
+IHNob3cgaG93IHRoZSBpbnRlcmZhY2UgY2FuIHdvcmssIG5vdyBpdCdzIHVwIHRvIHlvdSB0bw0K
+PiBmaXQgdGhlIGd1dHMgaGFyZHdhcmUgaW50byB0aGF0IGFuZCBzZW5kIGEgbmV3IHBhdGNoIHNl
+cmllcy4NCj4gDQo+IAlBcm5kDQoNCkkgdGhpbmsgeW91ciBwcm9vZi1vZi1jb25jZXB0IHBhdGNo
+IGlzIHN0aWxsIGluIGRpc2N1c3Npb24uIFNvbWUgYW5zd2VycyBhcmUgbmVlZGVkIGZyb20geW91
+IHRvDQphZGRyZXNzIFNjb3R0J3MgY29tbWVudHMgb24geW91ciBwYXRjaHNldC4gSGF2ZSB5b3Ug
+cmVhY2hlZCBhbiBhZ3JlZW1lbnQ/DQoNClRoYW5rcy4NCg0KLSBZYW5nYm8gTHUNCg0KDQoNCl9f
+X19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fCmlvbW11IG1haWxp
+bmcgbGlzdAppb21tdUBsaXN0cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxp
+bnV4Zm91bmRhdGlvbi5vcmcvbWFpbG1hbi9saXN0aW5mby9pb21tdQ==
