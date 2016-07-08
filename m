@@ -1,49 +1,43 @@
-From: Loganaden Velvindron <loganaden@gmail.com>
-Subject: Re: ipv6 issues after an DDoS for kernel 4.6.3
-Date: Fri, 8 Jul 2016 18:17:57 +0400
-Message-ID: <CAOp4FwTgvOP504nmRVejZzqYia2Z=WdGa2Fd7e4TZ0hc7YfHcA@mail.gmail.com>
-References: <577FAFFD.2020306@gmx.de> <1467987260.30694.2.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
+Subject: Re: Resurrecting due to huge ipoib perf regression - [BUG] skb
+ corruption and kernel panic at forwarding with fragmentation
+Date: Fri, 8 Jul 2016 07:18:11 -0700
+Message-ID: <CAL1RGDWbUCi8OT1yGw7mhV9ivpmBqXa4jZ4Lp4op=L5ODK+r3w@mail.gmail.com>
+References: <CAL1RGDV3u4bzuyGkMZGJQOiXje_qVh7AA-2nJMm2J2TR60H72g@mail.gmail.com>
+ <CAKgT0UerNfn9Uas34y6_+Fa4ALCcToQvNdbEkH1erVosa=xvXg@mail.gmail.com>
+ <CAL1RGDVgjRcb23jQQqJ4W-dfm8OkiH6n7hktVLX4mo-oUGj4gA@mail.gmail.com> <20160707231423.GA21039@obsidianresearch.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: =?UTF-8?Q?Toralf_F=C3=B6rster?= <toralf.foerster@gmx.de>,
-	netdev <netdev@vger.kernel.org>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33765 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754807AbcGHOR6 convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 10:17:58 -0400
-Received: by mail-pa0-f66.google.com with SMTP id ts6so7330921pac.0
-        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 07:17:58 -0700 (PDT)
-In-Reply-To: <1467987260.30694.2.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
+	Thadeu Lima de Souza Cascardo <cascardo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
+	Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
+	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160707231423.GA21039-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 8, 2016 at 6:14 PM, Eric Dumazet <eric.dumazet@gmail.com> w=
-rote:
-> On Fri, 2016-07-08 at 15:51 +0200, Toralf F=C3=B6rster wrote:
->> I do run a 4.6.3 hardened Gentoo kernel at a commodity i7 server. A
->> DDoS with about 300 MBit/sec over 5 mins resulted an issue for ipv6 =
-at
->> that system.
->>
->> The IPv6 monitoring from my ISP told my that the to be monitored
->> services (80, 443, 52222) weren't reachable any longer at ipv6 (at
->> ipv4 there was no issue). Restarting the NIC brought back green ligh=
-ts
->> for the services at the ipv6 ports too.
+On Thu, Jul 7, 2016 at 4:14 PM, Jason Gunthorpe
+<jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote:
+> We have neighbour_priv, and ndo_neigh_construct/destruct now ..
 >
-> Hard to tell without knowing DDOS details, but IPv6 lacks some
-> scalability improvements found in IPv4.
->
-> IPv4 no longer has a routing cache, but IPv6 still has one.
->
+> A first blush that would seem to be enough to let ipoib store the AH
+> and other path information in the neigh and avoid the cb? At least the
+> example in clip sure looks like what ipoib needs to do.
 
-Any pointers as to which part of the kernel to look for to implement
-one for IPv6 ?
+Do you think those new facilities let us go back to using the neigh
+and still avoid the issues that led to commit b63b70d87741 ("IPoIB:
+Use a private hash table for path lookup in xmit path")?
 
-
-> Are you sure conntrack is needed at all ?
->
->
+ - R.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
