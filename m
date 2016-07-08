@@ -1,49 +1,69 @@
-From: Alexei Starovoitov via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: XDP seeking input from NIC hardware vendors
-Date: Thu, 7 Jul 2016 19:22:12 -0700
-Message-ID: <20160708022210.GA12244@ast-mbp.thefacebook.com>
-References: <20160707124245.6d95635a@redhat.com>
-	<D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81@fmsmsx115.amr.corp.intel.com>
-Reply-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: Re: [RFC 5/7] net: Add allocation flag to rtnl_unicast()
+Date: Fri, 08 Jul 2016 04:56:31 +0200
+Message-ID: <1467946591.1273.45.camel@edumazet-glaptop3.roam.corp.google.com>
+References: <1467764916-4983-1-git-send-email-masashi.honma@gmail.com>
+	 <1467764916-4983-6-git-send-email-masashi.honma@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
+Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
-	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
-To: "Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81-5FK+k9557ZBqS6EAlXoojrfspsVTdybXVpNB7YpNyf8@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	linux-wireless@vger.kernel.org, linux-rdma@vger.kernel.org,
+	linux-audit@redhat.com, cluster-devel@redhat.com,
+	davem@davemloft.net, johannes@sipsolutions.net,
+	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
+	dledford@redhat.com, sean.hefty@intel.com,
+	hal.rosenstock@gmail.com, paul@paul-moore.com, eparis@redhat.com,
+	zbr@ioremap.net, pshelar@nicira.com, ccaulfie@redhat.com,
+	teigland@redhat.com, bsingharora@gmail.com
+To: Masashi Honma <masashi.honma@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35125 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753487AbcGHC4k (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 22:56:40 -0400
+In-Reply-To: <1467764916-4983-6-git-send-email-masashi.honma@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 07, 2016 at 03:18:11PM +0000, Fastabend, John R wrote:
-> Hi Jesper,
-> 
-> I have done some previous work on proprietary systems where we used hardware to do the classification/parsing then passed a cookie to the software which used the cookie to lookup a program to run on the packet. When your programs are structured as a bunch of parsing followed by some actions this can provide real performance benefits. Also a lot of existing hardware supports this today assuming you use headers the hardware "knows" about. It's a natural model for hardware that uses a parser followed by tcam/cam/sram/etc lookup tables.
+On Wed, 2016-07-06 at 09:28 +0900, Masashi Honma wrote:
+> Signed-off-by: Masashi Honma <masashi.honma@gmail.com>
+> ---
 
-looking at bpf programs written in plumgrid, facebook and cisco
-with full certainty I can assure that parse/action split doesn't exist.
-Parsing is always interleaved with lookups and actions.
-cpu spends a tiny fraction of time doing parsing. Lookups are the heaviest.
-Trying to split single logical program into parsing/after_parse stages
-has no pracitcal benefit.
 
-> If the goal is to just separate XDP traffic from non-XDP traffic you could accomplish this with a combination of SR-IOV/macvlan to separate the device queues into multiple netdevs and then run XDP on just one of the netdevs. Then use flow director (ethtool) or 'tc cls_u32/flower' to steer traffic to the netdev. This is how we support multiple networking stacks on one device by the way it is called the bifurcated driver. Its not too far of a stretch to think we could offload some simple XDP programs to program the splitting of traffic instead of cls_u32/flower/flow_director and then you would have a stack of XDP programs. One running in hardware and a set running on the queues in software.
+> diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+> index a1f6b7b..2b0b994 100644
+> --- a/net/ipv6/addrconf.c
+> +++ b/net/ipv6/addrconf.c
+> @@ -628,7 +628,7 @@ static int inet6_netconf_get_devconf(struct sk_buff *in_skb,
+>  		kfree_skb(skb);
+>  		goto errout;
+>  	}
+> -	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
+> +	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid, GFP_ATOMIC);
+>  errout:
+>  	return err;
+>  }
+> @@ -4824,7 +4824,7 @@ static int inet6_rtm_getaddr(struct sk_buff *in_skb, struct nlmsghdr *nlh)
+>  		kfree_skb(skb);
+>  		goto errout_ifa;
+>  	}
+> -	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid);
+> +	err = rtnl_unicast(skb, net, NETLINK_CB(in_skb).portid, GFP_KERNEL);
+>  errout_ifa:
+>  	in6_ifa_put(ifa);
+>  errout:
 
-the above sounds like much better approach then Jesper/mine prog_per_ring stuff.
-If we can split the nic via sriov and have dedicated netdev via VF just for XDP that's way cleaner approach.
-I guess we won't need to do xdp_rxqmask after all.
+
+Managing to mix GFP_ATOMIC and GFP_KERNEL almost randomly as you did in
+this patch is definitely not good.
+
+Further more, RTNL is a mutex, held in control path, designed to allow
+schedules and waiting for memory under pressure.
+
+We do not want to encourage GFP_ATOMIC usage in control path.
+
+Your patch series gives the wrong signal to developers.
+
+I will send a patch against net/ipv4/devinet.c so that we remove
+GFP_ATOMIC usage there.
