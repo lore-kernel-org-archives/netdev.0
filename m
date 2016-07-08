@@ -1,63 +1,88 @@
-From: Michal Kubecek <mkubecek@suse.cz>
-Subject: [PATCH net] udp: prevent bugcheck if filter truncates packet too much
-Date: Fri,  8 Jul 2016 17:52:33 +0200 (CEST)
-Message-ID: <20160708155233.C78AAA0ECC@unicorn.suse.cz>
-Cc: samanthakumar <samanthakumar@google.com>,
-	Marco Grassi <marco.gra@gmail.com>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx2.suse.de ([195.135.220.15]:37047 "EHLO mx2.suse.de"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754881AbcGHQDr (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jul 2016 12:03:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jakub Kicinski via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: XDP seeking input from NIC hardware vendors
+Date: Fri, 8 Jul 2016 17:07:51 +0100
+Message-ID: <20160708170751.2eaae790@jkicinski-Precision-T1700>
+References: <20160707124245.6d95635a@redhat.com>
+	<D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81@fmsmsx115.amr.corp.intel.com>
+	<20160708022210.GA12244@ast-mbp.thefacebook.com>
+	<20160708144453.345b51e5@jkicinski-Precision-T1700>
+	<20160708171943.0e1ce8d7@redhat.com>
+Reply-To: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	"Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
+To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <20160708171943.0e1ce8d7-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-If socket filter truncates an udp packet below the length of UDP header
-in udpv6_queue_rcv_skb() or udp_queue_rcv_skb(), it will trigger a
-BUG_ON in skb_pull_rcsum(). This BUG_ON (and therefore a system crash if
-kernel is configured that way) can be easily enforced by an unprivileged
-user which was reported as CVE-2016-6162. For a reproducer, see
-http://seclists.org/oss-sec/2016/q3/8
+On Fri, 8 Jul 2016 17:19:43 +0200, Jesper Dangaard Brouer wrote:
+> On Fri, 8 Jul 2016 14:44:53 +0100 Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org> wrote:
+> > On Thu, 7 Jul 2016 19:22:12 -0700, Alexei Starovoitov wrote:
+> > > > If the goal is to just separate XDP traffic from non-XDP traffic
+> > > > you could accomplish this with a combination of SR-IOV/macvlan to
+> > > > separate the device queues into multiple netdevs and then run XDP
+> > > > on just one of the netdevs. Then use flow director (ethtool) or
+> > > > 'tc cls_u32/flower' to steer traffic to the netdev. This is how
+> > > > we support multiple networking stacks on one device by the way it
+> > > > is called the bifurcated driver. Its not too far of a stretch to
+> > > > think we could offload some simple XDP programs to program the
+> > > > splitting of traffic instead of cls_u32/flower/flow_director and
+> > > > then you would have a stack of XDP programs. One running in
+> > > > hardware and a set running on the queues in software.      
+> > > 
+> > >
+> > > the above sounds like much better approach then Jesper/mine
+> > > prog_per_ring stuff.
+> > >
+> > > If we can split the nic via sriov and have dedicated netdev via VF
+> > > just for XDP that's way cleaner approach. I guess we won't need to
+> > > do xdp_rxqmask after all.    
+> > 
+> > +1
+> > 
+> > I was thinking about using eBPF to direct to NIC queues but concluded
+> > that doing a redirect to a VF is cleaner.  Especially if the PF driver
+> > supports VF representatives we could potentially just use
+> > bpf_redirect(VFR netdev) and the VF doesn't even have to be handled by
+> > the same stack.  
+> 
+> I actually disagree.
+> 
+> I _do_ want to use the "filter" part of eBPF to direct to NIC queues, and
+> then run a single/specific XDP program on that queue.
+> 
+> Why to I want this?
+> 
+> This part of solving a very fundamental CS problem (early demux), when
+> wanting to support Zero-copy on RX.  The basic problem that the NIC
+> driver need to map RX pages into the RX ring, prior to receiving
+> packets. Thus, we need HW support to steer packets, for gaining enough
+> isolation (e.g between tenants domains) for allowing zero-copy.
+> 
+> 
+> Based on the flexibility of the HW-filter, the granularity achievable
+> for isolation (e.g. application specific) is much more flexible.  Than
+> splitting up the entire NIC with SR-IOV, VFs or macvlans.
 
-Fixes: e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
-Reported-by: Marco Grassi <marco.gra@gmail.com>
-Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
----
- net/ipv4/udp.c | 2 ++
- net/ipv6/udp.c | 2 ++
- 2 files changed, 4 insertions(+)
-
-diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
-index ca5e8ea29538..4aed8fc23d32 100644
---- a/net/ipv4/udp.c
-+++ b/net/ipv4/udp.c
-@@ -1583,6 +1583,8 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 
- 	if (sk_filter(sk, skb))
- 		goto drop;
-+	if (unlikely(skb->len < sizeof(struct udphdr)))
-+		goto drop;
- 
- 	udp_csum_pull_header(skb);
- 	if (sk_rcvqueues_full(sk, sk->sk_rcvbuf)) {
-diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
-index 005dc82c2138..acc09705618b 100644
---- a/net/ipv6/udp.c
-+++ b/net/ipv6/udp.c
-@@ -620,6 +620,8 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
- 
- 	if (sk_filter(sk, skb))
- 		goto drop;
-+	if (unlikely(skb->len < sizeof(struct udphdr)))
-+		goto drop;
- 
- 	udp_csum_pull_header(skb);
- 	if (sk_rcvqueues_full(sk, sk->sk_rcvbuf)) {
--- 
-2.9.0
+I think of SR-IOV VFs a way of grouping queues.  If HW is capable of
+directing to a queue it's usually capable of directing to a VF as well.
+And the VF could have all other traffic disabled so you would get only
+packets directed to it by the (BPF) filter - same as you would for the
+queue.  Does that make sense for zero copy apps?
