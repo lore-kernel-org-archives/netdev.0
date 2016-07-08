@@ -1,28 +1,53 @@
-From: "flitkin13@gmail.com" <flitkin13@gmail.com>
-Subject: =?windows-1251?B?x+Tw4OLx8uLz6fLlISDC4PEg6O3y5fDl8fP+?=
-	=?windows-1251?B?8iDq6+jl7fLx6ujlIOHg5/sg5ODt7fv1PyDE?=
-	=?windows-1251?B?wCAtIM3F0iDv8Oj46+jy5SDt4CBlbWFpbDog?=
-	=?windows-1251?B?YWJ1cm92NTJAZ21haWwuY29tIFNreXBlOiBw?=
-	=?windows-1251?B?cm9kYXdlejM4OSDP8Oj46+XsIO/u5PDu4e3u?=
-	=?windows-1251?B?8fLoIQ==?=
-Date: Mon, 4 Jul 2016 17:07:52 +0600
-Message-ID: <E8ED5B0803D7F94A9693DA66723CD1E8@xmqerp>
-Reply-To: "flitkin13@gmail.com" <aburov52@gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	format=flowed;
-	charset="windows-1251";
-	reply-type=original
-Content-Transfer-Encoding: base64
-To: unlisted-recipients:; (no To-header on input)
+From: Simon Wunderlich <sw@simonwunderlich.de>
+Subject: [PATCH 1/7] batman-adv: Avoid nullptr dereference in bla after vlan_insert_tag
+Date: Fri,  8 Jul 2016 11:49:16 +0200
+Message-ID: <1467971362-3607-2-git-send-email-sw@simonwunderlich.de>
+References: <1467971362-3607-1-git-send-email-sw@simonwunderlich.de>
+Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
+	Sven Eckelmann <sven@narfation.org>,
+	Marek Lindner <mareklindner@neomailbox.ch>,
+	Simon Wunderlich <sw@simonwunderlich.de>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [222.211.65.72] ([222.211.65.72]:34512 "EHLO
-	gc03-000000-0007.localdomain" rhost-flags-FAIL-FAIL-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1751815AbcGHJpz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 05:45:55 -0400
+Received: from packetmixer.de ([79.140.42.25]:37086 "EHLO
+	mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754073AbcGHJte (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 05:49:34 -0400
+In-Reply-To: <1467971362-3607-1-git-send-email-sw@simonwunderlich.de>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-x+Tw4OLx8uLz6fLlISDC4PEg6O3y5fDl8fP+8iDq6+jl7fLx6ujlIOHg5/sg5ODt7fv1PyDEwCAt
-IM3F0iDv8Oj46+jy5SDt4CBlbWFpbDogYWJ1cm92NTJAZ21haWwuY29tIFNreXBlOiBwcm9kYXdl
-ejM4OSDP8Oj46+XsIO/u5PDu4e3u8fLoIQ0K
+From: Sven Eckelmann <sven@narfation.org>
+
+vlan_insert_tag can return NULL on errors. The bridge loop avoidance code
+therefore has to check the return value of vlan_insert_tag for NULL before
+it can safely operate on this pointer.
+
+Fixes: 23721387c409 ("batman-adv: add basic bridge loop avoidance code")
+Signed-off-by: Sven Eckelmann <sven@narfation.org>
+Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
+Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
+---
+ net/batman-adv/bridge_loop_avoidance.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/net/batman-adv/bridge_loop_avoidance.c b/net/batman-adv/bridge_loop_avoidance.c
+index 748a9ea..7129780 100644
+--- a/net/batman-adv/bridge_loop_avoidance.c
++++ b/net/batman-adv/bridge_loop_avoidance.c
+@@ -418,9 +418,12 @@ static void batadv_bla_send_claim(struct batadv_priv *bat_priv, u8 *mac,
+ 		break;
+ 	}
+ 
+-	if (vid & BATADV_VLAN_HAS_TAG)
++	if (vid & BATADV_VLAN_HAS_TAG) {
+ 		skb = vlan_insert_tag(skb, htons(ETH_P_8021Q),
+ 				      vid & VLAN_VID_MASK);
++		if (!skb)
++			goto out;
++	}
+ 
+ 	skb_reset_mac_header(skb);
+ 	skb->protocol = eth_type_trans(skb, soft_iface);
+-- 
+2.8.1
