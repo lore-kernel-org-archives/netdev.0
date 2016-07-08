@@ -1,55 +1,88 @@
-From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: [PATCH 1/2] ARM: dts: NSP: Add Switch Register Access Block node
-Date: Fri,  8 Jul 2016 11:49:28 -0700
-Message-ID: <1468003769-26959-2-git-send-email-f.fainelli@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: [PATCH 2/2] ARM: dts: NSP: Add BCM958625HR switch ports
+Date: Fri,  8 Jul 2016 11:49:29 -0700
+Message-ID: <1468003769-26959-3-git-send-email-f.fainelli@gmail.com>
 References: <1468003769-26959-1-git-send-email-f.fainelli@gmail.com>
-Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
-	jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
-	vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
-	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
-	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <1468003769-26959-1-git-send-email-f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Cc: devicetree@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com,
+	jon.mason@broadcom.com, andrew@lunn.ch,
+	vivien.didelot@savoirfairelinux.com,
+	linux-arm-kernel@lists.infradead.org,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f68.google.com ([209.85.220.68]:34345 "EHLO
+	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756248AbcGHStf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 14:49:35 -0400
+In-Reply-To: <1468003769-26959-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Add the Switch Register Access Block node, this peripheral is identical
-to the BCM5301x Northstar SoC, but we utilize the SoC-wide
-"brcm,nsp-srab" compatible string to illustrate the integration
-difference here.
+Add the layout of the switch ports found on the BCM958625HR reference
+board. The CPU port is hooked up to the AMAC0 Ethernet controlelr
+adapter, so we also enable it.
 
-Signed-off-by: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
 ---
- arch/arm/boot/dts/bcm-nsp.dtsi | 11 +++++++++++
- 1 file changed, 11 insertions(+)
+ arch/arm/boot/dts/bcm958625hr.dts | 49 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 49 insertions(+)
 
-diff --git a/arch/arm/boot/dts/bcm-nsp.dtsi b/arch/arm/boot/dts/bcm-nsp.dtsi
-index 8d7b35a4b5f1..983fdba905e3 100644
---- a/arch/arm/boot/dts/bcm-nsp.dtsi
-+++ b/arch/arm/boot/dts/bcm-nsp.dtsi
-@@ -241,6 +241,17 @@
- 			clock-names = "apb_pclk";
- 		};
- 
-+		srab: srab@36000 {
-+			compatible = "brcm,nsp-srab";
-+			reg = <0x36000 0x1000>;
-+			#address-cells = <1>;
-+			#size-cells = <0>;
+diff --git a/arch/arm/boot/dts/bcm958625hr.dts b/arch/arm/boot/dts/bcm958625hr.dts
+index 03b8bbeb694f..4239e58cf97f 100644
+--- a/arch/arm/boot/dts/bcm958625hr.dts
++++ b/arch/arm/boot/dts/bcm958625hr.dts
+@@ -109,3 +109,52 @@
+ 		groups = "nand_grp";
+ 	};
+ };
 +
-+			status = "disabled";
++&amac0 {
++	status = "okay";
++};
 +
-+			/* ports are defined in board DTS */
++&srab {
++	compatible = "brcm,bcm58625-srab", "brcm,nsp-srab";
++	status = "okay";
++
++	ports {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@0 {
++			label = "port0";
++			reg = <0>;
 +		};
 +
- 		i2c0: i2c@38000 {
- 			compatible = "brcm,iproc-i2c";
- 			reg = <0x38000 0x50>;
++		port@1 {
++			label = "port1";
++			reg = <1>;
++		};
++
++		port@2 {
++			label = "port2";
++			reg = <2>;
++		};
++
++		port@3 {
++			label = "port3";
++			reg = <3>;
++		};
++
++		port@4 {
++			label = "port4";
++			reg = <4>;
++		};
++
++		port@5 {
++			ethernet = <&amac0>;
++			label = "cpu";
++			reg = <5>;
++			fixed-link {
++				speed = <1000>;
++				full-duplex;
++			};
++		};
++	};
++};
 -- 
 2.7.4
-
---
-To unsubscribe from this list: send the line "unsubscribe devicetree" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
