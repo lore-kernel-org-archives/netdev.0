@@ -1,42 +1,60 @@
-From: =?UTF-8?Q?Toralf_F=c3=b6rster?= <toralf.foerster@gmx.de>
-Subject: Re: ipv6 issues after an DDoS for kernel 4.6.3
-Date: Fri, 8 Jul 2016 17:03:51 +0200
-Message-ID: <577FC0D7.4000902@gmx.de>
-References: <577FAFFD.2020306@gmx.de>
- <1467987260.30694.2.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Subject: Re: [PATCH net-next 3/4] vxlan: remove gro_cell support
+Date: Fri, 8 Jul 2016 11:12:05 -0400
+Message-ID: <a7fd6676-4ba5-e1ec-7b57-9b4b7aee24be@stressinduktion.org>
+References: <cover.1467907022.git.pabeni@redhat.com>
+ <6f90239eb6ccb9145a886d4f01c6620c6d6ec87f.1467907022.git.pabeni@redhat.com>
+ <1467908002.1273.42.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Cc: netdev@vger.kernel.org, "David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@kernel.org>,
+	Tom Herbert <tom@herbertland.com>, Jiri Benc <jbenc@redhat.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>,
+	Paolo Abeni <pabeni@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mout.gmx.net ([212.227.15.18]:60920 "EHLO mout.gmx.net"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1754847AbcGHPEC (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Fri, 8 Jul 2016 11:04:02 -0400
-In-Reply-To: <1467987260.30694.2.camel@edumazet-glaptop3.roam.corp.google.com>
+Received: from out1-smtp.messagingengine.com ([66.111.4.25]:56317 "EHLO
+	out1-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1754863AbcGHPMH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 11:12:07 -0400
+In-Reply-To: <1467908002.1273.42.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/08/2016 04:14 PM, Eric Dumazet wrote:
-> Hard to tell without knowing DDOS details, but IPv6 lacks some
-> scalability improvements found in IPv4.
+Hi Eric,
 
-Well, not too much I got from my ISP :
+On 07.07.2016 12:13, Eric Dumazet wrote:
+> On Thu, 2016-07-07 at 17:58 +0200, Paolo Abeni wrote:
+>> GRO is now handled entirely by the udp_offload layer and  there is no need
+>> for trying it again at the device level. We can drop gro_cell usage,
+>> simplifying the driver a bit, while maintaining the same performance for
+>> TCP and improving slightly for UDP.
+>> This basically reverts the commit 58ce31cca1ff ("vxlan: GRO support
+>> at tunnel layer")
+> 
+> Note that gro_cells provide GRO support after RPS, so this helps when we
+> must perform TCP checksum computation, if NIC lacks CHECKSUM_COMPLETE
+> 
+> (Say we receive packets all steered to a single RX queue due to RSS hash
+> being computed on outer header only)
+> 
+> Some people disable GRO on the physical device, but enable GRO on the
+> tunnels.
 
-On 07 Jul 15:42, flow-save@traffic1.core.hetzner.de wrote:
-> Direction IN
-> Internal 5.9.158.75
-> Threshold Packets 300.000 packets/s
-> Sum 100.982.000 packets/300s (336.606 packets/s), 100.769 flows/300s (335 flows/s), 6,093 GByte/300s (166 MBit/s)
-> External 84.1.57.68, 824.000 packets/300s (2.746 packets/s), 823 flows/300s (2 flows/s), 0,046 GByte/300s (1 MBit/s)
-> External 78.189.187.159, 748.000 packets/300s (2.493 packets/s), 748 flows/300s (2 flows/s), 0,042 GByte/300s (1 MBit/s)
-> External 85.105.165.143, 725.000 packets/300s (2.416 packets/s), 725 flows/300s (2 flows/s), 0,041 GByte/300s (1 MBit/s)
-> External 88.250.158.160, 715.000 packets/300s (2.383 packets/s), 715 flows/300s (2 flows/s), 0,040 GByte/300s (1 MBit/s)
-> External 88.248.51.37, 714.000 packets/300s (2.380 packets/s), 714 flows/300s (2 flows/s), 0,040 GByte/300s (1 MBit/s)
-> External 78.186.151.2, 708.000 packets/300s (2.360 packets/s), 708 flows/300s (2 flows/s), 0,040 GByte/300s (1 MBit/s)
+we are currently discussing your feedback and wonder how much it makes
+sense to support such a scenario?
 
+We have part of the inner hash in the outer UDP source port. So even the
+outer hash does provide enough entropy to get frames of one tunnel on
+multiple CPUs via hardware hashing - given that you don't care about OoO
+for UDP (I infer that from the fact that RPS will also reorder UDP
+frames in case of fragmentation).
 
--- 
-Toralf
-PGP: C4EACDDE 0076E94E, OTR: 420E74C8 30246EE7
+I wonder why it makes sense to still take single RX queue nics into
+consideration? We already provide support for multiqueue devices for
+most VM-related interfaces as well. Can you describe why someone would
+do such a scenario?
+
+Thank you,
+Hannes
