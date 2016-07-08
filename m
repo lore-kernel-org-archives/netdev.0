@@ -1,48 +1,37 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH net-next 0/2] net: dsa: b53: Add Broadcom NSP switch support
-Date: Fri,  8 Jul 2016 11:39:11 -0700
-Message-ID: <1468003153-14026-1-git-send-email-f.fainelli@gmail.com>
-Cc: davem@davemloft.net, jon.mason@broadcom.com, andrew@lunn.ch,
-	zajec5@gmail.com, vivien.didelot@savoirfairelinux.com,
-	bcm-kernel-feedback-list@broadcom.com,
-	Florian Fainelli <f.fainelli@gmail.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f66.google.com ([209.85.220.66]:33304 "EHLO
-	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755954AbcGHSkT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 14:40:19 -0400
-Received: by mail-pa0-f66.google.com with SMTP id ts6so8669214pac.0
-        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 11:39:53 -0700 (PDT)
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH 0/2] ARM: dts: NSP: Add built-in Ethernet switch nodes
+Date: Fri,  8 Jul 2016 11:48:50 -0700
+Message-ID: <1468003735-26895-1-git-send-email-f.fainelli@gmail.com>
+Cc: devicetree-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, bcm-kernel-feedback-list-dY08KVG/lbpWk0Htik3J/w@public.gmane.org,
+	jon.mason-dY08KVG/lbpWk0Htik3J/w@public.gmane.org, andrew-g2DYL2Zd6BY@public.gmane.org,
+	vivien.didelot-4ysUXcep3aM1wj+D4I0NRVaTQe2KTcn/@public.gmane.org,
+	linux-arm-kernel-IAPFreCvJWM7uuMidbF8XUB+6BGkLq7r@public.gmane.org,
+	Florian Fainelli <f.fainelli-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: devicetree-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Hi all,
+This patch series is based on Broadcom/stblinux/devicetree/next which
+contains proper support for the BCM958625HR board. To get working
+Ethernet switch and CPU Ethernet support, the following dependencies
+based on David Miller's net-next tree are required:
 
-This patch series updates the B53 driver to support Broadcom's Northstar Plus
-Soc integrated switch.
-
-Unlike the version of the core present in BCM5301x/Northstar, we cannot read the
-full chip id of the switch, so we need to get the information about our switch
-id from Device Tree.
-
-Other than that, this is a regular Broadcom Ethernet switch which is register
-compatible for all practical purposes with the existing switch driver.
-
-Since DSA requires a working CPU Ethernet MAC driver this depends on Jon
-Mason's AMAC/BGMAC driver changes to support NSP. Board specific changes depend
-on patches present in Broadcom's ARM SoC branches and will be posted in a short
-while.
+- Jon Mason's BGMAC/AMAC support: https://marc.info/?t=146793308300002&r=1&w=3
+- dsa/b53 support for NSP switch: https://marc.info/?l=linux-netdev&m=146800324531914&w=3
 
 Florian Fainelli (2):
-  net: dsa: b53: Allow SRAB driver to specify platform data
-  net: dsa: b53: Add support for BCM585xx/586xx/88312 integrated switch
+  ARM: dts: NSP: Add Switch Register Access Block node
+  ARM: dts: NSP: Add BCM958625HR switch ports
 
- Documentation/devicetree/bindings/net/dsa/b53.txt |  9 +++++
- drivers/net/dsa/b53/b53_common.c                  | 12 ++++++
- drivers/net/dsa/b53/b53_priv.h                    |  1 +
- drivers/net/dsa/b53/b53_srab.c                    | 47 ++++++++++++++++++-----
- 4 files changed, 59 insertions(+), 10 deletions(-)
+ arch/arm/boot/dts/bcm-nsp.dtsi    | 11 +++++++++
+ arch/arm/boot/dts/bcm958625hr.dts | 49 +++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 60 insertions(+)
 
 -- 
 2.7.4
+
+--
+To unsubscribe from this list: send the line "unsubscribe devicetree" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
