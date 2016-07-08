@@ -1,78 +1,167 @@
-From: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-Subject: Re: [iproute PATCH 0/2] Netns performance improvements
-Date: Fri, 8 Jul 2016 10:01:13 +0200
-Message-ID: <577F5DC9.7020303@6wind.com>
-References: <1467729773-16751-1-git-send-email-phil@nwl.cc>
- <87twg4ywjz.fsf@x220.int.ebiederm.org> <20160705205103.GE620@orbyte.nwl.cc>
- <87h9c259ip.fsf@x220.int.ebiederm.org> <20160707111718.GL620@orbyte.nwl.cc>
- <577E5244.8030601@6wind.com> <20160707154809.GN620@orbyte.nwl.cc>
- <577E8054.6040603@hpe.com>
-Reply-To: nicolas.dichtel@6wind.com
+From: Dexuan Cui <decui@microsoft.com>
+Subject: RE: [PATCH v15 net-next 1/1] hv_sock: introduce Hyper-V Sockets
+Date: Fri, 8 Jul 2016 07:54:10 +0000
+Message-ID: <CO2PR03MB2182B5C68BC4D2F316017F01BF3C0@CO2PR03MB2182.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: Rick Jones <rick.jones2@hpe.com>, Phil Sutter <phil@nwl.cc>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Stephen Hemminger <shemming@brocade.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f45.google.com ([74.125.82.45]:37562 "EHLO
-	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750714AbcGHIBQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 04:01:16 -0400
-Received: by mail-wm0-f45.google.com with SMTP id k123so7592764wme.0
-        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 01:01:15 -0700 (PDT)
-In-Reply-To: <577E8054.6040603@hpe.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="_002_CO2PR03MB2182B5C68BC4D2F316017F01BF3C0CO2PR03MB2182namp_"
+Cc: Haiyang Zhang <haiyangz@microsoft.com>, Dave Scott <dave.scott@docker.com>
+To: "davem@davemloft.net" <davem@davemloft.net>, "gregkh@linuxfoundation.org"
+ <gregkh@linuxfoundation.org>, "netdev@vger.kernel.org"
+ <netdev@vger.kernel.org>, "linux-kernel@vger.kernel.org"
+ <linux-kernel@vger.kernel.org>, "devel@linuxdriverproject.org"
+ <devel@linuxdriverproject.org>, "olaf@aepfle.de" <olaf@aepfle.de>,
+ "apw@canonical.com" <apw@canonical.com>, "jasowang@redhat.com"
+ <jasowang@redhat.com>, Vitaly Kuznetsov <vkuznets@redhat.com>, Cathy Avery
+ <cavery@redhat.com>, KY Srinivasan <kys@microsoft.com>, "joe@perches.com"
+ <joe@perches.com>, Rolf Neugebauer <rolf.neugebauer@docker.com>
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+Content-Language: en-US
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
+List-Id: netdev.vger.kernel.org
 
-Le 07/07/2016 18:16, Rick Jones a =C3=A9crit :
-> On 07/07/2016 08:48 AM, Phil Sutter wrote:
->> On Thu, Jul 07, 2016 at 02:59:48PM +0200, Nicolas Dichtel wrote:
->>> Le 07/07/2016 13:17, Phil Sutter a =C3=A9crit :
->>> [snip]
->>>> The issue came up during OpenStack Neutron testing, see this ticke=
-t for
->>>> reference:
->>>>
->>>> https://bugzilla.redhat.com/show_bug.cgi?id=3D1310795
->>> Access to this ticket is not public :(
->>
->> *Sigh* OK, here are a few quotes:
->>
->> "OpenStack Neutron controller nodes, when undergoing testing, are
->> locking up specifically during creation and mounting of namespaces.
->> They appear to be blocking behind vfsmount_lock, and contention for =
-the
->> namespace_sem"
->>
->> "During the scale testing, we have 300 routers, 600 dhcp namespaces
->> spread across four neutron network nodes. When then start as one set=
- of
->> standard Openstack Rally benchmark test cycle against neutron. An
->> example scenario is creating 10x networks, list them, delete them an=
-d
->> repeat 10x times. The second set performs an L3 benchmark test betwe=
-en
->> two instances."
->>
->=20
-> Those 300 routers will each have at least one namespace along with th=
-e dhcp
-> namespaces.  Depending on the nature of the routers (Distributed vers=
-us
-> Centralized Virtual Routers - DVR vs CVR) and whether the routers are=
- supposed
-> to be "HA" there can be more than one namespace for a given router.
->=20
-> 300 routers is far from the upper limit/goal.  Back in HP Public Clou=
-d, we were
-> running as many as 700 routers per network node (*), and more than fo=
-ur network
-> nodes. (back then it was just the one namespace per router and networ=
-k). Mileage
-> will of course vary based on the "oomph" of one's network node(s).
-Thank you for the details.
+--_002_CO2PR03MB2182B5C68BC4D2F316017F01BF3C0CO2PR03MB2182namp_
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: quoted-printable
 
-Do you have a script or something else to easily reproduce this problem=
-?
+> From: Dexuan Cui
+> Sent: Friday, July 8, 2016 15:47
+>=20
+> You can also get the patch here (2764221d):
+> https://github.com/dcui/linux/commits/decui/hv_sock/net-next/20160708_v15
+>=20
+> In v14:
+> fix some coding style issues pointed out by David.
+>=20
+> In v15:
+> Just some stylistic changes addressing comments from Joe Perches and
+> Olaf Hering -- thank you!
+> - add a GPL blurb.
+> - define a new macro PAGE_SIZE_4K and use it to replace PAGE_SIZE
+> - change sk_to_hvsock/hvsock_to_sk() from macros to inline functions
+> - remove a not-very-useful pr_err()
+> - fix some typos in comment and coding style issues.
+
+FYI: the diff between v14 and v15 is attached: the diff is generated by=20
+git-diff-ing the 2 branches decui/hv_sock/net-next/20160629_v14 and=20
+decui/hv_sock/net-next/20160708_v15 in the above github repo.
+=20
+Thanks,
+-- Dexuan
+
+--_002_CO2PR03MB2182B5C68BC4D2F316017F01BF3C0CO2PR03MB2182namp_
+Content-Type: application/octet-stream; name="delta_v14_vs.v15.patch"
+Content-Description: delta_v14_vs.v15.patch
+Content-Disposition: attachment; filename="delta_v14_vs.v15.patch"; size=4954;
+	creation-date="Fri, 08 Jul 2016 07:37:53 GMT";
+	modification-date="Fri, 08 Jul 2016 07:37:53 GMT"
+Content-Transfer-Encoding: base64
+
+ZGlmZiAtLWdpdCBhL2luY2x1ZGUvbmV0L2FmX2h2c29jay5oIGIvaW5jbHVkZS9uZXQvYWZfaHZz
+b2NrLmgKaW5kZXggMjBkMjNkNS4uZTdhOGEzYSAxMDA2NDQKLS0tIGEvaW5jbHVkZS9uZXQvYWZf
+aHZzb2NrLmgKKysrIGIvaW5jbHVkZS9uZXQvYWZfaHZzb2NrLmgKQEAgLTUsMzAgKzUsMzkgQEAK
+ICNpbmNsdWRlIDxsaW51eC9oeXBlcnYuaD4KICNpbmNsdWRlIDxuZXQvc29jay5oPgogCi0vKiBU
+aGUgaG9zdCBzaWRlJ3MgZGVzaWduIG9mIHRoZSBmZWF0dXJlIHJlcXVpcmVzIDUgZXhhY3QgcGFn
+ZXMgZm9yIHJlY3Yvc2VuZAotICogcmluZ3MgcmVzcGVjdGl2ZWx5IC0tIHRoaXMgaXMgc3Vib3B0
+aW1hbCBjb25zaWRlcmluZyBtZW1vcnkgY29uc3VtcHRpb24sCi0gKiBob3dldmVyIHVubHVja2ls
+eSB3ZSBoYXZlIHRvIGxpdmUgd2l0aCBpdCwgYmVmb3JlIHRoZSBob3N0IGNvbWVzIHVwIHdpdGgK
+LSAqIGEgYmV0dGVyIG5ldyBkZXNpZ24gaW4gdGhlIGZ1dHVyZS4KKy8qIFRoZSBob3N0IHNpZGUn
+cyBkZXNpZ24gb2YgdGhlIGZlYXR1cmUgcmVxdWlyZXMgNSBleGFjdCA0S0IgcGFnZXMgZm9yCisg
+KiByZWN2L3NlbmQgcmluZ3MgcmVzcGVjdGl2ZWx5IC0tIHRoaXMgaXMgc3Vib3B0aW1hbCBjb25z
+aWRlcmluZyBtZW1vcnkKKyAqIGNvbnN1bXB0aW9uLCBob3dldmVyIHVubHVja2lseSB3ZSBoYXZl
+IHRvIGxpdmUgd2l0aCBpdCwgYmVmb3JlIHRoZQorICogaG9zdCBjb21lcyB1cCB3aXRoIGEgYmV0
+dGVyIGRlc2lnbiBpbiB0aGUgZnV0dXJlLgogICovCi0jZGVmaW5lIFJJTkdCVUZGRVJfSFZTT0NL
+X1JDVl9TSVpFIChQQUdFX1NJWkUgKiA1KQotI2RlZmluZSBSSU5HQlVGRkVSX0hWU09DS19TTkRf
+U0laRSAoUEFHRV9TSVpFICogNSkKKyNkZWZpbmUgUEFHRV9TSVpFXzRLCQk0MDk2CisjZGVmaW5l
+IFJJTkdCVUZGRVJfSFZTT0NLX1JDVl9TSVpFIChQQUdFX1NJWkVfNEsgKiA1KQorI2RlZmluZSBS
+SU5HQlVGRkVSX0hWU09DS19TTkRfU0laRSAoUEFHRV9TSVpFXzRLICogNSkKIAotI2RlZmluZSBz
+a190b19odnNvY2soX19zaykgICAoKHN0cnVjdCBodnNvY2tfc29jayAqKShfX3NrKSkKLSNkZWZp
+bmUgaHZzb2NrX3RvX3NrKF9faHZzaykgKChzdHJ1Y3Qgc29jayAqKShfX2h2c2spKQotCi0vKiBU
+aGUgTVRVIGlzIDE2S0IgcGVyIHRoZSBob3N0IHNpZGUncyBkZXNpZ24uICovCisvKiBUaGUgTVRV
+IGlzIDE2S0IgcGVyIHRoZSBob3N0IHNpZGUncyBkZXNpZ24uCisgKiBJbiBmdXR1cmUsIHRoZSBi
+dWZmZXIgY2FuIGJlIGVsaW1pYXRlZCB3aGVuIHdlIHN3aXRjaCB0byB1c2UgdGhlIGNvbWluZwor
+ICogbmV3IFZNQnVzIHJpbmdidWZmZXIgImluLXBsYWNlIGNvbnN1bXB0aW9uIiBBUElzLCBieSB3
+aGljaCB3ZSBjYW4KKyAqIGRpcmVjdGx5IGNvcHkgZGF0YSBmcm9tIFZNQnVzIHJpbmdidWZmZXIg
+aW50byB0aGUgdXNlcnNwYWNlIGJ1ZmZlci4KKyAqLworI2RlZmluZSBIVlNPQ0tfTVRVX1NJWkUJ
+CSgxMDI0ICogMTYpCiBzdHJ1Y3QgaHZzb2NrX3JlY3ZfYnVmIHsKIAl1bnNpZ25lZCBpbnQgZGF0
+YV9sZW47CiAJdW5zaWduZWQgaW50IGRhdGFfb2Zmc2V0OwogCiAJc3RydWN0IHZtcGlwZV9wcm90
+b19oZWFkZXIgaGRyOwotCXU4IGJ1ZltQQUdFX1NJWkUgKiA0XTsKKwl1OCBidWZbSFZTT0NLX01U
+VV9TSVpFXTsKIH07CiAKLS8qIFdlIHNlbmQgYXQgbW9zdCA0S0IgcGF5bG9hZCBwZXIgVk1CdXMg
+cGFja2V0LiAqLworLyogSW4gdGhlIFZNLCBhY3R1YWxseSB3ZSBjYW4gc2VuZCB1cCB0byBIVlNP
+Q0tfTVRVX1NJWkUgYnl0ZXMgb2YgcGF5bG9hZCwKKyAqIGJ1dCBmb3Igbm93IGxldCdzIHVzZSBh
+IHNtYWxsZXIgc2l6ZSB0byBtaW5pbWl6ZSB0aGUgZHluYW1pY2FsbHktYWxsb2NhdGVkCisgKiBi
+dWZmZXIuIE5vdGU6IHRoZSBidWZmZXIgY2FuIGJlIGVsaW1pYXRlZCBpbiBmdXR1cmUgd2hlbiB3
+ZSBhZGQgbmV3IFZNQnVzCisgKiByaW5nYnVmZmVyIEFQSXMgdGhhdCBhbGxvdyB1cyB0byBkaXJl
+Y3RseSBjb3B5IGRhdGEgZnJvbSB1c2Vyc3BhY2UgYnVmIHRvCisgKiBWTUJ1cyByaW5nYnVmZmVy
+LgorICovCisjZGVmaW5lIEhWU09DS19NQVhfU05EX1NJWkVfQllfVk0gKDEwMjQgKiA0KQogc3Ry
+dWN0IGh2c29ja19zZW5kX2J1ZiB7CiAJc3RydWN0IHZtcGlwZV9wcm90b19oZWFkZXIgaGRyOwot
+CXU4IGJ1ZltQQUdFX1NJWkVdOworCXU4IGJ1ZltIVlNPQ0tfTUFYX1NORF9TSVpFX0JZX1ZNXTsK
+IH07CiAKIHN0cnVjdCBodnNvY2tfc29jayB7CkBAIC01Niw0ICs2NSwxNCBAQCBzdHJ1Y3QgaHZz
+b2NrX3NvY2sgewogCXN0cnVjdCBodnNvY2tfcmVjdl9idWYgKnJlY3Y7CiB9OwogCitzdGF0aWMg
+aW5saW5lIHN0cnVjdCBodnNvY2tfc29jayAqc2tfdG9faHZzb2NrKHN0cnVjdCBzb2NrICpzaykK
+K3sKKwlyZXR1cm4gKHN0cnVjdCBodnNvY2tfc29jayAqKXNrOworfQorCitzdGF0aWMgaW5saW5l
+IHN0cnVjdCBzb2NrICpodnNvY2tfdG9fc2soc3RydWN0IGh2c29ja19zb2NrICpodnNrKQorewor
+CXJldHVybiAoc3RydWN0IHNvY2sgKilodnNrOworfQorCiAjZW5kaWYgLyogX19BRl9IVlNPQ0tf
+SF9fICovCmRpZmYgLS1naXQgYS9pbmNsdWRlL3VhcGkvbGludXgvaHlwZXJ2LmggYi9pbmNsdWRl
+L3VhcGkvbGludXgvaHlwZXJ2LmgKaW5kZXggOTU1YTAwNC4uZDk0Mjk5NiAxMDA2NDQKLS0tIGEv
+aW5jbHVkZS91YXBpL2xpbnV4L2h5cGVydi5oCisrKyBiL2luY2x1ZGUvdWFwaS9saW51eC9oeXBl
+cnYuaApAQCAtMzk3LDcgKzM5Nyw3IEBAIHN0cnVjdCBodl9rdnBfaXBfbXNnIHsKIAlzdHJ1Y3Qg
+aHZfa3ZwX2lwYWRkcl92YWx1ZSAgICAgIGt2cF9pcF92YWw7CiB9IF9fYXR0cmlidXRlX18oKHBh
+Y2tlZCkpOwogCi0vKiBUaGlzIGlzIHRoZSBhZGRyZXNzIGZyb21hdCBvZiBIeXBlci1WIFNvY2tl
+dHMuCisvKiBUaGlzIGlzIHRoZSBhZGRyZXNzIGZvcm1hdCBvZiBIeXBlci1WIFNvY2tldHMuCiAg
+KiBOb3RlOiBoZXJlIHdlIGp1c3QgYm9ycm93IHRoZSBrZXJuZWwncyBidWlsdC1pbiB0eXBlIHV1
+aWRfbGUuIFdoZW4KICAqIGFuIGFwcGxpY2F0aW9uIGNhbGxzIGJpbmQoKSBvciBjb25uZWN0KCks
+IHRoZSAyIG1lbWJlcnMgb2Ygc3RydWN0CiAgKiBzb2NrYWRkcl9odiBtdXN0IGJlIG9mIEdVSUQu
+CmRpZmYgLS1naXQgYS9uZXQvaHZfc29jay9hZl9odnNvY2suYyBiL25ldC9odl9zb2NrL2FmX2h2
+c29jay5jCmluZGV4IGNmN2MzYmQuLmYzMzlmMzggMTAwNjQ0Ci0tLSBhL25ldC9odl9zb2NrL2Fm
+X2h2c29jay5jCisrKyBiL25ldC9odl9zb2NrL2FmX2h2c29jay5jCkBAIC0yLDcgKzIsOSBAQAog
+ICogSHlwZXItViBTb2NrZXRzIC0tIGEgc29ja2V0LWJhc2VkIGNvbW11bmljYXRpb24gY2hhbm5l
+bCBiZXR3ZWVuIHRoZQogICogSHlwZXItViBob3N0IGFuZCB0aGUgdmlydHVhbCBtYWNoaW5lcyBy
+dW5uaW5nIG9uIGl0LgogICoKLSAqIENvcHlyaWdodChjKSAyMDE2LCBNaWNyb3NvZnQgQ29ycG9y
+YXRpb24uIEFsbCByaWdodHMgcmVzZXJ2ZWQuCisgKiBDb3B5cmlnaHQgKGMpIDIwMTYgTWljcm9z
+b2Z0IENvcnBvcmF0aW9uLgorICoKKyAqIEFsbCByaWdodHMgcmVzZXJ2ZWQuCiAgKgogICogUmVk
+aXN0cmlidXRpb24gYW5kIHVzZSBpbiBzb3VyY2UgYW5kIGJpbmFyeSBmb3Jtcywgd2l0aCBvciB3
+aXRob3V0CiAgKiBtb2RpZmljYXRpb24sIGFyZSBwZXJtaXR0ZWQgcHJvdmlkZWQgdGhhdCB0aGUg
+Zm9sbG93aW5nIGNvbmRpdGlvbnMKQEAgLTE3LDYgKzE5LDEwIEBACiAgKiAgICBwcm9kdWN0cyBk
+ZXJpdmVkIGZyb20gdGhpcyBzb2Z0d2FyZSB3aXRob3V0IHNwZWNpZmljIHByaW9yIHdyaXR0ZW4K
+ICAqICAgIHBlcm1pc3Npb24uCiAgKgorICogQWx0ZXJuYXRpdmVseSwgdGhpcyBzb2Z0d2FyZSBt
+YXkgYmUgZGlzdHJpYnV0ZWQgdW5kZXIgdGhlIHRlcm1zIG9mIHRoZQorICogR05VIEdlbmVyYWwg
+UHVibGljIExpY2Vuc2UgKCJHUEwiKSB2ZXJzaW9uIDIgYXMgcHVibGlzaGVkIGJ5IHRoZSBGcmVl
+CisgKiBTb2Z0d2FyZSBGb3VuZGF0aW9uLgorICoKICAqIFRISVMgU09GVFdBUkUgSVMgUFJPVklE
+RUQgQlkgVEhFIEFVVEhPUiBgYEFTIElTJycgQU5EIEFOWSBFWFBSRVNTIE9SCiAgKiBJTVBMSUVE
+IFdBUlJBTlRJRVMsIElOQ0xVRElORywgQlVUIE5PVCBMSU1JVEVEIFRPLCBUSEUgSU1QTElFRAog
+ICogV0FSUkFOVElFUyBPRiBNRVJDSEFOVEFCSUxJVFkgQU5EIEZJVE5FU1MgRk9SIEEgUEFSVElD
+VUxBUiBQVVJQT1NFCkBAIC0xMjQ2LDggKzEyNTIsOCBAQCBzdGF0aWMgaW50IGh2c29ja19yZWN2
+bXNnX3dhaXQoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3QgbXNnaGRyICptc2csCiAKIAkJCQlyZXQg
+PSBodnNvY2tfcmVjdl9kYXRhKGNoYW5uZWwsIGh2c2ssCiAJCQkJCQkgICAgICAgJnBheWxvYWRf
+bGVuKTsKLQkJCQlpZiAocmV0ICE9IDAgfHwgcGF5bG9hZF9sZW4gPgotCQkJCQkJc2l6ZW9mKGh2
+c2stPnJlY3YtPmJ1ZikpIHsKKwkJCQlpZiAocmV0ICE9IDAgfHwKKwkJCQkgICAgcGF5bG9hZF9s
+ZW4gPiBzaXplb2YoaHZzay0+cmVjdi0+YnVmKSkgewogCQkJCQlyZXQgPSAtRUlPOwogCQkJCQlo
+dnNvY2tfcHV0X3JlY3ZfYnVmKGh2c2spOwogCQkJCQlnb3RvIG91dF93YWl0OwpAQCAtMTQ3Mywx
+MCArMTQ3OSw4IEBAIHN0YXRpYyBpbnQgX19pbml0IGh2c29ja19pbml0KHZvaWQpCiAJaW50IHJl
+dDsKIAogCS8qIEh5cGVyLVYgU29ja2V0cyByZXF1aXJlcyBhdCBsZWFzdCBWTUJ1cyA0LjAgKi8K
+LQlpZiAoKHZtYnVzX3Byb3RvX3ZlcnNpb24gPj4gMTYpIDwgNCkgewotCQlwcl9lcnIoImZhaWxl
+ZCB0byBsb2FkOiBWTUJ1cyA0IG9yIGxhdGVyIGlzIHJlcXVpcmVkXG4iKTsKKwlpZiAoKHZtYnVz
+X3Byb3RvX3ZlcnNpb24gPj4gMTYpIDwgNCkKIAkJcmV0dXJuIC1FTk9ERVY7Ci0JfQogCiAJcmV0
+ID0gdm1idXNfZHJpdmVyX3JlZ2lzdGVyKCZodnNvY2tfZHJ2KTsKIAlpZiAocmV0KSB7Cg==
+
+--_002_CO2PR03MB2182B5C68BC4D2F316017F01BF3C0CO2PR03MB2182namp_
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+devel mailing list
+devel@linuxdriverproject.org
+http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel
+
+--_002_CO2PR03MB2182B5C68BC4D2F316017F01BF3C0CO2PR03MB2182namp_--
