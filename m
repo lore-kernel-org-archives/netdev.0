@@ -1,46 +1,80 @@
-From: Jakub Kicinski via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: XDP seeking input from NIC hardware vendors
-Date: Fri, 8 Jul 2016 14:44:53 +0100
-Message-ID: <20160708144453.345b51e5@jkicinski-Precision-T1700>
-References: <20160707124245.6d95635a@redhat.com>
-	<D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81@fmsmsx115.amr.corp.intel.com>
-	<20160708022210.GA12244@ast-mbp.thefacebook.com>
-Reply-To: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+From: Kalle Valo <kvalo@codeaurora.org>
+Subject: Re: [1/2] brcmfmac: delete interface directly in code that sent fw
+ request
+Date: Fri,  8 Jul 2016 13:46:05 +0000 (UTC)
+Message-ID: <20160708134605.3BF7E60260@smtp.codeaurora.org>
+References: <1467230067-3302-2-git-send-email-zajec5@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	"Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
-	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-In-Reply-To: <20160708022210.GA12244-+o4/htvd0TDFYCXBM6kdu7fOX0fSgVTm@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?UTF-8?q?Rafa=C5=82=20Mi=C5=82ecki?= <zajec5@gmail.com>,
+	Arend van Spriel <arend.vanspriel@broadcom.com>,
+	Franky Lin <franky.lin@broadcom.com>,
+	Hante Meuleman <hante.meuleman@broadcom.com>,
+	Pieter-Paul Giesberts <pieter-paul.giesberts@broadcom.com>,
+	"Franky (Zhenhui) Lin" <frankyl@broadcom.com>,
+	linux-wireless@vger.kernel.org (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	brcm80211-dev-list.pdl@broadcom.com (open list:BROADCOM BRCM80211
+	IEEE802.11n WIRELESS DRIVER),
+	netdev@vger.kernel.org (open list:NETWORKING DRIVERS),
+	linux-kernel@vger.kernel.org (open list)
+To: =?utf-8?b?UmFmYcWCIE1pxYJlY2tp?= <zajec5@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp.codeaurora.org ([198.145.29.96]:57276 "EHLO
+	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755366AbcGHNqG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 09:46:06 -0400
+In-Reply-To: <1467230067-3302-2-git-send-email-zajec5@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, 7 Jul 2016 19:22:12 -0700, Alexei Starovoitov wrote:
-> > If the goal is to just separate XDP traffic from non-XDP traffic you could accomplish this with a combination of SR-IOV/macvlan to separate the device queues into multiple netdevs and then run XDP on just one of the netdevs. Then use flow director (ethtool) or 'tc cls_u32/flower' to steer traffic to the netdev. This is how we support multiple networking stacks on one device by the way it is called the bifurcated driver. Its not too far of a stretch to think we could offload some simple XDP programs to program the splitting of traffic instead of cls_u32/flower/flow_director and then you would have a stack of XDP programs. One running in hardware and a set running on the queues in software.  
-> 
-> the above sounds like much better approach then Jesper/mine prog_per_ring stuff.
-> If we can split the nic via sriov and have dedicated netdev via VF just for XDP that's way cleaner approach.
-> I guess we won't need to do xdp_rxqmask after all.
+Rafa=C5=82 Mi=C5=82ecki wrote:
+> So far when receiving event about in-firmware-interface removal our
+> event worker was notifying listener and afterwards it was removing Li=
+nux
+> interface.
+>=20
+> First of all it was resulting in slightly unexpected order. The liste=
+ner
+> (del_virtual_intf callback) was (usually) returning with success befo=
+re
+> we even called unregister_netdev(ice).
+>=20
+> Please note this couldn't be simply fixed by changing order of calls =
+in
+> brcmf_fweh_handle_if_event as unregistering interface earlier could f=
+ree
+> struct brcmf_if.
+>=20
+> Another problem of current implementation are possible lockups. Focus=
+ on
+> the time slot between calling event handler and removing Linux
+> interface. During that time original caller may leave (unlocking rtnl
+> semaphore) *and* another call to the same code may be done (locking i=
+t
+> again). If that happens our event handler will stuck at removing Linu=
+x
+> interface, it won't handle another event and will block process holdi=
+ng
+> rtnl lock.
+>=20
+> This can be simply solved by unregistering interface in a proper
+> callback, right after receiving confirmation event from firmware. Thi=
+s
+> only required modifying worker to don't unregister on its own if ther=
+e
+> is someone waiting for the event.
+>=20
+> Signed-off-by: Rafa=C5=82 Mi=C5=82ecki <zajec5@gmail.com>
 
-+1
+Thanks, 2 patches applied to wireless-drivers-next.git:
 
-I was thinking about using eBPF to direct to NIC queues but concluded
-that doing a redirect to a VF is cleaner.  Especially if the PF driver
-supports VF representatives we could potentially just use
-bpf_redirect(VFR netdev) and the VF doesn't even have to be handled by
-the same stack.
+a63b09872c1d brcmfmac: delete interface directly in code that sent fw r=
+equest
+dba8fbc67ecd brcmfmac: support removing AP interfaces with "interface_r=
+emove"
+
+--=20
+Sent by pwcli
+https://patchwork.kernel.org/patch/9206157/
