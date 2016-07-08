@@ -1,49 +1,99 @@
-From: Alexander Duyck <alexander.duyck@gmail.com>
-Subject: Re: [PATCH net-next 0/4] net: cleanup for UDP tunnel's GRO
-Date: Fri, 8 Jul 2016 09:21:40 -0700
-Message-ID: <CAKgT0UegKDuP0KHJ+zE1yDTwxxBjtvhESE3WFhTg65UX+CNL0A@mail.gmail.com>
-References: <cover.1467895623.git.pabeni@redhat.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net] tcp: make challenge acks less predictable
+Date: Fri, 08 Jul 2016 18:33:06 +0200
+Message-ID: <1467995586.30694.34.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@kernel.org>,
-	Tom Herbert <tom@herbertland.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Jiri Benc <jbenc@redhat.com>
-To: Paolo Abeni <pabeni@redhat.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@vger.kernel.org>, Yue Cao <ycao009@ucr.edu>,
+	Zhiyun Qian <zhiyunq@cs.ucr.edu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Yuchung Cheng <ycheng@google.com>
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f175.google.com ([209.85.223.175]:33840 "EHLO
-	mail-io0-f175.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755871AbcGHQVl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 12:21:41 -0400
-Received: by mail-io0-f175.google.com with SMTP id i186so46077184iof.1
-        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 09:21:41 -0700 (PDT)
-In-Reply-To: <cover.1467895623.git.pabeni@redhat.com>
+Received: from mail-yw0-f195.google.com ([209.85.161.195]:33505 "EHLO
+	mail-yw0-f195.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1755171AbcGHQdL (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 12:33:11 -0400
+Received: by mail-yw0-f195.google.com with SMTP id i12so9237218ywa.0
+        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 09:33:11 -0700 (PDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 7, 2016 at 8:58 AM, Paolo Abeni <pabeni@redhat.com> wrote:
-> With udp tunnel offload in place, the kernel can do GRO for some udp tunnels
-> at the ingress device level. Currently both the geneve and the vxlan drivers
-> implement an additional GRO aggregation point via gro_cells.
-> The latter takes effect for tunnels using zero checksum udp packets, which are
-> currently explicitly not aggregated by the udp offload layer.
->
-> This patch series adapts the udp tunnel offload to process also zero checksum
-> udp packets, if the tunnel's socket allow it. Aggregation, if possible is always
-> performed at the ingress device level.
->
-> Then the gro_cells hooks, in both vxlan and geneve driver are removed.
+From: Eric Dumazet <edumazet@google.com>
 
-I think removing the gro_cells hooks may be taking things one step too far.
+Yue Cao claims that current host rate limiting of challenge ACKS
+(RFC 5961) could leak enough information to allow a patient attacker
+to hijack TCP sessions. He will soon provide details in an academic
+paper.
 
-I get that there is an impression that it is redundant but there are a
-number of paths that could lead to VXLAN or GENEVE frames being
-received that are not aggregated via GRO.  My concern here is that you
-are optimizing for one specific use case while at the same time
-possibly negatively impacting other use cases.  It would be useful to
-provide some data on what the advantages and disadvantages are
-expected to be.
+This patch increases the default limit from 100 to 1000, and adds
+some randomization so that the attacker can no longer hijack
+sessions without spending a considerable amount of probes.
 
-- Alex
+Based on initial analysis and patch from Linus.
+
+Note that we also have per socket rate limiting, so it is tempting
+to remove the host limit. This might be done later.
+
+Fixes: 282f23c6ee34 ("tcp: implement RFC 5961 3.2")
+Reported-by: Yue Cao <ycao009@ucr.edu>
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+Cc: Yuchung Cheng <ycheng@google.com>
+Cc: Neal Cardwell <ncardwell@google.com>
+---
+diff --git a/Documentation/networking/ip-sysctl.txt b/Documentation/networking/ip-sysctl.txt
+index 9ae929395b24..391ed93a8e49 100644
+--- a/Documentation/networking/ip-sysctl.txt
++++ b/Documentation/networking/ip-sysctl.txt
+@@ -732,7 +732,7 @@ tcp_limit_output_bytes - INTEGER
+ tcp_challenge_ack_limit - INTEGER
+ 	Limits number of Challenge ACK sent per second, as recommended
+ 	in RFC 5961 (Improving TCP's Robustness to Blind In-Window Attacks)
+-	Default: 100
++	Default: 1000
+ 
+ UDP variables:
+ 
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index d6c8f4cd0800..25f95a41090a 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -87,7 +87,7 @@ int sysctl_tcp_adv_win_scale __read_mostly = 1;
+ EXPORT_SYMBOL(sysctl_tcp_adv_win_scale);
+ 
+ /* rfc5961 challenge ack rate limiting */
+-int sysctl_tcp_challenge_ack_limit = 100;
++int sysctl_tcp_challenge_ack_limit = 1000;
+ 
+ int sysctl_tcp_stdurg __read_mostly;
+ int sysctl_tcp_rfc1337 __read_mostly;
+@@ -3455,10 +3455,11 @@ not_rate_limited:
+ static void tcp_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
+ {
+ 	/* unprotected vars, we dont care of overwrites */
+-	static u32 challenge_timestamp;
++	static unsigned int challenge_window = HZ;
++	static unsigned long challenge_timestamp;
+ 	static unsigned int challenge_count;
+ 	struct tcp_sock *tp = tcp_sk(sk);
+-	u32 now;
++	unsigned long now;
+ 
+ 	/* First check our per-socket dupack rate limit. */
+ 	if (tcp_oow_rate_limited(sock_net(sk), skb,
+@@ -3467,9 +3468,11 @@ static void tcp_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
+ 		return;
+ 
+ 	/* Then check the check host-wide RFC 5961 rate limit. */
+-	now = jiffies / HZ;
+-	if (now != challenge_timestamp) {
++	now = jiffies;
++	if (time_before(now, challenge_timestamp) ||
++	    time_after_eq(now, challenge_timestamp + challenge_window)) {
+ 		challenge_timestamp = now;
++		challenge_window = HZ/2 + prandom_u32_max(HZ);
+ 		challenge_count = 0;
+ 	}
+ 	if (++challenge_count <= sysctl_tcp_challenge_ack_limit) {
