@@ -1,7 +1,8 @@
 From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH v6 00/12] Add driver bpf hook for early packet drop and forwarding
-Date: Thu,  7 Jul 2016 19:15:12 -0700
-Message-ID: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
+Subject: [PATCH v6 01/12] bpf: add XDP prog type for early driver filter
+Date: Thu,  7 Jul 2016 19:15:13 -0700
+Message-ID: <1467944124-14891-2-git-send-email-bblanco@plumgrid.com>
+References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
 Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Martin KaFai Lau <kafai@fb.com>,
 	Jesper Dangaard Brouer <brouer@redhat.com>,
@@ -13,147 +14,260 @@ Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f182.google.com ([209.85.192.182]:35734 "EHLO
-	mail-pf0-f182.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753538AbcGHCPf (ORCPT
+Received: from mail-pa0-f53.google.com ([209.85.220.53]:33544 "EHLO
+	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753617AbcGHCPf (ORCPT
 	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 22:15:35 -0400
-Received: by mail-pf0-f182.google.com with SMTP id c2so11320470pfa.2
+Received: by mail-pa0-f53.google.com with SMTP id b13so10993274pat.0
         for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 19:15:35 -0700 (PDT)
+In-Reply-To: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set introduces new infrastructure for programmatically
-processing packets in the earliest stages of rx, as part of an effort
-others are calling eXpress Data Path (XDP) [1]. Start this effort by
-introducing a new bpf program type for early packet filtering, before
-even an skb has been allocated.
+Add a new bpf prog type that is intended to run in early stages of the
+packet rx path. Only minimal packet metadata will be available, hence a
+new context type, struct xdp_md, is exposed to userspace. So far only
+expose the packet start and end pointers, and only in read mode.
 
-Extend on this with the ability to modify packet data and send back out
-on the same port.
+An XDP program must return one of the well known enum values, all other
+return codes are reserved for future use. Unfortunately, this
+restriction is hard to enforce at verification time, so take the
+approach of warning at runtime when such programs are encountered. The
+driver can choose to implement unknown return codes however it wants,
+but must invoke the warning helper with the action value.
 
-Patch 1 introduces the new prog type and helpers for validating the bpf
-  program. A new userspace struct is defined containing only data and
-  data_end as fields, with others to follow in the future.
-In patch 2, create a new ndo to pass the fd to supported drivers.
-In patch 3, expose a new rtnl option to userspace.
-In patch 4, enable support in mlx4 driver.
-In patch 5, create a sample drop and count program. With single core,
-  achieved ~20 Mpps drop rate on a 40G ConnectX3-Pro. This includes
-  packet data access, bpf array lookup, and increment.
-In patch 6, add a page recycle facility to mlx4 rx, enabled when xdp is
-  active.
-In patch 7, add the XDP_TX type to bpf.h
-In patch 8, add helper in tx patch for writing tx_desc
-In patch 9, add support in mlx4 for packet data write and forwarding
-In patch 10, turn on packet write support in the bpf verifier
-In patch 11, add a sample program for packet write and forwarding. With
-  single core, achieved ~10 Mpps rewrite and forwarding.
-In patch 12, add prefetch to mlx4 rx to bump forwarding to 12 Mpps
+Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+---
+ include/linux/filter.h   | 18 ++++++++++
+ include/uapi/linux/bpf.h | 19 ++++++++++
+ kernel/bpf/verifier.c    |  1 +
+ net/core/filter.c        | 91 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 129 insertions(+)
 
-[1] https://github.com/iovisor/bpf-docs/blob/master/Express_Data_Path.pdf
-
-v6:
-  2/12: drop unnecessary netif_device_present check
-  4/12, 6/12, 9/12: Reorder default case statement above drop case to
-    remove some copy/paste.
-
-v5:
-  0/12: Rebase and remove previous 1/13 patch
-  1/12: Fix nits from Daniel. Left the (void *) cast as-is, to be fixed
-    in future. Add bpf_warn_invalid_xdp_action() helper, to be used when
-    out of bounds action is returned by the program. Add a comment to
-    bpf.h denoting the undefined nature of out of bounds returns.
-  2/12: Switch to using bpf_prog_get_type(). Rename ndo_xdp_get() to
-    ndo_xdp_attached().
-  3/12: Add IFLA_XDP as a nested type, and add the associated nla_policy
-    for the new subtypes IFLA_XDP_FD and IFLA_XDP_ATTACHED.
-  4/12: Fixup the use of READ_ONCE in the ndos. Add a user of
-    bpf_warn_invalid_xdp_action helper.
-  5/12: Adjust to using the nested netlink options.
-  6/12: kbuild was complaining about overflow of u16 on tile
-    architecture...bump frag_stride to u32. The page_offset member that
-    is computed from this was already u32.
-    
-v4:
-  2/12: Add inline helper for calling xdp bpf prog under rcu
-  3/12: Add detail to ndo comments
-  5/12: Remove mlx4_call_xdp and use inline helper instead.
-  6/12: Fix checkpatch complaints
-  9/12: Introduce new patch 9/12 with common helper for tx_desc write
-    Refactor to use common tx_desc write helper
- 11/12: Fix checkpatch complaints
-
-v3:
-  Rewrite from v2 trying to incorporate feedback from multiple sources.
-  Specifically, add ability to forward packets out the same port and
-    allow packet modification.
-  For packet forwarding, the driver reserves a dedicated set of tx rings
-    for exclusive use by xdp. Upon completion, the pages on this ring are
-    recycled directly back to a small per-rx-ring page cache without
-    being dma unmapped.
-  Use of the percpu skb is dropped in favor of a lightweight struct
-    xdp_buff. The direct packet access feature is leveraged to remove
-    dependence on the skb.
-  The mlx4 driver implementation allocates a page-per-packet and maps it
-    in PCI_DMA_BIDIRECTIONAL mode when the bpf program is activated.
-  Naming is converted to use "xdp" instead of "phys_dev".
-
-v2:
-  1/5: Drop xdp from types, instead consistently use bpf_phys_dev_
-    Introduce enum for return values from phys_dev hook
-  2/5: Move prog->type check to just before invoking ndo
-    Change ndo to take a bpf_prog * instead of fd
-    Add ndo_bpf_get rather than keeping a bool in the netdev struct
-  3/5: Use ndo_bpf_get to fetch bool
-  4/5: Enforce that only 1 frag is ever given to bpf prog by disallowing
-    mtu to increase beyond FRAG_SZ0 when bpf prog is running, or conversely
-    to set a bpf prog when priv->num_frags > 1
-    Rename pseudo_skb to bpf_phys_dev_md
-    Implement ndo_bpf_get
-    Add dma sync just before invoking prog
-    Check for explicit bpf return code rather than nonzero
-    Remove increment of rx_dropped
-  5/5: Use explicit bpf return code in example
-    Update commit log with higher pps numbers
-
-Brenden Blanco (12):
-  bpf: add XDP prog type for early driver filter
-  net: add ndo to set xdp prog in adapter rx
-  rtnl: add option for setting link xdp prog
-  net/mlx4_en: add support for fast rx drop bpf program
-  Add sample for adding simple drop program to link
-  net/mlx4_en: add page recycle to prepare rx ring for tx support
-  bpf: add XDP_TX xdp_action for direct forwarding
-  net/mlx4_en: break out tx_desc write into separate function
-  net/mlx4_en: add xdp forwarding and data write support
-  bpf: enable direct packet data write for xdp progs
-  bpf: add sample for xdp forwarding and rewrite
-  net/mlx4_en: add prefetch in xdp rx path
-
- drivers/infiniband/hw/mlx4/qp.c                 |  11 +-
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  17 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  |  95 ++++++++-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c      | 126 ++++++++++--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c      | 254 +++++++++++++++++++-----
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  31 ++-
- include/linux/filter.h                          |  18 ++
- include/linux/mlx4/qp.h                         |  18 +-
- include/linux/netdevice.h                       |  14 ++
- include/uapi/linux/bpf.h                        |  20 ++
- include/uapi/linux/if_link.h                    |  12 ++
- kernel/bpf/verifier.c                           |  18 +-
- net/core/dev.c                                  |  30 +++
- net/core/filter.c                               |  91 +++++++++
- net/core/rtnetlink.c                            |  55 +++++
- samples/bpf/Makefile                            |   9 +
- samples/bpf/bpf_load.c                          |   8 +
- samples/bpf/xdp1_kern.c                         |  93 +++++++++
- samples/bpf/xdp1_user.c                         | 181 +++++++++++++++++
- samples/bpf/xdp2_kern.c                         | 114 +++++++++++
- 20 files changed, 1127 insertions(+), 88 deletions(-)
- create mode 100644 samples/bpf/xdp1_kern.c
- create mode 100644 samples/bpf/xdp1_user.c
- create mode 100644 samples/bpf/xdp2_kern.c
-
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 6fc31ef..522dbc9 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -368,6 +368,11 @@ struct bpf_skb_data_end {
+ 	void *data_end;
+ };
+ 
++struct xdp_buff {
++	void *data;
++	void *data_end;
++};
++
+ /* compute the linear packet data range [data, data_end) which
+  * will be accessed by cls_bpf and act_bpf programs
+  */
+@@ -429,6 +434,18 @@ static inline u32 bpf_prog_run_clear_cb(const struct bpf_prog *prog,
+ 	return BPF_PROG_RUN(prog, skb);
+ }
+ 
++static inline u32 bpf_prog_run_xdp(const struct bpf_prog *prog,
++				   struct xdp_buff *xdp)
++{
++	u32 ret;
++
++	rcu_read_lock();
++	ret = BPF_PROG_RUN(prog, (void *)xdp);
++	rcu_read_unlock();
++
++	return ret;
++}
++
+ static inline unsigned int bpf_prog_size(unsigned int proglen)
+ {
+ 	return max(sizeof(struct bpf_prog),
+@@ -509,6 +526,7 @@ bool bpf_helper_changes_skb_data(void *func);
+ 
+ struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
+ 				       const struct bpf_insn *patch, u32 len);
++void bpf_warn_invalid_xdp_action(int act);
+ 
+ #ifdef CONFIG_BPF_JIT
+ extern int bpf_jit_enable;
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index c14ca1c..5b47ac3 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -94,6 +94,7 @@ enum bpf_prog_type {
+ 	BPF_PROG_TYPE_SCHED_CLS,
+ 	BPF_PROG_TYPE_SCHED_ACT,
+ 	BPF_PROG_TYPE_TRACEPOINT,
++	BPF_PROG_TYPE_XDP,
+ };
+ 
+ #define BPF_PSEUDO_MAP_FD	1
+@@ -430,4 +431,22 @@ struct bpf_tunnel_key {
+ 	__u32 tunnel_label;
+ };
+ 
++/* User return codes for XDP prog type.
++ * A valid XDP program must return one of these defined values. All other
++ * return codes are reserved for future use. Unknown return codes will result
++ * in driver-dependent behavior.
++ */
++enum xdp_action {
++	XDP_DROP,
++	XDP_PASS,
++};
++
++/* user accessible metadata for XDP packet hook
++ * new fields must be added to the end of this structure
++ */
++struct xdp_md {
++	__u32 data;
++	__u32 data_end;
++};
++
+ #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index e206c21..a8d67d0 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -713,6 +713,7 @@ static int check_ptr_alignment(struct verifier_env *env, struct reg_state *reg,
+ 	switch (env->prog->type) {
+ 	case BPF_PROG_TYPE_SCHED_CLS:
+ 	case BPF_PROG_TYPE_SCHED_ACT:
++	case BPF_PROG_TYPE_XDP:
+ 		break;
+ 	default:
+ 		verbose("verifier is misconfigured\n");
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 10c4a2f..4ba446f 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2369,6 +2369,12 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
+ 	}
+ }
+ 
++static const struct bpf_func_proto *
++xdp_func_proto(enum bpf_func_id func_id)
++{
++	return sk_filter_func_proto(func_id);
++}
++
+ static bool __is_valid_access(int off, int size, enum bpf_access_type type)
+ {
+ 	if (off < 0 || off >= sizeof(struct __sk_buff))
+@@ -2436,6 +2442,56 @@ static bool tc_cls_act_is_valid_access(int off, int size,
+ 	return __is_valid_access(off, size, type);
+ }
+ 
++static bool __is_valid_xdp_access(int off, int size,
++				  enum bpf_access_type type)
++{
++	if (off < 0 || off >= sizeof(struct xdp_md))
++		return false;
++	if (off % size != 0)
++		return false;
++	if (size != 4)
++		return false;
++
++	return true;
++}
++
++static bool xdp_is_valid_access(int off, int size,
++				enum bpf_access_type type,
++				enum bpf_reg_type *reg_hint)
++{
++	if (type == BPF_WRITE)
++		return false;
++
++	switch (off) {
++	case offsetof(struct xdp_md, data):
++		*reg_hint = PTR_TO_PACKET;
++		break;
++	case offsetof(struct xdp_md, data_end):
++		*reg_hint = PTR_TO_PACKET_END;
++		break;
++	}
++
++	return __is_valid_xdp_access(off, size, type);
++}
++
++void bpf_warn_invalid_xdp_action(int act)
++{
++	WARN_ONCE(1, "\n"
++		     "*****************************************************\n"
++		     "**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **\n"
++		     "**                                               **\n"
++		     "** XDP program returned unknown value %-10u **\n"
++		     "**                                               **\n"
++		     "** XDP programs must return a well-known return  **\n"
++		     "** value. Invalid return values will result in   **\n"
++		     "** undefined packet actions.                     **\n"
++		     "**                                               **\n"
++		     "**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **\n"
++		     "*****************************************************\n",
++		  act);
++}
++EXPORT_SYMBOL_GPL(bpf_warn_invalid_xdp_action);
++
+ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
+ 				      int src_reg, int ctx_off,
+ 				      struct bpf_insn *insn_buf,
+@@ -2587,6 +2643,29 @@ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
+ 	return insn - insn_buf;
+ }
+ 
++static u32 xdp_convert_ctx_access(enum bpf_access_type type, int dst_reg,
++				  int src_reg, int ctx_off,
++				  struct bpf_insn *insn_buf,
++				  struct bpf_prog *prog)
++{
++	struct bpf_insn *insn = insn_buf;
++
++	switch (ctx_off) {
++	case offsetof(struct xdp_md, data):
++		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct xdp_buff, data)),
++				      dst_reg, src_reg,
++				      offsetof(struct xdp_buff, data));
++		break;
++	case offsetof(struct xdp_md, data_end):
++		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct xdp_buff, data_end)),
++				      dst_reg, src_reg,
++				      offsetof(struct xdp_buff, data_end));
++		break;
++	}
++
++	return insn - insn_buf;
++}
++
+ static const struct bpf_verifier_ops sk_filter_ops = {
+ 	.get_func_proto		= sk_filter_func_proto,
+ 	.is_valid_access	= sk_filter_is_valid_access,
+@@ -2599,6 +2678,12 @@ static const struct bpf_verifier_ops tc_cls_act_ops = {
+ 	.convert_ctx_access	= bpf_net_convert_ctx_access,
+ };
+ 
++static const struct bpf_verifier_ops xdp_ops = {
++	.get_func_proto		= xdp_func_proto,
++	.is_valid_access	= xdp_is_valid_access,
++	.convert_ctx_access	= xdp_convert_ctx_access,
++};
++
+ static struct bpf_prog_type_list sk_filter_type __read_mostly = {
+ 	.ops	= &sk_filter_ops,
+ 	.type	= BPF_PROG_TYPE_SOCKET_FILTER,
+@@ -2614,11 +2699,17 @@ static struct bpf_prog_type_list sched_act_type __read_mostly = {
+ 	.type	= BPF_PROG_TYPE_SCHED_ACT,
+ };
+ 
++static struct bpf_prog_type_list xdp_type __read_mostly = {
++	.ops	= &xdp_ops,
++	.type	= BPF_PROG_TYPE_XDP,
++};
++
+ static int __init register_sk_filter_ops(void)
+ {
+ 	bpf_register_prog_type(&sk_filter_type);
+ 	bpf_register_prog_type(&sched_cls_type);
+ 	bpf_register_prog_type(&sched_act_type);
++	bpf_register_prog_type(&xdp_type);
+ 
+ 	return 0;
+ }
 -- 
 2.8.2
