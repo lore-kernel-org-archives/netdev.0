@@ -1,61 +1,87 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [RFC PATCH v2] net: sched: convert qdisc linked list to
- hashtable
-Date: Fri, 08 Jul 2016 15:52:13 +0200
-Message-ID: <1467985933.17638.54.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>
-	 <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160414151813.GE3715@orbyte.nwl.cc>
-	 <alpine.LNX.2.00.1604141807350.27368@cbobk.fhfr.pm>
-	 <1460656170.10638.61.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <5710E1C1.2090209@mojatatu.com>
-	 <1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <alpine.LNX.2.00.1607071102010.24757@cbobk.fhfr.pm>
-	 <alpine.LNX.2.00.1607072234190.24757@cbobk.fhfr.pm>
-	 <20160708110717.GA13885@pox.localdomain>
+From: Guenter Roeck <linux@roeck-us.net>
+Subject: Re: [PATCH 2/3] net: smsc911x: request and deassert optional RESET
+ GPIO
+Date: Fri, 8 Jul 2016 06:52:55 -0700
+Message-ID: <577FB037.4070901@roeck-us.net>
+References: <1467968852-6175-1-git-send-email-linus.walleij@linaro.org>
+ <1467968852-6175-2-git-send-email-linus.walleij@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jiri Kosina <jikos@kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Thomas Graf <tgraf@suug.ch>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160708110717.GA13885@pox.localdomain>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: Jeremy Linton <jeremy.linton@arm.com>,
+	Kamlakant Patel <kamlakant.patel@broadcom.com>,
+	Pavel Fedin <p.fedin@samsung.com>
+To: Linus Walleij <linus.walleij@linaro.org>, netdev@vger.kernel.org,
+	"David S . Miller" <davem@davemloft.net>,
+	Steve Glendinning <steve.glendinning@smsc.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from bh-25.webhostbox.net ([208.91.199.152]:33766 "EHLO
+	bh-25.webhostbox.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932713AbcGHNxI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 09:53:08 -0400
+In-Reply-To: <1467968852-6175-2-git-send-email-linus.walleij@linaro.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, 2016-07-08 at 13:07 +0200, Thomas Graf wrote:
-> On 07/07/16 at 10:36pm, Jiri Kosina wrote:
-> > diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
-> > index f45929c..630838e 100644
-> > --- a/include/linux/netdevice.h
-> > +++ b/include/linux/netdevice.h
-> > @@ -52,6 +52,7 @@
-> >  #include <uapi/linux/netdevice.h>
-> >  #include <uapi/linux/if_bonding.h>
-> >  #include <uapi/linux/pkt_cls.h>
-> > +#include <linux/hashtable.h>
-> >  
-> >  struct netpoll_info;
-> >  struct device;
-> > @@ -1778,6 +1779,7 @@ struct net_device {
-> >  	unsigned int		num_tx_queues;
-> >  	unsigned int		real_num_tx_queues;
-> >  	struct Qdisc		*qdisc;
-> > +	DECLARE_HASHTABLE	(qdisc_hash, 16);
-> 
-> This blows up net_device to an insane size: 64K * sizeof(struct
-> hlist_head). Can we allocate this on demand for net_devices where
-> it is actually needed? The majority of virtual devices won't need
-> this. Doesn't have to be rhashtable, can still be fixed size but
-> at least allocate it.
+On 07/08/2016 02:07 AM, Linus Walleij wrote:
+> On some systems (such as the Qualcomm APQ8060 Dragonboard) the
+> RESET signal of the SMSC911x is not pulled up by a resistor but
+> connected to a GPIO line, so that the operating system must
+> explicitly deassert RESET before use.
+>
+> Support this in the SMSC911x driver so this ethernet connector
+> can be used on such targets.
+>
+> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
+> ---
+>   drivers/net/ethernet/smsc/smsc911x.c | 13 +++++++++++++
+>   1 file changed, 13 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> index 8af25563f627..125d58ac22bd 100644
+> --- a/drivers/net/ethernet/smsc/smsc911x.c
+> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+> @@ -62,6 +62,7 @@
+>   #include <linux/acpi.h>
+>   #include <linux/pm_runtime.h>
+>   #include <linux/property.h>
+> +#include <linux/gpio/consumer.h>
+>
+>   #include "smsc911x.h"
+>
+> @@ -149,6 +150,9 @@ struct smsc911x_data {
+>   	/* regulators */
+>   	struct regulator_bulk_data supplies[SMSC911X_NUM_SUPPLIES];
+>
+> +	/* Reset GPIO */
+> +	struct gpio_desc *reset_gpiod;
+> +
+>   	/* clock */
+>   	struct clk *clk;
+>   };
+> @@ -440,6 +444,15 @@ static int smsc911x_request_resources(struct platform_device *pdev)
+>   		netdev_err(ndev, "couldn't get regulators %d\n",
+>   				ret);
+>
+> +	/* Request optional RESET GPIO */
+> +	pdata->reset_gpiod = devm_gpiod_get(&pdev->dev, "reset",
+> +					    GPIOD_OUT_HIGH);
+> +	/* Deassert the signal */
+> +	if (!IS_ERR(pdata->reset_gpiod)) {
 
+This could return -EPROBE_DEFER, which should probably not be ignored.
 
-Jiri probably misread the API and should have used :
+It might be better to use devm_gpiod_get_optional(). If you pass GPIOD_OUT_LOW
+as parameter to that function, it should take the chip out of reset immediately.
+See drivers/i2c/muxes/i2c-mux-pca954x.c for an example with a similar use case.
 
-DECLARE_HASHTABLE	(qdisc_hash, 4);
+Guenter
 
-Google has a very similar patch with 16 buckets, and it is 'good enough',
-although we do not hit the qdisc_tree_reduce_backlog() penalty.
+> +		dev_info(&pdev->dev, "release reset\n");
+> +		gpiod_set_value(pdata->reset_gpiod, 0);
+> +	}
+> +
+>   	/* Request clock */
+>   	pdata->clk = clk_get(&pdev->dev, NULL);
+>   	if (IS_ERR(pdata->clk))
+>
