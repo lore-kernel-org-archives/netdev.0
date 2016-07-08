@@ -1,67 +1,79 @@
-From: Varun Prakash <varun@chelsio.com>
-Subject: [net-next 6/6] cxgb3i,cxgb4i: fix symbol not declared sparse warning
-Date: Fri,  8 Jul 2016 23:03:59 +0530
-Message-ID: <bd0f185a6dafaf31d825b67758eaec01e69f7c36.1467998293.git.varun@chelsio.com>
-References: <cover.1467998292.git.varun@chelsio.com>
-Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
-	target-devel@vger.kernel.org, nab@linux-iscsi.org,
-	gerlitz.or@gmail.com, swise@opengridcomputing.com,
-	james.bottomley@hansenpartnership.com, indranil@chelsio.com,
-	varun@chelsio.com
-To: davem@davemloft.net
-Return-path: <linux-scsi-owner@vger.kernel.org>
-In-Reply-To: <cover.1467998292.git.varun@chelsio.com>
-In-Reply-To: <cover.1467998292.git.varun@chelsio.com>
-References: <cover.1467998292.git.varun@chelsio.com>
-Sender: linux-scsi-owner@vger.kernel.org
+From: Jakub Kicinski via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: XDP seeking input from NIC hardware vendors
+Date: Fri, 8 Jul 2016 18:51:07 +0100
+Message-ID: <20160708185107.10c0dbe4@jkicinski-Precision-T1700>
+References: <20160707124245.6d95635a@redhat.com>
+	<D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81@fmsmsx115.amr.corp.intel.com>
+	<20160708022210.GA12244@ast-mbp.thefacebook.com>
+	<20160708144453.345b51e5@jkicinski-Precision-T1700>
+	<20160708171943.0e1ce8d7@redhat.com>
+	<20160708170751.2eaae790@jkicinski-Precision-T1700>
+	<577FD8A5.8020700@gmail.com>
+Reply-To: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	"Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
+To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <577FD8A5.8020700-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-Fix following sparse warnings
-warning: symbol 'cxgb3i_ofld_init' was not declared. Should it be static?
-warning: symbol 'cxgb4i_cplhandlers' was not declared. Should it be static?
-warning: symbol 'cxgb4i_ofld_init' was not declared. Should it be static?
+On Fri, 8 Jul 2016 09:45:25 -0700, John Fastabend wrote:
+> The only distinction between VFs and queue groupings on my side is VFs
+> provide RSS where as queue groupings have to be selected explicitly.
+> In a programmable NIC world the distinction might be lost if a "RSS"
+> program can be loaded into the NIC to select queues but for existing
+> hardware the distinction is there.
 
-Signed-off-by: Varun Prakash <varun@chelsio.com>
----
- drivers/scsi/cxgbi/cxgb3i/cxgb3i.c | 2 +-
- drivers/scsi/cxgbi/cxgb4i/cxgb4i.c | 4 ++--
- 2 files changed, 3 insertions(+), 3 deletions(-)
+To do BPF RSS we need a way to select the queue which I think is all
+Jasper wanted.  So we will have to tackle the queue selection at some
+point.  The main obstacle with it for me is to define what queue
+selection means when program is not offloaded to HW...  Implementing
+queue selection on HW side is trivial.
 
-diff --git a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
-index 44a424d..40d30bd 100644
---- a/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
-+++ b/drivers/scsi/cxgbi/cxgb3i/cxgb3i.c
-@@ -1028,7 +1028,7 @@ cxgb3_cpl_handler_func cxgb3i_cpl_handlers[NUM_CPL_CMDS] = {
-  * cxgb3i_ofld_init - allocate and initialize resources for each adapter found
-  * @cdev:	cxgbi adapter
-  */
--int cxgb3i_ofld_init(struct cxgbi_device *cdev)
-+static int cxgb3i_ofld_init(struct cxgbi_device *cdev)
- {
- 	struct t3cdev *t3dev = (struct t3cdev *)cdev->lldev;
- 	struct adap_ports port;
-diff --git a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-index 521f9e4..e4ba2d2 100644
---- a/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-+++ b/drivers/scsi/cxgbi/cxgb4i/cxgb4i.c
-@@ -1503,7 +1503,7 @@ rel_resource_without_clip:
- 	return -EINVAL;
- }
- 
--cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
-+static cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
- 	[CPL_ACT_ESTABLISH] = do_act_establish,
- 	[CPL_ACT_OPEN_RPL] = do_act_open_rpl,
- 	[CPL_PEER_CLOSE] = do_peer_close,
-@@ -1519,7 +1519,7 @@ cxgb4i_cplhandler_func cxgb4i_cplhandlers[NUM_CPL_CMDS] = {
- 	[CPL_RX_DATA] = do_rx_data,
- };
- 
--int cxgb4i_ofld_init(struct cxgbi_device *cdev)
-+static int cxgb4i_ofld_init(struct cxgbi_device *cdev)
- {
- 	int rc;
- 
--- 
-2.0.2
+> If you demux using a eBPF program or via a filter model like
+> flow_director or cls_{u32|flower} I think we can support both. And this
+> just depends on the programmability of the hardware. Note flow_director
+> and cls_{u32|flower} steering to VFs is already in place.
 
+Yes, for steering to VFs we could potentially reuse a lot of existing
+infrastructure.
+
+> The question I have is should the "filter" part of the eBPF program
+> be a separate program from the XDP program and loaded using specific
+> semantics (e.g. "load_hardware_demux" ndo op) at the risk of building
+> a ever growing set of "ndo" ops. If you are running multiple XDP
+> programs on the same NIC hardware then I think this actually makes
+> sense otherwise how would the hardware and even software find the
+> "demux" logic. In this model there is a "demux" program that selects
+> a queue/VF and a program that runs on the netdev queues.
+
+I don't think we should enforce the separation here.  What we may want
+to do before forwarding to the VF can be much more complicated than
+pure demux/filtering (simple eg - pop VLAN/tunnel).  VF representative
+model works well here as fallback - if program could not be offloaded
+it will be run on the host and "trombone" packets via VFR into the VF.
+
+If we have a chain of BPF programs we can order them in increasing
+level of complexity/features required and then HW could transparently
+offload the first parts - the easier ones - leaving more complex
+processing on the host.
+
+This should probably be paired with some sort of "skip-sw" flag to let
+user space enforce the HW offload on the fast path part.
