@@ -1,60 +1,97 @@
-From: Masashi Honma <masashi.honma@gmail.com>
-Subject: Re: [RFC 5/7] net: Add allocation flag to rtnl_unicast()
-Date: Fri, 8 Jul 2016 12:15:35 +0900
-Message-ID: <577F1AD7.8040800@gmail.com>
+From: Eric Dumazet <eric.dumazet@gmail.com>
+Subject: [PATCH net-next] ipv4: do not abuse GFP_ATOMIC in
+ inet_netconf_notify_devconf()
+Date: Fri, 08 Jul 2016 05:18:24 +0200
+Message-ID: <1467947904.1273.56.camel@edumazet-glaptop3.roam.corp.google.com>
 References: <1467764916-4983-1-git-send-email-masashi.honma@gmail.com>
- <1467764916-4983-6-git-send-email-masashi.honma@gmail.com>
- <1467946591.1273.45.camel@edumazet-glaptop3.roam.corp.google.com>
+	 <1467764916-4983-6-git-send-email-masashi.honma@gmail.com>
+	 <1467946591.1273.45.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
-	linux-wireless@vger.kernel.org, linux-rdma@vger.kernel.org,
-	linux-audit@redhat.com, cluster-devel@redhat.com,
-	davem@davemloft.net, johannes@sipsolutions.net,
-	pablo@netfilter.org, kaber@trash.net, kadlec@blackhole.kfki.hu,
-	dledford@redhat.com, sean.hefty@intel.com,
-	hal.rosenstock@gmail.com, paul@paul-moore.com, eparis@redhat.com,
-	zbr@ioremap.net, pshelar@nicira.com, ccaulfie@redhat.com,
-	teigland@redhat.com, bsingharora@gmail.com
-To: Eric Dumazet <eric.dumazet@gmail.com>
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, Nicolas Dichtel <nicolas.dichtel@6wind.com>
+To: Masashi Honma <masashi.honma@gmail.com>,
+	David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:35069 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932077AbcGHDPm (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 23:15:42 -0400
+Received: from mail-wm0-f67.google.com ([74.125.82.67]:35643 "EHLO
+	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753600AbcGHDcg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 23:32:36 -0400
+Received: by mail-wm0-f67.google.com with SMTP id k123so1034896wme.2
+        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 20:31:36 -0700 (PDT)
 In-Reply-To: <1467946591.1273.45.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016=E5=B9=B407=E6=9C=8808=E6=97=A5 11:56, Eric Dumazet wrote:
->
-> Managing to mix GFP_ATOMIC and GFP_KERNEL almost randomly as you did =
-in
-> this patch is definitely not good.
->
-> Further more, RTNL is a mutex, held in control path, designed to allo=
-w
-> schedules and waiting for memory under pressure.
->
-> We do not want to encourage GFP_ATOMIC usage in control path.
->
-> Your patch series gives the wrong signal to developers.
->
->
->
+From: Eric Dumazet <edumazet@google.com>
 
-Thanks for comment.
+inet_forward_change() runs with RTNL held.
+We are allowed to sleep if required.
 
-I have selected GFP flags based on existing code.
+If we use __in_dev_get_rtnl() instead of __in_dev_get_rcu(),
+we no longer have to use GFP_ATOMIC allocations in
+inet_netconf_notify_devconf(), meaning we are less likely to miss
+notifications under memory pressure, and wont touch precious memory
+reserves either and risk dropping incoming packets.
 
-I have selected GFP_ATOMIC in inet6_netconf_get_devconf() because
-skb was allocated with GFP_ATOMIC.
+inet_netconf_get_devconf() can also use GFP_KERNEL allocation.
 
-I have used GFP_KERNEL in inet6_rtm_getaddr() by same reason.
+Fixes: edc9e748934c ("rtnl/ipv4: use netconf msg to advertise forwarding status")
+Fixes: 9e5511106f99 ("rtnl/ipv4: add support of RTM_GETNETCONF")
+Signed-off-by: Eric Dumazet <edumazet@google.com>
+Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+---
+ net/ipv4/devinet.c |   12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
 
- > I will send a patch against net/ipv4/devinet.c so that we remove
- > GFP_ATOMIC usage there.
-
-Thanks. I will modify my patch based on your new code.
+diff --git a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+index e333bc86bd39d8baf08ea336f20f99cc51ec945f..415e117967c775f805b43cd634bdf9a55f064e2f 100644
+--- a/net/ipv4/devinet.c
++++ b/net/ipv4/devinet.c
+@@ -1834,7 +1834,7 @@ void inet_netconf_notify_devconf(struct net *net, int type, int ifindex,
+ 	struct sk_buff *skb;
+ 	int err = -ENOBUFS;
+ 
+-	skb = nlmsg_new(inet_netconf_msgsize_devconf(type), GFP_ATOMIC);
++	skb = nlmsg_new(inet_netconf_msgsize_devconf(type), GFP_KERNEL);
+ 	if (!skb)
+ 		goto errout;
+ 
+@@ -1846,7 +1846,7 @@ void inet_netconf_notify_devconf(struct net *net, int type, int ifindex,
+ 		kfree_skb(skb);
+ 		goto errout;
+ 	}
+-	rtnl_notify(skb, net, 0, RTNLGRP_IPV4_NETCONF, NULL, GFP_ATOMIC);
++	rtnl_notify(skb, net, 0, RTNLGRP_IPV4_NETCONF, NULL, GFP_KERNEL);
+ 	return;
+ errout:
+ 	if (err < 0)
+@@ -1903,7 +1903,7 @@ static int inet_netconf_get_devconf(struct sk_buff *in_skb,
+ 	}
+ 
+ 	err = -ENOBUFS;
+-	skb = nlmsg_new(inet_netconf_msgsize_devconf(NETCONFA_ALL), GFP_ATOMIC);
++	skb = nlmsg_new(inet_netconf_msgsize_devconf(NETCONFA_ALL), GFP_KERNEL);
+ 	if (!skb)
+ 		goto errout;
+ 
+@@ -2027,16 +2027,16 @@ static void inet_forward_change(struct net *net)
+ 
+ 	for_each_netdev(net, dev) {
+ 		struct in_device *in_dev;
++
+ 		if (on)
+ 			dev_disable_lro(dev);
+-		rcu_read_lock();
+-		in_dev = __in_dev_get_rcu(dev);
++
++		in_dev = __in_dev_get_rtnl(dev);
+ 		if (in_dev) {
+ 			IN_DEV_CONF_SET(in_dev, FORWARDING, on);
+ 			inet_netconf_notify_devconf(net, NETCONFA_FORWARDING,
+ 						    dev->ifindex, &in_dev->cnf);
+ 		}
+-		rcu_read_unlock();
+ 	}
+ }
+ 
