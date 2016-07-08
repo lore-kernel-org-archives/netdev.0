@@ -1,7 +1,7 @@
 From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH v6 03/12] rtnl: add option for setting link xdp prog
-Date: Thu,  7 Jul 2016 19:15:15 -0700
-Message-ID: <1467944124-14891-4-git-send-email-bblanco@plumgrid.com>
+Subject: [PATCH v6 04/12] net/mlx4_en: add support for fast rx drop bpf program
+Date: Thu,  7 Jul 2016 19:15:16 -0700
+Message-ID: <1467944124-14891-5-git-send-email-bblanco@plumgrid.com>
 References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
 Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Martin KaFai Lau <kafai@fb.com>,
@@ -14,163 +14,208 @@ Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f180.google.com ([209.85.192.180]:34574 "EHLO
-	mail-pf0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753817AbcGHCPi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 22:15:38 -0400
-Received: by mail-pf0-f180.google.com with SMTP id h14so11247744pfe.1
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 19:15:37 -0700 (PDT)
+Received: from mail-pf0-f178.google.com ([209.85.192.178]:35745 "EHLO
+	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753937AbcGHCPm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 22:15:42 -0400
+Received: by mail-pf0-f178.google.com with SMTP id c2so11321022pfa.2
+        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 19:15:41 -0700 (PDT)
 In-Reply-To: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Sets the bpf program represented by fd as an early filter in the rx path
-of the netdev. The fd must have been created as BPF_PROG_TYPE_XDP.
-Providing a negative value as fd clears the program. Getting the fd back
-via rtnl is not possible, therefore reading of this value merely
-provides a bool whether the program is valid on the link or not.
+Add support for the BPF_PROG_TYPE_XDP hook in mlx4 driver.
+
+In tc/socket bpf programs, helpers linearize skb fragments as needed
+when the program touchs the packet data. However, in the pursuit of
+speed, XDP programs will not be allowed to use these slower functions,
+especially if it involves allocating an skb.
+
+Therefore, disallow MTU settings that would produce a multi-fragment
+packet that XDP programs would fail to access. Future enhancements could
+be done to increase the allowable MTU.
 
 Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 ---
- include/uapi/linux/if_link.h | 12 ++++++++++
- net/core/rtnetlink.c         | 55 ++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 67 insertions(+)
+ drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 38 ++++++++++++++++++++++++++
+ drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 36 +++++++++++++++++++++---
+ drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  5 ++++
+ 3 files changed, 75 insertions(+), 4 deletions(-)
 
-diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
-index 4285ac3..a1b5202 100644
---- a/include/uapi/linux/if_link.h
-+++ b/include/uapi/linux/if_link.h
-@@ -156,6 +156,7 @@ enum {
- 	IFLA_GSO_MAX_SEGS,
- 	IFLA_GSO_MAX_SIZE,
- 	IFLA_PAD,
-+	IFLA_XDP,
- 	__IFLA_MAX
- };
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+index 6083775..5c6b1a0c 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
+@@ -31,6 +31,7 @@
+  *
+  */
  
-@@ -843,4 +844,15 @@ enum {
- };
- #define LINK_XSTATS_TYPE_MAX (__LINK_XSTATS_TYPE_MAX - 1)
++#include <linux/bpf.h>
+ #include <linux/etherdevice.h>
+ #include <linux/tcp.h>
+ #include <linux/if_vlan.h>
+@@ -2084,6 +2085,9 @@ void mlx4_en_destroy_netdev(struct net_device *dev)
+ 	if (mdev->dev->caps.flags2 & MLX4_DEV_CAP_FLAG2_TS)
+ 		mlx4_en_remove_timestamp(mdev);
  
-+/* XDP section */
++	if (priv->prog)
++		bpf_prog_put(priv->prog);
 +
-+enum {
-+	IFLA_XDP_UNSPEC,
-+	IFLA_XDP_FD,
-+	IFLA_XDP_ATTACHED,
-+	__IFLA_XDP_MAX,
-+};
-+
-+#define IFLA_XDP_MAX (__IFLA_XDP_MAX - 1)
-+
- #endif /* _UAPI_LINUX_IF_LINK_H */
-diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
-index a9e3805..017780e 100644
---- a/net/core/rtnetlink.c
-+++ b/net/core/rtnetlink.c
-@@ -891,6 +891,16 @@ static size_t rtnl_port_size(const struct net_device *dev,
- 		return port_self_size;
- }
- 
-+static size_t rtnl_xdp_size(const struct net_device *dev)
-+{
-+	size_t xdp_size = nla_total_size(1);	/* XDP_ATTACHED */
-+
-+	if (!dev->netdev_ops->ndo_xdp_attached)
-+		return 0;
-+	else
-+		return xdp_size;
-+}
-+
- static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 				     u32 ext_filter_mask)
- {
-@@ -927,6 +937,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
- 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
- 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
- 	       + nla_total_size(IFNAMSIZ) /* IFLA_PHYS_PORT_NAME */
-+	       + rtnl_xdp_size(dev) /* IFLA_XDP */
- 	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
- 
- }
-@@ -1211,6 +1222,24 @@ static int rtnl_fill_link_ifmap(struct sk_buff *skb, struct net_device *dev)
- 	return 0;
- }
- 
-+static int rtnl_xdp_fill(struct sk_buff *skb, struct net_device *dev)
-+{
-+	struct nlattr *xdp;
-+
-+	if (!dev->netdev_ops->ndo_xdp_attached)
-+		return 0;
-+	xdp = nla_nest_start(skb, IFLA_XDP);
-+	if (!xdp)
-+		return -EMSGSIZE;
-+	if (nla_put_u8(skb, IFLA_XDP_ATTACHED,
-+		       dev->netdev_ops->ndo_xdp_attached(dev))) {
-+		nla_nest_cancel(skb, xdp);
-+		return -EMSGSIZE;
+ 	/* Detach the netdev so tasks would not attempt to access it */
+ 	mutex_lock(&mdev->state_lock);
+ 	mdev->pndev[priv->port] = NULL;
+@@ -2112,6 +2116,11 @@ static int mlx4_en_change_mtu(struct net_device *dev, int new_mtu)
+ 		en_err(priv, "Bad MTU size:%d.\n", new_mtu);
+ 		return -EPERM;
+ 	}
++	if (priv->prog && MLX4_EN_EFF_MTU(new_mtu) > FRAG_SZ0) {
++		en_err(priv, "MTU size:%d requires frags but bpf prog running",
++		       new_mtu);
++		return -EOPNOTSUPP;
 +	}
-+	nla_nest_end(skb, xdp);
+ 	dev->mtu = new_mtu;
+ 
+ 	if (netif_running(dev)) {
+@@ -2520,6 +2529,31 @@ static int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 m
+ 	return err;
+ }
+ 
++static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
++	struct bpf_prog *old_prog;
++
++	if (priv->num_frags > 1)
++		return -EOPNOTSUPP;
++
++	/* This xchg is paired with READ_ONCE in the fast path, but is
++	 * also protected from itself via rtnl lock
++	 */
++	old_prog = xchg(&priv->prog, prog);
++	if (old_prog)
++		bpf_prog_put(old_prog);
++
 +	return 0;
 +}
 +
- static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 			    int type, u32 pid, u32 seq, u32 change,
- 			    unsigned int flags, u32 ext_filter_mask)
-@@ -1307,6 +1336,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
- 	if (rtnl_port_fill(skb, dev, ext_filter_mask))
- 		goto nla_put_failure;
- 
-+	if (rtnl_xdp_fill(skb, dev))
-+		goto nla_put_failure;
++static bool mlx4_xdp_attached(struct net_device *dev)
++{
++	struct mlx4_en_priv *priv = netdev_priv(dev);
 +
- 	if (dev->rtnl_link_ops || rtnl_have_link_slave_info(dev)) {
- 		if (rtnl_link_fill(skb, dev) < 0)
- 			goto nla_put_failure;
-@@ -1392,6 +1424,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
- 	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
- 	[IFLA_LINK_NETNSID]	= { .type = NLA_S32 },
- 	[IFLA_PROTO_DOWN]	= { .type = NLA_U8 },
-+	[IFLA_XDP]		= { .type = NLA_NESTED },
++	return !!READ_ONCE(priv->prog);
++}
++
+ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_open		= mlx4_en_open,
+ 	.ndo_stop		= mlx4_en_close,
+@@ -2548,6 +2582,8 @@ static const struct net_device_ops mlx4_netdev_ops = {
+ 	.ndo_udp_tunnel_del	= mlx4_en_del_vxlan_port,
+ 	.ndo_features_check	= mlx4_en_features_check,
+ 	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
++	.ndo_xdp_set		= mlx4_xdp_set,
++	.ndo_xdp_attached	= mlx4_xdp_attached,
  };
  
- static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
-@@ -1429,6 +1462,11 @@ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
- 	[IFLA_PORT_RESPONSE]	= { .type = NLA_U16, },
+ static const struct net_device_ops mlx4_netdev_ops_master = {
+@@ -2584,6 +2620,8 @@ static const struct net_device_ops mlx4_netdev_ops_master = {
+ 	.ndo_udp_tunnel_del	= mlx4_en_del_vxlan_port,
+ 	.ndo_features_check	= mlx4_en_features_check,
+ 	.ndo_set_tx_maxrate	= mlx4_en_set_tx_maxrate,
++	.ndo_xdp_set		= mlx4_xdp_set,
++	.ndo_xdp_attached	= mlx4_xdp_attached,
  };
  
-+static const struct nla_policy ifla_xdp_policy[IFLA_XDP_MAX + 1] = {
-+	[IFLA_XDP_FD]		= { .type = NLA_S32 },
-+	[IFLA_XDP_ATTACHED]	= { .type = NLA_U8 },
-+};
-+
- static const struct rtnl_link_ops *linkinfo_to_kind_ops(const struct nlattr *nla)
- {
- 	const struct rtnl_link_ops *ops = NULL;
-@@ -2054,6 +2092,23 @@ static int do_setlink(const struct sk_buff *skb,
- 		status |= DO_SETLINK_NOTIFY;
- 	}
+ struct mlx4_en_bond {
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+index c1b3a9c..2bf3d62 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
+@@ -743,6 +743,7 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 	struct mlx4_en_rx_ring *ring = priv->rx_ring[cq->ring];
+ 	struct mlx4_en_rx_alloc *frags;
+ 	struct mlx4_en_rx_desc *rx_desc;
++	struct bpf_prog *prog;
+ 	struct sk_buff *skb;
+ 	int index;
+ 	int nr;
+@@ -759,6 +760,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 	if (budget <= 0)
+ 		return polled;
  
-+	if (tb[IFLA_XDP]) {
-+		struct nlattr *xdp[IFLA_XDP_MAX + 1];
++	prog = READ_ONCE(priv->prog);
 +
-+		err = nla_parse_nested(xdp, IFLA_XDP_MAX, tb[IFLA_XDP],
-+				       ifla_xdp_policy);
-+		if (err < 0)
-+			goto errout;
+ 	/* We assume a 1:1 mapping between CQEs and Rx descriptors, so Rx
+ 	 * descriptor offset can be deduced from the CQE index instead of
+ 	 * reading 'cqe->index' */
+@@ -835,6 +838,34 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+ 		l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
+ 			(cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
+ 
++		/* A bpf program gets first chance to drop the packet. It may
++		 * read bytes but not past the end of the frag.
++		 */
++		if (prog) {
++			struct xdp_buff xdp;
++			dma_addr_t dma;
++			u32 act;
 +
-+		if (xdp[IFLA_XDP_FD]) {
-+			err = dev_change_xdp_fd(dev,
-+						nla_get_s32(xdp[IFLA_XDP_FD]));
-+			if (err)
-+				goto errout;
-+			status |= DO_SETLINK_NOTIFY;
++			dma = be64_to_cpu(rx_desc->data[0].addr);
++			dma_sync_single_for_cpu(priv->ddev, dma,
++						priv->frag_info[0].frag_size,
++						DMA_FROM_DEVICE);
++
++			xdp.data = page_address(frags[0].page) +
++							frags[0].page_offset;
++			xdp.data_end = xdp.data + length;
++
++			act = bpf_prog_run_xdp(prog, &xdp);
++			switch (act) {
++			case XDP_PASS:
++				break;
++			default:
++				bpf_warn_invalid_xdp_action(act);
++			case XDP_DROP:
++				goto next;
++			}
 +		}
-+	}
 +
- errout:
- 	if (status & DO_SETLINK_MODIFIED) {
- 		if (status & DO_SETLINK_NOTIFY)
+ 		if (likely(dev->features & NETIF_F_RXCSUM)) {
+ 			if (cqe->status & cpu_to_be16(MLX4_CQE_STATUS_TCP |
+ 						      MLX4_CQE_STATUS_UDP)) {
+@@ -1062,10 +1093,7 @@ static const int frag_sizes[] = {
+ void mlx4_en_calc_rx_buf(struct net_device *dev)
+ {
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
+-	/* VLAN_HLEN is added twice,to support skb vlan tagged with multiple
+-	 * headers. (For example: ETH_P_8021Q and ETH_P_8021AD).
+-	 */
+-	int eff_mtu = dev->mtu + ETH_HLEN + (2 * VLAN_HLEN);
++	int eff_mtu = MLX4_EN_EFF_MTU(dev->mtu);
+ 	int buf_size = 0;
+ 	int i = 0;
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+index d39bf59..35ecfa2 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
++++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
+@@ -164,6 +164,10 @@ enum {
+ #define MLX4_LOOPBACK_TEST_PAYLOAD (HEADER_COPY_SIZE - ETH_HLEN)
+ 
+ #define MLX4_EN_MIN_MTU		46
++/* VLAN_HLEN is added twice,to support skb vlan tagged with multiple
++ * headers. (For example: ETH_P_8021Q and ETH_P_8021AD).
++ */
++#define MLX4_EN_EFF_MTU(mtu)	((mtu) + ETH_HLEN + (2 * VLAN_HLEN))
+ #define ETH_BCAST		0xffffffffffffULL
+ 
+ #define MLX4_EN_LOOPBACK_RETRIES	5
+@@ -590,6 +594,7 @@ struct mlx4_en_priv {
+ 	struct hlist_head mac_hash[MLX4_EN_MAC_HASH_SIZE];
+ 	struct hwtstamp_config hwtstamp_config;
+ 	u32 counter_index;
++	struct bpf_prog *prog;
+ 
+ #ifdef CONFIG_MLX4_EN_DCB
+ #define MLX4_EN_DCB_ENABLED	0x3
 -- 
 2.8.2
