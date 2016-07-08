@@ -1,119 +1,344 @@
-From: Manish Chopra <manish.chopra@qlogic.com>
-Subject: RE: [PATCH net-next v2 0/4] net: support MPLS in IPv4 and UDP
-Date: Fri, 8 Jul 2016 11:25:04 +0000
-Message-ID: <CY1PR11MB041028C21370053AA7E63140933C0@CY1PR11MB0410.namprd11.prod.outlook.com>
-References: <1467870975-28003-1-git-send-email-simon.horman@netronome.com>
+From: Grygorii Strashko <grygorii.strashko@ti.com>
+Subject: Re: [PATCH 2/4] net: ethernet: ti: cpsw: add multi queue support
+Date: Fri, 8 Jul 2016 16:12:42 +0300
+Message-ID: <577FA6CA.508@ti.com>
+References: <1467313478-22919-1-git-send-email-ivan.khoronzhuk@linaro.org>
+ <1467313478-22919-3-git-send-email-ivan.khoronzhuk@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: Tom Herbert <tom@herbertland.com>, netdev <netdev@vger.kernel.org>
-To: Simon Horman <simon.horman@netronome.com>,
-	David Miller <davem@davemloft.net>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-cys01nam02on0101.outbound.protection.outlook.com ([104.47.37.101]:18800
-	"EHLO NAM02-CY1-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755174AbcGHNEj convert rfc822-to-8bit (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 09:04:39 -0400
-In-Reply-To: <1467870975-28003-1-git-send-email-simon.horman@netronome.com>
-Content-Language: en-US
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: 7bit
+Cc: <linux-kernel@vger.kernel.org>, <linux-omap@vger.kernel.org>,
+	<nsekhar@ti.com>
+To: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>,
+	<davem@davemloft.net>, <netdev@vger.kernel.org>,
+	<mugunthanvnm@ti.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1467313478-22919-3-git-send-email-ivan.khoronzhuk@linaro.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: netdev-owner@vger.kernel.org [mailto:netdev-owner@vger.kernel.org]
-> On Behalf Of Simon Horman
-> Sent: Thursday, July 07, 2016 11:26 AM
-> To: David Miller <davem@davemloft.net>
-> Cc: Tom Herbert <tom@herbertland.com>; netdev <netdev@vger.kernel.org>;
-> Simon Horman <simon.horman@netronome.com>
-> Subject: [PATCH net-next v2 0/4] net: support MPLS in IPv4 and UDP
+On 06/30/2016 10:04 PM, Ivan Khoronzhuk wrote:
+> The cpsw h/w supports up to 8 tx and 8 rx channels.This patch adds
+> multi-queue support to the driver. An ability to configure h/w
+> shaper will be added with separate patch. Default shaper mode, as
+> before, priority mode.
 > 
-> This short series provides support for MPLS in IPv4 (RFC4023), and by
-> virtue of FOU, MPLS in UDP (RFC7510).
+> The poll function handles all unprocessed channels, till all of
+> them are free, beginning from hi priority channel.
 > 
-> The changes are as follows:
-> 1. Teach tunnel4.c about AF_MPLS, it already understands AF_INET and
->    AF_INET6
-> 2. Enhance IPIP and SIT to handle MPLS. Both already handle IPv4.
->    SIT also already handles IPv6.
-> 3. Trivially enhance MPLS to allow routes over SIT and IPIP tunnels.
+> The statistic for every channel can be read with:
+> ethtool -S ethX
 > 
-> A corresponding patch set for iproute2 has also been provided.
+> Signed-off-by: Ivan Khoronzhuk <ivan.khoronzhuk@linaro.org>
+> ---
+>   drivers/net/ethernet/ti/cpsw.c          | 334 +++++++++++++++++++++-----------
+>   drivers/net/ethernet/ti/davinci_cpdma.c |  12 ++
+>   drivers/net/ethernet/ti/davinci_cpdma.h |   2 +
+>   3 files changed, 237 insertions(+), 111 deletions(-)
 > 
-> 
-> Changes since v1
-> * Correct inverted IPIP protocol logic in SIT patch
-> * Provide usage example below
-> 
-> 
-> Sample configuration follows:
-> 
-> * The following creates a tunnel and routes MPLS packets whose outermost
->   label is 100 over it. The forwarded packets will have the outermost label
->   stack entry, 100, removed and two label stack entries added, the
->   outermost having label 200 and the next having label 300.
-> 
->   The local end-point for the tunnel is 10.0.99.192 and the remote
->   endpoint is 10.0.99.193.
-> 
->   The local address for encapsulated packets is 10.0.98.192 and the
->   remote address is 10.0.98.193.
-> 
->   # Create an MPLS over IPv4 tunnel using the IPIP driver
->   ip link add name tun1 type ipip remote 10.0.99.193 local 10.0.99.192 \
-> 	ttl 225 mode mplsip
-> 
->   # Bring the tunnel up and an add an IPv4 address and route
->   ip link set up dev tun1
->   ip addr add 10.0.98.192/24 dev tun1
-> 
->   # Set MPLS route
->   # Allow MPLS forwarding of packets recieved on eth0
->   echo 1 > /proc/sys/net/mpls/conf/eth0/input
->   # Larger than label to be routed (100)
->   echo 101 > /proc/sys/net/mpls/platform_labels
->   ip -f mpls route add 100 as 200/300 via inet 10.0.98.193
-> 
-> 
-> * For FOU (in this case MPLS over UDP) a tunnel may created using:
-> 
->   # Packets recieved on UDP port 6635 are MPLS over UDP (IP proto 137)
->   ip fou add port 6635 ipproto 137
->   # Create the tunnel netdev
->   ip link add name tun1 type ipip remote 10.0.99.193 local 10.0.99.192 \
-> 	ttl 225 mode mplsip encap fou encap-sport auto encap-dport 6635
-> 
->   IPv4 address, link and route, and MPLS routing commands are as per
->   the MPLS over IPv4 example
-> 
-> * To use the SIT driver instead of the IPIP driver "ipip" may be substituted
->   for "sit" in the above examples.
-> 
-> * To create a tunnel that forwards and receives all supported
->   inner-protocols "mplsip" may be substituted for "any" in the above
->   examples.
-> 
->   For the IPIP driver this configures both IPv4 and MPLS over IPv4.
->   For the SIT driver this configures IPv6, IPv4 and MPLS over IPv4.
-> 
+> diff --git a/drivers/net/ethernet/ti/cpsw.c b/drivers/net/ethernet/ti/cpsw.c
+> index a713336..14d53eb 100644
+> --- a/drivers/net/ethernet/ti/cpsw.c
+> +++ b/drivers/net/ethernet/ti/cpsw.c
+> @@ -140,6 +140,8 @@ do {								\
+>   #define CPSW_CMINTMAX_INTVL	(1000 / CPSW_CMINTMIN_CNT)
+>   #define CPSW_CMINTMIN_INTVL	((1000 / CPSW_CMINTMAX_CNT) + 1)
+>   
+> +#define CPSW_MAX_QUEUES		8
+> +
+>   #define cpsw_slave_index(priv)				\
+>   		((priv->data.dual_emac) ? priv->emac_port :	\
+>   		priv->data.active_slave)
+> @@ -383,7 +385,8 @@ struct cpsw_priv {
+>   	u8				mac_addr[ETH_ALEN];
+>   	struct cpsw_slave		*slaves;
+>   	struct cpdma_ctlr		*dma;
+> -	struct cpdma_chan		*txch, *rxch;
+> +	struct cpdma_chan		*txch[CPSW_MAX_QUEUES];
+> +	struct cpdma_chan		*rxch[CPSW_MAX_QUEUES];
+>   	struct cpsw_ale			*ale;
+>   	bool				rx_pause;
+>   	bool				tx_pause;
+> @@ -395,6 +398,7 @@ struct cpsw_priv {
+>   	u32 num_irqs;
+>   	struct cpts *cpts;
+>   	u32 emac_port;
+> +	int rx_ch_num, tx_ch_num;
+>   };
+>   
+
+[...]
+
+>   
+> @@ -989,26 +1024,50 @@ update_return:
+>   
+>   static int cpsw_get_sset_count(struct net_device *ndev, int sset)
+>   {
+> +	struct cpsw_priv *priv = netdev_priv(ndev);
+> +
+>   	switch (sset) {
+>   	case ETH_SS_STATS:
+> -		return CPSW_STATS_LEN;
+> +		return (CPSW_STATS_COMMON_LEN +
+> +		       (priv->rx_ch_num + priv->tx_ch_num) *
+> +		       CPSW_STATS_CH_LEN);
+>   	default:
+>   		return -EOPNOTSUPP;
+>   	}
+>   }
+>   
+> +static void cpsw_add_ch_strings(u8 **p, int ch_num, int rx_dir)
+> +{
+> +	int ch_stats_len;
+> +	int line;
+> +	int i;
+> +
+> +	ch_stats_len = CPSW_STATS_CH_LEN * ch_num;
+> +	for (i = 0; i < ch_stats_len; i++) {
+> +		line = i % CPSW_STATS_CH_LEN;
+> +		sprintf(*p, "%s DMA chan %d: %s", rx_dir ? "Rx" : "Tx",
+> +			i / CPSW_STATS_CH_LEN,
+
+snprintf(,ETH_GSTRING_LEN,) ?
+
+> +			cpsw_gstrings_ch_stats[line].stat_string);
+> +		*p += ETH_GSTRING_LEN;
+> +	}
+> +}
+> +
+>   static void cpsw_get_strings(struct net_device *ndev, u32 stringset, u8 *data)
+>   {
+> +	struct cpsw_priv *priv = netdev_priv(ndev);
+>   	u8 *p = data;
+>   	int i;
+>   
+>   	switch (stringset) {
+>   	case ETH_SS_STATS:
+> -		for (i = 0; i < CPSW_STATS_LEN; i++) {
+> +		for (i = 0; i < CPSW_STATS_COMMON_LEN; i++) {
+>   			memcpy(p, cpsw_gstrings_stats[i].stat_string,
+>   			       ETH_GSTRING_LEN);
+>   			p += ETH_GSTRING_LEN;
+>   		}
+> +
+> +		cpsw_add_ch_strings(&p, priv->rx_ch_num, 1);
+> +		cpsw_add_ch_strings(&p, priv->tx_ch_num, 0);
+>   		break;
+>   	}
+>   }
+> @@ -1017,35 +1076,38 @@ static void cpsw_get_ethtool_stats(struct net_device *ndev,
+>   				    struct ethtool_stats *stats, u64 *data)
+>   {
+>   	struct cpsw_priv *priv = netdev_priv(ndev);
+> -	struct cpdma_chan_stats rx_stats;
+> -	struct cpdma_chan_stats tx_stats;
+> -	u32 val;
+> +	struct cpdma_chan_stats ch_stats;
+> +	int i, l, ch, ret;
+>   	u8 *p;
+> -	int i;
+> +
+> +	ret = pm_runtime_get_sync(&priv->pdev->dev);
+> +	if (ret < 0) {
+> +		pm_runtime_put_noidle(&priv->pdev->dev);
+> +		return;
+> +	}
+
+You probably need to base you work on top of net-next.git
+
+>   
+>   	/* Collect Davinci CPDMA stats for Rx and Tx Channel */
+> -	cpdma_chan_get_stats(priv->rxch, &rx_stats);
+> -	cpdma_chan_get_stats(priv->txch, &tx_stats);
+> -
+> -	for (i = 0; i < CPSW_STATS_LEN; i++) {
+> -		switch (cpsw_gstrings_stats[i].type) {
+> -		case CPSW_STATS:
+> -			val = readl(priv->hw_stats +
+> -				    cpsw_gstrings_stats[i].stat_offset);
+> -			data[i] = val;
+> -			break;
+> +	for (l = 0; l < CPSW_STATS_COMMON_LEN; l++)
+> +		data[l] = readl(priv->hw_stats +
+> +				cpsw_gstrings_stats[l].stat_offset);
+>   
+> -		case CPDMA_RX_STATS:
+> -			p = (u8 *)&rx_stats +
+> -				cpsw_gstrings_stats[i].stat_offset;
+> -			data[i] = *(u32 *)p;
+> -			break;
+> +	pm_runtime_put(&priv->pdev->dev);
+>   
+> -		case CPDMA_TX_STATS:
+> -			p = (u8 *)&tx_stats +
+> -				cpsw_gstrings_stats[i].stat_offset;
+> -			data[i] = *(u32 *)p;
+> -			break;
+> +	for (ch = 0; ch < priv->rx_ch_num; ch++) {
+> +		cpdma_chan_get_stats(priv->rxch[ch], &ch_stats);
+> +		for (i = 0; i < CPSW_STATS_CH_LEN; i++, l++) {
+> +			p = (u8 *)&ch_stats +
+> +				cpsw_gstrings_ch_stats[i].stat_offset;
+> +			data[l] = *(u32 *)p;
+> +		}
+> +	}
+> +
+> +	for (ch = 0; ch < priv->tx_ch_num; ch++) {
+> +		cpdma_chan_get_stats(priv->txch[ch], &ch_stats);
+> +		for (i = 0; i < CPSW_STATS_CH_LEN; i++, l++) {
+> +			p = (u8 *)&ch_stats +
+> +				cpsw_gstrings_ch_stats[i].stat_offset;
+> +			data[l] = *(u32 *)p;
+>   		}
+>   	}
+
+I think, it's better to do pm_runtime_put() here even if now cpdma does'n access
+HW from cpdma_chan_get_stats it may change in fufture.
+And it's not critical from PM point of view
+
+>   }
+> @@ -1065,19 +1127,29 @@ static int cpsw_common_res_usage_state(struct cpsw_priv *priv)
+>   	return usage_count;
+>   }
+>   
+> +static inline struct cpdma_chan *
+> +cpsw_tx_queue_mapping(struct cpsw_priv *priv, struct sk_buff *skb)
+> +{
+> +	unsigned int q_idx = skb_get_queue_mapping(skb);
+> +
+> +	if (q_idx >= priv->tx_ch_num)
+> +		q_idx = q_idx % priv->tx_ch_num;
+> +
+> +	return priv->txch[q_idx];
+> +}
+> +
+>   static inline int cpsw_tx_packet_submit(struct net_device *ndev,
+> -			struct cpsw_priv *priv, struct sk_buff *skb)
+> +					struct cpsw_priv *priv,
+> +					struct sk_buff *skb,
+> +					struct cpdma_chan *txch)
+>   {
+>   	if (!priv->data.dual_emac)
+> -		return cpdma_chan_submit(priv->txch, skb, skb->data,
+> -				  skb->len, 0);
+> +		return cpdma_chan_submit(txch, skb, skb->data, skb->len, 0);
+>   
+>   	if (ndev == cpsw_get_slave_ndev(priv, 0))
+> -		return cpdma_chan_submit(priv->txch, skb, skb->data,
+> -				  skb->len, 1);
+> +		return cpdma_chan_submit(txch, skb, skb->data, skb->len, 1);
+>   	else
+> -		return cpdma_chan_submit(priv->txch, skb, skb->data,
+> -				  skb->len, 2);
+> +		return cpdma_chan_submit(txch, skb, skb->data, skb->len, 2);
+>   }
+>   
+>   static inline void cpsw_add_dual_emac_def_ale_entries(
+
+[...]
+
+>   
+> @@ -1614,12 +1713,16 @@ static int cpsw_ndo_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
+>   static void cpsw_ndo_tx_timeout(struct net_device *ndev)
+>   {
+>   	struct cpsw_priv *priv = netdev_priv(ndev);
+> +	int ch;
+>   
+>   	cpsw_err(priv, tx_err, "transmit timeout, restarting dma\n");
+>   	ndev->stats.tx_errors++;
+>   	cpsw_intr_disable(priv);
+> -	cpdma_chan_stop(priv->txch);
+> -	cpdma_chan_start(priv->txch);
+> +	for (ch = 0; ch < priv->tx_ch_num; ch++) {
+> +		cpdma_chan_stop(priv->txch[ch]);
+> +		cpdma_chan_start(priv->txch[ch]);
+> +	}
+> +
+>   	cpsw_intr_enable(priv);
+>   }
+>   
+> @@ -1833,7 +1936,7 @@ static void cpsw_get_drvinfo(struct net_device *ndev,
+>   	struct cpsw_priv *priv = netdev_priv(ndev);
+>   
+>   	strlcpy(info->driver, "cpsw", sizeof(info->driver));
+> -	strlcpy(info->version, "1.0", sizeof(info->version));
+> +	strlcpy(info->version, "1.1", sizeof(info->version));
+
+Not sure about this change, at least not as part of this patch.
+
+>   	strlcpy(info->bus_info, priv->pdev->name, sizeof(info->bus_info));
+>   }
+>   
+> @@ -2181,7 +2284,7 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
+>   	struct cpsw_priv		*priv_sl2;
+>   	int ret = 0, i;
+>   
+> -	ndev = alloc_etherdev(sizeof(struct cpsw_priv));
+> +	ndev = alloc_etherdev_mq(sizeof(struct cpsw_priv), CPSW_MAX_QUEUES);
+>   	if (!ndev) {
+>   		dev_err(&pdev->dev, "cpsw: error allocating net_device\n");
+>   		return -ENOMEM;
+> @@ -2216,8 +2319,15 @@ static int cpsw_probe_dual_emac(struct platform_device *pdev,
+>   	priv_sl2->wr_regs = priv->wr_regs;
+>   	priv_sl2->hw_stats = priv->hw_stats;
+>   	priv_sl2->dma = priv->dma;
+> -	priv_sl2->txch = priv->txch;
+> -	priv_sl2->rxch = priv->rxch;
+
+[...]
+
+>   
+> -	if (WARN_ON(!priv->txch || !priv->rxch)) {
+> +	if (WARN_ON(!priv->rxch[0] || !priv->txch[0])) {
+>   		dev_err(priv->dev, "error initializing dma channels\n");
+>   		ret = -ENOMEM;
+>   		goto clean_dma_ret;
+> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.c b/drivers/net/ethernet/ti/davinci_cpdma.c
+> index 2f4b571..a4b299d 100644
+> --- a/drivers/net/ethernet/ti/davinci_cpdma.c
+> +++ b/drivers/net/ethernet/ti/davinci_cpdma.c
+> @@ -481,6 +481,18 @@ void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr, u32 value)
+>   }
+>   EXPORT_SYMBOL_GPL(cpdma_ctlr_eoi);
+>   
+> +u32 cpdma_ctrl_rxchs_state(struct cpdma_ctlr *ctlr)
+> +{
+> +	return dma_reg_read(ctlr, CPDMA_RXINTSTATMASKED);
+> +}
+> +EXPORT_SYMBOL_GPL(cpdma_ctrl_rxchs_state);
+> +
+> +u32 cpdma_ctrl_txchs_state(struct cpdma_ctlr *ctlr)
+> +{
+> +	return dma_reg_read(ctlr, CPDMA_TXINTSTATMASKED);
+
+TRM: CPDMA_INT TX INTERRUPT STATUS REGISTER (MASKED VALUE)
+
+> +}
+> +EXPORT_SYMBOL_GPL(cpdma_ctrl_txchs_state);
+
+This is interrupt status, so may be cpdma_ctrl_tx[rx]chs_intr_status() name
+will be more appropriate?
+
+> +
+>   /**
+>    * cpdma_chan_split_pool - Splits ctrl pool between all channels.
+>    * Has to be called under ctlr lock
+> diff --git a/drivers/net/ethernet/ti/davinci_cpdma.h b/drivers/net/ethernet/ti/davinci_cpdma.h
+> index 0308b67..3ce91a1 100644
+> --- a/drivers/net/ethernet/ti/davinci_cpdma.h
+> +++ b/drivers/net/ethernet/ti/davinci_cpdma.h
+> @@ -96,6 +96,8 @@ int cpdma_chan_process(struct cpdma_chan *chan, int quota);
+>   int cpdma_ctlr_int_ctrl(struct cpdma_ctlr *ctlr, bool enable);
+>   void cpdma_ctlr_eoi(struct cpdma_ctlr *ctlr, u32 value);
+>   int cpdma_chan_int_ctrl(struct cpdma_chan *chan, bool enable);
+> +u32 cpdma_ctrl_rxchs_state(struct cpdma_ctlr *ctlr);
+> +u32 cpdma_ctrl_txchs_state(struct cpdma_ctlr *ctlr);
+>   bool cpdma_check_free_tx_desc(struct cpdma_chan *chan);
+>   
+>   enum cpdma_control {
 > 
 
-Hi Simon, I have questions in general for how to test MPLS in Linux [Earlier, I have asked the same on this forum but unfortunately, no one responded :-( ]
-Saw your patches on MPLS with tunnels and hope that you might be the one to ask regarding this :-)
 
-As I see usage examples above - I think this can be tested using just two linux hosts connected back to back [without any router/switch being present in between]. Right ?
-Basically, In similar context, I want to test MPLS packets/traffic between just two base NIC driver interfaces connected back to back [Please see below configuration I have],
-but so far I am not able to achieve such configuration which can drive MPLS traffic through the hardware [I don't even know if it's possible to achieve or not in this topology,
-couldn't find anything related to this ].
-
-Host A                                     Host B
-########|                 	|########
-        Eth0  <===========> Eth1
-########|                	|########
-IP: 192.168.44.20           IP: 192.168.44.21    
-
-If there is such possible configuration using iproute2 , please let me know. I appreciate your help for this.
-
-Thanks,
-Manish
+-- 
+regards,
+-grygorii
