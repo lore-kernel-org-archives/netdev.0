@@ -1,47 +1,63 @@
-From: Sarah Michael <sarahmhl19@gmail.com>
-Subject: Dear Beneficiary,
-Date: Fri, 08 Jul 2016 15:49:44 +0200
-Message-ID: <20160708154944.16771etgyhq2cbjs__21994.0708055676$1467987779$gmane$org@webmail.grpintll.net>
+From: Brian Haley <brian.haley@hpe.com>
+Subject: Re: [iproute PATCH 0/2] Netns performance improvements
+Date: Fri, 8 Jul 2016 10:31:45 -0400
+Message-ID: <577FB951.2010309@hpe.com>
+References: <1467729773-16751-1-git-send-email-phil@nwl.cc>
+ <87twg4ywjz.fsf@x220.int.ebiederm.org> <20160705205103.GE620@orbyte.nwl.cc>
+ <87h9c259ip.fsf@x220.int.ebiederm.org> <20160707111718.GL620@orbyte.nwl.cc>
+ <577E5244.8030601@6wind.com> <20160707154809.GN620@orbyte.nwl.cc>
+ <577E8054.6040603@hpe.com> <87vb0h1k6b.fsf@x220.int.ebiederm.org>
+ <577E914F.3060001@hpe.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=ISO-8859-1;
- DelSp="Yes";
- format="flowed"
+Content-Type: text/plain; charset=utf-8; format=flowed
 Content-Transfer-Encoding: 7bit
-To: undisclosed-recipients:;
+Cc: Phil Sutter <phil@nwl.cc>,
+	Nicolas Dichtel <nicolas.dichtel@6wind.com>,
+	Stephen Hemminger <shemming@brocade.com>,
+	netdev@vger.kernel.org
+To: Rick Jones <rick.jones2@hpe.com>,
+	"Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from filter08.mail.registrar.eu ([79.99.129.73]:41388 "EHLO
-	filter08.mail.registrar.eu" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1754874AbcGHOVe (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 10:21:34 -0400
-Content-Disposition: inline
+Received: from g2t1383g.austin.hpe.com ([15.233.16.89]:7788 "EHLO
+	g2t1383g.austin.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754180AbcGHObu (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 10:31:50 -0400
+Received: from g4t3425.houston.hpe.com (g4t3425.houston.hpe.com [15.241.140.78])
+	(using TLSv1.2 with cipher AECDH-AES256-SHA (256/256 bits))
+	(No client certificate requested)
+	by g2t1383g.austin.hpe.com (Postfix) with ESMTPS id 71BE64FA
+	for <netdev@vger.kernel.org>; Fri,  8 Jul 2016 14:31:49 +0000 (UTC)
+In-Reply-To: <577E914F.3060001@hpe.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Dear Beneficiary,
+On 07/07/2016 01:28 PM, Rick Jones wrote:
+> On 07/07/2016 09:34 AM, Eric W. Biederman wrote:
+>> Rick Jones <rick.jones2@hpe.com> writes:
+>>> 300 routers is far from the upper limit/goal.  Back in HP Public
+>>> Cloud, we were running as many as 700 routers per network node (*),
+>>> and more than four network nodes. (back then it was just the one
+>>> namespace per router and network). Mileage will of course vary based
+>>> on the "oomph" of one's network node(s).
+>>
+>> To clarify processes for these routers and dhcp servers are created
+>> with "ip netns exec"?
+>
+> I believe so, but it would be good to have someone else confirm that, and speak
+> to your paragraph below.
 
-I'm happy to inform you that your email address has been selected  
-among those that have compensation payment of ($2.5 Million USD), The  
-INTERNATIONAL MONETARY FUND contacted us for the release of your money  
-a couple of hours ago due to your allocated security code. We are  
-unable to complete a transfer directed at an email address, so we  
-require some more information in order to complete this transfer, But  
-for security purpose the money has been loaded in a prepaid Visa Debit  
-Card on your behalf, You Withdraw cash at ATMs and make purchases  
-anywhere debit cards are accepted, including retail stores,grocery  
-stores, restaurants and pharmacies, You are advised that a maximum  
-withdrawal value of $10,000.00 USD is permitted daily.
+Yes, the namespace is created and configured, then in the case of dhcp an 'ip 
+netns exec $namespace dnsmasq ...' is run.  Routers typically have a small 
+daemon running "inside" as well.
 
-Therefore arrangements has been perfectly concluded to effect the  
-delivery of your Visa Debit Card to your doorstep as soon as  
-youre-confirm the information's below.
+>> If that is the case and you are using this feature as effectively a
+>> lightweight container and not lots vrfs in a single network stack
+>> then I suspect much larger gains can be had by creating a variant
+>> of ip netns exec avoids the mount propagation.
 
-1) Your full name:
-2) Mobile number:
-3) Delivery address:
-4) Zip code:
+So you're thinking a new command like 'ip netns daemon $namespace ...' ?  Or if 
+there's a better way with other tools today to accomplish this I'd be 
+interested, as waiting for a new iproute2 to ripple through the distros could 
+take a while.
 
-I am waiting to hear from you soon,
-
-With Best Regards,
-Ms:Sarah Michael.
+-Brian
