@@ -1,50 +1,64 @@
-From: Roland Dreier <roland-BHEL68pLQRGGvPXPguhicg@public.gmane.org>
-Subject: Re: Resurrecting due to huge ipoib perf regression - [BUG] skb
- corruption and kernel panic at forwarding with fragmentation
-Date: Fri, 8 Jul 2016 14:17:31 -0700
-Message-ID: <CAL1RGDWw95yvRykA6gfSnq6nGLcRLy+4aXu78j4u8H=Qw5B40g@mail.gmail.com>
-References: <CAL1RGDV3u4bzuyGkMZGJQOiXje_qVh7AA-2nJMm2J2TR60H72g@mail.gmail.com>
- <CAKgT0UerNfn9Uas34y6_+Fa4ALCcToQvNdbEkH1erVosa=xvXg@mail.gmail.com>
- <CAL1RGDVgjRcb23jQQqJ4W-dfm8OkiH6n7hktVLX4mo-oUGj4gA@mail.gmail.com>
- <20160707231423.GA21039@obsidianresearch.com> <CAL1RGDWbUCi8OT1yGw7mhV9ivpmBqXa4jZ4Lp4op=L5ODK+r3w@mail.gmail.com>
- <20160708165131.GA23650@obsidianresearch.com>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net-next 0/4] net: cleanup for UDP tunnel's GRO
+Date: Sat, 9 Jul 2016 00:19:08 +0300
+Message-ID: <20160709001908.1ff9f4ea@halley>
+References: <cover.1467895623.git.pabeni@redhat.com>
+	<CAKgT0UegKDuP0KHJ+zE1yDTwxxBjtvhESE3WFhTg65UX+CNL0A@mail.gmail.com>
+	<20160708231734.6258c00b@halley>
+	<e6319ae2-b436-18a0-dac1-5ae03e54e056@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Alexander Duyck <alexander.duyck-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Konstantin Khlebnikov <koct9i-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Florian Westphal <fw-HFFVJYpyMKqzQB+pC5nmwQ@public.gmane.org>,
-	Thadeu Lima de Souza Cascardo <cascardo-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>,
-	Cong Wang <xiyou.wangcong-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
-	Linux Kernel Network Developers <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	David Miller <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
-	Eric Dumazet <edumazet-hpIqsD4AKlfQT0dZR+AlfA@public.gmane.org>,
-	Linux Kernel Mailing List <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Jason Gunthorpe <jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160708165131.GA23650-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 8BIT
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	Paolo Abeni <pabeni@redhat.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@kernel.org>,
+	Tom Herbert <tom@herbertland.com>, Jiri Benc <jbenc@redhat.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:35905 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756224AbcGHVTP convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 17:19:15 -0400
+Received: by mail-wm0-f48.google.com with SMTP id f126so25529583wma.1
+        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 14:19:14 -0700 (PDT)
+In-Reply-To: <e6319ae2-b436-18a0-dac1-5ae03e54e056@stressinduktion.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 8, 2016 at 9:51 AM, Jason Gunthorpe
-<jgunthorpe-ePGOBjL8dl3ta4EC/59zMFaTQe2KTcn/@public.gmane.org> wrote:
-> So, it appears, the dst and neigh can be used for all performances cases.
->
-> For the non performance dst == null case, can we just burn cycles and
-> stuff the daddr in front of the packet at hardheader time, even if we
-> have to copy?
+On Fri, 8 Jul 2016 16:57:10 -0400 Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> On 08.07.2016 16:17, Shmulik Ladkani wrote:
+> > On Fri, 8 Jul 2016 09:21:40 -0700 Alexander Duyck <alexander.duyck@gmail.com> wrote:  
+> >> I get that there is an impression that it is redundant but there are a
+> >> number of paths that could lead to VXLAN or GENEVE frames being
+> >> received that are not aggregated via GRO.  
+> > 
+> > There's the case where the vxlan/geneve datagrams get IP fragmented, and
+> > IP frags are not GROed.
+> > GRO aggregation at the vxlan/geneve level is beneficial for this case.  
+> 
+> Isn't this a misconfiguration? TCP should not fragment at all, not even
+> in vxlan/geneve if one cares about performance? And UDP is not GRO'ed
+> anyway.
 
-OK, sounds interesting.
+It's not an ideal configuration, but it is a valid one.
 
-Unfortunately the scope of this work has gotten to the point where I
-can't take it on right now.  My system is running 4.4.y for now
-(before struct skb_gso_cb grew) so I think shrinking struct skb_gso_cb
-to 8 bytes plus changing SKB_SGO_CB_OFFSET to 20 will work for now.
-Hope someone is able to come up with a real fix before I need to
-upgrade to 4.10.y...
+Imagine TCP within vxlan/geneve, that gets properly segmented and
+encapsulated.
 
- - R.
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+The vxlan/geneve datagrams go out the wire, and these can occasionally
+be fragmented on the way (e.g. when we can't control the MTUs along the
+path, or if unable to use PMTUD for whatever reason).
+
+At the receiving vxlan/geneve termination, these IP frags are not GROed.
+
+Instead they get reassembled by the IP stack, then handed to UDP and to
+the vxlan/geneve drivers.
+
+>From that point, GROing at the vxlan/geneve device, which aggregates
+the TCP segments into a TCP super-packet still make sense and has
+benefits.
+
+Regards,
+Shmulik
