@@ -1,46 +1,56 @@
-From: David Laight <David.Laight@ACULAB.COM>
-Subject: RE: [PATCH] Need proper type casting before assignment, Remove
- compilation Warning.
-Date: Fri, 8 Jul 2016 09:59:45 +0000
-Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4F3647@AcuExch.aculab.com>
-References: <1467916674-8418-1-git-send-email-arvind.yadav.cs@gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC PATCH v2] net: sched: convert qdisc linked list to hashtable
+Date: Fri, 8 Jul 2016 13:07:17 +0200
+Message-ID: <20160708110717.GA13885@pox.localdomain>
+References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>
+ <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160414151813.GE3715@orbyte.nwl.cc>
+ <alpine.LNX.2.00.1604141807350.27368@cbobk.fhfr.pm>
+ <1460656170.10638.61.camel@edumazet-glaptop3.roam.corp.google.com>
+ <5710E1C1.2090209@mojatatu.com>
+ <1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com>
+ <alpine.LNX.2.00.1607071102010.24757@cbobk.fhfr.pm>
+ <alpine.LNX.2.00.1607072234190.24757@cbobk.fhfr.pm>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="Windows-1252"
-Content-Transfer-Encoding: 8BIT
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"linuxppc-dev@lists.ozlabs.org" <linuxppc-dev@lists.ozlabs.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
-To: 'Arvind Yadav' <arvind.yadav.cs@gmail.com>,
-	"leoli@freescale.com" <leoli@freescale.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467916674-8418-1-git-send-email-arvind.yadav.cs@gmail.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Phil Sutter <phil@nwl.cc>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Jiri Kosina <jikos@kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f46.google.com ([74.125.82.46]:38526 "EHLO
+	mail-wm0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754262AbcGHLHU (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 07:07:20 -0400
+Received: by mail-wm0-f46.google.com with SMTP id n127so10731201wme.1
+        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 04:07:19 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <alpine.LNX.2.00.1607072234190.24757@cbobk.fhfr.pm>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Arvind Yadav
-> Sent: 07 July 2016 19:38
-> -Return type of 'qe_muram_alloc' is 'unsigned long', That Was trying to
-> assigned in ucc_fast_tx_virtual_fifo_base_offset and
-> ucc_fast_rx_virtual_fifo_base_offset. These variable are 'unsigned int'.
-> So before assginment need a proper type casting.
+On 07/07/16 at 10:36pm, Jiri Kosina wrote:
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index f45929c..630838e 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -52,6 +52,7 @@
+>  #include <uapi/linux/netdevice.h>
+>  #include <uapi/linux/if_bonding.h>
+>  #include <uapi/linux/pkt_cls.h>
+> +#include <linux/hashtable.h>
+>  
+>  struct netpoll_info;
+>  struct device;
+> @@ -1778,6 +1779,7 @@ struct net_device {
+>  	unsigned int		num_tx_queues;
+>  	unsigned int		real_num_tx_queues;
+>  	struct Qdisc		*qdisc;
+> +	DECLARE_HASHTABLE	(qdisc_hash, 16);
 
-Are you sure, seems to me that the type of one of the fields is wrong.
-The casts you are adding do not aid readability at all.
-
-> -Passing value in IS_ERR_VALUE() is wrong, as they pass an 'int'
-> into a function that takes an 'unsigned long' argument.This happens
-> to work because the type is sign-extended on 64-bit architectures
-> before it gets converted into an unsigned type.
-> 
-> -Passing an 'unsigned short' or 'unsigned int'argument into
-> IS_ERR_VALUE() is guaranteed to be broken, as are 8-bit integers
-> and types that are wider than 'unsigned long'.
-
-Signed 8 and 16 bit values will be sign extended to 'int' before being
-used in any arithmetic operation.
-Unsigned ones get zero extended to 'int'.
-
-That probably means you shouldn't be using IS_ERR_VALUE().
-
-	David
+This blows up net_device to an insane size: 64K * sizeof(struct
+hlist_head). Can we allocate this on demand for net_devices where
+it is actually needed? The majority of virtual devices won't need
+this. Doesn't have to be rhashtable, can still be fixed size but
+at least allocate it.
