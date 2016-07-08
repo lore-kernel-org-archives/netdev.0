@@ -1,61 +1,93 @@
-From: Simon Wunderlich <sw@simonwunderlich.de>
-Subject: [PATCH 3/7] batman-adv: Fix orig_node_vlan leak on orig_node_release
-Date: Fri,  8 Jul 2016 11:49:18 +0200
-Message-ID: <1467971362-3607-4-git-send-email-sw@simonwunderlich.de>
-References: <1467971362-3607-1-git-send-email-sw@simonwunderlich.de>
-Cc: netdev@vger.kernel.org, b.a.t.m.a.n@lists.open-mesh.org,
-	Sven Eckelmann <sven@narfation.org>,
-	Marek Lindner <mareklindner@neomailbox.ch>,
-	Simon Wunderlich <sw@simonwunderlich.de>
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from packetmixer.de ([79.140.42.25]:37100 "EHLO
-	mail.mail.packetmixer.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1754046AbcGHJte (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 05:49:34 -0400
-In-Reply-To: <1467971362-3607-1-git-send-email-sw@simonwunderlich.de>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+Subject: [PATCH 0/7] pull request for net: batman-adv
+	2016-07-08
+Date: Fri,  8 Jul 2016 11:49:15 +0200
+Message-ID: <1467971362-3607-1-git-send-email-sw@simonwunderlich.de>
+Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
+ <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
+Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
+List-Post: <mailto:b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Help: <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.open-mesh.org/mm/listinfo/b.a.t.m.a.n>,
+ <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=subscribe>
+Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+List-Id: netdev.vger.kernel.org
 
-From: Sven Eckelmann <sven@narfation.org>
+Hi David,
 
-batadv_orig_node_new uses batadv_orig_node_vlan_new to allocate a new
-batadv_orig_node_vlan and add it to batadv_orig_node::vlan_list. References
-to this list have also to be cleaned when the batadv_orig_node is removed.
+here are some more bugfix patches which we would like to have integrated
+into net, if that is still possible!
 
-Fixes: 7ea7b4a14275 ("batman-adv: make the TT CRC logic VLAN specific")
-Signed-off-by: Sven Eckelmann <sven@narfation.org>
-Signed-off-by: Marek Lindner <mareklindner@neomailbox.ch>
-Signed-off-by: Simon Wunderlich <sw@simonwunderlich.de>
----
- net/batman-adv/originator.c | 8 ++++++++
- 1 file changed, 8 insertions(+)
+Please pull or let me know of any problem!
 
-diff --git a/net/batman-adv/originator.c b/net/batman-adv/originator.c
-index 7f51bc2..fe2fcda 100644
---- a/net/batman-adv/originator.c
-+++ b/net/batman-adv/originator.c
-@@ -765,6 +765,7 @@ static void batadv_orig_node_release(struct kref *ref)
- 	struct batadv_neigh_node *neigh_node;
- 	struct batadv_orig_node *orig_node;
- 	struct batadv_orig_ifinfo *orig_ifinfo;
-+	struct batadv_orig_node_vlan *vlan;
- 
- 	orig_node = container_of(ref, struct batadv_orig_node, refcount);
- 
-@@ -784,6 +785,13 @@ static void batadv_orig_node_release(struct kref *ref)
- 	}
- 	spin_unlock_bh(&orig_node->neigh_list_lock);
- 
-+	spin_lock_bh(&orig_node->vlan_list_lock);
-+	hlist_for_each_entry_safe(vlan, node_tmp, &orig_node->vlan_list, list) {
-+		hlist_del_rcu(&vlan->list);
-+		batadv_orig_node_vlan_put(vlan);
-+	}
-+	spin_unlock_bh(&orig_node->vlan_list_lock);
-+
- 	/* Free nc_nodes */
- 	batadv_nc_purge_orig(orig_node->bat_priv, orig_node, NULL);
- 
+Thank you,
+      Simon
+
+Sven Eckelmann (7):
+  batman-adv: Avoid nullptr dereference in bla after vlan_insert_tag
+  batman-adv: Avoid nullptr dereference in dat after vlan_insert_tag
+  batman-adv: Fix orig_node_vlan leak on orig_node_release
+  batman-adv: Fix non-atomic bla_claim::backbone_gw access
+  batman-adv: Fix reference leak in batadv_find_router
+  batman-adv: Free last_bonding_candidate on release of orig_node
+  batman-adv: Fix speedy join in gateway client mode
+
+ net/batman-adv/bridge_loop_avoidance.c | 116 ++++++++++++++++++++++++++-------
+ net/batman-adv/distributed-arp-table.c |  10 ++-
+ net/batman-adv/originator.c            |  15 +++++
+ net/batman-adv/routing.c               |  52 +++++++++++----
+ net/batman-adv/send.c                  |   4 +-
+ net/batman-adv/types.h                 |   6 +-
+ 6 files changed, 161 insertions(+), 42 deletions(-)
+
 -- 
 2.8.1
+
+The following changes since commit 5b4d10f5e0369ed79434593b7cd8e85eebbe473f:
+
+  qlcnic: use the correct ring in qlcnic_83xx_process_rcv_ring_diag() (2016-06-29 05:46:16 -0400)
+
+are available in the git repository at:
+
+  git://git.open-mesh.org/linux-merge.git tags/batadv-net-for-davem-20160708
+
+for you to fetch changes up to d1fe176ca51fa3cb35f70c1d876d9a090e9befce:
+
+  batman-adv: Fix speedy join in gateway client mode (2016-07-06 16:03:40 +0200)
+
+----------------------------------------------------------------
+Here are a couple batman-adv bugfix patches, all by Sven Eckelmann:
+
+ - Fix possible NULL pointer dereference for vlan_insert_tag (two patches)
+
+ - Fix reference handling in some features, which may lead to reference
+   leaks or invalid memory access (four patches)
+
+ - Fix speedy join: DHCP packets handled by the gateway feature should
+   be sent with 4-address unicast instead of 3-address unicast to make
+   speedy join work. This fixes/speeds up DHCP assignment for clients
+   which join a mesh for the first time. (one patch)
+
+----------------------------------------------------------------
+Sven Eckelmann (7):
+      batman-adv: Avoid nullptr dereference in bla after vlan_insert_tag
+      batman-adv: Avoid nullptr dereference in dat after vlan_insert_tag
+      batman-adv: Fix orig_node_vlan leak on orig_node_release
+      batman-adv: Fix non-atomic bla_claim::backbone_gw access
+      batman-adv: Fix reference leak in batadv_find_router
+      batman-adv: Free last_bonding_candidate on release of orig_node
+      batman-adv: Fix speedy join in gateway client mode
+
+ net/batman-adv/bridge_loop_avoidance.c | 116 ++++++++++++++++++++++++++-------
+ net/batman-adv/distributed-arp-table.c |  10 ++-
+ net/batman-adv/originator.c            |  15 +++++
+ net/batman-adv/routing.c               |  52 +++++++++++----
+ net/batman-adv/send.c                  |   4 +-
+ net/batman-adv/types.h                 |   6 +-
+ 6 files changed, 161 insertions(+), 42 deletions(-)
