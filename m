@@ -1,71 +1,100 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [PATCH v6 12/12] net/mlx4_en: add prefetch in xdp rx path
-Date: Thu, 7 Jul 2016 21:16:14 -0700
-Message-ID: <20160708041612.GA15452@ast-mbp.thefacebook.com>
-References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
- <1467944124-14891-13-git-send-email-bblanco@plumgrid.com>
- <1467950191.17638.3.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Alexei Starovoitov via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: XDP seeking input from NIC hardware vendors
+Date: Thu, 7 Jul 2016 21:28:37 -0700
+Message-ID: <20160708042835.GA15575@ast-mbp.thefacebook.com>
+References: <20160707124245.6d95635a@redhat.com>
+	<D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81@fmsmsx115.amr.corp.intel.com>
+	<20160708022210.GA12244@ast-mbp.thefacebook.com>
+	<577F2689.4010602@gmail.com>
+Reply-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>, Or Gerlitz <gerlitz.or@gmail.com>,
-	john.fastabend@gmail.com, hannes@stressinduktion.org,
-	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f193.google.com ([209.85.192.193]:32786 "EHLO
-	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751225AbcGHEQU (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 00:16:20 -0400
-Received: by mail-pf0-f193.google.com with SMTP id c74so3695913pfb.0
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 21:16:20 -0700 (PDT)
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	"Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
+To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
 Content-Disposition: inline
-In-Reply-To: <1467950191.17638.3.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+In-Reply-To: <577F2689.4010602-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 08, 2016 at 05:56:31AM +0200, Eric Dumazet wrote:
-> On Thu, 2016-07-07 at 19:15 -0700, Brenden Blanco wrote:
-> > XDP programs read and/or write packet data very early, and cache miss is
-> > seen to be a bottleneck.
+On Thu, Jul 07, 2016 at 09:05:29PM -0700, John Fastabend wrote:
+> On 16-07-07 07:22 PM, Alexei Starovoitov wrote:
+> > On Thu, Jul 07, 2016 at 03:18:11PM +0000, Fastabend, John R wrote:
+> >> Hi Jesper,
+> >>
+> >> I have done some previous work on proprietary systems where we
+> >> used hardware to do the classification/parsing then passed a cookie to the
+> >> software which used the cookie to lookup a program to run on the packet.
+> >> When your programs are structured as a bunch of parsing followed by some
+> >> actions this can provide real performance benefits. Also a lot of
+> >> existing hardware supports this today assuming you use headers the
+> >> hardware "knows" about. It's a natural model for hardware that uses a
+> >> parser followed by tcam/cam/sram/etc lookup tables.
+> 
+> > looking at bpf programs written in plumgrid, facebook and cisco
+> > with full certainty I can assure that parse/action split doesn't exist.
+> > Parsing is always interleaved with lookups and actions.
+> > cpu spends a tiny fraction of time doing parsing. Lookups are the heaviest.
+> 
+> What is heavy about a lookup? Is it the key generation? The key
+> generation can be provided by the hardware is what I was really alluding
+> to. If your data structures are ebpf maps though its probably a hash
+> or array table and the benefit of leveraging hardware would likely be
+> much better if/when there are software structures for LPM or wildcard
+> lookups.
+
+there is only hash map in the sw and the main cost of it was doing jhash
+math and occasional miss in hashtable.
+'key generation' is only copying bytes, so it mostly free.
+Just like parsing which is few branches which tend to be predicted
+by cpu quite well.
+In case of our L4 loadbalancer we need to do consistent hash which
+fixed hw probably won't be able to provide.
+Unless hw is programmable :)
+In general when we developed and benchmarked the programs,
+redesigning the program to remove extra hash lookup gave performance
+improvement whereas simplifying parsing logic (like removing vlan
+handling or ip option) showed no difference in performance.
+
+> > Trying to split single logical program into parsing/after_parse stages
+> > has no pracitcal benefit.
 > > 
-> > Add prefetch logic in the xdp case 3 packets in the future. Throughput
-> > improved from 10Mpps to 12.5Mpps.  LLC misses as reported by perf stat
-> > reduced from ~14% to ~7%.  Prefetch values of 0 through 5 were compared
-> > with >3 showing dimishing returns.
+> >> If the goal is to just separate XDP traffic from non-XDP traffic
+> >> you could accomplish this with a combination of SR-IOV/macvlan to separate
+> >> the device queues into multiple netdevs and then run XDP on just one of
+> >> the netdevs. Then use flow director (ethtool) or 'tc cls_u32/flower' to
+> >> steer traffic to the netdev. This is how we support multiple networking
+> >> stacks on one device by the way it is called the bifurcated driver. Its
+> >> not too far of a stretch to think we could offload some simple XDP
+> >> programs to program the splitting of traffic instead of
+> >> cls_u32/flower/flow_director and then you would have a stack of XDP
+> >> programs. One running in hardware and a set running on the queues in
+> >> software.
+> > 
+> > the above sounds like much better approach then Jesper/mine prog_per_ring stuff.
+> > If we can split the nic via sriov and have dedicated netdev via VF just for XDP that's way cleaner approach.
+> > I guess we won't need to do xdp_rxqmask after all.
+> > 
 > 
-> This is what I feared with XDP.
-> 
-> Instead of making generic changes in the driver(s), we now have 'patches
-> that improve XDP numbers'
-> 
-> Careful prefetches make sense in NIC drivers, regardless of XDP being
-> used or not.
-> 
-> On mlx4, prefetching next cqe could probably help as well.
+> Right and this works today so all it would require is adding the XDP
+> engine code to the VF drivers. Which should be relatively straight
+> forward if you have the PF driver working.
 
-I've tried this style of prefetching in the past for normal stack
-and it didn't help at all.
-It helps XDP because inner processing loop is short with small number
-of memory accesses, so prefetching Nth packet in advance helps.
-Prefetching next packet doesn't help as much, since bpf prog is
-too short and hw prefetch logic doesn't have time to actually pull
-the data in.
-The effectiveness of this patch depends on size of the bpf program
-and ammount of work it does. For small and medium sizes it works well.
-For large prorgrams probably not so much, but we didn't get to
-this point yet. I think eventually the prefetch distance should
-be calculated dynamically based on size of prog and amount of work
-it does or configured via knob (which would be unfortunate).
-The performance gain is sizable, so I think it makes sense to
-keep it... even to demonstrate the prefetch logic.
-Also note this is ddio capable cpu. On desktop class cpus
-the prefetch is mandatory for all bpf programs to have good performance.
-
-Another alternative we considered is to allow bpf programs to
-indicate to xdp infra how much in advance to prefetch, so
-xdp side will prefetch only when program gives a hint.
-But that would be the job of future patches.
+Good point. I think the next step should be to enable xdp in VF drivers
+and measure performance.
