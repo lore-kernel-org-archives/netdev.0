@@ -1,155 +1,52 @@
-From: Linus Walleij <linus.walleij@linaro.org>
-Subject: [PATCH 3/3] RFC: net: smsc911x: add wake-up event interrupt support
-Date: Fri,  8 Jul 2016 11:07:32 +0200
-Message-ID: <1467968852-6175-3-git-send-email-linus.walleij@linaro.org>
-References: <1467968852-6175-1-git-send-email-linus.walleij@linaro.org>
-Cc: Guenter Roeck <linux@roeck-us.net>,
-	Jeremy Linton <jeremy.linton@arm.com>,
-	Kamlakant Patel <kamlakant.patel@broadcom.com>,
-	Pavel Fedin <p.fedin@samsung.com>,
-	Linus Walleij <linus.walleij@linaro.org>,
-	Sudeep Holla <sudeep.holla@arm.com>,
-	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
-	Tony Lindgren <tony@atomide.com>,
-	"Rafael J . Wysocki" <rjw@rjwysocki.net>,
-	John Stultz <john.stultz@linaro.org>
-To: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
-	Steve Glendinning <steve.glendinning@smsc.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f53.google.com ([209.85.215.53]:35824 "EHLO
-	mail-lf0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752008AbcGHJHq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 05:07:46 -0400
-Received: by mail-lf0-f53.google.com with SMTP id l188so26027072lfe.2
-        for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 02:07:45 -0700 (PDT)
-In-Reply-To: <1467968852-6175-1-git-send-email-linus.walleij@linaro.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Jason Wang <jasowang@redhat.com>
+Subject: Re: [PATCH net-next V4 0/6] switch to use tx skb array in tun
+Date: Fri, 8 Jul 2016 17:14:19 +0800
+Message-ID: <577F6EEB.9080908@redhat.com>
+References: <CAEfhGixKLfLOj11ERgPhpVB+UXbqxrvkQKgQgn19bDjroO_4dQ@mail.gmail.com>
+	<20160708091855-mutt-send-email-mst@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="utf-8"; Format="flowed"
+Content-Transfer-Encoding: base64
+Cc: kvm@vger.kernel.org, Eric Dumazet <eric.dumazet@gmail.com>,
+	netdev <netdev@vger.kernel.org>, LKML <linux-kernel@vger.kernel.org>,
+	virtualization@lists.linux-foundation.org, brouer@redhat.com,
+	David Miller <davem@davemloft.net>
+To: "Michael S. Tsirkin" <mst@redhat.com>, Craig Gallek <kraigatgoog@gmail.com>
+Return-path: <virtualization-bounces@lists.linux-foundation.org>
+In-Reply-To: <20160708091855-mutt-send-email-mst@redhat.com>
+List-Unsubscribe: <https://lists.linuxfoundation.org/mailman/options/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=unsubscribe>
+List-Archive: <http://lists.linuxfoundation.org/pipermail/virtualization/>
+List-Post: <mailto:virtualization@lists.linux-foundation.org>
+List-Help: <mailto:virtualization-request@lists.linux-foundation.org?subject=help>
+List-Subscribe: <https://lists.linuxfoundation.org/mailman/listinfo/virtualization>,
+	<mailto:virtualization-request@lists.linux-foundation.org?subject=subscribe>
+Sender: virtualization-bounces@lists.linux-foundation.org
+Errors-To: virtualization-bounces@lists.linux-foundation.org
+List-Id: netdev.vger.kernel.org
 
-The SMSC911x have a line out of the chip called "PME",
-Power Management Event. When connected to an asynchronous
-interrupt controller this is able to wake the system up
-from sleep in response to certain network events.
-
-This is the first attempt to support this in the Linux
-driver: the Qualcomm APQ8060 Dragonboard has this line
-routed to a GPIO line on the primary SoC padring, and as
-such it can be armed as a wakeup interrupt.
-
-The patch is inspired by the wakeup code in the RTC
-subsystem.
-
-The code looks for an additional interrupt - apart from the
-ordinary device interrupt - and in case that is present,
-we register an interrupt handler to respons to this,
-and flag the device and this interrupt as a wakeup.
-
-Cc: Sudeep Holla <sudeep.holla@arm.com>
-Cc: Alexandre Belloni <alexandre.belloni@free-electrons.com>
-Cc: Tony Lindgren <tony@atomide.com>
-Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
-Cc: John Stultz <john.stultz@linaro.org>
-Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
----
-Added some wakeup people at CC who can (hopefully) tell me if
-I'm doing this right or not.
----
- drivers/net/ethernet/smsc/smsc911x.c | 48 ++++++++++++++++++++++++++++++++++++
- 1 file changed, 48 insertions(+)
-
-diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
-index 125d58ac22bd..e43755ae130a 100644
---- a/drivers/net/ethernet/smsc/smsc911x.c
-+++ b/drivers/net/ethernet/smsc/smsc911x.c
-@@ -63,6 +63,7 @@
- #include <linux/pm_runtime.h>
- #include <linux/property.h>
- #include <linux/gpio/consumer.h>
-+#include <linux/pm_wakeirq.h>
- 
- #include "smsc911x.h"
- 
-@@ -153,6 +154,9 @@ struct smsc911x_data {
- 	/* Reset GPIO */
- 	struct gpio_desc *reset_gpiod;
- 
-+	/* PME interrupt */
-+	int pme_irq;
-+
- 	/* clock */
- 	struct clk *clk;
- };
-@@ -1882,6 +1886,17 @@ static irqreturn_t smsc911x_irqhandler(int irq, void *dev_id)
- 	return serviced;
- }
- 
-+static irqreturn_t smsc911x_pme_irq_thread(int irq, void *dev_id)
-+{
-+	struct net_device *dev = dev_id;
-+	struct smsc911x_data *pdata __maybe_unused = netdev_priv(dev);
-+
-+	SMSC_TRACE(pdata, pm, "wakeup event");
-+	/* This signal is active for 50 ms, wait for it to deassert */
-+	usleep_range(50000, 100000);
-+	return IRQ_HANDLED;
-+}
-+
- #ifdef CONFIG_NET_POLL_CONTROLLER
- static void smsc911x_poll_controller(struct net_device *dev)
- {
-@@ -2525,6 +2540,33 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
- 		goto out_disable_resources;
- 	}
- 
-+	irq = platform_get_irq(pdev, 1);
-+	if (irq == -EPROBE_DEFER) {
-+		retval = -EPROBE_DEFER;
-+		goto out_disable_resources;
-+	/* It's perfectly fine to not have a PME IRQ */
-+	} else if (irq > 0) {
-+		char *pme_name;
-+
-+		/*
-+		 * The Power Management Event (PME) IRQ appears as
-+		 * a pulse waking up the system from sleep in response to  a
-+		 * network event.
-+		 */
-+		retval = request_threaded_irq(irq, NULL,
-+					      smsc911x_pme_irq_thread,
-+					      IRQF_ONESHOT, "smsc911x-pme",
-+					      dev);
-+		if (retval) {
-+			SMSC_WARN(pdata, probe,
-+			"Unable to claim requested PME irq: %d", irq);
-+			goto out_disable_resources;
-+		}
-+		pdata->pme_irq = irq;
-+		device_init_wakeup(&pdev->dev, true);
-+		dev_pm_set_wake_irq(&pdev->dev, irq);
-+	}
-+
- 	netif_carrier_off(dev);
- 
- 	retval = register_netdev(dev);
-@@ -2613,6 +2655,9 @@ static int smsc911x_suspend(struct device *dev)
- 		PMT_CTRL_PM_MODE_D1_ | PMT_CTRL_WOL_EN_ |
- 		PMT_CTRL_ED_EN_ | PMT_CTRL_PME_EN_);
- 
-+	if (pdata->pme_irq && device_may_wakeup(dev))
-+		enable_irq_wake(pdata->pme_irq);
-+
- 	return 0;
- }
- 
-@@ -2622,6 +2667,9 @@ static int smsc911x_resume(struct device *dev)
- 	struct smsc911x_data *pdata = netdev_priv(ndev);
- 	unsigned int to = 100;
- 
-+	if (pdata->pme_irq && device_may_wakeup(dev))
-+		disable_irq_wake(pdata->pme_irq);
-+
- 	/* Note 3.11 from the datasheet:
- 	 * 	"When the LAN9220 is in a power saving state, a write of any
- 	 * 	 data to the BYTE_TEST register will wake-up the device."
--- 
-2.7.4
+CgpPbiAyMDE25bm0MDfmnIgwOOaXpSAxNDoxOSwgTWljaGFlbCBTLiBUc2lya2luIHdyb3RlOgo+
+IE9uIFdlZCwgSnVsIDA2LCAyMDE2IGF0IDAxOjQ1OjU4UE0gLTA0MDAsIENyYWlnIEdhbGxlayB3
+cm90ZToKPj4gPk9uIFRodSwgSnVuIDMwLCAyMDE2IGF0IDI6NDUgQU0sIEphc29uIFdhbmc8amFz
+b3dhbmdAcmVkaGF0LmNvbT4gIHdyb3RlOgo+Pj4gPiA+SGkgYWxsOgo+Pj4gPiA+Cj4+PiA+ID5U
+aGlzIHNlcmllcyB0cmllcyB0byBzd2l0Y2ggdG8gdXNlIHNrYiBhcnJheSBpbiB0dW4uIFRoaXMg
+aXMgdXNlZCB0bwo+Pj4gPiA+ZWxpbWluYXRlIHRoZSBzcGlubG9jayBjb250ZW50aW9uIGJldHdl
+ZW4gcHJvZHVjZXIgYW5kIGNvbnN1bWVyLiBUaGUKPj4+ID4gPmNvbnZlcnNpb24gd2FzIHN0cmFp
+Z2h0Zm9yd2FyZDoganVzdCBpbnRyb2RjZSBhIHR4IHNrYiBhcnJheSBhbmQgdXNlCj4+PiA+ID5p
+dCBpbnN0ZWFkIG9mIHNrX3JlY2VpdmVfcXVldWUuCj4+ID4KPj4gPkknbSBzZWVpbmcgdGhlIHNw
+bGF0IGJlbG93IGFmdGVyIHRoaXMgc2VyaWVzLiAgSSdtIHN0aWxsIHdyYXBwaW5nIG15Cj4+ID5o
+ZWFkIGFyb3VuZCB0aGlzIGNvZGUsIGJ1dCBpdCBhcHBlYXJzIHRvIGJlIGhhcHBlbmluZyBiZWNh
+dXNlIHRoZQo+PiA+dHVuX3N0cnVjdCBwYXNzZWQgaW50byB0dW5fcXVldWVfcmVzaXplIGlzIHVu
+aW5pdGlhbGl6ZWQuCj4+ID5TcGVjaWZpY2FsbHksIGl0ZXJhdGlvbiBvdmVyIHRoZSBkaXNhYmxl
+ZCBsaXN0X2hlYWQgZmFpbHMgYmVjYXVzZSBwcmV2Cj4+ID49IG5leHQgPSBOVUxMLiAgVGhpcyBz
+ZWVtcyB0byBoYXBwZW4gd2hlbiBhIHN0YXJ0dXAgc2NyaXB0IG9uIG15IHRlc3QKPj4gPm1hY2hp
+bmUgY2hhbmdlcyB0aGUgcXVldWUgbGVuZ3RoLiAgSSdsbCB0cnkgdG8gZmlndXJlIG91dCB3aGF0
+J3MKPj4gPmhhcHBlbmluZywgYnV0IGlmIGl0J3Mgb2J2aW91cyB0byBzb21lb25lIGVsc2UgZnJv
+bSB0aGUgc3RhY2ssIHBsZWFzZQo+PiA+bGV0IG1lIGtub3cuCj4gRG9uJ3Qgc2VlIGFueXRoaW5n
+IG9idmlvdXMuIEknbSB0cmF2ZWxpbmcsIHdpbGwgbG9vayBhdCBpdCB3aGVuIEknbSBiYWNrCj4g
+dW5sZXNzIGl0J3MgZml4ZWQgYnkgdGhlbi4gSmFzb24sIGFueSBpZGVhPwo+CgpMb29rcyBsaWtl
+IENyYWlnIGhhcyBwb3N0ZWQgYSBmaXggdG8gdGhpczoKCmh0dHA6Ly9wYXRjaHdvcmsub3psYWJz
+Lm9yZy9wYXRjaC82NDU2NDUvCl9fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
+X19fX19fX19fClZpcnR1YWxpemF0aW9uIG1haWxpbmcgbGlzdApWaXJ0dWFsaXphdGlvbkBsaXN0
+cy5saW51eC1mb3VuZGF0aW9uLm9yZwpodHRwczovL2xpc3RzLmxpbnV4Zm91bmRhdGlvbi5vcmcv
+bWFpbG1hbi9saXN0aW5mby92aXJ0dWFsaXphdGlvbg==
