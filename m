@@ -1,100 +1,219 @@
-From: Alexei Starovoitov via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Subject: Re: XDP seeking input from NIC hardware vendors
-Date: Thu, 7 Jul 2016 21:28:37 -0700
-Message-ID: <20160708042835.GA15575@ast-mbp.thefacebook.com>
-References: <20160707124245.6d95635a@redhat.com>
-	<D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81@fmsmsx115.amr.corp.intel.com>
-	<20160708022210.GA12244@ast-mbp.thefacebook.com>
-	<577F2689.4010602@gmail.com>
-Reply-To: Alexei Starovoitov <alexei.starovoitov-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v5 05/11] drivers: net: phy: xgene: Add MDIO driver
+Date: Thu, 07 Jul 2016 22:13:39 -0700
+Message-ID: <6F6C72D6-7D9D-4C38-8949-E3E51E8821ED@gmail.com>
+References: <1467932579-14320-1-git-send-email-isubramanian@apm.com> <1467932579-14320-6-git-send-email-isubramanian@apm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
-	"Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
-	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
-	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
-To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-Content-Disposition: inline
-In-Reply-To: <577F2689.4010602-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
-List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
-List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
-List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
-	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
-Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain;
+ charset=UTF-8
+Content-Transfer-Encoding: 8bit
+Cc: linux-arm-kernel@lists.infradead.org, patches@apm.com,
+	matthias.bgg@gmail.com, andrew@lunn.ch, linux@armlinux.org.uk
+To: Iyappan Subramanian <isubramanian@apm.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-oi0-f65.google.com ([209.85.218.65]:34824 "EHLO
+	mail-oi0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751581AbcGHFNw (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 01:13:52 -0400
+In-Reply-To: <1467932579-14320-6-git-send-email-isubramanian@apm.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 07, 2016 at 09:05:29PM -0700, John Fastabend wrote:
-> On 16-07-07 07:22 PM, Alexei Starovoitov wrote:
-> > On Thu, Jul 07, 2016 at 03:18:11PM +0000, Fastabend, John R wrote:
-> >> Hi Jesper,
-> >>
-> >> I have done some previous work on proprietary systems where we
-> >> used hardware to do the classification/parsing then passed a cookie to the
-> >> software which used the cookie to lookup a program to run on the packet.
-> >> When your programs are structured as a bunch of parsing followed by some
-> >> actions this can provide real performance benefits. Also a lot of
-> >> existing hardware supports this today assuming you use headers the
-> >> hardware "knows" about. It's a natural model for hardware that uses a
-> >> parser followed by tcam/cam/sram/etc lookup tables.
-> 
-> > looking at bpf programs written in plumgrid, facebook and cisco
-> > with full certainty I can assure that parse/action split doesn't exist.
-> > Parsing is always interleaved with lookups and actions.
-> > cpu spends a tiny fraction of time doing parsing. Lookups are the heaviest.
-> 
-> What is heavy about a lookup? Is it the key generation? The key
-> generation can be provided by the hardware is what I was really alluding
-> to. If your data structures are ebpf maps though its probably a hash
-> or array table and the benefit of leveraging hardware would likely be
-> much better if/when there are software structures for LPM or wildcard
-> lookups.
+On July 7, 2016 4:02:53 PM MST, Iyappan Subramanian <isubramanian@apm.com> wrote:
+>Currently, SGMII based 1G rely on the hardware registers for link state
+>and sometimes it's not reliable.  To get most accurate link state, this
+>interface has to use the MDIO bus to poll the PHY.
+>
+>In X-Gene SoC, MDIO bus is shared across RGMII and SGMII based 1G
+>interfaces, so adding this driver to manage MDIO bus.  This driver
+>registers the mdio bus and registers the PHYs connected to it.
 
-there is only hash map in the sw and the main cost of it was doing jhash
-math and occasional miss in hashtable.
-'key generation' is only copying bytes, so it mostly free.
-Just like parsing which is few branches which tend to be predicted
-by cpu quite well.
-In case of our L4 loadbalancer we need to do consistent hash which
-fixed hw probably won't be able to provide.
-Unless hw is programmable :)
-In general when we developed and benchmarked the programs,
-redesigning the program to remove extra hash lookup gave performance
-improvement whereas simplifying parsing logic (like removing vlan
-handling or ip option) showed no difference in performance.
+This driver contains both too much register abstraction and still duplicates quite the same code between the RGMII and XFI variants of the code...
 
-> > Trying to split single logical program into parsing/after_parse stages
-> > has no pracitcal benefit.
-> > 
-> >> If the goal is to just separate XDP traffic from non-XDP traffic
-> >> you could accomplish this with a combination of SR-IOV/macvlan to separate
-> >> the device queues into multiple netdevs and then run XDP on just one of
-> >> the netdevs. Then use flow director (ethtool) or 'tc cls_u32/flower' to
-> >> steer traffic to the netdev. This is how we support multiple networking
-> >> stacks on one device by the way it is called the bifurcated driver. Its
-> >> not too far of a stretch to think we could offload some simple XDP
-> >> programs to program the splitting of traffic instead of
-> >> cls_u32/flower/flow_director and then you would have a stack of XDP
-> >> programs. One running in hardware and a set running on the queues in
-> >> software.
-> > 
-> > the above sounds like much better approach then Jesper/mine prog_per_ring stuff.
-> > If we can split the nic via sriov and have dedicated netdev via VF just for XDP that's way cleaner approach.
-> > I guess we won't need to do xdp_rxqmask after all.
-> > 
-> 
-> Right and this works today so all it would require is adding the XDP
-> engine code to the VF drivers. Which should be relatively straight
-> forward if you have the PF driver working.
 
-Good point. I think the next step should be to enable xdp in VF drivers
-and measure performance.
+>
+>Signed-off-by: Iyappan Subramanian <isubramanian@apm.com>
+>Tested-by: Fushen Chen <fchen@apm.com>
+>Tested-by: Toan Le <toanle@apm.com>
+>Tested-by: Matthias Brugger <mbrugger@suse.com>
+>---
+ bool xgene_enet_rd_indirect(void __iomem *addr, void __iomem
+>*rd,
+>+				   void __iomem *cmd, void __iomem *cmd_done,
+>+				   u32 rd_addr, u32 *rd_data)
+>+{
+>+	u32 done;
+>+	u8 wait = 10;
+>+
+>+	iowrite32(rd_addr, addr);
+>+	iowrite32(XGENE_ENET_RD_CMD, cmd);
+>+
+>+	/* wait for read command to complete */
+>+	while (!(done = ioread32(cmd_done)) && wait--)
+>+		udelay(1);
+
+Instead of an udelay you should consider either an usleep or cpu_relax here. The loop would be a lot more readable with the done assignment taken out.
+
+>+
+>+	if (!done)
+>+		return false;
+>+
+>+	*rd_data = ioread32(rd);
+>+	iowrite32(0, cmd);
+>+
+>+	return true;
+>+}
+>+
+>+static void xgene_enet_rd_mcx_mac(struct xgene_mdio_pdata *pdata,
+>+				  u32 rd_addr, u32 *rd_data)
+>+{
+>+	void __iomem *addr, *rd, *cmd, *cmd_done;
+>+
+>+	addr = pdata->mac_csr_addr + MAC_ADDR_REG_OFFSET;
+>+	rd = pdata->mac_csr_addr + MAC_READ_REG_OFFSET;
+>+	cmd = pdata->mac_csr_addr + MAC_COMMAND_REG_OFFSET;
+>+	cmd_done = pdata->mac_csr_addr + MAC_COMMAND_DONE_REG_OFFSET;
+>+
+>+	if (!xgene_enet_rd_indirect(addr, rd, cmd, cmd_done, rd_addr,
+>rd_data))
+>+		dev_err(pdata->dev, "MCX mac read failed, addr: 0x%04x\n",
+>+			rd_addr);
+
+What is the purpose of this indirection with pdata here, this really impairs the readability...
+
+>+#ifdef CONFIG_ACPI
+>+static acpi_status acpi_register_phy(acpi_handle handle, u32 lvl,
+>+				     void *context, void **ret)
+>+{
+>+	struct mii_bus *mdio = context;
+>+	struct acpi_device *adev;
+>+	struct phy_device *phy_dev;
+>+	const union acpi_object *obj;
+>+	u32 phy_addr;
+>+
+>+	if (acpi_bus_get_device(handle, &adev))
+>+		return AE_OK;
+>+
+>+	if (acpi_dev_get_property(adev, "phy-channel", ACPI_TYPE_INTEGER,
+>&obj))
+>+		return AE_OK;
+>+	phy_addr = obj->integer.value;
+>+
+>+	phy_dev = get_phy_device(mdio, phy_addr, false);
+>+	adev->driver_data = phy_dev;
+>+	if (!phy_dev || IS_ERR(phy_dev))
+>+		return AE_OK;
+>+
+>+	if (phy_device_register(phy_dev))
+>+		phy_device_free(phy_dev);
+>+
+>+	return AE_OK;
+>+}
+>+#endif
+
+That seems pretty generic to be extracted to a common location.
+>+
+>+bool xgene_mdio_probe_successful(void)
+>+{
+>+	return xgene_mdio_status;
+>+}
+>+EXPORT_SYMBOL(xgene_mdio_probe_successful);
+
+Why do we need that and cannot you either return EPOBE_DEFER until this MDIO bus driver is available?
+
+
+>+#endif
+>+	}
+>+
+>+	if (!mdio_id)
+>+		return -ENODEV;
+>+
+>+	pdata = devm_kzalloc(dev, sizeof(struct xgene_mdio_pdata),
+>GFP_KERNEL);
+>+	if (!pdata)
+>+		return -ENOMEM;
+>+	pdata->mdio_id = mdio_id;
+>+	pdata->dev = dev;
+>+
+>+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+>+	if (!res) {
+>+		dev_err(dev, "Resource mac_ind_csr not defined\n");
+>+		return -ENODEV;
+>+	}
+>+
+>+	csr_addr = devm_ioremap(dev, res->start, resource_size(res));
+
+devm_ioremap_resource()
+
+>+	if (!csr_addr) {
+>+		dev_err(dev, "Unable to retrieve mac CSR region\n");
+>+		return -ENOMEM;
+>+	}
+>+	pdata->mac_csr_addr = csr_addr;
+>+	pdata->mdio_csr_addr = csr_addr + BLOCK_XG_MDIO_CSR_OFFSET;
+>+	pdata->diag_csr_addr = csr_addr + BLOCK_DIAG_CSR_OFFSET;
+>+
+>+	if (dev->of_node) {
+>+		pdata->clk = devm_clk_get(dev, NULL);
+>+		if (IS_ERR(pdata->clk)) {
+>+			dev_err(dev, "Unable to retrieve clk\n");
+>+			return -ENODEV;
+
+return PTR_ERR(pdata->clk) so if this needs to wait until the provider is ready.
+
+>+		}
+>+	}
+>+
+>+	ret = xgene_mdio_reset(pdata);
+>+	if (ret)
+>+		return ret;
+>+
+>+	mdio_bus = mdiobus_alloc();
+>+	if (!mdio_bus)
+>+		return -ENOMEM;
+>+
+>+	mdio_bus->name = "APM X-Gene MDIO bus";
+>+	snprintf(mdio_bus->id, MII_BUS_ID_SIZE, "%s-%d", "xgene-mii",
+>+		 mdio_id);
+
+Either give it name which indicates that this is the RGMII instance, or the XFI instance but don't use an arbitrary value from device tree here.
+
+
+>+	}
+>+
+>+	if (ret)
+>+		goto out;
+>+
+>+	xgene_mdio_status = true;
+>+
+>+	return 0;
+>+out:
+>+	if (mdio_bus->state == MDIOBUS_REGISTERED)
+>+		mdiobus_unregister(mdio_bus);
+
+Unnecessary, your error path should correctly unwind the probe path wherever it stopped.
+
+
+>diff --git a/drivers/net/phy/mdio-xgene.h
+>b/drivers/net/phy/mdio-xgene.h
+>new file mode 100644
+>index 0000000..08b4323
+>--- /dev/null
+>+++ b/drivers/net/phy/mdio-xgene.h
+>@@ -0,0 +1,140 @@
+
+
+>+static const struct acpi_device_id xgene_mdio_acpi_match[];
+>+#endif
+>+bool xgene_mdio_probe_successful(void);
+>+
+
+Except for this which clearly should not exist this header is probably unnecessary and everything can be contained in the source file directly.
+
+
+>+#endif  /* __MDIO_XGENE_H__ */
+
+
+-- 
+Florian
