@@ -1,13 +1,16 @@
 From: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
-Subject: [PATCH 0/7] pull request for net: batman-adv
-	2016-07-08
-Date: Fri,  8 Jul 2016 11:49:15 +0200
-Message-ID: <1467971362-3607-1-git-send-email-sw@simonwunderlich.de>
+Subject: [PATCH 2/7] batman-adv: Avoid nullptr dereference in
+	dat after vlan_insert_tag
+Date: Fri,  8 Jul 2016 11:49:17 +0200
+Message-ID: <1467971362-3607-3-git-send-email-sw@simonwunderlich.de>
+References: <1467971362-3607-1-git-send-email-sw@simonwunderlich.de>
 Reply-To: The list for a Better Approach To Mobile Ad-hoc Networking
  <b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
-Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, b.a.t.m.a.n-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org,
+ Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
 To: davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org
 Return-path: <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
+In-Reply-To: <1467971362-3607-1-git-send-email-sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
 List-Unsubscribe: <https://lists.open-mesh.org/mm/options/b.a.t.m.a.n>,
  <mailto:b.a.t.m.a.n-request-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org?subject=unsubscribe>
 List-Archive: <http://lists.open-mesh.org/pipermail/b.a.t.m.a.n/>
@@ -19,75 +22,51 @@ Errors-To: b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org
 Sender: "B.A.T.M.A.N" <b.a.t.m.a.n-bounces-ZwoEplunGu2X36UT3dwllkB+6BGkLq7r@public.gmane.org>
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+From: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
 
-here are some more bugfix patches which we would like to have integrated
-into net, if that is still possible!
+vlan_insert_tag can return NULL on errors. The distributed arp table code
+therefore has to check the return value of vlan_insert_tag for NULL before
+it can safely operate on this pointer.
 
-Please pull or let me know of any problem!
+Fixes: be1db4f6615b ("batman-adv: make the Distributed ARP Table vlan aware")
+Signed-off-by: Sven Eckelmann <sven-KaDOiPu9UxWEi8DpZVb4nw@public.gmane.org>
+Signed-off-by: Marek Lindner <mareklindner-rVWd3aGhH2z5bpWLKbzFeg@public.gmane.org>
+Signed-off-by: Simon Wunderlich <sw-2YrNx6rUIHYiY0qSoAWiAoQuADTiUCJX@public.gmane.org>
+---
+ net/batman-adv/distributed-arp-table.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
 
-Thank you,
-      Simon
-
-Sven Eckelmann (7):
-  batman-adv: Avoid nullptr dereference in bla after vlan_insert_tag
-  batman-adv: Avoid nullptr dereference in dat after vlan_insert_tag
-  batman-adv: Fix orig_node_vlan leak on orig_node_release
-  batman-adv: Fix non-atomic bla_claim::backbone_gw access
-  batman-adv: Fix reference leak in batadv_find_router
-  batman-adv: Free last_bonding_candidate on release of orig_node
-  batman-adv: Fix speedy join in gateway client mode
-
- net/batman-adv/bridge_loop_avoidance.c | 116 ++++++++++++++++++++++++++-------
- net/batman-adv/distributed-arp-table.c |  10 ++-
- net/batman-adv/originator.c            |  15 +++++
- net/batman-adv/routing.c               |  52 +++++++++++----
- net/batman-adv/send.c                  |   4 +-
- net/batman-adv/types.h                 |   6 +-
- 6 files changed, 161 insertions(+), 42 deletions(-)
-
+diff --git a/net/batman-adv/distributed-arp-table.c b/net/batman-adv/distributed-arp-table.c
+index 278800a..aee3b39 100644
+--- a/net/batman-adv/distributed-arp-table.c
++++ b/net/batman-adv/distributed-arp-table.c
+@@ -1009,9 +1009,12 @@ bool batadv_dat_snoop_outgoing_arp_request(struct batadv_priv *bat_priv,
+ 		if (!skb_new)
+ 			goto out;
+ 
+-		if (vid & BATADV_VLAN_HAS_TAG)
++		if (vid & BATADV_VLAN_HAS_TAG) {
+ 			skb_new = vlan_insert_tag(skb_new, htons(ETH_P_8021Q),
+ 						  vid & VLAN_VID_MASK);
++			if (!skb_new)
++				goto out;
++		}
+ 
+ 		skb_reset_mac_header(skb_new);
+ 		skb_new->protocol = eth_type_trans(skb_new,
+@@ -1089,9 +1092,12 @@ bool batadv_dat_snoop_incoming_arp_request(struct batadv_priv *bat_priv,
+ 	 */
+ 	skb_reset_mac_header(skb_new);
+ 
+-	if (vid & BATADV_VLAN_HAS_TAG)
++	if (vid & BATADV_VLAN_HAS_TAG) {
+ 		skb_new = vlan_insert_tag(skb_new, htons(ETH_P_8021Q),
+ 					  vid & VLAN_VID_MASK);
++		if (!skb_new)
++			goto out;
++	}
+ 
+ 	/* To preserve backwards compatibility, the node has choose the outgoing
+ 	 * format based on the incoming request packet type. The assumption is
 -- 
 2.8.1
-
-The following changes since commit 5b4d10f5e0369ed79434593b7cd8e85eebbe473f:
-
-  qlcnic: use the correct ring in qlcnic_83xx_process_rcv_ring_diag() (2016-06-29 05:46:16 -0400)
-
-are available in the git repository at:
-
-  git://git.open-mesh.org/linux-merge.git tags/batadv-net-for-davem-20160708
-
-for you to fetch changes up to d1fe176ca51fa3cb35f70c1d876d9a090e9befce:
-
-  batman-adv: Fix speedy join in gateway client mode (2016-07-06 16:03:40 +0200)
-
-----------------------------------------------------------------
-Here are a couple batman-adv bugfix patches, all by Sven Eckelmann:
-
- - Fix possible NULL pointer dereference for vlan_insert_tag (two patches)
-
- - Fix reference handling in some features, which may lead to reference
-   leaks or invalid memory access (four patches)
-
- - Fix speedy join: DHCP packets handled by the gateway feature should
-   be sent with 4-address unicast instead of 3-address unicast to make
-   speedy join work. This fixes/speeds up DHCP assignment for clients
-   which join a mesh for the first time. (one patch)
-
-----------------------------------------------------------------
-Sven Eckelmann (7):
-      batman-adv: Avoid nullptr dereference in bla after vlan_insert_tag
-      batman-adv: Avoid nullptr dereference in dat after vlan_insert_tag
-      batman-adv: Fix orig_node_vlan leak on orig_node_release
-      batman-adv: Fix non-atomic bla_claim::backbone_gw access
-      batman-adv: Fix reference leak in batadv_find_router
-      batman-adv: Free last_bonding_candidate on release of orig_node
-      batman-adv: Fix speedy join in gateway client mode
-
- net/batman-adv/bridge_loop_avoidance.c | 116 ++++++++++++++++++++++++++-------
- net/batman-adv/distributed-arp-table.c |  10 ++-
- net/batman-adv/originator.c            |  15 +++++
- net/batman-adv/routing.c               |  52 +++++++++++----
- net/batman-adv/send.c                  |   4 +-
- net/batman-adv/types.h                 |   6 +-
- 6 files changed, 161 insertions(+), 42 deletions(-)
