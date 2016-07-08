@@ -1,46 +1,69 @@
-From: Rick Jones <rick.jones2@hpe.com>
-Subject: Re: [iproute PATCH 0/2] Netns performance improvements
-Date: Fri, 8 Jul 2016 10:18:47 -0700
-Message-ID: <577FE077.2010203@hpe.com>
-References: <1467729773-16751-1-git-send-email-phil@nwl.cc>
- <87twg4ywjz.fsf@x220.int.ebiederm.org> <20160705205103.GE620@orbyte.nwl.cc>
- <87h9c259ip.fsf@x220.int.ebiederm.org> <20160707111718.GL620@orbyte.nwl.cc>
- <577E5244.8030601@6wind.com> <20160707154809.GN620@orbyte.nwl.cc>
- <577E8054.6040603@hpe.com> <577F5DC9.7020303@6wind.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
-Content-Transfer-Encoding: 7bit
-To: nicolas.dichtel@6wind.com, Phil Sutter <phil@nwl.cc>,
-	"Eric W. Biederman" <ebiederm@xmission.com>,
-	Stephen Hemminger <shemming@brocade.com>,
-	netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from g4t3427.houston.hpe.com ([15.241.140.73]:58409 "EHLO
-	g4t3427.houston.hpe.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932118AbcGHRSu (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 13:18:50 -0400
-In-Reply-To: <577F5DC9.7020303@6wind.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Varun Prakash <varun@chelsio.com>
+Subject: [net-next 0/6] common library for Chelsio drivers
+Date: Fri,  8 Jul 2016 23:03:53 +0530
+Message-ID: <cover.1467998292.git.varun@chelsio.com>
+Cc: netdev@vger.kernel.org, linux-scsi@vger.kernel.org,
+	target-devel@vger.kernel.org, nab@linux-iscsi.org,
+	gerlitz.or@gmail.com, swise@opengridcomputing.com,
+	james.bottomley@hansenpartnership.com, indranil@chelsio.com,
+	varun@chelsio.com
+To: davem@davemloft.net
+Return-path: <linux-scsi-owner@vger.kernel.org>
+Sender: linux-scsi-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/08/2016 01:01 AM, Nicolas Dichtel wrote:
->> Those 300 routers will each have at least one namespace along with the dhcp
->> namespaces.  Depending on the nature of the routers (Distributed versus
->> Centralized Virtual Routers - DVR vs CVR) and whether the routers are supposed
->> to be "HA" there can be more than one namespace for a given router.
->>
->> 300 routers is far from the upper limit/goal.  Back in HP Public Cloud, we were
->> running as many as 700 routers per network node (*), and more than four network
->> nodes. (back then it was just the one namespace per router and network). Mileage
->> will of course vary based on the "oomph" of one's network node(s).
-> Thank you for the details.
->
-> Do you have a script or something else to easily reproduce this problem?
+Hi,
 
-Do you mean for my much older, slightly different stuff done in HP 
-Public Cloud, or for what Phil (?) is doing presently?  I believe Phil 
-posted something several messages back in the thread.
+ This patch series adds common library module(libcxgb.ko)
+for Chelsio drivers to remove duplicate code.
 
-happy benchmarking,
+This series moves common iSCSI DDP Page Pod manager
+code from cxgb4.ko to libcxgb.ko, earlier this code
+was used by only cxgbit.ko now it is used by
+three Chelsio iSCSI drivers cxgb3i, cxgb4i, cxgbit.
 
-rick jones
+In future this module will have common connection
+management and hardware specific code that can
+be shared by multiple Chelsio drivers(cxgb4,
+csiostor, iw_cxgb4, cxgb4i, cxgbit).
+
+Please review.
+
+Thanks
+Varun
+
+Varun Prakash (6):
+  libcxgb: add library module for Chelsio drivers
+  cxgb3i,cxgb4i,libcxgbi: remove iSCSI DDP support
+  cxgb4i,libcxgbi: add iSCSI DDP support
+  cxgb3i: add iSCSI DDP support
+  libcxgb: export ppm release and tagmask set api
+  cxgb3i,cxgb4i: fix symbol not declared sparse warning
+
+ drivers/net/ethernet/chelsio/Kconfig               |  18 +-
+ drivers/net/ethernet/chelsio/Makefile              |   1 +
+ drivers/net/ethernet/chelsio/cxgb4/Makefile        |   1 -
+ drivers/net/ethernet/chelsio/libcxgb/Makefile      |   3 +
+ .../{cxgb4/cxgb4_ppm.c => libcxgb/libcxgb_ppm.c}   |  27 +-
+ .../{cxgb4/cxgb4_ppm.h => libcxgb/libcxgb_ppm.h}   |   8 +-
+ drivers/scsi/cxgbi/Makefile                        |   2 +
+ drivers/scsi/cxgbi/cxgb3i/Kbuild                   |   1 +
+ drivers/scsi/cxgbi/cxgb3i/Kconfig                  |   1 +
+ drivers/scsi/cxgbi/cxgb3i/cxgb3i.c                 | 164 +++--
+ drivers/scsi/cxgbi/cxgb4i/Kbuild                   |   1 +
+ drivers/scsi/cxgbi/cxgb4i/Kconfig                  |   1 +
+ drivers/scsi/cxgbi/cxgb4i/cxgb4i.c                 | 203 +++---
+ drivers/scsi/cxgbi/libcxgbi.c                      | 734 +++++++--------------
+ drivers/scsi/cxgbi/libcxgbi.h                      | 188 +-----
+ drivers/target/iscsi/cxgbit/Kconfig                |   2 +-
+ drivers/target/iscsi/cxgbit/Makefile               |   1 +
+ drivers/target/iscsi/cxgbit/cxgbit.h               |   2 +-
+ drivers/target/iscsi/cxgbit/cxgbit_main.c          |   2 +
+ 19 files changed, 500 insertions(+), 860 deletions(-)
+ create mode 100644 drivers/net/ethernet/chelsio/libcxgb/Makefile
+ rename drivers/net/ethernet/chelsio/{cxgb4/cxgb4_ppm.c => libcxgb/libcxgb_ppm.c} (95%)
+ rename drivers/net/ethernet/chelsio/{cxgb4/cxgb4_ppm.h => libcxgb/libcxgb_ppm.h} (98%)
+
+-- 
+2.0.2
+
