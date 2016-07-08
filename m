@@ -1,8 +1,7 @@
 From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: [PATCH 2/2] ARM: dts: NSP: Add BCM958625HR switch ports
-Date: Fri,  8 Jul 2016 11:48:54 -0700
-Message-ID: <1468003735-26895-5-git-send-email-f.fainelli@gmail.com>
-References: <1468003735-26895-1-git-send-email-f.fainelli@gmail.com>
+Subject: [PATCH 0/2] ARM: dts: NSP: Add built-in Ethernet switch nodes
+Date: Fri,  8 Jul 2016 11:49:27 -0700
+Message-ID: <1468003769-26959-1-git-send-email-f.fainelli@gmail.com>
 Cc: devicetree@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com,
 	jon.mason@broadcom.com, andrew@lunn.ch,
 	vivien.didelot@savoirfairelinux.com,
@@ -10,79 +9,28 @@ Cc: devicetree@vger.kernel.org, bcm-kernel-feedback-list@broadcom.com,
 	Florian Fainelli <f.fainelli@gmail.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f194.google.com ([209.85.192.194]:36527 "EHLO
-	mail-pf0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1755664AbcGHStM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 14:49:12 -0400
-In-Reply-To: <1468003735-26895-1-git-send-email-f.fainelli@gmail.com>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:36139 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756214AbcGHStc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 14:49:32 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add the layout of the switch ports found on the BCM958625HR reference
-board. The CPU port is hooked up to the AMAC0 Ethernet controlelr
-adapter, so we also enable it.
+This patch series is based on Broadcom/stblinux/devicetree/next which
+contains proper support for the BCM958625HR board. To get working
+Ethernet switch and CPU Ethernet support, the following dependencies
+based on David Miller's net-next tree are required:
 
-Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
----
+- Jon Mason's BGMAC/AMAC support: https://marc.info/?t=146793308300002&r=1&w=3
+- dsa/b53 support for NSP switch: https://marc.info/?l=linux-netdev&m=146800324531914&w=3
+
+Florian Fainelli (2):
+  ARM: dts: NSP: Add Switch Register Access Block node
+  ARM: dts: NSP: Add BCM958625HR switch ports
+
+ arch/arm/boot/dts/bcm-nsp.dtsi    | 11 +++++++++
  arch/arm/boot/dts/bcm958625hr.dts | 49 +++++++++++++++++++++++++++++++++++++++
- 1 file changed, 49 insertions(+)
+ 2 files changed, 60 insertions(+)
 
-diff --git a/arch/arm/boot/dts/bcm958625hr.dts b/arch/arm/boot/dts/bcm958625hr.dts
-index 03b8bbeb694f..4239e58cf97f 100644
---- a/arch/arm/boot/dts/bcm958625hr.dts
-+++ b/arch/arm/boot/dts/bcm958625hr.dts
-@@ -109,3 +109,52 @@
- 		groups = "nand_grp";
- 	};
- };
-+
-+&amac0 {
-+	status = "okay";
-+};
-+
-+&srab {
-+	compatible = "brcm,bcm58625-srab", "brcm,nsp-srab";
-+	status = "okay";
-+
-+	ports {
-+		#address-cells = <1>;
-+		#size-cells = <0>;
-+
-+		port@0 {
-+			label = "port0";
-+			reg = <0>;
-+		};
-+
-+		port@1 {
-+			label = "port1";
-+			reg = <1>;
-+		};
-+
-+		port@2 {
-+			label = "port2";
-+			reg = <2>;
-+		};
-+
-+		port@3 {
-+			label = "port3";
-+			reg = <3>;
-+		};
-+
-+		port@4 {
-+			label = "port4";
-+			reg = <4>;
-+		};
-+
-+		port@5 {
-+			ethernet = <&amac0>;
-+			label = "cpu";
-+			reg = <5>;
-+			fixed-link {
-+				speed = <1000>;
-+				full-duplex;
-+			};
-+		};
-+	};
-+};
 -- 
 2.7.4
