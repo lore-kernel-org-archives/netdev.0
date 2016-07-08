@@ -1,60 +1,39 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v6 12/12] net/mlx4_en: add prefetch in xdp rx path
-Date: Fri, 08 Jul 2016 08:56:45 +0200
-Message-ID: <1467961005.17638.28.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
-	 <1467944124-14891-13-git-send-email-bblanco@plumgrid.com>
-	 <1467950191.17638.3.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <20160708041612.GA15452@ast-mbp.thefacebook.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>, Or Gerlitz <gerlitz.or@gmail.com>,
-	john.fastabend@gmail.com, hannes@stressinduktion.org,
-	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Subject: [PATCH net v2 0/4] ibmvnic driver bugfixes and improvements
+Date: Fri,  8 Jul 2016 02:09:02 -0500
+Message-ID: <1467961746-26023-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Cc: jallen@linux.vnet.ibm.com, nfont@linux.vnet.ibm.com
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f65.google.com ([74.125.82.65]:33263 "EHLO
-	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751427AbcGHG4v (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 02:56:51 -0400
-Received: by mail-wm0-f65.google.com with SMTP id n127so2848887wme.0
-        for <netdev@vger.kernel.org>; Thu, 07 Jul 2016 23:56:51 -0700 (PDT)
-In-Reply-To: <20160708041612.GA15452@ast-mbp.thefacebook.com>
+Received: from mx0b-001b2d01.pphosted.com ([148.163.158.5]:59331 "EHLO
+	mx0a-001b2d01.pphosted.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751427AbcGHHJM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 03:09:12 -0400
+Received: from pps.filterd (m0098413.ppops.net [127.0.0.1])
+	by mx0b-001b2d01.pphosted.com (8.16.0.11/8.16.0.11) with SMTP id u68796H4121419
+	for <netdev@vger.kernel.org>; Fri, 8 Jul 2016 03:09:11 -0400
+Received: from e38.co.us.ibm.com (e38.co.us.ibm.com [32.97.110.159])
+	by mx0b-001b2d01.pphosted.com with ESMTP id 2415xp9603-1
+	(version=TLSv1.2 cipher=AES256-SHA bits=256 verify=NOT)
+	for <netdev@vger.kernel.org>; Fri, 08 Jul 2016 03:09:11 -0400
+Received: from localhost
+	by e38.co.us.ibm.com with IBM ESMTP SMTP Gateway: Authorized Use Only! Violators will be prosecuted
+	for <netdev@vger.kernel.org> from <tlfalcon@linux.vnet.ibm.com>;
+	Fri, 8 Jul 2016 01:09:10 -0600
+Received: from b03cxnp08027.gho.boulder.ibm.com (b03cxnp08027.gho.boulder.ibm.com [9.17.130.19])
+	by d03dlp01.boulder.ibm.com (Postfix) with ESMTP id C884E1FF0045
+	for <netdev@vger.kernel.org>; Fri,  8 Jul 2016 01:08:51 -0600 (MDT)
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, 2016-07-07 at 21:16 -0700, Alexei Starovoitov wrote:
+Miscellaneous fixes and improvements on the ibmvnic driver.
 
-> I've tried this style of prefetching in the past for normal stack
-> and it didn't help at all.
+Thomas Falcon (4):
+  ibmvnic: properly start and stop tx queues
+  ibmvnic: dispose irq mappings
+  ibmvnic: simplify and improve driver probe function
+  ibmvnic: Fix passive VNIC server login process
 
-This is very nice, but my experience showed opposite numbers.
-So I guess you did not choose the proper prefetch strategy.
-
-prefetching in mlx4 gave me good results, once I made sure our compiler
-was not moving the actual prefetch operations on x86_64 (ie forcing use
-of asm volatile as in x86_32 instead of the builtin prefetch). You might
-check if your compiler does the proper thing because this really hurt me
-in the past.
-
-In my case, I was using 40Gbit NIC, and prefetching 128 bytes instead of
-64 bytes allowed to remove one stall in GRO engine when using TCP with
-TS (total header size : 66 bytes), or tunnels.
-
-The problem with prefetch is that it works well assuming a given rate
-(in pps), and given cpus, as prefetch behavior is varying among flavors.
-
-Brenden chose to prefetch N+3, based on some experiments, on some
-hardware,
-
-prefetch N+3 can actually slow down if you receive a moderate load,
-which is the case 99% of the time in typical workloads on modern servers
-with multi queue NIC.
-
-This is why it was hard to upstream such changes, because they focus on
-max throughput instead of low latencies.
+ drivers/net/ethernet/ibm/ibmvnic.c | 231 +++++++++++++++++++++++++++----------
+ drivers/net/ethernet/ibm/ibmvnic.h |   2 +
+ 2 files changed, 169 insertions(+), 64 deletions(-)
