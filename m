@@ -1,55 +1,54 @@
-From: Florian Fainelli <f.fainelli@gmail.com>
-Subject: Re: [PATCH 2/2] net: ethernet: bcmgenet: use
- phy_ethtool_{get|set}_link_ksettings
-Date: Thu, 7 Jul 2016 18:29:40 -0700
-Message-ID: <577F0204.9070601@gmail.com>
-References: <1467560037-21784-1-git-send-email-tremyfr@gmail.com>
- <1467560037-21784-2-git-send-email-tremyfr@gmail.com>
- <20160704.160300.953705748553101659.davem@davemloft.net>
- <577B37CC.80807@gmail.com> <577C2189.8090604@gmail.com>
+From: Stephen Rothwell <sfr@canb.auug.org.au>
+Subject: linux-next: build warning after merge of the wireless-drivers-next
+ tree
+Date: Fri, 8 Jul 2016 11:32:14 +1000
+Message-ID: <20160708113214.7f371cb3@canb.auug.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Philippe Reynes <tremyfr@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f172.google.com ([209.85.192.172]:33218 "EHLO
-	mail-pf0-f172.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753408AbcGHB3o (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 7 Jul 2016 21:29:44 -0400
-In-Reply-To: <577C2189.8090604@gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-next@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Xinming Hu <huxm@marvell.com>,
+	Amitkumar Karwar <akarwar@marvell.com>,
+	Avraham Stern <avraham.stern@intel.com>,
+	David Spinadel <david.spinadel@intel.com>,
+	Assaf Krauss <assaf.krauss@intel.com>,
+	Luca Coelho <luciano.coelho@intel.com>
+To: Kalle Valo <kvalo@codeaurora.org>,
+	<linux-wireless@vger.kernel.org>,
+	David Miller <davem@davemloft.net>, <netdev@vger.kernel.org>,
+	Johannes Berg <johannes@sipsolutions.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On 07/05/2016 02:07 PM, Philippe Reynes wrote:
-> Hi Florian,
->=20
-> On 05/07/16 06:30, Florian Fainelli wrote:
->> Le 04/07/2016 16:03, David Miller a =C3=A9crit :
->>> From: Philippe Reynes<tremyfr@gmail.com>
->>> Date: Sun,  3 Jul 2016 17:33:57 +0200
->>>
->>>> There are two generics functions phy_ethtool_{get|set}_link_ksetti=
-ngs,
->>>> so we can use them instead of defining the same code in the driver=
-=2E
->>>>
->>>> Signed-off-by: Philippe Reynes<tremyfr@gmail.com>
->>>
->>> Applied.
->>>
->>
->> The transformation is not equivalent, we lost the checks on
->> netif_running() in the process, and those are here for a reason, if =
-the
->> interface is down and therefore clock gated, MDIO accesses to the PH=
-Y
->> will simply fail outright and cause bus errors.
->=20
-> Oh, I see, I've missed this. Sorry for this mistake.
-> We should revert this path.
+Hi all,
 
-Can you send such a revert please? Thanks!
---=20
-=46lorian
+After merging the wireless-drivers-next tree, today's linux-next build
+(arm multi_v7_defconfig, x86_64 allmodconfig) produced this warning:
+
+drivers/net/wireless/marvell/mwifiex/scan.c: In function 'mwifiex_cancel_scan':
+drivers/net/wireless/marvell/mwifiex/scan.c:2031:44: warning: passing argument 2 of 'cfg80211_scan_done' makes pointer from integer without a cast [-Wint-conversion]
+     cfg80211_scan_done(priv->scan_request, 1);
+                                            ^
+In file included from include/net/mac80211.h:23:0,
+                 from drivers/net/wireless/marvell/mwifiex/decl.h:30,
+                 from drivers/net/wireless/marvell/mwifiex/scan.c:20:
+include/net/cfg80211.h:4104:6: note: expected 'struct cfg80211_scan_info *' but argument is of type 'int'
+ void cfg80211_scan_done(struct cfg80211_scan_request *request,
+      ^
+
+Introduced by commit
+
+  a9c790ba23eb ("mwifiex: factor out mwifiex_cancel_scan")
+
+interacting with commit
+
+  1d76250bd34a ("nl80211: support beacon report scanning")
+
+from the net-next (and mac80211-next) tree.
+
+This will need some merge fix patch ... please send me or Dave one.
+
+-- 
+Cheers,
+Stephen Rothwell
