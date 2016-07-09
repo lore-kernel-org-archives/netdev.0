@@ -1,93 +1,169 @@
-From: Vegard Nossum <vegard.nossum@oracle.com>
-Subject: Re: [PATCH net] ipv4: reject RTNH_F_LINKDOWN for incompatible routes
-Date: Sat, 9 Jul 2016 21:10:02 +0200
-Message-ID: <57814C0A.8080404@oracle.com>
-References: <1468054815-24766-1-git-send-email-ja@ssi.bg>
- <20160709172327.GP18787@gospo.rdu.cumulusnetworks.com>
+From: "Paul Tsang" <haochenghk1987@163.com>
+Subject: =?utf-8?B?UmXvvJvot6jlooPnlLXlrZDllYbliqHnianmtYHkvpvlupTllYYu5Li65Lit5bCP5b6u5LyB?=
+	=?utf-8?B?5qWt5o+Q5L6b5Ye65Y+j6YCA56iO5ZKM5Y2V6K+B5aCx6Zec5Ye65Y+j54mp5rWB6L+Q6L6T?=
+Date: Sun, 10 Jul 2016 03:57:03 +0800
+Message-ID: <20160710035714416466@yun152.com>
+Reply-To: <haochenghk1987@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Dinesh Dutt <ddutt@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>
-To: Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain;
+	charset="utf-8"
+Content-Transfer-Encoding: base64
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from userp1040.oracle.com ([156.151.31.81]:26967 "EHLO
-	userp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756620AbcGITKY (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 15:10:24 -0400
-In-Reply-To: <20160709172327.GP18787@gospo.rdu.cumulusnetworks.com>
+Received: from [61.176.220.141] ([61.176.220.141]:2579 "EHLO mail.yun152.com"
+	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
+	id S1756699AbcGIT6o (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Jul 2016 15:58:44 -0400
+Received: from localhost by mail.yun152.com (MDaemon PRO v10.1.1)
+	with ESMTP id md50228187528.msg
+	for <netdev@vger.kernel.org>; Sun, 10 Jul 2016 03:57:08 +0800
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/09/2016 07:23 PM, Andy Gospodarek wrote:
-> On Sat, Jul 09, 2016 at 12:00:15PM +0300, Julian Anastasov wrote:
->> Vegard Nossum is reporting for a crash in fib_dump_info (fib_nhs==1)
->> when nh_dev = NULL. Problem happens when RTNH_F_LINKDOWN is
->> provided from user space for routes that do not use the flag,
->> catched with netlink fuzzer.
->
-> Can you also include the panic log in the changelog or at a minimum post
-> it here?
-
-Pid: 50, comm: netlink.exe Not tainted 4.7.0-rc5+
-RIP: 0033:[<00000000602b3d18>]
-RSP: 0000000062623890  EFLAGS: 00010202
-RAX: 0000000000000000 RBX: 000000006261b800 RCX: 0000000000000000
-RDX: 0000000000000000 RSI: 0000000000000024 RDI: 000000006245ba00
-RBP: 00000000626238f0 R08: 000000000000029c R09: 0000000000000000
-R10: 0000000062468038 R11: 000000006245ba00 R12: 000000006245ba00
-R13: 00000000625f96c0 R14: 00000000601e16f0 R15: 0000000000000000
-Kernel panic - not syncing: Kernel mode fault at addr 0x2e0, ip 0x602b3d18
-CPU: 0 PID: 50 Comm: netlink.exe Not tainted 4.7.0-rc5+ #581
-Stack:
-  626238f0 960226a02 00000400 000000fe
-  62623910 600afca7 62623970 62623a48
-  62468038 00000018 00000000 00000000
-Call Trace:
-  [<602b3e93>] rtmsg_fib+0xd3/0x190
-  [<602b6680>] fib_table_insert+0x260/0x500
-  [<602b0e5d>] inet_rtm_newroute+0x4d/0x60
-  [<60250def>] rtnetlink_rcv_msg+0x8f/0x270
-  [<60267079>] netlink_rcv_skb+0xc9/0xe0
-  [<60250d4b>] rtnetlink_rcv+0x3b/0x50
-  [<60265400>] netlink_unicast+0x1a0/0x2c0
-  [<60265e47>] netlink_sendmsg+0x3f7/0x470
-  [<6021dc9a>] sock_sendmsg+0x3a/0x90
-  [<6021e0d0>] ___sys_sendmsg+0x300/0x360
-  [<6021fa64>] __sys_sendmsg+0x54/0xa0
-  [<6021fac0>] SyS_sendmsg+0x10/0x20
-  [<6001ea68>] handle_syscall+0x88/0x90
-  [<600295fd>] userspace+0x3fd/0x500
-  [<6001ac55>] fork_handler+0x85/0x90
-
-$ addr2line -e vmlinux -i 0x602b3d18
-include/linux/inetdevice.h:222
-net/ipv4/fib_semantics.c:1264
-
-220 static inline struct in_device *__in_dev_get_rtnl(const struct 
-net_device *dev)
-221 {
-222         return rtnl_dereference(dev->ip_ptr);
-223 }
-
-1263                 if (fi->fib_nh->nh_flags & RTNH_F_LINKDOWN) {
-1264                         in_dev = __in_dev_get_rtnl(fi->fib_nh->nh_dev);
-1265                         if (in_dev &&
-
->> RTNH_F_LINKDOWN should be used only for link routes, not for
->> local routes or for routes with error code. Do not complicate
->> fast path with more checks, reject the flag early when configured
->> for incompatible routes.
->
-> Did the netlink fuzzer (trinity?) happen to check any of the other flags
-> (liks RTNH_F_DEAD) that are normally set by the kernel but could be
-> problematic when send down from userspace?
-
-I honestly don't know -- the fuzzer (based on AFL) doesn't know anything
-about netlink in particular, so if it passed/tested any other flags it
-was by chance and not by design.
-
-
-Vegard
+RGVhciAgU2lyL01pc3MNClRoaXMgaXMgdGhlIGUtbWFpbCBmcm9tIFBhdWwgb2YgSEFPQ0hJTkcg
+SU5UJ0wgTE9HSVNUSUNTIExURCBpbiBDaGluYS4gT3VyIGNvbXBhbnkgaXMgYSB3ZWxsLXN0YWZm
+ZWQgZnJlaWdodCBmb3J3YXJkaW5nIGFuZCBsb2dpc3RpY3Mgc2VydmljZSBjb21wYW55IO+8jGxv
+Y2F0ZWQgaW4gU2hlbnpoZW4vRG9uZ2d1YW4vR3Vhbmd6aG91L1pob25nc2hhbiBHdWFuZ0Rvbmcg
+UHJvdmluY2UgY2hpbmHvvIxhbmQgIHByb3ZpZGUgc2FmZXR5LCBjb252ZW5pZW50ICYgc3BlZWR5
+IGxvZ2lzdGljIHNlcnZpY2UuDQpTcGVjaWZpY2F0aW9ucw0KMS4gSW1wb3J0IGFuZCBleHBvcnQg
+c2VydmljZQ0KMi5XYXJlaG91c2luZyBhbmQgbG9naXN0aWNzDQozLk92ZXIgMTAgeWVhcnMgb2Yg
+ZXhwZXJpZW5jZQ0KNC50aGUgc3Ryb25nZXN0IGFiaWxpdHkgb2YgQ3VzdG9tcyBDbGVhcmFuY2UN
+CjUuRG9vciB0byBEb29yIGRlbGl2ZXJ5IChmcm9tIGhvbmdrb25nIHRvIGNoaW5hbWFpbmxhbmQp
+Lyhmcm9tIGNoaW5hbWFpbmxhbmQgdG8gaG9uZ2tvbmcgKQ0KOC4gcHJvZmVzc2lvbmFsIGltcG9y
+dCBsb2dpc3RpY3MNCjkuIENvbGxlY3RpbmctcGF5aW5nIHNlcnZpY2U7DQpXZSBvZmZlcjoNCjEu
+Q3VzdG9tcyBjbGVhcmFuY2UNCjIuQ29tbW9kaXR5IGNvbnNvbGlkYXRpb24NCjMuRG9tZXN0aWMg
+dHJhbnNwb3J0YXRpb24NCjQuQ29uY2VhbCBpZGVudGl0eSBvZiB0cnVlIHNoaXBwZXIgb3IgcmVh
+bCBjb25zaWduZWUNCjUuRXhwb3J0IExpY2VuY2UNCjYuRnJlaWdodCBjb2xsZWN0DQoNCklmIHlv
+dSBoYXZlIGFueSByZXF1aXJlbWVudCB3ZSBjYW4gZG8gZm9yIHlvdSwgcGxlYXNlIGNhbGwgbWUg
+KHRlbGw6IDg1Mi05Nzk1OTM2NSkgb3Igc2VudCBlLW1haWwgKCBIQU9DSEVOR0hLQFlBSE9PLkNP
+TS5ISykgYXMgc29vbiBhcyBwb3NzaWJsZS4gDQpIb3Bpbmcgd2UgY2FuIGVzdGFibGlzaCB0aGUg
+d2lu4oCVd2luIGNvb3BlcmF0aW9uIGxhdGVyIGZvciBhIGxvbmcgdGltZS4gVGhhbmsgZm9yIHJl
+YWRpbmcgbXkgZS1tYWlsLg0KDQrku6XkuIvloLHlg7nngrrluLjopovov5DovpPkuqTosqjloLHl
+g7nvvIzlpoLmnInpnIDopoHvvIzmraHov47kvobpm7voqaLlg7kNCjHvvInmlaPmnYLosqjkuIDo
+iKzosr/mmJPpgIDnqIXloLHpl5zvvIjljZXor4HloLHpl5zvvInlh7rlj6PpppnmuK/loLHlg7nv
+vJsNCu+8iOS4gO+8ieS4rea4r+aVo+iyqOaUtui0ue+8miBSTUIwLjYva2fvvIjmnIDkvY7mlLZS
+TUIxNTAv5Zau77yJDQrvvIjkuozvvInloLHpl5zotLnvvJpSTUIyNTANCu+8iOS4ie+8ieajgOeW
+q+i0ueWPiuWFtuadgui0ueWHreelqOaNruWunuaKpeWunumUgOOAgu+8iOaXoOWVhuajgOWImeaX
+oOatpOi0ueeUqO+8iQ0K77yI5Zub77yJ5ZWG5qOA5o2i6K+B5Yet5p2h6LS555So77yaUk1CMTAw
+ICDvvIjml6DllYbmo4DliJnml6DmraTotLnnlKjvvIkNCuazqO+8muS7peS4iuiyu+eUqOS4jeWM
+heWQq+mmmea4r+mAgeWuouOAgeWFpeS7k+aUtuiyuy4NCuaVo+iyqOmmmea4r+a0vumAgeaUtuiy
+u+aomea6ljoNCkHvvJrkuZ3pvo3ljYDvvJogUk1CMTgwIO+8m0I65paw55WM5Y2A77yaIFJNQjIw
+MCAgQzog6aaZ5riv5Y2A77yaIFJNQjMwMA0K5pWj6LKo6aaZ5riv5YWl5LuT5pS26LK75qiZ5rqW
+Og0K6aaZ5riv5YWl5LuT6LS577ybUk1CMzEw77yI55m76K6w6LS544CB5YGc6L2m6LS5562J5p2C
+6LS55a6e5oql5a6e6ZSA77yJDQrms6jvvJoxLuS7peS4iummmea4r+a0vumAgeaIlummmea4r+WF
+peS7k+mmlumHjTUwMEtn77yM6LaF5Ye65LmY5LulUk1CMC4zL0tnLg0K5omA6ZyA6LWE5paZ77ya
+MS4g5LiA6Iis6LS45piT5Ye65Y+j6ZSA5ZSu5ZCI5ZCM77yI6ZyA6KaB55uW5YWs56ug5ZKM562+
+5a2X77yJ77yM5Yqg5bel6LS45piT5ZCI5ZCM5Ye65Y+j6ZyA6KaB5rW35YWz5aSH5qGI55m76K6w
+5omL5YaMDQoyLiDlh7rlj6PmiqXlhbPlp5TmiZjkuabvvIjpnIDmnInlnKjmjIflrprnm5bnq6Dn
+moTkuKTlpITnm5blhaznq6DvvIkNCjMu5Ye65Y+j6ZSA5ZSu5Y+R56Wo77yI6ZyA5pyJ55uW56ug
+55qE5Y6f5Lu2LOS4gOW8j+S4pOS7ve+8iSA0LuWHuuWPo+ijheeuseWNle+8iOmcgOacieebluer
+oOeahOWOn+S7tizkuIDlvI/kuKTku73vvIkNCuaTjeS9nOaXtumXtO+8miDlkajml6XliLDlkajk
+upTmmZrkuIoxMueCueWJjeaUtui0p++8jOaKpeWFs+i1hOaWmeS4gOWumuimgeaMieinhOWumuma
+j+i0p+S4gOi1t+S6pOm9kOWFqC7nrKzkuozlpKnkuIvljYjliLDmuK/vvIznrKzkuInlpKnmtL7p
+gIEv5YWl5LuT5a6M5q+VLg0K5aaC5pyJ54m55q6K5oOF5Ya177yM5YaN5L2c5a6J5o6SLg0KDQoy
+77yJ5pWj6LKo6YCf6YGe6aaZ5riv5aCx5YO5DQrkuIDjgIHlub/kuJzmsZ/pl6gv5L2b5bGxL+S4
+reWxseaVo++8iOadgu+8iei0p++8iOiyt+WWru+8iemAn+mAkummmea4r+iHquaPkOWDue+8m1JN
+QjAuOS9LR+aIllJNQjIwMC9DQk0NCiAgICDlub/kuJzmuIXov5wv5rKz5rqQL+aDoOW3nuaVo++8
+iOadgu+8iei0p++8iOiyt+WWru+8iemAn+mAkummmea4r+iHquaPkOWDue+8m1JNQjAuOS9LR+aI
+llJNQjIwMC9DQk0NCiAgICDlub/kuJzmsZXlpLTmlaPvvIjmnYLvvInotKfvvIjosrfllq7vvInp
+gJ/pgJLpppnmuK/oh6rmj5Dlg7nvvJtSTUIxL0tH5oiWUk1CMjAwL0NCTQ0KICAgIOa1meaxny/m
+sZ/oi48v5LiK5rW3L+emj+W7uuaVo++8iOadgu+8iei0p++8iOiyt+WWru+8iemAn+mAkummmea4
+r+iHquaPkOWDue+8m1JNQjEuNS9LR+aIllJNQjI1MC9DQk0NCuS6jOOAgemmmea4r+a0vumAgemm
+lumHjTUwMEtH5oiW6aaW5pa5M+aWue+8jFJNQjIwMO+8jOe7remHjVJNQjAuMy9LR+aIlue7reaW
+uVJNQjUwL0NCTe+8iOadgui0ueWunuaKpeWunumUgO+8iQ0K5LiJ44CB6aaZ5riv5YWl5LuT6aaW
+6YeNNTAwS0fmiJbpppbmlrkz5pa577yMUk1CMzEw77yM57ut6YeNUk1CMC4zL0tH5oiW57ut5pa5
+Uk1CNTAvQ0JN77yI55m76K6w6LS544CB5YGc6L2m6LS5562J5p2C6LS55a6e5oql5a6e6ZSA77yJ
+DQrms6jvvJvku6XkuIrloLHlg7nljIXloLHpl5zosrvjgIHmuIXpl5zosrvjgIHmtL7pgIHosrvj
+gIHlhaXlgInosrsu5oiR5Y+45YyF5omA5Lul5oql5YWz5Y2V6K+B5paH5Lu2DQoNCjPvvInmlaPo
+sqjpgJ/pgZ7mvrPpl6jloLHlg7kNCuS4gOOAgeacgOS9jua2iOi0ue+8mlJNQjI1MC/llq4NCiAg
+ICDkuK3mvrPoh6rmj5Dku7fvvJpSTUIyLjUvS0cg5oiWUk1CMjUwL0NCTQ0K5LqM44CB5r6z6Zeo
+5rS+6YCB6aaW6YeNNTAwS0fmiJbpppbmlrkz5pa577yMUk1CMjAw77yM57ut6YeNUk1CMC4zL0tH
+5oiW57ut5pa5Uk1CNTAvQ0JN77yI5p2C6LS55a6e5oql5a6e6ZSA77yJDQrms6jvvJvku6XkuIrl
+oLHlg7nljIXloLHpl5zosrvjgIHmuIXpl5zosrvjgIHmtL7pgIHosrvjgIHlhaXlgInosrsu5Y+K
+5omA5Lul5oql5YWz5Y2V6K+B5paH5Lu2DQoNCjTvvInmlaPvvIjmnYLvvInosqjkuqTmt7HlnLPn
+m5DnlLDmuK/lgInjgIHkuK3lpJbpgYvvvIzlhavovr7ku5PjgIHph5Hov5Dovr7nrYnlpJbpgYvl
+gInloLHlg7nvvJsNCuS4gOOAgeacgOS9jua2iOiyu++8m1JNQjgwMC/llq4g77yI55m76K6w6LS5
+562J5LuT5bqT5p2C6LS55a6e5oql5a6e6ZSA77yJDQrms6jvvJvmjInlhazmlqToqIjnrpfvvIzl
+jIU1MDBLR++8jOi2heWHulJNQjAuNS9LRzvmjInmlrnoqIjnrpfvvIzljIUzQ0JN77yM6LaF5Ye6
+Uk1CNjUvQ0JNKOWPluWkp+S8mOWFiCkNCg0KNe+8ieWbveWGhei/kOi+k+aKpeS7t++8mw0K54+g
+5LiJ6KeS6L+Q6L6T5oql5Lu377yaUk1CNzAvQ0JN5oiWUk1CMC40L0tHK+mAgei0p+S4iumXqOi0
+ueeUqFJNQjIwMA0K5rex5ZyzL+S4nOiOnuWIsOemj+W7uuaKpeS7tzpSTUIxMjAvQ0JN5oiWUk1C
+MC42L0tHK+mAgei0p+S4iumXqOi0ueeUqFJNQjIwMA0K5rex5ZyzL+S4nOiOnuWIsOa1meaxn+aK
+peS7tzpSTUIxNjAvQ0JN5oiWUk1CMC43L0tHK+mAgei0p+S4iumXqOi0ueeUqFJNQjIwMA0K5rex
+5ZyzL+S4nOiOnuWIsOaxn+iLj+aKpeS7tzpSTUIxNzAvQ0JN5oiWUk1CMC44L0tHK+mAgei0p+S4
+iumXqOi0ueeUqFJNQjIwMA0K5rex5ZyzL+S4nOiOnuWIsOS4iua1t+aKpeS7tzpSTUIxNzAvQ0JN
+5oiWUk1CMC44L0tHK+mAgei0p+S4iumXqOi0ueeUqFJNQjIwMA0K5rex5ZyzL+S4nOiOnuWIsOS6
+rOa0pee/vOaKpeS7tzpSTUIxODAvQ0JN5oiWUk1CMC45L0tHK+mAgei0p+S4iumXqOi0ueeUqFJN
+QjIwMA0KDQo277yJ6aaZ5riv5pmu6LKo77yM5Lit5qqU6LKo5Yiw5YWn5Zyw5ZCE55yB5biC5aCx
+5YO577ybDQrlv6vku7bljIXnqIXloLHpl5zlhaXlj6Pnibnpu57lpoLkuIsNCkEu5omL57qM57Ch
+5ZauLOa1t+mXnOebo+euoeaineS7tuewoeWWrizkuI3nlKjllq7orYnkuI3nlKjmibnmlocs5LiA
+5Lqb6Zu75a2Q6Kit5YKZ5Y+v5Lul5LiN6ZyAM0PorYnmmI7kuZ/lj6/lhaXlj6MuIA0KQi7pgJ/l
+uqblv6ss5qyh5pel5Yiw6LKoLOmAguWQiOe3iuaApeiyqOeJqemAmumXnC4NCkMu5aaC5p6c6LKo
+6YeP6LyD5aSnLOWPr+S7pemHh+eUqOavj+WkqeWIhuaJueWgsemXnOaWueW8jy4gDQpELuW/q+S7
+tuWMheeoheWgsemXnOS4jeaPkOS+m+eoheelqCzmspLms5XpgLLooYznqIXnpajmirXmiaMuDQpB
+IOexuw0K5qqU77yM55m957q477yM57q46KKL77yM57q4566x77yM57q455uS77yM5ZCN54mH77yM
+5pel5Y6G77yM6Imy5Y2h77yM5ZCK54mM77yM6K+05piO5Lmm77yM55uu5b2V77yM5qCH6LS077yM
+5rW35oql77yM6IO257q477yM6LS057q477yM6IO25p2h562JDQrvv6U5L2tnDQpCIOexuw0K5aGR
+5paZ5o6l5aS077yM6ZOB6Iqv77yM6ZOB6ZKI77yM56OB6ZOB77yM5by557Cn77yM6ZSh57q/77yM
+6ZKi57q/77yM5biD5paZ77yM57qx57q/77yM57q/55CD77yM6Iqx6L6577yM6aWw5omj77yM5ouJ
+6ZO+77yM6IO25biD77yM5rW357u1562JDQrvv6UxMS9rZw0KQyDnsbsNCuWNpOi9ru+8jOa7mui9
+ru+8jOa7kei9ru+8jOeUtee6v++8jOm8k+e6uO+8jOeggui9ru+8jOefs+adkO+8jOeBr+Wjs++8
+jOeBr+e9qe+8jOWPkemlsOWTge+8jCBQVkMg55qu77yM56Oo55+z77yM6JW+5Lid77yM56Oo6L2u
+77yM5ryG5YyF57q/562JDQrvv6UxMy9rZw0KRCDnsbsNCueJm+earu+8jOe+iuearu+8jOa/gOWF
+iee6uO+8jOearuWFiee6uO+8jOeDq+mHkee6uO+8jOi9tOW/g++8jOiJsueyie+8jOminOaWme+8
+jOiDtuawtO+8jOaWh+WFt++8jOe7kuavm+eOqeWFt++8jOiDjOWMhe+8jOWwvOm+meiii+etiQ0K
+77+lMTUva2cNCkUg57G7DQrkvY7ku7flgLzov5DliqjnlKjlk4HvvIznlLXnrZLvvIzkvY7ku7fl
+gLznga/ppbDvvIzooaPmnI3vvIzpnovmoLfvvIzmqKHlhbfvvIznga/lhbfvvIzlnLDmr6/vvIzo
+rqHnrpfmnLrmjqXnur/vvIzmu6TolYrvvIznga/nrrHvvIzmtqbmu5HmsrnnrYkNCu+/pTE2L2tn
+DQpGIOexuw0K5Yqg54Ot5qOS77yM5L2O5YC85Y+Y5Y6L5Zmo77yM55S16KGo77yM6ICz562S77yM
+6ICz5py66YWN5Lu277yM5rCU5Y6L6YWN5Lu277yM5rO177yM56m65Y6L6KGo77yM5rS75aGe546v
+77yM55S154Ot566h77yM5Lid5be+77yM6aKG5bim562JDQrvv6UyMS9rZw0KRyDnsbsNCuS6jOae
+geeuoe+8jOS4ieaegeeuoe+8jOeUteWuue+8jOeUtemYu++8jOeUteWKqOi1t+WtkO+8jOa4qeW6
+puiuoSDvvIzpo47miYfvvIznorPnsonvvIzlubLmiYvmnLrvvIzogLPlkqrnur/vvIzmipXluIHl
+majphY3ku7bvvIzmuLjmiI/mnLrmjqfliLbmnYbnrYkNCu+/pTM2L2tnDQpIIOexuw0K5L2O5YC8
+5ray5pm25pi+56S654mH77yM5rip5o6n5Zmo77yM54Of6Zu+5oSf5bqU5Zmo77yM6Z+z566x77yM
+5a6a5pe25Zmo77yM5L2O5YC857yd57qr5py677yM5Yqp5ZCs5Zmo77yM5o6i5aS077yM5oSf5bqU
+5Zmo77yM5Y+Y6aKR5Zmo77yM5Y+Y6YCf5Zmo562JDQrvv6U0MS9rZw0KSSDnsbsNCuaJk+WNsOac
+uu+8jOaJq+eehOS7qu+8jOiuoeeul+acuuacuueuse+8jOaYvuekuuWZqO+8jOi3r+eUseWZqO+8
+jOmbhue6v+WZqO+8jOaOpee6v+ebku+8jOi9rOaNouWZqO+8jOmBpeaOp+WZqO+8jOS8oOecn+ac
+uu+8jOmSruaJo+eUteaxoO+8jOiPsueQs+etiQ0K77+lNTMtODMva2cNCuazqO+8m+WWruS7tuiy
+qOWAvOS4jeimgei2hemBjlJNQjUwMDAu5aaC5p6c5a6i5oi26KyK5aCx6LOH5paZ5Ye654++5ZWP
+6aGM77yM55Sx5a6i5oi26Ieq6KGM5om/5pOU6LKs5Lu7Lg0KDQo377yJMjDlsLovNDDlsLo0NeWw
+uuiyqOafnOWIsOmmmea4r+WgseWDue+8mw0K5buj5p2x5rex5ZyzLemmmea4r++8iDIw5bC6LzQw
+5bC6NDXlsLrvvIk6Uk1CMjYwMA0K5buj5p2x5p2x6I6eLemmmea4r++8iDIw5bC6LzQw5bC6NDXl
+sLrvvIk6Uk1CMjkwMA0K5buj5p2x5oOg5beeLemmmea4r++8iDIw5bC6LzQw5bC6NDXlsLrvvIk6
+Uk1CMzUwMA0K5buj5p2x5buj5beeLemmmea4r++8iDIw5bC6LzQw5bC6NDXlsLrvvIk6Uk1CNTcw
+MA0K5p2C6LS577yaDQoxLiAg56ef5p+c6LS577yaMjDlsLo0MOWwujMwMOa4r+W4gS/mn5zvvIzl
+kKsy5aSp77yM6LaF6L+H5oyJMTAw5riv5biBL+Wkqeiuoeeul+OAgjQ15bC6MzUw5riv5biBL+af
+nO+8jOi2hei/h+aMiTE1MOa4r+W4gS/lpKnorqHnrpfjgIINCjYuICDotoXml7botLnvvJrml6Do
+rrrlpKflsI/mn5zoo4XljbjotKfnu5/kuIDmjInovabliLDlkI7orqHml7bvvIzotoUz5Liq5bCP
+5pe277yM5oyJMTAw5riv5biBL+Wwj+aXtuiuoeeul+OAgg0KNy4gIOi2hemHje+8mjIwLzQw5bC6
+5p+c77yM6LSn6YeN5LiN6LaFMTjlkKjvvIzotoXov4fmjIkzMDAtODAw5riv5biB5Yqg5pS26LaF
+6YeN6LS544CCDQo4LiAg5Y6L6L2m6LS577ya5Lul5qyh5pel5Lit5Y2IMTLngrnkuLrpmZDlgZrl
+rozljovovabmn5zvvIwxMueCueWJjeWOi+WknDYwJe+8jDEy54K55ZCO5Y6L5pelODAl77yM5L+d
+5bqV5Y6L5aScMTYwMOa4r+W4ge+8jOWOi+aXpTIwMDDmuK/luIHjgIINCjkuICDov5TnqbrotLnv
+vJrovabovobliLDovr7lt6XljoLlkI7mjInlrozmlbTov5DotLnmlLblj5bvvIzlpoLmnpzovabm
+nKrliLDlt6XljoLvvIzmjInov5DotLnnmoQ4MCXmlLblj5bjgILlpoLmnpzov5TnqbrlkI7otKfm
+n5zopoHkuqTov5jnoIHlpLQNCiAgICDpgKDmiJDnmoTlkIrmn5zotLnvvIzlrZjmn5zotLnlrp7m
+iqXvvIzlm6Dov5Tnqbrmn5zpnIDopoHlip7nkIbmlofku7bvvIznrYnlip7lpb3mlofku7blkI7l
+nKjljrvkuqTmn5zlip7ljZXotLkxNTDvvIzpnIDmlK/ku5jmnKzlnLDmi5bovabotLk2MDDmuK/l
+uIEv5p+c44CCDQoxMS4gIOi9rOWFs+mcgOWKoDEwMOa4r+W4geKAlDUwMOa4r+W4gSDovazlhbPo
+tLnvvIzlhbfkvZPmoLnmja7lrp7pmYXmtbflhbPmnaXlrprjgIINCjEyLiAg5ZCM5Yy65Yqg6LSn
+MzAw5riv5biBL+eCue+8jOi3qOWMuuWKoOi0p+agueaNruWunumZheaDheWGteWumuOAgg0KMTMu
+ICDooaXmlpnotLnvvJo2MDDmuK/luIHlkKsy5aSp5a2Y5LuT6LS577yM6LaF5Ye65q+P5aSp5Yqg
+5pS25a2Y5LuT6LS5MTAw5riv5biB44CCDQoxNC4gIOi/m+WPo+mcgOaIkeWPuOaNouaWh+S7tu+8
+jOaUtuaWh+S7tui0uTE1MOa4r+W4gS/ljZXvvIzmiJHlj7jkuI3ku6PlnqvotLnnlKjjgIINCg0K
+OO+8ieS6p+WcsOivgeaWh+S7tu+8m1JNQjIwMC/ljZUNCuS4gOiIrOWOn+S6p+WcsOivgUNPDQrm
+ma7mg6DliLbkuqflnLDor4FGb3JtQQ0K5Lic55uf5Y6f5Lqn5Zyw6K+BRm9ybUUNCuaZuuWIqeS6
+p+WcsOivgUZvcm1GDQrkuK3np5jkuqflnLDor4FGb3JtUg0K5Lit55Ge5Lqn5Zyw6K+BRm9ybVMN
+CuS6muWkquS6p+WcsOivgUZvcm1NDQrkuK3lt7Tljp/kuqflnLDor4FGVEENCuS4reWTpeS6p+Wc
+sOivgUZPUk1MDQoNCjnvvInmlaPvvIjmnYLvvInotKfpgJ/pgJLvvIjnqbrpgYvvvInlj7DngaPl
+oLHlg7nvvJsNCuS4gOOAgemmlumHjVJNQjMw77yM57qM6YeNUk1CMjANCuazqO+8m+S7peS4iuWg
+seWDueWMheWgsemXnOiyu+OAgea4hemXnOiyu+OAgea0vumAgeiyu+OAgeWFpeWAieiyuy7lj4rm
+iYDku6XmiqXlhbPljZXor4Hmlofku7YNCuacrOWFrOWPuOmChOaPkOS+m0RITOWbvemZheS7tuac
+jeWKoe+8mue7j+iQpee7j+mmmea4r0RITOS4rei9rOWIsOS4lueVjOWQhOWcsOeahOW/q+S7tu+8
+jOWFrOWPuOaLpeaciURITOaPkOS+m+eahOaTjeS9nOezu+e7n++8jOS4rei9rOaXtuaViOW/q++8
+jOafpeivouaWueS+v+OAgeWuieWFqOWPr+mdoOOAgg0KDQpCRVNUIFJFR0FSRFMNCuabvueUnyAg
+DQpIQU9DSElORyBJTlQnTCBMT0dJU1RJQ1MgTFREDQpNLlA6ODYtMTM0MzA4NzMxMTcNClRFTDog
+ODUyLTMxNzYzODkxDQrlvq7kv6E7MTM0MzA4NzMxMTcNClFR77ybMjU0MDMxMzg5MQ0KU0tZUEXv
+vJpIQU9DSEVOR0hLMTk4Nw0KRS1NQUlMOiBIQU9DSEVOR0hLMTk4N0AxNjMuQ09NDQo=
