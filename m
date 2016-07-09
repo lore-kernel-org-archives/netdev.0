@@ -1,72 +1,37 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: [PATCH RESEND] iwlwifi, Do not implement thermal zone unless ucode is loaded
-Date: Thu, 14 Jul 2016 10:13:04 +0300
-Message-ID: <87shvcy9of.fsf@kamboji.qca.qualcomm.com>
-References: <1468250301-10357-1-git-send-email-prarit@redhat.com>
-	<CANUX_P0AFoM5VEDWDjtvOhNbExu4T1bLWU+uS-EYqoGtu5h2bw@mail.gmail.com>
-	<5783E33E.7090205@redhat.com> <1468261650.20877.14.camel@intel.com>
-	<57840214.8000904@redhat.com> <87eg6yav5e.fsf@purkki.adurom.net>
-	<57861172.30103@redhat.com>
+From: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Subject: =?utf-8?Q?=D0=9A=D0=BB=D0=B8=D0=B5=D0=BD=D1=82=D1=81=D0?=
+	=?utf-8?Q?=BA=D0=B8=D0=B5_=D0=B1=D0=B0=D0=B7=D1=8B_Email?=
+	=?utf-8?Q?=3Aaburov52=40gmail=2Ecom_Skype=3A_prodawez389?=
+Date: Sun, 10 Jul 2016 00:08:49 +0600
+Message-ID: <6892C99977A38D3EE2E7AE1206710348@vger.kernel.org>
+Reply-To: "netdev@vger.kernel.org" <aburov52@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Grumbach\, Emmanuel" <emmanuel.grumbach@intel.com>,
-	"linux-kernel\@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linuxwifi <linuxwifi@intel.com>,
-	"Coelho\, Luciano" <luciano.coelho@intel.com>,
-	"Berg\, Johannes" <johannes.berg@intel.com>,
-	"Ivgi\, Chaya Rachel" <chaya.rachel.ivgi@intel.com>,
-	"netdev\@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Sharon\, Sara" <sara.sharon@intel.com>,
-	"linux-wireless\@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: Prarit Bhargava <prarit@redhat.com>
+Content-Type: text/plain; charset=utf-8;
+	format=flowed	reply-type=original
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+To: <netdev@vger.kernel.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.codeaurora.org ([198.145.29.96]:48614 "EHLO
-	smtp.codeaurora.org" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750739AbcGNHNM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 03:13:12 -0400
-In-Reply-To: <57861172.30103@redhat.com> (Prarit Bhargava's message of "Wed,
-	13 Jul 2016 06:01:22 -0400")
+Received: from 198-57-214-89.unifiedlayer.com ([198.57.214.89]:53092 "EHLO
+	nexus9.studiophi.net" rhost-flags-OK-FAIL-OK-OK) by vger.kernel.org
+	with ESMTP id S1750872AbcGNHQm (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Thu, 14 Jul 2016 03:16:42 -0400
+Received: from [127.0.0.1] (port=51969 helo=ffjatnxp)
+	by nexus9.studiophi.net with esmtps (TLSv1.2:ECDHE-RSA-AES256-GCM-SHA384:256)
+	(Exim 4.87)
+	(envelope-from <netdev@vger.kernel.org>)
+	id 1bLwgN-0004OI-GF
+	for netdev@vger.kernel.org; Sat, 09 Jul 2016 12:08:52 -0600
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Prarit Bhargava <prarit@redhat.com> writes:
-
-> On 07/13/2016 02:50 AM, Kalle Valo wrote:
->> Prarit Bhargava <prarit@redhat.com> writes:
->> 
->>>> We implement thermal zone because we do support it, but the problem is
->>>> that we need the firmware to be loaded for that. So you can argue that
->>>> we should register *later* when the firmware is loaded. But this is
->>>> really not helping all that much because the firmware can also be
->>>> stopped at any time. So you'd want us to register / unregister the
->>>> thermal zone anytime the firmware is loaded / unloaded?
->>>
->>> You might have to do that.  I think that if the firmware enables a feature then
->>> the act of loading the firmware should run the code that enables the feature.
->>> IMO of course.
->> 
->> But I suspect that the iwlwifi firmware is loaded during interface up
->> (and unloaded during interface down) and in that case
->> register/unregister would be happening all the time. 
->
-> You make it sound like the interface is coming and going a 1000 times a second.
->  Maybe this happens once during runtime & during suspend/resume
->  cycles?
-
-Of course it doesn't happen 1000 times a second but it depends on user
-space behaviour. In some cases, when the wlan interface is always up,
-the firmware is loaded only once. But in some cases the user space might
-change the interface state more frequently.
-
-More so registering services like thermal zone should happen during
-driver probe time, not during interface up event.
-
-> What about the cases when the firmware isn't present (and that's what
-> lead me to this bug)?
-
-In that case the kernel could return a predefined error value like
--EGAIN or -ENOTDOWN so that the user space knows that a value is not
-available at this time (but might be available later).
-
--- 
-Kalle Valo
+=D0=97=D0=B4=D1=80=D0=B0=D0=B2=D1=81=D1=82=D0=B2=D1=83=D0=B9=D1=82=D0=B5=
+! =D0=92=D0=B0=D1=81 =D0=B8=D0=BD=D1=82=D0=B5=D1=80=D0=B5=D1=81=D1=83=D1=
+=8E=D1=82 =D0=B1=D0=B0=D0=B7=D1=8B =D0=B4=D0=B0=D0=BD=D0=BD=D1=8B=D1=85=
+ =D0=BF=D0=BE=D1=82=D0=B5=D0=BD=D1=86=D0=B8=D0=B0=D0=BB=D1=8C=D0=BD=D1=8B=
+=D1=85 =D0=BA=D0=BB=D0=B8=D0=B5=D0=BD=D1=82=D0=BE=D0=B2 =D0=B4=D0=BB=D1=
+=8F =D0=92=D0=B0=D1=88=D0=B5=D0=B3=D0=BE =D0=91=D0=B8=D0=B7=D0=BD=D0=B5=
+=D1=81=D0=B0? =D0=9E=D1=82=D0=B2=D0=B5=D1=82 =D0=94=D0=90 =D0=9D=D0=95=D0=
+=A2 =D0=BF=D1=80=D0=B8=D1=88=D0=BB=D0=B8=D1=82=D0=B5 =D0=BF=D0=BE Email=
+:aburov52@gmail.com Skype: prodawez389 =D0=9F=D1=80=D0=B8=D1=88=D0=BB=D0=
+=B5=D0=BC =D0=BF=D0=BE=D0=B4=D1=80=D0=BE=D0=B1=D0=BD=D0=BE=D1=81=D1=82=D0=
+=B8!
