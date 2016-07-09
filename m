@@ -1,103 +1,26 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH v6 04/12] net/mlx4_en: add support for fast rx drop bpf program
-Date: Sun, 10 Jul 2016 00:37:00 +0300
-Message-ID: <CAJ3xEMiGaCg8P08kt=WCe8MYsvBb=WiTZUnt21Kb+=vRi-g84A@mail.gmail.com>
-References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
- <1467944124-14891-5-git-send-email-bblanco@plumgrid.com> <CALzJLG8+LzX_sELAC-TVszeWXZFbCKVJ+rJnDT50fqN5PodEAA@mail.gmail.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2 0/4] ibmvnic driver bugfixes and improvements
+Date: Sat, 09 Jul 2016 17:43:42 -0400 (EDT)
+Message-ID: <20160709.174342.803460564970907673.davem@davemloft.net>
+References: <1467961746-26023-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jallen@linux.vnet.ibm.com,
+	nfont@linux.vnet.ibm.com
+To: tlfalcon@linux.vnet.ibm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f52.google.com ([209.85.218.52]:33785 "EHLO
-	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752957AbcGIVhD (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 17:37:03 -0400
-Received: by mail-oi0-f52.google.com with SMTP id u201so102855311oie.0
-        for <netdev@vger.kernel.org>; Sat, 09 Jul 2016 14:37:02 -0700 (PDT)
-In-Reply-To: <CALzJLG8+LzX_sELAC-TVszeWXZFbCKVJ+rJnDT50fqN5PodEAA@mail.gmail.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:38388 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752996AbcGIVno (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 17:43:44 -0400
+In-Reply-To: <1467961746-26023-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 9, 2016 at 10:58 PM, Saeed Mahameed
-<saeedm@dev.mellanox.co.il> wrote:
-> On Fri, Jul 8, 2016 at 5:15 AM, Brenden Blanco <bblanco@plumgrid.com> wrote:
->> Add support for the BPF_PROG_TYPE_XDP hook in mlx4 driver.
->>
->> In tc/socket bpf programs, helpers linearize skb fragments as needed
->> when the program touchs the packet data. However, in the pursuit of
->> speed, XDP programs will not be allowed to use these slower functions,
->> especially if it involves allocating an skb.
->>
->> Therefore, disallow MTU settings that would produce a multi-fragment
->> packet that XDP programs would fail to access. Future enhancements could
->> be done to increase the allowable MTU.
->>
->> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
->> ---
->>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 38 ++++++++++++++++++++++++++
->>  drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 36 +++++++++++++++++++++---
->>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  5 ++++
->>  3 files changed, 75 insertions(+), 4 deletions(-)
->>
-> [...]
->> +               /* A bpf program gets first chance to drop the packet. It may
->> +                * read bytes but not past the end of the frag.
->> +                */
->> +               if (prog) {
->> +                       struct xdp_buff xdp;
->> +                       dma_addr_t dma;
->> +                       u32 act;
->> +
->> +                       dma = be64_to_cpu(rx_desc->data[0].addr);
->> +                       dma_sync_single_for_cpu(priv->ddev, dma,
->> +                                               priv->frag_info[0].frag_size,
->> +                                               DMA_FROM_DEVICE);
->
-> In case of XDP_PASS we will dma_sync again in the normal path,
+From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
+Date: Fri,  8 Jul 2016 02:09:02 -0500
 
-yep, correct
+> Miscellaneous fixes and improvements on the ibmvnic driver.
 
-> this can be improved by doing the dma_sync as soon as we can and once and
-> for all, regardless of the path the packet is going to take
-> (XDP_DROP/mlx4_en_complete_rx_desc/mlx4_en_rx_skb).
-
-how you would envision this can be done in a not very ugly way?
-
-
->> +
->> +                       xdp.data = page_address(frags[0].page) +
->> +                                                       frags[0].page_offset;
->> +                       xdp.data_end = xdp.data + length;
->> +
->> +                       act = bpf_prog_run_xdp(prog, &xdp);
->> +                       switch (act) {
->> +                       case XDP_PASS:
->> +                               break;
->> +                       default:
->> +                               bpf_warn_invalid_xdp_action(act);
->> +                       case XDP_DROP:
->> +                               goto next;
->
-> The drop action here (goto next) will release the current rx_desc
-> buffers and use new ones to refill, I know that the mlx4 rx scheme
-> will release/allocate new pages once every ~32 packet, but one
-> improvement can really help here especially for XDP_DROP benchmarks is
-> to reuse the current rx_desc buffers in case it is going to be
-> dropped.
-
-> Considering if mlx4 rx buffer scheme doesn't allow gaps, Maybe this
-> can be added later as future improvement for the whole mlx4 rx data
-> path drop decisions.
-
-yes, I think it makes sense to look on this as future improvement.
+Series applied.
