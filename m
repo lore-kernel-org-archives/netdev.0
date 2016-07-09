@@ -1,92 +1,75 @@
-From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
-Subject: Re: [PATCH v6 04/12] net/mlx4_en: add support for fast rx drop bpf program
-Date: Sat, 9 Jul 2016 22:58:54 +0300
-Message-ID: <CALzJLG8+LzX_sELAC-TVszeWXZFbCKVJ+rJnDT50fqN5PodEAA@mail.gmail.com>
-References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com> <1467944124-14891-5-git-send-email-bblanco@plumgrid.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH net] ipv4: reject RTNH_F_LINKDOWN for incompatible
+ routes
+Date: Sat, 9 Jul 2016 23:11:36 +0300 (EEST)
+Message-ID: <alpine.LFD.2.11.1607092242360.1557@ja.home.ssi.bg>
+References: <1468054815-24766-1-git-send-email-ja@ssi.bg> <20160709172327.GP18787@gospo.rdu.cumulusnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
-	Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Brenden Blanco <bblanco@plumgrid.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Vegard Nossum <vegard.nossum@oracle.com>,
+	Dinesh Dutt <ddutt@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Andy Gospodarek <gospo@cumulusnetworks.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f169.google.com ([209.85.161.169]:34334 "EHLO
-	mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1756699AbcGIT7P (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 15:59:15 -0400
-Received: by mail-yw0-f169.google.com with SMTP id i12so62786195ywa.1
-        for <netdev@vger.kernel.org>; Sat, 09 Jul 2016 12:59:14 -0700 (PDT)
-In-Reply-To: <1467944124-14891-5-git-send-email-bblanco@plumgrid.com>
+Received: from ja.ssi.bg ([178.16.129.10]:49294 "EHLO ja.ssi.bg"
+	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1752843AbcGIUL5 (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Jul 2016 16:11:57 -0400
+In-Reply-To: <20160709172327.GP18787@gospo.rdu.cumulusnetworks.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Fri, Jul 8, 2016 at 5:15 AM, Brenden Blanco <bblanco@plumgrid.com> wrote:
-> Add support for the BPF_PROG_TYPE_XDP hook in mlx4 driver.
->
-> In tc/socket bpf programs, helpers linearize skb fragments as needed
-> when the program touchs the packet data. However, in the pursuit of
-> speed, XDP programs will not be allowed to use these slower functions,
-> especially if it involves allocating an skb.
->
-> Therefore, disallow MTU settings that would produce a multi-fragment
-> packet that XDP programs would fail to access. Future enhancements could
-> be done to increase the allowable MTU.
->
-> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
-> ---
->  drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 38 ++++++++++++++++++++++++++
->  drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 36 +++++++++++++++++++++---
->  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  5 ++++
->  3 files changed, 75 insertions(+), 4 deletions(-)
->
-[...]
-> +               /* A bpf program gets first chance to drop the packet. It may
-> +                * read bytes but not past the end of the frag.
-> +                */
-> +               if (prog) {
-> +                       struct xdp_buff xdp;
-> +                       dma_addr_t dma;
-> +                       u32 act;
-> +
-> +                       dma = be64_to_cpu(rx_desc->data[0].addr);
-> +                       dma_sync_single_for_cpu(priv->ddev, dma,
-> +                                               priv->frag_info[0].frag_size,
-> +                                               DMA_FROM_DEVICE);
 
-In case of XDP_PASS we will dma_sync again in the normal path, this
-can be improved by doing the dma_sync as soon as we can and once and
-for all, regardless of the path the packet is going to take
-(XDP_DROP/mlx4_en_complete_rx_desc/mlx4_en_rx_skb).
+	Hello,
 
-> +
-> +                       xdp.data = page_address(frags[0].page) +
-> +                                                       frags[0].page_offset;
-> +                       xdp.data_end = xdp.data + length;
-> +
-> +                       act = bpf_prog_run_xdp(prog, &xdp);
-> +                       switch (act) {
-> +                       case XDP_PASS:
-> +                               break;
-> +                       default:
-> +                               bpf_warn_invalid_xdp_action(act);
-> +                       case XDP_DROP:
-> +                               goto next;
+On Sat, 9 Jul 2016, Andy Gospodarek wrote:
 
-The drop action here (goto next) will release the current rx_desc
-buffers and use new ones to refill, I know that the mlx4 rx scheme
-will release/allocate new pages once every ~32 packet, but one
-improvement can really help here especially for XDP_DROP benchmarks is
-to reuse the current rx_desc buffers in case it is going to be
-dropped.
+> On Sat, Jul 09, 2016 at 12:00:15PM +0300, Julian Anastasov wrote:
+> > Vegard Nossum is reporting for a crash in fib_dump_info (fib_nhs==1)
+> > when nh_dev = NULL. Problem happens when RTNH_F_LINKDOWN is
+> > provided from user space for routes that do not use the flag,
+> > catched with netlink fuzzer.
+> 
+> Can you also include the panic log in the changelog or at a minimum post
+> it here?
 
-Considering if mlx4 rx buffer scheme doesn't allow gaps, Maybe this
-can be added later as future improvement for the whole mlx4 rx data
-path drop decisions.
+	Now after Vegard posted it, I'll include in v2.
+
+> > RTNH_F_LINKDOWN should be used only for link routes, not for
+> > local routes or for routes with error code. Do not complicate
+> > fast path with more checks, reject the flag early when configured
+> > for incompatible routes.
+> 
+> Did the netlink fuzzer (trinity?) happen to check any of the other flags
+> (liks RTNH_F_DEAD) that are normally set by the kernel but could be
+> problematic when send down from userspace?
+
+	My guess is that fib_flush will release it soon or
+later. I preferred to reject the RTNH_F_LINKDOWN flag only
+for some kind of routes but another alternative is to always
+reject both RTNH_F_LINKDOWN and RTNH_F_DEAD: RTNH_F_LINKDOWN
+is recalculated and there is no good reason user space to
+provide initial value for flag that is maintained by kernel.
+
+> >  	if (fib_props[cfg->fc_type].error) {
+> > -		if (cfg->fc_gw || cfg->fc_oif || cfg->fc_mp)
+> > +		if (cfg->fc_gw || cfg->fc_oif || cfg->fc_mp ||
+> > +		    (fi->fib_nh->nh_flags & RTNH_F_LINKDOWN))
+> >  			goto err_inval;
+> 
+> It looks a bit odd to use cfg in the existing checkd and fi->fib_nh in
+> the rest, but not a huge issue since cfg->fc_flags and
+> fi->fib_nh->nh_flags should be equivalent should be the same for single
+> and multipath routes.
+
+	Using fc_flags works too for the above case. In fact,
+it goes also to fib_flags, so we should have our checks there.
+But it is true that RTNH_F_LINKDOWN is not used from fib_flags,
+I think, we already had a chance to talk about it on 27 Oct 2015.
+
+	May be we can reject the both flags once for
+rtnh_flags in fib_get_nhs() and then for fc_flags in
+fib_create_info().
+
+Regards
