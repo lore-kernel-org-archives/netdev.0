@@ -1,87 +1,87 @@
-From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
-Subject: Re: [PATCH net-next 0/4] net: cleanup for UDP tunnel's GRO
-Date: Sat, 9 Jul 2016 18:56:12 +0300
-Message-ID: <20160709185612.77c39424@halley>
-References: <cover.1467895623.git.pabeni@redhat.com>
-	<CAKgT0UegKDuP0KHJ+zE1yDTwxxBjtvhESE3WFhTg65UX+CNL0A@mail.gmail.com>
-	<20160708231734.6258c00b@halley>
-	<e6319ae2-b436-18a0-dac1-5ae03e54e056@stressinduktion.org>
-	<CAKgT0UcHB9W3S6W_Di24QtSicNtru3sO4LRuvMAogqKKn1d+ww@mail.gmail.com>
-	<643a68e2-b3d8-a21b-79ff-9ba7b7c9f418@stressinduktion.org>
-	<CAKgT0UciEg0u3aqzQdEuLpaHAK2mXTwf9ng--84m7jL1wdsjnQ@mail.gmail.com>
-	<1dc81b88-47c9-4274-6275-490b16526d4a@stressinduktion.org>
-	<20160709181816.1f601239@halley>
-	<f73e3794-1ba7-ffc5-a742-e4dc9b6dab7f@stressinduktion.org>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCH net] ipv4: reject RTNH_F_LINKDOWN for incompatible routes
+Date: Sat, 9 Jul 2016 13:23:28 -0400
+Message-ID: <20160709172327.GP18787@gospo.rdu.cumulusnetworks.com>
+References: <1468054815-24766-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jiri Benc <jbenc@redhat.com>,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Paolo Abeni <pabeni@redhat.com>,
-	Netdev <netdev@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>,
-	Jesse Gross <jesse@kernel.org>,
-	Tom Herbert <tom@herbertland.com>
-To: Hannes Frederic Sowa <hannes@stressinduktion.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Vegard Nossum <vegard.nossum@oracle.com>,
+	Dinesh Dutt <ddutt@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f43.google.com ([74.125.82.43]:37939 "EHLO
-	mail-wm0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751539AbcGIP4U (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 11:56:20 -0400
-Received: by mail-wm0-f43.google.com with SMTP id n127so44311715wme.1
-        for <netdev@vger.kernel.org>; Sat, 09 Jul 2016 08:56:19 -0700 (PDT)
-In-Reply-To: <f73e3794-1ba7-ffc5-a742-e4dc9b6dab7f@stressinduktion.org>
+Received: from mail-yw0-f179.google.com ([209.85.161.179]:34431 "EHLO
+	mail-yw0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751897AbcGIRXc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 13:23:32 -0400
+Received: by mail-yw0-f179.google.com with SMTP id i12so61036721ywa.1
+        for <netdev@vger.kernel.org>; Sat, 09 Jul 2016 10:23:32 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1468054815-24766-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, 9 Jul 2016 11:35:03 -0400 Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
-> On 09.07.2016 11:18, Shmulik Ladkani wrote:
-> > On Fri, 8 Jul 2016 19:04:27 -0400 Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:  
-> >>>> I really do wonder if GRO on top of fragmentation does have any effect.
-> >>>> Would be great if someone has data for that already?    
-> >>>
-> >>> I think that logic is kind of backwards.  It is already there.
-> >>> Instead of asking people to prove that this change is invalid the onus
-> >>> should be on the submitter to prove the change causes no harm.    
-> >>
-> >> Of course, sorry, I didn't want to make the impression others should do
-> >> that. I asked because Shmulik made the impression on me he had
-> >> experience with GRO+fragmentation on vxlan and/or geneve and could
-> >> provide some data, maybe even just anecdotal.  
-> > 
-> > Few anecdotal updates.
-> > 
-> > I don't have ready-made data as the systems are not using this exact
-> > kind of of setup.
-> > 
-> > However, by performing some quick experimentations, it reveals that GRO
-> > on top of the tunnels, where tunnel datagrams are fragmented, has some
-> > effect. The packets indeed get aggregated, although not aggresively as
-> > in the non-fragmented case.
-> > 
-> > Whether the effect is significant depends on the system.
-> > 
-> > In a system that is very sensitive to non-aggregated skbs (due to a cpu
-> > bottleneck during further processing of the decapsulated packets), the
-> > effect of aggregation is indeed significant.  
+On Sat, Jul 09, 2016 at 12:00:15PM +0300, Julian Anastasov wrote:
+> Vegard Nossum is reporting for a crash in fib_dump_info (fib_nhs==1)
+> when nh_dev = NULL. Problem happens when RTNH_F_LINKDOWN is
+> provided from user space for routes that do not use the flag,
+> catched with netlink fuzzer.
+
+Can you also include the panic log in the changelog or at a minimum post
+it here?
+
+> RTNH_F_LINKDOWN should be used only for link routes, not for
+> local routes or for routes with error code. Do not complicate
+> fast path with more checks, reject the flag early when configured
+> for incompatible routes.
+
+Did the netlink fuzzer (trinity?) happen to check any of the other flags
+(liks RTNH_F_DEAD) that are normally set by the kernel but could be
+problematic when send down from userspace?
+
+> Reported-by: Vegard Nossum <vegard.nossum@oracle.com>
+> Fixes: 0eeb075fad73 ("net: ipv4 sysctl option to ignore routes when nexthop link is down")
+> Tested-by: Vegard Nossum <vegard.nossum@oracle.com>
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Cc: Dinesh Dutt <ddutt@cumulusnetworks.com>
+> Cc: Scott Feldman <sfeldma@gmail.com>
+> ---
+>  net/ipv4/fib_semantics.c | 5 +++--
+>  1 file changed, 3 insertions(+), 2 deletions(-)
 > 
-> Cool, thanks. I thought it wouldn't happen because of the packet pacing.
-> We will also do some more tests ourselves. Maybe it is time to add
-> fragmentation support to inet_gro_receive to handle those cases much
-> more easily without going through fragmentation engine at all, would
-> probably speed up your usage significantly?
+> Note: works for all kernels: net, net-next, 4.4.14, 4.5.7, 4.6.3
+> 
+> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> index d09173b..b642479 100644
+> --- a/net/ipv4/fib_semantics.c
+> +++ b/net/ipv4/fib_semantics.c
+> @@ -1113,7 +1113,8 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+>  	}
+>  
+>  	if (fib_props[cfg->fc_type].error) {
+> -		if (cfg->fc_gw || cfg->fc_oif || cfg->fc_mp)
+> +		if (cfg->fc_gw || cfg->fc_oif || cfg->fc_mp ||
+> +		    (fi->fib_nh->nh_flags & RTNH_F_LINKDOWN))
+>  			goto err_inval;
 
-Indeed, that seems beneficial. I wondered about this back ago. I found
-it not trivial, though. Without the transport headers available per
-received SKB, it makes GRO complex than currently is :)
+It looks a bit odd to use cfg in the existing checkd and fi->fib_nh in
+the rest, but not a huge issue since cfg->fc_flags and
+fi->fib_nh->nh_flags should be equivalent should be the same for single
+and multipath routes.
 
-> Talking about ip fragmentation in general, are you end-host or
-> mid-router fragmented? 
-
-Currently dealing with end-host fragmentation.
-(follow the thread at [1] - usecase is better explained there)
-
-[1] http://www.spinics.net/lists/netdev/msg385085.html
-
-Regards,
-Shmulik
+>  		goto link_it;
+>  	} else {
+> @@ -1136,7 +1137,7 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+>  		struct fib_nh *nh = fi->fib_nh;
+>  
+>  		/* Local address is added. */
+> -		if (nhs != 1 || nh->nh_gw)
+> +		if (nhs != 1 || nh->nh_gw || (nh->nh_flags & RTNH_F_LINKDOWN))
+>  			goto err_inval;
+>  		nh->nh_scope = RT_SCOPE_NOWHERE;
+>  		nh->nh_dev = dev_get_by_index(net, fi->fib_nh->nh_oif);
+> -- 
+> 1.9.3
+> 
