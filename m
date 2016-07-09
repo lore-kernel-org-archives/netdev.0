@@ -1,77 +1,103 @@
-From: =?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>
-Subject: [PATCH net] ipv6: addrconf: fix Juniper SSL VPN client regression
-Date: Sat,  9 Jul 2016 23:13:11 +0200
-Message-ID: <1468098791-20420-1-git-send-email-bjorn@mork.no>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH v6 04/12] net/mlx4_en: add support for fast rx drop bpf program
+Date: Sun, 10 Jul 2016 00:37:00 +0300
+Message-ID: <CAJ3xEMiGaCg8P08kt=WCe8MYsvBb=WiTZUnt21Kb+=vRi-g84A@mail.gmail.com>
+References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
+ <1467944124-14891-5-git-send-email-bblanco@plumgrid.com> <CALzJLG8+LzX_sELAC-TVszeWXZFbCKVJ+rJnDT50fqN5PodEAA@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
-	Jonas Lippuner <jonas@lippuner.ca>,
-	=?UTF-8?q?Bj=C3=B8rn=20Mork?= <bjorn@mork.no>,
+Cc: Brenden Blanco <bblanco@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	=?UTF-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?=
-	<hideaki.yoshifuji@miraclelinux.com>
-To: netdev@vger.kernel.org
+	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Saeed Mahameed <saeedm@dev.mellanox.co.il>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from canardo.mork.no ([148.122.252.1]:35152 "EHLO canardo.mork.no"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753021AbcGIVNu (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jul 2016 17:13:50 -0400
+Received: from mail-oi0-f52.google.com ([209.85.218.52]:33785 "EHLO
+	mail-oi0-f52.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752957AbcGIVhD (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 17:37:03 -0400
+Received: by mail-oi0-f52.google.com with SMTP id u201so102855311oie.0
+        for <netdev@vger.kernel.org>; Sat, 09 Jul 2016 14:37:02 -0700 (PDT)
+In-Reply-To: <CALzJLG8+LzX_sELAC-TVszeWXZFbCKVJ+rJnDT50fqN5PodEAA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The Juniper SSL VPN client use a "tun" interface and seems to
-be picky about visible changes.to it. Commit cc9da6cc4f56
-("ipv6: addrconf: use stable address generator for ARPHRD_NONE")
-made such interfaces get an auto-generated IPv6 link local address
-by default, similar to most other interface types. This made the
-Juniper SSL VPN client fail for unknown reasons.
+On Sat, Jul 9, 2016 at 10:58 PM, Saeed Mahameed
+<saeedm@dev.mellanox.co.il> wrote:
+> On Fri, Jul 8, 2016 at 5:15 AM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+>> Add support for the BPF_PROG_TYPE_XDP hook in mlx4 driver.
+>>
+>> In tc/socket bpf programs, helpers linearize skb fragments as needed
+>> when the program touchs the packet data. However, in the pursuit of
+>> speed, XDP programs will not be allowed to use these slower functions,
+>> especially if it involves allocating an skb.
+>>
+>> Therefore, disallow MTU settings that would produce a multi-fragment
+>> packet that XDP programs would fail to access. Future enhancements could
+>> be done to increase the allowable MTU.
+>>
+>> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+>> ---
+>>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 38 ++++++++++++++++++++++++++
+>>  drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 36 +++++++++++++++++++++---
+>>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  5 ++++
+>>  3 files changed, 75 insertions(+), 4 deletions(-)
+>>
+> [...]
+>> +               /* A bpf program gets first chance to drop the packet. It may
+>> +                * read bytes but not past the end of the frag.
+>> +                */
+>> +               if (prog) {
+>> +                       struct xdp_buff xdp;
+>> +                       dma_addr_t dma;
+>> +                       u32 act;
+>> +
+>> +                       dma = be64_to_cpu(rx_desc->data[0].addr);
+>> +                       dma_sync_single_for_cpu(priv->ddev, dma,
+>> +                                               priv->frag_info[0].frag_size,
+>> +                                               DMA_FROM_DEVICE);
+>
+> In case of XDP_PASS we will dma_sync again in the normal path,
 
-=46ixing this regression by effectively reverting the behaviour to
-what we had before, while keeping the new "addrgenmode random"
-feature.
+yep, correct
 
-This will cause a regression for any userspace application which
-has started to depend on the new behaviour.  But it is still
-considered the lesser evil, considering the short period this
-behaviour has been default.
+> this can be improved by doing the dma_sync as soon as we can and once and
+> for all, regardless of the path the packet is going to take
+> (XDP_DROP/mlx4_en_complete_rx_desc/mlx4_en_rx_skb).
 
-Link: https://bugzilla.kernel.org/show_bug.cgi?id=3D121131
-=46ixes: cc9da6cc4f56 ("ipv6: addrconf: use stable address generator fo=
-r ARPHRD_NONE")
-Reported-by: Valdis Kletnieks <Valdis.Kletnieks@vt.edu>
-Reported-and-tested-by: Jonas Lippuner <jonas@lippuner.ca>
-Cc: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Cc: =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E <hideaki.yoshifuji@miraclelinu=
-x.com>
-Signed-off-by: Bj=C3=B8rn Mork <bjorn@mork.no>
----
-Valdis,
-
-I know you reported this regression back in April, but I never
-saw any answers to Hannes' and mine followup quesions so I forgot
-all about it.  Sorry about that.  Could you test this patch and
-see if it works for you too?
+how you would envision this can be done in a not very ugly way?
 
 
-Bj=C3=B8rn
+>> +
+>> +                       xdp.data = page_address(frags[0].page) +
+>> +                                                       frags[0].page_offset;
+>> +                       xdp.data_end = xdp.data + length;
+>> +
+>> +                       act = bpf_prog_run_xdp(prog, &xdp);
+>> +                       switch (act) {
+>> +                       case XDP_PASS:
+>> +                               break;
+>> +                       default:
+>> +                               bpf_warn_invalid_xdp_action(act);
+>> +                       case XDP_DROP:
+>> +                               goto next;
+>
+> The drop action here (goto next) will release the current rx_desc
+> buffers and use new ones to refill, I know that the mlx4 rx scheme
+> will release/allocate new pages once every ~32 packet, but one
+> improvement can really help here especially for XDP_DROP benchmarks is
+> to reuse the current rx_desc buffers in case it is going to be
+> dropped.
 
- net/ipv6/addrconf.c | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+> Considering if mlx4 rx buffer scheme doesn't allow gaps, Maybe this
+> can be added later as future improvement for the whole mlx4 rx data
+> path drop decisions.
 
-diff --git a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
-index 47f837a58e0a..34e80c6aa810 100644
---- a/net/ipv6/addrconf.c
-+++ b/net/ipv6/addrconf.c
-@@ -3120,7 +3120,7 @@ static void addrconf_dev_config(struct net_device=
- *dev)
- 	/* this device type has no EUI support */
- 	if (dev->type =3D=3D ARPHRD_NONE &&
- 	    idev->addr_gen_mode =3D=3D IN6_ADDR_GEN_MODE_EUI64)
--		idev->addr_gen_mode =3D IN6_ADDR_GEN_MODE_RANDOM;
-+		idev->addr_gen_mode =3D IN6_ADDR_GEN_MODE_NONE;
-=20
- 	addrconf_addr_gen(idev, false);
- }
---=20
-2.8.1
+yes, I think it makes sense to look on this as future improvement.
