@@ -1,36 +1,35 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net-next] tun: Don't assume type tun in tun_device_event
-Date: Fri, 08 Jul 2016 23:59:20 -0400 (EDT)
-Message-ID: <20160708.235920.2218047996694463218.davem@davemloft.net>
-References: <1467845060-7502-1-git-send-email-kraigatgoog@gmail.com>
+Subject: Re: [PATCH net-next] bpf: introduce bpf_get_current_task() helper
+Date: Sat, 09 Jul 2016 00:00:41 -0400 (EDT)
+Message-ID: <20160709.000041.1085148162187281843.davem@davemloft.net>
+References: <1467869916-2313494-1-git-send-email-ast@fb.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jasowang@redhat.com
-To: kraigatgoog@gmail.com
+Cc: daniel@iogearbox.net, brendan.d.gregg@gmail.com,
+	netdev@vger.kernel.org, kernel-team@fb.com
+To: ast@fb.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58026 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:58044 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932844AbcGID7W (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 23:59:22 -0400
-In-Reply-To: <1467845060-7502-1-git-send-email-kraigatgoog@gmail.com>
+	with ESMTP id S1750701AbcGIEBY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 00:01:24 -0400
+In-Reply-To: <1467869916-2313494-1-git-send-email-ast@fb.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Craig Gallek <kraigatgoog@gmail.com>
-Date: Wed,  6 Jul 2016 18:44:20 -0400
+From: Alexei Starovoitov <ast@fb.com>
+Date: Wed, 6 Jul 2016 22:38:36 -0700
 
-> From: Craig Gallek <kraig@google.com>
+> over time there were multiple requests to access different data
+> structures and fields of task_struct current, so finally add
+> the helper to access 'current' as-is. Tracing bpf programs will do
+> the rest of walking the pointers via bpf_probe_read().
+> Note that current can be null and bpf program has to deal it with,
+> but even dumb passing null into bpf_probe_read() is still safe.
 > 
-> The referenced change added a netlink notifier for processing
-> device queue size events.  These events are fired for all devices
-> but the registered callback assumed they only occurred for tun
-> devices.  This fix adds a check (borrowed from macvtap.c) to discard
-> non-tun device events.
-> 
-> For reference, this fixes the following splat:
- ...
-> Fixes: 1576d9860599 ("tun: switch to use skb array for tx")
-> Signed-off-by: Craig Gallek <kraig@google.com>
+> Suggested-by: Brendan Gregg <brendan.d.gregg@gmail.com>
+> Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+> Acked-by: Daniel Borkmann <daniel@iogearbox.net>
 
-Applied, thanks.
+Applied.
