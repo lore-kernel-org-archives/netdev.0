@@ -1,183 +1,126 @@
 From: Xin Long <lucien.xin@gmail.com>
-Subject: [PATCH net-next 1/6] sctp: add SCTP_PR_SUPPORTED on sctp sockopt
-Date: Sat,  9 Jul 2016 19:47:40 +0800
-Message-ID: <121aa41aceff56b3dda51c41b8f3c4d8662d65b7.1468064737.git.lucien.xin@gmail.com>
+Subject: [PATCH net-next 2/6] sctp: add SCTP_DEFAULT_PRINFO into sctp sockopt
+Date: Sat,  9 Jul 2016 19:47:41 +0800
+Message-ID: <2b9ceacb55912e29c2d970772d0267e465c33dff.1468064737.git.lucien.xin@gmail.com>
 References: <cover.1468064737.git.lucien.xin@gmail.com>
+ <121aa41aceff56b3dda51c41b8f3c4d8662d65b7.1468064737.git.lucien.xin@gmail.com>
 Cc: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>,
 	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
 	davem@davemloft.net
 To: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f68.google.com ([209.85.220.68]:33344 "EHLO
-	mail-pa0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751897AbcGILr5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 07:47:57 -0400
-In-Reply-To: <cover.1468064737.git.lucien.xin@gmail.com>
+Received: from mail-pf0-f193.google.com ([209.85.192.193]:33136 "EHLO
+	mail-pf0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751897AbcGILsC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 07:48:02 -0400
+In-Reply-To: <121aa41aceff56b3dda51c41b8f3c4d8662d65b7.1468064737.git.lucien.xin@gmail.com>
 In-Reply-To: <cover.1468064737.git.lucien.xin@gmail.com>
 References: <cover.1468064737.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-According to section 4.5 of rfc7496, prsctp_enable should be per asoc.
-We will add prsctp_enable to both asoc and ep, and replace the places
-where it used net.sctp->prsctp_enable with asoc->prsctp_enable.
+This patch adds SCTP_DEFAULT_PRINFO to sctp sockopt. It is used
+to set/get sctp Partially Reliable Policies' default params,
+which includes 3 policies (ttl, rtx, prio) and their values.
 
-ep->prsctp_enable will be initialized with net.sctp->prsctp_enable, and
-asoc->prsctp_enable will be initialized with ep->prsctp_enable. We can
-also modify it's value through sockopt SCTP_PR_SUPPORTED.
+Still, if we set policy params in sndinfo, we will use the params
+of sndinfo against chunks, instead of the default params.
+
+In this patch, we will use 5-8bit of sp/asoc->default_flags
+to store prsctp policies, and reuse asoc->default_timetolive
+to store their values. It means if we enable and set prsctp
+policy, prior ttl timeout in sctp will not work any more.
 
 Signed-off-by: Xin Long <lucien.xin@gmail.com>
 ---
- include/net/sctp/structs.h |  6 ++--
- include/uapi/linux/sctp.h  |  1 +
- net/sctp/associola.c       |  1 +
- net/sctp/endpointola.c     |  1 +
- net/sctp/sm_make_chunk.c   | 12 +++----
- net/sctp/socket.c          | 80 ++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 93 insertions(+), 8 deletions(-)
+ include/uapi/linux/sctp.h | 29 +++++++++++++++
+ net/sctp/socket.c         | 91 +++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 120 insertions(+)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 83c5ec5..07115ca 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -1256,7 +1256,8 @@ struct sctp_endpoint {
- 	/* SCTP-AUTH: endpoint shared keys */
- 	struct list_head endpoint_shared_keys;
- 	__u16 active_key_id;
--	__u8  auth_enable;
-+	__u8  auth_enable:1,
-+	      prsctp_enable:1;
- };
- 
- /* Recover the outter endpoint structure. */
-@@ -1848,7 +1849,8 @@ struct sctp_association {
- 	__u16 active_key_id;
- 
- 	__u8 need_ecne:1,	/* Need to send an ECNE Chunk? */
--	     temp:1;		/* Is it a temporary association? */
-+	     temp:1,		/* Is it a temporary association? */
-+	     prsctp_enable:1;
- 
- 	struct sctp_priv_assoc_stats stats;
- };
 diff --git a/include/uapi/linux/sctp.h b/include/uapi/linux/sctp.h
-index ce70fe6..aa08906 100644
+index aa08906..984cf2e 100644
 --- a/include/uapi/linux/sctp.h
 +++ b/include/uapi/linux/sctp.h
-@@ -112,6 +112,7 @@ typedef __s32 sctp_assoc_t;
- #define SCTP_SOCKOPT_CONNECTX	110		/* CONNECTX requests. */
+@@ -113,6 +113,29 @@ typedef __s32 sctp_assoc_t;
  #define SCTP_SOCKOPT_CONNECTX3	111	/* CONNECTX requests (updated) */
  #define SCTP_GET_ASSOC_STATS	112	/* Read only */
-+#define SCTP_PR_SUPPORTED	113
+ #define SCTP_PR_SUPPORTED	113
++#define SCTP_DEFAULT_PRINFO	114
++
++/* PR-SCTP policies */
++#define SCTP_PR_SCTP_NONE	0x0000
++#define SCTP_PR_SCTP_TTL	0x0010
++#define SCTP_PR_SCTP_RTX	0x0020
++#define SCTP_PR_SCTP_PRIO	0x0030
++#define SCTP_PR_SCTP_MAX	SCTP_PR_SCTP_PRIO
++#define SCTP_PR_SCTP_MASK	0x0030
++
++#define __SCTP_PR_INDEX(x)	((x >> 4) - 1)
++#define SCTP_PR_INDEX(x)	__SCTP_PR_INDEX(SCTP_PR_SCTP_ ## x)
++
++#define SCTP_PR_POLICY(x)	((x) & SCTP_PR_SCTP_MASK)
++#define SCTP_PR_SET_POLICY(flags, x)	\
++	do {				\
++		flags &= ~SCTP_PR_SCTP_MASK;	\
++		flags |= x;		\
++	} while (0)
++
++#define SCTP_PR_TTL_ENABLED(x)	(SCTP_PR_POLICY(x) == SCTP_PR_SCTP_TTL)
++#define SCTP_PR_RTX_ENABLED(x)	(SCTP_PR_POLICY(x) == SCTP_PR_SCTP_RTX)
++#define SCTP_PR_PRIO_ENABLED(x)	(SCTP_PR_POLICY(x) == SCTP_PR_SCTP_PRIO)
  
  /* These are bit fields for msghdr->msg_flags.  See section 5.1.  */
  /* On user space Linux, these live in <bits/socket.h> as an enum.  */
-diff --git a/net/sctp/associola.c b/net/sctp/associola.c
-index e1849f3..1c23060 100644
---- a/net/sctp/associola.c
-+++ b/net/sctp/associola.c
-@@ -268,6 +268,7 @@ static struct sctp_association *sctp_association_init(struct sctp_association *a
- 		goto fail_init;
+@@ -903,4 +926,10 @@ struct sctp_paddrthlds {
+ 	__u16 spt_pathpfthld;
+ };
  
- 	asoc->active_key_id = ep->active_key_id;
-+	asoc->prsctp_enable = ep->prsctp_enable;
- 
- 	/* Save the hmacs and chunks list into this association */
- 	if (ep->auth_hmacs_list)
-diff --git a/net/sctp/endpointola.c b/net/sctp/endpointola.c
-index 9d494e3..1f03065 100644
---- a/net/sctp/endpointola.c
-+++ b/net/sctp/endpointola.c
-@@ -163,6 +163,7 @@ static struct sctp_endpoint *sctp_endpoint_init(struct sctp_endpoint *ep,
- 	 */
- 	ep->auth_hmacs_list = auth_hmacs;
- 	ep->auth_chunk_list = auth_chunks;
-+	ep->prsctp_enable = net->sctp.prsctp_enable;
- 
- 	return ep;
- 
-diff --git a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
-index 56f364d..0e3045e 100644
---- a/net/sctp/sm_make_chunk.c
-+++ b/net/sctp/sm_make_chunk.c
-@@ -261,7 +261,7 @@ struct sctp_chunk *sctp_make_init(const struct sctp_association *asoc,
- 	chunksize += WORD_ROUND(SCTP_SAT_LEN(num_types));
- 	chunksize += sizeof(ecap_param);
- 
--	if (net->sctp.prsctp_enable)
-+	if (asoc->prsctp_enable)
- 		chunksize += sizeof(prsctp_param);
- 
- 	/* ADDIP: Section 4.2.7:
-@@ -355,7 +355,7 @@ struct sctp_chunk *sctp_make_init(const struct sctp_association *asoc,
- 		sctp_addto_param(retval, num_ext, extensions);
- 	}
- 
--	if (net->sctp.prsctp_enable)
-+	if (asoc->prsctp_enable)
- 		sctp_addto_chunk(retval, sizeof(prsctp_param), &prsctp_param);
- 
- 	if (sp->adaptation_ind) {
-@@ -2024,8 +2024,8 @@ static void sctp_process_ext_param(struct sctp_association *asoc,
- 	for (i = 0; i < num_ext; i++) {
- 		switch (param.ext->chunks[i]) {
- 		case SCTP_CID_FWD_TSN:
--			if (net->sctp.prsctp_enable && !asoc->peer.prsctp_capable)
--				    asoc->peer.prsctp_capable = 1;
-+			if (asoc->prsctp_enable && !asoc->peer.prsctp_capable)
-+				asoc->peer.prsctp_capable = 1;
- 			break;
- 		case SCTP_CID_AUTH:
- 			/* if the peer reports AUTH, assume that he
-@@ -2169,7 +2169,7 @@ static sctp_ierror_t sctp_verify_param(struct net *net,
- 		break;
- 
- 	case SCTP_PARAM_FWD_TSN_SUPPORT:
--		if (net->sctp.prsctp_enable)
-+		if (ep->prsctp_enable)
- 			break;
- 		goto fallthrough;
- 
-@@ -2653,7 +2653,7 @@ do_addr_param:
- 		break;
- 
- 	case SCTP_PARAM_FWD_TSN_SUPPORT:
--		if (net->sctp.prsctp_enable) {
-+		if (asoc->prsctp_enable) {
- 			asoc->peer.prsctp_capable = 1;
- 			break;
- 		}
++struct sctp_default_prinfo {
++	sctp_assoc_t pr_assoc_id;
++	__u32 pr_value;
++	__u16 pr_policy;
++};
++
+ #endif /* _UAPI_SCTP_H */
 diff --git a/net/sctp/socket.c b/net/sctp/socket.c
-index cdabbd8..7460dde 100644
+index 7460dde..c03fe1b 100644
 --- a/net/sctp/socket.c
 +++ b/net/sctp/socket.c
-@@ -3661,6 +3661,39 @@ static int sctp_setsockopt_recvnxtinfo(struct sock *sk,
- 	return 0;
+@@ -3694,6 +3694,47 @@ out:
+ 	return retval;
  }
  
-+static int sctp_setsockopt_pr_supported(struct sock *sk,
-+					char __user *optval,
-+					unsigned int optlen)
++static int sctp_setsockopt_default_prinfo(struct sock *sk,
++					  char __user *optval,
++					  unsigned int optlen)
 +{
-+	struct sctp_assoc_value params;
++	struct sctp_default_prinfo info;
 +	struct sctp_association *asoc;
 +	int retval = -EINVAL;
 +
-+	if (optlen != sizeof(params))
++	if (optlen != sizeof(info))
 +		goto out;
 +
-+	if (copy_from_user(&params, optval, optlen)) {
++	if (copy_from_user(&info, optval, sizeof(info))) {
 +		retval = -EFAULT;
 +		goto out;
 +	}
 +
-+	asoc = sctp_id2assoc(sk, params.assoc_id);
++	if (info.pr_policy & ~SCTP_PR_SCTP_MASK)
++		goto out;
++
++	if (info.pr_policy == SCTP_PR_SCTP_NONE)
++		info.pr_value = 0;
++
++	asoc = sctp_id2assoc(sk, info.pr_assoc_id);
 +	if (asoc) {
-+		asoc->prsctp_enable = !!params.assoc_value;
-+	} else if (!params.assoc_id) {
++		SCTP_PR_SET_POLICY(asoc->default_flags, info.pr_policy);
++		asoc->default_timetolive = info.pr_value;
++	} else if (!info.pr_assoc_id) {
 +		struct sctp_sock *sp = sctp_sk(sk);
 +
-+		sp->ep->prsctp_enable = !!params.assoc_value;
++		SCTP_PR_SET_POLICY(sp->default_flags, info.pr_policy);
++		sp->default_timetolive = info.pr_value;
 +	} else {
 +		goto out;
 +	}
@@ -191,44 +134,46 @@ index cdabbd8..7460dde 100644
  /* API 6.2 setsockopt(), getsockopt()
   *
   * Applications use setsockopt() and getsockopt() to set or retrieve
-@@ -3821,6 +3854,9 @@ static int sctp_setsockopt(struct sock *sk, int level, int optname,
- 	case SCTP_RECVNXTINFO:
- 		retval = sctp_setsockopt_recvnxtinfo(sk, optval, optlen);
+@@ -3857,6 +3898,9 @@ static int sctp_setsockopt(struct sock *sk, int level, int optname,
+ 	case SCTP_PR_SUPPORTED:
+ 		retval = sctp_setsockopt_pr_supported(sk, optval, optlen);
  		break;
-+	case SCTP_PR_SUPPORTED:
-+		retval = sctp_setsockopt_pr_supported(sk, optval, optlen);
++	case SCTP_DEFAULT_PRINFO:
++		retval = sctp_setsockopt_default_prinfo(sk, optval, optlen);
 +		break;
  	default:
  		retval = -ENOPROTOOPT;
  		break;
-@@ -6166,6 +6202,47 @@ static int sctp_getsockopt_recvnxtinfo(struct sock *sk,	int len,
- 	return 0;
+@@ -6243,6 +6287,49 @@ out:
+ 	return retval;
  }
  
-+static int sctp_getsockopt_pr_supported(struct sock *sk, int len,
-+					char __user *optval,
-+					int __user *optlen)
++static int sctp_getsockopt_default_prinfo(struct sock *sk, int len,
++					  char __user *optval,
++					  int __user *optlen)
 +{
-+	struct sctp_assoc_value params;
++	struct sctp_default_prinfo info;
 +	struct sctp_association *asoc;
 +	int retval = -EFAULT;
 +
-+	if (len < sizeof(params)) {
++	if (len < sizeof(info)) {
 +		retval = -EINVAL;
 +		goto out;
 +	}
 +
-+	len = sizeof(params);
-+	if (copy_from_user(&params, optval, len))
++	len = sizeof(info);
++	if (copy_from_user(&info, optval, len))
 +		goto out;
 +
-+	asoc = sctp_id2assoc(sk, params.assoc_id);
++	asoc = sctp_id2assoc(sk, info.pr_assoc_id);
 +	if (asoc) {
-+		params.assoc_value = asoc->prsctp_enable;
-+	} else if (!params.assoc_id) {
++		info.pr_policy = SCTP_PR_POLICY(asoc->default_flags);
++		info.pr_value = asoc->default_timetolive;
++	} else if (!info.pr_assoc_id) {
 +		struct sctp_sock *sp = sctp_sk(sk);
 +
-+		params.assoc_value = sp->ep->prsctp_enable;
++		info.pr_policy = SCTP_PR_POLICY(sp->default_flags);
++		info.pr_value = sp->default_timetolive;
 +	} else {
 +		retval = -EINVAL;
 +		goto out;
@@ -237,7 +182,7 @@ index cdabbd8..7460dde 100644
 +	if (put_user(len, optlen))
 +		goto out;
 +
-+	if (copy_to_user(optval, &params, len))
++	if (copy_to_user(optval, &info, len))
 +		goto out;
 +
 +	retval = 0;
@@ -249,12 +194,13 @@ index cdabbd8..7460dde 100644
  static int sctp_getsockopt(struct sock *sk, int level, int optname,
  			   char __user *optval, int __user *optlen)
  {
-@@ -6319,6 +6396,9 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
- 	case SCTP_RECVNXTINFO:
- 		retval = sctp_getsockopt_recvnxtinfo(sk, len, optval, optlen);
+@@ -6399,6 +6486,10 @@ static int sctp_getsockopt(struct sock *sk, int level, int optname,
+ 	case SCTP_PR_SUPPORTED:
+ 		retval = sctp_getsockopt_pr_supported(sk, len, optval, optlen);
  		break;
-+	case SCTP_PR_SUPPORTED:
-+		retval = sctp_getsockopt_pr_supported(sk, len, optval, optlen);
++	case SCTP_DEFAULT_PRINFO:
++		retval = sctp_getsockopt_default_prinfo(sk, len, optval,
++							optlen);
 +		break;
  	default:
  		retval = -ENOPROTOOPT;
