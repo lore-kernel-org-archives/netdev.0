@@ -1,169 +1,92 @@
-From: "Paul Tsang" <haochenghk1987@163.com>
-Subject: =?utf-8?B?UmXvvJvot6jlooPnlLXlrZDllYbliqHnianmtYHkvpvlupTllYYu5Li65Lit5bCP5b6u5LyB?=
-	=?utf-8?B?5qWt5o+Q5L6b5Ye65Y+j6YCA56iO5ZKM5Y2V6K+B5aCx6Zec5Ye65Y+j54mp5rWB6L+Q6L6T?=
-Date: Sun, 10 Jul 2016 03:57:03 +0800
-Message-ID: <20160710035714416466@yun152.com>
-Reply-To: <haochenghk1987@163.com>
+From: Saeed Mahameed <saeedm@dev.mellanox.co.il>
+Subject: Re: [PATCH v6 04/12] net/mlx4_en: add support for fast rx drop bpf program
+Date: Sat, 9 Jul 2016 22:58:54 +0300
+Message-ID: <CALzJLG8+LzX_sELAC-TVszeWXZFbCKVJ+rJnDT50fqN5PodEAA@mail.gmail.com>
+References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com> <1467944124-14891-5-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="utf-8"
-Content-Transfer-Encoding: base64
-To: <netdev@vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
+	Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from [61.176.220.141] ([61.176.220.141]:2579 "EHLO mail.yun152.com"
-	rhost-flags-FAIL-FAIL-OK-OK) by vger.kernel.org with ESMTP
-	id S1756699AbcGIT6o (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jul 2016 15:58:44 -0400
-Received: from localhost by mail.yun152.com (MDaemon PRO v10.1.1)
-	with ESMTP id md50228187528.msg
-	for <netdev@vger.kernel.org>; Sun, 10 Jul 2016 03:57:08 +0800
+Received: from mail-yw0-f169.google.com ([209.85.161.169]:34334 "EHLO
+	mail-yw0-f169.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1756699AbcGIT7P (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 15:59:15 -0400
+Received: by mail-yw0-f169.google.com with SMTP id i12so62786195ywa.1
+        for <netdev@vger.kernel.org>; Sat, 09 Jul 2016 12:59:14 -0700 (PDT)
+In-Reply-To: <1467944124-14891-5-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RGVhciAgU2lyL01pc3MNClRoaXMgaXMgdGhlIGUtbWFpbCBmcm9tIFBhdWwgb2YgSEFPQ0hJTkcg
-SU5UJ0wgTE9HSVNUSUNTIExURCBpbiBDaGluYS4gT3VyIGNvbXBhbnkgaXMgYSB3ZWxsLXN0YWZm
-ZWQgZnJlaWdodCBmb3J3YXJkaW5nIGFuZCBsb2dpc3RpY3Mgc2VydmljZSBjb21wYW55IO+8jGxv
-Y2F0ZWQgaW4gU2hlbnpoZW4vRG9uZ2d1YW4vR3Vhbmd6aG91L1pob25nc2hhbiBHdWFuZ0Rvbmcg
-UHJvdmluY2UgY2hpbmHvvIxhbmQgIHByb3ZpZGUgc2FmZXR5LCBjb252ZW5pZW50ICYgc3BlZWR5
-IGxvZ2lzdGljIHNlcnZpY2UuDQpTcGVjaWZpY2F0aW9ucw0KMS4gSW1wb3J0IGFuZCBleHBvcnQg
-c2VydmljZQ0KMi5XYXJlaG91c2luZyBhbmQgbG9naXN0aWNzDQozLk92ZXIgMTAgeWVhcnMgb2Yg
-ZXhwZXJpZW5jZQ0KNC50aGUgc3Ryb25nZXN0IGFiaWxpdHkgb2YgQ3VzdG9tcyBDbGVhcmFuY2UN
-CjUuRG9vciB0byBEb29yIGRlbGl2ZXJ5IChmcm9tIGhvbmdrb25nIHRvIGNoaW5hbWFpbmxhbmQp
-Lyhmcm9tIGNoaW5hbWFpbmxhbmQgdG8gaG9uZ2tvbmcgKQ0KOC4gcHJvZmVzc2lvbmFsIGltcG9y
-dCBsb2dpc3RpY3MNCjkuIENvbGxlY3RpbmctcGF5aW5nIHNlcnZpY2U7DQpXZSBvZmZlcjoNCjEu
-Q3VzdG9tcyBjbGVhcmFuY2UNCjIuQ29tbW9kaXR5IGNvbnNvbGlkYXRpb24NCjMuRG9tZXN0aWMg
-dHJhbnNwb3J0YXRpb24NCjQuQ29uY2VhbCBpZGVudGl0eSBvZiB0cnVlIHNoaXBwZXIgb3IgcmVh
-bCBjb25zaWduZWUNCjUuRXhwb3J0IExpY2VuY2UNCjYuRnJlaWdodCBjb2xsZWN0DQoNCklmIHlv
-dSBoYXZlIGFueSByZXF1aXJlbWVudCB3ZSBjYW4gZG8gZm9yIHlvdSwgcGxlYXNlIGNhbGwgbWUg
-KHRlbGw6IDg1Mi05Nzk1OTM2NSkgb3Igc2VudCBlLW1haWwgKCBIQU9DSEVOR0hLQFlBSE9PLkNP
-TS5ISykgYXMgc29vbiBhcyBwb3NzaWJsZS4gDQpIb3Bpbmcgd2UgY2FuIGVzdGFibGlzaCB0aGUg
-d2lu4oCVd2luIGNvb3BlcmF0aW9uIGxhdGVyIGZvciBhIGxvbmcgdGltZS4gVGhhbmsgZm9yIHJl
-YWRpbmcgbXkgZS1tYWlsLg0KDQrku6XkuIvloLHlg7nngrrluLjopovov5DovpPkuqTosqjloLHl
-g7nvvIzlpoLmnInpnIDopoHvvIzmraHov47kvobpm7voqaLlg7kNCjHvvInmlaPmnYLosqjkuIDo
-iKzosr/mmJPpgIDnqIXloLHpl5zvvIjljZXor4HloLHpl5zvvInlh7rlj6PpppnmuK/loLHlg7nv
-vJsNCu+8iOS4gO+8ieS4rea4r+aVo+iyqOaUtui0ue+8miBSTUIwLjYva2fvvIjmnIDkvY7mlLZS
-TUIxNTAv5Zau77yJDQrvvIjkuozvvInloLHpl5zotLnvvJpSTUIyNTANCu+8iOS4ie+8ieajgOeW
-q+i0ueWPiuWFtuadgui0ueWHreelqOaNruWunuaKpeWunumUgOOAgu+8iOaXoOWVhuajgOWImeaX
-oOatpOi0ueeUqO+8iQ0K77yI5Zub77yJ5ZWG5qOA5o2i6K+B5Yet5p2h6LS555So77yaUk1CMTAw
-ICDvvIjml6DllYbmo4DliJnml6DmraTotLnnlKjvvIkNCuazqO+8muS7peS4iuiyu+eUqOS4jeWM
-heWQq+mmmea4r+mAgeWuouOAgeWFpeS7k+aUtuiyuy4NCuaVo+iyqOmmmea4r+a0vumAgeaUtuiy
-u+aomea6ljoNCkHvvJrkuZ3pvo3ljYDvvJogUk1CMTgwIO+8m0I65paw55WM5Y2A77yaIFJNQjIw
-MCAgQzog6aaZ5riv5Y2A77yaIFJNQjMwMA0K5pWj6LKo6aaZ5riv5YWl5LuT5pS26LK75qiZ5rqW
-Og0K6aaZ5riv5YWl5LuT6LS577ybUk1CMzEw77yI55m76K6w6LS544CB5YGc6L2m6LS5562J5p2C
-6LS55a6e5oql5a6e6ZSA77yJDQrms6jvvJoxLuS7peS4iummmea4r+a0vumAgeaIlummmea4r+WF
-peS7k+mmlumHjTUwMEtn77yM6LaF5Ye65LmY5LulUk1CMC4zL0tnLg0K5omA6ZyA6LWE5paZ77ya
-MS4g5LiA6Iis6LS45piT5Ye65Y+j6ZSA5ZSu5ZCI5ZCM77yI6ZyA6KaB55uW5YWs56ug5ZKM562+
-5a2X77yJ77yM5Yqg5bel6LS45piT5ZCI5ZCM5Ye65Y+j6ZyA6KaB5rW35YWz5aSH5qGI55m76K6w
-5omL5YaMDQoyLiDlh7rlj6PmiqXlhbPlp5TmiZjkuabvvIjpnIDmnInlnKjmjIflrprnm5bnq6Dn
-moTkuKTlpITnm5blhaznq6DvvIkNCjMu5Ye65Y+j6ZSA5ZSu5Y+R56Wo77yI6ZyA5pyJ55uW56ug
-55qE5Y6f5Lu2LOS4gOW8j+S4pOS7ve+8iSA0LuWHuuWPo+ijheeuseWNle+8iOmcgOacieebluer
-oOeahOWOn+S7tizkuIDlvI/kuKTku73vvIkNCuaTjeS9nOaXtumXtO+8miDlkajml6XliLDlkajk
-upTmmZrkuIoxMueCueWJjeaUtui0p++8jOaKpeWFs+i1hOaWmeS4gOWumuimgeaMieinhOWumuma
-j+i0p+S4gOi1t+S6pOm9kOWFqC7nrKzkuozlpKnkuIvljYjliLDmuK/vvIznrKzkuInlpKnmtL7p
-gIEv5YWl5LuT5a6M5q+VLg0K5aaC5pyJ54m55q6K5oOF5Ya177yM5YaN5L2c5a6J5o6SLg0KDQoy
-77yJ5pWj6LKo6YCf6YGe6aaZ5riv5aCx5YO5DQrkuIDjgIHlub/kuJzmsZ/pl6gv5L2b5bGxL+S4
-reWxseaVo++8iOadgu+8iei0p++8iOiyt+WWru+8iemAn+mAkummmea4r+iHquaPkOWDue+8m1JN
-QjAuOS9LR+aIllJNQjIwMC9DQk0NCiAgICDlub/kuJzmuIXov5wv5rKz5rqQL+aDoOW3nuaVo++8
-iOadgu+8iei0p++8iOiyt+WWru+8iemAn+mAkummmea4r+iHquaPkOWDue+8m1JNQjAuOS9LR+aI
-llJNQjIwMC9DQk0NCiAgICDlub/kuJzmsZXlpLTmlaPvvIjmnYLvvInotKfvvIjosrfllq7vvInp
-gJ/pgJLpppnmuK/oh6rmj5Dlg7nvvJtSTUIxL0tH5oiWUk1CMjAwL0NCTQ0KICAgIOa1meaxny/m
-sZ/oi48v5LiK5rW3L+emj+W7uuaVo++8iOadgu+8iei0p++8iOiyt+WWru+8iemAn+mAkummmea4
-r+iHquaPkOWDue+8m1JNQjEuNS9LR+aIllJNQjI1MC9DQk0NCuS6jOOAgemmmea4r+a0vumAgemm
-lumHjTUwMEtH5oiW6aaW5pa5M+aWue+8jFJNQjIwMO+8jOe7remHjVJNQjAuMy9LR+aIlue7reaW
-uVJNQjUwL0NCTe+8iOadgui0ueWunuaKpeWunumUgO+8iQ0K5LiJ44CB6aaZ5riv5YWl5LuT6aaW
-6YeNNTAwS0fmiJbpppbmlrkz5pa577yMUk1CMzEw77yM57ut6YeNUk1CMC4zL0tH5oiW57ut5pa5
-Uk1CNTAvQ0JN77yI55m76K6w6LS544CB5YGc6L2m6LS5562J5p2C6LS55a6e5oql5a6e6ZSA77yJ
-DQrms6jvvJvku6XkuIrloLHlg7nljIXloLHpl5zosrvjgIHmuIXpl5zosrvjgIHmtL7pgIHosrvj
-gIHlhaXlgInosrsu5oiR5Y+45YyF5omA5Lul5oql5YWz5Y2V6K+B5paH5Lu2DQoNCjPvvInmlaPo
-sqjpgJ/pgZ7mvrPpl6jloLHlg7kNCuS4gOOAgeacgOS9jua2iOi0ue+8mlJNQjI1MC/llq4NCiAg
-ICDkuK3mvrPoh6rmj5Dku7fvvJpSTUIyLjUvS0cg5oiWUk1CMjUwL0NCTQ0K5LqM44CB5r6z6Zeo
-5rS+6YCB6aaW6YeNNTAwS0fmiJbpppbmlrkz5pa577yMUk1CMjAw77yM57ut6YeNUk1CMC4zL0tH
-5oiW57ut5pa5Uk1CNTAvQ0JN77yI5p2C6LS55a6e5oql5a6e6ZSA77yJDQrms6jvvJvku6XkuIrl
-oLHlg7nljIXloLHpl5zosrvjgIHmuIXpl5zosrvjgIHmtL7pgIHosrvjgIHlhaXlgInosrsu5Y+K
-5omA5Lul5oql5YWz5Y2V6K+B5paH5Lu2DQoNCjTvvInmlaPvvIjmnYLvvInosqjkuqTmt7HlnLPn
-m5DnlLDmuK/lgInjgIHkuK3lpJbpgYvvvIzlhavovr7ku5PjgIHph5Hov5Dovr7nrYnlpJbpgYvl
-gInloLHlg7nvvJsNCuS4gOOAgeacgOS9jua2iOiyu++8m1JNQjgwMC/llq4g77yI55m76K6w6LS5
-562J5LuT5bqT5p2C6LS55a6e5oql5a6e6ZSA77yJDQrms6jvvJvmjInlhazmlqToqIjnrpfvvIzl
-jIU1MDBLR++8jOi2heWHulJNQjAuNS9LRzvmjInmlrnoqIjnrpfvvIzljIUzQ0JN77yM6LaF5Ye6
-Uk1CNjUvQ0JNKOWPluWkp+S8mOWFiCkNCg0KNe+8ieWbveWGhei/kOi+k+aKpeS7t++8mw0K54+g
-5LiJ6KeS6L+Q6L6T5oql5Lu377yaUk1CNzAvQ0JN5oiWUk1CMC40L0tHK+mAgei0p+S4iumXqOi0
-ueeUqFJNQjIwMA0K5rex5ZyzL+S4nOiOnuWIsOemj+W7uuaKpeS7tzpSTUIxMjAvQ0JN5oiWUk1C
-MC42L0tHK+mAgei0p+S4iumXqOi0ueeUqFJNQjIwMA0K5rex5ZyzL+S4nOiOnuWIsOa1meaxn+aK
-peS7tzpSTUIxNjAvQ0JN5oiWUk1CMC43L0tHK+mAgei0p+S4iumXqOi0ueeUqFJNQjIwMA0K5rex
-5ZyzL+S4nOiOnuWIsOaxn+iLj+aKpeS7tzpSTUIxNzAvQ0JN5oiWUk1CMC44L0tHK+mAgei0p+S4
-iumXqOi0ueeUqFJNQjIwMA0K5rex5ZyzL+S4nOiOnuWIsOS4iua1t+aKpeS7tzpSTUIxNzAvQ0JN
-5oiWUk1CMC44L0tHK+mAgei0p+S4iumXqOi0ueeUqFJNQjIwMA0K5rex5ZyzL+S4nOiOnuWIsOS6
-rOa0pee/vOaKpeS7tzpSTUIxODAvQ0JN5oiWUk1CMC45L0tHK+mAgei0p+S4iumXqOi0ueeUqFJN
-QjIwMA0KDQo277yJ6aaZ5riv5pmu6LKo77yM5Lit5qqU6LKo5Yiw5YWn5Zyw5ZCE55yB5biC5aCx
-5YO577ybDQrlv6vku7bljIXnqIXloLHpl5zlhaXlj6Pnibnpu57lpoLkuIsNCkEu5omL57qM57Ch
-5ZauLOa1t+mXnOebo+euoeaineS7tuewoeWWrizkuI3nlKjllq7orYnkuI3nlKjmibnmlocs5LiA
-5Lqb6Zu75a2Q6Kit5YKZ5Y+v5Lul5LiN6ZyAM0PorYnmmI7kuZ/lj6/lhaXlj6MuIA0KQi7pgJ/l
-uqblv6ss5qyh5pel5Yiw6LKoLOmAguWQiOe3iuaApeiyqOeJqemAmumXnC4NCkMu5aaC5p6c6LKo
-6YeP6LyD5aSnLOWPr+S7pemHh+eUqOavj+WkqeWIhuaJueWgsemXnOaWueW8jy4gDQpELuW/q+S7
-tuWMheeoheWgsemXnOS4jeaPkOS+m+eoheelqCzmspLms5XpgLLooYznqIXnpajmirXmiaMuDQpB
-IOexuw0K5qqU77yM55m957q477yM57q46KKL77yM57q4566x77yM57q455uS77yM5ZCN54mH77yM
-5pel5Y6G77yM6Imy5Y2h77yM5ZCK54mM77yM6K+05piO5Lmm77yM55uu5b2V77yM5qCH6LS077yM
-5rW35oql77yM6IO257q477yM6LS057q477yM6IO25p2h562JDQrvv6U5L2tnDQpCIOexuw0K5aGR
-5paZ5o6l5aS077yM6ZOB6Iqv77yM6ZOB6ZKI77yM56OB6ZOB77yM5by557Cn77yM6ZSh57q/77yM
-6ZKi57q/77yM5biD5paZ77yM57qx57q/77yM57q/55CD77yM6Iqx6L6577yM6aWw5omj77yM5ouJ
-6ZO+77yM6IO25biD77yM5rW357u1562JDQrvv6UxMS9rZw0KQyDnsbsNCuWNpOi9ru+8jOa7mui9
-ru+8jOa7kei9ru+8jOeUtee6v++8jOm8k+e6uO+8jOeggui9ru+8jOefs+adkO+8jOeBr+Wjs++8
-jOeBr+e9qe+8jOWPkemlsOWTge+8jCBQVkMg55qu77yM56Oo55+z77yM6JW+5Lid77yM56Oo6L2u
-77yM5ryG5YyF57q/562JDQrvv6UxMy9rZw0KRCDnsbsNCueJm+earu+8jOe+iuearu+8jOa/gOWF
-iee6uO+8jOearuWFiee6uO+8jOeDq+mHkee6uO+8jOi9tOW/g++8jOiJsueyie+8jOminOaWme+8
-jOiDtuawtO+8jOaWh+WFt++8jOe7kuavm+eOqeWFt++8jOiDjOWMhe+8jOWwvOm+meiii+etiQ0K
-77+lMTUva2cNCkUg57G7DQrkvY7ku7flgLzov5DliqjnlKjlk4HvvIznlLXnrZLvvIzkvY7ku7fl
-gLznga/ppbDvvIzooaPmnI3vvIzpnovmoLfvvIzmqKHlhbfvvIznga/lhbfvvIzlnLDmr6/vvIzo
-rqHnrpfmnLrmjqXnur/vvIzmu6TolYrvvIznga/nrrHvvIzmtqbmu5HmsrnnrYkNCu+/pTE2L2tn
-DQpGIOexuw0K5Yqg54Ot5qOS77yM5L2O5YC85Y+Y5Y6L5Zmo77yM55S16KGo77yM6ICz562S77yM
-6ICz5py66YWN5Lu277yM5rCU5Y6L6YWN5Lu277yM5rO177yM56m65Y6L6KGo77yM5rS75aGe546v
-77yM55S154Ot566h77yM5Lid5be+77yM6aKG5bim562JDQrvv6UyMS9rZw0KRyDnsbsNCuS6jOae
-geeuoe+8jOS4ieaegeeuoe+8jOeUteWuue+8jOeUtemYu++8jOeUteWKqOi1t+WtkO+8jOa4qeW6
-puiuoSDvvIzpo47miYfvvIznorPnsonvvIzlubLmiYvmnLrvvIzogLPlkqrnur/vvIzmipXluIHl
-majphY3ku7bvvIzmuLjmiI/mnLrmjqfliLbmnYbnrYkNCu+/pTM2L2tnDQpIIOexuw0K5L2O5YC8
-5ray5pm25pi+56S654mH77yM5rip5o6n5Zmo77yM54Of6Zu+5oSf5bqU5Zmo77yM6Z+z566x77yM
-5a6a5pe25Zmo77yM5L2O5YC857yd57qr5py677yM5Yqp5ZCs5Zmo77yM5o6i5aS077yM5oSf5bqU
-5Zmo77yM5Y+Y6aKR5Zmo77yM5Y+Y6YCf5Zmo562JDQrvv6U0MS9rZw0KSSDnsbsNCuaJk+WNsOac
-uu+8jOaJq+eehOS7qu+8jOiuoeeul+acuuacuueuse+8jOaYvuekuuWZqO+8jOi3r+eUseWZqO+8
-jOmbhue6v+WZqO+8jOaOpee6v+ebku+8jOi9rOaNouWZqO+8jOmBpeaOp+WZqO+8jOS8oOecn+ac
-uu+8jOmSruaJo+eUteaxoO+8jOiPsueQs+etiQ0K77+lNTMtODMva2cNCuazqO+8m+WWruS7tuiy
-qOWAvOS4jeimgei2hemBjlJNQjUwMDAu5aaC5p6c5a6i5oi26KyK5aCx6LOH5paZ5Ye654++5ZWP
-6aGM77yM55Sx5a6i5oi26Ieq6KGM5om/5pOU6LKs5Lu7Lg0KDQo377yJMjDlsLovNDDlsLo0NeWw
-uuiyqOafnOWIsOmmmea4r+WgseWDue+8mw0K5buj5p2x5rex5ZyzLemmmea4r++8iDIw5bC6LzQw
-5bC6NDXlsLrvvIk6Uk1CMjYwMA0K5buj5p2x5p2x6I6eLemmmea4r++8iDIw5bC6LzQw5bC6NDXl
-sLrvvIk6Uk1CMjkwMA0K5buj5p2x5oOg5beeLemmmea4r++8iDIw5bC6LzQw5bC6NDXlsLrvvIk6
-Uk1CMzUwMA0K5buj5p2x5buj5beeLemmmea4r++8iDIw5bC6LzQw5bC6NDXlsLrvvIk6Uk1CNTcw
-MA0K5p2C6LS577yaDQoxLiAg56ef5p+c6LS577yaMjDlsLo0MOWwujMwMOa4r+W4gS/mn5zvvIzl
-kKsy5aSp77yM6LaF6L+H5oyJMTAw5riv5biBL+Wkqeiuoeeul+OAgjQ15bC6MzUw5riv5biBL+af
-nO+8jOi2hei/h+aMiTE1MOa4r+W4gS/lpKnorqHnrpfjgIINCjYuICDotoXml7botLnvvJrml6Do
-rrrlpKflsI/mn5zoo4XljbjotKfnu5/kuIDmjInovabliLDlkI7orqHml7bvvIzotoUz5Liq5bCP
-5pe277yM5oyJMTAw5riv5biBL+Wwj+aXtuiuoeeul+OAgg0KNy4gIOi2hemHje+8mjIwLzQw5bC6
-5p+c77yM6LSn6YeN5LiN6LaFMTjlkKjvvIzotoXov4fmjIkzMDAtODAw5riv5biB5Yqg5pS26LaF
-6YeN6LS544CCDQo4LiAg5Y6L6L2m6LS577ya5Lul5qyh5pel5Lit5Y2IMTLngrnkuLrpmZDlgZrl
-rozljovovabmn5zvvIwxMueCueWJjeWOi+WknDYwJe+8jDEy54K55ZCO5Y6L5pelODAl77yM5L+d
-5bqV5Y6L5aScMTYwMOa4r+W4ge+8jOWOi+aXpTIwMDDmuK/luIHjgIINCjkuICDov5TnqbrotLnv
-vJrovabovobliLDovr7lt6XljoLlkI7mjInlrozmlbTov5DotLnmlLblj5bvvIzlpoLmnpzovabm
-nKrliLDlt6XljoLvvIzmjInov5DotLnnmoQ4MCXmlLblj5bjgILlpoLmnpzov5TnqbrlkI7otKfm
-n5zopoHkuqTov5jnoIHlpLQNCiAgICDpgKDmiJDnmoTlkIrmn5zotLnvvIzlrZjmn5zotLnlrp7m
-iqXvvIzlm6Dov5Tnqbrmn5zpnIDopoHlip7nkIbmlofku7bvvIznrYnlip7lpb3mlofku7blkI7l
-nKjljrvkuqTmn5zlip7ljZXotLkxNTDvvIzpnIDmlK/ku5jmnKzlnLDmi5bovabotLk2MDDmuK/l
-uIEv5p+c44CCDQoxMS4gIOi9rOWFs+mcgOWKoDEwMOa4r+W4geKAlDUwMOa4r+W4gSDovazlhbPo
-tLnvvIzlhbfkvZPmoLnmja7lrp7pmYXmtbflhbPmnaXlrprjgIINCjEyLiAg5ZCM5Yy65Yqg6LSn
-MzAw5riv5biBL+eCue+8jOi3qOWMuuWKoOi0p+agueaNruWunumZheaDheWGteWumuOAgg0KMTMu
-ICDooaXmlpnotLnvvJo2MDDmuK/luIHlkKsy5aSp5a2Y5LuT6LS577yM6LaF5Ye65q+P5aSp5Yqg
-5pS25a2Y5LuT6LS5MTAw5riv5biB44CCDQoxNC4gIOi/m+WPo+mcgOaIkeWPuOaNouaWh+S7tu+8
-jOaUtuaWh+S7tui0uTE1MOa4r+W4gS/ljZXvvIzmiJHlj7jkuI3ku6PlnqvotLnnlKjjgIINCg0K
-OO+8ieS6p+WcsOivgeaWh+S7tu+8m1JNQjIwMC/ljZUNCuS4gOiIrOWOn+S6p+WcsOivgUNPDQrm
-ma7mg6DliLbkuqflnLDor4FGb3JtQQ0K5Lic55uf5Y6f5Lqn5Zyw6K+BRm9ybUUNCuaZuuWIqeS6
-p+WcsOivgUZvcm1GDQrkuK3np5jkuqflnLDor4FGb3JtUg0K5Lit55Ge5Lqn5Zyw6K+BRm9ybVMN
-CuS6muWkquS6p+WcsOivgUZvcm1NDQrkuK3lt7Tljp/kuqflnLDor4FGVEENCuS4reWTpeS6p+Wc
-sOivgUZPUk1MDQoNCjnvvInmlaPvvIjmnYLvvInotKfpgJ/pgJLvvIjnqbrpgYvvvInlj7DngaPl
-oLHlg7nvvJsNCuS4gOOAgemmlumHjVJNQjMw77yM57qM6YeNUk1CMjANCuazqO+8m+S7peS4iuWg
-seWDueWMheWgsemXnOiyu+OAgea4hemXnOiyu+OAgea0vumAgeiyu+OAgeWFpeWAieiyuy7lj4rm
-iYDku6XmiqXlhbPljZXor4Hmlofku7YNCuacrOWFrOWPuOmChOaPkOS+m0RITOWbvemZheS7tuac
-jeWKoe+8mue7j+iQpee7j+mmmea4r0RITOS4rei9rOWIsOS4lueVjOWQhOWcsOeahOW/q+S7tu+8
-jOWFrOWPuOaLpeaciURITOaPkOS+m+eahOaTjeS9nOezu+e7n++8jOS4rei9rOaXtuaViOW/q++8
-jOafpeivouaWueS+v+OAgeWuieWFqOWPr+mdoOOAgg0KDQpCRVNUIFJFR0FSRFMNCuabvueUnyAg
-DQpIQU9DSElORyBJTlQnTCBMT0dJU1RJQ1MgTFREDQpNLlA6ODYtMTM0MzA4NzMxMTcNClRFTDog
-ODUyLTMxNzYzODkxDQrlvq7kv6E7MTM0MzA4NzMxMTcNClFR77ybMjU0MDMxMzg5MQ0KU0tZUEXv
-vJpIQU9DSEVOR0hLMTk4Nw0KRS1NQUlMOiBIQU9DSEVOR0hLMTk4N0AxNjMuQ09NDQo=
+On Fri, Jul 8, 2016 at 5:15 AM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+> Add support for the BPF_PROG_TYPE_XDP hook in mlx4 driver.
+>
+> In tc/socket bpf programs, helpers linearize skb fragments as needed
+> when the program touchs the packet data. However, in the pursuit of
+> speed, XDP programs will not be allowed to use these slower functions,
+> especially if it involves allocating an skb.
+>
+> Therefore, disallow MTU settings that would produce a multi-fragment
+> packet that XDP programs would fail to access. Future enhancements could
+> be done to increase the allowable MTU.
+>
+> Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+> ---
+>  drivers/net/ethernet/mellanox/mlx4/en_netdev.c | 38 ++++++++++++++++++++++++++
+>  drivers/net/ethernet/mellanox/mlx4/en_rx.c     | 36 +++++++++++++++++++++---
+>  drivers/net/ethernet/mellanox/mlx4/mlx4_en.h   |  5 ++++
+>  3 files changed, 75 insertions(+), 4 deletions(-)
+>
+[...]
+> +               /* A bpf program gets first chance to drop the packet. It may
+> +                * read bytes but not past the end of the frag.
+> +                */
+> +               if (prog) {
+> +                       struct xdp_buff xdp;
+> +                       dma_addr_t dma;
+> +                       u32 act;
+> +
+> +                       dma = be64_to_cpu(rx_desc->data[0].addr);
+> +                       dma_sync_single_for_cpu(priv->ddev, dma,
+> +                                               priv->frag_info[0].frag_size,
+> +                                               DMA_FROM_DEVICE);
+
+In case of XDP_PASS we will dma_sync again in the normal path, this
+can be improved by doing the dma_sync as soon as we can and once and
+for all, regardless of the path the packet is going to take
+(XDP_DROP/mlx4_en_complete_rx_desc/mlx4_en_rx_skb).
+
+> +
+> +                       xdp.data = page_address(frags[0].page) +
+> +                                                       frags[0].page_offset;
+> +                       xdp.data_end = xdp.data + length;
+> +
+> +                       act = bpf_prog_run_xdp(prog, &xdp);
+> +                       switch (act) {
+> +                       case XDP_PASS:
+> +                               break;
+> +                       default:
+> +                               bpf_warn_invalid_xdp_action(act);
+> +                       case XDP_DROP:
+> +                               goto next;
+
+The drop action here (goto next) will release the current rx_desc
+buffers and use new ones to refill, I know that the mlx4 rx scheme
+will release/allocate new pages once every ~32 packet, but one
+improvement can really help here especially for XDP_DROP benchmarks is
+to reuse the current rx_desc buffers in case it is going to be
+dropped.
+
+Considering if mlx4 rx buffer scheme doesn't allow gaps, Maybe this
+can be added later as future improvement for the whole mlx4 rx data
+path drop decisions.
