@@ -1,40 +1,41 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [GIT PULL net-next] rxrpc: Improve conn/call lookup and fix
- call number generation [ver #3]
-Date: Fri, 08 Jul 2016 23:51:44 -0400 (EDT)
-Message-ID: <20160708.235144.548485360772551.davem@davemloft.net>
-References: <10481.1467802095@warthog.procyon.org.uk>
+From: Masashi Honma <masashi.honma-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: Re: [RFC 0/7] netlink: Add allocation flag to netlink_unicast()
+Date: Sat, 9 Jul 2016 12:52:16 +0900
+Message-ID: <578074F0.9030809@gmail.com>
+References: <1467764916-4983-1-git-send-email-masashi.honma@gmail.com>
+ <577DA3E1.6020103@gmail.com> <20160708160821.GA2048@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-afs@lists.infradead.org,
-	linux-kernel@vger.kernel.org
-To: dhowells@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:57946 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932844AbcGIDvq (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 23:51:46 -0400
-In-Reply-To: <10481.1467802095@warthog.procyon.org.uk>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netfilter-devel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-audit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, cluster-devel-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org, pablo-Cap9r6Oaw4JrovVCs/uTlw@public.gmane.org, kaber-dcUjhNyLwpNeoWH0uzbU5w@public.gmane.org,
+	kadlec-K40Dz/62t/MgiyqX0sVFJYdd74u8MsAO@public.gmane.org, dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org,
+	sean.hefty-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org, hal.rosenstock-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org,
+	paul-r2n+y4ga6xFZroRs9YW3xA@public.gmane.org, eparis-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, zbr-i6C2adt8DTjR7s880joybQ@public.gmane.org,
+	pshelar-l0M0P4e3n4LQT0dZR+AlfA@public.gmane.org, ccaulfie-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org, bsingharora-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org
+To: David Teigland <teigland-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <20160708160821.GA2048-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: David Howells <dhowells@redhat.com>
-Date: Wed, 06 Jul 2016 11:48:15 +0100
+On 2016=E5=B9=B407=E6=9C=8809=E6=97=A5 01:08, David Teigland wrote:
+> On Thu, Jul 07, 2016 at 09:35:45AM +0900, Masashi Honma wrote:
+>> At the fs/dlm/netlink.c#dlm_timeout_warn(),
+>> prepare_data allocates buffer with GFP_NOFS
+>> and send_data() sends the buffer.
+>>
+>> But send_data() uses GFP_KERNEL or GFP_ATOMIC inside it.
+>> Should it be replaced by GFP_NOFS ?
+> That's old code that's never been used so it doesn't really matter.
+>
+I see. Thank you.
 
-> Hi Dave,
-> 
-> Can you pull this into net-next please?
-
-I'll pull, but this is not how I want you to operate.
-
-If you change stuff, you must repost the entire series.  And this is
-one of many reasons I want people to keep patch sets small, so that
-this is less painful.
-
-But the whole series repost is absolutely required.
-
-I don't care if you just add a "." to the end of a sentence, I want to
-see the series reposted for review in it's entirety.
-
-Thanks.
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireles=
+s" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
