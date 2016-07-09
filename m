@@ -1,26 +1,26 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/4] ibmvnic driver bugfixes and improvements
-Date: Sat, 09 Jul 2016 17:43:42 -0400 (EDT)
-Message-ID: <20160709.174342.803460564970907673.davem@davemloft.net>
-References: <1467961746-26023-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+Subject: Re: [PATCH net-next v2 0/4] net: support MPLS in IPv4 and UDP
+Date: Sat, 09 Jul 2016 17:47:32 -0400 (EDT)
+Message-ID: <20160709.174732.2005655639608493530.davem@davemloft.net>
+References: <1467870975-28003-1-git-send-email-simon.horman@netronome.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jallen@linux.vnet.ibm.com,
-	nfont@linux.vnet.ibm.com
-To: tlfalcon@linux.vnet.ibm.com
+Cc: tom@herbertland.com, netdev@vger.kernel.org
+To: simon.horman@netronome.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38388 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:38430 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752996AbcGIVno (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 17:43:44 -0400
-In-Reply-To: <1467961746-26023-1-git-send-email-tlfalcon@linux.vnet.ibm.com>
+	with ESMTP id S1752996AbcGIVrd (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 17:47:33 -0400
+In-Reply-To: <1467870975-28003-1-git-send-email-simon.horman@netronome.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Thomas Falcon <tlfalcon@linux.vnet.ibm.com>
-Date: Fri,  8 Jul 2016 02:09:02 -0500
+From: Simon Horman <simon.horman@netronome.com>
+Date: Thu,  7 Jul 2016 07:56:11 +0200
 
-> Miscellaneous fixes and improvements on the ibmvnic driver.
+> This short series provides support for MPLS in IPv4 (RFC4023), and by
+> virtue of FOU, MPLS in UDP (RFC7510).
 
-Series applied.
+Series applied, thanks Simon.
