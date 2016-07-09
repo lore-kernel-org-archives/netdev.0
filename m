@@ -1,53 +1,65 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
- exceeds MTU, do segmentation even for non IPSKB_FORWARDED skbs
-Date: Sat, 9 Jul 2016 11:10:38 -0400
-Message-ID: <bbd992a7-fa9c-44de-876f-4e51721c60d5@stressinduktion.org>
-References: <1467722132-10084-1-git-send-email-shmulik.ladkani@ravellosystems.com>
- <20160705130327.GA10737@breakpoint.cc> <20160705170541.3f210675@pixies>
- <20160709090020.GB2067@breakpoint.cc>
+From: Shmulik Ladkani <shmulik.ladkani@gmail.com>
+Subject: Re: [PATCH net-next 0/4] net: cleanup for UDP tunnel's GRO
+Date: Sat, 9 Jul 2016 18:18:16 +0300
+Message-ID: <20160709181816.1f601239@halley>
+References: <cover.1467895623.git.pabeni@redhat.com>
+ <CAKgT0UegKDuP0KHJ+zE1yDTwxxBjtvhESE3WFhTg65UX+CNL0A@mail.gmail.com>
+ <20160708231734.6258c00b@halley>
+ <e6319ae2-b436-18a0-dac1-5ae03e54e056@stressinduktion.org>
+ <CAKgT0UcHB9W3S6W_Di24QtSicNtru3sO4LRuvMAogqKKn1d+ww@mail.gmail.com>
+ <643a68e2-b3d8-a21b-79ff-9ba7b7c9f418@stressinduktion.org>
+ <CAKgT0UciEg0u3aqzQdEuLpaHAK2mXTwf9ng--84m7jL1wdsjnQ@mail.gmail.com>
+ <1dc81b88-47c9-4274-6275-490b16526d4a@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, shmulik.ladkani@gmail.com,
-	netdev@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>,
-	Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
+Cc: Alexander Duyck <alexander.duyck@gmail.com>,
+	Paolo Abeni <pabeni@redhat.com>,
+	Netdev <netdev@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Jesse Gross <jesse@kernel.org>,
+	Tom Herbert <tom@herbertland.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Jiri Benc <jbenc@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out4-smtp.messagingengine.com ([66.111.4.28]:48068 "EHLO
-	out4-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1751513AbcGIPKj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 11:10:39 -0400
-In-Reply-To: <20160709090020.GB2067@breakpoint.cc>
+Received: from mail-wm0-f42.google.com ([74.125.82.42]:37633 "EHLO
+	mail-wm0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751289AbcGIPSa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 11:18:30 -0400
+Received: by mail-wm0-f42.google.com with SMTP id k123so43679734wme.0
+        for <netdev@vger.kernel.org>; Sat, 09 Jul 2016 08:18:29 -0700 (PDT)
+In-Reply-To: <1dc81b88-47c9-4274-6275-490b16526d4a@stressinduktion.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 09.07.2016 05:00, Florian Westphal wrote:
-> I am worried about this patch, skb_gso_validate_mtu is more costly than
-> the ->flags & FORWARD check; everyone pays this extra cost.
+On Fri, 8 Jul 2016 19:04:27 -0400 Hannes Frederic Sowa <hannes@stressinduktion.org> wrote:
+> >> I really do wonder if GRO on top of fragmentation does have any effect.
+> >> Would be great if someone has data for that already?  
+> > 
+> > I think that logic is kind of backwards.  It is already there.
+> > Instead of asking people to prove that this change is invalid the onus
+> > should be on the submitter to prove the change causes no harm.  
 > 
-> What about setting IPCB FORWARD flag in iptunnel_xmit if
-> skb->skb_iif != 0... instead?
+> Of course, sorry, I didn't want to make the impression others should do
+> that. I asked because Shmulik made the impression on me he had
+> experience with GRO+fragmentation on vxlan and/or geneve and could
+> provide some data, maybe even just anecdotal.
 
-That came to my mind first, too.
+Few anecdotal updates.
 
-> Yet another possibility would be to reduce gso_size but that violates
-> gro/gso symmetry...
+I don't have ready-made data as the systems are not using this exact
+kind of of setup.
 
-If you see vxlan (or any other UDP encap protocol) as an in-kernel
-tunnel solution/program acting as an end point it is actually legal to
-modify gso_size in my opinion. Adding headers to an skb can also not be
-symmetric in this case. I would not see anything bad happening because
-of doing so. Do you? It is a matter of implementation. vxlan could also
-eat all data and splice it anew onto a socket. It already doesn't care
-about end-to-end pmtu consistency, so I can't see anything wrong with it.
+However, by performing some quick experimentations, it reveals that GRO
+on top of the tunnels, where tunnel datagrams are fragmented, has some
+effect. The packets indeed get aggregated, although not aggresively as
+in the non-fragmented case.
 
-To make this all safe one needs to handle the ttl in vxlan much better.
-It needs to be inherited from the inner header, checked and properly
-decremented on the outer header, so that vxlan itself acts as a full
-blown router by itself. Otherwise endless loops are possible, as the
-packet will always fit the size.
+Whether the effect is significant depends on the system.
 
-Bye,
-Hannes
+In a system that is very sensitive to non-aggregated skbs (due to a cpu
+bottleneck during further processing of the decapsulated packets), the
+effect of aggregation is indeed significant.
+
+Regards,
+Shmulik
