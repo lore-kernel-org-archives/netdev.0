@@ -1,33 +1,83 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH 0/6] iplink: Improve documentation
-Date: Sat,  9 Jul 2016 11:22:44 +0200
-Message-ID: <1468056170-6056-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:43984 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933103AbcGIJXm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sat, 9 Jul 2016 05:23:42 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: Re: [PATCH net] udp: prevent bugcheck if filter truncates packet
+ too much
+Date: Sat, 09 Jul 2016 11:48:49 +0200
+Message-ID: <5780C881.1040609@iogearbox.net>
+References: <20160708155233.C78AAA0ECC@unicorn.suse.cz> <1468020700.30694.38.camel@edumazet-glaptop3.roam.corp.google.com> <20160709002016.GA27494@ast-mbp.thefacebook.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Michal Kubecek <mkubecek@suse.cz>,
+	Willem de Bruijn <willemb@google.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	samanthakumar <samanthakumar@google.com>,
+	Marco Grassi <marco.gra@gmail.com>, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	James Morris <jmorris@namei.org>,
+	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
+	Patrick McHardy <kaber@trash.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160709002016.GA27494@ast-mbp.thefacebook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-This series improves documentation around the feature of 'ip link set'
-to configure device type specific parameters. While doing so, I reviewed
-used fonts in ip-link.8 and fixed a few bugs/inconsistencies.
+On 07/09/2016 02:20 AM, Alexei Starovoitov wrote:
+> On Sat, Jul 09, 2016 at 01:31:40AM +0200, Eric Dumazet wrote:
+>> On Fri, 2016-07-08 at 17:52 +0200, Michal Kubecek wrote:
+>>> If socket filter truncates an udp packet below the length of UDP header
+>>> in udpv6_queue_rcv_skb() or udp_queue_rcv_skb(), it will trigger a
+>>> BUG_ON in skb_pull_rcsum(). This BUG_ON (and therefore a system crash if
+>>> kernel is configured that way) can be easily enforced by an unprivileged
+>>> user which was reported as CVE-2016-6162. For a reproducer, see
+>>> http://seclists.org/oss-sec/2016/q3/8
+>>>
+>>> Fixes: e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
+>>> Reported-by: Marco Grassi <marco.gra@gmail.com>
+>>> Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
+>>> ---
+>>>   net/ipv4/udp.c | 2 ++
+>>>   net/ipv6/udp.c | 2 ++
+>>>   2 files changed, 4 insertions(+)
+>>>
+>>> diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+>>> index ca5e8ea29538..4aed8fc23d32 100644
+>>> --- a/net/ipv4/udp.c
+>>> +++ b/net/ipv4/udp.c
+>>> @@ -1583,6 +1583,8 @@ int udp_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>>>
+>>>   	if (sk_filter(sk, skb))
+>>>   		goto drop;
+>>> +	if (unlikely(skb->len < sizeof(struct udphdr)))
+>>> +		goto drop;
+>>>
+>>>   	udp_csum_pull_header(skb);
+>>>   	if (sk_rcvqueues_full(sk, sk->sk_rcvbuf)) {
+>>> diff --git a/net/ipv6/udp.c b/net/ipv6/udp.c
+>>> index 005dc82c2138..acc09705618b 100644
+>>> --- a/net/ipv6/udp.c
+>>> +++ b/net/ipv6/udp.c
+>>> @@ -620,6 +620,8 @@ int udpv6_queue_rcv_skb(struct sock *sk, struct sk_buff *skb)
+>>>
+>>>   	if (sk_filter(sk, skb))
+>>>   		goto drop;
+>>> +	if (unlikely(skb->len < sizeof(struct udphdr)))
+>>> +		goto drop;
+>>>
+>>>   	udp_csum_pull_header(skb);
+>>>   	if (sk_rcvqueues_full(sk, sk->sk_rcvbuf)) {
+>>
+>>
+>> Arg :(
+>>
+>> Acked-by: Eric Dumazet <edumazet@google.com>
+>
+> this is incomplete fix. Please do not apply. See discussion at security@kernel
 
-Phil Sutter (6):
-  iplink: List valid 'type' argument in ip link help text
-  iplink: bond_slave: Add missing help functions
-  ip-link.8: Extend type list in synopsis
-  ip-link.8: Place 'ip link set' warning more prominently
-  ip-link.8: Add slave type option descriptions
-  ip-link.8: Fix font choices
+Ohh well, didn't see it earlier before starting the discussion at security@...
 
- ip/iplink.c            |   4 +-
- ip/iplink_bond_slave.c |  24 ++++
- man/man8/ip-link.8.in  | 314 +++++++++++++++++++++++++++++++++++--------------
- 3 files changed, 254 insertions(+), 88 deletions(-)
-
--- 
-2.8.2
+I'm okay if we take this for now as a quick band aid and find a better way how
+to deal with the underlying issue long-term so that it's /guaranteed/ that it
+doesn't bite us any further in such fragile ways.
