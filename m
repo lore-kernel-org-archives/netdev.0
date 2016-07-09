@@ -1,28 +1,42 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [patch -next] bnxt: fix a condition
-Date: Sat, 09 Jul 2016 00:02:30 -0400 (EDT)
-Message-ID: <20160709.000230.1944126559698750228.davem@davemloft.net>
-References: <20160707082309.GC16742@mwanda>
+Subject: Re: [PATCH] sctp: fix panic when sending auth chunks
+Date: Sat, 09 Jul 2016 00:08:54 -0400 (EDT)
+Message-ID: <20160709.000854.945698278700890168.davem@davemloft.net>
+References: <433dedb6a14cd5bd59ad2f82579d872b97171727.1467894889.git.marcelo.leitner@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: michael.chan@broadcom.com, huangjw@broadcom.com,
-	aduyck@mirantis.com, netdev@vger.kernel.org,
-	kernel-janitors@vger.kernel.org
-To: dan.carpenter@oracle.com
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-In-Reply-To: <20160707082309.GC16742@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
+	nhorman@tuxdriver.com, vyasevich@gmail.com
+To: marcelo.leitner@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:58114 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751627AbcGIEI4 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 00:08:56 -0400
+In-Reply-To: <433dedb6a14cd5bd59ad2f82579d872b97171727.1467894889.git.marcelo.leitner@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Dan Carpenter <dan.carpenter@oracle.com>
-Date: Thu, 7 Jul 2016 11:23:09 +0300
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Date: Thu,  7 Jul 2016 09:39:29 -0300
 
-> This code generates as static checker warning because htons(ETH_P_IPV6)
-> is always true.  From the context it looks like the && was intended to
-> be !=.
+> When we introduced GSO support, if using auth the auth chunk was being
+> left queued on the packet even after the final segment was generated.
+> Later on sctp_transmit_packet it calls sctp_packet_reset, which zeroed
+> the packet len while not accounting for this left-over. This caused more
+> space to be used the next packet due to the chunk still being queued,
+> but space which wasn't allocated as its size wasn't accounted.
 > 
-> Fixes: 94758f8de037 ('bnxt_en: Add GRO logic for BCM5731X chips.')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+> The fix is to only queue it back when we know that we are going to
+> generate another segment.
+> 
+> Fixes: 90017accff61 ("sctp: Add GSO support")
+> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-Applied.
+Applied to net-next.
+
+Please make the target tree for your patch explicit in future
+submissions.
+
+Thanks.
