@@ -1,40 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [Patch net] ppp: defer netns reference release for ppp channel
-Date: Fri, 08 Jul 2016 23:47:54 -0400 (EDT)
-Message-ID: <20160708.234754.1545620882859351577.davem@davemloft.net>
-References: <1467781956-2229-1-git-send-email-xiyou.wangcong@gmail.com>
+Subject: Re: [PATCH net] r8152: remove the setting of LAN_WAKE_EN
+Date: Fri, 08 Jul 2016 23:48:05 -0400 (EDT)
+Message-ID: <20160708.234805.977885446725000684.davem@davemloft.net>
+References: <1394712342-15778-208-Taiwan-albertk@realtek.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Matt.Bennett@alliedtelesis.co.nz,
-	paulus@samba.org, linux-ppp@vger.kernel.org, g.nault@alphalink.fr,
-	gorcunov@openvz.org
-To: xiyou.wangcong@gmail.com
-Return-path: <linux-ppp-owner@vger.kernel.org>
-In-Reply-To: <1467781956-2229-1-git-send-email-xiyou.wangcong@gmail.com>
-Sender: linux-ppp-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, nic_swsd@realtek.com,
+	linux-kernel@vger.kernel.org, linux-usb@vger.kernel.org
+To: hayeswang@realtek.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:57930 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932844AbcGIDsG (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Fri, 8 Jul 2016 23:48:06 -0400
+In-Reply-To: <1394712342-15778-208-Taiwan-albertk@realtek.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Date: Tue,  5 Jul 2016 22:12:36 -0700
+From: Hayes Wang <hayeswang@realtek.com>
+Date: Wed, 6 Jul 2016 17:03:29 +0800
 
-> Matt reported that we have a NULL pointer dereference
-> in ppp_pernet() from ppp_connect_channel(),
-> i.e. pch->chan_net is NULL.
+> The LAN_WAKE_EN is not used to determine if the device could support
+> WOL. It is used to sigal a GPIO pin when a WOL event occurs. The WOL
+> still works even though it is disabled.
 > 
-> This is due to that a parallel ppp_unregister_channel()
-> could happen while we are in ppp_connect_channel(), during
-> which pch->chan_net set to NULL. Since we need a reference
-> to net per channel, it makes sense to sync the refcnt
-> with the life time of the channel, therefore we should
-> release this reference when we destroy it.
-> 
-> Fixes: 1f461dcdd296 ("ppp: take reference on channels netns")
-> Reported-by: Matt Bennett <Matt.Bennett@alliedtelesis.co.nz>
-> Cc: Paul Mackerras <paulus@samba.org>
-> Cc: linux-ppp@vger.kernel.org
-> Cc: Guillaume Nault <g.nault@alphalink.fr>
-> Cc: Cyrill Gorcunov <gorcunov@openvz.org>
-> Signed-off-by: Cong Wang <xiyou.wangcong@gmail.com>
+> Signed-off-by: Hayes Wang <hayeswang@realtek.com>
 
-Applied and queued up for -stable.
+Applied.
