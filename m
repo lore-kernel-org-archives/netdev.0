@@ -1,42 +1,39 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] sctp: fix panic when sending auth chunks
-Date: Sat, 09 Jul 2016 00:08:54 -0400 (EDT)
-Message-ID: <20160709.000854.945698278700890168.davem@davemloft.net>
-References: <433dedb6a14cd5bd59ad2f82579d872b97171727.1467894889.git.marcelo.leitner@gmail.com>
+From: David Howells <dhowells@redhat.com>
+Subject: Re: [GIT PULL net-next] rxrpc: Improve conn/call lookup and fix call number generation [ver #3]
+Date: Sat, 09 Jul 2016 07:56:34 +0100
+Message-ID: <31924.1468047394@warthog.procyon.org.uk>
+References: <20160708.235144.548485360772551.davem@davemloft.net> <10481.1467802095@warthog.procyon.org.uk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, linux-sctp@vger.kernel.org,
-	nhorman@tuxdriver.com, vyasevich@gmail.com
-To: marcelo.leitner@gmail.com
+Content-Type: text/plain; charset="us-ascii"
+Cc: dhowells@redhat.com, netdev@vger.kernel.org,
+	linux-afs@lists.infradead.org, linux-kernel@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:58114 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751627AbcGIEI4 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 00:08:56 -0400
-In-Reply-To: <433dedb6a14cd5bd59ad2f82579d872b97171727.1467894889.git.marcelo.leitner@gmail.com>
+Received: from mx1.redhat.com ([209.132.183.28]:55660 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750701AbcGIG4h (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sat, 9 Jul 2016 02:56:37 -0400
+In-Reply-To: <20160708.235144.548485360772551.davem@davemloft.net>
+Content-ID: <31923.1468047394.1@warthog.procyon.org.uk>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Date: Thu,  7 Jul 2016 09:39:29 -0300
+David Miller <davem@davemloft.net> wrote:
 
-> When we introduced GSO support, if using auth the auth chunk was being
-> left queued on the packet even after the final segment was generated.
-> Later on sctp_transmit_packet it calls sctp_packet_reset, which zeroed
-> the packet len while not accounting for this left-over. This caused more
-> space to be used the next packet due to the chunk still being queued,
-> but space which wasn't allocated as its size wasn't accounted.
+> > Can you pull this into net-next please?
 > 
-> The fix is to only queue it back when we know that we are going to
-> generate another segment.
+> I'll pull, but this is not how I want you to operate.
 > 
-> Fixes: 90017accff61 ("sctp: Add GSO support")
-> Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+> If you change stuff, you must repost the entire series.  And this is
+> one of many reasons I want people to keep patch sets small, so that
+> this is less painful.
+> 
+> But the whole series repost is absolutely required.
+> 
+> I don't care if you just add a "." to the end of a sentence, I want to
+> see the series reposted for review in it's entirety.
 
-Applied to net-next.
+That's why I asked if you'd prefer me to post the whole lot instead.  I
+checked the netdev faq, but it doesn't express your preference.
 
-Please make the target tree for your patch explicit in future
-submissions.
-
-Thanks.
+David
