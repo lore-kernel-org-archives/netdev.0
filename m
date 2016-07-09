@@ -1,65 +1,114 @@
-From: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Subject: DHCP via bridge in case of IPv4
-Date: Sat, 9 Jul 2016 08:37:55 +0000
-Message-ID: <1468053400.5007.5.camel@synopsys.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
+ exceeds MTU, do segmentation even for non IPSKB_FORWARDED skbs
+Date: Sat, 9 Jul 2016 11:00:20 +0200
+Message-ID: <20160709090020.GB2067@breakpoint.cc>
+References: <1467722132-10084-1-git-send-email-shmulik.ladkani@ravellosystems.com>
+ <20160705130327.GA10737@breakpoint.cc>
+ <20160705170541.3f210675@pixies>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-7"
-Content-Transfer-Encoding: 8BIT
-Cc: "davem@davemloft.net" <davem@davemloft.net>,
-	"lede-dev@lists.infradead.org" <lede-dev@lists.infradead.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"linux-snps-arc@lists.infradead.org"
-	<linux-snps-arc@lists.infradead.org>
-To: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Language: en-US
-Content-ID: <AFD5EA111CA2634B80121D82959929E1@internal.synopsys.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	shmulik.ladkani@gmail.com, netdev@vger.kernel.org
+To: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:36030 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932860AbcGIJAa (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 05:00:30 -0400
+Content-Disposition: inline
+In-Reply-To: <20160705170541.3f210675@pixies>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hello,
+Shmulik Ladkani <shmulik.ladkani@ravellosystems.com> wrote:
 
-I was playing with quite simple bridged setup on different boards with
-very recent kernels (4.6.3 as of this writing) and found one interesting
-behavior that I cannot yet understand and googling din't help here as well.
+[ CC 
+> On Tue, 5 Jul 2016 15:03:27 +0200, fw@strlen.de wrote:
+> > > The expected behavior in such a setup would be segmenting the skb first,
+> > > and then fragmenting each segment according to dst mtu, and finally
+> > > passing the resulting fragments to ip_finish_output2.
+> > > 
+> > > 'ip_finish_output_gso' already supports this "Slowpath" behavior,
+> > > but it is only considered if IPSKB_FORWARDED is set.
+> > > 
+> > > However in the bridged case, IPSKB_FORWARDED is off, and the "Slowpath"
+> > > behavior is not considered.
+> > 
+> > I placed this test there under the assumption that L2 bridges have
+> > the same MTU on all bridge ports, so we'd only need to consider routing
+> > case.
+> 
+> In our setups we have no control of VM mtu (which affects gso_size of
+> packets arriving from tap), and no control of vxlan's underlay mtu.
 
-My setup is pretty simple:
--------------+AKAAoACgAKAAoACgAKA-------------------+AKAAoACgAKAAoACgAKA--------------------------
-+AHw- HOST+AKAAoACgAKAAoACgAHwAoACgAKAAoACgAKAAoAB8- +ACI-Dumb AP+ACIAoACgAKAAoACgAKAAfACgAKAAoACgAKAAoACgAHw- Wireless client+AKAAoACgAKAAoACgAKAAfA-
-+AHw- with DHCP +AHwAPA------+AD4-(eth0)+AKAAoACgAKAAoA-(wlan0)+ADw------+AD4AfA- attempting to+AKAAoACgAKAAoACgAKAAoACgAHw-
-+AHw- server+AKAAoACgAKAAfACgAKAAoACgAKAAoACgAHwAoACgAKAAoABc- br0 /+AKAAoACgAKAAoAB8AKAAoACgAKAAoACgAKAAfA- get settings via DHCP +AHw-
--------------+AKAAoACgAKAAoACgAKA-------------------+AKAAoACgAKAAoACgAKA--------------------------
+:-(
 
-+ACo- HOST is my laptop with DHCP server that works for sure.
-+ACo- +ACI-Dumb AP+ACI- is a separate board (I tried ARM-based Wandboard and ARC-based
-+AKA- AXS10x boards but results are exactly the same) with wired (eth0) and wireless
-+AKA- (wlan0) network controllers bridged together (br0). That +ACI-br0+ACI- bridge flawlessly
-+AKA- gets its settings from DHCP server on host.
-+ACo- Wireless client could be either a smatrphone or another laptop etc but
-+AKA- what's important it should be configured to get network settings by DHCP as well.
+> > How does work if e.g. 1460-sized udp packet arrives on tap0?
+> > Do we fragment (possibly ignoring DF?)
+> 
+> A *non* gso udp packet arriving on tap0 is bridged to vxlan0 (assuming
+> vxlan mtu is sufficient), and the original DF of the inner packet is
+> preserved.
+> 
+> The skb gets vxlan-udp encapsulated, with outer IP header having DF=0
+> (unless tun_flags & TUNNEL_DONT_FRAGMENT), and then, if skb->len > mtu,
+> fragmented normally at the ip_finish_output --> ip_fragment code path.
 
-So what happens +ACI-br0+ACI- always gets network settings from DHCP server on HOST.
-That's fine. But wireless client only reliably gets settings from DHCP server
-if IPv6 is enabled on +ACI-Dumb AP+ACI- board. If IPv6 is disabled I may see that
-wireless client sends +ACI-DHCP Discover+ACI- then server replies with +ACI-DHCP Offer+ACI- but
-that offer never reaches wireless client.
+I see.
 
-Well actually sometimes very-very rarely that offer may reach wireless client but
-I cannot understand how to reproduce it reliably.
+> So on wire we have 2 frags of the vxlan datagram; they are reassembled
+> at recepient ip stack of vxlan termination. Inner packet preserved.
+> Not ideal, but works.
+> 
+> The issue is with GSO skbs arriving from tap, which eventually generates
+> segments larger then the mtu, which are not transmitted on eth0:
+> 
+>   tap0 rx:  super packet, gso_size from user's virtio_net_hdr
+>     ...
+>     vxlan0 tx:  encaps the super packet
+>       ...
+>       ip_finish_output
+>         ip_finish_output_gso
+>           *NO* skb_gso_validate_mtu()     <--- problem here
 
-Still looks like enabling of IPv6 fixes that issue.
+We don't do this for ipv6 either since we're expected to send PKTOOBIG
+error.
 
-So my question here is: why I see that difference with IPv4 vs IPv6?
+>             ip_finish_output2:  tx the encapsulated super packet on eth0
+>               ...
+>               validate_xmit_skb
+>                 netif_needs_gso
+>                   skb_gso_segment: segments inner payload according to
+>                                    original gso_size,
+>                                    leads to vxlan datagrams larger than mtu
+>
+> > How does it work for non-ip protocols?
+> 
+> The specific problem is with vxlan (or any other udp based tunnel)
+> encapsulated GSOed packets.
 
-One sidenote:
-+AKA- Somehow I figured out that in case of IPv4 so-called routing
-+AKA- cache is absent (it was removed in Linux kernel 3.6) while with IPv6 it
-+AKA- still exist. And assuming my hardware is sane and no data gets lost I may
-+AKA- think that it's really a routing problem and missing routing cache might
-+AKA- be an answer. Still being a noob in networking stuff I'd like to get a bit
-+AKA- better explanation of things I see.
+If I understand correctly you have vxlan stacked on top of eth0, and tap
+and vxlan in a bridge.
 
-All thoughts and comments are more than welcome.
+... and eth mtu smaller than bridge mtu.
 
-Regards,
-Alexey
+I think that this is "working" by pure accident, and that better fix is
+to set mtu values correctly so that when vxlan header is added we don't
+exceed what can be handled by the real device (yes, I know you have
+no control over this).
+
+I am worried about this patch, skb_gso_validate_mtu is more costly than
+the ->flags & FORWARD check; everyone pays this extra cost.
+
+What about setting IPCB FORWARD flag in iptunnel_xmit if
+skb->skb_iif != 0... instead?
+
+Yet another possibility would be to reduce gso_size but that violates
+gro/gso symmetry...
+
+[ I tried to check rfc but seems rfc7348 simply declares that
+  endpoints are not allowed to fragment so problem solved :-/ ]
