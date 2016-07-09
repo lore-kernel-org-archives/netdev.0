@@ -1,166 +1,79 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v6 01/12] bpf: add XDP prog type for early driver filter
-Date: Sat, 9 Jul 2016 08:47:52 -0500
-Message-ID: <CALx6S36dnA_vXBJVpLTZc6WyZaDh_hnw4vpp57EC2jsfA0vHcQ@mail.gmail.com>
-References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
- <1467944124-14891-2-git-send-email-bblanco@plumgrid.com> <20160709101403.1ed7d021@redhat.com>
+From: Or Gerlitz <gerlitz.or@gmail.com>
+Subject: Re: [PATCH v6 04/12] net/mlx4_en: add support for fast rx drop bpf program
+Date: Sat, 9 Jul 2016 17:07:36 +0300
+Message-ID: <CAJ3xEMjjG2ZZe=qBsRaFuk-j8Akj38Uk6+Nw1xuZya=R7FOJ7Q@mail.gmail.com>
+References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com> <1467944124-14891-5-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
 	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
 	john fastabend <john.fastabend@gmail.com>,
 	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>,
+	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
 	Daniel Borkmann <daniel@iogearbox.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+To: Brenden Blanco <bblanco@plumgrid.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f67.google.com ([209.85.214.67]:33363 "EHLO
-	mail-it0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S933144AbcGINry (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 09:47:54 -0400
-Received: by mail-it0-f67.google.com with SMTP id y93so6711763ita.0
-        for <netdev@vger.kernel.org>; Sat, 09 Jul 2016 06:47:53 -0700 (PDT)
-In-Reply-To: <20160709101403.1ed7d021@redhat.com>
+Received: from mail-oi0-f66.google.com ([209.85.218.66]:33011 "EHLO
+	mail-oi0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750778AbcGIOHn (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 10:07:43 -0400
+Received: by mail-oi0-f66.google.com with SMTP id w141so13006315oia.0
+        for <netdev@vger.kernel.org>; Sat, 09 Jul 2016 07:07:43 -0700 (PDT)
+In-Reply-To: <1467944124-14891-5-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 9, 2016 at 3:14 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
-> On Thu,  7 Jul 2016 19:15:13 -0700
-> Brenden Blanco <bblanco@plumgrid.com> wrote:
+On Fri, Jul 8, 2016 at 5:15 AM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+> Add support for the BPF_PROG_TYPE_XDP hook in mlx4 driver.
 >
->> Add a new bpf prog type that is intended to run in early stages of the
->> packet rx path. Only minimal packet metadata will be available, hence a
->> new context type, struct xdp_md, is exposed to userspace. So far only
->> expose the packet start and end pointers, and only in read mode.
->>
->> An XDP program must return one of the well known enum values, all other
->> return codes are reserved for future use. Unfortunately, this
->> restriction is hard to enforce at verification time, so take the
->> approach of warning at runtime when such programs are encountered. The
->> driver can choose to implement unknown return codes however it wants,
->> but must invoke the warning helper with the action value.
->
-> I believe we should define a stronger semantics for unknown/future
-> return codes than the once stated above:
->  "driver can choose to implement unknown return codes however it wants"
->
-> The mlx4 driver implementation in:
->  [PATCH v6 04/12] net/mlx4_en: add support for fast rx drop bpf program
->
-> On Thu,  7 Jul 2016 19:15:16 -0700 Brenden Blanco <bblanco@plumgrid.com> wrote:
->
->> +             /* A bpf program gets first chance to drop the packet. It may
->> +              * read bytes but not past the end of the frag.
->> +              */
->> +             if (prog) {
->> +                     struct xdp_buff xdp;
->> +                     dma_addr_t dma;
->> +                     u32 act;
->> +
->> +                     dma = be64_to_cpu(rx_desc->data[0].addr);
->> +                     dma_sync_single_for_cpu(priv->ddev, dma,
->> +                                             priv->frag_info[0].frag_size,
->> +                                             DMA_FROM_DEVICE);
->> +
->> +                     xdp.data = page_address(frags[0].page) +
->> +                                                     frags[0].page_offset;
->> +                     xdp.data_end = xdp.data + length;
->> +
->> +                     act = bpf_prog_run_xdp(prog, &xdp);
->> +                     switch (act) {
->> +                     case XDP_PASS:
->> +                             break;
->> +                     default:
->> +                             bpf_warn_invalid_xdp_action(act);
->> +                     case XDP_DROP:
->> +                             goto next;
->> +                     }
->> +             }
->
-> Thus, mlx4 choice is to drop packets for unknown/future return codes.
->
-> I think this is the wrong choice.  I think the choice should be
-> XDP_PASS, to pass the packet up the stack.
->
-> I find "XDP_DROP" problematic because it happen so early in the driver,
-> that we lost all possibilities to debug what packets gets dropped.  We
-> get a single kernel log warning, but we cannot inspect the packets any
-> longer.  By defaulting to XDP_PASS all the normal stack tools (e.g.
-> tcpdump) is available.
->
-It's an API issue though not a problem with the packet. Allowing
-unknown return codes to pass seems like a major security problem also.
+> In tc/socket bpf programs, helpers linearize skb fragments as needed
+> when the program touchs the packet data. However, in the pursuit of
 
-Tom
+nit, for the next version touchs --> touches
 
+> speed, XDP programs will not be allowed to use these slower functions,
+> especially if it involves allocating an skb.
+
+
+[...]
+
+> @@ -835,6 +838,34 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
+>                 l2_tunnel = (dev->hw_enc_features & NETIF_F_RXCSUM) &&
+>                         (cqe->vlan_my_qpn & cpu_to_be32(MLX4_CQE_L2_TUNNEL));
 >
-> I can also imagine that, defaulting to XDP_PASS, can be an important
-> feature in the future.
->
-> In the future we will likely have features, where XDP can "offload"
-> packet delivery from the normal stack (e.g. delivery into a VM).  On a
-> running production system you can then load your XDP program.  If the
-> driver was too old defaulting to XDP_DROP, then you lost your service,
-> instead if defaulting to XDP_PASS, your service would survive, falling
-> back to normal delivery.
->
-> (For the VM delivery use-case, there will likely be a need for having a
-> fallback delivery method in place, when the XDP program is not active,
-> in-order to support VM migration).
->
->
->
->> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
->> index c14ca1c..5b47ac3 100644
->> --- a/include/uapi/linux/bpf.h
->> +++ b/include/uapi/linux/bpf.h
-> [...]
->>
->> +/* User return codes for XDP prog type.
->> + * A valid XDP program must return one of these defined values. All other
->> + * return codes are reserved for future use. Unknown return codes will result
->> + * in driver-dependent behavior.
->> + */
->> +enum xdp_action {
->> +     XDP_DROP,
->> +     XDP_PASS,
->> +};
->> +
-> [...]
->>  #endif /* _UAPI__LINUX_BPF_H__ */
->> diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
->> index e206c21..a8d67d0 100644
->> --- a/kernel/bpf/verifier.c
->> +++ b/kernel/bpf/verifier.c
-> [...]
->> +void bpf_warn_invalid_xdp_action(int act)
->> +{
->> +     WARN_ONCE(1, "\n"
->> +                  "*****************************************************\n"
->> +                  "**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **\n"
->> +                  "**                                               **\n"
->> +                  "** XDP program returned unknown value %-10u **\n"
->> +                  "**                                               **\n"
->> +                  "** XDP programs must return a well-known return  **\n"
->> +                  "** value. Invalid return values will result in   **\n"
->> +                  "** undefined packet actions.                     **\n"
->> +                  "**                                               **\n"
->> +                  "**   NOTICE NOTICE NOTICE NOTICE NOTICE NOTICE   **\n"
->> +                  "*****************************************************\n",
->> +               act);
->> +}
->> +EXPORT_SYMBOL_GPL(bpf_warn_invalid_xdp_action);
->> +
->
->
-> --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Principal Kernel Engineer at Red Hat
->   Author of http://www.iptv-analyzer.org
->   LinkedIn: http://www.linkedin.com/in/brouer
+> +               /* A bpf program gets first chance to drop the packet. It may
+> +                * read bytes but not past the end of the frag.
+> +                */
+> +               if (prog) {
+> +                       struct xdp_buff xdp;
+> +                       dma_addr_t dma;
+> +                       u32 act;
+> +
+> +                       dma = be64_to_cpu(rx_desc->data[0].addr);
+> +                       dma_sync_single_for_cpu(priv->ddev, dma,
+> +                                               priv->frag_info[0].frag_size,
+> +                                               DMA_FROM_DEVICE);
+> +
+> +                       xdp.data = page_address(frags[0].page) +
+> +                                                       frags[0].page_offset;
+> +                       xdp.data_end = xdp.data + length;
+> +
+> +                       act = bpf_prog_run_xdp(prog, &xdp);
+> +                       switch (act) {
+> +                       case XDP_PASS:
+> +                               break;
+> +                       default:
+> +                               bpf_warn_invalid_xdp_action(act);
+> +                       case XDP_DROP:
+> +                               goto next;
+> +                       }
+> +               }
+
+
+(probably a nit too, but wanted to make sure we don't miss something
+here) is the default case preceding the DROP one in purpose? any
+special reason to do that?
