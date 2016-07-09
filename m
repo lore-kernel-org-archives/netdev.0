@@ -1,60 +1,63 @@
-From: Willem de Bruijn <willemb@google.com>
-Subject: Re: [PATCH net] udp: prevent bugcheck if filter truncates packet too much
-Date: Sat, 9 Jul 2016 09:05:23 -0400
-Message-ID: <CA+FuTSe1MTjEkB=5_fX-CytN2eEquZf3THEZ8gUh2==UQMV=Ew@mail.gmail.com>
-References: <20160708155233.C78AAA0ECC@unicorn.suse.cz> <1468020700.30694.38.camel@edumazet-glaptop3.roam.corp.google.com>
- <20160709002016.GA27494@ast-mbp.thefacebook.com> <5780C881.1040609@iogearbox.net>
- <20160709104340.GA9637@unicorn.suse.cz>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
+ exceeds MTU, do segmentation even for non IPSKB_FORWARDED skbs
+Date: Sat, 9 Jul 2016 15:22:30 +0200
+Message-ID: <20160709132230.GD2067@breakpoint.cc>
+References: <1467722132-10084-1-git-send-email-shmulik.ladkani@ravellosystems.com>
+ <20160705130327.GA10737@breakpoint.cc>
+ <20160705170541.3f210675@pixies>
+ <20160709090020.GB2067@breakpoint.cc>
+ <20160709153017.791f2607@halley>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Daniel Borkmann <daniel@iogearbox.net>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Eric Dumazet <eric.dumazet@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
 	"David S. Miller" <davem@davemloft.net>,
-	samanthakumar <samanthakumar@google.com>,
-	Marco Grassi <marco.gra@gmail.com>,
-	Network Development <netdev@vger.kernel.org>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-	James Morris <jmorris@namei.org>,
-	Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>,
-	Patrick McHardy <kaber@trash.net>
-To: Michal Kubecek <mkubecek@suse.cz>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160709104340.GA9637@unicorn.suse.cz>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+	Eric Dumazet <edumazet@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	shmulik.ladkani@gmail.com, netdev@vger.kernel.org,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:36188 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S932947AbcGINWk (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 09:22:40 -0400
+Content-Disposition: inline
+In-Reply-To: <20160709153017.791f2607@halley>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 9, 2016 at 6:43 AM, Michal Kubecek <mkubecek@suse.cz> wrote:
-> On Sat, Jul 09, 2016 at 11:48:49AM +0200, Daniel Borkmann wrote:
->> On 07/09/2016 02:20 AM, Alexei Starovoitov wrote:
->> >On Sat, Jul 09, 2016 at 01:31:40AM +0200, Eric Dumazet wrote:
->> >>On Fri, 2016-07-08 at 17:52 +0200, Michal Kubecek wrote:
->> >>>If socket filter truncates an udp packet below the length of UDP header
->> >>>in udpv6_queue_rcv_skb() or udp_queue_rcv_skb(), it will trigger a
->> >>>BUG_ON in skb_pull_rcsum(). This BUG_ON (and therefore a system crash if
->> >>>kernel is configured that way) can be easily enforced by an unprivileged
->> >>>user which was reported as CVE-2016-6162. For a reproducer, see
->> >>>http://seclists.org/oss-sec/2016/q3/8
->> >>>
->> >>>Fixes: e6afc8ace6dd ("udp: remove headers from UDP packets before queueing")
->> >>>Reported-by: Marco Grassi <marco.gra@gmail.com>
->> >>>Signed-off-by: Michal Kubecek <mkubecek@suse.cz>
->> >>>---
->
->> >>Acked-by: Eric Dumazet <edumazet@google.com>
->> >
->> >this is incomplete fix. Please do not apply. See discussion at security@kernel
->>
->> Ohh well, didn't see it earlier before starting the discussion at security@...
->>
->> I'm okay if we take this for now as a quick band aid and find a better
->> way how to deal with the underlying issue long-term so that it's
->> /guaranteed/ that it doesn't bite us any further in such fragile ways.
->
-> Agreed. As rc7 is due in a day or two, rushing a complex and intrusive
-> solution in might be too risky.
+Shmulik Ladkani <shmulik.ladkani@ravellosystems.com> wrote:
+> I'd appreciate any suggestion how to determine traffic is local OTHER
+> THAN testing IPSKB_FORWARDED; If we have such a way, there wouldn't be an
+> impact on local traffic.
+> 
+> > What about setting IPCB FORWARD flag in iptunnel_xmit if
+> > skb->skb_iif != 0... instead?
+> 
+> Can you please elaborate?
 
-Acked-by: Willem de Bruijn <willemb@google.com>
+[ not even compile tested ]
 
-Thanks, Michal.
+diff --git a/net/ipv4/ip_tunnel_core.c b/net/ipv4/ip_tunnel_core.c
+--- a/net/ipv4/ip_tunnel_core.c
++++ b/net/ipv4/ip_tunnel_core.c
+@@ -65,6 +65,7 @@ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ 	struct net_device *dev = skb->dev;
+ 	struct iphdr *iph;
+ 	int err;
++	bool fwd = skb->skb_iif > 0;
+ 
+ 	skb_scrub_packet(skb, xnet);
+ 
+@@ -72,6 +73,9 @@ void iptunnel_xmit(struct sock *sk, struct rtable *rt, struct sk_buff *skb,
+ 	skb_dst_set(skb, &rt->dst);
+ 	memset(IPCB(skb), 0, sizeof(*IPCB(skb)));
+ 
++	if (fwd)
++		IPCB(skb)->flags = IPSKB_FORWARDED;
++
+ 	/* Push down and install the IP header. */
+ 	skb_push(skb, sizeof(struct iphdr));
+ 	skb_reset_network_header(skb);
