@@ -1,34 +1,45 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [net-next PATCH V2] net: tracepoint napi:napi_poll add work
- and budget
-Date: Sat, 09 Jul 2016 18:05:28 -0400 (EDT)
-Message-ID: <20160709.180528.1109686708875619397.davem@davemloft.net>
-References: <20160707160118.32320.81577.stgit@firesoul>
+Subject: Re: [PATCH] Need proper type casting before assignment, Remove
+ compilation Warning.
+Date: Sat, 09 Jul 2016 18:06:40 -0400 (EDT)
+Message-ID: <20160709.180640.648031801699853376.davem@davemloft.net>
+References: <1467916674-8418-1-git-send-email-arvind.yadav.cs@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, rostedt@goodmis.org
-To: brouer@redhat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:38498 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752996AbcGIWFa (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sat, 9 Jul 2016 18:05:30 -0400
-In-Reply-To: <20160707160118.32320.81577.stgit@firesoul>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: leoli@freescale.com, netdev@vger.kernel.org,
+	linuxppc-dev@lists.ozlabs.org, linux-kernel@vger.kernel.org
+To: arvind.yadav.cs@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1467916674-8418-1-git-send-email-arvind.yadav.cs@gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Date: Thu, 07 Jul 2016 18:01:32 +0200
+From: Arvind Yadav <arvind.yadav.cs@gmail.com>
+Date: Fri,  8 Jul 2016 00:07:54 +0530
 
-> An important information for the napi_poll tracepoint is knowing
-> the work done (packets processed) by the napi_poll() call. Add
-> both the work done and budget, as they are related.
+> -Return type of 'qe_muram_alloc' is 'unsigned long', That Was trying to
+> assigned in ucc_fast_tx_virtual_fifo_base_offset and
+> ucc_fast_rx_virtual_fifo_base_offset. These variable are 'unsigned int'.
+> So before assginment need a proper type casting.
 > 
-> Handle trace_napi_poll() param change in dropwatch/drop_monitor
-> and in python perf script netdev-times.py in backward compat way,
-> as python fortunately supports optional parameter handling.
+> -Passing value in IS_ERR_VALUE() is wrong, as they pass an 'int'
+> into a function that takes an 'unsigned long' argument.This happens
+> to work because the type is sign-extended on 64-bit architectures
+> before it gets converted into an unsigned type.
 > 
-> Signed-off-by: Jesper Dangaard Brouer <brouer@redhat.com>
+> -Passing an 'unsigned short' or 'unsigned int'argument into
+> IS_ERR_VALUE() is guaranteed to be broken, as are 8-bit integers
+> and types that are wider than 'unsigned long'.
+> 
+> -Any user will get compilation warning for that do not pass an
+> unsigned long' argument.
+> 
+> Signed-off-by: Arvind Yadav <arvind.yadav.cs@gmail.com>
 
-Applied, thanks.
+Your subject line is improperly formed.
+
+It must have the subsystem or driver name, followed by a colon ":"
+and a space.  Such as:
+
+	[PATCH] ucc_geth: Need proper type ...
