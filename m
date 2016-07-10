@@ -1,80 +1,46 @@
-From: Sergei Trofimovich <slyfox@gentoo.org>
-Subject: [BUG?] tcp regression in v4.7-r1:
- c14ac9451c34832554db33386a4393be8bba3a7b breaks pulseaudio over TCP
-Date: Sun, 10 Jul 2016 12:42:40 +0100
-Message-ID: <20160710124240.7d484f44@sf>
+From: Steffen Klassert <steffen.klassert@secunet.com>
+Subject: Re: [PATCH] xfrm: fix crash in XFRM_MSG_GETSA netlink handler
+Date: Sun, 10 Jul 2016 14:21:13 +0200
+Message-ID: <20160710122113.GA24022@gauss.secunet.com>
+References: <1467706688-3631-1-git-send-email-vegard.nossum@oracle.com>
+ <20160705.121303.399318377900246102.davem@davemloft.net>
+ <20160706022729.GA12971@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- boundary="Sig_/odjIeIcLbnk0K+npN_DyRjg"; protocol="application/pgp-signature"
-Cc: Willem de Bruijn <willemb@google.com>, Tanu Kaskinen <tanuk@iki.fi>
-To: Soheil Hassas Yeganeh <soheil@google.com>,
-	"Signed-off-by: David S. Miller" <davem@davemloft.net>,
-	netdev@vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Cc: David Miller <davem@davemloft.net>, <vegard.nossum@oracle.com>,
+	<nicolas.dichtel@6wind.com>, <netdev@vger.kernel.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtp.gentoo.org ([140.211.166.183]:37636 "EHLO smtp.gentoo.org"
+Received: from a.mx.secunet.com ([62.96.220.36]:49184 "EHLO a.mx.secunet.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750834AbcGJLmw (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Jul 2016 07:42:52 -0400
+	id S932469AbcGJMVU (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Jul 2016 08:21:20 -0400
+Content-Disposition: inline
+In-Reply-To: <20160706022729.GA12971@gondor.apana.org.au>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
---Sig_/odjIeIcLbnk0K+npN_DyRjg
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+On Wed, Jul 06, 2016 at 10:27:29AM +0800, Herbert Xu wrote:
+> On Tue, Jul 05, 2016 at 12:13:03PM -0700, David Miller wrote:
+> > From: Vegard Nossum <vegard.nossum@oracle.com>
+> > Date: Tue,  5 Jul 2016 10:18:08 +0200
+> > 
+> > > If we hit any of the error conditions inside xfrm_dump_sa(), then
+> > > xfrm_state_walk_init() never gets called. However, we still call
+> > > xfrm_state_walk_done() from xfrm_dump_sa_done(), which will crash
+> > > because the state walk was never initialized properly.
+> > > 
+> > > We can fix this by setting cb->args[0] only after we've processed the
+> > > first element and checking this before calling xfrm_state_walk_done().
+> > > 
+> > > Fixes: d3623099d3 ("ipsec: add support of limited SA dump")
+> > > Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
+> > > Cc: Steffen Klassert <steffen.klassert@secunet.com>
+> > > Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
+> > 
+> > I assume Steffen will pick this up.
+> 
+> I think Steffen said that he is going to be on vacation for two
+> weeks starting this week.
 
-Hi netdev folk!
-
-Commit c14ac9451c34832554db33386a4393be8bba3a7b
-broke pulseaudio (PA) over TCP.
-
-PA does unusual thing: it calls
-    sendmsg(cmsg_type=3DSCM_CREDENTIALS)
-on a TCP socket. It's not a new PA behaviour though.
-
-Originally reported as PA bug (has more details)
-    https://bugs.freedesktop.org/show_bug.cgi?id=3D96873
-
-It looks like kernel used to ignore control messages
-but now it does not:
-    http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/diff/net=
-/ipv4/tcp.c?id=3Dc14ac9451c34832554db33386a4393be8bba3a7b
-
-+	if (msg->msg_controllen) {
-+		err =3D sock_cmsg_send(sk, msg, &sockc);
-+		if (unlikely(err)) {
-+			err =3D -EINVAL;
-+			goto out_err;
-+		}
-+	}
-
-This change breaks streaming of pulse clients.
-
-Pulseaudio will be fixed at some point.
-
-But kernel change does not look like intentional
-breakage of old behaviour.
-
-Perhaps kernel should have a grace period and only
-warn about unsupported control messages for a socket?
-
-Last working kernel: v4.6
-
-Thanks!
-
---=20
-
-  Sergei
-
---Sig_/odjIeIcLbnk0K+npN_DyRjg
-Content-Type: application/pgp-signature
-Content-Description: Цифровая подпись OpenPGP
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v2
-
-iEYEARECAAYFAleCNLUACgkQcaHudmEf86oJ/wCfTbcDQTVFdocyCWLp6rJXM4S3
-/loAn3UKeMt7Du++30g+JrKEGQUDzcok
-=KONn
------END PGP SIGNATURE-----
-
---Sig_/odjIeIcLbnk0K+npN_DyRjg--
+Right, I'll take care of it as soon as I'm back.
