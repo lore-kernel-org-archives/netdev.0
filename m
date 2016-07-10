@@ -1,78 +1,40 @@
-From: Russell Senior <russell@personaltelco.net>
-Subject: Re: [LEDE-DEV] DHCP via bridge in case of IPv4
-Date: Sun, 10 Jul 2016 00:19:43 -0700
-Message-ID: <87shviklio.fsf@husum.klickitat.com>
-References: <1468053400.5007.5.camel@synopsys.com>
- <CAKNoO9oK-_sf=iGAW0caAhauLSbAW5YjDUi6gDnKsO6+W0Pcgg@mail.gmail.com>
- <1468065830.5007.10.camel@synopsys.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
- "lede-dev@lists.infradead.org" <lede-dev@lists.infradead.org>,
- "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
- "aczlan+ledev@gmail.com" <aczlan+ledev@gmail.com>,
- "linux-snps-arc@lists.infradead.org" <linux-snps-arc@lists.infradead.org>,
- "davem@davemloft.net" <davem@davemloft.net>
-To: Alexey Brodkin <Alexey.Brodkin@synopsys.com>
-Return-path: <linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org>
-In-Reply-To: <1468065830.5007.10.camel@synopsys.com> (Alexey Brodkin's message
- of "Sat, 9 Jul 2016 12:05:07 +0000")
-List-Unsubscribe: <http://lists.infradead.org/mailman/options/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=unsubscribe>
-List-Archive: <http://lists.infradead.org/pipermail/linux-snps-arc/>
-List-Post: <mailto:linux-snps-arc@lists.infradead.org>
-List-Help: <mailto:linux-snps-arc-request@lists.infradead.org?subject=help>
-List-Subscribe: <http://lists.infradead.org/mailman/listinfo/linux-snps-arc>,
- <mailto:linux-snps-arc-request@lists.infradead.org?subject=subscribe>
-Sender: "linux-snps-arc" <linux-snps-arc-bounces@lists.infradead.org>
-Errors-To: linux-snps-arc-bounces+gla-linux-snps-arc=m.gmane.org@lists.infradead.org
-List-Id: netdev.vger.kernel.org
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: [patch net-next] MAINTAINERS: release Scott from being a rocker maintainer
+Date: Sun, 10 Jul 2016 09:42:44 +0200
+Message-ID: <1468136564-2245-1-git-send-email-jiri@resnulli.us>
+Cc: davem@davemloft.net, sfeldma@gmail.com
+To: netdev@vger.kernel.org
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:34904 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932198AbcGJHms (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jul 2016 03:42:48 -0400
+Received: by mail-wm0-f66.google.com with SMTP id k123so12802320wme.2
+        for <netdev@vger.kernel.org>; Sun, 10 Jul 2016 00:42:47 -0700 (PDT)
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Pj4+Pj4gIkFsZXhleSIgPT0gQWxleGV5IEJyb2RraW4gPEFsZXhleS5Ccm9ka2luQHN5bm9wc3lz
-LmNvbT4gd3JpdGVzOgoKQWxleGV5PiBIaSBBYXJvbiwKQWxleGV5PiBPbiBTYXQsIDIwMTYtMDct
-MDkgYXQgMDc6NDcgLTA0MDAsIEFhcm9uIFogd3JvdGU6Cj4+IE9uIFNhdCwgSnVsIDksIDIwMTYg
-YXQgNDozNyBBTSwgQWxleGV5IEJyb2RraW4KPj4gPEFsZXhleS5Ccm9ka2luQHN5bm9wc3lzLmNv
-bT4gd3JvdGU6Cj4+ID4gCj4+ID4gSGVsbG8sCj4+ID4gCj4+ID4gSSB3YXMgcGxheWluZyB3aXRo
-IHF1aXRlIHNpbXBsZSBicmlkZ2VkIHNldHVwIG9uIGRpZmZlcmVudCBib2FyZHMKPj4gd2l0aCA+
-IHZlcnkgcmVjZW50IGtlcm5lbHMgKDQuNi4zIGFzIG9mIHRoaXMgd3JpdGluZykgYW5kIGZvdW5k
-IG9uZQo+PiBpbnRlcmVzdGluZyA+IGJlaGF2aW9yIHRoYXQgSSBjYW5ub3QgeWV0IHVuZGVyc3Rh
-bmQgYW5kIGdvb2dsaW5nCj4+IGRpbid0IGhlbHAgaGVyZSBhcyB3ZWxsLgo+PiA+IAo+PiA+IE15
-IHNldHVwIGlzIHByZXR0eSBzaW1wbGU6ID4KPj4gLS0tLS0tLS0tLS0tLcKgwqDCoMKgwqDCoMKg
-LS0tLS0tLS0tLS0tLS0tLS0twqDCoMKgwqDCoMKgwqAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-Cj4+ID4gPiAKPj4gPiA+IEhPU1TCoMKgwqDCoMKgwqB8wqDCoMKgwqDCoMKgwqB8ICJEdW1iIEFQ
-IsKgwqDCoMKgwqDCoHzCoMKgwqDCoMKgwqDCoHwgV2lyZWxlc3MKPj4gY2xpZW50wqDCoMKgwqDC
-oMKgwqB8ID4gPiB3aXRoIERIQ1AgfDwtLS0tLT4oZXRoMCnCoMKgwqDCoMKgKHdsYW4wKTwtLS0t
-LT58Cj4+IGF0dGVtcHRpbmcgdG/CoMKgwqDCoMKgwqDCoMKgwqB8ID4gPiBzZXJ2ZXLCoMKgwqDC
-oHzCoMKgwqDCoMKgwqDCoHzCoMKgwqDCoFwgYnIwCj4+IC/CoMKgwqDCoMKgfMKgwqDCoMKgwqDC
-oMKgfCBnZXQgc2V0dGluZ3MgdmlhIERIQ1AgfCA+Cj4+IC0tLS0tLS0tLS0tLS3CoMKgwqDCoMKg
-wqDCoC0tLS0tLS0tLS0tLS0tLS0tLcKgwqDCoMKgwqDCoMKgLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLQo+PiA+IAo+PiA+ICogSE9TVCBpcyBteSBsYXB0b3Agd2l0aCBESENQIHNlcnZlciB0aGF0
-IHdvcmtzIGZvciBzdXJlLiAgPiAqCj4+ICJEdW1iIEFQIiBpcyBhIHNlcGFyYXRlIGJvYXJkIChJ
-IHRyaWVkIEFSTS1iYXNlZCBXYW5kYm9hcmQgYW5kCj4+IEFSQy1iYXNlZCA+IMKgIEFYUzEweCBi
-b2FyZHMgYnV0IHJlc3VsdHMgYXJlIGV4YWN0bHkgdGhlIHNhbWUpIHdpdGgKPj4gd2lyZWQgKGV0
-aDApIGFuZCB3aXJlbGVzcyA+IMKgICh3bGFuMCkgbmV0d29yayBjb250cm9sbGVycyBicmlkZ2Vk
-Cj4+IHRvZ2V0aGVyIChicjApLiBUaGF0ICJicjAiIGJyaWRnZSBmbGF3bGVzc2x5ID4gwqAgZ2V0
-cyBpdHMgc2V0dGluZ3MKPj4gZnJvbSBESENQIHNlcnZlciBvbiBob3N0LiAgPiAqIFdpcmVsZXNz
-IGNsaWVudCBjb3VsZCBiZSBlaXRoZXIgYQo+PiBzbWF0cnBob25lIG9yIGFub3RoZXIgbGFwdG9w
-IGV0YyBidXQgPiDCoCB3aGF0J3MgaW1wb3J0YW50IGl0IHNob3VsZAo+PiBiZSBjb25maWd1cmVk
-IHRvIGdldCBuZXR3b3JrIHNldHRpbmdzIGJ5IERIQ1AgYXMgd2VsbC4KPj4gPiAKPj4gPiBTbyB3
-aGF0IGhhcHBlbnMgImJyMCIgYWx3YXlzIGdldHMgbmV0d29yayBzZXR0aW5ncyBmcm9tIERIQ1Ag
-c2VydmVyCj4+IG9uIEhPU1QuICA+IFRoYXQncyBmaW5lLiBCdXQgd2lyZWxlc3MgY2xpZW50IG9u
-bHkgcmVsaWFibHkgZ2V0cwo+PiBzZXR0aW5ncyBmcm9tIERIQ1Agc2VydmVyID4gaWYgSVB2NiBp
-cyBlbmFibGVkIG9uICJEdW1iIEFQIiBib2FyZC4gSWYKPj4gSVB2NiBpcyBkaXNhYmxlZCBJIG1h
-eSBzZWUgdGhhdCA+IHdpcmVsZXNzIGNsaWVudCBzZW5kcyAiREhDUAo+PiBEaXNjb3ZlciIgdGhl
-biBzZXJ2ZXIgcmVwbGllcyB3aXRoICJESENQIE9mZmVyIiBidXQgPiB0aGF0IG9mZmVyCj4+IG5l
-dmVyIHJlYWNoZXMgd2lyZWxlc3MgY2xpZW50Lgo+PiAKPj4gCj4+IERvIHlvdSBoYXZlIFdEUyBl
-bmFibGVkPyBJZiBub3QsIERIQ1AgaGFzIGlzc3VlcyBpbiB0aGF0IHNjZW5hcmlvOgo+PiBodHRw
-czovL3dpa2kub3BlbndydC5vcmcvZG9jL2hvd3RvL2NsaWVudG1vZGUKCklmIHRoZSBEdW1iIEFQ
-J3Mgd2lyZWxlc3MgaW50ZXJmYWNlIGlzIGluIGFwLW1vZGUsIHRoZW4gdGhpcyBzaG91bGRuJ3QK
-YmUgYW4gaXNzdWUuICBJdCdzIG9ubHkgY2xpZW50LW1vZGUgaW50ZXJmYWNlcyB0aGF0IGhhdmUg
-dHJvdWJsZSB3aXRoIGJyaWRnaW5nLgoKSSdkIHN1Z2dlc3QgcnVubmluZyB0Y3BkdW1wIG9uIHRo
-ZSBEdW1iIEFQJ3Mgd2lyZWxlc3MgaW50ZXJmYWNlIGFuZCB0aGUKY2xpZW50J3Mgd2lyZWxlc3Mg
-aW50ZXJmYWNlIGFuZCBzZWUgd2hpY2ggb2YgdGhlbSBzZWVzIHRoZSB2YXJpb3VzIHBhcnRzCm9m
-IHRoZSBESENQIGhhbmRzaGFrZS4KCgotLSAKUnVzc2VsbCBTZW5pb3IsIFByZXNpZGVudApydXNz
-ZWxsQHBlcnNvbmFsdGVsY28ubmV0CgpfX19fX19fX19fX19fX19fX19fX19fX19fX19fX19fX19f
-X19fX19fX19fX19fXwpsaW51eC1zbnBzLWFyYyBtYWlsaW5nIGxpc3QKbGludXgtc25wcy1hcmNA
-bGlzdHMuaW5mcmFkZWFkLm9yZwpodHRwOi8vbGlzdHMuaW5mcmFkZWFkLm9yZy9tYWlsbWFuL2xp
-c3RpbmZvL2xpbnV4LXNucHMtYXJj
+From: Jiri Pirko <jiri@mellanox.com>
+
+As requested by Scott, removing him.
+
+Signed-off-by: Scott Feldman <sfeldma@gmail.com>
+Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+---
+ MAINTAINERS | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/MAINTAINERS b/MAINTAINERS
+index 6374be2..06e8411 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -9710,7 +9710,6 @@ F:	Documentation/ABI/*/sysfs-driver-hid-roccat*
+ 
+ ROCKER DRIVER
+ M:	Jiri Pirko <jiri@resnulli.us>
+-M:	Scott Feldman <sfeldma@gmail.com>
+ L:	netdev@vger.kernel.org
+ S:	Supported
+ F:	drivers/net/ethernet/rocker/
+-- 
+2.5.5
