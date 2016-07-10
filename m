@@ -1,131 +1,71 @@
-From: Soheil Hassas Yeganeh <soheil@google.com>
-Subject: Re: [BUG?] tcp regression in v4.7-r1: c14ac9451c34832554db33386a4393be8bba3a7b
- breaks pulseaudio over TCP
-Date: Sun, 10 Jul 2016 12:32:15 -0400
-Message-ID: <CACSApvZ5knQi06f3wzqo4W78ip2G1yNV7=DHf_4GjB5rjHf4wQ@mail.gmail.com>
-References: <20160710124240.7d484f44@sf> <CACSApvbeMfzgbLyfBNBG=VyJXJWJ2W48NA=BLodQMyjYpiwDOQ@mail.gmail.com>
- <20160710172510.4ec29e3e@sf>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: [PATCH v6 04/12] net/mlx4_en: add support for fast rx drop bpf
+ program
+Date: Sun, 10 Jul 2016 19:38:42 +0300
+Message-ID: <70150252-5989-63b7-9224-9dd4a572099a@gmail.com>
+References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
+ <1467944124-14891-5-git-send-email-bblanco@plumgrid.com>
+ <CAJ3xEMjjG2ZZe=qBsRaFuk-j8Akj38Uk6+Nw1xuZya=R7FOJ7Q@mail.gmail.com>
+ <20160710154029.GA6657@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: "David S. Miller" <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Willem de Bruijn <willemb@google.com>,
-	Tanu Kaskinen <tanuk@iki.fi>
-To: Sergei Trofimovich <slyfox@gentoo.org>
+Content-Type: text/plain; charset=windows-1252; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Brenden Blanco <bblanco@plumgrid.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f46.google.com ([209.85.218.46]:36780 "EHLO
-	mail-oi0-f46.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750820AbcGJQcz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jul 2016 12:32:55 -0400
-Received: by mail-oi0-f46.google.com with SMTP id n8so17421173oif.3
-        for <netdev@vger.kernel.org>; Sun, 10 Jul 2016 09:32:55 -0700 (PDT)
-In-Reply-To: <20160710172510.4ec29e3e@sf>
+Received: from mail-wm0-f45.google.com ([74.125.82.45]:38883 "EHLO
+	mail-wm0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750820AbcGJQir (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jul 2016 12:38:47 -0400
+Received: by mail-wm0-f45.google.com with SMTP id o80so22874327wme.1
+        for <netdev@vger.kernel.org>; Sun, 10 Jul 2016 09:38:47 -0700 (PDT)
+In-Reply-To: <20160710154029.GA6657@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 10, 2016 at 12:25 PM, Sergei Trofimovich <slyfox@gentoo.org> wrote:
-> On Sun, 10 Jul 2016 11:15:01 -0400
-> Soheil Hassas Yeganeh <soheil@google.com> wrote:
+
+>>> +                       switch (act) {
+>>> +                       case XDP_PASS:
+>>> +                               break;
+>>> +                       default:
+>>> +                               bpf_warn_invalid_xdp_action(act);
+>>> +                       case XDP_DROP:
+>>> +                               goto next;
+>>> +                       }
+>>> +               }
+>>
+>> (probably a nit too, but wanted to make sure we don't miss something
+>> here) is the default case preceding the DROP one in purpose? any
+>> special reason to do that?
+> This is intentional, and legal though unconventional C. Without this
+> order, the later patches end up with a bit too much copy/paste for my
+> liking, as in:
 >
->> On Sun, Jul 10, 2016 at 7:42 AM, Sergei Trofimovich <slyfox@gentoo.org> wrote:
->> > Hi netdev folk!
->> >
->> > Commit c14ac9451c34832554db33386a4393be8bba3a7b
->> > broke pulseaudio (PA) over TCP.
->>
->> Sorry that my patch broke your app and thanks for the bug report.
->> Breaking PA was certainly not my intention.
->>
->> > PA does unusual thing: it calls
->> >     sendmsg(cmsg_type=SCM_CREDENTIALS)
->> >
->> > on a TCP socket. It's not a new PA behaviour though.
->> >
->> > Originally reported as PA bug (has more details)
->> >     https://bugs.freedesktop.org/show_bug.cgi?id=96873
->> >
->> > It looks like kernel used to ignore control messages
->> > but now it does not:
->> >     http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/diff/net/ipv4/tcp.c?id=c14ac9451c34832554db33386a4393be8bba3a7b
->> >
->> > +       if (msg->msg_controllen) {
->> > +               err = sock_cmsg_send(sk, msg, &sockc);
->> > +               if (unlikely(err)) {
->> > +                       err = -EINVAL;
->> > +                       goto out_err;
->> > +               }
->> > +       }
->> >
->> > This change breaks streaming of pulse clients.
->> >
->> > Pulseaudio will be fixed at some point.
->> >
->> > But kernel change does not look like intentional
->> > breakage of old behaviour.
->> >
->> > Perhaps kernel should have a grace period and only
->> > warn about unsupported control messages for a socket?
->>
->> We have discussed ignoring certain control messages in another context:
->> https://patchwork.ozlabs.org/patch/621837/
->>
->> But the counter-argument (which I agree with) is that: we used to
->> accept garbage in control messages before, but that doesn't mean we
->> should give up on strict checking.
->>
->> This new problem is a bit different though. We always ignore control
->> messages of other layers:
->>
->> ip_cmsg_send:
->>                  if (cmsg->cmsg_level != SOL_IP)
->>                          continue;
->>
->> sock_cmsg_send:
->>                  if (cmsg->cmsg_level != SOL_SOCKET)
->>                          continue;
->>
->> Semantically SCM_RIGHTS and SCM_CREDENTIALS belong to the SOL_UNIX
->> layer but they are historically sent on SOL_SOCKET. I believe we
->> should ignore them as we would if they were sent on SOL_UNIX:
->>
->> diff --git a/net/core/sock.c b/net/core/sock.c
->> index 08bf97e..6239abf 100644
->> --- a/net/core/sock.c
->> +++ b/net/core/sock.c
->> @@ -1938,6 +1938,13 @@ int __sock_cmsg_send(struct sock *sk, struct
->> msghdr *msg, struct cmsghdr *cmsg,
->>                 sockc->tsflags &= ~SOF_TIMESTAMPING_TX_RECORD_MASK;
->>                 sockc->tsflags |= tsflags;
->>                 break;
->> +       /* SCM_RIGHTS and SCM_CREDENTIALS are semantically in SOL_UNIX
->> +        * yet they are sent on SOL_SOCKET. We should ignore them as
->> +        * we do for control messages not in the SOL_SOCKET layers.
->> +        */
->> +       case SCM_RIGHTS:
->> +       case SCM_CREDENTIALS:
->
-> Fixes PA for me. That was quick!
+> case XDP_DROP:
+>          if (mlx4_en_rx_recycle(ring, frags))
+>                  goto consumed;
+>          goto next;
+> default:
+>          bpf_warn_invalid_xdp_action(act);
+>          if (mlx4_en_rx_recycle(ring, frags))
+>                  goto consumed;
+>          goto next;
+The more critical issue here is the default action. All packets that get 
+unknown/unsupported filter classification will be dropped.
+I think the XDP_PASS is the better choice here as default action, there 
+are good reasons why it should be, as Jesper already explained in 
+replies to other patch in the series.
 
-Thanks so much for the confirmation, Sergei!
-
-> Perhaps to have those applications a change be fixed in future something like
->
-> +                       net_info_ratelimited("TCP(%s:%d): Application bug, <some meaningful explanation>\n",
-> +                                           current->comm,
-> +                                           task_pid_nr(current));
->
-> could signal the breakage? WDYT?
-
-IMHO, for consistency, we should simply ignore control messages of
-other layers, and shouldn't log anything. That's the way Linux has
-been ignoring control messages.
-
-I'll mail the patch against `net` to have David's thoughts.
-
-Thanks again!
-Soheil
-
-
-> --
->
->   Sergei
+Regards,
+Tariq
