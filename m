@@ -1,102 +1,83 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [PATCHv2 net] ipv4: reject RTNH_F_DEAD and RTNH_F_LINKDOWN from user space
-Date: Sun, 10 Jul 2016 21:11:55 +0300
-Message-ID: <1468174315-19936-1-git-send-email-ja@ssi.bg>
-Cc: netdev@vger.kernel.org, Vegard Nossum <vegard.nossum@oracle.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Dinesh Dutt <ddutt@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>
-To: David Miller <davem@davemloft.net>
+From: Yue Cao <ycao009@ucr.edu>
+Subject: Re: [PATCH v2 net] tcp: make challenge acks less predictable
+Date: Sun, 10 Jul 2016 11:28:10 -0700
+Message-ID: <CAPzkZjwS9Kabtg0g==QrTUmyR0PUfy8C76XueanNivYSDLZZGg@mail.gmail.com>
+References: <1467995586.30694.34.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAPzkZjz1R_T8q75LXLBc91j7YrngxdPc-o2Hpz+4YYyoWLantA@mail.gmail.com>
+ <1468052160.30694.51.camel@edumazet-glaptop3.roam.corp.google.com>
+ <1468137842.30694.58.camel@edumazet-glaptop3.roam.corp.google.com> <CADVnQym7nL8AekOFYFH3pcnLerHBAC4BrYv5hY6Z5HN7kGkVkQ@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Cc: netdev <netdev@vger.kernel.org>
+To: unlisted-recipients:; (no To-header on input)
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from ja.ssi.bg ([178.16.129.10]:36015 "EHLO ja.ssi.bg"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1755293AbcGJSMg (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Jul 2016 14:12:36 -0400
+Received: from mx2.ucr.edu ([138.23.62.3]:6135 "EHLO mx2.ucr.edu"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1755819AbcGJS2N (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Jul 2016 14:28:13 -0400
+Received: by mail-oi0-f72.google.com with SMTP id w207so83396579oiw.1
+        for <netdev@vger.kernel.org>; Sun, 10 Jul 2016 11:28:12 -0700 (PDT)
+In-Reply-To: <CADVnQym7nL8AekOFYFH3pcnLerHBAC4BrYv5hY6Z5HN7kGkVkQ@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Vegard Nossum is reporting for a crash in fib_dump_info
-when nh_dev = NULL and fib_nhs == 1:
+This second patch does make our attack much harder but it's still
+possible to do such off-path attack with enough network bandwidth.
+Here is our modified attack for this second patch.
 
-Pid: 50, comm: netlink.exe Not tainted 4.7.0-rc5+
-RIP: 0033:[<00000000602b3d18>]
-RSP: 0000000062623890  EFLAGS: 00010202
-RAX: 0000000000000000 RBX: 000000006261b800 RCX: 0000000000000000
-RDX: 0000000000000000 RSI: 0000000000000024 RDI: 000000006245ba00
-RBP: 00000000626238f0 R08: 000000000000029c R09: 0000000000000000
-R10: 0000000062468038 R11: 000000006245ba00 R12: 000000006245ba00
-R13: 00000000625f96c0 R14: 00000000601e16f0 R15: 0000000000000000
-Kernel panic - not syncing: Kernel mode fault at addr 0x2e0, ip 0x602b3d18
-CPU: 0 PID: 50 Comm: netlink.exe Not tainted 4.7.0-rc5+ #581
-Stack:
- 626238f0 960226a02 00000400 000000fe
- 62623910 600afca7 62623970 62623a48
- 62468038 00000018 00000000 00000000
-Call Trace:
- [<602b3e93>] rtmsg_fib+0xd3/0x190
- [<602b6680>] fib_table_insert+0x260/0x500
- [<602b0e5d>] inet_rtm_newroute+0x4d/0x60
- [<60250def>] rtnetlink_rcv_msg+0x8f/0x270
- [<60267079>] netlink_rcv_skb+0xc9/0xe0
- [<60250d4b>] rtnetlink_rcv+0x3b/0x50
- [<60265400>] netlink_unicast+0x1a0/0x2c0
- [<60265e47>] netlink_sendmsg+0x3f7/0x470
- [<6021dc9a>] sock_sendmsg+0x3a/0x90
- [<6021e0d0>] ___sys_sendmsg+0x300/0x360
- [<6021fa64>] __sys_sendmsg+0x54/0xa0
- [<6021fac0>] SyS_sendmsg+0x10/0x20
- [<6001ea68>] handle_syscall+0x88/0x90
- [<600295fd>] userspace+0x3fd/0x500
- [<6001ac55>] fork_handler+0x85/0x90
+Modified Attack:
+Main idea of our attack is to send multiple same spoofed packets in 1
+second so attacker can confirm if it's a right guess or wrong guess.
+In more detail, attacker sends more than 1000 (e.g. 1500) spoofed
+packets for a same guessed value at beginning. After that, attacker
+sends 1500 packets during the same second to determine whether
+previous guess is right or wrong, by using following rules:
+If attacker receives less than 500 Challenge ACKs, it's a right guess.
+For a example, if 1500 spoofed packets are sent with a correct
+value(right guess), all Challenge ACKs will be sent to victim client
+in that second and attacker receives nothing. Otherwise, it's a wrong
+guess.
 
-$ addr2line -e vmlinux -i 0x602b3d18
-include/linux/inetdevice.h:222
-net/ipv4/fib_semantics.c:1264
+Since this global rate limit always leaks some information as a
+side-channel, we are wondering if eliminating it completely would be a
+good idea. In fact, according to our latest test, FreeBSD and Windows
+do not have any such rate limit implemented. Looking forward to your
+replies.
 
-Problem happens when RTNH_F_LINKDOWN is provided from user space
-when creating routes that do not use the flag, catched with
-netlink fuzzer.
+Best,
+Yue
 
-Currently, the kernel allows user space to set both flags
-to nh_flags and fib_flags but this is not intentional, the
-assumption was that they are not set. Fix this by rejecting
-both flags with EINVAL.
-
-Reported-by: Vegard Nossum <vegard.nossum@oracle.com>
-Fixes: 0eeb075fad73 ("net: ipv4 sysctl option to ignore routes when nexthop link is down")
-Signed-off-by: Julian Anastasov <ja@ssi.bg>
-Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
-Cc: Dinesh Dutt <ddutt@cumulusnetworks.com>
-Cc: Scott Feldman <sfeldma@gmail.com>
----
- net/ipv4/fib_semantics.c | 6 ++++++
- 1 file changed, 6 insertions(+)
-
-Note: works for all kernels: net, net-next, 4.4.14, 4.5.7, 4.6.3
-
-diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-index d09173b..539fa26 100644
---- a/net/ipv4/fib_semantics.c
-+++ b/net/ipv4/fib_semantics.c
-@@ -479,6 +479,9 @@ static int fib_get_nhs(struct fib_info *fi, struct rtnexthop *rtnh,
- 		if (!rtnh_ok(rtnh, remaining))
- 			return -EINVAL;
- 
-+		if (rtnh->rtnh_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
-+			return -EINVAL;
-+
- 		nexthop_nh->nh_flags =
- 			(cfg->fc_flags & ~0xFF) | rtnh->rtnh_flags;
- 		nexthop_nh->nh_oif = rtnh->rtnh_ifindex;
-@@ -1003,6 +1006,9 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
- 	if (fib_props[cfg->fc_type].scope > cfg->fc_scope)
- 		goto err_inval;
- 
-+	if (cfg->fc_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
-+		goto err_inval;
-+
- #ifdef CONFIG_IP_ROUTE_MULTIPATH
- 	if (cfg->fc_mp) {
- 		nhs = fib_count_nexthops(cfg->fc_mp, cfg->fc_mp_len);
--- 
-1.9.3
+On Sun, Jul 10, 2016 at 5:55 AM, Neal Cardwell <ncardwell@google.com> wrote:
+>
+> On Sun, Jul 10, 2016 at 4:04 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> >
+> > From: Eric Dumazet <edumazet@google.com>
+> >
+> > Yue Cao claims that current host rate limiting of challenge ACKS
+> > (RFC 5961) could leak enough information to allow a patient attacker
+> > to hijack TCP sessions. He will soon provide details in an academic
+> > paper.
+> >
+> > This patch increases the default limit from 100 to 1000, and adds
+> > some randomization so that the attacker can no longer hijack
+> > sessions without spending a considerable amount of probes.
+> >
+> > Based on initial analysis and patch from Linus.
+> >
+> > Note that we also have per socket rate limiting, so it is tempting
+> > to remove the host limit in the future.
+> >
+> > v2: randomize the count of challenge acks per second, not the period.
+> >
+> > Fixes: 282f23c6ee34 ("tcp: implement RFC 5961 3.2")
+> > Reported-by: Yue Cao <ycao009@ucr.edu>
+> > Signed-off-by: Eric Dumazet <edumazet@google.com>
+> > Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+> > Cc: Yuchung Cheng <ycheng@google.com>
+> > Cc: Neal Cardwell <ncardwell@google.com>
+>
+> Acked-by: Neal Cardwell <ncardwell@google.com>
+>
+> Thanks, Eric!
+>
+> neal
