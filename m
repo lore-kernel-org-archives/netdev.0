@@ -1,93 +1,72 @@
-From: Marc Dionne <marc.c.dionne@gmail.com>
-Subject: Re: Multi-thread udp 4.7 regression, bisected to 71d8c47fc653
-Date: Sun, 10 Jul 2016 16:48:26 -0300
-Message-ID: <CAB9dFdv_ShA2cSez7Ut31XnW7OWufV59bfG-zN4Z0K3CgPvwuA@mail.gmail.com>
-References: <CAB9dFduvE0dKzZ8Dm5RVVrUAq1Auvj8t9xXAyARGyO4NmowvYw@mail.gmail.com>
- <20160627142238.GA10613@breakpoint.cc> <CAB9dFds=qY=Dk++p7qVX7a8aOOH4wn0rtL3m4poO6HMQPuPrnA@mail.gmail.com>
- <20160627153820.GB10613@breakpoint.cc> <CAB9dFdvQ4UyKNMmOSx+FePyR0_Q425XLJRb_k5h+4JOSkQkf3w@mail.gmail.com>
- <CAB9dFds7KQxihReHhW9CXJeY9+=4BPema3ZawVA89U45QL5uBw@mail.gmail.com> <20160705122803.GA26862@salvia>
+From: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
+Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
+ exceeds MTU, do segmentation even for non IPSKB_FORWARDED skbs
+Date: Sun, 10 Jul 2016 23:14:10 +0300
+Message-ID: <20160710231410.14fa44c2@halley>
+References: <1467722132-10084-1-git-send-email-shmulik.ladkani@ravellosystems.com>
+	<20160705130327.GA10737@breakpoint.cc>
+	<20160705170541.3f210675@pixies>
+	<20160709090020.GB2067@breakpoint.cc>
+	<20160709153017.791f2607@halley>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Florian Westphal <fw@strlen.de>, netdev <netdev@vger.kernel.org>,
-	Thorsten Leemhuis <regressions@leemhuis.info>,
-	netfilter-devel@vger.kernel.org
-To: Pablo Neira Ayuso <pablo@netfilter.org>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-In-Reply-To: <20160705122803.GA26862@salvia>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	shmulik.ladkani@gmail.com, netdev@vger.kernel.org,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Florian Westphal <fw@strlen.de>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f48.google.com ([74.125.82.48]:36140 "EHLO
+	mail-wm0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1757187AbcGJUOS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jul 2016 16:14:18 -0400
+Received: by mail-wm0-f48.google.com with SMTP id f126so69566076wma.1
+        for <netdev@vger.kernel.org>; Sun, 10 Jul 2016 13:14:18 -0700 (PDT)
+In-Reply-To: <20160709153017.791f2607@halley>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 5, 2016 at 9:28 AM, Pablo Neira Ayuso <pablo@netfilter.org> wrote:
-> Hi,
->
-> On Mon, Jul 04, 2016 at 09:35:28AM -0300, Marc Dionne wrote:
->> If there is no quick fix, seems like a revert should be considered:
->> - Looks to me like the commit attempts to fix a long standing bug
->> (exists at least as far back as 3.5,
->> https://bugzilla.kernel.org/show_bug.cgi?id=52991)
->> - The above bug has a simple workaround (at least for us) that we
->> implemented more than 3 years ago
->
-> I guess the workaround consists of using a rule to NOTRACK this
-> traffic. Or there is any custom patch that you've used on your side to
-> resolve this?
->
->> - The commit reverts cleanly, restoring the original behaviour
->> - From that bug report, bind was one of the affected applications; I
->> would suspect that this regression is likely to affect bind as well
->>
->> I'd be more than happy to test suggested fixes or give feedback with
->> debugging patches, etc.
->
-> Could you monitor
->
-> # conntrack -S
->
-> or alternatively (if conntrack utility not available in your system):
->
-> # cat /proc/net/stat/nf_conntrack
->
-> ?
->
-> Please, watch for insert_failed and drop statistics.
->
-> Are you observing any splat or just large packet drops? Could you
-> compile your kernel with lockdep on and retest?
->
-> Is there any chance I can get your test file that generates the UDP
-> client threads to reproduce this here?
->
-> I'm also attaching a patch to drop old ct that lost race path out from
-> hashtable locks to avoid releasing the ct object while holding the
-> locks, although I couldn't come up with any interaction so far
-> triggering the condition that you're observing.
->
-> Thanks.
+On Sat, 9 Jul 2016 15:30:17 +0300 Shmulik Ladkani <shmulik.ladkani@ravellosystems.com> wrote:
+> On Sat, 9 Jul 2016 11:00:20 +0200 Florian Westphal <fw@strlen.de> wrote:
+> > I am worried about this patch, skb_gso_validate_mtu is more costly than
+> > the ->flags & FORWARD check; everyone pays this extra cost.  
+> 
+> I can get back with numbers regarding the impact on local traffic.
 
-An update here since I've had some interactions with Pablo off list.
+Florian, I've repeatedly tested how this affects locally generated
+traffic and it seems there's no impact (or at least too negligible for
+netperf workload to notice):
 
-Further testing shows that the underlying cause of the different test
-results is a udp packet that has a bogus source port number.  In the
-test the server process tries to send an ack to the bogus port and the
-flow is disrupted.
+- veth to veth (netns separated), both UFO enabled
+- UDP_RR, with Request Size (udp payload) of 1500, to ensure UFO in place
+  (sender reaches ip_finish_output_gso)
+- Before: stable v4.6.3
+- After:  stable v4.6.3 + suggested fix (kill flags&IPSKB_FORWARDED check)
 
-Notes:
-- The packet with the bad source port is from a sendmsg() call that
-has hit the connection tracker clash code introduced by 71d8c47fc653
-- Packets are successfully sent after the bad one, from the same
-socket, with the correct source port number
-- The problem does not reproduce with 71d8c47fc653 reverted, or
-without nf_conntrack loaded
-- The bogus port numbers start at 1024, bumping up by 1 every few
-times the problem occurs (1025, 1026, etc.)
-- The patch above does not change the behaviour
-- Enabling lockdep does not show anything
+# netperf -T1,2 -c -C -L 192.168.13.2 -H 192.168.13.1 -l 20 -I 99,2 -i 10 -t UDP_RR -- -P 10002,10001 -r 1500,1
 
-Our workaround for the original race was to retry sendmsg() once on
-EPERM errors, and that had been effective.
-I can trigger the insertion clash easily with some simple test code,
-but I have not been able so far to reproduce the packets with bad
-source port numbers with some simpler code that I could share.
+MIGRATED UDP REQUEST/RESPONSE TEST from 192.168.13.2 () port 10002 AF_INET to 192.168.13.1 () port 10001 AF_INET : +/-1.000% @ 99% conf.  : demo : first burst 0 : cpu bind
+Local /Remote
+Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
+Send   Recv   Size    Size   Time    Rate     local  remote local   remote
+bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
+
+[before]
+212992 212992 1500    1      20.00   45368.10   20.56  20.56  18.131  18.131
+[after]
+212992 212992 1500    1      20.00   45376.09   20.74  20.74  18.287  18.287
+
+Therefore it seems trying to optimize this by setting IPSKB_FORWARDED
+(or introducing a different mark) in 'iptunnel_xmit' would offer no
+genuine benefit.
+
+WDYT?
+
+Were you thinking of different workloads that we should assess the
+impact on?
 
 Thanks,
-Marc
+Shmulik
