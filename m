@@ -1,46 +1,58 @@
-From: Steffen Klassert <steffen.klassert@secunet.com>
-Subject: Re: [PATCH] xfrm: fix crash in XFRM_MSG_GETSA netlink handler
-Date: Sun, 10 Jul 2016 14:21:13 +0200
-Message-ID: <20160710122113.GA24022@gauss.secunet.com>
-References: <1467706688-3631-1-git-send-email-vegard.nossum@oracle.com>
- <20160705.121303.399318377900246102.davem@davemloft.net>
- <20160706022729.GA12971@gondor.apana.org.au>
+From: Neal Cardwell <ncardwell@google.com>
+Subject: Re: [PATCH v2 net] tcp: make challenge acks less predictable
+Date: Sun, 10 Jul 2016 08:55:57 -0400
+Message-ID: <CADVnQym7nL8AekOFYFH3pcnLerHBAC4BrYv5hY6Z5HN7kGkVkQ@mail.gmail.com>
+References: <1467995586.30694.34.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAPzkZjz1R_T8q75LXLBc91j7YrngxdPc-o2Hpz+4YYyoWLantA@mail.gmail.com>
+ <1468052160.30694.51.camel@edumazet-glaptop3.roam.corp.google.com> <1468137842.30694.58.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Cc: David Miller <davem@davemloft.net>, <vegard.nossum@oracle.com>,
-	<nicolas.dichtel@6wind.com>, <netdev@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=UTF-8
+Cc: Yue Cao <ycao009@ucr.edu>, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Zhiyun Qian <zhiyunq@cs.ucr.edu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	Yuchung Cheng <ycheng@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from a.mx.secunet.com ([62.96.220.36]:49184 "EHLO a.mx.secunet.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S932469AbcGJMVU (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Sun, 10 Jul 2016 08:21:20 -0400
-Content-Disposition: inline
-In-Reply-To: <20160706022729.GA12971@gondor.apana.org.au>
+Received: from mail-oi0-f49.google.com ([209.85.218.49]:34095 "EHLO
+	mail-oi0-f49.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1754797AbcGJM41 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jul 2016 08:56:27 -0400
+Received: by mail-oi0-f49.google.com with SMTP id s66so115632922oif.1
+        for <netdev@vger.kernel.org>; Sun, 10 Jul 2016 05:56:27 -0700 (PDT)
+In-Reply-To: <1468137842.30694.58.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jul 06, 2016 at 10:27:29AM +0800, Herbert Xu wrote:
-> On Tue, Jul 05, 2016 at 12:13:03PM -0700, David Miller wrote:
-> > From: Vegard Nossum <vegard.nossum@oracle.com>
-> > Date: Tue,  5 Jul 2016 10:18:08 +0200
-> > 
-> > > If we hit any of the error conditions inside xfrm_dump_sa(), then
-> > > xfrm_state_walk_init() never gets called. However, we still call
-> > > xfrm_state_walk_done() from xfrm_dump_sa_done(), which will crash
-> > > because the state walk was never initialized properly.
-> > > 
-> > > We can fix this by setting cb->args[0] only after we've processed the
-> > > first element and checking this before calling xfrm_state_walk_done().
-> > > 
-> > > Fixes: d3623099d3 ("ipsec: add support of limited SA dump")
-> > > Cc: Nicolas Dichtel <nicolas.dichtel@6wind.com>
-> > > Cc: Steffen Klassert <steffen.klassert@secunet.com>
-> > > Signed-off-by: Vegard Nossum <vegard.nossum@oracle.com>
-> > 
-> > I assume Steffen will pick this up.
-> 
-> I think Steffen said that he is going to be on vacation for two
-> weeks starting this week.
+On Sun, Jul 10, 2016 at 4:04 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+>
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Yue Cao claims that current host rate limiting of challenge ACKS
+> (RFC 5961) could leak enough information to allow a patient attacker
+> to hijack TCP sessions. He will soon provide details in an academic
+> paper.
+>
+> This patch increases the default limit from 100 to 1000, and adds
+> some randomization so that the attacker can no longer hijack
+> sessions without spending a considerable amount of probes.
+>
+> Based on initial analysis and patch from Linus.
+>
+> Note that we also have per socket rate limiting, so it is tempting
+> to remove the host limit in the future.
+>
+> v2: randomize the count of challenge acks per second, not the period.
+>
+> Fixes: 282f23c6ee34 ("tcp: implement RFC 5961 3.2")
+> Reported-by: Yue Cao <ycao009@ucr.edu>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
 
-Right, I'll take care of it as soon as I'm back.
+Acked-by: Neal Cardwell <ncardwell@google.com>
+
+Thanks, Eric!
+
+neal
