@@ -1,69 +1,80 @@
-From: Simon Horman <simon.horman@netronome.com>
-Subject: Re: [ovs-dev] [PATCH net-next v11 4/6] openvswitch: add support to
- push and pop mpls for layer3 packets
-Date: Sun, 10 Jul 2016 20:14:34 +0900
-Message-ID: <20160710111433.GA21932@penelope.isobedori.kobe.vergenet.net>
-References: <1467827996-32547-1-git-send-email-simon.horman@netronome.com>
- <1467827996-32547-5-git-send-email-simon.horman@netronome.com>
- <CAOrHB_C8Z5zQ6NMm-VMpd2czr=aRJ8p=XZK5YY_B8OAhUkXdGQ@mail.gmail.com>
+From: Sergei Trofimovich <slyfox@gentoo.org>
+Subject: [BUG?] tcp regression in v4.7-r1:
+ c14ac9451c34832554db33386a4393be8bba3a7b breaks pulseaudio over TCP
+Date: Sun, 10 Jul 2016 12:42:40 +0100
+Message-ID: <20160710124240.7d484f44@sf>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	ovs dev <dev@openvswitch.org>
-To: pravin shelar <pshelar@ovn.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ boundary="Sig_/odjIeIcLbnk0K+npN_DyRjg"; protocol="application/pgp-signature"
+Cc: Willem de Bruijn <willemb@google.com>, Tanu Kaskinen <tanuk@iki.fi>
+To: Soheil Hassas Yeganeh <soheil@google.com>,
+	"Signed-off-by: David S. Miller" <davem@davemloft.net>,
+	netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f45.google.com ([209.85.220.45]:34578 "EHLO
-	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750834AbcGJLOk (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Sun, 10 Jul 2016 07:14:40 -0400
-Received: by mail-pa0-f45.google.com with SMTP id fi15so12590669pac.1
-        for <netdev@vger.kernel.org>; Sun, 10 Jul 2016 04:14:40 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAOrHB_C8Z5zQ6NMm-VMpd2czr=aRJ8p=XZK5YY_B8OAhUkXdGQ@mail.gmail.com>
+Received: from smtp.gentoo.org ([140.211.166.183]:37636 "EHLO smtp.gentoo.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750834AbcGJLmw (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Sun, 10 Jul 2016 07:42:52 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Thu, Jul 07, 2016 at 01:52:47PM -0700, pravin shelar wrote:
-> On Wed, Jul 6, 2016 at 10:59 AM, Simon Horman
-> <simon.horman@netronome.com> wrote:
-> > Allow push and pop mpls actions to act on layer 3 packets by teaching
-> > them not to access non-existent L2 headers of such packets.
-> >
-> > Signed-off-by: Simon Horman <simon.horman@netronome.com>
-> > ---
-> > v11
-> > * group l2 code in pop_mpls()
-> >
-> > v10
-> > * Limit scope of hdr in {push,pop}_mpls()
-> >
-> > v9
-> > * New Patch
-> > ---
-> >  include/uapi/linux/openvswitch.h |  2 ++
-> >  net/openvswitch/actions.c        | 24 +++++++++++++++---------
-> >  2 files changed, 17 insertions(+), 9 deletions(-)
-> >
-> > diff --git a/include/uapi/linux/openvswitch.h b/include/uapi/linux/openvswitch.h
-> > index d95a3018f6a1..5cde501433eb 100644
-> > --- a/include/uapi/linux/openvswitch.h
-> > +++ b/include/uapi/linux/openvswitch.h
-> > @@ -737,6 +737,8 @@ enum ovs_nat_attr {
-> >   * is no MPLS label stack, as determined by ethertype, no action is taken.
-> >   * @OVS_ACTION_ATTR_CT: Track the connection. Populate the conntrack-related
-> >   * entries in the flow key.
-> > + * @OVS_ACTION_ATTR_PUSH_ETH: Push a new outermost Ethernet header onto the      * packet.
-> > + * @OVS_ACTION_ATTR_POP_ETH: Pop the outermost Ethernet header off the packet.
-> >   *
-> >   * Only a single header can be set with a single %OVS_ACTION_ATTR_SET.  Not all
-> >   * fields within a header are modifiable, e.g. the IPv4 protocol and fragment
-> 
-> This hunk is not related to this patch.
+--Sig_/odjIeIcLbnk0K+npN_DyRjg
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 
-Sorry about that, I will move it.
+Hi netdev folk!
 
-> > diff --git a/net/openvswitch/actions.c b/net/openvswitch/actions.c
-> > index 1ecbd7715f6d..12e8a8942a42 100644
-> > --- a/net/openvswitch/actions.c
-> > +++ b/net/openvswitch/actions.c
-> ...
+Commit c14ac9451c34832554db33386a4393be8bba3a7b
+broke pulseaudio (PA) over TCP.
+
+PA does unusual thing: it calls
+    sendmsg(cmsg_type=3DSCM_CREDENTIALS)
+on a TCP socket. It's not a new PA behaviour though.
+
+Originally reported as PA bug (has more details)
+    https://bugs.freedesktop.org/show_bug.cgi?id=3D96873
+
+It looks like kernel used to ignore control messages
+but now it does not:
+    http://git.kernel.org/cgit/linux/kernel/git/torvalds/linux.git/diff/net=
+/ipv4/tcp.c?id=3Dc14ac9451c34832554db33386a4393be8bba3a7b
+
++	if (msg->msg_controllen) {
++		err =3D sock_cmsg_send(sk, msg, &sockc);
++		if (unlikely(err)) {
++			err =3D -EINVAL;
++			goto out_err;
++		}
++	}
+
+This change breaks streaming of pulse clients.
+
+Pulseaudio will be fixed at some point.
+
+But kernel change does not look like intentional
+breakage of old behaviour.
+
+Perhaps kernel should have a grace period and only
+warn about unsupported control messages for a socket?
+
+Last working kernel: v4.6
+
+Thanks!
+
+--=20
+
+  Sergei
+
+--Sig_/odjIeIcLbnk0K+npN_DyRjg
+Content-Type: application/pgp-signature
+Content-Description: Цифровая подпись OpenPGP
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2
+
+iEYEARECAAYFAleCNLUACgkQcaHudmEf86oJ/wCfTbcDQTVFdocyCWLp6rJXM4S3
+/loAn3UKeMt7Du++30g+JrKEGQUDzcok
+=KONn
+-----END PGP SIGNATURE-----
+
+--Sig_/odjIeIcLbnk0K+npN_DyRjg--
