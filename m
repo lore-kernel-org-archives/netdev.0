@@ -1,133 +1,46 @@
-From: "Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-Subject: Re: [PATCH RESEND] iwlwifi, Do not implement thermal zone unless
- ucode is loaded
-Date: Mon, 11 Jul 2016 18:27:30 +0000
-Message-ID: <1468261650.20877.14.camel@intel.com>
-References: <1468250301-10357-1-git-send-email-prarit@redhat.com>
-	 <CANUX_P0AFoM5VEDWDjtvOhNbExu4T1bLWU+uS-EYqoGtu5h2bw@mail.gmail.com>
-	 <5783E33E.7090205@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	linuxwifi <linuxwifi@intel.com>,
-	"Coelho, Luciano" <luciano.coelho@intel.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"Ivgi, Chaya Rachel" <chaya.rachel.ivgi@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Sharon, Sara" <sara.sharon@intel.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>
-To: "prarit@redhat.com" <prarit@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <5783E33E.7090205@redhat.com>
-Content-Language: en-US
-Content-ID: <439AA09961F9FD42A8D91681ECF8A4D0@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
+From: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
+Subject: [PATCH 3/3] crypto: Added Chelsio Menu to the Kconfig file
+Date: Mon, 11 Jul 2016 11:28:08 -0700
+Message-ID: <1468261688-24525-4-git-send-email-yeshaswi@chelsio.com>
+References: <1468261688-24525-1-git-send-email-yeshaswi@chelsio.com>
+Cc: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
+To: hariprasad@chelsio.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
+	davem@davemloft.net, linux-crypto@vger.kernel.org,
+	jlulla@chelsio.com, atul.gupta@chelsio.com, harsh@chelsio.com
+Return-path: <linux-crypto-owner@vger.kernel.org>
+In-Reply-To: <1468261688-24525-1-git-send-email-yeshaswi@chelsio.com>
+Sender: linux-crypto-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-T24gTW9uLCAyMDE2LTA3LTExIGF0IDE0OjE5IC0wNDAwLCBQcmFyaXQgQmhhcmdhdmEgd3JvdGU6
-DQo+IA0KPiBPbiAwNy8xMS8yMDE2IDAyOjAwIFBNLCBFbW1hbnVlbCBHcnVtYmFjaCB3cm90ZToN
-Cj4gPiBPbiBNb24sIEp1bCAxMSwgMjAxNiBhdCA2OjE4IFBNLCBQcmFyaXQgQmhhcmdhdmEgPHBy
-YXJpdEByZWRoYXQuY29tDQo+ID4gPiB3cm90ZToNCj4gPiA+IA0KPiA+ID4gRGlkbid0IGdldCBh
-bnkgZmVlZGJhY2sgb3IgcmV2aWV3IGNvbW1lbnRzIG9uIHRoaXMgcGF0Y2guIA0KPiA+ID4gIFJl
-c2VuZGluZyAuLi4NCj4gPiA+IA0KPiA+ID4gUC4NCj4gPiANCj4gPiBUaGlzIGNoYW5nZSBpcyBv
-YnZpb3VzbHkgY29tcGxldGVseSBicm9rZW4uIEl0IHNpbXBseSBkaXNhYmxlcyB0aGUNCj4gPiBy
-ZWdpc3RyYXRpb24gdG8gdGhlcm1hbCB6b25lIGNvcmUuDQo+IA0KPiBObyBpdCBpcyBub3QgYnJv
-a2VuLCBhbmQgeWVzLCB0aGF0IGlzIGV4YWN0bHkgd2hhdCBzaG91bGQgaGFwcGVuIElNTy4NCj4g
-DQo+IFRoZSBwcm9ibGVtIGlzIHRoYXQgdGhlIGl3bHdpZmkgZHJpdmVyIGltcGxlbWVudHMgdGhl
-IHRoZXJtYWwgem9uZQ0KPiBldmVuIHdoZW4gdGhlDQo+IGRldmljZSBkb2Vzbid0IHN1cHBvcnQg
-aXQuDQoNCldlIGltcGxlbWVudCB0aGVybWFsIHpvbmUgYmVjYXVzZSB3ZSBkbyBzdXBwb3J0IGl0
-LCBidXQgdGhlIHByb2JsZW0gaXMNCnRoYXQgd2UgbmVlZCB0aGUgZmlybXdhcmUgdG8gYmUgbG9h
-ZGVkIGZvciB0aGF0LiBTbyB5b3UgY2FuIGFyZ3VlIHRoYXQNCndlIHNob3VsZCByZWdpc3RlciAq
-bGF0ZXIqIHdoZW4gdGhlIGZpcm13YXJlIGlzIGxvYWRlZC4gQnV0IHRoaXMgaXMNCnJlYWxseSBu
-b3QgaGVscGluZyBhbGwgdGhhdCBtdWNoIGJlY2F1c2UgdGhlIGZpcm13YXJlIGNhbiBhbHNvIGJl
-DQpzdG9wcGVkIGF0IGFueSB0aW1lLiBTbyB5b3UnZCB3YW50IHVzIHRvIHJlZ2lzdGVyIC8gdW5y
-ZWdpc3RlciB0aGUNCnRoZXJtYWwgem9uZSBhbnl0aW1lIHRoZSBmaXJtd2FyZSBpcyBsb2FkZWQg
-LyB1bmxvYWRlZD8NCkkgZ3Vlc3MgdGhhdCB3b3JrcywgYnV0IGl0IHNlZW1zIHdyb25nIHRvIG1l
-LiBVc3VhbGx5LCByZWdpc3RyYXRpb24NCnNob3VsZCBoYXBwZW4gb25seSB1cG9uIElOSVQsIGFu
-ZCB5ZXMsIGF0IHRoYXQgdGltZSB0aGUgZmlybXdhcmUgaXMgbm90DQpyZWFkeSB0byBwcm92aWRl
-IHRoZSBpbmZvcm1hdGlvbiB5ZXQuDQpNYXliZSByZXR1cm5pbmcgLUVCVVNZIHdvdWxkIGhlbHAg
-bG0tc2Vuc29ycyBub3QgdG8gZ2V0IGNvbmZ1c2VkPw0KDQo+IA0KPiBBcyBjYW4gYmUgc2VlbiBp
-biB0aGUgY3VycmVudCBjb2RlIGJhc2UsIGl3bF9tdm1fdHpvbmVfZ2V0X3RlbXAoKQ0KPiB3aWxs
-IHJldHVybg0KPiAtRUlPIDEwMCUgb2YgdGhlIHRpbWUgd2hlbiB0aGUgZmlybXdhcmUgZG9lc24n
-dCBzdXBwb3J0IHJlYWRpbmcgdGhlDQo+IHRlbXBlcmF0dXJlWzFdLiAgSW4gdGhpcyBjYXNlIGEg
-cmVhZCBvZiBzeXNmcyB3aWxsIHJlc3VsdCBpbiBhIHJldHVybg0KPiBvZiAtRUlPLA0KPiBhbmQg
-dGhpcyBicmVha3MgZXhpc3RpbmcgdXNlcnNwYWNlIHByb2dyYW1zIHN1Y2ggYXMgbG0tc2Vuc29y
-cyAod2hpY2gNCj4gYnkgYWxsDQo+IGFjY291bnRzIGlzIGJhZCB0byBkbykuDQoNClJpZ2h0LCBi
-dXQgSSBkb24ndCB1bmRlcnN0YW5kIHdoeSB0aGUgdXNlcnNwYWNlIGlzIGJyb2tlbiBiZWNhdXNl
-IG9mDQp0aGF0PyBVbmxlc3Mgd2UgcmVnaXN0ZXIgLyB1bnJlZ2lzdGVyIGFueXRpbWUgdGhlIGZp
-cm13YXJlIGlzIGxvYWRlZCwgSQ0KZG9uJ3Qgc2VlIGFueSBwcm9wZXIgd2F5IHRvIGZpeCB0aGlz
-LiBBbmQgeWVzLCBJJ2QgZXhwZWN0IHRoZSB1c2Vyc3BhY2UNCnRvIGhhbmRsZSBncmFjZWZ1bGx5
-IGZhaWx1cmVzIGluIGl0cyByZXF1ZXN0cy4NCg0KPiANCj4gTm90ZSB0aGF0IGluIG15IHBhdGNo
-IEkgaGF2ZSByZW1vdmVkIHRoZSAtRUlPIHJldHVybiBpbiBmYXZvciBvZiBub3QNCj4gcmVnaXN0
-ZXJpbmcNCj4gdGhlIG5vbi1leGlzdGVudCB0aGVybWFsIHpvbmUuICBJJ20gbm90IHJlbW92aW5n
-IGFueSBmdW5jdGlvbmFsaXR5IGJ5DQo+IGNoYW5naW5nDQo+IHRoaXMsIG5vciBhbSBJIGFkZGlu
-ZyBmdW5jdGlvbmFsaXR5LiAgSW4gYm90aCBjYXNlcyB0aGUgdGhlcm1hbCB6b25lDQo+IGlzIG5v
-dA0KPiBmdW5jdGlvbmFsLCBhbmQgd2l0aCBteSBwYXRjaCB1c2Vyc3BhY2UgY29udGludWVzIHRv
-IHdvcmsuDQoNCllvdSBhcmUgcmVtb3ZpbmcgdGhlIHRoZXJtYWwgem9uZSBmdW5jdGlvbmFsaXR5
-IHNpbmNlIGV2ZW4gd2hlbiB0aGUNCmZpcm13YXJlIHdpbGwgYmUgbG9hZGVkICh3aGljaCB0eXBp
-Y2FsbHkgaGFwcGVucyBmYWlybHkgcXVpY2tseSksDQp0aGVybWFsIHpvbmUgd29uJ3Qgd29yay4N
-Cg0KPiANCj4gUC4NCj4gDQo+IFsxXSBpd2xfbXZtX3R6b25lX3NldF90cmlwX3RlbXAoKSBhbHNv
-IHJldHVybnMgLUVJTywgc28gc2V0dGluZyBhbmQNCj4gZ2V0dGluZyBvZg0KPiB0aGUgdGVtcGVy
-YXR1cmUgaXMgbm9uLWZ1bmN0aW9uYWwuDQo+IA0KPiANCj4gPiANCj4gPiA+IA0KPiA+ID4gLS0t
-ODwtLS0NCj4gPiA+IA0KPiA+ID4gVGhlIGl3bHdpZmkgZHJpdmVyIGltcGxlbWVudHMgYSB0aGVy
-bWFsIHpvbmUgYW5kIGh3bW9uIGRldmljZSwNCj4gPiA+IGJ1dA0KPiA+ID4gcmV0dXJucyAtRUlP
-IG9uIHRlbXBlcmF0dXJlIHJlYWRzIGlmIHRoZSBmaXJtd2FyZSBpc24ndCBsb2FkZWQuIA0KPiA+
-ID4gIFRoaXMNCj4gPiA+IHJlc3VsdHMgaW4gdGhlIGVycm9yDQo+ID4gPiANCj4gPiA+IGl3bHdp
-ZmktdmlydHVhbC0wDQo+ID4gPiBBZGFwdGVyOiBWaXJ0dWFsIGRldmljZQ0KPiA+ID4gRVJST1I6
-IENhbid0IGdldCB2YWx1ZSBvZiBzdWJmZWF0dXJlIHRlbXAxX2lucHV0OiBJL08gZXJyb3INCj4g
-PiA+IHRlbXAxOiAgICAgICAgICAgIE4vQQ0KPiA+ID4gDQo+ID4gPiBiZWluZyBvdXRwdXQgd2hl
-biB1c2luZyBzZW5zb3JzIGZyb20gdGhlIGxtLXNlbnNvcnMgcGFja2FnZS4gDQo+ID4gPiAgU2lu
-Y2UNCj4gPiA+IHRoZSB0ZW1wZXJhdHVyZSBjYW5ub3QgYmUgcmVhZCB1bmxlc3MgdGhlIHVjb2Rl
-IGlzIGxvYWRlZCB0aGVyZQ0KPiA+ID4gaXMgbm8NCj4gPiA+IHJlYXNvbiB0byBhZGQgdGhlIGlu
-dGVyZmFjZSBvbmx5IHRvIGhhdmUgaXQgcmV0dXJuIGFuIGVycm9yIDEwMCUNCj4gPiA+IG9mDQo+
-ID4gPiB0aGUgdGltZS4NCj4gPiA+IA0KPiA+ID4gVGhpcyBwYXRjaCBtb3ZlcyB0aGUgZmlybXdh
-cmUgY2hlY2sgdG8NCj4gPiA+IGl3bF9tdm1fdGhlcm1hbF96b25lX3JlZ2lzdGVyKCkgYW5kDQo+
-ID4gPiBzdG9wcyB0aGUgdGhlcm1hbCB6b25lIGZyb20gYmVpbmcgY3JlYXRlZCBpZiB0aGUgdWNv
-ZGUgaGFzbid0DQo+ID4gPiBiZWVuIGxvYWRlZC4NCj4gPiA+IA0KPiA+ID4gU2lnbmVkLW9mZi1i
-eTogUHJhcml0IEJoYXJnYXZhIDxwcmFyaXRAcmVkaGF0LmNvbT4NCj4gPiA+IENjOiBKb2hhbm5l
-cyBCZXJnIDxqb2hhbm5lcy5iZXJnQGludGVsLmNvbT4NCj4gPiA+IENjOiBFbW1hbnVlbCBHcnVt
-YmFjaCA8ZW1tYW51ZWwuZ3J1bWJhY2hAaW50ZWwuY29tPg0KPiA+ID4gQ2M6IEx1Y2EgQ29lbGhv
-IDxsdWNpYW5vLmNvZWxob0BpbnRlbC5jb20+DQo+ID4gPiBDYzogSW50ZWwgTGludXggV2lyZWxl
-c3MgPGxpbnV4d2lmaUBpbnRlbC5jb20+DQo+ID4gPiBDYzogS2FsbGUgVmFsbyA8a3ZhbG9AY29k
-ZWF1cm9yYS5vcmc+DQo+ID4gPiBDYzogQ2hheWEgUmFjaGVsIEl2Z2kgPGNoYXlhLnJhY2hlbC5p
-dmdpQGludGVsLmNvbT4NCj4gPiA+IENjOiBTYXJhIFNoYXJvbiA8c2FyYS5zaGFyb25AaW50ZWwu
-Y29tPg0KPiA+ID4gQ2M6IGxpbnV4LXdpcmVsZXNzQHZnZXIua2VybmVsLm9yZw0KPiA+ID4gQ2M6
-IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gPiA+IC0tLQ0KPiA+ID4gIGRyaXZlcnMvbmV0L3dp
-cmVsZXNzL2ludGVsL2l3bHdpZmkvbXZtL3R0LmMgfCAgIDEzICsrKy0tLS0tLS0tLS0NCj4gPiA+
-ICAxIGZpbGUgY2hhbmdlZCwgMyBpbnNlcnRpb25zKCspLCAxMCBkZWxldGlvbnMoLSkNCj4gPiA+
-IA0KPiA+ID4gZGlmZiAtLWdpdCBhL2RyaXZlcnMvbmV0L3dpcmVsZXNzL2ludGVsL2l3bHdpZmkv
-bXZtL3R0LmMNCj4gPiA+IGIvZHJpdmVycy9uZXQvd2lyZWxlc3MvaW50ZWwvaXdsd2lmaS9tdm0v
-dHQuYw0KPiA+ID4gaW5kZXggNThmYzdiM2M3MTFjLi42NDgwMjY1OTcxMWYgMTAwNjQ0DQo+ID4g
-PiAtLS0gYS9kcml2ZXJzL25ldC93aXJlbGVzcy9pbnRlbC9pd2x3aWZpL212bS90dC5jDQo+ID4g
-PiArKysgYi9kcml2ZXJzL25ldC93aXJlbGVzcy9pbnRlbC9pd2x3aWZpL212bS90dC5jDQo+ID4g
-PiBAQCAtNjM0LDExICs2MzQsNiBAQCBzdGF0aWMgaW50IGl3bF9tdm1fdHpvbmVfZ2V0X3RlbXAo
-c3RydWN0DQo+ID4gPiB0aGVybWFsX3pvbmVfZGV2aWNlICpkZXZpY2UsDQo+ID4gPiANCj4gPiA+
-ICAgICAgICAgbXV0ZXhfbG9jaygmbXZtLT5tdXRleCk7DQo+ID4gPiANCj4gPiA+IC0gICAgICAg
-aWYgKCFtdm0tPnVjb2RlX2xvYWRlZCB8fCAhKG12bS0+Y3VyX3Vjb2RlID09DQo+ID4gPiBJV0xf
-VUNPREVfUkVHVUxBUikpIHsNCj4gPiA+IC0gICAgICAgICAgICAgICByZXQgPSAtRUlPOw0KPiA+
-ID4gLSAgICAgICAgICAgICAgIGdvdG8gb3V0Ow0KPiA+ID4gLSAgICAgICB9DQo+ID4gPiAtDQo+
-ID4gPiAgICAgICAgIHJldCA9IGl3bF9tdm1fZ2V0X3RlbXAobXZtLCAmdGVtcCk7DQo+ID4gPiAg
-ICAgICAgIGlmIChyZXQpDQo+ID4gPiAgICAgICAgICAgICAgICAgZ290byBvdXQ7DQo+ID4gPiBA
-QCAtNjg0LDExICs2NzksNiBAQCBzdGF0aWMgaW50DQo+ID4gPiBpd2xfbXZtX3R6b25lX3NldF90
-cmlwX3RlbXAoc3RydWN0IHRoZXJtYWxfem9uZV9kZXZpY2UgKmRldmljZSwNCj4gPiA+IA0KPiA+
-ID4gICAgICAgICBtdXRleF9sb2NrKCZtdm0tPm11dGV4KTsNCj4gPiA+IA0KPiA+ID4gLSAgICAg
-ICBpZiAoIW12bS0+dWNvZGVfbG9hZGVkIHx8ICEobXZtLT5jdXJfdWNvZGUgPT0NCj4gPiA+IElX
-TF9VQ09ERV9SRUdVTEFSKSkgew0KPiA+ID4gLSAgICAgICAgICAgICAgIHJldCA9IC1FSU87DQo+
-ID4gPiAtICAgICAgICAgICAgICAgZ290byBvdXQ7DQo+ID4gPiAtICAgICAgIH0NCj4gPiA+IC0N
-Cj4gPiA+ICAgICAgICAgaWYgKHRyaXAgPCAwIHx8IHRyaXAgPj0gSVdMX01BWF9EVFNfVFJJUFMp
-IHsNCj4gPiA+ICAgICAgICAgICAgICAgICByZXQgPSAtRUlOVkFMOw0KPiA+ID4gICAgICAgICAg
-ICAgICAgIGdvdG8gb3V0Ow0KPiA+ID4gQEAgLTc1MCw2ICs3NDAsOSBAQCBzdGF0aWMgdm9pZA0K
-PiA+ID4gaXdsX212bV90aGVybWFsX3pvbmVfcmVnaXN0ZXIoc3RydWN0IGl3bF9tdm0gKm12bSkN
-Cj4gPiA+ICAgICAgICAgICAgICAgICByZXR1cm47DQo+ID4gPiAgICAgICAgIH0NCj4gPiA+IA0K
-PiA+ID4gKyAgICAgICBpZiAoIW12bS0+dWNvZGVfbG9hZGVkIHx8ICEobXZtLT5jdXJfdWNvZGUg
-PT0NCj4gPiA+IElXTF9VQ09ERV9SRUdVTEFSKSkNCj4gPiA+ICsgICAgICAgICAgICAgICByZXR1
-cm47DQo+ID4gPiArDQo+ID4gPiAgICAgICAgIEJVSUxEX0JVR19PTihBUlJBWV9TSVpFKG5hbWUp
-ID49IFRIRVJNQUxfTkFNRV9MRU5HVEgpOw0KPiA+ID4gDQo+ID4gPiAgICAgICAgIG12bS0+dHpf
-ZGV2aWNlLnR6b25lID0gdGhlcm1hbF96b25lX2RldmljZV9yZWdpc3RlcihuYW1lLA0KPiA+ID4g
-LS0NCj4gPiA+IDEuNy45LjMNCj4gPiA+IA0KPiA+ID4gLS0NCj4gPiA+IFRvIHVuc3Vic2NyaWJl
-IGZyb20gdGhpcyBsaXN0OiBzZW5kIHRoZSBsaW5lICJ1bnN1YnNjcmliZSBsaW51eA0KPiA+ID4g
-LXdpcmVsZXNzIiBpbg0KPiA+ID4gdGhlIGJvZHkgb2YgYSBtZXNzYWdlIHRvIG1ham9yZG9tb0B2
-Z2VyLmtlcm5lbC5vcmcNCj4gPiA+IE1vcmUgbWFqb3Jkb21vIGluZm8gYXQgIA0KPiA+ID4gaHR0
-cDovL3ZnZXIua2VybmVsLm9yZy9tYWpvcmRvbW8taW5mby5odG1s
+Adds the config entry for the Chelsio Crypto Driver, Makefile changes
+for the same.
+
+Signed-off-by: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
+---
+ drivers/crypto/Kconfig  |    2 ++
+ drivers/crypto/Makefile |    1 +
+ 2 files changed, 3 insertions(+)
+
+diff --git a/drivers/crypto/Kconfig b/drivers/crypto/Kconfig
+index d77ba2f..b44faf0 100644
+--- a/drivers/crypto/Kconfig
++++ b/drivers/crypto/Kconfig
+@@ -537,4 +537,6 @@ config CRYPTO_DEV_ROCKCHIP
+ 	  This driver interfaces with the hardware crypto accelerator.
+ 	  Supporting cbc/ecb chainmode, and aes/des/des3_ede cipher mode.
+ 
++source "drivers/crypto/chelsio/Kconfig"
++
+ endif # CRYPTO_HW
+diff --git a/drivers/crypto/Makefile b/drivers/crypto/Makefile
+index 3c6432d..ad7250f 100644
+--- a/drivers/crypto/Makefile
++++ b/drivers/crypto/Makefile
+@@ -31,3 +31,4 @@ obj-$(CONFIG_CRYPTO_DEV_QCE) += qce/
+ obj-$(CONFIG_CRYPTO_DEV_VMX) += vmx/
+ obj-$(CONFIG_CRYPTO_DEV_SUN4I_SS) += sunxi-ss/
+ obj-$(CONFIG_CRYPTO_DEV_ROCKCHIP) += rockchip/
++obj-$(CONFIG_CRYPTO_DEV_CHELSIO) += chelsio/
+-- 
+1.7.10.1
