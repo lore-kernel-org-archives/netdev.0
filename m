@@ -1,78 +1,103 @@
-From: Eric Dumazet <eric.dumazet@gmail.com>
-Subject: Re: [PATCH v2 net] tcp: make challenge acks less predictable
-Date: Mon, 11 Jul 2016 10:02:53 +0200
-Message-ID: <1468224173.30694.72.camel@edumazet-glaptop3.roam.corp.google.com>
-References: <1467995586.30694.34.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CAPzkZjz1R_T8q75LXLBc91j7YrngxdPc-o2Hpz+4YYyoWLantA@mail.gmail.com>
-	 <1468052160.30694.51.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <1468137842.30694.58.camel@edumazet-glaptop3.roam.corp.google.com>
-	 <CADVnQym7nL8AekOFYFH3pcnLerHBAC4BrYv5hY6Z5HN7kGkVkQ@mail.gmail.com>
-	 <CAPzkZjwS9Kabtg0g==QrTUmyR0PUfy8C76XueanNivYSDLZZGg@mail.gmail.com>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: Re: [PATCH 3/3] net: hisilicon: Add Fast Ethernet MAC driver
+Date: Mon, 11 Jul 2016 10:16:25 +0200
+Message-ID: <6408034.HDp0l1gLKO@wuerfel>
+References: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com> <4787248.HAfgOdBKVY@wuerfel> <57831617.6080506@hisilicon.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="UTF-8"
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@vger.kernel.org>
-To: Yue Cao <ycao009@ucr.edu>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f181.google.com ([209.85.223.181]:33151 "EHLO
-	mail-io0-f181.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030318AbcGKIC6 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 04:02:58 -0400
-Received: by mail-io0-f181.google.com with SMTP id t74so92461144ioi.0
-        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 01:02:58 -0700 (PDT)
-In-Reply-To: <CAPzkZjwS9Kabtg0g==QrTUmyR0PUfy8C76XueanNivYSDLZZGg@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 7Bit
+Cc: f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
+	davem@davemloft.net, xuejiancheng@hisilicon.com,
+	netdev@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Dongpo Li <lidongpo@hisilicon.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <57831617.6080506@hisilicon.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, 2016-07-10 at 11:28 -0700, Yue Cao wrote:
-> This second patch does make our attack much harder but it's still
-> possible to do such off-path attack with enough network bandwidth.
-> Here is our modified attack for this second patch.
+On Monday, July 11, 2016 11:44:23 AM CEST Dongpo Li wrote:
+> Hi Arnd,
 > 
-> Modified Attack:
-> Main idea of our attack is to send multiple same spoofed packets in 1
-> second so attacker can confirm if it's a right guess or wrong guess.
-> In more detail, attacker sends more than 1000 (e.g. 1500) spoofed
-> packets for a same guessed value at beginning. After that, attacker
-> sends 1500 packets during the same second to determine whether
-> previous guess is right or wrong, by using following rules:
-> If attacker receives less than 500 Challenge ACKs, it's a right guess.
-> For a example, if 1500 spoofed packets are sent with a correct
-> value(right guess), all Challenge ACKs will be sent to victim client
-> in that second and attacker receives nothing. Otherwise, it's a wrong
-> guess.
+> On 2016/6/28 17:34, Arnd Bergmann wrote:
+> > On Tuesday, June 28, 2016 5:21:19 PM CEST Dongpo Li wrote:
+> >> On 2016/6/15 5:20, Arnd Bergmann wrote:
+> >>> On Tuesday, June 14, 2016 9:17:44 PM CEST Li Dongpo wrote:
+> >>>> On 2016/6/13 17:06, Arnd Bergmann wrote:
+> >>>>> On Monday, June 13, 2016 2:07:56 PM CEST Dongpo Li wrote:
+> >>>>> You tx function uses BQL to optimize the queue length, and that
+> >>>>> is great. You also check xmit reclaim for rx interrupts, so
+> >>>>> as long as you have both rx and tx traffic, this should work
+> >>>>> great.
+> >>>>>
+> >>>>> However, I notice that you only have a 'tx fifo empty'
+> >>>>> interrupt triggering the napi poll, so I guess on a tx-only
+> >>>>> workload you will always end up pushing packets into the
+> >>>>> queue until BQL throttles tx, and then get the interrupt
+> >>>>> after all packets have been sent, which will cause BQL to
+> >>>>> make the queue longer up to the maximum queue size, and that
+> >>>>> negates the effect of BQL.
+> >>>>>
+> >>>>> Is there any way you can get a tx interrupt earlier than
+> >>>>> this in order to get a more balanced queue, or is it ok
+> >>>>> to just rely on rx packets to come in occasionally, and
+> >>>>> just use the tx fifo empty interrupt as a fallback?
+> >>>>>
+> >>>> In tx direction, there are only two kinds of interrupts, 'tx fifo empty'
+> >>>> and 'tx one packet finish'. I didn't use 'tx one packet finish' because
+> >>>> it would lead to high hardware interrupts rate. This has been verified in
+> >>>> our chips. It's ok to just use tx fifo empty interrupt.
+> >>>
+> >>> I'm not convinced by the explanation, I don't think that has anything
+> >>> to do with the hardware design, but instead is about the correctness
+> >>> of the BQL logic with your driver.
+> >>>
+> >>> Maybe your xmit function can do something like
+> >>>
+> >>>       if (dql_avail(netdev_get_tx_queue(dev, 0)->dql) < 0)
+> >>>               enable per-packet interrupt
+> >>>       else
+> >>>               use only fifo-empty interrupt
+> >>>
+> >>> That way, you don't get a lot of interrupts when the system is
+> >>> in a state of packets being received and sent continuously,
+> >>> but if you get to the point where your tx queue fills up
+> >>> and no rx interrupts arrive, you don't have to wait for it
+> >>> to become completely empty before adding new packets, and
+> >>> BQL won't keep growing the queue.
+> >>>
+> >> Hi, Arnd
+> >> I tried enable per-packet interrupt when tx queue full in xmit function
+> >> and disable it in NAPI poll. But the number of interrupts are a little
+> >> bigger than only using fifo-empty interrupt.
+> > 
+> > Right, I'd expect that to be the case, it basically means that the
+> > algorithm works as expected.
+> > 
+> > Just to be sure you didn't have extra interrupts: you only enable the
+> > per-packet interrupts if interrupts are currently enabled, not in
+> > NAPI polling mode, right?
+> > 
+> Sorry so long to reply to you. I use the per-packet interrupt like this:
+> In my xmit function,
+> 	if (hardware tx fifo is full) {
+> 		enable tx per-packet interrupt;
+> 		netif_stop_queue(dev);
+> 		return NETDEV_TX_BUSY;
+> 	}
 > 
-> Since this global rate limit always leaks some information as a
-> side-channel, we are wondering if eliminating it completely would be a
-> good idea. In fact, according to our latest test, FreeBSD and Windows
-> do not have any such rate limit implemented. Looking forward to your
-> replies.
+> In interrupt handle function,
+> 	if (interrupt is tx per-packet or tx fifo-empty or rx) {
+> 		disable tx per-packet interrupt;
+> 		napi_schedule(&priv->napi);
+> 	}
+> We disable tx per-packet interrupt anyway because the NAPI poll will reclaim
+> the tx fifo.
+> When the NAPI poll completed, it will only enable the tx fifo-empty interrupt
+> and rx interrupt except the tx per-packet interrupt.
+> 
+> Is this solution okay?
 
-Are you sure Windows is implementing RFC 5961 ? Linux got in in 3.6.
+Yes, this looks good to me.
 
-We do want RFC 5961, compared to the small nuisance of the attack you
-describe.
-
-Nuisance of having a way for hackers to send a RST packet after
-consuming thousands of probe packets is nothing, compared to the
-nuisance of ACK storms we had before rate limiting was added in 3.6 (and
-refined in 4.0). This was a serious problem for real servers, because of
-buggy firewalls and appliances.
-
-You probably know that if someone worries about TCP flows being
-compromised, it should use SSL, so that traffic injection is less likely
-to happen.
-
-Most TCP flows in the Internet are short lived (less than 1 minute).
-
-Having to establish about 500 flows to the victim is already a
-challenge, since the victim would already be in trouble if it was
-allowing so many idle flows.
-
-So the 'solution' would be to backport
-f2b2c582e82429270d5818fbabe653f4359d7024
-("tcp: mitigate ACK loops for connections as tcp_sock")
-
-Then apply the v2 patch so that the limit is randomized.
-
-Then set the default limit to 2^31
+	Arnd
