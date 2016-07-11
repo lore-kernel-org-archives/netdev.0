@@ -1,68 +1,82 @@
-From: Valdis.Kletnieks@vt.edu
-Subject: Re: [PATCH v2 net] ipv6: addrconf: fix Juniper SSL VPN client regression
-Date: Mon, 11 Jul 2016 12:59:16 -0400
-Message-ID: <7461.1468256356@turing-police.cc.vt.edu>
-References: <1468248230-5763-1-git-send-email-bjorn@mork.no>
+From: Prarit Bhargava <prarit@redhat.com>
+Subject: Re: [PATCH RESEND] iwlwifi, Do not implement thermal zone unless
+ ucode is loaded
+Date: Mon, 11 Jul 2016 13:00:51 -0400
+Message-ID: <5783D0C3.20804@redhat.com>
+References: <1468250301-10357-1-git-send-email-prarit@redhat.com> <1468253261.25088.126.camel@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_1468256356_4649P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, Jonas Lippuner <jonas@lippuner.ca>,
-	=?iso-8859-1?Q?=5409=85E4=82F1=660E?=
-	<hideaki.yoshifuji@miraclelinux.com>
-To: =?iso-8859-1?Q?Bj=F8rn?= Mork <bjorn@mork.no>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from outbound.smtp.vt.edu ([198.82.183.121]:40082 "EHLO
-	omr2.cc.vt.edu" rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org
-	with ESMTP id S932201AbcGKQ7a (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 12:59:30 -0400
-In-Reply-To: <1468248230-5763-1-git-send-email-bjorn@mork.no>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: linuxwifi <linuxwifi@intel.com>,
+	"Berg, Johannes" <johannes.berg@intel.com>,
+	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
+	"Ivgi, Chaya Rachel" <chaya.rachel.ivgi@intel.com>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"Sharon, Sara" <sara.sharon@intel.com>,
+	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
+	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
+To: "Coelho, Luciano" <luciano.coelho@intel.com>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1468253261.25088.126.camel@intel.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
---==_Exmh_1468256356_4649P
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
 
-On Mon, 11 Jul 2016 16:43:50 +0200, Bj=F8rn Mork said:
 
-> Link: https://bugzilla.kernel.org/show_bug.cgi?id=3D121131
-> Fixes: cc9da6cc4f56 (=22ipv6: addrconf: use stable address generator fo=
-r ARPHRD
-_NONE=22)
-> Reported-by: Valdis Kletnieks <Valdis.Kletnieks=40vt.edu>
-> Reported-by: Jonas Lippuner <jonas=40lippuner.ca>
-> Suggested-by: Hannes Frederic Sowa <hannes=40stressinduktion.org>
-> Cc: 吉藤英明 <hideaki.yoshifuji=40miraclelinux.com>
-> Signed-off-by: Bj=F8rn Mork <bjorn=40mork.no>
-> ---
-> v2 changes:
->  - added a netdevice private flag to suppress automatic IPv6 LL
->  - suppressing only for =22tun=22 devices
+On 07/11/2016 12:07 PM, Coelho, Luciano wrote:
+> On Mon, 2016-07-11 at 11:18 -0400, Prarit Bhargava wrote:
+>> Didn't get any feedback or review comments on this patch.  Resending
+>> ...
+>>
+>> P.
+> 
+> Sorry, this got flooded down my inbox.
 
-Tested against next-20160708, and the Juniper code works fine. Feel free
-to stick a Tested-By: on the V2 patch...
+NP, Luciano -- My worry was that it hadn't been seen or didn't make it out to
+the list.
 
---==_Exmh_1468256356_4649P
-Content-Type: application/pgp-signature
+I'm being a bit impatient too ;)
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-Comment: Exmh version 2.5 07/13/2001
+P.
 
-iQIVAwUBV4PQZAdmEQWDXROgAQK/1g//S/MDWHMroeQ/4Zl9vmltoPqW7LFbegat
-Wy+HxNXDcXvpbfFgQknlANfIXh0ntQlhRYNK0gi+Fk/28qTPjUTgnEL5R27a4Ioa
-jASeftkaAFCrN6JbkvnVJyUllSg/D2p8WhiwLpjo80d6CZ9Eq1SqgB0DZYlIFTkv
-eNqijzeHcJ1i7F1oC+iLR96ZWLfJhVr0tk3gPpmfO5uf29fVEk5rIfeTEZyJ0u9Q
-l1ryb02FDcbCtQtXoNii+237kNA5DPxQtJR5Ok+TyQjyOsSTESxOOhvtJbt8cppk
-eHMILazMI6yYD+hB4XJIbc4w6NJnCearz+BEGJrBSq6hBSIJ+IOoEe2O5uihK9ri
-L06tD8H7TOvM/JMpB0oHlhQE996UuhtyhDyDHmOf6emzTNB8gG1i1eushphEGimx
-/XzA9U8CyxJjKDXLOuDazpFRNYA8YrT1ejxuvSWFQlQEA75gVvyYj8R90Z1DJmRd
-nTaqjgrlqQp7pIhcDTPLHabH1J6US4nXxVM3jhS61WSeRgPl6obdO3ncozFT/Sij
-Cts6zcphW9xkAC8KyjPkwvBTwmWq3x69dolHTMiibb24MleokDVhApLpzMCFMM51
-CXLPx/ery93dl4ygk25SYKqSlrxlXFLt2+H/gCcnMSgvQbVPwfHugbqr7j2mYjL1
-19DbYum6ZIQ=
-=STc6
------END PGP SIGNATURE-----
-
---==_Exmh_1468256356_4649P--
+> 
+> 
+>> ---8<---
+>>
+>> The iwlwifi driver implements a thermal zone and hwmon device, but
+>> returns -EIO on temperature reads if the firmware isn't loaded.  This
+>> results in the error
+>>
+>> iwlwifi-virtual-0
+>> Adapter: Virtual device
+>> ERROR: Can't get value of subfeature temp1_input: I/O error
+>> temp1:            N/A
+>>
+>> being output when using sensors from the lm-sensors package.  Since
+>> the temperature cannot be read unless the ucode is loaded there is no
+>> reason to add the interface only to have it return an error 100% of
+>> the time.
+>>
+>> This patch moves the firmware check to
+>> iwl_mvm_thermal_zone_register() and
+>> stops the thermal zone from being created if the ucode hasn't been
+>> loaded.
+>>
+>> Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+>> Cc: Johannes Berg <johannes.berg@intel.com>
+>> Cc: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+>> Cc: Luca Coelho <luciano.coelho@intel.com>
+>> Cc: Intel Linux Wireless <linuxwifi@intel.com>
+>> Cc: Kalle Valo <kvalo@codeaurora.org>
+>> Cc: Chaya Rachel Ivgi <chaya.rachel.ivgi@intel.com>
+>> Cc: Sara Sharon <sara.sharon@intel.com>
+>> Cc: linux-wireless@vger.kernel.org
+>> Cc: netdev@vger.kernel.org
+>> ---
+> 
+> I have now sent it for review on our internal tree.
+> 
+> --
+> Luca.
+> 
