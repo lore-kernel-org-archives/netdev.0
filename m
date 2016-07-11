@@ -1,118 +1,89 @@
-From: Andy Gospodarek <gospo@cumulusnetworks.com>
-Subject: Re: [PATCHv2 net] ipv4: reject RTNH_F_DEAD and RTNH_F_LINKDOWN from
- user space
-Date: Mon, 11 Jul 2016 09:36:07 -0400
-Message-ID: <20160711133606.GQ18787@gospo.rdu.cumulusnetworks.com>
-References: <1468174315-19936-1-git-send-email-ja@ssi.bg>
+From: Jesper Dangaard Brouer <brouer@redhat.com>
+Subject: Re: [PATCH v6 05/12] Add sample for adding simple drop program to
+ link
+Date: Mon, 11 Jul 2016 15:37:08 +0200
+Message-ID: <20160711153708.1baa4224@redhat.com>
+References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
+	<1467944124-14891-6-git-send-email-bblanco@plumgrid.com>
+	<57837E66.3050000@mojatatu.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	Vegard Nossum <vegard.nossum@oracle.com>,
-	Dinesh Dutt <ddutt@cumulusnetworks.com>,
-	Scott Feldman <sfeldma@gmail.com>
-To: Julian Anastasov <ja@ssi.bg>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
+	netdev@vger.kernel.org, Martin KaFai Lau <kafai@fb.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
+	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
+	Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>, brouer@redhat.com
+To: Jamal Hadi Salim <jhs@mojatatu.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-yw0-f176.google.com ([209.85.161.176]:34197 "EHLO
-	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753022AbcGKNgM (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 09:36:12 -0400
-Received: by mail-yw0-f176.google.com with SMTP id i12so91528296ywa.1
-        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 06:36:11 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1468174315-19936-1-git-send-email-ja@ssi.bg>
+Received: from mx1.redhat.com ([209.132.183.28]:51938 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753022AbcGKNhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jul 2016 09:37:16 -0400
+In-Reply-To: <57837E66.3050000@mojatatu.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Sun, Jul 10, 2016 at 09:11:55PM +0300, Julian Anastasov wrote:
-> Vegard Nossum is reporting for a crash in fib_dump_info
-> when nh_dev = NULL and fib_nhs == 1:
-> 
-> Pid: 50, comm: netlink.exe Not tainted 4.7.0-rc5+
-> RIP: 0033:[<00000000602b3d18>]
-> RSP: 0000000062623890  EFLAGS: 00010202
-> RAX: 0000000000000000 RBX: 000000006261b800 RCX: 0000000000000000
-> RDX: 0000000000000000 RSI: 0000000000000024 RDI: 000000006245ba00
-> RBP: 00000000626238f0 R08: 000000000000029c R09: 0000000000000000
-> R10: 0000000062468038 R11: 000000006245ba00 R12: 000000006245ba00
-> R13: 00000000625f96c0 R14: 00000000601e16f0 R15: 0000000000000000
-> Kernel panic - not syncing: Kernel mode fault at addr 0x2e0, ip 0x602b3d18
-> CPU: 0 PID: 50 Comm: netlink.exe Not tainted 4.7.0-rc5+ #581
-> Stack:
->  626238f0 960226a02 00000400 000000fe
->  62623910 600afca7 62623970 62623a48
->  62468038 00000018 00000000 00000000
-> Call Trace:
->  [<602b3e93>] rtmsg_fib+0xd3/0x190
->  [<602b6680>] fib_table_insert+0x260/0x500
->  [<602b0e5d>] inet_rtm_newroute+0x4d/0x60
->  [<60250def>] rtnetlink_rcv_msg+0x8f/0x270
->  [<60267079>] netlink_rcv_skb+0xc9/0xe0
->  [<60250d4b>] rtnetlink_rcv+0x3b/0x50
->  [<60265400>] netlink_unicast+0x1a0/0x2c0
->  [<60265e47>] netlink_sendmsg+0x3f7/0x470
->  [<6021dc9a>] sock_sendmsg+0x3a/0x90
->  [<6021e0d0>] ___sys_sendmsg+0x300/0x360
->  [<6021fa64>] __sys_sendmsg+0x54/0xa0
->  [<6021fac0>] SyS_sendmsg+0x10/0x20
->  [<6001ea68>] handle_syscall+0x88/0x90
->  [<600295fd>] userspace+0x3fd/0x500
->  [<6001ac55>] fork_handler+0x85/0x90
-> 
-> $ addr2line -e vmlinux -i 0x602b3d18
-> include/linux/inetdevice.h:222
-> net/ipv4/fib_semantics.c:1264
-> 
-> Problem happens when RTNH_F_LINKDOWN is provided from user space
-> when creating routes that do not use the flag, catched with
-> netlink fuzzer.
-> 
-> Currently, the kernel allows user space to set both flags
-> to nh_flags and fib_flags but this is not intentional, the
-> assumption was that they are not set. Fix this by rejecting
-> both flags with EINVAL.
-> 
-> Reported-by: Vegard Nossum <vegard.nossum@oracle.com>
-> Fixes: 0eeb075fad73 ("net: ipv4 sysctl option to ignore routes when nexthop link is down")
-> Signed-off-by: Julian Anastasov <ja@ssi.bg>
-> Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
-> Cc: Dinesh Dutt <ddutt@cumulusnetworks.com>
-> Cc: Scott Feldman <sfeldma@gmail.com>
+On Mon, 11 Jul 2016 07:09:26 -0400
+Jamal Hadi Salim <jhs@mojatatu.com> wrote:
 
-It looks like this catches the single and multipath next-hop cases, so
-looks good to me.
+> On 16-07-07 10:15 PM, Brenden Blanco wrote:
+> > Add a sample program that only drops packets at the BPF_PROG_TYPE_XDP_RX
+> > hook of a link. With the drop-only program, observed single core rate is
+> > ~20Mpps.
+> >
+> > Other tests were run, for instance without the dropcnt increment or
+> > without reading from the packet header, the packet rate was mostly
+> > unchanged.
+> >
+> > $ perf record -a samples/bpf/xdp1 $(</sys/class/net/eth0/ifindex)
+> > proto 17:   20403027 drops/s
+> >  
+> 
+> 
+> So - devil's advocate speaking:
+> I can filter and drop with this very specific NIC at 10x as fast
+> in hardware, correct?
 
-Reviewed-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+After avoiding the cache-miss, I believe, we have actually reached the
+NIC HW limit.  I base this on, my measurements show that the CPU start
+to go idle, even enter sleep C-states.  And we exit NAPI mode, not
+using the full budget, emptying the RX ring.
 
-> ---
->  net/ipv4/fib_semantics.c | 6 ++++++
->  1 file changed, 6 insertions(+)
-> 
-> Note: works for all kernels: net, net-next, 4.4.14, 4.5.7, 4.6.3
-> 
-> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
-> index d09173b..539fa26 100644
-> --- a/net/ipv4/fib_semantics.c
-> +++ b/net/ipv4/fib_semantics.c
-> @@ -479,6 +479,9 @@ static int fib_get_nhs(struct fib_info *fi, struct rtnexthop *rtnh,
->  		if (!rtnh_ok(rtnh, remaining))
->  			return -EINVAL;
->  
-> +		if (rtnh->rtnh_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
-> +			return -EINVAL;
-> +
->  		nexthop_nh->nh_flags =
->  			(cfg->fc_flags & ~0xFF) | rtnh->rtnh_flags;
->  		nexthop_nh->nh_oif = rtnh->rtnh_ifindex;
-> @@ -1003,6 +1006,9 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
->  	if (fib_props[cfg->fc_type].scope > cfg->fc_scope)
->  		goto err_inval;
->  
-> +	if (cfg->fc_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
-> +		goto err_inval;
-> +
->  #ifdef CONFIG_IP_ROUTE_MULTIPATH
->  	if (cfg->fc_mp) {
->  		nhs = fib_count_nexthops(cfg->fc_mp, cfg->fc_mp_len);
-> -- 
-> 1.9.3
-> 
+
+> Would a different NIC (pick something like e1000) have served a better
+> example?
+> BTW: Brenden, now that i looked closer here, you really dont have
+> apple-apple comparison with dropping at tc ingress. You have a
+> tweaked prefetch and are intentionally running things on a single
+> core. Note: We are able to do 20Mpps drops with tc with a single
+> core (as shown in netdev11) on a NUC with removing driver overhead.
+
+AFAIK you were using the pktgen "xmit_mode netif_receive" which inject
+packets directly into the stack, thus removing the NIC driver from the
+equation.  Brenden only is measuring the driver.
+  Thus, you are both doing zoom-in-measuring (of a very specific and
+limited section of the code) but two completely different pieces of
+code.
+
+Notice, Jamal, in your 20Mpps results, your are also avoiding
+interacting with the memory allocator, as you are recycling the same
+SKB (and don't be confused by seeing kfree_skb() in perf-top as it only
+does atomic_dec() [1]).
+
+In this code-zoom-in benchmark (given single CPU is keep 100% busy) you
+are actually measuring that the code path (on average) takes 50 nanosec
+(1/20*1000) to execute.  Which is cool, but it is only a zoom-in on a
+specific code path (which avoids any I-cache misses).
+
+-- 
+Best regards,
+  Jesper Dangaard Brouer
+  MSc.CS, Principal Kernel Engineer at Red Hat
+  Author of http://www.iptv-analyzer.org
+  LinkedIn: http://www.linkedin.com/in/brouer
+
+[1] https://www.youtube.com/watch?v=M6l1rxZCqLM
