@@ -1,48 +1,30 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] ipv6: addrconf: fix Juniper SSL VPN client
- regression
-Date: Mon, 11 Jul 2016 13:48:48 -0700 (PDT)
-Message-ID: <20160711.134848.216095848280988851.davem@davemloft.net>
-References: <1468248230-5763-1-git-send-email-bjorn@mork.no>
+Subject: Re: [PATCH v2] net: smc91x: ACPI Enable lan91x adapters
+Date: Mon, 11 Jul 2016 13:50:25 -0700 (PDT)
+Message-ID: <20160711.135025.1930714483564343208.davem@davemloft.net>
+References: <1468250920-29814-1-git-send-email-jeremy.linton@arm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=utf-8
-Content-Transfer-Encoding: base64
-Cc: netdev@vger.kernel.org, Valdis.Kletnieks@vt.edu, jonas@lippuner.ca,
-	hideaki.yoshifuji@miraclelinux.com
-To: bjorn@mork.no
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: nico@fluxnic.net, robert.jarzmik@free.fr,
+	felipe.balbi@linux.intel.com, fw@strlen.de, arnd@arndb.de,
+	steve.capper@arm.com, netdev@vger.kernel.org
+To: jeremy.linton@arm.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60370 "EHLO
+Received: from shards.monkeyblade.net ([184.105.139.130]:60386 "EHLO
 	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753108AbcGKUst (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 16:48:49 -0400
-In-Reply-To: <1468248230-5763-1-git-send-email-bjorn@mork.no>
+	with ESMTP id S1753108AbcGKUu0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 16:50:26 -0400
+In-Reply-To: <1468250920-29814-1-git-send-email-jeremy.linton@arm.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-RnJvbTogQmrDuHJuIE1vcmsgPGJqb3JuQG1vcmsubm8+DQpEYXRlOiBNb24sIDExIEp1bCAyMDE2
-IDE2OjQzOjUwICswMjAwDQoNCj4gVGhlIEp1bmlwZXIgU1NMIFZQTiBjbGllbnQgdXNlIGEgInR1
-biIgaW50ZXJmYWNlIGFuZCBzZWVtcyB0bw0KPiBiZSBwaWNreSBhYm91dCB2aXNpYmxlIGNoYW5n
-ZXMudG8gaXQuIENvbW1pdCBjYzlkYTZjYzRmNTYNCj4gKCJpcHY2OiBhZGRyY29uZjogdXNlIHN0
-YWJsZSBhZGRyZXNzIGdlbmVyYXRvciBmb3IgQVJQSFJEX05PTkUiKQ0KPiBtYWRlIHN1Y2ggaW50
-ZXJmYWNlcyBnZXQgYW4gYXV0by1nZW5lcmF0ZWQgSVB2NiBsaW5rIGxvY2FsIGFkZHJlc3MNCj4g
-YnkgZGVmYXVsdCwgc2ltaWxhciB0byBtb3N0IG90aGVyIGludGVyZmFjZSB0eXBlcy4gVGhpcyBt
-YWRlIHRoZQ0KPiBKdW5pcGVyIFNTTCBWUE4gY2xpZW50IGZhaWwgZm9yIHVua25vd24gcmVhc29u
-cy4NCj4gDQo+IEZpeGluZyB0aGlzIHJlZ3Jlc3Npb24gYnkgYWRkaW5nIGEgbmV3IHByaXZhdGUg
-bmV0ZGV2aWNlIGZsYWcNCj4gd2hpY2ggZGlzYWJsZXMgYXV0b21hdGljIElQdjYgbGluayBsb2Nh
-bCBhZGRyZXNzIGdlbmVyYXRpb24sIGFuZA0KPiBtYWtpbmcgdGhlIGZsYWcgZGVmYXVsdCBmb3Ig
-InR1biIgZGV2aWNlcy4NCj4gDQo+IFNldHRpbmcgYW4gZXhwbGljaXQgYWRkcmdlbm1vZGUgd2ls
-bCBkaXNhYmxlIHRoZSBmbGFnLCBzbyB1c2Vyc3BhY2UNCj4gY2FuIGNob29zZSB0byBlbmFibGUg
-YXV0b21hdGljIExMIGdlbmVyYXRpb24gYnkgc2VsZWN0aW5nIGEgc3VpdGFibGUNCj4gYWRkcmdl
-bm1vZGUuDQo+IA0KPiBMaW5rOiBodHRwczovL2J1Z3ppbGxhLmtlcm5lbC5vcmcvc2hvd19idWcu
-Y2dpP2lkPTEyMTEzMQ0KPiBGaXhlczogY2M5ZGE2Y2M0ZjU2ICgiaXB2NjogYWRkcmNvbmY6IHVz
-ZSBzdGFibGUgYWRkcmVzcyBnZW5lcmF0b3IgZm9yIEFSUEhSRF9OT05FIikNCj4gUmVwb3J0ZWQt
-Ynk6IFZhbGRpcyBLbGV0bmlla3MgPFZhbGRpcy5LbGV0bmlla3NAdnQuZWR1Pg0KPiBSZXBvcnRl
-ZC1ieTogSm9uYXMgTGlwcHVuZXIgPGpvbmFzQGxpcHB1bmVyLmNhPg0KPiBTdWdnZXN0ZWQtYnk6
-IEhhbm5lcyBGcmVkZXJpYyBTb3dhIDxoYW5uZXNAc3RyZXNzaW5kdWt0aW9uLm9yZz4NCj4gQ2M6
-IOWQieiXpOiLseaYjiA8aGlkZWFraS55b3NoaWZ1amlAbWlyYWNsZWxpbnV4LmNvbT4NCj4gU2ln
-bmVkLW9mZi1ieTogQmrDuHJuIE1vcmsgPGJqb3JuQG1vcmsubm8+DQoNCldoYXQgcmVhbGx5IGly
-a3MgbWUgaXMgdGhhdCB3ZSAiZml4aW5nIiBzb21ldGhpbmcgd2l0aG91dCBrbm93aW5nIHdoYXQN
-CmFjdHVhbGx5IGlzIHRoZSBwcm9ibGVtLg0KDQpTb21lb25lIG5lZWRzIHRvIGZpZ3VyZSBvdXQg
-ZXhhY3RseSB3aGF0IGlzIG1ha2luZyB0aGUgSnVuaXBlciB0aGluZw0KdW5oYXBweS4gIEl0IHJl
-YWxseSBzaG91bGRuJ3QgY2FyZSBpZiBhIGxpbmsgbG9jYWwgYWRkcmVzcyBpcyBhc3NpZ25lZA0K
-dG8gdGhlIHR1biBkZXZpY2UsIHRoaXMgaXMgZnVuZGFtZW50YWwgaXB2NiBzdHVmZi4NCg==
+From: Jeremy Linton <jeremy.linton@arm.com>
+Date: Mon, 11 Jul 2016 10:28:40 -0500
+
+> Enable lan91x adapters in some ARM machines and models
+> when booted with an ACPI kernel.
+> 
+> Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+
+Applied to net-next, thanks.
