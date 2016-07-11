@@ -1,168 +1,54 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [patch net-next 1/2] devlink: add hardware messages tracing
- facility
-Date: Mon, 11 Jul 2016 12:08:14 -0400
-Message-ID: <20160711120814.504c20cb@gandalf.local.home>
-References: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
+From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
+Subject: Re: [PATCH net-next 0/6] sctp: implement rfc7496 in sctp
+Date: Mon, 11 Jul 2016 13:15:29 -0300
+Message-ID: <20160711161529.GA9950@localhost.localdomain>
+References: <cover.1468064737.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	yotamg@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
-	ogerlitz@mellanox.com, ivecera@redhat.com, mingo@redhat.com,
-	jolsa@kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=us-ascii
+Cc: network dev <netdev@vger.kernel.org>, linux-sctp@vger.kernel.org,
+	Vlad Yasevich <vyasevich@gmail.com>, daniel@iogearbox.net,
+	davem@davemloft.net
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0254.hostedemail.com ([216.40.44.254]:42233 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1755286AbcGKQIS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 12:08:18 -0400
-In-Reply-To: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
+Received: from mx1.redhat.com ([209.132.183.28]:59378 "EHLO mx1.redhat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932295AbcGKQPd (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jul 2016 12:15:33 -0400
+Content-Disposition: inline
+In-Reply-To: <cover.1468064737.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 11 Jul 2016 15:18:47 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
-
-> From: Jiri Pirko <jiri@mellanox.com>
+On Sat, Jul 09, 2016 at 07:47:39PM +0800, Xin Long wrote:
+> This patchset implements "Additional Policies for the Partially Reliable
+> Stream Control Transmission Protocol Extension" described on RFC7496.
 > 
-> Define a tracepoint and allow user to trace messages going to and from
-> hardware associated with devlink instance.
+> The Partially Reliable SCTP (PR-SCTP) extension defined in [RFC3758]
+> provides a generic method for senders to abandon user messages. The
+> decision to abandon a user message is sender side only, and the exact
+> condition is called a "PR-SCTP policy". This patchset implements 3
+> policies:
 > 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> ---
->  include/net/devlink.h          |  8 +++++++
->  include/trace/events/devlink.h | 49 ++++++++++++++++++++++++++++++++++++++++++
->  net/core/devlink.c             |  9 ++++++++
->  3 files changed, 66 insertions(+)
->  create mode 100644 include/trace/events/devlink.h
+>  1. Timed Reliability:  This allows the sender to specify a timeout for
+>     a user message after which the SCTP stack abandons the user message.
 > 
-> diff --git a/include/net/devlink.h b/include/net/devlink.h
-> index c99ffe8..865ade6 100644
-> --- a/include/net/devlink.h
-> +++ b/include/net/devlink.h
-> @@ -115,6 +115,8 @@ struct devlink *devlink_alloc(const struct devlink_ops *ops, size_t priv_size);
->  int devlink_register(struct devlink *devlink, struct device *dev);
->  void devlink_unregister(struct devlink *devlink);
->  void devlink_free(struct devlink *devlink);
-> +void devlink_trace_hwmsg(const struct devlink *devlink, bool incoming,
-> +			 unsigned long type, const u8 *buf, size_t len);
->  int devlink_port_register(struct devlink *devlink,
->  			  struct devlink_port *devlink_port,
->  			  unsigned int port_index);
-> @@ -154,6 +156,12 @@ static inline void devlink_free(struct devlink *devlink)
->  	kfree(devlink);
->  }
->  
-> +static inline void devlink_trace_hwmsg(const struct devlink *devlink,
-> +				       bool incoming, unsigned long type,
-> +				       const u8 *buf, size_t len);
-> +{
-> +}
-> +
->  static inline int devlink_port_register(struct devlink *devlink,
->  					struct devlink_port *devlink_port,
->  					unsigned int port_index)
-> diff --git a/include/trace/events/devlink.h b/include/trace/events/devlink.h
-> new file mode 100644
-> index 0000000..7918c57
-> --- /dev/null
-> +++ b/include/trace/events/devlink.h
-> @@ -0,0 +1,49 @@
-> +#undef TRACE_SYSTEM
-> +#define TRACE_SYSTEM devlink
-> +
-> +#if !defined(_TRACE_DEVLINK_H) || defined(TRACE_HEADER_MULTI_READ)
-> +#define _TRACE_DEVLINK_H
-> +
-> +#include <linux/device.h>
-> +#include <net/devlink.h>
-> +#include <linux/tracepoint.h>
-> +
-> +/*
-> + * Tracepoint for devlink hardware message:
-> + */
-> +TRACE_EVENT(devlink_hwmsg,
-> +	TP_PROTO(const struct devlink *devlink, bool incoming,
-> +		 unsigned long type, const u8 *buf, size_t len),
-> +
-> +	TP_ARGS(devlink, incoming, type, buf, len),
-> +
-> +	TP_STRUCT__entry(
-> +		__string(bus_name, devlink->dev->bus->name)
-> +		__string(dev_name, dev_name(devlink->dev))
-> +		__string(owner_name, devlink->dev->driver->owner->name)
-> +		__field(bool, incoming)
-> +		__field(unsigned long, type)
-> +		__dynamic_array(u8, buf, len)
-> +		__field(size_t, len)
-> +	),
-> +
-> +	TP_fast_assign(
-> +		__assign_str(bus_name, devlink->dev->bus->name);
-> +		__assign_str(dev_name, dev_name(devlink->dev));
-> +		__assign_str(owner_name, devlink->dev->driver->owner->name);
-> +		__entry->incoming = incoming;
-> +		__entry->type = type;
-> +		memcpy(__get_dynamic_array(buf), buf, len);
-> +		__entry->len = len;
-> +	),
-> +
-> +	TP_printk("bus_name=%s dev_name=%s owner_name=%s incoming=%d type=%lu buf=0x[%*phD] len=%lu",
-> +		  __get_str(bus_name), __get_str(dev_name),
-> +		  __get_str(owner_name), __entry->incoming, __entry->type,
-> +		  (int) __entry->len, __get_dynamic_array(buf), __entry->len)
-> +);
-> +
-> +#endif /* _TRACE_DEVLINK_H */
-> +
-> +/* This part must be outside protection */
-> +#include <trace/define_trace.h>
-> diff --git a/net/core/devlink.c b/net/core/devlink.c
-> index b2e592a..8cfa3b0 100644
-> --- a/net/core/devlink.c
-> +++ b/net/core/devlink.c
-> @@ -26,6 +26,8 @@
->  #include <net/net_namespace.h>
->  #include <net/sock.h>
->  #include <net/devlink.h>
-> +#define CREATE_TRACE_POINTS
-> +#include <trace/events/devlink.h>
->  
->  static LIST_HEAD(devlink_list);
->  
-> @@ -1679,6 +1681,13 @@ void devlink_free(struct devlink *devlink)
->  }
->  EXPORT_SYMBOL_GPL(devlink_free);
->  
-> +void devlink_trace_hwmsg(const struct devlink *devlink, bool incoming,
-> +			 unsigned long type, const u8 *buf, size_t len)
-> +{
-> +	trace_devlink_hwmsg(devlink, incoming, type, buf, len);
-> +}
-> +EXPORT_SYMBOL_GPL(devlink_trace_hwmsg);
-> +
+>  2. Limited Retransmission Policy:  Allows limitation of the number of
+>     retransmissions.
+> 
+>  3. Priority Policy:  Allows removal of lower-priority messages if space
+>     for higher-priority messages is needed in the send buffer.
+> 
+> Patch 1-3 add some sockopts in sctp to set/get pr_sctp policy status.
+> Patch 4-6 implement these 3 policies one by one.
+> 
+> Xin Long (6):
+>   sctp: add SCTP_PR_SUPPORTED on sctp sockopt
+>   sctp: add SCTP_DEFAULT_PRINFO into sctp sockopt
+>   sctp: add SCTP_PR_ASSOC_STATUS on sctp sockopt
+>   sctp: implement prsctp TTL policy
+>   sctp: implement prsctp RTX policy
+>   sctp: implement prsctp PRIO policy
 
-Instead of having a function that always gets called even when tracing
-isn't enabled, why not have the caller call the trace_devlink_hwmsg()
-directly?
+Acked-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 
-In the trace/devlink.h file you could encapsulate it with:
-
-#if IS_ENABLED(CONFIG_NET_DEVLINK)
-
-[...]
-
-#else
-static inline void trace_devlink_hwmsg(const struct devlink *devlink,
-				       bool incoming, unsigned long type,
-				       const u8 *buf, size_t len);
-{
-}
-#endif
-
--- Steve
-
->  /**
->   *	devlink_port_register - Register devlink port
->   *
+Thanks Xin
