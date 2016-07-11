@@ -1,43 +1,118 @@
-From: Hannes Frederic Sowa <hannes@stressinduktion.org>
-Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
- exceeds MTU, do segmentation even for non IPSKB_FORWARDED skbs
-Date: Mon, 11 Jul 2016 09:32:05 -0400
-Message-ID: <e8f7a166-0624-b6d5-6937-67d9397c915e@stressinduktion.org>
-References: <1467722132-10084-1-git-send-email-shmulik.ladkani@ravellosystems.com>
- <20160705130327.GA10737@breakpoint.cc> <20160705170541.3f210675@pixies>
- <20160709090020.GB2067@breakpoint.cc> <20160709153017.791f2607@halley>
- <20160709132230.GD2067@breakpoint.cc> <20160710105120.72d80371@pixies>
- <20160711081511.GG2067@breakpoint.cc>
+From: Andy Gospodarek <gospo@cumulusnetworks.com>
+Subject: Re: [PATCHv2 net] ipv4: reject RTNH_F_DEAD and RTNH_F_LINKDOWN from
+ user space
+Date: Mon, 11 Jul 2016 09:36:07 -0400
+Message-ID: <20160711133606.GQ18787@gospo.rdu.cumulusnetworks.com>
+References: <1468174315-19936-1-git-send-email-ja@ssi.bg>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-	Eric Dumazet <edumazet@google.com>, shmulik.ladkani@gmail.com,
-	netdev@vger.kernel.org,
-	Alexander Duyck <alexander.duyck@gmail.com>,
-	Tom Herbert <tom@herbertland.com>
-To: Florian Westphal <fw@strlen.de>,
-	Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: David Miller <davem@davemloft.net>, netdev@vger.kernel.org,
+	Vegard Nossum <vegard.nossum@oracle.com>,
+	Dinesh Dutt <ddutt@cumulusnetworks.com>,
+	Scott Feldman <sfeldma@gmail.com>
+To: Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from out5-smtp.messagingengine.com ([66.111.4.29]:56501 "EHLO
-	out5-smtp.messagingengine.com" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1752831AbcGKNcI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 09:32:08 -0400
-In-Reply-To: <20160711081511.GG2067@breakpoint.cc>
+Received: from mail-yw0-f176.google.com ([209.85.161.176]:34197 "EHLO
+	mail-yw0-f176.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1753022AbcGKNgM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 09:36:12 -0400
+Received: by mail-yw0-f176.google.com with SMTP id i12so91528296ywa.1
+        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 06:36:11 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <1468174315-19936-1-git-send-email-ja@ssi.bg>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 11.07.2016 04:15, Florian Westphal wrote:
-> Shmulik Ladkani <shmulik.ladkani@ravellosystems.com> wrote:
->> OK with the general idea; However I don't want to abuse IPSKB_FORWARDED
->> as the skb is not really "ip forwarded", and it might have undesirable
->> affects, such as in 'ip_skb_dst_mtu' which follows.
+On Sun, Jul 10, 2016 at 09:11:55PM +0300, Julian Anastasov wrote:
+> Vegard Nossum is reporting for a crash in fib_dump_info
+> when nh_dev = NULL and fib_nhs == 1:
 > 
-> I don't see a problem with that. Hannes?
+> Pid: 50, comm: netlink.exe Not tainted 4.7.0-rc5+
+> RIP: 0033:[<00000000602b3d18>]
+> RSP: 0000000062623890  EFLAGS: 00010202
+> RAX: 0000000000000000 RBX: 000000006261b800 RCX: 0000000000000000
+> RDX: 0000000000000000 RSI: 0000000000000024 RDI: 000000006245ba00
+> RBP: 00000000626238f0 R08: 000000000000029c R09: 0000000000000000
+> R10: 0000000062468038 R11: 000000006245ba00 R12: 000000006245ba00
+> R13: 00000000625f96c0 R14: 00000000601e16f0 R15: 0000000000000000
+> Kernel panic - not syncing: Kernel mode fault at addr 0x2e0, ip 0x602b3d18
+> CPU: 0 PID: 50 Comm: netlink.exe Not tainted 4.7.0-rc5+ #581
+> Stack:
+>  626238f0 960226a02 00000400 000000fe
+>  62623910 600afca7 62623970 62623a48
+>  62468038 00000018 00000000 00000000
+> Call Trace:
+>  [<602b3e93>] rtmsg_fib+0xd3/0x190
+>  [<602b6680>] fib_table_insert+0x260/0x500
+>  [<602b0e5d>] inet_rtm_newroute+0x4d/0x60
+>  [<60250def>] rtnetlink_rcv_msg+0x8f/0x270
+>  [<60267079>] netlink_rcv_skb+0xc9/0xe0
+>  [<60250d4b>] rtnetlink_rcv+0x3b/0x50
+>  [<60265400>] netlink_unicast+0x1a0/0x2c0
+>  [<60265e47>] netlink_sendmsg+0x3f7/0x470
+>  [<6021dc9a>] sock_sendmsg+0x3a/0x90
+>  [<6021e0d0>] ___sys_sendmsg+0x300/0x360
+>  [<6021fa64>] __sys_sendmsg+0x54/0xa0
+>  [<6021fac0>] SyS_sendmsg+0x10/0x20
+>  [<6001ea68>] handle_syscall+0x88/0x90
+>  [<600295fd>] userspace+0x3fd/0x500
+>  [<6001ac55>] fork_handler+0x85/0x90
+> 
+> $ addr2line -e vmlinux -i 0x602b3d18
+> include/linux/inetdevice.h:222
+> net/ipv4/fib_semantics.c:1264
+> 
+> Problem happens when RTNH_F_LINKDOWN is provided from user space
+> when creating routes that do not use the flag, catched with
+> netlink fuzzer.
+> 
+> Currently, the kernel allows user space to set both flags
+> to nh_flags and fib_flags but this is not intentional, the
+> assumption was that they are not set. Fix this by rejecting
+> both flags with EINVAL.
+> 
+> Reported-by: Vegard Nossum <vegard.nossum@oracle.com>
+> Fixes: 0eeb075fad73 ("net: ipv4 sysctl option to ignore routes when nexthop link is down")
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
+> Cc: Andy Gospodarek <gospo@cumulusnetworks.com>
+> Cc: Dinesh Dutt <ddutt@cumulusnetworks.com>
+> Cc: Scott Feldman <sfeldma@gmail.com>
 
-If we segment/fragment along the way we need to use the
-non-pmtu/interface-mtu, so this change would be correct in regard to the
-mtu selection.
+It looks like this catches the single and multipath next-hop cases, so
+looks good to me.
 
-Bye,
-Hannes
+Reviewed-by: Andy Gospodarek <gospo@cumulusnetworks.com>
+
+> ---
+>  net/ipv4/fib_semantics.c | 6 ++++++
+>  1 file changed, 6 insertions(+)
+> 
+> Note: works for all kernels: net, net-next, 4.4.14, 4.5.7, 4.6.3
+> 
+> diff --git a/net/ipv4/fib_semantics.c b/net/ipv4/fib_semantics.c
+> index d09173b..539fa26 100644
+> --- a/net/ipv4/fib_semantics.c
+> +++ b/net/ipv4/fib_semantics.c
+> @@ -479,6 +479,9 @@ static int fib_get_nhs(struct fib_info *fi, struct rtnexthop *rtnh,
+>  		if (!rtnh_ok(rtnh, remaining))
+>  			return -EINVAL;
+>  
+> +		if (rtnh->rtnh_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
+> +			return -EINVAL;
+> +
+>  		nexthop_nh->nh_flags =
+>  			(cfg->fc_flags & ~0xFF) | rtnh->rtnh_flags;
+>  		nexthop_nh->nh_oif = rtnh->rtnh_ifindex;
+> @@ -1003,6 +1006,9 @@ struct fib_info *fib_create_info(struct fib_config *cfg)
+>  	if (fib_props[cfg->fc_type].scope > cfg->fc_scope)
+>  		goto err_inval;
+>  
+> +	if (cfg->fc_flags & (RTNH_F_DEAD | RTNH_F_LINKDOWN))
+> +		goto err_inval;
+> +
+>  #ifdef CONFIG_IP_ROUTE_MULTIPATH
+>  	if (cfg->fc_mp) {
+>  		nhs = fib_count_nexthops(cfg->fc_mp, cfg->fc_mp_len);
+> -- 
+> 1.9.3
+> 
