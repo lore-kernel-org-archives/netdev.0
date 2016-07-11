@@ -1,46 +1,64 @@
 From: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
-Subject: [PATCH 3/3] crypto: Added Chelsio Menu to the Kconfig file
-Date: Mon, 11 Jul 2016 11:28:08 -0700
-Message-ID: <1468261688-24525-4-git-send-email-yeshaswi@chelsio.com>
-References: <1468261688-24525-1-git-send-email-yeshaswi@chelsio.com>
+Subject: [PATCH 0/3] crypto/chcr: Add Chelsio Crypto Driver
+Date: Mon, 11 Jul 2016 11:28:05 -0700
+Message-ID: <1468261688-24525-1-git-send-email-yeshaswi@chelsio.com>
 Cc: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
 To: hariprasad@chelsio.com, netdev@vger.kernel.org,
 	linux-kernel@vger.kernel.org, herbert@gondor.apana.org.au,
 	davem@davemloft.net, linux-crypto@vger.kernel.org,
 	jlulla@chelsio.com, atul.gupta@chelsio.com, harsh@chelsio.com
-Return-path: <linux-crypto-owner@vger.kernel.org>
-In-Reply-To: <1468261688-24525-1-git-send-email-yeshaswi@chelsio.com>
-Sender: linux-crypto-owner@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Adds the config entry for the Chelsio Crypto Driver, Makefile changes
-for the same.
+Hi Herbert,
 
-Signed-off-by: Yeshaswi M R Gowda <yeshaswi@chelsio.com>
----
- drivers/crypto/Kconfig  |    2 ++
- drivers/crypto/Makefile |    1 +
- 2 files changed, 3 insertions(+)
+This patch series contains 3 patches that add support for Chelsio's
+Crypto Hardware.
 
-diff --git a/drivers/crypto/Kconfig b/drivers/crypto/Kconfig
-index d77ba2f..b44faf0 100644
---- a/drivers/crypto/Kconfig
-+++ b/drivers/crypto/Kconfig
-@@ -537,4 +537,6 @@ config CRYPTO_DEV_ROCKCHIP
- 	  This driver interfaces with the hardware crypto accelerator.
- 	  Supporting cbc/ecb chainmode, and aes/des/des3_ede cipher mode.
- 
-+source "drivers/crypto/chelsio/Kconfig"
-+
- endif # CRYPTO_HW
-diff --git a/drivers/crypto/Makefile b/drivers/crypto/Makefile
-index 3c6432d..ad7250f 100644
---- a/drivers/crypto/Makefile
-+++ b/drivers/crypto/Makefile
-@@ -31,3 +31,4 @@ obj-$(CONFIG_CRYPTO_DEV_QCE) += qce/
- obj-$(CONFIG_CRYPTO_DEV_VMX) += vmx/
- obj-$(CONFIG_CRYPTO_DEV_SUN4I_SS) += sunxi-ss/
- obj-$(CONFIG_CRYPTO_DEV_ROCKCHIP) += rockchip/
-+obj-$(CONFIG_CRYPTO_DEV_CHELSIO) += chelsio/
+The patch series has been created against Herbert Xu's tree (crypto-2.6).
+It includes patches for Chelsio Low Level Driver(cxgb4) and adds the new
+crypto Upper Layer Driver(chcr) under a new directory drivers/crypto/chelsio.
+
+The first of the patch series implements necessary changes in the Chelsio
+LLD for queue allocation, deallocation and registration of the ULD.
+
+The second patch implements the Chelsio crypto driver.
+
+The third patch contains the changes to the driver/crypto/Kconfig and
+drivers/crypto/Makefile to enable the Chelsio Crypto driver.
+
+We have included all the maintainers of respective drivers. Kindly
+review the changes and provide feedback on the same.
+
+Yeshaswi M R Gowda (3):
+  cxgb4: Add Chelsio LLD support Chelsio Crypto ULD
+  chcr: Support for Chelsio's Crypto Hardware
+  crypto: Added Chelsio Menu to the Kconfig file
+
+ drivers/crypto/Kconfig                          |    2 +
+ drivers/crypto/Makefile                         |    1 +
+ drivers/crypto/chelsio/Kconfig                  |   19 +
+ drivers/crypto/chelsio/Makefile                 |    4 +
+ drivers/crypto/chelsio/chcr_algo.c              | 1531 +++++++++++++++++++++++
+ drivers/crypto/chelsio/chcr_algo.h              |  502 ++++++++
+ drivers/crypto/chelsio/chcr_core.c              |  273 ++++
+ drivers/crypto/chelsio/chcr_core.h              |   85 ++
+ drivers/crypto/chelsio/chcr_crypto.h            |  255 ++++
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4.h      |   22 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c |   71 +-
+ drivers/net/ethernet/chelsio/cxgb4/cxgb4_uld.h  |   10 +
+ drivers/net/ethernet/chelsio/cxgb4/sge.c        |   64 +
+ drivers/net/ethernet/chelsio/cxgb4/t4_msg.h     |  437 +++++++
+ drivers/net/ethernet/chelsio/cxgb4/t4fw_api.h   |  125 ++
+ 15 files changed, 3393 insertions(+), 8 deletions(-)
+ create mode 100644 drivers/crypto/chelsio/Kconfig
+ create mode 100644 drivers/crypto/chelsio/Makefile
+ create mode 100644 drivers/crypto/chelsio/chcr_algo.c
+ create mode 100644 drivers/crypto/chelsio/chcr_algo.h
+ create mode 100644 drivers/crypto/chelsio/chcr_core.c
+ create mode 100644 drivers/crypto/chelsio/chcr_core.h
+ create mode 100644 drivers/crypto/chelsio/chcr_crypto.h
+
 -- 
 1.7.10.1
