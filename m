@@ -1,42 +1,40 @@
-From: Or Gerlitz <gerlitz.or@gmail.com>
-Subject: Re: [PATCH v7 00/11] Add driver bpf hook for early packet drop and forwarding
-Date: Tue, 12 Jul 2016 00:53:34 +0300
-Message-ID: <CAJ3xEMgVtqETM8XHt5gedAmKoBGwggnKDr3iWUeRYFtvQRfQEw@mail.gmail.com>
-References: <1468272598-21390-1-git-send-email-bblanco@plumgrid.com>
+From: <Mario_Limonciello@Dell.com>
+Subject: RE: [PATCH v6] r8152: Add support for setting pass through MAC
+ address on RTL8153-AD
+Date: Mon, 11 Jul 2016 21:54:07 +0000
+Message-ID: <5eecdffa7a5d4121bcd2682c64aa57b2@ausx13mpc124.AMER.DELL.COM>
+References: <201606141828.10969@pali>	<20160614164017.GB14477@kroah.com>
+	<201606141847.36109@pali>
+ <20160614.143521.2085426866285759820.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Brenden Blanco <bblanco@plumgrid.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f43.google.com ([209.85.218.43]:32905 "EHLO
-	mail-oi0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751042AbcGKVxf (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 17:53:35 -0400
-Received: by mail-oi0-f43.google.com with SMTP id u201so167512455oie.0
-        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 14:53:35 -0700 (PDT)
-In-Reply-To: <1468272598-21390-1-git-send-email-bblanco@plumgrid.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: <gregkh@linuxfoundation.org>, <andrew@lunn.ch>,
+	<hayeswang@realtek.com>, <linux-kernel@vger.kernel.org>,
+	<netdev@vger.kernel.org>, <linux-usb@vger.kernel.org>,
+	<anthony.wong@canonical.com>
+To: <davem@davemloft.net>, <pali.rohar@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 12, 2016 at 12:29 AM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+> David,
+> 
+> Did you have any more thoughts about this?  I'm happy to make some other
+> adjustments to the patch, if you have some recommendations.
 
-> v7:
-[...]
->  TODOs:
->  Add ethtool per-ring stats for aborted, default cases, maybe even drop
->  and tx as well.
+Hi,
 
-please no... lets stop and think if we can have something better vs
-every XDP enabled driver to have bunch of new ethtool based stats, was
-this somehow discussed over the threads so far?
+I just wanted to share that the maintenance BIOSes released for the Dell 
+platforms with Type-C this past week enables the MAC address pass 
+through feature in UEFI, so any network booted machines will offer
+the auxiliary MAC to the DHCP server.  In Windows a network booted
+machine will always use auxiliary MAC now.
+
+XPS 9350 (BIOS 1.4.4): http://goo.gl/7Sw2DZ
+
+Please let me know what else can be done for this patch to make it
+acceptable so we can have parity for Linux.
+
+Thanks,
