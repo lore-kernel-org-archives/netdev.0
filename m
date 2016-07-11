@@ -1,142 +1,89 @@
 From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next 1/2] devlink: add hardware messages tracing facility
-Date: Mon, 11 Jul 2016 15:18:47 +0200
-Message-ID: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
+Subject: [patch net-next 2/2] mlxsw: core: Trace EMAD messages
+Date: Mon, 11 Jul 2016 15:18:48 +0200
+Message-ID: <1468243128-6669-2-git-send-email-jiri@resnulli.us>
+References: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
 Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
 	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
 	ivecera@redhat.com, rostedt@goodmis.org, mingo@redhat.com,
 	jolsa@kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f67.google.com ([74.125.82.67]:34062 "EHLO
-	mail-wm0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751917AbcGKNSv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 09:18:51 -0400
-Received: by mail-wm0-f67.google.com with SMTP id w75so15700126wmd.1
-        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 06:18:50 -0700 (PDT)
+Received: from mail-wm0-f66.google.com ([74.125.82.66]:33092 "EHLO
+	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758775AbcGKNSx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 09:18:53 -0400
+Received: by mail-wm0-f66.google.com with SMTP id o80so4249259wme.0
+        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 06:18:52 -0700 (PDT)
+In-Reply-To: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Jiri Pirko <jiri@mellanox.com>
 
-Define a tracepoint and allow user to trace messages going to and from
-hardware associated with devlink instance.
+Trace EMAD messages going down to HW and up from HW. Devlink needs to be
+registered before EMAD init so the trace function can be called
+with valid devlink handle.
 
 Signed-off-by: Jiri Pirko <jiri@mellanox.com>
 ---
- include/net/devlink.h          |  8 +++++++
- include/trace/events/devlink.h | 49 ++++++++++++++++++++++++++++++++++++++++++
- net/core/devlink.c             |  9 ++++++++
- 3 files changed, 66 insertions(+)
- create mode 100644 include/trace/events/devlink.h
+ drivers/net/ethernet/mellanox/mlxsw/core.c | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
 
-diff --git a/include/net/devlink.h b/include/net/devlink.h
-index c99ffe8..865ade6 100644
---- a/include/net/devlink.h
-+++ b/include/net/devlink.h
-@@ -115,6 +115,8 @@ struct devlink *devlink_alloc(const struct devlink_ops *ops, size_t priv_size);
- int devlink_register(struct devlink *devlink, struct device *dev);
- void devlink_unregister(struct devlink *devlink);
- void devlink_free(struct devlink *devlink);
-+void devlink_trace_hwmsg(const struct devlink *devlink, bool incoming,
-+			 unsigned long type, const u8 *buf, size_t len);
- int devlink_port_register(struct devlink *devlink,
- 			  struct devlink_port *devlink_port,
- 			  unsigned int port_index);
-@@ -154,6 +156,12 @@ static inline void devlink_free(struct devlink *devlink)
- 	kfree(devlink);
- }
+diff --git a/drivers/net/ethernet/mellanox/mlxsw/core.c b/drivers/net/ethernet/mellanox/mlxsw/core.c
+index 01ae548..8042958 100644
+--- a/drivers/net/ethernet/mellanox/mlxsw/core.c
++++ b/drivers/net/ethernet/mellanox/mlxsw/core.c
+@@ -447,6 +447,10 @@ static int mlxsw_emad_transmit(struct mlxsw_core *mlxsw_core,
+ 	if (!skb)
+ 		return -ENOMEM;
  
-+static inline void devlink_trace_hwmsg(const struct devlink *devlink,
-+				       bool incoming, unsigned long type,
-+				       const u8 *buf, size_t len);
-+{
-+}
++	devlink_trace_hwmsg(priv_to_devlink(mlxsw_core), false, 0,
++			    skb->data + mlxsw_core->driver->txhdr_len,
++			    skb->len - mlxsw_core->driver->txhdr_len);
 +
- static inline int devlink_port_register(struct devlink *devlink,
- 					struct devlink_port *devlink_port,
- 					unsigned int port_index)
-diff --git a/include/trace/events/devlink.h b/include/trace/events/devlink.h
-new file mode 100644
-index 0000000..7918c57
---- /dev/null
-+++ b/include/trace/events/devlink.h
-@@ -0,0 +1,49 @@
-+#undef TRACE_SYSTEM
-+#define TRACE_SYSTEM devlink
-+
-+#if !defined(_TRACE_DEVLINK_H) || defined(TRACE_HEADER_MULTI_READ)
-+#define _TRACE_DEVLINK_H
-+
-+#include <linux/device.h>
-+#include <net/devlink.h>
-+#include <linux/tracepoint.h>
-+
-+/*
-+ * Tracepoint for devlink hardware message:
-+ */
-+TRACE_EVENT(devlink_hwmsg,
-+	TP_PROTO(const struct devlink *devlink, bool incoming,
-+		 unsigned long type, const u8 *buf, size_t len),
-+
-+	TP_ARGS(devlink, incoming, type, buf, len),
-+
-+	TP_STRUCT__entry(
-+		__string(bus_name, devlink->dev->bus->name)
-+		__string(dev_name, dev_name(devlink->dev))
-+		__string(owner_name, devlink->dev->driver->owner->name)
-+		__field(bool, incoming)
-+		__field(unsigned long, type)
-+		__dynamic_array(u8, buf, len)
-+		__field(size_t, len)
-+	),
-+
-+	TP_fast_assign(
-+		__assign_str(bus_name, devlink->dev->bus->name);
-+		__assign_str(dev_name, dev_name(devlink->dev));
-+		__assign_str(owner_name, devlink->dev->driver->owner->name);
-+		__entry->incoming = incoming;
-+		__entry->type = type;
-+		memcpy(__get_dynamic_array(buf), buf, len);
-+		__entry->len = len;
-+	),
-+
-+	TP_printk("bus_name=%s dev_name=%s owner_name=%s incoming=%d type=%lu buf=0x[%*phD] len=%lu",
-+		  __get_str(bus_name), __get_str(dev_name),
-+		  __get_str(owner_name), __entry->incoming, __entry->type,
-+		  (int) __entry->len, __get_dynamic_array(buf), __entry->len)
-+);
-+
-+#endif /* _TRACE_DEVLINK_H */
-+
-+/* This part must be outside protection */
-+#include <trace/define_trace.h>
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index b2e592a..8cfa3b0 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -26,6 +26,8 @@
- #include <net/net_namespace.h>
- #include <net/sock.h>
- #include <net/devlink.h>
-+#define CREATE_TRACE_POINTS
-+#include <trace/events/devlink.h>
+ 	atomic_set(&trans->active, 1);
+ 	err = mlxsw_core_skb_transmit(mlxsw_core, skb, &trans->tx_info);
+ 	if (err) {
+@@ -529,6 +533,9 @@ static void mlxsw_emad_rx_listener_func(struct sk_buff *skb, u8 local_port,
+ 	struct mlxsw_core *mlxsw_core = priv;
+ 	struct mlxsw_reg_trans *trans;
  
- static LIST_HEAD(devlink_list);
- 
-@@ -1679,6 +1681,13 @@ void devlink_free(struct devlink *devlink)
- }
- EXPORT_SYMBOL_GPL(devlink_free);
- 
-+void devlink_trace_hwmsg(const struct devlink *devlink, bool incoming,
-+			 unsigned long type, const u8 *buf, size_t len)
-+{
-+	trace_devlink_hwmsg(devlink, incoming, type, buf, len);
-+}
-+EXPORT_SYMBOL_GPL(devlink_trace_hwmsg);
++	devlink_trace_hwmsg(priv_to_devlink(mlxsw_core), true, 0,
++			    skb->data, skb->len);
 +
- /**
-  *	devlink_port_register - Register devlink port
-  *
+ 	if (!mlxsw_emad_is_resp(skb))
+ 		goto free_skb;
+ 
+@@ -1110,14 +1117,14 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
+ 	if (err)
+ 		goto err_emad_init;
+ 
+-	err = mlxsw_hwmon_init(mlxsw_core, mlxsw_bus_info, &mlxsw_core->hwmon);
+-	if (err)
+-		goto err_hwmon_init;
+-
+ 	err = devlink_register(devlink, mlxsw_bus_info->dev);
+ 	if (err)
+ 		goto err_devlink_register;
+ 
++	err = mlxsw_hwmon_init(mlxsw_core, mlxsw_bus_info, &mlxsw_core->hwmon);
++	if (err)
++		goto err_hwmon_init;
++
+ 	err = mlxsw_driver->init(mlxsw_core, mlxsw_bus_info);
+ 	if (err)
+ 		goto err_driver_init;
+@@ -1131,9 +1138,9 @@ int mlxsw_core_bus_device_register(const struct mlxsw_bus_info *mlxsw_bus_info,
+ err_debugfs_init:
+ 	mlxsw_core->driver->fini(mlxsw_core);
+ err_driver_init:
++err_hwmon_init:
+ 	devlink_unregister(devlink);
+ err_devlink_register:
+-err_hwmon_init:
+ 	mlxsw_emad_fini(mlxsw_core);
+ err_emad_init:
+ 	mlxsw_bus->fini(bus_priv);
 -- 
 2.5.5
