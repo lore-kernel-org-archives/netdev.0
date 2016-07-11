@@ -1,129 +1,105 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: Multi-thread udp 4.7 regression, bisected to 71d8c47fc653
-Date: Mon, 11 Jul 2016 18:26:42 +0200
-Message-ID: <20160711162642.GA5462@salvia>
-References: <CAB9dFduvE0dKzZ8Dm5RVVrUAq1Auvj8t9xXAyARGyO4NmowvYw@mail.gmail.com>
- <20160627142238.GA10613@breakpoint.cc>
- <CAB9dFds=qY=Dk++p7qVX7a8aOOH4wn0rtL3m4poO6HMQPuPrnA@mail.gmail.com>
- <20160627153820.GB10613@breakpoint.cc>
- <CAB9dFdvQ4UyKNMmOSx+FePyR0_Q425XLJRb_k5h+4JOSkQkf3w@mail.gmail.com>
- <CAB9dFds7KQxihReHhW9CXJeY9+=4BPema3ZawVA89U45QL5uBw@mail.gmail.com>
- <20160705122803.GA26862@salvia>
- <CAB9dFdv_ShA2cSez7Ut31XnW7OWufV59bfG-zN4Z0K3CgPvwuA@mail.gmail.com>
+From: Yuchung Cheng <ycheng@google.com>
+Subject: Re: [PATCH v2 net] tcp: make challenge acks less predictable
+Date: Mon, 11 Jul 2016 09:40:20 -0700
+Message-ID: <CAK6E8=cq1z4jAqjpFdNtbAH_MrcFds8m2PNEb0G5vaBN_TaZfw@mail.gmail.com>
+References: <1467995586.30694.34.camel@edumazet-glaptop3.roam.corp.google.com>
+ <CAPzkZjz1R_T8q75LXLBc91j7YrngxdPc-o2Hpz+4YYyoWLantA@mail.gmail.com>
+ <1468052160.30694.51.camel@edumazet-glaptop3.roam.corp.google.com> <1468137842.30694.58.camel@edumazet-glaptop3.roam.corp.google.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="YiEDa0DAkWCtVeE4"
-Cc: Florian Westphal <fw@strlen.de>, netdev <netdev@vger.kernel.org>,
-	Thorsten Leemhuis <regressions@leemhuis.info>,
-	netfilter-devel@vger.kernel.org
-To: Marc Dionne <marc.c.dionne@gmail.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Yue Cao <ycao009@ucr.edu>, David Miller <davem@davemloft.net>,
+	netdev <netdev@vger.kernel.org>,
+	Zhiyun Qian <zhiyunq@cs.ucr.edu>,
+	Linus Torvalds <torvalds@linux-foundation.org>,
+	NealCardwell <ncardwell@google.com>
+To: Eric Dumazet <eric.dumazet@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:44520 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753308AbcGKQ0v (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jul 2016 12:26:51 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id B81FC8D0511
-	for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 18:26:46 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 9BC029EBAE
-	for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 18:26:46 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 000029EBC1
-	for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 18:26:43 +0200 (CEST)
-Content-Disposition: inline
-In-Reply-To: <CAB9dFdv_ShA2cSez7Ut31XnW7OWufV59bfG-zN4Z0K3CgPvwuA@mail.gmail.com>
+Received: from mail-io0-f180.google.com ([209.85.223.180]:32964 "EHLO
+	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751486AbcGKQlB (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 12:41:01 -0400
+Received: by mail-io0-f180.google.com with SMTP id 38so11550031iol.0
+        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 09:41:01 -0700 (PDT)
+In-Reply-To: <1468137842.30694.58.camel@edumazet-glaptop3.roam.corp.google.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
+On Sun, Jul 10, 2016 at 1:04 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
+> From: Eric Dumazet <edumazet@google.com>
+>
+> Yue Cao claims that current host rate limiting of challenge ACKS
+> (RFC 5961) could leak enough information to allow a patient attacker
+> to hijack TCP sessions. He will soon provide details in an academic
+> paper.
+>
+> This patch increases the default limit from 100 to 1000, and adds
+> some randomization so that the attacker can no longer hijack
+> sessions without spending a considerable amount of probes.
+>
+> Based on initial analysis and patch from Linus.
+>
+> Note that we also have per socket rate limiting, so it is tempting
+> to remove the host limit in the future.
+>
+> v2: randomize the count of challenge acks per second, not the period.
+>
+> Fixes: 282f23c6ee34 ("tcp: implement RFC 5961 3.2")
+> Reported-by: Yue Cao <ycao009@ucr.edu>
+> Signed-off-by: Eric Dumazet <edumazet@google.com>
+> Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
+> Cc: Yuchung Cheng <ycheng@google.com>
+> Cc: Neal Cardwell <ncardwell@google.com>
+> ---
+Acked-by: Yuchung Cheng <ycheng@google.com>
 
---YiEDa0DAkWCtVeE4
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Nice fix. I like v2 a lot.
 
-On Sun, Jul 10, 2016 at 04:48:26PM -0300, Marc Dionne wrote:
-> An update here since I've had some interactions with Pablo off list.
-> 
-> Further testing shows that the underlying cause of the different test
-> results is a udp packet that has a bogus source port number.  In the
-> test the server process tries to send an ack to the bogus port and the
-> flow is disrupted.
-> 
-> Notes:
-> - The packet with the bad source port is from a sendmsg() call that
-> has hit the connection tracker clash code introduced by 71d8c47fc653
-> - Packets are successfully sent after the bad one, from the same
-> socket, with the correct source port number
-> - The problem does not reproduce with 71d8c47fc653 reverted, or
-> without nf_conntrack loaded
-> - The bogus port numbers start at 1024, bumping up by 1 every few
-> times the problem occurs (1025, 1026, etc.)
-> - The patch above does not change the behaviour
-> - Enabling lockdep does not show anything
-> 
-> Our workaround for the original race was to retry sendmsg() once on
-> EPERM errors, and that had been effective.
-> I can trigger the insertion clash easily with some simple test code,
-> but I have not been able so far to reproduce the packets with bad
-> source port numbers with some simpler code that I could share.
-
-The NAT nul-binding is triggering the source port mangling, even if
-there is no NAT rules in place. The following patch skips the clash
-resolution for NAT by now since we don't see a simple solution for
-this case at the moment.
-
-Could you give a try to this patch in these two cases?
-
-1) No NAT in place: Make sure iptable_nat module is not there. Or if
-   you're using nf_tables, just make sure you have no nat chains at
-   all.
-
-2) With NAT in place, you hit back the EPERM errors that you've
-   observed so far.
-
-Please, test both scenarios and report back. Thanks.
-
---YiEDa0DAkWCtVeE4
-Content-Type: text/x-diff; charset=us-ascii
-Content-Disposition: attachment; filename="0001-netfilter-conntrack-skip-clash-resolution-if-nat-is-.patch"
-
->From c3b9dfbcf35ea38a3dce22daf7450fc23c620aea Mon Sep 17 00:00:00 2001
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Date: Mon, 11 Jul 2016 17:28:54 +0200
-Subject: [PATCH] netfilter: conntrack: skip clash resolution if nat is in
- place
-
-The clash resolution is not easy to apply if the NAT table is
-registered. Even if no NAT rules are installed, the nul-binding ensures
-that a unique tuple is used, thus, the packet that loses race gets a
-different source port number, as described by:
-
-http://marc.info/?l=netfilter-devel&m=146818011604484&w=2
-
-Clash resolution with NAT is also problematic if addresses/port range
-ports are used since the conntrack that wins race may describe a
-different mangling that we may have earlier applied to the packet via
-nf_nat_setup_info().
-
-Fixes: 71d8c47fc653 ("netfilter: conntrack: introduce clash resolution on insertion race")
-Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
----
- net/netfilter/nf_conntrack_core.c | 1 +
- 1 file changed, 1 insertion(+)
-
-diff --git a/net/netfilter/nf_conntrack_core.c b/net/netfilter/nf_conntrack_core.c
-index e0e9c9a..2b0f80a 100644
---- a/net/netfilter/nf_conntrack_core.c
-+++ b/net/netfilter/nf_conntrack_core.c
-@@ -657,6 +657,7 @@ static int nf_ct_resolve_clash(struct net *net, struct sk_buff *skb,
- 
- 	l4proto = __nf_ct_l4proto_find(nf_ct_l3num(ct), nf_ct_protonum(ct));
- 	if (l4proto->allow_clash &&
-+	    !nfct_nat(ct) &&
- 	    !nf_ct_is_dying(ct) &&
- 	    atomic_inc_not_zero(&ct->ct_general.use)) {
- 		nf_ct_acct_merge(ct, ctinfo, (struct nf_conn *)skb->nfct);
--- 
-2.1.4
-
-
---YiEDa0DAkWCtVeE4--
+>  net/ipv4/tcp_input.c |   15 ++++++++++-----
+>  1 file changed, 10 insertions(+), 5 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+> index d6c8f4cd0800..91868bb17818 100644
+> --- a/net/ipv4/tcp_input.c
+> +++ b/net/ipv4/tcp_input.c
+> @@ -87,7 +87,7 @@ int sysctl_tcp_adv_win_scale __read_mostly = 1;
+>  EXPORT_SYMBOL(sysctl_tcp_adv_win_scale);
+>
+>  /* rfc5961 challenge ack rate limiting */
+> -int sysctl_tcp_challenge_ack_limit = 100;
+> +int sysctl_tcp_challenge_ack_limit = 1000;
+>
+>  int sysctl_tcp_stdurg __read_mostly;
+>  int sysctl_tcp_rfc1337 __read_mostly;
+> @@ -3458,7 +3458,7 @@ static void tcp_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
+>         static u32 challenge_timestamp;
+>         static unsigned int challenge_count;
+>         struct tcp_sock *tp = tcp_sk(sk);
+> -       u32 now;
+> +       u32 count, now;
+>
+>         /* First check our per-socket dupack rate limit. */
+>         if (tcp_oow_rate_limited(sock_net(sk), skb,
+> @@ -3466,13 +3466,18 @@ static void tcp_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
+>                                  &tp->last_oow_ack_time))
+>                 return;
+>
+> -       /* Then check the check host-wide RFC 5961 rate limit. */
+> +       /* Then check host-wide RFC 5961 rate limit. */
+>         now = jiffies / HZ;
+>         if (now != challenge_timestamp) {
+> +               u32 half = (sysctl_tcp_challenge_ack_limit + 1) >> 1;
+> +
+>                 challenge_timestamp = now;
+> -               challenge_count = 0;
+> +               WRITE_ONCE(challenge_count, half +
+> +                          prandom_u32_max(sysctl_tcp_challenge_ack_limit));
+>         }
+> -       if (++challenge_count <= sysctl_tcp_challenge_ack_limit) {
+> +       count = READ_ONCE(challenge_count);
+> +       if (count > 0) {
+> +               WRITE_ONCE(challenge_count, count - 1);
+>                 NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPCHALLENGEACK);
+>                 tcp_send_ack(sk);
+>         }
+>
+>
