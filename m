@@ -1,34 +1,45 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] Revert "net: ethernet: bcmgenet: use
- phy_ethtool_{get|set}_link_ksettings"
-Date: Mon, 11 Jul 2016 12:57:33 -0700 (PDT)
-Message-ID: <20160711.125733.1619512909014032205.davem@davemloft.net>
-References: <1468018487-8102-1-git-send-email-tremyfr@gmail.com>
+From: Edward Cree <ecree@solarflare.com>
+Subject: Re: [PATCH net] tcp_timer.c: Add kernel-doc function descriptions
+Date: Mon, 11 Jul 2016 20:59:39 +0100
+Message-ID: <61a5fef9-a68d-9569-056c-b45cf831c53f@solarflare.com>
+References: <1468011506-358-1-git-send-email-richard@weltraumpflege.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: tremyfr@gmail.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468018487-8102-1-git-send-email-tremyfr@gmail.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: <kuznet@ms2.inr.ac.ru>, <jmorris@namei.org>
+To: Richard Sailer <richard@weltraumpflege.org>,
+	<netdev@vger.kernel.org>, <davem@davemloft.net>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from nbfkord-smmo01.seg.att.com ([209.65.160.76]:23119 "EHLO
+	nbfkord-smmo01.seg.att.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751051AbcGKT7w (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 15:59:52 -0400
+In-Reply-To: <1468011506-358-1-git-send-email-richard@weltraumpflege.org>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Philippe Reynes <tremyfr@gmail.com>
-Date: Sat,  9 Jul 2016 00:54:47 +0200
-
-> This reverts commit 4386f5662e63 ("net: ethernet: bcmgenet: use
-> phy_ethtool_{get|set}_link_ksettings")
-> 
-> This patch is wrong, the function phy_ethtool_{get|set}_link_ksettings
-> don't check if the device is running, but the driver bcmgenet need this
-> check.
-> 
-> The function {get|set}_settings need to access the mdio bus, and this
-> bus may only be used when the device is running. Otherwise, the clock
-> is disable and a mdio access will fail.
-> 
-> Signed-off-by: Philippe Reynes <tremyfr@gmail.com>
-
-Applied.
+On 08/07/16 21:58, Richard Sailer wrote:
+> This adds kernel-doc style descriptions for 6 functions and
+> fixes 1 typo.
+>
+> Signed-off-by: Richard Sailer <richard@weltraumpflege.org>
+> ---
+>  net/ipv4/tcp_timer.c | 66 +++++++++++++++++++++++++++++++++++++++++++++-------
+>  1 file changed, 57 insertions(+), 9 deletions(-)
+>
+> diff --git a/net/ipv4/tcp_timer.c b/net/ipv4/tcp_timer.c
+> index debdd8b..bdccd67 100644
+> --- a/net/ipv4/tcp_timer.c
+> +++ b/net/ipv4/tcp_timer.c
+> @@ -350,10 +389,18 @@ static void tcp_fastopen_synack_timer(struct sock *sk)
+>  			  TCP_TIMEOUT_INIT << req->num_timeout, TCP_RTO_MAX);
+>  }
+>  
+> -/*
+> - *	The TCP retransmit timer.
+> - */
+>  
+> +/**
+> + * tcp_retransmit_timer() - The TCP retransmit timout handler.
+"timeout"
+-Ed
