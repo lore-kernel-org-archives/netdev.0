@@ -1,65 +1,50 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: [net-next PATCH RFC] mlx4: RX prefetch loop
-Date: Mon, 11 Jul 2016 16:05:11 -0700
-Message-ID: <20160711230509.GA45195@ast-mbp.thefacebook.com>
-References: <20160708172024.4a849b7a@redhat.com>
- <20160708160135.27507.77711.stgit@firesoul>
- <20160711130922.636ee4e6@redhat.com>
+From: Tom Herbert <tom@herbertland.com>
+Subject: Re: [PATCH v7 00/11] Add driver bpf hook for early packet drop and forwarding
+Date: Mon, 11 Jul 2016 16:26:36 -0700
+Message-ID: <CALx6S36=Cqtte2Eer0VF-_4ki7Z-xk_2jgw4xXCvRGLb7gGbxg@mail.gmail.com>
+References: <1468272598-21390-1-git-send-email-bblanco@plumgrid.com> <CAJ3xEMgVtqETM8XHt5gedAmKoBGwggnKDr3iWUeRYFtvQRfQEw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, kafai@fb.com, daniel@iogearbox.net,
-	tom@herbertland.com, bblanco@plumgrid.com,
-	john.fastabend@gmail.com, gerlitz.or@gmail.com,
-	hannes@stressinduktion.org, rana.shahot@gmail.com, tgraf@suug.ch,
-	"David S. Miller" <davem@davemloft.net>, as754m@att.com,
-	saeedm@mellanox.com, amira@mellanox.com, tzahio@mellanox.com,
-	Eric Dumazet <eric.dumazet@gmail.com>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
+Content-Type: text/plain; charset=UTF-8
+Cc: Brenden Blanco <bblanco@plumgrid.com>,
+	David Miller <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Or Gerlitz <gerlitz.or@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f177.google.com ([209.85.192.177]:34649 "EHLO
-	mail-pf0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751200AbcGKXFQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 19:05:16 -0400
-Received: by mail-pf0-f177.google.com with SMTP id h14so40300447pfe.1
-        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 16:05:16 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160711130922.636ee4e6@redhat.com>
+Received: from mail-it0-f51.google.com ([209.85.214.51]:32814 "EHLO
+	mail-it0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751580AbcGKX0i (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 19:26:38 -0400
+Received: by mail-it0-f51.google.com with SMTP id f6so483231ith.0
+        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 16:26:37 -0700 (PDT)
+In-Reply-To: <CAJ3xEMgVtqETM8XHt5gedAmKoBGwggnKDr3iWUeRYFtvQRfQEw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 11, 2016 at 01:09:22PM +0200, Jesper Dangaard Brouer wrote:
-> > -	/* Process all completed CQEs */
-> > +	/* Extract and prefetch completed CQEs */
-> >  	while (XNOR(cqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK,
-> >  		    cq->mcq.cons_index & cq->size)) {
-> > +		void *data;
-> >  
-> >  		frags = ring->rx_info + (index << priv->log_rx_info);
-> >  		rx_desc = ring->buf + (index << ring->log_stride);
-> > +		prefetch(rx_desc);
-> >  
-> >  		/*
-> >  		 * make sure we read the CQE after we read the ownership bit
-> >  		 */
-> >  		dma_rmb();
-> >  
-> > +		cqe_array[cqe_idx++] = cqe;
-> > +
-> > +		/* Base error handling here, free handled in next loop */
-> > +		if (unlikely((cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) ==
-> > +			     MLX4_CQE_OPCODE_ERROR))
-> > +			goto skip;
-> > +
-> > +		data = page_address(frags[0].page) + frags[0].page_offset;
-> > +		prefetch(data);
+On Mon, Jul 11, 2016 at 2:53 PM, Or Gerlitz <gerlitz.or@gmail.com> wrote:
+> On Tue, Jul 12, 2016 at 12:29 AM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+>
+>> v7:
+> [...]
+>>  TODOs:
+>>  Add ethtool per-ring stats for aborted, default cases, maybe even drop
+>>  and tx as well.
+>
+> please no... lets stop and think if we can have something better vs
+> every XDP enabled driver to have bunch of new ethtool based stats, was
+> this somehow discussed over the threads so far?
 
-that's probably not correct in all cases, since doing prefetch on the address
-that is going to be evicted soon may hurt performance.
-We need to dma_sync_single_for_cpu() before doing a prefetch or
-somehow figure out that dma_sync is a nop, so we can omit it altogether
-and do whatever prefetches we like.
-Also unconditionally doing batch of 8 may also hurt depending on what
-is happening either with the stack, bpf afterwards or even cpu version.
-Doing single prefetch of Nth packet is probably ok most of the time,
-but asking cpu to prefetch 8 packets at once is unnecessary especially
-since single prefetch gives the same performance.
+We'll also need to consider statistics what statistics a device keeps
+and how they are exposed when the device offloads XDP, and also the
+possibility that the BPF program itself might keep its own stats.
+
+Tom
