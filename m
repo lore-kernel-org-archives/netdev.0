@@ -1,118 +1,67 @@
-From: Dongpo Li <lidongpo@hisilicon.com>
-Subject: Re: [PATCH 3/3] net: hisilicon: Add Fast Ethernet MAC driver
-Date: Mon, 11 Jul 2016 16:33:46 +0800
-Message-ID: <578359EA.3060407@hisilicon.com>
-References: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com>
- <4787248.HAfgOdBKVY@wuerfel> <57831617.6080506@hisilicon.com>
- <6408034.HDp0l1gLKO@wuerfel>
+From: "Wei Hu (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Subject: Re: [PATCH v11 00/22] Add HiSilicon RoCE driver
+Date: Mon, 11 Jul 2016 17:38:39 +0800
+Message-ID: <5783691F.6060203@huawei.com>
+References: <1467452364-66522-1-git-send-email-oulijun@huawei.com>
+ <577F16C1.8090705@huawei.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"
-Content-Transfer-Encoding: 7bit
-Cc: <f.fainelli@gmail.com>, <robh+dt@kernel.org>,
-	<mark.rutland@arm.com>, <davem@davemloft.net>,
-	<xuejiancheng@hisilicon.com>, <netdev@vger.kernel.org>,
-	<devicetree@vger.kernel.org>, <linux-kernel@vger.kernel.org>
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <6408034.HDp0l1gLKO@wuerfel>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <577F16C1.8090705-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
+Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
 
 
-On 2016/7/11 16:16, Arnd Bergmann wrote:
-> On Monday, July 11, 2016 11:44:23 AM CEST Dongpo Li wrote:
->> Hi Arnd,
+On 2016/7/8 10:58, oulijun wrote:
+> =E5=9C=A8 2016/7/2 17:39, Lijun Ou =E5=86=99=E9=81=93:
+>> The HiSilicon Network Substem is a long term evolution IP which is
+>> supposed to be used in HiSilicon ICT SoCs. HNS (HiSilicon Network
+>> Sybsystem) also has a hardware support of performing RDMA with
+>> RoCEE.
+>> The driver for HiSilicon RoCEE(RoCE Engine) is a platform driver and
+>> will support mulitple versions of SOCs in future. This version of dr=
+iver
+>> is meant to support Hip06 SoC(which confirms to RoCEv1 hardware
+>> specifications).
 >>
->> On 2016/6/28 17:34, Arnd Bergmann wrote:
->>> On Tuesday, June 28, 2016 5:21:19 PM CEST Dongpo Li wrote:
->>>> On 2016/6/15 5:20, Arnd Bergmann wrote:
->>>>> On Tuesday, June 14, 2016 9:17:44 PM CEST Li Dongpo wrote:
->>>>>> On 2016/6/13 17:06, Arnd Bergmann wrote:
->>>>>>> On Monday, June 13, 2016 2:07:56 PM CEST Dongpo Li wrote:
->>>>>>> You tx function uses BQL to optimize the queue length, and that
->>>>>>> is great. You also check xmit reclaim for rx interrupts, so
->>>>>>> as long as you have both rx and tx traffic, this should work
->>>>>>> great.
->>>>>>>
->>>>>>> However, I notice that you only have a 'tx fifo empty'
->>>>>>> interrupt triggering the napi poll, so I guess on a tx-only
->>>>>>> workload you will always end up pushing packets into the
->>>>>>> queue until BQL throttles tx, and then get the interrupt
->>>>>>> after all packets have been sent, which will cause BQL to
->>>>>>> make the queue longer up to the maximum queue size, and that
->>>>>>> negates the effect of BQL.
->>>>>>>
->>>>>>> Is there any way you can get a tx interrupt earlier than
->>>>>>> this in order to get a more balanced queue, or is it ok
->>>>>>> to just rely on rx packets to come in occasionally, and
->>>>>>> just use the tx fifo empty interrupt as a fallback?
->>>>>>>
->>>>>> In tx direction, there are only two kinds of interrupts, 'tx fifo empty'
->>>>>> and 'tx one packet finish'. I didn't use 'tx one packet finish' because
->>>>>> it would lead to high hardware interrupts rate. This has been verified in
->>>>>> our chips. It's ok to just use tx fifo empty interrupt.
->>>>>
->>>>> I'm not convinced by the explanation, I don't think that has anything
->>>>> to do with the hardware design, but instead is about the correctness
->>>>> of the BQL logic with your driver.
->>>>>
->>>>> Maybe your xmit function can do something like
->>>>>
->>>>>       if (dql_avail(netdev_get_tx_queue(dev, 0)->dql) < 0)
->>>>>               enable per-packet interrupt
->>>>>       else
->>>>>               use only fifo-empty interrupt
->>>>>
->>>>> That way, you don't get a lot of interrupts when the system is
->>>>> in a state of packets being received and sent continuously,
->>>>> but if you get to the point where your tx queue fills up
->>>>> and no rx interrupts arrive, you don't have to wait for it
->>>>> to become completely empty before adding new packets, and
->>>>> BQL won't keep growing the queue.
->>>>>
->>>> Hi, Arnd
->>>> I tried enable per-packet interrupt when tx queue full in xmit function
->>>> and disable it in NAPI poll. But the number of interrupts are a little
->>>> bigger than only using fifo-empty interrupt.
->>>
->>> Right, I'd expect that to be the case, it basically means that the
->>> algorithm works as expected.
->>>
->>> Just to be sure you didn't have extra interrupts: you only enable the
->>> per-packet interrupts if interrupts are currently enabled, not in
->>> NAPI polling mode, right?
->>>
->> Sorry so long to reply to you. I use the per-packet interrupt like this:
->> In my xmit function,
->> 	if (hardware tx fifo is full) {
->> 		enable tx per-packet interrupt;
->> 		netif_stop_queue(dev);
->> 		return NETDEV_TX_BUSY;
->> 	}
+>> Changes v10 -> v11:
+>> [1/22]:
+>> 1. modify the print description of chip don't support roce
+>> 2. remove explicit values for enums for patch series
+>> [3/22]:
+>> 3. remove non-essential headers for patch series
+<...>
 >>
->> In interrupt handle function,
->> 	if (interrupt is tx per-packet or tx fifo-empty or rx) {
->> 		disable tx per-packet interrupt;
->> 		napi_schedule(&priv->napi);
->> 	}
->> We disable tx per-packet interrupt anyway because the NAPI poll will reclaim
->> the tx fifo.
->> When the NAPI poll completed, it will only enable the tx fifo-empty interrupt
->> and rx interrupt except the tx per-packet interrupt.
->>
->> Is this solution okay?
-> 
-> Yes, this looks good to me.
-> 
-Okay, many thanks for your review.
+> Hi, Doug
+> We have modified Patch v10 to Patch v11 according to all the reviews =
+from Leon Romanovsky, and Patch v11 has been upstreamed,
+> hopefully, there will be more reviews.
+> Best Regards,
+>
+> Lijun Ou
+Hi, Doug Ledford
 
-> 	Arnd
-> 
-> .
-> 
+     Have you got any time to look at this patchset? Any feedback /=20
+comment ?
 
-    Regards,
-    Dongpo
+Many thanks
+Wei Hu
+> _______________________________________________
+> linuxarm mailing list
+> linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
+> http://rnd-openeuler.huawei.com/mailman/listinfo/linuxarm
 
-.
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
+n
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
