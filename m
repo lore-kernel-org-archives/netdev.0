@@ -1,85 +1,63 @@
-From: Andy Lutomirski <luto@kernel.org>
-Subject: [PATCH] virtio-net: Remove more stack DMA
-Date: Mon, 11 Jul 2016 14:30:28 -0700
-Message-ID: <1ff8c3e69b8d4f1ad717affa073b279a74ee4309.1468272497.git.luto@kernel.org>
-Cc: Andy Lutomirski <luto@kernel.org>,
-	"Michael S . Tsirkin" <mst@redhat.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
-To: x86@kernel.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+From: David Miller <davem@davemloft.net>
+Subject: Re: [net-next:master 1118/1134]
+ drivers/net/dsa/b53/b53_srab.c:388:20: warning: cast from pointer to
+ integer of different size
+Date: Mon, 11 Jul 2016 14:31:25 -0700 (PDT)
+Message-ID: <20160711.143125.685534519604579905.davem@davemloft.net>
+References: <201607120549.q93JxhcC%fengguang.wu@intel.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kbuild-all@01.org, netdev@vger.kernel.org, f.fainelli@gmail.com
+To: fengguang.wu@intel.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:60962 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752036AbcGKVb1 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 17:31:27 -0400
+In-Reply-To: <201607120549.q93JxhcC%fengguang.wu@intel.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-VLAN and MQ control was doing DMA from the stack.  Fix it.
+From: kbuild test robot <fengguang.wu@intel.com>
+Date: Tue, 12 Jul 2016 05:19:57 +0800
 
-Cc: Michael S. Tsirkin <mst@redhat.com>
-Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>
-Signed-off-by: Andy Lutomirski <luto@kernel.org>
+> All warnings (new ones prefixed by >>):
+> 
+>    drivers/net/dsa/b53/b53_srab.c: In function 'b53_srab_probe':
+>>> drivers/net/dsa/b53/b53_srab.c:388:20: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
+>       pdata->chip_id = (u32)of_id->data;
+>                        ^
+> 
+
+Fixed as follows:
+
+====================
+[PATCH] b53: Fix build warning.
+
+   drivers/net/dsa/b53/b53_srab.c: In function 'b53_srab_probe':
+>> drivers/net/dsa/b53/b53_srab.c:388:20: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
+      pdata->chip_id = (u32)of_id->data;
+                       ^
+
+Reported-by: kbuild test robot <fengguang.wu@intel.com>
+Signed-off-by: David S. Miller <davem@davemloft.net>
 ---
+ drivers/net/dsa/b53/b53_srab.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-I tested VLAN addition and removal with CONFIG_VMAP_STACK=y,
-CONFIG_DEBUG_SG=y and it got rid of the warnings I saw.  I haven't
-tested the MQ part because I don't know how to enable it in the first
-place (I'm guessing it needs me to enable some QEMU feature I don't
-know about.)
-
-Michael, can you double-check this? DaveM, is it okay for this to go
-in via -tip?
-
- drivers/net/virtio_net.c | 13 ++++++++-----
- 1 file changed, 8 insertions(+), 5 deletions(-)
-
-diff --git a/drivers/net/virtio_net.c b/drivers/net/virtio_net.c
-index e0638e556fe7..5044ca37d725 100644
---- a/drivers/net/virtio_net.c
-+++ b/drivers/net/virtio_net.c
-@@ -144,8 +144,10 @@ struct virtnet_info {
- 	/* Control VQ buffers: protected by the rtnl lock */
- 	struct virtio_net_ctrl_hdr ctrl_hdr;
- 	virtio_net_ctrl_ack ctrl_status;
-+	struct virtio_net_ctrl_mq ctrl_mq;
- 	u8 ctrl_promisc;
- 	u8 ctrl_allmulti;
-+	u16 ctrl_vid;
+diff --git a/drivers/net/dsa/b53/b53_srab.c b/drivers/net/dsa/b53/b53_srab.c
+index 2b304ea..3e2d4a5 100644
+--- a/drivers/net/dsa/b53/b53_srab.c
++++ b/drivers/net/dsa/b53/b53_srab.c
+@@ -393,7 +393,7 @@ static int b53_srab_probe(struct platform_device *pdev)
+ 		if (!pdata)
+ 			return -ENOMEM;
  
- 	/* Ethtool settings */
- 	u8 duplex;
-@@ -1116,14 +1118,13 @@ static void virtnet_ack_link_announce(struct virtnet_info *vi)
- static int virtnet_set_queues(struct virtnet_info *vi, u16 queue_pairs)
- {
- 	struct scatterlist sg;
--	struct virtio_net_ctrl_mq s;
- 	struct net_device *dev = vi->dev;
+-		pdata->chip_id = (u32)of_id->data;
++		pdata->chip_id = (u32)(unsigned long)of_id->data;
+ 	}
  
- 	if (!vi->has_cvq || !virtio_has_feature(vi->vdev, VIRTIO_NET_F_MQ))
- 		return 0;
- 
--	s.virtqueue_pairs = cpu_to_virtio16(vi->vdev, queue_pairs);
--	sg_init_one(&sg, &s, sizeof(s));
-+	vi->ctrl_mq.virtqueue_pairs = cpu_to_virtio16(vi->vdev, queue_pairs);
-+	sg_init_one(&sg, &vi->ctrl_mq, sizeof(vi->ctrl_mq));
- 
- 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_MQ,
- 				  VIRTIO_NET_CTRL_MQ_VQ_PAIRS_SET, &sg)) {
-@@ -1230,7 +1231,8 @@ static int virtnet_vlan_rx_add_vid(struct net_device *dev,
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	struct scatterlist sg;
- 
--	sg_init_one(&sg, &vid, sizeof(vid));
-+	vi->ctrl_vid = vid;
-+	sg_init_one(&sg, &vi->ctrl_vid, sizeof(vi->ctrl_vid));
- 
- 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
- 				  VIRTIO_NET_CTRL_VLAN_ADD, &sg))
-@@ -1244,7 +1246,8 @@ static int virtnet_vlan_rx_kill_vid(struct net_device *dev,
- 	struct virtnet_info *vi = netdev_priv(dev);
- 	struct scatterlist sg;
- 
--	sg_init_one(&sg, &vid, sizeof(vid));
-+	vi->ctrl_vid = vid;
-+	sg_init_one(&sg, &vi->ctrl_vid, sizeof(vi->ctrl_vid));
- 
- 	if (!virtnet_send_command(vi, VIRTIO_NET_CTRL_VLAN,
- 				  VIRTIO_NET_CTRL_VLAN_DEL, &sg))
+ 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
 -- 
-2.7.4
+2.1.0
