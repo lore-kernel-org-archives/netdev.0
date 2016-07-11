@@ -1,7 +1,8 @@
 From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH v7 00/11] Add driver bpf hook for early packet drop and forwarding
-Date: Mon, 11 Jul 2016 14:29:47 -0700
-Message-ID: <1468272598-21390-1-git-send-email-bblanco@plumgrid.com>
+Subject: [PATCH v7 03/11] rtnl: add option for setting link xdp prog
+Date: Mon, 11 Jul 2016 14:29:50 -0700
+Message-ID: <1468272598-21390-4-git-send-email-bblanco@plumgrid.com>
+References: <1468272598-21390-1-git-send-email-bblanco@plumgrid.com>
 Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
 	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
@@ -15,172 +16,172 @@ Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33220 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751157AbcGKVaI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 17:30:08 -0400
-Received: by mail-pa0-f44.google.com with SMTP id ks6so13355829pab.0
-        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 14:30:08 -0700 (PDT)
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:35575 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751157AbcGKVaM (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 17:30:12 -0400
+Received: by mail-pa0-f50.google.com with SMTP id dx3so38309377pab.2
+        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 14:30:12 -0700 (PDT)
+In-Reply-To: <1468272598-21390-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-This patch set introduces new infrastructure for programmatically
-processing packets in the earliest stages of rx, as part of an effort
-others are calling eXpress Data Path (XDP) [1]. Start this effort by
-introducing a new bpf program type for early packet filtering, before
-even an skb has been allocated.
+Sets the bpf program represented by fd as an early filter in the rx path
+of the netdev. The fd must have been created as BPF_PROG_TYPE_XDP.
+Providing a negative value as fd clears the program. Getting the fd back
+via rtnl is not possible, therefore reading of this value merely
+provides a bool whether the program is valid on the link or not.
 
-Extend on this with the ability to modify packet data and send back out
-on the same port.
+Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+---
+ include/uapi/linux/if_link.h | 12 +++++++++
+ net/core/rtnetlink.c         | 64 ++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 76 insertions(+)
 
-Patch 1 introduces the new prog type and helpers for validating the bpf
-  program. A new userspace struct is defined containing only data and
-  data_end as fields, with others to follow in the future.
-In patch 2, create a new ndo to pass the fd to supported drivers.
-In patch 3, expose a new rtnl option to userspace.
-In patch 4, enable support in mlx4 driver.
-In patch 5, create a sample drop and count program. With single core,
-  achieved ~20 Mpps drop rate on a 40G ConnectX3-Pro. This includes
-  packet data access, bpf array lookup, and increment.
-In patch 6, add a page recycle facility to mlx4 rx, enabled when xdp is
-  active.
-In patch 7, add the XDP_TX type to bpf.h
-In patch 8, add helper in tx patch for writing tx_desc
-In patch 9, add support in mlx4 for packet data write and forwarding
-In patch 10, turn on packet write support in the bpf verifier
-In patch 11, add a sample program for packet write and forwarding. With
-  single core, achieved ~10 Mpps rewrite and forwarding.
-
-[1] https://github.com/iovisor/bpf-docs/blob/master/Express_Data_Path.pdf
-
-v7:
- Addressing two of the major discussion points: return codes and ndo.
- The rest will be taken as todo items for separate patches.
-
- Add an XDP_ABORTED type, which explicitly falls through to DROP. The
- same result must be taken for the default case as well, as it is now
- well-defined API behavior.
-
- Merge ndo_xdp_* into a single ndo. The style is similar to
- ndo_setup_tc, but with less unidirectional naming convention. The IFLA
- parameter names are unchanged.
-
- TODOs:
- Add ethtool per-ring stats for aborted, default cases, maybe even drop
- and tx as well.
- Avoid duplicate dma sync operation in XDP_PASS case as mentioned by
- Saeed.
-
-  1/12: Add XDP_ABORTED enum, reword API comment, and update commit
-   message.
-  2/12: Rewrite ndo_xdp_*() into single ndo_xdp() with type/union style
-    calling convention.
-  3/12: Switch to ndo_xdp callback.
-  4/12: Add XDP_ABORTED case as a fall-through to XDP_DROP. Implement
-    ndo_xdp.
- 12/12: Dropped, this will need some more work.
-
-v6:
-  2/12: drop unnecessary netif_device_present check
-  4/12, 6/12, 9/12: Reorder default case statement above drop case to
-    remove some copy/paste.
-
-v5:
-  0/12: Rebase and remove previous 1/13 patch
-  1/12: Fix nits from Daniel. Left the (void *) cast as-is, to be fixed
-    in future. Add bpf_warn_invalid_xdp_action() helper, to be used when
-    out of bounds action is returned by the program. Add a comment to
-    bpf.h denoting the undefined nature of out of bounds returns.
-  2/12: Switch to using bpf_prog_get_type(). Rename ndo_xdp_get() to
-    ndo_xdp_attached().
-  3/12: Add IFLA_XDP as a nested type, and add the associated nla_policy
-    for the new subtypes IFLA_XDP_FD and IFLA_XDP_ATTACHED.
-  4/12: Fixup the use of READ_ONCE in the ndos. Add a user of
-    bpf_warn_invalid_xdp_action helper.
-  5/12: Adjust to using the nested netlink options.
-  6/12: kbuild was complaining about overflow of u16 on tile
-    architecture...bump frag_stride to u32. The page_offset member that
-    is computed from this was already u32.
-
-v4:
-  2/12: Add inline helper for calling xdp bpf prog under rcu
-  3/12: Add detail to ndo comments
-  5/12: Remove mlx4_call_xdp and use inline helper instead.
-  6/12: Fix checkpatch complaints
-  9/12: Introduce new patch 9/12 with common helper for tx_desc write
-    Refactor to use common tx_desc write helper
- 11/12: Fix checkpatch complaints
-
-v3:
-  Rewrite from v2 trying to incorporate feedback from multiple sources.
-  Specifically, add ability to forward packets out the same port and
-    allow packet modification.
-  For packet forwarding, the driver reserves a dedicated set of tx rings
-    for exclusive use by xdp. Upon completion, the pages on this ring are
-    recycled directly back to a small per-rx-ring page cache without
-    being dma unmapped.
-  Use of the percpu skb is dropped in favor of a lightweight struct
-    xdp_buff. The direct packet access feature is leveraged to remove
-    dependence on the skb.
-  The mlx4 driver implementation allocates a page-per-packet and maps it
-    in PCI_DMA_BIDIRECTIONAL mode when the bpf program is activated.
-  Naming is converted to use "xdp" instead of "phys_dev".
-
-v2:
-  1/5: Drop xdp from types, instead consistently use bpf_phys_dev_
-    Introduce enum for return values from phys_dev hook
-  2/5: Move prog->type check to just before invoking ndo
-    Change ndo to take a bpf_prog * instead of fd
-    Add ndo_bpf_get rather than keeping a bool in the netdev struct
-  3/5: Use ndo_bpf_get to fetch bool
-  4/5: Enforce that only 1 frag is ever given to bpf prog by disallowing
-    mtu to increase beyond FRAG_SZ0 when bpf prog is running, or conversely
-    to set a bpf prog when priv->num_frags > 1
-    Rename pseudo_skb to bpf_phys_dev_md
-    Implement ndo_bpf_get
-    Add dma sync just before invoking prog
-    Check for explicit bpf return code rather than nonzero
-    Remove increment of rx_dropped
-  5/5: Use explicit bpf return code in example
-    Update commit log with higher pps numbers
-
-Brenden Blanco (11):
-  bpf: add XDP prog type for early driver filter
-  net: add ndo to setup/query xdp prog in adapter rx
-  rtnl: add option for setting link xdp prog
-  net/mlx4_en: add support for fast rx drop bpf program
-  Add sample for adding simple drop program to link
-  net/mlx4_en: add page recycle to prepare rx ring for tx support
-  bpf: add XDP_TX xdp_action for direct forwarding
-  net/mlx4_en: break out tx_desc write into separate function
-  net/mlx4_en: add xdp forwarding and data write support
-  bpf: enable direct packet data write for xdp progs
-  bpf: add sample for xdp forwarding and rewrite
-
- drivers/infiniband/hw/mlx4/qp.c                 |  11 +-
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  17 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  | 106 +++++++++-
- drivers/net/ethernet/mellanox/mlx4/en_rx.c      | 120 +++++++++--
- drivers/net/ethernet/mellanox/mlx4/en_tx.c      | 253 +++++++++++++++++++-----
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    |  31 ++-
- include/linux/filter.h                          |  18 ++
- include/linux/mlx4/qp.h                         |  18 +-
- include/linux/netdevice.h                       |  32 +++
- include/uapi/linux/bpf.h                        |  21 ++
- include/uapi/linux/if_link.h                    |  12 ++
- kernel/bpf/verifier.c                           |  18 +-
- net/core/dev.c                                  |  33 ++++
- net/core/filter.c                               |  91 +++++++++
- net/core/rtnetlink.c                            |  64 ++++++
- samples/bpf/Makefile                            |   9 +
- samples/bpf/bpf_load.c                          |   8 +
- samples/bpf/xdp1_kern.c                         |  93 +++++++++
- samples/bpf/xdp1_user.c                         | 181 +++++++++++++++++
- samples/bpf/xdp2_kern.c                         | 114 +++++++++++
- 20 files changed, 1162 insertions(+), 88 deletions(-)
- create mode 100644 samples/bpf/xdp1_kern.c
- create mode 100644 samples/bpf/xdp1_user.c
- create mode 100644 samples/bpf/xdp2_kern.c
-
+diff --git a/include/uapi/linux/if_link.h b/include/uapi/linux/if_link.h
+index 4285ac3..a1b5202 100644
+--- a/include/uapi/linux/if_link.h
++++ b/include/uapi/linux/if_link.h
+@@ -156,6 +156,7 @@ enum {
+ 	IFLA_GSO_MAX_SEGS,
+ 	IFLA_GSO_MAX_SIZE,
+ 	IFLA_PAD,
++	IFLA_XDP,
+ 	__IFLA_MAX
+ };
+ 
+@@ -843,4 +844,15 @@ enum {
+ };
+ #define LINK_XSTATS_TYPE_MAX (__LINK_XSTATS_TYPE_MAX - 1)
+ 
++/* XDP section */
++
++enum {
++	IFLA_XDP_UNSPEC,
++	IFLA_XDP_FD,
++	IFLA_XDP_ATTACHED,
++	__IFLA_XDP_MAX,
++};
++
++#define IFLA_XDP_MAX (__IFLA_XDP_MAX - 1)
++
+ #endif /* _UAPI_LINUX_IF_LINK_H */
+diff --git a/net/core/rtnetlink.c b/net/core/rtnetlink.c
+index a9e3805..eba2b82 100644
+--- a/net/core/rtnetlink.c
++++ b/net/core/rtnetlink.c
+@@ -891,6 +891,16 @@ static size_t rtnl_port_size(const struct net_device *dev,
+ 		return port_self_size;
+ }
+ 
++static size_t rtnl_xdp_size(const struct net_device *dev)
++{
++	size_t xdp_size = nla_total_size(1);	/* XDP_ATTACHED */
++
++	if (!dev->netdev_ops->ndo_xdp)
++		return 0;
++	else
++		return xdp_size;
++}
++
+ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 				     u32 ext_filter_mask)
+ {
+@@ -927,6 +937,7 @@ static noinline size_t if_nlmsg_size(const struct net_device *dev,
+ 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_PORT_ID */
+ 	       + nla_total_size(MAX_PHYS_ITEM_ID_LEN) /* IFLA_PHYS_SWITCH_ID */
+ 	       + nla_total_size(IFNAMSIZ) /* IFLA_PHYS_PORT_NAME */
++	       + rtnl_xdp_size(dev) /* IFLA_XDP */
+ 	       + nla_total_size(1); /* IFLA_PROTO_DOWN */
+ 
+ }
+@@ -1211,6 +1222,33 @@ static int rtnl_fill_link_ifmap(struct sk_buff *skb, struct net_device *dev)
+ 	return 0;
+ }
+ 
++static int rtnl_xdp_fill(struct sk_buff *skb, struct net_device *dev)
++{
++	struct netdev_xdp xdp_op = {};
++	struct nlattr *xdp;
++	int err;
++
++	if (!dev->netdev_ops->ndo_xdp)
++		return 0;
++	xdp = nla_nest_start(skb, IFLA_XDP);
++	if (!xdp)
++		return -EMSGSIZE;
++	xdp_op.command = XDP_QUERY_PROG;
++	err = dev->netdev_ops->ndo_xdp(dev, &xdp_op);
++	if (err)
++		goto err_cancel;
++	err = nla_put_u8(skb, IFLA_XDP_ATTACHED, xdp_op.prog_attached);
++	if (err)
++		goto err_cancel;
++
++	nla_nest_end(skb, xdp);
++	return 0;
++
++err_cancel:
++	nla_nest_cancel(skb, xdp);
++	return err;
++}
++
+ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 			    int type, u32 pid, u32 seq, u32 change,
+ 			    unsigned int flags, u32 ext_filter_mask)
+@@ -1307,6 +1345,9 @@ static int rtnl_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
+ 	if (rtnl_port_fill(skb, dev, ext_filter_mask))
+ 		goto nla_put_failure;
+ 
++	if (rtnl_xdp_fill(skb, dev))
++		goto nla_put_failure;
++
+ 	if (dev->rtnl_link_ops || rtnl_have_link_slave_info(dev)) {
+ 		if (rtnl_link_fill(skb, dev) < 0)
+ 			goto nla_put_failure;
+@@ -1392,6 +1433,7 @@ static const struct nla_policy ifla_policy[IFLA_MAX+1] = {
+ 	[IFLA_PHYS_SWITCH_ID]	= { .type = NLA_BINARY, .len = MAX_PHYS_ITEM_ID_LEN },
+ 	[IFLA_LINK_NETNSID]	= { .type = NLA_S32 },
+ 	[IFLA_PROTO_DOWN]	= { .type = NLA_U8 },
++	[IFLA_XDP]		= { .type = NLA_NESTED },
+ };
+ 
+ static const struct nla_policy ifla_info_policy[IFLA_INFO_MAX+1] = {
+@@ -1429,6 +1471,11 @@ static const struct nla_policy ifla_port_policy[IFLA_PORT_MAX+1] = {
+ 	[IFLA_PORT_RESPONSE]	= { .type = NLA_U16, },
+ };
+ 
++static const struct nla_policy ifla_xdp_policy[IFLA_XDP_MAX + 1] = {
++	[IFLA_XDP_FD]		= { .type = NLA_S32 },
++	[IFLA_XDP_ATTACHED]	= { .type = NLA_U8 },
++};
++
+ static const struct rtnl_link_ops *linkinfo_to_kind_ops(const struct nlattr *nla)
+ {
+ 	const struct rtnl_link_ops *ops = NULL;
+@@ -2054,6 +2101,23 @@ static int do_setlink(const struct sk_buff *skb,
+ 		status |= DO_SETLINK_NOTIFY;
+ 	}
+ 
++	if (tb[IFLA_XDP]) {
++		struct nlattr *xdp[IFLA_XDP_MAX + 1];
++
++		err = nla_parse_nested(xdp, IFLA_XDP_MAX, tb[IFLA_XDP],
++				       ifla_xdp_policy);
++		if (err < 0)
++			goto errout;
++
++		if (xdp[IFLA_XDP_FD]) {
++			err = dev_change_xdp_fd(dev,
++						nla_get_s32(xdp[IFLA_XDP_FD]));
++			if (err)
++				goto errout;
++			status |= DO_SETLINK_NOTIFY;
++		}
++	}
++
+ errout:
+ 	if (status & DO_SETLINK_MODIFIED) {
+ 		if (status & DO_SETLINK_NOTIFY)
 -- 
 2.8.2
