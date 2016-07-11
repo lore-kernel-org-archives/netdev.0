@@ -1,73 +1,136 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH v6 01/12] bpf: add XDP prog type for early driver filter
-Date: Mon, 11 Jul 2016 12:15:42 +0200
-Message-ID: <578371CE.6090305@iogearbox.net>
-References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com> <1467944124-14891-2-git-send-email-bblanco@plumgrid.com> <20160709101403.1ed7d021@redhat.com> <CALx6S36dnA_vXBJVpLTZc6WyZaDh_hnw4vpp57EC2jsfA0vHcQ@mail.gmail.com> <20160710153731.62d6773d@redhat.com> <20160710170922.GC6657@gmail.com> <CALx6S34623bJP=L2EVNV6Gfx4oF=io5TGsGXCDQ=WH3VnHweMg@mail.gmail.com>
+From: Sudeep Holla <sudeep.holla@arm.com>
+Subject: Re: [PATCH 3/3] RFC: net: smsc911x: add wake-up event interrupt
+ support
+Date: Mon, 11 Jul 2016 11:23:25 +0100
+Message-ID: <5783739D.4090706@arm.com>
+References: <1467968852-6175-1-git-send-email-linus.walleij@linaro.org>
+ <1467968852-6175-3-git-send-email-linus.walleij@linaro.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Type: text/plain; charset=windows-1252; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>
-To: Tom Herbert <tom@herbertland.com>,
-	Brenden Blanco <bblanco@plumgrid.com>
+Cc: netdev@vger.kernel.org, "David S . Miller" <davem@davemloft.net>,
+	Sudeep Holla <sudeep.holla@arm.com>,
+	Guenter Roeck <linux@roeck-us.net>,
+	Jeremy Linton <jeremy.linton@arm.com>,
+	Kamlakant Patel <kamlakant.patel@broadcom.com>,
+	Pavel Fedin <p.fedin@samsung.com>,
+	Alexandre Belloni <alexandre.belloni@free-electrons.com>,
+	Tony Lindgren <tony@atomide.com>,
+	"Rafael J . Wysocki" <rjw@rjwysocki.net>,
+	John Stultz <john.stultz@linaro.org>
+To: Linus Walleij <linus.walleij@linaro.org>,
+	Steve Glendinning <steve.glendinning@smsc.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:57273 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752097AbcGKKPz (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 06:15:55 -0400
-In-Reply-To: <CALx6S34623bJP=L2EVNV6Gfx4oF=io5TGsGXCDQ=WH3VnHweMg@mail.gmail.com>
+Received: from foss.arm.com ([217.140.101.70]:51902 "EHLO foss.arm.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1753073AbcGKKXa (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jul 2016 06:23:30 -0400
+In-Reply-To: <1467968852-6175-3-git-send-email-linus.walleij@linaro.org>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 07/10/2016 10:30 PM, Tom Herbert wrote:
-> On Sun, Jul 10, 2016 at 12:09 PM, Brenden Blanco <bblanco@plumgrid.com> wrote:
+
+
+On 08/07/16 10:07, Linus Walleij wrote:
+> The SMSC911x have a line out of the chip called "PME",
+> Power Management Event. When connected to an asynchronous
+> interrupt controller this is able to wake the system up
+> from sleep in response to certain network events.
+>
+> This is the first attempt to support this in the Linux
+> driver: the Qualcomm APQ8060 Dragonboard has this line
+> routed to a GPIO line on the primary SoC padring, and as
+> such it can be armed as a wakeup interrupt.
+>
+> The patch is inspired by the wakeup code in the RTC
+> subsystem.
+>
+> The code looks for an additional interrupt - apart from the
+> ordinary device interrupt - and in case that is present,
+> we register an interrupt handler to respons to this,
+> and flag the device and this interrupt as a wakeup.
+>
+> Cc: Sudeep Holla <sudeep.holla@arm.com>
+> Cc: Alexandre Belloni <alexandre.belloni@free-electrons.com>
+> Cc: Tony Lindgren <tony@atomide.com>
+> Cc: Rafael J. Wysocki <rjw@rjwysocki.net>
+> Cc: John Stultz <john.stultz@linaro.org>
+> Signed-off-by: Linus Walleij <linus.walleij@linaro.org>
+> ---
+> Added some wakeup people at CC who can (hopefully) tell me if
+> I'm doing this right or not.
+> ---
+>   drivers/net/ethernet/smsc/smsc911x.c | 48 ++++++++++++++++++++++++++++++++++++
+>   1 file changed, 48 insertions(+)
+>
+> diff --git a/drivers/net/ethernet/smsc/smsc911x.c b/drivers/net/ethernet/smsc/smsc911x.c
+> index 125d58ac22bd..e43755ae130a 100644
+> --- a/drivers/net/ethernet/smsc/smsc911x.c
+> +++ b/drivers/net/ethernet/smsc/smsc911x.c
+
 [...]
->> I would then argue to only support offloading of XDP programs with
->> verifiable return codes. We're not at that stage yet, and I think we can
->> choose different defaults for these two cases.
 
-It's also not really verifiable in the sense that such verdict could be
-part of a struct member coming from a policy map and such. You'd loose
-this flexibility if you'd only allow return codes encoded into immediate
-values.
+> @@ -2525,6 +2540,33 @@ static int smsc911x_drv_probe(struct platform_device *pdev)
+>   		goto out_disable_resources;
+>   	}
+>
+> +	irq = platform_get_irq(pdev, 1);
+> +	if (irq == -EPROBE_DEFER) {
+> +		retval = -EPROBE_DEFER;
+> +		goto out_disable_resources;
+> +	/* It's perfectly fine to not have a PME IRQ */
+> +	} else if (irq > 0) {
+> +		char *pme_name;
+> +
+> +		/*
+> +		 * The Power Management Event (PME) IRQ appears as
+> +		 * a pulse waking up the system from sleep in response to  a
+> +		 * network event.
+> +		 */
+> +		retval = request_threaded_irq(irq, NULL,
+> +					      smsc911x_pme_irq_thread,
+> +					      IRQF_ONESHOT, "smsc911x-pme",
+> +					      dev);
+> +		if (retval) {
+> +			SMSC_WARN(pdata, probe,
+> +			"Unable to claim requested PME irq: %d", irq);
+> +			goto out_disable_resources;
+> +		}
+> +		pdata->pme_irq = irq;
+> +		device_init_wakeup(&pdev->dev, true);
+> +		dev_pm_set_wake_irq(&pdev->dev, irq);
+> +	}
+> +
+>   	netif_carrier_off(dev);
+>
+>   	retval = register_netdev(dev);
+> @@ -2613,6 +2655,9 @@ static int smsc911x_suspend(struct device *dev)
+>   		PMT_CTRL_PM_MODE_D1_ | PMT_CTRL_WOL_EN_ |
+>   		PMT_CTRL_ED_EN_ | PMT_CTRL_PME_EN_);
+>
+> +	if (pdata->pme_irq && device_may_wakeup(dev))
+> +		enable_irq_wake(pdata->pme_irq);
+> +
 
->> We have conflicting examples here, which lead to different conclusions.
->> Reiterating an earlier argument that I made for others on the list to
->> consider:
->> """
->> Besides, I don't see how PASS is any more correct than DROP. Consider a
->> future program that is intended to rewrite a packet and forward it out
->> another port (with some TX_OTHER return code or whatever). If the driver
->> PASSes the packet, it will still not be interpreted by the stack, since
->> it may have been destined for some other machine.
->> """
->> So, IMHO there is not a clear right or wrong, and I still fall back to
->> the security argument to resolve the dilemma. The point there is not
->> drop/pass, but resource preservation.
->>
-> Blind pass is a security risk, drop is always a correct action in that sense.
+Based on my understanding of dev_pm_{set,clear}_wake_irq, we don't need
+this and the below hunk. It's taken care in device_wakeup_arm_wake_irqs
+which is called from suspend_enter---->dpm_suspend_noirq path once you
+have done the setup with dev_pm_set_wake_irq and is enabled both of
+which is true in your case.
 
-I agree here that drop would be better, if there's a good reason/use-case
-to make the default configurable as in i) drop or ii) fall-back to stack,
-then this could be another option to leave admin the choice, but not seeing
-it thus far. But hitting the default case could certainly inc a per-cpu error
-counter visible for ethtool and et al, to have some more insight.
+>   	return 0;
+>   }
+>
+> @@ -2622,6 +2667,9 @@ static int smsc911x_resume(struct device *dev)
+>   	struct smsc911x_data *pdata = netdev_priv(ndev);
+>   	unsigned int to = 100;
+>
+> +	if (pdata->pme_irq && device_may_wakeup(dev))
+> +		disable_irq_wake(pdata->pme_irq);
+> +
 
-Additionally, a WARN_ON_ONCE() should be fine telling that the program for
-this given configuration is buggy. I'm not sure there will be much support
-that you can take a XDP program tailored for a specific kernel and expect it
-to run on a, say, 1 year old kernel with XDP there. To make it work properly
-you need to have that much insight into the program anyway so you configure
-the stack to make up for those non-functioning parts (iff possible) that you
-could just as well rewrite/change the affected parts from the XDP program.
+Same as above.
 
-Otoh, it should be reasonable to assume that older XDP programs written in
-the past for driver xyz can run fine on newer kernels for driver xyz as well,
-so that part should be expected.
+-- 
+Regards,
+Sudeep
