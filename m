@@ -1,89 +1,78 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [PATCH v6 05/12] Add sample for adding simple drop program to
- link
-Date: Mon, 11 Jul 2016 15:37:08 +0200
-Message-ID: <20160711153708.1baa4224@redhat.com>
-References: <1467944124-14891-1-git-send-email-bblanco@plumgrid.com>
-	<1467944124-14891-6-git-send-email-bblanco@plumgrid.com>
-	<57837E66.3050000@mojatatu.com>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn@mork.no>
+Subject: Re: [PATCH net] ipv6: addrconf: fix Juniper SSL VPN client regression
+Date: Mon, 11 Jul 2016 15:38:07 +0200
+Message-ID: <87shvg9txc.fsf@miraculix.mork.no>
+References: <1468098791-20420-1-git-send-email-bjorn@mork.no>
+	<1468102772.3805579.661647841.59799999@webmail.messagingengine.com>
+	<8737niqttg.fsf@miraculix.mork.no>
+	<c6a714eb-fff9-9624-bfea-db9a05c258e6@stressinduktion.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Brenden Blanco <bblanco@plumgrid.com>, davem@davemloft.net,
-	netdev@vger.kernel.org, Martin KaFai Lau <kafai@fb.com>,
-	Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
-	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
-	Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>, brouer@redhat.com
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev@vger.kernel.org, Valdis Kletnieks <Valdis.Kletnieks@vt.edu>,
+	Jonas Lippuner <jonas@lippuner.ca>,
+	=?utf-8?B?5ZCJ6Jek6Iux5piO?= <hideaki.yoshifuji@miraclelinux.com>
+To: Hannes Frederic Sowa <hannes@stressinduktion.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51938 "EHLO mx1.redhat.com"
+Received: from canardo.mork.no ([148.122.252.1]:41999 "EHLO canardo.mork.no"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753022AbcGKNhQ (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jul 2016 09:37:16 -0400
-In-Reply-To: <57837E66.3050000@mojatatu.com>
+	id S1753610AbcGKNiW convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 09:38:22 -0400
+In-Reply-To: <c6a714eb-fff9-9624-bfea-db9a05c258e6@stressinduktion.org>
+	(Hannes Frederic Sowa's message of "Mon, 11 Jul 2016 09:17:19 -0400")
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 11 Jul 2016 07:09:26 -0400
-Jamal Hadi Salim <jhs@mojatatu.com> wrote:
+Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+> On 09.07.2016 19:23, Bj=C3=B8rn Mork wrote:
+>> Hannes Frederic Sowa <hannes@stressinduktion.org> writes:
+>>> On Sat, Jul 9, 2016, at 23:13, Bj=C3=B8rn Mork wrote:
+>>>> The Juniper SSL VPN client use a "tun" interface and seems to
+>>>> be picky about visible changes.to it. Commit cc9da6cc4f56
+>>>> ("ipv6: addrconf: use stable address generator for ARPHRD_NONE")
+>>>> made such interfaces get an auto-generated IPv6 link local address
+>>>> by default, similar to most other interface types. This made the
+>>>> Juniper SSL VPN client fail for unknown reasons.
+>>>>
+>>>> Fixing this regression by effectively reverting the behaviour to
+>>>> what we had before, while keeping the new "addrgenmode random"
+>>>> feature.
+>>>
+>>> I wonder if we can simply add a flag, something like
+>>> IFF_SUPPRESS_AUTO_IPV6_LL, to net_device->priv_flags and use that. =
+So we
+>>> can keep behavior for qmi, vxlan-gpe and gre. tun is the only devic=
+e
+>>> that is really user space facing, so maybe we just limit it to this=
+?
+>>=20
+>> Sounds good to me, but I don't know if the use case really qualifies=
+ as
+>>=20
+>>  "* You should have a pretty good reason to be extending these flags=
+=2E"
+>>=20
+>>=20
+>> The automatic address is certainly nice to have, but "good reason"? =
+ I
+>> don't know...  We can always just configure those devices for automa=
+tic
+>> LL addresses using "ip link set foo addrgen random" or similar.
+>
+> I do think it is important enough to include it into priv_flags,
+> especially if you compare it to other flags in there. We also can eas=
+ily
+> add new priv_flags member or enlarge to long if we run out in the lon=
+g term.
 
-> On 16-07-07 10:15 PM, Brenden Blanco wrote:
-> > Add a sample program that only drops packets at the BPF_PROG_TYPE_XDP_RX
-> > hook of a link. With the drop-only program, observed single core rate is
-> > ~20Mpps.
-> >
-> > Other tests were run, for instance without the dropcnt increment or
-> > without reading from the packet header, the packet rate was mostly
-> > unchanged.
-> >
-> > $ perf record -a samples/bpf/xdp1 $(</sys/class/net/eth0/ifindex)
-> > proto 17:   20403027 drops/s
-> >  
-> 
-> 
-> So - devil's advocate speaking:
-> I can filter and drop with this very specific NIC at 10x as fast
-> in hardware, correct?
-
-After avoiding the cache-miss, I believe, we have actually reached the
-NIC HW limit.  I base this on, my measurements show that the CPU start
-to go idle, even enter sleep C-states.  And we exit NAPI mode, not
-using the full budget, emptying the RX ring.
+OK, I'll cook a new version with that.
 
 
-> Would a different NIC (pick something like e1000) have served a better
-> example?
-> BTW: Brenden, now that i looked closer here, you really dont have
-> apple-apple comparison with dropping at tc ingress. You have a
-> tweaked prefetch and are intentionally running things on a single
-> core. Note: We are able to do 20Mpps drops with tc with a single
-> core (as shown in netdev11) on a NUC with removing driver overhead.
+> I would slightly prefer if tunnels keep the behavior we introduced on=
+e
+> release(?) ago.
 
-AFAIK you were using the pktgen "xmit_mode netif_receive" which inject
-packets directly into the stack, thus removing the NIC driver from the
-equation.  Brenden only is measuring the driver.
-  Thus, you are both doing zoom-in-measuring (of a very specific and
-limited section of the code) but two completely different pieces of
-code.
+Depends on how you count.  it was introduced in v4.5.
 
-Notice, Jamal, in your 20Mpps results, your are also avoiding
-interacting with the memory allocator, as you are recycling the same
-SKB (and don't be confused by seeing kfree_skb() in perf-top as it only
-does atomic_dec() [1]).
 
-In this code-zoom-in benchmark (given single CPU is keep 100% busy) you
-are actually measuring that the code path (on average) takes 50 nanosec
-(1/20*1000) to execute.  Which is cool, but it is only a zoom-in on a
-specific code path (which avoids any I-cache misses).
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
-
-[1] https://www.youtube.com/watch?v=M6l1rxZCqLM
+Bj=C3=B8rn
