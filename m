@@ -1,40 +1,57 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [patch net-next 1/2] devlink: add hardware messages tracing
- facility
-Date: Mon, 11 Jul 2016 13:45:16 -0700 (PDT)
-Message-ID: <20160711.134516.2253721322702070372.davem@davemloft.net>
-References: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, idosch@mellanox.com, yotamg@mellanox.com,
-	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-	ivecera@redhat.com, rostedt@goodmis.org, mingo@redhat.com,
-	jolsa@kernel.org
-To: jiri@resnulli.us
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60346 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1753108AbcGKUpS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 16:45:18 -0400
-In-Reply-To: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Arnd Bergmann <arnd@arndb.de>
+Subject: [PATCH] iwlwifi: add missing type declaration
+Date: Mon, 11 Jul 2016 22:49:53 +0200
+Message-ID: <20160711205020.1587254-1-arnd@arndb.de>
+Cc: Arnd Bergmann <arnd@arndb.de>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Luca Coelho <luciano.coelho@intel.com>,
+	Intel Linux Wireless <linuxwifi@intel.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Eliad Peller <eliad@wizery.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Johannes Berg <johannes.berg@intel.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Jiri Pirko <jiri@resnulli.us>
-Date: Mon, 11 Jul 2016 15:18:47 +0200
+The iwl-debug.h header relies in implicit inclusion of linux/device.h and
+we get a lot of warnings without that:
 
-> From: Jiri Pirko <jiri@mellanox.com>
-> 
-> Define a tracepoint and allow user to trace messages going to and from
-> hardware associated with devlink instance.
-> 
-> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+drivers/net/wireless/intel/iwlwifi/iwl-debug.h:44:23: error: 'struct device' declared inside parameter list will not be visible outside of this definition or declaration [-Werror]
+ void __iwl_err(struct device *dev, bool rfkill_prefix, bool only_trace,
+                       ^~~~~~
+In file included from drivers/net/wireless/intel/iwlwifi/iwl-eeprom-read.h:66:0,
+                 from drivers/net/wireless/intel/iwlwifi/iwl-eeprom-read.c:68:
+drivers/net/wireless/intel/iwlwifi/iwl-trans.h: In function 'iwl_trans_tx':
+drivers/net/wireless/intel/iwlwifi/iwl-trans.h:1030:348: error: passing argument 1 of '__iwl_err' from incompatible pointer type [-Werror=incompatible-pointer-types]
+   IWL_ERR(trans, "%s bad state = %d\n", __func__, trans->state);
+                                                                                                                                                                                                                                                                                                                                                            ^
+In file included from drivers/net/wireless/intel/iwlwifi/iwl-eeprom-read.c:67:0:
+drivers/net/wireless/intel/iwlwifi/iwl-debug.h:44:6: note: expected 'struct device *' but argument is of type 'struct device *'
+ void __iwl_err(struct device *dev, bool rfkill_prefix, bool only_trace,
+      ^~~~~~~~~
 
-Jiri, I don't think "having a devlink_ prefix" is a strong enough argument
-for doing things specially here.
+The easiest workaround is to just declare 'struct device' before its first use,
+rather than including the entire header file.
 
-Just use the tracing facilities and export them the way everyone else
-does, and the way that two people already have suggested.
+Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+Fixes: 21cb3222fe56 ("iwlwifi: decouple PCIe transport from mac80211")
+---
+ drivers/net/wireless/intel/iwlwifi/iwl-debug.h | 1 +
+ 1 file changed, 1 insertion(+)
 
-Thanks.
+diff --git a/drivers/net/wireless/intel/iwlwifi/iwl-debug.h b/drivers/net/wireless/intel/iwlwifi/iwl-debug.h
+index 110333208450..cd77c6971753 100644
+--- a/drivers/net/wireless/intel/iwlwifi/iwl-debug.h
++++ b/drivers/net/wireless/intel/iwlwifi/iwl-debug.h
+@@ -41,6 +41,7 @@ static inline bool iwl_have_debug_level(u32 level)
+ #endif
+ }
+ 
++struct device;
+ void __iwl_err(struct device *dev, bool rfkill_prefix, bool only_trace,
+ 		const char *fmt, ...) __printf(4, 5);
+ void __iwl_warn(struct device *dev, const char *fmt, ...) __printf(2, 3);
+-- 
+2.9.0
