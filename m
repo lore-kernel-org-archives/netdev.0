@@ -1,43 +1,34 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net-next] rtnl: Add GFP flag argument to
- rtnl_unicast()
-Date: Mon, 11 Jul 2016 13:01:47 -0700 (PDT)
-Message-ID: <20160711.130147.2231877907183030717.davem@davemloft.net>
-References: <1467764916-4983-1-git-send-email-masashi.honma@gmail.com>
-	<1468036744-3964-1-git-send-email-masashi.honma@gmail.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
-To: masashi.honma@gmail.com
+From: Jon Maloy <jon.maloy@ericsson.com>
+Subject: [PATCH net 0/3] tipc: three small fixes
+Date: Mon, 11 Jul 2016 16:08:34 -0400
+Message-ID: <1468267717-518-1-git-send-email-jon.maloy@ericsson.com>
+Cc: netdev@vger.kernel.org,
+	Paul Gortmaker <paul.gortmaker@windriver.com>,
+	parthasarathy.bhuvaragan@ericsson.com, richard.alpe@ericsson.com,
+	ying.xue@windriver.com, maloy@donjonn.com,
+	tipc-discussion@lists.sourceforge.net,
+	Jon Maloy <jon.maloy@ericsson.com>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:60016 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751757AbcGKUBs (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 16:01:48 -0400
-In-Reply-To: <1468036744-3964-1-git-send-email-masashi.honma@gmail.com>
+Received: from smtp104.biz.mail.bf1.yahoo.com ([98.139.221.63]:32430 "EHLO
+	smtp104.biz.mail.bf1.yahoo.com" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1751051AbcGKUIo (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 16:08:44 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Masashi Honma <masashi.honma@gmail.com>
-Date: Sat,  9 Jul 2016 12:59:04 +0900
+Fixes for some broadcast link problems that may occur in large systems.
 
-> This commit extends rtnl_unicast() to specify GFP flags.
-> 
-> This commit depends on Eric Dumazet's commits below.
-> 	ipv4: do not abuse GFP_ATOMIC in inet_netconf_notify_devconf()
-> 	ipv6: do not abuse GFP_ATOMIC in inet6_netconf_notify_devconf()
-> 
-> Signed-off-by: Masashi Honma <masashi.honma@gmail.com>
+Jon Maloy (3):
+  tipc: extend broadcast link initialization criteria
+  tipc: ensure correct broadcast send buffer release when peer is lost
+  tipc: reset all unicast links when broadcast send link fails
 
-The code is correct and optimal as-is.  There is no gain to your
-changes.  gfp_any() will do the right thing.
+ net/tipc/bearer.c | 15 +++++++++++++++
+ net/tipc/bearer.h |  1 +
+ net/tipc/link.c   |  9 ++++++++-
+ net/tipc/node.c   | 15 +++++++++++----
+ 4 files changed, 35 insertions(+), 5 deletions(-)
 
-In fact, your change makes the code more error prone because if any
-of these code paths get moved into an atomic context they will break
-unless somone remembers to also fix up the GFP flags.
-
-Meanwhile with the existing use of gfp_any() it will work
-transparently in such a situation.
-
-I'm not applying this.
+-- 
+1.9.1
