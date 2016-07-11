@@ -1,60 +1,95 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 1/2] devlink: add hardware messages tracing
- facility
-Date: Mon, 11 Jul 2016 17:04:38 +0200
-Message-ID: <20160711150438.GB3118@nanopsycho.orion>
-References: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
- <74df1f22-1777-fa69-1a82-cb26388060b8@cumulusnetworks.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	yotamg@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
-	ogerlitz@mellanox.com, ivecera@redhat.com, rostedt@goodmis.org,
-	mingo@redhat.com, jolsa@kernel.org
-To: David Ahern <dsa@cumulusnetworks.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:36663 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030495AbcGKPEl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 11:04:41 -0400
-Received: by mail-wm0-f68.google.com with SMTP id x83so14887222wma.3
-        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 08:04:41 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <74df1f22-1777-fa69-1a82-cb26388060b8@cumulusnetworks.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Prarit Bhargava <prarit@redhat.com>
+Subject: [PATCH RESEND] iwlwifi, Do not implement thermal zone unless ucode is loaded
+Date: Mon, 11 Jul 2016 11:18:21 -0400
+Message-ID: <1468250301-10357-1-git-send-email-prarit@redhat.com>
+Cc: Prarit Bhargava <prarit@redhat.com>,
+	Johannes Berg <johannes.berg@intel.com>,
+	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Luca Coelho <luciano.coelho@intel.com>,
+	Intel Linux Wireless <linuxwifi@intel.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Chaya Rachel Ivgi <chaya.rachel.ivgi@intel.com>,
+	Sara Sharon <sara.sharon@intel.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org
+To: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Jul 11, 2016 at 05:01:46PM CEST, dsa@cumulusnetworks.com wrote:
->On 7/11/16 7:18 AM, Jiri Pirko wrote:
->
->>diff --git a/net/core/devlink.c b/net/core/devlink.c
->>index b2e592a..8cfa3b0 100644
->>--- a/net/core/devlink.c
->>+++ b/net/core/devlink.c
->>@@ -26,6 +26,8 @@
->> #include <net/net_namespace.h>
->> #include <net/sock.h>
->> #include <net/devlink.h>
->>+#define CREATE_TRACE_POINTS
->>+#include <trace/events/devlink.h>
->
->EXPORT_TRACEPOINT_SYMBOL_GPL(trace_devlink_hwmsg);
->
->>
->> static LIST_HEAD(devlink_list);
->>
->>@@ -1679,6 +1681,13 @@ void devlink_free(struct devlink *devlink)
->> }
->> EXPORT_SYMBOL_GPL(devlink_free);
->>
->>+void devlink_trace_hwmsg(const struct devlink *devlink, bool incoming,
->>+			 unsigned long type, const u8 *buf, size_t len)
->>+{
->>+	trace_devlink_hwmsg(devlink, incoming, type, buf, len);
->>+}
->>+EXPORT_SYMBOL_GPL(devlink_trace_hwmsg);
->
->Then you don't need this devlink function.
+Didn't get any feedback or review comments on this patch.  Resending ...
 
-I'm aware. I wanted to have this wrapper to have "devlink_" prefix.
-Also, id devlink is not compiled in, this function is a noop.
+P.
+
+---8<---
+
+The iwlwifi driver implements a thermal zone and hwmon device, but
+returns -EIO on temperature reads if the firmware isn't loaded.  This
+results in the error
+
+iwlwifi-virtual-0
+Adapter: Virtual device
+ERROR: Can't get value of subfeature temp1_input: I/O error
+temp1:            N/A
+
+being output when using sensors from the lm-sensors package.  Since
+the temperature cannot be read unless the ucode is loaded there is no
+reason to add the interface only to have it return an error 100% of
+the time.
+
+This patch moves the firmware check to iwl_mvm_thermal_zone_register() and
+stops the thermal zone from being created if the ucode hasn't been loaded.
+
+Signed-off-by: Prarit Bhargava <prarit@redhat.com>
+Cc: Johannes Berg <johannes.berg@intel.com>
+Cc: Emmanuel Grumbach <emmanuel.grumbach@intel.com>
+Cc: Luca Coelho <luciano.coelho@intel.com>
+Cc: Intel Linux Wireless <linuxwifi@intel.com>
+Cc: Kalle Valo <kvalo@codeaurora.org>
+Cc: Chaya Rachel Ivgi <chaya.rachel.ivgi@intel.com>
+Cc: Sara Sharon <sara.sharon@intel.com>
+Cc: linux-wireless@vger.kernel.org
+Cc: netdev@vger.kernel.org
+---
+ drivers/net/wireless/intel/iwlwifi/mvm/tt.c |   13 +++----------
+ 1 file changed, 3 insertions(+), 10 deletions(-)
+
+diff --git a/drivers/net/wireless/intel/iwlwifi/mvm/tt.c b/drivers/net/wireless/intel/iwlwifi/mvm/tt.c
+index 58fc7b3c711c..64802659711f 100644
+--- a/drivers/net/wireless/intel/iwlwifi/mvm/tt.c
++++ b/drivers/net/wireless/intel/iwlwifi/mvm/tt.c
+@@ -634,11 +634,6 @@ static int iwl_mvm_tzone_get_temp(struct thermal_zone_device *device,
+ 
+ 	mutex_lock(&mvm->mutex);
+ 
+-	if (!mvm->ucode_loaded || !(mvm->cur_ucode == IWL_UCODE_REGULAR)) {
+-		ret = -EIO;
+-		goto out;
+-	}
+-
+ 	ret = iwl_mvm_get_temp(mvm, &temp);
+ 	if (ret)
+ 		goto out;
+@@ -684,11 +679,6 @@ static int iwl_mvm_tzone_set_trip_temp(struct thermal_zone_device *device,
+ 
+ 	mutex_lock(&mvm->mutex);
+ 
+-	if (!mvm->ucode_loaded || !(mvm->cur_ucode == IWL_UCODE_REGULAR)) {
+-		ret = -EIO;
+-		goto out;
+-	}
+-
+ 	if (trip < 0 || trip >= IWL_MAX_DTS_TRIPS) {
+ 		ret = -EINVAL;
+ 		goto out;
+@@ -750,6 +740,9 @@ static void iwl_mvm_thermal_zone_register(struct iwl_mvm *mvm)
+ 		return;
+ 	}
+ 
++	if (!mvm->ucode_loaded || !(mvm->cur_ucode == IWL_UCODE_REGULAR))
++		return;
++
+ 	BUILD_BUG_ON(ARRAY_SIZE(name) >= THERMAL_NAME_LENGTH);
+ 
+ 	mvm->tz_device.tzone = thermal_zone_device_register(name,
+-- 
+1.7.9.3
