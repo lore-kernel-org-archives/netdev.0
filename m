@@ -1,105 +1,33 @@
-From: Yuchung Cheng <ycheng@google.com>
-Subject: Re: [PATCH v2 net] tcp: make challenge acks less predictable
-Date: Mon, 11 Jul 2016 09:40:20 -0700
-Message-ID: <CAK6E8=cq1z4jAqjpFdNtbAH_MrcFds8m2PNEb0G5vaBN_TaZfw@mail.gmail.com>
-References: <1467995586.30694.34.camel@edumazet-glaptop3.roam.corp.google.com>
- <CAPzkZjz1R_T8q75LXLBc91j7YrngxdPc-o2Hpz+4YYyoWLantA@mail.gmail.com>
- <1468052160.30694.51.camel@edumazet-glaptop3.roam.corp.google.com> <1468137842.30694.58.camel@edumazet-glaptop3.roam.corp.google.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [PATCH v2 6/6] dt-bindings: net: bgmac: add bindings
+ documentation for bgmac
+Date: Mon, 11 Jul 2016 09:48:24 -0700
+Message-ID: <5783CDD8.8020507@gmail.com>
+References: <1467932938-21819-1-git-send-email-jon.mason@broadcom.com>
+ <1467932938-21819-7-git-send-email-jon.mason@broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Yue Cao <ycao009@ucr.edu>, David Miller <davem@davemloft.net>,
-	netdev <netdev@vger.kernel.org>,
-	Zhiyun Qian <zhiyunq@cs.ucr.edu>,
-	Linus Torvalds <torvalds@linux-foundation.org>,
-	NealCardwell <ncardwell@google.com>
-To: Eric Dumazet <eric.dumazet@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f180.google.com ([209.85.223.180]:32964 "EHLO
-	mail-io0-f180.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751486AbcGKQlB (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 12:41:01 -0400
-Received: by mail-io0-f180.google.com with SMTP id 38so11550031iol.0
-        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 09:41:01 -0700 (PDT)
-In-Reply-To: <1468137842.30694.58.camel@edumazet-glaptop3.roam.corp.google.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: 7bit
+Cc: zajec5@gmail.com, hauke@hauke-m.de,
+	Rob Herring <robh+dt@kernel.org>,
+	Pawel Moll <pawel.moll@arm.com>,
+	Mark Rutland <mark.rutland@arm.com>,
+	Ian Campbell <ijc+devicetree@hellion.org.uk>,
+	Kumar Gala <galak@codeaurora.org>, Ray Jui <rjui@broadcom.com>,
+	Scott Branden <sbranden@broadcom.com>,
+	bcm-kernel-feedback-list@broadcom.com, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org, devicetree@vger.kernel.org,
+	linux-arm-kernel@lists.infradead.org
+To: Jon Mason <jon.mason@broadcom.com>, davem@davemloft.net,
+	f.fainelli@gmail.com
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <1467932938-21819-7-git-send-email-jon.mason@broadcom.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 10, 2016 at 1:04 AM, Eric Dumazet <eric.dumazet@gmail.com> wrote:
-> From: Eric Dumazet <edumazet@google.com>
->
-> Yue Cao claims that current host rate limiting of challenge ACKS
-> (RFC 5961) could leak enough information to allow a patient attacker
-> to hijack TCP sessions. He will soon provide details in an academic
-> paper.
->
-> This patch increases the default limit from 100 to 1000, and adds
-> some randomization so that the attacker can no longer hijack
-> sessions without spending a considerable amount of probes.
->
-> Based on initial analysis and patch from Linus.
->
-> Note that we also have per socket rate limiting, so it is tempting
-> to remove the host limit in the future.
->
-> v2: randomize the count of challenge acks per second, not the period.
->
-> Fixes: 282f23c6ee34 ("tcp: implement RFC 5961 3.2")
-> Reported-by: Yue Cao <ycao009@ucr.edu>
-> Signed-off-by: Eric Dumazet <edumazet@google.com>
-> Suggested-by: Linus Torvalds <torvalds@linux-foundation.org>
-> Cc: Yuchung Cheng <ycheng@google.com>
-> Cc: Neal Cardwell <ncardwell@google.com>
-> ---
-Acked-by: Yuchung Cheng <ycheng@google.com>
+On 07/07/2016 04:08 PM, Jon Mason wrote:
+> Signed-off-by: Jon Mason <jon.mason@broadcom.com>
 
-Nice fix. I like v2 a lot.
-
->  net/ipv4/tcp_input.c |   15 ++++++++++-----
->  1 file changed, 10 insertions(+), 5 deletions(-)
->
-> diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
-> index d6c8f4cd0800..91868bb17818 100644
-> --- a/net/ipv4/tcp_input.c
-> +++ b/net/ipv4/tcp_input.c
-> @@ -87,7 +87,7 @@ int sysctl_tcp_adv_win_scale __read_mostly = 1;
->  EXPORT_SYMBOL(sysctl_tcp_adv_win_scale);
->
->  /* rfc5961 challenge ack rate limiting */
-> -int sysctl_tcp_challenge_ack_limit = 100;
-> +int sysctl_tcp_challenge_ack_limit = 1000;
->
->  int sysctl_tcp_stdurg __read_mostly;
->  int sysctl_tcp_rfc1337 __read_mostly;
-> @@ -3458,7 +3458,7 @@ static void tcp_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
->         static u32 challenge_timestamp;
->         static unsigned int challenge_count;
->         struct tcp_sock *tp = tcp_sk(sk);
-> -       u32 now;
-> +       u32 count, now;
->
->         /* First check our per-socket dupack rate limit. */
->         if (tcp_oow_rate_limited(sock_net(sk), skb,
-> @@ -3466,13 +3466,18 @@ static void tcp_send_challenge_ack(struct sock *sk, const struct sk_buff *skb)
->                                  &tp->last_oow_ack_time))
->                 return;
->
-> -       /* Then check the check host-wide RFC 5961 rate limit. */
-> +       /* Then check host-wide RFC 5961 rate limit. */
->         now = jiffies / HZ;
->         if (now != challenge_timestamp) {
-> +               u32 half = (sysctl_tcp_challenge_ack_limit + 1) >> 1;
-> +
->                 challenge_timestamp = now;
-> -               challenge_count = 0;
-> +               WRITE_ONCE(challenge_count, half +
-> +                          prandom_u32_max(sysctl_tcp_challenge_ack_limit));
->         }
-> -       if (++challenge_count <= sysctl_tcp_challenge_ack_limit) {
-> +       count = READ_ONCE(challenge_count);
-> +       if (count > 0) {
-> +               WRITE_ONCE(challenge_count, count - 1);
->                 NET_INC_STATS(sock_net(sk), LINUX_MIB_TCPCHALLENGEACK);
->                 tcp_send_ack(sk);
->         }
->
->
+Applied to devicetree/next, thanks
+-- 
+Florian
