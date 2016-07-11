@@ -1,103 +1,87 @@
-From: Arnd Bergmann <arnd@arndb.de>
-Subject: Re: [PATCH 3/3] net: hisilicon: Add Fast Ethernet MAC driver
-Date: Mon, 11 Jul 2016 10:16:25 +0200
-Message-ID: <6408034.HDp0l1gLKO@wuerfel>
-References: <1465798076-176393-1-git-send-email-lidongpo@hisilicon.com> <4787248.HAfgOdBKVY@wuerfel> <57831617.6080506@hisilicon.com>
+From: Florian Westphal <fw@strlen.de>
+Subject: Re: [PATCH] net: ip_finish_output_gso: If skb_gso_network_seglen
+ exceeds MTU, do segmentation even for non IPSKB_FORWARDED skbs
+Date: Mon, 11 Jul 2016 10:13:50 +0200
+Message-ID: <20160711081350.GF2067@breakpoint.cc>
+References: <1467722132-10084-1-git-send-email-shmulik.ladkani@ravellosystems.com>
+ <20160705130327.GA10737@breakpoint.cc>
+ <20160705170541.3f210675@pixies>
+ <20160709090020.GB2067@breakpoint.cc>
+ <20160709153017.791f2607@halley>
+ <20160710231410.14fa44c2@halley>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7Bit
-Cc: f.fainelli@gmail.com, robh+dt@kernel.org, mark.rutland@arm.com,
-	davem@davemloft.net, xuejiancheng@hisilicon.com,
-	netdev@vger.kernel.org, devicetree@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Dongpo Li <lidongpo@hisilicon.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <57831617.6080506@hisilicon.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Florian Westphal <fw@strlen.de>,
+	"David S. Miller" <davem@davemloft.net>,
+	Eric Dumazet <edumazet@google.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	shmulik.ladkani@gmail.com, netdev@vger.kernel.org,
+	Alexander Duyck <alexander.duyck@gmail.com>,
+	Tom Herbert <tom@herbertland.com>
+To: Shmulik Ladkani <shmulik.ladkani@ravellosystems.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:37360 "EHLO
+	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
+	by vger.kernel.org with ESMTP id S1752805AbcGKIO0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 04:14:26 -0400
+Content-Disposition: inline
+In-Reply-To: <20160710231410.14fa44c2@halley>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Monday, July 11, 2016 11:44:23 AM CEST Dongpo Li wrote:
-> Hi Arnd,
-> 
-> On 2016/6/28 17:34, Arnd Bergmann wrote:
-> > On Tuesday, June 28, 2016 5:21:19 PM CEST Dongpo Li wrote:
-> >> On 2016/6/15 5:20, Arnd Bergmann wrote:
-> >>> On Tuesday, June 14, 2016 9:17:44 PM CEST Li Dongpo wrote:
-> >>>> On 2016/6/13 17:06, Arnd Bergmann wrote:
-> >>>>> On Monday, June 13, 2016 2:07:56 PM CEST Dongpo Li wrote:
-> >>>>> You tx function uses BQL to optimize the queue length, and that
-> >>>>> is great. You also check xmit reclaim for rx interrupts, so
-> >>>>> as long as you have both rx and tx traffic, this should work
-> >>>>> great.
-> >>>>>
-> >>>>> However, I notice that you only have a 'tx fifo empty'
-> >>>>> interrupt triggering the napi poll, so I guess on a tx-only
-> >>>>> workload you will always end up pushing packets into the
-> >>>>> queue until BQL throttles tx, and then get the interrupt
-> >>>>> after all packets have been sent, which will cause BQL to
-> >>>>> make the queue longer up to the maximum queue size, and that
-> >>>>> negates the effect of BQL.
-> >>>>>
-> >>>>> Is there any way you can get a tx interrupt earlier than
-> >>>>> this in order to get a more balanced queue, or is it ok
-> >>>>> to just rely on rx packets to come in occasionally, and
-> >>>>> just use the tx fifo empty interrupt as a fallback?
-> >>>>>
-> >>>> In tx direction, there are only two kinds of interrupts, 'tx fifo empty'
-> >>>> and 'tx one packet finish'. I didn't use 'tx one packet finish' because
-> >>>> it would lead to high hardware interrupts rate. This has been verified in
-> >>>> our chips. It's ok to just use tx fifo empty interrupt.
-> >>>
-> >>> I'm not convinced by the explanation, I don't think that has anything
-> >>> to do with the hardware design, but instead is about the correctness
-> >>> of the BQL logic with your driver.
-> >>>
-> >>> Maybe your xmit function can do something like
-> >>>
-> >>>       if (dql_avail(netdev_get_tx_queue(dev, 0)->dql) < 0)
-> >>>               enable per-packet interrupt
-> >>>       else
-> >>>               use only fifo-empty interrupt
-> >>>
-> >>> That way, you don't get a lot of interrupts when the system is
-> >>> in a state of packets being received and sent continuously,
-> >>> but if you get to the point where your tx queue fills up
-> >>> and no rx interrupts arrive, you don't have to wait for it
-> >>> to become completely empty before adding new packets, and
-> >>> BQL won't keep growing the queue.
-> >>>
-> >> Hi, Arnd
-> >> I tried enable per-packet interrupt when tx queue full in xmit function
-> >> and disable it in NAPI poll. But the number of interrupts are a little
-> >> bigger than only using fifo-empty interrupt.
+Shmulik Ladkani <shmulik.ladkani@ravellosystems.com> wrote:
+> On Sat, 9 Jul 2016 15:30:17 +0300 Shmulik Ladkani <shmulik.ladkani@ravellosystems.com> wrote:
+> > On Sat, 9 Jul 2016 11:00:20 +0200 Florian Westphal <fw@strlen.de> wrote:
+> > > I am worried about this patch, skb_gso_validate_mtu is more costly than
+> > > the ->flags & FORWARD check; everyone pays this extra cost.  
 > > 
-> > Right, I'd expect that to be the case, it basically means that the
-> > algorithm works as expected.
-> > 
-> > Just to be sure you didn't have extra interrupts: you only enable the
-> > per-packet interrupts if interrupts are currently enabled, not in
-> > NAPI polling mode, right?
-> > 
-> Sorry so long to reply to you. I use the per-packet interrupt like this:
-> In my xmit function,
-> 	if (hardware tx fifo is full) {
-> 		enable tx per-packet interrupt;
-> 		netif_stop_queue(dev);
-> 		return NETDEV_TX_BUSY;
-> 	}
+> > I can get back with numbers regarding the impact on local traffic.
 > 
-> In interrupt handle function,
-> 	if (interrupt is tx per-packet or tx fifo-empty or rx) {
-> 		disable tx per-packet interrupt;
-> 		napi_schedule(&priv->napi);
-> 	}
-> We disable tx per-packet interrupt anyway because the NAPI poll will reclaim
-> the tx fifo.
-> When the NAPI poll completed, it will only enable the tx fifo-empty interrupt
-> and rx interrupt except the tx per-packet interrupt.
+> Florian, I've repeatedly tested how this affects locally generated
+> traffic and it seems there's no impact (or at least too negligible for
+> netperf workload to notice):
 > 
-> Is this solution okay?
+> - veth to veth (netns separated), both UFO enabled
+> - UDP_RR, with Request Size (udp payload) of 1500, to ensure UFO in place
+>   (sender reaches ip_finish_output_gso)
+> - Before: stable v4.6.3
+> - After:  stable v4.6.3 + suggested fix (kill flags&IPSKB_FORWARDED check)
+> 
+> # netperf -T1,2 -c -C -L 192.168.13.2 -H 192.168.13.1 -l 20 -I 99,2 -i 10 -t UDP_RR -- -P 10002,10001 -r 1500,1
+> 
+> MIGRATED UDP REQUEST/RESPONSE TEST from 192.168.13.2 () port 10002 AF_INET to 192.168.13.1 () port 10001 AF_INET : +/-1.000% @ 99% conf.  : demo : first burst 0 : cpu bind
+> Local /Remote
+> Socket Size   Request Resp.  Elapsed Trans.   CPU    CPU    S.dem   S.dem
+> Send   Recv   Size    Size   Time    Rate     local  remote local   remote
+> bytes  bytes  bytes   bytes  secs.   per sec  % S    % S    us/Tr   us/Tr
+> 
+> [before]
+> 212992 212992 1500    1      20.00   45368.10   20.56  20.56  18.131  18.131
+> [after]
+> 212992 212992 1500    1      20.00   45376.09   20.74  20.74  18.287  18.287
+> 
+> Therefore it seems trying to optimize this by setting IPSKB_FORWARDED
+> (or introducing a different mark) in 'iptunnel_xmit' would offer no
+> genuine benefit.
+> 
+> WDYT?
 
-Yes, this looks good to me.
+I think that this just shows that on this machine and this workload
+there is no impact.  E.g. for sctp we now skb_walk_frags() for
+every gso packet.
 
-	Arnd
+We also have two more function calls per skb.
+
+> Were you thinking of different workloads that we should assess the
+> impact on?
+
+I still think that just marking those packets as being forwarded from
+tunnel code is the right thing to do; linux runs on so many platforms
+that its very difficult to asses that something "has no overhead".
+
+Long term we should just adjust gso size to not have to do skb software
+segmentation anymore.
+
+I remember that Eric Dumazet suggested the same thing back when this
+gso forward checking was added but I recall there were corner cases in
+the segmentation code that caused BUG_ON crashes.
