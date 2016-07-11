@@ -1,67 +1,50 @@
-From: "Wei Hu (Xavier)" <xavier.huwei-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Subject: Re: [PATCH v11 00/22] Add HiSilicon RoCE driver
-Date: Mon, 11 Jul 2016 17:38:39 +0800
-Message-ID: <5783691F.6060203@huawei.com>
-References: <1467452364-66522-1-git-send-email-oulijun@huawei.com>
- <577F16C1.8090705@huawei.com>
+From: Pablo Neira Ayuso <pablo@netfilter.org>
+Subject: Re: [GIT PULL nf-next] IPVS Updates for v4.8
+Date: Mon, 11 Jul 2016 12:04:24 +0200
+Message-ID: <20160711100424.GA6412@salvia>
+References: <1467916840-17005-1-git-send-email-horms@verge.net.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8;
-	format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: <linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>, Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
-	"linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Netdev List <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	Linux Kernel <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Doug Ledford <dledford-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <577F16C1.8090705-hv44wF8Li93QT0dZR+AlfA@public.gmane.org>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: lvs-devel@vger.kernel.org, netdev@vger.kernel.org,
+	netfilter-devel@vger.kernel.org,
+	Wensong Zhang <wensong@linux-vs.org>,
+	Julian Anastasov <ja@ssi.bg>
+To: Simon Horman <horms@verge.net.au>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail.us.es ([193.147.175.20]:41776 "EHLO mail.us.es"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1030622AbcGKKEe (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jul 2016 06:04:34 -0400
+Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
+	by mail.us.es (Postfix) with ESMTP id 1AAE717AB6A
+	for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 12:04:32 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id F3E07266749
+	for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 12:04:31 +0200 (CEST)
+Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
+	by antivirus1-rhel7.int (Postfix) with ESMTP id 2C5B1FAB52
+	for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 12:04:29 +0200 (CEST)
+Content-Disposition: inline
+In-Reply-To: <1467916840-17005-1-git-send-email-horms@verge.net.au>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
+On Thu, Jul 07, 2016 at 08:40:39PM +0200, Simon Horman wrote:
+> Hi Pablo,
+> 
+> please consider these enhancements to the IPVS. This alters the behaviour
+> of the "least connection" schedulers such that pre-established connections
+> are included in the active connection count. This avoids overloading
+> servers when a large number of new connections arrive in a short space of
+> time - e.g. when clients reconnect after a node or network failure.
+> 
+> 
+> The following changes since commit c6ac37d8d8843fb1fdc34e4a2a41a4f027ab670c:
+> 
+>   netfilter: nf_log: fix error on write NONE to logger choice sysctl (2016-07-05 14:57:57 +0200)
+> 
+> are available in the git repository at:
+> 
+>   https://git.kernel.org/pub/scm/linux/kernel/git/horms/ipvs-next.git tags/ipvs-for-v4.8
 
-
-On 2016/7/8 10:58, oulijun wrote:
-> =E5=9C=A8 2016/7/2 17:39, Lijun Ou =E5=86=99=E9=81=93:
->> The HiSilicon Network Substem is a long term evolution IP which is
->> supposed to be used in HiSilicon ICT SoCs. HNS (HiSilicon Network
->> Sybsystem) also has a hardware support of performing RDMA with
->> RoCEE.
->> The driver for HiSilicon RoCEE(RoCE Engine) is a platform driver and
->> will support mulitple versions of SOCs in future. This version of dr=
-iver
->> is meant to support Hip06 SoC(which confirms to RoCEv1 hardware
->> specifications).
->>
->> Changes v10 -> v11:
->> [1/22]:
->> 1. modify the print description of chip don't support roce
->> 2. remove explicit values for enums for patch series
->> [3/22]:
->> 3. remove non-essential headers for patch series
-<...>
->>
-> Hi, Doug
-> We have modified Patch v10 to Patch v11 according to all the reviews =
-from Leon Romanovsky, and Patch v11 has been upstreamed,
-> hopefully, there will be more reviews.
-> Best Regards,
->
-> Lijun Ou
-Hi, Doug Ledford
-
-     Have you got any time to look at this patchset? Any feedback /=20
-comment ?
-
-Many thanks
-Wei Hu
-> _______________________________________________
-> linuxarm mailing list
-> linuxarm-hv44wF8Li93QT0dZR+AlfA@public.gmane.org
-> http://rnd-openeuler.huawei.com/mailman/listinfo/linuxarm
-
-
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" i=
-n
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Pulled, thanks Simon.
