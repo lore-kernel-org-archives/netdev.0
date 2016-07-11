@@ -1,44 +1,54 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v2 net] sock: ignore SCM_RIGHTS and SCM_CREDENTIALS in
- __sock_cmsg_send
-Date: Mon, 11 Jul 2016 14:37:24 -0700 (PDT)
-Message-ID: <20160711.143724.1406029004012671841.davem@davemloft.net>
-References: <1468270286-7411-1-git-send-email-soheil.kdev@gmail.com>
+From: Florian Fainelli <f.fainelli@gmail.com>
+Subject: Re: [net-next:master 1118/1134]
+ drivers/net/dsa/b53/b53_srab.c:388:20: warning: cast from pointer to integer
+ of different size
+Date: Mon, 11 Jul 2016 14:37:32 -0700
+Message-ID: <5784119C.7070308@gmail.com>
+References: <201607120549.q93JxhcC%fengguang.wu@intel.com>
+ <20160711.143125.685534519604579905.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=utf-8
 Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, willemb@google.com, edumazet@google.com,
-	soheil@google.com
-To: soheil.kdev@gmail.com
+Cc: kbuild-all@01.org, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>, fengguang.wu@intel.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:32780 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752442AbcGKVh0 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 17:37:26 -0400
-In-Reply-To: <1468270286-7411-1-git-send-email-soheil.kdev@gmail.com>
+Received: from mail-pa0-f65.google.com ([209.85.220.65]:33885 "EHLO
+	mail-pa0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752442AbcGKVhf (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 17:37:35 -0400
+Received: by mail-pa0-f65.google.com with SMTP id hh10so3786111pac.1
+        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 14:37:35 -0700 (PDT)
+In-Reply-To: <20160711.143125.685534519604579905.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Soheil Hassas Yeganeh <soheil.kdev@gmail.com>
-Date: Mon, 11 Jul 2016 16:51:26 -0400
+On 07/11/2016 02:31 PM, David Miller wrote:
+> From: kbuild test robot <fengguang.wu@intel.com>
+> Date: Tue, 12 Jul 2016 05:19:57 +0800
+> 
+>> All warnings (new ones prefixed by >>):
+>>
+>>    drivers/net/dsa/b53/b53_srab.c: In function 'b53_srab_probe':
+>>>> drivers/net/dsa/b53/b53_srab.c:388:20: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
+>>       pdata->chip_id = (u32)of_id->data;
+>>                        ^
+>>
+> 
+> Fixed as follows:
+> 
+> ====================
+> [PATCH] b53: Fix build warning.
+> 
+>    drivers/net/dsa/b53/b53_srab.c: In function 'b53_srab_probe':
+>>> drivers/net/dsa/b53/b53_srab.c:388:20: warning: cast from pointer to integer of different size [-Wpointer-to-int-cast]
+>       pdata->chip_id = (u32)of_id->data;
+>                        ^
+> 
+> Reported-by: kbuild test robot <fengguang.wu@intel.com>
+> Signed-off-by: David S. Miller <davem@davemloft.net>
 
-> From: Soheil Hassas Yeganeh <soheil@google.com>
-> 
-> Sergei Trofimovich reported that pulse audio sends SCM_CREDENTIALS
-> as a control message to TCP. Since __sock_cmsg_send does not
-> support SCM_RIGHTS and SCM_CREDENTIALS, it returns an error and
-> hence breaks pulse audio over TCP.
-> 
-> SCM_RIGHTS and SCM_CREDENTIALS are sent on the SOL_SOCKET layer
-> but they semantically belong to SOL_UNIX. Since all
-> cmsg-processing functions including sock_cmsg_send ignore control
-> messages of other layers, it is best to ignore SCM_RIGHTS
-> and SCM_CREDENTIALS for consistency (and also for fixing pulse
-> audio over TCP).
-> 
-> Fixes: c14ac9451c34 ("sock: enable timestamping using control messages")
-> Signed-off-by: Soheil Hassas Yeganeh <soheil@google.com>
-> Reported-by: Sergei Trofimovich <slyfox@gentoo.org>
-> Tested-by: Sergei Trofimovich <slyfox@gentoo.org>
+Acked-by: Florian Fainelli <f.fainelli@gmail.com>
 
-Applied and queued up for -stable, thanks.
+You are fast, thanks David!
+-- 
+Florian
