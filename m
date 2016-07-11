@@ -1,71 +1,63 @@
-From: Jeremy Linton <jeremy.linton@arm.com>
-Subject: [PATCH v2] net: smc91x: ACPI Enable lan91x adapters
-Date: Mon, 11 Jul 2016 10:28:40 -0500
-Message-ID: <1468250920-29814-1-git-send-email-jeremy.linton@arm.com>
-Cc: nico@fluxnic.net, robert.jarzmik@free.fr,
-	felipe.balbi@linux.intel.com, fw@strlen.de, arnd@arndb.de,
-	steve.capper@arm.com, netdev@vger.kernel.org
-To: davem@davemloft.net
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from foss.arm.com ([217.140.101.70]:53763 "EHLO foss.arm.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753898AbcGKP2r (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Mon, 11 Jul 2016 11:28:47 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Colin King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
+Subject: [PATCH] nfp: check idx is -ENOSPC before using it is an index
+Date: Mon, 11 Jul 2016 16:46:57 +0100
+Message-ID: <1468252017-14864-1-git-send-email-colin.king@canonical.com>
+To: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+	Lauro Ramos Venancio <lauro.venancio-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Aloisio Almeida Jr <aloisio.almeida-430g2QfJUUCGglJvpFV4uA@public.gmane.org>,
+	Samuel Ortiz <sameo-VuQAYsv1563Yd54FQh9/CA@public.gmane.org>,
+	"David S . Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	Rolf Neugebauer <rolf.neugebauer-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+	Christophe Ricard <christophe.ricard-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>,
+	Robert Dolca <robert.dolca-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	oss-drivers-wFxRvT7yatFl57MIdRCFDg@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Enable lan91x adapters in some ARM machines and models
-when booted with an ACPI kernel.
+From: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 
-Signed-off-by: Jeremy Linton <jeremy.linton@arm.com>
+idx can be returned as -ENOSPC, so we should check for this first
+before using it as an index into nn->vxlan_usecnt[] to avoid an
+out of bounds array offset read.
+
+Signed-off-by: Colin Ian King <colin.king-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
 ---
- drivers/net/ethernet/smsc/smc91x.c | 13 ++++++++++---
- 1 file changed, 10 insertions(+), 3 deletions(-)
+ drivers/net/ethernet/netronome/nfp/nfp_net_common.c | 2 +-
+ drivers/nfc/fdp/fdp.c                               | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/smsc/smc91x.c b/drivers/net/ethernet/smsc/smc91x.c
-index 18ac52d..726b80f 100644
---- a/drivers/net/ethernet/smsc/smc91x.c
-+++ b/drivers/net/ethernet/smsc/smc91x.c
-@@ -2195,6 +2195,12 @@ static void smc_release_datacs(struct platform_device *pdev, struct net_device *
+diff --git a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+index 1e74b91..88678c1 100644
+--- a/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
++++ b/drivers/net/ethernet/netronome/nfp/nfp_net_common.c
+@@ -2578,7 +2578,7 @@ static void nfp_net_del_vxlan_port(struct net_device *netdev,
+ 		return;
+ 
+ 	idx = nfp_net_find_vxlan_idx(nn, ti->port);
+-	if (!nn->vxlan_usecnt[idx] || idx == -ENOSPC)
++	if (idx == -ENOSPC || !nn->vxlan_usecnt[idx])
+ 		return;
+ 
+ 	if (!--nn->vxlan_usecnt[idx])
+diff --git a/drivers/nfc/fdp/fdp.c b/drivers/nfc/fdp/fdp.c
+index e44a7a2..d93d314 100644
+--- a/drivers/nfc/fdp/fdp.c
++++ b/drivers/nfc/fdp/fdp.c
+@@ -345,7 +345,7 @@ static void fdp_nci_release_firmware(struct nci_dev *ndev)
+ 
+ 	if (info->ram_patch) {
+ 		release_firmware(info->ram_patch);
+-		info->otp_patch = NULL;
++		info->ram_patch = NULL;
  	}
  }
  
-+static const struct acpi_device_id smc91x_acpi_match[] = {
-+	{ "LNRO0003", 0 },
-+	{ }
-+};
-+MODULE_DEVICE_TABLE(acpi, smc91x_acpi_match);
-+
- #if IS_BUILTIN(CONFIG_OF)
- static const struct of_device_id smc91x_match[] = {
- 	{ .compatible = "smsc,lan91c94", },
-@@ -2274,7 +2280,6 @@ static int smc_drv_probe(struct platform_device *pdev)
- #if IS_BUILTIN(CONFIG_OF)
- 	match = of_match_device(of_match_ptr(smc91x_match), &pdev->dev);
- 	if (match) {
--		struct device_node *np = pdev->dev.of_node;
- 		u32 val;
- 
- 		/* Optional pwrdwn GPIO configured? */
-@@ -2300,7 +2305,8 @@ static int smc_drv_probe(struct platform_device *pdev)
- 			usleep_range(750, 1000);
- 
- 		/* Combination of IO widths supported, default to 16-bit */
--		if (!of_property_read_u32(np, "reg-io-width", &val)) {
-+		if (!device_property_read_u32(&pdev->dev, "reg-io-width",
-+					      &val)) {
- 			if (val & 1)
- 				lp->cfg.flags |= SMC91X_USE_8BIT;
- 			if ((val == 0) || (val & 2))
-@@ -2478,7 +2484,8 @@ static struct platform_driver smc_driver = {
- 	.driver		= {
- 		.name	= CARDNAME,
- 		.pm	= &smc_drv_pm_ops,
--		.of_match_table = of_match_ptr(smc91x_match),
-+		.of_match_table   = of_match_ptr(smc91x_match),
-+		.acpi_match_table = smc91x_acpi_match,
- 	},
- };
- 
 -- 
-2.5.5
+2.8.1
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
