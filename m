@@ -1,61 +1,36 @@
-From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: Re: [PATCH nf-next 3/3] netfilter: replace list_head with single
- linked list
-Date: Mon, 11 Jul 2016 12:29:31 +0200
-Message-ID: <20160711102931.GA18199@salvia>
-References: <1467321575-6107-1-git-send-email-aconole@bytheb.org>
- <1467321575-6107-4-git-send-email-aconole@bytheb.org>
- <20160708233038.GA2067@breakpoint.cc>
+From: Tariq Toukan <ttoukan.linux@gmail.com>
+Subject: Re: [PATCH net-next 2/4] net/mlx4: Preparation for VST QinQ
+Date: Mon, 11 Jul 2016 13:33:04 +0300
+Message-ID: <a19f0939-91a6-190e-8af6-189987c0d57d@gmail.com>
+References: <1467808146-29573-1-git-send-email-tariqt@mellanox.com>
+ <1467808146-29573-3-git-send-email-tariqt@mellanox.com>
+ <CAJ3xEMhi=jY=tisExuwe1HEeftr4fLE5uqWOD9De+UoR4AYEqA@mail.gmail.com>
+ <AM4PR05MB15534E2234C21C803C2B8FD0AE3E0@AM4PR05MB1553.eurprd05.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Aaron Conole <aconole@bytheb.org>, netdev@vger.kernel.org,
-	netfilter-devel@vger.kernel.org
-To: Florian Westphal <fw@strlen.de>
-Return-path: <netfilter-devel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160708233038.GA2067@breakpoint.cc>
-Sender: netfilter-devel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=utf-8; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+	Linux Netdev List <netdev@vger.kernel.org>,
+	Eran Ben Elisha <eranbe@mellanox.com>,
+	Moshe Shemesh <moshe@mellanox.com>
+To: Tariq Toukan <tariqt@mellanox.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-wm0-f51.google.com ([74.125.82.51]:37836 "EHLO
+	mail-wm0-f51.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1758428AbcGKKdI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 06:33:08 -0400
+Received: by mail-wm0-f51.google.com with SMTP id i5so9953056wmg.0
+        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 03:33:08 -0700 (PDT)
+In-Reply-To: <AM4PR05MB15534E2234C21C803C2B8FD0AE3E0@AM4PR05MB1553.eurprd05.prod.outlook.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Sat, Jul 09, 2016 at 01:30:38AM +0200, Florian Westphal wrote:
-> Aaron Conole <aconole@bytheb.org> wrote:
-> > --- a/net/netfilter/core.c
-> > +++ b/net/netfilter/core
-> [..]
-> > +#define nf_entry_dereference(e) \
-> > +	rcu_dereference_protected(e, lockdep_is_held(&nf_hook_mutex))
-> >  
-> > -static struct list_head *nf_find_hook_list(struct net *net,
-> > -					   const struct nf_hook_ops *reg)
-> > +static struct nf_hook_entry *nf_find_hook_list(struct net *net,
-> > +					       const struct nf_hook_ops *reg)
-> >  {
-> > -	struct list_head *hook_list = NULL;
-> > +	struct nf_hook_entry *hook_list = NULL;
-> >  
-> >  	if (reg->pf != NFPROTO_NETDEV)
-> > -		hook_list = &net->nf.hooks[reg->pf][reg->hooknum];
-> > +		hook_list = rcu_dereference(net->nf.hooks[reg->pf]
-> > +					    [reg->hooknum]);
-> >  	else if (reg->hooknum == NF_NETDEV_INGRESS) {
-> >  #ifdef CONFIG_NETFILTER_INGRESS
-> >  		if (reg->dev && dev_net(reg->dev) == net)
-> > -			hook_list = &reg->dev->nf_hooks_ingress;
-> > +			hook_list =
-> > +				rcu_dereference(reg->dev->nf_hooks_ingress);
-> 
-> Both of these should use nf_entry_dereference() to avoid the lockdep
-> splat reported by kbuild robot:
-> 
-> net/netfilter/core.c:75 suspicious rcu_dereference_check() usage!
-> 2 locks held by swapper/1:
-> #0:  (rtnl_mutex){+.+.+.}, at: [<ffffffff81c2e567>] rtnl_lock+0x17/0x20
-> #1:  (nf_hook_mutex){+.+...}, at: [<ffffffff81c58fcb>] nf_register_net_hook+0xcb/0x240
-
-Aaron, please, send a v2.
-
-I have a patchset that changes the footprint of the hook function as
-it was discussed during the last Netfilter Workshop that clashes with
-this.
-
-Thanks!
+On 10/07/2016 7:00 PM, Tariq Toukan wrote:
+>>> Add func capability vlan_offload_disable to disable all vlan HW
+>>> acceleration on VF while the VF is set to VST QinQ mode.
+>> this part (above two lines) is code running in the VF Eth driver, correct? if this is indeed the case, break the patch to two (1) PF core driver  (2) VF core/EN driver
+>>
+>> What happens if the VF doesn't work as you expect? e.g the PF runs your code and the VF driver is unpatched?
+> Good point, currently if the administrator sets the configuration then it just silently not fail. We will use a mechanism that prevents this.
+* silently fails
