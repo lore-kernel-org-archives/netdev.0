@@ -1,52 +1,168 @@
-From: "Coelho, Luciano" <luciano.coelho@intel.com>
-Subject: Re: [PATCH RESEND] iwlwifi, Do not implement thermal zone unless
- ucode is loaded
-Date: Mon, 11 Jul 2016 16:07:42 +0000
-Message-ID: <1468253261.25088.126.camel@intel.com>
-References: <1468250301-10357-1-git-send-email-prarit@redhat.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [patch net-next 1/2] devlink: add hardware messages tracing
+ facility
+Date: Mon, 11 Jul 2016 12:08:14 -0400
+Message-ID: <20160711120814.504c20cb@gandalf.local.home>
+References: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: base64
-Cc: linuxwifi <linuxwifi@intel.com>,
-	"Berg, Johannes" <johannes.berg@intel.com>,
-	"kvalo@codeaurora.org" <kvalo@codeaurora.org>,
-	"Ivgi, Chaya Rachel" <chaya.rachel.ivgi@intel.com>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	"Sharon, Sara" <sara.sharon@intel.com>,
-	"linux-wireless@vger.kernel.org" <linux-wireless@vger.kernel.org>,
-	"Grumbach, Emmanuel" <emmanuel.grumbach@intel.com>
-To: "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"prarit@redhat.com" <prarit@redhat.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468250301-10357-1-git-send-email-prarit@redhat.com>
-Content-Language: en-US
-Content-ID: <E35A1775E18A3144A64A5D140CE96FAF@intel.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	yotamg@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+	ogerlitz@mellanox.com, ivecera@redhat.com, mingo@redhat.com,
+	jolsa@kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtprelay0254.hostedemail.com ([216.40.44.254]:42233 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1755286AbcGKQIS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 12:08:18 -0400
+In-Reply-To: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-T24gTW9uLCAyMDE2LTA3LTExIGF0IDExOjE4IC0wNDAwLCBQcmFyaXQgQmhhcmdhdmEgd3JvdGU6
-DQo+IERpZG4ndCBnZXQgYW55IGZlZWRiYWNrIG9yIHJldmlldyBjb21tZW50cyBvbiB0aGlzIHBh
-dGNoLsKgwqBSZXNlbmRpbmcNCj4gLi4uDQo+IA0KPiBQLg0KDQpTb3JyeSwgdGhpcyBnb3QgZmxv
-b2RlZCBkb3duIG15IGluYm94Lg0KDQoNCj4gLS0tODwtLS0NCj4gDQo+IFRoZSBpd2x3aWZpIGRy
-aXZlciBpbXBsZW1lbnRzIGEgdGhlcm1hbCB6b25lIGFuZCBod21vbiBkZXZpY2UsIGJ1dA0KPiBy
-ZXR1cm5zIC1FSU8gb24gdGVtcGVyYXR1cmUgcmVhZHMgaWYgdGhlIGZpcm13YXJlIGlzbid0IGxv
-YWRlZC7CoMKgVGhpcw0KPiByZXN1bHRzIGluIHRoZSBlcnJvcg0KPiANCj4gaXdsd2lmaS12aXJ0
-dWFsLTANCj4gQWRhcHRlcjogVmlydHVhbCBkZXZpY2UNCj4gRVJST1I6IENhbid0IGdldCB2YWx1
-ZSBvZiBzdWJmZWF0dXJlIHRlbXAxX2lucHV0OiBJL08gZXJyb3INCj4gdGVtcDE6wqDCoMKgwqDC
-oMKgwqDCoMKgwqDCoMKgTi9BDQo+IA0KPiBiZWluZyBvdXRwdXQgd2hlbiB1c2luZyBzZW5zb3Jz
-IGZyb20gdGhlIGxtLXNlbnNvcnMgcGFja2FnZS7CoMKgU2luY2UNCj4gdGhlIHRlbXBlcmF0dXJl
-IGNhbm5vdCBiZSByZWFkIHVubGVzcyB0aGUgdWNvZGUgaXMgbG9hZGVkIHRoZXJlIGlzIG5vDQo+
-IHJlYXNvbiB0byBhZGQgdGhlIGludGVyZmFjZSBvbmx5IHRvIGhhdmUgaXQgcmV0dXJuIGFuIGVy
-cm9yIDEwMCUgb2YNCj4gdGhlIHRpbWUuDQo+IA0KPiBUaGlzIHBhdGNoIG1vdmVzIHRoZSBmaXJt
-d2FyZSBjaGVjayB0bw0KPiBpd2xfbXZtX3RoZXJtYWxfem9uZV9yZWdpc3RlcigpIGFuZA0KPiBz
-dG9wcyB0aGUgdGhlcm1hbCB6b25lIGZyb20gYmVpbmcgY3JlYXRlZCBpZiB0aGUgdWNvZGUgaGFz
-bid0IGJlZW4NCj4gbG9hZGVkLg0KPiANCj4gU2lnbmVkLW9mZi1ieTogUHJhcml0IEJoYXJnYXZh
-IDxwcmFyaXRAcmVkaGF0LmNvbT4NCj4gQ2M6IEpvaGFubmVzIEJlcmcgPGpvaGFubmVzLmJlcmdA
-aW50ZWwuY29tPg0KPiBDYzogRW1tYW51ZWwgR3J1bWJhY2ggPGVtbWFudWVsLmdydW1iYWNoQGlu
-dGVsLmNvbT4NCj4gQ2M6IEx1Y2EgQ29lbGhvIDxsdWNpYW5vLmNvZWxob0BpbnRlbC5jb20+DQo+
-IENjOiBJbnRlbCBMaW51eCBXaXJlbGVzcyA8bGludXh3aWZpQGludGVsLmNvbT4NCj4gQ2M6IEth
-bGxlIFZhbG8gPGt2YWxvQGNvZGVhdXJvcmEub3JnPg0KPiBDYzogQ2hheWEgUmFjaGVsIEl2Z2kg
-PGNoYXlhLnJhY2hlbC5pdmdpQGludGVsLmNvbT4NCj4gQ2M6IFNhcmEgU2hhcm9uIDxzYXJhLnNo
-YXJvbkBpbnRlbC5jb20+DQo+IENjOiBsaW51eC13aXJlbGVzc0B2Z2VyLmtlcm5lbC5vcmcNCj4g
-Q2M6IG5ldGRldkB2Z2VyLmtlcm5lbC5vcmcNCj4gLS0tDQoNCkkgaGF2ZSBub3cgc2VudCBpdCBm
-b3IgcmV2aWV3IG9uIG91ciBpbnRlcm5hbCB0cmVlLg0KDQotLQ0KTHVjYS4=
+On Mon, 11 Jul 2016 15:18:47 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
+
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Define a tracepoint and allow user to trace messages going to and from
+> hardware associated with devlink instance.
+> 
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+>  include/net/devlink.h          |  8 +++++++
+>  include/trace/events/devlink.h | 49 ++++++++++++++++++++++++++++++++++++++++++
+>  net/core/devlink.c             |  9 ++++++++
+>  3 files changed, 66 insertions(+)
+>  create mode 100644 include/trace/events/devlink.h
+> 
+> diff --git a/include/net/devlink.h b/include/net/devlink.h
+> index c99ffe8..865ade6 100644
+> --- a/include/net/devlink.h
+> +++ b/include/net/devlink.h
+> @@ -115,6 +115,8 @@ struct devlink *devlink_alloc(const struct devlink_ops *ops, size_t priv_size);
+>  int devlink_register(struct devlink *devlink, struct device *dev);
+>  void devlink_unregister(struct devlink *devlink);
+>  void devlink_free(struct devlink *devlink);
+> +void devlink_trace_hwmsg(const struct devlink *devlink, bool incoming,
+> +			 unsigned long type, const u8 *buf, size_t len);
+>  int devlink_port_register(struct devlink *devlink,
+>  			  struct devlink_port *devlink_port,
+>  			  unsigned int port_index);
+> @@ -154,6 +156,12 @@ static inline void devlink_free(struct devlink *devlink)
+>  	kfree(devlink);
+>  }
+>  
+> +static inline void devlink_trace_hwmsg(const struct devlink *devlink,
+> +				       bool incoming, unsigned long type,
+> +				       const u8 *buf, size_t len);
+> +{
+> +}
+> +
+>  static inline int devlink_port_register(struct devlink *devlink,
+>  					struct devlink_port *devlink_port,
+>  					unsigned int port_index)
+> diff --git a/include/trace/events/devlink.h b/include/trace/events/devlink.h
+> new file mode 100644
+> index 0000000..7918c57
+> --- /dev/null
+> +++ b/include/trace/events/devlink.h
+> @@ -0,0 +1,49 @@
+> +#undef TRACE_SYSTEM
+> +#define TRACE_SYSTEM devlink
+> +
+> +#if !defined(_TRACE_DEVLINK_H) || defined(TRACE_HEADER_MULTI_READ)
+> +#define _TRACE_DEVLINK_H
+> +
+> +#include <linux/device.h>
+> +#include <net/devlink.h>
+> +#include <linux/tracepoint.h>
+> +
+> +/*
+> + * Tracepoint for devlink hardware message:
+> + */
+> +TRACE_EVENT(devlink_hwmsg,
+> +	TP_PROTO(const struct devlink *devlink, bool incoming,
+> +		 unsigned long type, const u8 *buf, size_t len),
+> +
+> +	TP_ARGS(devlink, incoming, type, buf, len),
+> +
+> +	TP_STRUCT__entry(
+> +		__string(bus_name, devlink->dev->bus->name)
+> +		__string(dev_name, dev_name(devlink->dev))
+> +		__string(owner_name, devlink->dev->driver->owner->name)
+> +		__field(bool, incoming)
+> +		__field(unsigned long, type)
+> +		__dynamic_array(u8, buf, len)
+> +		__field(size_t, len)
+> +	),
+> +
+> +	TP_fast_assign(
+> +		__assign_str(bus_name, devlink->dev->bus->name);
+> +		__assign_str(dev_name, dev_name(devlink->dev));
+> +		__assign_str(owner_name, devlink->dev->driver->owner->name);
+> +		__entry->incoming = incoming;
+> +		__entry->type = type;
+> +		memcpy(__get_dynamic_array(buf), buf, len);
+> +		__entry->len = len;
+> +	),
+> +
+> +	TP_printk("bus_name=%s dev_name=%s owner_name=%s incoming=%d type=%lu buf=0x[%*phD] len=%lu",
+> +		  __get_str(bus_name), __get_str(dev_name),
+> +		  __get_str(owner_name), __entry->incoming, __entry->type,
+> +		  (int) __entry->len, __get_dynamic_array(buf), __entry->len)
+> +);
+> +
+> +#endif /* _TRACE_DEVLINK_H */
+> +
+> +/* This part must be outside protection */
+> +#include <trace/define_trace.h>
+> diff --git a/net/core/devlink.c b/net/core/devlink.c
+> index b2e592a..8cfa3b0 100644
+> --- a/net/core/devlink.c
+> +++ b/net/core/devlink.c
+> @@ -26,6 +26,8 @@
+>  #include <net/net_namespace.h>
+>  #include <net/sock.h>
+>  #include <net/devlink.h>
+> +#define CREATE_TRACE_POINTS
+> +#include <trace/events/devlink.h>
+>  
+>  static LIST_HEAD(devlink_list);
+>  
+> @@ -1679,6 +1681,13 @@ void devlink_free(struct devlink *devlink)
+>  }
+>  EXPORT_SYMBOL_GPL(devlink_free);
+>  
+> +void devlink_trace_hwmsg(const struct devlink *devlink, bool incoming,
+> +			 unsigned long type, const u8 *buf, size_t len)
+> +{
+> +	trace_devlink_hwmsg(devlink, incoming, type, buf, len);
+> +}
+> +EXPORT_SYMBOL_GPL(devlink_trace_hwmsg);
+> +
+
+Instead of having a function that always gets called even when tracing
+isn't enabled, why not have the caller call the trace_devlink_hwmsg()
+directly?
+
+In the trace/devlink.h file you could encapsulate it with:
+
+#if IS_ENABLED(CONFIG_NET_DEVLINK)
+
+[...]
+
+#else
+static inline void trace_devlink_hwmsg(const struct devlink *devlink,
+				       bool incoming, unsigned long type,
+				       const u8 *buf, size_t len);
+{
+}
+#endif
+
+-- Steve
+
+>  /**
+>   *	devlink_port_register - Register devlink port
+>   *
