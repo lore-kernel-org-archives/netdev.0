@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 09/10] net/mlx5e: Add TC HW support for FDB (SRIOV e-switch) offloads
-Date: Wed, 13 Jul 2016 00:29:05 +0300
-Message-ID: <1468358946-28709-10-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 07/10] net/switchdev: Export the same parent ID service function
+Date: Wed, 13 Jul 2016 00:29:03 +0300
+Message-ID: <1468358946-28709-8-git-send-email-saeedm@mellanox.com>
 References: <1468358946-28709-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -13,113 +13,74 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:51334 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:51245 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750919AbcGLVb1 (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2016 17:31:27 -0400
+	id S1751084AbcGLVbA (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jul 2016 17:31:00 -0400
 In-Reply-To: <1468358946-28709-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-Enhance the TC offload code such that when the eswitch exists and it's
-mode being SRIOV offloads, we do TC actions parsing and setup targeted
-for eswitch. Next, we add the offloaded flow to the HW e-switch (fdb).
+This helper serves to know if two switchdev port netdevices belong to the
+same HW ASIC, e.g to figure out if forwarding offload is possible between them.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/en_rep.c |  5 ++++
- drivers/net/ethernet/mellanox/mlx5/core/en_tc.c  | 35 ++++++++++++++++++++----
- 2 files changed, 34 insertions(+), 6 deletions(-)
+ include/net/switchdev.h   | 8 ++++++++
+ net/switchdev/switchdev.c | 5 +++--
+ 2 files changed, 11 insertions(+), 2 deletions(-)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-index 5ef02f0..fdaf2fa 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_rep.c
-@@ -36,6 +36,7 @@
+diff --git a/include/net/switchdev.h b/include/net/switchdev.h
+index 985619a..9023e3e 100644
+--- a/include/net/switchdev.h
++++ b/include/net/switchdev.h
+@@ -227,6 +227,8 @@ void switchdev_port_fwd_mark_set(struct net_device *dev,
+ 				 struct net_device *group_dev,
+ 				 bool joining);
  
- #include "eswitch.h"
- #include "en.h"
-+#include "en_tc.h"
++bool switchdev_port_same_parent_id(struct net_device *a,
++				   struct net_device *b);
+ #else
  
- static const char mlx5e_rep_driver_name[] = "mlx5e_rep";
- 
-@@ -201,6 +202,10 @@ void mlx5e_nic_rep_unload(struct mlx5_eswitch *esw,
- 
- 	if (test_bit(MLX5E_STATE_OPENED, &priv->state))
- 		mlx5e_remove_sqs_fwd_rules(priv);
-+
-+	/* clean (and re-init) existing uplink offloaded TC rules */
-+	mlx5e_tc_cleanup(priv);
-+	mlx5e_tc_init(priv);
+ static inline void switchdev_deferred_process(void)
+@@ -351,6 +353,12 @@ static inline void switchdev_port_fwd_mark_set(struct net_device *dev,
+ {
  }
  
- static int mlx5e_rep_get_phys_port_name(struct net_device *dev,
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-index 9a66441..0f19b01 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
-@@ -112,6 +112,22 @@ err_create_ft:
- 	return rule;
- }
- 
-+static struct mlx5_flow_rule *mlx5e_tc_add_fdb_flow(struct mlx5e_priv *priv,
-+						    struct mlx5_flow_spec *spec,
-+						    u32 action, u32 dst_vport)
++static inline bool switchdev_port_same_parent_id(struct net_device *a,
++						 struct net_device *b)
 +{
-+	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
-+	struct mlx5_eswitch_rep *rep = priv->ppriv;
-+	u32 src_vport;
-+
-+	if (rep->vport) /* set source vport for the flow */
-+		src_vport = rep->vport;
-+	else
-+		src_vport = FDB_UPLINK_VPORT;
-+
-+	return mlx5_eswitch_add_offloaded_rule(esw, spec, action, src_vport, dst_vport);
++	return false;
 +}
 +
- static void mlx5e_tc_del_flow(struct mlx5e_priv *priv,
- 			      struct mlx5_flow_rule *rule)
+ #endif
+ 
+ #endif /* _LINUX_SWITCHDEV_H_ */
+diff --git a/net/switchdev/switchdev.c b/net/switchdev/switchdev.c
+index 59658b2..a5fc9dd 100644
+--- a/net/switchdev/switchdev.c
++++ b/net/switchdev/switchdev.c
+@@ -1286,8 +1286,8 @@ void switchdev_fib_ipv4_abort(struct fib_info *fi)
+ }
+ EXPORT_SYMBOL_GPL(switchdev_fib_ipv4_abort);
+ 
+-static bool switchdev_port_same_parent_id(struct net_device *a,
+-					  struct net_device *b)
++bool switchdev_port_same_parent_id(struct net_device *a,
++				   struct net_device *b)
  {
-@@ -397,11 +413,11 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
- {
- 	struct mlx5e_tc_table *tc = &priv->fs.tc;
- 	int err = 0;
--	u32 flow_tag;
--	u32 action;
-+	u32 flow_tag, action, dest_vport = 0;
- 	struct mlx5e_tc_flow *flow;
- 	struct mlx5_flow_spec *spec;
- 	struct mlx5_flow_rule *old = NULL;
-+	struct mlx5_eswitch *esw = priv->mdev->priv.eswitch;
+ 	struct switchdev_attr a_attr = {
+ 		.orig_dev = a,
+@@ -1323,6 +1323,7 @@ static u32 switchdev_port_fwd_mark_get(struct net_device *dev,
  
- 	flow = rhashtable_lookup_fast(&tc->ht, &f->cookie,
- 				      tc->ht_params);
-@@ -422,11 +438,18 @@ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
- 	if (err < 0)
- 		goto err_free;
+ 	return dev->ifindex;
+ }
++EXPORT_SYMBOL_GPL(switchdev_port_same_parent_id);
  
--	err = parse_tc_nic_actions(priv, f->exts, &action, &flow_tag);
--	if (err < 0)
--		goto err_free;
-+	if (esw && esw->mode == SRIOV_OFFLOADS) {
-+		err = parse_tc_fdb_actions(priv, f->exts, &action, &dest_vport);
-+		if (err < 0)
-+			goto err_free;
-+		flow->rule = mlx5e_tc_add_fdb_flow(priv, spec, action, dest_vport);
-+	} else {
-+		err = parse_tc_nic_actions(priv, f->exts, &action, &flow_tag);
-+		if (err < 0)
-+			goto err_free;
-+		flow->rule = mlx5e_tc_add_nic_flow(priv, spec, action, flow_tag);
-+	}
- 
--	flow->rule = mlx5e_tc_add_nic_flow(priv, spec, action, flow_tag);
- 	if (IS_ERR(flow->rule)) {
- 		err = PTR_ERR(flow->rule);
- 		goto err_free;
+ static void switchdev_port_fwd_mark_reset(struct net_device *group_dev,
+ 					  u32 old_mark, u32 *reset_mark)
 -- 
 2.8.0
