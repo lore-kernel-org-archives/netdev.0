@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 05/10] net/mlx5: E-Switch, Add API to configure rules for the offloaded mode
-Date: Wed, 13 Jul 2016 00:29:01 +0300
-Message-ID: <1468358946-28709-6-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 04/10] net/mlx5: E-Switch, Use two priorities for SRIOV offloads mode
+Date: Wed, 13 Jul 2016 00:29:00 +0300
+Message-ID: <1468358946-28709-5-git-send-email-saeedm@mellanox.com>
 References: <1468358946-28709-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -13,97 +13,165 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:51237 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:51221 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751435AbcGLVbO (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2016 17:31:14 -0400
+	id S1751285AbcGLVbE (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jul 2016 17:31:04 -0400
 In-Reply-To: <1468358946-28709-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Or Gerlitz <ogerlitz@mellanox.com>
 
-This allows for upper levels in the driver, e.g the TC offload code to add
-e-switch offloaded steering rules. The caller provides the rule spec for
-matching, action, source and destination vports.
+In the offloads mode, some slow path rules are added by the driver (e.g
+send-to-vport), while offloaded rules are to be added from upper layers.
+
+The slow path rules have lower priority and we don't want matching on
+offloaded rules to suffer from extra steering hops related to the slow
+path rules.
+
+We use two priorities, one for offloaded rules (fast path), and one for
+the control rules (slow path). To allow for that, we enable two priorities
+for the FDB namespace in the FS core code.
 
 Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  6 +++
- .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 43 ++++++++++++++++++++++
- 2 files changed, 49 insertions(+)
+ drivers/net/ethernet/mellanox/mlx5/core/eswitch.h  |  1 +
+ .../ethernet/mellanox/mlx5/core/eswitch_offloads.c | 34 +++++++++++++++++-----
+ drivers/net/ethernet/mellanox/mlx5/core/fs_core.c  | 22 +++++++++-----
+ 3 files changed, 42 insertions(+), 15 deletions(-)
 
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-index 035e536..c0b0560 100644
+index 7b45e6a..035e536 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch.h
-@@ -222,6 +222,12 @@ int mlx5_eswitch_get_vport_stats(struct mlx5_eswitch *esw,
- 				 int vport,
- 				 struct ifla_vf_stats *vf_stats);
+@@ -145,6 +145,7 @@ struct mlx5_eswitch_fdb {
+ 		} legacy;
  
-+struct mlx5_flow_spec;
-+
-+struct mlx5_flow_rule *
-+mlx5_eswitch_add_offloaded_rule(struct mlx5_eswitch *esw,
-+				struct mlx5_flow_spec *spec,
-+				u32 action, u32 src_vport, u32 dst_vport);
- struct mlx5_flow_rule *
- mlx5_eswitch_create_vport_rx_rule(struct mlx5_eswitch *esw, int vport, u32 tirn);
- 
+ 		struct offloads_fdb {
++			struct mlx5_flow_table *fdb;
+ 			struct mlx5_flow_group *send_to_vport_grp;
+ 			struct mlx5_flow_group *miss_grp;
+ 			struct mlx5_flow_rule  *miss_rule;
 diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-index 27122c0..a357e8e 100644
+index 1842dfb..27122c0 100644
 --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
 +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-@@ -43,6 +43,49 @@ enum {
- 	FDB_SLOW_PATH
- };
+@@ -38,6 +38,11 @@
+ #include "mlx5_core.h"
+ #include "eswitch.h"
  
-+struct mlx5_flow_rule *
-+mlx5_eswitch_add_offloaded_rule(struct mlx5_eswitch *esw,
-+				struct mlx5_flow_spec *spec,
-+				u32 action, u32 src_vport, u32 dst_vport)
-+{
-+	struct mlx5_flow_destination dest = { 0 };
-+	struct mlx5_fc *counter = NULL;
-+	struct mlx5_flow_rule *rule;
-+	void *misc;
-+
-+	if (esw->mode != SRIOV_OFFLOADS)
-+		return ERR_PTR(-EOPNOTSUPP);
-+
-+	if (action & MLX5_FLOW_CONTEXT_ACTION_FWD_DEST) {
-+		dest.type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
-+		dest.vport_num = dst_vport;
-+		action = MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
-+	} else if (action & MLX5_FLOW_CONTEXT_ACTION_COUNT) {
-+		counter = mlx5_fc_create(esw->dev, true);
-+		if (IS_ERR(counter))
-+			return ERR_CAST(counter);
-+		dest.type = MLX5_FLOW_DESTINATION_TYPE_COUNTER;
-+		dest.counter = counter;
-+	}
-+
-+	misc = MLX5_ADDR_OF(fte_match_param, spec->match_value, misc_parameters);
-+	MLX5_SET(fte_match_set_misc, misc, source_port, src_vport);
-+
-+	misc = MLX5_ADDR_OF(fte_match_param, spec->match_criteria, misc_parameters);
-+	MLX5_SET_TO_ONES(fte_match_set_misc, misc, source_port);
-+
-+	spec->match_criteria_enable = MLX5_MATCH_OUTER_HEADERS |
-+				      MLX5_MATCH_MISC_PARAMETERS;
-+
-+	rule = mlx5_add_flow_rule((struct mlx5_flow_table *)esw->fdb_table.fdb,
-+				  spec, action, 0, &dest);
-+
-+	if (IS_ERR(rule))
-+		mlx5_fc_destroy(esw->dev, counter);
-+
-+	return rule;
-+}
++enum {
++	FDB_FAST_PATH = 0,
++	FDB_SLOW_PATH
++};
 +
  static struct mlx5_flow_rule *
  mlx5_eswitch_add_send_to_vport_rule(struct mlx5_eswitch *esw, int vport, u32 sqn)
  {
+@@ -149,7 +154,7 @@ static int esw_add_fdb_miss_rule(struct mlx5_eswitch *esw)
+ 	dest.type = MLX5_FLOW_DESTINATION_TYPE_VPORT;
+ 	dest.vport_num = 0;
+ 
+-	flow_rule = mlx5_add_flow_rule(esw->fdb_table.fdb, spec,
++	flow_rule = mlx5_add_flow_rule(esw->fdb_table.offloads.fdb, spec,
+ 				       MLX5_FLOW_CONTEXT_ACTION_FWD_DEST,
+ 				       0, &dest);
+ 	if (IS_ERR(flow_rule)) {
+@@ -165,6 +170,8 @@ out:
+ }
+ 
+ #define MAX_PF_SQ 256
++#define ESW_OFFLOADS_NUM_ENTRIES (1 << 13) /* 8K */
++#define ESW_OFFLOADS_NUM_GROUPS  4
+ 
+ static int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
+ {
+@@ -190,15 +197,25 @@ static int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
+ 	esw_debug(dev, "Create offloads FDB table, log_max_size(%d)\n",
+ 		  MLX5_CAP_ESW_FLOWTABLE_FDB(dev, log_max_ft_size));
+ 
+-	table_size = nvports + MAX_PF_SQ + 1;
+-	fdb = mlx5_create_flow_table(root_ns, 0, table_size, 0);
++	fdb = mlx5_create_auto_grouped_flow_table(root_ns, FDB_FAST_PATH,
++						  ESW_OFFLOADS_NUM_ENTRIES,
++						  ESW_OFFLOADS_NUM_GROUPS, 0);
+ 	if (IS_ERR(fdb)) {
+ 		err = PTR_ERR(fdb);
+-		esw_warn(dev, "Failed to create FDB Table err %d\n", err);
+-		goto fdb_err;
++		esw_warn(dev, "Failed to create Fast path FDB Table err %d\n", err);
++		goto fast_fdb_err;
+ 	}
+ 	esw->fdb_table.fdb = fdb;
+ 
++	table_size = nvports + MAX_PF_SQ + 1;
++	fdb = mlx5_create_flow_table(root_ns, FDB_SLOW_PATH, table_size, 0);
++	if (IS_ERR(fdb)) {
++		err = PTR_ERR(fdb);
++		esw_warn(dev, "Failed to create slow path FDB Table err %d\n", err);
++		goto slow_fdb_err;
++	}
++	esw->fdb_table.offloads.fdb = fdb;
++
+ 	/* create send-to-vport group */
+ 	memset(flow_group_in, 0, inlen);
+ 	MLX5_SET(create_flow_group_in, flow_group_in, match_criteria_enable,
+@@ -247,8 +264,10 @@ miss_rule_err:
+ miss_err:
+ 	mlx5_destroy_flow_group(esw->fdb_table.offloads.send_to_vport_grp);
+ send_vport_err:
+-	mlx5_destroy_flow_table(fdb);
+-fdb_err:
++	mlx5_destroy_flow_table(esw->fdb_table.offloads.fdb);
++slow_fdb_err:
++	mlx5_destroy_flow_table(esw->fdb_table.fdb);
++fast_fdb_err:
+ ns_err:
+ 	kvfree(flow_group_in);
+ 	return err;
+@@ -264,6 +283,7 @@ static void esw_destroy_offloads_fdb_table(struct mlx5_eswitch *esw)
+ 	mlx5_destroy_flow_group(esw->fdb_table.offloads.send_to_vport_grp);
+ 	mlx5_destroy_flow_group(esw->fdb_table.offloads.miss_grp);
+ 
++	mlx5_destroy_flow_table(esw->fdb_table.offloads.fdb);
+ 	mlx5_destroy_flow_table(esw->fdb_table.fdb);
+ }
+ 
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+index b0a1304..1a377b4 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.c
+@@ -1712,15 +1712,21 @@ static int init_fdb_root_ns(struct mlx5_flow_steering *steering)
+ 	if (!steering->fdb_root_ns)
+ 		return -ENOMEM;
+ 
+-	/* Create single prio */
+ 	prio = fs_create_prio(&steering->fdb_root_ns->ns, 0, 1);
+-	if (IS_ERR(prio)) {
+-		cleanup_root_ns(steering->fdb_root_ns);
+-		steering->fdb_root_ns = NULL;
+-		return PTR_ERR(prio);
+-	} else {
+-		return 0;
+-	}
++	if (IS_ERR(prio))
++		goto out_err;
++
++	prio = fs_create_prio(&steering->fdb_root_ns->ns, 1, 1);
++	if (IS_ERR(prio))
++		goto out_err;
++
++	set_prio_attrs(steering->fdb_root_ns);
++	return 0;
++
++out_err:
++	cleanup_root_ns(steering->fdb_root_ns);
++	steering->fdb_root_ns = NULL;
++	return PTR_ERR(prio);
+ }
+ 
+ static int init_ingress_acl_root_ns(struct mlx5_flow_steering *steering)
 -- 
 2.8.0
