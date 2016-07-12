@@ -1,42 +1,143 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: Re: [PATCH v7 04/11] net/mlx4_en: add support for fast rx drop bpf
- program
-Date: Tue, 12 Jul 2016 09:31:21 -0700
-Message-ID: <20160712163118.GA13865@gmail.com>
-References: <1468272598-21390-1-git-send-email-bblanco@plumgrid.com>
- <1468272598-21390-5-git-send-email-bblanco@plumgrid.com>
- <20160711.231700.1668856499968096629.davem@davemloft.net>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [patch net-next v2 1/2] devlink: add hardware messages tracing
+ facility
+Date: Tue, 12 Jul 2016 12:38:26 -0400
+Message-ID: <20160712123826.15a31a41@gandalf.local.home>
+References: <1468339504-27580-1-git-send-email-jiri@resnulli.us>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
-	saeedm@dev.mellanox.co.il, kafai@fb.com, brouer@redhat.com,
-	as754m@att.com, alexei.starovoitov@gmail.com, gerlitz.or@gmail.com,
-	john.fastabend@gmail.com, hannes@stressinduktion.org,
-	tgraf@suug.ch, tom@herbertland.com, daniel@iogearbox.net
-To: David Miller <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	yotamg@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+	ogerlitz@mellanox.com, ivecera@redhat.com, mingo@redhat.com,
+	jolsa@kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:34890 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816AbcGLQb3 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 12:31:29 -0400
-Received: by mail-pf0-f173.google.com with SMTP id c2so8621824pfa.2
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 09:31:24 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160711.231700.1668856499968096629.davem@davemloft.net>
+Received: from smtprelay0242.hostedemail.com ([216.40.44.242]:34617 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1750897AbcGLQib (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 12:38:31 -0400
+In-Reply-To: <1468339504-27580-1-git-send-email-jiri@resnulli.us>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 11, 2016 at 11:17:00PM -0700, David Miller wrote:
-> From: Brenden Blanco <bblanco@plumgrid.com>
-> Date: Mon, 11 Jul 2016 14:29:51 -0700
-> 
-> > +	if (priv->num_frags > 1)
-> > +		return -EOPNOTSUPP;
-> 
-> I hate to be the user who has to debug why his XDP program won't
-> load just because he set a jumbo MTU beforehand.
-Me too. Patch v8 now has an en_err message, and double checked that a
-message is printed when MTU is attempted to be increased when XDP
-program has already been loaded.
+On Tue, 12 Jul 2016 18:05:03 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-Thanks.
+> From: Jiri Pirko <jiri@mellanox.com>
+> 
+> Define a tracepoint and allow user to trace messages going to and from
+> hardware associated with devlink instance.
+> 
+> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+> ---
+> v1->v2:
+> - Use EXPORT_TRACEPOINT_SYMBOL_GPL instead of a wrapper function
+>   as suggested by David Ahern and Steven Rostedt
+
+FYI, you can use the Suggested-by: tag too ;-)
+
+> ---
+>  include/trace/events/devlink.h | 68 ++++++++++++++++++++++++++++++++++++++++++
+>  net/core/devlink.c             |  4 +++
+>  2 files changed, 72 insertions(+)
+>  create mode 100644 include/trace/events/devlink.h
+> 
+> diff --git a/include/trace/events/devlink.h b/include/trace/events/devlink.h
+> new file mode 100644
+> index 0000000..333c32a
+> --- /dev/null
+> +++ b/include/trace/events/devlink.h
+> @@ -0,0 +1,68 @@
+> +#if IS_ENABLED(CONFIG_NET_DEVLINK)
+> +
+> +#undef TRACE_SYSTEM
+> +#define TRACE_SYSTEM devlink
+> +
+> +#if !defined(_TRACE_DEVLINK_H) || defined(TRACE_HEADER_MULTI_READ)
+> +#define _TRACE_DEVLINK_H
+> +
+> +#include <linux/device.h>
+> +#include <net/devlink.h>
+> +#include <linux/tracepoint.h>
+> +
+> +/*
+> + * Tracepoint for devlink hardware message:
+> + */
+> +TRACE_EVENT(devlink_hwmsg,
+> +	TP_PROTO(const struct devlink *devlink, bool incoming,
+> +		 unsigned long type, const u8 *buf, size_t len),
+> +
+> +	TP_ARGS(devlink, incoming, type, buf, len),
+> +
+> +	TP_STRUCT__entry(
+> +		__string(bus_name, devlink->dev->bus->name)
+> +		__string(dev_name, dev_name(devlink->dev))
+> +		__string(owner_name, devlink->dev->driver->owner->name)
+> +		__field(bool, incoming)
+> +		__field(unsigned long, type)
+> +		__dynamic_array(u8, buf, len)
+> +		__field(size_t, len)
+> +	),
+> +
+> +	TP_fast_assign(
+> +		__assign_str(bus_name, devlink->dev->bus->name);
+> +		__assign_str(dev_name, dev_name(devlink->dev));
+> +		__assign_str(owner_name, devlink->dev->driver->owner->name);
+> +		__entry->incoming = incoming;
+> +		__entry->type = type;
+> +		memcpy(__get_dynamic_array(buf), buf, len);
+> +		__entry->len = len;
+> +	),
+> +
+> +	TP_printk("bus_name=%s dev_name=%s owner_name=%s incoming=%d type=%lu buf=0x[%*phD] len=%lu",
+> +		  __get_str(bus_name), __get_str(dev_name),
+> +		  __get_str(owner_name), __entry->incoming, __entry->type,
+> +		  (int) __entry->len, __get_dynamic_array(buf), __entry->len)
+> +);
+> +
+> +#endif /* _TRACE_DEVLINK_H */
+> +
+> +/* This part must be outside protection */
+> +#include <trace/define_trace.h>
+> +
+> +#else /* CONFIG_NET_DEVLINK */
+> +
+> +#if !defined(_TRACE_DEVLINK_H)
+> +#define _TRACE_DEVLINK_H
+
+Ah, I guess you do need header protection here.
+
+OK, looks good to me.
+
+Acked-by: Steven Rostedt <rostedt@goodmis.org>
+
+-- Steve
+
+> +
+> +#include <net/devlink.h>
+> +
+> +static inline void trace_devlink_hwmsg(const struct devlink *devlink,
+> +				       bool incoming, unsigned long type,
+> +				       const u8 *buf, size_t len)
+> +{
+> +}
+> +
+> +#endif /* _TRACE_DEVLINK_H */
+> +
+> +#endif
+> diff --git a/net/core/devlink.c b/net/core/devlink.c
+> index b2e592a..1b50630 100644
+> --- a/net/core/devlink.c
+> +++ b/net/core/devlink.c
+> @@ -26,6 +26,10 @@
+>  #include <net/net_namespace.h>
+>  #include <net/sock.h>
+>  #include <net/devlink.h>
+> +#define CREATE_TRACE_POINTS
+> +#include <trace/events/devlink.h>
+> +
+> +EXPORT_TRACEPOINT_SYMBOL_GPL(devlink_hwmsg);
+>  
+>  static LIST_HEAD(devlink_list);
+>  
