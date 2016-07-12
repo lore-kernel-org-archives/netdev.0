@@ -1,55 +1,85 @@
-From: Max Filippov <jcmvbkbc@gmail.com>
-Subject: Re: [PATCH net v2 2/2] net: ethoc: Correctly pad short packets
-Date: Tue, 12 Jul 2016 15:24:40 +0300
-Message-ID: <20160712122440.GA19495@octofox.metropolis>
-References: <1468280155-13152-1-git-send-email-f.fainelli@gmail.com>
- <1468280155-13152-3-git-send-email-f.fainelli@gmail.com>
+From: Steven Rostedt <rostedt@goodmis.org>
+Subject: Re: [patch net-next 1/2] devlink: add hardware messages tracing
+ facility
+Date: Tue, 12 Jul 2016 08:44:17 -0400
+Message-ID: <20160712084417.4ca31962@gandalf.local.home>
+References: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
+	<20160711120814.504c20cb@gandalf.local.home>
+	<20160712083837.GE1884@nanopsycho.orion>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	colin.king@canonical.com, tklauser@distanz.ch,
-	thierry.reding@gmail.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	yotamg@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+	ogerlitz@mellanox.com, ivecera@redhat.com, mingo@redhat.com,
+	jolsa@kernel.org
+To: Jiri Pirko <jiri@resnulli.us>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f66.google.com ([209.85.215.66]:34666 "EHLO
-	mail-lf0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750945AbcGLMYt (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 08:24:49 -0400
-Received: by mail-lf0-f66.google.com with SMTP id a10so718123lfb.1
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 05:24:49 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <1468280155-13152-3-git-send-email-f.fainelli@gmail.com>
+Received: from smtprelay0238.hostedemail.com ([216.40.44.238]:59812 "EHLO
+	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
+	by vger.kernel.org with ESMTP id S1751179AbcGLMo0 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 08:44:26 -0400
+In-Reply-To: <20160712083837.GE1884@nanopsycho.orion>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Florian,
+On Tue, 12 Jul 2016 10:38:37 +0200
+Jiri Pirko <jiri@resnulli.us> wrote:
 
-On Mon, Jul 11, 2016 at 04:35:55PM -0700, Florian Fainelli wrote:
-> Even though the hardware can be doing zero padding, we want the SKB to
-> be going out on the wire with the appropriate size. This fixes packet
-> truncations observed with e.g: ARP packets.
+
+> Hmm, I'm trying to make it work this was but it seems to be a bit more
+> complicated. I did not find any code doing this (having the tracepoint
+> compiled in or not) so I cannot copy&paste the solution.
 > 
-> Signed-off-by: Florian Fainelli <f.fainelli@gmail.com>
-> ---
->  drivers/net/ethernet/ethoc.c | 5 +++++
->  1 file changed, 5 insertions(+)
+> The problem is that trace_devlink_hwmsg is included from
+> include/trace/events/devlink.h when devlink is on and from
+> include/net/devlink.h. Odd but ok.
 > 
-> diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-> index 06ae14a8e946..ca678d46c322 100644
-> --- a/drivers/net/ethernet/ethoc.c
-> +++ b/drivers/net/ethernet/ethoc.c
-> @@ -860,6 +860,11 @@ static netdev_tx_t ethoc_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  	unsigned int entry;
->  	void *dest;
->  
-> +	if (skb_put_padto(skb, ETHOC_ZLEN)) {
-> +		dev->stats.tx_errors++;
-> +		goto out;
-> +	}
+> I cannot include include/trace/events/devlink.h in include/net/devlink.h
+> because include/net/devlink.h is included in include/trace/events/devlink.h
+> 
+> So I have to directly include include/trace/events/devlink.h from mlxsw
+> driver (trace caller). But when devlink is not compiled in, trecepoint
+> is not created and I'm getting errors.
+> 
+> I see no easy way our of this other than the wrapper function I was
+> originally using. Seem simple and elegant.
 
-skb_put_padto says that skb is freed on error, so this shoudn't go to
-label 'out' on error where skb is freed again?
+No. You missed my solution.
 
--- 
-Thanks.
--- Max
+Any user of trace_devlink_hwmsg() should directly include
+trace/events/devlink.h. That's what all other trace users do. They
+include the trace file header.
+
+I said in that header do:
+
+
+#if IS_ENABLED(CONFIG_NET_DEVLINK)
+
+#undef TRACE_SYSTEM
+#define TRACE_SYSTEM devlink
+
+#if !defined(_TRACE_DEVLINK_H) || defined(TRACE_HEADER_MULTI_READ)
+#define _TRACE_DEVLINK_H
+
+#include <linux/device.h>
+#include <net/devlink.h>
+#include <linux/tracepoint.h>
+
+[..]
+
+#endif /* _TRACE_DEVLINK_H */
+
+/* This part must be outside protection */
+#include <trace/define_trace.h>
+
+#else /* CONFIG_NET_DEVLINK */
+static inline void trace_devlink_hwmsg(const struct devlink *devlink,
+				       bool incoming, unsigned long type,
+				       const u8 *buf, size_t len)
+{
+}
+#endif
+
+
+-- Steve
