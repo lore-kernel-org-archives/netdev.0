@@ -1,58 +1,46 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 1/2] devlink: add hardware messages tracing
- facility
-Date: Tue, 12 Jul 2016 08:47:58 +0200
-Message-ID: <20160712064758.GB1884@nanopsycho.orion>
-References: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
- <20160711165412.0ba05675@gandalf.local.home>
+From: =?UTF-8?B?TWljaGHFgg==?= Pecio <michal.pecio@gmail.com>
+Subject: Re: [PATCH v6 RESEND] r8152: Add support for setting pass through
+ MAC address on RTL8153-AD
+Date: Tue, 12 Jul 2016 09:02:48 +0200
+Message-ID: <20160712090248.7b5633e5@sauron>
+References: <1468285084-26557-1-git-send-email-mario_limonciello@dell.com>
+	<20160711.194246.742914205682079488.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	yotamg@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
-	ogerlitz@mellanox.com, ivecera@redhat.com, mingo@redhat.com,
-	jolsa@kernel.org
-To: Steven Rostedt <rostedt@goodmis.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:33731 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750743AbcGLGsC (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 02:48:02 -0400
-Received: by mail-wm0-f68.google.com with SMTP id o80so1092017wme.0
-        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 23:48:00 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160711165412.0ba05675@gandalf.local.home>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: mario_limonciello@dell.com, linux-kernel@vger.kernel.org,
+	netdev@vger.kernel.org, linux-usb@vger.kernel.org,
+	anthony.wong@canonical.com
+To: David Miller <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160711.194246.742914205682079488.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Mon, Jul 11, 2016 at 10:54:12PM CEST, rostedt@goodmis.org wrote:
->On Mon, 11 Jul 2016 15:18:47 +0200
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->> diff --git a/include/net/devlink.h b/include/net/devlink.h
->> index c99ffe8..865ade6 100644
->> --- a/include/net/devlink.h
->> +++ b/include/net/devlink.h
->> @@ -115,6 +115,8 @@ struct devlink *devlink_alloc(const struct devlink_ops *ops, size_t priv_size);
->>  int devlink_register(struct devlink *devlink, struct device *dev);
->>  void devlink_unregister(struct devlink *devlink);
->>  void devlink_free(struct devlink *devlink);
->> +void devlink_trace_hwmsg(const struct devlink *devlink, bool incoming,
->> +			 unsigned long type, const u8 *buf, size_t len);
->>  int devlink_port_register(struct devlink *devlink,
->>  			  struct devlink_port *devlink_port,
->>  			  unsigned int port_index);
->> @@ -154,6 +156,12 @@ static inline void devlink_free(struct devlink *devlink)
->>  	kfree(devlink);
->>  }
->>  
->> +static inline void devlink_trace_hwmsg(const struct devlink *devlink,
->> +				       bool incoming, unsigned long type,
->> +				       const u8 *buf, size_t len);
->> +{
->> +}
->> +
->
->I'm assuming the !CONFIG_NET_DEVLINK was never tested, because the
->above probably wont build, and if it did, it would be wrong.
+> From: Mario Limonciello <mario_limonciello@dell.com>
+> Date: Mon, 11 Jul 2016 19:58:04 -0500
+> 
+> > The RTL8153-AD supports a persistent system specific MAC address.
+> > This means a device plugged into two different systems with host
+> > side support will show different (but persistent) MAC addresses.
+> > 
+> > This information for the system's persistent MAC address is burned
+> > in when the system HW is built and available under \_SB.AMAC in the
+> > DSDT at runtime.
+> > 
+> > This technology is currently implemented in the Dell TB15 and WD15
+> > Type-C docks.  More information is available here:
+> > http://www.dell.com/support/article/us/en/04/SLN301147
+> > 
+> > Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>  
+> 
+> Applied.
 
-Will fix.
+Hi,
+
+Isn't it possible that the same ACPI name could be used for other
+vendor-specific extensions on other laptops and that r8152 will now
+wreak havoc there?
+
+Regards,
+MP
