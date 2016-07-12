@@ -1,79 +1,42 @@
-From: "Levy, Amir (Jer)" <amir.jer.levy@intel.com>
-Subject: RE: [PATCH v2 0/8] thunderbolt: Introducing Thunderbolt(TM)
- networking
-Date: Tue, 12 Jul 2016 10:50:23 +0000
-Message-ID: <E607265CB020454880711A6F96C05A03893CAB6E@hasmsx107.ger.corp.intel.com>
-References: <1467189336-29556-1-git-send-email-amir.jer.levy@intel.com>
+From: weiyj_lk@163.com
+Subject: [PATCH -next] stmmac: dwmac-socfpga: fix wrong pointer passed to PTR_ERR()
+Date: Tue, 12 Jul 2016 11:00:09 +0000
+Message-ID: <1468321209-15732-1-git-send-email-weiyj_lk@163.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8BIT
-Cc: "linux-pci@vger.kernel.org" <linux-pci@vger.kernel.org>,
-	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
-	thunderbolt-linux <thunderbolt-linux@intel.com>,
-	"Westerberg, Mika" <mika.westerberg@intel.com>,
-	"Winkler, Tomas" <tomas.winkler@intel.com>
-To: "andreas.noever@gmail.com" <andreas.noever@gmail.com>,
-	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
-	"bhelgaas@google.com" <bhelgaas@google.com>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1467189336-29556-1-git-send-email-amir.jer.levy@intel.com>
-Content-Language: en-US
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>, netdev@vger.kernel.org
+To: Giuseppe Cavallaro <peppe.cavallaro@st.com>,
+	Alexandre Torgue <alexandre.torgue@st.com>,
+	Tien Hock Loh <thloh@altera.com>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from m12-16.163.com ([220.181.12.16]:32996 "EHLO m12-16.163.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S932095AbcGLLAW (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jul 2016 07:00:22 -0400
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On Wed, Jun 29 2016, 11:35 AM, Levy, Amir (Jer) wrote:
-> This is version 2 of Thunderbolt(TM) driver for non-Apple hardware.
-> 
-> Changes since v1:
->  - Separation to 2 modules.
->  - Moved ICM specific registers definition to ICM header file.
->  - Added new Thunderbolt device IDs.
->  - Renamed the Thunderbolt networking documentation.
->  - General cleanups
-> 
-> These patches were pushed to GitHub where they can be reviewed more
-> comfortably with green/red highlighting:
-> 	https://github.com/01org/thunderbolt-software-kernel-tree
-> 
-> Daemon code:
-> 	https://github.com/01org/thunderbolt-software-daemon
-> 
-> For reference, here's a link to version 1:
-> [v1]:	http://www.spinics.net/lists/linux-pci/msg51287.html
-> 
-> Amir Levy (8):
->   thunderbolt: Macro rename
->   thunderbolt: Updating device IDs
->   thunderbolt: Updating the register definitions
->   thunderbolt: Kconfig for Thunderbolt(TM) networking
->   thunderbolt: Communication with the ICM (firmware)
->   thunderbolt: Networking state machine
->   thunderbolt: Networking transmit and receive
->   thunderbolt: Networking doc
-> 
->  Documentation/00-INDEX                   |    2 +
->  Documentation/thunderbolt-networking.txt |  135 ++
->  drivers/thunderbolt/Kconfig              |   25 +-
->  drivers/thunderbolt/Makefile             |    4 +-
->  drivers/thunderbolt/icm_nhi.c            | 1631 +++++++++++++++++++++
->  drivers/thunderbolt/icm_nhi.h            |   84 ++
->  drivers/thunderbolt/net.c                | 2277
-> ++++++++++++++++++++++++++++++
->  drivers/thunderbolt/net.h                |  274 ++++
->  drivers/thunderbolt/nhi_regs.h           |  115 +-
->  include/linux/pci_ids.h                  |   44 +-
->  10 files changed, 4565 insertions(+), 26 deletions(-)  create mode 100644
-> Documentation/thunderbolt-networking.txt
->  create mode 100644 drivers/thunderbolt/icm_nhi.c  create mode 100644
-> drivers/thunderbolt/icm_nhi.h  create mode 100644
-> drivers/thunderbolt/net.c  create mode 100644 drivers/thunderbolt/net.h
-> 
-> --
-> 2.7.4
+From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
 
-Hi All,
-Do you have any comments or suggestions for this patch set?
+PTR_ERR should access the value just tested by IS_ERR, otherwise
+the wrong error code will be returned.
 
-Regards,
-Amir
+Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+---
+ drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+index 4bee2f9..3bc1fa2 100644
+--- a/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
++++ b/drivers/net/ethernet/stmicro/stmmac/dwmac-socfpga.c
+@@ -214,7 +214,7 @@ static int socfpga_dwmac_parse_data(struct socfpga_dwmac *dwmac, struct device *
+ 				dev_err(dev,
+ 					"%s: ERROR: failed mapping tse control port\n",
+ 					__func__);
+-				return PTR_ERR(dwmac->pcs.sgmii_adapter_base);
++				return PTR_ERR(dwmac->pcs.tse_pcs_base);
+ 			}
+ 		}
+ 	}
