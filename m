@@ -1,59 +1,39 @@
-From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Subject: Re: eBPF tunable max instructions or max tail call?
-Date: Mon, 11 Jul 2016 20:14:49 -0700
-Message-ID: <20160712031446.GA49510@ast-mbp.thefacebook.com>
-References: <CAMp4zn-6G+41PrsAHH3ZuKcKa-o16_d7ZEuRE517v42iA=Y-Ug@mail.gmail.com>
+From: Masashi Honma <masashi.honma@gmail.com>
+Subject: Re: [PATCH v2 net-next] rtnl: Add GFP flag argument to rtnl_unicast()
+Date: Tue, 12 Jul 2016 13:23:43 +0900
+Message-ID: <578470CF.6060609@gmail.com>
+References: <1467764916-4983-1-git-send-email-masashi.honma@gmail.com>
+ <1468036744-3964-1-git-send-email-masashi.honma@gmail.com>
+ <20160711.130147.2231877907183030717.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
-	Thomas Graf <tgraf@suug.ch>
-To: Sargun Dhillon <sargun@sargun.me>
+Content-Type: text/plain; charset=UTF-8;
+	format=flowed
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: eric.dumazet@gmail.com, netdev@vger.kernel.org
+To: David Miller <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f173.google.com ([209.85.192.173]:36211 "EHLO
-	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932496AbcGLDOy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 23:14:54 -0400
-Received: by mail-pf0-f173.google.com with SMTP id t190so1608173pfb.3
-        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 20:14:54 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAMp4zn-6G+41PrsAHH3ZuKcKa-o16_d7ZEuRE517v42iA=Y-Ug@mail.gmail.com>
+Received: from mail-pa0-f45.google.com ([209.85.220.45]:36167 "EHLO
+	mail-pa0-f45.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750743AbcGLEXr (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 00:23:47 -0400
+Received: by mail-pa0-f45.google.com with SMTP id hu1so2122396pad.3
+        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 21:23:47 -0700 (PDT)
+In-Reply-To: <20160711.130147.2231877907183030717.davem@davemloft.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 11, 2016 at 05:56:07PM -0700, Sargun Dhillon wrote:
-> It would be nice to have eBPF programs that are longer than 4096
-> instructions. I'm trying to implement XSalsa20 in eBPF, and
-> unfortunately, it doesn't fit into 4096 instructions since I'm
-> unrolling all of the loops. Further than that, doing tail calls to
-> process each block results in me hitting the tail call limit.
+On 2016=E5=B9=B407=E6=9C=8812=E6=97=A5 05:01, David Miller wrote:
 
-a cipher in bpf? wow. that's pushing it :)
-we've been discussing various way of adding 'bounded loop' instruction
-to avoid manual unrolling, but it will be still limited to the 4k
-instruction per program, so probably won't help this use case.
-Are you trying to do it in the networking context?
+> The code is correct and optimal as-is.  There is no gain to your
+> changes.  gfp_any() will do the right thing.
+>
+> In fact, your change makes the code more error prone because if any
+> of these code paths get moved into an atomic context they will break
+> unless somone remembers to also fix up the GFP flags.
+>
+> Meanwhile with the existing use of gfp_any() it will work
+> transparently in such a situation.
+>
+> I'm not applying this.
 
-> It don't think that it makes much sense to expose the crypto API as
-> BPF helpers, as I'm not sure if we can ensure safety, and timely
-> execution with it. I may be wrong here, and if there is a sane, safe
-> way to expose the crypto API, I'm all ears.
-
-we had the patches to connect crypto api with bpf, but they were
-too hacky to upstream, since then we redesigned the approach
-and the latest should be much cleaner. The keys will be managed
-through normal xfrm api and bpf will call into crypto with
-mechanism similar to tail-call. The program will specify the
-offset/length within the packet to encrypt/decrypt and next
-program to execute when crypto operation completes.
-Root only for xdp and tc only.
-
-> Other than that, it would be nice to make the max instructions a knob,
-> and I don't think that it has much downside, given it's only checked
-> on load time. It would be nice to make the tail call limit a tunable
-> as well, but I'm unsure of the performance impact it might have given
-> that it's checked at runtime.
-> 
-> What do y'all think is reasonable? Make them both tunable? Just one? None?
-
-It is preferred to achieve the goal without introducing a knob.
-Also sounds like that increasing 4k to 8k won't really solve it anyway.
+I see. Thank you for reviewing.
