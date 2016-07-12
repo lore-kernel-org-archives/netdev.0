@@ -1,93 +1,89 @@
-From: Tom Herbert <tom@herbertland.com>
-Subject: Re: [PATCH v8 01/11] bpf: add XDP prog type for early driver filter
-Date: Tue, 12 Jul 2016 07:52:53 -0700
-Message-ID: <CALx6S36aPgB1PCsTg7Z=SNGQs_8REMm4qJdpp6JJ6ksVp_65VA@mail.gmail.com>
-References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
- <1468309894-26258-2-git-send-email-bblanco@plumgrid.com> <20160712151431.26cbac82@redhat.com>
+From: <Mario_Limonciello@Dell.com>
+Subject: RE: [PATCH v6 RESEND] r8152: Add support for setting pass through MAC
+ address on RTL8153-AD
+Date: Tue, 12 Jul 2016 15:04:12 +0000
+Message-ID: <5a304b784fe747aea4de6b69fb12a767@ausx13mpc124.AMER.DELL.COM>
+References: <1468285084-26557-1-git-send-email-mario_limonciello@dell.com>
+	<20160711.194246.742914205682079488.davem@davemloft.net>
+ <20160712090248.7b5633e5@sauron>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Jesper Dangaard Brouer <brouer@redhat.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f54.google.com ([209.85.214.54]:38048 "EHLO
-	mail-it0-f54.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750936AbcGLOwy (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 10:52:54 -0400
-Received: by mail-it0-f54.google.com with SMTP id h190so17674853ith.1
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 07:52:54 -0700 (PDT)
-In-Reply-To: <20160712151431.26cbac82@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: <linux-kernel@vger.kernel.org>, <netdev@vger.kernel.org>,
+	<linux-usb@vger.kernel.org>, <anthony.wong@canonical.com>
+To: <michal.pecio@gmail.com>, <davem@davemloft.net>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160712090248.7b5633e5@sauron>
+Content-Language: en-US
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 12, 2016 at 6:14 AM, Jesper Dangaard Brouer
-<brouer@redhat.com> wrote:
->
-> On Tue, 12 Jul 2016 00:51:24 -0700 Brenden Blanco <bblanco@plumgrid.com> wrote:
->
->> Add a new bpf prog type that is intended to run in early stages of the
->> packet rx path. Only minimal packet metadata will be available, hence a
->> new context type, struct xdp_md, is exposed to userspace. So far only
->> expose the packet start and end pointers, and only in read mode.
->>
->> An XDP program must return one of the well known enum values, all other
->> return codes are reserved for future use. Unfortunately, this
->> restriction is hard to enforce at verification time, so take the
->> approach of warning at runtime when such programs are encountered. Out
->> of bounds return codes should alias to XDP_ABORTED.
->
-> This is going to be a serious usability problem, when XDP gets extended
-> with newer features.
->
-> How can users know what XDP capabilities a given driver support?
->
-We talked about this a the XDP summit and I have some slides on this
-(hope to have slides posted shortly) . Drivers, more generally XDP
-platforms, will provide a list APIs that they support. APIs would be
-contained in a sort common specification files that and would have
-some name like basic_xdp_api, adv_switch_api, etc. An XDP program is
-written using one of the published APIs and the API it uses is
-expressed as part of the program. At runtime (possibly compile time)
-the API used by the program is checked against the list of APIs for
-the target platform-- if the API is not in the set then the program is
-not allowed to be loaded. To whatever extent possible we should also
-try to verify that program adhere's to the API as load and compile
-time. In the event that program violates the API it claims to be
-using, such as return invalid return code for the API, that is an
-error condition.
+> -----Original Message-----
+> From: Micha=B3 Pecio [mailto:michal.pecio@gmail.com]
+> Sent: Tuesday, July 12, 2016 2:03 AM
+> To: David Miller <davem@davemloft.net>
+> Cc: Limonciello, Mario <Mario_Limonciello@Dell.com>; linux-
+> kernel@vger.kernel.org; netdev@vger.kernel.org; linux-
+> usb@vger.kernel.org; anthony.wong@canonical.com
+> Subject: Re: [PATCH v6 RESEND] r8152: Add support for setting pass th=
+rough
+> MAC address on RTL8153-AD
+>=20
+> > From: Mario Limonciello <mario_limonciello@dell.com>
+> > Date: Mon, 11 Jul 2016 19:58:04 -0500
+> >
+> > > The RTL8153-AD supports a persistent system specific MAC address.
+> > > This means a device plugged into two different systems with host
+> > > side support will show different (but persistent) MAC addresses.
+> > >
+> > > This information for the system's persistent MAC address is burne=
+d
+> > > in when the system HW is built and available under \_SB.AMAC in t=
+he
+> > > DSDT at runtime.
+> > >
+> > > This technology is currently implemented in the Dell TB15 and WD1=
+5
+> > > Type-C docks.  More information is available here:
+> > > http://www.dell.com/support/article/us/en/04/SLN301147
+> > >
+> > > Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
+> >
+> > Applied.
+>=20
+> Hi,
+>=20
+> Isn't it possible that the same ACPI name could be used for other
+> vendor-specific extensions on other laptops and that r8152 will now
+> wreak havoc there?
+>=20
+> Regards,
+> MP
 
-> If the user loads a XDP program using capabilities not avail in the
-> driver, then all his traffic will be hard dropped.
->
->
-> My proposal is to NOT allow XDP programs to be loaded if they want to use
-> return-codes/features not supported by the driver.  Thus, eBPF programs
-> register/annotate their needed capabilities upfront (I guess this could
-> also help HW offload engines).
->
-Exactly. We just need to define exactly how this is done ;-)
+This has been discussed a bit previously in earlier submissions.
 
-One open issue is whether XDP needs to be binary compatible across
-platforms or source code compatible (also require recompile in latter
-case for each platform). Personally I prefer source code compatible
-since that might allow platforms to implement the API specifically for
-their needs (like the ordering of fields in a meta data structure.
+In short, this is an extreme corner case.  Some changes were made=20
+to diminish potential impact. The ACPI code is resolved only when=20
+the specific variant of RTL8135 (-AD) has a bit set on the efuse.
 
-Tom
+The patch also explicitly checks the return type and contents of the
+ACPI object and won't proceed if it's invalid.
 
-> --
-> Best regards,
->   Jesper Dangaard Brouer
->   MSc.CS, Principal Kernel Engineer at Red Hat
->   Author of http://www.iptv-analyzer.org
->   LinkedIn: http://www.linkedin.com/in/brouer
+The Type-C devices that provide this are currently only sold by Dell. =20
+This of course may change one day if other OEM's add this
+feature, but it just shows that device scope is limited.
+
+=46or now the way this is implemented if Realtek does choose to=20
+work with another OEM on this feature, there should be no
+kernel code change necessary for interoperability of peripherals
+on other OEM machines.
+
+So in order to hit this hypothetical corner case today you would=20
+need to be using a real world type-C device something such as a=20
+Dell WD15 on another OEM's machine that has type-C and the exact
+same ACPI object name that does $BADSTUFF other than return a
+buffer.
+
+If that situation arises please alert me and I'll send a follow up
+patch that whitelists this to match DMI vendor of only Dell=20
+systems.
