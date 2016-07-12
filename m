@@ -1,91 +1,94 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH RFC] mlx4: RX prefetch loop
-Date: Tue, 12 Jul 2016 14:45:21 +0200
-Message-ID: <20160712144521.4244e8ab@redhat.com>
-References: <20160708172024.4a849b7a@redhat.com>
-	<20160708160135.27507.77711.stgit@firesoul>
-	<20160711130922.636ee4e6@redhat.com>
-	<20160711230509.GA45195@ast-mbp.thefacebook.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/2] devlink: add hardware messages tracing
+ facility
+Date: Tue, 12 Jul 2016 14:57:34 +0200
+Message-ID: <20160712125734.GF6844@nanopsycho.orion>
+References: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
+ <20160711120814.504c20cb@gandalf.local.home>
+ <20160712083837.GE1884@nanopsycho.orion>
+ <20160712084417.4ca31962@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, kafai@fb.com, daniel@iogearbox.net,
-	tom@herbertland.com, bblanco@plumgrid.com,
-	john.fastabend@gmail.com, gerlitz.or@gmail.com,
-	hannes@stressinduktion.org, rana.shahot@gmail.com, tgraf@suug.ch,
-	"David S. Miller" <davem@davemloft.net>, as754m@att.com,
-	saeedm@mellanox.com, amira@mellanox.com, tzahio@mellanox.com,
-	Eric Dumazet <eric.dumazet@gmail.com>, brouer@redhat.com
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	yotamg@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+	ogerlitz@mellanox.com, ivecera@redhat.com, mingo@redhat.com,
+	jolsa@kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:51688 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S933089AbcGLMpb (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2016 08:45:31 -0400
-In-Reply-To: <20160711230509.GA45195@ast-mbp.thefacebook.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:34064 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1752155AbcGLM5h (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 08:57:37 -0400
+Received: by mail-wm0-f68.google.com with SMTP id w75so1954861wmd.1
+        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 05:57:37 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160712084417.4ca31962@gandalf.local.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, 11 Jul 2016 16:05:11 -0700
-Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
+Tue, Jul 12, 2016 at 02:44:17PM CEST, rostedt@goodmis.org wrote:
+>On Tue, 12 Jul 2016 10:38:37 +0200
+>Jiri Pirko <jiri@resnulli.us> wrote:
+>
+>
+>> Hmm, I'm trying to make it work this was but it seems to be a bit more
+>> complicated. I did not find any code doing this (having the tracepoint
+>> compiled in or not) so I cannot copy&paste the solution.
+>> 
+>> The problem is that trace_devlink_hwmsg is included from
+>> include/trace/events/devlink.h when devlink is on and from
+>> include/net/devlink.h. Odd but ok.
+>> 
+>> I cannot include include/trace/events/devlink.h in include/net/devlink.h
+>> because include/net/devlink.h is included in include/trace/events/devlink.h
+>> 
+>> So I have to directly include include/trace/events/devlink.h from mlxsw
+>> driver (trace caller). But when devlink is not compiled in, trecepoint
+>> is not created and I'm getting errors.
+>> 
+>> I see no easy way our of this other than the wrapper function I was
+>> originally using. Seem simple and elegant.
+>
+>No. You missed my solution.
+>
+>Any user of trace_devlink_hwmsg() should directly include
+>trace/events/devlink.h. That's what all other trace users do. They
+>include the trace file header.
+>
+>I said in that header do:
+>
+>
+>#if IS_ENABLED(CONFIG_NET_DEVLINK)
+>
+>#undef TRACE_SYSTEM
+>#define TRACE_SYSTEM devlink
+>
+>#if !defined(_TRACE_DEVLINK_H) || defined(TRACE_HEADER_MULTI_READ)
+>#define _TRACE_DEVLINK_H
+>
+>#include <linux/device.h>
+>#include <net/devlink.h>
+>#include <linux/tracepoint.h>
+>
+>[..]
+>
+>#endif /* _TRACE_DEVLINK_H */
+>
+>/* This part must be outside protection */
+>#include <trace/define_trace.h>
+>
+>#else /* CONFIG_NET_DEVLINK */
+>static inline void trace_devlink_hwmsg(const struct devlink *devlink,
+>				       bool incoming, unsigned long type,
+>				       const u8 *buf, size_t len)
+>{
+>}
+>#endif
 
-> On Mon, Jul 11, 2016 at 01:09:22PM +0200, Jesper Dangaard Brouer wrote:
-> > > -	/* Process all completed CQEs */
-> > > +	/* Extract and prefetch completed CQEs */
-> > >  	while (XNOR(cqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK,
-> > >  		    cq->mcq.cons_index & cq->size)) {
-> > > +		void *data;
-> > >  
-> > >  		frags = ring->rx_info + (index << priv->log_rx_info);
-> > >  		rx_desc = ring->buf + (index << ring->log_stride);
-> > > +		prefetch(rx_desc);
-> > >  
-> > >  		/*
-> > >  		 * make sure we read the CQE after we read the ownership bit
-> > >  		 */
-> > >  		dma_rmb();
-> > >  
-> > > +		cqe_array[cqe_idx++] = cqe;
-> > > +
-> > > +		/* Base error handling here, free handled in next loop */
-> > > +		if (unlikely((cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) ==
-> > > +			     MLX4_CQE_OPCODE_ERROR))
-> > > +			goto skip;
-> > > +
-> > > +		data = page_address(frags[0].page) + frags[0].page_offset;
-> > > +		prefetch(data);  
-> 
-> that's probably not correct in all cases, since doing prefetch on the address
-> that is going to be evicted soon may hurt performance.
-> We need to dma_sync_single_for_cpu() before doing a prefetch or
-> somehow figure out that dma_sync is a nop, so we can omit it altogether
-> and do whatever prefetches we like.
 
-Sure, DMA can be synced first (actually already played with this).
+Okay. That looks good. Thanks!
 
-> Also unconditionally doing batch of 8 may also hurt depending on what
-> is happening either with the stack, bpf afterwards or even cpu version.
 
-See this as software DDIO, if the unlikely case that data will get
-evicted, it will still exist in L2 or L3 cache (like DDIO). Notice,
-only 1024 bytes are getting prefetched here.
-
-> Doing single prefetch of Nth packet is probably ok most of the time,
-> but asking cpu to prefetch 8 packets at once is unnecessary especially
-> since single prefetch gives the same performance.
-
-No, unconditionally prefetch of the Nth packet, will be wrong most of
-the time, for real work loads, as Eric Dumazet already pointed out.
-
-This patch does NOT unconditionally prefetch 8 packets.  Prefetching
-_only_ happens when it is known that packets are ready in the RX ring.
-We know this prefetch data will be used/touched, within the NAPI cycle.
-Even if the processing of the packet flush L1 cache, then it will be in
-L2 or L3 (like DDIO).
-
--- 
-Best regards,
-  Jesper Dangaard Brouer
-  MSc.CS, Principal Kernel Engineer at Red Hat
-  Author of http://www.iptv-analyzer.org
-  LinkedIn: http://www.linkedin.com/in/brouer
+>
+>
+>-- Steve
