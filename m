@@ -1,34 +1,29 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v6 RESEND] r8152: Add support for setting pass through
- MAC address on RTL8153-AD
-Date: Mon, 11 Jul 2016 19:42:46 -0700 (PDT)
-Message-ID: <20160711.194246.742914205682079488.davem@davemloft.net>
-References: <1468285084-26557-1-git-send-email-mario_limonciello@dell.com>
+Subject: Re: [PATCH net v2 0/2] net: ethoc: Error path and transmit fixes
+Date: Mon, 11 Jul 2016 19:47:22 -0700 (PDT)
+Message-ID: <20160711.194722.1606384510669735240.davem@davemloft.net>
+References: <1468280155-13152-1-git-send-email-f.fainelli@gmail.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
-	linux-usb@vger.kernel.org, anthony.wong@canonical.com
-To: mario_limonciello@dell.com
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1468285084-26557-1-git-send-email-mario_limonciello@dell.com>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Cc: netdev@vger.kernel.org, jcmvbkbc@gmail.com,
+	colin.king@canonical.com, tklauser@distanz.ch,
+	thierry.reding@gmail.com
+To: f.fainelli@gmail.com
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from shards.monkeyblade.net ([184.105.139.130]:35472 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932117AbcGLCrX (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 22:47:23 -0400
+In-Reply-To: <1468280155-13152-1-git-send-email-f.fainelli@gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-From: Mario Limonciello <mario_limonciello@dell.com>
-Date: Mon, 11 Jul 2016 19:58:04 -0500
+From: Florian Fainelli <f.fainelli@gmail.com>
+Date: Mon, 11 Jul 2016 16:35:53 -0700
 
-> The RTL8153-AD supports a persistent system specific MAC address.
-> This means a device plugged into two different systems with host side
-> support will show different (but persistent) MAC addresses.
-> 
-> This information for the system's persistent MAC address is burned in when
-> the system HW is built and available under \_SB.AMAC in the DSDT at runtime.
-> 
-> This technology is currently implemented in the Dell TB15 and WD15 Type-C
-> docks.  More information is available here:
-> http://www.dell.com/support/article/us/en/04/SLN301147
-> 
-> Signed-off-by: Mario Limonciello <mario_limonciello@dell.com>
+> I don't have access to any other platform using an ethoc interface so
+> it could be good to some testing on Xtensa for instance.
 
-Applied.
+So I'll wait until someone does such testing before applying this
+series.
