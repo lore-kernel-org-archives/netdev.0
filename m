@@ -1,7 +1,7 @@
 From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net-next 01/10] net/mlx5: Store counters in rbtree instead of list
-Date: Wed, 13 Jul 2016 00:28:57 +0300
-Message-ID: <1468358946-28709-2-git-send-email-saeedm@mellanox.com>
+Subject: [PATCH net-next 08/10] net/mlx5e: Add TC drop and mirred/redirect action parsing for SRIOV offloads
+Date: Wed, 13 Jul 2016 00:29:04 +0300
+Message-ID: <1468358946-28709-9-git-send-email-saeedm@mellanox.com>
 References: <1468358946-28709-1-git-send-email-saeedm@mellanox.com>
 Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Hadar Hen-Zion <hadarh@mellanox.com>,
@@ -13,178 +13,99 @@ Cc: netdev@vger.kernel.org, Or Gerlitz <ogerlitz@mellanox.com>,
 	Saeed Mahameed <saeedm@mellanox.com>
 To: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:51211 "EHLO mellanox.co.il"
+Received: from mailp.voltaire.com ([193.47.165.129]:51315 "EHLO mellanox.co.il"
 	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751084AbcGLVbD (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2016 17:31:03 -0400
+	id S1751018AbcGLVbg (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jul 2016 17:31:36 -0400
 In-Reply-To: <1468358946-28709-1-git-send-email-saeedm@mellanox.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Amir Vadai <amir@vadai.me>
+From: Or Gerlitz <ogerlitz@mellanox.com>
 
-In order to use bulk counters, we need to have counters sorted by id.
+Add the setup code that parses the TC actions needed to support offloading drop
+and mirred/redirect for SRIOV e-switch. We can redirect between two devices if
+they belong to the same HW switch, compare the switchdev HW ID attribute to
+enforce that.
 
-Signed-off-by: Amir Vadai <amir@vadai.me>
-Reviewed-by: Or Gerlitz <ogerlitz@mellanox.com>
+Signed-off-by: Or Gerlitz <ogerlitz@mellanox.com>
 Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
 ---
- drivers/net/ethernet/mellanox/mlx5/core/fs_core.h  |  1 +
- .../net/ethernet/mellanox/mlx5/core/fs_counters.c  | 64 ++++++++++++++++++----
- include/linux/mlx5/driver.h                        |  2 +-
- 3 files changed, 56 insertions(+), 11 deletions(-)
+ drivers/net/ethernet/mellanox/mlx5/core/en_tc.c | 53 +++++++++++++++++++++++++
+ 1 file changed, 53 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-index d7ba91a..9cffb6a 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_core.h
-@@ -111,6 +111,7 @@ struct mlx5_fc_cache {
- };
- 
- struct mlx5_fc {
-+	struct rb_node node;
- 	struct list_head list;
- 
- 	/* last{packets,bytes} members are used when calculating the delta since
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-index 164dc37..aaf8fd1 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/fs_counters.c
-@@ -32,6 +32,7 @@
- 
- #include <linux/mlx5/driver.h>
+diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+index 57b76f7..9a66441 100644
+--- a/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
++++ b/drivers/net/ethernet/mellanox/mlx5/core/en_tc.c
+@@ -37,8 +37,11 @@
  #include <linux/mlx5/fs.h>
-+#include <linux/rbtree.h>
- #include "mlx5_core.h"
- #include "fs_core.h"
- #include "fs_cmd.h"
-@@ -68,6 +69,27 @@
-  *   elapsed, the thread will actually query the hardware.
-  */
+ #include <linux/mlx5/device.h>
+ #include <linux/rhashtable.h>
++#include <net/switchdev.h>
++#include <net/tc_act/tc_mirred.h>
+ #include "en.h"
+ #include "en_tc.h"
++#include "eswitch.h"
  
-+static void mlx5_fc_stats_insert(struct rb_root *root, struct mlx5_fc *counter)
-+{
-+	struct rb_node **new = &root->rb_node;
-+	struct rb_node *parent = NULL;
-+
-+	while (*new) {
-+		struct mlx5_fc *this = container_of(*new, struct mlx5_fc, node);
-+		int result = counter->id - this->id;
-+
-+		parent = *new;
-+		if (result < 0)
-+			new = &((*new)->rb_left);
-+		else
-+			new = &((*new)->rb_right);
-+	}
-+
-+	/* Add new node and rebalance tree. */
-+	rb_link_node(&counter->node, parent, new);
-+	rb_insert_color(&counter->node, root);
-+}
-+
- static void mlx5_fc_stats_work(struct work_struct *work)
- {
- 	struct mlx5_core_dev *dev = container_of(work, struct mlx5_core_dev,
-@@ -75,25 +97,35 @@ static void mlx5_fc_stats_work(struct work_struct *work)
- 	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
- 	unsigned long now = jiffies;
- 	struct mlx5_fc *counter;
--	struct mlx5_fc *tmp;
-+	struct rb_node *node;
-+	LIST_HEAD(tmplist);
- 	int err = 0;
- 
- 	spin_lock(&fc_stats->addlist_lock);
- 
--	list_splice_tail_init(&fc_stats->addlist, &fc_stats->list);
-+	list_splice_tail_init(&fc_stats->addlist, &tmplist);
- 
--	if (!list_empty(&fc_stats->list))
-+	if (!list_empty(&tmplist) || !RB_EMPTY_ROOT(&fc_stats->counters))
- 		queue_delayed_work(fc_stats->wq, &fc_stats->work, MLX5_FC_STATS_PERIOD);
- 
- 	spin_unlock(&fc_stats->addlist_lock);
- 
--	list_for_each_entry_safe(counter, tmp, &fc_stats->list, list) {
--		struct mlx5_fc_cache *c = &counter->cache;
-+	list_for_each_entry(counter, &tmplist, list)
-+		mlx5_fc_stats_insert(&fc_stats->counters, counter);
-+
-+	node = rb_first(&fc_stats->counters);
-+	while (node) {
-+		struct mlx5_fc_cache *c;
- 		u64 packets;
- 		u64 bytes;
- 
-+		counter = rb_entry(node, struct mlx5_fc, node);
-+		c = &counter->cache;
-+
-+		node = rb_next(node);
-+
- 		if (counter->deleted) {
--			list_del(&counter->list);
-+			rb_erase(&counter->node, &fc_stats->counters);
- 
- 			mlx5_cmd_fc_free(dev, counter->id);
- 
-@@ -176,7 +208,7 @@ int mlx5_init_fc_stats(struct mlx5_core_dev *dev)
- {
- 	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
- 
--	INIT_LIST_HEAD(&fc_stats->list);
-+	fc_stats->counters = RB_ROOT;
- 	INIT_LIST_HEAD(&fc_stats->addlist);
- 	spin_lock_init(&fc_stats->addlist_lock);
- 
-@@ -194,20 +226,32 @@ void mlx5_cleanup_fc_stats(struct mlx5_core_dev *dev)
- 	struct mlx5_fc_stats *fc_stats = &dev->priv.fc_stats;
- 	struct mlx5_fc *counter;
- 	struct mlx5_fc *tmp;
-+	struct rb_node *node;
- 
- 	cancel_delayed_work_sync(&dev->priv.fc_stats.work);
- 	destroy_workqueue(dev->priv.fc_stats.wq);
- 	dev->priv.fc_stats.wq = NULL;
- 
--	list_splice_tail_init(&fc_stats->addlist, &fc_stats->list);
--
--	list_for_each_entry_safe(counter, tmp, &fc_stats->list, list) {
-+	list_for_each_entry_safe(counter, tmp, &fc_stats->addlist, list) {
- 		list_del(&counter->list);
- 
- 		mlx5_cmd_fc_free(dev, counter->id);
- 
- 		kfree(counter);
- 	}
-+
-+	node = rb_first(&fc_stats->counters);
-+	while (node) {
-+		counter = rb_entry(node, struct mlx5_fc, node);
-+
-+		node = rb_next(node);
-+
-+		rb_erase(&counter->node, &fc_stats->counters);
-+
-+		mlx5_cmd_fc_free(dev, counter->id);
-+
-+		kfree(counter);
-+	}
+ struct mlx5e_tc_flow {
+ 	struct rhash_head	node;
+@@ -339,6 +342,56 @@ static int parse_tc_nic_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
+ 	return 0;
  }
  
- void mlx5_fc_query_cached(struct mlx5_fc *counter,
-diff --git a/include/linux/mlx5/driver.h b/include/linux/mlx5/driver.h
-index 81e8396..a041b99 100644
---- a/include/linux/mlx5/driver.h
-+++ b/include/linux/mlx5/driver.h
-@@ -469,7 +469,7 @@ struct mlx5_irq_info {
- };
- 
- struct mlx5_fc_stats {
--	struct list_head list;
-+	struct rb_root counters;
- 	struct list_head addlist;
- 	/* protect addlist add/splice operations */
- 	spinlock_t addlist_lock;
++static int parse_tc_fdb_actions(struct mlx5e_priv *priv, struct tcf_exts *exts,
++				u32 *action, u32 *dest_vport)
++{
++	const struct tc_action *a;
++
++	if (tc_no_actions(exts))
++		return -EINVAL;
++
++	*action = 0;
++
++	tc_for_each_action(a, exts) {
++		/* Only support a single action per rule */
++		if (*action)
++			return -EINVAL;
++
++		if (is_tcf_gact_shot(a)) {
++			*action = MLX5_FLOW_CONTEXT_ACTION_DROP |
++				  MLX5_FLOW_CONTEXT_ACTION_COUNT;
++			continue;
++		}
++
++		if (is_tcf_mirred_redirect(a)) {
++			int ifindex = tcf_mirred_ifindex(a);
++			struct net_device *out_dev;
++			struct mlx5e_priv *out_priv;
++			struct mlx5_eswitch_rep *out_rep;
++
++			out_dev = __dev_get_by_index(dev_net(priv->netdev), ifindex);
++
++			if (!switchdev_port_same_parent_id(priv->netdev, out_dev)) {
++				pr_err("devices %s %s not on same switch HW, can't offload forwarding\n",
++				       priv->netdev->name, out_dev->name);
++				return -EINVAL;
++			}
++
++			out_priv = netdev_priv(out_dev);
++			out_rep  = out_priv->ppriv;
++			if (out_rep->vport == 0)
++				*dest_vport = FDB_UPLINK_VPORT;
++			else
++				*dest_vport = out_rep->vport;
++			*action = MLX5_FLOW_CONTEXT_ACTION_FWD_DEST;
++			continue;
++		}
++
++		return -EINVAL;
++	}
++	return 0;
++}
++
+ int mlx5e_configure_flower(struct mlx5e_priv *priv, __be16 protocol,
+ 			   struct tc_cls_flower_offload *f)
+ {
 -- 
 2.8.0
