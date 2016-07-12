@@ -1,74 +1,48 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH net v2 0/2] net: ethoc: Error path and transmit fixes
-Date: Tue, 12 Jul 2016 10:35:07 -0700 (PDT)
-Message-ID: <20160712.103507.519164050156166949.davem@davemloft.net>
-References: <1468280155-13152-1-git-send-email-f.fainelli@gmail.com>
-	<20160712135109.GB19495@octofox.metropolis>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: [RFC PATCH v3] net: sched: convert qdisc linked list to hashtable
+Date: Tue, 12 Jul 2016 10:36:28 -0700
+Message-ID: <CAM_iQpV0QskOZd9A5LCGPsFC0nunyOmWNcExdt1gi1mgL0dB0w@mail.gmail.com>
+References: <alpine.LNX.2.00.1604141638230.27368@cbobk.fhfr.pm>
+ <1460646099.10638.44.camel@edumazet-glaptop3.roam.corp.google.com>
+ <20160414151813.GE3715@orbyte.nwl.cc> <alpine.LNX.2.00.1604141807350.27368@cbobk.fhfr.pm>
+ <1460656170.10638.61.camel@edumazet-glaptop3.roam.corp.google.com>
+ <5710E1C1.2090209@mojatatu.com> <1460732328.10638.74.camel@edumazet-glaptop3.roam.corp.google.com>
+ <alpine.LNX.2.00.1607071102010.24757@cbobk.fhfr.pm> <alpine.LNX.2.00.1607072234190.24757@cbobk.fhfr.pm>
+ <alpine.LNX.2.00.1607111557080.24757@cbobk.fhfr.pm>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
-	colin.king@canonical.com, tklauser@distanz.ch,
-	thierry.reding@gmail.com
-To: jcmvbkbc@gmail.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:45946 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816AbcGLRfI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 13:35:08 -0400
-In-Reply-To: <20160712135109.GB19495@octofox.metropolis>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Eric Dumazet <eric.dumazet@gmail.com>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Phil Sutter <phil@nwl.cc>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
+To: Jiri Kosina <jikos@kernel.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <alpine.LNX.2.00.1607111557080.24757@cbobk.fhfr.pm>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Max Filippov <jcmvbkbc@gmail.com>
-Date: Tue, 12 Jul 2016 16:51:10 +0300
+On Mon, Jul 11, 2016 at 7:02 AM, Jiri Kosina <jikos@kernel.org> wrote:
+> diff --git a/include/linux/netdevice.h b/include/linux/netdevice.h
+> index f45929c..0b5c172e 100644
+> --- a/include/linux/netdevice.h
+> +++ b/include/linux/netdevice.h
+> @@ -52,6 +52,7 @@
+>  #include <uapi/linux/netdevice.h>
+>  #include <uapi/linux/if_bonding.h>
+>  #include <uapi/linux/pkt_cls.h>
+> +#include <linux/hashtable.h>
+>
+>  struct netpoll_info;
+>  struct device;
+> @@ -1778,6 +1779,7 @@ struct net_device {
+>         unsigned int            num_tx_queues;
+>         unsigned int            real_num_tx_queues;
+>         struct Qdisc            *qdisc;
+> +       DECLARE_HASHTABLE       (qdisc_hash, 4);
+>         unsigned long           tx_queue_len;
+>         spinlock_t              tx_global_lock;
+>         int                     watchdog_timeo;
 
-> Hello,
-> 
-> On Mon, Jul 11, 2016 at 04:35:53PM -0700, Florian Fainelli wrote:
->> This patch series contains two patches for the ethoc driver while testing on a
->> TS-7300 board where ethoc is provided by an on-board FPGA.
->> 
->> First patch was cooked after chasing crashes with invalid resources passed to
->> the driver.
->> 
->> Second patch was cooked after seeing that an interface configured with IP
->> 192.168.2.2 was sending ARP packets for 192.168.0.0, no wonder why it could not
->> work.
-> 
-> I can see opencores intrerface sending ARP packets shorter than 64 bytes,
-> but I couldn't reproduce truncation that affects packet contents on my
-> hardware.
-> 
->> I don't have access to any other platform using an ethoc interface so
->> it could be good to some testing on Xtensa for instance.
-> 
-> I've tested success and error paths affected by this series with the
-> following additional change on top of it:
-> 
-> diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-> index ca678d4..8c94f45 100644
-> --- a/drivers/net/ethernet/ethoc.c
-> +++ b/drivers/net/ethernet/ethoc.c
-> @@ -862,7 +862,7 @@ static netdev_tx_t ethoc_start_xmit(struct sk_buff *skb, struct net_device *dev)
->  
->  	if (skb_put_padto(skb, ETHOC_ZLEN)) {
->  		dev->stats.tx_errors++;
-> -		goto out;
-> +		return NETDEV_TX_OK;
->  	}
->  
->  	if (unlikely(skb->len > ETHOC_BUFSIZ)) {
-> 
-> Without it the interface becomes non-functional after the first error
-> in skb_put_padto.
-> 
-> Tested-by: Max Filippov <jcmvbkbc@gmail.com>
-> Reviewed-by: Max Filippov <jcmvbkbc@gmail.com>
-
-Indeed, skb_put_padto() frees the skb on error so this would have caused
-a double free.
-
-Florian, please respin this series with the fix and tags added.
-
-Thanks.
+Should it be surrounded by CONFIG_NET_SCHED?
+To save several bytes for !CONFIG_NET_SCHED case.
