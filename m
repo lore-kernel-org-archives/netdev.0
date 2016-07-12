@@ -1,95 +1,73 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 4/6] ipvs: fix bind to link-local mcast IPv6 address in backup
-Date: Tue, 12 Jul 2016 18:11:00 +0200
-Message-ID: <1468339862-4028-5-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 5/6] netfilter: nft_ct: fix expiration getter
+Date: Tue, 12 Jul 2016 18:11:01 +0200
+Message-ID: <1468339862-4028-6-git-send-email-pablo@netfilter.org>
 References: <1468339862-4028-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail.us.es ([193.147.175.20]:49165 "EHLO mail.us.es"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1753743AbcGLQLV (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2016 12:11:21 -0400
-Received: from antivirus1-rhel7.int (unknown [192.168.2.11])
-	by mail.us.es (Postfix) with ESMTP id 8825AE7DA0
-	for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 18:11:20 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id 78568FAB52
-	for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 18:11:20 +0200 (CEST)
-Received: from antivirus1-rhel7.int (localhost [127.0.0.1])
-	by antivirus1-rhel7.int (Postfix) with ESMTP id DBE08100A4E
-	for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 18:11:13 +0200 (CEST)
+Return-path: <netfilter-devel-owner@vger.kernel.org>
 In-Reply-To: <1468339862-4028-1-git-send-email-pablo@netfilter.org>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-From: Quentin Armitage <quentin@armitage.org.uk>
+From: Florian Westphal <fw@strlen.de>
 
-When using HEAD from
-https://git.kernel.org/cgit/utils/kernel/ipvsadm/ipvsadm.git/,
-the command:
-ipvsadm --start-daemon backup --mcast-interface eth0.60 \
-    --mcast-group ff02::1:81
-fails with the error message:
-Argument list too long
+We need to compute timeout.expires - jiffies, not the other way around.
+Add a helper, another patch can then later change more places in
+conntrack code where we currently open-code this.
 
-whereas both:
-ipvsadm --start-daemon master --mcast-interface eth0.60 \
-    --mcast-group ff02::1:81
-and:
-ipvsadm --start-daemon backup --mcast-interface eth0.60 \
-    --mcast-group 224.0.0.81
-are successful.
+Will allow us to only change one place later when we remove per-ct timer.
 
-The error message "Argument list too long" isn't helpful. The error occurs
-because an IPv6 address is given in backup mode.
-
-The error is in make_receive_sock() in net/netfilter/ipvs/ip_vs_sync.c,
-since it fails to set the interface on the address or the socket before
-calling inet6_bind() (via sock->ops->bind), where the test
-'if (!sk->sk_bound_dev_if)' failed.
-
-Setting sock->sk->sk_bound_dev_if on the socket before calling
-inet6_bind() resolves the issue.
-
-Fixes: d33288172e72 ("ipvs: add more mcast parameters for the sync daemon")
-Signed-off-by: Quentin Armitage <quentin@armitage.org.uk>
-Acked-by: Julian Anastasov <ja@ssi.bg>
-Signed-off-by: Simon Horman <horms@verge.net.au>
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- net/netfilter/ipvs/ip_vs_sync.c | 6 ++++--
- 1 file changed, 4 insertions(+), 2 deletions(-)
+ include/net/netfilter/nf_conntrack.h | 8 ++++++++
+ net/netfilter/nft_ct.c               | 6 +-----
+ 2 files changed, 9 insertions(+), 5 deletions(-)
 
-diff --git a/net/netfilter/ipvs/ip_vs_sync.c b/net/netfilter/ipvs/ip_vs_sync.c
-index 803001a..1b07578 100644
---- a/net/netfilter/ipvs/ip_vs_sync.c
-+++ b/net/netfilter/ipvs/ip_vs_sync.c
-@@ -1545,7 +1545,8 @@ error:
- /*
-  *      Set up receiving multicast socket over UDP
-  */
--static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id)
-+static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id,
-+					int ifindex)
- {
- 	/* multicast addr */
- 	union ipvs_sockaddr mcast_addr;
-@@ -1566,6 +1567,7 @@ static struct socket *make_receive_sock(struct netns_ipvs *ipvs, int id)
- 		set_sock_size(sock->sk, 0, result);
+diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
+index dd78bea..b6083c3 100644
+--- a/include/net/netfilter/nf_conntrack.h
++++ b/include/net/netfilter/nf_conntrack.h
+@@ -284,6 +284,14 @@ static inline bool nf_is_loopback_packet(const struct sk_buff *skb)
+ 	return skb->dev && skb->skb_iif && skb->dev->flags & IFF_LOOPBACK;
+ }
  
- 	get_mcast_sockaddr(&mcast_addr, &salen, &ipvs->bcfg, id);
-+	sock->sk->sk_bound_dev_if = ifindex;
- 	result = sock->ops->bind(sock, (struct sockaddr *)&mcast_addr, salen);
- 	if (result < 0) {
- 		pr_err("Error binding to the multicast addr\n");
-@@ -1868,7 +1870,7 @@ int start_sync_thread(struct netns_ipvs *ipvs, struct ipvs_sync_daemon_cfg *c,
- 		if (state == IP_VS_STATE_MASTER)
- 			sock = make_send_sock(ipvs, id);
- 		else
--			sock = make_receive_sock(ipvs, id);
-+			sock = make_receive_sock(ipvs, id, dev->ifindex);
- 		if (IS_ERR(sock)) {
- 			result = PTR_ERR(sock);
- 			goto outtinfo;
++/* jiffies until ct expires, 0 if already expired */
++static inline unsigned long nf_ct_expires(const struct nf_conn *ct)
++{
++	long timeout = (long)ct->timeout.expires - (long)jiffies;
++
++	return timeout > 0 ? timeout : 0;
++}
++
+ struct kernel_param;
+ 
+ int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
+diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
+index 137e308..81fbb45 100644
+--- a/net/netfilter/nft_ct.c
++++ b/net/netfilter/nft_ct.c
+@@ -54,7 +54,6 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
+ 	const struct nf_conn_help *help;
+ 	const struct nf_conntrack_tuple *tuple;
+ 	const struct nf_conntrack_helper *helper;
+-	long diff;
+ 	unsigned int state;
+ 
+ 	ct = nf_ct_get(pkt->skb, &ctinfo);
+@@ -94,10 +93,7 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
+ 		return;
+ #endif
+ 	case NFT_CT_EXPIRATION:
+-		diff = (long)jiffies - (long)ct->timeout.expires;
+-		if (diff < 0)
+-			diff = 0;
+-		*dest = jiffies_to_msecs(diff);
++		*dest = jiffies_to_msecs(nf_ct_expires(ct));
+ 		return;
+ 	case NFT_CT_HELPER:
+ 		if (ct->master == NULL)
 -- 
 2.1.4
+
