@@ -1,40 +1,51 @@
-From: weiyj_lk@163.com
-Subject: [PATCH -next] ixgbe: Add missing destroy_workqueue() on error in ixgbe_init_module()
-Date: Tue, 12 Jul 2016 15:17:02 +0000
-Message-ID: <1468336622-10538-1-git-send-email-weiyj_lk@163.com>
+From: Andrew Lunn <andrew@lunn.ch>
+Subject: Re: [PATCH v3] Marvell phy: add fiber status check and configuration
+ for some phys
+Date: Tue, 12 Jul 2016 17:18:09 +0200
+Message-ID: <20160712151809.GA31432@lunn.ch>
+References: <20160404132552.GH21828@lunn.ch>
+ <570BFF50.6060909@gmail.com>
+ <d3b31c38-a15c-bf49-d787-1a7dcd11849d@nexvision.fr>
+ <9dd03fd9-1241-fc7d-ead3-feb7e918d4c3@nexvision.fr>
+ <20160602145636.GA15379@lunn.ch>
+ <75f458dd-6f6e-153d-eff1-d2b1112f268f@nexvision.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Wei Yongjun <yongjun_wei@trendmicro.com.cn>,
-	intel-wired-lan@lists.osuosl.org, netdev@vger.kernel.org
-To: Jeff Kirsher <jeffrey.t.kirsher@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from m12-11.163.com ([220.181.12.11]:45436 "EHLO m12-11.163.com"
+Received: from vps0.lunn.ch ([178.209.37.122]:40955 "EHLO vps0.lunn.ch"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1755097AbcGLPRS (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2016 11:17:18 -0400
+	id S933252AbcGLPSL (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jul 2016 11:18:11 -0400
+Content-Disposition: inline
+In-Reply-To: <75f458dd-6f6e-153d-eff1-d2b1112f268f@nexvision.fr>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+On Tue, Jul 12, 2016 at 05:00:52PM +0200, Charles-Antoine Couret wrote:
+> Hello,
+> I'm back with another patch evrsion about Marvell phys with a fiber interface.
+> >From the previous release, I fixed some issues reported by yours and I added some functions around the fiber interface to get statistics, to configure the aneg, etc.
 
-Add the missing destroy_workqueue() before return from
-ixgbe_init_module() in the error handling case.
+Hi Charles
 
-Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
----
- drivers/net/ethernet/intel/ixgbe/ixgbe_main.c | 1 +
- 1 file changed, 1 insertion(+)
+It is best to submit a number of smaller patches, each doing one
+thing, than a single big patch. It makes review and discussion much
+simpler.
 
-diff --git a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-index ef82cf9..c5c3d68 100644
---- a/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-+++ b/drivers/net/ethernet/intel/ixgbe/ixgbe_main.c
-@@ -10109,6 +10109,7 @@ static int __init ixgbe_init_module(void)
- 
- 	ret = pci_register_driver(&ixgbe_driver);
- 	if (ret) {
-+		destroy_workqueue(ixgbe_wq);
- 		ixgbe_dbg_exit();
- 		return ret;
- 	}
+So for example, this should be a patch of its own:
+
+> @@ -151,6 +165,7 @@ struct marvell_hw_stat {
+>  
+>  static struct marvell_hw_stat marvell_hw_stats[] = {
+>  	{ "phy_receive_errors", 0, 21, 16},
+> +	{ "phy_receive_errors_fiber", 1, 21, 16},
+>  	{ "phy_idle_errors", 0, 10, 8 },
+>  };
+
+I think we should also rename phy_receive_errors to
+phy_receive_errors_copper.
+
+	Andrew
