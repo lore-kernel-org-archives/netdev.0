@@ -1,94 +1,71 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: Re: [patch net-next 1/2] devlink: add hardware messages tracing
- facility
-Date: Tue, 12 Jul 2016 14:57:34 +0200
-Message-ID: <20160712125734.GF6844@nanopsycho.orion>
-References: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
- <20160711120814.504c20cb@gandalf.local.home>
- <20160712083837.GE1884@nanopsycho.orion>
- <20160712084417.4ca31962@gandalf.local.home>
+From: Alan Davey <Alan.Davey@metaswitch.com>
+Subject: RE: [PATCH] net: Fragment large datagrams even when IP_HDRINCL is
+ set.
+Date: Tue, 12 Jul 2016 12:34:07 +0000
+Message-ID: <SN1PR0201MB1807CF3E6A28E344EE2E41F0F9300@SN1PR0201MB1807.namprd02.prod.outlook.com>
+References: <20160608.102558.903056863834035706.davem@davemloft.net>
+	<BN3PR0201MB10599C7780CBC6EB4BC2894DF9550@BN3PR0201MB1059.namprd02.prod.outlook.com>
+	<alpine.LFD.2.20.1607081340430.26593@stoner.jakma.org>
+ <20160708.184129.1545084362199727100.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	yotamg@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
-	ogerlitz@mellanox.com, ivecera@redhat.com, mingo@redhat.com,
-	jolsa@kernel.org
-To: Steven Rostedt <rostedt@goodmis.org>
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: "netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>,
+	"jmorris@namei.org" <jmorris@namei.org>,
+	"yoshfuji@linux-ipv6.org" <yoshfuji@linux-ipv6.org>,
+	"kaber@trash.net" <kaber@trash.net>
+To: David Miller <davem@davemloft.net>,
+	"paul@jakma.org" <paul@jakma.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f68.google.com ([74.125.82.68]:34064 "EHLO
-	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1752155AbcGLM5h (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 08:57:37 -0400
-Received: by mail-wm0-f68.google.com with SMTP id w75so1954861wmd.1
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 05:57:37 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <20160712084417.4ca31962@gandalf.local.home>
+Received: from mail-by2nam03on0130.outbound.protection.outlook.com ([104.47.42.130]:59232
+	"EHLO NAM03-BY2-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750968AbcGLNH7 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 09:07:59 -0400
+In-Reply-To: <20160708.184129.1545084362199727100.davem@davemloft.net>
+Content-Language: en-US
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Tue, Jul 12, 2016 at 02:44:17PM CEST, rostedt@goodmis.org wrote:
->On Tue, 12 Jul 2016 10:38:37 +0200
->Jiri Pirko <jiri@resnulli.us> wrote:
->
->
->> Hmm, I'm trying to make it work this was but it seems to be a bit more
->> complicated. I did not find any code doing this (having the tracepoint
->> compiled in or not) so I cannot copy&paste the solution.
+>> On Wed, 15 Jun 2016, Alan Davey wrote:
 >> 
->> The problem is that trace_devlink_hwmsg is included from
->> include/trace/events/devlink.h when devlink is on and from
->> include/net/devlink.h. Odd but ok.
+>>> The only case that would break is that where an application relies on 
+>>> the existing (documented as a bug) feature of getting an EMSGSIZE 
+>>> return code in the case of an over-sized packet.  Applications that 
+>>> perform their own fragmentation would be unaffected.
 >> 
->> I cannot include include/trace/events/devlink.h in include/net/devlink.h
->> because include/net/devlink.h is included in include/trace/events/devlink.h
+>> If this doesn't break existing applications that are doing 
+>> fragmentation in userspace on raw sockets (e.g. Quagga ospfd), that's 
+>> better.
 >> 
->> So I have to directly include include/trace/events/devlink.h from mlxsw
->> driver (trace caller). But when devlink is not compiled in, trecepoint
->> is not created and I'm getting errors.
+>> As per previous email, I'd love to be able to get rid of that code and 
+>> have the kernel do it for me. However, I also don't want to have to do 
+>> anything other non-trivial to that code either. :)
 >> 
->> I see no easy way our of this other than the wrapper function I was
->> originally using. Seem simple and elegant.
+>> The issue for us is, how would we know on any given host whether the 
+>> kernel will do the fragmentation or whether ospfd has to do it? We 
+>> need to be able to probe for that capability, surely?
 >
->No. You missed my solution.
+>The fact is, regardless of whether you could probe for the capability or not, you have to keep the fragmentation code around forever.
 >
->Any user of trace_devlink_hwmsg() should directly include
->trace/events/devlink.h. That's what all other trace users do. They
->include the trace file header.
+>And that is yet another reason I do not want to add this change at all.
 >
->I said in that header do:
+>It doesn't make any existing server any simpler, in fact it makes them all more complicated because not only do they keep the fragmentation code, they also >get new logic to test for the feature that would allow them to avoid using it.
 >
->
->#if IS_ENABLED(CONFIG_NET_DEVLINK)
->
->#undef TRACE_SYSTEM
->#define TRACE_SYSTEM devlink
->
->#if !defined(_TRACE_DEVLINK_H) || defined(TRACE_HEADER_MULTI_READ)
->#define _TRACE_DEVLINK_H
->
->#include <linux/device.h>
->#include <net/devlink.h>
->#include <linux/tracepoint.h>
->
->[..]
->
->#endif /* _TRACE_DEVLINK_H */
->
->/* This part must be outside protection */
->#include <trace/define_trace.h>
->
->#else /* CONFIG_NET_DEVLINK */
->static inline void trace_devlink_hwmsg(const struct devlink *devlink,
->				       bool incoming, unsigned long type,
->				       const u8 *buf, size_t len)
->{
->}
->#endif
+>Sorry, there is no way I am adding this, it's a net lose.
 
+David,
 
-Okay. That looks good. Thanks!
+I accept you don't want to take this patch.  However, I don't yet understand why, so I have a few more questions (which will hopefully help me produce patches that are likely to be accepted in future).
 
+Adding the patch means that some existing applications will continue to contain their own fragmentation code, which becomes unnecessary.  This is OK; those applications will continue to fragment packets, and will continue to work with an updated kernel.  Do you agree?
 
->
->
->-- Steve
+Not adding the patch means that 
+-  all future applications have to continue to implement their own fragmentation code, duplicating that which already exists in the kernel
+-  hardware vendors may choose to apply the patch themselves (they do not want to implement function that already exists), but would surely prefer to have it in the standard kernel.
+
+So I still don't understand what part of taking the patch would have a negative result on existing applications, it should be neutral to them.  Could you help me out here and explain?
+
+Regards
+Alan
