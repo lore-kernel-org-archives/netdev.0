@@ -1,55 +1,48 @@
-From: Steven Rostedt <rostedt@goodmis.org>
-Subject: Re: [patch net-next v2 1/2] devlink: add hardware messages tracing
- facility
-Date: Tue, 12 Jul 2016 13:23:59 -0400
-Message-ID: <20160712132359.7eec5002@gandalf.local.home>
-References: <1468339504-27580-1-git-send-email-jiri@resnulli.us>
-	<20160712123826.15a31a41@gandalf.local.home>
-	<20160712171046.GA1799@nanopsycho.orion>
+From: Cong Wang <xiyou.wangcong@gmail.com>
+Subject: Re: 4.6.3, pppoe + shaper workload, skb_panic / skb_push / ppp_start_xmit
+Date: Tue, 12 Jul 2016 10:31:18 -0700
+Message-ID: <CAM_iQpWuCw6Bgm=1BWMkoFkuav5xV+FyKPq0Ef+3N_qpQqv=AA@mail.gmail.com>
+References: <c72d23549eaa7aadee1a66a6bb788a4a@nuclearcat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
-	yotamg@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
-	ogerlitz@mellanox.com, ivecera@redhat.com, mingo@redhat.com,
-	jolsa@kernel.org
-To: Jiri Pirko <jiri@resnulli.us>
+Content-Type: text/plain; charset=UTF-8
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: nuclearcat@nuclearcat.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from smtprelay0224.hostedemail.com ([216.40.44.224]:54914 "EHLO
-	smtprelay.hostedemail.com" rhost-flags-OK-OK-OK-FAIL)
-	by vger.kernel.org with ESMTP id S1750874AbcGLRYF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 13:24:05 -0400
-In-Reply-To: <20160712171046.GA1799@nanopsycho.orion>
+Received: from mail-io0-f177.google.com ([209.85.223.177]:36463 "EHLO
+	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751178AbcGLRbj (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 13:31:39 -0400
+Received: by mail-io0-f177.google.com with SMTP id b62so23067172iod.3
+        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 10:31:38 -0700 (PDT)
+In-Reply-To: <c72d23549eaa7aadee1a66a6bb788a4a@nuclearcat.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, 12 Jul 2016 19:10:46 +0200
-Jiri Pirko <jiri@resnulli.us> wrote:
+On Mon, Jul 11, 2016 at 12:45 PM,  <nuclearcat@nuclearcat.com> wrote:
+> Hi
+>
+> On latest kernel i noticed kernel panic happening 1-2 times per day. It is
+> also happening on older kernel (at least 4.5.3).
+>
+...
+>  [42916.426463] Call Trace:
+>  [42916.426658]  <IRQ>
+>
+>  [42916.426719]  [<ffffffff81843786>] skb_push+0x36/0x37
+>  [42916.427111]  [<ffffffffa00e8ce5>] ppp_start_xmit+0x10f/0x150
+> [ppp_generic]
+>  [42916.427314]  [<ffffffff81853467>] dev_hard_start_xmit+0x25a/0x2d3
+>  [42916.427516]  [<ffffffff818530f2>] ?
+> validate_xmit_skb.isra.107.part.108+0x11d/0x238
+>  [42916.427858]  [<ffffffff8186dee3>] sch_direct_xmit+0x89/0x1b5
+>  [42916.428060]  [<ffffffff8186e142>] __qdisc_run+0x133/0x170
+>  [42916.428261]  [<ffffffff81850034>] net_tx_action+0xe3/0x148
+>  [42916.428462]  [<ffffffff810c401a>] __do_softirq+0xb9/0x1a9
+>  [42916.428663]  [<ffffffff810c4251>] irq_exit+0x37/0x7c
+>  [42916.428862]  [<ffffffff8102b8f7>] smp_apic_timer_interrupt+0x3d/0x48
+>  [42916.429063]  [<ffffffff818cb15c>] apic_timer_interrupt+0x7c/0x90
 
-> Tue, Jul 12, 2016 at 06:38:26PM CEST, rostedt@goodmis.org wrote:
-> >On Tue, 12 Jul 2016 18:05:03 +0200
-> >Jiri Pirko <jiri@resnulli.us> wrote:
-> >  
-> >> From: Jiri Pirko <jiri@mellanox.com>
-> >> 
-> >> Define a tracepoint and allow user to trace messages going to and from
-> >> hardware associated with devlink instance.
-> >> 
-> >> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-> >> ---
-> >> v1->v2:
-> >> - Use EXPORT_TRACEPOINT_SYMBOL_GPL instead of a wrapper function
-> >>   as suggested by David Ahern and Steven Rostedt  
-> >
-> >FYI, you can use the Suggested-by: tag too ;-)  
-> 
-> Thought that the purpose of that tag is if someone suggested the whole
-> patch existence.
+Interesting, we call a skb_cow_head() before skb_push() in ppp_start_xmit(),
+I have no idea why this could happen.
 
-Yeah, it has different meanings. You could always be creative and add: 
-
-Parts-suggested-by: ....
-
-;-)
-
--- Steve
+Do you have any tc qdisc, filter or actions on this ppp device?
