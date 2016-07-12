@@ -1,121 +1,96 @@
-From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
-Subject: [PATCH net 1/2] rose: limit sk_filter trim to payload
-Date: Tue, 12 Jul 2016 18:18:56 -0400
-Message-ID: <1468361937-102786-2-git-send-email-willemdebruijn.kernel@gmail.com>
-References: <1468361937-102786-1-git-send-email-willemdebruijn.kernel@gmail.com>
-Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net,
-	davem@davemloft.net, hannes@stressinduktion.org,
-	eric.dumazet@gmail.com, Willem de Bruijn <willemb@google.com>
-To: netdev@vger.kernel.org
+From: Daniel Borkmann <daniel@iogearbox.net>
+Subject: [PATCH net-next 2/3] bpf, perf: split bpf_perf_event_output
+Date: Wed, 13 Jul 2016 00:36:18 +0200
+Message-ID: <efa00eb005d3e7655a2a0251ae3f82533d824821.1468362046.git.daniel@iogearbox.net>
+References: <cover.1468362046.git.daniel@iogearbox.net>
+Cc: alexei.starovoitov@gmail.com, peterz@infradead.org, tgraf@suug.ch,
+	netdev@vger.kernel.org, linux-kernel@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: davem@davemloft.net
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f193.google.com ([209.85.216.193]:35120 "EHLO
-	mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750787AbcGLWf5 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 18:35:57 -0400
-Received: by mail-qt0-f193.google.com with SMTP id q11so1078430qtb.2
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 15:35:43 -0700 (PDT)
-In-Reply-To: <1468361937-102786-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Received: from www62.your-server.de ([213.133.104.62]:44876 "EHLO
+	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750784AbcGLWgv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 18:36:51 -0400
+In-Reply-To: <cover.1468362046.git.daniel@iogearbox.net>
+In-Reply-To: <cover.1468362046.git.daniel@iogearbox.net>
+References: <cover.1468362046.git.daniel@iogearbox.net>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Willem de Bruijn <willemb@google.com>
+Split the bpf_perf_event_output() helper as a preparation into two
+parts. The newly bpf_perf_event_output() will prepare the raw record
+itself and test for unknown flags from BPF trace context, where the
+__bpf_perf_event_output() does the core work and will be reused later
+as well.
 
-Sockets can have a filter program attached that drops or trims
-incoming packets based on the filter program return value.
-
-Rose requires data packets to have at least ROSE_MIN_LEN bytes. It
-verifies this on arrival in rose_route_frame and unconditionally pulls
-the bytes in rose_recvmsg. The filter can trim packets to below this
-value in-between, causing pull to fail, leaving the partial header at
-the time of skb_copy_datagram_msg.
-
-Place a lower bound on the size to which sk_filter may trim packets
-by introducing sk_filter_trim_cap and call this for rose packets.
-
-Signed-off-by: Willem de Bruijn <willemb@google.com>
-
+Signed-off-by: Daniel Borkmann <daniel@iogearbox.net>
+Acked-by: Alexei Starovoitov <ast@kernel.org>
 ---
+ kernel/trace/bpf_trace.c | 32 ++++++++++++++++++++------------
+ 1 file changed, 20 insertions(+), 12 deletions(-)
 
-No Fixes tag, because this codepath goes back to the start of the
-git repo history.
----
- include/linux/filter.h |  6 +++++-
- net/core/filter.c      | 10 +++++-----
- net/rose/rose_in.c     |  3 ++-
- 3 files changed, 12 insertions(+), 7 deletions(-)
-
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 6fc31ef..8f74f3d 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -467,7 +467,11 @@ static inline void bpf_prog_unlock_ro(struct bpf_prog *fp)
- }
- #endif /* CONFIG_DEBUG_SET_MODULE_RONX */
+diff --git a/kernel/trace/bpf_trace.c b/kernel/trace/bpf_trace.c
+index 8540bd5..4d3d5b8 100644
+--- a/kernel/trace/bpf_trace.c
++++ b/kernel/trace/bpf_trace.c
+@@ -233,25 +233,17 @@ static const struct bpf_func_proto bpf_perf_event_read_proto = {
+ 	.arg2_type	= ARG_ANYTHING,
+ };
  
--int sk_filter(struct sock *sk, struct sk_buff *skb);
-+int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap);
-+static inline int sk_filter(struct sock *sk, struct sk_buff *skb)
+-static u64 bpf_perf_event_output(u64 r1, u64 r2, u64 flags, u64 r4, u64 size)
++static __always_inline u64
++__bpf_perf_event_output(struct pt_regs *regs, struct bpf_map *map,
++			u64 flags, struct perf_raw_record *raw)
+ {
+-	struct pt_regs *regs = (struct pt_regs *) (long) r1;
+-	struct bpf_map *map = (struct bpf_map *) (long) r2;
+ 	struct bpf_array *array = container_of(map, struct bpf_array, map);
+ 	unsigned int cpu = smp_processor_id();
+ 	u64 index = flags & BPF_F_INDEX_MASK;
+-	void *data = (void *) (long) r4;
+ 	struct perf_sample_data sample_data;
+ 	struct bpf_event_entry *ee;
+ 	struct perf_event *event;
+-	struct perf_raw_record raw = {
+-		.size = size,
+-		.size_head = size,
+-		.data = data,
+-	};
+ 
+-	if (unlikely(flags & ~(BPF_F_INDEX_MASK)))
+-		return -EINVAL;
+ 	if (index == BPF_F_CURRENT_CPU)
+ 		index = cpu;
+ 	if (unlikely(index >= array->map.max_entries))
+@@ -270,11 +262,27 @@ static u64 bpf_perf_event_output(u64 r1, u64 r2, u64 flags, u64 r4, u64 size)
+ 		return -EOPNOTSUPP;
+ 
+ 	perf_sample_data_init(&sample_data, 0, 0);
+-	sample_data.raw = &raw;
++	sample_data.raw = raw;
+ 	perf_event_output(event, &sample_data, regs);
+ 	return 0;
+ }
+ 
++static u64 bpf_perf_event_output(u64 r1, u64 r2, u64 flags, u64 r4, u64 size)
 +{
-+	return sk_filter_trim_cap(sk, skb, 1);
++	struct perf_raw_record raw = {
++		.size		= size,
++		.size_head	= size,
++		.data		= (void *)(long) r4,
++	};
++
++	if (unlikely(flags & ~(BPF_F_INDEX_MASK)))
++		return -EINVAL;
++
++	return __bpf_perf_event_output((struct pt_regs *)(long) r1,
++				       (struct bpf_map *)(long) r2,
++				       flags, &raw);
 +}
- 
- struct bpf_prog *bpf_prog_select_runtime(struct bpf_prog *fp, int *err);
- void bpf_prog_free(struct bpf_prog *fp);
-diff --git a/net/core/filter.c b/net/core/filter.c
-index c4b330c..e759d90 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -53,9 +53,10 @@
- #include <net/sock_reuseport.h>
- 
- /**
-- *	sk_filter - run a packet through a socket filter
-+ *	sk_filter_trim_cap - run a packet through a socket filter
-  *	@sk: sock associated with &sk_buff
-  *	@skb: buffer to filter
-+ *	@cap: limit on how short the eBPF program may trim the packet
-  *
-  * Run the eBPF program and then cut skb->data to correct size returned by
-  * the program. If pkt_len is 0 we toss packet. If skb->len is smaller
-@@ -64,7 +65,7 @@
-  * be accepted or -EPERM if the packet should be tossed.
-  *
-  */
--int sk_filter(struct sock *sk, struct sk_buff *skb)
-+int sk_filter_trim_cap(struct sock *sk, struct sk_buff *skb, unsigned int cap)
- {
- 	int err;
- 	struct sk_filter *filter;
-@@ -85,14 +86,13 @@ int sk_filter(struct sock *sk, struct sk_buff *skb)
- 	filter = rcu_dereference(sk->sk_filter);
- 	if (filter) {
- 		unsigned int pkt_len = bpf_prog_run_save_cb(filter->prog, skb);
--
--		err = pkt_len ? pskb_trim(skb, pkt_len) : -EPERM;
-+		err = pkt_len ? pskb_trim(skb, max(cap, pkt_len)) : -EPERM;
- 	}
- 	rcu_read_unlock();
- 
- 	return err;
- }
--EXPORT_SYMBOL(sk_filter);
-+EXPORT_SYMBOL(sk_filter_trim_cap);
- 
- static u64 __skb_get_pay_offset(u64 ctx, u64 a, u64 x, u64 r4, u64 r5)
- {
-diff --git a/net/rose/rose_in.c b/net/rose/rose_in.c
-index 79c4abc..0a63947 100644
---- a/net/rose/rose_in.c
-+++ b/net/rose/rose_in.c
-@@ -164,7 +164,8 @@ static int rose_state3_machine(struct sock *sk, struct sk_buff *skb, int framety
- 		rose_frames_acked(sk, nr);
- 		if (ns == rose->vr) {
- 			rose_start_idletimer(sk);
--			if (sock_queue_rcv_skb(sk, skb) == 0) {
-+			if (sk_filter_trim_cap(sk, skb, ROSE_MIN_LEN) == 0 &&
-+			    __sock_queue_rcv_skb(sk, skb) == 0) {
- 				rose->vr = (rose->vr + 1) % ROSE_MODULUS;
- 				queued = 1;
- 			} else {
++
+ static const struct bpf_func_proto bpf_perf_event_output_proto = {
+ 	.func		= bpf_perf_event_output,
+ 	.gpl_only	= true,
 -- 
-2.8.0.rc3.226.g39d4020
+1.9.3
