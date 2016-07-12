@@ -1,69 +1,55 @@
-From: Max Filippov <jcmvbkbc@gmail.com>
-Subject: Re: [PATCH net v2 0/2] net: ethoc: Error path and transmit fixes
-Date: Tue, 12 Jul 2016 16:51:10 +0300
-Message-ID: <20160712135109.GB19495@octofox.metropolis>
-References: <1468280155-13152-1-git-send-email-f.fainelli@gmail.com>
+From: Phil Sutter <phil@nwl.cc>
+Subject: Re: [PATCH iproute2] ip route: restore route entries in correct order
+Date: Tue, 12 Jul 2016 15:55:59 +0200
+Message-ID: <20160712135559.GB15034@orbyte.nwl.cc>
+References: <db0478737a916791e56b8a5f4c6307143ea44c25.1468330678.git.lucien.xin@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@vger.kernel.org, davem@davemloft.net,
-	colin.king@canonical.com, tklauser@distanz.ch,
-	thierry.reding@gmail.com
-To: Florian Fainelli <f.fainelli@gmail.com>
+Cc: network dev <netdev@vger.kernel.org>, stephen@networkplumber.org
+To: Xin Long <lucien.xin@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-lf0-f67.google.com ([209.85.215.67]:33750 "EHLO
-	mail-lf0-f67.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751323AbcGLNvO (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 09:51:14 -0400
-Received: by mail-lf0-f67.google.com with SMTP id f93so974033lfi.0
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 06:51:13 -0700 (PDT)
+Received: from orbyte.nwl.cc ([151.80.46.58]:37697 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750936AbcGLN4C (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jul 2016 09:56:02 -0400
 Content-Disposition: inline
-In-Reply-To: <1468280155-13152-1-git-send-email-f.fainelli@gmail.com>
+In-Reply-To: <db0478737a916791e56b8a5f4c6307143ea44c25.1468330678.git.lucien.xin@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hello,
-
-On Mon, Jul 11, 2016 at 04:35:53PM -0700, Florian Fainelli wrote:
-> This patch series contains two patches for the ethoc driver while testing on a
-> TS-7300 board where ethoc is provided by an on-board FPGA.
+On Tue, Jul 12, 2016 at 09:37:58PM +0800, Xin Long wrote:
+> Sometimes we cannot restore route entries, because in kernel
+>   [1] fib_check_nh()
+>   [2] fib_valid_prefsrc()
+> cause some routes to depend on existence of others while adding.
 > 
-> First patch was cooked after chasing crashes with invalid resources passed to
-> the driver.
+> For example, we saved all the routes, and flushed all tables
+>   [a] default via 192.168.122.1 dev eth0
+>   [b] 192.168.122.0/24 dev eth0 src 192.168.122.21
+>   [c] broadcast 127.0.0.0 dev lo table local src 127.0.0.1
+>   [d] local 127.0.0.0/8 dev lo table local  src 127.0.0.1
+>   [e] local 127.0.0.1 dev lo table local src 127.0.0.1
+>   [f] broadcast 127.255.255.255 dev lo table local src 127.0.0.1
+>   [g] broadcast 192.168.122.0 dev eth0 table local src 192.168.122.21
+>   [h] local 192.168.122.21 dev eth0 table local src 192.168.122.21
+>   [i] broadcast 192.168.122.255 dev eth0 table local src 192.168.122.21
 > 
-> Second patch was cooked after seeing that an interface configured with IP
-> 192.168.2.2 was sending ARP packets for 192.168.0.0, no wonder why it could not
-> work.
+>   Now start to restore them:
+>     If we want to add [a], we have to add [b] first, as [1] and
+>     'via 192.168.122.1' in [a].
+>     If we want to add [b], we have to add [h] first, as [2] and
+>     'src 192.168.122.21' in [b].
+> 
+>   So the correct order to restore should be like:
+>     [e][h] -> [b][c][d][f][g][i] -> [a]
+> 
+> This patch fixes it by traversing the file 3 times, it only restores
+> part of them in each run according to the following conditions, to
+> make sure every entry can be restored successfully.
+>   1. !gw && (!fib_prefsrc || fib_prefsrc == cfg->fc_dst)
+>   2. !gw && (fib_prefsrc != cfg->fc_dst)
+>   3. gw
+> 
+> Signed-off-by: Xin Long <lucien.xin@gmail.com>
 
-I can see opencores intrerface sending ARP packets shorter than 64 bytes,
-but I couldn't reproduce truncation that affects packet contents on my
-hardware.
-
-> I don't have access to any other platform using an ethoc interface so
-> it could be good to some testing on Xtensa for instance.
-
-I've tested success and error paths affected by this series with the
-following additional change on top of it:
-
-diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
-index ca678d4..8c94f45 100644
---- a/drivers/net/ethernet/ethoc.c
-+++ b/drivers/net/ethernet/ethoc.c
-@@ -862,7 +862,7 @@ static netdev_tx_t ethoc_start_xmit(struct sk_buff *skb, struct net_device *dev)
- 
- 	if (skb_put_padto(skb, ETHOC_ZLEN)) {
- 		dev->stats.tx_errors++;
--		goto out;
-+		return NETDEV_TX_OK;
- 	}
- 
- 	if (unlikely(skb->len > ETHOC_BUFSIZ)) {
-
-Without it the interface becomes non-functional after the first error
-in skb_put_padto.
-
-Tested-by: Max Filippov <jcmvbkbc@gmail.com>
-Reviewed-by: Max Filippov <jcmvbkbc@gmail.com>
-
--- 
-Thanks.
--- Max
+Acked-by: Phil Sutter <phil@nwl.cc>
