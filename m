@@ -1,54 +1,41 @@
-From: Kalle Valo <kvalo@codeaurora.org>
-Subject: Re: iwlwifi: add missing type declaration
-Date: Tue, 12 Jul 2016 11:54:09 +0000 (UTC)
-Message-ID: <20160712115409.7D7176127F@smtp.codeaurora.org>
-References: <20160711205020.1587254-1-arnd@arndb.de>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: RE: [PATCH v8 08/11] net/mlx4_en: break out tx_desc write into
+ separate function
+Date: Tue, 12 Jul 2016 12:16:53 +0000
+Message-ID: <AM4PR05MB15534566CD38635FA3C81963AE300@AM4PR05MB1553.eurprd05.prod.outlook.com>
+References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
+ <1468309894-26258-9-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Berg <johannes.berg@intel.com>,
-	Arnd Bergmann <arnd@arndb.de>,
-	Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
-	Luca Coelho <luciano.coelho@intel.com>,
-	Intel Linux Wireless <linuxwifi@intel.com>,
-	Eliad Peller <eliad@wizery.com>,
-	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org
-To: Arnd Bergmann <arnd@arndb.de>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <20160711205020.1587254-1-arnd@arndb.de>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>,
+	"Jesper Dangaard Brouer" <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tariq Toukan <ttoukan.linux@gmail.com>
+To: Brenden Blanco <bblanco@plumgrid.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-db5eur01on0071.outbound.protection.outlook.com ([104.47.2.71]:15370
+	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S932991AbcGLMQ4 convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 08:16:56 -0400
+In-Reply-To: <1468309894-26258-9-git-send-email-bblanco@plumgrid.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Arnd Bergmann <arnd@arndb.de> wrote:
-> The iwl-debug.h header relies in implicit inclusion of linux/device.h and
-> we get a lot of warnings without that:
-> 
-> drivers/net/wireless/intel/iwlwifi/iwl-debug.h:44:23: error: 'struct device' declared inside parameter list will not be visible outside of this definition or declaration [-Werror]
->  void __iwl_err(struct device *dev, bool rfkill_prefix, bool only_trace,
->                        ^~~~~~
-> In file included from drivers/net/wireless/intel/iwlwifi/iwl-eeprom-read.h:66:0,
->                  from drivers/net/wireless/intel/iwlwifi/iwl-eeprom-read.c:68:
-> drivers/net/wireless/intel/iwlwifi/iwl-trans.h: In function 'iwl_trans_tx':
-> drivers/net/wireless/intel/iwlwifi/iwl-trans.h:1030:348: error: passing argument 1 of '__iwl_err' from incompatible pointer type [-Werror=incompatible-pointer-types]
->    IWL_ERR(trans, "%s bad state = %d\n", __func__, trans->state);
->                                                                                                                                                                                                                                                                                                                                                             ^
-> In file included from drivers/net/wireless/intel/iwlwifi/iwl-eeprom-read.c:67:0:
-> drivers/net/wireless/intel/iwlwifi/iwl-debug.h:44:6: note: expected 'struct device *' but argument is of type 'struct device *'
->  void __iwl_err(struct device *dev, bool rfkill_prefix, bool only_trace,
->       ^~~~~~~~~
-> 
-> The easiest workaround is to just declare 'struct device' before its first use,
-> rather than including the entire header file.
-> 
-> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
-> Fixes: 21cb3222fe56 ("iwlwifi: decouple PCIe transport from mac80211")
-> Acked-by: Luca Coelho <luciano.coelho@intel.com>
+>In preparation for writing the tx descriptor from multiple functions, create a helper for both normal and blueflame access.
+>
+>Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 
-Thanks, 1 patch applied to wireless-drivers-next.git:
-
-25f700ef0653 iwlwifi: add missing type declaration
-
--- 
-Sent by pwcli
-https://patchwork.kernel.org/patch/9224105/
+Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
