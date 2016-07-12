@@ -1,47 +1,38 @@
-From: Benjamin Poirier <benjamin.poirier@gmail.com>
-Subject: Re: Fwd: Fwd: Re: [PATCH net-next 00/15] net/smc: Shared Memory
- Communications - RDMA
-Date: Tue, 12 Jul 2016 11:10:36 -0700
-Message-ID: <20160712181036.lgh7d4bbxwf53sxz@f1.synalogic.ca>
-References: <57694913.8040303@linux.vnet.ibm.com>
- <577D23D8.4050107@linux.vnet.ibm.com>
- <20160712180820.72hfh4ihzxjqvx5f@f1.synalogic.ca>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH] net: Fragment large datagrams even when IP_HDRINCL is
+ set.
+Date: Tue, 12 Jul 2016 11:11:16 -0700 (PDT)
+Message-ID: <20160712.111116.1765805486132601360.davem@davemloft.net>
+References: <alpine.LFD.2.20.1607081340430.26593@stoner.jakma.org>
+	<20160708.184129.1545084362199727100.davem@davemloft.net>
+	<SN1PR0201MB1807CF3E6A28E344EE2E41F0F9300@SN1PR0201MB1807.namprd02.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dave Miller <davem@davemloft.net>, netdev@vger.kernel.org,
-	linux-s390@vger.kernel.org,
-	Martin Schwidefsky <schwidefsky@de.ibm.com>,
-	Heiko Carstens <heiko.carstens@de.ibm.com>,
-	Utz Bacher <utz.bacher@de.ibm.com>
-To: Ursula Braun <ubraun@linux.vnet.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: paul@jakma.org, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
+	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
+To: Alan.Davey@metaswitch.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-it0-f68.google.com ([209.85.214.68]:32824 "EHLO
-	mail-it0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750814AbcGLSKl (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 14:10:41 -0400
-Content-Disposition: inline
-In-Reply-To: <20160712180820.72hfh4ihzxjqvx5f@f1.synalogic.ca>
+Received: from shards.monkeyblade.net ([184.105.139.130]:46692 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750816AbcGLSLS (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 14:11:18 -0400
+In-Reply-To: <SN1PR0201MB1807CF3E6A28E344EE2E41F0F9300@SN1PR0201MB1807.namprd02.prod.outlook.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 2016/07/12 11:08, Benjamin Poirier wrote:
-> On 2016/07/06 17:29, Ursula Braun wrote:
-> > Dave,
-> > 
-> > we still like to see SMC-R included into a future Linux-kernel. After
-> > answering your first 2 questions, there is no longer a response. What should
-> > we do next?
-> > - Still wait for an answer from you?
-> > - Resend the same whole SMC-R patch series, this time with the cover letter
-> > adapted to your requested changes?
-> 
-> ^^^ I would suggest to send v2 of the patch series with the changes
-> that were requested.
-> 
-> > - Put the SMC-R development on hold, and concentrate on another
-> > s390-specific SMC-solution first (not RDMA-based), that makes use of the
-> > SMC-socket family as well.
-> > - Anything else?
-> > 
+From: Alan Davey <Alan.Davey@metaswitch.com>
+Date: Tue, 12 Jul 2016 12:34:07 +0000
 
-... and I would suggest to trim my emails next time. Sorry.
+> -  all future applications have to continue to implement their own fragmentation code, duplicating that which already exists in the kernel
+
+They have to do this anyways, don't you see this?
+
+Otherwise they don't support %99 of the kernels out there.
+
+Even if I put this change in now, it would take years for it to
+propagate to even a moderate percentage of Linux machines out there.
+
+And applications doing a "we only support kernels > version x.y.z" is
+a situation I don't want to promote if you think that's a reasonable
+way to handle this.
