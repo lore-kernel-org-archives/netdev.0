@@ -1,43 +1,66 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: [RFC PATCH net-next 1/1] Introduce skbmod action
-Date: Tue, 12 Jul 2016 10:10:15 -0700
-Message-ID: <CAM_iQpWNxZjWM-f_siOuXf+w_mgxKay9S8kAmUTD+8YLXp2S+g@mail.gmail.com>
-References: <1468239164-17898-1-git-send-email-jhs@emojatatu.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next v2 1/2] devlink: add hardware messages tracing
+ facility
+Date: Tue, 12 Jul 2016 19:10:46 +0200
+Message-ID: <20160712171046.GA1799@nanopsycho.orion>
+References: <1468339504-27580-1-git-send-email-jiri@resnulli.us>
+ <20160712123826.15a31a41@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: David Miller <davem@davemloft.net>,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	nikolay@cumulusnetworks.com,
-	Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: Jamal Hadi Salim <jhs@mojatatu.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	yotamg@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+	ogerlitz@mellanox.com, ivecera@redhat.com, mingo@redhat.com,
+	jolsa@kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f194.google.com ([209.85.223.194]:32962 "EHLO
-	mail-io0-f194.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816AbcGLRKp (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 13:10:45 -0400
-Received: by mail-io0-f194.google.com with SMTP id y195so1429735iod.0
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 10:10:40 -0700 (PDT)
-In-Reply-To: <1468239164-17898-1-git-send-email-jhs@emojatatu.com>
+Received: from mail-wm0-f65.google.com ([74.125.82.65]:36103 "EHLO
+	mail-wm0-f65.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751567AbcGLRKv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 13:10:51 -0400
+Received: by mail-wm0-f65.google.com with SMTP id x83so2710449wma.3
+        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 10:10:51 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160712123826.15a31a41@gandalf.local.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 11, 2016 at 5:12 AM, Jamal Hadi Salim <jhs@mojatatu.com> wrote:
-> From: Jamal Hadi Salim <jhs@mojatatu.com>
+Tue, Jul 12, 2016 at 06:38:26PM CEST, rostedt@goodmis.org wrote:
+>On Tue, 12 Jul 2016 18:05:03 +0200
+>Jiri Pirko <jiri@resnulli.us> wrote:
 >
-> This action is intended to be an upgrade from a usability perspective
-> from pedit. Compare this:
+>> From: Jiri Pirko <jiri@mellanox.com>
+>> 
+>> Define a tracepoint and allow user to trace messages going to and from
+>> hardware associated with devlink instance.
+>> 
+>> Signed-off-by: Jiri Pirko <jiri@mellanox.com>
+>> ---
+>> v1->v2:
+>> - Use EXPORT_TRACEPOINT_SYMBOL_GPL instead of a wrapper function
+>>   as suggested by David Ahern and Steven Rostedt
 >
+>FYI, you can use the Suggested-by: tag too ;-)
 
-Definitely agree we need a more user-friendly interface.
+Thought that the purpose of that tag is if someone suggested the whole
+patch existence.
+
+<snip>
+
+>> +/* This part must be outside protection */
+>> +#include <trace/define_trace.h>
+>> +
+>> +#else /* CONFIG_NET_DEVLINK */
+>> +
+>> +#if !defined(_TRACE_DEVLINK_H)
+>> +#define _TRACE_DEVLINK_H
+>
+>Ah, I guess you do need header protection here.
+
+Yes, you do.
 
 >
-> pedit is a good starting point - but once you start going to a large
-> number of policies then from a programmability, ops and usability point
-> of view you need something with more succint params.
+>OK, looks good to me.
 >
+>Acked-by: Steven Rostedt <rostedt@goodmis.org>
 
-But it is still unclear why we can't just build something on top of
-pedit? Since pedit accepts keys like u32, user-space is free to
-introduce any wrapper on top of it.
-
-It should not be a problem for libnl3 to build anything on top too.
+Thanks Steven!
