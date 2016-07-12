@@ -1,84 +1,104 @@
-From: Phil Sutter <phil@nwl.cc>
-Subject: [iproute PATCH v2] ip-address.8: Document autojoin flag
-Date: Tue, 12 Jul 2016 09:56:16 +0200
-Message-ID: <1468310176-27306-1-git-send-email-phil@nwl.cc>
-References: <1468059262-14591-1-git-send-email-phil@nwl.cc>
-Cc: netdev@vger.kernel.org
-To: Stephen Hemminger <shemming@brocade.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from orbyte.nwl.cc ([151.80.46.58]:50001 "EHLO mail.nwl.cc"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750760AbcGLH4a (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2016 03:56:30 -0400
-In-Reply-To: <1468059262-14591-1-git-send-email-phil@nwl.cc>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Luca Coelho <luca@coelho.fi>
+Subject: Re: [PATCH] iwlwifi: add missing type declaration
+Date: Tue, 12 Jul 2016 11:14:43 +0300
+Message-ID: <1468311283.25088.129.camel@coelho.fi>
+References: <20160711205020.1587254-1-arnd@arndb.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Emmanuel Grumbach <emmanuel.grumbach@intel.com>,
+	Intel Linux Wireless <linuxwifi@intel.com>,
+	Kalle Valo <kvalo@codeaurora.org>,
+	Eliad Peller <eliad@wizery.com>,
+	linux-wireless@vger.kernel.org, netdev@vger.kernel.org,
+	linux-kernel@vger.kernel.org
+To: Arnd Bergmann <arnd@arndb.de>,
+	Johannes Berg <johannes.berg@intel.com>,
+	kvalo <kvalo@codeaurora.org>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160711205020.1587254-1-arnd@arndb.de>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-Description copied from related kernel support commit message with a
-little tailoring to fit.
+On Mon, 2016-07-11 at 22:49 +0200, Arnd Bergmann wrote:
+> The iwl-debug.h header relies in implicit inclusion of linux/device.h
+> and
+> we get a lot of warnings without that:
+>=20
+> drivers/net/wireless/intel/iwlwifi/iwl-debug.h:44:23: error: 'struct
+> device' declared inside parameter list will not be visible outside of
+> this definition or declaration [-Werror]
+> =C2=A0void __iwl_err(struct device *dev, bool rfkill_prefix, bool
+> only_trace,
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0^~=
+~~~~
+> In file included from drivers/net/wireless/intel/iwlwifi/iwl-eeprom-
+> read.h:66:0,
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0from drivers/net/wireless/intel/iwlwif=
+i/iwl-eeprom-
+> read.c:68:
+> drivers/net/wireless/intel/iwlwifi/iwl-trans.h: In function
+> 'iwl_trans_tx':
+> drivers/net/wireless/intel/iwlwifi/iwl-trans.h:1030:348: error:
+> passing argument 1 of '__iwl_err' from incompatible pointer type [-
+> Werror=3Dincompatible-pointer-types]
+> =C2=A0=C2=A0=C2=A0IWL_ERR(trans, "%s bad state =3D %d\n", __func__, t=
+rans->state);
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=
+=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0
+> =C2=A0=C2=A0=C2=A0^
+> In file included from drivers/net/wireless/intel/iwlwifi/iwl-eeprom-
+> read.c:67:0:
+> drivers/net/wireless/intel/iwlwifi/iwl-debug.h:44:6: note: expected
+> 'struct device *' but argument is of type 'struct device *'
+> =C2=A0void __iwl_err(struct device *dev, bool rfkill_prefix, bool
+> only_trace,
+> =C2=A0=C2=A0=C2=A0=C2=A0=C2=A0=C2=A0^~~~~~~~~
+>=20
+> The easiest workaround is to just declare 'struct device' before its
+> first use,
+> rather than including the entire header file.
+>=20
+> Signed-off-by: Arnd Bergmann <arnd@arndb.de>
+> Fixes: 21cb3222fe56 ("iwlwifi: decouple PCIe transport from
+> mac80211")
+> ---
 
-While at it, fix font of non-terminal CONFFLAG-LIST in synopsis.
+Acked-by: Luca Coelho <luciano.coelho@intel.com>
 
-Signed-off-by: Phil Sutter <phil@nwl.cc>
----
-Changes since v1:
-- Set commands/flags in bold font instead of quotes.
-- Make capitalization consistent for 'Ethernet' and 'IGMP'.
-- Set 'VXLAN' and 'Openvswitch' in upper case.
-- Fix typo: then -> them.
-- Misc grammar and language fixup.
----
- man/man8/ip-address.8.in | 25 +++++++++++++++++++++++--
- 1 file changed, 23 insertions(+), 2 deletions(-)
+Agree with Kalle that he will take this directly to wireless-drivers-
+next.
 
-diff --git a/man/man8/ip-address.8.in b/man/man8/ip-address.8.in
-index 7cb9271731339..7d6eb9b2b1915 100644
---- a/man/man8/ip-address.8.in
-+++ b/man/man8/ip-address.8.in
-@@ -77,14 +77,15 @@ ip-address \- protocol address management
- .IR FLAG " := "
- .RB "[ " permanent " | " dynamic " | " secondary " | " primary " |"
- .RB [ - ] tentative " | [" - ] deprecated " | [" - ] dadfailed " |"
--.BR temporary " | " CONFFLAG-LIST " ]"
-+.BR temporary " |"
-+.IR CONFFLAG-LIST " ]"
- 
- .ti -8
- .IR CONFFLAG-LIST " := [ "  CONFFLAG-LIST " ] " CONFFLAG
- 
- .ti -8
- .IR CONFFLAG " := "
--.RB "[ " home " | " mngtmpaddr " | " nodad " | " noprefixroute " ]"
-+.RB "[ " home " | " mngtmpaddr " | " nodad " | " noprefixroute " | " autojoin " ]"
- 
- .ti -8
- .IR LIFETIME " := [ "
-@@ -249,6 +250,26 @@ address, and don't search for one to delete when removing the address. Changing
- an address to add this flag will remove the automatically added prefix route,
- changing it to remove this flag will create the prefix route automatically.
- 
-+.TP
-+.B autojoin
-+Joining multicast groups on Ethernet level via
-+.B "ip maddr"
-+command does not work if connected to an Ethernet switch that does IGMP
-+snooping since the switch would not replicate multicast packets on ports that
-+did not have IGMP reports for the multicast addresses.
-+
-+Linux VXLAN interfaces created via
-+.B "ip link add vxlan"
-+have the
-+.B group
-+option that enables them to do the required join.
-+
-+Using the
-+.B autojoin
-+flag when adding a multicast address enables similar functionality for
-+Openvswitch VXLAN interfaces as well as other tunneling mechanisms that need to
-+receive multicast traffic.
-+
- .SS ip address delete - delete protocol address
- .B Arguments:
- coincide with the arguments of
--- 
-2.8.2
+--
+Cheers,
+Luca.
