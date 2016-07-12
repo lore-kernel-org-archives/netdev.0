@@ -1,7 +1,7 @@
 From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH v8 06/11] net/mlx4_en: add page recycle to prepare rx ring for tx support
-Date: Tue, 12 Jul 2016 00:51:29 -0700
-Message-ID: <1468309894-26258-7-git-send-email-bblanco@plumgrid.com>
+Subject: [PATCH v8 01/11] bpf: add XDP prog type for early driver filter
+Date: Tue, 12 Jul 2016 00:51:24 -0700
+Message-ID: <1468309894-26258-2-git-send-email-bblanco@plumgrid.com>
 References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
 Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
@@ -16,351 +16,248 @@ Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f44.google.com ([209.85.220.44]:33686 "EHLO
-	mail-pa0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751016AbcGLHwi (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 03:52:38 -0400
-Received: by mail-pa0-f44.google.com with SMTP id ks6so4143867pab.0
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 00:52:38 -0700 (PDT)
+Received: from mail-pa0-f42.google.com ([209.85.220.42]:33668 "EHLO
+	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750850AbcGLHwc (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 03:52:32 -0400
+Received: by mail-pa0-f42.google.com with SMTP id ks6so4142913pab.0
+        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 00:52:31 -0700 (PDT)
 In-Reply-To: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-The mlx4 driver by default allocates order-3 pages for the ring to
-consume in multiple fragments. When the device has an xdp program, this
-behavior will prevent tx actions since the page must be re-mapped in
-TODEVICE mode, which cannot be done if the page is still shared.
+Add a new bpf prog type that is intended to run in early stages of the
+packet rx path. Only minimal packet metadata will be available, hence a
+new context type, struct xdp_md, is exposed to userspace. So far only
+expose the packet start and end pointers, and only in read mode.
 
-Start by making the allocator configurable based on whether xdp is
-running, such that order-0 pages are always used and never shared.
-
-Since this will stress the page allocator, add a simple page cache to
-each rx ring. Pages in the cache are left dma-mapped, and in drop-only
-stress tests the page allocator is eliminated from the perf report.
-
-Note that setting an xdp program will now require the rings to be
-reconfigured.
-
-Before:
- 26.91%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_process_rx_cq
- 17.88%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_alloc_frags
-  6.00%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_free_frag
-  4.49%  ksoftirqd/0  [kernel.vmlinux]  [k] get_page_from_freelist
-  3.21%  swapper      [kernel.vmlinux]  [k] intel_idle
-  2.73%  ksoftirqd/0  [kernel.vmlinux]  [k] bpf_map_lookup_elem
-  2.57%  swapper      [mlx4_en]         [k] mlx4_en_process_rx_cq
-
-After:
- 31.72%  swapper      [kernel.vmlinux]       [k] intel_idle
-  8.79%  swapper      [mlx4_en]              [k] mlx4_en_process_rx_cq
-  7.54%  swapper      [kernel.vmlinux]       [k] poll_idle
-  6.36%  swapper      [mlx4_core]            [k] mlx4_eq_int
-  4.21%  swapper      [kernel.vmlinux]       [k] tasklet_action
-  4.03%  swapper      [kernel.vmlinux]       [k] cpuidle_enter_state
-  3.43%  swapper      [mlx4_en]              [k] mlx4_en_prepare_rx_desc
-  2.18%  swapper      [kernel.vmlinux]       [k] native_irq_return_iret
-  1.37%  swapper      [kernel.vmlinux]       [k] menu_select
-  1.09%  swapper      [kernel.vmlinux]       [k] bpf_map_lookup_elem
+An XDP program must return one of the well known enum values, all other
+return codes are reserved for future use. Unfortunately, this
+restriction is hard to enforce at verification time, so take the
+approach of warning at runtime when such programs are encountered. Out
+of bounds return codes should alias to XDP_ABORTED.
 
 Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 ---
- drivers/net/ethernet/mellanox/mlx4/en_ethtool.c |  2 +-
- drivers/net/ethernet/mellanox/mlx4/en_netdev.c  | 46 +++++++++++++++--
- drivers/net/ethernet/mellanox/mlx4/en_rx.c      | 69 ++++++++++++++++++++++---
- drivers/net/ethernet/mellanox/mlx4/mlx4_en.h    | 12 ++++-
- 4 files changed, 115 insertions(+), 14 deletions(-)
+ include/linux/filter.h   | 18 +++++++++++
+ include/uapi/linux/bpf.h | 20 ++++++++++++
+ kernel/bpf/verifier.c    |  1 +
+ net/core/filter.c        | 79 ++++++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 118 insertions(+)
 
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-index 51a2e82..d3d51fa 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_ethtool.c
-@@ -47,7 +47,7 @@
- #define EN_ETHTOOL_SHORT_MASK cpu_to_be16(0xffff)
- #define EN_ETHTOOL_WORD_MASK  cpu_to_be32(0xffffffff)
+diff --git a/include/linux/filter.h b/include/linux/filter.h
+index 6fc31ef..15d816a 100644
+--- a/include/linux/filter.h
++++ b/include/linux/filter.h
+@@ -368,6 +368,11 @@ struct bpf_skb_data_end {
+ 	void *data_end;
+ };
  
--static int mlx4_en_moderation_update(struct mlx4_en_priv *priv)
-+int mlx4_en_moderation_update(struct mlx4_en_priv *priv)
- {
- 	int i;
- 	int err = 0;
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-index 369a2ef..252c893d 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_netdev.c
-@@ -2532,21 +2532,59 @@ static int mlx4_en_set_tx_maxrate(struct net_device *dev, int queue_index, u32 m
- static int mlx4_xdp_set(struct net_device *dev, struct bpf_prog *prog)
- {
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
-+	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct bpf_prog *old_prog;
-+	int port_up = 0;
-+	int err;
++struct xdp_buff {
++	void *data;
++	void *data_end;
++};
 +
-+	/* No need to reconfigure buffers when simply swapping the
-+	 * program for a new one.
-+	 */
-+	if (READ_ONCE(priv->prog) && prog) {
-+		/* This xchg is paired with READ_ONCE in the fast path, but is
-+		 * also protected from itself via rtnl lock
-+		 */
-+		old_prog = xchg(&priv->prog, prog);
-+		if (old_prog)
-+			bpf_prog_put(old_prog);
-+		return 0;
-+	}
- 
- 	if (priv->num_frags > 1) {
- 		en_err(priv, "Cannot set XDP if MTU requires multiple frags\n");
- 		return -EOPNOTSUPP;
- 	}
- 
--	/* This xchg is paired with READ_ONCE in the fast path, but is
--	 * also protected from itself via rtnl lock
--	 */
-+	mutex_lock(&mdev->state_lock);
-+	if (priv->port_up) {
-+		port_up = 1;
-+		mlx4_en_stop_port(dev, 1);
-+	}
-+
-+	mlx4_en_free_resources(priv);
-+
- 	old_prog = xchg(&priv->prog, prog);
- 	if (old_prog)
- 		bpf_prog_put(old_prog);
- 
--	return 0;
-+	err = mlx4_en_alloc_resources(priv);
-+	if (err) {
-+		en_err(priv, "Failed reallocating port resources\n");
-+		goto out;
-+	}
-+	if (port_up) {
-+		err = mlx4_en_start_port(dev);
-+		if (err)
-+			en_err(priv, "Failed starting port\n");
-+	}
-+
-+	err = mlx4_en_moderation_update(priv);
-+
-+out:
-+	if (err)
-+		priv->prog = NULL;
-+	mutex_unlock(&mdev->state_lock);
-+	return err;
+ /* compute the linear packet data range [data, data_end) which
+  * will be accessed by cls_bpf and act_bpf programs
+  */
+@@ -429,6 +434,18 @@ static inline u32 bpf_prog_run_clear_cb(const struct bpf_prog *prog,
+ 	return BPF_PROG_RUN(prog, skb);
  }
  
- static bool mlx4_xdp_attached(struct net_device *dev)
-diff --git a/drivers/net/ethernet/mellanox/mlx4/en_rx.c b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-index adfa123..f26306c 100644
---- a/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-+++ b/drivers/net/ethernet/mellanox/mlx4/en_rx.c
-@@ -57,7 +57,7 @@ static int mlx4_alloc_pages(struct mlx4_en_priv *priv,
- 	struct page *page;
- 	dma_addr_t dma;
- 
--	for (order = MLX4_EN_ALLOC_PREFER_ORDER; ;) {
-+	for (order = frag_info->order; ;) {
- 		gfp_t gfp = _gfp;
- 
- 		if (order)
-@@ -70,7 +70,7 @@ static int mlx4_alloc_pages(struct mlx4_en_priv *priv,
- 			return -ENOMEM;
- 	}
- 	dma = dma_map_page(priv->ddev, page, 0, PAGE_SIZE << order,
--			   PCI_DMA_FROMDEVICE);
-+			   frag_info->dma_dir);
- 	if (dma_mapping_error(priv->ddev, dma)) {
- 		put_page(page);
- 		return -ENOMEM;
-@@ -124,7 +124,8 @@ out:
- 	while (i--) {
- 		if (page_alloc[i].page != ring_alloc[i].page) {
- 			dma_unmap_page(priv->ddev, page_alloc[i].dma,
--				page_alloc[i].page_size, PCI_DMA_FROMDEVICE);
-+				page_alloc[i].page_size,
-+				priv->frag_info[i].dma_dir);
- 			page = page_alloc[i].page;
- 			/* Revert changes done by mlx4_alloc_pages */
- 			page_ref_sub(page, page_alloc[i].page_size /
-@@ -145,7 +146,7 @@ static void mlx4_en_free_frag(struct mlx4_en_priv *priv,
- 
- 	if (next_frag_end > frags[i].page_size)
- 		dma_unmap_page(priv->ddev, frags[i].dma, frags[i].page_size,
--			       PCI_DMA_FROMDEVICE);
-+			       frag_info->dma_dir);
- 
- 	if (frags[i].page)
- 		put_page(frags[i].page);
-@@ -176,7 +177,8 @@ out:
- 
- 		page_alloc = &ring->page_alloc[i];
- 		dma_unmap_page(priv->ddev, page_alloc->dma,
--			       page_alloc->page_size, PCI_DMA_FROMDEVICE);
-+			       page_alloc->page_size,
-+			       priv->frag_info[i].dma_dir);
- 		page = page_alloc->page;
- 		/* Revert changes done by mlx4_alloc_pages */
- 		page_ref_sub(page, page_alloc->page_size /
-@@ -201,7 +203,7 @@ static void mlx4_en_destroy_allocator(struct mlx4_en_priv *priv,
- 		       i, page_count(page_alloc->page));
- 
- 		dma_unmap_page(priv->ddev, page_alloc->dma,
--				page_alloc->page_size, PCI_DMA_FROMDEVICE);
-+				page_alloc->page_size, frag_info->dma_dir);
- 		while (page_alloc->page_offset + frag_info->frag_stride <
- 		       page_alloc->page_size) {
- 			put_page(page_alloc->page);
-@@ -244,6 +246,12 @@ static int mlx4_en_prepare_rx_desc(struct mlx4_en_priv *priv,
- 	struct mlx4_en_rx_alloc *frags = ring->rx_info +
- 					(index << priv->log_rx_info);
- 
-+	if (ring->page_cache.index > 0) {
-+		frags[0] = ring->page_cache.buf[--ring->page_cache.index];
-+		rx_desc->data[0].addr = cpu_to_be64(frags[0].dma);
-+		return 0;
-+	}
-+
- 	return mlx4_en_alloc_frags(priv, rx_desc, frags, ring->page_alloc, gfp);
- }
- 
-@@ -502,12 +510,39 @@ void mlx4_en_recover_from_oom(struct mlx4_en_priv *priv)
- 	}
- }
- 
-+/* When the rx ring is running in page-per-packet mode, a released frame can go
-+ * directly into a small cache, to avoid unmapping or touching the page
-+ * allocator. In bpf prog performance scenarios, buffers are either forwarded
-+ * or dropped, never converted to skbs, so every page can come directly from
-+ * this cache when it is sized to be a multiple of the napi budget.
-+ */
-+bool mlx4_en_rx_recycle(struct mlx4_en_rx_ring *ring,
-+			struct mlx4_en_rx_alloc *frame)
++static inline u32 bpf_prog_run_xdp(const struct bpf_prog *prog,
++				   struct xdp_buff *xdp)
 +{
-+	struct mlx4_en_page_cache *cache = &ring->page_cache;
++	u32 ret;
 +
-+	if (cache->index >= MLX4_EN_CACHE_SIZE)
++	rcu_read_lock();
++	ret = BPF_PROG_RUN(prog, (void *)xdp);
++	rcu_read_unlock();
++
++	return ret;
++}
++
+ static inline unsigned int bpf_prog_size(unsigned int proglen)
+ {
+ 	return max(sizeof(struct bpf_prog),
+@@ -509,6 +526,7 @@ bool bpf_helper_changes_skb_data(void *func);
+ 
+ struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
+ 				       const struct bpf_insn *patch, u32 len);
++void bpf_warn_invalid_xdp_action(u32 act);
+ 
+ #ifdef CONFIG_BPF_JIT
+ extern int bpf_jit_enable;
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 262a7e8..4282d44 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -94,6 +94,7 @@ enum bpf_prog_type {
+ 	BPF_PROG_TYPE_SCHED_CLS,
+ 	BPF_PROG_TYPE_SCHED_ACT,
+ 	BPF_PROG_TYPE_TRACEPOINT,
++	BPF_PROG_TYPE_XDP,
+ };
+ 
+ #define BPF_PSEUDO_MAP_FD	1
+@@ -437,4 +438,23 @@ struct bpf_tunnel_key {
+ 	__u32 tunnel_label;
+ };
+ 
++/* User return codes for XDP prog type.
++ * A valid XDP program must return one of these defined values. All other
++ * return codes are reserved for future use. Unknown return codes will result
++ * in packet drop.
++ */
++enum xdp_action {
++	XDP_ABORTED = 0,
++	XDP_DROP,
++	XDP_PASS,
++};
++
++/* user accessible metadata for XDP packet hook
++ * new fields must be added to the end of this structure
++ */
++struct xdp_md {
++	__u32 data;
++	__u32 data_end;
++};
++
+ #endif /* _UAPI__LINUX_BPF_H__ */
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index e206c21..a8d67d0 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -713,6 +713,7 @@ static int check_ptr_alignment(struct verifier_env *env, struct reg_state *reg,
+ 	switch (env->prog->type) {
+ 	case BPF_PROG_TYPE_SCHED_CLS:
+ 	case BPF_PROG_TYPE_SCHED_ACT:
++	case BPF_PROG_TYPE_XDP:
+ 		break;
+ 	default:
+ 		verbose("verifier is misconfigured\n");
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 10c4a2f..2d770f5 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -2369,6 +2369,12 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
+ 	}
+ }
+ 
++static const struct bpf_func_proto *
++xdp_func_proto(enum bpf_func_id func_id)
++{
++	return sk_filter_func_proto(func_id);
++}
++
+ static bool __is_valid_access(int off, int size, enum bpf_access_type type)
+ {
+ 	if (off < 0 || off >= sizeof(struct __sk_buff))
+@@ -2436,6 +2442,44 @@ static bool tc_cls_act_is_valid_access(int off, int size,
+ 	return __is_valid_access(off, size, type);
+ }
+ 
++static bool __is_valid_xdp_access(int off, int size,
++				  enum bpf_access_type type)
++{
++	if (off < 0 || off >= sizeof(struct xdp_md))
++		return false;
++	if (off % size != 0)
++		return false;
++	if (size != 4)
 +		return false;
 +
-+	cache->buf[cache->index++] = *frame;
 +	return true;
 +}
 +
- void mlx4_en_destroy_rx_ring(struct mlx4_en_priv *priv,
- 			     struct mlx4_en_rx_ring **pring,
- 			     u32 size, u16 stride)
- {
- 	struct mlx4_en_dev *mdev = priv->mdev;
- 	struct mlx4_en_rx_ring *ring = *pring;
-+	int i;
++static bool xdp_is_valid_access(int off, int size,
++				enum bpf_access_type type,
++				enum bpf_reg_type *reg_type)
++{
++	if (type == BPF_WRITE)
++		return false;
 +
-+	for (i = 0; i < ring->page_cache.index; i++) {
-+		struct mlx4_en_rx_alloc *frame = &ring->page_cache.buf[i];
-+
-+		dma_unmap_page(priv->ddev, frame->dma, frame->page_size,
-+			       priv->frag_info[0].dma_dir);
-+		put_page(frame->page);
-+	}
- 
- 	mlx4_free_hwq_res(mdev->dev, &ring->wqres, size * stride + TXBB_SIZE);
- 	vfree(ring->rx_info);
-@@ -863,6 +898,8 @@ int mlx4_en_process_rx_cq(struct net_device *dev, struct mlx4_en_cq *cq, int bud
- 				bpf_warn_invalid_xdp_action(act);
- 			case XDP_ABORTED:
- 			case XDP_DROP:
-+				if (mlx4_en_rx_recycle(ring, frags))
-+					goto consumed;
- 				goto next;
- 			}
- 		}
-@@ -1018,6 +1055,7 @@ next:
- 		for (nr = 0; nr < priv->num_frags; nr++)
- 			mlx4_en_free_frag(priv, frags, nr);
- 
-+consumed:
- 		++cq->mcq.cons_index;
- 		index = (cq->mcq.cons_index) & ring->size_mask;
- 		cqe = mlx4_en_get_cqe(cq->buf, index, priv->cqe_size) + factor;
-@@ -1093,19 +1131,34 @@ static const int frag_sizes[] = {
- 
- void mlx4_en_calc_rx_buf(struct net_device *dev)
- {
-+	enum dma_data_direction dma_dir = PCI_DMA_FROMDEVICE;
- 	struct mlx4_en_priv *priv = netdev_priv(dev);
- 	int eff_mtu = MLX4_EN_EFF_MTU(dev->mtu);
-+	int order = MLX4_EN_ALLOC_PREFER_ORDER;
-+	u32 align = SMP_CACHE_BYTES;
- 	int buf_size = 0;
- 	int i = 0;
- 
-+	/* bpf requires buffers to be set up as 1 packet per page.
-+	 * This only works when num_frags == 1.
-+	 */
-+	if (priv->prog) {
-+		/* This will gain efficient xdp frame recycling at the expense
-+		 * of more costly truesize accounting
-+		 */
-+		align = PAGE_SIZE;
-+		order = 0;
++	switch (off) {
++	case offsetof(struct xdp_md, data):
++		*reg_type = PTR_TO_PACKET;
++		break;
++	case offsetof(struct xdp_md, data_end):
++		*reg_type = PTR_TO_PACKET_END;
++		break;
 +	}
 +
- 	while (buf_size < eff_mtu) {
-+		priv->frag_info[i].order = order;
- 		priv->frag_info[i].frag_size =
- 			(eff_mtu > buf_size + frag_sizes[i]) ?
- 				frag_sizes[i] : eff_mtu - buf_size;
- 		priv->frag_info[i].frag_prefix_size = buf_size;
- 		priv->frag_info[i].frag_stride =
--				ALIGN(priv->frag_info[i].frag_size,
--				      SMP_CACHE_BYTES);
-+				ALIGN(priv->frag_info[i].frag_size, align);
-+		priv->frag_info[i].dma_dir = dma_dir;
- 		buf_size += priv->frag_info[i].frag_size;
- 		i++;
- 	}
-diff --git a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-index 35ecfa2..0e0ecd1 100644
---- a/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-+++ b/drivers/net/ethernet/mellanox/mlx4/mlx4_en.h
-@@ -259,6 +259,12 @@ struct mlx4_en_rx_alloc {
- 	u32		page_size;
++	return __is_valid_xdp_access(off, size, type);
++}
++
++void bpf_warn_invalid_xdp_action(u32 act)
++{
++	WARN_ONCE(1, "Illegal XDP return value %u, expect packet loss\n", act);
++}
++EXPORT_SYMBOL_GPL(bpf_warn_invalid_xdp_action);
++
+ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
+ 				      int src_reg, int ctx_off,
+ 				      struct bpf_insn *insn_buf,
+@@ -2587,6 +2631,29 @@ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
+ 	return insn - insn_buf;
+ }
+ 
++static u32 xdp_convert_ctx_access(enum bpf_access_type type, int dst_reg,
++				  int src_reg, int ctx_off,
++				  struct bpf_insn *insn_buf,
++				  struct bpf_prog *prog)
++{
++	struct bpf_insn *insn = insn_buf;
++
++	switch (ctx_off) {
++	case offsetof(struct xdp_md, data):
++		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct xdp_buff, data)),
++				      dst_reg, src_reg,
++				      offsetof(struct xdp_buff, data));
++		break;
++	case offsetof(struct xdp_md, data_end):
++		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct xdp_buff, data_end)),
++				      dst_reg, src_reg,
++				      offsetof(struct xdp_buff, data_end));
++		break;
++	}
++
++	return insn - insn_buf;
++}
++
+ static const struct bpf_verifier_ops sk_filter_ops = {
+ 	.get_func_proto		= sk_filter_func_proto,
+ 	.is_valid_access	= sk_filter_is_valid_access,
+@@ -2599,6 +2666,12 @@ static const struct bpf_verifier_ops tc_cls_act_ops = {
+ 	.convert_ctx_access	= bpf_net_convert_ctx_access,
  };
  
-+#define MLX4_EN_CACHE_SIZE (2 * NAPI_POLL_WEIGHT)
-+struct mlx4_en_page_cache {
-+	u32 index;
-+	struct mlx4_en_rx_alloc buf[MLX4_EN_CACHE_SIZE];
++static const struct bpf_verifier_ops xdp_ops = {
++	.get_func_proto		= xdp_func_proto,
++	.is_valid_access	= xdp_is_valid_access,
++	.convert_ctx_access	= xdp_convert_ctx_access,
 +};
 +
- struct mlx4_en_tx_ring {
- 	/* cache line used and dirtied in tx completion
- 	 * (mlx4_en_free_tx_buf())
-@@ -323,6 +329,7 @@ struct mlx4_en_rx_ring {
- 	u8  fcs_del;
- 	void *buf;
- 	void *rx_info;
-+	struct mlx4_en_page_cache page_cache;
- 	unsigned long bytes;
- 	unsigned long packets;
- 	unsigned long csum_ok;
-@@ -442,7 +449,9 @@ struct mlx4_en_mc_list {
- struct mlx4_en_frag_info {
- 	u16 frag_size;
- 	u16 frag_prefix_size;
--	u16 frag_stride;
-+	u32 frag_stride;
-+	enum dma_data_direction dma_dir;
-+	int order;
+ static struct bpf_prog_type_list sk_filter_type __read_mostly = {
+ 	.ops	= &sk_filter_ops,
+ 	.type	= BPF_PROG_TYPE_SOCKET_FILTER,
+@@ -2614,11 +2687,17 @@ static struct bpf_prog_type_list sched_act_type __read_mostly = {
+ 	.type	= BPF_PROG_TYPE_SCHED_ACT,
  };
  
- #ifdef CONFIG_MLX4_EN_DCB
-@@ -654,6 +663,7 @@ void mlx4_en_set_stats_bitmap(struct mlx4_dev *dev,
++static struct bpf_prog_type_list xdp_type __read_mostly = {
++	.ops	= &xdp_ops,
++	.type	= BPF_PROG_TYPE_XDP,
++};
++
+ static int __init register_sk_filter_ops(void)
+ {
+ 	bpf_register_prog_type(&sk_filter_type);
+ 	bpf_register_prog_type(&sched_cls_type);
+ 	bpf_register_prog_type(&sched_act_type);
++	bpf_register_prog_type(&xdp_type);
  
- void mlx4_en_free_resources(struct mlx4_en_priv *priv);
- int mlx4_en_alloc_resources(struct mlx4_en_priv *priv);
-+int mlx4_en_moderation_update(struct mlx4_en_priv *priv);
- 
- int mlx4_en_create_cq(struct mlx4_en_priv *priv, struct mlx4_en_cq **pcq,
- 		      int entries, int ring, enum cq_type mode, int node);
+ 	return 0;
+ }
 -- 
 2.8.2
