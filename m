@@ -1,100 +1,175 @@
-From: Davide Caratti <dcaratti@redhat.com>
-Subject: [iproute PATCH v2] ip-macsec.8: fix typo in 'examples' section
-Date: Tue, 12 Jul 2016 17:28:30 +0200
-Message-ID: <77dd47e67a8b89ccbe6e05c608ae9b9f5ce376b4.1468334712.git.dcaratti@redhat.com>
-References: <49c1e540558e6b6ea422872e8bd4e8501e07e25a.1468310945.git.dcaratti@redhat.com>
-Cc: netdev@vger.kernel.org
-To: stephen@networkplumber.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:59888 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751366AbcGLP2w (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2016 11:28:52 -0400
-In-Reply-To: <49c1e540558e6b6ea422872e8bd4e8501e07e25a.1468310945.git.dcaratti@redhat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Aaron Conole <aconole@bytheb.org>
+Subject: [PATCH nf-next v2 1/3] netfilter: bridge: add and use br_nf_hook_thresh
+Date: Tue, 12 Jul 2016 11:32:19 -0400
+Message-ID: <1468337541-23930-2-git-send-email-aconole@bytheb.org>
+References: <1468337541-23930-1-git-send-email-aconole@bytheb.org>
+To: netdev@vger.kernel.org, netfilter-devel@vger.kernel.org,
+	Florian Westphal <fw@strlen.de>,
+	Pablo Neira Ayuso <pablo@netfilter.org>
+Return-path: <netfilter-devel-owner@vger.kernel.org>
+In-Reply-To: <1468337541-23930-1-git-send-email-aconole@bytheb.org>
+Sender: netfilter-devel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-fix wrong 'device' keyword in 'ip link add device eth0'
+From: Florian Westphal <fw@strlen.de>
 
-changes since v1:
-while at it, add missing description of 'validate' keyword and remove
-spurious bracket near 'encrypt' keyword. Also, wrong 'es' and 'encoding'
-keywords in MACsec section of ip-link.8 have been fixed.
+This replaces the last uses of NF_HOOK_THRESH().
+Followup patch will remove it and rename nf_hook_thresh.
 
-Signed-off-by: Davide Caratti <dcaratti@redhat.com>
+The reason is that inet (non-bridge) netfilter no longer invokes the
+hooks from hooks, so we do no longer need the thresh value to skip hooks
+with a lower priority.
+
+The bridge netfilter however may need to do this. br_nf_hook_thresh is a
+wrapper that is supposed to do this, i.e. only call hooks with a
+priority that exceeds NF_BR_PRI_BRNF.
+
+It's used only in the recursion cases of br_netfilter.
+
+Signed-off-by: Florian Westphal <fw@strlen.de>
+Signed-off-by: Aaron Conole <aconole@bytheb.org>
 ---
- man/man8/ip-link.8.in | 8 ++++----
- man/man8/ip-macsec.8  | 5 +++--
- 2 files changed, 7 insertions(+), 6 deletions(-)
+ include/net/netfilter/br_netfilter.h |  6 ++++
+ net/bridge/br_netfilter_hooks.c      | 57 ++++++++++++++++++++++++++++++------
+ net/bridge/br_netfilter_ipv6.c       | 12 ++++----
+ 3 files changed, 59 insertions(+), 16 deletions(-)
 
-diff --git a/man/man8/ip-link.8.in b/man/man8/ip-link.8.in
-index ad18f75..edb00ff 100644
---- a/man/man8/ip-link.8.in
-+++ b/man/man8/ip-link.8.in
-@@ -910,14 +910,14 @@ the following additional arguments are supported:
- .BR encrypt " {"
- .BR on " | " off " } ] [ "
- .BR send_sci " { " on " | " off " } ] ["
--.BR es " { " on " | " off " } ] ["
-+.BR end_station " { " on " | " off " } ] ["
- .BR scb " { " on " | " off " } ] ["
- .BR protect " { " on " | " off " } ] ["
- .BR replay " { " on " | " off " }"
- .BR window " { "
- .IR 0..2^32-1 " } ] ["
- .BR validate " { " strict " | " check " | " disabled " } ] ["
--.BR encoding " { "
-+.BR encodingsa " { "
- .IR 0..3 " } ]"
+diff --git a/include/net/netfilter/br_netfilter.h b/include/net/netfilter/br_netfilter.h
+index e8d1448..0b0c35c 100644
+--- a/include/net/netfilter/br_netfilter.h
++++ b/include/net/netfilter/br_netfilter.h
+@@ -15,6 +15,12 @@ static inline struct nf_bridge_info *nf_bridge_alloc(struct sk_buff *skb)
  
- .in +8
-@@ -942,7 +942,7 @@ the following additional arguments are supported:
- - specifies whether the SCI is included in every packet, or only when it is necessary.
+ void nf_bridge_update_protocol(struct sk_buff *skb);
  
- .sp
--.BR "es on " or " es off"
-+.BR "end_station on " or " end_station off"
- - sets the End Station bit.
++int br_nf_hook_thresh(unsigned int hook, struct net *net, struct sock *sk,
++		      struct sk_buff *skb, struct net_device *indev,
++		      struct net_device *outdev,
++		      int (*okfn)(struct net *, struct sock *,
++				  struct sk_buff *));
++
+ static inline struct nf_bridge_info *
+ nf_bridge_info_get(const struct sk_buff *skb)
+ {
+diff --git a/net/bridge/br_netfilter_hooks.c b/net/bridge/br_netfilter_hooks.c
+index 77e7f69..7856129 100644
+--- a/net/bridge/br_netfilter_hooks.c
++++ b/net/bridge/br_netfilter_hooks.c
+@@ -30,6 +30,7 @@
+ #include <linux/netfilter_ipv6.h>
+ #include <linux/netfilter_arp.h>
+ #include <linux/in_route.h>
++#include <linux/rculist.h>
+ #include <linux/inetdevice.h>
  
- .sp
-@@ -970,7 +970,7 @@ the following additional arguments are supported:
- - sets the validation mode on the device.
+ #include <net/ip.h>
+@@ -395,11 +396,10 @@ bridged_dnat:
+ 				skb->dev = nf_bridge->physindev;
+ 				nf_bridge_update_protocol(skb);
+ 				nf_bridge_push_encap_header(skb);
+-				NF_HOOK_THRESH(NFPROTO_BRIDGE,
+-					       NF_BR_PRE_ROUTING,
+-					       net, sk, skb, skb->dev, NULL,
+-					       br_nf_pre_routing_finish_bridge,
+-					       1);
++				br_nf_hook_thresh(NF_BR_PRE_ROUTING,
++						  net, sk, skb, skb->dev,
++						  NULL,
++						  br_nf_pre_routing_finish);
+ 				return 0;
+ 			}
+ 			ether_addr_copy(eth_hdr(skb)->h_dest, dev->dev_addr);
+@@ -417,10 +417,8 @@ bridged_dnat:
+ 	skb->dev = nf_bridge->physindev;
+ 	nf_bridge_update_protocol(skb);
+ 	nf_bridge_push_encap_header(skb);
+-	NF_HOOK_THRESH(NFPROTO_BRIDGE, NF_BR_PRE_ROUTING, net, sk, skb,
+-		       skb->dev, NULL,
+-		       br_handle_frame_finish, 1);
+-
++	br_nf_hook_thresh(NF_BR_PRE_ROUTING, net, sk, skb, skb->dev, NULL,
++			  br_handle_frame_finish);
+ 	return 0;
+ }
  
- .sp
--.BI encoding " AN "
-+.BI encodingsa " AN "
- - sets the active secure association for transmission.
+@@ -992,6 +990,47 @@ static struct notifier_block brnf_notifier __read_mostly = {
+ 	.notifier_call = brnf_device_event,
+ };
  
- .in -8
-diff --git a/man/man8/ip-macsec.8 b/man/man8/ip-macsec.8
-index e8455d7..761e4de 100644
---- a/man/man8/ip-macsec.8
-+++ b/man/man8/ip-macsec.8
-@@ -6,7 +6,7 @@ ip-macsec \- MACsec device configuration
- [ [
- .BR cipher " { " default " | " gcm-aes-128 " } ] "
- .BI icvlen " ICVLEN"
--] [ [
-+] [
- .BR encrypt " { " on " | " off " } ] ["
- .BR send_sci " { " on " | " off " } ] ["
- .BR end_station " { " on " | " off " } ] ["
-@@ -15,6 +15,7 @@ ip-macsec \- MACsec device configuration
- .BR replay " { " on " | " off " } ] ["
- .BI window " WINDOW"
- ] [
-+.BR validate " { " strict " | " check " | " disabled " } ] ["
- .BI encodingsa " SA"
- ]
++/* recursively invokes nf_hook_slow (again), skipping already-called
++ * hooks (< NF_BR_PRI_BRNF).
++ *
++ * Called with rcu read lock held.
++ */
++int br_nf_hook_thresh(unsigned int hook, struct net *net,
++		      struct sock *sk, struct sk_buff *skb,
++		      struct net_device *indev,
++		      struct net_device *outdev,
++		      int (*okfn)(struct net *, struct sock *,
++				  struct sk_buf *))
++{
++	struct nf_hook_ops *elem;
++	struct nf_hook_state state;
++	struct list_head *head;
++	int ret;
++
++	head = &net->nf.hooks[NFPROTO_BRIDGE][hook];
++
++	list_for_each_entry_rcu(elem, head, list) {
++		struct nf_hook_ops *next;
++
++		next = list_entry_rcu(list_next_rcu(&elem->list),
++				      struct nf_hook_ops, list);
++		if (next->priority <= NF_BR_PRI_BRNF)
++			continue;
++	}
++
++	if (&elem->list == head)
++		return okfn(net, sk, skb);
++
++	nf_hook_state_init(&state, head, hook, NF_BR_PRI_BRNF + 1,
++			   NFPROTO_BRIDGE, indev, outdev, sk, net, okfn);
++
++	ret = nf_hook_slow(skb, &state);
++	if (ret == 1)
++		ret = okfn(net, sk, skb);
++
++	return ret;
++}
++
+ #ifdef CONFIG_SYSCTL
+ static
+ int brnf_sysctl_call_tables(struct ctl_table *ctl, int write,
+diff --git a/net/bridge/br_netfilter_ipv6.c b/net/bridge/br_netfilter_ipv6.c
+index 5e59a84..5989661 100644
+--- a/net/bridge/br_netfilter_ipv6.c
++++ b/net/bridge/br_netfilter_ipv6.c
+@@ -187,10 +187,9 @@ static int br_nf_pre_routing_finish_ipv6(struct net *net, struct sock *sk, struc
+ 			skb->dev = nf_bridge->physindev;
+ 			nf_bridge_update_protocol(skb);
+ 			nf_bridge_push_encap_header(skb);
+-			NF_HOOK_THRESH(NFPROTO_BRIDGE, NF_BR_PRE_ROUTING,
+-				       net, sk, skb, skb->dev, NULL,
+-				       br_nf_pre_routing_finish_bridge,
+-				       1);
++			br_nf_hook_thresh(NF_BR_PRE_ROUTING,
++					  net, sk, skb, skb->dev, NULL,
++					  br_nf_pre_routing_finish_bridge);
+ 			return 0;
+ 		}
+ 		ether_addr_copy(eth_hdr(skb)->h_dest, dev->dev_addr);
+@@ -207,9 +206,8 @@ static int br_nf_pre_routing_finish_ipv6(struct net *net, struct sock *sk, struc
+ 	skb->dev = nf_bridge->physindev;
+ 	nf_bridge_update_protocol(skb);
+ 	nf_bridge_push_encap_header(skb);
+-	NF_HOOK_THRESH(NFPROTO_BRIDGE, NF_BR_PRE_ROUTING, net, sk, skb,
+-		       skb->dev, NULL,
+-		       br_handle_frame_finish, 1);
++	br_nf_hook_thresh(NF_BR_PRE_ROUTING, net, sk, skb,
++			  skb->dev, NULL, br_handle_frame_finish);
  
-@@ -74,7 +75,7 @@ type.
- .PP
- .SS Create a MACsec device on link eth0
- .nf
--# ip link add device eth0 macsec0 type macsec port 11 encrypt on
-+# ip link add link eth0 macsec0 type macsec port 11 encrypt on
- .PP
- .SS Configure a secure association on that device
- .nf
+ 	return 0;
+ }
 -- 
 2.5.5
+
