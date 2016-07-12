@@ -1,8 +1,8 @@
 From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [added to the 4.1 stable tree] VSOCK: do not disconnect socket when peer has shutdown SEND only
-Date: Mon, 11 Jul 2016 22:55:22 -0400
-Message-ID: <1468292170-22812-221-git-send-email-sasha.levin@oracle.com>
-References: <1468292170-22812-1-git-send-email-sasha.levin@oracle.com>
+Subject: [added to the 3.18 stable tree] VSOCK: do not disconnect socket when peer has shutdown SEND only
+Date: Mon, 11 Jul 2016 23:00:37 -0400
+Message-ID: <1468292479-23684-185-git-send-email-sasha.levin@oracle.com>
+References: <1468292479-23684-1-git-send-email-sasha.levin@oracle.com>
 Cc: Ian Campbell <ian.campbell@docker.com>,
 	"David S. Miller" <davem@davemloft.net>,
 	Stefan Hajnoczi <stefanha@redhat.com>,
@@ -14,17 +14,17 @@ Cc: Ian Campbell <ian.campbell@docker.com>,
 	Sasha Levin <sasha.levin@oracle.com>
 To: stable@vger.kernel.org, stable-commits@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:25197 "EHLO
+Received: from aserp1040.oracle.com ([141.146.126.69]:25406 "EHLO
 	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1030548AbcGLDEQ (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 23:04:16 -0400
-In-Reply-To: <1468292170-22812-1-git-send-email-sasha.levin@oracle.com>
+	with ESMTP id S934093AbcGLDEv (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 23:04:51 -0400
+In-Reply-To: <1468292479-23684-1-git-send-email-sasha.levin@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
 From: Ian Campbell <ian.campbell@docker.com>
 
-This patch has been added to the 4.1 stable tree. If you have any
+This patch has been added to the 3.18 stable tree. If you have any
 objections, please let us know.
 
 ===============
@@ -58,10 +58,10 @@ Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
  1 file changed, 1 insertion(+), 20 deletions(-)
 
 diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-index 2ec86e6..e1c69b2 100644
+index 85d232b..e8d3313 100644
 --- a/net/vmw_vsock/af_vsock.c
 +++ b/net/vmw_vsock/af_vsock.c
-@@ -1794,27 +1794,8 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+@@ -1796,27 +1796,8 @@ vsock_stream_recvmsg(struct kiocb *kiocb,
  	else if (sk->sk_shutdown & RCV_SHUTDOWN)
  		err = 0;
  
