@@ -1,79 +1,84 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH v8 10/11] bpf: enable direct packet data write for xdp progs
-Date: Tue, 12 Jul 2016 00:51:33 -0700
-Message-ID: <1468309894-26258-11-git-send-email-bblanco@plumgrid.com>
-References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
-Cc: Brenden Blanco <bblanco@plumgrid.com>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>, john.fastabend@gmail.com,
-	hannes@stressinduktion.org, Thomas Graf <tgraf@suug.ch>,
-	Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: davem@davemloft.net, netdev@vger.kernel.org
+From: Phil Sutter <phil@nwl.cc>
+Subject: [iproute PATCH v2] ip-address.8: Document autojoin flag
+Date: Tue, 12 Jul 2016 09:56:16 +0200
+Message-ID: <1468310176-27306-1-git-send-email-phil@nwl.cc>
+References: <1468059262-14591-1-git-send-email-phil@nwl.cc>
+Cc: netdev@vger.kernel.org
+To: Stephen Hemminger <shemming@brocade.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f178.google.com ([209.85.192.178]:33375 "EHLO
-	mail-pf0-f178.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751151AbcGLHwn (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 03:52:43 -0400
-Received: by mail-pf0-f178.google.com with SMTP id i123so4243543pfg.0
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 00:52:42 -0700 (PDT)
-In-Reply-To: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
+Received: from orbyte.nwl.cc ([151.80.46.58]:50001 "EHLO mail.nwl.cc"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750760AbcGLH4a (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jul 2016 03:56:30 -0400
+In-Reply-To: <1468059262-14591-1-git-send-email-phil@nwl.cc>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-For forwarding to be effective, XDP programs should be allowed to
-rewrite packet data.
+Description copied from related kernel support commit message with a
+little tailoring to fit.
 
-This requires that the drivers supporting XDP must all map the packet
-memory as TODEVICE or BIDIRECTIONAL before invoking the program.
+While at it, fix font of non-terminal CONFFLAG-LIST in synopsis.
 
-Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
+Signed-off-by: Phil Sutter <phil@nwl.cc>
 ---
- kernel/bpf/verifier.c | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+Changes since v1:
+- Set commands/flags in bold font instead of quotes.
+- Make capitalization consistent for 'Ethernet' and 'IGMP'.
+- Set 'VXLAN' and 'Openvswitch' in upper case.
+- Fix typo: then -> them.
+- Misc grammar and language fixup.
+---
+ man/man8/ip-address.8.in | 25 +++++++++++++++++++++++--
+ 1 file changed, 23 insertions(+), 2 deletions(-)
 
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index a8d67d0..f72f23b 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -653,6 +653,16 @@ static int check_map_access(struct verifier_env *env, u32 regno, int off,
+diff --git a/man/man8/ip-address.8.in b/man/man8/ip-address.8.in
+index 7cb9271731339..7d6eb9b2b1915 100644
+--- a/man/man8/ip-address.8.in
++++ b/man/man8/ip-address.8.in
+@@ -77,14 +77,15 @@ ip-address \- protocol address management
+ .IR FLAG " := "
+ .RB "[ " permanent " | " dynamic " | " secondary " | " primary " |"
+ .RB [ - ] tentative " | [" - ] deprecated " | [" - ] dadfailed " |"
+-.BR temporary " | " CONFFLAG-LIST " ]"
++.BR temporary " |"
++.IR CONFFLAG-LIST " ]"
  
- #define MAX_PACKET_OFF 0xffff
+ .ti -8
+ .IR CONFFLAG-LIST " := [ "  CONFFLAG-LIST " ] " CONFFLAG
  
-+static bool may_write_pkt_data(enum bpf_prog_type type)
-+{
-+	switch (type) {
-+	case BPF_PROG_TYPE_XDP:
-+		return true;
-+	default:
-+		return false;
-+	}
-+}
+ .ti -8
+ .IR CONFFLAG " := "
+-.RB "[ " home " | " mngtmpaddr " | " nodad " | " noprefixroute " ]"
++.RB "[ " home " | " mngtmpaddr " | " nodad " | " noprefixroute " | " autojoin " ]"
+ 
+ .ti -8
+ .IR LIFETIME " := [ "
+@@ -249,6 +250,26 @@ address, and don't search for one to delete when removing the address. Changing
+ an address to add this flag will remove the automatically added prefix route,
+ changing it to remove this flag will create the prefix route automatically.
+ 
++.TP
++.B autojoin
++Joining multicast groups on Ethernet level via
++.B "ip maddr"
++command does not work if connected to an Ethernet switch that does IGMP
++snooping since the switch would not replicate multicast packets on ports that
++did not have IGMP reports for the multicast addresses.
 +
- static int check_packet_access(struct verifier_env *env, u32 regno, int off,
- 			       int size)
- {
-@@ -806,10 +816,15 @@ static int check_mem_access(struct verifier_env *env, u32 regno, int off,
- 			err = check_stack_read(state, off, size, value_regno);
- 		}
- 	} else if (state->regs[regno].type == PTR_TO_PACKET) {
--		if (t == BPF_WRITE) {
-+		if (t == BPF_WRITE && !may_write_pkt_data(env->prog->type)) {
- 			verbose("cannot write into packet\n");
- 			return -EACCES;
- 		}
-+		if (t == BPF_WRITE && value_regno >= 0 &&
-+		    is_pointer_value(env, value_regno)) {
-+			verbose("R%d leaks addr into packet\n", value_regno);
-+			return -EACCES;
-+		}
- 		err = check_packet_access(env, regno, off, size);
- 		if (!err && t == BPF_READ && value_regno >= 0)
- 			mark_reg_unknown_value(state->regs, value_regno);
++Linux VXLAN interfaces created via
++.B "ip link add vxlan"
++have the
++.B group
++option that enables them to do the required join.
++
++Using the
++.B autojoin
++flag when adding a multicast address enables similar functionality for
++Openvswitch VXLAN interfaces as well as other tunneling mechanisms that need to
++receive multicast traffic.
++
+ .SS ip address delete - delete protocol address
+ .B Arguments:
+ coincide with the arguments of
 -- 
 2.8.2
