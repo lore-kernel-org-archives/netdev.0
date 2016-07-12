@@ -1,48 +1,237 @@
-From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: Re: [PATCH v7 00/11] Add driver bpf hook for early packet drop and
- forwarding
-Date: Mon, 11 Jul 2016 15:06:33 -0700
-Message-ID: <20160711220632.GD22729@gmail.com>
-References: <1468272598-21390-1-git-send-email-bblanco@plumgrid.com>
- <CAJ3xEMgVtqETM8XHt5gedAmKoBGwggnKDr3iWUeRYFtvQRfQEw@mail.gmail.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Miller <davem@davemloft.net>,
-	Linux Netdev List <netdev@vger.kernel.org>,
-	Jamal Hadi Salim <jhs@mojatatu.com>,
-	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
-	Martin KaFai Lau <kafai@fb.com>,
-	Jesper Dangaard Brouer <brouer@redhat.com>,
-	Ari Saha <as754m@att.com>,
-	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
-	Daniel Borkmann <daniel@iogearbox.net>
-To: Or Gerlitz <gerlitz.or@gmail.com>
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Subject: [PATCH net-next,v3] tools: hv: Add a script to help bonding synthetic and VF NICs
+Date: Mon, 11 Jul 2016 17:06:42 -0700
+Message-ID: <1468282002-19723-1-git-send-email-haiyangz@exchange.microsoft.com>
+Reply-To: haiyangz@microsoft.com
+Cc: haiyangz@microsoft.com, kys@microsoft.com, olaf@aepfle.de,
+	vkuznets@redhat.com, driverdev-devel@linuxdriverproject.org
+To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f48.google.com ([209.85.220.48]:35948 "EHLO
-	mail-pa0-f48.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751186AbcGKWGh (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 18:06:37 -0400
-Received: by mail-pa0-f48.google.com with SMTP id hu1so26197003pad.3
-        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 15:06:37 -0700 (PDT)
-Content-Disposition: inline
-In-Reply-To: <CAJ3xEMgVtqETM8XHt5gedAmKoBGwggnKDr3iWUeRYFtvQRfQEw@mail.gmail.com>
+Received: from p3plsmtps2ded03.prod.phx3.secureserver.net ([208.109.80.60]:47927
+	"EHLO p3plsmtps2ded03.prod.phx3.secureserver.net"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1750767AbcGKWXF (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Mon, 11 Jul 2016 18:23:05 -0400
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Tue, Jul 12, 2016 at 12:53:34AM +0300, Or Gerlitz wrote:
-> On Tue, Jul 12, 2016 at 12:29 AM, Brenden Blanco <bblanco@plumgrid.com> wrote:
-> 
-> > v7:
-> [...]
-> >  TODOs:
-> >  Add ethtool per-ring stats for aborted, default cases, maybe even drop
-> >  and tx as well.
-> 
-> please no... lets stop and think if we can have something better vs
-> every XDP enabled driver to have bunch of new ethtool based stats, was
-> this somehow discussed over the threads so far?
-This was in the context of the discussion in [01/12] relating to the
-return codes and debuggability.
+From: Haiyang Zhang <haiyangz@microsoft.com>
+
+This script helps to create bonding network devices based on synthetic NIC
+(the virtual network adapter usually provided by Hyper-V) and the matching
+VF NIC (SRIOV virtual function). So the synthetic NIC and VF NIC can
+function as one network device, and fail over to the synthetic NIC if VF is
+down.
+
+Mayjor distros (RHEL, Ubuntu, SLES) supported by Hyper-V are supported by
+this script.
+
+Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
+---
+ tools/hv/bondvf.sh |  194 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 1 files changed, 194 insertions(+), 0 deletions(-)
+ create mode 100755 tools/hv/bondvf.sh
+
+diff --git a/tools/hv/bondvf.sh b/tools/hv/bondvf.sh
+new file mode 100755
+index 0000000..d6eb257
+--- /dev/null
++++ b/tools/hv/bondvf.sh
+@@ -0,0 +1,194 @@
++#!/bin/bash
++
++# This example script creates bonding network devices based on synthetic NIC
++# (the virtual network adapter usually provided by Hyper-V) and the matching
++# VF NIC (SRIOV virtual function). So the synthetic NIC and VF NIC can
++# function as one network device, and fail over to the synthetic NIC if VF is
++# down.
++#
++# Usage:
++# - After configured vSwitch and vNIC with SRIOV, start Linux virtual
++#   machine (VM)
++# - Run this scripts on the VM. It will create configuration files in
++#   distro specific directory.
++# - Reboot the VM, so that the bonding config are enabled.
++#
++# The config files are DHCP by default. You may edit them if you need to change
++# to Static IP or change other settings.
++#
++
++sysdir=/sys/class/net
++netvsc_cls={f8615163-df3e-46c5-913f-f2d2f965ed0e}
++bondcnt=0
++
++# Detect Distro
++if [ -f /etc/redhat-release ];
++then
++	cfgdir=/etc/sysconfig/network-scripts
++	distro=redhat
++elif grep -q 'Ubuntu' /etc/issue
++then
++	cfgdir=/etc/network
++	distro=ubuntu
++elif grep -q 'SUSE' /etc/issue
++then
++	cfgdir=/etc/sysconfig/network
++	distro=suse
++else
++	echo "Unsupported Distro"
++	exit 1
++fi
++
++echo Detected Distro: $distro, or compatible
++
++# Get a list of ethernet names
++list_eth=(`cd $sysdir && ls -d */ | cut -d/ -f1 | grep -v bond`)
++eth_cnt=${#list_eth[@]}
++
++echo List of net devices:
++
++# Get the MAC addresses
++for (( i=0; i < $eth_cnt; i++ ))
++do
++	list_mac[$i]=`cat $sysdir/${list_eth[$i]}/address`
++	echo ${list_eth[$i]}, ${list_mac[$i]}
++done
++
++# Find NIC with matching MAC
++for (( i=0; i < $eth_cnt-1; i++ ))
++do
++	for (( j=i+1; j < $eth_cnt; j++ ))
++	do
++		if [ "${list_mac[$i]}" = "${list_mac[$j]}" ]
++		then
++			list_match[$i]=${list_eth[$j]}
++			break
++		fi
++	done
++done
++
++function create_eth_cfg_redhat {
++	local fn=$cfgdir/ifcfg-$1
++
++	rm -f $fn
++	echo DEVICE=$1 >>$fn
++	echo TYPE=Ethernet >>$fn
++	echo BOOTPROTO=none >>$fn
++	echo ONBOOT=yes >>$fn
++	echo NM_CONTROLLED=no >>$fn
++	echo PEERDNS=yes >>$fn
++	echo IPV6INIT=yes >>$fn
++	echo MASTER=$2 >>$fn
++	echo SLAVE=yes >>$fn
++}
++
++function create_eth_cfg_pri_redhat {
++	create_eth_cfg_redhat $1 $2
++}
++
++function create_bond_cfg_redhat {
++	local fn=$cfgdir/ifcfg-$1
++
++	rm -f $fn
++	echo DEVICE=$1 >>$fn
++	echo TYPE=Bond >>$fn
++	echo BOOTPROTO=dhcp >>$fn
++	echo ONBOOT=yes >>$fn
++	echo NM_CONTROLLED=no >>$fn
++	echo PEERDNS=yes >>$fn
++	echo IPV6INIT=yes >>$fn
++	echo BONDING_MASTER=yes >>$fn
++	echo BONDING_OPTS=\"mode=active-backup miimon=100 primary=$2\" >>$fn
++}
++
++function create_eth_cfg_ubuntu {
++	local fn=$cfgdir/interfaces
++
++	echo $'\n'auto $1 >>$fn
++	echo iface $1 inet manual >>$fn
++	echo bond-master $2 >>$fn
++}
++
++function create_eth_cfg_pri_ubuntu {
++	local fn=$cfgdir/interfaces
++
++	create_eth_cfg_ubuntu $1 $2
++	echo bond-primary $1 >>$fn
++}
++
++function create_bond_cfg_ubuntu {
++	local fn=$cfgdir/interfaces
++
++	echo $'\n'auto $1 >>$fn
++	echo iface $1 inet dhcp >>$fn
++	echo bond-mode active-backup >>$fn
++	echo bond-miimon 100 >>$fn
++	echo bond-slaves none >>$fn
++}
++
++function create_eth_cfg_suse {
++        local fn=$cfgdir/ifcfg-$1
++
++        rm -f $fn
++	echo BOOTPROTO=none >>$fn
++	echo STARTMODE=auto >>$fn
++}
++
++function create_eth_cfg_pri_suse {
++	create_eth_cfg_suse $1
++}
++
++function create_bond_cfg_suse {
++	local fn=$cfgdir/ifcfg-$1
++
++	rm -f $fn
++	echo BOOTPROTO=dhcp >>$fn
++	echo STARTMODE=auto >>$fn
++	echo BONDING_MASTER=yes >>$fn
++	echo BONDING_SLAVE_0=$2 >>$fn
++	echo BONDING_SLAVE_1=$3 >>$fn
++	echo BONDING_MODULE_OPTS=\'mode=active-backup miimon=100 primary=$2\' >>$fn
++}
++
++function create_bond {
++	local bondname=bond$bondcnt
++	local primary
++	local secondary
++
++	local class_id1=`cat $sysdir/$1/device/class_id 2>/dev/null`
++	local class_id2=`cat $sysdir/$2/device/class_id 2>/dev/null`
++
++	if [ "$class_id1" = "$netvsc_cls" ]
++	then
++		primary=$2
++		secondary=$1
++	elif [ "$class_id2" = "$netvsc_cls" ]
++	then
++		primary=$1
++		secondary=$2
++	else
++		return 0
++	fi
++
++	echo $'\nBond name:' $bondname
++
++	echo configuring $primary
++	create_eth_cfg_pri_$distro $primary $bondname
++
++	echo configuring $secondary
++	create_eth_cfg_$distro $secondary $bondname
++
++	echo creating: $bondname with primary slave: $primary
++	create_bond_cfg_$distro $bondname $primary $secondary
++
++	let bondcnt=bondcnt+1
++}
++
++for (( i=0; i < $eth_cnt-1; i++ ))
++do
++        if [ -n "${list_match[$i]}" ]
++        then
++		create_bond ${list_eth[$i]} ${list_match[$i]}
++        fi
++done
++
+-- 
+1.7.4.1
