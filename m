@@ -1,38 +1,81 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] net: Fragment large datagrams even when IP_HDRINCL is
- set.
-Date: Tue, 12 Jul 2016 11:11:16 -0700 (PDT)
-Message-ID: <20160712.111116.1765805486132601360.davem@davemloft.net>
-References: <alpine.LFD.2.20.1607081340430.26593@stoner.jakma.org>
-	<20160708.184129.1545084362199727100.davem@davemloft.net>
-	<SN1PR0201MB1807CF3E6A28E344EE2E41F0F9300@SN1PR0201MB1807.namprd02.prod.outlook.com>
+From: nuclearcat@nuclearcat.com
+Subject: Re: 4.6.3, pppoe + shaper workload, skb_panic / skb_push /
+ ppp_start_xmit
+Date: Tue, 12 Jul 2016 21:13:11 +0300
+Message-ID: <61e8cde07f8d12680d1eb01cc024451b@nuclearcat.com>
+References: <c72d23549eaa7aadee1a66a6bb788a4a@nuclearcat.com>
+ <CAM_iQpWuCw6Bgm=1BWMkoFkuav5xV+FyKPq0Ef+3N_qpQqv=AA@mail.gmail.com>
+ <e9486191e8af136c9ed4cc1cfc26ac9f@nuclearcat.com>
+ <CAM_iQpX65H3SasBCqBcu6qcH00OW3WjZgfWkq7=rrQzyBvKF9A@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII;
+ format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: paul@jakma.org, netdev@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-	jmorris@namei.org, yoshfuji@linux-ipv6.org, kaber@trash.net
-To: Alan.Davey@metaswitch.com
+Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
+To: Cong Wang <xiyou.wangcong@gmail.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:46692 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750816AbcGLSLS (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 14:11:18 -0400
-In-Reply-To: <SN1PR0201MB1807CF3E6A28E344EE2E41F0F9300@SN1PR0201MB1807.namprd02.prod.outlook.com>
+Received: from nuclearcat.com ([144.76.183.226]:56134 "EHLO nuclearcat.com"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751051AbcGLSNP (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Tue, 12 Jul 2016 14:13:15 -0400
+In-Reply-To: <CAM_iQpX65H3SasBCqBcu6qcH00OW3WjZgfWkq7=rrQzyBvKF9A@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Alan Davey <Alan.Davey@metaswitch.com>
-Date: Tue, 12 Jul 2016 12:34:07 +0000
+On 2016-07-12 21:05, Cong Wang wrote:
+> On Tue, Jul 12, 2016 at 11:03 AM,  <nuclearcat@nuclearcat.com> wrote:
+>> On 2016-07-12 20:31, Cong Wang wrote:
+>>> 
+>>> On Mon, Jul 11, 2016 at 12:45 PM,  <nuclearcat@nuclearcat.com> wrote:
+>>>> 
+>>>> Hi
+>>>> 
+>>>> On latest kernel i noticed kernel panic happening 1-2 times per day. 
+>>>> It
+>>>> is
+>>>> also happening on older kernel (at least 4.5.3).
+>>>> 
+>>> ...
+>>>> 
+>>>>  [42916.426463] Call Trace:
+>>>>  [42916.426658]  <IRQ>
+>>>> 
+>>>>  [42916.426719]  [<ffffffff81843786>] skb_push+0x36/0x37
+>>>>  [42916.427111]  [<ffffffffa00e8ce5>] ppp_start_xmit+0x10f/0x150
+>>>> [ppp_generic]
+>>>>  [42916.427314]  [<ffffffff81853467>] 
+>>>> dev_hard_start_xmit+0x25a/0x2d3
+>>>>  [42916.427516]  [<ffffffff818530f2>] ?
+>>>> validate_xmit_skb.isra.107.part.108+0x11d/0x238
+>>>>  [42916.427858]  [<ffffffff8186dee3>] sch_direct_xmit+0x89/0x1b5
+>>>>  [42916.428060]  [<ffffffff8186e142>] __qdisc_run+0x133/0x170
+>>>>  [42916.428261]  [<ffffffff81850034>] net_tx_action+0xe3/0x148
+>>>>  [42916.428462]  [<ffffffff810c401a>] __do_softirq+0xb9/0x1a9
+>>>>  [42916.428663]  [<ffffffff810c4251>] irq_exit+0x37/0x7c
+>>>>  [42916.428862]  [<ffffffff8102b8f7>] 
+>>>> smp_apic_timer_interrupt+0x3d/0x48
+>>>>  [42916.429063]  [<ffffffff818cb15c>] apic_timer_interrupt+0x7c/0x90
+>>> 
+>>> 
+>>> Interesting, we call a skb_cow_head() before skb_push() in
+>>> ppp_start_xmit(),
+>>> I have no idea why this could happen.
+>>> 
+>>> Do you have any tc qdisc, filter or actions on this ppp device?
+>> 
+>> Yes, i have policing filters for incoming traffic (ingress), and also 
+>> on
+>> egress htb + pfifo + filters.
+> 
+> Does it make any difference if you remove the egress qdisc and/or
+> filters? If yes, please share the `tc qd show...` and `tc filter show 
+> ...`?
+> 
+> Thanks!
 
-> -  all future applications have to continue to implement their own fragmentation code, duplicating that which already exists in the kernel
-
-They have to do this anyways, don't you see this?
-
-Otherwise they don't support %99 of the kernels out there.
-
-Even if I put this change in now, it would take years for it to
-propagate to even a moderate percentage of Linux machines out there.
-
-And applications doing a "we only support kernels > version x.y.z" is
-a situation I don't want to promote if you think that's a reasonable
-way to handle this.
+It is not easy, because it is NAS with approx 5000 users connected (and 
+they are constantly connecting/disconnecting), and crash can't be 
+reproduced easily. If i will remove qdisc/filters users will get 
+unlimited speed and this will cause serious service degradation.
+But maybe i can add some debug lines and run some test kernel if 
+necessary (if it will not cause serious performance overhead).
