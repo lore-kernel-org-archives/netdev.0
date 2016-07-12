@@ -1,18 +1,20 @@
 From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
 Subject: [PATCH net 1/2] rose: limit sk_filter trim to payload
-Date: Tue, 12 Jul 2016 18:30:29 -0400
-Message-ID: <1468362629-104299-1-git-send-email-willemdebruijn.kernel@gmail.com>
+Date: Tue, 12 Jul 2016 18:18:56 -0400
+Message-ID: <1468361937-102786-2-git-send-email-willemdebruijn.kernel@gmail.com>
+References: <1468361937-102786-1-git-send-email-willemdebruijn.kernel@gmail.com>
 Cc: alexei.starovoitov@gmail.com, daniel@iogearbox.net,
 	davem@davemloft.net, hannes@stressinduktion.org,
 	eric.dumazet@gmail.com, Willem de Bruijn <willemb@google.com>
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-qt0-f196.google.com ([209.85.216.196]:36428 "EHLO
-	mail-qt0-f196.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750784AbcGLWbF (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 18:31:05 -0400
-Received: by mail-qt0-f196.google.com with SMTP id u25so1069497qtb.3
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 15:31:04 -0700 (PDT)
+Received: from mail-qt0-f193.google.com ([209.85.216.193]:35120 "EHLO
+	mail-qt0-f193.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750787AbcGLWf5 (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 18:35:57 -0400
+Received: by mail-qt0-f193.google.com with SMTP id q11so1078430qtb.2
+        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 15:35:43 -0700 (PDT)
+In-Reply-To: <1468361937-102786-1-git-send-email-willemdebruijn.kernel@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
