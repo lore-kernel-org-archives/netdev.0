@@ -1,65 +1,51 @@
-From: Saeed Mahameed <saeedm@mellanox.com>
-Subject: [PATCH net 2/2] net/mlx5e: start/stop all tx queues upon open/close netdev
-Date: Wed, 13 Jul 2016 00:07:00 +0300
-Message-ID: <1468357620-27831-3-git-send-email-saeedm@mellanox.com>
-References: <1468357620-27831-1-git-send-email-saeedm@mellanox.com>
-Cc: netdev@vger.kernel.org, Mohamad Haj Yahia <mohamad@mellanox.com>,
-	Saeed Mahameed <saeedm@mellanox.com>
-To: "David S. Miller" <davem@davemloft.net>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH v8 06/11] net/mlx4_en: add page recycle to prepare rx
+ ring for tx support
+Date: Tue, 12 Jul 2016 14:18:32 -0700 (PDT)
+Message-ID: <20160712.141832.634796503160544753.davem@davemloft.net>
+References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
+	<1468309894-26258-7-git-send-email-bblanco@plumgrid.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
+	saeedm@dev.mellanox.co.il, kafai@fb.com, brouer@redhat.com,
+	as754m@att.com, alexei.starovoitov@gmail.com, gerlitz.or@gmail.com,
+	john.fastabend@gmail.com, hannes@stressinduktion.org,
+	tgraf@suug.ch, tom@herbertland.com, daniel@iogearbox.net
+To: bblanco@plumgrid.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mailp.voltaire.com ([193.47.165.129]:40574 "EHLO mellanox.co.il"
-	rhost-flags-OK-FAIL-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1750938AbcGLVHs (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2016 17:07:48 -0400
-In-Reply-To: <1468357620-27831-1-git-send-email-saeedm@mellanox.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:49538 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750852AbcGLVSx (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 17:18:53 -0400
+In-Reply-To: <1468309894-26258-7-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Mohamad Haj Yahia <mohamad@mellanox.com>
+From: Brenden Blanco <bblanco@plumgrid.com>
+Date: Tue, 12 Jul 2016 00:51:29 -0700
 
-Start all tx queues (including inactive ones) when opening the netdev.
-Stop all tx queues (including inactive ones) when closing the netdev.
+> +	mlx4_en_free_resources(priv);
+> +
+>  	old_prog = xchg(&priv->prog, prog);
+>  	if (old_prog)
+>  		bpf_prog_put(old_prog);
+>  
+> -	return 0;
+> +	err = mlx4_en_alloc_resources(priv);
+> +	if (err) {
+> +		en_err(priv, "Failed reallocating port resources\n");
+> +		goto out;
+> +	}
+> +	if (port_up) {
+> +		err = mlx4_en_start_port(dev);
+> +		if (err)
+> +			en_err(priv, "Failed starting port\n");
 
-This is a workaround for the tx timeout watchdog false alarm issue in
-which the netdev watchdog is polling all the tx queues which may include
-inactive queues and thus once lowering the real tx queues number
-(ethtool -L) it will generate tx timeout watchdog false alarms.
+A failed configuration operation should _NEVER_ leave the interface in
+an inoperative state like these error paths do.
 
-Fixes: 3947ca185999 ('net/mlx5e: Implement ndo_tx_timeout callback')
-Signed-off-by: Mohamad Haj Yahia <mohamad@mellanox.com>
-Signed-off-by: Saeed Mahameed <saeedm@mellanox.com>
----
- drivers/net/ethernet/mellanox/mlx5/core/en_main.c | 11 +++++++++++
- 1 file changed, 11 insertions(+)
-
-diff --git a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-index 0cebc7e..5a4d88c 100644
---- a/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-+++ b/drivers/net/ethernet/mellanox/mlx5/core/en_main.c
-@@ -1348,6 +1348,11 @@ static int mlx5e_open_channels(struct mlx5e_priv *priv)
- 			goto err_close_channels;
- 	}
- 
-+	/* FIXME: This is a W/A for tx timeout watch dog false alarm when
-+	 * polling for inactive tx queues.
-+	 */
-+	netif_tx_start_all_queues(priv->netdev);
-+
- 	kfree(cparam);
- 	return 0;
- 
-@@ -1367,6 +1372,12 @@ static void mlx5e_close_channels(struct mlx5e_priv *priv)
- {
- 	int i;
- 
-+	/* FIXME: This is a W/A only for tx timeout watch dog false alarm when
-+	 * polling for inactive tx queues.
-+	 */
-+	netif_tx_stop_all_queues(priv->netdev);
-+	netif_tx_disable(priv->netdev);
-+
- 	for (i = 0; i < priv->params.num_channels; i++)
- 		mlx5e_close_channel(priv->channel[i]);
- 
--- 
-2.8.0
+You must instead preallocate the necessary resources, and only change
+the chip's configuration and commit to the new settings once you have
+successfully allocated those resources.
