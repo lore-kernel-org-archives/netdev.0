@@ -1,161 +1,177 @@
-From: Jesper Dangaard Brouer <brouer@redhat.com>
-Subject: Re: [net-next PATCH RFC] mlx4: RX prefetch loop
-Date: Tue, 12 Jul 2016 21:52:52 +0200
-Message-ID: <20160712215252.7c72cbed@redhat.com>
-References: <20160708172024.4a849b7a@redhat.com>
-	<20160708160135.27507.77711.stgit@firesoul>
-	<20160711130922.636ee4e6@redhat.com>
-	<20160711230509.GA45195@ast-mbp.thefacebook.com>
-	<20160712144521.4244e8ab@redhat.com>
-	<CAKgT0Ud8wrz8jRe5JzaiycZmO3fxNhPudRiv7up4ZWFfYWfj4A@mail.gmail.com>
+From: Jesper Dangaard Brouer via iovisor-dev <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+Subject: Re: XDP seeking input from NIC hardware vendors
+Date: Tue, 12 Jul 2016 22:32:31 +0200
+Message-ID: <20160712223231.202cd122@redhat.com>
+References: <20160707124245.6d95635a@redhat.com>
+	<D6BB30FE66EA894C9F13C9E3CDDF00F564E5FB81@fmsmsx115.amr.corp.intel.com>
+	<20160708022210.GA12244@ast-mbp.thefacebook.com>
+	<20160708144453.345b51e5@jkicinski-Precision-T1700>
+	<20160708171943.0e1ce8d7@redhat.com>
+	<20160708170751.2eaae790@jkicinski-Precision-T1700>
+	<577FD8A5.8020700@gmail.com>
+	<20160708185107.10c0dbe4@jkicinski-Precision-T1700>
+	<20160709132726.3cbccf11@redhat.com>
+	<20160712022423.GA47757@ast-mbp.thefacebook.com>
+	<5785413D.4050901@gmail.com>
+Reply-To: Jesper Dangaard Brouer <brouer-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>,
-	Netdev <netdev@vger.kernel.org>, kafai@fb.com,
-	Daniel Borkmann <daniel@iogearbox.net>,
-	Tom Herbert <tom@herbertland.com>,
-	Brenden Blanco <bblanco@plumgrid.com>,
-	john fastabend <john.fastabend@gmail.com>,
-	Or Gerlitz <gerlitz.or@gmail.com>,
-	Hannes Frederic Sowa <hannes@stressinduktion.org>,
-	rana.shahot@gmail.com, Thomas Graf <tgraf@suug.ch>,
-	"David S. Miller" <davem@davemloft.net>, as754m@att.com,
-	Saeed Mahameed <saeedm@mellanox.com>, amira@mellanox.com,
-	tzahio@mellanox.com, Eric Dumazet <eric.dumazet@gmail.com>,
-	brouer@redhat.com
-To: Alexander Duyck <alexander.duyck@gmail.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:42881 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751262AbcGLTxk (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Tue, 12 Jul 2016 15:53:40 -0400
-In-Reply-To: <CAKgT0Ud8wrz8jRe5JzaiycZmO3fxNhPudRiv7up4ZWFfYWfj4A@mail.gmail.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org" <iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>,
+	"Fastabend, John R" <john.r.fastabend-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	Edward Cree <ecree-s/n/eUQHGBpZroRs9YW3xA@public.gmane.org>,
+	Simon Horman <simon.horman-wFxRvT7yatFl57MIdRCFDg@public.gmane.org>,
+	Rana Shahout <ranas-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>,
+	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, Ari Saha <as754m-60p5jsuXm+c@public.gmane.org>
+To: John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+In-Reply-To: <5785413D.4050901-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+List-Unsubscribe: <https://lists.iovisor.org/mailman/options/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=unsubscribe>
+List-Archive: <http://lists.iovisor.org/pipermail/iovisor-dev/>
+List-Post: <mailto:iovisor-dev-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org>
+List-Help: <mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=help>
+List-Subscribe: <https://lists.iovisor.org/mailman/listinfo/iovisor-dev>,
+	<mailto:iovisor-dev-request-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org?subject=subscribe>
+Sender: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+Errors-To: iovisor-dev-bounces-9jONkmmOlFHEE9lA1F8Ukti2O/JbrIOy@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-On Tue, 12 Jul 2016 09:46:26 -0700
-Alexander Duyck <alexander.duyck@gmail.com> wrote:
+On Tue, 12 Jul 2016 12:13:01 -0700
+John Fastabend <john.fastabend-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> wrote:
 
-> On Tue, Jul 12, 2016 at 5:45 AM, Jesper Dangaard Brouer
-> <brouer@redhat.com> wrote:
-> > On Mon, 11 Jul 2016 16:05:11 -0700
-> > Alexei Starovoitov <alexei.starovoitov@gmail.com> wrote:
-> >  
-> >> On Mon, Jul 11, 2016 at 01:09:22PM +0200, Jesper Dangaard Brouer wrote:  
-> >> > > - /* Process all completed CQEs */
-> >> > > + /* Extract and prefetch completed CQEs */
-> >> > >   while (XNOR(cqe->owner_sr_opcode & MLX4_CQE_OWNER_MASK,
-> >> > >               cq->mcq.cons_index & cq->size)) {
-> >> > > +         void *data;
-> >> > >
-> >> > >           frags = ring->rx_info + (index << priv->log_rx_info);
-> >> > >           rx_desc = ring->buf + (index << ring->log_stride);
-> >> > > +         prefetch(rx_desc);
-> >> > >
-> >> > >           /*
-> >> > >            * make sure we read the CQE after we read the ownership bit
-> >> > >            */
-> >> > >           dma_rmb();
-> >> > >
-> >> > > +         cqe_array[cqe_idx++] = cqe;
-> >> > > +
-> >> > > +         /* Base error handling here, free handled in next loop */
-> >> > > +         if (unlikely((cqe->owner_sr_opcode & MLX4_CQE_OPCODE_MASK) ==
-> >> > > +                      MLX4_CQE_OPCODE_ERROR))
-> >> > > +                 goto skip;
-> >> > > +
-> >> > > +         data = page_address(frags[0].page) + frags[0].page_offset;
-> >> > > +         prefetch(data);  
+> On 16-07-11 07:24 PM, Alexei Starovoitov wrote:
+> > On Sat, Jul 09, 2016 at 01:27:26PM +0200, Jesper Dangaard Brouer wrote:  
+> >> On Fri, 8 Jul 2016 18:51:07 +0100
+> >> Jakub Kicinski <jakub.kicinski-wFxRvT7yatFl57MIdRCFDg@public.gmane.org> wrote:
+> >>  
+> >>> On Fri, 8 Jul 2016 09:45:25 -0700, John Fastabend wrote:  
+> >>>> The only distinction between VFs and queue groupings on my side is VFs
+> >>>> provide RSS where as queue groupings have to be selected explicitly.
+> >>>> In a programmable NIC world the distinction might be lost if a "RSS"
+> >>>> program can be loaded into the NIC to select queues but for existing
+> >>>> hardware the distinction is there.    
+> >>>
+> >>> To do BPF RSS we need a way to select the queue which I think is all
+> >>> Jesper wanted.  So we will have to tackle the queue selection at some
+> >>> point.  The main obstacle with it for me is to define what queue
+> >>> selection means when program is not offloaded to HW...  Implementing
+> >>> queue selection on HW side is trivial.  
 > >>
-> >> that's probably not correct in all cases, since doing prefetch on the address
-> >> that is going to be evicted soon may hurt performance.
-> >> We need to dma_sync_single_for_cpu() before doing a prefetch or
-> >> somehow figure out that dma_sync is a nop, so we can omit it altogether
-> >> and do whatever prefetches we like.  
-> >
-> > Sure, DMA can be synced first (actually already played with this).  
+> >> Yes, I do see the problem of fallback, when the programs "filter" demux
+> >> cannot be offloaded to hardware.
+> >>
+> >> First I though it was a good idea to keep the "demux-filter" part of
+> >> the eBPF program, as software fallback can still apply this filter in
+> >> SW, and just mark the packets as not-zero-copy-safe.  But when HW
+> >> offloading is not possible, then packets can be delivered every RX
+> >> queue, and SW would need to handle that, which hard to keep transparent.
+> >>
+> >>  
+> >>>> If you demux using a eBPF program or via a filter model like
+> >>>> flow_director or cls_{u32|flower} I think we can support both. And this
+> >>>> just depends on the programmability of the hardware. Note flow_director
+> >>>> and cls_{u32|flower} steering to VFs is already in place.    
+> >>
+> >> Maybe we should keep HW demuxing as a separate setup step.
+> >>
+> >> Today I can almost do what I want: by setting up ntuple filters, and (if
+> >> Alexei allows it) assign an application specific XDP eBPF program to a
+> >> specific RX queue.
+> >>
+> >>  ethtool -K eth2 ntuple on
+> >>  ethtool -N eth2 flow-type udp4 dst-ip 192.168.254.1 dst-port 53 action 42
+> >>
+> >> Then the XDP program can be attached to RX queue 42, and
+> >> promise/guarantee that it will consume all packet.  And then the
+> >> backing page-pool can allow zero-copy RX (and enable scrubbing when
+> >> refilling pool).  
+> > 
+> > so such ntuple rule will send udp4 traffic for specific ip and port
+> > into a queue then it will somehow gets zero-copied to vm?
+> > . looks like a lot of other pieces about zero-copy and qemu need to be
+> > implemented (or at least architected) for this scheme to be conceivable
+> > . and when all that happens what vm is going to do with this very specific
+> > traffic? vm won't have any tcp or even ping?  
 > 
-> Yes, but the point I think that Alexei is kind of indirectly getting
-> at is that you are doing all your tests on x86 architecture are you
-> not?  The x86 stuff is a very different beast from architectures like
-> ARM which have a very different architecture when it comes to how they
-> handle the memory organization of the system.  In the case of x86 the
-> only time dma_sync is not a nop is if you force swiotlb to be enabled
-> at which point the whole performance argument is kind of pointless
-> anyway.
-> 
-> >> Also unconditionally doing batch of 8 may also hurt depending on what
-> >> is happening either with the stack, bpf afterwards or even cpu version.  
-> >
-> > See this as software DDIO, if the unlikely case that data will get
-> > evicted, it will still exist in L2 or L3 cache (like DDIO). Notice,
-> > only 1024 bytes are getting prefetched here.  
-> 
-> I disagree.  DDIO only pushes received frames into the L3 cache.  What
-> you are potentially doing is flooding the L2 cache.  The difference in
-> size between the L3 and L2 caches is very significant.  L3 cache size
-> is in the MB range while the L2 cache is only 256KB or so for Xeon
-> processors and such.  In addition DDIO is really meant for an
-> architecture that has a fairly large cache region to spare and it it
-> limits itself to that cache region, the approach taken in this code
-> could potentially prefetch a fairly significant chunk of memory.
+> I have perhaps a different motivation to have queue steering in 'tc
+> cls-u32' and eventually xdp. The general idea is I have thousands of
+> queues and I can bind applications to the queues. When I know an
+> application is bound to a queue I can enable per queue busy polling (to
+> be implemented), set specific interrupt rates on the queue
+> (implementation will be posted soon), bind the queue to the correct
+> cpu, etc.
 
-No matter how you slice it, reading this memory is needed, as I'm
-making sure only to prefetch packets that are "ready" and are within
-the NAPI budget.  (eth_type_trans/eth_get_headlen)
++1 
+
+binding applications to queues.
+
+This is basically what our customers are requesting. They have one or
+two applications that need DPDK speeds.  But they don't like dedicating
+an entire NIC per application (like DPDK requires).
+
+The basic idea is actually more fundamental.  It reminds me of Van
+Jacobson's netchannels[1] when he talks about "Channelize" (slides 24+)
+Creating full "application" channel allow for lock free single producer
+single consumer (SPSC) queue directly into the application.
+
+[1] http://www.lemis.com/grog/Documentation/vj/lca06vj.pdf
+
+
+> ntuple works OK for this now but xdp provides more flexibility and
+> also lets us add additional policy on the queue other than simply
+> queue steering.
+> 
+> I'm not convinced though that the demux queue selection should be part
+> of the XDP program itself just because it has no software analog to me
+> it sits in front of the set of XDP programs. But I think I could perhaps
+> be convinced it does if there is some reasonable way to do it. I guess
+> the single program method would result in an XDP program that read like
+> 
+>   if (rx_queue == x)
+>        do_foo
+>   if (rx_queue == y)
+>        do_bar
+
+Yes, that is also why I wanted a XDP program per RX queue.  But the
+"channelize" concept is more important.
+
  
-> >> Doing single prefetch of Nth packet is probably ok most of the
-> >> time, but asking cpu to prefetch 8 packets at once is unnecessary
-> >> especially since single prefetch gives the same performance.  
-> >
-> > No, unconditionally prefetch of the Nth packet, will be wrong most
-> > of the time, for real work loads, as Eric Dumazet already pointed
-> > out.
-> >
-> > This patch does NOT unconditionally prefetch 8 packets.  Prefetching
-> > _only_ happens when it is known that packets are ready in the RX
-> > ring. We know this prefetch data will be used/touched, within the
-> > NAPI cycle. Even if the processing of the packet flush L1 cache,
-> > then it will be in L2 or L3 (like DDIO).  
+> A hardware jit may be able to sort that out. Or use per queue
+> sections.
 > 
-> I think the point you are missing here Jesper is that the packet isn't
-> what will be flushed out of L1.  It will be all the data that had been
-> fetched before that.  So for example the L1 cache can only hold 32K,
-> and the way it is setup if you fetch the first 64 bytes of 8 pages you
-> will have evicted everything that was in that cache set will be
-> flushed out to L2.
+> > 
+> > the network virtualization traffic is typically encapsulated,
+> > so if xdp is used to do steer the traffic, the program would need
+> > to figure out vm id based on headers, strip tunnel, apply policy
+> > before forwarding the packet further. Clearly hw ntuple is not
+> > going to suffice.
+> >
+> > If there is no networking virtualization and VMs are operating in
+> > the flat network, then there is no policy, no ip filter, no vm
+> > migration. Only mac per vm and sriov handles this case just fine.
+> > When hw becomes more programmable we'll be able to load xdp program
+> > into hw that does tunnel, policy and forwards into vf then sriov
+> > will become actually usable for cloud providers.  
 > 
-> Also it might be worth while to see what instruction is being used for
-> the prefetch.  Last I knew for read prefetches it was prefetchnta on
-> x86 which would only pull the data into the L1 cache as a
-> "non-temporal" store.  If I am not mistaken I think you run the risk
-> of having the data prefetched evicted back out and bypassing the L2
-> and L3 caches unless it is modified.  That was kind of the point of
-> the prefetchnta as it really meant to be a read-only prefetch and
-> meant to avoid polluting the L2 and L3 caches.
+> Yep :)
+> 
+> > hw xdp into vf is more interesting than into a queue, since there is
+> > more than one queue/interrupt per vf and network heavy vm can
+> > actually consume large amount of traffic.
+> >   
+> 
+> Another use case I have is to make a really high performance AF_PACKET
+> interface. So if there was a way to say bind a queue to an AF_PACKET
+> ring and run a policy XDP program before hitting the AF_PACKET
+> descriptor bit that would be really interesting because it would solve
+> some of my need for poll mode drivers in userspace.
 
-#ifdef CONFIG_X86_32
-# define BASE_PREFETCH		""
-# define ARCH_HAS_PREFETCH
-#else
-# define BASE_PREFETCH		"prefetcht0 %P1"
-#endif
-
-static inline void prefetch(const void *x)
-{
-	alternative_input(BASE_PREFETCH, "prefetchnta %P1",
-			  X86_FEATURE_XMM,
-			  "m" (*(const char *)x));
-}
-
-Thanks for the hint. Looking at the code, it does look like 64 bit CPUs
-with MMX does use the prefetchnta instruction.
-
-DPDK use prefetcht1 instruction at RX (on 32 packets).  That might be
-the better prefetch instruction to use (or prefetcht2).  Looked at the
-arm64 code it does support prefetching, and googling shows arm64 also
-supports prefetching to a specific cache level.
++1 yes, a super fast AF_PACKET is also on my wish/todo list for XDP.
+It would basically allow for implementing DPDK or netmap on top of XDP
+(as least the RX side) without needing to run a NIC driver in userspace.
 
 -- 
 Best regards,
