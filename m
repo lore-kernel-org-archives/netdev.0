@@ -1,7 +1,7 @@
 From: Brenden Blanco <bblanco@plumgrid.com>
-Subject: [PATCH v8 01/11] bpf: add XDP prog type for early driver filter
-Date: Tue, 12 Jul 2016 00:51:24 -0700
-Message-ID: <1468309894-26258-2-git-send-email-bblanco@plumgrid.com>
+Subject: [PATCH v8 08/11] net/mlx4_en: break out tx_desc write into separate function
+Date: Tue, 12 Jul 2016 00:51:31 -0700
+Message-ID: <1468309894-26258-9-git-send-email-bblanco@plumgrid.com>
 References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
 Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Jamal Hadi Salim <jhs@mojatatu.com>,
@@ -16,248 +16,273 @@ Cc: Brenden Blanco <bblanco@plumgrid.com>,
 	Daniel Borkmann <daniel@iogearbox.net>
 To: davem@davemloft.net, netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f42.google.com ([209.85.220.42]:33668 "EHLO
-	mail-pa0-f42.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750850AbcGLHwc (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 03:52:32 -0400
-Received: by mail-pa0-f42.google.com with SMTP id ks6so4142913pab.0
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 00:52:31 -0700 (PDT)
+Received: from mail-pf0-f179.google.com ([209.85.192.179]:34656 "EHLO
+	mail-pf0-f179.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751050AbcGLHwl (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 03:52:41 -0400
+Received: by mail-pf0-f179.google.com with SMTP id h14so4257461pfe.1
+        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 00:52:40 -0700 (PDT)
 In-Reply-To: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Add a new bpf prog type that is intended to run in early stages of the
-packet rx path. Only minimal packet metadata will be available, hence a
-new context type, struct xdp_md, is exposed to userspace. So far only
-expose the packet start and end pointers, and only in read mode.
-
-An XDP program must return one of the well known enum values, all other
-return codes are reserved for future use. Unfortunately, this
-restriction is hard to enforce at verification time, so take the
-approach of warning at runtime when such programs are encountered. Out
-of bounds return codes should alias to XDP_ABORTED.
+In preparation for writing the tx descriptor from multiple functions,
+create a helper for both normal and blueflame access.
 
 Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 ---
- include/linux/filter.h   | 18 +++++++++++
- include/uapi/linux/bpf.h | 20 ++++++++++++
- kernel/bpf/verifier.c    |  1 +
- net/core/filter.c        | 79 ++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 118 insertions(+)
+ drivers/infiniband/hw/mlx4/qp.c            |  11 +--
+ drivers/net/ethernet/mellanox/mlx4/en_tx.c | 127 +++++++++++++++++------------
+ include/linux/mlx4/qp.h                    |  18 ++--
+ 3 files changed, 90 insertions(+), 66 deletions(-)
 
-diff --git a/include/linux/filter.h b/include/linux/filter.h
-index 6fc31ef..15d816a 100644
---- a/include/linux/filter.h
-+++ b/include/linux/filter.h
-@@ -368,6 +368,11 @@ struct bpf_skb_data_end {
- 	void *data_end;
- };
- 
-+struct xdp_buff {
-+	void *data;
-+	void *data_end;
-+};
-+
- /* compute the linear packet data range [data, data_end) which
-  * will be accessed by cls_bpf and act_bpf programs
-  */
-@@ -429,6 +434,18 @@ static inline u32 bpf_prog_run_clear_cb(const struct bpf_prog *prog,
- 	return BPF_PROG_RUN(prog, skb);
- }
- 
-+static inline u32 bpf_prog_run_xdp(const struct bpf_prog *prog,
-+				   struct xdp_buff *xdp)
-+{
-+	u32 ret;
-+
-+	rcu_read_lock();
-+	ret = BPF_PROG_RUN(prog, (void *)xdp);
-+	rcu_read_unlock();
-+
-+	return ret;
-+}
-+
- static inline unsigned int bpf_prog_size(unsigned int proglen)
- {
- 	return max(sizeof(struct bpf_prog),
-@@ -509,6 +526,7 @@ bool bpf_helper_changes_skb_data(void *func);
- 
- struct bpf_prog *bpf_patch_insn_single(struct bpf_prog *prog, u32 off,
- 				       const struct bpf_insn *patch, u32 len);
-+void bpf_warn_invalid_xdp_action(u32 act);
- 
- #ifdef CONFIG_BPF_JIT
- extern int bpf_jit_enable;
-diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
-index 262a7e8..4282d44 100644
---- a/include/uapi/linux/bpf.h
-+++ b/include/uapi/linux/bpf.h
-@@ -94,6 +94,7 @@ enum bpf_prog_type {
- 	BPF_PROG_TYPE_SCHED_CLS,
- 	BPF_PROG_TYPE_SCHED_ACT,
- 	BPF_PROG_TYPE_TRACEPOINT,
-+	BPF_PROG_TYPE_XDP,
- };
- 
- #define BPF_PSEUDO_MAP_FD	1
-@@ -437,4 +438,23 @@ struct bpf_tunnel_key {
- 	__u32 tunnel_label;
- };
- 
-+/* User return codes for XDP prog type.
-+ * A valid XDP program must return one of these defined values. All other
-+ * return codes are reserved for future use. Unknown return codes will result
-+ * in packet drop.
-+ */
-+enum xdp_action {
-+	XDP_ABORTED = 0,
-+	XDP_DROP,
-+	XDP_PASS,
-+};
-+
-+/* user accessible metadata for XDP packet hook
-+ * new fields must be added to the end of this structure
-+ */
-+struct xdp_md {
-+	__u32 data;
-+	__u32 data_end;
-+};
-+
- #endif /* _UAPI__LINUX_BPF_H__ */
-diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
-index e206c21..a8d67d0 100644
---- a/kernel/bpf/verifier.c
-+++ b/kernel/bpf/verifier.c
-@@ -713,6 +713,7 @@ static int check_ptr_alignment(struct verifier_env *env, struct reg_state *reg,
- 	switch (env->prog->type) {
- 	case BPF_PROG_TYPE_SCHED_CLS:
- 	case BPF_PROG_TYPE_SCHED_ACT:
-+	case BPF_PROG_TYPE_XDP:
- 		break;
- 	default:
- 		verbose("verifier is misconfigured\n");
-diff --git a/net/core/filter.c b/net/core/filter.c
-index 10c4a2f..2d770f5 100644
---- a/net/core/filter.c
-+++ b/net/core/filter.c
-@@ -2369,6 +2369,12 @@ tc_cls_act_func_proto(enum bpf_func_id func_id)
+diff --git a/drivers/infiniband/hw/mlx4/qp.c b/drivers/infiniband/hw/mlx4/qp.c
+index 8db8405..768085f 100644
+--- a/drivers/infiniband/hw/mlx4/qp.c
++++ b/drivers/infiniband/hw/mlx4/qp.c
+@@ -232,7 +232,7 @@ static void stamp_send_wqe(struct mlx4_ib_qp *qp, int n, int size)
+ 		}
+ 	} else {
+ 		ctrl = buf = get_send_wqe(qp, n & (qp->sq.wqe_cnt - 1));
+-		s = (ctrl->fence_size & 0x3f) << 4;
++		s = (ctrl->qpn_vlan.fence_size & 0x3f) << 4;
+ 		for (i = 64; i < s; i += 64) {
+ 			wqe = buf + i;
+ 			*wqe = cpu_to_be32(0xffffffff);
+@@ -264,7 +264,7 @@ static void post_nop_wqe(struct mlx4_ib_qp *qp, int n, int size)
+ 		inl->byte_count = cpu_to_be32(1 << 31 | (size - s - sizeof *inl));
  	}
+ 	ctrl->srcrb_flags = 0;
+-	ctrl->fence_size = size / 16;
++	ctrl->qpn_vlan.fence_size = size / 16;
+ 	/*
+ 	 * Make sure descriptor is fully written before setting ownership bit
+ 	 * (because HW can start executing as soon as we do).
+@@ -1992,7 +1992,8 @@ static int __mlx4_ib_modify_qp(struct ib_qp *ibqp,
+ 			ctrl = get_send_wqe(qp, i);
+ 			ctrl->owner_opcode = cpu_to_be32(1 << 31);
+ 			if (qp->sq_max_wqes_per_wr == 1)
+-				ctrl->fence_size = 1 << (qp->sq.wqe_shift - 4);
++				ctrl->qpn_vlan.fence_size =
++						1 << (qp->sq.wqe_shift - 4);
+ 
+ 			stamp_send_wqe(qp, i, 1 << qp->sq.wqe_shift);
+ 		}
+@@ -3169,8 +3170,8 @@ int mlx4_ib_post_send(struct ib_qp *ibqp, struct ib_send_wr *wr,
+ 		wmb();
+ 		*lso_wqe = lso_hdr_sz;
+ 
+-		ctrl->fence_size = (wr->send_flags & IB_SEND_FENCE ?
+-				    MLX4_WQE_CTRL_FENCE : 0) | size;
++		ctrl->qpn_vlan.fence_size = (wr->send_flags & IB_SEND_FENCE ?
++					     MLX4_WQE_CTRL_FENCE : 0) | size;
+ 
+ 		/*
+ 		 * Make sure descriptor is fully written before
+diff --git a/drivers/net/ethernet/mellanox/mlx4/en_tx.c b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+index 76aa4d2..c29191e 100644
+--- a/drivers/net/ethernet/mellanox/mlx4/en_tx.c
++++ b/drivers/net/ethernet/mellanox/mlx4/en_tx.c
+@@ -700,10 +700,66 @@ static void mlx4_bf_copy(void __iomem *dst, const void *src,
+ 	__iowrite64_copy(dst, src, bytecnt / 8);
  }
  
-+static const struct bpf_func_proto *
-+xdp_func_proto(enum bpf_func_id func_id)
++void mlx4_en_xmit_doorbell(struct mlx4_en_tx_ring *ring)
 +{
-+	return sk_filter_func_proto(func_id);
++	wmb();
++	/* Since there is no iowrite*_native() that writes the
++	 * value as is, without byteswapping - using the one
++	 * the doesn't do byteswapping in the relevant arch
++	 * endianness.
++	 */
++#if defined(__LITTLE_ENDIAN)
++	iowrite32(
++#else
++	iowrite32be(
++#endif
++		  ring->doorbell_qpn,
++		  ring->bf.uar->map + MLX4_SEND_DOORBELL);
 +}
 +
- static bool __is_valid_access(int off, int size, enum bpf_access_type type)
++static void mlx4_en_tx_write_desc(struct mlx4_en_tx_ring *ring,
++				  struct mlx4_en_tx_desc *tx_desc,
++				  union mlx4_wqe_qpn_vlan qpn_vlan,
++				  int desc_size, int bf_index,
++				  __be32 op_own, bool bf_ok,
++				  bool send_doorbell)
++{
++	tx_desc->ctrl.qpn_vlan = qpn_vlan;
++
++	if (bf_ok) {
++		op_own |= htonl((bf_index & 0xffff) << 8);
++		/* Ensure new descriptor hits memory
++		 * before setting ownership of this descriptor to HW
++		 */
++		dma_wmb();
++		tx_desc->ctrl.owner_opcode = op_own;
++
++		wmb();
++
++		mlx4_bf_copy(ring->bf.reg + ring->bf.offset, &tx_desc->ctrl,
++			     desc_size);
++
++		wmb();
++
++		ring->bf.offset ^= ring->bf.buf_size;
++	} else {
++		/* Ensure new descriptor hits memory
++		 * before setting ownership of this descriptor to HW
++		 */
++		dma_wmb();
++		tx_desc->ctrl.owner_opcode = op_own;
++		if (send_doorbell)
++			mlx4_en_xmit_doorbell(ring);
++		else
++			ring->xmit_more++;
++	}
++}
++
+ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
  {
- 	if (off < 0 || off >= sizeof(struct __sk_buff))
-@@ -2436,6 +2442,44 @@ static bool tc_cls_act_is_valid_access(int off, int size,
- 	return __is_valid_access(off, size, type);
- }
+ 	struct skb_shared_info *shinfo = skb_shinfo(skb);
+ 	struct mlx4_en_priv *priv = netdev_priv(dev);
++	union mlx4_wqe_qpn_vlan	qpn_vlan = {};
+ 	struct device *ddev = priv->ddev;
+ 	struct mlx4_en_tx_ring *ring;
+ 	struct mlx4_en_tx_desc *tx_desc;
+@@ -725,6 +781,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	bool stop_queue;
+ 	bool inline_ok;
+ 	u32 ring_cons;
++	bool bf_ok;
  
-+static bool __is_valid_xdp_access(int off, int size,
-+				  enum bpf_access_type type)
-+{
-+	if (off < 0 || off >= sizeof(struct xdp_md))
-+		return false;
-+	if (off % size != 0)
-+		return false;
-+	if (size != 4)
-+		return false;
-+
-+	return true;
-+}
-+
-+static bool xdp_is_valid_access(int off, int size,
-+				enum bpf_access_type type,
-+				enum bpf_reg_type *reg_type)
-+{
-+	if (type == BPF_WRITE)
-+		return false;
-+
-+	switch (off) {
-+	case offsetof(struct xdp_md, data):
-+		*reg_type = PTR_TO_PACKET;
-+		break;
-+	case offsetof(struct xdp_md, data_end):
-+		*reg_type = PTR_TO_PACKET_END;
-+		break;
-+	}
-+
-+	return __is_valid_xdp_access(off, size, type);
-+}
-+
-+void bpf_warn_invalid_xdp_action(u32 act)
-+{
-+	WARN_ONCE(1, "Illegal XDP return value %u, expect packet loss\n", act);
-+}
-+EXPORT_SYMBOL_GPL(bpf_warn_invalid_xdp_action);
-+
- static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
- 				      int src_reg, int ctx_off,
- 				      struct bpf_insn *insn_buf,
-@@ -2587,6 +2631,29 @@ static u32 bpf_net_convert_ctx_access(enum bpf_access_type type, int dst_reg,
- 	return insn - insn_buf;
- }
+ 	tx_ind = skb_get_queue_mapping(skb);
+ 	ring = priv->tx_ring[tx_ind];
+@@ -749,9 +806,17 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 		goto tx_drop;
+ 	}
  
-+static u32 xdp_convert_ctx_access(enum bpf_access_type type, int dst_reg,
-+				  int src_reg, int ctx_off,
-+				  struct bpf_insn *insn_buf,
-+				  struct bpf_prog *prog)
-+{
-+	struct bpf_insn *insn = insn_buf;
-+
-+	switch (ctx_off) {
-+	case offsetof(struct xdp_md, data):
-+		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct xdp_buff, data)),
-+				      dst_reg, src_reg,
-+				      offsetof(struct xdp_buff, data));
-+		break;
-+	case offsetof(struct xdp_md, data_end):
-+		*insn++ = BPF_LDX_MEM(bytes_to_bpf_size(FIELD_SIZEOF(struct xdp_buff, data_end)),
-+				      dst_reg, src_reg,
-+				      offsetof(struct xdp_buff, data_end));
-+		break;
-+	}
-+
-+	return insn - insn_buf;
-+}
-+
- static const struct bpf_verifier_ops sk_filter_ops = {
- 	.get_func_proto		= sk_filter_func_proto,
- 	.is_valid_access	= sk_filter_is_valid_access,
-@@ -2599,6 +2666,12 @@ static const struct bpf_verifier_ops tc_cls_act_ops = {
- 	.convert_ctx_access	= bpf_net_convert_ctx_access,
++	bf_ok = ring->bf_enabled;
+ 	if (skb_vlan_tag_present(skb)) {
+-		vlan_tag = skb_vlan_tag_get(skb);
++		qpn_vlan.vlan_tag = skb_vlan_tag_get(skb);
+ 		vlan_proto = be16_to_cpu(skb->vlan_proto);
++		if (vlan_proto == ETH_P_8021AD)
++			qpn_vlan.ins_vlan = MLX4_WQE_CTRL_INS_SVLAN;
++		else if (vlan_proto == ETH_P_8021Q)
++			qpn_vlan.ins_vlan = MLX4_WQE_CTRL_INS_CVLAN;
++		else
++			qpn_vlan.ins_vlan = 0;
++		bf_ok = false;
+ 	}
+ 
+ 	netdev_txq_bql_enqueue_prefetchw(ring->tx_queue);
+@@ -771,6 +836,7 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 	else {
+ 		tx_desc = (struct mlx4_en_tx_desc *) ring->bounce_buf;
+ 		bounce = true;
++		bf_ok = false;
+ 	}
+ 
+ 	/* Save skb in tx_info ring */
+@@ -946,60 +1012,15 @@ netdev_tx_t mlx4_en_xmit(struct sk_buff *skb, struct net_device *dev)
+ 
+ 	real_size = (real_size / 16) & 0x3f;
+ 
+-	if (ring->bf_enabled && desc_size <= MAX_BF && !bounce &&
+-	    !skb_vlan_tag_present(skb) && send_doorbell) {
+-		tx_desc->ctrl.bf_qpn = ring->doorbell_qpn |
+-				       cpu_to_be32(real_size);
+-
+-		op_own |= htonl((bf_index & 0xffff) << 8);
+-		/* Ensure new descriptor hits memory
+-		 * before setting ownership of this descriptor to HW
+-		 */
+-		dma_wmb();
+-		tx_desc->ctrl.owner_opcode = op_own;
+-
+-		wmb();
+-
+-		mlx4_bf_copy(ring->bf.reg + ring->bf.offset, &tx_desc->ctrl,
+-			     desc_size);
+-
+-		wmb();
+-
+-		ring->bf.offset ^= ring->bf.buf_size;
+-	} else {
+-		tx_desc->ctrl.vlan_tag = cpu_to_be16(vlan_tag);
+-		if (vlan_proto == ETH_P_8021AD)
+-			tx_desc->ctrl.ins_vlan = MLX4_WQE_CTRL_INS_SVLAN;
+-		else if (vlan_proto == ETH_P_8021Q)
+-			tx_desc->ctrl.ins_vlan = MLX4_WQE_CTRL_INS_CVLAN;
+-		else
+-			tx_desc->ctrl.ins_vlan = 0;
++	bf_ok &= desc_size <= MAX_BF && send_doorbell;
+ 
+-		tx_desc->ctrl.fence_size = real_size;
++	if (bf_ok)
++		qpn_vlan.bf_qpn = ring->doorbell_qpn | cpu_to_be32(real_size);
++	else
++		qpn_vlan.fence_size = real_size;
+ 
+-		/* Ensure new descriptor hits memory
+-		 * before setting ownership of this descriptor to HW
+-		 */
+-		dma_wmb();
+-		tx_desc->ctrl.owner_opcode = op_own;
+-		if (send_doorbell) {
+-			wmb();
+-			/* Since there is no iowrite*_native() that writes the
+-			 * value as is, without byteswapping - using the one
+-			 * the doesn't do byteswapping in the relevant arch
+-			 * endianness.
+-			 */
+-#if defined(__LITTLE_ENDIAN)
+-			iowrite32(
+-#else
+-			iowrite32be(
+-#endif
+-				  ring->doorbell_qpn,
+-				  ring->bf.uar->map + MLX4_SEND_DOORBELL);
+-		} else {
+-			ring->xmit_more++;
+-		}
+-	}
++	mlx4_en_tx_write_desc(ring, tx_desc, qpn_vlan, desc_size, bf_index,
++			      op_own, bf_ok, send_doorbell);
+ 
+ 	if (unlikely(stop_queue)) {
+ 		/* If queue was emptied after the if (stop_queue) , and before
+diff --git a/include/linux/mlx4/qp.h b/include/linux/mlx4/qp.h
+index 587cdf9..deaa221 100644
+--- a/include/linux/mlx4/qp.h
++++ b/include/linux/mlx4/qp.h
+@@ -291,16 +291,18 @@ enum {
+ 	MLX4_WQE_CTRL_FORCE_LOOPBACK	= 1 << 0,
  };
  
-+static const struct bpf_verifier_ops xdp_ops = {
-+	.get_func_proto		= xdp_func_proto,
-+	.is_valid_access	= xdp_is_valid_access,
-+	.convert_ctx_access	= xdp_convert_ctx_access,
++union mlx4_wqe_qpn_vlan {
++	struct {
++		__be16	vlan_tag;
++		u8	ins_vlan;
++		u8	fence_size;
++	};
++	__be32		bf_qpn;
 +};
 +
- static struct bpf_prog_type_list sk_filter_type __read_mostly = {
- 	.ops	= &sk_filter_ops,
- 	.type	= BPF_PROG_TYPE_SOCKET_FILTER,
-@@ -2614,11 +2687,17 @@ static struct bpf_prog_type_list sched_act_type __read_mostly = {
- 	.type	= BPF_PROG_TYPE_SCHED_ACT,
- };
- 
-+static struct bpf_prog_type_list xdp_type __read_mostly = {
-+	.ops	= &xdp_ops,
-+	.type	= BPF_PROG_TYPE_XDP,
-+};
-+
- static int __init register_sk_filter_ops(void)
- {
- 	bpf_register_prog_type(&sk_filter_type);
- 	bpf_register_prog_type(&sched_cls_type);
- 	bpf_register_prog_type(&sched_act_type);
-+	bpf_register_prog_type(&xdp_type);
- 
- 	return 0;
- }
+ struct mlx4_wqe_ctrl_seg {
+ 	__be32			owner_opcode;
+-	union {
+-		struct {
+-			__be16			vlan_tag;
+-			u8			ins_vlan;
+-			u8			fence_size;
+-		};
+-		__be32			bf_qpn;
+-	};
++	union mlx4_wqe_qpn_vlan	qpn_vlan;
+ 	/*
+ 	 * High 24 bits are SRC remote buffer; low 8 bits are flags:
+ 	 * [7]   SO (strong ordering)
 -- 
 2.8.2
