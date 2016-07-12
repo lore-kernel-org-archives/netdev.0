@@ -1,126 +1,130 @@
-From: Jiri Pirko <jiri@resnulli.us>
-Subject: [patch net-next v2 1/2] devlink: add hardware messages tracing facility
-Date: Tue, 12 Jul 2016 18:05:03 +0200
-Message-ID: <1468339504-27580-1-git-send-email-jiri@resnulli.us>
-Cc: davem@davemloft.net, idosch@mellanox.com, yotamg@mellanox.com,
-	eladr@mellanox.com, nogahf@mellanox.com, ogerlitz@mellanox.com,
-	ivecera@redhat.com, rostedt@goodmis.org, mingo@redhat.com,
-	jolsa@kernel.org
-To: netdev@vger.kernel.org
+From: Jakub Kicinski <jakub.kicinski@netronome.com>
+Subject: Re: [PATCH v8 01/11] bpf: add XDP prog type for early driver filter
+Date: Tue, 12 Jul 2016 17:08:16 +0100
+Message-ID: <20160712170816.1dd8ba18@jkicinski-Precision-T1700>
+References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
+	<1468309894-26258-2-git-send-email-bblanco@plumgrid.com>
+	<20160712151431.26cbac82@redhat.com>
+	<CALx6S36aPgB1PCsTg7Z=SNGQs_8REMm4qJdpp6JJ6ksVp_65VA@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jesper Dangaard Brouer <brouer@redhat.com>,
+	Brenden Blanco <bblanco@plumgrid.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Linux Kernel Network Developers <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>, Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	john fastabend <john.fastabend@gmail.com>,
+	Hannes Frederic Sowa <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Tom Herbert <tom@herbertland.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-wm0-f66.google.com ([74.125.82.66]:35461 "EHLO
-	mail-wm0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751477AbcGLQFI (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 12:05:08 -0400
-Received: by mail-wm0-f66.google.com with SMTP id i5so2530053wmg.2
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 09:05:07 -0700 (PDT)
+Received: from mail-lf0-f43.google.com ([209.85.215.43]:36535 "EHLO
+	mail-lf0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S933018AbcGLQIY (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 12:08:24 -0400
+Received: by mail-lf0-f43.google.com with SMTP id q132so18024436lfe.3
+        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 09:08:23 -0700 (PDT)
+In-Reply-To: <CALx6S36aPgB1PCsTg7Z=SNGQs_8REMm4qJdpp6JJ6ksVp_65VA@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Jiri Pirko <jiri@mellanox.com>
+On Tue, 12 Jul 2016 07:52:53 -0700, Tom Herbert wrote:
+> On Tue, Jul 12, 2016 at 6:14 AM, Jesper Dangaard Brouer
+> <brouer@redhat.com> wrote:
+> >
+> > On Tue, 12 Jul 2016 00:51:24 -0700 Brenden Blanco <bblanco@plumgrid.com> wrote:
+> >  
+> >> Add a new bpf prog type that is intended to run in early stages of the
+> >> packet rx path. Only minimal packet metadata will be available, hence a
+> >> new context type, struct xdp_md, is exposed to userspace. So far only
+> >> expose the packet start and end pointers, and only in read mode.
+> >>
+> >> An XDP program must return one of the well known enum values, all other
+> >> return codes are reserved for future use. Unfortunately, this
+> >> restriction is hard to enforce at verification time, so take the
+> >> approach of warning at runtime when such programs are encountered. Out
+> >> of bounds return codes should alias to XDP_ABORTED.  
+> >
+> > This is going to be a serious usability problem, when XDP gets extended
+> > with newer features.
+> >
+> > How can users know what XDP capabilities a given driver support?
 
-Define a tracepoint and allow user to trace messages going to and from
-hardware associated with devlink instance.
+I'm personally not a big fan of return codes.  I'm hoping we can express
+most decisions by setting fields in metadata.  It provides a better
+structure and is easier to detect/translate/optimize.
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
----
-v1->v2:
-- Use EXPORT_TRACEPOINT_SYMBOL_GPL instead of a wrapper function
-  as suggested by David Ahern and Steven Rostedt
----
- include/trace/events/devlink.h | 68 ++++++++++++++++++++++++++++++++++++++++++
- net/core/devlink.c             |  4 +++
- 2 files changed, 72 insertions(+)
- create mode 100644 include/trace/events/devlink.h
+> We talked about this a the XDP summit and I have some slides on this
+> (hope to have slides posted shortly) . Drivers, more generally XDP
+> platforms, will provide a list APIs that they support. APIs would be
+> contained in a sort common specification files that and would have
+> some name like basic_xdp_api, adv_switch_api, etc. An XDP program is
+> written using one of the published APIs and the API it uses is
+> expressed as part of the program. At runtime (possibly compile time)
+> the API used by the program is checked against the list of APIs for
+> the target platform-- if the API is not in the set then the program is
+> not allowed to be loaded. To whatever extent possible we should also
+> try to verify that program adhere's to the API as load and compile
+> time. In the event that program violates the API it claims to be
+> using, such as return invalid return code for the API, that is an
+> error condition.
 
-diff --git a/include/trace/events/devlink.h b/include/trace/events/devlink.h
-new file mode 100644
-index 0000000..333c32a
---- /dev/null
-+++ b/include/trace/events/devlink.h
-@@ -0,0 +1,68 @@
-+#if IS_ENABLED(CONFIG_NET_DEVLINK)
-+
-+#undef TRACE_SYSTEM
-+#define TRACE_SYSTEM devlink
-+
-+#if !defined(_TRACE_DEVLINK_H) || defined(TRACE_HEADER_MULTI_READ)
-+#define _TRACE_DEVLINK_H
-+
-+#include <linux/device.h>
-+#include <net/devlink.h>
-+#include <linux/tracepoint.h>
-+
-+/*
-+ * Tracepoint for devlink hardware message:
-+ */
-+TRACE_EVENT(devlink_hwmsg,
-+	TP_PROTO(const struct devlink *devlink, bool incoming,
-+		 unsigned long type, const u8 *buf, size_t len),
-+
-+	TP_ARGS(devlink, incoming, type, buf, len),
-+
-+	TP_STRUCT__entry(
-+		__string(bus_name, devlink->dev->bus->name)
-+		__string(dev_name, dev_name(devlink->dev))
-+		__string(owner_name, devlink->dev->driver->owner->name)
-+		__field(bool, incoming)
-+		__field(unsigned long, type)
-+		__dynamic_array(u8, buf, len)
-+		__field(size_t, len)
-+	),
-+
-+	TP_fast_assign(
-+		__assign_str(bus_name, devlink->dev->bus->name);
-+		__assign_str(dev_name, dev_name(devlink->dev));
-+		__assign_str(owner_name, devlink->dev->driver->owner->name);
-+		__entry->incoming = incoming;
-+		__entry->type = type;
-+		memcpy(__get_dynamic_array(buf), buf, len);
-+		__entry->len = len;
-+	),
-+
-+	TP_printk("bus_name=%s dev_name=%s owner_name=%s incoming=%d type=%lu buf=0x[%*phD] len=%lu",
-+		  __get_str(bus_name), __get_str(dev_name),
-+		  __get_str(owner_name), __entry->incoming, __entry->type,
-+		  (int) __entry->len, __get_dynamic_array(buf), __entry->len)
-+);
-+
-+#endif /* _TRACE_DEVLINK_H */
-+
-+/* This part must be outside protection */
-+#include <trace/define_trace.h>
-+
-+#else /* CONFIG_NET_DEVLINK */
-+
-+#if !defined(_TRACE_DEVLINK_H)
-+#define _TRACE_DEVLINK_H
-+
-+#include <net/devlink.h>
-+
-+static inline void trace_devlink_hwmsg(const struct devlink *devlink,
-+				       bool incoming, unsigned long type,
-+				       const u8 *buf, size_t len)
-+{
-+}
-+
-+#endif /* _TRACE_DEVLINK_H */
-+
-+#endif
-diff --git a/net/core/devlink.c b/net/core/devlink.c
-index b2e592a..1b50630 100644
---- a/net/core/devlink.c
-+++ b/net/core/devlink.c
-@@ -26,6 +26,10 @@
- #include <net/net_namespace.h>
- #include <net/sock.h>
- #include <net/devlink.h>
-+#define CREATE_TRACE_POINTS
-+#include <trace/events/devlink.h>
-+
-+EXPORT_TRACEPOINT_SYMBOL_GPL(devlink_hwmsg);
- 
- static LIST_HEAD(devlink_list);
- 
--- 
-2.5.5
++1
+
+> > If the user loads a XDP program using capabilities not avail in the
+> > driver, then all his traffic will be hard dropped.
+> >
+> >
+> > My proposal is to NOT allow XDP programs to be loaded if they want to use
+> > return-codes/features not supported by the driver.  Thus, eBPF programs
+> > register/annotate their needed capabilities upfront (I guess this could
+> > also help HW offload engines).
+
+Not sure we need annotation, use of an API will probably be easily
+detectable (call of a function, access to metadata field).  Verifier
+could collect that info in-kernel with little effort.
+
+> Exactly. We just need to define exactly how this is done ;-)
+> 
+> One open issue is whether XDP needs to be binary compatible across
+> platforms or source code compatible (also require recompile in latter
+> case for each platform). Personally I prefer source code compatible
+> since that might allow platforms to implement the API specifically for
+> their needs (like the ordering of fields in a meta data structure.
+
+Since XDP is so close to hardware by design, I think we could consider
+introducing per-HW translation stage between the verifier and host JIT.
+For extended metadata problem for example - we could define metadata as:
+
+meta {
+	void *packet_start;
+	void *packet_end;
+	struct standard_meta *extended_meta;
+}
+
+standard_meta {
+	vlan;
+	timestamp;
+	hash;
+	...
+}
+
+Program coming from the user space would just use standard_meta but
+per-driver/per-HW translator would patch it up.  extended_meta pointer
+would probably become pointer to HW-specific queue descriptor at
+runtime.  The per-HW translator stage would change the offsets and add
+necessary checks and fix-ups.  It could even be possible to translate
+from extended_meta access to access to metadata prepended to the frame,
+translator would need a hint from the verifier on how to get the packet
+pointer.
+
+I haven't thought this through in detail, it's just an idea which would
+help us to keep binary compatibility.  HW-specific optimizations in
+user space compiler would be great, but breaking binary compatibility
+is a bit of a scary step.
