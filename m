@@ -1,59 +1,58 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH v7 02/11] net: add ndo to setup/query xdp prog in
- adapter rx
-Date: Mon, 11 Jul 2016 23:45:53 -0700 (PDT)
-Message-ID: <20160711.234553.1347801109908530356.davem@davemloft.net>
-References: <1468272598-21390-3-git-send-email-bblanco@plumgrid.com>
-	<20160711.231224.1254700854465723599.davem@davemloft.net>
-	<20160712063457.GB20499@gmail.com>
+From: Jiri Pirko <jiri@resnulli.us>
+Subject: Re: [patch net-next 1/2] devlink: add hardware messages tracing
+ facility
+Date: Tue, 12 Jul 2016 08:47:58 +0200
+Message-ID: <20160712064758.GB1884@nanopsycho.orion>
+References: <1468243128-6669-1-git-send-email-jiri@resnulli.us>
+ <20160711165412.0ba05675@gandalf.local.home>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@vger.kernel.org, jhs@mojatatu.com,
-	saeedm@dev.mellanox.co.il, kafai@fb.com, brouer@redhat.com,
-	as754m@att.com, alexei.starovoitov@gmail.com, gerlitz.or@gmail.com,
-	john.fastabend@gmail.com, hannes@stressinduktion.org,
-	tgraf@suug.ch, tom@herbertland.com, daniel@iogearbox.net
-To: bblanco@plumgrid.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, davem@davemloft.net, idosch@mellanox.com,
+	yotamg@mellanox.com, eladr@mellanox.com, nogahf@mellanox.com,
+	ogerlitz@mellanox.com, ivecera@redhat.com, mingo@redhat.com,
+	jolsa@kernel.org
+To: Steven Rostedt <rostedt@goodmis.org>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:37458 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750847AbcGLGp7 (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 02:45:59 -0400
-In-Reply-To: <20160712063457.GB20499@gmail.com>
+Received: from mail-wm0-f68.google.com ([74.125.82.68]:33731 "EHLO
+	mail-wm0-f68.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750743AbcGLGsC (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 02:48:02 -0400
+Received: by mail-wm0-f68.google.com with SMTP id o80so1092017wme.0
+        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 23:48:00 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <20160711165412.0ba05675@gandalf.local.home>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Brenden Blanco <bblanco@plumgrid.com>
-Date: Mon, 11 Jul 2016 23:35:00 -0700
+Mon, Jul 11, 2016 at 10:54:12PM CEST, rostedt@goodmis.org wrote:
+>On Mon, 11 Jul 2016 15:18:47 +0200
+>Jiri Pirko <jiri@resnulli.us> wrote:
+>
+>> diff --git a/include/net/devlink.h b/include/net/devlink.h
+>> index c99ffe8..865ade6 100644
+>> --- a/include/net/devlink.h
+>> +++ b/include/net/devlink.h
+>> @@ -115,6 +115,8 @@ struct devlink *devlink_alloc(const struct devlink_ops *ops, size_t priv_size);
+>>  int devlink_register(struct devlink *devlink, struct device *dev);
+>>  void devlink_unregister(struct devlink *devlink);
+>>  void devlink_free(struct devlink *devlink);
+>> +void devlink_trace_hwmsg(const struct devlink *devlink, bool incoming,
+>> +			 unsigned long type, const u8 *buf, size_t len);
+>>  int devlink_port_register(struct devlink *devlink,
+>>  			  struct devlink_port *devlink_port,
+>>  			  unsigned int port_index);
+>> @@ -154,6 +156,12 @@ static inline void devlink_free(struct devlink *devlink)
+>>  	kfree(devlink);
+>>  }
+>>  
+>> +static inline void devlink_trace_hwmsg(const struct devlink *devlink,
+>> +				       bool incoming, unsigned long type,
+>> +				       const u8 *buf, size_t len);
+>> +{
+>> +}
+>> +
+>
+>I'm assuming the !CONFIG_NET_DEVLINK was never tested, because the
+>above probably wont build, and if it did, it would be wrong.
 
-> On Mon, Jul 11, 2016 at 11:12:24PM -0700, David Miller wrote:
->> From: Brenden Blanco <bblanco@plumgrid.com>
->> Date: Mon, 11 Jul 2016 14:29:49 -0700
->> 
->> > +	if (fd >= 0) {
->> > +		prog = bpf_prog_get_type(fd, BPF_PROG_TYPE_XDP);
->> > +		if (IS_ERR(prog))
->> > +			return PTR_ERR(prog);
->> > +	}
->> > +
->> > +	xdp.command = XDP_SETUP_PROG;
->> > +	xdp.prog = prog;
->> > +	err = ops->ndo_xdp(dev, &xdp);
->> > +	if (err < 0 && prog)
->> > +		bpf_prog_put(prog);
->> 
->> I don't understand the reference counting on 'prog' here.
->> 
->> The enumeration documentation states that no matter what, the passed
->> in prog doesn't need to be mangaged by the ->ndo_xdp() method.
->> 
->> Therefore, if that is true, we must always put the 'prog' here if it
->> is non-NULL.  Regardless of the 'err' value.
->> 
-> The documentation is unclear then. What I _meant_ to say is that the callee
-> is not responsible for putting the program on error, but on success it
-> takes ownership of the reference. In context of that, does the code make
-> sense? Is there a more conventional way of handling this?
-
-Then please document it more clearly, thanks.
+Will fix.
