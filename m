@@ -1,22 +1,43 @@
 From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH] virtio-net: Remove more stack DMA
-Date: Tue, 12 Jul 2016 10:40:30 -0700 (PDT)
-Message-ID: <20160712.104030.1596691470300748311.davem@davemloft.net>
-References: <1ff8c3e69b8d4f1ad717affa073b279a74ee4309.1468272497.git.luto@kernel.org>
+Subject: Re: [PATCH net-next,v3] tools: hv: Add a script to help bonding
+ synthetic and VF NICs
+Date: Tue, 12 Jul 2016 10:42:05 -0700 (PDT)
+Message-ID: <20160712.104205.1794908532241720091.davem@davemloft.net>
+References: <1468282002-19723-1-git-send-email-haiyangz@exchange.microsoft.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: x86@kernel.org, linux-kernel@vger.kernel.org, mst@redhat.com,
-	netdev@vger.kernel.org
-To: luto@kernel.org
-Return-path: <linux-kernel-owner@vger.kernel.org>
-In-Reply-To: <1ff8c3e69b8d4f1ad717affa073b279a74ee4309.1468272497.git.luto@kernel.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: netdev@vger.kernel.org, olaf@aepfle.de,
+ driverdev-devel@linuxdriverproject.org
+To: haiyangz@microsoft.com, haiyangz@exchange.microsoft.com
+Return-path: <driverdev-devel-bounces@linuxdriverproject.org>
+In-Reply-To: <1468282002-19723-1-git-send-email-haiyangz@exchange.microsoft.com>
+List-Unsubscribe: <http://driverdev.linuxdriverproject.org/mailman/options/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=unsubscribe>
+List-Archive: <http://driverdev.linuxdriverproject.org/pipermail/driverdev-devel/>
+List-Post: <mailto:driverdev-devel@linuxdriverproject.org>
+List-Help: <mailto:driverdev-devel-request@linuxdriverproject.org?subject=help>
+List-Subscribe: <http://driverdev.linuxdriverproject.org/mailman/listinfo/driverdev-devel>,
+ <mailto:driverdev-devel-request@linuxdriverproject.org?subject=subscribe>
+Errors-To: driverdev-devel-bounces@linuxdriverproject.org
+Sender: "devel" <driverdev-devel-bounces@linuxdriverproject.org>
 List-Id: netdev.vger.kernel.org
 
-From: Andy Lutomirski <luto@kernel.org>
-Date: Mon, 11 Jul 2016 14:30:28 -0700
+From: Haiyang Zhang <haiyangz@exchange.microsoft.com>
+Date: Mon, 11 Jul 2016 17:06:42 -0700
 
-> DaveM, is it okay for this to go in via -tip?
+> From: Haiyang Zhang <haiyangz@microsoft.com>
+> 
+> This script helps to create bonding network devices based on synthetic NIC
+> (the virtual network adapter usually provided by Hyper-V) and the matching
+> VF NIC (SRIOV virtual function). So the synthetic NIC and VF NIC can
+> function as one network device, and fail over to the synthetic NIC if VF is
+> down.
+> 
+> Mayjor distros (RHEL, Ubuntu, SLES) supported by Hyper-V are supported by
+> this script.
+> 
+> Signed-off-by: Haiyang Zhang <haiyangz@microsoft.com>
+> Reviewed-by: K. Y. Srinivasan <kys@microsoft.com>
 
-Sure.
+Applied.
