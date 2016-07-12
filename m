@@ -1,33 +1,94 @@
-From: David Miller <davem@davemloft.net>
-Subject: Re: [PATCH -next] net: ethernet: bgmac: Fix return value check in
- bgmac_probe()
-Date: Mon, 11 Jul 2016 19:52:19 -0700 (PDT)
-Message-ID: <20160711.195219.1516092377245302826.davem@davemloft.net>
-References: <1468282648-1746-1-git-send-email-weiyj_lk@163.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: arnd@arndb.de, f.fainelli@gmail.com, jon.mason@broadcom.com,
-	yongjun_wei@trendmicro.com.cn, netdev@vger.kernel.org
-To: weiyj_lk@163.com
+From: Sasha Levin <sasha.levin@oracle.com>
+Subject: [added to the 4.1 stable tree] VSOCK: do not disconnect socket when peer has shutdown SEND only
+Date: Mon, 11 Jul 2016 22:55:22 -0400
+Message-ID: <1468292170-22812-221-git-send-email-sasha.levin@oracle.com>
+References: <1468292170-22812-1-git-send-email-sasha.levin@oracle.com>
+Cc: Ian Campbell <ian.campbell@docker.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	Stefan Hajnoczi <stefanha@redhat.com>,
+	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
+	Andy King <acking@vmware.com>,
+	Dmitry Torokhov <dtor@vmware.com>,
+	Jorgen Hansen <jhansen@vmware.com>,
+	Adit Ranadive <aditr@vmware.com>, netdev@vger.kernel.org,
+	Sasha Levin <sasha.levin@oracle.com>
+To: stable@vger.kernel.org, stable-commits@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from shards.monkeyblade.net ([184.105.139.130]:35518 "EHLO
-	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S932514AbcGLCwV (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 22:52:21 -0400
-In-Reply-To: <1468282648-1746-1-git-send-email-weiyj_lk@163.com>
+Received: from aserp1040.oracle.com ([141.146.126.69]:25197 "EHLO
+	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1030548AbcGLDEQ (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 23:04:16 -0400
+In-Reply-To: <1468292170-22812-1-git-send-email-sasha.levin@oracle.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: weiyj_lk@163.com
-Date: Tue, 12 Jul 2016 00:17:28 +0000
+From: Ian Campbell <ian.campbell@docker.com>
 
-> From: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
-> 
-> In case of error, the function devm_ioremap_resource() returns ERR_PTR()
-> and never returns NULL. The NULL test in the return value check should be
-> replaced with IS_ERR().
-> 
-> Signed-off-by: Wei Yongjun <yongjun_wei@trendmicro.com.cn>
+This patch has been added to the 4.1 stable tree. If you have any
+objections, please let us know.
 
-Applied, thanks.
+===============
+
+[ Upstream commit dedc58e067d8c379a15a8a183c5db318201295bb ]
+
+The peer may be expecting a reply having sent a request and then done a
+shutdown(SHUT_WR), so tearing down the whole socket at this point seems
+wrong and breaks for me with a client which does a SHUT_WR.
+
+Looking at other socket family's stream_recvmsg callbacks doing a shutdown
+here does not seem to be the norm and removing it does not seem to have
+had any adverse effects that I can see.
+
+I'm using Stefan's RFC virtio transport patches, I'm unsure of the impact
+on the vmci transport.
+
+Signed-off-by: Ian Campbell <ian.campbell@docker.com>
+Cc: "David S. Miller" <davem@davemloft.net>
+Cc: Stefan Hajnoczi <stefanha@redhat.com>
+Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
+Cc: Andy King <acking@vmware.com>
+Cc: Dmitry Torokhov <dtor@vmware.com>
+Cc: Jorgen Hansen <jhansen@vmware.com>
+Cc: Adit Ranadive <aditr@vmware.com>
+Cc: netdev@vger.kernel.org
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
+---
+ net/vmw_vsock/af_vsock.c | 21 +--------------------
+ 1 file changed, 1 insertion(+), 20 deletions(-)
+
+diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
+index 2ec86e6..e1c69b2 100644
+--- a/net/vmw_vsock/af_vsock.c
++++ b/net/vmw_vsock/af_vsock.c
+@@ -1794,27 +1794,8 @@ vsock_stream_recvmsg(struct socket *sock, struct msghdr *msg, size_t len,
+ 	else if (sk->sk_shutdown & RCV_SHUTDOWN)
+ 		err = 0;
+ 
+-	if (copied > 0) {
+-		/* We only do these additional bookkeeping/notification steps
+-		 * if we actually copied something out of the queue pair
+-		 * instead of just peeking ahead.
+-		 */
+-
+-		if (!(flags & MSG_PEEK)) {
+-			/* If the other side has shutdown for sending and there
+-			 * is nothing more to read, then modify the socket
+-			 * state.
+-			 */
+-			if (vsk->peer_shutdown & SEND_SHUTDOWN) {
+-				if (vsock_stream_has_data(vsk) <= 0) {
+-					sk->sk_state = SS_UNCONNECTED;
+-					sock_set_flag(sk, SOCK_DONE);
+-					sk->sk_state_change(sk);
+-				}
+-			}
+-		}
++	if (copied > 0)
+ 		err = copied;
+-	}
+ 
+ out_wait:
+ 	finish_wait(sk_sleep(sk), &wait);
+-- 
+2.5.0
