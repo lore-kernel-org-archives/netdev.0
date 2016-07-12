@@ -1,35 +1,138 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 3/3] crypto: Added Chelsio Menu to the Kconfig file
-Date: Tue, 12 Jul 2016 16:44:54 +0800
-Message-ID: <20160712084454.GA30073@gondor.apana.org.au>
-References: <1468261688-24525-4-git-send-email-yeshaswi@chelsio.com>
- <201607120334.VOPyqMzK%fengguang.wu@intel.com>
+From: Mason <slash.tmp@free.fr>
+Subject: Re: WARNING: CPU: 0 PID: 0 at net/ipv4/af_inet.c:155
+ inet_sock_destruct+0x1c4/0x1dc
+Date: Tue, 12 Jul 2016 11:53:58 +0200
+Message-ID: <5784BE36.8060200@free.fr>
+References: <577BB72E.3020904@free.fr> <577BC94A.4060204@free.fr>
+ <577BD201.2040202@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Yeshaswi M R Gowda <yeshaswi@chelsio.com>, kbuild-all@01.org,
-	hariprasad@chelsio.com, netdev@vger.kernel.org,
-	linux-kernel@vger.kernel.org, davem@davemloft.net,
-	linux-crypto@vger.kernel.org, jlulla@chelsio.com,
-	atul.gupta@chelsio.com, harsh@chelsio.com
-To: kbuild test robot <lkp@intel.com>
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+Cc: Linux ARM <linux-arm-kernel@lists.infradead.org>,
+	Sebastian Frias <sf84@laposte.net>
+To: Florian Fainelli <f.fainelli@gmail.com>,
+	netdev <netdev@vger.kernel.org>,
+	LKML <linux-kernel@vger.kernel.org>
 Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <201607120334.VOPyqMzK%fengguang.wu@intel.com>
+In-Reply-To: <577BD201.2040202@gmail.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 12, 2016 at 03:30:41AM +0800, kbuild test robot wrote:
-> Hi,
+On 05/07/2016 17:28, Florian Fainelli wrote:
+
+> Le 05/07/2016 07:50, Mason wrote:
 > 
-> [auto build test WARNING on net-next/master]
-> [also build test WARNING on v4.7-rc7 next-20160711]
-> [if your patch is applied to the wrong git tree, please drop us a note to help improve the system]
+>> On 05/07/2016 15:33, Mason wrote:
+>> 
+>>> I was testing suspend/resume sequences where the suspend operation
+>>> fails and returns without having suspended the platform.
 
-Yeshaswi, please fix these warnings/errors even though they're
-compile-only.
+Please forget I ever mentioned suspend, that was a red herring.
+The warning is displayed even if I never suspend.
+(Dropping linux-pm from this discussion.)
 
-Thanks,
--- 
-Email: Herbert Xu <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>> I rebooted, tried the same operation, and hit the same warning
+>> still 310 seconds later:
+
+However, the 310 seconds time span still seems to be relevant.
+
+Steps to reproduce: I booted the system, logged in as root,
+mounted an NFS file system, then left the system idling at
+the prompt.
+
+(I don't remember seeing this warning in v4.1 and v4.4)
+
+What's going wrong here? Is it related to NFS?
+
+Here is the defconfig I'm using
+http://pastebin.ubuntu.com/19160299/
+
+Regards.
+
+
+[  317.940133] ------------[ cut here ]------------
+[  317.944815] WARNING: CPU: 1 PID: 0 at net/ipv4/af_inet.c:155 inet_sock_destruct+0x1c4/0x1dc
+[  317.953223] Modules linked in:
+[  317.956305] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.7.0-rc6-00010-gd07031bdc433-dirty #2
+[  317.964784] Hardware name: Sigma Tango DT
+[  317.968809] Backtrace: 
+[  317.971279] [<c010b974>] (dump_backtrace) from [<c010bb70>] (show_stack+0x18/0x1c)
+[  317.978884]  r7:60000113 r6:c080ea84 r5:00000000 r4:c080ea84
+[  317.984590] [<c010bb58>] (show_stack) from [<c02e9fc4>] (dump_stack+0x80/0x94)
+[  317.991856] [<c02e9f44>] (dump_stack) from [<c011bfb0>] (__warn+0xec/0x104)
+[  317.998849]  r7:00000009 r6:c05e3fc8 r5:00000000 r4:00000000
+[  318.004549] [<c011bec4>] (__warn) from [<c011c080>] (warn_slowpath_null+0x28/0x30)
+[  318.012154]  r9:dfbea4e0 r8:0000000a r7:df45fe30 r6:dec19594 r5:df68f144 r4:df68f040
+[  318.019954] [<c011c058>] (warn_slowpath_null) from [<c0463be4>] (inet_sock_destruct+0x1c4/0x1dc)
+[  318.028788] [<c0463a20>] (inet_sock_destruct) from [<c03e9c40>] (__sk_destruct+0x28/0xe0)
+[  318.037005]  r7:df45fe30 r6:dec19594 r5:df68f040 r4:df68f1ec
+[  318.042710] [<c03e9c18>] (__sk_destruct) from [<c016f218>] (rcu_process_callbacks+0x488/0x59c)
+[  318.051363]  r5:00000000 r4:00000000
+[  318.054962] [<c016ed90>] (rcu_process_callbacks) from [<c01207cc>] (__do_softirq+0x138/0x264)
+[  318.063527]  r10:c08020a0 r9:40000001 r8:00000101 r7:df45e000 r6:c08020a4 r5:00000009
+[  318.071408]  r4:00000000
+[  318.073953] [<c0120694>] (__do_softirq) from [<c0120bec>] (irq_exit+0xc8/0x104)
+[  318.081296]  r10:df45ff58 r9:df402400 r8:00000001 r7:00000000 r6:00000013 r5:00000000
+[  318.089176]  r4:c0735428
+[  318.091723] [<c0120b24>] (irq_exit) from [<c01625f8>] (__handle_domain_irq+0x88/0xf4)
+[  318.099595] [<c0162570>] (__handle_domain_irq) from [<c01014ac>] (gic_handle_irq+0x50/0x94)
+[  318.107986]  r10:00000000 r9:e0803100 r8:e0802100 r7:df45ff58 r6:e080210c r5:c080277c
+[  318.115865]  r4:c080eca0 r3:df45ff58
+[  318.119461] [<c010145c>] (gic_handle_irq) from [<c010c694>] (__irq_svc+0x54/0x90)
+[  318.126980] Exception stack(0xdf45ff58 to 0xdf45ffa0)
+[  318.132053] ff40:                                                       00000001 00000000
+[  318.140273] ff60: 0000ab80 c0117c80 df45e000 c08024f8 c0802494 c081e2d6 c05b9550 413fc090
+[  318.148492] ff80: 00000000 df45ffb4 df45ffb8 df45ffa8 c01086b0 c01086b4 60000013 ffffffff
+[  318.156709]  r9:413fc090 r8:c05b9550 r7:df45ff8c r6:ffffffff r5:60000013 r4:c01086b4
+[  318.164512] [<c0108674>] (arch_cpu_idle) from [<c0155f3c>] (default_idle_call+0x28/0x34)
+[  318.172646] [<c0155f14>] (default_idle_call) from [<c0156070>] (cpu_startup_entry+0x128/0x17c)
+[  318.181305] [<c0155f48>] (cpu_startup_entry) from [<c010dc14>] (secondary_start_kernel+0x158/0x164)
+[  318.190395]  r7:c081e7c8 r4:c080b4f0
+[  318.193993] [<c010dabc>] (secondary_start_kernel) from [<8010158c>] (0x8010158c)
+[  318.201423]  r5:00000051 r4:9f44006a
+[  318.205024] ---[ end trace 6e04001434b19cb9 ]---
+
+
+Just to be sure, I performed the same steps a second time:
+
+[  316.238527] ------------[ cut here ]------------
+[  316.243210] WARNING: CPU: 1 PID: 0 at net/ipv4/af_inet.c:155 inet_sock_destruct+0x1c4/0x1dc
+[  316.251619] Modules linked in:
+[  316.254702] CPU: 1 PID: 0 Comm: swapper/1 Not tainted 4.7.0-rc6-00010-gd07031bdc433-dirty #2
+[  316.263182] Hardware name: Sigma Tango DT
+[  316.267206] Backtrace: 
+[  316.269675] [<c010b974>] (dump_backtrace) from [<c010bb70>] (show_stack+0x18/0x1c)
+[  316.277280]  r7:60000113 r6:c080ea84 r5:00000000 r4:c080ea84
+[  316.282986] [<c010bb58>] (show_stack) from [<c02e9fc4>] (dump_stack+0x80/0x94)
+[  316.290254] [<c02e9f44>] (dump_stack) from [<c011bfb0>] (__warn+0xec/0x104)
+[  316.297247]  r7:00000009 r6:c05e3fc8 r5:00000000 r4:00000000
+[  316.302947] [<c011bec4>] (__warn) from [<c011c080>] (warn_slowpath_null+0x28/0x30)
+[  316.310552]  r9:dfbea4e0 r8:0000000a r7:df45fe30 r6:dec15694 r5:df6063c4 r4:df6062c0
+[  316.318354] [<c011c058>] (warn_slowpath_null) from [<c0463be4>] (inet_sock_destruct+0x1c4/0x1dc)
+[  316.327190] [<c0463a20>] (inet_sock_destruct) from [<c03e9c40>] (__sk_destruct+0x28/0xe0)
+[  316.335406]  r7:df45fe30 r6:dec15694 r5:df6062c0 r4:df60646c
+[  316.341112] [<c03e9c18>] (__sk_destruct) from [<c016f218>] (rcu_process_callbacks+0x488/0x59c)
+[  316.349765]  r5:00000000 r4:00000000
+[  316.353363] [<c016ed90>] (rcu_process_callbacks) from [<c01207cc>] (__do_softirq+0x138/0x264)
+[  316.361929]  r10:c08020a0 r9:40000001 r8:00000101 r7:df45e000 r6:c08020a4 r5:00000009
+[  316.369811]  r4:00000000
+[  316.372356] [<c0120694>] (__do_softirq) from [<c0120bec>] (irq_exit+0xc8/0x104)
+[  316.379699]  r10:df45ff58 r9:df402400 r8:00000001 r7:00000000 r6:00000013 r5:00000000
+[  316.387579]  r4:c0735428
+[  316.390127] [<c0120b24>] (irq_exit) from [<c01625f8>] (__handle_domain_irq+0x88/0xf4)
+[  316.397998] [<c0162570>] (__handle_domain_irq) from [<c01014ac>] (gic_handle_irq+0x50/0x94)
+[  316.406388]  r10:00000000 r9:e0803100 r8:e0802100 r7:df45ff58 r6:e080210c r5:c080277c
+[  316.414268]  r4:c080eca0 r3:df45ff58
+[  316.417862] [<c010145c>] (gic_handle_irq) from [<c010c694>] (__irq_svc+0x54/0x90)
+[  316.425382] Exception stack(0xdf45ff58 to 0xdf45ffa0)
+[  316.430456] ff40:                                                       00000001 00000000
+[  316.438676] ff60: 00009370 c0117c80 df45e000 c08024f8 c0802494 c081e2d6 c05b9550 413fc090
+[  316.446897] ff80: 00000000 df45ffb4 df45ffb8 df45ffa8 c01086b0 c01086b4 60000013 ffffffff
+[  316.455113]  r9:413fc090 r8:c05b9550 r7:df45ff8c r6:ffffffff r5:60000013 r4:c01086b4
+[  316.462916] [<c0108674>] (arch_cpu_idle) from [<c0155f3c>] (default_idle_call+0x28/0x34)
+[  316.471051] [<c0155f14>] (default_idle_call) from [<c0156070>] (cpu_startup_entry+0x128/0x17c)
+[  316.479709] [<c0155f48>] (cpu_startup_entry) from [<c010dc14>] (secondary_start_kernel+0x158/0x164)
+[  316.488799]  r7:c081e7c8 r4:c080b4f0
+[  316.492395] [<c010dabc>] (secondary_start_kernel) from [<8010158c>] (0x8010158c)
+[  316.499826]  r5:00000051 r4:9f44006a
+[  316.503430] ---[ end trace 2dd53d8e86a1a69b ]---
