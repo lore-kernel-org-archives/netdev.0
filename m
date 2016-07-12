@@ -1,7 +1,7 @@
 From: Pablo Neira Ayuso <pablo@netfilter.org>
-Subject: [PATCH 5/6] netfilter: nft_ct: fix expiration getter
-Date: Tue, 12 Jul 2016 18:11:01 +0200
-Message-ID: <1468339862-4028-6-git-send-email-pablo@netfilter.org>
+Subject: [PATCH 2/6] netfilter: nft_meta: set skb->nf_trace appropriately
+Date: Tue, 12 Jul 2016 18:10:58 +0200
+Message-ID: <1468339862-4028-3-git-send-email-pablo@netfilter.org>
 References: <1468339862-4028-1-git-send-email-pablo@netfilter.org>
 Cc: davem@davemloft.net, netdev@vger.kernel.org
 To: netfilter-devel@vger.kernel.org
@@ -10,64 +10,33 @@ In-Reply-To: <1468339862-4028-1-git-send-email-pablo@netfilter.org>
 Sender: netfilter-devel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-From: Florian Westphal <fw@strlen.de>
+From: Liping Zhang <liping.zhang@spreadtrum.com>
 
-We need to compute timeout.expires - jiffies, not the other way around.
-Add a helper, another patch can then later change more places in
-conntrack code where we currently open-code this.
+When user add a nft rule to set nftrace to zero, for example:
 
-Will allow us to only change one place later when we remove per-ct timer.
+  # nft add rule ip filter input nftrace set 0
 
-Signed-off-by: Florian Westphal <fw@strlen.de>
+We should set nf_trace to zero also.
+
+Signed-off-by: Liping Zhang <liping.zhang@spreadtrum.com>
 Signed-off-by: Pablo Neira Ayuso <pablo@netfilter.org>
 ---
- include/net/netfilter/nf_conntrack.h | 8 ++++++++
- net/netfilter/nft_ct.c               | 6 +-----
- 2 files changed, 9 insertions(+), 5 deletions(-)
+ net/netfilter/nft_meta.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
 
-diff --git a/include/net/netfilter/nf_conntrack.h b/include/net/netfilter/nf_conntrack.h
-index dd78bea..b6083c3 100644
---- a/include/net/netfilter/nf_conntrack.h
-+++ b/include/net/netfilter/nf_conntrack.h
-@@ -284,6 +284,14 @@ static inline bool nf_is_loopback_packet(const struct sk_buff *skb)
- 	return skb->dev && skb->skb_iif && skb->dev->flags & IFF_LOOPBACK;
- }
- 
-+/* jiffies until ct expires, 0 if already expired */
-+static inline unsigned long nf_ct_expires(const struct nf_conn *ct)
-+{
-+	long timeout = (long)ct->timeout.expires - (long)jiffies;
-+
-+	return timeout > 0 ? timeout : 0;
-+}
-+
- struct kernel_param;
- 
- int nf_conntrack_set_hashsize(const char *val, struct kernel_param *kp);
-diff --git a/net/netfilter/nft_ct.c b/net/netfilter/nft_ct.c
-index 137e308..81fbb45 100644
---- a/net/netfilter/nft_ct.c
-+++ b/net/netfilter/nft_ct.c
-@@ -54,7 +54,6 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
- 	const struct nf_conn_help *help;
- 	const struct nf_conntrack_tuple *tuple;
- 	const struct nf_conntrack_helper *helper;
--	long diff;
- 	unsigned int state;
- 
- 	ct = nf_ct_get(pkt->skb, &ctinfo);
-@@ -94,10 +93,7 @@ static void nft_ct_get_eval(const struct nft_expr *expr,
- 		return;
- #endif
- 	case NFT_CT_EXPIRATION:
--		diff = (long)jiffies - (long)ct->timeout.expires;
--		if (diff < 0)
--			diff = 0;
--		*dest = jiffies_to_msecs(diff);
-+		*dest = jiffies_to_msecs(nf_ct_expires(ct));
- 		return;
- 	case NFT_CT_HELPER:
- 		if (ct->master == NULL)
+diff --git a/net/netfilter/nft_meta.c b/net/netfilter/nft_meta.c
+index 16c50b0..f4bad9d 100644
+--- a/net/netfilter/nft_meta.c
++++ b/net/netfilter/nft_meta.c
+@@ -227,7 +227,7 @@ void nft_meta_set_eval(const struct nft_expr *expr,
+ 			skb->pkt_type = value;
+ 		break;
+ 	case NFT_META_NFTRACE:
+-		skb->nf_trace = 1;
++		skb->nf_trace = !!value;
+ 		break;
+ 	default:
+ 		WARN_ON(1);
 -- 
 2.1.4
 
