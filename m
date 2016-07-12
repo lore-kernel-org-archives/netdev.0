@@ -1,48 +1,74 @@
-From: Cong Wang <xiyou.wangcong@gmail.com>
-Subject: Re: 4.6.3, pppoe + shaper workload, skb_panic / skb_push / ppp_start_xmit
-Date: Tue, 12 Jul 2016 10:31:18 -0700
-Message-ID: <CAM_iQpWuCw6Bgm=1BWMkoFkuav5xV+FyKPq0Ef+3N_qpQqv=AA@mail.gmail.com>
-References: <c72d23549eaa7aadee1a66a6bb788a4a@nuclearcat.com>
+From: David Miller <davem@davemloft.net>
+Subject: Re: [PATCH net v2 0/2] net: ethoc: Error path and transmit fixes
+Date: Tue, 12 Jul 2016 10:35:07 -0700 (PDT)
+Message-ID: <20160712.103507.519164050156166949.davem@davemloft.net>
+References: <1468280155-13152-1-git-send-email-f.fainelli@gmail.com>
+	<20160712135109.GB19495@octofox.metropolis>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: nuclearcat@nuclearcat.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: f.fainelli@gmail.com, netdev@vger.kernel.org,
+	colin.king@canonical.com, tklauser@distanz.ch,
+	thierry.reding@gmail.com
+To: jcmvbkbc@gmail.com
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-io0-f177.google.com ([209.85.223.177]:36463 "EHLO
-	mail-io0-f177.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751178AbcGLRbj (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 13:31:39 -0400
-Received: by mail-io0-f177.google.com with SMTP id b62so23067172iod.3
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 10:31:38 -0700 (PDT)
-In-Reply-To: <c72d23549eaa7aadee1a66a6bb788a4a@nuclearcat.com>
+Received: from shards.monkeyblade.net ([184.105.139.130]:45946 "EHLO
+	shards.monkeyblade.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750816AbcGLRfI (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 13:35:08 -0400
+In-Reply-To: <20160712135109.GB19495@octofox.metropolis>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 11, 2016 at 12:45 PM,  <nuclearcat@nuclearcat.com> wrote:
-> Hi
->
-> On latest kernel i noticed kernel panic happening 1-2 times per day. It is
-> also happening on older kernel (at least 4.5.3).
->
-...
->  [42916.426463] Call Trace:
->  [42916.426658]  <IRQ>
->
->  [42916.426719]  [<ffffffff81843786>] skb_push+0x36/0x37
->  [42916.427111]  [<ffffffffa00e8ce5>] ppp_start_xmit+0x10f/0x150
-> [ppp_generic]
->  [42916.427314]  [<ffffffff81853467>] dev_hard_start_xmit+0x25a/0x2d3
->  [42916.427516]  [<ffffffff818530f2>] ?
-> validate_xmit_skb.isra.107.part.108+0x11d/0x238
->  [42916.427858]  [<ffffffff8186dee3>] sch_direct_xmit+0x89/0x1b5
->  [42916.428060]  [<ffffffff8186e142>] __qdisc_run+0x133/0x170
->  [42916.428261]  [<ffffffff81850034>] net_tx_action+0xe3/0x148
->  [42916.428462]  [<ffffffff810c401a>] __do_softirq+0xb9/0x1a9
->  [42916.428663]  [<ffffffff810c4251>] irq_exit+0x37/0x7c
->  [42916.428862]  [<ffffffff8102b8f7>] smp_apic_timer_interrupt+0x3d/0x48
->  [42916.429063]  [<ffffffff818cb15c>] apic_timer_interrupt+0x7c/0x90
+From: Max Filippov <jcmvbkbc@gmail.com>
+Date: Tue, 12 Jul 2016 16:51:10 +0300
 
-Interesting, we call a skb_cow_head() before skb_push() in ppp_start_xmit(),
-I have no idea why this could happen.
+> Hello,
+> 
+> On Mon, Jul 11, 2016 at 04:35:53PM -0700, Florian Fainelli wrote:
+>> This patch series contains two patches for the ethoc driver while testing on a
+>> TS-7300 board where ethoc is provided by an on-board FPGA.
+>> 
+>> First patch was cooked after chasing crashes with invalid resources passed to
+>> the driver.
+>> 
+>> Second patch was cooked after seeing that an interface configured with IP
+>> 192.168.2.2 was sending ARP packets for 192.168.0.0, no wonder why it could not
+>> work.
+> 
+> I can see opencores intrerface sending ARP packets shorter than 64 bytes,
+> but I couldn't reproduce truncation that affects packet contents on my
+> hardware.
+> 
+>> I don't have access to any other platform using an ethoc interface so
+>> it could be good to some testing on Xtensa for instance.
+> 
+> I've tested success and error paths affected by this series with the
+> following additional change on top of it:
+> 
+> diff --git a/drivers/net/ethernet/ethoc.c b/drivers/net/ethernet/ethoc.c
+> index ca678d4..8c94f45 100644
+> --- a/drivers/net/ethernet/ethoc.c
+> +++ b/drivers/net/ethernet/ethoc.c
+> @@ -862,7 +862,7 @@ static netdev_tx_t ethoc_start_xmit(struct sk_buff *skb, struct net_device *dev)
+>  
+>  	if (skb_put_padto(skb, ETHOC_ZLEN)) {
+>  		dev->stats.tx_errors++;
+> -		goto out;
+> +		return NETDEV_TX_OK;
+>  	}
+>  
+>  	if (unlikely(skb->len > ETHOC_BUFSIZ)) {
+> 
+> Without it the interface becomes non-functional after the first error
+> in skb_put_padto.
+> 
+> Tested-by: Max Filippov <jcmvbkbc@gmail.com>
+> Reviewed-by: Max Filippov <jcmvbkbc@gmail.com>
 
-Do you have any tc qdisc, filter or actions on this ppp device?
+Indeed, skb_put_padto() frees the skb on error so this would have caused
+a double free.
+
+Florian, please respin this series with the fix and tags added.
+
+Thanks.
