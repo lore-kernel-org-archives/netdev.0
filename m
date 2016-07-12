@@ -1,78 +1,58 @@
-From: Sargun Dhillon <sargun@sargun.me>
-Subject: Re: eBPF tunable max instructions or max tail call?
-Date: Tue, 12 Jul 2016 09:17:50 -0700
-Message-ID: <CAMp4zn9diJnvcuXWfxao4-+UkOQ2AerBPjU5_H6br9yq718_aA@mail.gmail.com>
-References: <CAMp4zn-6G+41PrsAHH3ZuKcKa-o16_d7ZEuRE517v42iA=Y-Ug@mail.gmail.com>
- <20160712031446.GA49510@ast-mbp.thefacebook.com>
+From: Charles-Antoine Couret <charles-antoine.couret@nexvision.fr>
+Subject: Re: [PATCH v3] Marvell phy: add fiber status check and configuration
+ for some phys
+Date: Tue, 12 Jul 2016 17:34:55 +0200
+Message-ID: <2b03e18d-807c-4380-2c2c-10294cdf48d7@nexvision.fr>
+References: <20160404132552.GH21828@lunn.ch> <570BFF50.6060909@gmail.com>
+ <d3b31c38-a15c-bf49-d787-1a7dcd11849d@nexvision.fr>
+ <9dd03fd9-1241-fc7d-ead3-feb7e918d4c3@nexvision.fr>
+ <20160602145636.GA15379@lunn.ch>
+ <75f458dd-6f6e-153d-eff1-d2b1112f268f@nexvision.fr>
+ <20160712151809.GA31432@lunn.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
-	Thomas Graf <tgraf@suug.ch>
-To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Content-Type: text/plain; charset=windows-1252
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: netdev <netdev@vger.kernel.org>,
+	Florian Fainelli <f.fainelli@gmail.com>
+To: Andrew Lunn <andrew@lunn.ch>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-oi0-f44.google.com ([209.85.218.44]:35331 "EHLO
-	mail-oi0-f44.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751176AbcGLQSb (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 12:18:31 -0400
-Received: by mail-oi0-f44.google.com with SMTP id r2so29942617oih.2
-        for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 09:18:30 -0700 (PDT)
-In-Reply-To: <20160712031446.GA49510@ast-mbp.thefacebook.com>
+Received: from 17.mo3.mail-out.ovh.net ([87.98.178.58]:44347 "EHLO
+	17.mo3.mail-out.ovh.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750865AbcGLQSq (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 12:18:46 -0400
+Received: from player734.ha.ovh.net (b7.ovh.net [213.186.33.57])
+	by mo3.mail-out.ovh.net (Postfix) with ESMTP id CA0321024418
+	for <netdev@vger.kernel.org>; Tue, 12 Jul 2016 17:59:07 +0200 (CEST)
+In-Reply-To: <20160712151809.GA31432@lunn.ch>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On Mon, Jul 11, 2016 at 8:14 PM, Alexei Starovoitov
-<alexei.starovoitov@gmail.com> wrote:
-> On Mon, Jul 11, 2016 at 05:56:07PM -0700, Sargun Dhillon wrote:
->> It would be nice to have eBPF programs that are longer than 4096
->> instructions. I'm trying to implement XSalsa20 in eBPF, and
->> unfortunately, it doesn't fit into 4096 instructions since I'm
->> unrolling all of the loops. Further than that, doing tail calls to
->> process each block results in me hitting the tail call limit.
->
-> a cipher in bpf? wow. that's pushing it :)
-> we've been discussing various way of adding 'bounded loop' instruction
-> to avoid manual unrolling, but it will be still limited to the 4k
-> instruction per program, so probably won't help this use case.
-> Are you trying to do it in the networking context?
 
-Yeah, I'm trying to do this as a TC filter. Instruction wise, each 64
-byte chunk is about 5000 instructions using LLVM's automatic loop
-unrolling. I need the first and last invocation to be for finishing
-and initializing the key schedule, setting checksums, etc.. So, I'm
-pretty close -- this implementation wasn't actually XSalsa20, it was a
-port of the Kernel's implementation of Salsa20. I think bumping the
-instruction limit to 8k would do the trick.
 
->
->> It don't think that it makes much sense to expose the crypto API as
->> BPF helpers, as I'm not sure if we can ensure safety, and timely
->> execution with it. I may be wrong here, and if there is a sane, safe
->> way to expose the crypto API, I'm all ears.
->
-> we had the patches to connect crypto api with bpf, but they were
-> too hacky to upstream, since then we redesigned the approach
-> and the latest should be much cleaner. The keys will be managed
-> through normal xfrm api and bpf will call into crypto with
-> mechanism similar to tail-call. The program will specify the
-> offset/length within the packet to encrypt/decrypt and next
-> program to execute when crypto operation completes.
-> Root only for xdp and tc only.
->
-This is really interesting to me. Right now, I'm passing the key via
-embedding it in the code itself. It allows LLVM to do a bit more
-optimization. The crypto APIs are really nice and well fleshed out.
-XFRM on the other hand introduces a lot of complexity that I'm trying
-to avoid. It'd be nice if we could treat cryptographic state as just
-another type of BPF map.
+Le 12/07/2016 =E0 17:18, Andrew Lunn a =E9crit :
+> Hi Charles
+It's Charles-Antoine. ;)
 
->> Other than that, it would be nice to make the max instructions a knob,
->> and I don't think that it has much downside, given it's only checked
->> on load time. It would be nice to make the tail call limit a tunable
->> as well, but I'm unsure of the performance impact it might have given
->> that it's checked at runtime.
->>
->> What do y'all think is reasonable? Make them both tunable? Just one? None?
->
-> It is preferred to achieve the goal without introducing a knob.
-> Also sounds like that increasing 4k to 8k won't really solve it anyway.
->
+>=20
+> It is best to submit a number of smaller patches, each doing one
+> thing, than a single big patch. It makes review and discussion much
+> simpler.
+I'm sorry, I will fix that.
+
+
+> So for example, this should be a patch of its own:
+>=20
+>> @@ -151,6 +165,7 @@ struct marvell_hw_stat {
+>> =20
+>>  static struct marvell_hw_stat marvell_hw_stats[] =3D {
+>>  	{ "phy_receive_errors", 0, 21, 16},
+>> +	{ "phy_receive_errors_fiber", 1, 21, 16},
+>>  	{ "phy_idle_errors", 0, 10, 8 },
+>>  };
+>=20
+> I think we should also rename phy_receive_errors to
+> phy_receive_errors_copper.
+
+I agree with you. I will fix that too.
+Thanks.
+Charles-Antoine Couret
