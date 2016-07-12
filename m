@@ -1,94 +1,59 @@
-From: Sasha Levin <sasha.levin@oracle.com>
-Subject: [added to the 3.18 stable tree] VSOCK: do not disconnect socket when peer has shutdown SEND only
-Date: Mon, 11 Jul 2016 23:00:37 -0400
-Message-ID: <1468292479-23684-185-git-send-email-sasha.levin@oracle.com>
-References: <1468292479-23684-1-git-send-email-sasha.levin@oracle.com>
-Cc: Ian Campbell <ian.campbell@docker.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Stefan Hajnoczi <stefanha@redhat.com>,
-	Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>,
-	Andy King <acking@vmware.com>,
-	Dmitry Torokhov <dtor@vmware.com>,
-	Jorgen Hansen <jhansen@vmware.com>,
-	Adit Ranadive <aditr@vmware.com>, netdev@vger.kernel.org,
-	Sasha Levin <sasha.levin@oracle.com>
-To: stable@vger.kernel.org, stable-commits@vger.kernel.org
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: eBPF tunable max instructions or max tail call?
+Date: Mon, 11 Jul 2016 20:14:49 -0700
+Message-ID: <20160712031446.GA49510@ast-mbp.thefacebook.com>
+References: <CAMp4zn-6G+41PrsAHH3ZuKcKa-o16_d7ZEuRE517v42iA=Y-Ug@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@vger.kernel.org, Daniel Borkmann <daniel@iogearbox.net>,
+	Thomas Graf <tgraf@suug.ch>
+To: Sargun Dhillon <sargun@sargun.me>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from aserp1040.oracle.com ([141.146.126.69]:25406 "EHLO
-	aserp1040.oracle.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S934093AbcGLDEv (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 23:04:51 -0400
-In-Reply-To: <1468292479-23684-1-git-send-email-sasha.levin@oracle.com>
+Received: from mail-pf0-f173.google.com ([209.85.192.173]:36211 "EHLO
+	mail-pf0-f173.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S932496AbcGLDOy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Mon, 11 Jul 2016 23:14:54 -0400
+Received: by mail-pf0-f173.google.com with SMTP id t190so1608173pfb.3
+        for <netdev@vger.kernel.org>; Mon, 11 Jul 2016 20:14:54 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <CAMp4zn-6G+41PrsAHH3ZuKcKa-o16_d7ZEuRE517v42iA=Y-Ug@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-From: Ian Campbell <ian.campbell@docker.com>
+On Mon, Jul 11, 2016 at 05:56:07PM -0700, Sargun Dhillon wrote:
+> It would be nice to have eBPF programs that are longer than 4096
+> instructions. I'm trying to implement XSalsa20 in eBPF, and
+> unfortunately, it doesn't fit into 4096 instructions since I'm
+> unrolling all of the loops. Further than that, doing tail calls to
+> process each block results in me hitting the tail call limit.
 
-This patch has been added to the 3.18 stable tree. If you have any
-objections, please let us know.
+a cipher in bpf? wow. that's pushing it :)
+we've been discussing various way of adding 'bounded loop' instruction
+to avoid manual unrolling, but it will be still limited to the 4k
+instruction per program, so probably won't help this use case.
+Are you trying to do it in the networking context?
 
-===============
+> It don't think that it makes much sense to expose the crypto API as
+> BPF helpers, as I'm not sure if we can ensure safety, and timely
+> execution with it. I may be wrong here, and if there is a sane, safe
+> way to expose the crypto API, I'm all ears.
 
-[ Upstream commit dedc58e067d8c379a15a8a183c5db318201295bb ]
+we had the patches to connect crypto api with bpf, but they were
+too hacky to upstream, since then we redesigned the approach
+and the latest should be much cleaner. The keys will be managed
+through normal xfrm api and bpf will call into crypto with
+mechanism similar to tail-call. The program will specify the
+offset/length within the packet to encrypt/decrypt and next
+program to execute when crypto operation completes.
+Root only for xdp and tc only.
 
-The peer may be expecting a reply having sent a request and then done a
-shutdown(SHUT_WR), so tearing down the whole socket at this point seems
-wrong and breaks for me with a client which does a SHUT_WR.
+> Other than that, it would be nice to make the max instructions a knob,
+> and I don't think that it has much downside, given it's only checked
+> on load time. It would be nice to make the tail call limit a tunable
+> as well, but I'm unsure of the performance impact it might have given
+> that it's checked at runtime.
+> 
+> What do y'all think is reasonable? Make them both tunable? Just one? None?
 
-Looking at other socket family's stream_recvmsg callbacks doing a shutdown
-here does not seem to be the norm and removing it does not seem to have
-had any adverse effects that I can see.
-
-I'm using Stefan's RFC virtio transport patches, I'm unsure of the impact
-on the vmci transport.
-
-Signed-off-by: Ian Campbell <ian.campbell@docker.com>
-Cc: "David S. Miller" <davem@davemloft.net>
-Cc: Stefan Hajnoczi <stefanha@redhat.com>
-Cc: Claudio Imbrenda <imbrenda@linux.vnet.ibm.com>
-Cc: Andy King <acking@vmware.com>
-Cc: Dmitry Torokhov <dtor@vmware.com>
-Cc: Jorgen Hansen <jhansen@vmware.com>
-Cc: Adit Ranadive <aditr@vmware.com>
-Cc: netdev@vger.kernel.org
-Signed-off-by: David S. Miller <davem@davemloft.net>
-Signed-off-by: Sasha Levin <sasha.levin@oracle.com>
----
- net/vmw_vsock/af_vsock.c | 21 +--------------------
- 1 file changed, 1 insertion(+), 20 deletions(-)
-
-diff --git a/net/vmw_vsock/af_vsock.c b/net/vmw_vsock/af_vsock.c
-index 85d232b..e8d3313 100644
---- a/net/vmw_vsock/af_vsock.c
-+++ b/net/vmw_vsock/af_vsock.c
-@@ -1796,27 +1796,8 @@ vsock_stream_recvmsg(struct kiocb *kiocb,
- 	else if (sk->sk_shutdown & RCV_SHUTDOWN)
- 		err = 0;
- 
--	if (copied > 0) {
--		/* We only do these additional bookkeeping/notification steps
--		 * if we actually copied something out of the queue pair
--		 * instead of just peeking ahead.
--		 */
--
--		if (!(flags & MSG_PEEK)) {
--			/* If the other side has shutdown for sending and there
--			 * is nothing more to read, then modify the socket
--			 * state.
--			 */
--			if (vsk->peer_shutdown & SEND_SHUTDOWN) {
--				if (vsock_stream_has_data(vsk) <= 0) {
--					sk->sk_state = SS_UNCONNECTED;
--					sock_set_flag(sk, SOCK_DONE);
--					sk->sk_state_change(sk);
--				}
--			}
--		}
-+	if (copied > 0)
- 		err = copied;
--	}
- 
- out_wait:
- 	finish_wait(sk_sleep(sk), &wait);
--- 
-2.5.0
+It is preferred to achieve the goal without introducing a knob.
+Also sounds like that increasing 4k to 8k won't really solve it anyway.
