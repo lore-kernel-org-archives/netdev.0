@@ -1,65 +1,68 @@
-From: Fengguang Wu <lkp@intel.com>
-Subject: Re: [PATCH net-next 3/3] bpf: avoid stack copy and use skb ctx for
- event output
-Date: Wed, 13 Jul 2016 08:01:55 +0800
-Message-ID: <20160713000155.GA20432@wfg-t540p.sh.intel.com>
-References: <201607130750.HlB4VMOA%fengguang.wu@intel.com>
- <5785812B.4080505@iogearbox.net>
+From: Tariq Toukan <tariqt@mellanox.com>
+Subject: RE: [PATCH v8 06/11] net/mlx4_en: add page recycle to prepare rx ring
+ for tx support
+Date: Tue, 12 Jul 2016 12:09:56 +0000
+Message-ID: <AM4PR05MB15533FAED9D659D3AE955878AE300@AM4PR05MB1553.eurprd05.prod.outlook.com>
+References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
+ <1468309894-26258-7-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Cc: kbuild-all@01.org, davem@davemloft.net,
-	alexei.starovoitov@gmail.com, peterz@infradead.org, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Daniel Borkmann <daniel@iogearbox.net>
-Return-path: <linux-kernel-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <5785812B.4080505@iogearbox.net>
-Sender: linux-kernel-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>,
+	"Jesper Dangaard Brouer" <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
+	"Alexei Starovoitov" <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>,
+	Tariq Toukan <ttoukan.linux@gmail.com>
+To: Brenden Blanco <bblanco@plumgrid.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-ve1eur01on0072.outbound.protection.outlook.com ([104.47.1.72]:45600
+	"EHLO EUR01-VE1-obe.outbound.protection.outlook.com"
+	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
+	id S1750784AbcGMAjx convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Tue, 12 Jul 2016 20:39:53 -0400
+In-Reply-To: <1468309894-26258-7-git-send-email-bblanco@plumgrid.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-Hi Daniel,
-
-On Wed, Jul 13, 2016 at 01:45:47AM +0200, Daniel Borkmann wrote:
->On 07/13/2016 01:25 AM, kbuild test robot wrote:
->> Hi,
->>
->> [auto build test WARNING on net-next/master]
->>
->> url:    https://github.com/0day-ci/linux/commits/Daniel-Borkmann/BPF-event-output-helper-improvements/20160713-065944
->> config: s390-allyesconfig (attached as .config)
->> compiler: s390x-linux-gnu-gcc (Debian 5.3.1-8) 5.3.1 20160205
->> reproduce:
->>          wget https://git.kernel.org/cgit/linux/kernel/git/wfg/lkp-tests.git/plain/sbin/make.cross -O ~/bin/make.cross
->>          chmod +x ~/bin/make.cross
->>          # save the attached .config to linux build tree
->>          make.cross ARCH=s390
->>
->> All warnings (new ones prefixed by >>):
->>
->>     kernel/trace/bpf_trace.c: In function 'bpf_perf_event_output':
->>     kernel/trace/bpf_trace.c:284:1: warning: 'bpf_perf_event_output' uses dynamic stack allocation
->>      }
->>      ^
->>     kernel/trace/bpf_trace.c: In function 'bpf_event_output':
->>>> kernel/trace/bpf_trace.c:319:1: warning: 'bpf_event_output' uses dynamic stack allocation
->>      }
->>      ^
+>The mlx4 driver by default allocates order-3 pages for the ring to consume in multiple fragments. When the device has an xdp program, this behavior will prevent tx actions since the page must be re-mapped in TODEVICE mode, which cannot be done if the page is still shared.
 >
->Hmm, searching a bit on lkml, it seems these warnings on s390 are actually mostly
->harmless I believe [1][2] ... looks like they are there to find structs sitting
->on stack, for example, at least that's also what the currently existing one in the
->above line (bpf_trace.c +284) appears to be about.
+>Start by making the allocator configurable based on whether xdp is running, such that order-0 pages are always used and never shared.
+>
+>Since this will stress the page allocator, add a simple page cache to each rx ring. Pages in the cache are left dma-mapped, and in drop-only stress tests the page allocator is eliminated from the perf report.
+>
+>Note that setting an xdp program will now require the rings to be reconfigured.
+>
+>Before:
+> 26.91%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_process_rx_cq
+> 17.88%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_alloc_frags
+>  6.00%  ksoftirqd/0  [mlx4_en]         [k] mlx4_en_free_frag
+>  4.49%  ksoftirqd/0  [kernel.vmlinux]  [k] get_page_from_freelist
+>  3.21%  swapper      [kernel.vmlinux]  [k] intel_idle
+>  2.73%  ksoftirqd/0  [kernel.vmlinux]  [k] bpf_map_lookup_elem
+>  2.57%  swapper      [mlx4_en]         [k] mlx4_en_process_rx_cq
+>
+>After:
+> 31.72%  swapper      [kernel.vmlinux]       [k] intel_idle
+>  8.79%  swapper      [mlx4_en]              [k] mlx4_en_process_rx_cq
+>  7.54%  swapper      [kernel.vmlinux]       [k] poll_idle
+>  6.36%  swapper      [mlx4_core]            [k] mlx4_eq_int
+>  4.21%  swapper      [kernel.vmlinux]       [k] tasklet_action
+>  4.03%  swapper      [kernel.vmlinux]       [k] cpuidle_enter_state
+>  3.43%  swapper      [mlx4_en]              [k] mlx4_en_prepare_rx_desc
+>  2.18%  swapper      [kernel.vmlinux]       [k] native_irq_return_iret
+>  1.37%  swapper      [kernel.vmlinux]       [k] menu_select
+>  1.09%  swapper      [kernel.vmlinux]       [k] bpf_map_lookup_elem
+>
+>Signed-off-by: Brenden Blanco <bblanco@plumgrid.com>
 
-Yes it does look so. All such warnings happen only in s390:
-
-% g -h -o '[^ ]*config' *dynamic-stack* | sort | uniq -c | sort -nr
-    118 s390-allyesconfig
-     80 s390-allmodconfig
-
-Let's ignore all of them on s390.
-
-Thanks,
-Fengguang
-
->   [1] http://lkml.iu.edu/hypermail/linux/kernel/1601.2/04074.html
->   [2] https://lkml.org/lkml/2013/6/25/42
+Reviewed-by: Tariq Toukan <tariqt@mellanox.com>
