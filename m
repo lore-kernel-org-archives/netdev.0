@@ -1,92 +1,83 @@
-From: Kevin Hilman <khilman@baylibre.com>
-Subject: Re: [PATCH RFC 3/3] ARM64: dts: meson-gxbb: use the new meson8b DWMAC glue
-Date: Wed, 13 Jul 2016 14:22:33 -0700
-Message-ID: <m2shvd5j3a.fsf@baylibre.com>
-References: <20160625165013.15917-1-martin.blumenstingl@googlemail.com>
-	<20160625165013.15917-4-martin.blumenstingl@googlemail.com>
-	<20160627092448.GA3275@localhost>
-	<CAFBinCB6i2-ZUDupAXUZkQO9y93rtCvguD_avdY=Ze72wxQKpw@mail.gmail.com>
-	<CAFBinCBcv+4MHe9sFeGLRRRvb7hjX4=XYOtxN_rO1yzVFZisaQ@mail.gmail.com>
-	<146844367410.73491.117379762912178421@resonance>
+From: =?utf-8?Q?Bj=C3=B8rn_Mork?= <bjorn-yOkvZcmFvRU@public.gmane.org>
+Subject: Re: [PATCH] rndis_host: Set random MAC for ZTE MF910
+Date: Thu, 14 Jul 2016 00:23:06 +0200
+Message-ID: <87k2gpnpo5.fsf@miraculix.mork.no>
+References: <1468427945-11600-1-git-send-email-kristian.evensen@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: Martin Blumenstingl <martin.blumenstingl@googlemail.com>,
-	"Carlo Caione" <carlo@caione.org>,
-	linux-amlogic@lists.infradead.org, mark.rutland@arm.com,
-	robh+dt@kernel.org, netdev@vger.kernel.org, peppe.cavallaro@st.com
-To: Michael Turquette <mturquette@baylibre.com>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pa0-f53.google.com ([209.85.220.53]:36018 "EHLO
-	mail-pa0-f53.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751088AbcGMVWg (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 17:22:36 -0400
-Received: by mail-pa0-f53.google.com with SMTP id pp5so14477920pac.3
-        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 14:22:35 -0700 (PDT)
-In-Reply-To: <146844367410.73491.117379762912178421@resonance> (Michael
-	Turquette's message of "Wed, 13 Jul 2016 14:01:14 -0700")
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+To: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <1468427945-11600-1-git-send-email-kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+	(Kristian Evensen's message of "Wed, 13 Jul 2016 18:39:05 +0200")
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Michael Turquette <mturquette@baylibre.com> writes:
+Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org> writes:
 
-> Hi Martin,
+> From: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 >
-> Quoting Martin Blumenstingl (2016-06-27 04:33:49)
->> On Mon, Jun 27, 2016 at 12:44 PM, Martin Blumenstingl
->> <martin.blumenstingl@googlemail.com> wrote:
->> > On Mon, Jun 27, 2016 at 11:24 AM, Carlo Caione <carlo@caione.org> wrote:
->> >> A syscon is a region containing a set of miscellaneous registers used
->> >> for several reasons by several devices [1]. It this case there is really
->> >> no need to define a new syscon node since those two registers are only
->> >> used by your driver.
->> > I can easily change it back if that's the way to go.
->> > Before I do that: could you please confirm that "mp2_clk_out" (which
->> > is controlled by PRG_ETH0/offset 0x0 bits 7-9) is not something which
->> > has to be available through the common clk framework?
->> there was just an IRC discussion with Carlo on this topic:
->> We tried to find whether PRG_ETH0 is used to actually configure
->> "mp2_clk_out". Carlo brought up that it could also be the case that
->> the ethernet block simply needs to be informed about the rate of the
->> mp2_clk_out (which is *probably* the "mpll2" clock).
->> 
->> I'm adding Michael Turquette to this mail, maybe you can comment on this topic.
->> 
->> If it turns out that the etthernet block just has to know about the
->> clock rate then we have two tasks:
->> 1. identify why the mpll2 rate returns 0 on my GXBB device
+> All ZTE MF910 mifis, at least on some revisions, export the same MAC
+> address (36:4b:50:b7:ef:da). Check for this MAC address and set a ran=
+dom
+> MAC if detected.
 >
-> This is in progress, but turns out it doesn't matter for Ethernet. Bit 4
-> in PRG_ETHERNET_ADDR0 control a mux clock inside of the Ethernet
-> controller.
+> Also, changed the memcpy() to ether_addr_copy(), as pointed out by
+> checkpatch.
 >
-> A value of 0x0 selects fclk_div2 and a value of 0x1 selects mp2_clk_out.
-> The bootloader programs in sets the mux to zero, or fclk_div2 as the
-> input clock (which runs at 1GHz).
+> Signed-off-by: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+> ---
+>  drivers/net/usb/rndis_host.c | 9 ++++++++-
+>  1 file changed, 8 insertions(+), 1 deletion(-)
 >
->> 2. change my patch so the new DWMAC glue gets a reference to the mpll2
->> clock and then use "clk_get_rate(mpll2) / (250 * 1000000)" to
->> configure the PRG_ETH0_MP2_CLK bits.
->
-> Hmm, I'm not sure about that part. Bits 7-9 is a divider that further
-> divides the clock signal selected by bit 4. This is set to 0x4, which
-> means we divide the 1GHz fclk_div2 down to 250MHz, which seems to be the
-> expected value coming out of this divider.
->
-> I haven't looked further to see if there is a further programmable
-> divider to divide 250MHz down to 50MHz, or (more likely) there is simply
-> a fixed-factor divide-by-5 that results in the 50MHz rate consumed by
-> the PHY.
->
-> Modeling this all in the mmc driver makes sense. So we would have:
->
-> struct clk_mux clk_m250_sel ->
-> 	struct clk_divider clk_m250_div ->
-> 		struct clk_fixed_factor enet_phy_clk
+> diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_hos=
+t.c
+> index 524a47a281..85bdbdf 100644
+> --- a/drivers/net/usb/rndis_host.c
+> +++ b/drivers/net/usb/rndis_host.c
+> @@ -295,6 +295,9 @@ static const struct net_device_ops rndis_netdev_o=
+ps =3D {
+>  	.ndo_validate_addr	=3D eth_validate_addr,
+>  };
+> =20
+> +/* well-known buggy ZTE MF910 MAC address */
+> +static const u8 buggy_zte_addr[ETH_ALEN] =3D {0x36, 0x4b, 0x50, 0xb7=
+, 0xef, 0xda};
+> +
+>  int
+>  generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, i=
+nt flags)
+>  {
+> @@ -428,7 +431,11 @@ generic_rndis_bind(struct usbnet *dev, struct us=
+b_interface *intf, int flags)
+>  		dev_err(&intf->dev, "rndis get ethaddr, %d\n", retval);
+>  		goto halt_fail_and_release;
+>  	}
+> -	memcpy(net->dev_addr, bp, ETH_ALEN);
+> +
+> +	if (ether_addr_equal(bp, buggy_zte_addr))
+> +		eth_hw_addr_random(net);
+> +	else
+> +		ether_addr_copy(net->dev_addr, bp);
+> =20
+>  	/* set a nonzero filter to enable data transfers */
+>  	memset(u.set, 0, sizeof *u.set);
 
-There's also bit 10: "Generate 25MHz clock for PHY" (which is set to 1
-by the bootloaders on P200 and odroidc2)
 
-This suggests that it might not be a fixed-factor divide-by-5 but a
-choice between a divide-by-5 and a divide-by-10 for the PHY clock.
+Or how about the more generic?:
 
-Kevin
+        if (bp[0] & 0x02)
+   		eth_hw_addr_random(net);
+	else
+		ether_addr_copy(net->dev_addr, bp);
+
+That would catch similar screwups from other vendors too.
+
+
+Bj=C3=B8rn
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
