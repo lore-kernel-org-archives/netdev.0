@@ -1,41 +1,30 @@
-From: Ido Schimmel <idosch@mellanox.com>
-Subject: [PATCH iproute2-master 1/2] man: Add devlink man pages to Makefile
-Date: Wed, 13 Jul 2016 09:53:53 +0300
-Message-ID: <1468392834-5096-1-git-send-email-idosch@mellanox.com>
+From: ayuj <ayuj.verma@gmail.com>
+Subject: Configure traffic class to bringup DCB in back-to-back setup
+Date: Wed, 13 Jul 2016 09:09:06 +0000 (UTC)
+Message-ID: <loom.20160713T110657-740@post.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: <netdev@vger.kernel.org>, <jiri@mellanox.com>,
-	<eladr@mellanox.com>, <yotamg@mellanox.com>, <nogahf@mellanox.com>,
-	<ogerlitz@mellanox.com>, "Ido Schimmel" <idosch@mellanox.com>
-To: <stephen@networkplumber.org>
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: base64
+To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-db5eur01on0041.outbound.protection.outlook.com ([104.47.2.41]:10752
-	"EHLO EUR01-DB5-obe.outbound.protection.outlook.com"
-	rhost-flags-OK-OK-OK-FAIL) by vger.kernel.org with ESMTP
-	id S1751345AbcGMIcR (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jul 2016 04:32:17 -0400
+Received: from plane.gmane.org ([80.91.229.3]:52297 "EHLO plane.gmane.org"
+	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
+	id S1751448AbcGMJJZ (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jul 2016 05:09:25 -0400
+Received: from list by plane.gmane.org with local (Exim 4.69)
+	(envelope-from <linux-netdev-2@m.gmane.org>)
+	id 1bNGAK-0006SJ-Vb
+	for netdev@vger.kernel.org; Wed, 13 Jul 2016 11:09:13 +0200
+Received: from static-67.218.93.111-tataidc.co.in ([static-67.218.93.111-tataidc.co.in])
+        by main.gmane.org with esmtp (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 11:09:12 +0200
+Received: from ayuj.verma by static-67.218.93.111-tataidc.co.in with local (Gmexim 0.1 (Debian))
+        id 1AlnuQ-0007hv-00
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 11:09:12 +0200
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Signed-off-by: Jiri Pirko <jiri@mellanox.com>
-Signed-off-by: Ido Schimmel <idosch@mellanox.com>
----
- man/man8/Makefile | 3 ++-
- 1 file changed, 2 insertions(+), 1 deletion(-)
-
-diff --git a/man/man8/Makefile b/man/man8/Makefile
-index 929826e..9badbed 100644
---- a/man/man8/Makefile
-+++ b/man/man8/Makefile
-@@ -16,7 +16,8 @@ MAN8PAGES = $(TARGETS) ip.8 arpd.8 lnstat.8 routel.8 rtacct.8 rtmon.8 rtpr.8 ss.
- 	tc-basic.8 tc-cgroup.8 tc-flow.8 tc-flower.8 tc-fw.8 tc-route.8 \
- 	tc-tcindex.8 tc-u32.8 \
- 	tc-connmark.8 tc-csum.8 tc-mirred.8 tc-nat.8 tc-pedit.8 tc-police.8 \
--	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8
-+	tc-simple.8 tc-skbedit.8 tc-vlan.8 tc-xt.8 \
-+	devlink.8 devlink-dev.8 devlink-monitor.8 devlink-port.8 devlink-sb.8
- 
- all: $(TARGETS)
- 
--- 
-2.8.2
+SSBqdXN0IGNoZWNrZWQgVExWJ3MuIEJlbG93IGFyZSB0aGUgZGV0YWlsczoKCk9TIDotIENlbnRPUyA3LjIKa2VybmVsIDMuMTAuMC0zMjcuZWw3Lng4Nl82NApsbGRwYWQ6LSBsbGRwYWQgdjAuOS40NgpkY2J0b29sOi0gdjAuOS40NgppeGdiZSA6LSBpeGdiZS00LjMuMTUKCnN0ZXBzIGZvbGxvd2VkOi0gCgojIG1vZHBvcmJlIGl4Z2JlCiMgc2VydmljZSBsbGRwYWQgc3RhcnQgCiAgICBSZWRpcmVjdGluZyB0byAvYmluL3N5c3RlbWN0bCBzdGFydCAgbGxkcGFkLnNlcnZpY2UKCiMgc2VydmljZSBsbGRwYWQgc3RhdHVzClJlZGlyZWN0aW5nIHRvIC9iaW4vc3lzdGVtY3RsIHN0YXR1cyAgbGxkcGFkLnNlcnZpY2UK4pePIGxsZHBhZC5zZXJ2aWNlIC0gTGluayBMYXllciBEaXNjb3ZlcnkgUHJvdG9jb2wgQWdlbnQgRGFlbW9uLgogICBMb2FkZWQ6IGxvYWRlZCAoL3Vzci9saWIvc3lzdGVtZC9zeXN0ZW0vbGxkcGFkLnNlcnZpY2U7IGRpc2FibGVkOyB2ZW5kb3IKcHJlc2V0OiBkaXNhYmxlZCkKICAgQWN0aXZlOiBhY3RpdmUgKHJ1bm5pbmcpIHNpbmNlIFR1ZSAyMDE2LTA3LTA1IDA1OjQ5OjEyIEVEVDsgMXMgYWdvCiBNYWluIFBJRDogMTMzNzM3IChs
+ bGRwYWQpCiAgIENHcm91cDogL3N5c3RlbS5zbGljZS9sbGRwYWQuc2VydmljZQogICAgICAgICAgIOKUlOKUgDEzMzczNyAvdXNyL3NiaW4vbGxkcGFkIC10CgpKdWwgMDUgMDU6NDk6MTIgbG9jYWxob3N0LmxvY2FsZG9tYWluIHN5c3RlbWRbMV06IFN0YXJ0ZWQgTGluayBMYXllcgpEaXNjb3ZlcnkgUHJvdG9jb2wgQWdlbnQgRGFlbW9uLi4KSnVsIDA1IDA1OjQ5OjEyIGxvY2FsaG9zdC5sb2NhbGRvbWFpbiBzeXN0ZW1kWzFdOiBTdGFydGluZyBMaW5rIExheWVyCkRpc2NvdmVyeSBQcm90b2NvbCBBZ2VudCBEYWVtb24uLi4uCgpsbGRwdG9vbCAtdCAtaSBwM3AyIC1uCkNoYXNzaXMgSUQgVExWCglNQUM6IDAwOjFiOjIxOmJiOjJlOmRhClBvcnQgSUQgVExWCglNQUM6IDAwOjFiOjIxOmJiOjJlOmRhClRpbWUgdG8gTGl2ZSBUTFYKCTEyMApJRUVFIDgwMjFRQVogRVRTIENvbmZpZ3VyYXRpb24gVExWCgkgV2lsbGluZzogeWVzCgkgQ0JTOiBub3Qgc3VwcG9ydGVkCgkgTUFYX1RDUzogOAoJIFBSSU9fTUFQOiAwOjAgMTowIDI6MCAzOjAgNDowIDU6MCA2OjAgNzowIAoJIFRDIEJhbmR3aWR0aDogMCUgMCUgMCUgMCUgMCUgMCUgMCUgMCUgCgkgVFNBX0
+ 1BUDogMDpzdHJpY3QgMTpzdHJpY3QgMjpzdHJpY3QgMzpzdHJpY3QgNDpzdHJpY3QgNTpzdHJpY3QgNjpzdHJpY3QKNzpzdHJpY3QgCklFRUUgODAyMVFBWiBQRkMgVExWCgkgV2lsbGluZzogeWVzCgkgTUFDc2VjIEJ5cGFzcyBDYXBhYmxlOiBubwoJIFBGQyBjYXBhYmxlIHRyYWZmaWMgY2xhc3NlczogOAoJIFBGQyBlbmFibGVkOiBub25lCkVuZCBvZiBMTERQRFUgVExWCgpQbGVhc2UgaGVscCBtZSBpbiBjb25maWd1cmluZyB0cmFmZmljIGNsYXNzZXMuIEkgd2FudCB0byBicmluZ3VwIERDQiBzZXR1cAppbiBhIGJhY2stdG8tYmFjayBzZW5hcmlvLg==
