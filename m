@@ -1,57 +1,59 @@
-From: Beniamino Galvani <bgalvani@redhat.com>
-Subject: [PATCH] bonding: set carrier off for devices created through netlink
-Date: Wed, 13 Jul 2016 18:25:08 +0200
-Message-ID: <1468427108-32516-1-git-send-email-bgalvani@redhat.com>
-Cc: Jay Vosburgh <j.vosburgh@gmail.com>,
-	Veaceslav Falico <vfalico@gmail.com>,
-	Andy Gospodarek <gospo@cumulusnetworks.com>,
-	Phil Oester <kernel@linuxace.com>
-To: netdev@vger.kernel.org
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:46789 "EHLO mx1.redhat.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751532AbcGMQ0G (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jul 2016 12:26:06 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+From: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+Subject: [PATCH] rndis_host: Set random MAC for ZTE MF910
+Date: Wed, 13 Jul 2016 18:39:05 +0200
+Message-ID: <1468427945-11600-1-git-send-email-kristian.evensen@gmail.com>
+Cc: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
+To: linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org, netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-Commit e826eafa65c6 ("bonding: Call netif_carrier_off after
-register_netdevice") moved netif_carrier_off() from bond_init() to
-bond_create(), but the latter is called only for initial default
-devices and ones created through sysfs:
+From: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 
- $ modprobe bonding
- $ echo +bond1 > /sys/class/net/bonding_masters
- $ ip link add bond2 type bond
- $ grep "MII Status" /proc/net/bonding/*
- /proc/net/bonding/bond0:MII Status: down
- /proc/net/bonding/bond1:MII Status: down
- /proc/net/bonding/bond2:MII Status: up
+All ZTE MF910 mifis, at least on some revisions, export the same MAC
+address (36:4b:50:b7:ef:da). Check for this MAC address and set a random
+MAC if detected.
 
-Ensure that carrier is initially off also for devices created through
-netlink.
+Also, changed the memcpy() to ether_addr_copy(), as pointed out by
+checkpatch.
 
-Signed-off-by: Beniamino Galvani <bgalvani@redhat.com>
+Signed-off-by: Kristian Evensen <kristian.evensen-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
 ---
- drivers/net/bonding/bond_netlink.c | 6 +++++-
- 1 file changed, 5 insertions(+), 1 deletion(-)
+ drivers/net/usb/rndis_host.c | 9 ++++++++-
+ 1 file changed, 8 insertions(+), 1 deletion(-)
 
-diff --git a/drivers/net/bonding/bond_netlink.c b/drivers/net/bonding/bond_netlink.c
-index db760e8..b8df0f5 100644
---- a/drivers/net/bonding/bond_netlink.c
-+++ b/drivers/net/bonding/bond_netlink.c
-@@ -446,7 +446,11 @@ static int bond_newlink(struct net *src_net, struct net_device *bond_dev,
- 	if (err < 0)
- 		return err;
+diff --git a/drivers/net/usb/rndis_host.c b/drivers/net/usb/rndis_host.c
+index 524a47a281..85bdbdf 100644
+--- a/drivers/net/usb/rndis_host.c
++++ b/drivers/net/usb/rndis_host.c
+@@ -295,6 +295,9 @@ static const struct net_device_ops rndis_netdev_ops = {
+ 	.ndo_validate_addr	= eth_validate_addr,
+ };
  
--	return register_netdevice(bond_dev);
-+	err = register_netdevice(bond_dev);
++/* well-known buggy ZTE MF910 MAC address */
++static const u8 buggy_zte_addr[ETH_ALEN] = {0x36, 0x4b, 0x50, 0xb7, 0xef, 0xda};
 +
-+	netif_carrier_off(bond_dev);
+ int
+ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
+ {
+@@ -428,7 +431,11 @@ generic_rndis_bind(struct usbnet *dev, struct usb_interface *intf, int flags)
+ 		dev_err(&intf->dev, "rndis get ethaddr, %d\n", retval);
+ 		goto halt_fail_and_release;
+ 	}
+-	memcpy(net->dev_addr, bp, ETH_ALEN);
 +
-+	return err;
- }
++	if (ether_addr_equal(bp, buggy_zte_addr))
++		eth_hw_addr_random(net);
++	else
++		ether_addr_copy(net->dev_addr, bp);
  
- static size_t bond_get_size(const struct net_device *bond_dev)
+ 	/* set a nonzero filter to enable data transfers */
+ 	memset(u.set, 0, sizeof *u.set);
 -- 
-2.5.5
+2.5.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
