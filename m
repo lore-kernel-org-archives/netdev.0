@@ -1,112 +1,70 @@
-From: Daniel Borkmann <daniel@iogearbox.net>
-Subject: Re: [PATCH net-next 1/3] perf, events: add non-linear data support
- for raw records
-Date: Wed, 13 Jul 2016 16:08:55 +0200
-Message-ID: <57864B77.9090105@iogearbox.net>
-References: <cover.1468362046.git.daniel@iogearbox.net> <f6ffffc1011706426682be92f80fc6aa6a8cc196.1468362046.git.daniel@iogearbox.net> <20160713134231.GT30154@twins.programming.kicks-ass.net>
+From: Brenden Blanco <bblanco@plumgrid.com>
+Subject: Re: [PATCH v8 04/11] net/mlx4_en: add support for fast rx drop bpf
+ program
+Date: Wed, 13 Jul 2016 07:08:25 -0700
+Message-ID: <20160713140535.GA22535@gmail.com>
+References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
+ <1468309894-26258-5-git-send-email-bblanco@plumgrid.com>
+ <063D6719AE5E284EB5DD2968C1650D6D5F4F6ED7@AcuExch.aculab.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=windows-1252; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, alexei.starovoitov@gmail.com, tgraf@suug.ch,
-	netdev@vger.kernel.org, linux-kernel@vger.kernel.org
-To: Peter Zijlstra <peterz@infradead.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>,
+	Jesper Dangaard Brouer <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: David Laight <David.Laight@ACULAB.COM>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from www62.your-server.de ([213.133.104.62]:37275 "EHLO
-	www62.your-server.de" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1751688AbcGMOJP (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 10:09:15 -0400
-In-Reply-To: <20160713134231.GT30154@twins.programming.kicks-ass.net>
+Received: from mail-pa0-f50.google.com ([209.85.220.50]:34789 "EHLO
+	mail-pa0-f50.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751659AbcGMOIy (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 10:08:54 -0400
+Received: by mail-pa0-f50.google.com with SMTP id fi15so18213224pac.1
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 07:08:49 -0700 (PDT)
+Content-Disposition: inline
+In-Reply-To: <063D6719AE5E284EB5DD2968C1650D6D5F4F6ED7@AcuExch.aculab.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-Hi Peter,
-
-On 07/13/2016 03:42 PM, Peter Zijlstra wrote:
->
-> Ok so the nonlinear thing was it doing _two_ copies, one the regular
-> __output_copy() on raw->data and second the optional fragment thingy
-> using __output_custom().
->
-> Would something like this work instead?
->
-> It does the nonlinear thing and the custom copy function thing but
-> allows more than 2 fragments and allows each fragment to have a custom
-> copy.
->
-> It doesn't look obviously more expensive; it has the one ->copy branch
-> extra, but then it doesn't recompute the sizes.
-
-Yes, that would work as well on a quick glance with diff just a bit
-bigger, but more generic this way. Do you want me to adapt this into
-the first patch?
-
-One question below:
-
-> diff --git a/include/linux/perf_event.h b/include/linux/perf_event.h
-> index 1fe22032f228..83e2a83e8db3 100644
-> --- a/include/linux/perf_event.h
-> +++ b/include/linux/perf_event.h
-> @@ -69,9 +69,18 @@ struct perf_callchain_entry_ctx {
->   	bool			    contexts_maxed;
->   };
->
-> +typedef unsigned long (*perf_copy_f)(void *dst, const void *src, unsigned long len);
-> +
-> +struct perf_raw_frag {
-> +	struct perf_raw_frag		*next;
-> +	perf_copy_f			copy;
-> +	void				*data;
-> +	u32				size;
-> +} __packed;
-> +
->   struct perf_raw_record {
-> +	struct perf_raw_frag		frag;
->   	u32				size;
-> -	void				*data;
->   };
->
->   /*
-> diff --git a/kernel/events/core.c b/kernel/events/core.c
-> index fe8d49a56322..f7ad7d65317d 100644
-> --- a/kernel/events/core.c
-> +++ b/kernel/events/core.c
-> @@ -5617,16 +5617,21 @@ void perf_output_sample(struct perf_output_handle *handle,
->   	}
->
->   	if (sample_type & PERF_SAMPLE_RAW) {
-> -		if (data->raw) {
-> -			u32 raw_size = data->raw->size;
-> -			u32 real_size = round_up(raw_size + sizeof(u32),
-> -						 sizeof(u64)) - sizeof(u32);
-> -			u64 zero = 0;
-> -
-> -			perf_output_put(handle, real_size);
-> -			__output_copy(handle, data->raw->data, raw_size);
-> -			if (real_size - raw_size)
-> -				__output_copy(handle, &zero, real_size - raw_size);
-> +		struct perf_raw_record *raw = data->raw;
-> +
-> +		if (raw) {
-> +			struct perf_raw_frag *frag = &raw->frag;
-> +
-> +			perf_output_put(handle, raw->size);
-> +			do {
-> +				if (frag->copy) {
-> +					__output_custom(handle, frag->copy,
-> +							frag->data, frag->size);
-> +				} else {
-> +					__output_copy(handle, frag->data, frag->size);
-> +				}
-> +				frag = frag->next;
-> +			} while (frag);
-
-We still need the zero padding here from above with the computed
-raw->size, right?
-
->   		} else {
->   			struct {
->   				u32	size;
-> @@ -5751,14 +5756,22 @@ void perf_prepare_sample(struct perf_event_header *header,
-
-Thanks,
-Daniel
+On Wed, Jul 13, 2016 at 11:27:23AM +0000, David Laight wrote:
+> From: Brenden Blanco
+> > Sent: 12 July 2016 08:51
+> > Add support for the BPF_PROG_TYPE_XDP hook in mlx4 driver.
+> > 
+> > In tc/socket bpf programs, helpers linearize skb fragments as needed
+> > when the program touches the packet data. However, in the pursuit of
+> > speed, XDP programs will not be allowed to use these slower functions,
+> > especially if it involves allocating an skb.
+> > 
+> > Therefore, disallow MTU settings that would produce a multi-fragment
+> > packet that XDP programs would fail to access. Future enhancements could
+> > be done to increase the allowable MTU.
+> 
+> Maybe I'm misunderstanding what is going on here...
+> But what has the MTU to do with how skb are fragmented?
+This is mlx4 specific...depending on the MTU the driver will write data
+into 1536, 1536+4096, 1536+4096+4096, etc. fragments.
+> 
+> If the skb come from a reasonably written USB ethernet interface they could
+> easily have arbitrary fragment boundaries (the frames get packed into USB
+> buffers).
+The XDP program is operating directly on the packet memory, before any
+skb has been allocated. The program also expects a continguous memory
+region to inspect...it's too expensive to linearize the data like we do
+in the tc hook case, that's a feature that costs too much for this type
+of low level feature. Therefore, XDP can only be turned on in
+combination with a cooperative driver, that's the performance tradeoff
+we're imposing here.
+> 
+> Outbound skb can also have fragments depending on how they are generated.
+Sure, but XDP won't run on those. This is an rx-only feature.
+> 
+> 	David
