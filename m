@@ -1,42 +1,51 @@
-From: =?UTF-8?B?TWljaGHFgg==?= Pecio <michal.pecio-Re5JQEeQqe8AvxtiuMwx3w@public.gmane.org>
-Subject: Re: [PATCH v6 RESEND] r8152: Add support for setting pass through
- MAC address on RTL8153-AD
-Date: Wed, 13 Jul 2016 08:23:58 +0200
-Message-ID: <20160713082358.487082a4@sauron>
-References: <1468285084-26557-1-git-send-email-mario_limonciello@dell.com>
- <20160711.194246.742914205682079488.davem@davemloft.net>
- <20160712090248.7b5633e5@sauron>
- <5a304b784fe747aea4de6b69fb12a767@ausx13mpc124.AMER.DELL.COM>
+From: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>
+Subject: Re: [PATCH RESEND] iwlwifi, Do not implement thermal zone unless ucode is loaded
+Date: Wed, 13 Jul 2016 09:50:53 +0300
+Message-ID: <87eg6yav5e.fsf@purkki.adurom.net>
+References: <1468250301-10357-1-git-send-email-prarit@redhat.com>
+	<CANUX_P0AFoM5VEDWDjtvOhNbExu4T1bLWU+uS-EYqoGtu5h2bw@mail.gmail.com>
+	<5783E33E.7090205@redhat.com> <1468261650.20877.14.camel@intel.com>
+	<57840214.8000904@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>, <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <linux-usb-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<anthony.wong-Z7WLFzj8eWMS+FvcfC7Uqw@public.gmane.org>
-To: <Mario_Limonciello-DYMqY+WieiM@public.gmane.org>
-Return-path: <linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <5a304b784fe747aea4de6b69fb12a767-uCoIPMzyhkttLtSlb8FIwwVY21JRvFwKV6yJEvX+wlw@public.gmane.org>
-Sender: linux-usb-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "Grumbach\, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"linux-kernel\@vger.kernel.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	linuxwifi <linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Coelho\, Luciano" <luciano.coelho-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Berg\, Johannes" <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"Ivgi\, Chaya Rachel" <chaya.rachel.ivgi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"netdev\@vger.kernel.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
+	"Sharon\, Sara" <sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
+	"linux-wireless\@vger.kernel.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: Prarit Bhargava <prarit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+In-Reply-To: <57840214.8000904-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> (Prarit Bhargava's message of "Mon,
+	11 Jul 2016 16:31:16 -0400")
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 List-Id: netdev.vger.kernel.org
 
-> So in order to hit this hypothetical corner case today you would 
-> need to be using a real world type-C device something such as a 
-> Dell WD15 on another OEM's machine that has type-C and the exact
-> same ACPI object name that does $BADSTUFF other than return a
-> buffer.
-Exactly what I meant.
- 
-> If that situation arises please alert me and I'll send a follow up
-> patch that whitelists this to match DMI vendor of only Dell 
-> systems.
-I'm not sure if it's the most responsible way to approach this problem.
-There were cases of laptops bricking (as in - they would never power on
-ever again) just because Linux made some bad BIOS/ACPI calls. Also, see
-the famous Samsung UEFI NVRAM fiasco or the recent pains with EFIVARS.
+Prarit Bhargava <prarit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
 
-Regards,
-MP
+>> We implement thermal zone because we do support it, but the problem is
+>> that we need the firmware to be loaded for that. So you can argue that
+>> we should register *later* when the firmware is loaded. But this is
+>> really not helping all that much because the firmware can also be
+>> stopped at any time. So you'd want us to register / unregister the
+>> thermal zone anytime the firmware is loaded / unloaded?
+>
+> You might have to do that.  I think that if the firmware enables a feature then
+> the act of loading the firmware should run the code that enables the feature.
+> IMO of course.
+
+But I suspect that the iwlwifi firmware is loaded during interface up
+(and unloaded during interface down) and in that case
+register/unregister would be happening all the time. That doesn't sound
+like a good idea. I would rather try to fix the thermal interface to
+handle the cases when the measurement is not available.
+
+-- 
+Kalle Valo
 --
-To unsubscribe from this list: send the line "unsubscribe linux-usb" in
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
 the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 More majordomo info at  http://vger.kernel.org/majordomo-info.html
