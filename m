@@ -1,51 +1,67 @@
-From: Matan Barak <matanb-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Subject: Re: [patch] net/mlx5: missing error code in
- esw_create_offloads_fdb_table()
-Date: Wed, 13 Jul 2016 14:19:06 +0300
-Message-ID: <83d5a5bb-dbf5-6c8f-39ea-320d55026a9d@mellanox.com>
-References: <20160713100825.GD29468@mwanda>
+From: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Subject: Re: [PATCH 1/1] tracing, bpf: Implement function bpf_probe_write
+Date: Wed, 13 Jul 2016 10:08:51 -0700
+Message-ID: <20160713170849.GA76615@ast-mbp.thefacebook.com>
+References: <CAMp4zn8ygXFg7kvjShm77zmK2dYVMY2zS8i2mUKwhbfXcyVyig@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="windows-1252"; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Leon Romanovsky <leonro-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	<linux-rdma-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <kernel-janitors-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>,
-	Or Gerlitz <ogerlitz-VPRAkNaXOzVWk0Htik3J/w@public.gmane.org>
-Return-path: <linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <20160713100825.GD29468@mwanda>
-Sender: linux-rdma-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Sargun Dhillon <sargun@sargun.me>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from mail-pa0-f66.google.com ([209.85.220.66]:33687 "EHLO
+	mail-pa0-f66.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1751162AbcGMRJH (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 13:09:07 -0400
+Content-Disposition: inline
+In-Reply-To: <CAMp4zn8ygXFg7kvjShm77zmK2dYVMY2zS8i2mUKwhbfXcyVyig@mail.gmail.com>
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
-On 13/07/2016 13:08, Dan Carpenter wrote:
-> We accidentally return success when we had intended to return an error
-> code.
->
-> Fixes: 69697b6e2086 ('net/mlx5: E-Switch, Add support for the sriov offloads mode')
-> Signed-off-by: Dan Carpenter <dan.carpenter-QHcLZuEGTsvQT0dZR+AlfA@public.gmane.org>
->
-> diff --git a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-> index 1842dfb..7d982cf 100644
-> --- a/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-> +++ b/drivers/net/ethernet/mellanox/mlx5/core/eswitch_offloads.c
-> @@ -183,6 +183,7 @@ static int esw_create_offloads_fdb_table(struct mlx5_eswitch *esw, int nvports)
->
->  	root_ns = mlx5_get_flow_namespace(dev, MLX5_FLOW_NAMESPACE_FDB);
->  	if (!root_ns) {
-> +		err = -EINVAL;
->  		esw_warn(dev, "Failed to get FDB flow namespace\n");
->  		goto ns_err;
->  	}
->
+On Wed, Jul 13, 2016 at 03:36:11AM -0700, Sargun Dhillon wrote:
+> Provides BPF programs, attached to kprobes a safe way to write to
+> memory referenced by probes. This is done by making probe_kernel_write
+> accessible to bpf functions via the bpf_probe_write helper.
 
-Hi,
+not quite :)
 
-Thanks for the patch.
-I'm not sure EINVAL is the right error here though.
-Maybe -ENOTSUPP is a bit more appropriate here.
+> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
+> ---
+>  include/uapi/linux/bpf.h  |  3 +++
+>  kernel/trace/bpf_trace.c  | 20 ++++++++++++++++++++
+>  samples/bpf/bpf_helpers.h |  2 ++
+>  3 files changed, 25 insertions(+)
+> 
+> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+> index 406459b..355b565 100644
+> --- a/include/uapi/linux/bpf.h
+> +++ b/include/uapi/linux/bpf.h
+> @@ -313,6 +313,9 @@ enum bpf_func_id {
+>   */
+>   BPF_FUNC_skb_get_tunnel_opt,
+>   BPF_FUNC_skb_set_tunnel_opt,
+> +
+> + BPF_FUNC_probe_write, /* int bpf_probe_write(void *dst, void *src,
+> int size) */
+> +
 
-Regards,
-Matan
---
-To unsubscribe from this list: send the line "unsubscribe linux-rdma" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+the patch is against some old kernel.
+Please always make the patch against net-next tree and cc netdev list.
+
+> +static u64 bpf_probe_write(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+> +{
+> + void *dst = (void *) (long) r1;
+> + void *unsafe_ptr = (void *) (long) r2;
+> + int  size = (int) r3;
+> +
+> + return probe_kernel_write(dst, unsafe_ptr, size);
+> +}
+
+the patch is whitepsace mangled. Please see Documentation/networking/netdev-FAQ.txt
+
+the main issue though that we cannot simply allow bpf to do probe_write,
+since it may crash the kernel.
+What might be ok is to allow writing into memory of current
+user space process only. This way bpf prog will keep kernel safety guarantees,
+yet it will be able to modify user process memory when necessary.
+Since bpf+tracing is root only, it doesn't pose security risk.
