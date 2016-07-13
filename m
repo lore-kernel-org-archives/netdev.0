@@ -1,83 +1,42 @@
 From: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
-Subject: [PATCH net-next 1/6] sctp: allow others to use sctp_input_cb
-Date: Wed, 13 Jul 2016 15:08:55 -0300
-Message-ID: <615beca39da498ba640c767a1b046bce67357bc7.1468432819.git.marcelo.leitner@gmail.com>
+Subject: [PATCH net-next 5/6] sctp: do not clear chunk->ecn_ce_done flag
+Date: Wed, 13 Jul 2016 15:08:59 -0300
+Message-ID: <349cf5fdf54449cf16097503d5200f60ae388a65.1468432819.git.marcelo.leitner@gmail.com>
 References: <cover.1468432819.git.marcelo.leitner@gmail.com>
 Cc: Neil Horman <nhorman@tuxdriver.com>,
 	Vlad Yasevich <vyasevich@gmail.com>, linux-sctp@vger.kernel.org
 To: netdev@vger.kernel.org
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mx1.redhat.com ([209.132.183.28]:53254 "EHLO mx1.redhat.com"
+Received: from mx1.redhat.com ([209.132.183.28]:38166 "EHLO mx1.redhat.com"
 	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1750912AbcGMSJm (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jul 2016 14:09:42 -0400
+	id S1752604AbcGMSKD (ORCPT <rfc822;netdev@vger.kernel.org>);
+	Wed, 13 Jul 2016 14:10:03 -0400
 In-Reply-To: <cover.1468432819.git.marcelo.leitner@gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-We process input path in other files too and having access to it is
-nice, so move it to a header where it's shared.
+We should not clear that flag when switching to a new skb from a GSO skb
+because it would cause ECN processing to happen multiple times per GSO
+skb, which is not wanted. Instead, let it be processed once per chunk.
+That is, in other words, once per IP header available.
 
+Fixes: 90017accff61 ("sctp: Add GSO support")
 Signed-off-by: Marcelo Ricardo Leitner <marcelo.leitner@gmail.com>
 ---
- include/net/sctp/structs.h | 15 +++++++++++++++
- net/sctp/input.c           | 11 -----------
- 2 files changed, 15 insertions(+), 11 deletions(-)
+ net/sctp/inqueue.c | 1 -
+ 1 file changed, 1 deletion(-)
 
-diff --git a/include/net/sctp/structs.h b/include/net/sctp/structs.h
-index 8626bdd3249a9283955fe81bc3255be0a18717f9..966c3a40039c12a7c525612594a51312d5de1d2a 100644
---- a/include/net/sctp/structs.h
-+++ b/include/net/sctp/structs.h
-@@ -59,6 +59,7 @@
- #include <linux/workqueue.h>	/* We need tq_struct.	 */
- #include <linux/sctp.h>		/* We need sctp* header structs.  */
- #include <net/sctp/auth.h>	/* We need auth specific structs */
-+#include <net/ip.h>		/* For inet_skb_parm */
- 
- /* A convenience structure for handling sockaddr structures.
-  * We should wean ourselves off this.
-@@ -1092,6 +1093,20 @@ static inline void sctp_outq_cork(struct sctp_outq *q)
- 	q->cork = 1;
- }
- 
-+/* SCTP skb control block.
-+ * sctp_input_cb is currently used on rx and sock rx queue
-+ */
-+struct sctp_input_cb {
-+	union {
-+		struct inet_skb_parm	h4;
-+#if IS_ENABLED(CONFIG_IPV6)
-+		struct inet6_skb_parm	h6;
-+#endif
-+	} header;
-+	struct sctp_chunk *chunk;
-+};
-+#define SCTP_INPUT_CB(__skb)	((struct sctp_input_cb *)&((__skb)->cb[0]))
-+
- /* These bind address data fields common between endpoints and associations */
- struct sctp_bind_addr {
- 
-diff --git a/net/sctp/input.c b/net/sctp/input.c
-index 6f8e676d285ead987b0a1337beec3b29c34e0a8e..7a327ff71f08985f6ebb963d5cdc9540b23d0666 100644
---- a/net/sctp/input.c
-+++ b/net/sctp/input.c
-@@ -90,17 +90,6 @@ static inline int sctp_rcv_checksum(struct net *net, struct sk_buff *skb)
- 	return 0;
- }
- 
--struct sctp_input_cb {
--	union {
--		struct inet_skb_parm	h4;
--#if IS_ENABLED(CONFIG_IPV6)
--		struct inet6_skb_parm	h6;
--#endif
--	} header;
--	struct sctp_chunk *chunk;
--};
--#define SCTP_INPUT_CB(__skb)	((struct sctp_input_cb *)&((__skb)->cb[0]))
--
- /*
-  * This is the routine which IP calls when receiving an SCTP packet.
-  */
+diff --git a/net/sctp/inqueue.c b/net/sctp/inqueue.c
+index 8fc773f9b59a8a9ad123dd132cfa5b7f916732b6..942770675f4cc0efc9686f4e4038450f060f34ae 100644
+--- a/net/sctp/inqueue.c
++++ b/net/sctp/inqueue.c
+@@ -217,7 +217,6 @@ new_skb:
+ 		chunk->auth = 0;
+ 		chunk->has_asconf = 0;
+ 		chunk->end_of_packet = 0;
+-		chunk->ecn_ce_done = 0;
+ 		if (chunk->head_skb) {
+ 			struct sctp_input_cb
+ 				*cb = SCTP_INPUT_CB(chunk->skb),
 -- 
 2.7.4
