@@ -1,113 +1,68 @@
-From: John Fastabend <john.fastabend@gmail.com>
-Subject: Re: Configure traffic class to bringup DCB in back-to-back setup
-Date: Wed, 13 Jul 2016 10:44:51 -0700
-Message-ID: <57867E13.3040708@gmail.com>
-References: <loom.20160713T110657-740@post.gmane.org>
+From: Willem de Bruijn <willemdebruijn.kernel@gmail.com>
+Subject: Re: [PATCH net] sock_diag: invert socket destroy broadcast check
+Date: Wed, 13 Jul 2016 13:48:54 -0400
+Message-ID: <CAF=yD-+tvv=S3Grw8=UrD2m4w+_n7VGAbQgX9iruOppQnKCbEw@mail.gmail.com>
+References: <1466798630-40553-1-git-send-email-willemdebruijn.kernel@gmail.com>
+ <8737o2721q.fsf@x220.int.ebiederm.org> <CAF=yD-Jc7JCJJhJ7kuJQzdgbEgmG8dM3szLKLsTOhhqje8G3Fw@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-To: ayuj <ayuj.verma@gmail.com>, netdev@vger.kernel.org,
-	intel-wired-lan <intel-wired-lan@lists.osuosl.org>
+Content-Type: text/plain; charset=UTF-8
+Cc: Network Development <netdev@vger.kernel.org>,
+	David Miller <davem@davemloft.net>,
+	Craig Gallek <kraig@google.com>,
+	Eric Dumazet <eric.dumazet@gmail.com>,
+	Willem de Bruijn <willemb@google.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
 Return-path: <netdev-owner@vger.kernel.org>
-Received: from mail-pf0-f170.google.com ([209.85.192.170]:33343 "EHLO
-	mail-pf0-f170.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
-	with ESMTP id S1750987AbcGMRpX (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 13:45:23 -0400
-Received: by mail-pf0-f170.google.com with SMTP id i123so20548205pfg.0
-        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 10:45:09 -0700 (PDT)
-In-Reply-To: <loom.20160713T110657-740@post.gmane.org>
+Received: from mail-vk0-f43.google.com ([209.85.213.43]:36292 "EHLO
+	mail-vk0-f43.google.com" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750990AbcGMRtg (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 13:49:36 -0400
+Received: by mail-vk0-f43.google.com with SMTP id j126so21861401vkg.3
+        for <netdev@vger.kernel.org>; Wed, 13 Jul 2016 10:49:35 -0700 (PDT)
+In-Reply-To: <CAF=yD-Jc7JCJJhJ7kuJQzdgbEgmG8dM3szLKLsTOhhqje8G3Fw@mail.gmail.com>
 Sender: netdev-owner@vger.kernel.org
 List-ID: <netdev.vger.kernel.org>
 
-On 16-07-13 02:09 AM, ayuj wrote:
-> I just checked TLV's. Below are the details:
->=20
+On Fri, Jun 24, 2016 at 6:22 PM, Willem de Bruijn
+<willemdebruijn.kernel@gmail.com> wrote:
+> On Fri, Jun 24, 2016 at 4:41 PM, Eric W. Biederman
+> <ebiederm@xmission.com> wrote:
+>> Willem de Bruijn <willemdebruijn.kernel@gmail.com> writes:
+>>
+>>> From: Willem de Bruijn <willemb@google.com>
+>>>
+>>> Socket destruction is only broadcast for a socket sk if a diag
+>>> listener is registered and sk is not a kernel socket.
+>>>
+>>> Invert the test to not even check for listeners for kernel sockets.
+>>>
+>>> The sock_diag_has_destroy_listeners invocation dereferences
+>>> sock_net(sk), which for kernel sockets can be invalid as they do not
+>>> take a reference on the network namespace.
+>>
+>> No.  That isn't so.  A kernel socket for a network namespace must be
+>> destroyed in the network namespace teardown.
 
-OK so not really a netdev discussion seeing its just a user
-space protocol setup issue. Going forward probably drop
-netdev and add intel-wired-lan.
+I spent some more time looking at this.
 
-> OS :- CentOS 7.2
-> kernel 3.10.0-327.el7.x86_64
-> lldpad:- lldpad v0.9.46
-> dcbtool:- v0.9.46
-> ixgbe :- ixgbe-4.3.15
->=20
-> steps followed:-=20
->=20
-> # modporbe ixgbe
-> # service lldpad start=20
->     Redirecting to /bin/systemctl start  lldpad.service
->=20
-> # service lldpad status
-> Redirecting to /bin/systemctl status  lldpad.service
-> =E2=97=8F lldpad.service - Link Layer Discovery Protocol Agent Daemon=
-=2E
->    Loaded: loaded (/usr/lib/systemd/system/lldpad.service; disabled; =
-vendor
-> preset: disabled)
->    Active: active (running) since Tue 2016-07-05 05:49:12 EDT; 1s ago
->  Main PID: 133737 (lldpad)
->    CGroup: /system.slice/lldpad.service
->            =E2=94=94=E2=94=80133737 /usr/sbin/lldpad -t
->=20
-> Jul 05 05:49:12 localhost.localdomain systemd[1]: Started Link Layer
-> Discovery Protocol Agent Daemon..
-> Jul 05 05:49:12 localhost.localdomain systemd[1]: Starting Link Layer
-> Discovery Protocol Agent Daemon....
->=20
-> lldptool -t -i p3p2 -n
-> Chassis ID TLV
-> 	MAC: 00:1b:21:bb:2e:da
-> Port ID TLV
-> 	MAC: 00:1b:21:bb:2e:da
-> Time to Live TLV
-> 	120
-> IEEE 8021QAZ ETS Configuration TLV
-> 	 Willing: yes
-> 	 CBS: not supported
-> 	 MAX_TCS: 8
-> 	 PRIO_MAP: 0:0 1:0 2:0 3:0 4:0 5:0 6:0 7:0=20
-> 	 TC Bandwidth: 0% 0% 0% 0% 0% 0% 0% 0%=20
-> 	 TSA_MAP: 0:strict 1:strict 2:strict 3:strict 4:strict 5:strict 6:st=
-rict
-> 7:strict=20
-> IEEE 8021QAZ PFC TLV
-> 	 Willing: yes
-> 	 MACsec Bypass Capable: no
-> 	 PFC capable traffic classes: 8
-> 	 PFC enabled: none
-> End of LLDPDU TLV
->=20
-> Please help me in configuring traffic classes. I want to bringup DCB =
-setup
-> in a back-to-back senario.
->=20
+inet_ctl_sock_destroy does not destroy the socket if there are still
+skbuff with a reference on it (or its sk_wmem_alloc). Skbs are
+orphaned when they leave the namespace through dev_forward_skb, but
+not when sent out a physical nic (correctly, that would break TSQ).
 
-So at the moment it appears to be configured to use 802.1QAZ spec which
-superseded the older spec even though lldpad supports both. Note the
-tool itself really requires some spec knowledge to use correctly. The
-spec to read is 802.1Q.
+The bug happened with macvlan on top of bonding on top of a physical
+nic. The macvlan lives in a temporary namespace. After the macvlan and
+network namespace are destroyed, the physical device has a TCP RST skb
+from net.ipv4->tcp_sk queued for tx completion.
 
-To configure it back-to-back (typical scenario is connected to a DCB
-enabled switch where your administrator would setup the switch and this
-would autoneg just fine) the servers need to be setup manually.
+I have not able to reproduce this exact scenario, likely because tx
+completion handling is on the order of microseconds and not easily
+slowed sufficiently for testing. Using a tap device with skb_orphan
+commented out, I can cause the issue. Commenting out skb_orrphan is
+clearly a gross hack. The point I wanted to verify is that underlying
+device is not stopped --and its queues cleaned of skb-- when the
+macvlan device is destroyed.
 
-Perhaps reading if you haven't already the man page for lldptool and
-lldptool-ets, lldptool-pfc would help. From the ets man page this
-should kick things off,
-
-
-#lldptool -T -i eth2 -V ETS-CFG \
-          tsa=3D0:ets,1:ets,2:ets,3:ets,4:ets,5:ets,6:ets,7:ets \
-          up2tc=3D0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7 \
-          tcbw=3D12,12,12,12,13,13,13,13
-
-
-#lldptool -T -i eth2 -V ETS-REC \
-           tsa=3D0:ets,1:ets,2:ets,3:ets,4:ets,5:ets,6:ets,7:ets \
-           up2tc=3D0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7 \
-           tcbw=3D12,12,12,12,13,13,13,13
-
-Thanks,
-John
+Network namespace teardown is complex. Am I missing a step that does
+prevents the above, or does this indeed sound feasible in principle
+(if very unlikely in practice)?
