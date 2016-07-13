@@ -1,58 +1,57 @@
-From: Leon Romanovsky <leonro@mellanox.com>
-Subject: Re: [patch] net/mlx5: missing error code in
- esw_create_offloads_fdb_table()
-Date: Wed, 13 Jul 2016 14:29:08 +0300
-Message-ID: <20160713112907.GE10079@leon.nu>
-References: <20160713100825.GD29468@mwanda>
+From: David Laight <David.Laight@ACULAB.COM>
+Subject: RE: [PATCH v8 04/11] net/mlx4_en: add support for fast rx drop bpf
+ program
+Date: Wed, 13 Jul 2016 11:27:23 +0000
+Message-ID: <063D6719AE5E284EB5DD2968C1650D6D5F4F6ED7@AcuExch.aculab.com>
+References: <1468309894-26258-1-git-send-email-bblanco@plumgrid.com>
+ <1468309894-26258-5-git-send-email-bblanco@plumgrid.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="ffoCPvUAPMgSXi6H"
-Cc: Matan Barak <matanb@mellanox.com>,
-	Or Gerlitz <ogerlitz@mellanox.com>, <netdev@vger.kernel.org>,
-	<linux-rdma@vger.kernel.org>, <kernel-janitors@vger.kernel.org>
-To: Dan Carpenter <dan.carpenter@oracle.com>
-Return-path: <kernel-janitors-owner@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20160713100825.GD29468@mwanda>
-Sender: kernel-janitors-owner@vger.kernel.org
-List-Id: netdev.vger.kernel.org
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: 8BIT
+Cc: Jamal Hadi Salim <jhs@mojatatu.com>,
+	Saeed Mahameed <saeedm@dev.mellanox.co.il>,
+	Martin KaFai Lau <kafai@fb.com>,
+	"Jesper Dangaard Brouer" <brouer@redhat.com>,
+	Ari Saha <as754m@att.com>,
+	Alexei Starovoitov <alexei.starovoitov@gmail.com>,
+	Or Gerlitz <gerlitz.or@gmail.com>,
+	"john.fastabend@gmail.com" <john.fastabend@gmail.com>,
+	"hannes@stressinduktion.org" <hannes@stressinduktion.org>,
+	Thomas Graf <tgraf@suug.ch>, Tom Herbert <tom@herbertland.com>,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: 'Brenden Blanco' <bblanco@plumgrid.com>,
+	"davem@davemloft.net" <davem@davemloft.net>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>
+Return-path: <netdev-owner@vger.kernel.org>
+Received: from smtp-out4.electric.net ([192.162.216.192]:62248 "EHLO
+	smtp-out4.electric.net" rhost-flags-OK-OK-OK-OK) by vger.kernel.org
+	with ESMTP id S1750978AbcGMLbe convert rfc822-to-8bit (ORCPT
+	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 07:31:34 -0400
+In-Reply-To: <1468309894-26258-5-git-send-email-bblanco@plumgrid.com>
+Content-Language: en-US
+Sender: netdev-owner@vger.kernel.org
+List-ID: <netdev.vger.kernel.org>
 
---ffoCPvUAPMgSXi6H
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+From: Brenden Blanco
+> Sent: 12 July 2016 08:51
+> Add support for the BPF_PROG_TYPE_XDP hook in mlx4 driver.
+> 
+> In tc/socket bpf programs, helpers linearize skb fragments as needed
+> when the program touches the packet data. However, in the pursuit of
+> speed, XDP programs will not be allowed to use these slower functions,
+> especially if it involves allocating an skb.
+> 
+> Therefore, disallow MTU settings that would produce a multi-fragment
+> packet that XDP programs would fail to access. Future enhancements could
+> be done to increase the allowable MTU.
 
-On Wed, Jul 13, 2016 at 01:08:25PM +0300, Dan Carpenter wrote:
-> We accidentally return success when we had intended to return an error
-> code.
->=20
-> Fixes: 69697b6e2086 ('net/mlx5: E-Switch, Add support for the sriov offlo=
-ads mode')
-> Signed-off-by: Dan Carpenter <dan.carpenter@oracle.com>
+Maybe I'm misunderstanding what is going on here...
+But what has the MTU to do with how skb are fragmented?
 
-Thanks Dan,
-Reviewed-by: Leon Romanovsky <leonro@mellanox.com>
+If the skb come from a reasonably written USB ethernet interface they could
+easily have arbitrary fragment boundaries (the frames get packed into USB
+buffers).
 
---ffoCPvUAPMgSXi6H
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
+Outbound skb can also have fragments depending on how they are generated.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1
-
-iQIcBAEBAgAGBQJXhiYDAAoJEORje4g2clinLZQP/izHp2P94sUzjmAd17y2rdUH
-DvLaReGHx5GUlEcNdILzO1ynqDzs/euq4w8pILWTx/R+Wyr0hvdtSRwUMnKLkF2y
-1/q6EJUS4rFKEVRdgsv1TmnC1y3ey+BOLCyZ8O7p7I1JswjVBNOR+aCl8c6p4AQv
-meY805Z3/TchoBBzzhYaE6nEwVOhPzyrSf3qcOcDxD0dm8CrZEsMOAjEzn3+Aycb
-b0kM49MV0tc7oZMvEPqSwiSRUZ66T4PGPTpxmzDe3uN4LZhG2fAK0PY4NMQA6daw
-WKZl6SA+MA70eXCLxRDi63n2EM4n0y8wYwJXZXLSHVOGc6HWHCbpbxcEQ9f+zwuQ
-JhxWvW3WpluXQH2YXmNyKTmwxyjYknXCP5pN31YG8tSs3PBCMTw3qWHDFJSxv8rb
-gpdUmb7iUlnZrjkzq9lEqCoBUfx/j6nKkFag0vL32xyZhzIEqICmJpKvUHhFe4gH
-9CHLn4xRJHjbG8FUKaoN0F6Fe+D8Z7D3JlX8YN950bcCe6+7522bhAfvCI1lQA3w
-tg46jaBQQi7mqbhGnbCzZcIw5A5hFC3s2xXpWPSj7B1pbGj1jpvUCIgXxGq4U1hG
-VcQvY+QvLNBKudO6iTSnWNPEA+izsKcsBYoGCKd0y5mam/nYyQC62v2Ufy4DYOPX
-gxpzN1LAg+EaGeJMIYUb
-=MLz5
------END PGP SIGNATURE-----
-
---ffoCPvUAPMgSXi6H--
+	David
