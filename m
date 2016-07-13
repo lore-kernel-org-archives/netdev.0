@@ -1,87 +1,72 @@
-From: Luca Coelho <luca-XPOmlcxoEMv1KXRcyAk9cg@public.gmane.org>
-Subject: Re: [PATCH RESEND] iwlwifi, Do not implement thermal zone unless
- ucode is loaded
-Date: Wed, 13 Jul 2016 10:24:53 +0300
-Message-ID: <1468394693.25088.138.camel@coelho.fi>
-References: <1468250301-10357-1-git-send-email-prarit@redhat.com>
-	<CANUX_P0AFoM5VEDWDjtvOhNbExu4T1bLWU+uS-EYqoGtu5h2bw@mail.gmail.com>
-	<5783E33E.7090205@redhat.com> <1468261650.20877.14.camel@intel.com>
-	<57840214.8000904@redhat.com> <87eg6yav5e.fsf@purkki.adurom.net>
+From: Michal Kubecek <mkubecek@suse.cz>
+Subject: Re: [PATCH v16 net-next 0/1] introduce Hyper-V VM Sockets(hv_sock)
+Date: Wed, 13 Jul 2016 09:30:49 +0200
+Message-ID: <20160713073048.GD27436@unicorn.suse.cz>
+References: <CO2PR03MB2182A5A246AFF6E8FC0E2E64BF3F0@CO2PR03MB2182.namprd03.prod.outlook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: "Grumbach, Emmanuel" <emmanuel.grumbach-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	linuxwifi <linuxwifi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Berg, Johannes" <johannes.berg-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"Ivgi, Chaya Rachel" <chaya.rachel.ivgi-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>,
-	"Sharon, Sara" <sara.sharon-ral2JQCrhuEAvxtiuMwx3w@public.gmane.org>,
-	"linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org" <linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-To: Kalle Valo <kvalo-sgV2jX0FEOL9JmXXK+q4OQ@public.gmane.org>,
-	Prarit Bhargava <prarit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org>
-Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
-In-Reply-To: <87eg6yav5e.fsf-5ukZ45wKbUHoml4zekdYB16hYfS7NtTn@public.gmane.org>
-Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "davem@davemloft.net" <davem@davemloft.net>,
+	"gregkh@linuxfoundation.org" <gregkh@linuxfoundation.org>,
+	"netdev@vger.kernel.org" <netdev@vger.kernel.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	"devel@linuxdriverproject.org" <devel@linuxdriverproject.org>,
+	"olaf@aepfle.de" <olaf@aepfle.de>,
+	"apw@canonical.com" <apw@canonical.com>,
+	"jasowang@redhat.com" <jasowang@redhat.com>,
+	Vitaly Kuznetsov <vkuznets@redhat.com>,
+	Cathy Avery <cavery@redhat.com>,
+	KY Srinivasan <kys@microsoft.com>,
+	"joe@perches.com" <joe@perches.com>,
+	Rolf Neugebauer <rolf.neugebauer@docker.com>,
+	Haiyang Zhang <haiyangz@microsoft.com>,
+	Dave Scott <dave.scott@docker.com>
+To: Dexuan Cui <decui@microsoft.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+Content-Disposition: inline
+In-Reply-To: <CO2PR03MB2182A5A246AFF6E8FC0E2E64BF3F0@CO2PR03MB2182.namprd03.prod.outlook.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2016-07-13 at 09:50 +0300, Kalle Valo wrote:
-> Prarit Bhargava <prarit-H+wXaHxf7aLQT0dZR+AlfA@public.gmane.org> writes:
->=20
-> > > We implement thermal zone because we do support it, but the
-> > > problem is
-> > > that we need the firmware to be loaded for that. So you can argue
-> > > that
-> > > we should register *later* when the firmware is loaded. But this
-> > > is
-> > > really not helping all that much because the firmware can also be
-> > > stopped at any time. So you'd want us to register / unregister
-> > > the
-> > > thermal zone anytime the firmware is loaded / unloaded?
-> >=20
-> > You might have to do that.=C2=A0=C2=A0I think that if the firmware =
-enables a
-> > feature then
-> > the act of loading the firmware should run the code that enables
-> > the feature.
-> > IMO of course.
->=20
-> But I suspect that the iwlwifi firmware is loaded during interface up
-> (and unloaded during interface down) and in that case
-> register/unregister would be happening all the time. That doesn't
-> sound
-> like a good idea. I would rather try to fix the thermal interface to
-> handle the cases when the measurement is not available.
+On Mon, Jul 11, 2016 at 02:54:59PM +0000, Dexuan Cui wrote:
+> 
+> I know the kernel has already had a VM Sockets driver (AF_VSOCK) based
+> on VMware VMCI (net/vmw_vsock/, drivers/misc/vmw_vmci), and KVM is
+> proposing AF_VSOCK of virtio version:
+> http://marc.info/?l=linux-netdev&m=145952064004765&w=2
+> 
+> However, though Hyper-V Sockets may seem conceptually similar to
+> AF_VOSCK, there are differences in the transportation layer, and IMO these
+> make the direct code reusing impractical:
+> 
+> 1. In AF_VSOCK, the endpoint type is: <u32 ContextID, u32 Port>, but in
+> AF_HYPERV, the endpoint type is: <GUID VM_ID, GUID ServiceID>. Here GUID
+> is 128-bit.
 
-I totally agree with Emmanuel and Kalle. =C2=A0We should not change thi=
-s.
-=C2=A0It is a design decision to return an error when the interface is =
-down,
-this is very common with other subsystems as well. =C2=A0The userspace
-should be able to handle errors and report something like "unavailable"
-when this kind of error is returned.
+OK, this could be a problem.
 
-I'm not sure EIO is the best we can have, but for me that's exactly
-what it is. =C2=A0The thermal zone *is* there, but cannot be accessed
-because the firmware is not available. =C2=A0I'm okay to change it to E=
-BUSY,
-if that would help userspace, but I think that's a bit misleading. =C2=A0=
-The
-device is not busy, on the contrary, it's not even running at all.
+> 2. AF_VSOCK supports SOCK_DGRAM, while AF_HYPERV doesn't.
+> 
+> 3. AF_VSOCK supports some special sock opts, like SO_VM_SOCKETS_BUFFER_SIZE,
+> SO_VM_SOCKETS_BUFFER_MIN/MAX_SIZE and SO_VM_SOCKETS_CONNECT_TIMEOUT.
+> These are meaningless to AF_HYPERV.
+> 
+> 4. Some AF_VSOCK's VMCI transportation ops are meanless to AF_HYPERV/VMBus,
+> like .notify_recv_init
+> .notify_recv_pre_block
+> .notify_recv_pre_dequeue
+> .notify_recv_post_dequeue
+> .notify_send_init
+> .notify_send_pre_block
+> .notify_send_pre_enqueue
+> .notify_send_post_enqueue
+> etc.
+> 
+> So I think we'd better introduce a new address family: AF_HYPERV.
 
-=46urthermore, I don't think this is "breaking userspace" in the sense =
-of
-being a regression. =C2=A0The userspace API has always been implemented=
- with
-the possibility of returning errors. =C2=A0It's not a good design if a
-single device returning an error causes all the other devices to also
-fail.
+I don't quite understand the logic here. All these sound like "AF_VSOCK
+has this feature we don't need so (rather than not using the feature) we
+are not going to use AF_VSOCK". I would understand if you pointed out
+features important for you that are missing in AF_VSOCK but this kind of
+reasoning sounds strange to me.
 
---
-Cheers,
-Luca.
---
-To unsubscribe from this list: send the line "unsubscribe linux-wireles=
-s" in
-the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Michal Kubecek
