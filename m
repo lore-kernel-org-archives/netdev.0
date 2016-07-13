@@ -1,31 +1,129 @@
-From: Florian Westphal <fw@strlen.de>
-Subject: Re: 4.6.3 panic on nf_ct_delete (nf_conntrack)
-Date: Wed, 13 Jul 2016 22:21:13 +0200
-Message-ID: <20160713202113.GA4198@breakpoint.cc>
-References: <df376f88504cb0f20b20acf42962c16d@nuclearcat.com>
+From: Sargun Dhillon <sargun@sargun.me>
+Subject: Re: [PATCH 1/1] tracing, bpf: Implement function bpf_probe_write
+Date: Wed, 13 Jul 2016 13:31:57 -0700 (PDT)
+Message-ID: <alpine.DEB.2.02.1607131230210.19550@ircssh.c.rugged-nimbus-611.internal>
+References: <CAMp4zn8ygXFg7kvjShm77zmK2dYVMY2zS8i2mUKwhbfXcyVyig@mail.gmail.com> <20160713170849.GA76615@ast-mbp.thefacebook.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel Network Developers <netdev@vger.kernel.org>
-To: nuclearcat@nuclearcat.com
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from Chamillionaire.breakpoint.cc ([80.244.247.6]:43567 "EHLO
-	Chamillionaire.breakpoint.cc" rhost-flags-OK-OK-OK-OK)
-	by vger.kernel.org with ESMTP id S1750897AbcGMUVT (ORCPT
-	<rfc822;netdev@vger.kernel.org>); Wed, 13 Jul 2016 16:21:19 -0400
-Content-Disposition: inline
-In-Reply-To: <df376f88504cb0f20b20acf42962c16d@nuclearcat.com>
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@vger.kernel.org,
+	Daniel Borkmann <daniel@iogearbox.net>
+To: Alexei Starovoitov <alexei.starovoitov@gmail.com>
+Return-path: <linux-kernel-owner@vger.kernel.org>
+In-Reply-To: <20160713170849.GA76615@ast-mbp.thefacebook.com>
+Sender: linux-kernel-owner@vger.kernel.org
+List-Id: netdev.vger.kernel.org
 
-nuclearcat@nuclearcat.com <nuclearcat@nuclearcat.com> wrote:
-> Workload: pppoe server, 5k users on ppp interfaces. No actual SNAT/DNAT, but
-> using connmark and REDIRECT
-> 
-> [176412.990104] general protection fault: 0000 [#1]
-> SMP
 
-I assume that you did not see this before.
 
-What was the last kernel version where you did not run into this?
+On Wed, 13 Jul 2016, Alexei Starovoitov wrote:
 
-Might help to narrow things down.
+> On Wed, Jul 13, 2016 at 03:36:11AM -0700, Sargun Dhillon wrote:
+>> Provides BPF programs, attached to kprobes a safe way to write to
+>> memory referenced by probes. This is done by making probe_kernel_write
+>> accessible to bpf functions via the bpf_probe_write helper.
+>
+> not quite :)
+>
+>> Signed-off-by: Sargun Dhillon <sargun@sargun.me>
+>> ---
+>>  include/uapi/linux/bpf.h  |  3 +++
+>>  kernel/trace/bpf_trace.c  | 20 ++++++++++++++++++++
+>>  samples/bpf/bpf_helpers.h |  2 ++
+>>  3 files changed, 25 insertions(+)
+>>
+>> diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+>> index 406459b..355b565 100644
+>> --- a/include/uapi/linux/bpf.h
+>> +++ b/include/uapi/linux/bpf.h
+>> @@ -313,6 +313,9 @@ enum bpf_func_id {
+>>   */
+>>   BPF_FUNC_skb_get_tunnel_opt,
+>>   BPF_FUNC_skb_set_tunnel_opt,
+>> +
+>> + BPF_FUNC_probe_write, /* int bpf_probe_write(void *dst, void *src,
+>> int size) */
+>> +
+>
+> the patch is against some old kernel.
+> Please always make the patch against net-next tree and cc netdev list.
+>
+Sorry, I did this against Linus's tree, not net-next. Will fix.
+
+>> +static u64 bpf_probe_write(u64 r1, u64 r2, u64 r3, u64 r4, u64 r5)
+>> +{
+>> + void *dst = (void *) (long) r1;
+>> + void *unsafe_ptr = (void *) (long) r2;
+>> + int  size = (int) r3;
+>> +
+>> + return probe_kernel_write(dst, unsafe_ptr, size);
+>> +}
+>
+> the patch is whitepsace mangled. Please see Documentation/networking/netdev-FAQ.txt
+Also will fix.
+
+>
+> the main issue though that we cannot simply allow bpf to do probe_write,
+> since it may crash the kernel.
+> What might be ok is to allow writing into memory of current
+> user space process only. This way bpf prog will keep kernel safety guarantees,
+> yet it will be able to modify user process memory when necessary.
+> Since bpf+tracing is root only, it doesn't pose security risk.
+>
+>
+
+Doesn't probe_write prevent you from writing to protected memory and 
+generate an EFAULT? Or are you worried about the situation where a bpf 
+program writes to some other chunk of kernel memory, or writes bad data 
+to said kernel memory?
+
+I guess when I meant "safe" -- it's safer than allowing arbitrary memcpy. 
+I don't see a good way to ensure safety otherwise as we don't know 
+which registers point to memory that it's reasonable for probes to 
+manipulate. It's not like skb_store_bytes where we can check the pointer 
+going in is the same pointer that's referenced, and with a super 
+restricted datatype.
+
+Perhaps, it would be a good idea to describe an example where I used this:
+#include <uapi/linux/ptrace.h>
+#include <net/sock.h>
+#include <bcc/proto.h>
+
+
+int trace_inet_stream_connect(struct pt_regs *ctx)
+{
+	if (!PT_REGS_PARM2(ctx)) {
+		return 0;
+	}
+	struct sockaddr uaddr = {};
+	struct sockaddr_in *addr_in;
+	bpf_probe_read(&uaddr, sizeof(struct sockaddr), (void *)PT_REGS_PARM2(ctx));
+	if (uaddr.sa_family == AF_INET) {
+		// Simple cast causes LLVM weirdness
+		addr_in = &uaddr;
+		char fmt[] = "Connecting on port: %d\n";
+		bpf_trace_printk(fmt, sizeof(fmt), ntohs(addr_in->sin_port));
+		if (ntohs(addr_in->sin_port) == 80) {
+			addr_in->sin_port = htons(443);
+			bpf_probe_write((void *)PT_REGS_PARM2(ctx), &uaddr, sizeof(uaddr));
+		}
+	}
+        return 0;
+};
+
+There are two reasons I want to do this:
+1) Debugging - sometimes, it makes sense to divert a program's syscalls in 
+order to allow for better debugging
+2) Network Functions - I wrote a load balancer which intercepts 
+inet_stream_connect & tcp_set_state. We can manipulate the destination 
+address as neccessary at connect time. This also has the nice side effect 
+that getpeername() returns the real IP that a server is connected to, and 
+the performance is far better than doing "network load balancing"
+
+(I realize this is a total hack, better approaches would be appreciated)
+
+If we allowed manipulation of the current task's user memory by exposing 
+copy_to_user, that could also work if I attach the probe to sys_connect, 
+I could overwrite the address there before it gets copied into 
+kernel space, but that could lead to its own weirdness.
+
+Any ideas?
