@@ -1,36 +1,32 @@
-From: Yaniv Machani <yanivma@ti.com>
-Subject: [PATCH] mac80211: rx: frames received out of order
-Date: Wed, 13 Jul 2016 14:46:52 +0300
-Message-ID: <20160713114656.25151-1-yanivma@ti.com>
+From: Yaniv Machani <yanivma-l0cyMroinI0@public.gmane.org>
+Subject: [PATCH v2] mac80211: rx: frames received out of order
+Date: Wed, 13 Jul 2016 14:57:56 +0300
+Message-ID: <20160713115758.25395-1-yanivma@ti.com>
 Mime-Version: 1.0
 Content-Type: text/plain
-Cc: Meirav Kama <meiravk@ti.com>, Yaniv Machani <yanivma@ti.com>,
-	Johannes Berg <johannes@sipsolutions.net>,
-	"David S. Miller" <davem@davemloft.net>,
-	<linux-wireless@vger.kernel.org>, <netdev@vger.kernel.org>
-To: <linux-kernel@vger.kernel.org>
-Return-path: <netdev-owner@vger.kernel.org>
-Received: from comal.ext.ti.com ([198.47.26.152]:37183 "EHLO comal.ext.ti.com"
-	rhost-flags-OK-OK-OK-OK) by vger.kernel.org with ESMTP
-	id S1751291AbcGMLnT (ORCPT <rfc822;netdev@vger.kernel.org>);
-	Wed, 13 Jul 2016 07:43:19 -0400
-Sender: netdev-owner@vger.kernel.org
-List-ID: <netdev.vger.kernel.org>
+Cc: Meirav Kama <meiravk-l0cyMroinI0@public.gmane.org>, Yaniv Machani <yanivma-l0cyMroinI0@public.gmane.org>,
+	Johannes Berg <johannes-cdvu00un1VgdHxzADdlk8Q@public.gmane.org>,
+	"David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>,
+	<linux-wireless-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>, <netdev-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+To: <linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Return-path: <linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org>
+Sender: linux-wireless-owner-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+List-Id: netdev.vger.kernel.org
 
-From: Meirav Kama <meiravk@ti.com>
+From: Meirav Kama <meiravk-l0cyMroinI0@public.gmane.org>
 
-MP received data frames from another MP. Frames are forwarded
-from Rx to Tx to be transmitted to a third MP.
-Upon cloning the skb, the tx_info was zeroed, and the
-hw_queue wasn't set correctly, causing frames to be
-inserted to queue 0 (VOICE). If re-queue occurred for some
-reason, frame will be inserted to correct queue 2 (BE).
-In this case frames are now dequeued from 2 different queues and
-sent out of order.
+Upon forwarding frames from Rx to Tx in mesh, driver clones the skb.
+It zeros the tx_info and doesn't set hw_queue correctly. It then enqueues
+the frame in queue 0 (VOICE) instead of the correct queue.
+Upon re-queue of this frame, driver inserts it to the correct queue (e.g. BE).
+After that, driver dequeue frames from 2 different queues and sends them out of order.
+To fix this, driver will set the tx_info->hw_queue to the correct queue when cloning the skb.
 
-Signed-off-by: Meirav Kama <meiravk@ti.com>
-Signed-off-by: Yaniv Machani <yanivma@ti.com>
+Signed-off-by: Meirav Kama <meiravk-l0cyMroinI0@public.gmane.org>
+Signed-off-by: Yaniv Machani <yanivma-l0cyMroinI0@public.gmane.org>
 ---
+V2 - Revised comment
+
  net/mac80211/rx.c | 1 +
  1 file changed, 1 insertion(+)
 
@@ -48,3 +44,8 @@ index 9a1eb70..88dc744 100644
  		memcpy(fwd_hdr->addr2, sdata->vif.addr, ETH_ALEN);
 -- 
 2.9.0
+
+--
+To unsubscribe from this list: send the line "unsubscribe linux-wireless" in
+the body of a message to majordomo-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
